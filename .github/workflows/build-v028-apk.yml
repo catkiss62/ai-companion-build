@@ -1,4 +1,4 @@
-name: Build AI Companion v0.28.1 APK
+name: Build AI Companion v0.28.2 APK
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'ai_companion_v0_28_source.part-*'
       - 'v0281-startup-recovery.patch'
+      - 'v0282-android-sqlite-open.patch'
       - '.github/workflows/build-v028-apk.yml'
 
 permissions:
@@ -42,6 +43,7 @@ jobs:
           unzip -q ai_companion_v0_28_source.zip
           test -f ai_companion_v0_28/pubspec.yaml
           test -f v0281-startup-recovery.patch
+          test -f v0282-android-sqlite-open.patch
 
       - name: Apply v0.28.1 startup recovery patch
         shell: bash
@@ -50,8 +52,17 @@ jobs:
           set -euo pipefail
           patch -p1 < ../v0281-startup-recovery.patch
           grep -q '^version: 0.28.1+29$' pubspec.yaml
-          grep -q 'runApp(const _StartupRecoveryRoot())' lib/main.dart
-          grep -q "import '../models/desire_state.dart';" lib/core/ai/durable_generation_runner.dart
+
+      - name: Apply v0.28.2 Android SQLite open patch
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          patch -p1 < ../v0282-android-sqlite-open.patch
+          grep -q '^version: 0.28.2+30$' pubspec.yaml
+          grep -q "rawQuery('PRAGMA journal_mode = WAL')" lib/core/database/app_database.dart
+          ! grep -q "execute('PRAGMA journal_mode = WAL')" lib/core/database/app_database.dart
+          python3 tools/validate_v0282_pragma.py
 
       - name: Resolve Flutter packages
         working-directory: ai_companion_v0_28
@@ -74,10 +85,10 @@ jobs:
           sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
           ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload v0.28.1 checkpoint APK
+      - name: Upload v0.28.2 checkpoint APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28.1-Startup-Recovery-APK
+          name: AI-Companion-v0.28.2-SQLite-Recovery-APK
           if-no-files-found: error
           compression-level: 0
           path: |
