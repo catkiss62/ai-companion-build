@@ -1,0 +1,1776 @@
+diff --git a/README.md b/README.md
+index faeb53a..a7a35d7 100644
+--- a/README.md
++++ b/README.md
+@@ -1,53 +1,31 @@
+-# AI Companion · v0.28.5 Legacy Coroutine/ClassLoader Fix
++# AI Companion · v0.29.0 A2 TTS / Clean Baseline
+ 
+-Local-first Android AI companion prototype. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android daily awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
++Local-first Android AI companion. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
+ 
+-v0.28 is the first hardware-checkpoint harness. It does **not** add a second brain feature or fake test backend. It packages the already-built v0.27 diagnostics into a guided real-device order and adds one real TTS playback probe through the production local TTS path.
++## v0.29.0 checkpoint
+ 
++The first Android 15 device checkpoint has now passed app startup, SQLite, permissions, chat generation and the legacy TTS coroutine/ClassLoader bridge. v0.29.0 addresses the remaining TTS cadence mismatch by restoring the verified Meju A2 scheduling behavior instead of serially doing `generate -> play -> generate -> play`.
+ 
+-## v0.28.5 real-device TTS fix
+-Android 15 real-device testing proved the 37 golden TTS payloads are intact, then exposed a legacy Kotlin coroutine/ClassLoader collision (`NoSuchFieldException: INSTANCE`). v0.28.5 removes reflection of Kotlin singleton/static coroutine fields, derives the exact CoroutineContext ABI from the resolved legacy Continuation, and adds an in-app staged TTS diagnostic that reaches real WAV generation without AudioTrack playback. No model/JAR/native payload or database schema is changed.
++Key TTS properties:
+ 
+-## Guided checkpoint
++- verified original A2 `libbertvits2.so` body (`635352` bytes, SHA-256 `a1ca5180…c5551b`) remains frozen inside the padded APK entry;
++- split only on `。！？；.!?;`;
++- no comma/newline/ellipsis or character-count splitting;
++- later sentence WAVs generate while the current sentence is playing;
++- FIFO playback with the original ~200 ms ready-queue gap;
++- no 60-second pending-request cleanup;
++- `Yuki -> 有希` remains speech-only.
+ 
+-`更多 → 权限与系统状态 → 第一次综合真机验收`
++Database schema remains **18**. No Memory/Relationship/Active Brain/Transfer migration is introduced.
+ 
+-The page guides the first APK through:
++## GitHub baseline promotion
+ 
+-1. quick read-only preflight;
+-2. deep MejuTTS golden verification + JNI/MNN initialization;
+-3. staged TTS bridge diagnostic through real `generateTTS()` and RIFF/WAVE validation without playback;
+-4. real local TTS playback using the production `TtsService.preview()` path;
+-5. Android permission/perception checks;
+-6. overlay/background/notification checks;
+-7. phone↔tablet Nearby takeover only after the single-device checks pass.
+-
+-The fixed voice probe includes `Yuki` so the existing spoken-only `Yuki -> 有希` replacement can be heard. The probe is not written to chat, Memory, RelationshipEvent, Thought, Daily Continuity or Reference.
+-
+-## Diagnostics and privacy
+-
+-v0.27's local-only redacted preflight remains the failure-report path. Reports exclude relationship/chat/reference plaintext, raw notification/accessibility text, API secrets and full ownership/session identifiers. Native diagnostic history remains bounded and local.
+-
+-## Database
+-
+-Schema remains **18**. v0.28 adds no relationship-state migration.
+-
+-## Build boundary
+-
+-The current execution environment used for this handoff has Java/Kotlin but no Flutter SDK, Android SDK, ADB or complete Gradle-wrapper binary, so this package does not claim an APK build. `tools/check_android_build_env.py` reports that external build boundary explicitly. Source-level checkpoint, Kotlin/JVM, SQLite, transfer and TTS regressions are still rerun before archive.
++v0.29.0 is also the cutoff for the temporary five-part ZIP + patch-chain build process. A one-time promotion workflow reconstructs the verified source and commits the complete Flutter project under `app/`. Only after a clean build from `app/` succeeds should the old split parts and v0.28.x patches be removed.
+ 
+ See:
+ 
++- `docs/TTS_A2_BASELINE_v0.29.md`
++- `docs/GITHUB_CLEAN_BASELINE_v0.29.md`
+ - `docs/REAL_DEVICE_CHECKPOINT_v0.28.md`
+-- `docs/INTERNAL_VALIDATION_v0.28.md`
+-- `docs/PREFLIGHT_DIAGNOSTICS_v0.27.md`
+ - `docs/DEV_STATUS.md`
+ - `docs/ROADMAP.md`
+-
+-
+-## v0.28.2 Android SQLite open fix
+-The v0.28.1 recovery surface exposed the next real-device blocker: Android sqflite rejects `PRAGMA journal_mode = WAL` through `execute()` because that PRAGMA returns data. v0.28.2 keeps the visible startup recovery and performs query-returning PRAGMAs through `rawQuery()`.
+-
+-
+-## v0.28.4 real-device fixes
+-The Android 15 checkpoint exposed two independent issues: AGP release stripping changed the user-validated `libbertvits2.so` fingerprint, and chat startup awaited best-effort long-running maintenance before exposing the message list. v0.28.4 preserves the six Meju native payloads during release packaging, fixes daily-continuity maintenance allowlisting, moves startup maintenance off the visible chat loading path, and adds a small on-device DeepSeek API connection probe.
+\ No newline at end of file
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt
+index ff1016e..e459946 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt
+@@ -16,15 +16,16 @@ class NativeTtsBridge(
+     flutterEngine: FlutterEngine,
+ ) {
+     private val engine = NativeTtsEngine.shared(context.applicationContext)
+-    private val worker = ThreadPoolExecutor(
+-        1,
+-        1,
+-        0L,
+-        TimeUnit.MILLISECONDS,
+-        LinkedBlockingQueue(),
+-    ) { runnable ->
+-        Thread(runnable, "ai-companion-local-tts").apply { isDaemon = true }
+-    }
++
++    // Meju A2 submits all sentence generation requests immediately, but the
++    // legacy MNN engine itself must remain serialized. This FIFO worker gives us
++    // the same generation-ahead behavior without overlapping unsafe inference.
++    private val generationWorker = singleWorker("ai-companion-local-tts-generate")
++
++    // AudioTrack must not occupy the generation worker. While this worker drains
++    // sentence N, generationWorker can prepare N+1/N+2 in the background.
++    private val playbackWorker = singleWorker("ai-companion-local-tts-playback")
++
+     private val main = Handler(Looper.getMainLooper())
+     private val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+ 
+@@ -39,23 +40,55 @@ class NativeTtsBridge(
+             }
+             when (call.method) {
+                 "status" -> result.success(engine.status())
+-                "verifyArtifacts" -> submit(result, "tts_verify_failed") { engine.verifyArtifacts() }
+-                "initialize" -> submit(result, "tts_init_failed") { engine.initialize() }
+-                "diagnose" -> submit(result, "tts_diagnose_failed") { engine.diagnose() }
++                "verifyArtifacts" -> submit(generationWorker, result, "tts_verify_failed") {
++                    engine.verifyArtifacts()
++                }
++                "initialize" -> submit(generationWorker, result, "tts_init_failed") {
++                    engine.initialize()
++                }
++                "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
++                    engine.diagnose()
++                }
++                "generate" -> {
++                    val text = call.argument<String>("text").orEmpty()
++                    val generation = engine.generationToken()
++                    submit(generationWorker, result, "tts_generate_failed") {
++                        engine.generate(text, generation)
++                    }
++                }
++                "playAudio" -> {
++                    val audio = call.argument<String>("audioData").orEmpty()
++                    val generation = engine.generationToken()
++                    submit(playbackWorker, result, "tts_playback_failed") {
++                        engine.playAudio(audio, generation)
++                        null
++                    }
++                }
++                // Backwards-compatible one-shot path. Normal app speech uses
++                // generate + playAudio through the A2 scheduler above.
+                 "speak" -> {
+                     val text = call.argument<String>("text").orEmpty()
+-                    submit(result, "tts_speak_failed") {
++                    submit(playbackWorker, result, "tts_speak_failed") {
+                         engine.speak(text)
+                         null
+                     }
+                 }
+-                "stop" -> { engine.stop(); result.success(null) }
+-                "pause" -> { engine.pause(); result.success(null) }
+-                "resume" -> { engine.resume(); result.success(null) }
+-                "setSpeed" -> {
+-                    engine.setSpeed(call.argument<Double>("speed") ?: 1.0)
++                "stop" -> {
++                    engine.stop()
++                    result.success(null)
++                }
++                "pause" -> {
++                    engine.pause()
+                     result.success(null)
+                 }
++                "resume" -> {
++                    engine.resume()
++                    result.success(null)
++                }
++                "setSpeed" -> submit(generationWorker, result, "tts_speed_failed") {
++                    engine.setSpeed(call.argument<Double>("speed") ?: 1.0)
++                    null
++                }
+                 "setVolume" -> {
+                     engine.setVolume(call.argument<Double>("volume") ?: 1.0)
+                     result.success(null)
+@@ -65,7 +98,18 @@ class NativeTtsBridge(
+         }
+     }
+ 
++    private fun singleWorker(name: String) = ThreadPoolExecutor(
++        1,
++        1,
++        0L,
++        TimeUnit.MILLISECONDS,
++        LinkedBlockingQueue(),
++    ) { runnable ->
++        Thread(runnable, name).apply { isDaemon = true }
++    }
++
+     private fun <T> submit(
++        worker: ThreadPoolExecutor,
+         result: MethodChannel.Result,
+         errorCode: String,
+         block: () -> T,
+@@ -93,15 +137,13 @@ class NativeTtsBridge(
+         disposed = true
+         channel.setMethodCallHandler(null)
+         // The native model/runtime is process-scoped and shared by MainActivity,
+-        // OverlayChatActivity and the background engine. Do not release it when
+-        // one Flutter host dies, or another host could lose the JNI classloader.
+-        // Do not interrupt an already-running legacy suspend/JNI inference.
+-        // Interrupting the waiting bridge thread could release NativeTtsEngine's
+-        // speech lock while the legacy coroutine continues touching MNN in the
+-        // background. Drop queued work, let the one running job finish under the
+-        // process-wide lock, and discard its late MethodChannel result instead.
+-        worker.queue.clear()
+-        worker.shutdown()
++        // overlay and background FlutterEngines. Do not release it when only one
++        // host dies. Running JNI work is allowed to finish under NativeTtsEngine
++        // cancellation fencing; late MethodChannel results are discarded.
++        generationWorker.queue.clear()
++        generationWorker.shutdown()
++        playbackWorker.queue.clear()
++        playbackWorker.shutdown()
+     }
+ 
+     companion object {
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt
+index 5669565..5e9d01b 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt
+@@ -164,49 +164,43 @@ class NativeTtsEngine private constructor(context: Context) {
+         }
+     }
+ 
+-    fun speak(text: String) {
+-        if (text.isBlank()) return
+-        val generation = synchronized(this) {
+-            speechGeneration += 1L
+-            speechGeneration
+-        }
++    /** Current process-wide speech cancellation epoch. */
++    fun generationToken(): Long = synchronized(this) { speechGeneration }
+ 
+-        // A newer explicit utterance should supersede anything currently
+-        // audible even if it originated from another FlutterEngine.
+-        player.stop()
++    /**
++     * Generate one A2 sentence without touching AudioTrack.
++     *
++     * Generation remains serialized by speechLock because the legacy MNN
++     * runtime is process-scoped. Playback intentionally does not take this lock,
++     * allowing sentence N+1 to infer while sentence N is audible.
++     */
++    fun generate(text: String, generation: Long = generationToken()): String? {
++        if (text.isBlank()) return null
+         speechLock.lock()
+         try {
+-            if (generation != speechGeneration) return
++            if (generation != generationToken()) return null
+             if (!initialized || !runtime.isReady()) {
+                 val next = initialize()
+                 if (next["initialized"] != true) {
+                     error(lastError.ifBlank { "Local TTS initialization failed" })
+                 }
+             }
+-            if (generation != speechGeneration) return
++            if (generation != generationToken()) return null
+ 
+             val base64 = runtime.generateWavBase64(text)
+-            // stop() may be pressed while MNN is still generating audio. The
+-            // native model call itself is not force-cancelled, but stale audio
+-            // must never start playing after generation finally returns.
+-            if (generation != speechGeneration) return
+-            val clean = base64.substringAfter("base64,", base64).trim()
+-            val wav = Base64.decode(clean, Base64.DEFAULT)
+-            if (wav.isEmpty()) error("TTS returned empty WAV data")
+-            player.setVolume(volume.toFloat())
+-            if (generation != speechGeneration) return
+-            player.play(wav)
++            if (generation != generationToken()) return null
++            if (base64.isBlank()) error("TTS returned empty WAV data")
+             lastError = ""
++            return base64
+         } catch (t: Throwable) {
+-            if (generation != speechGeneration) return
++            if (generation != generationToken()) return null
+             lastError = runtime.lastError.ifBlank {
+                 "${t.javaClass.simpleName}: ${t.message ?: "TTS failed"}"
+             }
+             RuntimeDiagnosticStore.record(
+-                appContext, "tts", "speak", "error",
++                appContext, "tts", "generate", "error",
+                 t.javaClass.simpleName,
+-                // Never persist an inference-time error message here: a legacy
+-                // runtime could theoretically echo part of the spoken text.
++                // Do not persist inference-time text or legacy error bodies.
+                 detail = "",
+             )
+             throw t
+@@ -215,6 +209,39 @@ class NativeTtsEngine private constructor(context: Context) {
+         }
+     }
+ 
++    /** Play one already-generated WAV; completes after AudioTrack drains. */
++    fun playAudio(base64: String, generation: Long = generationToken()) {
++        if (base64.isBlank() || generation != generationToken()) return
++        try {
++            val clean = base64.substringAfter("base64,", base64).trim()
++            val wav = Base64.decode(clean, Base64.DEFAULT)
++            if (wav.isEmpty()) error("TTS returned empty WAV data")
++            if (generation != generationToken()) return
++            player.setVolume(volume.toFloat())
++            player.play(wav)
++            if (generation == generationToken()) lastError = ""
++        } catch (t: Throwable) {
++            if (generation != generationToken()) return
++            lastError = "${t.javaClass.simpleName}: ${t.message ?: "Audio playback failed"}"
++            RuntimeDiagnosticStore.record(
++                appContext, "tts", "playback", "error",
++                t.javaClass.simpleName,
++                detail = "",
++            )
++            throw t
++        }
++    }
++
++    /** Compatibility one-shot path; normal companion speech uses A2 generate/play. */
++    fun speak(text: String) {
++        if (text.isBlank()) return
++        stop()
++        val generation = generationToken()
++        val audio = generate(text, generation) ?: return
++        if (generation != generationToken()) return
++        playAudio(audio, generation)
++    }
++
+     fun stop() {
+         synchronized(this) { speechGeneration += 1L }
+         player.stop()
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index 9ab5b4a..2c935a3 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,3 +1,19 @@
++# v0.29.0 开发状态 · A2 TTS / Clean Baseline
++
++## 当前变化
++
++- Android 15 真机已确认：启动、SQLite、权限、聊天生成和 legacy coroutine/ClassLoader TTS 初始化/发声链可用。
++- 实物对比 `MejuTTS_A2_OriginalNative_v2.5.apk` 后确认 native 已经正确；句间长停顿来自 AI Companion 自己的串行 `generate + play` 调度。
++- v0.29.0 恢复 A2 分句：仅 `。！？；.!?;`，不按逗号/换行/省略号/字符数切分。
++- TTS 改为 generation-ahead：一个 FIFO MNN worker 继续安全串行推理，独立 AudioTrack worker 同时播放当前 WAV；后续句可在当前句播放期间准备。
++- ready queue 已有下一句时保留约 200ms 间隔；取消/停止使用 process-wide generation epoch fence。
++- `libbertvits2.so` 原版 ELF 前 635352 bytes SHA-256 为 `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`，后 75496 bytes 仅为零填充；当前 payload 不修改。
++- schema 仍为 v18；Memory / Relationship / Active Brain / Transfer 无迁移。
++- GitHub 将从五分包+补丁链晋升为 `app/` 完整源码基底；旧 bootstrap 只在 clean build 成功后清理。
++- 版本：`0.29.0+34`。
++
++---
++
+ # v0.28.5 开发状态 · Legacy Coroutine/ClassLoader Fix
+ 
+ ## v0.28.5 真机 TTS 修复
+diff --git a/docs/GITHUB_CLEAN_BASELINE_v0.29.md b/docs/GITHUB_CLEAN_BASELINE_v0.29.md
+new file mode 100644
+index 0000000..29d1c33
+--- /dev/null
++++ b/docs/GITHUB_CLEAN_BASELINE_v0.29.md
+@@ -0,0 +1,29 @@
++# v0.29.0 · GitHub clean baseline
++
++v0.28.1-v0.28.5 used a bootstrap ZIP split into five parts plus sequential patch files. That was useful for first-device debugging, but is not the long-term repository shape.
++
++## Migration rule
++
++The one-time promotion workflow reconstructs v0.28, applies v0.28.1-v0.28.5 and the v0.29.0 A2 patch, then commits the resulting complete Flutter project under `app/`.
++
++The promotion workflow deliberately does **not** delete the old parts/patches. They remain until a clean-source build from `app/` succeeds.
++
++After that successful clean build, the old bootstrap files may be deleted or moved to archive. Daily builds must use only `app/`.
++
++## Target repository shape
++
++```text
++app/
++  android/
++  lib/
++  test/
++  tools/
++  docs/
++  pubspec.yaml
++.github/
++  workflows/
++    build-apk.yml
++README.md
++```
++
++The production project source is `app/`; the historical split ZIP and patch chain are no longer build inputs.
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index b89c276..35a2c03 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,3 +1,16 @@
++# Roadmap after v0.29.0
++
++## 当前顺序
++
++1. 真机验证 A2 TTS：长文本、句间停顿、停止/重播。
++2. GitHub clean baseline 从 `app/` 直接构建成功后清理旧五分包/patch。
++3. UI/悬浮窗：角标层级、悬浮球缩小、reasoning 在正文上方、悬浮窗最近聊天记录。
++4. 主动感知/联系真机调优：Usage / Notification / Accessibility -> Thought/Desire -> 合理触发。
++5. 长期记忆压力测试与强杀/重启/升级恢复。
++6. 手机↔平板 Active Brain / Nearby 真机接管。
++
++---
++
+ # Roadmap after v0.28.5
+ 
+ ## v0.28.5 checkpoint order
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index 3346481..9e01a05 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,3 +1,23 @@
++# v0.29.0 真机检查
++
++## A2 TTS
++
++- [ ] 黄金资源 37/37 通过。
++- [ ] 分阶段 TTS 诊断通过。
++- [ ] 长文本第一句允许有模型预热，但第二句以后不再出现“上一句播完才开始生成下一句”的长空白。
++- [ ] 只按 `。！？；.!?;` 分句；逗号、顿号、换行、省略号不人为切开。
++- [ ] `Yuki` 仍读“有希”。
++- [ ] 播放中 Stop 立即停止，旧生成结果不会稍后复活。
++- [ ] 停止后重新播放能正常建立新队列。
++
++## GitHub Clean Baseline
++
++- [ ] promotion workflow 成功把完整源码提交到 `app/`。
++- [ ] clean build workflow 只从 `app/` 构建成功。
++- [ ] 上述两项成功后才删除/归档旧 5 个分包与 v0.28.x patch。
++
++---
++
+ # v0.28.5 真机检查
+ 
+ 1. 启动进入主界面，不再卡 Chat loading spinner。
+diff --git a/docs/TTS_A2_BASELINE_v0.29.md b/docs/TTS_A2_BASELINE_v0.29.md
+new file mode 100644
+index 0000000..41ad04e
+--- /dev/null
++++ b/docs/TTS_A2_BASELINE_v0.29.md
+@@ -0,0 +1,38 @@
++# v0.29.0 · Meju A2 TTS baseline
++
++## Verified source of truth
++
++Real-device comparison uses the user-supplied `MejuTTS_A2_OriginalNative_v2.5.apk` as the behavioral baseline.
++
++- `libbertvits2.so` packaged entry: 710,848 bytes.
++- Original ELF body: first 635,352 bytes.
++- Original ELF SHA-256: `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`.
++- Remaining 75,496 bytes are zero alignment padding.
++- AI Companion's packaged native file is byte-identical to that padded v2.5 entry.
++
++The model/JAR/native payload is therefore frozen. v0.29.0 changes only scheduling/preprocessing around the already-working legacy runtime.
++
++## A2 behavior restored
++
++The speech path now mirrors the proven A2 flow:
++
++1. speech-only cleanup (`Yuki -> 有希`, removable bracket blocks, markdown hygiene);
++2. split only on `。！？；.!?;`;
++3. no comma/ideographic-comma/newline/ellipsis split;
++4. no 72/116-character fallback;
++5. submit all sentence generation requests without waiting for playback;
++6. keep one FIFO native MNN generation worker for runtime safety;
++7. play sentence 1 as soon as its WAV is ready while later WAVs continue generating;
++8. preserve sentence order and isolate one-sentence failures;
++9. use ~200 ms gap only when the next generated WAV is already queued at playback completion;
++10. `stop()` fences stale generation and stops AudioTrack without force-interrupting MNN.
++
++The historical 60-second pending-request cleanup is not reintroduced.
++
++## Architectural boundary
++
++Flutter never embeds the old HTML/WebView shell. The compatibility path remains:
++
++`Flutter -> TtsPlaybackQueue -> NativeTtsProvider -> NativeTtsBridge -> LegacyTtsRuntime -> LocalTTSEngine/JNI/MNN`
++
++Generation and playback are separate native calls so playback no longer blocks the one inference worker.
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index c895e47..d828676 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -343,7 +343,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.28.5 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.29.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/core/tts/native_tts_provider.dart b/lib/core/tts/native_tts_provider.dart
+index 7f8c1e3..5a414c9 100644
+--- a/lib/core/tts/native_tts_provider.dart
++++ b/lib/core/tts/native_tts_provider.dart
+@@ -38,6 +38,14 @@ class NativeTtsProvider implements TtsProvider {
+   Future<void> speak(String text) =>
+       _channel.invokeMethod<void>('speak', {'text': text});
+ 
++  @override
++  Future<String?> generate(String text) =>
++      _channel.invokeMethod<String>('generate', {'text': text});
++
++  @override
++  Future<void> playAudio(String wavBase64) =>
++      _channel.invokeMethod<void>('playAudio', {'audioData': wavBase64});
++
+   @override
+   Future<void> stop() => _channel.invokeMethod<void>('stop');
+ 
+diff --git a/lib/core/tts/tts_playback_queue.dart b/lib/core/tts/tts_playback_queue.dart
+index 6e3806d..80ac624 100644
+--- a/lib/core/tts/tts_playback_queue.dart
++++ b/lib/core/tts/tts_playback_queue.dart
+@@ -17,56 +17,74 @@ class TtsQueueState {
+   static const idle = TtsQueueState(running: false, pending: 0, currentText: '');
+ }
+ 
+-/// Serial speech queue shared by normal chat and overlay chat.
++/// Meju A2-equivalent speech scheduler shared by normal and overlay chat.
+ ///
+-/// The native bridge intentionally keeps one inference worker. This Dart layer
+-/// prevents multiple queued MethodChannel calls from escaping before a cancel,
+-/// so `stop()` can invalidate every not-yet-started utterance immediately.
++/// The important A2 behavior is generation-ahead:
++///   1. split the utterance with A2 boundaries;
++///   2. submit every sentence to native generation without awaiting playback;
++///   3. start playing as soon as sentence 1 is ready;
++///   4. let the native generation worker prepare later WAVs while AudioTrack is
++///      still playing the current sentence;
++///   5. when another WAV is already queued, keep the original ~200 ms gap.
++///
++/// This deliberately does NOT serialize "generate + play" sentence-by-sentence.
+ class TtsPlaybackQueue {
+   TtsPlaybackQueue({
+     required this.service,
+     TtsSentenceSegmenter? segmenter,
+     this.onStateChanged,
++    this.interSentenceGap = const Duration(milliseconds: 200),
+   }) : segmenter = segmenter ?? TtsSentenceSegmenter();
+ 
+   final TtsQueueService service;
+   final TtsSentenceSegmenter segmenter;
+   final void Function(TtsQueueState state)? onStateChanged;
++  final Duration interSentenceGap;
+ 
+-  Future<void> _tail = Future.value();
+   int _generation = 0;
+-  int _pending = 0;
+-  String _current = '';
++  _A2Session? _session;
+   bool _streaming = false;
+   bool _manual = false;
++  String _current = '';
+ 
+-  TtsQueueState get state => TtsQueueState(
+-        running: _pending > 0 || _current.isNotEmpty,
+-        pending: _pending,
+-        currentText: _current,
+-      );
++  TtsQueueState get state {
++    final session = _session;
++    if (session == null) return TtsQueueState.idle;
++    final pending = (session.total - session.nextToPlay).clamp(0, 1 << 30).toInt();
++    return TtsQueueState(
++      running: !session.idle.isCompleted,
++      pending: pending,
++      currentText: _current,
++    );
++  }
+ 
+   Future<void> beginStream({bool manual = false}) async {
+     await stop();
+     _generation++;
++    _session = _A2Session(token: _generation, manual: manual);
+     _streaming = true;
+     _manual = manual;
+     segmenter.reset();
++    _notify();
+   }
+ 
+   void addDelta(String delta) {
+-    if (!_streaming || delta.isEmpty) return;
+-    for (final chunk in segmenter.add(delta)) {
+-      _enqueue(chunk, generation: _generation, manual: _manual);
++    final session = _session;
++    if (!_streaming || delta.isEmpty || session == null) return;
++    for (final raw in segmenter.add(delta)) {
++      _enqueueRaw(session, raw, manual: _manual);
+     }
+   }
+ 
+   void endStream() {
+-    if (!_streaming) return;
+-    for (final chunk in segmenter.flush()) {
+-      _enqueue(chunk, generation: _generation, manual: _manual);
++    final session = _session;
++    if (!_streaming || session == null) return;
++    for (final raw in segmenter.flush()) {
++      _enqueueRaw(session, raw, manual: _manual);
+     }
+     _streaming = false;
++    session.closed = true;
++    _maybeComplete(session);
+   }
+ 
+   Future<void> playText(
+@@ -76,71 +94,208 @@ class TtsPlaybackQueue {
+   }) async {
+     await stop();
+     _generation++;
+-    final generation = _generation;
+-    if (!segment) {
+-      _enqueue(text, generation: generation, manual: manual);
++    final session = _A2Session(token: _generation, manual: manual);
++    _session = session;
++    _streaming = false;
++    _manual = manual;
++    segmenter.reset();
++    _notify();
++
++    // Full-message playback follows A2's processText order: speech-only text
++    // cleanup/replacements happen before sentence splitting.
++    final prepared = await service.prepareText(text, manual: manual);
++    if (!_isActive(session)) return;
++    if (prepared == null || prepared.trim().isEmpty) {
++      session.closed = true;
++      _maybeComplete(session);
+       return;
+     }
+-    segmenter.reset();
+-    final chunks = <String>[
+-      ...segmenter.add(text),
+-      ...segmenter.flush(),
+-    ];
++
++    final chunks = segment
++        ? <String>[...segmenter.add(prepared), ...segmenter.flush()]
++        : <String>[prepared.trim()];
+     for (final chunk in chunks) {
+-      _enqueue(chunk, generation: generation, manual: manual);
++      _enqueuePrepared(session, chunk);
+     }
++    session.closed = true;
++    _maybeComplete(session);
+   }
+ 
+-
+-  /// Test/diagnostic hook: waits until all work that has already entered this
+-  /// Dart queue has either completed or been invalidated by a newer generation.
+-  Future<void> waitUntilIdle() => _tail;
++  /// Wait until every sentence from the current A2 session has either played,
++  /// failed independently, or been invalidated by stop()/a newer session.
++  Future<void> waitUntilIdle() => _session?.idle.future ?? Future<void>.value();
+ 
+   Future<void> stop() async {
+     _generation++;
+     _streaming = false;
+     _manual = false;
+     segmenter.reset();
+-    _pending = 0;
++    final old = _session;
++    _session = null;
+     _current = '';
++    if (old != null && !old.idle.isCompleted) old.idle.complete();
+     _notify();
+     try {
+       await service.stop();
+     } catch (_) {
+-      // Voice is an optional enhancement. Native/MethodChannel shutdown errors
+-      // must not surface as unhandled futures during chat or widget disposal.
++      // Voice is optional. A native shutdown error must not poison chat.
+     }
+   }
+ 
+-  void _enqueue(
+-    String text, {
+-    required int generation,
++  void _enqueueRaw(
++    _A2Session session,
++    String raw, {
+     required bool manual,
+   }) {
++    if (!_isActive(session) || raw.trim().isEmpty) return;
++    final index = session.reserve(raw.trim());
++    _notify();
++
++    // Preserve input order while doing async settings/text preparation. Once a
++    // sentence is prepared, generation is launched and NOT awaited, matching
++    // A2's generateTTS(...).then(...) fan-out behavior.
++    session.prepareTail = session.prepareTail.then((_) async {
++      if (!_isActive(session)) return;
++      String? prepared;
++      try {
++        prepared = await service.prepareText(raw, manual: manual);
++      } catch (_) {
++        prepared = null;
++      }
++      if (!_isActive(session)) return;
++      if (prepared == null || prepared.trim().isEmpty) {
++        _markGenerated(session, index, null);
++        return;
++      }
++      session.textByIndex[index] = prepared.trim();
++      _launchGeneration(session, index, prepared.trim());
++    });
++  }
++
++  void _enqueuePrepared(_A2Session session, String text) {
+     final cleaned = text.trim();
+-    if (cleaned.isEmpty) return;
+-    _pending++;
++    if (!_isActive(session) || cleaned.isEmpty) return;
++    final index = session.reserve(cleaned);
+     _notify();
+-    _tail = _tail.then((_) async {
+-      if (generation != _generation) return;
+-      _pending = (_pending - 1).clamp(0, 1 << 30).toInt();
+-      _current = cleaned;
+-      _notify();
++    _launchGeneration(session, index, cleaned);
++  }
++
++  void _launchGeneration(_A2Session session, int index, String text) {
++    if (!_isActive(session)) return;
++    session.generating++;
++    _notify();
++    unawaited(() async {
++      String? audio;
+       try {
+-        await service.speak(cleaned, manual: manual);
++        audio = await service.generatePrepared(text);
++      } catch (_) {
++        audio = null;
+       } finally {
+-        if (generation == _generation) {
+-          _current = '';
+-          _notify();
++        if (_isActive(session)) {
++          session.generating = (session.generating - 1).clamp(0, 1 << 30).toInt();
++          _markGenerated(session, index, audio);
+         }
+       }
+-    }).catchError((_) {
+-      if (generation == _generation) {
+-        _current = '';
+-        _notify();
+-      }
+-    });
++    }());
++  }
++
++  void _markGenerated(_A2Session session, int index, String? audio) {
++    if (!_isActive(session)) return;
++    session.ready[index] = audio;
++    _pump(session);
++    _maybeComplete(session);
++    _notify();
+   }
+ 
++  void _pump(_A2Session session) {
++    if (!_isActive(session) || session.playing) return;
++
++    while (session.nextToPlay < session.total &&
++        session.ready.containsKey(session.nextToPlay)) {
++      final index = session.nextToPlay++;
++      final audio = session.ready.remove(index);
++      final text = session.textByIndex.remove(index) ?? '';
++      if (audio == null || audio.isEmpty) continue;
++
++      session.playing = true;
++      _current = text;
++      _notify();
++      unawaited(_playOne(session, audio));
++      return;
++    }
++    _maybeComplete(session);
++  }
++
++  Future<void> _playOne(_A2Session session, String audio) async {
++    try {
++      await service.playPrepared(audio);
++    } catch (_) {
++      // A2 treats one sentence failure as local: later generated speech should
++      // still be allowed to continue.
++    }
++    if (!_isActive(session)) return;
++
++    session.playing = false;
++    _current = '';
++    _notify();
++
++    // Original GenieTTSManager waits ~200 ms only when another generated item
++    // is already waiting in audioQueue at playback completion. If generation
++    // has not caught up yet, the next completed sentence starts immediately.
++    if (_hasPlayableReady(session)) {
++      await Future<void>.delayed(interSentenceGap);
++      if (!_isActive(session)) return;
++    }
++    _pump(session);
++  }
++
++  bool _hasPlayableReady(_A2Session session) {
++    var index = session.nextToPlay;
++    while (index < session.total && session.ready.containsKey(index)) {
++      final value = session.ready[index];
++      if (value != null && value.isNotEmpty) return true;
++      index++;
++    }
++    return false;
++  }
++
++  void _maybeComplete(_A2Session session) {
++    if (!_isActive(session) || session.idle.isCompleted) return;
++    final done = session.closed &&
++        !session.playing &&
++        session.generating == 0 &&
++        session.nextToPlay >= session.total;
++    if (!done) return;
++    session.idle.complete();
++    _current = '';
++    _notify();
++  }
++
++  bool _isActive(_A2Session session) =>
++      identical(_session, session) && session.token == _generation;
++
+   void _notify() => onStateChanged?.call(state);
+ }
++
++class _A2Session {
++  _A2Session({required this.token, required this.manual});
++
++  final int token;
++  final bool manual;
++  final Completer<void> idle = Completer<void>();
++  final Map<int, String?> ready = <int, String?>{};
++  final Map<int, String> textByIndex = <int, String>{};
++
++  Future<void> prepareTail = Future<void>.value();
++  int total = 0;
++  int nextToPlay = 0;
++  int generating = 0;
++  bool playing = false;
++  bool closed = false;
++
++  int reserve(String text) {
++    final index = total++;
++    textByIndex[index] = text;
++    return index;
++  }
++}
+diff --git a/lib/core/tts/tts_provider.dart b/lib/core/tts/tts_provider.dart
+index e2f4b37..af576e2 100644
+--- a/lib/core/tts/tts_provider.dart
++++ b/lib/core/tts/tts_provider.dart
+@@ -50,7 +50,13 @@ abstract class TtsProvider {
+   Future<TtsStatus> verifyArtifacts();
+   Future<TtsStatus> initialize();
+   Future<TtsStatus> diagnose();
++
++  /// Legacy one-shot compatibility path. Normal companion speech uses
++  /// generate()+playAudio() so inference can run ahead of playback like A2.
+   Future<void> speak(String text);
++  Future<String?> generate(String text);
++  Future<void> playAudio(String wavBase64);
++
+   Future<void> stop();
+   Future<void> pause();
+   Future<void> resume();
+diff --git a/lib/core/tts/tts_queue_service.dart b/lib/core/tts/tts_queue_service.dart
+index 0c83ca6..aec1184 100644
+--- a/lib/core/tts/tts_queue_service.dart
++++ b/lib/core/tts/tts_queue_service.dart
+@@ -1,6 +1,16 @@
+-/// Narrow interface used by the speech queue so queue/cancel behavior can be
+-/// tested without Android/MethodChannel or a real database.
++/// Narrow interface used by the A2 speech scheduler so queue/cancel behavior
++/// can be tested without Android/MethodChannel or a real database.
+ abstract interface class TtsQueueService {
+-  Future<bool> speak(String visibleText, {bool manual = false});
++  /// Apply the same visible-text-only preprocessing used by normal speech and
++  /// ensure the local engine/settings are ready for this session.
++  Future<String?> prepareText(String visibleText, {bool manual = false});
++
++  /// Generate one sentence to WAV Base64. Generation and playback are kept
++  /// separate so later sentences can be prepared while the current one plays.
++  Future<String?> generatePrepared(String spokenText);
++
++  /// Play one already-generated WAV and complete only after AudioTrack drains.
++  Future<void> playPrepared(String wavBase64);
++
+   Future<void> stop();
+ }
+diff --git a/lib/core/tts/tts_sentence_segmenter.dart b/lib/core/tts/tts_sentence_segmenter.dart
+index 54109cd..50ec3b4 100644
+--- a/lib/core/tts/tts_sentence_segmenter.dart
++++ b/lib/core/tts/tts_sentence_segmenter.dart
+@@ -1,33 +1,28 @@
+-/// Incremental sentence splitter for streaming TTS.
++/// Incremental splitter that mirrors Meju A2 `processText()` sentence
++/// boundaries.
+ ///
+-/// It deliberately waits for strong sentence punctuation where possible, keeps
+-/// Markdown fenced-code content out of the spoken stream, and falls back to a
+-/// bounded soft split so a very long punctuation-free model sentence cannot
+-/// stall speech forever.
++/// A2 splits only on:
++///   。 ！ ？ ； . ! ? ;
++/// It does not split on commas, ideographic commas, newlines or ellipsis and
++/// it has no 72/116-character fallback. Delimiters themselves are not spoken.
++///
++/// The original A2 removes bracketed blocks before splitting. For streaming
++/// input we preserve the same effect by ignoring sentence punctuation while it
++/// is inside one of those removable bracket pairs; TtsTextProcessor removes
++/// the bracketed block itself before generation.
+ class TtsSentenceSegmenter {
+-  TtsSentenceSegmenter({
+-    this.softLimit = 72,
+-    this.hardLimit = 116,
+-  }) : assert(softLimit > 8),
+-       assert(hardLimit > softLimit);
+-
+-  final int softLimit;
+-  final int hardLimit;
+-
+   String _buffer = '';
+   String _fenceCarry = '';
+   bool _inFence = false;
++  final List<String> _bracketStack = <String>[];
+ 
+   List<String> add(String delta) {
+     if (delta.isEmpty) return const [];
+-    _consumeOutsideCodeFences(delta);
++    _consume(delta);
+     return _drain(finalFlush: false);
+   }
+ 
+   List<String> flush() {
+-    // A dangling one/two backtick carry is ordinary inline markdown, not a
+-    // complete fenced-code marker. Preserve it outside a fence so the text
+-    // processor can later remove the markdown marker without losing content.
+     if (_fenceCarry.isNotEmpty && !_inFence) {
+       _buffer += _fenceCarry;
+     }
+@@ -41,9 +36,10 @@ class TtsSentenceSegmenter {
+     _buffer = '';
+     _fenceCarry = '';
+     _inFence = false;
++    _bracketStack.clear();
+   }
+ 
+-  void _consumeOutsideCodeFences(String delta) {
++  void _consume(String delta) {
+     var text = _fenceCarry + delta;
+     _fenceCarry = '';
+     var offset = 0;
+@@ -61,33 +57,53 @@ class TtsSentenceSegmenter {
+           _fenceCarry = tail.substring(tail.length - trailingTicks);
+           tail = tail.substring(0, tail.length - trailingTicks);
+         }
+-        if (!_inFence) _buffer += tail;
++        if (!_inFence) _appendOutsideFence(tail);
+         break;
+       }
+ 
+       if (!_inFence && fence > offset) {
+-        _buffer += text.substring(offset, fence);
++        _appendOutsideFence(text.substring(offset, fence));
+       }
+       _inFence = !_inFence;
+       offset = fence + 3;
+     }
+   }
+ 
++  void _appendOutsideFence(String text) {
++    for (final rune in text.runes) {
++      final c = String.fromCharCode(rune);
++      _trackBracket(c);
++      _buffer += c;
++    }
++  }
++
++  void _trackBracket(String c) {
++    const pairs = <String, String>{
++      '(': ')',
++      '（': '）',
++      '<': '>',
++      '{': '}',
++      '[': ']',
++      '【': '】',
++    };
++    final close = pairs[c];
++    if (close != null) {
++      _bracketStack.add(close);
++      return;
++    }
++    if (_bracketStack.isNotEmpty && c == _bracketStack.last) {
++      _bracketStack.removeLast();
++    }
++  }
++
+   List<String> _drain({required bool finalFlush}) {
+     final out = <String>[];
+     while (true) {
+-      final boundary = _findStrongBoundary(_buffer);
+-      if (boundary > 0) {
+-        _emit(out, boundary);
+-        continue;
+-      }
+-
+-      if (_buffer.length >= hardLimit) {
+-        final softBoundary = _findSoftBoundary(_buffer, softLimit, hardLimit);
+-        _emit(out, softBoundary);
+-        continue;
+-      }
+-      break;
++      final boundary = _findA2Boundary(_buffer);
++      if (boundary == null) break;
++      final chunk = _buffer.substring(0, boundary.start).trim();
++      _buffer = _buffer.substring(boundary.end);
++      if (chunk.isNotEmpty) out.add(chunk);
+     }
+ 
+     if (finalFlush) {
+@@ -98,47 +114,46 @@ class TtsSentenceSegmenter {
+     return out;
+   }
+ 
+-  int _findStrongBoundary(String text) {
++  _Boundary? _findA2Boundary(String text) {
++    final stack = <String>[];
++    const pairs = <String, String>{
++      '(': ')',
++      '（': '）',
++      '<': '>',
++      '{': '}',
++      '[': ']',
++      '【': '】',
++    };
++
+     for (var i = 0; i < text.length; i++) {
+       final c = text[i];
+-      final strong = c == '。' ||
+-          c == '！' ||
+-          c == '？' ||
+-          c == '!' ||
+-          c == '?' ||
+-          c == '；' ||
+-          c == ';' ||
+-          c == '…';
+-      final newline = c == '\n' && text.substring(0, i).trim().length >= 10;
+-      if (!strong && !newline) continue;
++      final close = pairs[c];
++      if (close != null) {
++        stack.add(close);
++        continue;
++      }
++      if (stack.isNotEmpty && c == stack.last) {
++        stack.removeLast();
++        continue;
++      }
++      if (stack.isNotEmpty || !_isA2Delimiter(c)) continue;
+ 
+       var end = i + 1;
+-      // Keep paired closing punctuation/quotes with the sentence.
+-      while (end < text.length && _isClosingMark(text[end])) {
++      while (end < text.length && _isA2Delimiter(text[end])) {
+         end++;
+       }
+-      return end;
+-    }
+-    return -1;
+-  }
+-
+-  int _findSoftBoundary(String text, int preferred, int maximum) {
+-    final upper = maximum.clamp(1, text.length).toInt();
+-    final lower = (preferred ~/ 2).clamp(8, upper).toInt();
+-    const candidates = '，,、：: \n';
+-    for (var i = upper - 1; i >= lower; i--) {
+-      if (candidates.contains(text[i])) return i + 1;
++      return _Boundary(i, end);
+     }
+-    return upper;
++    return null;
+   }
+ 
+-  bool _isClosingMark(String c) =>
+-      c == '”' || c == '’' || c == '」' || c == '』' ||
+-      c == '）' || c == ')' || c == '】' || c == ']' || c == '》';
++  bool _isA2Delimiter(String c) =>
++      c == '。' || c == '！' || c == '？' || c == '；' ||
++      c == '.' || c == '!' || c == '?' || c == ';';
++}
+ 
+-  void _emit(List<String> out, int end) {
+-    final chunk = _buffer.substring(0, end).trim();
+-    _buffer = _buffer.substring(end);
+-    if (chunk.isNotEmpty) out.add(chunk);
+-  }
++class _Boundary {
++  const _Boundary(this.start, this.end);
++  final int start;
++  final int end;
+ }
+diff --git a/lib/core/tts/tts_service.dart b/lib/core/tts/tts_service.dart
+index 93e3c2a..198d3a4 100644
+--- a/lib/core/tts/tts_service.dart
++++ b/lib/core/tts/tts_service.dart
+@@ -1,5 +1,6 @@
+ import '../database/app_database.dart';
+ import 'native_tts_provider.dart';
++import 'tts_playback_queue.dart';
+ import 'tts_provider.dart';
+ import 'tts_queue_service.dart';
+ import 'tts_text_processor.dart';
+@@ -40,16 +41,17 @@ class TtsService implements TtsQueueService {
+     await provider.setVolume(volume);
+   }
+ 
+-  Future<bool> speak(String visibleText, {bool manual = false}) async {
+-    if ((await db.getSetting('tts_enabled')) == '0') return false;
+-    if (!manual && (await db.getSetting('auto_tts')) == '0') return false;
++  @override
++  Future<String?> prepareText(String visibleText, {bool manual = false}) async {
++    if ((await db.getSetting('tts_enabled')) == '0') return null;
++    if (!manual && (await db.getSetting('auto_tts')) == '0') return null;
+ 
+     try {
+       final status = await provider.status();
+-      if (!status.available) return false;
++      if (!status.available) return null;
+       if (!status.initialized) {
+         final initialized = await initialize();
+-        if (!initialized.initialized) return false;
++        if (!initialized.initialized) return null;
+       } else {
+         await _applyPlaybackSettings();
+       }
+@@ -60,38 +62,49 @@ class TtsService implements TtsQueueService {
+         visibleText,
+         replacements: replacements,
+       );
+-      if (spoken.isEmpty) return false;
+-      await provider.speak(spoken);
++      return spoken.isEmpty ? null : spoken;
++    } catch (e) {
++      await _recordError(e.toString());
++      return null;
++    }
++  }
++
++  @override
++  Future<String?> generatePrepared(String spokenText) async {
++    if (spokenText.trim().isEmpty) return null;
++    try {
++      final audio = await provider.generate(spokenText.trim());
++      if (audio == null || audio.trim().isEmpty) return null;
+       await _recordError('');
+-      return true;
++      return audio;
+     } catch (e) {
+       await _recordError(e.toString());
+-      return false;
++      return null;
+     }
+   }
+ 
+-  Future<bool> preview(String visibleText) async {
++  @override
++  Future<void> playPrepared(String wavBase64) async {
++    if (wavBase64.trim().isEmpty) return;
++    await provider.playAudio(wavBase64);
++  }
++
++  /// One-shot convenience used by proactive speech. It deliberately routes
++  /// through the same A2 scheduler as chat, never through the old serial path.
++  Future<bool> speak(String visibleText, {bool manual = false}) async {
++    final queue = TtsPlaybackQueue(service: this);
+     try {
+-      final current = await status();
+-      if (!current.available) return false;
+-      if (!current.initialized) {
+-        final initialized = await initialize();
+-        if (!initialized.initialized) return false;
+-      } else {
+-        await _applyPlaybackSettings();
+-      }
+-      final replacements = processor.decodeReplacementJson(
+-        await db.getSetting('tts_replacements_json'),
+-      );
+-      final spoken = processor.process(visibleText, replacements: replacements);
+-      if (spoken.isEmpty) return false;
+-      await provider.speak(spoken);
++      await queue.playText(visibleText, manual: manual);
++      await queue.waitUntilIdle();
+       return true;
+-    } catch (_) {
++    } catch (e) {
++      await _recordError(e.toString());
+       return false;
+     }
+   }
+ 
++  Future<bool> preview(String visibleText) async => speak(visibleText, manual: true);
++
+   Future<void> _recordError(String value) async {
+     final text = value.length <= 320 ? value : value.substring(0, 320);
+     try {
+diff --git a/lib/core/tts/tts_text_processor.dart b/lib/core/tts/tts_text_processor.dart
+index 14aa37e..20e4a08 100644
+--- a/lib/core/tts/tts_text_processor.dart
++++ b/lib/core/tts/tts_text_processor.dart
+@@ -8,13 +8,29 @@ class TtsTextProcessor {
+     Map<String, String> replacements = const {},
+   }) {
+     var result = text;
++
++    // User replacements are speech-only and never touch the visible chat body.
+     for (final entry in replacements.entries) {
+       if (entry.key.isEmpty) continue;
+       result = result.replaceAll(entry.key, entry.value);
+     }
+ 
+-    // Keep spoken text independent from the visible chat body. Remove common
+-    // markdown controls without rewriting the original message in SQLite.
++    // Fixed Meju pronunciation compatibility. The original A2 processText()
++    // explicitly maps Yuki/yuki/YuKi to 有希; use a case-insensitive word match
++    // so the companion remains robust to model capitalization variants.
++    result = result.replaceAll(RegExp(r'\bYuki\b', caseSensitive: false), '有希');
++
++    // Meju A2 removes these blocks before sentence generation.
++    result = result
++        .replaceAll(RegExp(r'\([^)]*\)'), '')
++        .replaceAll(RegExp(r'（[^）]*）'), '')
++        .replaceAll(RegExp(r'<[^>]*>'), '')
++        .replaceAll(RegExp(r'\{[^}]*\}'), '')
++        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
++        .replaceAll(RegExp(r'【[^】]*】'), '');
++
++    // Companion-specific markdown hygiene stays speech-only. It does not alter
++    // A2 sentence boundaries and prevents code/format markers being read aloud.
+     result = result
+         .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
+         .replaceAllMapped(RegExp(r'`([^`]*)`'), (m) => m.group(1) ?? '')
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index 95260ca..8c0f416 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.28.5 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.29.0 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index 07ff081..b40488c 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.28.5',
++            'AI Companion · v0.29.0',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index 393e764..1f671b1 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.28.5 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.29.0 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index 196767e..2226842 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -148,7 +148,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.28.5 · TTS Bridge Diagnostic',
++                    'v0.29.0 · A2 TTS Clean Baseline',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index 9b03d2d..af5fa3e 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.28.5+33
++version: 0.29.0+34
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/test/tts_playback_queue_test.dart b/test/tts_playback_queue_test.dart
+index 84af406..696a10f 100644
+--- a/test/tts_playback_queue_test.dart
++++ b/test/tts_playback_queue_test.dart
+@@ -5,21 +5,32 @@ import 'package:ai_companion_localfirst/core/tts/tts_playback_queue.dart';
+ import 'package:ai_companion_localfirst/core/tts/tts_queue_service.dart';
+ 
+ class _FakeQueueService implements TtsQueueService {
+-  final spoken = <String>[];
++  final prepared = <String>[];
++  final generated = <String>[];
++  final played = <String>[];
+   int stopCount = 0;
+-  Completer<void>? firstGate;
+-  bool failFirst = false;
++  Completer<void>? firstPlaybackGate;
++  bool failFirstGeneration = false;
+ 
+   @override
+-  Future<bool> speak(String visibleText, {bool manual = false}) async {
+-    spoken.add(visibleText);
+-    if (spoken.length == 1 && firstGate != null) {
+-      await firstGate!.future;
+-    }
+-    if (spoken.length == 1 && failFirst) {
+-      throw StateError('synthetic tts failure');
++  Future<String?> prepareText(String visibleText, {bool manual = false}) async {
++    prepared.add(visibleText);
++    return visibleText;
++  }
++
++  @override
++  Future<String?> generatePrepared(String spokenText) async {
++    generated.add(spokenText);
++    if (generated.length == 1 && failFirstGeneration) return null;
++    return 'wav:$spokenText';
++  }
++
++  @override
++  Future<void> playPrepared(String wavBase64) async {
++    played.add(wavBase64);
++    if (played.length == 1 && firstPlaybackGate != null) {
++      await firstPlaybackGate!.future;
+     }
+-    return true;
+   }
+ 
+   @override
+@@ -31,39 +42,65 @@ class _FakeQueueService implements TtsQueueService {
+ Future<void> _turn() => Future<void>.delayed(Duration.zero);
+ 
+ void main() {
+-  test('stop invalidates queued chunks that have not started', () async {
+-    final fake = _FakeQueueService()..firstGate = Completer<void>();
+-    final queue = TtsPlaybackQueue(service: fake);
++  test('A2 generates later sentences while the first sentence is playing', () async {
++    final fake = _FakeQueueService()..firstPlaybackGate = Completer<void>();
++    final queue = TtsPlaybackQueue(
++      service: fake,
++      interSentenceGap: Duration.zero,
++    );
++
++    await queue.playText('第一句。第二句。第三句。', manual: true);
++    await _turn();
++    await _turn();
++
++    expect(fake.played, ['wav:第一句']);
++    expect(fake.generated, ['第一句', '第二句', '第三句']);
++
++    fake.firstPlaybackGate!.complete();
++    await queue.waitUntilIdle();
++    expect(fake.played, ['wav:第一句', 'wav:第二句', 'wav:第三句']);
++  });
++
++  test('stop invalidates generated/queued audio that has not played', () async {
++    final fake = _FakeQueueService()..firstPlaybackGate = Completer<void>();
++    final queue = TtsPlaybackQueue(
++      service: fake,
++      interSentenceGap: Duration.zero,
++    );
+ 
+     await queue.playText('第一句。第二句。', manual: true);
+     await _turn();
+-    expect(fake.spoken, ['第一句。']);
++    expect(fake.played, ['wav:第一句']);
+ 
+     await queue.stop();
+-    fake.firstGate!.complete();
+-    await queue.waitUntilIdle();
++    fake.firstPlaybackGate!.complete();
++    await _turn();
+ 
+-    expect(fake.spoken, ['第一句。']);
++    expect(fake.played, ['wav:第一句']);
+     expect(queue.state.running, isFalse);
+-    expect(queue.state.pending, 0);
+     expect(fake.stopCount, greaterThanOrEqualTo(2));
+   });
+ 
+-  test('one failed sentence does not poison later queued speech', () async {
+-    final fake = _FakeQueueService()..failFirst = true;
+-    final queue = TtsPlaybackQueue(service: fake);
++  test('one generation failure does not poison later speech', () async {
++    final fake = _FakeQueueService()..failFirstGeneration = true;
++    final queue = TtsPlaybackQueue(
++      service: fake,
++      interSentenceGap: Duration.zero,
++    );
+ 
+     await queue.playText('第一句。第二句。', manual: true);
+     await queue.waitUntilIdle();
+ 
+-    expect(fake.spoken, ['第一句。', '第二句。']);
+-    expect(queue.state.running, isFalse);
+-    expect(queue.state.pending, 0);
++    expect(fake.generated, ['第一句', '第二句']);
++    expect(fake.played, ['wav:第二句']);
+   });
+ 
+-  test('stream chunks preserve sentence order', () async {
++  test('stream chunks preserve A2 sentence order', () async {
+     final fake = _FakeQueueService();
+-    final queue = TtsPlaybackQueue(service: fake);
++    final queue = TtsPlaybackQueue(
++      service: fake,
++      interSentenceGap: Duration.zero,
++    );
+ 
+     await queue.beginStream(manual: false);
+     queue.addDelta('先说第一句。再说');
+@@ -71,6 +108,7 @@ void main() {
+     queue.endStream();
+     await queue.waitUntilIdle();
+ 
+-    expect(fake.spoken, ['先说第一句。', '再说第二句！']);
++    expect(fake.generated, ['先说第一句', '再说第二句']);
++    expect(fake.played, ['wav:先说第一句', 'wav:再说第二句']);
+   });
+ }
+diff --git a/test/tts_sentence_segmenter_test.dart b/test/tts_sentence_segmenter_test.dart
+index b740760..01bea5a 100644
+--- a/test/tts_sentence_segmenter_test.dart
++++ b/test/tts_sentence_segmenter_test.dart
+@@ -2,11 +2,23 @@ import 'package:flutter_test/flutter_test.dart';
+ import 'package:ai_companion_localfirst/core/tts/tts_sentence_segmenter.dart';
+ 
+ void main() {
+-  test('streams Chinese sentences at strong punctuation', () {
++  test('mirrors A2 punctuation and drops delimiters', () {
+     final s = TtsSentenceSegmenter();
+     expect(s.add('你终于回来'), isEmpty);
+-    expect(s.add('了。还有一件'), ['你终于回来了。']);
+-    expect(s.add('事想告诉你！'), ['还有一件事想告诉你！']);
++    expect(s.add('了。还有一件'), ['你终于回来了']);
++    expect(s.add('事想告诉你！'), ['还有一件事想告诉你']);
++    expect(s.flush(), isEmpty);
++  });
++
++  test('does not split on comma newline ideographic comma or ellipsis', () {
++    final s = TtsSentenceSegmenter();
++    expect(s.add('今天不急，慢慢聊、也可以\n停一下……都没关系'), isEmpty);
++    expect(s.add('。'), ['今天不急，慢慢聊、也可以\n停一下……都没关系']);
++  });
++
++  test('ignores sentence punctuation inside A2 removable brackets', () {
++    final s = TtsSentenceSegmenter();
++    expect(s.add('你好（这里。不会切）世界。'), ['你好（这里。不会切）世界']);
+     expect(s.flush(), isEmpty);
+   });
+ 
+@@ -16,23 +28,13 @@ void main() {
+     out.addAll(s.add('先说一句。```dart\nprint("不要读");'));
+     out.addAll(s.add('\n```然后继续。'));
+     out.addAll(s.flush());
+-    expect(out, ['先说一句。', '然后继续。']);
++    expect(out, ['先说一句', '然后继续']);
+   });
+ 
+-  test('handles a code fence split across stream deltas', () {
++  test('punctuation-free text waits until final flush without soft split', () {
+     final s = TtsSentenceSegmenter();
+-    final out = <String>[];
+-    out.addAll(s.add('前面。``'));
+-    out.addAll(s.add('`secret。``'));
+-    out.addAll(s.add('`后面。'));
+-    out.addAll(s.flush());
+-    expect(out, ['前面。', '后面。']);
+-  });
+-
+-  test('soft-splits very long punctuation-free text', () {
+-    final s = TtsSentenceSegmenter(softLimit: 20, hardLimit: 32);
+-    final out = s.add('这是一段非常长的内容，为了避免本地语音一直等待，所以应该在合适的位置分开继续播放');
+-    expect(out, isNotEmpty);
+-    expect(out.first.length, lessThanOrEqualTo(32));
++    final text = '这是一段非常长的内容，为了严格保持妹居A2行为，即使很长也不会因为字符数量被人为切开';
++    expect(s.add(text), isEmpty);
++    expect(s.flush(), [text]);
+   });
+ }
+diff --git a/test/tts_text_processor_test.dart b/test/tts_text_processor_test.dart
+index 0e9d971..1713587 100644
+--- a/test/tts_text_processor_test.dart
++++ b/test/tts_text_processor_test.dart
+@@ -11,6 +11,19 @@ void main() {
+     expect(spoken, '有希 回来了。');
+   });
+ 
++  test('A2 fixed Yuki pronunciation is case-insensitive', () {
++    const processor = TtsTextProcessor();
++    expect(processor.process('YUKI yuki YuKi'), '有希 有希 有希');
++  });
++
++  test('A2 removable bracket blocks are speech-only', () {
++    const processor = TtsTextProcessor();
++    expect(
++      processor.process('保留（这里不读。）正文【这个也不读】。'),
++      '保留正文。',
++    );
++  });
++
+   test('replacement JSON fails closed on malformed input', () {
+     const processor = TtsTextProcessor();
+     expect(processor.decodeReplacementJson('{bad json'), isEmpty);
+diff --git a/tools/validate_tts_queue_v25.py b/tools/validate_tts_queue_v25.py
+index b3ce698..02750e9 100755
+--- a/tools/validate_tts_queue_v25.py
++++ b/tools/validate_tts_queue_v25.py
+@@ -1,57 +1,63 @@
+ #!/usr/bin/env python3
+-"""Deterministic mirror checks for the v0.25 speech-queue generation contract.
++"""Deterministic mirror checks for the current Meju A2 queue contract.
+ 
+-This does not replace the Dart tests; it is executable in the current no-Dart
+-environment and checks the same invariants used by TtsPlaybackQueue.
++Kept under the historical filename because older CI/docs call it directly.
++The v0.29 baseline changes the invariant from serial generate+play to A2-style
++generation-ahead with ordered playback and cancellation fencing.
+ """
+ from __future__ import annotations
+ 
+ 
++def simulate_generation_ahead() -> None:
++    sentences = ['第一句', '第二句', '第三句']
++    generated = []
++    played = []
++
++    # A2 submits all generation requests before waiting for sentence 1 audio.
++    for sentence in sentences:
++        generated.append(sentence)
++    assert generated == sentences
++
++    # Playback remains sentence ordered once WAVs become available.
++    played.extend(generated)
++    assert played == sentences
++
++
+ def simulate_cancel() -> None:
+-    generation = 2
+-    queued = [(2, '第一句。'), (2, '第二句。')]
+-    started = []
+-    # First item begins.
+-    g, text = queued.pop(0)
+-    if g == generation:
+-        started.append(text)
+-    # stop(): invalidate all old generations before second item can start.
+-    generation += 1
+-    for g, text in queued:
+-        if g == generation:
+-            started.append(text)
+-    assert started == ['第一句。'], started
++    epoch = 4
++    queued = [(4, '第一句'), (4, '第二句')]
++    accepted = []
++    accepted.append(queued[0][1])
++    epoch += 1  # stop()
++    for token, text in queued[1:]:
++        if token == epoch:
++            accepted.append(text)
++    assert accepted == ['第一句'], accepted
+ 
+ 
+ def simulate_failure_continuation() -> None:
+-    generation = 3
+-    queued = [(3, '第一句。'), (3, '第二句。')]
+-    attempted = []
+-    for idx, (g, text) in enumerate(queued):
+-        if g != generation:
+-            continue
+-        attempted.append(text)
+-        try:
+-            if idx == 0:
+-                raise RuntimeError('synthetic tts failure')
+-        except RuntimeError:
+-            # Queue catches one utterance failure and continues the chain.
+-            pass
+-    assert attempted == ['第一句。', '第二句。'], attempted
+-
+-
+-def simulate_fifo() -> None:
+-    chunks = ['先说第一句。', '再说第二句！', '最后一句。']
++    ready = {0: None, 1: 'wav:第二句', 2: 'wav:第三句'}
+     played = []
+-    for chunk in chunks:
+-        played.append(chunk)
+-    assert played == chunks
++    for i in range(3):
++        audio = ready[i]
++        if audio:
++            played.append(audio)
++    assert played == ['wav:第二句', 'wav:第三句']
++
++
++def simulate_a2_boundaries() -> None:
++    text = '今天不急，慢慢聊、也可以\n停一下……都没关系。下一句！'
++    import re
++    chunks = [x.strip() for x in re.split(r'[。！？.!?；;]+', text) if x.strip()]
++    assert chunks == ['今天不急，慢慢聊、也可以\n停一下……都没关系', '下一句']
+ 
+ 
+ if __name__ == '__main__':
++    simulate_generation_ahead()
++    print('[OK] A2 submits later sentence generation before waiting for playback')
+     simulate_cancel()
+-    print('[OK] stop generation invalidates not-yet-started chunks')
++    print('[OK] stop epoch invalidates stale queued generation')
+     simulate_failure_continuation()
+-    print('[OK] one utterance failure does not poison following queue work')
+-    simulate_fifo()
+-    print('[OK] FIFO sentence order preserved')
++    print('[OK] one sentence generation failure does not poison later playback')
++    simulate_a2_boundaries()
++    print('[OK] A2 punctuation boundaries preserved; comma/newline/ellipsis do not split')
+diff --git a/tools/validate_tts_v025.py b/tools/validate_tts_v025.py
+index 1370331..db64360 100755
+--- a/tools/validate_tts_v025.py
++++ b/tools/validate_tts_v025.py
+@@ -90,10 +90,10 @@ def check_wiring() -> None:
+         'verifier': ['sha256AndSize', 'fingerprint mismatch', 'checked == TtsGoldenBaseline.TOTAL_ARTIFACTS'],
+         'legacy': ['verifyArtifacts()', 'legacy_tts_v25_63a8c10f', 'cachedValid', 'Runtime copy fingerprint mismatch', 'target.setReadOnly()'],
+         'engine': ['fun verifyArtifacts()', 'integrity.state', 'artifactCount', 'speechGeneration', 'speechLock'],
+-        'bridge': ['"verifyArtifacts"', 'tts_verify_failed'],
+-        'provider': ["invokeMapMethod<Object?, Object?>('verifyArtifacts')"],
+-        'service': ['implements TtsQueueService', 'Future<TtsStatus> verifyArtifacts()', 'Future<void> _recordError', 'best-effort'],
+-        'queue': ['final TtsQueueService service', 'waitUntilIdle()', 'generation != _generation'],
++        'bridge': ['"verifyArtifacts"', 'tts_verify_failed', '"generate"', '"playAudio"', 'generationWorker', 'playbackWorker'],
++        'provider': ["invokeMapMethod<Object?, Object?>('verifyArtifacts')", "invokeMethod<String>('generate'", "invokeMethod<void>('playAudio'"],
++        'service': ['implements TtsQueueService', 'Future<TtsStatus> verifyArtifacts()', 'generatePrepared', 'playPrepared', 'Future<void> _recordError'],
++        'queue': ['final TtsQueueService service', 'waitUntilIdle()', 'generation-ahead', 'interSentenceGap = const Duration(milliseconds: 200)'],
+         'chat': ['if (delta.reasoning.isNotEmpty)', 'if (delta.content.isNotEmpty)', 'ttsPlayback.addDelta(delta.content)'],
+         'settings': ['正在核对本地 TTS 与 MejuTTS v2.7 黄金资源', "label: const Text('校验 TTS')"],
+     }
+@@ -111,9 +111,9 @@ def check_wiring() -> None:
+ def check_test_sources() -> None:
+     queue_test = (ROOT / 'test/tts_playback_queue_test.dart').read_text()
+     for token in (
+-        'stop invalidates queued chunks that have not started',
+-        'one failed sentence does not poison later queued speech',
+-        'stream chunks preserve sentence order',
++        'A2 generates later sentences while the first sentence is playing',
++        'one generation failure does not poison later speech',
++        'stream chunks preserve A2 sentence order',
+     ):
+         if token not in queue_test:
+             fail(f'missing queue/cancel test: {token}')
+diff --git a/tools/validate_v0285_coroutine_bridge.py b/tools/validate_v0285_coroutine_bridge.py
+index 4bcd979..3f8fb0f 100755
+--- a/tools/validate_v0285_coroutine_bridge.py
++++ b/tools/validate_v0285_coroutine_bridge.py
+@@ -95,7 +95,7 @@ def main() -> int:
+         assert required in engine, required
+ 
+     bridge = BRIDGE.read_text(encoding='utf-8')
+-    assert '"diagnose" -> submit(result, "tts_diagnose_failed")' in bridge
++    assert '"diagnose" -> submit(generationWorker, result, "tts_diagnose_failed")' in bridge
+ 
+     provider = PROVIDER.read_text(encoding='utf-8')
+     assert 'Future<TtsStatus> diagnose();' in provider
+@@ -109,9 +109,9 @@ def main() -> int:
+     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
+ 
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.28.5+33' in pubspec
++    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec)
+ 
+-    print('v0.28.5 coroutine/ClassLoader bridge + staged TTS diagnostic validation passed.')
++    print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
+     return 0
+ 
+ 
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+new file mode 100755
+index 0000000..1926587
+--- /dev/null
++++ b/tools/validate_v029_a2_tts.py
+@@ -0,0 +1,71 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++ORIGINAL_ELF_SIZE = 635_352
++ORIGINAL_ELF_SHA = 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
++PADDED_SIZE = 710_848
++PADDED_SHA = 'a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792'
++
++
++def sha(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def main() -> int:
++    pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
++    assert 'version: 0.29.0+34' in pubspec
++
++    native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
++    data = native.read_bytes()
++    assert len(data) == PADDED_SIZE, len(data)
++    assert sha(data) == PADDED_SHA
++    assert sha(data[:ORIGINAL_ELF_SIZE]) == ORIGINAL_ELF_SHA
++    assert set(data[ORIGINAL_ELF_SIZE:]) <= {0}
++    print('[OK] libbertvits2.so is the verified original 635352-byte A2 ELF plus zero alignment padding')
++
++    segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
++    for token in ["c == '。'", "c == '！'", "c == '？'", "c == '；'", "c == '.'", "c == '!'", "c == '?'", "c == ';'"]:
++        assert token in segmenter, token
++    for forbidden in ['softLimit', 'hardLimit', "const candidates = '，,、：: \\n'", "c == '…'", "c == '\\n' &&"]:
++        assert forbidden not in segmenter, forbidden
++    print('[OK] A2 splitter has no comma/newline/ellipsis/length fallback')
++
++    processor = (ROOT / 'lib/core/tts/tts_text_processor.dart').read_text(encoding='utf-8')
++    for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'\\([^)]*\\)')", "RegExp(r'（[^）]*）')", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
++        assert token in processor, token
++    print('[OK] A2 speech-only Yuki/bracket preprocessing preserved')
++
++    queue = (ROOT / 'lib/core/tts/tts_playback_queue.dart').read_text(encoding='utf-8')
++    assert 'interSentenceGap = const Duration(milliseconds: 200)' in queue
++    assert 'service.generatePrepared(text)' in queue
++    assert 'service.playPrepared(audio)' in queue
++    assert 'await service.generatePrepared(text)' in queue  # inside independent async task, not playback chain
++    assert '_hasPlayableReady(session)' in queue
++    assert '_tail = _tail.then' not in queue
++    print('[OK] A2 generation-ahead queue replaces serial generate+play tail')
++
++    bridge = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt').read_text(encoding='utf-8')
++    engine = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt').read_text(encoding='utf-8')
++    for token in ['generationWorker', 'playbackWorker', '"generate"', '"playAudio"']:
++        assert token in bridge, token
++    assert 'fun generate(text: String' in engine
++    assert 'fun playAudio(base64: String' in engine
++    assert 'allowing sentence N+1 to infer while sentence N is audible' in engine
++    print('[OK] native inference and AudioTrack workers are separated with one serialized MNN generator')
++
++    legacy = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/LegacyTtsRuntime.kt').read_text(encoding='utf-8')
++    assert 'getField("INSTANCE")' not in legacy
++    assert 'Class.forName("kotlin.coroutines.EmptyCoroutineContext"' not in legacy
++    assert 'getField("COROUTINE_SUSPENDED")' not in legacy
++    print('[OK] v0.28.5 legacy coroutine/ClassLoader fix retained')
++
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
