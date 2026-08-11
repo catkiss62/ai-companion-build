@@ -1,19 +1,34 @@
-name: Promote AI Companion v0.29.0 Clean Baseline
+name: Build AI Companion v0.29.0 Clean APK
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'app/**'
+      - '.github/workflows/build-v028-apk.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  promote-and-build:
+  build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify clean source layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/pubspec.yaml
+          grep -q '^version: 0.29.0+34$' app/pubspec.yaml
+          test -d app/lib
+          test -d app/android
+          test -d app/tools
+          echo 'Building directly from app/. No bootstrap ZIP or v0.28 patch is used.'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -27,66 +42,25 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
 
-      - name: Restore verified v0.28 bootstrap source
+      - name: Install stable AI Companion test signing key
         shell: bash
         run: |
           set -euo pipefail
-          ls -lh ai_companion_v0_28_source.part-*
-          cat ai_companion_v0_28_source.part-* > ai_companion_v0_28_source.zip
-          echo "53d2aefb922c6477087bddb93b44a4b95e7e1a0c4b4bea3e1d9611486c9bbea8 ai_companion_v0_28_source.zip" | sha256sum -c -
-          unzip -q ai_companion_v0_28_source.zip
-          test -f ai_companion_v0_28/pubspec.yaml
-          for f in \
-            v0281-startup-recovery.patch \
-            v0282-android-sqlite-open.patch \
-            v0283-tts-chat-recovery.patch \
-            v0284-legacy-coroutine-bridge.patch \
-            v0285-coroutine-classloader-diagnostic.patch \
-            v0290-a2-clean-baseline.patch; do
-            test -f "$f"
-          done
+          mkdir -p "$HOME/.android"
+          printf '%s' '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' | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          echo "c5d927a90ef96a12eb858e63e071a2cdd3bd6656446ce8ee07517090dbba9a5d  $HOME/.android/debug.keystore" | sha256sum -c -
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Apply verified v0.28.1-v0.28.5 chain
+      - name: Source and regression validation
         shell: bash
-        working-directory: ai_companion_v0_28
+        working-directory: app
         run: |
           set -euo pipefail
-          patch -p1 < ../v0281-startup-recovery.patch
-          grep -q '^version: 0.28.1+29$' pubspec.yaml
-
-          patch -p1 < ../v0282-android-sqlite-open.patch
-          grep -q '^version: 0.28.2+30$' pubspec.yaml
-          python3 tools/validate_v0282_pragma.py
-
-          patch -p1 < ../v0283-tts-chat-recovery.patch
-          grep -q '^version: 0.28.3+31$' pubspec.yaml
-
-          patch -p1 < ../v0284-legacy-coroutine-bridge.patch
-          grep -q '^version: 0.28.4+32$' pubspec.yaml
-          python3 tools/validate_v0284_legacy_coroutine.py
-
-          patch -p1 < ../v0285-coroutine-classloader-diagnostic.patch
-          grep -q '^version: 0.28.5+33$' pubspec.yaml
-          python3 tools/validate_v0285_coroutine_bridge.py
-          python3 tools/validate_v0285_coroutine_proxy_jvm.py
-
-      - name: Apply v0.29.0 A2 + clean-baseline patch
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
-          patch -p1 < ../v0290-a2-clean-baseline.patch
-          grep -q '^version: 0.29.0+34$' pubspec.yaml
           python3 tools/validate_v029_a2_tts.py
           python3 tools/validate_tts_kotlin_v25.py
           python3 tools/validate_tts_queue_v25.py
           python3 tools/validate_tts_v025.py
-
-      - name: Core regression suite
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
           python3 tools/validate_durable_generation_sql.py
           python3 tools/validate_recovery_orchestration_sql.py
           python3 tools/validate_reference_library_sql.py
@@ -99,39 +73,29 @@ jobs:
           python3 tools/validate_manual_crypto_v26.py
           python3 tools/validate_preflight_redaction_v27.py
 
-      - name: Install stable AI Companion test signing key
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.android"
-          printf '%s' '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' | base64 --decode > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
-          echo "c5d927a90ef96a12eb858e63e071a2cdd3bd6656446ce8ee07517090dbba9a5d  $HOME/.android/debug.keystore" | sha256sum -c -
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
-
       - name: Resolve Flutter packages
-        working-directory: ai_companion_v0_28
+        working-directory: app
         run: flutter pub get
 
       - name: Flutter analyze
-        working-directory: ai_companion_v0_28
+        working-directory: app
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Flutter tests
-        working-directory: ai_companion_v0_28
+        working-directory: app
         run: flutter test
 
       - name: Build release APK
-        working-directory: ai_companion_v0_28
+        working-directory: app
         run: flutter build apk --release
 
-      - name: Verify Meju native payload stayed byte-identical in APK
+      - name: Verify release APK native payload
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY2'
           import hashlib, pathlib, sys, zipfile
-          root = pathlib.Path('ai_companion_v0_28')
+          root = pathlib.Path('app')
           apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
           src = root / 'android/app/src/main/jniLibs/arm64-v8a'
           libs = [
@@ -142,62 +106,29 @@ jobs:
               for name in libs:
                   source = (src / name).read_bytes()
                   packed = z.read('lib/arm64-v8a/' + name)
-                  print(name, len(source), hashlib.sha256(source).hexdigest())
                   if source != packed:
                       print(f'ERROR: release packaging changed {name}', file=sys.stderr)
                       sys.exit(1)
+                  print(name, len(source), hashlib.sha256(source).hexdigest())
           bert = (src / 'libbertvits2.so').read_bytes()
-          prefix = bert[:635352]
-          assert hashlib.sha256(prefix).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
+          assert hashlib.sha256(bert[:635352]).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
           assert set(bert[635352:]) <= {0}
-          print('All 6 Meju native payloads are byte-identical; A2 original ELF prefix verified.')
+          print('A2 original native prefix and APK byte identity verified.')
           PY2
 
       - name: Create APK checksum
         shell: bash
         run: |
           set -euo pipefail
-          APK='ai_companion_v0_28/build/app/outputs/flutter-apk/app-release.apk'
-          sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
+          APK='app/build/app/outputs/flutter-apk/app-release.apk'
+          sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Promote complete source into app directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf app
-          mkdir -p app
-          rsync -a \
-            --exclude='.git' \
-            --exclude='.dart_tool' \
-            --exclude='build' \
-            --exclude='android/.gradle' \
-            --exclude='android/local.properties' \
-            --exclude='pubspec.lock' \
-            ai_companion_v0_28/ app/
-          test -f app/pubspec.yaml
-          grep -q '^version: 0.29.0+34$' app/pubspec.yaml
-          python3 app/tools/validate_v029_a2_tts.py
-
-      - name: Commit v0.29.0 clean baseline to repository
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app
-          if git diff --cached --quiet; then
-            echo 'app/ is already the v0.29.0 clean baseline; nothing to commit.'
-          else
-            git commit -m 'Promote AI Companion v0.29.0 clean baseline'
-            git push origin HEAD:main
-          fi
-
-      - name: Upload v0.29.0 APK
+      - name: Upload v0.29.0 clean APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.29.0-A2-Clean-Baseline-APK
+          name: AI-Companion-v0.29.0-Clean-APK
           if-no-files-found: error
           compression-level: 0
           path: |
-            ai_companion_v0_28/build/app/outputs/flutter-apk/app-release.apk
-            ai_companion_v0_28/app-release.apk.sha256
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/app-release.apk.sha256
