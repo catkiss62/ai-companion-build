@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AI Companion</string>
+    <string name="accessibility_description">让 AI 伴侣在你明确授权后读取当前应用的可见界面文字，作为陪伴上下文。敏感应用和密码内容会被过滤。</string>
+</resources>

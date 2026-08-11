@@ -1,0 +1,159 @@
+/// Incremental splitter that mirrors Meju A2 `processText()` sentence
+/// boundaries.
+///
+/// A2 splits only on:
+///   。 ！ ？ ； . ! ? ;
+/// It does not split on commas, ideographic commas, newlines or ellipsis and
+/// it has no 72/116-character fallback. Delimiters themselves are not spoken.
+///
+/// The original A2 removes bracketed blocks before splitting. For streaming
+/// input we preserve the same effect by ignoring sentence punctuation while it
+/// is inside one of those removable bracket pairs; TtsTextProcessor removes
+/// the bracketed block itself before generation.
+class TtsSentenceSegmenter {
+  String _buffer = '';
+  String _fenceCarry = '';
+  bool _inFence = false;
+  final List<String> _bracketStack = <String>[];
+
+  List<String> add(String delta) {
+    if (delta.isEmpty) return const [];
+    _consume(delta);
+    return _drain(finalFlush: false);
+  }
+
+  List<String> flush() {
+    if (_fenceCarry.isNotEmpty && !_inFence) {
+      _buffer += _fenceCarry;
+    }
+    _fenceCarry = '';
+    final ready = _drain(finalFlush: true);
+    reset();
+    return ready;
+  }
+
+  void reset() {
+    _buffer = '';
+    _fenceCarry = '';
+    _inFence = false;
+    _bracketStack.clear();
+  }
+
+  void _consume(String delta) {
+    var text = _fenceCarry + delta;
+    _fenceCarry = '';
+    var offset = 0;
+
+    while (offset < text.length) {
+      final fence = text.indexOf('```', offset);
+      if (fence < 0) {
+        var tail = text.substring(offset);
+        var trailingTicks = 0;
+        for (var i = tail.length - 1; i >= 0 && trailingTicks < 2; i--) {
+          if (tail[i] != '`') break;
+          trailingTicks++;
+        }
+        if (trailingTicks > 0) {
+          _fenceCarry = tail.substring(tail.length - trailingTicks);
+          tail = tail.substring(0, tail.length - trailingTicks);
+        }
+        if (!_inFence) _appendOutsideFence(tail);
+        break;
+      }
+
+      if (!_inFence && fence > offset) {
+        _appendOutsideFence(text.substring(offset, fence));
+      }
+      _inFence = !_inFence;
+      offset = fence + 3;
+    }
+  }
+
+  void _appendOutsideFence(String text) {
+    for (final rune in text.runes) {
+      final c = String.fromCharCode(rune);
+      _trackBracket(c);
+      _buffer += c;
+    }
+  }
+
+  void _trackBracket(String c) {
+    const pairs = <String, String>{
+      '(': ')',
+      '（': '）',
+      '<': '>',
+      '{': '}',
+      '[': ']',
+      '【': '】',
+    };
+    final close = pairs[c];
+    if (close != null) {
+      _bracketStack.add(close);
+      return;
+    }
+    if (_bracketStack.isNotEmpty && c == _bracketStack.last) {
+      _bracketStack.removeLast();
+    }
+  }
+
+  List<String> _drain({required bool finalFlush}) {
+    final out = <String>[];
+    while (true) {
+      final boundary = _findA2Boundary(_buffer);
+      if (boundary == null) break;
+      final chunk = _buffer.substring(0, boundary.start).trim();
+      _buffer = _buffer.substring(boundary.end);
+      if (chunk.isNotEmpty) out.add(chunk);
+    }
+
+    if (finalFlush) {
+      final rest = _buffer.trim();
+      if (rest.isNotEmpty) out.add(rest);
+      _buffer = '';
+    }
+    return out;
+  }
+
+  _Boundary? _findA2Boundary(String text) {
+    final stack = <String>[];
+    const pairs = <String, String>{
+      '(': ')',
+      '（': '）',
+      '<': '>',
+      '{': '}',
+      '[': ']',
+      '【': '】',
+    };
+
+    for (var i = 0; i < text.length; i++) {
+      final c = text[i];
+      final close = pairs[c];
+      if (close != null) {
+        stack.add(close);
+        continue;
+      }
+      if (stack.isNotEmpty && c == stack.last) {
+        stack.removeLast();
+        continue;
+      }
+      if (stack.isNotEmpty || !_isA2Delimiter(c)) continue;
+
+      var end = i + 1;
+      while (end < text.length && _isA2Delimiter(text[end])) {
+        end++;
+      }
+      return _Boundary(i, end);
+    }
+    return null;
+  }
+
+  bool _isA2Delimiter(String c) =>
+      c == '。' || c == '！' || c == '？' || c == '；' ||
+      c == '.' || c == '!' || c == '?' || c == ';';
+}
+
+class _Boundary {
+  const _Boundary(this.start, this.end);
+  final int start;
+  final int end;
+}
