@@ -1,4 +1,4 @@
-name: Build AI Companion v0.28.3 APK
+name: Build AI Companion v0.28.4 APK
 
 on:
   workflow_dispatch:
@@ -8,6 +8,7 @@ on:
       - 'v0281-startup-recovery.patch'
       - 'v0282-android-sqlite-open.patch'
       - 'v0283-tts-chat-recovery.patch'
+      - 'v0284-legacy-coroutine-bridge.patch'
       - '.github/workflows/build-v028-apk.yml'
 
 permissions:
@@ -46,6 +47,7 @@ jobs:
           test -f v0281-startup-recovery.patch
           test -f v0282-android-sqlite-open.patch
           test -f v0283-tts-chat-recovery.patch
+          test -f v0284-legacy-coroutine-bridge.patch
 
       - name: Apply v0.28.1 startup recovery patch
         shell: bash
@@ -117,6 +119,27 @@ jobs:
           print('v0.28.3 inline real-device fix validation passed.')
           PY
 
+      - name: Apply v0.28.4 legacy coroutine bridge patch
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          patch -p1 < ../v0284-legacy-coroutine-bridge.patch
+          grep -q '^version: 0.28.4+32$' pubspec.yaml
+          python3 tools/validate_v0284_legacy_coroutine.py
+          python3 tools/validate_tts_kotlin_v25.py
+          python3 tools/validate_tts_queue_v25.py
+
+      - name: Install stable AI Companion test signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          printf '%s' 'MIIKhgIBAzCCCjAGCSqGSIb3DQEHAaCCCiEEggodMIIKGTCCBcAGCSqGSIb3DQEHAaCCBbEEggWtMIIFqTCCBaUGCyqGSIb3DQEMCgECoIIFQDCCBTwwZgYJKoZIhvcNAQUNMFkwOAYJKoZIhvcNAQUMMCsEFOVIuw9aeMI3CC04uILI7EtWEejKAgInEAIBIDAMBggqhkiG9w0CCQUAMB0GCWCGSAFlAwQBKgQQTye5Ph7lJy6BDEjeHeZBdgSCBNBfsuXeJOyuGDCXJPWpExza06F2Fq5huj0ALvaoBN5YvI/kJFxziNKliSZ1TX+4QidkJiuVC1VgduYUSdGmK+KFQASaQHUaoJvrFf6FAOG9o77RcwjtJYiK5h5uRUbQyyUqfk1pMUP2mRLXZmsJZI4tYC94EfjcoF+cTu3lIB4bOcgVRk7aCR2HrlnVPxgg97/UF7ZPGFaQ3FVrwswdFrZrSdModYVpwo2Es37ODbz6iEYpsNRbpMLrUOwv1ew8QutGhjSD5DPH3s/MtFOgh2C2He7rrDtMpb7MLJfLfI0gSGwTP3BIJGDhj/Fo2HthiqJr6bkzpUcaZ2wOQDoeO2g/+wMLeImaDxl7MIAjvrLCqQ0WBg7SFZIdpjBk80ds1V8poaK3kc7rLmoYewhMzg6FEE28U7bqg6g/DKqlazcN6oY+llZ1cbCI7X8mkWxckW05hO3TCNhdETFlw2gP9yeMlhMTkNcvIPOi379asJ6HXCYh1WTHUqGYttZT0bY+0QOm0bp5gfAVn6KKuPqX+sjMKPnpLbCRMDyHPhNxqyqalDGJoL3mllgWNhF7eTaA7IALV6aknYIYLZQ3ghiu0eAqBvTV0GhzkVxWlthkZ+YASYr+7nDKkLGYiJMJ0Pg5Qm3W/fF2Cdc9noSvfVMPFt9epRvqxrueo/M/uH4jepxJM+d61R1nJPZJ4SRYJmSO1NUUVWoZfiUF0ZSY7IYKQBkGnC/2LZAyff0U1TWjRhoZWCkEY5HzmhybkUeyAB+9ZyhSM84iy7ADhbgXm2c8BLC1brHBv2mxAPkSyNpRQ9c9l6y0kSnq2EptshGBWx56GRLQ4ZQ4tV7SrW3HeKoZIzhxBSb6FLQZ8wkq0/jYTDshvsV3nX8G0b1fN7KM/2oKOYAovvy19b7p9Cz60WCntrBxrOgII/Y7d4HddJiqW400AkseJvBa46g6qRoWkSLyJKISBFr+mfP3+NYRS2m0T+APNT5//mlq95DmDSW3K75PyULY3D4kVVNGsImaaIXYWIEt+n+IJIz6Lhi9UQcZqdUU5ySrddJoKOawu1PCCrj/ClAZO2Zw9WqWBM5kOcQye7ExXwAhzxelawsYvOcj6YHRSk72dbnn+hHPq/++65hENGpNa2h4jzMyCk4Qx6WSGwJwZG1rTbKfYQ2+F2K6IqMYOvw89eiwI5xqIEX2eVGqc19XDLTbMHv3NSLW3TtO+bfuQlgFyoTEGUPjNT97fbeZexhXKz+4bgR997xPNUcuaHAjG1+D8JeLpclrHyz9sExvbO4+DOf2E6xT6gqM/Ov0WgSUnpEQgfeFaSJTiJGFEkHFdFStWUfdQnVQhd6w1u3sXj2Q3A7M9wA1z/DZYrtREQWTJ36ndgmOlo9Dky03eTTMVfQ5L7BKwCRUP7rlynp/hnoFHlbzd3GbHUl2xDGkvh3cKMvtwKlp7Pqm0YVsMfKDWVayG6JU3anD+0iVbHBs1dgo8MlqGllTApELyb0CiYEv9ptiRL1PdRzZYsC5FJYzvFqQwGnNWcv/huF1yFgeuQCLW4gMakiyJ+WH0N7aQvq4VisUSWSHoxzZaVVqgUfT9UQFiiPoNVz3DWkgUj1NFKKdFaX5Ti1I6y3tEcWdGrCr1cIlUk2gOCl1I7doSDFSMC0GCSqGSIb3DQEJFDEgHh4AYQBuAGQAcgBvAGkAZABkAGUAYgB1AGcAawBlAHkwIQYJKoZIhvcNAQkVMRQEElRpbWUgMTc4NjQ3MDU0MTQ2NDCCBFEGCSqGSIb3DQEHBqCCBEIwggQ+AgEAMIIENwYJKoZIhvcNAQcBMGYGCSqGSIb3DQEFDTBZMDgGCSqGSIb3DQEFDDArBBQL/BYr2N3H7/5Dzp7oTWeuGz//4gICJxACASAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEJZ5hbh2Gx+BCK22yAXrXzmAggPAE6IGj0CAILEi88uvU/FBPk/mWGcgS3codj4frtqt+GZwnmHXv0qpvLskQSiHeUbvq3J4eh9JMvQE7jWUUf8evuIuD+/FbvhqKjCdVPlMlglDhTPzaXJ1+3W33ePkYKnP9NPMnmvQC25xhTWL3OfpwoktUjK7pNo4PhB7TwZxRWwW0E2THNYWcTdA6Aykm8XM3mr3Z11XUtOFrlzNUHn26gn9NHgXAP0nwS7LE8OQs7+mw9MGSY1Hu2o0MyecZziE8vycWwHsY4qHEhBhiKVC+l7I9qp6dF/jTYCUNFBGBssV1gnuVRwJPzRHLm91XpJscdv+u53GZ0D/jMorEWuCgtsMQpyLLxGIHYt0k4te1j2tpHB2PSD3GjdQjURV4T1W2hn7ONac7CI44EldnhkRmjve5/Tx258EGQ78YoVONuwglVtAs03F1gnjk8sFTlWzZyl6aDVdNVJZdbUIRMPJn89QiBPburDpBOHaeoUG2LQez4Qv0ZjjJhjB8qeWRQ8KPbulFU0wKnVtQQgWq7NVEqHUyaVV4aX9LVl6cR+sHWW3hdgqK5TutL5uYX4QuOxPmm8cMhsGp5tSw4AtPezqXEdOq0phbngFSdlnFOKM/wo+mgGCaQNopVSBLDkeqjVGJsPegjmM1q0JnwmaNVWSFyyYQIPtjANiKOc98KEfanxiAQ3pNFP7SkX+miBZZATPxKP0K8b/IFrhxKP7LA0gooczeOTpMSCg+C1hEIEz7wyNoV9vJYGAAc5z3u4HQx/yksv20PamziRYHSrks0FbLidhb/GD4y1rjhRXvHG4ZmvkhLqxzCMlhg9uGxipOddIgvGOzxJbRLqwAfblijzW5ZDiMfIL02Ec5v451VjZIqosePsRcaX5ELKGBpGjE7Snrs/qQ9iHTCUoqdV31bY8DSKB7Q+BuYG8eFax+ANoT9Pzfq6BUnaft/p2AYSdJEeQuso3aXLT6B1yggnS2w9ZyHkSDCOPIRV1xl+6cLqwwVaE+ePwzwI80VPPxsp3/kh3ZqWshwj4+g0N4rlcUJkkKxAMh3G8EVG4WK2M+mafF6TlF8STMxcPpE4wPvZj6WkT8SRW+u7T8NtQEi9yv1F3hFdXeTtk5fqG7GtjM1PxEtqKbAyeGBjS2lkMCA2cEHL/g4JKuF7HzOMtuJbgx1BTuXe/YYcj1Qer+Pt+LEwimeWHg6IjmI6K94hkMg4hBQdt5baWSKb86z9HLpJpIwLQWaX/rAA45APWSZO/kMLIBJ++G1yal00Yi0GlDo/wTChuME0wMTANBglghkgBZQMEAgEFAAQgvV56cQ4KZ4NmIXrH4t9lqZIKdSMAWxnDmaIaOcL8qxoEFCpTKT8b7nxn5K2gp3xFxLGFR093AgInEA==' | base64 --decode > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          echo "c5d927a90ef96a12eb858e63e071a2cdd3bd6656446ce8ee07517090dbba9a5d  $HOME/.android/debug.keystore" | sha256sum -c -
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
       - name: Resolve Flutter packages
         working-directory: ai_companion_v0_28
         run: flutter pub get
@@ -168,10 +191,10 @@ jobs:
           sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
           ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload v0.28.3 checkpoint APK
+      - name: Upload v0.28.4 checkpoint APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28.3-TTS-Chat-Recovery-APK
+          name: AI-Companion-v0.28.4-TTS-Coroutine-Bridge-APK
           if-no-files-found: error
           compression-level: 0
           path: |
