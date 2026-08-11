@@ -1,4 +1,4 @@
-name: Build AI Companion v0.28.4 APK
+name: Build AI Companion v0.28.5 APK
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ on:
       - 'v0282-android-sqlite-open.patch'
       - 'v0283-tts-chat-recovery.patch'
       - 'v0284-legacy-coroutine-bridge.patch'
+      - 'v0285-coroutine-classloader-diagnostic.patch'
       - '.github/workflows/build-v028-apk.yml'
 
 permissions:
@@ -48,6 +49,7 @@ jobs:
           test -f v0282-android-sqlite-open.patch
           test -f v0283-tts-chat-recovery.patch
           test -f v0284-legacy-coroutine-bridge.patch
+          test -f v0285-coroutine-classloader-diagnostic.patch
 
       - name: Apply v0.28.1 startup recovery patch
         shell: bash
@@ -130,6 +132,18 @@ jobs:
           python3 tools/validate_tts_kotlin_v25.py
           python3 tools/validate_tts_queue_v25.py
 
+      - name: Apply v0.28.5 coroutine ClassLoader + staged diagnostic patch
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          patch -p1 < ../v0285-coroutine-classloader-diagnostic.patch
+          grep -q '^version: 0.28.5+33$' pubspec.yaml
+          python3 tools/validate_v0285_coroutine_bridge.py
+          python3 tools/validate_v0285_coroutine_proxy_jvm.py
+          python3 tools/validate_tts_kotlin_v25.py
+          python3 tools/validate_tts_queue_v25.py
+
       - name: Install stable AI Companion test signing key
         shell: bash
         run: |
@@ -191,10 +205,10 @@ jobs:
           sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
           ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload v0.28.4 checkpoint APK
+      - name: Upload v0.28.5 checkpoint APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28.4-TTS-Coroutine-Bridge-APK
+          name: AI-Companion-v0.28.5-TTS-Staged-Diagnostic-APK
           if-no-files-found: error
           compression-level: 0
           path: |
