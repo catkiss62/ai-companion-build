@@ -1,0 +1,208 @@
+diff --git a/README.md b/README.md
+index 0ec8daa..70f2dad 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# AI Companion · v0.28.1 Startup Recovery Checkpoint
++# AI Companion · v0.28.2 Android SQLite Open Fix
+ 
+ Local-first Android AI companion prototype. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android daily awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
+ 
+@@ -40,5 +40,5 @@ See:
+ - `docs/ROADMAP.md`
+ 
+ 
+-## v0.28.1 startup recovery
+-The first real Android 15 run exposed a pre-first-frame startup stall. v0.28.1 paints a recovery surface before opening SQLite and reports the exact startup phase instead of presenting a permanent black screen.
++## v0.28.2 Android SQLite open fix
++The v0.28.1 recovery surface exposed the next real-device blocker: Android sqflite rejects `PRAGMA journal_mode = WAL` through `execute()` because that PRAGMA returns data. v0.28.2 keeps the visible startup recovery and performs query-returning PRAGMAs through `rawQuery()`.
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index d94f88e..d7890da 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,3 +1,21 @@
++# v0.28.2 开发状态 · Android SQLite Open Fix
++
++## 真机触发原因
++
++- v0.28.1 已成功绘制启动恢复页，证明 Flutter 首帧修复生效。
++- REDMI K80 Ultra / Android 15 在“打开本地数据库”阶段返回：`Queries can be performed using SQLiteDatabase query or rawQuery methods only`，指向 `PRAGMA journal_mode = WAL`。
++- Android `SQLiteDatabase.execSQL()` 不允许执行返回数据的 SQL；`journal_mode` 会返回实际模式，因此 sqflite `execute()` 会失败。
++
++## v0.28.2 修复
++
++- 保留 `foreign_keys = ON` 的执行语义。
++- `journal_mode = WAL` 改为 `rawQuery()`，并校验实际返回值必须为 `wal`；不允许静默降级。
++- `synchronous = NORMAL` 同样走 `rawQuery()`，避免 Android 对 query-returning PRAGMA 的 execute 限制。
++- schema 仍为 v18；Memory/Relationship/TTS/Active Brain/Transfer 不改。
++- 版本更新为 `0.28.2+30`。
++
++---
++
+ # v0.28.1 开发状态 · Startup Recovery Patch
+ 
+ ## 真机触发原因
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index 0091d62..43e6aab 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,14 +1,14 @@
+-# Roadmap after v0.28.1
++# Roadmap after v0.28.2
+ 
+ ## Current checkpoint
+ 
+ v0.12–v0.27 established the durable/local-first companion architecture, long-term relationship memory, proactive behavior, Android awareness, verified MejuTTS core, single-Active-Brain phone↔tablet transfer and local redacted diagnostics.
+ 
+-v0.28 added the **first real-device checkpoint harness**. The first real Android 15 APK then exposed a pre-first-frame black-screen stall because v0.28 awaited SQLite readiness before `runApp()`. v0.28.1 is the narrow startup-recovery checkpoint: it paints immediately, diagnoses database/identity startup visibly, and leaves the companion brain, TTS payloads and ownership protocol unchanged.
++v0.28 added the **first real-device checkpoint harness**. The first real Android 15 APK then exposed a pre-first-frame black-screen stall because v0.28 awaited SQLite readiness before `runApp()`. v0.28.1 made startup failures visible. The first visible failure was Android sqflite rejecting `PRAGMA journal_mode = WAL` through `execute()`. v0.28.2 fixes the Android database-open path without changing schema or companion semantics.
+ 
+ ## Immediate next action
+ 
+-Build the v0.28.1 startup-recovery APK and first confirm that the app paints a visible startup surface instead of black-screening. If startup succeeds, continue the original hardware checkpoint in order:
++Build the v0.28.2 SQLite-recovery APK and confirm database open, device identity and main-shell entry on the real Android 15 phone. If startup succeeds, continue the original hardware checkpoint in order:
+ 
+ 1. quick preflight;
+ 2. deep MejuTTS/JNI initialization;
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index 55f1c41..83cf7cf 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,3 +1,12 @@
++# v0.28.2 SQLite Open 真机检查
++
++1. 启动必须立即看到 `AI Companion · v0.28.2 · SQLite Recovery`。
++2. “打开本地数据库”应通过，不再出现 `PRAGMA journal_mode = WAL` 的 execute/rawQuery 错误。
++3. 如果数据库通过，记录“检查本机身份”和“进入主界面”是否继续通过。
++4. 首次进入主界面后再继续原 Checkpoint；当前轮先不要同时排查 TTS/Nearby。
++
++---
++
+ # v0.28.1 Startup Recovery 真机检查
+ 
+ 1. 启动后必须立即看到 `AI Companion · v0.28.1 · Startup Recovery`，不得继续纯黑。
+diff --git a/lib/core/database/app_database.dart b/lib/core/database/app_database.dart
+index df9eff4..f3bc7ee 100644
+--- a/lib/core/database/app_database.dart
++++ b/lib/core/database/app_database.dart
+@@ -68,8 +68,14 @@ class AppDatabase {
+       version: schemaVersion,
+       onConfigure: (db) async {
+         await db.execute('PRAGMA foreign_keys = ON');
+-        await db.execute('PRAGMA journal_mode = WAL');
+-        await db.execute('PRAGMA synchronous = NORMAL');
++        final journalRows = await db.rawQuery('PRAGMA journal_mode = WAL');
++        final journalMode = journalRows.isEmpty
++            ? ''
++            : journalRows.first.values.first?.toString().toLowerCase() ?? '';
++        if (journalMode != 'wal') {
++          throw StateError('SQLite WAL mode unavailable (journal_mode=$journalMode)');
++        }
++        await db.rawQuery('PRAGMA synchronous = NORMAL');
+       },
+       onCreate: (db, version) async => _createSchema(db),
+       onUpgrade: _upgradeSchema,
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index e164c43..53619d6 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -341,7 +341,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.28.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.28.2 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index 407f5e8..b77731a 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.28.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.28.2 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index d331f15..2fa9f2d 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.28.1',
++            'AI Companion · v0.28.2',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index 10c3fc7..3b3f107 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -126,7 +126,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.28.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.28.2 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index b45b45e..f223d75 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -148,7 +148,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.28.1 · Startup Recovery',
++                    'v0.28.2 · SQLite Recovery',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index eec2f7a..890b6bf 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.28.1+29
++version: 0.28.2+30
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/tools/validate_v0282_pragma.py b/tools/validate_v0282_pragma.py
+new file mode 100644
+index 0000000..5516e94
+--- /dev/null
++++ b/tools/validate_v0282_pragma.py
+@@ -0,0 +1,20 @@
++from pathlib import Path
++import re
++
++root = Path(__file__).resolve().parents[1]
++db = (root / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++pubspec = (root / 'pubspec.yaml').read_text(encoding='utf-8')
++
++assert 'version: 0.28.2+30' in pubspec
++assert "db.execute('PRAGMA journal_mode = WAL')" not in db
++assert "db.rawQuery('PRAGMA journal_mode = WAL')" in db
++assert "db.rawQuery('PRAGMA synchronous = NORMAL')" in db
++assert "journalMode != 'wal'" in db
++
++# Any journal_mode PRAGMA in Dart app code must not be sent through execute().
++for path in (root / 'lib').rglob('*.dart'):
++    text = path.read_text(encoding='utf-8')
++    if re.search(r"\.execute\(\s*['\"]PRAGMA\s+journal_mode", text, flags=re.I):
++        raise AssertionError(f'query-returning journal_mode PRAGMA uses execute(): {path}')
++
++print('v0.28.2 Android PRAGMA validation passed.')
