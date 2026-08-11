@@ -1,4 +1,4 @@
-name: Build AI Companion v0.28.2 APK
+name: Build AI Companion v0.28.3 APK
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
       - 'ai_companion_v0_28_source.part-*'
       - 'v0281-startup-recovery.patch'
       - 'v0282-android-sqlite-open.patch'
+      - 'v0283-tts-chat-recovery.patch'
       - '.github/workflows/build-v028-apk.yml'
 
 permissions:
@@ -44,6 +45,7 @@ jobs:
           test -f ai_companion_v0_28/pubspec.yaml
           test -f v0281-startup-recovery.patch
           test -f v0282-android-sqlite-open.patch
+          test -f v0283-tts-chat-recovery.patch
 
       - name: Apply v0.28.1 startup recovery patch
         shell: bash
@@ -60,9 +62,16 @@ jobs:
           set -euo pipefail
           patch -p1 < ../v0282-android-sqlite-open.patch
           grep -q '^version: 0.28.2+30$' pubspec.yaml
-          grep -q "rawQuery('PRAGMA journal_mode = WAL')" lib/core/database/app_database.dart
-          ! grep -q "execute('PRAGMA journal_mode = WAL')" lib/core/database/app_database.dart
           python3 tools/validate_v0282_pragma.py
+
+      - name: Apply v0.28.3 TTS/chat recovery patch
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          patch -p1 < ../v0283-tts-chat-recovery.patch
+          grep -q '^version: 0.28.3+31$' pubspec.yaml
+          python3 tools/validate_v0283_real_device_fixes.py
 
       - name: Resolve Flutter packages
         working-directory: ai_companion_v0_28
@@ -76,6 +85,36 @@ jobs:
         working-directory: ai_companion_v0_28
         run: flutter build apk --release
 
+      - name: Verify Meju native payload stayed byte-identical in APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, pathlib, sys, zipfile
+          root = pathlib.Path('ai_companion_v0_28')
+          apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
+          src = root / 'android/app/src/main/jniLibs/arm64-v8a'
+          libs = [
+              'libbertvits2.so',
+              'libMNN.so',
+              'libMNN_Express.so',
+              'libMNN_Vulkan.so',
+              'libcppjieba.so',
+              'libcpptokenizer.so',
+          ]
+          with zipfile.ZipFile(apk) as z:
+              for name in libs:
+                  source = (src / name).read_bytes()
+                  packed = z.read('lib/arm64-v8a/' + name)
+                  sh = hashlib.sha256(source).hexdigest()
+                  ph = hashlib.sha256(packed).hexdigest()
+                  print(name, len(source), sh, 'APK', len(packed), ph)
+                  if source != packed:
+                      print(f'ERROR: release packaging changed {name}', file=sys.stderr)
+                      sys.exit(1)
+          print('All 6 Meju native payloads are byte-identical in release APK.')
+          PY
+
       - name: Verify APK and create SHA-256
         shell: bash
         run: |
@@ -85,10 +124,10 @@ jobs:
           sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
           ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload v0.28.2 checkpoint APK
+      - name: Upload v0.28.3 checkpoint APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28.2-SQLite-Recovery-APK
+          name: AI-Companion-v0.28.3-TTS-Chat-Recovery-APK
           if-no-files-found: error
           compression-level: 0
           path: |
