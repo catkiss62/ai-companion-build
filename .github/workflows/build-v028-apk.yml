@@ -1,24 +1,15 @@
-name: Build AI Companion v0.28.5 APK
+name: Promote AI Companion v0.29.0 Clean Baseline
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'ai_companion_v0_28_source.part-*'
-      - 'v0281-startup-recovery.patch'
-      - 'v0282-android-sqlite-open.patch'
-      - 'v0283-tts-chat-recovery.patch'
-      - 'v0284-legacy-coroutine-bridge.patch'
-      - 'v0285-coroutine-classloader-diagnostic.patch'
-      - '.github/workflows/build-v028-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build-apk:
+  promote-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
@@ -36,7 +27,7 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
 
-      - name: Restore verified v0.28 base source
+      - name: Restore verified v0.28 bootstrap source
         shell: bash
         run: |
           set -euo pipefail
@@ -45,13 +36,17 @@ jobs:
           echo "53d2aefb922c6477087bddb93b44a4b95e7e1a0c4b4bea3e1d9611486c9bbea8 ai_companion_v0_28_source.zip" | sha256sum -c -
           unzip -q ai_companion_v0_28_source.zip
           test -f ai_companion_v0_28/pubspec.yaml
-          test -f v0281-startup-recovery.patch
-          test -f v0282-android-sqlite-open.patch
-          test -f v0283-tts-chat-recovery.patch
-          test -f v0284-legacy-coroutine-bridge.patch
-          test -f v0285-coroutine-classloader-diagnostic.patch
+          for f in \
+            v0281-startup-recovery.patch \
+            v0282-android-sqlite-open.patch \
+            v0283-tts-chat-recovery.patch \
+            v0284-legacy-coroutine-bridge.patch \
+            v0285-coroutine-classloader-diagnostic.patch \
+            v0290-a2-clean-baseline.patch; do
+            test -f "$f"
+          done
 
-      - name: Apply v0.28.1 startup recovery patch
+      - name: Apply verified v0.28.1-v0.28.5 chain
         shell: bash
         working-directory: ai_companion_v0_28
         run: |
@@ -59,90 +54,50 @@ jobs:
           patch -p1 < ../v0281-startup-recovery.patch
           grep -q '^version: 0.28.1+29$' pubspec.yaml
 
-      - name: Apply v0.28.2 Android SQLite open patch
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
           patch -p1 < ../v0282-android-sqlite-open.patch
           grep -q '^version: 0.28.2+30$' pubspec.yaml
           python3 tools/validate_v0282_pragma.py
 
-      - name: Apply v0.28.3 TTS/chat recovery patch
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
           patch -p1 < ../v0283-tts-chat-recovery.patch
           grep -q '^version: 0.28.3+31$' pubspec.yaml
-          python3 - <<'PY'
-          from pathlib import Path
 
-          root = Path('.')
-          assert 'version: 0.28.3+31' in (root / 'pubspec.yaml').read_text()
-
-          gradle = (root / 'android/app/build.gradle.kts').read_text()
-          for lib in [
-              'libbertvits2.so',
-              'libMNN.so',
-              'libMNN_Express.so',
-              'libMNN_Vulkan.so',
-              'libcppjieba.so',
-              'libcpptokenizer.so',
-          ]:
-              assert f'**/{lib}' in gradle, lib
-          assert 'keepDebugSymbols' in gradle
-
-          db = (root / 'lib/core/database/app_database.dart').read_text()
-          block = db[
-              db.index('Future<int> pruneTableByAgeAndCap'):
-              db.index('Future<int> pruneCompletedPostTurnJobs')
-          ]
-          assert "'daily_continuity'" in block
-          assert "'window_start'" in block
-
-          chat = (root / 'lib/features/chat/chat_controller.dart').read_text()
-          init = chat[
-              chat.index('Future<void> initialize()'):
-              chat.index('Future<void> reload()')
-          ]
-          assert 'loading = false;' in init
-          assert 'unawaited(_runStartupMaintenanceSafely())' in init
-          assert init.index('loading = false;') < init.index(
-              'unawaited(_runStartupMaintenanceSafely())'
-          )
-          assert 'await longMaintenance.maybeRun();' not in init
-
-          settings = (root / 'lib/features/settings/settings_page.dart').read_text()
-          assert '测试 API 连接' in settings
-          assert 'Duration(seconds: 30)' in settings
-          assert "'Reply with OK only.'" in settings
-
-          print('v0.28.3 inline real-device fix validation passed.')
-          PY
-
-      - name: Apply v0.28.4 legacy coroutine bridge patch
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
           patch -p1 < ../v0284-legacy-coroutine-bridge.patch
           grep -q '^version: 0.28.4+32$' pubspec.yaml
           python3 tools/validate_v0284_legacy_coroutine.py
-          python3 tools/validate_tts_kotlin_v25.py
-          python3 tools/validate_tts_queue_v25.py
 
-      - name: Apply v0.28.5 coroutine ClassLoader + staged diagnostic patch
-        shell: bash
-        working-directory: ai_companion_v0_28
-        run: |
-          set -euo pipefail
           patch -p1 < ../v0285-coroutine-classloader-diagnostic.patch
           grep -q '^version: 0.28.5+33$' pubspec.yaml
           python3 tools/validate_v0285_coroutine_bridge.py
           python3 tools/validate_v0285_coroutine_proxy_jvm.py
+
+      - name: Apply v0.29.0 A2 + clean-baseline patch
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          patch -p1 < ../v0290-a2-clean-baseline.patch
+          grep -q '^version: 0.29.0+34$' pubspec.yaml
+          python3 tools/validate_v029_a2_tts.py
           python3 tools/validate_tts_kotlin_v25.py
           python3 tools/validate_tts_queue_v25.py
+          python3 tools/validate_tts_v025.py
+
+      - name: Core regression suite
+        shell: bash
+        working-directory: ai_companion_v0_28
+        run: |
+          set -euo pipefail
+          python3 tools/validate_durable_generation_sql.py
+          python3 tools/validate_recovery_orchestration_sql.py
+          python3 tools/validate_reference_library_sql.py
+          python3 tools/validate_awareness_sql.py
+          python3 tools/validate_relationship_presentation_sql.py
+          python3 tools/validate_memory_v15_sql.py
+          python3 tools/validate_proactive_rhythm_v16_sql.py
+          python3 tools/validate_daily_continuity_v17_sql.py
+          python3 tools/validate_transfer_v18_sql.py
+          python3 tools/validate_manual_crypto_v26.py
+          python3 tools/validate_preflight_redaction_v27.py
 
       - name: Install stable AI Companion test signing key
         shell: bash
@@ -162,6 +117,10 @@ jobs:
         working-directory: ai_companion_v0_28
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Flutter tests
+        working-directory: ai_companion_v0_28
+        run: flutter test
+
       - name: Build release APK
         working-directory: ai_companion_v0_28
         run: flutter build apk --release
@@ -170,45 +129,73 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 - <<'PY2'
           import hashlib, pathlib, sys, zipfile
           root = pathlib.Path('ai_companion_v0_28')
           apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
           src = root / 'android/app/src/main/jniLibs/arm64-v8a'
           libs = [
-              'libbertvits2.so',
-              'libMNN.so',
-              'libMNN_Express.so',
-              'libMNN_Vulkan.so',
-              'libcppjieba.so',
-              'libcpptokenizer.so',
+              'libbertvits2.so', 'libMNN.so', 'libMNN_Express.so',
+              'libMNN_Vulkan.so', 'libcppjieba.so', 'libcpptokenizer.so',
           ]
           with zipfile.ZipFile(apk) as z:
               for name in libs:
                   source = (src / name).read_bytes()
                   packed = z.read('lib/arm64-v8a/' + name)
-                  sh = hashlib.sha256(source).hexdigest()
-                  ph = hashlib.sha256(packed).hexdigest()
-                  print(name, len(source), sh, 'APK', len(packed), ph)
+                  print(name, len(source), hashlib.sha256(source).hexdigest())
                   if source != packed:
                       print(f'ERROR: release packaging changed {name}', file=sys.stderr)
                       sys.exit(1)
-          print('All 6 Meju native payloads are byte-identical in release APK.')
-          PY
+          bert = (src / 'libbertvits2.so').read_bytes()
+          prefix = bert[:635352]
+          assert hashlib.sha256(prefix).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
+          assert set(bert[635352:]) <= {0}
+          print('All 6 Meju native payloads are byte-identical; A2 original ELF prefix verified.')
+          PY2
 
-      - name: Verify APK and create SHA-256
+      - name: Create APK checksum
         shell: bash
         run: |
           set -euo pipefail
           APK='ai_companion_v0_28/build/app/outputs/flutter-apk/app-release.apk'
-          test -s "$APK"
           sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
-          ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload v0.28.5 checkpoint APK
+      - name: Promote complete source into app directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app
+          mkdir -p app
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.dart_tool' \
+            --exclude='build' \
+            --exclude='android/.gradle' \
+            --exclude='android/local.properties' \
+            --exclude='pubspec.lock' \
+            ai_companion_v0_28/ app/
+          test -f app/pubspec.yaml
+          grep -q '^version: 0.29.0+34$' app/pubspec.yaml
+          python3 app/tools/validate_v029_a2_tts.py
+
+      - name: Commit v0.29.0 clean baseline to repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app
+          if git diff --cached --quiet; then
+            echo 'app/ is already the v0.29.0 clean baseline; nothing to commit.'
+          else
+            git commit -m 'Promote AI Companion v0.29.0 clean baseline'
+            git push origin HEAD:main
+          fi
+
+      - name: Upload v0.29.0 APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28.5-TTS-Staged-Diagnostic-APK
+          name: AI-Companion-v0.29.0-A2-Clean-Baseline-APK
           if-no-files-found: error
           compression-level: 0
           path: |
