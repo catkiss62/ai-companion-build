@@ -1,0 +1,603 @@
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# AI Companion · v0.28 First Real-device Checkpoint Harness
++# AI Companion · v0.28.1 Startup Recovery Checkpoint
+ 
+ Local-first Android AI companion prototype. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android daily awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
+ 
+@@ -38,3 +38,7 @@
+ - `docs/PREFLIGHT_DIAGNOSTICS_v0.27.md`
+ - `docs/DEV_STATUS.md`
+ - `docs/ROADMAP.md`
++
++
++## v0.28.1 startup recovery
++The first real Android 15 run exposed a pre-first-frame startup stall. v0.28.1 paints a recovery surface before opening SQLite and reports the exact startup phase instead of presenting a permanent black screen.
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,3 +1,22 @@
++# v0.28.1 开发状态 · Startup Recovery Patch
++
++## 真机触发原因
++
++- REDMI K80 Ultra / Android 15 首次 release APK 可安装，但启动后内容区永久纯黑；无权限弹窗，系统状态栏/导航栏仍可见。
++- 首次真实 Flutter release build 同时暴露并修复 `durable_generation_runner.dart` 缺少 `DriveKey` import。
++- 源码审计确认 v0.28 `main()` 在 `runApp()` 前同步等待 `AppDatabase.ensureReady()`，任何 SQLite/identity 初始化阻塞都会直接造成“第一帧永远不出现”。
++
++## v0.28.1 修复
++
++- `runApp()` 立即执行；第一帧先显示 Startup Recovery 页面。
++- 数据库打开与本机身份分为独立可见阶段，分别设置 30s / 10s 诊断超时。
++- release 模式 Widget 构建错误使用可见 ErrorWidget，不再只留下纯黑区域。
++- SQLite 打开增加 in-flight Future 复用，超时/重试不会并发打开两个数据库。
++- schema 仍为 v18；TTS 黄金负载、Memory/Relationship、Active Brain、Transfer 协议不改。
++- 版本更新为 `0.28.1+29`。
++
++---
++
+ # v0.28 开发状态 · First Real-device Checkpoint Harness
+ 
+ ## 已完成
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,14 +1,14 @@
+-# Roadmap after v0.28
++# Roadmap after v0.28.1
+ 
+ ## Current checkpoint
+ 
+ v0.12–v0.27 established the durable/local-first companion architecture, long-term relationship memory, proactive behavior, Android awareness, verified MejuTTS core, single-Active-Brain phone↔tablet transfer and local redacted diagnostics.
+ 
+-v0.28 adds the **first real-device checkpoint harness**: one guided surface that runs quick/deep preflight, production-path TTS playback, perception checks and links into the real overlay/system/transfer surfaces. It deliberately does not simulate relationship traffic or create a second test backend.
++v0.28 added the **first real-device checkpoint harness**. The first real Android 15 APK then exposed a pre-first-frame black-screen stall because v0.28 awaited SQLite readiness before `runApp()`. v0.28.1 is the narrow startup-recovery checkpoint: it paints immediately, diagnoses database/identity startup visibly, and leaves the companion brain, TTS payloads and ownership protocol unchanged.
+ 
+ ## Immediate next action
+ 
+-Build the v0.28 checkpoint APK in a standard Flutter/Android environment, then validate on the user's real phone in order:
++Build the v0.28.1 startup-recovery APK and first confirm that the app paints a visible startup surface instead of black-screening. If startup succeeds, continue the original hardware checkpoint in order:
+ 
+ 1. quick preflight;
+ 2. deep MejuTTS/JNI initialization;
+--- a/docs/STARTUP_RECOVERY_v0.28.1.md
++++ b/docs/STARTUP_RECOVERY_v0.28.1.md
+@@ -0,0 +1,13 @@
++# v0.28.1 · Startup Recovery
++
++First real-device checkpoint on Redmi K80 Ultra / Android 15 showed a permanent black Flutter surface before any permission prompt. The v0.28 entry point awaited `AppDatabase.ensureReady()` before `runApp()`, so any database/opening stall prevented the first Flutter frame entirely.
++
++## Patch
++- `runApp()` happens immediately.
++- A visible startup recovery surface is painted before local database work begins.
++- Database opening and device identity are separate visible phases with bounded waits.
++- Startup exceptions are rendered on-screen in release builds.
++- The database singleton caches an in-flight open so a timeout/retry cannot start competing opens.
++- Includes the `DriveKey` import exposed by the first real Flutter release build.
++
++No schema change. TTS payloads, Memory/Relationship semantics, Active Brain ownership and transfer protocol are unchanged.
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,3 +1,12 @@
++# v0.28.1 Startup Recovery 真机检查
++
++1. 启动后必须立即看到 `AI Companion · v0.28.1 · Startup Recovery`，不得继续纯黑。
++2. 记录四步中停在哪一步：Flutter 首帧 / 打开本地数据库 / 检查本机身份 / 进入主界面。
++3. 如果超时或异常，截图完整错误卡片，不需要先授权任何权限。
++4. 如果进入主界面，再回到 v0.28 Checkpoint 顺序继续快速自检、深度 TTS、发声、权限/感知、悬浮/后台、双设备。
++
++---
++
+ # v0.28 First real-device checkpoint
+ 
+ Recommended order on the first phone APK:
+--- a/lib/core/ai/durable_generation_runner.dart
++++ b/lib/core/ai/durable_generation_runner.dart
+@@ -3,6 +3,7 @@
+ import '../database/app_database.dart';
+ import '../desire/desire_engine.dart';
+ import '../models/chat_message.dart';
++import '../models/desire_state.dart';
+ import '../models/generation_job.dart';
+ import '../storage/secure_config.dart';
+ import 'deepseek_client.dart';
+--- a/lib/core/database/app_database.dart
++++ b/lib/core/database/app_database.dart
+@@ -35,10 +35,26 @@
+   static const int schemaVersion = 18;
+ 
+   Database? _db;
++  Future<Database>? _opening;
+   final Uuid _uuid = Uuid();
+   final Map<String, String> _ownedLeaseTokens = <String, String>{};
+ 
+-  Future<Database> get database async => _db ??= await _open();
++  Future<Database> get database async {
++    final ready = _db;
++    if (ready != null) return ready;
++    final opening = _opening;
++    if (opening != null) return opening;
++
++    final pending = _open();
++    _opening = pending;
++    try {
++      final opened = await pending;
++      _db = opened;
++      return opened;
++    } finally {
++      if (identical(_opening, pending)) _opening = null;
++    }
++  }
+ 
+   Future<String> get databasePath async {
+     final root = await getDatabasesPath();
+@@ -6703,7 +6719,16 @@
+   }
+ 
+   Future<void> close() async {
++    final opening = _opening;
++    if (opening != null) {
++      try {
++        await opening;
++      } catch (_) {
++        // Opening failed; there is no database handle to close.
++      }
++    }
+     await _db?.close();
+     _db = null;
++    _opening = null;
+   }
+ }
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -341,7 +341,7 @@
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.28 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.28.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.28 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.28.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.28',
++            'AI Companion · v0.28.1',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -126,7 +126,7 @@
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.28 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.28.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1,10 +1,271 @@
++import 'dart:async';
++
+ import 'package:flutter/material.dart';
+ 
+ import 'app.dart';
+ import 'core/database/app_database.dart';
+ 
+-Future<void> main() async {
++void main() {
+   WidgetsFlutterBinding.ensureInitialized();
+-  await AppDatabase.instance.ensureReady();
+-  runApp(const AiCompanionApp());
+-}
++  ErrorWidget.builder = (details) => _FatalFlutterError(details: details);
++  runApp(const _StartupRecoveryRoot());
++}
++
++class _StartupRecoveryRoot extends StatefulWidget {
++  const _StartupRecoveryRoot();
++
++  @override
++  State<_StartupRecoveryRoot> createState() => _StartupRecoveryRootState();
++}
++
++class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
++  final List<_StartupStep> _steps = <_StartupStep>[
++    const _StartupStep('Flutter 首帧', _StartupStepState.pending),
++    const _StartupStep('打开本地数据库', _StartupStepState.pending),
++    const _StartupStep('检查本机身份', _StartupStepState.pending),
++    const _StartupStep('进入主界面', _StartupStepState.pending),
++  ];
++
++  bool _running = false;
++  bool _ready = false;
++  String? _error;
++  int? _failedStep;
++
++  @override
++  void initState() {
++    super.initState();
++    WidgetsBinding.instance.addPostFrameCallback((_) {
++      if (!mounted) return;
++      _markDone(0);
++      unawaited(_bootstrap());
++    });
++  }
++
++  Future<void> _bootstrap() async {
++    if (_running || _ready) return;
++    setState(() {
++      _running = true;
++      _error = null;
++      _failedStep = null;
++      for (var i = 1; i < _steps.length; i++) {
++        _steps[i] = _StartupStep(_steps[i].label, _StartupStepState.pending);
++      }
++    });
++
++    try {
++      await _runStep(
++        1,
++        () => AppDatabase.instance.database.timeout(const Duration(seconds: 30)),
++      );
++      await _runStep(
++        2,
++        () => AppDatabase.instance.ensureDeviceId().timeout(const Duration(seconds: 10)),
++      );
++      _markRunning(3);
++      await Future<void>.delayed(const Duration(milliseconds: 250));
++      _markDone(3);
++      if (!mounted) return;
++      setState(() {
++        _ready = true;
++        _running = false;
++      });
++    } on TimeoutException catch (error) {
++      _failCurrent('初始化超时：${error.message ?? '某个启动步骤没有在限定时间内完成'}');
++    } catch (error, stackTrace) {
++      FlutterError.reportError(
++        FlutterErrorDetails(
++          exception: error,
++          stack: stackTrace,
++          library: 'AI Companion startup recovery',
++          context: ErrorDescription('while bootstrapping the local companion runtime'),
++        ),
++      );
++      _failCurrent('${error.runtimeType}: $error');
++    }
++  }
++
++  Future<void> _runStep(int index, Future<Object?> Function() action) async {
++    _markRunning(index);
++    await action();
++    _markDone(index);
++  }
++
++  void _markRunning(int index) {
++    if (!mounted) return;
++    setState(() {
++      _steps[index] = _StartupStep(_steps[index].label, _StartupStepState.running);
++      _failedStep = index;
++    });
++  }
++
++  void _markDone(int index) {
++    if (!mounted) return;
++    setState(() {
++      _steps[index] = _StartupStep(_steps[index].label, _StartupStepState.done);
++      if (_failedStep == index) _failedStep = null;
++    });
++  }
++
++  void _failCurrent(String message) {
++    if (!mounted) return;
++    setState(() {
++      _running = false;
++      _error = message;
++      final index = _failedStep;
++      if (index != null) {
++        _steps[index] = _StartupStep(_steps[index].label, _StartupStepState.failed);
++      }
++    });
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    if (_ready) return const AiCompanionApp();
++    return MaterialApp(
++      debugShowCheckedModeBanner: false,
++      title: 'AI Companion Startup',
++      themeMode: ThemeMode.dark,
++      darkTheme: ThemeData(
++        brightness: Brightness.dark,
++        colorSchemeSeed: const Color(0xFFB082FF),
++        useMaterial3: true,
++      ),
++      home: Scaffold(
++        body: SafeArea(
++          child: Center(
++            child: ConstrainedBox(
++              constraints: const BoxConstraints(maxWidth: 560),
++              child: ListView(
++                padding: const EdgeInsets.fromLTRB(24, 36, 24, 32),
++                shrinkWrap: true,
++                children: [
++                  const Icon(Icons.favorite_rounded, size: 54),
++                  const SizedBox(height: 18),
++                  Text(
++                    'AI Companion',
++                    textAlign: TextAlign.center,
++                    style: Theme.of(context).textTheme.headlineMedium,
++                  ),
++                  const SizedBox(height: 6),
++                  Text(
++                    'v0.28.1 · Startup Recovery',
++                    textAlign: TextAlign.center,
++                    style: Theme.of(context).textTheme.bodyMedium,
++                  ),
++                  const SizedBox(height: 28),
++                  Card(
++                    child: Padding(
++                      padding: const EdgeInsets.all(16),
++                      child: Column(
++                        children: [
++                          for (final step in _steps) _StartupStepRow(step: step),
++                        ],
++                      ),
++                    ),
++                  ),
++                  if (_error != null) ...[
++                    const SizedBox(height: 16),
++                    Card(
++                      child: Padding(
++                        padding: const EdgeInsets.all(16),
++                        child: Column(
++                          crossAxisAlignment: CrossAxisAlignment.start,
++                          children: [
++                            Text('启动没有完成', style: Theme.of(context).textTheme.titleMedium),
++                            const SizedBox(height: 8),
++                            SelectableText(_error!),
++                            const SizedBox(height: 12),
++                            const Text(
++                              '这条信息只显示当前启动阶段，不会读取或显示聊天正文、API Key、通知正文或 Reference 内容。',
++                            ),
++                          ],
++                        ),
++                      ),
++                    ),
++                    const SizedBox(height: 12),
++                    FilledButton.icon(
++                      onPressed: _running ? null : _bootstrap,
++                      icon: const Icon(Icons.refresh_rounded),
++                      label: const Text('重新尝试'),
++                    ),
++                  ] else if (_running) ...[
++                    const SizedBox(height: 18),
++                    const Center(child: CircularProgressIndicator()),
++                    const SizedBox(height: 12),
++                    const Text('第一次启动可能需要几秒。数据库或本机身份如果异常，会直接显示在哪一步。', textAlign: TextAlign.center),
++                  ],
++                ],
++              ),
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++enum _StartupStepState { pending, running, done, failed }
++
++class _StartupStep {
++  const _StartupStep(this.label, this.state);
++  final String label;
++  final _StartupStepState state;
++}
++
++class _StartupStepRow extends StatelessWidget {
++  const _StartupStepRow({required this.step});
++  final _StartupStep step;
++
++  @override
++  Widget build(BuildContext context) {
++    final (icon, color) = switch (step.state) {
++      _StartupStepState.pending => (Icons.radio_button_unchecked_rounded, Theme.of(context).colorScheme.outline),
++      _StartupStepState.running => (Icons.timelapse_rounded, Theme.of(context).colorScheme.primary),
++      _StartupStepState.done => (Icons.check_circle_rounded, Colors.greenAccent),
++      _StartupStepState.failed => (Icons.error_rounded, Theme.of(context).colorScheme.error),
++    };
++    return Padding(
++      padding: const EdgeInsets.symmetric(vertical: 8),
++      child: Row(
++        children: [
++          Icon(icon, color: color),
++          const SizedBox(width: 12),
++          Expanded(child: Text(step.label)),
++        ],
++      ),
++    );
++  }
++}
++
++class _FatalFlutterError extends StatelessWidget {
++  const _FatalFlutterError({required this.details});
++  final FlutterErrorDetails details;
++
++  @override
++  Widget build(BuildContext context) {
++    return Directionality(
++      textDirection: TextDirection.ltr,
++      child: ColoredBox(
++        color: const Color(0xFF101014),
++        child: SafeArea(
++          child: SingleChildScrollView(
++            padding: const EdgeInsets.all(24),
++            child: DefaultTextStyle(
++              style: const TextStyle(color: Colors.white, fontSize: 14),
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  const Text('AI Companion · Flutter UI error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
++                  const SizedBox(height: 16),
++                  SelectableText('${details.exceptionAsString()}'),
++                  const SizedBox(height: 12),
++                  const Text('请把这一页截图发回即可。'),
++                ],
++              ),
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.28.0+28
++version: 0.28.1+29
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+--- a/tools/validate_v0281.py
++++ b/tools/validate_v0281.py
+@@ -0,0 +1,118 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++import argparse, hashlib, re, sys, zipfile
++from pathlib import Path
++
++import validate_v028 as prev
++import validate_v025 as tts_prev
++
++ROOT = Path(__file__).resolve().parents[1]
++base = prev.base
++
++def fail(msg: str):
++    raise AssertionError(msg)
++
++def check_version_schema():
++    pub=(ROOT/'pubspec.yaml').read_text(encoding='utf-8')
++    if not re.search(r'^version:\s*0\.28\.1\+29\s*$', pub, re.M):
++        fail('pubspec version != 0.28.1+29')
++    db=(ROOT/'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++    if 'static const int schemaVersion = 18;' not in db:
++        fail('v0.28.1 must keep schema 18')
++    more=(ROOT/'lib/features/more/companion_more_page.dart').read_text(encoding='utf-8')
++    if 'AI Companion · v0.28.1' not in more:
++        fail('More version label != v0.28.1')
++
++def check_startup_recovery():
++    main=(ROOT/'lib/main.dart').read_text(encoding='utf-8')
++    required=(
++        'runApp(const _StartupRecoveryRoot())',
++        "const _StartupStep('Flutter 首帧'",
++        "const _StartupStep('打开本地数据库'",
++        "const _StartupStep('检查本机身份'",
++        "const _StartupStep('进入主界面'",
++        'AppDatabase.instance.database.timeout(const Duration(seconds: 30))',
++        'AppDatabase.instance.ensureDeviceId().timeout(const Duration(seconds: 10))',
++        'ErrorWidget.builder',
++        'v0.28.1 · Startup Recovery',
++    )
++    for token in required:
++        if token not in main:
++            fail(f'startup recovery missing: {token}')
++    run_pos=main.find('runApp(const _StartupRecoveryRoot())')
++    db_pos=main.find('AppDatabase.instance.database.timeout')
++    if run_pos < 0 or db_pos < 0 or run_pos > db_pos:
++        fail('database work must occur after immediate runApp')
++    prefix=main[:run_pos]
++    if 'await AppDatabase' in prefix or '.ensureReady()' in prefix:
++        fail('blocking database initialization remains before runApp')
++
++    db=(ROOT/'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++    for token in ('Future<Database>? _opening;', 'if (opening != null) return opening;', '_opening = pending;', 'identical(_opening, pending)'):
++        if token not in db:
++            fail(f'in-flight database open protection missing: {token}')
++
++    runner=(ROOT/'lib/core/ai/durable_generation_runner.dart').read_text(encoding='utf-8')
++    if "import '../models/desire_state.dart';" not in runner:
++        fail('DriveKey compile import not persisted into v0.28.1 source')
++
++def compare_freeze(baseline: Path | None) -> int:
++    if baseline is None:
++        return 0
++    allowed={
++        'README.md','pubspec.yaml','docs/DEV_STATUS.md','docs/ROADMAP.md','docs/TEST_CHECKLIST.md',
++        'docs/STARTUP_RECOVERY_v0.28.1.md','lib/main.dart','lib/core/database/app_database.dart',
++        'lib/core/ai/durable_generation_runner.dart','lib/core/diagnostics/preflight_diagnostics.dart',
++        'lib/features/inner/inner_page.dart','lib/features/more/companion_more_page.dart',
++        'lib/features/system/real_device_checkpoint_page.dart','tools/validate_v0281.py',
++    }
++    with zipfile.ZipFile(baseline) as z:
++        names=[n for n in z.namelist() if not n.endswith('/')]
++        prefix=next(n.split('/',1)[0] for n in names if '/' in n)
++        checked=0
++        for name in names:
++            if not name.startswith(prefix+'/'):
++                continue
++            rel=name[len(prefix)+1:]
++            if rel in allowed:
++                continue
++            cur=ROOT/rel
++            if not cur.exists():
++                fail(f'unexpected v0.28 file deletion: {rel}')
++            if hashlib.sha256(cur.read_bytes()).digest()!=hashlib.sha256(z.read(name)).digest():
++                fail(f'unexpected change outside v0.28.1 allowlist: {rel}')
++            checked+=1
++        return checked
++
++def main():
++    ap=argparse.ArgumentParser(); ap.add_argument('--baseline-zip',type=Path); args=ap.parse_args()
++    checks=[
++        ('XML/Manifest',base.check_xml_manifest),
++        ('Dart relative imports',base.check_relative_imports),
++        ('Dart/Kotlin delimiters',base.check_delimiters),
++        ('Duplicate Dart declarations',base.check_adjacent_duplicate_dart_declarations),
++        ('Version/schema 18',check_version_schema),
++        ('Startup recovery contract',check_startup_recovery),
++        ('v0.27 native diagnostics',prev.prev.check_native_diagnostics),
++        ('v0.27 native preflight bridge',prev.prev.check_native_preflight_bridge),
++        ('No cloud/telemetry dependency',prev.prev.check_no_cloud_dependency),
++        ('v0.26 bound snapshot protocol',prev.prev.prev.check_snapshot_protocol),
++        ('Proactive pipeline',base.check_proactive_pipeline),
++        ('Notification quick reply',base.check_notification_quick_reply),
++        ('True overlay regression',base.check_true_overlay_regression),
++    ]
++    for name, fn in checks:
++        fn(); print('[OK]', name)
++    frozen=compare_freeze(args.baseline_zip)
++    if args.baseline_zip:
++        print(f'[OK] v0.28 frozen files byte-identical outside v0.28.1 allowlist: {frozen}')
++        tts=tts_prev.compare_tts_binary_freeze(args.baseline_zip)
++        print(f'[OK] TTS model/runtime/native payload unchanged from v0.28: {tts}')
++    print('v0.28.1 Startup Recovery validation passed.')
++
++if __name__=='__main__':
++    try:
++        main()
++    except Exception as exc:
++        print(f'[FAIL] {exc}', file=sys.stderr)
++        raise
