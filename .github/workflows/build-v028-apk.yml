@@ -71,7 +71,51 @@ jobs:
           set -euo pipefail
           patch -p1 < ../v0283-tts-chat-recovery.patch
           grep -q '^version: 0.28.3+31$' pubspec.yaml
-          python3 tools/validate_v0283_real_device_fixes.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          assert 'version: 0.28.3+31' in (root / 'pubspec.yaml').read_text()
+
+          gradle = (root / 'android/app/build.gradle.kts').read_text()
+          for lib in [
+              'libbertvits2.so',
+              'libMNN.so',
+              'libMNN_Express.so',
+              'libMNN_Vulkan.so',
+              'libcppjieba.so',
+              'libcpptokenizer.so',
+          ]:
+              assert f'**/{lib}' in gradle, lib
+          assert 'keepDebugSymbols' in gradle
+
+          db = (root / 'lib/core/database/app_database.dart').read_text()
+          block = db[
+              db.index('Future<int> pruneTableByAgeAndCap'):
+              db.index('Future<int> pruneCompletedPostTurnJobs')
+          ]
+          assert "'daily_continuity'" in block
+          assert "'window_start'" in block
+
+          chat = (root / 'lib/features/chat/chat_controller.dart').read_text()
+          init = chat[
+              chat.index('Future<void> initialize()'):
+              chat.index('Future<void> reload()')
+          ]
+          assert 'loading = false;' in init
+          assert 'unawaited(_runStartupMaintenanceSafely())' in init
+          assert init.index('loading = false;') < init.index(
+              'unawaited(_runStartupMaintenanceSafely())'
+          )
+          assert 'await longMaintenance.maybeRun();' not in init
+
+          settings = (root / 'lib/features/settings/settings_page.dart').read_text()
+          assert '测试 API 连接' in settings
+          assert 'Duration(seconds: 30)' in settings
+          assert "'Reply with OK only.'" in settings
+
+          print('v0.28.3 inline real-device fix validation passed.')
+          PY
 
       - name: Resolve Flutter packages
         working-directory: ai_companion_v0_28
