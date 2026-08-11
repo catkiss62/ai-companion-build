@@ -1,10 +1,11 @@
-name: Build AI Companion v0.28 APK
+name: Build AI Companion v0.28.1 APK
 
 on:
   workflow_dispatch:
   push:
     paths:
       - 'ai_companion_v0_28_source.part-*'
+      - 'v0281-startup-recovery.patch'
       - '.github/workflows/build-v028-apk.yml'
 
 permissions:
@@ -25,13 +26,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Setup Flutter 3.44.9
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: '3.44.9'
 
-      - name: Restore source
+      - name: Restore verified v0.28 base source
         shell: bash
         run: |
           set -euo pipefail
@@ -40,17 +41,19 @@ jobs:
           echo "53d2aefb922c6477087bddb93b44a4b95e7e1a0c4b4bea3e1d9611486c9bbea8 ai_companion_v0_28_source.zip" | sha256sum -c -
           unzip -q ai_companion_v0_28_source.zip
           test -f ai_companion_v0_28/pubspec.yaml
+          test -f v0281-startup-recovery.patch
 
-      - name: Apply v0.28 compile hotfix
+      - name: Apply v0.28.1 startup recovery patch
         shell: bash
+        working-directory: ai_companion_v0_28
         run: |
           set -euo pipefail
-          FILE='ai_companion_v0_28/lib/core/ai/durable_generation_runner.dart'
-          grep -q "import '../models/desire_state.dart';" "$FILE" || \
-            sed -i "/import '..\/models\/chat_message.dart';/a import '../models/desire_state.dart';" "$FILE"
-          grep -n "desire_state.dart" "$FILE"
+          patch -p1 < ../v0281-startup-recovery.patch
+          grep -q '^version: 0.28.1+29$' pubspec.yaml
+          grep -q 'runApp(const _StartupRecoveryRoot())' lib/main.dart
+          grep -q "import '../models/desire_state.dart';" lib/core/ai/durable_generation_runner.dart
 
-      - name: Flutter pub get
+      - name: Resolve Flutter packages
         working-directory: ai_companion_v0_28
         run: flutter pub get
 
@@ -58,25 +61,25 @@ jobs:
         working-directory: ai_companion_v0_28
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build APK
+      - name: Build release APK
         working-directory: ai_companion_v0_28
         run: flutter build apk --release
 
-      - name: APK checksum
+      - name: Verify APK and create SHA-256
         shell: bash
         run: |
           set -euo pipefail
           APK='ai_companion_v0_28/build/app/outputs/flutter-apk/app-release.apk'
           test -s "$APK"
-          sha256sum "$APK" | tee apk.sha256
-          ls -lh "$APK" apk.sha256
+          sha256sum "$APK" | tee ai_companion_v0_28/app-release.apk.sha256
+          ls -lh "$APK" ai_companion_v0_28/app-release.apk.sha256
 
-      - name: Upload APK
+      - name: Upload v0.28.1 checkpoint APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.28-Checkpoint-APK
+          name: AI-Companion-v0.28.1-Startup-Recovery-APK
           if-no-files-found: error
           compression-level: 0
           path: |
             ai_companion_v0_28/build/app/outputs/flutter-apk/app-release.apk
-            apk.sha256
+            ai_companion_v0_28/app-release.apk.sha256
