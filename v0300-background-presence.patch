@@ -1,0 +1,924 @@
+diff --git a/README.md b/README.md
+index b50721b..89526a9 100644
+--- a/README.md
++++ b/README.md
+@@ -1,36 +1,21 @@
+-# AI Companion · v0.29.1 TTS / UI Polish
++# AI Companion · v0.30.0 Background Presence
+ 
+-Local-first Android AI companion. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
++Local-first Android AI companion focused on one persistent AI self: long-term memory, relationship state, Thought/Desire, coarse phone awareness, proactive contact, local Meju TTS, true native overlay chat, and single-Active-Brain phone/tablet takeover.
+ 
+-## v0.29.1 checkpoint
++## v0.30.0 checkpoint
+ 
+-The first Android 15 device checkpoint has now passed app startup, SQLite, permissions, chat generation and the legacy TTS coroutine/ClassLoader bridge. v0.29.0 addresses the remaining TTS cadence mismatch by restoring the verified Meju A2 scheduling behavior instead of serially doing `generate -> play -> generate -> play`.
++v0.29.0 established the clean GitHub source baseline and Meju A2 TTS scheduling. v0.29.1 completed non-blocking TTS/UI polish, but real-device testing exposed a deeper background issue: the native overlay opened while the headless Dart command server was not actually reachable, leaving overlay history empty and sends at “她还在重新连接”.
+ 
+-Key TTS properties:
++v0.30.0 fixes the background Dart entrypoint/handshake path and begins real Background Presence:
+ 
+-- verified original A2 `libbertvits2.so` body (`635352` bytes, SHA-256 `a1ca5180…c5551b`) remains frozen inside the padded APK entry;
+-- split only on `。！？；.!?;`;
+-- no comma/newline/ellipsis or character-count splitting;
+-- later sentence WAVs generate while the current sentence is playing;
+-- FIFO playback with the original ~200 ms ready-queue gap;
+-- no 60-second pending-request cleanup;
+-- `Yuki -> 有希` remains speech-only.
++- root-library `@pragma('vm:entry-point')` anchor for the headless companion runtime;
++- engine identity published before Dart execution to remove the ready-handshake race;
++- overlay auto-refresh after ready and non-destructive reconnect behavior;
++- coarse, privacy-preserving reactive wakes from notification/window/unlock signals;
++- native + Dart 90-second coalescing before an early perception heartbeat;
++- no bypass of Active Brain fencing, chat/proactive leases, proactive Gate, busy soft multiplier or hard message ceilings;
++- redacted diagnostics for background ready/wake/perception/proactive progression.
+ 
+-Database schema remains **18**. No Memory/Relationship/Active Brain/Transfer migration is introduced.
++The project source under `app/` is the single source of truth in GitHub. Historical split ZIPs and v0.28 patch-chain inputs are obsolete.
+ 
+-## GitHub baseline promotion
+-
+-v0.29.0 is also the cutoff for the temporary five-part ZIP + patch-chain build process. A one-time promotion workflow reconstructs the verified source and commits the complete Flutter project under `app/`. Only after a clean build from `app/` succeeds should the old split parts and v0.28.x patches be removed.
+-
+-See:
+-
+-- `docs/TTS_A2_BASELINE_v0.29.md`
+-- `docs/GITHUB_CLEAN_BASELINE_v0.29.md`
+-- `docs/REAL_DEVICE_CHECKPOINT_v0.28.md`
+-- `docs/DEV_STATUS.md`
+-- `docs/ROADMAP.md`
+-
+-
+-## v0.29.1 polish
+-
+-The Meju A2 native/runtime baseline remains frozen. v0.29.1 normalizes layout line breaks before A2 segmentation, renders reasoning above assistant text, shrinks/fixes the overlay unread bubble, returns the latest 8 overlay messages immediately from SQLite, and introduces `docs/HANDOFF.md` as the mandatory cross-window handoff source.
++See `docs/HANDOFF.md` first when continuing the project in another chat/window.
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+index 1e89c11..057a877 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+@@ -37,6 +37,12 @@ class AccessibilityBridgeService : AccessibilityService() {
+             summary = sanitized.ifBlank { "窗口发生变化" },
+             metadata = mapOf("class" to e.className?.toString()),
+         )
++        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
++            // Window changes are a useful coarse sign that the user's context
++            // changed, but the wake reason deliberately contains no package or
++            // accessibility text.
++            OverlayBubbleService.requestSignalBrainWake(this, "accessibility_window")
++        }
+     }
+ 
+     override fun onInterrupt() {
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/NotificationBridgeService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/NotificationBridgeService.kt
+index 26dfa7a..19628b5 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/NotificationBridgeService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/NotificationBridgeService.kt
+@@ -53,6 +53,10 @@ class NotificationBridgeService : NotificationListenerService() {
+             summary = summary,
+             metadata = mapOf("notification_id" to item.id),
+         )
++        // Wake only with a coarse reason; notification text/package never
++        // crosses this boundary. The service coalesces signal wakes so a burst
++        // of notifications cannot turn into a burst of model evaluations.
++        OverlayBubbleService.requestSignalBrainWake(this, "notification")
+     }
+ 
+     override fun onDestroy() {
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+index a1eefe1..bc7d739 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+@@ -160,6 +160,7 @@ class OverlayBubbleService : Service() {
+                         bubbleRoot?.visibility = View.VISIBLE
+                         CompanionRuntimeState.setOverlayVisible(true)
+                     }
++                    requestSignalBrainWake(this@OverlayBubbleService, "device_present")
+                 }
+             }
+         }
+@@ -771,8 +772,16 @@ class OverlayBubbleService : Service() {
+         if (chatSending) return
+         val text = chatInput?.text?.toString()?.trim().orEmpty()
+         if (text.isEmpty()) return
++        if (!backgroundBrainReady) {
++            pendingBrainWakeReason = "overlay_connect"
++            brainWakeAttempt = 0
++            if (backgroundEngine == null) startBackgroundBrain()
++            signalBackgroundBrainWake()
++            setChatStatus("正在连接后台大脑…")
++            return
++        }
+         val channel = backgroundCommands ?: run {
+-            setChatStatus("她还在重新连接，请稍后再试。", true)
++            setChatStatus("正在连接后台大脑…")
+             return
+         }
+         chatSending = true
+@@ -1008,6 +1017,9 @@ class OverlayBubbleService : Service() {
+                             if (pendingInlineReplies.isNotEmpty()) {
+                                 mainHandler.postDelayed({ flushInlineReplies() }, 300L)
+                             }
++                            if (chatExpanded) {
++                                mainHandler.post { refreshOverlayMessages(opened = true, attempt = 0) }
++                            }
+                         } else {
+                             result.success(false)
+                         }
+@@ -1019,9 +1031,13 @@ class OverlayBubbleService : Service() {
+                 loader.findAppBundlePath(),
+                 "companionBackgroundMain",
+             )
+-            createdEngine.dartExecutor.executeDartEntrypoint(entrypoint)
++            // Publish the engine identity before Dart starts. The Dart entrypoint
++            // installs its command handler immediately and can handshake back on
++            // the same main-loop turn; assigning afterwards creates a real race
++            // where a healthy isolate is rejected as "not our engine".
+             backgroundEngine = createdEngine
+             backgroundBrainReady = false
++            createdEngine.dartExecutor.executeDartEntrypoint(entrypoint)
+             // If Dart never reaches its MethodChannel handshake (for example a
+             // startup exception before companionBackgroundMain finishes
+             // installing handlers), do not leave a dead Engine looking healthy
+@@ -1469,6 +1485,8 @@ class OverlayBubbleService : Service() {
+         private const val PERMISSION_WATCH_MS = 30_000L
+         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
+         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
++        private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
++        private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
+ 
+         @Volatile var running: Boolean = false
+             private set
+@@ -1550,6 +1568,17 @@ class OverlayBubbleService : Service() {
+             }
+         }
+ 
++        @Synchronized
++        fun requestSignalBrainWake(context: Context, reason: String): Boolean {
++            val now = System.currentTimeMillis()
++            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++            val last = prefs.getLong(KEY_LAST_SIGNAL_WAKE_AT, 0L)
++            if (last > 0L && now - last < SIGNAL_WAKE_MIN_INTERVAL_MS) return false
++            val sent = requestBrainWake(context, "signal:${reason.take(80)}")
++            if (sent) prefs.edit().putLong(KEY_LAST_SIGNAL_WAKE_AT, now).apply()
++            return sent
++        }
++
+         fun startPersistent(context: Context, reason: String) {
+             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return
+             if (!NativeEventStore.isActiveBrain(context)) return
+diff --git a/docs/BACKGROUND_PRESENCE_v0.30.md b/docs/BACKGROUND_PRESENCE_v0.30.md
+new file mode 100644
+index 0000000..b5f2dd5
+--- /dev/null
++++ b/docs/BACKGROUND_PRESENCE_v0.30.md
+@@ -0,0 +1,45 @@
++# v0.30.0 · Background Presence
++
++This stage turns the existing Android sensing/overlay infrastructure into an actually reachable background companion path. It does not redesign memory, TTS, Active Brain, or the proactive personality model.
++
++## Root cause fixed: overlay background Dart entrypoint
++
++The native service started a second `FlutterEngine` with the entrypoint name `companionBackgroundMain`, but that function lived only in `background_main.dart`. The release root library (`main.dart`) did not import/anchor it. The service could therefore own a real engine/channel object while Dart never installed `BackgroundChatCommandServer`, which matches the real-device symptom: empty overlay history and `notImplemented` -> “她还在重新连接”.
++
++v0.30.0 exports a `@pragma('vm:entry-point')` proxy from the root library and imports the background runtime explicitly. Native also publishes the engine identity before executing Dart so the first `backgroundDartReady` handshake cannot lose a race against `backgroundEngine = createdEngine`.
++
++## Overlay reconnect behavior
++
++- An expanded overlay refreshes immediately when the Dart-ready handshake arrives.
++- Send does not clear/optimistically enqueue the user's text while the background brain is not ready. The input remains visible and the UI shows “正在连接后台大脑…”.
++- Existing restart/timeout logic remains bounded; the ready handshake is still authoritative.
++
++## Reactive phone-presence wake
++
++Raw phone events remain local and redacted exactly as before. v0.30.0 only adds a coarse wake signal:
++
++- notification posted -> `signal:notification`
++- Accessibility window-state change -> `signal:accessibility_window`
++- device unlock/present -> `signal:device_present`
++
++No package name, notification text, Accessibility text, title, or content is placed in the wake reason.
++
++Native coalesces these wakes to at most one every 90 seconds. Dart applies a second 90-second minimum before advancing perception early. Normal scheduled heartbeats still use the existing 7-24 minute desire-driven cadence.
++
++A reactive wake does **not** directly send a message. It only allows the normal chain to run sooner:
++
++`device signal -> Perception/Awareness -> Thought/Desire -> existing proactive Gate -> optional model wording -> notification/overlay unread`
++
++All existing anti-spam ceilings, busy soft multiplier, Active Brain fencing, chat-turn lease and proactive lease remain in force.
++
++## Diagnostics
++
++The redacted preflight report now includes:
++
++- native `backgroundBrainReady` as a visible check;
++- last coarse background wake reason;
++- last proactive decision reason;
++- last perception capture timestamp;
++- next scheduled heartbeat timestamp.
++
++This is deliberately enough to distinguish “Android event never woke Dart”, “perception ran but Gate waited”, and “message delivery failed” without exporting private notification/chat text.
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index ee48664..2020784 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,11 +1,10 @@
+-# v0.29.1 开发状态 · TTS / UI Polish
++# v0.30.0 开发状态 · Background Presence
+ 
+-- 版本：`0.29.1+35`，数据库 schema 仍为 v18。
+-- 最近真机稳定基底：v0.29.0 Clean Baseline。
+-- TTS native/model/runtime 冻结；A2 只按 `。！？；.!?;` 分句，generation-ahead + FIFO + ~200ms 保持。
+-- v0.29.1 在 A2 边界扫描前把 CR/LF/U+2028/U+2029 归一为空格，作为最后一轮非阻断 TTS 小优化。
+-- Chat 完成态/流式态均改为 reasoning 在正文上方。
+-- 悬浮球缩小，unread badge 强制置于最高视觉层。
+-- 悬浮聊天默认最近 8 条，并把历史读取从完整 ChatController warm-up 解耦；更早历史按需加载。
+-- 新增 `docs/HANDOFF.md`，今后每版同步维护。
+-- 本轮后主线转向手机行为感知 -> Thought/Desire -> 主动联系真机调优。
++- 版本：`0.30.0+36`；数据库 schema 仍为 v18，无迁移。
++- 最近完整真机稳定基底：v0.29.0 Clean Baseline；v0.29.1 的 TTS/UI polish 已真机运行，但发现 native overlay 展开后后台 Dart command server 未就绪，历史为空且发送显示“她还在重新连接”。
++- v0.30.0 首要修复 background FlutterEngine 的 Dart entrypoint 可达性与 ready handshake race。
++- 悬浮聊天在后台未 ready 时保留输入，不再清空用户文字；ready 后自动刷新最近 8 条历史。
++- Notification / Accessibility window change / device unlock 只发送粗粒度 `signal:*` wake；native 与 Dart 双层 90 秒去抖。
++- reactive wake 只提前运行现有 Perception -> Thought/Desire -> Proactive Gate，不绕过 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
++- TTS v0.29 A2 baseline 冻结；轻微停顿不再阻塞主线。
++- 下一真机重点：后台大脑连接、悬浮聊天真实收发、切 App/收通知/解锁后 backgroundPresence 诊断是否推进，以及是否能在合理 Gate 条件下产生主动联系。
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 3849bae..7151f73 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -4,10 +4,10 @@
+ 
+ ## 1. 当前基底
+ 
+-- 当前源码候选：**v0.29.1+35 · TTS / UI Polish**。
++- 当前源码候选：**v0.30.0+36 · Background Presence**。
+ - 最近一次用户真机确认稳定：**v0.29.0+34 Clean Baseline**。
+ - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
+-- 数据库：**schema v18**，v0.29.1 不做 schema 迁移。
++- 数据库：**schema v18**，v0.30.0 不做 schema 迁移。
+ - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
+ 
+ ## 2. 项目定位
+@@ -57,7 +57,7 @@
+ 
+ v0.29.1 仅把 CR/LF/U+2028/U+2029 在进入 A2 边界扫描前归一成普通空格；若真机仍有轻微停顿，**不再阻塞项目推进**，以后作为体验微调处理。
+ 
+-## 5. v0.29.1 本轮 UI / Overlay 改动
++## 5. v0.29.1 UI / Overlay 已完成改动
+ 
+ - 悬浮球窗口 70dp -> 62dp，主体 58dp -> 50dp，角标 24dp -> 20dp。
+ - unread 角标显式 elevation/translationZ + bringToFront，避免数字被球体压住。
+@@ -79,25 +79,32 @@ v0.29.0 用户已确认：
+ - A2 generation-ahead 版本可正常运行。
+ - Clean GitHub workflow 可以从完整 `app/` 源码构建 APK，并且生成 APK 可正常安装运行。
+ 
+-v0.29.1 尚待真机验收，重点只需看：悬浮球视觉、悬浮最近历史、reasoning 顺序、换行 TTS 体验以及无明显回归。
++v0.29.1 已完成真机运行，TTS/UI 主体可用，但发现一个真实后台问题：native Overlay 能展开，后台 Dart command server 没有稳定就绪，导致历史为空且发送显示“她还在重新连接”。v0.30.0 专门修复这一链路并推进主动感知。
+ 
+-## 7. 已知待办 / 下一阶段
++## 7. v0.30.0 Background Presence
+ 
+-最高优先级不再是 TTS，而是“她对用户手机行为有真实反应”。目前权限/感知入口存在，但真机体验仍表现为用户在手机里做事情时，她几乎不主动回应。
++本轮定位到 v0.29.1 悬浮聊天“空历史 + 她还在重新连接”的根因：native Service 启动的第二个 FlutterEngine 指定 `companionBackgroundMain`，但 release root library `main.dart` 没有导入/锚定 `background_main.dart`；同时 native 在执行 Dart entrypoint 后才写 `backgroundEngine = createdEngine`，ready handshake 还存在竞态。
+ 
+-下一阶段固定方向：
++v0.30.0：
+ 
+-1. 手机事件 -> Awareness -> Perception 的真机有效性与去噪。
+-2. Perception -> Thought / Desire / unfinished thread 的意义判断。
+-3. Thought/Desire -> 主动消息 / 通知 / 悬浮球反应，避免做成机械事件播报器。
+-4. HyperOS / Android 15 锁屏、切 App、长时间后台、杀进程后的恢复与主动联系。
+-5. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+-6. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
+-7. 最终稳定性回归。
++1. `main.dart` 显式导入 background runtime，并导出 `@pragma('vm:entry-point') companionBackgroundMain` root proxy，保证 AOT 中 background command server 可达。
++2. native 在执行 Dart 前先发布 engine identity；ready 后如果悬浮聊天已展开，自动刷新最近 8 条历史。
++3. 后台尚未 ready 时，悬浮发送不清空输入，只显示“正在连接后台大脑…”。
++4. Notification / Accessibility window-state / device unlock 仅发粗粒度 `signal:*` wake；**不把包名、通知正文、Accessibility 正文塞进 wake reason**。
++5. native 与 Dart 各做一层 90 秒去抖；reactive wake 只提前运行原有 Perception -> Thought/Desire -> Proactive Gate，不绕过主动消息 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
++6. 脱敏诊断新增 `backgroundBrainReady` 检查与 backgroundPresence 时间戳/粗粒度 reason，方便判断“事件没唤醒 / perception 没推进 / Gate 等待 / 投递失败”。
+ 
+-UI 后续仍可继续微调，但不要为了轻微视觉/TTS 瑕疵长期阻塞主动陪伴能力开发。
++## 8. 后续路线
+ 
+-## 8. GitHub / 构建约定
++1. v0.30.0 真机验收：悬浮聊天收发、后台大脑 ready、切 App/通知/解锁后的 backgroundPresence 推进与主动联系。
++2. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
++3. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
++4. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
++5. 最终稳定性回归。
++
++TTS 已进入非阻断小瑕疵阶段；UI 后续可继续微调，但不要阻塞主动陪伴主线。
++
++## 9. GitHub / 构建约定
+ 
+ 正常仓库结构：
+ 
+@@ -120,7 +127,7 @@ README.md
+ - 日常 workflow：checkout -> Java/Flutter -> `flutter pub get` -> validators/tests/analyze -> `flutter build apk --release` -> TTS native integrity -> artifact。
+ - 测试 APK 从 v0.28.4 起使用固定测试签名，后续正常应可覆盖安装；正式发布再换正式私有签名。
+ 
+-## 9. 开发流程约束
++## 10. 开发流程约束
+ 
+ - 用户非技术开发者；优先由助手完成代码、静态检查、结构验证和自动测试。
+ - 只有真人感知/真机行为必须确认时才交 APK 测试。
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index ea5e560..8de0912 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,20 +1,9 @@
+-# Roadmap after v0.29.1
++# Roadmap after v0.30.0
+ 
+-## Immediate next stage: real proactive awareness
++1. v0.30.0 Background Presence real-device checkpoint: overlay command channel, recent history, overlay send, coarse signal wakes and proactive delivery.
++2. HyperOS / Android 15 long-background survival: screen off/on, task removal, hours-long idle, process recreation and boot/package-replaced recovery.
++3. Long-term memory stress: dozens of turns, conflict replacement, evidence consolidation, Thought/unfinished-thread retirement and Daily Continuity growth.
++4. Phone/tablet Active Brain takeover on two physical devices plus encrypted `.aicomp` fallback.
++5. Final stability/security/privacy regression and release-signing preparation.
+ 
+-The next blocking product gap is no longer TTS. On the real Android 15 phone, Usage / Notification / Accessibility permissions exist, but the companion still feels unresponsive to ordinary phone activity.
+-
+-Next work should tune the complete path:
+-
+-`device event -> awareness observation -> perception -> meaningful Thought/Desire -> proactive gate -> notification / overlay / chat`
+-
+-The goal is contextual companionship, not mechanical event narration.
+-
+-## Then
+-
+-1. HyperOS/Android 15 long-background and lock-screen behavior.
+-2. Long-memory stress/regression across many chat turns.
+-3. Phone/tablet Active Brain takeover on two real devices and `.aicomp` fallback.
+-4. Final stability and UX regression.
+-
+-Minor TTS/UI imperfections remain eligible for later polish but are non-blocking after v0.29.1.
++Minor TTS/UI imperfections remain eligible for later polish but are non-blocking.
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index c51cfc7..a5aefbe 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,11 +1,25 @@
+-# v0.29.1 真机检查
++# v0.30.0 真机检查
+ 
+-本轮只做低风险体验验收，不重新做全部底层开发：
++程序级测试先由开发侧完成。真人只检查无法在静态/JVM/CI 环境可靠模拟的 Android 行为。
+ 
+-1. 覆盖安装并正常启动；数据库/已有聊天/API Key 不丢失。
+-2. 悬浮球明显略小，但仍容易点击；右上 unread 数字始终盖在球体上方。
+-3. 打开悬浮聊天，最近约 8 条历史应立即出现；可手动请求更早历史。
+-4. 已完成和流式 AI 回复均显示“思考在上、正文在下”。
+-5. TTS 用含换行但无句号的短段落检查：换行本身不能被当成 A2 切句；再用 4-6 句正常文本确认 generation-ahead 没有回退。
+-6. TTS 若仍存在轻微自然停顿，只记录，不继续阻塞下一阶段。
+-7. 对话、TTS 初始化/发声、悬浮发送无明显回归即可进入主动感知阶段。
++## A. 后台大脑 / 悬浮聊天
++
++1. 覆盖安装后打开一次完整 App，确认 Active Brain 与悬浮陪伴开启。
++2. 深度或快速预检里确认“后台大脑连接”为通过。
++3. 回到其他 App，点悬浮球：最近 8 条聊天应直接出现。
++4. 在悬浮窗发送一句话：应正常生成并回写主聊天；不能长期显示“她还在重新连接”。
++5. 收起/重新展开，历史仍应同步。
++
++## B. Background Presence
++
++1. 连续正常使用其他 App 数分钟，可包含切换窗口、收到普通通知、锁屏后重新解锁。
++2. 不要求她每个事件都发消息；这是刻意设计。等待 Gate 自己判断。
++3. 约 5-10 分钟后导出一次脱敏诊断。重点看 `native.capabilities.backgroundBrainReady` 与 `database.backgroundPresence` 的 lastWakeReason / lastPerceptionAt 是否推进。
++4. 若她主动联系，确认文案不是“检测到你打开了XX/收到XX通知”式机械播报。
++
++## C. 非阻断回归
++
++- 主聊天正常。
++- TTS 仍可初始化/朗读。
++- reasoning 仍在正文上方。
++- Active Brain / transfer_lock 无异常。
+diff --git a/lib/core/desire/proactive_engine.dart b/lib/core/desire/proactive_engine.dart
+index 3c9327d..fe6b2a7 100644
+--- a/lib/core/desire/proactive_engine.dart
++++ b/lib/core/desire/proactive_engine.dart
+@@ -109,6 +109,7 @@ class ProactiveEngine {
+   /// outbound message. Used while a durable user reply is waiting for recovery.
+   Future<LocalCompanionHeartbeat?> maintainLocalStateOnly({
+     bool forceForDebug = false,
++    Duration perceptionMinInterval = const Duration(minutes: 4),
+   }) async {
+     if ((await db.getSetting('transfer_lock')) == '1') return null;
+     final leaseAcquired = await db.tryAcquireProactiveLease(
+@@ -118,7 +119,10 @@ class ProactiveEngine {
+     try {
+       if (!await db.brainWorkAllowed()) return null;
+       if (await db.isLocalLeaseHeld('chat_turn_lease')) return null;
+-      return _runLocalHeartbeat(forceForDebug: forceForDebug);
++      return _runLocalHeartbeat(
++        forceForDebug: forceForDebug,
++        perceptionMinInterval: perceptionMinInterval,
++      );
+     } finally {
+       await db.releaseProactiveLease();
+     }
+@@ -126,6 +130,7 @@ class ProactiveEngine {
+ 
+   Future<LocalCompanionHeartbeat> _runLocalHeartbeat({
+     bool forceForDebug = false,
++    Duration perceptionMinInterval = const Duration(minutes: 4),
+   }) async {
+     await relationshipAssimilator.assimilatePending();
+     await memoryMaintenance.maybeRun();
+@@ -135,7 +140,9 @@ class ProactiveEngine {
+     await thoughtConsolidation.maybeRun();
+     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
+ 
+-    final perceptionSnapshot = await perception.capture();
++    final perceptionSnapshot = await perception.capture(
++      minInterval: perceptionMinInterval,
++    );
+     if (await db.brainWorkAllowed()) {
+       try {
+         await dailyContinuity.maybeRefresh();
+@@ -156,7 +163,10 @@ class ProactiveEngine {
+     );
+   }
+ 
+-  Future<ProactiveDecision> evaluate({bool forceForDebug = false}) async {
++  Future<ProactiveDecision> evaluate({
++    bool forceForDebug = false,
++    Duration perceptionMinInterval = const Duration(minutes: 4),
++  }) async {
+     if ((await db.getSetting('transfer_lock')) == '1') {
+       return const ProactiveDecision(sent: false, reason: '设备转移锁定中');
+     }
+@@ -182,6 +192,7 @@ class ProactiveEngine {
+ 
+       final localHeartbeat = await _runLocalHeartbeat(
+         forceForDebug: forceForDebug,
++        perceptionMinInterval: perceptionMinInterval,
+       );
+       final userBusy = localHeartbeat.userBusy;
+       final snapshot = localHeartbeat.snapshot;
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index 875c922..8e7df6a 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -149,6 +149,20 @@ class PreflightDiagnosticsService {
+           'hasLastError':
+               (await db.getSetting('recovery_orchestrator_last_error') ?? '').isNotEmpty,
+         },
++        'backgroundPresence': {
++          'lastWakeReason':
++              await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
++          'lastProactiveReason':
++              await db.getSetting('recovery_orchestrator_last_proactive_reason') ?? '',
++          'lastPerceptionAt': int.tryParse(
++                await db.getSetting('last_perception_capture_at') ?? '',
++              ) ??
++              0,
++          'nextHeartbeatAt': int.tryParse(
++                await db.getSetting('recovery_orchestrator_next_heartbeat_at') ?? '',
++              ) ??
++              0,
++        },
+       };
+       checks.add(const PreflightCheck(
+         id: 'database',
+@@ -220,6 +234,24 @@ class PreflightDiagnosticsService {
+         capabilities['postNotifications'] == true,
+       );
+ 
++      final overlayEnabled = capabilities['overlayUserEnabled'] == true;
++      final overlayRunning = capabilities['overlayRunning'] == true;
++      final backgroundReady = capabilities['backgroundBrainReady'] == true;
++      checks.add(PreflightCheck(
++        id: 'background_brain',
++        title: '后台大脑连接',
++        level: !overlayEnabled
++            ? 'info'
++            : overlayRunning && backgroundReady
++                ? 'pass'
++                : 'warn',
++        summary: !overlayEnabled
++            ? '悬浮陪伴未启用，本轮不要求后台 FlutterEngine 常驻。'
++            : overlayRunning && backgroundReady
++                ? '常驻服务与后台 Dart 命令通道均已就绪。'
++                : '悬浮服务已启用，但后台 Dart 命令通道尚未就绪或正在恢复。',
++      ));
++
+       final nearbyPermission = nearby['permissionsGranted'] == true;
+       final playServices = nearby['googlePlayServicesAvailable'] == true;
+       final bluetooth = nearby['bluetoothEnabled'] == true;
+@@ -343,7 +375,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.29.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/core/maintenance/recovery_orchestrator.dart b/lib/core/maintenance/recovery_orchestrator.dart
+index f631cec..c065c82 100644
+--- a/lib/core/maintenance/recovery_orchestrator.dart
++++ b/lib/core/maintenance/recovery_orchestrator.dart
+@@ -5,6 +5,7 @@ import '../ai/memory_extractor.dart';
+ import '../database/app_database.dart';
+ import '../desire/proactive_engine.dart';
+ import '../models/desire_state.dart';
++import '../presence/background_presence_policy.dart';
+ 
+ class RecoveryCycleResult {
+   const RecoveryCycleResult({
+@@ -78,14 +79,24 @@ class RecoveryOrchestrator {
+ 
+       final now = DateTime.now();
+       final blocking = await db.blockingGenerationJob();
+-      final heartbeatDue = await _heartbeatIsDue(now);
++      final scheduledHeartbeatDue = await _heartbeatIsDue(now);
++      final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
++        now: now,
++        wakeReason: wakeReason,
++      );
++      final heartbeatDue = scheduledHeartbeatDue || reactiveHeartbeatDue;
++      final perceptionMinInterval = reactiveHeartbeatDue
++          ? BackgroundPresencePolicy.reactivePerceptionMinInterval
++          : const Duration(minutes: 4);
+       var heartbeatAdvanced = false;
+       var proactiveReason = '';
+       Duration heartbeatDelay;
+ 
+       if (heartbeatDue) {
+         if (blocking != null || !allowProactive) {
+-          final heartbeat = await proactive.maintainLocalStateOnly();
++          final heartbeat = await proactive.maintainLocalStateOnly(
++            perceptionMinInterval: perceptionMinInterval,
++          );
+           if (heartbeat == null) {
+             heartbeatDelay = const Duration(seconds: 30);
+           } else {
+@@ -97,7 +108,9 @@ class RecoveryOrchestrator {
+                 : 'proactive_disabled_for_cycle';
+           }
+         } else {
+-          final decision = await proactive.evaluate();
++          final decision = await proactive.evaluate(
++            perceptionMinInterval: perceptionMinInterval,
++          );
+           proactiveReason = decision.reason;
+           if (decision.reason == '主动心跳正在由另一引擎处理' ||
+               decision.reason == '用户正在与我聊天') {
+@@ -170,6 +183,20 @@ class RecoveryOrchestrator {
+     if (!renewed) throw const _RecoveryOrchestratorOwnershipLost();
+   }
+ 
++  Future<bool> _reactiveHeartbeatIsDue({
++    required DateTime now,
++    required String wakeReason,
++  }) async {
++    if (!BackgroundPresencePolicy.isReactiveWakeReason(wakeReason)) return false;
++    final raw = int.tryParse(await db.getSetting('last_perception_capture_at') ?? '');
++    final last = raw == null ? null : DateTime.fromMillisecondsSinceEpoch(raw);
++    return BackgroundPresencePolicy.shouldAdvanceHeartbeat(
++      wakeReason: wakeReason,
++      now: now,
++      lastPerceptionAt: last,
++    );
++  }
++
+   Future<bool> _heartbeatIsDue(DateTime now) async {
+     final raw = int.tryParse(await db.getSetting(_nextHeartbeatKey) ?? '') ?? 0;
+     return raw <= 0 || raw <= now.millisecondsSinceEpoch;
+diff --git a/lib/core/perception/perception_engine.dart b/lib/core/perception/perception_engine.dart
+index f38d70c..5e89a4e 100644
+--- a/lib/core/perception/perception_engine.dart
++++ b/lib/core/perception/perception_engine.dart
+@@ -25,7 +25,10 @@ class PerceptionEngine {
+   final DesireEngine desire;
+   final PerceptionInterpreter interpreter;
+ 
+-  Future<PerceptionSnapshot?> capture({bool force = false}) async {
++  Future<PerceptionSnapshot?> capture({
++    bool force = false,
++    Duration minInterval = const Duration(minutes: 4),
++  }) async {
+     // capture() may persist awareness and feed Thought/Desire. Even a manual
+     // debug capture must respect single-Active-Brain and transfer freeze.
+     if (!await db.brainWorkAllowed()) return null;
+@@ -36,7 +39,7 @@ class PerceptionEngine {
+     final lastMillis = int.tryParse(rawLast ?? '');
+     if (!force && lastMillis != null) {
+       final last = DateTime.fromMillisecondsSinceEpoch(lastMillis);
+-      if (now.difference(last) < const Duration(minutes: 4)) return null;
++      if (now.difference(last) < minInterval) return null;
+     }
+ 
+     final deviceLabel = await android.deviceLabel();
+diff --git a/lib/core/presence/background_presence_policy.dart b/lib/core/presence/background_presence_policy.dart
+new file mode 100644
+index 0000000..bbba3ef
+--- /dev/null
++++ b/lib/core/presence/background_presence_policy.dart
+@@ -0,0 +1,25 @@
++/// Pure timing policy for turning coarse Android activity signals into a
++/// bounded local companion heartbeat.
++///
++/// Native Android coalesces signal wakes before they reach Dart. This Dart-side
++/// guard is a second layer: a signal wake can advance perception sooner than the
++/// normal 7-24 minute heartbeat, but never on every notification/window event.
++class BackgroundPresencePolicy {
++  const BackgroundPresencePolicy._();
++
++  static const reactivePrefix = 'signal:';
++  static const reactivePerceptionMinInterval = Duration(seconds: 90);
++
++  static bool isReactiveWakeReason(String wakeReason) =>
++      wakeReason.trim().toLowerCase().startsWith(reactivePrefix);
++
++  static bool shouldAdvanceHeartbeat({
++    required String wakeReason,
++    required DateTime now,
++    required DateTime? lastPerceptionAt,
++  }) {
++    if (!isReactiveWakeReason(wakeReason)) return false;
++    if (lastPerceptionAt == null) return true;
++    return now.difference(lastPerceptionAt) >= reactivePerceptionMinInterval;
++  }
++}
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index ba4e728..2f8d679 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.29.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.30.0 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index 1d71ba8..dc3ca0a 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.29.1',
++            'AI Companion · v0.30.0',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index b133cc3..0f539f3 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.29.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.30.0 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index 5dc23b3..5b4d9bd 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -3,8 +3,14 @@ import 'dart:async';
+ import 'package:flutter/material.dart';
+ 
+ import 'app.dart';
++import 'background_main.dart' as background_runtime;
+ import 'core/database/app_database.dart';
+ 
++
++@pragma('vm:entry-point')
++Future<void> companionBackgroundMain() =>
++    background_runtime.companionBackgroundMain();
++
+ void main() {
+   WidgetsFlutterBinding.ensureInitialized();
+   ErrorWidget.builder = (details) => _FatalFlutterError(details: details);
+@@ -148,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.29.1 · TTS / UI Polish',
++                    'v0.30.0 · Background Presence',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index 17bd37f..b2be17d 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.29.1+35
++version: 0.30.0+36
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/test/background_presence_policy_test.dart b/test/background_presence_policy_test.dart
+new file mode 100644
+index 0000000..4c426f2
+--- /dev/null
++++ b/test/background_presence_policy_test.dart
+@@ -0,0 +1,39 @@
++import 'package:ai_companion_localfirst/core/presence/background_presence_policy.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++void main() {
++  test('only coarse signal wake reasons are reactive', () {
++    expect(BackgroundPresencePolicy.isReactiveWakeReason('signal:notification'), isTrue);
++    expect(BackgroundPresencePolicy.isReactiveWakeReason(' signal:device_present '), isTrue);
++    expect(BackgroundPresencePolicy.isReactiveWakeReason('scheduled'), isFalse);
++    expect(BackgroundPresencePolicy.isReactiveWakeReason('overlay_opened'), isFalse);
++  });
++
++  test('reactive heartbeat is bounded by perception interval', () {
++    final now = DateTime(2026, 8, 12, 10, 0);
++    expect(
++      BackgroundPresencePolicy.shouldAdvanceHeartbeat(
++        wakeReason: 'signal:notification',
++        now: now,
++        lastPerceptionAt: null,
++      ),
++      isTrue,
++    );
++    expect(
++      BackgroundPresencePolicy.shouldAdvanceHeartbeat(
++        wakeReason: 'signal:notification',
++        now: now,
++        lastPerceptionAt: now.subtract(const Duration(seconds: 60)),
++      ),
++      isFalse,
++    );
++    expect(
++      BackgroundPresencePolicy.shouldAdvanceHeartbeat(
++        wakeReason: 'signal:accessibility_window',
++        now: now,
++        lastPerceptionAt: now.subtract(const Duration(seconds: 91)),
++      ),
++      isTrue,
++    );
++  });
++}
+diff --git a/tools/validate_v0285_coroutine_bridge.py b/tools/validate_v0285_coroutine_bridge.py
+index b0fd911..d175190 100755
+--- a/tools/validate_v0285_coroutine_bridge.py
++++ b/tools/validate_v0285_coroutine_bridge.py
+@@ -109,7 +109,7 @@ def main() -> int:
+     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
+ 
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec)
++    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec)
+ 
+     print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
+     return 0
+diff --git a/tools/validate_v0291_polish.py b/tools/validate_v0291_polish.py
+index 320b796..2d090f5 100644
+--- a/tools/validate_v0291_polish.py
++++ b/tools/validate_v0291_polish.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.29.1+35' in pubspec
++    assert 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec
+ 
+     segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
+     assert '_isLayoutBreak' in segmenter
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index 2489332..c845793 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec)
++    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec)
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
+diff --git a/tools/validate_v030_background_presence.py b/tools/validate_v030_background_presence.py
+new file mode 100755
+index 0000000..9689920
+--- /dev/null
++++ b/tools/validate_v030_background_presence.py
+@@ -0,0 +1,108 @@
++#!/usr/bin/env python3
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def main() -> int:
++    pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
++    assert 'version: 0.30.0+36' in pubspec
++
++    db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++    assert 'static const int schemaVersion = 18;' in db
++
++    main_dart = (ROOT / 'lib/main.dart').read_text(encoding='utf-8')
++    assert "import 'background_main.dart' as background_runtime;" in main_dart
++    assert "@pragma('vm:entry-point')" in main_dart
++    assert 'Future<void> companionBackgroundMain() =>' in main_dart
++    assert 'background_runtime.companionBackgroundMain();' in main_dart
++
++    server = (ROOT / 'lib/core/platform/background_chat_command_server.dart').read_text(encoding='utf-8')
++    for token in ["'backgroundDartReady'", "case 'overlayOpened':", "case 'sendMessage':", 'db.recentMessages(limit: 8)']:
++        assert token in server, token
++
++    overlay = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt').read_text(encoding='utf-8')
++    assign = overlay.index('backgroundEngine = createdEngine')
++    execute = overlay.index('createdEngine.dartExecutor.executeDartEntrypoint(entrypoint)')
++    assert assign < execute, 'engine identity must be published before Dart starts'
++    for token in [
++        'if (chatExpanded) {',
++        'refreshOverlayMessages(opened = true, attempt = 0)',
++        'if (!backgroundBrainReady)',
++        'setChatStatus("正在连接后台大脑…")',
++        'SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L',
++        'fun requestSignalBrainWake(context: Context, reason: String): Boolean',
++        'requestBrainWake(context, "signal:${reason.take(80)}")',
++        'requestSignalBrainWake(this@OverlayBubbleService, "device_present")',
++    ]:
++        assert token in overlay, token
++
++    notification = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/NotificationBridgeService.kt').read_text(encoding='utf-8')
++    assert 'requestSignalBrainWake(this, "notification")' in notification
++    # Wake reason must stay coarse; private notification title/text are only in NativeEventStore.
++    assert 'requestSignalBrainWake(this, summary)' not in notification
++    assert 'requestSignalBrainWake(this, sourcePackage)' not in notification
++
++    accessibility = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt').read_text(encoding='utf-8')
++    assert 'AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED' in accessibility
++    assert 'requestSignalBrainWake(this, "accessibility_window")' in accessibility
++    assert 'requestSignalBrainWake(this, sanitized)' not in accessibility
++    assert 'requestSignalBrainWake(this, sourcePackage)' not in accessibility
++
++    policy = (ROOT / 'lib/core/presence/background_presence_policy.dart').read_text(encoding='utf-8')
++    assert "reactivePrefix = 'signal:'" in policy
++    assert 'reactivePerceptionMinInterval = Duration(seconds: 90)' in policy
++    assert 'shouldAdvanceHeartbeat' in policy
++
++    perception = (ROOT / 'lib/core/perception/perception_engine.dart').read_text(encoding='utf-8')
++    assert 'Duration minInterval = const Duration(minutes: 4)' in perception
++    assert 'now.difference(last) < minInterval' in perception
++
++    proactive = (ROOT / 'lib/core/desire/proactive_engine.dart').read_text(encoding='utf-8')
++    assert proactive.count('Duration perceptionMinInterval = const Duration(minutes: 4)') >= 3
++    assert 'minInterval: perceptionMinInterval' in proactive
++    # Existing anti-spam and fencing must survive the reactive path.
++    for token in [
++        "db.getSetting('transfer_lock')",
++        "db.isLocalLeaseHeld('chat_turn_lease')",
++        'sentToday >= 8',
++        'sentLastTwoHours >= 2',
++        'busyMultiplier = userBusy ? 0.72 : 1.0',
++        'gateScore < threshold',
++    ]:
++        assert token in proactive, token
++
++    orchestrator = (ROOT / 'lib/core/maintenance/recovery_orchestrator.dart').read_text(encoding='utf-8')
++    for token in [
++        "import '../presence/background_presence_policy.dart';",
++        'scheduledHeartbeatDue',
++        'reactiveHeartbeatDue',
++        'BackgroundPresencePolicy.reactivePerceptionMinInterval',
++        '_reactiveHeartbeatIsDue',
++        'last_perception_capture_at',
++    ]:
++        assert token in orchestrator, token
++
++    diagnostics = (ROOT / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text(encoding='utf-8')
++    for token in [
++        "id: 'background_brain'",
++        "title: '后台大脑连接'",
++        "'backgroundPresence': {",
++        "'lastWakeReason'",
++        "'lastProactiveReason'",
++        "'lastPerceptionAt'",
++        "'nextHeartbeatAt'",
++        'AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT',
++    ]:
++        assert token in diagnostics, token
++
++    handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
++    for token in ['v0.30.0+36', 'Background Presence', 'schema v18', 'signal:*', 'HANDOFF']:
++        assert token in handoff, token
++
++    print('v0.30.0 Background Presence static validation passed.')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
