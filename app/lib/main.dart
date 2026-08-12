@@ -148,7 +148,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'v0.29.0 · A2 TTS Clean Baseline',
+                    'v0.29.1 · TTS / UI Polish',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),

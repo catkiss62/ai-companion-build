@@ -240,6 +240,8 @@ class _MessageBubble extends StatelessWidget {
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
+            if (message.isAssistant)
+              ReasoningPanel(reasoning: message.reasoningContent),
             SelectableText(message.content, style: const TextStyle(height: 1.45)),
             if (message.isAssistant && onSpeak != null)
               Align(
@@ -252,8 +254,6 @@ class _MessageBubble extends StatelessWidget {
                   tooltip: '重新朗读这条回复',
                 ),
               ),
-            if (message.isAssistant)
-              ReasoningPanel(reasoning: message.reasoningContent),
           ],
         ),
       ),
@@ -280,12 +280,12 @@ class _StreamingBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (controller.streamingContent.isNotEmpty)
-              SelectableText(controller.streamingContent),
             ReasoningPanel(
               reasoning: controller.streamingReasoning,
               streaming: true,
             ),
+            if (controller.streamingContent.isNotEmpty)
+              SelectableText(controller.streamingContent),
             if (controller.streamingContent.isEmpty &&
                 controller.streamingReasoning.isEmpty)
               Text(controller.recoveringGeneration ? '正在接回刚才没完成的回复…' : '她正在准备回复…'),

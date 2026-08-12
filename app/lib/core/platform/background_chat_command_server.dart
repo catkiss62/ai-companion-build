@@ -53,7 +53,7 @@ class BackgroundChatCommandServer {
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
       case 'loadRecentMessages':
-        final limit = _intArg(call.arguments, 'limit', 120).clamp(20, 300);
+        final limit = _intArg(call.arguments, 'limit', 8).clamp(1, 40);
         return _rows(await db.recentMessages(limit: limit));
       case 'loadOlderMessages':
         final beforeMs = _intArg(call.arguments, 'beforeMs', 0);
@@ -67,21 +67,19 @@ class BackgroundChatCommandServer {
         );
       case 'overlayOpened':
         onWake?.call('overlay_opened');
-        final controller = await _ensureController();
-        // Collapsing/reopening the native window must not disturb an in-flight
-        // turn that is intentionally owned by this persistent controller.
-        if (!controller.sending) {
-          await controller.reload();
-          await controller.onOverlayOpened();
-        }
-        return _rows(await db.recentMessages(limit: 120));
+        // History should appear immediately. Do not make the native overlay
+        // wait for ChatController + maintenance/perception warm-up just to read
+        // SQLite. The full controller is warmed asynchronously afterwards.
+        final visible = _rows(await db.recentMessages(limit: 8));
+        unawaited(_warmOverlayController());
+        return visible;
       case 'sendMessage':
         final text = _stringArg(call.arguments, 'text').trim();
         if (text.isEmpty) {
           return <String, Object?>{
             'ok': false,
             'error': '消息为空。',
-            'messages': _rows(await db.recentMessages(limit: 120)),
+            'messages': _rows(await db.recentMessages(limit: 8)),
           };
         }
         final controller = await _ensureController();
@@ -90,7 +88,7 @@ class BackgroundChatCommandServer {
         return <String, Object?>{
           'ok': controller.error == null,
           'error': controller.error ?? '',
-          'messages': _rows(await db.recentMessages(limit: 120)),
+          'messages': _rows(await db.recentMessages(limit: 8)),
         };
       case 'notificationReply':
         final text = _stringArg(call.arguments, 'text').trim();
@@ -132,6 +130,22 @@ class BackgroundChatCommandServer {
         return <String, Object?>{'ok': true};
       default:
         throw MissingPluginException('Unknown background command: ${call.method}');
+    }
+  }
+
+
+  Future<void> _warmOverlayController() async {
+    try {
+      final controller = await _ensureController();
+      // Collapsing/reopening the native window must not disturb an in-flight
+      // turn that is intentionally owned by this persistent controller.
+      if (!controller.sending) {
+        await controller.reload();
+        await controller.onOverlayOpened();
+      }
+    } catch (_) {
+      // Recent history is already visible. Overlay warm-up is best-effort and
+      // must not erase or delay the lightweight SQLite history path.
     }
   }
 

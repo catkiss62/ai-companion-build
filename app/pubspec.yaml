@@ -1,7 +1,7 @@
 name: ai_companion_localfirst
 description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
 publish_to: 'none'
-version: 0.29.0+34
+version: 0.29.1+35
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

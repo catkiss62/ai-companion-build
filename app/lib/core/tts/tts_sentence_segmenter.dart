@@ -4,7 +4,8 @@
 /// A2 splits only on:
 ///   。 ！ ？ ； . ! ? ;
 /// It does not split on commas, ideographic commas, newlines or ellipsis and
-/// it has no 72/116-character fallback. Delimiters themselves are not spoken.
+/// it has no 72/116-character fallback. Layout line breaks are normalized to
+/// ordinary spaces before boundary scanning. Delimiters themselves are not spoken.
 ///
 /// The original A2 removes bracketed blocks before splitting. For streaming
 /// input we preserve the same effect by ignoring sentence punctuation while it
@@ -72,10 +73,21 @@ class TtsSentenceSegmenter {
   void _appendOutsideFence(String text) {
     for (final rune in text.runes) {
       final c = String.fromCharCode(rune);
+      // v0.29.1 polish: visual paragraph/layout breaks are not A2 sentence
+      // boundaries. Normalize them before boundary scanning so streaming and
+      // full-message playback behave identically and the legacy text frontend
+      // never receives a raw line separator that could become extra prosody.
+      if (_isLayoutBreak(c)) {
+        if (_buffer.isNotEmpty && !_buffer.endsWith(' ')) _buffer += ' ';
+        continue;
+      }
       _trackBracket(c);
       _buffer += c;
     }
   }
+
+  bool _isLayoutBreak(String c) =>
+      c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
 
   void _trackBracket(String c) {
     const pairs = <String, String>{

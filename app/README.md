@@ -1,8 +1,8 @@
-# AI Companion · v0.29.0 A2 TTS / Clean Baseline
+# AI Companion · v0.29.1 TTS / UI Polish
 
 Local-first Android AI companion. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
 
-## v0.29.0 checkpoint
+## v0.29.1 checkpoint
 
 The first Android 15 device checkpoint has now passed app startup, SQLite, permissions, chat generation and the legacy TTS coroutine/ClassLoader bridge. v0.29.0 addresses the remaining TTS cadence mismatch by restoring the verified Meju A2 scheduling behavior instead of serially doing `generate -> play -> generate -> play`.
 
@@ -29,3 +29,8 @@ See:
 - `docs/REAL_DEVICE_CHECKPOINT_v0.28.md`
 - `docs/DEV_STATUS.md`
 - `docs/ROADMAP.md`
+
+
+## v0.29.1 polish
+
+The Meju A2 native/runtime baseline remains frozen. v0.29.1 normalizes layout line breaks before A2 segmentation, renders reasoning above assistant text, shrinks/fixes the overlay unread bubble, returns the latest 8 overlay messages immediately from SQLite, and introduces `docs/HANDOFF.md` as the mandatory cross-window handoff source.

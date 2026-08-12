@@ -293,8 +293,8 @@ class OverlayBubbleService : Service() {
         super.onConfigurationChanged(newConfig)
         bubbleRoot?.let { view ->
             val bounds = screenBounds()
-            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(70)).coerceAtLeast(0))
-            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(70)).coerceAtLeast(0))
+            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
             persistBubblePosition()
             updateBubbleLayout(view)
         }
@@ -350,41 +350,47 @@ class OverlayBubbleService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createBubble(): Boolean {
-        val size = dp(58)
-        val container = FrameLayout(this)
+        val size = dp(BUBBLE_AVATAR_DP)
+        val container = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+        }
         val avatar = TextView(this).apply {
             text = "她"
             textSize = 17f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = rounded(Color.rgb(176, 130, 255), 999f)
-            elevation = dp(8).toFloat()
+            elevation = dp(6).toFloat()
         }
         container.addView(
             avatar,
             FrameLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER },
         )
         badge = TextView(this).apply {
-            textSize = 11f
+            textSize = 10f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             background = rounded(Color.rgb(229, 69, 96), 999f)
+            elevation = dp(12).toFloat()
+            translationZ = dp(12).toFloat()
             visibility = View.GONE
         }
         container.addView(
             badge,
-            FrameLayout.LayoutParams(dp(24), dp(24)).apply {
+            FrameLayout.LayoutParams(dp(BUBBLE_BADGE_DP), dp(BUBBLE_BADGE_DP)).apply {
                 gravity = Gravity.TOP or Gravity.END
             },
         )
+        badge?.bringToFront()
 
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val (screenWidth, screenHeight) = screenBounds()
-        val defaultX = (screenWidth - dp(82)).coerceAtLeast(0)
+        val defaultX = (screenWidth - dp(BUBBLE_WINDOW_DP + 12)).coerceAtLeast(0)
         val defaultY = (screenHeight / 3).coerceAtLeast(0)
         bubbleParams = WindowManager.LayoutParams(
-            dp(70),
-            dp(70),
+            dp(BUBBLE_WINDOW_DP),
+            dp(BUBBLE_WINDOW_DP),
             overlayWindowType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -393,9 +399,9 @@ class OverlayBubbleService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = prefs.getInt(KEY_X, defaultX)
-                .coerceIn(0, (screenWidth - dp(70)).coerceAtLeast(0))
+                .coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
             y = prefs.getInt(KEY_Y, defaultY)
-                .coerceIn(0, (screenHeight - dp(70)).coerceAtLeast(0))
+                .coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
         }
         attachDrag(container)
         return runCatching {
@@ -688,7 +694,7 @@ class OverlayBubbleService : Service() {
         }
         channel.invokeMethod(
             if (opened) "overlayOpened" else "loadRecentMessages",
-            if (opened) null else mapOf("limit" to 120),
+            if (opened) null else mapOf("limit" to OVERLAY_RECENT_LIMIT),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
@@ -696,7 +702,7 @@ class OverlayBubbleService : Service() {
                         if (parsed != null) {
                             loadedMessages = parsed.toMutableList()
                             chatAdapter?.notifyDataSetChanged()
-                            chatLoadOlder?.visibility = if (parsed.size >= 120) View.VISIBLE else View.GONE
+                            chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
                             scrollChatToBottom()
                             setChatStatus(null)
                         } else {
@@ -733,7 +739,7 @@ class OverlayBubbleService : Service() {
         chatLoadOlder?.isEnabled = false
         backgroundCommands?.invokeMethod(
             "loadOlderMessages",
-            mapOf("beforeMs" to oldest, "limit" to 100),
+            mapOf("beforeMs" to oldest, "limit" to OVERLAY_OLDER_PAGE_LIMIT),
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
@@ -744,7 +750,7 @@ class OverlayBubbleService : Service() {
                             chatAdapter?.notifyDataSetChanged()
                             chatList?.setSelection(older.size.coerceAtMost(loadedMessages.lastIndex))
                         }
-                        chatLoadOlder?.visibility = if (older.size >= 100) View.VISIBLE else View.GONE
+                        chatLoadOlder?.visibility = if (older.size >= OVERLAY_OLDER_PAGE_LIMIT) View.VISIBLE else View.GONE
                         chatLoadOlder?.isEnabled = true
                     }
                 }
@@ -919,7 +925,7 @@ class OverlayBubbleService : Service() {
                         showChatOverlay("bubble_tap")
                     } else {
                         val screenWidth = screenBounds().first
-                        bubbleParams.x = if (bubbleParams.x + dp(35) < screenWidth / 2) 0 else screenWidth - dp(70)
+                        bubbleParams.x = if (bubbleParams.x + dp(BUBBLE_WINDOW_DP / 2) < screenWidth / 2) 0 else screenWidth - dp(BUBBLE_WINDOW_DP)
                         persistBubblePosition()
                         updateBubbleLayout(view)
                     }
@@ -940,8 +946,8 @@ class OverlayBubbleService : Service() {
 
     private fun updateBubbleLayout(view: View) {
         val (screenWidth, screenHeight) = screenBounds()
-        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(70)).coerceAtLeast(0))
-        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(70)).coerceAtLeast(0))
+        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
         runCatching { windowManager.updateViewLayout(view, bubbleParams) }
             .onFailure { error ->
                 NativeEventStore.addDeviceEvent(
@@ -1363,6 +1369,20 @@ class OverlayBubbleService : Service() {
                 textSize = 11f
                 setTextColor(Color.rgb(188, 169, 220))
             })
+            if (message.role == "assistant" && message.reasoning.isNotBlank()) {
+                bubble.addView(smallInlineAction("🧠 思考") {
+                    if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
+                    notifyDataSetChanged()
+                })
+                if (expandedReasoning.contains(message.id)) {
+                    bubble.addView(TextView(this@OverlayBubbleService).apply {
+                        text = message.reasoning
+                        textSize = 12f
+                        setTextColor(Color.rgb(190, 185, 202))
+                        setPadding(0, dp(4), 0, dp(5))
+                    })
+                }
+            }
             bubble.addView(TextView(this@OverlayBubbleService).apply {
                 text = message.content
                 textSize = 15f
@@ -1374,22 +1394,8 @@ class OverlayBubbleService : Service() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.END
                 }
-                if (message.reasoning.isNotBlank()) {
-                    actions.addView(smallInlineAction("🧠") {
-                        if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
-                        notifyDataSetChanged()
-                    })
-                }
                 actions.addView(smallInlineAction("🔊") { speakMessage(message.id) })
                 bubble.addView(actions)
-                if (message.reasoning.isNotBlank() && expandedReasoning.contains(message.id)) {
-                    bubble.addView(TextView(this@OverlayBubbleService).apply {
-                        text = "思考\n${message.reasoning}"
-                        textSize = 12f
-                        setTextColor(Color.rgb(190, 185, 202))
-                        setPadding(0, dp(5), 0, 0)
-                    })
-                }
             }
             outer.addView(
                 bubble,
@@ -1445,6 +1451,11 @@ class OverlayBubbleService : Service() {
         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
         private const val INLINE_REPLY_MAX_ATTEMPTS = 5
+        private const val BUBBLE_WINDOW_DP = 62
+        private const val BUBBLE_AVATAR_DP = 50
+        private const val BUBBLE_BADGE_DP = 20
+        private const val OVERLAY_RECENT_LIMIT = 8
+        private const val OVERLAY_OLDER_PAGE_LIMIT = 24
         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
         private const val EXTRA_REASON = "reason"
         const val EXTRA_COUNT = "count"
