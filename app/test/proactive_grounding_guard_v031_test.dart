@@ -49,4 +49,37 @@ void main() {
     );
     expect(result.allowed, isTrue);
   });
+
+
+  reasoningGuardTests();
+}
+
+void reasoningGuardTests() {
+  test('reasoning guard blocks replying to answered hello as current turn', () {
+    final result = ProactiveReasoningGroundingGuard.evaluate(
+      grounding: snapshot(userSpokeAfterAssistant: false),
+      reasoning: '需要回复用户的“你好”，语气自然一点。',
+      lastUserText: '你好',
+    );
+    expect(result.allowed, isFalse);
+    expect(result.reason, 'reasoning_replied_answered_history');
+  });
+
+  test('reasoning guard allows remembering old hello without treating it as current', () {
+    final result = ProactiveReasoningGroundingGuard.evaluate(
+      grounding: snapshot(userSpokeAfterAssistant: false),
+      reasoning: '不能继续回复用户的“你好”。这是主动联系，应该从当前想念出发。',
+      lastUserText: '你好',
+    );
+    expect(result.allowed, isTrue);
+  });
+
+  test('reasoning guard allows proactive desire reasoning', () {
+    final result = ProactiveReasoningGroundingGuard.evaluate(
+      grounding: snapshot(userSpokeAfterAssistant: false),
+      reasoning: '当前 attachment 有些高，可以主动轻轻说一句想他。',
+      lastUserText: '你好',
+    );
+    expect(result.allowed, isTrue);
+  });
 }

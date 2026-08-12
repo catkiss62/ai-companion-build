@@ -4,9 +4,9 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.0+40 · Grounded Desire Core**。
+- 当前源码候选：**v0.31.1+41 · Proactive Grounding + Chat Timestamps**。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
-- 数据库：**schema v18**，v0.31.0 无 schema migration；Desire 新字段继续存现有 JSON snapshot。
+- 数据库：**schema v18**，v0.31.1 无 schema migration；Desire 新字段继续存现有 JSON snapshot。
 - GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
 - 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可稳定复现“进入系统文件选择器/上传文件后，返回时悬浮球可见但 input channel 卡死，打开 AI Companion 后恢复”。用户确认除此之外暂无重大 Overlay 故障，因此 **悬浮球任务冻结**。
 
@@ -49,6 +49,26 @@ v0.31.0 处理方式：
 - 新增 `ProactiveGroundingGuard` 最终硬拦截：当 SQLite 明确显示用户在 AI 上次发言后没有再说话时，候选 proactive 若声称“你刚才说/你刚刚说/你刚回复……”会在写入数据库前被丢弃，并只记录脱敏 guard reason/count。
 - 当前粗粒度 Awareness 作为独立 `AWARENESS` block，允许不确定，不向模型伪装成用户发言。
 
+## 3A. v0.31.1 · Proactive Context Isolation / Reasoning Grounding
+
+v0.31.0 真机脱敏诊断已经证明数据层判断正确：`lastUserAnswered=true / pendingUserTurn=false / userSpokeAfterLastAssistant=false`。但用户可见的 DeepSeek reasoning 仍会出现“回复用户的你好”之类思路，说明问题剩在**模型消息形状**而不是 SQLite Grounding。
+
+v0.31.1 处理：
+
+- 普通 user turn 继续用真实 `role=user/assistant` 历史。
+- proactive generation 不再把旧聊天作为可被模型视为 current turn 的 role 序列；改成只读 `ANSWERED CHAT HISTORY` system transcript，并把真实历史标为 `REAL_USER_HISTORY / ASSISTANT_HISTORY / ASSISTANT_PROACTIVE_HISTORY`。
+- 主动生成显式加入 `CURRENT_USER_TURN=NONE / ANSWERED_HISTORY_ONLY=true`；reasoning 和正文都不得把已回答历史重新当成本轮问题。
+- 新增 `ProactiveReasoningGroundingGuard`：在“last user 已回答 + 用户沉默 + 无 pending user turn”时，窄范围检测 reasoning 是否又进入“回复/回答已回答历史”的模式。
+- 正文或 reasoning 首次违反 Grounding 时，允许 **一次纠正重试**；重试仍违规则整条 proactive 不落库，错误 reasoning 不展示给用户。
+- 浅层诊断记录 Grounding retry count/last reason，但不记录 user text 或 reasoning 正文。
+
+## 3B. v0.31.1 · Chat Timestamps
+
+- 主聊天 UI 每条消息显示本地 `HH:mm`；跨本地自然日显示“今天/昨天/日期 · 周X”分隔。
+- 时间戳来自现有 `ChatMessage.createdAt` metadata，不写进 `message.content`。
+- TTS 仍只朗读 `message.content`，因此不会读时间戳/日期。
+- 本版不修改 Android Overlay；悬浮聊天是否显示时间后续再做，不解除 Overlay FROZEN。
+
 ## 4. v0.31.0 · Grounded Desire Core 第一批
 
 用户提供了 10 张第三方 Desire System 参考截图。参考中可能针对男性 AI / “哥哥/朝灯/GitHub/web_browse”等场景；本项目**只吸收机制，语义全部按女性 AI 伴侣重写**。
@@ -90,7 +110,7 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
 
 浅层脱敏诊断新增：
 
-- `database.grounding`：localDate/localTime/UTC offset/daypart、conversationState、pending/answered、user/assistant silence ages、proactive count，以及 proactive factual guard 的 block count/last reason；**没有 message id/body**。
+- `database.grounding`：localDate/localTime/UTC offset/daypart、conversationState、pending/answered、user/assistant silence ages、proactive count，以及 proactive factual/reasoning guard 的 block/retry count 与 last reason；**没有 message id/body**。
 - `database.desireCore`：8 Drive、baselines、refractoryMinutes、last intent/satisfy、fatigue gate、selected/top candidates（只含 drive/action/score/source class，不含 Thought 正文/reason）、Thought provenance 计数。
 - `backgroundPresence.lastGateBreakdown` 保留，v0.31 可看到 Presence 已进入 Desire 而不是重复 Gate boost。
 - “她的内心”调试页显示 Reality Grounding 与 top Desire candidates，便于强制 proactive 做事实边界回归。
@@ -116,7 +136,7 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
 
 长期任务真源：`docs/PROJECT_TASK_LEDGER.md`。
 
-P0 / v0.31.x：Grounded Desire Core 收尾与真机数据调优。
+P0 / v0.31.x：Grounded Desire Core 收尾与真机数据调优；当前先完成 Context Isolation / reasoning grounding / 时间戳，再继续 baseline/self-drive/Wildcard。
 
 P1：
 
@@ -127,17 +147,19 @@ P1：
 P2：
 
 - Grounded Desire 真机数据后的 proactive 二次调优。
+- Notification Experience：App 前台静音、外部/锁屏系统通知、可选提示音/试听/音量/震动/锁屏隐私；系统/HyperOS 保留最终通知控制权。
 - Intimacy/NSFW Session 与 libido 深度融合，但普通聊天不自动色情化。
 - 隐私/安全/可靠性审计。
 - Clean Freeze、删除临时 patch/apply workflow、正式 release signing、升级/备份/崩溃恢复。
 
-## 10. v0.31.0 真机验收重点
+## 10. v0.31.1 真机验收重点
 
-1. 当前时间/daypart 是否与手机一致。
-2. `你好 -> AI 回复 -> 用户沉默 -> 她的内心/测试主动找我`：proactive 必须是新开口，不能重复回答“你好”。
-3. 用户继续沉默再强制 proactive：不能虚构“你刚才说了 X”。
-4. 正常用手机 5~15 分钟后直接导出浅层诊断，不跑深度自检；检查 `grounding / desireCore / lastGateBreakdown`。
-5. 主聊天、reasoning/body 顺序、TTS、Active Brain 无明显回归。Overlay 已知 file-picker freeze 不判 v0.31 失败。
+1. 主聊天消息是否显示 `HH:mm`；跨日历史是否出现日期分隔。
+2. 手动 TTS 只读正文，不读时间/日期。
+3. `你好 -> AI 回复 -> 用户沉默 -> 她的内心/测试主动找我`：reasoning 和正文都必须是新的主动开口，不能再把“你好”当 current turn 去回复。
+4. 用户继续沉默再强制 proactive：不能虚构“你刚才说/回复了 X”。若首个 candidate 走偏，系统最多纠正重试一次；浅层诊断可看到 retry count/last reason。
+5. 正常使用手机 5~15 分钟后直接导出浅层诊断，不跑深度自检；检查 `grounding / desireCore / lastGateBreakdown`。
+6. 主聊天、reasoning/body 顺序、TTS、Active Brain 无明显回归。Overlay file-picker freeze 仍不判 v0.31.1 失败。
 
 ## 11. GitHub / 开发流程
 

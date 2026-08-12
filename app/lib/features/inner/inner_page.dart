@@ -199,7 +199,7 @@ class _InnerPageState extends State<InnerPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('她的内心 · v0.31.0 Grounded Desire Core', style: Theme.of(context).textTheme.headlineSmall),
+        Text('她的内心 · v0.31.1 Grounded Desire Core', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
         const SizedBox(height: 16),

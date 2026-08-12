@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert any(v in pubspec for v in ['version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40'])
+    assert any(v in pubspec for v in ['version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41'])
 
     segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
     assert '_isLayoutBreak' in segmenter

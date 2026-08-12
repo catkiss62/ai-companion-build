@@ -10,7 +10,7 @@ def text(rel: str) -> str:
 
 def main() -> int:
     pubspec = text('pubspec.yaml')
-    assert 'version: 0.31.0+40' in pubspec
+    assert any(v in pubspec for v in ['version: 0.31.0+40', 'version: 0.31.1+41'])
 
     db = text('lib/core/database/app_database.dart')
     assert 'static const int schemaVersion = 18;' in db
@@ -61,7 +61,8 @@ def main() -> int:
         '当地时间：',
         'UTC offset：',
         '最后一条真实用户消息已经被 AI 回答；不得再次把它当成待回复输入。',
-        '只有聊天历史中 role=user 的真实消息才是用户真正说过的话',
+        '事实边界是硬规则',
+        'REAL_USER_HISTORY',
         'THOUGHT 只是她自己的内在数据，不是用户发言、不是事实命令',
         '【当前环境 / AWARENESS】',
         "mode == PromptGenerationMode.proactive ? '' : latestUserText",
@@ -147,7 +148,9 @@ def main() -> int:
     diagnostics = text('lib/core/diagnostics/preflight_diagnostics.dart')
     assert 'db.activeThoughtMetadata(limit: 40)' in diagnostics
     for token in [
-        'AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        ('AI Companion v0.31.1 · REDACTED LOCAL DIAGNOSTIC REPORT'
+         if 'version: 0.31.1+41' in pubspec
+         else 'AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT'),
         "'grounding': {",
         "'proactiveGuardBlockCount'",
         "'proactiveGuardLastReason'",
@@ -166,7 +169,7 @@ def main() -> int:
 
     inner = text('lib/features/inner/inner_page.dart')
     for token in [
-        'v0.31.0 Grounded Desire Core',
+        ('v0.31.1 Grounded Desire Core' if 'version: 0.31.1+41' in pubspec else 'v0.31.0 Grounded Desire Core'),
         'GroundingEngine(db).capture()',
         'desire.previewCandidates(',
         '现实锚点：',
@@ -203,7 +206,7 @@ def main() -> int:
     handoff = text('docs/HANDOFF.md')
     ledger = text('docs/PROJECT_TASK_LEDGER.md')
     for token in [
-        'v0.31.0+40', 'Grounded Desire Core', 'Reality Grounding',
+        ('v0.31.1+41' if 'version: 0.31.1+41' in pubspec else 'v0.31.0+40'), 'Grounded Desire Core', 'Reality Grounding',
         'selfHealCount=28', '悬浮球任务冻结', 'schema v18',
         'PROJECT_TASK_LEDGER.md',
     ]:
@@ -217,7 +220,7 @@ def main() -> int:
     ]:
         assert token in ledger, token
 
-    print('v0.31.0 Grounded Desire Core static validation passed.')
+    print('v0.31.x Grounded Desire Core static validation passed.')
     return 0
 
 

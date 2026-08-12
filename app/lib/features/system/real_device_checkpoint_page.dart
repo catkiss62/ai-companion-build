@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 6),
         Text(
-          '这不是新的功能页面，而是 v0.31.0 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+          '这不是新的功能页面，而是 v0.31.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

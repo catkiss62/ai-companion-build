@@ -6,6 +6,7 @@ import '../../core/models/chat_message.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../widgets/reasoning_panel.dart';
 import 'chat_controller.dart';
+import 'chat_timestamp_formatter.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -101,11 +102,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   itemBuilder: (context, index) {
                     if (index < controller.messages.length) {
                       final message = controller.messages[index];
-                      return _MessageBubble(
-                        message: message,
-                        onSpeak: message.isAssistant
-                            ? () => controller.speakMessage(message)
-                            : null,
+                      final previous = index == 0
+                          ? null
+                          : controller.messages[index - 1];
+                      final showDate = ChatTimestampFormatter.shouldShowDateSeparator(
+                        message.createdAt,
+                        previous?.createdAt,
+                      );
+                      return Column(
+                        children: [
+                          if (showDate)
+                            _DateSeparator(createdAt: message.createdAt),
+                          _MessageBubble(
+                            message: message,
+                            onSpeak: message.isAssistant
+                                ? () => controller.speakMessage(message)
+                                : null,
+                          ),
+                        ],
                       );
                     }
                     return _StreamingBubble(controller: controller);
@@ -208,6 +222,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 }
 
+
+class _DateSeparator extends StatelessWidget {
+  const _DateSeparator({required this.createdAt});
+
+  final DateTime createdAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Text(
+              ChatTimestampFormatter.dateSeparator(createdAt),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({required this.message, this.onSpeak});
   final ChatMessage message;
@@ -243,17 +288,35 @@ class _MessageBubble extends StatelessWidget {
             if (message.isAssistant)
               ReasoningPanel(reasoning: message.reasoningContent),
             SelectableText(message.content, style: const TextStyle(height: 1.45)),
-            if (message.isAssistant && onSpeak != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  visualDensity: VisualDensity.compact,
-                  iconSize: 18,
-                  onPressed: onSpeak,
-                  icon: const Icon(Icons.volume_up_outlined),
-                  tooltip: '重新朗读这条回复',
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  ChatTimestampFormatter.time(message.createdAt),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 10.5,
+                      ),
                 ),
-              ),
+                if (message.isAssistant && onSpeak != null) ...[
+                  const SizedBox(width: 2),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 30,
+                      minHeight: 30,
+                    ),
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    onPressed: onSpeak,
+                    icon: const Icon(Icons.volume_up_outlined),
+                    tooltip: '重新朗读这条回复',
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),

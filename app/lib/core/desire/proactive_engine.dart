@@ -62,6 +62,16 @@ class ProactiveDecision {
   final ProactiveDeliveryStyle? deliveryStyle;
 }
 
+class _ProactiveGenerationCandidate {
+  const _ProactiveGenerationCandidate({
+    required this.reasoning,
+    required this.content,
+  });
+
+  final String reasoning;
+  final String content;
+}
+
 class ProactiveEngine {
   ProactiveEngine({
     required this.db,
@@ -372,7 +382,7 @@ class ProactiveEngine {
 当前最高意图：${intent.wantAction}
 驱动：${intent.drive.name}
 内部原因/念头：${intent.reason}
-内部原因来源：${intent.reasonSource}。它不是用户原话；除非聊天历史中存在对应 role=user 证据，否则绝对不能写成“你刚才说了……”或“你说过……”。
+内部原因来源：${intent.reasonSource}。它不是用户原话；只有 ANSWERED CHAT HISTORY 中明确标记 REAL_USER_HISTORY 的数据库历史才是用户真实说过的话，而且这些历史不等于当前 user turn。
 主动联系类型：${intentKind.zhLabel} (${intentKind.key})
 投递风格：${deliveryStyle.zhLabel} (${deliveryStyle.key})
 Gate：${gateScore.toStringAsFixed(2)}
@@ -385,40 +395,99 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
     });
 
     final model = DeepSeekModelProfile.flash;
-    final reasoning = StringBuffer();
-    final content = StringBuffer();
+    final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
+        ? null
+        : await db.messageById(proactiveGrounding.lastUserMessageId!);
+    final lastGroundedUserText = lastGroundedUser?.content ?? '';
     var lastProactiveLeaseRefresh = DateTime.now();
-    await for (final delta in ai.streamChat(
-      apiKey: apiKey,
-      model: model,
-      effort: ReasoningEffort.high,
-      messages: context,
-      endpoint: endpoint,
-      thinking: true,
-      maxTokens: 700,
-    )) {
-      if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
-          const Duration(minutes: 1)) {
-        final renewed = await db.renewLocalLease(
-          'proactive_lease_until',
-          holdFor: const Duration(minutes: 5),
-        );
-        if (!renewed) {
-          return ProactiveDecision(
-            sent: false,
-            reason: '主动心跳写入权限已经转移，本次生成取消',
-            gateScore: gateScore,
-            intentKind: intentKind,
-            deliveryStyle: deliveryStyle,
+
+    Future<_ProactiveGenerationCandidate?> generateCandidate(
+      List<Map<String, Object?>> promptMessages,
+    ) async {
+      final reasoning = StringBuffer();
+      final content = StringBuffer();
+      await for (final delta in ai.streamChat(
+        apiKey: apiKey,
+        model: model,
+        effort: ReasoningEffort.high,
+        messages: promptMessages,
+        endpoint: endpoint,
+        thinking: true,
+        maxTokens: 700,
+      )) {
+        if (DateTime.now().difference(lastProactiveLeaseRefresh) >=
+            const Duration(minutes: 1)) {
+          final renewed = await db.renewLocalLease(
+            'proactive_lease_until',
+            holdFor: const Duration(minutes: 5),
           );
+          if (!renewed) return null;
+          lastProactiveLeaseRefresh = DateTime.now();
         }
-        lastProactiveLeaseRefresh = DateTime.now();
+        reasoning.write(delta.reasoning);
+        content.write(delta.content);
       }
-      reasoning.write(delta.reasoning);
-      content.write(delta.content);
+      return _ProactiveGenerationCandidate(
+        reasoning: reasoning.toString().trim(),
+        content: content.toString().trim(),
+      );
     }
-    final text = content.toString().trim();
-    if (text.isEmpty || text == 'WAIT') {
+
+    Future<void> noteGroundingRetry(String reason) async {
+      final count = int.tryParse(
+            await db.getSetting('grounding_retry_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting('grounding_retry_count', (count + 1).toString());
+      await db.setSetting(
+        'grounding_retry_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      await db.setSetting('grounding_retry_last_reason', reason);
+    }
+
+    Future<ProactiveDecision> blockGrounding(String reason) async {
+      final previousBlocks = int.tryParse(
+            await db.getSetting('grounding_guard_block_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting(
+        'grounding_guard_block_count',
+        (previousBlocks + 1).toString(),
+      );
+      await db.setSetting(
+        'grounding_guard_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      await db.setSetting('grounding_guard_last_reason', reason);
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:grounding_guard',
+        decision: 'grounding_guard_block',
+      );
+      return ProactiveDecision(
+        sent: false,
+        reason: 'Reality Grounding 拦截了一次把已完成历史当成当前用户轮次的生成',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
+    }
+
+    var candidate = await generateCandidate(context);
+    if (candidate == null) {
+      return ProactiveDecision(
+        sent: false,
+        reason: '主动心跳写入权限已经转移，本次生成取消',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
+    }
+
+    bool isWait(_ProactiveGenerationCandidate value) =>
+        value.content.isEmpty || value.content == 'WAIT';
+
+    if (isWait(candidate)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'model_wait',
@@ -432,39 +501,77 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       );
     }
 
-    final groundingGuard = ProactiveGroundingGuard.evaluate(
+    var textGuard = ProactiveGroundingGuard.evaluate(
       grounding: proactiveGrounding,
-      text: text,
+      text: candidate.content,
     );
-    if (!groundingGuard.allowed) {
-      final previousBlocks = int.tryParse(
-            await db.getSetting('grounding_guard_block_count') ?? '',
-          ) ??
-          0;
-      await db.setSetting(
-        'grounding_guard_block_count',
-        (previousBlocks + 1).toString(),
+    var reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
+      grounding: proactiveGrounding,
+      reasoning: candidate.reasoning,
+      lastUserText: lastGroundedUserText,
+    );
+
+    if (!textGuard.allowed || !reasoningGuard.allowed) {
+      final retryReason = !reasoningGuard.allowed
+          ? reasoningGuard.reason
+          : textGuard.reason;
+      await noteGroundingRetry(retryReason);
+      final retryContext = <Map<String, Object?>>[
+        ...context,
+        {
+          'role': 'system',
+          'content': '''
+【REALITY GROUNDING CORRECTION · ONE RETRY】
+上一份候选生成违反了当前轮次事实边界：$retryReason。
+CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，用户之后没有新的发言。
+请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
+推理本身也不能写成“回复/回答用户上一句”。最终正文同样不能虚构用户刚刚说了、回复了或发来了任何内容。
+'''.trim(),
+        },
+      ];
+      final retried = await generateCandidate(retryContext);
+      if (retried == null) {
+        return ProactiveDecision(
+          sent: false,
+          reason: '主动心跳写入权限已经转移，本次纠正生成取消',
+          gateScore: gateScore,
+          intentKind: intentKind,
+          deliveryStyle: deliveryStyle,
+        );
+      }
+      candidate = retried;
+      if (isWait(candidate)) {
+        await db.addProactiveHistory(
+          triggerReason: '${intent.drive.name}:${intent.reason}',
+          decision: 'grounding_retry_wait',
+        );
+        return ProactiveDecision(
+          sent: false,
+          reason: 'Reality Grounding 纠正后模型选择 WAIT',
+          gateScore: gateScore,
+          intentKind: intentKind,
+          deliveryStyle: deliveryStyle,
+        );
+      }
+      textGuard = ProactiveGroundingGuard.evaluate(
+        grounding: proactiveGrounding,
+        text: candidate.content,
       );
-      await db.setSetting(
-        'grounding_guard_last_at',
-        DateTime.now().millisecondsSinceEpoch.toString(),
-      );
-      await db.setSetting(
-        'grounding_guard_last_reason',
-        groundingGuard.reason,
-      );
-      await db.addProactiveHistory(
-        triggerReason: '${intent.drive.name}:grounding_guard',
-        decision: 'grounding_guard_block',
-      );
-      return ProactiveDecision(
-        sent: false,
-        reason: 'Reality Grounding 拦截了一条虚构用户近期发言的候选消息',
-        gateScore: gateScore,
-        intentKind: intentKind,
-        deliveryStyle: deliveryStyle,
+      reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
+        grounding: proactiveGrounding,
+        reasoning: candidate.reasoning,
+        lastUserText: lastGroundedUserText,
       );
     }
+
+    if (!textGuard.allowed) {
+      return blockGrounding(textGuard.reason);
+    }
+    if (!reasoningGuard.allowed) {
+      return blockGrounding(reasoningGuard.reason);
+    }
+
+    final text = candidate.content;
 
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
@@ -473,7 +580,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       id: _uuid.v4(),
       role: 'assistant',
       content: text,
-      reasoningContent: reasoning.toString(),
+      reasoningContent: candidate.reasoning,
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,

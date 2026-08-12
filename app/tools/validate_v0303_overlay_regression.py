@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert any(v in pubspec for v in ['version: 0.30.3+39', 'version: 0.31.0+40'])
+    assert any(v in pubspec for v in ['version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41'])
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -53,8 +53,8 @@ def main() -> int:
 
     diagnostics = (ROOT / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text(encoding='utf-8')
     for token in [
-        ('AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT'
-         if 'version: 0.31.0+40' in pubspec
+        (('AI Companion v0.31.1 · REDACTED LOCAL DIAGNOSTIC REPORT' if 'version: 0.31.1+41' in pubspec else 'AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
+         if any(v in pubspec for v in ['version: 0.31.0+40', 'version: 0.31.1+41'])
          else 'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT'),
         "'recoveryInProgress'", "'coverRecoveryCount'", "'selfHealCount'",
     ]:
@@ -70,7 +70,7 @@ def main() -> int:
     ]:
         assert token in presence, token
     proactive = (ROOT / 'lib/core/desire/proactive_engine.dart').read_text(encoding='utf-8')
-    if 'version: 0.31.0+40' in pubspec:
+    if any(v in pubspec for v in ['version: 0.31.0+40', 'version: 0.31.1+41']):
         assert 'const presenceBoost = 0.0;' in proactive
         assert "'presenceAppliedToDesire': true" in proactive
     else:
@@ -79,8 +79,8 @@ def main() -> int:
 
     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
     handoff_tokens = ['schema v18', 'selfHealCount=28']
-    handoff_tokens += (['v0.31.0+40', 'Grounded Desire Core', '悬浮球']
-                       if 'version: 0.31.0+40' in pubspec
+    handoff_tokens += ((['v0.31.1+41', 'Grounded Desire Core', '悬浮球'] if 'version: 0.31.1+41' in pubspec else ['v0.31.0+40', 'Grounded Desire Core', '悬浮球'])
+                       if any(v in pubspec for v in ['version: 0.31.0+40', 'version: 0.31.1+41'])
                        else ['v0.30.3+39', 'Overlay Regression Repair', 'Presence 完全冻结'])
     for token in handoff_tokens:
         assert token in handoff, token
