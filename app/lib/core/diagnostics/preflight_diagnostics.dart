@@ -212,6 +212,18 @@ class PreflightDiagnosticsService {
       final nearby = _asMap(native['nearby']);
       final androidInfo = _asMap(native['android']);
       final audio = _asMap(native['audio']);
+      report['overlayTouch'] = {
+        'bubbleAttached': capabilities['overlayBubbleAttached'] == true,
+        'bubbleTouchable': capabilities['overlayBubbleTouchable'] == true,
+        'positionSafe': capabilities['overlayPositionSafe'] == true,
+        'chatWindowAttached': capabilities['overlayChatWindowAttached'] == true,
+        'chatExpanded': capabilities['overlayChatExpanded'] == true,
+        'lastTouchAt': capabilities['overlayLastTouchAt'] ?? 0,
+        'lastTouchAction': capabilities['overlayLastTouchAction'] ?? '',
+        'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
+        'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
+        'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
+      };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
       _addPermissionCheck(checks, 'usage', '使用情况访问', capabilities['usage'] == true);
@@ -250,6 +262,28 @@ class PreflightDiagnosticsService {
             : overlayRunning && backgroundReady
                 ? '常驻服务与后台 Dart 命令通道均已就绪。'
                 : '悬浮服务已启用，但后台 Dart 命令通道尚未就绪或正在恢复。',
+      ));
+
+      final bubbleAttached = capabilities['overlayBubbleAttached'] == true;
+      final bubbleTouchable = capabilities['overlayBubbleTouchable'] == true;
+      final bubblePositionSafe = capabilities['overlayPositionSafe'] == true;
+      final chatWindowAttached = capabilities['overlayChatWindowAttached'] == true;
+      final chatExpanded = capabilities['overlayChatExpanded'] == true;
+      checks.add(PreflightCheck(
+        id: 'overlay_touch',
+        title: '悬浮球触摸健康',
+        level: !overlayEnabled
+            ? 'info'
+            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                    (!chatWindowAttached || chatExpanded)
+                ? 'pass'
+                : 'warn',
+        summary: !overlayEnabled
+            ? '悬浮陪伴未启用，本轮不检查触摸窗口。'
+            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                    (!chatWindowAttached || chatExpanded)
+                ? '悬浮球窗口已附着、可触摸且位于系统安全区域。'
+                : '悬浮球存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
       ));
 
       final nearbyPermission = nearby['permissionsGranted'] == true;
@@ -375,7 +409,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

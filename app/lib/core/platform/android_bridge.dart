@@ -67,6 +67,13 @@ class CapabilityStatus {
     required this.overlayUserEnabled,
     required this.overlayVisible,
     required this.overlayChatExpanded,
+    required this.overlayBubbleAttached,
+    required this.overlayBubbleTouchable,
+    required this.overlayPositionSafe,
+    required this.overlayChatWindowAttached,
+    required this.overlayLastTouchAt,
+    required this.overlayLastTouchAction,
+    required this.overlaySelfHealCount,
     required this.notificationListenerConnected,
     required this.accessibilityConnected,
     required this.appVisible,
@@ -87,6 +94,13 @@ class CapabilityStatus {
   final bool overlayUserEnabled;
   final bool overlayVisible;
   final bool overlayChatExpanded;
+  final bool overlayBubbleAttached;
+  final bool overlayBubbleTouchable;
+  final bool overlayPositionSafe;
+  final bool overlayChatWindowAttached;
+  final DateTime? overlayLastTouchAt;
+  final String overlayLastTouchAction;
+  final int overlaySelfHealCount;
   final bool notificationListenerConnected;
   final bool accessibilityConnected;
   final bool appVisible;
@@ -113,6 +127,13 @@ class CapabilityStatus {
       overlayUserEnabled: b('overlayUserEnabled'),
       overlayVisible: b('overlayVisible'),
       overlayChatExpanded: b('overlayChatExpanded'),
+      overlayBubbleAttached: b('overlayBubbleAttached'),
+      overlayBubbleTouchable: b('overlayBubbleTouchable'),
+      overlayPositionSafe: b('overlayPositionSafe'),
+      overlayChatWindowAttached: b('overlayChatWindowAttached'),
+      overlayLastTouchAt: date('overlayLastTouchAt'),
+      overlayLastTouchAction: map['overlayLastTouchAction'] as String? ?? '',
+      overlaySelfHealCount: (map['overlaySelfHealCount'] as num?)?.toInt() ?? 0,
       notificationListenerConnected: b('notificationListenerConnected'),
       accessibilityConnected: b('accessibilityConnected'),
       appVisible: b('appVisible'),

@@ -24,6 +24,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
@@ -107,6 +108,7 @@ class OverlayBubbleService : Service() {
                 stopSelf()
                 return
             }
+            ensureOverlayHealth("permission_watch")
             mainHandler.postDelayed(this, PERMISSION_WATCH_MS)
         }
     }
@@ -261,6 +263,11 @@ class OverlayBubbleService : Service() {
                 signalBackgroundBrainWake()
                 return START_REDELIVER_INTENT
             }
+            ACTION_RECONCILE -> {
+                val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
+                ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)
+                return START_STICKY
+            }
             ACTION_WAKE_BRAIN -> {
                 val wakeReason = intent.getStringExtra(EXTRA_REASON) ?: "native_wake"
                 pendingBrainWakeReason = wakeReason.take(120)
@@ -293,9 +300,7 @@ class OverlayBubbleService : Service() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         bubbleRoot?.let { view ->
-            val bounds = screenBounds()
-            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
-            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+            clampBubbleToSafeArea()
             persistBubblePosition()
             updateBubbleLayout(view)
         }
@@ -324,6 +329,12 @@ class OverlayBubbleService : Service() {
         backgroundEngineRestartScheduled = false
         CompanionRuntimeState.setOverlayVisible(false)
         CompanionRuntimeState.setOverlayChatExpanded(false)
+        CompanionRuntimeState.setOverlayTouchHealth(
+            bubbleAttached = false,
+            bubbleTouchable = false,
+            positionSafe = false,
+            chatWindowAttached = false,
+        )
         hideKeyboard()
         removeChatWindow()
         bubbleRoot?.let { runCatching { windowManager.removeView(it) } }
@@ -386,25 +397,24 @@ class OverlayBubbleService : Service() {
         badge?.bringToFront()
 
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val (screenWidth, screenHeight) = screenBounds()
-        val defaultX = (screenWidth - dp(BUBBLE_WINDOW_DP + 12)).coerceAtLeast(0)
-        val defaultY = (screenHeight / 3).coerceAtLeast(0)
+        val safeArea = bubbleSafeArea()
+        val defaultX = (safeArea.right - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(safeArea.left)
+        val defaultY = (safeArea.top + (safeArea.height / 3)).coerceAtMost(
+            (safeArea.bottom - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(safeArea.top),
+        )
         bubbleParams = WindowManager.LayoutParams(
             dp(BUBBLE_WINDOW_DP),
             dp(BUBBLE_WINDOW_DP),
             overlayWindowType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            bubbleModeFlags(),
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = prefs.getInt(KEY_X, defaultX)
-                .coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
             y = prefs.getInt(KEY_Y, defaultY)
-                .coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
         }
         attachDrag(container)
+        if (clampBubbleToSafeArea()) persistBubblePosition()
         return runCatching {
             bubbleRoot = container
             windowManager.addView(container, bubbleParams)
@@ -412,6 +422,7 @@ class OverlayBubbleService : Service() {
             container.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
             CompanionRuntimeState.setOverlayVisible(container.visibility == View.VISIBLE)
             setUnread(readUnread())
+            updateOverlayTouchHealth()
             true
         }.getOrElse { error ->
             bubbleRoot = null
@@ -624,6 +635,7 @@ class OverlayBubbleService : Service() {
             runCatching { windowManager.updateViewLayout(chatRoot, params) }
         }
         CompanionRuntimeState.setOverlayVisible(true)
+        updateOverlayTouchHealth()
         refreshOverlayMessages(opened = true, attempt = 0)
         NativeEventStore.addDeviceEvent(
             this,
@@ -635,15 +647,17 @@ class OverlayBubbleService : Service() {
     }
 
     private fun collapseChatOverlay(reason: String) {
-        if (!chatExpanded && chatRoot?.visibility != View.VISIBLE) return
+        if (!chatExpanded && chatRoot == null) {
+            ensureOverlayHealth("collapse_no_chat:$reason")
+            return
+        }
         hideKeyboard()
         exitChatInputMode(updateWindow = false)
-        chatRoot?.visibility = View.GONE
-        chatExpanded = false
-        CompanionRuntimeState.setOverlayChatExpanded(false)
+        removeChatWindow()
         val keyguard = getSystemService(KeyguardManager::class.java)
         bubbleRoot?.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
         CompanionRuntimeState.setOverlayVisible(bubbleRoot?.visibility == View.VISIBLE)
+        ensureOverlayHealth("collapse:$reason")
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -913,6 +927,7 @@ class OverlayBubbleService : Service() {
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    CompanionRuntimeState.noteOverlayTouch("down")
                     startX = bubbleParams.x
                     startY = bubbleParams.y
                     downX = event.rawX
@@ -921,6 +936,7 @@ class OverlayBubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    CompanionRuntimeState.noteOverlayTouch("move")
                     val dx = (event.rawX - downX).toInt()
                     val dy = (event.rawY - downY).toInt()
                     if (abs(dx) > dp(4) || abs(dy) > dp(4)) moved = true
@@ -930,17 +946,25 @@ class OverlayBubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    CompanionRuntimeState.noteOverlayTouch("up")
                     if (!moved) {
                         showChatOverlay("bubble_tap")
                     } else {
-                        val screenWidth = screenBounds().first
-                        bubbleParams.x = if (bubbleParams.x + dp(BUBBLE_WINDOW_DP / 2) < screenWidth / 2) 0 else screenWidth - dp(BUBBLE_WINDOW_DP)
+                        snapBubbleToSafeEdge()
                         persistBubblePosition()
                         updateBubbleLayout(view)
                     }
+                    moved = false
                     true
                 }
-                MotionEvent.ACTION_CANCEL -> true
+                MotionEvent.ACTION_CANCEL -> {
+                    CompanionRuntimeState.noteOverlayTouch("cancel")
+                    moved = false
+                    clampBubbleToSafeArea()
+                    persistBubblePosition()
+                    updateBubbleLayout(view)
+                    true
+                }
                 else -> false
             }
         }
@@ -953,12 +977,142 @@ class OverlayBubbleService : Service() {
             .apply()
     }
 
+    private data class BubbleSafeArea(
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+    ) {
+        val width: Int get() = (right - left).coerceAtLeast(0)
+        val height: Int get() = (bottom - top).coerceAtLeast(0)
+    }
+
+    private fun bubbleSafeArea(): BubbleSafeArea {
+        val margin = dp(BUBBLE_SAFE_MARGIN_DP)
+        if (Build.VERSION.SDK_INT >= 30) {
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            val left = bounds.left + insets.left + margin
+            val top = bounds.top + insets.top + margin
+            val right = (bounds.right - insets.right - margin).coerceAtLeast(left)
+            val bottom = (bounds.bottom - insets.bottom - margin).coerceAtLeast(top)
+            return BubbleSafeArea(left, top, right, bottom)
+        }
+        @Suppress("DEPRECATION")
+        val width = resources.displayMetrics.widthPixels
+        @Suppress("DEPRECATION")
+        val height = resources.displayMetrics.heightPixels
+        return BubbleSafeArea(margin, margin, (width - margin).coerceAtLeast(margin), (height - margin).coerceAtLeast(margin))
+    }
+
+    private fun clampBubbleToSafeArea(): Boolean {
+        val safe = bubbleSafeArea()
+        val size = dp(BUBBLE_WINDOW_DP)
+        val maxX = (safe.right - size).coerceAtLeast(safe.left)
+        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
+        val oldX = bubbleParams.x
+        val oldY = bubbleParams.y
+        bubbleParams.x = bubbleParams.x.coerceIn(safe.left, maxX)
+        bubbleParams.y = bubbleParams.y.coerceIn(safe.top, maxY)
+        return oldX != bubbleParams.x || oldY != bubbleParams.y
+    }
+
+    private fun isBubblePositionSafe(): Boolean {
+        if (!::bubbleParams.isInitialized) return false
+        val safe = bubbleSafeArea()
+        val size = dp(BUBBLE_WINDOW_DP)
+        val maxX = (safe.right - size).coerceAtLeast(safe.left)
+        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
+        return bubbleParams.x in safe.left..maxX && bubbleParams.y in safe.top..maxY
+    }
+
+    private fun snapBubbleToSafeEdge() {
+        val safe = bubbleSafeArea()
+        val size = dp(BUBBLE_WINDOW_DP)
+        val maxX = (safe.right - size).coerceAtLeast(safe.left)
+        val midpoint = safe.left + safe.width / 2
+        bubbleParams.x = if (bubbleParams.x + size / 2 < midpoint) safe.left else maxX
+        clampBubbleToSafeArea()
+    }
+
+    private fun bubbleModeFlags(): Int =
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
+    private fun updateOverlayTouchHealth() {
+        val bubble = bubbleRoot
+        val paramsTouchable = ::bubbleParams.isInitialized &&
+            bubbleParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0
+        CompanionRuntimeState.setOverlayTouchHealth(
+            bubbleAttached = bubble?.isAttachedToWindow == true,
+            bubbleTouchable = bubble?.isAttachedToWindow == true && paramsTouchable && bubble.isEnabled,
+            positionSafe = isBubblePositionSafe(),
+            chatWindowAttached = chatRoot?.isAttachedToWindow == true,
+        )
+    }
+
+    private fun ensureOverlayHealth(reason: String, rebuildInputChannel: Boolean = false) {
+        if (!running || !Settings.canDrawOverlays(this)) return
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (chatExpanded) {
+            updateOverlayTouchHealth()
+            return
+        }
+
+        // A hidden TYPE_APPLICATION_OVERLAY chat window is unnecessary and on
+        // some OEM builds can leave a stale input region. Remove it completely
+        // whenever the UI is collapsed.
+        if (chatRoot != null) removeChatWindow()
+
+        var repaired = false
+        var bubble = bubbleRoot
+        if (bubble == null || !bubble.isAttachedToWindow || rebuildInputChannel) {
+            bubble?.let { runCatching { windowManager.removeViewImmediate(it) } }
+            bubbleRoot = null
+            repaired = createBubble()
+            bubble = bubbleRoot
+        } else {
+            val attachedBubble = requireNotNull(bubble)
+            val expectedFlags = bubbleModeFlags()
+            if (bubbleParams.flags != expectedFlags) {
+                bubbleParams.flags = expectedFlags
+                repaired = true
+            }
+            if (clampBubbleToSafeArea()) {
+                persistBubblePosition()
+                repaired = true
+            }
+            attachedBubble.isEnabled = true
+            attachedBubble.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
+            CompanionRuntimeState.setOverlayVisible(attachedBubble.visibility == View.VISIBLE)
+            runCatching { windowManager.updateViewLayout(attachedBubble, bubbleParams) }
+                .onFailure { repaired = true }
+        }
+
+        if (repaired) {
+            CompanionRuntimeState.noteOverlaySelfHeal(reason)
+            NativeEventStore.addDeviceEvent(
+                this,
+                source = "system",
+                eventType = "overlay_touch_self_healed",
+                appPackage = packageName,
+                summary = "悬浮球输入通道/位置已自动恢复：${reason.take(120)}",
+            )
+        }
+        updateOverlayTouchHealth()
+    }
+
     private fun updateBubbleLayout(view: View) {
-        val (screenWidth, screenHeight) = screenBounds()
-        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
-        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+        val changed = clampBubbleToSafeArea()
+        if (changed) persistBubblePosition()
         runCatching { windowManager.updateViewLayout(view, bubbleParams) }
+            .onSuccess { updateOverlayTouchHealth() }
             .onFailure { error ->
+                updateOverlayTouchHealth()
                 NativeEventStore.addDeviceEvent(
                     this,
                     source = "system",
@@ -969,6 +1123,11 @@ class OverlayBubbleService : Service() {
                 if (!Settings.canDrawOverlays(this)) {
                     destroyReason = "overlay_permission_lost"
                     stopSelf()
+                } else {
+                    mainHandler.postDelayed(
+                        { ensureOverlayHealth("update_failed", rebuildInputChannel = true) },
+                        250L,
+                    )
                 }
             }
     }
@@ -1251,7 +1410,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun removeChatWindow() {
-        chatRoot?.let { runCatching { windowManager.removeView(it) } }
+        chatRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
         chatRoot = null
         chatList = null
         chatAdapter = null
@@ -1263,6 +1422,7 @@ class OverlayBubbleService : Service() {
         chatExpanded = false
         CompanionRuntimeState.setOverlayChatExpanded(false)
         chatInputMode = false
+        updateOverlayTouchHealth()
     }
 
     private fun setUnread(count: Int) {
@@ -1483,6 +1643,7 @@ class OverlayBubbleService : Service() {
         private const val KEY_X = "bubble_x"
         private const val KEY_Y = "bubble_y"
         private const val PERMISSION_WATCH_MS = 30_000L
+        private const val BUBBLE_SAFE_MARGIN_DP = 6
         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
@@ -1514,7 +1675,16 @@ class OverlayBubbleService : Service() {
         fun reconcileFromVisibleActivity(context: Context) {
             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return
             if (!Settings.canDrawOverlays(context)) return
-            if (running) return
+            if (running) {
+                runCatching {
+                    context.startService(
+                        Intent(context, OverlayBubbleService::class.java)
+                            .setAction(ACTION_RECONCILE)
+                            .putExtra(EXTRA_REASON, "visible_activity_reconcile"),
+                    )
+                }
+                return
+            }
             startPersistent(context, "visible_activity_reconcile")
         }
 

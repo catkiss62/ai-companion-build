@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert 'version: 0.30.0+36' in pubspec
+    assert 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -92,7 +92,7 @@ def main() -> int:
         "'lastProactiveReason'",
         "'lastPerceptionAt'",
         "'nextHeartbeatAt'",
-        'AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        'AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT',
     ]:
         assert token in diagnostics, token
 

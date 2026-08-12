@@ -28,6 +28,23 @@ object CompanionRuntimeState {
         private set
     @Volatile var accessibilityConnected: Boolean = false
         private set
+    @Volatile var overlayBubbleAttached: Boolean = false
+        private set
+    @Volatile var overlayBubbleTouchable: Boolean = false
+        private set
+    @Volatile var overlayPositionSafe: Boolean = false
+        private set
+    @Volatile var overlayChatWindowAttached: Boolean = false
+        private set
+    @Volatile var overlayLastTouchAt: Long = 0L
+        private set
+    @Volatile var overlayLastTouchAction: String = ""
+        private set
+    @Volatile var overlayLastSelfHealAt: Long = 0L
+        private set
+    @Volatile var overlayLastSelfHealReason: String = ""
+        private set
+    private val overlaySelfHealCount = AtomicInteger(0)
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -61,6 +78,15 @@ object CompanionRuntimeState {
             "appVisible" to (visibleActivities.get() > 0),
             "notificationListenerConnected" to notificationListenerConnected,
             "accessibilityConnected" to accessibilityConnected,
+            "overlayBubbleAttached" to overlayBubbleAttached,
+            "overlayBubbleTouchable" to overlayBubbleTouchable,
+            "overlayPositionSafe" to overlayPositionSafe,
+            "overlayChatWindowAttached" to overlayChatWindowAttached,
+            "overlayLastTouchAt" to overlayLastTouchAt,
+            "overlayLastTouchAction" to overlayLastTouchAction,
+            "overlayLastSelfHealAt" to overlayLastSelfHealAt,
+            "overlayLastSelfHealReason" to overlayLastSelfHealReason,
+            "overlaySelfHealCount" to overlaySelfHealCount.get(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
@@ -90,5 +116,28 @@ object CompanionRuntimeState {
 
     fun setAccessibilityConnected(connected: Boolean) {
         accessibilityConnected = connected
+    }
+
+    fun setOverlayTouchHealth(
+        bubbleAttached: Boolean,
+        bubbleTouchable: Boolean,
+        positionSafe: Boolean,
+        chatWindowAttached: Boolean,
+    ) {
+        overlayBubbleAttached = bubbleAttached
+        overlayBubbleTouchable = bubbleTouchable
+        overlayPositionSafe = positionSafe
+        overlayChatWindowAttached = chatWindowAttached
+    }
+
+    fun noteOverlayTouch(action: String) {
+        overlayLastTouchAt = System.currentTimeMillis()
+        overlayLastTouchAction = action.take(40)
+    }
+
+    fun noteOverlaySelfHeal(reason: String) {
+        overlayLastSelfHealAt = System.currentTimeMillis()
+        overlayLastSelfHealReason = reason.take(120)
+        overlaySelfHealCount.incrementAndGet()
     }
 }

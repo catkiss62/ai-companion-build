@@ -4,10 +4,10 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.30.0+36 · Background Presence**。
-- 最近一次用户真机确认稳定：**v0.29.0+34 Clean Baseline**。
+- 当前源码候选：**v0.30.1+37 · Overlay Touch Recovery**。
+- 最近一次用户真机确认稳定：**v0.30.0+36 Background Presence**（后台大脑、悬浮聊天收发、Awareness→Perception 真机通过；发现悬浮球偶发失去触摸）。
 - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
-- 数据库：**schema v18**，v0.30.0 不做 schema 迁移。
+- 数据库：**schema v18**，v0.30.1 不做 schema 迁移。
 - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
 
 ## 2. 项目定位
@@ -94,13 +94,29 @@ v0.30.0：
 5. native 与 Dart 各做一层 90 秒去抖；reactive wake 只提前运行原有 Perception -> Thought/Desire -> Proactive Gate，不绕过主动消息 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
 6. 脱敏诊断新增 `backgroundBrainReady` 检查与 backgroundPresence 时间戳/粗粒度 reason，方便判断“事件没唤醒 / perception 没推进 / Gate 等待 / 投递失败”。
 
+## 7A. v0.30.1 Overlay Touch Recovery
+
+用户在 v0.30.0 真机发现：悬浮球曾在位置正常时突然完全无法点击/拖动；重启服务后还可能恢复到右下角系统区域。v0.30.1 将它作为 WindowManager 输入通道问题处理，而不是单纯 UI 坐标问题。
+
+本轮：
+
+1. 悬浮球坐标改为基于 `WindowMetrics + systemBars/displayCutout Insets` 的安全区域，四边保留 6dp 余量；旧的非法持久化坐标会自动迁回安全区域。
+2. 收起悬浮聊天时不再只把 chat window 设为 `GONE`，而是 `removeViewImmediate()` 完全移除，避免 OEM/HyperOS 留下透明但仍占输入区域的 stale overlay window。
+3. `ACTION_CANCEL` 会重置拖动状态、重新 clamp 并保存坐标。
+4. Activity 从文件选择器/诊断导出等系统页面返回时，即使服务已在运行，也会发送 `ACTION_RECONCILE`；该 reconcile 会重建 bubble WindowManager input channel，专门处理“看得到但点不动”的 stale input channel。
+5. 30 秒权限 watchdog 会顺手检查 overlay health；WindowManager update 失败会延迟重建输入窗口。
+6. 脱敏诊断新增顶层 `overlayTouch`：bubbleAttached / bubbleTouchable / positionSafe / chatWindowAttached / lastTouch / lastSelfHealReason / selfHealCount；预检新增“悬浮球触摸健康”。
+
+这版不改变 Presence Intelligence 权重/主动联系 Gate。下一阶段再继续 Awareness→Thought/Desire→Proactive 的自然度调优。
+
 ## 8. 后续路线
 
-1. v0.30.0 真机验收：悬浮聊天收发、后台大脑 ready、切 App/通知/解锁后的 backgroundPresence 推进与主动联系。
-2. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
-3. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
-4. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
-5. 最终稳定性回归。
+1. v0.30.1 真机验收：悬浮球长时间可拖/可点、聊天展开/收起后触摸恢复、诊断导出往返后仍可触摸；若再卡死，直接导出报告查看 `overlayTouch`。
+2. Presence Intelligence：感知累积、Thought/Desire 形成、主动联系 Gate 自然度。
+3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
+4. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
+6. 最终稳定性回归。
 
 TTS 已进入非阻断小瑕疵阶段；UI 后续可继续微调，但不要阻塞主动陪伴主线。
 
