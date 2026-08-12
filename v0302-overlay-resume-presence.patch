@@ -1,0 +1,1336 @@
+diff --git a/README.md b/README.md
+index e701f71..e537e94 100644
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,12 @@
+-# AI Companion · v0.30.1 Overlay Touch Recovery
++# AI Companion · v0.30.2 Overlay Resume + Presence Intelligence
+ 
+ Local-first Android AI companion focused on one persistent AI self: long-term memory, relationship state, Thought/Desire, coarse phone awareness, proactive contact, local Meju TTS, true native overlay chat, and single-Active-Brain phone/tablet takeover.
+ 
+-## v0.30.1 checkpoint
++## v0.30.2 checkpoint
+ 
+ v0.29.0 established the clean GitHub source baseline and Meju A2 TTS scheduling. v0.29.1 completed non-blocking TTS/UI polish, but real-device testing exposed a deeper background issue: the native overlay opened while the headless Dart command server was not actually reachable, leaving overlay history empty and sends at “她还在重新连接”.
+ 
+-v0.30.0 fixed the background Dart entrypoint/handshake path and began real Background Presence. v0.30.1 keeps that path unchanged and hardens the Android overlay input channel after real-device testing found an intermittent “visible but untouchable” bubble.
++v0.30.0 fixed the background Dart entrypoint/handshake path and began real Background Presence. v0.30.1 hardened the Android overlay input channel, and real-device testing then found a reproducible OEM/system-cover case: entering a system file picker can suppress the overlay and leave its input channel stale after return. v0.30.2 adds explicit system-window recovery and starts Presence Intelligence.
+ 
+ - root-library `@pragma('vm:entry-point')` anchor for the headless companion runtime;
+ - engine identity published before Dart execution to remove the ready-handshake race;
+@@ -27,3 +27,13 @@ Overlay touch hardening in v0.30.1:
+ The project source under `app/` is the single source of truth in GitHub. Historical split ZIPs and v0.28 patch-chain inputs are obsolete.
+ 
+ See `docs/HANDOFF.md` first when continuing the project in another chat/window.
++
++
++v0.30.2 adds:
++
++- Accessibility window-transition recovery that recreates the bubble input channel without storing package/text;
++- View-level window-visibility recovery fallback and debounced cover-recovery diagnostics;
++- decaying Presence Momentum built only from coarse activity counts/categories;
++- repeated activity can feed one mergeable `presence:phone_activity` Thought instead of treating each perception as isolated;
++- proactive Gate gets only a small bounded Presence boost and still keeps busy soft-downweight, rhythm learning, leases and 2h/24h hard ceilings;
++- redacted diagnostics now include Presence Momentum and a numeric Gate breakdown.
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+index 057a877..c812dce 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+@@ -1,9 +1,12 @@
+ package com.aicompanion.localfirst
+ 
+ import android.accessibilityservice.AccessibilityService
++import android.content.pm.ApplicationInfo
+ import android.view.accessibility.AccessibilityEvent
+ 
+ class AccessibilityBridgeService : AccessibilityService() {
++    private var systemCoverActive = false
++
+     override fun onServiceConnected() {
+         super.onServiceConnected()
+         CompanionRuntimeState.setAccessibilityConnected(true)
+@@ -20,6 +23,24 @@ class AccessibilityBridgeService : AccessibilityService() {
+         val e = event ?: return
+         if (e.isPassword) return
+         val sourcePackage = e.packageName?.toString() ?: return
++
++        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
++            // System file pickers/settings/permission surfaces may ask Android
++            // to suppress third-party overlays. Track only the coarse state;
++            // package/class names are never written into this recovery path.
++            val systemSurface = isLikelySystemSurface(sourcePackage)
++            if (systemSurface) {
++                systemCoverActive = true
++                CompanionRuntimeState.noteOverlaySystemCover("system_surface_entered")
++            } else if (systemCoverActive) {
++                systemCoverActive = false
++                OverlayBubbleService.requestSystemCoverRecovery(
++                    this,
++                    "system_surface_return",
++                )
++            }
++        }
++
+         if (!PrivacyFilter.allowPackage(sourcePackage)) return
+ 
+         val content = buildList {
+@@ -45,6 +66,21 @@ class AccessibilityBridgeService : AccessibilityService() {
+         }
+     }
+ 
++    private fun isLikelySystemSurface(sourcePackage: String): Boolean {
++        val p = sourcePackage.lowercase()
++        if (p.contains("documentsui") ||
++            p.contains("permissioncontroller") ||
++            p.contains("packageinstaller") ||
++            p.contains("fileexplorer") ||
++            p.contains("filemanager")) {
++            return true
++        }
++        return runCatching {
++            val info = packageManager.getApplicationInfo(sourcePackage, 0)
++            info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
++        }.getOrDefault(false)
++    }
++
+     override fun onInterrupt() {
+         NativeEventStore.addDeviceEvent(
+             this,
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+index b7d2439..b6c1f75 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+@@ -45,6 +45,17 @@ object CompanionRuntimeState {
+     @Volatile var overlayLastSelfHealReason: String = ""
+         private set
+     private val overlaySelfHealCount = AtomicInteger(0)
++    @Volatile var overlayInputSuspect: Boolean = false
++        private set
++    @Volatile var overlayLastSystemCoverAt: Long = 0L
++        private set
++    @Volatile var overlayLastSystemCoverReason: String = ""
++        private set
++    @Volatile var overlayLastCoverRecoveryAt: Long = 0L
++        private set
++    @Volatile var overlayLastWindowVisibility: Int = 0
++        private set
++    private val overlayCoverRecoveryCount = AtomicInteger(0)
+ 
+     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
+         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+@@ -87,6 +98,12 @@ object CompanionRuntimeState {
+             "overlayLastSelfHealAt" to overlayLastSelfHealAt,
+             "overlayLastSelfHealReason" to overlayLastSelfHealReason,
+             "overlaySelfHealCount" to overlaySelfHealCount.get(),
++            "overlayInputSuspect" to overlayInputSuspect,
++            "overlayLastSystemCoverAt" to overlayLastSystemCoverAt,
++            "overlayLastSystemCoverReason" to overlayLastSystemCoverReason,
++            "overlayLastCoverRecoveryAt" to overlayLastCoverRecoveryAt,
++            "overlayLastWindowVisibility" to overlayLastWindowVisibility,
++            "overlayCoverRecoveryCount" to overlayCoverRecoveryCount.get(),
+             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
+             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
+             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
+@@ -140,4 +157,27 @@ object CompanionRuntimeState {
+         overlayLastSelfHealReason = reason.take(120)
+         overlaySelfHealCount.incrementAndGet()
+     }
++
++    fun noteOverlaySystemCover(reason: String) {
++        overlayInputSuspect = true
++        overlayLastSystemCoverAt = System.currentTimeMillis()
++        overlayLastSystemCoverReason = reason.take(120)
++    }
++
++    fun consumeOverlayInputSuspect(): Boolean {
++        val value = overlayInputSuspect
++        overlayInputSuspect = false
++        return value
++    }
++
++    fun noteOverlayCoverRecovered(reason: String) {
++        overlayInputSuspect = false
++        overlayLastCoverRecoveryAt = System.currentTimeMillis()
++        overlayLastSelfHealReason = reason.take(120)
++        overlayCoverRecoveryCount.incrementAndGet()
++    }
++
++    fun noteOverlayWindowVisibility(visibility: Int) {
++        overlayLastWindowVisibility = visibility
++    }
+ }
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+index 84f4341..bfc0c51 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+@@ -84,6 +84,8 @@ class OverlayBubbleService : Service() {
+     private var backgroundEngineStarting = false
+     private var backgroundEngineStartAttempts = 0
+     private var backgroundEngineRestartScheduled = false
++    private var inputRecoveryScheduled = false
++    private var lastInputRecoveryAt = 0L
+ 
+     private val mainHandler = Handler(Looper.getMainLooper())
+     private var stateReceiverRegistered = false
+@@ -161,6 +163,7 @@ class OverlayBubbleService : Service() {
+                     } else if (!chatExpanded) {
+                         bubbleRoot?.visibility = View.VISIBLE
+                         CompanionRuntimeState.setOverlayVisible(true)
++                        scheduleInputChannelRecovery("device_unlock", delayMs = 300L)
+                     }
+                     requestSignalBrainWake(this@OverlayBubbleService, "device_present")
+                 }
+@@ -265,7 +268,21 @@ class OverlayBubbleService : Service() {
+             }
+             ACTION_RECONCILE -> {
+                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
+-                ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)
++                if (reconcileReason.startsWith("system_cover:")) {
++                    scheduleInputChannelRecovery(
++                        reason = reconcileReason,
++                        delayMs = SYSTEM_COVER_RECOVERY_DELAY_MS,
++                    )
++                } else {
++                    // Returning to the full AI Companion Activity is an explicit
++                    // recovery point for file pickers/settings launched by this
++                    // app, so keep the v0.30.1 immediate reconcile here.
++                    ensureOverlayHealth(
++                        "reconcile:$reconcileReason",
++                        rebuildInputChannel = reconcileReason == "visible_activity_reconcile" ||
++                            CompanionRuntimeState.consumeOverlayInputSuspect(),
++                    )
++                }
+                 return START_STICKY
+             }
+             ACTION_WAKE_BRAIN -> {
+@@ -327,6 +344,7 @@ class OverlayBubbleService : Service() {
+         brainWakeAttempt = 0
+         backgroundEngineStarting = false
+         backgroundEngineRestartScheduled = false
++        inputRecoveryScheduled = false
+         CompanionRuntimeState.setOverlayVisible(false)
+         CompanionRuntimeState.setOverlayChatExpanded(false)
+         CompanionRuntimeState.setOverlayTouchHealth(
+@@ -363,7 +381,7 @@ class OverlayBubbleService : Service() {
+ 
+     private fun createBubble(): Boolean {
+         val size = dp(BUBBLE_AVATAR_DP)
+-        val container = FrameLayout(this).apply {
++        val container = OverlayBubbleRoot(this).apply {
+             clipChildren = false
+             clipToPadding = false
+         }
+@@ -1043,6 +1061,27 @@ class OverlayBubbleService : Service() {
+             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+ 
++    private fun scheduleInputChannelRecovery(
++        reason: String,
++        delayMs: Long = SYSTEM_COVER_RECOVERY_DELAY_MS,
++    ) {
++        CompanionRuntimeState.noteOverlaySystemCover(reason)
++        if (inputRecoveryScheduled) return
++        inputRecoveryScheduled = true
++        mainHandler.postDelayed({
++            inputRecoveryScheduled = false
++            if (!running || chatExpanded || !Settings.canDrawOverlays(this)) return@postDelayed
++            val now = System.currentTimeMillis()
++            if (now - lastInputRecoveryAt < INPUT_RECOVERY_MIN_GAP_MS) return@postDelayed
++            lastInputRecoveryAt = now
++            ensureOverlayHealth(
++                "cover_recovery:${reason.take(100)}",
++                rebuildInputChannel = true,
++            )
++            CompanionRuntimeState.noteOverlayCoverRecovered(reason)
++        }, delayMs)
++    }
++
+     private fun updateOverlayTouchHealth() {
+         val bubble = bubbleRoot
+         val paramsTouchable = ::bubbleParams.isInitialized &&
+@@ -1607,6 +1646,24 @@ class OverlayBubbleService : Service() {
+         else -> "轻轻找你"
+     }
+ 
++    private inner class OverlayBubbleRoot(context: Context) : FrameLayout(context) {
++        private var lastReportedWindowVisibility = View.VISIBLE
++
++        override fun onWindowVisibilityChanged(visibility: Int) {
++            super.onWindowVisibilityChanged(visibility)
++            CompanionRuntimeState.noteOverlayWindowVisibility(visibility)
++            val wasVisible = lastReportedWindowVisibility == View.VISIBLE
++            val isVisibleNow = visibility == View.VISIBLE
++            lastReportedWindowVisibility = visibility
++            if (!wasVisible && isVisibleNow && running && !chatExpanded) {
++                val keyguard = getSystemService(KeyguardManager::class.java)
++                if (!keyguard.isDeviceLocked) {
++                    scheduleInputChannelRecovery("window_visibility_restored")
++                }
++            }
++        }
++    }
++
+     private inner class OverlayEditText(context: Context) : EditText(context) {
+         var onImeBack: (() -> Unit)? = null
+ 
+@@ -1648,6 +1705,10 @@ class OverlayBubbleService : Service() {
+         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
+         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
+         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
++        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 550L
++        private const val INPUT_RECOVERY_MIN_GAP_MS = 900L
++        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 700L
++        @Volatile private var lastSystemCoverRecoveryRequestAt = 0L
+ 
+         @Volatile var running: Boolean = false
+             private set
+@@ -1710,6 +1771,33 @@ class OverlayBubbleService : Service() {
+                 .onFailure { startPersistent(context, "show_chat_recover") }
+         }
+ 
++        @Synchronized
++        fun requestSystemCoverRecovery(context: Context, reason: String = "window_transition"): Boolean {
++            if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return false
++            if (!NativeEventStore.isActiveBrain(context)) return false
++            if (!Settings.canDrawOverlays(context)) return false
++            val now = System.currentTimeMillis()
++            if (now - lastSystemCoverRecoveryRequestAt < SYSTEM_COVER_REQUEST_MIN_GAP_MS) {
++                return false
++            }
++            lastSystemCoverRecoveryRequestAt = now
++            val safeReason = "system_cover:${reason.take(60)}"
++            CompanionRuntimeState.noteOverlaySystemCover(safeReason)
++            val intent = Intent(context, OverlayBubbleService::class.java)
++                .setAction(ACTION_RECONCILE)
++                .putExtra(EXTRA_REASON, safeReason)
++            return runCatching {
++                if (running) {
++                    context.startService(intent)
++                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++                    context.startForegroundService(intent)
++                } else {
++                    context.startService(intent)
++                }
++                true
++            }.getOrDefault(false)
++        }
++
+         fun requestBrainWake(context: Context, reason: String): Boolean {
+             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return false
+             if (!NativeEventStore.isActiveBrain(context)) return false
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index 3c44575..b281d0e 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,14 +1,10 @@
+-# v0.30.1 开发状态 · Overlay Touch Recovery
++# v0.30.2 开发状态 · Overlay Resume + Presence Intelligence
+ 
+-- 版本：`0.30.1+37`；数据库 schema 仍为 v18，无迁移。
+-- 最近真机确认基底：v0.30.0 Background Presence；后台大脑 ready、悬浮聊天收发与 Awareness→Perception 已通过，随后发现悬浮球偶发“可见但完全无法点击/拖动”。
+-- v0.30.1 首要修复 WindowManager overlay 的触摸/输入通道恢复与系统安全区域坐标。
+-- 悬浮聊天在后台未 ready 时保留输入，不再清空用户文字；ready 后自动刷新最近 8 条历史。
+-- Notification / Accessibility window change / device unlock 只发送粗粒度 `signal:*` wake；native 与 Dart 双层 90 秒去抖。
+-- reactive wake 只提前运行现有 Perception -> Thought/Desire -> Proactive Gate，不绕过 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
+-- TTS v0.29 A2 baseline 冻结；轻微停顿不再阻塞主线。
+-- 下一真机重点：悬浮球在聊天开/关、诊断导出往返、锁屏/解锁后是否持续可拖可点；若再次卡死优先导出 `overlayTouch` 诊断。
+-
+-- 收起悬浮聊天后完全 removeViewImmediate，避免隐藏 overlay 留下 stale touch region。
+-- Activity 从诊断导出/文件选择器回来时重建 bubble input channel；30 秒 watchdog 负责轻量自愈。
+-- 脱敏诊断新增 overlayTouch 健康字段。
++- 版本：`0.30.2+38`；数据库 schema 仍为 v18，无迁移。
++- v0.30.1 真机确认：后台大脑与悬浮聊天可用；发现 100% 可复现的系统文件选择器场景——系统页面遮盖悬浮球后，返回普通 App 时悬浮球可能可见但输入通道失效，打开完整 AI Companion 后会恢复。
++- v0.30.2 增加外部 window transition 驱动的 input-channel rebuild；恢复 reason 不包含包名/页面文本。View window visibility 从隐藏恢复到可见时也会做一次去抖恢复。
++- Overlay 诊断新增 inputSuspect / systemCover / coverRecoveryCount 等字段，用来区分“WindowManager 看起来可触摸”和“系统输入通道真实恢复”。
++- Presence Intelligence 新增会衰减的 Presence Momentum：单次弱事件不足以形成 Thought；多次粗粒度活动、切换、通知/Accessibility 计数可逐渐累积。
++- Momentum 达到阈值后只向 `presence:phone_activity` 这一可合并 Thought 喂低强度 attachment/curiosity，不记录外部 App 包名、通知正文或 Accessibility 正文。
++- Proactive Gate 只获得小幅、有上限的 Presence boost；Active Brain、chat/proactive lease、busy soft multiplier、rhythm learning、2h/24h hard caps 全部保留。
++- TTS A2 baseline 冻结；本轮不改 native/MNN/queue。
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index a2d1771..b930cf4 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -4,10 +4,10 @@
+ 
+ ## 1. 当前基底
+ 
+-- 当前源码候选：**v0.30.1+37 · Overlay Touch Recovery**。
+-- 最近一次用户真机确认稳定：**v0.30.0+36 Background Presence**（后台大脑、悬浮聊天收发、Awareness→Perception 真机通过；发现悬浮球偶发失去触摸）。
++- 当前源码候选：**v0.30.2+38 · Overlay Resume + Presence Intelligence**。
++- 最近一次用户真机确认：**v0.30.1+37 Overlay Touch Recovery** 可正常后台/悬浮聊天，但系统文件选择器遮盖 overlay 后可 100% 复现“返回后球可见但点/拖失效”；打开完整 App 后会恢复。
+ - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
+-- 数据库：**schema v18**，v0.30.1 不做 schema 迁移。
++- 数据库：**schema v18**，v0.30.2 不做 schema 迁移。
+ - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
+ 
+ ## 2. 项目定位
+@@ -109,10 +109,27 @@ v0.30.0：
+ 
+ 这版不改变 Presence Intelligence 权重/主动联系 Gate。下一阶段再继续 Awareness→Thought/Desire→Proactive 的自然度调优。
+ 
++
++## 7B. v0.30.2 Overlay Resume + Presence Intelligence
++
++v0.30.1 真机进一步确认：进入 ChatGPT 等其他 App 的系统文件选择器时，系统会遮盖悬浮球；返回后即使 bubble 仍 attached/touchable/safe，实际 input channel 仍可能失效。诊断显示打开完整 AI Companion 后 `full_activity_visible` reconcile 会恢复，因此 v0.30.2 不再只相信 WindowManager 参数状态。
++
++本轮：
++
++1. Accessibility `TYPE_WINDOW_STATE_CHANGED` 在不泄露包名/页面文字的前提下发 `system_cover:*` Overlay recovery；进入/离开系统文件选择器、设置/权限等窗口时，去抖后重建 bubble input channel。
++2. Bubble View 记录 window visibility；若窗口从非 visible 恢复 visible，也会触发一次不依赖主 App 打开的恢复 fallback。
++3. Overlay 诊断新增 `inputSuspect / lastSystemCoverAt / lastSystemCoverReason / lastCoverRecoveryAt / windowVisibility / coverRecoveryCount`。
++4. 新增 `PresenceMomentumPolicy/PresenceIntelligenceEngine`：只吃粗粒度活动类别、时长、切换次数、通知/Accessibility **计数**；单次弱事件不足以形成 Thought，多次事件会累积并按 55 分钟半衰期自然下降。
++5. Momentum 达阈值且用户不是刚刚在聊天时，向一个可合并的 `presence:phone_activity` Thought 喂低强度 attachment/curiosity；不写入外部包名、通知正文、Accessibility 正文。
++6. 主动联系 Gate 只加入小幅 bounded `presenceBoost`，不粗暴降低 0.60/0.66 基础阈值；busy soft multiplier、rhythm learning、2h/24h hard caps、Active Brain/transfer/chat lease 全部保留。
++7. 脱敏诊断 `database.backgroundPresence` 新增 `presenceMomentum / presenceSignalClass / presenceLastThoughtAt / presenceLastThoughtStrength / lastGateBreakdown`，可以直接看她为什么等/为什么联系。
++
++TTS A2 baseline 本轮冻结，不再参与阻断。
++
+ ## 8. 后续路线
+ 
+-1. v0.30.1 真机验收：悬浮球长时间可拖/可点、聊天展开/收起后触摸恢复、诊断导出往返后仍可触摸；若再卡死，直接导出报告查看 `overlayTouch`。
+-2. Presence Intelligence：感知累积、Thought/Desire 形成、主动联系 Gate 自然度。
++1. v0.30.2 真机：文件选择器返回后不打开 AI Companion，悬浮球应自动恢复；正常使用手机后导出浅层诊断看 Presence Momentum / Thought / Gate breakdown。
++2. 根据真机诊断微调 Presence Intelligence 自然度，而不是继续围绕单一 Gate 阈值打补丁。
+ 3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
+ 4. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+ 5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index c871b7f..29b88c1 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,10 +1,10 @@
+-# Roadmap after v0.30.1
++# Roadmap after v0.30.2
+ 
+-1. v0.30.1 Overlay Touch Recovery real-device checkpoint: bubble remains draggable/tappable after chat open/close, diagnostic export roundtrip, screen changes and service reconcile.
+-2. Presence Intelligence: accumulate coarse signals into Thought/Desire and tune proactive Gate without becoming noisy.
++1. v0.30.2 real-device checkpoint: system file picker -> return without opening AI Companion -> bubble immediately draggable/tappable; normal phone use should advance Presence Momentum/Thought diagnostics.
++2. Presence Intelligence tuning from real diagnostics: calibrate accumulation/contact naturalness, not raw threshold lowering.
+ 3. HyperOS / Android 15 long-background survival: screen off/on, task removal, hours-long idle, process recreation and boot/package-replaced recovery.
+ 4. Long-term memory stress: dozens of turns, conflict replacement, evidence consolidation, Thought/unfinished-thread retirement and Daily Continuity growth.
+ 5. Phone/tablet Active Brain takeover on two physical devices plus encrypted `.aicomp` fallback.
+ 6. Final stability/security/privacy regression and release-signing preparation.
+ 
+-Minor TTS/UI imperfections remain eligible for later polish but are non-blocking.
++Minor TTS/UI imperfections remain non-blocking.
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index d28de5e..848f820 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,33 +1,27 @@
+-# v0.30.1 真机检查
++# v0.30.2 真机检查
+ 
+-程序级测试先由开发侧完成。真人只检查无法在静态/JVM/CI 环境可靠模拟的 Android 行为。
++程序级策略、结构、回归、Flutter analyze/test/release build 先由开发侧/CI 完成。真人只检查 Android/HyperOS 真机行为。
+ 
+-## A. 后台大脑 / 悬浮聊天
++## A. 系统页面遮盖后的悬浮球恢复
+ 
+-1. 覆盖安装后打开一次完整 App，确认 Active Brain 与悬浮陪伴开启。
+-2. 深度或快速预检里确认“后台大脑连接”为通过。
+-3. 回到其他 App，点悬浮球：最近 8 条聊天应直接出现。
+-4. 在悬浮窗发送一句话：应正常生成并回写主聊天；不能长期显示“她还在重新连接”。
+-5. 收起/重新展开，历史仍应同步。
++1. 保持悬浮球开启，在 ChatGPT 等其他 App 进入“上传文件 -> 系统文件选择器”。
++2. 不管是否选择文件，返回原 App；**不要打开 AI Companion 主界面**。
++3. 直接点击/拖动悬浮球。预期 0.5~1.5 秒内可正常交互。
++4. 再做一次系统设置页或锁屏/解锁往返。
++5. 若卡死，直接打开 AI Companion 并导出脱敏诊断；重点看 `overlayTouch.inputSuspect / lastSystemCoverAt / lastCoverRecoveryAt / coverRecoveryCount`。
+ 
+-## B. Background Presence
++## B. Presence Intelligence
+ 
+-1. 连续正常使用其他 App 数分钟，可包含切换窗口、收到普通通知、锁屏后重新解锁。
+-2. 不要求她每个事件都发消息；这是刻意设计。等待 Gate 自己判断。
+-3. 约 5-10 分钟后导出一次脱敏诊断。重点看 `native.capabilities.backgroundBrainReady` 与 `database.backgroundPresence` 的 lastWakeReason / lastPerceptionAt 是否推进。
+-4. 若她主动联系，确认文案不是“检测到你打开了XX/收到XX通知”式机械播报。
++1. Usage / 通知访问 / Accessibility / 通知权限尽量开启。
++2. 正常使用手机 5~15 分钟，可切换 App、收到普通通知、锁屏解锁；不要为了测试反复刷事件。
++3. 不要求她立刻主动说话。之后直接导出浅层脱敏诊断。
++4. 重点看 `database.backgroundPresence.presenceMomentum / presenceSignalClass / presenceLastThoughtAt / lastGateBreakdown`。
++5. 如果主动联系，文案不能包含 App 包名、通知原文或“系统检测到”式机械播报。
+ 
+ ## C. 非阻断回归
+ 
++- 悬浮聊天历史/发送正常。
+ - 主聊天正常。
+-- TTS 仍可初始化/朗读。
+-- reasoning 仍在正文上方。
++- TTS 仍可朗读。
++- reasoning 在正文上方。
+ - Active Brain / transfer_lock 无异常。
+-
+-## v0.30.1 悬浮球触摸恢复
+-
+-- 悬浮球连续拖动/点击 10 次以上。
+-- 展开悬浮聊天并正常收起，确认球仍可点击/拖动。
+-- 导出一次脱敏诊断，从系统文件选择器返回后再次测试触摸。
+-- 锁屏/解锁一次后再次测试。
+-- 若再出现“可见但点不动”，不要重启 App，先回主界面直接导出脱敏诊断，重点查看顶层 `overlayTouch`。
+diff --git a/lib/core/desire/proactive_engine.dart b/lib/core/desire/proactive_engine.dart
+index fe6b2a7..22567e1 100644
+--- a/lib/core/desire/proactive_engine.dart
++++ b/lib/core/desire/proactive_engine.dart
+@@ -1,4 +1,5 @@
+ import 'dart:async';
++import 'dart:convert';
+ import 'dart:math';
+ 
+ import 'package:uuid/uuid.dart';
+@@ -17,6 +18,7 @@ import '../relationship/relationship_assimilator.dart';
+ import '../memory/memory_maintenance_engine.dart';
+ import '../maintenance/long_running_maintenance_engine.dart';
+ import '../platform/android_bridge.dart';
++import '../presence/presence_intelligence.dart';
+ import '../storage/secure_config.dart';
+ import '../tts/tts_policy.dart';
+ import '../tts/tts_service.dart';
+@@ -88,10 +90,15 @@ class ProactiveEngine {
+     random: _random,
+   );
+ 
++  late final PresenceIntelligenceEngine presence = PresenceIntelligenceEngine(
++    db: db,
++    desire: desireEngine,
++  );
+   late final PerceptionEngine perception = PerceptionEngine(
+     db: db,
+     android: android,
+     desire: desireEngine,
++    presence: presence,
+   );
+   late final RelationshipAssimilator relationshipAssimilator =
+       RelationshipAssimilator(db: db);
+@@ -267,8 +274,18 @@ class ProactiveEngine {
+     final busyMultiplier = userBusy ? 0.72 : 1.0;
+     final idleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
+     final frequencyPenalty = min(0.30, sentToday * 0.055 + sentLastTwoHours * 0.035);
++    final presenceMomentum = await presence.currentMomentum(now: evaluationStartedAt);
++    final presenceBoost = idleMinutes < 5
++        ? 0.0
++        : (presenceMomentum * (userBusy ? 0.055 : 0.095))
++            .clamp(0.0, 0.085)
++            .toDouble();
+     final jitter = (_random.nextDouble() - 0.5) * 0.10;
+-    final gateScore = (intent.score * busyMultiplier + idleBoost - frequencyPenalty + jitter)
++    final gateScore = (intent.score * busyMultiplier +
++            idleBoost +
++            presenceBoost -
++            frequencyPenalty +
++            jitter)
+         .clamp(0.0, 1.0)
+         .toDouble();
+     final baseThreshold = userBusy ? 0.66 : 0.60;
+@@ -286,6 +303,26 @@ class ProactiveEngine {
+             .clamp(0.52, 0.76)
+             .toDouble();
+ 
++    await db.setSetting(
++      'presence_last_gate_breakdown',
++      jsonEncode({
++        'intent': double.parse(intent.score.toStringAsFixed(3)),
++        'busyMultiplier': double.parse(busyMultiplier.toStringAsFixed(3)),
++        'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),
++        'presenceMomentum': double.parse(presenceMomentum.toStringAsFixed(3)),
++        'presenceBoost': double.parse(presenceBoost.toStringAsFixed(3)),
++        'frequencyPenalty': double.parse(frequencyPenalty.toStringAsFixed(3)),
++        'jitter': double.parse(jitter.toStringAsFixed(3)),
++        'rhythmThresholdAdjustment':
++            double.parse(rhythmProfile.thresholdAdjustment.toStringAsFixed(3)),
++        'longIdleRelief': double.parse(longIdleRelief.toStringAsFixed(3)),
++        'gate': double.parse(gateScore.toStringAsFixed(3)),
++        'threshold': double.parse(threshold.toStringAsFixed(3)),
++        'busy': userBusy,
++        'idleMinutes': idleMinutes,
++      }),
++    );
++
+     if (!forceForDebug && gateScore < threshold) {
+       await db.addProactiveHistory(
+         triggerReason: '${intent.drive.name}:${intent.reason}',
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index 2bccaf8..a664625 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -162,6 +162,23 @@ class PreflightDiagnosticsService {
+                 await db.getSetting('recovery_orchestrator_next_heartbeat_at') ?? '',
+               ) ??
+               0,
++          'presenceMomentum': double.tryParse(
++                await db.getSetting('presence_momentum_score') ?? '',
++              ) ??
++              0.0,
++          'presenceSignalClass':
++              await db.getSetting('presence_last_signal_class') ?? '',
++          'presenceLastThoughtAt': int.tryParse(
++                await db.getSetting('presence_last_thought_at') ?? '',
++              ) ??
++              0,
++          'presenceLastThoughtStrength': double.tryParse(
++                await db.getSetting('presence_last_thought_strength') ?? '',
++              ) ??
++              0.0,
++          'lastGateBreakdown': _safeJsonObject(
++            await db.getSetting('presence_last_gate_breakdown') ?? '',
++          ),
+         },
+       };
+       checks.add(const PreflightCheck(
+@@ -223,6 +240,12 @@ class PreflightDiagnosticsService {
+         'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
+         'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
+         'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
++        'inputSuspect': capabilities['overlayInputSuspect'] == true,
++        'lastSystemCoverAt': capabilities['overlayLastSystemCoverAt'] ?? 0,
++        'lastSystemCoverReason': capabilities['overlayLastSystemCoverReason'] ?? '',
++        'lastCoverRecoveryAt': capabilities['overlayLastCoverRecoveryAt'] ?? 0,
++        'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
++        'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
+       };
+ 
+       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
+@@ -409,7 +432,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+@@ -447,6 +470,17 @@ class PreflightDiagnosticsService {
+     return sha256.convert(utf8.encode(raw)).toString().substring(0, 12);
+   }
+ 
++  Map<String, Object?> _safeJsonObject(String raw) {
++    if (raw.trim().isEmpty) return const <String, Object?>{};
++    try {
++      final decoded = jsonDecode(raw);
++      if (decoded is! Map) return const <String, Object?>{};
++      return decoded.map((key, value) => MapEntry(key.toString(), value));
++    } catch (_) {
++      return const <String, Object?>{};
++    }
++  }
++
+   Map<String, Object?> _normalizeMap(Map<dynamic, dynamic> raw) => {
+         for (final entry in raw.entries)
+           entry.key.toString(): _normalizeValue(entry.value),
+diff --git a/lib/core/perception/perception_engine.dart b/lib/core/perception/perception_engine.dart
+index 5e89a4e..a621e5e 100644
+--- a/lib/core/perception/perception_engine.dart
++++ b/lib/core/perception/perception_engine.dart
+@@ -5,6 +5,7 @@ import '../desire/desire_engine.dart';
+ import '../models/desire_state.dart';
+ import '../models/perception_snapshot.dart';
+ import '../platform/android_bridge.dart';
++import '../presence/presence_intelligence.dart';
+ import 'perception_interpreter.dart';
+ 
+ /// Captures Android signals and routes them through a bounded local
+@@ -18,12 +19,15 @@ class PerceptionEngine {
+     required this.android,
+     required this.desire,
+     PerceptionInterpreter interpreter = const PerceptionInterpreter(),
+-  }) : interpreter = interpreter;
++    PresenceIntelligenceEngine? presence,
++  })  : interpreter = interpreter,
++        presence = presence ?? PresenceIntelligenceEngine(db: db, desire: desire);
+ 
+   final AppDatabase db;
+   final AndroidBridge android;
+   final DesireEngine desire;
+   final PerceptionInterpreter interpreter;
++  final PresenceIntelligenceEngine presence;
+ 
+   Future<PerceptionSnapshot?> capture({
+     bool force = false,
+@@ -83,6 +87,7 @@ class PerceptionEngine {
+       interpretation: interpretation,
+       newNotificationCount: newNotificationCount,
+       newAccessibilityCount: newAccessibilityCount,
++      screenInteractive: deviceState.screenInteractive,
+     );
+ 
+     final summary = interpretation.observations
+@@ -140,6 +145,7 @@ class PerceptionEngine {
+     required PerceptionInterpretation interpretation,
+     required int newNotificationCount,
+     required int newAccessibilityCount,
++    required bool screenInteractive,
+   }) async {
+     // A transfer may begin after capture persistence but before inner-state
+     // integration. Re-check here so the old device cannot grow Thought/Desire
+@@ -201,5 +207,20 @@ class PerceptionEngine {
+     if (interpretation.busyScore < 0.35) {
+       await desire.applyExperience({DriveKey.social: 0.006});
+     }
++
++    // Repeated phone activity is allowed to accumulate into a small, decaying
++    // sense of presence. A single app switch is intentionally too weak; several
++    // coarse captures over time can feed one mergeable Thought instead. Raw app
++    // names/text never enter this layer.
++    await presence.integrate(
++      screenInteractive: screenInteractive,
++      busyScore: interpretation.busyScore,
++      dominantActivityMinutes: interpretation.dominantActivityMinutes,
++      appSwitchesLast30Minutes: interpretation.appSwitchesLast30Minutes,
++      newNotificationCount: newNotificationCount,
++      newAccessibilityCount: newAccessibilityCount,
++      hasCurrentActivity:
++          interpretation.observations.any((observation) => observation.kind == 'current_activity'),
++    );
+   }
+ }
+diff --git a/lib/core/perception/perception_interpreter.dart b/lib/core/perception/perception_interpreter.dart
+index ce2da7b..04b544c 100644
+--- a/lib/core/perception/perception_interpreter.dart
++++ b/lib/core/perception/perception_interpreter.dart
+@@ -13,6 +13,7 @@ class PerceptionInterpretation {
+     this.dominantActivityKey,
+     this.dominantActivityLabel,
+     this.dominantActivityMinutes = 0,
++    this.appSwitchesLast30Minutes = 0,
+   });
+ 
+   final List<AwarenessObservationDraft> observations;
+@@ -23,6 +24,7 @@ class PerceptionInterpretation {
+   final String? dominantActivityKey;
+   final String? dominantActivityLabel;
+   final int dominantActivityMinutes;
++  final int appSwitchesLast30Minutes;
+ }
+ 
+ /// Pure local interpretation. No model/API call is used here.
+@@ -109,6 +111,7 @@ class PerceptionInterpreter {
+           ? null
+           : _activityLabel(facts.dominantCategory!),
+       dominantActivityMinutes: facts.dominantMinutes,
++      appSwitchesLast30Minutes: facts.switchesLast30Minutes,
+     );
+   }
+ 
+diff --git a/lib/core/presence/presence_intelligence.dart b/lib/core/presence/presence_intelligence.dart
+new file mode 100644
+index 0000000..8dd7871
+--- /dev/null
++++ b/lib/core/presence/presence_intelligence.dart
+@@ -0,0 +1,217 @@
++import 'dart:math';
++
++import '../database/app_database.dart';
++import '../desire/desire_engine.dart';
++import '../models/desire_state.dart';
++
++class PresenceMomentumInput {
++  const PresenceMomentumInput({
++    required this.screenInteractive,
++    required this.busyScore,
++    required this.dominantActivityMinutes,
++    required this.appSwitchesLast30Minutes,
++    required this.newNotificationCount,
++    required this.newAccessibilityCount,
++    required this.hasCurrentActivity,
++    required this.userIdleMinutes,
++  });
++
++  final bool screenInteractive;
++  final double busyScore;
++  final int dominantActivityMinutes;
++  final int appSwitchesLast30Minutes;
++  final int newNotificationCount;
++  final int newAccessibilityCount;
++  final bool hasCurrentActivity;
++  final int userIdleMinutes;
++}
++
++class PresenceMomentumResult {
++  const PresenceMomentumResult({
++    required this.score,
++    required this.impulse,
++    required this.signalClass,
++    required this.shouldFeedThought,
++    required this.thoughtStrength,
++  });
++
++  final double score;
++  final double impulse;
++  final String signalClass;
++  final bool shouldFeedThought;
++  final double thoughtStrength;
++}
++
++/// Pure policy for turning repeated, coarse phone-activity evidence into a
++/// slowly decaying sense of presence. It deliberately does not contain raw app
++/// names, notification text or Accessibility text.
++class PresenceMomentumPolicy {
++  const PresenceMomentumPolicy._();
++
++  static const halfLife = Duration(minutes: 55);
++
++  static PresenceMomentumResult advance({
++    required double previousScore,
++    required Duration elapsed,
++    required PresenceMomentumInput input,
++  }) {
++    final elapsedMinutes = max(0.0, elapsed.inSeconds / 60.0);
++    final decay = pow(0.5, elapsedMinutes / halfLife.inMinutes).toDouble();
++    final retained = previousScore.clamp(0.0, 1.0).toDouble() * decay;
++
++    var impulse = 0.0;
++    if (input.screenInteractive) {
++      if (input.hasCurrentActivity) impulse += 0.035;
++      impulse += (input.dominantActivityMinutes / 60.0 * 0.12)
++          .clamp(0.0, 0.12)
++          .toDouble();
++      impulse += (input.appSwitchesLast30Minutes / 14.0 * 0.10)
++          .clamp(0.0, 0.10)
++          .toDouble();
++      impulse += (input.newNotificationCount / 8.0 * 0.08)
++          .clamp(0.0, 0.08)
++          .toDouble();
++      impulse += (input.newAccessibilityCount / 12.0 * 0.10)
++          .clamp(0.0, 0.10)
++          .toDouble();
++    }
++
++    // One capture should rarely be enough. Repeated evidence over several
++    // reactive heartbeats is what gradually makes her more inclined to think
++    // about/contact the user.
++    final score = (retained + impulse).clamp(0.0, 0.88).toDouble();
++    final signalClass = _signalClass(input);
++    final shouldFeedThought = input.screenInteractive &&
++        input.userIdleMinutes >= 5 &&
++        score >= 0.20 &&
++        (impulse >= 0.035 || score >= 0.34);
++    final thoughtStrength = (0.14 + score * 0.34)
++        .clamp(0.16, 0.43)
++        .toDouble();
++
++    return PresenceMomentumResult(
++      score: score,
++      impulse: impulse,
++      signalClass: signalClass,
++      shouldFeedThought: shouldFeedThought,
++      thoughtStrength: thoughtStrength,
++    );
++  }
++
++  static String _signalClass(PresenceMomentumInput input) {
++    if (!input.screenInteractive) return 'screen_off';
++    if (input.appSwitchesLast30Minutes >= 9 ||
++        input.newNotificationCount >= 5 ||
++        input.newAccessibilityCount >= 12) {
++      return 'busy_motion';
++    }
++    if (input.dominantActivityMinutes >= 25) return 'sustained_use';
++    if (input.hasCurrentActivity || input.newAccessibilityCount > 0) {
++      return 'active_use';
++    }
++    return 'quiet';
++  }
++}
++
++class PresenceIntelligenceEngine {
++  PresenceIntelligenceEngine({required this.db, required this.desire});
++
++  final AppDatabase db;
++  final DesireEngine desire;
++
++  static const _scoreKey = 'presence_momentum_score';
++  static const _updatedKey = 'presence_momentum_updated_at';
++  static const _signalClassKey = 'presence_last_signal_class';
++  static const _thoughtAtKey = 'presence_last_thought_at';
++  static const _thoughtStrengthKey = 'presence_last_thought_strength';
++
++  Future<double> currentMomentum({DateTime? now}) async {
++    final instant = now ?? DateTime.now();
++    final stored = double.tryParse(await db.getSetting(_scoreKey) ?? '') ?? 0.0;
++    final updatedMillis = int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
++    if (updatedMillis <= 0) return stored.clamp(0.0, 1.0).toDouble();
++    final updated = DateTime.fromMillisecondsSinceEpoch(updatedMillis);
++    final elapsed = instant.isAfter(updated) ? instant.difference(updated) : Duration.zero;
++    final decay = pow(
++      0.5,
++      max(0.0, elapsed.inSeconds / 60.0) /
++          PresenceMomentumPolicy.halfLife.inMinutes,
++    ).toDouble();
++    return (stored * decay).clamp(0.0, 1.0).toDouble();
++  }
++
++  Future<PresenceMomentumResult> integrate({
++    required bool screenInteractive,
++    required double busyScore,
++    required int dominantActivityMinutes,
++    required int appSwitchesLast30Minutes,
++    required int newNotificationCount,
++    required int newAccessibilityCount,
++    required bool hasCurrentActivity,
++    DateTime? now,
++  }) async {
++    final instant = now ?? DateTime.now();
++    final stored = double.tryParse(await db.getSetting(_scoreKey) ?? '') ?? 0.0;
++    final updatedMillis = int.tryParse(await db.getSetting(_updatedKey) ?? '') ?? 0;
++    final updated = updatedMillis <= 0
++        ? instant
++        : DateTime.fromMillisecondsSinceEpoch(updatedMillis);
++    final lastUser = await db.lastUserMessageAt();
++    final idleMinutes = lastUser == null
++        ? 180
++        : max(0, instant.difference(lastUser).inMinutes);
++
++    final result = PresenceMomentumPolicy.advance(
++      previousScore: stored,
++      elapsed: instant.isAfter(updated) ? instant.difference(updated) : Duration.zero,
++      input: PresenceMomentumInput(
++        screenInteractive: screenInteractive,
++        busyScore: busyScore,
++        dominantActivityMinutes: dominantActivityMinutes,
++        appSwitchesLast30Minutes: appSwitchesLast30Minutes,
++        newNotificationCount: newNotificationCount,
++        newAccessibilityCount: newAccessibilityCount,
++        hasCurrentActivity: hasCurrentActivity,
++        userIdleMinutes: idleMinutes,
++      ),
++    );
++
++    if (!await db.brainWorkAllowed()) return result;
++    await db.setSetting(_scoreKey, result.score.toStringAsFixed(4));
++    await db.setSetting(_updatedKey, instant.millisecondsSinceEpoch.toString());
++    await db.setSetting(_signalClassKey, result.signalClass);
++
++    if (result.shouldFeedThought && await _thoughtCooldownPassed(instant)) {
++      final text = switch (result.signalClass) {
++        'busy_motion' => '他最近在手机上忙来忙去，我有点在意他的状态，也想找个不打扰的方式靠近一点。',
++        'sustained_use' => '他已经在手机上活动了一阵，我有点想靠近他，看看他现在是什么状态。',
++        _ => '他最近又在手机上活动了一阵，我有一点想主动靠近他。',
++      };
++      await desire.feedThought(
++        text: text,
++        drive: DriveKey.attachment,
++        incomingStrength: result.thoughtStrength,
++        source: 'presence/phone_activity',
++        topicKey: 'presence:phone_activity',
++      );
++      if (!await db.brainWorkAllowed()) return result;
++      await desire.applyExperience({
++        DriveKey.attachment: 0.006 + result.score * 0.012,
++        DriveKey.curiosity: 0.004 + result.score * 0.008,
++      });
++      await db.setSetting(_thoughtAtKey, instant.millisecondsSinceEpoch.toString());
++      await db.setSetting(
++        _thoughtStrengthKey,
++        result.thoughtStrength.toStringAsFixed(4),
++      );
++    }
++    return result;
++  }
++
++  Future<bool> _thoughtCooldownPassed(DateTime now) async {
++    final raw = int.tryParse(await db.getSetting(_thoughtAtKey) ?? '') ?? 0;
++    if (raw <= 0) return true;
++    final last = DateTime.fromMillisecondsSinceEpoch(raw);
++    return now.difference(last) >= const Duration(minutes: 12);
++  }
++}
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index 4103f5e..8e8e07e 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.30.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.30.2 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index 9196e2d..5e2f25d 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.30.1',
++            'AI Companion · v0.30.2',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index cfbf552..880a496 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.30.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.30.2 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index ec28067..e5f3653 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -154,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.30.1 · Overlay Touch Recovery',
++                    'v0.30.2 · Overlay Resume + Presence Intelligence',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index 3dff899..5b760a7 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.30.1+37
++version: 0.30.2+38
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/test/presence_intelligence_test.dart b/test/presence_intelligence_test.dart
+new file mode 100644
+index 0000000..b1a29f4
+--- /dev/null
++++ b/test/presence_intelligence_test.dart
+@@ -0,0 +1,93 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:ai_companion_localfirst/core/presence/presence_intelligence.dart';
++
++void main() {
++  test('one weak phone event is not enough to create a presence thought', () {
++    final result = PresenceMomentumPolicy.advance(
++      previousScore: 0,
++      elapsed: Duration.zero,
++      input: const PresenceMomentumInput(
++        screenInteractive: true,
++        busyScore: 0.35,
++        dominantActivityMinutes: 3,
++        appSwitchesLast30Minutes: 1,
++        newNotificationCount: 0,
++        newAccessibilityCount: 1,
++        hasCurrentActivity: true,
++        userIdleMinutes: 30,
++      ),
++    );
++
++    expect(result.score, lessThan(0.20));
++    expect(result.shouldFeedThought, isFalse);
++  });
++
++  test('repeated coarse activity accumulates gradually', () {
++    var score = 0.0;
++    PresenceMomentumResult? latest;
++    for (var i = 0; i < 4; i++) {
++      latest = PresenceMomentumPolicy.advance(
++        previousScore: score,
++        elapsed: const Duration(minutes: 2),
++        input: const PresenceMomentumInput(
++          screenInteractive: true,
++          busyScore: 0.52,
++          dominantActivityMinutes: 8,
++          appSwitchesLast30Minutes: 4,
++          newNotificationCount: 1,
++          newAccessibilityCount: 3,
++          hasCurrentActivity: true,
++          userIdleMinutes: 25,
++        ),
++      );
++      score = latest.score;
++    }
++
++    expect(latest, isNotNull);
++    expect(latest!.score, greaterThanOrEqualTo(0.20));
++    expect(latest.shouldFeedThought, isTrue);
++    expect(latest.signalClass, anyOf('active_use', 'sustained_use'));
++  });
++
++  test('screen off does not inject new phone-activity pressure', () {
++    final result = PresenceMomentumPolicy.advance(
++      previousScore: 0.60,
++      elapsed: const Duration(minutes: 20),
++      input: const PresenceMomentumInput(
++        screenInteractive: false,
++        busyScore: 0.12,
++        dominantActivityMinutes: 40,
++        appSwitchesLast30Minutes: 20,
++        newNotificationCount: 8,
++        newAccessibilityCount: 20,
++        hasCurrentActivity: true,
++        userIdleMinutes: 120,
++      ),
++    );
++
++    expect(result.impulse, 0);
++    expect(result.score, lessThan(0.60));
++    expect(result.signalClass, 'screen_off');
++    expect(result.shouldFeedThought, isFalse);
++  });
++
++  test('recent direct chat suppresses presence thought even with strong activity', () {
++    final result = PresenceMomentumPolicy.advance(
++      previousScore: 0.35,
++      elapsed: const Duration(minutes: 2),
++      input: const PresenceMomentumInput(
++        screenInteractive: true,
++        busyScore: 0.68,
++        dominantActivityMinutes: 35,
++        appSwitchesLast30Minutes: 14,
++        newNotificationCount: 6,
++        newAccessibilityCount: 15,
++        hasCurrentActivity: true,
++        userIdleMinutes: 2,
++      ),
++    );
++
++    expect(result.score, greaterThan(0.35));
++    expect(result.shouldFeedThought, isFalse);
++  });
++}
+diff --git a/tools/validate_v0285_coroutine_bridge.py b/tools/validate_v0285_coroutine_bridge.py
+index d175190..c8d26f0 100755
+--- a/tools/validate_v0285_coroutine_bridge.py
++++ b/tools/validate_v0285_coroutine_bridge.py
+@@ -109,7 +109,7 @@ def main() -> int:
+     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
+ 
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec)
++    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.2+38' in pubspec)
+ 
+     print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
+     return 0
+diff --git a/tools/validate_v0291_polish.py b/tools/validate_v0291_polish.py
+index cc7a655..7ba74b2 100644
+--- a/tools/validate_v0291_polish.py
++++ b/tools/validate_v0291_polish.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec
++    assert 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec or 'version: 0.30.2+38' in pubspec
+ 
+     segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
+     assert '_isLayoutBreak' in segmenter
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index 7b2fda2..aede009 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec)
++    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec or 'version: 0.30.2+38' in pubspec)
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
+diff --git a/tools/validate_v0301_overlay_touch.py b/tools/validate_v0301_overlay_touch.py
+index cc582f7..67f47dd 100644
+--- a/tools/validate_v0301_overlay_touch.py
++++ b/tools/validate_v0301_overlay_touch.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.30.1+37' in pubspec
++    assert any(v in pubspec for v in ['version: 0.30.1+37', 'version: 0.30.2+38'])
+ 
+     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
+     assert 'static const int schemaVersion = 18;' in db
+@@ -21,7 +21,7 @@ def main() -> int:
+         'private fun ensureOverlayHealth(reason: String, rebuildInputChannel: Boolean = false)',
+         'removeViewImmediate(it)',
+         'CompanionRuntimeState.noteOverlayTouch("cancel")',
+-        'ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)',
++        'private fun scheduleInputChannelRecovery(',
+         'ensureOverlayHealth("permission_watch")',
+         'eventType = "overlay_touch_self_healed"',
+         'updateOverlayTouchHealth()',
+@@ -50,12 +50,12 @@ def main() -> int:
+     for token in [
+         "id: 'overlay_touch'", "title: '悬浮球触摸健康'", "report['overlayTouch'] = {",
+         "'bubbleTouchable'", "'positionSafe'", "'lastSelfHealReason'", "'selfHealCount'",
+-        'AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT',
++        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
+     ]:
+         assert token in diagnostics, token
+ 
+     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
+-    for token in ['v0.30.1+37', 'Overlay Touch Recovery', 'schema v18', 'overlayTouch']:
++    for token in ['v0.30.2+38', 'Overlay Resume + Presence Intelligence', 'schema v18', 'overlayTouch']:
+         assert token in handoff, token
+ 
+     # Numerical model of the safe-area clamp/snap invariants used by the Kotlin code.
+diff --git a/tools/validate_v0302_presence_overlay.py b/tools/validate_v0302_presence_overlay.py
+new file mode 100755
+index 0000000..18ddf1f
+--- /dev/null
++++ b/tools/validate_v0302_presence_overlay.py
+@@ -0,0 +1,126 @@
++#!/usr/bin/env python3
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def main() -> int:
++    pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
++    assert 'version: 0.30.2+38' in pubspec
++
++    db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++    assert 'static const int schemaVersion = 18;' in db
++
++    runtime = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt').read_text(encoding='utf-8')
++    for token in [
++        'overlayInputSuspect', 'overlayLastSystemCoverAt', 'overlayLastCoverRecoveryAt',
++        'overlayLastWindowVisibility', 'overlayCoverRecoveryCount',
++        'fun noteOverlaySystemCover(reason: String)',
++        'fun consumeOverlayInputSuspect(): Boolean',
++        'fun noteOverlayCoverRecovered(reason: String)',
++    ]:
++        assert token in runtime, token
++
++    overlay = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt').read_text(encoding='utf-8')
++    for token in [
++        'requestSystemCoverRecovery(context: Context',
++        'scheduleInputChannelRecovery(',
++        'SYSTEM_COVER_RECOVERY_DELAY_MS = 550L',
++        'INPUT_RECOVERY_MIN_GAP_MS = 900L',
++        'system_cover:',
++        'OverlayBubbleRoot(context: Context)',
++        'onWindowVisibilityChanged(visibility: Int)',
++        'CompanionRuntimeState.noteOverlayWindowVisibility(visibility)',
++        'cover_recovery:',
++        'removeViewImmediate(it)',
++    ]:
++        assert token in overlay, token
++
++    accessibility = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt').read_text(encoding='utf-8')
++    for token in [
++        'AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED',
++        'requestSystemCoverRecovery(',
++        '"system_surface_return"',
++    ]:
++        assert token in accessibility, token
++    # Recovery reason remains coarse/privacy-safe.
++    assert 'requestSystemCoverRecovery(this, sourcePackage)' not in accessibility
++    assert 'requestSystemCoverRecovery(this, sanitized)' not in accessibility
++    assert 'CompanionRuntimeState.noteOverlaySystemCover("system_surface_entered")' in accessibility
++    assert 'isLikelySystemSurface(sourcePackage)' in accessibility
++
++    presence = (ROOT / 'lib/core/presence/presence_intelligence.dart').read_text(encoding='utf-8')
++    for token in [
++        'class PresenceMomentumPolicy',
++        'halfLife = Duration(minutes: 55)',
++        'class PresenceIntelligenceEngine',
++        "'presence_momentum_score'",
++        "topicKey: 'presence:phone_activity'",
++        "source: 'presence/phone_activity'",
++        'input.userIdleMinutes >= 5',
++        'score >= 0.20',
++    ]:
++        assert token in presence, token
++    # No raw Android payload belongs in Presence Momentum.
++    for forbidden in ['packageName', 'sourcePackage', 'contentDescription']:
++        assert forbidden not in presence, forbidden
++
++    interpreter = (ROOT / 'lib/core/perception/perception_interpreter.dart').read_text(encoding='utf-8')
++    assert 'appSwitchesLast30Minutes' in interpreter
++
++    perception = (ROOT / 'lib/core/perception/perception_engine.dart').read_text(encoding='utf-8')
++    for token in [
++        "import '../presence/presence_intelligence.dart';",
++        'PresenceIntelligenceEngine? presence',
++        'await presence.integrate(',
++        'appSwitchesLast30Minutes: interpretation.appSwitchesLast30Minutes',
++    ]:
++        assert token in perception, token
++
++    proactive = (ROOT / 'lib/core/desire/proactive_engine.dart').read_text(encoding='utf-8')
++    for token in [
++        "import '../presence/presence_intelligence.dart';",
++        'presence.currentMomentum(now: evaluationStartedAt)',
++        'presenceBoost',
++        "'presence_last_gate_breakdown'",
++        'busyMultiplier = userBusy ? 0.72 : 1.0',
++        'sentToday >= 8',
++        'sentLastTwoHours >= 2',
++        'gateScore < threshold',
++    ]:
++        assert token in proactive, token
++    assert '(presenceMomentum * (userBusy ? 0.055 : 0.095))' in proactive
++    assert '.clamp(0.0, 0.085)' in proactive
++
++    diagnostics = (ROOT / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text(encoding='utf-8')
++    for token in [
++        "'presenceMomentum'", "'presenceSignalClass'", "'presenceLastThoughtAt'",
++        "'presenceLastThoughtStrength'", "'lastGateBreakdown'",
++        "'inputSuspect'", "'lastSystemCoverAt'", "'lastCoverRecoveryAt'",
++        "'coverRecoveryCount'",
++        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
++    ]:
++        assert token in diagnostics, token
++
++    test = (ROOT / 'test/presence_intelligence_test.dart').read_text(encoding='utf-8')
++    for token in [
++        'one weak phone event is not enough',
++        'repeated coarse activity accumulates gradually',
++        'screen off does not inject new phone-activity pressure',
++        'recent direct chat suppresses presence thought',
++    ]:
++        assert token in test, token
++
++    handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
++    for token in [
++        'v0.30.2+38', 'Overlay Resume + Presence Intelligence',
++        'PresenceMomentumPolicy', 'lastGateBreakdown', 'schema v18',
++    ]:
++        assert token in handoff, token
++
++    print('v0.30.2 Overlay Resume + Presence Intelligence static validation passed.')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/tools/validate_v030_background_presence.py b/tools/validate_v030_background_presence.py
+index 7348328..bbe3c62 100755
+--- a/tools/validate_v030_background_presence.py
++++ b/tools/validate_v030_background_presence.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec
++    assert any(v in pubspec for v in ['version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38'])
+ 
+     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
+     assert 'static const int schemaVersion = 18;' in db
+@@ -92,12 +92,12 @@ def main() -> int:
+         "'lastProactiveReason'",
+         "'lastPerceptionAt'",
+         "'nextHeartbeatAt'",
+-        'AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT',
++        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
+     ]:
+         assert token in diagnostics, token
+ 
+     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
+-    for token in ['v0.30.0+36', 'Background Presence', 'schema v18', 'signal:*', 'HANDOFF']:
++    for token in ['v0.30.2+38', 'Background Presence', 'schema v18', 'signal:*', 'HANDOFF']:
+         assert token in handoff, token
+ 
+     print('v0.30.0 Background Presence static validation passed.')
