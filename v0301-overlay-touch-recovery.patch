@@ -1,0 +1,920 @@
+diff --git a/README.md b/README.md
+index 89526a9..e701f71 100644
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,12 @@
+-# AI Companion · v0.30.0 Background Presence
++# AI Companion · v0.30.1 Overlay Touch Recovery
+ 
+ Local-first Android AI companion focused on one persistent AI self: long-term memory, relationship state, Thought/Desire, coarse phone awareness, proactive contact, local Meju TTS, true native overlay chat, and single-Active-Brain phone/tablet takeover.
+ 
+-## v0.30.0 checkpoint
++## v0.30.1 checkpoint
+ 
+ v0.29.0 established the clean GitHub source baseline and Meju A2 TTS scheduling. v0.29.1 completed non-blocking TTS/UI polish, but real-device testing exposed a deeper background issue: the native overlay opened while the headless Dart command server was not actually reachable, leaving overlay history empty and sends at “她还在重新连接”.
+ 
+-v0.30.0 fixes the background Dart entrypoint/handshake path and begins real Background Presence:
++v0.30.0 fixed the background Dart entrypoint/handshake path and began real Background Presence. v0.30.1 keeps that path unchanged and hardens the Android overlay input channel after real-device testing found an intermittent “visible but untouchable” bubble.
+ 
+ - root-library `@pragma('vm:entry-point')` anchor for the headless companion runtime;
+ - engine identity published before Dart execution to remove the ready-handshake race;
+@@ -16,6 +16,14 @@ v0.30.0 fixes the background Dart entrypoint/handshake path and begins real Back
+ - no bypass of Active Brain fencing, chat/proactive leases, proactive Gate, busy soft multiplier or hard message ceilings;
+ - redacted diagnostics for background ready/wake/perception/proactive progression.
+ 
++Overlay touch hardening in v0.30.1:
++
++- WindowInsets safe area for persisted/snap coordinates;
++- hidden chat overlay windows are fully removed on collapse;
++- Activity reconcile can rebuild the bubble WindowManager input channel;
++- ACTION_CANCEL and failed WindowManager updates recover drag state;
++- redacted `overlayTouch` diagnostics expose attachment/touchability/safe-position/self-heal state.
++
+ The project source under `app/` is the single source of truth in GitHub. Historical split ZIPs and v0.28 patch-chain inputs are obsolete.
+ 
+ See `docs/HANDOFF.md` first when continuing the project in another chat/window.
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+index e7ed683..b7d2439 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+@@ -28,6 +28,23 @@ object CompanionRuntimeState {
+         private set
+     @Volatile var accessibilityConnected: Boolean = false
+         private set
++    @Volatile var overlayBubbleAttached: Boolean = false
++        private set
++    @Volatile var overlayBubbleTouchable: Boolean = false
++        private set
++    @Volatile var overlayPositionSafe: Boolean = false
++        private set
++    @Volatile var overlayChatWindowAttached: Boolean = false
++        private set
++    @Volatile var overlayLastTouchAt: Long = 0L
++        private set
++    @Volatile var overlayLastTouchAction: String = ""
++        private set
++    @Volatile var overlayLastSelfHealAt: Long = 0L
++        private set
++    @Volatile var overlayLastSelfHealReason: String = ""
++        private set
++    private val overlaySelfHealCount = AtomicInteger(0)
+ 
+     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
+         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+@@ -61,6 +78,15 @@ object CompanionRuntimeState {
+             "appVisible" to (visibleActivities.get() > 0),
+             "notificationListenerConnected" to notificationListenerConnected,
+             "accessibilityConnected" to accessibilityConnected,
++            "overlayBubbleAttached" to overlayBubbleAttached,
++            "overlayBubbleTouchable" to overlayBubbleTouchable,
++            "overlayPositionSafe" to overlayPositionSafe,
++            "overlayChatWindowAttached" to overlayChatWindowAttached,
++            "overlayLastTouchAt" to overlayLastTouchAt,
++            "overlayLastTouchAction" to overlayLastTouchAction,
++            "overlayLastSelfHealAt" to overlayLastSelfHealAt,
++            "overlayLastSelfHealReason" to overlayLastSelfHealReason,
++            "overlaySelfHealCount" to overlaySelfHealCount.get(),
+             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
+             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
+             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
+@@ -91,4 +117,27 @@ object CompanionRuntimeState {
+     fun setAccessibilityConnected(connected: Boolean) {
+         accessibilityConnected = connected
+     }
++
++    fun setOverlayTouchHealth(
++        bubbleAttached: Boolean,
++        bubbleTouchable: Boolean,
++        positionSafe: Boolean,
++        chatWindowAttached: Boolean,
++    ) {
++        overlayBubbleAttached = bubbleAttached
++        overlayBubbleTouchable = bubbleTouchable
++        overlayPositionSafe = positionSafe
++        overlayChatWindowAttached = chatWindowAttached
++    }
++
++    fun noteOverlayTouch(action: String) {
++        overlayLastTouchAt = System.currentTimeMillis()
++        overlayLastTouchAction = action.take(40)
++    }
++
++    fun noteOverlaySelfHeal(reason: String) {
++        overlayLastSelfHealAt = System.currentTimeMillis()
++        overlayLastSelfHealReason = reason.take(120)
++        overlaySelfHealCount.incrementAndGet()
++    }
+ }
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+index bc7d739..84f4341 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+@@ -24,6 +24,7 @@ import android.view.KeyEvent
+ import android.view.MotionEvent
+ import android.view.View
+ import android.view.ViewGroup
++import android.view.WindowInsets
+ import android.view.WindowManager
+ import android.view.inputmethod.InputMethodManager
+ import android.widget.BaseAdapter
+@@ -107,6 +108,7 @@ class OverlayBubbleService : Service() {
+                 stopSelf()
+                 return
+             }
++            ensureOverlayHealth("permission_watch")
+             mainHandler.postDelayed(this, PERMISSION_WATCH_MS)
+         }
+     }
+@@ -261,6 +263,11 @@ class OverlayBubbleService : Service() {
+                 signalBackgroundBrainWake()
+                 return START_REDELIVER_INTENT
+             }
++            ACTION_RECONCILE -> {
++                val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
++                ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)
++                return START_STICKY
++            }
+             ACTION_WAKE_BRAIN -> {
+                 val wakeReason = intent.getStringExtra(EXTRA_REASON) ?: "native_wake"
+                 pendingBrainWakeReason = wakeReason.take(120)
+@@ -293,9 +300,7 @@ class OverlayBubbleService : Service() {
+     override fun onConfigurationChanged(newConfig: Configuration) {
+         super.onConfigurationChanged(newConfig)
+         bubbleRoot?.let { view ->
+-            val bounds = screenBounds()
+-            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+-            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
++            clampBubbleToSafeArea()
+             persistBubblePosition()
+             updateBubbleLayout(view)
+         }
+@@ -324,6 +329,12 @@ class OverlayBubbleService : Service() {
+         backgroundEngineRestartScheduled = false
+         CompanionRuntimeState.setOverlayVisible(false)
+         CompanionRuntimeState.setOverlayChatExpanded(false)
++        CompanionRuntimeState.setOverlayTouchHealth(
++            bubbleAttached = false,
++            bubbleTouchable = false,
++            positionSafe = false,
++            chatWindowAttached = false,
++        )
+         hideKeyboard()
+         removeChatWindow()
+         bubbleRoot?.let { runCatching { windowManager.removeView(it) } }
+@@ -386,25 +397,24 @@ class OverlayBubbleService : Service() {
+         badge?.bringToFront()
+ 
+         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+-        val (screenWidth, screenHeight) = screenBounds()
+-        val defaultX = (screenWidth - dp(BUBBLE_WINDOW_DP + 12)).coerceAtLeast(0)
+-        val defaultY = (screenHeight / 3).coerceAtLeast(0)
++        val safeArea = bubbleSafeArea()
++        val defaultX = (safeArea.right - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(safeArea.left)
++        val defaultY = (safeArea.top + (safeArea.height / 3)).coerceAtMost(
++            (safeArea.bottom - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(safeArea.top),
++        )
+         bubbleParams = WindowManager.LayoutParams(
+             dp(BUBBLE_WINDOW_DP),
+             dp(BUBBLE_WINDOW_DP),
+             overlayWindowType(),
+-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
++            bubbleModeFlags(),
+             PixelFormat.TRANSLUCENT,
+         ).apply {
+             gravity = Gravity.TOP or Gravity.START
+             x = prefs.getInt(KEY_X, defaultX)
+-                .coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+             y = prefs.getInt(KEY_Y, defaultY)
+-                .coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+         }
+         attachDrag(container)
++        if (clampBubbleToSafeArea()) persistBubblePosition()
+         return runCatching {
+             bubbleRoot = container
+             windowManager.addView(container, bubbleParams)
+@@ -412,6 +422,7 @@ class OverlayBubbleService : Service() {
+             container.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
+             CompanionRuntimeState.setOverlayVisible(container.visibility == View.VISIBLE)
+             setUnread(readUnread())
++            updateOverlayTouchHealth()
+             true
+         }.getOrElse { error ->
+             bubbleRoot = null
+@@ -624,6 +635,7 @@ class OverlayBubbleService : Service() {
+             runCatching { windowManager.updateViewLayout(chatRoot, params) }
+         }
+         CompanionRuntimeState.setOverlayVisible(true)
++        updateOverlayTouchHealth()
+         refreshOverlayMessages(opened = true, attempt = 0)
+         NativeEventStore.addDeviceEvent(
+             this,
+@@ -635,15 +647,17 @@ class OverlayBubbleService : Service() {
+     }
+ 
+     private fun collapseChatOverlay(reason: String) {
+-        if (!chatExpanded && chatRoot?.visibility != View.VISIBLE) return
++        if (!chatExpanded && chatRoot == null) {
++            ensureOverlayHealth("collapse_no_chat:$reason")
++            return
++        }
+         hideKeyboard()
+         exitChatInputMode(updateWindow = false)
+-        chatRoot?.visibility = View.GONE
+-        chatExpanded = false
+-        CompanionRuntimeState.setOverlayChatExpanded(false)
++        removeChatWindow()
+         val keyguard = getSystemService(KeyguardManager::class.java)
+         bubbleRoot?.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
+         CompanionRuntimeState.setOverlayVisible(bubbleRoot?.visibility == View.VISIBLE)
++        ensureOverlayHealth("collapse:$reason")
+         NativeEventStore.addDeviceEvent(
+             this,
+             source = "system",
+@@ -913,6 +927,7 @@ class OverlayBubbleService : Service() {
+         view.setOnTouchListener { _, event ->
+             when (event.actionMasked) {
+                 MotionEvent.ACTION_DOWN -> {
++                    CompanionRuntimeState.noteOverlayTouch("down")
+                     startX = bubbleParams.x
+                     startY = bubbleParams.y
+                     downX = event.rawX
+@@ -921,6 +936,7 @@ class OverlayBubbleService : Service() {
+                     true
+                 }
+                 MotionEvent.ACTION_MOVE -> {
++                    CompanionRuntimeState.noteOverlayTouch("move")
+                     val dx = (event.rawX - downX).toInt()
+                     val dy = (event.rawY - downY).toInt()
+                     if (abs(dx) > dp(4) || abs(dy) > dp(4)) moved = true
+@@ -930,17 +946,25 @@ class OverlayBubbleService : Service() {
+                     true
+                 }
+                 MotionEvent.ACTION_UP -> {
++                    CompanionRuntimeState.noteOverlayTouch("up")
+                     if (!moved) {
+                         showChatOverlay("bubble_tap")
+                     } else {
+-                        val screenWidth = screenBounds().first
+-                        bubbleParams.x = if (bubbleParams.x + dp(BUBBLE_WINDOW_DP / 2) < screenWidth / 2) 0 else screenWidth - dp(BUBBLE_WINDOW_DP)
++                        snapBubbleToSafeEdge()
+                         persistBubblePosition()
+                         updateBubbleLayout(view)
+                     }
++                    moved = false
++                    true
++                }
++                MotionEvent.ACTION_CANCEL -> {
++                    CompanionRuntimeState.noteOverlayTouch("cancel")
++                    moved = false
++                    clampBubbleToSafeArea()
++                    persistBubblePosition()
++                    updateBubbleLayout(view)
+                     true
+                 }
+-                MotionEvent.ACTION_CANCEL -> true
+                 else -> false
+             }
+         }
+@@ -953,12 +977,142 @@ class OverlayBubbleService : Service() {
+             .apply()
+     }
+ 
++    private data class BubbleSafeArea(
++        val left: Int,
++        val top: Int,
++        val right: Int,
++        val bottom: Int,
++    ) {
++        val width: Int get() = (right - left).coerceAtLeast(0)
++        val height: Int get() = (bottom - top).coerceAtLeast(0)
++    }
++
++    private fun bubbleSafeArea(): BubbleSafeArea {
++        val margin = dp(BUBBLE_SAFE_MARGIN_DP)
++        if (Build.VERSION.SDK_INT >= 30) {
++            val metrics = windowManager.currentWindowMetrics
++            val bounds = metrics.bounds
++            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
++                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
++            )
++            val left = bounds.left + insets.left + margin
++            val top = bounds.top + insets.top + margin
++            val right = (bounds.right - insets.right - margin).coerceAtLeast(left)
++            val bottom = (bounds.bottom - insets.bottom - margin).coerceAtLeast(top)
++            return BubbleSafeArea(left, top, right, bottom)
++        }
++        @Suppress("DEPRECATION")
++        val width = resources.displayMetrics.widthPixels
++        @Suppress("DEPRECATION")
++        val height = resources.displayMetrics.heightPixels
++        return BubbleSafeArea(margin, margin, (width - margin).coerceAtLeast(margin), (height - margin).coerceAtLeast(margin))
++    }
++
++    private fun clampBubbleToSafeArea(): Boolean {
++        val safe = bubbleSafeArea()
++        val size = dp(BUBBLE_WINDOW_DP)
++        val maxX = (safe.right - size).coerceAtLeast(safe.left)
++        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
++        val oldX = bubbleParams.x
++        val oldY = bubbleParams.y
++        bubbleParams.x = bubbleParams.x.coerceIn(safe.left, maxX)
++        bubbleParams.y = bubbleParams.y.coerceIn(safe.top, maxY)
++        return oldX != bubbleParams.x || oldY != bubbleParams.y
++    }
++
++    private fun isBubblePositionSafe(): Boolean {
++        if (!::bubbleParams.isInitialized) return false
++        val safe = bubbleSafeArea()
++        val size = dp(BUBBLE_WINDOW_DP)
++        val maxX = (safe.right - size).coerceAtLeast(safe.left)
++        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
++        return bubbleParams.x in safe.left..maxX && bubbleParams.y in safe.top..maxY
++    }
++
++    private fun snapBubbleToSafeEdge() {
++        val safe = bubbleSafeArea()
++        val size = dp(BUBBLE_WINDOW_DP)
++        val maxX = (safe.right - size).coerceAtLeast(safe.left)
++        val midpoint = safe.left + safe.width / 2
++        bubbleParams.x = if (bubbleParams.x + size / 2 < midpoint) safe.left else maxX
++        clampBubbleToSafeArea()
++    }
++
++    private fun bubbleModeFlags(): Int =
++        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
++            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
++            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
++
++    private fun updateOverlayTouchHealth() {
++        val bubble = bubbleRoot
++        val paramsTouchable = ::bubbleParams.isInitialized &&
++            bubbleParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0
++        CompanionRuntimeState.setOverlayTouchHealth(
++            bubbleAttached = bubble?.isAttachedToWindow == true,
++            bubbleTouchable = bubble?.isAttachedToWindow == true && paramsTouchable && bubble.isEnabled,
++            positionSafe = isBubblePositionSafe(),
++            chatWindowAttached = chatRoot?.isAttachedToWindow == true,
++        )
++    }
++
++    private fun ensureOverlayHealth(reason: String, rebuildInputChannel: Boolean = false) {
++        if (!running || !Settings.canDrawOverlays(this)) return
++        val keyguard = getSystemService(KeyguardManager::class.java)
++        if (chatExpanded) {
++            updateOverlayTouchHealth()
++            return
++        }
++
++        // A hidden TYPE_APPLICATION_OVERLAY chat window is unnecessary and on
++        // some OEM builds can leave a stale input region. Remove it completely
++        // whenever the UI is collapsed.
++        if (chatRoot != null) removeChatWindow()
++
++        var repaired = false
++        var bubble = bubbleRoot
++        if (bubble == null || !bubble.isAttachedToWindow || rebuildInputChannel) {
++            bubble?.let { runCatching { windowManager.removeViewImmediate(it) } }
++            bubbleRoot = null
++            repaired = createBubble()
++            bubble = bubbleRoot
++        } else {
++            val attachedBubble = requireNotNull(bubble)
++            val expectedFlags = bubbleModeFlags()
++            if (bubbleParams.flags != expectedFlags) {
++                bubbleParams.flags = expectedFlags
++                repaired = true
++            }
++            if (clampBubbleToSafeArea()) {
++                persistBubblePosition()
++                repaired = true
++            }
++            attachedBubble.isEnabled = true
++            attachedBubble.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
++            CompanionRuntimeState.setOverlayVisible(attachedBubble.visibility == View.VISIBLE)
++            runCatching { windowManager.updateViewLayout(attachedBubble, bubbleParams) }
++                .onFailure { repaired = true }
++        }
++
++        if (repaired) {
++            CompanionRuntimeState.noteOverlaySelfHeal(reason)
++            NativeEventStore.addDeviceEvent(
++                this,
++                source = "system",
++                eventType = "overlay_touch_self_healed",
++                appPackage = packageName,
++                summary = "悬浮球输入通道/位置已自动恢复：${reason.take(120)}",
++            )
++        }
++        updateOverlayTouchHealth()
++    }
++
+     private fun updateBubbleLayout(view: View) {
+-        val (screenWidth, screenHeight) = screenBounds()
+-        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+-        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
++        val changed = clampBubbleToSafeArea()
++        if (changed) persistBubblePosition()
+         runCatching { windowManager.updateViewLayout(view, bubbleParams) }
++            .onSuccess { updateOverlayTouchHealth() }
+             .onFailure { error ->
++                updateOverlayTouchHealth()
+                 NativeEventStore.addDeviceEvent(
+                     this,
+                     source = "system",
+@@ -969,6 +1123,11 @@ class OverlayBubbleService : Service() {
+                 if (!Settings.canDrawOverlays(this)) {
+                     destroyReason = "overlay_permission_lost"
+                     stopSelf()
++                } else {
++                    mainHandler.postDelayed(
++                        { ensureOverlayHealth("update_failed", rebuildInputChannel = true) },
++                        250L,
++                    )
+                 }
+             }
+     }
+@@ -1251,7 +1410,7 @@ class OverlayBubbleService : Service() {
+     }
+ 
+     private fun removeChatWindow() {
+-        chatRoot?.let { runCatching { windowManager.removeView(it) } }
++        chatRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
+         chatRoot = null
+         chatList = null
+         chatAdapter = null
+@@ -1263,6 +1422,7 @@ class OverlayBubbleService : Service() {
+         chatExpanded = false
+         CompanionRuntimeState.setOverlayChatExpanded(false)
+         chatInputMode = false
++        updateOverlayTouchHealth()
+     }
+ 
+     private fun setUnread(count: Int) {
+@@ -1483,6 +1643,7 @@ class OverlayBubbleService : Service() {
+         private const val KEY_X = "bubble_x"
+         private const val KEY_Y = "bubble_y"
+         private const val PERMISSION_WATCH_MS = 30_000L
++        private const val BUBBLE_SAFE_MARGIN_DP = 6
+         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
+         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
+         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
+@@ -1514,7 +1675,16 @@ class OverlayBubbleService : Service() {
+         fun reconcileFromVisibleActivity(context: Context) {
+             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return
+             if (!Settings.canDrawOverlays(context)) return
+-            if (running) return
++            if (running) {
++                runCatching {
++                    context.startService(
++                        Intent(context, OverlayBubbleService::class.java)
++                            .setAction(ACTION_RECONCILE)
++                            .putExtra(EXTRA_REASON, "visible_activity_reconcile"),
++                    )
++                }
++                return
++            }
+             startPersistent(context, "visible_activity_reconcile")
+         }
+ 
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index 2020784..3c44575 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,10 +1,14 @@
+-# v0.30.0 开发状态 · Background Presence
++# v0.30.1 开发状态 · Overlay Touch Recovery
+ 
+-- 版本：`0.30.0+36`；数据库 schema 仍为 v18，无迁移。
+-- 最近完整真机稳定基底：v0.29.0 Clean Baseline；v0.29.1 的 TTS/UI polish 已真机运行，但发现 native overlay 展开后后台 Dart command server 未就绪，历史为空且发送显示“她还在重新连接”。
+-- v0.30.0 首要修复 background FlutterEngine 的 Dart entrypoint 可达性与 ready handshake race。
++- 版本：`0.30.1+37`；数据库 schema 仍为 v18，无迁移。
++- 最近真机确认基底：v0.30.0 Background Presence；后台大脑 ready、悬浮聊天收发与 Awareness→Perception 已通过，随后发现悬浮球偶发“可见但完全无法点击/拖动”。
++- v0.30.1 首要修复 WindowManager overlay 的触摸/输入通道恢复与系统安全区域坐标。
+ - 悬浮聊天在后台未 ready 时保留输入，不再清空用户文字；ready 后自动刷新最近 8 条历史。
+ - Notification / Accessibility window change / device unlock 只发送粗粒度 `signal:*` wake；native 与 Dart 双层 90 秒去抖。
+ - reactive wake 只提前运行现有 Perception -> Thought/Desire -> Proactive Gate，不绕过 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
+ - TTS v0.29 A2 baseline 冻结；轻微停顿不再阻塞主线。
+-- 下一真机重点：后台大脑连接、悬浮聊天真实收发、切 App/收通知/解锁后 backgroundPresence 诊断是否推进，以及是否能在合理 Gate 条件下产生主动联系。
++- 下一真机重点：悬浮球在聊天开/关、诊断导出往返、锁屏/解锁后是否持续可拖可点；若再次卡死优先导出 `overlayTouch` 诊断。
++
++- 收起悬浮聊天后完全 removeViewImmediate，避免隐藏 overlay 留下 stale touch region。
++- Activity 从诊断导出/文件选择器回来时重建 bubble input channel；30 秒 watchdog 负责轻量自愈。
++- 脱敏诊断新增 overlayTouch 健康字段。
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 7151f73..a2d1771 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -4,10 +4,10 @@
+ 
+ ## 1. 当前基底
+ 
+-- 当前源码候选：**v0.30.0+36 · Background Presence**。
+-- 最近一次用户真机确认稳定：**v0.29.0+34 Clean Baseline**。
++- 当前源码候选：**v0.30.1+37 · Overlay Touch Recovery**。
++- 最近一次用户真机确认稳定：**v0.30.0+36 Background Presence**（后台大脑、悬浮聊天收发、Awareness→Perception 真机通过；发现悬浮球偶发失去触摸）。
+ - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
+-- 数据库：**schema v18**，v0.30.0 不做 schema 迁移。
++- 数据库：**schema v18**，v0.30.1 不做 schema 迁移。
+ - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
+ 
+ ## 2. 项目定位
+@@ -94,13 +94,29 @@ v0.30.0：
+ 5. native 与 Dart 各做一层 90 秒去抖；reactive wake 只提前运行原有 Perception -> Thought/Desire -> Proactive Gate，不绕过主动消息 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
+ 6. 脱敏诊断新增 `backgroundBrainReady` 检查与 backgroundPresence 时间戳/粗粒度 reason，方便判断“事件没唤醒 / perception 没推进 / Gate 等待 / 投递失败”。
+ 
++## 7A. v0.30.1 Overlay Touch Recovery
++
++用户在 v0.30.0 真机发现：悬浮球曾在位置正常时突然完全无法点击/拖动；重启服务后还可能恢复到右下角系统区域。v0.30.1 将它作为 WindowManager 输入通道问题处理，而不是单纯 UI 坐标问题。
++
++本轮：
++
++1. 悬浮球坐标改为基于 `WindowMetrics + systemBars/displayCutout Insets` 的安全区域，四边保留 6dp 余量；旧的非法持久化坐标会自动迁回安全区域。
++2. 收起悬浮聊天时不再只把 chat window 设为 `GONE`，而是 `removeViewImmediate()` 完全移除，避免 OEM/HyperOS 留下透明但仍占输入区域的 stale overlay window。
++3. `ACTION_CANCEL` 会重置拖动状态、重新 clamp 并保存坐标。
++4. Activity 从文件选择器/诊断导出等系统页面返回时，即使服务已在运行，也会发送 `ACTION_RECONCILE`；该 reconcile 会重建 bubble WindowManager input channel，专门处理“看得到但点不动”的 stale input channel。
++5. 30 秒权限 watchdog 会顺手检查 overlay health；WindowManager update 失败会延迟重建输入窗口。
++6. 脱敏诊断新增顶层 `overlayTouch`：bubbleAttached / bubbleTouchable / positionSafe / chatWindowAttached / lastTouch / lastSelfHealReason / selfHealCount；预检新增“悬浮球触摸健康”。
++
++这版不改变 Presence Intelligence 权重/主动联系 Gate。下一阶段再继续 Awareness→Thought/Desire→Proactive 的自然度调优。
++
+ ## 8. 后续路线
+ 
+-1. v0.30.0 真机验收：悬浮聊天收发、后台大脑 ready、切 App/通知/解锁后的 backgroundPresence 推进与主动联系。
+-2. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
+-3. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+-4. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
+-5. 最终稳定性回归。
++1. v0.30.1 真机验收：悬浮球长时间可拖/可点、聊天展开/收起后触摸恢复、诊断导出往返后仍可触摸；若再卡死，直接导出报告查看 `overlayTouch`。
++2. Presence Intelligence：感知累积、Thought/Desire 形成、主动联系 Gate 自然度。
++3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
++4. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
++5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
++6. 最终稳定性回归。
+ 
+ TTS 已进入非阻断小瑕疵阶段；UI 后续可继续微调，但不要阻塞主动陪伴主线。
+ 
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index 8de0912..c871b7f 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,9 +1,10 @@
+-# Roadmap after v0.30.0
++# Roadmap after v0.30.1
+ 
+-1. v0.30.0 Background Presence real-device checkpoint: overlay command channel, recent history, overlay send, coarse signal wakes and proactive delivery.
+-2. HyperOS / Android 15 long-background survival: screen off/on, task removal, hours-long idle, process recreation and boot/package-replaced recovery.
+-3. Long-term memory stress: dozens of turns, conflict replacement, evidence consolidation, Thought/unfinished-thread retirement and Daily Continuity growth.
+-4. Phone/tablet Active Brain takeover on two physical devices plus encrypted `.aicomp` fallback.
+-5. Final stability/security/privacy regression and release-signing preparation.
++1. v0.30.1 Overlay Touch Recovery real-device checkpoint: bubble remains draggable/tappable after chat open/close, diagnostic export roundtrip, screen changes and service reconcile.
++2. Presence Intelligence: accumulate coarse signals into Thought/Desire and tune proactive Gate without becoming noisy.
++3. HyperOS / Android 15 long-background survival: screen off/on, task removal, hours-long idle, process recreation and boot/package-replaced recovery.
++4. Long-term memory stress: dozens of turns, conflict replacement, evidence consolidation, Thought/unfinished-thread retirement and Daily Continuity growth.
++5. Phone/tablet Active Brain takeover on two physical devices plus encrypted `.aicomp` fallback.
++6. Final stability/security/privacy regression and release-signing preparation.
+ 
+ Minor TTS/UI imperfections remain eligible for later polish but are non-blocking.
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index a5aefbe..d28de5e 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,4 +1,4 @@
+-# v0.30.0 真机检查
++# v0.30.1 真机检查
+ 
+ 程序级测试先由开发侧完成。真人只检查无法在静态/JVM/CI 环境可靠模拟的 Android 行为。
+ 
+@@ -23,3 +23,11 @@
+ - TTS 仍可初始化/朗读。
+ - reasoning 仍在正文上方。
+ - Active Brain / transfer_lock 无异常。
++
++## v0.30.1 悬浮球触摸恢复
++
++- 悬浮球连续拖动/点击 10 次以上。
++- 展开悬浮聊天并正常收起，确认球仍可点击/拖动。
++- 导出一次脱敏诊断，从系统文件选择器返回后再次测试触摸。
++- 锁屏/解锁一次后再次测试。
++- 若再出现“可见但点不动”，不要重启 App，先回主界面直接导出脱敏诊断，重点查看顶层 `overlayTouch`。
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index 8e7df6a..2bccaf8 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -212,6 +212,18 @@ class PreflightDiagnosticsService {
+       final nearby = _asMap(native['nearby']);
+       final androidInfo = _asMap(native['android']);
+       final audio = _asMap(native['audio']);
++      report['overlayTouch'] = {
++        'bubbleAttached': capabilities['overlayBubbleAttached'] == true,
++        'bubbleTouchable': capabilities['overlayBubbleTouchable'] == true,
++        'positionSafe': capabilities['overlayPositionSafe'] == true,
++        'chatWindowAttached': capabilities['overlayChatWindowAttached'] == true,
++        'chatExpanded': capabilities['overlayChatExpanded'] == true,
++        'lastTouchAt': capabilities['overlayLastTouchAt'] ?? 0,
++        'lastTouchAction': capabilities['overlayLastTouchAction'] ?? '',
++        'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
++        'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
++        'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
++      };
+ 
+       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
+       _addPermissionCheck(checks, 'usage', '使用情况访问', capabilities['usage'] == true);
+@@ -252,6 +264,28 @@ class PreflightDiagnosticsService {
+                 : '悬浮服务已启用，但后台 Dart 命令通道尚未就绪或正在恢复。',
+       ));
+ 
++      final bubbleAttached = capabilities['overlayBubbleAttached'] == true;
++      final bubbleTouchable = capabilities['overlayBubbleTouchable'] == true;
++      final bubblePositionSafe = capabilities['overlayPositionSafe'] == true;
++      final chatWindowAttached = capabilities['overlayChatWindowAttached'] == true;
++      final chatExpanded = capabilities['overlayChatExpanded'] == true;
++      checks.add(PreflightCheck(
++        id: 'overlay_touch',
++        title: '悬浮球触摸健康',
++        level: !overlayEnabled
++            ? 'info'
++            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
++                    (!chatWindowAttached || chatExpanded)
++                ? 'pass'
++                : 'warn',
++        summary: !overlayEnabled
++            ? '悬浮陪伴未启用，本轮不检查触摸窗口。'
++            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
++                    (!chatWindowAttached || chatExpanded)
++                ? '悬浮球窗口已附着、可触摸且位于系统安全区域。'
++                : '悬浮球存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
++      ));
++
+       final nearbyPermission = nearby['permissionsGranted'] == true;
+       final playServices = nearby['googlePlayServicesAvailable'] == true;
+       final bluetooth = nearby['bluetoothEnabled'] == true;
+@@ -375,7 +409,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/core/platform/android_bridge.dart b/lib/core/platform/android_bridge.dart
+index 25cda57..f933762 100644
+--- a/lib/core/platform/android_bridge.dart
++++ b/lib/core/platform/android_bridge.dart
+@@ -67,6 +67,13 @@ class CapabilityStatus {
+     required this.overlayUserEnabled,
+     required this.overlayVisible,
+     required this.overlayChatExpanded,
++    required this.overlayBubbleAttached,
++    required this.overlayBubbleTouchable,
++    required this.overlayPositionSafe,
++    required this.overlayChatWindowAttached,
++    required this.overlayLastTouchAt,
++    required this.overlayLastTouchAction,
++    required this.overlaySelfHealCount,
+     required this.notificationListenerConnected,
+     required this.accessibilityConnected,
+     required this.appVisible,
+@@ -87,6 +94,13 @@ class CapabilityStatus {
+   final bool overlayUserEnabled;
+   final bool overlayVisible;
+   final bool overlayChatExpanded;
++  final bool overlayBubbleAttached;
++  final bool overlayBubbleTouchable;
++  final bool overlayPositionSafe;
++  final bool overlayChatWindowAttached;
++  final DateTime? overlayLastTouchAt;
++  final String overlayLastTouchAction;
++  final int overlaySelfHealCount;
+   final bool notificationListenerConnected;
+   final bool accessibilityConnected;
+   final bool appVisible;
+@@ -113,6 +127,13 @@ class CapabilityStatus {
+       overlayUserEnabled: b('overlayUserEnabled'),
+       overlayVisible: b('overlayVisible'),
+       overlayChatExpanded: b('overlayChatExpanded'),
++      overlayBubbleAttached: b('overlayBubbleAttached'),
++      overlayBubbleTouchable: b('overlayBubbleTouchable'),
++      overlayPositionSafe: b('overlayPositionSafe'),
++      overlayChatWindowAttached: b('overlayChatWindowAttached'),
++      overlayLastTouchAt: date('overlayLastTouchAt'),
++      overlayLastTouchAction: map['overlayLastTouchAction'] as String? ?? '',
++      overlaySelfHealCount: (map['overlaySelfHealCount'] as num?)?.toInt() ?? 0,
+       notificationListenerConnected: b('notificationListenerConnected'),
+       accessibilityConnected: b('accessibilityConnected'),
+       appVisible: b('appVisible'),
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index 2f8d679..4103f5e 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.30.0 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.30.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index dc3ca0a..9196e2d 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.30.0',
++            'AI Companion · v0.30.1',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index 0f539f3..cfbf552 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.30.0 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.30.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index 5b4d9bd..ec28067 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -154,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.30.0 · Background Presence',
++                    'v0.30.1 · Overlay Touch Recovery',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index b2be17d..3dff899 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.30.0+36
++version: 0.30.1+37
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/tools/validate_v0291_polish.py b/tools/validate_v0291_polish.py
+index 2d090f5..cc7a655 100644
+--- a/tools/validate_v0291_polish.py
++++ b/tools/validate_v0291_polish.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec
++    assert 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec
+ 
+     segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
+     assert '_isLayoutBreak' in segmenter
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index c845793..7b2fda2 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec)
++    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec)
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
+diff --git a/tools/validate_v0301_overlay_touch.py b/tools/validate_v0301_overlay_touch.py
+new file mode 100644
+index 0000000..cc582f7
+--- /dev/null
++++ b/tools/validate_v0301_overlay_touch.py
+@@ -0,0 +1,94 @@
++#!/usr/bin/env python3
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def main() -> int:
++    pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
++    assert 'version: 0.30.1+37' in pubspec
++
++    db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
++    assert 'static const int schemaVersion = 18;' in db
++
++    overlay = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt').read_text(encoding='utf-8')
++    for token in [
++        'WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()',
++        'BUBBLE_SAFE_MARGIN_DP = 6',
++        'private fun bubbleSafeArea(): BubbleSafeArea',
++        'private fun clampBubbleToSafeArea(): Boolean',
++        'private fun snapBubbleToSafeEdge()',
++        'private fun ensureOverlayHealth(reason: String, rebuildInputChannel: Boolean = false)',
++        'removeViewImmediate(it)',
++        'CompanionRuntimeState.noteOverlayTouch("cancel")',
++        'ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)',
++        'ensureOverlayHealth("permission_watch")',
++        'eventType = "overlay_touch_self_healed"',
++        'updateOverlayTouchHealth()',
++    ]:
++        assert token in overlay, token
++    collapse = overlay[overlay.index('private fun collapseChatOverlay'):overlay.index('private fun enterChatInputMode')]
++    assert 'removeChatWindow()' in collapse
++    assert 'chatRoot?.visibility = View.GONE' not in collapse
++
++    runtime = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt').read_text(encoding='utf-8')
++    for token in [
++        'overlayBubbleAttached', 'overlayBubbleTouchable', 'overlayPositionSafe',
++        'overlayChatWindowAttached', 'overlayLastTouchAt', 'overlayLastTouchAction',
++        'overlaySelfHealCount', 'overlayLastSelfHealAt', 'overlayLastSelfHealReason', 'fun setOverlayTouchHealth(', 'fun noteOverlaySelfHeal(reason: String)',
++    ]:
++        assert token in runtime, token
++
++    main_activity = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt').read_text(encoding='utf-8')
++    assert 'OverlayBubbleService.reconcileFromVisibleActivity(this)' in main_activity
++
++    bridge = (ROOT / 'lib/core/platform/android_bridge.dart').read_text(encoding='utf-8')
++    for token in ['overlayBubbleAttached', 'overlayBubbleTouchable', 'overlayPositionSafe', 'overlaySelfHealCount']:
++        assert token in bridge, token
++
++    diagnostics = (ROOT / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text(encoding='utf-8')
++    for token in [
++        "id: 'overlay_touch'", "title: '悬浮球触摸健康'", "report['overlayTouch'] = {",
++        "'bubbleTouchable'", "'positionSafe'", "'lastSelfHealReason'", "'selfHealCount'",
++        'AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT',
++    ]:
++        assert token in diagnostics, token
++
++    handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
++    for token in ['v0.30.1+37', 'Overlay Touch Recovery', 'schema v18', 'overlayTouch']:
++        assert token in handoff, token
++
++    # Numerical model of the safe-area clamp/snap invariants used by the Kotlin code.
++    def clamp(x: int, y: int, left: int, top: int, right: int, bottom: int, size: int):
++        max_x = max(left, right - size)
++        max_y = max(top, bottom - size)
++        return min(max(x, left), max_x), min(max(y, top), max_y)
++
++    for case in [
++        # 1080x2400-ish phone with status/nav bars and 6dp-like margin.
++        (-500, -500, 6, 90, 1074, 2290, 62),
++        (5000, 5000, 6, 90, 1074, 2290, 62),
++        # very narrow/small safe region must still never invert coerce ranges.
++        (200, 300, 12, 24, 70, 80, 62),
++    ]:
++        x, y = clamp(*case)
++        left, top, right, bottom, size = case[2], case[3], case[4], case[5], case[6]
++        max_x = max(left, right - size)
++        max_y = max(top, bottom - size)
++        assert left <= x <= max_x
++        assert top <= y <= max_y
++
++    # v0.30.0 Background Presence guarantees survive unchanged.
++    for token in [
++        'SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L',
++        'requestSignalBrainWake(this@OverlayBubbleService, "device_present")',
++        'backgroundBrainReady = true',
++    ]:
++        assert token in overlay, token
++
++    print('v0.30.1 Overlay Touch Recovery static validation passed.')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/tools/validate_v030_background_presence.py b/tools/validate_v030_background_presence.py
+index 9689920..7348328 100755
+--- a/tools/validate_v030_background_presence.py
++++ b/tools/validate_v030_background_presence.py
+@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.30.0+36' in pubspec
++    assert 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec
+ 
+     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
+     assert 'static const int schemaVersion = 18;' in db
+@@ -92,7 +92,7 @@ def main() -> int:
+         "'lastProactiveReason'",
+         "'lastPerceptionAt'",
+         "'nextHeartbeatAt'",
+-        'AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT',
++        'AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT',
+     ]:
+         assert token in diagnostics, token
+ 
