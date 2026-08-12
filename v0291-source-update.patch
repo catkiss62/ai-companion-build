@@ -1,0 +1,1634 @@
+diff --git a/README.md b/README.md
+index a7a35d7..b50721b 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,8 @@
+-# AI Companion · v0.29.0 A2 TTS / Clean Baseline
++# AI Companion · v0.29.1 TTS / UI Polish
+ 
+ Local-first Android AI companion. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
+ 
+-## v0.29.0 checkpoint
++## v0.29.1 checkpoint
+ 
+ The first Android 15 device checkpoint has now passed app startup, SQLite, permissions, chat generation and the legacy TTS coroutine/ClassLoader bridge. v0.29.0 addresses the remaining TTS cadence mismatch by restoring the verified Meju A2 scheduling behavior instead of serially doing `generate -> play -> generate -> play`.
+ 
+@@ -29,3 +29,8 @@ See:
+ - `docs/REAL_DEVICE_CHECKPOINT_v0.28.md`
+ - `docs/DEV_STATUS.md`
+ - `docs/ROADMAP.md`
++
++
++## v0.29.1 polish
++
++The Meju A2 native/runtime baseline remains frozen. v0.29.1 normalizes layout line breaks before A2 segmentation, renders reasoning above assistant text, shrinks/fixes the overlay unread bubble, returns the latest 8 overlay messages immediately from SQLite, and introduces `docs/HANDOFF.md` as the mandatory cross-window handoff source.
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+index 2fedbe1..a1eefe1 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+@@ -293,8 +293,8 @@ class OverlayBubbleService : Service() {
+         super.onConfigurationChanged(newConfig)
+         bubbleRoot?.let { view ->
+             val bounds = screenBounds()
+-            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(70)).coerceAtLeast(0))
+-            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(70)).coerceAtLeast(0))
++            bubbleParams.x = bubbleParams.x.coerceIn(0, (bounds.first - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
++            bubbleParams.y = bubbleParams.y.coerceIn(0, (bounds.second - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+             persistBubblePosition()
+             updateBubbleLayout(view)
+         }
+@@ -350,41 +350,47 @@ class OverlayBubbleService : Service() {
+     override fun onBind(intent: Intent?): IBinder? = null
+ 
+     private fun createBubble(): Boolean {
+-        val size = dp(58)
+-        val container = FrameLayout(this)
++        val size = dp(BUBBLE_AVATAR_DP)
++        val container = FrameLayout(this).apply {
++            clipChildren = false
++            clipToPadding = false
++        }
+         val avatar = TextView(this).apply {
+             text = "她"
+             textSize = 17f
+             gravity = Gravity.CENTER
+             setTextColor(Color.WHITE)
+             background = rounded(Color.rgb(176, 130, 255), 999f)
+-            elevation = dp(8).toFloat()
++            elevation = dp(6).toFloat()
+         }
+         container.addView(
+             avatar,
+             FrameLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER },
+         )
+         badge = TextView(this).apply {
+-            textSize = 11f
++            textSize = 10f
+             gravity = Gravity.CENTER
+             setTextColor(Color.WHITE)
+             background = rounded(Color.rgb(229, 69, 96), 999f)
++            elevation = dp(12).toFloat()
++            translationZ = dp(12).toFloat()
+             visibility = View.GONE
+         }
+         container.addView(
+             badge,
+-            FrameLayout.LayoutParams(dp(24), dp(24)).apply {
++            FrameLayout.LayoutParams(dp(BUBBLE_BADGE_DP), dp(BUBBLE_BADGE_DP)).apply {
+                 gravity = Gravity.TOP or Gravity.END
+             },
+         )
++        badge?.bringToFront()
+ 
+         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+         val (screenWidth, screenHeight) = screenBounds()
+-        val defaultX = (screenWidth - dp(82)).coerceAtLeast(0)
++        val defaultX = (screenWidth - dp(BUBBLE_WINDOW_DP + 12)).coerceAtLeast(0)
+         val defaultY = (screenHeight / 3).coerceAtLeast(0)
+         bubbleParams = WindowManager.LayoutParams(
+-            dp(70),
+-            dp(70),
++            dp(BUBBLE_WINDOW_DP),
++            dp(BUBBLE_WINDOW_DP),
+             overlayWindowType(),
+             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+@@ -393,9 +399,9 @@ class OverlayBubbleService : Service() {
+         ).apply {
+             gravity = Gravity.TOP or Gravity.START
+             x = prefs.getInt(KEY_X, defaultX)
+-                .coerceIn(0, (screenWidth - dp(70)).coerceAtLeast(0))
++                .coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+             y = prefs.getInt(KEY_Y, defaultY)
+-                .coerceIn(0, (screenHeight - dp(70)).coerceAtLeast(0))
++                .coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+         }
+         attachDrag(container)
+         return runCatching {
+@@ -688,7 +694,7 @@ class OverlayBubbleService : Service() {
+         }
+         channel.invokeMethod(
+             if (opened) "overlayOpened" else "loadRecentMessages",
+-            if (opened) null else mapOf("limit" to 120),
++            if (opened) null else mapOf("limit" to OVERLAY_RECENT_LIMIT),
+             object : MethodChannel.Result {
+                 override fun success(result: Any?) {
+                     mainHandler.post {
+@@ -696,7 +702,7 @@ class OverlayBubbleService : Service() {
+                         if (parsed != null) {
+                             loadedMessages = parsed.toMutableList()
+                             chatAdapter?.notifyDataSetChanged()
+-                            chatLoadOlder?.visibility = if (parsed.size >= 120) View.VISIBLE else View.GONE
++                            chatLoadOlder?.visibility = if (parsed.size >= OVERLAY_RECENT_LIMIT) View.VISIBLE else View.GONE
+                             scrollChatToBottom()
+                             setChatStatus(null)
+                         } else {
+@@ -733,7 +739,7 @@ class OverlayBubbleService : Service() {
+         chatLoadOlder?.isEnabled = false
+         backgroundCommands?.invokeMethod(
+             "loadOlderMessages",
+-            mapOf("beforeMs" to oldest, "limit" to 100),
++            mapOf("beforeMs" to oldest, "limit" to OVERLAY_OLDER_PAGE_LIMIT),
+             object : MethodChannel.Result {
+                 override fun success(result: Any?) {
+                     mainHandler.post {
+@@ -744,7 +750,7 @@ class OverlayBubbleService : Service() {
+                             chatAdapter?.notifyDataSetChanged()
+                             chatList?.setSelection(older.size.coerceAtMost(loadedMessages.lastIndex))
+                         }
+-                        chatLoadOlder?.visibility = if (older.size >= 100) View.VISIBLE else View.GONE
++                        chatLoadOlder?.visibility = if (older.size >= OVERLAY_OLDER_PAGE_LIMIT) View.VISIBLE else View.GONE
+                         chatLoadOlder?.isEnabled = true
+                     }
+                 }
+@@ -919,7 +925,7 @@ class OverlayBubbleService : Service() {
+                         showChatOverlay("bubble_tap")
+                     } else {
+                         val screenWidth = screenBounds().first
+-                        bubbleParams.x = if (bubbleParams.x + dp(35) < screenWidth / 2) 0 else screenWidth - dp(70)
++                        bubbleParams.x = if (bubbleParams.x + dp(BUBBLE_WINDOW_DP / 2) < screenWidth / 2) 0 else screenWidth - dp(BUBBLE_WINDOW_DP)
+                         persistBubblePosition()
+                         updateBubbleLayout(view)
+                     }
+@@ -940,8 +946,8 @@ class OverlayBubbleService : Service() {
+ 
+     private fun updateBubbleLayout(view: View) {
+         val (screenWidth, screenHeight) = screenBounds()
+-        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(70)).coerceAtLeast(0))
+-        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(70)).coerceAtLeast(0))
++        bubbleParams.x = bubbleParams.x.coerceIn(0, (screenWidth - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
++        bubbleParams.y = bubbleParams.y.coerceIn(0, (screenHeight - dp(BUBBLE_WINDOW_DP)).coerceAtLeast(0))
+         runCatching { windowManager.updateViewLayout(view, bubbleParams) }
+             .onFailure { error ->
+                 NativeEventStore.addDeviceEvent(
+@@ -1363,6 +1369,20 @@ class OverlayBubbleService : Service() {
+                 textSize = 11f
+                 setTextColor(Color.rgb(188, 169, 220))
+             })
++            if (message.role == "assistant" && message.reasoning.isNotBlank()) {
++                bubble.addView(smallInlineAction("🧠 思考") {
++                    if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
++                    notifyDataSetChanged()
++                })
++                if (expandedReasoning.contains(message.id)) {
++                    bubble.addView(TextView(this@OverlayBubbleService).apply {
++                        text = message.reasoning
++                        textSize = 12f
++                        setTextColor(Color.rgb(190, 185, 202))
++                        setPadding(0, dp(4), 0, dp(5))
++                    })
++                }
++            }
+             bubble.addView(TextView(this@OverlayBubbleService).apply {
+                 text = message.content
+                 textSize = 15f
+@@ -1374,22 +1394,8 @@ class OverlayBubbleService : Service() {
+                     orientation = LinearLayout.HORIZONTAL
+                     gravity = Gravity.END
+                 }
+-                if (message.reasoning.isNotBlank()) {
+-                    actions.addView(smallInlineAction("🧠") {
+-                        if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
+-                        notifyDataSetChanged()
+-                    })
+-                }
+                 actions.addView(smallInlineAction("🔊") { speakMessage(message.id) })
+                 bubble.addView(actions)
+-                if (message.reasoning.isNotBlank() && expandedReasoning.contains(message.id)) {
+-                    bubble.addView(TextView(this@OverlayBubbleService).apply {
+-                        text = "思考\n${message.reasoning}"
+-                        textSize = 12f
+-                        setTextColor(Color.rgb(190, 185, 202))
+-                        setPadding(0, dp(5), 0, 0)
+-                    })
+-                }
+             }
+             outer.addView(
+                 bubble,
+@@ -1445,6 +1451,11 @@ class OverlayBubbleService : Service() {
+         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
+         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
+         private const val INLINE_REPLY_MAX_ATTEMPTS = 5
++        private const val BUBBLE_WINDOW_DP = 62
++        private const val BUBBLE_AVATAR_DP = 50
++        private const val BUBBLE_BADGE_DP = 20
++        private const val OVERLAY_RECENT_LIMIT = 8
++        private const val OVERLAY_OLDER_PAGE_LIMIT = 24
+         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
+         private const val EXTRA_REASON = "reason"
+         const val EXTRA_COUNT = "count"
+diff --git a/docs/DEV_STATUS.md b/docs/DEV_STATUS.md
+index 2c935a3..ee48664 100644
+--- a/docs/DEV_STATUS.md
++++ b/docs/DEV_STATUS.md
+@@ -1,260 +1,11 @@
+-# v0.29.0 开发状态 · A2 TTS / Clean Baseline
+-
+-## 当前变化
+-
+-- Android 15 真机已确认：启动、SQLite、权限、聊天生成和 legacy coroutine/ClassLoader TTS 初始化/发声链可用。
+-- 实物对比 `MejuTTS_A2_OriginalNative_v2.5.apk` 后确认 native 已经正确；句间长停顿来自 AI Companion 自己的串行 `generate + play` 调度。
+-- v0.29.0 恢复 A2 分句：仅 `。！？；.!?;`，不按逗号/换行/省略号/字符数切分。
+-- TTS 改为 generation-ahead：一个 FIFO MNN worker 继续安全串行推理，独立 AudioTrack worker 同时播放当前 WAV；后续句可在当前句播放期间准备。
+-- ready queue 已有下一句时保留约 200ms 间隔；取消/停止使用 process-wide generation epoch fence。
+-- `libbertvits2.so` 原版 ELF 前 635352 bytes SHA-256 为 `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`，后 75496 bytes 仅为零填充；当前 payload 不修改。
+-- schema 仍为 v18；Memory / Relationship / Active Brain / Transfer 无迁移。
+-- GitHub 将从五分包+补丁链晋升为 `app/` 完整源码基底；旧 bootstrap 只在 clean build 成功后清理。
+-- 版本：`0.29.0+34`。
+-
+----
+-
+-# v0.28.5 开发状态 · Legacy Coroutine/ClassLoader Fix
+-
+-## v0.28.5 真机 TTS 修复
+-
+-- Android 15 真机已确认 37/37 黄金资源通过；v0.28.4 的新阻断为 `NoSuchFieldException: INSTANCE`。
+-- 移除 `EmptyCoroutineContext.INSTANCE` 与静态 `COROUTINE_SUSPENDED` 反射；从真实 legacy `Continuation` 签名派生 `CoroutineContext` 并动态代理。
+-- `initialize()` 与 `generateTTS()` 共用同一桥；新增不播放声音的分阶段 WAV 诊断。
+-- schema 仍为 v18；模型/JAR/native 黄金负载未修改；版本 `0.28.5+33`。
+-
+-
+-## 真机暴露
+-- v0.28.2 已成功进入完整 App，Android 权限与系统页面可用。
+-- 深度自检只在 `libbertvits2.so` 报 golden fingerprint mismatch。对已构建 release APK 复核确认：源码/黄金库为 710848 bytes，而 release APK 中被 AGP strip 成 635352 bytes；其它五个核心 Meju native 库保持字节一致。
+-- 聊天页持续加载并不等于 DeepSeek 连接失败。源码审计发现 ChatController 在 `loading=false` 之前同步等待 long-running maintenance；同时该维护任务会清理 `daily_continuity(window_start)`，但数据库维护 allowlist 漏掉该 table/column，必然抛 `Unsupported maintenance table/column`。真机诊断中的 `hasMaintenanceError=true` 与此吻合。
+-
+-## v0.28.4 修复
+-- AGP `packaging.jniLibs.keepDebugSymbols` 明确保留 6 个 Meju 黄金 native payload，尤其避免 `libbertvits2.so` 在 release 中被 strip。
+-- GitHub build 在上传 Artifact 前逐项比较 APK 内 6 个 native 库与源码黄金库 SHA-256/size，不一致直接失败。
+-- `daily_continuity` + `window_start` 纳入长期维护 allowlist。
+-- Chat 先读取消息并结束可见 loading，再异步执行 best-effort maintenance；任何维护异常不能再造成永久转圈。
+-- 设置页增加“测试 API 连接”，用当前 endpoint/Key/model 做 30 秒受控探针，不写入聊天与长期记忆。
+-- 数据库 schema 保持 v18；Memory/Relationship/Transfer/TTS 模型与运行时内容不改。
+-- 版本更新为 `0.28.4+32`。
+-
+----
+-
+-# v0.28.2 开发状态 · Android SQLite Open Fix
+-
+-## 真机触发原因
+-
+-- v0.28.1 已成功绘制启动恢复页，证明 Flutter 首帧修复生效。
+-- REDMI K80 Ultra / Android 15 在“打开本地数据库”阶段返回：`Queries can be performed using SQLiteDatabase query or rawQuery methods only`，指向 `PRAGMA journal_mode = WAL`。
+-- Android `SQLiteDatabase.execSQL()` 不允许执行返回数据的 SQL；`journal_mode` 会返回实际模式，因此 sqflite `execute()` 会失败。
+-
+-## v0.28.2 修复
+-
+-- 保留 `foreign_keys = ON` 的执行语义。
+-- `journal_mode = WAL` 改为 `rawQuery()`，并校验实际返回值必须为 `wal`；不允许静默降级。
+-- `synchronous = NORMAL` 同样走 `rawQuery()`，避免 Android 对 query-returning PRAGMA 的 execute 限制。
+-- schema 仍为 v18；Memory/Relationship/TTS/Active Brain/Transfer 不改。
+-- 版本更新为 `0.28.2+30`。
+-
+----
+-
+-# v0.28.1 开发状态 · Startup Recovery Patch
+-
+-## 真机触发原因
+-
+-- REDMI K80 Ultra / Android 15 首次 release APK 可安装，但启动后内容区永久纯黑；无权限弹窗，系统状态栏/导航栏仍可见。
+-- 首次真实 Flutter release build 同时暴露并修复 `durable_generation_runner.dart` 缺少 `DriveKey` import。
+-- 源码审计确认 v0.28 `main()` 在 `runApp()` 前同步等待 `AppDatabase.ensureReady()`，任何 SQLite/identity 初始化阻塞都会直接造成“第一帧永远不出现”。
+-
+-## v0.28.1 修复
+-
+-- `runApp()` 立即执行；第一帧先显示 Startup Recovery 页面。
+-- 数据库打开与本机身份分为独立可见阶段，分别设置 30s / 10s 诊断超时。
+-- release 模式 Widget 构建错误使用可见 ErrorWidget，不再只留下纯黑区域。
+-- SQLite 打开增加 in-flight Future 复用，超时/重试不会并发打开两个数据库。
+-- schema 仍为 v18；TTS 黄金负载、Memory/Relationship、Active Brain、Transfer 协议不改。
+-- 版本更新为 `0.28.1+29`。
+-
+----
+-
+-# v0.28 开发状态 · First Real-device Checkpoint Harness
+-
+-## 已完成
+-
+-- 新增“第一次综合真机验收”页面，不新增第二套功能逻辑，只把现有真机能力按风险顺序组织。
+-- 测试顺序固定为：快速自检 → 深度 TTS 黄金/JNI 初始化 → 生产 TTS 真正发声 → Android 权限/感知 → 悬浮/后台/通知 → 手机↔平板顶号。
+-- TTS 发声测试直接调用正式 `TtsService.preview()`，不使用测试假引擎；固定句包含 `Yuki`，用于同时听 `Yuki -> 有希` 的 spoken-only 替换。
+-- 固定测试句不进入聊天、Memory、RelationshipEvent、Thought、Daily Continuity 或 Reference。
+-- 任何真机失败继续导向 v0.27 的脱敏诊断报告，不增加云端日志。
+-- schema 保持 v18；Active Brain、Memory、Relationship、Nearby ownership 协议和 MejuTTS 黄金负载均不修改。
+-- 新增 `tools/check_android_build_env.py`，明确区分“源码验证失败”和“外部 Flutter/Android 构建工具缺失”。
+-- 版本更新为 `0.28.0+28`。
+-
+-## 当前构建边界
+-
+-- 当前执行环境实际只有 Java/Kotlin，没有 Flutter SDK、Dart、Android SDK、ADB，也没有完整 Gradle wrapper binary。
+-- 已尝试从可用网络通道补齐 Flutter SDK，但约 1GB SDK 归档无法通过当前文件下载通道，因此本阶段不虚构 APK build 结果。
+-- v0.28 的目标是把首个真机 APK 的测试入口与故障诊断准备好；一旦进入具备 Flutter/Android toolchain 的构建环境，可直接生成综合 checkpoint APK。
+-
+-## 阶段回归重点
+-
+-- Checkpoint 页面只调用现有 read-only preflight / TTS preview / Android perception / navigation，不直接写关系状态。
+-- v0.27 privacy/redaction/Native preflight 回归。
+-- v0.26 transfer generation/replay/fencing 与 AES-GCM 备用包回归。
+-- v0.25 TTS queue/Kotlin/golden payload freeze。
+-- v0.14-v0.24 Durable Generation、Recovery、Reference、Awareness、Relationship、Memory、Proactive Rhythm、Daily Continuity 全部 SQLite 回归。
+-
+----
+-
+-# v0.27 开发状态 · Real-device Readiness / Preflight Diagnostics
+-
+-## 已完成
+-
+-- 新增独立“真机测试前自检”页面：快速自检只读运行状态；深度自检额外执行 37 项 TTS 黄金校验 + JNI/MNN 初始化，但不会发声。
+-- schema 保持 v18；诊断不进入关系同步数据库，不新增第二套 Memory/日志云端。
+-- 新增 `NativePreflightProbe`：App/Android 版本、后台限制、电池优化、权限、Google Play services、Nearby 权限/蓝牙/定位条件与音频输出路由。
+-- 新增 `RuntimeDiagnosticStore`：SharedPreferences 本地环形历史，最多 160 条 / 30 天。
+-- Nearby 在统一 emit 边界保存脱敏阶段日志；endpoint discovery churn 不落盘；session/device/snapshot/hash 仅保存短 SHA-256 指纹。
+-- TTS 保存黄金资源校验、JNI/MNN 初始化与推理失败类型；推理失败日志不保存 spoken text 或可能回显正文的错误 detail。
+-- 新增纯 Kotlin `DiagnosticRedaction`，JVM 测试验证路径、UUID、长哈希不会原样泄漏。
+-- Preflight 报告只包含数据库计数/ownership flag/短指纹、权限与 runtime 状态、TTS 状态和脱敏 Native 历史。
+-- 报告明确不读取聊天/思考链正文、Memory/Relationship/Thought/Reference/Daily Continuity 文本、raw notification/accessibility、使用包名历史或 API Key。
+-- Android SAF 新增脱敏诊断 `.txt` 保存路径；临时报告在 picker 返回后删除，不上传服务器。
+-- `requestNearbyPermissions` 与 preflight 使用同一版本化权限清单，避免“页面说缺一个权限、请求却问另一组”的漂移。
+-- 版本更新为 `0.27.0+27`。
+-
+-## 本阶段边界
+-
+-- 不自动修复 Active Brain / transfer lock；只报告状态，避免诊断页变成第二套 ownership writer。
+-- 不自动播放 TTS 测试音；真正声音一致性与首句延迟留给真人实机。
+-- 不引入 Firebase/Sentry/Analytics 或任何云端诊断。
+-- 当前无 Flutter/Android SDK，不声称 APK build 或 Android 硬件行为已经通过。
+-
+-## 阶段回归重点
+-
+-- diagnostic privacy / redaction / retention bound。
+-- NativePreflightProbe Kotlin stub compile。
+-- Nearby v3 / manual crypto / TTS Kotlin/queue 回归。
+-- v0.14-v0.26 Durable Generation、Recovery、Reference、Awareness、Relationship、Memory、Proactive Rhythm、Daily Continuity、Transfer 全部 SQLite 回归。
+-- v0.26 baseline 冻结对比与 37 个 TTS 黄金 payload byte freeze。
+-
+----
+-
+-# v0.26 开发状态 · Phone↔Tablet Sync Integrity / Transfer Hardening
+-
+-## 已完成
+-
+-- schema v17 -> v18；新增安装本地 `transfer_receipts`，以及 `state_lineage_id / state_generation / pending transfer` 身份设置。
+-- 每次冻结状态包分配唯一 `snapshot_id`，并绑定 relationship lineage、source device、单调 ownership generation、目标激活代次、SHA-256 与 byte length。
+-- Snapshot v2 严格校验 manifest / state root / settings 三层身份一致；旧包、损坏包、截断包、snapshot-id collision 均 fail closed。
+-- 同 lineage 只接受严格更高 generation；成功目标激活会再次 generation+1，使刚用过的包立即变旧。
+-- `transfer_receipts` 不随状态包覆盖，并与目标整库导入在同一个 transaction 提交；重复投递可安全识别为 no-op。
+-- Nearby 控制协议升级为 `ai_companion_takeover_v3`，request/ACK 绑定 exact snapshot session，不再使用固定 V2 字符串。
+-- 源设备收到匹配 takeover request 后，由原生 SQLite transaction 再核对 active/lock/lineage/generation/pending snapshot，先 fence 成 standby，之后才发送 ACK。
+-- ACK 丢失时源端保持下线、目标保持 standby，优先避免双 Active Brain；迟到/错会话 ACK 不允许激活。
+-- 被挤下线设备只改变 ownership，不删除本地关系/记忆数据。
+-- 新增手动 `.aicomp` 备用：Android SAF 文件选择器 + PBKDF2-HMAC-SHA256 + AES-256-GCM；口令不持久化，内部 snapshot 继续保留 SHA-256。
+-- 手动导出成功后源设备先 standby；目标导入也先 standby，需明确确认接管。
+-- standby 只停止当前 overlay service，不再永久擦除用户的 overlay preference；overlay/background brain 恢复增加 Active Brain gate。
+-- 版本更新为 `0.26.0+26`。
+-
+-## 本阶段边界
+-
+-- Nearby 仍为正常路径，手动文件只做厂商/网络异常兜底。
+-- 不引入云账号、服务器真源或双端冲突合并；SQLite + single Active Brain 仍是权威模型。
+-- 不自动删除 standby 设备本地数据。
+-- TTS 模型/runtime/native 黄金负载不修改。
+-- 当前无 Flutter/Android SDK，不声称 APK build、Nearby 射频链路、系统文件选择器或双真机时序已经实测。
+-
+-## 阶段回归重点
+-
+-- v17 -> v18 migration / lineage-generation ownership。
+-- replay / stale / corruption / wrong-session ACK / snapshot-id collision。
+-- import + receipt transaction rollback。
+-- source fence-before-ACK / target ACK-before-activation。
+-- manual AES-GCM roundtrip / wrong password / truncated package。
+-- Nearby/Native transfer Kotlin stub compile。
+-- v0.13-v0.25 旧数据库、durable generation、recovery、memory、awareness、relationship、TTS 回归。
+-
+----
+-
+-# v0.25 开发状态 · Native TTS Core Integration
+-
+-## 已完成
+-
+-- 以用户提供的 `MejuTTS_DoomsdayBridge_v2.7.apk`（SHA-256 `63a8c10f...c58c5e7`）作为黄金行为/资源基准。
+-- 22 个模型/预处理资源、6 个 arm64 `.so` 与黄金 APK 逐文件一致。
+-- 9 个 compatibility runtime JAR 内 `classes.dex` 与黄金 APK `classes.dex`～`classes9.dex` 9/9 一致。
+-- `runtime_01.jar` 内 5 个 pinyin 字典及 NLP classpath 资源与黄金 APK 一致。
+-- AI Companion 源码树不携带 HTML / JS；TTS Kotlin 链不依赖 WebView/JavascriptInterface。
+-- 新增 `TtsGoldenBaseline` / `TtsArtifactVerifier`：初始化前按 SHA-256 + size 校验 37 项核心负载。
+-- Settings 的“检查 TTS”升级为强制黄金校验，可显示校验状态/项数/黄金参考。
+-- 修复旧 runtime 私有缓存可能在 APK 更新后继续加载旧 JAR 的问题：v0.25 使用版本化 cache + 指纹校验 + 原子重拷贝 + read-only。
+-- `TtsPlaybackQueue` 抽出最小 `TtsQueueService` 接口，补 stop/cancel、单句失败不中毒后续队列、流式 FIFO 测试源。
+-- TTS 错误诊断写 SQLite 改为 best-effort，语音失败不能反向破坏聊天/主动联系 durability。
+-- `Yuki -> 有希` 仍只作用于 spoken text；reasoning_content 仍不进入语音链。
+-- schema 仍为 v17。
+-- 版本更新为 `0.25.0+25`。
+-
+-## 本阶段边界
+-
+-- 不重写已验证的中文 G2P/前处理；先保留隔离的 compiled dependency closure，避免音色/读音回归。
+-- 不把原 HTML/WebView/JS 外壳带进 AI Companion。
+-- 不修改 Memory、Relationship、Awareness、Daily Continuity、Active Brain、Nearby 协议。
+-- 当前无 Android SDK / Flutter SDK，不声称 APK、JNI/MNN、AudioTrack 真机通过。
+-- 主观音质、首句延迟、后台音频、蓝牙耳机/来电中断留到首次必须真机的 APK checkpoint。
+-
+-## 阶段回归重点
+-
+-- 黄金 APK / source payload hash 对比。
+-- 37 项 runtime integrity gate。
+-- stale runtime cache replacement。
+-- queue stop/cancel/error isolation。
+-- Kotlin TTS bridge/runtime stub compile。
+-- v0.13-v0.24 旧数据库/恢复/主动联系/Reference/Awareness/Relationship/Continuity 回归。
+-
+----
+-
+-# v0.24 开发状态 · Companion Continuity / Daily Reflection
+-
+-## 已完成
+-
+-- schema v16 -> v17，新增本地 `daily_continuity` 短期连续性表。
+-- 不新增模型“每日写日记”路径；连续性记录完全由本地确定性规则从真实旧数据压缩。
+-- 每个 local day 最多一条 UNIQUE row；当天可更新，昨天在下一次 Active Brain 运行后固化并禁止后续改写。
+-- 来源限制为 RelationshipEvent、active unfinished thread、companion-facing Thought、粗粒度 Awareness 与实际消息活动。
+-- AI Self reflection 继续独立，`self_reflection_run:*` / perception Thought 不进入用户-facing daily care。
+-- unresolved thread 最多每天带 1 条；前两天已经展示且今天没有新更新的 thread 不重复搬运。
+-- quiet day 显式中性化：不把安静或普通相处解释为疏远/关系倒退，也不为了“每日进展”制造 milestone。
+-- Prompt 最多注入最近 2 天；明确说明不是新事实来源、不是 AI 日记、不要逐条复述。
+-- post-turn extractor 增加 anti-recursion 规则：AI 仅复述旧连续性不能自动生成新的 memory / relationship_event / thread。
+-- post-turn durable maintenance 与 proactive heartbeat 两条现有路径负责刷新；不新增 Android scheduler。
+-- continuity 写事务内再次检查 `active_brain` + `transfer_lock`，standby/接管冻结期间不能写。
+-- continuity 故障与旧核心隔离，不会阻断 proactive heartbeat、Memory Maintenance 或 AI Self reflection。
+-- full-state snapshot 加入 `daily_continuity`；v16 状态包导入 v17 保持兼容。
+-- 长期维护限制为约 180 天 / 最多 220 条；永久事实继续由 Memory / RelationshipEvent 保存。
+-- Home 增加轻量“今天/昨天还在延续”卡片；`你们之间`增加“最近几天”，standby 明确显示为上次同步状态。
+-- 版本更新为 `0.24.0+24`。
+-
+-## 本阶段边界
+-
+-- 不新增第二套长期历史库。
+-- 不使用模型生成每日总结，不产生额外 API 消耗。
+-- 不让 daily continuity 自身成为新的 memory/event 事实来源。
+-- 不把 raw package、通知正文、Accessibility 原文写入连续性记录。
+-- 不修改 TTS、Durable Generation、Active Brain、Nearby 接管协议的核心实现。
+-- 当前环境无 Flutter / Android SDK，因此不声称 APK 编译、布局渲染或 Android 后台真实调度通过。
+-
+-## 阶段回归重点
+-
+-- v16 -> v17 additive migration / old-state import。
+-- same-day retry exactly-once / finalized-yesterday immutability。
+-- standby / transfer transaction write fence。
+-- unresolved thread anti-repeat / real-update resurfacing。
+-- quiet-day neutral semantics。
+-- two-day Prompt cap / anti-recursion。
+-- full-state phone/tablet transfer。
+-- 180-day / 220-row retention bound。
+-- v0.23 proactive rhythm / v0.22 memory / Awareness / Relationship / Reference / Home / durable generation / async ownership / Recovery 全部继续通过。
+-- v0.23 baseline 外 231 个未授权旧文件逐字节一致。
+-- v0.23 TTS 41 个关键文件逐文件 SHA-256 一致。
+\ No newline at end of file
++# v0.29.1 开发状态 · TTS / UI Polish
++
++- 版本：`0.29.1+35`，数据库 schema 仍为 v18。
++- 最近真机稳定基底：v0.29.0 Clean Baseline。
++- TTS native/model/runtime 冻结；A2 只按 `。！？；.!?;` 分句，generation-ahead + FIFO + ~200ms 保持。
++- v0.29.1 在 A2 边界扫描前把 CR/LF/U+2028/U+2029 归一为空格，作为最后一轮非阻断 TTS 小优化。
++- Chat 完成态/流式态均改为 reasoning 在正文上方。
++- 悬浮球缩小，unread badge 强制置于最高视觉层。
++- 悬浮聊天默认最近 8 条，并把历史读取从完整 ChatController warm-up 解耦；更早历史按需加载。
++- 新增 `docs/HANDOFF.md`，今后每版同步维护。
++- 本轮后主线转向手机行为感知 -> Thought/Desire -> 主动联系真机调优。
+diff --git a/v0291_work/ai_companion_v0_29_0/docs/HANDOFF.md b/docs/HANDOFF.md
+new file mode 100644
+index 0000000..3849bae
+--- /dev/null
++++ b/docs/HANDOFF.md
+@@ -0,0 +1,129 @@
++# AI Companion · HANDOFF
++
++> 每个版本都要同步更新本文件。新窗口优先读取本文件，再读取 `README.md` / `docs/DEV_STATUS.md` 和实际源码。不要从旧聊天记录猜当前实现。
++
++## 1. 当前基底
++
++- 当前源码候选：**v0.29.1+35 · TTS / UI Polish**。
++- 最近一次用户真机确认稳定：**v0.29.0+34 Clean Baseline**。
++- Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
++- 数据库：**schema v18**，v0.29.1 不做 schema 迁移。
++- GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
++
++## 2. 项目定位
++
++这是长期本地优先的“AI 本体恋爱/陪伴”应用，不是角色卡聊天器、小说生成器或单次 RP。AI 明确知道自己是 AI，可以按需扮演，但底层目标是同一个“她”长期成长、记忆、形成 Thought / Desire、感知设备上下文并主动联系用户。
++
++核心原则：
++
++- 手机/平板同一时间只有一台 **Active Brain**；接管后旧设备进入 standby，但本地数据不删除。
++- 本地优先：聊天、记忆、Thought、Relationship、Awareness、Continuity 等主要状态保存在本地 SQLite。
++- DeepSeek `reasoning_content` 与正文必须独立保存/显示，不能混入正文。
++- Reference 是低优先级参考资料；项目不可退化为“把参考资料当角色卡”。
++
++## 3. 已落地的主要架构
++
++- Durable Generation + exactly-once run token。
++- Generation Recovery Orchestrator。
++- Relationship assimilation / RelationshipEvent。
++- 长期记忆 current_fact / inference / shared_experience / historical + evidence consolidation。
++- Thought lifecycle / Desire / unfinished threads。
++- Proactive rhythm / anti-silence / hard caps。
++- Awareness observations：原始包名、通知文本、Accessibility 文本不直接进入长期提示词；转成粗粒度、会过期的观察。
++- Daily Continuity（本地确定性，不让模型自己写日记）。
++- 真悬浮球 + native WindowManager chat panel + persistent background FlutterEngine。
++- v18 Active Brain / transfer fencing / encrypted `.aicomp` manual fallback。
++- Android 本地预检与脱敏诊断。
++
++## 4. TTS 黄金基准（不要重新设计）
++
++行为参考 APK：**`MejuTTS_A2_OriginalNative_v2.5.apk`**。
++
++真正原版 `libbertvits2.so` ELF：
++
++- 635,352 bytes
++- SHA-256 `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`
++- APK 中为了对齐补零到 710,848 bytes；AI Companion 保存的 padded 文件与 v2.5 APK 条目逐字节一致。
++
++固定行为：
++
++- `Yuki -> 有希` 只用于朗读文本，不改聊天正文。
++- 只按 `。！？；.!?;` 分句。
++- 不按 `，、`、换行、ellipsis、字符数切分。
++- A2 generation-ahead：后续句在当前句播放期间继续生成。
++- FIFO 播放；下一 WAV 已准备好时约 200ms 句间隔。
++- 不恢复旧版 60 秒 pending request 清理。
++- 不改 MNN/native/threading，不自行 WAV 拼接，不重新设计预缓存。
++
++v0.29.1 仅把 CR/LF/U+2028/U+2029 在进入 A2 边界扫描前归一成普通空格；若真机仍有轻微停顿，**不再阻塞项目推进**，以后作为体验微调处理。
++
++## 5. v0.29.1 本轮 UI / Overlay 改动
++
++- 悬浮球窗口 70dp -> 62dp，主体 58dp -> 50dp，角标 24dp -> 20dp。
++- unread 角标显式 elevation/translationZ + bringToFront，避免数字被球体压住。
++- 完整聊天与流式聊天都改为：**AI 思考在上，AI 正文在下**。
++- native 悬浮聊天展开 reasoning 时同样先显示思考，再显示正文。
++- 悬浮窗打开先直接读取最近 **8 条** SQLite 历史，不等完整 ChatController 初始化；后台控制器随后异步 warm-up。
++- 更早历史仍可手动加载，每次最多 24 条，不默认把完整历史塞进悬浮窗。
++
++## 6. 已完成真机验证
++
++v0.29.0 用户已确认：
++
++- APK 可正常安装/启动。
++- Android 15 SQLite 打开成功。
++- 主要系统授权可获取。
++- DeepSeek 对话可返回。
++- Meju legacy coroutine/ClassLoader bridge 已打通。
++- TTS 黄金校验、初始化、生成、实际发声成功。
++- A2 generation-ahead 版本可正常运行。
++- Clean GitHub workflow 可以从完整 `app/` 源码构建 APK，并且生成 APK 可正常安装运行。
++
++v0.29.1 尚待真机验收，重点只需看：悬浮球视觉、悬浮最近历史、reasoning 顺序、换行 TTS 体验以及无明显回归。
++
++## 7. 已知待办 / 下一阶段
++
++最高优先级不再是 TTS，而是“她对用户手机行为有真实反应”。目前权限/感知入口存在，但真机体验仍表现为用户在手机里做事情时，她几乎不主动回应。
++
++下一阶段固定方向：
++
++1. 手机事件 -> Awareness -> Perception 的真机有效性与去噪。
++2. Perception -> Thought / Desire / unfinished thread 的意义判断。
++3. Thought/Desire -> 主动消息 / 通知 / 悬浮球反应，避免做成机械事件播报器。
++4. HyperOS / Android 15 锁屏、切 App、长时间后台、杀进程后的恢复与主动联系。
++5. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
++6. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
++7. 最终稳定性回归。
++
++UI 后续仍可继续微调，但不要为了轻微视觉/TTS 瑕疵长期阻塞主动陪伴能力开发。
++
++## 8. GitHub / 构建约定
++
++正常仓库结构：
++
++```text
++app/
++  android/
++  lib/
++  test/
++  tools/
++  docs/
++  pubspec.yaml
++.github/
++  workflows/
++    build-apk.yml
++README.md
++```
++
++- `app/` 是唯一源码真源（single source of truth）。
++- v0.28 五分包与历史 patch 已经可以删除，不再作为构建输入。
++- 日常 workflow：checkout -> Java/Flutter -> `flutter pub get` -> validators/tests/analyze -> `flutter build apk --release` -> TTS native integrity -> artifact。
++- 测试 APK 从 v0.28.4 起使用固定测试签名，后续正常应可覆盖安装；正式发布再换正式私有签名。
++
++## 9. 开发流程约束
++
++- 用户非技术开发者；优先由助手完成代码、静态检查、结构验证和自动测试。
++- 只有真人感知/真机行为必须确认时才交 APK 测试。
++- 稳定正确优先于速度；大阶段之间主动做回归。
++- 每个正式版本同时更新 `docs/HANDOFF.md`。
++- 每个大版本保留完整源码 ZIP + SHA-256 作为离线备份。
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index 35a2c03..ea5e560 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1,53 +1,20 @@
+-# Roadmap after v0.29.0
++# Roadmap after v0.29.1
+ 
+-## 当前顺序
++## Immediate next stage: real proactive awareness
+ 
+-1. 真机验证 A2 TTS：长文本、句间停顿、停止/重播。
+-2. GitHub clean baseline 从 `app/` 直接构建成功后清理旧五分包/patch。
+-3. UI/悬浮窗：角标层级、悬浮球缩小、reasoning 在正文上方、悬浮窗最近聊天记录。
+-4. 主动感知/联系真机调优：Usage / Notification / Accessibility -> Thought/Desire -> 合理触发。
+-5. 长期记忆压力测试与强杀/重启/升级恢复。
+-6. 手机↔平板 Active Brain / Nearby 真机接管。
++The next blocking product gap is no longer TTS. On the real Android 15 phone, Usage / Notification / Accessibility permissions exist, but the companion still feels unresponsive to ordinary phone activity.
+ 
+----
++Next work should tune the complete path:
+ 
+-# Roadmap after v0.28.5
++`device event -> awareness observation -> perception -> meaningful Thought/Desire -> proactive gate -> notification / overlay / chat`
+ 
+-## v0.28.5 checkpoint order
++The goal is contextual companionship, not mechanical event narration.
+ 
+-先完成 TTS `initialize → generateTTS → WAV → AudioTrack` 真机验收并冻结首个可用运行基底；随后进入已记录的 UI/悬浮窗优化，再做 Android 15/HyperOS 主动感知触发、长期记忆压力、后台恢复和手机↔平板 Active Brain 接管。
++## Then
+ 
++1. HyperOS/Android 15 long-background and lock-screen behavior.
++2. Long-memory stress/regression across many chat turns.
++3. Phone/tablet Active Brain takeover on two real devices and `.aicomp` fallback.
++4. Final stability and UX regression.
+ 
+-## Immediate checkpoint
+-First confirm the two real-device blockers fixed in v0.28.4: release-packaged Meju native fingerprints and chat initialization. Use the new API probe to separate DeepSeek connectivity from local maintenance/UI issues. After TTS + chat both pass, freeze the runtime baseline and move UI polish into a dedicated stage rather than mixing it with core debugging.
+-
+----
+-
+-
+-## Current checkpoint
+-
+-v0.12–v0.27 established the durable/local-first companion architecture, long-term relationship memory, proactive behavior, Android awareness, verified MejuTTS core, single-Active-Brain phone↔tablet transfer and local redacted diagnostics.
+-
+-v0.28 added the **first real-device checkpoint harness**. The first real Android 15 APK then exposed a pre-first-frame black-screen stall because v0.28 awaited SQLite readiness before `runApp()`. v0.28.1 made startup failures visible. The first visible failure was Android sqflite rejecting `PRAGMA journal_mode = WAL` through `execute()`. v0.28.2 fixes the Android database-open path without changing schema or companion semantics.
+-
+-## Immediate next action
+-
+-Build the v0.28.2 SQLite-recovery APK and confirm database open, device identity and main-shell entry on the real Android 15 phone. If startup succeeds, continue the original hardware checkpoint in order:
+-
+-1. quick preflight;
+-2. deep MejuTTS/JNI initialization;
+-3. actual TTS voice and `Yuki -> 有希` pronunciation;
+-4. permissions/perception;
+-5. overlay/background/notification behavior.
+-
+-Only after those pass, install the same checkpoint on the tablet and validate Nearby transfer + game-account-style takeover, including interruption/late-ACK behavior.
+-
+-Any failed item should export the local redacted diagnostic report before code changes are attempted.
+-
+-## After the first hardware checkpoint
+-
+-Prioritize fixes found by real hardware/OEM behavior. Do not resume feature expansion until TTS, lifecycle, perception and ownership transfer are stable enough to trust. Once that checkpoint is clean, continue with experience/UI refinement and longer-running soak tests rather than adding new core architecture.
+-
+-## Later scale milestone
+-
+-Before multi-year databases approach hundreds of MB, measure whole-state transfer peak memory. If needed, replace JSON whole-state snapshots with table streaming or SQLite backup/snapshot transport while preserving the same lineage/generation ownership protocol. Only consider embeddings/vector indexing if bounded local lexical retrieval becomes measurably insufficient.
+\ No newline at end of file
++Minor TTS/UI imperfections remain eligible for later polish but are non-blocking after v0.29.1.
+diff --git a/docs/TEST_CHECKLIST.md b/docs/TEST_CHECKLIST.md
+index 9e01a05..c51cfc7 100644
+--- a/docs/TEST_CHECKLIST.md
++++ b/docs/TEST_CHECKLIST.md
+@@ -1,554 +1,11 @@
+-# v0.29.0 真机检查
++# v0.29.1 真机检查
+ 
+-## A2 TTS
++本轮只做低风险体验验收，不重新做全部底层开发：
+ 
+-- [ ] 黄金资源 37/37 通过。
+-- [ ] 分阶段 TTS 诊断通过。
+-- [ ] 长文本第一句允许有模型预热，但第二句以后不再出现“上一句播完才开始生成下一句”的长空白。
+-- [ ] 只按 `。！？；.!?;` 分句；逗号、顿号、换行、省略号不人为切开。
+-- [ ] `Yuki` 仍读“有希”。
+-- [ ] 播放中 Stop 立即停止，旧生成结果不会稍后复活。
+-- [ ] 停止后重新播放能正常建立新队列。
+-
+-## GitHub Clean Baseline
+-
+-- [ ] promotion workflow 成功把完整源码提交到 `app/`。
+-- [ ] clean build workflow 只从 `app/` 构建成功。
+-- [ ] 上述两项成功后才删除/归档旧 5 个分包与 v0.28.x patch。
+-
+----
+-
+-# v0.28.5 真机检查
+-
+-1. 启动进入主界面，不再卡 Chat loading spinner。
+-2. “更多 → AI 与陪伴设置 → 测试 API 连接”：先确认当前 API 地址/Key/模型可用。
+-3. 深度 TTS 自检：37 项黄金资源应通过，`libbertvits2.so` 不再 fingerprint mismatch。
+-4. TTS 测试发声：确认本地 Meju 音色与 `Yuki → 有希`。
+-5. 以上两项通过后再继续 UI 优化与后续后台/双设备测试。
+-
+----
+-
+-# v0.28.2 SQLite Open 真机检查
+-
+-1. 启动必须立即看到 `AI Companion · v0.28.2 · SQLite Recovery`。
+-2. “打开本地数据库”应通过，不再出现 `PRAGMA journal_mode = WAL` 的 execute/rawQuery 错误。
+-3. 如果数据库通过，记录“检查本机身份”和“进入主界面”是否继续通过。
+-4. 首次进入主界面后再继续原 Checkpoint；当前轮先不要同时排查 TTS/Nearby。
+-
+----
+-
+-# v0.28.1 Startup Recovery 真机检查
+-
+-1. 启动后必须立即看到 `AI Companion · v0.28.1 · Startup Recovery`，不得继续纯黑。
+-2. 记录四步中停在哪一步：Flutter 首帧 / 打开本地数据库 / 检查本机身份 / 进入主界面。
+-3. 如果超时或异常，截图完整错误卡片，不需要先授权任何权限。
+-4. 如果进入主界面，再回到 v0.28 Checkpoint 顺序继续快速自检、深度 TTS、发声、权限/感知、悬浮/后台、双设备。
+-
+----
+-
+-# v0.28 First real-device checkpoint
+-
+-Recommended order on the first phone APK:
+-
+-1. `第一次综合真机验收` → 快速自检。
+-2. 深度自检：37 项 TTS 黄金资源 + JNI/MNN 初始化。
+-3. 播放固定测试语音：确认音色、首句等待、断句、`Yuki -> 有希`。
+-4. 授权并刷新感知：UsageStats / Notification listener / Accessibility / Overlay / notifications。
+-5. 切前后台、锁屏/解锁、测试悬浮聊天和通知。
+-6. 失败时保存脱敏诊断报告。
+-7. 单机通过后才在平板安装同一 APK，测试 Nearby 发现/传输/顶号和中断恢复。
+-
+----
+-
+-# 累积测试清单 · through v0.14
+-
+-## v0.28.5 新增 TTS 检查
+-
+-1. 黄金资源校验应为 37/37。
+-2. 先运行“分阶段桥接诊断”：真实初始化、生成 WAV、校验 RIFF/WAVE，但不播放。
+-3. 若失败，记录最后通过阶段和错误原文；若通过，再运行实际发声。
+-4. 实际发声确认音色、断句、`Yuki → 有希`，再测停止与连续播放。
+-5. 本版不混入 UI 改动。
+-
+-
+-## A. Schema / 迁移
+-
+-- [ ] 全新安装创建 schema v5。
+-- [ ] v0.5 / schema v4 升级后补齐 tts_streaming_enabled / proactive_tts_policy / last_proactive_spoken_message_id。
+-- [ ] v0.1–v0.5 状态包导入 v5 后存在安全默认 TTS 策略。
+-- [ ] relationship_events / interaction_sessions / memory v4 字段仍可导出导入。
+-- [ ] 目标设备导入后仍保留自己的 device_id。
+-
+-## B. Streaming Sentence Splitter
+-
+-- [ ] 中文 `。！？；` 和英文 `!?;` 可形成可播放句子。
+-- [ ] DeepSeek delta 跨多次返回时不丢字、不重复字。
+-- [ ] fenced code block 不进入流式朗读。
+-- [ ] code fence 恰好被拆成两个 delta 时仍能正确识别。
+-- [ ] 超长无句号文本会在 soft/hard limit 附近切分，不会无限等待。
+-- [ ] flush 会把最后没有句号的尾句送入队列。
+-- [ ] reasoning_content 永远不会进入 segmenter。
+-
+-## C. Speech Queue / Cancel
+-
+-- [ ] 队列同一时间只调用一条本地 TTS。
+-- [ ] DeepSeek 继续流式生成时，后续句子只排队不并发调用 JNI。
+-- [ ] 新用户消息会 stop 当前播放并清待播队列。
+-- [ ] 手动 Stop 会清掉 Dart 未开始的句子。
+-- [ ] Stop 发生在 MNN 推理途中时，旧 WAV 返回后不允许启动 AudioTrack。
+-- [ ] Main / Overlay / Background 三个 FlutterEngine 共享 native runtime 时，NativeTtsEngine 内部仍串行访问 MNN。
+-
+-## D. Chat / Overlay Controls
+-
+-- [ ] 完整聊天播放时顶部出现停止按钮。
+-- [ ] 悬浮聊天播放时同样可停止。
+-- [ ] 每条 AI 历史消息可手动重读。
+-- [ ] TTS 队列状态变化时，如果用户正在翻阅旧消息，不会被强制滚到底部。
+-
+-## E. Proactive Voice Policy
+-
+-- [ ] silent：只写入消息、通知、未读数字，不发声。
+-- [ ] when_overlay_opened：通知阶段保持安静；用户打开悬浮聊天后只读最新一条尚未读过的主动消息。
+-- [ ] when_overlay_opened 同一 message_id 不重复自动朗读。
+-- [ ] immediate：只有 tts_enabled=1 时才允许后台朗读。
+-- [ ] immediate 后记录 last_proactive_spoken_message_id。
+-- [ ] 默认设置不会因升级而突然后台发声。
+-
+-## F. v0.5 回归
+-
+-- [ ] Memory Fact Replacement / pinned / superseded 保持。
+-- [ ] Relationship Event / Temporary Session 保持。
+-- [ ] DeepSeek reasoning/content 仍独立。
+-- [ ] Desire/Thought/Proactive 逻辑不因语音队列改变。
+-- [ ] Perception 流不受影响。
+-- [ ] Nearby / Active Brain 不受影响。
+-- [ ] Meju `.so` / `.mnn` / tokenizer / dictionary 内容 hash 不变。
+-
+-## G. 未来需要用户真机/人工测试
+-
+-- [ ] 本地 TTS 实际发声。
+-- [ ] 分句后句间停顿是否自然。
+-- [ ] Stop 在“正在推理”和“正在播放”两种阶段的真实体感。
+-- [ ] Overlay 在 QQ/游戏中的触摸、键盘、语音干扰程度。
+-- [ ] Android 权限流程。
+-- [ ] Nearby 手机↔平板真实传输。
+-
+-这些不要求每个源码版本都由用户执行；到对应里程碑再集中提供 APK。
+-
+-## G. v0.7 Relationship Memory Dynamics
+-
+-- [ ] schema v5 -> v6：memory retention 两列存在且旧记忆 retention=1.0。
+-- [ ] schema v1 -> v6：旧 memory/thought 数据仍可读。
+-- [ ] 升级已有 v0.6 数据库时，旧 relationship_events 自动标记为已内化，不在升级后重新脉冲 Desire。
+-- [ ] 新 relationship_event 创建后 internalized_at 为 null，RelationshipAssimilator 成功后写入时间。
+-- [ ] pinned memory 不进入自动淡化候选。
+-- [ ] 低保留度记忆只进入 archived，不删除 messages。
+-- [ ] 从 archived 手动恢复后 retention 得到强化。
+-- [ ] Reference Library 与 memory_items 分表。
+-- [ ] index-like JSON 中 messages/history/reasoning/save/log 不被参考解析器导入。
+-- [ ] Reference 只有相关片段进入 Prompt，且系统文本明确其不能覆盖 AI 本体身份。
+-- [ ] reference_items / retention / internalized_at 可随 Nearby 状态包转移。
+-- [ ] v0.6 TTS 37 个 native/model/runtime 文件 hash 不变。
+-
+-## H. v0.10 主动回应与 Thought 长期卫生
+-
+-- [ ] v8 -> v9：Thought topic/merge/snooze 字段存在，旧数据默认值正确。
+-- [ ] v8 -> v9：旧 proactive feedback 按回应状态回填 pending / response_received / no_response。
+-- [ ] 主动消息绑定 thought_id + topic_key + thread_id。
+-- [ ] 用户只是回复消息时，只解除 acted 等待，不自动判定话题 resolved。
+-- [ ] proactive outcome=deferred 时，同一未完成话题不能被 contradictory thread proposal 关闭。
+-- [ ] proactive outcome=dismissed 时，同一 thread 进入 dismissed，不被误写成 resolved。
+-- [ ] proactive outcome=resolved 时，同 topic 的相关 Thought 一并得到满足/沉降。
+-- [ ] 普通后续聊天若 resolve 同一 unfinished topic，同 topic Thought 也得到满足，避免以后再问已经完成的事。
+-- [ ] 用户自己重新提起 snoozed topic 时，conversation evidence 可以重新激活；self-drive/perception 不能偷偷解除 dismissal snooze。
+-- [ ] 同 drive + 同 topic_key 的重复 Thought 可合并；无 topic_key 仅允许高相似文本合并；不同 drive 不自动合并。
+-- [ ] 合并后 proactive_feedback / thought_lifecycle_events 仍指向存活 Thought。
+-- [ ] 普通用户每一句话不再直接创建 durable Thought。
+-- [ ] 忙碌状态仍为 soft gate，不存在 userBusy => hard return/mute。
+-- [ ] v0.9 -> v0.10 TTS native/model/runtime 37 个文件 hash 完全一致。
+-
+-## I. v0.11 长期运行卫生 / 并发 / 转移审计
+-
+-- [ ] schema v9 -> v10：unfinished thread 六个 follow-up/retirement 字段默认正确。
+-- [ ] fresh v10：post_turn_jobs / maintenance_runs / idx_thread_followup 正常创建。
+-- [ ] deferred outcome 可设置 6–72h followup_due_at；followup_seeded_at 防止每次 heartbeat 重复强化。
+-- [ ] 默认 max_deferred_followups=1；真正发送后 followup_count+1 并清 schedule。
+-- [ ] resolved/dismissed/真实 conversation update 会清旧 deferred schedule。
+-- [ ] stale low/medium/high thread 按不同时间退休；importance >= 0.92 不自动退休。
+-- [ ] 退休 topic 的相关 active/fixation/acted/residual Thought 转 dormant，但原始消息和 thread 历史不删除。
+-- [ ] lifecycle/proactive/perception/device-event 清理有 age/cap 边界，不触碰 messages / relationship / AI Self / reference / rule layers。
+-- [ ] post_turn_jobs 成功、失败、stale-running 恢复和设备迁移 running->pending 路径正确。
+-- [ ] background heartbeat 在没有新聊天时也能重试 pending/failed post-turn memory job。
+-- [ ] transfer_lock=1 或 active_brain=0 时 post-turn queue 不运行。
+-- [ ] owner-token lease：旧 worker 超时后不能 release 新 worker 的 lease。
+-- [ ] RelationshipAssimilator / MemoryMaintenance / ThoughtConsolidation / AI Self 异常时 lease 必须 finally 释放。
+-- [ ] Desire 多引擎 read-modify-write 使用单 SQLite transaction，避免 pulse lost update。
+-- [ ] full app 与 overlay 同时发送时只有一个能取得 chat_turn_lease。
+-- [ ] active_brain=0 的设备拒绝普通 sendText，不只是停止 proactive。
+-- [ ] 发送状态包前等待 chat/post-turn/proactive writer 结束；超时则取消快照而不是强行导出。
+-- [ ] snapshot export 多表在同一 SQLite transaction 读取。
+-- [ ] snapshot import 后保留目标 device_id；active_brain=0；runtime lease/感知瞬态状态清零。
+-- [ ] Nearby takeover：receiver request -> source offline -> source ACK -> receiver Active。
+-- [ ] takeover ACK 失败/断连/12s 超时时 receiver 保持 standby；手动接管必须明确提示先确认旧设备下线。
+-- [ ] 连接失败/传输失败/断连后旧 snapshot 不可继续用于自动接管。
+-- [ ] snapshot ZIP 只允许 state.json + manifest.json，校验大小/版本/SHA-256，并清理临时目录。
+-- [ ] Thought merge：旧 acted duplicate 不能压过新 active/fixation topic。
+-- [ ] fresh install `tts_streaming_enabled=0` 与升级默认一致。
+-- [x] v0.10 -> v0.11 Bert-VITS2/MNN native/model/runtime 32 个文件 hash 不变；Dart 队列有 1 个有意安全修改。
+-
+-### v0.11 audit additions
+-
+-- [x] source export waits active writers; receiver import also waits old local writers after transfer lock.
+-- [x] receiver Active Brain/transfer lock/device id/runtime lease overrides are transactionally applied with imported data.
+-- [x] proactive final eligibility + assistant INSERT is atomic against chat lease/new user activity.
+-- [x] chat/proactive streaming leases periodically renew by owner token; stale token cannot renew.
+-- [x] DeepSeek stream/header/JSON waits have bounded 120s timeout paths.
+-- [x] post-turn memory job is durable before chat lease release; safe drain used from UI initialization.
+-- [x] Active Brain generic settings-save race removed; manual reactivation requires explicit confirmation.
+-- [x] ZIP duplicate/allowlist/size/hash/schema and cache/plaintext cleanup paths reviewed.
+-- [x] v9 -> v10 migration simulation and one-shot deferred follow-up query pass.
+-- [x] Bert-VITS2/MNN native/model/runtime 32-file SHA-256 comparison against v0.10: 0 changed / 0 missing; Dart TTS queue has one intentional stop-safety change.
+-- [ ] Flutter analyzer / Dart tests / Gradle / Android real-device tests: intentionally not claimed in this environment.
+-
+-
+-## J. v0.12 Android 生命周期专项审计
+-
+-- [x] Manifest XML 可解析；Android 12L/API 32 仍有 ACCESS_FINE_LOCATION/Wi-Fi compatibility，API 33+ 切到 NEARBY_WIFI_DEVICES。
+-- [x] RECEIVE_BOOT_COMPLETED + BootReceiver 存在，只有 user-enabled + overlay permission 时尝试恢复。
+-- [x] overlay permission watchdog 存在；权限撤销会停止 service。
+-- [x] unread/badge command 不覆盖最近 service start reason。
+-- [x] screen on/off、unlock、power connect/disconnect 进入本地 device_events。
+-- [x] NotificationListener onListenerDisconnected 有 requestRebind 路径。
+-- [x] Accessibility permission state 与实际 connected state 分开。
+-- [x] Background FlutterEngine destroy 前 dispose bridge；low-memory 通知 framework + Dart VM；DB init/diagnostic failure 不终止 background isolate。
+-- [x] NativeEventStore 在 transfer_lock=1 或 active_brain=0 时不写 perception/device event。
+-- [x] 横竖屏/显示尺寸变化时悬浮球坐标重新夹回屏幕边界；用户拖动后的吸边位置持久化。
+-- [x] Nearby process singleton 支持多个 engine listener；一个 UI engine dispose 不会清空其他 engine listener。
+-- [x] Nearby incoming FILE transport-level 512 MiB cap + cancelPayload 路径。
+-- [x] Activity 重建后 TransferPage 从 SQLite active_brain 恢复 standby/manual-takeover UI。
+-- [x] background/perception/memory async diagnostic 路径均受 brainWorkAllowed guard。
+-- [x] v0.11 重复 Payload.Type.BYTES 分支已移除。
+-- [x] notification disabled 时不丢 SQLite 主动消息。
+-- [x] Transitional OverlayChatActivity 根 route 的关闭键使用 SystemNavigator.pop()，不再依赖无 route 可退的 maybePop。
+-- [x] ChatController late notify 有 dispose guard；ChatPage async 初始化/post-frame 滚动有 mounted guard。
+-- [x] schema 仍为 v10，无数据库迁移。
+-- [x] v0.11 -> v0.12 TTS 41 个关键文件：39 个 hash 不变，2 个有意修改（NativeTtsBridge lifecycle cleanup + NativeTtsEngine native-runtime serialization），0 缺失。
+-- [ ] Flutter analyzer / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：系统杀进程后 START_STICKY 恢复。
+-- [ ] 真机：开机 / app update 后 user-enabled companion 恢复。
+-- [ ] 真机：悬浮权限运行中撤销后 service 退出，再授权回 App 后 reconcile。
+-- [ ] 真机：通知访问被系统断开后 rebind。
+-- [ ] 真机：Accessibility 开关/interrupt/reconnect。
+-- [ ] 真机：锁屏/解锁感知事件。
+-- [ ] 真机：OEM aggressive background killer。
+-- [ ] 已知缺口：expanded chat 当前仍为 translucent Activity，不作为 true overlay 通过项。
+-- [ ] 已知缺口：当前 chat Activity 自己拥有 FlutterEngine；若 host 在流式生成中被真正 destroy，本轮 Dart 生成可被中断。v0.13 先通过 service-owned overlay engine 解决悬浮聊天侧。
+-- [ ] 长期容量：数百 MiB 级 state.json 仍是整块内存解析，后续需 streaming/table-split 或 SQLite backup。
+-
+-
+-## K. v0.13 True Overlay Chat
+-
+-- [x] `OverlayChatActivity.kt` 已删除，Manifest 不再声明过渡 Activity。
+-- [x] 展开聊天使用 `TYPE_APPLICATION_OVERLAY` WindowManager window。
+-- [x] 服务代码不直接 host/import FlutterView；AI 逻辑复用 persistent background FlutterEngine。
+-- [x] read mode 为 non-focusable，输入时临时 focusable，Back/outside touch 恢复 read mode。
+-- [x] notification tap 走 OverlayBubbleService，不走 `PendingIntent.getActivity`。
+-- [x] 收起 panel 不销毁 background FlutterEngine。
+-- [x] native overlay 可读取近期消息并分页加载更早消息。
+-- [x] native overlay 发送仍调用 Dart ChatController 主链路。
+-- [x] native overlay 支持 reasoning 查看、TTS replay/stop。
+-- [x] full App resumed 时收起 expanded overlay。
+-- [x] full ChatPage 在 resumed + 非本地 sending 时同步 background-engine SQLite 新消息。
+-- [x] v0.12 `insertMemory` 重复局部变量已修。
+-- [x] 旧 `/overlay-chat` / overlayMode / SystemNavigator 过渡 Dart 代码已移除。
+-- [x] schema 仍为 v10，无迁移。
+-- [x] v0.12 TTS 41 个关键 baseline 文件：0 changed / 0 missing。
+-- [ ] 真机：QQ/游戏在 overlay read mode 下是否保持前台且不 pause。
+-- [ ] 真机：点击输入框后 IME 是否稳定弹出；Back/外部点击是否顺滑归还焦点。
+-- [ ] 真机：手机/平板不同尺寸的 overlay 大小与拖动手感。
+-- [ ] 真机：OEM 对 TYPE_APPLICATION_OVERLAY/前台服务的额外限制。
+-
+-
+-## L. v0.14 Durable Chat Recovery
+-
+-- [x] 用户 message + generation job SQLite transaction 原子性模拟。
+-- [x] assistant + generation completed + post-turn job transaction 原子性模拟。
+-- [x] stale run token 无法 checkpoint/fail/commit 新 attempt。
+-- [x] stream 无 terminal signal 不提交 partial assistant。
+-- [x] 缺少目标设备 API Key 时 defer 且不消耗 attempt。
+-- [x] API 设置保存后 retryable generation 可立即唤醒。
+-- [x] recoverable 网络错误长期 retry，退避上限小时级。
+-- [x] transfer imported running job -> pending，来源 run token 清空。
+-- [x] 41 个 TTS critical files 对 v0.13 hash 回归。
+-- [ ] 真机：流式回复期间强杀进程，重启后自动恢复并最终只出现一条 assistant。
+-- [ ] 真机：旧 Engine/进程冻结恢复的 OEM 极端场景。
+-- [ ] 真机：手机未完成 turn 转到平板，在新设备配置 API Key 后恢复。
+-
+-## v0.15 Async Worker Ownership
+-- [ ] stale post-turn job is reclaimed with a different run token
+-- [ ] old run token cannot checkpoint/fail/complete the reclaimed job
+-- [ ] cached post-turn proposal survives retry_wait
+-- [ ] post-turn Desire pulse is not replayed after reclaim
+-- [ ] relationship event internalizes once
+-- [ ] deferred follow-up stale claim cannot seed after reclaim
+-- [ ] conversation summary range cannot duplicate
+-- [ ] transfer waits for all writer leases including conversation summary
+-
+-## v0.18 Companion Home / Relationship Presence
+-
+-- [x] 日常底栏只保留 `她 / 聊天 / 更多`，Inner/System/Transfer 不再和聊天同级。
+-- [x] Home 读取真实 SQLite Active Brain / transfer lock，不建立独立 UI 状态源。
+-- [x] Active Brain、standby、transfer 三种存在状态文案互斥且 transfer 优先。
+-- [x] standby 明确说明本机可能只是上次同步状态，不冒充实时第二个 AI。
+-- [x] Home 打开/刷新不执行 Desire tick、self-drive、perception capture 或 proactive evaluate。
+-- [x] Home Thought 取最近 active/fixation，排除 residual 与 snoozed，不按强度 HUD 排序。
+-- [x] Home 不显示 Drive、baseline、strength、busyScore 等工程数值。
+-- [x] 最近主动消息直接读取持久 message metadata，点击回到同一个完整 Chat。
+-- [x] 未完成话题只作为继续聊天入口，不在主页自动改写/退休 thread。
+-- [x] Home 只显示 perception 更新时间，不显示 package/notification/accessibility 原始文字。
+-- [x] Chat 顶栏移除模型下拉；模型与 reasoning effort 仍由 Settings 持久配置。
+-- [x] `reasoning_content` 的存储/显示链保留，`ReasoningPanel` 未删除。
+-- [x] `更多` 保留 Relationship / Memory / Reference / Transfer / System / Settings。
+-- [x] Inner 数值调试入口保留在 `高级与诊断`。
+-- [x] schema 仍为 v13，无迁移。
+-- [x] v0.17 baseline 外 199 个冻结文件逐字节一致。
+-- [x] v0.17 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [x] proactive / durable generation / async ownership / recovery SQLite 回归脚本通过。
+-- [ ] Flutter analyzer / widget tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：Home 在后台主动消息后恢复前台时刷新正确。
+-- [ ] 真机：手机→平板接管后旧设备 Home 立即显示 standby，新设备显示 Active Brain。
+-- [ ] 真机：不同屏幕尺寸下 Home/More/Chat 底栏与系统手势区布局。
+-
+-## v0.19 Reference Library / Companion Surface Consistency
+-
+-- [x] Reference 列表支持按名称/别名本地搜索。
+-- [x] 新增资料保存完整原文，并生成 deterministic 检索片段。
+-- [x] 详情页可查看完整原文与派生检索片段。
+-- [x] 编辑完整资料后重新分块；Document id 保持不变。
+-- [x] 编辑现有 Document 使用 UPDATE，不通过 SQLite REPLACE 重置 created_at。
+-- [x] 单独“重新分块”不会修改 raw_content。
+-- [x] disabled Document 重新分块后新 chunks 仍为 disabled。
+-- [x] enable/disable 同步 Document 与所有 chunks。
+-- [x] 删除前二次确认；确认后 document + chunks 一起删除。
+-- [x] PromptBuilder 继续只取 `referenceLibrary.retrieve(latestUserText, limit: 6)`，没有全量常驻 Reference。
+-- [x] Home 日常文案不再解释 `Active Brain / 大脑写入`。
+-- [x] More 的 Reference/设备接管说明改成普通关系语言。
+-- [x] full Chat / true overlay 的“她正在想…”与恢复提示统一。
+-- [x] full Chat / overlay proactive label 统一；overlay 补齐 gentle_ping。
+-- [x] true overlay avatar/title 改为 `她`，`App` 按钮改为 `打开`。
+-- [x] schema 仍为 v13，无迁移。
+-- [x] Reference SQLite 一致性专项模拟通过。
+-- [x] proactive / durable generation / async ownership / recovery / Companion Home 回归脚本通过。
+-- [x] v0.18 baseline 外冻结文件逐字节一致。
+-- [x] v0.18 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [ ] Flutter analyzer / widget tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：超长 Reference 原文编辑时 IME、滚动、返回键体验。
+-- [ ] 真机：true overlay 中文按钮在不同 DPI/字体缩放下不拥挤。
+-
+-## v0.20 Perception Context / Daily Awareness
+-
+-- [x] schema v13 -> v14 新增 `awareness_observations`，旧核心数据表不做破坏性重写。
+-- [x] observation 保存 kind/summary/confidence/window/expiry/dedupe/source fingerprint。
+-- [x] 相同 dedupe key 更新同一行并保留 id/created_at，不重复堆积当前状态。
+-- [x] managed signal 消失后旧 observation 立即过期。
+-- [x] expired / confidence < 0.45 observation 不进入 active awareness 查询。
+-- [x] PromptBuilder 最多读取 6 条 active awareness。
+-- [x] 普通 Prompt 不再读取 raw `device_events`。
+-- [x] 普通 Prompt 不再直接读取 `perception_snapshots`。
+-- [x] 新 perception snapshot 不再持久化 foreground package (`current_package=null`)。
+-- [x] Accessibility 原文不再生成 durable Thought。
+-- [x] Notification/Accessibility raw text 不进入 awareness summary；只允许使用粗粒度计数。
+-- [x] Android full/background bridge 均提供 `getPerceptionState()`。
+-- [x] usage event 提供本地粗粒度 app category；relationship-facing summary 不含 package name。
+-- [x] screen-off / current activity / recent activity / app switching / notification pressure / availability 均有 expiry 语义。
+-- [x] perception transaction 内再次检查 `active_brain/transfer_lock`。
+-- [x] Thought/Desire integration 前再次检查 Active Brain，接管窗口旧设备不继续成长。
+-- [x] imported source-device current awareness 最长 12 分钟 grace。
+-- [x] proactive busy 继续为 soft gate，并可复用最近 15 分钟 perception busy score。
+-- [x] awareness 长期卫生：14 天 age cap + 600 rows cap。
+-- [x] awareness SQLite migration/dedupe/expiry/Active-Brain 专项模拟通过。
+-- [x] proactive / durable generation / async ownership / recovery / Reference / Companion Home SQL 回归通过。
+-- [x] v0.19 baseline 外冻结旧文件逐字节一致。
+-- [x] v0.19 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [ ] Flutter analyzer / Dart tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：UsageStats/系统 app category 在目标手机与平板上分类合理。
+-- [ ] 真机：screen-off / unlock / app-switching awareness 的实际时间感自然。
+-- [ ] 真机：通知/Accessibility 权限开启关闭后 connection state 与 awareness 过期行为正确。
+-- [ ] 真机：感知信息不会让聊天出现“监控报告”口吻。
+-- [ ] 真机：手机→平板接管后旧手机 awareness 不继续写入，新平板快速形成自己的当前状态。
+-
+-## v0.21 Relationship / Inner-state Companion Presentation
+-
+-- [x] `RelationshipPresentation` 只投影现有 Relationship/Thought 真值源，不新增 love meter/关系等级。
+-- [x] companion-facing Thought SQL 在 LIMIT 前排除 residual / acted / dormant / snoozed。
+-- [x] perception/awareness Thought 明确排除在日常关系 care 之外。
+-- [x] self-reflection maintenance Thought 不进入日常关系 care。
+-- [x] snoozed / dormant / non-driving Thought 不进入日常关系 care。
+-- [x] topic_key 相同的 care 只展示一次。
+-- [x] 内部 Thought 机械前缀只在展示层清理，不改 SQLite 原文。
+-- [x] 日常 `你们之间` 页面分离 current cares / 临时 Session / unfinished threads / shared moments。
+-- [x] RelationshipEvent 日常展示不含 intensity / valence 数值。
+-- [x] raw RelationshipEvent intensity/valence 保留在 Advanced/Diagnostics。
+-- [x] standby / transfer 设备明确说明当前 Thought/Session 可能只是上次同步状态。
+-- [x] Companion Home 使用过滤后的 current care，不再直接展示任意 latest Thought。
+-- [x] Home 增加最近 shared RelationshipEvent 摘要入口。
+-- [x] Home current care 与 unfinished thread 同 topic 时不重复显示同一件事。
+-- [x] Home recent RelationshipMoment 与 current care 同文时跳过，避免连续重复展示。
+-- [x] More 的日常入口改名 `你们之间`。
+-- [x] schema 仍为 v14，无迁移。
+-- [x] proactive / durable generation / async ownership / recovery / Reference / Companion Home / awareness SQL 回归通过。
+-- [x] v0.20 baseline 外未授权旧文件逐字节一致。
+-- [x] v0.20 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [ ] Flutter analyzer / Dart tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：小屏/大字体下 current care / timeline 不溢出。
+-- [ ] 真机：手机被平板接管后 `你们之间` 立即表现为上次同步状态，新设备表现为实时状态。
+-- [ ] 长期真实使用：关系主题筛选是否自然，是否出现“重要但不展示”或“重复念叨”的主观问题。
+-
+-## v0.22 Long-term Memory Consolidation / Conflict Semantics
+-
+-- [x] schema v14 -> v15 additive migration；旧 `memory_items`、聊天、Relationship、Thought 等不做破坏性重写。
+-- [x] `memory_items` 新增 semantic_type / evidence_count / first_observed_at / last_evidence_at / fact_version。
+-- [x] 新增 `memory_evidence`，并以 `(memory_id, source, evidence_text)` 唯一约束阻止 durable retry 重复强化。
+-- [x] 旧 shared_experience 迁移为 shared_experience semantic；其他旧记忆安全默认 current_fact。
+-- [x] current_fact 同 subject 明确变化时旧版本变为 superseded，新版本 `fact_version + 1`。
+-- [x] superseded 当前事实仍留在 SQLite，并通过 `superseded_by` 指向新版本。
+-- [x] confidence < 0.68 的自动 current proposal 降为 inference，不得覆盖 current fact。
+-- [x] inference 与 current fact 分层；后来明确确认可结束旧 inference 并建立 current fact。
+-- [x] shared_experience 不参与 current profile replacement。
+-- [x] 同 subject pinned 条目阻止自动 replacement。
+-- [x] extractor 只读取 bounded related-memory candidates，不全量读取记忆库。
+-- [x] extractor 支持 append / reinforce / replace + target_id。
+-- [x] reinforce 保留 canonical memory，并把新说法写入 memory_evidence。
+-- [x] 错误 reinforce target 需要 kind + subject/本地文本相似度兼容，避免任意 UUID 误强化。
+-- [x] AI Self reflection 使用相同 append/reinforce/replace 与 pinned 语义。
+-- [x] stable user / preference / AI Self 普通检索只取 current_fact。
+-- [x] relevant inference 最多 3 条，并明确标注“可能不准确”。
+-- [x] relevant historical current fact 最多 3 条，并明确标注“不能当成当前事实”。
+-- [x] shared experience 明确标注为发生过的事件，不等同当前偏好。
+-- [x] self-drive 排除 inference，不把猜测转成确定口吻的长期 Thought。
+-- [x] repeated evidence 提升 retention；inference 使用更快 fading / 更短自动归档门槛。
+-- [x] 本地记忆库显示 current/inference/history/shared semantic、版本、证据次数及最近证据。
+-- [x] 手动恢复归档 current fact 时，同 kind + subject 已有 active current fact 会被阻止，避免人为制造双当前版本。
+-- [x] 手动修改 active current fact 的 subject_key 时同样执行唯一 current guard。
+-- [x] v14 迁移来的旧记忆若尚无 evidence 行，首次手动改正文前先把旧正文落入 `manual_edit_previous` 证据链。
+-- [x] `memory_evidence` 纳入 export/import；v14 状态包导入 v15 自动补默认字段。
+-- [x] repeated full-state import 对 memory + evidence 保持 idempotent。
+-- [x] v0.22 Memory SQLite 专项模拟通过。
+-- [x] proactive / durable generation / async ownership / recovery / Reference / Companion Home / awareness / relationship SQL 回归通过。
+-- [x] v0.21 baseline 外未授权旧文件逐字节一致。
+-- [x] v0.21 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [ ] Flutter analyzer / Dart tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 长期真实使用：数月后 subject_key/action 分类是否仍自然，需要真实聊天数据观察。
+-- [ ] 真机：本地记忆证据展开在小屏/大字体下的滚动与 IME 体验。
+-
+-
+-## v0.23 Proactive Rhythm Learning / Local Feedback
+-
+-- [x] schema v15 -> v16 additive migration；旧主动反馈与其他核心数据不破坏。
+-- [x] proactive feedback 保存 coarse hour bucket / activity context / busy score。
+-- [x] raw package / notification / Accessibility text 不进入 rhythm-learning row。
+-- [x] timing_fit 与 topic_fit 分离。
+-- [x] no_response = 弱 timing evidence，不是 topic rejection。
+-- [x] deferred 主要影响 timing；dismissed/redirected 主要影响 topic。
+-- [x] neutral prior + bounded samples 防止少量反馈过拟合。
+-- [x] 45 天 half-life 让旧习惯逐渐失效。
+-- [x] hour/activity/topic/intent adjustment 分别 clamp，最终 threshold adjustment 再 clamp。
+-- [x] proactive adaptation 关闭后仍绑定用户回复并继续 Thought/thread outcome 语义。
+-- [x] busy 仍为 soft gate。
+-- [x] 长时间安静后有 bounded recovery relief，避免被历史 no-response 永久训练沉默。
+-- [x] 2 小时最多 2 次、24 小时最多 8 次主动发送的 hard spam ceiling。
+-- [x] v16 feedback 随 full-state snapshot 手机/平板迁移。
+-- [x] v0.23 deterministic SQLite/simulation 专项通过。
+-- [ ] Flutter analyzer / Dart tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：不同 Android/OEM 后台心跳实际频率下，hard ceiling 与 quiet delivery 行为自然。
+-- [ ] 长期真实使用：数周反馈后 daypart/activity 学习是否符合主观感受，且没有“越来越不主动”。
+-
+-- [x] v0.22 baseline 外 229 个未授权旧文件逐字节一致。
+-- [x] v0.22 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [x] anti-silence threshold recovery 与 2h/24h hard spam ceilings 确定性模拟通过。
+-
+-## v0.24 Companion Continuity / Daily Reflection
+-
+-- [x] schema v16 -> v17 additive migration；新增 `daily_continuity`，旧核心表不重写。
+-- [x] 一个 local day 只有一个 UNIQUE continuity row，重复运行保持 exactly-once。
+-- [x] 当天记录允许真实状态变化后更新；昨天固化后晚到 retry 不再改写。
+-- [x] continuity 最终写事务内再次检查 Active Brain / transfer lock。
+-- [x] 来源只使用 RelationshipEvent / unfinished thread / companion-facing Thought / coarse Awareness / actual message activity。
+-- [x] 不调用模型生成 daily diary；AI Self reflection 与 shared continuity 保持独立。
+-- [x] unresolved thread 前两天已展示且无新更新时不会连续每天重复。
+-- [x] thread 当天真的更新后允许重新进入 continuity。
+-- [x] quiet day 明确不表示 relationship regression；普通聊天不硬凑 milestone。
+-- [x] Prompt 最多读取最近 2 条 continuity；明确“不是新事实来源 / 不是 AI 日记 / 不逐条复述”。
+-- [x] post-turn extractor 防止仅因 AI 复述旧 continuity 而递归生成 memory / relationship_event / thread。
+-- [x] post-turn + heartbeat 刷新复用现有 durable scheduling，不新增 Android scheduler。
+-- [x] continuity 刷新失败不会阻断 proactive heartbeat / Memory Maintenance / AI Self reflection。
+-- [x] `daily_continuity` 纳入 full-state phone/tablet export/import；v16 包导入 v17 兼容。
+-- [x] long-running maintenance 将 continuity 限制在约 180 天 / 最多 220 条。
+-- [x] Home 显示轻量 recent continuity；standby 不冒充 live 状态。
+-- [x] `你们之间`显示“最近几天”，不暴露工程数值，也不做每日强制日记。
+-- [x] v0.24 Daily Continuity SQLite 专项模拟通过。
+-- [x] v0.23 proactive rhythm / v0.22 memory / Awareness / Relationship / Reference / Home / durable generation / async ownership / Recovery 全部回归通过。
+-- [x] v0.23 baseline 外 231 个未授权旧文件逐字节一致。
+-- [x] v0.23 TTS 41 个关键文件 SHA-256：0 changed / 0 missing。
+-- [ ] Flutter analyzer / Dart tests / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 真机：Home / `最近几天` 在手机和平板不同字号下的实际布局体验。
+-
+-
+-## v0.25 Native TTS Core Integration
+-
+-- [x] 黄金 APK SHA-256 固定为 `63a8c10f...c58c5e7`。
+-- [x] 22 个 tts_models 文件与黄金 APK byte-identical。
+-- [x] 6 个核心 arm64 `.so` 与黄金 APK byte-identical。
+-- [x] runtime JAR 的 9 个 classes.dex 与黄金 APK 9/9 一致。
+-- [x] runtime_01 pinyin/NLP classpath 资源与黄金 APK 一致。
+-- [x] AI Companion 不包含 HTML/JS 文件，TTS 无 WebView bridge 依赖。
+-- [x] 初始化前 37 项黄金 SHA-256/size 校验 fail-closed。
+-- [x] 私有 runtime cache 旧/坏副本会按指纹替换并只读加载。
+-- [x] Dart queue 测试源覆盖 FIFO / stop 取消未开始句 / 单句失败不中毒后续。
+-- [x] reasoning_content 不进入 TTS delta。
+-- [x] `Yuki -> 有希` 仍只修改朗读文本。
+-- [x] TTS diagnostic SQLite 写失败不能上抛破坏 durable chat/proactive。
+-- [x] 核心 Kotlin TTS 文件通过 stub `kotlinc` 编译。
+-- [ ] 真机 JNI/MNN 初始化与实际发声（首次必要 APK checkpoint）。
+-- [ ] 音色/读音与黄金 APK 主观一致（用户真机听感）。
+-- [ ] 首句延迟、长文本、后台/耳机/来电 AudioTrack 行为（用户真机）。
+-
+-## v0.26 Phone↔Tablet Sync Integrity / Transfer Hardening
+-
+-- [x] schema v17 -> v18 additive migration；新增 local-only `transfer_receipts`。
+-- [x] state lineage + monotonic ownership generation + snapshot_id identity。
+-- [x] snapshot manifest/state/settings 三层身份一致性校验。
+-- [x] state SHA-256 / declared byte length 校验；损坏或截断拒绝。
+-- [x] same-lineage stale generation 拒绝覆盖新状态。
+-- [x] exact duplicate delivery 根据 local receipt no-op；snapshot-id collision 拒绝。
+-- [x] imported DB + transfer receipt 同 SQLite transaction；故意异常模拟整体 rollback。
+-- [x] Nearby takeover request/ACK 使用 bound v3 metadata，不再接受固定 V2 token。
+-- [x] source 原生 transaction 核对 exact snapshot generation 后先 fence，再 ACK。
+-- [x] target 收到 exact ACK 后才 active；activation generation+1 使已消费包立即 stale。
+-- [x] ACK 丢失/迟到/错会话保持 fail-safe，不产生双 Active Brain。
+-- [x] standby 源设备保留全部本地数据。
+-- [x] 手动 `.aicomp` 使用 PBKDF2-HMAC-SHA256 + AES-256-GCM；wrong-pass / truncation 检测通过。
+-- [x] 手动导出后源 standby；目标导入后仍 standby，需明确接管。
+-- [x] standby 停 overlay 不擦除 user preference；overlay/background-brain restoration 受 Active Brain gate。
+-- [x] transfer/manual/native Kotlin 关键源通过 API stub `kotlinc` 编译。
+-- [x] v0.25 TTS 37 项 golden model/runtime/native payload byte-identical。
+-- [ ] Flutter analyzer / Gradle build：当前环境无 Flutter/Android SDK，不声称通过。
+-- [ ] 双真机 Nearby discovery / verification code / payload transfer / bound takeover。
+-- [ ] 双真机断网、进程被杀、ACK 延迟/丢失时实际恢复体验。
+-- [ ] Android SAF 手动加密包在不同厂商文件管理器上的保存/打开。
+-- [ ] 手机↔平板反复顶号后 overlay preference、通知、后台行为符合预期。
+-
+-
+-## v0.27 · Real-device Readiness / Preflight Diagnostics
+-
+-- [x] Quick preflight reads build/runtime/schema/ownership/permission/Nearby/audio/TTS state without model calls.
+-- [x] Deep preflight verifies 37 TTS golden payloads and initializes JNI/MNN without calling speak/preview.
+-- [x] Diagnostic report contains no chat/reasoning/Memory/Relationship/Thought/Reference/Daily Continuity plaintext or secure key.
+-- [x] Full ownership/session identifiers are replaced with short SHA-256 fingerprints.
+-- [x] Native diagnostic ring is bounded to 160 rows / 30 days and excludes endpoint discovery churn.
+-- [x] Nearby discovery/connection/transfer/takeover phase outcomes persist only redacted metadata.
+-- [x] TTS verify/init/inference-failure phases persist without spoken text.
+-- [x] Android SAF exports a local redacted `.txt`; no cloud telemetry dependency added.
+-- [x] transfer_lock/pending import/pending outbound/standby states appear in preflight but are not auto-mutated.
+-- [x] Native redaction JVM test and NativePreflightProbe Kotlin stub compile pass.
+-- [x] v0.14-v0.26 SQLite/Kotlin/TTS regression chains rerun.
+\ No newline at end of file
++1. 覆盖安装并正常启动；数据库/已有聊天/API Key 不丢失。
++2. 悬浮球明显略小，但仍容易点击；右上 unread 数字始终盖在球体上方。
++3. 打开悬浮聊天，最近约 8 条历史应立即出现；可手动请求更早历史。
++4. 已完成和流式 AI 回复均显示“思考在上、正文在下”。
++5. TTS 用含换行但无句号的短段落检查：换行本身不能被当成 A2 切句；再用 4-6 句正常文本确认 generation-ahead 没有回退。
++6. TTS 若仍存在轻微自然停顿，只记录，不继续阻塞下一阶段。
++7. 对话、TTS 初始化/发声、悬浮发送无明显回归即可进入主动感知阶段。
+diff --git a/v0291_work/ai_companion_v0_29_0/docs/UI_TTS_POLISH_v0.29.1.md b/docs/UI_TTS_POLISH_v0.29.1.md
+new file mode 100644
+index 0000000..d3cdad3
+--- /dev/null
++++ b/docs/UI_TTS_POLISH_v0.29.1.md
+@@ -0,0 +1,27 @@
++# v0.29.1 · TTS / UI polish
++
++This is deliberately a low-risk polish release on top of the real-device verified v0.29.0 clean baseline.
++
++## TTS
++
++- Meju A2 native/model/runtime payload remains frozen.
++- A2 sentence boundaries remain exactly `。！？；.!?;`.
++- CR, LF, U+2028 and U+2029 layout separators are normalized to ordinary spaces **before** A2 boundary scanning.
++- No comma split, no length fallback, no queue redesign.
++- Generation-ahead, FIFO playback and the ~200 ms ready-queue gap are unchanged.
++
++This is the final dedicated TTS polish before project work moves on. Any remaining cadence imperfection is non-blocking and can be revisited later.
++
++## Chat UI
++
++- Reasoning is rendered above the assistant body in completed and streaming messages.
++- The same ordering is used in the native overlay when reasoning is expanded.
++
++## Overlay
++
++- Bubble window: 70 dp -> 62 dp.
++- Avatar: 58 dp -> 50 dp.
++- Badge: 24 dp -> 20 dp.
++- Badge receives explicit elevation/translationZ and `bringToFront()` so unread count stays above the avatar.
++- Opening the overlay returns the latest 8 SQLite messages immediately; full ChatController wake-up happens asynchronously.
++- Older history remains opt-in through the existing button (24 at a time), so the overlay does not carry the full chat history by default.
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index d828676..875c922 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -343,7 +343,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.29.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.29.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/core/platform/background_chat_command_server.dart b/lib/core/platform/background_chat_command_server.dart
+index 58bc4b9..dbb7c25 100644
+--- a/lib/core/platform/background_chat_command_server.dart
++++ b/lib/core/platform/background_chat_command_server.dart
+@@ -53,7 +53,7 @@ class BackgroundChatCommandServer {
+   Future<dynamic> _handle(MethodCall call) async {
+     switch (call.method) {
+       case 'loadRecentMessages':
+-        final limit = _intArg(call.arguments, 'limit', 120).clamp(20, 300);
++        final limit = _intArg(call.arguments, 'limit', 8).clamp(1, 40);
+         return _rows(await db.recentMessages(limit: limit));
+       case 'loadOlderMessages':
+         final beforeMs = _intArg(call.arguments, 'beforeMs', 0);
+@@ -67,21 +67,19 @@ class BackgroundChatCommandServer {
+         );
+       case 'overlayOpened':
+         onWake?.call('overlay_opened');
+-        final controller = await _ensureController();
+-        // Collapsing/reopening the native window must not disturb an in-flight
+-        // turn that is intentionally owned by this persistent controller.
+-        if (!controller.sending) {
+-          await controller.reload();
+-          await controller.onOverlayOpened();
+-        }
+-        return _rows(await db.recentMessages(limit: 120));
++        // History should appear immediately. Do not make the native overlay
++        // wait for ChatController + maintenance/perception warm-up just to read
++        // SQLite. The full controller is warmed asynchronously afterwards.
++        final visible = _rows(await db.recentMessages(limit: 8));
++        unawaited(_warmOverlayController());
++        return visible;
+       case 'sendMessage':
+         final text = _stringArg(call.arguments, 'text').trim();
+         if (text.isEmpty) {
+           return <String, Object?>{
+             'ok': false,
+             'error': '消息为空。',
+-            'messages': _rows(await db.recentMessages(limit: 120)),
++            'messages': _rows(await db.recentMessages(limit: 8)),
+           };
+         }
+         final controller = await _ensureController();
+@@ -90,7 +88,7 @@ class BackgroundChatCommandServer {
+         return <String, Object?>{
+           'ok': controller.error == null,
+           'error': controller.error ?? '',
+-          'messages': _rows(await db.recentMessages(limit: 120)),
++          'messages': _rows(await db.recentMessages(limit: 8)),
+         };
+       case 'notificationReply':
+         final text = _stringArg(call.arguments, 'text').trim();
+@@ -135,6 +133,22 @@ class BackgroundChatCommandServer {
+     }
+   }
+ 
++
++  Future<void> _warmOverlayController() async {
++    try {
++      final controller = await _ensureController();
++      // Collapsing/reopening the native window must not disturb an in-flight
++      // turn that is intentionally owned by this persistent controller.
++      if (!controller.sending) {
++        await controller.reload();
++        await controller.onOverlayOpened();
++      }
++    } catch (_) {
++      // Recent history is already visible. Overlay warm-up is best-effort and
++      // must not erase or delay the lightweight SQLite history path.
++    }
++  }
++
+   Future<ChatController> _ensureController() async {
+     final existing = _controller ??= ChatController(
+       db: db,
+diff --git a/lib/core/tts/tts_sentence_segmenter.dart b/lib/core/tts/tts_sentence_segmenter.dart
+index 50ec3b4..7489ad5 100644
+--- a/lib/core/tts/tts_sentence_segmenter.dart
++++ b/lib/core/tts/tts_sentence_segmenter.dart
+@@ -4,7 +4,8 @@
+ /// A2 splits only on:
+ ///   。 ！ ？ ； . ! ? ;
+ /// It does not split on commas, ideographic commas, newlines or ellipsis and
+-/// it has no 72/116-character fallback. Delimiters themselves are not spoken.
++/// it has no 72/116-character fallback. Layout line breaks are normalized to
++/// ordinary spaces before boundary scanning. Delimiters themselves are not spoken.
+ ///
+ /// The original A2 removes bracketed blocks before splitting. For streaming
+ /// input we preserve the same effect by ignoring sentence punctuation while it
+@@ -72,11 +73,22 @@ class TtsSentenceSegmenter {
+   void _appendOutsideFence(String text) {
+     for (final rune in text.runes) {
+       final c = String.fromCharCode(rune);
++      // v0.29.1 polish: visual paragraph/layout breaks are not A2 sentence
++      // boundaries. Normalize them before boundary scanning so streaming and
++      // full-message playback behave identically and the legacy text frontend
++      // never receives a raw line separator that could become extra prosody.
++      if (_isLayoutBreak(c)) {
++        if (_buffer.isNotEmpty && !_buffer.endsWith(' ')) _buffer += ' ';
++        continue;
++      }
+       _trackBracket(c);
+       _buffer += c;
+     }
+   }
+ 
++  bool _isLayoutBreak(String c) =>
++      c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
++
+   void _trackBracket(String c) {
+     const pairs = <String, String>{
+       '(': ')',
+diff --git a/lib/features/chat/chat_page.dart b/lib/features/chat/chat_page.dart
+index f36668b..e2f4525 100644
+--- a/lib/features/chat/chat_page.dart
++++ b/lib/features/chat/chat_page.dart
+@@ -240,6 +240,8 @@ class _MessageBubble extends StatelessWidget {
+                   style: const TextStyle(fontSize: 11),
+                 ),
+               ),
++            if (message.isAssistant)
++              ReasoningPanel(reasoning: message.reasoningContent),
+             SelectableText(message.content, style: const TextStyle(height: 1.45)),
+             if (message.isAssistant && onSpeak != null)
+               Align(
+@@ -252,8 +254,6 @@ class _MessageBubble extends StatelessWidget {
+                   tooltip: '重新朗读这条回复',
+                 ),
+               ),
+-            if (message.isAssistant)
+-              ReasoningPanel(reasoning: message.reasoningContent),
+           ],
+         ),
+       ),
+@@ -280,12 +280,12 @@ class _StreamingBubble extends StatelessWidget {
+         child: Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+-            if (controller.streamingContent.isNotEmpty)
+-              SelectableText(controller.streamingContent),
+             ReasoningPanel(
+               reasoning: controller.streamingReasoning,
+               streaming: true,
+             ),
++            if (controller.streamingContent.isNotEmpty)
++              SelectableText(controller.streamingContent),
+             if (controller.streamingContent.isEmpty &&
+                 controller.streamingReasoning.isEmpty)
+               Text(controller.recoveringGeneration ? '正在接回刚才没完成的回复…' : '她正在准备回复…'),
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index 8c0f416..ba4e728 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -193,7 +193,7 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.29.0 诊断', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.29.1 诊断', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+         const SizedBox(height: 16),
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index b40488c..1d71ba8 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.29.0',
++            'AI Companion · v0.29.1',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/system/real_device_checkpoint_page.dart b/lib/features/system/real_device_checkpoint_page.dart
+index 1f671b1..b133cc3 100644
+--- a/lib/features/system/real_device_checkpoint_page.dart
++++ b/lib/features/system/real_device_checkpoint_page.dart
+@@ -175,7 +175,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
+         Text('第一次综合真机验收', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 6),
+         Text(
+-          '这不是新的功能页面，而是 v0.29.0 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
++          '这不是新的功能页面，而是 v0.29.1 Checkpoint 的测试顺序。先确认单机底层，再测试双设备顶号；任何一项失败都优先保存脱敏诊断报告，不需要盲试多个 APK。',
+           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+               ),
+diff --git a/lib/main.dart b/lib/main.dart
+index 2226842..5dc23b3 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -148,7 +148,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.29.0 · A2 TTS Clean Baseline',
++                    'v0.29.1 · TTS / UI Polish',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/pubspec.yaml b/pubspec.yaml
+index af5fa3e..17bd37f 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.29.0+34
++version: 0.29.1+35
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/test/tts_sentence_segmenter_test.dart b/test/tts_sentence_segmenter_test.dart
+index 01bea5a..d5df59b 100644
+--- a/test/tts_sentence_segmenter_test.dart
++++ b/test/tts_sentence_segmenter_test.dart
+@@ -13,7 +13,14 @@ void main() {
+   test('does not split on comma newline ideographic comma or ellipsis', () {
+     final s = TtsSentenceSegmenter();
+     expect(s.add('今天不急，慢慢聊、也可以\n停一下……都没关系'), isEmpty);
+-    expect(s.add('。'), ['今天不急，慢慢聊、也可以\n停一下……都没关系']);
++    expect(s.add('。'), ['今天不急，慢慢聊、也可以 停一下……都没关系']);
++  });
++
++
++  test('normalizes layout line breaks to spaces without creating boundaries', () {
++    final s = TtsSentenceSegmenter();
++    expect(s.add('第一段\r\n第二段\u2028第三段\u2029第四段'), isEmpty);
++    expect(s.add('。'), ['第一段 第二段 第三段 第四段']);
+   });
+ 
+   test('ignores sentence punctuation inside A2 removable brackets', () {
+diff --git a/tools/validate_v0285_coroutine_bridge.py b/tools/validate_v0285_coroutine_bridge.py
+index 3f8fb0f..b0fd911 100755
+--- a/tools/validate_v0285_coroutine_bridge.py
++++ b/tools/validate_v0285_coroutine_bridge.py
+@@ -109,7 +109,7 @@ def main() -> int:
+     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
+ 
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec)
++    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec)
+ 
+     print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
+     return 0
+diff --git a/v0291_work/ai_companion_v0_29_0/tools/validate_v0291_polish.py b/tools/validate_v0291_polish.py
+new file mode 100644
+index 0000000..320b796
+--- /dev/null
++++ b/tools/validate_v0291_polish.py
+@@ -0,0 +1,52 @@
++#!/usr/bin/env python3
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def main() -> int:
++    pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
++    assert 'version: 0.29.1+35' in pubspec
++
++    segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
++    assert '_isLayoutBreak' in segmenter
++    for token in ["c == '\\n'", "c == '\\r'", "c == '\\u2028'", "c == '\\u2029'"]:
++        assert token in segmenter, token
++    assert "c == '\\n' &&" not in segmenter
++    for token in ["c == '。'", "c == '！'", "c == '？'", "c == '；'", "c == '.'", "c == '!'", "c == '?'", "c == ';'"]:
++        assert token in segmenter, token
++
++    chat = (ROOT / 'lib/features/chat/chat_page.dart').read_text(encoding='utf-8')
++    completed = chat[chat.index('class _MessageBubble'):chat.index('class _StreamingBubble')]
++    assert completed.index('ReasoningPanel(') < completed.index('SelectableText(message.content')
++    streaming = chat[chat.index('class _StreamingBubble'):]
++    assert streaming.index('ReasoningPanel(') < streaming.index('SelectableText(controller.streamingContent)')
++
++    server = (ROOT / 'lib/core/platform/background_chat_command_server.dart').read_text(encoding='utf-8')
++    assert "db.recentMessages(limit: 8)" in server
++    overlay_case = server[server.index("case 'overlayOpened':"):server.index("case 'sendMessage':")]
++    assert 'unawaited(_warmOverlayController())' in overlay_case
++    assert overlay_case.index('db.recentMessages(limit: 8)') < overlay_case.index('_warmOverlayController')
++
++    overlay = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt').read_text(encoding='utf-8')
++    for token in [
++        'BUBBLE_WINDOW_DP = 62', 'BUBBLE_AVATAR_DP = 50', 'BUBBLE_BADGE_DP = 20',
++        'OVERLAY_RECENT_LIMIT = 8', 'badge?.bringToFront()', 'translationZ = dp(12).toFloat()',
++        'smallInlineAction("🧠 思考")',
++    ]:
++        assert token in overlay, token
++    adapter = overlay[overlay.index('private inner class NativeChatAdapter'):overlay.index('private fun proactiveIntentLabel')]
++    assert adapter.index('smallInlineAction("🧠 思考")') < adapter.index('text = message.content')
++
++    handoff = ROOT / 'docs/HANDOFF.md'
++    assert handoff.exists()
++    text = handoff.read_text(encoding='utf-8')
++    for token in ['v0.29.1', 'v0.29.0', 'schema v18', 'MejuTTS_A2_OriginalNative_v2.5.apk', 'Active Brain']:
++        assert token in text, token
++
++    print('v0.29.1 TTS/UI/HANDOFF static validation passed.')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index 1926587..2489332 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert 'version: 0.29.0+34' in pubspec
++    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec)
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
