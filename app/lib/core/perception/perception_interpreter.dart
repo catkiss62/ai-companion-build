@@ -13,6 +13,7 @@ class PerceptionInterpretation {
     this.dominantActivityKey,
     this.dominantActivityLabel,
     this.dominantActivityMinutes = 0,
+    this.appSwitchesLast30Minutes = 0,
   });
 
   final List<AwarenessObservationDraft> observations;
@@ -23,6 +24,7 @@ class PerceptionInterpretation {
   final String? dominantActivityKey;
   final String? dominantActivityLabel;
   final int dominantActivityMinutes;
+  final int appSwitchesLast30Minutes;
 }
 
 /// Pure local interpretation. No model/API call is used here.
@@ -109,6 +111,7 @@ class PerceptionInterpreter {
           ? null
           : _activityLabel(facts.dominantCategory!),
       dominantActivityMinutes: facts.dominantMinutes,
+      appSwitchesLast30Minutes: facts.switchesLast30Minutes,
     );
   }
 

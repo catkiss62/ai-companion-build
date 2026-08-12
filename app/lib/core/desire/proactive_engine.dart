@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:uuid/uuid.dart';
@@ -17,6 +18,7 @@ import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
 import '../maintenance/long_running_maintenance_engine.dart';
 import '../platform/android_bridge.dart';
+import '../presence/presence_intelligence.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_policy.dart';
 import '../tts/tts_service.dart';
@@ -88,10 +90,15 @@ class ProactiveEngine {
     random: _random,
   );
 
+  late final PresenceIntelligenceEngine presence = PresenceIntelligenceEngine(
+    db: db,
+    desire: desireEngine,
+  );
   late final PerceptionEngine perception = PerceptionEngine(
     db: db,
     android: android,
     desire: desireEngine,
+    presence: presence,
   );
   late final RelationshipAssimilator relationshipAssimilator =
       RelationshipAssimilator(db: db);
@@ -267,8 +274,18 @@ class ProactiveEngine {
     final busyMultiplier = userBusy ? 0.72 : 1.0;
     final idleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
     final frequencyPenalty = min(0.30, sentToday * 0.055 + sentLastTwoHours * 0.035);
+    final presenceMomentum = await presence.currentMomentum(now: evaluationStartedAt);
+    final presenceBoost = idleMinutes < 5
+        ? 0.0
+        : (presenceMomentum * (userBusy ? 0.055 : 0.095))
+            .clamp(0.0, 0.085)
+            .toDouble();
     final jitter = (_random.nextDouble() - 0.5) * 0.10;
-    final gateScore = (intent.score * busyMultiplier + idleBoost - frequencyPenalty + jitter)
+    final gateScore = (intent.score * busyMultiplier +
+            idleBoost +
+            presenceBoost -
+            frequencyPenalty +
+            jitter)
         .clamp(0.0, 1.0)
         .toDouble();
     final baseThreshold = userBusy ? 0.66 : 0.60;
@@ -285,6 +302,26 @@ class ProactiveEngine {
         (baseThreshold + rhythmProfile.thresholdAdjustment - longIdleRelief)
             .clamp(0.52, 0.76)
             .toDouble();
+
+    await db.setSetting(
+      'presence_last_gate_breakdown',
+      jsonEncode({
+        'intent': double.parse(intent.score.toStringAsFixed(3)),
+        'busyMultiplier': double.parse(busyMultiplier.toStringAsFixed(3)),
+        'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),
+        'presenceMomentum': double.parse(presenceMomentum.toStringAsFixed(3)),
+        'presenceBoost': double.parse(presenceBoost.toStringAsFixed(3)),
+        'frequencyPenalty': double.parse(frequencyPenalty.toStringAsFixed(3)),
+        'jitter': double.parse(jitter.toStringAsFixed(3)),
+        'rhythmThresholdAdjustment':
+            double.parse(rhythmProfile.thresholdAdjustment.toStringAsFixed(3)),
+        'longIdleRelief': double.parse(longIdleRelief.toStringAsFixed(3)),
+        'gate': double.parse(gateScore.toStringAsFixed(3)),
+        'threshold': double.parse(threshold.toStringAsFixed(3)),
+        'busy': userBusy,
+        'idleMinutes': idleMinutes,
+      }),
+    );
 
     if (!forceForDebug && gateScore < threshold) {
       await db.addProactiveHistory(

@@ -1,33 +1,27 @@
-# v0.30.1 真机检查
+# v0.30.2 真机检查
 
-程序级测试先由开发侧完成。真人只检查无法在静态/JVM/CI 环境可靠模拟的 Android 行为。
+程序级策略、结构、回归、Flutter analyze/test/release build 先由开发侧/CI 完成。真人只检查 Android/HyperOS 真机行为。
 
-## A. 后台大脑 / 悬浮聊天
+## A. 系统页面遮盖后的悬浮球恢复
 
-1. 覆盖安装后打开一次完整 App，确认 Active Brain 与悬浮陪伴开启。
-2. 深度或快速预检里确认“后台大脑连接”为通过。
-3. 回到其他 App，点悬浮球：最近 8 条聊天应直接出现。
-4. 在悬浮窗发送一句话：应正常生成并回写主聊天；不能长期显示“她还在重新连接”。
-5. 收起/重新展开，历史仍应同步。
+1. 保持悬浮球开启，在 ChatGPT 等其他 App 进入“上传文件 -> 系统文件选择器”。
+2. 不管是否选择文件，返回原 App；**不要打开 AI Companion 主界面**。
+3. 直接点击/拖动悬浮球。预期 0.5~1.5 秒内可正常交互。
+4. 再做一次系统设置页或锁屏/解锁往返。
+5. 若卡死，直接打开 AI Companion 并导出脱敏诊断；重点看 `overlayTouch.inputSuspect / lastSystemCoverAt / lastCoverRecoveryAt / coverRecoveryCount`。
 
-## B. Background Presence
+## B. Presence Intelligence
 
-1. 连续正常使用其他 App 数分钟，可包含切换窗口、收到普通通知、锁屏后重新解锁。
-2. 不要求她每个事件都发消息；这是刻意设计。等待 Gate 自己判断。
-3. 约 5-10 分钟后导出一次脱敏诊断。重点看 `native.capabilities.backgroundBrainReady` 与 `database.backgroundPresence` 的 lastWakeReason / lastPerceptionAt 是否推进。
-4. 若她主动联系，确认文案不是“检测到你打开了XX/收到XX通知”式机械播报。
+1. Usage / 通知访问 / Accessibility / 通知权限尽量开启。
+2. 正常使用手机 5~15 分钟，可切换 App、收到普通通知、锁屏解锁；不要为了测试反复刷事件。
+3. 不要求她立刻主动说话。之后直接导出浅层脱敏诊断。
+4. 重点看 `database.backgroundPresence.presenceMomentum / presenceSignalClass / presenceLastThoughtAt / lastGateBreakdown`。
+5. 如果主动联系，文案不能包含 App 包名、通知原文或“系统检测到”式机械播报。
 
 ## C. 非阻断回归
 
+- 悬浮聊天历史/发送正常。
 - 主聊天正常。
-- TTS 仍可初始化/朗读。
-- reasoning 仍在正文上方。
+- TTS 仍可朗读。
+- reasoning 在正文上方。
 - Active Brain / transfer_lock 无异常。
-
-## v0.30.1 悬浮球触摸恢复
-
-- 悬浮球连续拖动/点击 10 次以上。
-- 展开悬浮聊天并正常收起，确认球仍可点击/拖动。
-- 导出一次脱敏诊断，从系统文件选择器返回后再次测试触摸。
-- 锁屏/解锁一次后再次测试。
-- 若再出现“可见但点不动”，不要重启 App，先回主界面直接导出脱敏诊断，重点查看顶层 `overlayTouch`。

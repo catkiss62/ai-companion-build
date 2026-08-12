@@ -1,12 +1,12 @@
-# AI Companion · v0.30.1 Overlay Touch Recovery
+# AI Companion · v0.30.2 Overlay Resume + Presence Intelligence
 
 Local-first Android AI companion focused on one persistent AI self: long-term memory, relationship state, Thought/Desire, coarse phone awareness, proactive contact, local Meju TTS, true native overlay chat, and single-Active-Brain phone/tablet takeover.
 
-## v0.30.1 checkpoint
+## v0.30.2 checkpoint
 
 v0.29.0 established the clean GitHub source baseline and Meju A2 TTS scheduling. v0.29.1 completed non-blocking TTS/UI polish, but real-device testing exposed a deeper background issue: the native overlay opened while the headless Dart command server was not actually reachable, leaving overlay history empty and sends at “她还在重新连接”.
 
-v0.30.0 fixed the background Dart entrypoint/handshake path and began real Background Presence. v0.30.1 keeps that path unchanged and hardens the Android overlay input channel after real-device testing found an intermittent “visible but untouchable” bubble.
+v0.30.0 fixed the background Dart entrypoint/handshake path and began real Background Presence. v0.30.1 hardened the Android overlay input channel, and real-device testing then found a reproducible OEM/system-cover case: entering a system file picker can suppress the overlay and leave its input channel stale after return. v0.30.2 adds explicit system-window recovery and starts Presence Intelligence.
 
 - root-library `@pragma('vm:entry-point')` anchor for the headless companion runtime;
 - engine identity published before Dart execution to remove the ready-handshake race;
@@ -27,3 +27,13 @@ Overlay touch hardening in v0.30.1:
 The project source under `app/` is the single source of truth in GitHub. Historical split ZIPs and v0.28 patch-chain inputs are obsolete.
 
 See `docs/HANDOFF.md` first when continuing the project in another chat/window.
+
+
+v0.30.2 adds:
+
+- Accessibility window-transition recovery that recreates the bubble input channel without storing package/text;
+- View-level window-visibility recovery fallback and debounced cover-recovery diagnostics;
+- decaying Presence Momentum built only from coarse activity counts/categories;
+- repeated activity can feed one mergeable `presence:phone_activity` Thought instead of treating each perception as isolated;
+- proactive Gate gets only a small bounded Presence boost and still keeps busy soft-downweight, rhythm learning, leases and 2h/24h hard ceilings;
+- redacted diagnostics now include Presence Momentum and a numeric Gate breakdown.

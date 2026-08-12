@@ -4,10 +4,10 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.30.1+37 · Overlay Touch Recovery**。
-- 最近一次用户真机确认稳定：**v0.30.0+36 Background Presence**（后台大脑、悬浮聊天收发、Awareness→Perception 真机通过；发现悬浮球偶发失去触摸）。
+- 当前源码候选：**v0.30.2+38 · Overlay Resume + Presence Intelligence**。
+- 最近一次用户真机确认：**v0.30.1+37 Overlay Touch Recovery** 可正常后台/悬浮聊天，但系统文件选择器遮盖 overlay 后可 100% 复现“返回后球可见但点/拖失效”；打开完整 App 后会恢复。
 - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
-- 数据库：**schema v18**，v0.30.1 不做 schema 迁移。
+- 数据库：**schema v18**，v0.30.2 不做 schema 迁移。
 - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
 
 ## 2. 项目定位
@@ -109,10 +109,27 @@ v0.30.0：
 
 这版不改变 Presence Intelligence 权重/主动联系 Gate。下一阶段再继续 Awareness→Thought/Desire→Proactive 的自然度调优。
 
+
+## 7B. v0.30.2 Overlay Resume + Presence Intelligence
+
+v0.30.1 真机进一步确认：进入 ChatGPT 等其他 App 的系统文件选择器时，系统会遮盖悬浮球；返回后即使 bubble 仍 attached/touchable/safe，实际 input channel 仍可能失效。诊断显示打开完整 AI Companion 后 `full_activity_visible` reconcile 会恢复，因此 v0.30.2 不再只相信 WindowManager 参数状态。
+
+本轮：
+
+1. Accessibility `TYPE_WINDOW_STATE_CHANGED` 在不泄露包名/页面文字的前提下发 `system_cover:*` Overlay recovery；进入/离开系统文件选择器、设置/权限等窗口时，去抖后重建 bubble input channel。
+2. Bubble View 记录 window visibility；若窗口从非 visible 恢复 visible，也会触发一次不依赖主 App 打开的恢复 fallback。
+3. Overlay 诊断新增 `inputSuspect / lastSystemCoverAt / lastSystemCoverReason / lastCoverRecoveryAt / windowVisibility / coverRecoveryCount`。
+4. 新增 `PresenceMomentumPolicy/PresenceIntelligenceEngine`：只吃粗粒度活动类别、时长、切换次数、通知/Accessibility **计数**；单次弱事件不足以形成 Thought，多次事件会累积并按 55 分钟半衰期自然下降。
+5. Momentum 达阈值且用户不是刚刚在聊天时，向一个可合并的 `presence:phone_activity` Thought 喂低强度 attachment/curiosity；不写入外部包名、通知正文、Accessibility 正文。
+6. 主动联系 Gate 只加入小幅 bounded `presenceBoost`，不粗暴降低 0.60/0.66 基础阈值；busy soft multiplier、rhythm learning、2h/24h hard caps、Active Brain/transfer/chat lease 全部保留。
+7. 脱敏诊断 `database.backgroundPresence` 新增 `presenceMomentum / presenceSignalClass / presenceLastThoughtAt / presenceLastThoughtStrength / lastGateBreakdown`，可以直接看她为什么等/为什么联系。
+
+TTS A2 baseline 本轮冻结，不再参与阻断。
+
 ## 8. 后续路线
 
-1. v0.30.1 真机验收：悬浮球长时间可拖/可点、聊天展开/收起后触摸恢复、诊断导出往返后仍可触摸；若再卡死，直接导出报告查看 `overlayTouch`。
-2. Presence Intelligence：感知累积、Thought/Desire 形成、主动联系 Gate 自然度。
+1. v0.30.2 真机：文件选择器返回后不打开 AI Companion，悬浮球应自动恢复；正常使用手机后导出浅层诊断看 Presence Momentum / Thought / Gate breakdown。
+2. 根据真机诊断微调 Presence Intelligence 自然度，而不是继续围绕单一 Gate 阈值打补丁。
 3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
 4. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
 5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。

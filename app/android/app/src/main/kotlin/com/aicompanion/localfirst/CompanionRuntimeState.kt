@@ -45,6 +45,17 @@ object CompanionRuntimeState {
     @Volatile var overlayLastSelfHealReason: String = ""
         private set
     private val overlaySelfHealCount = AtomicInteger(0)
+    @Volatile var overlayInputSuspect: Boolean = false
+        private set
+    @Volatile var overlayLastSystemCoverAt: Long = 0L
+        private set
+    @Volatile var overlayLastSystemCoverReason: String = ""
+        private set
+    @Volatile var overlayLastCoverRecoveryAt: Long = 0L
+        private set
+    @Volatile var overlayLastWindowVisibility: Int = 0
+        private set
+    private val overlayCoverRecoveryCount = AtomicInteger(0)
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -87,6 +98,12 @@ object CompanionRuntimeState {
             "overlayLastSelfHealAt" to overlayLastSelfHealAt,
             "overlayLastSelfHealReason" to overlayLastSelfHealReason,
             "overlaySelfHealCount" to overlaySelfHealCount.get(),
+            "overlayInputSuspect" to overlayInputSuspect,
+            "overlayLastSystemCoverAt" to overlayLastSystemCoverAt,
+            "overlayLastSystemCoverReason" to overlayLastSystemCoverReason,
+            "overlayLastCoverRecoveryAt" to overlayLastCoverRecoveryAt,
+            "overlayLastWindowVisibility" to overlayLastWindowVisibility,
+            "overlayCoverRecoveryCount" to overlayCoverRecoveryCount.get(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
@@ -139,5 +156,28 @@ object CompanionRuntimeState {
         overlayLastSelfHealAt = System.currentTimeMillis()
         overlayLastSelfHealReason = reason.take(120)
         overlaySelfHealCount.incrementAndGet()
+    }
+
+    fun noteOverlaySystemCover(reason: String) {
+        overlayInputSuspect = true
+        overlayLastSystemCoverAt = System.currentTimeMillis()
+        overlayLastSystemCoverReason = reason.take(120)
+    }
+
+    fun consumeOverlayInputSuspect(): Boolean {
+        val value = overlayInputSuspect
+        overlayInputSuspect = false
+        return value
+    }
+
+    fun noteOverlayCoverRecovered(reason: String) {
+        overlayInputSuspect = false
+        overlayLastCoverRecoveryAt = System.currentTimeMillis()
+        overlayLastSelfHealReason = reason.take(120)
+        overlayCoverRecoveryCount.incrementAndGet()
+    }
+
+    fun noteOverlayWindowVisibility(visibility: Int) {
+        overlayLastWindowVisibility = visibility
     }
 }

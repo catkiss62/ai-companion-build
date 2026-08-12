@@ -5,6 +5,7 @@ import '../desire/desire_engine.dart';
 import '../models/desire_state.dart';
 import '../models/perception_snapshot.dart';
 import '../platform/android_bridge.dart';
+import '../presence/presence_intelligence.dart';
 import 'perception_interpreter.dart';
 
 /// Captures Android signals and routes them through a bounded local
@@ -18,12 +19,15 @@ class PerceptionEngine {
     required this.android,
     required this.desire,
     PerceptionInterpreter interpreter = const PerceptionInterpreter(),
-  }) : interpreter = interpreter;
+    PresenceIntelligenceEngine? presence,
+  })  : interpreter = interpreter,
+        presence = presence ?? PresenceIntelligenceEngine(db: db, desire: desire);
 
   final AppDatabase db;
   final AndroidBridge android;
   final DesireEngine desire;
   final PerceptionInterpreter interpreter;
+  final PresenceIntelligenceEngine presence;
 
   Future<PerceptionSnapshot?> capture({
     bool force = false,
@@ -83,6 +87,7 @@ class PerceptionEngine {
       interpretation: interpretation,
       newNotificationCount: newNotificationCount,
       newAccessibilityCount: newAccessibilityCount,
+      screenInteractive: deviceState.screenInteractive,
     );
 
     final summary = interpretation.observations
@@ -140,6 +145,7 @@ class PerceptionEngine {
     required PerceptionInterpretation interpretation,
     required int newNotificationCount,
     required int newAccessibilityCount,
+    required bool screenInteractive,
   }) async {
     // A transfer may begin after capture persistence but before inner-state
     // integration. Re-check here so the old device cannot grow Thought/Desire
@@ -201,5 +207,20 @@ class PerceptionEngine {
     if (interpretation.busyScore < 0.35) {
       await desire.applyExperience({DriveKey.social: 0.006});
     }
+
+    // Repeated phone activity is allowed to accumulate into a small, decaying
+    // sense of presence. A single app switch is intentionally too weak; several
+    // coarse captures over time can feed one mergeable Thought instead. Raw app
+    // names/text never enter this layer.
+    await presence.integrate(
+      screenInteractive: screenInteractive,
+      busyScore: interpretation.busyScore,
+      dominantActivityMinutes: interpretation.dominantActivityMinutes,
+      appSwitchesLast30Minutes: interpretation.appSwitchesLast30Minutes,
+      newNotificationCount: newNotificationCount,
+      newAccessibilityCount: newAccessibilityCount,
+      hasCurrentActivity:
+          interpretation.observations.any((observation) => observation.kind == 'current_activity'),
+    );
   }
 }

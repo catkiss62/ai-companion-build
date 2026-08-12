@@ -84,6 +84,8 @@ class OverlayBubbleService : Service() {
     private var backgroundEngineStarting = false
     private var backgroundEngineStartAttempts = 0
     private var backgroundEngineRestartScheduled = false
+    private var inputRecoveryScheduled = false
+    private var lastInputRecoveryAt = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var stateReceiverRegistered = false
@@ -161,6 +163,7 @@ class OverlayBubbleService : Service() {
                     } else if (!chatExpanded) {
                         bubbleRoot?.visibility = View.VISIBLE
                         CompanionRuntimeState.setOverlayVisible(true)
+                        scheduleInputChannelRecovery("device_unlock", delayMs = 300L)
                     }
                     requestSignalBrainWake(this@OverlayBubbleService, "device_present")
                 }
@@ -265,7 +268,21 @@ class OverlayBubbleService : Service() {
             }
             ACTION_RECONCILE -> {
                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
-                ensureOverlayHealth("reconcile:$reconcileReason", rebuildInputChannel = true)
+                if (reconcileReason.startsWith("system_cover:")) {
+                    scheduleInputChannelRecovery(
+                        reason = reconcileReason,
+                        delayMs = SYSTEM_COVER_RECOVERY_DELAY_MS,
+                    )
+                } else {
+                    // Returning to the full AI Companion Activity is an explicit
+                    // recovery point for file pickers/settings launched by this
+                    // app, so keep the v0.30.1 immediate reconcile here.
+                    ensureOverlayHealth(
+                        "reconcile:$reconcileReason",
+                        rebuildInputChannel = reconcileReason == "visible_activity_reconcile" ||
+                            CompanionRuntimeState.consumeOverlayInputSuspect(),
+                    )
+                }
                 return START_STICKY
             }
             ACTION_WAKE_BRAIN -> {
@@ -327,6 +344,7 @@ class OverlayBubbleService : Service() {
         brainWakeAttempt = 0
         backgroundEngineStarting = false
         backgroundEngineRestartScheduled = false
+        inputRecoveryScheduled = false
         CompanionRuntimeState.setOverlayVisible(false)
         CompanionRuntimeState.setOverlayChatExpanded(false)
         CompanionRuntimeState.setOverlayTouchHealth(
@@ -363,7 +381,7 @@ class OverlayBubbleService : Service() {
 
     private fun createBubble(): Boolean {
         val size = dp(BUBBLE_AVATAR_DP)
-        val container = FrameLayout(this).apply {
+        val container = OverlayBubbleRoot(this).apply {
             clipChildren = false
             clipToPadding = false
         }
@@ -1043,6 +1061,27 @@ class OverlayBubbleService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
+    private fun scheduleInputChannelRecovery(
+        reason: String,
+        delayMs: Long = SYSTEM_COVER_RECOVERY_DELAY_MS,
+    ) {
+        CompanionRuntimeState.noteOverlaySystemCover(reason)
+        if (inputRecoveryScheduled) return
+        inputRecoveryScheduled = true
+        mainHandler.postDelayed({
+            inputRecoveryScheduled = false
+            if (!running || chatExpanded || !Settings.canDrawOverlays(this)) return@postDelayed
+            val now = System.currentTimeMillis()
+            if (now - lastInputRecoveryAt < INPUT_RECOVERY_MIN_GAP_MS) return@postDelayed
+            lastInputRecoveryAt = now
+            ensureOverlayHealth(
+                "cover_recovery:${reason.take(100)}",
+                rebuildInputChannel = true,
+            )
+            CompanionRuntimeState.noteOverlayCoverRecovered(reason)
+        }, delayMs)
+    }
+
     private fun updateOverlayTouchHealth() {
         val bubble = bubbleRoot
         val paramsTouchable = ::bubbleParams.isInitialized &&
@@ -1607,6 +1646,24 @@ class OverlayBubbleService : Service() {
         else -> "轻轻找你"
     }
 
+    private inner class OverlayBubbleRoot(context: Context) : FrameLayout(context) {
+        private var lastReportedWindowVisibility = View.VISIBLE
+
+        override fun onWindowVisibilityChanged(visibility: Int) {
+            super.onWindowVisibilityChanged(visibility)
+            CompanionRuntimeState.noteOverlayWindowVisibility(visibility)
+            val wasVisible = lastReportedWindowVisibility == View.VISIBLE
+            val isVisibleNow = visibility == View.VISIBLE
+            lastReportedWindowVisibility = visibility
+            if (!wasVisible && isVisibleNow && running && !chatExpanded) {
+                val keyguard = getSystemService(KeyguardManager::class.java)
+                if (!keyguard.isDeviceLocked) {
+                    scheduleInputChannelRecovery("window_visibility_restored")
+                }
+            }
+        }
+    }
+
     private inner class OverlayEditText(context: Context) : EditText(context) {
         var onImeBack: (() -> Unit)? = null
 
@@ -1648,6 +1705,10 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
+        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 550L
+        private const val INPUT_RECOVERY_MIN_GAP_MS = 900L
+        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 700L
+        @Volatile private var lastSystemCoverRecoveryRequestAt = 0L
 
         @Volatile var running: Boolean = false
             private set
@@ -1708,6 +1769,33 @@ class OverlayBubbleService : Service() {
                 .putExtra(EXTRA_REASON, reason.take(120))
             runCatching { context.startService(intent) }
                 .onFailure { startPersistent(context, "show_chat_recover") }
+        }
+
+        @Synchronized
+        fun requestSystemCoverRecovery(context: Context, reason: String = "window_transition"): Boolean {
+            if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return false
+            if (!NativeEventStore.isActiveBrain(context)) return false
+            if (!Settings.canDrawOverlays(context)) return false
+            val now = System.currentTimeMillis()
+            if (now - lastSystemCoverRecoveryRequestAt < SYSTEM_COVER_REQUEST_MIN_GAP_MS) {
+                return false
+            }
+            lastSystemCoverRecoveryRequestAt = now
+            val safeReason = "system_cover:${reason.take(60)}"
+            CompanionRuntimeState.noteOverlaySystemCover(safeReason)
+            val intent = Intent(context, OverlayBubbleService::class.java)
+                .setAction(ACTION_RECONCILE)
+                .putExtra(EXTRA_REASON, safeReason)
+            return runCatching {
+                if (running) {
+                    context.startService(intent)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                true
+            }.getOrDefault(false)
         }
 
         fun requestBrainWake(context: Context, reason: String): Boolean {

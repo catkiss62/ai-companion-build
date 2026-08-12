@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec)
+    assert ('version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec or 'version: 0.30.1+37' in pubspec or 'version: 0.30.2+38' in pubspec)
 
     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
     data = native.read_bytes()

@@ -162,6 +162,23 @@ class PreflightDiagnosticsService {
                 await db.getSetting('recovery_orchestrator_next_heartbeat_at') ?? '',
               ) ??
               0,
+          'presenceMomentum': double.tryParse(
+                await db.getSetting('presence_momentum_score') ?? '',
+              ) ??
+              0.0,
+          'presenceSignalClass':
+              await db.getSetting('presence_last_signal_class') ?? '',
+          'presenceLastThoughtAt': int.tryParse(
+                await db.getSetting('presence_last_thought_at') ?? '',
+              ) ??
+              0,
+          'presenceLastThoughtStrength': double.tryParse(
+                await db.getSetting('presence_last_thought_strength') ?? '',
+              ) ??
+              0.0,
+          'lastGateBreakdown': _safeJsonObject(
+            await db.getSetting('presence_last_gate_breakdown') ?? '',
+          ),
         },
       };
       checks.add(const PreflightCheck(
@@ -223,6 +240,12 @@ class PreflightDiagnosticsService {
         'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
         'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
         'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
+        'inputSuspect': capabilities['overlayInputSuspect'] == true,
+        'lastSystemCoverAt': capabilities['overlayLastSystemCoverAt'] ?? 0,
+        'lastSystemCoverReason': capabilities['overlayLastSystemCoverReason'] ?? '',
+        'lastCoverRecoveryAt': capabilities['overlayLastCoverRecoveryAt'] ?? 0,
+        'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
+        'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
       };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
@@ -409,7 +432,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.30.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));
@@ -445,6 +468,17 @@ class PreflightDiagnosticsService {
   String _fingerprint(String raw) {
     if (raw.trim().isEmpty) return '';
     return sha256.convert(utf8.encode(raw)).toString().substring(0, 12);
+  }
+
+  Map<String, Object?> _safeJsonObject(String raw) {
+    if (raw.trim().isEmpty) return const <String, Object?>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const <String, Object?>{};
+      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    } catch (_) {
+      return const <String, Object?>{};
+    }
   }
 
   Map<String, Object?> _normalizeMap(Map<dynamic, dynamic> raw) => {
