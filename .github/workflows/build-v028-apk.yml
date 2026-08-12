@@ -1,4 +1,4 @@
-name: Apply AI Companion v0.31.2 Companion Voice Recovery
+name: Apply AI Companion v0.31.2+43 Companion Voice Hotfix
 
 on:
   workflow_dispatch:
@@ -20,26 +20,27 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.31.1+41$' app/pubspec.yaml
+          grep -q '^version: 0.31.2+42$' app/pubspec.yaml
+          grep -q 'static const int schemaVersion = 19;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/tools
-          echo 'Building directly from app/. No bootstrap ZIP or v0.28 patch is used.'
+          echo 'Applying the small +43 hotfix directly on the committed v0.31.2+42 app/ baseline.'
 
-      - name: Apply v0.31.2 source update
+      - name: Apply v0.31.2+43 native-channel hotfix
         shell: bash
         run: |
           set -euo pipefail
-          test -f v0312-companion-voice-recovery.patch
-          echo '575ba5f5ca281dc1ba8e7626143e83fca46e0b25609dd08b0ef588ea610f6c53  v0312-companion-voice-recovery.patch' | sha256sum -c -
-          git apply --check --directory=app v0312-companion-voice-recovery.patch
-          git apply --directory=app v0312-companion-voice-recovery.patch
-          grep -q '^version: 0.31.2+42$' app/pubspec.yaml
+          test -f v0312-43-companion-voice-hotfix.patch
+          echo '5393b9ccd0ff2ca60f991c7eebbed08ae4c3727aa81ce87c9f23d3a96f315d66  v0312-43-companion-voice-hotfix.patch' | sha256sum -c -
+          git apply --check --directory=app v0312-43-companion-voice-hotfix.patch
+          git apply --directory=app v0312-43-companion-voice-hotfix.patch
+          grep -q '^version: 0.31.2+43$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 19;' app/lib/core/database/app_database.dart
           python3 app/tools/validate_v0312_companion_voice.py
           python3 app/tools/validate_v031_policy_math.py
           python3 app/tools/validate_v029_a2_tts.py
-          echo 'v0.31.2 source update applied to the real app/ tree.'
+          echo 'v0.31.2+43 Companion Voice hotfix applied to the real app/ tree.'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -141,7 +142,7 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Commit v0.31.2 into app/
+      - name: Commit v0.31.2+43 into app/
         shell: bash
         run: |
           set -euo pipefail
@@ -152,13 +153,13 @@ jobs:
             echo 'ERROR: no app/ source changes were staged.' >&2
             exit 1
           fi
-          git commit -m 'Promote source to v0.31.2 Companion Voice Recovery [skip ci]'
+          git commit -m 'Hotfix v0.31.2 Companion Voice native channels (+43) [skip ci]'
           git push
 
-      - name: Upload v0.31.2 update APK
+      - name: Upload v0.31.2+43 hotfix APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.31.2-Companion-Voice-Recovery-APK
+          name: AI-Companion-v0.31.2-43-Companion-Voice-Hotfix-APK
           if-no-files-found: error
           compression-level: 0
           path: |
