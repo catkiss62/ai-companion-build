@@ -345,12 +345,19 @@ class ChatController extends ChangeNotifier {
       final result = await generationRunner.run(
         job,
         onDelta: (delta) {
-          if (delta.reasoning.isNotEmpty) {
-            streamingReasoning += delta.reasoning;
-          }
-          if (delta.content.isNotEmpty) {
-            streamingContent += delta.content;
-            if (streamTts) ttsPlayback.addDelta(delta.content);
+          if (delta.finishReason == 'companion_voice_preview') {
+            streamingReasoning = delta.reasoning;
+          } else if (delta.finishReason == 'companion_voice_final') {
+            streamingReasoning = delta.reasoning;
+            streamingContent = delta.content;
+          } else {
+            if (delta.reasoning.isNotEmpty) {
+              streamingReasoning += delta.reasoning;
+            }
+            if (delta.content.isNotEmpty) {
+              streamingContent += delta.content;
+              if (streamTts) ttsPlayback.addDelta(delta.content);
+            }
           }
           _safeNotify();
         },
@@ -422,8 +429,17 @@ class ChatController extends ChangeNotifier {
       final result = await generationRunner.run(
         job,
         onDelta: (delta) {
-          if (delta.reasoning.isNotEmpty) streamingReasoning += delta.reasoning;
-          if (delta.content.isNotEmpty) streamingContent += delta.content;
+          if (delta.finishReason == 'companion_voice_preview') {
+            streamingReasoning = delta.reasoning;
+          } else if (delta.finishReason == 'companion_voice_final') {
+            streamingReasoning = delta.reasoning;
+            streamingContent = delta.content;
+          } else {
+            if (delta.reasoning.isNotEmpty) {
+              streamingReasoning += delta.reasoning;
+            }
+            if (delta.content.isNotEmpty) streamingContent += delta.content;
+          }
           _safeNotify();
         },
       );

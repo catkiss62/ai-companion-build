@@ -66,3 +66,8 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 
 - Companion Voice 候选改为同时读取 DeepSeek 原生 `reasoning_content` 与 `content`，并兼容旧双标签/跨通道标签；不再因标签只出现在 provider reasoning 而误判 `protocol_shape`。
 - 普通聊天允许安全 final reply 在第二次内心失败后降级落库，但主动联系没有待回答用户，因此继续严格 WAIT/block；Reality Grounding 的单次共享重试预算不变。
+
+### v0.31.2+44 流式预览边界
+
+- 只有普通聊天 UI 对 provider reasoning 提供可撤回的过滤式流式内心 preview；主动生成仍在完整候选后执行 Voice + Grounding guard，不改变共享一次纠正预算。
+- preview 不是数据库事实：重试时清空、最终以验证后的 inner voice 覆盖；Agent planning 只能导致 preview 撤回，不能进入历史消息、通知、TTS 或下一轮 prompt。

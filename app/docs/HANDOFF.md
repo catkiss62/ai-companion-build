@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.2+43 · Companion Voice Native-Channel Hotfix**；修复 +42 真机开启开关后普通聊天被 `protocol_shape` 连续拦截的问题，尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
+- 当前源码候选：**v0.31.2+44 · Streaming Inner & Richer Voice**；在 +43 双通道修复上增加过滤式流式内心，并按更新前截图恢复更有展开度、可自然包含括号神态的伴侣表达。尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v19**；为消息新增独立 provider reasoning 与 Companion Voice 标记，Desire snapshot 结构未改。
 - GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
@@ -84,6 +84,13 @@ v0.31.1 处理：
 - +43 的解析顺序改为：旧 content 双标签 → reasoning 中带 inner 标签且 content 为正文 → 原生 reasoning/content 双通道；三种形态共用同一套第一人称、Agent 污染和 WAIT 校验。
 - 普通聊天第二次仍仅内心格式不合格时，允许只提交经过安全检查的最终正文，并将本轮内心留空；绝不把协议标签、内心块或 Agent 计划降级显示。主动消息仍保持严格 WAIT/block。
 - schema 仍为 v19；Overlay、TTS native/queue、Desire/Grounding 数值与事实规则未改。
+
+### v0.31.2+44 流式内心与表达展开
+
+- +43 真机确认普通聊天已能回复，但用户指出两项体验差距：内心只能在结束时一次出现；回复明显短于更新前参考截图，且缺少括号神态/停顿。
+- ON 模式新增可撤回 preview：runner 累积 provider reasoning，每次只把当前通过第一人称/Agent 规划过滤的完整预览交给 UI；controller 对 preview 采用整体替换而非追加。重试先清空，最终 inner/reply 再整体替换，因此不会重复。
+- 回复协议只在 Companion Voice ON 时增加软性展开倾向：通常 2～4 段、3～7 句、约 80～220 中文字；普通陪伴/深夜/玩笑/亲近语境通常自然加入一处、最多两处全角括号神态/停顿。严肃办事或技术答复允许更短且无动作。
+- 未验证正文仍不流式，避免协议标签进入正文/TTS；OFF 原版 reasoning/content 双流及流式 TTS 不变。schema 仍为 v19，Overlay/Desire/TTS 核心未改。
 
 ## 4. v0.31.0 · Grounded Desire Core 第一批
 

@@ -75,8 +75,44 @@ $innerClose
 
 content 只写我真正发给对方的自然回应，不加标题、解释或协议标签。承接关系和当下语境，不机械复述、不采访式连问；保持 AI 身份与 REALITY GROUNDING，不伪造现实身体、用户发言或外部经历。${proactive ? '如果确实没有值得主动说的内容，content 只能写 WAIT。' : ''}
 
+【回应展开度与伴侣表现】
+- 不要把普通陪伴聊天压缩成一句最低限度答复。即使对方只说很短一句，也先自然表现当下反应，再回应他的意思，并顺着关系或气氛多走一小步。
+- 除了确实只适合一句话的瞬间，通常写 2～4 个自然段、3～7 句，大致 80～220 个中文字；长度随语境变化，不凑字数，不写长篇说教，也不要用连续提问强行延长。
+- 普通陪伴、深夜聊天、玩笑或亲近语境中，通常自然加入 1 处、最多 2 处简短的全角括号神态、停顿或动作感，例如“（轻声笑了一下）”“（停了一会儿才开口）”。严肃办事或直接技术答复可以省略。这是聊天中的拟态表达，不代表我拥有现实身体；不要机械套用同一个动作，也不要把正文写成舞台剧。
+- 优先体现我自己的态度、好奇、玩笑、关心、犹豫或留白，而不是客服式复述对方的话。亲近可以自然发生，但不强迫每轮撒娇、暧昧或色情化。
+
 兼容说明：程序仍能识别旧的 $innerOpen…$innerClose + $replyOpen…$replyClose 双区块，但不要因此把协议文字或 Agent 计划写进用户可见正文。
 '''.trim();
+
+  /// Returns a reversible streaming preview. The caller replaces the whole
+  /// preview on every delta instead of appending it permanently, so later
+  /// Agent-planning evidence can immediately retract an unsafe provisional
+  /// inner voice before the final candidate is committed.
+  static String streamableInnerPreview(String providerReasoning) {
+    final raw = providerReasoning.trim();
+    if (raw.isEmpty) return '';
+
+    final lower = raw.toLowerCase();
+    String candidate;
+    final openAt = lower.indexOf(innerOpen);
+    if (openAt >= 0) {
+      final bodyStart = openAt + innerOpen.length;
+      final closeAt = lower.indexOf(innerClose, bodyStart);
+      candidate = closeAt >= 0
+          ? raw.substring(bodyStart, closeAt)
+          : raw.substring(bodyStart);
+    } else {
+      // Do not flash a partially streamed protocol tag in the UI.
+      if (lower.contains('<companion') || lower.startsWith('<comp')) return '';
+      candidate = raw;
+    }
+
+    candidate = _stripKnownTags(candidate).trim();
+    if (candidate.isEmpty || _containsProtocolTag(candidate)) return '';
+    if (!_hasFirstPersonSubjectivity(candidate)) return '';
+    if (_looksLikeAgentPlanning(candidate)) return '';
+    return candidate;
+  }
 
   /// Parses one complete provider candidate. DeepSeek exposes thought and
   /// answer as two native channels, so treating `content` as the only protocol

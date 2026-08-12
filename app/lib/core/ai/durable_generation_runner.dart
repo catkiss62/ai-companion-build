@@ -136,12 +136,18 @@ class DurableGenerationRunner {
       Future<({String reasoning, String content})> generate(
         List<Map<String, Object?>> messages, {
         required bool emitDeltas,
+        bool emitCompanionPreview = false,
       }) async {
         var reasoning = '';
         var content = '';
         var sawTerminalSignal = false;
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
+        if (emitCompanionPreview) {
+          onDelta?.call(const DeepSeekDelta(
+            finishReason: 'companion_voice_preview',
+          ));
+        }
         await for (final delta in client.streamChat(
           apiKey: apiKey,
           model: DeepSeekModelProfile.fromApiName(job.model),
@@ -171,7 +177,16 @@ class DurableGenerationRunner {
           }
           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
           if (delta.content.isNotEmpty) content += delta.content;
-          if (emitDeltas) onDelta?.call(delta);
+          if (emitDeltas) {
+            onDelta?.call(delta);
+          } else if (emitCompanionPreview && delta.reasoning.isNotEmpty) {
+            onDelta?.call(DeepSeekDelta(
+              reasoning: CompanionVoiceProtocol.streamableInnerPreview(
+                reasoning,
+              ),
+              finishReason: 'companion_voice_preview',
+            ));
+          }
 
           final chars = reasoning.length + content.length;
           if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
@@ -205,6 +220,7 @@ class DurableGenerationRunner {
               )
             : baseRequestMessages,
         emitDeltas: !companionVoiceEnabled,
+        emitCompanionPreview: companionVoiceEnabled,
       );
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
@@ -229,6 +245,7 @@ class DurableGenerationRunner {
               correctionCode: parsed.failureCode,
             ),
             emitDeltas: false,
+            emitCompanionPreview: true,
           );
           fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
                 generated.content,
@@ -258,7 +275,7 @@ class DurableGenerationRunner {
         onDelta?.call(DeepSeekDelta(
           reasoning: visibleInner,
           content: finalContent,
-          finishReason: 'companion_voice_parsed',
+          finishReason: 'companion_voice_final',
         ));
       }
       final assistant = ChatMessage(

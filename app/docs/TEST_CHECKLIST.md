@@ -1,4 +1,4 @@
-# v0.31.2+43 真机检查 · Companion Voice Native-Channel Hotfix
+# v0.31.2+44 真机检查 · Streaming Inner & Richer Voice
 
 本版只验收 Companion Voice。Overlay file-picker 卡死留到 v0.31.3，Desire 定向收尾留到 v0.31.4。
 
@@ -17,16 +17,20 @@
 8. ON 下回复会在完整协议验证后一起出现，这是预期行为；自动 TTS 只朗读最终正文，不朗读内心、provider reasoning 或协议标签。
 9. **首要回归**：开启后发送任意普通消息，不能再出现“伴侣式内心协议连续两次无效（protocol_shape）”；DeepSeek 原生 reasoning/content 双通道应直接生成回复。
 10. 若两次候选只有内心结构不合格、但最终正文安全，正文仍必须出现；该轮可以暂时不显示“🧠 内心”，不能进入“上一轮 AI 回复需要人工处理”。
+11. **流式内心**：开启后发送消息，“🧠 正在整理内心”中的文字应随生成逐步增长，而不是结束时整块出现；最终消息不能重复同一份内心。
+12. 若临时 reasoning 后半段出现“我们需要回答用户 / 用户要求”等 Agent 规划，临时内心应被清空或最终替换，历史消息中不得留下污染。
+13. 用“准备睡了 / 你不睡吗 / 就是想找你 / 可以叫你小鲸鱼吗”复测：回复通常应有 2～4 个自然段或至少 3 句，并自然出现约一处括号神态/停顿；不要四个案例都套同一动作或同一句式。
+14. 再测一个直接技术问题和一个严肃办事问题：允许更短且没有括号动作，证明展开度不是硬性水字数模板。
 
 ## C. 主动联系与故障边界
 
-11. 用户消息已回答后保持沉默，再从“她的内心”强制主动联系：inner voice 与 reply 都不能把已回答历史当成 current user turn。
-12. 若模型第一次格式错误，用户不应看到错误标签或 Agent candidate；浅层诊断的 `database.companionVoice.retryCount` 可以增加。
-13. 主动联系纠正后仍无效时应静默 WAIT，不出现空白气泡、协议标签或错误通知。
-14. 关闭开关并保存后再次聊天，应立即回到 provider 原版“思考”路径，不需要清库或重装。
+15. 用户消息已回答后保持沉默，再从“她的内心”强制主动联系：inner voice 与 reply 都不能把已回答历史当成 current user turn。
+16. 若模型第一次格式错误，用户不应看到错误标签或 Agent candidate；浅层诊断的 `database.companionVoice.retryCount` 可以增加。
+17. 主动联系纠正后仍无效时应静默 WAIT，不出现空白气泡、协议标签或错误通知。
+18. 关闭开关并保存后再次聊天，应立即回到 provider 原版“思考”路径，思考和正文均继续流式，不需要清库或重装。
 
 ## D. 回归
 
-15. 历史 v0.31.1/v0.31.2 消息仍能正常显示 reasoning/body/time；导出、导入和手机/平板接管不丢消息。
-16. TTS A2 音色、分句、`Yuki -> 有希`、手动朗读保持不变。
-17. Active Brain、Grounding、主动频率 hard caps、Desire/Thought 状态无明显回归。
+19. 历史 v0.31.1/v0.31.2 消息仍能正常显示 reasoning/body/time；导出、导入和手机/平板接管不丢消息。
+20. TTS A2 音色、分句、`Yuki -> 有希`、手动朗读保持不变。
+21. Active Brain、Grounding、主动频率 hard caps、Desire/Thought 状态无明显回归。

@@ -19,7 +19,7 @@ def require(body: str, *tokens: str) -> None:
 
 
 def main() -> int:
-    assert 'version: 0.31.2+43' in text('pubspec.yaml')
+    assert 'version: 0.31.2+44' in text('pubspec.yaml')
 
     db = text('lib/core/database/app_database.dart')
     require(
@@ -58,7 +58,10 @@ def main() -> int:
         'COMPANION VOICE CORRECTION · ONE RETRY',
         'parseCandidate',
         'safeReplyFromContent',
+        'streamableInnerPreview',
         'DeepSeek 原生双通道',
+        '80～220 个中文字',
+        '全角括号神态',
         '不强迫每轮撒娇、暧昧或动作描写',
         '保持 AI 身份与 REALITY GROUNDING',
     )
@@ -69,6 +72,9 @@ def main() -> int:
         runner,
         'CompanionVoiceProtocol.enabledFromSetting(',
         'emitDeltas: !companionVoiceEnabled',
+        'emitCompanionPreview: companionVoiceEnabled',
+        "finishReason: 'companion_voice_preview'",
+        "finishReason: 'companion_voice_final'",
         'var parsed = CompanionVoiceProtocol.parseCandidate(',
         'fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(',
         'correctionCode: parsed.failureCode',
@@ -80,6 +86,17 @@ def main() -> int:
         "visibleInner = '';",
     )
     assert runner.count('correctionCode: parsed.failureCode') == 1
+
+    controller = text('lib/features/chat/chat_controller.dart')
+    require(
+        controller,
+        "delta.finishReason == 'companion_voice_preview'",
+        "delta.finishReason == 'companion_voice_final'",
+        'streamingReasoning = delta.reasoning;',
+        'streamingContent = delta.content;',
+    )
+    assert controller.count("delta.finishReason == 'companion_voice_preview'") == 2
+    assert controller.count("delta.finishReason == 'companion_voice_final'") == 2
 
     proactive = text('lib/core/desire/proactive_engine.dart')
     require(
@@ -106,7 +123,6 @@ def main() -> int:
         '关闭后直接使用模型原始输出',
     )
 
-    controller = text('lib/features/chat/chat_controller.dart')
     page = text('lib/features/chat/chat_page.dart')
     panel = text('lib/widgets/reasoning_panel.dart')
     require(controller, '!streamingCompanionVoice', 'playText(result.assistant!.content')
@@ -119,7 +135,7 @@ def main() -> int:
         "'companionVoice': {",
         "'retryCount'",
         "'blockCount'",
-        'AI Companion v0.31.2+43 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT',
     )
 
     tests = text('test/companion_voice_protocol_v0312_test.dart')
@@ -132,6 +148,7 @@ def main() -> int:
         'attaches contract exactly once at the real prompt tail',
         'accepts DeepSeek native reasoning and content channels',
         'safe reply fallback never leaks inner blocks or Agent plans',
+        'streams only reversible first-person inner previews',
     )
 
     migration_validator = text('tools/validate_companion_voice_v19_sql.py')
@@ -152,7 +169,7 @@ def main() -> int:
     assert sha('lib/core/desire/desire_engine.dart') == '1d46d85ba9a3f0c851430994bba93dbd8afd1ce735a01ce023795702f0c89af9'
     assert sha('lib/core/desire/self_drive_engine.dart') == '6fbd88b10a733a43f9a9604c546f96bcd4b5a38a75790038bf4b1040820cc968'
 
-    print('v0.31.2+43 Companion Voice native-channel hotfix validation passed.')
+    print('v0.31.2+44 streaming inner and richer voice validation passed.')
     return 0
 
 

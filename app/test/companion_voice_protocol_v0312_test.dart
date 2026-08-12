@@ -41,6 +41,31 @@ void main() {
     expect(parsed.output!.reply, '嗯，我在这里。');
   });
 
+  test('streams only reversible first-person inner previews', () {
+    expect(
+      CompanionVoiceProtocol.streamableInnerPreview(
+        '我有点舍不得这么快结束聊天，想再陪他一会儿。',
+      ),
+      contains('我有点舍不得'),
+    );
+    expect(
+      CompanionVoiceProtocol.streamableInnerPreview(
+        '我们需要回答用户，并根据规则保持自然。',
+      ),
+      isEmpty,
+    );
+    expect(
+      CompanionVoiceProtocol.streamableInnerPreview(
+        '<companion_inner>我忍不住轻轻笑了一下',
+      ),
+      '我忍不住轻轻笑了一下',
+    );
+    expect(
+      CompanionVoiceProtocol.streamableInnerPreview('<companion_in'),
+      isEmpty,
+    );
+  });
+
   test('rejects provider-style agent planning', () {
     final parsed = CompanionVoiceProtocol.parse('''
 <companion_inner>
@@ -129,5 +154,8 @@ void main() {
     );
     expect(messages.last['content'], contains('<companion_reply>'));
     expect(messages[messages.length - 2]['content'], contains('ONE RETRY'));
+    expect(messages.last['content'], contains('2～4 个自然段'));
+    expect(messages.last['content'], contains('80～220 个中文字'));
+    expect(messages.last['content'], contains('全角括号神态'));
   });
 }
