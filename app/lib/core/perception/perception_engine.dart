@@ -25,7 +25,10 @@ class PerceptionEngine {
   final DesireEngine desire;
   final PerceptionInterpreter interpreter;
 
-  Future<PerceptionSnapshot?> capture({bool force = false}) async {
+  Future<PerceptionSnapshot?> capture({
+    bool force = false,
+    Duration minInterval = const Duration(minutes: 4),
+  }) async {
     // capture() may persist awareness and feed Thought/Desire. Even a manual
     // debug capture must respect single-Active-Brain and transfer freeze.
     if (!await db.brainWorkAllowed()) return null;
@@ -36,7 +39,7 @@ class PerceptionEngine {
     final lastMillis = int.tryParse(rawLast ?? '');
     if (!force && lastMillis != null) {
       final last = DateTime.fromMillisecondsSinceEpoch(lastMillis);
-      if (now.difference(last) < const Duration(minutes: 4)) return null;
+      if (now.difference(last) < minInterval) return null;
     }
 
     final deviceLabel = await android.deviceLabel();

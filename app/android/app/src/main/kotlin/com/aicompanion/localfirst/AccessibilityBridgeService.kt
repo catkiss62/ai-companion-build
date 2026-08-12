@@ -37,6 +37,12 @@ class AccessibilityBridgeService : AccessibilityService() {
             summary = sanitized.ifBlank { "窗口发生变化" },
             metadata = mapOf("class" to e.className?.toString()),
         )
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Window changes are a useful coarse sign that the user's context
+            // changed, but the wake reason deliberately contains no package or
+            // accessibility text.
+            OverlayBubbleService.requestSignalBrainWake(this, "accessibility_window")
+        }
     }
 
     override fun onInterrupt() {

@@ -1,36 +1,21 @@
-# AI Companion · v0.29.1 TTS / UI Polish
+# AI Companion · v0.30.0 Background Presence
 
-Local-first Android AI companion. The AI keeps an explicit AI identity, six-layer relationship rules, local long-term memory, Relationship/Desire/Thought continuity, proactive messaging, Android awareness, true overlay chat, local Meju Bert-VITS2 voice, durable generation/recovery and single-Active-Brain phone↔tablet continuity.
+Local-first Android AI companion focused on one persistent AI self: long-term memory, relationship state, Thought/Desire, coarse phone awareness, proactive contact, local Meju TTS, true native overlay chat, and single-Active-Brain phone/tablet takeover.
 
-## v0.29.1 checkpoint
+## v0.30.0 checkpoint
 
-The first Android 15 device checkpoint has now passed app startup, SQLite, permissions, chat generation and the legacy TTS coroutine/ClassLoader bridge. v0.29.0 addresses the remaining TTS cadence mismatch by restoring the verified Meju A2 scheduling behavior instead of serially doing `generate -> play -> generate -> play`.
+v0.29.0 established the clean GitHub source baseline and Meju A2 TTS scheduling. v0.29.1 completed non-blocking TTS/UI polish, but real-device testing exposed a deeper background issue: the native overlay opened while the headless Dart command server was not actually reachable, leaving overlay history empty and sends at “她还在重新连接”.
 
-Key TTS properties:
+v0.30.0 fixes the background Dart entrypoint/handshake path and begins real Background Presence:
 
-- verified original A2 `libbertvits2.so` body (`635352` bytes, SHA-256 `a1ca5180…c5551b`) remains frozen inside the padded APK entry;
-- split only on `。！？；.!?;`;
-- no comma/newline/ellipsis or character-count splitting;
-- later sentence WAVs generate while the current sentence is playing;
-- FIFO playback with the original ~200 ms ready-queue gap;
-- no 60-second pending-request cleanup;
-- `Yuki -> 有希` remains speech-only.
+- root-library `@pragma('vm:entry-point')` anchor for the headless companion runtime;
+- engine identity published before Dart execution to remove the ready-handshake race;
+- overlay auto-refresh after ready and non-destructive reconnect behavior;
+- coarse, privacy-preserving reactive wakes from notification/window/unlock signals;
+- native + Dart 90-second coalescing before an early perception heartbeat;
+- no bypass of Active Brain fencing, chat/proactive leases, proactive Gate, busy soft multiplier or hard message ceilings;
+- redacted diagnostics for background ready/wake/perception/proactive progression.
 
-Database schema remains **18**. No Memory/Relationship/Active Brain/Transfer migration is introduced.
+The project source under `app/` is the single source of truth in GitHub. Historical split ZIPs and v0.28 patch-chain inputs are obsolete.
 
-## GitHub baseline promotion
-
-v0.29.0 is also the cutoff for the temporary five-part ZIP + patch-chain build process. A one-time promotion workflow reconstructs the verified source and commits the complete Flutter project under `app/`. Only after a clean build from `app/` succeeds should the old split parts and v0.28.x patches be removed.
-
-See:
-
-- `docs/TTS_A2_BASELINE_v0.29.md`
-- `docs/GITHUB_CLEAN_BASELINE_v0.29.md`
-- `docs/REAL_DEVICE_CHECKPOINT_v0.28.md`
-- `docs/DEV_STATUS.md`
-- `docs/ROADMAP.md`
-
-
-## v0.29.1 polish
-
-The Meju A2 native/runtime baseline remains frozen. v0.29.1 normalizes layout line breaks before A2 segmentation, renders reasoning above assistant text, shrinks/fixes the overlay unread bubble, returns the latest 8 overlay messages immediately from SQLite, and introduces `docs/HANDOFF.md` as the mandatory cross-window handoff source.
+See `docs/HANDOFF.md` first when continuing the project in another chat/window.

@@ -109,7 +109,7 @@ def main() -> int:
     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
 
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec)
+    assert ('version: 0.28.5+33' in pubspec or 'version: 0.29.0+34' in pubspec or 'version: 0.29.1+35' in pubspec or 'version: 0.30.0+36' in pubspec)
 
     print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
     return 0

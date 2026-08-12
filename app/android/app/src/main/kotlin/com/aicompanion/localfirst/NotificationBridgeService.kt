@@ -53,6 +53,10 @@ class NotificationBridgeService : NotificationListenerService() {
             summary = summary,
             metadata = mapOf("notification_id" to item.id),
         )
+        // Wake only with a coarse reason; notification text/package never
+        // crosses this boundary. The service coalesces signal wakes so a burst
+        // of notifications cannot turn into a burst of model evaluations.
+        OverlayBubbleService.requestSignalBrainWake(this, "notification")
     }
 
     override fun onDestroy() {

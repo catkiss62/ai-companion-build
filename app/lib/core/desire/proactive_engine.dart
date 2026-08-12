@@ -109,6 +109,7 @@ class ProactiveEngine {
   /// outbound message. Used while a durable user reply is waiting for recovery.
   Future<LocalCompanionHeartbeat?> maintainLocalStateOnly({
     bool forceForDebug = false,
+    Duration perceptionMinInterval = const Duration(minutes: 4),
   }) async {
     if ((await db.getSetting('transfer_lock')) == '1') return null;
     final leaseAcquired = await db.tryAcquireProactiveLease(
@@ -118,7 +119,10 @@ class ProactiveEngine {
     try {
       if (!await db.brainWorkAllowed()) return null;
       if (await db.isLocalLeaseHeld('chat_turn_lease')) return null;
-      return _runLocalHeartbeat(forceForDebug: forceForDebug);
+      return _runLocalHeartbeat(
+        forceForDebug: forceForDebug,
+        perceptionMinInterval: perceptionMinInterval,
+      );
     } finally {
       await db.releaseProactiveLease();
     }
@@ -126,6 +130,7 @@ class ProactiveEngine {
 
   Future<LocalCompanionHeartbeat> _runLocalHeartbeat({
     bool forceForDebug = false,
+    Duration perceptionMinInterval = const Duration(minutes: 4),
   }) async {
     await relationshipAssimilator.assimilatePending();
     await memoryMaintenance.maybeRun();
@@ -135,7 +140,9 @@ class ProactiveEngine {
     await thoughtConsolidation.maybeRun();
     await thoughtLifecycle.advance(forceForDebug: forceForDebug);
 
-    final perceptionSnapshot = await perception.capture();
+    final perceptionSnapshot = await perception.capture(
+      minInterval: perceptionMinInterval,
+    );
     if (await db.brainWorkAllowed()) {
       try {
         await dailyContinuity.maybeRefresh();
@@ -156,7 +163,10 @@ class ProactiveEngine {
     );
   }
 
-  Future<ProactiveDecision> evaluate({bool forceForDebug = false}) async {
+  Future<ProactiveDecision> evaluate({
+    bool forceForDebug = false,
+    Duration perceptionMinInterval = const Duration(minutes: 4),
+  }) async {
     if ((await db.getSetting('transfer_lock')) == '1') {
       return const ProactiveDecision(sent: false, reason: '设备转移锁定中');
     }
@@ -182,6 +192,7 @@ class ProactiveEngine {
 
       final localHeartbeat = await _runLocalHeartbeat(
         forceForDebug: forceForDebug,
+        perceptionMinInterval: perceptionMinInterval,
       );
       final userBusy = localHeartbeat.userBusy;
       final snapshot = localHeartbeat.snapshot;

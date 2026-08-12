@@ -3,7 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'background_main.dart' as background_runtime;
 import 'core/database/app_database.dart';
+
+
+@pragma('vm:entry-point')
+Future<void> companionBackgroundMain() =>
+    background_runtime.companionBackgroundMain();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -148,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'v0.29.1 · TTS / UI Polish',
+                    'v0.30.0 · Background Presence',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),

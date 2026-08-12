@@ -160,6 +160,7 @@ class OverlayBubbleService : Service() {
                         bubbleRoot?.visibility = View.VISIBLE
                         CompanionRuntimeState.setOverlayVisible(true)
                     }
+                    requestSignalBrainWake(this@OverlayBubbleService, "device_present")
                 }
             }
         }
@@ -771,8 +772,16 @@ class OverlayBubbleService : Service() {
         if (chatSending) return
         val text = chatInput?.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
+        if (!backgroundBrainReady) {
+            pendingBrainWakeReason = "overlay_connect"
+            brainWakeAttempt = 0
+            if (backgroundEngine == null) startBackgroundBrain()
+            signalBackgroundBrainWake()
+            setChatStatus("正在连接后台大脑…")
+            return
+        }
         val channel = backgroundCommands ?: run {
-            setChatStatus("她还在重新连接，请稍后再试。", true)
+            setChatStatus("正在连接后台大脑…")
             return
         }
         chatSending = true
@@ -1008,6 +1017,9 @@ class OverlayBubbleService : Service() {
                             if (pendingInlineReplies.isNotEmpty()) {
                                 mainHandler.postDelayed({ flushInlineReplies() }, 300L)
                             }
+                            if (chatExpanded) {
+                                mainHandler.post { refreshOverlayMessages(opened = true, attempt = 0) }
+                            }
                         } else {
                             result.success(false)
                         }
@@ -1019,9 +1031,13 @@ class OverlayBubbleService : Service() {
                 loader.findAppBundlePath(),
                 "companionBackgroundMain",
             )
-            createdEngine.dartExecutor.executeDartEntrypoint(entrypoint)
+            // Publish the engine identity before Dart starts. The Dart entrypoint
+            // installs its command handler immediately and can handshake back on
+            // the same main-loop turn; assigning afterwards creates a real race
+            // where a healthy isolate is rejected as "not our engine".
             backgroundEngine = createdEngine
             backgroundBrainReady = false
+            createdEngine.dartExecutor.executeDartEntrypoint(entrypoint)
             // If Dart never reaches its MethodChannel handshake (for example a
             // startup exception before companionBackgroundMain finishes
             // installing handlers), do not leave a dead Engine looking healthy
@@ -1469,6 +1485,8 @@ class OverlayBubbleService : Service() {
         private const val PERMISSION_WATCH_MS = 30_000L
         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
+        private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
+        private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
 
         @Volatile var running: Boolean = false
             private set
@@ -1548,6 +1566,17 @@ class OverlayBubbleService : Service() {
                 )
                 false
             }
+        }
+
+        @Synchronized
+        fun requestSignalBrainWake(context: Context, reason: String): Boolean {
+            val now = System.currentTimeMillis()
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val last = prefs.getLong(KEY_LAST_SIGNAL_WAKE_AT, 0L)
+            if (last > 0L && now - last < SIGNAL_WAKE_MIN_INTERVAL_MS) return false
+            val sent = requestBrainWake(context, "signal:${reason.take(80)}")
+            if (sent) prefs.edit().putLong(KEY_LAST_SIGNAL_WAKE_AT, now).apply()
+            return sent
         }
 
         fun startPersistent(context: Context, reason: String) {

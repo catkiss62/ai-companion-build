@@ -5,6 +5,7 @@ import '../ai/memory_extractor.dart';
 import '../database/app_database.dart';
 import '../desire/proactive_engine.dart';
 import '../models/desire_state.dart';
+import '../presence/background_presence_policy.dart';
 
 class RecoveryCycleResult {
   const RecoveryCycleResult({
@@ -78,14 +79,24 @@ class RecoveryOrchestrator {
 
       final now = DateTime.now();
       final blocking = await db.blockingGenerationJob();
-      final heartbeatDue = await _heartbeatIsDue(now);
+      final scheduledHeartbeatDue = await _heartbeatIsDue(now);
+      final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
+        now: now,
+        wakeReason: wakeReason,
+      );
+      final heartbeatDue = scheduledHeartbeatDue || reactiveHeartbeatDue;
+      final perceptionMinInterval = reactiveHeartbeatDue
+          ? BackgroundPresencePolicy.reactivePerceptionMinInterval
+          : const Duration(minutes: 4);
       var heartbeatAdvanced = false;
       var proactiveReason = '';
       Duration heartbeatDelay;
 
       if (heartbeatDue) {
         if (blocking != null || !allowProactive) {
-          final heartbeat = await proactive.maintainLocalStateOnly();
+          final heartbeat = await proactive.maintainLocalStateOnly(
+            perceptionMinInterval: perceptionMinInterval,
+          );
           if (heartbeat == null) {
             heartbeatDelay = const Duration(seconds: 30);
           } else {
@@ -97,7 +108,9 @@ class RecoveryOrchestrator {
                 : 'proactive_disabled_for_cycle';
           }
         } else {
-          final decision = await proactive.evaluate();
+          final decision = await proactive.evaluate(
+            perceptionMinInterval: perceptionMinInterval,
+          );
           proactiveReason = decision.reason;
           if (decision.reason == '主动心跳正在由另一引擎处理' ||
               decision.reason == '用户正在与我聊天') {
@@ -168,6 +181,20 @@ class RecoveryOrchestrator {
       holdFor: const Duration(minutes: 6),
     );
     if (!renewed) throw const _RecoveryOrchestratorOwnershipLost();
+  }
+
+  Future<bool> _reactiveHeartbeatIsDue({
+    required DateTime now,
+    required String wakeReason,
+  }) async {
+    if (!BackgroundPresencePolicy.isReactiveWakeReason(wakeReason)) return false;
+    final raw = int.tryParse(await db.getSetting('last_perception_capture_at') ?? '');
+    final last = raw == null ? null : DateTime.fromMillisecondsSinceEpoch(raw);
+    return BackgroundPresencePolicy.shouldAdvanceHeartbeat(
+      wakeReason: wakeReason,
+      now: now,
+      lastPerceptionAt: last,
+    );
   }
 
   Future<bool> _heartbeatIsDue(DateTime now) async {

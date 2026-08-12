@@ -4,10 +4,10 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.29.1+35 · TTS / UI Polish**。
+- 当前源码候选：**v0.30.0+36 · Background Presence**。
 - 最近一次用户真机确认稳定：**v0.29.0+34 Clean Baseline**。
 - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
-- 数据库：**schema v18**，v0.29.1 不做 schema 迁移。
+- 数据库：**schema v18**，v0.30.0 不做 schema 迁移。
 - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
 
 ## 2. 项目定位
@@ -57,7 +57,7 @@
 
 v0.29.1 仅把 CR/LF/U+2028/U+2029 在进入 A2 边界扫描前归一成普通空格；若真机仍有轻微停顿，**不再阻塞项目推进**，以后作为体验微调处理。
 
-## 5. v0.29.1 本轮 UI / Overlay 改动
+## 5. v0.29.1 UI / Overlay 已完成改动
 
 - 悬浮球窗口 70dp -> 62dp，主体 58dp -> 50dp，角标 24dp -> 20dp。
 - unread 角标显式 elevation/translationZ + bringToFront，避免数字被球体压住。
@@ -79,25 +79,32 @@ v0.29.0 用户已确认：
 - A2 generation-ahead 版本可正常运行。
 - Clean GitHub workflow 可以从完整 `app/` 源码构建 APK，并且生成 APK 可正常安装运行。
 
-v0.29.1 尚待真机验收，重点只需看：悬浮球视觉、悬浮最近历史、reasoning 顺序、换行 TTS 体验以及无明显回归。
+v0.29.1 已完成真机运行，TTS/UI 主体可用，但发现一个真实后台问题：native Overlay 能展开，后台 Dart command server 没有稳定就绪，导致历史为空且发送显示“她还在重新连接”。v0.30.0 专门修复这一链路并推进主动感知。
 
-## 7. 已知待办 / 下一阶段
+## 7. v0.30.0 Background Presence
 
-最高优先级不再是 TTS，而是“她对用户手机行为有真实反应”。目前权限/感知入口存在，但真机体验仍表现为用户在手机里做事情时，她几乎不主动回应。
+本轮定位到 v0.29.1 悬浮聊天“空历史 + 她还在重新连接”的根因：native Service 启动的第二个 FlutterEngine 指定 `companionBackgroundMain`，但 release root library `main.dart` 没有导入/锚定 `background_main.dart`；同时 native 在执行 Dart entrypoint 后才写 `backgroundEngine = createdEngine`，ready handshake 还存在竞态。
 
-下一阶段固定方向：
+v0.30.0：
 
-1. 手机事件 -> Awareness -> Perception 的真机有效性与去噪。
-2. Perception -> Thought / Desire / unfinished thread 的意义判断。
-3. Thought/Desire -> 主动消息 / 通知 / 悬浮球反应，避免做成机械事件播报器。
-4. HyperOS / Android 15 锁屏、切 App、长时间后台、杀进程后的恢复与主动联系。
-5. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
-6. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
-7. 最终稳定性回归。
+1. `main.dart` 显式导入 background runtime，并导出 `@pragma('vm:entry-point') companionBackgroundMain` root proxy，保证 AOT 中 background command server 可达。
+2. native 在执行 Dart 前先发布 engine identity；ready 后如果悬浮聊天已展开，自动刷新最近 8 条历史。
+3. 后台尚未 ready 时，悬浮发送不清空输入，只显示“正在连接后台大脑…”。
+4. Notification / Accessibility window-state / device unlock 仅发粗粒度 `signal:*` wake；**不把包名、通知正文、Accessibility 正文塞进 wake reason**。
+5. native 与 Dart 各做一层 90 秒去抖；reactive wake 只提前运行原有 Perception -> Thought/Desire -> Proactive Gate，不绕过主动消息 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
+6. 脱敏诊断新增 `backgroundBrainReady` 检查与 backgroundPresence 时间戳/粗粒度 reason，方便判断“事件没唤醒 / perception 没推进 / Gate 等待 / 投递失败”。
 
-UI 后续仍可继续微调，但不要为了轻微视觉/TTS 瑕疵长期阻塞主动陪伴能力开发。
+## 8. 后续路线
 
-## 8. GitHub / 构建约定
+1. v0.30.0 真机验收：悬浮聊天收发、后台大脑 ready、切 App/通知/解锁后的 backgroundPresence 推进与主动联系。
+2. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
+3. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+4. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
+5. 最终稳定性回归。
+
+TTS 已进入非阻断小瑕疵阶段；UI 后续可继续微调，但不要阻塞主动陪伴主线。
+
+## 9. GitHub / 构建约定
 
 正常仓库结构：
 
@@ -120,7 +127,7 @@ README.md
 - 日常 workflow：checkout -> Java/Flutter -> `flutter pub get` -> validators/tests/analyze -> `flutter build apk --release` -> TTS native integrity -> artifact。
 - 测试 APK 从 v0.28.4 起使用固定测试签名，后续正常应可覆盖安装；正式发布再换正式私有签名。
 
-## 9. 开发流程约束
+## 10. 开发流程约束
 
 - 用户非技术开发者；优先由助手完成代码、静态检查、结构验证和自动测试。
 - 只有真人感知/真机行为必须确认时才交 APK 测试。

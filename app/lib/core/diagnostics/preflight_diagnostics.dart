@@ -149,6 +149,20 @@ class PreflightDiagnosticsService {
           'hasLastError':
               (await db.getSetting('recovery_orchestrator_last_error') ?? '').isNotEmpty,
         },
+        'backgroundPresence': {
+          'lastWakeReason':
+              await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
+          'lastProactiveReason':
+              await db.getSetting('recovery_orchestrator_last_proactive_reason') ?? '',
+          'lastPerceptionAt': int.tryParse(
+                await db.getSetting('last_perception_capture_at') ?? '',
+              ) ??
+              0,
+          'nextHeartbeatAt': int.tryParse(
+                await db.getSetting('recovery_orchestrator_next_heartbeat_at') ?? '',
+              ) ??
+              0,
+        },
       };
       checks.add(const PreflightCheck(
         id: 'database',
@@ -219,6 +233,24 @@ class PreflightDiagnosticsService {
         '发送通知',
         capabilities['postNotifications'] == true,
       );
+
+      final overlayEnabled = capabilities['overlayUserEnabled'] == true;
+      final overlayRunning = capabilities['overlayRunning'] == true;
+      final backgroundReady = capabilities['backgroundBrainReady'] == true;
+      checks.add(PreflightCheck(
+        id: 'background_brain',
+        title: '后台大脑连接',
+        level: !overlayEnabled
+            ? 'info'
+            : overlayRunning && backgroundReady
+                ? 'pass'
+                : 'warn',
+        summary: !overlayEnabled
+            ? '悬浮陪伴未启用，本轮不要求后台 FlutterEngine 常驻。'
+            : overlayRunning && backgroundReady
+                ? '常驻服务与后台 Dart 命令通道均已就绪。'
+                : '悬浮服务已启用，但后台 Dart 命令通道尚未就绪或正在恢复。',
+      ));
 
       final nearbyPermission = nearby['permissionsGranted'] == true;
       final playServices = nearby['googlePlayServicesAvailable'] == true;
@@ -343,7 +375,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.29.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.30.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));
