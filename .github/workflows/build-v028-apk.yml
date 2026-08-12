@@ -31,9 +31,11 @@ jobs:
         run: |
           set -euo pipefail
           test -f v0312-companion-voice-recovery.patch
+          echo '575ba5f5ca281dc1ba8e7626143e83fca46e0b25609dd08b0ef588ea610f6c53  v0312-companion-voice-recovery.patch' | sha256sum -c -
           git apply --check --directory=app v0312-companion-voice-recovery.patch
           git apply --directory=app v0312-companion-voice-recovery.patch
           grep -q '^version: 0.31.2+42$' app/pubspec.yaml
+          grep -q 'static const int schemaVersion = 19;' app/lib/core/database/app_database.dart
           python3 app/tools/validate_v0312_companion_voice.py
           python3 app/tools/validate_v031_policy_math.py
           python3 app/tools/validate_v029_a2_tts.py
@@ -67,6 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/validate_v0312_companion_voice.py
+          python3 tools/validate_companion_voice_v19_sql.py
           python3 tools/validate_v031_policy_math.py
           python3 tools/validate_v029_a2_tts.py
           python3 tools/validate_tts_kotlin_v25.py
