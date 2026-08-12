@@ -1,8 +1,10 @@
-# Roadmap after v0.30.3
+# Roadmap after v0.31.0
 
-1. 真机回归 Overlay：正常点/拖/聊天，“打开”必须回到完整 App；ChatGPT 文件选择器返回后不打开 AI Companion，悬浮球应恢复且 selfHeal/coverRecovery 不再快速增长。
-2. 若 Overlay 回归通过，继续 Presence Intelligence 的 Gate/主动联系自然度调优，而不是继续扩大自动 self-heal。
-3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
-4. 长期记忆几十轮压力测试。
-5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
-6. 阶段性 Clean Freeze + 删除临时 patch。
+长期任务真源：`docs/PROJECT_TASK_LEDGER.md`。每个正式版本更新 HANDOFF 时必须同步核对总账。
+
+1. **v0.31.x Grounded Desire Core 收尾**：baseline drift pullback、自驱经历/主动联系 response outcome、真正的 wildcard pressure-release、libido 与 Intimacy Session 更细边界；根据真机诊断再调主动联系，不拍脑袋降 Gate。
+2. **HyperOS / Android 15 长后台生存**：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced、durable generation 在 Activity destroy 后恢复。
+3. **长期记忆压力测试**：50/100/数百轮，事实冲突/evidence/summary/Thought/thread 体积与 prompt 预算。
+4. **手机 / 平板 Active Brain 真机接管**：Nearby 权限/发现、双向 takeover、异常中断恢复、encrypted `.aicomp` fallback。
+5. **产品化前**：proactive 二次调优、Intimacy/NSFW 深融、隐私/安全审计、Clean Freeze、正式签名与升级/恢复测试。
+6. **Frozen Overlay**：系统文件选择器返回后的 HyperOS input-channel 卡死留作后续 OEM compatibility pass；主线触及同生命周期时可顺手低风险修。

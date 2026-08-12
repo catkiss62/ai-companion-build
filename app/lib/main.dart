@@ -154,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'v0.30.3 · Overlay Regression Repair',
+                    'v0.31.0 · Grounded Desire Core',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),

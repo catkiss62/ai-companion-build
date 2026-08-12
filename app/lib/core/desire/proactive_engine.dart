@@ -9,6 +9,8 @@ import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
+import '../grounding/grounding_engine.dart';
+import '../grounding/proactive_grounding_guard.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
@@ -204,12 +206,26 @@ class ProactiveEngine {
       final userBusy = localHeartbeat.userBusy;
       final snapshot = localHeartbeat.snapshot;
     final thoughts = await db.activeThoughts(limit: 20);
-    final intent = desireEngine.previewIntent(snapshot, thoughts);
+    final intent = desireEngine.previewIntent(
+      snapshot,
+      thoughts,
+      now: evaluationStartedAt,
+    );
     if (intent == null) {
       return const ProactiveDecision(sent: false, reason: '没有形成意图');
     }
     if (intent.drive == DriveKey.fatigue || intent.wantAction == 'rest') {
       return const ProactiveDecision(sent: false, reason: '当前更需要休息，不触发主动消息');
+    }
+
+    final proactiveGrounding = await GroundingEngine(db).capture(
+      now: evaluationStartedAt,
+    );
+    if (proactiveGrounding.pendingUserTurn) {
+      return const ProactiveDecision(
+        sent: false,
+        reason: '仍有真实用户轮次尚未完成回复，主动联系让位给用户对话',
+      );
     }
 
     final apiKey = await secureConfig.readApiKey();
@@ -275,11 +291,10 @@ class ProactiveEngine {
     final idleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
     final frequencyPenalty = min(0.30, sentToday * 0.055 + sentLastTwoHours * 0.035);
     final presenceMomentum = await presence.currentMomentum(now: evaluationStartedAt);
-    final presenceBoost = idleMinutes < 5
-        ? 0.0
-        : (presenceMomentum * (userBusy ? 0.055 : 0.095))
-            .clamp(0.0, 0.085)
-            .toDouble();
+    // v0.31: phone activity already enters Desire through Presence ->
+    // Drive/Thought pulses. The delivery Gate no longer adds the same signal a
+    // second time, avoiding double weighting of device activity.
+    const presenceBoost = 0.0;
     final jitter = (_random.nextDouble() - 0.5) * 0.10;
     final gateScore = (intent.score * busyMultiplier +
             idleBoost +
@@ -311,6 +326,7 @@ class ProactiveEngine {
         'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),
         'presenceMomentum': double.parse(presenceMomentum.toStringAsFixed(3)),
         'presenceBoost': double.parse(presenceBoost.toStringAsFixed(3)),
+        'presenceAppliedToDesire': true,
         'frequencyPenalty': double.parse(frequencyPenalty.toStringAsFixed(3)),
         'jitter': double.parse(jitter.toStringAsFixed(3)),
         'rhythmThresholdAdjustment':
@@ -340,10 +356,14 @@ class ProactiveEngine {
     final recent = await db.recentMessages(limit: 28);
     final prompt = PromptBuilder(db);
     final context = await prompt.buildChatMessages(
-      latestUserText: intent.reason,
+      latestUserText: '',
+      retrievalQuery: intent.reason,
       recent: recent,
       desire: snapshot,
       thoughts: thoughts,
+      mode: PromptGenerationMode.proactive,
+      now: evaluationStartedAt,
+      groundingOverride: proactiveGrounding,
     );
     context.add({
       'role': 'system',
@@ -351,7 +371,8 @@ class ProactiveEngine {
 这是一次“AI 自己主动联系用户”的出站判断。不是用户刚发来的消息。
 当前最高意图：${intent.wantAction}
 驱动：${intent.drive.name}
-原因/念头：${intent.reason}
+内部原因/念头：${intent.reason}
+内部原因来源：${intent.reasonSource}。它不是用户原话；除非聊天历史中存在对应 role=user 证据，否则绝对不能写成“你刚才说了……”或“你说过……”。
 主动联系类型：${intentKind.zhLabel} (${intentKind.key})
 投递风格：${deliveryStyle.zhLabel} (${deliveryStyle.key})
 Gate：${gateScore.toStringAsFixed(2)}
@@ -359,7 +380,7 @@ Gate：${gateScore.toStringAsFixed(2)}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 
-请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。不要解释算法，不要汇报数值，不要说“系统检测到”。如果你认为即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
+请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。严格服从 REALITY GROUNDING：若用户在我上一条消息之后没有再说话，就把这次当成新的主动开口，不能继续回答已经回答过的旧 user turn，也不能虚构用户刚刚说了什么。不要解释算法，不要汇报数值，不要说“系统检测到”。如果你认为即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
 '''.trim(),
     });
 
@@ -405,6 +426,40 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       return ProactiveDecision(
         sent: false,
         reason: '模型选择 WAIT',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
+    }
+
+    final groundingGuard = ProactiveGroundingGuard.evaluate(
+      grounding: proactiveGrounding,
+      text: text,
+    );
+    if (!groundingGuard.allowed) {
+      final previousBlocks = int.tryParse(
+            await db.getSetting('grounding_guard_block_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting(
+        'grounding_guard_block_count',
+        (previousBlocks + 1).toString(),
+      );
+      await db.setSetting(
+        'grounding_guard_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      await db.setSetting(
+        'grounding_guard_last_reason',
+        groundingGuard.reason,
+      );
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:grounding_guard',
+        decision: 'grounding_guard_block',
+      );
+      return ProactiveDecision(
+        sent: false,
+        reason: 'Reality Grounding 拦截了一条虚构用户近期发言的候选消息',
         gateScore: gateScore,
         intentKind: intentKind,
         deliveryStyle: deliveryStyle,
@@ -470,7 +525,11 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
     );
     // Sending the message itself releases some tension, but user response is
     // what can truly settle the originating thought later.
-    await desireEngine.satisfy(intent.drive, factor: 0.82);
+    await desireEngine.satisfyIntent(
+      intent,
+      intensity: 0.55,
+      now: DateTime.now(),
+    );
     await android.incrementOverlayUnread();
     final notificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),

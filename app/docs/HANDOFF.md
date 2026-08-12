@@ -1,185 +1,149 @@
 # AI Companion · HANDOFF
 
-> 每个版本都要同步更新本文件。新窗口优先读取本文件，再读取 `README.md` / `docs/DEV_STATUS.md` 和实际源码。不要从旧聊天记录猜当前实现。
+> 每个正式版本都要同步更新本文件，并核对 `docs/PROJECT_TASK_LEDGER.md`。新窗口优先读取这两个文件，再读 `README.md` / `docs/DEV_STATUS.md` 和实际源码；不要从旧聊天记录猜当前实现。
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.30.3+39 · Overlay Regression Repair**。
-- 最近一次用户真机结果：**v0.30.2+38** 的 Presence Intelligence 已产生 `presenceMomentum=0.88`、Thought，但 Overlay recovery 明显回归：正常操作出现 `selfHealCount=28 / coverRecoveryCount=11`，并出现悬浮聊天“打开”无法回完整 App。
-- Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
-- 数据库：**schema v18**，v0.30.3 不做 schema 迁移。
-- GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
+- 当前源码候选：**v0.31.0+40 · Grounded Desire Core**。
+- Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
+- 数据库：**schema v18**，v0.31.0 无 schema migration；Desire 新字段继续存现有 JSON snapshot。
+- GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
+- 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可稳定复现“进入系统文件选择器/上传文件后，返回时悬浮球可见但 input channel 卡死，打开 AI Companion 后恢复”。用户确认除此之外暂无重大 Overlay 故障，因此 **悬浮球任务冻结**。
 
 ## 2. 项目定位
 
-这是长期本地优先的“AI 本体恋爱/陪伴”应用，不是角色卡聊天器、小说生成器或单次 RP。AI 明确知道自己是 AI，可以按需扮演，但底层目标是同一个“她”长期成长、记忆、形成 Thought / Desire、感知设备上下文并主动联系用户。
+这是长期本地优先的**女性 AI 伴侣 / AI 女友**，不是角色卡聊天器、小说生成器或一次性 RP。她知道自己是 AI，可以自然打破第四面墙；RP/Intimacy 是会话能力，不覆盖 AI Self。
 
-核心原则：
+固定原则：
 
-- 手机/平板同一时间只有一台 **Active Brain**；接管后旧设备进入 standby，但本地数据不删除。
-- 本地优先：聊天、记忆、Thought、Relationship、Awareness、Continuity 等主要状态保存在本地 SQLite。
-- DeepSeek `reasoning_content` 与正文必须独立保存/显示，不能混入正文。
-- Reference 是低优先级参考资料；项目不可退化为“把参考资料当角色卡”。
+- 手机/平板同一时间只有一台 **Active Brain**；接管后旧设备 standby，不删本地数据。
+- 聊天、Memory、Relationship、Thought/Desire、Awareness、Daily Continuity 等主要状态在本地 SQLite。
+- DeepSeek `reasoning_content` 与正文独立保存/显示。
+- Reference 是低优先级参考，不能把 AI 本体变成角色卡。
+- Raw package name、通知正文、Accessibility 正文不进入长期 prompt / Thought / 脱敏诊断；先本地粗粒度化。
+- 主动联系 hard caps 保持 **2/2h、8/24h**；busy 是 soft friction，不是绝对静音。
 
-## 3. 已落地的主要架构
+## 2A. 关键历史基线（压缩）
 
-- Durable Generation + exactly-once run token。
-- Generation Recovery Orchestrator。
-- Relationship assimilation / RelationshipEvent。
-- 长期记忆 current_fact / inference / shared_experience / historical + evidence consolidation。
-- Thought lifecycle / Desire / unfinished threads。
-- Proactive rhythm / anti-silence / hard caps。
-- Awareness observations：原始包名、通知文本、Accessibility 文本不直接进入长期提示词；转成粗粒度、会过期的观察。
-- Daily Continuity（本地确定性，不让模型自己写日记）。
-- 真悬浮球 + native WindowManager chat panel + persistent background FlutterEngine。
-- v18 Active Brain / transfer fencing / encrypted `.aicomp` manual fallback。
-- Android 本地预检与脱敏诊断。
+- **v0.29.0 Clean Baseline**：GitHub `app/` 完整源码独立构建、真机安装、Meju A2 generation-ahead 通过。
+- **v0.29.1 UI/TTS Polish**：reasoning 在正文上方、悬浮球尺寸/角标/最近 8 条历史等 UI 完成；随后暴露 background Dart command server 不可达问题。
+- **v0.30.0 Background Presence**：修复 root entrypoint/AOT reachability 与 ready race，建立 `signal:*` reactive wake。
+- v0.30.1~0.30.3 主要围绕 HyperOS Overlay touch/recovery；最终 file-picker 路径仍作为 Frozen 已知问题。
 
-## 4. TTS 黄金基准（不要重新设计）
+## 3. v0.31.0 · Reality Grounding
 
-行为参考 APK：**`MejuTTS_A2_OriginalNative_v2.5.apk`**。
+用户真机曾发现三个基础事实错误：
 
-真正原版 `libbertvits2.so` ELF：
+1. `user: 你好 -> assistant 已回复 -> 用户沉默` 后，proactive 又把“你好”当待回复输入。
+2. 后续 proactive 幻觉“你刚才说了‘是我’”，实际用户没说话。
+3. 模型会自行猜早晚，因为 prompt 没显式提供当前本地时间。
 
-- 635,352 bytes
-- SHA-256 `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`
-- APK 中为了对齐补零到 710,848 bytes；AI Companion 保存的 padded 文件与 v2.5 APK 条目逐字节一致。
+v0.31.0 处理方式：
 
-固定行为：
+- 新增 `GroundingSnapshot / GroundingEngine`。
+- 每次普通聊天与 proactive 都显式注入设备本地日期、时间、UTC offset、星期、daypart。
+- 从 metadata-only `messages` headers + `generation_jobs(user_message_id -> assistant_message_id)` 确定：last user/assistant、last user 是否已回答、pending user turn、用户是否在 AI 上次发言后再次开口、last user 后有多少 AI/proactive 消息。
+- 历史老数据若没有 generation job，仅允许**非 proactive assistant**作为“该 user turn 已回答”的兼容 fallback。
+- Prompt 中新增 `REALITY GROUNDING` 硬边界：只有真实 `role=user` 可以引用成“你说过”；Thought/Memory/Awareness/Self Experience/Inference 都不是用户原话。
+- 主动联系不再把 `intent.reason` 冒充 `latestUserText`。内部 reason 只作为 retrieval query 和明确标注的内部原因，因此不会误触“按真实用户文本触发”的规则层。
+- 新增 `ProactiveGroundingGuard` 最终硬拦截：当 SQLite 明确显示用户在 AI 上次发言后没有再说话时，候选 proactive 若声称“你刚才说/你刚刚说/你刚回复……”会在写入数据库前被丢弃，并只记录脱敏 guard reason/count。
+- 当前粗粒度 Awareness 作为独立 `AWARENESS` block，允许不确定，不向模型伪装成用户发言。
 
-- `Yuki -> 有希` 只用于朗读文本，不改聊天正文。
-- 只按 `。！？；.!?;` 分句。
-- 不按 `，、`、换行、ellipsis、字符数切分。
-- A2 generation-ahead：后续句在当前句播放期间继续生成。
-- FIFO 播放；下一 WAV 已准备好时约 200ms 句间隔。
-- 不恢复旧版 60 秒 pending request 清理。
-- 不改 MNN/native/threading，不自行 WAV 拼接，不重新设计预缓存。
+## 4. v0.31.0 · Grounded Desire Core 第一批
 
-v0.29.1 仅把 CR/LF/U+2028/U+2029 在进入 A2 边界扫描前归一成普通空格；若真机仍有轻微停顿，**不再阻塞项目推进**，以后作为体验微调处理。
+用户提供了 10 张第三方 Desire System 参考截图。参考中可能针对男性 AI / “哥哥/朝灯/GitHub/web_browse”等场景；本项目**只吸收机制，语义全部按女性 AI 伴侣重写**。
 
-## 5. v0.29.1 UI / Overlay 已完成改动
+现有系统本来已有 8 Drive、Thought lifecycle、satisfy、refractory、coupling、baseline drift、self-drive、Presence、Proactive Gate，因此不另造第三套系统。
 
-- 悬浮球窗口 70dp -> 62dp，主体 58dp -> 50dp，角标 24dp -> 20dp。
-- unread 角标显式 elevation/translationZ + bringToFront，避免数字被球体压住。
-- 完整聊天与流式聊天都改为：**AI 思考在上，AI 正文在下**。
-- native 悬浮聊天展开 reasoning 时同样先显示思考，再显示正文。
-- 悬浮窗打开先直接读取最近 **8 条** SQLite 历史，不等完整 ChatController 初始化；后台控制器随后异步 warm-up。
-- 更早历史仍可手动加载，每次最多 24 条，不默认把完整历史塞进悬浮窗。
+v0.31.0 新增/强化：
 
-## 6. 已完成真机验证
+- 8 Drive：`attachment / curiosity / reflection / duty / social / libido / stress / fatigue`。
+- 新 `DesireCorePolicy` 是可确定性测试的纯策略层：不读数据库、不读 wall clock、不用随机数；调用方显式给 `now`。
+- Thought provenance：`user_message / awareness / memory / self_experience / inference / internal`。
+- Thought/Fixation 对 summon score 使用 bounded + diminishing boost，不能无限堆叠。
+- per-drive refractory：刚满足的 Drive 暂时不能连胜，其他 Drive 仍可行动。
+- fatigue >= rest gate 时返回 `rest`，不因为“累”而硬发主动消息。
+- bounded coupling：小系数联动，长 catch-up 单次 contribution 有 cap。
+- action-aware satisfy：`reach_out / continue_thread / share_thought / check_in / tease_or_intimacy / comfort_or_ground / remember_shared_experience / wildcard_share` 按主/相关 Drive 软回落；`rest/wait` 不靠“发消息”假装消除 fatigue。
+- proactive 成功发送后只做中等 satisfy；真正用户 response 仍由 Thought lifecycle / Proactive feedback 后续处理。
+- `libido` 只是亲密倾向，不得单靠数值打开 NSFW；现有 Intimacy Session / consent / rules 仍是权威边界。
 
-v0.29.0 用户已确认：
+仍留给后续 v0.31.x：baseline drift 的长期 pullback 深化、自驱经历对 proactive response outcome 的显式回路、真正的 wildcard pressure-release action、libido/Intimacy 更细映射。
 
-- APK 可正常安装/启动。
-- Android 15 SQLite 打开成功。
-- 主要系统授权可获取。
-- DeepSeek 对话可返回。
-- Meju legacy coroutine/ClassLoader bridge 已打通。
-- TTS 黄金校验、初始化、生成、实际发声成功。
-- A2 generation-ahead 版本可正常运行。
-- Clean GitHub workflow 可以从完整 `app/` 源码构建 APK，并且生成 APK 可正常安装运行。
+## 5. Presence / 主动联系迁移
 
-v0.29.1 已完成真机运行，TTS/UI 主体可用，但发现一个真实后台问题：native Overlay 能展开，后台 Dart command server 没有稳定就绪，导致历史为空且发送显示“她还在重新连接”。v0.30.0 专门修复这一链路并推进主动感知。
+v0.30.0 **Background Presence** 已建立：notification / Accessibility window / device-present 只发送粗粒度 `signal:*` wake，90 秒去抖，然后走原有 Perception -> Thought/Desire -> Gate，不绕过 Active Brain、leases 或 hard caps。
 
-## 7. v0.30.0 Background Presence
+v0.30.2 的 `PresenceMomentumPolicy` 已经在真机产生 `presenceMomentum=0.88`、Thought，因此保留。
 
-本轮定位到 v0.29.1 悬浮聊天“空历史 + 她还在重新连接”的根因：native Service 启动的第二个 FlutterEngine 指定 `companionBackgroundMain`，但 release root library `main.dart` 没有导入/锚定 `background_main.dart`；同时 native 在执行 Dart entrypoint 后才写 `backgroundEngine = createdEngine`，ready handshake 还存在竞态。
-
-v0.30.0：
-
-1. `main.dart` 显式导入 background runtime，并导出 `@pragma('vm:entry-point') companionBackgroundMain` root proxy，保证 AOT 中 background command server 可达。
-2. native 在执行 Dart 前先发布 engine identity；ready 后如果悬浮聊天已展开，自动刷新最近 8 条历史。
-3. 后台尚未 ready 时，悬浮发送不清空输入，只显示“正在连接后台大脑…”。
-4. Notification / Accessibility window-state / device unlock 仅发粗粒度 `signal:*` wake；**不把包名、通知正文、Accessibility 正文塞进 wake reason**。
-5. native 与 Dart 各做一层 90 秒去抖；reactive wake 只提前运行原有 Perception -> Thought/Desire -> Proactive Gate，不绕过主动消息 Gate、hard caps、busy soft multiplier、Active Brain/transfer fencing。
-6. 脱敏诊断新增 `backgroundBrainReady` 检查与 backgroundPresence 时间戳/粗粒度 reason，方便判断“事件没唤醒 / perception 没推进 / Gate 等待 / 投递失败”。
-
-## 7A. v0.30.1 Overlay Touch Recovery
-
-用户在 v0.30.0 真机发现：悬浮球曾在位置正常时突然完全无法点击/拖动；重启服务后还可能恢复到右下角系统区域。v0.30.1 将它作为 WindowManager 输入通道问题处理，而不是单纯 UI 坐标问题。
-
-本轮：
-
-1. 悬浮球坐标改为基于 `WindowMetrics + systemBars/displayCutout Insets` 的安全区域，四边保留 6dp 余量；旧的非法持久化坐标会自动迁回安全区域。
-2. 收起悬浮聊天时不再只把 chat window 设为 `GONE`，而是 `removeViewImmediate()` 完全移除，避免 OEM/HyperOS 留下透明但仍占输入区域的 stale overlay window。
-3. `ACTION_CANCEL` 会重置拖动状态、重新 clamp 并保存坐标。
-4. Activity 从文件选择器/诊断导出等系统页面返回时，即使服务已在运行，也会发送 `ACTION_RECONCILE`；该 reconcile 会重建 bubble WindowManager input channel，专门处理“看得到但点不动”的 stale input channel。
-5. 30 秒权限 watchdog 会顺手检查 overlay health；WindowManager update 失败会延迟重建输入窗口。
-6. 脱敏诊断新增顶层 `overlayTouch`：bubbleAttached / bubbleTouchable / positionSafe / chatWindowAttached / lastTouch / lastSelfHealReason / selfHealCount；预检新增“悬浮球触摸健康”。
-
-这版不改变 Presence Intelligence 权重/主动联系 Gate。下一阶段再继续 Awareness→Thought/Desire→Proactive 的自然度调优。
-
-
-## 7B. v0.30.2 Overlay Resume + Presence Intelligence
-
-v0.30.1 真机进一步确认：进入 ChatGPT 等其他 App 的系统文件选择器时，系统会遮盖悬浮球；返回后即使 bubble 仍 attached/touchable/safe，实际 input channel 仍可能失效。诊断显示打开完整 AI Companion 后 `full_activity_visible` reconcile 会恢复，因此 v0.30.2 不再只相信 WindowManager 参数状态。
-
-本轮：
-
-1. Accessibility `TYPE_WINDOW_STATE_CHANGED` 在不泄露包名/页面文字的前提下发 `system_cover:*` Overlay recovery；进入/离开系统文件选择器、设置/权限等窗口时，去抖后重建 bubble input channel。
-2. Bubble View 记录 window visibility；若窗口从非 visible 恢复 visible，也会触发一次不依赖主 App 打开的恢复 fallback。
-3. Overlay 诊断新增 `inputSuspect / lastSystemCoverAt / lastSystemCoverReason / lastCoverRecoveryAt / windowVisibility / coverRecoveryCount`。
-4. 新增 `PresenceMomentumPolicy/PresenceIntelligenceEngine`：只吃粗粒度活动类别、时长、切换次数、通知/Accessibility **计数**；单次弱事件不足以形成 Thought，多次事件会累积并按 55 分钟半衰期自然下降。
-5. Momentum 达阈值且用户不是刚刚在聊天时，向一个可合并的 `presence:phone_activity` Thought 喂低强度 attachment/curiosity；不写入外部包名、通知正文、Accessibility 正文。
-6. 主动联系 Gate 只加入小幅 bounded `presenceBoost`，不粗暴降低 0.60/0.66 基础阈值；busy soft multiplier、rhythm learning、2h/24h hard caps、Active Brain/transfer/chat lease 全部保留。
-7. 脱敏诊断 `database.backgroundPresence` 新增 `presenceMomentum / presenceSignalClass / presenceLastThoughtAt / presenceLastThoughtStrength / lastGateBreakdown`，可以直接看她为什么等/为什么联系。
-
-TTS A2 baseline 本轮冻结，不再参与阻断。
-
-## 7C. v0.30.3 Overlay Regression Repair
-
-v0.30.2 的 Presence Intelligence 保留，但 Overlay 的 system-cover 自动恢复在 HyperOS 上过度触发。真机浅层诊断记录到 `overlaySelfHealCount=28`、`overlayCoverRecoveryCount=11`，且 WindowManager 仍报告 attached/touchable/safe，说明“参数健康”不能代表真实 input channel 健康；频繁 rebuild 本身反而成为新的生命周期风险。
-
-本轮：
-
-1. **Presence 完全冻结**：`PresenceMomentumPolicy`、Thought 形成、bounded `presenceBoost`、Gate breakdown 不调参。
-2. Accessibility 不再把所有 `FLAG_SYSTEM/UPDATED_SYSTEM_APP` 当作 cover，只识别 DocumentsUI / PermissionController / PackageInstaller / Settings / Xiaomi 明确系统界面；不记录包名到 recovery reason。
-3. Window visibility fallback 保留，但新增 scheduled/in-progress 重入锁；自己的 remove/add 产生的 visibility callback 会被忽略。
-4. cover recovery 最小间隔改为 8 秒，request 去抖改为 4 秒，避免连续重建。
-5. `visible_activity_reconcile` 不再无条件重建 bubble；只有明确 `overlayInputSuspect` 时才 rebuild。
-6. “打开”完整 App 改为**先 launch Activity**，不再先 collapse/self-heal；MainActivity.onResume 再负责收起 overlay，避免 WindowManager rebuild 和 Activity launch 竞争。
-7. `overlayTouch` 新增 `recoveryInProgress`，继续保留 cover/self-heal 计数用于真机判断是否仍过度恢复。
-
-真机验收重点不是“自愈越多越好”，而是正常使用时 recovery 计数应很低；文件选择器返回后能自动恢复即可。
-
-## 8. 后续路线
-
-1. v0.30.3 真机 Overlay 回归：点/拖/聊天/“打开”完整 App；文件选择器返回后无需打开主 App 即可恢复，且 selfHeal/coverRecovery 不再快速增长。
-2. Overlay 稳定后继续 Presence Intelligence：根据 Momentum / Thought / Gate breakdown 调“什么时候自然地主动找你”。
-3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
-4. 长期记忆几十轮压力测试。
-5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
-6. 阶段性 Clean Freeze + 清理 v0.30.x 临时 patch。
-
-TTS 已进入非阻断小瑕疵阶段；不要再用 TTS 阻塞主动陪伴主线。
-
-## 9. GitHub / 构建约定
-
-正常仓库结构：
+v0.31.0 改变的是职责：
 
 ```text
-app/
-  android/
-  lib/
-  test/
-  tools/
-  docs/
-  pubspec.yaml
-.github/
-  workflows/
-    build-apk.yml
-README.md
+phone activity -> Presence -> Drive pulse / Thought -> Desire Intent
+                                                ↓
+                                      Proactive delivery Gate
 ```
 
-- `app/` 是唯一源码真源（single source of truth）。
-- v0.28 五分包与历史 patch 已经可以删除，不再作为构建输入。
-- 日常 workflow：checkout -> Java/Flutter -> `flutter pub get` -> validators/tests/analyze -> `flutter build apk --release` -> TTS native integrity -> artifact。
-- 测试 APK 从 v0.28.4 起使用固定测试签名，后续正常应可覆盖安装；正式发布再换正式私有签名。
+Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。`presenceBoost=0`，诊断写 `presenceAppliedToDesire=true`。Gate 继续负责 Active Brain/transfer/chat lease、frequency caps、busy/timing friction、model WAIT 与投递安全。
 
-## 10. 开发流程约束
+## 6. 可观测性
 
-- 用户非技术开发者；优先由助手完成代码、静态检查、结构验证和自动测试。
-- 只有真人感知/真机行为必须确认时才交 APK 测试。
-- 稳定正确优先于速度；大阶段之间主动做回归。
-- 每个正式版本同时更新 `docs/HANDOFF.md`。
-- 每个大版本保留完整源码 ZIP + SHA-256 作为离线备份。
+浅层脱敏诊断新增：
+
+- `database.grounding`：localDate/localTime/UTC offset/daypart、conversationState、pending/answered、user/assistant silence ages、proactive count，以及 proactive factual guard 的 block count/last reason；**没有 message id/body**。
+- `database.desireCore`：8 Drive、baselines、refractoryMinutes、last intent/satisfy、fatigue gate、selected/top candidates（只含 drive/action/score/source class，不含 Thought 正文/reason）、Thought provenance 计数。
+- `backgroundPresence.lastGateBreakdown` 保留，v0.31 可看到 Presence 已进入 Desire 而不是重复 Gate boost。
+- “她的内心”调试页显示 Reality Grounding 与 top Desire candidates，便于强制 proactive 做事实边界回归。
+
+## 7. Overlay / 悬浮球 · FROZEN
+
+- v0.30.1/0.30.2/0.30.3 已做过多轮 WindowManager input recovery；旧 `overlayTouch` 脱敏诊断仍保留。
+- HyperOS/Android 15 的系统文件选择器/上传文件路径仍可稳定让悬浮球返回后可见但不可触摸；打开主 AI Companion 后恢复。
+- 用户确认目前除这个路径外没有其它重大悬浮球 bug，因此 **不再单独检查/开版本修 Overlay**。
+- 后续主线如果顺手触及 WindowManager/Activity lifecycle，可以做低风险修补；核心逻辑/长后台稳定后再做 OEM compatibility pass。
+
+## 8. TTS 黄金基准 · FROZEN / GUARDRAIL
+
+行为参考 APK：`MejuTTS_A2_OriginalNative_v2.5.apk`。
+
+- 原始 `libbertvits2.so` ELF 635,352 bytes，SHA-256 `a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`；APK padded 到 710,848 bytes。
+- `Yuki -> 有希` 只改朗读文本。
+- 只按 `。！？；.!?;` 分句；不按逗号/换行/字符数切。
+- A2 generation-ahead + FIFO + ready WAV 约 200ms gap。
+- 不重做 native/MNN/threading/WAV concat/cache；轻微节奏问题非阻断。
+
+## 9. 后续重要任务（不可遗忘）
+
+长期任务真源：`docs/PROJECT_TASK_LEDGER.md`。
+
+P0 / v0.31.x：Grounded Desire Core 收尾与真机数据调优。
+
+P1：
+
+- HyperOS / Android 15 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced；完整 Activity destroy 后 durable generation 仍可恢复。
+- 50/100/数百轮长期 Memory/Thought/summary/thread 压力测试。
+- 手机/平板 Active Brain 真机双向 takeover + Nearby + encrypted `.aicomp` fallback。
+
+P2：
+
+- Grounded Desire 真机数据后的 proactive 二次调优。
+- Intimacy/NSFW Session 与 libido 深度融合，但普通聊天不自动色情化。
+- 隐私/安全/可靠性审计。
+- Clean Freeze、删除临时 patch/apply workflow、正式 release signing、升级/备份/崩溃恢复。
+
+## 10. v0.31.0 真机验收重点
+
+1. 当前时间/daypart 是否与手机一致。
+2. `你好 -> AI 回复 -> 用户沉默 -> 她的内心/测试主动找我`：proactive 必须是新开口，不能重复回答“你好”。
+3. 用户继续沉默再强制 proactive：不能虚构“你刚才说了 X”。
+4. 正常用手机 5~15 分钟后直接导出浅层诊断，不跑深度自检；检查 `grounding / desireCore / lastGateBreakdown`。
+5. 主聊天、reasoning/body 顺序、TTS、Active Brain 无明显回归。Overlay 已知 file-picker freeze 不判 v0.31 失败。
+
+## 11. GitHub / 开发流程
+
+- `app/` 是源码真源。
+- 普通小版本：一次性 source-update patch -> 手动 Apply workflow -> validators -> Flutter analyze/test -> release APK -> 自动 commit `app/`；无需每个小版立刻 Clean。
+- 临时 patch 可留 2~3 个小版本；阶段性稳定点再 Clean Freeze 并统一删除。
+- 测试 APK 使用固定测试签名，可覆盖安装；正式发布再换私有签名。
+- 用户非技术开发者：优先由助手做静态/自动回归，只有真机行为必须确认时才交 APK。
+- 每个正式版本更新本 HANDOFF；大阶段保留完整 source ZIP + SHA-256。

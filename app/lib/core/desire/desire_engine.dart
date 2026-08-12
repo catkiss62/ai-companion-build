@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
+import 'desire_core_policy.dart';
 import 'thought_similarity.dart';
 
 class DesireIntent {
@@ -14,6 +15,7 @@ class DesireIntent {
     required this.reason,
     required this.wantAction,
     this.thoughtId,
+    this.reasonSource = 'drive_state',
   });
 
   final DriveKey drive;
@@ -21,6 +23,7 @@ class DesireIntent {
   final String reason;
   final String wantAction;
   final String? thoughtId;
+  final String reasonSource;
 }
 
 class DesireEngine {
@@ -30,88 +33,41 @@ class DesireEngine {
   final Random _random;
   final Uuid _uuid = Uuid();
 
-  static const _unitMinutes = 12.0;
-
-  static const _decayPerUnit = <DriveKey, double>{
-    DriveKey.attachment: 0.010,
-    DriveKey.curiosity: 0.018,
-    DriveKey.reflection: 0.014,
-    DriveKey.duty: 0.016,
-    DriveKey.social: 0.020,
-    DriveKey.libido: 0.015,
-    DriveKey.stress: 0.025,
-    DriveKey.fatigue: 0.012,
-  };
-
-  static const _intentActions = <DriveKey, String>{
-    DriveKey.attachment: 'contact_user',
-    DriveKey.curiosity: 'explore_or_ask',
-    DriveKey.reflection: 'reflect_or_share',
-    DriveKey.duty: 'remember_unfinished_thread',
-    DriveKey.social: 'observe_social_context',
-    DriveKey.libido: 'seek_intimacy',
-    DriveKey.stress: 'vent_or_seek_grounding',
-    DriveKey.fatigue: 'rest',
-  };
-
   Future<DesireSnapshot> tick({
     Map<DriveKey, double> pulses = const {},
     bool userBusy = false,
+    DateTime? now,
   }) async {
-    final now = DateTime.now();
+    final instant = now ?? DateTime.now();
     if ((await db.getSetting('thought_lifecycle_enabled')) == '0') {
-      await _tickThoughts(now);
+      await _tickThoughts(instant);
     }
     final thoughts = await db.activeThoughts(limit: 24);
 
     return db.mutateDesire((snapshot) {
-      final elapsedMinutes = snapshot.lastTickAt == null
-          ? _unitMinutes
-          : now.difference(snapshot.lastTickAt!).inSeconds / 60.0;
-      // A phone can be suspended for hours. We advance the state, but cap one
-      // catch-up pass so resume does not instantly slam every drive to baseline.
-      final scale =
-          (elapsedMinutes / _unitMinutes).clamp(0.15, 8.0).toDouble();
-
-      final drives = Map<DriveKey, double>.from(snapshot.drives);
-      final baselines = Map<DriveKey, double>.from(snapshot.baselines);
-      final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
-        ..removeWhere((_, until) => !until.isAfter(now));
-
-      for (final drive in DriveKey.values) {
-        var value = drives[drive] ?? 0;
-        final baseline = baselines[drive] ?? 0.2;
-        final decay = _decayPerUnit[drive] ?? 0.015;
-        final returnRate = 1 - pow(1 - 0.055, scale).toDouble();
-        value += (baseline - value) * returnRate;
-        value *= pow(1 - decay, scale).toDouble();
-        value += pulses[drive] ?? 0;
-        drives[drive] = value.clamp(0.0, 1.0).toDouble();
-      }
-
-      _applyCoupling(drives, scale);
-
-      // Busy is contextual friction, never an absolute mute switch.
-      if (userBusy) {
-        drives[DriveKey.fatigue] =
-            ((drives[DriveKey.fatigue] ?? 0) + 0.006 * scale)
-                .clamp(0.0, 1.0)
-                .toDouble();
-        drives[DriveKey.stress] =
-            ((drives[DriveKey.stress] ?? 0) + 0.003 * scale)
-                .clamp(0.0, 1.0)
-                .toDouble();
-      }
-
-      final wildcard = _maybeWildcard(snapshot, now, drives);
-      final intent = _pickIntent(drives, refractory, thoughts, now);
+      final advanced = DesireCorePolicy.advance(
+        snapshot: snapshot,
+        now: instant,
+        pulses: pulses,
+        userBusy: userBusy,
+      );
+      final drives = Map<DriveKey, double>.from(advanced.drives);
+      final wildcard = _maybeWildcard(snapshot, instant, drives);
+      final intent = _pickIntent(
+        drives,
+        advanced.refractoryUntil,
+        thoughts,
+        instant,
+      );
       return snapshot.copyWith(
         drives: drives,
-        baselines: baselines,
-        refractoryUntil: refractory,
+        baselines: advanced.baselines,
+        refractoryUntil: advanced.refractoryUntil,
         lastIntent: intent?.wantAction,
-        lastTickAt: now,
-        lastWildcardAt: wildcard ? now : snapshot.lastWildcardAt,
+        lastIntentDrive: intent?.drive.name,
+        lastIntentScore: intent?.score,
+        lastTickAt: instant,
+        lastWildcardAt: wildcard ? instant : snapshot.lastWildcardAt,
         clearIntent: intent == null,
       );
     });
@@ -165,9 +121,13 @@ class DesireEngine {
     }
   }
 
+  /// Legacy single-drive settle used by ordinary user-reply completion.
+  /// Proactive actions use [satisfyIntent] so the actual action decides which
+  /// related drives settle and which refractory period is applied.
   Future<void> satisfy(DriveKey drive, {double factor = 0.68}) async {
+    final now = DateTime.now();
     final refractoryUntil =
-        DateTime.now().add(Duration(minutes: 22 + _random.nextInt(35)));
+        now.add(Duration(minutes: 22 + _random.nextInt(35)));
     await db.mutateDesire((snapshot) {
       final drives = Map<DriveKey, double>.from(snapshot.drives);
       final baseline = snapshot.baselines[drive] ?? 0.2;
@@ -180,6 +140,34 @@ class DesireEngine {
       return snapshot.copyWith(
         drives: drives,
         refractoryUntil: refractory,
+        lastSatisfiedAction: 'user_reply',
+        lastSatisfiedAt: now,
+      );
+    });
+  }
+
+  Future<void> satisfyIntent(
+    DesireIntent intent, {
+    double intensity = 0.55,
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final refractoryUntil =
+        instant.add(Duration(minutes: 22 + _random.nextInt(35)));
+    await db.mutateDesire((snapshot) {
+      final drives = DesireCorePolicy.satisfiedDrives(
+        snapshot: snapshot,
+        action: intent.wantAction,
+        primaryDrive: intent.drive,
+        intensity: intensity,
+      );
+      final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
+        ..[intent.drive] = refractoryUntil;
+      return snapshot.copyWith(
+        drives: drives,
+        refractoryUntil: refractory,
+        lastSatisfiedAction: intent.wantAction,
+        lastSatisfiedAt: instant,
       );
     });
   }
@@ -272,14 +260,29 @@ class DesireEngine {
 
   DesireIntent? previewIntent(
     DesireSnapshot snapshot,
-    List<CompanionThought> thoughts,
-  ) {
+    List<CompanionThought> thoughts, {
+    DateTime? now,
+  }) {
     return _pickIntent(
       snapshot.drives,
       snapshot.refractoryUntil,
       thoughts,
-      DateTime.now(),
+      now ?? DateTime.now(),
     );
+  }
+
+  List<DesireIntent> previewCandidates(
+    DesireSnapshot snapshot,
+    List<CompanionThought> thoughts, {
+    DateTime? now,
+  }) {
+    final candidates = DesireCorePolicy.candidates(
+      drives: snapshot.drives,
+      refractoryUntil: snapshot.refractoryUntil,
+      thoughts: thoughts,
+      now: now ?? DateTime.now(),
+    );
+    return candidates.map(_fromCandidate).toList();
   }
 
   DesireIntent? _pickIntent(
@@ -288,45 +291,23 @@ class DesireEngine {
     List<CompanionThought> thoughts,
     DateTime now,
   ) {
-    final fatigue = drives[DriveKey.fatigue] ?? 0;
-    if (fatigue >= 0.90) {
-      return DesireIntent(
-        drive: DriveKey.fatigue,
-        score: fatigue,
-        reason: 'fatigue is temporarily dominant',
-        wantAction: 'rest',
-      );
-    }
-
-    DesireIntent? best;
-    for (final drive in DriveKey.values) {
-      if (drive == DriveKey.fatigue) continue;
-      final until = refractory[drive];
-      if (until != null && until.isAfter(now)) continue;
-      var score = drives[drive] ?? 0;
-      final related = thoughts.where((t) => t.driveKey == drive.name && t.canDriveIntent).toList();
-      for (final thought in related.take(4)) {
-        final boost = thought.strength * (thought.isFixation ? 0.23 : 0.11);
-        score += boost;
-      }
-      score = 1 - sqrt(max(0, 1 - score.clamp(0.0, 1.0)));
-      score = (score + (drives[drive] ?? 0) * 0.62).clamp(0.0, 1.0).toDouble();
-      if (best == null || score > best.score) {
-        CompanionThought? strongest;
-        if (related.isNotEmpty) {
-          strongest = related.reduce((a, b) => a.strength >= b.strength ? a : b);
-        }
-        best = DesireIntent(
-          drive: drive,
-          score: score,
-          reason: strongest?.text ?? 'drive baseline',
-          wantAction: _intentActions[drive] ?? 'wait',
-          thoughtId: strongest?.id,
-        );
-      }
-    }
-    return best;
+    final candidates = DesireCorePolicy.candidates(
+      drives: drives,
+      refractoryUntil: refractory,
+      thoughts: thoughts,
+      now: now,
+    );
+    return candidates.isEmpty ? null : _fromCandidate(candidates.first);
   }
+
+  DesireIntent _fromCandidate(DesireCoreCandidate candidate) => DesireIntent(
+        drive: candidate.drive,
+        score: candidate.score,
+        reason: candidate.reason,
+        wantAction: candidate.action,
+        thoughtId: candidate.thoughtId,
+        reasonSource: candidate.reasonSource,
+      );
 
   Future<void> _tickThoughts(DateTime now) async {
     final thoughts = await db.activeThoughts(limit: 100);
@@ -337,7 +318,7 @@ class DesireEngine {
       );
       final hourlyRetention = thought.isFixation ? 0.965 : 0.90;
       final next = thought.strength * pow(hourlyRetention, elapsedHours).toDouble();
-      if (next < 0.07 && thought.canDriveIntent) {
+      if (next < 0.07 && thought.canDriveIntentAt(now)) {
         await db.updateThoughtLifecycle(
           thought.id,
           lifecycleState: 'dormant',
@@ -386,33 +367,41 @@ class DesireEngine {
     if (last != null && now.difference(last) < const Duration(hours: 2)) {
       return false;
     }
-    if (_random.nextDouble() > 0.18) return false;
+
+    // Wildcard is a pressure-release path, not an independent random desire.
+    // If a normal high-scoring drive is currently actionable, do not inject it.
+    final actionableHigh = DriveKey.values.any((drive) {
+      if (drive == DriveKey.fatigue) return false;
+      final until = snapshot.refractoryUntil[drive];
+      final blocked = until != null && until.isAfter(now);
+      return !blocked && (drives[drive] ?? 0.0) >= 0.58;
+    });
+    if (actionableHigh) return false;
+
+    var tension = 0.0;
+    for (final drive in DriveKey.values) {
+      if (drive == DriveKey.fatigue) continue;
+      final baseline = snapshot.baselines[drive] ?? 0.2;
+      tension += max(0.0, (drives[drive] ?? 0.0) - baseline);
+    }
+    if (tension < 0.52 || _random.nextDouble() > 0.20) return false;
 
     const candidates = [
       DriveKey.curiosity,
       DriveKey.reflection,
       DriveKey.social,
       DriveKey.attachment,
-      DriveKey.libido,
     ];
-    final drive = candidates[_random.nextInt(candidates.length)];
-    final pulse = 0.018 + _random.nextDouble() * 0.035;
+    final available = candidates.where((drive) {
+      final until = snapshot.refractoryUntil[drive];
+      return until == null || !until.isAfter(now);
+    }).toList();
+    if (available.isEmpty) return false;
+
+    final drive = available[_random.nextInt(available.length)];
+    final pulse = 0.014 + _random.nextDouble() * 0.026;
     drives[drive] = ((drives[drive] ?? 0) + pulse).clamp(0.0, 1.0).toDouble();
     return true;
   }
 
-  void _applyCoupling(Map<DriveKey, double> d, double scale) {
-    void delta(DriveKey target, double amount) {
-      d[target] = ((d[target] ?? 0) + amount * scale).clamp(0.0, 1.0).toDouble();
-    }
-
-    // Small coefficients only. Coupling shapes the mood but cannot self-excite
-    // into saturation without real experiences feeding the system.
-    delta(DriveKey.libido, ((d[DriveKey.attachment] ?? 0) - 0.5) * 0.012);
-    delta(DriveKey.reflection, ((d[DriveKey.curiosity] ?? 0) - 0.5) * 0.014);
-    delta(DriveKey.attachment, ((d[DriveKey.reflection] ?? 0) - 0.5) * 0.009);
-    delta(DriveKey.stress, ((d[DriveKey.duty] ?? 0) - 0.5) * 0.008);
-    delta(DriveKey.social, ((d[DriveKey.curiosity] ?? 0) - 0.5) * 0.007);
-    delta(DriveKey.fatigue, ((d[DriveKey.stress] ?? 0) - 0.45) * 0.006);
-  }
 }

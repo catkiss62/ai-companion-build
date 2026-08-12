@@ -1,11 +1,15 @@
-# v0.30.3 开发状态 · Overlay Regression Repair
+# v0.31.0 开发状态 · Grounded Desire Core
 
-- 版本：`0.30.3+39`；数据库 schema 仍为 v18，无迁移。
-- Presence Intelligence 完全继承 v0.30.2：Presence Momentum / Thought / bounded presenceBoost / Gate breakdown 不调参。
-- 真机证据：v0.30.2 正常使用期间出现 `overlaySelfHealCount=28`、`overlayCoverRecoveryCount=11`，属于明显过度恢复；“打开”完整 App 也出现回归。
-- v0.30.3 不再把所有 system app 当作 cover，只识别 DocumentsUI / PermissionController / PackageInstaller / Settings / Xiaomi 明确系统界面。
-- Window visibility fallback 增加 scheduled/in-progress 重入锁与 8 秒最小恢复间隔；恢复自己的 remove/add visibility 回调不能再次触发恢复。
-- Full Activity resume 不再无条件重建 bubble input channel；只有明确 `overlayInputSuspect` 才重建。
-- 悬浮聊天“打开”改成先请求 `startActivity()`，不再先 collapse/self-heal；MainActivity.onResume 再负责收起 overlay。
-- 脱敏诊断继续保留 overlayTouch，并新增 `recoveryInProgress`。
-- TTS A2、Memory、Relationship、Active Brain、Transfer、Background Presence 均冻结。
+- 版本：`0.31.0+40`；数据库仍为 **schema v18**，无迁移。
+- Reality Grounding 已接入普通聊天与主动联系：真实本地日期/时间/UTC offset/星期/daypart、last user/assistant、last user answered、pending user turn、用户是否在 AI 上次发言后再次说话。
+- Grounding 查询使用 metadata-only message headers；诊断不读取/导出聊天正文。
+- `generation_jobs user_message_id -> assistant_message_id` 用于确认真实 user turn 是否已经完成回复；历史数据仍有非 proactive assistant fallback。
+- 主动联系不再把 `intent.reason` 当成 `latestUserText`；内部 Thought/reason 只作为检索 query 和明确标注的内部原因。
+- 新增 `ProactiveGroundingGuard`：用户真实沉默时，模型候选若虚构“你刚才说/回复了……”会在持久化前被硬拦截。
+- Thought 新增 provenance：`user_message / awareness / memory / self_experience / inference / internal`。
+- 新增纯 `DesireCorePolicy`：8 Drive、显式 now、fatigue rest gate、bounded Thought/Fixation boost、per-drive refractory、bounded coupling、action-aware satisfy。
+- Presence Momentum 继续作为现实活动输入，但 Proactive Gate 的直接 `presenceBoost=0`，避免手机行为在 Desire 与 Gate 双重计分。
+- 脱敏诊断新增 `database.grounding` / `database.desireCore`；`她的内心`页显示 Grounding 与候选 Intent。
+- Overlay 冻结：文件选择器返回后可能 input channel 卡死，回主 App 可恢复；不再单独追版本。
+- TTS A2 冻结/非阻断，native/model/队列不改。
+- 下一批 v0.31.x：baseline pullback、self-drive response outcome、wildcard pressure-release、libido/Intimacy 更细映射；之后进入 HyperOS 长后台、长期记忆压力、双机 Active Brain 真机接管。

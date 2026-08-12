@@ -1615,6 +1615,18 @@ class AppDatabase {
     return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
   }
 
+  Future<GenerationJob?> generationJobForUserMessage(String userMessageId) async {
+    final db = await database;
+    final rows = await db.query(
+      'generation_jobs',
+      where: 'user_message_id = ?',
+      whereArgs: [userMessageId],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
+  }
+
   Future<GenerationJob?> blockingGenerationJob() async {
     final db = await database;
     final rows = await db.query(
@@ -2176,6 +2188,31 @@ class AppDatabase {
       limit: limit,
     );
     return rows.reversed.map(ChatMessage.fromDb).toList();
+  }
+
+  /// Metadata-only chat history for Reality Grounding and redacted diagnostics.
+  /// Message/reasoning bodies are deliberately not selected.
+  Future<List<ChatMessage>> recentMessageHeaders({int limit = 100}) async {
+    final db = await database;
+    final rows = await db.query(
+      'messages',
+      columns: const ['id', 'role', 'created_at', 'is_proactive'],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return rows.reversed.map(ChatMessage.fromDb).toList();
+  }
+
+  Future<ChatMessage?> messageHeaderById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'messages',
+      columns: const ['id', 'role', 'created_at', 'is_proactive'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : ChatMessage.fromDb(rows.first);
   }
 
   Future<ChatMessage?> latestProactiveMessage() async {
@@ -2866,6 +2903,24 @@ class AppDatabase {
       orderBy: 'strength DESC, updated_at DESC',
       limit: limit,
     );
+    return rows.map(CompanionThought.fromDb).toList();
+  }
+
+  /// Metadata-only Thought read for redacted diagnostics. The SQL substitutes
+  /// an empty text value so the private Thought body is never read from disk.
+  Future<List<CompanionThought>> activeThoughtMetadata({int limit = 40}) async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT id, '' AS text, drive_key, kind, strength, born_at, updated_at,
+             fed_count, source, last_fed_at, lifecycle_state, action_count,
+             last_acted_at, last_satisfied_at, last_resurfaced_at,
+             resurfaced_count, residual_strength, last_outbound_message_id,
+             topic_key, merged_count, last_merged_at, snoozed_until
+      FROM thoughts
+      WHERE lifecycle_state IN ('active','fixation','acted','residual')
+      ORDER BY strength DESC, updated_at DESC
+      LIMIT ?
+    ''', [limit]);
     return rows.map(CompanionThought.fromDb).toList();
   }
 

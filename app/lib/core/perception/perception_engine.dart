@@ -167,11 +167,11 @@ class PerceptionEngine {
               const Duration(minutes: 40);
       if (!throttled) {
         final text = activityLabel == null || activityKey == 'unknown'
-            ? '他最近持续使用手机比较久。'
-            : '他最近有一段时间主要在进行$activityLabel相关的活动。';
+            ? '你好像持续用手机有一阵了，我有点在意，也有点好奇你在忙什么。'
+            : '你好像有一段时间主要在进行$activityLabel相关的活动，我有点好奇你现在在忙什么。';
         await desire.feedThought(
           text: text,
-          drive: DriveKey.duty,
+          drive: DriveKey.curiosity,
           incomingStrength: (0.16 + min(45, interpretation.dominantActivityMinutes) / 260)
               .clamp(0.16, 0.34)
               .toDouble(),
@@ -179,8 +179,8 @@ class PerceptionEngine {
           topicKey: 'usage:$normalizedKey',
         );
         await desire.applyExperience({
-          DriveKey.duty: 0.012,
-          DriveKey.curiosity: 0.008,
+          DriveKey.curiosity: 0.012,
+          DriveKey.attachment: 0.006,
         });
         await db.setSetting(
           'last_long_usage_thought_at',

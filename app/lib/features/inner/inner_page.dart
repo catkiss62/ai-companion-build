@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/ai/deepseek_client.dart';
 import '../../core/database/app_database.dart';
+import '../../core/grounding/grounding_engine.dart';
+import '../../core/grounding/grounding_snapshot.dart';
 import '../../core/self/ai_self_reflection_engine.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_engine.dart';
@@ -41,6 +43,8 @@ class _InnerPageState extends State<InnerPage> {
   late final RelationshipAssimilator relationshipAssimilator =
       RelationshipAssimilator(db: db);
   DesireSnapshot? snapshot;
+  GroundingSnapshot? grounding;
+  List<DesireIntent> desireCandidates = const [];
   List<CompanionThought> thoughts = const [];
   List<UnfinishedThread> threads = const [];
   List<ConversationSummary> summaries = const [];
@@ -59,7 +63,9 @@ class _InnerPageState extends State<InnerPage> {
 
   Future<void> _refresh() async {
     snapshot = await db.loadDesire();
+    grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
+    desireCandidates = desire.previewCandidates(snapshot!, thoughts).take(4).toList();
     threads = await db.activeUnfinishedThreads(limit: 10);
     summaries = await db.recentConversationSummaries(limit: 3);
     lifecycleEvents = await db.recentThoughtLifecycleEvents(limit: 12);
@@ -193,7 +199,7 @@ class _InnerPageState extends State<InnerPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('她的内心 · v0.30.3 诊断', style: Theme.of(context).textTheme.headlineSmall),
+        Text('她的内心 · v0.31.0 Grounded Desire Core', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
         const SizedBox(height: 16),
@@ -213,8 +219,22 @@ class _InnerPageState extends State<InnerPage> {
           );
         }),
         const SizedBox(height: 10),
-        Text('当前意图：${s.lastIntent ?? '暂无'}'),
+        Text('当前意图：${s.lastIntent ?? '暂无'} · 驱动=${s.lastIntentDrive ?? '无'} · 分数=${s.lastIntentScore?.toStringAsFixed(2) ?? '无'}'),
+        Text('上次满足：${s.lastSatisfiedAction ?? '暂无'} · ${s.lastSatisfiedAt?.toLocal().toString() ?? '尚未发生'}'),
         Text('上次 wildcard：${s.lastWildcardAt?.toLocal().toString() ?? '尚未发生'}'),
+        if (grounding != null) ...[
+          const SizedBox(height: 8),
+          Text('现实锚点：${grounding!.nowLocal.toString().substring(0, 16)} · ${grounding!.daypart.zhLabel}'),
+          Text('对话状态：${grounding!.conversationState} · pending=${grounding!.pendingUserTurn ? '是' : '否'} · 最后用户消息已回答=${grounding!.lastUserAnswered ? '是' : '否'}'),
+          Text('用户上次发言后：AI ${grounding!.assistantMessagesSinceLastUser} 条 / 主动 ${grounding!.proactiveMessagesSinceLastUser} 条'),
+        ],
+        if (desireCandidates.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('当前召唤力（前4，仅调试）：'),
+          ...desireCandidates.map((candidate) => Text(
+                '${candidate.drive.zhLabel} → ${candidate.wantAction} · ${candidate.score.toStringAsFixed(2)} · 来源=${candidate.reasonSource}',
+              )),
+        ],
         const SizedBox(height: 12),
         Row(
           children: [

@@ -11,7 +11,8 @@ class ProactivePresentationPolicy {
     required DesireIntent intent,
     UnfinishedThread? linkedThread,
   }) {
-    if (linkedThread != null || intent.wantAction == 'remember_unfinished_thread') {
+    if (linkedThread != null || intent.wantAction == 'remember_unfinished_thread' ||
+        intent.wantAction == 'continue_thread') {
       return ProactiveIntentKind.followup;
     }
     return switch (intent.drive) {

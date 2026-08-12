@@ -6,6 +6,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import '../desire/desire_core_policy.dart';
+import '../grounding/grounding_engine.dart';
+import '../models/desire_state.dart';
+import '../models/thought.dart';
 import '../platform/android_bridge.dart';
 import '../tts/tts_service.dart';
 import '../tts/tts_provider.dart';
@@ -51,7 +55,7 @@ class PreflightSnapshot {
 
 /// Builds a local-only, redacted device-readiness report.
 ///
-/// Privacy invariant: this service never queries message bodies, memories,
+/// Privacy invariant: this service never queries message bodies, Thought bodies, memories,
 /// RelationshipEvent content, Reference text, notification/accessibility raw
 /// text or API credentials. Device/lineage/snapshot identities are emitted only
 /// as short SHA-256 fingerprints.
@@ -99,6 +103,25 @@ class PreflightDiagnosticsService {
       final memoryStats = await db.memoryStats();
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
+      final grounding = await GroundingEngine(db).capture(now: now);
+      final desireSnapshot = await db.loadDesire();
+      final desireThoughts = await db.activeThoughtMetadata(limit: 40);
+      final desireCandidates = DesireCorePolicy.candidates(
+        drives: desireSnapshot.drives,
+        refractoryUntil: desireSnapshot.refractoryUntil,
+        thoughts: desireThoughts,
+        now: now,
+      );
+      final provenanceCounts = <String, int>{};
+      for (final thought in desireThoughts) {
+        final key = thought.provenance.key;
+        provenanceCounts[key] = (provenanceCounts[key] ?? 0) + 1;
+      }
+      final refractoryMinutes = <String, int>{};
+      for (final entry in desireSnapshot.refractoryUntil.entries) {
+        if (!entry.value.isAfter(now)) continue;
+        refractoryMinutes[entry.key.name] = entry.value.difference(now).inMinutes;
+      }
 
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,
@@ -148,6 +171,59 @@ class PreflightDiagnosticsService {
               0,
           'hasLastError':
               (await db.getSetting('recovery_orchestrator_last_error') ?? '').isNotEmpty,
+        },
+        'grounding': {
+          ...grounding.toRedactedJson(),
+          'proactiveGuardBlockCount': int.tryParse(
+                await db.getSetting('grounding_guard_block_count') ?? '',
+              ) ??
+              0,
+          'proactiveGuardLastAt': int.tryParse(
+                await db.getSetting('grounding_guard_last_at') ?? '',
+              ) ??
+              0,
+          'proactiveGuardLastReason':
+              await db.getSetting('grounding_guard_last_reason') ?? '',
+        },
+        'desireCore': {
+          'drives': {
+            for (final entry in desireSnapshot.drives.entries)
+              entry.key.name: double.parse(entry.value.toStringAsFixed(4)),
+          },
+          'baselines': {
+            for (final entry in desireSnapshot.baselines.entries)
+              entry.key.name: double.parse(entry.value.toStringAsFixed(4)),
+          },
+          'refractoryMinutes': refractoryMinutes,
+          'lastIntent': desireSnapshot.lastIntent ?? '',
+          'lastIntentDrive': desireSnapshot.lastIntentDrive ?? '',
+          'lastIntentScore': desireSnapshot.lastIntentScore == null
+              ? null
+              : double.parse(desireSnapshot.lastIntentScore!.toStringAsFixed(4)),
+          'lastSatisfiedAction': desireSnapshot.lastSatisfiedAction ?? '',
+          'lastSatisfiedAt': desireSnapshot.lastSatisfiedAt?.millisecondsSinceEpoch ?? 0,
+          'fatigueGateActive':
+              (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
+                  DesireCorePolicy.fatigueRestGate,
+          'selected': desireCandidates.isEmpty
+              ? null
+              : {
+                  'drive': desireCandidates.first.drive.name,
+                  'action': desireCandidates.first.action,
+                  'score': double.parse(desireCandidates.first.score.toStringAsFixed(4)),
+                  'reasonSource': ThoughtProvenancePolicy
+                      .fromSource(desireCandidates.first.reasonSource)
+                      .key,
+                  'hasThought': desireCandidates.first.thoughtId != null,
+                },
+          'topCandidates': desireCandidates.take(4).map((candidate) => {
+                'drive': candidate.drive.name,
+                'action': candidate.action,
+                'score': double.parse(candidate.score.toStringAsFixed(4)),
+                'hasThought': candidate.thoughtId != null,
+              }).toList(),
+          'activeThoughtCount': desireThoughts.length,
+          'thoughtProvenanceCounts': provenanceCounts,
         },
         'backgroundPresence': {
           'lastWakeReason':
@@ -433,7 +509,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

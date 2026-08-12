@@ -19,7 +19,7 @@ extension DriveKeyLabel on DriveKey {
         DriveKey.curiosity => '好奇',
         DriveKey.reflection => '沉思',
         DriveKey.duty => '挂念',
-        DriveKey.social => '社交',
+        DriveKey.social => '互动',
         DriveKey.libido => '亲密',
         DriveKey.stress => '压力',
         DriveKey.fatigue => '疲劳',
@@ -32,6 +32,10 @@ class DesireSnapshot {
     Map<DriveKey, double>? baselines,
     Map<DriveKey, DateTime>? refractoryUntil,
     this.lastIntent,
+    this.lastIntentDrive,
+    this.lastIntentScore,
+    this.lastSatisfiedAction,
+    this.lastSatisfiedAt,
     this.lastTickAt,
     this.lastWildcardAt,
   })  : drives = drives ?? defaultDrives(),
@@ -42,6 +46,10 @@ class DesireSnapshot {
   final Map<DriveKey, double> baselines;
   final Map<DriveKey, DateTime> refractoryUntil;
   final String? lastIntent;
+  final String? lastIntentDrive;
+  final double? lastIntentScore;
+  final String? lastSatisfiedAction;
+  final DateTime? lastSatisfiedAt;
   final DateTime? lastTickAt;
   final DateTime? lastWildcardAt;
 
@@ -55,6 +63,10 @@ class DesireSnapshot {
     Map<DriveKey, double>? baselines,
     Map<DriveKey, DateTime>? refractoryUntil,
     String? lastIntent,
+    String? lastIntentDrive,
+    double? lastIntentScore,
+    String? lastSatisfiedAction,
+    DateTime? lastSatisfiedAt,
     DateTime? lastTickAt,
     DateTime? lastWildcardAt,
     bool clearIntent = false,
@@ -64,6 +76,12 @@ class DesireSnapshot {
       baselines: baselines ?? Map.of(this.baselines),
       refractoryUntil: refractoryUntil ?? Map.of(this.refractoryUntil),
       lastIntent: clearIntent ? null : (lastIntent ?? this.lastIntent),
+      lastIntentDrive:
+          clearIntent ? null : (lastIntentDrive ?? this.lastIntentDrive),
+      lastIntentScore:
+          clearIntent ? null : (lastIntentScore ?? this.lastIntentScore),
+      lastSatisfiedAction: lastSatisfiedAction ?? this.lastSatisfiedAction,
+      lastSatisfiedAt: lastSatisfiedAt ?? this.lastSatisfiedAt,
       lastTickAt: lastTickAt ?? this.lastTickAt,
       lastWildcardAt: lastWildcardAt ?? this.lastWildcardAt,
     );
@@ -77,6 +95,10 @@ class DesireSnapshot {
             e.key.name: e.value.toIso8601String(),
         },
         'last_intent': lastIntent,
+        'last_intent_drive': lastIntentDrive,
+        'last_intent_score': lastIntentScore,
+        'last_satisfied_action': lastSatisfiedAction,
+        'last_satisfied_at': lastSatisfiedAt?.toIso8601String(),
         'last_tick_at': lastTickAt?.toIso8601String(),
         'last_wildcard_at': lastWildcardAt?.toIso8601String(),
       };
@@ -124,6 +146,12 @@ class DesireSnapshot {
       baselines: decodeDoubleMap('baselines', defaultBaselines()),
       refractoryUntil: refractory,
       lastIntent: json['last_intent'] as String?,
+      lastIntentDrive: json['last_intent_drive'] as String?,
+      lastIntentScore: (json['last_intent_score'] as num?)?.toDouble(),
+      lastSatisfiedAction: json['last_satisfied_action'] as String?,
+      lastSatisfiedAt: json['last_satisfied_at'] == null
+          ? null
+          : DateTime.tryParse(json['last_satisfied_at'] as String),
       lastTickAt: json['last_tick_at'] == null
           ? null
           : DateTime.tryParse(json['last_tick_at'] as String),

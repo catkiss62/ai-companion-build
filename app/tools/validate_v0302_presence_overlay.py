@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert 'version: 0.30.2+38' in pubspec or 'version: 0.30.3+39' in pubspec
+    assert any(v in pubspec for v in ['version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40'])
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -87,8 +87,12 @@ def main() -> int:
         'gateScore < threshold',
     ]:
         assert token in proactive, token
-    assert '(presenceMomentum * (userBusy ? 0.055 : 0.095))' in proactive
-    assert '.clamp(0.0, 0.085)' in proactive
+    if 'version: 0.31.0+40' in pubspec:
+        assert 'const presenceBoost = 0.0;' in proactive
+        assert "'presenceAppliedToDesire': true" in proactive
+    else:
+        assert '(presenceMomentum * (userBusy ? 0.055 : 0.095))' in proactive
+        assert '.clamp(0.0, 0.085)' in proactive
 
     diagnostics = (ROOT / 'lib/core/diagnostics/preflight_diagnostics.dart').read_text(encoding='utf-8')
     for token in [
@@ -96,7 +100,9 @@ def main() -> int:
         "'presenceLastThoughtStrength'", "'lastGateBreakdown'",
         "'inputSuspect'", "'lastSystemCoverAt'", "'lastCoverRecoveryAt'",
         "'coverRecoveryCount'",
-        'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        ('AI Companion v0.31.0 · REDACTED LOCAL DIAGNOSTIC REPORT'
+         if 'version: 0.31.0+40' in pubspec
+         else 'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT'),
     ]:
         assert token in diagnostics, token
 
@@ -110,10 +116,11 @@ def main() -> int:
         assert token in test, token
 
     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
-    for token in [
-        'v0.30.3+39', 'Overlay Regression Repair',
-        'PresenceMomentumPolicy', 'lastGateBreakdown', 'schema v18',
-    ]:
+    handoff_tokens = ['PresenceMomentumPolicy', 'lastGateBreakdown', 'schema v18']
+    handoff_tokens += (['v0.31.0+40', 'Grounded Desire Core']
+                       if 'version: 0.31.0+40' in pubspec
+                       else ['v0.30.3+39', 'Overlay Regression Repair'])
+    for token in handoff_tokens:
         assert token in handoff, token
 
     print('v0.30.2 Overlay Resume + Presence Intelligence static validation passed.')

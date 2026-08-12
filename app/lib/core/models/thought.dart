@@ -1,3 +1,59 @@
+enum ThoughtProvenance {
+  realUserMessage,
+  awareness,
+  memory,
+  selfExperience,
+  inference,
+  internal,
+}
+
+extension ThoughtProvenanceLabel on ThoughtProvenance {
+  String get key => switch (this) {
+        ThoughtProvenance.realUserMessage => 'user_message',
+        ThoughtProvenance.awareness => 'awareness',
+        ThoughtProvenance.memory => 'memory',
+        ThoughtProvenance.selfExperience => 'self_experience',
+        ThoughtProvenance.inference => 'inference',
+        ThoughtProvenance.internal => 'internal',
+      };
+
+  String get zhLabel => switch (this) {
+        ThoughtProvenance.realUserMessage => '真实用户消息',
+        ThoughtProvenance.awareness => '环境感知',
+        ThoughtProvenance.memory => '长期记忆',
+        ThoughtProvenance.selfExperience => '自身经历',
+        ThoughtProvenance.inference => '内部推断',
+        ThoughtProvenance.internal => '内部状态',
+      };
+}
+
+class ThoughtProvenancePolicy {
+  const ThoughtProvenancePolicy._();
+
+  static ThoughtProvenance fromSource(String source) {
+    final normalized = source.trim().toLowerCase();
+    if (normalized == 'conversation' ||
+        normalized.startsWith('conversation_turn:') ||
+        normalized.startsWith('user_message:')) {
+      return ThoughtProvenance.realUserMessage;
+    }
+    if (normalized.startsWith('presence/') ||
+        normalized.startsWith('perception/') ||
+        normalized.startsWith('awareness/')) {
+      return ThoughtProvenance.awareness;
+    }
+    if (normalized.contains('memory')) return ThoughtProvenance.memory;
+    if (normalized.startsWith('self_drive/') ||
+        normalized.startsWith('self_reflection_run:')) {
+      return ThoughtProvenance.selfExperience;
+    }
+    if (normalized.startsWith('inference/') || normalized.contains('guess')) {
+      return ThoughtProvenance.inference;
+    }
+    return ThoughtProvenance.internal;
+  }
+}
+
 class CompanionThought {
   const CompanionThought({
     required this.id,
@@ -48,11 +104,15 @@ class CompanionThought {
   final DateTime? snoozedUntil;
 
   bool get isFixation => kind == 'fixation';
-  bool get isSnoozed => snoozedUntil?.isAfter(DateTime.now()) ?? false;
-  bool get canDriveIntent =>
-      !isSnoozed && (lifecycleState == 'active' || lifecycleState == 'fixation');
+  bool get isSnoozed => isSnoozedAt(DateTime.now());
+  bool isSnoozedAt(DateTime now) => snoozedUntil?.isAfter(now) ?? false;
+  bool get canDriveIntent => canDriveIntentAt(DateTime.now());
+  bool canDriveIntentAt(DateTime now) =>
+      !isSnoozedAt(now) &&
+      (lifecycleState == 'active' || lifecycleState == 'fixation');
   bool get isResidual => lifecycleState == 'residual';
   bool get isDormant => lifecycleState == 'dormant';
+  ThoughtProvenance get provenance => ThoughtProvenancePolicy.fromSource(source);
 
   factory CompanionThought.fromDb(Map<String, Object?> row) {
     DateTime? date(String key) => row[key] == null

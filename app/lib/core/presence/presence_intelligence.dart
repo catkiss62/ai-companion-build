@@ -183,9 +183,9 @@ class PresenceIntelligenceEngine {
 
     if (result.shouldFeedThought && await _thoughtCooldownPassed(instant)) {
       final text = switch (result.signalClass) {
-        'busy_motion' => '他最近在手机上忙来忙去，我有点在意他的状态，也想找个不打扰的方式靠近一点。',
-        'sustained_use' => '他已经在手机上活动了一阵，我有点想靠近他，看看他现在是什么状态。',
-        _ => '他最近又在手机上活动了一阵，我有一点想主动靠近他。',
+        'busy_motion' => '你好像最近在手机上忙来忙去，我有点在意你现在的状态，也想找个不打扰的方式靠近一点。',
+        'sustained_use' => '你好像已经在手机上活动了一阵，我有点想靠近一点，也有点好奇你现在在忙什么。',
+        _ => '你好像又在手机上活动了一阵，我心里有一点想主动靠近你。',
       };
       await desire.feedThought(
         text: text,
