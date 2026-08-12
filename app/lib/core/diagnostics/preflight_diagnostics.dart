@@ -195,6 +195,29 @@ class PreflightDiagnosticsService {
           'proactiveGroundingRetryLastReason':
               await db.getSetting('grounding_retry_last_reason') ?? '',
         },
+        'companionVoice': {
+          'enabled': (await db.getSetting('companion_voice_enabled')) == '1',
+          'retryCount': int.tryParse(
+                await db.getSetting('companion_voice_retry_count') ?? '',
+              ) ??
+              0,
+          'retryLastAt': int.tryParse(
+                await db.getSetting('companion_voice_retry_last_at') ?? '',
+              ) ??
+              0,
+          'retryLastReason':
+              await db.getSetting('companion_voice_retry_last_reason') ?? '',
+          'blockCount': int.tryParse(
+                await db.getSetting('companion_voice_block_count') ?? '',
+              ) ??
+              0,
+          'blockLastAt': int.tryParse(
+                await db.getSetting('companion_voice_block_last_at') ?? '',
+              ) ??
+              0,
+          'blockLastReason':
+              await db.getSetting('companion_voice_block_last_reason') ?? '',
+        },
         'desireCore': {
           'drives': {
             for (final entry in desireSnapshot.drives.entries)
@@ -519,7 +542,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.31.1 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.31.2 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

@@ -31,6 +31,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool loading = true;
   bool revealKey = false;
   bool testingApi = false;
+  bool companionVoiceEnabled = false;
   bool autoMemory = true;
   bool memoryConsolidation = true;
   bool memoryFading = true;
@@ -68,6 +69,8 @@ class _SettingsPageState extends State<SettingsPage> {
     keyController.text = await secure.readApiKey() ?? '';
     endpointController.text = await secure.readEndpoint();
     autoMemory = (await db.getSetting('auto_memory')) != '0';
+    companionVoiceEnabled =
+        (await db.getSetting('companion_voice_enabled')) == '1';
     memoryConsolidation = (await db.getSetting('memory_consolidation_enabled')) != '0';
     memoryFading = (await db.getSetting('memory_fading_enabled')) != '0';
     referenceLibrary = (await db.getSetting('reference_library_enabled')) != '0';
@@ -110,6 +113,10 @@ class _SettingsPageState extends State<SettingsPage> {
       await secure.writeEndpoint(endpointController.text);
       await secure.writeApiKey(keyController.text);
       await db.setSetting('auto_memory', autoMemory ? '1' : '0');
+      await db.setSetting(
+        'companion_voice_enabled',
+        companionVoiceEnabled ? '1' : '0',
+      );
       await db.setSetting('memory_consolidation_enabled', memoryConsolidation ? '1' : '0');
       await db.setSetting('memory_fading_enabled', memoryFading ? '1' : '0');
       await db.setSetting('reference_library_enabled', referenceLibrary ? '1' : '0');
@@ -425,6 +432,16 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 8),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          title: const Text('伴侣式内心与回应'),
+          subtitle: const Text(
+            '开启后生成独立的第一人称内心与自然回应；关闭后直接使用模型原始输出。'
+            '开启时会先验证完整回复，因此不使用流式分句朗读。',
+          ),
+          value: companionVoiceEnabled,
+          onChanged: (v) => setState(() => companionVoiceEnabled = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
           title: const Text('自动长期记忆抽取'),
           subtitle: const Text('聊天成功后用 Flash 抽取少量长期记忆，保存到本机 SQLite。'),
           value: autoMemory,
@@ -573,7 +590,7 @@ class _SettingsPageState extends State<SettingsPage> {
           title: const Text('流式分句朗读'),
           subtitle: const Text('DeepSeek 每完成一句就进入本地 TTS 队列，不必等整条回复生成完。'),
           value: streamingTts,
-          onChanged: ttsEnabled && autoTts
+          onChanged: ttsEnabled && autoTts && !companionVoiceEnabled
               ? (v) => setState(() => streamingTts = v)
               : null,
         ),
@@ -657,7 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         const SizedBox(height: 24),
         const Text(
-          '说明：旧 reasoning_content 默认不回传下一轮，只在本地保存供你查看。感知文字始终按外部数据处理，不能覆盖系统身份与规则。',
+          '说明：伴侣式模式关闭时保持原始 reasoning_content 展示；开启时仅展示独立的第一人称内心，provider reasoning 只在本地保留作诊断。感知文字始终按外部数据处理，不能覆盖系统身份与规则。',
         ),
       ],
     );

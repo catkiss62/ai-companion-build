@@ -54,3 +54,10 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 - Desire Core v2 数值策略；
 - Presence Momentum 与 Proactive hard caps；
 - Active Brain / transfer fencing。
+
+## v0.31.2 Companion Voice 兼容补充
+
+- Grounding 的事实来源、answered-history transcript、正文 guard 与 reasoning guard 均保持不变。
+- 用户开启 Companion Voice 时，主动候选先从显式协议解析出 `inner_voice / reply`，Grounding guard 检查解析后的用户可见两部分，而不是 provider 的 Agent 式 hidden reasoning。
+- Companion Voice 格式/Agent 污染和 Reality Grounding 共用**一次**候选纠正预算，避免一次主动心跳连续调用多次模型。纠正后协议仍无效则按 WAIT；Grounding 仍失败则按原 guard 丢弃。
+- provider reasoning 单独本地保存，不进入通知、TTS 或下一轮历史 prompt。

@@ -7,6 +7,7 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../storage/secure_config.dart';
 import 'deepseek_client.dart';
+import 'companion_voice_protocol.dart';
 import 'model_profile.dart';
 import 'prompt_builder.dart';
 
@@ -113,87 +114,139 @@ class DurableGenerationRunner {
       );
     }
 
-    var reasoning = '';
-    var content = '';
     var lastCheckpoint = DateTime.now();
     var charsAtCheckpoint = 0;
     var lastLeaseRefresh = DateTime.now();
-    var sawTerminalSignal = false;
 
     try {
       final previous = await db.messagesBefore(user.createdAt, limit: 33);
       final recent = <ChatMessage>[...previous, user];
       final desire = await db.loadDesire();
       final thoughts = await db.activeThoughts(limit: 18);
-      final requestMessages = await PromptBuilder(db).buildChatMessages(
+      final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
         latestUserText: user.content,
         recent: recent,
         desire: desire,
         thoughts: thoughts,
       );
+      final companionVoiceEnabled = CompanionVoiceProtocol.enabledFromSetting(
+        await db.getSetting(CompanionVoiceProtocol.settingKey),
+      );
 
-      await for (final delta in client.streamChat(
-        apiKey: apiKey,
-        model: DeepSeekModelProfile.fromApiName(job.model),
-        effort: ReasoningEffort.fromApiName(job.reasoningEffort),
-        messages: requestMessages,
-        endpoint: endpoint,
-        thinking: job.thinking,
-      )) {
-        if (!await db.brainWorkAllowed()) {
-          throw const GenerationSuspendedException('设备正在转移或已经下线');
-        }
-
-        final now = DateTime.now();
-        if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 45)) {
-          final renewed = await db.renewLocalLease(
-            'chat_turn_lease',
-            holdFor: const Duration(minutes: 3),
-          );
-          if (!renewed) {
-            throw const GenerationSuspendedException('聊天写入权限已经转移');
+      Future<({String reasoning, String content})> generate(
+        List<Map<String, Object?>> messages, {
+        required bool emitDeltas,
+      }) async {
+        var reasoning = '';
+        var content = '';
+        var sawTerminalSignal = false;
+        charsAtCheckpoint = 0;
+        lastCheckpoint = DateTime.now();
+        await for (final delta in client.streamChat(
+          apiKey: apiKey,
+          model: DeepSeekModelProfile.fromApiName(job.model),
+          effort: ReasoningEffort.fromApiName(job.reasoningEffort),
+          messages: messages,
+          endpoint: endpoint,
+          thinking: job.thinking,
+        )) {
+          if (!await db.brainWorkAllowed()) {
+            throw const GenerationSuspendedException('设备正在转移或已经下线');
           }
-          lastLeaseRefresh = now;
-        }
 
-        if (delta.done || delta.finishReason != null) {
-          sawTerminalSignal = true;
-        }
-        if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
-        if (delta.content.isNotEmpty) content += delta.content;
-        onDelta?.call(delta);
-
-        final chars = reasoning.length + content.length;
-        if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
-            chars - charsAtCheckpoint >= 768) {
-          final checkpointed = await db.checkpointGenerationJob(
-            job.id,
-            runToken: job.runToken,
-            partialReasoning: reasoning,
-            partialContent: content,
-          );
-          if (!checkpointed) {
-            throw const GenerationSuspendedException(
-              '本次生成尝试的写入所有权已经过期',
+          final now = DateTime.now();
+          if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 45)) {
+            final renewed = await db.renewLocalLease(
+              'chat_turn_lease',
+              holdFor: const Duration(minutes: 3),
             );
+            if (!renewed) {
+              throw const GenerationSuspendedException('聊天写入权限已经转移');
+            }
+            lastLeaseRefresh = now;
           }
-          lastCheckpoint = now;
-          charsAtCheckpoint = chars;
+
+          if (delta.done || delta.finishReason != null) {
+            sawTerminalSignal = true;
+          }
+          if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
+          if (delta.content.isNotEmpty) content += delta.content;
+          if (emitDeltas) onDelta?.call(delta);
+
+          final chars = reasoning.length + content.length;
+          if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
+              chars - charsAtCheckpoint >= 768) {
+            final checkpointed = await db.checkpointGenerationJob(
+              job.id,
+              runToken: job.runToken,
+              partialReasoning: reasoning,
+              partialContent: content,
+            );
+            if (!checkpointed) {
+              throw const GenerationSuspendedException(
+                '本次生成尝试的写入所有权已经过期',
+              );
+            }
+            lastCheckpoint = now;
+            charsAtCheckpoint = chars;
+          }
         }
+        if (!sawTerminalSignal) {
+          throw const GenerationStreamIncompleteException();
+        }
+        return (reasoning: reasoning.trim(), content: content.trim());
       }
 
-      if (!sawTerminalSignal) {
-        throw const GenerationStreamIncompleteException();
-      }
-      final finalContent = content.trim();
-      if (finalContent.isEmpty) {
+      var generated = await generate(
+        companionVoiceEnabled
+            ? CompanionVoiceProtocol.attachAtTail(
+                baseRequestMessages,
+                proactive: false,
+              )
+            : baseRequestMessages,
+        emitDeltas: !companionVoiceEnabled,
+      );
+      if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
+      }
+
+      var finalContent = generated.content;
+      var visibleInner = generated.reasoning;
+      if (companionVoiceEnabled) {
+        var parsed = CompanionVoiceProtocol.parse(generated.content);
+        if (!parsed.valid) {
+          await _noteCompanionVoiceRetry(parsed.failureCode);
+          generated = await generate(
+            CompanionVoiceProtocol.attachAtTail(
+              baseRequestMessages,
+              proactive: false,
+              correctionCode: parsed.failureCode,
+            ),
+            emitDeltas: false,
+          );
+          parsed = CompanionVoiceProtocol.parse(generated.content);
+        }
+        if (!parsed.valid) {
+          await _noteCompanionVoiceBlock(parsed.failureCode);
+          throw FormatException(
+            '伴侣式内心协议连续两次无效（${parsed.failureCode}）',
+          );
+        }
+        finalContent = parsed.output!.reply;
+        visibleInner = parsed.output!.innerVoice;
+        onDelta?.call(DeepSeekDelta(
+          reasoning: visibleInner,
+          content: finalContent,
+          finishReason: 'companion_voice_parsed',
+        ));
       }
       final assistant = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
         content: finalContent,
-        reasoningContent: reasoning.trim(),
+        reasoningContent: visibleInner,
+        providerReasoning: generated.reasoning,
+        companionVoice: companionVoiceEnabled,
         model: job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
@@ -238,6 +291,32 @@ class DurableGenerationRunner {
         retryAt: failed.nextRetryAt,
       );
     }
+  }
+
+  Future<void> _noteCompanionVoiceRetry(String reason) async {
+    final count = int.tryParse(
+          await db.getSetting('companion_voice_retry_count') ?? '',
+        ) ??
+        0;
+    await db.setSetting('companion_voice_retry_count', (count + 1).toString());
+    await db.setSetting(
+      'companion_voice_retry_last_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    await db.setSetting('companion_voice_retry_last_reason', reason);
+  }
+
+  Future<void> _noteCompanionVoiceBlock(String reason) async {
+    final count = int.tryParse(
+          await db.getSetting('companion_voice_block_count') ?? '',
+        ) ??
+        0;
+    await db.setSetting('companion_voice_block_count', (count + 1).toString());
+    await db.setSetting(
+      'companion_voice_block_last_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    await db.setSetting('companion_voice_block_last_reason', reason);
   }
 
   bool _recoverable(Object error) {

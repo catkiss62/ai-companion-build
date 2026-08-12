@@ -5,10 +5,12 @@ class ReasoningPanel extends StatelessWidget {
     super.key,
     required this.reasoning,
     this.streaming = false,
+    this.companionVoice = false,
   });
 
   final String reasoning;
   final bool streaming;
+  final bool companionVoice;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,11 @@ class ReasoningPanel extends StatelessWidget {
       child: ExpansionTile(
         dense: true,
         initiallyExpanded: streaming,
-        title: Text(streaming ? '🧠 正在思考' : '🧠 思考'),
+        title: Text(
+          companionVoice
+              ? (streaming ? '🧠 正在整理内心' : '🧠 内心')
+              : (streaming ? '🧠 正在思考' : '🧠 思考'),
+        ),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         children: [
           SelectableText(

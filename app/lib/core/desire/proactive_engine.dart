@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:uuid/uuid.dart';
 
 import '../ai/deepseek_client.dart';
+import '../ai/companion_voice_protocol.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../continuity/daily_continuity_engine.dart';
@@ -70,6 +71,22 @@ class _ProactiveGenerationCandidate {
 
   final String reasoning;
   final String content;
+}
+
+class _PreparedProactiveCandidate {
+  const _PreparedProactiveCandidate({
+    required this.providerReasoning,
+    required this.innerVoice,
+    required this.reply,
+    this.voiceFailure = '',
+  });
+
+  final String providerReasoning;
+  final String innerVoice;
+  final String reply;
+  final String voiceFailure;
+
+  bool get voiceValid => voiceFailure.isEmpty;
 }
 
 class ProactiveEngine {
@@ -399,10 +416,14 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         ? null
         : await db.messageById(proactiveGrounding.lastUserMessageId!);
     final lastGroundedUserText = lastGroundedUser?.content ?? '';
+    final companionVoiceEnabled = CompanionVoiceProtocol.enabledFromSetting(
+      await db.getSetting(CompanionVoiceProtocol.settingKey),
+    );
     var lastProactiveLeaseRefresh = DateTime.now();
 
     Future<_ProactiveGenerationCandidate?> generateCandidate(
       List<Map<String, Object?>> promptMessages,
+      {String voiceCorrectionCode = ''}
     ) async {
       final reasoning = StringBuffer();
       final content = StringBuffer();
@@ -410,7 +431,13 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         apiKey: apiKey,
         model: model,
         effort: ReasoningEffort.high,
-        messages: promptMessages,
+        messages: companionVoiceEnabled
+            ? CompanionVoiceProtocol.attachAtTail(
+                promptMessages,
+                proactive: true,
+                correctionCode: voiceCorrectionCode,
+              )
+            : promptMessages,
         endpoint: endpoint,
         thinking: true,
         maxTokens: 700,
@@ -433,6 +460,35 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       );
     }
 
+    _PreparedProactiveCandidate prepareCandidate(
+      _ProactiveGenerationCandidate value,
+    ) {
+      if (!companionVoiceEnabled) {
+        return _PreparedProactiveCandidate(
+          providerReasoning: value.reasoning,
+          innerVoice: value.reasoning,
+          reply: value.content,
+        );
+      }
+      final parsed = CompanionVoiceProtocol.parse(
+        value.content,
+        proactive: true,
+      );
+      if (!parsed.valid) {
+        return _PreparedProactiveCandidate(
+          providerReasoning: value.reasoning,
+          innerVoice: '',
+          reply: '',
+          voiceFailure: parsed.failureCode,
+        );
+      }
+      return _PreparedProactiveCandidate(
+        providerReasoning: value.reasoning,
+        innerVoice: parsed.output!.innerVoice,
+        reply: parsed.output!.reply,
+      );
+    }
+
     Future<void> noteGroundingRetry(String reason) async {
       final count = int.tryParse(
             await db.getSetting('grounding_retry_count') ?? '',
@@ -444,6 +500,43 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
       await db.setSetting('grounding_retry_last_reason', reason);
+    }
+
+    Future<void> noteCompanionVoiceRetry(String reason) async {
+      final count = int.tryParse(
+            await db.getSetting('companion_voice_retry_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting('companion_voice_retry_count', (count + 1).toString());
+      await db.setSetting(
+        'companion_voice_retry_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      await db.setSetting('companion_voice_retry_last_reason', reason);
+    }
+
+    Future<ProactiveDecision> blockCompanionVoice(String reason) async {
+      final count = int.tryParse(
+            await db.getSetting('companion_voice_block_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting('companion_voice_block_count', (count + 1).toString());
+      await db.setSetting(
+        'companion_voice_block_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+      await db.setSetting('companion_voice_block_last_reason', reason);
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:companion_voice_guard',
+        decision: 'companion_voice_wait',
+      );
+      return ProactiveDecision(
+        sent: false,
+        reason: '伴侣式内心协议纠正后仍无效，本次主动联系按 WAIT 处理',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
     }
 
     Future<ProactiveDecision> blockGrounding(String reason) async {
@@ -484,10 +577,12 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       );
     }
 
-    bool isWait(_ProactiveGenerationCandidate value) =>
-        value.content.isEmpty || value.content == 'WAIT';
+    var prepared = prepareCandidate(candidate);
 
-    if (isWait(candidate)) {
+    bool isWait(_PreparedProactiveCandidate value) =>
+        value.voiceValid && (value.reply.isEmpty || value.reply == 'WAIT');
+
+    if (isWait(prepared)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'model_wait',
@@ -503,22 +598,29 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 
     var textGuard = ProactiveGroundingGuard.evaluate(
       grounding: proactiveGrounding,
-      text: candidate.content,
+      text: prepared.reply,
     );
     var reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
       grounding: proactiveGrounding,
-      reasoning: candidate.reasoning,
+      reasoning: prepared.innerVoice,
       lastUserText: lastGroundedUserText,
     );
 
-    if (!textGuard.allowed || !reasoningGuard.allowed) {
-      final retryReason = !reasoningGuard.allowed
-          ? reasoningGuard.reason
-          : textGuard.reason;
-      await noteGroundingRetry(retryReason);
+    if (!prepared.voiceValid || !textGuard.allowed || !reasoningGuard.allowed) {
+      final voiceRetry = !prepared.voiceValid;
+      final retryReason = voiceRetry
+          ? prepared.voiceFailure
+          : !reasoningGuard.allowed
+              ? reasoningGuard.reason
+              : textGuard.reason;
+      if (voiceRetry) {
+        await noteCompanionVoiceRetry(retryReason);
+      } else {
+        await noteGroundingRetry(retryReason);
+      }
       final retryContext = <Map<String, Object?>>[
         ...context,
-        {
+        if (!voiceRetry) {
           'role': 'system',
           'content': '''
 【REALITY GROUNDING CORRECTION · ONE RETRY】
@@ -529,7 +631,10 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
 '''.trim(),
         },
       ];
-      final retried = await generateCandidate(retryContext);
+      final retried = await generateCandidate(
+        retryContext,
+        voiceCorrectionCode: voiceRetry ? retryReason : '',
+      );
       if (retried == null) {
         return ProactiveDecision(
           sent: false,
@@ -540,7 +645,8 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
         );
       }
       candidate = retried;
-      if (isWait(candidate)) {
+      prepared = prepareCandidate(candidate);
+      if (isWait(prepared)) {
         await db.addProactiveHistory(
           triggerReason: '${intent.drive.name}:${intent.reason}',
           decision: 'grounding_retry_wait',
@@ -553,13 +659,16 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
           deliveryStyle: deliveryStyle,
         );
       }
+      if (!prepared.voiceValid) {
+        return blockCompanionVoice(prepared.voiceFailure);
+      }
       textGuard = ProactiveGroundingGuard.evaluate(
         grounding: proactiveGrounding,
-        text: candidate.content,
+        text: prepared.reply,
       );
       reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
         grounding: proactiveGrounding,
-        reasoning: candidate.reasoning,
+        reasoning: prepared.innerVoice,
         lastUserText: lastGroundedUserText,
       );
     }
@@ -571,7 +680,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       return blockGrounding(reasoningGuard.reason);
     }
 
-    final text = candidate.content;
+    final text = prepared.reply;
 
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
@@ -580,7 +689,9 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       id: _uuid.v4(),
       role: 'assistant',
       content: text,
-      reasoningContent: candidate.reasoning,
+      reasoningContent: prepared.innerVoice,
+      providerReasoning: prepared.providerReasoning,
+      companionVoice: companionVoiceEnabled,
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,

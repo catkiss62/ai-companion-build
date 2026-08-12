@@ -1,11 +1,30 @@
-# v0.31.1 真机检查 · Proactive Grounding + Chat Timestamps
+# v0.31.2 真机检查 · Companion Voice Recovery
 
-本轮不追悬浮球 file-picker 已知问题。重点确认 proactive 的“当前轮次”与 UI 时间 metadata。
+本版只验收 Companion Voice。Overlay file-picker 卡死留到 v0.31.3，Desire 定向收尾留到 v0.31.4。
 
-1. **时间戳 UI**：发送两三条消息，用户和 AI 气泡下方应显示 `HH:mm`；跨日期历史应出现“今天/昨天/日期 · 周X”分隔。
-2. **TTS 不读时间**：手动朗读一条 AI 回复，只应朗读正文，不应念出 `23:21`、日期或“周三”。
-3. **已回答“你好”不再成为 current turn**：发送“你好”，等 AI 正常回复，然后不再发言；到“她的内心”强制测试一次主动联系。reasoning 和正文都应作为新的主动开口，不能以“回复/回答你好”为任务。
-4. **连续沉默 proactive**：用户仍不说话时再测试一次；不得虚构“你刚才说/回复了某句”。
-5. **纠正重试可观测性**：不要求一定触发。若模型第一次走偏，浅层诊断中的 `proactiveGroundingRetryCount` 可增加；最终用户不应看到被拦截的错误 candidate。
-6. **浅层诊断**：不点深度自检直接导出，重点看 `database.grounding`、`database.desireCore`、`backgroundPresence.lastGateBreakdown`；诊断仍不能包含聊天正文/Thought 正文/raw Android payload。
-7. **基本回归**：普通聊天、reasoning/body 顺序、TTS、Active Brain、Presence 无明显回归。Overlay 的已知 file-picker 卡死不判本轮失败。
+## A. 默认关闭 / 原版兼容
+
+1. 覆盖安装后先不要打开新开关；设置中“伴侣式内心与回应”应默认为关闭。
+2. 发送普通消息，表现应与 v0.31.1 相同：provider reasoning 继续显示为“🧠 思考”，正文仍可流式出现。
+3. 若原本开启自动 TTS + 流式分句朗读，OFF 下仍应保持流式分句；时间戳不被朗读。
+
+## B. 开启后的目标体验
+
+4. 打开“伴侣式内心与回应”并保存。发送“嗨”“就是想找你”“我叫猫吻，可以叫你小鲸鱼吗”等短句。
+5. 回复卡片应显示“🧠 内心”，其中是第一人称主观心绪，不应出现“我们需要回答用户 / 用户要求 / 系统提示 / 保持 AI 本体身份”等 Agent 清单。
+6. 正文应自然承接昵称、玩笑和关系语境，不机械复述，不固定撒娇，也不要每轮都写动作描写或连续提问。
+7. 测试深夜陪伴、普通办事、严肃话题和明确拒绝亲昵：语气应随语境变化，不能把所有聊天强行色情化或恋爱模板化。
+8. ON 下回复会在完整协议验证后一起出现，这是预期行为；自动 TTS 只朗读最终正文，不朗读内心、provider reasoning 或协议标签。
+
+## C. 主动联系与故障边界
+
+9. 用户消息已回答后保持沉默，再从“她的内心”强制主动联系：inner voice 与 reply 都不能把已回答历史当成 current user turn。
+10. 若模型第一次格式错误，用户不应看到错误标签或 Agent candidate；浅层诊断的 `database.companionVoice.retryCount` 可以增加。
+11. 主动联系纠正后仍无效时应静默 WAIT，不出现空白气泡、协议标签或错误通知。
+12. 关闭开关并保存后再次聊天，应立即回到 provider 原版“思考”路径，不需要清库或重装。
+
+## D. 回归
+
+13. 历史 v0.31.1 消息仍能正常显示 reasoning/body/time；导出、导入和手机/平板接管不丢消息。
+14. TTS A2 音色、分句、`Yuki -> 有希`、手动朗读保持不变。
+15. Active Brain、Grounding、主动频率 hard caps、Desire/Thought 状态无明显回归。

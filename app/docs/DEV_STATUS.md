@@ -1,14 +1,12 @@
-# v0.31.1 开发状态 · Proactive Grounding + Chat Timestamps
+# v0.31.2 开发状态 · Companion Voice Recovery
 
-- 版本：`0.31.1+41`；数据库仍为 **schema v18**，无迁移。
-- v0.31.0 真机已经证明 Conversation Grounding 数据层判断正确：`lastUserAnswered=true / pendingUserTurn=false / userSpokeAfterLastAssistant=false`，但 DeepSeek proactive reasoning 仍可能把已回答的“你好”当普通 current user turn。
-- v0.31.1 将 proactive 历史从 role 序列改成只读 `ANSWERED CHAT HISTORY` system transcript；本轮不再存在 current `role=user`。
-- 新增 `CURRENT TURN CONTRACT`：`CURRENT_USER_TURN=NONE / ANSWERED_HISTORY_ONLY=true`，约束 reasoning 与正文都不得把历史 user 消息重新当待回复输入。
-- 新增 `ProactiveReasoningGroundingGuard`：当 SQLite 明确用户沉默且最后 user turn 已回答时，检测 reasoning 是否又进入“回复/回答用户上一句”的模式。
-- proactive candidate 若正文或 reasoning 首次违反 Grounding，会自动做 **一次且仅一次**纠正重试；第二次仍违规则整条 proactive 不落库，不把错误 reasoning 展示给用户。
-- 脱敏诊断新增 proactive Grounding retry count/last reason，不含聊天正文。
-- 主聊天 UI 新增每条消息 `HH:mm` 时间戳与跨日日期分隔；时间仅来自 `ChatMessage.createdAt` metadata。
-- TTS 继续只读取 `message.content`，不会朗读 UI 时间戳或日期分隔。
-- Overlay/WindowManager Android 源码未修改，悬浮球 file-picker 已知问题继续 FROZEN。
-- Desire Core v2 数值策略、Presence、Active Brain、TTS A2/native 均保持 v0.31.0 行为。
-- 下一批 v0.31.x：当前手机粗粒度上下文强化、baseline pullback、self-drive response outcome、Wildcard、Intent/Action 完整映射；主动联系逻辑稳定后再做消息提示音/锁屏通知体验。
+- 源码候选：`0.31.2+42`；数据库升级到 **schema v19**。
+- 新增默认关闭的设置项“伴侣式内心与回应”。OFF 不追加协议，继续使用并展示 provider 原始 `reasoning_content`，保留 v0.31.1 流式正文与流式 TTS 行为。
+- ON 在真实 prompt 尾部追加一次 `COMPANION VOICE OUTPUT CONTRACT`，要求 content 只包含 `<companion_inner>` 与 `<companion_reply>`。
+- `CompanionVoiceProtocol` 严格解析标签，要求第一人称/主观内心，并拦截“我们需要回答用户、用户要求、系统规则、保持 AI 本体身份”等 Agent/规则清单语言。
+- 普通聊天首次协议失败会做一次纠正；再次失败不保存混杂候选。主动联系与 Reality Grounding 共用一个纠正预算，再失败直接按 WAIT，不落库。
+- schema v19 为 `messages` 新增 `provider_reasoning` 与 `companion_voice`。旧 `reasoning_content` 在迁移时回填到 provider 字段，历史消息继续显示原样；ON 新消息分别保存 provider reasoning、用户可见 inner voice 与 final reply。
+- ON 模式先缓冲并验证完整协议，因此不做正文/语音的未验证流式透传；验证成功后界面显示“🧠 内心”，TTS 仍只读 final reply。OFF 继续显示“🧠 思考”。
+- 脱敏诊断新增 Companion Voice enabled/retry/block 计数、时间和枚举原因，不导出 provider reasoning、inner voice 或聊天正文。
+- v0.31.2 没有修改 Android Overlay、TTS native/service/queue、Desire 数学策略、自驱内核、频率 hard caps 或 Grounding 事实规则。
+- 本地环境已通过 Companion Voice 静态 validator、协议语法解析、Desire 数值长跑、TTS 黄金基线和现有 SQLite 回归。Flutter analyze/test/release APK 由 GitHub Actions 完成。

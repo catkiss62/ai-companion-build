@@ -8,6 +8,8 @@ void main() {
       role: 'assistant',
       content: '正文',
       reasoningContent: '思考',
+      providerReasoning: 'provider raw reasoning',
+      companionVoice: true,
       model: 'deepseek-v4-pro',
       createdAt: DateTime.fromMillisecondsSinceEpoch(123456),
       isProactive: true,
@@ -18,6 +20,8 @@ void main() {
     final restored = ChatMessage.fromDb(message.toDb());
     expect(restored.content, '正文');
     expect(restored.reasoningContent, '思考');
+    expect(restored.providerReasoning, 'provider raw reasoning');
+    expect(restored.companionVoice, isTrue);
     expect(restored.isProactive, isTrue);
     expect(restored.proactiveIntent, 'miss_you');
     expect(restored.proactiveDelivery, 'warm');

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/ai/deepseek_client.dart';
+import '../../core/ai/companion_voice_protocol.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
 import '../../core/ai/memory_extractor.dart';
@@ -100,6 +101,7 @@ class ChatController extends ChangeNotifier {
   bool recoveringGeneration = false;
   String streamingReasoning = '';
   String streamingContent = '';
+  bool streamingCompanionVoice = false;
   String? error;
   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
   ReasoningEffort effort = ReasoningEffort.high;
@@ -258,6 +260,7 @@ class ChatController extends ChangeNotifier {
     recoveringGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
+    streamingCompanionVoice = false;
     _safeNotify();
 
     var streamTts = false;
@@ -310,7 +313,11 @@ class ChatController extends ChangeNotifier {
 
       final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
       final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
+      streamingCompanionVoice = CompanionVoiceProtocol.enabledFromSetting(
+        await db.getSetting(CompanionVoiceProtocol.settingKey),
+      );
       streamTts = autoTts &&
+          !streamingCompanionVoice &&
           (await db.getSetting('tts_streaming_enabled')) != '0';
       if (streamTts) {
         try {
@@ -406,6 +413,9 @@ class ChatController extends ChangeNotifier {
     recoveringGeneration = true;
     streamingReasoning = '';
     streamingContent = '';
+    streamingCompanionVoice = CompanionVoiceProtocol.enabledFromSetting(
+      await db.getSetting(CompanionVoiceProtocol.settingKey),
+    );
     error = null;
     _safeNotify();
     try {
@@ -442,6 +452,7 @@ class ChatController extends ChangeNotifier {
       recoveringGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
+      streamingCompanionVoice = false;
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
       unawaited(_scheduleGenerationRecovery());
