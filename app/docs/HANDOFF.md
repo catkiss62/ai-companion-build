@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.2+42 · Companion Voice Recovery**；尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
+- 当前源码候选：**v0.31.2+43 · Companion Voice Native-Channel Hotfix**；修复 +42 真机开启开关后普通聊天被 `protocol_shape` 连续拦截的问题，尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v19**；为消息新增独立 provider reasoning 与 Companion Voice 标记，Desire snapshot 结构未改。
 - GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
@@ -77,6 +77,13 @@ v0.31.1 处理：
 - 普通聊天格式/污染失败最多纠正一次，再失败不保存混杂 candidate；主动联系与 Reality Grounding 共用一次纠正预算，再失败按 WAIT/guard block。
 - schema v19 为 `messages` 新增 `provider_reasoning` 与 `companion_voice`。旧 reasoning 在升级时回填为 provider reasoning，历史显示不变；ON 新消息分别保存 raw provider reasoning、inner voice 与 reply。
 - ON 模式不把未验证标签流式透传到 UI/TTS；验证后显示“🧠 内心”，TTS 只朗读 reply。OFF 仍显示“🧠 思考”并保留流式分句朗读。
+
+### v0.31.2+43 真机热修
+
+- +42 只从 `content` 严格查找两个完整标签；DeepSeek V4 Pro 实际使用原生 `reasoning_content + content` 双通道时，连续两次被误记为 `protocol_shape`，普通用户消息因此无回复。
+- +43 的解析顺序改为：旧 content 双标签 → reasoning 中带 inner 标签且 content 为正文 → 原生 reasoning/content 双通道；三种形态共用同一套第一人称、Agent 污染和 WAIT 校验。
+- 普通聊天第二次仍仅内心格式不合格时，允许只提交经过安全检查的最终正文，并将本轮内心留空；绝不把协议标签、内心块或 Agent 计划降级显示。主动消息仍保持严格 WAIT/block。
+- schema 仍为 v19；Overlay、TTS native/queue、Desire/Grounding 数值与事实规则未改。
 
 ## 4. v0.31.0 · Grounded Desire Core 第一批
 

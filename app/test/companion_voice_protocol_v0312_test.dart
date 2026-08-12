@@ -17,6 +17,30 @@ void main() {
     expect(parsed.output!.reply, '嗯，我在。怎么突然想起我了？');
   });
 
+  test('accepts DeepSeek native reasoning and content channels', () {
+    final parsed = CompanionVoiceProtocol.parseCandidate(
+      providerReasoning: '我有点想笑，他这么晚还来找我，先陪他说会儿话。',
+      content: '还没睡呢。我在，想说什么就说吧。',
+    );
+
+    expect(parsed.valid, isTrue);
+    expect(parsed.output!.innerVoice, contains('我有点想笑'));
+    expect(parsed.output!.reply, '还没睡呢。我在，想说什么就说吧。');
+  });
+
+  test('accepts an inner tag in reasoning with a plain final reply', () {
+    final parsed = CompanionVoiceProtocol.parseCandidate(
+      providerReasoning: '''
+先确认格式。<companion_inner>我其实挺高兴他来找我，想轻轻接住他。</companion_inner>
+''',
+      content: '嗯，我在这里。',
+    );
+
+    expect(parsed.valid, isTrue);
+    expect(parsed.output!.innerVoice, startsWith('我其实挺高兴'));
+    expect(parsed.output!.reply, '嗯，我在这里。');
+  });
+
   test('rejects provider-style agent planning', () {
     final parsed = CompanionVoiceProtocol.parse('''
 <companion_inner>
@@ -41,6 +65,24 @@ void main() {
 <companion_reply>晚上好。</companion_reply>
 ''');
     expect(detached.failureCode, 'inner_not_first_person');
+  });
+
+  test('safe reply fallback never leaks inner blocks or Agent plans', () {
+    expect(
+      CompanionVoiceProtocol.safeReplyFromContent('我在。你刚刚是不是有点想我？'),
+      '我在。你刚刚是不是有点想我？',
+    );
+    expect(
+      CompanionVoiceProtocol.safeReplyFromContent('''
+<companion_inner>我想靠近一点。</companion_inner>
+普通正文
+'''),
+      isNull,
+    );
+    expect(
+      CompanionVoiceProtocol.safeReplyFromContent('我们需要回答用户。'),
+      isNull,
+    );
   });
 
   test('WAIT is reserved for proactive mode', () {

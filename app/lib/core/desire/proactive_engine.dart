@@ -470,8 +470,9 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
           reply: value.content,
         );
       }
-      final parsed = CompanionVoiceProtocol.parse(
-        value.content,
+      final parsed = CompanionVoiceProtocol.parseCandidate(
+        providerReasoning: value.reasoning,
+        content: value.content,
         proactive: true,
       );
       if (!parsed.valid) {

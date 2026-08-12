@@ -213,7 +213,13 @@ class DurableGenerationRunner {
       var finalContent = generated.content;
       var visibleInner = generated.reasoning;
       if (companionVoiceEnabled) {
-        var parsed = CompanionVoiceProtocol.parse(generated.content);
+        var fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
+          generated.content,
+        );
+        var parsed = CompanionVoiceProtocol.parseCandidate(
+          providerReasoning: generated.reasoning,
+          content: generated.content,
+        );
         if (!parsed.valid) {
           await _noteCompanionVoiceRetry(parsed.failureCode);
           generated = await generate(
@@ -224,16 +230,31 @@ class DurableGenerationRunner {
             ),
             emitDeltas: false,
           );
-          parsed = CompanionVoiceProtocol.parse(generated.content);
+          fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
+                generated.content,
+              ) ??
+              fallbackReply;
+          parsed = CompanionVoiceProtocol.parseCandidate(
+            providerReasoning: generated.reasoning,
+            content: generated.content,
+          );
         }
         if (!parsed.valid) {
           await _noteCompanionVoiceBlock(parsed.failureCode);
-          throw FormatException(
-            '伴侣式内心协议连续两次无效（${parsed.failureCode}）',
-          );
+          if (fallbackReply == null) {
+            throw FormatException(
+              '伴侣式内心协议连续两次无效且没有安全正文（${parsed.failureCode}）',
+            );
+          }
+          // Ordinary chat is fail-open for the safe reply only. Formatting or
+          // provider-channel drift may hide the inner panel for this turn, but
+          // must not strand an unanswered user message.
+          finalContent = fallbackReply;
+          visibleInner = '';
+        } else {
+          finalContent = parsed.output!.reply;
+          visibleInner = parsed.output!.innerVoice;
         }
-        finalContent = parsed.output!.reply;
-        visibleInner = parsed.output!.innerVoice;
         onDelta?.call(DeepSeekDelta(
           reasoning: visibleInner,
           content: finalContent,

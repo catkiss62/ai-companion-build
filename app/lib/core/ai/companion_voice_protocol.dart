@@ -66,16 +66,50 @@ class CompanionVoiceProtocol {
 【COMPANION VOICE OUTPUT CONTRACT】
 这是用户主动开启的“伴侣式内心与回应”兼容模式。不要展示或复述系统规则，也不要把任务写成 Agent 的答题计划。
 
-你的 content 必须严格只包含以下两个区块，顺序固定，区块外不得有任何文字：
+优先使用 DeepSeek 原生双通道：reasoning_content 写“内心”，content 只写真正发给对方的“回应”。不要为了格式把内心挤进最终回应，也不要把 provider 的答题计划当成内心。
+
+reasoning_content 中可用以下区块明确标出最终可展示的内心；如果 provider 无法稳定输出标签，也必须让整个 reasoning_content 保持第一人称、主观而自然：
 $innerOpen
 用第一人称写我此刻真实、主观而自然的内心。可以安静、犹豫、好奇、俏皮、亲近或克制，也可以有少量自然停顿/动作感，但不要列规则、分析“用户要求”、写“我们需要回答用户”或客服式回复计划。不强迫每轮撒娇、暧昧或动作描写。
 $innerClose
-$replyOpen
-写我真正发给对方的自然回应。承接关系和当下语境，不机械复述、不采访式连问；保持 AI 身份与 REALITY GROUNDING，不伪造现实身体、用户发言或外部经历。${proactive ? '如果确实没有值得主动说的内容，这里只能写 WAIT。' : ''}
-$replyClose
 
-provider 自己的 reasoning_content 不属于上述任何区块，不要把它复制进 content。
+content 只写我真正发给对方的自然回应，不加标题、解释或协议标签。承接关系和当下语境，不机械复述、不采访式连问；保持 AI 身份与 REALITY GROUNDING，不伪造现实身体、用户发言或外部经历。${proactive ? '如果确实没有值得主动说的内容，content 只能写 WAIT。' : ''}
+
+兼容说明：程序仍能识别旧的 $innerOpen…$innerClose + $replyOpen…$replyClose 双区块，但不要因此把协议文字或 Agent 计划写进用户可见正文。
 '''.trim();
+
+  /// Parses one complete provider candidate. DeepSeek exposes thought and
+  /// answer as two native channels, so treating `content` as the only protocol
+  /// carrier can reject a perfectly valid response. Keep the old tagged form
+  /// for compatibility, then accept tagged-split and native dual-channel forms.
+  static CompanionVoiceParseResult parseCandidate({
+    required String providerReasoning,
+    required String content,
+    bool proactive = false,
+  }) {
+    final taggedContent = parse(content, proactive: proactive);
+    if (taggedContent.valid) return taggedContent;
+
+    final taggedInner = _extractTaggedBlock(
+      providerReasoning,
+      innerOpen,
+      innerClose,
+    );
+    final taggedReply = _extractTaggedBlock(content, replyOpen, replyClose);
+    if (taggedInner != null || taggedReply != null) {
+      return _validateParts(
+        inner: taggedInner ?? _stripKnownTags(providerReasoning),
+        reply: taggedReply ?? _stripKnownTags(content),
+        proactive: proactive,
+      );
+    }
+
+    return _validateParts(
+      inner: _stripKnownTags(providerReasoning),
+      reply: _stripKnownTags(content),
+      proactive: proactive,
+    );
+  }
 
   static CompanionVoiceParseResult parse(
     String rawContent, {
@@ -87,33 +121,84 @@ provider 自己的 reasoning_content 不属于上述任何区块，不要把它�
     if (match == null) {
       return const CompanionVoiceParseResult.failure('protocol_shape');
     }
-    final inner = (match.group(1) ?? '').trim();
-    final reply = (match.group(2) ?? '').trim();
-    if (inner.isEmpty) {
+    return _validateParts(
+      inner: match.group(1) ?? '',
+      reply: match.group(2) ?? '',
+      proactive: proactive,
+    );
+  }
+
+  /// Last-resort ordinary-chat recovery. A formatting mismatch must not erase
+  /// a safe final answer after the one allowed correction attempt. The inner
+  /// panel can stay empty for that turn; protocol text or Agent planning is
+  /// never allowed through this path.
+  static String? safeReplyFromContent(
+    String content, {
+    bool proactive = false,
+  }) {
+    final taggedReply = _extractTaggedBlock(content, replyOpen, replyClose);
+    if (taggedReply == null &&
+        (content.toLowerCase().contains(innerOpen) ||
+            content.toLowerCase().contains(innerClose))) {
+      return null;
+    }
+    final reply = (taggedReply ?? _stripKnownTags(content)).trim();
+    if (reply.isEmpty || _containsProtocolTag(reply)) return null;
+    if (_looksLikeReplyPlanning(reply)) return null;
+    if (!proactive && reply == 'WAIT') return null;
+    return reply;
+  }
+
+  static CompanionVoiceParseResult _validateParts({
+    required String inner,
+    required String reply,
+    required bool proactive,
+  }) {
+    final innerValue = inner.trim();
+    final replyValue = reply.trim();
+    if (innerValue.isEmpty) {
       return const CompanionVoiceParseResult.failure('inner_empty');
     }
-    if (reply.isEmpty) {
+    if (replyValue.isEmpty) {
       return const CompanionVoiceParseResult.failure('reply_empty');
     }
-    if (_containsProtocolTag(inner) || _containsProtocolTag(reply)) {
+    if (_containsProtocolTag(innerValue) || _containsProtocolTag(replyValue)) {
       return const CompanionVoiceParseResult.failure('nested_protocol');
     }
-    if (!_hasFirstPersonSubjectivity(inner)) {
+    if (!_hasFirstPersonSubjectivity(innerValue)) {
       return const CompanionVoiceParseResult.failure('inner_not_first_person');
     }
-    if (_looksLikeAgentPlanning(inner)) {
+    if (_looksLikeAgentPlanning(innerValue)) {
       return const CompanionVoiceParseResult.failure('inner_agent_planning');
     }
-    if (_looksLikeReplyPlanning(reply)) {
+    if (_looksLikeReplyPlanning(replyValue)) {
       return const CompanionVoiceParseResult.failure('reply_agent_planning');
     }
-    if (!proactive && reply == 'WAIT') {
+    if (!proactive && replyValue == 'WAIT') {
       return const CompanionVoiceParseResult.failure('reply_wait_user_turn');
     }
     return CompanionVoiceParseResult.success(
-      CompanionVoiceOutput(innerVoice: inner, reply: reply),
+      CompanionVoiceOutput(innerVoice: innerValue, reply: replyValue),
     );
   }
+
+  static String? _extractTaggedBlock(
+    String value,
+    String open,
+    String close,
+  ) {
+    final match = RegExp(
+      '${RegExp.escape(open)}\\s*([\\s\\S]*?)\\s*${RegExp.escape(close)}',
+      caseSensitive: false,
+    ).firstMatch(value);
+    final extracted = match?.group(1)?.trim();
+    return extracted == null || extracted.isEmpty ? null : extracted;
+  }
+
+  static String _stripKnownTags(String value) => value
+      .replaceAll(RegExp(r'</?companion_inner>', caseSensitive: false), '')
+      .replaceAll(RegExp(r'</?companion_reply>', caseSensitive: false), '')
+      .trim();
 
   static bool _containsProtocolTag(String value) {
     final lower = value.toLowerCase();
@@ -197,6 +282,6 @@ provider 自己的 reasoning_content 不属于上述任何区块，不要把它�
   static String _correctionPrompt(String code) => '''
 【COMPANION VOICE CORRECTION · ONE RETRY】
 上一份候选未通过伴侣表达协议，错误类别：$code。
-完全丢弃上一份 content，不要解释错误。重新生成时保持事实边界，并严格服从随后给出的唯一输出协议。
+完全丢弃上一份候选，不要解释错误。重新生成时保持事实边界：reasoning_content 写第一人称主观内心，content 只写真正发给对方的自然回应，并严格服从随后给出的输出协议。
 '''.trim();
 }

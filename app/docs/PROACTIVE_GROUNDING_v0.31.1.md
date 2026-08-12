@@ -61,3 +61,8 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 - 用户开启 Companion Voice 时，主动候选先从显式协议解析出 `inner_voice / reply`，Grounding guard 检查解析后的用户可见两部分，而不是 provider 的 Agent 式 hidden reasoning。
 - Companion Voice 格式/Agent 污染和 Reality Grounding 共用**一次**候选纠正预算，避免一次主动心跳连续调用多次模型。纠正后协议仍无效则按 WAIT；Grounding 仍失败则按原 guard 丢弃。
 - provider reasoning 单独本地保存，不进入通知、TTS 或下一轮历史 prompt。
+
+### v0.31.2+43 双通道热修
+
+- Companion Voice 候选改为同时读取 DeepSeek 原生 `reasoning_content` 与 `content`，并兼容旧双标签/跨通道标签；不再因标签只出现在 provider reasoning 而误判 `protocol_shape`。
+- 普通聊天允许安全 final reply 在第二次内心失败后降级落库，但主动联系没有待回答用户，因此继续严格 WAIT/block；Reality Grounding 的单次共享重试预算不变。

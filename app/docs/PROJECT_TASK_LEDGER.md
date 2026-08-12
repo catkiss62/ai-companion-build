@@ -20,6 +20,8 @@
 - [x] schema v19 独立保存 `provider_reasoning / reasoning_content / content + companion_voice`；旧 reasoning 回填 provider 字段，历史显示不变。
 - [ ] 用现有截图建立 golden cases：短问候、深夜陪伴、昵称承接、暧昧玩笑、主动想念；再加严肃办事、拒绝亲昵等反例，防止“女友感”退化成固定滤镜。
 - [x] 开关名称、默认关闭与用户可见说明按讨论结果实现。
+- [x] **v0.31.2+43 真机热修**：修复 +42 仅接受 content 双标签、无法识别 DeepSeek 原生 reasoning/content 双通道而导致普通聊天 `protocol_shape` 连续失败；加入原生/跨通道解析与安全正文 fail-open，主动消息仍保持严格拦截。
+- [ ] **v0.31.2+43 真机复测**：开启开关发送普通消息必须能回复；验证内心正常时显示“🧠 内心”，仅内心格式异常时正文仍出现且不泄漏标签/Agent 计划。
 
 ## P0 · NEXT · v0.31 Grounded Desire Core 定向收尾
 
