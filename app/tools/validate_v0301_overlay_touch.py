@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert any(v in pubspec for v in ['version: 0.30.1+37', 'version: 0.30.2+38'])
+    assert any(v in pubspec for v in ['version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39'])
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -50,12 +50,12 @@ def main() -> int:
     for token in [
         "id: 'overlay_touch'", "title: '悬浮球触摸健康'", "report['overlayTouch'] = {",
         "'bubbleTouchable'", "'positionSafe'", "'lastSelfHealReason'", "'selfHealCount'",
-        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT',
     ]:
         assert token in diagnostics, token
 
     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
-    for token in ['v0.30.2+38', 'Overlay Resume + Presence Intelligence', 'schema v18', 'overlayTouch']:
+    for token in ['v0.30.3+39', 'Overlay Regression Repair', 'schema v18', 'overlayTouch']:
         assert token in handoff, token
 
     # Numerical model of the safe-area clamp/snap invariants used by the Kotlin code.

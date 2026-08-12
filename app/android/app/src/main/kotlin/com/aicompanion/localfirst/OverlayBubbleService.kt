@@ -85,6 +85,7 @@ class OverlayBubbleService : Service() {
     private var backgroundEngineStartAttempts = 0
     private var backgroundEngineRestartScheduled = false
     private var inputRecoveryScheduled = false
+    private var inputRecoveryInProgress = false
     private var lastInputRecoveryAt = 0L
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -163,7 +164,7 @@ class OverlayBubbleService : Service() {
                     } else if (!chatExpanded) {
                         bubbleRoot?.visibility = View.VISIBLE
                         CompanionRuntimeState.setOverlayVisible(true)
-                        scheduleInputChannelRecovery("device_unlock", delayMs = 300L)
+                        updateOverlayTouchHealth()
                     }
                     requestSignalBrainWake(this@OverlayBubbleService, "device_present")
                 }
@@ -274,13 +275,13 @@ class OverlayBubbleService : Service() {
                         delayMs = SYSTEM_COVER_RECOVERY_DELAY_MS,
                     )
                 } else {
-                    // Returning to the full AI Companion Activity is an explicit
-                    // recovery point for file pickers/settings launched by this
-                    // app, so keep the v0.30.1 immediate reconcile here.
+                    // A visible Activity is not proof that the overlay input channel
+                    // is stale. v0.30.2 rebuilt on every resume and created a
+                    // self-heal loop on HyperOS. Rebuild only when a prior cover
+                    // transition explicitly marked the channel suspect.
                     ensureOverlayHealth(
                         "reconcile:$reconcileReason",
-                        rebuildInputChannel = reconcileReason == "visible_activity_reconcile" ||
-                            CompanionRuntimeState.consumeOverlayInputSuspect(),
+                        rebuildInputChannel = CompanionRuntimeState.consumeOverlayInputSuspect(),
                     )
                 }
                 return START_STICKY
@@ -345,6 +346,8 @@ class OverlayBubbleService : Service() {
         backgroundEngineStarting = false
         backgroundEngineRestartScheduled = false
         inputRecoveryScheduled = false
+        inputRecoveryInProgress = false
+        CompanionRuntimeState.setOverlayRecoveryInProgress(false)
         CompanionRuntimeState.setOverlayVisible(false)
         CompanionRuntimeState.setOverlayChatExpanded(false)
         CompanionRuntimeState.setOverlayTouchHealth(
@@ -887,12 +890,39 @@ class OverlayBubbleService : Service() {
     }
 
     private fun openFullApp() {
-        collapseChatOverlay("open_full_app")
-        startActivity(
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            },
-        )
+        // Do not collapse/rebuild WindowManager immediately before launching the
+        // Activity. v0.30.2 could race the overlay self-heal with startActivity(),
+        // making the visible “打开” tap appear to do nothing on HyperOS.
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
+        }
+        runCatching { startActivity(launchIntent) }
+            .onSuccess {
+                NativeEventStore.addDeviceEvent(
+                    this,
+                    source = "system",
+                    eventType = "overlay_open_full_app_requested",
+                    appPackage = packageName,
+                    summary = "用户从悬浮聊天请求打开完整 App。",
+                )
+                // MainActivity.onResume() owns the actual collapse. If Android
+                // rejects/delays the Activity launch, leave the chat usable so the
+                // user can retry instead of destroying the only working surface.
+            }
+            .onFailure { error ->
+                setChatStatus("打开 App 失败：${error.message ?: error.javaClass.simpleName}", true)
+                NativeEventStore.addDeviceEvent(
+                    this,
+                    source = "system",
+                    eventType = "overlay_open_full_app_failed",
+                    appPackage = packageName,
+                    summary = "${error.javaClass.simpleName}: ${error.message ?: "unknown"}",
+                )
+            }
     }
 
     private fun setChatStatus(text: String?, error: Boolean = false) {
@@ -1065,21 +1095,45 @@ class OverlayBubbleService : Service() {
         reason: String,
         delayMs: Long = SYSTEM_COVER_RECOVERY_DELAY_MS,
     ) {
-        CompanionRuntimeState.noteOverlaySystemCover(reason)
-        if (inputRecoveryScheduled) return
+        if (inputRecoveryScheduled || inputRecoveryInProgress) return
+        val now = System.currentTimeMillis()
+        val cooldownRemaining = if (lastInputRecoveryAt <= 0L) {
+            0L
+        } else {
+            (INPUT_RECOVERY_MIN_GAP_MS - (now - lastInputRecoveryAt)).coerceAtLeast(0L)
+        }
+        // Coalesce a cover that occurs during cooldown instead of dropping it.
+        // This preserves recovery after a genuine second file-picker round-trip
+        // without allowing rapid rebuild loops.
+        val effectiveDelay = maxOf(delayMs, cooldownRemaining)
         inputRecoveryScheduled = true
         mainHandler.postDelayed({
             inputRecoveryScheduled = false
             if (!running || chatExpanded || !Settings.canDrawOverlays(this)) return@postDelayed
-            val now = System.currentTimeMillis()
-            if (now - lastInputRecoveryAt < INPUT_RECOVERY_MIN_GAP_MS) return@postDelayed
-            lastInputRecoveryAt = now
-            ensureOverlayHealth(
-                "cover_recovery:${reason.take(100)}",
-                rebuildInputChannel = true,
-            )
-            CompanionRuntimeState.noteOverlayCoverRecovered(reason)
-        }, delayMs)
+            if (CompanionRuntimeState.isAppVisible()) {
+                // MainActivity owns its own reconcile path; never let a stale
+                // system-cover callback rebuild the bubble over the full app.
+                return@postDelayed
+            }
+            lastInputRecoveryAt = System.currentTimeMillis()
+            inputRecoveryInProgress = true
+            CompanionRuntimeState.setOverlayRecoveryInProgress(true)
+            try {
+                ensureOverlayHealth(
+                    "cover_recovery:${reason.take(100)}",
+                    rebuildInputChannel = true,
+                )
+                CompanionRuntimeState.noteOverlayCoverRecovered(reason)
+            } finally {
+                // removeView/addView emits visibility callbacks on some OEMs.
+                // Keep the re-entrancy guard alive briefly so our own rebuild
+                // cannot schedule another rebuild.
+                mainHandler.postDelayed({
+                    inputRecoveryInProgress = false
+                    CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+                }, INPUT_RECOVERY_SETTLE_MS)
+            }
+        }, effectiveDelay)
     }
 
     private fun updateOverlayTouchHealth() {
@@ -1647,19 +1701,23 @@ class OverlayBubbleService : Service() {
     }
 
     private inner class OverlayBubbleRoot(context: Context) : FrameLayout(context) {
-        private var lastReportedWindowVisibility = View.VISIBLE
+        private var visibilityWasSuppressed = false
 
         override fun onWindowVisibilityChanged(visibility: Int) {
             super.onWindowVisibilityChanged(visibility)
             CompanionRuntimeState.noteOverlayWindowVisibility(visibility)
-            val wasVisible = lastReportedWindowVisibility == View.VISIBLE
-            val isVisibleNow = visibility == View.VISIBLE
-            lastReportedWindowVisibility = visibility
-            if (!wasVisible && isVisibleNow && running && !chatExpanded) {
-                val keyguard = getSystemService(KeyguardManager::class.java)
-                if (!keyguard.isDeviceLocked) {
-                    scheduleInputChannelRecovery("window_visibility_restored")
-                }
+            if (inputRecoveryInProgress || inputRecoveryScheduled) return
+            if (visibility != View.VISIBLE) {
+                visibilityWasSuppressed = true
+                CompanionRuntimeState.noteOverlaySystemCover("window_visibility_suppressed")
+                return
+            }
+            if (!visibilityWasSuppressed) return
+            visibilityWasSuppressed = false
+            if (!running || chatExpanded || CompanionRuntimeState.isAppVisible()) return
+            val keyguard = getSystemService(KeyguardManager::class.java)
+            if (!keyguard.isDeviceLocked) {
+                scheduleInputChannelRecovery("window_visibility_restored")
             }
         }
     }
@@ -1705,9 +1763,10 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
-        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 550L
-        private const val INPUT_RECOVERY_MIN_GAP_MS = 900L
-        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 700L
+        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 650L
+        private const val INPUT_RECOVERY_MIN_GAP_MS = 8_000L
+        private const val INPUT_RECOVERY_SETTLE_MS = 700L
+        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 4_000L
         @Volatile private var lastSystemCoverRecoveryRequestAt = 0L
 
         @Volatile var running: Boolean = false

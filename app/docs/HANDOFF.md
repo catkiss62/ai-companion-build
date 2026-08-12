@@ -4,10 +4,10 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.30.2+38 · Overlay Resume + Presence Intelligence**。
-- 最近一次用户真机确认：**v0.30.1+37 Overlay Touch Recovery** 可正常后台/悬浮聊天，但系统文件选择器遮盖 overlay 后可 100% 复现“返回后球可见但点/拖失效”；打开完整 App 后会恢复。
+- 当前源码候选：**v0.30.3+39 · Overlay Regression Repair**。
+- 最近一次用户真机结果：**v0.30.2+38** 的 Presence Intelligence 已产生 `presenceMomentum=0.88`、Thought，但 Overlay recovery 明显回归：正常操作出现 `selfHealCount=28 / coverRecoveryCount=11`，并出现悬浮聊天“打开”无法回完整 App。
 - Android 真机：Android 15，REDMI K80 Ultra（Xiaomi/HyperOS）。
-- 数据库：**schema v18**，v0.30.2 不做 schema 迁移。
+- 数据库：**schema v18**，v0.30.3 不做 schema 迁移。
 - GitHub 已完成 Clean Baseline 迁移：完整 Flutter 项目位于仓库 `app/`；日常构建直接从 `app/`，不再使用 v0.28 五分包 + patch 链。
 
 ## 2. 项目定位
@@ -126,16 +126,32 @@ v0.30.1 真机进一步确认：进入 ChatGPT 等其他 App 的系统文件选�
 
 TTS A2 baseline 本轮冻结，不再参与阻断。
 
+## 7C. v0.30.3 Overlay Regression Repair
+
+v0.30.2 的 Presence Intelligence 保留，但 Overlay 的 system-cover 自动恢复在 HyperOS 上过度触发。真机浅层诊断记录到 `overlaySelfHealCount=28`、`overlayCoverRecoveryCount=11`，且 WindowManager 仍报告 attached/touchable/safe，说明“参数健康”不能代表真实 input channel 健康；频繁 rebuild 本身反而成为新的生命周期风险。
+
+本轮：
+
+1. **Presence 完全冻结**：`PresenceMomentumPolicy`、Thought 形成、bounded `presenceBoost`、Gate breakdown 不调参。
+2. Accessibility 不再把所有 `FLAG_SYSTEM/UPDATED_SYSTEM_APP` 当作 cover，只识别 DocumentsUI / PermissionController / PackageInstaller / Settings / Xiaomi 明确系统界面；不记录包名到 recovery reason。
+3. Window visibility fallback 保留，但新增 scheduled/in-progress 重入锁；自己的 remove/add 产生的 visibility callback 会被忽略。
+4. cover recovery 最小间隔改为 8 秒，request 去抖改为 4 秒，避免连续重建。
+5. `visible_activity_reconcile` 不再无条件重建 bubble；只有明确 `overlayInputSuspect` 时才 rebuild。
+6. “打开”完整 App 改为**先 launch Activity**，不再先 collapse/self-heal；MainActivity.onResume 再负责收起 overlay，避免 WindowManager rebuild 和 Activity launch 竞争。
+7. `overlayTouch` 新增 `recoveryInProgress`，继续保留 cover/self-heal 计数用于真机判断是否仍过度恢复。
+
+真机验收重点不是“自愈越多越好”，而是正常使用时 recovery 计数应很低；文件选择器返回后能自动恢复即可。
+
 ## 8. 后续路线
 
-1. v0.30.2 真机：文件选择器返回后不打开 AI Companion，悬浮球应自动恢复；正常使用手机后导出浅层诊断看 Presence Momentum / Thought / Gate breakdown。
-2. 根据真机诊断微调 Presence Intelligence 自然度，而不是继续围绕单一 Gate 阈值打补丁。
+1. v0.30.3 真机 Overlay 回归：点/拖/聊天/“打开”完整 App；文件选择器返回后无需打开主 App 即可恢复，且 selfHeal/coverRecovery 不再快速增长。
+2. Overlay 稳定后继续 Presence Intelligence：根据 Momentum / Thought / Gate breakdown 调“什么时候自然地主动找你”。
 3. HyperOS / Android 15 锁屏、长时间后台、杀进程/重启后的恢复。
-4. 长期记忆几十轮压力测试，检查重复膨胀、冲突更新和 Continuity 污染。
+4. 长期记忆几十轮压力测试。
 5. 手机/平板 Active Brain 真机顶号 + encrypted `.aicomp` fallback。
-6. 最终稳定性回归。
+6. 阶段性 Clean Freeze + 清理 v0.30.x 临时 patch。
 
-TTS 已进入非阻断小瑕疵阶段；UI 后续可继续微调，但不要阻塞主动陪伴主线。
+TTS 已进入非阻断小瑕疵阶段；不要再用 TTS 阻塞主动陪伴主线。
 
 ## 9. GitHub / 构建约定
 

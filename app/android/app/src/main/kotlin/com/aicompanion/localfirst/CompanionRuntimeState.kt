@@ -55,6 +55,8 @@ object CompanionRuntimeState {
         private set
     @Volatile var overlayLastWindowVisibility: Int = 0
         private set
+    @Volatile var overlayRecoveryInProgress: Boolean = false
+        private set
     private val overlayCoverRecoveryCount = AtomicInteger(0)
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
@@ -103,6 +105,7 @@ object CompanionRuntimeState {
             "overlayLastSystemCoverReason" to overlayLastSystemCoverReason,
             "overlayLastCoverRecoveryAt" to overlayLastCoverRecoveryAt,
             "overlayLastWindowVisibility" to overlayLastWindowVisibility,
+            "overlayRecoveryInProgress" to overlayRecoveryInProgress,
             "overlayCoverRecoveryCount" to overlayCoverRecoveryCount.get(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
@@ -118,6 +121,8 @@ object CompanionRuntimeState {
     fun activityStopped() {
         visibleActivities.updateAndGet { current -> if (current <= 0) 0 else current - 1 }
     }
+
+    fun isAppVisible(): Boolean = visibleActivities.get() > 0
 
     fun setOverlayVisible(visible: Boolean) {
         overlayVisible = visible
@@ -179,5 +184,9 @@ object CompanionRuntimeState {
 
     fun noteOverlayWindowVisibility(visibility: Int) {
         overlayLastWindowVisibility = visibility
+    }
+
+    fun setOverlayRecoveryInProgress(value: Boolean) {
+        overlayRecoveryInProgress = value
     }
 }

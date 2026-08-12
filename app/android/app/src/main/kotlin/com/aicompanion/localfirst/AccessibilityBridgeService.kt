@@ -1,7 +1,6 @@
 package com.aicompanion.localfirst
 
 import android.accessibilityservice.AccessibilityService
-import android.content.pm.ApplicationInfo
 import android.view.accessibility.AccessibilityEvent
 
 class AccessibilityBridgeService : AccessibilityService() {
@@ -67,18 +66,20 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     private fun isLikelySystemSurface(sourcePackage: String): Boolean {
+        // v0.30.2 treated every system / updated-system app as a cover surface.
+        // On HyperOS that is far too broad and caused repeated overlay rebuilds.
+        // Only recognize surfaces that are actually known to suppress overlays.
         val p = sourcePackage.lowercase()
-        if (p.contains("documentsui") ||
-            p.contains("permissioncontroller") ||
-            p.contains("packageinstaller") ||
-            p.contains("fileexplorer") ||
-            p.contains("filemanager")) {
-            return true
-        }
-        return runCatching {
-            val info = packageManager.getApplicationInfo(sourcePackage, 0)
-            info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-        }.getOrDefault(false)
+        return p == "com.android.documentsui" ||
+            p == "com.google.android.documentsui" ||
+            p == "com.android.permissioncontroller" ||
+            p == "com.google.android.permissioncontroller" ||
+            p == "com.android.packageinstaller" ||
+            p == "com.miui.packageinstaller" ||
+            p == "com.android.settings" ||
+            p == "com.miui.securitycenter" ||
+            p.contains("documentsui") ||
+            p.contains("fileexplorer")
     }
 
     override fun onInterrupt() {

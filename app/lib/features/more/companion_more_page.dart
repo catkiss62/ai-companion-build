@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
         const SizedBox(height: 8),
         Center(
           child: Text(
-            'AI Companion · v0.30.2',
+            'AI Companion · v0.30.3',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert any(v in pubspec for v in ['version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38'])
+    assert any(v in pubspec for v in ['version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39'])
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -92,12 +92,12 @@ def main() -> int:
         "'lastProactiveReason'",
         "'lastPerceptionAt'",
         "'nextHeartbeatAt'",
-        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT',
     ]:
         assert token in diagnostics, token
 
     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
-    for token in ['v0.30.2+38', 'Background Presence', 'schema v18', 'signal:*', 'HANDOFF']:
+    for token in ['v0.30.3+39', 'Background Presence', 'schema v18', 'signal:*', 'HANDOFF']:
         assert token in handoff, token
 
     print('v0.30.0 Background Presence static validation passed.')

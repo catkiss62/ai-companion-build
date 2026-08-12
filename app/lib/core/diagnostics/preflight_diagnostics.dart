@@ -245,6 +245,7 @@ class PreflightDiagnosticsService {
         'lastSystemCoverReason': capabilities['overlayLastSystemCoverReason'] ?? '',
         'lastCoverRecoveryAt': capabilities['overlayLastCoverRecoveryAt'] ?? 0,
         'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
+        'recoveryInProgress': capabilities['overlayRecoveryInProgress'] == true,
         'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
       };
 
@@ -432,7 +433,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

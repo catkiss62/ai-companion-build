@@ -25,8 +25,11 @@ class MainActivity : FlutterActivity() {
         // enabled foreground companion service here. If the true floating
         // chat was expanded, collapse it so the full app never competes with
         // the overlay for input focus.
-        OverlayBubbleService.reconcileFromVisibleActivity(this)
+        // Collapse first so a full Activity never competes with an expanded
+        // overlay for input. Reconcile afterwards is now lightweight unless a
+        // prior system-cover transition explicitly marked input as suspect.
         OverlayBubbleService.collapseChatFromVisibleActivity(this)
+        OverlayBubbleService.reconcileFromVisibleActivity(this)
     }
 
     override fun onStop() {

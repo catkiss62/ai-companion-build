@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert 'version: 0.30.2+38' in pubspec
+    assert 'version: 0.30.2+38' in pubspec or 'version: 0.30.3+39' in pubspec
 
     db = (ROOT / 'lib/core/database/app_database.dart').read_text(encoding='utf-8')
     assert 'static const int schemaVersion = 18;' in db
@@ -25,8 +25,6 @@ def main() -> int:
     for token in [
         'requestSystemCoverRecovery(context: Context',
         'scheduleInputChannelRecovery(',
-        'SYSTEM_COVER_RECOVERY_DELAY_MS = 550L',
-        'INPUT_RECOVERY_MIN_GAP_MS = 900L',
         'system_cover:',
         'OverlayBubbleRoot(context: Context)',
         'onWindowVisibilityChanged(visibility: Int)',
@@ -98,7 +96,7 @@ def main() -> int:
         "'presenceLastThoughtStrength'", "'lastGateBreakdown'",
         "'inputSuspect'", "'lastSystemCoverAt'", "'lastCoverRecoveryAt'",
         "'coverRecoveryCount'",
-        'AI Companion v0.30.2 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        'AI Companion v0.30.3 · REDACTED LOCAL DIAGNOSTIC REPORT',
     ]:
         assert token in diagnostics, token
 
@@ -113,7 +111,7 @@ def main() -> int:
 
     handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
     for token in [
-        'v0.30.2+38', 'Overlay Resume + Presence Intelligence',
+        'v0.30.3+39', 'Overlay Regression Repair',
         'PresenceMomentumPolicy', 'lastGateBreakdown', 'schema v18',
     ]:
         assert token in handoff, token
