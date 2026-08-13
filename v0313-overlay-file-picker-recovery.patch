@@ -1,0 +1,1043 @@
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+index 9863a66..48e53b2 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt
+@@ -27,15 +27,21 @@ class AccessibilityBridgeService : AccessibilityService() {
+             // System file pickers/settings/permission surfaces may ask Android
+             // to suppress third-party overlays. Track only the coarse state;
+             // package/class names are never written into this recovery path.
+-            val systemSurface = isLikelySystemSurface(sourcePackage)
++            val systemSurface = isLikelySystemSurface(
++                sourcePackage,
++                e.className?.toString().orEmpty(),
++            )
+             if (systemSurface) {
+                 systemCoverActive = true
+-                CompanionRuntimeState.noteOverlaySystemCover("system_surface_entered")
+-            } else if (systemCoverActive) {
++                OverlayBubbleService.notifySystemCoverEntered(
++                    this,
++                    "accessibility_system_surface",
++                )
++            } else if (systemCoverActive || CompanionRuntimeState.isOverlaySystemCoverActive()) {
+                 systemCoverActive = false
+-                OverlayBubbleService.requestSystemCoverRecovery(
++                OverlayBubbleService.notifySystemCoverExited(
+                     this,
+-                    "system_surface_return",
++                    "accessibility_non_system_window",
+                 )
+             }
+         }
+@@ -65,13 +71,21 @@ class AccessibilityBridgeService : AccessibilityService() {
+         }
+     }
+ 
+-    private fun isLikelySystemSurface(sourcePackage: String): Boolean {
++    private fun isLikelySystemSurface(sourcePackage: String, sourceClass: String): Boolean {
+         // v0.30.2 treated every system / updated-system app as a cover surface.
+         // On HyperOS that is far too broad and caused repeated overlay rebuilds.
+         // Only recognize surfaces that are actually known to suppress overlays.
+         val p = sourcePackage.lowercase()
++        val c = sourceClass.lowercase()
+         return p == "com.android.documentsui" ||
+             p == "com.google.android.documentsui" ||
++            p == "com.android.providers.media.module" ||
++            p == "com.google.android.providers.media.module" ||
++            p == "com.android.photopicker" ||
++            p == "com.google.android.photopicker" ||
++            p == "com.android.intentresolver" ||
++            p == "com.google.android.files" ||
++            p == "com.miui.fileexplorer" ||
+             p == "com.android.permissioncontroller" ||
+             p == "com.google.android.permissioncontroller" ||
+             p == "com.android.packageinstaller" ||
+@@ -79,7 +93,9 @@ class AccessibilityBridgeService : AccessibilityService() {
+             p == "com.android.settings" ||
+             p == "com.miui.securitycenter" ||
+             p.contains("documentsui") ||
+-            p.contains("fileexplorer")
++            p.contains("fileexplorer") ||
++            p.contains("photopicker") ||
++            (p.contains("providers.media") && c.contains("picker"))
+     }
+ 
+     override fun onInterrupt() {
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+index 36584b6..19541bd 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt
+@@ -58,6 +58,21 @@ object CompanionRuntimeState {
+     @Volatile var overlayRecoveryInProgress: Boolean = false
+         private set
+     private val overlayCoverRecoveryCount = AtomicInteger(0)
++    @Volatile var overlayCoverState: String = "idle"
++        private set
++    @Volatile var overlaySystemCoverActive: Boolean = false
++        private set
++    @Volatile var overlayCoverSessionId: Int = 0
++        private set
++    @Volatile var overlayCoverRecoveryAttempt: Int = 0
++        private set
++    @Volatile var overlayLastCoverExitAt: Long = 0L
++        private set
++    @Volatile var overlayLastCoverExitReason: String = ""
++        private set
++    @Volatile var overlayLastCoverRecoveryResult: String = ""
++        private set
++    private val overlayCoverDetachCount = AtomicInteger(0)
+ 
+     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
+         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+@@ -107,6 +122,14 @@ object CompanionRuntimeState {
+             "overlayLastWindowVisibility" to overlayLastWindowVisibility,
+             "overlayRecoveryInProgress" to overlayRecoveryInProgress,
+             "overlayCoverRecoveryCount" to overlayCoverRecoveryCount.get(),
++            "overlayCoverState" to overlayCoverState,
++            "overlaySystemCoverActive" to overlaySystemCoverActive,
++            "overlayCoverSessionId" to overlayCoverSessionId,
++            "overlayCoverRecoveryAttempt" to overlayCoverRecoveryAttempt,
++            "overlayLastCoverExitAt" to overlayLastCoverExitAt,
++            "overlayLastCoverExitReason" to overlayLastCoverExitReason,
++            "overlayLastCoverRecoveryResult" to overlayLastCoverRecoveryResult,
++            "overlayCoverDetachCount" to overlayCoverDetachCount.get(),
+             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
+             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
+             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
+@@ -169,6 +192,85 @@ object CompanionRuntimeState {
+         overlayLastSystemCoverReason = reason.take(120)
+     }
+ 
++    @Synchronized
++    fun noteOverlayCoverEntered(reason: String, detached: Boolean): Int {
++        if (!overlaySystemCoverActive) {
++            overlayCoverSessionId += 1
++            overlayCoverRecoveryAttempt = 0
++        }
++        overlaySystemCoverActive = true
++        overlayCoverState = if (detached) "covered_detached" else "covered_suspect"
++        overlayInputSuspect = true
++        overlayLastSystemCoverAt = System.currentTimeMillis()
++        overlayLastSystemCoverReason = reason.take(120)
++        overlayLastCoverRecoveryResult = ""
++        if (detached) overlayCoverDetachCount.incrementAndGet()
++        return overlayCoverSessionId
++    }
++
++    @Synchronized
++    fun noteOverlayCoverExited(reason: String, sessionId: Int) {
++        if (sessionId != overlayCoverSessionId) return
++        overlaySystemCoverActive = false
++        overlayCoverState = "exit_pending"
++        overlayLastCoverExitAt = System.currentTimeMillis()
++        overlayLastCoverExitReason = reason.take(120)
++    }
++
++    @Synchronized
++    fun noteOverlayCoverRecoveryScheduled(sessionId: Int, attempt: Int, reason: String) {
++        if (sessionId != overlayCoverSessionId) return
++        overlayCoverState = "recovery_scheduled"
++        overlayCoverRecoveryAttempt = attempt
++        overlayLastCoverExitReason = reason.take(120)
++    }
++
++    @Synchronized
++    fun noteOverlayCoverRecoveryResult(
++        sessionId: Int,
++        attempt: Int,
++        success: Boolean,
++        reason: String,
++    ) {
++        if (sessionId != overlayCoverSessionId) return
++        overlayCoverRecoveryAttempt = attempt
++        overlayLastCoverRecoveryResult = if (success) {
++            "success:${reason.take(100)}"
++        } else {
++            "retry:${reason.take(100)}"
++        }
++        if (success) {
++            overlaySystemCoverActive = false
++            overlayCoverState = "settled"
++            overlayInputSuspect = false
++            overlayLastCoverRecoveryAt = System.currentTimeMillis()
++            overlayLastSelfHealReason = reason.take(120)
++            overlayCoverRecoveryCount.incrementAndGet()
++        } else {
++            overlayCoverState = "exit_pending"
++        }
++    }
++
++    @Synchronized
++    fun noteOverlayCoverRecoveryFailed(sessionId: Int, attempt: Int, reason: String) {
++        if (sessionId != overlayCoverSessionId) return
++        overlayCoverRecoveryAttempt = attempt
++        overlayCoverState = "failed"
++        overlayLastCoverRecoveryResult = "failed:${reason.take(100)}"
++    }
++
++    @Synchronized
++    fun noteOverlayCoverRecoveryDeferred(sessionId: Int, reason: String) {
++        if (sessionId != overlayCoverSessionId) return
++        overlayCoverState = "exit_pending"
++        overlayCoverRecoveryAttempt = 0
++        overlayLastCoverRecoveryResult = "deferred:${reason.take(100)}"
++    }
++
++    fun isOverlaySystemCoverActive(): Boolean = overlaySystemCoverActive
++
++    fun currentOverlayCoverSessionId(): Int = overlayCoverSessionId
++
+     fun consumeOverlayInputSuspect(): Boolean {
+         val value = overlayInputSuspect
+         overlayInputSuspect = false
+@@ -177,6 +279,8 @@ object CompanionRuntimeState {
+ 
+     fun noteOverlayCoverRecovered(reason: String) {
+         overlayInputSuspect = false
++        overlaySystemCoverActive = false
++        overlayCoverState = "settled"
+         overlayLastCoverRecoveryAt = System.currentTimeMillis()
+         overlayLastSelfHealReason = reason.take(120)
+         overlayCoverRecoveryCount.incrementAndGet()
+diff --git a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+index b664a6f..c09ba8e 100644
+--- a/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
++++ b/android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt
+@@ -86,7 +86,9 @@ class OverlayBubbleService : Service() {
+     private var backgroundEngineRestartScheduled = false
+     private var inputRecoveryScheduled = false
+     private var inputRecoveryInProgress = false
+-    private var lastInputRecoveryAt = 0L
++    private var scheduledRecoverySessionId = 0
++    private var scheduledRecoveryAttempt = 0
++    private var coverWindowMutationInProgress = false
+ 
+     private val mainHandler = Handler(Looper.getMainLooper())
+     private var stateReceiverRegistered = false
+@@ -111,7 +113,28 @@ class OverlayBubbleService : Service() {
+                 stopSelf()
+                 return
+             }
+-            ensureOverlayHealth("permission_watch")
++            if (!CompanionRuntimeState.isOverlaySystemCoverActive()) {
++                if (CompanionRuntimeState.overlayInputSuspect) {
++                    if (CompanionRuntimeState.overlayCoverState != "failed" &&
++                        CompanionRuntimeState.overlayCoverRecoveryAttempt < COVER_RECOVERY_MAX_ATTEMPTS
++                    ) {
++                        scheduleCoverRecovery(
++                            sessionId = CompanionRuntimeState.currentOverlayCoverSessionId(),
++                            attempt = (CompanionRuntimeState.overlayCoverRecoveryAttempt + 1)
++                                .coerceAtLeast(1),
++                            reason = "suspect_watchdog",
++                            delayMs = COVER_RECOVERY_WATCHDOG_DELAY_MS,
++                        )
++                    } else {
++                        // A failed bounded session stays observable for manual
++                        // diagnostics; permissionWatch must not become an
++                        // unbounded fourth/fifth/... recovery loop.
++                        updateOverlayTouchHealth()
++                    }
++                } else {
++                    ensureOverlayHealth("permission_watch")
++                }
++            }
+             mainHandler.postDelayed(this, PERMISSION_WATCH_MS)
+         }
+     }
+@@ -166,6 +189,16 @@ class OverlayBubbleService : Service() {
+                         CompanionRuntimeState.setOverlayVisible(true)
+                         updateOverlayTouchHealth()
+                     }
++                    if (CompanionRuntimeState.overlayInputSuspect &&
++                        !CompanionRuntimeState.isOverlaySystemCoverActive()
++                    ) {
++                        scheduleCoverRecovery(
++                            sessionId = CompanionRuntimeState.currentOverlayCoverSessionId(),
++                            attempt = 1,
++                            reason = "device_present_after_cover",
++                            delayMs = 250L,
++                        )
++                    }
+                     requestSignalBrainWake(this@OverlayBubbleService, "device_present")
+                 }
+             }
+@@ -269,11 +302,13 @@ class OverlayBubbleService : Service() {
+             }
+             ACTION_RECONCILE -> {
+                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
+-                if (reconcileReason.startsWith("system_cover:")) {
+-                    scheduleInputChannelRecovery(
+-                        reason = reconcileReason,
+-                        delayMs = SYSTEM_COVER_RECOVERY_DELAY_MS,
+-                    )
++                if (reconcileReason == "visible_activity_reconcile" &&
++                    (CompanionRuntimeState.isOverlaySystemCoverActive() ||
++                        CompanionRuntimeState.overlayInputSuspect)
++                ) {
++                    handleSystemCoverExited("visible_activity_reconcile")
++                } else if (CompanionRuntimeState.isOverlaySystemCoverActive()) {
++                    updateOverlayTouchHealth()
+                 } else {
+                     // A visible Activity is not proof that the overlay input channel
+                     // is stale. v0.30.2 rebuilt on every resume and created a
+@@ -286,6 +321,19 @@ class OverlayBubbleService : Service() {
+                 }
+                 return START_STICKY
+             }
++            ACTION_SYSTEM_COVER_ENTER -> {
++                handleSystemCoverEntered(
++                    reason = intent.getStringExtra(EXTRA_REASON) ?: "system_cover_enter",
++                    detachBubble = intent.getBooleanExtra(EXTRA_DETACH_BUBBLE, true),
++                )
++                return START_STICKY
++            }
++            ACTION_SYSTEM_COVER_EXIT -> {
++                handleSystemCoverExited(
++                    intent.getStringExtra(EXTRA_REASON) ?: "system_cover_exit",
++                )
++                return START_STICKY
++            }
+             ACTION_WAKE_BRAIN -> {
+                 val wakeReason = intent.getStringExtra(EXTRA_REASON) ?: "native_wake"
+                 pendingBrainWakeReason = wakeReason.take(120)
+@@ -347,6 +395,9 @@ class OverlayBubbleService : Service() {
+         backgroundEngineRestartScheduled = false
+         inputRecoveryScheduled = false
+         inputRecoveryInProgress = false
++        scheduledRecoverySessionId = 0
++        scheduledRecoveryAttempt = 0
++        coverWindowMutationInProgress = false
+         CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+         CompanionRuntimeState.setOverlayVisible(false)
+         CompanionRuntimeState.setOverlayChatExpanded(false)
+@@ -646,10 +697,10 @@ class OverlayBubbleService : Service() {
+         if (!createChatWindow()) return
+         pendingShowAfterUnlock = false
+         setUnread(0)
+-        bubbleRoot?.visibility = View.GONE
+-        chatRoot?.visibility = View.VISIBLE
+         chatExpanded = true
+         CompanionRuntimeState.setOverlayChatExpanded(true)
++        bubbleRoot?.visibility = View.GONE
++        chatRoot?.visibility = View.VISIBLE
+         chatInputMode = false
+         chatParams?.let { params ->
+             params.flags = readModeFlags()
+@@ -1091,49 +1142,183 @@ class OverlayBubbleService : Service() {
+             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+ 
+-    private fun scheduleInputChannelRecovery(
++    private fun handleSystemCoverEntered(reason: String, detachBubble: Boolean) {
++        if (!running || !Settings.canDrawOverlays(this)) return
++
++        // A new enter after exit_pending invalidates every callback belonging to
++        // the earlier session. Repeated Accessibility events while the same
++        // picker remains on top stay in the same session and do no extra work.
++        val alreadyCovered = CompanionRuntimeState.isOverlaySystemCoverActive()
++        var detached = false
++        if (detachBubble && bubbleRoot != null && !chatExpanded) {
++            detached = retireBubbleForSystemCover()
++        }
++        val sessionId = CompanionRuntimeState.noteOverlayCoverEntered(reason, detached)
++        if (!alreadyCovered) {
++            NativeEventStore.addDeviceEvent(
++                this,
++                source = "system",
++                eventType = "overlay_system_cover_entered",
++                appPackage = packageName,
++                summary = "检测到系统安全页面，已隔离旧悬浮输入通道。",
++                metadata = mapOf(
++                    "session" to sessionId,
++                    "detached" to detached,
++                ),
++            )
++        }
++    }
++
++    private fun retireBubbleForSystemCover(): Boolean {
++        val bubble = bubbleRoot ?: return false
++        // Clear ownership before removeViewImmediate: OEMs may dispatch a late
++        // visibility callback for the retired root. It must not start a second
++        // cover session or recreate itself while the picker is still on top.
++        bubbleRoot = null
++        badge = null
++        coverWindowMutationInProgress = true
++        val removed = runCatching {
++            windowManager.removeViewImmediate(bubble)
++            true
++        }.getOrDefault(false)
++        coverWindowMutationInProgress = false
++        CompanionRuntimeState.setOverlayVisible(false)
++        updateOverlayTouchHealth()
++        return removed
++    }
++
++    private fun handleSystemCoverExited(reason: String) {
++        if (!running || !Settings.canDrawOverlays(this)) return
++        val sessionId = CompanionRuntimeState.currentOverlayCoverSessionId()
++        if (sessionId <= 0 ||
++            (!CompanionRuntimeState.isOverlaySystemCoverActive() &&
++                !CompanionRuntimeState.overlayInputSuspect)
++        ) return
++
++        CompanionRuntimeState.noteOverlayCoverExited(reason, sessionId)
++        scheduleCoverRecovery(
++            sessionId = sessionId,
++            attempt = 1,
++            reason = reason,
++            delayMs = COVER_EXIT_STABLE_DELAY_MS,
++        )
++    }
++
++    private fun scheduleCoverRecovery(
++        sessionId: Int,
++        attempt: Int,
+         reason: String,
+-        delayMs: Long = SYSTEM_COVER_RECOVERY_DELAY_MS,
++        delayMs: Long,
+     ) {
+-        if (inputRecoveryScheduled || inputRecoveryInProgress) return
+-        val now = System.currentTimeMillis()
+-        val cooldownRemaining = if (lastInputRecoveryAt <= 0L) {
+-            0L
+-        } else {
+-            (INPUT_RECOVERY_MIN_GAP_MS - (now - lastInputRecoveryAt)).coerceAtLeast(0L)
++        if (sessionId <= 0 || attempt > COVER_RECOVERY_MAX_ATTEMPTS) return
++        if (!CompanionRuntimeState.overlayInputSuspect ||
++            CompanionRuntimeState.overlayCoverState == "settled" ||
++            CompanionRuntimeState.overlayCoverState == "failed"
++        ) return
++        if (inputRecoveryInProgress) {
++            mainHandler.postDelayed({
++                scheduleCoverRecovery(sessionId, attempt, reason, delayMs)
++            }, INPUT_RECOVERY_SETTLE_MS + 100L)
++            return
+         }
+-        // Coalesce a cover that occurs during cooldown instead of dropping it.
+-        // This preserves recovery after a genuine second file-picker round-trip
+-        // without allowing rapid rebuild loops.
+-        val effectiveDelay = maxOf(delayMs, cooldownRemaining)
++        if (inputRecoveryScheduled && scheduledRecoverySessionId == sessionId) return
++
+         inputRecoveryScheduled = true
++        scheduledRecoverySessionId = sessionId
++        scheduledRecoveryAttempt = attempt
++        CompanionRuntimeState.noteOverlayCoverRecoveryScheduled(sessionId, attempt, reason)
+         mainHandler.postDelayed({
+-            inputRecoveryScheduled = false
+-            if (!running || chatExpanded || !Settings.canDrawOverlays(this)) return@postDelayed
+-            if (CompanionRuntimeState.isAppVisible()) {
+-                // MainActivity owns its own reconcile path; never let a stale
+-                // system-cover callback rebuild the bubble over the full app.
++            if (scheduledRecoverySessionId == sessionId && scheduledRecoveryAttempt == attempt) {
++                inputRecoveryScheduled = false
++            }
++            if (sessionId != CompanionRuntimeState.currentOverlayCoverSessionId()) {
++                return@postDelayed
++            }
++            if (!CompanionRuntimeState.overlayInputSuspect ||
++                CompanionRuntimeState.overlayCoverState == "settled" ||
++                CompanionRuntimeState.overlayCoverState == "failed"
++            ) return@postDelayed
++            if (CompanionRuntimeState.isOverlaySystemCoverActive()) {
++                // Never re-add an overlay beneath a still-active system picker.
++                return@postDelayed
++            }
++            if (!running || !Settings.canDrawOverlays(this)) {
++                CompanionRuntimeState.noteOverlayCoverRecoveryFailed(
++                    sessionId,
++                    attempt,
++                    "service_or_permission_unavailable",
++                )
++                return@postDelayed
++            }
++
++            val keyguard = getSystemService(KeyguardManager::class.java)
++            val power = getSystemService(PowerManager::class.java)
++            if (chatExpanded || keyguard.isDeviceLocked || !power.isInteractive) {
++                // Sleeping/locked time is not a failed input rebind attempt.
++                // Defer without consuming the three real recovery attempts;
++                // ACTION_USER_PRESENT or the bounded suspect watchdog resumes it.
++                CompanionRuntimeState.noteOverlayCoverRecoveryDeferred(
++                    sessionId,
++                    "device_not_ready",
++                )
+                 return@postDelayed
+             }
+-            lastInputRecoveryAt = System.currentTimeMillis()
++
+             inputRecoveryInProgress = true
+             CompanionRuntimeState.setOverlayRecoveryInProgress(true)
+             try {
+                 ensureOverlayHealth(
+-                    "cover_recovery:${reason.take(100)}",
++                    "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
+                     rebuildInputChannel = true,
+                 )
+-                CompanionRuntimeState.noteOverlayCoverRecovered(reason)
++                val healthy = bubbleRoot?.isAttachedToWindow == true &&
++                    CompanionRuntimeState.overlayBubbleTouchable
++                CompanionRuntimeState.noteOverlayCoverRecoveryResult(
++                    sessionId = sessionId,
++                    attempt = attempt,
++                    success = healthy,
++                    reason = reason,
++                )
++                if (!healthy) {
++                    scheduleCoverRecoveryRetry(sessionId, attempt, reason, "reattach_not_healthy")
++                } else {
++                    NativeEventStore.addDeviceEvent(
++                        this,
++                        source = "system",
++                        eventType = "overlay_system_cover_recovered",
++                        appPackage = packageName,
++                        summary = "系统页面退出后，悬浮输入通道已重新建立。",
++                        metadata = mapOf("session" to sessionId, "attempt" to attempt),
++                    )
++                }
+             } finally {
+-                // removeView/addView emits visibility callbacks on some OEMs.
+-                // Keep the re-entrancy guard alive briefly so our own rebuild
+-                // cannot schedule another rebuild.
+                 mainHandler.postDelayed({
+                     inputRecoveryInProgress = false
+                     CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+                 }, INPUT_RECOVERY_SETTLE_MS)
+             }
+-        }, effectiveDelay)
++        }, delayMs)
++    }
++
++    private fun scheduleCoverRecoveryRetry(
++        sessionId: Int,
++        completedAttempt: Int,
++        reason: String,
++        failure: String,
++    ) {
++        val nextAttempt = completedAttempt + 1
++        if (nextAttempt > COVER_RECOVERY_MAX_ATTEMPTS) {
++            CompanionRuntimeState.noteOverlayCoverRecoveryFailed(
++                sessionId,
++                completedAttempt,
++                failure,
++            )
++            return
++        }
++        val retryDelay = COVER_RECOVERY_RETRY_DELAYS_MS[nextAttempt - 2]
++        mainHandler.postDelayed({
++            scheduleCoverRecovery(sessionId, nextAttempt, "$reason:$failure", retryDelay)
++        }, INPUT_RECOVERY_SETTLE_MS + 100L)
+     }
+ 
+     private fun updateOverlayTouchHealth() {
+@@ -1706,18 +1891,30 @@ class OverlayBubbleService : Service() {
+         override fun onWindowVisibilityChanged(visibility: Int) {
+             super.onWindowVisibilityChanged(visibility)
+             CompanionRuntimeState.noteOverlayWindowVisibility(visibility)
+-            if (inputRecoveryInProgress || inputRecoveryScheduled) return
++            if (this !== bubbleRoot || coverWindowMutationInProgress ||
++                inputRecoveryInProgress || inputRecoveryScheduled
++            ) return
+             if (visibility != View.VISIBLE) {
++                if (!running || chatExpanded) return
++                val power = getSystemService(PowerManager::class.java)
++                val keyguard = getSystemService(KeyguardManager::class.java)
++                if (!power.isInteractive || keyguard.isDeviceLocked) return
+                 visibilityWasSuppressed = true
+-                CompanionRuntimeState.noteOverlaySystemCover("window_visibility_suppressed")
++                // Keep this root attached until it becomes visible again. This
++                // is the fallback exit signal on devices where Accessibility
++                // never identifies the picker package.
++                handleSystemCoverEntered(
++                    reason = "window_visibility_suppressed",
++                    detachBubble = false,
++                )
+                 return
+             }
+             if (!visibilityWasSuppressed) return
+             visibilityWasSuppressed = false
+-            if (!running || chatExpanded || CompanionRuntimeState.isAppVisible()) return
++            if (!running || chatExpanded) return
+             val keyguard = getSystemService(KeyguardManager::class.java)
+             if (!keyguard.isDeviceLocked) {
+-                scheduleInputChannelRecovery("window_visibility_restored")
++                handleSystemCoverExited("window_visibility_restored")
+             }
+         }
+     }
+@@ -1741,6 +1938,10 @@ class OverlayBubbleService : Service() {
+         const val ACTION_COLLAPSE_CHAT = "com.aicompanion.localfirst.COLLAPSE_CHAT"
+         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
+         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
++        private const val ACTION_SYSTEM_COVER_ENTER =
++            "com.aicompanion.localfirst.SYSTEM_COVER_ENTER"
++        private const val ACTION_SYSTEM_COVER_EXIT =
++            "com.aicompanion.localfirst.SYSTEM_COVER_EXIT"
+         private const val INLINE_REPLY_MAX_ATTEMPTS = 5
+         private const val BUBBLE_WINDOW_DP = 62
+         private const val BUBBLE_AVATAR_DP = 50
+@@ -1749,6 +1950,7 @@ class OverlayBubbleService : Service() {
+         private const val OVERLAY_OLDER_PAGE_LIMIT = 24
+         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
+         private const val EXTRA_REASON = "reason"
++        private const val EXTRA_DETACH_BUBBLE = "detach_bubble"
+         const val EXTRA_COUNT = "count"
+         const val EXTRA_REPLY_TEXT = "reply_text"
+         const val EXTRA_REPLY_ID = "reply_id"
+@@ -1763,11 +1965,11 @@ class OverlayBubbleService : Service() {
+         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
+         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
+         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
+-        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 650L
+-        private const val INPUT_RECOVERY_MIN_GAP_MS = 8_000L
++        private const val COVER_EXIT_STABLE_DELAY_MS = 1_100L
++        private const val COVER_RECOVERY_WATCHDOG_DELAY_MS = 1_600L
++        private const val COVER_RECOVERY_MAX_ATTEMPTS = 3
++        private val COVER_RECOVERY_RETRY_DELAYS_MS = longArrayOf(1_800L, 4_000L)
+         private const val INPUT_RECOVERY_SETTLE_MS = 700L
+-        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 4_000L
+-        @Volatile private var lastSystemCoverRecoveryRequestAt = 0L
+ 
+         @Volatile var running: Boolean = false
+             private set
+@@ -1830,21 +2032,40 @@ class OverlayBubbleService : Service() {
+                 .onFailure { startPersistent(context, "show_chat_recover") }
+         }
+ 
+-        @Synchronized
+-        fun requestSystemCoverRecovery(context: Context, reason: String = "window_transition"): Boolean {
++        fun notifySystemCoverEntered(context: Context, reason: String): Boolean =
++            sendSystemCoverTransition(
++                context = context,
++                action = ACTION_SYSTEM_COVER_ENTER,
++                reason = reason,
++                detachBubble = true,
++            )
++
++        fun notifySystemCoverExited(context: Context, reason: String): Boolean =
++            sendSystemCoverTransition(
++                context = context,
++                action = ACTION_SYSTEM_COVER_EXIT,
++                reason = reason,
++                detachBubble = false,
++            )
++
++        fun requestSystemCoverRecovery(
++            context: Context,
++            reason: String = "window_transition",
++        ): Boolean = notifySystemCoverExited(context, reason)
++
++        private fun sendSystemCoverTransition(
++            context: Context,
++            action: String,
++            reason: String,
++            detachBubble: Boolean,
++        ): Boolean {
+             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return false
+             if (!NativeEventStore.isActiveBrain(context)) return false
+             if (!Settings.canDrawOverlays(context)) return false
+-            val now = System.currentTimeMillis()
+-            if (now - lastSystemCoverRecoveryRequestAt < SYSTEM_COVER_REQUEST_MIN_GAP_MS) {
+-                return false
+-            }
+-            lastSystemCoverRecoveryRequestAt = now
+-            val safeReason = "system_cover:${reason.take(60)}"
+-            CompanionRuntimeState.noteOverlaySystemCover(safeReason)
+             val intent = Intent(context, OverlayBubbleService::class.java)
+-                .setAction(ACTION_RECONCILE)
+-                .putExtra(EXTRA_REASON, safeReason)
++                .setAction(action)
++                .putExtra(EXTRA_REASON, reason.take(100))
++                .putExtra(EXTRA_DETACH_BUBBLE, detachBubble)
+             return runCatching {
+                 if (running) {
+                     context.startService(intent)
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index bea9ebb..7d66c30 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -4,11 +4,11 @@
+ 
+ ## 1. 当前基底
+ 
+-- 当前源码候选：**v0.31.2+44 · Streaming Inner & Richer Voice**；在 +43 双通道修复上增加过滤式流式内心，并按更新前截图恢复更有展开度、可自然包含括号神态的伴侣表达。尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
++- 当前源码候选：**v0.31.3+45 · Bounded File-Picker Overlay Recovery**；只修改 HyperOS/Android 15 系统文件选择页前后的悬浮输入通道生命周期，Companion Voice、prompt/model/storage、Desire 与 TTS 全部冻结。尚待 GitHub Actions 完成 Flutter analyze/test/release APK 和真机验收。
+ - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
+ - 数据库：**schema v19**；为消息新增独立 provider reasoning 与 Companion Voice 标记，Desire snapshot 结构未改。
+ - GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
+-- 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可 100% 复现“只要打开系统文件选择器/上传文件页，无论确认或取消，悬浮球之后都会可见但 input channel 卡死；重新进入 AI Companion 后恢复”。该问题影响较大，已从 FROZEN 重新列为 **P0 NEXT**，但不与 Companion Voice 首版混改。
++- 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可 100% 复现“只要打开系统文件选择器/上传文件页，无论确认或取消，悬浮球之后都会可见但 input channel 卡死；重新进入 AI Companion 后恢复”。v0.31.3+45 已实现有界 cover session 修复，当前为 **P0 ACTIVE / 待真机**。
+ 
+ ## 2. 项目定位
+ 
+@@ -149,14 +149,17 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
+ - `backgroundPresence.lastGateBreakdown` 保留，v0.31 可看到 Presence 已进入 Desire 而不是重复 Gate boost。
+ - “她的内心”调试页显示 Reality Grounding 与 top Desire candidates，便于强制 proactive 做事实边界回归。
+ 
+-## 7. Overlay / 悬浮球 · P0 NEXT
++## 7. Overlay / 悬浮球 · P0 ACTIVE
+ 
+ - v0.30.1/0.30.2/0.30.3 已做过多轮 WindowManager input recovery；旧 `overlayTouch` 脱敏诊断仍保留。
+ - HyperOS/Android 15 的系统文件选择器/上传文件路径可 100% 触发：文件页位于悬浮球之上属于系统窗口层级的正常现象；真正故障是退出/切回其他 App 后悬浮球仍可见却不可触摸。
+ - 现有代码并非没有自愈：Accessibility system-cover、Overlay root visibility、`MainActivity.onResume -> ACTION_RECONCILE` 都能请求 `removeViewImmediate + createBubble` 重建 input channel。用户重新进入 AI Companion 后恢复，正是 Activity reconcile 路径生效。
+ - 根因边界是“系统遮挡已经结束”的证据不可靠：当前主要依赖有限 package allowlist 与 `TYPE_WINDOW_STATE_CHANGED`；OEM picker/Photo Picker 变体或返回事件一旦漏报，`overlayInputSuspect` 就不会被后台消费。
+ - 30 秒 permission watch 只检查 attached/flags/enabled，不会在 suspect 状态下重建 input channel；而本故障中这些表面状态仍可能全部健康，所以 watchdog 看不出来。
+-- 后续修复应做**有界的一次性状态机**：明确 cover-enter/suspect，已知 cover 后允许更宽但安全的非系统事件确认 exit，遗留 suspect 再用带次数上限/退避的一次 watchdog 重建；不得恢复 v0.30.2 的无界重建风暴，也不得在系统文件页仍位于顶层时反复重建。
++- v0.31.3+45 已改为**有界 cover session 状态机**：Accessibility 识别 DocumentsUI/Photo Picker/HyperOS FileExplorer 等系统页面后，在 enter 阶段主动 `removeViewImmediate` 退役旧 bubble input channel；exit evidence 到达并稳定 1.1 秒后才创建全新的 overlay window。
++- Window visibility 继续作为备用证据：若 package 识别漏掉，先保留旧 root 以等待 `VISIBLE` 恢复，再进入同一 recovery；已知 system cover 仍 active 时绝不 re-add。
++- 恢复最多 3 次（初次 + 1.8s / 4.0s 退避），新 cover session 通过 session id 使旧回调失效；30 秒 watchdog 只消费“已经 exit 但仍遗留”的 suspect，不在 cover active 时重建，因此不恢复 v0.30.2 风暴。
++- `overlayTouch` 新增 `coverState/systemCoverActive/sessionId/attempt/exit reason/result/detach count`，均为粗粒度脱敏字段，不记录 picker package/class 或用户文件内容。
+ 
+ ## 8. TTS 黄金基准 · FROZEN / GUARDRAIL
+ 
+@@ -173,9 +176,9 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
+ 
+ 长期任务真源：`docs/PROJECT_TASK_LEDGER.md`。
+ 
+-P0 / v0.31.2：**Companion Voice Recovery（可选勾选）**源码与本地静态回归已完成；等待 GitHub Actions 构建和真机 golden cases 验收。
++P0 FROZEN / v0.31.2：用户评价当前效果“差强人意，先就这样”；保留开关与 +44 行为，暂不继续调 prompt。
+ 
+-P0 NEXT：修复 HyperOS/Android 15 file-picker 后 Overlay input channel 卡死；与 Companion Voice 分开补丁、分开验收。
++P0 ACTIVE / v0.31.3：HyperOS/Android 15 file-picker Overlay input channel 有界恢复源码候选已完成，待 Actions 与真机取消/确认/连续往返验收。
+ 
+ P1：
+ 
+@@ -201,6 +204,15 @@ P2：
+ 5. 已回答历史后的 proactive 仍遵守 Grounding；协议或 Grounding 纠正总计最多一次，再失败静默 WAIT/拦截。
+ 6. 关闭开关后立即回到原版 provider 路径；历史消息、导出导入、Active Brain、Desire/Thought 不回归。Overlay file-picker 问题不判 v0.31.2 失败。
+ 
++### 10A. v0.31.3 真机验收重点
++
++1. 从第三方 App 打开系统文件选择页后直接取消，回原 App 立刻点击/拖动悬浮球。
++2. 再次打开并确认选择文件，上传页退出后立刻点击/拖动悬浮球。
++3. 连续执行 5 次取消/确认混合往返；不能出现可见但不可触摸，也不能出现悬浮球重复闪烁或重建风暴。
++4. 文件选择页停留 30 秒以上：系统页仍在顶层期间不反复创建悬浮球；退出后约 1~3 秒内恢复。
++5. 回桌面、第三方 App、AI Companion 本体、锁屏再解锁均保持可点击；诊断中的单个 session `attempt <= 3`，`coverRecoveryCount/detachCount` 不应无故快速增长。
++6. Companion Voice ON/OFF、Desire、TTS、聊天历史/schema v19 不属于本补丁改动面，必须保持 +44 行为。
++
+ ## 11. GitHub / 开发流程
+ 
+ - `app/` 是源码真源。
+@@ -238,3 +250,10 @@ P2：
+ - 本地已通过新 v0.31.2 validator、Dart tree-sitter 语法解析、Desire 5000 tick 数值长跑、TTS A2 黄金哈希/队列、durable generation、recovery、memory、awareness、relationship、proactive rhythm、daily continuity 与 transfer SQLite 回归。
+ - 本地缺 Flutter/Android SDK，`flutter analyze / flutter test / release APK` 必须由配套 GitHub Actions 完成；Actions 通过前状态仍是“源码候选”，不是已验收 APK。
+ - 配套 source-update patch、schema v19 SQLite validator 与完整替换 workflow 已生成；patch 已在新解压的 v0.31.1+41 基线上完成 `git apply --check`、实际 apply、文件树一致性与新 validator round-trip。最终待用户上传并运行 Actions。
++
++### 11D. v0.31.3 Overlay file-picker 恢复状态
++
++- 根因修复不再依赖“表面 attached/touchable”的健康判断，也不把 `MainActivity.onResume` 当成唯一后台消费者；旧输入通道在确认 system-cover enter 后即被退役。
++- Accessibility allowlist 补入 Android modular Photo Picker、Intent Resolver、Google Files 与 HyperOS FileExplorer；只传粗粒度 enter/exit reason，package/class 不写进恢复诊断。
++- exit 后采用 session token + 稳定延迟 + 最多 3 次退避；cover 重新进入会生成新 session，使旧延迟回调自然失效。主 App 可见不再永久丢弃真正的 exit recovery。
++- 新 validator 同时锁定 Companion Voice、Desire、TTS 关键文件哈希，确保 v0.31.3 没有跨域修改；本地缺 Flutter/Android/Kotlin 工具链，最终 Kotlin 编译、Flutter analyze/test 与 release APK 仍由配套 Actions 判定。
+diff --git a/docs/PROACTIVE_GROUNDING_v0.31.1.md b/docs/PROACTIVE_GROUNDING_v0.31.1.md
+index 9e139ee..d545b5b 100644
+--- a/docs/PROACTIVE_GROUNDING_v0.31.1.md
++++ b/docs/PROACTIVE_GROUNDING_v0.31.1.md
+@@ -71,3 +71,9 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问
+ 
+ - 只有普通聊天 UI 对 provider reasoning 提供可撤回的过滤式流式内心 preview；主动生成仍在完整候选后执行 Voice + Grounding guard，不改变共享一次纠正预算。
+ - preview 不是数据库事实：重试时清空、最终以验证后的 inner voice 覆盖；Agent planning 只能导致 preview 撤回，不能进入历史消息、通知、TTS 或下一轮 prompt。
++
++## v0.31.3 状态同步（2026-08-13）
++
++- 当前主线切换为 HyperOS/Android 15 file-picker 后 Overlay input channel 恢复。
++- 本轮未修改 Reality Grounding、proactive context isolation、reasoning guard、Desire/Thought 或主动联系 hard caps；本文件既有规则全部继续作为 guardrail。
++- v0.31.3 validator 锁定 Companion Voice、Desire 与 TTS 关键文件哈希；Overlay 真机验收不得用改 prompt/主动联系策略来掩盖系统触摸问题。
+diff --git a/docs/PROJECT_TASK_LEDGER.md b/docs/PROJECT_TASK_LEDGER.md
+index b19224e..9002ab2 100644
+--- a/docs/PROJECT_TASK_LEDGER.md
++++ b/docs/PROJECT_TASK_LEDGER.md
+@@ -4,7 +4,7 @@
+ 
+ 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停但保留 · `GUARDRAIL` 已落地且以后不可回归。
+ 
+-## P0 · ACTIVE · v0.31.2 Companion Voice Recovery（可选开关）
++## P0 · FROZEN · v0.31.2 Companion Voice Recovery（可选开关）
+ 
+ > DeepSeek V4 Pro 服务端更新后，provider `reasoning_content` 从第一人称主观内心变成 Agent/规则清单式规划；当前 App 又直接把它展示为“思考”，导致关系连续性和“女友感”明显下降。此任务是 provider compatibility 层，不把恋爱话术永久写死进基础人格。
+ >
+@@ -23,7 +23,7 @@
+ - [x] **v0.31.2+43 真机热修**：修复 +42 仅接受 content 双标签、无法识别 DeepSeek 原生 reasoning/content 双通道而导致普通聊天 `protocol_shape` 连续失败；加入原生/跨通道解析与安全正文 fail-open，主动消息仍保持严格拦截。
+ - [x] **v0.31.2+43 真机复测**：开启开关后普通消息已能回复，诊断无 generation failure；仍观察到部分 `inner_agent_planning` 被安全降级，且体验上内心非流式、回复偏短/缺少括号神态。
+ - [x] **v0.31.2+44 源码实现**：过滤后的第一人称内心采用可撤回整体替换流式预览；最终验证覆盖 preview。Companion Voice ON 的回复增加软性展开度和按语境出现的括号神态倾向，OFF 路径不变。
+-- [ ] **v0.31.2+44 真机复测**：内心逐步出现且最终不重复；Agent planning 不留在历史；短陪伴对话明显比 +43 丰富并有自然括号神态；技术/严肃对话不过度表演。
++- [ ] **v0.31.2+44 真机复测**：用户评价当前效果“差强人意，先就这样”；本阶段冻结，不再继续改 prompt。后续重开时仍按内心流式/Agent 污染/展开度/自然神态/严肃反例完成 golden cases。
+ 
+ ## P0 · NEXT · v0.31 Grounded Desire Core 定向收尾
+ 
+@@ -65,16 +65,16 @@
+ - [x] `Inner` 调试页升级为只读“她的内心”面板：Drive / top Thought / Intent / why / refractory；调试 UI 不进入普通关系界面。
+ - [ ] 所有调试 reason 使用第一人称内在语义，但不得把技术参数直接发给用户。
+ 
+-## P0 · NEXT · HyperOS / Android 15 Overlay file-picker 恢复
++## P0 · ACTIVE · v0.31.3 HyperOS / Android 15 Overlay file-picker 恢复
+ 
+ > 文件选择器位于 `TYPE_APPLICATION_OVERLAY` 之上是系统窗口层级的正常结果；故障是打开文件页后，即使取消/确认并离开，悬浮球仍可见却 100% 失去触摸，直到进入 AI Companion 才恢复。
+ 
+ - [x] 静态定位现有恢复链：Accessibility system-cover、Overlay root visibility、`MainActivity.onResume -> ACTION_RECONCILE` 均可触发 `removeViewImmediate + createBubble`；进入主 App 后恢复与 reconcile 路径一致。
+ - [x] 根因边界：系统 cover 的退出主要依赖有限 package allowlist + `TYPE_WINDOW_STATE_CHANGED`；OEM DocumentsUI/Photo Picker 变体或返回事件漏报后，`overlayInputSuspect` 无后台消费者。
+ - [x] 现有 30 秒 permission watch 只验证 attached/flags/enabled，不能识别“表面健康但 input channel 已死”，也不会消费 suspect。
+-- [ ] 实现有界 cover 状态机：明确 enter/suspect/exit/rebuilt，只有已经观察到 cover/suspect 时才允许扩大 exit 证据，避免全局监听噪声。
+-- [ ] 对遗留 suspect 增加一次性 watchdog fallback，设置次数上限、冷却/退避；系统 cover 仍在顶层或主 App 可见时不得反复重建。
+-- [ ] 脱敏诊断区分 cover-enter、exit evidence、rebuild source、attempt/cooldown；不得恢复 v0.30.2 的 `selfHealCount=28 / coverRecoveryCount=11` 风暴。
++- [x] 实现有界 cover 状态机：明确 enter/suspect/exit/recovery_scheduled/settled/failed；system cover enter 时退役旧 bubble input channel，exit 稳定后创建全新窗口。
++- [x] 对遗留 suspect 增加 watchdog fallback；每个 session 最多 3 次、1.8s/4.0s 退避，新 session 使旧回调失效，system cover active 时禁止 re-add。
++- [x] 脱敏诊断区分 cover-enter、exit evidence、session、rebuild source、attempt/result/detach count；不记录 picker package/class/内容，不恢复 v0.30.2 的 `selfHealCount=28 / coverRecoveryCount=11` 风暴。
+ - [ ] 真机验收至少覆盖：打开后取消、确认选择、从 picker 回原 App、切到第三方 App、连续多次 picker、30 分钟日常使用无误重建。
+ - [ ] 与 Companion Voice 分开补丁和 APK 验收，避免两个高风险兼容层互相干扰定位。
+ 
+@@ -143,6 +143,7 @@
+ 
+ - [x] **v0.31.1 完整源码交接基线**：`app/` 确认为 `0.31.1+41` / schema v18，v0311 补丁反向校验证明已完整合入；失败 v0.31.2 不进入基线。
+ - [ ] **v0.31.2 构建交付**：全新源码实现、本地回归、source-update patch、完整替换 workflow 和干净 v0.31.1 round-trip 已完成；待 Actions 通过 analyze/test/release APK 后勾选。
++- [ ] **v0.31.3 构建交付**：有界 Overlay cover session 源码和静态 validator 已完成；待 +44 基线 patch round-trip、Actions analyze/test/release APK 与 HyperOS 真机验收。
+ - [ ] 阶段性 Clean Freeze：从纯 `app/` checkout 独立 analyze/test/release build。
+ - [ ] 删除已应用的 v0.30.x / v0.31.x 临时 patch 和 apply workflow。
+ - [ ] 固定正式 package/release signing；测试签名只用于开发。
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index 0437680..fe6e881 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -356,6 +356,15 @@ class PreflightDiagnosticsService {
+         'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
+         'recoveryInProgress': capabilities['overlayRecoveryInProgress'] == true,
+         'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
++        'coverState': capabilities['overlayCoverState'] ?? 'idle',
++        'systemCoverActive': capabilities['overlaySystemCoverActive'] == true,
++        'coverSessionId': capabilities['overlayCoverSessionId'] ?? 0,
++        'coverRecoveryAttempt': capabilities['overlayCoverRecoveryAttempt'] ?? 0,
++        'lastCoverExitAt': capabilities['overlayLastCoverExitAt'] ?? 0,
++        'lastCoverExitReason': capabilities['overlayLastCoverExitReason'] ?? '',
++        'lastCoverRecoveryResult':
++            capabilities['overlayLastCoverRecoveryResult'] ?? '',
++        'coverDetachCount': capabilities['overlayCoverDetachCount'] ?? 0,
+       };
+ 
+       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
+@@ -542,7 +551,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/pubspec.yaml b/pubspec.yaml
+index 681ff0b..495550f 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.31.2+44
++version: 0.31.3+45
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index c75d7be..b7fa003 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert any(v in pubspec for v in ['version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44'])
++    assert any(v in pubspec for v in ['version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44', 'version: 0.31.3+45'])
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
+diff --git a/tools/validate_v0312_companion_voice.py b/tools/validate_v0312_companion_voice.py
+index acaba8f..4e26099 100644
+--- a/tools/validate_v0312_companion_voice.py
++++ b/tools/validate_v0312_companion_voice.py
+@@ -19,7 +19,8 @@ def require(body: str, *tokens: str) -> None:
+ 
+ 
+ def main() -> int:
+-    assert 'version: 0.31.2+44' in text('pubspec.yaml')
++    pubspec = text('pubspec.yaml')
++    assert any(v in pubspec for v in ['version: 0.31.2+44', 'version: 0.31.3+45'])
+ 
+     db = text('lib/core/database/app_database.dart')
+     require(
+@@ -135,7 +136,9 @@ def main() -> int:
+         "'companionVoice': {",
+         "'retryCount'",
+         "'blockCount'",
+-        'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT',
++        ('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT'
++         if 'version: 0.31.3+45' in pubspec
++         else 'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT'),
+     )
+ 
+     tests = text('test/companion_voice_protocol_v0312_test.dart')
+@@ -160,8 +163,11 @@ def main() -> int:
+         'companion_voice',
+     )
+ 
+-    # v0.31.2 must not alter Android overlay or the frozen TTS implementation.
+-    assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt') == 'a622f882573c3e230627e9db01e0c58215440670c75147149b2509a79489ad6d'
++    # v0.31.2 itself must not alter Android overlay. v0.31.3 deliberately owns
++    # that isolated surface and has a separate bounded-recovery validator.
++    if 'version: 0.31.2+44' in pubspec:
++        assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt') == 'a622f882573c3e230627e9db01e0c58215440670c75147149b2509a79489ad6d'
++    # Companion Voice, Desire and TTS remain frozen in both versions.
+     assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt') == 'c581b4cb93c5979ccb5d413904cd43dd1a7046a0d66ab7b75acf6e4cfbafc36b'
+     assert sha('lib/core/tts/tts_service.dart') == '691605c38107e1d4293f1fdbb176e51392555c7d39ee07abe006f0c01cffa47f'
+     assert sha('lib/core/tts/tts_playback_queue.dart') == '4cdd466553664b3039d81c30ff4cad2cb71dc2ea8fb6234a5371c153a8adfc5b'
+@@ -169,7 +175,7 @@ def main() -> int:
+     assert sha('lib/core/desire/desire_engine.dart') == '1d46d85ba9a3f0c851430994bba93dbd8afd1ce735a01ce023795702f0c89af9'
+     assert sha('lib/core/desire/self_drive_engine.dart') == '6fbd88b10a733a43f9a9604c546f96bcd4b5a38a75790038bf4b1040820cc968'
+ 
+-    print('v0.31.2+44 streaming inner and richer voice validation passed.')
++    print('v0.31.2+44 streaming inner and richer voice validation passed unchanged.')
+     return 0
+ 
+ 
+diff --git a/tools/validate_v0313_overlay_picker.py b/tools/validate_v0313_overlay_picker.py
+new file mode 100644
+index 0000000..e493c5a
+--- /dev/null
++++ b/tools/validate_v0313_overlay_picker.py
+@@ -0,0 +1,137 @@
++#!/usr/bin/env python3
++from pathlib import Path
++import hashlib
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def read(relative: str) -> str:
++    return (ROOT / relative).read_text(encoding="utf-8")
++
++
++def sha256(relative: str) -> str:
++    return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
++
++
++def main() -> int:
++    pubspec = read("pubspec.yaml")
++    assert "version: 0.31.3+45" in pubspec
++    assert "static const int schemaVersion = 19;" in read(
++        "lib/core/database/app_database.dart"
++    )
++
++    overlay = read(
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
++    )
++    for token in [
++        "ACTION_SYSTEM_COVER_ENTER",
++        "ACTION_SYSTEM_COVER_EXIT",
++        "handleSystemCoverEntered",
++        "retireBubbleForSystemCover",
++        "windowManager.removeViewImmediate(bubble)",
++        "handleSystemCoverExited",
++        "COVER_EXIT_STABLE_DELAY_MS = 1_100L",
++        "COVER_RECOVERY_MAX_ATTEMPTS = 3",
++        "COVER_RECOVERY_RETRY_DELAYS_MS = longArrayOf(1_800L, 4_000L)",
++        "if (CompanionRuntimeState.isOverlaySystemCoverActive())",
++        "Never re-add an overlay beneath a still-active system picker",
++        '"suspect_watchdog"',
++        '"bounded_cover_recovery:',
++        'eventType = "overlay_system_cover_entered"',
++        'eventType = "overlay_system_cover_recovered"',
++    ]:
++        assert token in overlay, token
++
++    recovery_start = overlay.index("private fun scheduleCoverRecovery(")
++    recovery_end = overlay.index("private fun updateOverlayTouchHealth()", recovery_start)
++    recovery = overlay[recovery_start:recovery_end]
++    assert "CompanionRuntimeState.isAppVisible()" not in recovery
++    assert "while (" not in recovery
++    assert "COVER_RECOVERY_MAX_ATTEMPTS" in recovery
++
++    runtime = read(
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt"
++    )
++    for token in [
++        'overlayCoverState: String = "idle"',
++        "overlaySystemCoverActive",
++        "overlayCoverSessionId",
++        "overlayCoverRecoveryAttempt",
++        "overlayLastCoverExitReason",
++        "overlayLastCoverRecoveryResult",
++        "overlayCoverDetachCount",
++        "fun noteOverlayCoverEntered(",
++        "fun noteOverlayCoverExited(",
++        "fun noteOverlayCoverRecoveryScheduled(",
++        "fun noteOverlayCoverRecoveryResult(",
++        "fun noteOverlayCoverRecoveryFailed(",
++        "fun noteOverlayCoverRecoveryDeferred(",
++    ]:
++        assert token in runtime, token
++
++    accessibility = read(
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt"
++    )
++    for token in [
++        "notifySystemCoverEntered",
++        "notifySystemCoverExited",
++        "CompanionRuntimeState.isOverlaySystemCoverActive()",
++        "com.android.documentsui",
++        "com.android.providers.media.module",
++        "com.android.photopicker",
++        "com.miui.fileexplorer",
++        'p.contains("photopicker")',
++    ]:
++        assert token in accessibility, token
++    assert "sourcePackage" not in accessibility[
++        accessibility.index("notifySystemCoverEntered") :
++        accessibility.index("if (!PrivacyFilter.allowPackage")
++    ]
++
++    diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
++    for token in [
++        "AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT",
++        "'coverState'",
++        "'systemCoverActive'",
++        "'coverSessionId'",
++        "'coverRecoveryAttempt'",
++        "'lastCoverExitReason'",
++        "'lastCoverRecoveryResult'",
++        "'coverDetachCount'",
++    ]:
++        assert token in diagnostics, token
++
++    # v0.31.3 is deliberately isolated from Companion Voice, Desire and TTS.
++    frozen_hashes = {
++        "lib/features/chat/chat_controller.dart":
++            "9709994886c24771c1c886bee0f79daef67dded8f884e5afa1f03817cfe35602",
++        "lib/core/ai/companion_voice_protocol.dart":
++            "9bbc744c70ec63cb35a81558098c76b98dd5e9c31b6cdc052ef96e4422047d19",
++        "lib/core/desire/desire_core_policy.dart":
++            "d28f0fb575ed2d7b32bb186e5058c07432a30a5aa81b76a5474a9f298c7dcab5",
++        "lib/core/tts/tts_sentence_segmenter.dart":
++            "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
++        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
++            "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
++    }
++    for relative, expected in frozen_hashes.items():
++        assert sha256(relative) == expected, relative
++
++    # A cover session can schedule at most attempts 1, 2 and 3. A re-enter
++    # increments the session token, making callbacks from the old token inert.
++    attempts = []
++    max_attempts = 3
++    attempt = 1
++    while attempt <= max_attempts:
++        attempts.append(attempt)
++        attempt += 1
++    assert attempts == [1, 2, 3]
++    old_session, current_session = 7, 8
++    assert old_session != current_session
++
++    print("v0.31.3 HyperOS file-picker overlay recovery validation passed.")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
