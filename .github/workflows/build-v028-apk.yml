@@ -32,13 +32,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f v0315-live-context-self-seed.patch
-          echo 'a2f76e336dad8e90d8b43325e37afc0af36efa24c2e6c787fca9d0502a3a9e61  v0315-live-context-self-seed.patch' | sha256sum -c -
+          echo 'd18627c4364c6cc1417a3a828d0e71470628778d507a8e9c8730331bf80d2128  v0315-live-context-self-seed.patch' | sha256sum -c -
           git apply --check --directory=app v0315-live-context-self-seed.patch
           git apply --directory=app v0315-live-context-self-seed.patch
           grep -q '^version: 0.31.5+47$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 20;' app/lib/core/database/app_database.dart
           test -f v0315-project-docs.zip
-          echo '610b5e5bb7984496326a50cf1ecdceae8f279a2434a836dcde32a0326b03019c  v0315-project-docs.zip' | sha256sum -c -
+          echo '8cf2057af536b880e4d23fbe12385768be40424c5d56a2c3e0497e8a57d2efe4  v0315-project-docs.zip' | sha256sum -c -
           unzip -o v0315-project-docs.zip -d app/docs
           grep -q 'v0.31.5+47' app/docs/HANDOFF.md
           grep -q 'schema v20' app/docs/PROJECT_TASK_LEDGER.md
