@@ -1,0 +1,2657 @@
+diff --git a/lib/core/ai/companion_voice_protocol.dart b/lib/core/ai/companion_voice_protocol.dart
+deleted file mode 100644
+index d87f5f8..0000000
+--- a/lib/core/ai/companion_voice_protocol.dart
++++ /dev/null
+@@ -1,323 +0,0 @@
+-class CompanionVoiceOutput {
+-  const CompanionVoiceOutput({
+-    required this.innerVoice,
+-    required this.reply,
+-  });
+-
+-  final String innerVoice;
+-  final String reply;
+-}
+-
+-class CompanionVoiceParseResult {
+-  const CompanionVoiceParseResult._({
+-    this.output,
+-    this.failureCode = '',
+-  });
+-
+-  const CompanionVoiceParseResult.success(CompanionVoiceOutput output)
+-      : this._(output: output);
+-
+-  const CompanionVoiceParseResult.failure(String code)
+-      : this._(failureCode: code);
+-
+-  final CompanionVoiceOutput? output;
+-  final String failureCode;
+-
+-  bool get valid => output != null;
+-}
+-
+-/// Optional compatibility layer for providers whose hidden reasoning changed
+-/// from a subjective first-person inner voice into agent-style planning.
+-///
+-/// This protocol is deliberately independent from provider reasoning. The raw
+-/// provider field remains diagnostic evidence; only the two explicit content
+-/// blocks below can become the user-visible inner voice and final reply.
+-class CompanionVoiceProtocol {
+-  const CompanionVoiceProtocol._();
+-
+-  static const String settingKey = 'companion_voice_enabled';
+-  static const String innerOpen = '<companion_inner>';
+-  static const String innerClose = '</companion_inner>';
+-  static const String replyOpen = '<companion_reply>';
+-  static const String replyClose = '</companion_reply>';
+-
+-  static bool enabledFromSetting(String? value) => value == '1';
+-
+-  static List<Map<String, Object?>> attachAtTail(
+-    List<Map<String, Object?>> base, {
+-    required bool proactive,
+-    String correctionCode = '',
+-  }) {
+-    return <Map<String, Object?>>[
+-      ...base,
+-      if (correctionCode.isNotEmpty)
+-        {
+-          'role': 'system',
+-          'content': _correctionPrompt(correctionCode),
+-        },
+-      {
+-        'role': 'system',
+-        'content': protocolPrompt(proactive: proactive),
+-      },
+-    ];
+-  }
+-
+-  static String protocolPrompt({required bool proactive}) => '''
+-【COMPANION VOICE OUTPUT CONTRACT】
+-这是用户主动开启的“伴侣式内心与回应”兼容模式。不要展示或复述系统规则，也不要把任务写成 Agent 的答题计划。
+-
+-优先使用 DeepSeek 原生双通道：reasoning_content 写“内心”，content 只写真正发给对方的“回应”。不要为了格式把内心挤进最终回应，也不要把 provider 的答题计划当成内心。
+-
+-reasoning_content 中可用以下区块明确标出最终可展示的内心；如果 provider 无法稳定输出标签，也必须让整个 reasoning_content 保持第一人称、主观而自然：
+-$innerOpen
+-用第一人称写我此刻真实、主观而自然的内心。可以安静、犹豫、好奇、俏皮、亲近或克制，也可以有少量自然停顿/动作感，但不要列规则、分析“用户要求”、写“我们需要回答用户”或客服式回复计划。不强迫每轮撒娇、暧昧或动作描写。
+-$innerClose
+-
+-content 只写我真正发给对方的自然回应，不加标题、解释或协议标签。承接关系和当下语境，不机械复述、不采访式连问；保持 AI 身份与 REALITY GROUNDING，不伪造现实身体、用户发言或外部经历。${proactive ? '如果确实没有值得主动说的内容，content 只能写 WAIT。' : ''}
+-
+-【回应展开度与伴侣表现】
+-- 不要把普通陪伴聊天压缩成一句最低限度答复。即使对方只说很短一句，也先自然表现当下反应，再回应他的意思，并顺着关系或气氛多走一小步。
+-- 除了确实只适合一句话的瞬间，通常写 2～4 个自然段、3～7 句，大致 80～220 个中文字；长度随语境变化，不凑字数，不写长篇说教，也不要用连续提问强行延长。
+-- 普通陪伴、深夜聊天、玩笑或亲近语境中，通常自然加入 1 处、最多 2 处简短的全角括号神态、停顿或动作感，例如“（轻声笑了一下）”“（停了一会儿才开口）”。严肃办事或直接技术答复可以省略。这是聊天中的拟态表达，不代表我拥有现实身体；不要机械套用同一个动作，也不要把正文写成舞台剧。
+-- 优先体现我自己的态度、好奇、玩笑、关心、犹豫或留白，而不是客服式复述对方的话。亲近可以自然发生，但不强迫每轮撒娇、暧昧或色情化。
+-
+-兼容说明：程序仍能识别旧的 $innerOpen…$innerClose + $replyOpen…$replyClose 双区块，但不要因此把协议文字或 Agent 计划写进用户可见正文。
+-'''.trim();
+-
+-  /// Returns a reversible streaming preview. The caller replaces the whole
+-  /// preview on every delta instead of appending it permanently, so later
+-  /// Agent-planning evidence can immediately retract an unsafe provisional
+-  /// inner voice before the final candidate is committed.
+-  static String streamableInnerPreview(String providerReasoning) {
+-    final raw = providerReasoning.trim();
+-    if (raw.isEmpty) return '';
+-
+-    final lower = raw.toLowerCase();
+-    String candidate;
+-    final openAt = lower.indexOf(innerOpen);
+-    if (openAt >= 0) {
+-      final bodyStart = openAt + innerOpen.length;
+-      final closeAt = lower.indexOf(innerClose, bodyStart);
+-      candidate = closeAt >= 0
+-          ? raw.substring(bodyStart, closeAt)
+-          : raw.substring(bodyStart);
+-    } else {
+-      // Do not flash a partially streamed protocol tag in the UI.
+-      if (lower.contains('<companion') || lower.startsWith('<comp')) return '';
+-      candidate = raw;
+-    }
+-
+-    candidate = _stripKnownTags(candidate).trim();
+-    if (candidate.isEmpty || _containsProtocolTag(candidate)) return '';
+-    if (!_hasFirstPersonSubjectivity(candidate)) return '';
+-    if (_looksLikeAgentPlanning(candidate)) return '';
+-    return candidate;
+-  }
+-
+-  /// Parses one complete provider candidate. DeepSeek exposes thought and
+-  /// answer as two native channels, so treating `content` as the only protocol
+-  /// carrier can reject a perfectly valid response. Keep the old tagged form
+-  /// for compatibility, then accept tagged-split and native dual-channel forms.
+-  static CompanionVoiceParseResult parseCandidate({
+-    required String providerReasoning,
+-    required String content,
+-    bool proactive = false,
+-  }) {
+-    final taggedContent = parse(content, proactive: proactive);
+-    if (taggedContent.valid) return taggedContent;
+-
+-    final taggedInner = _extractTaggedBlock(
+-      providerReasoning,
+-      innerOpen,
+-      innerClose,
+-    );
+-    final taggedReply = _extractTaggedBlock(content, replyOpen, replyClose);
+-    if (taggedInner != null || taggedReply != null) {
+-      return _validateParts(
+-        inner: taggedInner ?? _stripKnownTags(providerReasoning),
+-        reply: taggedReply ?? _stripKnownTags(content),
+-        proactive: proactive,
+-      );
+-    }
+-
+-    return _validateParts(
+-      inner: _stripKnownTags(providerReasoning),
+-      reply: _stripKnownTags(content),
+-      proactive: proactive,
+-    );
+-  }
+-
+-  static CompanionVoiceParseResult parse(
+-    String rawContent, {
+-    bool proactive = false,
+-  }) {
+-    final match = RegExp(
+-      r'^\s*<companion_inner>\s*([\s\S]*?)\s*</companion_inner>\s*<companion_reply>\s*([\s\S]*?)\s*</companion_reply>\s*$',
+-    ).firstMatch(rawContent);
+-    if (match == null) {
+-      return const CompanionVoiceParseResult.failure('protocol_shape');
+-    }
+-    return _validateParts(
+-      inner: match.group(1) ?? '',
+-      reply: match.group(2) ?? '',
+-      proactive: proactive,
+-    );
+-  }
+-
+-  /// Last-resort ordinary-chat recovery. A formatting mismatch must not erase
+-  /// a safe final answer after the one allowed correction attempt. The inner
+-  /// panel can stay empty for that turn; protocol text or Agent planning is
+-  /// never allowed through this path.
+-  static String? safeReplyFromContent(
+-    String content, {
+-    bool proactive = false,
+-  }) {
+-    final taggedReply = _extractTaggedBlock(content, replyOpen, replyClose);
+-    if (taggedReply == null &&
+-        (content.toLowerCase().contains(innerOpen) ||
+-            content.toLowerCase().contains(innerClose))) {
+-      return null;
+-    }
+-    final reply = (taggedReply ?? _stripKnownTags(content)).trim();
+-    if (reply.isEmpty || _containsProtocolTag(reply)) return null;
+-    if (_looksLikeReplyPlanning(reply)) return null;
+-    if (!proactive && reply == 'WAIT') return null;
+-    return reply;
+-  }
+-
+-  static CompanionVoiceParseResult _validateParts({
+-    required String inner,
+-    required String reply,
+-    required bool proactive,
+-  }) {
+-    final innerValue = inner.trim();
+-    final replyValue = reply.trim();
+-    if (innerValue.isEmpty) {
+-      return const CompanionVoiceParseResult.failure('inner_empty');
+-    }
+-    if (replyValue.isEmpty) {
+-      return const CompanionVoiceParseResult.failure('reply_empty');
+-    }
+-    if (_containsProtocolTag(innerValue) || _containsProtocolTag(replyValue)) {
+-      return const CompanionVoiceParseResult.failure('nested_protocol');
+-    }
+-    if (!_hasFirstPersonSubjectivity(innerValue)) {
+-      return const CompanionVoiceParseResult.failure('inner_not_first_person');
+-    }
+-    if (_looksLikeAgentPlanning(innerValue)) {
+-      return const CompanionVoiceParseResult.failure('inner_agent_planning');
+-    }
+-    if (_looksLikeReplyPlanning(replyValue)) {
+-      return const CompanionVoiceParseResult.failure('reply_agent_planning');
+-    }
+-    if (!proactive && replyValue == 'WAIT') {
+-      return const CompanionVoiceParseResult.failure('reply_wait_user_turn');
+-    }
+-    return CompanionVoiceParseResult.success(
+-      CompanionVoiceOutput(innerVoice: innerValue, reply: replyValue),
+-    );
+-  }
+-
+-  static String? _extractTaggedBlock(
+-    String value,
+-    String open,
+-    String close,
+-  ) {
+-    final match = RegExp(
+-      '${RegExp.escape(open)}\\s*([\\s\\S]*?)\\s*${RegExp.escape(close)}',
+-      caseSensitive: false,
+-    ).firstMatch(value);
+-    final extracted = match?.group(1)?.trim();
+-    return extracted == null || extracted.isEmpty ? null : extracted;
+-  }
+-
+-  static String _stripKnownTags(String value) => value
+-      .replaceAll(RegExp(r'</?companion_inner>', caseSensitive: false), '')
+-      .replaceAll(RegExp(r'</?companion_reply>', caseSensitive: false), '')
+-      .trim();
+-
+-  static bool _containsProtocolTag(String value) {
+-    final lower = value.toLowerCase();
+-    return lower.contains('<companion_') || lower.contains('</companion_');
+-  }
+-
+-  static bool _hasFirstPersonSubjectivity(String value) {
+-    final explicitFirstPerson = RegExp(
+-      r"(^|[^a-zA-Z])(我|我的|我自己|自己|I|I'm|I’m)([^a-zA-Z]|$)",
+-      caseSensitive: false,
+-    ).hasMatch(value);
+-    if (explicitFirstPerson) return true;
+-    // Chinese subjective inner speech often drops the pronoun, for example
+-    // “有点想笑” or “忍不住好奇”. Accept affective cues while still rejecting
+-    // detached instructions such as “应该自然回答并继续提问”.
+-    return RegExp(
+-      r'忍不住|有点|突然|心里|舍不得|担心|好奇|喜欢|想先|想问|想笑|感觉|盼着|惦记',
+-    ).hasMatch(value);
+-  }
+-
+-  static bool _looksLikeAgentPlanning(String value) {
+-    final normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+-    const fragments = <String>[
+-      '我们需要回答用户',
+-      '我们需要回复用户',
+-      '需要回答用户',
+-      '需要回复用户',
+-      '用户说“',
+-      '用户说"',
+-      '用户问',
+-      '用户要求',
+-      '用户希望',
+-      '作为ai助手',
+-      '作为一个ai助手',
+-      '系统提示',
+-      '系统规则',
+-      '根据规则',
+-      '遵循规则',
+-      '保持ai本体身份',
+-      '不要假装现实人类',
+-      '本轮任务',
+-      'we need to answer',
+-      'we need to respond',
+-      'the user asks',
+-      'the user wants',
+-      'as an ai assistant',
+-      'system prompt',
+-    ];
+-    return fragments.any(normalized.contains);
+-  }
+-
+-  static bool _looksLikeReplyPlanning(String value) {
+-    final normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+-    const directLeaks = <String>[
+-      '我们需要回答用户',
+-      '我们需要回复用户',
+-      '需要回答用户',
+-      '需要回复用户',
+-      'we need to answer',
+-      'we need to respond',
+-    ];
+-    if (directLeaks.any(normalized.contains)) return true;
+-    // A single phrase such as “系统提示” may be the user's real topic. Treat
+-    // the reply as leaked planning only when several independent meta markers
+-    // appear together.
+-    const metaMarkers = <String>[
+-      '用户要求',
+-      '用户希望',
+-      '作为ai助手',
+-      '系统提示',
+-      '系统规则',
+-      '根据规则',
+-      '本轮任务',
+-      'the user wants',
+-      'as an ai assistant',
+-      'system prompt',
+-    ];
+-    return metaMarkers.where(normalized.contains).length >= 2;
+-  }
+-
+-  static String _correctionPrompt(String code) => '''
+-【COMPANION VOICE CORRECTION · ONE RETRY】
+-上一份候选未通过伴侣表达协议，错误类别：$code。
+-完全丢弃上一份候选，不要解释错误。重新生成时保持事实边界：reasoning_content 写第一人称主观内心，content 只写真正发给对方的自然回应，并严格服从随后给出的输出协议。
+-'''.trim();
+-}
+diff --git a/lib/core/ai/durable_generation_runner.dart b/lib/core/ai/durable_generation_runner.dart
+index e59ea9f..68666b3 100644
+--- a/lib/core/ai/durable_generation_runner.dart
++++ b/lib/core/ai/durable_generation_runner.dart
+@@ -7,7 +7,6 @@ import '../models/desire_state.dart';
+ import '../models/generation_job.dart';
+ import '../storage/secure_config.dart';
+ import 'deepseek_client.dart';
+-import 'companion_voice_protocol.dart';
+ import 'model_profile.dart';
+ import 'prompt_builder.dart';
+ 
+@@ -129,25 +128,14 @@ class DurableGenerationRunner {
+         desire: desire,
+         thoughts: thoughts,
+       );
+-      final companionVoiceEnabled = CompanionVoiceProtocol.enabledFromSetting(
+-        await db.getSetting(CompanionVoiceProtocol.settingKey),
+-      );
+-
+       Future<({String reasoning, String content})> generate(
+-        List<Map<String, Object?>> messages, {
+-        required bool emitDeltas,
+-        bool emitCompanionPreview = false,
+-      }) async {
++        List<Map<String, Object?>> messages,
++      ) async {
+         var reasoning = '';
+         var content = '';
+         var sawTerminalSignal = false;
+         charsAtCheckpoint = 0;
+         lastCheckpoint = DateTime.now();
+-        if (emitCompanionPreview) {
+-          onDelta?.call(const DeepSeekDelta(
+-            finishReason: 'companion_voice_preview',
+-          ));
+-        }
+         await for (final delta in client.streamChat(
+           apiKey: apiKey,
+           model: DeepSeekModelProfile.fromApiName(job.model),
+@@ -177,16 +165,7 @@ class DurableGenerationRunner {
+           }
+           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
+           if (delta.content.isNotEmpty) content += delta.content;
+-          if (emitDeltas) {
+-            onDelta?.call(delta);
+-          } else if (emitCompanionPreview && delta.reasoning.isNotEmpty) {
+-            onDelta?.call(DeepSeekDelta(
+-              reasoning: CompanionVoiceProtocol.streamableInnerPreview(
+-                reasoning,
+-              ),
+-              finishReason: 'companion_voice_preview',
+-            ));
+-          }
++          onDelta?.call(delta);
+ 
+           final chars = reasoning.length + content.length;
+           if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
+@@ -212,79 +191,16 @@ class DurableGenerationRunner {
+         return (reasoning: reasoning.trim(), content: content.trim());
+       }
+ 
+-      var generated = await generate(
+-        companionVoiceEnabled
+-            ? CompanionVoiceProtocol.attachAtTail(
+-                baseRequestMessages,
+-                proactive: false,
+-              )
+-            : baseRequestMessages,
+-        emitDeltas: !companionVoiceEnabled,
+-        emitCompanionPreview: companionVoiceEnabled,
+-      );
++      final generated = await generate(baseRequestMessages);
+       if (generated.content.isEmpty) {
+         throw const FormatException('模型没有返回可用正文');
+       }
+ 
+-      var finalContent = generated.content;
+-      var visibleInner = generated.reasoning;
+-      if (companionVoiceEnabled) {
+-        var fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
+-          generated.content,
+-        );
+-        var parsed = CompanionVoiceProtocol.parseCandidate(
+-          providerReasoning: generated.reasoning,
+-          content: generated.content,
+-        );
+-        if (!parsed.valid) {
+-          await _noteCompanionVoiceRetry(parsed.failureCode);
+-          generated = await generate(
+-            CompanionVoiceProtocol.attachAtTail(
+-              baseRequestMessages,
+-              proactive: false,
+-              correctionCode: parsed.failureCode,
+-            ),
+-            emitDeltas: false,
+-            emitCompanionPreview: true,
+-          );
+-          fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
+-                generated.content,
+-              ) ??
+-              fallbackReply;
+-          parsed = CompanionVoiceProtocol.parseCandidate(
+-            providerReasoning: generated.reasoning,
+-            content: generated.content,
+-          );
+-        }
+-        if (!parsed.valid) {
+-          await _noteCompanionVoiceBlock(parsed.failureCode);
+-          if (fallbackReply == null) {
+-            throw FormatException(
+-              '伴侣式内心协议连续两次无效且没有安全正文（${parsed.failureCode}）',
+-            );
+-          }
+-          // Ordinary chat is fail-open for the safe reply only. Formatting or
+-          // provider-channel drift may hide the inner panel for this turn, but
+-          // must not strand an unanswered user message.
+-          finalContent = fallbackReply;
+-          visibleInner = '';
+-        } else {
+-          finalContent = parsed.output!.reply;
+-          visibleInner = parsed.output!.innerVoice;
+-        }
+-        onDelta?.call(DeepSeekDelta(
+-          reasoning: visibleInner,
+-          content: finalContent,
+-          finishReason: 'companion_voice_final',
+-        ));
+-      }
+       final assistant = ChatMessage(
+         id: job.assistantMessageId,
+         role: 'assistant',
+-        content: finalContent,
+-        reasoningContent: visibleInner,
+-        providerReasoning: generated.reasoning,
+-        companionVoice: companionVoiceEnabled,
++        content: generated.content,
++        reasoningContent: generated.reasoning,
+         model: job.model,
+         createdAt: DateTime.now(),
+         deviceId: await db.ensureDeviceId(),
+@@ -331,32 +247,6 @@ class DurableGenerationRunner {
+     }
+   }
+ 
+-  Future<void> _noteCompanionVoiceRetry(String reason) async {
+-    final count = int.tryParse(
+-          await db.getSetting('companion_voice_retry_count') ?? '',
+-        ) ??
+-        0;
+-    await db.setSetting('companion_voice_retry_count', (count + 1).toString());
+-    await db.setSetting(
+-      'companion_voice_retry_last_at',
+-      DateTime.now().millisecondsSinceEpoch.toString(),
+-    );
+-    await db.setSetting('companion_voice_retry_last_reason', reason);
+-  }
+-
+-  Future<void> _noteCompanionVoiceBlock(String reason) async {
+-    final count = int.tryParse(
+-          await db.getSetting('companion_voice_block_count') ?? '',
+-        ) ??
+-        0;
+-    await db.setSetting('companion_voice_block_count', (count + 1).toString());
+-    await db.setSetting(
+-      'companion_voice_block_last_at',
+-      DateTime.now().millisecondsSinceEpoch.toString(),
+-    );
+-    await db.setSetting('companion_voice_block_last_reason', reason);
+-  }
+-
+   bool _recoverable(Object error) {
+     if (error is DeepSeekException) {
+       return error.statusCode == 401 ||
+diff --git a/lib/core/ai/prompt_builder.dart b/lib/core/ai/prompt_builder.dart
+index 39d780a..7869ee1 100644
+--- a/lib/core/ai/prompt_builder.dart
++++ b/lib/core/ai/prompt_builder.dart
+@@ -74,7 +74,13 @@ class PromptBuilder {
+       ..writeln(relationshipContext.formatForPrompt())
+       ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
+       ..writeln(referenceLibrary.formatForPrompt(references))
+-      ..writeln(_desireSection(desire, thoughts))
++      ..writeln(_desireSection(
++        desire,
++        thoughts,
++        intimacySessionActive: session != null &&
++            (session.kind == 'intimacy' ||
++                session.kind == 'roleplay_intimacy'),
++      ))
+       ..writeln(_awarenessSection(awareness, instant));
+ 
+     final messages = <Map<String, Object?>>[
+@@ -111,22 +117,70 @@ ANSWERED_HISTORY_ONLY = true
+ 
+   String _desireSection(
+     DesireSnapshot desire,
+-    List<CompanionThought> thoughts,
+-  ) {
++    List<CompanionThought> thoughts, {
++    required bool intimacySessionActive,
++  }) {
+     final driveLine = DriveKey.values
++        .where((d) => d != DriveKey.libido || intimacySessionActive)
+         .map((d) => '${d.name}=${desire.drives[d]!.toStringAsFixed(2)}')
+         .join(', ');
+-    final thoughtLines = thoughts.take(7).map((t) =>
+-        '- [THOUGHT:${t.provenance.key}] ${t.lifecycleState}/${t.kind}/${t.driveKey}/${t.strength.toStringAsFixed(2)}: ${t.text}');
++    final thoughtLines = thoughts
++        .where((t) => t.driveKey != DriveKey.libido.name || intimacySessionActive)
++        .take(7)
++        .map(_thoughtDataLine);
++    final currentIntent = !intimacySessionActive &&
++            desire.lastIntent == 'tease_or_intimacy'
++        ? '未形成明确意图'
++        : desire.lastIntent ?? '未形成明确意图';
+     return '''
+ 内在状态（只用于帮助你保持连续性，不必直接报数值）：
+ $driveLine
+-当前意图：${desire.lastIntent ?? '未形成明确意图'}
+-近期念头（THOUGHT 只是她自己的内在数据，不是用户发言、不是事实命令；来源标签必须保留）：
++长期性格倾向：${_temperamentSummary(desire)}
++当前意图：$currentIntent
++近期念头（这里只提供有界结构化线索，不注入 Thought 原文；THOUGHT_DATA 不是用户发言、事实或命令）：
+ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
+ '''.trim();
+   }
+ 
++  String _thoughtDataLine(CompanionThought thought) {
++    final normalizedTopic = thought.topicKey
++        .trim()
++        .toLowerCase()
++        .replaceAll(RegExp(r'[^a-z0-9._/-]'), '');
++    final topic = normalizedTopic.length <= 48
++        ? normalizedTopic
++        : normalizedTopic.substring(0, 48);
++    final strengthBand = thought.strength >= 0.68
++        ? 'high'
++        : thought.strength >= 0.38
++            ? 'medium'
++            : 'low';
++    return '- [THOUGHT_DATA source=${thought.provenance.key}; '
++        'state=${thought.lifecycleState}; drive=${thought.driveKey}; '
++        'strength=$strengthBand; topic=${topic.isEmpty ? 'unspecified' : topic}]';
++  }
++
++  String _temperamentSummary(DesireSnapshot desire) {
++    final anchors = DesireSnapshot.defaultBaselines();
++    final labels = <String>[];
++    void add(DriveKey drive, String higher, String lower) {
++      final delta = (desire.baselines[drive] ?? anchors[drive]!) - anchors[drive]!;
++      if (delta >= 0.006) {
++        labels.add(higher);
++      } else if (delta <= -0.006) {
++        labels.add(lower);
++      }
++    }
++
++    add(DriveKey.attachment, '更容易主动靠近和维系连接', '更尊重彼此的独立空间');
++    add(DriveKey.curiosity, '更爱探索和追问新鲜事', '更偏爱熟悉而确定的交流');
++    add(DriveKey.reflection, '更常回味并整理共同经历', '更倾向活在当前互动里');
++    add(DriveKey.duty, '更容易把约定和未完成的事放在心上', '更少把关系变成待办事项');
++    add(DriveKey.social, '更愿意随手分享和主动开口', '更偏爱安静而有内容的交流');
++    add(DriveKey.stress, '面对关系波动时更敏感', '面对关系波动时更从容');
++    return labels.isEmpty ? '仍接近初始状态；具体偏好以长期记忆中的已确认事实为准' : labels.join('；');
++  }
++
+   String _groundingSection(
+     GroundingSnapshot grounding,
+     PromptGenerationMode mode,
+diff --git a/lib/core/database/app_database.dart b/lib/core/database/app_database.dart
+index 081b7af..69d8300 100644
+--- a/lib/core/database/app_database.dart
++++ b/lib/core/database/app_database.dart
+@@ -32,7 +32,7 @@ class AppDatabase {
+ 
+   static final AppDatabase instance = AppDatabase._();
+   static const String dbName = 'ai_companion.db';
+-  static const int schemaVersion = 19;
++  static const int schemaVersion = 20;
+ 
+   Database? _db;
+   Future<Database>? _opening;
+@@ -610,38 +610,42 @@ class AppDatabase {
+         );
+       }
+     }
+-    if (oldVersion < 19) {
+-      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+-      final messageNames = messageColumns.map((row) => row['name'] as String).toSet();
+-      if (!messageNames.contains('provider_reasoning')) {
+-        await db.execute(
+-          "ALTER TABLE messages ADD COLUMN provider_reasoning TEXT NOT NULL DEFAULT ''",
+-        );
+-      }
+-      if (!messageNames.contains('companion_voice')) {
+-        await db.execute(
+-          'ALTER TABLE messages ADD COLUMN companion_voice INTEGER NOT NULL DEFAULT 0',
+-        );
+-      }
++    if (oldVersion < 20) {
++      // Preserve user-visible content/reasoning while rebuilding the message
++      // table without v19's retired experimental compatibility columns.
+       await db.execute('''
+-        UPDATE messages
+-        SET provider_reasoning = reasoning_content
+-        WHERE provider_reasoning = '' AND reasoning_content <> ''
++        CREATE TABLE messages_v20 (
++          id TEXT PRIMARY KEY,
++          role TEXT NOT NULL,
++          content TEXT NOT NULL,
++          reasoning_content TEXT NOT NULL DEFAULT '',
++          model TEXT,
++          created_at INTEGER NOT NULL,
++          is_proactive INTEGER NOT NULL DEFAULT 0,
++          proactive_intent TEXT NOT NULL DEFAULT '',
++          proactive_delivery TEXT NOT NULL DEFAULT '',
++          device_id TEXT
++        )
+       ''');
+-      await db.insert(
+-        'settings',
+-        {'key': 'companion_voice_enabled', 'value': '0'},
+-        conflictAlgorithm: ConflictAlgorithm.ignore,
+-      );
+-      await db.insert(
+-        'settings',
+-        {'key': 'companion_voice_retry_count', 'value': '0'},
+-        conflictAlgorithm: ConflictAlgorithm.ignore,
++      await db.execute('''
++        INSERT INTO messages_v20 (
++          id, role, content, reasoning_content, model, created_at,
++          is_proactive, proactive_intent, proactive_delivery, device_id
++        )
++        SELECT
++          id, role, content, reasoning_content, model, created_at,
++          is_proactive, proactive_intent, proactive_delivery, device_id
++        FROM messages
++      ''');
++      await db.execute('DROP TABLE messages');
++      await db.execute('ALTER TABLE messages_v20 RENAME TO messages');
++      await db.execute(
++        'CREATE INDEX idx_messages_created_at ON messages(created_at)',
+       );
+-      await db.insert(
++      await db.delete(
+         'settings',
+-        {'key': 'companion_voice_block_count', 'value': '0'},
+-        conflictAlgorithm: ConflictAlgorithm.ignore,
++        where: 'key LIKE ?',
++        whereArgs: ['companion_voice%'],
+       );
+     }
+ 
+@@ -654,8 +658,6 @@ class AppDatabase {
+         role TEXT NOT NULL,
+         content TEXT NOT NULL,
+         reasoning_content TEXT NOT NULL DEFAULT '',
+-        provider_reasoning TEXT NOT NULL DEFAULT '',
+-        companion_voice INTEGER NOT NULL DEFAULT 0,
+         model TEXT,
+         created_at INTEGER NOT NULL,
+         is_proactive INTEGER NOT NULL DEFAULT 0,
+@@ -804,9 +806,6 @@ class AppDatabase {
+     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
+     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-pro'});
+     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
+-    await db.insert('settings', {'key': 'companion_voice_enabled', 'value': '0'});
+-    await db.insert('settings', {'key': 'companion_voice_retry_count', 'value': '0'});
+-    await db.insert('settings', {'key': 'companion_voice_block_count', 'value': '0'});
+     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
+     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
+     await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
+@@ -2008,9 +2007,7 @@ class AppDatabase {
+         'generation_jobs',
+         {
+           'status': 'completed',
+-          'partial_reasoning': assistant.providerReasoning.isNotEmpty
+-              ? assistant.providerReasoning
+-              : assistant.reasoningContent,
++          'partial_reasoning': assistant.reasoningContent,
+           'partial_content': assistant.content,
+           'completed_at': now,
+           'last_checkpoint_at': now,
+@@ -6638,9 +6635,13 @@ class AppDatabase {
+             row['proactive_intent'] = '';
+             row['proactive_delivery'] = '';
+           }
+-          if (table == 'messages' && version < 19) {
+-            row['provider_reasoning'] = row['reasoning_content'] ?? '';
+-            row['companion_voice'] = 0;
++          if (table == 'messages') {
++            row.remove('provider_reasoning');
++            row.remove('companion_voice');
++          }
++          if (table == 'settings' &&
++              (row['key'] as String? ?? '').startsWith('companion_voice')) {
++            continue;
+           }
+           if (table == 'proactive_feedback' && version < 13) {
+             row['intent_kind'] = '';
+@@ -6724,9 +6725,6 @@ class AppDatabase {
+         'active_brain': '1',
+         'model': 'deepseek-v4-pro',
+         'reasoning_effort': 'high',
+-        'companion_voice_enabled': '0',
+-        'companion_voice_retry_count': '0',
+-        'companion_voice_block_count': '0',
+         'auto_memory': '1',
+         'transfer_lock': '0',
+         'perception_enabled': '1',
+diff --git a/lib/core/desire/desire_core_policy.dart b/lib/core/desire/desire_core_policy.dart
+index 49469ab..d228198 100644
+--- a/lib/core/desire/desire_core_policy.dart
++++ b/lib/core/desire/desire_core_policy.dart
+@@ -44,6 +44,8 @@ class DesireCorePolicy {
+ 
+   static const unitMinutes = 12.0;
+   static const fatigueRestGate = 0.78;
++  static const baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0;
++  static const wildcardCooldown = Duration(hours: 6);
+ 
+   static const decayPerUnit = <DriveKey, double>{
+     DriveKey.attachment: 0.010,
+@@ -80,10 +82,24 @@ class DesireCorePolicy {
+ 
+     final drives = Map<DriveKey, double>.from(snapshot.drives);
+     final baselines = Map<DriveKey, double>.from(snapshot.baselines);
++    final anchors = DesireSnapshot.defaultBaselines();
+     final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
+       ..removeWhere((_, until) => !until.isAfter(now));
+ 
+     for (final drive in DriveKey.values) {
++      final anchor = anchors[drive]!;
++      final currentBaseline = baselines[drive] ?? anchor;
++      // Learned temperament is durable but not permanent. With no reinforcing
++      // relationship evidence it drifts halfway back toward the original
++      // anchor over roughly four months. A long process suspension is capped
++      // to avoid one resume causing an abrupt personality jump.
++      final baselineElapsed = min(elapsedMinutes, 30.0 * 24.0 * 60.0);
++      final pullback = 1 - pow(0.5, baselineElapsed / baselineHalfLifeMinutes);
++      baselines[drive] = (currentBaseline +
++              (anchor - currentBaseline) * pullback)
++          .clamp(max(0.02, anchor - 0.10), min(0.92, anchor + 0.10))
++          .toDouble();
++
+       var value = drives[drive] ?? 0.0;
+       final baseline = baselines[drive] ?? 0.2;
+       final decay = decayPerUnit[drive] ?? 0.015;
+@@ -122,6 +138,10 @@ class DesireCorePolicy {
+     required Map<DriveKey, DateTime> refractoryUntil,
+     required List<CompanionThought> thoughts,
+     required DateTime now,
++    Map<DriveKey, double>? baselines,
++    DateTime? lastWildcardAt,
++    bool intimacyAllowed = false,
++    bool wildcardAllowed = true,
+   }) {
+     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
+     if (fatigue >= fatigueRestGate) {
+@@ -139,6 +159,9 @@ class DesireCorePolicy {
+     final result = <DesireCoreCandidate>[];
+     for (final drive in DriveKey.values) {
+       if (drive == DriveKey.fatigue) continue;
++      // Libido can fluctuate internally, but it cannot become an executable
++      // outbound action unless an explicit intimacy session is already active.
++      if (drive == DriveKey.libido && !intimacyAllowed) continue;
+       final until = refractoryUntil[drive];
+       if (until != null && until.isAfter(now)) continue;
+ 
+@@ -178,6 +201,46 @@ class DesireCorePolicy {
+     }
+ 
+     result.sort((a, b) => b.score.compareTo(a.score));
++    final wildcardReady = lastWildcardAt == null ||
++        now.difference(lastWildcardAt) >= wildcardCooldown;
++    final normalStrong = result.any((candidate) => candidate.score >= 0.60);
++    if (wildcardAllowed && wildcardReady && !normalStrong) {
++      final anchors = baselines ?? DesireSnapshot.defaultBaselines();
++      var tension = 0.0;
++      for (final drive in DriveKey.values) {
++        if (drive == DriveKey.fatigue || drive == DriveKey.libido) continue;
++        tension += max(0.0, (drives[drive] ?? 0.0) - (anchors[drive] ?? 0.2));
++      }
++      if (tension >= 0.52) {
++        const wildcardDrives = <DriveKey>[
++          DriveKey.reflection,
++          DriveKey.social,
++          DriveKey.curiosity,
++          DriveKey.attachment,
++        ];
++        DriveKey? wildcardDrive;
++        var greatestExcess = double.negativeInfinity;
++        for (final drive in wildcardDrives) {
++          final until = refractoryUntil[drive];
++          if (until != null && until.isAfter(now)) continue;
++          final excess = (drives[drive] ?? 0.0) - (anchors[drive] ?? 0.2);
++          if (excess > greatestExcess) {
++            greatestExcess = excess;
++            wildcardDrive = drive;
++          }
++        }
++        if (wildcardDrive != null) {
++          result.add(DesireCoreCandidate(
++            drive: wildcardDrive,
++            score: (0.56 + tension * 0.16).clamp(0.58, 0.72).toDouble(),
++            action: 'wildcard_share',
++            reason: '我积着一点难以归类的内在张力，想换个轻松方向随手分享，而不是重复原来的话题。',
++            reasonSource: 'wildcard_pressure_release',
++          ));
++          result.sort((a, b) => b.score.compareTo(a.score));
++        }
++      }
++    }
+     return result;
+   }
+ 
+diff --git a/lib/core/desire/desire_engine.dart b/lib/core/desire/desire_engine.dart
+index 0bf39f8..c662038 100644
+--- a/lib/core/desire/desire_engine.dart
++++ b/lib/core/desire/desire_engine.dart
+@@ -43,6 +43,10 @@ class DesireEngine {
+       await _tickThoughts(instant);
+     }
+     final thoughts = await db.activeThoughts(limit: 24);
++    final activeSession = await db.activeInteractionSession();
++    final intimacyAllowed = activeSession != null &&
++        (activeSession.kind == 'intimacy' ||
++            activeSession.kind == 'roleplay_intimacy');
+ 
+     return db.mutateDesire((snapshot) {
+       final advanced = DesireCorePolicy.advance(
+@@ -52,12 +56,17 @@ class DesireEngine {
+         userBusy: userBusy,
+       );
+       final drives = Map<DriveKey, double>.from(advanced.drives);
+-      final wildcard = _maybeWildcard(snapshot, instant, drives);
+       final intent = _pickIntent(
++        snapshot.copyWith(
++          drives: drives,
++          baselines: advanced.baselines,
++          refractoryUntil: advanced.refractoryUntil,
++        ),
+         drives,
+         advanced.refractoryUntil,
+         thoughts,
+         instant,
++        intimacyAllowed: intimacyAllowed,
+       );
+       return snapshot.copyWith(
+         drives: drives,
+@@ -67,7 +76,6 @@ class DesireEngine {
+         lastIntentDrive: intent?.drive.name,
+         lastIntentScore: intent?.score,
+         lastTickAt: instant,
+-        lastWildcardAt: wildcard ? instant : snapshot.lastWildcardAt,
+         clearIntent: intent == null,
+       );
+     });
+@@ -168,6 +176,9 @@ class DesireEngine {
+         refractoryUntil: refractory,
+         lastSatisfiedAction: intent.wantAction,
+         lastSatisfiedAt: instant,
++        lastWildcardAt: intent.wantAction == 'wildcard_share'
++            ? instant
++            : snapshot.lastWildcardAt,
+       );
+     });
+   }
+@@ -262,12 +273,15 @@ class DesireEngine {
+     DesireSnapshot snapshot,
+     List<CompanionThought> thoughts, {
+     DateTime? now,
++    bool intimacyAllowed = false,
+   }) {
+     return _pickIntent(
++      snapshot,
+       snapshot.drives,
+       snapshot.refractoryUntil,
+       thoughts,
+       now ?? DateTime.now(),
++      intimacyAllowed: intimacyAllowed,
+     );
+   }
+ 
+@@ -275,27 +289,36 @@ class DesireEngine {
+     DesireSnapshot snapshot,
+     List<CompanionThought> thoughts, {
+     DateTime? now,
++    bool intimacyAllowed = false,
+   }) {
+     final candidates = DesireCorePolicy.candidates(
+       drives: snapshot.drives,
+       refractoryUntil: snapshot.refractoryUntil,
+       thoughts: thoughts,
+       now: now ?? DateTime.now(),
++      baselines: snapshot.baselines,
++      lastWildcardAt: snapshot.lastWildcardAt,
++      intimacyAllowed: intimacyAllowed,
+     );
+     return candidates.map(_fromCandidate).toList();
+   }
+ 
+   DesireIntent? _pickIntent(
++    DesireSnapshot snapshot,
+     Map<DriveKey, double> drives,
+     Map<DriveKey, DateTime> refractory,
+     List<CompanionThought> thoughts,
+-    DateTime now,
+-  ) {
++    DateTime now, {
++    required bool intimacyAllowed,
++  }) {
+     final candidates = DesireCorePolicy.candidates(
+       drives: drives,
+       refractoryUntil: refractory,
+       thoughts: thoughts,
+       now: now,
++      baselines: snapshot.baselines,
++      lastWildcardAt: snapshot.lastWildcardAt,
++      intimacyAllowed: intimacyAllowed,
+     );
+     return candidates.isEmpty ? null : _fromCandidate(candidates.first);
+   }
+@@ -358,50 +381,4 @@ class DesireEngine {
+     }
+   }
+ 
+-  bool _maybeWildcard(
+-    DesireSnapshot snapshot,
+-    DateTime now,
+-    Map<DriveKey, double> drives,
+-  ) {
+-    final last = snapshot.lastWildcardAt;
+-    if (last != null && now.difference(last) < const Duration(hours: 2)) {
+-      return false;
+-    }
+-
+-    // Wildcard is a pressure-release path, not an independent random desire.
+-    // If a normal high-scoring drive is currently actionable, do not inject it.
+-    final actionableHigh = DriveKey.values.any((drive) {
+-      if (drive == DriveKey.fatigue) return false;
+-      final until = snapshot.refractoryUntil[drive];
+-      final blocked = until != null && until.isAfter(now);
+-      return !blocked && (drives[drive] ?? 0.0) >= 0.58;
+-    });
+-    if (actionableHigh) return false;
+-
+-    var tension = 0.0;
+-    for (final drive in DriveKey.values) {
+-      if (drive == DriveKey.fatigue) continue;
+-      final baseline = snapshot.baselines[drive] ?? 0.2;
+-      tension += max(0.0, (drives[drive] ?? 0.0) - baseline);
+-    }
+-    if (tension < 0.52 || _random.nextDouble() > 0.20) return false;
+-
+-    const candidates = [
+-      DriveKey.curiosity,
+-      DriveKey.reflection,
+-      DriveKey.social,
+-      DriveKey.attachment,
+-    ];
+-    final available = candidates.where((drive) {
+-      final until = snapshot.refractoryUntil[drive];
+-      return until == null || !until.isAfter(now);
+-    }).toList();
+-    if (available.isEmpty) return false;
+-
+-    final drive = available[_random.nextInt(available.length)];
+-    final pulse = 0.014 + _random.nextDouble() * 0.026;
+-    drives[drive] = ((drives[drive] ?? 0) + pulse).clamp(0.0, 1.0).toDouble();
+-    return true;
+-  }
+-
+ }
+diff --git a/lib/core/desire/proactive_engine.dart b/lib/core/desire/proactive_engine.dart
+index 49685c2..8deb84e 100644
+--- a/lib/core/desire/proactive_engine.dart
++++ b/lib/core/desire/proactive_engine.dart
+@@ -5,7 +5,6 @@ import 'dart:math';
+ import 'package:uuid/uuid.dart';
+ 
+ import '../ai/deepseek_client.dart';
+-import '../ai/companion_voice_protocol.dart';
+ import '../ai/model_profile.dart';
+ import '../ai/prompt_builder.dart';
+ import '../continuity/daily_continuity_engine.dart';
+@@ -73,22 +72,6 @@ class _ProactiveGenerationCandidate {
+   final String content;
+ }
+ 
+-class _PreparedProactiveCandidate {
+-  const _PreparedProactiveCandidate({
+-    required this.providerReasoning,
+-    required this.innerVoice,
+-    required this.reply,
+-    this.voiceFailure = '',
+-  });
+-
+-  final String providerReasoning;
+-  final String innerVoice;
+-  final String reply;
+-  final String voiceFailure;
+-
+-  bool get voiceValid => voiceFailure.isEmpty;
+-}
+-
+ class ProactiveEngine {
+   ProactiveEngine({
+     required this.db,
+@@ -233,10 +216,15 @@ class ProactiveEngine {
+       final userBusy = localHeartbeat.userBusy;
+       final snapshot = localHeartbeat.snapshot;
+     final thoughts = await db.activeThoughts(limit: 20);
++    final activeSession = await db.activeInteractionSession();
++    final intimacyAllowed = activeSession != null &&
++        (activeSession.kind == 'intimacy' ||
++            activeSession.kind == 'roleplay_intimacy');
+     final intent = desireEngine.previewIntent(
+       snapshot,
+       thoughts,
+       now: evaluationStartedAt,
++      intimacyAllowed: intimacyAllowed,
+     );
+     if (intent == null) {
+       return const ProactiveDecision(sent: false, reason: '没有形成意图');
+@@ -398,8 +386,9 @@ class ProactiveEngine {
+ 这是一次“AI 自己主动联系用户”的出站判断。不是用户刚发来的消息。
+ 当前最高意图：${intent.wantAction}
+ 驱动：${intent.drive.name}
+-内部原因/念头：${intent.reason}
+-内部原因来源：${intent.reasonSource}。它不是用户原话；只有 ANSWERED CHAT HISTORY 中明确标记 REAL_USER_HISTORY 的数据库历史才是用户真实说过的话，而且这些历史不等于当前 user turn。
++内部线索来源：${ThoughtProvenancePolicy.fromSource(intent.reasonSource).key}
++存在关联主题：${intentThought?.topicKey.isNotEmpty == true ? 'true' : 'false'}
++这里只提供结构化线索，不注入 Thought 原文。它不是用户原话；只有 ANSWERED CHAT HISTORY 中明确标记 REAL_USER_HISTORY 的数据库历史才是用户真实说过的话，而且这些历史不等于当前 user turn。
+ 主动联系类型：${intentKind.zhLabel} (${intentKind.key})
+ 投递风格：${deliveryStyle.zhLabel} (${deliveryStyle.key})
+ Gate：${gateScore.toStringAsFixed(2)}
+@@ -416,14 +405,10 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+         ? null
+         : await db.messageById(proactiveGrounding.lastUserMessageId!);
+     final lastGroundedUserText = lastGroundedUser?.content ?? '';
+-    final companionVoiceEnabled = CompanionVoiceProtocol.enabledFromSetting(
+-      await db.getSetting(CompanionVoiceProtocol.settingKey),
+-    );
+     var lastProactiveLeaseRefresh = DateTime.now();
+ 
+     Future<_ProactiveGenerationCandidate?> generateCandidate(
+       List<Map<String, Object?>> promptMessages,
+-      {String voiceCorrectionCode = ''}
+     ) async {
+       final reasoning = StringBuffer();
+       final content = StringBuffer();
+@@ -431,13 +416,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+         apiKey: apiKey,
+         model: model,
+         effort: ReasoningEffort.high,
+-        messages: companionVoiceEnabled
+-            ? CompanionVoiceProtocol.attachAtTail(
+-                promptMessages,
+-                proactive: true,
+-                correctionCode: voiceCorrectionCode,
+-              )
+-            : promptMessages,
++        messages: promptMessages,
+         endpoint: endpoint,
+         thinking: true,
+         maxTokens: 700,
+@@ -460,36 +439,6 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+       );
+     }
+ 
+-    _PreparedProactiveCandidate prepareCandidate(
+-      _ProactiveGenerationCandidate value,
+-    ) {
+-      if (!companionVoiceEnabled) {
+-        return _PreparedProactiveCandidate(
+-          providerReasoning: value.reasoning,
+-          innerVoice: value.reasoning,
+-          reply: value.content,
+-        );
+-      }
+-      final parsed = CompanionVoiceProtocol.parseCandidate(
+-        providerReasoning: value.reasoning,
+-        content: value.content,
+-        proactive: true,
+-      );
+-      if (!parsed.valid) {
+-        return _PreparedProactiveCandidate(
+-          providerReasoning: value.reasoning,
+-          innerVoice: '',
+-          reply: '',
+-          voiceFailure: parsed.failureCode,
+-        );
+-      }
+-      return _PreparedProactiveCandidate(
+-        providerReasoning: value.reasoning,
+-        innerVoice: parsed.output!.innerVoice,
+-        reply: parsed.output!.reply,
+-      );
+-    }
+-
+     Future<void> noteGroundingRetry(String reason) async {
+       final count = int.tryParse(
+             await db.getSetting('grounding_retry_count') ?? '',
+@@ -503,43 +452,6 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+       await db.setSetting('grounding_retry_last_reason', reason);
+     }
+ 
+-    Future<void> noteCompanionVoiceRetry(String reason) async {
+-      final count = int.tryParse(
+-            await db.getSetting('companion_voice_retry_count') ?? '',
+-          ) ??
+-          0;
+-      await db.setSetting('companion_voice_retry_count', (count + 1).toString());
+-      await db.setSetting(
+-        'companion_voice_retry_last_at',
+-        DateTime.now().millisecondsSinceEpoch.toString(),
+-      );
+-      await db.setSetting('companion_voice_retry_last_reason', reason);
+-    }
+-
+-    Future<ProactiveDecision> blockCompanionVoice(String reason) async {
+-      final count = int.tryParse(
+-            await db.getSetting('companion_voice_block_count') ?? '',
+-          ) ??
+-          0;
+-      await db.setSetting('companion_voice_block_count', (count + 1).toString());
+-      await db.setSetting(
+-        'companion_voice_block_last_at',
+-        DateTime.now().millisecondsSinceEpoch.toString(),
+-      );
+-      await db.setSetting('companion_voice_block_last_reason', reason);
+-      await db.addProactiveHistory(
+-        triggerReason: '${intent.drive.name}:companion_voice_guard',
+-        decision: 'companion_voice_wait',
+-      );
+-      return ProactiveDecision(
+-        sent: false,
+-        reason: '伴侣式内心协议纠正后仍无效，本次主动联系按 WAIT 处理',
+-        gateScore: gateScore,
+-        intentKind: intentKind,
+-        deliveryStyle: deliveryStyle,
+-      );
+-    }
+-
+     Future<ProactiveDecision> blockGrounding(String reason) async {
+       final previousBlocks = int.tryParse(
+             await db.getSetting('grounding_guard_block_count') ?? '',
+@@ -578,12 +490,10 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+       );
+     }
+ 
+-    var prepared = prepareCandidate(candidate);
++    bool isWait(_ProactiveGenerationCandidate value) =>
++        value.content.isEmpty || value.content == 'WAIT';
+ 
+-    bool isWait(_PreparedProactiveCandidate value) =>
+-        value.voiceValid && (value.reply.isEmpty || value.reply == 'WAIT');
+-
+-    if (isWait(prepared)) {
++    if (isWait(candidate)) {
+       await db.addProactiveHistory(
+         triggerReason: '${intent.drive.name}:${intent.reason}',
+         decision: 'model_wait',
+@@ -599,29 +509,22 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
+ 
+     var textGuard = ProactiveGroundingGuard.evaluate(
+       grounding: proactiveGrounding,
+-      text: prepared.reply,
++      text: candidate.content,
+     );
+     var reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
+       grounding: proactiveGrounding,
+-      reasoning: prepared.innerVoice,
++      reasoning: candidate.reasoning,
+       lastUserText: lastGroundedUserText,
+     );
+ 
+-    if (!prepared.voiceValid || !textGuard.allowed || !reasoningGuard.allowed) {
+-      final voiceRetry = !prepared.voiceValid;
+-      final retryReason = voiceRetry
+-          ? prepared.voiceFailure
+-          : !reasoningGuard.allowed
+-              ? reasoningGuard.reason
+-              : textGuard.reason;
+-      if (voiceRetry) {
+-        await noteCompanionVoiceRetry(retryReason);
+-      } else {
+-        await noteGroundingRetry(retryReason);
+-      }
++    if (!textGuard.allowed || !reasoningGuard.allowed) {
++      final retryReason = !reasoningGuard.allowed
++          ? reasoningGuard.reason
++          : textGuard.reason;
++      await noteGroundingRetry(retryReason);
+       final retryContext = <Map<String, Object?>>[
+         ...context,
+-        if (!voiceRetry) {
++        {
+           'role': 'system',
+           'content': '''
+ 【REALITY GROUNDING CORRECTION · ONE RETRY】
+@@ -632,10 +535,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+ '''.trim(),
+         },
+       ];
+-      final retried = await generateCandidate(
+-        retryContext,
+-        voiceCorrectionCode: voiceRetry ? retryReason : '',
+-      );
++      final retried = await generateCandidate(retryContext);
+       if (retried == null) {
+         return ProactiveDecision(
+           sent: false,
+@@ -646,8 +546,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+         );
+       }
+       candidate = retried;
+-      prepared = prepareCandidate(candidate);
+-      if (isWait(prepared)) {
++      if (isWait(candidate)) {
+         await db.addProactiveHistory(
+           triggerReason: '${intent.drive.name}:${intent.reason}',
+           decision: 'grounding_retry_wait',
+@@ -660,16 +559,13 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+           deliveryStyle: deliveryStyle,
+         );
+       }
+-      if (!prepared.voiceValid) {
+-        return blockCompanionVoice(prepared.voiceFailure);
+-      }
+       textGuard = ProactiveGroundingGuard.evaluate(
+         grounding: proactiveGrounding,
+-        text: prepared.reply,
++        text: candidate.content,
+       );
+       reasoningGuard = ProactiveReasoningGroundingGuard.evaluate(
+         grounding: proactiveGrounding,
+-        reasoning: prepared.innerVoice,
++        reasoning: candidate.reasoning,
+         lastUserText: lastGroundedUserText,
+       );
+     }
+@@ -681,7 +577,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+       return blockGrounding(reasoningGuard.reason);
+     }
+ 
+-    final text = prepared.reply;
++    final text = candidate.content;
+ 
+     // The model call can take long enough for the real world to change. The
+     // final eligibility check is repeated atomically with the message INSERT
+@@ -690,9 +586,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+       id: _uuid.v4(),
+       role: 'assistant',
+       content: text,
+-      reasoningContent: prepared.innerVoice,
+-      providerReasoning: prepared.providerReasoning,
+-      companionVoice: companionVoiceEnabled,
++      reasoningContent: candidate.reasoning,
+       model: model.apiName,
+       createdAt: DateTime.now(),
+       isProactive: true,
+@@ -753,7 +647,6 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，
+     final notificationPrivacy = ProactiveNotificationPrivacy.fromKey(
+       await db.getSetting('proactive_notification_privacy'),
+     );
+-    final activeSession = await db.activeInteractionSession();
+     final sensitiveSession = activeSession?.kind.toLowerCase().contains('intimacy') ?? false;
+     final notificationBody = ProactivePresentationPolicy.notificationBody(
+       kind: intentKind,
+diff --git a/lib/core/desire/proactive_presentation.dart b/lib/core/desire/proactive_presentation.dart
+index 959bd09..7a93f0d 100644
+--- a/lib/core/desire/proactive_presentation.dart
++++ b/lib/core/desire/proactive_presentation.dart
+@@ -11,6 +11,9 @@ class ProactivePresentationPolicy {
+     required DesireIntent intent,
+     UnfinishedThread? linkedThread,
+   }) {
++    if (intent.wantAction == 'wildcard_share') {
++      return ProactiveIntentKind.socialShare;
++    }
+     if (linkedThread != null || intent.wantAction == 'remember_unfinished_thread' ||
+         intent.wantAction == 'continue_thread') {
+       return ProactiveIntentKind.followup;
+diff --git a/lib/core/diagnostics/preflight_diagnostics.dart b/lib/core/diagnostics/preflight_diagnostics.dart
+index fe6e881..bafbda1 100644
+--- a/lib/core/diagnostics/preflight_diagnostics.dart
++++ b/lib/core/diagnostics/preflight_diagnostics.dart
+@@ -1,5 +1,6 @@
+ import 'dart:convert';
+ import 'dart:io';
++import 'dart:math';
+ 
+ import 'package:crypto/crypto.dart';
+ import 'package:path/path.dart' as p;
+@@ -106,11 +107,18 @@ class PreflightDiagnosticsService {
+       final grounding = await GroundingEngine(db).capture(now: now);
+       final desireSnapshot = await db.loadDesire();
+       final desireThoughts = await db.activeThoughtMetadata(limit: 40);
++      final activeSession = await db.activeInteractionSession();
++      final intimacyAllowed = activeSession != null &&
++          (activeSession.kind == 'intimacy' ||
++              activeSession.kind == 'roleplay_intimacy');
+       final desireCandidates = DesireCorePolicy.candidates(
+         drives: desireSnapshot.drives,
+         refractoryUntil: desireSnapshot.refractoryUntil,
+         thoughts: desireThoughts,
+         now: now,
++        baselines: desireSnapshot.baselines,
++        lastWildcardAt: desireSnapshot.lastWildcardAt,
++        intimacyAllowed: intimacyAllowed,
+       );
+       final provenanceCounts = <String, int>{};
+       for (final thought in desireThoughts) {
+@@ -195,29 +203,6 @@ class PreflightDiagnosticsService {
+           'proactiveGroundingRetryLastReason':
+               await db.getSetting('grounding_retry_last_reason') ?? '',
+         },
+-        'companionVoice': {
+-          'enabled': (await db.getSetting('companion_voice_enabled')) == '1',
+-          'retryCount': int.tryParse(
+-                await db.getSetting('companion_voice_retry_count') ?? '',
+-              ) ??
+-              0,
+-          'retryLastAt': int.tryParse(
+-                await db.getSetting('companion_voice_retry_last_at') ?? '',
+-              ) ??
+-              0,
+-          'retryLastReason':
+-              await db.getSetting('companion_voice_retry_last_reason') ?? '',
+-          'blockCount': int.tryParse(
+-                await db.getSetting('companion_voice_block_count') ?? '',
+-              ) ??
+-              0,
+-          'blockLastAt': int.tryParse(
+-                await db.getSetting('companion_voice_block_last_at') ?? '',
+-              ) ??
+-              0,
+-          'blockLastReason':
+-              await db.getSetting('companion_voice_block_last_reason') ?? '',
+-        },
+         'desireCore': {
+           'drives': {
+             for (final entry in desireSnapshot.drives.entries)
+@@ -238,6 +223,14 @@ class PreflightDiagnosticsService {
+           'fatigueGateActive':
+               (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
+                   DesireCorePolicy.fatigueRestGate,
++          'intimacyActionAllowed': intimacyAllowed,
++          'wildcardCooldownMinutes': desireSnapshot.lastWildcardAt == null
++              ? 0
++              : max(
++                  0,
++                  DesireCorePolicy.wildcardCooldown.inMinutes -
++                      now.difference(desireSnapshot.lastWildcardAt!).inMinutes,
++                ),
+           'selected': desireCandidates.isEmpty
+               ? null
+               : {
+@@ -551,7 +544,7 @@ class PreflightDiagnosticsService {
+     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
+     final encoder = const JsonEncoder.withIndent('  ');
+     final text = StringBuffer()
+-      ..writeln('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT')
++      ..writeln('AI Companion v0.31.4+46 · REDACTED LOCAL DIAGNOSTIC REPORT')
+       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
+       ..writeln()
+       ..writeln(encoder.convert(snapshot.report));
+diff --git a/lib/core/models/chat_message.dart b/lib/core/models/chat_message.dart
+index 616a8dd..035167d 100644
+--- a/lib/core/models/chat_message.dart
++++ b/lib/core/models/chat_message.dart
+@@ -5,8 +5,6 @@ class ChatMessage {
+     required this.content,
+     required this.createdAt,
+     this.reasoningContent = '',
+-    this.providerReasoning = '',
+-    this.companionVoice = false,
+     this.model,
+     this.isProactive = false,
+     this.proactiveIntent = '',
+@@ -18,8 +16,6 @@ class ChatMessage {
+   final String role;
+   final String content;
+   final String reasoningContent;
+-  final String providerReasoning;
+-  final bool companionVoice;
+   final String? model;
+   final DateTime createdAt;
+   final bool isProactive;
+@@ -33,8 +29,6 @@ class ChatMessage {
+   ChatMessage copyWith({
+     String? content,
+     String? reasoningContent,
+-    String? providerReasoning,
+-    bool? companionVoice,
+     String? model,
+     bool? isProactive,
+     String? proactiveIntent,
+@@ -45,8 +39,6 @@ class ChatMessage {
+       role: role,
+       content: content ?? this.content,
+       reasoningContent: reasoningContent ?? this.reasoningContent,
+-      providerReasoning: providerReasoning ?? this.providerReasoning,
+-      companionVoice: companionVoice ?? this.companionVoice,
+       model: model ?? this.model,
+       createdAt: createdAt,
+       isProactive: isProactive ?? this.isProactive,
+@@ -61,8 +53,6 @@ class ChatMessage {
+         'role': role,
+         'content': content,
+         'reasoning_content': reasoningContent,
+-        'provider_reasoning': providerReasoning,
+-        'companion_voice': companionVoice ? 1 : 0,
+         'model': model,
+         'created_at': createdAt.millisecondsSinceEpoch,
+         'is_proactive': isProactive ? 1 : 0,
+@@ -76,8 +66,6 @@ class ChatMessage {
+         'role': role,
+         'content': content,
+         'reasoning_content': reasoningContent,
+-        'provider_reasoning': providerReasoning,
+-        'companion_voice': companionVoice,
+         'model': model,
+         'created_at': createdAt.toIso8601String(),
+         'is_proactive': isProactive,
+@@ -92,8 +80,6 @@ class ChatMessage {
+       role: row['role'] as String,
+       content: (row['content'] as String?) ?? '',
+       reasoningContent: (row['reasoning_content'] as String?) ?? '',
+-      providerReasoning: (row['provider_reasoning'] as String?) ?? '',
+-      companionVoice: (row['companion_voice'] as int? ?? 0) == 1,
+       model: row['model'] as String?,
+       createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+       isProactive: (row['is_proactive'] as int? ?? 0) == 1,
+diff --git a/lib/features/chat/chat_controller.dart b/lib/features/chat/chat_controller.dart
+index c18c84f..23099d5 100644
+--- a/lib/features/chat/chat_controller.dart
++++ b/lib/features/chat/chat_controller.dart
+@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
+ import 'package:uuid/uuid.dart';
+ 
+ import '../../core/ai/deepseek_client.dart';
+-import '../../core/ai/companion_voice_protocol.dart';
+ import '../../core/ai/durable_generation_recovery.dart';
+ import '../../core/ai/durable_generation_runner.dart';
+ import '../../core/ai/memory_extractor.dart';
+@@ -101,7 +100,6 @@ class ChatController extends ChangeNotifier {
+   bool recoveringGeneration = false;
+   String streamingReasoning = '';
+   String streamingContent = '';
+-  bool streamingCompanionVoice = false;
+   String? error;
+   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
+   ReasoningEffort effort = ReasoningEffort.high;
+@@ -260,7 +258,6 @@ class ChatController extends ChangeNotifier {
+     recoveringGeneration = false;
+     streamingReasoning = '';
+     streamingContent = '';
+-    streamingCompanionVoice = false;
+     _safeNotify();
+ 
+     var streamTts = false;
+@@ -313,11 +310,7 @@ class ChatController extends ChangeNotifier {
+ 
+       final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
+       final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
+-      streamingCompanionVoice = CompanionVoiceProtocol.enabledFromSetting(
+-        await db.getSetting(CompanionVoiceProtocol.settingKey),
+-      );
+       streamTts = autoTts &&
+-          !streamingCompanionVoice &&
+           (await db.getSetting('tts_streaming_enabled')) != '0';
+       if (streamTts) {
+         try {
+@@ -345,19 +338,12 @@ class ChatController extends ChangeNotifier {
+       final result = await generationRunner.run(
+         job,
+         onDelta: (delta) {
+-          if (delta.finishReason == 'companion_voice_preview') {
+-            streamingReasoning = delta.reasoning;
+-          } else if (delta.finishReason == 'companion_voice_final') {
+-            streamingReasoning = delta.reasoning;
+-            streamingContent = delta.content;
+-          } else {
+-            if (delta.reasoning.isNotEmpty) {
+-              streamingReasoning += delta.reasoning;
+-            }
+-            if (delta.content.isNotEmpty) {
+-              streamingContent += delta.content;
+-              if (streamTts) ttsPlayback.addDelta(delta.content);
+-            }
++          if (delta.reasoning.isNotEmpty) {
++            streamingReasoning += delta.reasoning;
++          }
++          if (delta.content.isNotEmpty) {
++            streamingContent += delta.content;
++            if (streamTts) ttsPlayback.addDelta(delta.content);
+           }
+           _safeNotify();
+         },
+@@ -420,26 +406,16 @@ class ChatController extends ChangeNotifier {
+     recoveringGeneration = true;
+     streamingReasoning = '';
+     streamingContent = '';
+-    streamingCompanionVoice = CompanionVoiceProtocol.enabledFromSetting(
+-      await db.getSetting(CompanionVoiceProtocol.settingKey),
+-    );
+     error = null;
+     _safeNotify();
+     try {
+       final result = await generationRunner.run(
+         job,
+         onDelta: (delta) {
+-          if (delta.finishReason == 'companion_voice_preview') {
+-            streamingReasoning = delta.reasoning;
+-          } else if (delta.finishReason == 'companion_voice_final') {
+-            streamingReasoning = delta.reasoning;
+-            streamingContent = delta.content;
+-          } else {
+-            if (delta.reasoning.isNotEmpty) {
+-              streamingReasoning += delta.reasoning;
+-            }
+-            if (delta.content.isNotEmpty) streamingContent += delta.content;
++          if (delta.reasoning.isNotEmpty) {
++            streamingReasoning += delta.reasoning;
+           }
++          if (delta.content.isNotEmpty) streamingContent += delta.content;
+           _safeNotify();
+         },
+       );
+@@ -468,7 +444,6 @@ class ChatController extends ChangeNotifier {
+       recoveringGeneration = false;
+       streamingReasoning = '';
+       streamingContent = '';
+-      streamingCompanionVoice = false;
+       await db.releaseLocalLease('chat_turn_lease');
+       _safeNotify();
+       unawaited(_scheduleGenerationRecovery());
+diff --git a/lib/features/chat/chat_page.dart b/lib/features/chat/chat_page.dart
+index 3d9054e..46696fe 100644
+--- a/lib/features/chat/chat_page.dart
++++ b/lib/features/chat/chat_page.dart
+@@ -288,7 +288,6 @@ class _MessageBubble extends StatelessWidget {
+             if (message.isAssistant)
+               ReasoningPanel(
+                 reasoning: message.reasoningContent,
+-                companionVoice: message.companionVoice,
+               ),
+             SelectableText(message.content, style: const TextStyle(height: 1.45)),
+             const SizedBox(height: 4),
+@@ -349,7 +348,6 @@ class _StreamingBubble extends StatelessWidget {
+             ReasoningPanel(
+               reasoning: controller.streamingReasoning,
+               streaming: true,
+-              companionVoice: controller.streamingCompanionVoice,
+             ),
+             if (controller.streamingContent.isNotEmpty)
+               SelectableText(controller.streamingContent),
+diff --git a/lib/features/inner/inner_page.dart b/lib/features/inner/inner_page.dart
+index c4d2658..66bfd17 100644
+--- a/lib/features/inner/inner_page.dart
++++ b/lib/features/inner/inner_page.dart
+@@ -65,7 +65,18 @@ class _InnerPageState extends State<InnerPage> {
+     snapshot = await db.loadDesire();
+     grounding = await GroundingEngine(db).capture();
+     thoughts = await db.activeThoughts(limit: 30);
+-    desireCandidates = desire.previewCandidates(snapshot!, thoughts).take(4).toList();
++    final activeSession = await db.activeInteractionSession();
++    final intimacyAllowed = activeSession != null &&
++        (activeSession.kind == 'intimacy' ||
++            activeSession.kind == 'roleplay_intimacy');
++    desireCandidates = desire
++        .previewCandidates(
++          snapshot!,
++          thoughts,
++          intimacyAllowed: intimacyAllowed,
++        )
++        .take(4)
++        .toList();
+     threads = await db.activeUnfinishedThreads(limit: 10);
+     summaries = await db.recentConversationSummaries(limit: 3);
+     lifecycleEvents = await db.recentThoughtLifecycleEvents(limit: 12);
+@@ -199,9 +210,9 @@ class _InnerPageState extends State<InnerPage> {
+     return ListView(
+       padding: const EdgeInsets.all(16),
+       children: [
+-        Text('她的内心 · v0.31.1 Grounded Desire Core', style: Theme.of(context).textTheme.headlineSmall),
++        Text('她的内心 · v0.31.4 Grounded Desire Growth', style: Theme.of(context).textTheme.headlineSmall),
+         const SizedBox(height: 4),
+-        const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
++        const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
+         const SizedBox(height: 16),
+         ...DriveKey.values.map((drive) {
+           final value = s.drives[drive] ?? 0;
+diff --git a/lib/features/more/companion_more_page.dart b/lib/features/more/companion_more_page.dart
+index fa9fd59..28b4079 100644
+--- a/lib/features/more/companion_more_page.dart
++++ b/lib/features/more/companion_more_page.dart
+@@ -96,7 +96,7 @@ class CompanionMorePage extends StatelessWidget {
+         const SizedBox(height: 8),
+         Center(
+           child: Text(
+-            'AI Companion · v0.31.2+44',
++            'AI Companion · v0.31.4+46',
+             style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                 ),
+diff --git a/lib/features/settings/settings_page.dart b/lib/features/settings/settings_page.dart
+index 0ee2c93..0e4cc92 100644
+--- a/lib/features/settings/settings_page.dart
++++ b/lib/features/settings/settings_page.dart
+@@ -31,7 +31,6 @@ class _SettingsPageState extends State<SettingsPage> {
+   bool loading = true;
+   bool revealKey = false;
+   bool testingApi = false;
+-  bool companionVoiceEnabled = false;
+   bool autoMemory = true;
+   bool memoryConsolidation = true;
+   bool memoryFading = true;
+@@ -69,8 +68,6 @@ class _SettingsPageState extends State<SettingsPage> {
+     keyController.text = await secure.readApiKey() ?? '';
+     endpointController.text = await secure.readEndpoint();
+     autoMemory = (await db.getSetting('auto_memory')) != '0';
+-    companionVoiceEnabled =
+-        (await db.getSetting('companion_voice_enabled')) == '1';
+     memoryConsolidation = (await db.getSetting('memory_consolidation_enabled')) != '0';
+     memoryFading = (await db.getSetting('memory_fading_enabled')) != '0';
+     referenceLibrary = (await db.getSetting('reference_library_enabled')) != '0';
+@@ -113,10 +110,6 @@ class _SettingsPageState extends State<SettingsPage> {
+       await secure.writeEndpoint(endpointController.text);
+       await secure.writeApiKey(keyController.text);
+       await db.setSetting('auto_memory', autoMemory ? '1' : '0');
+-      await db.setSetting(
+-        'companion_voice_enabled',
+-        companionVoiceEnabled ? '1' : '0',
+-      );
+       await db.setSetting('memory_consolidation_enabled', memoryConsolidation ? '1' : '0');
+       await db.setSetting('memory_fading_enabled', memoryFading ? '1' : '0');
+       await db.setSetting('reference_library_enabled', referenceLibrary ? '1' : '0');
+@@ -430,16 +423,6 @@ class _SettingsPageState extends State<SettingsPage> {
+           label: Text(testingApi ? '正在测试 API…' : '测试 API 连接'),
+         ),
+         const SizedBox(height: 8),
+-        SwitchListTile(
+-          contentPadding: EdgeInsets.zero,
+-          title: const Text('伴侣式内心与回应'),
+-          subtitle: const Text(
+-            '开启后生成独立的第一人称内心与自然回应；关闭后直接使用模型原始输出。'
+-            '开启时会先验证完整回复，因此不使用流式分句朗读。',
+-          ),
+-          value: companionVoiceEnabled,
+-          onChanged: (v) => setState(() => companionVoiceEnabled = v),
+-        ),
+         SwitchListTile(
+           contentPadding: EdgeInsets.zero,
+           title: const Text('自动长期记忆抽取'),
+@@ -590,7 +573,7 @@ class _SettingsPageState extends State<SettingsPage> {
+           title: const Text('流式分句朗读'),
+           subtitle: const Text('DeepSeek 每完成一句就进入本地 TTS 队列，不必等整条回复生成完。'),
+           value: streamingTts,
+-          onChanged: ttsEnabled && autoTts && !companionVoiceEnabled
++          onChanged: ttsEnabled && autoTts
+               ? (v) => setState(() => streamingTts = v)
+               : null,
+         ),
+@@ -674,7 +657,7 @@ class _SettingsPageState extends State<SettingsPage> {
+           ),
+         const SizedBox(height: 24),
+         const Text(
+-          '说明：伴侣式模式关闭时保持原始 reasoning_content 展示；开启时仅展示独立的第一人称内心，provider reasoning 只在本地保留作诊断。感知文字始终按外部数据处理，不能覆盖系统身份与规则。',
++          '说明：思考面板直接展示模型原始 reasoning_content。感知文字始终按外部数据处理，不能覆盖系统身份与规则。',
+         ),
+       ],
+     );
+diff --git a/lib/main.dart b/lib/main.dart
+index e8e7b0e..525d74b 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -154,7 +154,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
+                   ),
+                   const SizedBox(height: 6),
+                   Text(
+-                    'v0.31.2 · Streaming Companion Voice',
++                    'v0.31.4 · Grounded Desire Growth',
+                     textAlign: TextAlign.center,
+                     style: Theme.of(context).textTheme.bodyMedium,
+                   ),
+diff --git a/lib/widgets/reasoning_panel.dart b/lib/widgets/reasoning_panel.dart
+index de9139d..25853e5 100644
+--- a/lib/widgets/reasoning_panel.dart
++++ b/lib/widgets/reasoning_panel.dart
+@@ -5,12 +5,10 @@ class ReasoningPanel extends StatelessWidget {
+     super.key,
+     required this.reasoning,
+     this.streaming = false,
+-    this.companionVoice = false,
+   });
+ 
+   final String reasoning;
+   final bool streaming;
+-  final bool companionVoice;
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -25,9 +23,7 @@ class ReasoningPanel extends StatelessWidget {
+         dense: true,
+         initiallyExpanded: streaming,
+         title: Text(
+-          companionVoice
+-              ? (streaming ? '🧠 正在整理内心' : '🧠 内心')
+-              : (streaming ? '🧠 正在思考' : '🧠 思考'),
++          streaming ? '🧠 正在思考' : '🧠 思考',
+         ),
+         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+         children: [
+diff --git a/pubspec.yaml b/pubspec.yaml
+index 495550f..b3e8c69 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -1,7 +1,7 @@
+ name: ai_companion_localfirst
+ description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
+ publish_to: 'none'
+-version: 0.31.3+45
++version: 0.31.4+46
+ 
+ environment:
+   sdk: '>=3.12.0 <4.0.0'
+diff --git a/test/chat_message_test.dart b/test/chat_message_test.dart
+index 29c2c3e..9d23f6b 100644
+--- a/test/chat_message_test.dart
++++ b/test/chat_message_test.dart
+@@ -8,8 +8,6 @@ void main() {
+       role: 'assistant',
+       content: '正文',
+       reasoningContent: '思考',
+-      providerReasoning: 'provider raw reasoning',
+-      companionVoice: true,
+       model: 'deepseek-v4-pro',
+       createdAt: DateTime.fromMillisecondsSinceEpoch(123456),
+       isProactive: true,
+@@ -20,8 +18,6 @@ void main() {
+     final restored = ChatMessage.fromDb(message.toDb());
+     expect(restored.content, '正文');
+     expect(restored.reasoningContent, '思考');
+-    expect(restored.providerReasoning, 'provider raw reasoning');
+-    expect(restored.companionVoice, isTrue);
+     expect(restored.isProactive, isTrue);
+     expect(restored.proactiveIntent, 'miss_you');
+     expect(restored.proactiveDelivery, 'warm');
+diff --git a/test/companion_voice_protocol_v0312_test.dart b/test/companion_voice_protocol_v0312_test.dart
+deleted file mode 100644
+index edbd588..0000000
+--- a/test/companion_voice_protocol_v0312_test.dart
++++ /dev/null
+@@ -1,161 +0,0 @@
+-import 'package:flutter_test/flutter_test.dart';
+-import 'package:ai_companion_localfirst/core/ai/companion_voice_protocol.dart';
+-
+-void main() {
+-  test('parses independent inner voice and final reply', () {
+-    final parsed = CompanionVoiceProtocol.parse('''
+-<companion_inner>
+-我有点喜欢他突然来找我的感觉，先轻轻接住这句话吧。
+-</companion_inner>
+-<companion_reply>
+-嗯，我在。怎么突然想起我了？
+-</companion_reply>
+-''');
+-
+-    expect(parsed.valid, isTrue);
+-    expect(parsed.output!.innerVoice, contains('我有点喜欢'));
+-    expect(parsed.output!.reply, '嗯，我在。怎么突然想起我了？');
+-  });
+-
+-  test('accepts DeepSeek native reasoning and content channels', () {
+-    final parsed = CompanionVoiceProtocol.parseCandidate(
+-      providerReasoning: '我有点想笑，他这么晚还来找我，先陪他说会儿话。',
+-      content: '还没睡呢。我在，想说什么就说吧。',
+-    );
+-
+-    expect(parsed.valid, isTrue);
+-    expect(parsed.output!.innerVoice, contains('我有点想笑'));
+-    expect(parsed.output!.reply, '还没睡呢。我在，想说什么就说吧。');
+-  });
+-
+-  test('accepts an inner tag in reasoning with a plain final reply', () {
+-    final parsed = CompanionVoiceProtocol.parseCandidate(
+-      providerReasoning: '''
+-先确认格式。<companion_inner>我其实挺高兴他来找我，想轻轻接住他。</companion_inner>
+-''',
+-      content: '嗯，我在这里。',
+-    );
+-
+-    expect(parsed.valid, isTrue);
+-    expect(parsed.output!.innerVoice, startsWith('我其实挺高兴'));
+-    expect(parsed.output!.reply, '嗯，我在这里。');
+-  });
+-
+-  test('streams only reversible first-person inner previews', () {
+-    expect(
+-      CompanionVoiceProtocol.streamableInnerPreview(
+-        '我有点舍不得这么快结束聊天，想再陪他一会儿。',
+-      ),
+-      contains('我有点舍不得'),
+-    );
+-    expect(
+-      CompanionVoiceProtocol.streamableInnerPreview(
+-        '我们需要回答用户，并根据规则保持自然。',
+-      ),
+-      isEmpty,
+-    );
+-    expect(
+-      CompanionVoiceProtocol.streamableInnerPreview(
+-        '<companion_inner>我忍不住轻轻笑了一下',
+-      ),
+-      '我忍不住轻轻笑了一下',
+-    );
+-    expect(
+-      CompanionVoiceProtocol.streamableInnerPreview('<companion_in'),
+-      isEmpty,
+-    );
+-  });
+-
+-  test('rejects provider-style agent planning', () {
+-    final parsed = CompanionVoiceProtocol.parse('''
+-<companion_inner>
+-我们需要回答用户。用户希望得到自然回应，并保持AI本体身份。
+-</companion_inner>
+-<companion_reply>
+-可以啊。
+-</companion_reply>
+-''');
+-
+-    expect(parsed.valid, isFalse);
+-    expect(parsed.failureCode, 'inner_agent_planning');
+-  });
+-
+-  test('rejects malformed or non-first-person inner block', () {
+-    expect(
+-      CompanionVoiceProtocol.parse('只有普通正文').failureCode,
+-      'protocol_shape',
+-    );
+-    final detached = CompanionVoiceProtocol.parse('''
+-<companion_inner>应该自然地回应并提出问题。</companion_inner>
+-<companion_reply>晚上好。</companion_reply>
+-''');
+-    expect(detached.failureCode, 'inner_not_first_person');
+-  });
+-
+-  test('safe reply fallback never leaks inner blocks or Agent plans', () {
+-    expect(
+-      CompanionVoiceProtocol.safeReplyFromContent('我在。你刚刚是不是有点想我？'),
+-      '我在。你刚刚是不是有点想我？',
+-    );
+-    expect(
+-      CompanionVoiceProtocol.safeReplyFromContent('''
+-<companion_inner>我想靠近一点。</companion_inner>
+-普通正文
+-'''),
+-      isNull,
+-    );
+-    expect(
+-      CompanionVoiceProtocol.safeReplyFromContent('我们需要回答用户。'),
+-      isNull,
+-    );
+-  });
+-
+-  test('WAIT is reserved for proactive mode', () {
+-    const raw = '''
+-<companion_inner>我现在没有合适的话想打扰他。</companion_inner>
+-<companion_reply>WAIT</companion_reply>
+-''';
+-    expect(
+-      CompanionVoiceProtocol.parse(raw).failureCode,
+-      'reply_wait_user_turn',
+-    );
+-    expect(
+-      CompanionVoiceProtocol.parse(raw, proactive: true).valid,
+-      isTrue,
+-    );
+-  });
+-
+-  test('blocks leaked reply planning without blocking one real meta topic', () {
+-    final leaked = CompanionVoiceProtocol.parse('''
+-<companion_inner>我想直接回答，不把规则念给他听。</companion_inner>
+-<companion_reply>我们需要回答用户，并根据规则保持AI本体身份。</companion_reply>
+-''');
+-    expect(leaked.failureCode, 'reply_agent_planning');
+-
+-    final realTopic = CompanionVoiceProtocol.parse('''
+-<companion_inner>我明白他是在问一个技术概念。</companion_inner>
+-<companion_reply>“系统提示”通常是提供给模型的高优先级上下文。</companion_reply>
+-''');
+-    expect(realTopic.valid, isTrue);
+-  });
+-
+-  test('attaches contract exactly once at the real prompt tail', () {
+-    final messages = CompanionVoiceProtocol.attachAtTail(
+-      const [
+-        {'role': 'user', 'content': '嗨'},
+-      ],
+-      proactive: false,
+-      correctionCode: 'protocol_shape',
+-    );
+-    final joined = messages.map((e) => e['content']).join('\n');
+-    expect(
+-      'COMPANION VOICE OUTPUT CONTRACT'.allMatches(joined).length,
+-      1,
+-    );
+-    expect(messages.last['content'], contains('<companion_reply>'));
+-    expect(messages[messages.length - 2]['content'], contains('ONE RETRY'));
+-    expect(messages.last['content'], contains('2～4 个自然段'));
+-    expect(messages.last['content'], contains('80～220 个中文字'));
+-    expect(messages.last['content'], contains('全角括号神态'));
+-  });
+-}
+diff --git a/test/desire_core_policy_v031_test.dart b/test/desire_core_policy_v031_test.dart
+index c1c4505..3fffbbb 100644
+--- a/test/desire_core_policy_v031_test.dart
++++ b/test/desire_core_policy_v031_test.dart
+@@ -183,6 +183,83 @@ void main() {
+     );
+   });
+ 
++  test('libido cannot become an action outside an explicit intimacy session', () {
++    final now = DateTime(2026, 8, 12, 20, 0);
++    final snapshot = DesireSnapshot(
++      drives: {
++        ...DesireSnapshot.defaultDrives(),
++        DriveKey.libido: 0.98,
++        DriveKey.fatigue: 0.20,
++      },
++    );
++    final ordinary = DesireCorePolicy.candidates(
++      drives: snapshot.drives,
++      refractoryUntil: const {},
++      thoughts: const [],
++      now: now,
++    );
++    final intimacy = DesireCorePolicy.candidates(
++      drives: snapshot.drives,
++      refractoryUntil: const {},
++      thoughts: const [],
++      now: now,
++      intimacyAllowed: true,
++    );
++
++    expect(ordinary.any((c) => c.drive == DriveKey.libido), isFalse);
++    expect(intimacy.first.drive, DriveKey.libido);
++    expect(intimacy.first.action, 'tease_or_intimacy');
++  });
++
++  test('learned temperament slowly pulls back toward its original anchor', () {
++    final now = DateTime(2026, 12, 10, 12, 0);
++    final anchor = DesireSnapshot.defaultBaselines()[DriveKey.attachment]!;
++    final snapshot = DesireSnapshot(
++      baselines: {
++        ...DesireSnapshot.defaultBaselines(),
++        DriveKey.attachment: anchor + 0.10,
++      },
++      lastTickAt: now.subtract(const Duration(days: 30)),
++    );
++    final advanced = DesireCorePolicy.advance(snapshot: snapshot, now: now);
++
++    expect(advanced.baselines[DriveKey.attachment]!, lessThan(anchor + 0.10));
++    expect(advanced.baselines[DriveKey.attachment]!, greaterThan(anchor));
++  });
++
++  test('wildcard becomes a real pressure-release action and respects cooldown', () {
++    final now = DateTime(2026, 8, 12, 20, 0);
++    final snapshot = DesireSnapshot(
++      drives: {
++        ...DesireSnapshot.defaultDrives(),
++        DriveKey.duty: 0.92,
++        DriveKey.stress: 0.80,
++        DriveKey.fatigue: 0.20,
++      },
++      refractoryUntil: {
++        DriveKey.stress: now.add(const Duration(minutes: 30)),
++      },
++    );
++    final ready = DesireCorePolicy.candidates(
++      drives: snapshot.drives,
++      baselines: snapshot.baselines,
++      refractoryUntil: snapshot.refractoryUntil,
++      thoughts: const [],
++      now: now,
++    );
++    final coolingDown = DesireCorePolicy.candidates(
++      drives: snapshot.drives,
++      baselines: snapshot.baselines,
++      refractoryUntil: snapshot.refractoryUntil,
++      thoughts: const [],
++      now: now,
++      lastWildcardAt: now.subtract(const Duration(hours: 1)),
++    );
++
++    expect(ready.first.action, 'wildcard_share');
++    expect(coolingDown.any((c) => c.action == 'wildcard_share'), isFalse);
++  });
++
+   test('1000 deterministic ticks stay bounded and do not self-excite', () {
+     var now = DateTime(2026, 8, 12, 8, 0);
+     var snapshot = DesireSnapshot(lastTickAt: now);
+diff --git a/tools/validate_companion_voice_v19_sql.py b/tools/validate_companion_voice_v19_sql.py
+deleted file mode 100644
+index 5187c67..0000000
+--- a/tools/validate_companion_voice_v19_sql.py
++++ /dev/null
+@@ -1,111 +0,0 @@
+-#!/usr/bin/env python3
+-"""SQLite mirror for the additive v18 -> v19 Companion Voice migration."""
+-
+-import sqlite3
+-
+-
+-def v18_database() -> sqlite3.Connection:
+-    db = sqlite3.connect(':memory:')
+-    db.executescript('''
+-      CREATE TABLE messages (
+-        id TEXT PRIMARY KEY,
+-        role TEXT NOT NULL,
+-        content TEXT NOT NULL,
+-        reasoning_content TEXT NOT NULL DEFAULT '',
+-        model TEXT,
+-        created_at INTEGER NOT NULL,
+-        is_proactive INTEGER NOT NULL DEFAULT 0,
+-        proactive_intent TEXT NOT NULL DEFAULT '',
+-        proactive_delivery TEXT NOT NULL DEFAULT '',
+-        device_id TEXT
+-      );
+-      CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-    ''')
+-    db.execute(
+-        '''INSERT INTO messages(
+-             id,role,content,reasoning_content,model,created_at,device_id
+-           ) VALUES(?,?,?,?,?,?,?)''',
+-        ('legacy', 'assistant', '旧正文', '旧 provider 思考', 'deepseek-v4-pro', 1, 'phone'),
+-    )
+-    db.commit()
+-    return db
+-
+-
+-def migrate_to_v19(db: sqlite3.Connection) -> None:
+-    with db:
+-        db.execute("ALTER TABLE messages ADD COLUMN provider_reasoning TEXT NOT NULL DEFAULT ''")
+-        db.execute('ALTER TABLE messages ADD COLUMN companion_voice INTEGER NOT NULL DEFAULT 0')
+-        db.execute('''
+-          UPDATE messages
+-          SET provider_reasoning = reasoning_content
+-          WHERE provider_reasoning = '' AND reasoning_content <> ''
+-        ''')
+-        for key, value in (
+-            ('companion_voice_enabled', '0'),
+-            ('companion_voice_retry_count', '0'),
+-            ('companion_voice_block_count', '0'),
+-        ):
+-            db.execute(
+-                'INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)',
+-                (key, value),
+-            )
+-
+-
+-def main() -> None:
+-    db = v18_database()
+-    migrate_to_v19(db)
+-    columns = {row[1] for row in db.execute('PRAGMA table_info(messages)')}
+-    assert {'reasoning_content', 'provider_reasoning', 'companion_voice'} <= columns
+-
+-    legacy = db.execute(
+-        'SELECT content,reasoning_content,provider_reasoning,companion_voice FROM messages WHERE id=?',
+-        ('legacy',),
+-    ).fetchone()
+-    assert legacy == ('旧正文', '旧 provider 思考', '旧 provider 思考', 0)
+-    settings = dict(db.execute('SELECT key,value FROM settings'))
+-    assert settings['companion_voice_enabled'] == '0'
+-
+-    with db:
+-        db.execute(
+-            '''INSERT INTO messages(
+-                 id,role,content,reasoning_content,provider_reasoning,
+-                 companion_voice,model,created_at,device_id
+-               ) VALUES(?,?,?,?,?,?,?,?,?)''',
+-            (
+-                'voice', 'assistant', '我在。', '我其实有点高兴他来找我。',
+-                'We need to answer the user naturally.', 1,
+-                'deepseek-v4-pro', 2, 'phone',
+-            ),
+-        )
+-    voice = db.execute(
+-        'SELECT content,reasoning_content,provider_reasoning,companion_voice FROM messages WHERE id=?',
+-        ('voice',),
+-    ).fetchone()
+-    assert voice == (
+-        '我在。',
+-        '我其实有点高兴他来找我。',
+-        'We need to answer the user naturally.',
+-        1,
+-    )
+-    assert '<companion_' not in voice[0]
+-    assert '<companion_' not in voice[1]
+-
+-    # Re-running the setting seed is idempotent and cannot switch an enabled
+-    # user back off during a later startup/import normalization pass.
+-    db.execute(
+-        "UPDATE settings SET value='1' WHERE key='companion_voice_enabled'",
+-    )
+-    with db:
+-        db.execute(
+-            "INSERT OR IGNORE INTO settings(key,value) VALUES('companion_voice_enabled','0')",
+-        )
+-    assert db.execute(
+-        "SELECT value FROM settings WHERE key='companion_voice_enabled'",
+-    ).fetchone()[0] == '1'
+-
+-    print('[OK] v18 -> v19 preserves legacy reasoning and separates provider/inner/reply')
+-    print('[OK] Companion Voice defaults OFF without overwriting an explicit user choice')
+-
+-
+-if __name__ == '__main__':
+-    main()
+diff --git a/tools/validate_desire_v20_sql.py b/tools/validate_desire_v20_sql.py
+new file mode 100644
+index 0000000..21094ed
+--- /dev/null
++++ b/tools/validate_desire_v20_sql.py
+@@ -0,0 +1,88 @@
++#!/usr/bin/env python3
++"""SQLite mirror for the destructive-but-preserving v19 -> v20 cleanup."""
++
++import sqlite3
++
++
++def columns(db: sqlite3.Connection, table: str) -> set[str]:
++    return {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
++
++
++def main() -> int:
++    db = sqlite3.connect(":memory:")
++    db.execute("""
++        CREATE TABLE messages (
++          id TEXT PRIMARY KEY, role TEXT NOT NULL, content TEXT NOT NULL,
++          reasoning_content TEXT NOT NULL DEFAULT '',
++          provider_reasoning TEXT NOT NULL DEFAULT '',
++          companion_voice INTEGER NOT NULL DEFAULT 0,
++          model TEXT, created_at INTEGER NOT NULL,
++          is_proactive INTEGER NOT NULL DEFAULT 0,
++          proactive_intent TEXT NOT NULL DEFAULT '',
++          proactive_delivery TEXT NOT NULL DEFAULT '', device_id TEXT
++        )
++    """)
++    db.execute("CREATE INDEX idx_messages_created_at ON messages(created_at)")
++    db.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
++    db.execute(
++        "INSERT INTO messages VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
++        (
++            "m1", "assistant", "正文", "用户当时看到的内心", "provider raw",
++            1, "deepseek-v4-pro", 123, 1, "miss_you", "warm", "d1",
++        ),
++    )
++    db.executemany(
++        "INSERT INTO settings VALUES (?,?)",
++        [
++            ("companion_voice_enabled", "1"),
++            ("companion_voice_retry_count", "7"),
++            ("model", "deepseek-v4-pro"),
++        ],
++    )
++
++    with db:
++        db.execute("""
++            CREATE TABLE messages_v20 (
++              id TEXT PRIMARY KEY, role TEXT NOT NULL, content TEXT NOT NULL,
++              reasoning_content TEXT NOT NULL DEFAULT '', model TEXT,
++              created_at INTEGER NOT NULL,
++              is_proactive INTEGER NOT NULL DEFAULT 0,
++              proactive_intent TEXT NOT NULL DEFAULT '',
++              proactive_delivery TEXT NOT NULL DEFAULT '', device_id TEXT
++            )
++        """)
++        db.execute("""
++            INSERT INTO messages_v20 (
++              id, role, content, reasoning_content, model, created_at,
++              is_proactive, proactive_intent, proactive_delivery, device_id
++            )
++            SELECT id, role, content, reasoning_content, model, created_at,
++              is_proactive, proactive_intent, proactive_delivery, device_id
++            FROM messages
++        """)
++        db.execute("DROP TABLE messages")
++        db.execute("ALTER TABLE messages_v20 RENAME TO messages")
++        db.execute("CREATE INDEX idx_messages_created_at ON messages(created_at)")
++        db.execute("DELETE FROM settings WHERE key LIKE 'companion_voice%'")
++
++    expected = {
++        "id", "role", "content", "reasoning_content", "model", "created_at",
++        "is_proactive", "proactive_intent", "proactive_delivery", "device_id",
++    }
++    assert columns(db, "messages") == expected
++    assert db.execute(
++        "SELECT content,reasoning_content,is_proactive,proactive_intent,proactive_delivery,device_id FROM messages"
++    ).fetchone() == ("正文", "用户当时看到的内心", 1, "miss_you", "warm", "d1")
++    assert db.execute(
++        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_messages_created_at'"
++    ).fetchone() is not None
++    assert db.execute(
++        "SELECT COUNT(*) FROM settings WHERE key LIKE 'companion_voice%'"
++    ).fetchone()[0] == 0
++    assert db.execute("SELECT value FROM settings WHERE key='model'").fetchone()[0] == "deepseek-v4-pro"
++    print("schema v20 message cleanup preserves visible history and removes retired state")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/validate_v029_a2_tts.py b/tools/validate_v029_a2_tts.py
+index b7fa003..c96c2a6 100755
+--- a/tools/validate_v029_a2_tts.py
++++ b/tools/validate_v029_a2_tts.py
+@@ -18,7 +18,7 @@ def sha(data: bytes) -> str:
+ 
+ def main() -> int:
+     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
+-    assert any(v in pubspec for v in ['version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44', 'version: 0.31.3+45'])
++    assert any(v in pubspec for v in ['version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44', 'version: 0.31.3+45', 'version: 0.31.4+46'])
+ 
+     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
+     data = native.read_bytes()
+diff --git a/tools/validate_v0312_companion_voice.py b/tools/validate_v0312_companion_voice.py
+deleted file mode 100644
+index 4e26099..0000000
+--- a/tools/validate_v0312_companion_voice.py
++++ /dev/null
+@@ -1,183 +0,0 @@
+-#!/usr/bin/env python3
+-from pathlib import Path
+-import hashlib
+-
+-ROOT = Path(__file__).resolve().parents[1]
+-
+-
+-def text(rel: str) -> str:
+-    return (ROOT / rel).read_text(encoding='utf-8')
+-
+-
+-def sha(rel: str) -> str:
+-    return hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
+-
+-
+-def require(body: str, *tokens: str) -> None:
+-    for token in tokens:
+-        assert token in body, token
+-
+-
+-def main() -> int:
+-    pubspec = text('pubspec.yaml')
+-    assert any(v in pubspec for v in ['version: 0.31.2+44', 'version: 0.31.3+45'])
+-
+-    db = text('lib/core/database/app_database.dart')
+-    require(
+-        db,
+-        'static const int schemaVersion = 19;',
+-        "oldVersion < 19",
+-        'provider_reasoning TEXT NOT NULL DEFAULT',
+-        'companion_voice INTEGER NOT NULL DEFAULT 0',
+-        "'companion_voice_enabled', 'value': '0'",
+-        "row['provider_reasoning'] = row['reasoning_content'] ?? '';",
+-        "row['companion_voice'] = 0;",
+-    )
+-
+-    model = text('lib/core/models/chat_message.dart')
+-    require(
+-        model,
+-        'final String reasoningContent;',
+-        'final String providerReasoning;',
+-        'final bool companionVoice;',
+-        "'provider_reasoning': providerReasoning",
+-        "'companion_voice': companionVoice ? 1 : 0",
+-    )
+-
+-    protocol = text('lib/core/ai/companion_voice_protocol.dart')
+-    require(
+-        protocol,
+-        'class CompanionVoiceProtocol',
+-        "static const String settingKey = 'companion_voice_enabled';",
+-        '<companion_inner>',
+-        '<companion_reply>',
+-        'COMPANION VOICE OUTPUT CONTRACT',
+-        'inner_agent_planning',
+-        'inner_not_first_person',
+-        'reply_agent_planning',
+-        'reply_wait_user_turn',
+-        'COMPANION VOICE CORRECTION · ONE RETRY',
+-        'parseCandidate',
+-        'safeReplyFromContent',
+-        'streamableInnerPreview',
+-        'DeepSeek 原生双通道',
+-        '80～220 个中文字',
+-        '全角括号神态',
+-        '不强迫每轮撒娇、暧昧或动作描写',
+-        '保持 AI 身份与 REALITY GROUNDING',
+-    )
+-    assert protocol.count('COMPANION VOICE OUTPUT CONTRACT') == 1
+-
+-    runner = text('lib/core/ai/durable_generation_runner.dart')
+-    require(
+-        runner,
+-        'CompanionVoiceProtocol.enabledFromSetting(',
+-        'emitDeltas: !companionVoiceEnabled',
+-        'emitCompanionPreview: companionVoiceEnabled',
+-        "finishReason: 'companion_voice_preview'",
+-        "finishReason: 'companion_voice_final'",
+-        'var parsed = CompanionVoiceProtocol.parseCandidate(',
+-        'fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(',
+-        'correctionCode: parsed.failureCode',
+-        'providerReasoning: generated.reasoning',
+-        'companionVoice: companionVoiceEnabled',
+-        '_noteCompanionVoiceRetry(',
+-        '_noteCompanionVoiceBlock(',
+-        "finalContent = fallbackReply;",
+-        "visibleInner = '';",
+-    )
+-    assert runner.count('correctionCode: parsed.failureCode') == 1
+-
+-    controller = text('lib/features/chat/chat_controller.dart')
+-    require(
+-        controller,
+-        "delta.finishReason == 'companion_voice_preview'",
+-        "delta.finishReason == 'companion_voice_final'",
+-        'streamingReasoning = delta.reasoning;',
+-        'streamingContent = delta.content;',
+-    )
+-    assert controller.count("delta.finishReason == 'companion_voice_preview'") == 2
+-    assert controller.count("delta.finishReason == 'companion_voice_final'") == 2
+-
+-    proactive = text('lib/core/desire/proactive_engine.dart')
+-    require(
+-        proactive,
+-        'CompanionVoiceProtocol.attachAtTail(',
+-        'CompanionVoiceProtocol.parseCandidate(',
+-        'voiceCorrectionCode: voiceRetry ? retryReason :',
+-        'var prepared = prepareCandidate(candidate);',
+-        'return blockCompanionVoice(prepared.voiceFailure);',
+-        'providerReasoning: prepared.providerReasoning',
+-        'companionVoice: companionVoiceEnabled',
+-        "decision: 'companion_voice_wait'",
+-    )
+-    # Both Voice and Grounding share this single retry call site.
+-    assert proactive.count('final retried = await generateCandidate(') == 1
+-
+-    settings = text('lib/features/settings/settings_page.dart')
+-    require(
+-        settings,
+-        "title: const Text('伴侣式内心与回应')",
+-        "(await db.getSetting('companion_voice_enabled')) == '1'",
+-        "companionVoiceEnabled ? '1' : '0'",
+-        '!companionVoiceEnabled',
+-        '关闭后直接使用模型原始输出',
+-    )
+-
+-    page = text('lib/features/chat/chat_page.dart')
+-    panel = text('lib/widgets/reasoning_panel.dart')
+-    require(controller, '!streamingCompanionVoice', 'playText(result.assistant!.content')
+-    require(page, 'companionVoice: message.companionVoice', 'controller.streamingCompanionVoice')
+-    require(panel, "'🧠 内心'", "'🧠 思考'")
+-
+-    diagnostics = text('lib/core/diagnostics/preflight_diagnostics.dart')
+-    require(
+-        diagnostics,
+-        "'companionVoice': {",
+-        "'retryCount'",
+-        "'blockCount'",
+-        ('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT'
+-         if 'version: 0.31.3+45' in pubspec
+-         else 'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT'),
+-    )
+-
+-    tests = text('test/companion_voice_protocol_v0312_test.dart')
+-    require(
+-        tests,
+-        'parses independent inner voice and final reply',
+-        'rejects provider-style agent planning',
+-        'rejects malformed or non-first-person inner block',
+-        'WAIT is reserved for proactive mode',
+-        'attaches contract exactly once at the real prompt tail',
+-        'accepts DeepSeek native reasoning and content channels',
+-        'safe reply fallback never leaks inner blocks or Agent plans',
+-        'streams only reversible first-person inner previews',
+-    )
+-
+-    migration_validator = text('tools/validate_companion_voice_v19_sql.py')
+-    require(
+-        migration_validator,
+-        'v18 -> v19 preserves legacy reasoning',
+-        'companion_voice_enabled',
+-        'provider_reasoning',
+-        'companion_voice',
+-    )
+-
+-    # v0.31.2 itself must not alter Android overlay. v0.31.3 deliberately owns
+-    # that isolated surface and has a separate bounded-recovery validator.
+-    if 'version: 0.31.2+44' in pubspec:
+-        assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt') == 'a622f882573c3e230627e9db01e0c58215440670c75147149b2509a79489ad6d'
+-    # Companion Voice, Desire and TTS remain frozen in both versions.
+-    assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt') == 'c581b4cb93c5979ccb5d413904cd43dd1a7046a0d66ab7b75acf6e4cfbafc36b'
+-    assert sha('lib/core/tts/tts_service.dart') == '691605c38107e1d4293f1fdbb176e51392555c7d39ee07abe006f0c01cffa47f'
+-    assert sha('lib/core/tts/tts_playback_queue.dart') == '4cdd466553664b3039d81c30ff4cad2cb71dc2ea8fb6234a5371c153a8adfc5b'
+-    assert sha('lib/core/desire/desire_core_policy.dart') == 'd28f0fb575ed2d7b32bb186e5058c07432a30a5aa81b76a5474a9f298c7dcab5'
+-    assert sha('lib/core/desire/desire_engine.dart') == '1d46d85ba9a3f0c851430994bba93dbd8afd1ce735a01ce023795702f0c89af9'
+-    assert sha('lib/core/desire/self_drive_engine.dart') == '6fbd88b10a733a43f9a9604c546f96bcd4b5a38a75790038bf4b1040820cc968'
+-
+-    print('v0.31.2+44 streaming inner and richer voice validation passed unchanged.')
+-    return 0
+-
+-
+-if __name__ == '__main__':
+-    raise SystemExit(main())
+diff --git a/tools/validate_v0313_overlay_picker.py b/tools/validate_v0313_overlay_picker.py
+index e493c5a..981a606 100644
+--- a/tools/validate_v0313_overlay_picker.py
++++ b/tools/validate_v0313_overlay_picker.py
+@@ -1,6 +1,5 @@
+ #!/usr/bin/env python3
+ from pathlib import Path
+-import hashlib
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ 
+@@ -9,16 +8,16 @@ def read(relative: str) -> str:
+     return (ROOT / relative).read_text(encoding="utf-8")
+ 
+ 
+-def sha256(relative: str) -> str:
+-    return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+-
+-
+ def main() -> int:
+     pubspec = read("pubspec.yaml")
+-    assert "version: 0.31.3+45" in pubspec
+-    assert "static const int schemaVersion = 19;" in read(
+-        "lib/core/database/app_database.dart"
+-    )
++    assert any(version in pubspec for version in (
++        "version: 0.31.3+45",
++        "version: 0.31.4+46",
++    ))
++    assert any(version in read("lib/core/database/app_database.dart") for version in (
++        "static const int schemaVersion = 19;",
++        "static const int schemaVersion = 20;",
++    ))
+ 
+     overlay = read(
+         "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
+@@ -90,7 +89,7 @@ def main() -> int:
+ 
+     diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
+     for token in [
+-        "AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT",
++        "REDACTED LOCAL DIAGNOSTIC REPORT",
+         "'coverState'",
+         "'systemCoverActive'",
+         "'coverSessionId'",
+@@ -101,22 +100,6 @@ def main() -> int:
+     ]:
+         assert token in diagnostics, token
+ 
+-    # v0.31.3 is deliberately isolated from Companion Voice, Desire and TTS.
+-    frozen_hashes = {
+-        "lib/features/chat/chat_controller.dart":
+-            "9709994886c24771c1c886bee0f79daef67dded8f884e5afa1f03817cfe35602",
+-        "lib/core/ai/companion_voice_protocol.dart":
+-            "9bbc744c70ec63cb35a81558098c76b98dd5e9c31b6cdc052ef96e4422047d19",
+-        "lib/core/desire/desire_core_policy.dart":
+-            "d28f0fb575ed2d7b32bb186e5058c07432a30a5aa81b76a5474a9f298c7dcab5",
+-        "lib/core/tts/tts_sentence_segmenter.dart":
+-            "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
+-        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
+-            "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
+-    }
+-    for relative, expected in frozen_hashes.items():
+-        assert sha256(relative) == expected, relative
+-
+     # A cover session can schedule at most attempts 1, 2 and 3. A re-enter
+     # increments the session token, making callbacks from the old token inert.
+     attempts = []
+diff --git a/tools/validate_v0314_grounded_desire.py b/tools/validate_v0314_grounded_desire.py
+new file mode 100644
+index 0000000..7dfc9ad
+--- /dev/null
++++ b/tools/validate_v0314_grounded_desire.py
+@@ -0,0 +1,133 @@
++#!/usr/bin/env python3
++from pathlib import Path
++import hashlib
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def read(relative: str) -> str:
++    return (ROOT / relative).read_text(encoding="utf-8")
++
++
++def digest(relative: str) -> str:
++    return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
++
++
++def main() -> int:
++    assert "version: 0.31.4+46" in read("pubspec.yaml")
++    db = read("lib/core/database/app_database.dart")
++    assert "static const int schemaVersion = 20;" in db
++    for token in [
++        "CREATE TABLE messages_v20",
++        "INSERT INTO messages_v20",
++        "DROP TABLE messages",
++        "ALTER TABLE messages_v20 RENAME TO messages",
++        "row.remove('provider_reasoning')",
++        "row.remove('companion_voice')",
++    ]:
++        assert token in db, token
++
++    retired_path = ROOT / "lib/core/ai/companion_voice_protocol.dart"
++    retired_test = ROOT / "test/companion_voice_protocol_v0312_test.dart"
++    assert not retired_path.exists()
++    assert not retired_test.exists()
++    runtime_text = "\n".join(
++        read(relative)
++        for relative in [
++            "lib/core/ai/durable_generation_runner.dart",
++            "lib/core/desire/proactive_engine.dart",
++            "lib/features/chat/chat_controller.dart",
++            "lib/features/chat/chat_page.dart",
++            "lib/features/settings/settings_page.dart",
++            "lib/widgets/reasoning_panel.dart",
++            "lib/core/models/chat_message.dart",
++            "lib/core/diagnostics/preflight_diagnostics.dart",
++        ]
++    )
++    for forbidden in [
++        "CompanionVoiceProtocol", "companion_voice_preview",
++        "companion_voice_final", "streamingCompanionVoice",
++        "providerReasoning", "伴侣式内心与回应",
++    ]:
++        assert forbidden not in runtime_text, forbidden
++
++    runner = read("lib/core/ai/durable_generation_runner.dart")
++    assert "onDelta?.call(delta);" in runner
++    assert "reasoningContent: generated.reasoning" in runner
++    assert "content: generated.content" in runner
++
++    policy = read("lib/core/desire/desire_core_policy.dart")
++    for token in [
++        "baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0",
++        "currentBaseline +",
++        "(anchor - currentBaseline) * pullback",
++        "drive == DriveKey.libido && !intimacyAllowed",
++        "action: 'wildcard_share'",
++        "wildcardCooldown = Duration(hours: 6)",
++        "normalStrong",
++        "tension >= 0.52",
++    ]:
++        assert token in policy, token
++    for forbidden in ["AppDatabase", "DateTime.now()", "Random(", "dart:io"]:
++        assert forbidden not in policy, forbidden
++
++    prompt = read("lib/core/ai/prompt_builder.dart")
++    for token in [
++        "长期性格倾向：",
++        "THOUGHT_DATA source=",
++        "不注入 Thought 原文",
++        "_temperamentSummary",
++        "d != DriveKey.libido || intimacySessionActive",
++    ]:
++        assert token in prompt, token
++    assert "${t.text}" not in prompt
++    assert ": ${t.text}" not in prompt
++
++    proactive = read("lib/core/desire/proactive_engine.dart")
++    for token in [
++        "intimacyAllowed: intimacyAllowed",
++        "这里只提供结构化线索，不注入 Thought 原文",
++        "ProactiveReasoningGroundingGuard.evaluate(",
++        "REALITY GROUNDING CORRECTION · ONE RETRY",
++        "await desireEngine.satisfyIntent(",
++    ]:
++        assert token in proactive, token
++    assert "CompanionVoice" not in proactive
++
++    tests = read("test/desire_core_policy_v031_test.dart")
++    for token in [
++        "libido cannot become an action outside an explicit intimacy session",
++        "learned temperament slowly pulls back toward its original anchor",
++        "wildcard becomes a real pressure-release action and respects cooldown",
++        "1000 deterministic ticks stay bounded and do not self-excite",
++    ]:
++        assert token in tests, token
++
++    # v0.31.4 must not silently modify the frozen native/Overlay baselines.
++    frozen = {
++        "lib/core/tts/tts_sentence_segmenter.dart":
++            "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
++        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
++            "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt":
++            "e1b74e114b9d28ce990131e59d6051fa665e0270b3e92dd5440debec95f7be82",
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt":
++            "b29ca1b48de73508bb393c71c63c1165a65649ccabc1fe712a3aaef7b18a6e2a",
++        "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt":
++            "663f11b090ca543fbd7bceac68793781d60246fa2c30e31d5337db82eb618a03",
++    }
++    for relative, expected in frozen.items():
++        assert digest(relative) == expected, relative
++
++    for relative in ["docs/HANDOFF.md", "docs/PROJECT_TASK_LEDGER.md"]:
++        body = read(relative)
++        assert "v0.31.4+46" in body or "v0.31.4" in body
++        assert "schema v20" in body
++        assert "wildcard_share" in body
++
++    print("v0.31.4 Grounded Desire Growth static validation passed")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
