@@ -43,6 +43,10 @@ class DesireEngine {
       await _tickThoughts(instant);
     }
     final thoughts = await db.activeThoughts(limit: 24);
+    final activeSession = await db.activeInteractionSession();
+    final intimacyAllowed = activeSession != null &&
+        (activeSession.kind == 'intimacy' ||
+            activeSession.kind == 'roleplay_intimacy');
 
     return db.mutateDesire((snapshot) {
       final advanced = DesireCorePolicy.advance(
@@ -52,12 +56,17 @@ class DesireEngine {
         userBusy: userBusy,
       );
       final drives = Map<DriveKey, double>.from(advanced.drives);
-      final wildcard = _maybeWildcard(snapshot, instant, drives);
       final intent = _pickIntent(
+        snapshot.copyWith(
+          drives: drives,
+          baselines: advanced.baselines,
+          refractoryUntil: advanced.refractoryUntil,
+        ),
         drives,
         advanced.refractoryUntil,
         thoughts,
         instant,
+        intimacyAllowed: intimacyAllowed,
       );
       return snapshot.copyWith(
         drives: drives,
@@ -67,7 +76,6 @@ class DesireEngine {
         lastIntentDrive: intent?.drive.name,
         lastIntentScore: intent?.score,
         lastTickAt: instant,
-        lastWildcardAt: wildcard ? instant : snapshot.lastWildcardAt,
         clearIntent: intent == null,
       );
     });
@@ -168,6 +176,9 @@ class DesireEngine {
         refractoryUntil: refractory,
         lastSatisfiedAction: intent.wantAction,
         lastSatisfiedAt: instant,
+        lastWildcardAt: intent.wantAction == 'wildcard_share'
+            ? instant
+            : snapshot.lastWildcardAt,
       );
     });
   }
@@ -262,12 +273,15 @@ class DesireEngine {
     DesireSnapshot snapshot,
     List<CompanionThought> thoughts, {
     DateTime? now,
+    bool intimacyAllowed = false,
   }) {
     return _pickIntent(
+      snapshot,
       snapshot.drives,
       snapshot.refractoryUntil,
       thoughts,
       now ?? DateTime.now(),
+      intimacyAllowed: intimacyAllowed,
     );
   }
 
@@ -275,27 +289,36 @@ class DesireEngine {
     DesireSnapshot snapshot,
     List<CompanionThought> thoughts, {
     DateTime? now,
+    bool intimacyAllowed = false,
   }) {
     final candidates = DesireCorePolicy.candidates(
       drives: snapshot.drives,
       refractoryUntil: snapshot.refractoryUntil,
       thoughts: thoughts,
       now: now ?? DateTime.now(),
+      baselines: snapshot.baselines,
+      lastWildcardAt: snapshot.lastWildcardAt,
+      intimacyAllowed: intimacyAllowed,
     );
     return candidates.map(_fromCandidate).toList();
   }
 
   DesireIntent? _pickIntent(
+    DesireSnapshot snapshot,
     Map<DriveKey, double> drives,
     Map<DriveKey, DateTime> refractory,
     List<CompanionThought> thoughts,
-    DateTime now,
-  ) {
+    DateTime now, {
+    required bool intimacyAllowed,
+  }) {
     final candidates = DesireCorePolicy.candidates(
       drives: drives,
       refractoryUntil: refractory,
       thoughts: thoughts,
       now: now,
+      baselines: snapshot.baselines,
+      lastWildcardAt: snapshot.lastWildcardAt,
+      intimacyAllowed: intimacyAllowed,
     );
     return candidates.isEmpty ? null : _fromCandidate(candidates.first);
   }
@@ -356,52 +379,6 @@ class DesireEngine {
         snoozedUntil: thought.snoozedUntil,
       );
     }
-  }
-
-  bool _maybeWildcard(
-    DesireSnapshot snapshot,
-    DateTime now,
-    Map<DriveKey, double> drives,
-  ) {
-    final last = snapshot.lastWildcardAt;
-    if (last != null && now.difference(last) < const Duration(hours: 2)) {
-      return false;
-    }
-
-    // Wildcard is a pressure-release path, not an independent random desire.
-    // If a normal high-scoring drive is currently actionable, do not inject it.
-    final actionableHigh = DriveKey.values.any((drive) {
-      if (drive == DriveKey.fatigue) return false;
-      final until = snapshot.refractoryUntil[drive];
-      final blocked = until != null && until.isAfter(now);
-      return !blocked && (drives[drive] ?? 0.0) >= 0.58;
-    });
-    if (actionableHigh) return false;
-
-    var tension = 0.0;
-    for (final drive in DriveKey.values) {
-      if (drive == DriveKey.fatigue) continue;
-      final baseline = snapshot.baselines[drive] ?? 0.2;
-      tension += max(0.0, (drives[drive] ?? 0.0) - baseline);
-    }
-    if (tension < 0.52 || _random.nextDouble() > 0.20) return false;
-
-    const candidates = [
-      DriveKey.curiosity,
-      DriveKey.reflection,
-      DriveKey.social,
-      DriveKey.attachment,
-    ];
-    final available = candidates.where((drive) {
-      final until = snapshot.refractoryUntil[drive];
-      return until == null || !until.isAfter(now);
-    }).toList();
-    if (available.isEmpty) return false;
-
-    final drive = available[_random.nextInt(available.length)];
-    final pulse = 0.014 + _random.nextDouble() * 0.026;
-    drives[drive] = ((drives[drive] ?? 0) + pulse).clamp(0.0, 1.0).toDouble();
-    return true;
   }
 
 }

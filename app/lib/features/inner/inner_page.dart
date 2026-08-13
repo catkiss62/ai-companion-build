@@ -65,7 +65,18 @@ class _InnerPageState extends State<InnerPage> {
     snapshot = await db.loadDesire();
     grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
-    desireCandidates = desire.previewCandidates(snapshot!, thoughts).take(4).toList();
+    final activeSession = await db.activeInteractionSession();
+    final intimacyAllowed = activeSession != null &&
+        (activeSession.kind == 'intimacy' ||
+            activeSession.kind == 'roleplay_intimacy');
+    desireCandidates = desire
+        .previewCandidates(
+          snapshot!,
+          thoughts,
+          intimacyAllowed: intimacyAllowed,
+        )
+        .take(4)
+        .toList();
     threads = await db.activeUnfinishedThreads(limit: 10);
     summaries = await db.recentConversationSummaries(limit: 3);
     lifecycleEvents = await db.recentThoughtLifecycleEvents(limit: 12);
@@ -199,9 +210,9 @@ class _InnerPageState extends State<InnerPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('她的内心 · v0.31.1 Grounded Desire Core', style: Theme.of(context).textTheme.headlineSmall),
+        Text('她的内心 · v0.31.4 Grounded Desire Growth', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
-        const Text('当前保留数值与数据库状态方便调试；正式视觉层以后可以隐藏这些工程细节。'),
+        const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
         const SizedBox(height: 16),
         ...DriveKey.values.map((drive) {
           final value = s.drives[drive] ?? 0;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -106,11 +107,18 @@ class PreflightDiagnosticsService {
       final grounding = await GroundingEngine(db).capture(now: now);
       final desireSnapshot = await db.loadDesire();
       final desireThoughts = await db.activeThoughtMetadata(limit: 40);
+      final activeSession = await db.activeInteractionSession();
+      final intimacyAllowed = activeSession != null &&
+          (activeSession.kind == 'intimacy' ||
+              activeSession.kind == 'roleplay_intimacy');
       final desireCandidates = DesireCorePolicy.candidates(
         drives: desireSnapshot.drives,
         refractoryUntil: desireSnapshot.refractoryUntil,
         thoughts: desireThoughts,
         now: now,
+        baselines: desireSnapshot.baselines,
+        lastWildcardAt: desireSnapshot.lastWildcardAt,
+        intimacyAllowed: intimacyAllowed,
       );
       final provenanceCounts = <String, int>{};
       for (final thought in desireThoughts) {
@@ -195,29 +203,6 @@ class PreflightDiagnosticsService {
           'proactiveGroundingRetryLastReason':
               await db.getSetting('grounding_retry_last_reason') ?? '',
         },
-        'companionVoice': {
-          'enabled': (await db.getSetting('companion_voice_enabled')) == '1',
-          'retryCount': int.tryParse(
-                await db.getSetting('companion_voice_retry_count') ?? '',
-              ) ??
-              0,
-          'retryLastAt': int.tryParse(
-                await db.getSetting('companion_voice_retry_last_at') ?? '',
-              ) ??
-              0,
-          'retryLastReason':
-              await db.getSetting('companion_voice_retry_last_reason') ?? '',
-          'blockCount': int.tryParse(
-                await db.getSetting('companion_voice_block_count') ?? '',
-              ) ??
-              0,
-          'blockLastAt': int.tryParse(
-                await db.getSetting('companion_voice_block_last_at') ?? '',
-              ) ??
-              0,
-          'blockLastReason':
-              await db.getSetting('companion_voice_block_last_reason') ?? '',
-        },
         'desireCore': {
           'drives': {
             for (final entry in desireSnapshot.drives.entries)
@@ -238,6 +223,14 @@ class PreflightDiagnosticsService {
           'fatigueGateActive':
               (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
                   DesireCorePolicy.fatigueRestGate,
+          'intimacyActionAllowed': intimacyAllowed,
+          'wildcardCooldownMinutes': desireSnapshot.lastWildcardAt == null
+              ? 0
+              : max(
+                  0,
+                  DesireCorePolicy.wildcardCooldown.inMinutes -
+                      now.difference(desireSnapshot.lastWildcardAt!).inMinutes,
+                ),
           'selected': desireCandidates.isEmpty
               ? null
               : {
@@ -551,7 +544,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.31.4+46 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

@@ -55,25 +55,11 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 - Presence Momentum 与 Proactive hard caps；
 - Active Brain / transfer fencing。
 
-## v0.31.2 Companion Voice 兼容补充
+## v0.31.4 状态同步（2026-08-13）
 
-- Grounding 的事实来源、answered-history transcript、正文 guard 与 reasoning guard 均保持不变。
-- 用户开启 Companion Voice 时，主动候选先从显式协议解析出 `inner_voice / reply`，Grounding guard 检查解析后的用户可见两部分，而不是 provider 的 Agent 式 hidden reasoning。
-- Companion Voice 格式/Agent 污染和 Reality Grounding 共用**一次**候选纠正预算，避免一次主动心跳连续调用多次模型。纠正后协议仍无效则按 WAIT；Grounding 仍失败则按原 guard 丢弃。
-- provider reasoning 单独本地保存，不进入通知、TTS 或下一轮历史 prompt。
-
-### v0.31.2+43 双通道热修
-
-- Companion Voice 候选改为同时读取 DeepSeek 原生 `reasoning_content` 与 `content`，并兼容旧双标签/跨通道标签；不再因标签只出现在 provider reasoning 而误判 `protocol_shape`。
-- 普通聊天允许安全 final reply 在第二次内心失败后降级落库，但主动联系没有待回答用户，因此继续严格 WAIT/block；Reality Grounding 的单次共享重试预算不变。
-
-### v0.31.2+44 流式预览边界
-
-- 只有普通聊天 UI 对 provider reasoning 提供可撤回的过滤式流式内心 preview；主动生成仍在完整候选后执行 Voice + Grounding guard，不改变共享一次纠正预算。
-- preview 不是数据库事实：重试时清空、最终以验证后的 inner voice 覆盖；Agent planning 只能导致 preview 撤回，不能进入历史消息、通知、TTS 或下一轮 prompt。
-
-## v0.31.3 状态同步（2026-08-13）
-
-- 当前主线切换为 HyperOS/Android 15 file-picker 后 Overlay input channel 恢复。
-- 本轮未修改 Reality Grounding、proactive context isolation、reasoning guard、Desire/Thought 或主动联系 hard caps；本文件既有规则全部继续作为 guardrail。
-- v0.31.3 validator 锁定 Companion Voice、Desire 与 TTS 关键文件哈希；Overlay 真机验收不得用改 prompt/主动联系策略来掩盖系统触摸问题。
+- 旧输出兼容协议已退役；主动联系直接使用 DeepSeek 原生 `reasoning_content + content`。
+- Grounding 的事实来源、answered-history transcript、正文 guard 与 reasoning guard 保持不变；首次违反时仍只允许一次 Reality Grounding 纠正，第二次失败则整条丢弃。
+- Thought 原文不再进入主动 Prompt。模型只收到 provenance、Drive、生命周期、强度档和是否存在关联主题等结构化线索；本地 `retrievalQuery` 可以继续利用原文检索相关 Memory，但不会把原文当系统文本注入。
+- `libido` 只有在明确的亲密 Session 已经激活时才是可执行候选；普通聊天中的数值变化不能越过 Session/边界规则。
+- Wildcard 成为有冷却的 `wildcard_share`，仍必须经过 Active Brain、chat lease、频率 hard caps、节奏阈值和 Grounding guard，不能绕过投递安全。
+- v0.31.3+45 Overlay 源码保留但真机问题继续冻结；Grounding/Desire 不通过 prompt 或主动频率补偿系统触摸故障。

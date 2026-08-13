@@ -7,7 +7,6 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../storage/secure_config.dart';
 import 'deepseek_client.dart';
-import 'companion_voice_protocol.dart';
 import 'model_profile.dart';
 import 'prompt_builder.dart';
 
@@ -129,25 +128,14 @@ class DurableGenerationRunner {
         desire: desire,
         thoughts: thoughts,
       );
-      final companionVoiceEnabled = CompanionVoiceProtocol.enabledFromSetting(
-        await db.getSetting(CompanionVoiceProtocol.settingKey),
-      );
-
       Future<({String reasoning, String content})> generate(
-        List<Map<String, Object?>> messages, {
-        required bool emitDeltas,
-        bool emitCompanionPreview = false,
-      }) async {
+        List<Map<String, Object?>> messages,
+      ) async {
         var reasoning = '';
         var content = '';
         var sawTerminalSignal = false;
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
-        if (emitCompanionPreview) {
-          onDelta?.call(const DeepSeekDelta(
-            finishReason: 'companion_voice_preview',
-          ));
-        }
         await for (final delta in client.streamChat(
           apiKey: apiKey,
           model: DeepSeekModelProfile.fromApiName(job.model),
@@ -177,16 +165,7 @@ class DurableGenerationRunner {
           }
           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
           if (delta.content.isNotEmpty) content += delta.content;
-          if (emitDeltas) {
-            onDelta?.call(delta);
-          } else if (emitCompanionPreview && delta.reasoning.isNotEmpty) {
-            onDelta?.call(DeepSeekDelta(
-              reasoning: CompanionVoiceProtocol.streamableInnerPreview(
-                reasoning,
-              ),
-              finishReason: 'companion_voice_preview',
-            ));
-          }
+          onDelta?.call(delta);
 
           final chars = reasoning.length + content.length;
           if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
@@ -212,79 +191,16 @@ class DurableGenerationRunner {
         return (reasoning: reasoning.trim(), content: content.trim());
       }
 
-      var generated = await generate(
-        companionVoiceEnabled
-            ? CompanionVoiceProtocol.attachAtTail(
-                baseRequestMessages,
-                proactive: false,
-              )
-            : baseRequestMessages,
-        emitDeltas: !companionVoiceEnabled,
-        emitCompanionPreview: companionVoiceEnabled,
-      );
+      final generated = await generate(baseRequestMessages);
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
       }
 
-      var finalContent = generated.content;
-      var visibleInner = generated.reasoning;
-      if (companionVoiceEnabled) {
-        var fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
-          generated.content,
-        );
-        var parsed = CompanionVoiceProtocol.parseCandidate(
-          providerReasoning: generated.reasoning,
-          content: generated.content,
-        );
-        if (!parsed.valid) {
-          await _noteCompanionVoiceRetry(parsed.failureCode);
-          generated = await generate(
-            CompanionVoiceProtocol.attachAtTail(
-              baseRequestMessages,
-              proactive: false,
-              correctionCode: parsed.failureCode,
-            ),
-            emitDeltas: false,
-            emitCompanionPreview: true,
-          );
-          fallbackReply = CompanionVoiceProtocol.safeReplyFromContent(
-                generated.content,
-              ) ??
-              fallbackReply;
-          parsed = CompanionVoiceProtocol.parseCandidate(
-            providerReasoning: generated.reasoning,
-            content: generated.content,
-          );
-        }
-        if (!parsed.valid) {
-          await _noteCompanionVoiceBlock(parsed.failureCode);
-          if (fallbackReply == null) {
-            throw FormatException(
-              '伴侣式内心协议连续两次无效且没有安全正文（${parsed.failureCode}）',
-            );
-          }
-          // Ordinary chat is fail-open for the safe reply only. Formatting or
-          // provider-channel drift may hide the inner panel for this turn, but
-          // must not strand an unanswered user message.
-          finalContent = fallbackReply;
-          visibleInner = '';
-        } else {
-          finalContent = parsed.output!.reply;
-          visibleInner = parsed.output!.innerVoice;
-        }
-        onDelta?.call(DeepSeekDelta(
-          reasoning: visibleInner,
-          content: finalContent,
-          finishReason: 'companion_voice_final',
-        ));
-      }
       final assistant = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
-        content: finalContent,
-        reasoningContent: visibleInner,
-        providerReasoning: generated.reasoning,
-        companionVoice: companionVoiceEnabled,
+        content: generated.content,
+        reasoningContent: generated.reasoning,
         model: job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
@@ -329,32 +245,6 @@ class DurableGenerationRunner {
         retryAt: failed.nextRetryAt,
       );
     }
-  }
-
-  Future<void> _noteCompanionVoiceRetry(String reason) async {
-    final count = int.tryParse(
-          await db.getSetting('companion_voice_retry_count') ?? '',
-        ) ??
-        0;
-    await db.setSetting('companion_voice_retry_count', (count + 1).toString());
-    await db.setSetting(
-      'companion_voice_retry_last_at',
-      DateTime.now().millisecondsSinceEpoch.toString(),
-    );
-    await db.setSetting('companion_voice_retry_last_reason', reason);
-  }
-
-  Future<void> _noteCompanionVoiceBlock(String reason) async {
-    final count = int.tryParse(
-          await db.getSetting('companion_voice_block_count') ?? '',
-        ) ??
-        0;
-    await db.setSetting('companion_voice_block_count', (count + 1).toString());
-    await db.setSetting(
-      'companion_voice_block_last_at',
-      DateTime.now().millisecondsSinceEpoch.toString(),
-    );
-    await db.setSetting('companion_voice_block_last_reason', reason);
   }
 
   bool _recoverable(Object error) {

@@ -32,7 +32,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 19;
+  static const int schemaVersion = 20;
 
   Database? _db;
   Future<Database>? _opening;
@@ -610,38 +610,42 @@ class AppDatabase {
         );
       }
     }
-    if (oldVersion < 19) {
-      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
-      final messageNames = messageColumns.map((row) => row['name'] as String).toSet();
-      if (!messageNames.contains('provider_reasoning')) {
-        await db.execute(
-          "ALTER TABLE messages ADD COLUMN provider_reasoning TEXT NOT NULL DEFAULT ''",
-        );
-      }
-      if (!messageNames.contains('companion_voice')) {
-        await db.execute(
-          'ALTER TABLE messages ADD COLUMN companion_voice INTEGER NOT NULL DEFAULT 0',
-        );
-      }
+    if (oldVersion < 20) {
+      // Preserve user-visible content/reasoning while rebuilding the message
+      // table without v19's retired experimental compatibility columns.
       await db.execute('''
-        UPDATE messages
-        SET provider_reasoning = reasoning_content
-        WHERE provider_reasoning = '' AND reasoning_content <> ''
+        CREATE TABLE messages_v20 (
+          id TEXT PRIMARY KEY,
+          role TEXT NOT NULL,
+          content TEXT NOT NULL,
+          reasoning_content TEXT NOT NULL DEFAULT '',
+          model TEXT,
+          created_at INTEGER NOT NULL,
+          is_proactive INTEGER NOT NULL DEFAULT 0,
+          proactive_intent TEXT NOT NULL DEFAULT '',
+          proactive_delivery TEXT NOT NULL DEFAULT '',
+          device_id TEXT
+        )
       ''');
-      await db.insert(
-        'settings',
-        {'key': 'companion_voice_enabled', 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+      await db.execute('''
+        INSERT INTO messages_v20 (
+          id, role, content, reasoning_content, model, created_at,
+          is_proactive, proactive_intent, proactive_delivery, device_id
+        )
+        SELECT
+          id, role, content, reasoning_content, model, created_at,
+          is_proactive, proactive_intent, proactive_delivery, device_id
+        FROM messages
+      ''');
+      await db.execute('DROP TABLE messages');
+      await db.execute('ALTER TABLE messages_v20 RENAME TO messages');
+      await db.execute(
+        'CREATE INDEX idx_messages_created_at ON messages(created_at)',
       );
-      await db.insert(
+      await db.delete(
         'settings',
-        {'key': 'companion_voice_retry_count', 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      await db.insert(
-        'settings',
-        {'key': 'companion_voice_block_count', 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        where: 'key LIKE ?',
+        whereArgs: ['companion_voice%'],
       );
     }
 
@@ -654,8 +658,6 @@ class AppDatabase {
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         reasoning_content TEXT NOT NULL DEFAULT '',
-        provider_reasoning TEXT NOT NULL DEFAULT '',
-        companion_voice INTEGER NOT NULL DEFAULT 0,
         model TEXT,
         created_at INTEGER NOT NULL,
         is_proactive INTEGER NOT NULL DEFAULT 0,
@@ -804,9 +806,6 @@ class AppDatabase {
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-pro'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
-    await db.insert('settings', {'key': 'companion_voice_enabled', 'value': '0'});
-    await db.insert('settings', {'key': 'companion_voice_retry_count', 'value': '0'});
-    await db.insert('settings', {'key': 'companion_voice_block_count', 'value': '0'});
     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
@@ -2008,9 +2007,7 @@ class AppDatabase {
         'generation_jobs',
         {
           'status': 'completed',
-          'partial_reasoning': assistant.providerReasoning.isNotEmpty
-              ? assistant.providerReasoning
-              : assistant.reasoningContent,
+          'partial_reasoning': assistant.reasoningContent,
           'partial_content': assistant.content,
           'completed_at': now,
           'last_checkpoint_at': now,
@@ -6638,9 +6635,13 @@ class AppDatabase {
             row['proactive_intent'] = '';
             row['proactive_delivery'] = '';
           }
-          if (table == 'messages' && version < 19) {
-            row['provider_reasoning'] = row['reasoning_content'] ?? '';
-            row['companion_voice'] = 0;
+          if (table == 'messages') {
+            row.remove('provider_reasoning');
+            row.remove('companion_voice');
+          }
+          if (table == 'settings' &&
+              (row['key'] as String? ?? '').startsWith('companion_voice')) {
+            continue;
           }
           if (table == 'proactive_feedback' && version < 13) {
             row['intent_kind'] = '';
@@ -6724,9 +6725,6 @@ class AppDatabase {
         'active_brain': '1',
         'model': 'deepseek-v4-pro',
         'reasoning_effort': 'high',
-        'companion_voice_enabled': '0',
-        'companion_voice_retry_count': '0',
-        'companion_voice_block_count': '0',
         'auto_memory': '1',
         'transfer_lock': '0',
         'perception_enabled': '1',

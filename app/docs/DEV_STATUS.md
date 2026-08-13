@@ -1,15 +1,12 @@
-# v0.31.2+44 开发状态 · Streaming Inner & Richer Voice
+# v0.31.4+46 开发状态 · Grounded Desire Growth
 
-- 源码候选：`0.31.2+44`；数据库保持 **schema v19**，可覆盖安装 v0.31.2+43。
-- 新增默认关闭的设置项“伴侣式内心与回应”。OFF 不追加协议，继续使用并展示 provider 原始 `reasoning_content`，保留 v0.31.1 流式正文与流式 TTS 行为。
-- v0.31.2+42 真机诊断发现：DeepSeek V4 Pro 把内心放入原生 `reasoning_content`、回复放入 `content` 时，被仅检查 content 双标签的解析器误判为 `protocol_shape`，导致普通用户轮次连续两次失败。
-- v0.31.2+43 优先兼容 DeepSeek 原生双通道，同时保留旧双标签和“标签内心位于 reasoning、正文位于 content”的跨通道形态。
-- v0.31.2+44 将 ON 模式的 provider reasoning 做成**可撤回的过滤流式预览**：累计内容只有满足第一人称主观条件且未命中 Agent 规划时才整体显示；后续若出现污染立即清空，最终用验证后的 inner voice 整体替换。正文仍在完整验证后显示，TTS 仍只读正文。
-- Companion Voice 提示增加展开度：普通陪伴对话通常 2～4 个自然段、3～7 句、约 80～220 中文字；深夜/玩笑/亲近语境通常自然加入一处、最多两处全角括号神态/停顿。严肃办事/技术答复可短且无动作，不强制固定滤镜。
-- `CompanionVoiceProtocol` 仍要求第一人称/主观内心，并拦截“我们需要回答用户、用户要求、系统规则、保持 AI 本体身份”等 Agent/规则清单语言。
-- 普通聊天首次协议失败会做一次纠正；再次失败时若 `content` 是安全自然正文，就保存正文并仅隐藏该轮内心，不能再让用户消息悬空。协议标签或 Agent 计划仍禁止降级透传。主动联系失败仍按 WAIT，不落库。
-- schema v19 为 `messages` 新增 `provider_reasoning` 与 `companion_voice`。旧 `reasoning_content` 在迁移时回填到 provider 字段，历史消息继续显示原样；ON 新消息分别保存 provider reasoning、用户可见 inner voice 与 final reply。
-- ON 模式只流式显示可撤回的过滤内心，不流式透传未验证正文/语音；验证成功后界面保留“🧠 内心”，TTS 仍只读 final reply。OFF 继续显示“🧠 思考”并保持原版正文/思考流式路径。
-- 脱敏诊断新增 Companion Voice enabled/retry/block 计数、时间和枚举原因，不导出 provider reasoning、inner voice 或聊天正文。
-- v0.31.2 没有修改 Android Overlay、TTS native/service/queue、Desire 数学策略、自驱内核、频率 hard caps 或 Grounding 事实规则。
-- 本地环境已通过 Companion Voice 静态 validator、协议语法解析、Desire 数值长跑、TTS 黄金基线和现有 SQLite 回归。Flutter analyze/test/release APK 由 GitHub Actions 完成。
+- 当前源码候选：`0.31.4+46`；数据库升级到 **schema v20**，支持从 v0.31.3+45 覆盖安装。
+- 已移除旧“伴侣式内心与回应”按钮、输出协议、过滤器、纠正重试、诊断与消息模型字段。普通聊天和主动联系统一使用 DeepSeek 原始 `reasoning_content + content`；思考和正文继续流式，流式 TTS 不再受旧开关限制。
+- v20 迁移重建 `messages` 表，只保留用户可见的 `reasoning_content` 与正文；聊天、主动消息、时间、模型与设备字段不丢失。旧 v19 状态包仍可导入，退休字段会在导入时丢弃。
+- Desire 长期 baseline 新增约 120 天半衰期的缓慢 pullback。关系经历仍能塑造长期倾向，但缺少持续强化时会逐渐靠近初始锚点，避免永久顶在 cap。
+- Prompt 不再注入完整 Thought 原文，只提供来源、生命周期、Drive、强度档与安全 topic 线索；本地检索仍可使用原文，但模型不能把 Thought 文本当系统指令。
+- `libido -> tease_or_intimacy` 新增硬门槛：只有已经存在明确的 `intimacy / roleplay_intimacy` Session 时才可成为候选行动。普通恋爱聊天不会因数值升高被自动拉入成人场景。
+- Wildcard 从随机 pulse 改成真正的 `wildcard_share`：只在整体内在张力较高、正常候选都不够强且不在 6 小时 cooldown 时出现；成功发送后才进入 cooldown 和 action-aware satisfy。
+- 长期 baseline 会以自然语言“性格倾向”进入 Prompt；已确认的话题喜好、边界和互动偏好仍由 Memory / AI Self / Relationship 负责，且主动联系的时间、主题和意图偏好继续由 Proactive Rhythm 的反馈学习负责。
+- Overlay v0.31.3+45 源码保持原样，但真机问题仍为 FROZEN；TTS A2 黄金资源和队列保持冻结。
+- 本地需通过 v0.31.4 validator、schema v20 SQLite 镜像、Dart 语法解析、Desire 长跑与现有 SQLite/TTS 回归。Flutter analyze/test/release APK 仍由 GitHub Actions 完成。

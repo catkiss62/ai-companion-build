@@ -288,7 +288,6 @@ class _MessageBubble extends StatelessWidget {
             if (message.isAssistant)
               ReasoningPanel(
                 reasoning: message.reasoningContent,
-                companionVoice: message.companionVoice,
               ),
             SelectableText(message.content, style: const TextStyle(height: 1.45)),
             const SizedBox(height: 4),
@@ -349,7 +348,6 @@ class _StreamingBubble extends StatelessWidget {
             ReasoningPanel(
               reasoning: controller.streamingReasoning,
               streaming: true,
-              companionVoice: controller.streamingCompanionVoice,
             ),
             if (controller.streamingContent.isNotEmpty)
               SelectableText(controller.streamingContent),

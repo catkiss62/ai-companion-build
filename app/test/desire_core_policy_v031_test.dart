@@ -183,6 +183,83 @@ void main() {
     );
   });
 
+  test('libido cannot become an action outside an explicit intimacy session', () {
+    final now = DateTime(2026, 8, 12, 20, 0);
+    final snapshot = DesireSnapshot(
+      drives: {
+        ...DesireSnapshot.defaultDrives(),
+        DriveKey.libido: 0.98,
+        DriveKey.fatigue: 0.20,
+      },
+    );
+    final ordinary = DesireCorePolicy.candidates(
+      drives: snapshot.drives,
+      refractoryUntil: const {},
+      thoughts: const [],
+      now: now,
+    );
+    final intimacy = DesireCorePolicy.candidates(
+      drives: snapshot.drives,
+      refractoryUntil: const {},
+      thoughts: const [],
+      now: now,
+      intimacyAllowed: true,
+    );
+
+    expect(ordinary.any((c) => c.drive == DriveKey.libido), isFalse);
+    expect(intimacy.first.drive, DriveKey.libido);
+    expect(intimacy.first.action, 'tease_or_intimacy');
+  });
+
+  test('learned temperament slowly pulls back toward its original anchor', () {
+    final now = DateTime(2026, 12, 10, 12, 0);
+    final anchor = DesireSnapshot.defaultBaselines()[DriveKey.attachment]!;
+    final snapshot = DesireSnapshot(
+      baselines: {
+        ...DesireSnapshot.defaultBaselines(),
+        DriveKey.attachment: anchor + 0.10,
+      },
+      lastTickAt: now.subtract(const Duration(days: 30)),
+    );
+    final advanced = DesireCorePolicy.advance(snapshot: snapshot, now: now);
+
+    expect(advanced.baselines[DriveKey.attachment]!, lessThan(anchor + 0.10));
+    expect(advanced.baselines[DriveKey.attachment]!, greaterThan(anchor));
+  });
+
+  test('wildcard becomes a real pressure-release action and respects cooldown', () {
+    final now = DateTime(2026, 8, 12, 20, 0);
+    final snapshot = DesireSnapshot(
+      drives: {
+        ...DesireSnapshot.defaultDrives(),
+        DriveKey.duty: 0.92,
+        DriveKey.stress: 0.80,
+        DriveKey.fatigue: 0.20,
+      },
+      refractoryUntil: {
+        DriveKey.stress: now.add(const Duration(minutes: 30)),
+      },
+    );
+    final ready = DesireCorePolicy.candidates(
+      drives: snapshot.drives,
+      baselines: snapshot.baselines,
+      refractoryUntil: snapshot.refractoryUntil,
+      thoughts: const [],
+      now: now,
+    );
+    final coolingDown = DesireCorePolicy.candidates(
+      drives: snapshot.drives,
+      baselines: snapshot.baselines,
+      refractoryUntil: snapshot.refractoryUntil,
+      thoughts: const [],
+      now: now,
+      lastWildcardAt: now.subtract(const Duration(hours: 1)),
+    );
+
+    expect(ready.first.action, 'wildcard_share');
+    expect(coolingDown.any((c) => c.action == 'wildcard_share'), isFalse);
+  });
+
   test('1000 deterministic ticks stay bounded and do not self-excite', () {
     var now = DateTime(2026, 8, 12, 8, 0);
     var snapshot = DesireSnapshot(lastTickAt: now);

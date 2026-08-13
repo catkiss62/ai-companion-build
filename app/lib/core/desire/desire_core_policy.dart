@@ -44,6 +44,8 @@ class DesireCorePolicy {
 
   static const unitMinutes = 12.0;
   static const fatigueRestGate = 0.78;
+  static const baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0;
+  static const wildcardCooldown = Duration(hours: 6);
 
   static const decayPerUnit = <DriveKey, double>{
     DriveKey.attachment: 0.010,
@@ -80,10 +82,24 @@ class DesireCorePolicy {
 
     final drives = Map<DriveKey, double>.from(snapshot.drives);
     final baselines = Map<DriveKey, double>.from(snapshot.baselines);
+    final anchors = DesireSnapshot.defaultBaselines();
     final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
       ..removeWhere((_, until) => !until.isAfter(now));
 
     for (final drive in DriveKey.values) {
+      final anchor = anchors[drive]!;
+      final currentBaseline = baselines[drive] ?? anchor;
+      // Learned temperament is durable but not permanent. With no reinforcing
+      // relationship evidence it drifts halfway back toward the original
+      // anchor over roughly four months. A long process suspension is capped
+      // to avoid one resume causing an abrupt personality jump.
+      final baselineElapsed = min(elapsedMinutes, 30.0 * 24.0 * 60.0);
+      final pullback = 1 - pow(0.5, baselineElapsed / baselineHalfLifeMinutes);
+      baselines[drive] = (currentBaseline +
+              (anchor - currentBaseline) * pullback)
+          .clamp(max(0.02, anchor - 0.10), min(0.92, anchor + 0.10))
+          .toDouble();
+
       var value = drives[drive] ?? 0.0;
       final baseline = baselines[drive] ?? 0.2;
       final decay = decayPerUnit[drive] ?? 0.015;
@@ -122,6 +138,10 @@ class DesireCorePolicy {
     required Map<DriveKey, DateTime> refractoryUntil,
     required List<CompanionThought> thoughts,
     required DateTime now,
+    Map<DriveKey, double>? baselines,
+    DateTime? lastWildcardAt,
+    bool intimacyAllowed = false,
+    bool wildcardAllowed = true,
   }) {
     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
     if (fatigue >= fatigueRestGate) {
@@ -139,6 +159,9 @@ class DesireCorePolicy {
     final result = <DesireCoreCandidate>[];
     for (final drive in DriveKey.values) {
       if (drive == DriveKey.fatigue) continue;
+      // Libido can fluctuate internally, but it cannot become an executable
+      // outbound action unless an explicit intimacy session is already active.
+      if (drive == DriveKey.libido && !intimacyAllowed) continue;
       final until = refractoryUntil[drive];
       if (until != null && until.isAfter(now)) continue;
 
@@ -178,6 +201,46 @@ class DesireCorePolicy {
     }
 
     result.sort((a, b) => b.score.compareTo(a.score));
+    final wildcardReady = lastWildcardAt == null ||
+        now.difference(lastWildcardAt) >= wildcardCooldown;
+    final normalStrong = result.any((candidate) => candidate.score >= 0.60);
+    if (wildcardAllowed && wildcardReady && !normalStrong) {
+      final anchors = baselines ?? DesireSnapshot.defaultBaselines();
+      var tension = 0.0;
+      for (final drive in DriveKey.values) {
+        if (drive == DriveKey.fatigue || drive == DriveKey.libido) continue;
+        tension += max(0.0, (drives[drive] ?? 0.0) - (anchors[drive] ?? 0.2));
+      }
+      if (tension >= 0.52) {
+        const wildcardDrives = <DriveKey>[
+          DriveKey.reflection,
+          DriveKey.social,
+          DriveKey.curiosity,
+          DriveKey.attachment,
+        ];
+        DriveKey? wildcardDrive;
+        var greatestExcess = double.negativeInfinity;
+        for (final drive in wildcardDrives) {
+          final until = refractoryUntil[drive];
+          if (until != null && until.isAfter(now)) continue;
+          final excess = (drives[drive] ?? 0.0) - (anchors[drive] ?? 0.2);
+          if (excess > greatestExcess) {
+            greatestExcess = excess;
+            wildcardDrive = drive;
+          }
+        }
+        if (wildcardDrive != null) {
+          result.add(DesireCoreCandidate(
+            drive: wildcardDrive,
+            score: (0.56 + tension * 0.16).clamp(0.58, 0.72).toDouble(),
+            action: 'wildcard_share',
+            reason: '我积着一点难以归类的内在张力，想换个轻松方向随手分享，而不是重复原来的话题。',
+            reasonSource: 'wildcard_pressure_release',
+          ));
+          result.sort((a, b) => b.score.compareTo(a.score));
+        }
+      }
+    }
     return result;
   }
 

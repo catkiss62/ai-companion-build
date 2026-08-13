@@ -5,8 +5,6 @@ class ChatMessage {
     required this.content,
     required this.createdAt,
     this.reasoningContent = '',
-    this.providerReasoning = '',
-    this.companionVoice = false,
     this.model,
     this.isProactive = false,
     this.proactiveIntent = '',
@@ -18,8 +16,6 @@ class ChatMessage {
   final String role;
   final String content;
   final String reasoningContent;
-  final String providerReasoning;
-  final bool companionVoice;
   final String? model;
   final DateTime createdAt;
   final bool isProactive;
@@ -33,8 +29,6 @@ class ChatMessage {
   ChatMessage copyWith({
     String? content,
     String? reasoningContent,
-    String? providerReasoning,
-    bool? companionVoice,
     String? model,
     bool? isProactive,
     String? proactiveIntent,
@@ -45,8 +39,6 @@ class ChatMessage {
       role: role,
       content: content ?? this.content,
       reasoningContent: reasoningContent ?? this.reasoningContent,
-      providerReasoning: providerReasoning ?? this.providerReasoning,
-      companionVoice: companionVoice ?? this.companionVoice,
       model: model ?? this.model,
       createdAt: createdAt,
       isProactive: isProactive ?? this.isProactive,
@@ -61,8 +53,6 @@ class ChatMessage {
         'role': role,
         'content': content,
         'reasoning_content': reasoningContent,
-        'provider_reasoning': providerReasoning,
-        'companion_voice': companionVoice ? 1 : 0,
         'model': model,
         'created_at': createdAt.millisecondsSinceEpoch,
         'is_proactive': isProactive ? 1 : 0,
@@ -76,8 +66,6 @@ class ChatMessage {
         'role': role,
         'content': content,
         'reasoning_content': reasoningContent,
-        'provider_reasoning': providerReasoning,
-        'companion_voice': companionVoice,
         'model': model,
         'created_at': createdAt.toIso8601String(),
         'is_proactive': isProactive,
@@ -92,8 +80,6 @@ class ChatMessage {
       role: row['role'] as String,
       content: (row['content'] as String?) ?? '',
       reasoningContent: (row['reasoning_content'] as String?) ?? '',
-      providerReasoning: (row['provider_reasoning'] as String?) ?? '',
-      companionVoice: (row['companion_voice'] as int? ?? 0) == 1,
       model: row['model'] as String?,
       createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
       isProactive: (row['is_proactive'] as int? ?? 0) == 1,

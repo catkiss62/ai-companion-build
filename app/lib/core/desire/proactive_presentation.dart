@@ -11,6 +11,9 @@ class ProactivePresentationPolicy {
     required DesireIntent intent,
     UnfinishedThread? linkedThread,
   }) {
+    if (intent.wantAction == 'wildcard_share') {
+      return ProactiveIntentKind.socialShare;
+    }
     if (linkedThread != null || intent.wantAction == 'remember_unfinished_thread' ||
         intent.wantAction == 'continue_thread') {
       return ProactiveIntentKind.followup;

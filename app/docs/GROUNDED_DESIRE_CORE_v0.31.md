@@ -2,6 +2,17 @@
 
 > 设计来源：用户提供的 10 张 Desire System 参考截图 + AI Companion 现有 v0.30.x 内核。只吸收机制，不照搬男性 AI / 哥哥 / 朝灯 / GitHub/web_browse 等语义。
 
+## v0.31.4+46 定向收尾
+
+本轮已经补齐此前留给 v0.31.x 的关键缺口：
+
+- **可逆成长**：长期互动仍可小幅改变各 Drive 的 baseline，形成更主动、更好奇、更爱回味等性格倾向；没有持续证据时，baseline 以约 120 天半衰期缓慢回归初始锚点，且始终限制在锚点 `±0.10`，避免一次事件永久改写性格。
+- **性格进入表达层**：Prompt 只把 baseline 与初始锚点的差异翻译成自然倾向，不向模型暴露机械数值，也不把“偏好”冒充已经确认的用户事实。
+- **Thought 原文隔离**：Prompt 不再直接注入 Thought 正文，只提供来源、生命周期、Drive、强度档位和净化后的 topic key；Thought 不能被模型误认成用户原话或指令。
+- **亲密硬门槛**：libido 可以在内部继续变化，但只有显式 `intimacy / roleplay_intimacy` Session 已激活时才能成为可执行意图；普通聊天和主动联系不会因 libido 数值自行色情化。
+- **真正的 wildcard**：当多个 Drive 积压、常规候选都不够强且 6 小时冷却结束时，策略会产生真实的 `wildcard_share` 压力释放动作；它不是随机绕过 Gate，仍需通过主动投递、Reality Grounding 与频率上限。
+- **原生模型输出**：已退役旧“伴侣式内心与回应”二次协议层。聊天和主动联系统一保存并展示模型原生 `reasoning_content + content`，角色沉浸与括号动作由用户可编辑规则控制。
+
 ## v0.31.0+40 第一批实现状态
 
 已落地：
@@ -16,7 +27,7 @@
 - `她的内心` 调试页：可看 Reality Grounding、候选 Intent、Drive 与上次 satisfy。
 - 数据库 schema 保持 v18；新字段保存在已有 Desire JSON，不做 schema migration。
 
-继续留给 v0.31.x：baseline drift 的长期 pullback 深化、self-drive 对“自己主动后用户是否回应”的显式 experience、真正的 wildcard action/pressure-release、Intimacy Session 对 libido action 的更细行为映射。
+后续继续观察：self-drive 对“自己主动后用户是否回应”的长期经验质量，以及不同亲密 Session 内更细的 libido 行为映射。它们不阻塞本轮欲望系统收尾。
 
 ---
 

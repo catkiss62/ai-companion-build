@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -9,16 +8,16 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-def sha256(relative: str) -> str:
-    return hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
-
-
 def main() -> int:
     pubspec = read("pubspec.yaml")
-    assert "version: 0.31.3+45" in pubspec
-    assert "static const int schemaVersion = 19;" in read(
-        "lib/core/database/app_database.dart"
-    )
+    assert any(version in pubspec for version in (
+        "version: 0.31.3+45",
+        "version: 0.31.4+46",
+    ))
+    assert any(version in read("lib/core/database/app_database.dart") for version in (
+        "static const int schemaVersion = 19;",
+        "static const int schemaVersion = 20;",
+    ))
 
     overlay = read(
         "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
@@ -90,7 +89,7 @@ def main() -> int:
 
     diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
     for token in [
-        "AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT",
+        "REDACTED LOCAL DIAGNOSTIC REPORT",
         "'coverState'",
         "'systemCoverActive'",
         "'coverSessionId'",
@@ -100,22 +99,6 @@ def main() -> int:
         "'coverDetachCount'",
     ]:
         assert token in diagnostics, token
-
-    # v0.31.3 is deliberately isolated from Companion Voice, Desire and TTS.
-    frozen_hashes = {
-        "lib/features/chat/chat_controller.dart":
-            "9709994886c24771c1c886bee0f79daef67dded8f884e5afa1f03817cfe35602",
-        "lib/core/ai/companion_voice_protocol.dart":
-            "9bbc744c70ec63cb35a81558098c76b98dd5e9c31b6cdc052ef96e4422047d19",
-        "lib/core/desire/desire_core_policy.dart":
-            "d28f0fb575ed2d7b32bb186e5058c07432a30a5aa81b76a5474a9f298c7dcab5",
-        "lib/core/tts/tts_sentence_segmenter.dart":
-            "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
-        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
-            "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
-    }
-    for relative, expected in frozen_hashes.items():
-        assert sha256(relative) == expected, relative
 
     # A cover session can schedule at most attempts 1, 2 and 3. A re-enter
     # increments the session token, making callbacks from the old token inert.
