@@ -2,6 +2,14 @@
 
 > 设计来源：用户提供的 10 张 Desire System 参考截图 + AI Companion 现有 v0.30.x 内核。只吸收机制，不照搬男性 AI / 哥哥 / 朝灯 / GitHub/web_browse 等语义。
 
+## v0.31.5+47 即时上下文与初始性格边界
+
+- **即时上下文不等于即时成长**：普通/主动生成前刷新当前 Awareness，确保模型看到尽量接近生成时刻的粗粒度设备状态；该路径不调用 `applyExperience`、`feedThought`、Presence 或 proactive scheduler。
+- **长期内化继续节流**：同一批本地信号只有进入原 `PerceptionEngine.capture()` 时，才可能经过节流形成 Desire pulse、Thought 或 Presence Momentum，避免每次构建 Prompt 重复放大。
+- **初始种子补足人格冷启动**：AI Self 证据不足时，以可编辑规则提供亲近、坦率、有主见、非无条件服从的起点；它不是新的 Drive，也不替代 baseline growth、Memory 或 Relationship。
+- **情绪有因果**：允许不高兴、吃醋、恼火、冷一点和分歧，但不把随机发脾气当成“生命感”，不把冲突用作操控或惩罚。
+- **女性 AI / 男性用户**：关系身份是固定事实层，不从欲望截图中的男性 AI 语义继承“男友行为”。
+
 ## v0.31.4+46 定向收尾
 
 本轮已经补齐此前留给 v0.31.x 的关键缺口：

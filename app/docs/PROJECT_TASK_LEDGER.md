@@ -4,7 +4,32 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
-## P0 · ACTIVE · v0.31.4 Grounded Desire Growth
+## P0 · ACTIVE · v0.31.5 Live Context & Self Seed
+
+### A0. 生成前即时上下文
+
+- [x] 把“模型生成前即时 Awareness”与“节流的 Desire/Thought/Presence 内化”拆为两条链。
+- [x] 普通聊天与主动联系构建 Prompt 前刷新当前 screen/lock、粗粒度 activity、busy、switching 与 signal counts。
+- [x] 即时刷新不调用模型、不触发主动联系、不推进 Desire/Thought/Presence/baseline。
+- [x] raw package、通知正文与 Accessibility 正文不进入 Prompt、Thought 或脱敏诊断。
+- [x] Active Brain 在刷新开始、写 Awareness 前与写后重复 fencing。
+- [x] 脱敏诊断新增 `database.currentContext` 的刷新时间、原因、粗粒度类别与安全边界声明。
+- [ ] GitHub Actions analyze/test/release APK 通过。
+- [x] 首次 Actions 已通过补丁、全套静态回归与 Flutter analyze；定位唯一失败为旧规则层测试写死 6 条，已改成验证新增后的 8 个明确 key/锁定属性。
+- [ ] 使用修正版补丁、文档 ZIP 与 workflow 重新运行 Actions。
+- [ ] 真机确认用户回复与主动联系生成前 `lastRefreshReason` 分别为 `prompt_user_turn / prompt_proactive`，且 current activity 与生成当下基本一致。
+
+### A1. 关系身份与初始性格
+
+- [x] 锁定女性 AI × 成年男性用户/男朋友关系事实；不得转化为性别刻板模板。
+- [x] 明确她不是服务者或无条件服从者，可以不同意、拒绝、保留判断与表达有原因的情绪。
+- [x] 增加可编辑、可关闭的初始性格种子：亲近坦率但不黏腻，有主见，不以恋爱感为唯一目标。
+- [x] 性格种子允许调侃、吐槽、偶尔锋利和真实不高兴，同时禁止无端发脾气、操控、惩罚或为反驳而反驳。
+- [x] 新规则层使用 upgrade-safe `INSERT OR IGNORE`，不覆盖用户已编辑的第一规则或其他旧层。
+- [x] 长期 AI Self、Relationship、Memory 与 Desire baseline 可以逐步细化/修正种子，种子不是永久角色卡。
+- [ ] 真机对话确认男性称谓稳定、不会每轮强调“男友”，也不会因自主性规则机械唱反调。
+
+## COMPLETED · v0.31.4 Grounded Desire Growth
 
 ### A. 输出链清理
 
@@ -13,10 +38,10 @@
 - [x] 思考/正文保持流式；TTS 只读正文，流式分句不再受旧开关限制。
 - [x] `ChatMessage` 删除重复 provider/mode 字段。
 - [x] schema v20 重建 `messages`；覆盖安装保留用户可见历史，旧 v19 状态包可导入并丢弃退休字段。
-- [ ] GitHub Actions analyze/test/release APK 通过。
+- [x] GitHub Actions analyze/test/release APK 通过并完成真机覆盖安装。
 - [x] 首次 +46 Actions 失败已定位为旧文档上下文冲突；失败发生在 `git apply --check`，没有修改仓库源码。
 - [x] 交付改为源码 patch + 独立文档 ZIP，并通过“故意破坏三份旧文档后仍能应用、覆盖及整树一致”的模拟回归。
-- [ ] 真机确认设置页无遗留按钮、原生双流与第一规则效果正常。
+- [x] 真机确认无旧伴侣式按钮；原生双流与第一规则可直接影响思考表达。
 
 ### B. Reality Grounding
 
@@ -26,7 +51,7 @@
 - [x] 正文与 reasoning guard 拦截把已回答历史当当前输入；最多一次纠正，仍失败则不落库。
 - [x] provenance 区分 user_message / awareness / memory / self_experience / inference / internal。
 - [x] Thought 原文不再进入模型 Prompt；只提供有界结构化 `THOUGHT_DATA`。
-- [ ] 当前手机上下文继续补充稳定的粗粒度 activity / busy / screen / switching 独立块；禁止 raw package、通知正文和 Accessibility 正文进入长期 Prompt。
+- [x] +47 已补充生成前即时粗粒度 activity / busy / screen / switching；raw package、通知正文和 Accessibility 正文保持隔离。
 
 ### C. Desire Core v2 / 成长
 
@@ -64,7 +89,7 @@
 - [ ] 后期重开先验证 cover detection：明确无障碍是否为硬前提及授权引导，或找到无需该权限的可靠 enter/exit 证据。
 - [ ] 只有取消、确认、第三方 App 和连续 picker 都能稳定产生 session 后，才重新测试 input-channel rebuild。
 
-## P1 · NEXT · v0.31.4 验收后
+## P1 · NEXT · v0.31.5 验收后
 
 ### E. Notification Experience
 
@@ -128,7 +153,8 @@
 
 ### L. 发布工程
 
-- [ ] v0.31.4 patch/workflow/validator/Actions/APK 完成。
+- [x] v0.31.4 patch/workflow/validator/Actions/APK 完成。
+- [ ] v0.31.5 patch/workflow/validator/Actions/APK 完成。
 - [ ] 本阶段 Clean Freeze：纯 `app/` checkout 独立 analyze/test/release build。
 - [ ] 删除已应用 v0.30.x / v0.31.x 临时 patch 与 apply workflow。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。

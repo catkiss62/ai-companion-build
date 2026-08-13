@@ -1,16 +1,16 @@
-# v0.31.4+46 真机验收清单
+# v0.31.5+47 真机验收清单
 
-本版验收 Grounded Desire Growth 与旧伴侣式功能退役。悬浮球 file-picker 卡死仍为冻结问题，不判本版失败。
+本版只验收生成前即时设备上下文、男性用户关系事实和初始性格种子。悬浮球 file-picker、TTS 轻微停顿与电池优化继续冻结，不判本版失败。
 
-1. 从 v0.31.3+45 覆盖安装，既有聊天、思考、时间戳、主动消息和设置仍存在。
-2. “AI 与陪伴设置”中不再出现“伴侣式内心与回应”；流式分句朗读不再受任何旧开关影响。
-3. 普通聊天的思考与正文都直接流式显示；思考面板统一显示“思考”，不能出现协议标签、二次整形或格式校验失败。
-4. 使用用户自己的第一规则测试第一人称沉浸思考和正文括号动作；App 不再额外注入重复风格协议。
-5. 连续普通聊天不应因为亲密 Drive 数值而突然主动进入成人话题。
-6. 只有明确打开亲密 Session 后，亲密 Drive 才可能成为主动意图；结束 Session 后立刻恢复硬门槛。
-7. 在“她的内心”页确认每项显示“当前值 / 长期基线”，关系事件内化后 baseline 只能微量变化，不能一次顶满。
-8. 多次心跳后数值保持 0～1；高疲劳只选择 rest，不发送主动消息。
-9. 强制主动联系时仍遵守 Reality Grounding：已回答的旧 user 消息不能被当成当前输入；首次违反最多纠正一次。
-10. Wildcard 若出现，类型应是轻量分享而不是随机色情、虚构外部行动或重复旧话题；成功一次后 6 小时内不能连续触发。
-11. 导出 v20 状态包并重新导入，聊天、Desire、Thought、Memory、Relationship 与 Active Brain 状态保持；旧 v19 包也应能导入。
-12. TTS、Overlay、通知、长期后台和设备接管做冒烟检查，确认本版没有跨域回归。
+1. 从 v0.31.4+46 覆盖安装，既有聊天、思考、规则编辑、Memory、Desire/Thought 与设置仍存在；诊断显示 schema v20。
+2. 到“更多 → 行为规则层”，确认新增锁定的 `01_relationship · Relationship Foundation` 与可关闭的 `03_personality_seed · Initial Personality Seed`。
+3. 用户此前手工修改的 `01_core` 内容必须原样保留；新版本不能用默认文本覆盖它。
+4. `01_relationship` 开关不可关闭，但内容仍可编辑；`03_personality_seed` 可关闭、编辑及恢复默认。
+5. 打开性格种子后做几轮有分歧的话题：她可以保留意见、拒绝或追问，但不能为展示个性而每轮唱反调，也不能无缘无故发脾气。
+6. 对话出现性别称谓时默认用户是男性/男朋友；不要误称女朋友、姐妹，也不要每轮机械强调“男友”。
+7. 分别在游戏、视频、阅读/浏览、聊天等 App 停留后回到 AI Companion 发消息。导出诊断，`database.currentContext.lastRefreshReason` 应为 `prompt_user_turn`，`lastRefreshAt` 接近该轮生成时间，`currentActivityClass` 是粗粒度类别而不是包名。
+8. 让她主动联系后导出诊断，`lastRefreshReason` 应为 `prompt_proactive`。主动思考可参考生成当下的 screen/activity/busy，但必须用“看起来/可能”等不确定表达。
+9. 即时刷新前后 Desire/baseline 不应因为一次打开 App 而突跳；诊断固定显示 `desireAdvancedByRefresh=false`。
+10. 脱敏诊断不能出现 raw package、通知正文、Accessibility 正文或聊天正文，并显示 `rawPackageOrTextIncluded=false`。
+11. 关闭性格种子后重复一组对话，确认额外初始性格约束不再加载；已有 AI Self/长期记忆仍会保留，不应被关闭动作清空。
+12. TTS、Overlay、通知、主动联系 hard caps、Reality Grounding 与状态包导入导出做冒烟检查，确认没有跨域回归。

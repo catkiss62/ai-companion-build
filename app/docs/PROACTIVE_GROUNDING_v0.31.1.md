@@ -63,3 +63,11 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 - `libido` 只有在明确的亲密 Session 已经激活时才是可执行候选；普通聊天中的数值变化不能越过 Session/边界规则。
 - Wildcard 成为有冷却的 `wildcard_share`，仍必须经过 Active Brain、chat lease、频率 hard caps、节奏阈值和 Grounding guard，不能绕过投递安全。
 - v0.31.3+45 Overlay 源码保留但真机问题继续冻结；Grounding/Desire 不通过 prompt 或主动频率补偿系统触摸故障。
+
+## v0.31.5 生成时设备锚点（2026-08-13）
+
+- Android 事件落库是持续的，但此前 Awareness 解释受 perception/heartbeat 节流；主动消息可能在生成时只拿到上一轮留下的屏幕状态。
+- 普通回复与 proactive 在 `PromptBuilder` 读取 Awareness 前先执行一次本地 `CurrentDeviceContextRefresher`，把生成当下的 screen/locked、粗粒度 current activity、近期 dominant activity、switching、busy 与 signal counts 刷新到会过期的 Awareness。
+- proactive Gate、hard caps 与 Desire/Thought 选择仍使用原有调度和节流路径。即时刷新只改善“她开口时知道什么”，不增加“她多久开口一次”，也不因用户做每一个操作而调用模型。
+- 刷新失败采用 best-effort：保留仍在有效期内的旧 Awareness，不让临时 Android channel 故障阻断用户回复；诊断记录的只有错误类型。
+- 关系事实层明确用户为成年男性/男朋友；初始性格种子允许有判断、不同意和有因果的情绪，但仍受 Reality Grounding 与来源边界约束。

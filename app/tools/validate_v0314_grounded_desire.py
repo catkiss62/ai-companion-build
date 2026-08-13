@@ -14,7 +14,10 @@ def digest(relative: str) -> str:
 
 
 def main() -> int:
-    assert "version: 0.31.4+46" in read("pubspec.yaml")
+    assert any(
+        version in read("pubspec.yaml")
+        for version in ["version: 0.31.4+46", "version: 0.31.5+47"]
+    )
     db = read("lib/core/database/app_database.dart")
     assert "static const int schemaVersion = 20;" in db
     for token in [

@@ -5174,8 +5174,19 @@ class AppDatabase {
   }
 
   Future<void> updateRuleLayer(String key, {String? content, bool? enabled}) async {
-    if (key == '01_core' && enabled == false) return;
     final db = await database;
+    if (enabled == false) {
+      final rows = await db.query(
+        'rule_layers',
+        columns: const ['locked'],
+        where: 'key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      if (rows.isNotEmpty && (rows.first['locked'] as int? ?? 0) == 1) {
+        return;
+      }
+    }
     await db.update('rule_layers', {
       if (content != null) 'content': content,
       if (enabled != null) 'enabled': enabled ? 1 : 0,

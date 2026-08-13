@@ -6,6 +6,7 @@ import '../models/desire_state.dart';
 import '../models/perception_snapshot.dart';
 import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
+import 'current_device_context_refresher.dart';
 import 'perception_interpreter.dart';
 
 /// Captures Android signals and routes them through a bounded local
@@ -29,6 +30,21 @@ class PerceptionEngine {
   final PerceptionInterpreter interpreter;
   final PresenceIntelligenceEngine presence;
 
+  late final CurrentDeviceContextRefresher contextRefresher =
+      CurrentDeviceContextRefresher(
+        db: db,
+        android: android,
+        interpreter: interpreter,
+      );
+
+  /// Updates the expiring Awareness used by the next prompt without applying
+  /// any Desire/Thought/Presence side effects.
+  Future<CurrentDeviceContextCapture?> refreshCurrentContext({
+    required String reason,
+    DateTime? now,
+  }) =>
+      contextRefresher.refresh(reason: reason, now: now);
+
   Future<PerceptionSnapshot?> capture({
     bool force = false,
     Duration minInterval = const Duration(minutes: 4),
@@ -46,13 +62,15 @@ class PerceptionEngine {
       if (now.difference(last) < minInterval) return null;
     }
 
+    final context = await contextRefresher.refresh(
+      reason: force ? 'manual_perception_capture' : 'inner_state_heartbeat',
+      now: now,
+    );
+    if (context == null) return null;
     final deviceLabel = await android.deviceLabel();
-    final deviceState = await android.getPerceptionState();
-    final usage = deviceState.usageAccess
-        ? await android.getRecentUsage(minutes: 90)
-        : const <UsageEventInfo>[];
-    final recentSignals = await db.recentDeviceEvents(minutes: 30, limit: 240);
-    final deviceStateEvents = await db.recentDeviceStateEvents();
+    final deviceState = context.deviceState;
+    final usage = context.usage;
+    final recentSignals = context.recentSignals;
     final newEvents = lastMillis == null
         ? recentSignals
         : await db.deviceEventsAfter(
@@ -60,22 +78,7 @@ class PerceptionEngine {
             limit: 240,
           );
 
-    final interpretation = interpreter.interpret(
-      usage: usage,
-      recentSignals: recentSignals,
-      deviceStateEvents: deviceStateEvents,
-      deviceState: deviceState,
-      now: now,
-    );
-
-    // The DB transaction performs a second Active Brain/transfer-lock check,
-    // closing the race between native capture and local persistence.
-    await db.syncAwarenessObservations(
-      drafts: interpretation.observations,
-      managedKeys: interpretation.managedKeys,
-      now: now,
-    );
-    if (!await db.brainWorkAllowed()) return null;
+    final interpretation = context.interpretation;
 
     final newNotificationCount = newEvents
         .where((row) => (row['source'] as String? ?? '') == 'notification')

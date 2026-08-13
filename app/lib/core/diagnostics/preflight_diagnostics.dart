@@ -282,6 +282,42 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'currentContext': {
+          'available': (int.tryParse(
+                    await db.getSetting('current_context_last_refresh_at') ?? '',
+                  ) ??
+                  0) >
+              0,
+          'lastRefreshAt': int.tryParse(
+                await db.getSetting('current_context_last_refresh_at') ?? '',
+              ) ??
+              0,
+          'lastRefreshReason':
+              await db.getSetting('current_context_last_refresh_reason') ?? '',
+          'refreshCount': int.tryParse(
+                await db.getSetting('current_context_refresh_count') ?? '',
+              ) ??
+              0,
+          'screenInteractive':
+              (await db.getSetting('current_context_screen_interactive')) == '1',
+          'deviceLocked':
+              (await db.getSetting('current_context_device_locked')) == '1',
+          'busyScore': double.tryParse(
+                await db.getSetting('current_context_busy_score') ?? '',
+              ) ??
+              0.0,
+          'currentActivityClass':
+              await db.getSetting('current_context_current_activity') ?? '',
+          'dominantActivityClass':
+              await db.getSetting('current_context_dominant_activity') ?? '',
+          'observationCount': int.tryParse(
+                await db.getSetting('current_context_observation_count') ?? '',
+              ) ??
+              0,
+          'lastError': await db.getSetting('current_context_last_error') ?? '',
+          'rawPackageOrTextIncluded': false,
+          'desireAdvancedByRefresh': false,
+        },
       };
       checks.add(const PreflightCheck(
         id: 'database',
@@ -544,7 +580,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.31.4+46 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.31.5+47 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

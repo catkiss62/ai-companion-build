@@ -60,14 +60,14 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('六层行为规则')),
+      appBar: AppBar(title: const Text('行为规则层')),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 const Text(
-                  '01/03 常驻；02 只用于日常聊天；04/05 只在亲密 Session；06 只在亲密 Session 且检索到相关参考资料时加载。01 的 AI 本体身份不能被关闭。',
+                  '01 身份/关系基础与 03 行为/人格常驻；02 只用于日常聊天；04/05 只在亲密 Session；06 只在亲密 Session 且检索到相关参考资料时加载。带锁的基础层不能关闭；初始人格种子可以编辑、关闭，也会被长期 AI Self 逐步细化。',
                 ),
                 const SizedBox(height: 12),
                 ...layers.map((layer) => Card(
@@ -79,8 +79,8 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         leading: Switch(
-                          value: layer.enabled || layer.key == '01_core',
-                          onChanged: layer.key == '01_core'
+                          value: layer.enabled || layer.locked,
+                          onChanged: layer.locked
                               ? null
                               : (v) async {
                                   await db.updateRuleLayer(layer.key, enabled: v);

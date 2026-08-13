@@ -32,6 +32,8 @@ void main() {
     final joined = result.observations.map((e) => e.summary).join('\n');
     expect(joined, contains('玩游戏'));
     expect(joined, isNot(contains('com.example.secret.game')));
+    expect(result.currentActivityKey, 'game');
+    expect(result.currentActivityLabel, '游戏');
     expect(result.dominantActivityKey, 'game');
   });
 
@@ -59,6 +61,7 @@ void main() {
     final screen = result.observations.singleWhere((e) => e.dedupeKey == 'screen_state');
     expect(screen.summary, contains('可能'));
     expect(screen.expiresAt.difference(now), const Duration(minutes: 10));
+    expect(result.currentActivityKey, isNull);
   });
 
   test('raw notification and accessibility text never appears in observations', () {

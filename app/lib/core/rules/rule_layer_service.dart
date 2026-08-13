@@ -48,7 +48,7 @@ class RuleLayerService {
     final referenceTriggered = intimacy && references.isNotEmpty;
     final selected = <RuleLayer>[];
     for (final layer in all) {
-      if (!layer.enabled && layer.key != '01_core') continue;
+      if (!layer.enabled && !layer.locked) continue;
       final include = switch (layer.loadPolicy) {
         'always' => true,
         'daily' => !intimacy,

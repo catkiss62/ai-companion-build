@@ -10,6 +10,8 @@ class PerceptionInterpretation {
     required this.busyScore,
     required this.notificationCount,
     required this.accessibilityEventCount,
+    this.currentActivityKey,
+    this.currentActivityLabel,
     this.dominantActivityKey,
     this.dominantActivityLabel,
     this.dominantActivityMinutes = 0,
@@ -21,6 +23,8 @@ class PerceptionInterpretation {
   final double busyScore;
   final int notificationCount;
   final int accessibilityEventCount;
+  final String? currentActivityKey;
+  final String? currentActivityLabel;
   final String? dominantActivityKey;
   final String? dominantActivityLabel;
   final int dominantActivityMinutes;
@@ -106,6 +110,10 @@ class PerceptionInterpreter {
       busyScore: busyScore,
       notificationCount: signalFacts.notificationCount,
       accessibilityEventCount: signalFacts.accessibilityEventCount,
+      currentActivityKey: facts.currentCategory,
+      currentActivityLabel: facts.currentCategory == null
+          ? null
+          : _activityLabel(facts.currentCategory!),
       dominantActivityKey: facts.dominantCategory,
       dominantActivityLabel: facts.dominantCategory == null
           ? null

@@ -13,6 +13,7 @@ def main() -> int:
     assert any(version in pubspec for version in (
         "version: 0.31.3+45",
         "version: 0.31.4+46",
+        "version: 0.31.5+47",
     ))
     assert any(version in read("lib/core/database/app_database.dart") for version in (
         "static const int schemaVersion = 19;",

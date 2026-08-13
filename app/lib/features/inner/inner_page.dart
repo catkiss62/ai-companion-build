@@ -210,7 +210,7 @@ class _InnerPageState extends State<InnerPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('她的内心 · v0.31.4 Grounded Desire Growth', style: Theme.of(context).textTheme.headlineSmall),
+        Text('她的内心 · v0.31.5 Live Context & Self Seed', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
         const SizedBox(height: 16),

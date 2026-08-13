@@ -2,11 +2,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_defaults.dart';
 
 void main() {
-  test('ships six distinct rule layers', () {
-    expect(defaultRuleLayers.length, 6);
-    expect(defaultRuleLayers.map((e) => e.key).toSet().length, 6);
-    expect(defaultRuleLayers.first.key, '01_core');
-    expect(defaultRuleLayers.first.locked, isTrue);
+  test('ships six feature layers plus relationship and personality foundations', () {
+    const expectedKeys = <String>{
+      '01_core',
+      '01_relationship',
+      '02_daily',
+      '03_behavior',
+      '03_personality_seed',
+      '04_intimacy_core',
+      '05_intimacy_rendering',
+      '06_intimacy_reference',
+    };
+    final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
+
+    expect(defaultRuleLayers.length, expectedKeys.length);
+    expect(byKey.keys.toSet(), expectedKeys);
+    expect(byKey['01_core']!.locked, isTrue);
+    expect(byKey['01_relationship']!.locked, isTrue);
+    expect(byKey['03_personality_seed']!.locked, isFalse);
   });
 
   test('novel word-count rules are not in the companion defaults', () {
