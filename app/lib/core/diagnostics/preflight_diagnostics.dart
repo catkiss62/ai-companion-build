@@ -356,6 +356,15 @@ class PreflightDiagnosticsService {
         'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
         'recoveryInProgress': capabilities['overlayRecoveryInProgress'] == true,
         'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
+        'coverState': capabilities['overlayCoverState'] ?? 'idle',
+        'systemCoverActive': capabilities['overlaySystemCoverActive'] == true,
+        'coverSessionId': capabilities['overlayCoverSessionId'] ?? 0,
+        'coverRecoveryAttempt': capabilities['overlayCoverRecoveryAttempt'] ?? 0,
+        'lastCoverExitAt': capabilities['overlayLastCoverExitAt'] ?? 0,
+        'lastCoverExitReason': capabilities['overlayLastCoverExitReason'] ?? '',
+        'lastCoverRecoveryResult':
+            capabilities['overlayLastCoverRecoveryResult'] ?? '',
+        'coverDetachCount': capabilities['overlayCoverDetachCount'] ?? 0,
       };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
@@ -542,7 +551,7 @@ class PreflightDiagnosticsService {
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
     final text = StringBuffer()
-      ..writeln('AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

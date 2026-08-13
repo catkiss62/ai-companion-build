@@ -58,6 +58,21 @@ object CompanionRuntimeState {
     @Volatile var overlayRecoveryInProgress: Boolean = false
         private set
     private val overlayCoverRecoveryCount = AtomicInteger(0)
+    @Volatile var overlayCoverState: String = "idle"
+        private set
+    @Volatile var overlaySystemCoverActive: Boolean = false
+        private set
+    @Volatile var overlayCoverSessionId: Int = 0
+        private set
+    @Volatile var overlayCoverRecoveryAttempt: Int = 0
+        private set
+    @Volatile var overlayLastCoverExitAt: Long = 0L
+        private set
+    @Volatile var overlayLastCoverExitReason: String = ""
+        private set
+    @Volatile var overlayLastCoverRecoveryResult: String = ""
+        private set
+    private val overlayCoverDetachCount = AtomicInteger(0)
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -107,6 +122,14 @@ object CompanionRuntimeState {
             "overlayLastWindowVisibility" to overlayLastWindowVisibility,
             "overlayRecoveryInProgress" to overlayRecoveryInProgress,
             "overlayCoverRecoveryCount" to overlayCoverRecoveryCount.get(),
+            "overlayCoverState" to overlayCoverState,
+            "overlaySystemCoverActive" to overlaySystemCoverActive,
+            "overlayCoverSessionId" to overlayCoverSessionId,
+            "overlayCoverRecoveryAttempt" to overlayCoverRecoveryAttempt,
+            "overlayLastCoverExitAt" to overlayLastCoverExitAt,
+            "overlayLastCoverExitReason" to overlayLastCoverExitReason,
+            "overlayLastCoverRecoveryResult" to overlayLastCoverRecoveryResult,
+            "overlayCoverDetachCount" to overlayCoverDetachCount.get(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
@@ -169,6 +192,85 @@ object CompanionRuntimeState {
         overlayLastSystemCoverReason = reason.take(120)
     }
 
+    @Synchronized
+    fun noteOverlayCoverEntered(reason: String, detached: Boolean): Int {
+        if (!overlaySystemCoverActive) {
+            overlayCoverSessionId += 1
+            overlayCoverRecoveryAttempt = 0
+        }
+        overlaySystemCoverActive = true
+        overlayCoverState = if (detached) "covered_detached" else "covered_suspect"
+        overlayInputSuspect = true
+        overlayLastSystemCoverAt = System.currentTimeMillis()
+        overlayLastSystemCoverReason = reason.take(120)
+        overlayLastCoverRecoveryResult = ""
+        if (detached) overlayCoverDetachCount.incrementAndGet()
+        return overlayCoverSessionId
+    }
+
+    @Synchronized
+    fun noteOverlayCoverExited(reason: String, sessionId: Int) {
+        if (sessionId != overlayCoverSessionId) return
+        overlaySystemCoverActive = false
+        overlayCoverState = "exit_pending"
+        overlayLastCoverExitAt = System.currentTimeMillis()
+        overlayLastCoverExitReason = reason.take(120)
+    }
+
+    @Synchronized
+    fun noteOverlayCoverRecoveryScheduled(sessionId: Int, attempt: Int, reason: String) {
+        if (sessionId != overlayCoverSessionId) return
+        overlayCoverState = "recovery_scheduled"
+        overlayCoverRecoveryAttempt = attempt
+        overlayLastCoverExitReason = reason.take(120)
+    }
+
+    @Synchronized
+    fun noteOverlayCoverRecoveryResult(
+        sessionId: Int,
+        attempt: Int,
+        success: Boolean,
+        reason: String,
+    ) {
+        if (sessionId != overlayCoverSessionId) return
+        overlayCoverRecoveryAttempt = attempt
+        overlayLastCoverRecoveryResult = if (success) {
+            "success:${reason.take(100)}"
+        } else {
+            "retry:${reason.take(100)}"
+        }
+        if (success) {
+            overlaySystemCoverActive = false
+            overlayCoverState = "settled"
+            overlayInputSuspect = false
+            overlayLastCoverRecoveryAt = System.currentTimeMillis()
+            overlayLastSelfHealReason = reason.take(120)
+            overlayCoverRecoveryCount.incrementAndGet()
+        } else {
+            overlayCoverState = "exit_pending"
+        }
+    }
+
+    @Synchronized
+    fun noteOverlayCoverRecoveryFailed(sessionId: Int, attempt: Int, reason: String) {
+        if (sessionId != overlayCoverSessionId) return
+        overlayCoverRecoveryAttempt = attempt
+        overlayCoverState = "failed"
+        overlayLastCoverRecoveryResult = "failed:${reason.take(100)}"
+    }
+
+    @Synchronized
+    fun noteOverlayCoverRecoveryDeferred(sessionId: Int, reason: String) {
+        if (sessionId != overlayCoverSessionId) return
+        overlayCoverState = "exit_pending"
+        overlayCoverRecoveryAttempt = 0
+        overlayLastCoverRecoveryResult = "deferred:${reason.take(100)}"
+    }
+
+    fun isOverlaySystemCoverActive(): Boolean = overlaySystemCoverActive
+
+    fun currentOverlayCoverSessionId(): Int = overlayCoverSessionId
+
     fun consumeOverlayInputSuspect(): Boolean {
         val value = overlayInputSuspect
         overlayInputSuspect = false
@@ -177,6 +279,8 @@ object CompanionRuntimeState {
 
     fun noteOverlayCoverRecovered(reason: String) {
         overlayInputSuspect = false
+        overlaySystemCoverActive = false
+        overlayCoverState = "settled"
         overlayLastCoverRecoveryAt = System.currentTimeMillis()
         overlayLastSelfHealReason = reason.take(120)
         overlayCoverRecoveryCount.incrementAndGet()

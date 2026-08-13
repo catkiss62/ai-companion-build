@@ -71,3 +71,9 @@ reasoning 与正文都不能把旧 user turn 描述成当前等待回复的问�
 
 - 只有普通聊天 UI 对 provider reasoning 提供可撤回的过滤式流式内心 preview；主动生成仍在完整候选后执行 Voice + Grounding guard，不改变共享一次纠正预算。
 - preview 不是数据库事实：重试时清空、最终以验证后的 inner voice 覆盖；Agent planning 只能导致 preview 撤回，不能进入历史消息、通知、TTS 或下一轮 prompt。
+
+## v0.31.3 状态同步（2026-08-13）
+
+- 当前主线切换为 HyperOS/Android 15 file-picker 后 Overlay input channel 恢复。
+- 本轮未修改 Reality Grounding、proactive context isolation、reasoning guard、Desire/Thought 或主动联系 hard caps；本文件既有规则全部继续作为 guardrail。
+- v0.31.3 validator 锁定 Companion Voice、Desire 与 TTS 关键文件哈希；Overlay 真机验收不得用改 prompt/主动联系策略来掩盖系统触摸问题。

@@ -19,7 +19,8 @@ def require(body: str, *tokens: str) -> None:
 
 
 def main() -> int:
-    assert 'version: 0.31.2+44' in text('pubspec.yaml')
+    pubspec = text('pubspec.yaml')
+    assert any(v in pubspec for v in ['version: 0.31.2+44', 'version: 0.31.3+45'])
 
     db = text('lib/core/database/app_database.dart')
     require(
@@ -135,7 +136,9 @@ def main() -> int:
         "'companionVoice': {",
         "'retryCount'",
         "'blockCount'",
-        'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT',
+        ('AI Companion v0.31.3+45 · REDACTED LOCAL DIAGNOSTIC REPORT'
+         if 'version: 0.31.3+45' in pubspec
+         else 'AI Companion v0.31.2+44 · REDACTED LOCAL DIAGNOSTIC REPORT'),
     )
 
     tests = text('test/companion_voice_protocol_v0312_test.dart')
@@ -160,8 +163,11 @@ def main() -> int:
         'companion_voice',
     )
 
-    # v0.31.2 must not alter Android overlay or the frozen TTS implementation.
-    assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt') == 'a622f882573c3e230627e9db01e0c58215440670c75147149b2509a79489ad6d'
+    # v0.31.2 itself must not alter Android overlay. v0.31.3 deliberately owns
+    # that isolated surface and has a separate bounded-recovery validator.
+    if 'version: 0.31.2+44' in pubspec:
+        assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt') == 'a622f882573c3e230627e9db01e0c58215440670c75147149b2509a79489ad6d'
+    # Companion Voice, Desire and TTS remain frozen in both versions.
     assert sha('android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt') == 'c581b4cb93c5979ccb5d413904cd43dd1a7046a0d66ab7b75acf6e4cfbafc36b'
     assert sha('lib/core/tts/tts_service.dart') == '691605c38107e1d4293f1fdbb176e51392555c7d39ee07abe006f0c01cffa47f'
     assert sha('lib/core/tts/tts_playback_queue.dart') == '4cdd466553664b3039d81c30ff4cad2cb71dc2ea8fb6234a5371c153a8adfc5b'
@@ -169,7 +175,7 @@ def main() -> int:
     assert sha('lib/core/desire/desire_engine.dart') == '1d46d85ba9a3f0c851430994bba93dbd8afd1ce735a01ce023795702f0c89af9'
     assert sha('lib/core/desire/self_drive_engine.dart') == '6fbd88b10a733a43f9a9604c546f96bcd4b5a38a75790038bf4b1040820cc968'
 
-    print('v0.31.2+44 streaming inner and richer voice validation passed.')
+    print('v0.31.2+44 streaming inner and richer voice validation passed unchanged.')
     return 0
 
 

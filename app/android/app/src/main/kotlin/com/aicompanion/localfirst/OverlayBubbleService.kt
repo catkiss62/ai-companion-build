@@ -86,7 +86,9 @@ class OverlayBubbleService : Service() {
     private var backgroundEngineRestartScheduled = false
     private var inputRecoveryScheduled = false
     private var inputRecoveryInProgress = false
-    private var lastInputRecoveryAt = 0L
+    private var scheduledRecoverySessionId = 0
+    private var scheduledRecoveryAttempt = 0
+    private var coverWindowMutationInProgress = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var stateReceiverRegistered = false
@@ -111,7 +113,28 @@ class OverlayBubbleService : Service() {
                 stopSelf()
                 return
             }
-            ensureOverlayHealth("permission_watch")
+            if (!CompanionRuntimeState.isOverlaySystemCoverActive()) {
+                if (CompanionRuntimeState.overlayInputSuspect) {
+                    if (CompanionRuntimeState.overlayCoverState != "failed" &&
+                        CompanionRuntimeState.overlayCoverRecoveryAttempt < COVER_RECOVERY_MAX_ATTEMPTS
+                    ) {
+                        scheduleCoverRecovery(
+                            sessionId = CompanionRuntimeState.currentOverlayCoverSessionId(),
+                            attempt = (CompanionRuntimeState.overlayCoverRecoveryAttempt + 1)
+                                .coerceAtLeast(1),
+                            reason = "suspect_watchdog",
+                            delayMs = COVER_RECOVERY_WATCHDOG_DELAY_MS,
+                        )
+                    } else {
+                        // A failed bounded session stays observable for manual
+                        // diagnostics; permissionWatch must not become an
+                        // unbounded fourth/fifth/... recovery loop.
+                        updateOverlayTouchHealth()
+                    }
+                } else {
+                    ensureOverlayHealth("permission_watch")
+                }
+            }
             mainHandler.postDelayed(this, PERMISSION_WATCH_MS)
         }
     }
@@ -165,6 +188,16 @@ class OverlayBubbleService : Service() {
                         bubbleRoot?.visibility = View.VISIBLE
                         CompanionRuntimeState.setOverlayVisible(true)
                         updateOverlayTouchHealth()
+                    }
+                    if (CompanionRuntimeState.overlayInputSuspect &&
+                        !CompanionRuntimeState.isOverlaySystemCoverActive()
+                    ) {
+                        scheduleCoverRecovery(
+                            sessionId = CompanionRuntimeState.currentOverlayCoverSessionId(),
+                            attempt = 1,
+                            reason = "device_present_after_cover",
+                            delayMs = 250L,
+                        )
                     }
                     requestSignalBrainWake(this@OverlayBubbleService, "device_present")
                 }
@@ -269,11 +302,13 @@ class OverlayBubbleService : Service() {
             }
             ACTION_RECONCILE -> {
                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
-                if (reconcileReason.startsWith("system_cover:")) {
-                    scheduleInputChannelRecovery(
-                        reason = reconcileReason,
-                        delayMs = SYSTEM_COVER_RECOVERY_DELAY_MS,
-                    )
+                if (reconcileReason == "visible_activity_reconcile" &&
+                    (CompanionRuntimeState.isOverlaySystemCoverActive() ||
+                        CompanionRuntimeState.overlayInputSuspect)
+                ) {
+                    handleSystemCoverExited("visible_activity_reconcile")
+                } else if (CompanionRuntimeState.isOverlaySystemCoverActive()) {
+                    updateOverlayTouchHealth()
                 } else {
                     // A visible Activity is not proof that the overlay input channel
                     // is stale. v0.30.2 rebuilt on every resume and created a
@@ -284,6 +319,19 @@ class OverlayBubbleService : Service() {
                         rebuildInputChannel = CompanionRuntimeState.consumeOverlayInputSuspect(),
                     )
                 }
+                return START_STICKY
+            }
+            ACTION_SYSTEM_COVER_ENTER -> {
+                handleSystemCoverEntered(
+                    reason = intent.getStringExtra(EXTRA_REASON) ?: "system_cover_enter",
+                    detachBubble = intent.getBooleanExtra(EXTRA_DETACH_BUBBLE, true),
+                )
+                return START_STICKY
+            }
+            ACTION_SYSTEM_COVER_EXIT -> {
+                handleSystemCoverExited(
+                    intent.getStringExtra(EXTRA_REASON) ?: "system_cover_exit",
+                )
                 return START_STICKY
             }
             ACTION_WAKE_BRAIN -> {
@@ -347,6 +395,9 @@ class OverlayBubbleService : Service() {
         backgroundEngineRestartScheduled = false
         inputRecoveryScheduled = false
         inputRecoveryInProgress = false
+        scheduledRecoverySessionId = 0
+        scheduledRecoveryAttempt = 0
+        coverWindowMutationInProgress = false
         CompanionRuntimeState.setOverlayRecoveryInProgress(false)
         CompanionRuntimeState.setOverlayVisible(false)
         CompanionRuntimeState.setOverlayChatExpanded(false)
@@ -646,10 +697,10 @@ class OverlayBubbleService : Service() {
         if (!createChatWindow()) return
         pendingShowAfterUnlock = false
         setUnread(0)
-        bubbleRoot?.visibility = View.GONE
-        chatRoot?.visibility = View.VISIBLE
         chatExpanded = true
         CompanionRuntimeState.setOverlayChatExpanded(true)
+        bubbleRoot?.visibility = View.GONE
+        chatRoot?.visibility = View.VISIBLE
         chatInputMode = false
         chatParams?.let { params ->
             params.flags = readModeFlags()
@@ -1091,49 +1142,183 @@ class OverlayBubbleService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
-    private fun scheduleInputChannelRecovery(
-        reason: String,
-        delayMs: Long = SYSTEM_COVER_RECOVERY_DELAY_MS,
-    ) {
-        if (inputRecoveryScheduled || inputRecoveryInProgress) return
-        val now = System.currentTimeMillis()
-        val cooldownRemaining = if (lastInputRecoveryAt <= 0L) {
-            0L
-        } else {
-            (INPUT_RECOVERY_MIN_GAP_MS - (now - lastInputRecoveryAt)).coerceAtLeast(0L)
+    private fun handleSystemCoverEntered(reason: String, detachBubble: Boolean) {
+        if (!running || !Settings.canDrawOverlays(this)) return
+
+        // A new enter after exit_pending invalidates every callback belonging to
+        // the earlier session. Repeated Accessibility events while the same
+        // picker remains on top stay in the same session and do no extra work.
+        val alreadyCovered = CompanionRuntimeState.isOverlaySystemCoverActive()
+        var detached = false
+        if (detachBubble && bubbleRoot != null && !chatExpanded) {
+            detached = retireBubbleForSystemCover()
         }
-        // Coalesce a cover that occurs during cooldown instead of dropping it.
-        // This preserves recovery after a genuine second file-picker round-trip
-        // without allowing rapid rebuild loops.
-        val effectiveDelay = maxOf(delayMs, cooldownRemaining)
+        val sessionId = CompanionRuntimeState.noteOverlayCoverEntered(reason, detached)
+        if (!alreadyCovered) {
+            NativeEventStore.addDeviceEvent(
+                this,
+                source = "system",
+                eventType = "overlay_system_cover_entered",
+                appPackage = packageName,
+                summary = "检测到系统安全页面，已隔离旧悬浮输入通道。",
+                metadata = mapOf(
+                    "session" to sessionId,
+                    "detached" to detached,
+                ),
+            )
+        }
+    }
+
+    private fun retireBubbleForSystemCover(): Boolean {
+        val bubble = bubbleRoot ?: return false
+        // Clear ownership before removeViewImmediate: OEMs may dispatch a late
+        // visibility callback for the retired root. It must not start a second
+        // cover session or recreate itself while the picker is still on top.
+        bubbleRoot = null
+        badge = null
+        coverWindowMutationInProgress = true
+        val removed = runCatching {
+            windowManager.removeViewImmediate(bubble)
+            true
+        }.getOrDefault(false)
+        coverWindowMutationInProgress = false
+        CompanionRuntimeState.setOverlayVisible(false)
+        updateOverlayTouchHealth()
+        return removed
+    }
+
+    private fun handleSystemCoverExited(reason: String) {
+        if (!running || !Settings.canDrawOverlays(this)) return
+        val sessionId = CompanionRuntimeState.currentOverlayCoverSessionId()
+        if (sessionId <= 0 ||
+            (!CompanionRuntimeState.isOverlaySystemCoverActive() &&
+                !CompanionRuntimeState.overlayInputSuspect)
+        ) return
+
+        CompanionRuntimeState.noteOverlayCoverExited(reason, sessionId)
+        scheduleCoverRecovery(
+            sessionId = sessionId,
+            attempt = 1,
+            reason = reason,
+            delayMs = COVER_EXIT_STABLE_DELAY_MS,
+        )
+    }
+
+    private fun scheduleCoverRecovery(
+        sessionId: Int,
+        attempt: Int,
+        reason: String,
+        delayMs: Long,
+    ) {
+        if (sessionId <= 0 || attempt > COVER_RECOVERY_MAX_ATTEMPTS) return
+        if (!CompanionRuntimeState.overlayInputSuspect ||
+            CompanionRuntimeState.overlayCoverState == "settled" ||
+            CompanionRuntimeState.overlayCoverState == "failed"
+        ) return
+        if (inputRecoveryInProgress) {
+            mainHandler.postDelayed({
+                scheduleCoverRecovery(sessionId, attempt, reason, delayMs)
+            }, INPUT_RECOVERY_SETTLE_MS + 100L)
+            return
+        }
+        if (inputRecoveryScheduled && scheduledRecoverySessionId == sessionId) return
+
         inputRecoveryScheduled = true
+        scheduledRecoverySessionId = sessionId
+        scheduledRecoveryAttempt = attempt
+        CompanionRuntimeState.noteOverlayCoverRecoveryScheduled(sessionId, attempt, reason)
         mainHandler.postDelayed({
-            inputRecoveryScheduled = false
-            if (!running || chatExpanded || !Settings.canDrawOverlays(this)) return@postDelayed
-            if (CompanionRuntimeState.isAppVisible()) {
-                // MainActivity owns its own reconcile path; never let a stale
-                // system-cover callback rebuild the bubble over the full app.
+            if (scheduledRecoverySessionId == sessionId && scheduledRecoveryAttempt == attempt) {
+                inputRecoveryScheduled = false
+            }
+            if (sessionId != CompanionRuntimeState.currentOverlayCoverSessionId()) {
                 return@postDelayed
             }
-            lastInputRecoveryAt = System.currentTimeMillis()
+            if (!CompanionRuntimeState.overlayInputSuspect ||
+                CompanionRuntimeState.overlayCoverState == "settled" ||
+                CompanionRuntimeState.overlayCoverState == "failed"
+            ) return@postDelayed
+            if (CompanionRuntimeState.isOverlaySystemCoverActive()) {
+                // Never re-add an overlay beneath a still-active system picker.
+                return@postDelayed
+            }
+            if (!running || !Settings.canDrawOverlays(this)) {
+                CompanionRuntimeState.noteOverlayCoverRecoveryFailed(
+                    sessionId,
+                    attempt,
+                    "service_or_permission_unavailable",
+                )
+                return@postDelayed
+            }
+
+            val keyguard = getSystemService(KeyguardManager::class.java)
+            val power = getSystemService(PowerManager::class.java)
+            if (chatExpanded || keyguard.isDeviceLocked || !power.isInteractive) {
+                // Sleeping/locked time is not a failed input rebind attempt.
+                // Defer without consuming the three real recovery attempts;
+                // ACTION_USER_PRESENT or the bounded suspect watchdog resumes it.
+                CompanionRuntimeState.noteOverlayCoverRecoveryDeferred(
+                    sessionId,
+                    "device_not_ready",
+                )
+                return@postDelayed
+            }
+
             inputRecoveryInProgress = true
             CompanionRuntimeState.setOverlayRecoveryInProgress(true)
             try {
                 ensureOverlayHealth(
-                    "cover_recovery:${reason.take(100)}",
+                    "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
                     rebuildInputChannel = true,
                 )
-                CompanionRuntimeState.noteOverlayCoverRecovered(reason)
+                val healthy = bubbleRoot?.isAttachedToWindow == true &&
+                    CompanionRuntimeState.overlayBubbleTouchable
+                CompanionRuntimeState.noteOverlayCoverRecoveryResult(
+                    sessionId = sessionId,
+                    attempt = attempt,
+                    success = healthy,
+                    reason = reason,
+                )
+                if (!healthy) {
+                    scheduleCoverRecoveryRetry(sessionId, attempt, reason, "reattach_not_healthy")
+                } else {
+                    NativeEventStore.addDeviceEvent(
+                        this,
+                        source = "system",
+                        eventType = "overlay_system_cover_recovered",
+                        appPackage = packageName,
+                        summary = "系统页面退出后，悬浮输入通道已重新建立。",
+                        metadata = mapOf("session" to sessionId, "attempt" to attempt),
+                    )
+                }
             } finally {
-                // removeView/addView emits visibility callbacks on some OEMs.
-                // Keep the re-entrancy guard alive briefly so our own rebuild
-                // cannot schedule another rebuild.
                 mainHandler.postDelayed({
                     inputRecoveryInProgress = false
                     CompanionRuntimeState.setOverlayRecoveryInProgress(false)
                 }, INPUT_RECOVERY_SETTLE_MS)
             }
-        }, effectiveDelay)
+        }, delayMs)
+    }
+
+    private fun scheduleCoverRecoveryRetry(
+        sessionId: Int,
+        completedAttempt: Int,
+        reason: String,
+        failure: String,
+    ) {
+        val nextAttempt = completedAttempt + 1
+        if (nextAttempt > COVER_RECOVERY_MAX_ATTEMPTS) {
+            CompanionRuntimeState.noteOverlayCoverRecoveryFailed(
+                sessionId,
+                completedAttempt,
+                failure,
+            )
+            return
+        }
+        val retryDelay = COVER_RECOVERY_RETRY_DELAYS_MS[nextAttempt - 2]
+        mainHandler.postDelayed({
+            scheduleCoverRecovery(sessionId, nextAttempt, "$reason:$failure", retryDelay)
+        }, INPUT_RECOVERY_SETTLE_MS + 100L)
     }
 
     private fun updateOverlayTouchHealth() {
@@ -1706,18 +1891,30 @@ class OverlayBubbleService : Service() {
         override fun onWindowVisibilityChanged(visibility: Int) {
             super.onWindowVisibilityChanged(visibility)
             CompanionRuntimeState.noteOverlayWindowVisibility(visibility)
-            if (inputRecoveryInProgress || inputRecoveryScheduled) return
+            if (this !== bubbleRoot || coverWindowMutationInProgress ||
+                inputRecoveryInProgress || inputRecoveryScheduled
+            ) return
             if (visibility != View.VISIBLE) {
+                if (!running || chatExpanded) return
+                val power = getSystemService(PowerManager::class.java)
+                val keyguard = getSystemService(KeyguardManager::class.java)
+                if (!power.isInteractive || keyguard.isDeviceLocked) return
                 visibilityWasSuppressed = true
-                CompanionRuntimeState.noteOverlaySystemCover("window_visibility_suppressed")
+                // Keep this root attached until it becomes visible again. This
+                // is the fallback exit signal on devices where Accessibility
+                // never identifies the picker package.
+                handleSystemCoverEntered(
+                    reason = "window_visibility_suppressed",
+                    detachBubble = false,
+                )
                 return
             }
             if (!visibilityWasSuppressed) return
             visibilityWasSuppressed = false
-            if (!running || chatExpanded || CompanionRuntimeState.isAppVisible()) return
+            if (!running || chatExpanded) return
             val keyguard = getSystemService(KeyguardManager::class.java)
             if (!keyguard.isDeviceLocked) {
-                scheduleInputChannelRecovery("window_visibility_restored")
+                handleSystemCoverExited("window_visibility_restored")
             }
         }
     }
@@ -1741,6 +1938,10 @@ class OverlayBubbleService : Service() {
         const val ACTION_COLLAPSE_CHAT = "com.aicompanion.localfirst.COLLAPSE_CHAT"
         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
+        private const val ACTION_SYSTEM_COVER_ENTER =
+            "com.aicompanion.localfirst.SYSTEM_COVER_ENTER"
+        private const val ACTION_SYSTEM_COVER_EXIT =
+            "com.aicompanion.localfirst.SYSTEM_COVER_EXIT"
         private const val INLINE_REPLY_MAX_ATTEMPTS = 5
         private const val BUBBLE_WINDOW_DP = 62
         private const val BUBBLE_AVATAR_DP = 50
@@ -1749,6 +1950,7 @@ class OverlayBubbleService : Service() {
         private const val OVERLAY_OLDER_PAGE_LIMIT = 24
         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
         private const val EXTRA_REASON = "reason"
+        private const val EXTRA_DETACH_BUBBLE = "detach_bubble"
         const val EXTRA_COUNT = "count"
         const val EXTRA_REPLY_TEXT = "reply_text"
         const val EXTRA_REPLY_ID = "reply_id"
@@ -1763,11 +1965,11 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
-        private const val SYSTEM_COVER_RECOVERY_DELAY_MS = 650L
-        private const val INPUT_RECOVERY_MIN_GAP_MS = 8_000L
+        private const val COVER_EXIT_STABLE_DELAY_MS = 1_100L
+        private const val COVER_RECOVERY_WATCHDOG_DELAY_MS = 1_600L
+        private const val COVER_RECOVERY_MAX_ATTEMPTS = 3
+        private val COVER_RECOVERY_RETRY_DELAYS_MS = longArrayOf(1_800L, 4_000L)
         private const val INPUT_RECOVERY_SETTLE_MS = 700L
-        private const val SYSTEM_COVER_REQUEST_MIN_GAP_MS = 4_000L
-        @Volatile private var lastSystemCoverRecoveryRequestAt = 0L
 
         @Volatile var running: Boolean = false
             private set
@@ -1830,21 +2032,40 @@ class OverlayBubbleService : Service() {
                 .onFailure { startPersistent(context, "show_chat_recover") }
         }
 
-        @Synchronized
-        fun requestSystemCoverRecovery(context: Context, reason: String = "window_transition"): Boolean {
+        fun notifySystemCoverEntered(context: Context, reason: String): Boolean =
+            sendSystemCoverTransition(
+                context = context,
+                action = ACTION_SYSTEM_COVER_ENTER,
+                reason = reason,
+                detachBubble = true,
+            )
+
+        fun notifySystemCoverExited(context: Context, reason: String): Boolean =
+            sendSystemCoverTransition(
+                context = context,
+                action = ACTION_SYSTEM_COVER_EXIT,
+                reason = reason,
+                detachBubble = false,
+            )
+
+        fun requestSystemCoverRecovery(
+            context: Context,
+            reason: String = "window_transition",
+        ): Boolean = notifySystemCoverExited(context, reason)
+
+        private fun sendSystemCoverTransition(
+            context: Context,
+            action: String,
+            reason: String,
+            detachBubble: Boolean,
+        ): Boolean {
             if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return false
             if (!NativeEventStore.isActiveBrain(context)) return false
             if (!Settings.canDrawOverlays(context)) return false
-            val now = System.currentTimeMillis()
-            if (now - lastSystemCoverRecoveryRequestAt < SYSTEM_COVER_REQUEST_MIN_GAP_MS) {
-                return false
-            }
-            lastSystemCoverRecoveryRequestAt = now
-            val safeReason = "system_cover:${reason.take(60)}"
-            CompanionRuntimeState.noteOverlaySystemCover(safeReason)
             val intent = Intent(context, OverlayBubbleService::class.java)
-                .setAction(ACTION_RECONCILE)
-                .putExtra(EXTRA_REASON, safeReason)
+                .setAction(action)
+                .putExtra(EXTRA_REASON, reason.take(100))
+                .putExtra(EXTRA_DETACH_BUBBLE, detachBubble)
             return runCatching {
                 if (running) {
                     context.startService(intent)

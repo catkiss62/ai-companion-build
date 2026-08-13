@@ -27,15 +27,21 @@ class AccessibilityBridgeService : AccessibilityService() {
             // System file pickers/settings/permission surfaces may ask Android
             // to suppress third-party overlays. Track only the coarse state;
             // package/class names are never written into this recovery path.
-            val systemSurface = isLikelySystemSurface(sourcePackage)
+            val systemSurface = isLikelySystemSurface(
+                sourcePackage,
+                e.className?.toString().orEmpty(),
+            )
             if (systemSurface) {
                 systemCoverActive = true
-                CompanionRuntimeState.noteOverlaySystemCover("system_surface_entered")
-            } else if (systemCoverActive) {
-                systemCoverActive = false
-                OverlayBubbleService.requestSystemCoverRecovery(
+                OverlayBubbleService.notifySystemCoverEntered(
                     this,
-                    "system_surface_return",
+                    "accessibility_system_surface",
+                )
+            } else if (systemCoverActive || CompanionRuntimeState.isOverlaySystemCoverActive()) {
+                systemCoverActive = false
+                OverlayBubbleService.notifySystemCoverExited(
+                    this,
+                    "accessibility_non_system_window",
                 )
             }
         }
@@ -65,13 +71,21 @@ class AccessibilityBridgeService : AccessibilityService() {
         }
     }
 
-    private fun isLikelySystemSurface(sourcePackage: String): Boolean {
+    private fun isLikelySystemSurface(sourcePackage: String, sourceClass: String): Boolean {
         // v0.30.2 treated every system / updated-system app as a cover surface.
         // On HyperOS that is far too broad and caused repeated overlay rebuilds.
         // Only recognize surfaces that are actually known to suppress overlays.
         val p = sourcePackage.lowercase()
+        val c = sourceClass.lowercase()
         return p == "com.android.documentsui" ||
             p == "com.google.android.documentsui" ||
+            p == "com.android.providers.media.module" ||
+            p == "com.google.android.providers.media.module" ||
+            p == "com.android.photopicker" ||
+            p == "com.google.android.photopicker" ||
+            p == "com.android.intentresolver" ||
+            p == "com.google.android.files" ||
+            p == "com.miui.fileexplorer" ||
             p == "com.android.permissioncontroller" ||
             p == "com.google.android.permissioncontroller" ||
             p == "com.android.packageinstaller" ||
@@ -79,7 +93,9 @@ class AccessibilityBridgeService : AccessibilityService() {
             p == "com.android.settings" ||
             p == "com.miui.securitycenter" ||
             p.contains("documentsui") ||
-            p.contains("fileexplorer")
+            p.contains("fileexplorer") ||
+            p.contains("photopicker") ||
+            (p.contains("providers.media") && c.contains("picker"))
     }
 
     override fun onInterrupt() {

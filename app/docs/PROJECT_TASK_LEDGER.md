@@ -4,7 +4,7 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停但保留 · `GUARDRAIL` 已落地且以后不可回归。
 
-## P0 · ACTIVE · v0.31.2 Companion Voice Recovery（可选开关）
+## P0 · FROZEN · v0.31.2 Companion Voice Recovery（可选开关）
 
 > DeepSeek V4 Pro 服务端更新后，provider `reasoning_content` 从第一人称主观内心变成 Agent/规则清单式规划；当前 App 又直接把它展示为“思考”，导致关系连续性和“女友感”明显下降。此任务是 provider compatibility 层，不把恋爱话术永久写死进基础人格。
 >
@@ -23,7 +23,7 @@
 - [x] **v0.31.2+43 真机热修**：修复 +42 仅接受 content 双标签、无法识别 DeepSeek 原生 reasoning/content 双通道而导致普通聊天 `protocol_shape` 连续失败；加入原生/跨通道解析与安全正文 fail-open，主动消息仍保持严格拦截。
 - [x] **v0.31.2+43 真机复测**：开启开关后普通消息已能回复，诊断无 generation failure；仍观察到部分 `inner_agent_planning` 被安全降级，且体验上内心非流式、回复偏短/缺少括号神态。
 - [x] **v0.31.2+44 源码实现**：过滤后的第一人称内心采用可撤回整体替换流式预览；最终验证覆盖 preview。Companion Voice ON 的回复增加软性展开度和按语境出现的括号神态倾向，OFF 路径不变。
-- [ ] **v0.31.2+44 真机复测**：内心逐步出现且最终不重复；Agent planning 不留在历史；短陪伴对话明显比 +43 丰富并有自然括号神态；技术/严肃对话不过度表演。
+- [ ] **v0.31.2+44 真机复测**：用户评价当前效果“差强人意，先就这样”；本阶段冻结，不再继续改 prompt。后续重开时仍按内心流式/Agent 污染/展开度/自然神态/严肃反例完成 golden cases。
 
 ## P0 · NEXT · v0.31 Grounded Desire Core 定向收尾
 
@@ -65,16 +65,16 @@
 - [x] `Inner` 调试页升级为只读“她的内心”面板：Drive / top Thought / Intent / why / refractory；调试 UI 不进入普通关系界面。
 - [ ] 所有调试 reason 使用第一人称内在语义，但不得把技术参数直接发给用户。
 
-## P0 · NEXT · HyperOS / Android 15 Overlay file-picker 恢复
+## P0 · ACTIVE · v0.31.3 HyperOS / Android 15 Overlay file-picker 恢复
 
 > 文件选择器位于 `TYPE_APPLICATION_OVERLAY` 之上是系统窗口层级的正常结果；故障是打开文件页后，即使取消/确认并离开，悬浮球仍可见却 100% 失去触摸，直到进入 AI Companion 才恢复。
 
 - [x] 静态定位现有恢复链：Accessibility system-cover、Overlay root visibility、`MainActivity.onResume -> ACTION_RECONCILE` 均可触发 `removeViewImmediate + createBubble`；进入主 App 后恢复与 reconcile 路径一致。
 - [x] 根因边界：系统 cover 的退出主要依赖有限 package allowlist + `TYPE_WINDOW_STATE_CHANGED`；OEM DocumentsUI/Photo Picker 变体或返回事件漏报后，`overlayInputSuspect` 无后台消费者。
 - [x] 现有 30 秒 permission watch 只验证 attached/flags/enabled，不能识别“表面健康但 input channel 已死”，也不会消费 suspect。
-- [ ] 实现有界 cover 状态机：明确 enter/suspect/exit/rebuilt，只有已经观察到 cover/suspect 时才允许扩大 exit 证据，避免全局监听噪声。
-- [ ] 对遗留 suspect 增加一次性 watchdog fallback，设置次数上限、冷却/退避；系统 cover 仍在顶层或主 App 可见时不得反复重建。
-- [ ] 脱敏诊断区分 cover-enter、exit evidence、rebuild source、attempt/cooldown；不得恢复 v0.30.2 的 `selfHealCount=28 / coverRecoveryCount=11` 风暴。
+- [x] 实现有界 cover 状态机：明确 enter/suspect/exit/recovery_scheduled/settled/failed；system cover enter 时退役旧 bubble input channel，exit 稳定后创建全新窗口。
+- [x] 对遗留 suspect 增加 watchdog fallback；每个 session 最多 3 次、1.8s/4.0s 退避，新 session 使旧回调失效，system cover active 时禁止 re-add。
+- [x] 脱敏诊断区分 cover-enter、exit evidence、session、rebuild source、attempt/result/detach count；不记录 picker package/class/内容，不恢复 v0.30.2 的 `selfHealCount=28 / coverRecoveryCount=11` 风暴。
 - [ ] 真机验收至少覆盖：打开后取消、确认选择、从 picker 回原 App、切到第三方 App、连续多次 picker、30 分钟日常使用无误重建。
 - [ ] 与 Companion Voice 分开补丁和 APK 验收，避免两个高风险兼容层互相干扰定位。
 
@@ -143,6 +143,7 @@
 
 - [x] **v0.31.1 完整源码交接基线**：`app/` 确认为 `0.31.1+41` / schema v18，v0311 补丁反向校验证明已完整合入；失败 v0.31.2 不进入基线。
 - [ ] **v0.31.2 构建交付**：全新源码实现、本地回归、source-update patch、完整替换 workflow 和干净 v0.31.1 round-trip 已完成；待 Actions 通过 analyze/test/release APK 后勾选。
+- [ ] **v0.31.3 构建交付**：有界 Overlay cover session 源码和静态 validator 已完成；待 +44 基线 patch round-trip、Actions analyze/test/release APK 与 HyperOS 真机验收。
 - [ ] 阶段性 Clean Freeze：从纯 `app/` checkout 独立 analyze/test/release build。
 - [ ] 删除已应用的 v0.30.x / v0.31.x 临时 patch 和 apply workflow。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。

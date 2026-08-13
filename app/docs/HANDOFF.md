@@ -4,11 +4,11 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.2+44 · Streaming Inner & Richer Voice**；在 +43 双通道修复上增加过滤式流式内心，并按更新前截图恢复更有展开度、可自然包含括号神态的伴侣表达。尚待 GitHub Actions 完成 Flutter analyze/test/release APK。
+- 当前源码候选：**v0.31.3+45 · Bounded File-Picker Overlay Recovery**；只修改 HyperOS/Android 15 系统文件选择页前后的悬浮输入通道生命周期，Companion Voice、prompt/model/storage、Desire 与 TTS 全部冻结。尚待 GitHub Actions 完成 Flutter analyze/test/release APK 和真机验收。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v19**；为消息新增独立 provider reasoning 与 Companion Voice 标记，Desire snapshot 结构未改。
 - GitHub：完整 Flutter 项目位于仓库 `app/`，它是 single source of truth；不恢复历史 v0.28 五分包 + patch 链。
-- 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可 100% 复现“只要打开系统文件选择器/上传文件页，无论确认或取消，悬浮球之后都会可见但 input channel 卡死；重新进入 AI Companion 后恢复”。该问题影响较大，已从 FROZEN 重新列为 **P0 NEXT**，但不与 Companion Voice 首版混改。
+- 最近已知 Overlay 真机结果：v0.30.2 曾出现 `selfHealCount=28 / coverRecoveryCount=11`；v0.30.3 仍可 100% 复现“只要打开系统文件选择器/上传文件页，无论确认或取消，悬浮球之后都会可见但 input channel 卡死；重新进入 AI Companion 后恢复”。v0.31.3+45 已实现有界 cover session 修复，当前为 **P0 ACTIVE / 待真机**。
 
 ## 2. 项目定位
 
@@ -149,14 +149,17 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
 - `backgroundPresence.lastGateBreakdown` 保留，v0.31 可看到 Presence 已进入 Desire 而不是重复 Gate boost。
 - “她的内心”调试页显示 Reality Grounding 与 top Desire candidates，便于强制 proactive 做事实边界回归。
 
-## 7. Overlay / 悬浮球 · P0 NEXT
+## 7. Overlay / 悬浮球 · P0 ACTIVE
 
 - v0.30.1/0.30.2/0.30.3 已做过多轮 WindowManager input recovery；旧 `overlayTouch` 脱敏诊断仍保留。
 - HyperOS/Android 15 的系统文件选择器/上传文件路径可 100% 触发：文件页位于悬浮球之上属于系统窗口层级的正常现象；真正故障是退出/切回其他 App 后悬浮球仍可见却不可触摸。
 - 现有代码并非没有自愈：Accessibility system-cover、Overlay root visibility、`MainActivity.onResume -> ACTION_RECONCILE` 都能请求 `removeViewImmediate + createBubble` 重建 input channel。用户重新进入 AI Companion 后恢复，正是 Activity reconcile 路径生效。
 - 根因边界是“系统遮挡已经结束”的证据不可靠：当前主要依赖有限 package allowlist 与 `TYPE_WINDOW_STATE_CHANGED`；OEM picker/Photo Picker 变体或返回事件一旦漏报，`overlayInputSuspect` 就不会被后台消费。
 - 30 秒 permission watch 只检查 attached/flags/enabled，不会在 suspect 状态下重建 input channel；而本故障中这些表面状态仍可能全部健康，所以 watchdog 看不出来。
-- 后续修复应做**有界的一次性状态机**：明确 cover-enter/suspect，已知 cover 后允许更宽但安全的非系统事件确认 exit，遗留 suspect 再用带次数上限/退避的一次 watchdog 重建；不得恢复 v0.30.2 的无界重建风暴，也不得在系统文件页仍位于顶层时反复重建。
+- v0.31.3+45 已改为**有界 cover session 状态机**：Accessibility 识别 DocumentsUI/Photo Picker/HyperOS FileExplorer 等系统页面后，在 enter 阶段主动 `removeViewImmediate` 退役旧 bubble input channel；exit evidence 到达并稳定 1.1 秒后才创建全新的 overlay window。
+- Window visibility 继续作为备用证据：若 package 识别漏掉，先保留旧 root 以等待 `VISIBLE` 恢复，再进入同一 recovery；已知 system cover 仍 active 时绝不 re-add。
+- 恢复最多 3 次（初次 + 1.8s / 4.0s 退避），新 cover session 通过 session id 使旧回调失效；30 秒 watchdog 只消费“已经 exit 但仍遗留”的 suspect，不在 cover active 时重建，因此不恢复 v0.30.2 风暴。
+- `overlayTouch` 新增 `coverState/systemCoverActive/sessionId/attempt/exit reason/result/detach count`，均为粗粒度脱敏字段，不记录 picker package/class 或用户文件内容。
 
 ## 8. TTS 黄金基准 · FROZEN / GUARDRAIL
 
@@ -173,9 +176,9 @@ Presence 不再一边推 Drive/Thought，一边又直接给 Gate 加一遍分。
 
 长期任务真源：`docs/PROJECT_TASK_LEDGER.md`。
 
-P0 / v0.31.2：**Companion Voice Recovery（可选勾选）**源码与本地静态回归已完成；等待 GitHub Actions 构建和真机 golden cases 验收。
+P0 FROZEN / v0.31.2：用户评价当前效果“差强人意，先就这样”；保留开关与 +44 行为，暂不继续调 prompt。
 
-P0 NEXT：修复 HyperOS/Android 15 file-picker 后 Overlay input channel 卡死；与 Companion Voice 分开补丁、分开验收。
+P0 ACTIVE / v0.31.3：HyperOS/Android 15 file-picker Overlay input channel 有界恢复源码候选已完成，待 Actions 与真机取消/确认/连续往返验收。
 
 P1：
 
@@ -200,6 +203,15 @@ P2：
 4. ON 下 TTS 只读最终 reply；不读 inner voice、provider reasoning、协议标签或时间戳。
 5. 已回答历史后的 proactive 仍遵守 Grounding；协议或 Grounding 纠正总计最多一次，再失败静默 WAIT/拦截。
 6. 关闭开关后立即回到原版 provider 路径；历史消息、导出导入、Active Brain、Desire/Thought 不回归。Overlay file-picker 问题不判 v0.31.2 失败。
+
+### 10A. v0.31.3 真机验收重点
+
+1. 从第三方 App 打开系统文件选择页后直接取消，回原 App 立刻点击/拖动悬浮球。
+2. 再次打开并确认选择文件，上传页退出后立刻点击/拖动悬浮球。
+3. 连续执行 5 次取消/确认混合往返；不能出现可见但不可触摸，也不能出现悬浮球重复闪烁或重建风暴。
+4. 文件选择页停留 30 秒以上：系统页仍在顶层期间不反复创建悬浮球；退出后约 1~3 秒内恢复。
+5. 回桌面、第三方 App、AI Companion 本体、锁屏再解锁均保持可点击；诊断中的单个 session `attempt <= 3`，`coverRecoveryCount/detachCount` 不应无故快速增长。
+6. Companion Voice ON/OFF、Desire、TTS、聊天历史/schema v19 不属于本补丁改动面，必须保持 +44 行为。
 
 ## 11. GitHub / 开发流程
 
@@ -238,3 +250,10 @@ P2：
 - 本地已通过新 v0.31.2 validator、Dart tree-sitter 语法解析、Desire 5000 tick 数值长跑、TTS A2 黄金哈希/队列、durable generation、recovery、memory、awareness、relationship、proactive rhythm、daily continuity 与 transfer SQLite 回归。
 - 本地缺 Flutter/Android SDK，`flutter analyze / flutter test / release APK` 必须由配套 GitHub Actions 完成；Actions 通过前状态仍是“源码候选”，不是已验收 APK。
 - 配套 source-update patch、schema v19 SQLite validator 与完整替换 workflow 已生成；patch 已在新解压的 v0.31.1+41 基线上完成 `git apply --check`、实际 apply、文件树一致性与新 validator round-trip。最终待用户上传并运行 Actions。
+
+### 11D. v0.31.3 Overlay file-picker 恢复状态
+
+- 根因修复不再依赖“表面 attached/touchable”的健康判断，也不把 `MainActivity.onResume` 当成唯一后台消费者；旧输入通道在确认 system-cover enter 后即被退役。
+- Accessibility allowlist 补入 Android modular Photo Picker、Intent Resolver、Google Files 与 HyperOS FileExplorer；只传粗粒度 enter/exit reason，package/class 不写进恢复诊断。
+- exit 后采用 session token + 稳定延迟 + 最多 3 次退避；cover 重新进入会生成新 session，使旧延迟回调自然失效。主 App 可见不再永久丢弃真正的 exit recovery。
+- 新 validator 同时锁定 Companion Voice、Desire、TTS 关键文件哈希，确保 v0.31.3 没有跨域修改；本地缺 Flutter/Android/Kotlin 工具链，最终 Kotlin 编译、Flutter analyze/test 与 release APK 仍由配套 Actions 判定。
