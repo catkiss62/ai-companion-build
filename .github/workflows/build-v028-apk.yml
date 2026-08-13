@@ -32,11 +32,16 @@ jobs:
         run: |
           set -euo pipefail
           test -f v0314-grounded-desire-growth.patch
-          echo '9128813ac332e523bce2de8c7b269dae315da3ca040abb1b1713130e14cab588  v0314-grounded-desire-growth.patch' | sha256sum -c -
+          echo 'e17fa8e5b74d6f02d49a66771bfc511ca07a388dd8929cc7f2f5057bf07bb641  v0314-grounded-desire-growth.patch' | sha256sum -c -
           git apply --check --directory=app v0314-grounded-desire-growth.patch
           git apply --directory=app v0314-grounded-desire-growth.patch
           grep -q '^version: 0.31.4+46$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 20;' app/lib/core/database/app_database.dart
+          test -f v0314-project-docs.zip
+          echo 'd6ce063f60ebfba841cf4be0ebd7ed1f8651b5d750183909fa1794c2f68f2271  v0314-project-docs.zip' | sha256sum -c -
+          unzip -o v0314-project-docs.zip -d app/docs
+          grep -q 'v0.31.4+46' app/docs/HANDOFF.md
+          grep -q 'schema v20' app/docs/PROJECT_TASK_LEDGER.md
           python3 app/tools/validate_desire_v20_sql.py
           python3 app/tools/validate_v0314_grounded_desire.py
           python3 app/tools/validate_v0313_overlay_picker.py
