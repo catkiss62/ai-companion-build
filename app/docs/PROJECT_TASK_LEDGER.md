@@ -14,10 +14,11 @@
 - [x] raw package、通知正文与 Accessibility 正文不进入 Prompt、Thought 或脱敏诊断。
 - [x] Active Brain 在刷新开始、写 Awareness 前与写后重复 fencing。
 - [x] 脱敏诊断新增 `database.currentContext` 的刷新时间、原因、粗粒度类别与安全边界声明。
-- [ ] GitHub Actions analyze/test/release APK 通过。
+- [x] GitHub Actions run #31 analyze/test/release APK 通过。
 - [x] 首次 Actions 已通过补丁、全套静态回归与 Flutter analyze；定位唯一失败为旧规则层测试写死 6 条，已改成验证新增后的 8 个明确 key/锁定属性。
-- [ ] 使用修正版补丁、文档 ZIP 与 workflow 重新运行 Actions。
-- [ ] 真机确认用户回复与主动联系生成前 `lastRefreshReason` 分别为 `prompt_user_turn / prompt_proactive`，且 current activity 与生成当下基本一致。
+- [x] 修正版补丁、文档 ZIP 与 workflow 已由 run #31 成功执行；完整 +47 已提交到 `app/`。
+- [x] 真机确认普通回复生成前 `lastRefreshReason=prompt_user_turn`，且 `desireAdvancedByRefresh=false`。
+- [ ] 后续真实主动联系再确认 `lastRefreshReason=prompt_proactive` 与当下 activity 一致。
 
 ### A1. 关系身份与初始性格
 
@@ -128,6 +129,32 @@
 - [ ] encrypted `.aicomp` 手动 fallback。
 - [ ] lineage / generation fencing 压力测试。
 
+## P1 · NEXT · 已确认新增任务
+
+### M. 规则分类归并
+
+- [ ] 合并 `01_core` 与 `01_relationship`，完整保留身份、存在、关系、自主与边界语义。
+- [ ] 将 `03_behavior` 与 `03_personality_seed` 归为同一 UI 分类，同时保留常驻原则与可编辑/可关闭种子的不同元数据。
+- [ ] 不强求固定六类；已有同类规则以后直接加入对应小节。
+- [ ] 迁移不得用默认文本覆盖用户编辑；需覆盖重复启动、旧备份导入和 Active Brain 转移。
+
+### N. 真正停止生成
+
+- [ ] 停止键统一取消/作废模型流、TTS 和 durable recovery。
+- [ ] 使用 `cancelled_by_user` 明确状态；取消后的晚到 token 不落库、不复活。
+
+### O. 双通道感官
+
+- [ ] 按 `docs/DUAL_CHANNEL_SENSE_v1.md` 先建 SQLite event/aggregate contract 和测试。
+- [ ] 日常触觉 user-to-AI MVP；成功提交后再做 AI-to-self 弱回响。
+
+### P. 表情包、主动联网、桌宠与屏幕陪伴
+
+- [ ] 表情包标签注册、安全选图与结构化多气泡。
+- [ ] curiosity 驱动的低频联网 discovery pool，保留来源/TTL/每日上限。
+- [ ] Android 桌宠先做许可安全的隔离播放器，再接 Overlay。
+- [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
+
 ## P2 · LATER
 
 ### I. 主动联系体验二次调优
@@ -154,9 +181,10 @@
 ### L. 发布工程
 
 - [x] v0.31.4 patch/workflow/validator/Actions/APK 完成。
-- [ ] v0.31.5 patch/workflow/validator/Actions/APK 完成。
-- [ ] 本阶段 Clean Freeze：纯 `app/` checkout 独立 analyze/test/release build。
-- [ ] 删除已应用 v0.30.x / v0.31.x 临时 patch 与 apply workflow。
+- [x] v0.31.5 patch/workflow/validator/Actions/APK 完成。
+- [x] 本阶段 Clean Freeze：常规 workflow 改为只从 `app/` 独立 validate/analyze/test/release build。
+- [x] 删除已应用 v0.30.x / v0.31.x 临时 patch、文档 ZIP，并退役一次性 apply workflow；Git 历史保留恢复路径。
+- [ ] 轮换曾内嵌在旧 workflow 的测试 debug keystore，并设置仓库 Secret `AI_COMPANION_DEBUG_KEYSTORE_B64`；完成前不能生成可覆盖安装的新 APK。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 最终覆盖安装、备份恢复、崩溃恢复检查。
 
@@ -176,5 +204,5 @@
 - [x] Proactive hard caps：2/2h、8/24h。
 - [x] TTS A2 黄金基线。
 - [x] `app/` 是 GitHub single source of truth。
-- [x] 小版本使用 source-update patch + 完整手动 workflow；大阶段验收后再整合/Clean Freeze。
+- [x] Clean Freeze 后每项功能走独立分支/PR；常规 workflow 只验证和构建当前 `app/`，不在构建时应用补丁或提交源码。
 - [x] 每个正式版本同步更新 HANDOFF 与本总账；大阶段保留完整源码 ZIP + SHA-256。
