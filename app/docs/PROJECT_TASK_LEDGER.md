@@ -157,7 +157,7 @@
 - [x] 增加 background warm-up send epoch，防止连接期间的停止被随后启动的发送越过。
 - [x] 只在悬浮框展开且生成活跃时轮询 provider 原生 reasoning/content，显示单个临时流式气泡；不合成、不落库半条回复。
 - [x] 增加纯 Dart snapshot phase/序列化测试与 v0.31.8 Kotlin/Dart 静态契约 validator。
-- [ ] GitHub Actions validators/analyze/tests/release APK/A2 payload 待本 PR 回填。
+- [x] GitHub Actions run #18（ID 31818910082）通过全部 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload 与 artifact；前三次失败均停在静态校验，未生成 APK。
 - [ ] 真机确认思考期停止、正文/TTS 期停止、收起重开不复活、自然完成后临时气泡被正式消息替换。
 
 ### O. 双通道感官
