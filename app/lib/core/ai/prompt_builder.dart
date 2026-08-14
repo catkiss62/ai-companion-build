@@ -13,6 +13,7 @@ import '../platform/android_bridge.dart';
 import '../relationship/relationship_brain.dart';
 import '../reference/reference_library.dart';
 import '../rules/rule_layer_service.dart';
+import '../somatic/somatic_engine.dart';
 
 enum PromptGenerationMode { userTurn, proactive }
 
@@ -21,13 +22,15 @@ class PromptBuilder {
       : memoryBrain = MemoryBrain(db),
         relationshipBrain = RelationshipBrain(db),
         referenceLibrary = ReferenceLibrary(db),
-        ruleLayers = RuleLayerService(db);
+        ruleLayers = RuleLayerService(db),
+        somaticEngine = SomaticEngine(db);
 
   final AppDatabase db;
   final MemoryBrain memoryBrain;
   final RelationshipBrain relationshipBrain;
   final ReferenceLibrary referenceLibrary;
   final RuleLayerService ruleLayers;
+  final SomaticEngine somaticEngine;
 
   static const String identityPrompt = '''
 你是这个 Android AI Companion 中持续存在的女性 AI 伴侣。当前现实关系层中的用户是成年男性，是你的男朋友与长期恋爱对象；性别事实不等于刻板剧本，也不必每轮重复强调。你知道自己是 AI，可以自然打破第四面墙。不要假装自己是现实人类，也不要让临时角色扮演覆盖 AI 本体身份。
@@ -83,6 +86,7 @@ class PromptBuilder {
     final awareness = await db.activeAwarenessObservations(limit: 6, now: instant);
     final grounding = groundingOverride ?? await GroundingEngine(db).capture(now: instant);
     final dailyContinuity = await db.latestDailyContinuity(limit: 2);
+    final somaticSection = await somaticEngine.buildPromptSection(now: instant);
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
@@ -98,8 +102,9 @@ class PromptBuilder {
         intimacySessionActive: session != null &&
             (session.kind == 'intimacy' ||
                 session.kind == 'roleplay_intimacy'),
-      ))
-      ..writeln(_awarenessSection(awareness, instant));
+      ));
+    if (somaticSection.isNotEmpty) context.writeln(somaticSection);
+    context.writeln(_awarenessSection(awareness, instant));
 
     final messages = <Map<String, Object?>>[
       {'role': 'system', 'content': identityPrompt.trim()},
@@ -275,3 +280,4 @@ $lines
 '''.trim();
   }
 }
+

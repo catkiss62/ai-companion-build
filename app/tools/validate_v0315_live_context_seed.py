@@ -23,7 +23,8 @@ def main() -> int:
     assert version is not None
     assert tuple(map(int, version.groups())) >= (0, 31, 5, 47)
     database = read("lib/core/database/app_database.dart")
-    assert "static const int schemaVersion = 20;" in database
+    schema = re.search(r"static const int schemaVersion = (\d+);", database)
+    assert schema and int(schema.group(1)) >= 20
 
     refresher = read("lib/core/perception/current_device_context_refresher.dart")
     for token in [

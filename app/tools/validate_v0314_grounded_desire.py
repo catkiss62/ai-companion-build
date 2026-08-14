@@ -23,7 +23,8 @@ def main() -> int:
     assert version is not None
     assert tuple(map(int, version.groups())) >= (0, 31, 4, 46)
     db = read("lib/core/database/app_database.dart")
-    assert "static const int schemaVersion = 20;" in db
+    schema = re.search(r"static const int schemaVersion = (\d+);", db)
+    assert schema and int(schema.group(1)) >= 20
     for token in [
         "CREATE TABLE messages_v20",
         "INSERT INTO messages_v20",

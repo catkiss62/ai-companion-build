@@ -15,7 +15,8 @@ assert match, "missing app version"
 assert tuple(map(int, match.groups())) >= (0, 31, 8, 50)
 
 database = read("lib/core/database/app_database.dart")
-assert "static const int schemaVersion = 20;" in database
+schema = re.search(r"static const int schemaVersion = (\d+);", database)
+assert schema and int(schema.group(1)) >= 20
 
 server = read("lib/core/platform/background_chat_command_server.dart")
 for token in [
@@ -72,4 +73,3 @@ assert "without inventing text" in test
 assert "正在比较两种回答方式" in test
 
 print("v0.31.8 overlay stop and live stream validation passed")
-

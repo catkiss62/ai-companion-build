@@ -15,7 +15,8 @@ assert match, "missing app version"
 assert tuple(map(int, match.groups())) >= (0, 31, 9, 51)
 
 database = read("lib/core/database/app_database.dart")
-assert "static const int schemaVersion = 20;" in database
+schema = re.search(r"static const int schemaVersion = (\d+);", database)
+assert schema and int(schema.group(1)) >= 20
 cancel_start = database.index("Future<bool> cancelGenerationJobByUser")
 cancel_end = database.index("Future<bool> isGenerationRunCurrent", cancel_start)
 cancel = database[cancel_start:cancel_end]

@@ -5,6 +5,7 @@ import '../desire/desire_engine.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
+import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import 'deepseek_client.dart';
 import 'generation_cancellation.dart';
@@ -56,12 +57,14 @@ class DurableGenerationRunner {
     required this.client,
     SecureConfig? secureConfig,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
-        desireEngine = DesireEngine(db);
+        desireEngine = DesireEngine(db),
+        somaticEngine = SomaticEngine(db);
 
   final AppDatabase db;
   final DeepSeekClient client;
   final SecureConfig secureConfig;
   final DesireEngine desireEngine;
+  final SomaticEngine somaticEngine;
 
   Future<GenerationRunResult> run(
     GenerationJob requested, {
@@ -136,6 +139,14 @@ class DurableGenerationRunner {
     try {
       final previous = await db.messagesBefore(user.createdAt, limit: 33);
       final recent = <ChatMessage>[...previous, user];
+      // Capture after the durable user turn exists and before prompt build.
+      // Stable event IDs make recovered attempts idempotent; cancellation
+      // withdraws these events with the user message.
+      await somaticEngine.captureUserTurn(
+        turnId: user.id,
+        text: user.content,
+        now: user.createdAt,
+      );
       final desire = await db.loadDesire();
       final thoughts = await db.activeThoughts(limit: 18);
       final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
@@ -307,3 +318,4 @@ class DurableGenerationRunner {
     return raw.length <= 360 ? raw : raw.substring(0, 360);
   }
 }
+

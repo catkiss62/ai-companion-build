@@ -103,7 +103,7 @@ class ChatController extends ChangeNotifier {
   String streamingReasoning = '';
   String streamingContent = '';
   String? error;
-  DeepSeekModelProfile model = DeepSeekModelProfile.pro;
+  DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
   TtsQueueState ttsState = TtsQueueState.idle;
   bool _disposed = false;
