@@ -1,4 +1,4 @@
-name: Build AI Companion v0.32.0+52 APK (Clean Source)
+name: Build AI Companion v0.32.1+53 APK (Clean Source)
 
 on:
   workflow_dispatch:
@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.32.0+52$' app/pubspec.yaml
+          grep -q '^version: 0.32.1+53$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 21;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.32.0+52 app/ source tree.'
+          echo 'Building directly from the committed v0.32.1+53 app/ source tree.'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -66,6 +66,7 @@ jobs:
         working-directory: app
         run: |
           set -euo pipefail
+          python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
           python3 tools/validate_v0319_tts_state_cancel_retract.py
           python3 tools/validate_v0318_overlay_stop_stream.py
@@ -146,10 +147,10 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.32.0+52 APK
+      - name: Upload v0.32.1+53 APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.32.0-52-Somatic-Contract-Touch-APK
+          name: AI-Companion-v0.32.1-53-Somatic-AI-to-Self-APK
           if-no-files-found: error
           compression-level: 0
           path: |
