@@ -44,17 +44,18 @@ jobs:
         shell: bash
         env:
           AI_COMPANION_DEBUG_KEYSTORE_B64: ${{ secrets.AI_COMPANION_DEBUG_KEYSTORE_B64 }}
+          AI_COMPANION_DEBUG_KEYSTORE_SHA256: ${{ secrets.AI_COMPANION_DEBUG_KEYSTORE_SHA256 }}
         run: |
           set -euo pipefail
-          if [ -z "${AI_COMPANION_DEBUG_KEYSTORE_B64:-}" ]; then
-            echo 'Missing repository secret AI_COMPANION_DEBUG_KEYSTORE_B64.' >&2
-            echo 'Store the rotated stable debug.keystore as one-line base64 before building an overwrite-compatible APK.' >&2
+          if [ -z "${AI_COMPANION_DEBUG_KEYSTORE_B64:-}" ] || [ -z "${AI_COMPANION_DEBUG_KEYSTORE_SHA256:-}" ]; then
+            echo 'Missing repository secrets AI_COMPANION_DEBUG_KEYSTORE_B64 and/or AI_COMPANION_DEBUG_KEYSTORE_SHA256.' >&2
+            echo 'Store the chosen stable test key and its SHA-256 only after deciding whether to rotate or preserve overwrite compatibility.' >&2
             exit 1
           fi
           mkdir -p "$HOME/.android"
           printf '%s' "$AI_COMPANION_DEBUG_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
-          echo "c5d927a90ef96a12eb858e63e071a2cdd3bd6656446ce8ee07517090dbba9a5d  $HOME/.android/debug.keystore" | sha256sum -c -
+          printf '%s  %s\n' "$AI_COMPANION_DEBUG_KEYSTORE_SHA256" "$HOME/.android/debug.keystore" | sha256sum -c -
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
       - name: Source and regression validation
@@ -146,5 +147,4 @@ jobs:
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
-
 
