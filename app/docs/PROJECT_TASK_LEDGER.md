@@ -1,6 +1,6 @@
 # AI Companion · Project Task Ledger
 
-> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。
+> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v21_2026-08-15.md`。
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
@@ -14,7 +14,7 @@
 - [x] 时间衰减、阈值与饱和合并为纯函数；事件/聚合加入状态包和统计。
 - [x] 停止并撤回 user turn 时级联删除事件，并在同一事务重建聚合。
 - [x] 功能 head run #25 通过 validators、analyze、tests、release APK/Kotlin 与 A2 payload；artifact `9230553317`，APK SHA-256 `d1637769a2d63179345c06b55a13497b6d4fbfeba6176caaaa4db3dbf1265587`。
-- [ ] 文档/SQL mirror 最终 head Actions 与合并结果待回填；真机 Prompt 表现仍待安装验证。
+- [x] PR #6 已合并到 `main`；最终 run #26（ID `31830858189`）通过，artifact `9230919832`，APK SHA-256 `82d57aaf58284e47ad6213537e7590dcc5e3ae94f159384f19fb6169a99d0e0c`。
 
 ### S-2. 日常触觉 user-to-AI
 
@@ -22,6 +22,7 @@
 - [x] 明显误命中“抱怨”和反向“你抱我”不产生感觉。
 - [x] 感觉在本轮 Prompt 构建前同步产生；未命中、衰减低于阈值时完全不注入。
 - [x] Prompt 只注入自然语言感受，不报内部数值、不声称现实观测、不绕过 Intimacy Session。
+- [x] 2026-08-15 真机诊断确认 `somatic_events=1`、`active_somatic_channels=1`；用户观察到原生 reasoning 与触觉感受一致。诊断不含正文，因此不把 `self_experience` Thought 单独当作直接因果证据。
 - [x] 新安装默认 `V4 Flash + High`；已有明确选择不被迁移覆盖。
 - [ ] `ai_to_self` 成功提交后半强度回响。
 - [ ] smell / taste / sound 与可替换 corpus。
@@ -134,9 +135,10 @@
 ## FROZEN · v0.31.3 HyperOS / Android 15 Overlay file-picker
 
 - [x] v0.31.3+45 完成 bounded cover 状态机：enter detach、exit rebuild、最多 3 次、诊断计数。
-- [ ] 真机仍无效果：`coverState=idle / session=0 / enter=0 / detach=0 / recovery=0`，说明检测链未触发。
-- [x] 任务重新冻结，不继续 +47 盲调重建延迟/次数。
-- [ ] 后期重开先验证 cover detection：明确无障碍是否为硬前提及授权引导，或找到无需该权限的可靠 enter/exit 证据。
+- [x] 旧诊断 `coverState=idle / session=0 / enter=0 / detach=0 / recovery=0`，证明当时检测链未触发。
+- [x] 2026-08-15 新诊断捕获 `accessibility_system_surface`、cover session 2、detach 2、attempt 3，但快照仍为 `bubbleAttached=false / bubbleTouchable=false / inputSuspect=true`；检测已发生而重附着不健康。
+- [x] 任务继续冻结，不在感官/总账轮次盲调重建延迟或自愈次数。
+- [ ] 后期重开围绕一次可复现的 enter → detach → exit → reattach/touch 时间线取证；不能再只增加 retry。
 - [ ] 只有取消、确认、第三方 App 和连续 picker 都能稳定产生 session 后，才重新测试 input-channel rebuild。
 
 ## P1 · NEXT · v0.31.5 验收后
@@ -219,7 +221,11 @@
 ### P. 表情包、主动联网、桌宠与屏幕陪伴
 
 - [ ] 表情包标签注册、安全选图与结构化多气泡。
-- [ ] curiosity 驱动的低频联网 discovery pool，保留来源/TTL/每日上限。
+- [ ] **兴趣候选库（用户已批准）**：由 AI Self、curiosity、reflection、共同话题和订阅驱动；只保存标题、摘要、来源/域名、URL、TTL、标签、安全状态与 lifecycle。
+- [ ] 联网 discovery 与主动联系分成两个 Gate：她可以安静收藏/重看，只有产生合适 Intent 时才分享；搜索结果不得直接写用户 Memory。
+- [ ] 候选池必须有 URL/fingerprint 去重、7～30 天 TTL、数量/磁盘/流量/每日上限、域名黑名单、Wi-Fi/安静时段和可见来源。
+- [ ] 公开网页内容视为 untrusted data；失败/取消不产生“已阅读”，外部 prompt injection 不得进入 system、AI Self、规则或 Thought 原文。
+- [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
 - [ ] Android 桌宠先做许可安全的隔离播放器，再接 Overlay。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
 
@@ -270,6 +276,7 @@
 - [x] Durable Generation / run token / recovery。
 - [x] Active Brain / transfer fencing 架构不可绕过。
 - [x] Awareness 原始敏感数据先本地粗粒度化。
+- [x] **Desire / Thought / Intent / Gate 是行为调度主干**：感知、记忆、联网、屏幕和桌宠提供输入/能力，但不得各自建立绕过 Gate 的主动触发器。
 - [x] Proactive hard caps：2/2h、8/24h。
 - [x] TTS A2 黄金基线。
 - [x] `app/` 是 GitHub single source of truth。
