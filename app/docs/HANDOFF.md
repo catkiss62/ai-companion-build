@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.5+47 · Live Context & Self Seed**。
+- 当前源码候选：**v0.31.6+48 · Rule Grouping**。
 - 当前已构建/真机基线：**v0.31.5+47 · Live Context & Self Seed**。GitHub Actions run #31 成功，用户脱敏诊断确认 versionCode 47 / schema 20 / Active Brain 正常；Overlay file-picker 问题继续冻结。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
@@ -21,9 +21,17 @@
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
 
-## 3. v0.31.5+47 · Live Context & Self Seed
+## 3. v0.31.6+48 · 规则维护分组
 
-### 3A. 生成前即时设备上下文
+- 数据库仍保存 8 个独立规则小节，schema 继续为 v20；不拼接、不删除，也不覆盖任何已有内容。
+- UI 按维护职责显示为 6 个组：01 身份与关系、02 日常交流、03 行为与初始性格、04 亲密关系核心、05 亲密表现、06 亲密参考资料。
+- 01 卡片内保留“AI 本体与存在”和“固定恋爱关系”两个锁定小节；03 卡片内保留“行为真实感”和可独立编辑/关闭的“初始性格种子”。
+- Prompt 同样先写组标题，再按小节顺序注入原始内容；这只是语义归类，不改变加载策略、锁定、开关或恢复默认行为。
+- 未知或以后新增的自定义 key 不会被丢弃，会作为独立自定义组显示和注入；后续明确同类规则再加入映射。
+
+## 4. v0.31.5+47 · Live Context & Self Seed
+
+### 4A. 生成前即时设备上下文
 
 此前 Android 事件会持续落入本地，但把事件解释成 Awareness、Desire 与 Thought 的 `PerceptionEngine.capture()` 受约 4 分钟捕获节流及 7～24 分钟心跳调度影响。因此 +46 主动消息生成时可能只看见上一轮心跳留下的“屏幕熄灭”等摘要，而不是生成那一刻的最新手机状态。
 
@@ -35,7 +43,7 @@
 - raw package name、通知正文与 Accessibility 正文不会进入 Prompt、Thought 或诊断。诊断只输出 activity class、busy、屏幕布尔值、刷新原因和计数。
 - 这不是让模型在后台实时观看每次触摸；它保证的是：**当她真正要回复或主动开口时，先重新确认当下设备上下文。**
 
-### 3B. 固定关系事实与可成长性格种子
+### 4B. 固定关系事实与可成长性格种子
 
 - 新增锁定的 `01_relationship`：AI 是女性；当前用户是成年男性、男朋友与长期恋爱对象。性别事实不等于刻板剧本，也不能用来编造用户偏好。
 - 明确“女朋友不是服务者、客服或无条件服从者”：她可以选择、拒绝、不同意、保留判断并表达有原因的情绪。
@@ -45,9 +53,9 @@
 - schema 继续为 v20，覆盖安装不重建用户数据。
 - 修正版 +47 已由 GitHub Actions run #31 完成静态校验、Flutter analyze、全套测试和 release APK，并由 Actions 提交完整 `app/` 源码。真机诊断确认普通用户轮次会在 Prompt 前刷新即时上下文，且该刷新不推进 Desire。
 
-## 4. v0.31.4+46 · Grounded Desire Growth
+## 5. v0.31.4+46 · Grounded Desire Growth
 
-### 4A. 旧输出兼容功能完全退役
+### 5A. 旧输出兼容功能完全退役
 
 用户验证：把第一人称沉浸要求直接写入第一规则，可以自然改变 DeepSeek 原生 `reasoning_content`，效果优于 App 的二次协议层。因此本版删除旧“伴侣式内心与回应”功能，而不是只隐藏按钮。
 
@@ -60,7 +68,7 @@
 
 用户当前推荐在第一规则中维护“AI 本体内心沉浸”与正文括号动作要求；App 不再硬编码女友感或固定动作模板。
 
-### 4B. 长期成长与可逆性
+### 5B. 长期成长与可逆性
 
 8 个 Drive 保持不变：`attachment / curiosity / reflection / duty / social / libido / stress / fatigue`。
 
@@ -71,7 +79,7 @@
 - Prompt 把有意义的 baseline 偏移翻译成自然性格倾向，例如更主动靠近、更爱探索、更常回味、更加重视约定或更偏爱安静交流。
 - 已确认的具体喜好、边界和互动偏好仍由 Memory / AI Self / Relationship 保存；Proactive Rhythm 继续学习合适时间、主题和主动意图。Desire baseline 不复制另一套偏好数据库。
 
-### 4C. Thought 指令隔离
+### 5C. Thought 指令隔离
 
 - SQLite 内仍保存 Thought 原文，供本地检索、相似度合并、生命周期和调试使用。
 - 普通/主动模型 Prompt 不再拼入完整 Thought 原文。
@@ -79,21 +87,21 @@
 - 主动生成的 system 尾部也不再复述 `intent.reason` 原文，只说明来源与是否存在关联主题。
 - 这样 Thought 仍能影响“为什么想做”，但不能成为新的 prompt 指令面，也不能冒充用户原话。
 
-### 4D. Intimacy 硬门槛
+### 5D. Intimacy 硬门槛
 
 - `libido` 可以在本地波动和被关系经历塑造。
 - 只有数据库中已存在 active `intimacy` 或 `roleplay_intimacy` Session，`libido -> tease_or_intimacy` 才能进入候选列表。
 - Session 未激活时，Prompt 隐藏 libido 的可执行意图与相关 Thought 线索。
 - 结束 Session 后门槛立即恢复；数值、Memory 或参考资料都不能单独越过。
 
-### 4E. 真正的 Wildcard
+### 5E. 真正的 Wildcard
 
 - 删除“随机给普通 Drive 加一点 pulse”的伪 wildcard。
 - 当整体非亲密张力较高、所有正常候选都低于可行动强度、fatigue 未触发 rest，且距离上次 wildcard 至少 6 小时时，产生 `wildcard_share`。
 - Wildcard 选择当前最适合泄压的 reflection/social/curiosity/attachment 方向，表达轻量分享或换个方向，不编造外部事件。
 - 它仍经过 Proactive Gate、busy friction、rhythm、hard caps、Grounding 与原子写入；成功发送后才记录 cooldown 并 action-aware satisfy。
 
-## 5. Grounding / 主动联系现状
+## 6. Grounding / 主动联系现状
 
 - 普通用户轮次保留真实 role 顺序；主动联系把旧聊天折叠成 `ANSWERED CHAT HISTORY` system transcript。
 - 主动请求明确 `CURRENT_USER_TURN=NONE / ANSWERED_HISTORY_ONLY=true`。
@@ -102,7 +110,7 @@
 - 首次违反允许一次纠正，第二次仍失败则整条主动候选不落库。
 - 每条聊天显示本地 `HH:mm`，跨日本地日期分隔；时间不写正文，TTS 不朗读时间戳。
 
-## 6. Desire / Thought 已接入的运行链
+## 7. Desire / Thought 已接入的运行链
 
 ```text
 聊天 / 关系事件 / Memory / 手机粗粒度活动
@@ -124,7 +132,7 @@
 - Presence 只进入 Drive/Thought，不再在 Gate 重复加权。
 - 用户对主动消息的 engaged/resolved/deferred/dismissed/no_response 会影响 Thought outcome 与 Proactive Rhythm；沉默权重较低，不能把她训练成永久沉默。
 
-## 7. 可观测性
+## 8. 可观测性
 
 “她的内心”调试页显示：
 
@@ -137,7 +145,7 @@
 
 +47 新增 `database.currentContext`：最后刷新时间/原因、refresh count、screen/locked、busy、current/dominant activity class、观察数及错误类型。`rawPackageOrTextIncluded=false` 与 `desireAdvancedByRefresh=false` 是固定边界声明。
 
-## 8. Overlay · FROZEN
+## 9. Overlay · FROZEN
 
 - 系统文件选择器在 `TYPE_APPLICATION_OVERLAY` 上方是正常窗口层级；故障是退出后悬浮球可见却无法点击，进入 AI Companion 后恢复。
 - v0.31.3+45 实现 bounded cover session：enter 退役旧 input channel，exit 后重建，最多 3 次。
@@ -145,7 +153,7 @@
 - 同份诊断 `accessibility=false / accessibilityConnected=false`。以后重开必须先验证 cover detection 与权限前提，禁止继续只调重建延迟/次数。
 - 本轮 v0.31.5 不修改任何 Kotlin Overlay/WindowManager 行为。
 
-## 9. TTS · FROZEN / GUARDRAIL
+## 10. TTS · FROZEN / GUARDRAIL
 
 - 行为参考：`MejuTTS_A2_OriginalNative_v2.5.apk`。
 - `Yuki -> 有希` 只改朗读文本。
@@ -153,13 +161,13 @@
 - 原始 `libbertvits2.so` 前 635,352 bytes SHA-256：`a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b`。
 - 轻微断句停顿和显示版本号遗留一并冻结，不能为了显示重做已可用引擎。
 
-## 10. 下一阶段任务
+## 11. 下一阶段任务
 
 任务真源：`docs/PROJECT_TASK_LEDGER.md`。
 
 P1：
 
-- v0.31.5 Clean Freeze：从当前 `app/` 直接构建，退役根目录历史 patch/文档 ZIP 与一次性 apply workflow；随后实施 01/03 规则归并和真正停止生成。
+- v0.31.5 Clean Freeze 已合并；v0.31.6 实施 01/03 非破坏性规则分组，之后处理真正停止生成。
 - Notification Experience：前台静音、外部/锁屏通知、提示音/震动/隐私、点击进入悬浮聊天。
 - HyperOS 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced。
 - 50/100/数百轮 Memory/Thought/summary/thread 压力测试。
@@ -171,7 +179,7 @@ P2：
 - Intimacy Session 更深整合，但继续保持普通聊天不自动色情化。
 - 隐私/安全/可靠性审计与正式 release signing。
 
-## 11. GitHub / 交付流程
+## 12. GitHub / 交付流程
 
 - `app/` 是唯一产品源码真源；+47 已经进入 `app/`，不再把任何根目录 patch 当作构建输入。
 - 常规 workflow 只从当前源码执行 validators、Flutter analyze/test、release APK 和原生资源校验。

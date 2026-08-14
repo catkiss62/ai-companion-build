@@ -2,6 +2,7 @@ import '../database/app_database.dart';
 import '../models/interaction_session.dart';
 import '../models/reference_item.dart';
 import '../models/rule_layer.dart';
+import 'rule_layer_grouping.dart';
 
 class RuleLayerBundle {
   const RuleLayerBundle({
@@ -17,10 +18,13 @@ class RuleLayerBundle {
   String formatForPrompt() {
     if (layers.isEmpty) return '';
     final buffer = StringBuffer('【当前行为规则层】\n');
-    for (final layer in layers) {
-      buffer
-        ..writeln('\n### ${layer.title}')
-        ..writeln(layer.content.trim());
+    for (final group in groupRuleLayers(layers)) {
+      buffer.writeln('\n## ${group.title}');
+      for (final layer in group.layers) {
+        buffer
+          ..writeln('\n### ${ruleLayerSectionTitle(layer)}')
+          ..writeln(layer.content.trim());
+      }
     }
     return buffer.toString().trim();
   }
@@ -44,7 +48,8 @@ class RuleLayerService {
       );
     }
     final all = await db.listRuleLayers();
-    final intimacy = _sessionIsIntimacy(session) || _bootstrapIntimacy(latestUserText);
+    final intimacy =
+        _sessionIsIntimacy(session) || _bootstrapIntimacy(latestUserText);
     final referenceTriggered = intimacy && references.isNotEmpty;
     final selected = <RuleLayer>[];
     for (final layer in all) {

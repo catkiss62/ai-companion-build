@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import hashlib
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,7 +15,13 @@ def digest(relative: str) -> str:
 
 
 def main() -> int:
-    assert "version: 0.31.5+47" in read("pubspec.yaml")
+    version = re.search(
+        r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",
+        read("pubspec.yaml"),
+        re.MULTILINE,
+    )
+    assert version is not None
+    assert tuple(map(int, version.groups())) >= (0, 31, 5, 47)
     database = read("lib/core/database/app_database.dart")
     assert "static const int schemaVersion = 20;" in database
 
@@ -92,7 +99,13 @@ def main() -> int:
     page = read("lib/features/settings/rule_layers_page.dart")
     assert "layer.enabled || layer.locked" in page
     assert "onChanged: layer.locked" in page
-    assert "初始人格种子可以编辑、关闭" in page
+    assert any(
+        token in page
+        for token in (
+            "初始人格种子可以编辑、关闭",
+            "初始性格种子仍可单独编辑和关闭",
+        )
+    )
 
     rule_test = read("test/rule_layer_defaults_test.dart")
     for token in [

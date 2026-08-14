@@ -133,10 +133,11 @@
 
 ### M. 规则分类归并
 
-- [ ] 合并 `01_core` 与 `01_relationship`，完整保留身份、存在、关系、自主与边界语义。
-- [ ] 将 `03_behavior` 与 `03_personality_seed` 归为同一 UI 分类，同时保留常驻原则与可编辑/可关闭种子的不同元数据。
-- [ ] 不强求固定六类；已有同类规则以后直接加入对应小节。
-- [ ] 迁移不得用默认文本覆盖用户编辑；需覆盖重复启动、旧备份导入和 Active Brain 转移。
+- [x] `01_core` 与 `01_relationship` 归为“01 身份与关系”，完整保留两个锁定小节及其原始内容。
+- [x] `03_behavior` 与 `03_personality_seed` 归为“03 行为与初始性格”，保留各自开关、编辑和恢复默认入口。
+- [x] Prompt 使用同一组标题下的有序小节，不拼接数据库文本；以后明确同类规则可直接加入映射。
+- [x] 不改 schema 和 rule row，未知 key 自动成为自定义组；重复启动、旧备份导入和 Active Brain 转移继续沿用原有独立行语义。
+- [ ] GitHub Actions analyze/test/release APK 与真机 UI 验收。
 
 ### N. 真正停止生成
 
