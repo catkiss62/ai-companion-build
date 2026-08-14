@@ -54,6 +54,63 @@ void main() {
     expect(first.sceneKey, 'touch__embrace__low_sens');
   });
 
+  test('committed assistant action echoes to self at half strength', () {
+    final userPulse = SomaticPolicy.detectDailyTouch(
+      turnId: 'user-turn',
+      text: '我抱住你',
+      now: now,
+    ).single;
+    final selfPulse = SomaticPolicy.detectAssistantSelfTouch(
+      turnId: 'assistant-turn',
+      text: '（紧紧抱住你）',
+      now: now,
+    ).single;
+
+    expect(selfPulse.direction, SomaticDirection.aiToSelf);
+    expect(selfPulse.source, 'assistant_committed');
+    expect(selfPulse.sceneKey, 'touch__embrace__low_sens');
+    expect(selfPulse.intensity, closeTo(userPulse.intensity * 0.5, 0.000001));
+    expect(
+      selfPulse.id,
+      'assistant-turn:ai_to_self:touch__embrace__low_sens',
+    );
+  });
+
+  test('assistant intention and negation do not create self sensation', () {
+    expect(
+      SomaticPolicy.detectAssistantSelfTouch(
+        turnId: 'assistant-intent',
+        text: '我想抱住你，但先问问你愿不愿意。',
+        now: now,
+      ),
+      isEmpty,
+    );
+    expect(
+      SomaticPolicy.detectAssistantSelfTouch(
+        turnId: 'assistant-negated',
+        text: '我不会亲你，只会陪你坐一会儿。',
+        now: now,
+      ),
+      isEmpty,
+    );
+  });
+
+  test('assistant recovery identity is deterministic', () {
+    final first = SomaticPolicy.detectAssistantSelfTouch(
+      turnId: 'stable-assistant',
+      text: '我轻轻牵住你的手。',
+      now: now,
+    ).single;
+    final recovered = SomaticPolicy.detectAssistantSelfTouch(
+      turnId: 'stable-assistant',
+      text: '我轻轻牵住你的手。',
+      now: now.add(const Duration(minutes: 1)),
+    ).single;
+
+    expect(first.id, recovered.id);
+    expect(first.direction, SomaticDirection.aiToSelf);
+  });
+
   test('aggregate decays and prompt hides values below threshold', () {
     final aggregate = SomaticAggregate(
       channel: SomaticChannel.touch,
