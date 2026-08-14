@@ -20,7 +20,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`
 - 默认分支：`main`
 - 源码唯一真源：`app/`
-- 当前 main：`58a77cdaa2ec3d236dc4e083f28385ba4f36b1ef`
+- 当前产品代码基线：`58a77cdaa2ec3d236dc4e083f28385ba4f36b1ef`；其后 PR #7 仅合并本轮文档，未改变 App 行为。
 - 当前 App：`v0.32.0+52 · Somatic Contract & Daily Touch MVP`
 - SQLite schema：`21`
 - 双感官第一阶段 PR：#6，已合并。
