@@ -70,6 +70,8 @@ class OverlayBubbleService : Service() {
     private var chatExpanded = false
     private var chatInputMode = false
     private var chatSending = false
+    private var overlayCancelling = false
+    private var generationPollEpoch = 0
     private var pendingShowAfterUnlock = false
     private var loadedMessages = mutableListOf<NativeChatMessage>()
 
@@ -622,7 +624,7 @@ class OverlayBubbleService : Service() {
             },
             LinearLayout.LayoutParams(0, dp(46), 1f).apply { gravity = Gravity.CENTER_VERTICAL },
         )
-        bar.addView(smallButton("■") { stopSpeech() })
+        bar.addView(smallButton("停语音") { stopSpeech() })
         bar.addView(smallButton("打开") { openFullApp() })
         bar.addView(smallButton("×") { collapseChatOverlay("user_close") })
         return bar
@@ -659,8 +661,15 @@ class OverlayBubbleService : Service() {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         chatSend = Button(this).apply {
-            text = "发送"
-            setOnClickListener { sendFromOverlay() }
+            text = when {
+                overlayCancelling -> "停止中"
+                chatSending -> "停止"
+                else -> "发送"
+            }
+            isEnabled = !overlayCancelling
+            setOnClickListener {
+                if (chatSending) cancelGenerationFromOverlay() else sendFromOverlay()
+            }
         }
         row.addView(
             chatSend,
@@ -709,6 +718,7 @@ class OverlayBubbleService : Service() {
         CompanionRuntimeState.setOverlayVisible(true)
         updateOverlayTouchHealth()
         refreshOverlayMessages(opened = true, attempt = 0)
+        if (chatSending) beginGenerationPolling()
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -870,8 +880,7 @@ class OverlayBubbleService : Service() {
             setChatStatus("正在连接后台大脑…")
             return
         }
-        chatSending = true
-        chatSend?.isEnabled = false
+        setComposerGenerationState(sending = true)
         chatInput?.setText("")
         val optimistic = NativeChatMessage(
             id = "local:${System.currentTimeMillis()}",
@@ -887,6 +896,7 @@ class OverlayBubbleService : Service() {
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
         setChatStatus("她正在想…")
+        beginGenerationPolling()
 
         channel.invokeMethod(
             "sendMessage",
@@ -894,8 +904,8 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        chatSending = false
-                        chatSend?.isEnabled = true
+                        stopGenerationPolling()
+                        setComposerGenerationState(sending = false)
                         val map = result as? Map<*, *>
                         val messages = parseMessageList(map?.get("messages"))
                         if (messages != null) {
@@ -906,15 +916,23 @@ class OverlayBubbleService : Service() {
                             refreshOverlayMessages(opened = false, attempt = 0)
                         }
                         val ok = map?.get("ok") == true
+                        val cancelled = map?.get("cancelled") == true
                         val error = map?.get("error") as? String ?: ""
-                        setChatStatus(if (ok) null else error.ifBlank { "发送失败。" }, !ok)
+                        setChatStatus(
+                            when {
+                                cancelled -> "已停止这轮回复。"
+                                ok -> null
+                                else -> error.ifBlank { "发送失败。" }
+                            },
+                            !ok && !cancelled,
+                        )
                     }
                 }
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
-                        chatSending = false
-                        chatSend?.isEnabled = true
+                        stopGenerationPolling()
+                        setComposerGenerationState(sending = false)
                         setChatStatus("发送失败：${errorMessage ?: errorCode}", true)
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
@@ -922,14 +940,150 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
-                        chatSending = false
-                        chatSend?.isEnabled = true
+                        stopGenerationPolling()
+                        setComposerGenerationState(sending = false)
                         setChatStatus("她还在重新连接，请稍后再试。", true)
                         refreshOverlayMessages(opened = false, attempt = 0)
                     }
                 }
             },
         )
+    }
+
+    private fun cancelGenerationFromOverlay() {
+        if (!chatSending || overlayCancelling) return
+        val channel = backgroundCommands ?: run {
+            setChatStatus("后台大脑尚未连接，暂时无法停止。", true)
+            return
+        }
+        setComposerGenerationState(sending = true, cancelling = true)
+        setChatStatus("正在停止…")
+        channel.invokeMethod(
+            "cancelGeneration",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    mainHandler.post {
+                        stopGenerationPolling()
+                        removeStreamingMessage()
+                        setComposerGenerationState(sending = false)
+                        setChatStatus("已停止这轮回复。")
+                        refreshOverlayMessages(opened = false, attempt = 0)
+                    }
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    mainHandler.post {
+                        setComposerGenerationState(sending = true)
+                        setChatStatus("停止失败：${errorMessage ?: errorCode}", true)
+                        beginGenerationPolling()
+                    }
+                }
+
+                override fun notImplemented() {
+                    mainHandler.post {
+                        setComposerGenerationState(sending = true)
+                        setChatStatus("当前后台还不支持停止，请稍后重试。", true)
+                        beginGenerationPolling()
+                    }
+                }
+            },
+        )
+    }
+
+    private fun setComposerGenerationState(sending: Boolean, cancelling: Boolean = false) {
+        chatSending = sending
+        overlayCancelling = cancelling
+        chatSend?.apply {
+            text = when {
+                cancelling -> "停止中"
+                sending -> "停止"
+                else -> "发送"
+            }
+            isEnabled = !cancelling
+        }
+    }
+
+    private fun beginGenerationPolling() {
+        val epoch = ++generationPollEpoch
+        pollGenerationState(epoch)
+    }
+
+    private fun stopGenerationPolling() {
+        generationPollEpoch++
+    }
+
+    private fun pollGenerationState(epoch: Int) {
+        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) return
+        val channel = backgroundCommands
+        if (channel == null) {
+            scheduleGenerationPoll(epoch)
+            return
+        }
+        channel.invokeMethod(
+            "generationSnapshot",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    mainHandler.post {
+                        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) {
+                            return@post
+                        }
+                        applyGenerationSnapshot(result)
+                        scheduleGenerationPoll(epoch)
+                    }
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    mainHandler.post { scheduleGenerationPoll(epoch) }
+                }
+
+                override fun notImplemented() {
+                    mainHandler.post { scheduleGenerationPoll(epoch) }
+                }
+            },
+        )
+    }
+
+    private fun scheduleGenerationPoll(epoch: Int) {
+        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) return
+        mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
+    }
+
+    private fun applyGenerationSnapshot(result: Any?) {
+        val map = result as? Map<*, *> ?: return
+        val reasoning = map["reasoning"] as? String ?: ""
+        val content = map["content"] as? String ?: ""
+        val phase = map["phase"] as? String ?: "thinking"
+        removeStreamingMessage(notify = false)
+        if (reasoning.isNotEmpty() || content.isNotEmpty()) {
+            loadedMessages.add(
+                NativeChatMessage(
+                    id = STREAMING_MESSAGE_ID,
+                    role = "assistant",
+                    content = content,
+                    reasoning = reasoning,
+                    createdAt = System.currentTimeMillis(),
+                    proactive = false,
+                    proactiveIntent = "",
+                    proactiveDelivery = "",
+                ),
+            )
+        }
+        chatAdapter?.notifyDataSetChanged()
+        scrollChatToBottom()
+        setChatStatus(
+            when (phase) {
+                "cancelling" -> "正在停止…"
+                "answering" -> "她正在回复…"
+                else -> "她正在想…"
+            },
+        )
+    }
+
+    private fun removeStreamingMessage(notify: Boolean = true) {
+        val removed = loadedMessages.removeAll { it.id == STREAMING_MESSAGE_ID }
+        if (removed && notify) chatAdapter?.notifyDataSetChanged()
     }
 
     private fun speakMessage(messageId: String) {
@@ -1697,6 +1851,7 @@ class OverlayBubbleService : Service() {
         chatStatus = null
         chatLoadOlder = null
         chatParams = null
+        stopGenerationPolling()
         chatExpanded = false
         CompanionRuntimeState.setOverlayChatExpanded(false)
         chatInputMode = false
@@ -1824,11 +1979,14 @@ class OverlayBubbleService : Service() {
                 setTextColor(Color.rgb(188, 169, 220))
             })
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
-                bubble.addView(smallInlineAction("🧠 思考") {
-                    if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
-                    notifyDataSetChanged()
+                val live = message.id == STREAMING_MESSAGE_ID
+                bubble.addView(smallInlineAction(if (live) "🧠 思考中" else "🧠 思考") {
+                    if (!live) {
+                        if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
+                        notifyDataSetChanged()
+                    }
                 })
-                if (expandedReasoning.contains(message.id)) {
+                if (live || expandedReasoning.contains(message.id)) {
                     bubble.addView(TextView(this@OverlayBubbleService).apply {
                         text = message.reasoning
                         textSize = 12f
@@ -1837,12 +1995,14 @@ class OverlayBubbleService : Service() {
                     })
                 }
             }
-            bubble.addView(TextView(this@OverlayBubbleService).apply {
-                text = message.content
-                textSize = 15f
-                setTextColor(Color.WHITE)
-                setPadding(0, dp(3), 0, 0)
-            })
+            if (message.content.isNotEmpty() || message.id != STREAMING_MESSAGE_ID) {
+                bubble.addView(TextView(this@OverlayBubbleService).apply {
+                    text = message.content
+                    textSize = 15f
+                    setTextColor(Color.WHITE)
+                    setPadding(0, dp(3), 0, 0)
+                })
+            }
             if (message.role == "assistant") {
                 val actions = LinearLayout(this@OverlayBubbleService).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -1963,6 +2123,8 @@ class OverlayBubbleService : Service() {
         private const val BUBBLE_SAFE_MARGIN_DP = 6
         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
+        private const val GENERATION_POLL_MS = 140L
+        private const val STREAMING_MESSAGE_ID = "overlay:streaming"
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
         private const val COVER_EXIT_STABLE_DELAY_MS = 1_100L
