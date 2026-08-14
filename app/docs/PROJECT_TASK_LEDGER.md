@@ -4,7 +4,28 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
-## P0 · ACTIVE · v0.31.8 Overlay Stop & Live Stream
+## P0 · ACTIVE · v0.31.9 TTS State & Cancelled-turn Withdrawal
+
+### A-1. 两套聊天语音控件一致
+
+- [x] `TtsPlaybackQueue` 对外报告 `idle / synthesizing / playing`，并绑定 assistant message owner。
+- [x] App 与原生悬浮聊天统一显示 outline 喇叭 / “…” / “■”。
+- [x] 自动流式 TTS 在合成首段、尚未出声时显示“…”；进入实际播放调用后切为“■”。
+- [x] 点击“■”、自然播放完成、停止或失败后恢复喇叭；合成中的“…”不重复发起朗读。
+- [x] 删除悬浮框左上角“停语音”和 App 顶栏重复全局停止按钮。
+- [x] 保持 Meju A2 native/MNN、分句、generation-ahead、FIFO 与间隔不变。
+- [ ] REDMI K80 Ultra 真机验证手动朗读、自动流式朗读、合成较慢、自然结束与中途停止。
+
+### A-2. 停止未完成生成时撤回用户轮
+
+- [x] `cancelGenerationJobByUser()` 改为 transaction：active job 终态 fencing 与对应 user message 删除不可分割。
+- [x] completed 先赢时不删除完整对话；cancel 先赢时晚到 checkpoint/assistant commit 继续被 run-token/status fence 拒绝。
+- [x] App Controller 在取消结果、取消异常与 recovery 取消后从 SQLite 重载，悬浮框沿用同一真源刷新。
+- [x] 删除后的输入不进入未来 Prompt、post-turn memory extraction 或 durable recovery。
+- [x] schema 保持 v20，不为半成品测试存档增加迁移负担。
+- [ ] 真机验证 reasoning 前、reasoning 中、正文中与极近完成点停止；取消轮在 App/悬浮框重开后均不出现。
+
+## COMPLETED · v0.31.8 Overlay Stop & Live Stream
 
 ### A0. 生成前即时上下文
 

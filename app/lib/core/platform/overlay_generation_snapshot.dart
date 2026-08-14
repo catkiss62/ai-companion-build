@@ -4,12 +4,14 @@ class OverlayGenerationSnapshot {
     required this.cancelling,
     required this.reasoning,
     required this.content,
+    this.assistantMessageId = '',
   });
 
   final bool sending;
   final bool cancelling;
   final String reasoning;
   final String content;
+  final String assistantMessageId;
 
   String get phase {
     if (cancelling) return 'cancelling';
@@ -24,5 +26,6 @@ class OverlayGenerationSnapshot {
         'reasoning': reasoning,
         'content': content,
         'phase': phase,
+        'assistant_message_id': assistantMessageId,
       };
 }

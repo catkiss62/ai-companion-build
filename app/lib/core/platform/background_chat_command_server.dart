@@ -104,6 +104,12 @@ class BackgroundChatCommandServer {
         };
       case 'generationSnapshot':
         return _generationSnapshot().toChannelMap();
+      case 'ttsSnapshot':
+        final state = _controller?.ttsState;
+        return <String, Object>{
+          'phase': state?.phase.name ?? 'idle',
+          'message_id': state?.ownerId ?? '',
+        };
       case 'cancelGeneration':
         _overlaySendEpoch++;
         final controller = await _ensureController();
@@ -168,6 +174,7 @@ class BackgroundChatCommandServer {
       cancelling: controller.cancellingGeneration,
       reasoning: controller.streamingReasoning,
       content: controller.streamingContent,
+      assistantMessageId: controller.activeGenerationAssistantMessageId ?? '',
     );
   }
 

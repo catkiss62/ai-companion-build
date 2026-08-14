@@ -72,6 +72,10 @@ class OverlayBubbleService : Service() {
     private var chatSending = false
     private var overlayCancelling = false
     private var generationPollEpoch = 0
+    private var ttsPollEpoch = 0
+    private var overlayTtsPhase = "idle"
+    private var overlayTtsMessageId = ""
+    private var streamingAssistantMessageId = ""
     private var pendingShowAfterUnlock = false
     private var loadedMessages = mutableListOf<NativeChatMessage>()
 
@@ -624,7 +628,6 @@ class OverlayBubbleService : Service() {
             },
             LinearLayout.LayoutParams(0, dp(46), 1f).apply { gravity = Gravity.CENTER_VERTICAL },
         )
-        bar.addView(smallButton("停语音") { stopSpeech() })
         bar.addView(smallButton("打开") { openFullApp() })
         bar.addView(smallButton("×") { collapseChatOverlay("user_close") })
         return bar
@@ -719,6 +722,7 @@ class OverlayBubbleService : Service() {
         updateOverlayTouchHealth()
         refreshOverlayMessages(opened = true, attempt = 0)
         if (chatSending) beginGenerationPolling()
+        beginTtsPolling()
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -1050,13 +1054,65 @@ class OverlayBubbleService : Service() {
         mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
     }
 
+    private fun beginTtsPolling() {
+        val epoch = ++ttsPollEpoch
+        pollTtsState(epoch)
+    }
+
+    private fun stopTtsPolling() {
+        ttsPollEpoch++
+    }
+
+    private fun pollTtsState(epoch: Int) {
+        if (epoch != ttsPollEpoch || !chatExpanded) return
+        val channel = backgroundCommands
+        if (channel == null) {
+            scheduleTtsPoll(epoch)
+            return
+        }
+        channel.invokeMethod(
+            "ttsSnapshot",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    mainHandler.post {
+                        if (epoch != ttsPollEpoch || !chatExpanded) return@post
+                        val map = result as? Map<*, *>
+                        val phase = map?.get("phase") as? String ?: "idle"
+                        val messageId = map?.get("message_id") as? String ?: ""
+                        if (phase != overlayTtsPhase || messageId != overlayTtsMessageId) {
+                            overlayTtsPhase = phase
+                            overlayTtsMessageId = messageId
+                            chatAdapter?.notifyDataSetChanged()
+                        }
+                        scheduleTtsPoll(epoch)
+                    }
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    mainHandler.post { scheduleTtsPoll(epoch) }
+                }
+
+                override fun notImplemented() {
+                    mainHandler.post { scheduleTtsPoll(epoch) }
+                }
+            },
+        )
+    }
+
+    private fun scheduleTtsPoll(epoch: Int) {
+        if (epoch != ttsPollEpoch || !chatExpanded) return
+        mainHandler.postDelayed({ pollTtsState(epoch) }, TTS_POLL_MS)
+    }
+
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
         val phase = map["phase"] as? String ?: "thinking"
+        streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
         removeStreamingMessage(notify = false)
-        if (reasoning.isNotEmpty() || content.isNotEmpty()) {
+        if (map["sending"] == true) {
             loadedMessages.add(
                 NativeChatMessage(
                     id = STREAMING_MESSAGE_ID,
@@ -1087,11 +1143,41 @@ class OverlayBubbleService : Service() {
     }
 
     private fun speakMessage(messageId: String) {
-        backgroundCommands?.invokeMethod("speakMessage", mapOf("messageId" to messageId))
+        if (overlayTtsMessageId == messageId) {
+            when (overlayTtsPhase) {
+                "playing" -> {
+                    stopSpeech()
+                    return
+                }
+                "synthesizing" -> return
+            }
+        }
+        applyTtsState("synthesizing", messageId)
+        backgroundCommands?.invokeMethod(
+            "speakMessage",
+            mapOf("messageId" to messageId),
+            object : MethodChannel.Result {
+                override fun success(result: Any?) = Unit
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    mainHandler.post { applyTtsState("idle", "") }
+                }
+                override fun notImplemented() {
+                    mainHandler.post { applyTtsState("idle", "") }
+                }
+            },
+        ) ?: applyTtsState("idle", "")
     }
 
     private fun stopSpeech() {
+        applyTtsState("idle", "")
         backgroundCommands?.invokeMethod("stopSpeech", null)
+    }
+
+    private fun applyTtsState(phase: String, messageId: String) {
+        if (phase == overlayTtsPhase && messageId == overlayTtsMessageId) return
+        overlayTtsPhase = phase
+        overlayTtsMessageId = messageId
+        chatAdapter?.notifyDataSetChanged()
     }
 
     private fun openFullApp() {
@@ -1852,6 +1938,7 @@ class OverlayBubbleService : Service() {
         chatLoadOlder = null
         chatParams = null
         stopGenerationPolling()
+        stopTtsPolling()
         chatExpanded = false
         CompanionRuntimeState.setOverlayChatExpanded(false)
         chatInputMode = false
@@ -2008,7 +2095,13 @@ class OverlayBubbleService : Service() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.END
                 }
-                actions.addView(smallInlineAction("🔊") { speakMessage(message.id) })
+                val streaming = message.id == STREAMING_MESSAGE_ID
+                val ownsSpeech = overlayTtsMessageId.isNotEmpty() &&
+                    overlayTtsMessageId == if (streaming) streamingAssistantMessageId else message.id
+                val speechPhase = if (ownsSpeech) overlayTtsPhase else "idle"
+                if (!streaming || speechPhase != "idle") {
+                    actions.addView(speechAction(message.id, speechPhase, streaming))
+                }
                 bubble.addView(actions)
             }
             outer.addView(
@@ -2031,6 +2124,41 @@ class OverlayBubbleService : Service() {
                 setPadding(dp(9), dp(4), dp(9), dp(2))
                 setOnClickListener { onClick() }
             }
+
+        private fun speechAction(
+            messageId: String,
+            phase: String,
+            streaming: Boolean,
+        ): TextView = TextView(this@OverlayBubbleService).apply {
+            gravity = Gravity.CENTER
+            textSize = if (phase == "synthesizing") 20f else 15f
+            setTextColor(Color.rgb(210, 195, 235))
+            setPadding(dp(9), dp(4), dp(9), dp(2))
+            minWidth = dp(34)
+            minHeight = dp(30)
+            when (phase) {
+                "synthesizing" -> {
+                    text = "…"
+                    isEnabled = false
+                }
+                "playing" -> {
+                    text = "■"
+                    setOnClickListener { stopSpeech() }
+                }
+                else -> {
+                    text = ""
+                    setCompoundDrawablesWithIntrinsicBounds(
+                        R.drawable.ic_volume_up_outlined,
+                        0,
+                        0,
+                        0,
+                    )
+                    if (!streaming) {
+                        setOnClickListener { speakMessage(messageId) }
+                    }
+                }
+            }
+        }
     }
 
     private fun proactiveIntentLabel(intent: String): String = when (intent) {
@@ -2124,6 +2252,7 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val GENERATION_POLL_MS = 140L
+        private const val TTS_POLL_MS = 160L
         private const val STREAMING_MESSAGE_ID = "overlay:streaming"
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L
