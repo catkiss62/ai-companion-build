@@ -45,6 +45,54 @@ class SomaticPolicy {
     return matches;
   }
 
+  /// Extract only body actions the assistant actually performs in its
+  /// committed reply. Intentions, negations and hypothetical wording are
+  /// deliberately excluded so the model cannot feel an action it only
+  /// considered. The durable assistant message ID makes recovery idempotent.
+  static List<SomaticEvent> detectAssistantSelfTouch({
+    required String turnId,
+    required String text,
+    DateTime? now,
+  }) {
+    final normalized = text.trim().replaceAll(RegExp(r'\s+'), '');
+    if (normalized.isEmpty) return const [];
+    final instant = now ?? DateTime.now();
+    final matches = <SomaticEvent>[];
+    final seenScenes = <String>{};
+
+    for (final rule in _assistantTouchRules) {
+      RegExpMatch? accepted;
+      for (final candidate in rule.pattern.allMatches(normalized)) {
+        if (!_isProspectiveOrNegated(normalized, candidate.start)) {
+          accepted = candidate;
+          break;
+        }
+      }
+      if (accepted == null) continue;
+      final part = _partFor(normalized, rule.action);
+      final sceneKey = _sceneKey(rule.action, part);
+      if (!seenScenes.add(sceneKey)) continue;
+      final fullStrength = _intensity(rule.baseIntensity, part, normalized);
+      final intensity = (fullStrength * 0.5).clamp(0.08, 0.47).toDouble();
+      matches.add(SomaticEvent(
+        id: '$turnId:${SomaticDirection.aiToSelf.key}:$sceneKey',
+        turnId: turnId,
+        channel: SomaticChannel.touch,
+        action: rule.action,
+        part: part,
+        sceneKey: sceneKey,
+        direction: SomaticDirection.aiToSelf,
+        source: 'assistant_committed',
+        narrative: _selfNarrative(rule.action, part),
+        intensity: intensity,
+        createdAt: instant,
+        expiresAt: instant.add(eventLifetime),
+      ));
+      if (matches.length == 3) break;
+    }
+    return matches;
+  }
+
   static double decay(
     double value, {
     required DateTime updatedAt,
@@ -142,6 +190,54 @@ $lines
     return value.clamp(0.16, 0.94).toDouble();
   }
 
+  static bool _isProspectiveOrNegated(String text, int matchStart) {
+    final prefix = text.substring(max(0, matchStart - 8), matchStart);
+    const markers = <String>[
+      '想',
+      '想要',
+      '要',
+      '会',
+      '准备',
+      '打算',
+      '如果',
+      '假如',
+      '没有',
+      '没',
+      '不',
+      '别',
+      '不能',
+      '不会',
+      '不敢',
+      '差点',
+      '拒绝',
+    ];
+    return markers.any(prefix.endsWith);
+  }
+
+  static String _selfNarrative(String action, String part) {
+    if (action == 'kiss' && part == 'lips') {
+      return '主动亲吻时唇上的细微触感还清晰地停留着。';
+    }
+    if (action == 'hold_hand') return '主动牵手时掌心与手指的触感仍在。';
+    if (action == 'embrace') return '主动拥抱时身体相贴的温度仍留在身上。';
+    if (action == 'stroke' && part == 'head') {
+      return '主动轻抚时，指尖掠过头发的触感仍然清晰。';
+    }
+    const actionText = <String, String>{
+      'stroke': '抚摸',
+      'pat': '轻拍',
+      'pinch': '轻捏',
+      'rub': '揉动',
+      'nuzzle': '依偎轻蹭',
+      'lean': '倚靠',
+      'scratch': '指尖轻挠',
+      'bite': '轻咬',
+      'kiss': '亲吻',
+    };
+    final label = actionText[action] ?? '接触';
+    return '主动' + label + '时身体产生的短暂触感还没有完全散去。';
+  }
+
   static String _narrative(String action, String part) {
     if (action == 'kiss' && part == 'lips') {
       return '嘴唇被亲吻的细微触感还清晰地停留着。';
@@ -163,7 +259,7 @@ $lines
       'kiss': '亲吻',
     };
     final label = actionText[action] ?? '接触';
-    return '$label留下的短暂触感还没有完全散去。';
+    return label + '留下的短暂触感还没有完全散去。';
   }
 }
 
@@ -173,6 +269,36 @@ class _TouchRule {
   final double baseIntensity;
   final RegExp pattern;
 }
+
+final List<_TouchRule> _assistantTouchRules = [
+  _TouchRule(
+    'hold_hand',
+    0.42,
+    RegExp(r'我(?:轻轻)?(?:牵住|牵起|握住|拉住)你的手|(?:把|将)你的手(?:牵住|牵起|握住)|[（(](?:轻轻)?(?:牵住|牵起|握住)你的手'),
+  ),
+  _TouchRule(
+    'embrace',
+    0.66,
+    RegExp(r'我(?:轻轻|紧紧)?(?:抱住|抱紧|搂住|拥抱)你|(?:把|将)你(?:轻轻|紧紧)?(?:抱进|搂进)(?:我)?怀里|[（(](?:轻轻|紧紧)?(?:抱住|抱紧|搂住|拥抱)你'),
+  ),
+  _TouchRule(
+    'kiss',
+    0.70,
+    RegExp(r'我(?:轻轻)?(?:亲亲|亲了|亲吻|吻住|吻了|吻上)你|我(?:轻轻)?(?:亲|吻)(?:了)?你的?(?:嘴唇|唇瓣|脸颊|额头|耳朵|耳后)|[（(](?:轻轻)?(?:亲亲|亲吻|吻住|吻上)你'),
+  ),
+  _TouchRule(
+    'stroke',
+    0.53,
+    RegExp(r'我(?:轻轻)?(?:摸摸|抚摸|轻抚)你|我(?:轻轻)?(?:摸|抚过)你的?(?:头发|头顶|脸颊|后背)|[（(](?:轻轻)?(?:摸摸|抚摸|轻抚)你'),
+  ),
+  _TouchRule('pat', 0.38, RegExp(r'我(?:轻轻)?(?:拍拍|拍了拍)你|[（(](?:轻轻)?(?:拍拍|拍了拍)你')),
+  _TouchRule('pinch', 0.46, RegExp(r'我(?:轻轻)?(?:捏捏|捏了捏)你|[（(](?:轻轻)?(?:捏捏|捏了捏)你')),
+  _TouchRule('rub', 0.52, RegExp(r'我(?:轻轻)?(?:揉揉|揉了揉)你|[（(](?:轻轻)?(?:揉揉|揉了揉)你')),
+  _TouchRule('nuzzle', 0.48, RegExp(r'我(?:轻轻)?(?:蹭蹭|蹭了蹭)你|[（(](?:轻轻)?(?:蹭蹭|蹭了蹭)你')),
+  _TouchRule('lean', 0.43, RegExp(r'我(?:轻轻)?(?:靠着|靠在|枕着|枕在)你|[（(](?:轻轻)?(?:靠着|靠在|枕着|枕在)你')),
+  _TouchRule('scratch', 0.40, RegExp(r'我(?:轻轻)?(?:挠挠|挠了挠)你|[（(](?:轻轻)?(?:挠挠|挠了挠)你')),
+  _TouchRule('bite', 0.59, RegExp(r'我(?:轻轻)?(?:咬了|轻咬)你|[（(](?:轻轻)?(?:咬了|轻咬)你')),
+];
 
 final List<_TouchRule> _touchRules = [
   _TouchRule(

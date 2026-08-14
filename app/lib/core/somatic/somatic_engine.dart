@@ -1,4 +1,5 @@
 import '../database/app_database.dart';
+import '../models/somatic_state.dart';
 import 'somatic_policy.dart';
 
 class SomaticEngine {
@@ -19,6 +20,19 @@ class SomaticEngine {
     );
     if (events.isEmpty) return 0;
     return db.recordSomaticEvents(events, now: instant);
+  }
+
+  List<SomaticEvent> assistantCommitEvents({
+    required String turnId,
+    required String text,
+    DateTime? now,
+  }) {
+    final instant = now ?? DateTime.now();
+    return SomaticPolicy.detectAssistantSelfTouch(
+      turnId: turnId,
+      text: text,
+      now: instant,
+    );
   }
 
   Future<String> buildPromptSection({DateTime? now}) async {

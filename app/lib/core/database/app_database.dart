@@ -1618,8 +1618,8 @@ class AppDatabase {
     );
   }
 
-  /// Persist short-lived body-sense events after the durable user turn exists.
-  /// Deterministic event IDs make a recovered generation attempt idempotent.
+  /// Persist short-lived body-sense events after their durable source turn
+  /// exists. Stable IDs make recovered attempts idempotent.
   Future<int> recordSomaticEvents(
     List<SomaticEvent> events, {
     DateTime? now,
@@ -1627,65 +1627,77 @@ class AppDatabase {
     if (events.isEmpty) return 0;
     final db = await database;
     final instant = now ?? DateTime.now();
-    return db.transaction<int>((txn) async {
-      final settingRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['active_brain'] == '0' || settings['transfer_lock'] == '1') {
-        return 0;
-      }
+    return db.transaction<int>(
+      (txn) => _recordSomaticEventsInTransaction(txn, events, instant),
+    );
+  }
 
-      final pruned = await txn.delete(
-        'somatic_events',
+  Future<int> _recordSomaticEventsInTransaction(
+    DatabaseExecutor txn,
+    List<SomaticEvent> events,
+    DateTime instant,
+  ) async {
+    if (events.isEmpty) return 0;
+    final settingRows = await txn.query(
+      'settings',
+      columns: ['key', 'value'],
+      where: 'key IN (?, ?)',
+      whereArgs: const ['active_brain', 'transfer_lock'],
+    );
+    final settings = <String, String>{
+      for (final row in settingRows)
+        if (row['key'] is String)
+          row['key'] as String: row['value'] as String? ?? '',
+    };
+    if (settings['active_brain'] == '0' || settings['transfer_lock'] == '1') {
+      return 0;
+    }
+
+    final pruned = await txn.delete(
+      'somatic_events',
+      where: 'expires_at <= ?',
+      whereArgs: [instant.millisecondsSinceEpoch],
+    );
+    if (pruned > 0) {
+      await _rebuildSomaticAggregates(txn, instant);
+    } else {
+      await txn.delete(
+        'somatic_aggregates',
         where: 'expires_at <= ?',
         whereArgs: [instant.millisecondsSinceEpoch],
       );
-      if (pruned > 0) {
-        await _rebuildSomaticAggregates(txn, instant);
-      } else {
-        await txn.delete(
-          'somatic_aggregates',
-          where: 'expires_at <= ?',
-          whereArgs: [instant.millisecondsSinceEpoch],
-        );
-      }
+    }
 
-      var inserted = 0;
-      for (final event in events) {
-        final turn = await txn.query(
-          'messages',
-          columns: ['role'],
-          where: 'id = ?',
-          whereArgs: [event.turnId],
-          limit: 1,
-        );
-        if (turn.isEmpty || turn.first['role'] != 'user') continue;
-        final existing = await txn.query(
-          'somatic_events',
-          columns: ['id'],
-          where: 'id = ?',
-          whereArgs: [event.id],
-          limit: 1,
-        );
-        if (existing.isNotEmpty) continue;
-        await txn.insert(
-          'somatic_events',
-          event.toDb(),
-          conflictAlgorithm: ConflictAlgorithm.abort,
-        );
-        inserted += 1;
-        await _mergeSomaticEvent(txn, event, instant);
-      }
-      return inserted;
-    });
+    var inserted = 0;
+    for (final event in events) {
+      final expectedRole = event.direction == SomaticDirection.userToAi
+          ? 'user'
+          : 'assistant';
+      final turn = await txn.query(
+        'messages',
+        columns: ['role'],
+        where: 'id = ?',
+        whereArgs: [event.turnId],
+        limit: 1,
+      );
+      if (turn.isEmpty || turn.first['role'] != expectedRole) continue;
+      final existing = await txn.query(
+        'somatic_events',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [event.id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) continue;
+      await txn.insert(
+        'somatic_events',
+        event.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+      inserted += 1;
+      await _mergeSomaticEvent(txn, event, instant);
+    }
+    return inserted;
   }
 
   Future<List<SomaticAggregate>> activeSomaticAggregates({
@@ -2190,6 +2202,7 @@ class AppDatabase {
     required String jobId,
     required String runToken,
     required ChatMessage assistant,
+    List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
   }) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -2229,6 +2242,13 @@ class AppDatabase {
       }
       if (job.status != 'running') return false;
       if (assistant.id != job.assistantMessageId) return false;
+      if (somaticEvents.any(
+        (event) =>
+            event.turnId != assistant.id ||
+            event.direction != SomaticDirection.aiToSelf,
+      )) {
+        throw StateError('invalid_assistant_somatic_event');
+      }
 
       final existing = await txn.query(
         'messages',
@@ -2290,6 +2310,14 @@ class AppDatabase {
         // visible assistant message without a completed generation job.
         throw StateError('generation_commit_ownership_lost');
       }
+      // The reply, completed job and AI-to-self pulse share this transaction:
+      // cancellation, stale writers and failed retries therefore cannot leave
+      // a ghost sensation behind.
+      await _recordSomaticEventsInTransaction(
+        txn,
+        somaticEvents,
+        assistant.createdAt,
+      );
       return true;
     });
   }

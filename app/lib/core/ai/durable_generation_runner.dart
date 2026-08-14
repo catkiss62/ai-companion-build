@@ -252,10 +252,18 @@ class DurableGenerationRunner {
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
       );
+      // Detection is pure; persistence happens only inside the winning
+      // durable commit transaction below.
+      final assistantSomaticEvents = somaticEngine.assistantCommitEvents(
+        turnId: assistant.id,
+        text: assistant.content,
+        now: assistant.createdAt,
+      );
       final committed = await db.completeGenerationJobIfCurrent(
         jobId: job.id,
         runToken: job.runToken,
         assistant: assistant,
+        somaticEvents: assistantSomaticEvents,
       );
       if (!committed) {
         await db.suspendGenerationJob(
