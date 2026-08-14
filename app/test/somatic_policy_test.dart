@@ -57,7 +57,7 @@ void main() {
   test('committed assistant action echoes to self at half strength', () {
     final userPulse = SomaticPolicy.detectDailyTouch(
       turnId: 'user-turn',
-      text: '我抱住你',
+      text: '我紧紧抱住你',
       now: now,
     ).single;
     final selfPulse = SomaticPolicy.detectAssistantSelfTouch(
