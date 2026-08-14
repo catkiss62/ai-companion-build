@@ -56,7 +56,7 @@ Git history                  历史补丁与升级过程的恢复来源
 
 1. checkout 当前分支；
 2. 确认 `app/pubspec.yaml` 为 `0.31.5+47`、数据库 schema 20；
-3. 安装 Java 17 / Flutter 3.44.9，并从 GitHub Actions Secret 读取稳定测试签名及其 SHA-256；
+3. 安装 Java 17 / Flutter 3.44.9，并为本次运行生成一次性测试签名；
 4. 执行当前 validators；
 5. `flutter pub get`；
 6. `flutter analyze`；
@@ -67,9 +67,9 @@ Git history                  历史补丁与升级过程的恢复来源
 
 workflow 只读仓库，不再拥有 `contents: write`，也不自动 push。
 
-旧 workflow 曾把测试 `debug.keystore` 直接写在 YAML 中。Clean Freeze 不复制该凭据，也不把旧凭据的指纹重新固化到源码。新 workflow 要求仓库 Secrets `AI_COMPANION_DEBUG_KEYSTORE_B64` 与 `AI_COMPANION_DEBUG_KEYSTORE_SHA256` 同时存在，缺失时明确失败，避免自动生成随机签名。
+旧 workflow 曾把测试 `debug.keystore` 直接写在 YAML 中。Clean Freeze 不复制该凭据，也不把任何私钥、base64 或指纹重新固化到 Git。
 
-签名选择暂不替用户擅自决定：推荐轮换测试 key（需要卸载一次现有 APK，之后恢复稳定覆盖安装）；若为了保留当前覆盖安装而继续使用已暴露的旧开发 key，只能视为私人测试兼容方案，不能用于正式发布。无论选择哪种，key 与指纹都只进入 Secrets，不进入 Git。
+用户明确说明：当前项目所有对话与状态都只是半成品测试数据，每次安装都可先卸载 App，不要求覆盖安装或存档保留。因此新 workflow 每次运行生成有效期 30 天的一次性测试 key，构建完成即随 runner 销毁，不需要 GitHub Secrets。由此产生的 APK 必须卸载旧测试包后安装；正式发布前另行建立长期 release signing，不能使用该临时签名。
 
 ## 5. 已知边界
 
