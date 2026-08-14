@@ -99,7 +99,13 @@ def main() -> int:
     page = read("lib/features/settings/rule_layers_page.dart")
     assert "layer.enabled || layer.locked" in page
     assert "onChanged: layer.locked" in page
-    assert "初始人格种子可以编辑、关闭" in page
+    assert any(
+        token in page
+        for token in (
+            "初始人格种子可以编辑、关闭",
+            "初始性格种子仍可单独编辑和关闭",
+        )
+    )
 
     rule_test = read("test/rule_layer_defaults_test.dart")
     for token in [
