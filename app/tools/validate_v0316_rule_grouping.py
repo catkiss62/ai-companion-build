@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,13 @@ page = read("lib/features/settings/rule_layers_page.dart")
 tests = read("test/rule_layer_defaults_test.dart")
 pubspec = read("pubspec.yaml")
 
-assert "version: 0.31.6+48" in pubspec
+version = re.search(
+    r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",
+    pubspec,
+    re.MULTILINE,
+)
+assert version is not None
+assert tuple(map(int, version.groups())) >= (0, 31, 6, 48)
 
 for key in (
     "01_core",
