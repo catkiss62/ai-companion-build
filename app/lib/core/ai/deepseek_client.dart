@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'generation_cancellation.dart';
 import 'model_profile.dart';
 
 class DeepSeekDelta {
@@ -20,11 +21,17 @@ class DeepSeekDelta {
 }
 
 class DeepSeekClient {
-  DeepSeekClient({http.Client? client}) : _client = client ?? http.Client();
+  DeepSeekClient({
+    http.Client? client,
+    http.Client Function()? streamClientFactory,
+  })  : _client = client ?? http.Client(),
+        _streamClientFactory = streamClientFactory ?? http.Client.new;
 
   static const String defaultEndpoint = 'https://api.deepseek.com/chat/completions';
 
   final http.Client _client;
+  final http.Client Function() _streamClientFactory;
+  final Set<http.Client> _streamClients = <http.Client>{};
 
   Stream<DeepSeekDelta> streamChat({
     required String apiKey,
@@ -34,6 +41,7 @@ class DeepSeekClient {
     String endpoint = defaultEndpoint,
     bool thinking = true,
     int? maxTokens,
+    GenerationCancellationToken? cancellationToken,
   }) async* {
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
@@ -50,42 +58,68 @@ class DeepSeekClient {
         'stream': true,
       });
 
-    final response = await _client
-        .send(request)
-        .timeout(const Duration(seconds: 120));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final body = await response.stream.bytesToString();
-      throw DeepSeekException(response.statusCode, _extractError(body));
+    // One client per stream lets a user cancellation close only this model
+    // request. JSON maintenance calls and a later chat turn remain unaffected.
+    final streamClient = _streamClientFactory();
+    _streamClients.add(streamClient);
+    if (cancellationToken != null) {
+      unawaited(cancellationToken.whenCancelled.then((_) {
+        streamClient.close();
+      }));
     }
 
-    final lines = response.stream
-        .timeout(const Duration(seconds: 120))
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
+    try {
+      cancellationToken?.throwIfCancelled();
+      final response = await streamClient
+          .send(request)
+          .timeout(const Duration(seconds: 120));
+      cancellationToken?.throwIfCancelled();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await response.stream.bytesToString();
+        throw DeepSeekException(response.statusCode, _extractError(body));
+      }
 
-    await for (final rawLine in lines) {
-      final line = rawLine.trim();
-      if (line.isEmpty || !line.startsWith('data:')) continue;
-      final payload = line.substring(5).trim();
-      if (payload == '[DONE]') {
-        yield const DeepSeekDelta(done: true);
-        break;
+      final lines = response.stream
+          .timeout(const Duration(seconds: 120))
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      await for (final rawLine in lines) {
+        cancellationToken?.throwIfCancelled();
+        final line = rawLine.trim();
+        if (line.isEmpty || !line.startsWith('data:')) continue;
+        final payload = line.substring(5).trim();
+        if (payload == '[DONE]') {
+          yield const DeepSeekDelta(done: true);
+          break;
+        }
+        final json = jsonDecode(payload) as Map<String, dynamic>;
+        final choices = json['choices'] as List?;
+        if (choices == null || choices.isEmpty) continue;
+        final first = choices.first as Map<String, dynamic>;
+        final delta =
+            (first['delta'] as Map?)?.cast<String, dynamic>() ?? const {};
+        final reasoning = delta['reasoning_content'] as String? ?? '';
+        final content = delta['content'] as String? ?? '';
+        final finishReason = first['finish_reason'] as String?;
+        if (reasoning.isNotEmpty ||
+            content.isNotEmpty ||
+            finishReason != null) {
+          yield DeepSeekDelta(
+            reasoning: reasoning,
+            content: content,
+            finishReason: finishReason,
+          );
+        }
       }
-      final json = jsonDecode(payload) as Map<String, dynamic>;
-      final choices = json['choices'] as List?;
-      if (choices == null || choices.isEmpty) continue;
-      final first = choices.first as Map<String, dynamic>;
-      final delta = (first['delta'] as Map?)?.cast<String, dynamic>() ?? const {};
-      final reasoning = delta['reasoning_content'] as String? ?? '';
-      final content = delta['content'] as String? ?? '';
-      final finishReason = first['finish_reason'] as String?;
-      if (reasoning.isNotEmpty || content.isNotEmpty || finishReason != null) {
-        yield DeepSeekDelta(
-          reasoning: reasoning,
-          content: content,
-          finishReason: finishReason,
-        );
+    } catch (_) {
+      if (cancellationToken?.isCancelled ?? false) {
+        throw const GenerationCancelledByUserException();
       }
+      rethrow;
+    } finally {
+      _streamClients.remove(streamClient);
+      streamClient.close();
     }
   }
 
@@ -143,7 +177,13 @@ class DeepSeekClient {
     return body.length > 500 ? body.substring(0, 500) : body;
   }
 
-  void close() => _client.close();
+  void close() {
+    for (final streamClient in _streamClients.toList(growable: false)) {
+      streamClient.close();
+    }
+    _streamClients.clear();
+    _client.close();
+  }
 }
 
 class DeepSeekException implements Exception {
