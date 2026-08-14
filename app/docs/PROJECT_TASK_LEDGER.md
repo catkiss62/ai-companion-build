@@ -14,6 +14,7 @@
 - [x] 点击“■”、自然播放完成、停止或失败后恢复喇叭；合成中的“…”不重复发起朗读。
 - [x] 删除悬浮框左上角“停语音”和 App 顶栏重复全局停止按钮。
 - [x] 保持 Meju A2 native/MNN、分句、generation-ahead、FIFO 与间隔不变。
+- [x] GitHub Actions run #22 通过全部新旧 validators、Flutter analyze/tests、release Kotlin/APK、A2 payload、SHA 与 artifact 上传。
 - [ ] REDMI K80 Ultra 真机验证手动朗读、自动流式朗读、合成较慢、自然结束与中途停止。
 
 ### A-2. 停止未完成生成时撤回用户轮
@@ -23,6 +24,7 @@
 - [x] App Controller 在取消结果、取消异常与 recovery 取消后从 SQLite 重载，悬浮框沿用同一真源刷新。
 - [x] 删除后的输入不进入未来 Prompt、post-turn memory extraction 或 durable recovery。
 - [x] schema 保持 v20，不为半成品测试存档增加迁移负担。
+- [x] run #22 artifact `9228720673`；APK SHA-256 `8d42899cd64b7c0ce84a5dbb941a73cdf2797b280c7f26dbe50951e7b15ad6e8`。
 - [ ] 真机验证 reasoning 前、reasoning 中、正文中与极近完成点停止；取消轮在 App/悬浮框重开后均不出现。
 
 ## COMPLETED · v0.31.8 Overlay Stop & Live Stream

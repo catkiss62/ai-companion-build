@@ -65,6 +65,7 @@
 - cancellation contract 测试守住 transaction、active-status fence 与 user-role 精确删除。
 - v0.31.9 validator 同时检查 Flutter、Dart bridge、Kotlin overlay、drawable、数据库和版本契约。
 - 完整 Actions 仍运行全部历史 validators、Flutter analyze/test、release APK 与 A2 native payload 字节校验。
+- GitHub Actions run #22（ID `31825001399`）已完整通过上述链路；artifact ID `9228720673`，APK SHA-256 `8d42899cd64b7c0ce84a5dbb941a73cdf2797b280c7f26dbe50951e7b15ad6e8`。
 
 ## 真机验收
 

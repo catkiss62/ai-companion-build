@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前开发基线：**v0.31.9+51 · TTS State & Cancelled-turn Withdrawal**。本分支待 Actions 与真机验收；最近已构建基线仍为 v0.31.8+50。
-- GitHub Actions run #18（ID 31818910082）已通过全部 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。run #15 是新 validator 测试标题匹配错误；run #16/#17 是历史 v0.31.5/v0.31.4 整文件 Overlay 哈希保护，均发生在源码校验阶段，未执行编译或 APK。现已改为继续守住 HyperOS input-recovery 关键契约、同时允许明确的悬浮 UI 功能演进。
+- 当前已构建开发基线：**v0.31.9+51 · TTS State & Cancelled-turn Withdrawal**；PR #5 等待最终 head 校验、合并与真机验收。
+- GitHub Actions run #22（ID 31825001399）已通过全部新旧 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。v0.31.8 run #18/#21 仍保留为上一版通过证据。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -30,6 +30,7 @@
 - 用户停止未完成回复时，SQLite 在一个 transaction 内先把 active generation job 终结为 `cancelled_by_user`，再删除对应 user message。未来 Prompt、Memory、两套聊天历史与恢复器都看不到这条半轮输入。
 - completion 与 stop 保持原子竞态：completed 若先提交，取消不删除完整 user/assistant 对；cancel 若先提交，run-token fence 阻止晚到 assistant 落库。
 - schema 继续为 v20；不改 Prompt、规则、Desire/Thought、Memory、主动联系、Overlay cover/input recovery 与权限。
+- run #22（ID 31825001399）完整通过；artifact ID `9228720673`，APK SHA-256 `8d42899cd64b7c0ce84a5dbb941a73cdf2797b280c7f26dbe50951e7b15ad6e8`。
 - 完整设计、边界和真机清单见 `docs/TTS_STATE_CANCEL_RETRACT_v0.31.9.md`。
 
 ## 3A. v0.31.8+50 · 悬浮框近手停止与真实双流
