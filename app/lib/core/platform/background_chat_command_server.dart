@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../features/chat/chat_controller.dart';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
+import 'overlay_generation_snapshot.dart';
 
 /// Command surface used by the native WindowManager overlay.
 ///
@@ -30,6 +31,7 @@ class BackgroundChatCommandServer {
   ChatController? _controller;
   bool _controllerInitialized = false;
   Future<void>? _initializing;
+  int _overlaySendEpoch = 0;
 
   void start() {
     _channel.setMethodCallHandler(_handle);
@@ -82,14 +84,31 @@ class BackgroundChatCommandServer {
             'messages': _rows(await db.recentMessages(limit: 8)),
           };
         }
+        final sendEpoch = ++_overlaySendEpoch;
         final controller = await _ensureController();
+        if (sendEpoch != _overlaySendEpoch) {
+          return <String, Object?>{
+            'ok': false,
+            'cancelled': true,
+            'error': '',
+            'messages': _rows(await db.recentMessages(limit: 8)),
+          };
+        }
         await controller.sendText(text);
         onWake?.call('overlay_send');
         return <String, Object?>{
           'ok': controller.error == null,
+          'cancelled': sendEpoch != _overlaySendEpoch,
           'error': controller.error ?? '',
           'messages': _rows(await db.recentMessages(limit: 8)),
         };
+      case 'generationSnapshot':
+        return _generationSnapshot().toChannelMap();
+      case 'cancelGeneration':
+        _overlaySendEpoch++;
+        final controller = await _ensureController();
+        await controller.cancelCurrentGeneration();
+        return _generationSnapshot().toChannelMap();
       case 'notificationReply':
         final text = _stringArg(call.arguments, 'text').trim();
         final replyId = _stringArg(call.arguments, 'replyId').trim();
@@ -133,6 +152,24 @@ class BackgroundChatCommandServer {
     }
   }
 
+
+  OverlayGenerationSnapshot _generationSnapshot() {
+    final controller = _controller;
+    if (controller == null) {
+      return const OverlayGenerationSnapshot(
+        sending: false,
+        cancelling: false,
+        reasoning: '',
+        content: '',
+      );
+    }
+    return OverlayGenerationSnapshot(
+      sending: controller.sending,
+      cancelling: controller.cancellingGeneration,
+      reasoning: controller.streamingReasoning,
+      content: controller.streamingContent,
+    );
+  }
 
   Future<void> _warmOverlayController() async {
     try {

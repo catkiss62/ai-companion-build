@@ -4,7 +4,7 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
-## P0 · ACTIVE · v0.31.7 True Stop Generation
+## P0 · ACTIVE · v0.31.8 Overlay Stop & Live Stream
 
 ### A0. 生成前即时上下文
 
@@ -148,6 +148,17 @@
 - [x] checkpoint/final commit 继续受 `running + run_token` fencing；取消后的晚到 token 不落库、不复活。
 - [x] Runner 轮询 SQLite ownership，Overlay/headless recovery 也能在跨引擎取消后退出。
 - [x] GitHub Actions run #10（ID 31813142711）通过 validators、analyze、全部 tests、release APK、A2 原生校验与 artifact 上传；真机停止行为待用户安装确认。
+
+### N2. 悬浮框停止与真实流式双通道
+
+- [x] 生成期间原生悬浮框的近手发送键切换为“停止”，不再禁用。
+- [x] 顶部旧停止图标明确改名“停语音”；停止生成与停止朗读不再混淆。
+- [x] 后台 MethodChannel 复用持久 ChatController 的真实取消入口，覆盖 HTTP 流、TTS、SQLite terminal 与 recovery fencing。
+- [x] 增加 background warm-up send epoch，防止连接期间的停止被随后启动的发送越过。
+- [x] 只在悬浮框展开且生成活跃时轮询 provider 原生 reasoning/content，显示单个临时流式气泡；不合成、不落库半条回复。
+- [x] 增加纯 Dart snapshot phase/序列化测试与 v0.31.8 Kotlin/Dart 静态契约 validator。
+- [x] GitHub Actions run #18（ID 31818910082）通过全部 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload 与 artifact；前三次失败均停在静态校验，未生成 APK。
+- [ ] 真机确认思考期停止、正文/TTS 期停止、收起重开不复活、自然完成后临时气泡被正式消息替换。
 
 ### O. 双通道感官
 
