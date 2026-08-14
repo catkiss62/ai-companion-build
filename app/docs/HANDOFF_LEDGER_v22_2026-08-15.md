@@ -27,7 +27,7 @@
 - 双感官第一方向 PR #6、第二方向 PR #9，均已合并。
 - 最终 Actions：run #32，ID `31841772104`，通过 validators、Flutter analyze/tests、release APK 与冻结 Meju A2 payload 校验。
 - Artifact：`9234768624`，名称 `AI-Companion-v0.32.1-53-Somatic-AI-to-Self-APK`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
-- APK 内部 SHA-256 由 workflow 同包生成 `app-release.apk.sha256`；交付时应与 APK 一起下载并复核。
+- APK SHA-256：`e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`；workflow 同包生成 `app-release.apk.sha256`，交付时应与 APK 一起下载并复核。
 - Clean Freeze、规则维护分组、完整 App 真停止、悬浮框近手停止/真实双流、语音三态和取消轮撤回均已进入 `main`。
 - 仓库根目录不再使用历史 patch/ZIP 作为构建输入；常规 workflow 只验证和构建已提交的 `app/`。
 
