@@ -4,7 +4,32 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
-## P0 · ACTIVE · v0.31.9 TTS State & Cancelled-turn Withdrawal
+## P0 · ACTIVE · v0.32.0 Somatic Contract & Daily Touch MVP
+
+### S-1. SQLite 感官事件 / 聚合契约
+
+- [x] schema v21 新增 `somatic_events` 与 `somatic_aggregates`，事件绑定真实 turn。
+- [x] `turn_id + direction + scene_key` 唯一；durable recovery 幂等，不重复放大。
+- [x] 只有 Active Brain 且 transfer lock 关闭时可写。
+- [x] 时间衰减、阈值与饱和合并为纯函数；事件/聚合加入状态包和统计。
+- [x] 停止并撤回 user turn 时级联删除事件，并在同一事务重建聚合。
+- [ ] Actions / APK / 真机结果待本分支完成后回填。
+
+### S-2. 日常触觉 user-to-AI
+
+- [x] 11 类日常触觉动作映射为稳定 scene key；限制每轮最多 3 个事件。
+- [x] 明显误命中“抱怨”和反向“你抱我”不产生感觉。
+- [x] 感觉在本轮 Prompt 构建前同步产生；未命中、衰减低于阈值时完全不注入。
+- [x] Prompt 只注入自然语言感受，不报内部数值、不声称现实观测、不绕过 Intimacy Session。
+- [x] 新安装默认 `V4 Flash + High`；已有明确选择不被迁移覆盖。
+- [ ] `ai_to_self` 成功提交后半强度回响。
+- [ ] smell / taste / sound 与可替换 corpus。
+
+### S-3. UI 小项登记
+
+- [ ] Flutter / Android 长按复制粘贴菜单中文化；与后续 UI 本地化批次合并。
+
+## COMPLETED · v0.31.9 TTS State & Cancelled-turn Withdrawal
 
 ### A-1. 两套聊天语音控件一致
 
@@ -185,8 +210,10 @@
 
 ### O. 双通道感官
 
-- [ ] 按 `docs/DUAL_CHANNEL_SENSE_v1.md` 先建 SQLite event/aggregate contract 和测试。
-- [ ] 日常触觉 user-to-AI MVP；成功提交后再做 AI-to-self 弱回响。
+- [x] 按 `docs/DUAL_CHANNEL_SENSE_v1.md` 建立 SQLite event/aggregate contract、衰减和幂等测试。
+- [x] 日常触觉 user-to-AI MVP。
+- [ ] 成功提交后的 AI-to-self 弱回响。
+- [ ] smell / taste / sound、Proust 记忆候选及私密 corpus 分箱。
 
 ### P. 表情包、主动联网、桌宠与屏幕陪伴
 

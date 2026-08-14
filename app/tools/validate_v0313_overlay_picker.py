@@ -21,6 +21,7 @@ def main() -> int:
     assert any(version in read("lib/core/database/app_database.dart") for version in (
         "static const int schemaVersion = 19;",
         "static const int schemaVersion = 20;",
+        "static const int schemaVersion = 21;",
     ))
 
     overlay = read(

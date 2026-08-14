@@ -25,6 +25,8 @@ import '../models/relationship_event.dart';
 import '../models/interaction_session.dart';
 import '../models/thought.dart';
 import '../models/unfinished_thread.dart';
+import '../models/somatic_state.dart';
+import '../somatic/somatic_policy.dart';
 import '../sync/transfer_identity.dart';
 
 class AppDatabase {
@@ -32,7 +34,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 20;
+  static const int schemaVersion = 21;
 
   Database? _db;
   Future<Database>? _opening;
@@ -648,6 +650,9 @@ class AppDatabase {
         whereArgs: ['companion_voice%'],
       );
     }
+    if (oldVersion < 21) {
+      await _createV21Tables(db);
+    }
 
   }
 
@@ -794,6 +799,7 @@ class AppDatabase {
     await _createV16Tables(db);
     await _createV17Tables(db);
     await _createV18Tables(db);
+    await _createV21Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -804,7 +810,7 @@ class AppDatabase {
       'updated_at': now,
     });
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
-    await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-pro'});
+    await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
@@ -1268,6 +1274,44 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV21Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS somatic_events (
+        id TEXT PRIMARY KEY,
+        turn_id TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        action TEXT NOT NULL DEFAULT '',
+        part TEXT NOT NULL DEFAULT '',
+        scene_key TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        source TEXT NOT NULL,
+        narrative TEXT NOT NULL,
+        intensity REAL NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY(turn_id) REFERENCES messages(id) ON DELETE CASCADE,
+        UNIQUE(turn_id, direction, scene_key)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_somatic_events_active ON somatic_events(channel, expires_at DESC, created_at ASC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS somatic_aggregates (
+        channel TEXT PRIMARY KEY,
+        value REAL NOT NULL,
+        scene_key TEXT NOT NULL,
+        narrative TEXT NOT NULL,
+        last_event_id TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_somatic_aggregates_active ON somatic_aggregates(expires_at DESC, value DESC)',
+    );
+  }
+
   Future<void> _seedRuleLayers(Database db) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final layer in defaultRuleLayers) {
@@ -1574,6 +1618,139 @@ class AppDatabase {
     );
   }
 
+  /// Persist short-lived body-sense events after the durable user turn exists.
+  /// Deterministic event IDs make a recovered generation attempt idempotent.
+  Future<int> recordSomaticEvents(
+    List<SomaticEvent> events, {
+    DateTime? now,
+  }) async {
+    if (events.isEmpty) return 0;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<int>((txn) async {
+      final settingRows = await txn.query(
+        'settings',
+        columns: ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final settings = <String, String>{
+        for (final row in settingRows)
+          if (row['key'] is String)
+            row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (settings['active_brain'] == '0' || settings['transfer_lock'] == '1') {
+        return 0;
+      }
+
+      await txn.delete(
+        'somatic_events',
+        where: 'expires_at <= ?',
+        whereArgs: [instant.millisecondsSinceEpoch],
+      );
+      await txn.delete(
+        'somatic_aggregates',
+        where: 'expires_at <= ?',
+        whereArgs: [instant.millisecondsSinceEpoch],
+      );
+
+      var inserted = 0;
+      for (final event in events) {
+        final turn = await txn.query(
+          'messages',
+          columns: ['role'],
+          where: 'id = ?',
+          whereArgs: [event.turnId],
+          limit: 1,
+        );
+        if (turn.isEmpty || turn.first['role'] != 'user') continue;
+        final existing = await txn.query(
+          'somatic_events',
+          columns: ['id'],
+          where: 'id = ?',
+          whereArgs: [event.id],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) continue;
+        await txn.insert(
+          'somatic_events',
+          event.toDb(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+        inserted += 1;
+        await _mergeSomaticEvent(txn, event, instant);
+      }
+      return inserted;
+    });
+  }
+
+  Future<List<SomaticAggregate>> activeSomaticAggregates({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'somatic_aggregates',
+      where: 'expires_at > ?',
+      whereArgs: [instant.millisecondsSinceEpoch],
+      orderBy: 'value DESC, updated_at DESC',
+    );
+    return rows.map(SomaticAggregate.fromDb).toList(growable: false);
+  }
+
+  Future<void> _mergeSomaticEvent(
+    DatabaseExecutor txn,
+    SomaticEvent event,
+    DateTime now,
+  ) async {
+    final rows = await txn.query(
+      'somatic_aggregates',
+      where: 'channel = ?',
+      whereArgs: [event.channel.name],
+      limit: 1,
+    );
+    final current = rows.isEmpty
+        ? 0.0
+        : SomaticPolicy.decay(
+            (rows.first['value'] as num?)?.toDouble() ?? 0.0,
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(
+              rows.first['updated_at'] as int,
+            ),
+            now: now,
+          );
+    final aggregate = SomaticAggregate(
+      channel: event.channel,
+      value: SomaticPolicy.mergePulse(current, event.intensity),
+      sceneKey: event.sceneKey,
+      narrative: event.narrative,
+      lastEventId: event.id,
+      updatedAt: now,
+      expiresAt: event.expiresAt,
+    );
+    await txn.insert(
+      'somatic_aggregates',
+      aggregate.toDb(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _rebuildSomaticAggregates(
+    DatabaseExecutor txn,
+    DateTime now,
+  ) async {
+    await txn.delete('somatic_aggregates');
+    final rows = await txn.query(
+      'somatic_events',
+      where: 'expires_at > ?',
+      whereArgs: [now.millisecondsSinceEpoch],
+      orderBy: 'created_at ASC, id ASC',
+    );
+    for (final row in rows) {
+      final event = SomaticEvent.fromDb(row);
+      await _mergeSomaticEvent(txn, event, event.createdAt);
+    }
+  }
+
   Future<GenerationJob> createGenerationTurn({
     required ChatMessage user,
     required String assistantMessageId,
@@ -1836,6 +2013,13 @@ class AppDatabase {
           'messages',
           where: 'id = ? AND role = ?',
           whereArgs: [userMessageId, 'user'],
+        );
+        // ON DELETE CASCADE withdraws this turn's sense events. Rebuilding the
+        // short-lived aggregate in the same transaction removes any ghost
+        // sensation before another prompt can observe it.
+        await _rebuildSomaticAggregates(
+          txn,
+          DateTime.fromMillisecondsSinceEpoch(now),
         );
       }
       return true;
@@ -6508,6 +6692,12 @@ class AppDatabase {
       'pending_post_turn_jobs': await count('post_turn_jobs', "status IN ('pending','running','retry_wait','failed')"),
       'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
+      'somatic_events': await count('somatic_events'),
+      'active_somatic_channels': await count(
+        'somatic_aggregates',
+        'expires_at > ?',
+        [DateTime.now().millisecondsSinceEpoch],
+      ),
     };
   }
 
@@ -6536,6 +6726,8 @@ class AppDatabase {
       'proactive_feedback',
       'post_turn_jobs',
       'generation_jobs',
+      'somatic_events',
+      'somatic_aggregates',
       'settings',
     ];
     // Read the whole state inside one SQLite transaction so background
@@ -6604,6 +6796,8 @@ class AppDatabase {
         'proactive_feedback',
         'post_turn_jobs',
         'generation_jobs',
+        'somatic_events',
+        'somatic_aggregates',
         'desire_state',
         'settings',
       ];
@@ -6812,7 +7006,7 @@ class AppDatabase {
       );
       for (final entry in const <String, String>{
         'active_brain': '1',
-        'model': 'deepseek-v4-pro',
+        'model': 'deepseek-v4-flash',
         'reasoning_effort': 'high',
         'auto_memory': '1',
         'transfer_lock': '0',

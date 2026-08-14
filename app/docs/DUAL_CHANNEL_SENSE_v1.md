@@ -401,3 +401,13 @@ bucket 选档：使用当前 drive snapshot 计算 `bucket_key`，再命中 corp
 
 这些资料不是规则 1 合并和当前仓库整理的阻塞项；在正式实现感官系统前补齐即可。
 
+
+
+## 25. v0.32.0 第一阶段实现状态
+
+- 已实现：schema v21 的 `somatic_events / somatic_aggregates`、Active Brain fencing、幂等事件、短期衰减、取消轮重建、状态包导入导出。
+- 已实现：保守的日常触觉 `user_to_ai` 解析与自然语言 Prompt 注入；未命中或低于阈值完全静默。
+- 未实现：assistant 成功提交后的 `ai_to_self` 半强度回响、smell/taste/sound、Proust 记忆候选和私密 corpus。
+- 新安装默认模型同步改为 V4 Flash + High；长按菜单中文化另列 UI 待办。
+- 详细实现边界见 `SOMATIC_CONTRACT_TOUCH_v0.32.0.md`。
+

@@ -9,7 +9,7 @@ enum DeepSeekModelProfile {
   static DeepSeekModelProfile fromApiName(String? value) {
     return DeepSeekModelProfile.values.firstWhere(
       (e) => e.apiName == value,
-      orElse: () => DeepSeekModelProfile.pro,
+      orElse: () => DeepSeekModelProfile.flash,
     );
   }
 }
@@ -29,3 +29,4 @@ enum ReasoningEffort {
     );
   }
 }
+

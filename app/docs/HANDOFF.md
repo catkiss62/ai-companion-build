@@ -4,10 +4,10 @@
 
 ## 1. 当前基底
 
-- 当前已构建开发基线：**v0.31.9+51 · TTS State & Cancelled-turn Withdrawal**；PR #5 等待最终 head 校验、合并与真机验收。
-- GitHub Actions run #22（ID 31825001399）已通过全部新旧 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。v0.31.8 run #18/#21 仍保留为上一版通过证据。
+- 当前开发主线：**v0.32.0+52 · Somatic Contract & Daily Touch MVP**；v0.31.9+51 已合并并通过最终 head run #23。
+- v0.32.0 当前等待本分支完整 Actions；完成后回填 run、artifact、APK SHA 与合并 commit。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
-- 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
+- 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
 
 ## 2. 产品定位与固定原则
@@ -21,7 +21,19 @@
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
 
-## 3. v0.31.9+51 · 语音状态一致与取消轮撤回
+## 3. v0.32.0+52 · 双通道感官第一阶段
+
+- 本版先交付 SQLite event/aggregate 数据契约与日常触觉 `user_to_ai` MVP；`ai_to_self` 半强度回响及 smell/taste/sound 属于后续小版本，不伪装为已经完成。
+- `somatic_events` 绑定真实 user turn，事件 ID 由 `turn_id + direction + scene_key` 稳定生成，durable recovery 重跑不会重复脉冲。
+- 只有 Active Brain 且未处于 transfer lock 时能写入；短期聚合按 8 分钟半衰期衰减、36 分钟过期，低于阈值完全不进入 Prompt。
+- 当前日常词法覆盖 embrace/kiss/stroke/pat/pinch/rub/nuzzle/lean/scratch/bite/hold_hand，并规避“抱怨”和“你抱我”等明显反向/误命中。
+- Prompt 仅接收最多两条自然语言身体感觉，不接收内部数值；明确禁止报数、把感觉说成现实观测或绕过 Intimacy Session。
+- 用户停止未完成回复时，删除 user message 会级联撤销该 turn 的感官事件，并在同一事务重算聚合，避免幽灵感觉。
+- 感官事件和聚合加入状态包导入/导出与统计；schema 升为 21。
+- 新安装默认聊天模型改为 `V4 Flash + High`；已有数据库的明确模型选择不被迁移覆盖。长按复制/粘贴菜单中文化登记为 UI 待办，本轮不扩大范围。
+- 完整设计与验收见 `docs/SOMATIC_CONTRACT_TOUCH_v0.32.0.md` 和 `docs/DUAL_CHANNEL_SENSE_v1.md`。
+
+## 4. v0.31.9+51 · 语音状态一致与取消轮撤回
 
 - App 与原生悬浮聊天共用 `TtsPlaybackQueue` 的 `idle / synthesizing / playing` 真状态及消息 owner：空闲显示 App 同款 outline 喇叭，合成/等待首段音频显示“…”；真正调用音频播放后显示“■”；点击“■”、播放完成或失败后回到喇叭。
 - 自动流式 TTS 从 `beginStream` 起也带 assistant message owner，因此首段尚未出声时两套界面都能显示“…”；不改 Meju A2 native/MNN、断句、generation-ahead、FIFO 或约 200ms gap。
