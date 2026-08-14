@@ -56,7 +56,7 @@ Git history                  历史补丁与升级过程的恢复来源
 
 1. checkout 当前分支；
 2. 确认 `app/pubspec.yaml` 为 `0.31.5+47`、数据库 schema 20；
-3. 安装 Java 17 / Flutter 3.44.9，并从 GitHub Actions Secret 读取轮换后的稳定测试签名；
+3. 安装 Java 17 / Flutter 3.44.9，并从 GitHub Actions Secret 读取稳定测试签名及其 SHA-256；
 4. 执行当前 validators；
 5. `flutter pub get`；
 6. `flutter analyze`；
@@ -67,7 +67,9 @@ Git history                  历史补丁与升级过程的恢复来源
 
 workflow 只读仓库，不再拥有 `contents: write`，也不自动 push。
 
-旧 workflow 曾把测试 `debug.keystore` 直接写在 YAML 中。Clean Freeze 不复制该凭据；应轮换 keystore，并把单行 base64 存入仓库 Secret `AI_COMPANION_DEBUG_KEYSTORE_B64`。Secret 缺失时构建明确失败，避免自动生成新签名后无法覆盖安装现有 APK。
+旧 workflow 曾把测试 `debug.keystore` 直接写在 YAML 中。Clean Freeze 不复制该凭据，也不把旧凭据的指纹重新固化到源码。新 workflow 要求仓库 Secrets `AI_COMPANION_DEBUG_KEYSTORE_B64` 与 `AI_COMPANION_DEBUG_KEYSTORE_SHA256` 同时存在，缺失时明确失败，避免自动生成随机签名。
+
+签名选择暂不替用户擅自决定：推荐轮换测试 key（需要卸载一次现有 APK，之后恢复稳定覆盖安装）；若为了保留当前覆盖安装而继续使用已暴露的旧开发 key，只能视为私人测试兼容方案，不能用于正式发布。无论选择哪种，key 与指纹都只进入 Secrets，不进入 Git。
 
 ## 5. 已知边界
 
@@ -82,4 +84,3 @@ workflow 只读仓库，不再拥有 `contents: write`，也不自动 push。
 - 所有删除均为 Git 跟踪文件，可从基线 commit 或历史 commit 恢复。
 - 若新 workflow 构建失败，优先修正当前 `app/` 或 workflow；不得恢复“构建时应用旧补丁”的长期模式。
 - 只有在需要重放历史升级过程做取证时，才从 Git 历史临时取回单个 patch。
-
