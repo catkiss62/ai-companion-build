@@ -24,7 +24,8 @@
 - [x] Prompt 只注入自然语言感受，不报内部数值、不声称现实观测、不绕过 Intimacy Session。
 - [x] 2026-08-15 真机诊断确认 `somatic_events=1`、`active_somatic_channels=1`；用户观察到原生 reasoning 与触觉感受一致。诊断不含正文，因此不把 `self_experience` Thought 单独当作直接因果证据。
 - [x] 新安装默认 `V4 Flash + High`；已有明确选择不被迁移覆盖。
-- [ ] `ai_to_self` 成功提交后半强度回响。
+- [x] v0.32.1+53 PR #9 / run #32：新增完成动作与动作括号检测，过滤意图/否定/假设；Flutter analyze/tests、release APK 与 A2 payload 校验全部通过。
+- [x] `ai_to_self` 成功 durable commit 后半强度回响；与 assistant message/job completed/aggregate 同事务，取消、失败、stale writer、恢复重跑不制造幽灵事件。
 - [ ] smell / taste / sound 与可替换 corpus。
 
 ### S-3. UI 小项登记
@@ -159,7 +160,7 @@
 - [ ] 数小时 idle 后恢复 heartbeat / perception / proactive。
 - [ ] Android 杀进程后的 service/process recreation。
 - [ ] 开机、应用更新后的恢复。
-- [ ] Xiaomi/HyperOS 电池策略、后台启动限制说明与诊断。
+- [ ] Xiaomi/HyperOS 电池策略、后台启动限制说明与诊断；用户当前未遇到后台被杀，本项后置，有真机证据再升优先级。
 - [ ] 完整 Activity destroy 后 durable generation 仍可恢复，不依赖 Activity-owned engine。
 
 ### G. 长期记忆/成长压力测试
@@ -215,7 +216,7 @@
 
 - [x] 按 `docs/DUAL_CHANNEL_SENSE_v1.md` 建立 SQLite event/aggregate contract、衰减和幂等测试。
 - [x] 日常触觉 user-to-AI MVP。
-- [ ] 成功提交后的 AI-to-self 弱回响。
+- [x] 成功提交后的 AI-to-self 0.5 弱回响；PR #9 已合并，run #32 全量通过，待真机脱敏诊断确认。
 - [ ] smell / taste / sound、Proust 记忆候选及私密 corpus 分箱。
 
 ### P. 表情包、主动联网、桌宠与屏幕陪伴
@@ -226,7 +227,7 @@
 - [ ] 候选池必须有 URL/fingerprint 去重、7～30 天 TTL、数量/磁盘/流量/每日上限、域名黑名单、Wi-Fi/安静时段和可见来源。
 - [ ] 公开网页内容视为 untrusted data；失败/取消不产生“已阅读”，外部 prompt injection 不得进入 system、AI Self、规则或 Thought 原文。
 - [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
-- [ ] Android 桌宠先做许可安全的隔离播放器，再接 Overlay。
+- [ ] Android 桌宠先做许可安全的隔离播放器，再接 Overlay；桌宠点击动作可打开悬浮聊天窗。旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸与真停止能力。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
 
 ## P2 · LATER
