@@ -1643,16 +1643,20 @@ class AppDatabase {
         return 0;
       }
 
-      await txn.delete(
+      final pruned = await txn.delete(
         'somatic_events',
         where: 'expires_at <= ?',
         whereArgs: [instant.millisecondsSinceEpoch],
       );
-      await txn.delete(
-        'somatic_aggregates',
-        where: 'expires_at <= ?',
-        whereArgs: [instant.millisecondsSinceEpoch],
-      );
+      if (pruned > 0) {
+        await _rebuildSomaticAggregates(txn, instant);
+      } else {
+        await txn.delete(
+          'somatic_aggregates',
+          where: 'expires_at <= ?',
+          whereArgs: [instant.millisecondsSinceEpoch],
+        );
+      }
 
       var inserted = 0;
       for (final event in events) {
