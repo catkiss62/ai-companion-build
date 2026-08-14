@@ -110,14 +110,13 @@ def main() -> int:
     ]:
         assert token in tests, token
 
-    # v0.31.4 must not silently modify the frozen native/Overlay baselines.
+    # TTS/runtime/accessibility remain byte-frozen. Overlay UI may evolve, but
+    # its HyperOS input-recovery contract remains guarded below.
     frozen = {
         "lib/core/tts/tts_sentence_segmenter.dart":
             "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
         "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
             "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
-        "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt":
-            "e1b74e114b9d28ce990131e59d6051fa665e0270b3e92dd5440debec95f7be82",
         "android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt":
             "b29ca1b48de73508bb393c71c63c1165a65649ccabc1fe712a3aaef7b18a6e2a",
         "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt":
@@ -125,6 +124,19 @@ def main() -> int:
     }
     for relative, expected in frozen.items():
         assert digest(relative) == expected, relative
+
+    overlay = read(
+        "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
+    )
+    for token in [
+        "inputRecoveryInProgress",
+        "CompanionRuntimeState.setOverlayRecoveryInProgress(true)",
+        "COVER_RECOVERY_MAX_ATTEMPTS = 3",
+        "window_visibility_suppressed",
+        "window_visibility_restored",
+        "rebuildInputChannel = CompanionRuntimeState.consumeOverlayInputSuspect()",
+    ]:
+        assert token in overlay, token
 
     for relative in ["docs/HANDOFF.md", "docs/PROJECT_TASK_LEDGER.md"]:
         body = read(relative)
