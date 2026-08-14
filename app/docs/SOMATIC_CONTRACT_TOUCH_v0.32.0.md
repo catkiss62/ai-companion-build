@@ -61,6 +61,9 @@ durable user message + generation job 已提交
 - 衰减到阈值以下后 Prompt 完全不出现身体感觉。
 - Prompt 不包含内部强度数字，并保留边界声明。
 - schema、Active Brain fencing、取消重建、状态包表、默认模型与 Runner/Prompt 接线由 v0.32.0 validator 固定。
+- Python SQLite mirror 额外验证唯一约束拒绝恢复重复事件，删除 user turn 会级联撤销事件。
+- 功能 head GitHub Actions run #25 已通过全部静态保护器、Flutter analyze/tests、release APK/Kotlin 和冻结 A2 原生字节校验。
+- run #25 artifact：`9230553317`；APK SHA-256：`d1637769a2d63179345c06b55a13497b6d4fbfeba6176caaaa4db3dbf1265587`。
 
 ## 下一步
 

@@ -5,7 +5,7 @@
 ## 1. 当前基底
 
 - 当前开发主线：**v0.32.0+52 · Somatic Contract & Daily Touch MVP**；v0.31.9+51 已合并并通过最终 head run #23。
-- v0.32.0 当前等待本分支完整 Actions；完成后回填 run、artifact、APK SHA 与合并 commit。
+- GitHub Actions run #25（ID `31829813825`）已通过全部新旧 validators、Flutter analyze/tests、release APK/Kotlin 与冻结 A2 payload；功能 head artifact `9230553317`，APK SHA-256 `d1637769a2d63179345c06b55a13497b6d4fbfeba6176caaaa4db3dbf1265587`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -31,6 +31,7 @@
 - 用户停止未完成回复时，删除 user message 会级联撤销该 turn 的感官事件，并在同一事务重算聚合，避免幽灵感觉。
 - 感官事件和聚合加入状态包导入/导出与统计；schema 升为 21。
 - 新安装默认聊天模型改为 `V4 Flash + High`；已有数据库的明确模型选择不被迁移覆盖。长按复制/粘贴菜单中文化登记为 UI 待办，本轮不扩大范围。
+- run #25 完整通过；文档/SQL mirror 回填后的最终 head 仍需再次通过 Actions 后才合并 PR #6。
 - 完整设计与验收见 `docs/SOMATIC_CONTRACT_TOUCH_v0.32.0.md` 和 `docs/DUAL_CHANNEL_SENSE_v1.md`。
 
 ## 4. v0.31.9+51 · 语音状态一致与取消轮撤回

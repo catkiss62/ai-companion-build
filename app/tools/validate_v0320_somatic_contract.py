@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import re
+import sqlite3
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,5 +68,39 @@ for title in [
     "pulses saturate",
 ]:
     assert title in tests, title
+
+# SQLite mirror: the real v21 constraints must reject duplicate recovery
+# events and withdraw the child row when its durable user turn is cancelled.
+db = sqlite3.connect(":memory:")
+db.execute("PRAGMA foreign_keys = ON")
+db.execute("CREATE TABLE messages (id TEXT PRIMARY KEY, role TEXT NOT NULL)")
+db.execute("""
+CREATE TABLE somatic_events (
+  id TEXT PRIMARY KEY, turn_id TEXT NOT NULL, channel TEXT NOT NULL,
+  action TEXT NOT NULL DEFAULT '', part TEXT NOT NULL DEFAULT '',
+  scene_key TEXT NOT NULL, direction TEXT NOT NULL, source TEXT NOT NULL,
+  narrative TEXT NOT NULL, intensity REAL NOT NULL,
+  created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+  FOREIGN KEY(turn_id) REFERENCES messages(id) ON DELETE CASCADE,
+  UNIQUE(turn_id, direction, scene_key)
+)
+""")
+db.execute("INSERT INTO messages VALUES ('turn-1', 'user')")
+event = (
+    "event-1", "turn-1", "touch", "kiss", "lips",
+    "touch__kiss__lips", "user_to_ai", "user_text", "短暂触感",
+    0.72, 100, 200,
+)
+db.execute("INSERT INTO somatic_events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", event)
+try:
+    db.execute(
+        "INSERT INTO somatic_events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        ("event-2",) + event[1:],
+    )
+    raise AssertionError("duplicate recovered event was accepted")
+except sqlite3.IntegrityError:
+    pass
+db.execute("DELETE FROM messages WHERE id='turn-1'")
+assert db.execute("SELECT COUNT(*) FROM somatic_events").fetchone()[0] == 0
 
 print("v0.32.0 somatic contract and daily-touch MVP validation passed")

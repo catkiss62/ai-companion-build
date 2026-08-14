@@ -13,7 +13,8 @@
 - [x] 只有 Active Brain 且 transfer lock 关闭时可写。
 - [x] 时间衰减、阈值与饱和合并为纯函数；事件/聚合加入状态包和统计。
 - [x] 停止并撤回 user turn 时级联删除事件，并在同一事务重建聚合。
-- [ ] Actions / APK / 真机结果待本分支完成后回填。
+- [x] 功能 head run #25 通过 validators、analyze、tests、release APK/Kotlin 与 A2 payload；artifact `9230553317`，APK SHA-256 `d1637769a2d63179345c06b55a13497b6d4fbfeba6176caaaa4db3dbf1265587`。
+- [ ] 文档/SQL mirror 最终 head Actions 与合并结果待回填；真机 Prompt 表现仍待安装验证。
 
 ### S-2. 日常触觉 user-to-AI
 
