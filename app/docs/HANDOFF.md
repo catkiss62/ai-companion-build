@@ -176,7 +176,8 @@ P2：
 - `app/` 是唯一产品源码真源；+47 已经进入 `app/`，不再把任何根目录 patch 当作构建输入。
 - 常规 workflow 只从当前源码执行 validators、Flutter analyze/test、release APK 和原生资源校验。
 - workflow 不在构建时修改或提交仓库，权限降为 `contents: read`。
-- 旧 workflow 内嵌的测试 keystore 必须轮换；新 workflow 只从仓库 Secret `AI_COMPANION_DEBUG_KEYSTORE_B64` 读取，缺失时明确失败。
+- 旧 workflow 曾内嵌测试 keystore；新 workflow 不复制 key 或旧指纹，只从仓库 Secrets `AI_COMPANION_DEBUG_KEYSTORE_B64` 与 `AI_COMPANION_DEBUG_KEYSTORE_SHA256` 读取，缺失时明确失败。
+- 推荐轮换测试 key（现有 APK 需卸载一次）；若为私人测试保留旧 key 以继续覆盖安装，必须明确接受它已暴露且绝不能用于正式发布。
 - 历史升级补丁与项目文档 ZIP 已从根目录移除；需要取证时从 Git 历史按文件恢复。
 - 每项正式功能使用独立分支/PR；合并后再生成 APK，避免构建步骤隐式改变 main。
 - Clean Freeze 记录见 `docs/CLEAN_FREEZE_v0.31.5.md`。
