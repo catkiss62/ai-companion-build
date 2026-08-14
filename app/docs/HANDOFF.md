@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.7+49 · True Stop Generation**。
-- 当前已构建基线：**v0.31.6+48 · Rule Grouping**。当前真机诊断基线仍为 v0.31.5+47；v0.31.7 不需要旧诊断参与实现，完成后只做停止行为真机验收。
+- 当前源码与已构建基线：**v0.31.7+49 · True Stop Generation**。
+- GitHub Actions run #10（ID 31813142711）已通过 validators、Flutter analyze、全部 tests、release APK、A2 原生 payload 与 artifact 上传。当前真机诊断基线仍为 v0.31.5+47；v0.31.7 只待停止行为真机验收。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。

@@ -147,7 +147,7 @@
 - [x] SQLite 使用 terminal `cancelled_by_user`；单次 UPDATE 清空 run token、partial checkpoint 与 retry 时间。
 - [x] checkpoint/final commit 继续受 `running + run_token` fencing；取消后的晚到 token 不落库、不复活。
 - [x] Runner 轮询 SQLite ownership，Overlay/headless recovery 也能在跨引擎取消后退出。
-- [ ] GitHub Actions analyze/test/release APK 与真机停止行为验收。
+- [x] GitHub Actions run #10（ID 31813142711）通过 validators、analyze、全部 tests、release APK、A2 原生校验与 artifact 上传；真机停止行为待用户安装确认。
 
 ### O. 双通道感官
 
