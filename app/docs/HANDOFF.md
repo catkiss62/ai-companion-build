@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前源码与已构建基线：**v0.31.7+49 · True Stop Generation**。
-- GitHub Actions run #10（ID 31813142711）已通过 validators、Flutter analyze、全部 tests、release APK、A2 原生 payload 与 artifact 上传。当前真机诊断基线仍为 v0.31.5+47；v0.31.7 只待停止行为真机验收。
+- 当前源码候选：**v0.31.8+50 · Overlay Stop & Live Stream**；最近已构建基线为 v0.31.7+49。
+- GitHub Actions run #11（ID 31814281406）已通过 v0.31.7 validators、Flutter analyze、全部 tests、release APK、A2 原生 payload 与 artifact 上传。v0.31.8 正在独立 PR 中验证；真机可用同一 APK 同时验收完整 App 与悬浮框停止。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -20,6 +20,16 @@
 - 用户忙是主动联系的 soft friction，不是绝对静音；主动联系仍受 2/2h、8/24h hard caps。
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
+
+## 3. v0.31.8+50 · 悬浮框近手停止与真实双流
+
+- 原生 WindowManager 悬浮聊天框在生成期间不再禁用发送键；同一近手按钮切换为“停止/停止中”，调用后台持久 `ChatController.cancelCurrentGeneration()`。
+- 顶部旧“■”实际只停语音，现改名“停语音”，避免误认为能够停止模型。
+- 后台命令新增 `cancelGeneration` 与只读 `generationSnapshot`；取消继续落到 v0.31.7 的 HTTP token、TTS、SQLite `cancelled_by_user` 和 run-token fence。
+- 悬浮框展开且本轮仍在生成时，每 140ms 读取一次控制器已有的真实 `reasoning_content/content`，显示临时“思考中”与流式正文；不伪造思考，不持久化半条 assistant。
+- 收起悬浮框即停止 UI 轮询但不擅自中断生成；重新展开可继续看当前状态。完成后用 SQLite 正式消息替换临时气泡，取消后移除临时气泡并保留用户消息。
+- schema 继续为 v20；不新增权限，不改 Prompt/Desire/Memory/行为规则、主动联系、WindowManager 触摸恢复或 Meju A2。
+- 完整边界与真机清单见 `docs/OVERLAY_STOP_STREAM_v0.31.8.md`。当前源码与测试已写入分支，Actions 结果待本 PR 完成后回填。
 
 ## 3. v0.31.7+49 · 真正停止生成
 
