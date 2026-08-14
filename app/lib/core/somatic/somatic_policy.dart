@@ -192,8 +192,54 @@ $lines
 
   static bool _isProspectiveOrNegated(String text, int matchStart) {
     final prefix = text.substring(max(0, matchStart - 8), matchStart);
-    return RegExp(
-      r'(想|想要|要|会|准备|打算|如果|假如|没有|没|不|别|不能|不会|不敢|差点|拒绝)    if (action == 'kiss' && part == 'lips') {
+    const markers = <String>[
+      '想',
+      '想要',
+      '要',
+      '会',
+      '准备',
+      '打算',
+      '如果',
+      '假如',
+      '没有',
+      '没',
+      '不',
+      '别',
+      '不能',
+      '不会',
+      '不敢',
+      '差点',
+      '拒绝',
+    ];
+    return markers.any(prefix.endsWith);
+  }
+
+  static String _selfNarrative(String action, String part) {
+    if (action == 'kiss' && part == 'lips') {
+      return '主动亲吻时唇上的细微触感还清晰地停留着。';
+    }
+    if (action == 'hold_hand') return '主动牵手时掌心与手指的触感仍在。';
+    if (action == 'embrace') return '主动拥抱时身体相贴的温度仍留在身上。';
+    if (action == 'stroke' && part == 'head') {
+      return '主动轻抚时，指尖掠过头发的触感仍然清晰。';
+    }
+    const actionText = <String, String>{
+      'stroke': '抚摸',
+      'pat': '轻拍',
+      'pinch': '轻捏',
+      'rub': '揉动',
+      'nuzzle': '依偎轻蹭',
+      'lean': '倚靠',
+      'scratch': '指尖轻挠',
+      'bite': '轻咬',
+      'kiss': '亲吻',
+    };
+    final label = actionText[action] ?? '接触';
+    return '主动' + label + '时身体产生的短暂触感还没有完全散去。';
+  }
+
+  static String _narrative(String action, String part) {
+    if (action == 'kiss' && part == 'lips') {
       return '嘴唇被亲吻的细微触感还清晰地停留着。';
     }
     if (action == 'hold_hand') return '手指相扣留下的温度仍在手心里。';
@@ -213,7 +259,7 @@ $lines
       'kiss': '亲吻',
     };
     final label = actionText[action] ?? '接触';
-    return '$label留下的短暂触感还没有完全散去。';
+    return label + '留下的短暂触感还没有完全散去。';
   }
 }
 
