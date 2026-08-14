@@ -10,8 +10,8 @@
 - Clean Freeze 只整理仓库结构、构建入口和接班文档，未改 Dart/Kotlin/SQLite 产品逻辑。
 - `app/` 被确认为唯一产品源码真源；根目录 11 份已应用 patch、2 份历史文档 ZIP 与一次性 apply workflow 已从候选分支移除，Git 历史仍可恢复。
 - 新 workflow 从当前 `app/` 直接执行 validators、`flutter analyze`、`flutter test`、release APK 与原生资源校验；权限降为 `contents: read`，不再在构建时 apply 或 push。
-- 发现旧 workflow 曾内嵌测试 `debug.keystore`。新 workflow 不复制 key 或旧指纹，改为要求 Secrets `AI_COMPANION_DEBUG_KEYSTORE_B64` 与 `AI_COMPANION_DEBUG_KEYSTORE_SHA256`。
-- 签名策略等待用户决定：推荐轮换测试 key（现有 APK 需卸载一次）；若为了当前覆盖安装继续使用旧开发 key，只能作为已知暴露的私人测试兼容方案，绝不能用于正式发布。
+- 发现旧 workflow 曾内嵌测试 `debug.keystore`。用户确认半成品阶段不保留真实存档，每次安装均可卸载旧 App，因此旧 key 与覆盖兼容需求一并退役。
+- 新 workflow 每次运行生成一次性测试 key，不保存私钥、GitHub Secret 或旧指纹。测试 APK 必须卸载旧包后安装；正式发布前另建长期 release signing。
 - 规则归并被定为 Clean Freeze 后第一项代码任务。开源参考优先采用 sqflite 官方迁移范式：最新版 schema 在 `onCreate` 建全量结构，`onUpgrade` 按旧版本条件迁移并回归重复升级。
 - 当前规则归并建议是“语义/UI 分组而非破坏性拼接”：保留 `01_core`、`01_relationship`、`03_behavior`、`03_personality_seed` 各自数据库内容与编辑/锁定属性，仅在 UI 与 Prompt 层归为两个同类组，避免覆盖用户原文。
 - 已开草稿 PR #1：`https://github.com/catkiss62/ai-companion-build/pull/1`，当前 head `e0c9dc5b212b8603d8297992fa31049d98b03a6b`。在合并前不启动规则 schema 改动，避免把清理和功能开发混为一项。
@@ -73,6 +73,7 @@
 3. 项目未完全做完前，用户暂不自行修改规则；后续同类规则允许直接增补到原分类，不再为防覆盖无限拆卡。
 4. 合并规则时完整保留用户原意；消重只能消除真正同义句，不能删语义。
 5. 每完成一个大阶段，由执行者判断是否到 Clean Freeze 点；清理前列出精确文件，删除需用户确认。
+6. 当前仍是可清空的半成品测试阶段：聊天、状态与本地存档都不作真实数据保留，可随时卸载重装；进入正式数据保留阶段时必须在总账中另行声明并启用稳定 release signing/升级兼容验收。
 6. 男性向 AI 女友是产品主方向；参考机制可以跨性别借鉴，角色表达不可简单换代词照搬。
 
 ## 3. 任务总表
@@ -389,4 +390,3 @@
 10. 是否到 Clean Freeze 点。
 
 不把“讨论过”写成“完成”，不把“有方案”写成“已进源码”，不依赖单一聊天窗口保存项目事实。
-
