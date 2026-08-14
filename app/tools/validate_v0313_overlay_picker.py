@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,11 +11,13 @@ def read(relative: str) -> str:
 
 def main() -> int:
     pubspec = read("pubspec.yaml")
-    assert any(version in pubspec for version in (
-        "version: 0.31.3+45",
-        "version: 0.31.4+46",
-        "version: 0.31.5+47",
-    ))
+    version = re.search(
+        r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",
+        pubspec,
+        re.MULTILINE,
+    )
+    assert version is not None
+    assert tuple(map(int, version.groups())) >= (0, 31, 3, 45)
     assert any(version in read("lib/core/database/app_database.dart") for version in (
         "static const int schemaVersion = 19;",
         "static const int schemaVersion = 20;",
