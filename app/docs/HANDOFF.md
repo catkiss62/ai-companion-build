@@ -5,7 +5,7 @@
 ## 1. 当前基底
 
 - 当前源码候选：**v0.31.5+47 · Live Context & Self Seed**。
-- 上一个已构建/真机基线：**v0.31.4+46 · Grounded Desire Growth**。用户已覆盖安装并提交脱敏诊断；Desire Core 正常运行，Overlay file-picker 问题仍无改善并继续冻结。
+- 当前已构建/真机基线：**v0.31.5+47 · Live Context & Self Seed**。GitHub Actions run #31 成功，用户脱敏诊断确认 versionCode 47 / schema 20 / Active Brain 正常；Overlay file-picker 问题继续冻结。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -43,7 +43,7 @@
 - 性格种子不要求每轮反驳，也不鼓励威胁、惩罚或无端发脾气。真实共同经历、用户明确反馈、长期 AI Self、Relationship 与 Desire baseline 会逐步细化或修正它。
 - 升级采用 `INSERT OR IGNORE`：不会覆盖用户已经编辑的旧规则，只补入两个新层。身份/关系层带锁不可关闭；性格种子可在“行为规则层”内编辑、关闭或恢复默认。
 - schema 继续为 v20，覆盖安装不重建用户数据。
-- 首次 +47 Actions 已通过补丁、静态校验、Flutter analyze 与 108 项测试；唯一失败是旧 `rule_layer_defaults_test` 仍写死 6 条记录，而新增两条基础层后正确数量为 8。修正版测试改为核对全部 8 个明确 key、两个锁定基础层和可关闭性格种子；首次失败发生在 commit 前，GitHub `app/` 仍是 +46。
+- 修正版 +47 已由 GitHub Actions run #31 完成静态校验、Flutter analyze、全套测试和 release APK，并由 Actions 提交完整 `app/` 源码。真机诊断确认普通用户轮次会在 Prompt 前刷新即时上下文，且该刷新不推进 Desire。
 
 ## 4. v0.31.4+46 · Grounded Desire Growth
 
@@ -159,7 +159,7 @@
 
 P1：
 
-- v0.31.5 Actions 构建与真机验收；确认即时上下文、男性关系事实和性格种子后进行本阶段仓库整合/Clean Freeze。
+- v0.31.5 Clean Freeze：从当前 `app/` 直接构建，退役根目录历史 patch/文档 ZIP 与一次性 apply workflow；随后实施 01/03 规则归并和真正停止生成。
 - Notification Experience：前台静音、外部/锁屏通知、提示音/震动/隐私、点击进入悬浮聊天。
 - HyperOS 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced。
 - 50/100/数百轮 Memory/Thought/summary/thread 压力测试。
@@ -173,13 +173,11 @@ P2：
 
 ## 11. GitHub / 交付流程
 
-- 当前补丁输入必须是仓库中已提交的 `app/` v0.31.4+46。
-- 上传 `v0315-live-context-self-seed.patch` 到仓库根目录。
-- 首份 +46 交付曾因仓库内三份项目文档与源码 ZIP 的文档上下文不同，在 `git apply --check` 阶段退出；没有应用源码、没有产生提交，也不是 Flutter 编译错误。
-- 修正版将源码补丁与 `v0314-project-docs.zip` 分离：代码保持严格 patch，六份文档经 SHA-256 校验后覆盖到 `app/docs/`，避免文档先前被更新时阻断源码升级。
-- +47 继续使用“源码 patch + 独立项目文档 ZIP”，以免仓库内文档版本差异阻断源码升级。
-- 首次 +47 包的产品源码没有编译错误，但旧测试数量断言导致 Actions 在 `flutter test` 退出；修正版补丁、文档 ZIP 与 workflow 均使用新 SHA-256，必须三者一起替换。
-- 用交付包中的 workflow 完整替换 `.github/workflows/build-v028-apk.yml`，手动运行。
-- workflow 顺序：检查 +46/schema v20 基线 → SHA-256 检查 → `git apply --check --directory=app` → 覆盖并校验项目文档 → +47/旧版 validators → Flutter analyze/test → release APK → commit `app/`。
-- 测试 APK 使用固定测试签名，可覆盖安装；正式发布再换私有签名。
-- 大阶段验收后再删除已应用临时 patch，进行完整源码 ZIP/SHA-256 与 Clean Freeze。
+- `app/` 是唯一产品源码真源；+47 已经进入 `app/`，不再把任何根目录 patch 当作构建输入。
+- 常规 workflow 只从当前源码执行 validators、Flutter analyze/test、release APK 和原生资源校验。
+- workflow 不在构建时修改或提交仓库，权限降为 `contents: read`。
+- 用户确认半成品测试阶段所有对话/状态都可丢弃，每次均可卸载 App 后重装，不需要覆盖安装兼容。
+- 旧 workflow 内嵌测试 keystore 已退役；新 workflow 每次生成一次性测试 key，不保存私钥、Secret 或旧指纹。正式发布前必须另建长期 release signing。
+- 历史升级补丁与项目文档 ZIP 已从根目录移除；需要取证时从 Git 历史按文件恢复。
+- 每项正式功能使用独立分支/PR；合并后再生成 APK，避免构建步骤隐式改变 main。
+- Clean Freeze 记录见 `docs/CLEAN_FREEZE_v0.31.5.md`。
