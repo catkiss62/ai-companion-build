@@ -5,7 +5,7 @@
 ## 1. 当前基底
 
 - 当前开发主线：**v0.32.1+53 · Somatic AI-to-Self Atomic Echo**；产品提交 `08f2f46c3e464761a247a7983a3b63233e17dc9f`。
-- PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
+- PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
