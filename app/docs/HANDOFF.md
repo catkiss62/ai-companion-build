@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.8+50 · Overlay Stop & Live Stream**；最近已构建基线为 v0.31.7+49。
-- GitHub Actions run #11（ID 31814281406）已通过 v0.31.7 validators、Flutter analyze、全部 tests、release APK、A2 原生 payload 与 artifact 上传。v0.31.8 正在独立 PR 中验证；真机可用同一 APK 同时验收完整 App 与悬浮框停止。
+- 当前源码与已构建基线：**v0.31.8+50 · Overlay Stop & Live Stream**。
+- GitHub Actions run #18（ID 31818910082）已通过全部 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。run #15 是新 validator 测试标题匹配错误；run #16/#17 是历史 v0.31.5/v0.31.4 整文件 Overlay 哈希保护，均发生在源码校验阶段，未执行编译或 APK。现已改为继续守住 HyperOS input-recovery 关键契约、同时允许明确的悬浮 UI 功能演进。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -29,7 +29,7 @@
 - 悬浮框展开且本轮仍在生成时，每 140ms 读取一次控制器已有的真实 `reasoning_content/content`，显示临时“思考中”与流式正文；不伪造思考，不持久化半条 assistant。
 - 收起悬浮框即停止 UI 轮询但不擅自中断生成；重新展开可继续看当前状态。完成后用 SQLite 正式消息替换临时气泡，取消后移除临时气泡并保留用户消息。
 - schema 继续为 v20；不新增权限，不改 Prompt/Desire/Memory/行为规则、主动联系、WindowManager 触摸恢复或 Meju A2。
-- 完整边界与真机清单见 `docs/OVERLAY_STOP_STREAM_v0.31.8.md`。当前源码与测试已写入分支，Actions 结果待本 PR 完成后回填。
+- 完整边界与真机清单见 `docs/OVERLAY_STOP_STREAM_v0.31.8.md`。run #18 已完整通过，当前只待 REDMI K80 Ultra 真机交互验收。
 
 ## 3. v0.31.7+49 · 真正停止生成
 
