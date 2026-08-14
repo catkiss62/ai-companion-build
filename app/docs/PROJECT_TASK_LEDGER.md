@@ -184,10 +184,10 @@
 - [x] v0.31.5 patch/workflow/validator/Actions/APK 完成。
 - [x] 本阶段 Clean Freeze：常规 workflow 改为只从 `app/` 独立 validate/analyze/test/release build。
 - [x] 删除已应用 v0.30.x / v0.31.x 临时 patch、文档 ZIP，并退役一次性 apply workflow；Git 历史保留恢复路径。
-- [ ] 选择测试签名策略：推荐轮换曾内嵌在旧 workflow 的 key（需卸载一次现有 APK）；若保留旧 key 只允许私人测试兼容，不能用于发布。
-- [ ] 设置仓库 Secrets `AI_COMPANION_DEBUG_KEYSTORE_B64` 与 `AI_COMPANION_DEBUG_KEYSTORE_SHA256`；完成前新 workflow 会安全失败，不生成签名不确定的 APK。
+- [x] 用户确认半成品测试阶段不保留存档、每次均可卸载重装；旧 workflow 内嵌 key 彻底退役。
+- [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
-- [ ] 最终覆盖安装、备份恢复、崩溃恢复检查。
+- [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
 
 ## FROZEN · TTS
 
