@@ -40,23 +40,23 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
 
-      - name: Install stable AI Companion test signing key
+      - name: Generate ephemeral AI Companion test signing key
         shell: bash
-        env:
-          AI_COMPANION_DEBUG_KEYSTORE_B64: ${{ secrets.AI_COMPANION_DEBUG_KEYSTORE_B64 }}
-          AI_COMPANION_DEBUG_KEYSTORE_SHA256: ${{ secrets.AI_COMPANION_DEBUG_KEYSTORE_SHA256 }}
         run: |
           set -euo pipefail
-          if [ -z "${AI_COMPANION_DEBUG_KEYSTORE_B64:-}" ] || [ -z "${AI_COMPANION_DEBUG_KEYSTORE_SHA256:-}" ]; then
-            echo 'Missing repository secrets AI_COMPANION_DEBUG_KEYSTORE_B64 and/or AI_COMPANION_DEBUG_KEYSTORE_SHA256.' >&2
-            echo 'Store the chosen stable test key and its SHA-256 only after deciding whether to rotate or preserve overwrite compatibility.' >&2
-            exit 1
-          fi
           mkdir -p "$HOME/.android"
-          printf '%s' "$AI_COMPANION_DEBUG_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
+          keytool -genkeypair \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 30 \
+            -dname 'CN=AI Companion Ephemeral Test,O=Local Development,C=JP'
           chmod 600 "$HOME/.android/debug.keystore"
-          printf '%s  %s\n' "$AI_COMPANION_DEBUG_KEYSTORE_SHA256" "$HOME/.android/debug.keystore" | sha256sum -c -
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+          echo 'Ephemeral test key generated for this workflow run; uninstall the previous test APK before installation.'
 
       - name: Source and regression validation
         shell: bash
@@ -147,4 +147,3 @@ jobs:
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
-
