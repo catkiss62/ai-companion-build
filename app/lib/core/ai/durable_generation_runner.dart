@@ -7,6 +7,7 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../storage/secure_config.dart';
 import 'deepseek_client.dart';
+import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'prompt_builder.dart';
 
@@ -65,7 +66,12 @@ class DurableGenerationRunner {
   Future<GenerationRunResult> run(
     GenerationJob requested, {
     void Function(DeepSeekDelta delta)? onDelta,
+    GenerationCancellationToken? cancellationToken,
   }) async {
+    if (cancellationToken?.isCancelled ?? false) {
+      await db.cancelGenerationJobByUser(requested.id);
+      return const GenerationRunResult(status: 'cancelled_by_user');
+    }
     if (!await db.brainWorkAllowed()) {
       return const GenerationRunResult(status: 'suspended');
     }
@@ -76,6 +82,10 @@ class DurableGenerationRunner {
     // its key yet.
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
+    if (cancellationToken?.isCancelled ?? false) {
+      await db.cancelGenerationJobByUser(requested.id);
+      return const GenerationRunResult(status: 'cancelled_by_user');
+    }
     if (apiKey == null || apiKey.isEmpty) {
       final retryAt = await db.deferGenerationJob(
         requested.id,
@@ -99,6 +109,11 @@ class DurableGenerationRunner {
       return GenerationRunResult(status: latest?.status ?? 'unavailable');
     }
 
+    if (cancellationToken?.isCancelled ?? false) {
+      await db.cancelGenerationJobByUser(job.id);
+      return const GenerationRunResult(status: 'cancelled_by_user');
+    }
+
     final user = await db.messageById(job.userMessageId);
     if (user == null || !user.isUser) {
       final failed = await db.failGenerationJob(
@@ -116,6 +131,7 @@ class DurableGenerationRunner {
     var lastCheckpoint = DateTime.now();
     var charsAtCheckpoint = 0;
     var lastLeaseRefresh = DateTime.now();
+    var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
 
     try {
       final previous = await db.messagesBefore(user.createdAt, limit: 33);
@@ -143,12 +159,31 @@ class DurableGenerationRunner {
           messages: messages,
           endpoint: endpoint,
           thinking: job.thinking,
+          cancellationToken: cancellationToken,
         )) {
+          cancellationToken?.throwIfCancelled();
           if (!await db.brainWorkAllowed()) {
             throw const GenerationSuspendedException('设备正在转移或已经下线');
           }
 
           final now = DateTime.now();
+          if (now.difference(lastFenceCheck) >=
+              const Duration(milliseconds: 200)) {
+            final current = await db.isGenerationRunCurrent(
+              job.id,
+              runToken: job.runToken,
+            );
+            if (!current) {
+              final latest = await db.generationJobById(job.id);
+              if (latest?.status == 'cancelled_by_user') {
+                throw const GenerationCancelledByUserException();
+              }
+              throw const GenerationSuspendedException(
+                '本次生成尝试的写入所有权已经失效',
+              );
+            }
+            lastFenceCheck = now;
+          }
           if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 45)) {
             final renewed = await db.renewLocalLease(
               'chat_turn_lease',
@@ -192,6 +227,7 @@ class DurableGenerationRunner {
       }
 
       final generated = await generate(baseRequestMessages);
+      cancellationToken?.throwIfCancelled();
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
       }
@@ -221,6 +257,9 @@ class DurableGenerationRunner {
 
       await desireEngine.satisfy(DriveKey.attachment, factor: 0.58);
       return GenerationRunResult(status: 'completed', assistant: assistant);
+    } on GenerationCancelledByUserException catch (e) {
+      await db.cancelGenerationJobByUser(job.id);
+      return GenerationRunResult(status: 'cancelled_by_user', error: e);
     } on GenerationSuspendedException catch (e) {
       await db.suspendGenerationJob(
         job.id,

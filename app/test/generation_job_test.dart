@@ -60,4 +60,32 @@ void main() {
     expect(job.isTerminal, isTrue);
     expect(job.isBlocking, isFalse);
   });
+  test('cancelled-by-user generation is terminal and never blocking', () {
+    final job = GenerationJob.fromDb({
+      'id': 'job-cancelled',
+      'user_message_id': 'u-cancelled',
+      'assistant_message_id': 'a-cancelled',
+      'status': 'cancelled_by_user',
+      'attempts': 1,
+      'model': 'deepseek-v4-pro',
+      'reasoning_effort': 'high',
+      'thinking': 1,
+      'partial_reasoning': '',
+      'partial_content': '',
+      'run_token': '',
+      'device_id': 'phone',
+      'created_at': 1000,
+      'started_at': 1100,
+      'updated_at': 1200,
+      'completed_at': 1200,
+      'last_checkpoint_at': 1150,
+      'next_retry_at': null,
+      'last_error': '',
+      'resume_reason': 'cancelled_by_user',
+    });
+
+    expect(job.isTerminal, isTrue);
+    expect(job.isBlocking, isFalse);
+  });
+
 }

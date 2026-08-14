@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
+import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/memory_extractor.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/database/app_database.dart';
@@ -98,6 +99,7 @@ class ChatController extends ChangeNotifier {
   bool loading = true;
   bool sending = false;
   bool recoveringGeneration = false;
+  bool cancellingGeneration = false;
   String streamingReasoning = '';
   String streamingContent = '';
   String? error;
@@ -106,6 +108,8 @@ class ChatController extends ChangeNotifier {
   TtsQueueState ttsState = TtsQueueState.idle;
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
+  GenerationCancellationToken? _activeGenerationCancellation;
+  String? _activeGenerationJobId;
 
   void _safeNotify() {
     if (!_disposed) notifyListeners();
@@ -256,8 +260,12 @@ class ChatController extends ChangeNotifier {
 
     sending = true;
     recoveringGeneration = false;
+    cancellingGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
+    final cancellation = GenerationCancellationToken();
+    _activeGenerationCancellation = cancellation;
+    _activeGenerationJobId = null;
     _safeNotify();
 
     var streamTts = false;
@@ -270,6 +278,7 @@ class ChatController extends ChangeNotifier {
         throw StateError('她已经切换到另一台设备，这轮发送已取消。');
       }
 
+      cancellation.throwIfCancelled();
       final user = ChatMessage(
         id: stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
@@ -287,6 +296,8 @@ class ChatController extends ChangeNotifier {
         thinking: true,
       );
       durableTurnCreated = true;
+      _activeGenerationJobId = job.id;
+      cancellation.throwIfCancelled();
       messages = [...messages, user];
       _safeNotify();
 
@@ -295,18 +306,25 @@ class ChatController extends ChangeNotifier {
       // recovery prioritizes producing the missing reply without duplicating
       // Desire pulses or other state mutations.
       await proactiveRhythm.captureUserResponse(user);
+      cancellation.throwIfCancelled();
       await thoughtLifecycle.advance();
+      cancellation.throwIfCancelled();
       await relationshipAssimilator.assimilatePending();
+      cancellation.throwIfCancelled();
       await memoryMaintenance.maybeRun();
+      cancellation.throwIfCancelled();
       await desireEngine.applyExperience({
         DriveKey.attachment: 0.018,
         DriveKey.social: 0.008,
       }, baselineLearning: 0.0015);
+      cancellation.throwIfCancelled();
       await perceptionEngine.capture();
+      cancellation.throwIfCancelled();
       await desireEngine.tick(pulses: {
         DriveKey.attachment: 0.025,
         DriveKey.reflection: 0.012,
       });
+      cancellation.throwIfCancelled();
 
       final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
       final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
@@ -323,6 +341,7 @@ class ChatController extends ChangeNotifier {
       // Best-effort enrichment can take a while on a large local database.
       // Refresh ownership immediately before opening the network stream so an
       // expired lease cannot let another engine start a competing chat turn.
+      cancellation.throwIfCancelled();
       final stillOwnsTurn = await db.renewLocalLease(
         'chat_turn_lease',
         holdFor: const Duration(minutes: 3),
@@ -337,7 +356,9 @@ class ChatController extends ChangeNotifier {
 
       final result = await generationRunner.run(
         job,
+        cancellationToken: cancellation,
         onDelta: (delta) {
+          if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
             streamingReasoning += delta.reasoning;
           }
@@ -360,6 +381,9 @@ class ChatController extends ChangeNotifier {
           user: user,
           assistant: result.assistant!,
         );
+      } else if (result.status == 'cancelled_by_user') {
+        await ttsPlayback.stop();
+        error = null;
       } else if (result.retryScheduled) {
         await ttsPlayback.stop();
         error = '网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。';
@@ -370,6 +394,11 @@ class ChatController extends ChangeNotifier {
         await ttsPlayback.stop();
         error = result.error?.toString() ?? '这一轮生成失败。';
       }
+    } on GenerationCancelledByUserException {
+      await ttsPlayback.stop();
+      final jobId = _activeGenerationJobId;
+      if (jobId != null) await db.cancelGenerationJobByUser(jobId);
+      error = null;
     } catch (e) {
       await ttsPlayback.stop();
       error = durableTurnCreated
@@ -377,11 +406,19 @@ class ChatController extends ChangeNotifier {
           : e.toString();
     } finally {
       sending = false;
+      recoveringGeneration = false;
+      cancellingGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
+      if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeGenerationCancellation = null;
+        _activeGenerationJobId = null;
+      }
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
-      if (durableTurnCreated) unawaited(_scheduleGenerationRecovery());
+      if (durableTurnCreated && !cancellation.isCancelled) {
+        unawaited(_scheduleGenerationRecovery());
+      }
     }
   }
 
@@ -404,14 +441,20 @@ class ChatController extends ChangeNotifier {
 
     sending = true;
     recoveringGeneration = true;
+    cancellingGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
     error = null;
+    final cancellation = GenerationCancellationToken();
+    _activeGenerationCancellation = cancellation;
+    _activeGenerationJobId = job.id;
     _safeNotify();
     try {
       final result = await generationRunner.run(
         job,
+        cancellationToken: cancellation,
         onDelta: (delta) {
+          if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
             streamingReasoning += delta.reasoning;
           }
@@ -429,6 +472,9 @@ class ChatController extends ChangeNotifier {
             assistant: result.assistant!,
           );
         }
+      } else if (result.status == 'cancelled_by_user') {
+        await ttsPlayback.stop();
+        error = null;
       } else if (result.retryScheduled) {
         error = '上一轮回复恢复时网络仍不可用，已经继续保留重试任务。';
       } else if (result.status != 'suspended') {
@@ -442,11 +488,18 @@ class ChatController extends ChangeNotifier {
     } finally {
       sending = false;
       recoveringGeneration = false;
+      cancellingGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
+      if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeGenerationCancellation = null;
+        _activeGenerationJobId = null;
+      }
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
-      unawaited(_scheduleGenerationRecovery());
+      if (!cancellation.isCancelled) {
+        unawaited(_scheduleGenerationRecovery());
+      }
     }
   }
 
@@ -464,6 +517,31 @@ class ChatController extends ChangeNotifier {
     await Future<void>.delayed(bounded);
     if (_disposed || epoch != _recoveryScheduleEpoch) return;
     await resumePendingGeneration();
+  }
+
+  /// Stops the current reply as one operation: model stream, durable recovery,
+  /// streaming UI, and speech. The database transition wins against late
+  /// tokens through the existing run-token fence.
+  Future<void> cancelCurrentGeneration() async {
+    if (_disposed || cancellingGeneration) return;
+    cancellingGeneration = true;
+    error = null;
+    _recoveryScheduleEpoch++;
+    final token = _activeGenerationCancellation;
+    token?.cancel();
+    streamingReasoning = '';
+    streamingContent = '';
+    _safeNotify();
+
+    await ttsPlayback.stop();
+    final jobId =
+        _activeGenerationJobId ?? (await db.blockingGenerationJob())?.id;
+    if (jobId != null) {
+      await db.cancelGenerationJobByUser(jobId);
+    }
+
+    cancellingGeneration = false;
+    _safeNotify();
   }
 
   Future<void> speakMessage(ChatMessage message) async {
@@ -498,6 +576,7 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _recoveryScheduleEpoch++;
+    _activeGenerationCancellation?.cancel();
     unawaited(ttsPlayback.stop());
     client.close();
     super.dispose();

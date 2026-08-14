@@ -4,7 +4,7 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
-## P0 · ACTIVE · v0.31.5 Live Context & Self Seed
+## P0 · ACTIVE · v0.31.7 True Stop Generation
 
 ### A0. 生成前即时上下文
 
@@ -137,12 +137,17 @@
 - [x] `03_behavior` 与 `03_personality_seed` 归为“03 行为与初始性格”，保留各自开关、编辑和恢复默认入口。
 - [x] Prompt 使用同一组标题下的有序小节，不拼接数据库文本；以后明确同类规则可直接加入映射。
 - [x] 不改 schema 和 rule row，未知 key 自动成为自定义组；重复启动、旧备份导入和 Active Brain 转移继续沿用原有独立行语义。
-- [ ] GitHub Actions analyze/test/release APK 与真机 UI 验收。
+- [x] GitHub Actions analyze/test/release APK 通过；真机 UI 验收待用户安装确认。
 
 ### N. 真正停止生成
 
-- [ ] 停止键统一取消/作废模型流、TTS 和 durable recovery。
-- [ ] 使用 `cancelled_by_user` 明确状态；取消后的晚到 token 不落库、不复活。
+- [x] 发送按钮在普通生成和 durable recovery 时变成统一停止键，并显示明确停止中状态。
+- [x] 独立 HTTP client + in-memory token 立即终止当前 DeepSeek 流，不关闭其他维护请求或下一轮聊天。
+- [x] 同一入口停止流式 reasoning/content、Meju TTS 播放及待播队列，并作废 recovery timer。
+- [x] SQLite 使用 terminal `cancelled_by_user`；单次 UPDATE 清空 run token、partial checkpoint 与 retry 时间。
+- [x] checkpoint/final commit 继续受 `running + run_token` fencing；取消后的晚到 token 不落库、不复活。
+- [x] Runner 轮询 SQLite ownership，Overlay/headless recovery 也能在跨引擎取消后退出。
+- [x] GitHub Actions run #10（ID 31813142711）通过 validators、analyze、全部 tests、release APK、A2 原生校验与 artifact 上传；真机停止行为待用户安装确认。
 
 ### O. 双通道感官
 

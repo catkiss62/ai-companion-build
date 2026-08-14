@@ -156,7 +156,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     '她',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  if (controller.recoveringGeneration)
+                  if (controller.cancellingGeneration)
+                    Text(
+                      '正在停止…',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  else if (controller.recoveringGeneration)
                     Text(
                       '正在接回刚才没完成的回复…',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -206,13 +211,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              onPressed: controller.sending ? null : _send,
+              onPressed: controller.sending
+                  ? (controller.cancellingGeneration
+                      ? null
+                      : controller.cancelCurrentGeneration)
+                  : _send,
+              tooltip: controller.sending ? '停止这轮回复' : '发送',
               icon: controller.sending
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const Icon(Icons.stop_rounded)
                   : const Icon(Icons.send_rounded),
             ),
           ],

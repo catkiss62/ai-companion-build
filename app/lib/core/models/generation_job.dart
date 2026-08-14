@@ -44,7 +44,10 @@ class GenerationJob {
   final String resumeReason;
 
   bool get isTerminal =>
-      status == 'completed' || status == 'failed' || status == 'cancelled';
+      status == 'completed' ||
+      status == 'failed' ||
+      status == 'cancelled' ||
+      status == 'cancelled_by_user';
 
   bool get isBlocking => !isTerminal;
 

@@ -1781,6 +1781,59 @@ class AppDatabase {
     });
   }
 
+  /// Terminally fences one reply when the user presses Stop.
+  ///
+  /// This is intentionally valid for pending, running, and retry-wait jobs.
+  /// Clearing run_token in the same UPDATE prevents late checkpoints and the
+  /// final assistant INSERT from winning after cancellation.
+  Future<bool> cancelGenerationJobByUser(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final changed = await db.update(
+      'generation_jobs',
+      {
+        'status': 'cancelled_by_user',
+        'partial_reasoning': '',
+        'partial_content': '',
+        'run_token': '',
+        'next_retry_at': null,
+        'last_error': '',
+        'resume_reason': 'cancelled_by_user',
+        'completed_at': now,
+        'updated_at': now,
+      },
+      where: "id = ? AND status IN ('pending','running','retry_wait')",
+      whereArgs: [id],
+    );
+    if (changed > 0) return true;
+    final rows = await db.query(
+      'generation_jobs',
+      columns: ['status'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isNotEmpty &&
+        rows.first['status'] == 'cancelled_by_user';
+  }
+
+  /// Cheap cross-engine fence check used while a streaming request is active.
+  Future<bool> isGenerationRunCurrent(
+    String id, {
+    required String runToken,
+  }) async {
+    if (runToken.isEmpty) return false;
+    final db = await database;
+    final rows = await db.query(
+      'generation_jobs',
+      columns: ['id'],
+      where: 'id = ? AND status = ? AND run_token = ?',
+      whereArgs: [id, 'running', runToken],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<GenerationJob?> nextRecoverableGenerationJob({
     Duration runningStaleAfter = const Duration(minutes: 2),
   }) async {
@@ -5908,7 +5961,7 @@ class AppDatabase {
     );
     removed += await db.delete(
       'generation_jobs',
-      where: "status IN ('failed','cancelled') AND updated_at < ?",
+      where: "status IN ('failed','cancelled','cancelled_by_user') AND updated_at < ?",
       whereArgs: [failedCutoff],
     );
     return removed;

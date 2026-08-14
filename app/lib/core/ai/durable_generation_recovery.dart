@@ -28,7 +28,8 @@ class DurableGenerationRecovery {
       final result = await runner.run(job);
       if (result.completed) {
         await db.setSetting('last_generation_recovery_error', '');
-      } else if (result.status != 'suspended') {
+      } else if (result.status != 'suspended' &&
+          result.status != 'cancelled_by_user') {
         final raw = result.error?.toString() ?? result.status;
         await db.setSetting(
           'last_generation_recovery_error',

@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前源码候选：**v0.31.6+48 · Rule Grouping**。
-- 当前已构建/真机基线：**v0.31.5+47 · Live Context & Self Seed**。GitHub Actions run #31 成功，用户脱敏诊断确认 versionCode 47 / schema 20 / Active Brain 正常；Overlay file-picker 问题继续冻结。
+- 当前源码与已构建基线：**v0.31.7+49 · True Stop Generation**。
+- GitHub Actions run #10（ID 31813142711）已通过 validators、Flutter analyze、全部 tests、release APK、A2 原生 payload 与 artifact 上传。当前真机诊断基线仍为 v0.31.5+47；v0.31.7 只待停止行为真机验收。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -20,6 +20,16 @@
 - 用户忙是主动联系的 soft friction，不是绝对静音；主动联系仍受 2/2h、8/24h hard caps。
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
+
+## 3. v0.31.7+49 · 真正停止生成
+
+- 普通发送和 durable recovery 期间，发送按钮会变成“停止这轮回复”；不再用不可点击的转圈占位。
+- 停止入口同时取消本轮 DeepSeek HTTP 流、流式 reasoning/content、TTS 当前播放与待播队列，并使本地 recovery timer 失效。
+- SQLite generation job 进入明确终态 `cancelled_by_user`；原子清空 `run_token`、partial checkpoint 与 `next_retry_at`。
+- checkpoint 和 assistant final commit 继续要求 `status=running + run_token`，因此取消后的晚到 token 不能落库或被恢复器复活。
+- Runner 额外轮询 SQLite ownership，使同一数据库上的 Overlay/headless engine 也能感知用户取消；不是只取消当前页面对象。
+- schema 继续为 v20；保留用户消息，不创建半条 assistant，不改 Prompt/Desire/Memory/规则层或已冻结的 Meju A2。
+- 完整竞态、不变项与验证清单见 `docs/TRUE_STOP_GENERATION_v0.31.7.md`。
 
 ## 3. v0.31.6+48 · 规则维护分组
 
@@ -167,7 +177,7 @@
 
 P1：
 
-- v0.31.5 Clean Freeze 已合并；v0.31.6 实施 01/03 非破坏性规则分组，之后处理真正停止生成。
+- v0.31.7 完成真正停止生成后，下一正式主线进入双通道感官 SQLite event/aggregate contract。
 - Notification Experience：前台静音、外部/锁屏通知、提示音/震动/隐私、点击进入悬浮聊天。
 - HyperOS 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced。
 - 50/100/数百轮 Memory/Thought/summary/thread 压力测试。
