@@ -1,11 +1,11 @@
 # AI Companion · HANDOFF
 
-> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读 `README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v21_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
 ## 1. 当前基底
 
 - 当前开发主线：**v0.32.0+52 · Somatic Contract & Daily Touch MVP**；v0.31.9+51 已合并并通过最终 head run #23。
-- GitHub Actions run #25（ID `31829813825`）已通过全部新旧 validators、Flutter analyze/tests、release APK/Kotlin 与冻结 A2 payload；功能 head artifact `9230553317`，APK SHA-256 `d1637769a2d63179345c06b55a13497b6d4fbfeba6176caaaa4db3dbf1265587`。
+- PR #6 已合并到 `main`。最终 GitHub Actions run #26（ID `31830858189`）通过全部 validators、Flutter analyze/tests、release APK/Kotlin 与冻结 A2 payload；artifact `9230919832`，APK SHA-256 `82d57aaf58284e47ad6213537e7590dcc5e3ae94f159384f19fb6169a99d0e0c`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -20,6 +20,7 @@
 - 用户忙是主动联系的 soft friction，不是绝对静音；主动联系仍受 2/2h、8/24h hard caps。
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
+- **Desire / Thought / Intent / Gate 是活人感的行为调度主干**：感知、记忆、联网、屏幕和桌宠提供她知道的内容与可用能力；是否、为何、何时行动统一回到欲望主干，各模块不得自行绕过 Gate 强制发言。
 
 ## 3. v0.32.0+52 · 双通道感官第一阶段
 
@@ -31,7 +32,8 @@
 - 用户停止未完成回复时，删除 user message 会级联撤销该 turn 的感官事件，并在同一事务重算聚合，避免幽灵感觉。
 - 感官事件和聚合加入状态包导入/导出与统计；schema 升为 21。
 - 新安装默认聊天模型改为 `V4 Flash + High`；已有数据库的明确模型选择不被迁移覆盖。长按复制/粘贴菜单中文化登记为 UI 待办，本轮不扩大范围。
-- run #25 完整通过；文档/SQL mirror 回填后的最终 head 仍需再次通过 Actions 后才合并 PR #6。
+- PR #6 已合并，最终 run #26 完整通过。
+- 2026-08-15 真机诊断确认 `somatic_events=1`、`active_somatic_channels=1`；用户观察到原生 reasoning 与触觉感受一致。诊断不包含 reasoning 正文，且第一阶段不直接脉冲 Desire，因此不把 `self_experience` Thought 单独当作感官因果证据。
 - 完整设计与验收见 `docs/SOMATIC_CONTRACT_TOUCH_v0.32.0.md` 和 `docs/DUAL_CHANNEL_SENSE_v1.md`。
 
 ## 4. v0.31.9+51 · 语音状态一致与取消轮撤回
@@ -194,9 +196,9 @@
 
 - 系统文件选择器在 `TYPE_APPLICATION_OVERLAY` 上方是正常窗口层级；故障是退出后悬浮球可见却无法点击，进入 AI Companion 后恢复。
 - v0.31.3+45 实现 bounded cover session：enter 退役旧 input channel，exit 后重建，最多 3 次。
-- 真机诊断为 `coverState=idle / session=0 / enter=0 / detach=0 / recovery=0`，证明检测链根本没触发，而不是重建失败。
-- 同份诊断 `accessibility=false / accessibilityConnected=false`。以后重开必须先验证 cover detection 与权限前提，禁止继续只调重建延迟/次数。
-- 本轮 v0.31.5 不修改任何 Kotlin Overlay/WindowManager 行为。
+- 旧诊断 `coverState=idle / session=0 / enter=0 / detach=0 / recovery=0`，证明当时检测链根本没触发。
+- 2026-08-15 新诊断在 Accessibility 已连接时捕获 `accessibility_system_surface`、cover session 2、detach 2、attempt 3；但快照仍为 `bubbleAttached=false / bubbleTouchable=false / inputSuspect=true`，说明检测链这次触发了，而重附着仍不健康。
+- 任务继续冻结；以后按一次可复现的 enter → detach → exit → reattach/touch 时间线取证，禁止只增加延迟/次数。
 
 ## 10. TTS · FROZEN / GUARDRAIL
 
@@ -216,6 +218,8 @@ P1：
 - Notification Experience：前台静音、外部/锁屏通知、提示音/震动/隐私、点击进入悬浮聊天。
 - HyperOS 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced。
 - 50/100/数百轮 Memory/Thought/summary/thread 压力测试。
+- **兴趣候选库 / 主动联网（已批准）**：AI Self/curiosity/reflection/共同话题驱动，保存标题、摘要、来源、URL、TTL 与 lifecycle；可安静收藏/重看，分享仍走主动联系 Gate，网页不直接进入用户 Memory。
+- **精确前台 App 感知（必要）**：补齐 QQ/B站等友好标签、unknown fallback 和脱敏可观测性；无需视觉模型，不能把“打开 App”写成固定触发消息。
 - 手机/平板 Active Brain 双向 takeover 与 encrypted `.aicomp` fallback。
 
 P2：
