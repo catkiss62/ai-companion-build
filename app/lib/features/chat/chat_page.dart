@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/chat_message.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/reasoning_panel.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
@@ -115,8 +116,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             _DateSeparator(createdAt: message.createdAt),
                           _MessageBubble(
                             message: message,
-                            onSpeak: message.isAssistant
-                                ? () => controller.speakMessage(message)
+                            ttsPhase: controller.ttsPhaseForMessage(message.id),
+                            onSpeechAction: message.isAssistant
+                                ? () {
+                                    if (controller.ttsPhaseForMessage(message.id) ==
+                                        TtsPlaybackPhase.playing) {
+                                      controller.stopSpeech();
+                                    } else {
+                                      controller.speakMessage(message);
+                                    }
+                                  }
                                 : null,
                           ),
                         ],
@@ -174,14 +183,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            if (controller.ttsState.running)
-              IconButton(
-                onPressed: controller.stopSpeech,
-                icon: const Icon(Icons.stop_circle_outlined),
-                tooltip: controller.ttsState.pending > 0
-                    ? '停止语音（队列 ${controller.ttsState.pending}）'
-                    : '停止语音',
-              ),
           ],
         ),
       ),
@@ -260,9 +261,14 @@ class _DateSeparator extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, this.onSpeak});
+  const _MessageBubble({
+    required this.message,
+    required this.ttsPhase,
+    this.onSpeechAction,
+  });
   final ChatMessage message;
-  final VoidCallback? onSpeak;
+  final TtsPlaybackPhase ttsPhase;
+  final VoidCallback? onSpeechAction;
 
   @override
   Widget build(BuildContext context) {
@@ -308,19 +314,11 @@ class _MessageBubble extends StatelessWidget {
                         fontSize: 10.5,
                       ),
                 ),
-                if (message.isAssistant && onSpeak != null) ...[
+                if (message.isAssistant && onSpeechAction != null) ...[
                   const SizedBox(width: 2),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                      minWidth: 30,
-                      minHeight: 30,
-                    ),
-                    padding: EdgeInsets.zero,
-                    iconSize: 18,
-                    onPressed: onSpeak,
-                    icon: const Icon(Icons.volume_up_outlined),
-                    tooltip: '重新朗读这条回复',
+                  _SpeechActionButton(
+                    phase: ttsPhase,
+                    onPressed: onSpeechAction!,
                   ),
                 ],
               ],
@@ -360,9 +358,56 @@ class _StreamingBubble extends StatelessWidget {
             if (controller.streamingContent.isEmpty &&
                 controller.streamingReasoning.isEmpty)
               Text(controller.recoveringGeneration ? '正在接回刚才没完成的回复…' : '她正在准备回复…'),
+            if (controller.activeGenerationTtsPhase != TtsPlaybackPhase.idle)
+              Align(
+                alignment: Alignment.centerRight,
+                child: _SpeechActionButton(
+                  phase: controller.activeGenerationTtsPhase,
+                  onPressed: controller.stopSpeech,
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SpeechActionButton extends StatelessWidget {
+  const _SpeechActionButton({
+    required this.phase,
+    required this.onPressed,
+  });
+
+  final TtsPlaybackPhase phase;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final synthesizing = phase == TtsPlaybackPhase.synthesizing;
+    final playing = phase == TtsPlaybackPhase.playing;
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+      padding: EdgeInsets.zero,
+      iconSize: 18,
+      onPressed: synthesizing ? null : onPressed,
+      icon: synthesizing
+          ? const Text(
+              '…',
+              style: TextStyle(fontSize: 20, height: 0.8),
+            )
+          : playing
+              ? const Text(
+                  '■',
+                  style: TextStyle(fontSize: 15, height: 1),
+                )
+              : const Icon(Icons.volume_up_outlined),
+      tooltip: synthesizing
+          ? '正在合成语音'
+          : playing
+              ? '停止播放'
+              : '朗读这条回复',
     );
   }
 }

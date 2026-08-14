@@ -55,12 +55,12 @@ for token in [
     'map["reasoning"] as? String',
     'map["content"] as? String',
     'if (live) "🧠 思考中" else "🧠 思考"',
-    'smallButton("停语音") { stopSpeech() }',
+    'private fun stopSpeech()',
 ]:
     assert token in overlay, token
 
 # The nearby stop action must stay generation-aware instead of disabling the
-# only reachable button. The header control remains explicitly speech-only.
+# only reachable button. Speech controls may evolve independently.
 send_start = overlay.index("private fun sendFromOverlay()")
 send_end = overlay.index("private fun cancelGenerationFromOverlay()", send_start)
 send_block = overlay[send_start:send_end]
@@ -72,3 +72,4 @@ assert "without inventing text" in test
 assert "正在比较两种回答方式" in test
 
 print("v0.31.8 overlay stop and live stream validation passed")
+

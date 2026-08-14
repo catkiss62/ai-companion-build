@@ -110,6 +110,26 @@ class ChatController extends ChangeNotifier {
   int _recoveryScheduleEpoch = 0;
   GenerationCancellationToken? _activeGenerationCancellation;
   String? _activeGenerationJobId;
+  String? _activeGenerationAssistantMessageId;
+
+  String? get activeGenerationAssistantMessageId =>
+      _activeGenerationAssistantMessageId;
+
+  TtsPlaybackPhase ttsPhaseForMessage(String messageId) {
+    if (ttsState.ownerId != messageId) return TtsPlaybackPhase.idle;
+    return ttsState.phase;
+  }
+
+  TtsPlaybackPhase get activeGenerationTtsPhase {
+    final messageId = _activeGenerationAssistantMessageId;
+    if (messageId == null || ttsState.ownerId != messageId) {
+      return TtsPlaybackPhase.idle;
+    }
+    if (messages.any((message) => message.id == messageId)) {
+      return TtsPlaybackPhase.idle;
+    }
+    return ttsState.phase;
+  }
 
   void _safeNotify() {
     if (!_disposed) notifyListeners();
@@ -297,6 +317,7 @@ class ChatController extends ChangeNotifier {
       );
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;
+      _activeGenerationAssistantMessageId = job.assistantMessageId;
       cancellation.throwIfCancelled();
       messages = [...messages, user];
       _safeNotify();
@@ -332,7 +353,10 @@ class ChatController extends ChangeNotifier {
           (await db.getSetting('tts_streaming_enabled')) != '0';
       if (streamTts) {
         try {
-          await ttsPlayback.beginStream(manual: false);
+          await ttsPlayback.beginStream(
+            manual: false,
+            ownerId: job.assistantMessageId,
+          );
         } catch (_) {
           streamTts = false;
         }
@@ -375,7 +399,13 @@ class ChatController extends ChangeNotifier {
         if (streamTts) {
           ttsPlayback.endStream();
         } else if (autoTts) {
-          unawaited(ttsPlayback.playText(result.assistant!.content, manual: false));
+          unawaited(
+            ttsPlayback.playText(
+              result.assistant!.content,
+              manual: false,
+              ownerId: result.assistant!.id,
+            ),
+          );
         }
         await memoryExtractor.extractFromTurn(
           user: user,
@@ -383,6 +413,7 @@ class ChatController extends ChangeNotifier {
         );
       } else if (result.status == 'cancelled_by_user') {
         await ttsPlayback.stop();
+        messages = await db.recentMessages(limit: 120);
         error = null;
       } else if (result.retryScheduled) {
         await ttsPlayback.stop();
@@ -397,7 +428,10 @@ class ChatController extends ChangeNotifier {
     } on GenerationCancelledByUserException {
       await ttsPlayback.stop();
       final jobId = _activeGenerationJobId;
-      if (jobId != null) await db.cancelGenerationJobByUser(jobId);
+      if (jobId != null) {
+        await db.cancelGenerationJobByUser(jobId);
+        messages = await db.recentMessages(limit: 120);
+      }
       error = null;
     } catch (e) {
       await ttsPlayback.stop();
@@ -413,6 +447,7 @@ class ChatController extends ChangeNotifier {
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
+        _activeGenerationAssistantMessageId = null;
       }
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
@@ -448,6 +483,7 @@ class ChatController extends ChangeNotifier {
     final cancellation = GenerationCancellationToken();
     _activeGenerationCancellation = cancellation;
     _activeGenerationJobId = job.id;
+    _activeGenerationAssistantMessageId = job.assistantMessageId;
     _safeNotify();
     try {
       final result = await generationRunner.run(
@@ -474,6 +510,7 @@ class ChatController extends ChangeNotifier {
         }
       } else if (result.status == 'cancelled_by_user') {
         await ttsPlayback.stop();
+        messages = await db.recentMessages(limit: 120);
         error = null;
       } else if (result.retryScheduled) {
         error = '上一轮回复恢复时网络仍不可用，已经继续保留重试任务。';
@@ -494,6 +531,7 @@ class ChatController extends ChangeNotifier {
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
+        _activeGenerationAssistantMessageId = null;
       }
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
@@ -538,6 +576,7 @@ class ChatController extends ChangeNotifier {
         _activeGenerationJobId ?? (await db.blockingGenerationJob())?.id;
     if (jobId != null) {
       await db.cancelGenerationJobByUser(jobId);
+      messages = await db.recentMessages(limit: 120);
     }
 
     cancellingGeneration = false;
@@ -546,7 +585,11 @@ class ChatController extends ChangeNotifier {
 
   Future<void> speakMessage(ChatMessage message) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
-    await ttsPlayback.playText(message.content, manual: true);
+    await ttsPlayback.playText(
+      message.content,
+      manual: true,
+      ownerId: message.id,
+    );
   }
 
   Future<void> stopSpeech() => ttsPlayback.stop();
@@ -569,7 +612,11 @@ class ChatController extends ChangeNotifier {
     final lastSpoken = await db.getSetting('last_proactive_spoken_message_id');
     if (lastSpoken == latest.id) return;
     await db.setSetting('last_proactive_spoken_message_id', latest.id);
-    await ttsPlayback.playText(latest.content, manual: true);
+    await ttsPlayback.playText(
+      latest.content,
+      manual: true,
+      ownerId: latest.id,
+    );
   }
 
   @override

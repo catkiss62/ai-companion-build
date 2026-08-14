@@ -4,8 +4,8 @@
 
 ## 1. 当前基底
 
-- 当前源码与已构建基线：**v0.31.8+50 · Overlay Stop & Live Stream**。
-- GitHub Actions run #18（ID 31818910082）已通过全部 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。run #15 是新 validator 测试标题匹配错误；run #16/#17 是历史 v0.31.5/v0.31.4 整文件 Overlay 哈希保护，均发生在源码校验阶段，未执行编译或 APK。现已改为继续守住 HyperOS input-recovery 关键契约、同时允许明确的悬浮 UI 功能演进。
+- 当前已构建开发基线：**v0.31.9+51 · TTS State & Cancelled-turn Withdrawal**；PR #5 等待最终 head 校验、合并与真机验收。
+- GitHub Actions run #22（ID 31825001399）已通过全部新旧 validators、Flutter analyze/tests、release APK、原生 Kotlin 编译、A2 payload、SHA 与 artifact 上传。v0.31.8 run #18/#21 仍保留为上一版通过证据。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v20**。v19 的实验性输出兼容字段已移除；覆盖安装会保留用户可见聊天、思考、时间戳、主动消息、模型和设备信息。
 - GitHub 仓库以 `app/` 为 single source of truth。大阶段内继续采用 source-update patch + 完整手动 workflow；阶段验收后再 Clean Freeze。
@@ -21,13 +21,25 @@
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
 
-## 3. v0.31.8+50 · 悬浮框近手停止与真实双流
+## 3. v0.31.9+51 · 语音状态一致与取消轮撤回
+
+- App 与原生悬浮聊天共用 `TtsPlaybackQueue` 的 `idle / synthesizing / playing` 真状态及消息 owner：空闲显示 App 同款 outline 喇叭，合成/等待首段音频显示“…”；真正调用音频播放后显示“■”；点击“■”、播放完成或失败后回到喇叭。
+- 自动流式 TTS 从 `beginStream` 起也带 assistant message owner，因此首段尚未出声时两套界面都能显示“…”；不改 Meju A2 native/MNN、断句、generation-ahead、FIFO 或约 200ms gap。
+- 悬浮框左上角远距离“停语音”按钮删除；停止入口回到正在播放消息旁。完整 App 顶栏的重复全局停止图标同步删除。
+- 原生悬浮框新增轻量只读 `ttsSnapshot` 轮询，展开时读取同一后台 Controller 的 phase/owner；收起即停轮询，不影响正在合成或播放的队列。
+- 用户停止未完成回复时，SQLite 在一个 transaction 内先把 active generation job 终结为 `cancelled_by_user`，再删除对应 user message。未来 Prompt、Memory、两套聊天历史与恢复器都看不到这条半轮输入。
+- completion 与 stop 保持原子竞态：completed 若先提交，取消不删除完整 user/assistant 对；cancel 若先提交，run-token fence 阻止晚到 assistant 落库。
+- schema 继续为 v20；不改 Prompt、规则、Desire/Thought、Memory、主动联系、Overlay cover/input recovery 与权限。
+- run #22（ID 31825001399）完整通过；artifact ID `9228720673`，APK SHA-256 `8d42899cd64b7c0ce84a5dbb941a73cdf2797b280c7f26dbe50951e7b15ad6e8`。
+- 完整设计、边界和真机清单见 `docs/TTS_STATE_CANCEL_RETRACT_v0.31.9.md`。
+
+## 3A. v0.31.8+50 · 悬浮框近手停止与真实双流
 
 - 原生 WindowManager 悬浮聊天框在生成期间不再禁用发送键；同一近手按钮切换为“停止/停止中”，调用后台持久 `ChatController.cancelCurrentGeneration()`。
 - 顶部旧“■”实际只停语音，现改名“停语音”，避免误认为能够停止模型。
 - 后台命令新增 `cancelGeneration` 与只读 `generationSnapshot`；取消继续落到 v0.31.7 的 HTTP token、TTS、SQLite `cancelled_by_user` 和 run-token fence。
 - 悬浮框展开且本轮仍在生成时，每 140ms 读取一次控制器已有的真实 `reasoning_content/content`，显示临时“思考中”与流式正文；不伪造思考，不持久化半条 assistant。
-- 收起悬浮框即停止 UI 轮询但不擅自中断生成；重新展开可继续看当前状态。完成后用 SQLite 正式消息替换临时气泡，取消后移除临时气泡并保留用户消息。
+- 收起悬浮框即停止 UI 轮询但不擅自中断生成；重新展开可继续看当前状态。完成后用 SQLite 正式消息替换临时气泡。v0.31.8 的“取消后保留用户消息”语义已由 v0.31.9 替换为“取消未完成轮时一并撤回用户消息”。
 - schema 继续为 v20；不新增权限，不改 Prompt/Desire/Memory/行为规则、主动联系、WindowManager 触摸恢复或 Meju A2。
 - 完整边界与真机清单见 `docs/OVERLAY_STOP_STREAM_v0.31.8.md`。run #18 已完整通过，当前只待 REDMI K80 Ultra 真机交互验收。
 

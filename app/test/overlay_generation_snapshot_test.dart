@@ -8,6 +8,7 @@ void main() {
       cancelling: false,
       reasoning: '正在比较两种回答方式',
       content: '我觉得',
+      assistantMessageId: 'assistant-1',
     );
 
     expect(snapshot.phase, 'answering');
@@ -17,6 +18,7 @@ void main() {
       'reasoning': '正在比较两种回答方式',
       'content': '我觉得',
       'phase': 'answering',
+      'assistant_message_id': 'assistant-1',
     });
   });
 

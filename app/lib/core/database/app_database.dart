@@ -1781,40 +1781,65 @@ class AppDatabase {
     });
   }
 
-  /// Terminally fences one reply when the user presses Stop.
+  /// Terminally fences one reply and withdraws its user turn when Stop wins.
   ///
   /// This is intentionally valid for pending, running, and retry-wait jobs.
-  /// Clearing run_token in the same UPDATE prevents late checkpoints and the
-  /// final assistant INSERT from winning after cancellation.
+  /// Clearing run_token and deleting the user message in one transaction means
+  /// future prompts, memory extraction and either chat surface cannot observe
+  /// a half-turn. If completion commits first, its completed status makes this
+  /// operation a no-op so a finished pair is never partially deleted.
   Future<bool> cancelGenerationJobByUser(String id) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'generation_jobs',
-      {
-        'status': 'cancelled_by_user',
-        'partial_reasoning': '',
-        'partial_content': '',
-        'run_token': '',
-        'next_retry_at': null,
-        'last_error': '',
-        'resume_reason': 'cancelled_by_user',
-        'completed_at': now,
-        'updated_at': now,
-      },
-      where: "id = ? AND status IN ('pending','running','retry_wait')",
-      whereArgs: [id],
-    );
-    if (changed > 0) return true;
-    final rows = await db.query(
-      'generation_jobs',
-      columns: ['status'],
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    return rows.isNotEmpty &&
-        rows.first['status'] == 'cancelled_by_user';
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'generation_jobs',
+        columns: ['status', 'user_message_id'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final status = rows.first['status'] as String? ?? '';
+      final userMessageId = rows.first['user_message_id'] as String? ?? '';
+      var cancelled = status == 'cancelled_by_user';
+      if (!cancelled) {
+        final changed = await txn.update(
+          'generation_jobs',
+          {
+            'status': 'cancelled_by_user',
+            'partial_reasoning': '',
+            'partial_content': '',
+            'run_token': '',
+            'next_retry_at': null,
+            'last_error': '',
+            'resume_reason': 'cancelled_by_user',
+            'completed_at': now,
+            'updated_at': now,
+          },
+          where: "id = ? AND status IN ('pending','running','retry_wait')",
+          whereArgs: [id],
+        );
+        cancelled = changed == 1;
+      }
+      if (!cancelled) return false;
+
+      // Idempotently clean a prior partial cancellation as well. Completed
+      // jobs can never reach this branch, preserving completion-vs-stop order.
+      if (userMessageId.isNotEmpty) {
+        await txn.delete(
+          'post_turn_jobs',
+          where: 'user_message_id = ?',
+          whereArgs: [userMessageId],
+        );
+        await txn.delete(
+          'messages',
+          where: 'id = ? AND role = ?',
+          whereArgs: [userMessageId, 'user'],
+        );
+      }
+      return true;
+    });
   }
 
   /// Cheap cross-engine fence check used while a streaming request is active.

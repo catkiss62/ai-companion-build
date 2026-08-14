@@ -3,18 +3,30 @@ import 'dart:async';
 import 'tts_sentence_segmenter.dart';
 import 'tts_queue_service.dart';
 
+enum TtsPlaybackPhase { idle, synthesizing, playing }
+
 class TtsQueueState {
   const TtsQueueState({
     required this.running,
     required this.pending,
     required this.currentText,
+    required this.phase,
+    required this.ownerId,
   });
 
   final bool running;
   final int pending;
   final String currentText;
+  final TtsPlaybackPhase phase;
+  final String? ownerId;
 
-  static const idle = TtsQueueState(running: false, pending: 0, currentText: '');
+  static const idle = TtsQueueState(
+    running: false,
+    pending: 0,
+    currentText: '',
+    phase: TtsPlaybackPhase.idle,
+    ownerId: null,
+  );
 }
 
 /// Meju A2-equivalent speech scheduler shared by normal and overlay chat.
@@ -49,19 +61,27 @@ class TtsPlaybackQueue {
 
   TtsQueueState get state {
     final session = _session;
-    if (session == null) return TtsQueueState.idle;
+    if (session == null || session.idle.isCompleted) return TtsQueueState.idle;
     final pending = (session.total - session.nextToPlay).clamp(0, 1 << 30).toInt();
     return TtsQueueState(
-      running: !session.idle.isCompleted,
+      running: true,
       pending: pending,
       currentText: _current,
+      phase: session.playing
+          ? TtsPlaybackPhase.playing
+          : TtsPlaybackPhase.synthesizing,
+      ownerId: session.ownerId,
     );
   }
 
-  Future<void> beginStream({bool manual = false}) async {
+  Future<void> beginStream({bool manual = false, String? ownerId}) async {
     await stop();
     _generation++;
-    _session = _A2Session(token: _generation, manual: manual);
+    _session = _A2Session(
+      token: _generation,
+      manual: manual,
+      ownerId: ownerId,
+    );
     _streaming = true;
     _manual = manual;
     segmenter.reset();
@@ -91,10 +111,15 @@ class TtsPlaybackQueue {
     String text, {
     bool manual = true,
     bool segment = true,
+    String? ownerId,
   }) async {
     await stop();
     _generation++;
-    final session = _A2Session(token: _generation, manual: manual);
+    final session = _A2Session(
+      token: _generation,
+      manual: manual,
+      ownerId: ownerId,
+    );
     _session = session;
     _streaming = false;
     _manual = manual;
@@ -278,10 +303,15 @@ class TtsPlaybackQueue {
 }
 
 class _A2Session {
-  _A2Session({required this.token, required this.manual});
+  _A2Session({
+    required this.token,
+    required this.manual,
+    required this.ownerId,
+  });
 
   final int token;
   final bool manual;
+  final String? ownerId;
   final Completer<void> idle = Completer<void>();
   final Map<int, String?> ready = <int, String?>{};
   final Map<int, String> textByIndex = <int, String>{};
