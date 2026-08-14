@@ -67,3 +67,12 @@ messaging, Prompt, Desire, Memory, behavior rules, or the Meju A2 native stack.
 4. Verify the user message remains and the next turn can be sent.
 5. Let one turn finish and verify live reasoning/content becomes the normal
    committed message.
+
+## Automated validation
+
+- GitHub Actions run #18 (ID 31818910082): SUCCESS.
+- Passed the v0.31.8 contract validator and every existing source/regression validator.
+- Passed Flutter analyze and all Flutter tests, including the new snapshot tests.
+- Built the release APK, compiling the native WindowManager/Kotlin changes.
+- Verified the frozen Meju A2 native payload byte-for-byte and uploaded APK + SHA.
+- Earlier runs #15-#17 stopped before compilation/APK: one new-validator wording mismatch and two historical whole-file Overlay hashes. Those hashes were replaced with explicit HyperOS input-recovery contract guards; the guards were not removed.
