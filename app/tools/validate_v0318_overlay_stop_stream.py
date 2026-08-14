@@ -68,7 +68,7 @@ assert "chatSend?.isEnabled = false" not in send_block
 assert "setComposerGenerationState(sending = true)" in send_block
 
 test = read("test/overlay_generation_snapshot_test.dart")
-assert "does not invent" in test
+assert "without inventing text" in test
 assert "正在比较两种回答方式" in test
 
 print("v0.31.8 overlay stop and live stream validation passed")
