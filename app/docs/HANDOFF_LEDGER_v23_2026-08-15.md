@@ -15,7 +15,8 @@
 - 本次报告抓取时轻视觉为“已授权 + 已连接”，所以用户曾遇到的关闭不是正常 App 设计行为；更像 HyperOS/Android 重启、崩溃或系统安全策略撤销。下一次复现以 lifecycle 字段判断。
 - 桌宠主参考改为 `QCYTSN/ds-local-pet`：MIT 代码/manifest/状态机可参考，Windows 窗口层重写为 Android；该仓库视觉资产被 `ASSET_LICENSE.md` 明确排除在 MIT 外，未经额外授权不得打入 APK。
 - 性格底色适合做独立窗口，但只编辑现有 `03_personality_seed`，不建立第二套人格真源。本轮冻结“预设 + 可编辑文本”和“蠢萌元气”建议文案，尚未改变她的实际性格。
-- 当前候选版本：`v0.32.2+54`，schema 保持 21；PR #10 正在验证，未通过/未合并前不视为交付。
+- 用户补充的 `素材.zip` 共 475 项、约 112MB；目录、manifest、candidate 名称、角色 ID `dafeiyu` 与 `ds-local-pet` assets 完全对应，且包内无 LICENSE/授权文件。它是同源 assets 副本，不是独立授权来源；正式 APK 仍需权利证明。技术接入只取 runtime states + 必要 manifest，不携带 candidates/masters/source sheets/dialogue。
+- `v0.32.2+54` 已完成并进入 `main`，schema 保持 21；PR #10 squash 合并，产品提交 `3ebeada99c2954ca4c13c16a7a6d24b4ffa1472b`。
 
 ## 1. 当前事实基线
 
@@ -24,12 +25,15 @@
 - 私有仓库：`catkiss62/ai-companion-build`
 - 默认分支：`main`
 - 源码唯一真源：`app/`
-- 已发布基线仍为 `v0.32.1+53`，main 产品提交 `08f2f46c3e464761a247a7983a3b63233e17dc9f`，schema 21。
-- 当前候选分支：`codex/v0322-overlay-time-diagnostics`；PR #10。
-- 候选版本：`v0.32.2+54`；schema 21，不做数据库迁移。
-- 候选改动：悬浮消息时间、真实版本诊断标题、轻视觉授权/连接生命周期、Somatic 分向计数、桌宠 v2 方案、性格底色 UI 方案。
+- 当前已发布基线为 `v0.32.2+54`，main 产品提交 `3ebeada99c2954ca4c13c16a7a6d24b4ffa1472b`，schema 21。
+- 已合并分支：`codex/v0322-overlay-time-diagnostics`；PR #10。
+- 当前版本：`v0.32.2+54`；schema 21，不做数据库迁移。
+- 本版改动：悬浮消息时间、真实版本诊断标题、轻视觉授权/连接生命周期、Somatic 分向计数、桌宠 v2 方案、性格底色 UI 方案。
 - Clean Freeze 继续有效：仓库根目录不使用历史 patch/ZIP 作为构建输入；workflow 只验证和构建已提交的 `app/`。
-- 本节在 Actions/merge 后补充最终 commit、run、artifact 与 APK SHA-256。
+- PR #10 已 squash 合并；产品提交 `3ebeada99c2954ca4c13c16a7a6d24b4ffa1472b`。
+- 最终 Actions run #41，ID `31857394060`：全部 validators、Flutter analyze/tests、release APK、Meju A2 payload 字节校验和 artifact 上传通过。
+- Artifact `9239598199`，名称 `AI-Companion-v0.32.2-54-Overlay-Time-Diagnostics-APK`，ZIP digest `sha256:d8d67b2e1ea59bf628408e9c94adacbcd51ee7c0a0950de38731b9794d7b2439`。
+- APK SHA-256：`f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 
 ### 1.2 最新脱敏真机诊断
 
