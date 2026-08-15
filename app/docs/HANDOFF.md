@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前已发布基线：**v0.32.1+53 · Somatic AI-to-Self Atomic Echo**；当前候选：**v0.32.2+54 · Overlay Time & Diagnostic Observability**，PR #10，schema 21。
+- 当前主线：**v0.32.2+54 · Overlay Time & Diagnostic Observability**；PR #10 已合并，产品提交 `3ebeada99c2954ca4c13c16a7a6d24b4ffa1472b`，schema 21。
 - PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
@@ -30,6 +30,8 @@
 - 轻视觉区分系统授权与 service 连接；持久记录 connect/unbind/interrupt 时间和原因，已授权未连接时提示手动恢复，不尝试越权静默启用。
 - 桌宠主参考改为 `QCYTSN/ds-local-pet`；MIT 代码架构可参考，视觉资产被其资产声明排除在 MIT 外，额外授权前不可进 APK。
 - 性格底色窗口方案只编辑 `03_personality_seed`；推荐“预设 + 可编辑文本”，当前未改变真实性格。
+- 用户上传的 112MB 素材包已确认是 `ds-local-pet` 同源 assets 副本且无独立 LICENSE；未取得额外授权前不进 APK。
+- run #41（`31857394060`）全绿；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 - 完整交接见 `docs/HANDOFF_LEDGER_v23_2026-08-15.md`、`docs/ANDROID_DESKTOP_PET_PLAN_v2.md`、`docs/PERSONALITY_BASE_UI_v1.md`。
 
 ## 3. v0.32.0～v0.32.1 · 双通道感官
