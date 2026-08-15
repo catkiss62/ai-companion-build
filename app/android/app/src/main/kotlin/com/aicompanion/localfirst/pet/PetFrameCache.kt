@@ -7,8 +7,8 @@ import android.util.LruCache
 
 class PetFrameCache(
     private val assets: AssetManager,
-    private val root: String,
-    maxBytes: Int = 12 * 1024 * 1024,
+    private val root: String = PetSkinManifest.SOURCE_ROOT,
+    maxBytes: Int = 24 * 1024 * 1024,
 ) {
     private val cache = object : LruCache<String, Bitmap>((maxBytes / 1024).coerceAtLeast(1024)) {
         override fun sizeOf(key: String, value: Bitmap): Int =

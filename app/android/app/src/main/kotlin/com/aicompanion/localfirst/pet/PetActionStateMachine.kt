@@ -1,69 +1,74 @@
 package com.aicompanion.localfirst.pet
 
-enum class PetActionSource(val priority: Int) {
-    RANDOM_IDLE(10),
-    DESIRE_EXPRESSION(20),
-    NOTICE(30),
-    SPEAK(40),
-    SYSTEM(80),
-    DRAG(100),
-}
-
-data class ActivePetAction(
-    val actionId: String,
-    val source: PetActionSource,
-    val interruptible: Boolean,
-    val startedAtMs: Long,
+data class PetStateChange(
+    val previous: String,
+    val current: String,
+    val reason: String,
 )
 
+/** Direct Kotlin port of ds-local-pet/animation/state_machine.py semantics. */
 class PetActionStateMachine(
-    private val idleActionId: String = "idle",
+    private val specs: Map<String, PetActionSpec>,
+    startAtMs: Long = 0L,
 ) {
-    var active: ActivePetAction = ActivePetAction(
-        actionId = idleActionId,
-        source = PetActionSource.RANDOM_IDLE,
-        interruptible = true,
-        startedAtMs = 0L,
-    )
+    init {
+        require(specs.containsKey("IDLE")) { "IDLE action is required" }
+    }
+
+    var current: String = "IDLE"
         private set
 
-    var paused: Boolean = false
+    var enteredAtMs: Long = startAtMs
         private set
+
+    var reason: String = "startup"
+        private set
+
+    private var queuedAfter: String? = null
+
+    val spec: PetActionSpec
+        get() = specs[current] ?: error("Missing action spec: $current")
 
     fun request(
-        actionId: String,
-        source: PetActionSource,
-        interruptible: Boolean,
+        target: String,
         nowMs: Long,
-    ): Boolean {
-        if (paused && source != PetActionSource.SYSTEM) return false
-        if (!active.interruptible && source.priority <= active.source.priority) return false
-        if (source.priority < active.source.priority) return false
-        active = ActivePetAction(actionId, source, interruptible, nowMs)
-        return true
-    }
-
-    fun complete(nowMs: Long): ActivePetAction {
-        active = ActivePetAction(
-            actionId = idleActionId,
-            source = PetActionSource.RANDOM_IDLE,
-            interruptible = true,
-            startedAtMs = nowMs,
-        )
-        return active
-    }
-
-    fun setPaused(value: Boolean, nowMs: Long) {
-        paused = value
-        if (value) {
-            active = ActivePetAction(
-                actionId = idleActionId,
-                source = PetActionSource.SYSTEM,
-                interruptible = false,
-                startedAtMs = nowMs,
-            )
-        } else {
-            complete(nowMs)
+        reason: String,
+        force: Boolean = false,
+    ): PetStateChange? {
+        if (target == current) return null
+        val candidate = specs[target] ?: return null
+        val active = spec
+        if (!force) {
+            if (!active.interruptible && candidate.priority <= active.priority) return null
+            if (candidate.priority < active.priority) return null
         }
+        val previous = current
+        current = target
+        enteredAtMs = nowMs
+        this.reason = reason
+        queuedAfter = null
+        return PetStateChange(previous, target, reason)
     }
+
+    fun queueAfterCurrent(target: String) {
+        require(specs.containsKey(target)) { "Unknown queued action: $target" }
+        queuedAfter = target
+    }
+
+    fun update(nowMs: Long): PetStateChange? {
+        val active = spec
+        val durationMs = active.durationMs
+        if (active.loop || durationMs == null) return null
+        if (nowMs - enteredAtMs < durationMs) return null
+        val target = queuedAfter ?: active.returnState
+        val previous = current
+        current = target
+        enteredAtMs = nowMs
+        reason = "${previous.lowercase()}_complete"
+        queuedAfter = null
+        return PetStateChange(previous, target, reason)
+    }
+
+    fun forceIdle(nowMs: Long, reason: String = "preview_reset"): PetStateChange? =
+        request("IDLE", nowMs, reason, force = true)
 }

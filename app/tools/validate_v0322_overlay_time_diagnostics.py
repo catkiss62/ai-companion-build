@@ -23,7 +23,9 @@ diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
 database = read("lib/core/database/app_database.dart")
 pubspec = read("pubspec.yaml")
 
-if "version: 0.32.2+54" not in pubspec and "version: 0.33.0+55" not in pubspec:
+if not any(version in pubspec for version in (
+    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56",
+)):
     raise SystemExit("ERROR: unsupported release version")
 require(overlay, 'SimpleDateFormat("HH:mm", Locale.getDefault())', "overlay local time formatter")
 require(overlay, 'else "$label · $messageTime"', "overlay time label")

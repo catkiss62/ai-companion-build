@@ -1,0 +1,20 @@
+{
+  "IDLE": {"name": "待机", "hint": "循环保持；正面、背面按方向切换"},
+  "BLINK": {"name": "眨眨眼", "hint": "5 帧微动作，完成后回到待机"},
+  "GLANCE": {"name": "四处看看", "hint": "7 帧观察动作，完成后回到待机"},
+  "THINKING": {"name": "发呆", "hint": "思考姿势与轻微摇摆"},
+  "WALKING": {"name": "散步", "hint": "起步 → 四帧循环 → 收步；左右素材独立"},
+  "HAPPY": {"name": "开心", "hint": "弹跳效果，完成后回到待机"},
+  "HEAD_PAT": {"name": "被摸摸", "hint": "6 帧摸头反馈，不可被低优先级动作打断"},
+  "TALKING": {"name": "说话", "hint": "说话姿势与语音装饰"},
+  "ANGRY": {"name": "生气", "hint": "抖动与生气装饰"},
+  "POKE_REACT": {"name": "被戳", "hint": "4 帧受戳反馈"},
+  "TAIL_REACT": {"name": "尾巴被碰", "hint": "4 帧尾巴反馈"},
+  "EATING": {"name": "吃东西", "hint": "3 帧进食动作"},
+  "SWEEPING": {"name": "扫地", "hint": "扫地姿势与摆动效果"},
+  "SLEEPING": {"name": "睡觉", "hint": "入睡 → 睡眠循环 → 醒来"},
+  "DRAGGING": {"name": "抓取中", "hint": "按住拖动时保持；松手后进入落下"},
+  "FALLING": {"name": "落下", "hint": "先播放释放帧，再保持落下姿势；由物理落地结束"},
+  "LANDING": {"name": "着陆", "hint": "3 帧落地缓冲；重摔后可接眩晕"},
+  "DIZZY": {"name": "眩晕", "hint": "重摔后的不可中断反馈"}
+}
