@@ -382,6 +382,16 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   '轻视觉：${s?.accessibility == true ? '已授权' : '未授权'} / '
                   '${s?.accessibilityConnected == true ? '已连接' : '未连接'}',
                 ),
+                if (s?.accessibility == true &&
+                    s?.accessibilityConnected != true)
+                  const Text(
+                    '轻视觉已授权但未连接：请进入无障碍设置重新开关，并保存脱敏诊断。',
+                  ),
+                if ((s?.accessibilityLastReason ?? '').isNotEmpty)
+                  Text(
+                    '轻视觉最近状态：${s!.accessibilityLastReason}'
+                    '${s.accessibilityLastDisconnectedAt == null ? '' : ' · ${s.accessibilityLastDisconnectedAt!.toLocal()}'}',
+                  ),
                 Text(
                   '设备：${s?.screenInteractive == true ? '屏幕亮' : '屏幕灭'} · '
                   '${s?.deviceLocked == true ? '已锁定' : '已解锁'} · '
