@@ -31,3 +31,10 @@
 ## 下一阶段 D2
 
 在同一个现有前台服务内增加独立 `PetWindowController`：桌宠窗口与聊天窗口分层；实现点击展开聊天、拖拽、松手下落/落地、安全位置、横竖屏恢复、锁屏暂停。完成真机验证前保留旧悬浮球回退入口。
+
+
+## 自动验证
+
+- PR #11 head：`393e64dee0e505d78ff7da4cad0169d73a128187`。
+- GitHub Actions run #43（`31861829909`）：素材/静态契约、全部历史 validators、Kotlin 状态机单测、Flutter analyze/tests、release APK、A2 原生 payload 全绿。
+- artifact `9240951958`；APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。

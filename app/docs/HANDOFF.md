@@ -263,3 +263,5 @@ P2：
 - Kotlin 新增安全 skin loader、12MB LRU cache、动作状态机、帧播放器和系统页预览入口。
 - D2 下一步在同一前台服务内增加 Pet window，复用悬浮聊天和真停止能力；旧悬浮球在真机稳定前保留回退。
 - 完整入口：`docs/HANDOFF_LEDGER_v24_2026-08-15.md`、`docs/DESKTOP_PET_D0_D1_v0.33.0.md`。
+
+- D0/D1 CI：run #43（`31861829909`）全绿；artifact `9240951958`；APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。

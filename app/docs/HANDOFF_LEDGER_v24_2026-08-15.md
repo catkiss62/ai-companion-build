@@ -359,3 +359,11 @@ Intent + Gate：提起 / 稍后再说 / 只记作当下 / 完全沉默
 - 版本：`v0.33.0+55`，schema 仍为 21。
 - D2：同一前台服务内建立独立 Pet window，接点击聊天、拖拽、fall/land、安全位置、横竖屏和锁屏暂停；稳定前保留旧悬浮球回退。
 - 完整实现说明：`docs/DESKTOP_PET_D0_D1_v0.33.0.md`。
+
+
+### D0/D1 验证
+
+- 首轮 run #42 的产品 Kotlin 编译已成功；唯一失败是 Gradle `--tests` 过滤器误施加到无测试的插件子项目。
+- 将命令收窄为 `:app:testDebugUnitTest` 后，run #43（ID `31861829909`）通过新素材 validator、全部历史 validators、Kotlin 单测、Flutter analyze/tests、release APK 和冻结 A2 payload 校验。
+- artifact：`9240951958`；artifact ZIP digest：`sha256:6eb939e60cefbaeaea8bce7333a5e201a158ebf8b8e21f3df4cfc40e4cc123c4`。
+- APK SHA-256：`db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
