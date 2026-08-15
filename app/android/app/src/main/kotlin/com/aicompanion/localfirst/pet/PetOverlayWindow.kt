@@ -109,24 +109,9 @@ class PetOverlayWindow(
             layout.x = step.x.toInt()
             layout.y = step.y.toInt()
             runCatching { windowManager.updateViewLayout(view, layout) }
-            if (step.floorContact && !step.settled &&
-                player?.currentActionId == "FALLING"
-            ) {
-                player?.play(
-                    "BOUNCING",
-                    reason = "pet_overlay_floor_bounce",
-                    force = true,
-                    immediate = true,
-                )
-            }
             if (step.settled) {
-                playLightLanding("pet_overlay_floor_contact")
-                if (step.hardLanding) {
-                    handler.postDelayed(
-                        { player?.queueAfterCurrent("DIZZY") },
-                        LIGHT_LANDING_DELAY_MS,
-                    )
-                }
+                player?.play("LANDING", reason = "pet_overlay_landing", force = true, immediate = true)
+                if (step.hardLanding) player?.queueAfterCurrent("DIZZY")
                 if (motionMode() == PetMotionPolicy.EDGE) {
                     setDockedEdge(EDGE_BOTTOM)
                 } else {
@@ -776,7 +761,7 @@ class PetOverlayWindow(
 
     private fun playLightLanding(reason: String) {
         pendingLightLanding?.let(handler::removeCallbacks)
-        player?.play("BOUNCING", reason = reason, force = true, immediate = true)
+        player?.play("FALLING", reason = reason, force = true, immediate = true)
         val task = Runnable {
             pendingLightLanding = null
             player?.play("LANDING", reason = "${reason}_landing", force = true, immediate = true)

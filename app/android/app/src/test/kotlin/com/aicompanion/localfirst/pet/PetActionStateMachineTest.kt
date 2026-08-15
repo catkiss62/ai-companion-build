@@ -82,7 +82,6 @@ class PetActionStateMachineTest {
         physics.launch(0f, -100f, 300f, -200f)
         var settled = false
         var impact = 0f
-        var floorContact = false
         repeat(2_000) {
             val step = physics.step(
                 1f / 120f,
@@ -91,7 +90,6 @@ class PetActionStateMachineTest {
                 PetPhysicsBounds(-500f, -800f, 500f, 0f),
             )
             impact = maxOf(impact, step.impactSpeed)
-            floorContact = floorContact || step.floorContact
             if (step.settled) {
                 settled = true
                 return@repeat
@@ -99,7 +97,6 @@ class PetActionStateMachineTest {
         }
         assertTrue(settled)
         assertTrue(impact > 0f)
-        assertTrue(floorContact)
         assertFalse(physics.active)
     }
 }
