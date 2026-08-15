@@ -48,3 +48,11 @@ v0.33.1 撤销该精简路线：
 ## 后续边界
 
 本阶段仍是普通 Activity 隔离预览，不替换 Overlay。动作同构验证通过后，D2 才把相同播放器接入独立 Android 桌宠窗口，并复用现有悬浮聊天入口。
+
+
+## 自动验证证据
+
+- GitHub Actions run #47（ID `31867409197`）完整通过：417 文件恢复、源协议与历史回归、Kotlin 动作/物理单测、Flutter analyze/tests、release APK、APK 内完整 payload 核验、SHA 和 artifact 上传。
+- artifact `9242561565`：`AI-Companion-v0.33.1-56-Desktop-Pet-Source-Parity-APK`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`。
+- APK：238,499,224 bytes；SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`。
+- 下载后独立读取 APK ZIP 再确认：417 个 source 文件、210 张 runtime PNG、1 份原始 actions manifest、1 份中文标签表。
