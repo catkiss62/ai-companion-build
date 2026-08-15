@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.32.1+53$' app/pubspec.yaml
+          grep -q '^version: 0.32.2+54$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 21;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
