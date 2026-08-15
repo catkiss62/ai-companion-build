@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.aicompanion.localfirst.OverlayBubbleService
 import kotlin.math.abs
@@ -57,7 +58,7 @@ class PetOverlayWindow(
     private var frameView: PetFrameView? = null
     private var player: PetAnimationPlayer? = null
     private var cache: PetFrameCache? = null
-    private var optionsRoot: LinearLayout? = null
+    private var optionsRoot: View? = null
     private var optionsParams: WindowManager.LayoutParams? = null
 
     private var pressRawX = 0f
@@ -73,6 +74,7 @@ class PetOverlayWindow(
     private var lastTapRawY = 0f
     private var pendingSingleTap: Runnable? = null
     private var physicsLastAtMs = 0L
+    private var gravityResumePending = false
 
     private val longPress = Runnable {
         if (dragging || pressedRegion !in setOf("head", "face")) return@Runnable
@@ -89,7 +91,7 @@ class PetOverlayWindow(
             val delta = if (physicsLastAtMs == 0L) 0f else
                 ((now - physicsLastAtMs).coerceIn(0L, 100L) / 1000f)
             physicsLastAtMs = now
-            val safe = safeArea()
+            val safe = motionArea(layout)
             val step = physics.step(
                 deltaSeconds = delta,
                 spriteWidth = layout.width.toFloat(),
@@ -149,7 +151,7 @@ class PetOverlayWindow(
 
         val size = normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))
         val windowPx = dp(windowDp(size))
-        val safe = safeArea()
+        val safe = menuSafeArea()
         val defaultX = (safe.right - windowPx).coerceAtLeast(safe.left)
         val defaultY = (safe.top + safe.height / 3).coerceAtMost(
             (safe.bottom - windowPx).coerceAtLeast(safe.top),
@@ -204,7 +206,11 @@ class PetOverlayWindow(
     fun setVisible(visible: Boolean) {
         root?.visibility = if (visible) View.VISIBLE else View.GONE
         player?.setPaused(!visible)
-        if (!visible) closeOptions()
+        if (!visible) {
+            closeOptions(resumeMotion = false)
+        } else {
+            resumeFallIfPending()
+        }
     }
 
     fun setUnread(count: Int) {
@@ -249,7 +255,7 @@ class PetOverlayWindow(
         pendingSingleTap?.let(handler::removeCallbacks)
         pendingSingleTap = null
         physics.cancel()
-        closeOptions()
+        closeOptions(resumeMotion = false)
         player?.stop()
         cache?.clear()
         if (removeRoot) root?.let { runCatching { windowManager.removeViewImmediate(it) } }
@@ -267,9 +273,10 @@ class PetOverlayWindow(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     onTouchActivity("pet_down")
+                    gravityResumePending = gravityResumePending || physics.active
                     physics.cancel()
                     handler.removeCallbacks(physicsTick)
-                    closeOptions()
+                    closeOptions(resumeMotion = false)
                     pressRawX = event.rawX
                     pressRawY = event.rawY
                     val now = SystemClock.uptimeMillis()
@@ -299,6 +306,7 @@ class PetOverlayWindow(
                     addSample(event.rawX, event.rawY)
                     if (!dragging && abs(dx) + abs(dy) > dp(6)) {
                         dragging = true
+                        gravityResumePending = false
                         if (doubleTapCandidate) lastTapAtMs = 0L
                         doubleTapCandidate = false
                         handler.removeCallbacks(longPress)
@@ -327,6 +335,7 @@ class PetOverlayWindow(
                     if (dragging) {
                         val velocity = releaseVelocity()
                         dragging = false
+                        gravityResumePending = false
                         animation.play(
                             "FALLING",
                             reason = "pet_overlay_release",
@@ -347,6 +356,8 @@ class PetOverlayWindow(
                         showOptions()
                     } else if (!longPressHandled) {
                         scheduleTap(event.rawX, event.rawY, pressedRegion)
+                    } else {
+                        resumeFallIfPending(delayMs = 420L)
                     }
                     samples.clear()
                     true
@@ -361,6 +372,7 @@ class PetOverlayWindow(
                     runCatching { windowManager.updateViewLayout(view, layout) }
                     persistPosition()
                     animation.resetToIdle("pet_overlay_cancel")
+                    resumeFallIfPending()
                     true
                 }
                 else -> false
@@ -397,6 +409,7 @@ class PetOverlayWindow(
         val animation = player ?: return
         if (region == "head") {
             animation.play("HEAD_PAT", reason = "pet_overlay_head_pat", force = true)
+            resumeFallIfPending(delayMs = 420L)
             return
         }
         val now = SystemClock.uptimeMillis()
@@ -412,18 +425,17 @@ class PetOverlayWindow(
         } else {
             animation.play("POKE_REACT", reason = "pet_overlay_poke_$region", force = true)
         }
+        resumeFallIfPending(delayMs = 420L)
     }
 
     private fun showOptions() {
         if (optionsRoot != null) {
-            closeOptions()
+            closeOptions(resumeMotion = true)
             return
         }
-        val panel = LinearLayout(context).apply {
+        val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            background = rounded(Color.rgb(38, 35, 44), 16f)
-            elevation = dp(10).toFloat()
             addView(TextView(context).apply {
                 text = "桌宠选项"
                 textSize = 13f
@@ -431,7 +443,7 @@ class PetOverlayWindow(
                 setTextColor(Color.WHITE)
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
             addView(optionButton("打开聊天") {
-                closeOptions()
+                closeOptions(resumeMotion = false)
                 onOpenChat()
             })
             addView(LinearLayout(context).apply {
@@ -445,10 +457,27 @@ class PetOverlayWindow(
                 }
             })
             addView(optionButton("切换为悬浮球") {
-                closeOptions()
+                closeOptions(resumeMotion = false)
                 onSwitchToBubble()
             })
-            addView(optionButton("关闭菜单") { closeOptions() })
+            addView(optionButton("贴边缩进") {
+                gravityResumePending = false
+                dockToNearestEdge()
+                closeOptions(resumeMotion = false)
+            })
+            addView(optionButton("关闭菜单") { closeOptions(resumeMotion = true) })
+        }
+        val panel = ScrollView(context).apply {
+            isFillViewport = false
+            background = rounded(Color.rgb(38, 35, 44), 16f)
+            elevation = dp(10).toFloat()
+            addView(
+                content,
+                ScrollView.LayoutParams(
+                    ScrollView.LayoutParams.MATCH_PARENT,
+                    ScrollView.LayoutParams.WRAP_CONTENT,
+                ),
+            )
         }
         val layout = WindowManager.LayoutParams(
             dp(190),
@@ -465,6 +494,7 @@ class PetOverlayWindow(
         runCatching { windowManager.addView(panel, layout) }.onFailure {
             optionsRoot = null
             optionsParams = null
+            resumeFallIfPending()
         }
     }
 
@@ -472,7 +502,7 @@ class PetOverlayWindow(
         val panel = optionsRoot ?: return
         val menu = optionsParams ?: return
         val pet = params ?: return
-        val safe = safeArea()
+        val safe = menuSafeArea()
         menu.x = if (pet.x + pet.width + menu.width <= safe.right) {
             pet.x + pet.width
         } else {
@@ -482,10 +512,56 @@ class PetOverlayWindow(
         if (panel.isAttachedToWindow) runCatching { windowManager.updateViewLayout(panel, menu) }
     }
 
-    private fun closeOptions() {
+    private fun closeOptions(resumeMotion: Boolean = false) {
         optionsRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
         optionsRoot = null
         optionsParams = null
+        if (resumeMotion) resumeFallIfPending()
+    }
+
+    private fun resumeFallIfPending(delayMs: Long = 0L) {
+        if (!gravityResumePending) return
+        val task = Runnable {
+            if (!gravityResumePending || root?.visibility != View.VISIBLE) return@Runnable
+            val layout = params ?: return@Runnable
+            gravityResumePending = false
+            player?.play(
+                "FALLING",
+                reason = "pet_overlay_resume_fall",
+                force = true,
+                immediate = true,
+            )
+            physics.launch(layout.x.toFloat(), layout.y.toFloat(), 0f, 0f)
+            physicsLastAtMs = 0L
+            handler.post(physicsTick)
+        }
+        if (delayMs > 0L) handler.postDelayed(task, delayMs) else handler.post(task)
+    }
+
+    private fun dockToNearestEdge() {
+        val layout = params ?: return
+        val view = root ?: return
+        val area = motionArea(layout)
+        val minX = area.left
+        val maxX = (area.right - layout.width).coerceAtLeast(minX)
+        val minY = area.top
+        val maxY = (area.bottom - layout.height).coerceAtLeast(minY)
+        val distances = listOf(
+            "left" to abs(layout.x - minX),
+            "right" to abs(maxX - layout.x),
+            "top" to abs(layout.y - minY),
+            "bottom" to abs(maxY - layout.y),
+        )
+        when (distances.minByOrNull { it.second }?.first) {
+            "left" -> layout.x = minX
+            "right" -> layout.x = maxX
+            "top" -> layout.y = minY
+            else -> layout.y = maxY
+        }
+        clamp(layout)
+        player?.play("LANDING", reason = "pet_overlay_edge_dock", force = true, immediate = true)
+        runCatching { windowManager.updateViewLayout(view, layout) }
+        persistPosition()
     }
 
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
@@ -522,12 +598,30 @@ class PetOverlayWindow(
     private fun persistPosition() = persistCurrentPosition()
 
     private fun clamp(layout: WindowManager.LayoutParams) {
-        val safe = safeArea()
+        val safe = motionArea(layout)
         layout.x = layout.x.coerceIn(safe.left, (safe.right - layout.width).coerceAtLeast(safe.left))
         layout.y = layout.y.coerceIn(safe.top, (safe.bottom - layout.height).coerceAtLeast(safe.top))
     }
 
-    private fun safeArea(): SafeArea {
+    private fun motionArea(layout: WindowManager.LayoutParams): SafeArea {
+        val overscan = (minOf(layout.width, layout.height) * EDGE_OVERSCAN_RATIO).toInt()
+        if (Build.VERSION.SDK_INT >= 30) {
+            val bounds = windowManager.currentWindowMetrics.bounds
+            return SafeArea(
+                bounds.left - overscan,
+                bounds.top - overscan,
+                bounds.right + overscan,
+                bounds.bottom,
+            )
+        }
+        @Suppress("DEPRECATION")
+        val width = context.resources.displayMetrics.widthPixels
+        @Suppress("DEPRECATION")
+        val height = context.resources.displayMetrics.heightPixels
+        return SafeArea(-overscan, -overscan, width + overscan, height)
+    }
+
+    private fun menuSafeArea(): SafeArea {
         val margin = dp(4)
         if (Build.VERSION.SDK_INT >= 30) {
             val metrics = windowManager.currentWindowMetrics
@@ -571,6 +665,7 @@ class PetOverlayWindow(
         private const val KEY_PET_Y = "pet_y"
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
+        private const val EDGE_OVERSCAN_RATIO = 0.06f
 
         fun normalizedSize(value: String?): String = PetOverlaySizing.normalized(value)
 
