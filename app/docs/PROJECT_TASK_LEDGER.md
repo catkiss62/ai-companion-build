@@ -276,7 +276,7 @@
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 - [x] v0.33.0+55 桌宠 D0/D1：PR #11 squash merge `339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`。
-- [x] v0.33.1+56 桌宠 D1.1 原项目动作同构：PR #12 产品 run #47（`31867409197`）全绿；artifact `9242561565`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`，APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`；待最终文档 run 与 merge 落款。
+- [x] v0.33.1+56 桌宠 D1.1 原项目动作同构：PR #12 产品 run #47（`31867409197`）全绿；artifact `9242561565`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`，APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`；最终合并落款见 `HANDOFF_LEDGER_v25_2026-08-15.md`。
 - [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
