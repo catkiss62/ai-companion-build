@@ -274,7 +274,7 @@
 - [x] 用户确认半成品测试阶段不保留存档、每次均可卸载重装；旧 workflow 内嵌 key 彻底退役。
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
-- [x] v0.33.0+55 桌宠 D0/D1：PR #11 head `393e64dee0e505d78ff7da4cad0169d73a128187`，run #43（`31861829909`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9240951958`，APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
+- [x] v0.33.0+55 桌宠 D0/D1：PR #11 squash merge `339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`。
 - [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。

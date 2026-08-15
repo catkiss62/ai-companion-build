@@ -367,3 +367,8 @@ Intent + Gate：提起 / 稍后再说 / 只记作当下 / 完全沉默
 - 将命令收窄为 `:app:testDebugUnitTest` 后，run #43（ID `31861829909`）通过新素材 validator、全部历史 validators、Kotlin 单测、Flutter analyze/tests、release APK 和冻结 A2 payload 校验。
 - artifact：`9240951958`；artifact ZIP digest：`sha256:6eb939e60cefbaeaea8bce7333a5e201a158ebf8b8e21f3df4cfc40e4cc123c4`。
 - APK SHA-256：`db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
+
+
+### 最终合并落款
+
+- PR #11 已 squash 合并：`339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）全绿，artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`，artifact digest `sha256:7748f41b826dfce5a468aad6d8dab6cb014a5fd6c786723044b0d243a4a1ea2b`。
