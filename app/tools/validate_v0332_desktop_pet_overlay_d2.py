@@ -18,7 +18,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 
 pubspec = read("pubspec.yaml")
-assert "version: 0.33.2+57" in pubspec
+assert "version: 0.33.2+57" in pubspec or "version: 0.33.3+58" in pubspec
 
 pet = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt"
