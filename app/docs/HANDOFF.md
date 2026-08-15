@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前主线：**v0.33.1+56 · Android 桌宠 D1.1 原项目动作同构**；PR #12 已完成产品验证、等待最终文档检查与合并，schema 21。v0.33.0 的 66 帧简化预览已被本版明确取代。
+- 当前主线：**v0.33.1+56 · Android 桌宠 D1.1 原项目动作同构**；PR #12 产品验证与最终文档检查均已完成；最终合并落款见 v25 总账，schema 21。v0.33.0 的 66 帧简化预览已被本版明确取代。
 - PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
