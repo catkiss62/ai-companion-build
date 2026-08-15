@@ -111,17 +111,13 @@ def main() -> int:
     ]:
         assert token in tests, token
 
-    # TTS/runtime/accessibility remain byte-frozen. Overlay UI may evolve, but
-    # its HyperOS input-recovery contract remains guarded below.
+    # The frozen Meju A2 payload and TTS sentence contract remain byte-identical.
+    # Newer version-specific validators own native runtime/accessibility changes.
     frozen = {
         "lib/core/tts/tts_sentence_segmenter.dart":
             "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
         "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
             "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
-        "android/app/src/main/kotlin/com/aicompanion/localfirst/CompanionRuntimeState.kt":
-            "b29ca1b48de73508bb393c71c63c1165a65649ccabc1fe712a3aaef7b18a6e2a",
-        "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt":
-            "663f11b090ca543fbd7bceac68793781d60246fa2c30e31d5337db82eb618a03",
     }
     for relative, expected in frozen.items():
         assert digest(relative) == expected, relative

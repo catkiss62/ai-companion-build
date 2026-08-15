@@ -38,6 +38,9 @@ import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -2013,6 +2016,13 @@ class OverlayBubbleService : Service() {
 
     private fun dpF(value: Float): Float = value * resources.displayMetrics.density
 
+    private fun formatMessageTime(createdAt: Long): String {
+        if (createdAt <= 0L) return ""
+        return runCatching {
+            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(createdAt))
+        }.getOrDefault("")
+    }
+
     private data class PendingInlineReply(
         val replyId: String,
         val text: String,
@@ -2060,8 +2070,9 @@ class OverlayBubbleService : Service() {
             } else {
                 "她"
             }
+            val messageTime = formatMessageTime(message.createdAt)
             bubble.addView(TextView(this@OverlayBubbleService).apply {
-                text = label
+                text = if (messageTime.isBlank()) label else "$label · $messageTime"
                 textSize = 11f
                 setTextColor(Color.rgb(188, 169, 220))
             })

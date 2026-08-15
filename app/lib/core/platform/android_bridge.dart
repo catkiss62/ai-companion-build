@@ -76,6 +76,10 @@ class CapabilityStatus {
     required this.overlaySelfHealCount,
     required this.notificationListenerConnected,
     required this.accessibilityConnected,
+    required this.accessibilityLastConnectedAt,
+    required this.accessibilityLastDisconnectedAt,
+    required this.accessibilityLastInterruptAt,
+    required this.accessibilityLastReason,
     required this.appVisible,
     required this.screenInteractive,
     required this.deviceLocked,
@@ -103,6 +107,10 @@ class CapabilityStatus {
   final int overlaySelfHealCount;
   final bool notificationListenerConnected;
   final bool accessibilityConnected;
+  final DateTime? accessibilityLastConnectedAt;
+  final DateTime? accessibilityLastDisconnectedAt;
+  final DateTime? accessibilityLastInterruptAt;
+  final String accessibilityLastReason;
   final bool appVisible;
   final bool screenInteractive;
   final bool deviceLocked;
@@ -136,6 +144,12 @@ class CapabilityStatus {
       overlaySelfHealCount: (map['overlaySelfHealCount'] as num?)?.toInt() ?? 0,
       notificationListenerConnected: b('notificationListenerConnected'),
       accessibilityConnected: b('accessibilityConnected'),
+      accessibilityLastConnectedAt: date('accessibilityLastConnectedAt'),
+      accessibilityLastDisconnectedAt:
+          date('accessibilityLastDisconnectedAt'),
+      accessibilityLastInterruptAt: date('accessibilityLastInterruptAt'),
+      accessibilityLastReason:
+          map['accessibilityLastReason'] as String? ?? '',
       appVisible: b('appVisible'),
       screenInteractive: b('screenInteractive'),
       deviceLocked: b('deviceLocked'),

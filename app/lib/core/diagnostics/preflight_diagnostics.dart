@@ -404,12 +404,32 @@ class PreflightDiagnosticsService {
         '通知访问',
         capabilities['notificationListener'] == true,
       );
-      _addPermissionCheck(
-        checks,
-        'accessibility',
-        'Accessibility 轻视觉',
-        capabilities['accessibility'] == true,
-      );
+      final accessibilityAuthorized =
+          capabilities['accessibilityAuthorized'] == true ||
+              capabilities['accessibility'] == true;
+      final accessibilityConnected =
+          capabilities['accessibilityConnected'] == true;
+      report['accessibilityLifecycle'] = {
+        'authorized': accessibilityAuthorized,
+        'connected': accessibilityConnected,
+        'lastConnectedAt': capabilities['accessibilityLastConnectedAt'] ?? 0,
+        'lastDisconnectedAt':
+            capabilities['accessibilityLastDisconnectedAt'] ?? 0,
+        'lastInterruptAt': capabilities['accessibilityLastInterruptAt'] ?? 0,
+        'lastReason': capabilities['accessibilityLastReason'] ?? '',
+      };
+      checks.add(PreflightCheck(
+        id: 'accessibility',
+        title: 'Accessibility 轻视觉',
+        level: accessibilityAuthorized && accessibilityConnected
+            ? 'pass'
+            : 'warn',
+        summary: !accessibilityAuthorized
+            ? '系统当前未授权；轻视觉不会运行。'
+            : accessibilityConnected
+                ? '系统已授权，轻视觉服务已连接。'
+                : '系统仍显示已授权，但轻视觉服务未连接；请打开无障碍页重新开关该服务，并保存本报告。',
+      ));
       _addPermissionCheck(
         checks,
         'post_notifications',
@@ -579,8 +599,17 @@ class PreflightDiagnosticsService {
         .replaceAll('.', '-');
     final file = File(p.join(temp.path, 'ai_companion_diagnostics_$stamp.txt'));
     final encoder = const JsonEncoder.withIndent('  ');
+    final native = _asMap(snapshot.report['native']);
+    final app = _asMap(native['app']);
+    final versionName = (app['versionName'] as String? ?? '').trim();
+    final versionCode = (app['versionCode'] as num?)?.toInt() ?? 0;
+    final buildLabel = versionName.isEmpty
+        ? 'unknown build'
+        : versionCode > 0
+            ? 'v$versionName+$versionCode'
+            : 'v$versionName';
     final text = StringBuffer()
-      ..writeln('AI Companion v0.31.5+47 · REDACTED LOCAL DIAGNOSTIC REPORT')
+      ..writeln('AI Companion $buildLabel · REDACTED LOCAL DIAGNOSTIC REPORT')
       ..writeln('This report intentionally excludes relationship/chat/reference plaintext and API secrets.')
       ..writeln()
       ..writeln(encoder.convert(snapshot.report));

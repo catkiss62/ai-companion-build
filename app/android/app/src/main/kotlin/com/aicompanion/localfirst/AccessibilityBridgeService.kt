@@ -1,6 +1,7 @@
 package com.aicompanion.localfirst
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 
 class AccessibilityBridgeService : AccessibilityService() {
@@ -8,7 +9,7 @@ class AccessibilityBridgeService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        CompanionRuntimeState.setAccessibilityConnected(true)
+        CompanionRuntimeState.markAccessibilityConnected(this)
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -99,6 +100,7 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
+        CompanionRuntimeState.noteAccessibilityInterrupted(this)
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -108,8 +110,22 @@ class AccessibilityBridgeService : AccessibilityService() {
         )
     }
 
+    override fun onUnbind(intent: Intent?): Boolean {
+        CompanionRuntimeState.markAccessibilityDisconnected(this, "unbound")
+        NativeEventStore.addDeviceEvent(
+            this,
+            source = "system",
+            eventType = "accessibility_unbound",
+            appPackage = packageName,
+            summary = "Accessibility 轻视觉服务已与系统解绑。",
+        )
+        return super.onUnbind(intent)
+    }
+
     override fun onDestroy() {
-        CompanionRuntimeState.setAccessibilityConnected(false)
+        if (CompanionRuntimeState.accessibilityConnected) {
+            CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
+        }
         super.onDestroy()
     }
 }

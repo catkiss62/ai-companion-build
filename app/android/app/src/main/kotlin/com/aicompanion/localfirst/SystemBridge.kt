@@ -441,7 +441,9 @@ class SystemBridge(
         return HashMap<String, Any>().apply {
             put("overlay", Settings.canDrawOverlays(activity))
             put("usage", hasUsageAccess())
-            put("accessibility", isAccessibilityEnabled())
+            val accessibilityAuthorized = isAccessibilityEnabled()
+            put("accessibility", accessibilityAuthorized)
+            put("accessibilityAuthorized", accessibilityAuthorized)
             put("notificationListener", isNotificationListenerEnabled())
             put("postNotifications", hasNotificationPermission())
             put("overlayRunning", OverlayBubbleService.running)
