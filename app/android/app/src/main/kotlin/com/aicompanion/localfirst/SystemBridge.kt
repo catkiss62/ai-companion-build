@@ -102,6 +102,20 @@ class SystemBridge(
                     OverlayBubbleService.stopUserEnabled(activity)
                     result.success(null)
                 }
+                "setOverlayEntryMode" -> {
+                    OverlayBubbleService.setEntryMode(
+                        activity,
+                        call.argument<String>("mode") ?: OverlayBubbleService.ENTRY_MODE_BUBBLE,
+                    )
+                    result.success(null)
+                }
+                "setPetOverlaySize" -> {
+                    OverlayBubbleService.setPetSize(
+                        activity,
+                        call.argument<String>("size") ?: "medium",
+                    )
+                    result.success(null)
+                }
                 "suspendOverlayForStandby" -> {
                     OverlayBubbleService.stopForStandby(activity)
                     result.success(null)
@@ -452,6 +466,8 @@ class SystemBridge(
             put("notificationListener", isNotificationListenerEnabled())
             put("postNotifications", hasNotificationPermission())
             put("overlayRunning", OverlayBubbleService.running)
+            put("overlayEntryMode", OverlayBubbleService.entryMode(activity))
+            put("overlayPetSize", OverlayBubbleService.petSize(activity))
             put("backgroundBrainReady", OverlayBubbleService.backgroundBrainReady)
             put("screenInteractive", power.isInteractive)
             put("deviceLocked", keyguard.isDeviceLocked)

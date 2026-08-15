@@ -63,6 +63,8 @@ class CapabilityStatus {
     required this.notificationListener,
     required this.postNotifications,
     required this.overlayRunning,
+    required this.overlayEntryMode,
+    required this.overlayPetSize,
     required this.backgroundBrainReady,
     required this.overlayUserEnabled,
     required this.overlayVisible,
@@ -94,6 +96,8 @@ class CapabilityStatus {
   final bool notificationListener;
   final bool postNotifications;
   final bool overlayRunning;
+  final String overlayEntryMode;
+  final String overlayPetSize;
   final bool backgroundBrainReady;
   final bool overlayUserEnabled;
   final bool overlayVisible;
@@ -131,6 +135,8 @@ class CapabilityStatus {
       notificationListener: b('notificationListener'),
       postNotifications: b('postNotifications'),
       overlayRunning: b('overlayRunning'),
+      overlayEntryMode: map['overlayEntryMode'] as String? ?? 'bubble',
+      overlayPetSize: map['overlayPetSize'] as String? ?? 'medium',
       backgroundBrainReady: b('backgroundBrainReady'),
       overlayUserEnabled: b('overlayUserEnabled'),
       overlayVisible: b('overlayVisible'),
@@ -232,6 +238,12 @@ class AndroidBridge {
   Future<void> startOverlay() => _channel.invokeMethod<void>('startOverlay');
 
   Future<void> stopOverlay() => _channel.invokeMethod<void>('stopOverlay');
+
+  Future<void> setOverlayEntryMode(String mode) =>
+      _channel.invokeMethod<void>('setOverlayEntryMode', {'mode': mode});
+
+  Future<void> setPetOverlaySize(String size) =>
+      _channel.invokeMethod<void>('setPetOverlaySize', {'size': size});
 
   Future<void> suspendOverlayForStandby() =>
       _channel.invokeMethod<void>('suspendOverlayForStandby');
