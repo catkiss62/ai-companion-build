@@ -236,3 +236,22 @@ ATTRIBUTION.md
 - 首版角色的偏好（体型、服装、主色、动作气质）与是否需要音效；这不阻塞 Activity 隔离播放器。
 
 
+
+## 13. 2026-08-15 用户上传素材包审计
+
+用户提供 `素材.zip`，共 475 项、压缩后约 112MB。审计结论：
+
+- 目录和文件名与 `QCYTSN/ds-local-pet` assets 树完全对应，包括 `candidates/state_actions`、`processed/masters`、`processed/runtime/states`、`manifests/actions.json`、`runtime_inventory.json` 和角色 ID `dafeiyu`。
+- 包内没有 LICENSE、NOTICE、作者授权或独立来源说明。
+- `character_spec.json` 的 `user_authorized_generated_assets=true` 是原项目管线状态；不能解释为对 AI Companion 的再许可。
+- `source_inventory.json` 中部分原始参考明确为 `user_authorized=false`。
+- 因此该 ZIP 归类为同源 assets 副本，不是独立授权来源。换下载页面或压缩包名称不会改变许可边界。
+
+技术上若取得许可，不应将整个 ZIP 打入 APK：
+
+1. 只保留 `processed/runtime/states` 的最终帧、必要的 `actions.json`/character spec 和一张预览。
+2. 排除 candidates、masters、source sheets、chroma sheets、生成 prompt、previews、dialogue 与 source inventory。
+3. 转换为 Android 皮肤包契约，生成逐文件 SHA-256、画布/anchor/hitbox/fps 索引和 attribution。
+4. 先在普通 Activity 隔离播放器验证，再接 WindowManager Overlay。
+
+当前状态：`ASSET_BLOCKED_BY_LICENSE`。可继续开发许可无关的播放器与状态机；正式打包角色图前需要来源页面和明确授权，或换成用户自有/委托/原创素材。
