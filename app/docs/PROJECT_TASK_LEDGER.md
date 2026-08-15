@@ -238,6 +238,7 @@
 - [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
 - [ ] Android 桌宠以 `QCYTSN/ds-local-pet` 为主架构参考：移植 MIT 的 manifest/状态机/调度思想，Android WindowManager/renderer 重写；桌宠点击动作可打开悬浮聊天窗。
 - [ ] `ds-local-pet` 角色视觉资产被其 `ASSET_LICENSE.md` 明确排除在 MIT 外；取得可修改、打包和分发的明确授权前不得进入 APK。先用权利清晰的占位资产做 Activity 隔离播放器。
+- [x] 已审计用户上传 `素材.zip`：475 项、约 112MB，与该仓库 assets 目录/manifest/角色 ID 一致且无 LICENSE，归类为同源副本而非新授权；不因换下载地址解除许可条件。
 - [ ] 旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸、悬浮聊天和真停止能力。完整方案见 `docs/ANDROID_DESKTOP_PET_PLAN_v2.md`。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
 
@@ -272,7 +273,8 @@
 - [x] 删除已应用 v0.30.x / v0.31.x 临时 patch、文档 ZIP，并退役一次性 apply workflow；Git 历史保留恢复路径。
 - [x] 用户确认半成品测试阶段不保留存档、每次均可卸载重装；旧 workflow 内嵌 key 彻底退役。
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
-- [ ] v0.32.2+54 分支 validators/analyze/tests/release APK 与真机诊断回归。
+- [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
+- [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
 
