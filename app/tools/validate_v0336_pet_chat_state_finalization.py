@@ -17,7 +17,8 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-assert "version: 0.33.6+61" in read("pubspec.yaml")
+pubspec = read("pubspec.yaml")
+assert "version: 0.33.6+61" in pubspec or "version: 0.33.7+62" in pubspec
 
 bridge = read("lib/core/platform/android_bridge.dart")
 controller = read("lib/features/chat/chat_controller.dart")
@@ -61,40 +62,48 @@ require(
         "private const val PORTRAIT_BOTTOM_MARGIN_DP = 16",
         "dp(windowDp(size) * 8 / 100)",
         "dp(windowDp(size) * 21 / 100)",
-        "step.floorContact && !step.settled",
-        '"BOUNCING"',
-        'player?.play("BOUNCING", reason = reason',
     ],
-    "pet geometry and two-stage fall",
+    "pet geometry",
 )
-require(
-    skin,
-    [
-        'AIRBORNE_V2_ASSET_ID = "falling_airborne_v2"',
-        "candidate_e_throw_landing/falling_v2.png",
-        'put("FALLING", falling.copy(assetId = AIRBORNE_V2_ASSET_ID))',
-        '"BOUNCING"',
-        'assetId = "falling"',
-    ],
-    "airborne and bounce assets",
-)
-require(physics, ["val floorContact: Boolean = false", "floorContact = true"], "floor contact signal")
+if "version: 0.33.6+61" in pubspec:
+    require(
+        pet,
+        ["step.floorContact && !step.settled", '"BOUNCING"'],
+        "v0.33.6 two-stage fall",
+    )
+    require(
+        skin,
+        [
+            'AIRBORNE_V2_ASSET_ID = "falling_airborne_v2"',
+            "candidate_e_throw_landing/falling_v2.png",
+        ],
+        "v0.33.6 airborne asset",
+    )
+    require(physics, ["val floorContact: Boolean = false"], "v0.33.6 floor contact")
+else:
+    require(
+        pet,
+        ['player?.play("FALLING", reason = reason', 'player?.play("LANDING", reason = "pet_overlay_landing"'],
+        "v0.33.7 restored fall",
+    )
+    for removed in ("falling_airborne_v2", '"BOUNCING"', "floorContact"):
+        assert removed not in pet + skin + physics, removed
 
 tests = read("android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt")
 require(tests, ['PetConversationPolicy.cueFor(false, "idle", "synthesizing")'], "synthesis silence test")
 
 doc = read("docs/PET_CHAT_STATE_FINALIZATION_D3_1_1_v0.33.6.md")
-require(doc, ["walk_side_stand", "daily_transition_00", "sleepy_yawn", "D3.2"], "confirmed action ledger")
+require(doc, ["daily_transition_00", "sleepy_yawn", "D3.2"], "confirmed action ledger")
 
 workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.6+61 APK",
+        "Build AI Companion v0.33.7+62 APK",
         "python3 tools/validate_v0336_pet_chat_state_finalization.py",
-        "AI-Companion-v0.33.6-61-Pet-Chat-State-Finalization-D3-1-1-APK",
+        "AI-Companion-v0.33.7-62-Pet-Falling-Visual-Rollback-D3-1-2-APK",
     ],
     "workflow",
 )
 
-print("v0.33.6 D3.1.1 validated: App/overlay chat cues, synthesis silence, badge/floor geometry, and two-stage falling.")
+print("v0.33.6+ chat finalization validated: App/overlay cues, synthesis silence, geometry, and current falling contract.")

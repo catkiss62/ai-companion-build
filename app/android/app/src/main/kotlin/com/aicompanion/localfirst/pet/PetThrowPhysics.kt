@@ -23,7 +23,6 @@ data class PetPhysicsStep(
     val y: Float,
     val velocityX: Float,
     val velocityY: Float,
-    val floorContact: Boolean = false,
     val settled: Boolean = false,
     val hardLanding: Boolean = false,
     val impactSpeed: Float = 0f,
@@ -78,7 +77,6 @@ class PetThrowPhysics(
         var remaining = deltaSeconds.coerceIn(0f, 0.10f)
         val limits = bounds.limits(spriteWidth, spriteHeight)
         var settled = false
-        var floorContact = false
         while (remaining > 0.0000001f && active) {
             val substep = minOf(remaining, 1f / 120f)
             remaining -= substep
@@ -98,7 +96,6 @@ class PetThrowPhysics(
                 if (velocityY < 0f) velocityY = -velocityY * ceilingRestitution
             }
             if (y >= limits[3]) {
-                floorContact = true
                 y = limits[3]
                 val impactSpeed = maxOf(0f, velocityY)
                 largestImpact = maxOf(largestImpact, impactSpeed)
@@ -123,7 +120,6 @@ class PetThrowPhysics(
             y,
             velocityX,
             velocityY,
-            floorContact = floorContact,
             settled = settled,
             hardLanding = hardLanding,
             impactSpeed = largestImpact,
