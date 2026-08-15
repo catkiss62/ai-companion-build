@@ -1,6 +1,6 @@
 # AI Companion · HANDOFF
 
-> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v22_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v24_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
 ## 1. 当前基底
 
@@ -28,9 +28,9 @@
 - 脱敏报告标题从实际安装包读取版本，不再显示遗留 `v0.31.5+47`。
 - Somatic 统计新增 user-to-AI / AI-to-self 分向计数，不导出正文、动作或部位。
 - 轻视觉区分系统授权与 service 连接；持久记录 connect/unbind/interrupt 时间和原因，已授权未连接时提示手动恢复，不尝试越权静默启用。
-- 桌宠主参考改为 `QCYTSN/ds-local-pet`；MIT 代码架构可参考，视觉资产被其资产声明排除在 MIT 外，额外授权前不可进 APK。
+- 桌宠主参考为 `QCYTSN/ds-local-pet`；Android 窗口和播放器重新实现，不复制 PySide6/Windows 运行代码。
 - 性格底色窗口方案只编辑 `03_personality_seed`；推荐“预设 + 可编辑文本”，当前未改变真实性格。
-- 用户上传的 112MB 素材包已确认是 `ds-local-pet` 同源 assets 副本且无独立 LICENSE；未取得额外授权前不进 APK。
+- 用户已授权其私人、非商业项目使用上传素材并同意署名；v0.33.0 只打包 27 动作/66 张 238px 运行帧，公开发布前仍需换素材或取得额外许可。
 - run #41（`31857394060`）全绿；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 - 完整交接见 `docs/HANDOFF_LEDGER_v23_2026-08-15.md`、`docs/ANDROID_DESKTOP_PET_PLAN_v2.md`、`docs/PERSONALITY_BASE_UI_v1.md`。
 
@@ -254,3 +254,12 @@ P2：
 - 历史升级补丁与项目文档 ZIP 已从根目录移除；需要取证时从 Git 历史按文件恢复。
 - 每项正式功能使用独立分支/PR；合并后再生成 APK，避免构建步骤隐式改变 main。
 - Clean Freeze 记录见 `docs/CLEAN_FREEZE_v0.31.5.md`。
+
+
+## v0.33.0+55 · Android 桌宠 D0/D1
+
+- 当前主线提前到 Android 桌宠；本阶段只做资产锁定与普通 Activity 隔离播放器，不改变现有 Overlay。
+- 私人运行皮肤为 27 动作、66 张 238px RGBA PNG、低于 6MiB；附来源与仅限私人非商业使用说明。
+- Kotlin 新增安全 skin loader、12MB LRU cache、动作状态机、帧播放器和系统页预览入口。
+- D2 下一步在同一前台服务内增加 Pet window，复用悬浮聊天和真停止能力；旧悬浮球在真机稳定前保留回退。
+- 完整入口：`docs/HANDOFF_LEDGER_v24_2026-08-15.md`、`docs/DESKTOP_PET_D0_D1_v0.33.0.md`。

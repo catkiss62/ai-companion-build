@@ -23,7 +23,8 @@ diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
 database = read("lib/core/database/app_database.dart")
 pubspec = read("pubspec.yaml")
 
-require(pubspec, "version: 0.32.2+54", "release version")
+if "version: 0.32.2+54" not in pubspec and "version: 0.33.0+55" not in pubspec:
+    raise SystemExit("ERROR: unsupported release version")
 require(overlay, 'SimpleDateFormat("HH:mm", Locale.getDefault())', "overlay local time formatter")
 require(overlay, 'else "$label · $messageTime"', "overlay time label")
 require(database, "'somatic_user_to_ai_events'", "user-to-AI diagnostic count")

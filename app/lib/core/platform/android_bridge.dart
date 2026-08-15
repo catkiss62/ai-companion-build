@@ -226,6 +226,9 @@ class AndroidBridge {
   Future<bool> requestNearbyPermissions() async =>
       await _channel.invokeMethod<bool>('requestNearbyPermissions') ?? false;
 
+  Future<void> openDesktopPetPreview() =>
+      _channel.invokeMethod<void>('openDesktopPetPreview');
+
   Future<void> startOverlay() => _channel.invokeMethod<void>('startOverlay');
 
   Future<void> stopOverlay() => _channel.invokeMethod<void>('stopOverlay');

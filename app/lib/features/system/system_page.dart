@@ -324,6 +324,24 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
           ),
         ),
         const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.pets_outlined),
+            title: const Text('桌宠播放器预览'),
+            subtitle: const Text('D1 隔离测试：只预览皮肤和动作，不改变当前悬浮球'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: busy
+                ? null
+                : () async {
+                    try {
+                      await android.openDesktopPetPreview();
+                    } catch (e) {
+                      if (mounted) setState(() => note = '桌宠预览打开失败：$e');
+                    }
+                  },
+          ),
+        ),
+        const SizedBox(height: 8),
         _PermissionTile(
           title: '显示在其他应用上层',
           enabled: s?.overlay ?? false,

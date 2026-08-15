@@ -254,4 +254,13 @@ ATTRIBUTION.md
 3. 转换为 Android 皮肤包契约，生成逐文件 SHA-256、画布/anchor/hitbox/fps 索引和 attribution。
 4. 先在普通 Activity 隔离播放器验证，再接 WindowManager Overlay。
 
-当前状态：`ASSET_BLOCKED_BY_LICENSE`。可继续开发许可无关的播放器与状态机；正式打包角色图前需要来源页面和明确授权，或换成用户自有/委托/原创素材。
+原审计状态已在用户进一步说明并明确授权本私人项目使用后更新：`USER_AUTHORIZED_PRIVATE_USE_WITH_ATTRIBUTION`。这不是公开再分发许可；APK 若转为公开发布或商业发行，仍必须替换素材或取得明确授权。
+
+
+## 14. 2026-08-15 D0/D1 实施状态
+
+- 用户提供 `素材-替换原图片.zip` 并授权仅用于其私人、非商业 AI Companion 项目；项目内保留 `ATTRIBUTION.md` 与 `LICENSE.txt`。
+- 逐像素审计确认重新导出的 389 个图像与原包画面一致，因此来源说明按“用户授权的原素材重导出”记录，不表述为独立重绘。
+- Android 打包只保留 238px 运行集：27 个动作、66 张 RGBA PNG、低于 6MiB；candidates、masters、source sheets、GIF 预览和 dialogue 均排除。
+- D1 已实现普通 Activity 隔离播放器、安全 manifest loader、12MB LRU 帧缓存和动作优先级状态机；未修改现有 Overlay 行为。
+- 下一项为 D2 Overlay MVP；实现说明见 `docs/DESKTOP_PET_D0_D1_v0.33.0.md`。

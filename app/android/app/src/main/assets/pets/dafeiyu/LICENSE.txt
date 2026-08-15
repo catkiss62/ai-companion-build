@@ -1,0 +1,5 @@
+PRIVATE USER-SUPPLIED ASSET PACK
+
+Permission recorded for the user's private, non-commercial AI Companion installation only.
+No permission is asserted for public redistribution, resale, relicensing, or use outside this private project.
+See ATTRIBUTION.md for provenance and the public-release replacement rule.
