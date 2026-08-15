@@ -4,7 +4,7 @@
 
 ## 1. 当前基底
 
-- 当前开发主线：**v0.32.1+53 · Somatic AI-to-Self Atomic Echo**；产品提交 `08f2f46c3e464761a247a7983a3b63233e17dc9f`。
+- 当前已发布基线：**v0.32.1+53 · Somatic AI-to-Self Atomic Echo**；当前候选：**v0.32.2+54 · Overlay Time & Diagnostic Observability**，PR #10，schema 21。
 - PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
@@ -21,6 +21,16 @@
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
 - **Desire / Thought / Intent / Gate 是活人感的行为调度主干**：感知、记忆、联网、屏幕和桌宠提供她知道的内容与可用能力；是否、为何、何时行动统一回到欲望主干，各模块不得自行绕过 Gate 强制发言。
+
+## 2B. v0.32.2 · 悬浮时间与可诊断性
+
+- 悬浮聊天每条消息显示本地 `HH:mm`，读取现有 message `created_at`。
+- 脱敏报告标题从实际安装包读取版本，不再显示遗留 `v0.31.5+47`。
+- Somatic 统计新增 user-to-AI / AI-to-self 分向计数，不导出正文、动作或部位。
+- 轻视觉区分系统授权与 service 连接；持久记录 connect/unbind/interrupt 时间和原因，已授权未连接时提示手动恢复，不尝试越权静默启用。
+- 桌宠主参考改为 `QCYTSN/ds-local-pet`；MIT 代码架构可参考，视觉资产被其资产声明排除在 MIT 外，额外授权前不可进 APK。
+- 性格底色窗口方案只编辑 `03_personality_seed`；推荐“预设 + 可编辑文本”，当前未改变真实性格。
+- 完整交接见 `docs/HANDOFF_LEDGER_v23_2026-08-15.md`、`docs/ANDROID_DESKTOP_PET_PLAN_v2.md`、`docs/PERSONALITY_BASE_UI_v1.md`。
 
 ## 3. v0.32.0～v0.32.1 · 双通道感官
 
@@ -216,7 +226,9 @@
 
 P1：
 
-- v0.31.7 完成真正停止生成后，下一正式主线进入双通道感官 SQLite event/aggregate contract。
+- v0.32.2 Actions/merge 后先用新诊断分向计数确认双感官两方向；再继续 smell/taste/sound 或按产品优先级进入精确前台 App 感知。
+- “蠢萌元气”默认文案经用户确认后实现性格底色窗口，且只能写现有 `03_personality_seed`。
+- 桌宠先做 Activity 隔离播放器；`ds-local-pet` 图片需额外授权，否则使用权利清晰的占位素材。
 - Notification Experience：前台静音、外部/锁屏通知、提示音/震动/隐私、点击进入悬浮聊天。
 - HyperOS 长后台：锁屏、划掉 App、数小时 idle、process recreation、boot/package replaced。
 - 50/100/数百轮 Memory/Thought/summary/thread 压力测试。
