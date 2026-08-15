@@ -105,7 +105,7 @@ jobs:
 
       - name: Kotlin desktop-pet state-machine tests
         working-directory: app/android
-        run: ./gradlew testDebugUnitTest --tests com.aicompanion.localfirst.pet.PetActionStateMachineTest
+        run: ./gradlew :app:testDebugUnitTest --tests com.aicompanion.localfirst.pet.PetActionStateMachineTest
 
       - name: Flutter analyze
         working-directory: app
