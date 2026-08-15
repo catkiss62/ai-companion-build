@@ -64,11 +64,11 @@ frame = read(
 require(
     frame,
     [
-        "The dafeiyu ANGRY raster already contains its orange anger mark.",
-        '"anger" -> Unit',
+        'kind !in setOf("thought", "voice")',
     ],
-    "anger decoration deduplication",
+    "program-drawn decoration whitelist",
 )
+assert '"anger" ->' not in frame
 assert "canvas.drawLine(cx - dp(5f)" not in frame
 
 service = read(
