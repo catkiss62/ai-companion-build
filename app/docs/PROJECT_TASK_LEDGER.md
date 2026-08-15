@@ -1,6 +1,6 @@
 # AI Companion · Project Task Ledger
 
-> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v21_2026-08-15.md`。
+> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v23_2026-08-15.md`。
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
@@ -26,10 +26,17 @@
 - [x] 新安装默认 `V4 Flash + High`；已有明确选择不被迁移覆盖。
 - [x] v0.32.1+53 PR #9 / run #32：新增完成动作与动作括号检测，过滤意图/否定/假设；Flutter analyze/tests、release APK 与 A2 payload 校验全部通过。
 - [x] `ai_to_self` 成功 durable commit 后半强度回响；与 assistant message/job completed/aggregate 同事务，取消、失败、stale writer、恢复重跑不制造幽灵事件。
+- [x] 2026-08-15 第二份真机诊断累计 `somatic_events=4`、active channel=1，说明持续有事件落库；旧报告只有总数，不能单凭它证明方向。
+- [x] v0.32.2+54 诊断统计新增 `somatic_user_to_ai_events` / `somatic_ai_to_self_events`，下一份报告可直接验双向落库。
 - [ ] smell / taste / sound 与可替换 corpus。
 
-### S-3. UI 小项登记
+### S-3. UI 与诊断小项
 
+- [x] v0.32.2+54 悬浮聊天每条消息在发送者标签旁显示本地 `HH:mm`，沿用真实 `created_at`。
+- [x] 脱敏报告标题不再硬编码旧 `v0.31.5+47`，改读实际安装包 versionName/versionCode。
+- [x] 轻视觉区分“系统已授权”与“服务已连接”，持久记录最近连接、解绑、中断时间和原因；App 不尝试越权静默重开。
+- [x] 已授权但未连接时，系统页和自检明确提示进入无障碍设置重新开关并保存诊断。
+- [ ] REDMI K80 Ultra 真机复现/观察轻视觉是否仍被 HyperOS 撤销；若再现，用 v0.32.2 报告中的 lifecycle 字段定位。
 - [ ] Flutter / Android 长按复制粘贴菜单中文化；与后续 UI 本地化批次合并。
 
 ## COMPLETED · v0.31.9 TTS State & Cancelled-turn Withdrawal
@@ -79,6 +86,8 @@
 - [x] 性格种子允许调侃、吐槽、偶尔锋利和真实不高兴，同时禁止无端发脾气、操控、惩罚或为反驳而反驳。
 - [x] 新规则层使用 upgrade-safe `INSERT OR IGNORE`，不覆盖用户已编辑的第一规则或其他旧层。
 - [x] 长期 AI Self、Relationship、Memory 与 Desire baseline 可以逐步细化/修正种子，种子不是永久角色卡。
+- [x] 冻结“性格底色窗口”架构：预设 + 可编辑文本只写现有 `03_personality_seed`，不另建第二人格真源；设计见 `docs/PERSONALITY_BASE_UI_v1.md`。
+- [ ] 用户确认“蠢萌元气”默认文案后实现页面；萌感来自元气、好奇、反差和偶发小迷糊，不幼化、不持续装傻、不损害任务可靠性。
 - [ ] 真机对话确认男性称谓稳定、不会每轮强调“男友”，也不会因自主性规则机械唱反调。
 
 ## COMPLETED · v0.31.4 Grounded Desire Growth
@@ -227,7 +236,9 @@
 - [ ] 候选池必须有 URL/fingerprint 去重、7～30 天 TTL、数量/磁盘/流量/每日上限、域名黑名单、Wi-Fi/安静时段和可见来源。
 - [ ] 公开网页内容视为 untrusted data；失败/取消不产生“已阅读”，外部 prompt injection 不得进入 system、AI Self、规则或 Thought 原文。
 - [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
-- [ ] Android 桌宠先做许可安全的隔离播放器，再接 Overlay；桌宠点击动作可打开悬浮聊天窗。旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸与真停止能力。
+- [ ] Android 桌宠以 `QCYTSN/ds-local-pet` 为主架构参考：移植 MIT 的 manifest/状态机/调度思想，Android WindowManager/renderer 重写；桌宠点击动作可打开悬浮聊天窗。
+- [ ] `ds-local-pet` 角色视觉资产被其 `ASSET_LICENSE.md` 明确排除在 MIT 外；取得可修改、打包和分发的明确授权前不得进入 APK。先用权利清晰的占位资产做 Activity 隔离播放器。
+- [ ] 旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸、悬浮聊天和真停止能力。完整方案见 `docs/ANDROID_DESKTOP_PET_PLAN_v2.md`。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
 
 ## P2 · LATER
@@ -261,6 +272,7 @@
 - [x] 删除已应用 v0.30.x / v0.31.x 临时 patch、文档 ZIP，并退役一次性 apply workflow；Git 历史保留恢复路径。
 - [x] 用户确认半成品测试阶段不保留存档、每次均可卸载重装；旧 workflow 内嵌 key 彻底退役。
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
+- [ ] v0.32.2+54 分支 validators/analyze/tests/release APK 与真机诊断回归。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
 
