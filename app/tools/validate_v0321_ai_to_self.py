@@ -20,7 +20,7 @@ db = read("lib/core/database/app_database.dart")
 tests = read("test/somatic_policy_test.dart")
 pubspec = read("pubspec.yaml")
 
-require(pubspec, "version: 0.32.1+53", "release version")
+require(pubspec, "version: 0.32.2+54", "current release version")
 require(policy, "detectAssistantSelfTouch", "assistant detector")
 require(policy, "SomaticDirection.aiToSelf", "AI-to-self direction")
 require(policy, "source: 'assistant_committed'", "committed source")
