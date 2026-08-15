@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -73,6 +74,16 @@ class PetPreviewActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = "桌宠原项目动作预览"
+        if (Build.VERSION.SDK_INT >= 30) {
+            window.setDecorFitsSystemWindows(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = 0
+        }
+        val page = ScrollView(this).apply {
+            isFillViewport = false
+            setBackgroundColor(Color.rgb(24, 21, 28))
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -101,14 +112,15 @@ class PetPreviewActivity : Activity() {
         }
         root.addView(help)
 
-        val petView = PetFrameView(this)
+        val petView = PetFrameView(this).apply {
+            setPreviewWindowDp(PetOverlaySizing.windowDp(PetOverlaySizing.MEDIUM))
+        }
         frameView = petView
         root.addView(
             petView,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
+                dp(320),
             ),
         )
 
@@ -147,7 +159,14 @@ class PetPreviewActivity : Activity() {
             status.text = "桌宠原始动作清单读取失败：${error.message ?: error.javaClass.simpleName}"
             status.setTextColor(Color.rgb(255, 150, 150))
         }
-        setContentView(root)
+        page.addView(
+            root,
+            ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        setContentView(page)
     }
 
     private fun buildControls(
@@ -158,20 +177,39 @@ class PetPreviewActivity : Activity() {
         addView(LinearLayout(this@PetPreviewActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            listOf(
-                "左" to "left",
-                "右" to "right",
-                "背面" to "up",
-                "正面" to "down",
-            ).forEach { (text, direction) ->
-                addView(compactButton(text) { animationPlayer.setDirection(direction) })
-            }
+            addView(compactButton("左") {
+                animationPlayer.setDirection("left")
+                animationPlayer.play(
+                    "STROLLING",
+                    reason = "preview_static_left",
+                    force = true,
+                    immediate = true,
+                )
+            })
+            addView(compactButton("右") {
+                animationPlayer.setDirection("right")
+                animationPlayer.play(
+                    "STROLLING",
+                    reason = "preview_static_right",
+                    force = true,
+                    immediate = true,
+                )
+            })
+            addView(compactButton("背面") {
+                animationPlayer.setDirection("up")
+                animationPlayer.resetToIdle("preview_back")
+            })
+            addView(compactButton("正面") {
+                animationPlayer.setDirection("down")
+                animationPlayer.resetToIdle("preview_front")
+            })
             addView(compactButton("复位待机") {
                 physics.cancel()
                 handler.removeCallbacks(physicsTick)
                 translationX = 0f
                 translationY = 0f
                 frameView?.resetPetTranslation()
+                animationPlayer.setDirection("down")
                 animationPlayer.resetToIdle()
             })
         })
@@ -179,8 +217,15 @@ class PetPreviewActivity : Activity() {
         addView(LinearLayout(this@PetPreviewActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            listOf(187, 238, 306).forEach { size ->
-                addView(compactButton("${size}px") { animationPlayer.setTargetHeight(size) })
+            listOf(
+                Triple(187, PetOverlaySizing.SMALL, "小"),
+                Triple(238, PetOverlaySizing.MEDIUM, "中"),
+                Triple(306, PetOverlaySizing.LARGE, "大"),
+            ).forEach { (assetHeight, sizeName, label) ->
+                addView(compactButton("$label · ${PetOverlaySizing.windowDp(sizeName)}dp") {
+                    animationPlayer.setTargetHeight(assetHeight)
+                    frameView?.setPreviewWindowDp(PetOverlaySizing.windowDp(sizeName))
+                })
             }
         })
 
@@ -213,9 +258,13 @@ class PetPreviewActivity : Activity() {
                 })
             }
         }
-        addView(ScrollView(this@PetPreviewActivity).apply {
-            addView(grid)
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(185)))
+        addView(
+            grid,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
     }
 
     private fun compactButton(text: String, onClick: () -> Unit): Button = Button(this).apply {

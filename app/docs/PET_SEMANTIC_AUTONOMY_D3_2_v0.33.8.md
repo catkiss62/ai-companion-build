@@ -1,49 +1,51 @@
-# D3.2 桌宠动作语义分层与自主调度（v0.33.8+63）
+# D3.2 桌宠动作、移动与预览校正（v0.33.8+63）
 
 ## 目标
 
-让桌宠消费现有的 Desire、Thought、视觉 mood 与空闲时长，而不是新建第二套人格、随机性格或主动消息系统。Dart 仍是内在状态的唯一权威；Android 只接收不含 Thought 正文的只读投影并播放已注册动作。
+桌宠继续只消费现有 Desire、Thought、视觉 mood 与空闲时长。Dart 仍是内在状态的唯一权威；Android 只接收不含 Thought 正文的只读投影，并负责动作播放、边界移动与预览。
 
-## 状态投影
+## 动作命名
 
-- Desire：读取 8 个既有 drive，选择当前主导 drive 与强度。
-- Thought：只读取 metadata；活跃 Thought 的 drive 与 strength 可以提高 `THINKING` 的优先级，正文不会跨 MethodChannel。
-- mood：不是新数据库字段，而是 Desire / Thought 的只读视觉投影：`calm`、`sleepy`、`tense`、`warm`、`curious`、`reflective`。
-- Active Brain / transfer lock：复用 `brainWorkAllowed()`；待机脑或转移冻结时关闭自主动作消费。
-- 空闲时长：只在桌宠无触摸、无聊天、无物理运动时累计；用户触摸或进入对话后重新计时。
+- 散步（STROLLING）：使用静态方向图并叠加轻微上下起伏和左右摇晃，表现原项目跟随目标时的轻巧移动感。
+- 走路（WALKING）：使用四帧侧面步态，只负责明显的左右步行。
+- 右走素材本身没有缺图，但文件相位顺序与左走不一致；运行时按 `03 → 01 → 02 → 00` 播放，与左走四个着地点对应。
+- `walk_side_stand` 只作为散步时的静态左/右姿势；右侧由播放器镜像，不生成新素材。
 
-## 仲裁顺序
+## 移动分配
 
-1. 抛掷、拖拽、落地和触摸反应。
-2. 对话生成与真正的 TTS 播放。
-3. Desire / Thought / mood 语义动作。
-4. 低频 `BLINK` / `GLANCE` 微动作。
+| 模式 | 动作 | 允许方向 |
+| --- | --- | --- |
+| 自由模式 | 散步（STROLLING） | 左、右、上、下 |
+| 任意半屏模式 | 散步（STROLLING） | 左、右、上、下 |
+| 贴边模式：左/右边 | 散步（STROLLING） | 上、下 |
+| 贴边模式：上/下边 | 走路（WALKING） | 左、右 |
 
-TTS `synthesizing` 继续保持无 `TALKING`，并暂停自主动作；只有 `playing` 才进入 `TALKING`。聊天面板展开时也暂停自主动作。
+单次自主移动至少以 96dp 为目标，并按桌宠尺寸放大到约 1.3 倍窗口边长，实际距离仍受当前活动区域约束。移动结束统一回到正面待机。
 
-## 动作映射与节奏
+半屏不再使用原始屏幕几何中心；先扣除系统栏、竖屏底部留白和角色越界余量，再按实际可活动区域的中点平均分割。因此竖屏上半与下半的可达面积视觉上保持一致。
 
-- 12 秒以上空闲：允许低频 `BLINK` / `GLANCE`，18 秒冷却，使用稳定时间桶而不是新随机数系统。
-- 45 秒以上空闲且语义强度足够：
-  - curiosity / curious → `WALKING`；自由/半屏模式内做约 2.2 秒受边界约束的水平移动，结束后直接回正面 `IDLE`。
+## 自主节奏
+
+- 9 秒以上空闲允许 `BLINK` / `GLANCE`；检查周期和冷却都缩短，使眨眼出现频率约为上一版两倍。
+- 日常动作使用独立的 72 秒冷却，不占用眨眼冷却：
+  - 通常进入散步。
+  - 每五个稳定时间桶中的一个进入 `SWEEPING`。
+- 45 秒以上空闲且语义强度足够时：
+  - curiosity / curious → 散步。
   - reflection / duty / 强 Thought → `THINKING`。
   - attachment / social / libido / warm → `HAPPY`。
   - stress / tense → `GLANCE`。
-- fatigue、深夜或 sleepy → `YAWNING`。
-- sleepy 且空闲至少 3 分钟：哈欠结束后进入 `SLEEPING`。
+- fatigue 或 sleepy → `YAWNING`；空闲至少 3 分钟时，哈欠结束后进入 `SLEEPING`。
 
-语义动作冷却为 55 秒。任意触摸、聊天、TTS、拖拽或抛掷都可立即打断自主动作。
+抛掷、拖拽、落地、触摸、聊天与 TTS 的优先级仍高于自主动作。TTS `synthesizing` 不播放 `TALKING`，只有 `playing` 才播放。
 
-## 哈欠帧序列
+## 动作细节
 
-运行时新增内部动作 `YAWNING`，但不改上游 18 项注册表：
+- 哈欠不再拼接尺寸不一致的 `daily_transition_00` 与 `sleepy_yawn`。保留 `YAWNING` 语义，复用当前尺寸的正面待机帧，播放 1.5 秒轻微疲倦摇晃。
+- `HAPPY` 在 1.05 秒内完成恰好两次小跳，不再停在第二次跳到一半的位置。
+- 程序绘制装饰只保留 `THINKING` 的思考泡和 `TALKING` 的声音波纹。开心“+”、进食碎屑、扫地弧线、睡眠泡泡和眩晕星标均不再绘制。
+- 悬空、轻放 180ms 触地帧与落地逻辑保持上一版确认结果；不启用 `falling_v2`。
 
-`daily_transition_00 → sleepy_yawn → sleepy_yawn → daily_transition_00`
+## 预览
 
-共 1.2 秒，每帧 300ms；重复 `sleepy_yawn` 形成约 600ms 的哈欠停顿。素材来自完整 417 文件源包中的 PNG 候选，不依赖 GIF。
-
-## 明确不做
-
-- 不使用 `walk_side_stand`；侧走结束直接切回正面更符合已确认的萌感。
-- 不使用 `falling_v2`；悬空、轻放 180ms 触地帧与落地逻辑保持 v0.33.7 的完整回滚结果。
-- 不让动作反向修改 Desire / Thought，也不让动作层发送主动消息。
+预览页使用系统安全区域并改为整页滚动，中间角色区固定为较小高度，不再被状态栏或导航栏遮挡。小/中/大按钮按实际 112dp、152dp、200dp 窗口尺寸显示，不再把三档都放大到同一比例。“左/右”显示静态侧面姿势，“背面/正面”切换待机方向，“复位待机”明确回到正面。

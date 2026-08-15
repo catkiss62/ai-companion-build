@@ -49,8 +49,31 @@ data class PetAutonomyDecision(
  * random personality system: identical state and idle time produce the same
  * visual choice.
  */
+data class PetAutonomousMovementPlan(
+    val actionId: String,
+    val directions: List<String>,
+)
+
+object PetAutonomousMotionPolicy {
+    fun plan(mode: String, dockedEdge: String): PetAutonomousMovementPlan? =
+        when (PetMotionPolicy.normalized(mode)) {
+            PetMotionPolicy.EDGE -> when (dockedEdge) {
+                "left", "right" ->
+                    PetAutonomousMovementPlan("STROLLING", listOf("up", "down"))
+                "top", "bottom" ->
+                    PetAutonomousMovementPlan("WALKING", listOf("left", "right"))
+                else -> null
+            }
+            else -> PetAutonomousMovementPlan(
+                "STROLLING",
+                listOf("left", "right", "up", "down"),
+            )
+        }
+}
+
 object PetAutonomyPolicy {
-    const val MIN_MICRO_IDLE_MS = 12_000L
+    const val MIN_MICRO_IDLE_MS = 9_000L
+    const val MIN_DAILY_IDLE_MS = 30_000L
     const val MIN_SEMANTIC_IDLE_MS = 45_000L
     const val SLEEP_IDLE_MS = 180_000L
 
@@ -60,8 +83,11 @@ object PetAutonomyPolicy {
         semanticReady: Boolean,
         microReady: Boolean,
         cadenceBucket: Long,
+        dailyReady: Boolean = false,
     ): PetAutonomyDecision? {
         if (!snapshot.enabled || idleMs < MIN_MICRO_IDLE_MS) return null
+
+        // Urgent durable state keeps priority over cosmetic daily motion.
         if (semanticReady && idleMs >= MIN_SEMANTIC_IDLE_MS) {
             if (snapshot.mood == "sleepy" || snapshot.dominantDrive == "fatigue") {
                 return PetAutonomyDecision(
@@ -73,27 +99,40 @@ object PetAutonomyPolicy {
             if (snapshot.thoughtActive && snapshot.thoughtStrength >= 0.50) {
                 return PetAutonomyDecision("THINKING", semantic = true)
             }
+            if (snapshot.dominantDrive == "stress" && snapshot.driveLevel >= 0.48) {
+                return PetAutonomyDecision("GLANCE", semantic = true)
+            }
+        }
+
+        if (dailyReady && idleMs >= MIN_DAILY_IDLE_MS) {
+            return PetAutonomyDecision(
+                actionId = if (cadenceBucket % 5L == 0L) "SWEEPING" else "STROLLING",
+                semantic = false,
+            )
+        }
+
+        if (semanticReady && idleMs >= MIN_SEMANTIC_IDLE_MS) {
             if (snapshot.driveLevel >= 0.48) {
                 return when (snapshot.dominantDrive) {
-                    "curiosity" -> PetAutonomyDecision("WALKING", semantic = true)
+                    "curiosity" -> PetAutonomyDecision("STROLLING", semantic = true)
                     "reflection", "duty" -> PetAutonomyDecision("THINKING", semantic = true)
                     "attachment", "social", "libido" ->
                         PetAutonomyDecision("HAPPY", semantic = true)
-                    "stress" -> PetAutonomyDecision("GLANCE", semantic = true)
                     else -> null
                 }
             }
             return when (snapshot.mood) {
                 "warm" -> PetAutonomyDecision("HAPPY", semantic = true)
-                "curious" -> PetAutonomyDecision("WALKING", semantic = true)
+                "curious" -> PetAutonomyDecision("STROLLING", semantic = true)
                 "reflective" -> PetAutonomyDecision("THINKING", semantic = true)
                 "tense" -> PetAutonomyDecision("GLANCE", semantic = true)
                 else -> null
             }
         }
+
         if (!microReady) return null
         return PetAutonomyDecision(
-            actionId = if (cadenceBucket % 3L == 0L) "GLANCE" else "BLINK",
+            actionId = if (cadenceBucket % 4L == 0L) "GLANCE" else "BLINK",
             semantic = false,
         )
     }

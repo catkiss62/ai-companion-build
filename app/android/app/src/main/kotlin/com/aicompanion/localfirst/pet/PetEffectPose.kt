@@ -74,13 +74,33 @@ object PetEffects {
                 )
             }
             "bounce" -> {
-                val phase = max(0f, sin(time * PI.toFloat() * 2.15f))
+                // HAPPY lasts 1.05 s: 1.9047619 Hz makes exactly two complete hops.
+                val phase = max(0f, sin(time * PI.toFloat() * 2f * 1.9047619f))
                 PetEffectPose(
                     offsetY = -phase * 10f,
                     scaleX = 1f + phase * 0.018f,
                     scaleY = 1f - phase * 0.024f,
                     shadowScale = 1f - phase * 0.23f,
-                    decoration = "sparkle",
+                )
+            }
+            "stroll" -> {
+                val sway = sin(time * PI.toFloat() * 2f * 1.35f)
+                val step = abs(sin(time * PI.toFloat() * 2f * 2.70f))
+                PetEffectPose(
+                    offsetY = -step * 1.8f,
+                    rotationDegrees = sway * 2.2f,
+                    shadowScale = 1f - step * 0.06f,
+                    shadowOpacity = 0.20f,
+                )
+            }
+            "yawn_sway" -> {
+                val tired = sin(time * PI.toFloat() * 1.15f)
+                PetEffectPose(
+                    offsetY = -abs(tired) * 1.1f,
+                    rotationDegrees = tired * 1.5f,
+                    scaleX = 1f - tired * 0.004f,
+                    scaleY = 1f + tired * 0.010f,
+                    shadowOpacity = 0.20f,
                 )
             }
             "head_pat" -> {
@@ -105,7 +125,6 @@ object PetEffects {
                 PetEffectPose(
                     offsetX = phase * 2.5f,
                     rotationDegrees = phase * 1.1f,
-                    decoration = "anger",
                 )
             }
             "poke_frames" -> {
@@ -130,7 +149,6 @@ object PetEffects {
                     offsetY = -phase * 2.8f,
                     scaleX = 1f + phase * 0.012f,
                     scaleY = 1f - phase * 0.015f,
-                    decoration = "crumb",
                 )
             }
             "sweep" -> {
@@ -138,14 +156,12 @@ object PetEffects {
                 PetEffectPose(
                     offsetX = phase * 2.5f,
                     rotationDegrees = phase * 2.4f,
-                    decoration = "sweep",
                 )
             }
             "sleep" -> PetEffectPose(
                 offsetY = breath * 1.6f,
                 scaleX = 1f - breath * 0.008f,
                 scaleY = 1f + breath * 0.013f,
-                decoration = "sleep",
             )
             "sleep_enter" -> {
                 val progress = min(1f, time / 1.05f)
@@ -191,7 +207,6 @@ object PetEffects {
                 PetEffectPose(
                     offsetX = phase * 1.5f,
                     rotationDegrees = phase * 2.8f,
-                    decoration = "dizzy",
                 )
             }
             else -> PetEffectPose()

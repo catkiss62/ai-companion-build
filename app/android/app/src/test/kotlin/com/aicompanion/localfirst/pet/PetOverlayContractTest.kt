@@ -127,9 +127,55 @@ class PetOverlayContractTest {
             idleMs = PetAutonomyPolicy.MIN_MICRO_IDLE_MS,
             semanticReady = false,
             microReady = true,
-            cadenceBucket = 4L,
+            cadenceBucket = 5L,
         )
         assertEquals("BLINK", blink?.actionId)
         assertFalse(blink?.semantic ?: true)
     }
+
+    @Test
+    fun dailyActionsStaySeparateFromBlinkCadence() {
+        val stroll = PetAutonomyPolicy.choose(
+            PetAutonomySnapshot(enabled = true),
+            idleMs = PetAutonomyPolicy.MIN_DAILY_IDLE_MS,
+            semanticReady = false,
+            microReady = true,
+            cadenceBucket = 1L,
+            dailyReady = true,
+        )
+        assertEquals("STROLLING", stroll?.actionId)
+        assertFalse(stroll?.semantic ?: true)
+
+        val sweep = PetAutonomyPolicy.choose(
+            PetAutonomySnapshot(enabled = true),
+            idleMs = PetAutonomyPolicy.MIN_DAILY_IDLE_MS,
+            semanticReady = false,
+            microReady = true,
+            cadenceBucket = 5L,
+            dailyReady = true,
+        )
+        assertEquals("SWEEPING", sweep?.actionId)
+    }
+
+    @Test
+    fun autonomousMovementUsesTheRequestedModeDirectionTable() {
+        val free = PetAutonomousMotionPolicy.plan(PetMotionPolicy.FREE, "")
+        assertEquals("STROLLING", free?.actionId)
+        assertEquals(listOf("left", "right", "up", "down"), free?.directions)
+
+        val half = PetAutonomousMotionPolicy.plan(PetMotionPolicy.HALF_TOP, "")
+        assertEquals("STROLLING", half?.actionId)
+        assertEquals(listOf("left", "right", "up", "down"), half?.directions)
+
+        val sideEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "left")
+        assertEquals("STROLLING", sideEdge?.actionId)
+        assertEquals(listOf("up", "down"), sideEdge?.directions)
+
+        val horizontalEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "bottom")
+        assertEquals("WALKING", horizontalEdge?.actionId)
+        assertEquals(listOf("left", "right"), horizontalEdge?.directions)
+
+        assertEquals(null, PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, ""))
+    }
+
 }
