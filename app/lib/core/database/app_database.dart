@@ -6725,6 +6725,16 @@ class AppDatabase {
       'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
       'somatic_events': await count('somatic_events'),
+      'somatic_user_to_ai_events': await count(
+        'somatic_events',
+        'direction = ?',
+        ['user_to_ai'],
+      ),
+      'somatic_ai_to_self_events': await count(
+        'somatic_events',
+        'direction = ?',
+        ['ai_to_self'],
+      ),
       'active_somatic_channels': await count(
         'somatic_aggregates',
         'expires_at > ?',
