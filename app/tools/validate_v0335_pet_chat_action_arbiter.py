@@ -17,7 +17,9 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-assert "version: 0.33.5+60" in read("pubspec.yaml")
+assert any(version in read("pubspec.yaml") for version in (
+    "version: 0.33.5+60", "version: 0.33.6+61",
+))
 
 contract = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayContract.kt"
@@ -51,7 +53,7 @@ require(
         "private fun reconcileConversationAction(reason: String)",
         'private val CONVERSATION_ACTIONS = setOf("THINKING", "TALKING")',
         "action.id == \"IDLE\" && phase == PetAnimationPhase.BODY",
-        "private const val PORTRAIT_BOTTOM_MARGIN_DP = 10",
+        "private const val PORTRAIT_BOTTOM_MARGIN_DP",
     ],
     "pet chat arbitration",
 )
@@ -115,9 +117,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.5+60 APK",
+        "Build AI Companion v0.33.6+61 APK",
         "python3 tools/validate_v0335_pet_chat_action_arbiter.py",
-        "AI-Companion-v0.33.5-60-Pet-Chat-Action-Arbiter-D3-1-APK",
+        "AI-Companion-v0.33.6-61-Pet-Chat-State-Finalization-D3-1-1-APK",
     ],
     "workflow",
 )

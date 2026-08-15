@@ -267,6 +267,17 @@ class AndroidBridge {
   Future<void> clearOverlayUnread() =>
       _channel.invokeMethod<void>('clearOverlayUnread');
 
+  Future<void> setPetConversationState({
+    required bool generationActive,
+    required String generationPhase,
+    required String ttsPhase,
+  }) =>
+      _channel.invokeMethod<void>('setPetConversationState', {
+        'generationActive': generationActive,
+        'generationPhase': generationPhase,
+        'ttsPhase': ttsPhase,
+      });
+
   Future<void> postCompanionNotification({
     required String title,
     required String body,

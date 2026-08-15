@@ -58,6 +58,10 @@ class PetOverlayContractTest {
             PetConversationPolicy.cueFor(true, "cancelling", "synthesizing"),
         )
         assertEquals(
+            PetConversationPolicy.IDLE,
+            PetConversationPolicy.cueFor(false, "idle", "synthesizing"),
+        )
+        assertEquals(
             PetConversationPolicy.TALKING,
             PetConversationPolicy.cueFor(true, "answering", "idle"),
         )

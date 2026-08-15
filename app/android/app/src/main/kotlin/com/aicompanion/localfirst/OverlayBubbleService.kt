@@ -92,6 +92,9 @@ class OverlayBubbleService : Service() {
     private var ttsPollEpoch = 0
     private var overlayTtsPhase = "idle"
     private var overlayTtsMessageId = ""
+    private var appGenerationActive = false
+    private var appGenerationPhase = "idle"
+    private var appTtsPhase = "idle"
     private var petTtsDiscoveryUntilMs = 0L
     private var streamingAssistantMessageId = ""
     private var pendingShowAfterUnlock = false
@@ -302,6 +305,17 @@ class OverlayBubbleService : Service() {
             }
             ACTION_CLEAR_UNREAD -> {
                 setUnread(0)
+                return START_STICKY
+            }
+            ACTION_SET_PET_CONVERSATION -> {
+                appGenerationActive = intent.getBooleanExtra(EXTRA_GENERATION_ACTIVE, false)
+                appGenerationPhase = intent.getStringExtra(EXTRA_GENERATION_PHASE)
+                    ?.takeIf { it in setOf("idle", "thinking", "answering", "cancelling") }
+                    ?: "idle"
+                appTtsPhase = intent.getStringExtra(EXTRA_TTS_PHASE)
+                    ?.takeIf { it in setOf("idle", "synthesizing", "playing") }
+                    ?: "idle"
+                updatePetConversationCue()
                 return START_STICKY
             }
             ACTION_SHOW_CHAT -> {
@@ -1367,10 +1381,18 @@ class OverlayBubbleService : Service() {
     }
 
     private fun updatePetConversationCue() {
+        val generationActive = chatSending || appGenerationActive
+        val generationPhase = if (chatSending) overlayGenerationPhase else appGenerationPhase
+        val ttsPhase = when {
+            overlayTtsPhase == "playing" -> overlayTtsPhase
+            appTtsPhase == "playing" -> appTtsPhase
+            overlayTtsPhase == "synthesizing" -> overlayTtsPhase
+            else -> appTtsPhase
+        }
         val cue = PetConversationPolicy.cueFor(
-            generationActive = chatSending,
-            generationPhase = overlayGenerationPhase,
-            ttsPhase = overlayTtsPhase,
+            generationActive = generationActive,
+            generationPhase = generationPhase,
+            ttsPhase = ttsPhase,
         )
         petOverlayWindow?.setConversationCue(cue)
     }
@@ -2633,6 +2655,8 @@ class OverlayBubbleService : Service() {
         const val ACTION_SET_UNREAD = "com.aicompanion.localfirst.SET_UNREAD"
         const val ACTION_INCREMENT_UNREAD = "com.aicompanion.localfirst.INCREMENT_UNREAD"
         const val ACTION_CLEAR_UNREAD = "com.aicompanion.localfirst.CLEAR_UNREAD"
+        const val ACTION_SET_PET_CONVERSATION =
+            "com.aicompanion.localfirst.SET_PET_CONVERSATION"
         const val ACTION_SHOW_CHAT = "com.aicompanion.localfirst.SHOW_CHAT"
         const val ACTION_COLLAPSE_CHAT = "com.aicompanion.localfirst.COLLAPSE_CHAT"
         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
@@ -2658,6 +2682,9 @@ class OverlayBubbleService : Service() {
         private const val EXTRA_ENTRY_MODE = "entry_mode"
         private const val EXTRA_PET_SIZE = "pet_size"
         const val EXTRA_COUNT = "count"
+        const val EXTRA_GENERATION_ACTIVE = "generation_active"
+        const val EXTRA_GENERATION_PHASE = "generation_phase"
+        const val EXTRA_TTS_PHASE = "tts_phase"
         const val EXTRA_REPLY_TEXT = "reply_text"
         const val EXTRA_REPLY_ID = "reply_id"
         const val EXTRA_REPLY_TO_MESSAGE_ID = "reply_to_message_id"

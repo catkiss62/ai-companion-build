@@ -18,7 +18,9 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 
 pubspec = read("pubspec.yaml")
-assert "version: 0.33.4+59" in pubspec or "version: 0.33.5+60" in pubspec
+assert any(version in pubspec for version in (
+    "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61",
+))
 
 contract = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayContract.kt"
@@ -103,9 +105,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.5+60 APK",
+        "Build AI Companion v0.33.6+61 APK",
         "python3 tools/validate_v0334_pet_motion_modes.py",
-        "AI-Companion-v0.33.5-60-Pet-Chat-Action-Arbiter-D3-1-APK",
+        "AI-Companion-v0.33.6-61-Pet-Chat-State-Finalization-D3-1-1-APK",
     ],
     "workflow",
 )

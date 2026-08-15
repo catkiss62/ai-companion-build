@@ -111,6 +111,8 @@ class ChatController extends ChangeNotifier {
   GenerationCancellationToken? _activeGenerationCancellation;
   String? _activeGenerationJobId;
   String? _activeGenerationAssistantMessageId;
+  String _lastPetConversationState = '';
+  bool _petGenerationActive = false;
 
   String? get activeGenerationAssistantMessageId =>
       _activeGenerationAssistantMessageId;
@@ -132,7 +134,44 @@ class ChatController extends ChangeNotifier {
   }
 
   void _safeNotify() {
-    if (!_disposed) notifyListeners();
+    if (_disposed) return;
+    _publishPetConversationState();
+    notifyListeners();
+  }
+
+  Future<void> _ignorePetStateSync(Future<void> operation) async {
+    try {
+      await operation;
+    } catch (_) {
+      // Pet expression is best-effort and must never block the chat UI.
+    }
+  }
+
+  void _publishPetConversationState() {
+    final generationPhase = !_petGenerationActive
+        ? 'idle'
+        : streamingContent.isNotEmpty
+            ? 'answering'
+            : cancellingGeneration
+                ? 'cancelling'
+                : 'thinking';
+    final ttsPhase = switch (ttsState.phase) {
+      TtsPlaybackPhase.synthesizing => 'synthesizing',
+      TtsPlaybackPhase.playing => 'playing',
+      TtsPlaybackPhase.idle => 'idle',
+    };
+    final stateKey = '$_petGenerationActive|$generationPhase|$ttsPhase';
+    if (stateKey == _lastPetConversationState) return;
+    _lastPetConversationState = stateKey;
+    unawaited(
+      _ignorePetStateSync(
+        android.setPetConversationState(
+          generationActive: _petGenerationActive,
+          generationPhase: generationPhase,
+          ttsPhase: ttsPhase,
+        ),
+      ),
+    );
   }
 
   Future<void> initialize() async {
@@ -279,6 +318,7 @@ class ChatController extends ChangeNotifier {
     }
 
     sending = true;
+    _petGenerationActive = true;
     recoveringGeneration = false;
     cancellingGeneration = false;
     streamingReasoning = '';
@@ -396,6 +436,8 @@ class ChatController extends ChangeNotifier {
 
       if (result.completed) {
         messages = [...messages, result.assistant!];
+        _petGenerationActive = false;
+        _safeNotify();
         if (streamTts) {
           ttsPlayback.endStream();
         } else if (autoTts) {
@@ -440,6 +482,7 @@ class ChatController extends ChangeNotifier {
           : e.toString();
     } finally {
       sending = false;
+      _petGenerationActive = false;
       recoveringGeneration = false;
       cancellingGeneration = false;
       streamingReasoning = '';
@@ -475,6 +518,7 @@ class ChatController extends ChangeNotifier {
     }
 
     sending = true;
+    _petGenerationActive = true;
     recoveringGeneration = true;
     cancellingGeneration = false;
     streamingReasoning = '';
@@ -500,6 +544,8 @@ class ChatController extends ChangeNotifier {
       );
       if (result.completed) {
         messages = await db.recentMessages(limit: 120);
+        _petGenerationActive = false;
+        _safeNotify();
         await db.setSetting('last_generation_recovery_error', '');
         final recoveredUser = await db.messageById(job.userMessageId);
         if (recoveredUser != null) {
@@ -524,6 +570,7 @@ class ChatController extends ChangeNotifier {
       }
     } finally {
       sending = false;
+      _petGenerationActive = false;
       recoveringGeneration = false;
       cancellingGeneration = false;
       streamingReasoning = '';
@@ -563,6 +610,7 @@ class ChatController extends ChangeNotifier {
   Future<void> cancelCurrentGeneration() async {
     if (_disposed || cancellingGeneration) return;
     cancellingGeneration = true;
+    _petGenerationActive = false;
     error = null;
     _recoveryScheduleEpoch++;
     final token = _activeGenerationCancellation;
@@ -625,6 +673,15 @@ class ChatController extends ChangeNotifier {
     _recoveryScheduleEpoch++;
     _activeGenerationCancellation?.cancel();
     unawaited(ttsPlayback.stop());
+    unawaited(
+      _ignorePetStateSync(
+        android.setPetConversationState(
+          generationActive: false,
+          generationPhase: 'idle',
+          ttsPhase: 'idle',
+        ),
+      ),
+    );
     client.close();
     super.dispose();
   }
