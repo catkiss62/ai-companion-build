@@ -78,6 +78,14 @@ class PetOverlayWindow(
     private var gravityResumePending = false
     private var lastMotionArea: SafeArea? = null
     private var conversationCue = PetConversationPolicy.IDLE
+    private var autonomySnapshot = PetAutonomySnapshot()
+    private var autonomySuppressed = true
+    private var lastUserActivityAtMs = SystemClock.uptimeMillis()
+    private var lastMicroActionAtMs = 0L
+    private var lastSemanticActionAtMs = 0L
+    private var activeAutonomyAction: String? = null
+    private var autonomousWalkEndAtMs = 0L
+    private var autonomousWalkDirection = "left"
 
     private val longPress = Runnable {
         if (dragging || pressedRegion !in setOf("head", "face")) return@Runnable
@@ -121,6 +129,40 @@ class PetOverlayWindow(
                 return
             }
             handler.postDelayed(this, 16L)
+        }
+    }
+
+    private val autonomyTick = object : Runnable {
+        override fun run() {
+            runAutonomyTick()
+            if (root?.isAttachedToWindow == true) {
+                handler.postDelayed(this, AUTONOMY_TICK_MS)
+            }
+        }
+    }
+
+    private val autonomousWalkTick = object : Runnable {
+        override fun run() {
+            val layout = params ?: return finishAutonomousWalk(resetToIdle = false)
+            val view = root ?: return finishAutonomousWalk(resetToIdle = false)
+            val animation = player ?: return finishAutonomousWalk(resetToIdle = false)
+            val now = SystemClock.uptimeMillis()
+            if (!autonomyAllowed() || animation.currentActionId != "WALKING" ||
+                now >= autonomousWalkEndAtMs
+            ) {
+                finishAutonomousWalk(resetToIdle = animation.currentActionId == "WALKING")
+                return
+            }
+            val limits = activeArea(layout).limits(layout)
+            val step = maxOf(1, dp(1)) * if (autonomousWalkDirection == "right") 1 else -1
+            val nextX = (layout.x + step).coerceIn(limits.minX, limits.maxX)
+            if (nextX == layout.x) {
+                finishAutonomousWalk(resetToIdle = true)
+                return
+            }
+            layout.x = nextX
+            runCatching { windowManager.updateViewLayout(view, layout) }
+            handler.postDelayed(this, AUTONOMOUS_WALK_TICK_MS)
         }
     }
 
@@ -190,6 +232,7 @@ class PetOverlayWindow(
             onSnapshot = petView::showSnapshot,
             onActionChanged = { action, phase ->
                 if (action.id == "IDLE" && phase == PetAnimationPhase.BODY) {
+                    activeAutonomyAction = null
                     handler.post { reconcileConversationAction("idle_resumed") }
                 }
             },
@@ -206,6 +249,8 @@ class PetOverlayWindow(
             cache = frameCache
             player = animation
             animation.start()
+            handler.removeCallbacks(autonomyTick)
+            handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
             persistPosition()
             true
@@ -226,6 +271,7 @@ class PetOverlayWindow(
         root?.visibility = if (visible) View.VISIBLE else View.GONE
         player?.setPaused(!visible)
         if (!visible) {
+            cancelAutonomyPlayback(resetToIdle = false)
             closeOptions(resumeMotion = false)
         } else {
             reconcileConversationAction("pet_visible")
@@ -253,7 +299,23 @@ class PetOverlayWindow(
         }
         if (conversationCue == normalized) return
         conversationCue = normalized
+        noteUserActivity()
+        if (normalized != PetConversationPolicy.IDLE) {
+            cancelAutonomyPlayback(resetToIdle = true)
+        }
         reconcileConversationAction("conversation_$normalized")
+    }
+
+    fun setAutonomySnapshot(value: Any?) {
+        autonomySnapshot = PetAutonomySnapshot.fromChannel(value)
+        if (!autonomySnapshot.enabled) cancelAutonomyPlayback(resetToIdle = true)
+    }
+
+    fun setAutonomySuppressed(value: Boolean) {
+        if (autonomySuppressed == value) return
+        autonomySuppressed = value
+        noteUserActivity()
+        if (value) cancelAutonomyPlayback(resetToIdle = true)
     }
 
     fun setUnread(count: Int) {
@@ -324,6 +386,8 @@ class PetOverlayWindow(
     fun release(removeRoot: Boolean) {
         handler.removeCallbacks(longPress)
         handler.removeCallbacks(physicsTick)
+        handler.removeCallbacks(autonomyTick)
+        handler.removeCallbacks(autonomousWalkTick)
         pendingSingleTap?.let(handler::removeCallbacks)
         pendingSingleTap = null
         pendingLightLanding?.let(handler::removeCallbacks)
@@ -347,6 +411,8 @@ class PetOverlayWindow(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     onTouchActivity("pet_down")
+                    noteUserActivity()
+                    cancelAutonomyPlayback(resetToIdle = true)
                     pendingLightLanding?.let(handler::removeCallbacks)
                     pendingLightLanding = null
                     gravityResumePending = gravityResumePending || physics.active
@@ -493,6 +559,8 @@ class PetOverlayWindow(
     }
 
     private fun showOptions() {
+        noteUserActivity()
+        cancelAutonomyPlayback(resetToIdle = true)
         if (optionsRoot != null) {
             closeOptions(resumeMotion = true)
             return
@@ -792,6 +860,101 @@ class PetOverlayWindow(
         }
     }
 
+    private fun runAutonomyTick() {
+        val animation = player ?: return
+        if (!autonomyAllowed()) return
+        val now = SystemClock.uptimeMillis()
+        if (animation.currentActionId == "SLEEPING") {
+            if (autonomySnapshot.mood != "sleepy" &&
+                autonomySnapshot.dominantDrive != "fatigue"
+            ) {
+                cancelAutonomyPlayback(resetToIdle = true)
+            }
+            return
+        }
+        if (animation.currentActionId != "IDLE" || activeAutonomyAction != null) return
+        val idleMs = (now - lastUserActivityAtMs).coerceAtLeast(0L)
+        val decision = PetAutonomyPolicy.choose(
+            snapshot = autonomySnapshot,
+            idleMs = idleMs,
+            semanticReady = now - lastSemanticActionAtMs >= SEMANTIC_ACTION_COOLDOWN_MS,
+            microReady = now - lastMicroActionAtMs >= MICRO_ACTION_COOLDOWN_MS,
+            cadenceBucket = now / MICRO_ACTION_COOLDOWN_MS,
+        ) ?: return
+        if (decision.semantic) {
+            lastSemanticActionAtMs = now
+        } else {
+            lastMicroActionAtMs = now
+        }
+        activeAutonomyAction = decision.actionId
+        if (decision.actionId == "WALKING") {
+            if (!startAutonomousWalk(now)) {
+                activeAutonomyAction = "GLANCE"
+                animation.play("GLANCE", reason = "pet_autonomy_edge_glance")
+            }
+            return
+        }
+        val accepted = animation.play(
+            decision.actionId,
+            reason = "pet_autonomy_${decision.actionId.lowercase()}",
+        )
+        if (!accepted) {
+            activeAutonomyAction = null
+            return
+        }
+        if (decision.queueSleepAfter) animation.queueAfterCurrent("SLEEPING")
+    }
+
+    private fun autonomyAllowed(): Boolean =
+        autonomySnapshot.enabled &&
+            !autonomySuppressed &&
+            conversationCue == PetConversationPolicy.IDLE &&
+            root?.visibility == View.VISIBLE &&
+            optionsRoot == null &&
+            !dragging &&
+            !physics.active &&
+            pendingLightLanding == null
+
+    private fun startAutonomousWalk(now: Long): Boolean {
+        if (motionMode() == PetMotionPolicy.EDGE) return false
+        val layout = params ?: return false
+        val animation = player ?: return false
+        val limits = activeArea(layout).limits(layout)
+        val leftRoom = layout.x - limits.minX
+        val rightRoom = limits.maxX - layout.x
+        if (maxOf(leftRoom, rightRoom) < dp(AUTONOMOUS_WALK_MIN_ROOM_DP)) return false
+        autonomousWalkDirection = if (rightRoom >= leftRoom) "right" else "left"
+        animation.setDirection(autonomousWalkDirection)
+        if (!animation.play("WALKING", reason = "pet_autonomy_curiosity_walk")) return false
+        autonomousWalkEndAtMs = now + AUTONOMOUS_WALK_DURATION_MS
+        handler.removeCallbacks(autonomousWalkTick)
+        handler.post(autonomousWalkTick)
+        return true
+    }
+
+    private fun finishAutonomousWalk(resetToIdle: Boolean) {
+        handler.removeCallbacks(autonomousWalkTick)
+        autonomousWalkEndAtMs = 0L
+        if (resetToIdle && player?.currentActionId == "WALKING") {
+            player?.resetToIdle("pet_autonomy_walk_complete")
+        }
+        persistPosition()
+    }
+
+    private fun cancelAutonomyPlayback(resetToIdle: Boolean) {
+        handler.removeCallbacks(autonomousWalkTick)
+        autonomousWalkEndAtMs = 0L
+        val ownsPlayback = activeAutonomyAction != null || player?.currentActionId == "SLEEPING"
+        activeAutonomyAction = null
+        if (resetToIdle && ownsPlayback && player?.currentActionId in AUTONOMY_ACTIONS) {
+            player?.resetToIdle("pet_autonomy_interrupted")
+        }
+    }
+
+    private fun noteUserActivity() {
+        lastUserActivityAtMs = SystemClock.uptimeMillis()
+    }
+
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
         text = label
         textSize = 11f
@@ -1011,7 +1174,16 @@ class PetOverlayWindow(
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f
+        private const val AUTONOMY_TICK_MS = 4_000L
+        private const val MICRO_ACTION_COOLDOWN_MS = 18_000L
+        private const val SEMANTIC_ACTION_COOLDOWN_MS = 55_000L
+        private const val AUTONOMOUS_WALK_DURATION_MS = 2_200L
+        private const val AUTONOMOUS_WALK_TICK_MS = 32L
+        private const val AUTONOMOUS_WALK_MIN_ROOM_DP = 36
         private val CONVERSATION_ACTIONS = setOf("THINKING", "TALKING")
+        private val AUTONOMY_ACTIONS = setOf(
+            "BLINK", "GLANCE", "THINKING", "WALKING", "HAPPY", "YAWNING", "SLEEPING",
+        )
 
         fun normalizedSize(value: String?): String = PetOverlaySizing.normalized(value)
 

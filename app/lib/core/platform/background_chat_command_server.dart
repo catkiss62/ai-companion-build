@@ -6,6 +6,7 @@ import '../../features/chat/chat_controller.dart';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import 'overlay_generation_snapshot.dart';
+import 'pet_autonomy_snapshot.dart';
 
 /// Command surface used by the native WindowManager overlay.
 ///
@@ -39,10 +40,6 @@ class BackgroundChatCommandServer {
   }
 
   Future<void> _announceReady() async {
-    // Native diagnostics only call the background brain "ready" after Dart has
-    // actually installed the command handler. This also lets the service detect
-    // a FlutterEngine that was created successfully but whose Dart entrypoint
-    // failed during startup.
     for (var attempt = 0; attempt < 4; attempt++) {
       try {
         final accepted = await _channel.invokeMethod<bool>('backgroundDartReady');
@@ -69,9 +66,6 @@ class BackgroundChatCommandServer {
         );
       case 'overlayOpened':
         onWake?.call('overlay_opened');
-        // History should appear immediately. Do not make the native overlay
-        // wait for ChatController + maintenance/perception warm-up just to read
-        // SQLite. The full controller is warmed asynchronously afterwards.
         final visible = _rows(await db.recentMessages(limit: 8));
         unawaited(_warmOverlayController());
         return visible;
@@ -110,6 +104,8 @@ class BackgroundChatCommandServer {
           'phase': state?.phase.name ?? 'idle',
           'message_id': state?.ownerId ?? '',
         };
+      case 'petAutonomySnapshot':
+        return _petAutonomySnapshot();
       case 'cancelGeneration':
         _overlaySendEpoch++;
         final controller = await _ensureController();
@@ -158,6 +154,16 @@ class BackgroundChatCommandServer {
     }
   }
 
+  Future<Map<String, Object>> _petAutonomySnapshot() async {
+    final desire = await db.loadDesire();
+    final thoughts = await db.activeThoughtMetadata(limit: 16);
+    final allowed = await db.brainWorkAllowed();
+    return PetAutonomySnapshot.project(
+      desire: desire,
+      thoughts: thoughts,
+      brainWorkAllowed: allowed,
+    ).toChannelMap();
+  }
 
   OverlayGenerationSnapshot _generationSnapshot() {
     final controller = _controller;
@@ -181,16 +187,11 @@ class BackgroundChatCommandServer {
   Future<void> _warmOverlayController() async {
     try {
       final controller = await _ensureController();
-      // Collapsing/reopening the native window must not disturb an in-flight
-      // turn that is intentionally owned by this persistent controller.
       if (!controller.sending) {
         await controller.reload();
         await controller.onOverlayOpened();
       }
-    } catch (_) {
-      // Recent history is already visible. Overlay warm-up is best-effort and
-      // must not erase or delay the lightweight SQLite history path.
-    }
+    } catch (_) {}
   }
 
   Future<ChatController> _ensureController() async {

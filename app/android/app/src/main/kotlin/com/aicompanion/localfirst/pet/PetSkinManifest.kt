@@ -199,7 +199,45 @@ data class PetSkinManifest(
                     }
                 }
             }
-            return PetSkinManifest(formatVersion, characterId, assets, actions)
+            val runtimeAssets = LinkedHashMap(assets)
+            val runtimeActions = LinkedHashMap(actions)
+            installYawn(runtimeAssets, runtimeActions)
+            return PetSkinManifest(formatVersion, characterId, runtimeAssets, runtimeActions)
+        }
+
+        /**
+         * The upstream registry intentionally stays exact. This one approved
+         * runtime-only action composes two source PNGs into a distinct yawn:
+         * transition -> yawn -> held yawn -> transition (4 x 300 ms).
+         */
+        private fun installYawn(
+            assets: MutableMap<String, PetAssetSpec>,
+            actions: MutableMap<String, PetActionSpec>,
+        ) {
+            val transition =
+                "assets/candidates/state_actions/candidate_g_motion2/daily_transition/" +
+                    "daily_transition_00.png"
+            val yawn =
+                "assets/candidates/state_actions/candidate_d_interactions/sleepy_yawn.png"
+            val frames = listOf(transition, yawn, yawn, transition)
+            assets["sleepy_yawn_composed"] = PetAssetSpec(
+                id = "sleepy_yawn_composed",
+                framesBySize = mapOf(187 to frames, 238 to frames, 306 to frames),
+                frameCount = frames.size,
+            )
+            actions["YAWNING"] = PetActionSpec(
+                id = "YAWNING",
+                assetId = "sleepy_yawn_composed",
+                loop = false,
+                durationMs = 1_200L,
+                priority = 24,
+                interruptible = true,
+                returnState = "IDLE",
+                anchor = PetAnchor(),
+                effect = "breath",
+                enter = null,
+                exit = null,
+            )
         }
 
         private fun parseAssets(json: JSONObject): Map<String, PetAssetSpec> {
