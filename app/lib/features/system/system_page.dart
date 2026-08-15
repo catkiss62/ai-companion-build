@@ -328,7 +328,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
           child: ListTile(
             leading: const Icon(Icons.pets_outlined),
             title: const Text('桌宠播放器预览'),
-            subtitle: const Text('D1 隔离测试：只预览皮肤和动作，不改变当前悬浮球'),
+            subtitle: const Text('逐项检查完整动作；系统桌宠大小与入口模式在下方设置'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: busy
                 ? null
@@ -339,6 +339,76 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                       if (mounted) setState(() => note = '桌宠预览打开失败：$e');
                     }
                   },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('悬浮入口模式', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                const Text('桌宠和悬浮球二选一；聊天窗、未读消息和后台大脑共用。桌宠单击互动，双击打开选项。'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('桌宠'),
+                      avatar: const Icon(Icons.pets, size: 18),
+                      selected: s?.overlayEntryMode == 'pet',
+                      onSelected: busy
+                          ? null
+                          : (_) async {
+                              await android.setOverlayEntryMode('pet');
+                              await Future<void>.delayed(const Duration(milliseconds: 180));
+                              await _refresh();
+                            },
+                    ),
+                    ChoiceChip(
+                      label: const Text('悬浮球'),
+                      avatar: const Icon(Icons.bubble_chart, size: 18),
+                      selected: s?.overlayEntryMode != 'pet',
+                      onSelected: busy
+                          ? null
+                          : (_) async {
+                              await android.setOverlayEntryMode('bubble');
+                              await Future<void>.delayed(const Duration(milliseconds: 180));
+                              await _refresh();
+                            },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text('桌宠实际显示大小'),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final item in const [
+                      ('small', '小'),
+                      ('medium', '中'),
+                      ('large', '大'),
+                    ])
+                      ChoiceChip(
+                        label: Text(item.$2),
+                        selected: s?.overlayPetSize == item.$1,
+                        onSelected: busy
+                            ? null
+                            : (_) async {
+                                await android.setPetOverlaySize(item.$1);
+                                await Future<void>.delayed(const Duration(milliseconds: 120));
+                                await _refresh();
+                              },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text('小/中/大约为 98/134/176dp 可见高度，并分别使用 187/238/306px 素材。'),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -386,7 +456,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   '悬浮陪伴：${s?.overlayUserEnabled == true ? '用户已开启' : '用户未开启'} · '
                   '${s?.overlayRunning == true ? '服务运行中' : '服务未运行'} · '
                   '${s?.overlayVisible == true ? '悬浮层可见' : '悬浮层当前不可见'} · '
-                  '${s?.overlayChatExpanded == true ? '聊天已展开' : '悬浮球模式'}',
+                  '${s?.overlayChatExpanded == true ? '聊天已展开' : (s?.overlayEntryMode == 'pet' ? '桌宠模式' : '悬浮球模式')}',
                 ),
                 Text(
                   '后台大脑：${s?.backgroundBrainReady == true ? 'Engine 已就绪' : 'Engine 未就绪'}',
@@ -438,7 +508,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                       }
                     : null,
                 icon: const Icon(Icons.bubble_chart),
-                label: const Text('开启悬浮球'),
+                label: const Text('开启悬浮陪伴'),
               ),
             ),
             const SizedBox(width: 10),
@@ -452,7 +522,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   await _refresh();
                 },
                 icon: const Icon(Icons.close),
-                label: const Text('关闭悬浮球'),
+                label: const Text('关闭悬浮陪伴'),
               ),
             ),
           ],

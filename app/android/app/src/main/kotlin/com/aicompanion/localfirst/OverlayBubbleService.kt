@@ -34,6 +34,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
+import com.aicompanion.localfirst.pet.PetOverlayWindow
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -61,6 +62,7 @@ class OverlayBubbleService : Service() {
     private var bubbleRoot: FrameLayout? = null
     private var badge: TextView? = null
     private lateinit var bubbleParams: WindowManager.LayoutParams
+    private var petOverlayWindow: PetOverlayWindow? = null
 
     private var chatRoot: FrameLayout? = null
     private var chatList: ListView? = null
@@ -184,17 +186,25 @@ class OverlayBubbleService : Service() {
                 Intent.ACTION_SCREEN_OFF -> {
                     pendingShowAfterUnlock = false
                     collapseChatOverlay("screen_off")
-                    bubbleRoot?.visibility = View.GONE
+                    petOverlayWindow?.setVisible(false) ?: run {
+                        bubbleRoot?.visibility = View.GONE
+                    }
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    if (keyguard.isDeviceLocked) bubbleRoot?.visibility = View.GONE
+                    if (keyguard.isDeviceLocked) {
+                        petOverlayWindow?.setVisible(false) ?: run {
+                            bubbleRoot?.visibility = View.GONE
+                        }
+                    }
                 }
                 Intent.ACTION_USER_PRESENT -> {
                     if (pendingShowAfterUnlock) {
                         pendingShowAfterUnlock = false
                         showChatOverlay("unlock_pending")
                     } else if (!chatExpanded) {
-                        bubbleRoot?.visibility = View.VISIBLE
+                        petOverlayWindow?.setVisible(true) ?: run {
+                            bubbleRoot?.visibility = View.VISIBLE
+                        }
                         CompanionRuntimeState.setOverlayVisible(true)
                         updateOverlayTouchHealth()
                     }
@@ -309,6 +319,23 @@ class OverlayBubbleService : Service() {
                 signalBackgroundBrainWake()
                 return START_REDELIVER_INTENT
             }
+            ACTION_SET_ENTRY_MODE -> {
+                switchEntryMode(
+                    normalizeEntryMode(intent.getStringExtra(EXTRA_ENTRY_MODE)),
+                    intent.getStringExtra(EXTRA_REASON) ?: "service_action",
+                )
+                return START_STICKY
+            }
+            ACTION_SET_PET_SIZE -> {
+                val size = PetOverlayWindow.normalizedSize(
+                    intent.getStringExtra(EXTRA_PET_SIZE),
+                )
+                getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(PetOverlayWindow.KEY_PET_SIZE, size)
+                    .apply()
+                petOverlayWindow?.resize(size)
+                return START_STICKY
+            }
             ACTION_RECONCILE -> {
                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
                 if (reconcileReason == "visible_activity_reconcile" &&
@@ -374,7 +401,7 @@ class OverlayBubbleService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        bubbleRoot?.let { view ->
+        petOverlayWindow?.onConfigurationChanged() ?: bubbleRoot?.let { view ->
             clampBubbleToSafeArea()
             persistBubblePosition()
             updateBubbleLayout(view)
@@ -418,7 +445,13 @@ class OverlayBubbleService : Service() {
         )
         hideKeyboard()
         removeChatWindow()
-        bubbleRoot?.let { runCatching { windowManager.removeView(it) } }
+        val pet = petOverlayWindow
+        petOverlayWindow = null
+        if (pet != null) {
+            pet.release(removeRoot = true)
+        } else {
+            bubbleRoot?.let { runCatching { windowManager.removeView(it) } }
+        }
         bubbleRoot = null
         backgroundCommands?.setMethodCallHandler(null)
         backgroundCommands = null
@@ -443,6 +476,7 @@ class OverlayBubbleService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createBubble(): Boolean {
+        if (entryMode(this) == ENTRY_MODE_PET) return createPetEntry()
         val size = dp(BUBBLE_AVATAR_DP)
         val container = OverlayBubbleRoot(this).apply {
             clipChildren = false
@@ -517,6 +551,80 @@ class OverlayBubbleService : Service() {
             )
             false
         }
+    }
+
+    private fun createPetEntry(): Boolean {
+        val host = PetOverlayWindow(
+            context = this,
+            windowManager = windowManager,
+            overlayWindowType = overlayWindowType(),
+            onOpenChat = { showChatOverlay("pet_double_tap_menu") },
+            onSwitchToBubble = {
+                switchEntryMode(ENTRY_MODE_BUBBLE, "pet_double_tap_menu")
+            },
+            onTouchActivity = CompanionRuntimeState::noteOverlayTouch,
+        )
+        if (!host.attach()) {
+            NativeEventStore.addDeviceEvent(
+                this,
+                source = "system",
+                eventType = "pet_overlay_window_create_failed",
+                appPackage = packageName,
+                summary = "桌宠悬浮窗口创建失败。",
+            )
+            return false
+        }
+        petOverlayWindow = host
+        bubbleRoot = host.root
+        bubbleParams = requireNotNull(host.params)
+        badge = host.badge
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        host.setVisible(!keyguard.isDeviceLocked)
+        CompanionRuntimeState.setOverlayVisible(!keyguard.isDeviceLocked)
+        setUnread(readUnread())
+        updateOverlayTouchHealth()
+        return true
+    }
+
+    private fun switchEntryMode(mode: String, reason: String) {
+        val normalized = normalizeEntryMode(mode)
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_ENTRY_MODE, normalized)
+            .apply()
+        val alreadyPet = petOverlayWindow != null
+        if ((normalized == ENTRY_MODE_PET) == alreadyPet && bubbleRoot?.isAttachedToWindow == true) {
+            updateOverlayTouchHealth()
+            return
+        }
+
+        hideKeyboard()
+        removeChatWindow()
+        val pet = petOverlayWindow
+        petOverlayWindow = null
+        if (pet != null) {
+            pet.release(removeRoot = true)
+        } else {
+            bubbleRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
+        }
+        bubbleRoot = null
+        badge = null
+
+        if (!createBubble()) {
+            destroyReason = "entry_mode_switch_failed:$normalized"
+            stopSelf()
+            return
+        }
+        NativeEventStore.addDeviceEvent(
+            this,
+            source = "system",
+            eventType = "overlay_entry_mode_changed",
+            appPackage = packageName,
+            summary = "悬浮入口已切换为${if (normalized == ENTRY_MODE_PET) "桌宠" else "悬浮球"}。",
+            metadata = mapOf(
+                "mode" to normalized,
+                "reason" to reason.take(120),
+            ),
+        )
     }
 
     private fun createChatWindow(): Boolean {
@@ -714,7 +822,9 @@ class OverlayBubbleService : Service() {
         setUnread(0)
         chatExpanded = true
         CompanionRuntimeState.setOverlayChatExpanded(true)
-        bubbleRoot?.visibility = View.GONE
+        petOverlayWindow?.setVisible(false) ?: run {
+            bubbleRoot?.visibility = View.GONE
+        }
         chatRoot?.visibility = View.VISIBLE
         chatInputMode = false
         chatParams?.let { params ->
@@ -744,8 +854,11 @@ class OverlayBubbleService : Service() {
         exitChatInputMode(updateWindow = false)
         removeChatWindow()
         val keyguard = getSystemService(KeyguardManager::class.java)
-        bubbleRoot?.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
-        CompanionRuntimeState.setOverlayVisible(bubbleRoot?.visibility == View.VISIBLE)
+        val visible = !keyguard.isDeviceLocked
+        petOverlayWindow?.setVisible(visible) ?: run {
+            bubbleRoot?.visibility = if (visible) View.VISIBLE else View.GONE
+        }
+        CompanionRuntimeState.setOverlayVisible(visible && bubbleRoot != null)
         ensureOverlayHealth("collapse:$reason")
         NativeEventStore.addDeviceEvent(
             this,
@@ -1313,6 +1426,10 @@ class OverlayBubbleService : Service() {
     }
 
     private fun persistBubblePosition() {
+        petOverlayWindow?.let {
+            it.persistCurrentPosition()
+            return
+        }
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_X, bubbleParams.x)
             .putInt(KEY_Y, bubbleParams.y)
@@ -1352,9 +1469,10 @@ class OverlayBubbleService : Service() {
 
     private fun clampBubbleToSafeArea(): Boolean {
         val safe = bubbleSafeArea()
-        val size = dp(BUBBLE_WINDOW_DP)
-        val maxX = (safe.right - size).coerceAtLeast(safe.left)
-        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
+        val width = bubbleParams.width.coerceAtLeast(1)
+        val height = bubbleParams.height.coerceAtLeast(1)
+        val maxX = (safe.right - width).coerceAtLeast(safe.left)
+        val maxY = (safe.bottom - height).coerceAtLeast(safe.top)
         val oldX = bubbleParams.x
         val oldY = bubbleParams.y
         bubbleParams.x = bubbleParams.x.coerceIn(safe.left, maxX)
@@ -1365,18 +1483,17 @@ class OverlayBubbleService : Service() {
     private fun isBubblePositionSafe(): Boolean {
         if (!::bubbleParams.isInitialized) return false
         val safe = bubbleSafeArea()
-        val size = dp(BUBBLE_WINDOW_DP)
-        val maxX = (safe.right - size).coerceAtLeast(safe.left)
-        val maxY = (safe.bottom - size).coerceAtLeast(safe.top)
+        val maxX = (safe.right - bubbleParams.width.coerceAtLeast(1)).coerceAtLeast(safe.left)
+        val maxY = (safe.bottom - bubbleParams.height.coerceAtLeast(1)).coerceAtLeast(safe.top)
         return bubbleParams.x in safe.left..maxX && bubbleParams.y in safe.top..maxY
     }
 
     private fun snapBubbleToSafeEdge() {
         val safe = bubbleSafeArea()
-        val size = dp(BUBBLE_WINDOW_DP)
-        val maxX = (safe.right - size).coerceAtLeast(safe.left)
+        val width = bubbleParams.width.coerceAtLeast(1)
+        val maxX = (safe.right - width).coerceAtLeast(safe.left)
         val midpoint = safe.left + safe.width / 2
-        bubbleParams.x = if (bubbleParams.x + size / 2 < midpoint) safe.left else maxX
+        bubbleParams.x = if (bubbleParams.x + width / 2 < midpoint) safe.left else maxX
         clampBubbleToSafeArea()
     }
 
@@ -1419,6 +1536,8 @@ class OverlayBubbleService : Service() {
         // cover session or recreate itself while the picker is still on top.
         bubbleRoot = null
         badge = null
+        petOverlayWindow?.release(removeRoot = false)
+        petOverlayWindow = null
         coverWindowMutationInProgress = true
         val removed = runCatching {
             windowManager.removeViewImmediate(bubble)
@@ -1592,6 +1711,8 @@ class OverlayBubbleService : Service() {
         var repaired = false
         var bubble = bubbleRoot
         if (bubble == null || !bubble.isAttachedToWindow || rebuildInputChannel) {
+            petOverlayWindow?.release(removeRoot = false)
+            petOverlayWindow = null
             bubble?.let { runCatching { windowManager.removeViewImmediate(it) } }
             bubbleRoot = null
             repaired = createBubble()
@@ -1608,8 +1729,11 @@ class OverlayBubbleService : Service() {
                 repaired = true
             }
             attachedBubble.isEnabled = true
-            attachedBubble.visibility = if (keyguard.isDeviceLocked) View.GONE else View.VISIBLE
-            CompanionRuntimeState.setOverlayVisible(attachedBubble.visibility == View.VISIBLE)
+            val visible = !keyguard.isDeviceLocked
+            petOverlayWindow?.setVisible(visible) ?: run {
+                attachedBubble.visibility = if (visible) View.VISIBLE else View.GONE
+            }
+            CompanionRuntimeState.setOverlayVisible(visible)
             runCatching { windowManager.updateViewLayout(attachedBubble, bubbleParams) }
                 .onFailure { repaired = true }
         }
@@ -2237,6 +2361,8 @@ class OverlayBubbleService : Service() {
         const val ACTION_COLLAPSE_CHAT = "com.aicompanion.localfirst.COLLAPSE_CHAT"
         const val ACTION_WAKE_BRAIN = "com.aicompanion.localfirst.WAKE_BRAIN"
         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
+        const val ACTION_SET_ENTRY_MODE = "com.aicompanion.localfirst.SET_ENTRY_MODE"
+        const val ACTION_SET_PET_SIZE = "com.aicompanion.localfirst.SET_PET_SIZE"
         private const val ACTION_SYSTEM_COVER_ENTER =
             "com.aicompanion.localfirst.SYSTEM_COVER_ENTER"
         private const val ACTION_SYSTEM_COVER_EXIT =
@@ -2250,12 +2376,17 @@ class OverlayBubbleService : Service() {
         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
         private const val EXTRA_REASON = "reason"
         private const val EXTRA_DETACH_BUBBLE = "detach_bubble"
+        private const val EXTRA_ENTRY_MODE = "entry_mode"
+        private const val EXTRA_PET_SIZE = "pet_size"
         const val EXTRA_COUNT = "count"
         const val EXTRA_REPLY_TEXT = "reply_text"
         const val EXTRA_REPLY_ID = "reply_id"
         const val EXTRA_REPLY_TO_MESSAGE_ID = "reply_to_message_id"
         const val PREFS = "overlay_state"
         const val KEY_UNREAD = "unread"
+        const val KEY_ENTRY_MODE = "entry_mode"
+        const val ENTRY_MODE_BUBBLE = "bubble"
+        const val ENTRY_MODE_PET = "pet"
         private const val KEY_X = "bubble_x"
         private const val KEY_Y = "bubble_y"
         private const val PERMISSION_WATCH_MS = 30_000L
@@ -2283,6 +2414,51 @@ class OverlayBubbleService : Service() {
             CompanionRuntimeState.setOverlayUserEnabled(context, true)
             startPersistent(context, "user_enabled")
         }
+
+        fun entryMode(context: Context): String = normalizeEntryMode(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_ENTRY_MODE, ENTRY_MODE_BUBBLE),
+        )
+
+        fun petSize(context: Context): String = PetOverlayWindow.normalizedSize(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(PetOverlayWindow.KEY_PET_SIZE, PetOverlayWindow.PET_SIZE_MEDIUM),
+        )
+
+        fun setEntryMode(context: Context, mode: String) {
+            val normalized = normalizeEntryMode(mode)
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(KEY_ENTRY_MODE, normalized)
+                .apply()
+            if (!running) return
+            runCatching {
+                context.startService(
+                    Intent(context, OverlayBubbleService::class.java)
+                        .setAction(ACTION_SET_ENTRY_MODE)
+                        .putExtra(EXTRA_ENTRY_MODE, normalized)
+                        .putExtra(EXTRA_REASON, "system_page"),
+                )
+            }
+        }
+
+        fun setPetSize(context: Context, size: String) {
+            val normalized = PetOverlayWindow.normalizedSize(size)
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(PetOverlayWindow.KEY_PET_SIZE, normalized)
+                .apply()
+            if (!running) return
+            runCatching {
+                context.startService(
+                    Intent(context, OverlayBubbleService::class.java)
+                        .setAction(ACTION_SET_PET_SIZE)
+                        .putExtra(EXTRA_PET_SIZE, normalized)
+                        .putExtra(EXTRA_REASON, "system_page"),
+                )
+            }
+        }
+
+        private fun normalizeEntryMode(value: String?): String =
+            if (value == ENTRY_MODE_PET) ENTRY_MODE_PET else ENTRY_MODE_BUBBLE
 
         fun stopUserEnabled(context: Context) {
             CompanionRuntimeState.setOverlayUserEnabled(context, false)
