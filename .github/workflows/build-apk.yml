@@ -1,4 +1,4 @@
-name: Build AI Companion v0.32.1+53 APK (Clean Source)
+name: Build AI Companion v0.32.2+54 APK (Clean Source)
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.32.1+53 app/ source tree.'
+          echo 'Building directly from the committed v0.32.2+54 app/ source tree.'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -66,6 +66,7 @@ jobs:
         working-directory: app
         run: |
           set -euo pipefail
+          python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
           python3 tools/validate_v0319_tts_state_cancel_retract.py
@@ -147,10 +148,10 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.32.1+53 APK
+      - name: Upload v0.32.2+54 APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.32.1-53-Somatic-AI-to-Self-APK
+          name: AI-Companion-v0.32.2-54-Overlay-Time-Diagnostics-APK
           if-no-files-found: error
           compression-level: 0
           path: |
