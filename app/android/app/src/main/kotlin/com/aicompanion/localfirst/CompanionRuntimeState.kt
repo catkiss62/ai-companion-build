@@ -17,6 +17,10 @@ object CompanionRuntimeState {
     private const val KEY_LAST_SERVICE_START = "last_service_start"
     private const val KEY_LAST_SERVICE_STOP = "last_service_stop"
     private const val KEY_LAST_SERVICE_REASON = "last_service_reason"
+    private const val KEY_ACCESSIBILITY_LAST_CONNECTED = "accessibility_last_connected"
+    private const val KEY_ACCESSIBILITY_LAST_DISCONNECTED = "accessibility_last_disconnected"
+    private const val KEY_ACCESSIBILITY_LAST_INTERRUPT = "accessibility_last_interrupt"
+    private const val KEY_ACCESSIBILITY_LAST_REASON = "accessibility_last_reason"
 
     private val visibleActivities = AtomicInteger(0)
 
@@ -106,6 +110,10 @@ object CompanionRuntimeState {
             "appVisible" to (visibleActivities.get() > 0),
             "notificationListenerConnected" to notificationListenerConnected,
             "accessibilityConnected" to accessibilityConnected,
+            "accessibilityLastConnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_CONNECTED, 0L),
+            "accessibilityLastDisconnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, 0L),
+            "accessibilityLastInterruptAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, 0L),
+            "accessibilityLastReason" to (prefs.getString(KEY_ACCESSIBILITY_LAST_REASON, "") ?: ""),
             "overlayBubbleAttached" to overlayBubbleAttached,
             "overlayBubbleTouchable" to overlayBubbleTouchable,
             "overlayPositionSafe" to overlayPositionSafe,
@@ -159,8 +167,27 @@ object CompanionRuntimeState {
         notificationListenerConnected = connected
     }
 
-    fun setAccessibilityConnected(connected: Boolean) {
-        accessibilityConnected = connected
+    fun markAccessibilityConnected(context: Context) {
+        accessibilityConnected = true
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_ACCESSIBILITY_LAST_CONNECTED, System.currentTimeMillis())
+            .putString(KEY_ACCESSIBILITY_LAST_REASON, "connected")
+            .apply()
+    }
+
+    fun markAccessibilityDisconnected(context: Context, reason: String) {
+        accessibilityConnected = false
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, System.currentTimeMillis())
+            .putString(KEY_ACCESSIBILITY_LAST_REASON, reason.take(120))
+            .apply()
+    }
+
+    fun noteAccessibilityInterrupted(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, System.currentTimeMillis())
+            .putString(KEY_ACCESSIBILITY_LAST_REASON, "interrupted")
+            .apply()
     }
 
     fun setOverlayTouchHealth(
