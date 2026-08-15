@@ -150,11 +150,12 @@ class PetAnimationPlayer(
 
     private fun switchToState(actionId: String, crossfade: Boolean, immediate: Boolean) {
         val next = manifest.programFor(actionId, targetHeight, direction)
-        if (!immediate && program.exit != null && program.actionId != next.actionId) {
+        val currentExit = program.exit
+        if (!immediate && currentExit != null && program.actionId != next.actionId) {
             pendingProgram = next
             pendingCrossfade = crossfade
             if (phase != PetAnimationPhase.EXIT) {
-                activateClip(program.exit, crossfade = false)
+                activateClip(currentExit, crossfade = false)
             }
             return
         }
