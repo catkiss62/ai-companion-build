@@ -1495,12 +1495,7 @@ class OverlayBubbleService : Service() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            addView(TextView(this@OverlayBubbleService).apply {
-                text = "悬浮球选项"
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
+            addView(bubbleMenuHeader("悬浮球选项") { closeBubbleOptions() })
             addView(bubbleOptionButton("打开聊天") {
                 closeBubbleOptions()
                 showChatOverlay("bubble_double_tap_menu")
@@ -1513,10 +1508,11 @@ class OverlayBubbleService : Service() {
                 closeBubbleOptions()
                 retractBubbleToLeft()
             })
-            addView(bubbleOptionButton("关闭菜单") { closeBubbleOptions() })
         }
         val panel = ScrollView(this).apply {
             isFillViewport = false
+            clipToOutline = true
+            clipChildren = true
             background = rounded(Color.rgb(38, 35, 44), 16f)
             elevation = dp(10).toFloat()
             addView(
@@ -1543,10 +1539,33 @@ class OverlayBubbleService : Service() {
         }
     }
 
+    private fun bubbleMenuHeader(title: String, action: () -> Unit): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@OverlayBubbleService).apply {
+                text = title
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            addView(TextView(this@OverlayBubbleService).apply {
+                text = "×"
+                textSize = 19f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                background = rounded(Color.rgb(82, 77, 91), 999f)
+                setOnClickListener { action() }
+            }, LinearLayout.LayoutParams(dp(30), dp(30)))
+        }
+
     private fun bubbleOptionButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label
         textSize = 11f
         isAllCaps = false
+        minWidth = 0
+        minHeight = 0
+        setPadding(dp(4), 0, dp(4), 0)
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))
     }

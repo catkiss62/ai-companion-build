@@ -23,4 +23,23 @@ class PetOverlayContractTest {
         assertEquals(306, PetOverlaySizing.assetHeight(PetOverlaySizing.LARGE))
         assertEquals(PetOverlaySizing.MEDIUM, PetOverlaySizing.normalized("unexpected"))
     }
+
+    @Test
+    fun motionModesDefaultToFreeAndKeepEveryHalfDistinct() {
+        assertEquals(PetMotionPolicy.FREE, PetMotionPolicy.normalized(null))
+        assertEquals(PetMotionPolicy.FREE, PetMotionPolicy.normalized("unexpected"))
+        assertEquals(PetMotionPolicy.EDGE, PetMotionPolicy.normalized("edge"))
+        assertEquals(true, PetMotionPolicy.isHalf(PetMotionPolicy.HALF_TOP))
+        assertEquals(true, PetMotionPolicy.isHalf(PetMotionPolicy.HALF_RIGHT))
+        assertEquals(false, PetMotionPolicy.isHalf(PetMotionPolicy.EDGE))
+    }
+
+    @Test
+    fun throwNeedsSpeedTravelDistanceAndAnUnstableTail() {
+        assertEquals(true, PetMotionPolicy.shouldThrow(900f, 60f, 120f, false))
+        assertEquals(false, PetMotionPolicy.shouldThrow(900f, 60f, 120f, true))
+        assertEquals(false, PetMotionPolicy.shouldThrow(500f, 60f, 120f, false))
+        assertEquals(false, PetMotionPolicy.shouldThrow(900f, 18f, 120f, false))
+        assertEquals(false, PetMotionPolicy.shouldThrow(900f, 60f, 30f, false))
+    }
 }

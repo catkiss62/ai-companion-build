@@ -37,3 +37,40 @@ object PetOverlaySizing {
         else -> 238
     }
 }
+
+/** Pure release and persisted-mode contract shared by every pet motion region. */
+object PetMotionPolicy {
+    const val FREE = "free"
+    const val EDGE = "edge"
+    const val HALF_TOP = "half_top"
+    const val HALF_BOTTOM = "half_bottom"
+    const val HALF_LEFT = "half_left"
+    const val HALF_RIGHT = "half_right"
+
+    private val modes = setOf(
+        FREE,
+        EDGE,
+        HALF_TOP,
+        HALF_BOTTOM,
+        HALF_LEFT,
+        HALF_RIGHT,
+    )
+
+    fun normalized(value: String?): String = value?.takeIf(modes::contains) ?: FREE
+
+    fun isHalf(value: String?): Boolean = normalized(value).startsWith("half_")
+
+    /**
+     * A throw needs sustained evidence, not one noisy last sample. A stable tail
+     * always wins so a long, deliberate drag can still be placed gently.
+     */
+    fun shouldThrow(
+        speedDpPerSecond: Float,
+        recentTravelDp: Float,
+        totalDisplacementDp: Float,
+        tailStable: Boolean,
+    ): Boolean = !tailStable &&
+        speedDpPerSecond >= 650f &&
+        recentTravelDp >= 30f &&
+        totalDisplacementDp >= 48f
+}

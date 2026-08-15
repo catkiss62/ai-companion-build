@@ -73,8 +73,10 @@ class PetOverlayWindow(
     private var lastTapRawX = 0f
     private var lastTapRawY = 0f
     private var pendingSingleTap: Runnable? = null
+    private var pendingLightLanding: Runnable? = null
     private var physicsLastAtMs = 0L
     private var gravityResumePending = false
+    private var lastMotionArea: SafeArea? = null
 
     private val longPress = Runnable {
         if (dragging || pressedRegion !in setOf("head", "face")) return@Runnable
@@ -91,7 +93,7 @@ class PetOverlayWindow(
             val delta = if (physicsLastAtMs == 0L) 0f else
                 ((now - physicsLastAtMs).coerceIn(0L, 100L) / 1000f)
             physicsLastAtMs = now
-            val safe = motionArea(layout)
+            val safe = activeArea(layout)
             val step = physics.step(
                 deltaSeconds = delta,
                 spriteWidth = layout.width.toFloat(),
@@ -109,6 +111,11 @@ class PetOverlayWindow(
             if (step.settled) {
                 player?.play("LANDING", reason = "pet_overlay_landing", force = true, immediate = true)
                 if (step.hardLanding) player?.queueAfterCurrent("DIZZY")
+                if (motionMode() == PetMotionPolicy.EDGE) {
+                    setDockedEdge(EDGE_BOTTOM)
+                } else {
+                    setDockedEdge("")
+                }
                 persistPosition()
                 return
             }
@@ -188,6 +195,7 @@ class PetOverlayWindow(
             cache = frameCache
             player = animation
             animation.start()
+            lastMotionArea = activeArea(layout)
             persistPosition()
             true
         }.getOrElse {
@@ -243,7 +251,25 @@ class PetOverlayWindow(
     fun onConfigurationChanged() {
         val layout = params ?: return
         val view = root ?: return
+        val old = lastMotionArea
+        val oldLimits = old?.limits(layout)
+        val oldFractionX = oldLimits?.fractionX(layout.x) ?: 0.5f
+        val oldFractionY = oldLimits?.fractionY(layout.y) ?: 0.5f
+        val edge = dockedEdge()
+        val next = activeArea(layout)
+        val nextLimits = next.limits(layout)
+        layout.x = nextLimits.xAt(oldFractionX)
+        layout.y = nextLimits.yAt(oldFractionY)
+        if (motionMode() == PetMotionPolicy.EDGE) {
+            when (edge) {
+                EDGE_LEFT -> layout.x = nextLimits.minX
+                EDGE_RIGHT -> layout.x = nextLimits.maxX
+                EDGE_TOP -> layout.y = nextLimits.minY
+                EDGE_BOTTOM -> layout.y = nextLimits.maxY
+            }
+        }
         clamp(layout)
+        lastMotionArea = next
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
         if (optionsRoot != null) repositionOptions()
@@ -254,6 +280,8 @@ class PetOverlayWindow(
         handler.removeCallbacks(physicsTick)
         pendingSingleTap?.let(handler::removeCallbacks)
         pendingSingleTap = null
+        pendingLightLanding?.let(handler::removeCallbacks)
+        pendingLightLanding = null
         physics.cancel()
         closeOptions(resumeMotion = false)
         player?.stop()
@@ -273,6 +301,8 @@ class PetOverlayWindow(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     onTouchActivity("pet_down")
+                    pendingLightLanding?.let(handler::removeCallbacks)
+                    pendingLightLanding = null
                     gravityResumePending = gravityResumePending || physics.active
                     physics.cancel()
                     handler.removeCallbacks(physicsTick)
@@ -307,6 +337,7 @@ class PetOverlayWindow(
                     if (!dragging && abs(dx) + abs(dy) > dp(6)) {
                         dragging = true
                         gravityResumePending = false
+                        setDockedEdge("")
                         if (doubleTapCandidate) lastTapAtMs = 0L
                         doubleTapCandidate = false
                         handler.removeCallbacks(longPress)
@@ -333,23 +364,10 @@ class PetOverlayWindow(
                     handler.removeCallbacks(longPress)
                     addSample(event.rawX, event.rawY)
                     if (dragging) {
-                        val velocity = releaseVelocity()
+                        val release = releaseGesture()
                         dragging = false
                         gravityResumePending = false
-                        animation.play(
-                            "FALLING",
-                            reason = "pet_overlay_release",
-                            force = true,
-                            immediate = true,
-                        )
-                        physics.launch(
-                            layout.x.toFloat(),
-                            layout.y.toFloat(),
-                            velocity.first,
-                            velocity.second,
-                        )
-                        physicsLastAtMs = 0L
-                        handler.post(physicsTick)
+                        handleDragRelease(layout, animation, release)
                     } else if (doubleTapCandidate && !longPressHandled) {
                         lastTapAtMs = 0L
                         doubleTapCandidate = false
@@ -433,15 +451,11 @@ class PetOverlayWindow(
             closeOptions(resumeMotion = true)
             return
         }
+        val currentMode = motionMode()
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            addView(TextView(context).apply {
-                text = "桌宠选项"
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
+            addView(menuHeader("桌宠选项") { closeOptions(resumeMotion = true) })
             addView(optionButton("打开聊天") {
                 closeOptions(resumeMotion = false)
                 onOpenChat()
@@ -460,15 +474,38 @@ class PetOverlayWindow(
                 closeOptions(resumeMotion = false)
                 onSwitchToBubble()
             })
-            addView(optionButton("贴边缩进") {
-                gravityResumePending = false
-                dockToNearestEdge()
+            addView(sectionLabel("行动模式"))
+            addView(optionButton(selectedLabel("自由模式", currentMode == PetMotionPolicy.FREE)) {
+                setMotionMode(PetMotionPolicy.FREE)
                 closeOptions(resumeMotion = false)
             })
-            addView(optionButton("关闭菜单") { closeOptions(resumeMotion = true) })
+            addView(optionButton(selectedLabel("贴边模式", currentMode == PetMotionPolicy.EDGE)) {
+                setMotionMode(PetMotionPolicy.EDGE)
+                closeOptions(resumeMotion = false)
+            })
+            addView(sectionLabel("半屏模式"))
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                listOf(
+                    PetMotionPolicy.HALF_TOP to "上",
+                    PetMotionPolicy.HALF_BOTTOM to "下",
+                    PetMotionPolicy.HALF_LEFT to "左",
+                    PetMotionPolicy.HALF_RIGHT to "右",
+                ).forEach { (value, label) ->
+                    addView(
+                        optionButton(selectedLabel(label, currentMode == value)) {
+                            setMotionMode(value)
+                            closeOptions(resumeMotion = false)
+                        },
+                        LinearLayout.LayoutParams(0, dp(42), 1f),
+                    )
+                }
+            })
         }
         val panel = ScrollView(context).apply {
             isFillViewport = false
+            clipToOutline = true
+            clipChildren = true
             background = rounded(Color.rgb(38, 35, 44), 16f)
             elevation = dp(10).toFloat()
             addView(
@@ -519,6 +556,38 @@ class PetOverlayWindow(
         if (resumeMotion) resumeFallIfPending()
     }
 
+    private fun menuHeader(title: String, action: () -> Unit): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(context).apply {
+                text = title
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(0, dp(34), 1f))
+            addView(TextView(context).apply {
+                text = "×"
+                textSize = 19f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                background = rounded(Color.rgb(82, 77, 91), 999f)
+                setOnClickListener { action() }
+            }, LinearLayout.LayoutParams(dp(30), dp(30)))
+        }
+
+    private fun sectionLabel(label: String): TextView = TextView(context).apply {
+        text = label
+        textSize = 10f
+        gravity = Gravity.CENTER_VERTICAL
+        setTextColor(Color.rgb(207, 198, 220))
+        setPadding(dp(4), 0, 0, 0)
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(25))
+    }
+
+    private fun selectedLabel(label: String, selected: Boolean): String =
+        if (selected) "✓ $label" else label
+
     private fun resumeFallIfPending(delayMs: Long = 0L) {
         if (!gravityResumePending) return
         val task = Runnable {
@@ -541,33 +610,127 @@ class PetOverlayWindow(
     private fun dockToNearestEdge() {
         val layout = params ?: return
         val view = root ?: return
-        val area = motionArea(layout)
-        val minX = area.left
-        val maxX = (area.right - layout.width).coerceAtLeast(minX)
-        val minY = area.top
-        val maxY = (area.bottom - layout.height).coerceAtLeast(minY)
+        val limits = activeArea(layout).limits(layout)
         val distances = listOf(
-            "left" to abs(layout.x - minX),
-            "right" to abs(maxX - layout.x),
-            "top" to abs(layout.y - minY),
-            "bottom" to abs(maxY - layout.y),
+            EDGE_LEFT to abs(layout.x - limits.minX),
+            EDGE_RIGHT to abs(limits.maxX - layout.x),
+            EDGE_TOP to abs(layout.y - limits.minY),
+            EDGE_BOTTOM to abs(limits.maxY - layout.y),
         )
-        when (distances.minByOrNull { it.second }?.first) {
-            "left" -> layout.x = minX
-            "right" -> layout.x = maxX
-            "top" -> layout.y = minY
-            else -> layout.y = maxY
+        val edge = distances.minByOrNull { it.second }?.first ?: EDGE_BOTTOM
+        when (edge) {
+            EDGE_LEFT -> layout.x = limits.minX
+            EDGE_RIGHT -> layout.x = limits.maxX
+            EDGE_TOP -> layout.y = limits.minY
+            else -> layout.y = limits.maxY
         }
+        setDockedEdge(edge)
         clamp(layout)
-        player?.play("LANDING", reason = "pet_overlay_edge_dock", force = true, immediate = true)
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
+        playLightLanding("pet_overlay_edge_dock")
+    }
+
+    private fun setMotionMode(value: String) {
+        val normalized = PetMotionPolicy.normalized(value)
+        prefs.edit().putString(KEY_PET_MOTION_MODE, normalized).apply()
+        pendingLightLanding?.let(handler::removeCallbacks)
+        pendingLightLanding = null
+        gravityResumePending = false
+        physics.cancel()
+        handler.removeCallbacks(physicsTick)
+        if (normalized == PetMotionPolicy.EDGE) {
+            dockToNearestEdge()
+            return
+        }
+        setDockedEdge("")
+        val layout = params ?: return
+        val view = root ?: return
+        val oldX = layout.x
+        val oldY = layout.y
+        clamp(layout)
+        runCatching { windowManager.updateViewLayout(view, layout) }
+        persistPosition()
+        if (layout.x != oldX || layout.y != oldY) {
+            playLightLanding("pet_overlay_mode_clamp")
+        }
+    }
+
+    private fun motionMode(): String = PetMotionPolicy.normalized(
+        prefs.getString(KEY_PET_MOTION_MODE, PetMotionPolicy.FREE),
+    )
+
+    private fun setDockedEdge(value: String) {
+        prefs.edit().putString(KEY_PET_DOCK_EDGE, value).apply()
+    }
+
+    private fun dockedEdge(): String = prefs.getString(KEY_PET_DOCK_EDGE, "").orEmpty()
+
+    private fun handleDragRelease(
+        layout: WindowManager.LayoutParams,
+        animation: PetAnimationPlayer,
+        release: ReleaseGesture,
+    ) {
+        val mode = motionMode()
+        if (!release.isThrow && mode == PetMotionPolicy.EDGE && isNearAnyEdge(layout)) {
+            dockToNearestEdge()
+            return
+        }
+        if (!release.isThrow && mode != PetMotionPolicy.EDGE) {
+            setDockedEdge("")
+            persistPosition()
+            playLightLanding("pet_overlay_light_place")
+            return
+        }
+        setDockedEdge("")
+        animation.play(
+            "FALLING",
+            reason = if (release.isThrow) "pet_overlay_throw" else "pet_overlay_edge_drop",
+            force = true,
+            immediate = true,
+        )
+        physics.launch(
+            layout.x.toFloat(),
+            layout.y.toFloat(),
+            if (release.isThrow) release.velocityX else 0f,
+            if (release.isThrow) release.velocityY else 0f,
+        )
+        physicsLastAtMs = 0L
+        handler.post(physicsTick)
+    }
+
+    private fun isNearAnyEdge(layout: WindowManager.LayoutParams): Boolean {
+        val limits = activeArea(layout).limits(layout)
+        val threshold = maxOf(
+            dp(EDGE_CAPTURE_DP),
+            (minOf(layout.width, layout.height) * 0.10f).toInt(),
+        )
+        return minOf(
+            abs(layout.x - limits.minX),
+            abs(limits.maxX - layout.x),
+            abs(layout.y - limits.minY),
+            abs(limits.maxY - layout.y),
+        ) <= threshold
+    }
+
+    private fun playLightLanding(reason: String) {
+        pendingLightLanding?.let(handler::removeCallbacks)
+        player?.play("FALLING", reason = reason, force = true, immediate = true)
+        val task = Runnable {
+            pendingLightLanding = null
+            player?.play("LANDING", reason = "${reason}_landing", force = true, immediate = true)
+        }
+        pendingLightLanding = task
+        handler.postDelayed(task, LIGHT_LANDING_DELAY_MS)
     }
 
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
         text = label
         textSize = 11f
         isAllCaps = false
+        minWidth = 0
+        minHeight = 0
+        setPadding(dp(4), 0, dp(4), 0)
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))
     }
@@ -577,14 +740,38 @@ class PetOverlayWindow(
         while (samples.size > 18) samples.removeFirst()
     }
 
-    private fun releaseVelocity(): Pair<Float, Float> {
-        val end = samples.lastOrNull() ?: return 0f to 0f
+    private fun releaseGesture(): ReleaseGesture {
+        val end = samples.lastOrNull() ?: return ReleaseGesture(0f, 0f, false)
         val recent = samples.filter { it.atMs >= end.atMs - 160L }
-        if (recent.size < 2) return 0f to 0f
+        if (recent.size < 2) return ReleaseGesture(0f, 0f, false)
         val start = recent.first()
         val seconds = (end.atMs - start.atMs) / 1000f
-        if (seconds < 0.018f) return 0f to 0f
-        return (end.x - start.x) / seconds to (end.y - start.y) / seconds
+        if (seconds < 0.018f) return ReleaseGesture(0f, 0f, false)
+        val density = context.resources.displayMetrics.density.coerceAtLeast(0.1f)
+        val velocityX = (end.x - start.x) / seconds
+        val velocityY = (end.y - start.y) / seconds
+        val speedDpPerSecond = hypot(velocityX, velocityY) / density
+        var recentTravelPx = 0f
+        for (index in 1 until recent.size) {
+            recentTravelPx += hypot(
+                recent[index].x - recent[index - 1].x,
+                recent[index].y - recent[index - 1].y,
+            )
+        }
+        val tail = samples.filter { it.atMs >= end.atMs - RELEASE_STABLE_TAIL_MS }
+        val stableRadius = dp(RELEASE_STABLE_RADIUS_DP).toFloat()
+        val tailStable = tail.all { hypot(it.x - end.x, it.y - end.y) <= stableRadius }
+        val totalDisplacementDp = hypot(end.x - pressRawX, end.y - pressRawY) / density
+        return ReleaseGesture(
+            velocityX = velocityX,
+            velocityY = velocityY,
+            isThrow = PetMotionPolicy.shouldThrow(
+                speedDpPerSecond = speedDpPerSecond,
+                recentTravelDp = recentTravelPx / density,
+                totalDisplacementDp = totalDisplacementDp,
+                tailStable = tailStable,
+            ),
+        )
     }
 
     fun persistCurrentPosition() {
@@ -593,32 +780,76 @@ class PetOverlayWindow(
             .putInt(KEY_PET_X, layout.x)
             .putInt(KEY_PET_Y, layout.y)
             .apply()
+        lastMotionArea = activeArea(layout)
     }
 
     private fun persistPosition() = persistCurrentPosition()
 
     private fun clamp(layout: WindowManager.LayoutParams) {
-        val safe = motionArea(layout)
+        val safe = activeArea(layout)
         layout.x = layout.x.coerceIn(safe.left, (safe.right - layout.width).coerceAtLeast(safe.left))
         layout.y = layout.y.coerceIn(safe.top, (safe.bottom - layout.height).coerceAtLeast(safe.top))
+    }
+
+    private fun activeArea(layout: WindowManager.LayoutParams): SafeArea {
+        val full = motionArea(layout)
+        val center = screenCenter()
+        return when (motionMode()) {
+            PetMotionPolicy.HALF_TOP -> full.copy(bottom = center.second.coerceAtLeast(full.top))
+            PetMotionPolicy.HALF_BOTTOM -> full.copy(top = center.second.coerceAtMost(full.bottom))
+            PetMotionPolicy.HALF_LEFT -> full.copy(right = center.first.coerceAtLeast(full.left))
+            PetMotionPolicy.HALF_RIGHT -> full.copy(left = center.first.coerceAtMost(full.right))
+            else -> full
+        }
     }
 
     private fun motionArea(layout: WindowManager.LayoutParams): SafeArea {
         val overscan = (minOf(layout.width, layout.height) * EDGE_OVERSCAN_RATIO).toInt()
         if (Build.VERSION.SDK_INT >= 30) {
-            val bounds = windowManager.currentWindowMetrics.bounds
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            val landscape = bounds.width() > bounds.height()
+            val horizontalShift = if (landscape) insets.left else 0
+            val bottom = if (landscape) {
+                bounds.bottom
+            } else {
+                (bounds.bottom - insets.bottom - dp(PORTRAIT_BOTTOM_MARGIN_DP))
+                    .coerceAtLeast(bounds.top)
+            }
             return SafeArea(
-                bounds.left - overscan,
+                bounds.left - overscan - horizontalShift,
                 bounds.top - overscan,
-                bounds.right + overscan,
-                bounds.bottom,
+                bounds.right + overscan - horizontalShift,
+                bottom,
             )
         }
         @Suppress("DEPRECATION")
         val width = context.resources.displayMetrics.widthPixels
         @Suppress("DEPRECATION")
         val height = context.resources.displayMetrics.heightPixels
-        return SafeArea(-overscan, -overscan, width + overscan, height)
+        val landscape = width > height
+        val bottom = if (landscape) height else height - dp(PORTRAIT_BOTTOM_MARGIN_DP)
+        return SafeArea(-overscan, -overscan, width + overscan, bottom)
+    }
+
+    private fun screenCenter(): Pair<Int, Int> {
+        if (Build.VERSION.SDK_INT >= 30) {
+            val metrics = windowManager.currentWindowMetrics
+            val bounds = metrics.bounds
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            val horizontalShift = if (bounds.width() > bounds.height()) insets.left else 0
+            return (bounds.centerX() - horizontalShift) to bounds.centerY()
+        }
+        @Suppress("DEPRECATION")
+        val width = context.resources.displayMetrics.widthPixels
+        @Suppress("DEPRECATION")
+        val height = context.resources.displayMetrics.heightPixels
+        return width / 2 to height / 2
     }
 
     private fun menuSafeArea(): SafeArea {
@@ -652,8 +883,43 @@ class PetOverlayWindow(
         (value * context.resources.displayMetrics.density).toInt()
 
     private data class DragSample(val atMs: Long, val x: Float, val y: Float)
+    private data class ReleaseGesture(
+        val velocityX: Float,
+        val velocityY: Float,
+        val isThrow: Boolean,
+    )
+
+    private data class SafeAreaLimits(
+        val minX: Int,
+        val maxX: Int,
+        val minY: Int,
+        val maxY: Int,
+    ) {
+        fun fractionX(x: Int): Float = fraction(x, minX, maxX)
+        fun fractionY(y: Int): Float = fraction(y, minY, maxY)
+        fun xAt(fraction: Float): Int = position(fraction, minX, maxX)
+        fun yAt(fraction: Float): Int = position(fraction, minY, maxY)
+
+        private fun fraction(value: Int, minimum: Int, maximum: Int): Float {
+            val span = maximum - minimum
+            if (span <= 0) return 0f
+            return ((value - minimum).toFloat() / span).coerceIn(0f, 1f)
+        }
+
+        private fun position(fraction: Float, minimum: Int, maximum: Int): Int =
+            (minimum + (maximum - minimum) * fraction.coerceIn(0f, 1f)).toInt()
+    }
+
     private data class SafeArea(val left: Int, val top: Int, val right: Int, val bottom: Int) {
+        val width: Int get() = (right - left).coerceAtLeast(0)
         val height: Int get() = (bottom - top).coerceAtLeast(0)
+
+        fun limits(layout: WindowManager.LayoutParams): SafeAreaLimits = SafeAreaLimits(
+            minX = left,
+            maxX = (right - layout.width).coerceAtLeast(left),
+            minY = top,
+            maxY = (bottom - layout.height).coerceAtLeast(top),
+        )
     }
 
     companion object {
@@ -663,6 +929,17 @@ class PetOverlayWindow(
         const val KEY_PET_SIZE = "pet_size"
         private const val KEY_PET_X = "pet_x"
         private const val KEY_PET_Y = "pet_y"
+        private const val KEY_PET_MOTION_MODE = "pet_motion_mode"
+        private const val KEY_PET_DOCK_EDGE = "pet_dock_edge"
+        private const val EDGE_LEFT = "left"
+        private const val EDGE_RIGHT = "right"
+        private const val EDGE_TOP = "top"
+        private const val EDGE_BOTTOM = "bottom"
+        private const val EDGE_CAPTURE_DP = 28
+        private const val LIGHT_LANDING_DELAY_MS = 180L
+        private const val RELEASE_STABLE_TAIL_MS = 90L
+        private const val RELEASE_STABLE_RADIUS_DP = 8
+        private const val PORTRAIT_BOTTOM_MARGIN_DP = 4
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f

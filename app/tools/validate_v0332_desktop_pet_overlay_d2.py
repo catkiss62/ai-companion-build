@@ -18,7 +18,11 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 
 pubspec = read("pubspec.yaml")
-assert "version: 0.33.2+57" in pubspec or "version: 0.33.3+58" in pubspec
+assert any(version in pubspec for version in (
+    "version: 0.33.2+57",
+    "version: 0.33.3+58",
+    "version: 0.33.4+59",
+))
 
 pet = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt"
@@ -39,7 +43,7 @@ require(
         '"ANGRY"',
         "ViewConfiguration.getDoubleTapTimeout()",
         "showOptions()",
-        'text = "桌宠选项"',
+        'menuHeader("桌宠选项")',
         'optionButton("打开聊天")',
         'optionButton("切换为悬浮球")',
         "PetTouchRegions.classify(event.x, event.y, view.width, view.height)",

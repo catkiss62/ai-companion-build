@@ -17,7 +17,8 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-assert "version: 0.33.3+58" in read("pubspec.yaml")
+pubspec = read("pubspec.yaml")
+assert "version: 0.33.3+58" in pubspec or "version: 0.33.4+59" in pubspec
 
 pet = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt"
@@ -26,14 +27,14 @@ require(
     pet,
     [
         "ScrollView(context)",
-        'optionButton("贴边缩进")',
-        'optionButton("关闭菜单") { closeOptions(resumeMotion = true) }',
+        'optionButton(selectedLabel("贴边模式"',
+        'menuHeader("桌宠选项")',
         "gravityResumePending = gravityResumePending || physics.active",
         "private fun resumeFallIfPending",
         'reason = "pet_overlay_resume_fall"',
         "private fun dockToNearestEdge()",
         "private fun motionArea(layout: WindowManager.LayoutParams)",
-        "windowManager.currentWindowMetrics.bounds",
+        "windowManager.currentWindowMetrics",
         "EDGE_OVERSCAN_RATIO = 0.06f",
         "private fun menuSafeArea()",
     ],
@@ -49,7 +50,7 @@ require(
         "private var bubbleOptionsRoot: View? = null",
         "ViewConfiguration.getDoubleTapTimeout()",
         "private fun showBubbleOptions()",
-        'text = "悬浮球选项"',
+        'bubbleMenuHeader("悬浮球选项")',
         'bubbleOptionButton("切换为桌宠")',
         'bubbleOptionButton("缩进左侧")',
         "private fun retractBubbleToLeft()",
@@ -66,9 +67,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.3+58 APK",
+        "Build AI Companion v0.33.4+59 APK",
         "python3 tools/validate_v0333_overlay_menus_unread.py",
-        "AI-Companion-v0.33.3-58-Overlay-UX-D2-1-APK",
+        "AI-Companion-v0.33.4-59-Pet-Motion-Modes-D2-2-APK",
     ],
     "workflow",
 )
