@@ -77,6 +77,7 @@ class PetOverlayWindow(
     private var physicsLastAtMs = 0L
     private var gravityResumePending = false
     private var lastMotionArea: SafeArea? = null
+    private var conversationCue = PetConversationPolicy.IDLE
 
     private val longPress = Runnable {
         if (dragging || pressedRegion !in setOf("head", "face")) return@Runnable
@@ -182,6 +183,11 @@ class PetOverlayWindow(
             manifest = manifest,
             cache = frameCache,
             onSnapshot = petView::showSnapshot,
+            onActionChanged = { action, phase ->
+                if (action.id == "IDLE" && phase == PetAnimationPhase.BODY) {
+                    handler.post { reconcileConversationAction("idle_resumed") }
+                }
+            },
         )
         animation.setTargetHeight(assetHeight(size))
         attachTouch(container, animation)
@@ -217,8 +223,32 @@ class PetOverlayWindow(
         if (!visible) {
             closeOptions(resumeMotion = false)
         } else {
+            reconcileConversationAction("pet_visible")
             resumeFallIfPending()
         }
+    }
+
+    /** Re-adds the pet after the chat window so same-type overlays keep the pet on top. */
+    fun bringToFront(): Boolean {
+        val view = root ?: return false
+        val layout = params ?: return false
+        if (!view.isAttachedToWindow) return false
+        return runCatching {
+            windowManager.removeViewImmediate(view)
+            windowManager.addView(view, layout)
+            true
+        }.getOrElse { false }
+    }
+
+    fun setConversationCue(value: String) {
+        val normalized = when (value) {
+            PetConversationPolicy.THINKING -> PetConversationPolicy.THINKING
+            PetConversationPolicy.TALKING -> PetConversationPolicy.TALKING
+            else -> PetConversationPolicy.IDLE
+        }
+        if (conversationCue == normalized) return
+        conversationCue = normalized
+        reconcileConversationAction("conversation_$normalized")
     }
 
     fun setUnread(count: Int) {
@@ -724,6 +754,28 @@ class PetOverlayWindow(
         handler.postDelayed(task, LIGHT_LANDING_DELAY_MS)
     }
 
+    private fun reconcileConversationAction(reason: String) {
+        if (root?.visibility != View.VISIBLE || dragging || physics.active) return
+        val animation = player ?: return
+        val current = animation.currentActionId
+        val desired = PetConversationPolicy.actionFor(conversationCue)
+        if (desired == null) {
+            if (current in CONVERSATION_ACTIONS) {
+                animation.resetToIdle("${reason}_idle")
+            }
+            return
+        }
+        if (current == desired) return
+        if (current == "IDLE" || current in CONVERSATION_ACTIONS) {
+            animation.play(
+                desired,
+                reason = reason,
+                force = true,
+                immediate = false,
+            )
+        }
+    }
+
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
         text = label
         textSize = 11f
@@ -939,10 +991,11 @@ class PetOverlayWindow(
         private const val LIGHT_LANDING_DELAY_MS = 180L
         private const val RELEASE_STABLE_TAIL_MS = 90L
         private const val RELEASE_STABLE_RADIUS_DP = 8
-        private const val PORTRAIT_BOTTOM_MARGIN_DP = 4
+        private const val PORTRAIT_BOTTOM_MARGIN_DP = 10
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f
+        private val CONVERSATION_ACTIONS = setOf("THINKING", "TALKING")
 
         fun normalizedSize(value: String?): String = PetOverlaySizing.normalized(value)
 

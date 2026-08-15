@@ -74,3 +74,26 @@ object PetMotionPolicy {
         recentTravelDp >= 30f &&
         totalDisplacementDp >= 48f
 }
+
+/** Pure bridge from durable chat/TTS state into the pet's expressive cue. */
+object PetConversationPolicy {
+    const val IDLE = "idle"
+    const val THINKING = "thinking"
+    const val TALKING = "talking"
+
+    fun cueFor(
+        generationActive: Boolean,
+        generationPhase: String?,
+        ttsPhase: String?,
+    ): String {
+        if (ttsPhase == "playing") return TALKING
+        if (!generationActive) return IDLE
+        return if (generationPhase == "answering") TALKING else THINKING
+    }
+
+    fun actionFor(cue: String?): String? = when (cue) {
+        THINKING -> "THINKING"
+        TALKING -> "TALKING"
+        else -> null
+    }
+}

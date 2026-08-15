@@ -17,7 +17,8 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-assert "version: 0.33.4+59" in read("pubspec.yaml")
+pubspec = read("pubspec.yaml")
+assert "version: 0.33.4+59" in pubspec or "version: 0.33.5+60" in pubspec
 
 contract = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayContract.kt"
@@ -102,9 +103,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.4+59 APK",
+        "Build AI Companion v0.33.5+60 APK",
         "python3 tools/validate_v0334_pet_motion_modes.py",
-        "AI-Companion-v0.33.4-59-Pet-Motion-Modes-D2-2-APK",
+        "AI-Companion-v0.33.5-60-Pet-Chat-Action-Arbiter-D3-1-APK",
     ],
     "workflow",
 )

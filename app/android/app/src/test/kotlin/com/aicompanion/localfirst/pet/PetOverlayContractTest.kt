@@ -42,4 +42,31 @@ class PetOverlayContractTest {
         assertEquals(false, PetMotionPolicy.shouldThrow(900f, 18f, 120f, false))
         assertEquals(false, PetMotionPolicy.shouldThrow(900f, 60f, 30f, false))
     }
+
+    @Test
+    fun conversationCueUsesRealGenerationAndPlaybackState() {
+        assertEquals(
+            PetConversationPolicy.IDLE,
+            PetConversationPolicy.cueFor(false, "idle", "idle"),
+        )
+        assertEquals(
+            PetConversationPolicy.THINKING,
+            PetConversationPolicy.cueFor(true, "thinking", "idle"),
+        )
+        assertEquals(
+            PetConversationPolicy.THINKING,
+            PetConversationPolicy.cueFor(true, "cancelling", "synthesizing"),
+        )
+        assertEquals(
+            PetConversationPolicy.TALKING,
+            PetConversationPolicy.cueFor(true, "answering", "idle"),
+        )
+        assertEquals(
+            PetConversationPolicy.TALKING,
+            PetConversationPolicy.cueFor(false, "idle", "playing"),
+        )
+        assertEquals("THINKING", PetConversationPolicy.actionFor("thinking"))
+        assertEquals("TALKING", PetConversationPolicy.actionFor("talking"))
+        assertEquals(null, PetConversationPolicy.actionFor("idle"))
+    }
 }
