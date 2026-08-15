@@ -280,7 +280,8 @@ Intent + Gate：提起 / 稍后再说 / 只记作当下 / 完全沉默
 | P1 | TODO | 手机/平板 Active Brain | Nearby 权限、双向 takeover、encrypted `.aicomp` fallback |
 | P1 | TODO | 表情包 / 多气泡共同契约 | 模型提出结构化标签，传输层安全选图，不污染 TTS/Memory |
 | P2 | DESIGN | 屏幕陪伴 | 一次分析优先，连续会话后置；用户沉默中性 |
-| P2 | COMPLETED/REAL-DEVICE-VERIFY | Android 桌宠 D1.1 原动作同构 | 完整素材与 18 动作播放器已进 main；下一步真机逐动作检查，再进入 D2 Overlay |
+| P2 | IMPLEMENTED/REAL-DEVICE-VERIFY | Android 系统桌宠 D2 | 完整素材与 18 动作播放器进入真实 Overlay；悬浮球/桌宠二选一、单双击、三档和拖拽已过自动验证，待真机 |
+| P2 | NEXT | Android 桌宠 D3 行为映射 | Desire/Thought/mood/TTS 统一驱动动作；不建第二人格、不绕过 Gate |
 | P2 | TODO | UI 本地化与优化 | 长按菜单中文化、信息架构和设计系统分批处理 |
 | — | FROZEN | Overlay 系统界面返回异常 | 新诊断捕获 attach/touch recovery 失败证据；以后按独立专题重开 |
 | — | FROZEN/GUARDRAIL | Meju A2 TTS | 核心可用，轻微断句/显示遗留冻结，不重做 native/MNN |
@@ -311,9 +312,10 @@ Intent + Gate：提起 / 稍后再说 / 只记作当下 / 完全沉默
 3. 做精确前台 App 识别的小阶段：QQ/B站等包名/标签、unknown fallback、脱敏可观测性；不需要视觉模型。
 4. 设计统一 `tool action / candidate / provenance / lifecycle / feedback` 契约，再实现兴趣候选库的本地表、TTL/去重/预算；首版可先用 mock discovery 验证欲望闭环，再接公开网页搜索。
 5. 将表情包、联网分享、通知和屏幕陪伴都接到同一 Intent/Action/Outcome 语义，避免四套主动系统。
-6. Android 桌宠 D1.1 先完成 Activity 内原动作同构与 APK 真机验收；随后 D2 接独立 Overlay window、点击聊天、拖拽落地、安全位置、横竖屏与锁屏暂停。视觉层只表现现有 AI Self/Desire/Thought/TTS，不建第二人格。
-7. 旧悬浮球不单独重修；若桌宠接入暴露 WindowManager 生命周期问题，再按可复现时间线修底层。
-8. 大阶段完成后再次 Clean Freeze；正式数据保留前建立稳定 release signing。
+6. 先真机验收 D2：两种入口互斥、头/身体/尾巴单击、双击菜单、三档实际尺寸、拖拽落地、聊天、旋转与锁屏恢复；有证据再修 WindowManager 生命周期。
+7. D2 通过后进入 D3，把现有 AI Self/Desire/Thought/mood/TTS 映射到桌宠动作与自主节奏；视觉层不建第二人格，也不绕过 Intent/Gate。
+8. 旧悬浮球永久保留为可选入口；除共享 WindowManager/聊天能力出现可复现问题外，不单独扩大重修范围。
+9. 大阶段完成后再次 Clean Freeze；正式数据保留前建立稳定 release signing。
 
 ## 11. 仍缺但不阻塞的资料
 
