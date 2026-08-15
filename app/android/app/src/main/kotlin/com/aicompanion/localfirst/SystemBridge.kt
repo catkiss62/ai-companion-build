@@ -17,6 +17,7 @@ import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
+import com.aicompanion.localfirst.pet.PetPreviewActivity
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
@@ -64,6 +65,10 @@ class SystemBridge(
                 )
                 "clearRuntimeDiagnostics" -> {
                     RuntimeDiagnosticStore.clear(activity)
+                    result.success(null)
+                }
+                "openDesktopPetPreview" -> {
+                    PetPreviewActivity.launch(activity)
                     result.success(null)
                 }
                 "openOverlaySettings" -> {

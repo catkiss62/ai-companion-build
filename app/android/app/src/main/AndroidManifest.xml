@@ -48,6 +48,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".pet.PetPreviewActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/NormalTheme" />
+
         <service
             android:name=".OverlayBubbleService"
             android:exported="false"

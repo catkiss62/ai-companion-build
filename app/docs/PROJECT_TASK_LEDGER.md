@@ -1,6 +1,6 @@
 # AI Companion · Project Task Ledger
 
-> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v23_2026-08-15.md`。
+> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v24_2026-08-15.md`。
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
@@ -236,9 +236,9 @@
 - [ ] 候选池必须有 URL/fingerprint 去重、7～30 天 TTL、数量/磁盘/流量/每日上限、域名黑名单、Wi-Fi/安静时段和可见来源。
 - [ ] 公开网页内容视为 untrusted data；失败/取消不产生“已阅读”，外部 prompt injection 不得进入 system、AI Self、规则或 Thought 原文。
 - [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
-- [ ] Android 桌宠以 `QCYTSN/ds-local-pet` 为主架构参考：移植 MIT 的 manifest/状态机/调度思想，Android WindowManager/renderer 重写；桌宠点击动作可打开悬浮聊天窗。
-- [ ] `ds-local-pet` 角色视觉资产被其 `ASSET_LICENSE.md` 明确排除在 MIT 外；取得可修改、打包和分发的明确授权前不得进入 APK。先用权利清晰的占位资产做 Activity 隔离播放器。
-- [x] 已审计用户上传 `素材.zip`：475 项、约 112MB，与该仓库 assets 目录/manifest/角色 ID 一致且无 LICENSE，归类为同源副本而非新授权；不因换下载地址解除许可条件。
+- [x] Android 桌宠 D0：锁定 `QCYTSN/ds-local-pet` 为架构参考，并记录用户对私人、非商业 AI Companion 的素材使用授权与来源署名；公开发布仍需换素材或另行授权。
+- [x] Android 桌宠 D1：原 107MB 工作包精简为 27 动作/66 RGBA PNG/低于 6MiB 的 238px 运行皮肤；完成安全 manifest loader、12MB LRU cache、优先级状态机和普通 Activity 预览。
+- [ ] Android 桌宠 D2：在现有前台服务内增加独立 Pet window，完成点击聊天、拖拽、下落/落地、安全位置、横竖屏与锁屏暂停；验证前保留旧悬浮球回退。
 - [ ] 旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸、悬浮聊天和真停止能力。完整方案见 `docs/ANDROID_DESKTOP_PET_PLAN_v2.md`。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
 
@@ -274,6 +274,7 @@
 - [x] 用户确认半成品测试阶段不保留存档、每次均可卸载重装；旧 workflow 内嵌 key 彻底退役。
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
+- [x] v0.33.0+55 桌宠 D0/D1：PR #11 head `393e64dee0e505d78ff7da4cad0169d73a128187`，run #43（`31861829909`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9240951958`，APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
 - [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
