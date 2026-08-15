@@ -1,10 +1,10 @@
 # AI Companion · HANDOFF
 
-> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v24_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v25_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
 ## 1. 当前基底
 
-- 当前主线：**v0.32.2+54 · Overlay Time & Diagnostic Observability**；PR #10 已合并，产品提交 `3ebeada99c2954ca4c13c16a7a6d24b4ffa1472b`，schema 21。
+- 当前主线：**v0.33.1+56 · Android 桌宠 D1.1 原项目动作同构**；PR #12 产品验证与最终文档检查均已完成；最终合并落款见 v25 总账，schema 21。v0.33.0 的 66 帧简化预览已被本版明确取代。
 - PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
@@ -21,6 +21,16 @@
 - 普通聊天不能因为成人规则、参考资料或 libido 数值自动色情化；亲密行为必须受明确 Session 与用户边界控制。
 - TTS 以 Meju A2 黄金基线为准，不重做 native/MNN/分句队列。
 - **Desire / Thought / Intent / Gate 是活人感的行为调度主干**：感知、记忆、联网、屏幕和桌宠提供她知道的内容与可用能力；是否、为何、何时行动统一回到欲望主干，各模块不得自行绕过 Gate 强制发言。
+
+## 2A. v0.33.1 · 桌宠原项目动作同构
+
+- 用户要求完整保留所有相似帧与素材文件，100MB 体积可接受；不得按外观去重，也不得自行重组动作。
+- 私有仓库保存用户替换包的 151 个校验分片；CI 安全恢复后验证 417 文件、111,962,623 bytes 和 tree SHA-256 `caa4939627ee3a773566d4c793e355df5de98ad38698ddeb5b67519d03715582`。分片不进入 APK，恢复后的原树进入 Android assets。
+- Android 直接解析上游 format v4 `actions.json`：18 个行为动作、28 组 asset、187/238/306 三档、210 张 runtime PNG；保持方向、帧序/时长、`enter/body/exit`、priority/interruption/return、90ms 同素材 crossfade 和程序性效果。
+- `DRAGGING` 是事件保持态，不是缺帧：真实拖动超过阈值进入抓取中，松手强制 `FALLING`，稳定后 `LANDING`，重摔排队 `DIZZY`。
+- 预览按钮显示中文动作名 + 原始 ID；状态显示 phase/asset/size/frame，可验证三档与四方向；显式“复位待机”只用于测试保持态。
+- run #47（`31867409197`）通过完整恢复、validators、Kotlin 动作/物理测试、Flutter analyze/tests、release APK 与 APK payload 核验。artifact `9242561565`；APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`。
+- 本版仍是普通 Activity 隔离预览；D2 才接独立 Overlay Pet window、点击聊天、安全位置、横竖屏/锁屏和旧悬浮球回退。详见 `docs/DESKTOP_PET_SOURCE_PARITY_v0.33.1.md`。
 
 ## 2B. v0.32.2 · 悬浮时间与可诊断性
 

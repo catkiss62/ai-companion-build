@@ -20,7 +20,9 @@ db = read("lib/core/database/app_database.dart")
 tests = read("test/somatic_policy_test.dart")
 pubspec = read("pubspec.yaml")
 
-if "version: 0.32.2+54" not in pubspec and "version: 0.33.0+55" not in pubspec:
+if not any(version in pubspec for version in (
+    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56",
+)):
     raise SystemExit("ERROR: unsupported current release version")
 require(policy, "detectAssistantSelfTouch", "assistant detector")
 require(policy, "SomaticDirection.aiToSelf", "AI-to-self direction")
