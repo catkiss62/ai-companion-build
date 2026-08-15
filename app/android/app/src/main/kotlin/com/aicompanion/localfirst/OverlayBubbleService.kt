@@ -37,6 +37,7 @@ import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
 import android.widget.TextView
+import com.aicompanion.localfirst.pet.PetConversationPolicy
 import com.aicompanion.localfirst.pet.PetOverlayWindow
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
@@ -86,10 +87,12 @@ class OverlayBubbleService : Service() {
     private var chatInputMode = false
     private var chatSending = false
     private var overlayCancelling = false
+    private var overlayGenerationPhase = "idle"
     private var generationPollEpoch = 0
     private var ttsPollEpoch = 0
     private var overlayTtsPhase = "idle"
     private var overlayTtsMessageId = ""
+    private var petTtsDiscoveryUntilMs = 0L
     private var streamingAssistantMessageId = ""
     private var pendingShowAfterUnlock = false
     private var loadedMessages = mutableListOf<NativeChatMessage>()
@@ -596,6 +599,7 @@ class OverlayBubbleService : Service() {
         badge = host.badge
         val keyguard = getSystemService(KeyguardManager::class.java)
         host.setVisible(!keyguard.isDeviceLocked)
+        updatePetConversationCue()
         CompanionRuntimeState.setOverlayVisible(!keyguard.isDeviceLocked)
         setUnread(readUnread())
         updateOverlayTouchHealth()
@@ -840,7 +844,7 @@ class OverlayBubbleService : Service() {
         setUnread(0)
         chatExpanded = true
         CompanionRuntimeState.setOverlayChatExpanded(true)
-        petOverlayWindow?.setVisible(false) ?: run {
+        if (petOverlayWindow == null) {
             bubbleRoot?.visibility = View.GONE
         }
         chatRoot?.visibility = View.VISIBLE
@@ -849,6 +853,7 @@ class OverlayBubbleService : Service() {
             params.flags = readModeFlags()
             runCatching { windowManager.updateViewLayout(chatRoot, params) }
         }
+        keepPetAboveChat("chat_open")
         CompanionRuntimeState.setOverlayVisible(true)
         updateOverlayTouchHealth()
         refreshOverlayMessages(opened = true, attempt = 0)
@@ -898,6 +903,7 @@ class OverlayBubbleService : Service() {
             chatInput?.requestFocus()
             val imm = getSystemService(InputMethodManager::class.java)
             imm.showSoftInput(chatInput, InputMethodManager.SHOW_IMPLICIT)
+            keepPetAboveChat("chat_input_enter")
         }
     }
 
@@ -910,7 +916,23 @@ class OverlayBubbleService : Service() {
             val params = chatParams ?: return
             params.flags = readModeFlags()
             runCatching { windowManager.updateViewLayout(root, params) }
+            keepPetAboveChat("chat_input_exit")
         }
+    }
+
+    private fun keepPetAboveChat(reason: String) {
+        val pet = petOverlayWindow ?: return
+        pet.setVisible(true)
+        if (!pet.bringToFront()) {
+            NativeEventStore.addDeviceEvent(
+                this,
+                source = "system",
+                eventType = "pet_overlay_bring_to_front_failed",
+                appPackage = packageName,
+                summary = "桌宠置顶重挂载失败：${reason.take(80)}。",
+            )
+        }
+        updatePetConversationCue()
     }
 
     private fun hideKeyboard() {
@@ -1131,8 +1153,21 @@ class OverlayBubbleService : Service() {
     }
 
     private fun setComposerGenerationState(sending: Boolean, cancelling: Boolean = false) {
+        val wasSending = chatSending
         chatSending = sending
         overlayCancelling = cancelling
+        overlayGenerationPhase = when {
+            !sending -> "idle"
+            cancelling -> "cancelling"
+            !wasSending || overlayGenerationPhase in setOf("idle", "cancelling") -> "thinking"
+            else -> overlayGenerationPhase
+        }
+        if (sending) {
+            petTtsDiscoveryUntilMs = 0L
+        } else if (wasSending && petOverlayWindow != null) {
+            petTtsDiscoveryUntilMs = SystemClock.uptimeMillis() + PET_TTS_DISCOVERY_MS
+            beginTtsPolling()
+        }
         chatSend?.apply {
             text = when {
                 cancelling -> "停止中"
@@ -1141,6 +1176,7 @@ class OverlayBubbleService : Service() {
             }
             isEnabled = !cancelling
         }
+        updatePetConversationCue()
     }
 
     private fun beginGenerationPolling() {
@@ -1153,7 +1189,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun pollGenerationState(epoch: Int) {
-        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) return
+        if (epoch != generationPollEpoch || !shouldPollGeneration()) return
         val channel = backgroundCommands
         if (channel == null) {
             scheduleGenerationPoll(epoch)
@@ -1165,7 +1201,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) {
+                        if (epoch != generationPollEpoch || !shouldPollGeneration()) {
                             return@post
                         }
                         applyGenerationSnapshot(result)
@@ -1185,9 +1221,12 @@ class OverlayBubbleService : Service() {
     }
 
     private fun scheduleGenerationPoll(epoch: Int) {
-        if (epoch != generationPollEpoch || !chatExpanded || !chatSending) return
+        if (epoch != generationPollEpoch || !shouldPollGeneration()) return
         mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
     }
+
+    private fun shouldPollGeneration(): Boolean = chatSending &&
+        (chatExpanded || petOverlayWindow != null)
 
     private fun beginTtsPolling() {
         val epoch = ++ttsPollEpoch
@@ -1199,7 +1238,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun pollTtsState(epoch: Int) {
-        if (epoch != ttsPollEpoch || !chatExpanded) return
+        if (epoch != ttsPollEpoch || !shouldPollTts()) return
         val channel = backgroundCommands
         if (channel == null) {
             scheduleTtsPoll(epoch)
@@ -1211,7 +1250,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
-                        if (epoch != ttsPollEpoch || !chatExpanded) return@post
+                        if (epoch != ttsPollEpoch || !shouldPollTts()) return@post
                         val map = result as? Map<*, *>
                         val phase = map?.get("phase") as? String ?: "idle"
                         val messageId = map?.get("message_id") as? String ?: ""
@@ -1219,6 +1258,7 @@ class OverlayBubbleService : Service() {
                             overlayTtsPhase = phase
                             overlayTtsMessageId = messageId
                             chatAdapter?.notifyDataSetChanged()
+                            updatePetConversationCue()
                         }
                         scheduleTtsPoll(epoch)
                     }
@@ -1236,15 +1276,24 @@ class OverlayBubbleService : Service() {
     }
 
     private fun scheduleTtsPoll(epoch: Int) {
-        if (epoch != ttsPollEpoch || !chatExpanded) return
+        if (epoch != ttsPollEpoch || !shouldPollTts()) return
         mainHandler.postDelayed({ pollTtsState(epoch) }, TTS_POLL_MS)
     }
+
+    private fun shouldPollTts(): Boolean = chatExpanded ||
+        (petOverlayWindow != null && (
+            chatSending ||
+                overlayTtsPhase != "idle" ||
+                SystemClock.uptimeMillis() < petTtsDiscoveryUntilMs
+            ))
 
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
         val phase = map["phase"] as? String ?: "thinking"
+        overlayGenerationPhase = phase
+        updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
         removeStreamingMessage(notify = false)
         if (map["sending"] == true) {
@@ -1313,6 +1362,17 @@ class OverlayBubbleService : Service() {
         overlayTtsPhase = phase
         overlayTtsMessageId = messageId
         chatAdapter?.notifyDataSetChanged()
+        updatePetConversationCue()
+        if (phase != "idle" && petOverlayWindow != null) beginTtsPolling()
+    }
+
+    private fun updatePetConversationCue() {
+        val cue = PetConversationPolicy.cueFor(
+            generationActive = chatSending,
+            generationPhase = overlayGenerationPhase,
+            ttsPhase = overlayTtsPhase,
+        )
+        petOverlayWindow?.setConversationCue(cue)
     }
 
     private fun openFullApp() {
@@ -2275,11 +2335,16 @@ class OverlayBubbleService : Service() {
         chatStatus = null
         chatLoadOlder = null
         chatParams = null
-        stopGenerationPolling()
-        stopTtsPolling()
         chatExpanded = false
         CompanionRuntimeState.setOverlayChatExpanded(false)
         chatInputMode = false
+        if (!running || petOverlayWindow == null || !chatSending) stopGenerationPolling()
+        if (!running || petOverlayWindow == null ||
+            (overlayTtsPhase == "idle" && !chatSending)
+        ) {
+            stopTtsPolling()
+        }
+        updatePetConversationCue()
         updateOverlayTouchHealth()
     }
 
@@ -2610,6 +2675,7 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val GENERATION_POLL_MS = 140L
         private const val TTS_POLL_MS = 160L
+        private const val PET_TTS_DISCOVERY_MS = 3_000L
         private const val STREAMING_MESSAGE_ID = "overlay:streaming"
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"
         private const val SIGNAL_WAKE_MIN_INTERVAL_MS = 90_000L

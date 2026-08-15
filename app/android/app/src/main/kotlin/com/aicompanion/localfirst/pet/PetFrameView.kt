@@ -176,14 +176,11 @@ class PetFrameView(context: Context) : View(context) {
                     canvas.drawArc(rect, -55f, 110f, false, decorationPaint)
                 }
             }
-            "anger" -> {
-                decorationPaint.style = Paint.Style.STROKE
-                decorationPaint.alpha = 205
-                val cx = right - dp(19f)
-                val cy = top + dp(43f)
-                canvas.drawLine(cx - dp(5f), cy - dp(5f), cx + dp(5f), cy + dp(5f), decorationPaint)
-                canvas.drawLine(cx + dp(5f), cy - dp(5f), cx - dp(5f), cy + dp(5f), decorationPaint)
-            }
+            // The dafeiyu ANGRY raster already contains its orange anger mark.
+            // Drawing another diagonal cross outside the sprite looked like a
+            // broken unread/close badge on a real phone, so this skin keeps the
+            // source frame and deliberately adds no second decoration.
+            "anger" -> Unit
             "crumb" -> {
                 decorationPaint.style = Paint.Style.FILL
                 decorationPaint.alpha = 205
