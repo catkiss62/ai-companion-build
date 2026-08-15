@@ -17,7 +17,9 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-assert "version: 0.33.7+62" in read("pubspec.yaml")
+assert any(version in read("pubspec.yaml") for version in (
+    "version: 0.33.7+62", "version: 0.33.8+63",
+))
 
 pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt")
 skin = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetSkinManifest.kt")
@@ -59,9 +61,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.7+62 APK",
+        "Build AI Companion v0.33.8+63 APK",
         "python3 tools/validate_v0337_pet_falling_visual_rollback.py",
-        "AI-Companion-v0.33.7-62-Pet-Falling-Visual-Rollback-D3-1-2-APK",
+        "AI-Companion-v0.33.8-63-Pet-Semantic-Autonomy-D3-2-APK",
     ],
     "workflow",
 )

@@ -1,4 +1,4 @@
-name: Build AI Companion v0.33.7+62 APK (Pet Falling Visual Rollback D3.1.2)
+name: Build AI Companion v0.33.8+63 APK (Pet Semantic Autonomy D3.2)
 
 on:
   workflow_dispatch:
@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.33.7+62$' app/pubspec.yaml
+          grep -q '^version: 0.33.8+63$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 21;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.33.7+62 app/ source tree.'
+          echo 'Building directly from the committed v0.33.8+63 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -77,6 +77,7 @@ jobs:
           python3 tools/validate_v0335_pet_chat_action_arbiter.py
           python3 tools/validate_v0336_pet_chat_state_finalization.py
           python3 tools/validate_v0337_pet_falling_visual_rollback.py
+          python3 tools/validate_v0338_pet_semantic_autonomy.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
@@ -172,10 +173,10 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.33.7+62 APK
+      - name: Upload v0.33.8+63 APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.33.7-62-Pet-Falling-Visual-Rollback-D3-1-2-APK
+          name: AI-Companion-v0.33.8-63-Pet-Semantic-Autonomy-D3-2-APK
           if-no-files-found: error
           compression-level: 0
           path: |

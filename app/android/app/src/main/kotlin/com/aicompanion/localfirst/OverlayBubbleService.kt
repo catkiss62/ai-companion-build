@@ -90,6 +90,7 @@ class OverlayBubbleService : Service() {
     private var overlayGenerationPhase = "idle"
     private var generationPollEpoch = 0
     private var ttsPollEpoch = 0
+    private var petAutonomyPollEpoch = 0
     private var overlayTtsPhase = "idle"
     private var overlayTtsMessageId = ""
     private var appGenerationActive = false
@@ -452,6 +453,7 @@ class OverlayBubbleService : Service() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(permissionWatch)
+        stopPetAutonomyPolling()
         unregisterDeviceStateReceiver()
         running = false
         pendingShowAfterUnlock = false
@@ -614,6 +616,7 @@ class OverlayBubbleService : Service() {
         val keyguard = getSystemService(KeyguardManager::class.java)
         host.setVisible(!keyguard.isDeviceLocked)
         updatePetConversationCue()
+        if (backgroundBrainReady) beginPetAutonomyPolling()
         CompanionRuntimeState.setOverlayVisible(!keyguard.isDeviceLocked)
         setUnread(readUnread())
         updateOverlayTouchHealth()
@@ -635,6 +638,7 @@ class OverlayBubbleService : Service() {
         closeBubbleOptions()
         removeChatWindow()
         val pet = petOverlayWindow
+        stopPetAutonomyPolling()
         petOverlayWindow = null
         if (pet != null) {
             pet.release(removeRoot = true)
@@ -1394,8 +1398,61 @@ class OverlayBubbleService : Service() {
             generationPhase = generationPhase,
             ttsPhase = ttsPhase,
         )
-        petOverlayWindow?.setConversationCue(cue)
+        petOverlayWindow?.apply {
+            setConversationCue(cue)
+            // Synthesis intentionally has no TALKING action; it also pauses
+            // autonomous flourishes so the pet remains visually quiet until
+            // real playback begins.
+            setAutonomySuppressed(
+                chatExpanded || generationActive || ttsPhase != "idle",
+            )
+        }
     }
+
+    private fun beginPetAutonomyPolling() {
+        if (!running || petOverlayWindow == null || !backgroundBrainReady) return
+        val epoch = ++petAutonomyPollEpoch
+        pollPetAutonomy(epoch)
+    }
+
+    private fun stopPetAutonomyPolling() {
+        petAutonomyPollEpoch++
+        petOverlayWindow?.setAutonomySnapshot(null)
+    }
+
+    private fun pollPetAutonomy(epoch: Int) {
+        if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return
+        val channel = backgroundCommands ?: return schedulePetAutonomyPoll(epoch)
+        channel.invokeMethod(
+            "petAutonomySnapshot",
+            null,
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    mainHandler.post {
+                        if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return@post
+                        petOverlayWindow?.setAutonomySnapshot(result)
+                        schedulePetAutonomyPoll(epoch)
+                    }
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    mainHandler.post { schedulePetAutonomyPoll(epoch) }
+                }
+
+                override fun notImplemented() {
+                    mainHandler.post { schedulePetAutonomyPoll(epoch) }
+                }
+            },
+        )
+    }
+
+    private fun schedulePetAutonomyPoll(epoch: Int) {
+        if (epoch != petAutonomyPollEpoch || !shouldPollPetAutonomy()) return
+        mainHandler.postDelayed({ pollPetAutonomy(epoch) }, PET_AUTONOMY_POLL_MS)
+    }
+
+    private fun shouldPollPetAutonomy(): Boolean =
+        running && petOverlayWindow != null && backgroundBrainReady
 
     private fun openFullApp() {
         // Do not collapse/rebuild WindowManager immediately before launching the
@@ -2108,6 +2165,9 @@ class OverlayBubbleService : Service() {
                             backgroundEngineRestartScheduled = false
                             brainWakeAttempt = 0
                             result.success(true)
+                            if (petOverlayWindow != null) {
+                                mainHandler.post { beginPetAutonomyPolling() }
+                            }
                             if (pendingBrainWakeReason != null) {
                                 mainHandler.postDelayed({ signalBackgroundBrainWake() }, 250L)
                             }
@@ -2152,6 +2212,7 @@ class OverlayBubbleService : Service() {
             runCatching { engine?.destroy() }
             backgroundEngine = null
             backgroundBrainReady = false
+            stopPetAutonomyPolling()
             backgroundEngineStartAttempts += 1
             NativeEventStore.addDeviceEvent(
                 context = this,
@@ -2185,6 +2246,7 @@ class OverlayBubbleService : Service() {
         runCatching { expectedEngine.destroy() }
         backgroundEngine = null
         backgroundBrainReady = false
+        stopPetAutonomyPolling()
         backgroundEngineStartAttempts += 1
         scheduleBackgroundEngineRestart()
     }
@@ -2702,6 +2764,7 @@ class OverlayBubbleService : Service() {
         private const val BACKGROUND_READY_TIMEOUT_MS = 12_000L
         private const val GENERATION_POLL_MS = 140L
         private const val TTS_POLL_MS = 160L
+        private const val PET_AUTONOMY_POLL_MS = 30_000L
         private const val PET_TTS_DISCOVERY_MS = 3_000L
         private const val STREAMING_MESSAGE_ID = "overlay:streaming"
         private const val KEY_LAST_SIGNAL_WAKE_AT = "last_signal_wake_at"

@@ -1,6 +1,8 @@
 package com.aicompanion.localfirst.pet
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PetOverlayContractTest {
@@ -72,5 +74,62 @@ class PetOverlayContractTest {
         assertEquals("THINKING", PetConversationPolicy.actionFor("thinking"))
         assertEquals("TALKING", PetConversationPolicy.actionFor("talking"))
         assertEquals(null, PetConversationPolicy.actionFor("idle"))
+    }
+
+    @Test
+    fun autonomyConsumesSleepAndThoughtWithoutCreatingNewState() {
+        val sleepy = PetAutonomySnapshot(
+            enabled = true,
+            dominantDrive = "fatigue",
+            driveLevel = 0.72,
+            mood = "sleepy",
+        )
+        val yawn = PetAutonomyPolicy.choose(
+            sleepy,
+            idleMs = PetAutonomyPolicy.SLEEP_IDLE_MS,
+            semanticReady = true,
+            microReady = true,
+            cadenceBucket = 1L,
+        )
+        assertEquals("YAWNING", yawn?.actionId)
+        assertTrue(yawn?.queueSleepAfter == true)
+
+        val thought = PetAutonomyPolicy.choose(
+            PetAutonomySnapshot(
+                enabled = true,
+                dominantDrive = "reflection",
+                driveLevel = 0.66,
+                mood = "reflective",
+                thoughtActive = true,
+                thoughtStrength = 0.74,
+            ),
+            idleMs = PetAutonomyPolicy.MIN_SEMANTIC_IDLE_MS,
+            semanticReady = true,
+            microReady = true,
+            cadenceBucket = 2L,
+        )
+        assertEquals("THINKING", thought?.actionId)
+    }
+
+    @Test
+    fun autonomyHonorsBrainOwnershipAndUsesStableMicroCadence() {
+        val disabled = PetAutonomyPolicy.choose(
+            PetAutonomySnapshot(enabled = false),
+            idleMs = 999_999L,
+            semanticReady = true,
+            microReady = true,
+            cadenceBucket = 3L,
+        )
+        assertEquals(null, disabled)
+
+        val blink = PetAutonomyPolicy.choose(
+            PetAutonomySnapshot(enabled = true),
+            idleMs = PetAutonomyPolicy.MIN_MICRO_IDLE_MS,
+            semanticReady = false,
+            microReady = true,
+            cadenceBucket = 4L,
+        )
+        assertEquals("BLINK", blink?.actionId)
+        assertFalse(blink?.semantic ?: true)
     }
 }
