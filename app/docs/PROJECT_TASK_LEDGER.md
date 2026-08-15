@@ -237,7 +237,8 @@
 - [ ] 公开网页内容视为 untrusted data；失败/取消不产生“已阅读”，外部 prompt injection 不得进入 system、AI Self、规则或 Thought 原文。
 - [ ] 精确前台 App 感知是必要项：补齐 QQ/B站等友好标签、unknown fallback 与脱敏可观测性；检测到 App 不能直接强制发言。
 - [x] Android 桌宠 D0：锁定 `QCYTSN/ds-local-pet` 为架构参考，并记录用户对私人、非商业 AI Companion 的素材使用授权与来源署名；公开发布仍需换素材或另行授权。
-- [x] Android 桌宠 D1：原 107MB 工作包精简为 27 动作/66 RGBA PNG/低于 6MiB 的 238px 运行皮肤；完成安全 manifest loader、12MB LRU cache、优先级状态机和普通 Activity 预览。
+- [x] Android 桌宠 D1（历史，已由 D1.1 取代）：v0.33.0 的 238px/66 PNG 简化播放器可运行，但错误地把 27 个素材片段当动作入口，缺少三档、原 manifest 和完整生命周期；不得继续作为动作真源。
+- [x] Android 桌宠 D1.1：完整保留 417 文件与 210 张 runtime PNG，直接解析 format v4 manifest，保持 18 行为动作、28 assets、三档/方向、原帧序时长、enter/body/exit、状态优先级、程序效果与 throw physics；中文 + 原 ID 预览和 DRAGGING→FALLING→LANDING→DIZZY 已验证。
 - [ ] Android 桌宠 D2：在现有前台服务内增加独立 Pet window，完成点击聊天、拖拽、下落/落地、安全位置、横竖屏与锁屏暂停；验证前保留旧悬浮球回退。
 - [ ] 旧悬浮球不单独重修，但复用其 WindowManager 生命周期、触摸、悬浮聊天和真停止能力。完整方案见 `docs/ANDROID_DESKTOP_PET_PLAN_v2.md`。
 - [ ] 屏幕陪伴支持一次分析/自动陪看、文本/文本+语音；用户沉默必须为中性，不产生 `no_response`。
@@ -275,6 +276,7 @@
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 - [x] v0.33.0+55 桌宠 D0/D1：PR #11 squash merge `339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`。
+- [x] v0.33.1+56 桌宠 D1.1 原项目动作同构：PR #12 产品 run #47（`31867409197`）全绿；artifact `9242561565`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`，APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`；待最终文档 run 与 merge 落款。
 - [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
 - [ ] 进入正式数据保留阶段后，再验证长期 release key 下的升级安装、备份恢复与崩溃恢复。
