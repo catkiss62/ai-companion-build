@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
@@ -24,6 +25,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -33,6 +35,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.ScrollView
 import android.widget.TextView
 import com.aicompanion.localfirst.pet.PetOverlayWindow
 import io.flutter.FlutterInjector
@@ -43,6 +46,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * Foreground companion service hosting two real Android overlay windows:
@@ -63,6 +67,12 @@ class OverlayBubbleService : Service() {
     private var badge: TextView? = null
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var petOverlayWindow: PetOverlayWindow? = null
+    private var bubbleOptionsRoot: View? = null
+    private var bubbleOptionsParams: WindowManager.LayoutParams? = null
+    private var bubbleLastTapAtMs = 0L
+    private var bubbleLastTapRawX = 0f
+    private var bubbleLastTapRawY = 0f
+    private var pendingBubbleSingleTap: Runnable? = null
 
     private var chatRoot: FrameLayout? = null
     private var chatList: ListView? = null
@@ -185,6 +195,7 @@ class OverlayBubbleService : Service() {
             when (action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     pendingShowAfterUnlock = false
+                    closeBubbleOptions()
                     collapseChatOverlay("screen_off")
                     petOverlayWindow?.setVisible(false) ?: run {
                         bubbleRoot?.visibility = View.GONE
@@ -192,6 +203,7 @@ class OverlayBubbleService : Service() {
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     if (keyguard.isDeviceLocked) {
+                        closeBubbleOptions()
                         petOverlayWindow?.setVisible(false) ?: run {
                             bubbleRoot?.visibility = View.GONE
                         }
@@ -405,6 +417,7 @@ class OverlayBubbleService : Service() {
             clampBubbleToSafeArea()
             persistBubblePosition()
             updateBubbleLayout(view)
+            if (bubbleOptionsRoot != null) repositionBubbleOptions()
         }
         if (chatExpanded) updateChatLayoutForScreen()
     }
@@ -444,6 +457,9 @@ class OverlayBubbleService : Service() {
             chatWindowAttached = false,
         )
         hideKeyboard()
+        closeBubbleOptions()
+        pendingBubbleSingleTap?.let(mainHandler::removeCallbacks)
+        pendingBubbleSingleTap = null
         removeChatWindow()
         val pet = petOverlayWindow
         petOverlayWindow = null
@@ -598,6 +614,7 @@ class OverlayBubbleService : Service() {
         }
 
         hideKeyboard()
+        closeBubbleOptions()
         removeChatWindow()
         val pet = petOverlayWindow
         petOverlayWindow = null
@@ -818,6 +835,7 @@ class OverlayBubbleService : Service() {
             return
         }
         if (!createChatWindow()) return
+        closeBubbleOptions()
         pendingShowAfterUnlock = false
         setUnread(0)
         chatExpanded = true
@@ -1038,6 +1056,7 @@ class OverlayBubbleService : Service() {
                         val ok = map?.get("ok") == true
                         val cancelled = map?.get("cancelled") == true
                         val error = map?.get("error") as? String ?: ""
+                        if (ok && !chatExpanded) setUnread(readUnread() + 1)
                         setChatStatus(
                             when {
                                 cancelled -> "已停止这轮回复。"
@@ -1379,22 +1398,42 @@ class OverlayBubbleService : Service() {
         var downX = 0f
         var downY = 0f
         var moved = false
+        var doubleTapCandidate = false
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     CompanionRuntimeState.noteOverlayTouch("down")
+                    closeBubbleOptions()
                     startX = bubbleParams.x
                     startY = bubbleParams.y
                     downX = event.rawX
                     downY = event.rawY
                     moved = false
+                    val now = SystemClock.uptimeMillis()
+                    doubleTapCandidate = bubbleLastTapAtMs > 0L &&
+                        now - bubbleLastTapAtMs <= ViewConfiguration.getDoubleTapTimeout() &&
+                        hypot(
+                            event.rawX - bubbleLastTapRawX,
+                            event.rawY - bubbleLastTapRawY,
+                        ) <= dp(BUBBLE_DOUBLE_TAP_SLOP_DP)
+                    if (doubleTapCandidate) {
+                        pendingBubbleSingleTap?.let(mainHandler::removeCallbacks)
+                        pendingBubbleSingleTap = null
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     CompanionRuntimeState.noteOverlayTouch("move")
                     val dx = (event.rawX - downX).toInt()
                     val dy = (event.rawY - downY).toInt()
-                    if (abs(dx) > dp(4) || abs(dy) > dp(4)) moved = true
+                    if (abs(dx) > dp(4) || abs(dy) > dp(4)) {
+                        moved = true
+                        doubleTapCandidate = false
+                        bubbleLastTapAtMs = 0L
+                        pendingBubbleSingleTap?.let(mainHandler::removeCallbacks)
+                        pendingBubbleSingleTap = null
+                        setBubbleRetracted(false)
+                    }
                     bubbleParams.x = startX + dx
                     bubbleParams.y = startY + dy
                     updateBubbleLayout(view)
@@ -1402,12 +1441,16 @@ class OverlayBubbleService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     CompanionRuntimeState.noteOverlayTouch("up")
-                    if (!moved) {
-                        showChatOverlay("bubble_tap")
-                    } else {
+                    if (moved) {
                         snapBubbleToSafeEdge()
                         persistBubblePosition()
                         updateBubbleLayout(view)
+                    } else if (doubleTapCandidate) {
+                        bubbleLastTapAtMs = 0L
+                        doubleTapCandidate = false
+                        showBubbleOptions()
+                    } else {
+                        scheduleBubbleSingleTap(event.rawX, event.rawY)
                     }
                     moved = false
                     true
@@ -1415,6 +1458,7 @@ class OverlayBubbleService : Service() {
                 MotionEvent.ACTION_CANCEL -> {
                     CompanionRuntimeState.noteOverlayTouch("cancel")
                     moved = false
+                    doubleTapCandidate = false
                     clampBubbleToSafeArea()
                     persistBubblePosition()
                     updateBubbleLayout(view)
@@ -1424,6 +1468,137 @@ class OverlayBubbleService : Service() {
             }
         }
     }
+
+    private fun scheduleBubbleSingleTap(rawX: Float, rawY: Float) {
+        val now = SystemClock.uptimeMillis()
+        bubbleLastTapAtMs = now
+        bubbleLastTapRawX = rawX
+        bubbleLastTapRawY = rawY
+        val task = Runnable {
+            if (bubbleLastTapAtMs != now) return@Runnable
+            bubbleLastTapAtMs = 0L
+            if (isBubbleRetracted()) {
+                expandBubbleFromLeft()
+            } else {
+                showChatOverlay("bubble_tap")
+            }
+        }
+        pendingBubbleSingleTap = task
+        mainHandler.postDelayed(task, ViewConfiguration.getDoubleTapTimeout().toLong())
+    }
+
+    private fun showBubbleOptions() {
+        if (bubbleOptionsRoot != null) {
+            closeBubbleOptions()
+            return
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            addView(TextView(this@OverlayBubbleService).apply {
+                text = "悬浮球选项"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(30)))
+            addView(bubbleOptionButton("打开聊天") {
+                closeBubbleOptions()
+                showChatOverlay("bubble_double_tap_menu")
+            })
+            addView(bubbleOptionButton("切换为桌宠") {
+                closeBubbleOptions()
+                switchEntryMode(ENTRY_MODE_PET, "bubble_double_tap_menu")
+            })
+            addView(bubbleOptionButton("缩进左侧") {
+                closeBubbleOptions()
+                retractBubbleToLeft()
+            })
+            addView(bubbleOptionButton("关闭菜单") { closeBubbleOptions() })
+        }
+        val panel = ScrollView(this).apply {
+            isFillViewport = false
+            background = rounded(Color.rgb(38, 35, 44), 16f)
+            elevation = dp(10).toFloat()
+            addView(
+                content,
+                ScrollView.LayoutParams(
+                    ScrollView.LayoutParams.MATCH_PARENT,
+                    ScrollView.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
+        val layout = WindowManager.LayoutParams(
+            dp(BUBBLE_MENU_DP),
+            dp(BUBBLE_MENU_DP),
+            overlayWindowType(),
+            bubbleModeFlags(),
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        bubbleOptionsRoot = panel
+        bubbleOptionsParams = layout
+        repositionBubbleOptions()
+        runCatching { windowManager.addView(panel, layout) }.onFailure {
+            bubbleOptionsRoot = null
+            bubbleOptionsParams = null
+        }
+    }
+
+    private fun bubbleOptionButton(label: String, action: () -> Unit): Button = Button(this).apply {
+        text = label
+        textSize = 11f
+        isAllCaps = false
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42))
+    }
+
+    private fun repositionBubbleOptions() {
+        val panel = bubbleOptionsRoot ?: return
+        val menu = bubbleOptionsParams ?: return
+        val safe = bubbleSafeArea()
+        menu.x = if (bubbleParams.x + bubbleParams.width + menu.width <= safe.right) {
+            (bubbleParams.x + bubbleParams.width).coerceAtLeast(safe.left)
+        } else {
+            (bubbleParams.x - menu.width).coerceAtLeast(safe.left)
+        }
+        menu.x = menu.x.coerceIn(safe.left, (safe.right - menu.width).coerceAtLeast(safe.left))
+        menu.y = bubbleParams.y.coerceIn(
+            safe.top,
+            (safe.bottom - menu.height).coerceAtLeast(safe.top),
+        )
+        if (panel.isAttachedToWindow) runCatching { windowManager.updateViewLayout(panel, menu) }
+    }
+
+    private fun closeBubbleOptions() {
+        bubbleOptionsRoot?.let { runCatching { windowManager.removeViewImmediate(it) } }
+        bubbleOptionsRoot = null
+        bubbleOptionsParams = null
+    }
+
+    private fun retractBubbleToLeft() {
+        setBubbleRetracted(true)
+        clampBubbleToSafeArea()
+        persistBubblePosition()
+        bubbleRoot?.let(::updateBubbleLayout)
+    }
+
+    private fun expandBubbleFromLeft() {
+        setBubbleRetracted(false)
+        val safe = bubbleSafeArea()
+        bubbleParams.x = safe.left
+        clampBubbleToSafeArea()
+        persistBubblePosition()
+        bubbleRoot?.let(::updateBubbleLayout)
+    }
+
+    private fun setBubbleRetracted(value: Boolean) {
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_BUBBLE_RETRACTED, value)
+            .apply()
+    }
+
+    private fun isBubbleRetracted(): Boolean =
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_BUBBLE_RETRACTED, false)
 
     private fun persistBubblePosition() {
         petOverlayWindow?.let {
@@ -1475,7 +1650,8 @@ class OverlayBubbleService : Service() {
         val maxY = (safe.bottom - height).coerceAtLeast(safe.top)
         val oldX = bubbleParams.x
         val oldY = bubbleParams.y
-        bubbleParams.x = bubbleParams.x.coerceIn(safe.left, maxX)
+        bubbleParams.x = if (isBubbleRetracted()) retractedBubbleX(width) else
+            bubbleParams.x.coerceIn(safe.left, maxX)
         bubbleParams.y = bubbleParams.y.coerceIn(safe.top, maxY)
         return oldX != bubbleParams.x || oldY != bubbleParams.y
     }
@@ -1485,16 +1661,31 @@ class OverlayBubbleService : Service() {
         val safe = bubbleSafeArea()
         val maxX = (safe.right - bubbleParams.width.coerceAtLeast(1)).coerceAtLeast(safe.left)
         val maxY = (safe.bottom - bubbleParams.height.coerceAtLeast(1)).coerceAtLeast(safe.top)
-        return bubbleParams.x in safe.left..maxX && bubbleParams.y in safe.top..maxY
+        val xSafe = if (isBubbleRetracted()) {
+            bubbleParams.x == retractedBubbleX(bubbleParams.width.coerceAtLeast(1))
+        } else {
+            bubbleParams.x in safe.left..maxX
+        }
+        return xSafe && bubbleParams.y in safe.top..maxY
     }
 
     private fun snapBubbleToSafeEdge() {
+        setBubbleRetracted(false)
         val safe = bubbleSafeArea()
         val width = bubbleParams.width.coerceAtLeast(1)
         val maxX = (safe.right - width).coerceAtLeast(safe.left)
         val midpoint = safe.left + safe.width / 2
         bubbleParams.x = if (bubbleParams.x + width / 2 < midpoint) safe.left else maxX
         clampBubbleToSafeArea()
+    }
+
+    private fun retractedBubbleX(width: Int): Int {
+        val physicalLeft = if (Build.VERSION.SDK_INT >= 30) {
+            windowManager.currentWindowMetrics.bounds.left
+        } else {
+            0
+        }
+        return physicalLeft - (width - dp(BUBBLE_RETRACTED_VISIBLE_DP)).coerceAtLeast(0)
     }
 
     private fun bubbleModeFlags(): Int =
@@ -1531,6 +1722,7 @@ class OverlayBubbleService : Service() {
 
     private fun retireBubbleForSystemCover(): Boolean {
         val bubble = bubbleRoot ?: return false
+        closeBubbleOptions()
         // Clear ownership before removeViewImmediate: OEMs may dispatch a late
         // visibility callback for the retired root. It must not start a second
         // cover session or recreate itself while the picker is still on top.
@@ -2371,6 +2563,9 @@ class OverlayBubbleService : Service() {
         private const val BUBBLE_WINDOW_DP = 62
         private const val BUBBLE_AVATAR_DP = 50
         private const val BUBBLE_BADGE_DP = 20
+        private const val BUBBLE_MENU_DP = 190
+        private const val BUBBLE_RETRACTED_VISIBLE_DP = 24
+        private const val BUBBLE_DOUBLE_TAP_SLOP_DP = 28
         private const val OVERLAY_RECENT_LIMIT = 8
         private const val OVERLAY_OLDER_PAGE_LIMIT = 24
         private const val ACTION_RECONCILE = "com.aicompanion.localfirst.RECONCILE"
@@ -2389,6 +2584,7 @@ class OverlayBubbleService : Service() {
         const val ENTRY_MODE_PET = "pet"
         private const val KEY_X = "bubble_x"
         private const val KEY_Y = "bubble_y"
+        private const val KEY_BUBBLE_RETRACTED = "bubble_retracted_left"
         private const val PERMISSION_WATCH_MS = 30_000L
         private const val BUBBLE_SAFE_MARGIN_DP = 6
         private const val BACKGROUND_COMMAND_CHANNEL = "ai_companion/background_commands"
