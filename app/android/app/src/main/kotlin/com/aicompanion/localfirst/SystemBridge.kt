@@ -145,6 +145,14 @@ class SystemBridge(
                     setOverlayUnread(0)
                     result.success(null)
                 }
+                "setPetConversationState" -> {
+                    setPetConversationState(
+                        generationActive = call.argument<Boolean>("generationActive") == true,
+                        generationPhase = call.argument<String>("generationPhase") ?: "idle",
+                        ttsPhase = call.argument<String>("ttsPhase") ?: "idle",
+                    )
+                    result.success(null)
+                }
                 "postCompanionNotification" -> {
                     CompanionNotification.postMessage(
                         activity,
@@ -525,6 +533,24 @@ class SystemBridge(
                     },
                 )
             }
+        }
+    }
+
+    private fun setPetConversationState(
+        generationActive: Boolean,
+        generationPhase: String,
+        ttsPhase: String,
+    ) {
+        if (!OverlayBubbleService.running) return
+        runCatching {
+            activity.startService(
+                Intent(activity, OverlayBubbleService::class.java).apply {
+                    action = OverlayBubbleService.ACTION_SET_PET_CONVERSATION
+                    putExtra(OverlayBubbleService.EXTRA_GENERATION_ACTIVE, generationActive)
+                    putExtra(OverlayBubbleService.EXTRA_GENERATION_PHASE, generationPhase)
+                    putExtra(OverlayBubbleService.EXTRA_TTS_PHASE, ttsPhase)
+                },
+            )
         }
     }
 

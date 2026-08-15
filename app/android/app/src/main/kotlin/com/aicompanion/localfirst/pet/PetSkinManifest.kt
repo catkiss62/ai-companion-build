@@ -166,6 +166,10 @@ data class PetSkinManifest(
         private const val MAX_ACTIONS = 64
         private const val MAX_ASSETS = 128
         private const val MAX_FRAMES_PER_SIZE = 48
+        private const val AIRBORNE_V2_ASSET_ID = "falling_airborne_v2"
+        private const val AIRBORNE_V2_SOURCE_PATH =
+            "assets/candidates/state_actions/candidate_e_throw_landing/falling_v2.png"
+        private val TARGET_HEIGHTS = setOf(187, 238, 306)
 
         fun load(assets: AssetManager): PetSkinManifest {
             val json = assets.open(MANIFEST_PATH)
@@ -180,10 +184,35 @@ data class PetSkinManifest(
                 throw PetSkinFormatException("Unsupported upstream action manifest: $formatVersion")
             }
             val characterId = safeIdentifier(json.requireText("character_id"), "character_id")
-            val assets = parseAssets(json.getJSONObject("assets"))
-            val actions = parseActions(json.getJSONObject("actions"))
-            if (actions.keys != EXPECTED_ACTION_IDS) {
-                throw PetSkinFormatException("Upstream action set changed: ${actions.keys}")
+            val upstreamAssets = parseAssets(json.getJSONObject("assets"))
+            val upstreamActions = parseActions(json.getJSONObject("actions"))
+            if (upstreamActions.keys != EXPECTED_ACTION_IDS) {
+                throw PetSkinFormatException("Upstream action set changed: ${upstreamActions.keys}")
+            }
+            val assets = LinkedHashMap(upstreamAssets).apply {
+                put(
+                    AIRBORNE_V2_ASSET_ID,
+                    PetAssetSpec(
+                        id = AIRBORNE_V2_ASSET_ID,
+                        framesBySize = TARGET_HEIGHTS.associateWith {
+                            listOf(AIRBORNE_V2_SOURCE_PATH)
+                        },
+                        frameCount = 1,
+                    ),
+                )
+            }
+            val falling = upstreamActions.getValue("FALLING")
+            val actions = LinkedHashMap(upstreamActions).apply {
+                put("FALLING", falling.copy(assetId = AIRBORNE_V2_ASSET_ID))
+                put(
+                    "BOUNCING",
+                    falling.copy(
+                        id = "BOUNCING",
+                        assetId = "falling",
+                        enter = null,
+                        exit = null,
+                    ),
+                )
             }
             actions.values.forEach { action ->
                 if (!assets.containsKey(action.assetId)) {

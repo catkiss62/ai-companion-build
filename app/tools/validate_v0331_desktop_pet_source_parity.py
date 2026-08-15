@@ -47,7 +47,7 @@ def tree_hash(root: Path) -> str:
 def main() -> int:
     pubspec = read("pubspec.yaml")
     assert any(version in pubspec for version in (
-        "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60",
+        "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61",
     ))
     files = sorted(item for item in SOURCE_ASSETS.rglob("*") if item.is_file())
     assert len(files) == 417, len(files)

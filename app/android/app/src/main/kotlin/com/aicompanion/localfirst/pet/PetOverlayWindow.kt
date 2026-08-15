@@ -109,9 +109,24 @@ class PetOverlayWindow(
             layout.x = step.x.toInt()
             layout.y = step.y.toInt()
             runCatching { windowManager.updateViewLayout(view, layout) }
+            if (step.floorContact && !step.settled &&
+                player?.currentActionId == "FALLING"
+            ) {
+                player?.play(
+                    "BOUNCING",
+                    reason = "pet_overlay_floor_bounce",
+                    force = true,
+                    immediate = true,
+                )
+            }
             if (step.settled) {
-                player?.play("LANDING", reason = "pet_overlay_landing", force = true, immediate = true)
-                if (step.hardLanding) player?.queueAfterCurrent("DIZZY")
+                playLightLanding("pet_overlay_floor_contact")
+                if (step.hardLanding) {
+                    handler.postDelayed(
+                        { player?.queueAfterCurrent("DIZZY") },
+                        LIGHT_LANDING_DELAY_MS,
+                    )
+                }
                 if (motionMode() == PetMotionPolicy.EDGE) {
                     setDockedEdge(EDGE_BOTTOM)
                 } else {
@@ -141,6 +156,7 @@ class PetOverlayWindow(
                 FrameLayout.LayoutParams.MATCH_PARENT,
             ),
         )
+        val size = normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))
         val unread = TextView(context).apply {
             textSize = 10f
             gravity = Gravity.CENTER
@@ -153,11 +169,15 @@ class PetOverlayWindow(
             unread,
             FrameLayout.LayoutParams(dp(22), dp(22)).apply {
                 gravity = Gravity.TOP or Gravity.END
-                setMargins(0, dp(3), dp(3), 0)
+                setMargins(
+                    0,
+                    dp(windowDp(size) * 8 / 100),
+                    dp(windowDp(size) * 21 / 100),
+                    0,
+                )
             },
         )
 
-        val size = normalizedSize(prefs.getString(KEY_PET_SIZE, PET_SIZE_MEDIUM))
         val windowPx = dp(windowDp(size))
         val safe = menuSafeArea()
         val defaultX = (safe.right - windowPx).coerceAtLeast(safe.left)
@@ -273,6 +293,17 @@ class PetOverlayWindow(
         layout.y = oldBottom - next
         clamp(layout)
         player?.setTargetHeight(assetHeight(normalized))
+        badge?.let { unread ->
+            (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
+                badgeLayout.setMargins(
+                    0,
+                    dp(windowDp(normalized) * 8 / 100),
+                    dp(windowDp(normalized) * 21 / 100),
+                    0,
+                )
+                unread.layoutParams = badgeLayout
+            }
+        }
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
         if (optionsRoot != null) repositionOptions()
@@ -745,7 +776,7 @@ class PetOverlayWindow(
 
     private fun playLightLanding(reason: String) {
         pendingLightLanding?.let(handler::removeCallbacks)
-        player?.play("FALLING", reason = reason, force = true, immediate = true)
+        player?.play("BOUNCING", reason = reason, force = true, immediate = true)
         val task = Runnable {
             pendingLightLanding = null
             player?.play("LANDING", reason = "${reason}_landing", force = true, immediate = true)
@@ -991,7 +1022,7 @@ class PetOverlayWindow(
         private const val LIGHT_LANDING_DELAY_MS = 180L
         private const val RELEASE_STABLE_TAIL_MS = 90L
         private const val RELEASE_STABLE_RADIUS_DP = 8
-        private const val PORTRAIT_BOTTOM_MARGIN_DP = 10
+        private const val PORTRAIT_BOTTOM_MARGIN_DP = 16
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f
