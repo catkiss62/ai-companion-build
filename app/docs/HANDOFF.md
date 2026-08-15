@@ -1,10 +1,10 @@
 # AI Companion · HANDOFF
 
-> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v25_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v26_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
 ## 1. 当前基底
 
-- 当前主线：**v0.33.1+56 · Android 桌宠 D1.1 原项目动作同构**；PR #12 产品验证与最终文档检查均已完成；最终合并落款见 v25 总账，schema 21。v0.33.0 的 66 帧简化预览已被本版明确取代。
+- 当前主线：**v0.33.2+57 · Android 系统桌宠 D2**；PR #13 产品 run #54 已全绿，最终文档 head 与 squash merge 待本次收尾；schema 21。旧悬浮球完整保留，与桌宠在同一前台服务内二选一。
 - PR #9 已 squash 合并到 `main`。最终 GitHub Actions run #32（ID `31841772104`）通过全部 validators、Flutter analyze/tests、release APK 与冻结 A2 payload；artifact `9234768624`，APK SHA-256 `e2ad1a61da4354274f4c8932db9264165577e598442f98894ef48418512f9c2c`，artifact ZIP digest `sha256:32441b49dc48290d6e56ecb86be24d2201ae24cbd73dd8a90b34c82965b483da`。
 - Android 真机：REDMI K80 Ultra，Android 15，Xiaomi/HyperOS。
 - 数据库：**schema v21**。新增短期 `somatic_events / somatic_aggregates`；用户当前仍允许卸载重装，不要求保留半成品测试数据。
@@ -30,7 +30,17 @@
 - `DRAGGING` 是事件保持态，不是缺帧：真实拖动超过阈值进入抓取中，松手强制 `FALLING`，稳定后 `LANDING`，重摔排队 `DIZZY`。
 - 预览按钮显示中文动作名 + 原始 ID；状态显示 phase/asset/size/frame，可验证三档与四方向；显式“复位待机”只用于测试保持态。
 - run #47（`31867409197`）通过完整恢复、validators、Kotlin 动作/物理测试、Flutter analyze/tests、release APK 与 APK payload 核验。artifact `9242561565`；APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`。
-- 本版仍是普通 Activity 隔离预览；D2 才接独立 Overlay Pet window、点击聊天、安全位置、横竖屏/锁屏和旧悬浮球回退。详见 `docs/DESKTOP_PET_SOURCE_PARITY_v0.33.1.md`。
+- v0.33.1 仍是普通 Activity 隔离预览；v0.33.2 已完成 D2 系统 Overlay 接入。D1.1 真源与素材边界仍见 `docs/DESKTOP_PET_SOURCE_PARITY_v0.33.1.md`。
+
+## 2A-2. v0.33.2 · 系统桌宠 Overlay D2
+
+- 同一个 `OverlayBubbleService` 只创建一个主入口：旧悬浮球或 `PetOverlayWindow`；两者共用悬浮聊天、未读、TTS、后台大脑与恢复链，已有用户默认不变。
+- 设置页提供“悬浮球 / 桌宠”二选一及小/中/大三档；真实窗口 112/152/200dp，对应 187/238/306px 源素材，位置与悬浮球分开保存。
+- 单击按上游归一化几何触发摸头、被戳或碰尾巴；5 秒三次 poke 触发生气。单击延迟到 double-tap timeout 确认，双击立即撤销第一下，双击只开菜单。
+- 双击菜单提供打开聊天、三档大小、切回悬浮球和关闭；拖动超过 6dp 进入 `DRAGGING → FALLING → LANDING`，重摔排队 `DIZZY`。
+- 锁屏、聊天展开和系统 cover 时暂停/隐藏桌宠并关闭菜单；恢复沿用原 Overlay 健康路径。schema 仍为 21。
+- 产品 run #54（`31873700153`）全绿；artifact `9244295960`，APK SHA-256 `6ed7067612ef164f2412ff517da59af35340fba626b4508923ccdd7aa55b6c8b`。自动验证完成，真机触碰/双击/尺寸/拖拽/旋转/锁屏待验。
+- D3 才把 Desire/Thought/mood/TTS 映射为自动动作；桌宠不建立第二人格或第二套主动调度。详见 `docs/DESKTOP_PET_OVERLAY_D2_v0.33.2.md`。
 
 ## 2B. v0.32.2 · 悬浮时间与可诊断性
 
