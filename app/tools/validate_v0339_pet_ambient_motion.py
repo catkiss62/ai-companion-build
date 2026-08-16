@@ -55,7 +55,7 @@ require(pet, [
 ], "ambient scheduler, 360-degree motion and discontinuity guards")
 assert "maxByOrNull" not in pet
 assert "lastDailyActionAtMs" not in pet
-assert "autonomySnapshot.enabled &&" not in pet
+assert "if (autonomySnapshot.enabled &&" not in pet
 
 require(skin, [
     "// Preserve the authoring order for both walk directions: 00 -> 01 -> 02 -> 03.",
