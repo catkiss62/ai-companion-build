@@ -64,7 +64,7 @@ frame = read(
 require(
     frame,
     [
-        'kind !in setOf("thought", "voice")',
+        'kind !in setOf("thought", "voice", "dizzy")',
     ],
     "program-drawn decoration whitelist",
 )
