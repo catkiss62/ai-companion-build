@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
+import '../models/message_attachment.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
 import '../models/desire_state.dart';
@@ -34,7 +35,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 21;
+  static const int schemaVersion = 22;
 
   Database? _db;
   Future<Database>? _opening;
@@ -653,6 +654,15 @@ class AppDatabase {
     if (oldVersion < 21) {
       await _createV21Tables(db);
     }
+    if (oldVersion < 22) {
+      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+      if (!messageColumns.any((row) => row['name'] == 'expects_reply')) {
+        await db.execute(
+          'ALTER TABLE messages ADD COLUMN expects_reply INTEGER NOT NULL DEFAULT 1',
+        );
+      }
+      await _createV22Tables(db);
+    }
 
   }
 
@@ -668,7 +678,8 @@ class AppDatabase {
         is_proactive INTEGER NOT NULL DEFAULT 0,
         proactive_intent TEXT NOT NULL DEFAULT '',
         proactive_delivery TEXT NOT NULL DEFAULT '',
-        device_id TEXT
+        device_id TEXT,
+        expects_reply INTEGER NOT NULL DEFAULT 1
       )
     ''');
     await db.execute(
@@ -800,6 +811,7 @@ class AppDatabase {
     await _createV17Tables(db);
     await _createV18Tables(db);
     await _createV21Tables(db);
+    await _createV22Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1312,6 +1324,29 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV22Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS message_attachments (
+        id TEXT PRIMARY KEY,
+        message_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        original_path TEXT NOT NULL,
+        thumbnail_path TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        byte_size INTEGER NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        UNIQUE(message_id, id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id, created_at ASC)',
+    );
+  }
+
   Future<void> _seedRuleLayers(Database db) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final layer in defaultRuleLayers) {
@@ -1616,6 +1651,93 @@ class AppDatabase {
       message.toDb(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<void> insertMessageWithAttachments(
+    ChatMessage message,
+    List<MessageAttachment> attachments,
+  ) async {
+    if (attachments.isEmpty) {
+      throw ArgumentError.value(attachments, 'attachments', 'must not be empty');
+    }
+    if (attachments.any((item) => item.messageId != message.id)) {
+      throw ArgumentError('Every attachment must belong to the inserted message.');
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      final settingsRows = await txn.query(
+        'settings',
+        columns: const ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final settings = <String, String>{
+        for (final row in settingsRows)
+          row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (settings['transfer_lock'] == '1') {
+        throw StateError('设备转移已经开始，暂时不能保存新的图片消息。');
+      }
+      if (settings['active_brain'] == '0') {
+        throw StateError('当前设备不是 Active Brain。');
+      }
+      await txn.insert(
+        'messages',
+        message.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+      for (final attachment in attachments) {
+        await txn.insert(
+          'message_attachments',
+          attachment.toDb(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+    });
+  }
+
+  Future<List<MessageAttachment>> deleteAttachmentMessage(String messageId) async {
+    final db = await database;
+    return db.transaction<List<MessageAttachment>>((txn) async {
+      final settings = await txn.query(
+        'settings',
+        columns: const ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final values = <String, String>{
+        for (final row in settings)
+          row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (values['transfer_lock'] == '1' || values['active_brain'] == '0') {
+        return const [];
+      }
+      final messageRows = await txn.query(
+        'messages',
+        columns: const ['role'],
+        where: 'id = ?',
+        whereArgs: [messageId],
+        limit: 1,
+      );
+      if (messageRows.isEmpty || messageRows.first['role'] != 'user') return const [];
+      final rows = await txn.query(
+        'message_attachments',
+        where: 'message_id = ?',
+        whereArgs: [messageId],
+      );
+      if (rows.isEmpty) return const [];
+      await txn.delete('messages', where: 'id = ?', whereArgs: [messageId]);
+      return rows.map(MessageAttachment.fromDb).toList(growable: false);
+    });
+  }
+
+  Future<List<MessageAttachment>> allMessageAttachments() async {
+    final db = await database;
+    final rows = await db.query(
+      'message_attachments',
+      orderBy: 'created_at ASC, id ASC',
+    );
+    return rows.map(MessageAttachment.fromDb).toList(growable: false);
   }
 
   /// Persist short-lived body-sense events after their durable source turn
@@ -2509,7 +2631,8 @@ class AppDatabase {
   Future<ChatMessage?> messageById(String id) async {
     final db = await database;
     final rows = await db.query('messages', where: 'id = ?', whereArgs: [id], limit: 1);
-    return rows.isEmpty ? null : ChatMessage.fromDb(rows.first);
+    if (rows.isEmpty) return null;
+    return (await _messagesWithAttachments(db, rows)).single;
   }
 
   Future<List<ChatMessage>> recentMessages({int limit = 80}) async {
@@ -2519,7 +2642,7 @@ class AppDatabase {
       orderBy: 'created_at DESC',
       limit: limit,
     );
-    return rows.reversed.map(ChatMessage.fromDb).toList();
+    return _messagesWithAttachments(db, rows.reversed.toList());
   }
 
   /// Metadata-only chat history for Reality Grounding and redacted diagnostics.
@@ -2528,7 +2651,9 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'messages',
-      columns: const ['id', 'role', 'created_at', 'is_proactive'],
+      columns: const [
+        'id', 'role', 'created_at', 'is_proactive', 'expects_reply',
+      ],
       orderBy: 'created_at DESC',
       limit: limit,
     );
@@ -2539,12 +2664,15 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'messages',
-      columns: const ['id', 'role', 'created_at', 'is_proactive'],
+      columns: const [
+        'id', 'role', 'created_at', 'is_proactive', 'expects_reply',
+      ],
       where: 'id = ?',
       whereArgs: [id],
       limit: 1,
     );
-    return rows.isEmpty ? null : ChatMessage.fromDb(rows.first);
+    if (rows.isEmpty) return null;
+    return (await _messagesWithAttachments(db, rows)).single;
   }
 
   Future<ChatMessage?> latestProactiveMessage() async {
@@ -2571,7 +2699,7 @@ class AppDatabase {
       orderBy: 'created_at DESC',
       limit: limit,
     );
-    return rows.reversed.map(ChatMessage.fromDb).toList();
+    return _messagesWithAttachments(db, rows.reversed.toList());
   }
 
   Future<List<ChatMessage>> messagesAfter(
@@ -2586,7 +2714,36 @@ class AppDatabase {
       orderBy: 'created_at ASC',
       limit: limit,
     );
-    return rows.map(ChatMessage.fromDb).toList();
+    return _messagesWithAttachments(db, rows);
+  }
+
+  Future<List<ChatMessage>> _messagesWithAttachments(
+    DatabaseExecutor executor,
+    List<Map<String, Object?>> rows,
+  ) async {
+    if (rows.isEmpty) return const <ChatMessage>[];
+    final ids = rows.map((row) => row['id'] as String).toList(growable: false);
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final attachmentRows = await executor.query(
+      'message_attachments',
+      where: 'message_id IN ($placeholders)',
+      whereArgs: ids,
+      orderBy: 'created_at ASC, id ASC',
+    );
+    final byMessage = <String, List<MessageAttachment>>{};
+    for (final row in attachmentRows) {
+      final attachment = MessageAttachment.fromDb(row);
+      byMessage.putIfAbsent(attachment.messageId, () => []).add(attachment);
+    }
+    return rows
+        .map(
+          (row) => ChatMessage.fromDb(
+            row,
+            attachments: byMessage[row['id'] as String] ??
+                const <MessageAttachment>[],
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<DateTime?> lastUserMessageAt() async {
@@ -6748,6 +6905,7 @@ class AppDatabase {
     final db = await database;
     const tables = [
       'messages',
+      'message_attachments',
       'memory_items',
       'memory_evidence',
       'conversation_summaries',
@@ -6819,6 +6977,7 @@ class AppDatabase {
     await db.transaction((txn) async {
       const ordered = [
         'messages',
+        'message_attachments',
         'memory_items',
         'memory_evidence',
         'conversation_summaries',
@@ -6959,6 +7118,9 @@ class AppDatabase {
           if (table == 'messages' && version < 13) {
             row['proactive_intent'] = '';
             row['proactive_delivery'] = '';
+          }
+          if (table == 'messages' && version < 22) {
+            row['expects_reply'] = 1;
           }
           if (table == 'messages') {
             row.remove('provider_reasoning');
