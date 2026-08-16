@@ -1,14 +1,12 @@
 package com.aicompanion.localfirst.pet
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.view.View
-import java.util.WeakHashMap
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
@@ -29,25 +27,9 @@ class PetFrameView(context: Context) : View(context) {
     private var translationX = 0f
     private var translationY = 0f
     private var previewWindowDp: Int? = null
-    private var dockReferenceBitmap: Bitmap? = null
-    private var dockReferenceAnchor = PetAnchor()
-    private var dockedVisualEdges: Set<String> = emptySet()
-    private val opaqueBoundsCache = WeakHashMap<Bitmap, PetVisibleBounds>()
 
     fun showSnapshot(value: PetRenderSnapshot) {
         snapshot = value
-        postInvalidateOnAnimation()
-    }
-
-    fun setDockReference(bitmap: Bitmap, anchor: PetAnchor) {
-        dockReferenceBitmap = bitmap
-        dockReferenceAnchor = anchor
-        postInvalidateOnAnimation()
-    }
-
-    fun setDockedVisualEdges(edges: Set<String>) {
-        if (dockedVisualEdges == edges) return
-        dockedVisualEdges = edges
         postInvalidateOnAnimation()
     }
 
@@ -69,9 +51,7 @@ class PetFrameView(context: Context) : View(context) {
         val value = snapshot ?: return
         val pose = PetEffects.poseFor(value.effect, value.elapsedSeconds)
         val scale = displayScale(value.current)
-        val baseAnchor = renderAnchor(value.current, scale)
-        val dockOffset = visibleDockOffset(value.current, baseAnchor, scale, pose)
-        val anchor = (baseAnchor.first + dockOffset.x) to (baseAnchor.second + dockOffset.y)
+        val anchor = renderAnchor(value.current, scale)
         drawShadow(canvas, value.current, anchor.first, anchor.second, scale, pose)
         value.previous?.takeIf { value.previousOpacity > 0f }?.let {
             drawLayer(canvas, it, anchor.first, anchor.second, scale, pose, value.previousOpacity)
@@ -88,17 +68,15 @@ class PetFrameView(context: Context) : View(context) {
         drawDecoration(canvas, value.current, anchor.first, anchor.second, scale, pose, value.elapsedSeconds)
     }
 
-    private fun displayScale(layer: PetRenderLayer): Float = displayScale(layer.bitmap)
-
-    private fun displayScale(bitmap: Bitmap): Float {
+    private fun displayScale(layer: PetRenderLayer): Float {
         val available = min(
-            width * 0.90f / bitmap.width.toFloat(),
-            height * 0.88f / bitmap.height.toFloat(),
+            width * 0.90f / layer.bitmap.width.toFloat(),
+            height * 0.88f / layer.bitmap.height.toFloat(),
         )
         val requested = previewWindowDp?.let { windowDp ->
             min(
-                dp(windowDp.toFloat()) * 0.90f / bitmap.width.toFloat(),
-                dp(windowDp.toFloat()) * 0.88f / bitmap.height.toFloat(),
+                dp(windowDp.toFloat()) * 0.90f / layer.bitmap.width.toFloat(),
+                dp(windowDp.toFloat()) * 0.88f / layer.bitmap.height.toFloat(),
             )
         } ?: available
         return min(available, requested).coerceAtLeast(0.1f)
@@ -112,111 +90,6 @@ class PetFrameView(context: Context) : View(context) {
             floorY
         }
         return (width / 2f + translationX) to (anchorY + translationY)
-    }
-
-    private fun visibleDockOffset(
-        layer: PetRenderLayer,
-        anchor: Pair<Float, Float>,
-        scale: Float,
-        pose: PetEffectPose,
-    ): PetVisibleOffset {
-        if (dockedVisualEdges.isEmpty()) return PetVisibleOffset()
-        val reference = dockReferenceBitmap ?: return PetVisibleOffset()
-        val currentBounds = transformedVisibleBounds(
-            bitmap = layer.bitmap,
-            opaque = opaqueBounds(layer.bitmap),
-            anchor = layer.anchor,
-            anchorX = anchor.first,
-            anchorY = anchor.second,
-            scale = scale,
-            pose = pose,
-            mirrored = layer.mirrored,
-        )
-        val referenceBounds = transformedVisibleBounds(
-            bitmap = reference,
-            opaque = opaqueBounds(reference),
-            anchor = dockReferenceAnchor,
-            anchorX = anchor.first,
-            anchorY = anchor.second,
-            scale = displayScale(reference),
-            pose = PetEffectPose(),
-            mirrored = false,
-        )
-        return PetVisibleEdgeCompensation.offset(
-            edges = dockedVisualEdges,
-            reference = referenceBounds,
-            current = currentBounds,
-        )
-    }
-
-    private fun opaqueBounds(bitmap: Bitmap): PetVisibleBounds =
-        opaqueBoundsCache.getOrPut(bitmap) {
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(
-                pixels,
-                0,
-                bitmap.width,
-                0,
-                0,
-                bitmap.width,
-                bitmap.height,
-            )
-            var left = bitmap.width
-            var top = bitmap.height
-            var right = 0
-            var bottom = 0
-            pixels.forEachIndexed { index, color ->
-                if ((color ushr 24) == 0) return@forEachIndexed
-                val x = index % bitmap.width
-                val y = index / bitmap.width
-                if (x < left) left = x
-                if (x + 1 > right) right = x + 1
-                if (y < top) top = y
-                if (y + 1 > bottom) bottom = y + 1
-            }
-            if (right <= left || bottom <= top) {
-                PetVisibleBounds(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
-            } else {
-                PetVisibleBounds(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
-            }
-        }
-
-    private fun transformedVisibleBounds(
-        bitmap: Bitmap,
-        opaque: PetVisibleBounds,
-        anchor: PetAnchor,
-        anchorX: Float,
-        anchorY: Float,
-        scale: Float,
-        pose: PetEffectPose,
-        mirrored: Boolean,
-    ): PetVisibleBounds {
-        val radians = Math.toRadians(pose.rotationDegrees.toDouble())
-        val cosRotation = cos(radians).toFloat()
-        val sinRotation = sin(radians).toFloat()
-        val mapped = arrayOf(
-            opaque.left to opaque.top,
-            opaque.right to opaque.top,
-            opaque.left to opaque.bottom,
-            opaque.right to opaque.bottom,
-        ).map { (x, y) ->
-            val localX = if (mirrored) {
-                (bitmap.width * (1f - anchor.x) - x) * scale * pose.scaleX
-            } else {
-                (x - bitmap.width * anchor.x) * scale * pose.scaleX
-            }
-            val localY = (y - bitmap.height * anchor.y) * scale * pose.scaleY
-            val rotatedX = localX * cosRotation - localY * sinRotation
-            val rotatedY = localX * sinRotation + localY * cosRotation
-            (anchorX + pose.offsetX * scale + rotatedX) to
-                (anchorY + pose.offsetY * scale + rotatedY)
-        }
-        return PetVisibleBounds(
-            left = mapped.minOf { it.first },
-            top = mapped.minOf { it.second },
-            right = mapped.maxOf { it.first },
-            bottom = mapped.maxOf { it.second },
-        )
     }
 
     private fun drawLayer(
@@ -346,5 +219,5 @@ class PetFrameView(context: Context) : View(context) {
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
-
 }
+
