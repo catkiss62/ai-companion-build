@@ -78,6 +78,7 @@ for token in (
     "thumbnails/",
     "requireSafeRelativePath",
     "installSnapshotAttachments",
+    "p.joinAll(",
 ):
     assert token in storage, token
 
@@ -104,6 +105,7 @@ for token in (
     "_validateAttachmentPayload",
     "图片附件 SHA-256 校验失败",
     "_installValidatedAttachments",
+    "p.joinAll(",
 ):
     assert token in snapshot, token
 
@@ -114,5 +116,7 @@ for token in (
 ):
     assert token in skin or token in pet_test, token
 
+assert "p.join(root.path, ..." not in storage
+assert "p.join(attachmentExportDirectory.path, ..." not in snapshot
 assert "class MessageAttachment" in attachment
 print("v0.34.0 image-message and sleep-frame contracts verified")
