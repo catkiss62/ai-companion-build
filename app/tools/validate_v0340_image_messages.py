@@ -43,8 +43,8 @@ for historical_validator in (
 ):
     assert "version: 0.34.1+66" in read(historical_validator), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
-assert "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)" in workflow
-assert "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK" in workflow
+assert "Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)" in workflow
+assert "AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK" in workflow
 assert "0\\.34\\.0\\+65" in read("tools/validate_v0320_somatic_contract.py")
 assert "static const int schemaVersion = 22;" in read(
     "tools/validate_v0313_overlay_picker.py"
