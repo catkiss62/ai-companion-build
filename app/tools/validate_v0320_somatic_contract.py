@@ -11,11 +11,11 @@ def read(path: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.32\.(?:0\+52|1\+53|2\+54)|0\.33\.(?:0\+55|1\+56|2\+57|3\+58|4\+59|5\+60|6\+61|7\+62|8\+63|9\+64)|0\.34\.0\+65)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.32\.(?:0\+52|1\+53|2\+54)|0\.33\.(?:0\+55|1\+56|2\+57|3\+58|4\+59|5\+60|6\+61|7\+62|8\+63|9\+64)|0\.34\.(?:0\+65|1\+66))\s*$", pubspec, re.M)
 
 database = read("lib/core/database/app_database.dart")
 for token in [
-    "static const int schemaVersion = 22;",
+    "static const int schemaVersion = 23;",
     "CREATE TABLE IF NOT EXISTS somatic_events",
     "CREATE TABLE IF NOT EXISTS somatic_aggregates",
     "UNIQUE(turn_id, direction, scene_key)",
