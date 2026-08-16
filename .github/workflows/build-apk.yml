@@ -1,4 +1,4 @@
-name: Build AI Companion v0.34.1+66 APK (Image Messages Phase 1)
+name: Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)
 
 on:
   workflow_dispatch:
