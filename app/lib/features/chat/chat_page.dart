@@ -44,7 +44,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_appResumed && !controller.sending) {
+      if (_appResumed && !controller.sending && !controller.analyzingImage) {
         unawaited(controller.syncExternalMessages());
       }
     });
@@ -73,7 +73,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
-    if (_appResumed && !controller.sending) {
+    if (_appResumed && !controller.sending && !controller.analyzingImage) {
       unawaited(controller.syncExternalMessages());
     }
   }
@@ -91,7 +91,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _send() async {
     final text = input.text;
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || controller.analyzingImage) return;
     input.clear();
     await controller.sendText(text);
   }
