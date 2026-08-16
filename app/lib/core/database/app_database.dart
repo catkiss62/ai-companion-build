@@ -35,7 +35,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 22;
+  static const int schemaVersion = 23;
 
   Database? _db;
   Future<Database>? _opening;
@@ -662,6 +662,50 @@ class AppDatabase {
         );
       }
       await _createV22Tables(db);
+    }
+    if (oldVersion < 23) {
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(message_attachments)',
+      );
+      final names = columns.map((row) => row['name']).toSet();
+      if (!names.contains('vision_status')) {
+        await db.execute(
+          "ALTER TABLE message_attachments ADD COLUMN vision_status TEXT NOT NULL DEFAULT 'pending'",
+        );
+      }
+      if (!names.contains('vision_summary')) {
+        await db.execute(
+          "ALTER TABLE message_attachments ADD COLUMN vision_summary TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      if (!names.contains('vision_model')) {
+        await db.execute(
+          "ALTER TABLE message_attachments ADD COLUMN vision_model TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      if (!names.contains('vision_error')) {
+        await db.execute(
+          "ALTER TABLE message_attachments ADD COLUMN vision_error TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      if (!names.contains('vision_attempts')) {
+        await db.execute(
+          'ALTER TABLE message_attachments ADD COLUMN vision_attempts INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (!names.contains('vision_updated_at')) {
+        await db.execute(
+          'ALTER TABLE message_attachments ADD COLUMN vision_updated_at INTEGER',
+        );
+      }
+      await db.update(
+        'message_attachments',
+        {
+          'vision_status': 'failed',
+          'vision_error': '应用在识图过程中退出，请重试。',
+        },
+        where: "vision_status = 'analyzing'",
+      );
     }
 
   }
@@ -1338,6 +1382,12 @@ class AppDatabase {
         height INTEGER NOT NULL,
         source TEXT NOT NULL,
         created_at INTEGER NOT NULL,
+        vision_status TEXT NOT NULL DEFAULT 'pending',
+        vision_summary TEXT NOT NULL DEFAULT '',
+        vision_model TEXT NOT NULL DEFAULT '',
+        vision_error TEXT NOT NULL DEFAULT '',
+        vision_attempts INTEGER NOT NULL DEFAULT 0,
+        vision_updated_at INTEGER,
         FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE,
         UNIQUE(message_id, id)
       )
@@ -1694,6 +1744,145 @@ class AppDatabase {
         );
       }
     });
+  }
+
+  Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final changed = await db.update(
+      'message_attachments',
+      {
+        'vision_status': MessageAttachment.visionAnalyzingStatus,
+        'vision_error': '',
+        'vision_attempts': const Increment(1),
+        'vision_updated_at': now,
+      },
+      where: "id = ? AND kind = ? AND vision_status IN ('pending','failed')",
+      whereArgs: [attachmentId, MessageAttachment.imageKind],
+    );
+    return changed == 1;
+  }
+
+  Future<void> failAttachmentVision(
+    String attachmentId,
+    String error,
+  ) async {
+    final db = await database;
+    final safeError = error.trim();
+    await db.update(
+      'message_attachments',
+      {
+        'vision_status': MessageAttachment.visionFailedStatus,
+        'vision_error': safeError.length > 600
+            ? safeError.substring(0, 600)
+            : safeError,
+        'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND vision_status = 'analyzing'",
+      whereArgs: [attachmentId],
+    );
+  }
+
+  Future<GenerationJob> completeAttachmentVisionAndCreateGeneration({
+    required String attachmentId,
+    required String summary,
+    required String visionModel,
+    required String assistantMessageId,
+    required String model,
+    required String reasoningEffort,
+    bool thinking = true,
+  }) async {
+    final normalized = summary.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(summary, 'summary', 'must not be empty');
+    }
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final jobId = _uuid.v4();
+    await db.transaction((txn) async {
+      final settingsRows = await txn.query(
+        'settings',
+        columns: ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final settings = <String, String>{
+        for (final row in settingsRows)
+          if (row['key'] is String)
+            row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (settings['transfer_lock'] == '1') {
+        throw StateError('设备转移已经开始，暂时不能创建新的聊天任务。');
+      }
+      if (settings['active_brain'] == '0') {
+        throw StateError('当前设备不是 Active Brain。');
+      }
+      final blocking = await txn.query(
+        'generation_jobs',
+        columns: ['id'],
+        where: "status IN ('pending','running','retry_wait')",
+        limit: 1,
+      );
+      if (blocking.isNotEmpty) {
+        throw StateError('上一轮 AI 回复仍在生成或等待恢复。');
+      }
+      final attachmentRows = await txn.rawQuery('''
+        SELECT a.message_id, a.vision_status, m.role, m.device_id
+        FROM message_attachments a
+        JOIN messages m ON m.id = a.message_id
+        WHERE a.id = ?
+        LIMIT 1
+      ''', [attachmentId]);
+      if (attachmentRows.isEmpty ||
+          attachmentRows.first['role'] != 'user' ||
+          attachmentRows.first['vision_status'] !=
+              MessageAttachment.visionAnalyzingStatus) {
+        throw StateError('图片识别任务已经失效，请刷新后重试。');
+      }
+      final messageId = attachmentRows.first['message_id'] as String;
+      final deviceId = attachmentRows.first['device_id'] as String?;
+      await txn.update(
+        'message_attachments',
+        {
+          'vision_status': MessageAttachment.visionCompletedStatus,
+          'vision_summary': normalized,
+          'vision_model': visionModel.trim(),
+          'vision_error': '',
+          'vision_updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [attachmentId],
+      );
+      await txn.update(
+        'messages',
+        {'expects_reply': 1},
+        where: 'id = ?',
+        whereArgs: [messageId],
+      );
+      await txn.insert('generation_jobs', {
+        'id': jobId,
+        'user_message_id': messageId,
+        'assistant_message_id': assistantMessageId,
+        'status': 'pending',
+        'attempts': 0,
+        'model': model,
+        'reasoning_effort': reasoningEffort,
+        'thinking': thinking ? 1 : 0,
+        'partial_reasoning': '',
+        'partial_content': '',
+        'run_token': '',
+        'device_id': deviceId,
+        'created_at': now,
+        'started_at': null,
+        'updated_at': now,
+        'completed_at': null,
+        'last_checkpoint_at': null,
+        'next_retry_at': null,
+        'last_error': '',
+        'resume_reason': '',
+      });
+    });
+    return (await generationJobById(jobId))!;
   }
 
   Future<List<MessageAttachment>> deleteAttachmentMessage(String messageId) async {
