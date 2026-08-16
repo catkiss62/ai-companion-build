@@ -19,7 +19,7 @@ def png_size(relative: str) -> tuple[int, int]:
     assert data[:8] == b"\x89PNG\r\n\x1a\n", relative
     return struct.unpack(">II", data[16:24])
 
-assert "version: 0.34.0+65" in read("pubspec.yaml")
+assert "version: 0.34.1+66" in read("pubspec.yaml")
 policy = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetAutonomyPolicy.kt")
 pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt")
 service = read("android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt")
