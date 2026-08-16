@@ -112,7 +112,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _chooseImageSource() async {
-    if (_pickingImage || controller.sending || controller.savingImage) return;
+    if (_pickingImage || controller.sending || controller.savingImage || controller.analyzingImage) return;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
@@ -178,7 +178,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
       final saved = await controller.sendPreparedImage(draft, caption: caption);
       if (mounted && saved) {
-        _showMessage('图片消息已保存在本机；识图会在下一阶段接入。');
+        _showMessage('图片已保存在本机，正在识别并准备回复…');
       }
     } catch (exception) {
       if (draft != null) {
@@ -226,7 +226,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '本阶段先完成图片消息的本地保存与恢复，AI 暂时不会读取图片内容。',
+                  '发送后会用千问视觉读取缩略图；观察结果作为本轮经历，是否形成长期记忆仍由记忆系统判断。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -297,6 +297,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (mounted && !deleted) _showMessage('没有删除这条图片消息。');
   }
 
+  Future<void> _retryImageVision(ChatMessage message) async {
+    await controller.retryImageVision(message);
+  }
+
   void _showMessage(String text) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -336,6 +340,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             onOpenAttachment: _openAttachment,
                             onDelete: message.isUser && message.hasAttachments
                                 ? () => _confirmDeleteAttachmentMessage(message)
+                                : null,
+                            onRetryVision: message.isUser &&
+                                    message.attachments.any(
+                                      (item) => item.visionFailed,
+                                    )
+                                ? () => _retryImageVision(message)
                                 : null,
                             onSpeechAction: message.isAssistant
                                 ? () {
@@ -395,6 +405,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       '正在接回刚才没完成的回复…',
                       style: Theme.of(context).textTheme.bodySmall,
                     )
+                  else if (controller.analyzingImage)
+                    Text(
+                      '正在看图片…',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
                   else if (controller.sending)
                     Text(
                       '正在想…',
@@ -420,6 +435,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             IconButton(
               onPressed: controller.sending ||
                       controller.savingImage ||
+                      controller.analyzingImage ||
                       _pickingImage
                   ? null
                   : _chooseImageSource,
@@ -503,6 +519,7 @@ class _MessageBubble extends StatelessWidget {
     required this.onOpenAttachment,
     this.onSpeechAction,
     this.onDelete,
+    this.onRetryVision,
   });
   final ChatMessage message;
   final TtsPlaybackPhase ttsPhase;
@@ -510,6 +527,7 @@ class _MessageBubble extends StatelessWidget {
   final ValueChanged<MessageAttachment> onOpenAttachment;
   final VoidCallback? onSpeechAction;
   final VoidCallback? onDelete;
+  final VoidCallback? onRetryVision;
 
   @override
   Widget build(BuildContext context) {
@@ -543,12 +561,18 @@ class _MessageBubble extends StatelessWidget {
                 reasoning: message.reasoningContent,
               ),
             for (final attachment in message.attachments)
-              if (attachment.isImage)
+              if (attachment.isImage) ...[
                 _AttachmentThumbnail(
                   attachment: attachment,
                   storage: attachmentStorage,
                   onTap: () => onOpenAttachment(attachment),
                 ),
+                const SizedBox(height: 5),
+                _VisionStatus(
+                  attachment: attachment,
+                  onRetry: onRetryVision,
+                ),
+              ],
             if (message.content.trim().isNotEmpty) ...[
               if (message.hasAttachments) const SizedBox(height: 8),
               SelectableText(
@@ -590,6 +614,63 @@ class _MessageBubble extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VisionStatus extends StatelessWidget {
+  const _VisionStatus({
+    required this.attachment,
+    this.onRetry,
+  });
+
+  final MessageAttachment attachment;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.visionCompleted) {
+      return Text(
+        '已识别 · ${attachment.visionModel.isEmpty ? '千问视觉' : attachment.visionModel}',
+        style: Theme.of(context).textTheme.labelSmall,
+      );
+    }
+    if (attachment.visionFailed) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              '识别失败',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('重试'),
+            ),
+        ],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox.square(
+          dimension: 12,
+          child: CircularProgressIndicator(strokeWidth: 1.5),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          attachment.visionStatus ==
+                  MessageAttachment.visionAnalyzingStatus
+              ? '正在识别图片…'
+              : '等待识别…',
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+      ],
     );
   }
 }
