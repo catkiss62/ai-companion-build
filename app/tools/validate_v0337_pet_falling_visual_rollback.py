@@ -61,9 +61,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.9+64 APK",
+        "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)",
         "python3 tools/validate_v0337_pet_falling_visual_rollback.py",
-        "AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK",
+        "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK",
     ],
     "workflow",
 )
