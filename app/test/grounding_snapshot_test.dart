@@ -7,6 +7,7 @@ ChatMessage message({
   required String role,
   required DateTime at,
   bool proactive = false,
+  bool expectsReply = true,
 }) =>
     ChatMessage(
       id: id,
@@ -14,6 +15,7 @@ ChatMessage message({
       content: id,
       createdAt: at,
       isProactive: proactive,
+      expectsReply: expectsReply,
     );
 
 void main() {
@@ -119,6 +121,27 @@ void main() {
     expect(snapshot.pendingUserTurn, isTrue);
     expect(snapshot.userSpokeAfterLastAssistant, isTrue);
     expect(snapshot.conversationState, 'user_turn_pending');
+  });
+
+  test('a local image message does not create a permanently pending AI reply', () {
+    final base = DateTime(2026, 8, 12, 18, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: base.add(const Duration(minutes: 25)),
+      recent: [
+        message(id: 'a1', role: 'assistant', at: base),
+        message(
+          id: 'image-1',
+          role: 'user',
+          at: base.add(const Duration(minutes: 20)),
+          expectsReply: false,
+        ),
+      ],
+    );
+
+    expect(snapshot.lastUserMessageId, 'image-1');
+    expect(snapshot.lastUserAnswered, isTrue);
+    expect(snapshot.pendingUserTurn, isFalse);
+    expect(snapshot.userSpokeAfterLastAssistant, isTrue);
   });
 
   test('20:47 is explicitly evening instead of model-guessed time', () {
