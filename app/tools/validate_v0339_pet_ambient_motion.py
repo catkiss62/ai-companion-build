@@ -109,10 +109,13 @@ require(frame, [
     "setDockReference(bitmap: Bitmap, anchor: PetAnchor)",
     "setDockedVisualEdges(edges: Set<String>)",
     "visibleDockOffset(",
+    "if (dockedVisualEdges.isEmpty()) return PetVisibleOffset()",
     "opaqueBounds(bitmap: Bitmap)",
     "transformedVisibleBounds(",
     "PetVisibleEdgeCompensation.offset(",
-], "visible-pixel edge anchoring")
+], "action-agnostic visible-pixel edge anchoring")
+assert "EDGE_ANCHORED_ACTIONS" not in frame
+assert "layer.actionId !in" not in frame
 require(visual_docking, [
     "object PetVisibleEdgeCompensation",
     "reference.left - current.left",
@@ -133,7 +136,7 @@ require(tests, [
     "mobilityModeDefaultsToMobileAndPersistsStationaryChoice",
     "autonomousMovementUsesContinuousPathsExceptAtScreenEdges",
     "edgeVisualDockingPinsPrimaryEdgeAndBothAxesAtCorners",
-    "visibleEdgeCompensationOnlyCorrectsDockedAxes",
+    "visibleEdgeCompensationIsActionAgnosticAndOnlyCorrectsDockedAxes",
 ], "Kotlin behavioral contracts")
 
 doc = read("docs/PET_AMBIENT_MOTION_D3_3_v0.33.9.md")
@@ -149,6 +152,7 @@ require(doc, [
     "完整镜像",
     "可见像素边界",
     "角落双边",
+    "全部渲染动作",
 ], "D3.3 design record")
 
 workflow = read("../.github/workflows/build-apk.yml")
@@ -158,4 +162,4 @@ require(workflow, [
     "AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK",
 ], "workflow")
 
-print("v0.33.9 validated: frequent ambient actions, visible-pixel edge anchoring with corner locks, smooth 60Hz motion, mirrored right gait, stationary mode, yawn tiers and dizzy stars.")
+print("v0.33.9 validated: all docked render actions share visible-pixel edge anchoring, with corner locks, smooth 60Hz motion, mirrored right gait, stationary mode, yawn tiers and dizzy stars.")

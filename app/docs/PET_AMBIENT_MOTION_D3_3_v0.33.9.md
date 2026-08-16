@@ -114,3 +114,20 @@ Desire/Thought 不再是环境动作的总开关，只按状态增加少量卡�
 - 采用“角落双边”策略：到达角落时同时锁定主边和相邻边，避免动作换帧在两个轴上产生视觉缝隙；离开贴边模式后不应用任何补偿。
 - 路径完成使用已有 WALKING exit 过渡再回到正面 IDLE，不再直接从任意步态相位硬切；STROLLING 即使切姿势，也由可见边界补偿保持垂直于边缘的接触线。
 - 逻辑 WindowManager 坐标、16ms 位移、自由/半屏 360°路径、重力/抛落、TTS、犯困、DIZZY 和右向完整镜像均保持不变。
+
+
+## 全贴边动作统一接触线修订
+
+第二轮真机验证仍观察到偶发的向边缘内侧短移。复核当前提交确认首轮 `visibleDockOffset` 仍有 `EDGE_ANCHORED_ACTIONS` 白名单，只包含 IDLE、STROLLING、WALKING；因此行走已固定，但 BLINK、GLANCE、HAPPY、SWEEPING、EATING、YAWNING、THINKING/TALKING 与触摸动作仍会绕过补偿。
+
+实际素材和程序效果进一步验证了该遗漏：
+
+- BLINK/GLANCE 使用 micro_idle，带轻微纵向位移与缩放。
+- HAPPY 的 bounce 最多产生 10 个素材像素的纵向位移。
+- EATING 最多移动 2.8 个素材像素。
+- SWEEPING 产生横向位移和 ±2.4° 旋转。
+- YAWNING、THINKING、TALKING 与触摸反应同样包含位移或旋转。
+
+修订移除动作白名单。只要 `dockedVisualEdges` 非空，全部渲染动作都使用同一套 alpha 可见边界与角落双边补偿；动作 ID 不再参与是否锚定的判断。真正拖离边缘或抛落时既有流程会先清空 dockedEdge，因而 FALLING/物理轨迹不会被贴边补偿干预。
+
+本修订只扩大已经验证的渲染补偿覆盖范围，不改变动作素材、持续时间、随机调度、WindowManager 坐标、重力、自由/半屏路径或对话/TTS 仲裁。

@@ -120,9 +120,7 @@ class PetFrameView(context: Context) : View(context) {
         scale: Float,
         pose: PetEffectPose,
     ): PetVisibleOffset {
-        if (dockedVisualEdges.isEmpty() || layer.actionId !in EDGE_ANCHORED_ACTIONS) {
-            return PetVisibleOffset()
-        }
+        if (dockedVisualEdges.isEmpty()) return PetVisibleOffset()
         val reference = dockReferenceBitmap ?: return PetVisibleOffset()
         val currentBounds = transformedVisibleBounds(
             bitmap = layer.bitmap,
@@ -349,7 +347,4 @@ class PetFrameView(context: Context) : View(context) {
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
 
-    companion object {
-        private val EDGE_ANCHORED_ACTIONS = setOf("IDLE", "STROLLING", "WALKING")
-    }
 }

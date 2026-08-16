@@ -242,7 +242,7 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun visibleEdgeCompensationOnlyCorrectsDockedAxes() {
+    fun visibleEdgeCompensationIsActionAgnosticAndOnlyCorrectsDockedAxes() {
         val reference = PetVisibleBounds(10f, 20f, 90f, 100f)
         val current = PetVisibleBounds(14f, 25f, 95f, 110f)
 
