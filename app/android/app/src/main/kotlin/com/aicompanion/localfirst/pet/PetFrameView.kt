@@ -220,4 +220,3 @@ class PetFrameView(context: Context) : View(context) {
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
 }
-
