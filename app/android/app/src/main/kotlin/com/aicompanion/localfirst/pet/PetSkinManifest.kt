@@ -79,15 +79,8 @@ data class PetSkinManifest(
         val action = requireAction(actionId)
         val assetId = directionalAsset(actionId, action.assetId, direction)
         val (sourceFrames, selectedSize) = requireAsset(assetId).framesNearestTo(targetHeight)
-        // The supplied right-walk sheet contains the correct four poses but its
-        // file order does not match the left walk's gait phases.
-        val frames = if (
-            actionId == "WALKING" && direction == "right" && sourceFrames.size == 4
-        ) {
-            listOf(sourceFrames[3], sourceFrames[1], sourceFrames[2], sourceFrames[0])
-        } else {
-            sourceFrames
-        }
+        // Preserve the authoring order for both walk directions: 00 -> 01 -> 02 -> 03.
+        val frames = sourceFrames
         return PetAnimationClip(
             actionId = actionId,
             assetId = assetId,
@@ -220,10 +213,9 @@ data class PetSkinManifest(
         }
 
         /**
-         * Keep upstream registration strict, then add Android-only visual states
-         * from already registered assets. Yawning deliberately reuses the
-         * correctly sized front frame: the two candidate PNGs have incompatible
-         * canvases and cannot be spliced without a visible jump.
+         * Keep upstream registration strict, then add Android-only visual states.
+         * The sleepy-yawn source is normalized into the same three runtime tiers
+         * as sleep-enter, preserving the original art without pose splicing.
          */
         private fun installRuntimeActions(
             assets: MutableMap<String, PetAssetSpec>,
@@ -231,11 +223,20 @@ data class PetSkinManifest(
         ) {
             require(assets.containsKey("idle_front"))
             require(assets.containsKey("walk_side_stand"))
+            assets["sleepy_yawn_runtime"] = PetAssetSpec(
+                id = "sleepy_yawn_runtime",
+                framesBySize = mapOf(
+                    187 to listOf("runtime_overrides/yawning/sleepy_yawn_187.png"),
+                    238 to listOf("runtime_overrides/yawning/sleepy_yawn_238.png"),
+                    306 to listOf("runtime_overrides/yawning/sleepy_yawn_306.png"),
+                ),
+                frameCount = 1,
+            )
             actions["YAWNING"] = PetActionSpec(
                 id = "YAWNING",
-                assetId = "idle_front",
+                assetId = "sleepy_yawn_runtime",
                 loop = false,
-                durationMs = 1_500L,
+                durationMs = 1_800L,
                 priority = 24,
                 interruptible = true,
                 returnState = "IDLE",

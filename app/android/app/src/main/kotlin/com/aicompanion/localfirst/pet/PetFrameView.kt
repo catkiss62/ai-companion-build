@@ -4,9 +4,13 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.view.View
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 class PetFrameView(context: Context) : View(context) {
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -149,7 +153,7 @@ class PetFrameView(context: Context) : View(context) {
         elapsed: Float,
     ) {
         val kind = pose.decoration ?: return
-        if (kind !in setOf("thought", "voice")) return
+        if (kind !in setOf("thought", "voice", "dizzy")) return
         val top = anchorY - layer.bitmap.height * layer.anchor.y * scale
         val right = anchorX + layer.bitmap.width * (1f - layer.anchor.x) * scale
         decorationPaint.color = Color.rgb(80, 177, 228)
@@ -179,9 +183,39 @@ class PetFrameView(context: Context) : View(context) {
                     canvas.drawArc(rect, -55f, 110f, false, decorationPaint)
                 }
             }
+            "dizzy" -> {
+                decorationPaint.style = Paint.Style.FILL
+                decorationPaint.color = Color.rgb(255, 210, 65)
+                decorationPaint.alpha = 230
+                repeat(3) { index ->
+                    val angle = elapsed * 2.8f + index * (PI.toFloat() * 2f / 3f)
+                    val centerX = anchorX + cos(angle) * dp(23f)
+                    val centerY = top + dp(11f) + sin(angle) * dp(7f)
+                    drawStar(canvas, centerX, centerY, dp(4.6f), decorationPaint)
+                }
+            }
         }
         decorationPaint.alpha = 255
         decorationPaint.style = Paint.Style.STROKE
+    }
+
+    private fun drawStar(
+        canvas: Canvas,
+        centerX: Float,
+        centerY: Float,
+        radius: Float,
+        paint: Paint,
+    ) {
+        val path = Path()
+        repeat(10) { index ->
+            val angle = -PI / 2.0 + index * PI / 5.0
+            val pointRadius = if (index % 2 == 0) radius else radius * 0.44f
+            val x = centerX + cos(angle).toFloat() * pointRadius
+            val y = centerY + sin(angle).toFloat() * pointRadius
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        canvas.drawPath(path, paint)
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density

@@ -207,6 +207,7 @@ object PetEffects {
                 PetEffectPose(
                     offsetX = phase * 1.5f,
                     rotationDegrees = phase * 2.8f,
+                    decoration = "dizzy",
                 )
             }
             else -> PetEffectPose()

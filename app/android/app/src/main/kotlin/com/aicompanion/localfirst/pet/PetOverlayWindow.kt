@@ -21,7 +21,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.aicompanion.localfirst.OverlayBubbleService
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * System-overlay host for the source-parity pet player.
@@ -80,9 +84,11 @@ class PetOverlayWindow(
     private var conversationCue = PetConversationPolicy.IDLE
     private var autonomySnapshot = PetAutonomySnapshot()
     private var autonomySuppressed = true
+    private val ambientRandom = Random.Default
+    private val ambientActionBag = ArrayDeque<String>()
     private var lastUserActivityAtMs = SystemClock.uptimeMillis()
-    private var lastMicroActionAtMs = 0L
-    private var lastDailyActionAtMs = 0L
+    private var nextAmbientActionAtMs = lastUserActivityAtMs
+    private var lastAmbientActionId = ""
     private var lastSemanticActionAtMs = 0L
     private var activeAutonomyAction: String? = null
     private var autonomousMoveEndAtMs = 0L
@@ -150,7 +156,8 @@ class PetOverlayWindow(
             val view = root ?: return finishAutonomousMove(resetToIdle = false)
             val animation = player ?: return finishAutonomousMove(resetToIdle = false)
             val now = SystemClock.uptimeMillis()
-            if (!autonomyAllowed() ||
+            if (!ambientAllowed() ||
+                !mobilityEnabled() ||
                 animation.currentActionId != autonomousMoveActionId ||
                 now >= autonomousMoveEndAtMs
             ) {
@@ -160,23 +167,31 @@ class PetOverlayWindow(
                 return
             }
             val limits = activeArea(layout).limits(layout)
-            val step = maxOf(1, dp(AUTONOMOUS_MOVE_STEP_DP))
-            val nextX = when {
-                layout.x < autonomousMoveTargetX -> minOf(layout.x + step, autonomousMoveTargetX)
-                layout.x > autonomousMoveTargetX -> maxOf(layout.x - step, autonomousMoveTargetX)
-                else -> layout.x
-            }.coerceIn(limits.minX, limits.maxX)
-            val nextY = when {
-                layout.y < autonomousMoveTargetY -> minOf(layout.y + step, autonomousMoveTargetY)
-                layout.y > autonomousMoveTargetY -> maxOf(layout.y - step, autonomousMoveTargetY)
-                else -> layout.y
-            }.coerceIn(limits.minY, limits.maxY)
-            if (nextX == layout.x && nextY == layout.y) {
+            val dx = autonomousMoveTargetX - layout.x
+            val dy = autonomousMoveTargetY - layout.y
+            val distance = hypot(dx.toDouble(), dy.toDouble())
+            if (distance <= 0.5) {
                 finishAutonomousMove(resetToIdle = true)
                 return
             }
-            layout.x = nextX
-            layout.y = nextY
+            val step = maxOf(1, dp(AUTONOMOUS_MOVE_STEP_DP)).toDouble()
+            val nextX: Int
+            val nextY: Int
+            if (distance <= step) {
+                nextX = autonomousMoveTargetX
+                nextY = autonomousMoveTargetY
+            } else {
+                nextX = (layout.x + dx / distance * step).roundToInt()
+                nextY = (layout.y + dy / distance * step).roundToInt()
+            }
+            val boundedX = nextX.coerceIn(limits.minX, limits.maxX)
+            val boundedY = nextY.coerceIn(limits.minY, limits.maxY)
+            if (boundedX == layout.x && boundedY == layout.y) {
+                finishAutonomousMove(resetToIdle = true)
+                return
+            }
+            layout.x = boundedX
+            layout.y = boundedY
             runCatching { windowManager.updateViewLayout(view, layout) }
             if (layout.x == autonomousMoveTargetX && layout.y == autonomousMoveTargetY) {
                 finishAutonomousMove(resetToIdle = true)
@@ -269,6 +284,7 @@ class PetOverlayWindow(
             cache = frameCache
             player = animation
             animation.start()
+            scheduleNextAmbient(SystemClock.uptimeMillis())
             handler.removeCallbacks(autonomyTick)
             handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
@@ -294,6 +310,7 @@ class PetOverlayWindow(
             cancelAutonomyPlayback(resetToIdle = false)
             closeOptions(resumeMotion = false)
         } else {
+            scheduleNextAmbient(SystemClock.uptimeMillis())
             reconcileConversationAction("pet_visible")
             resumeFallIfPending()
         }
@@ -328,7 +345,10 @@ class PetOverlayWindow(
 
     fun setAutonomySnapshot(value: Any?) {
         autonomySnapshot = PetAutonomySnapshot.fromChannel(value)
-        if (!autonomySnapshot.enabled) cancelAutonomyPlayback(resetToIdle = true)
+        ambientActionBag.clear()
+        if (!autonomySnapshot.enabled && player?.currentActionId == "SLEEPING") {
+            cancelAutonomyPlayback(resetToIdle = true)
+        }
     }
 
     fun setAutonomySuppressed(value: Boolean) {
@@ -347,6 +367,7 @@ class PetOverlayWindow(
     }
 
     fun resize(size: String) {
+        cancelAutonomyPlayback(resetToIdle = true)
         val normalized = normalizedSize(size)
         prefs.edit().putString(KEY_PET_SIZE, normalized).apply()
         val layout = params ?: return
@@ -377,6 +398,7 @@ class PetOverlayWindow(
     }
 
     fun onConfigurationChanged() {
+        cancelAutonomyPlayback(resetToIdle = true)
         val layout = params ?: return
         val view = root ?: return
         val old = lastMotionArea
@@ -586,6 +608,7 @@ class PetOverlayWindow(
             return
         }
         val currentMode = motionMode()
+        val currentMobility = mobilityMode()
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -608,7 +631,23 @@ class PetOverlayWindow(
                 closeOptions(resumeMotion = false)
                 onSwitchToBubble()
             })
-            addView(sectionLabel("行动模式"))
+            addView(sectionLabel("自主行动"))
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                listOf(
+                    PetMobilityPolicy.MOBILE to "移动",
+                    PetMobilityPolicy.STATIONARY to "原地",
+                ).forEach { (value, label) ->
+                    addView(
+                        optionButton(selectedLabel(label, currentMobility == value)) {
+                            setMobilityMode(value)
+                            closeOptions(resumeMotion = false)
+                        },
+                        LinearLayout.LayoutParams(0, dp(42), 1f),
+                    )
+                }
+            })
+            addView(sectionLabel("活动范围"))
             addView(optionButton(selectedLabel("自由模式", currentMode == PetMotionPolicy.FREE)) {
                 setMotionMode(PetMotionPolicy.FREE)
                 closeOptions(resumeMotion = false)
@@ -766,6 +805,7 @@ class PetOverlayWindow(
     }
 
     private fun setMotionMode(value: String) {
+        cancelAutonomyPlayback(resetToIdle = true)
         val normalized = PetMotionPolicy.normalized(value)
         prefs.edit().putString(KEY_PET_MOTION_MODE, normalized).apply()
         pendingLightLanding?.let(handler::removeCallbacks)
@@ -793,6 +833,23 @@ class PetOverlayWindow(
     private fun motionMode(): String = PetMotionPolicy.normalized(
         prefs.getString(KEY_PET_MOTION_MODE, PetMotionPolicy.FREE),
     )
+
+    private fun mobilityMode(): String = PetMobilityPolicy.normalized(
+        prefs.getString(KEY_PET_MOBILITY_MODE, PetMobilityPolicy.MOBILE),
+    )
+
+    private fun mobilityEnabled(): Boolean =
+        mobilityMode() == PetMobilityPolicy.MOBILE
+
+    private fun setMobilityMode(value: String) {
+        val normalized = PetMobilityPolicy.normalized(value)
+        prefs.edit().putString(KEY_PET_MOBILITY_MODE, normalized).apply()
+        ambientActionBag.clear()
+        if (normalized == PetMobilityPolicy.STATIONARY) {
+            cancelAutonomyPlayback(resetToIdle = true)
+        }
+        scheduleNextAmbient(SystemClock.uptimeMillis())
+    }
 
     private fun setDockedEdge(value: String) {
         prefs.edit().putString(KEY_PET_DOCK_EDGE, value).apply()
@@ -882,56 +939,93 @@ class PetOverlayWindow(
 
     private fun runAutonomyTick() {
         val animation = player ?: return
-        if (!autonomyAllowed()) return
+        if (!ambientAllowed()) return
         val now = SystemClock.uptimeMillis()
         if (animation.currentActionId == "SLEEPING") {
-            if (autonomySnapshot.mood != "sleepy" &&
-                autonomySnapshot.dominantDrive != "fatigue"
+            if (!autonomySnapshot.enabled ||
+                (autonomySnapshot.mood != "sleepy" &&
+                    autonomySnapshot.dominantDrive != "fatigue")
             ) {
                 cancelAutonomyPlayback(resetToIdle = true)
             }
             return
         }
         if (animation.currentActionId != "IDLE" || activeAutonomyAction != null) return
+
         val idleMs = (now - lastUserActivityAtMs).coerceAtLeast(0L)
-        val dailyReady = now - lastDailyActionAtMs >= DAILY_ACTION_COOLDOWN_MS
-        val decision = PetAutonomyPolicy.choose(
+        val semanticDecision = PetAutonomyPolicy.chooseSemantic(
             snapshot = autonomySnapshot,
             idleMs = idleMs,
             semanticReady = now - lastSemanticActionAtMs >= SEMANTIC_ACTION_COOLDOWN_MS,
-            microReady = now - lastMicroActionAtMs >= MICRO_ACTION_COOLDOWN_MS,
-            cadenceBucket = now / MICRO_ACTION_COOLDOWN_MS,
-            dailyReady = dailyReady,
-        ) ?: return
-        if (decision.semantic) {
-            lastSemanticActionAtMs = now
-        } else if (decision.actionId in DAILY_ACTIONS) {
-            lastDailyActionAtMs = now
-        } else {
-            lastMicroActionAtMs = now
-        }
-        activeAutonomyAction = decision.actionId
-        if (decision.actionId == "STROLLING") {
-            if (!startAutonomousMove(now)) {
-                activeAutonomyAction = "GLANCE"
-                animation.play("GLANCE", reason = "pet_autonomy_no_movement_room")
+            mobilityEnabled = mobilityEnabled(),
+        )
+        if (semanticDecision != null) {
+            if (playAutonomyDecision(semanticDecision, now)) {
+                lastSemanticActionAtMs = now
             }
             return
         }
+
+        if (idleMs < PetAutonomyPolicy.MIN_AMBIENT_IDLE_MS || now < nextAmbientActionAtMs) return
+        val actionId = nextAmbientAction()
+        scheduleNextAmbient(now)
+        playAutonomyDecision(
+            PetAutonomyDecision(actionId = actionId, semantic = false),
+            now,
+        )
+    }
+
+    private fun playAutonomyDecision(
+        decision: PetAutonomyDecision,
+        now: Long,
+    ): Boolean {
+        val animation = player ?: return false
+        if (decision.actionId == "STROLLING") {
+            if (startAutonomousMove(now)) return true
+            activeAutonomyAction = "GLANCE"
+            val accepted = animation.play("GLANCE", reason = "pet_autonomy_no_movement_room")
+            if (!accepted) activeAutonomyAction = null
+            return accepted
+        }
+        activeAutonomyAction = decision.actionId
         val accepted = animation.play(
             decision.actionId,
             reason = "pet_autonomy_${decision.actionId.lowercase()}",
         )
         if (!accepted) {
             activeAutonomyAction = null
-            return
+            return false
         }
         if (decision.queueSleepAfter) animation.queueAfterCurrent("SLEEPING")
+        return true
     }
 
-    private fun autonomyAllowed(): Boolean =
-        autonomySnapshot.enabled &&
-            !autonomySuppressed &&
+    private fun nextAmbientAction(): String {
+        if (ambientActionBag.isEmpty()) {
+            val candidates = PetAmbientActionPolicy.candidates(
+                snapshot = autonomySnapshot,
+                mobilityEnabled = mobilityEnabled(),
+            )
+            ambientActionBag.addAll(candidates.shuffled(ambientRandom))
+        }
+        var action = ambientActionBag.removeFirstOrNull() ?: "BLINK"
+        if (action == lastAmbientActionId && ambientActionBag.isNotEmpty()) {
+            val alternate = ambientActionBag.removeFirst()
+            ambientActionBag.addLast(action)
+            action = alternate
+        }
+        lastAmbientActionId = action
+        return action
+    }
+
+    private fun scheduleNextAmbient(now: Long) {
+        nextAmbientActionAtMs = now + PetAmbientActionPolicy.nextDelayMs(
+            ambientRandom.nextDouble(),
+        )
+    }
+
+    private fun ambientAllowed(): Boolean =
+        !autonomySuppressed &&
             conversationCue == PetConversationPolicy.IDLE &&
             root?.visibility == View.VISIBLE &&
             optionsRoot == null &&
@@ -940,39 +1034,103 @@ class PetOverlayWindow(
             pendingLightLanding == null
 
     private fun startAutonomousMove(now: Long): Boolean {
+        if (!mobilityEnabled()) return false
         val layout = params ?: return false
         val animation = player ?: return false
         val plan = PetAutonomousMotionPolicy.plan(motionMode(), dockedEdge()) ?: return false
         val limits = activeArea(layout).limits(layout)
-        val rooms = plan.directions.map { direction ->
-            val room = when (direction) {
-                "left" -> layout.x - limits.minX
-                "right" -> limits.maxX - layout.x
-                "up" -> layout.y - limits.minY
-                else -> limits.maxY - layout.y
-            }
-            direction to room
-        }
-        val candidate = rooms.maxByOrNull { it.second } ?: return false
-        if (candidate.second < dp(AUTONOMOUS_MOVE_MIN_ROOM_DP)) return false
-        val travel = minOf(
-            candidate.second,
-            maxOf(
-                dp(AUTONOMOUS_MOVE_MIN_TRAVEL_DP),
-                (minOf(layout.width, layout.height) * AUTONOMOUS_MOVE_SIZE_RATIO).toInt(),
-            ),
+        val minimumTravel = maxOf(
+            dp(AUTONOMOUS_MOVE_MIN_TRAVEL_DP),
+            (minOf(layout.width, layout.height) * AUTONOMOUS_MOVE_MIN_SIZE_RATIO).toInt(),
         )
-        val direction = candidate.first
-        autonomousMoveTargetX = when (direction) {
-            "left" -> layout.x - travel
-            "right" -> layout.x + travel
-            else -> layout.x
-        }.coerceIn(limits.minX, limits.maxX)
-        autonomousMoveTargetY = when (direction) {
-            "up" -> layout.y - travel
-            "down" -> layout.y + travel
-            else -> layout.y
-        }.coerceIn(limits.minY, limits.maxY)
+
+        var targetX: Int? = null
+        var targetY: Int? = null
+        if (plan.continuous2D) {
+            val spanX = limits.maxX - limits.minX
+            val spanY = limits.maxY - limits.minY
+            val areaDiagonal = hypot(spanX.toDouble(), spanY.toDouble())
+            val maximumTravel = maxOf(
+                minimumTravel,
+                (areaDiagonal * AUTONOMOUS_MOVE_AREA_RATIO).toInt(),
+            )
+            repeat(AUTONOMOUS_MOVE_TARGET_ATTEMPTS) {
+                if (targetX != null) return@repeat
+                val angle = ambientRandom.nextDouble() * Math.PI * 2.0
+                val travel = minimumTravel + ambientRandom.nextDouble() *
+                    (maximumTravel - minimumTravel).coerceAtLeast(0)
+                val candidateX = (layout.x + cos(angle) * travel).roundToInt()
+                val candidateY = (layout.y + sin(angle) * travel).roundToInt()
+                if (candidateX !in limits.minX..limits.maxX ||
+                    candidateY !in limits.minY..limits.maxY
+                ) {
+                    return@repeat
+                }
+                if (hypot(
+                        (candidateX - layout.x).toDouble(),
+                        (candidateY - layout.y).toDouble(),
+                    ) < dp(AUTONOMOUS_MOVE_MIN_ROOM_DP)
+                ) {
+                    return@repeat
+                }
+                targetX = candidateX
+                targetY = candidateY
+            }
+            if (targetX == null) {
+                repeat(AUTONOMOUS_MOVE_TARGET_ATTEMPTS) {
+                    if (targetX != null) return@repeat
+                    val candidateX = randomCoordinate(limits.minX, limits.maxX)
+                    val candidateY = randomCoordinate(limits.minY, limits.maxY)
+                    if (hypot(
+                            (candidateX - layout.x).toDouble(),
+                            (candidateY - layout.y).toDouble(),
+                        ) >= dp(AUTONOMOUS_MOVE_MIN_ROOM_DP)
+                    ) {
+                        targetX = candidateX
+                        targetY = candidateY
+                    }
+                }
+            }
+        } else {
+            val candidate = plan.directions.mapNotNull { direction ->
+                val room = when (direction) {
+                    "left" -> layout.x - limits.minX
+                    "right" -> limits.maxX - layout.x
+                    "up" -> layout.y - limits.minY
+                    else -> limits.maxY - layout.y
+                }
+                (direction to room).takeIf { room >= dp(AUTONOMOUS_MOVE_MIN_ROOM_DP) }
+            }.shuffled(ambientRandom).firstOrNull() ?: return false
+            val floor = minOf(minimumTravel, candidate.second)
+            val travel = if (candidate.second <= floor) {
+                candidate.second
+            } else {
+                ambientRandom.nextInt(floor, candidate.second + 1)
+            }
+            targetX = when (candidate.first) {
+                "left" -> layout.x - travel
+                "right" -> layout.x + travel
+                else -> layout.x
+            }.coerceIn(limits.minX, limits.maxX)
+            targetY = when (candidate.first) {
+                "up" -> layout.y - travel
+                "down" -> layout.y + travel
+                else -> layout.y
+            }.coerceIn(limits.minY, limits.maxY)
+        }
+
+        val resolvedX = targetX ?: return false
+        val resolvedY = targetY ?: return false
+        val dx = resolvedX - layout.x
+        val dy = resolvedY - layout.y
+        val direction = when {
+            abs(dx) >= abs(dy) && dx < 0 -> "left"
+            abs(dx) >= abs(dy) -> "right"
+            dy < 0 -> "up"
+            else -> "down"
+        }
+        autonomousMoveTargetX = resolvedX
+        autonomousMoveTargetY = resolvedY
         autonomousMoveActionId = plan.actionId
         animation.setDirection(direction)
         if (!animation.play(plan.actionId, reason = "pet_autonomy_move")) return false
@@ -982,6 +1140,9 @@ class PetOverlayWindow(
         handler.post(autonomousMoveTick)
         return true
     }
+
+    private fun randomCoordinate(minimum: Int, maximum: Int): Int =
+        if (maximum <= minimum) minimum else ambientRandom.nextInt(minimum, maximum + 1)
 
     private fun finishAutonomousMove(resetToIdle: Boolean) {
         handler.removeCallbacks(autonomousMoveTick)
@@ -1008,7 +1169,9 @@ class PetOverlayWindow(
     }
 
     private fun noteUserActivity() {
-        lastUserActivityAtMs = SystemClock.uptimeMillis()
+        val now = SystemClock.uptimeMillis()
+        lastUserActivityAtMs = now
+        scheduleNextAmbient(now)
     }
 
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
@@ -1201,6 +1364,7 @@ class PetOverlayWindow(
         private const val KEY_PET_X = "pet_x"
         private const val KEY_PET_Y = "pet_y"
         private const val KEY_PET_MOTION_MODE = "pet_motion_mode"
+        private const val KEY_PET_MOBILITY_MODE = "pet_mobility_mode"
         private const val KEY_PET_DOCK_EDGE = "pet_dock_edge"
         private const val EDGE_LEFT = "left"
         private const val EDGE_RIGHT = "right"
@@ -1215,20 +1379,19 @@ class PetOverlayWindow(
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f
         private const val AUTONOMY_TICK_MS = 3_000L
-        private const val MICRO_ACTION_COOLDOWN_MS = 9_000L
-        private const val DAILY_ACTION_COOLDOWN_MS = 72_000L
         private const val SEMANTIC_ACTION_COOLDOWN_MS = 55_000L
-        private const val AUTONOMOUS_MOVE_TIMEOUT_MS = 6_000L
+        private const val AUTONOMOUS_MOVE_TIMEOUT_MS = 9_000L
         private const val AUTONOMOUS_MOVE_TICK_MS = 32L
-        private const val AUTONOMOUS_MOVE_STEP_DP = 2
+        private const val AUTONOMOUS_MOVE_STEP_DP = 3
         private const val AUTONOMOUS_MOVE_MIN_ROOM_DP = 36
-        private const val AUTONOMOUS_MOVE_MIN_TRAVEL_DP = 96
-        private const val AUTONOMOUS_MOVE_SIZE_RATIO = 1.30f
+        private const val AUTONOMOUS_MOVE_MIN_TRAVEL_DP = 72
+        private const val AUTONOMOUS_MOVE_TARGET_ATTEMPTS = 20
+        private const val AUTONOMOUS_MOVE_MIN_SIZE_RATIO = 0.85f
+        private const val AUTONOMOUS_MOVE_AREA_RATIO = 0.55
         private val CONVERSATION_ACTIONS = setOf("THINKING", "TALKING")
-        private val DAILY_ACTIONS = setOf("STROLLING", "SWEEPING")
         private val AUTONOMY_ACTIONS = setOf(
             "BLINK", "GLANCE", "THINKING", "STROLLING", "WALKING", "SWEEPING",
-            "HAPPY", "YAWNING", "SLEEPING",
+            "HAPPY", "EATING", "YAWNING", "SLEEPING",
         )
 
         fun normalizedSize(value: String?): String = PetOverlaySizing.normalized(value)
