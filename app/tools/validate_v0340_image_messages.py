@@ -28,7 +28,7 @@ pet_test = read(
     "android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt"
 )
 
-assert "version: 0.34.0+65" in pubspec
+assert "version: 0.34.1+66" in pubspec
 for historical_validator in (
     "tools/validate_v0321_ai_to_self.py",
     "tools/validate_v0322_overlay_time_diagnostics.py",
@@ -41,7 +41,7 @@ for historical_validator in (
     "tools/validate_v0337_pet_falling_visual_rollback.py",
     "tools/validate_v0338_pet_semantic_autonomy.py",
 ):
-    assert "version: 0.34.0+65" in read(historical_validator), historical_validator
+    assert "version: 0.34.1+66" in read(historical_validator), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
 assert "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)" in workflow
 assert "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK" in workflow
