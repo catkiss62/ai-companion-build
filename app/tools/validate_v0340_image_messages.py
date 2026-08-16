@@ -11,6 +11,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
+workflow = read("../.github/workflows/build-apk.yml")
 database = read("lib/core/database/app_database.dart")
 message = read("lib/core/models/chat_message.dart")
 attachment = read("lib/core/models/message_attachment.dart")
@@ -40,6 +41,8 @@ for historical_validator in (
 ):
     assert "version: 0.34.0+65" in read(historical_validator), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
+assert "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)" in workflow
+assert "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK" in workflow
 assert "static const int schemaVersion = 22;" in database
 for token in (
     "CREATE TABLE IF NOT EXISTS message_attachments",
