@@ -96,38 +96,24 @@ Desire/Thought 不再是环境动作的总开关，只按状态增加少量卡�
 - https://github.com/Stuocs/Clover_Shimeji
 - https://github.com/ExtraNick/Chatty_desktop_pet
 
+## 贴边待机内移：最终根因与修订
 
-## 贴边可见像素锚定修订
+真机进一步确认短距离内移发生在纯待机，而不是动作切换。此前把问题归因于 PNG 可见边界和动作效果属于错误判断；本次撤销可见像素锁边及角落双边补偿，恢复到真机活跃度修订（run #74）的渲染基线。
 
-真机观察到贴边模式偶发很短的向内“瞬移”，大部分出现在角落。诊断确认 WindowManager 坐标始终留在已记录边缘，物理也没有启动；变化发生在透明窗口内部的渲染层：
+最终根因位于 `OverlayBubbleService.ensureOverlayHealth()`：
 
-- 所有动作原先都按 ground anchor 绘制，贴边只锁透明窗口矩形，没有锁人物的实际非透明像素。
-- 238 档 WALKING 四帧的透明顶部依次为 11 / 11 / 19 / 16px；窗口 Y 不变时，顶部可见轮廓仍会随帧向内变化。
-- walk_start、walk_frames 和 stroll 的位移/旋转进一步改变变换后的可见范围。
-- 自动路径结束原先立即 resetToIdle，随机摇晃相位被直接清零，因此角落转向时最容易看到跳变。
-- 三档素材的底部透明边距一致，水平可见中心误差不超过 0.5px，排除了运行时尺寸或右向镜像资源损坏。
+- 桌宠与旧悬浮球共用 `bubbleParams` 作为 WindowManager 参数引用。
+- 周期性健康检查在桌宠入口下仍执行悬浮球专用的 `clampBubbleToSafeArea()`。
+- 悬浮球安全区包含系统栏 inset 和额外 margin；桌宠活动区则允许边缘 overscan。两套边界不同，因此健康检查会在待机时把贴边桌宠向屏幕内夹一小段。
+- 该路径只修改 `bubbleParams.x/y`，不清除 `KEY_PET_DOCK_EDGE`，所以角色视觉上离开边缘后仍继续按顶部或侧边的贴边行为移动。
+- 角落同时接近两条边，因此最容易观察到两个方向的短距离内移。
 
-修订后：
+修订后的健康检查按入口类型分流：
 
-- PetFrameView 缓存每张 Bitmap 的 alpha 可见像素边界，并计算缩放、镜像、程序位移和旋转后的实际可见矩形。
-- 贴顶锁定变换后可见顶部，贴底锁定可见底部，左右边缘同理；基准使用同尺寸正面 IDLE 的中性姿势，因此保留既有桌宠大小与整体屏幕位置。
-- 采用“角落双边”策略：到达角落时同时锁定主边和相邻边，避免动作换帧在两个轴上产生视觉缝隙；离开贴边模式后不应用任何补偿。
-- 路径完成使用已有 WALKING exit 过渡再回到正面 IDLE，不再直接从任意步态相位硬切；STROLLING 即使切姿势，也由可见边界补偿保持垂直于边缘的接触线。
-- 逻辑 WindowManager 坐标、16ms 位移、自由/半屏 360°路径、重力/抛落、TTS、犯困、DIZZY 和右向完整镜像均保持不变。
+- 悬浮球继续使用原有 `clampBubbleToSafeArea()`，行为不变。
+- 桌宠只使用自己的 `activeArea()`、overscan 和 dockedEdge 规则；不再经过悬浮球安全区。
+- 桌宠坐标未变化时不再周期性调用无意义的 `updateViewLayout()`，避免部分 OEM 对负 overscan 坐标重复解析。
+- 启动和健康恢复时重新断言已保存的贴边轴，可自动修复旧版本已经持久化的内移坐标，同时不改变沿边位置。
+- 拖动和抛落物理期间健康恢复不改写坐标。
 
-
-## 全贴边动作统一接触线修订
-
-第二轮真机验证仍观察到偶发的向边缘内侧短移。复核当前提交确认首轮 `visibleDockOffset` 仍有 `EDGE_ANCHORED_ACTIONS` 白名单，只包含 IDLE、STROLLING、WALKING；因此行走已固定，但 BLINK、GLANCE、HAPPY、SWEEPING、EATING、YAWNING、THINKING/TALKING 与触摸动作仍会绕过补偿。
-
-实际素材和程序效果进一步验证了该遗漏：
-
-- BLINK/GLANCE 使用 micro_idle，带轻微纵向位移与缩放。
-- HAPPY 的 bounce 最多产生 10 个素材像素的纵向位移。
-- EATING 最多移动 2.8 个素材像素。
-- SWEEPING 产生横向位移和 ±2.4° 旋转。
-- YAWNING、THINKING、TALKING 与触摸反应同样包含位移或旋转。
-
-修订移除动作白名单。只要 `dockedVisualEdges` 非空，全部渲染动作都使用同一套 alpha 可见边界与角落双边补偿；动作 ID 不再参与是否锚定的判断。真正拖离边缘或抛落时既有流程会先清空 dockedEdge，因而 FALLING/物理轨迹不会被贴边补偿干预。
-
-本修订只扩大已经验证的渲染补偿覆盖范围，不改变动作素材、持续时间、随机调度、WindowManager 坐标、重力、自由/半屏路径或对话/TTS 仲裁。
+本修订不改变 3–7 秒环境动作、4–7 秒独立眨眼、16ms 位移、360°路径、右向镜像、犯困、DIZZY、重力或 TTS 仲裁。
