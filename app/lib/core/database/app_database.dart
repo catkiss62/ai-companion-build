@@ -1749,16 +1749,19 @@ class AppDatabase {
   Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'message_attachments',
-      {
-        'vision_status': MessageAttachment.visionAnalyzingStatus,
-        'vision_error': '',
-        'vision_attempts': const Increment(1),
-        'vision_updated_at': now,
-      },
-      where: "id = ? AND kind = ? AND vision_status IN ('pending','failed')",
-      whereArgs: [attachmentId, MessageAttachment.imageKind],
+    final changed = await db.rawUpdate(
+      '''
+      UPDATE message_attachments
+      SET vision_status = ?, vision_error = '',
+          vision_attempts = vision_attempts + 1, vision_updated_at = ?
+      WHERE id = ? AND kind = ? AND vision_status IN ('pending','failed')
+      ''',
+      [
+        MessageAttachment.visionAnalyzingStatus,
+        now,
+        attachmentId,
+        MessageAttachment.imageKind,
+      ],
     );
     return changed == 1;
   }
