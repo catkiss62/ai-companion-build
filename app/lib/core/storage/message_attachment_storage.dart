@@ -107,8 +107,8 @@ class MessageAttachmentStorage {
       '${draft.id}${draft.originalExtension}',
     );
     final thumbnailRelative = p.posix.join('thumbnails', '${draft.id}.png');
-    final original = File(p.join(root.path, ...originalRelative.split('/')));
-    final thumbnail = File(p.join(root.path, ...thumbnailRelative.split('/')));
+    final original = File(p.joinAll([root.path, ...originalRelative.split('/')]));
+    final thumbnail = File(p.joinAll([root.path, ...thumbnailRelative.split('/')]));
     await original.parent.create(recursive: true);
     await thumbnail.parent.create(recursive: true);
     try {
@@ -154,7 +154,7 @@ class MessageAttachmentStorage {
   Future<File> fileFor(String relativePath) async {
     final safe = requireSafeRelativePath(relativePath);
     final root = await rootDirectory;
-    return File(p.join(root.path, ...safe.split('/')));
+    return File(p.joinAll([root.path, ...safe.split('/')]));
   }
 
   Future<void> cleanOldDrafts({
@@ -183,9 +183,9 @@ class MessageAttachmentStorage {
     await root.create(recursive: true);
     for (final relative in expected) {
       final source = File(
-        p.join(extractedAttachments.path, ...relative.split('/')),
+        p.joinAll([extractedAttachments.path, ...relative.split('/')]),
       );
-      final target = File(p.join(root.path, ...relative.split('/')));
+      final target = File(p.joinAll([root.path, ...relative.split('/')]));
       if (!await source.exists()) {
         if (await target.exists()) await target.delete();
         continue;
