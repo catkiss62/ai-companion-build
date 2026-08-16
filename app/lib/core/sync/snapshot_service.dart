@@ -168,7 +168,7 @@ class SnapshotService {
         final length = await source.length();
         attachmentBytes += length;
         final target = File(
-          p.join(attachmentExportDirectory.path, ...relative.split('/')),
+          p.joinAll([attachmentExportDirectory.path, ...relative.split('/')]),
         );
         await target.parent.create(recursive: true);
         await source.copy(target.path);
