@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import '../storage/message_attachment_storage.dart';
 import 'transfer_identity.dart';
 
 class SnapshotMetadata {
@@ -85,15 +86,33 @@ class SnapshotStaleException implements Exception {
 }
 
 class _ValidatedSnapshot {
-  const _ValidatedSnapshot(this.metadata, this.backup);
+  const _ValidatedSnapshot(
+    this.metadata,
+    this.backup,
+    this.workDirectory,
+  );
   final SnapshotMetadata metadata;
   final Map<String, dynamic> backup;
+  final Directory workDirectory;
+
+  Directory get attachmentsDirectory =>
+      Directory(p.join(workDirectory.path, 'attachments'));
+
+  Future<void> dispose() async {
+    if (await workDirectory.exists()) {
+      await workDirectory.delete(recursive: true);
+    }
+  }
 }
 
 class SnapshotService {
-  SnapshotService(this.db);
+  SnapshotService(
+    this.db, {
+    MessageAttachmentStorage? attachmentStorage,
+  }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage();
 
   final AppDatabase db;
+  final MessageAttachmentStorage attachmentStorage;
   final Uuid _uuid = const Uuid();
 
   Future<SnapshotBundle> exportBundle() async {
@@ -112,6 +131,7 @@ class SnapshotService {
 
     final stateFile = File(p.join(work.path, 'state.json'));
     final manifestFile = File(p.join(work.path, 'manifest.json'));
+    final attachmentExportDirectory = Directory(p.join(work.path, 'attachments'));
     try {
       final pendingSnapshotId = _settingFromBackup(exported, 'pending_outbound_snapshot_id');
       final pendingGeneration = int.tryParse(
@@ -128,9 +148,35 @@ class SnapshotService {
       }
 
       await stateFile.writeAsBytes(jsonBytes, flush: true);
+      final attachmentFiles = <String, String>{};
+      final missingAttachmentFiles = <String>[];
+      var attachmentBytes = 0;
+      final attachments = await db.allMessageAttachments();
+      final paths = <String>{
+        for (final attachment in attachments) ...[
+          attachment.originalPath,
+          attachment.thumbnailPath,
+        ],
+      };
+      for (final rawPath in paths) {
+        final relative = MessageAttachmentStorage.requireSafeRelativePath(rawPath);
+        final source = await attachmentStorage.fileFor(relative);
+        if (!await source.exists()) {
+          missingAttachmentFiles.add(relative);
+          continue;
+        }
+        final length = await source.length();
+        attachmentBytes += length;
+        final target = File(
+          p.join(attachmentExportDirectory.path, ...relative.split('/')),
+        );
+        await target.parent.create(recursive: true);
+        await source.copy(target.path);
+        attachmentFiles[relative] = sha256.convert(await target.readAsBytes()).toString();
+      }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
-        'protocol_version': 2,
+        'protocol_version': 3,
         'schema_version': AppDatabase.schemaVersion,
         'snapshot_id': snapshotId,
         'lineage_id': identity.lineageId,
@@ -140,6 +186,9 @@ class SnapshotService {
         'created_at': now.toIso8601String(),
         'state_sha256': digest,
         'state_bytes': jsonBytes.length,
+        'attachment_files': attachmentFiles,
+        'missing_attachment_files': missingAttachmentFiles,
+        'attachment_bytes': attachmentBytes,
         'encryption': 'nearby_transport_or_manual_aes_gcm',
       };
       await manifestFile.writeAsString(
@@ -152,6 +201,9 @@ class SnapshotService {
         encoder.create(zipPath);
         await encoder.addFile(stateFile);
         await encoder.addFile(manifestFile);
+        if (await attachmentExportDirectory.exists()) {
+          await encoder.addDirectory(attachmentExportDirectory);
+        }
         await encoder.close();
       } catch (_) {
         try {
@@ -188,7 +240,12 @@ class SnapshotService {
     String zipPath, {
     bool allowLegacy = false,
   }) async {
-    return (await _readValidatedBundle(zipPath, allowLegacy: allowLegacy)).metadata;
+    final validated = await _readValidatedBundle(zipPath, allowLegacy: allowLegacy);
+    try {
+      return validated.metadata;
+    } finally {
+      await validated.dispose();
+    }
   }
 
   Future<SnapshotImportResult> importBundle(
@@ -197,6 +254,20 @@ class SnapshotService {
     bool allowLegacy = false,
   }) async {
     final validated = await _readValidatedBundle(zipPath, allowLegacy: allowLegacy);
+    try {
+      return await _importValidatedBundle(
+        validated,
+        allowLineageReplacement: allowLineageReplacement,
+      );
+    } finally {
+      await validated.dispose();
+    }
+  }
+
+  Future<SnapshotImportResult> _importValidatedBundle(
+    _ValidatedSnapshot validated, {
+    required bool allowLineageReplacement,
+  }) async {
     final metadata = validated.metadata;
     final localDeviceId = await db.ensureDeviceId();
     final localIdentity = await db.transferStateIdentity();
@@ -209,6 +280,7 @@ class SnapshotService {
           priorReceipt.sourceDeviceId != metadata.sourceDeviceId) {
         throw const FormatException('检测到 snapshot_id 冲突，已拒绝导入。');
       }
+      await _installValidatedAttachments(validated);
       return SnapshotImportResult(
         metadata: metadata,
         imported: false,
@@ -290,10 +362,20 @@ class SnapshotService {
       },
       localTransferReceipt: receipt,
     );
+    await _installValidatedAttachments(validated);
     return SnapshotImportResult(
       metadata: metadata,
       imported: true,
       duplicate: false,
+    );
+  }
+
+  Future<void> _installValidatedAttachments(
+    _ValidatedSnapshot validated,
+  ) async {
+    await attachmentStorage.installSnapshotAttachments(
+      validated.attachmentsDirectory,
+      _expectedAttachmentPaths(validated.backup),
     );
   }
 
@@ -305,7 +387,7 @@ class SnapshotService {
     if (!await source.exists()) {
       throw const FormatException('状态包文件不存在');
     }
-    const maxArchiveBytes = 512 * 1024 * 1024;
+    const maxArchiveBytes = 768 * 1024 * 1024;
     if (await source.length() > maxArchiveBytes) {
       throw const FormatException('状态包异常过大，已拒绝导入');
     }
@@ -319,20 +401,29 @@ class SnapshotService {
 
     InputFileStream? input;
     Archive? archive;
+    var retainTarget = false;
     try {
       input = InputFileStream(zipPath);
       archive = ZipDecoder().decodeStream(input);
-      const allowedFiles = {'state.json', 'manifest.json'};
       const maxStateBytes = 480 * 1024 * 1024;
       const maxManifestBytes = 1024 * 1024;
+      const maxAttachmentBytes = 512 * 1024 * 1024;
+      const maxExpandedBytes = 768 * 1024 * 1024;
       final seen = <String>{};
       var stateSize = 0;
       var manifestSize = 0;
+      var attachmentSize = 0;
       var totalExpanded = 0;
       for (final entry in archive.files) {
         final name = entry.name.replaceAll('\\', '/');
-        if (!allowedFiles.contains(name)) {
+        final isAttachment = name.startsWith('attachments/');
+        if (name != 'state.json' && name != 'manifest.json' && !isAttachment) {
           throw FormatException('状态包含意外文件：$name');
+        }
+        if (isAttachment && !name.endsWith('/')) {
+          MessageAttachmentStorage.requireSafeRelativePath(
+            name.substring('attachments/'.length),
+          );
         }
         if (!seen.add(name)) {
           throw FormatException('状态包包含重复文件：$name');
@@ -342,9 +433,10 @@ class SnapshotService {
         totalExpanded += size;
         if (name == 'state.json') stateSize = size;
         if (name == 'manifest.json') manifestSize = size;
+        if (isAttachment && !name.endsWith('/')) attachmentSize += size;
       }
-      if (seen.length != 2 || !seen.containsAll(allowedFiles)) {
-        throw const FormatException('状态包必须且只能包含 state.json 与 manifest.json');
+      if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
+        throw const FormatException('状态包必须包含 state.json 与 manifest.json');
       }
       if (stateSize <= 0 || stateSize > maxStateBytes) {
         throw const FormatException('state.json 大小异常');
@@ -352,7 +444,7 @@ class SnapshotService {
       if (manifestSize <= 0 || manifestSize > maxManifestBytes) {
         throw const FormatException('manifest.json 大小异常');
       }
-      if (totalExpanded > maxStateBytes + maxManifestBytes) {
+      if (attachmentSize > maxAttachmentBytes || totalExpanded > maxExpandedBytes) {
         throw const FormatException('状态包解压后大小异常');
       }
 
@@ -400,6 +492,13 @@ class SnapshotService {
       }
 
       final protocolVersion = (manifest['protocol_version'] as num?)?.toInt() ?? 1;
+      await _validateAttachmentPayload(
+        target: target,
+        manifest: manifest,
+        backup: backup,
+        protocolVersion: protocolVersion,
+        observedAttachmentBytes: attachmentSize,
+      );
       if (protocolVersion >= 2) {
         final snapshotId = manifest['snapshot_id'] as String? ?? '';
         final lineageId = manifest['lineage_id'] as String? ?? '';
@@ -427,6 +526,7 @@ class SnapshotService {
         }
         final createdAt = DateTime.tryParse(manifest['created_at'] as String? ?? '')?.toUtc();
         if (createdAt == null) throw const FormatException('状态包创建时间无效');
+        retainTarget = true;
         return _ValidatedSnapshot(
           SnapshotMetadata(
             snapshotId: snapshotId,
@@ -441,6 +541,7 @@ class SnapshotService {
             protocolVersion: protocolVersion,
           ),
           backup,
+          target,
         );
       }
 
@@ -453,6 +554,7 @@ class SnapshotService {
       final legacyLineage = 'legacy-${actual.substring(0, 32)}';
       final createdAt = DateTime.tryParse(manifest['created_at'] as String? ?? '')?.toUtc() ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      retainTarget = true;
       return _ValidatedSnapshot(
         SnapshotMetadata(
           snapshotId: 'legacy-$actual',
@@ -468,6 +570,7 @@ class SnapshotService {
           legacy: true,
         ),
         backup,
+        target,
       );
     } finally {
       if (archive != null) {
@@ -480,8 +583,99 @@ class SnapshotService {
           await input.close();
         } catch (_) {}
       }
-      if (await target.exists()) await target.delete(recursive: true);
+      if (!retainTarget && await target.exists()) {
+        await target.delete(recursive: true);
+      }
     }
+  }
+
+  static Future<void> _validateAttachmentPayload({
+    required Directory target,
+    required Map<String, dynamic> manifest,
+    required Map<String, dynamic> backup,
+    required int protocolVersion,
+    required int observedAttachmentBytes,
+  }) async {
+    final expected = _expectedAttachmentPaths(backup);
+    if (protocolVersion < 3) {
+      if (observedAttachmentBytes != 0 || expected.isNotEmpty) {
+        throw const FormatException('旧版状态包不能包含图片附件');
+      }
+      return;
+    }
+
+    final rawHashes = manifest['attachment_files'];
+    final rawMissing = manifest['missing_attachment_files'];
+    if (rawHashes is! Map || rawMissing is! List) {
+      throw const FormatException('状态包缺少图片附件清单');
+    }
+    final hashes = <String, String>{};
+    for (final entry in rawHashes.entries) {
+      final relative = MessageAttachmentStorage.requireSafeRelativePath(
+        entry.key.toString(),
+      );
+      final digest = entry.value?.toString() ?? '';
+      if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
+        throw FormatException('图片附件校验值无效：$relative');
+      }
+      hashes[relative] = digest;
+    }
+    final missing = <String>{
+      for (final item in rawMissing)
+        MessageAttachmentStorage.requireSafeRelativePath(item.toString()),
+    };
+    final included = hashes.keys.toSet();
+    final declared = included.union(missing);
+    if (included.intersection(missing).isNotEmpty ||
+        declared.length != expected.length ||
+        !declared.containsAll(expected)) {
+      throw const FormatException('图片附件清单与数据库记录不一致');
+    }
+
+    final attachmentDirectory = Directory(p.join(target.path, 'attachments'));
+    final observed = <String>{};
+    var actualBytes = 0;
+    if (await attachmentDirectory.exists()) {
+      await for (final entity in attachmentDirectory.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        final relative = MessageAttachmentStorage.requireSafeRelativePath(
+          p.relative(entity.path, from: attachmentDirectory.path)
+              .replaceAll('\\', '/'),
+        );
+        observed.add(relative);
+        final bytes = await entity.readAsBytes();
+        actualBytes += bytes.length;
+        if (sha256.convert(bytes).toString() != hashes[relative]) {
+          throw FormatException('图片附件 SHA-256 校验失败：$relative');
+        }
+      }
+    }
+    if (observed.length != included.length || !observed.containsAll(included)) {
+      throw const FormatException('状态包中的图片文件与清单不一致');
+    }
+    final declaredBytes = (manifest['attachment_bytes'] as num?)?.toInt();
+    if (actualBytes != observedAttachmentBytes || declaredBytes != actualBytes) {
+      throw const FormatException('图片附件总大小与清单不一致');
+    }
+  }
+
+  static Set<String> _expectedAttachmentPaths(Map<String, dynamic> backup) {
+    final tables = backup['tables'];
+    if (tables is! Map) return const <String>{};
+    final rows = tables['message_attachments'];
+    if (rows is! List) return const <String>{};
+    final result = <String>{};
+    for (final raw in rows) {
+      if (raw is! Map) throw const FormatException('图片附件数据库记录无效');
+      for (final key in const ['original_path', 'thumbnail_path']) {
+        final value = raw[key]?.toString() ?? '';
+        result.add(MessageAttachmentStorage.requireSafeRelativePath(value));
+      }
+    }
+    return result;
   }
 
   static String _settingFromBackup(Map<String, dynamic> backup, String key) {
