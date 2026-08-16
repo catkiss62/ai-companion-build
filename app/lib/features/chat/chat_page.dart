@@ -467,7 +467,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ? (controller.cancellingGeneration
                       ? null
                       : controller.cancelCurrentGeneration)
-                  : _send,
+                  : controller.analyzingImage
+                      ? null
+                      : _send,
               tooltip: controller.sending ? '停止这轮回复' : '发送',
               icon: controller.sending
                   ? const Icon(Icons.stop_rounded)
