@@ -205,6 +205,10 @@ class ChatController extends ChangeNotifier {
       if (!externalRecoveryOrchestrator) {
         unawaited(_runStartupMaintenanceSafely());
         unawaited(_scheduleGenerationRecovery());
+        final unfinishedVision = await db.unfinishedVisionMessageId();
+        if (unfinishedVision != null) {
+          unawaited(_analyzeImageMessage(unfinishedVision));
+        }
       }
     } catch (e) {
       loading = false;
@@ -370,13 +374,24 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _analyzeImageMessage(String messageId) async {
     if (_disposed || analyzingImage || sending) return;
+    final acquired = await db.tryAcquireLocalLease(
+      'image_vision_lease',
+      holdFor: const Duration(minutes: 3),
+    );
+    if (!acquired) return;
     final message = await db.messageById(messageId);
-    if (message == null || !message.isUser || message.attachments.isEmpty) return;
+    if (message == null || !message.isUser || message.attachments.isEmpty) {
+      await db.releaseLocalLease('image_vision_lease');
+      return;
+    }
     final attachment = message.attachments.firstWhere(
       (item) => item.isImage,
       orElse: () => message.attachments.first,
     );
-    if (attachment.visionCompleted) return;
+    if (attachment.visionCompleted) {
+      await db.releaseLocalLease('image_vision_lease');
+      return;
+    }
 
     analyzingImage = true;
     error = null;
@@ -426,6 +441,7 @@ class ChatController extends ChangeNotifier {
       error = '图片识别失败：$exception';
     } finally {
       analyzingImage = false;
+      await db.releaseLocalLease('image_vision_lease');
       _safeNotify();
     }
     if (!_disposed && error == null) {
