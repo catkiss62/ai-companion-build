@@ -186,4 +186,89 @@ class PetOverlayContractTest {
         assertEquals(null, PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, ""))
     }
 
+    @Test
+    fun edgeVisualDockingPinsPrimaryEdgeAndBothAxesAtCorners() {
+        assertEquals(
+            setOf(PetVisibleEdgeCompensation.TOP),
+            PetVisualDockingPolicy.edges(
+                edgeMode = true,
+                dockedEdge = "top",
+                x = 50,
+                y = 0,
+                minX = 0,
+                maxX = 100,
+                minY = 0,
+                maxY = 200,
+            ),
+        )
+        assertEquals(
+            setOf(PetVisibleEdgeCompensation.TOP, PetVisibleEdgeCompensation.LEFT),
+            PetVisualDockingPolicy.edges(
+                edgeMode = true,
+                dockedEdge = "top",
+                x = 0,
+                y = 0,
+                minX = 0,
+                maxX = 100,
+                minY = 0,
+                maxY = 200,
+            ),
+        )
+        assertEquals(
+            setOf(PetVisibleEdgeCompensation.RIGHT, PetVisibleEdgeCompensation.BOTTOM),
+            PetVisualDockingPolicy.edges(
+                edgeMode = true,
+                dockedEdge = "right",
+                x = 100,
+                y = 200,
+                minX = 0,
+                maxX = 100,
+                minY = 0,
+                maxY = 200,
+            ),
+        )
+        assertTrue(
+            PetVisualDockingPolicy.edges(
+                edgeMode = false,
+                dockedEdge = "top",
+                x = 0,
+                y = 0,
+                minX = 0,
+                maxX = 100,
+                minY = 0,
+                maxY = 200,
+            ).isEmpty(),
+        )
+    }
+
+    @Test
+    fun visibleEdgeCompensationOnlyCorrectsDockedAxes() {
+        val reference = PetVisibleBounds(10f, 20f, 90f, 100f)
+        val current = PetVisibleBounds(14f, 25f, 95f, 110f)
+
+        val topOnly = PetVisibleEdgeCompensation.offset(
+            setOf(PetVisibleEdgeCompensation.TOP),
+            reference,
+            current,
+        )
+        assertEquals(0f, topOnly.x, 0.001f)
+        assertEquals(-5f, topOnly.y, 0.001f)
+
+        val topLeft = PetVisibleEdgeCompensation.offset(
+            setOf(PetVisibleEdgeCompensation.TOP, PetVisibleEdgeCompensation.LEFT),
+            reference,
+            current,
+        )
+        assertEquals(-4f, topLeft.x, 0.001f)
+        assertEquals(-5f, topLeft.y, 0.001f)
+
+        val bottomRight = PetVisibleEdgeCompensation.offset(
+            setOf(PetVisibleEdgeCompensation.BOTTOM, PetVisibleEdgeCompensation.RIGHT),
+            reference,
+            current,
+        )
+        assertEquals(-5f, bottomRight.x, 0.001f)
+        assertEquals(-10f, bottomRight.y, 0.001f)
+    }
+
 }

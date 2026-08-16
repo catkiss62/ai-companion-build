@@ -149,6 +149,19 @@ class PetAnimationPlayer(
         emitSnapshot()
     }
 
+    fun returnToIdle(
+        directionValue: String = "down",
+        reason: String = "pet_motion_complete",
+    ) {
+        require(directionValue in setOf("left", "right", "up", "down"))
+        val now = SystemClock.uptimeMillis()
+        direction = directionValue
+        if (state.forceIdle(now, reason) == null) return
+        switchToState("IDLE", crossfade = true, immediate = false)
+        onActionChanged(manifest.requireAction("IDLE"), phase)
+        emitSnapshot()
+    }
+
     private fun switchToState(actionId: String, crossfade: Boolean, immediate: Boolean) {
         val next = manifest.programFor(actionId, targetHeight, direction)
         val currentExit = program.exit

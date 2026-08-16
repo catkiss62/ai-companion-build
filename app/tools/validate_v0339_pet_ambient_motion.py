@@ -25,6 +25,8 @@ pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverla
 skin = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetSkinManifest.kt")
 effects = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetEffectPose.kt")
 frame = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetFrameView.kt")
+player = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetAnimationPlayer.kt")
+visual_docking = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetVisualDocking.kt")
 tests = read("android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt")
 
 require(policy, [
@@ -54,6 +56,10 @@ require(pet, [
     "AUTONOMY_TICK_MS = 1_000L",
     "AUTONOMOUS_MOVE_TICK_MS = 16L",
     "AUTONOMOUS_MOVE_SPEED_DP_PER_SECOND = 93.75",
+    "syncVisualDocking(layout)",
+    "PetVisualDockingPolicy.edges(",
+    "updateDockReference(normalized)",
+    "player?.returnToIdle(",
     "val angle = ambientRandom.nextDouble() * Math.PI * 2.0",
     "val candidateX = (layout.x + cos(angle) * travel).roundToInt()",
     "val candidateY = (layout.y + sin(angle) * travel).roundToInt()",
@@ -98,11 +104,36 @@ require(frame, [
 for removed in ('"sparkle" ->', '"crumb" ->', '"sweep" ->', '"sleep" ->'):
     assert removed not in frame, removed
 
+
+require(frame, [
+    "setDockReference(bitmap: Bitmap, anchor: PetAnchor)",
+    "setDockedVisualEdges(edges: Set<String>)",
+    "visibleDockOffset(",
+    "opaqueBounds(bitmap: Bitmap)",
+    "transformedVisibleBounds(",
+    "PetVisibleEdgeCompensation.offset(",
+], "visible-pixel edge anchoring")
+require(visual_docking, [
+    "object PetVisibleEdgeCompensation",
+    "reference.left - current.left",
+    "reference.right - current.right",
+    "reference.top - current.top",
+    "reference.bottom - current.bottom",
+    "object PetVisualDockingPolicy",
+    "add(dockedEdge)",
+], "primary and corner edge policy")
+require(player, [
+    "fun returnToIdle(",
+    'switchToState("IDLE", crossfade = true, immediate = false)',
+], "smooth locomotion return")
+
 require(tests, [
     "ambientBagStaysAliveWithoutBrainProjectionAndRespectsStationaryMode",
     "desireStateBiasesButDoesNotOwnAmbientChoices",
     "mobilityModeDefaultsToMobileAndPersistsStationaryChoice",
     "autonomousMovementUsesContinuousPathsExceptAtScreenEdges",
+    "edgeVisualDockingPinsPrimaryEdgeAndBothAxesAtCorners",
+    "visibleEdgeCompensationOnlyCorrectsDockedAxes",
 ], "Kotlin behavioral contracts")
 
 doc = read("docs/PET_AMBIENT_MOTION_D3_3_v0.33.9.md")
@@ -116,6 +147,8 @@ require(doc, [
     "4–7 秒",
     "约 60Hz",
     "完整镜像",
+    "可见像素边界",
+    "角落双边",
 ], "D3.3 design record")
 
 workflow = read("../.github/workflows/build-apk.yml")
@@ -125,4 +158,4 @@ require(workflow, [
     "AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK",
 ], "workflow")
 
-print("v0.33.9 validated: frequent hybrid ambient actions, independent blink, 360-degree 60Hz movement, mirrored right gait, stationary mode, yawn tiers and dizzy stars.")
+print("v0.33.9 validated: frequent ambient actions, visible-pixel edge anchoring with corner locks, smooth 60Hz motion, mirrored right gait, stationary mode, yawn tiers and dizzy stars.")
