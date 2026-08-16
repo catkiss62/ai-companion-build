@@ -30,6 +30,8 @@ pet_test = read(
 
 assert "version: 0.34.0+65" in pubspec
 for historical_validator in (
+    "tools/validate_v0321_ai_to_self.py",
+    "tools/validate_v0322_overlay_time_diagnostics.py",
     "tools/validate_v0331_desktop_pet_source_parity.py",
     "tools/validate_v0332_desktop_pet_overlay_d2.py",
     "tools/validate_v0333_overlay_menus_unread.py",
