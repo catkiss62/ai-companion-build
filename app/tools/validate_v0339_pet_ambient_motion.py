@@ -140,7 +140,7 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(workflow, [
     "Build AI Companion v0.34.0+65 APK",
     "python3 tools/validate_v0339_pet_ambient_motion.py",
-    "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK",
+    "AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK",
 ], "workflow")
 
 print("v0.33.9 validated: pet-specific health bounds prevent idle inward jumps; speculative render locks are removed; ambient motion remains intact.")
