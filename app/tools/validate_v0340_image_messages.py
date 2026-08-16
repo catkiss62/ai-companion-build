@@ -28,6 +28,17 @@ pet_test = read(
 )
 
 assert "version: 0.34.0+65" in pubspec
+for historical_validator in (
+    "tools/validate_v0331_desktop_pet_source_parity.py",
+    "tools/validate_v0332_desktop_pet_overlay_d2.py",
+    "tools/validate_v0333_overlay_menus_unread.py",
+    "tools/validate_v0334_pet_motion_modes.py",
+    "tools/validate_v0335_pet_chat_action_arbiter.py",
+    "tools/validate_v0336_pet_chat_state_finalization.py",
+    "tools/validate_v0337_pet_falling_visual_rollback.py",
+    "tools/validate_v0338_pet_semantic_autonomy.py",
+):
+    assert "version: 0.34.0+65" in read(historical_validator), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
 assert "static const int schemaVersion = 22;" in database
 for token in (
