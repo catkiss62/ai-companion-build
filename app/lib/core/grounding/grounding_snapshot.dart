@@ -145,7 +145,8 @@ class ConversationGroundingPolicy {
       }
     }
 
-    var answered = lastUser != null && answeredUserMessageIds.contains(lastUser.id);
+    var answered = lastUser != null &&
+        (!lastUser.expectsReply || answeredUserMessageIds.contains(lastUser.id));
     if (!answered && lastUser != null) {
       // Backward-compatible fallback for historical messages predating durable
       // generation jobs. Only a normal assistant reply can satisfy the user
