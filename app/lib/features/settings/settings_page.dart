@@ -26,10 +26,14 @@ class _SettingsPageState extends State<SettingsPage> {
   final tts = TtsService();
   final keyController = TextEditingController();
   final endpointController = TextEditingController();
+  final visionKeyController = TextEditingController();
+  final visionEndpointController = TextEditingController();
+  final visionModelController = TextEditingController();
   final ttsReplacementController = TextEditingController();
 
   bool loading = true;
   bool revealKey = false;
+  bool revealVisionKey = false;
   bool testingApi = false;
   bool autoMemory = true;
   bool memoryConsolidation = true;
@@ -67,6 +71,9 @@ class _SettingsPageState extends State<SettingsPage> {
     await db.ensureReady();
     keyController.text = await secure.readApiKey() ?? '';
     endpointController.text = await secure.readEndpoint();
+    visionKeyController.text = await secure.readVisionApiKey() ?? '';
+    visionEndpointController.text = await secure.readVisionEndpoint();
+    visionModelController.text = await secure.readVisionModel();
     autoMemory = (await db.getSetting('auto_memory')) != '0';
     memoryConsolidation = (await db.getSetting('memory_consolidation_enabled')) != '0';
     memoryFading = (await db.getSetting('memory_fading_enabled')) != '0';
@@ -109,6 +116,9 @@ class _SettingsPageState extends State<SettingsPage> {
       // URL cannot leave a half-saved credential configuration.
       await secure.writeEndpoint(endpointController.text);
       await secure.writeApiKey(keyController.text);
+      await secure.writeVisionEndpoint(visionEndpointController.text);
+      await secure.writeVisionModel(visionModelController.text);
+      await secure.writeVisionApiKey(visionKeyController.text);
       await db.setSetting('auto_memory', autoMemory ? '1' : '0');
       await db.setSetting('memory_consolidation_enabled', memoryConsolidation ? '1' : '0');
       await db.setSetting('memory_fading_enabled', memoryFading ? '1' : '0');
@@ -348,6 +358,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     keyController.dispose();
     endpointController.dispose();
+    visionKeyController.dispose();
+    visionEndpointController.dispose();
+    visionModelController.dispose();
     ttsReplacementController.dispose();
     super.dispose();
   }
@@ -421,6 +434,56 @@ class _SettingsPageState extends State<SettingsPage> {
                 )
               : const Icon(Icons.network_check),
           label: Text(testingApi ? '正在测试 API…' : '测试 API 连接'),
+        ),
+        const SizedBox(height: 22),
+        Text('图片识别（千问视觉）',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Text(
+          '高清原图只保存在本机；识图时只上传去除 EXIF 的 720px 缩略图。视觉观察会进入本轮对话，是否形成长期记忆仍由记忆系统判断。',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: visionKeyController,
+          obscureText: !revealVisionKey,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            labelText: '千问视觉 API Key',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              onPressed: () =>
+                  setState(() => revealVisionKey = !revealVisionKey),
+              icon: Icon(
+                revealVisionKey ? Icons.visibility_off : Icons.visibility,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: visionEndpointController,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: '千问视觉 Chat Completions 地址',
+            hintText:
+                'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: visionModelController,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(
+            labelText: '千问视觉模型',
+            hintText: 'qwen3-vl-plus',
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 8),
         SwitchListTile(
