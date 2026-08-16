@@ -256,4 +256,3 @@ class PetAnimationPlayer(
         private const val CROSSFADE_MS = 90L
     }
 }
-
