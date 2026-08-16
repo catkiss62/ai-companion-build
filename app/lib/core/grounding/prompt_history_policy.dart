@@ -16,7 +16,7 @@ class PromptHistoryPolicy {
         .map(
           (message) => <String, Object?>{
             'role': message.role,
-            'content': message.content,
+            'content': message.promptContent,
           },
         )
         .toList(growable: false);
@@ -49,7 +49,7 @@ class PromptHistoryPolicy {
               ? 'ASSISTANT_PROACTIVE_HISTORY'
               : 'ASSISTANT_HISTORY';
       buffer.writeln('--- $timestamp · $label ---');
-      buffer.writeln(message.content.trim());
+      buffer.writeln(message.promptContent.trim());
     }
 
     return <String, Object?>{
