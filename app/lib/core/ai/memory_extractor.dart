@@ -174,7 +174,7 @@ class MemoryExtractor {
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
       final proactiveContext = await _buildProactiveContext(proactiveFeedback);
       final memoryCandidates = await db.memoryCandidatesForExtraction(
-        '${user.content}\n${assistant.content}',
+        '${user.promptContent}\n${assistant.content}',
         limit: 12,
       );
       final memoryCandidateContext = memoryCandidates.isEmpty
@@ -270,7 +270,7 @@ $proactiveContext
 $memoryCandidateContext
 
 【刚发生的对话】
-用户：${user.content}
+用户：${user.promptContent}
 AI：${assistant.content}
 '''.trim(),
           },
@@ -873,7 +873,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       // reasoning_content. They are navigation memory, not a replacement for raw chat.
       final transcript = pending.map((m) {
         final who = m.isUser ? '用户' : 'AI';
-        return '$who：${m.content}';
+        return '$who：${m.promptContent}';
       }).join('\n');
 
       final result = await client.jsonCompletion(
