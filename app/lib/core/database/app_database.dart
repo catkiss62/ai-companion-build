@@ -702,7 +702,17 @@ class AppDatabase {
         'message_attachments',
         {
           'vision_status': 'failed',
+          'vision_error': '这是旧版本保存的图片；如需识别，请手动重试。',
+          'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: "vision_status = 'pending' AND vision_attempts = 0",
+      );
+      await db.update(
+        'message_attachments',
+        {
+          'vision_status': 'failed',
           'vision_error': '应用在识图过程中退出，请重试。',
+          'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
         },
         where: "vision_status = 'analyzing'",
       );
@@ -1746,6 +1756,19 @@ class AppDatabase {
     });
   }
 
+  Future<String?> unfinishedVisionMessageId() async {
+    final db = await database;
+    final rows = await db.query(
+      'message_attachments',
+      columns: const ['message_id'],
+      where: "kind = ? AND vision_status IN ('pending','analyzing')",
+      whereArgs: const [MessageAttachment.imageKind],
+      orderBy: 'created_at ASC, id ASC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['message_id'] as String;
+  }
+
   Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -1754,7 +1777,7 @@ class AppDatabase {
       UPDATE message_attachments
       SET vision_status = ?, vision_error = '',
           vision_attempts = vision_attempts + 1, vision_updated_at = ?
-      WHERE id = ? AND kind = ? AND vision_status IN ('pending','failed')
+      WHERE id = ? AND kind = ? AND vision_status IN ('pending','failed','analyzing')
       ''',
       [
         MessageAttachment.visionAnalyzingStatus,
