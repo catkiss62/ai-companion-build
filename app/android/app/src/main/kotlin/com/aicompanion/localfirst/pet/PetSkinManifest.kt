@@ -56,6 +56,7 @@ data class PetAnimationClip(
     val anchor: PetAnchor,
     val effect: String,
     val phase: PetAnimationPhase = PetAnimationPhase.BODY,
+    val mirrored: Boolean = false,
 )
 
 data class PetAnimationProgram(
@@ -77,7 +78,9 @@ data class PetSkinManifest(
     fun clipFor(actionId: String, targetHeight: Int, direction: String): PetAnimationClip {
         val action = requireAction(actionId)
         val assetId = directionalAsset(actionId, action.assetId, direction)
-        val (frames, selectedSize) = requireAsset(assetId).framesNearestTo(targetHeight)
+        val (sourceFrames, selectedSize) = requireAsset(assetId).framesNearestTo(targetHeight)
+        // Preserve the authoring order for both walk directions: 00 -> 01 -> 02 -> 03.
+        val frames = sourceFrames
         return PetAnimationClip(
             actionId = actionId,
             assetId = assetId,
@@ -88,6 +91,7 @@ data class PetSkinManifest(
             frameDurationMs = frameDuration(action, frames.size),
             anchor = action.anchor,
             effect = action.effect,
+            mirrored = direction == "right" && actionId in setOf("STROLLING", "WALKING"),
         )
     }
 
@@ -109,7 +113,12 @@ data class PetSkinManifest(
         direction: String,
     ): PetAnimationClip? {
         segment ?: return null
-        val assetId = directionalTransitionAsset(segment.assetId, direction)
+        val mirrorLeftWalk = action.id == "WALKING" && direction == "right"
+        val assetId = if (mirrorLeftWalk) {
+            segment.assetId
+        } else {
+            directionalTransitionAsset(segment.assetId, direction)
+        }
         val (frames, selectedSize) = requireAsset(assetId).framesNearestTo(targetHeight)
         return PetAnimationClip(
             actionId = action.id,
@@ -122,6 +131,7 @@ data class PetSkinManifest(
             anchor = action.anchor,
             effect = segment.effect ?: action.effect,
             phase = phase,
+            mirrored = mirrorLeftWalk,
         )
     }
 
@@ -136,13 +146,17 @@ data class PetSkinManifest(
                 else -> "idle_front"
             }
         }
-        if (actionId == "WALKING") {
+        if (actionId == "STROLLING") {
             return when (direction) {
                 "up" -> "idle_back"
                 "down" -> "idle_front"
-                "right" -> "walk_side_right"
+                "left", "right" -> "walk_side_stand"
                 else -> defaultAsset
             }
+        }
+        if (actionId == "WALKING") {
+            // The authored left gait is the stable source of truth; mirror the whole program for right.
+            return defaultAsset
         }
         return defaultAsset
     }
@@ -201,40 +215,53 @@ data class PetSkinManifest(
             }
             val runtimeAssets = LinkedHashMap(assets)
             val runtimeActions = LinkedHashMap(actions)
-            installYawn(runtimeAssets, runtimeActions)
+            installRuntimeActions(runtimeAssets, runtimeActions)
             return PetSkinManifest(formatVersion, characterId, runtimeAssets, runtimeActions)
         }
 
         /**
-         * The upstream registry intentionally stays exact. This one approved
-         * runtime-only action composes two source PNGs into a distinct yawn:
-         * transition -> yawn -> held yawn -> transition (4 x 300 ms).
+         * Keep upstream registration strict, then add Android-only visual states.
+         * The sleepy-yawn source is normalized into the same three runtime tiers
+         * as sleep-enter, preserving the original art without pose splicing.
          */
-        private fun installYawn(
+        private fun installRuntimeActions(
             assets: MutableMap<String, PetAssetSpec>,
             actions: MutableMap<String, PetActionSpec>,
         ) {
-            val transition =
-                "assets/candidates/state_actions/candidate_g_motion2/daily_transition/" +
-                    "daily_transition_00.png"
-            val yawn =
-                "assets/candidates/state_actions/candidate_d_interactions/sleepy_yawn.png"
-            val frames = listOf(transition, yawn, yawn, transition)
-            assets["sleepy_yawn_composed"] = PetAssetSpec(
-                id = "sleepy_yawn_composed",
-                framesBySize = mapOf(187 to frames, 238 to frames, 306 to frames),
-                frameCount = frames.size,
+            require(assets.containsKey("idle_front"))
+            require(assets.containsKey("walk_side_stand"))
+            assets["sleepy_yawn_runtime"] = PetAssetSpec(
+                id = "sleepy_yawn_runtime",
+                framesBySize = mapOf(
+                    187 to listOf("runtime_overrides/yawning/sleepy_yawn_187.png"),
+                    238 to listOf("runtime_overrides/yawning/sleepy_yawn_238.png"),
+                    306 to listOf("runtime_overrides/yawning/sleepy_yawn_306.png"),
+                ),
+                frameCount = 1,
             )
             actions["YAWNING"] = PetActionSpec(
                 id = "YAWNING",
-                assetId = "sleepy_yawn_composed",
+                assetId = "sleepy_yawn_runtime",
                 loop = false,
-                durationMs = 1_200L,
+                durationMs = 1_800L,
                 priority = 24,
                 interruptible = true,
                 returnState = "IDLE",
                 anchor = PetAnchor(),
-                effect = "breath",
+                effect = "yawn_sway",
+                enter = null,
+                exit = null,
+            )
+            actions["STROLLING"] = PetActionSpec(
+                id = "STROLLING",
+                assetId = "idle_front",
+                loop = true,
+                durationMs = null,
+                priority = 30,
+                interruptible = true,
+                returnState = "IDLE",
+                anchor = PetAnchor(),
+                effect = "stroll",
                 enter = null,
                 exit = null,
             )

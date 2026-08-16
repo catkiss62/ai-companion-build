@@ -2040,7 +2040,7 @@ class OverlayBubbleService : Service() {
         CompanionRuntimeState.setOverlayTouchHealth(
             bubbleAttached = bubble?.isAttachedToWindow == true,
             bubbleTouchable = bubble?.isAttachedToWindow == true && paramsTouchable && bubble.isEnabled,
-            positionSafe = isBubblePositionSafe(),
+            positionSafe = petOverlayWindow?.isPositionSafeForHealth() ?: isBubblePositionSafe(),
             chatWindowAttached = chatRoot?.isAttachedToWindow == true,
         )
     }
@@ -2070,11 +2070,19 @@ class OverlayBubbleService : Service() {
         } else {
             val attachedBubble = requireNotNull(bubble)
             val expectedFlags = bubbleModeFlags()
+            var layoutUpdateRequired = false
             if (bubbleParams.flags != expectedFlags) {
                 bubbleParams.flags = expectedFlags
                 repaired = true
+                layoutUpdateRequired = true
             }
-            if (clampBubbleToSafeArea()) {
+            val petHost = petOverlayWindow
+            if (petHost != null) {
+                // PetOverlayWindow and the legacy bubble share bubbleParams.
+                // Applying the bubble safe-area clamp here periodically moved a
+                // docked pet inward while leaving its dockedEdge state intact.
+                if (petHost.reconcileHealthPosition()) repaired = true
+            } else if (clampBubbleToSafeArea()) {
                 persistBubblePosition()
                 repaired = true
             }
@@ -2084,8 +2092,13 @@ class OverlayBubbleService : Service() {
                 attachedBubble.visibility = if (visible) View.VISIBLE else View.GONE
             }
             CompanionRuntimeState.setOverlayVisible(visible)
-            runCatching { windowManager.updateViewLayout(attachedBubble, bubbleParams) }
-                .onFailure { repaired = true }
+            // Avoid periodic no-op relayouts for the pet. Some OEM WindowManager
+            // implementations re-resolve negative overscan coordinates on each
+            // relayout even when x/y did not change.
+            if (petHost == null || layoutUpdateRequired) {
+                runCatching { windowManager.updateViewLayout(attachedBubble, bubbleParams) }
+                    .onFailure { repaired = true }
+            }
         }
 
         if (repaired) {
@@ -2095,7 +2108,7 @@ class OverlayBubbleService : Service() {
                 source = "system",
                 eventType = "overlay_touch_self_healed",
                 appPackage = packageName,
-                summary = "悬浮球输入通道/位置已自动恢复：${reason.take(120)}",
+                summary = "悬浮入口输入通道/位置已自动恢复：${reason.take(120)}",
             )
         }
         updateOverlayTouchHealth()

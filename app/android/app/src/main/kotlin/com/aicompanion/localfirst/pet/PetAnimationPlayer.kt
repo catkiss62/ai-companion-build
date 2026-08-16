@@ -12,6 +12,7 @@ data class PetRenderLayer(
     val frameIndex: Int,
     val anchor: PetAnchor,
     val phase: PetAnimationPhase,
+    val mirrored: Boolean,
 )
 
 data class PetRenderSnapshot(
@@ -108,7 +109,7 @@ class PetAnimationPlayer(
         require(value in setOf("left", "right", "up", "down"))
         if (value == direction) return
         direction = value
-        if (state.current in setOf("IDLE", "THINKING", "WALKING")) {
+        if (state.current in setOf("IDLE", "THINKING", "STROLLING", "WALKING")) {
             activateProgram(
                 manifest.programFor(state.current, targetHeight, direction),
                 crossfade = true,
@@ -224,6 +225,7 @@ class PetAnimationPlayer(
             frameIndex = index,
             anchor = clip.anchor,
             phase = phase,
+            mirrored = clip.mirrored,
         )
     }
 

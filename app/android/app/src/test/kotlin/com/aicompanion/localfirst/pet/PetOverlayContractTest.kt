@@ -77,25 +77,24 @@ class PetOverlayContractTest {
     }
 
     @Test
-    fun autonomyConsumesSleepAndThoughtWithoutCreatingNewState() {
+    fun semanticAutonomyConsumesSleepAndThoughtWithoutCreatingState() {
         val sleepy = PetAutonomySnapshot(
             enabled = true,
             dominantDrive = "fatigue",
             driveLevel = 0.72,
             mood = "sleepy",
         )
-        val yawn = PetAutonomyPolicy.choose(
-            sleepy,
+        val yawn = PetAutonomyPolicy.chooseSemantic(
+            snapshot = sleepy,
             idleMs = PetAutonomyPolicy.SLEEP_IDLE_MS,
             semanticReady = true,
-            microReady = true,
-            cadenceBucket = 1L,
+            mobilityEnabled = true,
         )
         assertEquals("YAWNING", yawn?.actionId)
         assertTrue(yawn?.queueSleepAfter == true)
 
-        val thought = PetAutonomyPolicy.choose(
-            PetAutonomySnapshot(
+        val thought = PetAutonomyPolicy.chooseSemantic(
+            snapshot = PetAutonomySnapshot(
                 enabled = true,
                 dominantDrive = "reflection",
                 driveLevel = 0.66,
@@ -105,31 +104,86 @@ class PetOverlayContractTest {
             ),
             idleMs = PetAutonomyPolicy.MIN_SEMANTIC_IDLE_MS,
             semanticReady = true,
-            microReady = true,
-            cadenceBucket = 2L,
+            mobilityEnabled = true,
         )
         assertEquals("THINKING", thought?.actionId)
     }
 
     @Test
-    fun autonomyHonorsBrainOwnershipAndUsesStableMicroCadence() {
-        val disabled = PetAutonomyPolicy.choose(
-            PetAutonomySnapshot(enabled = false),
-            idleMs = 999_999L,
-            semanticReady = true,
-            microReady = true,
-            cadenceBucket = 3L,
-        )
-        assertEquals(null, disabled)
+    fun ambientBagStaysAliveWithoutBrainProjectionAndRespectsStationaryMode() {
+        val disabled = PetAutonomySnapshot(enabled = false)
+        val mobile = PetAmbientActionPolicy.candidates(disabled, mobilityEnabled = true)
+        val stationary = PetAmbientActionPolicy.candidates(disabled, mobilityEnabled = false)
 
-        val blink = PetAutonomyPolicy.choose(
-            PetAutonomySnapshot(enabled = true),
-            idleMs = PetAutonomyPolicy.MIN_MICRO_IDLE_MS,
-            semanticReady = false,
-            microReady = true,
-            cadenceBucket = 4L,
-        )
-        assertEquals("BLINK", blink?.actionId)
-        assertFalse(blink?.semantic ?: true)
+        assertEquals(8, mobile.count { it == "STROLLING" })
+        assertTrue("HAPPY" in mobile)
+        assertTrue("SWEEPING" in mobile)
+        assertTrue("EATING" in mobile)
+        assertFalse("STROLLING" in stationary)
+        assertTrue("HAPPY" in stationary)
+        assertTrue("SWEEPING" in stationary)
+        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.0) >= 3_000L)
+        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.999) < 7_000L)
+        assertTrue(PetAmbientActionPolicy.nextBlinkDelayMs(0.0) >= 4_000L)
+        assertTrue(PetAmbientActionPolicy.nextBlinkDelayMs(0.999) < 7_000L)
     }
+
+    @Test
+    fun desireStateBiasesButDoesNotOwnAmbientChoices() {
+        val duty = PetAmbientActionPolicy.candidates(
+            PetAutonomySnapshot(
+                enabled = true,
+                dominantDrive = "duty",
+                driveLevel = 0.8,
+            ),
+            mobilityEnabled = false,
+        )
+        assertEquals(2, duty.count { it == "SWEEPING" })
+
+        val stationaryCuriosity = PetAutonomyPolicy.chooseSemantic(
+            snapshot = PetAutonomySnapshot(
+                enabled = true,
+                dominantDrive = "curiosity",
+                driveLevel = 0.8,
+            ),
+            idleMs = PetAutonomyPolicy.MIN_SEMANTIC_IDLE_MS,
+            semanticReady = true,
+            mobilityEnabled = false,
+        )
+        assertEquals("GLANCE", stationaryCuriosity?.actionId)
+    }
+
+    @Test
+    fun mobilityModeDefaultsToMobileAndPersistsStationaryChoice() {
+        assertEquals(PetMobilityPolicy.MOBILE, PetMobilityPolicy.normalized(null))
+        assertEquals(PetMobilityPolicy.MOBILE, PetMobilityPolicy.normalized("unexpected"))
+        assertEquals(
+            PetMobilityPolicy.STATIONARY,
+            PetMobilityPolicy.normalized(PetMobilityPolicy.STATIONARY),
+        )
+    }
+
+    @Test
+    fun autonomousMovementUsesContinuousPathsExceptAtScreenEdges() {
+        val free = PetAutonomousMotionPolicy.plan(PetMotionPolicy.FREE, "")
+        assertEquals("STROLLING", free?.actionId)
+        assertTrue(free?.continuous2D == true)
+
+        val half = PetAutonomousMotionPolicy.plan(PetMotionPolicy.HALF_TOP, "")
+        assertEquals("STROLLING", half?.actionId)
+        assertTrue(half?.continuous2D == true)
+
+        val sideEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "left")
+        assertEquals("STROLLING", sideEdge?.actionId)
+        assertEquals(listOf("up", "down"), sideEdge?.directions)
+        assertFalse(sideEdge?.continuous2D ?: true)
+
+        val horizontalEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "bottom")
+        assertEquals("WALKING", horizontalEdge?.actionId)
+        assertEquals(listOf("left", "right"), horizontalEdge?.directions)
+        assertFalse(horizontalEdge?.continuous2D ?: true)
+
+        assertEquals(null, PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, ""))
+    }
+
 }

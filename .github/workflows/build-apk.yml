@@ -1,4 +1,4 @@
-name: Build AI Companion v0.33.8+63 APK (Pet Semantic Autonomy D3.2)
+name: Build AI Companion v0.33.9+64 APK (Pet Ambient Motion D3.3)
 
 on:
   workflow_dispatch:
@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.33.8+63$' app/pubspec.yaml
+          grep -q '^version: 0.33.9+64$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 21;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.33.8+63 app/ source tree.'
+          echo 'Building directly from the committed v0.33.9+64 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -78,6 +78,7 @@ jobs:
           python3 tools/validate_v0336_pet_chat_state_finalization.py
           python3 tools/validate_v0337_pet_falling_visual_rollback.py
           python3 tools/validate_v0338_pet_semantic_autonomy.py
+          python3 tools/validate_v0339_pet_ambient_motion.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
@@ -135,7 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY2'
-          import hashlib, pathlib, sys, zipfile
+          import hashlib, pathlib, struct, sys, zipfile
           root = pathlib.Path('app')
           apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
           src = root / 'android/app/src/main/jniLibs/arm64-v8a'
@@ -160,6 +161,18 @@ jobs:
                   print(f'ERROR: APK contains {len(pet_entries)} source-pack files, expected 417', file=sys.stderr)
                   sys.exit(1)
               print('Complete 417-file pet source pack is present in the APK.')
+              yawn_tiers = {
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': (136, 160),
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': (171, 202),
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_306.png': (222, 261),
+              }
+              for name, expected in yawn_tiers.items():
+                  data = z.read(name)
+                  actual = struct.unpack('>II', data[16:24])
+                  if actual != expected:
+                      print(f'ERROR: {name} is {actual}, expected {expected}', file=sys.stderr)
+                      sys.exit(1)
+              print('Three normalized sleepy-yawn runtime tiers are present in the APK.')
           bert = (src / 'libbertvits2.so').read_bytes()
           assert hashlib.sha256(bert[:635352]).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
           assert set(bert[635352:]) <= {0}
@@ -173,10 +186,10 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.33.8+63 APK
+      - name: Upload v0.33.9+64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.33.8-63-Pet-Semantic-Autonomy-D3-2-APK
+          name: AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK
           if-no-files-found: error
           compression-level: 0
           path: |

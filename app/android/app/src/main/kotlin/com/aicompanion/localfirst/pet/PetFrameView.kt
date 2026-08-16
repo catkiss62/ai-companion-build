@@ -26,6 +26,7 @@ class PetFrameView(context: Context) : View(context) {
     private var snapshot: PetRenderSnapshot? = null
     private var translationX = 0f
     private var translationY = 0f
+    private var previewWindowDp: Int? = null
 
     fun showSnapshot(value: PetRenderSnapshot) {
         snapshot = value
@@ -39,6 +40,11 @@ class PetFrameView(context: Context) : View(context) {
     }
 
     fun resetPetTranslation() = setPetTranslation(0f, 0f)
+
+    fun setPreviewWindowDp(value: Int?) {
+        previewWindowDp = value
+        postInvalidateOnAnimation()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -62,10 +68,19 @@ class PetFrameView(context: Context) : View(context) {
         drawDecoration(canvas, value.current, anchor.first, anchor.second, scale, pose, value.elapsedSeconds)
     }
 
-    private fun displayScale(layer: PetRenderLayer): Float = min(
-        width * 0.90f / layer.bitmap.width.toFloat(),
-        height * 0.88f / layer.bitmap.height.toFloat(),
-    ).coerceAtLeast(0.1f)
+    private fun displayScale(layer: PetRenderLayer): Float {
+        val available = min(
+            width * 0.90f / layer.bitmap.width.toFloat(),
+            height * 0.88f / layer.bitmap.height.toFloat(),
+        )
+        val requested = previewWindowDp?.let { windowDp ->
+            min(
+                dp(windowDp.toFloat()) * 0.90f / layer.bitmap.width.toFloat(),
+                dp(windowDp.toFloat()) * 0.88f / layer.bitmap.height.toFloat(),
+            )
+        } ?: available
+        return min(available, requested).coerceAtLeast(0.1f)
+    }
 
     private fun renderAnchor(layer: PetRenderLayer, scale: Float): Pair<Float, Float> {
         val floorY = height * 0.94f
@@ -94,9 +109,10 @@ class PetFrameView(context: Context) : View(context) {
             anchorY + pose.offsetY * scale,
         )
         canvas.rotate(pose.rotationDegrees)
-        canvas.scale(scale * pose.scaleX, scale * pose.scaleY)
+        val horizontal = if (layer.mirrored) -1f else 1f
+        canvas.scale(horizontal * scale * pose.scaleX, scale * pose.scaleY)
         canvas.translate(
-            -bitmap.width * layer.anchor.x,
+            -bitmap.width * (if (layer.mirrored) 1f - layer.anchor.x else layer.anchor.x),
             -bitmap.height * layer.anchor.y,
         )
         canvas.drawBitmap(bitmap, 0f, 0f, bitmapPaint)
@@ -137,15 +153,10 @@ class PetFrameView(context: Context) : View(context) {
         elapsed: Float,
     ) {
         val kind = pose.decoration ?: return
+        if (kind !in setOf("thought", "voice", "dizzy")) return
         val top = anchorY - layer.bitmap.height * layer.anchor.y * scale
         val right = anchorX + layer.bitmap.width * (1f - layer.anchor.x) * scale
-        val left = anchorX - layer.bitmap.width * layer.anchor.x * scale
-        decorationPaint.color = when (kind) {
-            "anger" -> Color.rgb(221, 91, 105)
-            "crumb" -> Color.rgb(246, 186, 93)
-            "dizzy" -> Color.rgb(230, 177, 74)
-            else -> Color.rgb(80, 177, 228)
-        }
+        decorationPaint.color = Color.rgb(80, 177, 228)
         when (kind) {
             "thought" -> {
                 decorationPaint.style = Paint.Style.FILL
@@ -159,10 +170,6 @@ class PetFrameView(context: Context) : View(context) {
                     )
                 }
             }
-            "sparkle" -> {
-                drawSparkle(canvas, right - dp(17f), top + dp(34f), dp(6f))
-                drawSparkle(canvas, left + dp(22f), top + dp(48f), dp(4f))
-            }
             "voice" -> {
                 decorationPaint.style = Paint.Style.STROKE
                 decorationPaint.alpha = 190
@@ -171,58 +178,20 @@ class PetFrameView(context: Context) : View(context) {
                         right - dp(20f) + index * dp(4f),
                         top + dp(50f) - index * dp(3f),
                         right - dp(10f) + index * dp(7f),
-                        top + dp(64f) + index * dp(0f),
+                        top + dp(64f),
                     )
                     canvas.drawArc(rect, -55f, 110f, false, decorationPaint)
                 }
             }
-            // The dafeiyu ANGRY raster already contains its orange anger mark.
-            // Drawing another diagonal cross outside the sprite looked like a
-            // broken unread/close badge on a real phone, so this skin keeps the
-            // source frame and deliberately adds no second decoration.
-            "anger" -> Unit
-            "crumb" -> {
-                decorationPaint.style = Paint.Style.FILL
-                decorationPaint.alpha = 205
-                repeat(3) { index ->
-                    val y = anchorY - dp(35f) + ((index + (elapsed * 8f).toInt()) % 3) * dp(3f)
-                    canvas.drawCircle(anchorX + dp(6f) + index * dp(4f), y, dp(1.4f), decorationPaint)
-                }
-            }
-            "sweep" -> {
-                decorationPaint.style = Paint.Style.STROKE
-                decorationPaint.alpha = 155
-                canvas.drawArc(
-                    RectF(left + dp(8f), anchorY - dp(24f), left + dp(35f), anchorY - dp(14f)),
-                    180f,
-                    110f,
-                    false,
-                    decorationPaint,
-                )
-            }
-            "sleep" -> {
-                decorationPaint.style = Paint.Style.FILL
-                decorationPaint.alpha = 145
-                val drift = sin(elapsed * 2f) * dp(2f)
-                listOf(3f, 4f, 5f).forEachIndexed { index, radius ->
-                    canvas.drawCircle(
-                        right - dp(20f) + index * dp(6f),
-                        top + dp(38f) - index * dp(12f) + drift,
-                        dp(radius),
-                        decorationPaint,
-                    )
-                }
-            }
             "dizzy" -> {
-                val angle = elapsed * 4f
+                decorationPaint.style = Paint.Style.FILL
+                decorationPaint.color = Color.rgb(255, 210, 65)
+                decorationPaint.alpha = 230
                 repeat(3) { index ->
-                    val theta = angle + index * (PI.toFloat() * 2f / 3f)
-                    drawSparkle(
-                        canvas,
-                        anchorX + cos(theta) * dp(22f),
-                        top + dp(24f) + sin(theta) * dp(10f),
-                        dp(3.5f),
-                    )
+                    val angle = elapsed * 2.8f + index * (PI.toFloat() * 2f / 3f)
+                    val centerX = anchorX + cos(angle) * dp(23f)
+                    val centerY = top + dp(11f) + sin(angle) * dp(7f)
+                    drawStar(canvas, centerX, centerY, dp(4.6f), decorationPaint)
                 }
             }
         }
@@ -230,12 +199,23 @@ class PetFrameView(context: Context) : View(context) {
         decorationPaint.style = Paint.Style.STROKE
     }
 
-    private fun drawSparkle(canvas: Canvas, x: Float, y: Float, radius: Float) {
-        decorationPaint.style = Paint.Style.STROKE
-        decorationPaint.alpha = 210
-        decorationPaint.strokeWidth = maxOf(dp(1f), radius / 3f)
-        canvas.drawLine(x - radius, y, x + radius, y, decorationPaint)
-        canvas.drawLine(x, y - radius, x, y + radius, decorationPaint)
+    private fun drawStar(
+        canvas: Canvas,
+        centerX: Float,
+        centerY: Float,
+        radius: Float,
+        paint: Paint,
+    ) {
+        val path = Path()
+        repeat(10) { index ->
+            val angle = -PI / 2.0 + index * PI / 5.0
+            val pointRadius = if (index % 2 == 0) radius else radius * 0.44f
+            val x = centerX + cos(angle).toFloat() * pointRadius
+            val y = centerY + sin(angle).toFloat() * pointRadius
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        canvas.drawPath(path, paint)
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
