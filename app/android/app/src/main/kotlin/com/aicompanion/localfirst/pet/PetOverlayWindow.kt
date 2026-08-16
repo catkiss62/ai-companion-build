@@ -62,7 +62,6 @@ class PetOverlayWindow(
     private var frameView: PetFrameView? = null
     private var player: PetAnimationPlayer? = null
     private var cache: PetFrameCache? = null
-    private var skinManifest: PetSkinManifest? = null
     private var optionsRoot: View? = null
     private var optionsParams: WindowManager.LayoutParams? = null
 
@@ -197,7 +196,6 @@ class PetOverlayWindow(
             }
             layout.x = boundedX
             layout.y = boundedY
-            syncVisualDocking(layout)
             runCatching { windowManager.updateViewLayout(view, layout) }
             if (layout.x == autonomousMoveTargetX && layout.y == autonomousMoveTargetY) {
                 finishAutonomousMove(resetToIdle = true)
@@ -266,12 +264,8 @@ class PetOverlayWindow(
             y = prefs.getInt(KEY_PET_Y, defaultY)
         }
         clamp(layout)
+        enforceDockedAxis(layout)
 
-        val dockReferenceClip = manifest.clipFor("IDLE", assetHeight(size), "down")
-        petView.setDockReference(
-            bitmap = frameCache.get(dockReferenceClip.frames.first()),
-            anchor = dockReferenceClip.anchor,
-        )
         val animation = PetAnimationPlayer(
             manifest = manifest,
             cache = frameCache,
@@ -293,9 +287,7 @@ class PetOverlayWindow(
             badge = unread
             frameView = petView
             cache = frameCache
-            skinManifest = manifest
             player = animation
-            syncVisualDocking(layout)
             animation.start()
             val autonomyStartedAtMs = SystemClock.uptimeMillis()
             scheduleNextAmbient(autonomyStartedAtMs)
@@ -313,7 +305,6 @@ class PetOverlayWindow(
             badge = null
             frameView = null
             cache = null
-            skinManifest = null
             player = null
             false
         }
@@ -399,8 +390,6 @@ class PetOverlayWindow(
         layout.y = oldBottom - next
         clamp(layout)
         player?.setTargetHeight(assetHeight(normalized))
-        updateDockReference(normalized)
-        syncVisualDocking(layout)
         badge?.let { unread ->
             (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
                 badgeLayout.setMargins(
@@ -440,7 +429,6 @@ class PetOverlayWindow(
         }
         clamp(layout)
         lastMotionArea = next
-        syncVisualDocking(layout)
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
         if (optionsRoot != null) repositionOptions()
@@ -466,7 +454,6 @@ class PetOverlayWindow(
         frameView = null
         player = null
         cache = null
-        skinManifest = null
     }
 
     private fun attachTouch(view: View, animation: PetAnimationPlayer) {
@@ -821,7 +808,6 @@ class PetOverlayWindow(
         }
         setDockedEdge(edge)
         clamp(layout)
-        syncVisualDocking(layout)
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
         playLightLanding("pet_overlay_edge_dock")
@@ -878,36 +864,9 @@ class PetOverlayWindow(
 
     private fun setDockedEdge(value: String) {
         prefs.edit().putString(KEY_PET_DOCK_EDGE, value).apply()
-        params?.let(::syncVisualDocking)
     }
 
     private fun dockedEdge(): String = prefs.getString(KEY_PET_DOCK_EDGE, "").orEmpty()
-
-    private fun updateDockReference(size: String) {
-        val manifest = skinManifest ?: return
-        val frameCache = cache ?: return
-        val clip = manifest.clipFor("IDLE", assetHeight(size), "down")
-        frameView?.setDockReference(
-            bitmap = frameCache.get(clip.frames.first()),
-            anchor = clip.anchor,
-        )
-    }
-
-    private fun syncVisualDocking(layout: WindowManager.LayoutParams) {
-        val limits = activeArea(layout).limits(layout)
-        frameView?.setDockedVisualEdges(
-            PetVisualDockingPolicy.edges(
-                edgeMode = motionMode() == PetMotionPolicy.EDGE,
-                dockedEdge = dockedEdge(),
-                x = layout.x,
-                y = layout.y,
-                minX = limits.minX,
-                maxX = limits.maxX,
-                minY = limits.minY,
-                maxY = limits.maxY,
-            ),
-        )
-    }
 
     private fun handleDragRelease(
         layout: WindowManager.LayoutParams,
@@ -1229,10 +1188,8 @@ class PetOverlayWindow(
         val action = autonomousMoveActionId
         autonomousMoveActionId = ""
         if (resetToIdle && player?.currentActionId == action) {
-            player?.returnToIdle(
-                directionValue = "down",
-                reason = "pet_autonomy_move_complete",
-            )
+            player?.setDirection("down")
+            player?.resetToIdle("pet_autonomy_move_complete")
         }
         persistPosition()
     }
@@ -1315,12 +1272,58 @@ class PetOverlayWindow(
         lastMotionArea = activeArea(layout)
     }
 
+    /**
+     * The service health watchdog owns the shared overlay input channel, but it
+     * must not clamp a pet with the legacy bubble safe area. Reconcile only
+     * against the pet motion area and preserve the selected dock axis.
+     */
+    fun reconcileHealthPosition(): Boolean {
+        if (dragging || physics.active) return false
+        val layout = params ?: return false
+        val view = root ?: return false
+        val oldX = layout.x
+        val oldY = layout.y
+        clamp(layout)
+        enforceDockedAxis(layout)
+        if (layout.x == oldX && layout.y == oldY) return false
+        runCatching { windowManager.updateViewLayout(view, layout) }
+        persistCurrentPosition()
+        return true
+    }
+
+    fun isPositionSafeForHealth(): Boolean {
+        val layout = params ?: return false
+        val limits = activeArea(layout).limits(layout)
+        if (layout.x !in limits.minX..limits.maxX || layout.y !in limits.minY..limits.maxY) {
+            return false
+        }
+        if (dragging || physics.active || motionMode() != PetMotionPolicy.EDGE) return true
+        return when (dockedEdge()) {
+            EDGE_LEFT -> layout.x == limits.minX
+            EDGE_RIGHT -> layout.x == limits.maxX
+            EDGE_TOP -> layout.y == limits.minY
+            EDGE_BOTTOM -> layout.y == limits.maxY
+            else -> true
+        }
+    }
+
     private fun persistPosition() = persistCurrentPosition()
 
     private fun clamp(layout: WindowManager.LayoutParams) {
         val safe = activeArea(layout)
         layout.x = layout.x.coerceIn(safe.left, (safe.right - layout.width).coerceAtLeast(safe.left))
         layout.y = layout.y.coerceIn(safe.top, (safe.bottom - layout.height).coerceAtLeast(safe.top))
+    }
+
+    private fun enforceDockedAxis(layout: WindowManager.LayoutParams) {
+        if (motionMode() != PetMotionPolicy.EDGE) return
+        val limits = activeArea(layout).limits(layout)
+        when (dockedEdge()) {
+            EDGE_LEFT -> layout.x = limits.minX
+            EDGE_RIGHT -> layout.x = limits.maxX
+            EDGE_TOP -> layout.y = limits.minY
+            EDGE_BOTTOM -> layout.y = limits.maxY
+        }
     }
 
     private fun activeArea(layout: WindowManager.LayoutParams): SafeArea {
