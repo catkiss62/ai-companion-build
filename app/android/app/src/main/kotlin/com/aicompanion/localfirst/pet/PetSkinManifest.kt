@@ -97,10 +97,26 @@ data class PetSkinManifest(
 
     fun programFor(actionId: String, targetHeight: Int, direction: String): PetAnimationProgram {
         val action = requireAction(actionId)
+        val enter = segmentClip(action, action.enter, PetAnimationPhase.ENTER, targetHeight, direction)
+        val normalBody = clipFor(actionId, targetHeight, direction)
+        val body = if (actionId == "SLEEPING" && enter?.frames?.isNotEmpty() == true) {
+            // The upstream single-frame sleep body is roughly 27% larger than
+            // the visually identical last sleep-enter pose. Keep the authored
+            // transition, then hold that final pose for the sleep loop.
+            normalBody.copy(
+                assetId = enter.assetId,
+                frames = listOf(enter.frames.last()),
+                selectedSize = enter.selectedSize,
+                frameDurationMs = frameDuration(action, 1),
+                mirrored = enter.mirrored,
+            )
+        } else {
+            normalBody
+        }
         return PetAnimationProgram(
             actionId = actionId,
-            body = clipFor(actionId, targetHeight, direction),
-            enter = segmentClip(action, action.enter, PetAnimationPhase.ENTER, targetHeight, direction),
+            body = body,
+            enter = enter,
             exit = segmentClip(action, action.exit, PetAnimationPhase.EXIT, targetHeight, direction),
         )
     }

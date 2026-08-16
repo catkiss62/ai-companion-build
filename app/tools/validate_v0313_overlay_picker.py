@@ -22,6 +22,7 @@ def main() -> int:
         "static const int schemaVersion = 19;",
         "static const int schemaVersion = 20;",
         "static const int schemaVersion = 21;",
+        "static const int schemaVersion = 22;",
     ))
 
     overlay = read(

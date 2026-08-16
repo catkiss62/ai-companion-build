@@ -18,7 +18,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 
 assert any(version in read("pubspec.yaml") for version in (
-    "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64",
+    "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.0+65",
 ))
 
 contract = read(
@@ -117,9 +117,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.33.9+64 APK",
+        "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)",
         "python3 tools/validate_v0335_pet_chat_action_arbiter.py",
-        "AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK",
+        "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK",
     ],
     "workflow",
 )

@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/chat_message.dart';
+import '../../core/models/message_attachment.dart';
+import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/reasoning_panel.dart';
@@ -20,8 +24,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ChatController controller = ChatController();
   final TextEditingController input = TextEditingController();
   final ScrollController scroll = ScrollController();
+  final ImagePicker _imagePicker = ImagePicker();
   Timer? _externalSyncTimer;
   bool _appResumed = true;
+  bool _pickingImage = false;
 
   @override
   void initState() {
@@ -34,6 +40,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _initializeController() async {
     await controller.initialize();
+    if (!mounted) return;
+    await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (_appResumed && !controller.sending) {
@@ -88,6 +96,213 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     await controller.sendText(text);
   }
 
+  Future<void> _recoverLostImage() async {
+    try {
+      final response = await _imagePicker.retrieveLostData();
+      if (!mounted || response.isEmpty) return;
+      final files = response.files;
+      if (files != null && files.isNotEmpty) {
+        await _prepareAndConfirmImage(files.first, source: 'recovered');
+      } else if (response.exception != null) {
+        _showMessage('没有恢复刚才选择的图片：${response.exception}');
+      }
+    } catch (exception) {
+      if (mounted) _showMessage('恢复图片选择失败：$exception');
+    }
+  }
+
+  Future<void> _chooseImageSource() async {
+    if (_pickingImage || controller.sending || controller.savingImage) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('从相册选择'),
+              subtitle: const Text('使用系统图片选择器'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('拍照'),
+              subtitle: const Text('打开系统相机'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    setState(() => _pickingImage = true);
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        requestFullMetadata: false,
+      );
+      if (image != null && mounted) {
+        await _prepareAndConfirmImage(
+          image,
+          source: source == ImageSource.camera ? 'camera' : 'gallery',
+        );
+      }
+    } catch (exception) {
+      if (mounted) _showMessage('无法取得图片：$exception');
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
+    }
+  }
+
+  Future<void> _prepareAndConfirmImage(
+    XFile image, {
+    required String source,
+  }) async {
+    PreparedImageAttachment? draft;
+    try {
+      draft = await controller.prepareImage(
+        sourcePath: image.path,
+        source: source,
+        mimeType: image.mimeType,
+      );
+      if (!mounted) {
+        await controller.discardPreparedImage(draft);
+        return;
+      }
+      final caption = await _showImageConfirmation(draft);
+      if (caption == null) {
+        await controller.discardPreparedImage(draft);
+        return;
+      }
+      final saved = await controller.sendPreparedImage(draft, caption: caption);
+      if (mounted && saved) {
+        _showMessage('图片消息已保存在本机；识图会在下一阶段接入。');
+      }
+    } catch (exception) {
+      if (draft != null) {
+        try {
+          await controller.discardPreparedImage(draft);
+        } catch (_) {}
+      }
+      if (mounted) _showMessage('图片准备失败：$exception');
+    }
+  }
+
+  Future<String?> _showImageConfirmation(PreparedImageAttachment draft) async {
+    final caption = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('发送这张图片？'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    draft.thumbnailFile,
+                    height: 230,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 150,
+                      child: Center(child: Text('缩略图生成失败')),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: caption,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '附言（可选）',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '本阶段先完成图片消息的本地保存与恢复，AI 暂时不会读取图片内容。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, caption.text),
+              child: const Text('发送'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      caption.dispose();
+    }
+  }
+
+  Future<void> _openAttachment(MessageAttachment attachment) async {
+    final file = await controller.attachmentStorage.fileFor(attachment.originalPath);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('图片')),
+          body: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 5,
+            child: Center(
+              child: Image.file(
+                file,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const _MissingAttachment(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAttachmentMessage(ChatMessage message) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('删除图片消息？'),
+            content: const Text('这会同时删除本机保存的原图和缩略图。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    final deleted = await controller.deleteAttachmentMessage(message);
+    if (mounted && !deleted) _showMessage('没有删除这条图片消息。');
+  }
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = Column(
@@ -117,6 +332,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           _MessageBubble(
                             message: message,
                             ttsPhase: controller.ttsPhaseForMessage(message.id),
+                            attachmentStorage: controller.attachmentStorage,
+                            onOpenAttachment: _openAttachment,
+                            onDelete: message.isUser && message.hasAttachments
+                                ? () => _confirmDeleteAttachmentMessage(message)
+                                : null,
                             onSpeechAction: message.isAssistant
                                 ? () {
                                     if (controller.ttsPhaseForMessage(message.id) ==
@@ -197,6 +417,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            IconButton(
+              onPressed: controller.sending ||
+                      controller.savingImage ||
+                      _pickingImage
+                  ? null
+                  : _chooseImageSource,
+              tooltip: '发送图片',
+              icon: _pickingImage || controller.savingImage
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_photo_alternate_outlined),
+            ),
+            const SizedBox(width: 4),
             Expanded(
               child: TextField(
                 controller: input,
@@ -264,11 +499,17 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.ttsPhase,
+    required this.attachmentStorage,
+    required this.onOpenAttachment,
     this.onSpeechAction,
+    this.onDelete,
   });
   final ChatMessage message;
   final TtsPlaybackPhase ttsPhase;
+  final MessageAttachmentStorage attachmentStorage;
+  final ValueChanged<MessageAttachment> onOpenAttachment;
   final VoidCallback? onSpeechAction;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +542,20 @@ class _MessageBubble extends StatelessWidget {
               ReasoningPanel(
                 reasoning: message.reasoningContent,
               ),
-            SelectableText(message.content, style: const TextStyle(height: 1.45)),
+            for (final attachment in message.attachments)
+              if (attachment.isImage)
+                _AttachmentThumbnail(
+                  attachment: attachment,
+                  storage: attachmentStorage,
+                  onTap: () => onOpenAttachment(attachment),
+                ),
+            if (message.content.trim().isNotEmpty) ...[
+              if (message.hasAttachments) const SizedBox(height: 8),
+              SelectableText(
+                message.content,
+                style: const TextStyle(height: 1.45),
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -321,10 +575,89 @@ class _MessageBubble extends StatelessWidget {
                     onPressed: onSpeechAction!,
                   ),
                 ],
+                if (onDelete != null)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                    padding: EdgeInsets.zero,
+                    iconSize: 17,
+                    tooltip: '删除图片消息',
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AttachmentThumbnail extends StatelessWidget {
+  const _AttachmentThumbnail({
+    required this.attachment,
+    required this.storage,
+    required this.onTap,
+  });
+
+  final MessageAttachment attachment;
+  final MessageAttachmentStorage storage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<File>(
+      future: storage.fileFor(attachment.thumbnailPath),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            width: 220,
+            height: 150,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: 160,
+                maxWidth: 300,
+                maxHeight: 320,
+              ),
+              child: Image.file(
+                snapshot.data!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const _MissingAttachment(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MissingAttachment extends StatelessWidget {
+  const _MissingAttachment();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      height: 150,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined),
+          SizedBox(height: 6),
+          Text('图片文件暂时不可用'),
+        ],
       ),
     );
   }

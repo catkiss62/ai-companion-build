@@ -186,4 +186,50 @@ class PetOverlayContractTest {
         assertEquals(null, PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, ""))
     }
 
+    @Test
+    fun sleepingLoopHoldsTheLastEnterFrameAtEveryRasterTier() {
+        val tiers = listOf(187, 238, 306)
+        val manifest = PetSkinManifest(
+            formatVersion = 4,
+            characterId = "test",
+            assets = mapOf(
+                "sleep_body" to PetAssetSpec(
+                    id = "sleep_body",
+                    framesBySize = tiers.associateWith { listOf("body_$it.png") },
+                    frameCount = 1,
+                ),
+                "sleep_enter" to PetAssetSpec(
+                    id = "sleep_enter",
+                    framesBySize = tiers.associateWith {
+                        listOf("enter_${it}_0.png", "enter_${it}_1.png", "enter_${it}_2.png")
+                    },
+                    frameCount = 3,
+                ),
+            ),
+            actions = mapOf(
+                "SLEEPING" to PetActionSpec(
+                    id = "SLEEPING",
+                    assetId = "sleep_body",
+                    loop = true,
+                    durationMs = null,
+                    priority = 10,
+                    interruptible = true,
+                    returnState = "IDLE",
+                    anchor = PetAnchor(),
+                    effect = "sleep",
+                    enter = PetSegmentSpec("sleep_enter", 900L, null),
+                    exit = null,
+                ),
+            ),
+        )
+
+        for (tier in tiers) {
+            val program = manifest.programFor("SLEEPING", tier, "down")
+            assertEquals(listOf("enter_${tier}_2.png"), program.body.frames)
+            assertEquals(tier, program.body.selectedSize)
+            assertEquals("sleep", program.body.effect)
+            assertTrue(program.body.loop)
+        }
+    }
+
 }

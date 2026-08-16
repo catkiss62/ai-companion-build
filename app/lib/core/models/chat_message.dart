@@ -1,3 +1,5 @@
+import 'message_attachment.dart';
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -10,6 +12,8 @@ class ChatMessage {
     this.proactiveIntent = '',
     this.proactiveDelivery = '',
     this.deviceId,
+    this.attachments = const <MessageAttachment>[],
+    this.expectsReply = true,
   });
 
   final String id;
@@ -22,9 +26,22 @@ class ChatMessage {
   final String proactiveIntent;
   final String proactiveDelivery;
   final String? deviceId;
+  final List<MessageAttachment> attachments;
+  final bool expectsReply;
 
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
+  bool get hasAttachments => attachments.isNotEmpty;
+
+  String get promptContent {
+    if (!hasAttachments) return content;
+    final caption = content.trim();
+    final imageCount = attachments.where((item) => item.isImage).length;
+    final label = imageCount <= 1
+        ? '[用户发送了一张图片；当前文字模型没有读取图片内容]'
+        : '[用户发送了$imageCount张图片；当前文字模型没有读取图片内容]';
+    return caption.isEmpty ? label : '$label\n附言：$caption';
+  }
 
   ChatMessage copyWith({
     String? content,
@@ -33,6 +50,8 @@ class ChatMessage {
     bool? isProactive,
     String? proactiveIntent,
     String? proactiveDelivery,
+    List<MessageAttachment>? attachments,
+    bool? expectsReply,
   }) {
     return ChatMessage(
       id: id,
@@ -45,6 +64,8 @@ class ChatMessage {
       proactiveIntent: proactiveIntent ?? this.proactiveIntent,
       proactiveDelivery: proactiveDelivery ?? this.proactiveDelivery,
       deviceId: deviceId,
+      attachments: attachments ?? this.attachments,
+      expectsReply: expectsReply ?? this.expectsReply,
     );
   }
 
@@ -59,6 +80,7 @@ class ChatMessage {
         'proactive_intent': proactiveIntent,
         'proactive_delivery': proactiveDelivery,
         'device_id': deviceId,
+        'expects_reply': expectsReply ? 1 : 0,
       };
 
   Map<String, Object?> toJson() => {
@@ -72,9 +94,14 @@ class ChatMessage {
         'proactive_intent': proactiveIntent,
         'proactive_delivery': proactiveDelivery,
         'device_id': deviceId,
+        'attachments': attachments.map((item) => item.toJson()).toList(),
+        'expects_reply': expectsReply,
       };
 
-  factory ChatMessage.fromDb(Map<String, Object?> row) {
+  factory ChatMessage.fromDb(
+    Map<String, Object?> row, {
+    List<MessageAttachment> attachments = const <MessageAttachment>[],
+  }) {
     return ChatMessage(
       id: row['id'] as String,
       role: row['role'] as String,
@@ -86,6 +113,8 @@ class ChatMessage {
       proactiveIntent: row['proactive_intent'] as String? ?? '',
       proactiveDelivery: row['proactive_delivery'] as String? ?? '',
       deviceId: row['device_id'] as String?,
+      attachments: attachments,
+      expectsReply: (row['expects_reply'] as int? ?? 1) == 1,
     );
   }
 }

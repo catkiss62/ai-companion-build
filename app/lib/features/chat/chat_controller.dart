@@ -17,11 +17,13 @@ import '../../core/desire/thought_lifecycle_engine.dart';
 import '../../core/maintenance/long_running_maintenance_engine.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/models/chat_message.dart';
+import '../../core/models/message_attachment.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
+import '../../core/storage/message_attachment_storage.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_service.dart';
@@ -32,11 +34,13 @@ class ChatController extends ChangeNotifier {
     DeepSeekClient? client,
     SecureConfig? secureConfig,
     AndroidBridge? android,
+    MessageAttachmentStorage? attachmentStorage,
     this.externalRecoveryOrchestrator = false,
   })  : db = db ?? AppDatabase.instance,
         client = client ?? DeepSeekClient(),
         secureConfig = secureConfig ?? SecureConfig.instance,
-        android = android ?? AndroidBridge.instance {
+        android = android ?? AndroidBridge.instance,
+        attachmentStorage = attachmentStorage ?? MessageAttachmentStorage() {
     desireEngine = DesireEngine(this.db);
     thoughtLifecycle = ThoughtLifecycleEngine(db: this.db);
     thoughtConsolidation = ThoughtConsolidationEngine(this.db);
@@ -79,6 +83,7 @@ class ChatController extends ChangeNotifier {
   final DeepSeekClient client;
   final SecureConfig secureConfig;
   final AndroidBridge android;
+  final MessageAttachmentStorage attachmentStorage;
   final bool externalRecoveryOrchestrator;
   late final DesireEngine desireEngine;
   late final ThoughtLifecycleEngine thoughtLifecycle;
@@ -98,6 +103,7 @@ class ChatController extends ChangeNotifier {
   List<ChatMessage> messages = [];
   bool loading = true;
   bool sending = false;
+  bool savingImage = false;
   bool recoveringGeneration = false;
   bool cancellingGeneration = false;
   String streamingReasoning = '';
@@ -180,6 +186,8 @@ class ChatController extends ChangeNotifier {
       model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       messages = await db.recentMessages(limit: 120);
+      unawaited(attachmentStorage.cleanOldDrafts());
+      unawaited(_pruneOrphanAttachmentFiles());
       loading = false;
       _safeNotify();
 
@@ -223,6 +231,20 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> _pruneOrphanAttachmentFiles() async {
+    try {
+      final attachments = await db.allMessageAttachments();
+      await attachmentStorage.pruneUnreferencedFiles({
+        for (final attachment in attachments) ...[
+          attachment.originalPath,
+          attachment.thumbnailPath,
+        ],
+      });
+    } catch (_) {
+      // File reconciliation is best-effort and must never block chat startup.
+    }
+  }
+
   Future<void> reload() async {
     messages = await db.recentMessages(limit: 120);
     _safeNotify();
@@ -237,7 +259,8 @@ class ChatController extends ChangeNotifier {
         (latest.isEmpty ||
             (messages.isNotEmpty &&
                 latest.last.id == messages.last.id &&
-                latest.last.content == messages.last.content));
+                latest.last.content == messages.last.content &&
+                latest.last.attachments.length == messages.last.attachments.length));
     if (same) return false;
     messages = latest;
     _safeNotify();
@@ -254,6 +277,89 @@ class ChatController extends ChangeNotifier {
     effort = next;
     await db.setSetting('reasoning_effort', next.apiName);
     _safeNotify();
+  }
+
+  Future<PreparedImageAttachment> prepareImage({
+    required String sourcePath,
+    required String source,
+    String? mimeType,
+  }) {
+    return attachmentStorage.prepareImage(
+      sourcePath: sourcePath,
+      source: source,
+      mimeType: mimeType,
+    );
+  }
+
+  Future<bool> sendPreparedImage(
+    PreparedImageAttachment draft, {
+    String caption = '',
+  }) async {
+    if (sending || savingImage) return false;
+    error = null;
+    savingImage = true;
+    _safeNotify();
+    MessageAttachment? committed;
+    try {
+      if ((await db.getSetting('transfer_lock')) == '1') {
+        throw StateError('她正在换到另一台设备，接管完成前先不能继续聊天。');
+      }
+      if ((await db.getSetting('active_brain')) == '0') {
+        throw StateError('她现在在另一台设备上，请先把她接到这台设备。');
+      }
+      final messageId = _uuid.v4();
+      committed = await attachmentStorage.commitDraft(
+        draft,
+        messageId: messageId,
+      );
+      final message = ChatMessage(
+        id: messageId,
+        role: 'user',
+        content: caption.trim(),
+        createdAt: DateTime.now(),
+        deviceId: await db.ensureDeviceId(),
+        attachments: [committed],
+        expectsReply: false,
+      );
+      await db.insertMessageWithAttachments(message, [committed]);
+      messages = [...messages, message];
+      return true;
+    } catch (exception) {
+      if (committed != null) {
+        try {
+          await attachmentStorage.deleteAttachmentFiles(committed);
+        } catch (_) {}
+      } else {
+        try {
+          await attachmentStorage.discardDraft(draft);
+        } catch (_) {}
+      }
+      error = '图片消息保存失败：$exception';
+      return false;
+    } finally {
+      savingImage = false;
+      _safeNotify();
+    }
+  }
+
+  Future<void> discardPreparedImage(PreparedImageAttachment draft) async {
+    await attachmentStorage.discardDraft(draft);
+  }
+
+  Future<bool> deleteAttachmentMessage(ChatMessage message) async {
+    if (!message.isUser || !message.hasAttachments || sending || savingImage) {
+      return false;
+    }
+    final removed = await db.deleteAttachmentMessage(message.id);
+    if (removed.isEmpty) return false;
+    for (final attachment in removed) {
+      try {
+        await attachmentStorage.deleteAttachmentFiles(attachment);
+      } catch (_) {}
+    }
+    messages = messages.where((item) => item.id != message.id).toList();
+    _safeNotify();
+    return true;
   }
 
   Future<void> sendText(String raw, {String? requestedMessageId}) async {
