@@ -85,13 +85,13 @@ object PetAutonomousMotionPolicy {
  * of extra cards to the shuffled action bag.
  */
 object PetAmbientActionPolicy {
-    private val stationaryBase = listOf("BLINK", "GLANCE", "HAPPY", "SWEEPING", "EATING")
+    private val stationaryBase = listOf("GLANCE", "HAPPY", "SWEEPING", "EATING")
 
     fun candidates(
         snapshot: PetAutonomySnapshot,
         mobilityEnabled: Boolean,
     ): List<String> = buildList {
-        if (mobilityEnabled) repeat(6) { add("STROLLING") }
+        if (mobilityEnabled) repeat(8) { add("STROLLING") }
         addAll(stationaryBase)
         if (!snapshot.enabled) return@buildList
         when (snapshot.dominantDrive) {
@@ -114,7 +114,12 @@ object PetAmbientActionPolicy {
 
     fun nextDelayMs(randomUnit: Double): Long {
         val unit = randomUnit.coerceIn(0.0, 0.999999)
-        return 8_000L + (unit * 12_000L).toLong()
+        return 3_000L + (unit * 4_000L).toLong()
+    }
+
+    fun nextBlinkDelayMs(randomUnit: Double): Long {
+        val unit = randomUnit.coerceIn(0.0, 0.999999)
+        return 4_000L + (unit * 3_000L).toLong()
     }
 }
 
@@ -123,7 +128,7 @@ object PetAmbientActionPolicy {
  * before the random ambient bag and never create or mutate durable state.
  */
 object PetAutonomyPolicy {
-    const val MIN_AMBIENT_IDLE_MS = 6_000L
+    const val MIN_AMBIENT_IDLE_MS = 3_000L
     const val MIN_SEMANTIC_IDLE_MS = 45_000L
     const val SLEEP_IDLE_MS = 180_000L
 

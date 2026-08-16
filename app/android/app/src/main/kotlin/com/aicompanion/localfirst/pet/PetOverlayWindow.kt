@@ -83,12 +83,14 @@ class PetOverlayWindow(
     private var lastMotionArea: SafeArea? = null
     private var conversationCue = PetConversationPolicy.IDLE
     private var autonomySnapshot = PetAutonomySnapshot()
-    private var autonomySuppressed = true
+    private var autonomySuppressed = false
     private val ambientRandom = Random.Default
     private val ambientActionBag = ArrayDeque<String>()
     private var lastUserActivityAtMs = SystemClock.uptimeMillis()
     private var nextAmbientActionAtMs = lastUserActivityAtMs
+    private var nextBlinkAtMs = lastUserActivityAtMs
     private var lastAmbientActionId = ""
+    private var ambientNonMoveStreak = 0
     private var lastSemanticActionAtMs = 0L
     private var activeAutonomyAction: String? = null
     private var autonomousMoveEndAtMs = 0L
@@ -174,7 +176,9 @@ class PetOverlayWindow(
                 finishAutonomousMove(resetToIdle = true)
                 return
             }
-            val step = maxOf(1, dp(AUTONOMOUS_MOVE_STEP_DP)).toDouble()
+            val step = context.resources.displayMetrics.density.toDouble() *
+                AUTONOMOUS_MOVE_SPEED_DP_PER_SECOND *
+                (AUTONOMOUS_MOVE_TICK_MS / 1_000.0)
             val nextX: Int
             val nextY: Int
             if (distance <= step) {
@@ -284,7 +288,9 @@ class PetOverlayWindow(
             cache = frameCache
             player = animation
             animation.start()
-            scheduleNextAmbient(SystemClock.uptimeMillis())
+            val autonomyStartedAtMs = SystemClock.uptimeMillis()
+            scheduleNextAmbient(autonomyStartedAtMs)
+            scheduleNextBlink(autonomyStartedAtMs)
             handler.removeCallbacks(autonomyTick)
             handler.postDelayed(autonomyTick, AUTONOMY_TICK_MS)
             lastMotionArea = activeArea(layout)
@@ -310,7 +316,9 @@ class PetOverlayWindow(
             cancelAutonomyPlayback(resetToIdle = false)
             closeOptions(resumeMotion = false)
         } else {
-            scheduleNextAmbient(SystemClock.uptimeMillis())
+            val resumedAtMs = SystemClock.uptimeMillis()
+            scheduleNextAmbient(resumedAtMs)
+            scheduleNextBlink(resumedAtMs)
             reconcileConversationAction("pet_visible")
             resumeFallIfPending()
         }
@@ -845,6 +853,8 @@ class PetOverlayWindow(
         val normalized = PetMobilityPolicy.normalized(value)
         prefs.edit().putString(KEY_PET_MOBILITY_MODE, normalized).apply()
         ambientActionBag.clear()
+        ambientNonMoveStreak = 0
+        lastAmbientActionId = ""
         if (normalized == PetMobilityPolicy.STATIONARY) {
             cancelAutonomyPlayback(resetToIdle = true)
         }
@@ -966,6 +976,15 @@ class PetOverlayWindow(
             return
         }
 
+        if (now >= nextBlinkAtMs) {
+            scheduleNextBlink(now)
+            playAutonomyDecision(
+                PetAutonomyDecision(actionId = "BLINK", semantic = false),
+                now,
+            )
+            return
+        }
+
         if (idleMs < PetAutonomyPolicy.MIN_AMBIENT_IDLE_MS || now < nextAmbientActionAtMs) return
         val actionId = nextAmbientAction()
         scheduleNextAmbient(now)
@@ -1008,11 +1027,23 @@ class PetOverlayWindow(
             )
             ambientActionBag.addAll(candidates.shuffled(ambientRandom))
         }
-        var action = ambientActionBag.removeFirstOrNull() ?: "BLINK"
+
+        val forceMovement = mobilityEnabled() &&
+            (lastAmbientActionId.isBlank() || ambientNonMoveStreak >= MAX_NON_MOVE_STREAK)
+        var action = if (forceMovement && ambientActionBag.remove("STROLLING")) {
+            "STROLLING"
+        } else {
+            ambientActionBag.removeFirstOrNull() ?: "GLANCE"
+        }
         if (action == lastAmbientActionId && ambientActionBag.isNotEmpty()) {
             val alternate = ambientActionBag.removeFirst()
             ambientActionBag.addLast(action)
             action = alternate
+        }
+        if (action == "STROLLING") {
+            ambientNonMoveStreak = 0
+        } else {
+            ambientNonMoveStreak++
         }
         lastAmbientActionId = action
         return action
@@ -1020,6 +1051,12 @@ class PetOverlayWindow(
 
     private fun scheduleNextAmbient(now: Long) {
         nextAmbientActionAtMs = now + PetAmbientActionPolicy.nextDelayMs(
+            ambientRandom.nextDouble(),
+        )
+    }
+
+    private fun scheduleNextBlink(now: Long) {
+        nextBlinkAtMs = now + PetAmbientActionPolicy.nextBlinkDelayMs(
             ambientRandom.nextDouble(),
         )
     }
@@ -1172,6 +1209,7 @@ class PetOverlayWindow(
         val now = SystemClock.uptimeMillis()
         lastUserActivityAtMs = now
         scheduleNextAmbient(now)
+        scheduleNextBlink(now)
     }
 
     private fun optionButton(label: String, action: () -> Unit): Button = Button(context).apply {
@@ -1378,11 +1416,12 @@ class PetOverlayWindow(
         private const val LONG_PRESS_MS = 620L
         private const val REPEATED_POKE_WINDOW_MS = 5_000L
         private const val EDGE_OVERSCAN_RATIO = 0.06f
-        private const val AUTONOMY_TICK_MS = 3_000L
+        private const val AUTONOMY_TICK_MS = 1_000L
         private const val SEMANTIC_ACTION_COOLDOWN_MS = 55_000L
         private const val AUTONOMOUS_MOVE_TIMEOUT_MS = 9_000L
-        private const val AUTONOMOUS_MOVE_TICK_MS = 32L
-        private const val AUTONOMOUS_MOVE_STEP_DP = 3
+        private const val AUTONOMOUS_MOVE_TICK_MS = 16L
+        private const val AUTONOMOUS_MOVE_SPEED_DP_PER_SECOND = 93.75
+        private const val MAX_NON_MOVE_STREAK = 2
         private const val AUTONOMOUS_MOVE_MIN_ROOM_DP = 36
         private const val AUTONOMOUS_MOVE_MIN_TRAVEL_DP = 72
         private const val AUTONOMOUS_MOVE_TARGET_ATTEMPTS = 20

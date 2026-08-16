@@ -32,9 +32,12 @@ require(policy, [
     'const val MOBILE = "mobile"',
     'const val STATIONARY = "stationary"',
     "object PetAmbientActionPolicy",
-    'repeat(6) { add("STROLLING") }',
+    'repeat(8) { add("STROLLING") }',
     'addAll(stationaryBase)',
-    "8_000L + (unit * 12_000L).toLong()",
+    "3_000L + (unit * 4_000L).toLong()",
+    "fun nextBlinkDelayMs(randomUnit: Double): Long",
+    "4_000L + (unit * 3_000L).toLong()",
+    "const val MIN_AMBIENT_IDLE_MS = 3_000L",
     "val continuous2D: Boolean",
     "fun chooseSemantic(",
 ], "hybrid ambient policy")
@@ -45,6 +48,12 @@ require(pet, [
     'sectionLabel("活动范围")',
     "ambientActionBag",
     "candidates.shuffled(ambientRandom)",
+    "nextBlinkAtMs",
+    "ambientNonMoveStreak",
+    "MAX_NON_MOVE_STREAK = 2",
+    "AUTONOMY_TICK_MS = 1_000L",
+    "AUTONOMOUS_MOVE_TICK_MS = 16L",
+    "AUTONOMOUS_MOVE_SPEED_DP_PER_SECOND = 93.75",
     "val angle = ambientRandom.nextDouble() * Math.PI * 2.0",
     "val candidateX = (layout.x + cos(angle) * travel).roundToInt()",
     "val candidateY = (layout.y + sin(angle) * travel).roundToInt()",
@@ -60,6 +69,10 @@ assert "if (autonomySnapshot.enabled &&" not in pet
 require(skin, [
     "// Preserve the authoring order for both walk directions: 00 -> 01 -> 02 -> 03.",
     "val frames = sourceFrames",
+    'actionId in setOf("STROLLING", "WALKING")',
+    'val mirrorLeftWalk = action.id == "WALKING" && direction == "right"',
+    "if (mirrorLeftWalk) {",
+    "mirrored = mirrorLeftWalk",
     'assets["sleepy_yawn_runtime"]',
     '187 to listOf("runtime_overrides/yawning/sleepy_yawn_187.png")',
     '238 to listOf("runtime_overrides/yawning/sleepy_yawn_238.png")',
@@ -67,6 +80,7 @@ require(skin, [
     'assetId = "sleepy_yawn_runtime"',
 ], "walk order and normalized yawn asset")
 assert "listOf(sourceFrames[3], sourceFrames[1], sourceFrames[2], sourceFrames[0])" not in skin
+assert 'return if (direction == "right") "walk_side_right" else defaultAsset' not in skin
 
 asset_root = "android/app/src/main/assets/pets/dafeiyu/source/runtime_overrides/yawning"
 assert png_size(f"{asset_root}/sleepy_yawn_187.png") == (136, 160)
@@ -98,6 +112,10 @@ require(doc, [
     "00 → 01 → 02 → 03",
     "洗牌袋",
     "晕眩星星",
+    "3–7 秒",
+    "4–7 秒",
+    "约 60Hz",
+    "完整镜像",
 ], "D3.3 design record")
 
 workflow = read("../.github/workflows/build-apk.yml")
@@ -107,4 +125,4 @@ require(workflow, [
     "AI-Companion-v0.33.9-64-Pet-Ambient-Motion-D3-3-APK",
 ], "workflow")
 
-print("v0.33.9 validated: hybrid ambient variety, 360-degree movement, stationary mode, yawn tiers, right gait order and dizzy stars.")
+print("v0.33.9 validated: frequent hybrid ambient actions, independent blink, 360-degree 60Hz movement, mirrored right gait, stationary mode, yawn tiers and dizzy stars.")

@@ -91,7 +91,7 @@ data class PetSkinManifest(
             frameDurationMs = frameDuration(action, frames.size),
             anchor = action.anchor,
             effect = action.effect,
-            mirrored = actionId == "STROLLING" && direction == "right",
+            mirrored = direction == "right" && actionId in setOf("STROLLING", "WALKING"),
         )
     }
 
@@ -113,7 +113,12 @@ data class PetSkinManifest(
         direction: String,
     ): PetAnimationClip? {
         segment ?: return null
-        val assetId = directionalTransitionAsset(segment.assetId, direction)
+        val mirrorLeftWalk = action.id == "WALKING" && direction == "right"
+        val assetId = if (mirrorLeftWalk) {
+            segment.assetId
+        } else {
+            directionalTransitionAsset(segment.assetId, direction)
+        }
         val (frames, selectedSize) = requireAsset(assetId).framesNearestTo(targetHeight)
         return PetAnimationClip(
             actionId = action.id,
@@ -126,6 +131,7 @@ data class PetSkinManifest(
             anchor = action.anchor,
             effect = segment.effect ?: action.effect,
             phase = phase,
+            mirrored = mirrorLeftWalk,
         )
     }
 
@@ -149,7 +155,8 @@ data class PetSkinManifest(
             }
         }
         if (actionId == "WALKING") {
-            return if (direction == "right") "walk_side_right" else defaultAsset
+            // The authored left gait is the stable source of truth; mirror the whole program for right.
+            return defaultAsset
         }
         return defaultAsset
     }

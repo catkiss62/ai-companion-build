@@ -115,15 +115,17 @@ class PetOverlayContractTest {
         val mobile = PetAmbientActionPolicy.candidates(disabled, mobilityEnabled = true)
         val stationary = PetAmbientActionPolicy.candidates(disabled, mobilityEnabled = false)
 
-        assertEquals(6, mobile.count { it == "STROLLING" })
+        assertEquals(8, mobile.count { it == "STROLLING" })
         assertTrue("HAPPY" in mobile)
         assertTrue("SWEEPING" in mobile)
         assertTrue("EATING" in mobile)
         assertFalse("STROLLING" in stationary)
         assertTrue("HAPPY" in stationary)
         assertTrue("SWEEPING" in stationary)
-        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.0) >= 8_000L)
-        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.999) < 20_000L)
+        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.0) >= 3_000L)
+        assertTrue(PetAmbientActionPolicy.nextDelayMs(0.999) < 7_000L)
+        assertTrue(PetAmbientActionPolicy.nextBlinkDelayMs(0.0) >= 4_000L)
+        assertTrue(PetAmbientActionPolicy.nextBlinkDelayMs(0.999) < 7_000L)
     }
 
     @Test
