@@ -76,7 +76,7 @@ assert "视觉模型观察" in message
 
 for token in (
     "maxImageBytes = 25 * 1024 * 1024",
-    "thumbnailLongestEdge = 720",
+    "thumbnailLongestEdge = 1000",
     "getApplicationSupportDirectory",
     "ui.ImageDescriptor.encoded",
     "originals/",
