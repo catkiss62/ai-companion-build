@@ -62,8 +62,8 @@ require(
     pet,
     [
         "private const val PORTRAIT_BOTTOM_MARGIN_DP = 16",
-        "dp(windowDp(size) * 8 / 100)",
-        "dp(windowDp(size) * 21 / 100)",
+        "dp(PetOverlaySizing.badgeTopDp(size))",
+        "dp(PetOverlaySizing.badgeEndDp(size))",
     ],
     "pet geometry",
 )
