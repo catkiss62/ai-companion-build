@@ -1,11 +1,6 @@
-status=failure
-build_result=failure
-run_id=32044156432
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32044156432
-head_sha=497ff35a4753273cd4db82e727025267151afea7
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=95428515529 ---
-run 32044156432 is still in progress; logs will be available when it is complete
+status=success
+run_id=32044437774
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32044437774
+head_sha=c38310fe5870a761f7c2cadc569d5048ff20e364
+1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768  AI-Companion-v0.34.6-71-Lock-Resume-APK.apk
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1e7387d440a9edcbbb90
