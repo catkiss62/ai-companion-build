@@ -87,6 +87,9 @@ class PreflightDiagnosticsService {
         'rawAccessibilityTextIncluded': false,
         'apiSecretsIncluded': false,
         'fullOwnershipIdsIncluded': false,
+        'autonomousIntentReasonIncluded': false,
+        'autonomousQueryOrUrlIncluded': false,
+        'autonomousScreenOrWebContentIncluded': false,
       },
     };
 
@@ -103,6 +106,8 @@ class PreflightDiagnosticsService {
       final jobs = await db.postTurnJobStats();
       final memoryStats = await db.memoryStats();
       final somaticDiagnostics = await db.somaticDiagnosticStats();
+      final autonomousActions =
+          await db.autonomousActionDiagnosticStats(now: now);
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -253,6 +258,7 @@ class PreflightDiagnosticsService {
           'activeThoughtCount': desireThoughts.length,
           'thoughtProvenanceCounts': provenanceCounts,
         },
+        'autonomousActions': autonomousActions,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
@@ -336,6 +342,18 @@ class PreflightDiagnosticsService {
         summary: aiToSelfCount > 0
             ? '至少一条已提交的 AI 自发完成动作产生了脱敏感官回响。'
             : '尚无 AI → self 正向事件；需用一条明确已完成的自发触碰动作定向验收。',
+      ));
+      final actionByStatus =
+          _asMap(autonomousActions['byStatus']);
+      final runningActions =
+          (actionByStatus['running'] as num?)?.toInt() ?? 0;
+      checks.add(PreflightCheck(
+        id: 'autonomous_action_foundation',
+        title: '自主行动公共底座',
+        level: runningActions > 0 ? 'info' : 'pass',
+        summary: runningActions > 0
+            ? '当前存在已领取的自主工具任务；报告已保留脱敏执行状态。'
+            : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪；本版本尚未接入真实工具 Provider。',
       ));
       if (transferLock) {
         final expected = pendingImport != null || pendingOutboundId.isNotEmpty;
