@@ -225,6 +225,7 @@
 - 为避免以后每次失败都让用户人工查看并转述日志，workflow 新增自诊断通道：顶层权限增加 `actions: read`；`build-apk` 失败、取消或超时时，独立 `report-ci-failure` job 查询本 run 已结束 job，截取失败日志尾部，并把 `status`、build result、run ID/URL、head SHA 和日志写入 `AI-Companion-v0.34.5-70-CI-Monitor.txt`，覆盖上传至同一私有草稿 Release。
 - 构建成功时 APK 上传步骤会把同名 CI monitor 文件覆盖为 `status=success`，并附 APK 的 SHA-256 行；因此后续监测只需读取草稿 Release：failure 时据日志修复，success 时核验 APK + `.sha256` 并交付。该通道不占 Actions artifact 配额、不发布正式 Release、不合并 main、不包含真机聊天/诊断数据。
 - 后续核对发现连接令牌也无法列出私有草稿 Releases（403），所以仅把 `CI-Monitor.txt` 放进 Release 仍不足以自动读取。workflow 再增加 `pull-requests: write`，把同一结果覆盖写入 PR #23 的固定 `<!-- v0345-ci-monitor -->` 评论：failure 带最多 50KB 失败日志尾部，success 带 run/head、APK SHA-256 和 `gh release view` 返回的真实草稿 Release URL。现有连接可读取 PR 评论，据此修复或交付。
+- 实际调用又确认 PR 评论读取接口返回 404，故评论镜像在启用前退役，移除 `pull-requests: write`。最终采用独立分支 `ci-monitor-v0345` 的 `.ci/v0345-monitor.txt`：workflow 通过已有 `contents: write` 创建/覆盖，当前连接通过已经验证可用的 contents API 读取。该分支不建 PR、不合并 main，不会触发只监听 PR 的 APK workflow，也不会污染产品源码分支。
 - 用户再次明确：监测与构建过程不是交付物。助手应自行监测和修错，项目构建全绿后优先直接发送 APK；若聊天无法直传 APK，则发送草稿 Release 下载链接。不得再次把“APK 构建监测”、CI monitor、PR 评论或总账文件误当成 APK 成品。原定可见的每小时监测任务已停用，后续在当前工作链内完成构建与交付。
 
 - 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。

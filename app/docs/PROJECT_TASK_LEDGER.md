@@ -20,6 +20,7 @@
 - [ ] GitHub Actions artifact 存储配额仍为已知限制；APK 与 `.sha256` 继续由 workflow 写入同一私有仓库的草稿 Release，不恢复 artifact 上传、不发布正式 Release。待本次重新构建后回填 run、APK SHA-256 与草稿 Release 链接。
 - [x] GitHub 连接可读写 PR/分支，但 Actions runs/logs 接口对连接令牌返回 403；安卓网页端又未显示可接管的 Cloud Browser。workflow 因此新增 `actions: read` 和独立 `report-ci-failure` job：失败或取消时读取已结束 job 的日志尾部，把状态、run URL、head SHA 与错误摘要覆盖上传为草稿 Release 内的 `AI-Companion-v0.34.5-70-CI-Monitor.txt`。成功时同名文件改写为 `status=success` 并附 APK SHA-256；不使用已满配额的 artifact。
 - [x] 连接令牌也无法列出私有草稿 Releases，因此 CI monitor 同时镜像到 PR #23 的固定 `<!-- v0345-ci-monitor -->` 评论，并授予 workflow `pull-requests: write`。失败评论带日志尾部，成功评论带 run、head、APK SHA-256 与真实草稿 Release URL；自动修复读取 PR 评论，最终用户交付只发送 APK，无法直传时发送草稿 Release 链接，不把监测任务/CI 文件当成成品。
+- [x] 上述 PR 评论读取接口同样返回 404，故在实际启用前改为独立 `ci-monitor-v0345` 分支的 `.ci/v0345-monitor.txt`。workflow 用既有 `contents: write` 覆盖该文件；该分支不建 PR、不合并 main，也不会触发当前 `pull_request` workflow。连接可通过 contents API 读取它。失败内容含日志尾部，成功内容含真实 Release URL 和 APK SHA-256；PR 评论方案已退役。
 - [ ] v0.34.5 真机连续测试相册选择与诊断导出各 2～3 次；无障碍可开可关，但报告必须至少出现 `coverSessionId>0` 和 `direct_picker:` 原因，最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 - [ ] 若 v0.34.5 仍卡住，最多再进行一轮聚焦修复：依据动画/触摸/菜单症状和新诊断，整体替换错误段或增加真实输入活性证明；不得继续叠加 retry/延迟补丁。
 - [ ] 若上述最后一轮仍无效，冻结悬浮恢复，保留完整失败证据，先推进其余主线；待后续系统结构稳定后再回头处理。

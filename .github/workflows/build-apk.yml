@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
   actions: read
-  pull-requests: write
 
 jobs:
   build-apk:
@@ -212,7 +211,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           TAG='v0.34.5-direct-picker-recovery-test'
@@ -245,21 +243,21 @@ jobs:
             "app/${CI_NAME}" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
-          if test -n "${PR_NUMBER}"; then
-            COMMENT="${RUNNER_TEMP}/v0345-ci-comment.md"
-            {
-              echo '<!-- v0345-ci-monitor -->'
-              echo '## v0.34.5+70 CI result'
-              echo
-              echo '```text'
-              cat "app/${CI_NAME}"
-              echo '```'
-            } > "${COMMENT}"
-            gh pr comment "${PR_NUMBER}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --edit-last \
-              --create-if-none \
-              --body-file "${COMMENT}" || true
+          MONITOR_BRANCH='ci-monitor-v0345'
+          MONITOR_PATH='.ci/v0345-monitor.txt'
+          MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
+          MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
+          if test -n "${MONITOR_SHA}"; then
+            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
+              -f message='Update v0.34.5 CI success monitor' \
+              -f content="${MONITOR_CONTENT}" \
+              -f branch="${MONITOR_BRANCH}" \
+              -f sha="${MONITOR_SHA}" >/dev/null
+          else
+            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
+              -f message='Create v0.34.5 CI success monitor' \
+              -f content="${MONITOR_CONTENT}" \
+              -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
 
   report-ci-failure:
@@ -274,7 +272,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RESULT: ${{ needs.build-apk.result }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -uo pipefail
           TAG='v0.34.5-direct-picker-recovery-test'
@@ -321,20 +318,19 @@ jobs:
             "${REPORT}" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
-          if test -n "${PR_NUMBER}"; then
-            COMMENT="${RUNNER_TEMP}/v0345-ci-comment.md"
-            {
-              echo '<!-- v0345-ci-monitor -->'
-              echo '## v0.34.5+70 CI result'
-              echo
-              echo '```text'
-              tail -c 50000 "${REPORT}"
-              echo
-              echo '```'
-            } > "${COMMENT}"
-            gh pr comment "${PR_NUMBER}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --edit-last \
-              --create-if-none \
-              --body-file "${COMMENT}" || true
+          MONITOR_BRANCH='ci-monitor-v0345'
+          MONITOR_PATH='.ci/v0345-monitor.txt'
+          MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
+          MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
+          if test -n "${MONITOR_SHA}"; then
+            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
+              -f message='Update v0.34.5 CI failure monitor' \
+              -f content="${MONITOR_CONTENT}" \
+              -f branch="${MONITOR_BRANCH}" \
+              -f sha="${MONITOR_SHA}" >/dev/null
+          else
+            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
+              -f message='Create v0.34.5 CI failure monitor' \
+              -f content="${MONITOR_CONTENT}" \
+              -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
