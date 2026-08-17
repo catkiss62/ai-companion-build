@@ -119,7 +119,7 @@ require(
     [
         "Build AI Companion v0.34.6+71 APK (Lock Resume)",
         "python3 tools/validate_v0335_pet_chat_action_arbiter.py",
-        "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK",
+        "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     ],
     "workflow",
 )
