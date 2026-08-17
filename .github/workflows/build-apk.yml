@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   build-apk:
@@ -215,9 +216,17 @@ jobs:
           TAG='v0.34.5-direct-picker-recovery-test'
           APK_NAME='AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
+          CI_NAME='AI-Companion-v0.34.5-70-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
+          {
+            echo 'status=success'
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "head_sha=${GITHUB_SHA}"
+            cat "app/${SHA_NAME}"
+          } > "app/${CI_NAME}"
           if ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             gh release create "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -229,5 +238,63 @@ jobs:
           gh release upload "${TAG}" \
             "app/${APK_NAME}" \
             "app/${SHA_NAME}" \
+            "app/${CI_NAME}" \
+            --clobber \
+            --repo "${GITHUB_REPOSITORY}"
+
+  report-ci-failure:
+    needs: build-apk
+    if: ${{ always() && needs.build-apk.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Publish failed-job diagnostics to the private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build-apk.result }}
+        run: |
+          set -uo pipefail
+          TAG='v0.34.5-direct-picker-recovery-test'
+          CI_NAME='AI-Companion-v0.34.5-70-CI-Monitor.txt'
+          REPORT="${RUNNER_TEMP}/${CI_NAME}"
+          JOBS_JSON="${RUNNER_TEMP}/jobs.json"
+          {
+            echo 'status=failure'
+            echo "build_result=${BUILD_RESULT}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "head_sha=${GITHUB_SHA}"
+            echo
+            echo '=== failed or cancelled job logs ==='
+            if gh api \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?filter=latest&per_page=100" \
+              > "${JOBS_JSON}" 2>&1 && jq -e '.jobs' "${JOBS_JSON}" >/dev/null 2>&1; then
+              jq -r \
+                '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != null) | [.id, .name, .conclusion] | @tsv' \
+                "${JOBS_JSON}" | while IFS=$'\t' read -r job_id job_name conclusion; do
+                  echo
+                  echo "--- job=${job_name} conclusion=${conclusion} id=${job_id} ---"
+                  gh run view "${GITHUB_RUN_ID}" \
+                    --repo "${GITHUB_REPOSITORY}" \
+                    --job "${job_id}" \
+                    --log 2>&1 | tail -n 1200 || true
+                done
+            else
+              echo 'Unable to enumerate job logs; raw API response follows.'
+              test -f "${JOBS_JSON}" && cat "${JOBS_JSON}"
+            fi
+          } > "${REPORT}"
+          if ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release create "${TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}" \
+              --draft \
+              --title 'AI Companion v0.34.5+70 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual true-device APK. It is not a public release.'
+          fi
+          gh release upload "${TAG}" \
+            "${REPORT}" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"

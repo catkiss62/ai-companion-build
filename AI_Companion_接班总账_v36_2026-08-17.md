@@ -221,6 +221,9 @@
 - 这是构建阻断修正，不增加悬浮恢复延时/次数，不改 direct picker guard、不回滚 v0.34.4 settle，也不递增版本号；仍使用 `0.34.5+70` 重新触发同一 Draft PR 的 Actions。
 - GitHub Actions artifact 存储配额已满是既有事实。workflow 必须继续使用 `contents: write`，把 APK 和 `.sha256` 上传到同一私有仓库的草稿 Release；不恢复 artifact 上传、不发布正式 Release、不合并 main。
 - 重新提交后必须持续检查 validators、Kotlin tests、Flutter analyze/tests、release APK、原生/桌宠 payload 校验、checksum、草稿 Release 上传。只有全绿并取得 APK 文件名、SHA-256 和草稿 Release 链接后，才算自动构建完成；真机仍需单独验收。
+- 用户在安卓网页端看不到 Cloud Browser 接管入口；此前要求其在聊天内登录 GitHub 不适用于当前界面，不能继续把它当作阻塞条件。ChatGPT 内 GitHub 插件已是“允许所有操作”，PR/分支/提交读写正常，但 GitHub Actions runs/logs 对连接令牌仍返回 403，属于外部服务授权范围与连接能力的差异。
+- 为避免以后每次失败都让用户人工查看并转述日志，workflow 新增自诊断通道：顶层权限增加 `actions: read`；`build-apk` 失败、取消或超时时，独立 `report-ci-failure` job 查询本 run 已结束 job，截取失败日志尾部，并把 `status`、build result、run ID/URL、head SHA 和日志写入 `AI-Companion-v0.34.5-70-CI-Monitor.txt`，覆盖上传至同一私有草稿 Release。
+- 构建成功时 APK 上传步骤会把同名 CI monitor 文件覆盖为 `status=success`，并附 APK 的 SHA-256 行；因此后续监测只需读取草稿 Release：failure 时据日志修复，success 时核验 APK + `.sha256` 并交付。该通道不占 Actions artifact 配额、不发布正式 Release、不合并 main、不包含真机聊天/诊断数据。
 
 - 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。

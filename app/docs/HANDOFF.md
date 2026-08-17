@@ -12,6 +12,7 @@
 - **不回滚 v0.34.4 settle**：同步读取 `isAttachedToWindow` 的误判已经有旧真机证据。最多恢复 3 次的上限保持不变，不增加第四次重试，也不延长 settle/retry 时间。
 - 首次 CI 提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`；已改为 `AndroidBridge.instance`，并由 v0.34.5 validator 锁定。版本仍为 `0.34.5+70`，direct picker 与恢复状态机均未改变。
 - Actions artifact 配额已满是既有约束；测试 APK 与 `.sha256` 继续上传到同一私有仓库的草稿 Release，不恢复 artifact 上传。
+- GitHub 连接能够提交源码但无法读取 Actions runs/logs（403），且用户当前安卓网页端没有可见的 Cloud Browser 接管入口。workflow 已增加失败自报告：`report-ci-failure` 使用本次 workflow 自身的 `actions: read` 权限读取已结束 job 日志，并把 `AI-Companion-v0.34.5-70-CI-Monitor.txt` 上传到同一私有草稿 Release；成功时该文件覆盖为 success + APK SHA-256。后续自动监测读取 Release 即可，无需用户反复截图日志。
 - 真机验收：相册选择与诊断导出各连续 2～3 次；期望 `coverSessionId>0`、direct picker 原因可见、最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 - 若仍失败，只允许再做一轮以新证据为依据的聚焦修复；仍无效则冻结悬浮恢复，先完成其余主线。
 - Desire 与双通道 Somatic 是真人感核心备份；后续自主功能必须复用 Desire / Thought / Intent / Gate 和 Somatic 输入，不得另建平行人格或主动触发器。

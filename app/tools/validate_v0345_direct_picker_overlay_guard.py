@@ -111,6 +111,11 @@ require(workflow, [
     "Build AI Companion v0.34.5+70 APK (Direct Picker Recovery)",
     "python3 tools/validate_v0345_direct_picker_overlay_guard.py",
     "AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK",
+    "actions: read",
+    "report-ci-failure:",
+    "AI-Companion-v0.34.5-70-CI-Monitor.txt",
+    "needs.build-apk.result != 'success'",
+    "gh run view \"${GITHUB_RUN_ID}\"",
 ], "workflow")
 
 print("v0.34.5 direct system-picker overlay guard validated")
