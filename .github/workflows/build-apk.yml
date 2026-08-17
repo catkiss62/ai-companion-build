@@ -81,7 +81,7 @@ jobs:
           python3 tools/validate_v0338_pet_semantic_autonomy.py
           python3 tools/validate_v0339_pet_ambient_motion.py
           python3 tools/validate_v0340_image_messages.py
-          python3 tools/validate_v0341_image_vision.py
+          python3 tools/validate_current_schema24_a.py
           python3 tools/validate_v0342_personality_appearance.py
           python3 tools/validate_current_lifelike_rules_overlay.py
           python3 tools/validate_v0344_overlay_recovery_diagnostics.py
