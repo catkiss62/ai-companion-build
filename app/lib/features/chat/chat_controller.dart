@@ -412,7 +412,7 @@ class ChatController extends ChangeNotifier {
       _safeNotify();
 
       // The original remains local. Vision receives only the already-generated
-      // 720 px PNG thumbnail, which bounds upload size and removes EXIF data.
+      // 1000 px max-edge PNG thumbnail, which bounds upload size and removes EXIF data.
       final thumbnail = await attachmentStorage.fileFor(
         attachment.thumbnailPath,
       );
