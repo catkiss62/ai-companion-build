@@ -32,7 +32,7 @@ require(
         'const val THINKING = "thinking"',
         'const val TALKING = "talking"',
         'if (ttsPhase == "playing") return TALKING',
-        'generationPhase == "answering"',
+        'return THINKING',
         'THINKING -> "THINKING"',
         'TALKING -> "TALKING"',
     ],
