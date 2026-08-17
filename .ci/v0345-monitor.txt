@@ -1,11 +1,6 @@
-status=failure
-build_result=failure
-run_id=32041890393
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32041890393
-head_sha=094d6f0ef47e3752ae7b00ba9e5fe1faf3ba727c
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=95422552073 ---
-run 32041890393 is still in progress; logs will be available when it is complete
+status=success
+run_id=32042113547
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32042113547
+head_sha=98e121ac96fe3754c4b5f1ccb4a314f42492953e
+0a46eabd3c72a40803508de81218bc96362a75748e5f91254aa6b4a607dbb4e6  AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK.apk
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b
