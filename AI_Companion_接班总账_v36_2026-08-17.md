@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 的直接选择器 guard 已本地实现，下一步先完成静态验证、提交 PR #23 并等待 Actions；不能写成 CI 或真机已通过。
+1. v0.34.5+70 的直接选择器 guard 已实现并提交 PR #23；本地 v0.34.4 回归契约与 v0.34.5 新契约均通过。下一步等待 Actions；不能写成 CI 或真机已通过。
 2. 安装新 APK 后，相册选择与脱敏诊断导出各连续进入/退出 2～3 次。无障碍可以开或关；本轮目标正是让 App 自己发起的选择器不再依赖无障碍检测。
 3. 新报告必须至少出现 `coverSessionId>0`，并在原因中看到 `direct_picker:`；最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 4. 若仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
@@ -23,6 +23,7 @@
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
+- v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机安装版本：`v0.34.4+69`；当前开发目标：`v0.34.5+70`；SQLite schema 23，不含数据库迁移。
 - GitHub Actions run #130：<https://github.com/catkiss62/ai-companion-build/actions/runs/32024213112>
 - run #130 已通过：完整历史 validators、Kotlin 桌宠测试、Flutter analyze、Flutter tests、Release APK、原生/宠物载荷核验、SHA-256 和草稿 Release 上传。
@@ -30,6 +31,7 @@
 - APK：`AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK.apk`
 - APK SHA-256：`a481ef908f046afc1c53fd4abd6deb22b5717d85e7ff76691afb7921c2358a3b`
 - CI 使用临时测试签名；测试阶段用户允许卸载重装，不要求保留测试存档。
+- v0.34.5 本地静态验证已通过；GitHub Actions、APK SHA 与真机结果尚未确认，后续必须回填。
 
 ## 2. v0.34.3 已确认基线
 
