@@ -107,7 +107,7 @@ require(
     workflow,
     [
         "Build AI Companion v0.34.7+72 APK (Autonomous Action Foundation)",
-        "python3 tools/validate_v0334_pet_motion_modes.py",
+        "python3 tools/validate_v0334_pet_motion_modes_current.py",
         "AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK",
     ],
     "workflow",
