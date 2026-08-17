@@ -98,7 +98,7 @@ jobs:
           python3 tools/validate_v0315_live_context_seed.py
           python3 tools/validate_desire_v20_sql.py
           python3 tools/validate_v0314_grounded_desire.py
-          python3 tools/validate_v0313_overlay_picker.py
+          python3 tools/validate_current_schema24_c.py
           python3 tools/validate_v031_policy_math.py
           python3 tools/validate_v029_a2_tts.py
           python3 tools/validate_tts_kotlin_v25.py
