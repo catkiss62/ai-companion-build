@@ -9,7 +9,7 @@ environment:
 flutter:
   uses-material-design: true
   assets:
-    - assets/appearance/dafeiyu_reference.png
+    - assets/appearance/dafeiyu_reference.webp
 
 dependencies:
   flutter:
