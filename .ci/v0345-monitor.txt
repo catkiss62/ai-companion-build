@@ -1,11 +1,6 @@
-status=failure
-build_result=failure
-run_id=32053006092
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32053006092
-head_sha=b893b02b5c872ac63844cb367c31144ffaf61bde
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=95456662491 ---
-run 32053006092 is still in progress; logs will be available when it is complete
+status=success
+run_id=32053411090
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32053411090
+head_sha=52c4d66c2fba98ccc21f0737d4a5142c6f303926
+7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477  AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d58cc8abd8dbe39a72c4
