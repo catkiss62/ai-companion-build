@@ -285,3 +285,5 @@
 - 新增 durable `autonomous_action_runs`、Active Brain generation/device、run token、dedupe、独立预算和成功 Outcome 事务。只有真实成功结果能轻量 satisfy；失败、取消、无结果、重复、stale writer/recovery 不产生 satisfy。
 - 脱敏报告新增按工具/状态计数、最后 Gate/Outcome、粗耗时桶、预算、锁屏/交互和 dedupe；明确不含 query、URL、网页/屏幕正文、账号、聊天或 Thought 正文。
 - v0.34.7 仅完成底座并明确为 `foundation_not_scheduled`，不虚构 Provider 已工作。下一阶段先接公共网页候选发现，再做手动一次屏幕识别与 Desire 驱动的低频看屏幕。
+- v0.34.7+72 最终 GitHub Actions run `32053411090`（attempt 2）全绿：历史源码回归、Kotlin 桌宠状态/物理、Flutter analyze/tests、release APK、原生库与 417 文件桌宠载荷全部通过。attempt 1 的代码与 APK 校验同样通过，仅因 GitHub Releases API 瞬时 HTTP 503 上传失败；自动重跑后上传成功。
+- 真机候选 APK：`AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk`，239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`；私有草稿 Release `untagged-d58cc8abd8dbe39a72c4`。

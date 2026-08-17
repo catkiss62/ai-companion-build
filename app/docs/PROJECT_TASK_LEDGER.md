@@ -6,19 +6,38 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
+## 2026-08-18 最新排期覆盖
+
+### FROZEN · HyperOS 文件选择器返回后悬浮卡住（移至项目末尾）
+
+- [x] 用户确认暂时冻结，不再为该小问题继续消耗当前开发轮次；整个项目主体完成后才重新研究。
+- [x] 修正证据表述：另一个同样为私人制作、功能更少、代码更简单、看起来没有做专门恢复优化的桌宠也会复现；这不代表所有桌宠都会出现，只证明该问题并非 AI Companion 独有。
+- [x] v0.34.6+71 报告是在真实复现卡死后才导出，但仍显示 `coverSessionId=0`、enter/exit/recovery/detach 全 0、`attached/touchable/visible=true`、`inputSuspect=false`。因此不是“报告里没有发生卡死”，而是卡死完全没有进入现有诊断；当前结构健康检查不能证明真实输入或动画可用。
+- [x] Android DocumentsUI 会出于反点击劫持主动隐藏第三方 overlay；HyperOS 在返回后可能没有可靠恢复部分未专门优化的 overlay 输入/动画状态。首次启动另一个桌宠后两个 overlay 曾共同成功一次，后续共同失败，支持系统冷/热窗口或输入通道复用问题，但现有证据不足以证明具体系统根因。
+- [x] 保留 v0.34.4 attach settle、v0.34.5 App 自有 direct-picker guard、3 次上限和 700ms settle；不回滚、不增加第四次重试、不继续延长等待。
+- [ ] 项目末尾重开时必须先增加真实输入挑战、动画帧心跳、window instance/generation 和系统页面 enter/exit 时间线；不能再以 attached/flags 作为成功证明，也不能继续盲调重建时序。
+
+### ACTIVE · v0.34.7 自主行动公共底座
+
+- [x] 新增统一 `DesireIntent → Tool Gate → durable Action → Outcome → satisfy/feedback` 合同；工具不能自行产生人格、欲望、Intent 或主动联系。
+- [x] Tool Gate 与主动消息投递 Gate 完全分离；联网成功以后只能先形成候选，不能自动发消息。
+- [x] schema 24 新增 `autonomous_action_runs`：绑定 Active Brain generation/device、run token、dedupe、预算、锁屏状态、粗粒度结果与耗时；不保存 query、URL、网页/屏幕正文、账号或 Thought 正文。
+- [x] 只有真实 `succeeded + candidate_stored/observation_stored + resultCount>0` 才能在同一 SQLite 事务中轻量 satisfy；失败、取消、无结果、重复、stale writer 和恢复均不能满足欲望。
+- [x] 锁屏只阻止 `screen_observation`，不阻止安静 `public_web`；敏感页面、生成占用、transfer lock、Inactive Brain、Provider 缺失、预算耗尽和重复均有确定 Gate 原因。
+- [x] 普通屏幕观察滚动窗口锁定为每小时最多 6 次；公开网页/视频 Provider 尚未设计，预算明确显示未配置而不擅自拍数值。主动联系继续沿用独立 2/2h、8/24h 上限。
+- [x] 脱敏诊断新增 `database.autonomousActions`：按工具/状态计数、最后 Gate/Outcome、耗时桶、预算、锁屏与去重；显式声明不含 query、URL、内容、账号和内部 reason。
+- [x] v0.34.7 只交付底座，phase=`foundation_not_scheduled`，不接入真实 Provider，不虚构已经上网或看屏幕。
+- [ ] 下一版本把第一个真实 Provider 接入既有 heartbeat；优先公共网页候选发现，成功只进有来源候选池，随后再做手动一次屏幕识别。
+
 ## 2026-08-17 当前主线覆盖说明
 
 > 本节覆盖下方早期 P0/P1 排期，但不删除历史实现与证据。当前产品基线为
-> Draft PR #23 的已安装真机基线为 `v0.34.4+69`；当前真机复测版本为 `v0.34.5+70`；本轮开发版本为 `v0.34.6+71`，schema 23 不变。
+> Draft PR #23 的已安装真机基线为 `v0.34.4+69`；本轮开发版本为 `v0.34.5+70`，schema 23 不变。
 
 ### ACTIVE · 悬浮恢复、后台存活与 Somatic 正向验收
 
 - [x] 2026-08-17 20:58 脱敏报告确认 v0.34.4 失败样本没有进入 cover 状态机：`accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、attempt/recovery 均为 0；OEM 备用 `onWindowVisibilityChanged` 也仍报告可见。此报告不能证明 settle 修复失败，但证明选择器检测入口存在缺口。
 - [x] v0.34.5 增加“直接选择器 guard”：完整 App 主动打开图片/相机、诊断导出、手动备份保存/打开文件选择器前，直接向既有 cover 状态机发送 enter；返回、取消或启动失败时发送 exit。它不依赖无障碍或 OEM 窗口可见性回调，不建立第二套恢复状态机。
-- [x] v0.34.5 真机新报告 `ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt`：`coverSessionId=0`、cover enter/exit/recovery 均为 0，且无障碍未授权/未连接。该报告证明本次跨 App 上传仍未进入 recovery；不能把它写成 settled recovery 失败。App 自己发起的 picker 继续由 direct guard 负责；ChatGPT/浏览器等其他 App 发起的系统 chooser 必须依赖已存在的 Accessibility 系统页面识别或 OEM visibility fallback。
-- [x] v0.34.6 修复锁屏时 WALKING/STROLLING 卡动作：隐藏桌宠时 autonomous move tick 会被移除，因此同时把临时自主动作归零到 IDLE；解锁后从 IDLE 重新安排 ambient/blink。保留动作素材、60Hz 移动 tick、三档大小及全部既有动作策略。
-- [x] v0.34.6 新增 `validate_v0346_lock_visibility_resume.py`，锁定 screen-off hide、user-present show、隐藏归零和解锁重排期，并确认 cover recovery 仍为 3 次上限、700ms settle。
-- [ ] 安装 v0.34.6 后先在系统设置重新开启 AI Companion 无障碍并确认诊断显示 authorized/connected=true，再从 ChatGPT/浏览器等外部 App 打开上传选择器。若出现 `coverSessionId>0` 仍卡住，才执行最后一轮 recovery 段替换；再失败冻结。若仍为 0，优先扩展该机型实际 picker 包识别，不调整 reattach 延迟/次数。
 - [x] 保留 v0.34.4 的异步 attach settle 验证，不回滚已确认的同步误判修复；保持最多 3 次恢复，不增加第四次重试、不继续延长等待。
 - [x] v0.34.5 首次提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`，会在 Flutter analyze/compile 阶段失败；已改为既有单例 `AndroidBridge.instance`，并把该断言加入 v0.34.5 validator。此修正不改版本号、不改恢复状态机，仅解除构建阻断。
 - [ ] GitHub Actions artifact 存储配额仍为已知限制；APK 与 `.sha256` 继续由 workflow 写入同一私有仓库的草稿 Release，不恢复 artifact 上传、不发布正式 Release。待本次重新构建后回填 run、APK SHA-256 与草稿 Release 链接。
@@ -369,38 +388,8 @@
 - [x] Clean Freeze 后每项功能走独立分支/PR；常规 workflow 只验证和构建当前 `app/`，不在构建时应用补丁或提交源码。
 - [x] 每个正式版本同步更新 HANDOFF 与本总账；大阶段保留完整源码 ZIP + SHA-256。
 
+## v0.34.7+72 · 自动验收落款
 
-## 2026-08-18 · v0.34.6+71 Lock Resume delivered
-
-- [x] Root-caused lock/unlock WALKING and STROLLING stall: screen-off removed autonomous movement but retained the looping action clip.
-- [x] Reset transient autonomous playback to IDLE on visibility loss; preserve existing unlock rescheduling and cover recovery timing.
-- [x] Added v0.34.6 regression validator and aligned all historical release-identity validators.
-- [x] Final Actions run `32044437774` passed source validation, Kotlin tests, Flutter analyze/tests, APK/payload verification, checksum, and draft Release upload.
-- [x] Delivered `AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`; SHA-256 `1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`.
-- [ ] True-device test WALKING and STROLLING across lock/unlock.
-- [ ] Re-enable Accessibility, confirm authorized/connected, then test cross-app upload 2–3 times and collect a post-reproduction diagnostic.
-- [ ] Test AI Companion-owned gallery/camera/export pickers independently; direct-picker paths must not depend on Accessibility.
-
-
-## 2026-08-18 最新排期覆盖
-
-### FROZEN · HyperOS 文件选择器返回后悬浮卡住（移至项目末尾）
-
-- [x] 用户确认暂时冻结，不再为该小问题继续消耗当前开发轮次；整个项目主体完成后才重新研究。
-- [x] 修正证据表述：另一个同样为私人制作、功能更少、代码更简单、看起来没有做专门恢复优化的桌宠也会复现；这不代表所有桌宠都会出现，只证明该问题并非 AI Companion 独有。
-- [x] v0.34.6+71 报告是在真实复现卡死后才导出，但仍显示 `coverSessionId=0`、enter/exit/recovery/detach 全 0、`attached/touchable/visible=true`、`inputSuspect=false`。因此不是“报告里没有发生卡死”，而是卡死完全没有进入现有诊断；当前结构健康检查不能证明真实输入或动画可用。
-- [x] Android DocumentsUI 会出于反点击劫持主动隐藏第三方 overlay；HyperOS 在返回后可能没有可靠恢复部分未专门优化的 overlay 输入/动画状态。首次启动另一个桌宠后两个 overlay 曾共同成功一次，后续共同失败，支持系统冷/热窗口或输入通道复用问题，但现有证据不足以证明具体系统根因。
-- [x] 保留 v0.34.4 attach settle、v0.34.5 App 自有 direct-picker guard、3 次上限和 700ms settle；不回滚、不增加第四次重试、不继续延长等待。
-- [ ] 项目末尾重开时必须先增加真实输入挑战、动画帧心跳、window instance/generation 和系统页面 enter/exit 时间线；不能再以 attached/flags 作为成功证明，也不能继续盲调重建时序。
-
-### ACTIVE · v0.34.7 自主行动公共底座
-
-- [x] 新增统一 `DesireIntent → Tool Gate → durable Action → Outcome → satisfy/feedback` 合同；工具不能自行产生人格、欲望、Intent 或主动联系。
-- [x] Tool Gate 与主动消息投递 Gate 完全分离；联网成功以后只能先形成候选，不能自动发消息。
-- [x] schema 24 新增 `autonomous_action_runs`：绑定 Active Brain generation/device、run token、dedupe、预算、锁屏状态、粗粒度结果与耗时；不保存 query、URL、网页/屏幕正文、账号或 Thought 正文。
-- [x] 只有真实 `succeeded + candidate_stored/observation_stored + resultCount>0` 才能在同一 SQLite 事务中轻量 satisfy；失败、取消、无结果、重复、stale writer 和恢复均不能满足欲望。
-- [x] 锁屏只阻止 `screen_observation`，不阻止安静 `public_web`；敏感页面、生成占用、transfer lock、Inactive Brain、Provider 缺失、预算耗尽和重复均有确定 Gate 原因。
-- [x] 普通屏幕观察滚动窗口锁定为每小时最多 6 次；公开网页/视频 Provider 尚未设计，预算明确显示未配置而不擅自拍数值。主动联系继续沿用独立 2/2h、8/24h 上限。
-- [x] 脱敏诊断新增 `database.autonomousActions`：按工具/状态计数、最后 Gate/Outcome、耗时桶、预算、锁屏与去重；显式声明不含 query、URL、内容、账号和内部 reason。
-- [x] v0.34.7 只交付底座，phase=`foundation_not_scheduled`，不接入真实 Provider，不虚构已经上网或看屏幕。
-- [ ] 下一版本把第一个真实 Provider 接入既有 heartbeat；优先公共网页候选发现，成功只进有来源候选池，随后再做手动一次屏幕识别。
+- [x] run `32053411090` attempt 2：所有历史 validators、Kotlin 桌宠状态/物理测试、Flutter analyze/tests、release APK、原生库与 417 文件桌宠载荷、checksum、私有草稿 Release 上传全绿。
+- [x] APK：`AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk`，239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`。
+- [ ] 真机只需确认安装/启动与脱敏诊断 schema 24 / `database.autonomousActions.phase=foundation_not_scheduled`；本版没有真实 Provider 行为，不应出现自动联网或自动看屏幕。

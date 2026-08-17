@@ -2,12 +2,7 @@
 
 > 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
-## 0A. 当前开发头 · v0.34.6+71 Lock Resume
-
-- 新真机报告 `ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt` 来自 v0.34.5+70，仍显示 `coverSessionId=0`、cover enter/exit/recovery 全为 0，同时 `accessibilityAuthorized=false`、`accessibilityConnected=false`。用户描述的“上传界面”是跨 App 上传场景时，v0.34.5 的 App 内 direct-picker guard 无法获知其他 App 的调用；HyperOS 又不发送 overlay visibility fallback，因此无障碍关闭时没有 cover session，不能据此判定 settled recovery 失败。
-- `AccessibilityBridgeService` 已覆盖 DocumentsUI、PhotoPicker、IntentResolver、小米文件管理器、权限/安装/设置等会压制 overlay 的系统页面。卸载重装会清除系统无障碍授权，App 不能静默恢复；跨 App 上传复测必须先重新授权并确认 connected。AI Companion 自己打开相册/相机/诊断保存/手动备份仍由 v0.34.5 direct-picker guard 负责，可不依赖无障碍。
-- 同轮发现独立锁屏生命周期 bug：熄屏调用 `setVisible(false)` 时移除了 autonomous move tick，却以 `resetToIdle=false` 保留无限循环的 WALKING/STROLLING。解锁只恢复播放器，动作因此停留到用户互动。v0.34.6 改为隐藏时把临时自主动作归零到 IDLE，解锁后重新安排 ambient/blink；不改动作素材、移动速度、cover retry 或 settle 时间。
-- 外部上传在无障碍已连接后若仍失败，才进入约定中的最后一轮 recovery 段替换；再失败就冻结悬浮恢复。v0.34.6 当前为源码/契约已提交、CI 与真机待验。
+## 0A. 当前开发头 · v0.34.5+70 Direct Picker Recovery
 
 - Draft PR #23 分支 `agent/personality-appearance-self`；本轮从已安装的 `v0.34.4+69` 继续，SQLite schema 23 不变。
 - 最后报告 `ai_companion_diagnostics_2026-08-17T12-58-30-120929Z.txt` 显示系统选择器卡住后 `accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、recovery attempt/count 均为 0。失败发生在 cover 检测入口，不能据此判定 settle 验证失败。
@@ -299,6 +294,19 @@ P2：
 - 每项正式功能使用独立分支/PR；合并后再生成 APK，避免构建步骤隐式改变 main。
 - Clean Freeze 记录见 `docs/CLEAN_FREEZE_v0.31.5.md`。
 
+## v0.34.7+72 · Autonomous Action Foundation
+
+- 用户最终决定将 HyperOS 文件选择器返回后悬浮卡住移到项目末尾。另一个私人制作、功能更少、代码更简单、看起来没有专门恢复优化的桌宠也会复现，但这不代表所有桌宠都会出现。
+- v0.34.6 报告是在真实卡死之后导出，仍为 cover session/enter/exit/recovery/detach 全 0，同时 attached/touchable/visible=true；这证明卡死没有进入诊断，旧结构健康结论不能证明真实输入或动画可用。
+- 保留 v0.34.4 settle、v0.34.5 direct-picker guard、3 次恢复上限和 700ms settle；不再改动。项目末尾若重开，先增加真实输入挑战、动画帧心跳和 window generation 时间线。
+- v0.34.7 开始统一自主行动公共底座，完整设计见 `docs/AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`。
+- schema 24 新增 `autonomous_action_runs`；请求只能来自现有 `DesireIntent`，Tool Gate 不创建欲望，也不负责主动联系。
+- Active Brain generation/device、run token、dedupe 和终态事务 fencing 已接入。只有真实成功并保存候选/观察后，才可在同一事务中轻量 satisfy；失败、取消、无结果、重复和 stale writer 不满足欲望。
+- 锁屏仅阻止 `screen_observation`，不阻止 `public_web`；屏幕观察预算为滚动每小时 6 次。公开网页和视频 Provider 尚未接入，预算显示未配置，不擅自拍值。
+- 脱敏报告新增 `database.autonomousActions` 与 foundation check，只输出状态、粗粒度 Gate/Outcome、耗时桶、预算、锁屏和计数，不输出 query、URL、网页/屏幕内容、账号、Thought reason 或聊天。
+- 本版 phase=`foundation_not_scheduled`：底座可以自动测试，但不会产生真实自主上网/看屏幕行为。下一实现应接公共网页候选发现 Provider，成功只进候选池，主动分享仍经过既有 proactive Gate。
+- v0.34.7+72 最终 run `32053411090` attempt 2 全绿并上传草稿 Release。APK `AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk` 为 239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`。attempt 1 仅因 GitHub Releases HTTP 503 上传失败，代码、测试和 APK 验证均已通过。
+
 
 ## v0.33.0+55 · Android 桌宠 D0/D1
 
@@ -311,28 +319,3 @@ P2：
 - D0/D1 CI：run #43（`31861829909`）全绿；artifact `9240951958`；APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
 
 - PR #11 已 squash 合并：`339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）全绿，artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`，artifact digest `sha256:7748f41b826dfce5a468aad6d8dab6cb014a5fd6c786723044b0d243a4a1ea2b`。
-
-
-## v0.34.6+71 Lock Resume · final automation result
-
-- Source fix: when the overlay becomes invisible for screen-off, `PetOverlayWindow.setVisible(false)` now cancels autonomous playback with `resetToIdle = true`. This prevents a looping WALKING/STROLLING clip from surviving after its movement tick was removed.
-- Scope guard: cover recovery remains capped at 3 attempts with a 700 ms settle; no picker retry timing or rebuild path changed.
-- External upload diagnosis: the supplied v0.34.5 report had Accessibility unauthorized/disconnected and cover session 0. Cross-app pickers require Accessibility on this HyperOS device; App-owned pickers continue to use the direct-picker bridge.
-- First CI run `32044156432` failed only because nine historical validators retained the old hyphenated APK suffix. After release-identity alignment, final run `32044437774` / job `95429288585` passed all validation, Kotlin/Flutter tests, release build, payload verification, checksum, and draft Release upload.
-- Draft Release: <https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1e7387d440a9edcbbb90>
-- APK: `AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`
-- SHA-256: `1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`
-- Device validation remains pending: WALKING/STROLLING lock-resume; cross-app picker with Accessibility authorized/connected; App-owned direct pickers.
-
-
-## v0.34.7+72 · Autonomous Action Foundation
-
-- 用户最终决定将 HyperOS 文件选择器返回后悬浮卡住移到项目末尾。另一个私人制作、功能更少、代码更简单、看起来没有专门恢复优化的桌宠也会复现，但这不代表所有桌宠都会出现。
-- v0.34.6 报告是在真实卡死之后导出，仍为 cover session/enter/exit/recovery/detach 全 0，同时 attached/touchable/visible=true；这证明卡死没有进入诊断，旧结构健康结论不能证明真实输入或动画可用。
-- 保留 v0.34.4 settle、v0.34.5 direct-picker guard、3 次恢复上限和 700ms settle；不再改动。项目末尾若重开，先增加真实输入挑战、动画帧心跳和 window generation 时间线。
-- v0.34.7 开始统一自主行动公共底座，完整设计见 `docs/AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`。
-- schema 24 新增 `autonomous_action_runs`；请求只能来自现有 `DesireIntent`，Tool Gate 不创建欲望，也不负责主动联系。
-- Active Brain generation/device、run token、dedupe 和终态事务 fencing 已接入。只有真实成功并保存候选/观察后，才可在同一事务中轻量 satisfy；失败、取消、无结果、重复和 stale writer 不满足欲望。
-- 锁屏仅阻止 `screen_observation`，不阻止 `public_web`；屏幕观察预算为滚动每小时 6 次。公开网页和视频 Provider 尚未接入，预算显示未配置，不擅自拍值。
-- 脱敏报告新增 `database.autonomousActions` 与 foundation check，只输出状态、粗粒度 Gate/Outcome、耗时桶、预算、锁屏和计数，不输出 query、URL、网页/屏幕内容、账号、Thought reason 或聊天。
-- 本版 phase=`foundation_not_scheduled`：底座可以自动测试，但不会产生真实自主上网/看屏幕行为。下一实现应接公共网页候选发现 Provider，成功只进候选池，主动分享仍经过既有 proactive Gate。
