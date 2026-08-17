@@ -31,7 +31,7 @@ ledger = read("docs/PROJECT_TASK_LEDGER.md")
 handoff = read("docs/HANDOFF.md")
 workflow = WORKFLOW.read_text(encoding="utf-8")
 
-assert "version: 0.34.5+70" in pubspec
+assert "version: 0.34.6+71" in pubspec
 
 require(android_bridge, [
     "beginSystemPickerOverlayGuard",
@@ -108,12 +108,12 @@ require(handoff, [
 ], "handoff")
 
 require(workflow, [
-    "Build AI Companion v0.34.5+70 APK (Direct Picker Recovery)",
+    "Build AI Companion v0.34.6+71 APK (Lock Resume)",
     "python3 tools/validate_v0345_direct_picker_overlay_guard.py",
-    "AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK",
+    "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     "actions: read",
     "report-ci-failure:",
-    "AI-Companion-v0.34.5-70-CI-Monitor.txt",
+    "AI-Companion-v0.34.6-71-CI-Monitor.txt",
     "needs.build-apk.result != 'success'",
     "gh run view \"${GITHUB_RUN_ID}\"",
     "release_url=${RELEASE_URL}",
