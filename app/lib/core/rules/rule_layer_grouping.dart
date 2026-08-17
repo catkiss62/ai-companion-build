@@ -38,7 +38,7 @@ const _groupSpecs = <String, _RuleLayerGroupSpec>{
   '03': _RuleLayerGroupSpec(
     '03',
     '03 · 行为与初始性格',
-    '行为真实感是常驻原则；初始性格是可编辑、可关闭、会被长期 AI Self 细化的种子。',
+    '行为真实感与固定外观常驻；初始性格是可编辑、可关闭、会被长期 AI Self 细化的种子。',
   ),
   '04': _RuleLayerGroupSpec(
     '04',
@@ -63,6 +63,7 @@ const _groupKeyByLayer = <String, String>{
   '02_daily': '02',
   '03_behavior': '03',
   '03_personality_seed': '03',
+  '03_appearance_identity': '03',
   '04_intimacy_core': '04',
   '05_intimacy_rendering': '05',
   '06_intimacy_reference': '06',
@@ -74,6 +75,7 @@ const _sectionTitles = <String, String>{
   '02_daily': '日常交流规则',
   '03_behavior': '行为真实感',
   '03_personality_seed': '初始性格种子',
+  '03_appearance_identity': '固定外观与称呼',
   '04_intimacy_core': '亲密关系核心',
   '05_intimacy_rendering': '亲密表现规则',
   '06_intimacy_reference': '亲密参考资料',

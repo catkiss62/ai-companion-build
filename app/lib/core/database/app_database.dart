@@ -1424,6 +1424,17 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    final currentPersonality = defaultRuleLayers
+        .firstWhere((layer) => layer.key == '03_personality_seed');
+    await db.update(
+      'rule_layers',
+      {
+        'content': currentPersonality.content,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: [currentPersonality.key, legacyPersonalitySeedV1],
+    );
   }
 
   Future<void> ensureReady() async {

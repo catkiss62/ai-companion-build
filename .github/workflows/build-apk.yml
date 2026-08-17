@@ -1,4 +1,4 @@
-name: Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)
+name: Build AI Companion v0.34.2+67 APK (Personality and Appearance)
 
 on:
   workflow_dispatch:
@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.34.1+66$' app/pubspec.yaml
+          grep -q '^version: 0.34.2+67$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 23;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.34.1+66 app/ source tree.'
+          echo 'Building directly from the committed v0.34.2+67 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -81,6 +81,7 @@ jobs:
           python3 tools/validate_v0339_pet_ambient_motion.py
           python3 tools/validate_v0340_image_messages.py
           python3 tools/validate_v0341_image_vision.py
+          python3 tools/validate_v0342_personality_appearance.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
@@ -174,7 +175,21 @@ jobs:
                   if actual != expected:
                       print(f'ERROR: {name} is {actual}, expected {expected}', file=sys.stderr)
                       sys.exit(1)
-              print('Three normalized sleepy-yawn runtime tiers are present in the APK.')
+              yawn_hashes = {
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': 'dcbbcba4ad2696849fca65eb7b900b76422a3fec805c244de4bc42ec6dfbd235',
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': 'f6659dc54dead83ad0be851496d3cb784c426c518784f64969606b9010d20096',
+                  'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_306.png': '141a88407f5e54c7da795b0c33b5fd5319689b0382b54f2771bec851ae0fa9df',
+              }
+              for name, expected_hash in yawn_hashes.items():
+                  if hashlib.sha256(z.read(name)).hexdigest() != expected_hash:
+                      print(f'ERROR: {name} does not match the approved aligned source', file=sys.stderr)
+                      sys.exit(1)
+              appearance = 'assets/flutter_assets/assets/appearance/dafeiyu_reference.webp'
+              appearance_bytes = z.read(appearance)
+              if hashlib.sha256(appearance_bytes).hexdigest() != 'f8783e2f468a6b226962b33b34acc26e759416c5ca6175f76138cd7adb5a9c80':
+                  print('ERROR: appearance reference bytes changed', file=sys.stderr)
+                  sys.exit(1)
+              print('Approved three-tier yawn art and appearance reference are present in the APK.')
           bert = (src / 'libbertvits2.so').read_bytes()
           assert hashlib.sha256(bert[:635352]).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
           assert set(bert[635352:]) <= {0}
@@ -188,14 +203,14 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.34.1+66 APK to draft release
+      - name: Upload v0.34.2+67 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.34.1-image-vision-phase-2-test'
-          APK_NAME='AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK.apk'
+          TAG='v0.34.2-personality-appearance-test'
+          APK_NAME='AI-Companion-v0.34.2-67-Personality-Appearance-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
@@ -205,8 +220,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.1+66 true-device test candidate' \
-              --notes 'Draft-only APK for image vision phase 2 with Qwen observation, durable recovery, and retry.'
+              --title 'AI Companion v0.34.2+67 true-device test candidate' \
+              --notes 'Draft-only APK for editable personality, reset-to-default, fixed appearance self-reference, alias semantics, and aligned yawn assets.'
           fi
           gh release upload "${TAG}" \
             "app/${APK_NAME}" \

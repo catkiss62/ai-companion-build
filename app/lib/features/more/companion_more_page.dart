@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../memory/memory_page.dart';
 import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
+import '../self/personality_appearance_page.dart';
 
 class CompanionMorePage extends StatelessWidget {
   const CompanionMorePage({super.key});
@@ -39,6 +40,13 @@ class CompanionMorePage extends StatelessWidget {
               title: '长期记忆',
               subtitle: '她长期保留下来的资料、经历、偏好与 AI Self',
               onTap: () => _open(context, const MemoryPage()),
+            ),
+            _Entry(
+              icon: Icons.face_retouching_natural_rounded,
+              title: '性格与外观',
+              subtitle: '编辑她的初始性格、还原默认，并查看固定人设图',
+              onTap: () =>
+                  _open(context, const PersonalityAppearancePage()),
             ),
             _Entry(
               icon: Icons.menu_book_outlined,

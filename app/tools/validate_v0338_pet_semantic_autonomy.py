@@ -14,7 +14,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 pubspec = read("pubspec.yaml")
-assert "version: 0.33.8+63" in pubspec or "version: 0.33.9+64" in pubspec or "version: 0.34.1+66" in pubspec
+assert "version: 0.33.8+63" in pubspec or "version: 0.33.9+64" in pubspec or "version: 0.34.1+66" in pubspec or "version: 0.34.2+67" in pubspec
 
 snapshot = read("lib/core/platform/pet_autonomy_snapshot.dart")
 server = read("lib/core/platform/background_chat_command_server.dart")

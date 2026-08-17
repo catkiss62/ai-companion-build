@@ -30,6 +30,7 @@ for key in (
     "02_daily",
     "03_behavior",
     "03_personality_seed",
+    "03_appearance_identity",
     "04_intimacy_core",
     "05_intimacy_rendering",
     "06_intimacy_reference",
@@ -38,6 +39,7 @@ for key in (
 
 assert "'01_relationship': '01'" in grouping
 assert "'03_personality_seed': '03'" in grouping
+assert "'03_appearance_identity': '03'" in grouping
 assert "List<RuleLayer>.unmodifiable" in grouping
 assert "groupRuleLayers(layers)" in service
 assert "ruleLayerSectionTitle(layer)" in service

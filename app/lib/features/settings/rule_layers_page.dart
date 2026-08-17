@@ -75,7 +75,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 const Text(
-                  '同类规则按维护职责归在一张卡片中，内部小节仍分别保存，不会互相覆盖。01 身份/关系基础锁定常驻；03 行为原则常驻，初始性格种子仍可单独编辑和关闭。04/05 只在亲密 Session；06 只在亲密 Session 且检索到相关资料时加载。',
+                  '同类规则按维护职责归在一张卡片中，内部小节仍分别保存，不会互相覆盖。01 身份/关系基础锁定常驻；03 行为原则与固定外观常驻，初始性格种子仍可单独编辑、关闭和还原。04/05 只在亲密 Session；06 只在亲密 Session 且检索到相关资料时加载。',
                 ),
                 const SizedBox(height: 12),
                 ...groups.map(_buildGroupCard),
@@ -140,14 +140,24 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
             onPressed: () => _edit(layer),
             icon: const Icon(Icons.edit_outlined),
           ),
-          IconButton(
-            tooltip: '恢复 ${ruleLayerSectionTitle(layer)} 默认内容',
-            onPressed: () async {
-              await db.resetRuleLayer(layer.key);
-              await _load();
-            },
-            icon: const Icon(Icons.restart_alt),
-          ),
+          if (layer.key == '03_personality_seed')
+            TextButton.icon(
+              onPressed: () async {
+                await db.resetRuleLayer(layer.key);
+                await _load();
+              },
+              icon: const Icon(Icons.restart_alt, size: 18),
+              label: const Text('还原默认'),
+            )
+          else
+            IconButton(
+              tooltip: '恢复 ${ruleLayerSectionTitle(layer)} 默认内容',
+              onPressed: () async {
+                await db.resetRuleLayer(layer.key);
+                await _load();
+              },
+              icon: const Icon(Icons.restart_alt),
+            ),
         ],
       ),
     );
