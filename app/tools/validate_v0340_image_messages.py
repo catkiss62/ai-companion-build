@@ -54,7 +54,7 @@ assert "0\\.34\\." in somatic_validator and "1\\+66" in somatic_validator
 assert "static const int schemaVersion = 22;" in read(
     "tools/validate_v0313_overlay_picker.py"
 )
-assert "static const int schemaVersion = 23;" in database
+assert "static const int schemaVersion = 24;" in database
 for token in (
     "CREATE TABLE IF NOT EXISTS message_attachments",
     "FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE",
