@@ -104,5 +104,5 @@ png_contract(
 
 assert "python3 tools/validate_v0342_personality_appearance.py" in workflow
 assert "assets/flutter_assets/assets/appearance/dafeiyu_reference.webp" in workflow
-assert "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK" in workflow
+assert "AI-Companion-v0.34.6-71-Lock-Resume-APK" in workflow
 print("v0.34.2 personality, appearance self-source, aliases and aligned yawn assets verified")
