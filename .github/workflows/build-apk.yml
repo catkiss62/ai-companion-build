@@ -90,7 +90,7 @@ jobs:
           python3 tools/validate_v0347_autonomous_action_foundation.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
-          python3 tools/validate_v0320_somatic_contract.py
+          python3 tools/validate_current_schema24_b.py
           python3 tools/validate_v0319_tts_state_cancel_retract.py
           python3 tools/validate_v0318_overlay_stop_stream.py
           python3 tools/validate_v0317_true_stop_generation.py
