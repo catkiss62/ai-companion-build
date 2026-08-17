@@ -32,6 +32,35 @@
 - [ ] 真机只需自然运行并稍后导出脱敏报告，确认 schema 25、`phase=public_web_scheduled`、Provider 状态及候选计数；不需要守着等待，也不应因发现成功立刻收到消息。
 - [ ] 下一功能进入“手动一次看当前屏幕”，先完成明确用户触发与敏感页保护，再开放 Desire 驱动的低频屏幕观察。
 
+### 2026-08-18 能力边界澄清与后续接线
+
+- [x] v0.34.8 的 Wikimedia Provider 目前只调用中文 wiki 的 `/search/page`，取得百科页面标题、短摘录和链接；它不是通用浏览器、新闻流、图片识别或任意网页阅读器。
+- [x] 当前已经能由 Desire heartbeat 低频执行上述“固定安全主题的百科候选发现”，但候选只入库，不进入聊天 Prompt，也不会自行形成主动消息。因此“她偶尔主动聊到自己看过的有趣资料”尚未实现，不能把候选已保存误报为她已经会聊天引用。
+- [ ] 在 Provider 继续扩张前补“候选复看/筛选 → 有来源的短期认知 → 可选分享 Intent”桥：允许她安静收藏或放弃；只有真的想分享时才走现有 proactive Gate、Grounding、2/2h 与 8/24h 上限。分享必须可见来源，不把网页写进用户 Memory，也不强制每次发现都说。
+- [x] `screen_observation` 的 `6 / rolling hour` 是未来普通屏幕视觉的异常保护上限，不是“每显示 6 次识图一次”，也不是固定每 10 分钟执行。当前只有用户在聊天中主动发送图片的视觉理解；“手动看当前屏幕”和自主截图 Provider 均尚未实现。
+- [x] 当前手机感知只提供 screen/locked、粗粒度 App/活动类别、忙碌度、使用与 Accessibility 事件计数等本地摘要。她能感觉用户持续操作或切换，但看不到 ChatGPT 中正在输入的文字，不能因为好奇自行截图。
+- [x] 公共网页 `4 次 / 滚动 24 小时` 不是为了节省 LLM token：Wikimedia 查询本身不调用模型。数值用于限制后台网络、电量、循环与候选膨胀；当前每次最多 3 条，即最多 12 条/日。首轮长测保留 4 次，先看成功率、重复率和候选质量；有数据后再讨论调到 6 次/日。
+- [x] X / Telegram 仍为后置 Provider。Telegram 可负责已知贴纸集、文件与以后经隔离授权的搜索/导入，但不能代替 App 自己的表情包系统；核心应是本地语义表情库（情绪/语境标签、来源/许可、安全、去重、WEBP/TGS/WEBM），Telegram 与 X 只是可选来源。
+
+### PLANNED · MiniMax TTS 双引擎与 UI
+
+- [ ] 新增 MiniMax API key 接入，默认模型锁定 `speech-2.8-turbo`；旧 Meju A2 继续作为本地离线引擎与可选失败回退，不删除、不重做其 native/MNN、断句、generation-ahead 或 FIFO 黄金基线。
+- [ ] “异步 + 流式”实现为两条不同链：普通聊天使用 `POST /v1/t2a_v2`、`stream=true` 的 HTTP MP3 流式合成并接入现有 `TtsPlaybackQueue`；超长文本使用 `POST /v1/t2a_async_v2` 创建任务、`GET /v1/query/t2a_async_query_v2` 轮询、成功后按 `file_id` 检索并立即下载。不得把二者误写成一个同时异步又流式的请求。
+- [ ] 异步任务必须 durable：SQLite 保存本地 job、MiniMax `task_id/file_id`、模型/音色/参数、状态、attempt/next poll、创建/更新时间、下载临时路径/最终路径/hash/size 与脱敏错误类别；受 Active Brain、device/generation 与 run token fencing，进程死亡/重启后可恢复且创建幂等，不能重复提交计费。
+- [ ] 状态兼容 `Processing / Success / Failed / Expired` 及大小写规范化；轮询采用 5s→10s→30s→60s 有界退避，不以官方 10 次/秒上限作为实际轮询频率。成功后立刻下载，使用临时文件 + 校验 + 原子重命名；下载链接按 9 小时有效处理。
+- [ ] 官方当前约束按 direct `text` 最长 50,000 字符、`text_file_id` 单文件小于 1,000,000 字符设计；未在当前官方接口页确认“T+7 必定完成”，不得把该说法硬编码成删除/失败期限。
+- [ ] 音色范围：中文普通话、女声、儿童/青年、游戏与 RPG / 动漫与动画 / 角色配音；固定置顶顺序为 `Chinese (Mandarin)_Sweet_Lady`、`Chinese (Mandarin)_IntellectualGirl`、`Chinese (Mandarin)_ExplorativeGirl`。官方 voice ID 文档不带用户筛选页中的性别/年龄/场景标签，正式实现前需从 MiniMax 控制台导出或人工冻结完整 ID 清单，避免漏选/错选。
+- [ ] 试听：当前官方系统音色列表未提供可直接打包的静态试听下载 URL，不得把第三方音频冒充官方素材。优先核实控制台是否允许下载；若没有，则经用户确认后用其 API key 对统一短句生成本项目试听文件，并核对费用与再分发条款后再决定打包 APK 或按需缓存。
+- [ ] TTS 设置 UI 采用顶部“语音引擎：本地 / MiniMax 在线”选择，只展示当前引擎配置；统一音色卡点击进入 bottom sheet，前三音色置顶、其余支持筛选/搜索/试听。共享语速/音量，Provider 专属项折叠；普通聊天使用流式，长文本另设任务队列页，避免两套完整设置同时铺开。
+- [ ] MiniMax API key 使用安全存储，永不进入 SQLite 明文、日志、状态包或脱敏诊断。诊断只增加 Provider、模式、任务状态计数、耗时/音频大小桶、轮询/恢复/下载结果、fallback 与错误类别，不输出 key、原文、音频 URL、task/file ID 或语音内容。
+
+### TBD · GitHub 项目灵感发现
+
+- [ ] 增加独立总开关，默认关闭；GitHub 搜索预算与公共网页预算分开。功能只负责发现、评估并告诉用户，不自动复制代码、下载依赖、改 APK 或创建实现任务。
+- [ ] 使用独立“项目灵感库”，不写用户 Memory，也不与 14 天 TTL 的公共网页候选混放。按 `owner/repo` 去重，长期保存 URL、极简大纲、语言/平台、许可证、更新时间、可迁移性分级、风险与用户决定；用户要求的“都记下来”至少保留 URL 和大纲。
+- [ ] AI 的“可在 APK 中做出来”只能是带置信度的建议，分为：Android/Dart/Kotlin 可直接借鉴、算法/协议可移植、仅概念/UI 可重做、依赖桌面/外部后端不适合、许可证/安全/体积待查。无许可证仓库只允许阅读与记录思路，不能默认复制代码。
+- [ ] 推荐初始保护值为每日 2 次 discovery、每日最多 3 个仓库深读；先观察命中质量和 GitHub rate-limit headers 再调。是否启用、具体预算和灵感主动分享频率仍待用户确认。
+
 ### GUARDRAIL · v0.34.7 自主行动公共底座
 
 - [x] 新增统一 `DesireIntent → Tool Gate → durable Action → Outcome → satisfy/feedback` 合同；工具不能自行产生人格、欲望、Intent 或主动联系。

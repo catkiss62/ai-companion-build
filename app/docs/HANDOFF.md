@@ -319,6 +319,17 @@ P2：
 - Release 上传增加最多 4 次短重试，避免 GitHub Releases 偶发 503 迫使整套编译重跑。APK `AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk` 为 239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`；草稿 Release `untagged-fb193eb0c14190803f0a` 已核验三项资产 uploaded。
 - 下一实现：手动一次屏幕识别与敏感页 Gate；HyperOS 选择器悬浮卡住继续冻结到项目末尾。
 
+## 2026-08-18 · 自主能力澄清与新增规划
+
+- v0.34.8 只会用固定安全主题搜索中文 Wikimedia 百科页面并保存候选；不是通用网页/新闻/图片浏览。候选尚未进入 Prompt 或主动联系，因此她当前不会拿自己发现的资料与用户聊天。后续需增加“复看/筛选 → 有来源短期认知 → 分享 Intent → proactive Gate”桥，且不把网页写进用户 Memory。
+- 屏幕视觉的 `6 / rolling hour` 只是尚未启用 Provider 的硬上限，不是每显示六次触发一次。现有感知只知道粗粒度 screen/locked、活动类别、busy 与事件计数；看不到用户在 ChatGPT 输入的字，也不会自主截图。下一实现仍是手动一次看屏幕与敏感页 Gate。
+- 公开网页 4 次/24h 不是 token 限制；它保护网络、电量、循环和候选容量。每次至多 3 条，首轮长测保留 4 次，取得成功/重复/质量数据后再评估 6 次/日。
+- X/Telegram 保持后置。自主表情包核心必须是 App 本地语义表情库；Telegram 可作为已知贴纸集/文件和以后隔离搜索的 Provider，X 只作可选内容来源，任何 Provider 都不能直接绕过 Desire/Intent/Gate 发送。
+- 新增 MiniMax TTS 规划：`speech-2.8-turbo`，普通聊天走同步 HTTP 流式 MP3，长文本走 durable async create/query/download；保留 Meju A2 离线回退。异步 direct text 50,000 字符、上传文件小于 1,000,000 字符，状态按 Processing/Success/Failed/Expired 规范化，成功后在 9 小时下载 URL 窗口内立即落本地。当前官方页未确认 T+7，禁止硬编码。
+- MiniMax 音色按用户筛选的普通话女声儿童/青年与游戏/RPG、动漫/动画、角色配音范围加入；前三固定 `Chinese (Mandarin)_Sweet_Lady`、`Chinese (Mandarin)_IntellectualGirl`、`Chinese (Mandarin)_ExplorativeGirl`。官方 voice ID 页没有筛选标签或静态试听下载 URL；完整清单与试听资产需在实现前从控制台核验，不使用第三方音频冒充官方。
+- TTS 设置采用单一引擎选择器，仅展示当前 Provider；统一音色 bottom sheet、共享速度/音量、折叠 Provider 高级项，长文本另设任务队列。API key 进安全存储，诊断只输出脱敏任务/流式状态、耗时/大小桶、恢复/fallback 和错误类别。
+- GitHub 项目灵感发现登记为 TBD、默认关闭、独立预算与独立长期灵感库；只记录 URL/大纲/许可/语言/可迁移等级/风险/用户决定，不进 Memory、不自动复制或修改 APK。推荐初始每日 2 次发现、最多 3 个深读，最终数值待用户确认。
+
 
 ## v0.33.0+55 · Android 桌宠 D0/D1
 
