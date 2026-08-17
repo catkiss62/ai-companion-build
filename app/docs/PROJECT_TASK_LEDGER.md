@@ -368,3 +368,15 @@
 - [x] `app/` 是 GitHub single source of truth。
 - [x] Clean Freeze 后每项功能走独立分支/PR；常规 workflow 只验证和构建当前 `app/`，不在构建时应用补丁或提交源码。
 - [x] 每个正式版本同步更新 HANDOFF 与本总账；大阶段保留完整源码 ZIP + SHA-256。
+
+
+## 2026-08-18 · v0.34.6+71 Lock Resume delivered
+
+- [x] Root-caused lock/unlock WALKING and STROLLING stall: screen-off removed autonomous movement but retained the looping action clip.
+- [x] Reset transient autonomous playback to IDLE on visibility loss; preserve existing unlock rescheduling and cover recovery timing.
+- [x] Added v0.34.6 regression validator and aligned all historical release-identity validators.
+- [x] Final Actions run `32044437774` passed source validation, Kotlin tests, Flutter analyze/tests, APK/payload verification, checksum, and draft Release upload.
+- [x] Delivered `AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`; SHA-256 `1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`.
+- [ ] True-device test WALKING and STROLLING across lock/unlock.
+- [ ] Re-enable Accessibility, confirm authorized/connected, then test cross-app upload 2–3 times and collect a post-reproduction diagnostic.
+- [ ] Test AI Companion-owned gallery/camera/export pickers independently; direct-picker paths must not depend on Accessibility.
