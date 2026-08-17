@@ -48,7 +48,7 @@ for historical_validator in (
     ), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
 assert "Build AI Companion v0.34.6+71 APK (Lock Resume)" in workflow
-assert "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK" in workflow
+assert "AI-Companion-v0.34.6-71-Lock-Resume-APK" in workflow
 somatic_validator = read("tools/validate_v0320_somatic_contract.py")
 assert "0\\.34\\." in somatic_validator and "1\\+66" in somatic_validator
 assert "static const int schemaVersion = 22;" in read(
