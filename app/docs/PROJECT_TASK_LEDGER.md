@@ -380,3 +380,27 @@
 - [ ] True-device test WALKING and STROLLING across lock/unlock.
 - [ ] Re-enable Accessibility, confirm authorized/connected, then test cross-app upload 2–3 times and collect a post-reproduction diagnostic.
 - [ ] Test AI Companion-owned gallery/camera/export pickers independently; direct-picker paths must not depend on Accessibility.
+
+
+## 2026-08-18 最新排期覆盖
+
+### FROZEN · HyperOS 文件选择器返回后悬浮卡住（移至项目末尾）
+
+- [x] 用户确认暂时冻结，不再为该小问题继续消耗当前开发轮次；整个项目主体完成后才重新研究。
+- [x] 修正证据表述：另一个同样为私人制作、功能更少、代码更简单、看起来没有做专门恢复优化的桌宠也会复现；这不代表所有桌宠都会出现，只证明该问题并非 AI Companion 独有。
+- [x] v0.34.6+71 报告是在真实复现卡死后才导出，但仍显示 `coverSessionId=0`、enter/exit/recovery/detach 全 0、`attached/touchable/visible=true`、`inputSuspect=false`。因此不是“报告里没有发生卡死”，而是卡死完全没有进入现有诊断；当前结构健康检查不能证明真实输入或动画可用。
+- [x] Android DocumentsUI 会出于反点击劫持主动隐藏第三方 overlay；HyperOS 在返回后可能没有可靠恢复部分未专门优化的 overlay 输入/动画状态。首次启动另一个桌宠后两个 overlay 曾共同成功一次，后续共同失败，支持系统冷/热窗口或输入通道复用问题，但现有证据不足以证明具体系统根因。
+- [x] 保留 v0.34.4 attach settle、v0.34.5 App 自有 direct-picker guard、3 次上限和 700ms settle；不回滚、不增加第四次重试、不继续延长等待。
+- [ ] 项目末尾重开时必须先增加真实输入挑战、动画帧心跳、window instance/generation 和系统页面 enter/exit 时间线；不能再以 attached/flags 作为成功证明，也不能继续盲调重建时序。
+
+### ACTIVE · v0.34.7 自主行动公共底座
+
+- [x] 新增统一 `DesireIntent → Tool Gate → durable Action → Outcome → satisfy/feedback` 合同；工具不能自行产生人格、欲望、Intent 或主动联系。
+- [x] Tool Gate 与主动消息投递 Gate 完全分离；联网成功以后只能先形成候选，不能自动发消息。
+- [x] schema 24 新增 `autonomous_action_runs`：绑定 Active Brain generation/device、run token、dedupe、预算、锁屏状态、粗粒度结果与耗时；不保存 query、URL、网页/屏幕正文、账号或 Thought 正文。
+- [x] 只有真实 `succeeded + candidate_stored/observation_stored + resultCount>0` 才能在同一 SQLite 事务中轻量 satisfy；失败、取消、无结果、重复、stale writer 和恢复均不能满足欲望。
+- [x] 锁屏只阻止 `screen_observation`，不阻止安静 `public_web`；敏感页面、生成占用、transfer lock、Inactive Brain、Provider 缺失、预算耗尽和重复均有确定 Gate 原因。
+- [x] 普通屏幕观察滚动窗口锁定为每小时最多 6 次；公开网页/视频 Provider 尚未设计，预算明确显示未配置而不擅自拍数值。主动联系继续沿用独立 2/2h、8/24h 上限。
+- [x] 脱敏诊断新增 `database.autonomousActions`：按工具/状态计数、最后 Gate/Outcome、耗时桶、预算、锁屏与去重；显式声明不含 query、URL、内容、账号和内部 reason。
+- [x] v0.34.7 只交付底座，phase=`foundation_not_scheduled`，不接入真实 Provider，不虚构已经上网或看屏幕。
+- [ ] 下一版本把第一个真实 Provider 接入既有 heartbeat；优先公共网页候选发现，成功只进有来源候选池，随后再做手动一次屏幕识别。
