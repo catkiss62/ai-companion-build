@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
+import '../models/autonomous_action.dart';
 import '../models/message_attachment.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
@@ -36,7 +37,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 23;
+  static const int schemaVersion = 24;
 
   Database? _db;
   Future<Database>? _opening;
@@ -719,6 +720,10 @@ class AppDatabase {
       );
     }
 
+    if (oldVersion < 24) {
+      await _createV24Tables(db);
+    }
+
   }
 
   Future<void> _createSchema(Database db) async {
@@ -867,6 +872,7 @@ class AppDatabase {
     await _createV18Tables(db);
     await _createV21Tables(db);
     await _createV22Tables(db);
+    await _createV24Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1405,6 +1411,46 @@ class AppDatabase {
     ''');
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id, created_at ASC)',
+    );
+  }
+
+  Future<void> _createV24Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS autonomous_action_runs (
+        id TEXT PRIMARY KEY,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        tool_kind TEXT NOT NULL,
+        intent_action TEXT NOT NULL,
+        drive_key TEXT NOT NULL,
+        intent_score REAL NOT NULL,
+        reason_source TEXT NOT NULL,
+        thought_id TEXT,
+        status TEXT NOT NULL,
+        gate_reason TEXT NOT NULL,
+        outcome_kind TEXT NOT NULL DEFAULT 'none',
+        requested_at INTEGER NOT NULL,
+        started_at INTEGER,
+        finished_at INTEGER,
+        run_token TEXT NOT NULL DEFAULT '',
+        attempt INTEGER NOT NULL DEFAULT 0,
+        state_generation INTEGER NOT NULL,
+        device_id TEXT NOT NULL,
+        screen_interactive INTEGER NOT NULL DEFAULT 0,
+        device_locked INTEGER NOT NULL DEFAULT 0,
+        latency_bucket TEXT NOT NULL DEFAULT '',
+        result_count INTEGER NOT NULL DEFAULT 0,
+        desire_satisfied_at INTEGER,
+        dedupe_count INTEGER NOT NULL DEFAULT 0,
+        last_duplicate_at INTEGER,
+        budget_limit INTEGER,
+        budget_remaining INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_status ON autonomous_action_runs(status, requested_at ASC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_tool_time ON autonomous_action_runs(tool_kind, requested_at DESC)',
     );
   }
 
@@ -4371,6 +4417,428 @@ class AppDatabase {
     return DesireSnapshot.decode(rows.first['json'] as String);
   }
 
+  /// Records a Desire-sourced tool request without storing Thought bodies,
+  /// search text, screen contents, URLs, account data, or provider payloads.
+  Future<bool> recordAutonomousActionRequest({
+    required AutonomousActionRequest request,
+    required AutonomousActionContext context,
+    required AutonomousGateDecision decision,
+    required int stateGeneration,
+    required String deviceId,
+  }) async {
+    final db = await database;
+    final requestedAt = request.requestedAt.millisecondsSinceEpoch;
+    if (decision.reason == AutonomousGateReason.duplicate) {
+      final changed = await db.rawUpdate(
+        '''
+        UPDATE autonomous_action_runs
+        SET dedupe_count = dedupe_count + 1,
+            last_duplicate_at = ?
+        WHERE dedupe_key = ?
+        ''',
+        [requestedAt, request.dedupeKey],
+      );
+      return changed > 0;
+    }
+    final terminal = !decision.allowed;
+    final inserted = await db.insert(
+      'autonomous_action_runs',
+      {
+        'id': request.id,
+        'dedupe_key': request.dedupeKey,
+        'tool_kind': request.tool.key,
+        'intent_action': request.intentAction,
+        'drive_key': request.driveKey,
+        'intent_score': request.intentScore.clamp(0.0, 1.0),
+        'reason_source': request.reasonSource,
+        'thought_id': request.thoughtId,
+        'status': terminal
+            ? AutonomousActionStatus.blocked.key
+            : AutonomousActionStatus.requested.key,
+        'gate_reason': decision.reason.key,
+        'outcome_kind': AutonomousOutcomeKind.none.key,
+        'requested_at': requestedAt,
+        'finished_at': terminal ? requestedAt : null,
+        'state_generation': stateGeneration,
+        'device_id': deviceId,
+        'screen_interactive': context.screenInteractive ? 1 : 0,
+        'device_locked': context.deviceLocked ? 1 : 0,
+        'budget_limit': context.budgetLimit,
+        'budget_remaining': decision.budgetRemaining,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    return inserted != 0;
+  }
+
+  Future<bool> hasActiveAutonomousActionDedupe(String dedupeKey) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT 1
+      FROM autonomous_action_runs
+      WHERE dedupe_key = ?
+        AND status IN ('requested', 'running', 'succeeded')
+      LIMIT 1
+      ''',
+      [dedupeKey],
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> autonomousToolUsageSince(
+    AutonomousToolKind tool,
+    DateTime since,
+  ) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = 'allowed'
+      ''',
+      [tool.key, since.millisecondsSinceEpoch],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  Future<AutonomousActionRun?> claimAutonomousAction({
+    required String id,
+    required String runToken,
+    DateTime? now,
+  }) async {
+    if (runToken.isEmpty) return null;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<AutonomousActionRun?>((txn) async {
+      Future<String> setting(String key) async {
+        final rows = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+      }
+
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1') {
+        return null;
+      }
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ?',
+        whereArgs: [id, AutonomousActionStatus.requested.key],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      final generation = int.tryParse(await setting('state_generation')) ?? 0;
+      final deviceId = await setting('device_id');
+      if ((row['state_generation'] as int? ?? -1) != generation ||
+          (row['device_id'] as String? ?? '') != deviceId) {
+        return null;
+      }
+      await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': AutonomousActionStatus.running.key,
+          'run_token': runToken,
+          'attempt': (row['attempt'] as int? ?? 0) + 1,
+          'started_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ?',
+        whereArgs: [id, AutonomousActionStatus.requested.key],
+      );
+      final updated = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      return updated.isEmpty ? null : _autonomousActionRunFromDb(updated.first);
+    });
+  }
+
+  /// Commits one terminal Outcome under run-token fencing. Only a real
+  /// successful result may mutate Desire, and the run plus Desire JSON are
+  /// committed in the same SQLite transaction so recovery cannot double-feed.
+  Future<bool> completeAutonomousAction({
+    required String id,
+    required String runToken,
+    required AutonomousActionStatus status,
+    required AutonomousOutcomeKind outcome,
+    required int resultCount,
+    DesireSnapshot Function(DesireSnapshot current)? satisfyOnSuccess,
+    DateTime? now,
+  }) async {
+    if (!status.isTerminal ||
+        status == AutonomousActionStatus.blocked ||
+        status == AutonomousActionStatus.deduplicated ||
+        runToken.isEmpty) {
+      return false;
+    }
+    final successful = status == AutonomousActionStatus.succeeded &&
+        resultCount > 0 &&
+        (outcome == AutonomousOutcomeKind.candidateStored ||
+            outcome == AutonomousOutcomeKind.observationStored);
+    if (status == AutonomousActionStatus.succeeded && !successful) {
+      return false;
+    }
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final row = rows.first;
+      Future<String> setting(String key) async {
+        final values = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
+      }
+      final currentGeneration =
+          int.tryParse(await setting('state_generation')) ?? 0;
+      final currentDevice = await setting('device_id');
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1' ||
+          (row['state_generation'] as int? ?? -1) != currentGeneration ||
+          (row['device_id'] as String? ?? '') != currentDevice) {
+        return false;
+      }
+      final startedAt = row['started_at'] as int? ??
+          row['requested_at'] as int? ??
+          instant.millisecondsSinceEpoch;
+      final changed = await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': status.key,
+          'outcome_kind': outcome.key,
+          'result_count': resultCount.clamp(0, 1000),
+          'finished_at': instant.millisecondsSinceEpoch,
+          'latency_bucket': autonomousLatencyBucket(
+            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
+          ),
+          'run_token': '',
+          if (successful && satisfyOnSuccess != null)
+            'desire_satisfied_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+      );
+      if (changed != 1) return false;
+      if (successful && satisfyOnSuccess != null) {
+        final desireRows = await txn.query(
+          'desire_state',
+          where: 'id = 1',
+          limit: 1,
+        );
+        final current = desireRows.isEmpty
+            ? DesireSnapshot()
+            : DesireSnapshot.decode(desireRows.first['json'] as String);
+        final next = satisfyOnSuccess(current);
+        await txn.insert(
+          'desire_state',
+          {
+            'id': 1,
+            'json': next.encode(),
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return true;
+    });
+  }
+
+  Future<Map<String, Object?>> autonomousActionDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final counts = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM autonomous_action_runs
+      GROUP BY status
+    ''');
+    final byStatus = <String, int>{
+      for (final status in AutonomousActionStatus.values) status.key: 0,
+    };
+    for (final row in counts) {
+      byStatus[row['status'] as String? ?? ''] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final toolCounts = await db.rawQuery('''
+      SELECT tool_kind, status, COUNT(*) AS count
+      FROM autonomous_action_runs
+      GROUP BY tool_kind, status
+    ''');
+    final byTool = <String, Map<String, int>>{};
+    for (final row in toolCounts) {
+      final tool = row['tool_kind'] as String? ?? '';
+      final status = row['status'] as String? ?? '';
+      byTool.putIfAbsent(tool, () => <String, int>{})[status] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final lastRows = await db.query(
+      'autonomous_action_runs',
+      columns: const [
+        'tool_kind',
+        'status',
+        'gate_reason',
+        'outcome_kind',
+        'requested_at',
+        'started_at',
+        'finished_at',
+        'latency_bucket',
+        'result_count',
+        'screen_interactive',
+        'device_locked',
+        'budget_limit',
+        'budget_remaining',
+        'dedupe_count',
+      ],
+      orderBy: 'requested_at DESC',
+      limit: 1,
+    );
+    final hourStart = instant.subtract(const Duration(hours: 1));
+    final screenRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = ?
+      ''',
+      [
+        AutonomousToolKind.screenObservation.key,
+        hourStart.millisecondsSinceEpoch,
+        AutonomousGateReason.allowed.key,
+      ],
+    );
+    final screenUsed = Sqflite.firstIntValue(screenRows) ?? 0;
+    final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
+    final dayProactive = await proactiveCountSince(const Duration(hours: 24));
+    Map<String, Object?>? last;
+    if (lastRows.isNotEmpty) {
+      final row = lastRows.first;
+      last = {
+        'tool': row['tool_kind'] ?? '',
+        'status': row['status'] ?? '',
+        'gateReason': row['gate_reason'] ?? '',
+        'outcome': row['outcome_kind'] ?? '',
+        'requestedAt': row['requested_at'] ?? 0,
+        'startedAt': row['started_at'] ?? 0,
+        'finishedAt': row['finished_at'] ?? 0,
+        'latencyBucket': row['latency_bucket'] ?? '',
+        'resultCount': row['result_count'] ?? 0,
+        'screenInteractive': row['screen_interactive'] == 1,
+        'deviceLocked': row['device_locked'] == 1,
+        'budgetLimit': row['budget_limit'],
+        'budgetRemaining': row['budget_remaining'],
+        'dedupeCount': row['dedupe_count'] ?? 0,
+      };
+    }
+    return {
+      'phase': 'foundation_not_scheduled',
+      'byStatus': byStatus,
+      'byTool': byTool,
+      'last': last,
+      'budgets': {
+        'publicWeb': {
+          'configured': false,
+          'remaining': null,
+        },
+        'screenObservation': {
+          'configured': true,
+          'windowMinutes': 60,
+          'limit': 6,
+          'used': screenUsed,
+          'remaining': (6 - screenUsed).clamp(0, 6),
+        },
+        'videoUnderstanding': {
+          'configured': false,
+          'remaining': null,
+        },
+        'proactiveContact': {
+          'twoHourLimit': 2,
+          'twoHourUsed': twoHourProactive,
+          'twoHourRemaining': (2 - twoHourProactive).clamp(0, 2),
+          'dayLimit': 8,
+          'dayUsed': dayProactive,
+          'dayRemaining': (8 - dayProactive).clamp(0, 8),
+          'separateDeliveryGate': true,
+        },
+      },
+      'privacy': {
+        'intentReasonIncluded': false,
+        'thoughtBodyIncluded': false,
+        'queryIncluded': false,
+        'webContentIncluded': false,
+        'screenContentIncluded': false,
+        'urlIncluded': false,
+        'accountIncluded': false,
+      },
+    };
+  }
+
+  AutonomousActionRun _autonomousActionRunFromDb(
+    Map<String, Object?> row,
+  ) {
+    DateTime? time(String key) => row[key] == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(row[key] as int);
+    final status = AutonomousActionStatus.values.firstWhere(
+      (value) => value.key == (row['status'] as String? ?? ''),
+      orElse: () => AutonomousActionStatus.failed,
+    );
+    final gate = AutonomousGateReason.values.firstWhere(
+      (value) => value.key == (row['gate_reason'] as String? ?? ''),
+      orElse: () => AutonomousGateReason.providerUnavailable,
+    );
+    final outcome = AutonomousOutcomeKind.values.firstWhere(
+      (value) => value.key == (row['outcome_kind'] as String? ?? ''),
+      orElse: () => AutonomousOutcomeKind.none,
+    );
+    return AutonomousActionRun(
+      id: row['id'] as String,
+      dedupeKey: row['dedupe_key'] as String,
+      tool: AutonomousToolKindKey.fromKey(row['tool_kind'] as String? ?? ''),
+      intentAction: row['intent_action'] as String? ?? '',
+      driveKey: row['drive_key'] as String? ?? '',
+      intentScore: (row['intent_score'] as num?)?.toDouble() ?? 0,
+      reasonSource: row['reason_source'] as String? ?? '',
+      thoughtId: row['thought_id'] as String?,
+      status: status,
+      gateReason: gate,
+      outcome: outcome,
+      requestedAt: time('requested_at') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      startedAt: time('started_at'),
+      finishedAt: time('finished_at'),
+      runToken: row['run_token'] as String? ?? '',
+      attempt: row['attempt'] as int? ?? 0,
+      stateGeneration: row['state_generation'] as int? ?? 0,
+      deviceId: row['device_id'] as String? ?? '',
+      screenInteractive: row['screen_interactive'] == 1,
+      deviceLocked: row['device_locked'] == 1,
+      latencyBucket: row['latency_bucket'] as String? ?? '',
+      resultCount: row['result_count'] as int? ?? 0,
+      desireSatisfiedAt: time('desire_satisfied_at'),
+    );
+  }
+
   Future<void> saveDesire(DesireSnapshot snapshot) async {
     final db = await database;
     await db.insert(
@@ -7149,6 +7617,11 @@ class AppDatabase {
         'somatic_aggregates',
         'expires_at > ?',
         [DateTime.now().millisecondsSinceEpoch],
+      ),
+      'autonomous_action_runs': await count('autonomous_action_runs'),
+      'active_autonomous_actions': await count(
+        'autonomous_action_runs',
+        "status IN ('requested','running')",
       ),
     };
   }
