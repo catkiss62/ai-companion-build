@@ -76,7 +76,7 @@ require(
     [
         "Build AI Companion v0.34.6+71 APK (Lock Resume)",
         "python3 tools/validate_v0333_overlay_menus_unread.py",
-        "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK",
+        "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     ],
     "workflow",
 )
