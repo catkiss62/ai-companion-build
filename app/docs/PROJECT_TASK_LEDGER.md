@@ -1,16 +1,24 @@
 # AI Companion · Project Task Ledger
 
-> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：`docs/HANDOFF_LEDGER_v26_2026-08-15.md`。
+> 长期任务总账。每个正式版本更新 `docs/HANDOFF.md` 时必须同步核对本文件；完成、冻结、退役和延期都要显式记录。最新完整接班入口：仓库根目录 `AI_Companion_接班总账_v36_2026-08-17.md`。
+>
+> 用户明确要求：任务总账是跨窗口对接的最高优先级文件。每次新增任务、改变排期、修改实现或得到新的真机证据，都必须详细更新；不能只靠 PR 描述或聊天上下文。欲望系统与双通道感官设计是“真人感核心备份”，后续自主联网、屏幕感知、媒体理解与桌宠自主行为必须围绕现有 Desire / Thought / Intent / Gate 与 Somatic 双通道接线。
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
 ## 2026-08-17 当前主线覆盖说明
 
 > 本节覆盖下方早期 P0/P1 排期，但不删除历史实现与证据。当前产品基线为
-> Draft PR #23 的 `v0.34.3+68`；本轮开发版本为 `v0.34.4+69`。
+> Draft PR #23 的已安装真机基线为 `v0.34.4+69`；本轮开发版本为 `v0.34.5+70`，schema 23 不变。
 
 ### ACTIVE · 悬浮恢复、后台存活与 Somatic 正向验收
 
+- [x] 2026-08-17 20:58 脱敏报告确认 v0.34.4 失败样本没有进入 cover 状态机：`accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、attempt/recovery 均为 0；OEM 备用 `onWindowVisibilityChanged` 也仍报告可见。此报告不能证明 settle 修复失败，但证明选择器检测入口存在缺口。
+- [x] v0.34.5 增加“直接选择器 guard”：完整 App 主动打开图片/相机、诊断导出、手动备份保存/打开文件选择器前，直接向既有 cover 状态机发送 enter；返回、取消或启动失败时发送 exit。它不依赖无障碍或 OEM 窗口可见性回调，不建立第二套恢复状态机。
+- [x] 保留 v0.34.4 的异步 attach settle 验证，不回滚已确认的同步误判修复；保持最多 3 次恢复，不增加第四次重试、不继续延长等待。
+- [ ] v0.34.5 真机连续测试相册选择与诊断导出各 2～3 次；无障碍可开可关，但报告必须至少出现 `coverSessionId>0` 和 `direct_picker:` 原因，最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
+- [ ] 若 v0.34.5 仍卡住，最多再进行一轮聚焦修复：依据动画/触摸/菜单症状和新诊断，整体替换错误段或增加真实输入活性证明；不得继续叠加 retry/延迟补丁。
+- [ ] 若上述最后一轮仍无效，冻结悬浮恢复，保留完整失败证据，先推进其余主线；待后续系统结构稳定后再回头处理。
 - [x] 从真机报告确认旧 `selfHealCount` 不能直接等同异常：系统图片/文件选择器会按设计创建 cover session；但 v0.34.3 在 `addView()` 后同步读取 `isAttachedToWindow`，会把尚未完成 attach 的健康窗口误判失败，单次 cover 最多重复重建三次。
 - [x] v0.34.4 将健康验证延后到 settle window；验证完成前保持 recovery ownership，避免 watchdog / Activity 回调并发重建。
 - [x] 脱敏诊断区分“一次性系统页面恢复”和“自愈次数明显高于 cover session 的疑似循环”，并输出 `selfHealsPerCoverSession`，不记录包名、窗口文字或屏幕内容。
@@ -35,7 +43,7 @@
 - [ ] 手动“一次看当前屏幕”先行，再开放 Desire 驱动的低频自主看一眼。普通屏幕识图采用滚动窗口每小时最多 6 次，不是固定每 10 分钟执行；同画面指纹去重，App/主要画面明显变化后才有调用价值。
 - [ ] 单次/低频截图优先复用 Accessibility screenshot；默认不保存截图，只保留短期 `screen_observation`、App、时间、置信度与短 TTL。敏感 App、锁屏、生成中或画面无变化时不读取屏幕。
 - [ ] 连续屏幕陪伴后置为独立 Session，复用 `neutral_silence`：用户沉默不等于冷落。Android MediaProjection 每次会话授权、前台服务和可暂停状态必须显式处理。
-- [ ] 悬浮聊天图片入口登记为图片系统 Phase 3：系统图片选择器、缩略图草稿、复用既有附件存储、千问视觉与 durable generation；本轮不插入悬浮恢复修复。
+- [ ] 悬浮聊天图片入口登记为图片系统 Phase 3：系统图片选择器、缩略图草稿、复用既有附件存储、千问视觉与 durable generation。v0.34.5 只为完整 App 已有图片入口增加通用选择器 guard，不等于悬浮聊天图片入口已实现。
 
 ### NEXT · 自主联网与媒体候选池
 

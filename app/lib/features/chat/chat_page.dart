@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/chat_message.dart';
 import '../../core/models/message_attachment.dart';
+import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/tts/tts_playback_queue.dart';
@@ -27,6 +28,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final TextEditingController input = TextEditingController();
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
+  final AndroidBridge _android = AndroidBridge();
   Timer? _externalSyncTimer;
   bool _appResumed = true;
   bool _pickingImage = false;
@@ -160,10 +162,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (source == null || !mounted) return;
     setState(() => _pickingImage = true);
     try {
-      final image = await _imagePicker.pickImage(
-        source: source,
-        requestFullMetadata: false,
+      await _android.beginSystemPickerOverlayGuard(
+        reason: source == ImageSource.camera
+            ? 'flutter_image_picker_camera'
+            : 'flutter_image_picker_gallery',
       );
+      XFile? image;
+      try {
+        image = await _imagePicker.pickImage(
+          source: source,
+          requestFullMetadata: false,
+        );
+      } finally {
+        await _android.endSystemPickerOverlayGuard(
+          reason: source == ImageSource.camera
+              ? 'flutter_image_picker_camera_returned'
+              : 'flutter_image_picker_gallery_returned',
+        );
+      }
       if (image != null && mounted) {
         await _prepareAndConfirmImage(
           image,

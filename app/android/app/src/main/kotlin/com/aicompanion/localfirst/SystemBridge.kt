@@ -42,6 +42,7 @@ class SystemBridge(
     private var manualOperation: String? = null
     private var reportDocumentResult: MethodChannel.Result? = null
     private var reportSourcePath: String? = null
+    private var directPickerGuardDepth = 0
 
     init {
         nearbyEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
@@ -123,6 +124,20 @@ class SystemBridge(
                 "reconcileOverlayAfterTakeover" -> {
                     OverlayBubbleService.reconcileFromVisibleActivity(activity)
                     result.success(null)
+                }
+                "beginSystemPickerOverlayGuard" -> {
+                    result.success(
+                        beginDirectPickerOverlayGuard(
+                            call.argument<String>("reason") ?: "flutter_system_picker",
+                        ),
+                    )
+                }
+                "endSystemPickerOverlayGuard" -> {
+                    result.success(
+                        endDirectPickerOverlayGuard(
+                            call.argument<String>("reason") ?: "flutter_system_picker_returned",
+                        ),
+                    )
                 }
                 "wakeBackgroundBrain" -> {
                     result.success(
@@ -249,6 +264,10 @@ class SystemBridge(
         reportDocumentResult?.error("activity_disposed", "Activity was destroyed during diagnostic export", null)
         reportDocumentResult = null
         reportSourcePath = null
+        if (directPickerGuardDepth > 0) {
+            directPickerGuardDepth = 1
+            endDirectPickerOverlayGuard("system_bridge_disposed")
+        }
     }
 
     fun onRequestPermissionsResult(
@@ -265,6 +284,7 @@ class SystemBridge(
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_DIAGNOSTIC_SAVE) {
+            endDirectPickerOverlayGuard("diagnostic_export_picker_returned")
             val result = reportDocumentResult ?: return
             val sourcePath = reportSourcePath
             reportDocumentResult = null
@@ -293,6 +313,13 @@ class SystemBridge(
             return
         }
         if (requestCode != REQUEST_MANUAL_SAVE && requestCode != REQUEST_MANUAL_OPEN) return
+        endDirectPickerOverlayGuard(
+            if (requestCode == REQUEST_MANUAL_SAVE) {
+                "manual_snapshot_save_picker_returned"
+            } else {
+                "manual_snapshot_open_picker_returned"
+            },
+        )
         val result = manualDocumentResult ?: return
         val operation = manualOperation
         val passphrase = manualPassphrase
@@ -366,8 +393,10 @@ class SystemBridge(
             type = "application/octet-stream"
             putExtra(Intent.EXTRA_TITLE, if (safeName.endsWith(".aicomp")) safeName else "$safeName.aicomp")
         }
+        beginDirectPickerOverlayGuard("manual_snapshot_save_picker")
         runCatching { activity.startActivityForResult(intent, REQUEST_MANUAL_SAVE) }
             .onFailure { error ->
+                endDirectPickerOverlayGuard("manual_snapshot_save_picker_launch_failed")
                 clearManualDocumentState()
                 result.error("manual_snapshot_picker", error.message ?: error.javaClass.simpleName, null)
             }
@@ -382,8 +411,10 @@ class SystemBridge(
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/octet-stream"
         }
+        beginDirectPickerOverlayGuard("manual_snapshot_open_picker")
         runCatching { activity.startActivityForResult(intent, REQUEST_MANUAL_OPEN) }
             .onFailure { error ->
+                endDirectPickerOverlayGuard("manual_snapshot_open_picker_launch_failed")
                 clearManualDocumentState()
                 result.error("manual_snapshot_picker", error.message ?: error.javaClass.simpleName, null)
             }
@@ -414,8 +445,10 @@ class SystemBridge(
             type = "text/plain"
             putExtra(Intent.EXTRA_TITLE, if (safeName.endsWith(".txt")) safeName else "$safeName.txt")
         }
+        beginDirectPickerOverlayGuard("diagnostic_export_picker")
         runCatching { activity.startActivityForResult(intent, REQUEST_DIAGNOSTIC_SAVE) }
             .onFailure { error ->
+                endDirectPickerOverlayGuard("diagnostic_export_picker_launch_failed")
                 reportDocumentResult = null
                 reportSourcePath = null
                 result.error("diagnostic_export_picker", error.javaClass.simpleName, null)
@@ -456,6 +489,27 @@ class SystemBridge(
         manualSourcePath = null
         manualOperation = null
         manualDocumentResult = null
+    }
+
+    private fun beginDirectPickerOverlayGuard(reason: String): Boolean {
+        directPickerGuardDepth += 1
+        if (directPickerGuardDepth > 1) return true
+        val entered = OverlayBubbleService.notifySystemCoverEntered(
+            activity,
+            "direct_picker:${reason.take(80)}",
+        )
+        if (!entered) directPickerGuardDepth = 0
+        return entered
+    }
+
+    private fun endDirectPickerOverlayGuard(reason: String): Boolean {
+        if (directPickerGuardDepth <= 0) return false
+        directPickerGuardDepth -= 1
+        if (directPickerGuardDepth > 0) return true
+        return OverlayBubbleService.notifySystemCoverExited(
+            activity,
+            "direct_picker:${reason.take(80)}",
+        )
     }
 
     private fun preflightStatus(): Map<String, Any> =

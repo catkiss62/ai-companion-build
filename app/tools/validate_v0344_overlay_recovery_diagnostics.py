@@ -18,7 +18,6 @@ def require(text: str, tokens: list[str], label: str) -> None:
         raise AssertionError(f"{label} missing: {missing}")
 
 
-pubspec = read("pubspec.yaml")
 overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
@@ -29,8 +28,6 @@ database = read("lib/core/database/app_database.dart")
 diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
 ledger = read("docs/PROJECT_TASK_LEDGER.md")
 workflow = WORKFLOW.read_text(encoding="utf-8")
-
-assert "version: 0.34.4+69" in pubspec
 
 require(overlay, [
     "WindowManager.addView() returns before isAttachedToWindow becomes",
@@ -100,9 +97,7 @@ require(ledger, [
 ], "approved autonomy roadmap")
 
 require(workflow, [
-    "Build AI Companion v0.34.4+69 APK (Overlay Recovery and Diagnostics)",
     "python3 tools/validate_v0344_overlay_recovery_diagnostics.py",
-    "AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK",
-], "workflow")
+], "workflow keeps v0.34.4 regression contract")
 
 print("v0.34.4 settled overlay recovery, background survival and Somatic diagnostics validated")

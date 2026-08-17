@@ -1,6 +1,18 @@
 # AI Companion · HANDOFF
 
-> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读最新完整总账 `docs/HANDOFF_LEDGER_v26_2026-08-15.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+> 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+
+## 0A. 当前开发头 · v0.34.5+70 Direct Picker Recovery
+
+- Draft PR #23 分支 `agent/personality-appearance-self`；本轮从已安装的 `v0.34.4+69` 继续，SQLite schema 23 不变。
+- 最后报告 `ai_companion_diagnostics_2026-08-17T12-58-30-120929Z.txt` 显示系统选择器卡住后 `accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、recovery attempt/count 均为 0。失败发生在 cover 检测入口，不能据此判定 settle 验证失败。
+- 源码只有 Accessibility system-surface 与 `onWindowVisibilityChanged` 两个自动入口；本机在无障碍关闭时没有触发前者，HyperOS 又保持 overlay window 为 visible，导致两条链都漏检。
+- v0.34.5 新增 direct picker guard：Flutter `image_picker` 的 gallery/camera，以及原生诊断导出、手动备份保存/打开，在启动系统选择器前直接调用既有 `notifySystemCoverEntered`，返回/取消/启动失败时调用 `notifySystemCoverExited`。
+- direct picker 复用同一个 cover session、恢复 ownership、WindowManager rebuild 和脱敏诊断；不新建第二套状态机。理由会以 `direct_picker:...` 粗粒度枚举进入现有诊断，不记录文件名、URI、图片内容或账号数据。
+- **不回滚 v0.34.4 settle**：同步读取 `isAttachedToWindow` 的误判已经有旧真机证据。最多恢复 3 次的上限保持不变，不增加第四次重试，也不延长 settle/retry 时间。
+- 真机验收：相册选择与诊断导出各连续 2～3 次；期望 `coverSessionId>0`、direct picker 原因可见、最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
+- 若仍失败，只允许再做一轮以新证据为依据的聚焦修复；仍无效则冻结悬浮恢复，先完成其余主线。
+- Desire 与双通道 Somatic 是真人感核心备份；后续自主功能必须复用 Desire / Thought / Intent / Gate 和 Somatic 输入，不得另建平行人格或主动触发器。
 
 ## 1. 当前基底
 

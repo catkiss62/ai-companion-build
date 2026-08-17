@@ -251,6 +251,34 @@ class AndroidBridge {
   Future<void> reconcileOverlayAfterTakeover() =>
       _channel.invokeMethod<void>('reconcileOverlayAfterTakeover');
 
+  Future<bool> beginSystemPickerOverlayGuard({required String reason}) async {
+    try {
+      return await _channel.invokeMethod<bool>(
+            'beginSystemPickerOverlayGuard',
+            {'reason': reason},
+          ) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<bool> endSystemPickerOverlayGuard({required String reason}) async {
+    try {
+      return await _channel.invokeMethod<bool>(
+            'endSystemPickerOverlayGuard',
+            {'reason': reason},
+          ) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   Future<bool> wakeBackgroundBrain({String reason = 'full_app_wake'}) async =>
       await _channel.invokeMethod<bool>(
         'wakeBackgroundBrain',
