@@ -27,7 +27,7 @@ contract_test = read(
 )
 workflow = WORKFLOW.read_text(encoding="utf-8")
 
-assert "version: 0.34.5+70" in pubspec
+assert "version: 0.34.6+71" in pubspec
 
 for token in [
     "注意力可以有选择、有轻重",
@@ -85,8 +85,8 @@ assert "PetOverlaySizing.badgeEndDp(normalized)" in window
 assert "PetConversationPolicy.THINKING" in contract_test
 assert "PetOverlaySizing.badgeTopDp(PetOverlaySizing.LARGE)" in contract_test
 
-assert "Build AI Companion v0.34.5+70 APK (Direct Picker Recovery)" in workflow
+assert "Build AI Companion v0.34.6+71 APK (Lock Resume)" in workflow
 assert "python3 tools/validate_v0343_lifelike_rules_overlay.py" in workflow
-assert "AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK" in workflow
+assert "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK" in workflow
 
 print("v0.34.3 lifelike rules, conservative migration, unread acknowledgement, badge placement and reply animation verified")
