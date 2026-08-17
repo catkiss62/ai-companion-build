@@ -237,8 +237,8 @@ class PetOverlayWindow(
                 gravity = Gravity.TOP or Gravity.END
                 setMargins(
                     0,
-                    dp(windowDp(size) * 8 / 100),
-                    dp(windowDp(size) * 21 / 100),
+                    dp(PetOverlaySizing.badgeTopDp(size)),
+                    dp(PetOverlaySizing.badgeEndDp(size)),
                     0,
                 )
             },
@@ -394,8 +394,8 @@ class PetOverlayWindow(
             (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
                 badgeLayout.setMargins(
                     0,
-                    dp(windowDp(normalized) * 8 / 100),
-                    dp(windowDp(normalized) * 21 / 100),
+                    dp(PetOverlaySizing.badgeTopDp(normalized)),
+                    dp(PetOverlaySizing.badgeEndDp(normalized)),
                     0,
                 )
                 unread.layoutParams = badgeLayout

@@ -36,6 +36,18 @@ object PetOverlaySizing {
         LARGE -> 306
         else -> 238
     }
+
+    fun badgeTopDp(size: String): Int = when (normalized(size)) {
+        SMALL -> 9
+        LARGE -> 30
+        else -> 15
+    }
+
+    fun badgeEndDp(size: String): Int = when (normalized(size)) {
+        SMALL -> 24
+        LARGE -> 56
+        else -> 36
+    }
 }
 
 /** Pure release and persisted-mode contract shared by every pet motion region. */
@@ -88,7 +100,10 @@ object PetConversationPolicy {
     ): String {
         if (ttsPhase == "playing") return TALKING
         if (!generationActive) return IDLE
-        return if (generationPhase == "answering") TALKING else THINKING
+        // Streaming a reply is still generation, not speech. Keeping it on the
+        // thinking cue prevents a new-message arrival from looking like an
+        // unsolicited side-to-side "talking" shake. Real TTS remains TALKING.
+        return THINKING
     }
 
     fun actionFor(cue: String?): String? = when (cue) {

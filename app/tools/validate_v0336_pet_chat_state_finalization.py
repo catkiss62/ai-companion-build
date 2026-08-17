@@ -19,7 +19,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 pubspec = read("pubspec.yaml")
 assert any(version in pubspec for version in (
-    "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.2+67",
+    "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.3+68",
 ))
 
 bridge = read("lib/core/platform/android_bridge.dart")
@@ -101,9 +101,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.34.2+67 APK (Personality and Appearance)",
+        "Build AI Companion v0.34.3+68 APK (Lifelike Rules and Overlay Polish)",
         "python3 tools/validate_v0336_pet_chat_state_finalization.py",
-        "AI-Companion-v0.34.2-67-Personality-Appearance-APK",
+        "AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK",
     ],
     "workflow",
 )

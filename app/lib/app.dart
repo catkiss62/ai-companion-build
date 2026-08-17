@@ -64,17 +64,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int index = 0;
-  late final List<Widget> pages;
-
-  @override
-  void initState() {
-    super.initState();
-    pages = [
-      CompanionHomePage(onOpenChat: _openChat),
-      const ChatPage(),
-      const CompanionMorePage(),
-    ];
-  }
 
   void _openChat() {
     if (!mounted) return;
@@ -86,7 +75,14 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: index, children: pages),
+        child: IndexedStack(
+          index: index,
+          children: [
+            CompanionHomePage(onOpenChat: _openChat),
+            ChatPage(active: index == 1),
+            const CompanionMorePage(),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,

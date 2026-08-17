@@ -19,7 +19,7 @@ def png_size(relative: str) -> tuple[int, int]:
     assert data[:8] == b"\x89PNG\r\n\x1a\n", relative
     return struct.unpack(">II", data[16:24])
 
-assert "version: 0.34.2+67" in read("pubspec.yaml")
+assert "version: 0.34.3+68" in read("pubspec.yaml")
 policy = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetAutonomyPolicy.kt")
 pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt")
 service = read("android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt")
@@ -138,9 +138,9 @@ require(doc, [
 
 workflow = read("../.github/workflows/build-apk.yml")
 require(workflow, [
-    "Build AI Companion v0.34.2+67 APK",
+    "Build AI Companion v0.34.3+68 APK",
     "python3 tools/validate_v0339_pet_ambient_motion.py",
-    "AI-Companion-v0.34.2-67-Personality-Appearance-APK",
+    "AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK",
 ], "workflow")
 
 print("v0.33.9 validated: pet-specific health bounds prevent idle inward jumps; speculative render locks are removed; ambient motion remains intact.")

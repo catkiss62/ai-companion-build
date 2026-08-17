@@ -33,7 +33,7 @@ rule_page = read("lib/features/settings/rule_layers_page.dart")
 tests = read("test/rule_layer_defaults_test.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.34.2+67" in pubspec
+assert "version: 0.34.3+68" in pubspec
 assert "assets/appearance/dafeiyu_reference.webp" in pubspec
 
 for token in (
@@ -104,5 +104,5 @@ png_contract(
 
 assert "python3 tools/validate_v0342_personality_appearance.py" in workflow
 assert "assets/flutter_assets/assets/appearance/dafeiyu_reference.webp" in workflow
-assert "AI-Companion-v0.34.2-67-Personality-Appearance-APK" in workflow
+assert "AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK" in workflow
 print("v0.34.2 personality, appearance self-source, aliases and aligned yawn assets verified")

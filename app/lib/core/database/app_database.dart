@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -1435,6 +1436,32 @@ class AppDatabase {
       where: 'key = ? AND content = ?',
       whereArgs: [currentPersonality.key, legacyPersonalitySeedV1],
     );
+    for (final entry in legacyEditableRuleLayerSha256V0342.entries) {
+      final rows = await db.query(
+        'rule_layers',
+        columns: const ['content'],
+        where: 'key = ?',
+        whereArgs: [entry.key],
+        limit: 1,
+      );
+      if (rows.isEmpty) continue;
+      final stored = rows.first['content'] as String? ?? '';
+      if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
+        continue;
+      }
+      final current = defaultRuleLayers.firstWhere(
+        (layer) => layer.key == entry.key,
+      );
+      await db.update(
+        'rule_layers',
+        {
+          'content': current.content,
+          'updated_at': now,
+        },
+        where: 'key = ?',
+        whereArgs: [entry.key],
+      );
+    }
   }
 
   Future<void> ensureReady() async {

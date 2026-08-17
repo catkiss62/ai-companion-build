@@ -14,7 +14,9 @@ import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  const ChatPage({super.key, this.active = false});
+
+  final bool active;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -44,10 +46,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_appResumed && !controller.sending && !controller.analyzingImage) {
+      if (_appResumed &&
+          widget.active &&
+          !controller.sending &&
+          !controller.analyzingImage) {
+        unawaited(controller.acknowledgeOverlayUnread());
         unawaited(controller.syncExternalMessages());
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.active && widget.active) {
+      unawaited(controller.acknowledgeOverlayUnread());
+      if (!controller.sending && !controller.analyzingImage) {
+        unawaited(controller.syncExternalMessages());
+      }
+    }
   }
 
   void _onChanged() {
@@ -73,7 +90,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
-    if (_appResumed && !controller.sending && !controller.analyzingImage) {
+    if (_appResumed &&
+        widget.active &&
+        !controller.sending &&
+        !controller.analyzingImage) {
+      unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
     }
   }

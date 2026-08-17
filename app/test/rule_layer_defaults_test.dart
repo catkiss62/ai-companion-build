@@ -132,6 +132,27 @@ void main() {
     expect(seed, isNot(legacyPersonalitySeedV1));
   });
 
+  test('daily realism and intimacy continuity keep their full contracts', () {
+    final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
+    final daily = byKey['02_daily']!.content;
+    final behavior = byKey['03_behavior']!.content;
+    final core = byKey['04_intimacy_core']!.content;
+    final rendering = byKey['05_intimacy_rendering']!.content;
+    final reference = byKey['06_intimacy_reference']!.content;
+
+    expect(daily, contains('注意力可以有选择、有轻重'));
+    expect(daily, contains('任务、事实、重要情绪和明确问题不能借此漏答'));
+    expect(behavior, contains('情绪具有惯性'));
+    expect(behavior, contains('选择、欲望与摩擦'));
+    expect(core, contains('空间状态账本'));
+    expect(core, contains('最小变化解释'));
+    expect(rendering, contains('不必自动替换'));
+    expect(rendering, contains('改变体位必须在文字中留下可见过渡'));
+    expect(reference, contains('姿态名称只能作为检索入口'));
+    expect(reference, contains('角色必须被明确视为成年人'));
+    expect(legacyEditableRuleLayerSha256V0342.length, 5);
+  });
+
   test('novel word-count rules are not in the companion defaults', () {
     final all = defaultRuleLayers.map((e) => e.content).join('\n');
     expect(all.contains('每轮正文输出必须≥600字'), isFalse);

@@ -196,12 +196,6 @@ class ChatController extends ChangeNotifier {
       loading = false;
       _safeNotify();
 
-      try {
-        await android.clearOverlayUnread();
-      } catch (_) {
-        // Overlay unread state is cosmetic and must never block the chat UI.
-      }
-
       if (!externalRecoveryOrchestrator) {
         unawaited(_runStartupMaintenanceSafely());
         unawaited(_scheduleGenerationRecovery());
@@ -257,6 +251,14 @@ class ChatController extends ChangeNotifier {
   Future<void> reload() async {
     messages = await db.recentMessages(limit: 120);
     _safeNotify();
+  }
+
+  Future<void> acknowledgeOverlayUnread() async {
+    try {
+      await android.clearOverlayUnread();
+    } catch (_) {
+      // Overlay unread state is cosmetic and must never block the chat UI.
+    }
   }
 
   /// Refreshes messages written by another engine (native overlay/background).
