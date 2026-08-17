@@ -18,7 +18,7 @@ def require(text: str, tokens: list[str], label: str) -> None:
 
 
 assert any(version in read("pubspec.yaml") for version in (
-    "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.3+68",
+    "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.3+68", "version: 0.34.4+69",
 ))
 
 pet = read("android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt")
@@ -61,9 +61,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.34.3+68 APK (Lifelike Rules and Overlay Polish)",
+        "Build AI Companion v0.34.4+69 APK (Overlay Recovery and Diagnostics)",
         "python3 tools/validate_v0337_pet_falling_visual_rollback.py",
-        "AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK",
+        "AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK",
     ],
     "workflow",
 )

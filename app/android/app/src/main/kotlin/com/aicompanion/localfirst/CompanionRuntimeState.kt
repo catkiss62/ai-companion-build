@@ -17,12 +17,27 @@ object CompanionRuntimeState {
     private const val KEY_LAST_SERVICE_START = "last_service_start"
     private const val KEY_LAST_SERVICE_STOP = "last_service_stop"
     private const val KEY_LAST_SERVICE_REASON = "last_service_reason"
+    private const val KEY_SERVICE_ACTIVE_MARKER = "service_active_marker"
+    private const val KEY_SERVICE_START_COUNT = "service_start_count"
+    private const val KEY_SERVICE_CLEAN_STOP_COUNT = "service_clean_stop_count"
+    private const val KEY_SERVICE_UNCLEAN_RESTART_COUNT = "service_unclean_restart_count"
+    private const val KEY_LAST_UNCLEAN_RESTART = "last_unclean_restart"
+    private const val KEY_LAST_TASK_REMOVED = "last_task_removed"
+    private const val KEY_LAST_TRIM_MEMORY = "last_trim_memory"
+    private const val KEY_LAST_TRIM_MEMORY_LEVEL = "last_trim_memory_level"
+    private const val KEY_BACKGROUND_BRAIN_READY_AT = "background_brain_ready_at"
+    private const val KEY_BACKGROUND_BRAIN_READY_COUNT = "background_brain_ready_count"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_AT = "background_brain_failure_at"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_COUNT = "background_brain_failure_count"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_REASON = "background_brain_failure_reason"
     private const val KEY_ACCESSIBILITY_LAST_CONNECTED = "accessibility_last_connected"
     private const val KEY_ACCESSIBILITY_LAST_DISCONNECTED = "accessibility_last_disconnected"
     private const val KEY_ACCESSIBILITY_LAST_INTERRUPT = "accessibility_last_interrupt"
     private const val KEY_ACCESSIBILITY_LAST_REASON = "accessibility_last_reason"
 
     private val visibleActivities = AtomicInteger(0)
+    private val processStartedElapsedMs = SystemClock.elapsedRealtime()
+    @Volatile private var serviceStartedElapsedMs: Long = 0L
 
     @Volatile var overlayVisible: Boolean = false
         private set
@@ -88,16 +103,80 @@ object CompanionRuntimeState {
             .getBoolean(KEY_OVERLAY_USER_ENABLED, false)
 
     fun markServiceStarted(context: Context, reason: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val possibleUncleanRestart = prefs.getBoolean(KEY_SERVICE_ACTIVE_MARKER, false)
+        serviceStartedElapsedMs = SystemClock.elapsedRealtime()
+        prefs.edit()
+            .putLong(KEY_LAST_SERVICE_START, now)
+            .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
+            .putBoolean(KEY_SERVICE_ACTIVE_MARKER, true)
+            .putInt(KEY_SERVICE_START_COUNT, prefs.getInt(KEY_SERVICE_START_COUNT, 0) + 1)
+            .apply {
+                if (possibleUncleanRestart) {
+                    putInt(
+                        KEY_SERVICE_UNCLEAN_RESTART_COUNT,
+                        prefs.getInt(KEY_SERVICE_UNCLEAN_RESTART_COUNT, 0) + 1,
+                    )
+                    putLong(KEY_LAST_UNCLEAN_RESTART, now)
+                }
+            }
+            .apply()
+    }
+
+    fun noteServiceCommand(context: Context, reason: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putLong(KEY_LAST_SERVICE_START, System.currentTimeMillis())
             .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
             .apply()
     }
 
     fun markServiceStopped(context: Context, reason: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        serviceStartedElapsedMs = 0L
+        prefs.edit()
             .putLong(KEY_LAST_SERVICE_STOP, System.currentTimeMillis())
             .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
+            .putBoolean(KEY_SERVICE_ACTIVE_MARKER, false)
+            .putInt(
+                KEY_SERVICE_CLEAN_STOP_COUNT,
+                prefs.getInt(KEY_SERVICE_CLEAN_STOP_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteTaskRemoved(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_LAST_TASK_REMOVED, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun noteTrimMemory(context: Context, level: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_LAST_TRIM_MEMORY, System.currentTimeMillis())
+            .putInt(KEY_LAST_TRIM_MEMORY_LEVEL, level)
+            .apply()
+    }
+
+    fun noteBackgroundBrainReady(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_BACKGROUND_BRAIN_READY_AT, System.currentTimeMillis())
+            .putInt(
+                KEY_BACKGROUND_BRAIN_READY_COUNT,
+                prefs.getInt(KEY_BACKGROUND_BRAIN_READY_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteBackgroundBrainFailure(context: Context, reason: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_BACKGROUND_BRAIN_FAILURE_AT, System.currentTimeMillis())
+            .putInt(
+                KEY_BACKGROUND_BRAIN_FAILURE_COUNT,
+                prefs.getInt(KEY_BACKGROUND_BRAIN_FAILURE_COUNT, 0) + 1,
+            )
+            .putString(KEY_BACKGROUND_BRAIN_FAILURE_REASON, reason.take(120))
             .apply()
     }
 
@@ -141,7 +220,32 @@ object CompanionRuntimeState {
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
-            "processUptimeMs" to SystemClock.elapsedRealtime(),
+            "processAgeMs" to
+                (SystemClock.elapsedRealtime() - processStartedElapsedMs).coerceAtLeast(0L),
+            // Backward-compatible diagnostic alias; unlike the old value this
+            // now measures this process lifetime rather than device uptime.
+            "processUptimeMs" to
+                (SystemClock.elapsedRealtime() - processStartedElapsedMs).coerceAtLeast(0L),
+            "serviceUptimeMs" to if (serviceStartedElapsedMs > 0L) {
+                (SystemClock.elapsedRealtime() - serviceStartedElapsedMs).coerceAtLeast(0L)
+            } else {
+                0L
+            },
+            "serviceStartCount" to prefs.getInt(KEY_SERVICE_START_COUNT, 0),
+            "serviceCleanStopCount" to prefs.getInt(KEY_SERVICE_CLEAN_STOP_COUNT, 0),
+            "possibleUncleanRestartCount" to
+                prefs.getInt(KEY_SERVICE_UNCLEAN_RESTART_COUNT, 0),
+            "lastPossibleUncleanRestartAt" to prefs.getLong(KEY_LAST_UNCLEAN_RESTART, 0L),
+            "lastTaskRemovedAt" to prefs.getLong(KEY_LAST_TASK_REMOVED, 0L),
+            "lastTrimMemoryAt" to prefs.getLong(KEY_LAST_TRIM_MEMORY, 0L),
+            "lastTrimMemoryLevel" to prefs.getInt(KEY_LAST_TRIM_MEMORY_LEVEL, 0),
+            "backgroundBrainReadyAt" to prefs.getLong(KEY_BACKGROUND_BRAIN_READY_AT, 0L),
+            "backgroundBrainReadyCount" to prefs.getInt(KEY_BACKGROUND_BRAIN_READY_COUNT, 0),
+            "backgroundBrainFailureAt" to prefs.getLong(KEY_BACKGROUND_BRAIN_FAILURE_AT, 0L),
+            "backgroundBrainFailureCount" to
+                prefs.getInt(KEY_BACKGROUND_BRAIN_FAILURE_COUNT, 0),
+            "backgroundBrainFailureReason" to
+                (prefs.getString(KEY_BACKGROUND_BRAIN_FAILURE_REASON, "") ?: ""),
         )
     }
 

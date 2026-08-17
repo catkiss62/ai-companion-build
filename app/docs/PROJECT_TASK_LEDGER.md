@@ -4,6 +4,52 @@
 
 状态：`ACTIVE` 当前主线 · `NEXT` 紧随其后 · `LATER` 后续重要 · `FROZEN` 暂停保留 · `RETIRED` 已移除 · `GUARDRAIL` 不可回归。
 
+## 2026-08-17 当前主线覆盖说明
+
+> 本节覆盖下方早期 P0/P1 排期，但不删除历史实现与证据。当前产品基线为
+> Draft PR #23 的 `v0.34.3+68`；本轮开发版本为 `v0.34.4+69`。
+
+### ACTIVE · 悬浮恢复、后台存活与 Somatic 正向验收
+
+- [x] 从真机报告确认旧 `selfHealCount` 不能直接等同异常：系统图片/文件选择器会按设计创建 cover session；但 v0.34.3 在 `addView()` 后同步读取 `isAttachedToWindow`，会把尚未完成 attach 的健康窗口误判失败，单次 cover 最多重复重建三次。
+- [x] v0.34.4 将健康验证延后到 settle window；验证完成前保持 recovery ownership，避免 watchdog / Activity 回调并发重建。
+- [x] 脱敏诊断区分“一次性系统页面恢复”和“自愈次数明显高于 cover session 的疑似循环”，并输出 `selfHealsPerCoverSession`，不记录包名、窗口文字或屏幕内容。
+- [x] 增加后台存活元数据：进程年龄、服务存活时间、启动/干净停止次数、可能的非干净重启、最近划掉任务、最近 trim-memory、后台 Dart ready/失败次数与时间。只记录状态、时间、计数、级别和原因枚举。
+- [x] 增加 Somatic 分向可观测性：最近一次 user / assistant 已提交 turn 的检测时间、是否写入、方向累计/活跃数；不导出聊天正文、动作、部位、scene 或 narrative。
+- [ ] 真机验证一次系统图片选择：一个 cover session 只产生一次恢复，最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
+- [ ] 做一轮明确的 AI 自发完成动作测试；预期 `latestAssistantEvaluation.result=written` 且 `aiToSelf.total>0`。仅有意图、否定或未完成动作必须保持 `no_completed_action_match`。
+- [ ] 锁屏、待机、划掉 Activity 与数小时 idle 后各导出一次报告，观察服务/进程/后台 Dart 连续性。
+- [ ] 当前不主动要求电池优化白名单。只有诊断出现后台受限、可能的非干净重启、后台 Dart 反复失败或长时间心跳缺口等证据时，才加入 Android 电池优化白名单引导、Xiaomi/HyperOS 自启动与后台运行提示；必要时再评估更明确的前台服务策略。
+
+### NEXT · 自主行动公共底座
+
+- [ ] 建立统一 `Intent → Tool Gate → Action → Outcome`，复用现有 AI Self / Desire / Thought / rhythm，不建立第二套人格、欲望或主动消息系统。
+- [ ] 工具预算分开记录：公开网页搜索、普通屏幕识图、视频理解、主动联系。欲望决定“想不想做”，硬预算负责异常保护。
+- [ ] 锁屏只暂停屏幕识图，不暂停自主联网；锁屏时仍可安静搜索、阅读并形成带来源候选，是否联系用户继续经过既有 Gate。
+- [ ] 为每类工具增加脱敏诊断：请求/成功/失败/取消/去重次数、最近时间、耗时桶、预算剩余、阻断原因与后台执行状态；不保存网页正文、截图、聊天、账号或搜索词原文。
+
+### NEXT · 前台 App 与屏幕视觉 MVP
+
+- [ ] 已知主流 App 以包名映射直接识别；未知 App 依次使用系统名称/图标、千问界面识别、联网查用途，仍不确定时允许她保留“不知道”或自主询问用户。
+- [ ] 成功映射缓存为 `package → label/category/icon summary`；raw package 只作本地工具输入，不进入长期 Memory、Thought 正文或脱敏导出。
+- [ ] 手动“一次看当前屏幕”先行，再开放 Desire 驱动的低频自主看一眼。普通屏幕识图采用滚动窗口每小时最多 6 次，不是固定每 10 分钟执行；同画面指纹去重，App/主要画面明显变化后才有调用价值。
+- [ ] 单次/低频截图优先复用 Accessibility screenshot；默认不保存截图，只保留短期 `screen_observation`、App、时间、置信度与短 TTL。敏感 App、锁屏、生成中或画面无变化时不读取屏幕。
+- [ ] 连续屏幕陪伴后置为独立 Session，复用 `neutral_silence`：用户沉默不等于冷落。Android MediaProjection 每次会话授权、前台服务和可暂停状态必须显式处理。
+- [ ] 悬浮聊天图片入口登记为图片系统 Phase 3：系统图片选择器、缩略图草稿、复用既有附件存储、千问视觉与 durable generation；本轮不插入悬浮恢复修复。
+
+### NEXT · 自主联网与媒体候选池
+
+- [ ] discovery 结果只能进入候选池：标题、摘要、URL、来源、fingerprint、标签、安全状态、TTL 与 lifecycle；不能直接写用户 Memory 或自动发消息。
+- [ ] 图片仅在她选择查看时交给千问；SQLite 保存视觉摘要与来源，不保存外部图片/视频正文。搜索成功不等于必须联系用户。
+- [ ] X / Telegram Provider 必须有未登录兜底：没有账号、凭据失效或封号时，仍可使用公开网页/公开搜索能力；登录态只扩展推荐流、敏感媒体或用户会话能力，不能成为整个自主联网的单点依赖。
+- [ ] X 优先使用她自己的成年账号；无账号时使用公开页面/API 可见范围。不得读取用户个人 X 内容，除非以后单独授权。
+- [ ] Telegram 可暂用用户账号做“搜索隔离”：禁止读取私聊、联系人、现有频道列表、首页流、最近/收藏贴纸来推断她的兴趣；只按她自己的 Intent 搜索公开频道/贴纸，不自动加入频道。以后可迁移到独立账号。
+- [ ] 视频理解列为后置可选层：首版对 20～60 秒片段抽取 6～12 帧交给千问；连续视频预算与普通每小时 6 次截图预算分离。音频不假定已理解，需要字幕、Accessibility 文本或后续 ASR。
+
+### RULE DETAIL · 图片作者归因
+
+- [ ] 用户发送图片不代表用户创作。除非用户明确说自己画、制作或生成，否则只视为用户分享的图片，不主动推断作者；不固定追问“哪里找的”，避免形成口癖。
+
 ## P0 · ACTIVE · v0.32.0 Somatic Contract & Daily Touch MVP
 
 ### S-1. SQLite 感官事件 / 聚合契约

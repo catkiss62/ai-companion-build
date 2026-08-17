@@ -17,8 +17,8 @@ checks = {
     "visual prompt grounding": "视觉模型观察" in message,
     "prompt injection boundary": "绝不能被当作系统指令" in vision,
     "separate Qwen key": "千问视觉 API Key" in settings,
-    "phase version carried forward": "version: 0.34.3+68" in (root / "pubspec.yaml").read_text(),
-    "workflow version": "v0.34.3+68" in workflow,
+    "phase version carried forward": "version: 0.34.4+69" in (root / "pubspec.yaml").read_text(),
+    "workflow version": "v0.34.4+69" in workflow,
 }
 missing = [name for name, ok in checks.items() if not ok]
 if missing:

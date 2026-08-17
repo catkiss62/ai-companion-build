@@ -24,7 +24,7 @@ database = read("lib/core/database/app_database.dart")
 pubspec = read("pubspec.yaml")
 
 if not any(version in pubspec for version in (
-    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.0+65", "version: 0.34.1+66", "version: 0.34.3+68",
+    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.0+65", "version: 0.34.1+66", "version: 0.34.3+68", "version: 0.34.4+69",
 )):
     raise SystemExit("ERROR: unsupported release version")
 require(overlay, 'SimpleDateFormat("HH:mm", Locale.getDefault())', "overlay local time formatter")

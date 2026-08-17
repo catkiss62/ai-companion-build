@@ -415,12 +415,13 @@ class OverlayBubbleService : Service() {
         val reason = intent?.getStringExtra(EXTRA_REASON)
             ?: intent?.action
             ?: if (flags and START_FLAG_RETRY != 0) "system_retry" else "sticky_restart"
-        CompanionRuntimeState.markServiceStarted(this, reason)
+        CompanionRuntimeState.noteServiceCommand(this, reason)
         return START_STICKY
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        CompanionRuntimeState.noteTrimMemory(this, level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             backgroundEngine?.let { engine ->
                 runCatching { engine.systemChannel.sendMemoryPressureWarning() }
@@ -441,6 +442,7 @@ class OverlayBubbleService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        CompanionRuntimeState.noteTaskRemoved(this)
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -1978,11 +1980,23 @@ class OverlayBubbleService : Service() {
 
             inputRecoveryInProgress = true
             CompanionRuntimeState.setOverlayRecoveryInProgress(true)
-            try {
-                ensureOverlayHealth(
-                    "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
-                    rebuildInputChannel = true,
-                )
+            ensureOverlayHealth(
+                "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
+                rebuildInputChannel = true,
+            )
+            // WindowManager.addView() returns before isAttachedToWindow becomes
+            // reliable on some HyperOS builds. The old code sampled attachment
+            // synchronously and therefore treated a healthy replacement as
+            // failed, rebuilding it up to three times per picker visit. Verify
+            // only after one settle window; keep recoveryInProgress true so no
+            // watchdog/Activity callback can start a competing rebuild.
+            mainHandler.postDelayed({
+                if (sessionId != CompanionRuntimeState.currentOverlayCoverSessionId()) {
+                    inputRecoveryInProgress = false
+                    CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+                    return@postDelayed
+                }
+                updateOverlayTouchHealth()
                 val healthy = bubbleRoot?.isAttachedToWindow == true &&
                     CompanionRuntimeState.overlayBubbleTouchable
                 CompanionRuntimeState.noteOverlayCoverRecoveryResult(
@@ -2003,12 +2017,9 @@ class OverlayBubbleService : Service() {
                         metadata = mapOf("session" to sessionId, "attempt" to attempt),
                     )
                 }
-            } finally {
-                mainHandler.postDelayed({
-                    inputRecoveryInProgress = false
-                    CompanionRuntimeState.setOverlayRecoveryInProgress(false)
-                }, INPUT_RECOVERY_SETTLE_MS)
-            }
+                inputRecoveryInProgress = false
+                CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+            }, INPUT_RECOVERY_SETTLE_MS)
         }, delayMs)
     }
 
@@ -2174,6 +2185,7 @@ class OverlayBubbleService : Service() {
                     "backgroundDartReady" -> {
                         if (backgroundEngine === createdEngine && running) {
                             backgroundBrainReady = true
+                            CompanionRuntimeState.noteBackgroundBrainReady(this)
                             backgroundEngineStartAttempts = 0
                             backgroundEngineRestartScheduled = false
                             brainWakeAttempt = 0
@@ -2225,6 +2237,10 @@ class OverlayBubbleService : Service() {
             runCatching { engine?.destroy() }
             backgroundEngine = null
             backgroundBrainReady = false
+            CompanionRuntimeState.noteBackgroundBrainFailure(
+                this,
+                "start_failed:${error.javaClass.simpleName}",
+            )
             stopPetAutonomyPolling()
             backgroundEngineStartAttempts += 1
             NativeEventStore.addDeviceEvent(
@@ -2259,6 +2275,7 @@ class OverlayBubbleService : Service() {
         runCatching { expectedEngine.destroy() }
         backgroundEngine = null
         backgroundBrainReady = false
+        CompanionRuntimeState.noteBackgroundBrainFailure(this, "ready_timeout")
         stopPetAutonomyPolling()
         backgroundEngineStartAttempts += 1
         scheduleBackgroundEngineRestart()

@@ -1,4 +1,4 @@
-name: Build AI Companion v0.34.3+68 APK (Lifelike Rules and Overlay Polish)
+name: Build AI Companion v0.34.4+69 APK (Overlay Recovery and Diagnostics)
 
 on:
   workflow_dispatch:
@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.34.3+68$' app/pubspec.yaml
+          grep -q '^version: 0.34.4+69$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 23;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.34.3+68 app/ source tree.'
+          echo 'Building directly from the committed v0.34.4+69 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -83,6 +83,7 @@ jobs:
           python3 tools/validate_v0341_image_vision.py
           python3 tools/validate_v0342_personality_appearance.py
           python3 tools/validate_v0343_lifelike_rules_overlay.py
+          python3 tools/validate_v0344_overlay_recovery_diagnostics.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
@@ -204,14 +205,14 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.34.3+68 APK to draft release
+      - name: Upload v0.34.4+69 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.34.3-lifelike-rules-overlay-test'
-          APK_NAME='AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK.apk'
+          TAG='v0.34.4-overlay-recovery-diagnostics-test'
+          APK_NAME='AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
@@ -221,8 +222,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.3+68 true-device test candidate' \
-              --notes 'Draft-only APK for lifelike daily behavior, explicit adult-session continuity, visible-chat unread acknowledgement, tuned badge placement, and removal of reply-arrival TALKING motion.'
+              --title 'AI Companion v0.34.4+69 true-device test candidate' \
+              --notes 'Draft-only APK for settled overlay recovery verification, redacted background survival telemetry, and directional Somatic acceptance diagnostics.'
           fi
           gh release upload "${TAG}" \
             "app/${APK_NAME}" \

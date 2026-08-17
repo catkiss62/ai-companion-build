@@ -7153,6 +7153,84 @@ class AppDatabase {
     };
   }
 
+  /// Metadata-only Somatic observability for true-device acceptance.
+  ///
+  /// This deliberately never selects message content, action, body part,
+  /// scene_key or narrative. It only reports whether the latest committed user
+  /// and assistant turns produced a directional event, plus aggregate counts
+  /// and timestamps needed to distinguish "detector did not match" from
+  /// "event was written and later expired".
+  Future<Map<String, Object?>> somaticDiagnosticStats() async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    Future<Map<String, Object?>> direction(String value) async {
+      final rows = await db.rawQuery(
+        '''
+        SELECT COUNT(*) AS total,
+               MAX(created_at) AS last_written_at,
+               SUM(CASE WHEN expires_at > ? THEN 1 ELSE 0 END) AS active
+        FROM somatic_events
+        WHERE direction = ?
+        ''',
+        [now, value],
+      );
+      final row = rows.first;
+      return {
+        'total': (row['total'] as num?)?.toInt() ?? 0,
+        'active': (row['active'] as num?)?.toInt() ?? 0,
+        'lastWrittenAt': (row['last_written_at'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    Future<Map<String, Object?>> latestEvaluation({
+      required String role,
+      required String direction,
+    }) async {
+      final turns = await db.query(
+        'messages',
+        columns: const ['id', 'created_at'],
+        where: 'role = ?',
+        whereArgs: [role],
+        orderBy: 'created_at DESC',
+        limit: 1,
+      );
+      if (turns.isEmpty) {
+        return const {
+          'evaluatedAt': 0,
+          'result': 'no_committed_turn',
+          'writtenEventCount': 0,
+        };
+      }
+      final turn = turns.first;
+      final countRows = await db.rawQuery(
+        'SELECT COUNT(*) AS c FROM somatic_events WHERE turn_id = ? AND direction = ?',
+        [turn['id'], direction],
+      );
+      final written = Sqflite.firstIntValue(countRows) ?? 0;
+      return {
+        'evaluatedAt': (turn['created_at'] as num?)?.toInt() ?? 0,
+        'result': written > 0 ? 'written' : 'no_completed_action_match',
+        'writtenEventCount': written,
+      };
+    }
+
+    return {
+      'userToAi': await direction(SomaticDirection.userToAi),
+      'aiToSelf': await direction(SomaticDirection.aiToSelf),
+      'latestUserEvaluation': await latestEvaluation(
+        role: 'user',
+        direction: SomaticDirection.userToAi,
+      ),
+      'latestAssistantEvaluation': await latestEvaluation(
+        role: 'assistant',
+        direction: SomaticDirection.aiToSelf,
+      ),
+      'eventNarrativeIncluded': false,
+      'messageBodiesIncluded': false,
+    };
+  }
+
   Future<Map<String, Object?>> exportAll() async {
     final identity = await transferStateIdentity();
     final db = await database;

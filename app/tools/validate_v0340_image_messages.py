@@ -28,7 +28,7 @@ pet_test = read(
     "android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt"
 )
 
-assert "version: 0.34.3+68" in pubspec
+assert "version: 0.34.4+69" in pubspec
 for historical_validator in (
     "tools/validate_v0321_ai_to_self.py",
     "tools/validate_v0322_overlay_time_diagnostics.py",
@@ -47,8 +47,8 @@ for historical_validator in (
         or "version: 0.34.1+66" in historical
     ), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
-assert "Build AI Companion v0.34.3+68 APK (Lifelike Rules and Overlay Polish)" in workflow
-assert "AI-Companion-v0.34.3-68-Lifelike-Rules-Overlay-APK" in workflow
+assert "Build AI Companion v0.34.4+69 APK (Overlay Recovery and Diagnostics)" in workflow
+assert "AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK" in workflow
 somatic_validator = read("tools/validate_v0320_somatic_contract.py")
 assert "0\\.34\\." in somatic_validator and "1\\+66" in somatic_validator
 assert "static const int schemaVersion = 22;" in read(

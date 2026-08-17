@@ -102,6 +102,7 @@ class PreflightDiagnosticsService {
       final lastTakeoverAt = int.tryParse(await db.getSetting('last_takeover_at') ?? '') ?? 0;
       final jobs = await db.postTurnJobStats();
       final memoryStats = await db.memoryStats();
+      final somaticDiagnostics = await db.somaticDiagnosticStats();
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -158,6 +159,7 @@ class PreflightDiagnosticsService {
         'blockingGenerationStatus': generationJob?.status ?? 'none',
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
+        'somaticObservability': somaticDiagnostics,
         'errorFlags': {
           'backgroundErrorCount':
               int.tryParse(await db.getSetting('background_error_count') ?? '') ?? 0,
@@ -325,6 +327,16 @@ class PreflightDiagnosticsService {
         level: 'pass',
         summary: '数据库可打开，身份与 schema 可读取。',
       ));
+      final aiToSelf = _asMap(somaticDiagnostics['aiToSelf']);
+      final aiToSelfCount = (aiToSelf['total'] as num?)?.toInt() ?? 0;
+      checks.add(PreflightCheck(
+        id: 'somatic_ai_to_self',
+        title: 'AI → self 感官回响',
+        level: aiToSelfCount > 0 ? 'pass' : 'info',
+        summary: aiToSelfCount > 0
+            ? '至少一条已提交的 AI 自发完成动作产生了脱敏感官回响。'
+            : '尚无 AI → self 正向事件；需用一条明确已完成的自发触碰动作定向验收。',
+      ));
       if (transferLock) {
         final expected = pendingImport != null || pendingOutboundId.isNotEmpty;
         checks.add(PreflightCheck(
@@ -367,6 +379,24 @@ class PreflightDiagnosticsService {
       final nearby = _asMap(native['nearby']);
       final androidInfo = _asMap(native['android']);
       final audio = _asMap(native['audio']);
+      final selfHealCount =
+          (capabilities['overlaySelfHealCount'] as num?)?.toInt() ?? 0;
+      final coverSessionId =
+          (capabilities['overlayCoverSessionId'] as num?)?.toInt() ?? 0;
+      final coverState = capabilities['overlayCoverState'] as String? ?? 'idle';
+      final inputSuspect = capabilities['overlayInputSuspect'] == true;
+      final systemCoverActive = capabilities['overlaySystemCoverActive'] == true;
+      final recoveryInProgress =
+          capabilities['overlayRecoveryInProgress'] == true;
+      final transientCoverRecovery = inputSuspect &&
+          (systemCoverActive ||
+              recoveryInProgress ||
+              coverState == 'covered_detached' ||
+              coverState == 'covered_suspect' ||
+              coverState == 'exit_pending' ||
+              coverState == 'recovery_scheduled');
+      final possibleRecoveryLoop = coverSessionId > 0 &&
+          selfHealCount > (coverSessionId * 2 + 2);
       report['overlayTouch'] = {
         'bubbleAttached': capabilities['overlayBubbleAttached'] == true,
         'bubbleTouchable': capabilities['overlayBubbleTouchable'] == true,
@@ -377,23 +407,52 @@ class PreflightDiagnosticsService {
         'lastTouchAction': capabilities['overlayLastTouchAction'] ?? '',
         'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
         'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
-        'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
-        'inputSuspect': capabilities['overlayInputSuspect'] == true,
+        'selfHealCount': selfHealCount,
+        'inputSuspect': inputSuspect,
         'lastSystemCoverAt': capabilities['overlayLastSystemCoverAt'] ?? 0,
         'lastSystemCoverReason': capabilities['overlayLastSystemCoverReason'] ?? '',
         'lastCoverRecoveryAt': capabilities['overlayLastCoverRecoveryAt'] ?? 0,
         'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
-        'recoveryInProgress': capabilities['overlayRecoveryInProgress'] == true,
+        'recoveryInProgress': recoveryInProgress,
         'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
-        'coverState': capabilities['overlayCoverState'] ?? 'idle',
-        'systemCoverActive': capabilities['overlaySystemCoverActive'] == true,
-        'coverSessionId': capabilities['overlayCoverSessionId'] ?? 0,
+        'coverState': coverState,
+        'systemCoverActive': systemCoverActive,
+        'coverSessionId': coverSessionId,
         'coverRecoveryAttempt': capabilities['overlayCoverRecoveryAttempt'] ?? 0,
         'lastCoverExitAt': capabilities['overlayLastCoverExitAt'] ?? 0,
         'lastCoverExitReason': capabilities['overlayLastCoverExitReason'] ?? '',
         'lastCoverRecoveryResult':
             capabilities['overlayLastCoverRecoveryResult'] ?? '',
         'coverDetachCount': capabilities['overlayCoverDetachCount'] ?? 0,
+        'transientSystemCoverRecovery': transientCoverRecovery,
+        'possibleRecoveryLoop': possibleRecoveryLoop,
+        'selfHealsPerCoverSession': coverSessionId <= 0
+            ? 0.0
+            : double.parse((selfHealCount / coverSessionId).toStringAsFixed(2)),
+      };
+      report['backgroundContinuity'] = {
+        'processAgeMs': capabilities['processAgeMs'] ?? 0,
+        'serviceUptimeMs': capabilities['serviceUptimeMs'] ?? 0,
+        'serviceStartCount': capabilities['serviceStartCount'] ?? 0,
+        'serviceCleanStopCount': capabilities['serviceCleanStopCount'] ?? 0,
+        'possibleUncleanRestartCount':
+            capabilities['possibleUncleanRestartCount'] ?? 0,
+        'lastPossibleUncleanRestartAt':
+            capabilities['lastPossibleUncleanRestartAt'] ?? 0,
+        'lastTaskRemovedAt': capabilities['lastTaskRemovedAt'] ?? 0,
+        'lastTrimMemoryAt': capabilities['lastTrimMemoryAt'] ?? 0,
+        'lastTrimMemoryLevel': capabilities['lastTrimMemoryLevel'] ?? 0,
+        'backgroundBrainReadyAt': capabilities['backgroundBrainReadyAt'] ?? 0,
+        'backgroundBrainReadyCount': capabilities['backgroundBrainReadyCount'] ?? 0,
+        'backgroundBrainFailureAt': capabilities['backgroundBrainFailureAt'] ?? 0,
+        'backgroundBrainFailureCount':
+            capabilities['backgroundBrainFailureCount'] ?? 0,
+        'backgroundBrainFailureReason':
+            capabilities['backgroundBrainFailureReason'] ?? '',
+        'batteryOptimizationIgnored':
+            androidInfo['batteryOptimizationIgnored'] == true,
+        'backgroundRestricted': androidInfo['backgroundRestricted'] == true,
+        'contentsIncluded': false,
       };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
@@ -465,16 +524,24 @@ class PreflightDiagnosticsService {
         title: '悬浮球触摸健康',
         level: !overlayEnabled
             ? 'info'
-            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
-                    (!chatWindowAttached || chatExpanded)
-                ? 'pass'
-                : 'warn',
+            : possibleRecoveryLoop
+                ? 'warn'
+                : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                        (!chatWindowAttached || chatExpanded)
+                    ? 'pass'
+                    : transientCoverRecovery
+                        ? 'info'
+                        : 'warn',
         summary: !overlayEnabled
             ? '悬浮陪伴未启用，本轮不检查触摸窗口。'
-            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
-                    (!chatWindowAttached || chatExpanded)
-                ? '悬浮球窗口已附着、可触摸且位于系统安全区域。'
-                : '悬浮球存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
+            : possibleRecoveryLoop
+                ? '系统页面次数与自愈次数不成比例，疑似重复恢复循环。'
+                : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                        (!chatWindowAttached || chatExpanded)
+                    ? '悬浮入口已附着、可触摸且位于系统安全区域。'
+                    : transientCoverRecovery
+                        ? '系统图片/文件/权限页面刚退出，悬浮输入通道正在一次性恢复。'
+                        : '悬浮入口存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
       ));
 
       final nearbyPermission = nearby['permissionsGranted'] == true;
