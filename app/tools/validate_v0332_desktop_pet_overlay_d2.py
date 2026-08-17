@@ -25,7 +25,7 @@ assert any(version in pubspec for version in (
     "version: 0.33.5+60",
     "version: 0.33.6+61",
     "version: 0.33.7+62",
-    "version: 0.33.9+64", "version: 0.34.0+65",
+    "version: 0.33.9+64", "version: 0.34.1+66",
 ))
 
 pet = read(

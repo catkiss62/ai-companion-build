@@ -9,6 +9,7 @@ import '../../core/ai/durable_generation_runner.dart';
 import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/memory_extractor.dart';
 import '../../core/ai/model_profile.dart';
+import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
@@ -32,12 +33,14 @@ class ChatController extends ChangeNotifier {
   ChatController({
     AppDatabase? db,
     DeepSeekClient? client,
+    QwenVisionClient? visionClient,
     SecureConfig? secureConfig,
     AndroidBridge? android,
     MessageAttachmentStorage? attachmentStorage,
     this.externalRecoveryOrchestrator = false,
   })  : db = db ?? AppDatabase.instance,
         client = client ?? DeepSeekClient(),
+        visionClient = visionClient ?? QwenVisionClient(),
         secureConfig = secureConfig ?? SecureConfig.instance,
         android = android ?? AndroidBridge.instance,
         attachmentStorage = attachmentStorage ?? MessageAttachmentStorage() {
@@ -81,6 +84,7 @@ class ChatController extends ChangeNotifier {
 
   final AppDatabase db;
   final DeepSeekClient client;
+  final QwenVisionClient visionClient;
   final SecureConfig secureConfig;
   final AndroidBridge android;
   final MessageAttachmentStorage attachmentStorage;
@@ -104,6 +108,7 @@ class ChatController extends ChangeNotifier {
   bool loading = true;
   bool sending = false;
   bool savingImage = false;
+  bool analyzingImage = false;
   bool recoveringGeneration = false;
   bool cancellingGeneration = false;
   String streamingReasoning = '';
@@ -200,6 +205,10 @@ class ChatController extends ChangeNotifier {
       if (!externalRecoveryOrchestrator) {
         unawaited(_runStartupMaintenanceSafely());
         unawaited(_scheduleGenerationRecovery());
+        final unfinishedVision = await db.unfinishedVisionMessageId();
+        if (unfinishedVision != null) {
+          unawaited(_analyzeImageMessage(unfinishedVision));
+        }
       }
     } catch (e) {
       loading = false;
@@ -295,12 +304,20 @@ class ChatController extends ChangeNotifier {
     PreparedImageAttachment draft, {
     String caption = '',
   }) async {
-    if (sending || savingImage) return false;
+    if (sending || savingImage || analyzingImage) return false;
     error = null;
     savingImage = true;
     _safeNotify();
     MessageAttachment? committed;
     try {
+      final deepSeekKey = await secureConfig.readApiKey();
+      if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
+        throw StateError('请先到“AI 与陪伴设置”填写 DeepSeek API Key。');
+      }
+      final visionKey = await secureConfig.readVisionApiKey();
+      if (visionKey == null || visionKey.trim().isEmpty) {
+        throw StateError('请先到“AI 与陪伴设置”填写千问视觉 API Key。');
+      }
       if ((await db.getSetting('transfer_lock')) == '1') {
         throw StateError('她正在换到另一台设备，接管完成前先不能继续聊天。');
       }
@@ -323,6 +340,8 @@ class ChatController extends ChangeNotifier {
       );
       await db.insertMessageWithAttachments(message, [committed]);
       messages = [...messages, message];
+      _safeNotify();
+      unawaited(_analyzeImageMessage(message.id));
       return true;
     } catch (exception) {
       if (committed != null) {
@@ -342,12 +361,100 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> retryImageVision(ChatMessage message) async {
+    if (!message.isUser ||
+        !message.hasAttachments ||
+        sending ||
+        savingImage ||
+        analyzingImage) {
+      return;
+    }
+    await _analyzeImageMessage(message.id);
+  }
+
+  Future<void> _analyzeImageMessage(String messageId) async {
+    if (_disposed || analyzingImage || sending) return;
+    final acquired = await db.tryAcquireLocalLease(
+      'image_vision_lease',
+      holdFor: const Duration(minutes: 3),
+    );
+    if (!acquired) return;
+    final message = await db.messageById(messageId);
+    if (message == null || !message.isUser || message.attachments.isEmpty) {
+      await db.releaseLocalLease('image_vision_lease');
+      return;
+    }
+    final attachment = message.attachments.firstWhere(
+      (item) => item.isImage,
+      orElse: () => message.attachments.first,
+    );
+    if (attachment.visionCompleted) {
+      await db.releaseLocalLease('image_vision_lease');
+      return;
+    }
+
+    analyzingImage = true;
+    error = null;
+    _safeNotify();
+    var marked = false;
+    try {
+      final visionKey = await secureConfig.readVisionApiKey();
+      if (visionKey == null || visionKey.trim().isEmpty) {
+        throw StateError('请先到“AI 与陪伴设置”填写千问视觉 API Key。');
+      }
+      final deepSeekKey = await secureConfig.readApiKey();
+      if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
+        throw StateError('请先到“AI 与陪伴设置”填写 DeepSeek API Key。');
+      }
+      marked = await db.markAttachmentVisionAnalyzing(attachment.id);
+      if (!marked) return;
+      messages = await db.recentMessages(limit: 160);
+      _safeNotify();
+
+      // The original remains local. Vision receives only the already-generated
+      // 1000 px max-edge PNG thumbnail, which bounds upload size and removes EXIF data.
+      final thumbnail = await attachmentStorage.fileFor(
+        attachment.thumbnailPath,
+      );
+      final observation = await visionClient.observe(
+        apiKey: visionKey,
+        endpoint: await secureConfig.readVisionEndpoint(),
+        model: await secureConfig.readVisionModel(),
+        imageFile: thumbnail,
+        caption: message.content,
+      );
+      await db.completeAttachmentVisionAndCreateGeneration(
+        attachmentId: attachment.id,
+        summary: observation.summary,
+        visionModel: observation.model,
+        assistantMessageId: _uuid.v4(),
+        model: model.apiName,
+        reasoningEffort: effort.apiName,
+        thinking: true,
+      );
+      messages = await db.recentMessages(limit: 160);
+    } catch (exception) {
+      if (marked) {
+        await db.failAttachmentVision(attachment.id, exception.toString());
+      }
+      messages = await db.recentMessages(limit: 160);
+      error = '图片识别失败：$exception';
+    } finally {
+      analyzingImage = false;
+      await db.releaseLocalLease('image_vision_lease');
+      _safeNotify();
+    }
+    if (!_disposed && error == null) {
+      await resumePendingGeneration();
+    }
+  }
+
   Future<void> discardPreparedImage(PreparedImageAttachment draft) async {
     await attachmentStorage.discardDraft(draft);
   }
 
   Future<bool> deleteAttachmentMessage(ChatMessage message) async {
-    if (!message.isUser || !message.hasAttachments || sending || savingImage) {
+    if (!message.isUser || !message.hasAttachments || sending || savingImage || analyzingImage) {
       return false;
     }
     final removed = await db.deleteAttachmentMessage(message.id);
@@ -364,7 +471,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> sendText(String raw, {String? requestedMessageId}) async {
     final text = raw.trim();
-    if (text.isEmpty || sending) return;
+    if (text.isEmpty || sending || analyzingImage) return;
     error = null;
 
     final stableMessageId = requestedMessageId?.trim();
@@ -788,6 +895,7 @@ class ChatController extends ChangeNotifier {
         ),
       ),
     );
+    visionClient.close();
     client.close();
     super.dispose();
   }

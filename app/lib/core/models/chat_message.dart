@@ -36,10 +36,16 @@ class ChatMessage {
   String get promptContent {
     if (!hasAttachments) return content;
     final caption = content.trim();
-    final imageCount = attachments.where((item) => item.isImage).length;
-    final label = imageCount <= 1
-        ? '[用户发送了一张图片；当前文字模型没有读取图片内容]'
-        : '[用户发送了$imageCount张图片；当前文字模型没有读取图片内容]';
+    final observations = attachments.where((item) => item.isImage).map((item) {
+      if (item.visionCompleted) {
+        return '[用户发送了一张图片；视觉模型观察：${item.visionSummary.trim()}]';
+      }
+      if (item.visionFailed) {
+        return '[用户发送了一张图片；视觉识别失败，未取得图片内容]';
+      }
+      return '[用户发送了一张图片；视觉识别尚未完成]';
+    }).toList(growable: false);
+    final label = observations.join('\n');
     return caption.isEmpty ? label : '$label\n附言：$caption';
   }
 

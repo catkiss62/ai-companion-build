@@ -28,7 +28,7 @@ pet_test = read(
     "android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt"
 )
 
-assert "version: 0.34.0+65" in pubspec
+assert "version: 0.34.1+66" in pubspec
 for historical_validator in (
     "tools/validate_v0321_ai_to_self.py",
     "tools/validate_v0322_overlay_time_diagnostics.py",
@@ -41,15 +41,20 @@ for historical_validator in (
     "tools/validate_v0337_pet_falling_visual_rollback.py",
     "tools/validate_v0338_pet_semantic_autonomy.py",
 ):
-    assert "version: 0.34.0+65" in read(historical_validator), historical_validator
+    historical = read(historical_validator)
+    assert (
+        "version: 0.34.0+65" in historical
+        or "version: 0.34.1+66" in historical
+    ), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
-assert "Build AI Companion v0.34.0+65 APK (Image Messages Phase 1)" in workflow
-assert "AI-Companion-v0.34.0-65-Image-Messages-Phase-1-APK" in workflow
-assert "0\\.34\\.0\\+65" in read("tools/validate_v0320_somatic_contract.py")
+assert "Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)" in workflow
+assert "AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK" in workflow
+somatic_validator = read("tools/validate_v0320_somatic_contract.py")
+assert "0\\.34\\." in somatic_validator and "1\\+66" in somatic_validator
 assert "static const int schemaVersion = 22;" in read(
     "tools/validate_v0313_overlay_picker.py"
 )
-assert "static const int schemaVersion = 22;" in database
+assert "static const int schemaVersion = 23;" in database
 for token in (
     "CREATE TABLE IF NOT EXISTS message_attachments",
     "FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE",
@@ -64,14 +69,14 @@ for token in (
 for token in (
     "final List<MessageAttachment> attachments;",
     "final bool expectsReply;",
-    "当前文字模型没有读取图片内容",
     "'expects_reply': expectsReply ? 1 : 0",
 ):
     assert token in message, token
+assert "视觉模型观察" in message
 
 for token in (
     "maxImageBytes = 25 * 1024 * 1024",
-    "thumbnailLongestEdge = 720",
+    "thumbnailLongestEdge = 1000",
     "getApplicationSupportDirectory",
     "ui.ImageDescriptor.encoded",
     "originals/",

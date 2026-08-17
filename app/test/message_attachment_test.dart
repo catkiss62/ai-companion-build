@@ -28,7 +28,7 @@ void main() {
     expect(restored.height, 800);
   });
 
-  test('image-only history never pretends the text model saw pixels', () {
+  test('pending image history never pretends recognition finished', () {
     final message = ChatMessage(
       id: 'message-1',
       role: 'user',
@@ -36,7 +36,7 @@ void main() {
       createdAt: DateTime.fromMillisecondsSinceEpoch(123456),
       attachments: [attachment],
     );
-    expect(message.promptContent, contains('当前文字模型没有读取图片内容'));
+    expect(message.promptContent, contains('视觉识别尚未完成'));
     expect(message.promptContent, isNotEmpty);
     expect(message.toDb().containsKey('attachments'), isFalse);
     expect(message.toJson()['attachments'], hasLength(1));
