@@ -9,12 +9,16 @@
 ## 2026-08-17 当前主线覆盖说明
 
 > 本节覆盖下方早期 P0/P1 排期，但不删除历史实现与证据。当前产品基线为
-> Draft PR #23 的已安装真机基线为 `v0.34.4+69`；本轮开发版本为 `v0.34.5+70`，schema 23 不变。
+> Draft PR #23 的已安装真机基线为 `v0.34.4+69`；当前真机复测版本为 `v0.34.5+70`；本轮开发版本为 `v0.34.6+71`，schema 23 不变。
 
 ### ACTIVE · 悬浮恢复、后台存活与 Somatic 正向验收
 
 - [x] 2026-08-17 20:58 脱敏报告确认 v0.34.4 失败样本没有进入 cover 状态机：`accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、attempt/recovery 均为 0；OEM 备用 `onWindowVisibilityChanged` 也仍报告可见。此报告不能证明 settle 修复失败，但证明选择器检测入口存在缺口。
 - [x] v0.34.5 增加“直接选择器 guard”：完整 App 主动打开图片/相机、诊断导出、手动备份保存/打开文件选择器前，直接向既有 cover 状态机发送 enter；返回、取消或启动失败时发送 exit。它不依赖无障碍或 OEM 窗口可见性回调，不建立第二套恢复状态机。
+- [x] v0.34.5 真机新报告 `ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt`：`coverSessionId=0`、cover enter/exit/recovery 均为 0，且无障碍未授权/未连接。该报告证明本次跨 App 上传仍未进入 recovery；不能把它写成 settled recovery 失败。App 自己发起的 picker 继续由 direct guard 负责；ChatGPT/浏览器等其他 App 发起的系统 chooser 必须依赖已存在的 Accessibility 系统页面识别或 OEM visibility fallback。
+- [x] v0.34.6 修复锁屏时 WALKING/STROLLING 卡动作：隐藏桌宠时 autonomous move tick 会被移除，因此同时把临时自主动作归零到 IDLE；解锁后从 IDLE 重新安排 ambient/blink。保留动作素材、60Hz 移动 tick、三档大小及全部既有动作策略。
+- [x] v0.34.6 新增 `validate_v0346_lock_visibility_resume.py`，锁定 screen-off hide、user-present show、隐藏归零和解锁重排期，并确认 cover recovery 仍为 3 次上限、700ms settle。
+- [ ] 安装 v0.34.6 后先在系统设置重新开启 AI Companion 无障碍并确认诊断显示 authorized/connected=true，再从 ChatGPT/浏览器等外部 App 打开上传选择器。若出现 `coverSessionId>0` 仍卡住，才执行最后一轮 recovery 段替换；再失败冻结。若仍为 0，优先扩展该机型实际 picker 包识别，不调整 reattach 延迟/次数。
 - [x] 保留 v0.34.4 的异步 attach settle 验证，不回滚已确认的同步误判修复；保持最多 3 次恢复，不增加第四次重试、不继续延长等待。
 - [x] v0.34.5 首次提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`，会在 Flutter analyze/compile 阶段失败；已改为既有单例 `AndroidBridge.instance`，并把该断言加入 v0.34.5 validator。此修正不改版本号、不改恢复状态机，仅解除构建阻断。
 - [ ] GitHub Actions artifact 存储配额仍为已知限制；APK 与 `.sha256` 继续由 workflow 写入同一私有仓库的草稿 Release，不恢复 artifact 上传、不发布正式 Release。待本次重新构建后回填 run、APK SHA-256 与草稿 Release 链接。
