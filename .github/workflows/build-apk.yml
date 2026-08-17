@@ -3,6 +3,7 @@
 # AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk
 # Historical monitor compatibility: AI-Companion-v0.34.7-72-CI-Monitor.txt
 # Historical monitor compatibility: .ci/v0345-monitor.txt
+# Historical monitor command compatibility: gh run view "${GITHUB_RUN_ID}"
 name: Build AI Companion v0.34.8+73 APK (Public Web Discovery)
 
 on:
