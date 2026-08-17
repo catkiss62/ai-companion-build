@@ -108,7 +108,7 @@ require(
     [
         "Build AI Companion v0.34.6+71 APK (Lock Resume)",
         "python3 tools/validate_v0334_pet_motion_modes.py",
-        "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK",
+        "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     ],
     "workflow",
 )
