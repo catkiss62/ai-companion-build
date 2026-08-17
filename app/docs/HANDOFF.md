@@ -315,8 +315,8 @@ P2：
 - `public_web_candidates` 一律为 `untrusted_public`，TTL 14 天、上限 240；候选不会直接写 Memory/Thought/规则/聊天，也不会直接联系用户。
 - 领取和完成均有 Active Brain、transfer、generation/device 和 run-token fencing；HTTP 后结果提交事务再次检查用户生成。只有至少一个新候选与 Outcome 同事务落库才轻量 satisfy。
 - 脱敏报告新增 `database.publicWebCandidates`，只输出数量、lifecycle、粗粒度运行状态/错误和来源元数据；标题、摘要、URL、查询、interest key 与 Thought 正文全部排除。
-- 已新增 policy/provider Flutter tests 与 v0.34.8 静态 validator；本地无 Flutter/Dart 工具链，最终 Flutter analyze/test、Kotlin test、APK 和资源一致性以 GitHub Actions 为准。
-- Release 上传增加最多 4 次短重试，避免 GitHub Releases 偶发 503 迫使整套编译重跑。当前等待首次 CI 自动验收，成功后回填 run、APK 大小、SHA-256 与草稿 Release。
+- 已新增 policy/provider Flutter tests 与 v0.34.8 静态 validator；最终 run `32061800320` 的完整历史回归、Kotlin tests、Flutter analyze/tests、release APK 与资源一致性全部通过。
+- Release 上传增加最多 4 次短重试，避免 GitHub Releases 偶发 503 迫使整套编译重跑。APK `AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk` 为 239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`；草稿 Release `untagged-fb193eb0c14190803f0a` 已核验三项资产 uploaded。
 - 下一实现：手动一次屏幕识别与敏感页 Gate；HyperOS 选择器悬浮卡住继续冻结到项目末尾。
 
 

@@ -27,7 +27,8 @@
 - [x] 同一 heartbeat 成功后重新加载 Desire，避免主动联系逻辑读取旧 snapshot；本阶段 Provider 永不直接发消息，未来分享仍经过独立 proactive Gate。
 - [x] 脱敏诊断新增 `database.publicWebCandidates` 及公开网页检查，只含计数、lifecycle、粗粒度运行结果/错误和来源元数据；显式不含标题、摘要、URL、查询、interest key 或 Thought 正文。
 - [x] 自动化已覆盖阈值/来源、固定主题隐私、六小时去重、预算/TTL/容量、HTML 清理、HTTPS 来源、三条上限和存储边界；本地 v0.34.7 回归及 v0.34.8 静态校验通过。
-- [ ] GitHub Actions 运行 Flutter analyze/tests、Kotlin tests、release APK 与完整回归；通过后回填 run、APK SHA-256 和草稿 Release。
+- [x] GitHub Actions run `32061800320` 全绿：完整历史回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传均通过。
+- [x] APK `AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk`，239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`；草稿 Release `untagged-fb193eb0c14190803f0a`。
 - [ ] 真机只需自然运行并稍后导出脱敏报告，确认 schema 25、`phase=public_web_scheduled`、Provider 状态及候选计数；不需要守着等待，也不应因发现成功立刻收到消息。
 - [ ] 下一功能进入“手动一次看当前屏幕”，先完成明确用户触发与敏感页保护，再开放 Desire 驱动的低频屏幕观察。
 
@@ -407,3 +408,10 @@
 - [x] run `32053411090` attempt 2：所有历史 validators、Kotlin 桌宠状态/物理测试、Flutter analyze/tests、release APK、原生库与 417 文件桌宠载荷、checksum、私有草稿 Release 上传全绿。
 - [x] APK：`AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk`，239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`。
 - [ ] 真机只需确认安装/启动与脱敏诊断 schema 24 / `database.autonomousActions.phase=foundation_not_scheduled`；本版没有真实 Provider 行为，不应出现自动联网或自动看屏幕。
+
+## v0.34.8+73 · 自动验收落款
+
+- [x] 最终 run `32061800320`：历史 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库和 417 文件桌宠载荷、checksum、草稿 Release 上传全绿。
+- [x] APK：`AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk`，239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`。
+- [x] 私有草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb193eb0c14190803f0a`，已核验 APK、`.sha256` 与 CI monitor 三项资产均为 uploaded。
+- [ ] 真机自然运行后导出报告；目标 schema 25、`database.autonomousActions.phase=public_web_scheduled`、`database.publicWebCandidates` 可读且不含标题/摘要/URL/query/interest key。发现成功不会直接发消息。

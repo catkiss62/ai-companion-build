@@ -243,6 +243,10 @@ jobs:
               --draft \
               --title 'AI Companion v0.34.8+73 true-device test candidate' \
               --notes 'Draft-only APK adding Desire-driven public Wikimedia discovery. It uses a fixed safe-topic list, stores up to three untrusted candidates without directly messaging or writing Memory, enforces a rolling 4/day budget plus ownership/generation/run-token fencing, and exports metadata-only diagnostics.'
+          else
+            gh release edit "${TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}"
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"

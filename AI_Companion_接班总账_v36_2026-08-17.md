@@ -297,6 +297,6 @@
 - HTTP 在事务外执行；提交前再次检查用户生成，候选、Outcome 与小幅 Desire satisfy 同事务落库。失败、无结果、只有重复、stale writer 或用户生成竞态均不满足欲望。
 - Provider 永不直接发送消息；成功后还会重载 Desire snapshot，防止同一 heartbeat 用旧状态立刻触发主动分享。未来分享继续经过原有 rhythm/Grounding/2/2h、8/24h Gate。
 - 脱敏报告新增 `database.publicWebCandidates`，只含计数、lifecycle、粗粒度运行结果/错误、Provider/来源域/语言/drive/action 元数据；明确不含标题、摘要、URL、查询、interest key 或 Thought 正文。
-- 已新增 policy/provider Flutter tests 与 `validate_v0348_public_web_discovery.py`；本地 v0.34.7 回归和 v0.34.8 静态校验通过。本机没有 Flutter/Dart，完整编译测试交 GitHub Actions。
-- workflow 的 draft Release 上传新增 4 次短重试，避免瞬时 HTTP 503 导致整套构建从头重跑。CI 成功前不得写成 APK 已完成；成功后回填 run、APK 大小、SHA-256 和草稿 Release。
+- 已新增 policy/provider Flutter tests 与 `validate_v0348_public_web_discovery.py`。最终 GitHub Actions run `32061800320` 已通过完整历史 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库和 417 文件载荷核验。
+- workflow 的 draft Release 上传新增 4 次短重试，避免瞬时 HTTP 503 导致整套构建从头重跑。APK `AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk` 为 239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`；私有草稿 Release `untagged-fb193eb0c14190803f0a` 的 APK、`.sha256` 与 CI monitor 均已核验 uploaded。
 - 下一任务固定为“手动一次看当前屏幕”与敏感页 Gate；HyperOS 文件选择器返回后悬浮卡住继续冻结到整个项目末尾。
