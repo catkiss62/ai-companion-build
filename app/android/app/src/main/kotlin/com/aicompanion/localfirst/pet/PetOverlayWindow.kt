@@ -314,7 +314,10 @@ class PetOverlayWindow(
         root?.visibility = if (visible) View.VISIBLE else View.GONE
         player?.setPaused(!visible)
         if (!visible) {
-            cancelAutonomyPlayback(resetToIdle = false)
+            // Screen-off/system hiding removes the autonomous movement tick. Reset
+            // its looping WALKING/STROLLING program as well, otherwise unlock
+            // resumes a visual action that no longer owns a movement task.
+            cancelAutonomyPlayback(resetToIdle = true)
             closeOptions(resumeMotion = false)
         } else {
             val resumedAtMs = SystemClock.uptimeMillis()
