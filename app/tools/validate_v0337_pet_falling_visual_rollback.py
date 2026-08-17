@@ -63,7 +63,7 @@ require(
     [
         "Build AI Companion v0.34.6+71 APK (Lock Resume)",
         "python3 tools/validate_v0337_pet_falling_visual_rollback.py",
-        "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK",
+        "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     ],
     "workflow",
 )
