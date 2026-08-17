@@ -307,6 +307,18 @@ P2：
 - 本版 phase=`foundation_not_scheduled`：底座可以自动测试，但不会产生真实自主上网/看屏幕行为。下一实现应接公共网页候选发现 Provider，成功只进候选池，主动分享仍经过既有 proactive Gate。
 - v0.34.7+72 最终 run `32053411090` attempt 2 全绿并上传草稿 Release。APK `AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk` 为 239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`。attempt 1 仅因 GitHub Releases HTTP 503 上传失败，代码、测试和 APK 验证均已通过。
 
+## v0.34.8+73 · Public Web Discovery
+
+- 当前主线已把第一个真实工具接入既有 Desire heartbeat，完整合同见 `docs/PUBLIC_WEB_DISCOVERY_v0.34.8.md`；schema 升至 25。
+- 只允许 curiosity / reflection / social 的合格现有 Intent；查询从固定中文公共主题白名单选择，不使用 Thought、用户文本、关系资料、屏幕/通知内容或 Intent reason。
+- Provider 使用中文 Wikimedia 官方 REST 搜索，12 秒超时；滚动 24 小时最多 4 次，UTC 六小时窗口哈希去重，每次最多保存 3 个候选。
+- `public_web_candidates` 一律为 `untrusted_public`，TTL 14 天、上限 240；候选不会直接写 Memory/Thought/规则/聊天，也不会直接联系用户。
+- 领取和完成均有 Active Brain、transfer、generation/device 和 run-token fencing；HTTP 后结果提交事务再次检查用户生成。只有至少一个新候选与 Outcome 同事务落库才轻量 satisfy。
+- 脱敏报告新增 `database.publicWebCandidates`，只输出数量、lifecycle、粗粒度运行状态/错误和来源元数据；标题、摘要、URL、查询、interest key 与 Thought 正文全部排除。
+- 已新增 policy/provider Flutter tests 与 v0.34.8 静态 validator；本地无 Flutter/Dart 工具链，最终 Flutter analyze/test、Kotlin test、APK 和资源一致性以 GitHub Actions 为准。
+- Release 上传增加最多 4 次短重试，避免 GitHub Releases 偶发 503 迫使整套编译重跑。当前等待首次 CI 自动验收，成功后回填 run、APK 大小、SHA-256 与草稿 Release。
+- 下一实现：手动一次屏幕识别与敏感页 Gate；HyperOS 选择器悬浮卡住继续冻结到项目末尾。
+
 
 ## v0.33.0+55 · Android 桌宠 D0/D1
 

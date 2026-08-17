@@ -1,6 +1,6 @@
 # AI Companion · 接班总账 v36
 
-更新时间：2026-08-17（Asia/Tokyo）
+更新时间：2026-08-18（Asia/Tokyo）
 
 > 本文件是当前唯一最新接班入口，继承 v35 以前的历史证据，但以本文件记录的基线、用户决定、真机结论和排期为准。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > 旧总账。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -287,3 +287,16 @@
 - v0.34.7 仅完成底座并明确为 `foundation_not_scheduled`，不虚构 Provider 已工作。下一阶段先接公共网页候选发现，再做手动一次屏幕识别与 Desire 驱动的低频看屏幕。
 - v0.34.7+72 最终 GitHub Actions run `32053411090`（attempt 2）全绿：历史源码回归、Kotlin 桌宠状态/物理、Flutter analyze/tests、release APK、原生库与 417 文件桌宠载荷全部通过。attempt 1 的代码与 APK 校验同样通过，仅因 GitHub Releases API 瞬时 HTTP 503 上传失败；自动重跑后上传成功。
 - 真机候选 APK：`AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk`，239,478,981 bytes，SHA-256 `7df89f3ea7fbec1c316a26ecc796971b4c3338b9d0a1ab4b2a586b92c3cfd477`；私有草稿 Release `untagged-d58cc8abd8dbe39a72c4`。
+
+## 10.4 2026-08-18 v0.34.8 欲望驱动的公开网页发现
+
+- 当前开发目标为 `v0.34.8+73`、schema 25。第一个真实 Provider 从既有 heartbeat 的 Desire tick 后运行；只有 curiosity、reflection、social 三类达到阈值的现有 Intent 可以派生 `discover_interest` 工具路由，工具本身不得生成欲望。
+- Provider 使用中文 Wikimedia 官方 REST 搜索。发送到网络的查询只来自内置固定公开主题白名单；不得拼接 Thought、用户消息、关系资料、屏幕/通知、Intent reason 或账号数据。
+- 新增 `public_web_candidates`：每次最多 3 条、TTL 14 天、总量 240，一律标记 `untrusted_public`。候选只保存必要标题/短摘要/HTTPS URL/来源/指纹/生命周期，不直接进入 Memory、Thought、规则或聊天。
+- 滚动 24 小时最多 4 次已放行尝试，同 Provider/兴趣键/UTC 六小时窗口哈希去重，HTTP 超时 12 秒。锁屏允许安静联网，但 Active Brain、transfer lock、用户生成、generation/device ownership、run token、预算和去重不能绕过。
+- HTTP 在事务外执行；提交前再次检查用户生成，候选、Outcome 与小幅 Desire satisfy 同事务落库。失败、无结果、只有重复、stale writer 或用户生成竞态均不满足欲望。
+- Provider 永不直接发送消息；成功后还会重载 Desire snapshot，防止同一 heartbeat 用旧状态立刻触发主动分享。未来分享继续经过原有 rhythm/Grounding/2/2h、8/24h Gate。
+- 脱敏报告新增 `database.publicWebCandidates`，只含计数、lifecycle、粗粒度运行结果/错误、Provider/来源域/语言/drive/action 元数据；明确不含标题、摘要、URL、查询、interest key 或 Thought 正文。
+- 已新增 policy/provider Flutter tests 与 `validate_v0348_public_web_discovery.py`；本地 v0.34.7 回归和 v0.34.8 静态校验通过。本机没有 Flutter/Dart，完整编译测试交 GitHub Actions。
+- workflow 的 draft Release 上传新增 4 次短重试，避免瞬时 HTTP 503 导致整套构建从头重跑。CI 成功前不得写成 APK 已完成；成功后回填 run、APK 大小、SHA-256 和草稿 Release。
+- 下一任务固定为“手动一次看当前屏幕”与敏感页 Gate；HyperOS 文件选择器返回后悬浮卡住继续冻结到整个项目末尾。

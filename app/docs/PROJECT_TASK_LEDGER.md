@@ -17,7 +17,21 @@
 - [x] 保留 v0.34.4 attach settle、v0.34.5 App 自有 direct-picker guard、3 次上限和 700ms settle；不回滚、不增加第四次重试、不继续延长等待。
 - [ ] 项目末尾重开时必须先增加真实输入挑战、动画帧心跳、window instance/generation 和系统页面 enter/exit 时间线；不能再以 attached/flags 作为成功证明，也不能继续盲调重建时序。
 
-### ACTIVE · v0.34.7 自主行动公共底座
+### ACTIVE · v0.34.8 欲望驱动的公开网页发现
+
+- [x] 第一个真实 Provider 接入既有 heartbeat：只从已存在的 curiosity / reflection / social `DesireIntent` 派生 `discover_interest` 路由，不建立第二套欲望或主动触发器。
+- [x] 使用中文 Wikimedia 官方 REST 搜索；查询只来自固定公开主题白名单，Thought、用户消息、关系资料、屏幕/通知内容和 Intent reason 均不离开设备。
+- [x] schema 25 新增 `public_web_candidates` 不可信候选池；每次最多 3 条、TTL 14 天、总量 240，保存标题/短摘要/HTTPS URL/来源/指纹与生命周期，但不直接写 Memory、Thought、系统规则或聊天。
+- [x] 滚动 24 小时最多 4 次已放行尝试，UTC 六小时窗口哈希去重，HTTP 12 秒超时；锁屏不拦安静联网，Active Brain、transfer、用户生成、device/generation、run token、预算与重复围栏均保留。
+- [x] HTTP 返回后在结果提交事务内重新检查用户生成任务；候选、Outcome 和轻量 Desire satisfy 原子提交。失败、无结果、仅重复、stale writer 或并发用户生成均不满足欲望。
+- [x] 同一 heartbeat 成功后重新加载 Desire，避免主动联系逻辑读取旧 snapshot；本阶段 Provider 永不直接发消息，未来分享仍经过独立 proactive Gate。
+- [x] 脱敏诊断新增 `database.publicWebCandidates` 及公开网页检查，只含计数、lifecycle、粗粒度运行结果/错误和来源元数据；显式不含标题、摘要、URL、查询、interest key 或 Thought 正文。
+- [x] 自动化已覆盖阈值/来源、固定主题隐私、六小时去重、预算/TTL/容量、HTML 清理、HTTPS 来源、三条上限和存储边界；本地 v0.34.7 回归及 v0.34.8 静态校验通过。
+- [ ] GitHub Actions 运行 Flutter analyze/tests、Kotlin tests、release APK 与完整回归；通过后回填 run、APK SHA-256 和草稿 Release。
+- [ ] 真机只需自然运行并稍后导出脱敏报告，确认 schema 25、`phase=public_web_scheduled`、Provider 状态及候选计数；不需要守着等待，也不应因发现成功立刻收到消息。
+- [ ] 下一功能进入“手动一次看当前屏幕”，先完成明确用户触发与敏感页保护，再开放 Desire 驱动的低频屏幕观察。
+
+### GUARDRAIL · v0.34.7 自主行动公共底座
 
 - [x] 新增统一 `DesireIntent → Tool Gate → durable Action → Outcome → satisfy/feedback` 合同；工具不能自行产生人格、欲望、Intent 或主动联系。
 - [x] Tool Gate 与主动消息投递 Gate 完全分离；联网成功以后只能先形成候选，不能自动发消息。
@@ -27,7 +41,7 @@
 - [x] 普通屏幕观察滚动窗口锁定为每小时最多 6 次；公开网页/视频 Provider 尚未设计，预算明确显示未配置而不擅自拍数值。主动联系继续沿用独立 2/2h、8/24h 上限。
 - [x] 脱敏诊断新增 `database.autonomousActions`：按工具/状态计数、最后 Gate/Outcome、耗时桶、预算、锁屏与去重；显式声明不含 query、URL、内容、账号和内部 reason。
 - [x] v0.34.7 只交付底座，phase=`foundation_not_scheduled`，不接入真实 Provider，不虚构已经上网或看屏幕。
-- [ ] 下一版本把第一个真实 Provider 接入既有 heartbeat；优先公共网页候选发现，成功只进有来源候选池，随后再做手动一次屏幕识别。
+- [x] v0.34.8 已把第一个真实公共网页 Provider 接入既有 heartbeat；成功只进有来源候选池。随后做手动一次屏幕识别。
 
 ## 2026-08-17 当前主线覆盖说明
 

@@ -8,20 +8,21 @@ import '../desire/desire_core_policy.dart';
 import '../desire/desire_engine.dart';
 import '../models/autonomous_action.dart';
 import '../models/desire_state.dart';
+import '../models/public_web_candidate.dart';
 import 'autonomous_action_policy.dart';
 
-/// Durable bridge from the existing Desire Intent to a future tool Provider.
+/// Durable bridge from the existing Desire Intent to a tool Provider.
 ///
-/// This coordinator is intentionally not scheduled in v0.34.7. The first real
-/// Provider will call it from the existing heartbeat after Desire has selected
-/// an Intent. That keeps Desire/Thought as the only motivation source.
+/// v0.34.8 schedules the first provider from the existing heartbeat only after
+/// Desire has selected an Intent. That keeps Desire/Thought as the only
+/// motivation source; this coordinator never invents a second one.
 class AutonomousActionCoordinator {
   AutonomousActionCoordinator(this.db);
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
 
-  Future<AutonomousGateDecision> requestFromDesire({
+  Future<AutonomousActionRequestResult> requestFromDesire({
     required DesireIntent intent,
     required AutonomousToolKind tool,
     required String dedupeMaterial,
@@ -35,6 +36,11 @@ class AutonomousActionCoordinator {
   }) async {
     final instant = now ?? DateTime.now();
     final identity = await db.transferStateIdentity();
+    await db.recoverStaleAutonomousActions(
+      now: instant,
+      stateGeneration: identity.generation,
+      deviceId: identity.deviceId,
+    );
     final dedupeHash = sha256.convert(utf8.encode(dedupeMaterial)).toString();
     final dedupeKey = '${tool.key}:${dedupeHash.substring(0, 24)}';
     final duplicate = await db.hasActiveAutonomousActionDedupe(dedupeKey);
@@ -71,15 +77,26 @@ class AutonomousActionCoordinator {
       request: request,
       context: context,
     );
-    await db.recordAutonomousActionRequest(
+    final recorded = await db.recordAutonomousActionRequest(
       request: request,
       context: context,
       decision: decision,
       stateGeneration: identity.generation,
       deviceId: identity.deviceId,
     );
-    return decision;
+    return AutonomousActionRequestResult(
+      request: request,
+      decision: decision,
+      recorded: recorded,
+    );
   }
+
+  Future<AutonomousActionRun?> claim({
+    required String id,
+    required String runToken,
+    DateTime? now,
+  }) =>
+      db.claimAutonomousAction(id: id, runToken: runToken, now: now);
 
   Future<bool> completeSuccess({
     required AutonomousActionRun run,
@@ -140,6 +157,42 @@ class AutonomousActionCoordinator {
       outcome: outcome,
       resultCount: 0,
       now: now,
+    );
+  }
+
+  Future<int> completePublicWebSuccess({
+    required AutonomousActionRun run,
+    required String runToken,
+    required List<PublicWebCandidateDraft> candidates,
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final primaryDrive = DriveKey.values.firstWhere(
+      (value) => value.name == run.driveKey,
+      orElse: () => DriveKey.curiosity,
+    );
+    return db.completePublicWebDiscovery(
+      id: run.id,
+      runToken: runToken,
+      candidates: candidates,
+      now: instant,
+      satisfyOnSuccess: (snapshot) {
+        final drives = DesireCorePolicy.satisfiedDrives(
+          snapshot: snapshot,
+          action: 'discover_interest',
+          primaryDrive: primaryDrive,
+          intensity: 0.24,
+        );
+        final refractory = Map<DriveKey, DateTime>.from(
+          snapshot.refractoryUntil,
+        )..[primaryDrive] = instant.add(const Duration(minutes: 45));
+        return snapshot.copyWith(
+          drives: drives,
+          refractoryUntil: refractory,
+          lastSatisfiedAction: 'tool:public_web:discover_interest',
+          lastSatisfiedAt: instant,
+        );
+      },
     );
   }
 }

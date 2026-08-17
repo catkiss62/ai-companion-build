@@ -288,6 +288,12 @@ class DesireCorePolicy {
         settle(DriveKey.stress, 0.76);
         settle(DriveKey.attachment, 0.95);
         break;
+      case 'discover_interest':
+        settle(primaryDrive, 0.84);
+        if (primaryDrive != DriveKey.curiosity) {
+          settle(DriveKey.curiosity, 0.94);
+        }
+        break;
       case 'remember_shared_experience':
         settle(DriveKey.reflection, 0.84);
         settle(DriveKey.attachment, 0.94);

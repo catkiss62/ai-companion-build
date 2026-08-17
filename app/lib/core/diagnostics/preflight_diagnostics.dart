@@ -90,6 +90,10 @@ class PreflightDiagnosticsService {
         'autonomousIntentReasonIncluded': false,
         'autonomousQueryOrUrlIncluded': false,
         'autonomousScreenOrWebContentIncluded': false,
+        'publicWebCandidateTitleIncluded': false,
+        'publicWebCandidateSummaryIncluded': false,
+        'publicWebCandidateUrlIncluded': false,
+        'publicWebQueryOrInterestKeyIncluded': false,
       },
     };
 
@@ -108,6 +112,8 @@ class PreflightDiagnosticsService {
       final somaticDiagnostics = await db.somaticDiagnosticStats();
       final autonomousActions =
           await db.autonomousActionDiagnosticStats(now: now);
+      final publicWebCandidates =
+          await db.publicWebCandidateDiagnosticStats(now: now);
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -259,6 +265,7 @@ class PreflightDiagnosticsService {
           'thoughtProvenanceCounts': provenanceCounts,
         },
         'autonomousActions': autonomousActions,
+        'publicWebCandidates': publicWebCandidates,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
@@ -353,7 +360,21 @@ class PreflightDiagnosticsService {
         level: runningActions > 0 ? 'info' : 'pass',
         summary: runningActions > 0
             ? '当前存在已领取的自主工具任务；报告已保留脱敏执行状态。'
-            : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪；本版本尚未接入真实工具 Provider。',
+            : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪。',
+      ));
+      final publicWebRuntime =
+          _asMap(publicWebCandidates['runtime']);
+      final publicWebOutcome =
+          publicWebRuntime['lastOutcome'] as String? ?? 'never';
+      checks.add(PreflightCheck(
+        id: 'public_web_discovery',
+        title: '欲望驱动的公开网页发现',
+        level: publicWebOutcome == 'provider_failure' ? 'warn' : 'pass',
+        summary: publicWebOutcome == 'never'
+            ? '真实 Provider 已接入；等待符合阈值的 Desire Intent，候选只进入不可信候选池。'
+            : publicWebOutcome == 'provider_failure'
+                ? '最近一次公开网页发现由 Provider/网络失败；脱敏原因已记录，未满足欲望。'
+                : '公开网页发现已有脱敏运行结果；标题、摘要、网址、查询词均未进入报告。',
       ));
       if (transferLock) {
         final expected = pendingImport != null || pendingOutboundId.isNotEmpty;

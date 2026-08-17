@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
+import '../autonomy/public_web_discovery_engine.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
 import '../grounding/grounding_engine.dart';
@@ -123,6 +124,12 @@ class ProactiveEngine {
   late final LongRunningMaintenanceEngine longMaintenance =
       LongRunningMaintenanceEngine(db);
   late final DailyContinuityEngine dailyContinuity = DailyContinuityEngine(db);
+  late final PublicWebDiscoveryEngine publicWebDiscovery =
+      PublicWebDiscoveryEngine(
+        db: db,
+        desire: desireEngine,
+        android: android,
+      );
 
   /// Advances local inner-life and maintenance state without sending an
   /// outbound message. Used while a durable user reply is waiting for recovery.
@@ -174,7 +181,16 @@ class ProactiveEngine {
         await db.latestPerceptionBusyScore();
     final busyScore = (recentBusyScore ?? 0.30).clamp(0.0, 1.0).toDouble();
     final userBusy = busyScore >= 0.58;
-    final snapshot = await desireEngine.tick(userBusy: userBusy);
+    final advancedSnapshot = await desireEngine.tick(userBusy: userBusy);
+    try {
+      await publicWebDiscovery.maybeDiscover(snapshot: advancedSnapshot);
+    } catch (_) {
+      // Public discovery is optional enrichment. A provider/network fault must
+      // never stop Desire, maintenance, recovery, or proactive evaluation.
+    }
+    // Discovery may have atomically satisfied the selected drive. Reload so a
+    // proactive message in the same heartbeat cannot act on a stale snapshot.
+    final snapshot = await db.loadDesire();
     return LocalCompanionHeartbeat(
       snapshot: snapshot,
       userBusy: userBusy,

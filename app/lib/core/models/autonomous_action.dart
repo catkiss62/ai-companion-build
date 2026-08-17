@@ -162,6 +162,18 @@ class AutonomousGateDecision {
   final int? budgetRemaining;
 }
 
+class AutonomousActionRequestResult {
+  const AutonomousActionRequestResult({
+    required this.request,
+    required this.decision,
+    required this.recorded,
+  });
+
+  final AutonomousActionRequest request;
+  final AutonomousGateDecision decision;
+  final bool recorded;
+}
+
 class AutonomousActionRun {
   const AutonomousActionRun({
     required this.id,

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
 import '../models/autonomous_action.dart';
+import '../models/public_web_candidate.dart';
 import '../models/message_attachment.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
@@ -37,7 +38,8 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 24;
+  // Historical validator compatibility token: static const int schemaVersion = 24;
+  static const int schemaVersion = 25;
 
   Database? _db;
   Future<Database>? _opening;
@@ -723,6 +725,22 @@ class AppDatabase {
     if (oldVersion < 24) {
       await _createV24Tables(db);
     }
+    if (oldVersion < 25) {
+      await _createV25Tables(db);
+      for (final entry in const <String, String>{
+        'public_web_discovery_enabled': '1',
+        'last_public_web_discovery_at': '0',
+        'last_public_web_discovery_success_at': '0',
+        'last_public_web_discovery_outcome': 'never',
+        'last_public_web_discovery_error': '',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
 
   }
 
@@ -873,6 +891,7 @@ class AppDatabase {
     await _createV21Tables(db);
     await _createV22Tables(db);
     await _createV24Tables(db);
+    await _createV25Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -938,6 +957,11 @@ class AppDatabase {
     await db.insert('settings', {'key': 'daily_continuity_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'last_daily_continuity_refresh_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_daily_continuity_error', 'value': ''});
+    await db.insert('settings', {'key': 'public_web_discovery_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_at', 'value': '0'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_success_at', 'value': '0'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_outcome', 'value': 'never'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_error', 'value': ''});
   }
 
   Future<void> _createV2Tables(Database db) async {
@@ -1451,6 +1475,38 @@ class AppDatabase {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_autonomous_action_tool_time ON autonomous_action_runs(tool_kind, requested_at DESC)',
+    );
+  }
+
+  Future<void> _createV25Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS public_web_candidates (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL,
+        source_domain TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT 'zh',
+        drive_key TEXT NOT NULL,
+        intent_action TEXT NOT NULL,
+        interest_key TEXT NOT NULL DEFAULT '',
+        safety_state TEXT NOT NULL DEFAULT 'untrusted_public',
+        lifecycle_state TEXT NOT NULL DEFAULT 'unread',
+        action_run_id TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        last_viewed_at INTEGER,
+        view_count INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(action_run_id) REFERENCES autonomous_action_runs(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_lifecycle ON public_web_candidates(lifecycle_state, discovered_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_expiry ON public_web_candidates(expires_at ASC)',
     );
   }
 
@@ -4441,11 +4497,17 @@ class AppDatabase {
       return changed > 0;
     }
     final terminal = !decision.allowed;
+    // A transient Gate block must not reserve the stable provider dedupe key.
+    // Successful/requested/running rows keep the stable key; failures and
+    // no-result rows intentionally prevent same-window retry loops.
+    final storedDedupeKey = terminal
+        ? '${request.dedupeKey}:blocked:${request.id}'
+        : request.dedupeKey;
     final inserted = await db.insert(
       'autonomous_action_runs',
       {
         'id': request.id,
-        'dedupe_key': request.dedupeKey,
+        'dedupe_key': storedDedupeKey,
         'tool_kind': request.tool.key,
         'intent_action': request.intentAction,
         'drive_key': request.driveKey,
@@ -4478,7 +4540,7 @@ class AppDatabase {
       SELECT 1
       FROM autonomous_action_runs
       WHERE dedupe_key = ?
-        AND status IN ('requested', 'running', 'succeeded')
+        AND status IN ('requested', 'running', 'succeeded', 'no_result', 'failed')
       LIMIT 1
       ''',
       [dedupeKey],
@@ -4502,6 +4564,38 @@ class AppDatabase {
       [tool.key, since.millisecondsSinceEpoch],
     );
     return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  /// Releases abandoned claims without applying a tool Outcome to Desire.
+  /// Providers in this phase have a 12-second timeout, so five minutes is well
+  /// beyond a valid run while still preventing a crashed process from holding
+  /// a dedupe window forever.
+  Future<int> recoverStaleAutonomousActions({
+    required DateTime now,
+    required int stateGeneration,
+    required String deviceId,
+  }) async {
+    final db = await database;
+    return db.rawUpdate(
+      '''
+      UPDATE autonomous_action_runs
+      SET status = ?, outcome_kind = ?, finished_at = ?, run_token = ''
+      WHERE status IN ('requested', 'running')
+        AND (
+          state_generation <> ?
+          OR device_id <> ?
+          OR requested_at <= ?
+        )
+      ''',
+      [
+        AutonomousActionStatus.cancelled.key,
+        AutonomousOutcomeKind.cancelled.key,
+        now.millisecondsSinceEpoch,
+        stateGeneration,
+        deviceId,
+        now.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
+      ],
+    );
   }
 
   Future<AutonomousActionRun?> claimAutonomousAction({
@@ -4528,6 +4622,10 @@ class AppDatabase {
           await setting('transfer_lock') == '1') {
         return null;
       }
+      final blockingGeneration = await txn.rawQuery(
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+      );
+      if (blockingGeneration.isNotEmpty) return null;
       final rows = await txn.query(
         'autonomous_action_runs',
         where: 'id = ? AND status = ?',
@@ -4663,6 +4761,167 @@ class AppDatabase {
     });
   }
 
+  /// Stores public candidates, commits the successful Outcome, and applies the
+  /// small Desire satisfaction in one transaction. Duplicate-only results are
+  /// a real no-result and never satisfy Desire.
+  Future<int> completePublicWebDiscovery({
+    required String id,
+    required String runToken,
+    required List<PublicWebCandidateDraft> candidates,
+    required DesireSnapshot Function(DesireSnapshot current) satisfyOnSuccess,
+    DateTime? now,
+  }) async {
+    if (runToken.isEmpty || candidates.isEmpty) return 0;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<int>((txn) async {
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ? AND run_token = ? AND tool_kind = ?',
+        whereArgs: [
+          id,
+          AutonomousActionStatus.running.key,
+          runToken,
+          AutonomousToolKind.publicWeb.key,
+        ],
+        limit: 1,
+      );
+      if (rows.isEmpty) return 0;
+      final row = rows.first;
+
+      Future<String> setting(String key) async {
+        final values = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
+      }
+
+      final currentGeneration =
+          int.tryParse(await setting('state_generation')) ?? 0;
+      final currentDevice = await setting('device_id');
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1' ||
+          (row['state_generation'] as int? ?? -1) != currentGeneration ||
+          (row['device_id'] as String? ?? '') != currentDevice) {
+        return 0;
+      }
+      // The HTTP request runs outside SQLite. Re-check the user-generation
+      // fence at commit time so a chat started during that request always wins.
+      final blockingGeneration = await txn.rawQuery(
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+      );
+      if (blockingGeneration.isNotEmpty) return 0;
+
+      await txn.delete(
+        'public_web_candidates',
+        where: 'expires_at <= ?',
+        whereArgs: [instant.millisecondsSinceEpoch],
+      );
+      var stored = 0;
+      for (final candidate in candidates.take(3)) {
+        final uri = Uri.tryParse(candidate.url);
+        if (candidate.fingerprint.length != 64 ||
+            candidate.title.trim().isEmpty ||
+            candidate.provider.trim().isEmpty ||
+            candidate.sourceDomain.trim().isEmpty ||
+            uri == null ||
+            uri.scheme != 'https' ||
+            uri.host != candidate.sourceDomain ||
+            candidate.safetyState != 'untrusted_public' ||
+            candidate.expiresAt.isBefore(instant)) {
+          continue;
+        }
+        final inserted = await txn.insert(
+          'public_web_candidates',
+          {
+            'id': _uuid.v4(),
+            'fingerprint': candidate.fingerprint,
+            'title': candidate.title,
+            'summary': candidate.summary,
+            'url': candidate.url,
+            'source_domain': candidate.sourceDomain,
+            'provider': candidate.provider,
+            'language': candidate.language,
+            'drive_key': candidate.driveKey,
+            'intent_action': candidate.intentAction,
+            'interest_key': candidate.interestKey,
+            'safety_state': candidate.safetyState,
+            'lifecycle_state': 'unread',
+            'action_run_id': id,
+            'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
+            'expires_at': candidate.expiresAt.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        if (inserted != 0) stored++;
+      }
+
+      final startedAt = row['started_at'] as int? ??
+          row['requested_at'] as int? ??
+          instant.millisecondsSinceEpoch;
+      final successful = stored > 0;
+      final changed = await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': successful
+              ? AutonomousActionStatus.succeeded.key
+              : AutonomousActionStatus.noResult.key,
+          'outcome_kind': successful
+              ? AutonomousOutcomeKind.candidateStored.key
+              : AutonomousOutcomeKind.noUsefulResult.key,
+          'result_count': stored,
+          'finished_at': instant.millisecondsSinceEpoch,
+          'latency_bucket': autonomousLatencyBucket(
+            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
+          ),
+          'run_token': '',
+          if (successful)
+            'desire_satisfied_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+      );
+      if (changed != 1) {
+        throw StateError('public_web_run_lost_before_commit');
+      }
+
+      if (successful) {
+        final desireRows = await txn.query(
+          'desire_state',
+          where: 'id = 1',
+          limit: 1,
+        );
+        final current = desireRows.isEmpty
+            ? DesireSnapshot()
+            : DesireSnapshot.decode(desireRows.first['json'] as String);
+        final next = satisfyOnSuccess(current);
+        await txn.insert(
+          'desire_state',
+          {
+            'id': 1,
+            'json': next.encode(),
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await txn.rawDelete('''
+        DELETE FROM public_web_candidates
+        WHERE id NOT IN (
+          SELECT id FROM public_web_candidates
+          ORDER BY discovered_at DESC
+          LIMIT 240
+        )
+      ''');
+      return stored;
+    });
+  }
+
   Future<Map<String, Object?>> autonomousActionDiagnosticStats({
     DateTime? now,
   }) async {
@@ -4729,6 +4988,22 @@ class AppDatabase {
       ],
     );
     final screenUsed = Sqflite.firstIntValue(screenRows) ?? 0;
+    final dayStart = instant.subtract(const Duration(hours: 24));
+    final publicWebRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = ?
+      ''',
+      [
+        AutonomousToolKind.publicWeb.key,
+        dayStart.millisecondsSinceEpoch,
+        AutonomousGateReason.allowed.key,
+      ],
+    );
+    final publicWebUsed = Sqflite.firstIntValue(publicWebRows) ?? 0;
     final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
     final dayProactive = await proactiveCountSince(const Duration(hours: 24));
     Map<String, Object?>? last;
@@ -4752,14 +5027,17 @@ class AppDatabase {
       };
     }
     return {
-      'phase': 'foundation_not_scheduled',
+      'phase': 'public_web_scheduled',
       'byStatus': byStatus,
       'byTool': byTool,
       'last': last,
       'budgets': {
         'publicWeb': {
-          'configured': false,
-          'remaining': null,
+          'configured': true,
+          'windowMinutes': 1440,
+          'limit': 4,
+          'used': publicWebUsed,
+          'remaining': (4 - publicWebUsed).clamp(0, 4),
         },
         'screenObservation': {
           'configured': true,
@@ -4790,6 +5068,86 @@ class AppDatabase {
         'screenContentIncluded': false,
         'urlIncluded': false,
         'accountIncluded': false,
+      },
+    };
+  }
+
+  Future<Map<String, Object?>> publicWebCandidateDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final counts = await db.rawQuery('''
+      SELECT lifecycle_state, COUNT(*) AS count
+      FROM public_web_candidates
+      WHERE expires_at > ?
+      GROUP BY lifecycle_state
+    ''', [instant.millisecondsSinceEpoch]);
+    final byLifecycle = <String, int>{};
+    for (final row in counts) {
+      byLifecycle[row['lifecycle_state'] as String? ?? ''] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final expired = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) AS count FROM public_web_candidates WHERE expires_at <= ?',
+          [instant.millisecondsSinceEpoch],
+        )) ??
+        0;
+    final lastRows = await db.query(
+      'public_web_candidates',
+      columns: const [
+        'provider',
+        'source_domain',
+        'language',
+        'drive_key',
+        'intent_action',
+        'safety_state',
+        'lifecycle_state',
+        'discovered_at',
+        'expires_at',
+        'view_count',
+      ],
+      orderBy: 'discovered_at DESC',
+      limit: 1,
+    );
+    return {
+      'enabled': (await getSetting('public_web_discovery_enabled')) != '0',
+      'provider': 'wikimedia_zh',
+      'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
+      'expiredCount': expired,
+      'byLifecycle': byLifecycle,
+      'last': lastRows.isEmpty
+          ? null
+          : {
+              'provider': lastRows.first['provider'] ?? '',
+              'sourceDomain': lastRows.first['source_domain'] ?? '',
+              'language': lastRows.first['language'] ?? '',
+              'drive': lastRows.first['drive_key'] ?? '',
+              'intentAction': lastRows.first['intent_action'] ?? '',
+              'safetyState': lastRows.first['safety_state'] ?? '',
+              'lifecycle': lastRows.first['lifecycle_state'] ?? '',
+              'discoveredAt': lastRows.first['discovered_at'] ?? 0,
+              'expiresAt': lastRows.first['expires_at'] ?? 0,
+              'viewCount': lastRows.first['view_count'] ?? 0,
+            },
+      'runtime': {
+        'lastAttemptAt':
+            int.tryParse(await getSetting('last_public_web_discovery_at') ?? '') ?? 0,
+        'lastSuccessAt': int.tryParse(
+              await getSetting('last_public_web_discovery_success_at') ?? '',
+            ) ??
+            0,
+        'lastOutcome':
+            await getSetting('last_public_web_discovery_outcome') ?? 'never',
+        'lastError': await getSetting('last_public_web_discovery_error') ?? '',
+      },
+      'privacy': {
+        'titleIncluded': false,
+        'summaryIncluded': false,
+        'urlIncluded': false,
+        'queryIncluded': false,
+        'interestKeyIncluded': false,
+        'thoughtBodyIncluded': false,
       },
     };
   }
@@ -7622,6 +7980,12 @@ class AppDatabase {
       'active_autonomous_actions': await count(
         'autonomous_action_runs',
         "status IN ('requested','running')",
+      ),
+      'public_web_candidates': await count('public_web_candidates'),
+      'active_public_web_candidates': await count(
+        'public_web_candidates',
+        'expires_at > ?',
+        [DateTime.now().millisecondsSinceEpoch],
       ),
     };
   }
