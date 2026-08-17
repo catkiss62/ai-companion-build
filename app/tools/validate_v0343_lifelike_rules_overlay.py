@@ -87,6 +87,6 @@ assert "PetOverlaySizing.badgeTopDp(PetOverlaySizing.LARGE)" in contract_test
 
 assert "Build AI Companion v0.34.6+71 APK (Lock Resume)" in workflow
 assert "python3 tools/validate_v0343_lifelike_rules_overlay.py" in workflow
-assert "AI-Companion-v0.34.6-71-Direct-Picker-Recovery-APK" in workflow
+assert "AI-Companion-v0.34.6-71-Lock-Resume-APK" in workflow
 
 print("v0.34.3 lifelike rules, conservative migration, unread acknowledgement, badge placement and reply animation verified")
