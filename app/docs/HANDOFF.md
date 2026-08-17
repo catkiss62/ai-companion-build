@@ -2,7 +2,12 @@
 
 > 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
-## 0A. 当前开发头 · v0.34.5+70 Direct Picker Recovery
+## 0A. 当前开发头 · v0.34.6+71 Lock Resume
+
+- 新真机报告 `ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt` 来自 v0.34.5+70，仍显示 `coverSessionId=0`、cover enter/exit/recovery 全为 0，同时 `accessibilityAuthorized=false`、`accessibilityConnected=false`。用户描述的“上传界面”是跨 App 上传场景时，v0.34.5 的 App 内 direct-picker guard 无法获知其他 App 的调用；HyperOS 又不发送 overlay visibility fallback，因此无障碍关闭时没有 cover session，不能据此判定 settled recovery 失败。
+- `AccessibilityBridgeService` 已覆盖 DocumentsUI、PhotoPicker、IntentResolver、小米文件管理器、权限/安装/设置等会压制 overlay 的系统页面。卸载重装会清除系统无障碍授权，App 不能静默恢复；跨 App 上传复测必须先重新授权并确认 connected。AI Companion 自己打开相册/相机/诊断保存/手动备份仍由 v0.34.5 direct-picker guard 负责，可不依赖无障碍。
+- 同轮发现独立锁屏生命周期 bug：熄屏调用 `setVisible(false)` 时移除了 autonomous move tick，却以 `resetToIdle=false` 保留无限循环的 WALKING/STROLLING。解锁只恢复播放器，动作因此停留到用户互动。v0.34.6 改为隐藏时把临时自主动作归零到 IDLE，解锁后重新安排 ambient/blink；不改动作素材、移动速度、cover retry 或 settle 时间。
+- 外部上传在无障碍已连接后若仍失败，才进入约定中的最后一轮 recovery 段替换；再失败就冻结悬浮恢复。v0.34.6 当前为源码/契约已提交、CI 与真机待验。
 
 - Draft PR #23 分支 `agent/personality-appearance-self`；本轮从已安装的 `v0.34.4+69` 继续，SQLite schema 23 不变。
 - 最后报告 `ai_companion_diagnostics_2026-08-17T12-58-30-120929Z.txt` 显示系统选择器卡住后 `accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、recovery attempt/count 均为 0。失败发生在 cover 检测入口，不能据此判定 settle 验证失败。
