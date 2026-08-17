@@ -16,6 +16,8 @@
 - [x] 2026-08-17 20:58 脱敏报告确认 v0.34.4 失败样本没有进入 cover 状态机：`accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、attempt/recovery 均为 0；OEM 备用 `onWindowVisibilityChanged` 也仍报告可见。此报告不能证明 settle 修复失败，但证明选择器检测入口存在缺口。
 - [x] v0.34.5 增加“直接选择器 guard”：完整 App 主动打开图片/相机、诊断导出、手动备份保存/打开文件选择器前，直接向既有 cover 状态机发送 enter；返回、取消或启动失败时发送 exit。它不依赖无障碍或 OEM 窗口可见性回调，不建立第二套恢复状态机。
 - [x] 保留 v0.34.4 的异步 attach settle 验证，不回滚已确认的同步误判修复；保持最多 3 次恢复，不增加第四次重试、不继续延长等待。
+- [x] v0.34.5 首次提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`，会在 Flutter analyze/compile 阶段失败；已改为既有单例 `AndroidBridge.instance`，并把该断言加入 v0.34.5 validator。此修正不改版本号、不改恢复状态机，仅解除构建阻断。
+- [ ] GitHub Actions artifact 存储配额仍为已知限制；APK 与 `.sha256` 继续由 workflow 写入同一私有仓库的草稿 Release，不恢复 artifact 上传、不发布正式 Release。待本次重新构建后回填 run、APK SHA-256 与草稿 Release 链接。
 - [ ] v0.34.5 真机连续测试相册选择与诊断导出各 2～3 次；无障碍可开可关，但报告必须至少出现 `coverSessionId>0` 和 `direct_picker:` 原因，最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 - [ ] 若 v0.34.5 仍卡住，最多再进行一轮聚焦修复：依据动画/触摸/菜单症状和新诊断，整体替换错误段或增加真实输入活性证明；不得继续叠加 retry/延迟补丁。
 - [ ] 若上述最后一轮仍无效，冻结悬浮恢复，保留完整失败证据，先推进其余主线；待后续系统结构稳定后再回头处理。

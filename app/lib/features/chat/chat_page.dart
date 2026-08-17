@@ -28,7 +28,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final TextEditingController input = TextEditingController();
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
-  final AndroidBridge _android = AndroidBridge();
+  final AndroidBridge _android = AndroidBridge.instance;
   Timer? _externalSyncTimer;
   bool _appResumed = true;
   bool _pickingImage = false;

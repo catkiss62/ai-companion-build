@@ -213,6 +213,15 @@
 
 ## 10. 下一轮需要的输入
 
+### 10.1 v0.34.5 首次 CI 构建阻断与修正
+
+- 用户确认最新 GitHub Actions 任务报错；当前 GitHub 连接器无 Actions 权限，Cloud Browser 未登录私有仓库，因此尚未取得该 run 的官方日志，不得虚构 run 编号或失败步骤。
+- 对提交源码做静态复核后发现一个确定的 Flutter 编译错误：`AndroidBridge` 只开放 `AndroidBridge.instance`，聊天页却写成 `AndroidBridge()`；私有命名构造器导致外部类不能实例化。
+- 已将聊天页改为 `final AndroidBridge _android = AndroidBridge.instance;`，并在 `validate_v0345_direct_picker_overlay_guard.py` 增加正向单例断言与禁止旧写法的回归断言。
+- 这是构建阻断修正，不增加悬浮恢复延时/次数，不改 direct picker guard、不回滚 v0.34.4 settle，也不递增版本号；仍使用 `0.34.5+70` 重新触发同一 Draft PR 的 Actions。
+- GitHub Actions artifact 存储配额已满是既有事实。workflow 必须继续使用 `contents: write`，把 APK 和 `.sha256` 上传到同一私有仓库的草稿 Release；不恢复 artifact 上传、不发布正式 Release、不合并 main。
+- 重新提交后必须持续检查 validators、Kotlin tests、Flutter analyze/tests、release APK、原生/桌宠 payload 校验、checksum、草稿 Release 上传。只有全绿并取得 APK 文件名、SHA-256 和草稿 Release 链接后，才算自动构建完成；真机仍需单独验收。
+
 - 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。
 - 如继续自主行动路线，必须从第 6.1 的公共行动底座开始，不得直接先写某个网站或截图调用。

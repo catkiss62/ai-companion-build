@@ -43,12 +43,14 @@ require(android_bridge, [
 ], "best-effort Flutter picker bridge")
 
 require(chat, [
+    "final AndroidBridge _android = AndroidBridge.instance;",
     "flutter_image_picker_gallery",
     "flutter_image_picker_camera",
     "await _android.beginSystemPickerOverlayGuard(",
     "image = await _imagePicker.pickImage(",
     "await _android.endSystemPickerOverlayGuard(",
 ], "image picker direct cover guard")
+assert "final AndroidBridge _android = AndroidBridge();" not in chat
 
 begin = chat.index("await _android.beginSystemPickerOverlayGuard(")
 pick = chat.index("image = await _imagePicker.pickImage(", begin)

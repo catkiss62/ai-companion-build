@@ -10,6 +10,8 @@
 - v0.34.5 新增 direct picker guard：Flutter `image_picker` 的 gallery/camera，以及原生诊断导出、手动备份保存/打开，在启动系统选择器前直接调用既有 `notifySystemCoverEntered`，返回/取消/启动失败时调用 `notifySystemCoverExited`。
 - direct picker 复用同一个 cover session、恢复 ownership、WindowManager rebuild 和脱敏诊断；不新建第二套状态机。理由会以 `direct_picker:...` 粗粒度枚举进入现有诊断，不记录文件名、URI、图片内容或账号数据。
 - **不回滚 v0.34.4 settle**：同步读取 `isAttachedToWindow` 的误判已经有旧真机证据。最多恢复 3 次的上限保持不变，不增加第四次重试，也不延长 settle/retry 时间。
+- 首次 CI 提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`；已改为 `AndroidBridge.instance`，并由 v0.34.5 validator 锁定。版本仍为 `0.34.5+70`，direct picker 与恢复状态机均未改变。
+- Actions artifact 配额已满是既有约束；测试 APK 与 `.sha256` 继续上传到同一私有仓库的草稿 Release，不恢复 artifact 上传。
 - 真机验收：相册选择与诊断导出各连续 2～3 次；期望 `coverSessionId>0`、direct picker 原因可见、最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 - 若仍失败，只允许再做一轮以新证据为依据的聚焦修复；仍无效则冻结悬浮恢复，先完成其余主线。
 - Desire 与双通道 Somatic 是真人感核心备份；后续自主功能必须复用 Desire / Thought / Intent / Gate 和 Somatic 输入，不得另建平行人格或主动触发器。
