@@ -1,4 +1,4 @@
-name: Build AI Companion v0.34.5+70 APK (Direct Picker Recovery)
+name: Build AI Companion v0.34.6+71 APK (Lock Resume)
 
 on:
   workflow_dispatch:
@@ -24,13 +24,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.34.5+70$' app/pubspec.yaml
+          grep -q '^version: 0.34.6+71$' app/pubspec.yaml
           grep -q 'static const int schemaVersion = 23;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.34.5+70 app/ source tree.'
+          echo 'Building directly from the committed v0.34.6+71 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -86,6 +86,7 @@ jobs:
           python3 tools/validate_v0343_lifelike_rules_overlay.py
           python3 tools/validate_v0344_overlay_recovery_diagnostics.py
           python3 tools/validate_v0345_direct_picker_overlay_guard.py
+          python3 tools/validate_v0346_lock_visibility_resume.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_v0320_somatic_contract.py
@@ -207,16 +208,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.34.5+70 APK to draft release
+      - name: Upload v0.34.6+71 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.34.5-direct-picker-recovery-test'
-          APK_NAME='AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK.apk'
+          TAG='v0.34.6-lock-resume-test'
+          APK_NAME='AI-Companion-v0.34.6-71-Lock-Resume-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.34.5-70-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.34.6-71-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -232,8 +233,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.5+70 true-device test candidate' \
-              --notes 'Draft-only APK for direct system-picker cover detection without Accessibility, while preserving the v0.34.4 settled recovery and redacted diagnostics.'
+              --title 'AI Companion v0.34.6+71 true-device test candidate' \
+              --notes 'Draft-only APK resetting transient desktop-pet walking state across screen-off/unlock, while preserving the v0.34.5 direct-picker guard and bounded recovery.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -249,13 +250,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.34.5 CI success monitor' \
+              -f message='Update v0.34.6 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.34.5 CI success monitor' \
+              -f message='Create v0.34.6 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -274,8 +275,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.34.5-direct-picker-recovery-test'
-          CI_NAME='AI-Companion-v0.34.5-70-CI-Monitor.txt'
+          TAG='v0.34.6-lock-resume-test'
+          CI_NAME='AI-Companion-v0.34.6-71-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -309,8 +310,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.5+70 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual true-device APK. It is not a public release.'
+              --title 'AI Companion v0.34.6+71 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual lock-resume true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -324,13 +325,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.34.5 CI failure monitor' \
+              -f message='Update v0.34.6 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.34.5 CI failure monitor' \
+              -f message='Create v0.34.6 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
