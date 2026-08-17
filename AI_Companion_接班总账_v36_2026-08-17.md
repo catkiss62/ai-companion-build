@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 的直接选择器 guard 已实现并提交 PR #23；本地 v0.34.4 回归契约与 v0.34.5 新契约均通过。下一步等待 Actions；不能写成 CI 或真机已通过。
+1. v0.34.5+70 的直接选择器 guard 已实现并提交 PR #23；本地 v0.34.4 回归契约与 v0.34.5 新契约均通过。Actions run `32040383825` 已取得真实失败日志：首个阻断是 v0331 历史校验器仍把版本白名单写死到 `0.34.4+69`，不是产品源码失败；15 个同类旧发布身份契约已一次性修正并等待重跑。不能写成 CI 或真机已通过。
 2. 安装新 APK 后，相册选择与脱敏诊断导出各连续进入/退出 2～3 次。无障碍可以开或关；本轮目标正是让 App 自己发起的选择器不再依赖无障碍检测。
 3. 新报告必须至少出现 `coverSessionId>0`，并在原因中看到 `direct_picker:`；最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 4. 若仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
@@ -32,6 +32,7 @@
 - APK SHA-256：`a481ef908f046afc1c53fd4abd6deb22b5717d85e7ff76691afb7921c2358a3b`
 - CI 使用临时测试签名；测试阶段用户允许卸载重装，不要求保留测试存档。
 - v0.34.5 本地静态验证已通过；GitHub Actions、APK SHA 与真机结果尚未确认，后续必须回填。
+- 首个可读失败 run：`32040383825`，失败 job：`95418527942`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b>。该 Release 当前只有失败诊断、没有 APK，不能交付。
 
 ## 2. v0.34.3 已确认基线
 
@@ -227,6 +228,9 @@
 - 后续核对发现连接令牌也无法列出私有草稿 Releases（403），所以仅把 `CI-Monitor.txt` 放进 Release 仍不足以自动读取。workflow 再增加 `pull-requests: write`，把同一结果覆盖写入 PR #23 的固定 `<!-- v0345-ci-monitor -->` 评论：failure 带最多 50KB 失败日志尾部，success 带 run/head、APK SHA-256 和 `gh release view` 返回的真实草稿 Release URL。现有连接可读取 PR 评论，据此修复或交付。
 - 实际调用又确认 PR 评论读取接口返回 404，故评论镜像在启用前退役，移除 `pull-requests: write`。最终采用独立分支 `ci-monitor-v0345` 的 `.ci/v0345-monitor.txt`：workflow 通过已有 `contents: write` 创建/覆盖，当前连接通过已经验证可用的 contents API 读取。该分支不建 PR、不合并 main，不会触发只监听 PR 的 APK workflow，也不会污染产品源码分支。
 - 用户再次明确：监测与构建过程不是交付物。助手应自行监测和修错，项目构建全绿后优先直接发送 APK；若聊天无法直传 APK，则发送草稿 Release 下载链接。不得再次把“APK 构建监测”、CI monitor、PR 评论或总账文件误当成 APK 成品。原定可见的每小时监测任务已停用，后续在当前工作链内完成构建与交付。
+- `ci-monitor-v0345/.ci/v0345-monitor.txt` 已成功回传 run `32040383825` / job `95418527942`。通过该 job ID 读取官方日志，最先失败于 `validate_v0331_desktop_pet_source_parity.py` 第 49 行：当前 pubspec 为 `0.34.5+70`，校验器白名单最高仅到 `0.34.4+69`。
+- 为避免顺序修完一个再撞下一个，已按 workflow 命令清单扫描所有校验器：v0321、v0322、v0331～v0343 共 15 个仍含旧版本、旧 workflow 标题或旧 APK 名称；v0344 已是无旧版本硬编码的新兼容契约，v0345 已锁定当前版本。本轮把这 15 个文件的发布身份更新为 `v0.34.5+70`、`Direct Picker Recovery` 和 `AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK`，不删除其他历史功能断言，不动 App 运行源码、数据库、恢复次数或时序。
+- 下一步只接受新的 Actions 结果：失败则按新 job 日志继续最小修正；成功则记录 run、APK SHA-256、草稿 Release URL，并按用户要求交付 APK 或该下载链接。失败 run 的 Release 没有 APK，绝不提前发送。
 
 - 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。

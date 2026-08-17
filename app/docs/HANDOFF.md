@@ -15,6 +15,8 @@
 - GitHub 连接能够提交源码但无法读取 Actions runs/logs（403），且用户当前安卓网页端没有可见的 Cloud Browser 接管入口。workflow 已增加失败自报告：`report-ci-failure` 使用本次 workflow 自身的 `actions: read` 权限读取已结束 job 日志，并把 `AI-Companion-v0.34.5-70-CI-Monitor.txt` 上传到同一私有草稿 Release；成功时该文件覆盖为 success + APK SHA-256。后续自动监测读取 Release 即可，无需用户反复截图日志。
 - 连接同样无法列出私有草稿 Releases，所以 workflow 还把同一状态镜像到 PR #23 的固定 CI 评论：failure 包含最多 50KB 日志尾部，success 包含 APK SHA-256 与由 `gh release view` 返回的真实草稿 Release URL。交付规则是优先直接发送 APK；做不到时发送草稿 Release 链接。监测任务、PR 评论和 `CI-Monitor.txt` 只作内部取证，不作为用户成品。
 - PR 评论列表接口随后也返回 404，因此该方案未作为最终通道。最终自报告位置是独立分支 `ci-monitor-v0345` 的 `.ci/v0345-monitor.txt`：workflow 用 `contents: write` 覆盖文件，连接用可用的 contents API 读取；独立分支不建 PR、不合并 main、不触发本 PR workflow。失败含日志尾部，成功含 APK SHA-256 与真实草稿 Release URL。
+- 首个自报告已经定位 run `32040383825` / job `95418527942`：最先失败的是 `validate_v0331_desktop_pet_source_parity.py` 的旧版本白名单，不是 Flutter/Kotlin 编译或 direct picker 行为。继续检查 workflow 的全部校验命令后，共确认 v0321、v0322、v0331～v0343 这 15 个历史校验器仍带 `0.34.4` 发布身份；已一次性迁移到 v0.34.5 的版本、workflow 标题与 APK 名称，功能断言保持不变。
+- 失败 run 对应的草稿 Release 只有 CI 诊断，没有 APK，禁止把它交给用户当成成品。下一次 Actions 全绿后优先直接交付 APK；聊天无法直传时只发送已核验包含 APK 与 `.sha256` 的草稿 Release 链接。
 - 真机验收：相册选择与诊断导出各连续 2～3 次；期望 `coverSessionId>0`、direct picker 原因可见、最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 - 若仍失败，只允许再做一轮以新证据为依据的聚焦修复；仍无效则冻结悬浮恢复，先完成其余主线。
 - Desire 与双通道 Somatic 是真人感核心备份；后续自主功能必须复用 Desire / Thought / Intent / Gate 和 Somatic 输入，不得另建平行人格或主动触发器。
