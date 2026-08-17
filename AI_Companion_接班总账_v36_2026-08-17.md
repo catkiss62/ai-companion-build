@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 direct-picker 自动化已通过，但新真机报告证明用户当前复现的是“其他 App 发起的上传选择器 + 无障碍关闭”，不是 App 内 direct-picker 已进入后恢复失败。v0.34.6+71 只修复锁屏/解锁 WALKING、STROLLING 卡动作，自动化与草稿 Release 已通过，真机待验。
+1. v0.34.5+70 direct-picker 自动化已通过，但新真机报告证明用户当前复现的是“其他 App 发起的上传选择器 + 无障碍关闭”，不是 App 内 direct-picker 已进入后恢复失败。v0.34.6+71 只修复锁屏/解锁 WALKING、STROLLING 卡动作，CI 与真机待验。
 2. 安装 v0.34.6 后，先在系统设置重新开启 AI Companion 无障碍并确认诊断为 authorized/connected=true；卸载重装会清除该系统授权，App 不能静默恢复。
 3. 从 ChatGPT/浏览器等外部 App 打开上传选择器，返回后再进入 AI Companion 生成报告。预期 `coverSessionId>0`、Accessibility 原因与最终 `settled`；App 自己发起的相册/相机/诊断保存仍应看到 `direct_picker:`，且不要求无障碍。
 4. 锁屏复测：分别在 WALKING 与 STROLLING 时锁屏，解锁后应从 IDLE/重新调度开始，不再停留在失去移动任务的循环动作。
@@ -188,7 +188,7 @@
 
 - [x] 完成 v0.34.5+70 GitHub Actions 和 APK；成功 run、Release、文件名与 SHA-256 已记录，真机仍单独待验。
 - [x] 收到 v0.34.5 新报告；确认本轮跨 App 上传发生于 Accessibility 未授权/未连接，`coverSessionId=0`，不能判 recovery 失败。
-- [x] 完成 v0.34.6+71 GitHub Actions 和 APK；仅修锁屏动作恢复，不改 picker recovery。
+- [ ] 完成 v0.34.6+71 GitHub Actions 和 APK；仅修锁屏动作恢复，不改 picker recovery。
 - [ ] 在 WALKING、STROLLING 两类移动中分别锁屏/解锁，确认不再卡在失去移动 tick 的循环动作。
 - [ ] 重新开启 Accessibility 并确认 authorized/connected=true，再从外部 App 连续进出上传选择器 2～3 次；报告必须出现 `coverSessionId>0`。
 - [ ] App 内相册选择与诊断导出各复测 2～3 次；这些 direct-picker 入口无障碍开关均不应成为必要条件。
@@ -274,15 +274,14 @@
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。
 - 如继续自主行动路线，必须从第 6.1 的公共行动底座开始，不得直接先写某个网站或截图调用。
 
+## 10.3 2026-08-18 冻结悬浮选择器并启动自主行动底座
 
-## 2026-08-18 · v0.34.6+71 自动化完成
-
-- 实现范围：仅修复锁屏时 WALKING / STROLLING 的临时自主动作恢复。根因为隐藏窗口时移除了 autonomous move tick，却保留无限循环的走路 clip；现在 `setVisible(false)` 使用 `cancelAutonomyPlayback(resetToIdle = true)`，解锁后沿既有 ambient / blink 调度重新开始。
-- 外部 App 上传问题没有在本轮改写恢复段。用户提供的 v0.34.5 报告明确为 `accessibilityAuthorized=false`、`accessibilityConnected=false`、`coverSessionId=0`；因此 ChatGPT/浏览器等外部 App 的选择器没有进入 cover session，不能算约定的最后一轮 recovery 失败。AI Companion 自己发起的 picker 仍由 direct-picker guard 覆盖。
-- 首轮 v0.34.6 CI：run `32044156432` / job `95428515529` 在 Source and regression validation 失败；原因是 9 个历史 validator 仍写死旧的连字符 APK 后缀，不是 App 源码或锁屏修复失败。已统一为 v0.34.6 Release 身份。
-- 最终 GitHub Actions：run `32044437774` / job `95429288585` 全部通过；源码/回归校验、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK 构建、原生与完整桌宠载荷核验、SHA-256、草稿 Release 上传均成功。
-- 构建 head：`c38310fe5870a761f7c2cadc569d5048ff20e364`。
-- 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1e7387d440a9edcbbb90>
-- APK：`AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`
-- APK SHA-256：`1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`
-- 当前状态：自动化已完成；WALKING / STROLLING 锁屏复测、开启 Accessibility 后的外部上传复测、App 内 direct-picker 复测均仍待真机。只有 `authorized/connected=true` 且 `coverSessionId>0` 后仍失败，才消耗约定的最后一轮聚焦 recovery 重写。
+- 用户修正外部对照结论：另一款私人制作、功能更少、代码更简单、推测没有专门恢复优化的桌宠也会发生相同问题；不能写成“所有桌宠都会这样”，只能说明此问题不属于 AI Companion 独有。
+- 新报告 `ai_companion_diagnostics_2026-08-17T17-04-29-161693Z.txt` 来自真实卡死后的导出。v0.34.6+71、process/service 连续、无 kill/trim/error，但 `coverSessionId=0`、cover enter/exit/recovery/detach 全 0，报告仍给出 attached/touchable/visible=true、inputSuspect=false。结论是：卡死完全没有反馈进现有报告；结构标志不能证明真实输入或动画健康。
+- 首次启动另一桌宠后，第一次上传时两个桌宠都正常，随后两个都失败；这支持 HyperOS/DocumentsUI 冷启动、窗口复用或输入通道恢复差异，但现有报告没有系统窗口时间线，不能断言具体根因。
+- 用户正式决定冻结该问题并排到整个项目末尾。保留 v0.34.4 settle、v0.34.5 direct guard、3 次/700ms 上限；不回滚、不继续加 retry/delay。末尾重开前必须先做真实输入挑战、动画帧心跳、window generation 与 enter/exit 时间线。
+- 当前主线切换到 v0.34.7+72 自主行动公共底座，schema 24。工具请求只能由现有 DesireIntent 发起，沿 `Perception/Somatic/Thought/AI Self → Desire → Intent → Tool Gate → Action → Outcome`，不得建立第二人格/欲望/主动消息系统。
+- Tool Gate 与主动投递 Gate 分离；锁屏只拦当前屏幕观察，不拦安静联网。成功工具结果只进入候选/观察，是否联系用户仍走原有 rhythm、Grounding、2/2h 与 8/24h 上限。
+- 新增 durable `autonomous_action_runs`、Active Brain generation/device、run token、dedupe、独立预算和成功 Outcome 事务。只有真实成功结果能轻量 satisfy；失败、取消、无结果、重复、stale writer/recovery 不产生 satisfy。
+- 脱敏报告新增按工具/状态计数、最后 Gate/Outcome、粗耗时桶、预算、锁屏/交互和 dedupe；明确不含 query、URL、网页/屏幕正文、账号、聊天或 Thought 正文。
+- v0.34.7 仅完成底座并明确为 `foundation_not_scheduled`，不虚构 Provider 已工作。下一阶段先接公共网页候选发现，再做手动一次屏幕识别与 Desire 驱动的低频看屏幕。
