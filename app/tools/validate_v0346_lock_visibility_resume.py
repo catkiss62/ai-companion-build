@@ -26,10 +26,10 @@ def main() -> int:
         "android/app/src/main/kotlin/com/aicompanion/localfirst/pet/PetOverlayWindow.kt"
     )
 
-    require(pubspec, "version: 0.34.6+71", "v0.34.6 build identity")
+    require(pubspec, "version: 0.34.7+72", "current build identity")
     require(
         workflow,
-        "Build AI Companion v0.34.6+71 APK (Lock Resume)",
+        "Build AI Companion v0.34.7+72 APK (Autonomous Action Foundation)",
         "workflow title",
     )
     require(
@@ -39,7 +39,7 @@ def main() -> int:
     )
     require(
         workflow,
-        "AI-Companion-v0.34.6-71-Lock-Resume-APK.apk",
+        "AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk",
         "draft Release APK identity",
     )
 
