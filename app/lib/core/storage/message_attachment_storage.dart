@@ -38,7 +38,7 @@ class MessageAttachmentStorage {
   MessageAttachmentStorage({Uuid? uuid}) : _uuid = uuid ?? const Uuid();
 
   static const int maxImageBytes = 25 * 1024 * 1024;
-  static const int thumbnailLongestEdge = 720;
+  static const int thumbnailLongestEdge = 1000;
   static const String rootFolderName = 'chat_attachments';
 
   final Uuid _uuid;
