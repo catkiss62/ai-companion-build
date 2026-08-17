@@ -8,14 +8,15 @@
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 的直接选择器 guard 已实现并通过完整 GitHub Actions run `32042113547`；APK、`.sha256` 与成功状态已上传到私有草稿 Release。自动化已通过，但不能写成真机已通过。
-2. 安装新 APK 后，相册选择与脱敏诊断导出各连续进入/退出 2～3 次。无障碍可以开或关；本轮目标正是让 App 自己发起的选择器不再依赖无障碍检测。
-3. 新报告必须至少出现 `coverSessionId>0`，并在原因中看到 `direct_picker:`；最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
-4. 若仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
+1. v0.34.5+70 direct-picker 自动化已通过，但新真机报告证明用户当前复现的是“其他 App 发起的上传选择器 + 无障碍关闭”，不是 App 内 direct-picker 已进入后恢复失败。v0.34.6+71 只修复锁屏/解锁 WALKING、STROLLING 卡动作，CI 与真机待验。
+2. 安装 v0.34.6 后，先在系统设置重新开启 AI Companion 无障碍并确认诊断为 authorized/connected=true；卸载重装会清除该系统授权，App 不能静默恢复。
+3. 从 ChatGPT/浏览器等外部 App 打开上传选择器，返回后再进入 AI Companion 生成报告。预期 `coverSessionId>0`、Accessibility 原因与最终 `settled`；App 自己发起的相册/相机/诊断保存仍应看到 `direct_picker:`，且不要求无障碍。
+4. 锁屏复测：分别在 WALKING 与 STROLLING 时锁屏，解锁后应从 IDLE/重新调度开始，不再停留在失去移动任务的循环动作。
+5. 若无障碍已连接且外部上传仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
    - 动画仍运行，但点击/拖动/双击无反应；
    - 动画也完全停止；
    - 只有菜单或悬浮聊天打不开。
-5. 若 direct picker 已进入 session 仍失败，只允许再做一轮聚焦修复；应整体替换错误段或增加真实输入活性证明，不能继续延长等待、增加第四次重试或层层打补丁。再失败则冻结悬浮恢复，先推进其余主线。
+6. 若 cover 已进入 session 仍失败，只允许再做一轮聚焦修复；应整体替换错误段或增加真实输入活性证明，不能继续延长等待、增加第四次重试或层层打补丁。再失败则冻结悬浮恢复，先推进其余主线。
 
 ## 1. 当前 GitHub / 构建基线
 
@@ -24,7 +25,7 @@
 - PR 分支：`agent/personality-appearance-self`
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
-- 当前真机安装版本：`v0.34.4+69`；当前开发目标：`v0.34.5+70`；SQLite schema 23，不含数据库迁移。
+- 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
 - GitHub Actions run #130：<https://github.com/catkiss62/ai-companion-build/actions/runs/32024213112>
 - run #130 已通过：完整历史 validators、Kotlin 桌宠测试、Flutter analyze、Flutter tests、Release APK、原生/宠物载荷核验、SHA-256 和草稿 Release 上传。
 - 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e6fa65e2d3440c7a4706>
@@ -78,6 +79,13 @@
 - 保留 v0.34.4 settle 修复和最多 3 次恢复上限；未修改 retry delay、settle 时间或 WindowManager rebuild 核心。
 - 粗粒度 reason 为 `direct_picker:...`；不记录图片、文件名、URI、选择内容、账号或聊天正文。
 
+### 3.5 v0.34.6 锁屏动作恢复（实现中，CI/真机待验）
+
+- 新真机现象：桌宠处于 WALKING 或 STROLLING 时锁屏，解锁后会持续停留在走路动作；任意互动会强制切换动作并恢复。
+- 源码根因明确：`setVisible(false)` 会移除 autonomous move tick，却使用 `cancelAutonomyPlayback(resetToIdle = false)`，保留了无时限循环的 WALKING/STROLLING；解锁仅恢复 player tick，不会重建已丢失的移动任务。
+- v0.34.6 改为隐藏时将临时自主动作归零到 IDLE，解锁后沿既有逻辑重新安排 ambient 与 blink。没有修改动作素材、方向、移动速度、欲望接线或系统遮挡 recovery。
+- 新增 `validate_v0346_lock_visibility_resume.py`，同时锁定 cover recovery 仍为最多 3 次与 700ms settle，防止修锁屏时顺手改动已冻结的恢复时序。
+
 ## 4. 2026-08-17 最新真机诊断：不能据此判 v0.34.4 恢复失败
 
 报告：`ai_companion_diagnostics_2026-08-17T12-58-30-120929Z.txt`
@@ -110,6 +118,19 @@
 - App 内相册/诊断导出后仍为 `coverSessionId=0`：direct picker bridge 没有真正到达 Native；调查 MethodChannel/Activity 调用链，不调整 reattach。
 - 动画停止但触摸仍有记录：调查 PetAnimationPlayer / Choreographer / 状态机，不要误修 WindowManager 输入。
 - 动画运行但无触摸记录：调查 overlay input channel 与窗口重建。
+
+### 4.4 2026-08-17 v0.34.5 新真机报告与测试范围纠正
+
+报告：`ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt`
+
+- 版本正确：`0.34.5+70`，schema 23，Active Brain=true；服务/后台 Dart 正常，无非干净重启、trim-memory 或后台限制证据。
+- `accessibilityAuthorized=false`、`accessibilityConnected=false`；`coverSessionId=0`、`lastSystemCoverAt=0`、attempt/recovery/detach 全为 0，cover state=idle。
+- 报告生成时 overlay attached/touchable/visible=true，最后触摸为 `pet_up`；这些结构状态仍不能证明用户描述的卡住瞬间输入确实可用。
+- 用户描述“只要上传必然卡住，上传界面出现时桌宠/悬浮球消失，退出后出现并卡住”。结合使用路径，应区分：
+  - AI Companion 自己打开相册、相机、诊断保存或备份：v0.34.5 direct-picker guard 可直接登记，不依赖无障碍。
+  - ChatGPT、浏览器或其他 App 打开上传选择器：AI Companion 收不到对方的调用，只能依靠 Accessibility 系统页面识别或 OEM `onWindowVisibilityChanged`。本机 HyperOS 已知不可靠地发送后者，本报告又证明 Accessibility 关闭，因此本次必然没有 cover session。
+- `AccessibilityBridgeService` 已覆盖 DocumentsUI、PhotoPicker、IntentResolver、小米文件管理器、PermissionController、PackageInstaller、Settings 等系统页面。卸载重装会清除此系统授权，Android 不允许 App 静默开启。
+- 因此 v0.34.5 不能在本次条件下判为“恢复段失败”，也不立即消耗约定的最后一轮 recovery 重写。下一次必须先使 Accessibility authorized/connected=true，再复现跨 App 上传；进入 session 后仍失败才替换恢复段，再失败冻结。
 
 ## 5. 后台、电池优化与 HyperOS 策略
 
@@ -166,9 +187,12 @@
 ### ACTIVE · 真机取证
 
 - [x] 完成 v0.34.5+70 GitHub Actions 和 APK；成功 run、Release、文件名与 SHA-256 已记录，真机仍单独待验。
-- [ ] 相册选择与诊断导出各复测 2～3 次；无障碍开关不应成为 App 自己发起选择器恢复的必要条件。
-- [ ] 明确“卡住”是输入、动画还是菜单/聊天，并发送新脱敏诊断。
-- [ ] 用新报告决定：通过、最后一轮整体替换/输入活性证明，或冻结悬浮恢复。
+- [x] 收到 v0.34.5 新报告；确认本轮跨 App 上传发生于 Accessibility 未授权/未连接，`coverSessionId=0`，不能判 recovery 失败。
+- [ ] 完成 v0.34.6+71 GitHub Actions 和 APK；仅修锁屏动作恢复，不改 picker recovery。
+- [ ] 在 WALKING、STROLLING 两类移动中分别锁屏/解锁，确认不再卡在失去移动 tick 的循环动作。
+- [ ] 重新开启 Accessibility 并确认 authorized/connected=true，再从外部 App 连续进出上传选择器 2～3 次；报告必须出现 `coverSessionId>0`。
+- [ ] App 内相册选择与诊断导出各复测 2～3 次；这些 direct-picker 入口无障碍开关均不应成为必要条件。
+- [ ] 明确“卡住”是输入、动画还是菜单/聊天，并用新报告决定：通过、最后一轮整体替换/输入活性证明，或冻结悬浮恢复。
 - [ ] 让 AI 在已提交回复中明确完成一次自发身体动作；预期 `latestAssistantEvaluation.result=written`、`aiToSelf.total>0`。
 - [ ] 锁屏、待机、划掉完整 App、数小时 idle 后分别导出诊断，观察服务/进程/后台 Dart 连续性。
 
@@ -238,6 +262,14 @@
 - 最终 run `32042113547` 已通过 validators、Kotlin tests、Flutter analyze/tests、release APK、原生与 417 文件桌宠载荷核验、checksum 及草稿 Release 上传。APK SHA-256 为 `0a46eabd3c72a40803508de81218bc96362a75748e5f91254aa6b4a607dbb4e6`。
 - 交付路径结论：用户翻出的旧方案就是正确方案；长期拖延来自中途绕到可见监测/浏览器登录，以及第一次校验器扫描漏掉 v0320，而不是 `contents: write + 私有草稿 Release` 方法错误。后续只把最终 APK 或草稿 Release 链接交给用户，不再把监测文件当交付物。
 
-- 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。
+### 10.2 v0.34.5 真机复测与 v0.34.6 实现决定
+
+- 用户报告跨 App 上传选择器仍必现“系统界面期间消失，返回后出现但卡住”；同轮新增锁屏时 WALKING/STROLLING 卡动作，任意互动可恢复。
+- 新报告 `ai_companion_diagnostics_2026-08-17T15-46-10-956062Z.txt` 已详细记录在 4.4。外部上传时 Accessibility 关闭且没有 cover session，所以当前不回滚 v0.34.4 settle、不删除 v0.34.5 direct-picker，也不调整三次上限/700ms settle。
+- 锁屏动作根因位于 `PetOverlayWindow.setVisible(false)`：movement tick 被取消而循环动作未归零。v0.34.6 改为 `cancelAutonomyPlayback(resetToIdle = true)`；解锁继续使用原有 ambient/blink 重排期。
+- 版本为 `0.34.6+71`，新增 `validate_v0346_lock_visibility_resume.py`；历史发布身份校验器同步到当前版本，但功能断言不放宽。
+- 构建继续使用 `contents: write + 私有草稿 Release`，Actions artifact 仍禁用；成功后只交付 APK 或 Release 链接。
+
+- 当前首要输入是 v0.34.6 APK 的锁屏动作复测，以及 Accessibility 已连接条件下的跨 App 上传复测、新脱敏诊断和卡住类型。
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。
 - 如继续自主行动路线，必须从第 6.1 的公共行动底座开始，不得直接先写某个网站或截图调用。
