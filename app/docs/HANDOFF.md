@@ -311,3 +311,15 @@ P2：
 - D0/D1 CI：run #43（`31861829909`）全绿；artifact `9240951958`；APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
 
 - PR #11 已 squash 合并：`339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）全绿，artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`，artifact digest `sha256:7748f41b826dfce5a468aad6d8dab6cb014a5fd6c786723044b0d243a4a1ea2b`。
+
+
+## v0.34.6+71 Lock Resume · final automation result
+
+- Source fix: when the overlay becomes invisible for screen-off, `PetOverlayWindow.setVisible(false)` now cancels autonomous playback with `resetToIdle = true`. This prevents a looping WALKING/STROLLING clip from surviving after its movement tick was removed.
+- Scope guard: cover recovery remains capped at 3 attempts with a 700 ms settle; no picker retry timing or rebuild path changed.
+- External upload diagnosis: the supplied v0.34.5 report had Accessibility unauthorized/disconnected and cover session 0. Cross-app pickers require Accessibility on this HyperOS device; App-owned pickers continue to use the direct-picker bridge.
+- First CI run `32044156432` failed only because nine historical validators retained the old hyphenated APK suffix. After release-identity alignment, final run `32044437774` / job `95429288585` passed all validation, Kotlin/Flutter tests, release build, payload verification, checksum, and draft Release upload.
+- Draft Release: <https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1e7387d440a9edcbbb90>
+- APK: `AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`
+- SHA-256: `1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`
+- Device validation remains pending: WALKING/STROLLING lock-resume; cross-app picker with Accessibility authorized/connected; App-owned direct pickers.
