@@ -440,7 +440,7 @@ class _SettingsPageState extends State<SettingsPage> {
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
         Text(
-          '高清原图只保存在本机；识图时只上传去除 EXIF 的 720px 缩略图。视觉观察会进入本轮对话，是否形成长期记忆仍由记忆系统判断。',
+          '高清原图只保存在本机；识图时只上传去除 EXIF、最长边不超过 1000px 的缩略图。视觉观察会进入本轮对话，是否形成长期记忆仍由记忆系统判断。',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
