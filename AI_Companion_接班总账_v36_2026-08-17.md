@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 的直接选择器 guard 已实现并提交 PR #23；本地 v0.34.4 回归契约与 v0.34.5 新契约均通过。Actions run `32040383825` 已取得真实失败日志：首个阻断是 v0331 历史校验器仍把版本白名单写死到 `0.34.4+69`，不是产品源码失败；15 个同类旧发布身份契约已一次性修正并等待重跑。不能写成 CI 或真机已通过。
+1. v0.34.5+70 的直接选择器 guard 已实现并通过完整 GitHub Actions run `32042113547`；APK、`.sha256` 与成功状态已上传到私有草稿 Release。自动化已通过，但不能写成真机已通过。
 2. 安装新 APK 后，相册选择与脱敏诊断导出各连续进入/退出 2～3 次。无障碍可以开或关；本轮目标正是让 App 自己发起的选择器不再依赖无障碍检测。
 3. 新报告必须至少出现 `coverSessionId>0`，并在原因中看到 `direct_picker:`；最终目标为 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
 4. 若仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
@@ -31,8 +31,11 @@
 - APK：`AI-Companion-v0.34.4-69-Overlay-Recovery-Diagnostics-APK.apk`
 - APK SHA-256：`a481ef908f046afc1c53fd4abd6deb22b5717d85e7ff76691afb7921c2358a3b`
 - CI 使用临时测试签名；测试阶段用户允许卸载重装，不要求保留测试存档。
-- v0.34.5 本地静态验证已通过；GitHub Actions、APK SHA 与真机结果尚未确认，后续必须回填。
-- 首个可读失败 run：`32040383825`，失败 job：`95418527942`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b>。该 Release 当前只有失败诊断、没有 APK，不能交付。
+- v0.34.5 本地静态验证与完整 GitHub Actions 均已通过；真机结果尚未确认。
+- 首个可读失败 run：`32040383825`，失败 job：`95418527942`；随后 run `32041890393` 暴露遗漏的 v0320 旧版本白名单。修正提交：`46c7b5c91fc98b4a705e60eb6cefabca3ad26914`。
+- 成功 run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32042113547>；PR merge SHA：`98e121ac96fe3754c4b5f1ccb4a314f42492953e`。
+- v0.34.5 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b>。
+- APK：`AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK.apk`；SHA-256：`0a46eabd3c72a40803508de81218bc96362a75748e5f91254aa6b4a607dbb4e6`。
 - 2026-08-18 用户再次确认交付方式：Actions artifact 配额已满时，继续使用 workflow 的 `contents: write`，把 APK 与 `.sha256` 上传到私有仓库草稿 Release；监测文件只供助手排错，绝不能作为用户交付物。15 个旧发布身份校验器修正后，监测分支仍停在旧失败 run，因此通过本总账同步提交触发一次新的 PR 构建；本轮不改 App 源码、版本号或 Release 方案。
 
 ## 2. v0.34.3 已确认基线
@@ -162,7 +165,7 @@
 
 ### ACTIVE · 真机取证
 
-- [ ] 完成 v0.34.5+70 GitHub Actions 和 APK；本地实现、CI、APK 与真机必须分别记录。
+- [x] 完成 v0.34.5+70 GitHub Actions 和 APK；成功 run、Release、文件名与 SHA-256 已记录，真机仍单独待验。
 - [ ] 相册选择与诊断导出各复测 2～3 次；无障碍开关不应成为 App 自己发起选择器恢复的必要条件。
 - [ ] 明确“卡住”是输入、动画还是菜单/聊天，并发送新脱敏诊断。
 - [ ] 用新报告决定：通过、最后一轮整体替换/输入活性证明，或冻结悬浮恢复。
@@ -231,7 +234,9 @@
 - 用户再次明确：监测与构建过程不是交付物。助手应自行监测和修错，项目构建全绿后优先直接发送 APK；若聊天无法直传 APK，则发送草稿 Release 下载链接。不得再次把“APK 构建监测”、CI monitor、PR 评论或总账文件误当成 APK 成品。原定可见的每小时监测任务已停用，后续在当前工作链内完成构建与交付。
 - `ci-monitor-v0345/.ci/v0345-monitor.txt` 已成功回传 run `32040383825` / job `95418527942`。通过该 job ID 读取官方日志，最先失败于 `validate_v0331_desktop_pet_source_parity.py` 第 49 行：当前 pubspec 为 `0.34.5+70`，校验器白名单最高仅到 `0.34.4+69`。
 - 为避免顺序修完一个再撞下一个，已按 workflow 命令清单扫描所有校验器：v0321、v0322、v0331～v0343 共 15 个仍含旧版本、旧 workflow 标题或旧 APK 名称；v0344 已是无旧版本硬编码的新兼容契约，v0345 已锁定当前版本。本轮把这 15 个文件的发布身份更新为 `v0.34.5+70`、`Direct Picker Recovery` 和 `AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK`，不删除其他历史功能断言，不动 App 运行源码、数据库、恢复次数或时序。
-- 下一步只接受新的 Actions 结果：失败则按新 job 日志继续最小修正；成功则记录 run、APK SHA-256、草稿 Release URL，并按用户要求交付 APK 或该下载链接。失败 run 的 Release 没有 APK，绝不提前发送。
+- run `32041890393` 证明前述扫描范围仍不完整：v0331～v0345 已全部通过，随后失败于 `validate_v0320_somatic_contract.py` 的同类版本白名单。复扫 workflow 剩余 29 个旧校验器后，确认只有 v0320 需要补充 `0.34.5+70`；其他文件没有发布版本硬绑定或使用向前兼容判断。修正提交为 `46c7b5c91fc98b4a705e60eb6cefabca3ad26914`，不改 Somatic 契约内容。
+- 最终 run `32042113547` 已通过 validators、Kotlin tests、Flutter analyze/tests、release APK、原生与 417 文件桌宠载荷核验、checksum 及草稿 Release 上传。APK SHA-256 为 `0a46eabd3c72a40803508de81218bc96362a75748e5f91254aa6b4a607dbb4e6`。
+- 交付路径结论：用户翻出的旧方案就是正确方案；长期拖延来自中途绕到可见监测/浏览器登录，以及第一次校验器扫描漏掉 v0320，而不是 `contents: write + 私有草稿 Release` 方法错误。后续只把最终 APK 或草稿 Release 链接交给用户，不再把监测文件当交付物。
 
 - 当前首要输入是 v0.34.5 Actions/APK 后的“相册选择 + 诊断导出”复测、新脱敏诊断和卡住类型。
 - App 自己发起的系统选择器不再依赖无障碍；Accessibility 仍可作为其他系统页面的补充检测和未来轻视觉能力。
