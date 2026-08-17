@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   actions: read
+  pull-requests: write
 
 jobs:
   build-apk:
@@ -211,6 +212,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           TAG='v0.34.5-direct-picker-recovery-test'
@@ -235,12 +237,30 @@ jobs:
               --title 'AI Companion v0.34.5+70 true-device test candidate' \
               --notes 'Draft-only APK for direct system-picker cover detection without Accessibility, while preserving the v0.34.4 settled recovery and redacted diagnostics.'
           fi
+          RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
+          echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
           gh release upload "${TAG}" \
             "app/${APK_NAME}" \
             "app/${SHA_NAME}" \
             "app/${CI_NAME}" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
+          if test -n "${PR_NUMBER}"; then
+            COMMENT="${RUNNER_TEMP}/v0345-ci-comment.md"
+            {
+              echo '<!-- v0345-ci-monitor -->'
+              echo '## v0.34.5+70 CI result'
+              echo
+              echo '```text'
+              cat "app/${CI_NAME}"
+              echo '```'
+            } > "${COMMENT}"
+            gh pr comment "${PR_NUMBER}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --edit-last \
+              --create-if-none \
+              --body-file "${COMMENT}" || true
+          fi
 
   report-ci-failure:
     needs: build-apk
@@ -254,6 +274,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RESULT: ${{ needs.build-apk.result }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -uo pipefail
           TAG='v0.34.5-direct-picker-recovery-test'
@@ -294,7 +315,26 @@ jobs:
               --title 'AI Companion v0.34.5+70 true-device test candidate' \
               --notes 'Private draft used for CI diagnostics and the eventual true-device APK. It is not a public release.'
           fi
+          RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
+          echo "release_url=${RELEASE_URL}" >> "${REPORT}"
           gh release upload "${TAG}" \
             "${REPORT}" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
+          if test -n "${PR_NUMBER}"; then
+            COMMENT="${RUNNER_TEMP}/v0345-ci-comment.md"
+            {
+              echo '<!-- v0345-ci-monitor -->'
+              echo '## v0.34.5+70 CI result'
+              echo
+              echo '```text'
+              tail -c 50000 "${REPORT}"
+              echo
+              echo '```'
+            } > "${COMMENT}"
+            gh pr comment "${PR_NUMBER}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --edit-last \
+              --create-if-none \
+              --body-file "${COMMENT}" || true
+          fi

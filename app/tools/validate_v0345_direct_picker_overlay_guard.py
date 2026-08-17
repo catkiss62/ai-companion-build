@@ -112,10 +112,14 @@ require(workflow, [
     "python3 tools/validate_v0345_direct_picker_overlay_guard.py",
     "AI-Companion-v0.34.5-70-Direct-Picker-Recovery-APK",
     "actions: read",
+    "pull-requests: write",
     "report-ci-failure:",
     "AI-Companion-v0.34.5-70-CI-Monitor.txt",
     "needs.build-apk.result != 'success'",
     "gh run view \"${GITHUB_RUN_ID}\"",
+    "<!-- v0345-ci-monitor -->",
+    "gh pr comment \"${PR_NUMBER}\"",
+    "release_url=${RELEASE_URL}",
 ], "workflow")
 
 print("v0.34.5 direct system-picker overlay guard validated")
