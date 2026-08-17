@@ -33,6 +33,7 @@
 - CI 使用临时测试签名；测试阶段用户允许卸载重装，不要求保留测试存档。
 - v0.34.5 本地静态验证已通过；GitHub Actions、APK SHA 与真机结果尚未确认，后续必须回填。
 - 首个可读失败 run：`32040383825`，失败 job：`95418527942`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b>。该 Release 当前只有失败诊断、没有 APK，不能交付。
+- 2026-08-18 用户再次确认交付方式：Actions artifact 配额已满时，继续使用 workflow 的 `contents: write`，把 APK 与 `.sha256` 上传到私有仓库草稿 Release；监测文件只供助手排错，绝不能作为用户交付物。15 个旧发布身份校验器修正后，监测分支仍停在旧失败 run，因此通过本总账同步提交触发一次新的 PR 构建；本轮不改 App 源码、版本号或 Release 方案。
 
 ## 2. v0.34.3 已确认基线
 
