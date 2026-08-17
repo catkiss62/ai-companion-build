@@ -323,3 +323,16 @@ P2：
 - APK: `AI-Companion-v0.34.6-71-Lock-Resume-APK.apk`
 - SHA-256: `1a0c0b117437973fdc51d005f182c8570ecacb74119c97890f56c5b787e55768`
 - Device validation remains pending: WALKING/STROLLING lock-resume; cross-app picker with Accessibility authorized/connected; App-owned direct pickers.
+
+
+## v0.34.7+72 · Autonomous Action Foundation
+
+- 用户最终决定将 HyperOS 文件选择器返回后悬浮卡住移到项目末尾。另一个私人制作、功能更少、代码更简单、看起来没有专门恢复优化的桌宠也会复现，但这不代表所有桌宠都会出现。
+- v0.34.6 报告是在真实卡死之后导出，仍为 cover session/enter/exit/recovery/detach 全 0，同时 attached/touchable/visible=true；这证明卡死没有进入诊断，旧结构健康结论不能证明真实输入或动画可用。
+- 保留 v0.34.4 settle、v0.34.5 direct-picker guard、3 次恢复上限和 700ms settle；不再改动。项目末尾若重开，先增加真实输入挑战、动画帧心跳和 window generation 时间线。
+- v0.34.7 开始统一自主行动公共底座，完整设计见 `docs/AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`。
+- schema 24 新增 `autonomous_action_runs`；请求只能来自现有 `DesireIntent`，Tool Gate 不创建欲望，也不负责主动联系。
+- Active Brain generation/device、run token、dedupe 和终态事务 fencing 已接入。只有真实成功并保存候选/观察后，才可在同一事务中轻量 satisfy；失败、取消、无结果、重复和 stale writer 不满足欲望。
+- 锁屏仅阻止 `screen_observation`，不阻止 `public_web`；屏幕观察预算为滚动每小时 6 次。公开网页和视频 Provider 尚未接入，预算显示未配置，不擅自拍值。
+- 脱敏报告新增 `database.autonomousActions` 与 foundation check，只输出状态、粗粒度 Gate/Outcome、耗时桶、预算、锁屏和计数，不输出 query、URL、网页/屏幕内容、账号、Thought reason 或聊天。
+- 本版 phase=`foundation_not_scheduled`：底座可以自动测试，但不会产生真实自主上网/看屏幕行为。下一实现应接公共网页候选发现 Provider，成功只进候选池，主动分享仍经过既有 proactive Gate。
