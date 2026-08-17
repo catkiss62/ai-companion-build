@@ -1,11 +1,11 @@
 status=failure
 build_result=failure
-run_id=32040383825
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32040383825
-head_sha=6cadf292febf4055ca1869e928d017926d777a5b
+run_id=32041890393
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32041890393
+head_sha=094d6f0ef47e3752ae7b00ba9e5fe1faf3ba727c
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=failure id=95418527942 ---
-run 32040383825 is still in progress; logs will be available when it is complete
+--- job=build-apk conclusion=failure id=95422552073 ---
+run 32041890393 is still in progress; logs will be available when it is complete
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a9ccc51dbd5118d6180b
