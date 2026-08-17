@@ -7216,15 +7216,15 @@ class AppDatabase {
     }
 
     return {
-      'userToAi': await direction(SomaticDirection.userToAi),
-      'aiToSelf': await direction(SomaticDirection.aiToSelf),
+      'userToAi': await direction('user_to_ai'),
+      'aiToSelf': await direction('ai_to_self'),
       'latestUserEvaluation': await latestEvaluation(
         role: 'user',
-        direction: SomaticDirection.userToAi,
+        direction: 'user_to_ai',
       ),
       'latestAssistantEvaluation': await latestEvaluation(
         role: 'assistant',
-        direction: SomaticDirection.aiToSelf,
+        direction: 'ai_to_self',
       ),
       'eventNarrativeIncluded': false,
       'messageBodiesIncluded': false,
