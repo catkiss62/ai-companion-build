@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前开发头已进入 `v0.35.2+77 Prompt Workbench`：六大规则、性格试穿与原保护锁定 Prompt 全部收口为六个可编辑长文本框；中文原生选择菜单、长文本顶端回弹修复、设定包导入/导出与“和她讨论后人工确认”已落源码。聊天设置新增思考开关与 Temperature `0.0～2.0`；DeepSeek 官方思考模式会忽略 Temperature，所以仅关闭思考后实际发送。当前仍是本地源码候选，GitHub/CI/APK 待完成。
+0. 当前开发头为 `v0.35.2+77 Prompt Workbench`：六大规则、性格试穿与原保护锁定 Prompt 全部收口为六个可编辑长文本框；中文原生选择菜单、长文本顶端回弹修复、设定包导入/导出与“和她讨论后人工确认”已落源码。聊天设置新增思考开关与 Temperature `0.0～2.0`；DeepSeek 官方思考模式会忽略 Temperature，所以仅关闭思考后实际发送。实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`，Actions run `32173096666` 全绿，APK 已上传私有草稿 Release；真机交互与 Temperature A/B 待验。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线仍是“手动看一次当前屏幕 + 实际 App 名称映射 + 敏感页 Gate”，完成明确用户触发后才讨论 Desire 驱动的低频屏幕视觉。
@@ -21,9 +21,9 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 已构建基线仍为 `v0.35.1+76`；本地当前源码候选为 `v0.35.2+77`，schema 26，尚无 GitHub head/run/APK，不能把本地实现写成已构建。
-- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32160558352>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.1 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f>；APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`（239.8MB），SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`。
+- GitHub 当前已构建基线为 `v0.35.2+77`，schema 26；实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`。
+- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32173096666>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、167 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.2 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-382bc37a74c8121eec70>；APK `AI-Companion-v0.35.2-77-Prompt-Workbench-APK.apk`（240.3MB），SHA-256 `2e7602c4cfba34e7f3dc1e64d2eef33b03f93566d1da07d71883b34d700248e2`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码/测试/打包成功，语言效果仍待真机 A/B。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。

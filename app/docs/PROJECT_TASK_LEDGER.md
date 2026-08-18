@@ -18,7 +18,8 @@
 - [x] 04 记忆规则接入真实经验整合器和 AI Self 反思；主动表达规则并入 02 的主动轮次小节，避免出现可见文本与隐藏同义 Prompt 两套真源。
 - [x] 新增模型思考开关与聊天 Temperature `0.0～2.0`，默认思考开启、Temperature `1.0`。DeepSeek 官方思考模式忽略 Temperature，因此只在关闭思考时发送；普通聊天、图片回复、断点恢复和主动开口共用，网页/记忆/设定提案保持独立稳定参数。
 - [x] 版本提升到 `v0.35.2+77`，schema 保持 26；新增 `tools/validate_v0352_prompt_workbench.py` 与 Temperature 请求体测试。
-- [ ] GitHub 原子提交、完整历史校验、Flutter analyze/tests、release APK 与私有草稿 Release 上传。
+- [x] 实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`；Actions run `32173096666` 已通过完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、167 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。
+- [x] APK `AI-Companion-v0.35.2-77-Prompt-Workbench-APK.apk`（240.3MB），SHA-256 `2e7602c4cfba34e7f3dc1e64d2eef33b03f93566d1da07d71883b34d700248e2`；草稿 Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-382bc37a74c8121eec70`。Draft PR #23 保持未合并，正式 Release 未发布。
 - [ ] 真机验收六框、中文菜单、选区顶端滚动、设定包往返、AI 提案确认，以及关闭思考后不同 Temperature 的 A/B 差异。
 
 ### BUILT BASELINE · v0.35.1 性格内在反应与表达 v2

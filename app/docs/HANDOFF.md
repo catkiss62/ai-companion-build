@@ -12,7 +12,8 @@
 - “和她讨论”只生成完整待确认修改稿，先放入编辑器、再由用户点击保存；AI 无权后台静默改写自己。
 - `04 · 记忆规则` 已接到真实经验整合和 AI Self 反思；主动表达要求已并入 02 的主动轮次小节，不保留第二份隐藏风格 Prompt。JSON/事实/权限/停止/数据库围栏仍由代码固定。
 - 新增模型思考开关与聊天 Temperature `0.0～2.0`（默认 `1.0`）。DeepSeek 官方思考模式会忽略 Temperature，因此客户端只在关闭思考时发送；普通聊天、图片回复、恢复和主动消息共用，网页/记忆/设定提案不跟随。
-- 版本 `v0.35.2+77`，schema 仍为 26；当前只是工作区源码候选，尚未写入 GitHub 或生成 APK。契约见 `docs/PROMPT_WORKBENCH_v1.md`。
+- 版本 `v0.35.2+77`，schema 仍为 26；实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`。Actions run `32173096666` 全绿：完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、167 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传均成功。
+- APK `AI-Companion-v0.35.2-77-Prompt-Workbench-APK.apk`（240.3MB），SHA-256 `2e7602c4cfba34e7f3dc1e64d2eef33b03f93566d1da07d71883b34d700248e2`；草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-382bc37a74c8121eec70`。PR #23 仍为 Draft，未合并 main、未发布正式 Release；六框交互和关闭思考后的 Temperature A/B 仍待真机验收。契约见 `docs/PROMPT_WORKBENCH_v1.md`。
 
 ## 0AAA. 已构建基线 · v0.35.1+76 Personality Inner Voice v2
 
