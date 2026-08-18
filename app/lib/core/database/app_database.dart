@@ -4526,7 +4526,10 @@ class AppDatabase {
         'screen_interactive': context.screenInteractive ? 1 : 0,
         'device_locked': context.deviceLocked ? 1 : 0,
         'budget_limit': context.budgetLimit,
-        'budget_remaining': decision.budgetRemaining,
+        'budget_remaining': decision.allowed &&
+                decision.budgetRemaining != null
+            ? (decision.budgetRemaining! - 1).clamp(0, context.budgetLimit ?? 0)
+            : decision.budgetRemaining,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -4922,6 +4925,68 @@ class AppDatabase {
     });
   }
 
+  /// Exposes only a small, bounded public-web working set to the prompt.
+  ///
+  /// Reading a candidate marks it reviewed, but does not create a Memory,
+  /// Thought, message, or proactive delivery request.
+  Future<List<PublicWebContextItem>> activePublicWebContext({
+    DateTime? now,
+    int limit = 3,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final safeLimit = limit.clamp(1, 3).toInt();
+    return db.transaction((txn) async {
+      final rows = await txn.query(
+        'public_web_candidates',
+        columns: const [
+          'id',
+          'title',
+          'summary',
+          'url',
+          'source_domain',
+          'provider',
+          'discovered_at',
+          'safety_state',
+        ],
+        where: "expires_at > ? AND lifecycle_state != 'discarded'",
+        whereArgs: [instant.millisecondsSinceEpoch],
+        orderBy:
+            "CASE WHEN lifecycle_state = 'unread' THEN 0 ELSE 1 END, discovered_at DESC",
+        limit: safeLimit,
+      );
+      if (rows.isNotEmpty) {
+        final ids = rows.map((row) => row['id'] as String).toList();
+        final placeholders = List.filled(ids.length, '?').join(',');
+        await txn.rawUpdate(
+          '''
+          UPDATE public_web_candidates
+          SET lifecycle_state = 'reviewed',
+              last_viewed_at = ?,
+              view_count = view_count + 1
+          WHERE id IN ($placeholders)
+          ''',
+          [instant.millisecondsSinceEpoch, ...ids],
+        );
+      }
+      return rows
+          .map((row) => PublicWebContextItem(
+                id: row['id'] as String,
+                title: row['title'] as String? ?? '',
+                summary: row['summary'] as String? ?? '',
+                url: row['url'] as String? ?? '',
+                sourceDomain: row['source_domain'] as String? ?? '',
+                provider: row['provider'] as String? ?? '',
+                discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+                  (row['discovered_at'] as num?)?.toInt() ?? 0,
+                ),
+                safetyState:
+                    row['safety_state'] as String? ?? 'untrusted_public',
+              ))
+          .toList(growable: false);
+    });
+  }
+
   Future<Map<String, Object?>> autonomousActionDiagnosticStats({
     DateTime? now,
   }) async {
@@ -5110,9 +5175,20 @@ class AppDatabase {
       orderBy: 'discovered_at DESC',
       limit: 1,
     );
+    final extraSourceLines =
+        (await getSetting('public_web_extra_sources') ?? '')
+            .split(RegExp(r'[\r\n]+'))
+            .where((line) => line.trim().isNotEmpty)
+            .length;
     return {
       'enabled': (await getSetting('public_web_discovery_enabled')) != '0',
-      'provider': 'wikimedia_zh',
+      'provider': lastRows.isEmpty
+          ? 'tavily_layered'
+          : lastRows.first['provider'] ?? 'tavily_layered',
+      'providerMode': 'global_plus_additive_sources_with_wikimedia_fallback',
+      'agnesCompactionEnabled':
+          (await getSetting('agnes_web_compaction_enabled')) != '0',
+      'extraSourceCount': extraSourceLines.clamp(0, 5),
       'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
       'expiredCount': expired,
       'byLifecycle': byLifecycle,
