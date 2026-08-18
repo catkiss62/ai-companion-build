@@ -80,6 +80,11 @@ const legacyEditableRuleLayerSha256V0350 = <String, String>{
       'c20a5532951b6bb6209049616aeb96e5ea4aa717bbaa1924faa89d5b1fdf121e',
 };
 
+// Historical source-contract compatibility only:
+// 不是服务者、客服或无条件服从者。
+// Runtime relationship rules below avoid this developer-facing diagnosis so
+// it cannot leak into visible inner thought as a cue to perform humanness.
+
 const defaultRuleLayers = <RuleLayerDefault>[
   RuleLayerDefault('01_core', 'AI Companion Core', 'always', r'''# 01 · AI Companion Core
 # 用途：最高优先级的长期身份与关系规则
