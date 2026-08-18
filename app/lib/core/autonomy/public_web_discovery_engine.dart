@@ -6,7 +6,9 @@ import '../models/autonomous_action.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
 import '../platform/android_bridge.dart';
+import '../storage/secure_config.dart';
 import 'autonomous_action_coordinator.dart';
+import 'layered_public_web_provider.dart';
 import 'public_web_discovery_policy.dart';
 import 'wikimedia_public_web_provider.dart';
 
@@ -21,13 +23,16 @@ class PublicWebDiscoveryEngine {
     required this.db,
     required this.desire,
     required this.android,
+    SecureConfig? secureConfig,
     PublicWebProvider? provider,
-  }) : provider = provider ?? WikimediaPublicWebProvider();
+  })  : secureConfig = secureConfig ?? SecureConfig.instance,
+        _providerOverride = provider;
 
   final AppDatabase db;
   final DesireEngine desire;
   final AndroidBridge android;
-  final PublicWebProvider provider;
+  final SecureConfig secureConfig;
+  final PublicWebProvider? _providerOverride;
   final Uuid _uuid = Uuid();
 
   late final AutonomousActionCoordinator coordinator =
@@ -63,6 +68,7 @@ class PublicWebDiscoveryEngine {
       intent: sourceIntent,
       now: instant,
     );
+    final provider = _providerOverride ?? await _configuredProvider();
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
     var screenInteractive = true;
     var deviceLocked = false;
@@ -189,6 +195,19 @@ class PublicWebDiscoveryEngine {
     await _recordRuntime(at: instant, outcome: 'duplicate_or_ownership_lost');
     return const PublicWebDiscoveryDecision(
       state: 'duplicate_or_ownership_lost',
+    );
+  }
+
+  Future<PublicWebProvider> _configuredProvider() async {
+    final agnesEnabled =
+        (await db.getSetting('agnes_web_compaction_enabled')) != '0';
+    return LayeredPublicWebProvider(
+      tavilyApiKey: await secureConfig.readTavilyApiKey() ?? '',
+      agnesApiKey: await secureConfig.readAgnesApiKey() ?? '',
+      agnesEndpoint: await secureConfig.readAgnesEndpoint(),
+      agnesModel: await secureConfig.readAgnesModel(),
+      agnesEnabled: agnesEnabled,
+      extraSources: await db.getSetting('public_web_extra_sources') ?? '',
     );
   }
 
