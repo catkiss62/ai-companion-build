@@ -85,4 +85,32 @@ void main() {
     expect(seductress, contains('未开启'));
     expect(seductress, contains('露骨成人表达只在'));
   });
+
+  test('workbench templates immediately override trial and special prompts', () {
+    final profile = PersonalityCatalog.compileProfile(
+      'playful',
+      'impish',
+      trial: true,
+      templates: const {
+        '07_base_playful': 'CUSTOM_BASE',
+        '07_posture_impish': 'CUSTOM_POSTURE',
+        '07_profile_shared': 'CUSTOM_SHARED',
+      },
+    );
+    final special = PersonalityCatalog.compileSpecial(
+      'yandere',
+      intimacyActive: true,
+      templates: const {
+        '07_special_yandere': 'CUSTOM_SPECIAL',
+        '07_special_shared': 'state={{intimacy_state}}',
+      },
+    );
+
+    expect(profile, contains('CUSTOM_BASE'));
+    expect(profile, contains('CUSTOM_POSTURE'));
+    expect(profile, contains('CUSTOM_SHARED'));
+    expect(profile, isNot(contains('反咬一口')));
+    expect(special, contains('CUSTOM_SPECIAL'));
+    expect(special, contains('state=已开启'));
+  });
 }

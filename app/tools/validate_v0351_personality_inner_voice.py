@@ -10,12 +10,12 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.35\.1\+76$", pubspec, re.MULTILINE)
+version = re.search(r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$", pubspec, re.MULTILINE)
+assert version and tuple(map(int, version.groups())) >= (0, 35, 1, 76)
 
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 26;" in database
-assert "if (layer.locked)" in database
-assert "Locked layers are application-owned" in database
+assert "locked` now means protected/always enabled" in database
 assert "legacyEditableRuleLayerSha256V0350" in database
 
 catalog = read("lib/core/personality/personality_catalog.dart")
@@ -44,7 +44,7 @@ assert "当前特殊表达与现实边界" in service
 prompt = read("lib/core/ai/prompt_builder.dart")
 for token in (
     "他是成年男性，是你的男朋友",
-    "_visibleInnerVoiceContract(mode)",
+    "_visibleInnerVoiceContract(",
     "【可见思考与最终表达】",
     "不是工作记录",
     "内心可以比台词更乱",
@@ -56,7 +56,7 @@ for token in (
     assert token in prompt, token
 for forbidden in ("我需要回应用户", "保持角色一致", "现在扮演"):
     assert forbidden not in prompt, forbidden
-assert prompt.index("_visibleInnerVoiceContract(mode)") < prompt.index(
+assert prompt.index("_visibleInnerVoiceContract(") < prompt.index(
     "if (mode == PromptGenerationMode.proactive)"
 )
 

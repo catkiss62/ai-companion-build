@@ -27,33 +27,33 @@ class _RuleLayerGroupSpec {
 const _groupSpecs = <String, _RuleLayerGroupSpec>{
   '01': _RuleLayerGroupSpec(
     '01',
-    '01 · 身份与关系',
-    'AI 本体、存在方式、长期关系事实、自主性与边界。两个小节同属锁定的最高优先级基础。',
+    '01 · 身份核心',
+    'AI 本体、关系事实、固定外观与最上层身份边界。',
   ),
   '02': _RuleLayerGroupSpec(
     '02',
-    '02 · 日常交流',
-    '普通聊天的长度、口语、节奏与叙事克制。',
+    '02 · 日常说话规则',
+    '普通聊天、行为真实感、可见思考与主动开口方式。',
   ),
   '03': _RuleLayerGroupSpec(
     '03',
-    '03 · 行为与初始性格',
-    '行为真实感与固定外观常驻；初始性格是可编辑、可关闭、会被长期 AI Self 细化的种子。',
+    '03 · 性格底色',
+    '长期性格种子、四个底色、四个相处姿态、八个特殊风格与共同约束。',
   ),
   '04': _RuleLayerGroupSpec(
     '04',
-    '04 · 亲密关系核心',
-    '只在明确的成年人亲密 Session 中决定状态、边界与连续性。',
+    '04 · 记忆规则',
+    '长期记忆、AI Self、关系事实、推断与原始思考的写入边界。',
   ),
   '05': _RuleLayerGroupSpec(
     '05',
-    '05 · 亲密表现',
-    '只在亲密 Session 中控制沉浸式表现方式。',
+    '05 · NSFW 状态机',
+    '只在明确的成年人亲密 Session 中决定状态、空间、边界与退出。',
   ),
   '06': _RuleLayerGroupSpec(
     '06',
-    '06 · 亲密参考资料',
-    '只在亲密 Session 且检索到相关资料时按需加载。',
+    '06 · NSFW 渲染',
+    '亲密 Session 的表达、动作连续性与按需参考资料。',
   ),
 };
 
@@ -61,12 +61,16 @@ const _groupKeyByLayer = <String, String>{
   '01_core': '01',
   '01_relationship': '01',
   '02_daily': '02',
-  '03_behavior': '03',
+  '03_behavior': '02',
   '03_personality_seed': '03',
-  '03_appearance_identity': '03',
-  '04_intimacy_core': '04',
-  '05_intimacy_rendering': '05',
+  '03_appearance_identity': '01',
+  '04_memory_rules': '04',
+  '04_intimacy_core': '05',
+  '05_intimacy_rendering': '06',
   '06_intimacy_reference': '06',
+  '08_runtime_identity': '01',
+  '08_visible_inner_voice': '02',
+  '08_proactive_turn': '02',
 };
 
 const _sectionTitles = <String, String>{
@@ -88,7 +92,8 @@ List<RuleLayerGroup> groupRuleLayers(Iterable<RuleLayer> layers) {
   final order = <String>[];
   final grouped = <String, List<RuleLayer>>{};
   for (final layer in layers) {
-    final groupKey = _groupKeyByLayer[layer.key] ?? 'custom:${layer.key}';
+    final groupKey = _groupKeyByLayer[layer.key] ??
+        (layer.key.startsWith('07_') ? '03' : 'custom:${layer.key}');
     if (!grouped.containsKey(groupKey)) {
       order.add(groupKey);
       grouped[groupKey] = <RuleLayer>[];
@@ -96,7 +101,15 @@ List<RuleLayerGroup> groupRuleLayers(Iterable<RuleLayer> layers) {
     grouped[groupKey]!.add(layer);
   }
 
-  return order.map((groupKey) {
+  final sortedOrder = [...order]..sort((a, b) {
+      final ai = int.tryParse(a);
+      final bi = int.tryParse(b);
+      if (ai != null && bi != null) return ai.compareTo(bi);
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return order.indexOf(a).compareTo(order.indexOf(b));
+    });
+  return sortedOrder.map((groupKey) {
     final members = List<RuleLayer>.unmodifiable(grouped[groupKey]!);
     final spec = _groupSpecs[groupKey];
     return RuleLayerGroup(

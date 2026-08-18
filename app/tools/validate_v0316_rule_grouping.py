@@ -39,12 +39,14 @@ for key in (
 
 assert "'01_relationship': '01'" in grouping
 assert "'03_personality_seed': '03'" in grouping
-assert "'03_appearance_identity': '03'" in grouping
+assert "'03_appearance_identity': '01'" in grouping
+assert "'03_behavior': '02'" in grouping
+assert "'04_memory_rules': '04'" in grouping
 assert "List<RuleLayer>.unmodifiable" in grouping
 assert "groupRuleLayers(layers)" in service
 assert "ruleLayerSectionTitle(layer)" in service
 assert "groupRuleLayers(layers)" in page
-assert "db.updateRuleLayer(layer.key" in page
+assert "db.updateRuleLayer(" in page
 assert "db.resetRuleLayer(layer.key)" in page
 assert "without concatenating their storage" in tests
 

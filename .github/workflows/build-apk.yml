@@ -11,7 +11,7 @@
 # AI-Companion-v0.35.0-75-Personality-Trials-APK.apk
 # v0.35.0-personality-trials-test
 # .ci/v0350-monitor.txt
-name: Build AI Companion v0.35.1+76 APK (Personality Inner Voice v2)
+name: Build AI Companion v0.35.2+77 APK (Prompt Workbench)
 
 on:
   workflow_dispatch:
@@ -41,13 +41,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.35.1+76$' app/pubspec.yaml
+          grep -q '^version: 0.35.2+77$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 26;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.35.1+76 app/ source tree.'
+          echo 'Building directly from the committed v0.35.2+77 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -109,6 +109,7 @@ jobs:
           python3 tools/validate_v0349_layered_web_discovery.py
           python3 tools/validate_v0350_personality_trials.py
           python3 tools/validate_v0351_personality_inner_voice.py
+          python3 tools/validate_v0352_prompt_workbench.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -230,16 +231,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.35.1+76 APK to draft release
+      - name: Upload v0.35.2+77 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.35.1-personality-inner-voice-test'
-          APK_NAME='AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk'
+          TAG='v0.35.2-prompt-workbench-test'
+          APK_NAME='AI-Companion-v0.35.2-77-Prompt-Workbench-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.35.1-76-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.35.2-77-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -255,8 +256,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.1+76 true-device test candidate' \
-              --notes 'Draft-only APK adding first-person inner reaction, personality-specific expression filters, structured Desire/Thought emotional residue, silent trial semantics, appearance self-reference noise reduction, and personality-consistent proactive endings. Existing AI identity, memory, relationship, trial timing and Desire baselines remain continuous.'
+              --title 'AI Companion v0.35.2+77 true-device test candidate' \
+              --notes 'Draft-only APK adding the six-rule Prompt Workbench, editable protected/personality-trial prompts, prompt-only import/export, confirm-before-apply AI proposals, Chinese native text selection, full-screen long-text editing, and explicit thinking/Temperature chat controls. Existing memory, Desire, relationship, trial timing and safety gates remain continuous.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -280,18 +281,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0351-monitor.txt'
+          MONITOR_PATH='.ci/v0352-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.1 CI success monitor' \
+              -f message='Update v0.35.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.1 CI success monitor' \
+              -f message='Create v0.35.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -310,8 +311,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.35.1-personality-inner-voice-test'
-          CI_NAME='AI-Companion-v0.35.1-76-CI-Monitor.txt'
+          TAG='v0.35.2-prompt-workbench-test'
+          CI_NAME='AI-Companion-v0.35.2-77-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -351,8 +352,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.1+76 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual personality inner-voice true-device APK. It is not a public release.'
+              --title 'AI Companion v0.35.2+77 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual six-rule Prompt Workbench true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -361,18 +362,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0351-monitor.txt'
+          MONITOR_PATH='.ci/v0352-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.1 CI failure monitor' \
+              -f message='Update v0.35.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.1 CI failure monitor' \
+              -f message='Create v0.35.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

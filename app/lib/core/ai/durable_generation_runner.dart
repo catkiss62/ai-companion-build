@@ -85,6 +85,12 @@ class DurableGenerationRunner {
     // its key yet.
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
+    final chatTemperature = (double.tryParse(
+              await db.getSetting('chat_temperature') ?? '',
+            ) ??
+            1.0)
+        .clamp(0.0, 2.0)
+        .toDouble();
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -170,6 +176,7 @@ class DurableGenerationRunner {
           messages: messages,
           endpoint: endpoint,
           thinking: job.thinking,
+          temperature: chatTemperature,
           cancellationToken: cancellationToken,
         )) {
           cancellationToken?.throwIfCancelled();
@@ -326,4 +333,3 @@ class DurableGenerationRunner {
     return raw.length <= 360 ? raw : raw.substring(0, 360);
   }
 }
-

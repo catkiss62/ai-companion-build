@@ -1,12 +1,14 @@
 # AI Companion · 接班总账 v36
 
-更新时间：2026-08-18（Asia/Tokyo）
+更新时间：2026-08-19（Asia/Tokyo）
 
 > 本文件是当前唯一最新接班入口，已吸收并取代 v35 以前接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
 ## 0. 下一轮开场先做什么
+
+0. 当前开发头已进入 `v0.35.2+77 Prompt Workbench`：六大规则、性格试穿与原保护锁定 Prompt 全部收口为六个可编辑长文本框；中文原生选择菜单、长文本顶端回弹修复、设定包导入/导出与“和她讨论后人工确认”已落源码。聊天设置新增思考开关与 Temperature `0.0～2.0`；DeepSeek 官方思考模式会忽略 Temperature，所以仅关闭思考后实际发送。当前仍是本地源码候选，GitHub/CI/APK 待完成。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线仍是“手动看一次当前屏幕 + 实际 App 名称映射 + 敏感页 Gate”，完成明确用户触发后才讨论 Desire 驱动的低频屏幕视觉。
@@ -19,7 +21,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- 当前实现版本：`v0.35.1+76`，schema 26；实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`。
+- GitHub 已构建基线仍为 `v0.35.1+76`；本地当前源码候选为 `v0.35.2+77`，schema 26，尚无 GitHub head/run/APK，不能把本地实现写成已构建。
 - 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32160558352>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
 - v0.35.1 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f>；APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`（239.8MB），SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码/测试/打包成功，语言效果仍待真机 A/B。

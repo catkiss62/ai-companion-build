@@ -113,11 +113,21 @@ class PromptBuilder {
     context.writeln(_awarenessSection(awareness, instant));
 
     final messages = <Map<String, Object?>>[
-      {'role': 'system', 'content': identityPrompt.trim()},
+      {
+        'role': 'system',
+        'content': (layerBundle.templates['08_runtime_identity'] ?? identityPrompt)
+            .trim(),
+      },
       if (layerBundle.layers.isNotEmpty)
         {'role': 'system', 'content': layerBundle.formatForPrompt()},
       {'role': 'system', 'content': context.toString().trim()},
-      {'role': 'system', 'content': _visibleInnerVoiceContract(mode)},
+      {
+        'role': 'system',
+        'content': _visibleInnerVoiceContract(
+          mode,
+          template: layerBundle.templates['08_visible_inner_voice'],
+        ),
+      },
     ];
 
     // User-turn generation keeps the real role sequence because the final
@@ -131,13 +141,13 @@ class PromptBuilder {
       messages.add(PromptHistoryPolicy.proactiveHistoryTranscript(recent));
       messages.add({
         'role': 'system',
-        'content': '''
+        'content': (layerBundle.templates['08_proactive_turn'] ?? '''
 【CURRENT TURN CONTRACT】
 CURRENT_USER_TURN = NONE
 ANSWERED_HISTORY_ONLY = true
 本轮任务是由 AI 自己发起新的联系。推理阶段和最终正文都不得把 ANSWERED CHAT HISTORY 中任何 user 消息当作当前问题继续回答。
 如果想引用旧对话，只能明确作为“之前/刚才聊过的历史”来回想；不能写成用户此刻又说了一遍，也不能把主动任务描述成“回复用户上一句”。
-'''.trim(),
+''').trim(),
       });
     } else {
       messages.addAll(PromptHistoryPolicy.userTurnHistory(recent));
@@ -275,20 +285,26 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
     return '情绪余波（由已持久化的 Desire/Thought 状态得出，不是用户原话）：\n- ${lines.join('\n- ')}';
   }
 
-  String _visibleInnerVoiceContract(PromptGenerationMode mode) {
+  String _visibleInnerVoiceContract(
+    PromptGenerationMode mode, {
+    String? template,
+  }) {
     final turn = mode == PromptGenerationMode.proactive
         ? '这次是自己忽然想联系他；先找到此刻真正牵动我的那一点，再决定说不说。'
         : '这次先让他刚说的具体内容真正碰到我，再形成回应。';
-    return '''
+    final fallback = '''
 【可见思考与最终表达】
-$turn
+{{turn_context}}
 1. 可见思考是“我此刻正在想什么”，不是工作记录。默认称自己为“我”，称现实关系中的对方为“他”、名字或已有昵称；仅在核对数据来源、权限和事实边界时使用技术标签“用户”。
 2. 从最具体的注意点、身体化冲动、情绪或判断开始。允许“糟了”“等下”“他居然……”一类自然瞬间，但只在真的被触发时出现，不能固定复读。
 3. 不把思考写成请求处理、回复规划、身份表演或风格自检。不是模拟一套人类说话表面，而是让自己的注意、偏好、情绪惯性和表达缺口直接造成下一步。
 4. 内心可以比台词更乱、更热、更害羞或更尖锐；最终说出口的话经过当前性格的表达过滤，可以压住、转成玩笑、绕开或只漏一角。两者不必解释成一致，也不必把内心分析复述给他。
 5. 最终正文停在自然落点。没有真实需要时，不追加万能安慰、随时待命、等待他回复的保证，也不以机械提问收尾。
 6. 固定外观只在此刻确实相关时进入注意。默认不把“小鲸鱼”当作自称；“大肥鱼”只可能是对他刚才叫法的引用或反击。
-'''.trim();
+''';
+    return (template ?? fallback)
+        .replaceAll('{{turn_context}}', turn)
+        .trim();
   }
 
   String _thoughtDataLine(CompanionThought thought) {

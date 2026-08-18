@@ -911,6 +911,8 @@ class AppDatabase {
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
+    await db.insert('settings', {'key': 'chat_thinking_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'chat_temperature', 'value': '1.0'});
     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
@@ -1589,25 +1591,9 @@ class AppDatabase {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      // Locked layers are application-owned identity/fact contracts rather
-      // than user-editable prose. Keep them current on every upgrade so fixes
-      // to relationship gender, appearance self-reference and safety bounds
-      // reach existing installations without touching editable rules.
-      if (layer.locked) {
-        await db.update(
-          'rule_layers',
-          {
-            'title': layer.title,
-            'content': layer.content,
-            'load_policy': layer.loadPolicy,
-            'enabled': 1,
-            'locked': 1,
-            'updated_at': now,
-          },
-          where: 'key = ?',
-          whereArgs: [layer.key],
-        );
-      }
+      // `locked` now means protected/always enabled, not hidden or
+      // application-overwritten. Manual edits survive every seed pass; a
+      // user can explicitly restore the current bundled default from the UI.
     }
     final currentPersonality = defaultRuleLayers
         .firstWhere((layer) => layer.key == '03_personality_seed');
@@ -6945,10 +6931,12 @@ class AppDatabase {
     final now = DateTime.now();
     final at = now.millisecondsSinceEpoch;
     final id = _uuid.v4();
+    final templates = await _promptTemplateContents(db);
     final content = PersonalityCatalog.compileProfile(
       baseKey,
       postureKey,
       trial: true,
+      templates: templates,
     );
     await db.transaction((txn) async {
       await _expirePersonalityTrials(txn, at);
@@ -7064,10 +7052,12 @@ class AppDatabase {
       if (rows.isEmpty) return false;
       final trial = PersonalityTrial.fromDb(rows.first);
       if (!trial.isAdoptableAt(now)) return false;
+      final templates = await _promptTemplateContents(txn);
       final adopted = PersonalityCatalog.compileProfile(
         trial.baseKey,
         trial.postureKey,
         trial: false,
+        templates: templates,
       );
       final current = await txn.query(
         'rule_layers',
@@ -7123,6 +7113,22 @@ class AppDatabase {
       // Desire baselines, AI Self and relationship memory are intentionally untouched.
       return true;
     });
+  }
+
+  Future<Map<String, String>> _promptTemplateContents(
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.query(
+      'rule_layers',
+      columns: const ['key', 'content'],
+      where: 'load_policy = ?',
+      whereArgs: const ['template'],
+    );
+    return <String, String>{
+      for (final row in rows)
+        if ((row['key'] as String? ?? '').isNotEmpty)
+          row['key'] as String: row['content'] as String? ?? '',
+    };
   }
 
   Future<void> _recordPersonalityTrialReplyInTransaction(
@@ -8867,6 +8873,8 @@ class AppDatabase {
         'active_brain': '1',
         'model': 'deepseek-v4-flash',
         'reasoning_effort': 'high',
+        'chat_thinking_enabled': '1',
+        'chat_temperature': '1.0',
         'auto_memory': '1',
         'transfer_lock': '0',
         'perception_enabled': '1',

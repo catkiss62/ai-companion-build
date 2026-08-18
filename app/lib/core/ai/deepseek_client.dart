@@ -40,6 +40,7 @@ class DeepSeekClient {
     required List<Map<String, Object?>> messages,
     String endpoint = defaultEndpoint,
     bool thinking = true,
+    double? temperature,
     int? maxTokens,
     GenerationCancellationToken? cancellationToken,
   }) async* {
@@ -54,6 +55,8 @@ class DeepSeekClient {
         'messages': messages,
         'thinking': {'type': thinking ? 'enabled' : 'disabled'},
         if (thinking) 'reasoning_effort': effort.apiName,
+        if (!thinking && temperature != null)
+          'temperature': temperature.clamp(0.0, 2.0),
         if (maxTokens != null) 'max_tokens': maxTokens,
         'stream': true,
       });

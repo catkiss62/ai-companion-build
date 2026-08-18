@@ -5,7 +5,7 @@ publish_to: 'none'
 # version: 0.34.7+72
 # version: 0.34.8+73
 # version: 0.34.9+74
-version: 0.35.1+76
+version: 0.35.2+77
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -17,6 +17,8 @@ flutter:
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   http: ^1.6.0
   sqflite: ^2.4.3

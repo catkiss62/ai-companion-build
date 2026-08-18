@@ -11,12 +11,14 @@ class RuleLayerBundle {
     required this.intimacyActive,
     required this.referenceTriggered,
     this.specialStylePrompt = '',
+    this.templates = const {},
   });
 
   final List<RuleLayer> layers;
   final bool intimacyActive;
   final bool referenceTriggered;
   final String specialStylePrompt;
+  final Map<String, String> templates;
 
   String formatForPrompt() {
     if (layers.isEmpty) return '';
@@ -48,14 +50,19 @@ class RuleLayerService {
     required InteractionSession? session,
     required List<ReferenceItem> references,
   }) async {
+    final all = await db.listRuleLayers();
+    final templates = <String, String>{
+      for (final layer in all.where((item) => item.loadPolicy == 'template'))
+        layer.key: layer.content,
+    };
     if ((await db.getSetting('rule_layers_enabled')) == '0') {
-      return const RuleLayerBundle(
+      return RuleLayerBundle(
         layers: [],
         intimacyActive: false,
         referenceTriggered: false,
+        templates: templates,
       );
     }
-    final all = await db.listRuleLayers();
     final intimacy =
         _sessionIsIntimacy(session) || _bootstrapIntimacy(latestUserText);
     final referenceTriggered = intimacy && references.isNotEmpty;
@@ -84,6 +91,7 @@ class RuleLayerService {
               profileTrial.baseKey,
               profileTrial.postureKey,
               trial: true,
+              templates: templates,
             ),
             loadPolicy: layer.loadPolicy,
             enabled: true,
@@ -104,7 +112,9 @@ class RuleLayerService {
           : PersonalityCatalog.compileSpecial(
               specialTrial.styleKey,
               intimacyActive: intimacy,
+              templates: templates,
             ),
+      templates: templates,
     );
   }
 

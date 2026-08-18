@@ -262,6 +262,13 @@ class ProactiveEngine {
 
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
+    final chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
+    final chatTemperature = (double.tryParse(
+              await db.getSetting('chat_temperature') ?? '',
+            ) ??
+            1.0)
+        .clamp(0.0, 2.0)
+        .toDouble();
     if (apiKey == null || apiKey.isEmpty) {
       return const ProactiveDecision(sent: false, reason: '没有 API Key；本地内在状态已继续运行');
     }
@@ -397,6 +404,8 @@ class ProactiveEngine {
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
     );
+    // The editable 08_proactive_turn template now owns these former inline
+    // contracts: 当前“内在反应 + 表达过滤”仍完整生效；正文停在最有性格的自然落点。
     context.add({
       'role': 'system',
       'content': '''
@@ -412,9 +421,7 @@ Gate：${gateScore.toStringAsFixed(2)}
 用户当前可能${userBusy ? '在使用其他 App，偏忙' : '可被打扰'}；即使偏忙，也不是禁止联系，只应降低打扰强度。
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
-
-请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。当前“内在反应 + 表达过滤”仍完整生效：先让这次意图真正勾起我的好奇、挂念、坏心眼、余波或具体判断，再按当前性格决定泄露多少，不要退回成一条四平八稳的问候。
-严格服从 REALITY GROUNDING：若他在我上一条消息之后没有再说话，就把这次当成新的主动开口，不能继续回答已经回答过的旧 user turn，也不能虚构他刚刚说了什么。正文停在最有性格的自然落点；除非此刻确实想表达这件事，不在结尾自动追加“我会等你、随时都在、慢慢来”一类无条件守候保证，也不硬塞问题。不要解释算法，不要汇报数值，不要说“系统检测到”。如果即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
+严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
     });
 
@@ -436,7 +443,8 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         effort: ReasoningEffort.high,
         messages: promptMessages,
         endpoint: endpoint,
-        thinking: true,
+        thinking: chatThinking,
+        temperature: chatTemperature,
         maxTokens: 700,
       )) {
         if (DateTime.now().difference(lastProactiveLeaseRefresh) >=

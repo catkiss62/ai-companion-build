@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
@@ -18,6 +19,12 @@ class AiCompanionApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AI Companion',
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,

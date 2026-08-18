@@ -116,6 +116,8 @@ class ChatController extends ChangeNotifier {
   String? error;
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
+  bool chatThinking = true;
+  double chatTemperature = 1.0;
   TtsQueueState ttsState = TtsQueueState.idle;
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
@@ -190,6 +192,13 @@ class ChatController extends ChangeNotifier {
       await db.ensureReady();
       model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
+      chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
+      chatTemperature = (double.tryParse(
+                await db.getSetting('chat_temperature') ?? '',
+              ) ??
+              1.0)
+          .clamp(0.0, 2.0)
+          .toDouble();
       messages = await db.recentMessages(limit: 120);
       unawaited(attachmentStorage.cleanOldDrafts());
       unawaited(_pruneOrphanAttachmentFiles());
@@ -288,6 +297,31 @@ class ChatController extends ChangeNotifier {
     effort = next;
     await db.setSetting('reasoning_effort', next.apiName);
     _safeNotify();
+  }
+
+  Future<void> setChatThinking(bool next) async {
+    chatThinking = next;
+    await db.setSetting('chat_thinking_enabled', next ? '1' : '0');
+    _safeNotify();
+  }
+
+  Future<void> setChatTemperature(double next) async {
+    chatTemperature = next.clamp(0.0, 2.0).toDouble();
+    await db.setSetting(
+      'chat_temperature',
+      chatTemperature.toStringAsFixed(1),
+    );
+    _safeNotify();
+  }
+
+  Future<void> _refreshChatSamplingSettings() async {
+    chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
+    chatTemperature = (double.tryParse(
+              await db.getSetting('chat_temperature') ?? '',
+            ) ??
+            1.0)
+        .clamp(0.0, 2.0)
+        .toDouble();
   }
 
   Future<PreparedImageAttachment> prepareImage({
@@ -410,6 +444,7 @@ class ChatController extends ChangeNotifier {
       }
       marked = await db.markAttachmentVisionAnalyzing(attachment.id);
       if (!marked) return;
+      await _refreshChatSamplingSettings();
       messages = await db.recentMessages(limit: 160);
       _safeNotify();
 
@@ -432,7 +467,7 @@ class ChatController extends ChangeNotifier {
         assistantMessageId: _uuid.v4(),
         model: model.apiName,
         reasoningEffort: effort.apiName,
-        thinking: true,
+        thinking: chatThinking,
       );
       messages = await db.recentMessages(limit: 160);
     } catch (exception) {
@@ -554,6 +589,7 @@ class ChatController extends ChangeNotifier {
       }
 
       cancellation.throwIfCancelled();
+      await _refreshChatSamplingSettings();
       final user = ChatMessage(
         id: stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
@@ -568,7 +604,7 @@ class ChatController extends ChangeNotifier {
         assistantMessageId: _uuid.v4(),
         model: model.apiName,
         reasoningEffort: effort.apiName,
-        thinking: true,
+        thinking: chatThinking,
       );
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;

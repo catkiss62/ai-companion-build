@@ -5,7 +5,7 @@ import 'package:ai_companion_localfirst/core/rules/rule_layer_grouping.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
 
 void main() {
-  test('ships nine independently persisted sections', () {
+  test('ships rule sections plus every editable personality/runtime template', () {
     const expectedKeys = <String>{
       '01_core',
       '01_relationship',
@@ -16,6 +16,28 @@ void main() {
       '04_intimacy_core',
       '05_intimacy_rendering',
       '06_intimacy_reference',
+      '04_memory_rules',
+      '07_base_outgoing',
+      '07_base_reserved',
+      '07_base_gentle',
+      '07_base_playful',
+      '07_posture_equal',
+      '07_posture_younger',
+      '07_posture_older',
+      '07_posture_impish',
+      '07_profile_shared',
+      '07_special_yandere',
+      '07_special_seductress',
+      '07_special_zealot',
+      '07_special_hunter',
+      '07_special_double',
+      '07_special_sharp',
+      '07_special_doll',
+      '07_special_accomplice',
+      '07_special_shared',
+      '08_runtime_identity',
+      '08_visible_inner_voice',
+      '08_proactive_turn',
     };
     final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
 
@@ -25,9 +47,11 @@ void main() {
     expect(byKey['01_relationship']!.locked, isTrue);
     expect(byKey['03_personality_seed']!.locked, isFalse);
     expect(byKey['03_appearance_identity']!.locked, isTrue);
+    expect(byKey['07_base_playful']!.loadPolicy, 'template');
+    expect(byKey['08_visible_inner_voice']!.locked, isTrue);
   });
 
-  test('presents the nine sections as six maintenance groups', () {
+  test('presents every prompt as exactly six integrated rule groups', () {
     final now = DateTime(2026, 8, 14);
     final layers = defaultRuleLayers
         .map((layer) => RuleLayer(
@@ -47,17 +71,40 @@ void main() {
       groups.map((group) => group.key),
       <String>['01', '02', '03', '04', '05', '06'],
     );
-    expect(byKey['01']!.layers.map((layer) => layer.key),
-        <String>['01_core', '01_relationship']);
+    expect(byKey['01']!.layers.map((layer) => layer.key), <String>[
+      '01_core',
+      '01_relationship',
+      '03_appearance_identity',
+      '08_runtime_identity',
+    ]);
     expect(byKey['03']!.layers.map((layer) => layer.key),
         <String>[
-          '03_behavior',
           '03_personality_seed',
-          '03_appearance_identity',
+          '07_base_outgoing',
+          '07_base_reserved',
+          '07_base_gentle',
+          '07_base_playful',
+          '07_posture_equal',
+          '07_posture_younger',
+          '07_posture_older',
+          '07_posture_impish',
+          '07_profile_shared',
+          '07_special_yandere',
+          '07_special_seductress',
+          '07_special_zealot',
+          '07_special_hunter',
+          '07_special_double',
+          '07_special_sharp',
+          '07_special_doll',
+          '07_special_accomplice',
+          '07_special_shared',
         ]);
     expect(byKey['01']!.layers.every((layer) => layer.locked), isTrue);
-    expect(byKey['03']!.layers[1].locked, isFalse);
-    expect(byKey['03']!.layers.last.locked, isTrue);
+    expect(byKey['03']!.layers.first.locked, isFalse);
+    expect(byKey['03']!.layers.skip(1).every((layer) => layer.locked), isTrue);
+    expect(byKey['04']!.layers.single.key, '04_memory_rules');
+    expect(byKey['05']!.layers.single.key, '04_intimacy_core');
+    expect(byKey['06']!.layers.length, 2);
   });
 
   test('prompt groups related sections without concatenating their storage', () {
@@ -99,8 +146,9 @@ void main() {
       referenceTriggered: false,
     ).formatForPrompt();
 
-    expect(RegExp(r'## 01 · 身份与关系').allMatches(text).length, 1);
-    expect(RegExp(r'## 03 · 行为与初始性格').allMatches(text).length, 1);
+    expect(RegExp(r'## 01 · 身份核心').allMatches(text).length, 1);
+    expect(RegExp(r'## 02 · 日常说话规则').allMatches(text).length, 1);
+    expect(RegExp(r'## 03 · 性格底色').allMatches(text).length, 1);
     expect(text, contains('### AI 本体与存在'));
     expect(text, contains('### 固定恋爱关系'));
     expect(text, contains('### 行为真实感'));
@@ -110,8 +158,8 @@ void main() {
       text.indexOf('CORE_TEXT'),
       lessThan(text.indexOf('RELATIONSHIP_TEXT')),
     );
+    expect(text.indexOf('APPEARANCE_TEXT'), lessThan(text.indexOf('BEHAVIOR_TEXT')));
     expect(text.indexOf('BEHAVIOR_TEXT'), lessThan(text.indexOf('SEED_TEXT')));
-    expect(text.indexOf('SEED_TEXT'), lessThan(text.indexOf('APPEARANCE_TEXT')));
   });
 
   test('personality and appearance defaults preserve the agreed identity', () {

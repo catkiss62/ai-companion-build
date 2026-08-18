@@ -8,7 +8,20 @@
 
 ## 2026-08-19 最新排期覆盖
 
-### ACTIVE / SOURCE IMPLEMENTED · v0.35.1 性格内在反应与表达 v2
+### ACTIVE / SOURCE IMPLEMENTED · v0.35.2 六大规则设定工作台
+
+- [x] 所有设定类 Prompt 收口为用户指定的六框：01 身份核心、02 日常说话规则、03 性格底色、04 记忆规则、05 NSFW 状态机、06 NSFW 渲染；性格试穿和原保护锁定正文在框内完整可见可改。
+- [x] `locked` 改为保护常驻：不能关闭，但可以编辑、导入和恢复默认；启动 seeding 不覆盖用户手工正文。权限、停止、隐私、Active Brain、transfer、run token、成人 Session Gate 与数据库事实校验继续由代码保护。
+- [x] 六卡片点开式 UI、全屏单一长文本编辑器、中文系统复制/剪切/粘贴/全选与 Android clamping 滚动已实现；用于修复 AlertDialog 嵌套长文本在选区向上拖到顶时反复回弹。
+- [x] 新增只包含六大规则正文的 `ai_companion_prompt_pack` 剪贴板导入/导出；导入先解析和确认变化，不携带聊天、实际记忆、Desire、Key、权限或设备信息。
+- [x] 每组可“和她讨论”，模型只给修改理由和完整待确认稿；不直接写数据库，必须由用户再次保存。
+- [x] 04 记忆规则接入真实经验整合器和 AI Self 反思；主动表达规则并入 02 的主动轮次小节，避免出现可见文本与隐藏同义 Prompt 两套真源。
+- [x] 新增模型思考开关与聊天 Temperature `0.0～2.0`，默认思考开启、Temperature `1.0`。DeepSeek 官方思考模式忽略 Temperature，因此只在关闭思考时发送；普通聊天、图片回复、断点恢复和主动开口共用，网页/记忆/设定提案保持独立稳定参数。
+- [x] 版本提升到 `v0.35.2+77`，schema 保持 26；新增 `tools/validate_v0352_prompt_workbench.py` 与 Temperature 请求体测试。
+- [ ] GitHub 原子提交、完整历史校验、Flutter analyze/tests、release APK 与私有草稿 Release 上传。
+- [ ] 真机验收六框、中文菜单、选区顶端滚动、设定包往返、AI 提案确认，以及关闭思考后不同 Temperature 的 A/B 差异。
+
+### BUILT BASELINE · v0.35.1 性格内在反应与表达 v2
 
 - [x] 根据 v0.35.0 真机样本确认普通性格不是“需要多培养才出现”：预设应该在 1～3 次回复内可辨；培养只负责个人化和稳定。当前 `playful × impish` 三轮仍弱、出现“换性格/正式营业”元表演和万能守候收尾，因此进入本轮修正。
 - [x] 四底色与四姿态由一句标签扩展为两段因果：内在先注意/波动，外在再按性格过滤；明确允许思考与台词不一致，且每个组合有不同的泄露、压缩、放缓、反击和关系注意方式。
@@ -198,7 +211,7 @@
 - [x] 轻视觉区分“系统已授权”与“服务已连接”，持久记录最近连接、解绑、中断时间和原因；App 不尝试越权静默重开。
 - [x] 已授权但未连接时，系统页和自检明确提示进入无障碍设置重新开关并保存诊断。
 - [ ] REDMI K80 Ultra 真机复现/观察轻视觉是否仍被 HyperOS 撤销；若再现，用 v0.32.2 报告中的 lifecycle 字段定位。
-- [ ] Flutter / Android 长按复制粘贴菜单中文化；与后续 UI 本地化批次合并。
+- [x] v0.35.2 Flutter App 与启动恢复页显式使用 `zh_CN` 和官方本地化 delegate；长按选择沿用系统/Flutter 自适应中文菜单，不自制英文菜单。
 
 ## COMPLETED · v0.31.9 TTS State & Cancelled-turn Withdrawal
 
