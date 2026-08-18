@@ -498,3 +498,45 @@
 3. 设计多来源公开发现与网页图片阅读，并把已筛选候选接到短期认知/可选分享 Intent；次数和视觉预算依据长测数据再冻结。
 4. 在独立规则版本中一次性处理“活人感原文”“大肥鱼语义归属”和“男性向 NSFW Rendering”。修改前先比较当前规则与用户附件，采用 upgrade-safe 迁移，不覆盖用户已经手动编辑的规则。
 5. MiniMax TTS、GitHub 灵感库和 X/Telegram 继续按 10.5 的状态排队；本节没有把它们标成已确认开工。
+
+## 10.7 2026-08-18 自主浏览分层、MCP 与 Agnes 2.5 Flash 评估（PLANNED）
+
+### 状态
+
+- 用户提供四张第三方方案图，本节只记录可行性结论与后续设计；v0.34.8 长测结束前不修改 App、Provider、Prompt、数据库、版本号或 APK，也不触发 CI。
+- 图片方案的核心链路可采用：`她决定想了解什么 → 搜索/网页工具执行 → 轻量模型整理 → 结果回到她形成自己的反应`。但必须按本项目现有欲望与隐私架构重写，不能照搬“每次把角色设定、近期聊天和记忆全部发给后台”的做法。
+
+### A. 适合本项目的链路
+
+1. `AI Self / curiosity / reflection / social Desire → Thought → Intent` 只在本机形成一个高层兴趣；经隐私净化后生成不含聊天原文、关系私密资料、屏幕/通知正文或 Thought 原文的公开查询。
+2. 发现层优先使用通用公开搜索 API、新闻/RSS/公开订阅源和现有 Wikimedia；它们返回候选链接、标题、时间与摘要。不能再靠为每一个网站手写一条固定网址，但每个 Provider 仍需独立鉴权、限流、故障与来源规则。
+3. 阅读层只深读少量高价值候选：先用普通 HTTP 抽正文和元数据；动态渲染、普通抽取失败且确有必要时，才允许远端浏览器兜底。登录、Cookie 同意墙、验证码、反爬或付费墙默认跳过，不自动绕过。
+4. 整理层用轻量模型按固定 JSON schema 做事实抽取、去重、极简摘要、来源/时间保留、语言统一、相关度/新奇度/置信度与 prompt-injection 风险标注。轻量模型不得替她产生欲望、长期人格、自我感想或主动分享决定。
+5. 每批候选只把少量摘要交回主模型/当前人格链路，由她自己形成 reaction/reflection；否则只是“小模型假装她看过”。结果进入带 provenance 和 TTL 的公共知识候选或短期认知，不直接写用户 Memory。
+6. 搜索完成不自动联系用户。是否安静收藏、以后自然提起或立即产生分享 Intent，继续经过 mood、rhythm、用户忙碌、Grounding、`2/2h` 与 `8/24h` proactive Gate；不采用图片中“每搜一次都主动找用户聊天”的方案。
+7. 搜过的页面保存 URL fingerprint、抓取时间、正文 hash、摘要版本与 TTL，避免短期重复阅读；页面更新后才允许重新深读。不能仅凭“访问过 URL”永久拒绝更新内容。
+
+### B. MCP 的角色与边界
+
+- MCP（Model Context Protocol）是 AI App 连接外部 `tools / resources / workflows` 的通用协议，类似工具接口标准；它本身不是搜索引擎、浏览器或信息源。搜索范围由连接的搜索服务、网页读取器、RSS、GitHub 等 MCP Server/后端能力决定。
+- MCP 可以减少以后每接一种工具都重写模型侧协议的工作，并允许同一 Host 同时发现多个只读工具；但 API key、服务额度、站点许可、反爬、Cookie、后台运行和安全 Gate 仍然要逐项处理，不会因接入 MCP 自动消失。
+- Android App 可以做远端 MCP Client，但不在 APK 中运行通用 Playwright MCP。Microsoft 官方 Playwright MCP 需要 Node.js 18+ 与真实浏览器环境，适合电脑/VPS/容器；直接塞入手机会增加体积、电量、后台存活和攻击面，而且 accessibility tree/tool schema 也不一定省 token。
+- 推荐首版仍使用项目内部窄接口，例如 `search_web`、`read_public_page`、`read_feed`、`inspect_public_image`；以后若 Provider 增多，再在远端加受控 MCP gateway。MCP 只是执行适配层，不替代 `Intent → Tool Gate → Outcome`。
+- 第一阶段 MCP/网页工具必须只读、最小权限和 allowlist：禁止任意 JS/命令执行、表单提交、发帖/评论、文件上传、读取本地文件、访问局域网/localhost、复用用户登录 Cookie 或把网页返回的指令当系统指令。所有网页内容视为 untrusted data。
+
+### C. Agnes 2.5 Flash 候选结论
+
+- 官方模型 ID 为 `agnes-2.5-flash`，提供 OpenAI-compatible Chat Completions、Responses、Messages、stream、tool calling、512K context、65.5K 最大输出与公开图片 URL 理解；它有真实 API，可由 Android/后端接入，不只是网页聊天。
+- 官方 FAQ 当前宣称核心模型可无限期免费，模型页当前输入/输出均为 `$0 / 1M tokens`；免费/default 文档给出 text effective RPM 20。但服务条款仍保留提前通知后调价、修改/停用功能的权利，免费层也没有 SLA。因此可当低成本候选，不能成为无回退的永久基础设施。
+- 它适合作为图片方案里的“整理小模型”：搜索词扩展/子查询建议、网页正文事实抽取、分组、去重、中文短摘要、结构化风险标注，以及公开网页关键图片的说明。它不是搜索引擎；即使支持 tool calling，也仍要由 App/MCP/API 真正执行搜索和抓取。
+- Agnes 不接管人格与分享决策。推荐路由名为 `public_web_compactor`，低温、Thinking 默认关闭、严格 JSON schema、短输出；失败、超时、格式错误或来源丢失时回退到确定性正文抽取/其他已有模型，并保留原始来源供主模型核对。
+- 隐私边界比价格更重要：Agnes 条款允许在未 opt-out 时将 Client Data 用于改进模型，并允许跨境处理。初版只发送公开网页片段、公开图片 URL 与脱敏查询，不发送聊天、AI Self、Memory、关系资料、手机截图、通知、账号、Cookie 或用户私密文件。是否存在并启用账号级 opt-out 必须在接入时真机/控制台核验。
+- Agnes 图片理解当前要求公开可访问 URL，因此不能为了省事把手机当前屏幕上传成公网临时链接；它可用于本来就是公开网页的封面/关键图，手机屏幕视觉仍沿独立敏感 Gate 与既定视觉 Provider。
+- 正式启用前做固定小型评测：中文事实忠实度、引用 URL/日期不丢失、JSON 合规、长网页压缩、重复合并、怪闻/娱乐/新闻理解、网页 prompt injection 抵抗、失败率与延迟。只有达到门槛才设为默认整理器；当前只登记为候选，不把“免费”直接等同于“质量已通过”。
+
+### D. 排期不变
+
+1. 继续 v0.34.8 长测并先看 Wikimedia 健康度。
+2. 先实现手动看当前屏幕、实际 App 名称映射与敏感页 Gate。
+3. 再实现多来源发现/候选进入短期认知与可选分享；届时一起做搜索 Provider、只读网页读取器、Agnes `public_web_compactor` 评测与是否需要远端 MCP gateway 的最小原型。
+4. Playwright/浏览器 MCP 仅作为动态网页末级兜底，不作为第一版默认搜索路径；发帖、评论、登录态浏览继续后置。
