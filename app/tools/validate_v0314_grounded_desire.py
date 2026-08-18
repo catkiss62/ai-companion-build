@@ -85,7 +85,7 @@ def main() -> int:
         "THOUGHT_DATA source=",
         "不注入 Thought 原文",
         "_temperamentSummary",
-        "d != DriveKey.libido || intimacySessionActive",
+        "d != DriveKey.libido || nsfwActive",
     ]:
         assert token in prompt, token
     assert "${t.text}" not in prompt
