@@ -49,6 +49,8 @@ class RuleLayerService {
     required String latestUserText,
     required InteractionSession? session,
     required List<ReferenceItem> references,
+    bool? nsfwActive,
+    bool? nsfwReferenceActive,
   }) async {
     final all = await db.listRuleLayers();
     final templates = <String, String>{
@@ -63,9 +65,15 @@ class RuleLayerService {
         templates: templates,
       );
     }
-    final intimacy =
-        _sessionIsIntimacy(session) || _bootstrapIntimacy(latestUserText);
-    final referenceTriggered = intimacy && references.isNotEmpty;
+    // NSFW prompt loading is decided before generation by the dedicated model
+    // router (or by the user's one-turn manual correction). A Session remains
+    // useful for scene/spatial continuity, but is no longer an adult-content
+    // permission gate.
+    final intimacy = nsfwActive ??
+        ((await db.getSetting('nsfw_active')) == '1');
+    final referenceTriggered = intimacy &&
+        (nsfwReferenceActive ??
+            ((await db.getSetting('nsfw_reference_active')) == '1'));
     final profileTrial = await db.activePersonalityTrial();
     final specialTrial = await db.activeSpecialStyleTrial();
     final selected = <RuleLayer>[];
@@ -118,26 +126,4 @@ class RuleLayerService {
     );
   }
 
-  bool _sessionIsIntimacy(InteractionSession? session) {
-    if (session == null) return false;
-    return session.kind == 'intimacy' || session.kind == 'roleplay_intimacy';
-  }
-
-  /// Conservative first-turn bootstrap only. This is deliberately narrower
-  /// than a general NSFW classifier so ordinary flirting does not abruptly
-  /// switch the entire writing layer.
-  bool _bootstrapIntimacy(String text) {
-    final lowered = text.toLowerCase();
-    const explicit = <String>[
-      '进入亲密模式',
-      '进入成人模式',
-      '成人互动',
-      '亲密session',
-      'intimacy session',
-      'nsfw模式',
-      '开始性爱',
-      '开始做爱',
-    ];
-    return explicit.any(lowered.contains);
-  }
 }

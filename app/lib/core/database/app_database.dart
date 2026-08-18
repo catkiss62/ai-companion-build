@@ -1,8993 +1,1360 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
-import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart';
-import 'package:uuid/uuid.dart';
-
-import '../models/chat_message.dart';
-import '../models/autonomous_action.dart';
-import '../models/public_web_candidate.dart';
-import '../models/message_attachment.dart';
-import '../models/awareness_observation.dart';
-import '../models/conversation_summary.dart';
-import '../models/desire_state.dart';
-import '../models/daily_continuity.dart';
-import '../models/memory_item.dart';
-import '../models/perception_snapshot.dart';
-import '../models/personality_trial.dart';
-import '../models/post_turn_job.dart';
-import '../models/generation_job.dart';
-import '../models/maintenance_run.dart';
-import '../models/reference_item.dart';
-import '../models/reference_document.dart';
-import '../models/rule_layer.dart';
-import '../models/proactive_feedback.dart';
-import '../models/thought_lifecycle_event.dart';
-import '../rules/rule_layer_defaults.dart';
-import '../personality/personality_catalog.dart';
-import '../models/relationship_event.dart';
-import '../models/interaction_session.dart';
-import '../models/thought.dart';
-import '../models/unfinished_thread.dart';
-import '../models/somatic_state.dart';
-import '../somatic/somatic_policy.dart';
-import '../sync/transfer_identity.dart';
-
-class AppDatabase {
-  AppDatabase._();
-
-  static final AppDatabase instance = AppDatabase._();
-  static const String dbName = 'ai_companion.db';
-  // Historical validator compatibility token: static const int schemaVersion = 24;
-  // Historical validator compatibility token: static const int schemaVersion = 25;
-  static const int schemaVersion = 26;
-
-  Database? _db;
-  Future<Database>? _opening;
-  final Uuid _uuid = Uuid();
-  final Map<String, String> _ownedLeaseTokens = <String, String>{};
-
-  Future<Database> get database async {
-    final ready = _db;
-    if (ready != null) return ready;
-    final opening = _opening;
-    if (opening != null) return opening;
-
-    final pending = _open();
-    _opening = pending;
-    try {
-      final opened = await pending;
-      _db = opened;
-      return opened;
-    } finally {
-      if (identical(_opening, pending)) _opening = null;
-    }
-  }
-
-  Future<String> get databasePath async {
-    final root = await getDatabasesPath();
-    return p.join(root, dbName);
-  }
-
-  Future<Database> _open() async {
-    final path = await databasePath;
-    return openDatabase(
-      path,
-      version: schemaVersion,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
-        final journalRows = await db.rawQuery('PRAGMA journal_mode = WAL');
-        final journalMode = journalRows.isEmpty
-            ? ''
-            : journalRows.first.values.first?.toString().toLowerCase() ?? '';
-        if (journalMode != 'wal') {
-          throw StateError('SQLite WAL mode unavailable (journal_mode=$journalMode)');
-        }
-        await db.rawQuery('PRAGMA synchronous = NORMAL');
-      },
-      onCreate: (db, version) async => _createSchema(db),
-      onUpgrade: _upgradeSchema,
-    );
-  }
-
-  Future<void> _upgradeSchema(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute(
-        "ALTER TABLE memory_items ADD COLUMN confidence REAL NOT NULL DEFAULT 0.7",
-      );
-      await db.execute(
-        "ALTER TABLE memory_items ADD COLUMN source TEXT NOT NULL DEFAULT 'conversation'",
-      );
-      await db.execute(
-        "ALTER TABLE memory_items ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
-      );
-      await db.execute('ALTER TABLE memory_items ADD COLUMN updated_at INTEGER');
-      await db.execute(
-        'UPDATE memory_items SET updated_at = created_at WHERE updated_at IS NULL',
-      );
-
-      await db.execute(
-        "ALTER TABLE thoughts ADD COLUMN source TEXT NOT NULL DEFAULT 'internal'",
-      );
-      await db.execute('ALTER TABLE thoughts ADD COLUMN last_fed_at INTEGER');
-      await db.execute(
-        'UPDATE thoughts SET last_fed_at = updated_at WHERE last_fed_at IS NULL',
-      );
-
-      await _createV2Tables(db);
-      await db.insert(
-        'settings',
-        {'key': 'memory_consolidation_enabled', 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      await db.insert(
-        'settings',
-        {'key': 'self_drive_enabled', 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-    }
-    if (oldVersion < 3) {
-      await _createV3Tables(db);
-      // Normalize indexes for databases that originated from the v0.1 schema.
-      await db.execute('DROP INDEX IF EXISTS idx_memory_kind');
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_memory_kind ON memory_items(kind, status)',
-      );
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_thoughts_strength ON thoughts(strength DESC, updated_at DESC)',
-      );
-      for (final entry in const <String, String>{
-        'perception_enabled': '1',
-        'ai_self_reflection_enabled': '1',
-        'tts_enabled': '0',
-        'auto_tts': '0',
-        'tts_streaming_enabled': '0',
-        'proactive_tts_policy': 'silent',
-        'last_proactive_spoken_message_id': '',
-        'tts_speed': '1.0',
-        'tts_volume': '1.0',
-        'tts_replacements_json': '{"Yuki":"æœ‰å¸Œ"}',
-        'relationship_continuity_enabled': '1',
-        'session_tracking_enabled': '1',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 4) {
-      await db.execute(
-        "ALTER TABLE memory_items ADD COLUMN subject_key TEXT NOT NULL DEFAULT ''",
-      );
-      await db.execute(
-        'ALTER TABLE memory_items ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
-      );
-      await db.execute('ALTER TABLE memory_items ADD COLUMN superseded_by TEXT');
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_memory_subject ON memory_items(kind, subject_key, status)',
-      );
-      await _createV4Tables(db);
-      for (final entry in const <String, String>{
-        'relationship_continuity_enabled': '1',
-        'session_tracking_enabled': '1',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 5) {
-      for (final entry in const <String, String>{
-        'tts_streaming_enabled': '0',
-        'proactive_tts_policy': 'silent',
-        'last_proactive_spoken_message_id': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 6) {
-      await db.execute(
-        'ALTER TABLE memory_items ADD COLUMN retention_score REAL NOT NULL DEFAULT 1.0',
-      );
-      await db.execute('ALTER TABLE memory_items ADD COLUMN retention_checked_at INTEGER');
-      await db.execute(
-        'UPDATE memory_items SET retention_checked_at = updated_at WHERE retention_checked_at IS NULL',
-      );
-      await db.execute('ALTER TABLE relationship_events ADD COLUMN internalized_at INTEGER');
-      // Legacy v0.6 relationship history already influenced the user-visible
-      // relationship context. Do not replay months of old events as fresh
-      // Desire pulses immediately after upgrading.
-      await db.execute(
-        'UPDATE relationship_events SET internalized_at = created_at WHERE internalized_at IS NULL',
-      );
-      await _createV6Tables(db);
-      for (final entry in const <String, String>{
-        'memory_fading_enabled': '1',
-        'reference_library_enabled': '1',
-        'last_memory_maintenance_at': '0',
-        'rule_layers_enabled': '1',
-        'thought_lifecycle_enabled': '1',
-        'proactive_adaptation_enabled': '1',
-        'proactive_feedback_expiry_hours': '10',
-        'proactive_notification_privacy': 'smart',
-        'thought_consolidation_enabled': '1',
-        'last_thought_consolidation_at': '0',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 7) {
-      await _createV7Tables(db);
-      final columns = await db.rawQuery('PRAGMA table_info(reference_items)');
-      final hasDocumentId = columns.any((row) => row['name'] == 'document_id');
-      if (!hasDocumentId) {
-        await db.execute('ALTER TABLE reference_items ADD COLUMN document_id TEXT');
-      }
-      final legacySources = await db.rawQuery(
-        "SELECT DISTINCT source_name FROM reference_items WHERE document_id IS NULL AND source_name IS NOT NULL AND source_name <> ''",
-      );
-      for (final source in legacySources) {
-        final sourceName = source['source_name'] as String;
-        final rows = await db.query(
-          'reference_items',
-          where: 'source_name = ? AND document_id IS NULL',
-          whereArgs: [sourceName],
-          orderBy: 'created_at ASC',
-        );
-        if (rows.isEmpty) continue;
-        final docId = _uuid.v4();
-        final raw = rows.map((e) => e['content'] as String? ?? '').where((e) => e.trim().isNotEmpty).join('\n\n');
-        final created = rows.first['created_at'] as int? ?? DateTime.now().millisecondsSinceEpoch;
-        final updated = rows.last['updated_at'] as int? ?? created;
-        await db.insert('reference_documents', {
-          'id': docId,
-          'name': sourceName,
-          'kind': 'legacy_reference',
-          'aliases': '',
-          'raw_content': raw,
-          'enabled': 1,
-          'created_at': created,
-          'updated_at': updated,
-        });
-        await db.update(
-          'reference_items',
-          {'document_id': docId},
-          where: 'source_name = ? AND document_id IS NULL',
-          whereArgs: [sourceName],
-        );
-      }
-      await _seedRuleLayers(db);
-      await db.insert(
-        'settings',
-        {'key': 'rule_layers_enabled', 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-    }
-    if (oldVersion < 8) {
-      final thoughtColumns = await db.rawQuery('PRAGMA table_info(thoughts)');
-      final names = thoughtColumns.map((row) => row['name'] as String).toSet();
-      Future<void> addThoughtColumn(String name, String sql) async {
-        if (!names.contains(name)) await db.execute('ALTER TABLE thoughts ADD COLUMN $sql');
-      }
-      await addThoughtColumn('lifecycle_state', "lifecycle_state TEXT NOT NULL DEFAULT 'active'");
-      await addThoughtColumn('action_count', 'action_count INTEGER NOT NULL DEFAULT 0');
-      await addThoughtColumn('last_acted_at', 'last_acted_at INTEGER');
-      await addThoughtColumn('last_satisfied_at', 'last_satisfied_at INTEGER');
-      await addThoughtColumn('last_resurfaced_at', 'last_resurfaced_at INTEGER');
-      await addThoughtColumn('resurfaced_count', 'resurfaced_count INTEGER NOT NULL DEFAULT 0');
-      await addThoughtColumn('residual_strength', 'residual_strength REAL NOT NULL DEFAULT 0');
-      await addThoughtColumn('last_outbound_message_id', 'last_outbound_message_id TEXT');
-      await db.execute(
-        "UPDATE thoughts SET lifecycle_state = CASE WHEN kind = 'fixation' THEN 'fixation' ELSE 'active' END WHERE lifecycle_state IS NULL OR lifecycle_state = ''",
-      );
-      await _createV8Tables(db);
-      for (final entry in const <String, String>{
-        'thought_lifecycle_enabled': '1',
-        'proactive_adaptation_enabled': '1',
-        'proactive_feedback_expiry_hours': '10',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 9) {
-      final thoughtColumns = await db.rawQuery('PRAGMA table_info(thoughts)');
-      final thoughtNames = thoughtColumns.map((row) => row['name'] as String).toSet();
-      if (!thoughtNames.contains('topic_key')) {
-        await db.execute("ALTER TABLE thoughts ADD COLUMN topic_key TEXT NOT NULL DEFAULT ''");
-      }
-      if (!thoughtNames.contains('merged_count')) {
-        await db.execute('ALTER TABLE thoughts ADD COLUMN merged_count INTEGER NOT NULL DEFAULT 0');
-      }
-      if (!thoughtNames.contains('last_merged_at')) {
-        await db.execute('ALTER TABLE thoughts ADD COLUMN last_merged_at INTEGER');
-      }
-      if (!thoughtNames.contains('snoozed_until')) {
-        await db.execute('ALTER TABLE thoughts ADD COLUMN snoozed_until INTEGER');
-      }
-
-      final threadColumns = await db.rawQuery('PRAGMA table_info(unfinished_threads)');
-      final threadNames = threadColumns.map((row) => row['name'] as String).toSet();
-      if (!threadNames.contains('topic_key')) {
-        await db.execute("ALTER TABLE unfinished_threads ADD COLUMN topic_key TEXT NOT NULL DEFAULT ''");
-      }
-
-      final feedbackColumns = await db.rawQuery('PRAGMA table_info(proactive_feedback)');
-      final feedbackNames = feedbackColumns.map((row) => row['name'] as String).toSet();
-      Future<void> addFeedbackColumn(String name, String sql) async {
-        if (!feedbackNames.contains(name)) {
-          await db.execute('ALTER TABLE proactive_feedback ADD COLUMN $sql');
-        }
-      }
-      await addFeedbackColumn('topic_key', "topic_key TEXT NOT NULL DEFAULT ''");
-      await addFeedbackColumn('thread_id', 'thread_id TEXT');
-      await addFeedbackColumn('response_quality', 'response_quality REAL');
-      await addFeedbackColumn('outcome', "outcome TEXT NOT NULL DEFAULT 'pending'");
-      await addFeedbackColumn('outcome_score', 'outcome_score REAL');
-      await addFeedbackColumn('processed_at', 'processed_at INTEGER');
-      await db.execute('''
-        UPDATE proactive_feedback
-        SET outcome = CASE
-          WHEN response_bucket = 'no_response' THEN 'no_response'
-          WHEN user_response_message_id IS NOT NULL THEN 'response_received'
-          ELSE 'pending'
-        END,
-        processed_at = CASE
-          WHEN response_bucket = 'no_response' THEN sent_at
-          ELSE processed_at
-        END
-      ''');
-      await _createV9Tables(db);
-      for (final entry in const <String, String>{
-        'thought_consolidation_enabled': '1',
-        'last_thought_consolidation_at': '0',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 10) {
-      final threadColumns = await db.rawQuery('PRAGMA table_info(unfinished_threads)');
-      final threadNames = threadColumns.map((row) => row['name'] as String).toSet();
-      Future<void> addThreadColumn(String name, String sql) async {
-        if (!threadNames.contains(name)) {
-          await db.execute('ALTER TABLE unfinished_threads ADD COLUMN $sql');
-        }
-      }
-      await addThreadColumn('followup_due_at', 'followup_due_at INTEGER');
-      await addThreadColumn('followup_seeded_at', 'followup_seeded_at INTEGER');
-      await addThreadColumn('followup_count', 'followup_count INTEGER NOT NULL DEFAULT 0');
-      await addThreadColumn('last_followup_at', 'last_followup_at INTEGER');
-      await addThreadColumn('retired_at', 'retired_at INTEGER');
-      await addThreadColumn('retire_reason', "retire_reason TEXT NOT NULL DEFAULT ''");
-
-      await _createV10Tables(db);
-      for (final entry in const <String, String>{
-        'long_running_maintenance_enabled': '1',
-        'last_long_running_maintenance_at': '0',
-        'deferred_followup_enabled': '1',
-        'max_deferred_followups': '1',
-        'post_turn_queue_enabled': '1',
-        'background_error_count': '0',
-        'last_background_error': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 11) {
-      await _createV11Tables(db);
-      for (final entry in const <String, String>{
-        'durable_generation_enabled': '1',
-        'generation_max_attempts': '0',
-        'last_generation_recovery_error': '',
-        'post_turn_max_attempts': '0',
-        'last_async_worker_error': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 12) {
-      final columns = await db.rawQuery('PRAGMA table_info(post_turn_jobs)');
-      final names = columns.map((row) => row['name'] as String).toSet();
-      Future<void> addColumn(String name, String sql) async {
-        if (!names.contains(name)) {
-          await db.execute('ALTER TABLE post_turn_jobs ADD COLUMN $sql');
-        }
-      }
-      await addColumn('run_token', "run_token TEXT NOT NULL DEFAULT ''");
-      await addColumn('result_json', "result_json TEXT NOT NULL DEFAULT ''");
-      await addColumn('started_at', 'started_at INTEGER');
-      await addColumn('heartbeat_at', 'heartbeat_at INTEGER');
-      await addColumn('next_retry_at', 'next_retry_at INTEGER');
-      await addColumn('model_completed_at', 'model_completed_at INTEGER');
-      await addColumn('desire_applied_at', 'desire_applied_at INTEGER');
-      final threadColumns = await db.rawQuery('PRAGMA table_info(unfinished_threads)');
-      final threadNames = threadColumns.map((row) => row['name'] as String).toSet();
-      if (!threadNames.contains('followup_run_token')) {
-        await db.execute("ALTER TABLE unfinished_threads ADD COLUMN followup_run_token TEXT NOT NULL DEFAULT ''");
-      }
-      if (!threadNames.contains('followup_claimed_at')) {
-        await db.execute('ALTER TABLE unfinished_threads ADD COLUMN followup_claimed_at INTEGER');
-      }
-      if (!threadNames.contains('proactive_outcome_message_id')) {
-        await db.execute('ALTER TABLE unfinished_threads ADD COLUMN proactive_outcome_message_id TEXT');
-      }
-      await db.execute(
-        "UPDATE post_turn_jobs SET status = 'retry_wait', run_token = '', next_retry_at = updated_at, last_error = 'v012_running_recovered' WHERE status = 'running'",
-      );
-      // Older builds did not fence summary consolidation across Flutter
-      // engines. Collapse any duplicate range before adding the unique index.
-      await db.execute('''
-        DELETE FROM conversation_summaries
-        WHERE rowid NOT IN (
-          SELECT MIN(rowid) FROM conversation_summaries GROUP BY from_at, to_at
-        )
-      ''');
-      await _createV12Tables(db);
-      for (final entry in const <String, String>{
-        'post_turn_max_attempts': '0',
-        'last_async_worker_error': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 13) {
-      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
-      final messageNames = messageColumns.map((row) => row['name'] as String).toSet();
-      if (!messageNames.contains('proactive_intent')) {
-        await db.execute("ALTER TABLE messages ADD COLUMN proactive_intent TEXT NOT NULL DEFAULT ''");
-      }
-      if (!messageNames.contains('proactive_delivery')) {
-        await db.execute("ALTER TABLE messages ADD COLUMN proactive_delivery TEXT NOT NULL DEFAULT ''");
-      }
-      final feedbackColumns = await db.rawQuery('PRAGMA table_info(proactive_feedback)');
-      final feedbackNames = feedbackColumns.map((row) => row['name'] as String).toSet();
-      if (!feedbackNames.contains('intent_kind')) {
-        await db.execute("ALTER TABLE proactive_feedback ADD COLUMN intent_kind TEXT NOT NULL DEFAULT ''");
-      }
-      if (!feedbackNames.contains('delivery_style')) {
-        await db.execute("ALTER TABLE proactive_feedback ADD COLUMN delivery_style TEXT NOT NULL DEFAULT ''");
-      }
-      await db.execute('''
-        UPDATE proactive_feedback
-        SET intent_kind = CASE
-          WHEN thread_id IS NOT NULL AND thread_id <> '' THEN 'followup'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'attachment' THEN 'miss_you'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'curiosity' THEN 'curiosity'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'reflection' THEN 'share_thought'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'duty' THEN 'followup'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'social' THEN 'social_share'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'libido' THEN 'intimacy_invitation'
-          WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'stress' THEN 'emotional_reach'
-          ELSE 'gentle_ping'
-        END,
-        delivery_style = CASE WHEN delivery_style = '' THEN 'normal' ELSE delivery_style END
-        WHERE intent_kind = ''
-      ''');
-      await db.execute('''
-        UPDATE messages
-        SET proactive_intent = COALESCE(
-              (SELECT intent_kind FROM proactive_feedback
-               WHERE proactive_feedback.proactive_message_id = messages.id),
-              CASE WHEN is_proactive = 1 THEN 'gentle_ping' ELSE '' END
-            ),
-            proactive_delivery = CASE
-              WHEN is_proactive = 1 THEN 'normal'
-              ELSE ''
-            END
-        WHERE proactive_intent = '' AND is_proactive = 1
-      ''');
-      await _createV13Tables(db);
-      await db.insert(
-        'settings',
-        {'key': 'proactive_notification_privacy', 'value': 'smart'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-    }
-    if (oldVersion < 14) {
-      await _createV14Tables(db);
-    }
-
-    if (oldVersion < 15) {
-      await db.execute(
-        "ALTER TABLE memory_items ADD COLUMN semantic_type TEXT NOT NULL DEFAULT 'current_fact'",
-      );
-      await db.execute(
-        'ALTER TABLE memory_items ADD COLUMN evidence_count INTEGER NOT NULL DEFAULT 1',
-      );
-      await db.execute('ALTER TABLE memory_items ADD COLUMN first_observed_at INTEGER');
-      await db.execute('ALTER TABLE memory_items ADD COLUMN last_evidence_at INTEGER');
-      await db.execute(
-        'ALTER TABLE memory_items ADD COLUMN fact_version INTEGER NOT NULL DEFAULT 1',
-      );
-      await db.execute(
-        "UPDATE memory_items SET semantic_type = 'shared_experience' WHERE kind = 'shared_experience'",
-      );
-      await db.execute(
-        'UPDATE memory_items SET first_observed_at = created_at WHERE first_observed_at IS NULL',
-      );
-      await db.execute(
-        'UPDATE memory_items SET last_evidence_at = updated_at WHERE last_evidence_at IS NULL',
-      );
-      await db.execute("""
-        UPDATE memory_items
-        SET fact_version = (
-          SELECT COUNT(*)
-          FROM memory_items AS older
-          WHERE memory_items.subject_key <> ''
-            AND older.kind = memory_items.kind
-            AND older.subject_key = memory_items.subject_key
-            AND (older.created_at < memory_items.created_at
-              OR (older.created_at = memory_items.created_at AND older.id <= memory_items.id))
-        )
-        WHERE memory_items.subject_key <> ''
-      """);
-      await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_memory_semantic ON memory_items(semantic_type, status, updated_at DESC)',
-      );
-      await _createV15Tables(db);
-    }
-    if (oldVersion < 16) {
-      final feedbackColumns = await db.rawQuery('PRAGMA table_info(proactive_feedback)');
-      final feedbackNames = feedbackColumns.map((row) => row['name'] as String).toSet();
-      Future<void> addFeedbackColumn(String name, String sql) async {
-        if (!feedbackNames.contains(name)) {
-          await db.execute('ALTER TABLE proactive_feedback ADD COLUMN $sql');
-        }
-      }
-      await addFeedbackColumn(
-        'context_hour_bucket',
-        "context_hour_bucket TEXT NOT NULL DEFAULT ''",
-      );
-      await addFeedbackColumn(
-        'context_activity',
-        "context_activity TEXT NOT NULL DEFAULT 'unknown'",
-      );
-      await addFeedbackColumn(
-        'context_busy',
-        'context_busy REAL NOT NULL DEFAULT 0',
-      );
-      await addFeedbackColumn('timing_fit', 'timing_fit REAL');
-      await addFeedbackColumn('topic_fit', 'topic_fit REAL');
-      await _createV16Tables(db);
-    }
-    if (oldVersion < 17) {
-      await _createV17Tables(db);
-      for (final entry in const <String, String>{
-        'daily_continuity_enabled': '1',
-        'last_daily_continuity_refresh_at': '0',
-        'last_daily_continuity_error': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 18) {
-      await _createV18Tables(db);
-      for (final entry in <String, String>{
-        'state_lineage_id': _uuid.v4(),
-        'state_generation': '0',
-        'pending_outbound_snapshot_id': '',
-        'pending_outbound_generation': '0',
-        'pending_import_snapshot_id': '',
-        'pending_import_lineage_id': '',
-        'pending_import_source_device_id': '',
-        'pending_import_generation': '0',
-        'pending_import_state_sha256': '',
-        'last_takeover_snapshot_id': '',
-        'last_takeover_source_device_id': '',
-        'last_takeover_at': '0',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 20) {
-      // Preserve user-visible content/reasoning while rebuilding the message
-      // table without v19's retired experimental compatibility columns.
-      await db.execute('''
-        CREATE TABLE messages_v20 (
-          id TEXT PRIMARY KEY,
-          role TEXT NOT NULL,
-          content TEXT NOT NULL,
-          reasoning_content TEXT NOT NULL DEFAULT '',
-          model TEXT,
-          created_at INTEGER NOT NULL,
-          is_proactive INTEGER NOT NULL DEFAULT 0,
-          proactive_intent TEXT NOT NULL DEFAULT '',
-          proactive_delivery TEXT NOT NULL DEFAULT '',
-          device_id TEXT
-        )
-      ''');
-      await db.execute('''
-        INSERT INTO messages_v20 (
-          id, role, content, reasoning_content, model, created_at,
-          is_proactive, proactive_intent, proactive_delivery, device_id
-        )
-        SELECT
-          id, role, content, reasoning_content, model, created_at,
-          is_proactive, proactive_intent, proactive_delivery, device_id
-        FROM messages
-      ''');
-      await db.execute('DROP TABLE messages');
-      await db.execute('ALTER TABLE messages_v20 RENAME TO messages');
-      await db.execute(
-        'CREATE INDEX idx_messages_created_at ON messages(created_at)',
-      );
-      await db.delete(
-        'settings',
-        where: 'key LIKE ?',
-        whereArgs: ['companion_voice%'],
-      );
-    }
-    if (oldVersion < 21) {
-      await _createV21Tables(db);
-    }
-    if (oldVersion < 22) {
-      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
-      if (!messageColumns.any((row) => row['name'] == 'expects_reply')) {
-        await db.execute(
-          'ALTER TABLE messages ADD COLUMN expects_reply INTEGER NOT NULL DEFAULT 1',
-        );
-      }
-      await _createV22Tables(db);
-    }
-    if (oldVersion < 23) {
-      final columns = await db.rawQuery(
-        'PRAGMA table_info(message_attachments)',
-      );
-      final names = columns.map((row) => row['name']).toSet();
-      if (!names.contains('vision_status')) {
-        await db.execute(
-          "ALTER TABLE message_attachments ADD COLUMN vision_status TEXT NOT NULL DEFAULT 'pending'",
-        );
-      }
-      if (!names.contains('vision_summary')) {
-        await db.execute(
-          "ALTER TABLE message_attachments ADD COLUMN vision_summary TEXT NOT NULL DEFAULT ''",
-        );
-      }
-      if (!names.contains('vision_model')) {
-        await db.execute(
-          "ALTER TABLE message_attachments ADD COLUMN vision_model TEXT NOT NULL DEFAULT ''",
-        );
-      }
-      if (!names.contains('vision_error')) {
-        await db.execute(
-          "ALTER TABLE message_attachments ADD COLUMN vision_error TEXT NOT NULL DEFAULT ''",
-        );
-      }
-      if (!names.contains('vision_attempts')) {
-        await db.execute(
-          'ALTER TABLE message_attachments ADD COLUMN vision_attempts INTEGER NOT NULL DEFAULT 0',
-        );
-      }
-      if (!names.contains('vision_updated_at')) {
-        await db.execute(
-          'ALTER TABLE message_attachments ADD COLUMN vision_updated_at INTEGER',
-        );
-      }
-      await db.update(
-        'message_attachments',
-        {
-          'vision_status': 'failed',
-          'vision_error': 'è¿™æ˜¯æ—§ç‰ˆæœ¬ä¿å­˜çš„å›¾ç‰‡ï¼›å¦‚éœ€è¯†åˆ«ï¼Œè¯·æ‰‹åŠ¨é‡è¯•ã€‚',
-          'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        where: "vision_status = 'pending' AND vision_attempts = 0",
-      );
-      await db.update(
-        'message_attachments',
-        {
-          'vision_status': 'failed',
-          'vision_error': 'åº”ç”¨åœ¨è¯†å›¾è¿‡ç¨‹ä¸­é€€å‡ºï¼Œè¯·é‡è¯•ã€‚',
-          'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        where: "vision_status = 'analyzing'",
-      );
-    }
-
-    if (oldVersion < 24) {
-      await _createV24Tables(db);
-    }
-    if (oldVersion < 25) {
-      await _createV25Tables(db);
-      for (final entry in const <String, String>{
-        'public_web_discovery_enabled': '1',
-        'last_public_web_discovery_at': '0',
-        'last_public_web_discovery_success_at': '0',
-        'last_public_web_discovery_outcome': 'never',
-        'last_public_web_discovery_error': '',
-      }.entries) {
-        await db.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-    }
-    if (oldVersion < 26) {
-      await _createV26Tables(db);
-    }
-
-  }
-
-  Future<void> _createSchema(Database db) async {
-    await db.execute('''
-      CREATE TABLE messages (
-        id TEXT PRIMARY KEY,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        reasoning_content TEXT NOT NULL DEFAULT '',
-        model TEXT,
-        created_at INTEGER NOT NULL,
-        is_proactive INTEGER NOT NULL DEFAULT 0,
-        proactive_intent TEXT NOT NULL DEFAULT '',
-        proactive_delivery TEXT NOT NULL DEFAULT '',
-        device_id TEXT,
-        expects_reply INTEGER NOT NULL DEFAULT 1
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX idx_messages_created_at ON messages(created_at)',
-    );
-
-    await db.execute('''
-      CREATE TABLE memory_items (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        content TEXT NOT NULL,
-        importance REAL NOT NULL DEFAULT 0.5,
-        confidence REAL NOT NULL DEFAULT 0.7,
-        tags TEXT NOT NULL DEFAULT '',
-        source TEXT NOT NULL DEFAULT 'conversation',
-        status TEXT NOT NULL DEFAULT 'active',
-        subject_key TEXT NOT NULL DEFAULT '',
-        pinned INTEGER NOT NULL DEFAULT 0,
-        superseded_by TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        last_recalled_at INTEGER,
-        recall_count INTEGER NOT NULL DEFAULT 0,
-        retention_score REAL NOT NULL DEFAULT 1.0,
-        retention_checked_at INTEGER,
-        semantic_type TEXT NOT NULL DEFAULT 'current_fact',
-        evidence_count INTEGER NOT NULL DEFAULT 1,
-        first_observed_at INTEGER,
-        last_evidence_at INTEGER,
-        fact_version INTEGER NOT NULL DEFAULT 1
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX idx_memory_kind ON memory_items(kind, status)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_memory_subject ON memory_items(kind, subject_key, status)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_memory_semantic ON memory_items(semantic_type, status, updated_at DESC)',
-    );
-
-    await db.execute('''
-      CREATE TABLE thoughts (
-        id TEXT PRIMARY KEY,
-        text TEXT NOT NULL,
-        drive_key TEXT NOT NULL,
-        kind TEXT NOT NULL DEFAULT 'flit',
-        strength REAL NOT NULL DEFAULT 0.25,
-        born_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        fed_count INTEGER NOT NULL DEFAULT 0,
-        source TEXT NOT NULL DEFAULT 'internal',
-        last_fed_at INTEGER,
-        lifecycle_state TEXT NOT NULL DEFAULT 'active',
-        action_count INTEGER NOT NULL DEFAULT 0,
-        last_acted_at INTEGER,
-        last_satisfied_at INTEGER,
-        last_resurfaced_at INTEGER,
-        resurfaced_count INTEGER NOT NULL DEFAULT 0,
-        residual_strength REAL NOT NULL DEFAULT 0,
-        last_outbound_message_id TEXT,
-        topic_key TEXT NOT NULL DEFAULT '',
-        merged_count INTEGER NOT NULL DEFAULT 0,
-        last_merged_at INTEGER,
-        snoozed_until INTEGER
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX idx_thoughts_strength ON thoughts(strength DESC, updated_at DESC)',
-    );
-
-    await db.execute('''
-      CREATE TABLE desire_state (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        json TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE device_events (
-        id TEXT PRIMARY KEY,
-        device_id TEXT,
-        source TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        app_package TEXT,
-        summary TEXT,
-        occurred_at INTEGER NOT NULL,
-        metadata_json TEXT NOT NULL DEFAULT '{}'
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX idx_device_events_time ON device_events(occurred_at)',
-    );
-
-    await db.execute('''
-      CREATE TABLE proactive_history (
-        id TEXT PRIMARY KEY,
-        trigger_reason TEXT NOT NULL,
-        decision TEXT NOT NULL,
-        message_id TEXT,
-        created_at INTEGER NOT NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
-
-    await _createV2Tables(db);
-    await _createV3Tables(db);
-    await _createV4Tables(db);
-    await db.execute('ALTER TABLE relationship_events ADD COLUMN internalized_at INTEGER');
-    await _createV6Tables(db);
-    await _createV7Tables(db);
-    await _createV8Tables(db);
-    await _createV9Tables(db);
-    await _createV10Tables(db);
-    await _createV11Tables(db);
-    await _createV12Tables(db);
-    await _createV13Tables(db);
-    await _createV14Tables(db);
-    await _createV15Tables(db);
-    await _createV16Tables(db);
-    await _createV17Tables(db);
-    await _createV18Tables(db);
-    await _createV21Tables(db);
-    await _createV22Tables(db);
-    await _createV24Tables(db);
-    await _createV25Tables(db);
-    await _createV26Tables(db);
-    await _seedRuleLayers(db);
-
-    final initial = DesireSnapshot();
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.insert('desire_state', {
-      'id': 1,
-      'json': initial.encode(),
-      'updated_at': now,
-    });
-    await db.insert('settings', {'key': 'active_brain', 'value': '1'});
-    await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
-    await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
-    await db.insert('settings', {'key': 'chat_thinking_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'chat_temperature', 'value': '1.0'});
-    await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
-    await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'transfer_lock', 'value': '0'});
-    await db.insert('settings', {'key': 'state_lineage_id', 'value': _uuid.v4()});
-    await db.insert('settings', {'key': 'state_generation', 'value': '0'});
-    await db.insert('settings', {'key': 'pending_outbound_snapshot_id', 'value': ''});
-    await db.insert('settings', {'key': 'pending_outbound_generation', 'value': '0'});
-    await db.insert('settings', {'key': 'pending_import_snapshot_id', 'value': ''});
-    await db.insert('settings', {'key': 'pending_import_lineage_id', 'value': ''});
-    await db.insert('settings', {'key': 'pending_import_source_device_id', 'value': ''});
-    await db.insert('settings', {'key': 'pending_import_generation', 'value': '0'});
-    await db.insert('settings', {'key': 'pending_import_state_sha256', 'value': ''});
-    await db.insert('settings', {'key': 'last_takeover_snapshot_id', 'value': ''});
-    await db.insert('settings', {'key': 'last_takeover_source_device_id', 'value': ''});
-    await db.insert('settings', {'key': 'last_takeover_at', 'value': '0'});
-    await db.insert('settings', {'key': 'perception_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'ai_self_reflection_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'tts_enabled', 'value': '0'});
-    await db.insert('settings', {'key': 'auto_tts', 'value': '0'});
-    await db.insert('settings', {'key': 'tts_streaming_enabled', 'value': '0'});
-    await db.insert('settings', {'key': 'proactive_tts_policy', 'value': 'silent'});
-    await db.insert('settings', {'key': 'last_proactive_spoken_message_id', 'value': ''});
-    await db.insert('settings', {'key': 'tts_speed', 'value': '1.0'});
-    await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
-    await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"æœ‰å¸Œ\"}'});
-    await db.insert('settings', {'key': 'relationship_continuity_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'session_tracking_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'memory_fading_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'reference_library_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'last_memory_maintenance_at', 'value': '0'});
-    await db.insert('settings', {'key': 'rule_layers_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'thought_lifecycle_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'proactive_adaptation_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'proactive_feedback_expiry_hours', 'value': '10'});
-    await db.insert('settings', {'key': 'proactive_notification_privacy', 'value': 'smart'});
-    await db.insert('settings', {'key': 'thought_consolidation_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'last_thought_consolidation_at', 'value': '0'});
-    await db.insert('settings', {'key': 'long_running_maintenance_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'last_long_running_maintenance_at', 'value': '0'});
-    await db.insert('settings', {'key': 'deferred_followup_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'max_deferred_followups', 'value': '1'});
-    await db.insert('settings', {'key': 'post_turn_queue_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'background_error_count', 'value': '0'});
-    await db.insert('settings', {'key': 'last_background_error', 'value': ''});
-    await db.insert('settings', {'key': 'durable_generation_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'generation_max_attempts', 'value': '0'});
-    await db.insert('settings', {'key': 'last_generation_recovery_error', 'value': ''});
-    await db.insert('settings', {'key': 'post_turn_max_attempts', 'value': '0'});
-    await db.insert('settings', {'key': 'last_async_worker_error', 'value': ''});
-    await db.insert('settings', {'key': 'daily_continuity_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'last_daily_continuity_refresh_at', 'value': '0'});
-    await db.insert('settings', {'key': 'last_daily_continuity_error', 'value': ''});
-    await db.insert('settings', {'key': 'public_web_discovery_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'last_public_web_discovery_at', 'value': '0'});
-    await db.insert('settings', {'key': 'last_public_web_discovery_success_at', 'value': '0'});
-    await db.insert('settings', {'key': 'last_public_web_discovery_outcome', 'value': 'never'});
-    await db.insert('settings', {'key': 'last_public_web_discovery_error', 'value': ''});
-  }
-
-  Future<void> _createV2Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS conversation_summaries (
-        id TEXT PRIMARY KEY,
-        from_at INTEGER NOT NULL,
-        to_at INTEGER NOT NULL,
-        summary TEXT NOT NULL,
-        key_points TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_summaries_to_at ON conversation_summaries(to_at DESC)',
-    );
-
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS unfinished_threads (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        detail TEXT NOT NULL,
-        importance REAL NOT NULL DEFAULT 0.5,
-        status TEXT NOT NULL DEFAULT 'active',
-        source_message_id TEXT,
-        topic_key TEXT NOT NULL DEFAULT '',
-        followup_due_at INTEGER,
-        followup_seeded_at INTEGER,
-        followup_run_token TEXT NOT NULL DEFAULT '',
-        followup_claimed_at INTEGER,
-        proactive_outcome_message_id TEXT,
-        followup_count INTEGER NOT NULL DEFAULT 0,
-        last_followup_at INTEGER,
-        retired_at INTEGER,
-        retire_reason TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_threads_status ON unfinished_threads(status, importance DESC, updated_at DESC)',
-    );
-  }
-
-  Future<void> _createV3Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS perception_snapshots (
-        id TEXT PRIMARY KEY,
-        summary TEXT NOT NULL,
-        device_id TEXT,
-        device_label TEXT,
-        current_package TEXT,
-        busy_score REAL NOT NULL DEFAULT 0,
-        notification_count INTEGER NOT NULL DEFAULT 0,
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        occurred_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_perception_time ON perception_snapshots(occurred_at DESC)',
-    );
-  }
-
-  Future<void> _createV4Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS relationship_events (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        intensity REAL NOT NULL DEFAULT 0.5,
-        valence REAL NOT NULL DEFAULT 0,
-        source_message_id TEXT,
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        created_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_relationship_time ON relationship_events(created_at DESC)',
-    );
-
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS interaction_sessions (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        title TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'active',
-        premise TEXT NOT NULL DEFAULT '',
-        boundaries_json TEXT NOT NULL DEFAULT '[]',
-        continuity_note TEXT NOT NULL DEFAULT '',
-        source_message_id TEXT,
-        started_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        ended_at INTEGER
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_sessions_status ON interaction_sessions(status, updated_at DESC)',
-    );
-  }
-
-  Future<void> _createV6Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS reference_items (
-        id TEXT PRIMARY KEY,
-        document_id TEXT,
-        source_name TEXT NOT NULL,
-        section TEXT NOT NULL DEFAULT 'other',
-        title TEXT NOT NULL DEFAULT '',
-        content TEXT NOT NULL,
-        tags TEXT NOT NULL DEFAULT '',
-        weight REAL NOT NULL DEFAULT 0.55,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_reference_enabled ON reference_items(enabled, weight DESC, updated_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_reference_source ON reference_items(source_name, section)',
-    );
-  }
-
-  Future<void> _createV7Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS reference_documents (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL DEFAULT 'character',
-        aliases TEXT NOT NULL DEFAULT '',
-        raw_content TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_reference_documents_enabled ON reference_documents(enabled, updated_at DESC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS rule_layers (
-        key TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        load_policy TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        locked INTEGER NOT NULL DEFAULT 0,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-  }
-
-  Future<void> _createV8Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS thought_lifecycle_events (
-        id TEXT PRIMARY KEY,
-        thought_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        detail TEXT NOT NULL DEFAULT '',
-        message_id TEXT,
-        created_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_thought_lifecycle_time ON thought_lifecycle_events(thought_id, created_at DESC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS proactive_feedback (
-        id TEXT PRIMARY KEY,
-        proactive_message_id TEXT NOT NULL UNIQUE,
-        thought_id TEXT,
-        topic_key TEXT NOT NULL DEFAULT '',
-        thread_id TEXT,
-        intent_kind TEXT NOT NULL DEFAULT '',
-        delivery_style TEXT NOT NULL DEFAULT '',
-        sent_at INTEGER NOT NULL,
-        user_response_message_id TEXT,
-        response_latency_seconds INTEGER,
-        response_bucket TEXT NOT NULL DEFAULT 'pending',
-        user_text_length INTEGER NOT NULL DEFAULT 0,
-        response_quality REAL,
-        outcome TEXT NOT NULL DEFAULT 'pending',
-        outcome_score REAL,
-        processed_at INTEGER,
-        context_hour_bucket TEXT NOT NULL DEFAULT '',
-        context_activity TEXT NOT NULL DEFAULT 'unknown',
-        context_busy REAL NOT NULL DEFAULT 0,
-        timing_fit REAL,
-        topic_fit REAL,
-        created_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_feedback_sent ON proactive_feedback(sent_at DESC)',
-    );
-  }
-
-  Future<void> _createV9Tables(Database db) async {
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_thought_topic ON thoughts(drive_key, topic_key, updated_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_thread_topic ON unfinished_threads(status, topic_key, updated_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_topic ON proactive_feedback(topic_key, sent_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_response ON proactive_feedback(user_response_message_id)',
-    );
-  }
-
-  Future<void> _createV10Tables(Database db) async {
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_thread_followup ON unfinished_threads(status, followup_due_at, followup_count, importance DESC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS post_turn_jobs (
-        id TEXT PRIMARY KEY,
-        user_message_id TEXT NOT NULL,
-        assistant_message_id TEXT NOT NULL UNIQUE,
-        status TEXT NOT NULL DEFAULT 'pending',
-        attempts INTEGER NOT NULL DEFAULT 0,
-        last_error TEXT NOT NULL DEFAULT '',
-        run_token TEXT NOT NULL DEFAULT '',
-        result_json TEXT NOT NULL DEFAULT '',
-        started_at INTEGER,
-        heartbeat_at INTEGER,
-        next_retry_at INTEGER,
-        model_completed_at INTEGER,
-        desire_applied_at INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_post_turn_jobs_status ON post_turn_jobs(status, updated_at ASC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS maintenance_runs (
-        id TEXT PRIMARY KEY,
-        started_at INTEGER NOT NULL,
-        completed_at INTEGER NOT NULL,
-        retired_threads INTEGER NOT NULL DEFAULT 0,
-        pruned_lifecycle INTEGER NOT NULL DEFAULT 0,
-        pruned_feedback INTEGER NOT NULL DEFAULT 0,
-        pruned_history INTEGER NOT NULL DEFAULT 0,
-        pruned_perceptions INTEGER NOT NULL DEFAULT 0,
-        pruned_device_events INTEGER NOT NULL DEFAULT 0,
-        pruned_jobs INTEGER NOT NULL DEFAULT 0,
-        notes TEXT NOT NULL DEFAULT ''
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_maintenance_runs_time ON maintenance_runs(completed_at DESC)',
-    );
-  }
-
-  Future<void> _createV11Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS generation_jobs (
-        id TEXT PRIMARY KEY,
-        user_message_id TEXT NOT NULL UNIQUE,
-        assistant_message_id TEXT NOT NULL UNIQUE,
-        status TEXT NOT NULL DEFAULT 'pending',
-        attempts INTEGER NOT NULL DEFAULT 0,
-        model TEXT NOT NULL,
-        reasoning_effort TEXT NOT NULL DEFAULT 'high',
-        thinking INTEGER NOT NULL DEFAULT 1,
-        partial_reasoning TEXT NOT NULL DEFAULT '',
-        partial_content TEXT NOT NULL DEFAULT '',
-        run_token TEXT NOT NULL DEFAULT '',
-        device_id TEXT,
-        created_at INTEGER NOT NULL,
-        started_at INTEGER,
-        updated_at INTEGER NOT NULL,
-        completed_at INTEGER,
-        last_checkpoint_at INTEGER,
-        next_retry_at INTEGER,
-        last_error TEXT NOT NULL DEFAULT '',
-        resume_reason TEXT NOT NULL DEFAULT ''
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON generation_jobs(status, next_retry_at, updated_at ASC)',
-    );
-  }
-
-  Future<void> _createV12Tables(Database db) async {
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_post_turn_retry ON post_turn_jobs(status, next_retry_at, updated_at ASC)',
-    );
-    await db.execute(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_summary_range_unique ON conversation_summaries(from_at, to_at)',
-    );
-  }
-
-
-  Future<void> _createV13Tables(Database db) async {
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_intent ON proactive_feedback(intent_kind, sent_at DESC)',
-    );
-  }
-
-  Future<void> _createV14Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS awareness_observations (
-        id TEXT PRIMARY KEY,
-        device_id TEXT,
-        kind TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        confidence REAL NOT NULL DEFAULT 0.5,
-        window_start INTEGER NOT NULL,
-        window_end INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        dedupe_key TEXT NOT NULL UNIQUE,
-        source_fingerprint TEXT NOT NULL DEFAULT '',
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_awareness_active ON awareness_observations(expires_at DESC, confidence DESC, updated_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_awareness_kind ON awareness_observations(kind, updated_at DESC)',
-    );
-  }
-
-  Future<void> _createV15Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS memory_evidence (
-        id TEXT PRIMARY KEY,
-        memory_id TEXT NOT NULL,
-        source TEXT NOT NULL,
-        evidence_text TEXT NOT NULL,
-        confidence REAL NOT NULL DEFAULT 0.7,
-        relation TEXT NOT NULL DEFAULT 'created',
-        observed_at INTEGER NOT NULL,
-        FOREIGN KEY(memory_id) REFERENCES memory_items(id) ON DELETE CASCADE,
-        UNIQUE(memory_id, source, evidence_text)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_memory_evidence_memory ON memory_evidence(memory_id, observed_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_memory_evidence_source ON memory_evidence(source, observed_at DESC)',
-    );
-  }
-
-  Future<void> _createV16Tables(Database db) async {
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_context_hour ON proactive_feedback(context_hour_bucket, sent_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_proactive_context_activity ON proactive_feedback(context_activity, sent_at DESC)',
-    );
-  }
-
-  Future<void> _createV17Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS daily_continuity (
-        id TEXT PRIMARY KEY,
-        local_day TEXT NOT NULL UNIQUE,
-        window_start INTEGER NOT NULL,
-        window_end INTEGER NOT NULL,
-        shared_moments_json TEXT NOT NULL DEFAULT '[]',
-        carried_threads_json TEXT NOT NULL DEFAULT '[]',
-        cares_json TEXT NOT NULL DEFAULT '[]',
-        awareness_json TEXT NOT NULL DEFAULT '[]',
-        message_count INTEGER NOT NULL DEFAULT 0,
-        relationship_event_count INTEGER NOT NULL DEFAULT 0,
-        quiet_day INTEGER NOT NULL DEFAULT 0,
-        source_fingerprint TEXT NOT NULL DEFAULT '',
-        finalized_at INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_daily_continuity_day ON daily_continuity(window_start DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_daily_continuity_updated ON daily_continuity(updated_at DESC)',
-    );
-  }
-
-  Future<void> _createV18Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS transfer_receipts (
-        snapshot_id TEXT PRIMARY KEY,
-        lineage_id TEXT NOT NULL,
-        source_device_id TEXT NOT NULL,
-        source_generation INTEGER NOT NULL,
-        state_sha256 TEXT NOT NULL,
-        target_device_id TEXT NOT NULL,
-        target_lineage_before TEXT NOT NULL DEFAULT '',
-        target_generation_before INTEGER NOT NULL DEFAULT 0,
-        imported_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_transfer_receipts_lineage_generation ON transfer_receipts(lineage_id, source_generation DESC)',
-    );
-  }
-
-  Future<void> _createV21Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS somatic_events (
-        id TEXT PRIMARY KEY,
-        turn_id TEXT NOT NULL,
-        channel TEXT NOT NULL,
-        action TEXT NOT NULL DEFAULT '',
-        part TEXT NOT NULL DEFAULT '',
-        scene_key TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        source TEXT NOT NULL,
-        narrative TEXT NOT NULL,
-        intensity REAL NOT NULL,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        FOREIGN KEY(turn_id) REFERENCES messages(id) ON DELETE CASCADE,
-        UNIQUE(turn_id, direction, scene_key)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_somatic_events_active ON somatic_events(channel, expires_at DESC, created_at ASC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS somatic_aggregates (
-        channel TEXT PRIMARY KEY,
-        value REAL NOT NULL,
-        scene_key TEXT NOT NULL,
-        narrative TEXT NOT NULL,
-        last_event_id TEXT NOT NULL,
-        updated_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_somatic_aggregates_active ON somatic_aggregates(expires_at DESC, value DESC)',
-    );
-  }
-
-  Future<void> _createV22Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS message_attachments (
-        id TEXT PRIMARY KEY,
-        message_id TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        original_path TEXT NOT NULL,
-        thumbnail_path TEXT NOT NULL,
-        mime_type TEXT NOT NULL,
-        byte_size INTEGER NOT NULL,
-        width INTEGER NOT NULL,
-        height INTEGER NOT NULL,
-        source TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        vision_status TEXT NOT NULL DEFAULT 'pending',
-        vision_summary TEXT NOT NULL DEFAULT '',
-        vision_model TEXT NOT NULL DEFAULT '',
-        vision_error TEXT NOT NULL DEFAULT '',
-        vision_attempts INTEGER NOT NULL DEFAULT 0,
-        vision_updated_at INTEGER,
-        FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE,
-        UNIQUE(message_id, id)
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_message_attachments_message ON message_attachments(message_id, created_at ASC)',
-    );
-  }
-
-  Future<void> _createV24Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS autonomous_action_runs (
-        id TEXT PRIMARY KEY,
-        dedupe_key TEXT NOT NULL UNIQUE,
-        tool_kind TEXT NOT NULL,
-        intent_action TEXT NOT NULL,
-        drive_key TEXT NOT NULL,
-        intent_score REAL NOT NULL,
-        reason_source TEXT NOT NULL,
-        thought_id TEXT,
-        status TEXT NOT NULL,
-        gate_reason TEXT NOT NULL,
-        outcome_kind TEXT NOT NULL DEFAULT 'none',
-        requested_at INTEGER NOT NULL,
-        started_at INTEGER,
-        finished_at INTEGER,
-        run_token TEXT NOT NULL DEFAULT '',
-        attempt INTEGER NOT NULL DEFAULT 0,
-        state_generation INTEGER NOT NULL,
-        device_id TEXT NOT NULL,
-        screen_interactive INTEGER NOT NULL DEFAULT 0,
-        device_locked INTEGER NOT NULL DEFAULT 0,
-        latency_bucket TEXT NOT NULL DEFAULT '',
-        result_count INTEGER NOT NULL DEFAULT 0,
-        desire_satisfied_at INTEGER,
-        dedupe_count INTEGER NOT NULL DEFAULT 0,
-        last_duplicate_at INTEGER,
-        budget_limit INTEGER,
-        budget_remaining INTEGER
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_status ON autonomous_action_runs(status, requested_at ASC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_tool_time ON autonomous_action_runs(tool_kind, requested_at DESC)',
-    );
-  }
-
-  Future<void> _createV25Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS public_web_candidates (
-        id TEXT PRIMARY KEY,
-        fingerprint TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        summary TEXT NOT NULL DEFAULT '',
-        url TEXT NOT NULL,
-        source_domain TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        language TEXT NOT NULL DEFAULT 'zh',
-        drive_key TEXT NOT NULL,
-        intent_action TEXT NOT NULL,
-        interest_key TEXT NOT NULL DEFAULT '',
-        safety_state TEXT NOT NULL DEFAULT 'untrusted_public',
-        lifecycle_state TEXT NOT NULL DEFAULT 'unread',
-        action_run_id TEXT NOT NULL,
-        discovered_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        last_viewed_at INTEGER,
-        view_count INTEGER NOT NULL DEFAULT 0,
-        FOREIGN KEY(action_run_id) REFERENCES autonomous_action_runs(id) ON DELETE CASCADE
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_lifecycle ON public_web_candidates(lifecycle_state, discovered_at DESC)',
-    );
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_expiry ON public_web_candidates(expires_at ASC)',
-    );
-  }
-
-  Future<void> _createV26Tables(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS personality_trials (
-        id TEXT PRIMARY KEY,
-        base_key TEXT NOT NULL,
-        posture_key TEXT NOT NULL,
-        content TEXT NOT NULL,
-        previous_content TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'active',
-        started_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        ended_at INTEGER,
-        effective_turns INTEGER NOT NULL DEFAULT 0,
-        interaction_windows INTEGER NOT NULL DEFAULT 0,
-        last_interaction_at INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_personality_trials_status ON personality_trials(status, started_at DESC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS special_style_trials (
-        id TEXT PRIMARY KEY,
-        style_key TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'active',
-        started_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        ended_at INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_special_style_trials_status ON special_style_trials(status, started_at DESC)',
-    );
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS personality_profile_versions (
-        id TEXT PRIMARY KEY,
-        base_key TEXT NOT NULL DEFAULT '',
-        posture_key TEXT NOT NULL DEFAULT '',
-        content TEXT NOT NULL,
-        source TEXT NOT NULL,
-        source_trial_id TEXT,
-        active INTEGER NOT NULL DEFAULT 0,
-        created_at INTEGER NOT NULL,
-        activated_at INTEGER NOT NULL,
-        retired_at INTEGER
-      )
-    ''');
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_personality_profiles_active ON personality_profile_versions(active, activated_at DESC)',
-    );
-  }
-
-  Future<void> _seedRuleLayers(Database db) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    for (final layer in defaultRuleLayers) {
-      await db.insert(
-        'rule_layers',
-        {
-          'key': layer.key,
-          'title': layer.title,
-          'content': layer.content,
-          'load_policy': layer.loadPolicy,
-          'enabled': 1,
-          'locked': layer.locked ? 1 : 0,
-          'updated_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      // `locked` now means protected/always enabled, not hidden or
-      // application-overwritten. Manual edits survive every seed pass; a
-      // user can explicitly restore the current bundled default from the UI.
-    }
-    final currentPersonality = defaultRuleLayers
-        .firstWhere((layer) => layer.key == '03_personality_seed');
-    await db.update(
-      'rule_layers',
-      {
-        'content': currentPersonality.content,
-        'updated_at': now,
-      },
-      where: 'key = ? AND content = ?',
-      whereArgs: [currentPersonality.key, legacyPersonalitySeedV1],
-    );
-    await db.update(
-      'rule_layers',
-      {
-        'content': currentPersonality.content,
-        'updated_at': now,
-      },
-      where: 'key = ? AND content = ?',
-      whereArgs: [currentPersonality.key, legacyPersonalitySeedV0349],
-    );
-    final legacyEditableHashes = [
-      ...legacyEditableRuleLayerSha256V0342.entries,
-      ...legacyEditableRuleLayerSha256V0350.entries,
-    ];
-    for (final entry in legacyEditableHashes) {
-      final rows = await db.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: [entry.key],
-        limit: 1,
-      );
-      if (rows.isEmpty) continue;
-      final stored = rows.first['content'] as String? ?? '';
-      if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
-        continue;
-      }
-      final current = defaultRuleLayers.firstWhere(
-        (layer) => layer.key == entry.key,
-      );
-      await db.update(
-        'rule_layers',
-        {
-          'content': current.content,
-          'updated_at': now,
-        },
-        where: 'key = ?',
-        whereArgs: [entry.key],
-      );
-    }
-  }
-
-  Future<void> ensureReady() async {
-    await database;
-    await ensureDeviceId();
-  }
-
-  Future<String> ensureDeviceId() async {
-    final existing = await getSetting('device_id');
-    if (existing != null && existing.isNotEmpty) return existing;
-    final id = _uuid.v4();
-    await setSetting('device_id', id);
-    return id;
-  }
-
-  Future<String> ensureStateLineageId() async {
-    final existing = await getSetting('state_lineage_id');
-    if (existing != null && existing.isNotEmpty) return existing;
-    final id = _uuid.v4();
-    await setSetting('state_lineage_id', id);
-    return id;
-  }
-
-  Future<TransferStateIdentity> transferStateIdentity() async {
-    final deviceId = await ensureDeviceId();
-    final lineageId = await ensureStateLineageId();
-    final generation = int.tryParse(await getSetting('state_generation') ?? '') ?? 0;
-    return TransferStateIdentity(
-      lineageId: lineageId,
-      generation: generation,
-      deviceId: deviceId,
-    );
-  }
-
-  /// Reserve a monotonically increasing state generation for one frozen
-  /// outbound takeover snapshot. `transfer_lock=1` is mandatory so no writer
-  /// can create state after the generation is reserved but before export.
-  Future<TransferStateIdentity> reserveTransferSnapshot(String snapshotId) async {
-    if (snapshotId.trim().isEmpty) {
-      throw ArgumentError.value(snapshotId, 'snapshotId', 'must not be empty');
-    }
-    final deviceId = await ensureDeviceId();
-    final lineageId = await ensureStateLineageId();
-    final db = await database;
-    return db.transaction<TransferStateIdentity>((txn) async {
-      Future<String> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      }
-
-      if (await setting('transfer_lock') != '1') {
-        throw StateError('ç”ŸæˆæŽ¥ç®¡çŠ¶æ€åŒ…å‰å¿…é¡»å…ˆå†»ç»“æœ¬æœºå†™å…¥ã€‚');
-      }
-      if (await setting('active_brain') == '0') {
-        throw StateError('åªæœ‰å½“å‰ Active Brain å¯ä»¥ç”ŸæˆæŽ¥ç®¡çŠ¶æ€åŒ…ã€‚');
-      }
-      final currentLineage = await setting('state_lineage_id');
-      if (currentLineage.isNotEmpty && currentLineage != lineageId) {
-        throw StateError('å…³ç³»è°±ç³»åœ¨ç”ŸæˆçŠ¶æ€åŒ…æ—¶å‘ç”Ÿå˜åŒ–ã€‚');
-      }
-      final current = int.tryParse(await setting('state_generation')) ?? 0;
-      final next = current + 1;
-      for (final entry in <String, String>{
-        'state_lineage_id': lineageId,
-        'state_generation': '$next',
-        'pending_outbound_snapshot_id': snapshotId,
-        'pending_outbound_generation': '$next',
-      }.entries) {
-        await txn.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      return TransferStateIdentity(
-        lineageId: lineageId,
-        generation: next,
-        deviceId: deviceId,
-      );
-    });
-  }
-
-  Future<TransferReceipt?> transferReceipt(String snapshotId) async {
-    final db = await database;
-    final rows = await db.query(
-      'transfer_receipts',
-      where: 'snapshot_id = ?',
-      whereArgs: [snapshotId],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : TransferReceipt.fromDb(rows.first);
-  }
-
-  Future<PendingImportedTransfer?> pendingImportedTransfer() async {
-    final snapshotId = await getSetting('pending_import_snapshot_id') ?? '';
-    final lineageId = await getSetting('pending_import_lineage_id') ?? '';
-    final sourceDeviceId = await getSetting('pending_import_source_device_id') ?? '';
-    final sourceGeneration = int.tryParse(await getSetting('pending_import_generation') ?? '') ?? 0;
-    final stateSha256 = await getSetting('pending_import_state_sha256') ?? '';
-    if (snapshotId.isEmpty || lineageId.isEmpty || sourceGeneration <= 0 || stateSha256.isEmpty) {
-      return null;
-    }
-    return PendingImportedTransfer(
-      snapshotId: snapshotId,
-      lineageId: lineageId,
-      sourceDeviceId: sourceDeviceId,
-      sourceGeneration: sourceGeneration,
-      stateSha256: stateSha256,
-    );
-  }
-
-  Future<bool> isPristineForLineageAdoption() async {
-    final db = await database;
-    const tables = <String>[
-      'messages',
-      'memory_items',
-      'unfinished_threads',
-      'thoughts',
-      'relationship_events',
-      'interaction_sessions',
-      'reference_documents',
-      'reference_items',
-      'daily_continuity',
-    ];
-    for (final table in tables) {
-      final rows = await db.rawQuery('SELECT 1 FROM $table LIMIT 1');
-      if (rows.isNotEmpty) return false;
-    }
-    return true;
-  }
-
-  /// Activate exactly the snapshot that was imported into standby. The
-  /// generation bump creates a new ownership epoch, making the just-consumed
-  /// snapshot (and every older replay) stale immediately after activation.
-  Future<int> activatePendingImportedBrain({String? expectedSnapshotId}) async {
-    final db = await database;
-    return db.transaction<int>((txn) async {
-      Future<String> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      }
-
-      final snapshotId = await setting('pending_import_snapshot_id');
-      final lineageId = await setting('pending_import_lineage_id');
-      final sourceDeviceId = await setting('pending_import_source_device_id');
-      final importedGeneration = int.tryParse(await setting('pending_import_generation')) ?? 0;
-      final stateSha256 = await setting('pending_import_state_sha256');
-      final currentLineage = await setting('state_lineage_id');
-      final currentGeneration = int.tryParse(await setting('state_generation')) ?? 0;
-      if (snapshotId.isEmpty || lineageId.isEmpty || importedGeneration <= 0 || stateSha256.isEmpty) {
-        throw StateError('æœ¬æœºæ²¡æœ‰ç­‰å¾…æŽ¥ç®¡çš„å·²å¯¼å…¥çŠ¶æ€ã€‚');
-      }
-      if (expectedSnapshotId != null && expectedSnapshotId != snapshotId) {
-        throw StateError('æŽ¥ç®¡ç¡®è®¤ä¸Žæœ¬æœºç­‰å¾…çš„çŠ¶æ€åŒ…ä¸ä¸€è‡´ã€‚');
-      }
-      if (currentLineage != lineageId || currentGeneration != importedGeneration) {
-        throw StateError('æœ¬æœºçŠ¶æ€ä»£æ¬¡å·²å˜åŒ–ï¼Œæ‹’ç»ä½¿ç”¨æ—§æŽ¥ç®¡ç¡®è®¤ã€‚');
-      }
-      if (await setting('active_brain') != '0') {
-        throw StateError('æœ¬æœºå·²ç»æ˜¯ Active Brainï¼Œæ‹’ç»é‡å¤æŽ¥ç®¡ã€‚');
-      }
-      final nextGeneration = importedGeneration + 1;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      for (final entry in <String, String>{
-        'state_generation': '$nextGeneration',
-        'active_brain': '1',
-        'transfer_lock': '0',
-        'pending_import_snapshot_id': '',
-        'pending_import_lineage_id': '',
-        'pending_import_source_device_id': '',
-        'pending_import_generation': '0',
-        'pending_import_state_sha256': '',
-        'pending_outbound_snapshot_id': '',
-        'pending_outbound_generation': '0',
-        'last_takeover_snapshot_id': snapshotId,
-        'last_takeover_source_device_id': sourceDeviceId,
-        'last_takeover_at': '$now',
-      }.entries) {
-        await txn.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      return nextGeneration;
-    });
-  }
-
-  /// Explicit local recovery for a device that was intentionally pushed to
-  /// standby (for example after exporting an encrypted manual transfer file).
-  /// Bumping generation invalidates the exported snapshot if the user chooses
-  /// to resume this device instead.
-  Future<int> forceLocalBrainTakeover() async {
-    final db = await database;
-    return db.transaction<int>((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?, ?)',
-        whereArgs: const ['active_brain', 'state_generation', 'state_lineage_id'],
-      );
-      final settings = <String, String>{};
-      for (final row in rows) {
-        settings[row['key'] as String] = row['value'] as String? ?? '';
-      }
-      if (settings['active_brain'] != '0') {
-        throw StateError('æœ¬æœºå·²ç»æ˜¯ Active Brainã€‚');
-      }
-      final current = int.tryParse(settings['state_generation'] ?? '') ?? 0;
-      final next = current + 1;
-      for (final entry in <String, String>{
-        'state_generation': '$next',
-        'active_brain': '1',
-        'transfer_lock': '0',
-        'pending_import_snapshot_id': '',
-        'pending_import_lineage_id': '',
-        'pending_import_source_device_id': '',
-        'pending_import_generation': '0',
-        'pending_import_state_sha256': '',
-        'pending_outbound_snapshot_id': '',
-        'pending_outbound_generation': '0',
-      }.entries) {
-        await txn.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      return next;
-    });
-  }
-
-  Future<void> pauseAfterManualTransferExport({
-    required String snapshotId,
-    required String lineageId,
-    required int generation,
-  }) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      Future<String> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      }
-      if (await setting('state_lineage_id') != lineageId ||
-          (int.tryParse(await setting('state_generation')) ?? -1) != generation ||
-          await setting('pending_outbound_snapshot_id') != snapshotId ||
-          await setting('transfer_lock') != '1') {
-        throw StateError('æ‰‹åŠ¨æŽ¥ç®¡åŒ…å·²ç»ä¸æ˜¯æœ¬æœºå½“å‰å†»ç»“çš„çŠ¶æ€ã€‚');
-      }
-      await txn.insert(
-        'settings',
-        {'key': 'active_brain', 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      await txn.insert(
-        'settings',
-        {'key': 'transfer_lock', 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    });
-  }
-
-  Future<void> insertMessage(ChatMessage message) async {
-    final db = await database;
-    await db.insert(
-      'messages',
-      message.toDb(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> insertMessageWithAttachments(
-    ChatMessage message,
-    List<MessageAttachment> attachments,
-  ) async {
-    if (attachments.isEmpty) {
-      throw ArgumentError.value(attachments, 'attachments', 'must not be empty');
-    }
-    if (attachments.any((item) => item.messageId != message.id)) {
-      throw ArgumentError('Every attachment must belong to the inserted message.');
-    }
-    final db = await database;
-    await db.transaction((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: const ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1') {
-        throw StateError('è®¾å¤‡è½¬ç§»å·²ç»å¼€å§‹ï¼Œæš‚æ—¶ä¸èƒ½ä¿å­˜æ–°çš„å›¾ç‰‡æ¶ˆæ¯ã€‚');
-      }
-      if (settings['active_brain'] == '0') {
-        throw StateError('å½“å‰è®¾å¤‡ä¸æ˜¯ Active Brainã€‚');
-      }
-      await txn.insert(
-        'messages',
-        message.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
-      for (final attachment in attachments) {
-        await txn.insert(
-          'message_attachments',
-          attachment.toDb(),
-          conflictAlgorithm: ConflictAlgorithm.abort,
-        );
-      }
-    });
-  }
-
-  Future<String?> unfinishedVisionMessageId() async {
-    final db = await database;
-    final rows = await db.query(
-      'message_attachments',
-      columns: const ['message_id'],
-      where: "kind = ? AND vision_status IN ('pending','analyzing')",
-      whereArgs: const [MessageAttachment.imageKind],
-      orderBy: 'created_at ASC, id ASC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : rows.first['message_id'] as String;
-  }
-
-  Future<bool> markAttachmentVisionAnalyzing(String attachmentId) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.rawUpdate(
-      '''
-      UPDATE message_attachments
-      SET vision_status = ?, vision_error = '',
-          vision_attempts = vision_attempts + 1, vision_updated_at = ?
-      WHERE id = ? AND kind = ? AND vision_status IN ('pending','failed','analyzing')
-      ''',
-      [
-        MessageAttachment.visionAnalyzingStatus,
-        now,
-        attachmentId,
-        MessageAttachment.imageKind,
-      ],
-    );
-    return changed == 1;
-  }
-
-  Future<void> failAttachmentVision(
-    String attachmentId,
-    String error,
-  ) async {
-    final db = await database;
-    final safeError = error.trim();
-    await db.update(
-      'message_attachments',
-      {
-        'vision_status': MessageAttachment.visionFailedStatus,
-        'vision_error': safeError.length > 600
-            ? safeError.substring(0, 600)
-            : safeError,
-        'vision_updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: "id = ? AND vision_status = 'analyzing'",
-      whereArgs: [attachmentId],
-    );
-  }
-
-  Future<GenerationJob> completeAttachmentVisionAndCreateGeneration({
-    required String attachmentId,
-    required String summary,
-    required String visionModel,
-    required String assistantMessageId,
-    required String model,
-    required String reasoningEffort,
-    bool thinking = true,
-  }) async {
-    final normalized = summary.trim();
-    if (normalized.isEmpty) {
-      throw ArgumentError.value(summary, 'summary', 'must not be empty');
-    }
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final jobId = _uuid.v4();
-    await db.transaction((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1') {
-        throw StateError('è®¾å¤‡è½¬ç§»å·²ç»å¼€å§‹ï¼Œæš‚æ—¶ä¸èƒ½åˆ›å»ºæ–°çš„èŠå¤©ä»»åŠ¡ã€‚');
-      }
-      if (settings['active_brain'] == '0') {
-        throw StateError('å½“å‰è®¾å¤‡ä¸æ˜¯ Active Brainã€‚');
-      }
-      final blocking = await txn.query(
-        'generation_jobs',
-        columns: ['id'],
-        where: "status IN ('pending','running','retry_wait')",
-        limit: 1,
-      );
-      if (blocking.isNotEmpty) {
-        throw StateError('ä¸Šä¸€è½® AI å›žå¤ä»åœ¨ç”Ÿæˆæˆ–ç­‰å¾…æ¢å¤ã€‚');
-      }
-      final attachmentRows = await txn.rawQuery('''
-        SELECT a.message_id, a.vision_status, m.role, m.device_id
-        FROM message_attachments a
-        JOIN messages m ON m.id = a.message_id
-        WHERE a.id = ?
-        LIMIT 1
-      ''', [attachmentId]);
-      if (attachmentRows.isEmpty ||
-          attachmentRows.first['role'] != 'user' ||
-          attachmentRows.first['vision_status'] !=
-              MessageAttachment.visionAnalyzingStatus) {
-        throw StateError('å›¾ç‰‡è¯†åˆ«ä»»åŠ¡å·²ç»å¤±æ•ˆï¼Œè¯·åˆ·æ–°åŽé‡è¯•ã€‚');
-      }
-      final messageId = attachmentRows.first['message_id'] as String;
-      final deviceId = attachmentRows.first['device_id'] as String?;
-      await txn.update(
-        'message_attachments',
-        {
-          'vision_status': MessageAttachment.visionCompletedStatus,
-          'vision_summary': normalized,
-          'vision_model': visionModel.trim(),
-          'vision_error': '',
-          'vision_updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [attachmentId],
-      );
-      await txn.update(
-        'messages',
-        {'expects_reply': 1},
-        where: 'id = ?',
-        whereArgs: [messageId],
-      );
-      await txn.insert('generation_jobs', {
-        'id': jobId,
-        'user_message_id': messageId,
-        'assistant_message_id': assistantMessageId,
-        'status': 'pending',
-        'attempts': 0,
-        'model': model,
-        'reasoning_effort': reasoningEffort,
-        'thinking': thinking ? 1 : 0,
-        'partial_reasoning': '',
-        'partial_content': '',
-        'run_token': '',
-        'device_id': deviceId,
-        'created_at': now,
-        'started_at': null,
-        'updated_at': now,
-        'completed_at': null,
-        'last_checkpoint_at': null,
-        'next_retry_at': null,
-        'last_error': '',
-        'resume_reason': '',
-      });
-    });
-    return (await generationJobById(jobId))!;
-  }
-
-  Future<List<MessageAttachment>> deleteAttachmentMessage(String messageId) async {
-    final db = await database;
-    return db.transaction<List<MessageAttachment>>((txn) async {
-      final settings = await txn.query(
-        'settings',
-        columns: const ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final values = <String, String>{
-        for (final row in settings)
-          row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (values['transfer_lock'] == '1' || values['active_brain'] == '0') {
-        return const [];
-      }
-      final messageRows = await txn.query(
-        'messages',
-        columns: const ['role'],
-        where: 'id = ?',
-        whereArgs: [messageId],
-        limit: 1,
-      );
-      if (messageRows.isEmpty || messageRows.first['role'] != 'user') return const [];
-      final rows = await txn.query(
-        'message_attachments',
-        where: 'message_id = ?',
-        whereArgs: [messageId],
-      );
-      if (rows.isEmpty) return const [];
-      await txn.delete('messages', where: 'id = ?', whereArgs: [messageId]);
-      return rows.map(MessageAttachment.fromDb).toList(growable: false);
-    });
-  }
-
-  Future<List<MessageAttachment>> allMessageAttachments() async {
-    final db = await database;
-    final rows = await db.query(
-      'message_attachments',
-      orderBy: 'created_at ASC, id ASC',
-    );
-    return rows.map(MessageAttachment.fromDb).toList(growable: false);
-  }
-
-  /// Persist short-lived body-sense events after their durable source turn
-  /// exists. Stable IDs make recovered attempts idempotent.
-  Future<int> recordSomaticEvents(
-    List<SomaticEvent> events, {
-    DateTime? now,
-  }) async {
-    if (events.isEmpty) return 0;
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction<int>(
-      (txn) => _recordSomaticEventsInTransaction(txn, events, instant),
-    );
-  }
-
-  Future<int> _recordSomaticEventsInTransaction(
-    DatabaseExecutor txn,
-    List<SomaticEvent> events,
-    DateTime instant,
-  ) async {
-    if (events.isEmpty) return 0;
-    final settingRows = await txn.query(
-      'settings',
-      columns: ['key', 'value'],
-      where: 'key IN (?, ?)',
-      whereArgs: const ['active_brain', 'transfer_lock'],
-    );
-    final settings = <String, String>{
-      for (final row in settingRows)
-        if (row['key'] is String)
-          row['key'] as String: row['value'] as String? ?? '',
-    };
-    if (settings['active_brain'] == '0' || settings['transfer_lock'] == '1') {
-      return 0;
-    }
-
-    final pruned = await txn.delete(
-      'somatic_events',
-      where: 'expires_at <= ?',
-      whereArgs: [instant.millisecondsSinceEpoch],
-    );
-    if (pruned > 0) {
-      await _rebuildSomaticAggregates(txn, instant);
-    } else {
-      await txn.delete(
-        'somatic_aggregates',
-        where: 'expires_at <= ?',
-        whereArgs: [instant.millisecondsSinceEpoch],
-      );
-    }
-
-    var inserted = 0;
-    for (final event in events) {
-      final expectedRole = event.direction == SomaticDirection.userToAi
-          ? 'user'
-          : 'assistant';
-      final turn = await txn.query(
-        'messages',
-        columns: ['role'],
-        where: 'id = ?',
-        whereArgs: [event.turnId],
-        limit: 1,
-      );
-      if (turn.isEmpty || turn.first['role'] != expectedRole) continue;
-      final existing = await txn.query(
-        'somatic_events',
-        columns: ['id'],
-        where: 'id = ?',
-        whereArgs: [event.id],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) continue;
-      await txn.insert(
-        'somatic_events',
-        event.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
-      inserted += 1;
-      await _mergeSomaticEvent(txn, event, instant);
-    }
-    return inserted;
-  }
-
-  Future<List<SomaticAggregate>> activeSomaticAggregates({
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    final rows = await db.query(
-      'somatic_aggregates',
-      where: 'expires_at > ?',
-      whereArgs: [instant.millisecondsSinceEpoch],
-      orderBy: 'value DESC, updated_at DESC',
-    );
-    return rows.map(SomaticAggregate.fromDb).toList(growable: false);
-  }
-
-  Future<void> _mergeSomaticEvent(
-    DatabaseExecutor txn,
-    SomaticEvent event,
-    DateTime now,
-  ) async {
-    final rows = await txn.query(
-      'somatic_aggregates',
-      where: 'channel = ?',
-      whereArgs: [event.channel.name],
-      limit: 1,
-    );
-    final current = rows.isEmpty
-        ? 0.0
-        : SomaticPolicy.decay(
-            (rows.first['value'] as num?)?.toDouble() ?? 0.0,
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(
-              rows.first['updated_at'] as int,
-            ),
-            now: now,
-          );
-    final aggregate = SomaticAggregate(
-      channel: event.channel,
-      value: SomaticPolicy.mergePulse(current, event.intensity),
-      sceneKey: event.sceneKey,
-      narrative: event.narrative,
-      lastEventId: event.id,
-      updatedAt: now,
-      expiresAt: event.expiresAt,
-    );
-    await txn.insert(
-      'somatic_aggregates',
-      aggregate.toDb(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> _rebuildSomaticAggregates(
-    DatabaseExecutor txn,
-    DateTime now,
-  ) async {
-    await txn.delete('somatic_aggregates');
-    final rows = await txn.query(
-      'somatic_events',
-      where: 'expires_at > ?',
-      whereArgs: [now.millisecondsSinceEpoch],
-      orderBy: 'created_at ASC, id ASC',
-    );
-    for (final row in rows) {
-      final event = SomaticEvent.fromDb(row);
-      await _mergeSomaticEvent(txn, event, event.createdAt);
-    }
-  }
-
-  Future<GenerationJob> createGenerationTurn({
-    required ChatMessage user,
-    required String assistantMessageId,
-    required String model,
-    required String reasoningEffort,
-    bool thinking = true,
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final jobId = _uuid.v4();
-    await db.transaction((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{};
-      for (final row in settingsRows) {
-        final key = row['key'];
-        if (key is String) settings[key] = row['value'] as String? ?? '';
-      }
-      if (settings['transfer_lock'] == '1') {
-        throw StateError('è®¾å¤‡è½¬ç§»å·²ç»å¼€å§‹ï¼Œæš‚æ—¶ä¸èƒ½åˆ›å»ºæ–°çš„èŠå¤©ä»»åŠ¡ã€‚');
-      }
-      if (settings['active_brain'] == '0') {
-        throw StateError('å½“å‰è®¾å¤‡ä¸æ˜¯ Active Brainã€‚');
-      }
-      final blocking = await txn.query(
-        'generation_jobs',
-        columns: ['id'],
-        where: "status IN ('pending','running','retry_wait')",
-        limit: 1,
-      );
-      if (blocking.isNotEmpty) {
-        throw StateError('ä¸Šä¸€è½® AI å›žå¤ä»åœ¨ç”Ÿæˆæˆ–ç­‰å¾…æ¢å¤ã€‚');
-      }
-      await txn.insert(
-        'messages',
-        user.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
-      await txn.insert('generation_jobs', {
-        'id': jobId,
-        'user_message_id': user.id,
-        'assistant_message_id': assistantMessageId,
-        'status': 'pending',
-        'attempts': 0,
-        'model': model,
-        'reasoning_effort': reasoningEffort,
-        'thinking': thinking ? 1 : 0,
-        'partial_reasoning': '',
-        'partial_content': '',
-        'run_token': '',
-        'device_id': user.deviceId,
-        'created_at': now,
-        'started_at': null,
-        'updated_at': now,
-        'completed_at': null,
-        'last_checkpoint_at': null,
-        'next_retry_at': null,
-        'last_error': '',
-        'resume_reason': '',
-      });
-    });
-    return (await generationJobById(jobId))!;
-  }
-
-  Future<GenerationJob?> generationJobById(String id) async {
-    final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
-  }
-
-  Future<GenerationJob?> generationJobForUserMessage(String userMessageId) async {
-    final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      where: 'user_message_id = ?',
-      whereArgs: [userMessageId],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
-  }
-
-  Future<GenerationJob?> blockingGenerationJob() async {
-    final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      where: "status IN ('pending','running','retry_wait')",
-      orderBy: 'created_at ASC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
-  }
-
-  /// Returns a failed generation only when it belongs to the latest user turn.
-  /// Historical failures from older builds must not suddenly block a user who
-  /// has already continued the conversation past that gap.
-  Future<GenerationJob?> failedGenerationNeedingAttention() async {
-    final db = await database;
-    final rows = await db.rawQuery("""
-      SELECT g.*
-      FROM generation_jobs g
-      JOIN messages u ON u.id = g.user_message_id AND u.role = 'user'
-      WHERE g.status = 'failed'
-        AND NOT EXISTS (
-          SELECT 1 FROM messages newer
-          WHERE newer.role = 'user' AND newer.created_at > u.created_at
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM messages a WHERE a.id = g.assistant_message_id
-        )
-      ORDER BY g.created_at DESC
-      LIMIT 1
-    """);
-    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
-  }
-
-  Future<bool> retryFailedGenerationJob(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return false;
-      }
-      final competing = await txn.query(
-        'generation_jobs',
-        columns: ['id'],
-        where: "id <> ? AND status IN ('pending','running','retry_wait')",
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (competing.isNotEmpty) return false;
-      final assistant = await txn.rawQuery(
-        'SELECT 1 FROM messages WHERE id = (SELECT assistant_message_id FROM generation_jobs WHERE id = ?) LIMIT 1',
-        [id],
-      );
-      if (assistant.isNotEmpty) return false;
-      final changed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'pending',
-          'run_token': '',
-          'next_retry_at': null,
-          'last_error': '',
-          'resume_reason': 'manual_retry',
-          'updated_at': now,
-        },
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, 'failed'],
-      );
-      return changed == 1;
-    });
-  }
-
-  Future<bool> abandonFailedGenerationJob(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return false;
-      }
-      final changed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'cancelled',
-          'run_token': '',
-          'next_retry_at': null,
-          'resume_reason': 'manual_abandon',
-          'updated_at': now,
-        },
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, 'failed'],
-      );
-      return changed == 1;
-    });
-  }
-
-  /// Terminally fences one reply and withdraws its user turn when Stop wins.
-  ///
-  /// This is intentionally valid for pending, running, and retry-wait jobs.
-  /// Clearing run_token and deleting the user message in one transaction means
-  /// future prompts, memory extraction and either chat surface cannot observe
-  /// a half-turn. If completion commits first, its completed status makes this
-  /// operation a no-op so a finished pair is never partially deleted.
-  Future<bool> cancelGenerationJobByUser(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'generation_jobs',
-        columns: ['status', 'user_message_id'],
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final status = rows.first['status'] as String? ?? '';
-      final userMessageId = rows.first['user_message_id'] as String? ?? '';
-      var cancelled = status == 'cancelled_by_user';
-      if (!cancelled) {
-        final changed = await txn.update(
-          'generation_jobs',
-          {
-            'status': 'cancelled_by_user',
-            'partial_reasoning': '',
-            'partial_content': '',
-            'run_token': '',
-            'next_retry_at': null,
-            'last_error': '',
-            'resume_reason': 'cancelled_by_user',
-            'completed_at': now,
-            'updated_at': now,
-          },
-          where: "id = ? AND status IN ('pending','running','retry_wait')",
-          whereArgs: [id],
-        );
-        cancelled = changed == 1;
-      }
-      if (!cancelled) return false;
-
-      // Idempotently clean a prior partial cancellation as well. Completed
-      // jobs can never reach this branch, preserving completion-vs-stop order.
-      if (userMessageId.isNotEmpty) {
-        await txn.delete(
-          'post_turn_jobs',
-          where: 'user_message_id = ?',
-          whereArgs: [userMessageId],
-        );
-        await txn.delete(
-          'messages',
-          where: 'id = ? AND role = ?',
-          whereArgs: [userMessageId, 'user'],
-        );
-        // ON DELETE CASCADE withdraws this turn's sense events. Rebuilding the
-        // short-lived aggregate in the same transaction removes any ghost
-        // sensation before another prompt can observe it.
-        await _rebuildSomaticAggregates(
-          txn,
-          DateTime.fromMillisecondsSinceEpoch(now),
-        );
-      }
-      return true;
-    });
-  }
-
-  /// Cheap cross-engine fence check used while a streaming request is active.
-  Future<bool> isGenerationRunCurrent(
-    String id, {
-    required String runToken,
-  }) async {
-    if (runToken.isEmpty) return false;
-    final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      columns: ['id'],
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-      limit: 1,
-    );
-    return rows.isNotEmpty;
-  }
-
-  Future<GenerationJob?> nextRecoverableGenerationJob({
-    Duration runningStaleAfter = const Duration(minutes: 2),
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final staleBefore = DateTime.now()
-        .subtract(runningStaleAfter)
-        .millisecondsSinceEpoch;
-    final rows = await db.query(
-      'generation_jobs',
-      where: "status = 'pending' OR (status = 'retry_wait' AND (next_retry_at IS NULL OR next_retry_at <= ?)) OR (status = 'running' AND updated_at <= ?)",
-      whereArgs: [now, staleBefore],
-      orderBy: 'created_at ASC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
-  }
-
-  Future<Duration?> nextGenerationRecoveryDelay() async {
-    final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      columns: ['status', 'next_retry_at', 'updated_at'],
-      where: "status IN ('pending','running','retry_wait')",
-      orderBy: 'created_at ASC',
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    final row = rows.first;
-    final status = row['status'] as String? ?? 'pending';
-    if (status == 'pending') return Duration.zero;
-    final now = DateTime.now();
-    if (status == 'retry_wait') {
-      final ms = row['next_retry_at'] as int?;
-      if (ms == null) return Duration.zero;
-      final at = DateTime.fromMillisecondsSinceEpoch(ms);
-      return at.isAfter(now) ? at.difference(now) : Duration.zero;
-    }
-    final updated = DateTime.fromMillisecondsSinceEpoch(
-      row['updated_at'] as int? ?? now.millisecondsSinceEpoch,
-    );
-    final staleAt = updated.add(const Duration(minutes: 2));
-    return staleAt.isAfter(now) ? staleAt.difference(now) : Duration.zero;
-  }
-
-  Future<GenerationJob?> claimGenerationJob(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final localDeviceId = await ensureDeviceId();
-    final runToken = _uuid.v4();
-    return db.transaction<GenerationJob?>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{};
-      for (final row in settingsRows) {
-        final key = row['key'];
-        if (key is String) settings[key] = row['value'] as String? ?? '';
-      }
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return null;
-      }
-      final rows = await txn.query(
-        'generation_jobs',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return null;
-      final current = GenerationJob.fromDb(rows.first);
-      if (current.isTerminal) return null;
-      if (current.status == 'retry_wait' &&
-          current.nextRetryAt != null &&
-          current.nextRetryAt!.isAfter(DateTime.now())) {
-        return null;
-      }
-      if (current.status == 'running' &&
-          DateTime.now().difference(current.updatedAt) < const Duration(minutes: 2)) {
-        return null;
-      }
-      final resumeReason = current.status == 'running'
-          ? 'stale_running_recovered'
-          : current.attempts > 0
-              ? 'retry_after_failure'
-              : current.resumeReason;
-      await txn.update(
-        'generation_jobs',
-        {
-          'status': 'running',
-          'attempts': current.attempts + 1,
-          'started_at': now,
-          'updated_at': now,
-          'last_checkpoint_at': now,
-          'next_retry_at': null,
-          'partial_reasoning': '',
-          'partial_content': '',
-          'run_token': runToken,
-          'last_error': '',
-          'resume_reason': resumeReason,
-          'device_id': localDeviceId,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      final updated = await txn.query(
-        'generation_jobs',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      return GenerationJob.fromDb(updated.first);
-    });
-  }
-
-  Future<bool> checkpointGenerationJob(
-    String id, {
-    required String runToken,
-    required String partialReasoning,
-    required String partialContent,
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'generation_jobs',
-      {
-        'partial_reasoning': partialReasoning,
-        'partial_content': partialContent,
-        'last_checkpoint_at': now,
-        'updated_at': now,
-      },
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-    );
-    return changed > 0;
-  }
-
-  Future<bool> completeGenerationJobIfCurrent({
-    required String jobId,
-    required String runToken,
-    required ChatMessage assistant,
-    List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{};
-      for (final row in settingsRows) {
-        final key = row['key'];
-        if (key is String) settings[key] = row['value'] as String? ?? '';
-      }
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return false;
-      }
-      final jobs = await txn.query(
-        'generation_jobs',
-        where: 'id = ?',
-        whereArgs: [jobId],
-        limit: 1,
-      );
-      if (jobs.isEmpty) return false;
-      final job = GenerationJob.fromDb(jobs.first);
-      if (job.runToken != runToken || runToken.isEmpty) return false;
-      if (job.status == 'completed') {
-        final existing = await txn.query(
-          'messages',
-          columns: ['id'],
-          where: 'id = ?',
-          whereArgs: [job.assistantMessageId],
-          limit: 1,
-        );
-        return existing.isNotEmpty;
-      }
-      if (job.status != 'running') return false;
-      if (assistant.id != job.assistantMessageId) return false;
-      if (somaticEvents.any(
-        (event) =>
-            event.turnId != assistant.id ||
-            event.direction != SomaticDirection.aiToSelf,
-      )) {
-        throw StateError('invalid_assistant_somatic_event');
-      }
-
-      final existing = await txn.query(
-        'messages',
-        columns: ['id'],
-        where: 'id = ?',
-        whereArgs: [assistant.id],
-        limit: 1,
-      );
-      if (existing.isEmpty) {
-        await txn.insert(
-          'messages',
-          assistant.toDb(),
-          conflictAlgorithm: ConflictAlgorithm.abort,
-        );
-      }
-      final queueSetting = await txn.query(
-        'settings',
-        columns: ['value'],
-        where: 'key = ?',
-        whereArgs: const ['post_turn_queue_enabled'],
-        limit: 1,
-      );
-      final queueEnabled =
-          queueSetting.isEmpty || (queueSetting.first['value'] as String? ?? '1') != '0';
-      if (queueEnabled) {
-        await txn.insert(
-          'post_turn_jobs',
-          {
-            'id': _uuid.v4(),
-            'user_message_id': job.userMessageId,
-            'assistant_message_id': assistant.id,
-            'status': 'pending',
-            'attempts': 0,
-            'last_error': '',
-            'created_at': now,
-            'updated_at': now,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-      final completed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'completed',
-          'partial_reasoning': assistant.reasoningContent,
-          'partial_content': assistant.content,
-          'completed_at': now,
-          'last_checkpoint_at': now,
-          'updated_at': now,
-          'next_retry_at': null,
-          'last_error': '',
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [jobId, 'running', runToken],
-      );
-      if (completed != 1) {
-        // Throwing rolls back the assistant/post-turn inserts in this same
-        // SQLite transaction. Returning false here would incorrectly leave a
-        // visible assistant message without a completed generation job.
-        throw StateError('generation_commit_ownership_lost');
-      }
-      // The reply, completed job and AI-to-self pulse share this transaction:
-      // cancellation, stale writers and failed retries therefore cannot leave
-      // a ghost sensation behind.
-      await _recordSomaticEventsInTransaction(
-        txn,
-        somaticEvents,
-        assistant.createdAt,
-      );
-      await _recordPersonalityTrialReplyInTransaction(txn, now);
-      return true;
-    });
-  }
-
-  Future<GenerationJob?> failGenerationJob(
-    String id, {
-    required String runToken,
-    required String error,
-    required bool recoverable,
-  }) async {
-    if (runToken.isEmpty) return null;
-    final db = await database;
-    // 0 means unlimited retries for transient/credential failures. A durable
-    // user turn must not become a permanent conversation hole just because the
-    // phone stayed offline for a few hours. Non-recoverable protocol/format
-    // errors still fail immediately.
-    final maxAttempts =
-        int.tryParse(await getSetting('generation_max_attempts') ?? '') ?? 0;
-    return db.transaction<GenerationJob?>((txn) async {
-      final rows = await txn.query(
-        'generation_jobs',
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, 'running', runToken],
-        limit: 1,
-      );
-      if (rows.isEmpty) return null;
-      final job = GenerationJob.fromDb(rows.first);
-      final configuredLimit = maxAttempts <= 0 ? null : maxAttempts.clamp(1, 100);
-      final canRetry = recoverable &&
-          (configuredLimit == null || job.attempts < configuredLimit);
-      final now = DateTime.now();
-      DateTime? retryAt;
-      if (canRetry) {
-        final seconds = job.attempts <= 1
-            ? 15
-            : job.attempts == 2
-                ? 60
-                : job.attempts == 3
-                    ? 300
-                    : job.attempts == 4
-                        ? 900
-                        : 3600;
-        retryAt = now.add(Duration(seconds: seconds));
-      }
-      final changed = await txn.update(
-        'generation_jobs',
-        {
-          'status': canRetry ? 'retry_wait' : 'failed',
-          'next_retry_at': retryAt?.millisecondsSinceEpoch,
-          'last_error': error.length <= 360 ? error : error.substring(0, 360),
-          'run_token': '',
-          'updated_at': now.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, 'running', runToken],
-      );
-      if (changed == 0) return null;
-      final updated = await txn.query(
-        'generation_jobs',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      return updated.isEmpty ? null : GenerationJob.fromDb(updated.first);
-    });
-  }
-
-  Future<DateTime?> deferGenerationJob(
-    String id, {
-    required Duration delay,
-    required String reason,
-  }) async {
-    final db = await database;
-    final now = DateTime.now();
-    final retryAt = now.add(delay);
-    final changed = await db.update(
-      'generation_jobs',
-      {
-        'status': 'retry_wait',
-        'next_retry_at': retryAt.millisecondsSinceEpoch,
-        'last_error': '',
-        'run_token': '',
-        'resume_reason': reason,
-        'updated_at': now.millisecondsSinceEpoch,
-      },
-      where: "id = ? AND status IN ('pending','retry_wait','running')",
-      whereArgs: [id],
-    );
-    return changed > 0 ? retryAt : null;
-  }
-
-  Future<int> wakeRetryableGenerationJobs() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.update(
-      'generation_jobs',
-      {
-        'next_retry_at': now,
-        'updated_at': now,
-      },
-      where: "status = 'retry_wait'",
-    );
-  }
-
-  Future<bool> suspendGenerationJob(
-    String id, {
-    required String reason,
-    String? runToken,
-  }) async {
-    final db = await database;
-    final where = runToken == null
-        ? "id = ? AND status IN ('pending','retry_wait')"
-        : 'id = ? AND status = ? AND run_token = ?';
-    final whereArgs = runToken == null
-        ? <Object?>[id]
-        : <Object?>[id, 'running', runToken];
-    final changed = await db.update(
-      'generation_jobs',
-      {
-        'status': 'pending',
-        'next_retry_at': null,
-        'last_error': '',
-        'run_token': '',
-        'resume_reason': reason,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: where,
-      whereArgs: whereArgs,
-    );
-    return changed > 0;
-  }
-
-  /// Atomically commit a proactive assistant message only if this device is
-  /// still the writable Active Brain and no user chat turn has started since
-  /// the proactive evaluation began. This closes the tiny race between a
-  /// pre-commit status check and the actual INSERT.
-  ///
-  /// Returns null on success, otherwise a compact reason key.
-  Future<String?> commitProactiveMessageIfCurrent({
-    required ChatMessage message,
-    required DateTime evaluationStartedAt,
-  }) async {
-    final db = await database;
-    return db.transaction<String?>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock', 'chat_turn_lease'],
-      );
-      final settings = <String, String>{};
-      for (final row in settingsRows) {
-        final settingKey = row['key'];
-        if (settingKey is String) {
-          settings[settingKey] = (row['value'] as String?) ?? '';
-        }
-      }
-      if (settings['transfer_lock'] == '1') return 'transfer_lock';
-      if (settings['active_brain'] == '0') return 'inactive_brain';
-      if (_leaseUntil(settings['chat_turn_lease'] ?? '') >
-          DateTime.now().millisecondsSinceEpoch) {
-        return 'chat_turn';
-      }
-
-      final lastUserRows = await txn.query(
-        'messages',
-        columns: ['created_at'],
-        where: 'role = ?',
-        whereArgs: const ['user'],
-        orderBy: 'created_at DESC',
-        limit: 1,
-      );
-      if (lastUserRows.isNotEmpty) {
-        final createdAt = lastUserRows.first['created_at'] as int? ?? 0;
-        if (createdAt > evaluationStartedAt.millisecondsSinceEpoch) {
-          return 'new_user';
-        }
-      }
-
-      await txn.insert(
-        'messages',
-        message.toDb(),
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
-      return null;
-    });
-  }
-
-  Future<ChatMessage?> messageById(String id) async {
-    final db = await database;
-    final rows = await db.query('messages', where: 'id = ?', whereArgs: [id], limit: 1);
-    if (rows.isEmpty) return null;
-    return (await _messagesWithAttachments(db, rows)).single;
-  }
-
-  Future<List<ChatMessage>> recentMessages({int limit = 80}) async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      orderBy: 'created_at DESC',
-      limit: limit,
-    );
-    return _messagesWithAttachments(db, rows.reversed.toList());
-  }
-
-  /// Metadata-only chat history for Reality Grounding and redacted diagnostics.
-  /// Message/reasoning bodies are deliberately not selected.
-  Future<List<ChatMessage>> recentMessageHeaders({int limit = 100}) async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      columns: const [
-        'id', 'role', 'created_at', 'is_proactive', 'expects_reply',
-      ],
-      orderBy: 'created_at DESC',
-      limit: limit,
-    );
-    return rows.reversed.map(ChatMessage.fromDb).toList();
-  }
-
-  Future<ChatMessage?> messageHeaderById(String id) async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      columns: const [
-        'id', 'role', 'created_at', 'is_proactive', 'expects_reply',
-      ],
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return (await _messagesWithAttachments(db, rows)).single;
-  }
-
-  Future<ChatMessage?> latestProactiveMessage() async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      where: 'is_proactive = ?',
-      whereArgs: const [1],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : ChatMessage.fromDb(rows.first);
-  }
-
-  Future<List<ChatMessage>> messagesBefore(
-    DateTime before, {
-    int limit = 100,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      where: 'created_at < ?',
-      whereArgs: [before.millisecondsSinceEpoch],
-      orderBy: 'created_at DESC',
-      limit: limit,
-    );
-    return _messagesWithAttachments(db, rows.reversed.toList());
-  }
-
-  Future<List<ChatMessage>> messagesAfter(
-    DateTime? after, {
-    int limit = 40,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      where: after == null ? null : 'created_at > ?',
-      whereArgs: after == null ? null : [after.millisecondsSinceEpoch],
-      orderBy: 'created_at ASC',
-      limit: limit,
-    );
-    return _messagesWithAttachments(db, rows);
-  }
-
-  Future<List<ChatMessage>> _messagesWithAttachments(
-    DatabaseExecutor executor,
-    List<Map<String, Object?>> rows,
-  ) async {
-    if (rows.isEmpty) return const <ChatMessage>[];
-    final ids = rows.map((row) => row['id'] as String).toList(growable: false);
-    final placeholders = List.filled(ids.length, '?').join(',');
-    final attachmentRows = await executor.query(
-      'message_attachments',
-      where: 'message_id IN ($placeholders)',
-      whereArgs: ids,
-      orderBy: 'created_at ASC, id ASC',
-    );
-    final byMessage = <String, List<MessageAttachment>>{};
-    for (final row in attachmentRows) {
-      final attachment = MessageAttachment.fromDb(row);
-      byMessage.putIfAbsent(attachment.messageId, () => []).add(attachment);
-    }
-    return rows
-        .map(
-          (row) => ChatMessage.fromDb(
-            row,
-            attachments: byMessage[row['id'] as String] ??
-                const <MessageAttachment>[],
-          ),
-        )
-        .toList(growable: false);
-  }
-
-  Future<DateTime?> lastUserMessageAt() async {
-    final db = await database;
-    final rows = await db.query(
-      'messages',
-      columns: ['created_at'],
-      where: 'role = ?',
-      whereArgs: ['user'],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return DateTime.fromMillisecondsSinceEpoch(rows.first['created_at'] as int);
-  }
-
-  Future<void> insertMemory({
-    required String kind,
-    required String content,
-    required double importance,
-    double confidence = 0.72,
-    List<String> tags = const [],
-    String source = 'conversation',
-    String subjectKey = '',
-    bool pinned = false,
-    String semanticType = 'current_fact',
-    String evidenceMode = 'auto',
-    String? targetMemoryId,
-  }) async {
-    final normalized = content.trim();
-    if (normalized.isEmpty) return;
-    final normalizedSubject = subjectKey.trim().toLowerCase();
-    const semanticTypes = {'current_fact', 'inference', 'shared_experience'};
-    const evidenceModes = {'auto', 'append', 'reinforce', 'replace'};
-    var semantic = semanticTypes.contains(semanticType) ? semanticType : 'current_fact';
-    final mode = evidenceModes.contains(evidenceMode) ? evidenceMode : 'auto';
-    if (kind == 'shared_experience') semantic = 'shared_experience';
-    if (semantic == 'current_fact' && confidence < 0.68 && !pinned) {
-      semantic = 'inference';
-    }
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    double evidenceSimilarity(String a, String b) {
-      final left = _tokens(a);
-      final right = _tokens(b);
-      if (left.isEmpty || right.isEmpty) {
-        return a.trim().toLowerCase() == b.trim().toLowerCase() ? 1.0 : 0.0;
-      }
-      final shared = left.where(right.contains).length;
-      return shared / min(left.length, right.length);
-    }
-
-    await db.transaction((txn) async {
-      Future<bool> recordEvidence({
-        required String memoryId,
-        required String evidenceText,
-        required String relation,
-      }) async {
-        final already = await txn.query(
-          'memory_evidence',
-          columns: ['id'],
-          where: 'memory_id = ? AND source = ? AND evidence_text = ?',
-          whereArgs: [memoryId, source, evidenceText],
-          limit: 1,
-        );
-        if (already.isNotEmpty) return false;
-        await txn.insert('memory_evidence', {
-          'id': _uuid.v4(),
-          'memory_id': memoryId,
-          'source': source,
-          'evidence_text': evidenceText,
-          'confidence': confidence.clamp(0.0, 1.0),
-          'relation': relation,
-          'observed_at': now,
-        });
-        return true;
-      }
-
-      Future<void> reinforce(MemoryItem existing, {required String relation}) async {
-        if (source.startsWith('conversation_turn:') && existing.source == source) {
-          return;
-        }
-        final isNewEvidence = await recordEvidence(
-          memoryId: existing.id,
-          evidenceText: normalized,
-          relation: relation,
-        );
-        if (!isNewEvidence) return;
-        final mergedTags = <String>{...existing.tags, ...tags}.take(12).join('|');
-        await txn.update(
-          'memory_items',
-          {
-            'importance': (existing.importance * 0.82 + importance * 0.26)
-                .clamp(0.0, 1.0),
-            'confidence': (existing.confidence + (1 - existing.confidence) *
-                    (0.12 + confidence.clamp(0.0, 1.0) * 0.16))
-                .clamp(0.0, 1.0),
-            'tags': mergedTags,
-            if (existing.subjectKey.isEmpty && normalizedSubject.isNotEmpty)
-              'subject_key': normalizedSubject,
-            if (pinned) 'pinned': 1,
-            'evidence_count': existing.evidenceCount + 1,
-            'last_evidence_at': now,
-            'retention_score': (existing.retentionScore + 0.10).clamp(0.0, 1.0),
-            'retention_checked_at': now,
-            'updated_at': now,
-          },
-          where: 'id = ?',
-          whereArgs: [existing.id],
-        );
-      }
-
-      // A reflection slot and a durable post-turn proposal are idempotent.
-      // Replaying a frozen worker must not manufacture extra evidence.
-      if (source.startsWith('self_reflection_run:')) {
-        final alreadyApplied = await txn.query(
-          'memory_evidence',
-          columns: ['id'],
-          where: 'source = ?',
-          whereArgs: [source],
-          limit: 1,
-        );
-        if (alreadyApplied.isNotEmpty) return;
-        final legacyApplied = await txn.query(
-          'memory_items',
-          columns: ['id'],
-          where: 'source = ?',
-          whereArgs: [source],
-          limit: 1,
-        );
-        if (legacyApplied.isNotEmpty) return;
-      }
-
-      // Explicit reinforce from the extractor is the main paraphrase-merge
-      // path. It preserves the canonical memory text while storing the new
-      // wording as durable evidence in memory_evidence.
-      if (mode == 'reinforce' && targetMemoryId != null && targetMemoryId.trim().isNotEmpty) {
-        final targetRows = await txn.query(
-          'memory_items',
-          where: 'id = ? AND status = ?',
-          whereArgs: [targetMemoryId.trim(), 'active'],
-          limit: 1,
-        );
-        if (targetRows.isNotEmpty) {
-          final target = MemoryItem.fromDb(targetRows.first);
-          final subjectCompatible = normalizedSubject.isNotEmpty &&
-              target.subjectKey.isNotEmpty &&
-              normalizedSubject == target.subjectKey;
-          final wordingCompatible = evidenceSimilarity(normalized, target.content) >= 0.48;
-          if (target.kind == kind && (subjectCompatible || wordingCompatible)) {
-            await reinforce(target, relation: 'reinforced');
-            return;
-          }
-        }
-      }
-
-      // Exact duplicate remains a deterministic local fallback even when the
-      // extraction model did not emit an explicit reinforce target.
-      final duplicate = await txn.query(
-        'memory_items',
-        where: 'kind = ? AND content = ? AND status = ?',
-        whereArgs: [kind, normalized, 'active'],
-        limit: 1,
-      );
-      if (duplicate.isNotEmpty) {
-        final existing = MemoryItem.fromDb(duplicate.first);
-        if (!(existing.isInference && semantic == 'current_fact')) {
-          await reinforce(existing, relation: 'reinforced');
-          return;
-        }
-        // The exact wording may have started life as a tentative inference.
-        // Once the same proposition is explicitly confirmed, create a current
-        // fact version below and supersede the old inference instead of trapping
-        // it forever in the uncertain layer.
-      }
-
-      final id = _uuid.v4();
-      var factVersion = 1;
-
-      if (semantic == 'current_fact' && normalizedSubject.isNotEmpty) {
-        final sameSubject = await txn.query(
-          'memory_items',
-          where: 'kind = ? AND subject_key = ? AND status = ?',
-          whereArgs: [kind, normalizedSubject, 'active'],
-        );
-        final conflicts = sameSubject
-            .where((row) => (row['semantic_type'] as String? ?? 'current_fact') == 'current_fact')
-            .toList(growable: false);
-
-        // Any user-pinned interpretation of this subject is authoritative until
-        // the user edits/unpins it. Automatic extraction must not fork around it.
-        if (sameSubject.any((row) => (row['pinned'] as int? ?? 0) == 1)) return;
-
-        if (mode == 'append' && conflicts.isNotEmpty) {
-          // Two simultaneous "current" values for one subject are ambiguous.
-          // Preserve the new proposal as an inference instead of corrupting the
-          // current-fact invariant.
-          semantic = 'inference';
-        } else {
-          final versionRows = await txn.rawQuery(
-            'SELECT MAX(fact_version) AS max_version FROM memory_items WHERE kind = ? AND subject_key = ?',
-            [kind, normalizedSubject],
-          );
-          final maxVersion = (versionRows.first['max_version'] as num?)?.toInt() ?? 0;
-          factVersion = maxVersion + 1;
-
-          for (final row in sameSubject) {
-            await txn.update(
-              'memory_items',
-              {
-                'status': 'superseded',
-                'superseded_by': id,
-                'updated_at': now,
-              },
-              where: 'id = ?',
-              whereArgs: [row['id']],
-            );
-          }
-        }
-      }
-
-      // Inference and shared-experience rows intentionally coexist. They can be
-      // reinforced later, but never automatically replace a current fact.
-      await txn.insert('memory_items', {
-        'id': id,
-        'kind': kind,
-        'content': normalized,
-        'importance': importance.clamp(0.0, 1.0),
-        'confidence': confidence.clamp(0.0, 1.0),
-        'tags': tags.take(12).join('|'),
-        'source': source,
-        'status': 'active',
-        'subject_key': normalizedSubject,
-        'pinned': pinned ? 1 : 0,
-        'superseded_by': null,
-        'created_at': now,
-        'updated_at': now,
-        'last_recalled_at': null,
-        'recall_count': 0,
-        'retention_score': 1.0,
-        'retention_checked_at': now,
-        'semantic_type': semantic,
-        'evidence_count': 1,
-        'first_observed_at': now,
-        'last_evidence_at': now,
-        'fact_version': factVersion,
-      });
-      await recordEvidence(
-        memoryId: id,
-        evidenceText: normalized,
-        relation: mode == 'replace' ? 'replaced' : 'created',
-      );
-    });
-  }
-
-  Future<List<MemoryItem>> memoriesByKind(
-    String kind, {
-    int limit = 8,
-  }) async {
-    final db = await database;
-    final semantic = kind == 'shared_experience' ? 'shared_experience' : 'current_fact';
-    final rows = await db.query(
-      'memory_items',
-      where: 'kind = ? AND status = ? AND semantic_type = ? AND (retention_score >= ? OR pinned = 1)',
-      whereArgs: [kind, 'active', semantic, 0.14],
-      orderBy: 'pinned DESC, importance DESC, retention_score DESC, confidence DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(MemoryItem.fromDb).toList();
-  }
-
-  Future<List<MemoryItem>> memoryInferencesByKind(
-    String kind, {
-    int limit = 6,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'kind = ? AND status = ? AND semantic_type = ? AND retention_score >= ?',
-      whereArgs: [kind, 'active', 'inference', 0.18],
-      orderBy: 'importance DESC, confidence DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(MemoryItem.fromDb).toList();
-  }
-
-  Future<List<MemoryItem>> relevantMemories(
-    String query, {
-    int limit = 12,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: "status = ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: ['active'],
-      orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
-      limit: 180,
-    );
-    final queryTokens = _tokens(query);
-    final now = DateTime.now();
-    final scored = <({MemoryItem item, double score})>[];
-    for (final row in rows) {
-      final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
-      final ageDays = now.difference(item.updatedAt).inHours / 24.0;
-      final recency = 1 / (1 + ageDays / 45.0);
-      final kindBoost = switch (item.kind) {
-        'shared_experience' => 0.05,
-        'preference' => 0.045,
-        'user_profile' => 0.035,
-        'ai_self' => 0.03,
-        _ => 0.0,
-      };
-      final familiarity = (item.recallCount / 12.0).clamp(0.0, 1.0).toDouble();
-      final score = item.importance * 0.34 +
-          item.confidence * 0.16 +
-          overlap * 0.32 +
-          recency * 0.10 +
-          familiarity * 0.03 +
-          item.retentionScore * 0.15 +
-          (item.pinned ? 0.18 : 0.0) +
-          kindBoost;
-      scored.add((item: item, score: score));
-    }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    final selected = scored.take(limit).map((e) => e.item).toList();
-    if (selected.isNotEmpty) {
-      final batch = db.batch();
-      for (final item in selected) {
-        batch.update(
-          'memory_items',
-          {
-            'last_recalled_at': now.millisecondsSinceEpoch,
-            'recall_count': item.recallCount + 1,
-            'retention_score': (item.retentionScore + 0.025).clamp(0.0, 1.0),
-            'retention_checked_at': now.millisecondsSinceEpoch,
-          },
-          where: 'id = ?',
-          whereArgs: [item.id],
-        );
-      }
-      await batch.commit(noResult: true);
-    }
-    return selected;
-  }
-
-  Future<List<MemoryItem>> memoryCandidatesForExtraction(
-    String query, {
-    int limit = 14,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ?',
-      whereArgs: ['active'],
-      orderBy: 'pinned DESC, importance DESC, confidence DESC, updated_at DESC',
-      limit: 220,
-    );
-    final queryTokens = _tokens(query);
-    final scored = <({MemoryItem item, double score})>[];
-    for (final row in rows) {
-      final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
-      final semanticBoost = switch (item.semanticType) {
-        'current_fact' => 0.08,
-        'shared_experience' => 0.04,
-        _ => 0.0,
-      };
-      final score = overlap * 0.58 +
-          item.importance * 0.17 +
-          item.confidence * 0.10 +
-          (item.pinned ? 0.22 : 0.0) +
-          semanticBoost;
-      scored.add((item: item, score: score));
-    }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
-  }
-
-  Future<List<MemoryItem>> relevantMemoryInferences(
-    String query, {
-    int limit = 3,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ? AND semantic_type = ? AND retention_score >= ?',
-      whereArgs: ['active', 'inference', 0.18],
-      orderBy: 'importance DESC, confidence DESC, updated_at DESC',
-      limit: 120,
-    );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
-    final scored = <({MemoryItem item, double score})>[];
-    for (final row in rows) {
-      final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.72 + item.confidence * 0.18 + item.importance * 0.10));
-    }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
-  }
-
-  Future<List<MemoryItem>> relevantHistoricalMemories(
-    String query, {
-    int limit = 3,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ? AND semantic_type = ? AND subject_key <> ?',
-      whereArgs: ['superseded', 'current_fact', ''],
-      orderBy: 'updated_at DESC',
-      limit: 140,
-    );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
-    final scored = <({MemoryItem item, double score})>[];
-    for (final row in rows) {
-      final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.78 + item.importance * 0.14 + item.confidence * 0.08));
-    }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
-  }
-
-  Future<List<Map<String, Object?>>> memoryEvidenceFor(
-    String memoryId, {
-    int limit = 40,
-  }) async {
-    final db = await database;
-    return db.query(
-      'memory_evidence',
-      where: 'memory_id = ?',
-      whereArgs: [memoryId],
-      orderBy: 'observed_at DESC',
-      limit: limit,
-    );
-  }
-
-  Future<List<MemoryItem>> memoryCandidatesForSelfDrive({int limit = 24}) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: "status = ? AND retention_score >= ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: ['active', 0.18],
-      orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(MemoryItem.fromDb).toList();
-  }
-
-  Future<List<MemoryItem>> listMemories({
-    String? kind,
-    String status = 'active',
-    int limit = 300,
-  }) async {
-    final db = await database;
-    final clauses = <String>['status = ?'];
-    final args = <Object?>[status];
-    if (kind != null && kind.isNotEmpty && kind != 'all') {
-      clauses.add('kind = ?');
-      args.add(kind);
-    }
-    final rows = await db.query(
-      'memory_items',
-      where: clauses.join(' AND '),
-      whereArgs: args,
-      orderBy: 'importance DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(MemoryItem.fromDb).toList();
-  }
-
-  Future<void> updateMemoryItem({
-    required String id,
-    required String content,
-    required double importance,
-    required double confidence,
-    required List<String> tags,
-    String? subjectKey,
-    bool? pinned,
-  }) async {
-    final normalized = content.trim();
-    if (normalized.isEmpty) return;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.transaction((txn) async {
-      final rows = await txn.query(
-        'memory_items',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return;
-      final existing = MemoryItem.fromDb(rows.first);
-      final normalizedSubject = subjectKey != null
-          ? subjectKey.trim().toLowerCase()
-          : existing.subjectKey;
-      if (existing.status == 'active' &&
-          existing.semanticType == 'current_fact' &&
-          normalizedSubject.isNotEmpty) {
-        final conflicts = await txn.query(
-          'memory_items',
-          columns: ['id'],
-          where: "kind = ? AND subject_key = ? AND status = 'active' AND semantic_type = 'current_fact' AND id <> ?",
-          whereArgs: [existing.kind, normalizedSubject, id],
-          limit: 1,
-        );
-        if (conflicts.isNotEmpty) {
-          throw StateError('current_fact_subject_conflict');
-        }
-      }
-
-      final contentChanged = existing.content != normalized;
-      if (contentChanged) {
-        final priorEvidence = Sqflite.firstIntValue(await txn.rawQuery(
-              'SELECT COUNT(*) FROM memory_evidence WHERE memory_id = ?',
-              [id],
-            )) ??
-            0;
-        if (priorEvidence == 0 && existing.content.trim().isNotEmpty) {
-          await txn.insert(
-            'memory_evidence',
-            {
-              'id': _uuid.v4(),
-              'memory_id': id,
-              'source': 'legacy_before_manual_edit:$now',
-              'evidence_text': existing.content,
-              'confidence': existing.confidence,
-              'relation': 'manual_edit_previous',
-              'observed_at': existing.lastEvidenceAt.millisecondsSinceEpoch,
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-        }
-        final manualSource = 'manual_edit:$now';
-        await txn.insert(
-          'memory_evidence',
-          {
-            'id': _uuid.v4(),
-            'memory_id': id,
-            'source': manualSource,
-            'evidence_text': normalized,
-            'confidence': confidence.clamp(0.0, 1.0),
-            'relation': 'manual_edit',
-            'observed_at': now,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-      await txn.update(
-        'memory_items',
-        {
-          'content': normalized,
-          'importance': importance.clamp(0.0, 1.0),
-          'confidence': confidence.clamp(0.0, 1.0),
-          'tags': tags.map((e) => e.trim()).where((e) => e.isNotEmpty).take(12).join('|'),
-          if (subjectKey != null) 'subject_key': normalizedSubject,
-          if (pinned != null) 'pinned': pinned ? 1 : 0,
-          if (contentChanged) 'evidence_count': existing.evidenceCount + 1,
-          if (contentChanged) 'last_evidence_at': now,
-          'retention_score': 1.0,
-          'retention_checked_at': now,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-  }
-
-  Future<void> setMemoryStatus(String id, String status) async {
-    const allowed = {'active', 'archived', 'superseded'};
-    if (!allowed.contains(status)) {
-      throw ArgumentError.value(status, 'status', 'Unsupported memory status');
-    }
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.transaction((txn) async {
-      final rows = await txn.query(
-        'memory_items',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return;
-      final existing = MemoryItem.fromDb(rows.first);
-      if (status == 'active' &&
-          existing.semanticType == 'current_fact' &&
-          existing.subjectKey.isNotEmpty) {
-        final conflicts = await txn.query(
-          'memory_items',
-          columns: ['id'],
-          where: "kind = ? AND subject_key = ? AND status = 'active' AND semantic_type = 'current_fact' AND id <> ?",
-          whereArgs: [existing.kind, existing.subjectKey, id],
-          limit: 1,
-        );
-        if (conflicts.isNotEmpty) {
-          throw StateError('current_fact_subject_conflict');
-        }
-      }
-      await txn.update(
-        'memory_items',
-        {
-          'status': status,
-          if (status == 'active') 'retention_score': 0.72,
-          if (status == 'active') 'retention_checked_at': now,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-  }
-
-  Set<String> _tokens(String text) {
-    final lowered = text.toLowerCase();
-    final latin = RegExp(r'[a-z0-9_]{2,}').allMatches(lowered).map((m) => m[0]!);
-    final chinese = <String>[];
-    final chars = lowered.runes.map(String.fromCharCode).toList();
-    for (var i = 0; i < chars.length - 1; i++) {
-      final pair = '${chars[i]}${chars[i + 1]}';
-      if (RegExp(r'[\u4e00-\u9fff]{2}').hasMatch(pair)) chinese.add(pair);
-    }
-    return {...latin, ...chinese};
-  }
-
-  Future<List<CompanionThought>> activeThoughts({int limit = 20}) async {
-    final db = await database;
-    final rows = await db.query(
-      'thoughts',
-      where: "lifecycle_state IN ('active','fixation','acted','residual')",
-      orderBy: 'strength DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(CompanionThought.fromDb).toList();
-  }
-
-  /// Metadata-only Thought read for redacted diagnostics. The SQL substitutes
-  /// an empty text value so the private Thought body is never read from disk.
-  Future<List<CompanionThought>> activeThoughtMetadata({int limit = 40}) async {
-    final db = await database;
-    final rows = await db.rawQuery('''
-      SELECT id, '' AS text, drive_key, kind, strength, born_at, updated_at,
-             fed_count, source, last_fed_at, lifecycle_state, action_count,
-             last_acted_at, last_satisfied_at, last_resurfaced_at,
-             resurfaced_count, residual_strength, last_outbound_message_id,
-             topic_key, merged_count, last_merged_at, snoozed_until
-      FROM thoughts
-      WHERE lifecycle_state IN ('active','fixation','acted','residual')
-      ORDER BY strength DESC, updated_at DESC
-      LIMIT ?
-    ''', [limit]);
-    return rows.map(CompanionThought.fromDb).toList();
-  }
-
-  Future<CompanionThought?> latestActiveThought() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final rows = await db.query(
-      'thoughts',
-      where: "lifecycle_state IN ('active','fixation') AND "
-          '(snoozed_until IS NULL OR snoozed_until <= ?)',
-      whereArgs: [now],
-      orderBy: 'updated_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : CompanionThought.fromDb(rows.first);
-  }
-
-  /// Read-only candidates for daily companion-facing relationship surfaces.
-  /// Residual/acted/dormant and snoozed Thoughts are excluded in SQL so a
-  /// large long-running pool cannot crowd current cares out of a bounded read.
-  Future<List<CompanionThought>> currentThoughtsForPresentation({int limit = 30}) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final rows = await db.query(
-      'thoughts',
-      where: "lifecycle_state IN ('active','fixation') AND "
-          '(snoozed_until IS NULL OR snoozed_until <= ?)',
-      whereArgs: [now],
-      orderBy: 'strength DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(CompanionThought.fromDb).toList();
-  }
-
-  Future<void> upsertThought({
-    String? id,
-    required String text,
-    required DriveKey drive,
-    required String kind,
-    required double strength,
-    int fedCount = 0,
-    DateTime? bornAt,
-    DateTime? lastFedAt,
-    String source = 'internal',
-    String lifecycleState = 'active',
-    int actionCount = 0,
-    DateTime? lastActedAt,
-    DateTime? lastSatisfiedAt,
-    DateTime? lastResurfacedAt,
-    int resurfacedCount = 0,
-    double residualStrength = 0,
-    String? lastOutboundMessageId,
-    String topicKey = '',
-    int mergedCount = 0,
-    DateTime? lastMergedAt,
-    DateTime? snoozedUntil,
-  }) async {
-    final normalized = text.trim();
-    if (normalized.isEmpty) return;
-    final db = await database;
-    final now = DateTime.now();
-    await db.insert(
-      'thoughts',
-      {
-        'id': id ?? _uuid.v4(),
-        'text': normalized,
-        'drive_key': drive.name,
-        'kind': kind,
-        'strength': strength.clamp(0.0, 1.0),
-        'born_at': (bornAt ?? now).millisecondsSinceEpoch,
-        'updated_at': now.millisecondsSinceEpoch,
-        'fed_count': fedCount,
-        'source': source,
-        'last_fed_at': (lastFedAt ?? now).millisecondsSinceEpoch,
-        'lifecycle_state': lifecycleState,
-        'action_count': actionCount,
-        'last_acted_at': lastActedAt?.millisecondsSinceEpoch,
-        'last_satisfied_at': lastSatisfiedAt?.millisecondsSinceEpoch,
-        'last_resurfaced_at': lastResurfacedAt?.millisecondsSinceEpoch,
-        'resurfaced_count': resurfacedCount,
-        'residual_strength': residualStrength.clamp(0.0, 1.0),
-        'last_outbound_message_id': lastOutboundMessageId,
-        'topic_key': topicKey.trim().toLowerCase(),
-        'merged_count': mergedCount,
-        'last_merged_at': lastMergedAt?.millisecondsSinceEpoch,
-        'snoozed_until': snoozedUntil?.millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> deleteThought(String id) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      // Lifecycle/audit rows are owned by the Thought. Feedback is historical
-      // evidence, so keep it but detach the deleted thought reference.
-      await txn.delete('thought_lifecycle_events', where: 'thought_id = ?', whereArgs: [id]);
-      await txn.update('proactive_feedback', {'thought_id': null}, where: 'thought_id = ?', whereArgs: [id]);
-      await txn.delete('thoughts', where: 'id = ?', whereArgs: [id]);
-    });
-  }
-
-  Future<CompanionThought?> thoughtById(String id) async {
-    final db = await database;
-    final rows = await db.query('thoughts', where: 'id = ?', whereArgs: [id], limit: 1);
-    return rows.isEmpty ? null : CompanionThought.fromDb(rows.first);
-  }
-
-  Future<List<CompanionThought>> lifecycleThoughts({int limit = 80}) async {
-    final db = await database;
-    final rows = await db.query('thoughts', orderBy: 'updated_at DESC', limit: limit);
-    return rows.map(CompanionThought.fromDb).toList();
-  }
-
-  Future<CompanionThought?> thoughtBySource(String source) async {
-    final normalized = source.trim();
-    if (normalized.isEmpty) return null;
-    final db = await database;
-    final rows = await db.query(
-      'thoughts',
-      where: 'source = ?',
-      whereArgs: [normalized],
-      orderBy: 'updated_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : CompanionThought.fromDb(rows.first);
-  }
-
-  Future<List<CompanionThought>> thoughtsByTopic(
-    String topicKey, {
-    int limit = 24,
-  }) async {
-    final key = topicKey.trim().toLowerCase();
-    if (key.isEmpty) return const [];
-    final db = await database;
-    final rows = await db.query(
-      'thoughts',
-      where: 'topic_key = ?',
-      whereArgs: [key],
-      orderBy: 'strength DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(CompanionThought.fromDb).toList();
-  }
-
-  Future<bool> markThoughtResponseReceivedAtomic({
-    required String thoughtId,
-    required double responseQuality,
-    required String responseMessageId,
-  }) async {
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final seen = await txn.query(
-        'thought_lifecycle_events',
-        columns: ['id'],
-        where: 'thought_id = ? AND event_type = ? AND message_id = ?',
-        whereArgs: [thoughtId, 'response_received', responseMessageId],
-        limit: 1,
-      );
-      if (seen.isNotEmpty) return true;
-      final rows = await txn.query('thoughts', where: 'id = ?', whereArgs: [thoughtId], limit: 1);
-      if (rows.isEmpty) return false;
-      final thought = CompanionThought.fromDb(rows.first);
-      final quality = responseQuality.clamp(0.0, 1.0).toDouble();
-      final base = max(thought.residualStrength, thought.strength);
-      final residual = (base * (0.78 - quality * 0.20)).clamp(0.16, 0.64).toDouble();
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await txn.update(
-        'thoughts',
-        {
-          'lifecycle_state': 'residual',
-          'strength': residual,
-          'residual_strength': residual,
-          'last_outbound_message_id': null,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [thoughtId],
-      );
-      await txn.insert('thought_lifecycle_events', {
-        'id': _uuid.v4(),
-        'thought_id': thoughtId,
-        'event_type': 'response_received',
-        'message_id': responseMessageId,
-        'detail': 'ç”¨æˆ·å·²ç»å›žåº”ä¸»åŠ¨æ¶ˆæ¯ï¼›å…ˆè§£é™¤ç­‰å¾…çŠ¶æ€ï¼Œæ˜¯å¦çœŸæ­£è§£å†³è¯¥å¿µå¤´ç•™ç»™å®Œæ•´å¯¹è¯ç»“æžœåˆ¤æ–­ã€‚',
-        'created_at': now,
-      });
-      return true;
-    });
-  }
-
-  Future<bool> applyThoughtResponseOutcomeAtomic({
-    required String thoughtId,
-    required String outcome,
-    required double resolution,
-    required String responseMessageId,
-  }) async {
-    final db = await database;
-    final normalizedOutcome = const {
-      'resolved', 'engaged', 'deferred', 'dismissed', 'redirected', 'acknowledged'
-    }.contains(outcome) ? outcome : 'acknowledged';
-    return db.transaction<bool>((txn) async {
-      final eventType = 'response_outcome_$normalizedOutcome';
-      final seen = await txn.query(
-        'thought_lifecycle_events',
-        columns: ['id'],
-        where: 'thought_id = ? AND event_type = ? AND message_id = ?',
-        whereArgs: [thoughtId, eventType, responseMessageId],
-        limit: 1,
-      );
-      if (seen.isNotEmpty) return true;
-      final rows = await txn.query('thoughts', where: 'id = ?', whereArgs: [thoughtId], limit: 1);
-      if (rows.isEmpty) return false;
-      final thought = CompanionThought.fromDb(rows.first);
-      final now = DateTime.now();
-      final r = resolution.clamp(0.0, 1.0).toDouble();
-      final base = max(thought.residualStrength, thought.strength);
-      late final String state;
-      late final double residual;
-      DateTime? snooze;
-      switch (normalizedOutcome) {
-        case 'resolved':
-          residual = (base * (0.30 - r * 0.18)).clamp(0.04, 0.16).toDouble();
-          state = residual <= 0.10 ? 'dormant' : 'residual';
-          break;
-        case 'engaged':
-          residual = (base * (0.62 - r * 0.22)).clamp(0.14, 0.46).toDouble();
-          state = 'residual';
-          break;
-        case 'deferred':
-          residual = (base * 0.88).clamp(0.28, 0.70).toDouble();
-          state = 'residual';
-          snooze = now.add(const Duration(hours: 4));
-          break;
-        case 'dismissed':
-          residual = (base * 0.22).clamp(0.03, 0.14).toDouble();
-          state = 'dormant';
-          snooze = now.add(const Duration(days: 7));
-          break;
-        case 'redirected':
-          residual = (base * 0.48).clamp(0.08, 0.34).toDouble();
-          state = residual <= 0.10 ? 'dormant' : 'residual';
-          snooze = now.add(const Duration(hours: 12));
-          break;
-        case 'acknowledged':
-        default:
-          residual = (base * 0.60).clamp(0.12, 0.40).toDouble();
-          state = 'residual';
-          break;
-      }
-      final nowMs = now.millisecondsSinceEpoch;
-      await txn.update(
-        'thoughts',
-        {
-          'lifecycle_state': state,
-          'strength': residual,
-          'residual_strength': residual,
-          'last_satisfied_at': nowMs,
-          'snoozed_until': snooze?.millisecondsSinceEpoch,
-          'last_outbound_message_id': null,
-          'updated_at': nowMs,
-        },
-        where: 'id = ?',
-        whereArgs: [thoughtId],
-      );
-      await txn.insert('thought_lifecycle_events', {
-        'id': _uuid.v4(),
-        'thought_id': thoughtId,
-        'event_type': eventType,
-        'message_id': responseMessageId,
-        'detail': 'ä¸»åŠ¨è¯é¢˜å›žåº”ç»“æžœ=$normalizedOutcomeï¼Œresolution=${r.toStringAsFixed(2)}ã€‚',
-        'created_at': nowMs,
-      });
-      return true;
-    });
-  }
-
-  Future<bool> applyProactiveThreadOutcomeOnce({
-    required String threadId,
-    required String outcome,
-    required String responseMessageId,
-    DateTime? followupDueAt,
-  }) async {
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'unfinished_threads',
-        where: 'id = ?',
-        whereArgs: [threadId],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final row = rows.first;
-      if ((row['proactive_outcome_message_id'] as String? ?? '') == responseMessageId) {
-        return true;
-      }
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final values = <String, Object?>{
-        'proactive_outcome_message_id': responseMessageId,
-        'updated_at': now,
-      };
-      switch (outcome) {
-        case 'resolved':
-          values.addAll({
-            'status': 'resolved',
-            'resolved_at': now,
-            'followup_due_at': null,
-            'followup_seeded_at': null,
-            'followup_run_token': '',
-            'followup_claimed_at': null,
-          });
-          break;
-        case 'dismissed':
-          values.addAll({
-            'status': 'dismissed',
-            'resolved_at': now,
-            'followup_due_at': null,
-            'followup_seeded_at': null,
-            'followup_run_token': '',
-            'followup_claimed_at': null,
-          });
-          break;
-        case 'deferred':
-          values.addAll({
-            'followup_due_at': followupDueAt?.millisecondsSinceEpoch,
-            'followup_seeded_at': null,
-            'followup_run_token': '',
-            'followup_claimed_at': null,
-          });
-          break;
-        case 'engaged':
-        case 'acknowledged':
-        case 'redirected':
-        default:
-          values.addAll({
-            'followup_due_at': null,
-            'followup_seeded_at': null,
-            'followup_run_token': '',
-            'followup_claimed_at': null,
-          });
-          break;
-      }
-      final changed = await txn.update(
-        'unfinished_threads',
-        values,
-        where: 'id = ? AND proactive_outcome_message_id IS NOT ?',
-        whereArgs: [threadId, responseMessageId],
-      );
-      return changed == 1;
-    });
-  }
-
-  Future<bool> updateThoughtLifecycle(
-    String id, {
-    String? lifecycleState,
-    String? kind,
-    double? strength,
-    double? residualStrength,
-    int? actionCount,
-    DateTime? lastActedAt,
-    DateTime? lastSatisfiedAt,
-    DateTime? lastResurfacedAt,
-    int? resurfacedCount,
-    String? lastOutboundMessageId,
-    String? topicKey,
-    int? mergedCount,
-    DateTime? lastMergedAt,
-    DateTime? snoozedUntil,
-    bool clearOutboundMessage = false,
-    bool clearSnooze = false,
-    DateTime? expectedUpdatedAt,
-  }) async {
-    final values = <String, Object?>{
-      if (lifecycleState != null) 'lifecycle_state': lifecycleState,
-      if (kind != null) 'kind': kind,
-      if (strength != null) 'strength': strength.clamp(0.0, 1.0),
-      if (residualStrength != null)
-        'residual_strength': residualStrength.clamp(0.0, 1.0),
-      if (actionCount != null) 'action_count': actionCount,
-      if (lastActedAt != null) 'last_acted_at': lastActedAt.millisecondsSinceEpoch,
-      if (lastSatisfiedAt != null)
-        'last_satisfied_at': lastSatisfiedAt.millisecondsSinceEpoch,
-      if (lastResurfacedAt != null)
-        'last_resurfaced_at': lastResurfacedAt.millisecondsSinceEpoch,
-      if (resurfacedCount != null) 'resurfaced_count': resurfacedCount,
-      if (lastOutboundMessageId != null)
-        'last_outbound_message_id': lastOutboundMessageId,
-      if (topicKey != null) 'topic_key': topicKey.trim().toLowerCase(),
-      if (mergedCount != null) 'merged_count': mergedCount,
-      if (lastMergedAt != null) 'last_merged_at': lastMergedAt.millisecondsSinceEpoch,
-      if (snoozedUntil != null) 'snoozed_until': snoozedUntil.millisecondsSinceEpoch,
-      if (clearOutboundMessage) 'last_outbound_message_id': null,
-      if (clearSnooze) 'snoozed_until': null,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    };
-    final db = await database;
-    final changed = await db.update(
-      'thoughts',
-      values,
-      where: expectedUpdatedAt == null ? 'id = ?' : 'id = ? AND updated_at = ?',
-      whereArgs: expectedUpdatedAt == null
-          ? <Object?>[id]
-          : <Object?>[id, expectedUpdatedAt.millisecondsSinceEpoch],
-    );
-    return changed == 1;
-  }
-
-  Future<bool> hasThoughtLifecycleEvent({
-    required String thoughtId,
-    required String eventType,
-    String? messageId,
-    String? detail,
-  }) async {
-    final db = await database;
-    final clauses = <String>['thought_id = ?', 'event_type = ?'];
-    final args = <Object?>[thoughtId, eventType];
-    if (messageId != null) {
-      clauses.add('message_id = ?');
-      args.add(messageId);
-    }
-    if (detail != null) {
-      clauses.add('detail = ?');
-      args.add(detail);
-    }
-    final rows = await db.query(
-      'thought_lifecycle_events',
-      columns: ['id'],
-      where: clauses.join(' AND '),
-      whereArgs: args,
-      limit: 1,
-    );
-    return rows.isNotEmpty;
-  }
-
-  /// Exactly-once Thought reinforcement for one cached post-turn proposal.
-  /// The evidence row and the Thought mutation are committed together, so a
-  /// retry of the same assistant turn cannot increment fed_count twice.
-  Future<bool> applyPostTurnThoughtEvidenceAtomic({
-    required String sourceMessageId,
-    required String evidenceKey,
-    required String text,
-    required DriveKey drive,
-    required double incomingStrength,
-    String topicKey = '',
-  }) async {
-    final normalizedText = text.trim();
-    final normalizedTopic = topicKey.trim().toLowerCase();
-    final normalizedEvidence = evidenceKey.trim();
-    if (sourceMessageId.isEmpty || normalizedText.isEmpty || normalizedEvidence.isEmpty) {
-      return false;
-    }
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final seen = await txn.query(
-        'thought_lifecycle_events',
-        columns: ['id'],
-        where: 'event_type = ? AND message_id = ? AND detail = ?',
-        whereArgs: ['post_turn_evidence', sourceMessageId, normalizedEvidence],
-        limit: 1,
-      );
-      if (seen.isNotEmpty) return true;
-
-      List<Map<String, Object?>> matches;
-      if (normalizedTopic.isNotEmpty) {
-        matches = await txn.query(
-          'thoughts',
-          where: 'drive_key = ? AND topic_key = ?',
-          whereArgs: [drive.name, normalizedTopic],
-          orderBy: 'updated_at DESC',
-          limit: 1,
-        );
-      } else {
-        matches = await txn.query(
-          'thoughts',
-          where: 'drive_key = ? AND text = ?',
-          whereArgs: [drive.name, normalizedText],
-          orderBy: 'updated_at DESC',
-          limit: 1,
-        );
-      }
-      final now = DateTime.now().millisecondsSinceEpoch;
-      String thoughtId;
-      if (matches.isEmpty) {
-        thoughtId = _uuid.v4();
-        final strength = incomingStrength.clamp(0.08, 0.70).toDouble();
-        await txn.insert('thoughts', {
-          'id': thoughtId,
-          'text': normalizedText,
-          'drive_key': drive.name,
-          'kind': strength >= 0.68 ? 'fixation' : 'flit',
-          'strength': strength,
-          'born_at': now,
-          'updated_at': now,
-          'fed_count': 1,
-          'source': 'conversation_turn:$sourceMessageId',
-          'last_fed_at': now,
-          'lifecycle_state': strength >= 0.68 ? 'fixation' : 'active',
-          'action_count': 0,
-          'last_acted_at': null,
-          'last_satisfied_at': null,
-          'last_resurfaced_at': null,
-          'resurfaced_count': 0,
-          'residual_strength': 0.0,
-          'last_outbound_message_id': null,
-          'topic_key': normalizedTopic,
-          'merged_count': 0,
-          'last_merged_at': null,
-          'snoozed_until': null,
-        });
-      } else {
-        final thought = CompanionThought.fromDb(matches.first);
-        thoughtId = thought.id;
-        final fed = thought.fedCount + 1;
-        final nextStrength =
-            (thought.strength * 0.88 + incomingStrength * 0.55 + 0.06)
-                .clamp(0.0, 1.0)
-                .toDouble();
-        final fixation = fed >= 3 || nextStrength >= 0.68;
-        await txn.update(
-          'thoughts',
-          {
-            'strength': nextStrength,
-            'fed_count': fed,
-            'kind': fixation ? 'fixation' : thought.kind,
-            'lifecycle_state': fixation ? 'fixation' : 'active',
-            'last_fed_at': now,
-            'updated_at': now,
-            if (thought.topicKey.isEmpty && normalizedTopic.isNotEmpty)
-              'topic_key': normalizedTopic,
-            // A new real conversation is authoritative enough to reopen a
-            // snoozed topic. This mirrors DesireEngine.feedThought behavior.
-            'snoozed_until': null,
-          },
-          where: 'id = ?',
-          whereArgs: [thought.id],
-        );
-      }
-      await txn.insert('thought_lifecycle_events', {
-        'id': _uuid.v4(),
-        'thought_id': thoughtId,
-        'event_type': 'post_turn_evidence',
-        'detail': normalizedEvidence,
-        'message_id': sourceMessageId,
-        'created_at': now,
-      });
-      return true;
-    });
-  }
-
-  Future<void> addThoughtLifecycleEvent({
-    required String thoughtId,
-    required String eventType,
-    String detail = '',
-    String? messageId,
-  }) async {
-    final db = await database;
-    await db.insert('thought_lifecycle_events', {
-      'id': _uuid.v4(),
-      'thought_id': thoughtId,
-      'event_type': eventType,
-      'detail': detail,
-      'message_id': messageId,
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    });
-  }
-
-  Future<List<ThoughtLifecycleEvent>> recentThoughtLifecycleEvents({int limit = 80}) async {
-    final db = await database;
-    final rows = await db.query('thought_lifecycle_events', orderBy: 'created_at DESC', limit: limit);
-    return rows.map(ThoughtLifecycleEvent.fromDb).toList();
-  }
-
-  Future<bool> mergeThoughtRecords({
-    required CompanionThought primary,
-    required List<CompanionThought> duplicates,
-  }) async {
-    if (duplicates.isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now();
-    return db.transaction<bool>((txn) async {
-      final all = <CompanionThought>[primary, ...duplicates];
-      // Thought consolidation works from an in-memory snapshot. If a chat,
-      // relationship event or lifecycle worker changed any candidate after the
-      // scan, abandon this merge instead of deleting/replacing fresh evidence.
-      for (final thought in all) {
-        final currentRows = await txn.query(
-          'thoughts',
-          columns: ['updated_at'],
-          where: 'id = ?',
-          whereArgs: [thought.id],
-          limit: 1,
-        );
-        if (currentRows.isEmpty ||
-            (currentRows.first['updated_at'] as int? ?? 0) !=
-                thought.updatedAt.millisecondsSinceEpoch) {
-          return false;
-        }
-      }
-      DateTime? latest(DateTime? a, DateTime? b) {
-        if (a == null) return b;
-        if (b == null) return a;
-        return a.isAfter(b) ? a : b;
-      }
-      // A fresh active/fixation copy means the topic has been reactivated
-      // after a previous outbound action. It must not be suppressed merely
-      // because an older duplicate is in `acted` state.
-      final stateRank = <String, int>{
-        'dormant': 0,
-        'residual': 1,
-        'acted': 2,
-        'active': 3,
-        'fixation': 4,
-      };
-      var chosenState = primary.lifecycleState;
-      var chosenKind = primary.kind;
-      var strength = primary.strength;
-      var residual = primary.residualStrength;
-      var fed = 0;
-      var actions = 0;
-      var resurfaced = 0;
-      var mergedCount = 0;
-      var born = primary.bornAt;
-      DateTime? lastFed = primary.lastFedAt;
-      DateTime? lastActed = primary.lastActedAt;
-      DateTime? lastSatisfied = primary.lastSatisfiedAt;
-      DateTime? lastResurfaced = primary.lastResurfacedAt;
-      DateTime? snoozedUntil = primary.snoozedUntil;
-      String? outbound = primary.lastOutboundMessageId;
-      var topicKey = primary.topicKey;
-      var bestText = primary.text;
-      var bestTextScore = primary.strength + primary.fedCount * 0.02;
-
-      for (final t in all) {
-        fed += t.fedCount;
-        actions += t.actionCount;
-        resurfaced += t.resurfacedCount;
-        mergedCount += t.mergedCount;
-        if (t.bornAt.isBefore(born)) born = t.bornAt;
-        lastFed = latest(lastFed, t.lastFedAt);
-        lastActed = latest(lastActed, t.lastActedAt);
-        lastSatisfied = latest(lastSatisfied, t.lastSatisfiedAt);
-        lastResurfaced = latest(lastResurfaced, t.lastResurfacedAt);
-        snoozedUntil = latest(snoozedUntil, t.snoozedUntil);
-        if ((stateRank[t.lifecycleState] ?? 0) > (stateRank[chosenState] ?? 0)) {
-          chosenState = t.lifecycleState;
-          chosenKind = t.kind;
-        }
-        if (t.lastOutboundMessageId != null &&
-            (lastActed == null || t.lastActedAt == lastActed)) {
-          outbound = t.lastOutboundMessageId;
-        }
-        if (t.topicKey.isNotEmpty) topicKey = t.topicKey;
-        strength = t.strength > strength ? t.strength : strength;
-        residual = t.residualStrength > residual ? t.residualStrength : residual;
-        final textScore = t.strength + t.fedCount * 0.02;
-        if (textScore > bestTextScore) {
-          bestTextScore = textScore;
-          bestText = t.text;
-        }
-      }
-      strength = (strength + duplicates.length * 0.025).clamp(0.0, 0.95).toDouble();
-      final ids = duplicates.map((e) => e.id).toList(growable: false);
-      for (final duplicateId in ids) {
-        await txn.update('proactive_feedback', {'thought_id': primary.id}, where: 'thought_id = ?', whereArgs: [duplicateId]);
-        await txn.update('thought_lifecycle_events', {'thought_id': primary.id}, where: 'thought_id = ?', whereArgs: [duplicateId]);
-      }
-      await txn.update('thoughts', {
-        'text': bestText,
-        'kind': chosenKind,
-        'strength': strength,
-        'born_at': born.millisecondsSinceEpoch,
-        'updated_at': now.millisecondsSinceEpoch,
-        'fed_count': fed,
-        'last_fed_at': lastFed?.millisecondsSinceEpoch,
-        'lifecycle_state': chosenState,
-        'action_count': actions,
-        'last_acted_at': lastActed?.millisecondsSinceEpoch,
-        'last_satisfied_at': lastSatisfied?.millisecondsSinceEpoch,
-        'last_resurfaced_at': lastResurfaced?.millisecondsSinceEpoch,
-        'resurfaced_count': resurfaced.clamp(0, 12).toInt(),
-        'residual_strength': residual,
-        'last_outbound_message_id': outbound,
-        'topic_key': topicKey,
-        'merged_count': mergedCount + duplicates.length,
-        'last_merged_at': now.millisecondsSinceEpoch,
-        'snoozed_until': snoozedUntil?.millisecondsSinceEpoch,
-      }, where: 'id = ?', whereArgs: [primary.id]);
-      for (final duplicateId in ids) {
-        await txn.delete('thoughts', where: 'id = ?', whereArgs: [duplicateId]);
-      }
-      await txn.insert('thought_lifecycle_events', {
-        'id': _uuid.v4(),
-        'thought_id': primary.id,
-        'event_type': 'merged_duplicates',
-        'detail': 'æœ¬åœ°é•¿æœŸåŽ»é‡åˆå¹¶ ${duplicates.length} æ¡ç›¸ä¼¼å¿µå¤´ã€‚',
-        'created_at': now.millisecondsSinceEpoch,
-      });
-      return true;
-    });
-  }
-
-  Future<DesireSnapshot> loadDesire() async {
-    final db = await database;
-    final rows = await db.query('desire_state', where: 'id = 1', limit: 1);
-    if (rows.isEmpty) return DesireSnapshot();
-    return DesireSnapshot.decode(rows.first['json'] as String);
-  }
-
-  /// Records a Desire-sourced tool request without storing Thought bodies,
-  /// search text, screen contents, URLs, account data, or provider payloads.
-  Future<bool> recordAutonomousActionRequest({
-    required AutonomousActionRequest request,
-    required AutonomousActionContext context,
-    required AutonomousGateDecision decision,
-    required int stateGeneration,
-    required String deviceId,
-  }) async {
-    final db = await database;
-    final requestedAt = request.requestedAt.millisecondsSinceEpoch;
-    if (decision.reason == AutonomousGateReason.duplicate) {
-      final changed = await db.rawUpdate(
-        '''
-        UPDATE autonomous_action_runs
-        SET dedupe_count = dedupe_count + 1,
-            last_duplicate_at = ?
-        WHERE dedupe_key = ?
-        ''',
-        [requestedAt, request.dedupeKey],
-      );
-      return changed > 0;
-    }
-    final terminal = !decision.allowed;
-    // A transient Gate block must not reserve the stable provider dedupe key.
-    // Successful/requested/running rows keep the stable key; failures and
-    // no-result rows intentionally prevent same-window retry loops.
-    final storedDedupeKey = terminal
-        ? '${request.dedupeKey}:blocked:${request.id}'
-        : request.dedupeKey;
-    final inserted = await db.insert(
-      'autonomous_action_runs',
-      {
-        'id': request.id,
-        'dedupe_key': storedDedupeKey,
-        'tool_kind': request.tool.key,
-        'intent_action': request.intentAction,
-        'drive_key': request.driveKey,
-        'intent_score': request.intentScore.clamp(0.0, 1.0),
-        'reason_source': request.reasonSource,
-        'thought_id': request.thoughtId,
-        'status': terminal
-            ? AutonomousActionStatus.blocked.key
-            : AutonomousActionStatus.requested.key,
-        'gate_reason': decision.reason.key,
-        'outcome_kind': AutonomousOutcomeKind.none.key,
-        'requested_at': requestedAt,
-        'finished_at': terminal ? requestedAt : null,
-        'state_generation': stateGeneration,
-        'device_id': deviceId,
-        'screen_interactive': context.screenInteractive ? 1 : 0,
-        'device_locked': context.deviceLocked ? 1 : 0,
-        'budget_limit': context.budgetLimit,
-        'budget_remaining': decision.allowed &&
-                decision.budgetRemaining != null
-            ? (decision.budgetRemaining! - 1).clamp(0, context.budgetLimit ?? 0)
-            : decision.budgetRemaining,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-    return inserted != 0;
-  }
-
-  Future<bool> hasActiveAutonomousActionDedupe(String dedupeKey) async {
-    final db = await database;
-    final rows = await db.rawQuery(
-      '''
-      SELECT 1
-      FROM autonomous_action_runs
-      WHERE dedupe_key = ?
-        AND status IN ('requested', 'running', 'succeeded', 'no_result', 'failed')
-      LIMIT 1
-      ''',
-      [dedupeKey],
-    );
-    return rows.isNotEmpty;
-  }
-
-  Future<int> autonomousToolUsageSince(
-    AutonomousToolKind tool,
-    DateTime since,
-  ) async {
-    final db = await database;
-    final rows = await db.rawQuery(
-      '''
-      SELECT COUNT(*) AS count
-      FROM autonomous_action_runs
-      WHERE tool_kind = ?
-        AND requested_at >= ?
-        AND gate_reason = 'allowed'
-      ''',
-      [tool.key, since.millisecondsSinceEpoch],
-    );
-    return Sqflite.firstIntValue(rows) ?? 0;
-  }
-
-  /// Releases abandoned claims without applying a tool Outcome to Desire.
-  /// Providers in this phase have a 12-second timeout, so five minutes is well
-  /// beyond a valid run while still preventing a crashed process from holding
-  /// a dedupe window forever.
-  Future<int> recoverStaleAutonomousActions({
-    required DateTime now,
-    required int stateGeneration,
-    required String deviceId,
-  }) async {
-    final db = await database;
-    return db.rawUpdate(
-      '''
-      UPDATE autonomous_action_runs
-      SET status = ?, outcome_kind = ?, finished_at = ?, run_token = ''
-      WHERE status IN ('requested', 'running')
-        AND (
-          state_generation <> ?
-          OR device_id <> ?
-          OR requested_at <= ?
-        )
-      ''',
-      [
-        AutonomousActionStatus.cancelled.key,
-        AutonomousOutcomeKind.cancelled.key,
-        now.millisecondsSinceEpoch,
-        stateGeneration,
-        deviceId,
-        now.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
-      ],
-    );
-  }
-
-  Future<AutonomousActionRun?> claimAutonomousAction({
-    required String id,
-    required String runToken,
-    DateTime? now,
-  }) async {
-    if (runToken.isEmpty) return null;
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction<AutonomousActionRun?>((txn) async {
-      Future<String> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: const ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      }
-
-      if (await setting('active_brain') == '0' ||
-          await setting('transfer_lock') == '1') {
-        return null;
-      }
-      final blockingGeneration = await txn.rawQuery(
-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
-      );
-      if (blockingGeneration.isNotEmpty) return null;
-      final rows = await txn.query(
-        'autonomous_action_runs',
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, AutonomousActionStatus.requested.key],
-        limit: 1,
-      );
-      if (rows.isEmpty) return null;
-      final row = rows.first;
-      final generation = int.tryParse(await setting('state_generation')) ?? 0;
-      final deviceId = await setting('device_id');
-      if ((row['state_generation'] as int? ?? -1) != generation ||
-          (row['device_id'] as String? ?? '') != deviceId) {
-        return null;
-      }
-      await txn.update(
-        'autonomous_action_runs',
-        {
-          'status': AutonomousActionStatus.running.key,
-          'run_token': runToken,
-          'attempt': (row['attempt'] as int? ?? 0) + 1,
-          'started_at': instant.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, AutonomousActionStatus.requested.key],
-      );
-      final updated = await txn.query(
-        'autonomous_action_runs',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      return updated.isEmpty ? null : _autonomousActionRunFromDb(updated.first);
-    });
-  }
-
-  /// Commits one terminal Outcome under run-token fencing. Only a real
-  /// successful result may mutate Desire, and the run plus Desire JSON are
-  /// committed in the same SQLite transaction so recovery cannot double-feed.
-  Future<bool> completeAutonomousAction({
-    required String id,
-    required String runToken,
-    required AutonomousActionStatus status,
-    required AutonomousOutcomeKind outcome,
-    required int resultCount,
-    DesireSnapshot Function(DesireSnapshot current)? satisfyOnSuccess,
-    DateTime? now,
-  }) async {
-    if (!status.isTerminal ||
-        status == AutonomousActionStatus.blocked ||
-        status == AutonomousActionStatus.deduplicated ||
-        runToken.isEmpty) {
-      return false;
-    }
-    final successful = status == AutonomousActionStatus.succeeded &&
-        resultCount > 0 &&
-        (outcome == AutonomousOutcomeKind.candidateStored ||
-            outcome == AutonomousOutcomeKind.observationStored);
-    if (status == AutonomousActionStatus.succeeded && !successful) {
-      return false;
-    }
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'autonomous_action_runs',
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final row = rows.first;
-      Future<String> setting(String key) async {
-        final values = await txn.query(
-          'settings',
-          columns: const ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
-      }
-      final currentGeneration =
-          int.tryParse(await setting('state_generation')) ?? 0;
-      final currentDevice = await setting('device_id');
-      if (await setting('active_brain') == '0' ||
-          await setting('transfer_lock') == '1' ||
-          (row['state_generation'] as int? ?? -1) != currentGeneration ||
-          (row['device_id'] as String? ?? '') != currentDevice) {
-        return false;
-      }
-      final startedAt = row['started_at'] as int? ??
-          row['requested_at'] as int? ??
-          instant.millisecondsSinceEpoch;
-      final changed = await txn.update(
-        'autonomous_action_runs',
-        {
-          'status': status.key,
-          'outcome_kind': outcome.key,
-          'result_count': resultCount.clamp(0, 1000),
-          'finished_at': instant.millisecondsSinceEpoch,
-          'latency_bucket': autonomousLatencyBucket(
-            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
-          ),
-          'run_token': '',
-          if (successful && satisfyOnSuccess != null)
-            'desire_satisfied_at': instant.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
-      );
-      if (changed != 1) return false;
-      if (successful && satisfyOnSuccess != null) {
-        final desireRows = await txn.query(
-          'desire_state',
-          where: 'id = 1',
-          limit: 1,
-        );
-        final current = desireRows.isEmpty
-            ? DesireSnapshot()
-            : DesireSnapshot.decode(desireRows.first['json'] as String);
-        final next = satisfyOnSuccess(current);
-        await txn.insert(
-          'desire_state',
-          {
-            'id': 1,
-            'json': next.encode(),
-            'updated_at': instant.millisecondsSinceEpoch,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      return true;
-    });
-  }
-
-  /// Stores public candidates, commits the successful Outcome, and applies the
-  /// small Desire satisfaction in one transaction. Duplicate-only results are
-  /// a real no-result and never satisfy Desire.
-  Future<int> completePublicWebDiscovery({
-    required String id,
-    required String runToken,
-    required List<PublicWebCandidateDraft> candidates,
-    required DesireSnapshot Function(DesireSnapshot current) satisfyOnSuccess,
-    DateTime? now,
-  }) async {
-    if (runToken.isEmpty || candidates.isEmpty) return 0;
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    return db.transaction<int>((txn) async {
-      final rows = await txn.query(
-        'autonomous_action_runs',
-        where: 'id = ? AND status = ? AND run_token = ? AND tool_kind = ?',
-        whereArgs: [
-          id,
-          AutonomousActionStatus.running.key,
-          runToken,
-          AutonomousToolKind.publicWeb.key,
-        ],
-        limit: 1,
-      );
-      if (rows.isEmpty) return 0;
-      final row = rows.first;
-
-      Future<String> setting(String key) async {
-        final values = await txn.query(
-          'settings',
-          columns: const ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
-      }
-
-      final currentGeneration =
-          int.tryParse(await setting('state_generation')) ?? 0;
-      final currentDevice = await setting('device_id');
-      if (await setting('active_brain') == '0' ||
-          await setting('transfer_lock') == '1' ||
-          (row['state_generation'] as int? ?? -1) != currentGeneration ||
-          (row['device_id'] as String? ?? '') != currentDevice) {
-        return 0;
-      }
-      // The HTTP request runs outside SQLite. Re-check the user-generation
-      // fence at commit time so a chat started during that request always wins.
-      final blockingGeneration = await txn.rawQuery(
-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
-      );
-      if (blockingGeneration.isNotEmpty) return 0;
-
-      await txn.delete(
-        'public_web_candidates',
-        where: 'expires_at <= ?',
-        whereArgs: [instant.millisecondsSinceEpoch],
-      );
-      var stored = 0;
-      for (final candidate in candidates.take(3)) {
-        final uri = Uri.tryParse(candidate.url);
-        if (candidate.fingerprint.length != 64 ||
-            candidate.title.trim().isEmpty ||
-            candidate.provider.trim().isEmpty ||
-            candidate.sourceDomain.trim().isEmpty ||
-            uri == null ||
-            uri.scheme != 'https' ||
-            uri.host != candidate.sourceDomain ||
-            candidate.safetyState != 'untrusted_public' ||
-            candidate.expiresAt.isBefore(instant)) {
-          continue;
-        }
-        final inserted = await txn.insert(
-          'public_web_candidates',
-          {
-            'id': _uuid.v4(),
-            'fingerprint': candidate.fingerprint,
-            'title': candidate.title,
-            'summary': candidate.summary,
-            'url': candidate.url,
-            'source_domain': candidate.sourceDomain,
-            'provider': candidate.provider,
-            'language': candidate.language,
-            'drive_key': candidate.driveKey,
-            'intent_action': candidate.intentAction,
-            'interest_key': candidate.interestKey,
-            'safety_state': candidate.safetyState,
-            'lifecycle_state': 'unread',
-            'action_run_id': id,
-            'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
-            'expires_at': candidate.expiresAt.millisecondsSinceEpoch,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-        if (inserted != 0) stored++;
-      }
-
-      final startedAt = row['started_at'] as int? ??
-          row['requested_at'] as int? ??
-          instant.millisecondsSinceEpoch;
-      final successful = stored > 0;
-      final changed = await txn.update(
-        'autonomous_action_runs',
-        {
-          'status': successful
-              ? AutonomousActionStatus.succeeded.key
-              : AutonomousActionStatus.noResult.key,
-          'outcome_kind': successful
-              ? AutonomousOutcomeKind.candidateStored.key
-              : AutonomousOutcomeKind.noUsefulResult.key,
-          'result_count': stored,
-          'finished_at': instant.millisecondsSinceEpoch,
-          'latency_bucket': autonomousLatencyBucket(
-            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
-          ),
-          'run_token': '',
-          if (successful)
-            'desire_satisfied_at': instant.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
-      );
-      if (changed != 1) {
-        throw StateError('public_web_run_lost_before_commit');
-      }
-
-      if (successful) {
-        final desireRows = await txn.query(
-          'desire_state',
-          where: 'id = 1',
-          limit: 1,
-        );
-        final current = desireRows.isEmpty
-            ? DesireSnapshot()
-            : DesireSnapshot.decode(desireRows.first['json'] as String);
-        final next = satisfyOnSuccess(current);
-        await txn.insert(
-          'desire_state',
-          {
-            'id': 1,
-            'json': next.encode(),
-            'updated_at': instant.millisecondsSinceEpoch,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
-      await txn.rawDelete('''
-        DELETE FROM public_web_candidates
-        WHERE id NOT IN (
-          SELECT id FROM public_web_candidates
-          ORDER BY discovered_at DESC
-          LIMIT 240
-        )
-      ''');
-      return stored;
-    });
-  }
-
-  /// Exposes only a small, bounded public-web working set to the prompt.
-  ///
-  /// Reading a candidate marks it reviewed, but does not create a Memory,
-  /// Thought, message, or proactive delivery request.
-  Future<List<PublicWebContextItem>> activePublicWebContext({
-    DateTime? now,
-    int limit = 3,
-  }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    final safeLimit = limit.clamp(1, 3).toInt();
-    return db.transaction((txn) async {
-      final rows = await txn.query(
-        'public_web_candidates',
-        columns: const [
-          'id',
-          'title',
-          'summary',
-          'url',
-          'source_domain',
-          'provider',
-          'discovered_at',
-          'safety_state',
-        ],
-        where: "expires_at > ? AND lifecycle_state != 'discarded'",
-        whereArgs: [instant.millisecondsSinceEpoch],
-        orderBy:
-            "CASE WHEN lifecycle_state = 'unread' THEN 0 ELSE 1 END, discovered_at DESC",
-        limit: safeLimit,
-      );
-      if (rows.isNotEmpty) {
-        final ids = rows.map((row) => row['id'] as String).toList();
-        final placeholders = List.filled(ids.length, '?').join(',');
-        await txn.rawUpdate(
-          '''
-          UPDATE public_web_candidates
-          SET lifecycle_state = 'reviewed',
-              last_viewed_at = ?,
-              view_count = view_count + 1
-          WHERE id IN ($placeholders)
-          ''',
-          [instant.millisecondsSinceEpoch, ...ids],
-        );
-      }
-      return rows
-          .map((row) => PublicWebContextItem(
-                id: row['id'] as String,
-                title: row['title'] as String? ?? '',
-                summary: row['summary'] as String? ?? '',
-                url: row['url'] as String? ?? '',
-                sourceDomain: row['source_domain'] as String? ?? '',
-                provider: row['provider'] as String? ?? '',
-                discoveredAt: DateTime.fromMillisecondsSinceEpoch(
-                  (row['discovered_at'] as num?)?.toInt() ?? 0,
-                ),
-                safetyState:
-                    row['safety_state'] as String? ?? 'untrusted_public',
-              ))
-          .toList(growable: false);
-    });
-  }
-
-  Future<Map<String, Object?>> autonomousActionDiagnosticStats({
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    final counts = await db.rawQuery('''
-      SELECT status, COUNT(*) AS count
-      FROM autonomous_action_runs
-      GROUP BY status
-    ''');
-    final byStatus = <String, int>{
-      for (final status in AutonomousActionStatus.values) status.key: 0,
-    };
-    for (final row in counts) {
-      byStatus[row['status'] as String? ?? ''] =
-          (row['count'] as num?)?.toInt() ?? 0;
-    }
-    final toolCounts = await db.rawQuery('''
-      SELECT tool_kind, status, COUNT(*) AS count
-      FROM autonomous_action_runs
-      GROUP BY tool_kind, status
-    ''');
-    final byTool = <String, Map<String, int>>{};
-    for (final row in toolCounts) {
-      final tool = row['tool_kind'] as String? ?? '';
-      final status = row['status'] as String? ?? '';
-      byTool.putIfAbsent(tool, () => <String, int>{})[status] =
-          (row['count'] as num?)?.toInt() ?? 0;
-    }
-    final lastRows = await db.query(
-      'autonomous_action_runs',
-      columns: const [
-        'tool_kind',
-        'status',
-        'gate_reason',
-        'outcome_kind',
-        'requested_at',
-        'started_at',
-        'finished_at',
-        'latency_bucket',
-        'result_count',
-        'screen_interactive',
-        'device_locked',
-        'budget_limit',
-        'budget_remaining',
-        'dedupe_count',
-      ],
-      orderBy: 'requested_at DESC',
-      limit: 1,
-    );
-    final hourStart = instant.subtract(const Duration(hours: 1));
-    final screenRows = await db.rawQuery(
-      '''
-      SELECT COUNT(*) AS count
-      FROM autonomous_action_runs
-      WHERE tool_kind = ?
-        AND requested_at >= ?
-        AND gate_reason = ?
-      ''',
-      [
-        AutonomousToolKind.screenObservation.key,
-        hourStart.millisecondsSinceEpoch,
-        AutonomousGateReason.allowed.key,
-      ],
-    );
-    final screenUsed = Sqflite.firstIntValue(screenRows) ?? 0;
-    final dayStart = instant.subtract(const Duration(hours: 24));
-    final publicWebRows = await db.rawQuery(
-      '''
-      SELECT COUNT(*) AS count
-      FROM autonomous_action_runs
-      WHERE tool_kind = ?
-        AND requested_at >= ?
-        AND gate_reason = ?
-      ''',
-      [
-        AutonomousToolKind.publicWeb.key,
-        dayStart.millisecondsSinceEpoch,
-        AutonomousGateReason.allowed.key,
-      ],
-    );
-    final publicWebUsed = Sqflite.firstIntValue(publicWebRows) ?? 0;
-    final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
-    final dayProactive = await proactiveCountSince(const Duration(hours: 24));
-    Map<String, Object?>? last;
-    if (lastRows.isNotEmpty) {
-      final row = lastRows.first;
-      last = {
-        'tool': row['tool_kind'] ?? '',
-        'status': row['status'] ?? '',
-        'gateReason': row['gate_reason'] ?? '',
-        'outcome': row['outcome_kind'] ?? '',
-        'requestedAt': row['requested_at'] ?? 0,
-        'startedAt': row['started_at'] ?? 0,
-        'finishedAt': row['finished_at'] ?? 0,
-        'latencyBucket': row['latency_bucket'] ?? '',
-        'resultCount': row['result_count'] ?? 0,
-        'screenInteractive': row['screen_interactive'] == 1,
-        'deviceLocked': row['device_locked'] == 1,
-        'budgetLimit': row['budget_limit'],
-        'budgetRemaining': row['budget_remaining'],
-        'dedupeCount': row['dedupe_count'] ?? 0,
-      };
-    }
-    return {
-      'phase': 'public_web_scheduled',
-      'byStatus': byStatus,
-      'byTool': byTool,
-      'last': last,
-      'budgets': {
-        'publicWeb': {
-          'configured': true,
-          'windowMinutes': 1440,
-          'limit': 4,
-          'used': publicWebUsed,
-          'remaining': (4 - publicWebUsed).clamp(0, 4),
-        },
-        'screenObservation': {
-          'configured': true,
-          'windowMinutes': 60,
-          'limit': 6,
-          'used': screenUsed,
-          'remaining': (6 - screenUsed).clamp(0, 6),
-        },
-        'videoUnderstanding': {
-          'configured': false,
-          'remaining': null,
-        },
-        'proactiveContact': {
-          'twoHourLimit': 2,
-          'twoHourUsed': twoHourProactive,
-          'twoHourRemaining': (2 - twoHourProactive).clamp(0, 2),
-          'dayLimit': 8,
-          'dayUsed': dayProactive,
-          'dayRemaining': (8 - dayProactive).clamp(0, 8),
-          'separateDeliveryGate': true,
-        },
-      },
-      'privacy': {
-        'intentReasonIncluded': false,
-        'thoughtBodyIncluded': false,
-        'queryIncluded': false,
-        'webContentIncluded': false,
-        'screenContentIncluded': false,
-        'urlIncluded': false,
-        'accountIncluded': false,
-      },
-    };
-  }
-
-  Future<Map<String, Object?>> publicWebCandidateDiagnosticStats({
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    final counts = await db.rawQuery('''
-      SELECT lifecycle_state, COUNT(*) AS count
-      FROM public_web_candidates
-      WHERE expires_at > ?
-      GROUP BY lifecycle_state
-    ''', [instant.millisecondsSinceEpoch]);
-    final byLifecycle = <String, int>{};
-    for (final row in counts) {
-      byLifecycle[row['lifecycle_state'] as String? ?? ''] =
-          (row['count'] as num?)?.toInt() ?? 0;
-    }
-    final expired = Sqflite.firstIntValue(await db.rawQuery(
-          'SELECT COUNT(*) AS count FROM public_web_candidates WHERE expires_at <= ?',
-          [instant.millisecondsSinceEpoch],
-        )) ??
-        0;
-    final lastRows = await db.query(
-      'public_web_candidates',
-      columns: const [
-        'provider',
-        'source_domain',
-        'language',
-        'drive_key',
-        'intent_action',
-        'safety_state',
-        'lifecycle_state',
-        'discovered_at',
-        'expires_at',
-        'view_count',
-      ],
-      orderBy: 'discovered_at DESC',
-      limit: 1,
-    );
-    final extraSourceLines =
-        (await getSetting('public_web_extra_sources') ?? '')
-            .split(RegExp(r'[\r\n]+'))
-            .where((line) => line.trim().isNotEmpty)
-            .length;
-    return {
-      'enabled': (await getSetting('public_web_discovery_enabled')) != '0',
-      'provider': lastRows.isEmpty
-          ? 'tavily_layered'
-          : lastRows.first['provider'] ?? 'tavily_layered',
-      'providerMode': 'global_plus_additive_sources_with_wikimedia_fallback',
-      'agnesCompactionEnabled':
-          (await getSetting('agnes_web_compaction_enabled')) != '0',
-      'extraSourceCount': extraSourceLines.clamp(0, 5),
-      'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
-      'expiredCount': expired,
-      'byLifecycle': byLifecycle,
-      'last': lastRows.isEmpty
-          ? null
-          : {
-              'provider': lastRows.first['provider'] ?? '',
-              'sourceDomain': lastRows.first['source_domain'] ?? '',
-              'language': lastRows.first['language'] ?? '',
-              'drive': lastRows.first['drive_key'] ?? '',
-              'intentAction': lastRows.first['intent_action'] ?? '',
-              'safetyState': lastRows.first['safety_state'] ?? '',
-              'lifecycle': lastRows.first['lifecycle_state'] ?? '',
-              'discoveredAt': lastRows.first['discovered_at'] ?? 0,
-              'expiresAt': lastRows.first['expires_at'] ?? 0,
-              'viewCount': lastRows.first['view_count'] ?? 0,
-            },
-      'runtime': {
-        'lastAttemptAt':
-            int.tryParse(await getSetting('last_public_web_discovery_at') ?? '') ?? 0,
-        'lastSuccessAt': int.tryParse(
-              await getSetting('last_public_web_discovery_success_at') ?? '',
-            ) ??
-            0,
-        'lastOutcome':
-            await getSetting('last_public_web_discovery_outcome') ?? 'never',
-        'lastError': await getSetting('last_public_web_discovery_error') ?? '',
-      },
-      'privacy': {
-        'titleIncluded': false,
-        'summaryIncluded': false,
-        'urlIncluded': false,
-        'queryIncluded': false,
-        'interestKeyIncluded': false,
-        'thoughtBodyIncluded': false,
-      },
-    };
-  }
-
-  AutonomousActionRun _autonomousActionRunFromDb(
-    Map<String, Object?> row,
-  ) {
-    DateTime? time(String key) => row[key] == null
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(row[key] as int);
-    final status = AutonomousActionStatus.values.firstWhere(
-      (value) => value.key == (row['status'] as String? ?? ''),
-      orElse: () => AutonomousActionStatus.failed,
-    );
-    final gate = AutonomousGateReason.values.firstWhere(
-      (value) => value.key == (row['gate_reason'] as String? ?? ''),
-      orElse: () => AutonomousGateReason.providerUnavailable,
-    );
-    final outcome = AutonomousOutcomeKind.values.firstWhere(
-      (value) => value.key == (row['outcome_kind'] as String? ?? ''),
-      orElse: () => AutonomousOutcomeKind.none,
-    );
-    return AutonomousActionRun(
-      id: row['id'] as String,
-      dedupeKey: row['dedupe_key'] as String,
-      tool: AutonomousToolKindKey.fromKey(row['tool_kind'] as String? ?? ''),
-      intentAction: row['intent_action'] as String? ?? '',
-      driveKey: row['drive_key'] as String? ?? '',
-      intentScore: (row['intent_score'] as num?)?.toDouble() ?? 0,
-      reasonSource: row['reason_source'] as String? ?? '',
-      thoughtId: row['thought_id'] as String?,
-      status: status,
-      gateReason: gate,
-      outcome: outcome,
-      requestedAt: time('requested_at') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      startedAt: time('started_at'),
-      finishedAt: time('finished_at'),
-      runToken: row['run_token'] as String? ?? '',
-      attempt: row['attempt'] as int? ?? 0,
-      stateGeneration: row['state_generation'] as int? ?? 0,
-      deviceId: row['device_id'] as String? ?? '',
-      screenInteractive: row['screen_interactive'] == 1,
-      deviceLocked: row['device_locked'] == 1,
-      latencyBucket: row['latency_bucket'] as String? ?? '',
-      resultCount: row['result_count'] as int? ?? 0,
-      desireSatisfiedAt: time('desire_satisfied_at'),
-    );
-  }
-
-  Future<void> saveDesire(DesireSnapshot snapshot) async {
-    final db = await database;
-    await db.insert(
-      'desire_state',
-      {
-        'id': 1,
-        'json': snapshot.encode(),
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  /// Atomically read-modify-write the single Desire snapshot. Multiple Flutter
-  /// engines (UI + foreground background engine) can touch inner state, so a
-  /// plain load followed by save would otherwise lose concurrent pulses.
-  Future<DesireSnapshot> mutateDesire(
-    DesireSnapshot Function(DesireSnapshot current) transform,
-  ) async {
-    final db = await database;
-    return db.transaction<DesireSnapshot>((txn) async {
-      final rows = await txn.query(
-        'desire_state',
-        where: 'id = 1',
-        limit: 1,
-      );
-      final current = rows.isEmpty
-          ? DesireSnapshot()
-          : DesireSnapshot.decode(rows.first['json'] as String);
-      final next = transform(current);
-      await txn.insert(
-        'desire_state',
-        {
-          'id': 1,
-          'json': next.encode(),
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      return next;
-    });
-  }
-
-  Future<bool> insertConversationSummary({
-    required DateTime fromAt,
-    required DateTime toAt,
-    required String summary,
-    List<String> keyPoints = const [],
-  }) async {
-    final normalized = summary.trim();
-    if (normalized.isEmpty) return false;
-    final db = await database;
-    final id = _uuid.v4();
-    final inserted = await db.insert(
-      'conversation_summaries',
-      {
-        'id': id,
-        'from_at': fromAt.millisecondsSinceEpoch,
-        'to_at': toAt.millisecondsSinceEpoch,
-        'summary': normalized,
-        'key_points': keyPoints.take(12).join('|'),
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-    // sqflite returns 0 for an ignored insert on the unique range index.
-    return inserted != 0;
-  }
-
-  Future<List<ConversationSummary>> recentConversationSummaries({
-    int limit = 4,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'conversation_summaries',
-      orderBy: 'to_at DESC',
-      limit: limit,
-    );
-    return rows.map(ConversationSummary.fromDb).toList();
-  }
-
-  Future<List<ChatMessage>> pendingMessagesForSummary({int limit = 24}) async {
-    final summaries = await recentConversationSummaries(limit: 1);
-    final after = summaries.isEmpty ? null : summaries.first.toAt;
-    return messagesAfter(after, limit: limit);
-  }
-
-  Future<void> upsertUnfinishedThread({
-    String? id,
-    required String title,
-    required String detail,
-    required double importance,
-    String? sourceMessageId,
-    String topicKey = '',
-  }) async {
-    final normalizedTitle = title.trim();
-    final normalizedDetail = detail.trim();
-    if (normalizedTitle.isEmpty || normalizedDetail.isEmpty) return;
-    final db = await database;
-    final normalizedTopic = topicKey.trim().toLowerCase();
-    final lookupByTopic = id == null && normalizedTopic.isNotEmpty;
-    final existing = await db.query(
-      'unfinished_threads',
-      where: id != null
-          ? 'id = ? AND status = ?'
-          : lookupByTopic
-              ? 'topic_key = ? AND status = ?'
-              : 'title = ? AND status = ?',
-      whereArgs: [id ?? (lookupByTopic ? normalizedTopic : normalizedTitle), 'active'],
-      limit: 1,
-    );
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (existing.isNotEmpty) {
-      final existingSource = existing.first['source_message_id'] as String?;
-      final existingTitle = (existing.first['title'] as String? ?? '').trim();
-      final existingDetail = (existing.first['detail'] as String? ?? '').trim();
-      final existingTopic = (existing.first['topic_key'] as String? ?? '').trim().toLowerCase();
-      if (sourceMessageId != null &&
-          sourceMessageId.isNotEmpty &&
-          existingSource == sourceMessageId &&
-          existingTitle == normalizedTitle &&
-          existingDetail == normalizedDetail &&
-          (normalizedTopic.isEmpty || existingTopic == normalizedTopic)) {
-        return;
-      }
-      await db.update(
-        'unfinished_threads',
-        {
-          'title': normalizedTitle,
-          'detail': normalizedDetail,
-          'importance': importance.clamp(0.0, 1.0),
-          'source_message_id': sourceMessageId ?? existing.first['source_message_id'],
-          if (normalizedTopic.isNotEmpty) 'topic_key': normalizedTopic,
-          // A real conversation update means the topic is already active again;
-          // cancel any previously scheduled one-shot deferred follow-up.
-          'followup_due_at': null,
-          'followup_seeded_at': null,
-          'followup_run_token': '',
-          'followup_claimed_at': null,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [existing.first['id']],
-      );
-      return;
-    }
-    await db.insert('unfinished_threads', {
-      'id': id ?? _uuid.v4(),
-      'title': normalizedTitle,
-      'detail': normalizedDetail,
-      'importance': importance.clamp(0.0, 1.0),
-      'status': 'active',
-      'source_message_id': sourceMessageId,
-      'topic_key': normalizedTopic,
-      'followup_due_at': null,
-      'followup_seeded_at': null,
-      'followup_run_token': '',
-      'followup_claimed_at': null,
-      'followup_count': 0,
-      'last_followup_at': null,
-      'retired_at': null,
-      'retire_reason': '',
-      'created_at': now,
-      'updated_at': now,
-    });
-  }
-
-  Future<void> resolveUnfinishedThread(String title) async {
-    final normalized = title.trim();
-    if (normalized.isEmpty) return;
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'status': 'resolved',
-        'followup_due_at': null,
-        'followup_seeded_at': null,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'title = ? AND status = ?',
-      whereArgs: [normalized, 'active'],
-    );
-  }
-
-  Future<void> resolveUnfinishedThreadById(String id) async {
-    final normalized = id.trim();
-    if (normalized.isEmpty) return;
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'status': 'resolved',
-        'followup_due_at': null,
-        'followup_seeded_at': null,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'id = ? AND status = ?',
-      whereArgs: [normalized, 'active'],
-    );
-  }
-
-  Future<List<UnfinishedThread>> activeUnfinishedThreads({int limit = 8}) async {
-    final db = await database;
-    final rows = await db.query(
-      'unfinished_threads',
-      where: 'status = ?',
-      whereArgs: ['active'],
-      orderBy: 'importance DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(UnfinishedThread.fromDb).toList();
-  }
-
-  Future<UnfinishedThread?> unfinishedThreadById(String id) async {
-    final db = await database;
-    final rows = await db.query('unfinished_threads', where: 'id = ?', whereArgs: [id], limit: 1);
-    return rows.isEmpty ? null : UnfinishedThread.fromDb(rows.first);
-  }
-
-  Future<UnfinishedThread?> activeUnfinishedThreadByTopic(String topicKey) async {
-    final key = topicKey.trim().toLowerCase();
-    if (key.isEmpty) return null;
-    final db = await database;
-    final rows = await db.query(
-      'unfinished_threads',
-      where: 'status = ? AND topic_key = ?',
-      whereArgs: ['active', key],
-      orderBy: 'importance DESC, updated_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : UnfinishedThread.fromDb(rows.first);
-  }
-
-  Future<void> touchUnfinishedThread(String id) async {
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {'updated_at': DateTime.now().millisecondsSinceEpoch},
-      where: 'id = ? AND status = ?',
-      whereArgs: [id, 'active'],
-    );
-  }
-
-  Future<void> scheduleUnfinishedThreadFollowup(
-    String id, {
-    required DateTime dueAt,
-  }) async {
-    final maxFollowups =
-        int.tryParse(await getSetting('max_deferred_followups') ?? '') ?? 1;
-    if (maxFollowups <= 0) return;
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'followup_due_at': dueAt.millisecondsSinceEpoch,
-        'followup_seeded_at': null,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'id = ? AND status = ? AND followup_count < ?',
-      whereArgs: [id, 'active', maxFollowups.clamp(1, 3).toInt()],
-    );
-  }
-
-  Future<void> clearUnfinishedThreadFollowup(String id) async {
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'followup_due_at': null,
-        'followup_seeded_at': null,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<String?> claimUnfinishedThreadFollowupSeed(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final staleBefore = now - const Duration(minutes: 5).inMilliseconds;
-    final token = _uuid.v4();
-    final changed = await db.update(
-      'unfinished_threads',
-      {
-        'followup_run_token': token,
-        'followup_claimed_at': now,
-        'updated_at': now,
-      },
-      where:
-          "id = ? AND status = 'active' AND followup_due_at IS NOT NULL AND followup_due_at <= ? AND followup_seeded_at IS NULL AND (followup_run_token = '' OR followup_claimed_at IS NULL OR followup_claimed_at < ?)",
-      whereArgs: [id, now, staleBefore],
-    );
-    return changed == 1 ? token : null;
-  }
-
-  Future<bool> ownsUnfinishedThreadFollowupSeed(String id, String token) async {
-    if (token.isEmpty) return false;
-    final db = await database;
-    final rows = await db.query(
-      'unfinished_threads',
-      columns: ['id'],
-      where:
-          "id = ? AND status = 'active' AND followup_seeded_at IS NULL AND followup_run_token = ?",
-      whereArgs: [id, token],
-      limit: 1,
-    );
-    return rows.isNotEmpty;
-  }
-
-  Future<bool> applyDeferredFollowupSeedAtomic({
-    required String threadId,
-    required String claimToken,
-    required String topicKey,
-    required String thoughtText,
-    required DriveKey thoughtDrive,
-    required double thoughtStrength,
-    required Map<DriveKey, double> pulses,
-  }) async {
-    if (claimToken.isEmpty || topicKey.trim().isEmpty) return false;
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final threads = await txn.query(
-        'unfinished_threads',
-        where:
-            "id = ? AND status = 'active' AND followup_seeded_at IS NULL AND followup_run_token = ?",
-        whereArgs: [threadId, claimToken],
-        limit: 1,
-      );
-      if (threads.isEmpty) return false;
-      final now = DateTime.now();
-      final nowMs = now.millisecondsSinceEpoch;
-
-      final stateRows = await txn.query('desire_state', where: 'id = 1', limit: 1);
-      final snapshot = stateRows.isEmpty
-          ? DesireSnapshot()
-          : DesireSnapshot.decode(stateRows.first['json'] as String);
-      final drives = Map<DriveKey, double>.from(snapshot.drives);
-      for (final entry in pulses.entries) {
-        final anchor = snapshot.baselines[entry.key] ??
-            DesireSnapshot.defaultBaselines()[entry.key] ??
-            0.2;
-        drives[entry.key] = ((drives[entry.key] ?? anchor) +
-                entry.value.clamp(-0.35, 0.35).toDouble())
-            .clamp(0.0, 1.0)
-            .toDouble();
-      }
-      await txn.insert(
-        'desire_state',
-        {
-          'id': 1,
-          'json': snapshot.copyWith(drives: drives).encode(),
-          'updated_at': nowMs,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
-      final normalizedTopic = topicKey.trim().toLowerCase();
-      final matches = await txn.query(
-        'thoughts',
-        where: 'drive_key = ? AND topic_key = ?',
-        whereArgs: [thoughtDrive.name, normalizedTopic],
-        orderBy: 'updated_at DESC',
-        limit: 1,
-      );
-      if (matches.isEmpty) {
-        await txn.insert('thoughts', {
-          'id': _uuid.v4(),
-          'text': thoughtText.trim(),
-          'drive_key': thoughtDrive.name,
-          'kind': thoughtStrength >= 0.68 ? 'fixation' : 'flit',
-          'strength': thoughtStrength.clamp(0.08, 0.70),
-          'born_at': nowMs,
-          'updated_at': nowMs,
-          'fed_count': 1,
-          'source': 'deferred_followup',
-          'last_fed_at': nowMs,
-          'lifecycle_state': thoughtStrength >= 0.68 ? 'fixation' : 'active',
-          'action_count': 0,
-          'last_acted_at': null,
-          'last_satisfied_at': null,
-          'last_resurfaced_at': null,
-          'resurfaced_count': 0,
-          'residual_strength': 0.0,
-          'last_outbound_message_id': null,
-          'topic_key': normalizedTopic,
-          'merged_count': 0,
-          'last_merged_at': null,
-          'snoozed_until': null,
-        });
-      } else {
-        final thought = CompanionThought.fromDb(matches.first);
-        final fed = thought.fedCount + 1;
-        final nextStrength =
-            (thought.strength * 0.88 + thoughtStrength * 0.55 + 0.06)
-                .clamp(0.0, 1.0)
-                .toDouble();
-        final fixation = fed >= 3 || nextStrength >= 0.68;
-        await txn.update(
-          'thoughts',
-          {
-            'strength': nextStrength,
-            'fed_count': fed,
-            'kind': fixation ? 'fixation' : thought.kind,
-            'lifecycle_state': fixation ? 'fixation' : 'active',
-            'last_fed_at': nowMs,
-            'updated_at': nowMs,
-          },
-          where: 'id = ?',
-          whereArgs: [thought.id],
-        );
-      }
-
-      final changed = await txn.update(
-        'unfinished_threads',
-        {
-          'followup_seeded_at': nowMs,
-          'followup_run_token': '',
-          'followup_claimed_at': null,
-          'updated_at': nowMs,
-        },
-        where:
-            "id = ? AND status = 'active' AND followup_seeded_at IS NULL AND followup_run_token = ?",
-        whereArgs: [threadId, claimToken],
-      );
-      if (changed != 1) throw StateError('deferred_followup_claim_lost');
-      return true;
-    });
-  }
-
-  Future<bool> completeUnfinishedThreadFollowupSeed(String id, String token) async {
-    if (token.isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'unfinished_threads',
-      {
-        'followup_seeded_at': now,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-        'updated_at': now,
-      },
-      where:
-          "id = ? AND status = 'active' AND followup_seeded_at IS NULL AND followup_run_token = ?",
-      whereArgs: [id, token],
-    );
-    return changed == 1;
-  }
-
-  Future<void> releaseUnfinishedThreadFollowupSeed(String id, String token) async {
-    if (token.isEmpty) return;
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-      },
-      where:
-          "id = ? AND followup_seeded_at IS NULL AND followup_run_token = ?",
-      whereArgs: [id, token],
-    );
-  }
-
-  Future<void> markUnfinishedThreadFollowupSent(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.rawUpdate(
-      '''
-      UPDATE unfinished_threads
-      SET followup_count = followup_count + 1,
-          last_followup_at = ?,
-          followup_due_at = NULL,
-          followup_seeded_at = NULL,
-          followup_run_token = '',
-          followup_claimed_at = NULL,
-          updated_at = ?
-      WHERE id = ? AND status = 'active' AND followup_due_at IS NOT NULL AND followup_due_at <= ?
-      ''',
-      [now, now, id, now],
-    );
-  }
-
-  Future<List<UnfinishedThread>> dueUnfinishedThreadFollowups({
-    DateTime? now,
-    int limit = 4,
-  }) async {
-    final maxFollowups =
-        int.tryParse(await getSetting('max_deferred_followups') ?? '') ?? 1;
-    if (maxFollowups <= 0) return const [];
-    final db = await database;
-    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
-    final rows = await db.query(
-      'unfinished_threads',
-      where: "status = ? AND followup_due_at IS NOT NULL AND followup_due_at <= ? AND followup_seeded_at IS NULL AND followup_count < ? AND (followup_run_token = '' OR followup_claimed_at IS NULL OR followup_claimed_at < ?)",
-      whereArgs: [
-        'active',
-        at,
-        maxFollowups.clamp(1, 3).toInt(),
-        at - const Duration(minutes: 5).inMilliseconds,
-      ],
-      orderBy: 'importance DESC, followup_due_at ASC',
-      limit: limit,
-    );
-    return rows.map(UnfinishedThread.fromDb).toList();
-  }
-
-  Future<List<UnfinishedThread>> retireStaleUnfinishedThreads({
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final at = now ?? DateTime.now();
-    final rows = await db.query(
-      'unfinished_threads',
-      where: 'status = ?',
-      whereArgs: ['active'],
-      orderBy: 'updated_at ASC',
-    );
-    final retired = <UnfinishedThread>[];
-    for (final row in rows) {
-      final thread = UnfinishedThread.fromDb(row);
-      final age = at.difference(thread.updatedAt);
-      String? reason;
-      if (thread.importance < 0.55 && age >= const Duration(days: 14)) {
-        reason = 'low_importance_stale_14d';
-      } else if (thread.importance < 0.75 && age >= const Duration(days: 45)) {
-        reason = 'stale_45d';
-      } else if (thread.importance < 0.92 && age >= const Duration(days: 120)) {
-        reason = 'stale_120d';
-      }
-      if (reason == null) continue;
-      final changed = await db.update(
-        'unfinished_threads',
-        {
-          'status': 'retired',
-          'followup_due_at': null,
-          'followup_seeded_at': null,
-          'followup_run_token': '',
-          'followup_claimed_at': null,
-          'retired_at': at.millisecondsSinceEpoch,
-          'retire_reason': reason,
-          'updated_at': at.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ? AND updated_at = ?',
-        whereArgs: [thread.id, 'active', thread.updatedAt.millisecondsSinceEpoch],
-      );
-      if (changed == 1) retired.add(thread);
-    }
-    return retired;
-  }
-
-  Future<void> closeUnfinishedThreadById(String id, {String status = 'closed'}) async {
-    final normalized = status == 'dismissed' ? 'dismissed' : 'closed';
-    final db = await database;
-    await db.update(
-      'unfinished_threads',
-      {
-        'status': normalized,
-        'followup_due_at': null,
-        'followup_seeded_at': null,
-        'followup_run_token': '',
-        'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'id = ? AND status = ?',
-      whereArgs: [id, 'active'],
-    );
-  }
-
-  Future<void> addDeviceEvent({
-    required String source,
-    required String eventType,
-    String? appPackage,
-    String? summary,
-    Map<String, Object?> metadata = const {},
-    DateTime? occurredAt,
-  }) async {
-    final db = await database;
-    await db.insert('device_events', {
-      'id': _uuid.v4(),
-      'device_id': await ensureDeviceId(),
-      'source': source,
-      'event_type': eventType,
-      'app_package': appPackage,
-      'summary': summary,
-      'occurred_at': (occurredAt ?? DateTime.now()).millisecondsSinceEpoch,
-      'metadata_json': jsonEncode(metadata),
-    });
-  }
-
-  Future<List<Map<String, Object?>>> recentDeviceEvents({
-    int minutes = 180,
-    int limit = 80,
-  }) async {
-    final db = await database;
-    final since = DateTime.now()
-        .subtract(Duration(minutes: minutes))
-        .millisecondsSinceEpoch;
-    return db.query(
-      'device_events',
-      where: 'occurred_at >= ?',
-      whereArgs: [since],
-      orderBy: 'occurred_at DESC',
-      limit: limit,
-    );
-  }
-
-  Future<List<Map<String, Object?>>> deviceEventsAfter(
-    DateTime after, {
-    int limit = 160,
-  }) async {
-    final db = await database;
-    return db.query(
-      'device_events',
-      where: 'occurred_at > ?',
-      whereArgs: [after.millisecondsSinceEpoch],
-      orderBy: 'occurred_at DESC',
-      limit: limit,
-    );
-  }
-
-  Future<List<Map<String, Object?>>> recentDeviceStateEvents({
-    int minutes = 720,
-    int limit = 40,
-  }) async {
-    final db = await database;
-    final since = DateTime.now()
-        .subtract(Duration(minutes: minutes))
-        .millisecondsSinceEpoch;
-    return db.query(
-      'device_events',
-      where: "source = 'system' AND event_type IN ('screen_on','screen_off','user_present','power_connected','power_disconnected') AND occurred_at >= ?",
-      whereArgs: [since],
-      orderBy: 'occurred_at DESC',
-      limit: limit,
-    );
-  }
-
-  /// Atomically reconciles the current interpreted awareness set.
-  ///
-  /// The transaction re-checks Active Brain/transfer lock so a phone/tablet
-  /// takeover cannot race a perception capture that started just before the
-  /// freeze. One row per dedupe_key suppresses noisy duplicate observations.
-  Future<List<AwarenessObservation>> syncAwarenessObservations({
-    required List<AwarenessObservationDraft> drafts,
-    required Set<String> managedKeys,
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final instant = now ?? DateTime.now();
-    final nowMs = instant.millisecondsSinceEpoch;
-    return db.transaction<List<AwarenessObservation>>((txn) async {
-      Future<String?> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? null : rows.first['value'] as String?;
-      }
-
-      if (await setting('transfer_lock') == '1' || await setting('active_brain') == '0') {
-        return const [];
-      }
-      var deviceId = await setting('device_id');
-      if (deviceId == null || deviceId.isEmpty) {
-        deviceId = _uuid.v4();
-        await txn.insert(
-          'settings',
-          {'key': 'device_id', 'value': deviceId},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
-      final incomingKeys = drafts.map((e) => e.dedupeKey).toSet();
-      final toExpire = managedKeys.difference(incomingKeys);
-      for (final key in toExpire) {
-        await txn.rawUpdate('''
-          UPDATE awareness_observations
-          SET expires_at = CASE WHEN expires_at > ? THEN ? ELSE expires_at END,
-              updated_at = ?
-          WHERE dedupe_key = ? AND expires_at > ?
-        ''', [nowMs, nowMs, nowMs, key, nowMs]);
-      }
-
-      final result = <AwarenessObservation>[];
-      for (final draft in drafts) {
-        final existing = await txn.query(
-          'awareness_observations',
-          where: 'dedupe_key = ?',
-          whereArgs: [draft.dedupeKey],
-          limit: 1,
-        );
-        final values = <String, Object?>{
-          'device_id': deviceId,
-          'kind': draft.kind,
-          'summary': draft.summary.trim(),
-          'confidence': draft.confidence.clamp(0.0, 1.0).toDouble(),
-          'window_start': draft.windowStart.millisecondsSinceEpoch,
-          'window_end': draft.windowEnd.millisecondsSinceEpoch,
-          'expires_at': draft.expiresAt.millisecondsSinceEpoch,
-          'source_fingerprint': draft.sourceFingerprint,
-          'metadata_json': jsonEncode(draft.metadata),
-          'updated_at': nowMs,
-        };
-        String id;
-        int createdAt;
-        if (existing.isEmpty) {
-          id = _uuid.v4();
-          createdAt = nowMs;
-          await txn.insert('awareness_observations', {
-            'id': id,
-            'dedupe_key': draft.dedupeKey,
-            'created_at': createdAt,
-            ...values,
-          });
-        } else {
-          id = existing.first['id'] as String;
-          createdAt = existing.first['created_at'] as int? ?? nowMs;
-          await txn.update(
-            'awareness_observations',
-            values,
-            where: 'id = ?',
-            whereArgs: [id],
-          );
-        }
-        result.add(AwarenessObservation(
-          id: id,
-          kind: draft.kind,
-          summary: draft.summary.trim(),
-          confidence: draft.confidence.clamp(0.0, 1.0).toDouble(),
-          windowStart: draft.windowStart,
-          windowEnd: draft.windowEnd,
-          expiresAt: draft.expiresAt,
-          dedupeKey: draft.dedupeKey,
-          createdAt: DateTime.fromMillisecondsSinceEpoch(createdAt),
-          updatedAt: instant,
-          deviceId: deviceId,
-          sourceFingerprint: draft.sourceFingerprint,
-          metadata: draft.metadata,
-        ));
-      }
-      return result;
-    });
-  }
-
-  Future<List<AwarenessObservation>> activeAwarenessObservations({
-    int limit = 6,
-    double minConfidence = 0.45,
-    DateTime? now,
-  }) async {
-    final db = await database;
-    final nowMs = (now ?? DateTime.now()).millisecondsSinceEpoch;
-    final rows = await db.rawQuery('''
-      SELECT * FROM awareness_observations
-      WHERE expires_at > ? AND confidence >= ?
-      ORDER BY CASE kind
-        WHEN 'screen_state' THEN 0
-        WHEN 'current_activity' THEN 1
-        WHEN 'availability' THEN 2
-        WHEN 'recent_activity' THEN 3
-        WHEN 'app_switching' THEN 4
-        WHEN 'notification_pressure' THEN 5
-        ELSE 9
-      END ASC,
-      confidence DESC,
-      updated_at DESC
-      LIMIT ?
-    ''', [nowMs, minConfidence, limit.clamp(1, 20).toInt()]);
-    return rows.map(AwarenessObservation.fromDb).toList();
-  }
-
-  Future<List<AwarenessObservation>> awarenessObservationsBetween(
-    DateTime start,
-    DateTime end, {
-    int limit = 12,
-    double minConfidence = 0.62,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'awareness_observations',
-      where: 'updated_at >= ? AND updated_at < ? AND confidence >= ?',
-      whereArgs: [
-        start.millisecondsSinceEpoch,
-        end.millisecondsSinceEpoch,
-        minConfidence,
-      ],
-      orderBy: 'confidence DESC, updated_at DESC',
-      limit: limit.clamp(1, 40).toInt(),
-    );
-    return rows.map(AwarenessObservation.fromDb).toList();
-  }
-
-  Future<int> messageCountBetween(DateTime start, DateTime end) async {
-    final db = await database;
-    final rows = await db.rawQuery(
-      'SELECT COUNT(*) AS c FROM messages WHERE created_at >= ? AND created_at < ?',
-      [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
-    );
-    return Sqflite.firstIntValue(rows) ?? 0;
-  }
-
-  Future<double?> latestPerceptionBusyScore({
-    Duration maxAge = const Duration(minutes: 15),
-  }) async {
-    final db = await database;
-    final since = DateTime.now().subtract(maxAge).millisecondsSinceEpoch;
-    final rows = await db.query(
-      'perception_snapshots',
-      columns: ['busy_score'],
-      where: 'occurred_at >= ?',
-      whereArgs: [since],
-      orderBy: 'occurred_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : (rows.first['busy_score'] as num?)?.toDouble();
-  }
-
-  Future<PerceptionSnapshot> insertPerceptionSnapshot({
-    required String summary,
-    String? currentPackage,
-    String? deviceLabel,
-    double busyScore = 0,
-    int notificationCount = 0,
-    Map<String, Object?> metadata = const {},
-    DateTime? occurredAt,
-  }) async {
-    final db = await database;
-    final snapshot = PerceptionSnapshot(
-      id: _uuid.v4(),
-      summary: summary.trim(),
-      occurredAt: occurredAt ?? DateTime.now(),
-      deviceId: await ensureDeviceId(),
-      deviceLabel: deviceLabel,
-      currentPackage: currentPackage,
-      busyScore: busyScore.clamp(0.0, 1.0).toDouble(),
-      notificationCount: notificationCount.clamp(0, 999).toInt(),
-      metadata: metadata,
-    );
-    await db.insert('perception_snapshots', {
-      'id': snapshot.id,
-      'summary': snapshot.summary,
-      'device_id': snapshot.deviceId,
-      'device_label': snapshot.deviceLabel,
-      'current_package': snapshot.currentPackage,
-      'busy_score': snapshot.busyScore,
-      'notification_count': snapshot.notificationCount,
-      'metadata_json': jsonEncode(snapshot.metadata),
-      'occurred_at': snapshot.occurredAt.millisecondsSinceEpoch,
-    });
-    return snapshot;
-  }
-
-  Future<List<PerceptionSnapshot>> recentPerceptionSnapshots({int limit = 8}) async {
-    final db = await database;
-    final rows = await db.query(
-      'perception_snapshots',
-      orderBy: 'occurred_at DESC',
-      limit: limit,
-    );
-    return rows.map(PerceptionSnapshot.fromDb).toList();
-  }
-
-  Future<void> addRelationshipEvent({
-    required String kind,
-    required String summary,
-    double intensity = 0.5,
-    double valence = 0.0,
-    String? sourceMessageId,
-    Map<String, Object?> metadata = const {},
-  }) async {
-    final normalized = summary.trim();
-    if (normalized.isEmpty) return;
-    const allowed = {
-      'closeness', 'trust', 'conflict', 'repair', 'promise', 'milestone',
-      'intimacy', 'boundary', 'roleplay', 'support', 'shared_discovery'
-    };
-    if (!allowed.contains(kind)) return;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (sourceMessageId != null && sourceMessageId.isNotEmpty) {
-      final sameTurn = await db.query(
-        'relationship_events',
-        columns: ['id'],
-        where: 'source_message_id = ? AND kind = ? AND summary = ?',
-        whereArgs: [sourceMessageId, kind, normalized],
-        limit: 1,
-      );
-      // Post-turn extraction is retryable. Re-applying the same proposal for
-      // the same assistant turn must be idempotent rather than reinforcing it.
-      if (sameTurn.isNotEmpty) return;
-    }
-    final duplicate = await db.query(
-      'relationship_events',
-      where: 'kind = ? AND summary = ? AND created_at >= ?',
-      whereArgs: [kind, normalized, now - const Duration(days: 14).inMilliseconds],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
-    if (duplicate.isNotEmpty) {
-      final oldIntensity = (duplicate.first['intensity'] as num?)?.toDouble() ?? 0.5;
-      final oldValence = (duplicate.first['valence'] as num?)?.toDouble() ?? 0.0;
-      await db.update(
-        'relationship_events',
-        {
-          'intensity': (oldIntensity * 0.75 + intensity * 0.35).clamp(0.0, 1.0),
-          'valence': (oldValence * 0.75 + valence * 0.35).clamp(-1.0, 1.0),
-          'source_message_id': sourceMessageId ?? duplicate.first['source_message_id'],
-          'metadata_json': jsonEncode(metadata),
-          'created_at': now,
-          'internalized_at': null,
-        },
-        where: 'id = ?',
-        whereArgs: [duplicate.first['id']],
-      );
-      return;
-    }
-    await db.insert('relationship_events', {
-      'id': _uuid.v4(),
-      'kind': kind,
-      'summary': normalized,
-      'intensity': intensity.clamp(0.0, 1.0),
-      'valence': valence.clamp(-1.0, 1.0),
-      'source_message_id': sourceMessageId,
-      'metadata_json': jsonEncode(metadata),
-      'created_at': now,
-      'internalized_at': null,
-    });
-  }
-
-  Future<List<RelationshipEvent>> recentRelationshipEvents({int limit = 12}) async {
-    final db = await database;
-    final rows = await db.query(
-      'relationship_events',
-      orderBy: 'created_at DESC',
-      limit: limit,
-    );
-    return rows.map(RelationshipEvent.fromDb).toList();
-  }
-
-  Future<List<RelationshipEvent>> relationshipEventsBetween(
-    DateTime start,
-    DateTime end, {
-    int limit = 24,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'relationship_events',
-      where: 'created_at >= ? AND created_at < ?',
-      whereArgs: [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
-      orderBy: 'created_at DESC',
-      limit: limit.clamp(1, 80).toInt(),
-    );
-    return rows.map(RelationshipEvent.fromDb).toList();
-  }
-
-  Future<List<RelationshipEvent>> pendingRelationshipEvents({int limit = 16}) async {
-    final db = await database;
-    final rows = await db.query(
-      'relationship_events',
-      where: 'internalized_at IS NULL',
-      orderBy: 'created_at ASC',
-      limit: limit,
-    );
-    return rows.map(RelationshipEvent.fromDb).toList();
-  }
-
-  Future<void> markRelationshipEventInternalized(String id, {DateTime? at}) async {
-    final db = await database;
-    await db.update(
-      'relationship_events',
-      {'internalized_at': (at ?? DateTime.now()).millisecondsSinceEpoch},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  /// Exactly-once relationship assimilation. Desire changes, the durable
-  /// relationship-derived Thought and `internalized_at` are committed in one
-  /// SQLite transaction, so a frozen worker cannot replay the same emotional
-  /// pulse after another engine takes over.
-  Future<bool> assimilateRelationshipEventAtomic({
-    required RelationshipEvent event,
-    required Map<DriveKey, double> pulses,
-    required double baselineLearning,
-    required DriveKey thoughtDrive,
-    required String thoughtText,
-    required double thoughtStrength,
-  }) async {
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'relationship_events',
-        where: 'id = ? AND internalized_at IS NULL',
-        whereArgs: [event.id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final currentEvent = RelationshipEvent.fromDb(rows.first);
-      final now = DateTime.now();
-      final nowMs = now.millisecondsSinceEpoch;
-
-      final stateRows = await txn.query('desire_state', where: 'id = 1', limit: 1);
-      final snapshot = stateRows.isEmpty
-          ? DesireSnapshot()
-          : DesireSnapshot.decode(stateRows.first['json'] as String);
-      final drives = Map<DriveKey, double>.from(snapshot.drives);
-      final baselines = Map<DriveKey, double>.from(snapshot.baselines);
-      final anchors = DesireSnapshot.defaultBaselines();
-      for (final entry in pulses.entries) {
-        final drive = entry.key;
-        final delta = entry.value.clamp(-0.35, 0.35).toDouble();
-        final anchor = anchors[drive] ?? 0.2;
-        drives[drive] = ((drives[drive] ?? anchor) + delta)
-            .clamp(0.0, 1.0)
-            .toDouble();
-        final currentBase = baselines[drive] ?? anchor;
-        baselines[drive] = (currentBase + delta * baselineLearning)
-            .clamp(max(0.02, anchor - 0.10), min(0.92, anchor + 0.10))
-            .toDouble();
-      }
-      final nextSnapshot = snapshot.copyWith(drives: drives, baselines: baselines);
-      await txn.insert(
-        'desire_state',
-        {'id': 1, 'json': nextSnapshot.encode(), 'updated_at': nowMs},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-
-      final topicKey = (currentEvent.metadata['topic_key'] as String? ?? '')
-          .trim()
-          .toLowerCase();
-      List<Map<String, Object?>> matches;
-      if (topicKey.isNotEmpty) {
-        matches = await txn.query(
-          'thoughts',
-          where: 'drive_key = ? AND topic_key = ?',
-          whereArgs: [thoughtDrive.name, topicKey],
-          orderBy: 'updated_at DESC',
-          limit: 1,
-        );
-      } else {
-        matches = await txn.query(
-          'thoughts',
-          where: 'drive_key = ? AND source = ? AND text = ?',
-          whereArgs: [thoughtDrive.name, 'relationship/${currentEvent.kind}', thoughtText],
-          orderBy: 'updated_at DESC',
-          limit: 1,
-        );
-      }
-      if (matches.isEmpty) {
-        await txn.insert('thoughts', {
-          'id': _uuid.v4(),
-          'text': thoughtText.trim(),
-          'drive_key': thoughtDrive.name,
-          'kind': thoughtStrength >= 0.68 ? 'fixation' : 'flit',
-          'strength': thoughtStrength.clamp(0.08, 0.70),
-          'born_at': nowMs,
-          'updated_at': nowMs,
-          'fed_count': 1,
-          'source': 'relationship/${currentEvent.kind}',
-          'last_fed_at': nowMs,
-          'lifecycle_state': thoughtStrength >= 0.68 ? 'fixation' : 'active',
-          'action_count': 0,
-          'last_acted_at': null,
-          'last_satisfied_at': null,
-          'last_resurfaced_at': null,
-          'resurfaced_count': 0,
-          'residual_strength': 0.0,
-          'last_outbound_message_id': null,
-          'topic_key': topicKey,
-          'merged_count': 0,
-          'last_merged_at': null,
-          'snoozed_until': null,
-        });
-      } else {
-        final thought = CompanionThought.fromDb(matches.first);
-        final fed = thought.fedCount + 1;
-        final nextStrength =
-            (thought.strength * 0.88 + thoughtStrength * 0.55 + 0.06)
-                .clamp(0.0, 1.0)
-                .toDouble();
-        final fixation = fed >= 3 || nextStrength >= 0.68;
-        await txn.update(
-          'thoughts',
-          {
-            'strength': nextStrength,
-            'fed_count': fed,
-            'kind': fixation ? 'fixation' : thought.kind,
-            'lifecycle_state': fixation ? 'fixation' : 'active',
-            'last_fed_at': nowMs,
-            'updated_at': nowMs,
-            if (thought.topicKey.isEmpty && topicKey.isNotEmpty) 'topic_key': topicKey,
-          },
-          where: 'id = ?',
-          whereArgs: [thought.id],
-        );
-      }
-
-      final changed = await txn.update(
-        'relationship_events',
-        {'internalized_at': nowMs},
-        where: 'id = ? AND internalized_at IS NULL',
-        whereArgs: [currentEvent.id],
-      );
-      if (changed != 1) {
-        throw StateError('relationship_assimilation_ownership_lost');
-      }
-      return true;
-    });
-  }
-
-  Future<void> updateMemoryRetention({
-    required String id,
-    required double retentionScore,
-    required DateTime checkedAt,
-    String? status,
-  }) async {
-    final db = await database;
-    await db.update(
-      'memory_items',
-      {
-        'retention_score': retentionScore.clamp(0.0, 1.0),
-        'retention_checked_at': checkedAt.millisecondsSinceEpoch,
-        if (status != null) 'status': status,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  /// Optimistic retention update used by long-running memory maintenance.
-  /// If another engine already refreshed/recalled this memory, the stale
-  /// maintenance pass is discarded instead of overwriting newer retention.
-  Future<bool> updateMemoryRetentionIfUnchanged({
-    required String id,
-    required DateTime expectedCheckedAt,
-    required double retentionScore,
-    required DateTime checkedAt,
-    String? status,
-  }) async {
-    final db = await database;
-    final changed = await db.update(
-      'memory_items',
-      {
-        'retention_score': retentionScore.clamp(0.0, 1.0),
-        'retention_checked_at': checkedAt.millisecondsSinceEpoch,
-        if (status != null) 'status': status,
-      },
-      where: 'id = ? AND COALESCE(retention_checked_at, updated_at) = ?',
-      whereArgs: [id, expectedCheckedAt.millisecondsSinceEpoch],
-    );
-    return changed == 1;
-  }
-
-  Future<List<MemoryItem>> memoryMaintenanceCandidates({int limit = 500}) async {
-    final db = await database;
-    final rows = await db.query(
-      'memory_items',
-      where: 'status = ? AND pinned = 0',
-      whereArgs: ['active'],
-      orderBy: 'retention_checked_at ASC, updated_at ASC',
-      limit: limit,
-    );
-    return rows.map(MemoryItem.fromDb).toList();
-  }
-
-  Future<void> insertReferenceItem({
-    required String sourceName,
-    required String section,
-    required String title,
-    required String content,
-    List<String> tags = const [],
-    double weight = 0.55,
-    String? documentId,
-  }) async {
-    final normalized = content.trim();
-    if (normalized.isEmpty) return;
-    final db = await database;
-    final duplicate = await db.query(
-      'reference_items',
-      where: 'source_name = ? AND content = ?',
-      whereArgs: [sourceName.trim(), normalized],
-      limit: 1,
-    );
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (duplicate.isNotEmpty) {
-      await db.update(
-        'reference_items',
-        {
-          if (documentId != null) 'document_id': documentId,
-          'section': section,
-          'title': title.trim(),
-          'tags': tags.map((e) => e.trim()).where((e) => e.isNotEmpty).take(12).join('|'),
-          'weight': weight.clamp(0.05, 1.0),
-          'enabled': 1,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [duplicate.first['id']],
-      );
-      return;
-    }
-    await db.insert('reference_items', {
-      'id': _uuid.v4(),
-      'document_id': documentId,
-      'source_name': sourceName.trim().isEmpty ? 'æœªå‘½åèµ„æ–™' : sourceName.trim(),
-      'section': section,
-      'title': title.trim(),
-      'content': normalized,
-      'tags': tags.map((e) => e.trim()).where((e) => e.isNotEmpty).take(12).join('|'),
-      'weight': weight.clamp(0.05, 1.0),
-      'enabled': 1,
-      'created_at': now,
-      'updated_at': now,
-    });
-  }
-
-  Future<List<ReferenceItem>> listReferenceItems({int limit = 400}) async {
-    final db = await database;
-    final rows = await db.query(
-      'reference_items',
-      orderBy: 'enabled DESC, weight DESC, updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(ReferenceItem.fromDb).toList();
-  }
-
-  Future<List<ReferenceItem>> relevantReferenceItems(String query, {int limit = 6}) async {
-    if ((await getSetting('reference_library_enabled')) == '0') return const [];
-    final db = await database;
-    final rows = await db.query(
-      'reference_items',
-      where: 'enabled = 1',
-      orderBy: 'weight DESC, updated_at DESC',
-      limit: 220,
-    );
-    final q = _tokens(query);
-    final scored = <({ReferenceItem item, double score})>[];
-    for (final row in rows) {
-      final item = ReferenceItem.fromDb(row);
-      final tokens = _tokens('${item.title} ${item.content} ${item.tags.join(' ')}');
-      final overlap = q.isEmpty ? 0.0 : q.where(tokens.contains).length / q.length;
-      final score = item.weight * 0.52 + overlap * 0.48;
-      // Reference material is deliberately on-demand. Even a speaking-style
-      // item does not become a permanent per-turn character card.
-      if (overlap > 0 || item.weight >= 0.82) {
-        scored.add((item: item, score: score));
-      }
-    }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
-  }
-
-  Future<void> setReferenceEnabled(String id, bool enabled) async {
-    final db = await database;
-    await db.update(
-      'reference_items',
-      {'enabled': enabled ? 1 : 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> deleteReferenceItem(String id) async {
-    final db = await database;
-    await db.delete('reference_items', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> clearReferenceSource(String sourceName) async {
-    final db = await database;
-    await db.delete('reference_items', where: 'source_name = ?', whereArgs: [sourceName]);
-  }
-
-  Future<String> upsertReferenceDocument({
-    String? id,
-    required String name,
-    required String kind,
-    required String rawContent,
-    List<String> aliases = const [],
-    bool enabled = true,
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final normalizedName = name.trim().isEmpty ? 'æœªå‘½åèµ„æ–™' : name.trim();
-    final normalizedAliases = aliases
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .take(16)
-        .join('|');
-
-    if (id != null && id.trim().isNotEmpty) {
-      final changed = await db.update(
-        'reference_documents',
-        {
-          'name': normalizedName,
-          'kind': kind,
-          'aliases': normalizedAliases,
-          'raw_content': rawContent.trim(),
-          'enabled': enabled ? 1 : 0,
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      if (changed == 1) return id;
-    }
-
-    final documentId = id ?? _uuid.v4();
-    await db.insert('reference_documents', {
-      'id': documentId,
-      'name': normalizedName,
-      'kind': kind,
-      'aliases': normalizedAliases,
-      'raw_content': rawContent.trim(),
-      'enabled': enabled ? 1 : 0,
-      'created_at': now,
-      'updated_at': now,
-    });
-    return documentId;
-  }
-
-  Future<String> saveReferenceDocumentWithChunks({
-    String? id,
-    required String name,
-    required String kind,
-    required String rawContent,
-    List<String> aliases = const [],
-    bool enabled = true,
-    required List<Map<String, Object?>> chunks,
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final normalizedName = name.trim().isEmpty ? 'æœªå‘½åèµ„æ–™' : name.trim();
-    final normalizedAliases = aliases
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .take(16)
-        .join('|');
-    final documentId = id ?? _uuid.v4();
-
-    return db.transaction((txn) async {
-      var updated = 0;
-      if (id != null && id.trim().isNotEmpty) {
-        updated = await txn.update(
-          'reference_documents',
-          {
-            'name': normalizedName,
-            'kind': kind,
-            'aliases': normalizedAliases,
-            'raw_content': rawContent.trim(),
-            'enabled': enabled ? 1 : 0,
-            'updated_at': now,
-          },
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-      if (updated != 1) {
-        await txn.insert('reference_documents', {
-          'id': documentId,
-          'name': normalizedName,
-          'kind': kind,
-          'aliases': normalizedAliases,
-          'raw_content': rawContent.trim(),
-          'enabled': enabled ? 1 : 0,
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-
-      await txn.delete(
-        'reference_items',
-        where: 'document_id = ?',
-        whereArgs: [documentId],
-      );
-      for (final chunk in chunks) {
-        final content = (chunk['content'] as String? ?? '').trim();
-        if (content.isEmpty) continue;
-        await txn.insert('reference_items', {
-          'id': _uuid.v4(),
-          'document_id': documentId,
-          'source_name': normalizedName,
-          'section': chunk['section'] as String? ?? kind,
-          'title': chunk['title'] as String? ?? '',
-          'content': content,
-          'tags': chunk['tags'] as String? ?? '',
-          'weight': (chunk['weight'] as num?)?.toDouble() ?? 0.58,
-          'enabled': enabled ? 1 : 0,
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-      return documentId;
-    });
-  }
-
-  Future<ReferenceDocument?> referenceDocumentById(String id) async {
-    final db = await database;
-    final rows = await db.query(
-      'reference_documents',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : ReferenceDocument.fromDb(rows.first);
-  }
-
-  Future<List<ReferenceDocument>> listReferenceDocuments({int limit = 100}) async {
-    final db = await database;
-    final rows = await db.query('reference_documents', orderBy: 'enabled DESC, updated_at DESC', limit: limit);
-    return rows.map(ReferenceDocument.fromDb).toList();
-  }
-
-  Future<List<ReferenceItem>> referenceItemsForDocument(String documentId) async {
-    final db = await database;
-    final rows = await db.query(
-      'reference_items',
-      where: 'document_id = ?',
-      whereArgs: [documentId],
-      orderBy: 'created_at ASC',
-    );
-    return rows.map(ReferenceItem.fromDb).toList();
-  }
-
-  Future<void> replaceDocumentChunks(
-    String documentId, {
-    required String sourceName,
-    required List<Map<String, Object?>> chunks,
-  }) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      final documentRows = await txn.query(
-        'reference_documents',
-        columns: const ['enabled'],
-        where: 'id = ?',
-        whereArgs: [documentId],
-        limit: 1,
-      );
-      if (documentRows.isEmpty) {
-        throw StateError('Reference document does not exist: $documentId');
-      }
-      final documentEnabled = (documentRows.first['enabled'] as int? ?? 1) == 1;
-      await txn.delete('reference_items', where: 'document_id = ?', whereArgs: [documentId]);
-      final now = DateTime.now().millisecondsSinceEpoch;
-      for (final chunk in chunks) {
-        final content = (chunk['content'] as String? ?? '').trim();
-        if (content.isEmpty) continue;
-        await txn.insert('reference_items', {
-          'id': _uuid.v4(),
-          'document_id': documentId,
-          'source_name': sourceName,
-          'section': chunk['section'] as String? ?? 'character',
-          'title': chunk['title'] as String? ?? '',
-          'content': content,
-          'tags': chunk['tags'] as String? ?? '',
-          'weight': (chunk['weight'] as num?)?.toDouble() ?? 0.58,
-          'enabled': documentEnabled ? 1 : 0,
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-    });
-  }
-
-  Future<void> setReferenceDocumentEnabled(String id, bool enabled) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      await txn.update(
-        'reference_documents',
-        {'enabled': enabled ? 1 : 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      await txn.update(
-        'reference_items',
-        {'enabled': enabled ? 1 : 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
-        where: 'document_id = ?',
-        whereArgs: [id],
-      );
-    });
-  }
-
-  Future<void> deleteReferenceDocument(String id) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      await txn.delete('reference_items', where: 'document_id = ?', whereArgs: [id]);
-      await txn.delete('reference_documents', where: 'id = ?', whereArgs: [id]);
-    });
-  }
-
-  Future<List<RuleLayer>> listRuleLayers() async {
-    final db = await database;
-    await _seedRuleLayers(db);
-    final rows = await db.query('rule_layers', orderBy: 'key ASC');
-    return rows.map(RuleLayer.fromDb).toList();
-  }
-
-  Future<void> _expirePersonalityTrials(DatabaseExecutor db, int now) async {
-    await db.update(
-      'personality_trials',
-      {'status': 'expired', 'ended_at': now, 'updated_at': now},
-      where: "status = 'active' AND expires_at <= ?",
-      whereArgs: [now],
-    );
-    await db.update(
-      'special_style_trials',
-      {'status': 'expired', 'ended_at': now, 'updated_at': now},
-      where: "status = 'active' AND expires_at <= ?",
-      whereArgs: [now],
-    );
-  }
-
-  Future<PersonalityTrial?> activePersonalityTrial({DateTime? now}) async {
-    final db = await database;
-    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
-    await _expirePersonalityTrials(db, at);
-    final rows = await db.query(
-      'personality_trials',
-      where: "status = 'active' AND expires_at > ?",
-      whereArgs: [at],
-      orderBy: 'started_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : PersonalityTrial.fromDb(rows.first);
-  }
-
-  Future<PersonalityTrial?> latestAdoptablePersonalityTrial({DateTime? now}) async {
-    final db = await database;
-    final at = now ?? DateTime.now();
-    await _expirePersonalityTrials(db, at.millisecondsSinceEpoch);
-    final rows = await db.query(
-      'personality_trials',
-      where: "status IN ('active', 'expired', 'ended') AND expires_at >= ?",
-      whereArgs: [at.subtract(const Duration(days: 7)).millisecondsSinceEpoch],
-      orderBy: 'started_at DESC',
-      limit: 12,
-    );
-    for (final row in rows) {
-      final trial = PersonalityTrial.fromDb(row);
-      if (trial.isAdoptableAt(at)) return trial;
-    }
-    return null;
-  }
-
-  Future<SpecialStyleTrial?> activeSpecialStyleTrial({DateTime? now}) async {
-    final db = await database;
-    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
-    await _expirePersonalityTrials(db, at);
-    final rows = await db.query(
-      'special_style_trials',
-      where: "status = 'active' AND expires_at > ?",
-      whereArgs: [at],
-      orderBy: 'started_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : SpecialStyleTrial.fromDb(rows.first);
-  }
-
-  Future<PersonalityTrial> startPersonalityTrial({
-    required String baseKey,
-    required String postureKey,
-    required Duration duration,
-  }) async {
-    final db = await database;
-    final now = DateTime.now();
-    final at = now.millisecondsSinceEpoch;
-    final id = _uuid.v4();
-    final templates = await _promptTemplateContents(db);
-    final content = PersonalityCatalog.compileProfile(
-      baseKey,
-      postureKey,
-      trial: true,
-      templates: templates,
-    );
-    await db.transaction((txn) async {
-      await _expirePersonalityTrials(txn, at);
-      await txn.update(
-        'personality_trials',
-        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
-        where: "status = 'active'",
-      );
-      final seed = await txn.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
-        limit: 1,
-      );
-      await txn.insert('personality_trials', {
-        'id': id,
-        'base_key': baseKey,
-        'posture_key': postureKey,
-        'content': content,
-        'previous_content': seed.isEmpty ? '' : seed.first['content'] as String? ?? '',
-        'status': 'active',
-        'started_at': at,
-        'expires_at': now.add(duration).millisecondsSinceEpoch,
-        'effective_turns': 0,
-        'interaction_windows': 0,
-        'created_at': at,
-        'updated_at': at,
-      });
-    });
-    return (await activePersonalityTrial(now: now))!;
-  }
-
-  Future<void> extendPersonalityTrial(String id, Duration duration) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.rawUpdate(
-      "UPDATE personality_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
-      [duration.inMilliseconds, now, id],
-    );
-  }
-
-  Future<void> endPersonalityTrial(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.update(
-      'personality_trials',
-      {'status': 'ended', 'ended_at': now, 'updated_at': now},
-      where: "id = ? AND status = 'active'",
-      whereArgs: [id],
-    );
-  }
-
-  Future<SpecialStyleTrial> startSpecialStyleTrial({
-    required String styleKey,
-    required Duration duration,
-  }) async {
-    final db = await database;
-    final now = DateTime.now();
-    final at = now.millisecondsSinceEpoch;
-    final id = _uuid.v4();
-    await db.transaction((txn) async {
-      await _expirePersonalityTrials(txn, at);
-      await txn.update(
-        'special_style_trials',
-        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
-        where: "status = 'active'",
-      );
-      await txn.insert('special_style_trials', {
-        'id': id,
-        'style_key': styleKey,
-        'status': 'active',
-        'started_at': at,
-        'expires_at': now.add(duration).millisecondsSinceEpoch,
-        'created_at': at,
-        'updated_at': at,
-      });
-    });
-    return (await activeSpecialStyleTrial(now: now))!;
-  }
-
-  Future<void> extendSpecialStyleTrial(String id, Duration duration) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.rawUpdate(
-      "UPDATE special_style_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
-      [duration.inMilliseconds, now, id],
-    );
-  }
-
-  Future<void> endSpecialStyleTrial(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.update(
-      'special_style_trials',
-      {'status': 'ended', 'ended_at': now, 'updated_at': now},
-      where: "id = ? AND status = 'active'",
-      whereArgs: [id],
-    );
-  }
-
-  Future<bool> adoptPersonalityTrial(String id) async {
-    final db = await database;
-    final now = DateTime.now();
-    return db.transaction<bool>((txn) async {
-      await _expirePersonalityTrials(txn, now.millisecondsSinceEpoch);
-      final rows = await txn.query(
-        'personality_trials',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final trial = PersonalityTrial.fromDb(rows.first);
-      if (!trial.isAdoptableAt(now)) return false;
-      final templates = await _promptTemplateContents(txn);
-      final adopted = PersonalityCatalog.compileProfile(
-        trial.baseKey,
-        trial.postureKey,
-        trial: false,
-        templates: templates,
-      );
-      final current = await txn.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
-        limit: 1,
-      );
-      final previous = current.isEmpty ? '' : current.first['content'] as String? ?? '';
-      await txn.update(
-        'personality_profile_versions',
-        {'active': 0, 'retired_at': now.millisecondsSinceEpoch},
-        where: 'active = 1',
-      );
-      if (previous.isNotEmpty) {
-        await txn.insert('personality_profile_versions', {
-          'id': _uuid.v4(),
-          'content': previous,
-          'source': 'pre_adoption_snapshot',
-          'active': 0,
-          'created_at': now.millisecondsSinceEpoch,
-          'activated_at': trial.startedAt.millisecondsSinceEpoch,
-          'retired_at': now.millisecondsSinceEpoch,
-        });
-      }
-      await txn.insert('personality_profile_versions', {
-        'id': _uuid.v4(),
-        'base_key': trial.baseKey,
-        'posture_key': trial.postureKey,
-        'content': adopted,
-        'source': 'trial_adoption',
-        'source_trial_id': trial.id,
-        'active': 1,
-        'created_at': now.millisecondsSinceEpoch,
-        'activated_at': now.millisecondsSinceEpoch,
-      });
-      await txn.update(
-        'rule_layers',
-        {'content': adopted, 'updated_at': now.millisecondsSinceEpoch},
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
-      );
-      await txn.update(
-        'personality_trials',
-        {
-          'status': 'adopted',
-          'ended_at': now.millisecondsSinceEpoch,
-          'updated_at': now.millisecondsSinceEpoch,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      // Desire baselines, AI Self and relationship memory are intentionally untouched.
-      return true;
-    });
-  }
-
-  Future<Map<String, String>> _promptTemplateContents(
-    DatabaseExecutor executor,
-  ) async {
-    final rows = await executor.query(
-      'rule_layers',
-      columns: const ['key', 'content'],
-      where: 'load_policy = ?',
-      whereArgs: const ['template'],
-    );
-    return <String, String>{
-      for (final row in rows)
-        if ((row['key'] as String? ?? '').isNotEmpty)
-          row['key'] as String: row['content'] as String? ?? '',
-    };
-  }
-
-  Future<void> _recordPersonalityTrialReplyInTransaction(
-    DatabaseExecutor txn,
-    int now,
-  ) async {
-    await _expirePersonalityTrials(txn, now);
-    final special = await txn.query(
-      'special_style_trials',
-      columns: const ['id'],
-      where: "status = 'active' AND expires_at > ?",
-      whereArgs: [now],
-      limit: 1,
-    );
-    if (special.isNotEmpty) return;
-    final rows = await txn.query(
-      'personality_trials',
-      where: "status = 'active' AND expires_at > ?",
-      whereArgs: [now],
-      orderBy: 'started_at DESC',
-      limit: 1,
-    );
-    if (rows.isEmpty) return;
-    final trial = PersonalityTrial.fromDb(rows.first);
-    final newWindow = trial.lastInteractionAt == null ||
-        now - trial.lastInteractionAt!.millisecondsSinceEpoch >=
-            const Duration(hours: 1).inMilliseconds;
-    await txn.update(
-      'personality_trials',
-      {
-        'effective_turns': trial.effectiveTurns + 1,
-        'interaction_windows': trial.interactionWindows + (newWindow ? 1 : 0),
-        'last_interaction_at': now,
-        'updated_at': now,
-      },
-      where: 'id = ?',
-      whereArgs: [trial.id],
-    );
-  }
-
-  Future<Map<String, Object?>> personalityTrialDiagnostics() async {
-    final profile = await activePersonalityTrial();
-    final special = await activeSpecialStyleTrial();
-    return {
-      'profileActive': profile != null,
-      'profileBaseKey': profile?.baseKey ?? '',
-      'profilePostureKey': profile?.postureKey ?? '',
-      'profileEffectiveTurns': profile?.effectiveTurns ?? 0,
-      'profileInteractionWindows': profile?.interactionWindows ?? 0,
-      'profileRemainingMinutes': profile == null
-          ? 0
-          : profile.remaining().inMinutes.clamp(0, 10000000),
-      'specialActive': special != null,
-      'specialStyleKey': special?.styleKey ?? '',
-      'specialRemainingMinutes': special == null
-          ? 0
-          : special.remaining().inMinutes.clamp(0, 10000000),
-      'promptBodiesIncluded': false,
-    };
-  }
-
-  Future<void> updateRuleLayer(String key, {String? content, bool? enabled}) async {
-    final db = await database;
-    if (enabled == false) {
-      final rows = await db.query(
-        'rule_layers',
-        columns: const ['locked'],
-        where: 'key = ?',
-        whereArgs: [key],
-        limit: 1,
-      );
-      if (rows.isNotEmpty && (rows.first['locked'] as int? ?? 0) == 1) {
-        return;
-      }
-    }
-    await db.update('rule_layers', {
-      if (content != null) 'content': content,
-      if (enabled != null) 'enabled': enabled ? 1 : 0,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    }, where: 'key = ?', whereArgs: [key]);
-  }
-
-  Future<void> resetRuleLayer(String key) async {
-    final match = defaultRuleLayers.where((e) => e.key == key);
-    if (match.isEmpty) return;
-    final layer = match.first;
-    final db = await database;
-    await db.insert('rule_layers', {
-      'key': layer.key,
-      'title': layer.title,
-      'content': layer.content,
-      'load_policy': layer.loadPolicy,
-      'enabled': 1,
-      'locked': layer.locked ? 1 : 0,
-      'updated_at': DateTime.now().millisecondsSinceEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> createProactiveFeedback({
-    required String proactiveMessageId,
-    String? thoughtId,
-    String topicKey = '',
-    String? threadId,
-    String intentKind = '',
-    String deliveryStyle = '',
-    required DateTime sentAt,
-    String contextHourBucket = '',
-    String contextActivity = 'unknown',
-    double contextBusy = 0,
-  }) async {
-    final db = await database;
-    await db.insert('proactive_feedback', {
-      'id': _uuid.v4(),
-      'proactive_message_id': proactiveMessageId,
-      'thought_id': thoughtId,
-      'topic_key': topicKey.trim().toLowerCase(),
-      'thread_id': threadId,
-      'intent_kind': intentKind.trim(),
-      'delivery_style': deliveryStyle.trim(),
-      'sent_at': sentAt.millisecondsSinceEpoch,
-      'context_hour_bucket': contextHourBucket.trim(),
-      'context_activity': contextActivity.trim().isEmpty ? 'unknown' : contextActivity.trim(),
-      'context_busy': contextBusy.clamp(0.0, 1.0).toDouble(),
-      'response_bucket': 'pending',
-      'user_text_length': 0,
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
-  }
-
-  Future<List<ProactiveFeedback>> recentProactiveFeedback({int limit = 60}) async {
-    final db = await database;
-    final rows = await db.query('proactive_feedback', orderBy: 'sent_at DESC', limit: limit);
-    return rows.map(ProactiveFeedback.fromDb).toList();
-  }
-
-  Future<ProactiveFeedback?> latestPendingProactiveFeedback() async {
-    final db = await database;
-    final rows = await db.query(
-      'proactive_feedback',
-      where: 'response_bucket = ?',
-      whereArgs: ['pending'],
-      orderBy: 'sent_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : ProactiveFeedback.fromDb(rows.first);
-  }
-
-  Future<void> resolveProactiveFeedback({
-    required String id,
-    required String userResponseMessageId,
-    required int latencySeconds,
-    required String responseBucket,
-    required int userTextLength,
-    required double responseQuality,
-  }) async {
-    final db = await database;
-    await db.update('proactive_feedback', {
-      'user_response_message_id': userResponseMessageId,
-      'response_latency_seconds': latencySeconds,
-      'response_bucket': responseBucket,
-      'user_text_length': userTextLength,
-      'response_quality': responseQuality.clamp(0.0, 1.0),
-      'outcome': 'response_received',
-    }, where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<ProactiveFeedback?> proactiveFeedbackForUserResponse(String messageId) async {
-    final db = await database;
-    final rows = await db.query(
-      'proactive_feedback',
-      where: 'user_response_message_id = ?',
-      whereArgs: [messageId],
-      orderBy: 'sent_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : ProactiveFeedback.fromDb(rows.first);
-  }
-
-  Future<List<ProactiveFeedback>> recentProactiveFeedbackByTopic(
-    String topicKey, {
-    int limit = 20,
-  }) async {
-    final key = topicKey.trim().toLowerCase();
-    if (key.isEmpty) return const [];
-    final db = await database;
-    final rows = await db.query(
-      'proactive_feedback',
-      where: 'topic_key = ?',
-      whereArgs: [key],
-      orderBy: 'sent_at DESC',
-      limit: limit,
-    );
-    return rows.map(ProactiveFeedback.fromDb).toList();
-  }
-
-
-  Future<List<ProactiveFeedback>> recentProactiveFeedbackByIntent(
-    String intentKind, {
-    int limit = 20,
-  }) async {
-    final key = intentKind.trim();
-    if (key.isEmpty) return const [];
-    final db = await database;
-    final rows = await db.query(
-      'proactive_feedback',
-      where: 'intent_kind = ?',
-      whereArgs: [key],
-      orderBy: 'sent_at DESC',
-      limit: limit,
-    );
-    return rows.map(ProactiveFeedback.fromDb).toList();
-  }
-
-  Future<void> finalizeProactiveOutcome({
-    required String id,
-    required String outcome,
-    required double outcomeScore,
-    required double timingFit,
-    required double topicFit,
-  }) async {
-    const allowed = {'engaged', 'acknowledged', 'deferred', 'resolved', 'dismissed', 'redirected', 'no_response'};
-    final normalized = allowed.contains(outcome) ? outcome : 'acknowledged';
-    final db = await database;
-    await db.update(
-      'proactive_feedback',
-      {
-        'outcome': normalized,
-        'outcome_score': outcomeScore.clamp(0.0, 1.0),
-        'timing_fit': timingFit.clamp(-1.0, 1.0).toDouble(),
-        'topic_fit': topicFit.clamp(-1.0, 1.0).toDouble(),
-        'processed_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> expireProactiveFeedback({required DateTime before}) async {
-    final db = await database;
-    await db.update(
-      'proactive_feedback',
-      {
-        'response_bucket': 'no_response',
-        'outcome': 'no_response',
-        'outcome_score': 0.0,
-        // Silence is weak evidence about timing and no evidence that the topic
-        // itself was unwelcome. profile() also down-weights no-response rows.
-        'timing_fit': -0.18,
-        'topic_fit': 0.0,
-        'processed_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'response_bucket = ? AND sent_at < ?',
-      whereArgs: ['pending', before.millisecondsSinceEpoch],
-    );
-  }
-
-  Future<void> enqueuePostTurnJob({
-    required String userMessageId,
-    required String assistantMessageId,
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.insert(
-      'post_turn_jobs',
-      {
-        'id': _uuid.v4(),
-        'user_message_id': userMessageId,
-        'assistant_message_id': assistantMessageId,
-        'status': 'pending',
-        'attempts': 0,
-        'last_error': '',
-        'run_token': '',
-        'result_json': '',
-        'started_at': null,
-        'heartbeat_at': null,
-        'next_retry_at': null,
-        'model_completed_at': null,
-        'desire_applied_at': null,
-        'created_at': now,
-        'updated_at': now,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-  }
-
-  Future<void> recoverStalePostTurnJobs({
-    Duration staleAfter = const Duration(minutes: 15),
-  }) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final cutoff = now - staleAfter.inMilliseconds;
-    await db.update(
-      'post_turn_jobs',
-      {
-        'status': 'retry_wait',
-        'run_token': '',
-        'next_retry_at': now,
-        'last_error': 'stale_running_recovered',
-        'updated_at': now,
-      },
-      where:
-          "status = 'running' AND COALESCE(heartbeat_at, updated_at) < ?",
-      whereArgs: [cutoff],
-    );
-  }
-
-  /// Atomically selects and owns one due post-turn job. The returned run token
-  /// is the only authority allowed to checkpoint or complete that attempt.
-  Future<PostTurnJob?> claimNextPostTurnJob() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final token = _uuid.v4();
-    return db.transaction<PostTurnJob?>((txn) async {
-      final rows = await txn.query(
-        'post_turn_jobs',
-        where:
-            "status = 'pending' OR (status = 'retry_wait' AND (next_retry_at IS NULL OR next_retry_at <= ?))",
-        whereArgs: [now],
-        orderBy: 'created_at ASC',
-        limit: 1,
-      );
-      if (rows.isEmpty) return null;
-      final current = PostTurnJob.fromDb(rows.first);
-      final changed = await txn.update(
-        'post_turn_jobs',
-        {
-          'status': 'running',
-          'attempts': current.attempts + 1,
-          'run_token': token,
-          'started_at': now,
-          'heartbeat_at': now,
-          'next_retry_at': null,
-          'last_error': '',
-          'updated_at': now,
-        },
-        where:
-            "id = ? AND (status = 'pending' OR (status = 'retry_wait' AND (next_retry_at IS NULL OR next_retry_at <= ?)))",
-        whereArgs: [current.id, now],
-      );
-      if (changed != 1) return null;
-      final claimed = await txn.query(
-        'post_turn_jobs',
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [current.id, 'running', token],
-        limit: 1,
-      );
-      return claimed.isEmpty ? null : PostTurnJob.fromDb(claimed.first);
-    });
-  }
-
-  Future<bool> ownsPostTurnJobRun(String id, String runToken) async {
-    if (runToken.isEmpty) return false;
-    final db = await database;
-    final rows = await db.query(
-      'post_turn_jobs',
-      columns: ['id'],
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-      limit: 1,
-    );
-    return rows.isNotEmpty;
-  }
-
-  Future<bool> heartbeatPostTurnJob(String id, String runToken) async {
-    if (runToken.isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'post_turn_jobs',
-      {'heartbeat_at': now, 'updated_at': now},
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-    );
-    return changed == 1;
-  }
-
-  Future<bool> checkpointPostTurnProposal({
-    required String id,
-    required String runToken,
-    required String resultJson,
-  }) async {
-    if (runToken.isEmpty || resultJson.trim().isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'post_turn_jobs',
-      {
-        'result_json': resultJson,
-        'model_completed_at': now,
-        'heartbeat_at': now,
-        'updated_at': now,
-      },
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-    );
-    return changed == 1;
-  }
-
-  Future<bool> markPostTurnJobDone(String id, String runToken) async {
-    if (runToken.isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final changed = await db.update(
-      'post_turn_jobs',
-      {
-        'status': 'done',
-        'run_token': '',
-        'next_retry_at': null,
-        'last_error': '',
-        'heartbeat_at': now,
-        'updated_at': now,
-      },
-      where: 'id = ? AND status = ? AND run_token = ?',
-      whereArgs: [id, 'running', runToken],
-    );
-    return changed == 1;
-  }
-
-  Future<PostTurnJob?> failPostTurnJob(
-    String id, {
-    required String runToken,
-    required String error,
-    required bool recoverable,
-  }) async {
-    if (runToken.isEmpty) return null;
-    final db = await database;
-    final maxAttempts =
-        int.tryParse(await getSetting('post_turn_max_attempts') ?? '') ?? 0;
-    return db.transaction<PostTurnJob?>((txn) async {
-      final rows = await txn.query(
-        'post_turn_jobs',
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, 'running', runToken],
-        limit: 1,
-      );
-      if (rows.isEmpty) return null;
-      final job = PostTurnJob.fromDb(rows.first);
-      final configuredLimit = maxAttempts <= 0 ? null : maxAttempts.clamp(1, 100);
-      final canRetry = recoverable &&
-          (configuredLimit == null || job.attempts < configuredLimit);
-      final now = DateTime.now();
-      DateTime? retryAt;
-      if (canRetry) {
-        final seconds = job.attempts <= 1
-            ? 30
-            : job.attempts == 2
-                ? 120
-                : job.attempts == 3
-                    ? 600
-                    : job.attempts == 4
-                        ? 1800
-                        : 3600;
-        retryAt = now.add(Duration(seconds: seconds));
-      }
-      final compact = error.length <= 360 ? error : error.substring(0, 360);
-      final changed = await txn.update(
-        'post_turn_jobs',
-        {
-          'status': canRetry ? 'retry_wait' : 'failed',
-          'run_token': '',
-          'next_retry_at': retryAt?.millisecondsSinceEpoch,
-          'last_error': compact,
-          'heartbeat_at': now.millisecondsSinceEpoch,
-          'updated_at': now.millisecondsSinceEpoch,
-        },
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [id, 'running', runToken],
-      );
-      if (changed != 1) return null;
-      final updated = await txn.query(
-        'post_turn_jobs',
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      return updated.isEmpty ? null : PostTurnJob.fromDb(updated.first);
-    });
-  }
-
-  Future<int> wakeRetryablePostTurnJobs() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.update(
-      'post_turn_jobs',
-      {'next_retry_at': now, 'updated_at': now},
-      where: "status = 'retry_wait'",
-    );
-  }
-
-  Future<bool> applyPostTurnDesirePulsesOnce({
-    required String jobId,
-    required String runToken,
-    required Map<DriveKey, double> pulses,
-    double baselineLearning = 0.018,
-  }) async {
-    if (runToken.isEmpty || pulses.isEmpty) return true;
-    final db = await database;
-    return db.transaction<bool>((txn) async {
-      final jobs = await txn.query(
-        'post_turn_jobs',
-        where: 'id = ? AND status = ? AND run_token = ?',
-        whereArgs: [jobId, 'running', runToken],
-        limit: 1,
-      );
-      if (jobs.isEmpty) return false;
-      if (jobs.first['desire_applied_at'] != null) return true;
-
-      final rows = await txn.query('desire_state', where: 'id = 1', limit: 1);
-      final snapshot = rows.isEmpty
-          ? DesireSnapshot()
-          : DesireSnapshot.decode(rows.first['json'] as String);
-      final drives = Map<DriveKey, double>.from(snapshot.drives);
-      final baselines = Map<DriveKey, double>.from(snapshot.baselines);
-      final anchors = DesireSnapshot.defaultBaselines();
-      for (final entry in pulses.entries) {
-        final drive = entry.key;
-        final delta = entry.value.clamp(-0.35, 0.35).toDouble();
-        final anchor = anchors[drive] ?? 0.2;
-        drives[drive] = ((drives[drive] ?? anchor) + delta)
-            .clamp(0.0, 1.0)
-            .toDouble();
-        final currentBase = baselines[drive] ?? anchor;
-        baselines[drive] = (currentBase + delta * baselineLearning)
-            .clamp(max(0.02, anchor - 0.10), min(0.92, anchor + 0.10))
-            .toDouble();
-      }
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await txn.insert(
-        'desire_state',
-        {
-          'id': 1,
-          'json': snapshot.copyWith(drives: drives, baselines: baselines).encode(),
-          'updated_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      final changed = await txn.update(
-        'post_turn_jobs',
-        {
-          'desire_applied_at': now,
-          'heartbeat_at': now,
-          'updated_at': now,
-        },
-        where:
-            'id = ? AND status = ? AND run_token = ? AND desire_applied_at IS NULL',
-        whereArgs: [jobId, 'running', runToken],
-      );
-      if (changed != 1) {
-        throw StateError('post_turn_desire_ownership_lost');
-      }
-      return true;
-    });
-  }
-
-  Future<Duration?> nextPostTurnRecoveryDelay({
-    Duration runningStaleAfter = const Duration(minutes: 15),
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'post_turn_jobs',
-      columns: ['status', 'next_retry_at', 'heartbeat_at', 'updated_at'],
-      where: "status IN ('pending','running','retry_wait')",
-    );
-    if (rows.isEmpty) return null;
-    final now = DateTime.now();
-    Duration? shortest;
-    for (final row in rows) {
-      final status = row['status'] as String? ?? 'pending';
-      late Duration wait;
-      if (status == 'pending') {
-        wait = Duration.zero;
-      } else if (status == 'retry_wait') {
-        final ms = row['next_retry_at'] as int?;
-        if (ms == null) {
-          wait = Duration.zero;
-        } else {
-          final due = DateTime.fromMillisecondsSinceEpoch(ms);
-          wait = due.isAfter(now) ? due.difference(now) : Duration.zero;
-        }
-      } else {
-        final heartbeatMs = row['heartbeat_at'] as int? ??
-            row['updated_at'] as int? ??
-            now.millisecondsSinceEpoch;
-        final staleAt = DateTime.fromMillisecondsSinceEpoch(heartbeatMs)
-            .add(runningStaleAfter);
-        wait = staleAt.isAfter(now) ? staleAt.difference(now) : Duration.zero;
-      }
-      if (shortest == null || wait < shortest) shortest = wait;
-      if (shortest == Duration.zero) return Duration.zero;
-    }
-    return shortest;
-  }
-
-  Future<int> retryFailedPostTurnJobsManually() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<int>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return 0;
-      }
-      return txn.update(
-        'post_turn_jobs',
-        {
-          'status': 'retry_wait',
-          'run_token': '',
-          'next_retry_at': now,
-          'last_error': '',
-          'updated_at': now,
-        },
-        where: "status = 'failed'",
-      );
-    });
-  }
-
-  Future<Map<String, int>> postTurnJobStats() async {
-    final db = await database;
-    final rows = await db.rawQuery(
-      'SELECT status, COUNT(*) AS c FROM post_turn_jobs GROUP BY status',
-    );
-    return {
-      for (final row in rows)
-        row['status'] as String: (row['c'] as num?)?.toInt() ?? 0,
-    };
-  }
-
-  Future<void> markThoughtsDormantForTopic(
-    String topicKey, {
-    String detail = 'é•¿æœŸæœªå†å‘ç”Ÿçš„æœªå®Œæˆè¯é¢˜å·²é€€ä¼‘ã€‚',
-  }) async {
-    final key = topicKey.trim().toLowerCase();
-    if (key.isEmpty) return;
-    final db = await database;
-    final rows = await db.query(
-      'thoughts',
-      columns: ['id', 'strength', 'residual_strength'],
-      where: "topic_key = ? AND lifecycle_state IN ('active','fixation','acted','residual')",
-      whereArgs: [key],
-    );
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.transaction((txn) async {
-      for (final row in rows) {
-        final strength = (row['strength'] as num?)?.toDouble() ?? 0.0;
-        final residual = (row['residual_strength'] as num?)?.toDouble() ?? strength;
-        await txn.update(
-          'thoughts',
-          {
-            'lifecycle_state': 'dormant',
-            'kind': 'flit',
-            'strength': min(0.10, strength),
-            'residual_strength': min(0.12, residual),
-            'last_outbound_message_id': null,
-            'snoozed_until': null,
-            'updated_at': now,
-          },
-          where: 'id = ?',
-          whereArgs: [row['id']],
-        );
-        await txn.insert('thought_lifecycle_events', {
-          'id': _uuid.v4(),
-          'thought_id': row['id'],
-          'event_type': 'topic_retired',
-          'detail': detail,
-          'message_id': null,
-          'created_at': now,
-        });
-      }
-    });
-  }
-
-  Future<int> pruneThoughtLifecycleEvents({
-    int keepPerThought = 64,
-    Duration maxAge = const Duration(days: 180),
-  }) async {
-    final db = await database;
-    var removed = 0;
-    final cutoff = DateTime.now().subtract(maxAge).millisecondsSinceEpoch;
-    final thoughtIds = await db.rawQuery(
-      'SELECT DISTINCT thought_id FROM thought_lifecycle_events',
-    );
-    for (final item in thoughtIds) {
-      final thoughtId = item['thought_id'] as String;
-      final rows = await db.query(
-        'thought_lifecycle_events',
-        columns: ['id', 'created_at'],
-        where: 'thought_id = ?',
-        whereArgs: [thoughtId],
-        orderBy: 'created_at DESC',
-      );
-      final deleteIds = <String>[];
-      for (var i = 0; i < rows.length; i++) {
-        final createdAt = rows[i]['created_at'] as int;
-        if (i >= keepPerThought || createdAt < cutoff) {
-          deleteIds.add(rows[i]['id'] as String);
-        }
-      }
-      for (final id in deleteIds) {
-        removed += await db.delete(
-          'thought_lifecycle_events',
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      }
-    }
-    removed += await db.rawDelete(
-      'DELETE FROM thought_lifecycle_events WHERE thought_id NOT IN (SELECT id FROM thoughts)',
-    );
-    return removed;
-  }
-
-  Future<int> pruneTableByAgeAndCap({
-    required String table,
-    required String timeColumn,
-    required Duration maxAge,
-    required int maxRows,
-  }) async {
-    const allowedTables = {
-      'proactive_feedback',
-      'proactive_history',
-      'perception_snapshots',
-      'awareness_observations',
-      'device_events',
-      'daily_continuity',
-      'post_turn_jobs',
-      'maintenance_runs',
-    };
-    const allowedColumns = {
-      'sent_at',
-      'created_at',
-      'occurred_at',
-      'updated_at',
-      'window_start',
-      'completed_at',
-    };
-    if (!allowedTables.contains(table) || !allowedColumns.contains(timeColumn)) {
-      throw ArgumentError('Unsupported maintenance table/column');
-    }
-    final db = await database;
-    final cutoff = DateTime.now().subtract(maxAge).millisecondsSinceEpoch;
-    var removed = await db.delete(
-      table,
-      where: '$timeColumn < ?',
-      whereArgs: [cutoff],
-    );
-    final overflow = await db.rawQuery(
-      'SELECT id FROM $table ORDER BY $timeColumn DESC LIMIT -1 OFFSET ?',
-      [maxRows],
-    );
-    for (final row in overflow) {
-      removed += await db.delete(table, where: 'id = ?', whereArgs: [row['id']]);
-    }
-    return removed;
-  }
-
-  Future<int> pruneCompletedPostTurnJobs() async {
-    final db = await database;
-    final doneCutoff = DateTime.now().subtract(const Duration(days: 14)).millisecondsSinceEpoch;
-    final failedCutoff = DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch;
-    var removed = await db.delete(
-      'post_turn_jobs',
-      where: 'status = ? AND updated_at < ?',
-      whereArgs: ['done', doneCutoff],
-    );
-    removed += await db.delete(
-      'post_turn_jobs',
-      where: 'status = ? AND updated_at < ?',
-      whereArgs: ['failed', failedCutoff],
-    );
-    return removed;
-  }
-
-  Future<int> pruneTerminalGenerationJobs() async {
-    final db = await database;
-    final completedCutoff = DateTime.now()
-        .subtract(const Duration(days: 30))
-        .millisecondsSinceEpoch;
-    final failedCutoff = DateTime.now()
-        .subtract(const Duration(days: 90))
-        .millisecondsSinceEpoch;
-    var removed = await db.delete(
-      'generation_jobs',
-      where: 'status = ? AND updated_at < ?',
-      whereArgs: ['completed', completedCutoff],
-    );
-    removed += await db.delete(
-      'generation_jobs',
-      where: "status IN ('failed','cancelled','cancelled_by_user') AND updated_at < ?",
-      whereArgs: [failedCutoff],
-    );
-    return removed;
-  }
-
-  Future<void> addMaintenanceRun({
-    required DateTime startedAt,
-    required int retiredThreads,
-    required int prunedLifecycle,
-    required int prunedFeedback,
-    required int prunedHistory,
-    required int prunedPerceptions,
-    required int prunedDeviceEvents,
-    required int prunedJobs,
-    String notes = '',
-  }) async {
-    final db = await database;
-    await db.insert('maintenance_runs', {
-      'id': _uuid.v4(),
-      'started_at': startedAt.millisecondsSinceEpoch,
-      'completed_at': DateTime.now().millisecondsSinceEpoch,
-      'retired_threads': retiredThreads,
-      'pruned_lifecycle': prunedLifecycle,
-      'pruned_feedback': prunedFeedback,
-      'pruned_history': prunedHistory,
-      'pruned_perceptions': prunedPerceptions,
-      'pruned_device_events': prunedDeviceEvents,
-      'pruned_jobs': prunedJobs,
-      'notes': notes.length <= 500 ? notes : notes.substring(0, 500),
-    });
-  }
-
-  Future<MaintenanceRun?> latestMaintenanceRun() async {
-    final db = await database;
-    final rows = await db.query(
-      'maintenance_runs',
-      orderBy: 'completed_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : MaintenanceRun.fromDb(rows.first);
-  }
-
-  Future<InteractionSession?> activeInteractionSession() async {
-    final db = await database;
-    final rows = await db.query(
-      'interaction_sessions',
-      where: 'status = ?',
-      whereArgs: ['active'],
-      orderBy: 'updated_at DESC',
-      limit: 1,
-    );
-    return rows.isEmpty ? null : InteractionSession.fromDb(rows.first);
-  }
-
-  Future<List<InteractionSession>> recentInteractionSessions({int limit = 12}) async {
-    final db = await database;
-    final rows = await db.query(
-      'interaction_sessions',
-      orderBy: 'updated_at DESC',
-      limit: limit,
-    );
-    return rows.map(InteractionSession.fromDb).toList();
-  }
-
-  Future<void> applyInteractionSessionUpdate({
-    required String action,
-    String kind = 'roleplay',
-    String title = '',
-    String premise = '',
-    List<String> boundaries = const [],
-    String continuityNote = '',
-    String? sourceMessageId,
-  }) async {
-    if ((await getSetting('session_tracking_enabled')) == '0' && action != 'end') return;
-    const kinds = {'roleplay', 'intimacy', 'roleplay_intimacy'};
-    if (!kinds.contains(kind)) kind = 'roleplay';
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    await db.transaction((txn) async {
-      final active = await txn.query(
-        'interaction_sessions',
-        where: 'status = ?',
-        whereArgs: ['active'],
-        orderBy: 'updated_at DESC',
-        limit: 1,
-      );
-      if (action == 'end') {
-        if (active.isNotEmpty) {
-          await txn.update(
-            'interaction_sessions',
-            {'status': 'ended', 'updated_at': now, 'ended_at': now},
-            where: 'id = ?',
-            whereArgs: [active.first['id']],
-          );
-        }
-        return;
-      }
-      if (action != 'open' && action != 'update') return;
-
-      if (action == 'open') {
-        if (active.isNotEmpty &&
-            sourceMessageId != null &&
-            sourceMessageId.isNotEmpty &&
-            active.first['source_message_id'] == sourceMessageId) {
-          final current = InteractionSession.fromDb(active.first);
-          await txn.update(
-            'interaction_sessions',
-            {
-              'kind': kind,
-              'title': title.trim().isEmpty ? current.title : title.trim(),
-              'premise': premise.trim().isEmpty ? current.premise : premise.trim(),
-              'boundaries_json': boundaries.isEmpty
-                  ? jsonEncode(current.boundaries)
-                  : jsonEncode(boundaries.map((e) => e.trim()).where((e) => e.isNotEmpty).take(16).toList()),
-              'continuity_note': continuityNote.trim().isEmpty
-                  ? current.continuityNote
-                  : continuityNote.trim(),
-              'updated_at': now,
-            },
-            where: 'id = ?',
-            whereArgs: [current.id],
-          );
-          return;
-        }
-        if (active.isNotEmpty) {
-          await txn.update(
-            'interaction_sessions',
-            {'status': 'ended', 'updated_at': now, 'ended_at': now},
-            where: 'id = ?',
-            whereArgs: [active.first['id']],
-          );
-        }
-        final normalizedTitle = title.trim().isEmpty
-            ? (kind == 'roleplay' ? 'ä¸´æ—¶è§’è‰²æ‰®æ¼”' : 'äº²å¯†äº’åŠ¨')
-            : title.trim();
-        await txn.insert('interaction_sessions', {
-          'id': _uuid.v4(),
-          'kind': kind,
-          'title': normalizedTitle,
-          'status': 'active',
-          'premise': premise.trim(),
-          'boundaries_json': jsonEncode(boundaries.map((e) => e.trim()).where((e) => e.isNotEmpty).take(16).toList()),
-          'continuity_note': continuityNote.trim(),
-          'source_message_id': sourceMessageId,
-          'started_at': now,
-          'updated_at': now,
-          'ended_at': null,
-        });
-        return;
-      }
-
-      if (active.isEmpty) return;
-      final current = InteractionSession.fromDb(active.first);
-      await txn.update(
-        'interaction_sessions',
-        {
-          'kind': kind,
-          'title': title.trim().isEmpty ? current.title : title.trim(),
-          'premise': premise.trim().isEmpty ? current.premise : premise.trim(),
-          'boundaries_json': boundaries.isEmpty
-              ? jsonEncode(current.boundaries)
-              : jsonEncode(boundaries.map((e) => e.trim()).where((e) => e.isNotEmpty).take(16).toList()),
-          'continuity_note': continuityNote.trim().isEmpty
-              ? current.continuityNote
-              : continuityNote.trim(),
-          'updated_at': now,
-        },
-        where: 'id = ?',
-        whereArgs: [current.id],
-      );
-    });
-  }
-
-  Future<int> totalMessageCount() async {
-    final db = await database;
-    final rows = await db.rawQuery('SELECT COUNT(*) AS c FROM messages');
-    return Sqflite.firstIntValue(rows) ?? 0;
-  }
-
-  Future<void> addProactiveHistory({
-    required String triggerReason,
-    required String decision,
-    String? messageId,
-  }) async {
-    final db = await database;
-    await db.insert('proactive_history', {
-      'id': _uuid.v4(),
-      'trigger_reason': triggerReason,
-      'decision': decision,
-      'message_id': messageId,
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    });
-  }
-
-  Future<int> proactiveCountSince(Duration duration) async {
-    final db = await database;
-    final since = DateTime.now().subtract(duration).millisecondsSinceEpoch;
-    final rows = await db.rawQuery(
-      'SELECT COUNT(*) AS c FROM proactive_history WHERE decision = ? AND created_at >= ?',
-      ['sent', since],
-    );
-    return Sqflite.firstIntValue(rows) ?? 0;
-  }
-
-  Future<String?> getSetting(String key) async {
-    final db = await database;
-    final rows = await db.query(
-      'settings',
-      columns: ['value'],
-      where: 'key = ?',
-      whereArgs: [key],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : rows.first['value'] as String;
-  }
-
-  Future<void> setSetting(String key, String value) async {
-    final db = await database;
-    await db.insert(
-      'settings',
-      {'key': key, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<bool> tryAcquireLocalLease(
-    String key, {
-    Duration holdFor = const Duration(seconds: 120),
-  }) async {
-    // Do not let this isolate re-acquire a lease it still logically owns, even
-    // after the database TTL expires. Without this guard, an overlapping task
-    // in the same isolate could overwrite the in-memory token; the older task's
-    // finally block would then accidentally release the newer task's lease.
-    if (_ownedLeaseTokens.containsKey(key)) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final token = _uuid.v4();
-    final acquired = await db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: ['value'],
-        where: 'key = ?',
-        whereArgs: [key],
-        limit: 1,
-      );
-      final raw = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
-      final until = _leaseUntil(raw);
-      if (until > now) return false;
-      await txn.insert(
-        'settings',
-        {
-          'key': key,
-          'value': '$token|${now + holdFor.inMilliseconds}',
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      return true;
-    });
-    if (acquired) {
-      _ownedLeaseTokens[key] = token;
-    }
-    return acquired;
-  }
-
-  Future<bool> renewLocalLease(
-    String key, {
-    Duration holdFor = const Duration(seconds: 120),
-  }) async {
-    final token = _ownedLeaseTokens[key];
-    if (token == null || token.isEmpty) return false;
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: ['value'],
-        where: 'key = ?',
-        whereArgs: [key],
-        limit: 1,
-      );
-      if (rows.isEmpty) return false;
-      final raw = rows.first['value'] as String? ?? '';
-      if (!raw.startsWith('$token|')) return false;
-      await txn.insert(
-        'settings',
-        {'key': key, 'value': '$token|${now + holdFor.inMilliseconds}'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      return true;
-    });
-  }
-
-  Future<void> releaseLocalLease(String key) async {
-    final token = _ownedLeaseTokens.remove(key);
-    if (token == null || token.isEmpty) return;
-    final db = await database;
-    await db.transaction((txn) async {
-      final rows = await txn.query(
-        'settings',
-        columns: ['value'],
-        where: 'key = ?',
-        whereArgs: [key],
-        limit: 1,
-      );
-      if (rows.isEmpty) return;
-      final raw = rows.first['value'] as String? ?? '';
-      if (!raw.startsWith('$token|')) return;
-      await txn.insert(
-        'settings',
-        {'key': key, 'value': '0'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    });
-  }
-
-  int _leaseUntil(String raw) {
-    if (raw.isEmpty) return 0;
-    final separator = raw.lastIndexOf('|');
-    final value = separator < 0 ? raw : raw.substring(separator + 1);
-    return int.tryParse(value) ?? 0;
-  }
-
-  Future<bool> isLocalLeaseHeld(String key) async {
-    final raw = await getSetting(key) ?? '';
-    return _leaseUntil(raw) > DateTime.now().millisecondsSinceEpoch;
-  }
-
-  /// Whether an autonomous/background subsystem may mutate the companion's
-  /// durable inner state on this device. Standby devices remain view-only, and
-  /// an in-progress transfer freezes new brain work until the snapshot handoff
-  /// finishes. User-facing settings can still be changed separately.
-  Future<bool> brainWorkAllowed() async {
-    if ((await getSetting('transfer_lock')) == '1') return false;
-    return (await getSetting('active_brain')) != '0';
-  }
-
-  Future<bool> tryAcquireProactiveLease({
-    Duration holdFor = const Duration(seconds: 90),
-  }) =>
-      tryAcquireLocalLease(
-        'proactive_lease_until',
-        holdFor: holdFor,
-      );
-
-  Future<void> releaseProactiveLease() =>
-      releaseLocalLease('proactive_lease_until');
-
-  Future<DailyContinuityRecord?> dailyContinuityForDay(String localDay) async {
-    final db = await database;
-    final rows = await db.query(
-      'daily_continuity',
-      where: 'local_day = ?',
-      whereArgs: [localDay],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : DailyContinuityRecord.fromDb(rows.first);
-  }
-
-  Future<List<DailyContinuityRecord>> latestDailyContinuity({int limit = 3}) async {
-    final db = await database;
-    final rows = await db.query(
-      'daily_continuity',
-      orderBy: 'window_start DESC',
-      limit: limit.clamp(1, 14).toInt(),
-    );
-    return rows.map(DailyContinuityRecord.fromDb).toList();
-  }
-
-  Future<List<DailyContinuityRecord>> dailyContinuityBefore(
-    DateTime before, {
-    int limit = 2,
-  }) async {
-    final db = await database;
-    final rows = await db.query(
-      'daily_continuity',
-      where: 'window_start < ?',
-      whereArgs: [before.millisecondsSinceEpoch],
-      orderBy: 'window_start DESC',
-      limit: limit.clamp(1, 14).toInt(),
-    );
-    return rows.map(DailyContinuityRecord.fromDb).toList();
-  }
-
-  Future<DailyContinuitySaveResult> upsertDailyContinuityIfBrainOwned({
-    required String localDay,
-    required DateTime windowStart,
-    required DateTime windowEnd,
-    required String sharedMomentsJson,
-    required String carriedThreadsJson,
-    required String caresJson,
-    required String awarenessJson,
-    required int messageCount,
-    required int relationshipEventCount,
-    required bool quietDay,
-    required String sourceFingerprint,
-    DateTime? finalizedAt,
-  }) async {
-    final db = await database;
-    return db.transaction((txn) async {
-      Future<String?> setting(String key) async {
-        final rows = await txn.query(
-          'settings',
-          columns: ['value'],
-          where: 'key = ?',
-          whereArgs: [key],
-          limit: 1,
-        );
-        return rows.isEmpty ? null : rows.first['value'] as String?;
-      }
-
-      if (await setting('transfer_lock') == '1' ||
-          await setting('active_brain') == '0') {
-        return const DailyContinuitySaveResult(
-          changed: false,
-          finalizedNow: false,
-        );
-      }
-
-      final existingRows = await txn.query(
-        'daily_continuity',
-        where: 'local_day = ?',
-        whereArgs: [localDay],
-        limit: 1,
-      );
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      final finalMs = finalizedAt?.millisecondsSinceEpoch;
-      if (existingRows.isEmpty) {
-        await txn.insert('daily_continuity', {
-          'id': _uuid.v4(),
-          'local_day': localDay,
-          'window_start': windowStart.millisecondsSinceEpoch,
-          'window_end': windowEnd.millisecondsSinceEpoch,
-          'shared_moments_json': sharedMomentsJson,
-          'carried_threads_json': carriedThreadsJson,
-          'cares_json': caresJson,
-          'awareness_json': awarenessJson,
-          'message_count': messageCount,
-          'relationship_event_count': relationshipEventCount,
-          'quiet_day': quietDay ? 1 : 0,
-          'source_fingerprint': sourceFingerprint,
-          'finalized_at': finalMs,
-          'created_at': nowMs,
-          'updated_at': nowMs,
-        });
-        return DailyContinuitySaveResult(
-          changed: true,
-          finalizedNow: finalMs != null,
-        );
-      }
-
-      final existing = existingRows.first;
-      if (existing['finalized_at'] != null) {
-        return const DailyContinuitySaveResult(
-          changed: false,
-          finalizedNow: false,
-        );
-      }
-      final fingerprintChanged =
-          (existing['source_fingerprint'] as String? ?? '') != sourceFingerprint;
-      final finalizedNow = finalMs != null;
-      if (!fingerprintChanged && !finalizedNow) {
-        return const DailyContinuitySaveResult(
-          changed: false,
-          finalizedNow: false,
-        );
-      }
-      await txn.update(
-        'daily_continuity',
-        {
-          'window_start': windowStart.millisecondsSinceEpoch,
-          'window_end': windowEnd.millisecondsSinceEpoch,
-          'shared_moments_json': sharedMomentsJson,
-          'carried_threads_json': carriedThreadsJson,
-          'cares_json': caresJson,
-          'awareness_json': awarenessJson,
-          'message_count': messageCount,
-          'relationship_event_count': relationshipEventCount,
-          'quiet_day': quietDay ? 1 : 0,
-          'source_fingerprint': sourceFingerprint,
-          if (finalMs != null) 'finalized_at': finalMs,
-          'updated_at': nowMs,
-        },
-        where: 'local_day = ?',
-        whereArgs: [localDay],
-      );
-      return DailyContinuitySaveResult(
-        changed: fingerprintChanged || finalizedNow,
-        finalizedNow: finalizedNow,
-      );
-    });
-  }
-
-  Future<Map<String, int>> memoryStats() async {
-    final db = await database;
-    Future<int> count(String table, [String? where, List<Object?>? args]) async {
-      final rows = await db.rawQuery(
-        'SELECT COUNT(*) AS c FROM $table${where == null ? '' : ' WHERE $where'}',
-        args,
-      );
-      return Sqflite.firstIntValue(rows) ?? 0;
-    }
-
-    return {
-      'memories': await count('memory_items', 'status = ?', ['active']),
-      'memory_evidence': await count('memory_evidence'),
-      'summaries': await count('conversation_summaries'),
-      'threads': await count('unfinished_threads', 'status = ?', ['active']),
-      'thoughts': await count('thoughts'),
-      'perceptions': await count('perception_snapshots'),
-      'awareness_observations': await count('awareness_observations'),
-      'daily_continuity': await count('daily_continuity'),
-      'relationship_events': await count('relationship_events'),
-      'active_sessions': await count('interaction_sessions', 'status = ?', ['active']),
-      'references': await count('reference_items', 'enabled = 1'),
-      'reference_documents': await count('reference_documents', 'enabled = 1'),
-      'thought_lifecycle_events': await count('thought_lifecycle_events'),
-      'proactive_feedback': await count('proactive_feedback'),
-      'retired_threads': await count('unfinished_threads', 'status = ?', ['retired']),
-      'pending_post_turn_jobs': await count('post_turn_jobs', "status IN ('pending','running','retry_wait','failed')"),
-      'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
-      'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
-      'somatic_events': await count('somatic_events'),
-      'somatic_user_to_ai_events': await count(
-        'somatic_events',
-        'direction = ?',
-        ['user_to_ai'],
-      ),
-      'somatic_ai_to_self_events': await count(
-        'somatic_events',
-        'direction = ?',
-        ['ai_to_self'],
-      ),
-      'active_somatic_channels': await count(
-        'somatic_aggregates',
-        'expires_at > ?',
-        [DateTime.now().millisecondsSinceEpoch],
-      ),
-      'autonomous_action_runs': await count('autonomous_action_runs'),
-      'active_autonomous_actions': await count(
-        'autonomous_action_runs',
-        "status IN ('requested','running')",
-      ),
-      'public_web_candidates': await count('public_web_candidates'),
-      'active_public_web_candidates': await count(
-        'public_web_candidates',
-        'expires_at > ?',
-        [DateTime.now().millisecondsSinceEpoch],
-      ),
-    };
-  }
-
-  /// Metadata-only Somatic observability for true-device acceptance.
-  ///
-  /// This deliberately never selects message content, action, body part,
-  /// scene_key or narrative. It only reports whether the latest committed user
-  /// and assistant turns produced a directional event, plus aggregate counts
-  /// and timestamps needed to distinguish "detector did not match" from
-  /// "event was written and later expired".
-  Future<Map<String, Object?>> somaticDiagnosticStats() async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    Future<Map<String, Object?>> direction(String value) async {
-      final rows = await db.rawQuery(
-        '''
-        SELECT COUNT(*) AS total,
-               MAX(created_at) AS last_written_at,
-               SUM(CASE WHEN expires_at > ? THEN 1 ELSE 0 END) AS active
-        FROM somatic_events
-        WHERE direction = ?
-        ''',
-        [now, value],
-      );
-      final row = rows.first;
-      return {
-        'total': (row['total'] as num?)?.toInt() ?? 0,
-        'active': (row['active'] as num?)?.toInt() ?? 0,
-        'lastWrittenAt': (row['last_written_at'] as num?)?.toInt() ?? 0,
-      };
-    }
-
-    Future<Map<String, Object?>> latestEvaluation({
-      required String role,
-      required String direction,
-    }) async {
-      final turns = await db.query(
-        'messages',
-        columns: const ['id', 'created_at'],
-        where: 'role = ?',
-        whereArgs: [role],
-        orderBy: 'created_at DESC',
-        limit: 1,
-      );
-      if (turns.isEmpty) {
-        return const {
-          'evaluatedAt': 0,
-          'result': 'no_committed_turn',
-          'writtenEventCount': 0,
-        };
-      }
-      final turn = turns.first;
-      final countRows = await db.rawQuery(
-        'SELECT COUNT(*) AS c FROM somatic_events WHERE turn_id = ? AND direction = ?',
-        [turn['id'], direction],
-      );
-      final written = Sqflite.firstIntValue(countRows) ?? 0;
-      return {
-        'evaluatedAt': (turn['created_at'] as num?)?.toInt() ?? 0,
-        'result': written > 0 ? 'written' : 'no_completed_action_match',
-        'writtenEventCount': written,
-      };
-    }
-
-    return {
-      'userToAi': await direction('user_to_ai'),
-      'aiToSelf': await direction('ai_to_self'),
-      'latestUserEvaluation': await latestEvaluation(
-        role: 'user',
-        direction: 'user_to_ai',
-      ),
-      'latestAssistantEvaluation': await latestEvaluation(
-        role: 'assistant',
-        direction: 'ai_to_self',
-      ),
-      'eventNarrativeIncluded': false,
-      'messageBodiesIncluded': false,
-    };
-  }
-
-  Future<Map<String, Object?>> exportAll() async {
-    final identity = await transferStateIdentity();
-    final db = await database;
-    const tables = [
-      'messages',
-      'message_attachments',
-      'memory_items',
-      'memory_evidence',
-      'conversation_summaries',
-      'unfinished_threads',
-      'thoughts',
-      'desire_state',
-      'device_events',
-      'perception_snapshots',
-      'awareness_observations',
-      'daily_continuity',
-      'proactive_history',
-      'relationship_events',
-      'interaction_sessions',
-      'reference_documents',
-      'reference_items',
-      'rule_layers',
-      'personality_trials',
-      'special_style_trials',
-      'personality_profile_versions',
-      'thought_lifecycle_events',
-      'proactive_feedback',
-      'post_turn_jobs',
-      'generation_jobs',
-      'somatic_events',
-      'somatic_aggregates',
-      'settings',
-    ];
-    // Read the whole state inside one SQLite transaction so background
-    // memory/perception writers cannot produce a cross-table torn snapshot.
-    final data = await db.transaction<Map<String, Object?>>((txn) async {
-      final result = <String, Object?>{};
-      for (final table in tables) {
-        if (table == 'post_turn_jobs') {
-          // Completed maintenance jobs are device-local bookkeeping; only carry
-          // unfinished work across a phone/tablet Active Brain transfer.
-          result[table] = await txn.query(
-            table,
-            where: "status != ?",
-            whereArgs: ['done'],
-          );
-        } else {
-          result[table] = await txn.query(table);
-        }
-      }
-      return result;
-    });
-    return {
-      'format': 'ai-companion-localfirst',
-      'schema_version': schemaVersion,
-      'state_lineage_id': identity.lineageId,
-      'state_generation': identity.generation,
-      'source_device_id': identity.deviceId,
-      'exported_at': DateTime.now().toUtc().toIso8601String(),
-      'tables': data,
-    };
-  }
-
-  Future<void> importAll(
-    Map<String, dynamic> backup, {
-    Map<String, String> runtimeSettingOverrides = const <String, String>{},
-    TransferReceipt? localTransferReceipt,
-  }) async {
-    if (backup['format'] != 'ai-companion-localfirst') {
-      throw const FormatException('ä¸æ˜¯ AI Companion çŠ¶æ€åŒ…');
-    }
-    final version = (backup['schema_version'] as num?)?.toInt();
-    if (version == null || version < 1 || version > schemaVersion) {
-      throw FormatException('ä¸æ”¯æŒçš„çŠ¶æ€åŒ…ç‰ˆæœ¬ $version');
-    }
-    final rawTables = (backup['tables'] as Map).cast<String, dynamic>();
-    final db = await database;
-    await db.transaction((txn) async {
-      const ordered = [
-        'messages',
-        'message_attachments',
-        'memory_items',
-        'memory_evidence',
-        'conversation_summaries',
-        'unfinished_threads',
-        'thoughts',
-        'device_events',
-        'perception_snapshots',
-        'awareness_observations',
-        'daily_continuity',
-        'proactive_history',
-        'relationship_events',
-        'interaction_sessions',
-        'reference_documents',
-        'reference_items',
-        'rule_layers',
-        'personality_trials',
-        'special_style_trials',
-        'personality_profile_versions',
-        'thought_lifecycle_events',
-        'proactive_feedback',
-        'post_turn_jobs',
-        'generation_jobs',
-        'somatic_events',
-        'somatic_aggregates',
-        'desire_state',
-        'settings',
-      ];
-      for (final table in ordered) {
-        await txn.delete(table);
-        final rows = (rawTables[table] as List?) ?? const [];
-        for (final raw in rows) {
-          final row = Map<String, Object?>.from(raw as Map);
-          if (table == 'memory_items' && version < 2) {
-            final created = row['created_at'] as int;
-            row.addAll({
-              'confidence': 0.7,
-              'source': 'conversation',
-              'status': 'active',
-              'updated_at': created,
-            });
-          }
-          if (table == 'thoughts' && version < 2) {
-            row.addAll({
-              'source': 'internal',
-              'last_fed_at': row['updated_at'],
-            });
-          }
-          if (table == 'memory_items' && version < 4) {
-            row.addAll({
-              'subject_key': '',
-              'pinned': 0,
-              'superseded_by': null,
-            });
-          }
-          if (table == 'memory_items' && version < 6) {
-            row.addAll({
-              'retention_score': 1.0,
-              'retention_checked_at': row['updated_at'] ?? row['created_at'],
-            });
-          }
-          if (table == 'memory_items' && version < 15) {
-            row.addAll({
-              'semantic_type': row['kind'] == 'shared_experience'
-                  ? 'shared_experience'
-                  : 'current_fact',
-              'evidence_count': 1,
-              'first_observed_at': row['created_at'],
-              'last_evidence_at': row['updated_at'] ?? row['created_at'],
-              'fact_version': 1,
-            });
-          }
-          if (table == 'relationship_events' && version < 6) {
-            row['internalized_at'] = row['created_at'];
-          }
-          if (table == 'reference_items' && version < 7) {
-            row['document_id'] = null;
-          }
-          if (table == 'thoughts' && version < 8) {
-            row.addAll({
-              'lifecycle_state': (row['kind'] == 'fixation') ? 'fixation' : 'active',
-              'action_count': 0,
-              'last_acted_at': null,
-              'last_satisfied_at': null,
-              'last_resurfaced_at': null,
-              'resurfaced_count': 0,
-              'residual_strength': 0.0,
-              'last_outbound_message_id': null,
-            });
-          }
-          if (table == 'thoughts' && version < 9) {
-            row.addAll({
-              'topic_key': '',
-              'merged_count': 0,
-              'last_merged_at': null,
-              'snoozed_until': null,
-            });
-          }
-          if (table == 'unfinished_threads' && version < 9) {
-            row['topic_key'] = '';
-          }
-          if (table == 'proactive_feedback' && version < 9) {
-            row.addAll({
-              'topic_key': '',
-              'thread_id': null,
-              'response_quality': null,
-              'outcome': row['response_bucket'] == 'no_response'
-                  ? 'no_response'
-                  : row['user_response_message_id'] != null
-                      ? 'response_received'
-                      : 'pending',
-              'outcome_score': null,
-              'processed_at': row['response_bucket'] == 'no_response' ? row['sent_at'] : null,
-            });
-          }
-          if (table == 'unfinished_threads' && version < 10) {
-            row.addAll({
-              'followup_due_at': null,
-              'followup_seeded_at': null,
-              'followup_count': 0,
-              'last_followup_at': null,
-              'retired_at': null,
-              'retire_reason': '',
-            });
-          }
-          if (table == 'unfinished_threads' && version < 12) {
-            row['followup_run_token'] = '';
-            row['followup_claimed_at'] = null;
-            row['proactive_outcome_message_id'] = null;
-          }
-          if (table == 'post_turn_jobs' && version < 12) {
-            row.addAll({
-              'run_token': '',
-              'result_json': '',
-              'started_at': null,
-              'heartbeat_at': null,
-              'next_retry_at': null,
-              'model_completed_at': null,
-              'desire_applied_at': null,
-            });
-          }
-          if (table == 'messages' && version < 13) {
-            row['proactive_intent'] = '';
-            row['proactive_delivery'] = '';
-          }
-          if (table == 'messages' && version < 22) {
-            row['expects_reply'] = 1;
-          }
-          if (table == 'messages') {
-            row.remove('provider_reasoning');
-            row.remove('companion_voice');
-          }
-          if (table == 'settings' &&
-              (row['key'] as String? ?? '').startsWith('companion_voice')) {
-            continue;
-          }
-          if (table == 'proactive_feedback' && version < 13) {
-            row['intent_kind'] = '';
-            row['delivery_style'] = '';
-          }
-          if (table == 'proactive_feedback' && version < 16) {
-            row['context_hour_bucket'] = '';
-            row['context_activity'] = 'unknown';
-            row['context_busy'] = 0.0;
-            row['timing_fit'] = row['outcome'] == 'no_response' ? -0.18 : null;
-            row['topic_fit'] = row['outcome'] == 'no_response' ? 0.0 : null;
-          }
-          if (table == 'post_turn_jobs' && row['status'] == 'running') {
-            row['status'] = 'retry_wait';
-            row['run_token'] = '';
-            row['next_retry_at'] = null;
-            row['last_error'] = 'resumed_after_transfer';
-          }
-          if (table == 'generation_jobs' && row['status'] == 'running') {
-            row['status'] = 'pending';
-            row['next_retry_at'] = null;
-            row['run_token'] = '';
-            row['resume_reason'] = 'resumed_after_transfer';
-            row['last_error'] = 'source_generation_interrupted_by_transfer';
-          }
-          await txn.insert(
-            table,
-            row,
-            conflictAlgorithm: table == 'conversation_summaries'
-                ? ConflictAlgorithm.ignore
-                : ConflictAlgorithm.abort,
-          );
-        }
-      }
-      if (version < 13) {
-        // Old state packages predate proactive presentation metadata. Rebuild
-        // the same conservative categories used by the v13 database upgrade
-        // after all related rows (thoughts/messages/feedback) have arrived.
-        await txn.execute("""
-          UPDATE proactive_feedback
-          SET intent_kind = CASE
-            WHEN thread_id IS NOT NULL AND thread_id <> '' THEN 'followup'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'attachment' THEN 'miss_you'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'curiosity' THEN 'curiosity'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'reflection' THEN 'share_thought'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'duty' THEN 'followup'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'social' THEN 'social_share'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'libido' THEN 'intimacy_invitation'
-            WHEN (SELECT drive_key FROM thoughts WHERE thoughts.id = proactive_feedback.thought_id) = 'stress' THEN 'emotional_reach'
-            ELSE 'gentle_ping'
-          END,
-          delivery_style = CASE WHEN delivery_style = '' THEN 'normal' ELSE delivery_style END
-          WHERE intent_kind = ''
-        """);
-        await txn.execute("""
-          UPDATE messages
-          SET proactive_intent = COALESCE(
-                (SELECT intent_kind FROM proactive_feedback
-                 WHERE proactive_feedback.proactive_message_id = messages.id),
-                'gentle_ping'
-              ),
-              proactive_delivery = COALESCE(
-                (SELECT delivery_style FROM proactive_feedback
-                 WHERE proactive_feedback.proactive_message_id = messages.id),
-                'normal'
-              )
-          WHERE is_proactive = 1 AND proactive_intent = ''
-        """);
-      }
-      await txn.insert(
-        'settings',
-        {'key': 'memory_consolidation_enabled', 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      await txn.insert(
-        'settings',
-        {'key': 'self_drive_enabled', 'value': '1'},
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      for (final entry in const <String, String>{
-        'active_brain': '1',
-        'model': 'deepseek-v4-flash',
-        'reasoning_effort': 'high',
-        'chat_thinking_enabled': '1',
-        'chat_temperature': '1.0',
-        'auto_memory': '1',
-        'transfer_lock': '0',
-        'perception_enabled': '1',
-        'ai_self_reflection_enabled': '1',
-        'tts_enabled': '0',
-        'auto_tts': '0',
-        'tts_streaming_enabled': '0',
-        'proactive_tts_policy': 'silent',
-        'last_proactive_spoken_message_id': '',
-        'tts_speed': '1.0',
-        'tts_volume': '1.0',
-        'tts_replacements_json': '{"Yuki":"æœ‰å¸Œ"}',
-        'relationship_continuity_enabled': '1',
-        'session_tracking_enabled': '1',
-        'memory_fading_enabled': '1',
-        'reference_library_enabled': '1',
-        'last_memory_maintenance_at': '0',
-        'rule_layers_enabled': '1',
-        'thought_lifecycle_enabled': '1',
-        'proactive_adaptation_enabled': '1',
-        'proactive_feedback_expiry_hours': '10',
-        'proactive_notification_privacy': 'smart',
-        'thought_consolidation_enabled': '1',
-        'last_thought_consolidation_at': '0',
-        'long_running_maintenance_enabled': '1',
-        'last_long_running_maintenance_at': '0',
-        'deferred_followup_enabled': '1',
-        'max_deferred_followups': '1',
-        'post_turn_queue_enabled': '1',
-        'background_error_count': '0',
-        'last_background_error': '',
-        'durable_generation_enabled': '1',
-        'generation_max_attempts': '0',
-        'last_generation_recovery_error': '',
-        'post_turn_max_attempts': '0',
-        'last_async_worker_error': '',
-        'daily_continuity_enabled': '1',
-        'last_daily_continuity_refresh_at': '0',
-        'last_daily_continuity_error': '',
-        'state_generation': '0',
-        'pending_outbound_snapshot_id': '',
-        'pending_outbound_generation': '0',
-        'pending_import_snapshot_id': '',
-        'pending_import_lineage_id': '',
-        'pending_import_source_device_id': '',
-        'pending_import_generation': '0',
-        'pending_import_state_sha256': '',
-        'last_takeover_snapshot_id': '',
-        'last_takeover_source_device_id': '',
-        'last_takeover_at': '0',
-      }.entries) {
-        await txn.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-      }
-      for (final entry in runtimeSettingOverrides.entries) {
-        await txn.insert(
-          'settings',
-          {'key': entry.key, 'value': entry.value},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
-      // Current-state awareness from the source device is useful briefly after
-      // takeover, but must not masquerade as the target device's live state.
-      // Give imported observations a short grace window; the new Active Brain
-      // will then refresh/supersede them from its own local sensors.
-      final targetDeviceId = runtimeSettingOverrides['device_id'];
-      if (version >= 14 && targetDeviceId != null && targetDeviceId.isNotEmpty) {
-        final graceUntil = DateTime.now()
-            .add(const Duration(minutes: 12))
-            .millisecondsSinceEpoch;
-        await txn.rawUpdate('''
-          UPDATE awareness_observations
-          SET expires_at = CASE WHEN expires_at > ? THEN ? ELSE expires_at END
-          WHERE device_id IS NOT NULL AND device_id <> ?
-        ''', [graceUntil, graceUntil, targetDeviceId]);
-      }
-
-      final desireRows = await txn.query('desire_state', where: 'id = 1', limit: 1);
-      if (desireRows.isEmpty) {
-        await txn.insert('desire_state', {
-          'id': 1,
-          'json': DesireSnapshot().encode(),
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
-        });
-      }
-      if (localTransferReceipt != null) {
-        await txn.insert(
-          'transfer_receipts',
-          localTransferReceipt.toDb(),
-          conflictAlgorithm: ConflictAlgorithm.abort,
-        );
-      }
-    });
-    await _seedRuleLayers(await database);
-    await ensureDeviceId();
-    await ensureStateLineageId();
-  }
-
-  Future<void> close() async {
-    final opening = _opening;
-    if (opening != null) {
-      try {
-        await opening;
-      } catch (_) {
-        // Opening failed; there is no database handle to close.
-      }
-    }
-    await _db?.close();
-    _db = null;
-    _opening = null;
-  }
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×N¼ÛÄèµ©hºÚn¶X§zÍZ[\Ü	Ù\˜ÛÛ™\	ÎÂš[\Ü	Ù\›X]	ÎÂ‚š[\Ü	ÜXÚØYÙN˜Üž\ËØÜž\Ë™\	ÎÂš[\Ü	ÜXÚØYÙNœ]Ü]™\	È\ÈÂš[\Ü	ÜXÚØYÙNœÜY›]KÜÜY›]K™\	ÎÂš[\Ü	ÜXÚØYÙN]ZYÝ]ZY™\	ÎÂ‚š[\Ü	Ë‹‹Û[Ù[ËØÚ]ÛY\ÜØYÙK™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËØ]]Û›Û[Ý\×ØXÝ[Û‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜX›X×ÝÙX—ØØ[™Y]K™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÛY\ÜØYÙWØ]XÚY[™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËØ]Ø\™[™\Ü×ÛØœÙ\˜][Û‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËØÛÛ™\œØ][Û—ÜÝ[[X\žK™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÙ\Ú\™WÜÝ]K™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÙZ[WØÛÛ[Z]K™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÛY[[ÜžWÚ][K™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ\˜Ù\[Û—ÜÛ˜\ÚÝ™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ\œÛÛ˜[]WÝšX[™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜÜÝÝ\›—Ú›Ø‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÙÙ[™\˜][Û—Ú›Ø‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÛXZ[[˜[˜ÙWÜ[‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ™Y™\™[˜ÙWÚ][K™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ™Y™\™[˜ÙWÙØÝ[Y[™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ[WÛ^Y\‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ›ØXÝ]™WÙ™YY˜XÚË™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÝÝYÚÛY™XÞXÛWÙ]™[™\	ÎÂš[\Ü	Ë‹‹Ü[\ËÜ[WÛ^Y\—ÙY˜][Ë™\	ÎÂš[\Ü	Ë‹‹Ü\œÛÛ˜[]KÜ\œÛÛ˜[]WØØ][ÙË™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜ™[][ÛœÚ\Ù]™[™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÚ[\˜XÝ[Û—ÜÙ\ÜÚ[Û‹™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÝÝYÚ™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÝ[™š[š\ÚYÝ™XY™\	ÎÂš[\Ü	Ë‹‹Û[Ù[ËÜÛÛX]X×ÜÝ]K™\	ÎÂš[\Ü	Ë‹‹ÜÛÛX]XËÜÛÛX]X×ÜÛXÞK™\	ÎÂš[\Ü	Ë‹‹ÜÞ[˜ËÝ˜[œÙ™\—ÚY[]K™\	ÎÂ‚˜Û\ÜÈ\]X˜\ÙHÂˆ\]X˜\ÙK—Ê
+NÂ‚ˆÝ]XÈš[˜[\]X˜\ÙH[œÝ[˜ÙHH\]X˜\ÙK—Ê
+NÂˆÝ]XÈÛÛœÝÝš[™È“˜[YHH	ØZWØÛÛ\[š[Û‹™‰ÎÂˆËÈ\ÝÜšXØ[˜[Y]ÜˆÛÛ\]Xš[]HÚÙ[ŽˆÝ]XÈÛÛœÝ[ØÚ[XU™\œÚ[ÛˆHÂˆËÈ\ÝÜšXØ[˜[Y]ÜˆÛÛ\]Xš[]HÚÙ[ŽˆÝ]XÈÛÛœÝ[ØÚ[XU™\œÚ[ÛˆHNÂˆÝ]XÈÛÛœÝ[ØÚ[XU™\œÚ[ÛˆHŽÂ‚ˆ]X˜\ÙOÈÙŽÂˆ]\™O]X˜\ÙOÈÛÜ[š[™ÎÂˆš[˜[]ZYÝ]ZYH]ZY
+
+NÂˆš[˜[X\Ýš[™ËÝš[™ÏˆÛÝÛ™YX\ÙUÚÙ[œÈHÝš[™ËÝš[™ÏžßNÂ‚ˆ]\™O]X˜\ÙOˆÙ]]X˜\ÙH\Þ[˜ÈÂˆš[˜[™XYHHÙŽÂˆYˆ
+™XYHOH[
+H™]\›ˆ™XYNÂˆš[˜[Ü[š[™ÈHÛÜ[š[™ÎÂˆYˆ
+Ü[š[™ÈOH[
+H™]\›ˆÜ[š[™ÎÂ‚ˆš[˜[[™[™ÈHÛÜ[Š
+NÂˆÛÜ[š[™ÈH[™[™ÎÂˆžHÂˆš[˜[Ü[™YH]ØZ][™[™ÎÂˆÙˆHÜ[™YÂˆ™]\›ˆÜ[™YÂˆHš[˜[HÂˆYˆ
+Y[XØ[
+ÛÜ[š[™Ë[™[™ÊJHÛÜ[š[™ÈH[ÂˆBˆB‚ˆ]\™OÝš[™ÏˆÙ]]X˜\ÙT]\Þ[˜ÈÂˆš[˜[›ÛÝH]ØZ]Ù]]X˜\Ù\Ô]
+
+NÂˆ™]\›ˆš›Ú[Š›ÛÝ“˜[YJNÂˆB‚ˆ]\™O]X˜\ÙOˆÛÜ[Š
+H\Þ[˜ÈÂˆš[˜[]H]ØZ]]X˜\ÙT]Âˆ™]\›ˆÜ[‘]X˜\ÙJˆ]ˆ™\œÚ[ÛŽˆØÚ[XU™\œÚ[Û‹ˆÛÛÛ™šYÝ\™Nˆ
+ŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÔQÓPH›Ü™ZYÛ—ÚÙ^\ÈHÓ‰ÊNÂˆš[˜[›Ý\›˜[›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPH›Ý\›˜[Û[ÙHHÐS	ÊNÂˆš[˜[›Ý\›˜[[ÙHH›Ý\›˜[›ÝÜËš\Ñ[\BˆÈ	ÉÂˆˆ›Ý\›˜[›ÝÜË™š\œÝ˜[Y\Ë™š\œÝËÔÝš[™Ê
+KÓÝÙ\Ø\ÙJ
+HÏÈ	ÉÎÂˆYˆ
+›Ý\›˜[[ÙHOH	ÝØ[	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ÔÔS]HÐS[ÙH[˜]˜Z[X›H
+›Ý\›˜[Û[ÙOI›Ý\›˜[[ÙJIÊNÂˆBˆ]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHÞ[˜Ú›Û›Ý\ÈH“Ô“PS	ÊNÂˆKˆÛÜ™X]Nˆ
+‹™\œÚ[ÛŠH\Þ[˜ÈOˆØÜ™X]TØÚ[XJŠKˆÛ•\Ü˜YNˆÝ\Ü˜YTØÚ[XKˆ
+NÂˆB‚ˆ]\™O›ÚYˆÝ\Ü˜YTØÚ[XJ]X˜\ÙH‹[Û™\œÚ[Û‹[™]Õ™\œÚ[ÛŠH\Þ[˜ÈÂˆYˆ
+Û™\œÚ[ÛˆŠHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÛÛ™šY[˜ÙH‘PS“Õ•SQUSÈ‹ˆ
+NÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÛÝ\˜ÙHV“Õ•SQUS	ØÛÛ™\œØ][Û‰È‹ˆ
+NÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IÈ‹ˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ\]YØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÕTUHY[[ÜžWÚ][\ÈÑU\]YØ]HÜ™X]YØ]ÒT‘H\]YØ]TÈ•S	Ëˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]JˆSTˆP“HÝYÚÈQÓÓSSˆÛÝ\˜ÙHV“Õ•SQUS	Ú[\›˜[	È‹ˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HÝYÚÈQÓÓSSˆ\ÝÙ™YØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÕTUHÝYÚÈÑU\ÝÙ™YØ]H\]YØ]ÒT‘H\ÝÙ™YØ]TÈ•S	Ëˆ
+NÂ‚ˆ]ØZ]ØÜ™X]UŒ•X›\ÊŠNÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	ÛY[[ÜžWØÛÛœÛÛY][Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	ÜÙ[—Ùš]™WÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆYˆ
+Û™\œÚ[ÛˆÊHÂˆ]ØZ]ØÜ™X]UŒÕX›\ÊŠNÂˆËÈ›Ü›X[^™H[™^\È›Üˆ]X˜\Ù\È]ÜšYÚ[˜]Yœ›ÛHHŒŒHØÚ[XK‚ˆ]ØZ]‹™^XÝ]J	Ñ“ÔS‘VQˆVTÕÈYÛY[[ÜžWÚÚ[™	ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY[[ÜžWÚÚ[™ÓˆY[[ÜžWÚ][\ÊÚ[™Ý]\ÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝÝYÚ×ÜÝ™[™ÝÓˆÝYÚÊÝ™[™ÝTÐË\]YØ]TÐÊIËˆ
+NÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	Ü\˜Ù\[Û—Ù[˜X›Y	Îˆ	ÌIËˆ	ØZWÜÙ[—Ü™Y›XÝ[Û—Ù[˜X›Y	Îˆ	ÌIËˆ	Ý×Ù[˜X›Y	Îˆ	Ì	Ëˆ	Ø]]×ÝÉÎˆ	Ì	Ëˆ	Ý×ÜÝ™X[Z[™×Ù[˜X›Y	Îˆ	Ì	Ëˆ	Ü›ØXÝ]™WÝ×ÜÛXÞIÎˆ	ÜÚ[[	Ëˆ	Û\ÝÜ›ØXÝ]™WÜÜÚÙ[—ÛY\ÜØYÙWÚY	Îˆ	ÉËˆ	Ý×ÜÜYY	Îˆ	ÌKŒ	Ëˆ	Ý×Ý›Û[YIÎˆ	ÌKŒ	Ëˆ	Ý×Ü™\XÙ[Y[×ÚœÛÛ‰Îˆ	ÞÈ–]ZÚHŽˆ¹§"yn#ŸIËˆ	Ü™[][ÛœÚ\ØÛÛ[Z]WÙ[˜X›Y	Îˆ	ÌIËˆ	ÜÙ\ÜÚ[Û—Ý˜XÚÚ[™×Ù[˜X›Y	Îˆ	ÌIËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[Ûˆ
+HÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÝXš™XÝÚÙ^HV“Õ•SQUS	ÉÈ‹ˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ[›™YS•QÑTˆ“Õ•SQUS	Ëˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÝ\\œÙYYØžHV	ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY[[ÜžWÜÝXš™XÝÓˆY[[ÜžWÚ][\ÊÚ[™ÝXš™XÝÚÙ^KÝ]\ÊIËˆ
+NÂˆ]ØZ]ØÜ™X]UX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	Ü™[][ÛœÚ\ØÛÛ[Z]WÙ[˜X›Y	Îˆ	ÌIËˆ	ÜÙ\ÜÚ[Û—Ý˜XÚÚ[™×Ù[˜X›Y	Îˆ	ÌIËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆJHÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	Ý×ÜÝ™X[Z[™×Ù[˜X›Y	Îˆ	Ì	Ëˆ	Ü›ØXÝ]™WÝ×ÜÛXÞIÎˆ	ÜÚ[[	Ëˆ	Û\ÝÜ›ØXÝ]™WÜÜÚÙ[—ÛY\ÜØYÙWÚY	Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆŠHÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ™][[Û—ÜØÛÜ™H‘PS“Õ•SQUSKŒ	Ëˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ™][[Û—ØÚXÚÙYØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÕTUHY[[ÜžWÚ][\ÈÑU™][[Û—ØÚXÚÙYØ]H\]YØ]ÒT‘H™][[Û—ØÚXÚÙYØ]TÈ•S	Ëˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H™[][ÛœÚ\Ù]™[ÈQÓÓSSˆ[\›˜[^™YØ]S•QÑT‰ÊNÂˆËÈYØXÞHŒˆ™[][ÛœÚ\\ÝÜžH[™XYH[™›Y[˜ÙYH\Ù\‹]š\ÚX›BˆËÈ™[][ÛœÚ\ÛÛ^ˆÈ›Ý™\^H[ÛÈÙˆÛ]™[È\Èœ™\ÚˆËÈ\Ú\™H[Ù\È[[YYX][HY\ˆ\Ü˜Y[™Ë‚ˆ]ØZ]‹™^XÝ]Jˆ	ÕTUH™[][ÛœÚ\Ù]™[ÈÑU[\›˜[^™YØ]HÜ™X]YØ]ÒT‘H[\›˜[^™YØ]TÈ•S	Ëˆ
+NÂˆ]ØZ]ØÜ™X]U•X›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÛY[[ÜžWÙ˜Y[™×Ù[˜X›Y	Îˆ	ÌIËˆ	Ü™Y™\™[˜ÙWÛXœ˜\žWÙ[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÛY[[ÜžWÛXZ[[˜[˜ÙWØ]	Îˆ	Ì	Ëˆ	Ü[WÛ^Y\œ×Ù[˜X›Y	Îˆ	ÌIËˆ	ÝÝYÚÛY™XÞXÛWÙ[˜X›Y	Îˆ	ÌIËˆ	Ü›ØXÝ]™WØY\][Û—Ù[˜X›Y	Îˆ	ÌIËˆ	Ü›ØXÝ]™WÙ™YY˜XÚ×Ù^\žWÚÝ\œÉÎˆ	ÌL	Ëˆ	Ü›ØXÝ]™WÛ›ÝYšXØ][Û—Üš]˜XÞIÎˆ	ÜÛX\	Ëˆ	ÝÝYÚØÛÛœÛÛY][Û—Ù[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÝÝYÚØÛÛœÛÛY][Û—Ø]	Îˆ	Ì	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆÊHÂˆ]ØZ]ØÜ™X]UÕX›\ÊŠNÂˆš[˜[ÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê™Y™\™[˜ÙWÚ][\ÊIÊNÂˆš[˜[\ÑØÝ[Y[YHÛÛ[[œË˜[žJ
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×HOH	ÙØÝ[Y[ÚY	ÊNÂˆYˆ
+Z\ÑØÝ[Y[Y
+HÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H™Y™\™[˜ÙWÚ][\ÈQÓÓSSˆØÝ[Y[ÚYV	ÊNÂˆBˆš[˜[YØXÞTÛÝ\˜Ù\ÈH]ØZ]‹œ˜]Ô]Y\žJˆ”ÑSPÕTÕSÕÛÝ\˜ÙWÛ˜[YH”“ÓH™Y™\™[˜ÙWÚ][\ÈÒT‘HØÝ[Y[ÚYTÈ•SS‘ÛÝ\˜ÙWÛ˜[YHTÈ“Õ•SS‘ÛÝ\˜ÙWÛ˜[YHˆ	ÉÈ‹ˆ
+NÂˆ›Üˆ
+š[˜[ÛÝ\˜ÙH[ˆYØXÞTÛÝ\˜Ù\ÊHÂˆš[˜[ÛÝ\˜ÙS˜[YHHÛÝ\˜ÙVÉÜÛÝ\˜ÙWÛ˜[YI×H\ÈÝš[™ÎÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	Ü™Y™\™[˜ÙWÚ][\ÉËˆÚ\™Nˆ	ÜÛÝ\˜ÙWÛ˜[YHHÈS‘ØÝ[Y[ÚYTÈ•S	ËˆÚ\™P\™ÜÎˆÜÛÝ\˜ÙS˜[YWKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JHÛÛ[YNÂˆš[˜[ØÒYHÝ]ZY
+
+NÂˆš[˜[˜]ÈH›ÝÜË›X\
+
+JHOˆVÉØÛÛ[	×H\ÈÝš[™ÏÈÏÈ	ÉÊKÚ\™J
+JHOˆKš[J
+Kš\Ó›Ý[\JKš›Ú[Š	×—‰ÊNÂˆš[˜[Ü™X]YH›ÝÜË™š\œÝÉØÜ™X]YØ]	×H\È[ÈÏÈ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[\]YH›ÝÜË›\ÝÉÝ\]YØ]	×H\È[ÈÏÈÜ™X]YÂˆ]ØZ]‹š[œÙ\
+	Ü™Y™\™[˜ÙWÙØÝ[Y[ÉËÂˆ	ÚY	ÎˆØÒYˆ	Û˜[YIÎˆÛÝ\˜ÙS˜[YKˆ	ÚÚ[™	Îˆ	ÛYØXÞWÜ™Y™\™[˜ÙIËˆ	Ø[X\Ù\ÉÎˆ	ÉËˆ	Ü˜]×ØÛÛ[	Îˆ˜]Ëˆ	Ù[˜X›Y	ÎˆKˆ	ØÜ™X]YØ]	ÎˆÜ™X]Yˆ	Ý\]YØ]	Îˆ\]YˆJNÂˆ]ØZ]‹\]Jˆ	Ü™Y™\™[˜ÙWÚ][\ÉËˆÉÙØÝ[Y[ÚY	ÎˆØÒYKˆÚ\™Nˆ	ÜÛÝ\˜ÙWÛ˜[YHHÈS‘ØÝ[Y[ÚYTÈ•S	ËˆÚ\™P\™ÜÎˆÜÛÝ\˜ÙS˜[YWKˆ
+NÂˆBˆ]ØZ]ÜÙYY[S^Y\œÊŠNÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	Ü[WÛ^Y\œ×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆYˆ
+Û™\œÚ[Ûˆ
+HÂˆš[˜[ÝYÚÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›ÊÝYÚÊIÊNÂˆš[˜[˜[Y\ÈHÝYÚÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆ]\™O›ÚYˆYÝYÚÛÛ[[ŠÝš[™È˜[YKÝš[™ÈÜ[
+H\Þ[˜ÈÂˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ˜[YJJH]ØZ]‹™^XÝ]J	ÐSTˆP“HÝYÚÈQÓÓSSˆ	Ü[	ÊNÂˆBˆ]ØZ]YÝYÚÛÛ[[Š	ÛY™XÞXÛWÜÝ]IË›Y™XÞXÛWÜÝ]HV“Õ•SQUS	ØXÝ]™IÈŠNÂˆ]ØZ]YÝYÚÛÛ[[Š	ØXÝ[Û—ØÛÝ[	Ë	ØXÝ[Û—ØÛÝ[S•QÑTˆ“Õ•SQUS	ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Û\ÝØXÝYØ]	Ë	Û\ÝØXÝYØ]S•QÑT‰ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Û\ÝÜØ]\ÙšYYØ]	Ë	Û\ÝÜØ]\ÙšYYØ]S•QÑT‰ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Û\ÝÜ™\Ý\™˜XÙYØ]	Ë	Û\ÝÜ™\Ý\™˜XÙYØ]S•QÑT‰ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Ü™\Ý\™˜XÙYØÛÝ[	Ë	Ü™\Ý\™˜XÙYØÛÝ[S•QÑTˆ“Õ•SQUS	ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Ü™\ÚYX[ÜÝ™[™Ý	Ë	Ü™\ÚYX[ÜÝ™[™Ý‘PS“Õ•SQUS	ÊNÂˆ]ØZ]YÝYÚÛÛ[[Š	Û\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚY	Ë	Û\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚYV	ÊNÂˆ]ØZ]‹™^XÝ]Jˆ•TUHÝYÚÈÑUY™XÞXÛWÜÝ]HHÐTÑHÒSˆÚ[™H	Ùš^][Û‰ÈSˆ	Ùš^][Û‰ÈSÑH	ØXÝ]™IÈS‘ÒT‘HY™XÞXÛWÜÝ]HTÈ•SÔˆY™XÞXÛWÜÝ]HH	ÉÈ‹ˆ
+NÂˆ]ØZ]ØÜ™X]UŽX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÝÝYÚÛY™XÞXÛWÙ[˜X›Y	Îˆ	ÌIËˆ	Ü›ØXÝ]™WØY\][Û—Ù[˜X›Y	Îˆ	ÌIËˆ	Ü›ØXÝ]™WÙ™YY˜XÚ×Ù^\žWÚÝ\œÉÎˆ	ÌL	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆJHÂˆš[˜[ÝYÚÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›ÊÝYÚÊIÊNÂˆš[˜[ÝYÚ˜[Y\ÈHÝYÚÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆYˆ
+]ÝYÚ˜[Y\Ë˜ÛÛZ[œÊ	ÝÜX×ÚÙ^IÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“HÝYÚÈQÓÓSSˆÜX×ÚÙ^HV“Õ•SQUS	ÉÈŠNÂˆBˆYˆ
+]ÝYÚ˜[Y\Ë˜ÛÛZ[œÊ	ÛY\™ÙYØÛÝ[	ÊJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HÝYÚÈQÓÓSSˆY\™ÙYØÛÝ[S•QÑTˆ“Õ•SQUS	ÊNÂˆBˆYˆ
+]ÝYÚ˜[Y\Ë˜ÛÛZ[œÊ	Û\ÝÛY\™ÙYØ]	ÊJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HÝYÚÈQÓÓSSˆ\ÝÛY\™ÙYØ]S•QÑT‰ÊNÂˆBˆYˆ
+]ÝYÚ˜[Y\Ë˜ÛÛZ[œÊ	ÜÛ›ÛÞ™YÝ[[	ÊJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HÝYÚÈQÓÓSSˆÛ›ÛÞ™YÝ[[S•QÑT‰ÊNÂˆB‚ˆš[˜[™XYÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê[™š[š\ÚYÝ™XYÊIÊNÂˆš[˜[™XY˜[Y\ÈH™XYÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆYˆ
+]™XY˜[Y\Ë˜ÛÛZ[œÊ	ÝÜX×ÚÙ^IÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“H[™š[š\ÚYÝ™XYÈQÓÓSSˆÜX×ÚÙ^HV“Õ•SQUS	ÉÈŠNÂˆB‚ˆš[˜[™YY˜XÚÐÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê›ØXÝ]™WÙ™YY˜XÚÊIÊNÂˆš[˜[™YY˜XÚÓ˜[Y\ÈH™YY˜XÚÐÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆ]\™O›ÚYˆY™YY˜XÚÐÛÛ[[ŠÝš[™È˜[YKÝš[™ÈÜ[
+H\Þ[˜ÈÂˆYˆ
+Y™YY˜XÚÓ˜[Y\Ë˜ÛÛZ[œÊ˜[YJJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H›ØXÝ]™WÙ™YY˜XÚÈQÓÓSSˆ	Ü[	ÊNÂˆBˆBˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	ÝÜX×ÚÙ^IËÜX×ÚÙ^HV“Õ•SQUS	ÉÈŠNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	Ý™XYÚY	Ë	Ý™XYÚYV	ÊNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	Ü™\ÜÛœÙWÜ]X[]IË	Ü™\ÜÛœÙWÜ]X[]H‘PS	ÊNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	ÛÝ]ÛÛYIË›Ý]ÛÛYHV“Õ•SQUS	Ü[™[™ÉÈŠNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	ÛÝ]ÛÛYWÜØÛÜ™IË	ÛÝ]ÛÛYWÜØÛÜ™H‘PS	ÊNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	Ü›ØÙ\ÜÙYØ]	Ë	Ü›ØÙ\ÜÙYØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆTUH›ØXÝ]™WÙ™YY˜XÚÂˆÑUÝ]ÛÛYHHÐTÑBˆÒSˆ™\ÜÛœÙWØXÚÙ]H	Û›×Ü™\ÜÛœÙIÈSˆ	Û›×Ü™\ÜÛœÙIÂˆÒSˆ\Ù\—Ü™\ÜÛœÙWÛY\ÜØYÙWÚYTÈ“Õ•SSˆ	Ü™\ÜÛœÙWÜ™XÙZ]™Y	ÂˆSÑH	Ü[™[™ÉÂˆS‘ˆ›ØÙ\ÜÙYØ]HÐTÑBˆÒSˆ™\ÜÛœÙWØXÚÙ]H	Û›×Ü™\ÜÛœÙIÈSˆÙ[Ø]ˆSÑH›ØÙ\ÜÙYØ]ˆS‘ˆ	ÉÉÊNÂˆ]ØZ]ØÜ™X]UŽUX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÝÝYÚØÛÛœÛÛY][Û—Ù[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÝÝYÚØÛÛœÛÛY][Û—Ø]	Îˆ	Ì	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆL
+HÂˆš[˜[™XYÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê[™š[š\ÚYÝ™XYÊIÊNÂˆš[˜[™XY˜[Y\ÈH™XYÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆ]\™O›ÚYˆY™XYÛÛ[[ŠÝš[™È˜[YKÝš[™ÈÜ[
+H\Þ[˜ÈÂˆYˆ
+]™XY˜[Y\Ë˜ÛÛZ[œÊ˜[YJJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H[™š[š\ÚYÝ™XYÈQÓÓSSˆ	Ü[	ÊNÂˆBˆBˆ]ØZ]Y™XYÛÛ[[Š	Ù›ÛÝÝ\ÙYWØ]	Ë	Ù›ÛÝÝ\ÙYWØ]S•QÑT‰ÊNÂˆ]ØZ]Y™XYÛÛ[[Š	Ù›ÛÝÝ\ÜÙYYYØ]	Ë	Ù›ÛÝÝ\ÜÙYYYØ]S•QÑT‰ÊNÂˆ]ØZ]Y™XYÛÛ[[Š	Ù›ÛÝÝ\ØÛÝ[	Ë	Ù›ÛÝÝ\ØÛÝ[S•QÑTˆ“Õ•SQUS	ÊNÂˆ]ØZ]Y™XYÛÛ[[Š	Û\ÝÙ›ÛÝÝ\Ø]	Ë	Û\ÝÙ›ÛÝÝ\Ø]S•QÑT‰ÊNÂˆ]ØZ]Y™XYÛÛ[[Š	Ü™]\™YØ]	Ë	Ü™]\™YØ]S•QÑT‰ÊNÂˆ]ØZ]Y™XYÛÛ[[Š	Ü™]\™WÜ™X\ÛÛ‰Ëœ™]\™WÜ™X\ÛÛˆV“Õ•SQUS	ÉÈŠNÂ‚ˆ]ØZ]ØÜ™X]UŒLX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÛÛ™×Ü[›š[™×ÛXZ[[˜[˜ÙWÙ[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÛÛ™×Ü[›š[™×ÛXZ[[˜[˜ÙWØ]	Îˆ	Ì	Ëˆ	ÙY™\œ™YÙ›ÛÝÝ\Ù[˜X›Y	Îˆ	ÌIËˆ	ÛX^ÙY™\œ™YÙ›ÛÝÝ\ÉÎˆ	ÌIËˆ	ÜÜÝÝ\›—Ü]Y]YWÙ[˜X›Y	Îˆ	ÌIËˆ	Ø˜XÚÙÜ›Ý[™Ù\œ›Ü—ØÛÝ[	Îˆ	Ì	Ëˆ	Û\ÝØ˜XÚÙÜ›Ý[™Ù\œ›Ü‰Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆLJHÂˆ]ØZ]ØÜ™X]UŒLUX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	Ù\˜X›WÙÙ[™\˜][Û—Ù[˜X›Y	Îˆ	ÌIËˆ	ÙÙ[™\˜][Û—ÛX^Ø][\ÉÎˆ	Ì	Ëˆ	Û\ÝÙÙ[™\˜][Û—Ü™XÛÝ™\žWÙ\œ›Ü‰Îˆ	ÉËˆ	ÜÜÝÝ\›—ÛX^Ø][\ÉÎˆ	Ì	Ëˆ	Û\ÝØ\Þ[˜×ÝÛÜšÙ\—Ù\œ›Ü‰Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆLŠHÂˆš[˜[ÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›ÊÜÝÝ\›—Ú›ØœÊIÊNÂˆš[˜[˜[Y\ÈHÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆ]\™O›ÚYˆYÛÛ[[ŠÝš[™È˜[YKÝš[™ÈÜ[
+H\Þ[˜ÈÂˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ˜[YJJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HÜÝÝ\›—Ú›ØœÈQÓÓSSˆ	Ü[	ÊNÂˆBˆBˆ]ØZ]YÛÛ[[Š	Ü[—ÝÚÙ[‰Ëœ[—ÝÚÙ[ˆV“Õ•SQUS	ÉÈŠNÂˆ]ØZ]YÛÛ[[Š	Ü™\Ý[ÚœÛÛ‰Ëœ™\Ý[ÚœÛÛˆV“Õ•SQUS	ÉÈŠNÂˆ]ØZ]YÛÛ[[Š	ÜÝ\YØ]	Ë	ÜÝ\YØ]S•QÑT‰ÊNÂˆ]ØZ]YÛÛ[[Š	ÚX\™X]Ø]	Ë	ÚX\™X]Ø]S•QÑT‰ÊNÂˆ]ØZ]YÛÛ[[Š	Û™^Ü™]žWØ]	Ë	Û™^Ü™]žWØ]S•QÑT‰ÊNÂˆ]ØZ]YÛÛ[[Š	Û[Ù[ØÛÛ\]YØ]	Ë	Û[Ù[ØÛÛ\]YØ]S•QÑT‰ÊNÂˆ]ØZ]YÛÛ[[Š	Ù\Ú\™WØ\YYØ]	Ë	Ù\Ú\™WØ\YYØ]S•QÑT‰ÊNÂˆš[˜[™XYÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê[™š[š\ÚYÝ™XYÊIÊNÂˆš[˜[™XY˜[Y\ÈH™XYÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆYˆ
+]™XY˜[Y\Ë˜ÛÛZ[œÊ	Ù›ÛÝÝ\Ü[—ÝÚÙ[‰ÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“H[™š[š\ÚYÝ™XYÈQÓÓSSˆ›ÛÝÝ\Ü[—ÝÚÙ[ˆV“Õ•SQUS	ÉÈŠNÂˆBˆYˆ
+]™XY˜[Y\Ë˜ÛÛZ[œÊ	Ù›ÛÝÝ\ØÛZ[YYØ]	ÊJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H[™š[š\ÚYÝ™XYÈQÓÓSSˆ›ÛÝÝ\ØÛZ[YYØ]S•QÑT‰ÊNÂˆBˆYˆ
+]™XY˜[Y\Ë˜ÛÛZ[œÊ	Ü›ØXÝ]™WÛÝ]ÛÛYWÛY\ÜØYÙWÚY	ÊJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H[™š[š\ÚYÝ™XYÈQÓÓSSˆ›ØXÝ]™WÛÝ]ÛÛYWÛY\ÜØYÙWÚYV	ÊNÂˆBˆ]ØZ]‹™^XÝ]Jˆ•TUHÜÝÝ\›—Ú›ØœÈÑUÝ]\ÈH	Ü™]žWÝØZ]	Ë[—ÝÚÙ[ˆH	ÉË™^Ü™]žWØ]H\]YØ]\ÝÙ\œ›ÜˆH	ÝŒL—Ü[›š[™×Ü™XÛÝ™\™Y	ÈÒT‘HÝ]\ÈH	Ü[›š[™ÉÈ‹ˆ
+NÂˆËÈÛ\ˆZ[ÈY›Ý™[˜ÙHÝ[[X\žHÛÛœÛÛY][ÛˆXÜ›ÜÜÈ›]\‚ˆËÈ[™Ú[™\ËˆÛÛ\ÙH[žH\XØ]H˜[™ÙH™Y›Ü™HY[™ÈH[š\]YH[™^‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆSUH”“ÓHÛÛ™\œØ][Û—ÜÝ[[X\šY\ÂˆÒT‘H›ÝÚY“ÕSˆ
+ˆÑSPÕRSŠ›ÝÚY
+H”“ÓHÛÛ™\œØ][Û—ÜÝ[[X\šY\ÈÔ“ÕT–Hœ›ÛWØ]×Ø]ˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]ØÜ™X]UŒL•X›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÜÜÝÝ\›—ÛX^Ø][\ÉÎˆ	Ì	Ëˆ	Û\ÝØ\Þ[˜×ÝÛÜšÙ\—Ù\œ›Ü‰Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆLÊHÂˆš[˜[Y\ÜØYÙPÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›ÊY\ÜØYÙ\ÊIÊNÂˆš[˜[Y\ÜØYÙS˜[Y\ÈHY\ÜØYÙPÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆYˆ
+[Y\ÜØYÙS˜[Y\Ë˜ÛÛZ[œÊ	Ü›ØXÝ]™WÚ[[	ÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“HY\ÜØYÙ\ÈQÓÓSSˆ›ØXÝ]™WÚ[[V“Õ•SQUS	ÉÈŠNÂˆBˆYˆ
+[Y\ÜØYÙS˜[Y\Ë˜ÛÛZ[œÊ	Ü›ØXÝ]™WÙ[]™\žIÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“HY\ÜØYÙ\ÈQÓÓSSˆ›ØXÝ]™WÙ[]™\žHV“Õ•SQUS	ÉÈŠNÂˆBˆš[˜[™YY˜XÚÐÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê›ØXÝ]™WÙ™YY˜XÚÊIÊNÂˆš[˜[™YY˜XÚÓ˜[Y\ÈH™YY˜XÚÐÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆYˆ
+Y™YY˜XÚÓ˜[Y\Ë˜ÛÛZ[œÊ	Ú[[ÚÚ[™	ÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“H›ØXÝ]™WÙ™YY˜XÚÈQÓÓSSˆ[[ÚÚ[™V“Õ•SQUS	ÉÈŠNÂˆBˆYˆ
+Y™YY˜XÚÓ˜[Y\Ë˜ÛÛZ[œÊ	Ù[]™\žWÜÝ[IÊJHÂˆ]ØZ]‹™^XÝ]JSTˆP“H›ØXÝ]™WÙ™YY˜XÚÈQÓÓSSˆ[]™\žWÜÝ[HV“Õ•SQUS	ÉÈŠNÂˆBˆ]ØZ]‹™^XÝ]J	ÉÉÂˆTUH›ØXÝ]™WÙ™YY˜XÚÂˆÑU[[ÚÚ[™HÐTÑBˆÒSˆ™XYÚYTÈ“Õ•SS‘™XYÚYˆ	ÉÈSˆ	Ù›ÛÝÝ\	ÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	Ø]XÚY[	ÈSˆ	ÛZ\Ü×Þ[ÝIÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	ØÝ\š[ÜÚ]IÈSˆ	ØÝ\š[ÜÚ]IÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	Ü™Y›XÝ[Û‰ÈSˆ	ÜÚ\™WÝÝYÚ	ÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	Ù]IÈSˆ	Ù›ÛÝÝ\	ÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	ÜÛØÚX[	ÈSˆ	ÜÛØÚX[ÜÚ\™IÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	ÛXšYÉÈSˆ	Ú[[XXÞWÚ[š]][Û‰ÂˆÒSˆ
+ÑSPÕš]™WÚÙ^H”“ÓHÝYÚÈÒT‘HÝYÚËšYH›ØXÝ]™WÙ™YY˜XÚËÝYÚÚY
+HH	ÜÝ™\ÜÉÈSˆ	Ù[[Ý[Û˜[Ü™XXÚ	ÂˆSÑH	ÙÙ[WÜ[™ÉÂˆS‘ˆ[]™\žWÜÝ[HHÐTÑHÒSˆ[]™\žWÜÝ[HH	ÉÈSˆ	Û›Ü›X[	ÈSÑH[]™\žWÜÝ[HS‘ˆÒT‘H[[ÚÚ[™H	ÉÂˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆTUHY\ÜØYÙ\ÂˆÑU›ØXÝ]™WÚ[[HÓÐSTÐÑJˆ
+ÑSPÕ[[ÚÚ[™”“ÓH›ØXÝ]™WÙ™YY˜XÚÂˆÒT‘H›ØXÝ]™WÙ™YY˜XÚËœ›ØXÝ]™WÛY\ÜØYÙWÚYHY\ÜØYÙ\ËšY
+KˆÐTÑHÒSˆ\×Ü›ØXÝ]™HHHSˆ	ÙÙ[WÜ[™ÉÈSÑH	ÉÈS‘ˆ
+Kˆ›ØXÝ]™WÙ[]™\žHHÐTÑBˆÒSˆ\×Ü›ØXÝ]™HHHSˆ	Û›Ü›X[	ÂˆSÑH	ÉÂˆS‘ˆÒT‘H›ØXÝ]™WÚ[[H	ÉÈS‘\×Ü›ØXÝ]™HHBˆ	ÉÉÊNÂˆ]ØZ]ØÜ™X]UŒLÕX›\ÊŠNÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	Ü›ØXÝ]™WÛ›ÝYšXØ][Û—Üš]˜XÞIË	Ý˜[YIÎˆ	ÜÛX\	ßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆYˆ
+Û™\œÚ[ÛˆM
+HÂˆ]ØZ]ØÜ™X]UŒMX›\ÊŠNÂˆB‚ˆYˆ
+Û™\œÚ[ÛˆMJHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆÙ[X[X×Ý\HV“Õ•SQUS	ØÝ\œ™[Ù˜XÝ	È‹ˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ]šY[˜ÙWØÛÝ[S•QÑTˆ“Õ•SQUSIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆš\œÝÛØœÙ\™YØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ\ÝÙ]šY[˜ÙWØ]S•QÑT‰ÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY[[ÜžWÚ][\ÈQÓÓSSˆ˜XÝÝ™\œÚ[ÛˆS•QÑTˆ“Õ•SQUSIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ•TUHY[[ÜžWÚ][\ÈÑUÙ[X[X×Ý\HH	ÜÚ\™YÙ^\šY[˜ÙIÈÒT‘HÚ[™H	ÜÚ\™YÙ^\šY[˜ÙIÈ‹ˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÕTUHY[[ÜžWÚ][\ÈÑUš\œÝÛØœÙ\™YØ]HÜ™X]YØ]ÒT‘Hš\œÝÛØœÙ\™YØ]TÈ•S	Ëˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÕTUHY[[ÜžWÚ][\ÈÑU\ÝÙ]šY[˜ÙWØ]H\]YØ]ÒT‘H\ÝÙ]šY[˜ÙWØ]TÈ•S	Ëˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆˆ‚ˆTUHY[[ÜžWÚ][\ÂˆÑU˜XÝÝ™\œÚ[ÛˆH
+ˆÑSPÕÓÕS•
+
+ŠBˆ”“ÓHY[[ÜžWÚ][\ÈTÈÛ\‚ˆÒT‘HY[[ÜžWÚ][\ËœÝXš™XÝÚÙ^Hˆ	ÉÂˆS‘Û\‹šÚ[™HY[[ÜžWÚ][\ËšÚ[™ˆS‘Û\‹œÝXš™XÝÚÙ^HHY[[ÜžWÚ][\ËœÝXš™XÝÚÙ^BˆS‘
+Û\‹˜Ü™X]YØ]Y[[ÜžWÚ][\Ë˜Ü™X]YØ]ˆÔˆ
+Û\‹˜Ü™X]YØ]HY[[ÜžWÚ][\Ë˜Ü™X]YØ]S‘Û\‹šYHY[[ÜžWÚ][\ËšY
+JBˆ
+BˆÒT‘HY[[ÜžWÚ][\ËœÝXš™XÝÚÙ^Hˆ	ÉÂˆˆˆŠNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY[[ÜžWÜÙ[X[XÈÓˆY[[ÜžWÚ][\ÊÙ[X[X×Ý\KÝ]\Ë\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]ØÜ™X]UŒMUX›\ÊŠNÂˆBˆYˆ
+Û™\œÚ[ÛˆMŠHÂˆš[˜[™YY˜XÚÐÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›Ê›ØXÝ]™WÙ™YY˜XÚÊIÊNÂˆš[˜[™YY˜XÚÓ˜[Y\ÈH™YY˜XÚÐÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×H\ÈÝš[™ÊKÔÙ]
+
+NÂˆ]\™O›ÚYˆY™YY˜XÚÐÛÛ[[ŠÝš[™È˜[YKÝš[™ÈÜ[
+H\Þ[˜ÈÂˆYˆ
+Y™YY˜XÚÓ˜[Y\Ë˜ÛÛZ[œÊ˜[YJJHÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H›ØXÝ]™WÙ™YY˜XÚÈQÓÓSSˆ	Ü[	ÊNÂˆBˆBˆ]ØZ]Y™YY˜XÚÐÛÛ[[Šˆ	ØÛÛ^ÚÝ\—ØXÚÙ]	Ëˆ˜ÛÛ^ÚÝ\—ØXÚÙ]V“Õ•SQUS	ÉÈ‹ˆ
+NÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Šˆ	ØÛÛ^ØXÝ]š]IËˆ˜ÛÛ^ØXÝ]š]HV“Õ•SQUS	Ý[šÛ›ÝÛ‰È‹ˆ
+NÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Šˆ	ØÛÛ^Ø\ÞIËˆ	ØÛÛ^Ø\ÞH‘PS“Õ•SQUS	Ëˆ
+NÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	Ý[Z[™×Ùš]	Ë	Ý[Z[™×Ùš]‘PS	ÊNÂˆ]ØZ]Y™YY˜XÚÐÛÛ[[Š	ÝÜX×Ùš]	Ë	ÝÜX×Ùš]‘PS	ÊNÂˆ]ØZ]ØÜ™X]UŒM•X›\ÊŠNÂˆBˆYˆ
+Û™\œÚ[ÛˆMÊHÂˆ]ØZ]ØÜ™X]UŒMÕX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÙZ[WØÛÛ[Z]WÙ[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÙZ[WØÛÛ[Z]WÜ™Yœ™\ÚØ]	Îˆ	Ì	Ëˆ	Û\ÝÙZ[WØÛÛ[Z]WÙ\œ›Ü‰Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆN
+HÂˆ]ØZ]ØÜ™X]UŒNX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÝš[™ËÝš[™ÏžÂˆ	ÜÝ]WÛ[™XYÙWÚY	ÎˆÝ]ZY
+
+Kˆ	ÜÝ]WÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×ÛÝ]›Ý[™ÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰Îˆ	ÉËˆ	Û\ÝÝZÙ[Ý™\—ÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Û\ÝÝZÙ[Ý™\—ÜÛÝ\˜ÙWÙ]šXÙWÚY	Îˆ	ÉËˆ	Û\ÝÝZÙ[Ý™\—Ø]	Îˆ	Ì	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆŒ
+HÂˆËÈ™\Ù\™H\Ù\‹]š\ÚX›HÛÛ[Ü™X\ÛÛš[™ÈÚ[H™XZ[[™ÈHY\ÜØYÙBˆËÈX›HÚ]Ý]ŒNIÜÈ™]\™Y^\š[Y[[ÛÛ\]Xš[]HÛÛ[[œË‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HY\ÜØYÙ\×ÝŒŒ
+ˆYV’SPT–HÑVKˆ›ÛHV“Õ•SˆÛÛ[V“Õ•Sˆ™X\ÛÛš[™×ØÛÛ[V“Õ•SQUS	ÉËˆ[Ù[VˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\×Ü›ØXÝ]™HS•QÑTˆ“Õ•SQUSˆ›ØXÝ]™WÚ[[V“Õ•SQUS	ÉËˆ›ØXÝ]™WÙ[]™\žHV“Õ•SQUS	ÉËˆ]šXÙWÚYVˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆS”ÑT•S•ÈY\ÜØYÙ\×ÝŒŒ
+ˆY›ÛKÛÛ[™X\ÛÛš[™×ØÛÛ[[Ù[Ü™X]YØ]ˆ\×Ü›ØXÝ]™K›ØXÝ]™WÚ[[›ØXÝ]™WÙ[]™\žK]šXÙWÚYˆ
+BˆÑSPÕˆY›ÛKÛÛ[™X\ÛÛš[™×ØÛÛ[[Ù[Ü™X]YØ]ˆ\×Ü›ØXÝ]™K›ØXÝ]™WÚ[[›ØXÝ]™WÙ[]™\žK]šXÙWÚYˆ”“ÓHY\ÜØYÙ\Âˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]J	Ñ“ÔP“HY\ÜØYÙ\ÉÊNÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“HY\ÜØYÙ\×ÝŒŒ‘SSQHÈY\ÜØYÙ\ÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÛY\ÜØYÙ\×ØÜ™X]YØ]ÓˆY\ÜØYÙ\ÊÜ™X]YØ]
+IËˆ
+NÂˆ]ØZ]‹™[]Jˆ	ÜÙ][™ÜÉËˆÚ\™Nˆ	ÚÙ^HRÑHÉËˆÚ\™P\™ÜÎˆÉØÛÛ\[š[Û—Ý›ÚXÙII×Kˆ
+NÂˆBˆYˆ
+Û™\œÚ[ÛˆŒJHÂˆ]ØZ]ØÜ™X]UŒŒUX›\ÊŠNÂˆBˆYˆ
+Û™\œÚ[ÛˆŒŠHÂˆš[˜[Y\ÜØYÙPÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔQÓPHX›WÚ[™›ÊY\ÜØYÙ\ÊIÊNÂˆYˆ
+[Y\ÜØYÙPÛÛ[[œË˜[žJ
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×HOH	Ù^XÝ×Ü™\IÊJHÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY\ÜØYÙ\ÈQÓÓSSˆ^XÝ×Ü™\HS•QÑTˆ“Õ•SQUSIËˆ
+NÂˆBˆ]ØZ]ØÜ™X]UŒŒ•X›\ÊŠNÂˆBˆYˆ
+Û™\œÚ[ÛˆŒÊHÂˆš[˜[ÛÛ[[œÈH]ØZ]‹œ˜]Ô]Y\žJˆ	ÔQÓPHX›WÚ[™›ÊY\ÜØYÙWØ]XÚY[ÊIËˆ
+NÂˆš[˜[˜[Y\ÈHÛÛ[[œË›X\
+
+›ÝÊHOˆ›ÝÖÉÛ˜[YI×JKÔÙ]
+
+NÂˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—ÜÝ]\ÉÊJHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—ÜÝ]\ÈV“Õ•SQUS	Ü[™[™ÉÈ‹ˆ
+NÂˆBˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—ÜÝ[[X\žIÊJHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—ÜÝ[[X\žHV“Õ•SQUS	ÉÈ‹ˆ
+NÂˆBˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—Û[Ù[	ÊJHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—Û[Ù[V“Õ•SQUS	ÉÈ‹ˆ
+NÂˆBˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—Ù\œ›Ü‰ÊJHÂˆ]ØZ]‹™^XÝ]JˆSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—Ù\œ›ÜˆV“Õ•SQUS	ÉÈ‹ˆ
+NÂˆBˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—Ø][\ÉÊJHÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—Ø][\ÈS•QÑTˆ“Õ•SQUS	Ëˆ
+NÂˆBˆYˆ
+[˜[Y\Ë˜ÛÛZ[œÊ	Ýš\Ú[Û—Ý\]YØ]	ÊJHÂˆ]ØZ]‹™^XÝ]Jˆ	ÐSTˆP“HY\ÜØYÙWØ]XÚY[ÈQÓÓSSˆš\Ú[Û—Ý\]YØ]S•QÑT‰Ëˆ
+NÂˆBˆ]ØZ]‹\]Jˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÂˆ	Ýš\Ú[Û—ÜÝ]\ÉÎˆ	Ù˜Z[Y	Ëˆ	Ýš\Ú[Û—Ù\œ›Ü‰Îˆ	ú/æy¦+ù¥éùâb9§+9/çykf9æ¡9fï¹âaûï&ùi ºg :+á¹b*ûï#:+íù¢bùbª:aãz+åxà ‰Ëˆ	Ýš\Ú[Û—Ý\]YØ]	Îˆ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™Nˆš\Ú[Û—ÜÝ]\ÈH	Ü[™[™ÉÈS‘š\Ú[Û—Ø][\ÈH‹ˆ
+NÂˆ]ØZ]‹\]Jˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÂˆ	Ýš\Ú[Û—ÜÝ]\ÉÎˆ	Ù˜Z[Y	Ëˆ	Ýš\Ú[Û—Ù\œ›Ü‰Îˆ	ùn¥9å*9g*:+á¹fïº/áùê"ù.+z` 9aî»ï#:+íúaãz+åxà ‰Ëˆ	Ýš\Ú[Û—Ý\]YØ]	Îˆ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™Nˆš\Ú[Û—ÜÝ]\ÈH	Ø[˜[^š[™ÉÈ‹ˆ
+NÂˆB‚ˆYˆ
+Û™\œÚ[Ûˆ
+HÂˆ]ØZ]ØÜ™X]UŒX›\ÊŠNÂˆBˆYˆ
+Û™\œÚ[ÛˆJHÂˆ]ØZ]ØÜ™X]UŒUX›\ÊŠNÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÜX›X×ÝÙX—Ù\ØÛÝ™\žWÙ[˜X›Y	Îˆ	ÌIËˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWØ]	Îˆ	Ì	Ëˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÜÝXØÙ\Ü×Ø]	Îˆ	Ì	Ëˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÛÝ]ÛÛYIÎˆ	Û™]™\‰Ëˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÙ\œ›Ü‰Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆBˆYˆ
+Û™\œÚ[ÛˆŠHÂˆ]ØZ]ØÜ™X]UŒ•X›\ÊŠNÂˆB‚ˆB‚ˆ]\™O›ÚYˆØÜ™X]TØÚ[XJ]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HY\ÜØYÙ\È
+ˆYV’SPT–HÑVKˆ›ÛHV“Õ•SˆÛÛ[V“Õ•Sˆ™X\ÛÛš[™×ØÛÛ[V“Õ•SQUS	ÉËˆ[Ù[VˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\×Ü›ØXÝ]™HS•QÑTˆ“Õ•SQUSˆ›ØXÝ]™WÚ[[V“Õ•SQUS	ÉËˆ›ØXÝ]™WÙ[]™\žHV“Õ•SQUS	ÉËˆ]šXÙWÚYVˆ^XÝ×Ü™\HS•QÑTˆ“Õ•SQUSBˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÛY\ÜØYÙ\×ØÜ™X]YØ]ÓˆY\ÜØYÙ\ÊÜ™X]YØ]
+IËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HY[[ÜžWÚ][\È
+ˆYV’SPT–HÑVKˆÚ[™V“Õ•SˆÛÛ[V“Õ•Sˆ[\Ü[˜ÙH‘PS“Õ•SQUSKˆÛÛ™šY[˜ÙH‘PS“Õ•SQUSËˆYÜÈV“Õ•SQUS	ÉËˆÛÝ\˜ÙHV“Õ•SQUS	ØÛÛ™\œØ][Û‰ËˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IËˆÝXš™XÝÚÙ^HV“Õ•SQUS	ÉËˆ[›™YS•QÑTˆ“Õ•SQUSˆÝ\\œÙYYØžHVˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ\ÝÜ™XØ[YØ]S•QÑT‹ˆ™XØ[ØÛÝ[S•QÑTˆ“Õ•SQUSˆ™][[Û—ÜØÛÜ™H‘PS“Õ•SQUSKŒˆ™][[Û—ØÚXÚÙYØ]S•QÑT‹ˆÙ[X[X×Ý\HV“Õ•SQUS	ØÝ\œ™[Ù˜XÝ	Ëˆ]šY[˜ÙWØÛÝ[S•QÑTˆ“Õ•SQUSKˆš\œÝÛØœÙ\™YØ]S•QÑT‹ˆ\ÝÙ]šY[˜ÙWØ]S•QÑT‹ˆ˜XÝÝ™\œÚ[ÛˆS•QÑTˆ“Õ•SQUSBˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÛY[[ÜžWÚÚ[™ÓˆY[[ÜžWÚ][\ÊÚ[™Ý]\ÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÛY[[ÜžWÜÝXš™XÝÓˆY[[ÜžWÚ][\ÊÚ[™ÝXš™XÝÚÙ^KÝ]\ÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÛY[[ÜžWÜÙ[X[XÈÓˆY[[ÜžWÚ][\ÊÙ[X[X×Ý\KÝ]\Ë\]YØ]TÐÊIËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HÝYÚÈ
+ˆYV’SPT–HÑVKˆ^V“Õ•Sˆš]™WÚÙ^HV“Õ•SˆÚ[™V“Õ•SQUS	Ù›]	ËˆÝ™[™Ý‘PS“Õ•SQUSŒKˆ›Ü›—Ø]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ™YØÛÝ[S•QÑTˆ“Õ•SQUSˆÛÝ\˜ÙHV“Õ•SQUS	Ú[\›˜[	Ëˆ\ÝÙ™YØ]S•QÑT‹ˆY™XÞXÛWÜÝ]HV“Õ•SQUS	ØXÝ]™IËˆXÝ[Û—ØÛÝ[S•QÑTˆ“Õ•SQUSˆ\ÝØXÝYØ]S•QÑT‹ˆ\ÝÜØ]\ÙšYYØ]S•QÑT‹ˆ\ÝÜ™\Ý\™˜XÙYØ]S•QÑT‹ˆ™\Ý\™˜XÙYØÛÝ[S•QÑTˆ“Õ•SQUSˆ™\ÚYX[ÜÝ™[™Ý‘PS“Õ•SQUSˆ\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚYVˆÜX×ÚÙ^HV“Õ•SQUS	ÉËˆY\™ÙYØÛÝ[S•QÑTˆ“Õ•SQUSˆ\ÝÛY\™ÙYØ]S•QÑT‹ˆÛ›ÛÞ™YÝ[[S•QÑT‚ˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÝÝYÚ×ÜÝ™[™ÝÓˆÝYÚÊÝ™[™ÝTÐË\]YØ]TÐÊIËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“H\Ú\™WÜÝ]H
+ˆYS•QÑTˆ’SPT–HÑVHÒPÒÈ
+YHJKˆœÛÛˆV“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“H]šXÙWÙ]™[È
+ˆYV’SPT–HÑVKˆ]šXÙWÚYVˆÛÝ\˜ÙHV“Õ•Sˆ]™[Ý\HV“Õ•Sˆ\ÜXÚØYÙHVˆÝ[[X\žHVˆØØÝ\œ™YØ]S•QÑTˆ“Õ•SˆY]Y]WÚœÛÛˆV“Õ•SQUS	ÞßIÂˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VYÙ]šXÙWÙ]™[×Ý[YHÓˆ]šXÙWÙ]™[ÊØØÝ\œ™YØ]
+IËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“H›ØXÝ]™WÚ\ÝÜžH
+ˆYV’SPT–HÑVKˆšYÙÙ\—Ü™X\ÛÛˆV“Õ•SˆXÚ\Ú[ÛˆV“Õ•SˆY\ÜØYÙWÚYVˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HÙ][™ÜÈ
+ˆÙ^HV’SPT–HÑVKˆ˜[YHV“Õ•Sˆ
+Bˆ	ÉÉÊNÂ‚ˆ]ØZ]ØÜ™X]UŒ•X›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒÕX›\ÊŠNÂˆ]ØZ]ØÜ™X]UX›\ÊŠNÂˆ]ØZ]‹™^XÝ]J	ÐSTˆP“H™[][ÛœÚ\Ù]™[ÈQÓÓSSˆ[\›˜[^™YØ]S•QÑT‰ÊNÂˆ]ØZ]ØÜ™X]U•X›\ÊŠNÂˆ]ØZ]ØÜ™X]UÕX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŽX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŽUX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒLX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒLUX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒL•X›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒLÕX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒMX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒMUX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒM•X›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒMÕX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒNX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒŒUX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒŒ•X›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒUX›\ÊŠNÂˆ]ØZ]ØÜ™X]UŒ•X›\ÊŠNÂˆ]ØZ]ÜÙYY[S^Y\œÊŠNÂ‚ˆš[˜[[š]X[H\Ú\™TÛ˜\ÚÝ
+
+NÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ]ØZ]‹š[œÙ\
+	Ù\Ú\™WÜÝ]IËÂˆ	ÚY	ÎˆKˆ	ÚœÛÛ‰Îˆ[š]X[™[˜ÛÙJ
+Kˆ	Ý\]YØ]	Îˆ›ÝËˆJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ØXÝ]™WØœ˜Z[‰Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û[Ù[	Ë	Ý˜[YIÎˆ	ÙY\ÙYZË]Y›\Ú	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü™X\ÛÛš[™×ÙY™›Ü	Ë	Ý˜[YIÎˆ	ÚYÚ	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ØÚ]Ý[šÚ[™×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛœÙ×ØXÝ]™IË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛœÙ×Ü™Y™\™[˜ÙWØXÝ]™IË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛœÙ×ÛX[X[ÛÝ™\œšYIË	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛœÙ×Ü›Ý]WÜÛÝ\˜ÙIË	Ý˜[YIÎˆ	Ú[š]X[	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛœÙ×Ü›Ý]WÝ\›—ÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ø]]×ÛY[[ÜžIË	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛY[[ÜžWØÛÛœÛÛY][Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÙ[—Ùš]™WÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý˜[œÙ™\—ÛØÚÉË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÝ]WÛ[™XYÙWÚY	Ë	Ý˜[YIÎˆÝ]ZY
+
+_JNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÝ]WÙÙ[™\˜][Û‰Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×ÛÝ]›Ý[™ÙÙ[™\˜][Û‰Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÝZÙ[Ý™\—ÜÛ˜\ÚÝÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÝZÙ[Ý™\—ÜÛÝ\˜ÙWÙ]šXÙWÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÝZÙ[Ý™\—Ø]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü\˜Ù\[Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ØZWÜÙ[—Ü™Y›XÝ[Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ø]]×ÝÉË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý×ÜÝ™X[Z[™×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü›ØXÝ]™WÝ×ÜÛXÞIË	Ý˜[YIÎˆ	ÜÚ[[	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÜ›ØXÝ]™WÜÜÚÙ[—ÛY\ÜØYÙWÚY	Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý×ÜÜYY	Ë	Ý˜[YIÎˆ	ÌKŒ	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý×Ý›Û[YIË	Ý˜[YIÎˆ	ÌKŒ	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ý×Ü™\XÙ[Y[×ÚœÛÛ‰Ë	Ý˜[YIÎˆ	Þ×–]ZÚWŽ—¹§"yn#ŸIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü™[][ÛœÚ\ØÛÛ[Z]WÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÙ\ÜÚ[Û—Ý˜XÚÚ[™×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛY[[ÜžWÙ˜Y[™×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü™Y™\™[˜ÙWÛXœ˜\žWÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÛY[[ÜžWÛXZ[[˜[˜ÙWØ]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü[WÛ^Y\œ×Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÝÝYÚÛY™XÞXÛWÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü›ØXÝ]™WØY\][Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü›ØXÝ]™WÙ™YY˜XÚ×Ù^\žWÚÝ\œÉË	Ý˜[YIÎˆ	ÌL	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ü›ØXÝ]™WÛ›ÝYšXØ][Û—Üš]˜XÞIË	Ý˜[YIÎˆ	ÜÛX\	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÝÝYÚØÛÛœÛÛY][Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÝÝYÚØÛÛœÛÛY][Û—Ø]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛÛ™×Ü[›š[™×ÛXZ[[˜[˜ÙWÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÛÛ™×Ü[›š[™×ÛXZ[[˜[˜ÙWØ]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÙY™\œ™YÙ›ÛÝÝ\Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÛX^ÙY™\œ™YÙ›ÛÝÝ\ÉË	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÜÝÝ\›—Ü]Y]YWÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ø˜XÚÙÜ›Ý[™Ù\œ›Ü—ØÛÝ[	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝØ˜XÚÙÜ›Ý[™Ù\œ›Ü‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Ù\˜X›WÙÙ[™\˜][Û—Ù[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÙÙ[™\˜][Û—ÛX^Ø][\ÉË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÙÙ[™\˜][Û—Ü™XÛÝ™\žWÙ\œ›Ü‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜÜÝÝ\›—ÛX^Ø][\ÉË	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝØ\Þ[˜×ÝÛÜšÙ\—Ù\œ›Ü‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÙZ[WØÛÛ[Z]WÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÙZ[WØÛÛ[Z]WÜ™Yœ™\ÚØ]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÙZ[WØÛÛ[Z]WÙ\œ›Ü‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	ÜX›X×ÝÙX—Ù\ØÛÝ™\žWÙ[˜X›Y	Ë	Ý˜[YIÎˆ	ÌIßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWØ]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÜÝXØÙ\Ü×Ø]	Ë	Ý˜[YIÎˆ	Ì	ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÛÝ]ÛÛYIË	Ý˜[YIÎˆ	Û™]™\‰ßJNÂˆ]ØZ]‹š[œÙ\
+	ÜÙ][™ÜÉËÉÚÙ^IÎˆ	Û\ÝÜX›X×ÝÙX—Ù\ØÛÝ™\žWÙ\œ›Ü‰Ë	Ý˜[YIÎˆ	ÉßJNÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒ•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÛÛ™\œØ][Û—ÜÝ[[X\šY\È
+ˆYV’SPT–HÑVKˆœ›ÛWØ]S•QÑTˆ“Õ•Sˆ×Ø]S•QÑTˆ“Õ•SˆÝ[[X\žHV“Õ•SˆÙ^WÜÚ[ÈV“Õ•SQUS	ÉËˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÝ[[X\šY\×Ý×Ø]ÓˆÛÛ™\œØ][Û—ÜÝ[[X\šY\Ê×Ø]TÐÊIËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ[™š[š\ÚYÝ™XYÈ
+ˆYV’SPT–HÑVKˆ]HV“Õ•Sˆ]Z[V“Õ•Sˆ[\Ü[˜ÙH‘PS“Õ•SQUSKˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IËˆÛÝ\˜ÙWÛY\ÜØYÙWÚYVˆÜX×ÚÙ^HV“Õ•SQUS	ÉËˆ›ÛÝÝ\ÙYWØ]S•QÑT‹ˆ›ÛÝÝ\ÜÙYYYØ]S•QÑT‹ˆ›ÛÝÝ\Ü[—ÝÚÙ[ˆV“Õ•SQUS	ÉËˆ›ÛÝÝ\ØÛZ[YYØ]S•QÑT‹ˆ›ØXÝ]™WÛÝ]ÛÛYWÛY\ÜØYÙWÚYVˆ›ÛÝÝ\ØÛÝ[S•QÑTˆ“Õ•SQUSˆ\ÝÙ›ÛÝÝ\Ø]S•QÑT‹ˆ™]\™YØ]S•QÑT‹ˆ™]\™WÜ™X\ÛÛˆV“Õ•SQUS	ÉËˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝ™XY×ÜÝ]\ÈÓˆ[™š[š\ÚYÝ™XYÊÝ]\Ë[\Ü[˜ÙHTÐË\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒÕX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ\˜Ù\[Û—ÜÛ˜\ÚÝÈ
+ˆYV’SPT–HÑVKˆÝ[[X\žHV“Õ•Sˆ]šXÙWÚYVˆ]šXÙWÛX™[VˆÝ\œ™[ÜXÚØYÙHVˆ\ÞWÜØÛÜ™H‘PS“Õ•SQUSˆ›ÝYšXØ][Û—ØÛÝ[S•QÑTˆ“Õ•SQUSˆY]Y]WÚœÛÛˆV“Õ•SQUS	ÞßIËˆØØÝ\œ™YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ\˜Ù\[Û—Ý[YHÓˆ\˜Ù\[Û—ÜÛ˜\ÚÝÊØØÝ\œ™YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ™[][ÛœÚ\Ù]™[È
+ˆYV’SPT–HÑVKˆÚ[™V“Õ•SˆÝ[[X\žHV“Õ•Sˆ[[œÚ]H‘PS“Õ•SQUSKˆ˜[[˜ÙH‘PS“Õ•SQUSˆÛÝ\˜ÙWÛY\ÜØYÙWÚYVˆY]Y]WÚœÛÛˆV“Õ•SQUS	ÞßIËˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ™[][ÛœÚ\Ý[YHÓˆ™[][ÛœÚ\Ù]™[ÊÜ™X]YØ]TÐÊIËˆ
+NÂ‚ˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ[\˜XÝ[Û—ÜÙ\ÜÚ[ÛœÈ
+ˆYV’SPT–HÑVKˆÚ[™V“Õ•Sˆ]HV“Õ•SˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IËˆ™[Z\ÙHV“Õ•SQUS	ÉËˆ›Ý[™\šY\×ÚœÛÛˆV“Õ•SQUS	Ö×IËˆÛÛ[Z]WÛ›ÝHV“Õ•SQUS	ÉËˆÛÝ\˜ÙWÛY\ÜØYÙWÚYVˆÝ\YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ[™YØ]S•QÑT‚ˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÙ\ÜÚ[Ûœ×ÜÝ]\ÈÓˆ[\˜XÝ[Û—ÜÙ\ÜÚ[ÛœÊÝ]\Ë\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]U•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ™Y™\™[˜ÙWÚ][\È
+ˆYV’SPT–HÑVKˆØÝ[Y[ÚYVˆÛÝ\˜ÙWÛ˜[YHV“Õ•SˆÙXÝ[ÛˆV“Õ•SQUS	ÛÝ\‰Ëˆ]HV“Õ•SQUS	ÉËˆÛÛ[V“Õ•SˆYÜÈV“Õ•SQUS	ÉËˆÙZYÚ‘PS“Õ•SQUSMKˆ[˜X›YS•QÑTˆ“Õ•SQUSKˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ™Y™\™[˜ÙWÙ[˜X›YÓˆ™Y™\™[˜ÙWÚ][\Ê[˜X›YÙZYÚTÐË\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ™Y™\™[˜ÙWÜÛÝ\˜ÙHÓˆ™Y™\™[˜ÙWÚ][\ÊÛÝ\˜ÙWÛ˜[YKÙXÝ[ÛŠIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UÕX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ™Y™\™[˜ÙWÙØÝ[Y[È
+ˆYV’SPT–HÑVKˆ˜[YHV“Õ•SˆÚ[™V“Õ•SQUS	ØÚ\˜XÝ\‰Ëˆ[X\Ù\ÈV“Õ•SQUS	ÉËˆ˜]×ØÛÛ[V“Õ•Sˆ[˜X›YS•QÑTˆ“Õ•SQUSKˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ™Y™\™[˜ÙWÙØÝ[Y[×Ù[˜X›YÓˆ™Y™\™[˜ÙWÙØÝ[Y[Ê[˜X›Y\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ[WÛ^Y\œÈ
+ˆÙ^HV’SPT–HÑVKˆ]HV“Õ•SˆÛÛ[V“Õ•SˆØYÜÛXÞHV“Õ•Sˆ[˜X›YS•QÑTˆ“Õ•SQUSKˆØÚÙYS•QÑTˆ“Õ•SQUSˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŽX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÝYÚÛY™XÞXÛWÙ]™[È
+ˆYV’SPT–HÑVKˆÝYÚÚYV“Õ•Sˆ]™[Ý\HV“Õ•Sˆ]Z[V“Õ•SQUS	ÉËˆY\ÜØYÙWÚYVˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝÝYÚÛY™XÞXÛWÝ[YHÓˆÝYÚÛY™XÞXÛWÙ]™[ÊÝYÚÚYÜ™X]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ›ØXÝ]™WÙ™YY˜XÚÈ
+ˆYV’SPT–HÑVKˆ›ØXÝ]™WÛY\ÜØYÙWÚYV“Õ•SS’TUQKˆÝYÚÚYVˆÜX×ÚÙ^HV“Õ•SQUS	ÉËˆ™XYÚYVˆ[[ÚÚ[™V“Õ•SQUS	ÉËˆ[]™\žWÜÝ[HV“Õ•SQUS	ÉËˆÙ[Ø]S•QÑTˆ“Õ•Sˆ\Ù\—Ü™\ÜÛœÙWÛY\ÜØYÙWÚYVˆ™\ÜÛœÙWÛ][˜ÞWÜÙXÛÛ™ÈS•QÑT‹ˆ™\ÜÛœÙWØXÚÙ]V“Õ•SQUS	Ü[™[™ÉËˆ\Ù\—Ý^Û[™ÝS•QÑTˆ“Õ•SQUSˆ™\ÜÛœÙWÜ]X[]H‘PSˆÝ]ÛÛYHV“Õ•SQUS	Ü[™[™ÉËˆÝ]ÛÛYWÜØÛÜ™H‘PSˆ›ØÙ\ÜÙYØ]S•QÑT‹ˆÛÛ^ÚÝ\—ØXÚÙ]V“Õ•SQUS	ÉËˆÛÛ^ØXÝ]š]HV“Õ•SQUS	Ý[šÛ›ÝÛ‰ËˆÛÛ^Ø\ÞH‘PS“Õ•SQUSˆ[Z[™×Ùš]‘PSˆÜX×Ùš]‘PSˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WÙ™YY˜XÚ×ÜÙ[Óˆ›ØXÝ]™WÙ™YY˜XÚÊÙ[Ø]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŽUX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝÝYÚÝÜXÈÓˆÝYÚÊš]™WÚÙ^KÜX×ÚÙ^K\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝ™XYÝÜXÈÓˆ[™š[š\ÚYÝ™XYÊÝ]\ËÜX×ÚÙ^K\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WÝÜXÈÓˆ›ØXÝ]™WÙ™YY˜XÚÊÜX×ÚÙ^KÙ[Ø]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WÜ™\ÜÛœÙHÓˆ›ØXÝ]™WÙ™YY˜XÚÊ\Ù\—Ü™\ÜÛœÙWÛY\ÜØYÙWÚY
+IËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒLX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝ™XYÙ›ÛÝÝ\Óˆ[™š[š\ÚYÝ™XYÊÝ]\Ë›ÛÝÝ\ÙYWØ]›ÛÝÝ\ØÛÝ[[\Ü[˜ÙHTÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÜÝÝ\›—Ú›ØœÈ
+ˆYV’SPT–HÑVKˆ\Ù\—ÛY\ÜØYÙWÚYV“Õ•Sˆ\ÜÚ\Ý[ÛY\ÜØYÙWÚYV“Õ•SS’TUQKˆÝ]\ÈV“Õ•SQUS	Ü[™[™ÉËˆ][\ÈS•QÑTˆ“Õ•SQUSˆ\ÝÙ\œ›ÜˆV“Õ•SQUS	ÉËˆ[—ÝÚÙ[ˆV“Õ•SQUS	ÉËˆ™\Ý[ÚœÛÛˆV“Õ•SQUS	ÉËˆÝ\YØ]S•QÑT‹ˆX\™X]Ø]S•QÑT‹ˆ™^Ü™]žWØ]S•QÑT‹ˆ[Ù[ØÛÛ\]YØ]S•QÑT‹ˆ\Ú\™WØ\YYØ]S•QÑT‹ˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÜÝÝ\›—Ú›Øœ×ÜÝ]\ÈÓˆÜÝÝ\›—Ú›ØœÊÝ]\Ë\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈXZ[[˜[˜ÙWÜ[œÈ
+ˆYV’SPT–HÑVKˆÝ\YØ]S•QÑTˆ“Õ•SˆÛÛ\]YØ]S•QÑTˆ“Õ•Sˆ™]\™YÝ™XYÈS•QÑTˆ“Õ•SQUSˆ[™YÛY™XÞXÛHS•QÑTˆ“Õ•SQUSˆ[™YÙ™YY˜XÚÈS•QÑTˆ“Õ•SQUSˆ[™YÚ\ÝÜžHS•QÑTˆ“Õ•SQUSˆ[™YÜ\˜Ù\[ÛœÈS•QÑTˆ“Õ•SQUSˆ[™YÙ]šXÙWÙ]™[ÈS•QÑTˆ“Õ•SQUSˆ[™YÚ›ØœÈS•QÑTˆ“Õ•SQUSˆ›Ý\ÈV“Õ•SQUS	ÉÂˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛXZ[[˜[˜ÙWÜ[œ×Ý[YHÓˆXZ[[˜[˜ÙWÜ[œÊÛÛ\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒLUX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÙ[™\˜][Û—Ú›ØœÈ
+ˆYV’SPT–HÑVKˆ\Ù\—ÛY\ÜØYÙWÚYV“Õ•SS’TUQKˆ\ÜÚ\Ý[ÛY\ÜØYÙWÚYV“Õ•SS’TUQKˆÝ]\ÈV“Õ•SQUS	Ü[™[™ÉËˆ][\ÈS•QÑTˆ“Õ•SQUSˆ[Ù[V“Õ•Sˆ™X\ÛÛš[™×ÙY™›ÜV“Õ•SQUS	ÚYÚ	Ëˆ[šÚ[™ÈS•QÑTˆ“Õ•SQUSKˆ\X[Ü™X\ÛÛš[™ÈV“Õ•SQUS	ÉËˆ\X[ØÛÛ[V“Õ•SQUS	ÉËˆ[—ÝÚÙ[ˆV“Õ•SQUS	ÉËˆ]šXÙWÚYVˆÜ™X]YØ]S•QÑTˆ“Õ•SˆÝ\YØ]S•QÑT‹ˆ\]YØ]S•QÑTˆ“Õ•SˆÛÛ\]YØ]S•QÑT‹ˆ\ÝØÚXÚÜÚ[Ø]S•QÑT‹ˆ™^Ü™]žWØ]S•QÑT‹ˆ\ÝÙ\œ›ÜˆV“Õ•SQUS	ÉËˆ™\Ý[YWÜ™X\ÛÛˆV“Õ•SQUS	ÉÂˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÙÙ[™\˜][Û—Ú›Øœ×ÜÝ]\ÈÓˆÙ[™\˜][Û—Ú›ØœÊÝ]\Ë™^Ü™]žWØ]\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒL•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÜÝÝ\›—Ü™]žHÓˆÜÝÝ\›—Ú›ØœÊÝ]\Ë™^Ü™]žWØ]\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS’TUQHS‘VQˆ“ÕVTÕÈYÜÝ[[X\žWÜ˜[™ÙWÝ[š\]YHÓˆÛÛ™\œØ][Û—ÜÝ[[X\šY\Êœ›ÛWØ]×Ø]
+IËˆ
+NÂˆB‚‚ˆ]\™O›ÚYˆØÜ™X]UŒLÕX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WÚ[[Óˆ›ØXÝ]™WÙ™YY˜XÚÊ[[ÚÚ[™Ù[Ø]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒMX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ]Ø\™[™\Ü×ÛØœÙ\˜][ÛœÈ
+ˆYV’SPT–HÑVKˆ]šXÙWÚYVˆÚ[™V“Õ•SˆÝ[[X\žHV“Õ•SˆÛÛ™šY[˜ÙH‘PS“Õ•SQUSKˆÚ[™Ý×ÜÝ\S•QÑTˆ“Õ•SˆÚ[™Ý×Ù[™S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•SˆY\WÚÙ^HV“Õ•SS’TUQKˆÛÝ\˜ÙWÙš[™Ù\œš[V“Õ•SQUS	ÉËˆY]Y]WÚœÛÛˆV“Õ•SQUS	ÞßIËˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYØ]Ø\™[™\Ü×ØXÝ]™HÓˆ]Ø\™[™\Ü×ÛØœÙ\˜][ÛœÊ^\™\×Ø]TÐËÛÛ™šY[˜ÙHTÐË\]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYØ]Ø\™[™\Ü×ÚÚ[™Óˆ]Ø\™[™\Ü×ÛØœÙ\˜][ÛœÊÚ[™\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒMUX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈY[[ÜžWÙ]šY[˜ÙH
+ˆYV’SPT–HÑVKˆY[[ÜžWÚYV“Õ•SˆÛÝ\˜ÙHV“Õ•Sˆ]šY[˜ÙWÝ^V“Õ•SˆÛÛ™šY[˜ÙH‘PS“Õ•SQUSËˆ™[][ÛˆV“Õ•SQUS	ØÜ™X]Y	ËˆØœÙ\™YØ]S•QÑTˆ“Õ•Sˆ“Ô‘RQÓˆÑVJY[[ÜžWÚY
+H‘Q‘T‘SÑTÈY[[ÜžWÚ][\ÊY
+HÓˆSUHÐTÐÐQKˆS’TUQJY[[ÜžWÚYÛÝ\˜ÙK]šY[˜ÙWÝ^
+Bˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY[[ÜžWÙ]šY[˜ÙWÛY[[ÜžHÓˆY[[ÜžWÙ]šY[˜ÙJY[[ÜžWÚYØœÙ\™YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY[[ÜžWÙ]šY[˜ÙWÜÛÝ\˜ÙHÓˆY[[ÜžWÙ]šY[˜ÙJÛÝ\˜ÙKØœÙ\™YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒM•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WØÛÛ^ÚÝ\ˆÓˆ›ØXÝ]™WÙ™YY˜XÚÊÛÛ^ÚÝ\—ØXÚÙ]Ù[Ø]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ›ØXÝ]™WØÛÛ^ØXÝ]š]HÓˆ›ØXÝ]™WÙ™YY˜XÚÊÛÛ^ØXÝ]š]KÙ[Ø]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒMÕX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈZ[WØÛÛ[Z]H
+ˆYV’SPT–HÑVKˆØØ[Ù^HV“Õ•SS’TUQKˆÚ[™Ý×ÜÝ\S•QÑTˆ“Õ•SˆÚ[™Ý×Ù[™S•QÑTˆ“Õ•SˆÚ\™YÛ[ÛY[×ÚœÛÛˆV“Õ•SQUS	Ö×IËˆØ\œšYYÝ™XY×ÚœÛÛˆV“Õ•SQUS	Ö×IËˆØ\™\×ÚœÛÛˆV“Õ•SQUS	Ö×IËˆ]Ø\™[™\Ü×ÚœÛÛˆV“Õ•SQUS	Ö×IËˆY\ÜØYÙWØÛÝ[S•QÑTˆ“Õ•SQUSˆ™[][ÛœÚ\Ù]™[ØÛÝ[S•QÑTˆ“Õ•SQUSˆ]ZY]Ù^HS•QÑTˆ“Õ•SQUSˆÛÝ\˜ÙWÙš[™Ù\œš[V“Õ•SQUS	ÉËˆš[˜[^™YØ]S•QÑT‹ˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÙZ[WØÛÛ[Z]WÙ^HÓˆZ[WØÛÛ[Z]JÚ[™Ý×ÜÝ\TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÙZ[WØÛÛ[Z]WÝ\]YÓˆZ[WØÛÛ[Z]J\]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒNX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ˜[œÙ™\—Ü™XÙZ\È
+ˆÛ˜\ÚÝÚYV’SPT–HÑVKˆ[™XYÙWÚYV“Õ•SˆÛÝ\˜ÙWÙ]šXÙWÚYV“Õ•SˆÛÝ\˜ÙWÙÙ[™\˜][ÛˆS•QÑTˆ“Õ•SˆÝ]WÜÚLMˆV“Õ•Sˆ\™Ù]Ù]šXÙWÚYV“Õ•Sˆ\™Ù]Û[™XYÙWØ™Y›Ü™HV“Õ•SQUS	ÉËˆ\™Ù]ÙÙ[™\˜][Û—Ø™Y›Ü™HS•QÑTˆ“Õ•SQUSˆ[\ÜYØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÝ˜[œÙ™\—Ü™XÙZ\×Û[™XYÙWÙÙ[™\˜][ÛˆÓˆ˜[œÙ™\—Ü™XÙZ\Ê[™XYÙWÚYÛÝ\˜ÙWÙÙ[™\˜][ÛˆTÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒŒUX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÛÛX]X×Ù]™[È
+ˆYV’SPT–HÑVKˆ\›—ÚYV“Õ•SˆÚ[›™[V“Õ•SˆXÝ[ÛˆV“Õ•SQUS	ÉËˆ\V“Õ•SQUS	ÉËˆØÙ[™WÚÙ^HV“Õ•Sˆ\™XÝ[ÛˆV“Õ•SˆÛÝ\˜ÙHV“Õ•Sˆ˜\œ˜]]™HV“Õ•Sˆ[[œÚ]H‘PS“Õ•SˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•Sˆ“Ô‘RQÓˆÑVJ\›—ÚY
+H‘Q‘T‘SÑTÈY\ÜØYÙ\ÊY
+HÓˆSUHÐTÐÐQKˆS’TUQJ\›—ÚY\™XÝ[Û‹ØÙ[™WÚÙ^JBˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÛÛX]X×Ù]™[×ØXÝ]™HÓˆÛÛX]X×Ù]™[ÊÚ[›™[^\™\×Ø]TÐËÜ™X]YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÛÛX]X×ØYÙÜ™YØ]\È
+ˆÚ[›™[V’SPT–HÑVKˆ˜[YH‘PS“Õ•SˆØÙ[™WÚÙ^HV“Õ•Sˆ˜\œ˜]]™HV“Õ•Sˆ\ÝÙ]™[ÚYV“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÛÛX]X×ØYÙÜ™YØ]\×ØXÝ]™HÓˆÛÛX]X×ØYÙÜ™YØ]\Ê^\™\×Ø]TÐË˜[YHTÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒŒ•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈY\ÜØYÙWØ]XÚY[È
+ˆYV’SPT–HÑVKˆY\ÜØYÙWÚYV“Õ•SˆÚ[™V“Õ•SˆÜšYÚ[˜[Ü]V“Õ•Sˆ[X›˜Z[Ü]V“Õ•SˆZ[YWÝ\HV“Õ•Sˆž]WÜÚ^™HS•QÑTˆ“Õ•SˆÚYS•QÑTˆ“Õ•SˆZYÚS•QÑTˆ“Õ•SˆÛÝ\˜ÙHV“Õ•SˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆš\Ú[Û—ÜÝ]\ÈV“Õ•SQUS	Ü[™[™ÉËˆš\Ú[Û—ÜÝ[[X\žHV“Õ•SQUS	ÉËˆš\Ú[Û—Û[Ù[V“Õ•SQUS	ÉËˆš\Ú[Û—Ù\œ›ÜˆV“Õ•SQUS	ÉËˆš\Ú[Û—Ø][\ÈS•QÑTˆ“Õ•SQUSˆš\Ú[Û—Ý\]YØ]S•QÑT‹ˆ“Ô‘RQÓˆÑVJY\ÜØYÙWÚY
+H‘Q‘T‘SÑTÈY\ÜØYÙ\ÊY
+HÓˆSUHÐTÐÐQKˆS’TUQJY\ÜØYÙWÚYY
+Bˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÛY\ÜØYÙWØ]XÚY[×ÛY\ÜØYÙHÓˆY\ÜØYÙWØ]XÚY[ÊY\ÜØYÙWÚYÜ™X]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ]]Û›Û[Ý\×ØXÝ[Û—Ü[œÈ
+ˆYV’SPT–HÑVKˆY\WÚÙ^HV“Õ•SS’TUQKˆÛÛÚÚ[™V“Õ•Sˆ[[ØXÝ[ÛˆV“Õ•Sˆš]™WÚÙ^HV“Õ•Sˆ[[ÜØÛÜ™H‘PS“Õ•Sˆ™X\ÛÛ—ÜÛÝ\˜ÙHV“Õ•SˆÝYÚÚYVˆÝ]\ÈV“Õ•SˆØ]WÜ™X\ÛÛˆV“Õ•SˆÝ]ÛÛYWÚÚ[™V“Õ•SQUS	Û›Û™IËˆ™\]Y\ÝYØ]S•QÑTˆ“Õ•SˆÝ\YØ]S•QÑT‹ˆš[š\ÚYØ]S•QÑT‹ˆ[—ÝÚÙ[ˆV“Õ•SQUS	ÉËˆ][\S•QÑTˆ“Õ•SQUSˆÝ]WÙÙ[™\˜][ÛˆS•QÑTˆ“Õ•Sˆ]šXÙWÚYV“Õ•SˆØÜ™Y[—Ú[\˜XÝ]™HS•QÑTˆ“Õ•SQUSˆ]šXÙWÛØÚÙYS•QÑTˆ“Õ•SQUSˆ][˜ÞWØXÚÙ]V“Õ•SQUS	ÉËˆ™\Ý[ØÛÝ[S•QÑTˆ“Õ•SQUSˆ\Ú\™WÜØ]\ÙšYYØ]S•QÑT‹ˆY\WØÛÝ[S•QÑTˆ“Õ•SQUSˆ\ÝÙ\XØ]WØ]S•QÑT‹ˆYÙ]Û[Z]S•QÑT‹ˆYÙ]Ü™[XZ[š[™ÈS•QÑT‚ˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYØ]]Û›Û[Ý\×ØXÝ[Û—ÜÝ]\ÈÓˆ]]Û›Û[Ý\×ØXÝ[Û—Ü[œÊÝ]\Ë™\]Y\ÝYØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYØ]]Û›Û[Ý\×ØXÝ[Û—ÝÛÛÝ[YHÓˆ]]Û›Û[Ý\×ØXÝ[Û—Ü[œÊÛÛÚÚ[™™\]Y\ÝYØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒUX›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈX›X×ÝÙX—ØØ[™Y]\È
+ˆYV’SPT–HÑVKˆš[™Ù\œš[V“Õ•SS’TUQKˆ]HV“Õ•SˆÝ[[X\žHV“Õ•SQUS	ÉËˆ\›V“Õ•SˆÛÝ\˜ÙWÙÛXZ[ˆV“Õ•Sˆ›ÝšY\ˆV“Õ•Sˆ[™ÝXYÙHV“Õ•SQUS	Þš	Ëˆš]™WÚÙ^HV“Õ•Sˆ[[ØXÝ[ÛˆV“Õ•Sˆ[\™\ÝÚÙ^HV“Õ•SQUS	ÉËˆØY™]WÜÝ]HV“Õ•SQUS	Ý[\ÝYÜX›XÉËˆY™XÞXÛWÜÝ]HV“Õ•SQUS	Ý[œ™XY	ËˆXÝ[Û—Ü[—ÚYV“Õ•Sˆ\ØÛÝ™\™YØ]S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•Sˆ\ÝÝšY]ÙYØ]S•QÑT‹ˆšY]×ØÛÝ[S•QÑTˆ“Õ•SQUSˆ“Ô‘RQÓˆÑVJXÝ[Û—Ü[—ÚY
+H‘Q‘T‘SÑTÈ]]Û›Û[Ý\×ØXÝ[Û—Ü[œÊY
+HÓˆSUHÐTÐÐQBˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜX›X×ÝÙX—ØØ[™Y]\×ÛY™XÞXÛHÓˆX›X×ÝÙX—ØØ[™Y]\ÊY™XÞXÛWÜÝ]K\ØÛÝ™\™YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜX›X×ÝÙX—ØØ[™Y]\×Ù^\žHÓˆX›X×ÝÙX—ØØ[™Y]\Ê^\™\×Ø]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆØÜ™X]UŒ•X›\Ê]X˜\ÙHŠH\Þ[˜ÈÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ\œÛÛ˜[]WÝšX[È
+ˆYV’SPT–HÑVKˆ˜\ÙWÚÙ^HV“Õ•SˆÜÝ\™WÚÙ^HV“Õ•SˆÛÛ[V“Õ•Sˆ™]š[Ý\×ØÛÛ[V“Õ•SˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IËˆÝ\YØ]S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•Sˆ[™YØ]S•QÑT‹ˆY™™XÝ]™WÝ\›œÈS•QÑTˆ“Õ•SQUSˆ[\˜XÝ[Û—ÝÚ[™ÝÜÈS•QÑTˆ“Õ•SQUSˆ\ÝÚ[\˜XÝ[Û—Ø]S•QÑT‹ˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ\œÛÛ˜[]WÝšX[×ÜÝ]\ÈÓˆ\œÛÛ˜[]WÝšX[ÊÝ]\ËÝ\YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈÜXÚX[ÜÝ[WÝšX[È
+ˆYV’SPT–HÑVKˆÝ[WÚÙ^HV“Õ•SˆÝ]\ÈV“Õ•SQUS	ØXÝ]™IËˆÝ\YØ]S•QÑTˆ“Õ•Sˆ^\™\×Ø]S•QÑTˆ“Õ•Sˆ[™YØ]S•QÑT‹ˆÜ™X]YØ]S•QÑTˆ“Õ•Sˆ\]YØ]S•QÑTˆ“Õ•Sˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜÜXÚX[ÜÝ[WÝšX[×ÜÝ]\ÈÓˆÜXÚX[ÜÝ[WÝšX[ÊÝ]\ËÝ\YØ]TÐÊIËˆ
+NÂˆ]ØZ]‹™^XÝ]J	ÉÉÂˆÔ‘PUHP“HQˆ“ÕVTÕÈ\œÛÛ˜[]WÜ›Ùš[WÝ™\œÚ[ÛœÈ
+ˆYV’SPT–HÑVKˆ˜\ÙWÚÙ^HV“Õ•SQUS	ÉËˆÜÝ\™WÚÙ^HV“Õ•SQUS	ÉËˆÛÛ[V“Õ•SˆÛÝ\˜ÙHV“Õ•SˆÛÝ\˜ÙWÝšX[ÚYVˆXÝ]™HS•QÑTˆ“Õ•SQUSˆÜ™X]YØ]S•QÑTˆ“Õ•SˆXÝ]˜]YØ]S•QÑTˆ“Õ•Sˆ™]\™YØ]S•QÑT‚ˆ
+Bˆ	ÉÉÊNÂˆ]ØZ]‹™^XÝ]Jˆ	ÐÔ‘PUHS‘VQˆ“ÕVTÕÈYÜ\œÛÛ˜[]WÜ›Ùš[\×ØXÝ]™HÓˆ\œÛÛ˜[]WÜ›Ùš[WÝ™\œÚ[ÛœÊXÝ]™KXÝ]˜]YØ]TÐÊIËˆ
+NÂˆB‚ˆ]\™O›ÚYˆÜÙYY[S^Y\œÊ]X˜\ÙHŠH\Þ[˜ÈÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ›Üˆ
+š[˜[^Y\ˆ[ˆY˜][[S^Y\œÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	Ü[WÛ^Y\œÉËˆÂˆ	ÚÙ^IÎˆ^Y\‹šÙ^Kˆ	Ý]IÎˆ^Y\‹]Kˆ	ØÛÛ[	Îˆ^Y\‹˜ÛÛ[ˆ	ÛØYÜÛXÞIÎˆ^Y\‹›ØYÛXÞKˆ	Ù[˜X›Y	ÎˆKˆ	ÛØÚÙY	Îˆ^Y\‹›ØÚÙYÈHˆˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆËÈØÚÙY›ÝÈYX[œÈ›ÝXÝYØ[Ø^\È[˜X›Y›ÝY[ˆÜ‚ˆËÈ\XØ][Û‹[Ý™\Üš][‹ˆX[X[Y]ÈÝ\š]™H]™\žHÙYY\ÜÎÈBˆËÈ\Ù\ˆØ[ˆ^XÚ]H™\ÝÜ™HHÝ\œ™[[™YY˜][œ›ÛHHRK‚ˆBˆš[˜[Ý\œ™[\œÛÛ˜[]HHY˜][[S^Y\œÂˆ™š\œÝÚ\™J
+^Y\ŠHOˆ^Y\‹šÙ^HOH	Ì×Ü\œÛÛ˜[]WÜÙYY	ÊNÂˆ]ØZ]‹\]Jˆ	Ü[WÛ^Y\œÉËˆÂˆ	ØÛÛ[	ÎˆÝ\œ™[\œÛÛ˜[]K˜ÛÛ[ˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚÙ^HHÈS‘ÛÛ[HÉËˆÚ\™P\™ÜÎˆØÝ\œ™[\œÛÛ˜[]KšÙ^KYØXÞT\œÛÛ˜[]TÙYYŒWKˆ
+NÂˆ]ØZ]‹\]Jˆ	Ü[WÛ^Y\œÉËˆÂˆ	ØÛÛ[	ÎˆÝ\œ™[\œÛÛ˜[]K˜ÛÛ[ˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚÙ^HHÈS‘ÛÛ[HÉËˆÚ\™P\™ÜÎˆØÝ\œ™[\œÛÛ˜[]KšÙ^KYØXÞT\œÛÛ˜[]TÙYYŒÍWKˆ
+NÂˆš[˜[YØXÞQY]X›R\Ú\ÈHÂˆ‹‹›YØXÞQY]X›T[S^Y\”ÚLM•ŒÍ‹™[šY\Ëˆ‹‹›YØXÞQY]X›T[S^Y\”ÚLM•ŒÍL™[šY\ËˆNÂˆ›Üˆ
+š[˜[[žH[ˆYØXÞQY]X›R\Ú\ÊHÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	Ü[WÛ^Y\œÉËˆÛÛ[[œÎˆÛÛœÝÉØÛÛ[	×KˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÙ[žKšÙ^WKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JHÛÛ[YNÂˆš[˜[ÝÜ™YH›ÝÜË™š\œÝÉØÛÛ[	×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆYˆ
+ÚLM‹˜ÛÛ™\
+]Ž™[˜ÛÙJÝÜ™Y
+JKÔÝš[™Ê
+HOH[žK˜[YJHÂˆÛÛ[YNÂˆBˆš[˜[Ý\œ™[HY˜][[S^Y\œË™š\œÝÚ\™Jˆ
+^Y\ŠHOˆ^Y\‹šÙ^HOH[žKšÙ^Kˆ
+NÂˆ]ØZ]‹\]Jˆ	Ü[WÛ^Y\œÉËˆÂˆ	ØÛÛ[	ÎˆÝ\œ™[˜ÛÛ[ˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÙ[žKšÙ^WKˆ
+NÂˆBˆ›Üˆ
+š[˜[[žH[ˆYØXÞT[S^Y\ÛÛ[ÕŒÍL‹™[šY\ÊHÂˆ]ØZ]‹\]Jˆ	Ü[WÛ^Y\œÉËˆÂˆ	ØÛÛ[	ÎˆY˜][[S^Y\œÂˆ™š\œÝÚ\™J
+^Y\ŠHOˆ^Y\‹šÙ^HOH[žKšÙ^JBˆ˜ÛÛ[ˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚÙ^HHÈS‘ÛÛ[HÉËˆÚ\™P\™ÜÎˆÙ[žKšÙ^K[žK˜[YWKˆ
+NÂˆBˆB‚ˆ]\™O›ÚYˆ[œÝ\™T™XYJ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ]ØZ]‹™[]Jˆ	ÜÙ][™ÜÉËˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÛÛœÝÉØÚ]Ý[\\˜]\™I×Kˆ
+NÂˆ›Üˆ
+š[˜[[žH[ˆÛÛœÝÝš[™ËÝš[™ÏžÂˆ	ÛœÙ×ØXÝ]™IÎˆ	Ì	Ëˆ	ÛœÙ×Ü™Y™\™[˜ÙWØXÝ]™IÎˆ	Ì	Ëˆ	ÛœÙ×ÛX[X[ÛÝ™\œšYIÎˆ	ÉËˆ	ÛœÙ×Ü›Ý]WÜÛÝ\˜ÙIÎˆ	Ú[š]X[	Ëˆ	ÛœÙ×Ü›Ý]WÝ\›—ÚY	Îˆ	ÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆ]ØZ][œÝ\™Q]šXÙRY
+
+NÂˆB‚ˆ]\™OÝš[™Ïˆ[œÝ\™Q]šXÙRY
+
+H\Þ[˜ÈÂˆš[˜[^\Ý[™ÈH]ØZ]Ù]Ù][™Ê	Ù]šXÙWÚY	ÊNÂˆYˆ
+^\Ý[™ÈOH[	‰ˆ^\Ý[™Ëš\Ó›Ý[\JH™]\›ˆ^\Ý[™ÎÂˆš[˜[YHÝ]ZY
+
+NÂˆ]ØZ]Ù]Ù][™Ê	Ù]šXÙWÚY	ËY
+NÂˆ™]\›ˆYÂˆB‚ˆ]\™OÝš[™Ïˆ[œÝ\™TÝ]S[™XYÙRY
+
+H\Þ[˜ÈÂˆš[˜[^\Ý[™ÈH]ØZ]Ù]Ù][™Ê	ÜÝ]WÛ[™XYÙWÚY	ÊNÂˆYˆ
+^\Ý[™ÈOH[	‰ˆ^\Ý[™Ëš\Ó›Ý[\JH™]\›ˆ^\Ý[™ÎÂˆš[˜[YHÝ]ZY
+
+NÂˆ]ØZ]Ù]Ù][™Ê	ÜÝ]WÛ[™XYÙWÚY	ËY
+NÂˆ™]\›ˆYÂˆB‚ˆ]\™O˜[œÙ™\”Ý]RY[]Oˆ˜[œÙ™\”Ý]RY[]J
+H\Þ[˜ÈÂˆš[˜[]šXÙRYH]ØZ][œÝ\™Q]šXÙRY
+
+NÂˆš[˜[[™XYÙRYH]ØZ][œÝ\™TÝ]S[™XYÙRY
+
+NÂˆš[˜[Ù[™\˜][ÛˆH[žT\œÙJ]ØZ]Ù]Ù][™Ê	ÜÝ]WÙÙ[™\˜][Û‰ÊHÏÈ	ÉÊHÏÈÂˆ™]\›ˆ˜[œÙ™\”Ý]RY[]Jˆ[™XYÙRYˆ[™XYÙRYˆÙ[™\˜][ÛŽˆÙ[™\˜][Û‹ˆ]šXÙRYˆ]šXÙRYˆ
+NÂˆB‚ˆËËÈ™\Ù\™HH[Û›ÝÛšXØ[H[˜Ü™X\Ú[™ÈÝ]HÙ[™\˜][Ûˆ›ÜˆÛ™Hœ›Þ™[‚ˆËËÈÝ]›Ý[™ZÙ[Ý™\ˆÛ˜\ÚÝˆ˜[œÙ™\—ÛØÚÏLX\ÈX[™]ÜžHÛÈ›ÈÜš]\‚ˆËËÈØ[ˆÜ™X]HÝ]HY\ˆHÙ[™\˜][Ûˆ\È™\Ù\™Y]™Y›Ü™H^Ü‚ˆ]\™O˜[œÙ™\”Ý]RY[]Oˆ™\Ù\™U˜[œÙ™\”Û˜\ÚÝ
+Ýš[™ÈÛ˜\ÚÝY
+H\Þ[˜ÈÂˆYˆ
+Û˜\ÚÝYš[J
+Kš\Ñ[\JHÂˆ›ÝÈ\™Ý[Y[\œ›Ü‹˜[YJÛ˜\ÚÝY	ÜÛ˜\ÚÝY	Ë	Û]\Ý›Ý™H[\IÊNÂˆBˆš[˜[]šXÙRYH]ØZ][œÝ\™Q]šXÙRY
+
+NÂˆš[˜[[™XYÙRYH]ØZ][œÝ\™TÝ]S[™XYÙRY
+
+NÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[Û˜[œÙ™\”Ý]RY[]OŠ
+ŠH\Þ[˜ÈÂˆ]\™OÝš[™ÏˆÙ][™ÊÝš[™ÈÙ^JH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÝ˜[YI×KˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÚÙ^WKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ	ÉÈˆ›ÝÜË™š\œÝÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆB‚ˆYˆ
+]ØZ]Ù][™Ê	Ý˜[œÙ™\—ÛØÚÉÊHOH	ÌIÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùå'ù¢$9£©yë¨yâ­¹  yc!ybcyoázhnùab9a®ùîäù§+9§.¹a¦yaixà ‰ÊNÂˆBˆYˆ
+]ØZ]Ù][™Ê	ØXÝ]™WØœ˜Z[‰ÊHOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùcê¹§"yodùbcHXÝ]™Hœ˜Z[ˆ9cëù.éyå'ù¢$9£©yë¨yâ­¹  yc!xà ‰ÊNÂˆBˆš[˜[Ý\œ™[[™XYÙHH]ØZ]Ù][™Ê	ÜÝ]WÛ[™XYÙWÚY	ÊNÂˆYˆ
+Ý\œ™[[™XYÙKš\Ó›Ý[\H	‰ˆÝ\œ™[[™XYÙHOH[™XYÙRY
+HÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùalùìîú,,yìîùg*9å'ù¢$9â­¹  yc!y¥í¹cäyå'ùcæ9c%¸à ‰ÊNÂˆBˆš[˜[Ý\œ™[H[žT\œÙJ]ØZ]Ù][™Ê	ÜÝ]WÙÙ[™\˜][Û‰ÊJHÏÈÂˆš[˜[™^HÝ\œ™[
+ÈNÂˆ›Üˆ
+š[˜[[žH[ˆÝš[™ËÝš[™ÏžÂˆ	ÜÝ]WÛ[™XYÙWÚY	Îˆ[™XYÙRYˆ	ÜÝ]WÙÙ[™\˜][Û‰Îˆ	É™^	Ëˆ	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	ÎˆÛ˜\ÚÝYˆ	Ü[™[™×ÛÝ]›Ý[™ÙÙ[™\˜][Û‰Îˆ	É™^	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆBˆ™]\›ˆ˜[œÙ™\”Ý]RY[]Jˆ[™XYÙRYˆ[™XYÙRYˆÙ[™\˜][ÛŽˆ™^ˆ]šXÙRYˆ]šXÙRYˆ
+NÂˆJNÂˆB‚ˆ]\™O˜[œÙ™\”™XÙZ\Ïˆ˜[œÙ™\”™XÙZ\
+Ýš[™ÈÛ˜\ÚÝY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	Ý˜[œÙ™\—Ü™XÙZ\ÉËˆÚ\™Nˆ	ÜÛ˜\ÚÝÚYHÉËˆÚ\™P\™ÜÎˆÜÛ˜\ÚÝYKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆ˜[œÙ™\”™XÙZ\™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O[™[™Ò[\ÜY˜[œÙ™\Ïˆ[™[™Ò[\ÜY˜[œÙ™\Š
+H\Þ[˜ÈÂˆš[˜[Û˜\ÚÝYH]ØZ]Ù]Ù][™Ê	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	ÊHÏÈ	ÉÎÂˆš[˜[[™XYÙRYH]ØZ]Ù]Ù][™Ê	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	ÊHÏÈ	ÉÎÂˆš[˜[ÛÝ\˜ÙQ]šXÙRYH]ØZ]Ù]Ù][™Ê	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	ÊHÏÈ	ÉÎÂˆš[˜[ÛÝ\˜ÙQÙ[™\˜][ÛˆH[žT\œÙJ]ØZ]Ù]Ù][™Ê	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰ÊHÏÈ	ÉÊHÏÈÂˆš[˜[Ý]TÚLMˆH]ØZ]Ù]Ù][™Ê	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰ÊHÏÈ	ÉÎÂˆYˆ
+Û˜\ÚÝYš\Ñ[\H[™XYÙRYš\Ñ[\HÛÝ\˜ÙQÙ[™\˜][ÛˆHÝ]TÚLM‹š\Ñ[\JHÂˆ™]\›ˆ[ÂˆBˆ™]\›ˆ[™[™Ò[\ÜY˜[œÙ™\ŠˆÛ˜\ÚÝYˆÛ˜\ÚÝYˆ[™XYÙRYˆ[™XYÙRYˆÛÝ\˜ÙQ]šXÙRYˆÛÝ\˜ÙQ]šXÙRYˆÛÝ\˜ÙQÙ[™\˜][ÛŽˆÛÝ\˜ÙQÙ[™\˜][Û‹ˆÝ]TÚLMŽˆÝ]TÚLM‹ˆ
+NÂˆB‚ˆ]\™O›ÛÛˆ\Ôš\Ý[™Q›Ü“[™XYÙPYÜ[ÛŠ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆÛÛœÝX›\ÈHÝš[™Ï–Âˆ	ÛY\ÜØYÙ\ÉËˆ	ÛY[[ÜžWÚ][\ÉËˆ	Ý[™š[š\ÚYÝ™XYÉËˆ	ÝÝYÚÉËˆ	Ü™[][ÛœÚ\Ù]™[ÉËˆ	Ú[\˜XÝ[Û—ÜÙ\ÜÚ[ÛœÉËˆ	Ü™Y™\™[˜ÙWÙØÝ[Y[ÉËˆ	Ü™Y™\™[˜ÙWÚ][\ÉËˆ	ÙZ[WØÛÛ[Z]IËˆNÂˆ›Üˆ
+š[˜[X›H[ˆX›\ÊHÂˆš[˜[›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJ	ÔÑSPÕH”“ÓH	X›HSRUIÊNÂˆYˆ
+›ÝÜËš\Ó›Ý[\JH™]\›ˆ˜[ÙNÂˆBˆ™]\›ˆYNÂˆB‚ˆËËÈXÝ]˜]H^XÝHHÛ˜\ÚÝ]Ø\È[\ÜY[ÈÝ[™žKˆBˆËËÈÙ[™\˜][Ûˆ[\Ü™X]\ÈH™]ÈÝÛ™\œÚ\\ØÚXZÚ[™ÈH\ÝXÛÛœÝ[YYˆËËÈÛ˜\ÚÝ
+[™]™\žHÛ\ˆ™\^JHÝ[H[[YYX][HY\ˆXÝ]˜][Û‹‚ˆ]\™O[ˆXÝ]˜]T[™[™Ò[\ÜYœ˜Z[ŠÔÝš[™ÏÈ^XÝYÛ˜\ÚÝYJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[Û[Š
+ŠH\Þ[˜ÈÂˆ]\™OÝš[™ÏˆÙ][™ÊÝš[™ÈÙ^JH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÝ˜[YI×KˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÚÙ^WKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ	ÉÈˆ›ÝÜË™š\œÝÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆB‚ˆš[˜[Û˜\ÚÝYH]ØZ]Ù][™Ê	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	ÊNÂˆš[˜[[™XYÙRYH]ØZ]Ù][™Ê	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	ÊNÂˆš[˜[ÛÝ\˜ÙQ]šXÙRYH]ØZ]Ù][™Ê	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	ÊNÂˆš[˜[[\ÜYÙ[™\˜][ÛˆH[žT\œÙJ]ØZ]Ù][™Ê	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰ÊJHÏÈÂˆš[˜[Ý]TÚLMˆH]ØZ]Ù][™Ê	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰ÊNÂˆš[˜[Ý\œ™[[™XYÙHH]ØZ]Ù][™Ê	ÜÝ]WÛ[™XYÙWÚY	ÊNÂˆš[˜[Ý\œ™[Ù[™\˜][ÛˆH[žT\œÙJ]ØZ]Ù][™Ê	ÜÝ]WÙÙ[™\˜][Û‰ÊJHÏÈÂˆYˆ
+Û˜\ÚÝYš\Ñ[\H[™XYÙRYš\Ñ[\H[\ÜYÙ[™\˜][ÛˆHÝ]TÚLM‹š\Ñ[\JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù§+9§.¹¬¨y§"yëbyo¡y£©yë¨yæ¡9mì¹kï9aiyâ­¹  xà ‰ÊNÂˆBˆYˆ
+^XÝYÛ˜\ÚÝYOH[	‰ˆ^XÝYÛ˜\ÚÝYOHÛ˜\ÚÝY
+HÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù£©yë¨yèkº+©9.#¹§+9§.¹ëbyo¡yæ¡9â­¹  yc!y.#y. :!í8à ‰ÊNÂˆBˆYˆ
+Ý\œ™[[™XYÙHOH[™XYÙRYÝ\œ™[Ù[™\˜][ÛˆOH[\ÜYÙ[™\˜][ÛŠHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù§+9§.¹â­¹  y.èù«(ymì¹cæ9c%»ï#9¢ä¹îçy/oùå*9¥éù£©yë¨yèkº+©8à ‰ÊNÂˆBˆYˆ
+]ØZ]Ù][™Ê	ØXÝ]™WØœ˜Z[‰ÊHOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù§+9§.¹mì¹îãù¦+ÈXÝ]™Hœ˜Z[»ï#9¢ä¹îçzaãyi#y£©yë¨xà ‰ÊNÂˆBˆš[˜[™^Ù[™\˜][ÛˆH[\ÜYÙ[™\˜][Ûˆ
+ÈNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ›Üˆ
+š[˜[[žH[ˆÝš[™ËÝš[™ÏžÂˆ	ÜÝ]WÙÙ[™\˜][Û‰Îˆ	É™^Ù[™\˜][Û‰Ëˆ	ØXÝ]™WØœ˜Z[‰Îˆ	ÌIËˆ	Ý˜[œÙ™\—ÛØÚÉÎˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰Îˆ	ÉËˆ	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×ÛÝ]›Ý[™ÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Û\ÝÝZÙ[Ý™\—ÜÛ˜\ÚÝÚY	ÎˆÛ˜\ÚÝYˆ	Û\ÝÝZÙ[Ý™\—ÜÛÝ\˜ÙWÙ]šXÙWÚY	ÎˆÛÝ\˜ÙQ]šXÙRYˆ	Û\ÝÝZÙ[Ý™\—Ø]	Îˆ	É›ÝÉËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆBˆ™]\›ˆ™^Ù[™\˜][ÛŽÂˆJNÂˆB‚ˆËËÈ^XÚ]ØØ[™XÛÝ™\žH›ÜˆH]šXÙH]Ø\È[[[Û˜[H\ÚYÂˆËËÈÝ[™žH
+›Üˆ^[\HY\ˆ^Ü[™È[ˆ[˜Üž\YX[X[˜[œÙ™\ˆš[JK‚ˆËËÈ[\[™ÈÙ[™\˜][Ûˆ[˜[Y]\ÈH^ÜYÛ˜\ÚÝYˆH\Ù\ˆÚÛÜÙ\ÂˆËËÈÈ™\Ý[YH\È]šXÙH[œÝXY‚ˆ]\™O[ˆ›Ü˜ÙSØØ[œ˜Z[•ZÙ[Ý™\Š
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[Û[Š
+ŠH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	ÜÝ]WÙÙ[™\˜][Û‰Ë	ÜÝ]WÛ[™XYÙWÚY	×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆÙ][™ÜÖÜ›ÝÖÉÚÙ^I×H\ÈÝš[™×HH›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆBˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù§+9§.¹mì¹îãù¦+ÈXÝ]™Hœ˜Z[¸à ‰ÊNÂˆBˆš[˜[Ý\œ™[H[žT\œÙJÙ][™ÜÖÉÜÝ]WÙÙ[™\˜][Û‰×HÏÈ	ÉÊHÏÈÂˆš[˜[™^HÝ\œ™[
+ÈNÂˆ›Üˆ
+š[˜[[žH[ˆÝš[™ËÝš[™ÏžÂˆ	ÜÝ]WÙÙ[™\˜][Û‰Îˆ	É™^	Ëˆ	ØXÝ]™WØœ˜Z[‰Îˆ	ÌIËˆ	Ý˜[œÙ™\—ÛØÚÉÎˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÛ[™XYÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÜÛÝ\˜ÙWÙ]šXÙWÚY	Îˆ	ÉËˆ	Ü[™[™×Ú[\ÜÙÙ[™\˜][Û‰Îˆ	Ì	Ëˆ	Ü[™[™×Ú[\ÜÜÝ]WÜÚLM‰Îˆ	ÉËˆ	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	Îˆ	ÉËˆ	Ü[™[™×ÛÝ]›Ý[™ÙÙ[™\˜][Û‰Îˆ	Ì	ËˆK™[šY\ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ[žKšÙ^K	Ý˜[YIÎˆ[žK˜[Y_KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆBˆ™]\›ˆ™^ÂˆJNÂˆB‚ˆ]\™O›ÚYˆ]\ÙPY\“X[X[˜[œÙ™\‘^Ü
+Âˆ™\]Z\™YÝš[™ÈÛ˜\ÚÝYˆ™\]Z\™YÝš[™È[™XYÙRYˆ™\]Z\™Y[Ù[™\˜][Û‹ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆ]\™OÝš[™ÏˆÙ][™ÊÝš[™ÈÙ^JH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÝ˜[YI×KˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÚÙ^WKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ	ÉÈˆ›ÝÜË™š\œÝÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆBˆYˆ
+]ØZ]Ù][™Ê	ÜÝ]WÛ[™XYÙWÚY	ÊHOH[™XYÙRYˆ
+[žT\œÙJ]ØZ]Ù][™Ê	ÜÝ]WÙÙ[™\˜][Û‰ÊJHÏÈLJHOHÙ[™\˜][Ûˆˆ]ØZ]Ù][™Ê	Ü[™[™×ÛÝ]›Ý[™ÜÛ˜\ÚÝÚY	ÊHOHÛ˜\ÚÝYˆ]ØZ]Ù][™Ê	Ý˜[œÙ™\—ÛØÚÉÊHOH	ÌIÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù¢bùbª9£©yë¨yc!ymì¹îãù.#y¦+ù§+9§.¹odùbcya®ùîäùæ¡9â­¹  xà ‰ÊNÂˆBˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	ØXÝ]™WØœ˜Z[‰Ë	Ý˜[YIÎˆ	Ì	ßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÙ][™ÜÉËˆÉÚÙ^IÎˆ	Ý˜[œÙ™\—ÛØÚÉË	Ý˜[YIÎˆ	Ì	ßKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆJNÂˆB‚ˆ]\™O›ÚYˆ[œÙ\Y\ÜØYÙJÚ]Y\ÜØYÙHY\ÜØYÙJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙ\ÉËˆY\ÜØYÙKÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆB‚ˆ]\™O›ÚYˆ[œÙ\Y\ÜØYÙUÚ]]XÚY[ÊˆÚ]Y\ÜØYÙHY\ÜØYÙKˆ\ÝY\ÜØYÙP]XÚY[ˆ]XÚY[Ëˆ
+H\Þ[˜ÈÂˆYˆ
+]XÚY[Ëš\Ñ[\JHÂˆ›ÝÈ\™Ý[Y[\œ›Ü‹˜[YJ]XÚY[Ë	Ø]XÚY[ÉË	Û]\Ý›Ý™H[\IÊNÂˆBˆYˆ
+]XÚY[Ë˜[žJ
+][JHOˆ][K›Y\ÜØYÙRYOHY\ÜØYÙKšY
+JHÂˆ›ÝÈ\™Ý[Y[\œ›ÜŠ	Ñ]™\žH]XÚY[]\Ý™[Û™ÈÈH[œÙ\YY\ÜØYÙK‰ÊNÂˆBˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÛÛœÝÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ú+¯¹i!ú/k9éîùmì¹îãùo 9iâûï#9¦ ¹¥í¹.#z ïy/çykf9¥¬9æ¡9fï¹âaù­¢9 køà ‰ÊNÂˆBˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùodùbcz+¯¹i!ù.#y¦+ÈXÝ]™Hœ˜Z[¸à ‰ÊNÂˆBˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙ\ÉËˆY\ÜØYÙKÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆ›Üˆ
+š[˜[]XÚY[[ˆ]XÚY[ÊHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆ]XÚY[ÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆBˆJNÂˆB‚ˆ]\™OÝš[™ÏÏˆ[™š[š\ÚYš\Ú[Û“Y\ÜØYÙRY
+
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÛÛ[[œÎˆÛÛœÝÉÛY\ÜØYÙWÚY	×KˆÚ\™NˆšÚ[™HÈS‘š\Ú[Û—ÜÝ]\ÈSˆ
+	Ü[™[™ÉË	Ø[˜[^š[™ÉÊH‹ˆÚ\™P\™ÜÎˆÛÛœÝÓY\ÜØYÙP]XÚY[š[XYÙRÚ[™KˆÜ™\žNˆ	ØÜ™X]YØ]TÐËYTÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆ›ÝÜË™š\œÝÉÛY\ÜØYÙWÚY	×H\ÈÝš[™ÎÂˆB‚ˆ]\™O›ÛÛˆX\šÐ]XÚY[š\Ú[Û[˜[^š[™ÊÝš[™È]XÚY[Y
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[Ú[™ÙYH]ØZ]‹œ˜]Õ\]Jˆ	ÉÉÂˆTUHY\ÜØYÙWØ]XÚY[ÂˆÑUš\Ú[Û—ÜÝ]\ÈHËš\Ú[Û—Ù\œ›ÜˆH	ÉËˆš\Ú[Û—Ø][\ÈHš\Ú[Û—Ø][\È
+ÈKš\Ú[Û—Ý\]YØ]HÂˆÒT‘HYHÈS‘Ú[™HÈS‘š\Ú[Û—ÜÝ]\ÈSˆ
+	Ü[™[™ÉË	Ù˜Z[Y	Ë	Ø[˜[^š[™ÉÊBˆ	ÉÉËˆÂˆY\ÜØYÙP]XÚY[š\Ú[Û[˜[^š[™ÔÝ]\Ëˆ›ÝËˆ]XÚY[YˆY\ÜØYÙP]XÚY[š[XYÙRÚ[™ˆKˆ
+NÂˆ™]\›ˆÚ[™ÙYOHNÂˆB‚ˆ]\™O›ÚYˆ˜Z[]XÚY[š\Ú[ÛŠˆÝš[™È]XÚY[YˆÝš[™È\œ›Ü‹ˆ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[ØY™Q\œ›ÜˆH\œ›Ü‹š[J
+NÂˆ]ØZ]‹\]Jˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÂˆ	Ýš\Ú[Û—ÜÝ]\ÉÎˆY\ÜØYÙP]XÚY[š\Ú[Û‘˜Z[YÝ]\Ëˆ	Ýš\Ú[Û—Ù\œ›Ü‰ÎˆØY™Q\œ›Ü‹›[™ÝˆŒˆÈØY™Q\œ›Ü‹œÝXœÝš[™ÊŒ
+BˆˆØY™Q\œ›Ü‹ˆ	Ýš\Ú[Û—Ý\]YØ]	Îˆ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™NˆšYHÈS‘š\Ú[Û—ÜÝ]\ÈH	Ø[˜[^š[™ÉÈ‹ˆÚ\™P\™ÜÎˆØ]XÚY[YKˆ
+NÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØˆÛÛ\]P]XÚY[š\Ú[Û[™Ü™X]QÙ[™\˜][ÛŠÂˆ™\]Z\™YÝš[™È]XÚY[Yˆ™\]Z\™YÝš[™ÈÝ[[X\žKˆ™\]Z\™YÝš[™Èš\Ú[Û“[Ù[ˆ™\]Z\™YÝš[™È\ÜÚ\Ý[Y\ÜØYÙRYˆ™\]Z\™YÝš[™È[Ù[ˆ™\]Z\™YÝš[™È™X\ÛÛš[™ÑY™›Üˆ›ÛÛ[šÚ[™ÈHYKˆJH\Þ[˜ÈÂˆš[˜[›Ü›X[^™YHÝ[[X\žKš[J
+NÂˆYˆ
+›Ü›X[^™Yš\Ñ[\JHÂˆ›ÝÈ\™Ý[Y[\œ›Ü‹˜[YJÝ[[X\žK	ÜÝ[[X\žIË	Û]\Ý›Ý™H[\IÊNÂˆBˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[›Ø’YHÝ]ZY
+
+NÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊBˆYˆ
+›ÝÖÉÚÙ^I×H\ÈÝš[™ÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ú+¯¹i!ú/k9éîùmì¹îãùo 9iâûï#9¦ ¹¥í¹.#z ïyb&ùnî¹¥¬9æ¡: b¹i*y.îùb¨xà ‰ÊNÂˆBˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùodùbcz+¯¹i!ù.#y¦+ÈXÝ]™Hœ˜Z[¸à ‰ÊNÂˆBˆš[˜[›ØÚÚ[™ÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™NˆœÝ]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆ[Z]ˆKˆ
+NÂˆYˆ
+›ØÚÚ[™Ëš\Ó›Ý[\JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù."¹. :/kˆRH9fç¹i#y.ãyg*9å'ù¢$9¢%¹ëbyo¡y h¹i#xà ‰ÊNÂˆBˆš[˜[]XÚY[›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJ	ÉÉÂˆÑSPÕK›Y\ÜØYÙWÚYKš\Ú[Û—ÜÝ]\ËKœ›ÛKK™]šXÙWÚYˆ”“ÓHY\ÜØYÙWØ]XÚY[ÈBˆ“ÒSˆY\ÜØYÙ\ÈHÓˆKšYHK›Y\ÜØYÙWÚYˆÒT‘HKšYHÂˆSRUBˆ	ÉÉËØ]XÚY[YJNÂˆYˆ
+]XÚY[›ÝÜËš\Ñ[\Hˆ]XÚY[›ÝÜË™š\œÝÉÜ›ÛI×HOH	Ý\Ù\‰Èˆ]XÚY[›ÝÜË™š\œÝÉÝš\Ú[Û—ÜÝ]\É×HOBˆY\ÜØYÙP]XÚY[š\Ú[Û[˜[^š[™ÔÝ]\ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùfï¹âaú+á¹b*ù.îùb¨ymì¹îãùi,y¥b;ï#:+íùb-ù¥¬9d#ºaãz+åxà ‰ÊNÂˆBˆš[˜[Y\ÜØYÙRYH]XÚY[›ÝÜË™š\œÝÉÛY\ÜØYÙWÚY	×H\ÈÝš[™ÎÂˆš[˜[]šXÙRYH]XÚY[›ÝÜË™š\œÝÉÙ]šXÙWÚY	×H\ÈÝš[™ÏÎÂˆ]ØZ]‹\]Jˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÂˆ	Ýš\Ú[Û—ÜÝ]\ÉÎˆY\ÜØYÙP]XÚY[š\Ú[ÛÛÛ\]YÝ]\Ëˆ	Ýš\Ú[Û—ÜÝ[[X\žIÎˆ›Ü›X[^™Yˆ	Ýš\Ú[Û—Û[Ù[	Îˆš\Ú[Û“[Ù[š[J
+Kˆ	Ýš\Ú[Û—Ù\œ›Ü‰Îˆ	ÉËˆ	Ýš\Ú[Û—Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆØ]XÚY[YKˆ
+NÂˆ]ØZ]‹\]Jˆ	ÛY\ÜØYÙ\ÉËˆÉÙ^XÝ×Ü™\IÎˆ_KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÛY\ÜØYÙRYKˆ
+NÂˆ]ØZ]‹š[œÙ\
+	ÙÙ[™\˜][Û—Ú›ØœÉËÂˆ	ÚY	Îˆ›Ø’Yˆ	Ý\Ù\—ÛY\ÜØYÙWÚY	ÎˆY\ÜØYÙRYˆ	Ø\ÜÚ\Ý[ÛY\ÜØYÙWÚY	Îˆ\ÜÚ\Ý[Y\ÜØYÙRYˆ	ÜÝ]\ÉÎˆ	Ü[™[™ÉËˆ	Ø][\ÉÎˆˆ	Û[Ù[	Îˆ[Ù[ˆ	Ü™X\ÛÛš[™×ÙY™›Ü	Îˆ™X\ÛÛš[™ÑY™›Üˆ	Ý[šÚ[™ÉÎˆ[šÚ[™ÈÈHˆˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ	ÉËˆ	Ü\X[ØÛÛ[	Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Ù]šXÙWÚY	Îˆ]šXÙRYˆ	ØÜ™X]YØ]	Îˆ›ÝËˆ	ÜÝ\YØ]	Îˆ[ˆ	Ý\]YØ]	Îˆ›ÝËˆ	ØÛÛ\]YØ]	Îˆ[ˆ	Û\ÝØÚXÚÜÚ[Ø]	Îˆ[ˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ	ÉËˆJNÂˆJNÂˆ™]\›ˆ
+]ØZ]Ù[™\˜][Û’›ØžRY
+›Ø’Y
+JHNÂˆB‚ˆ]\™O\ÝY\ÜØYÙP]XÚY[ˆ[]P]XÚY[Y\ÜØYÙJÝš[™ÈY\ÜØYÙRY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[Û\ÝY\ÜØYÙP]XÚY[Š
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÛÛœÝÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[˜[Y\ÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+˜[Y\ÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÈ˜[Y\ÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ™]\›ˆÛÛœÝ×NÂˆBˆš[˜[Y\ÜØYÙT›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÛÛœÝÉÜ›ÛI×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÛY\ÜØYÙRYKˆ[Z]ˆKˆ
+NÂˆYˆ
+Y\ÜØYÙT›ÝÜËš\Ñ[\HY\ÜØYÙT›ÝÜË™š\œÝÉÜ›ÛI×HOH	Ý\Ù\‰ÊH™]\›ˆÛÛœÝ×NÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÚ\™Nˆ	ÛY\ÜØYÙWÚYHÉËˆÚ\™P\™ÜÎˆÛY\ÜØYÙRYKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆÛÛœÝ×NÂˆ]ØZ]‹™[]J	ÛY\ÜØYÙ\ÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÛY\ÜØYÙRYJNÂˆ™]\›ˆ›ÝÜË›X\
+Y\ÜØYÙP]XÚY[™œ›ÛQŠKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆJNÂˆB‚ˆ]\™O\ÝY\ÜØYÙP]XÚY[ˆ[Y\ÜØYÙP]XÚY[Ê
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÜ™\žNˆ	ØÜ™X]YØ]TÐËYTÐÉËˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+Y\ÜØYÙP]XÚY[™œ›ÛQŠKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆËËÈ\œÚ\ÝÚÜ[]™Y›ÙK\Ù[œÙH]™[ÈY\ˆZ\ˆ\˜X›HÛÝ\˜ÙH\›‚ˆËËÈ^\ÝËˆÝX›HQÈXZÙH™XÛÝ™\™Y][\ÈY[\Ý[‚ˆ]\™O[ˆ™XÛÜ™ÛÛX]XÑ]™[Êˆ\ÝÛÛX]XÑ]™[ˆ]™[ËÂˆ]U[YOÈ›ÝËˆJH\Þ[˜ÈÂˆYˆ
+]™[Ëš\Ñ[\JH™]\›ˆÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[[œÝ[H›ÝÈÏÈ]U[YK››ÝÊ
+NÂˆ™]\›ˆ‹˜[œØXÝ[Û[Šˆ
+ŠHOˆÜ™XÛÜ™ÛÛX]XÑ]™[Ò[•˜[œØXÝ[ÛŠ‹]™[Ë[œÝ[
+Kˆ
+NÂˆB‚ˆ]\™O[ˆÜ™XÛÜ™ÛÛX]XÑ]™[Ò[•˜[œØXÝ[ÛŠˆ]X˜\ÙQ^XÝ]Üˆ‹ˆ\ÝÛÛX]XÑ]™[ˆ]™[Ëˆ]U[YH[œÝ[ˆ
+H\Þ[˜ÈÂˆYˆ
+]™[Ëš\Ñ[\JH™]\›ˆÂˆš[˜[Ù][™Ô›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™Ô›ÝÜÊBˆYˆ
+›ÝÖÉÚÙ^I×H\ÈÝš[™ÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÈÙ][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÊHÂˆ™]\›ˆÂˆB‚ˆš[˜[[™YH]ØZ]‹™[]Jˆ	ÜÛÛX]X×Ù]™[ÉËˆÚ\™Nˆ	Ù^\™\×Ø]HÉËˆÚ\™P\™ÜÎˆÚ[œÝ[›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆ
+NÂˆYˆ
+[™Yˆ
+HÂˆ]ØZ]Ü™XZ[ÛÛX]XÐYÙÜ™YØ]\Ê‹[œÝ[
+NÂˆH[ÙHÂˆ]ØZ]‹™[]Jˆ	ÜÛÛX]X×ØYÙÜ™YØ]\ÉËˆÚ\™Nˆ	Ù^\™\×Ø]HÉËˆÚ\™P\™ÜÎˆÚ[œÝ[›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆ
+NÂˆB‚ˆ˜\ˆ[œÙ\YHÂˆ›Üˆ
+š[˜[]™[[ˆ]™[ÊHÂˆš[˜[^XÝY›ÛHH]™[™\™XÝ[ÛˆOHÛÛX]XÑ\™XÝ[Û‹\Ù\•ÐZBˆÈ	Ý\Ù\‰Âˆˆ	Ø\ÜÚ\Ý[	ÎÂˆš[˜[\›ˆH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÉÜ›ÛI×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÙ]™[\›’YKˆ[Z]ˆKˆ
+NÂˆYˆ
+\›‹š\Ñ[\H\›‹™š\œÝÉÜ›ÛI×HOH^XÝY›ÛJHÛÛ[YNÂˆš[˜[^\Ý[™ÈH]ØZ]‹œ]Y\žJˆ	ÜÛÛX]X×Ù]™[ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÙ]™[šYKˆ[Z]ˆKˆ
+NÂˆYˆ
+^\Ý[™Ëš\Ó›Ý[\JHÛÛ[YNÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÛÛX]X×Ù]™[ÉËˆ]™[ÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆ[œÙ\Y
+ÏHNÂˆ]ØZ]ÛY\™ÙTÛÛX]XÑ]™[
+‹]™[[œÝ[
+NÂˆBˆ™]\›ˆ[œÙ\YÂˆB‚ˆ]\™O\ÝÛÛX]XÐYÙÜ™YØ]OˆXÝ]™TÛÛX]XÐYÙÜ™YØ]\ÊÂˆ]U[YOÈ›ÝËˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[[œÝ[H›ÝÈÏÈ]U[YK››ÝÊ
+NÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÛÛX]X×ØYÙÜ™YØ]\ÉËˆÚ\™Nˆ	Ù^\™\×Ø]ˆÉËˆÚ\™P\™ÜÎˆÚ[œÝ[›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆÜ™\žNˆ	Ý˜[YHTÐË\]YØ]TÐÉËˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛX]XÐYÙÜ™YØ]K™œ›ÛQŠKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆ]\™O›ÚYˆÛY\™ÙTÛÛX]XÑ]™[
+ˆ]X˜\ÙQ^XÝ]Üˆ‹ˆÛÛX]XÑ]™[]™[ˆ]U[YH›ÝËˆ
+H\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÛÛX]X×ØYÙÜ™YØ]\ÉËˆÚ\™Nˆ	ØÚ[›™[HÉËˆÚ\™P\™ÜÎˆÙ]™[˜Ú[›™[›˜[YWKˆ[Z]ˆKˆ
+NÂˆš[˜[Ý\œ™[H›ÝÜËš\Ñ[\BˆÈŒˆˆÛÛX]XÔÛXÞK™XØ^Jˆ
+›ÝÜË™š\œÝÉÝ˜[YI×H\È[OÊOËÑÝX›J
+HÏÈŒˆ\]Y]ˆ]U[YK™œ›ÛSZ[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+ˆ›ÝÜË™š\œÝÉÝ\]YØ]	×H\È[ˆ
+Kˆ›ÝÎˆ›ÝËˆ
+NÂˆš[˜[YÙÜ™YØ]HHÛÛX]XÐYÙÜ™YØ]JˆÚ[›™[ˆ]™[˜Ú[›™[ˆ˜[YNˆÛÛX]XÔÛXÞK›Y\™ÙT[ÙJÝ\œ™[]™[š[[œÚ]JKˆØÙ[™RÙ^Nˆ]™[œØÙ[™RÙ^Kˆ˜\œ˜]]™Nˆ]™[›˜\œ˜]]™Kˆ\Ý]™[Yˆ]™[šYˆ\]Y]ˆ›ÝËˆ^\™\Ð]ˆ]™[™^\™\Ð]ˆ
+NÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÛÛX]X×ØYÙÜ™YØ]\ÉËˆYÙÜ™YØ]KÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆB‚ˆ]\™O›ÚYˆÜ™XZ[ÛÛX]XÐYÙÜ™YØ]\Êˆ]X˜\ÙQ^XÝ]Üˆ‹ˆ]U[YH›ÝËˆ
+H\Þ[˜ÈÂˆ]ØZ]‹™[]J	ÜÛÛX]X×ØYÙÜ™YØ]\ÉÊNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÛÛX]X×Ù]™[ÉËˆÚ\™Nˆ	Ù^\™\×Ø]ˆÉËˆÚ\™P\™ÜÎˆÛ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆÜ™\žNˆ	ØÜ™X]YØ]TÐËYTÐÉËˆ
+NÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆš[˜[]™[HÛÛX]XÑ]™[™œ›ÛQŠ›ÝÊNÂˆ]ØZ]ÛY\™ÙTÛÛX]XÑ]™[
+‹]™[]™[˜Ü™X]Y]
+NÂˆBˆB‚ˆ]\™OÙ[™\˜][Û’›ØˆÜ™X]QÙ[™\˜][Û•\›ŠÂˆ™\]Z\™YÚ]Y\ÜØYÙH\Ù\‹ˆ™\]Z\™YÝš[™È\ÜÚ\Ý[Y\ÜØYÙRYˆ™\]Z\™YÝš[™È[Ù[ˆ™\]Z\™YÝš[™È™X\ÛÛš[™ÑY™›Üˆ›ÛÛ[šÚ[™ÈHYKˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[›Ø’YHÝ]ZY
+
+NÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊHÂˆš[˜[Ù^HH›ÝÖÉÚÙ^I×NÂˆYˆ
+Ù^H\ÈÝš[™ÊHÙ][™ÜÖÚÙ^WHH›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆBˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ú+¯¹i!ú/k9éîùmì¹îãùo 9iâûï#9¦ ¹¥í¹.#z ïyb&ùnî¹¥¬9æ¡: b¹i*y.îùb¨xà ‰ÊNÂˆBˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ùodùbcz+¯¹i!ù.#y¦+ÈXÝ]™Hœ˜Z[¸à ‰ÊNÂˆBˆš[˜[›ØÚÚ[™ÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™NˆœÝ]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆ[Z]ˆKˆ
+NÂˆYˆ
+›ØÚÚ[™Ëš\Ó›Ý[\JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ù."¹. :/kˆRH9fç¹i#y.ãyg*9å'ù¢$9¢%¹ëbyo¡y h¹i#xà ‰ÊNÂˆBˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙ\ÉËˆ\Ù\‹ÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆ]ØZ]‹š[œÙ\
+	ÙÙ[™\˜][Û—Ú›ØœÉËÂˆ	ÚY	Îˆ›Ø’Yˆ	Ý\Ù\—ÛY\ÜØYÙWÚY	Îˆ\Ù\‹šYˆ	Ø\ÜÚ\Ý[ÛY\ÜØYÙWÚY	Îˆ\ÜÚ\Ý[Y\ÜØYÙRYˆ	ÜÝ]\ÉÎˆ	Ü[™[™ÉËˆ	Ø][\ÉÎˆˆ	Û[Ù[	Îˆ[Ù[ˆ	Ü™X\ÛÛš[™×ÙY™›Ü	Îˆ™X\ÛÛš[™ÑY™›Üˆ	Ý[šÚ[™ÉÎˆ[šÚ[™ÈÈHˆˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ	ÉËˆ	Ü\X[ØÛÛ[	Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Ù]šXÙWÚY	Îˆ\Ù\‹™]šXÙRYˆ	ØÜ™X]YØ]	Îˆ›ÝËˆ	ÜÝ\YØ]	Îˆ[ˆ	Ý\]YØ]	Îˆ›ÝËˆ	ØÛÛ\]YØ]	Îˆ[ˆ	Û\ÝØÚXÚÜÚ[Ø]	Îˆ[ˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ	ÉËˆJNÂˆJNÂˆ™]\›ˆ
+]ØZ]Ù[™\˜][Û’›ØžRY
+›Ø’Y
+JHNÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆÙ[™\˜][Û’›ØžRY
+Ýš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆÙ[™\˜][Û’›Ø‘›Ü•\Ù\“Y\ÜØYÙJÝš[™È\Ù\“Y\ÜØYÙRY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	Ý\Ù\—ÛY\ÜØYÙWÚYHÉËˆÚ\™P\™ÜÎˆÝ\Ù\“Y\ÜØYÙRYKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆ›ØÚÚ[™ÑÙ[™\˜][Û’›ØŠ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™NˆœÝ]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆËËÈ™]\›œÈH˜Z[YÙ[™\˜][ÛˆÛ›HÚ[ˆ]™[Û™ÜÈÈH]\Ý\Ù\ˆ\›‹‚ˆËËÈ\ÝÜšXØ[˜Z[\™\Èœ›ÛHÛ\ˆZ[È]\Ý›ÝÝY[›H›ØÚÈH\Ù\ˆÚÂˆËËÈ\È[™XYHÛÛ[YYHÛÛ™\œØ][Ûˆ\Ý]Ø\‚ˆ]\™OÙ[™\˜][Û’›ØÏˆ˜Z[YÙ[™\˜][Û“™YY[™Ð][[ÛŠ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJˆˆ‚ˆÑSPÕËŠ‚ˆ”“ÓHÙ[™\˜][Û—Ú›ØœÈÂˆ“ÒSˆY\ÜØYÙ\ÈHÓˆKšYHË\Ù\—ÛY\ÜØYÙWÚYS‘Kœ›ÛHH	Ý\Ù\‰ÂˆÒT‘HËœÝ]\ÈH	Ù˜Z[Y	ÂˆS‘“ÕVTÕÈ
+ˆÑSPÕH”“ÓHY\ÜØYÙ\È™]Ù\‚ˆÒT‘H™]Ù\‹œ›ÛHH	Ý\Ù\‰ÈS‘™]Ù\‹˜Ü™X]YØ]ˆK˜Ü™X]YØ]ˆ
+BˆS‘“ÕVTÕÈ
+ˆÑSPÕH”“ÓHY\ÜØYÙ\ÈHÒT‘HKšYHË˜\ÜÚ\Ý[ÛY\ÜØYÙWÚYˆ
+BˆÔ‘Tˆ–HË˜Ü™X]YØ]TÐÂˆSRUBˆˆˆŠNÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O›ÛÛˆ™]žQ˜Z[YÙ[™\˜][Û’›ØŠÝš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊBˆYˆ
+›ÝÖÉÚÙ^I×H\ÈÝš[™ÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÈÙ][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ™]\›ˆ˜[ÙNÂˆBˆš[˜[ÛÛ\][™ÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™NˆšYˆÈS‘Ý]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+ÛÛ\][™Ëš\Ó›Ý[\JH™]\›ˆ˜[ÙNÂˆš[˜[\ÜÚ\Ý[H]ØZ]‹œ˜]Ô]Y\žJˆ	ÔÑSPÕH”“ÓHY\ÜØYÙ\ÈÒT‘HYH
+ÑSPÕ\ÜÚ\Ý[ÛY\ÜØYÙWÚY”“ÓHÙ[™\˜][Û—Ú›ØœÈÒT‘HYHÊHSRUIËˆÚYKˆ
+NÂˆYˆ
+\ÜÚ\Ý[š\Ó›Ý[\JH™]\›ˆ˜[ÙNÂˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	Ü[™[™ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ	ÛX[X[Ü™]žIËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÉËˆÚ\™P\™ÜÎˆÚY	Ù˜Z[Y	×Kˆ
+NÂˆ™]\›ˆÚ[™ÙYOHNÂˆJNÂˆB‚ˆ]\™O›ÛÛˆX˜[™Û‘˜Z[YÙ[™\˜][Û’›ØŠÝš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊBˆYˆ
+›ÝÖÉÚÙ^I×H\ÈÝš[™ÊBˆ›ÝÖÉÚÙ^I×H\ÈÝš[™Îˆ›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉËˆNÂˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÈÙ][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ™]\›ˆ˜[ÙNÂˆBˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	ØØ[˜Ù[Y	Ëˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ	ÛX[X[ØX˜[™Û‰Ëˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÉËˆÚ\™P\™ÜÎˆÚY	Ù˜Z[Y	×Kˆ
+NÂˆ™]\›ˆÚ[™ÙYOHNÂˆJNÂˆB‚ˆËËÈ\›Z[˜[H™[˜Ù\ÈÛ™H™\H[™Ú]˜]ÜÈ]È\Ù\ˆ\›ˆÚ[ˆÝÜÚ[œË‚ˆËËÂˆËËÈ\È\È[[[Û˜[H˜[Y›Üˆ[™[™Ë[›š[™Ë[™™]žK]ØZ]›ØœË‚ˆËËÈÛX\š[™È[—ÝÚÙ[ˆ[™[][™ÈH\Ù\ˆY\ÜØYÙH[ˆÛ™H˜[œØXÝ[ÛˆYX[œÂˆËËÈ]\™H›Û\ËY[[ÜžH^˜XÝ[Ûˆ[™Z]\ˆÚ]Ý\™˜XÙHØ[››ÝØœÙ\™BˆËËÈH[‹]\›‹ˆYˆÛÛ\][ÛˆÛÛ[Z]Èš\œÝ]ÈÛÛ\]YÝ]\ÈXZÙ\È\ÂˆËËÈÜ\˜][ÛˆH›Ë[ÜÛÈHš[š\ÚYZ\ˆ\È™]™\ˆ\X[H[]Y‚ˆ]\™O›ÛÛˆØ[˜Ù[Ù[™\˜][Û’›ØžU\Ù\ŠÝš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÜÝ]\ÉË	Ý\Ù\—ÛY\ÜØYÙWÚY	×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ˜[ÙNÂˆš[˜[Ý]\ÈH›ÝÜË™š\œÝÉÜÝ]\É×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆš[˜[\Ù\“Y\ÜØYÙRYH›ÝÜË™š\œÝÉÝ\Ù\—ÛY\ÜØYÙWÚY	×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆ˜\ˆØ[˜Ù[YHÝ]\ÈOH	ØØ[˜Ù[YØžWÝ\Ù\‰ÎÂˆYˆ
+XØ[˜Ù[Y
+HÂˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	ØØ[˜Ù[YØžWÝ\Ù\‰Ëˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ	ÉËˆ	Ü\X[ØÛÛ[	Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ	ØØ[˜Ù[YØžWÝ\Ù\‰Ëˆ	ØÛÛ\]YØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™NˆšYHÈS‘Ý]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆÚ\™P\™ÜÎˆÚYKˆ
+NÂˆØ[˜Ù[YHÚ[™ÙYOHNÂˆBˆYˆ
+XØ[˜Ù[Y
+H™]\›ˆ˜[ÙNÂ‚ˆËÈY[\Ý[HÛX[ˆHš[Üˆ\X[Ø[˜Ù[][Ûˆ\ÈÙ[ˆÛÛ\]YˆËÈ›ØœÈØ[ˆ™]™\ˆ™XXÚ\Èœ˜[˜Ú™\Ù\š[™ÈÛÛ\][Û‹]œË\ÝÜÜ™\‹‚ˆYˆ
+\Ù\“Y\ÜØYÙRYš\Ó›Ý[\JHÂˆ]ØZ]‹™[]Jˆ	ÜÜÝÝ\›—Ú›ØœÉËˆÚ\™Nˆ	Ý\Ù\—ÛY\ÜØYÙWÚYHÉËˆÚ\™P\™ÜÎˆÝ\Ù\“Y\ÜØYÙRYKˆ
+NÂˆ]ØZ]‹™[]Jˆ	ÛY\ÜØYÙ\ÉËˆÚ\™Nˆ	ÚYHÈS‘›ÛHHÉËˆÚ\™P\™ÜÎˆÝ\Ù\“Y\ÜØYÙRY	Ý\Ù\‰×Kˆ
+NÂˆËÈÓˆSUHÐTÐÐQHÚ]˜]ÜÈ\È\›‰ÜÈÙ[œÙH]™[Ëˆ™XZ[[™ÈBˆËÈÚÜ[]™YYÙÜ™YØ]H[ˆHØ[YH˜[œØXÝ[Ûˆ™[[Ý™\È[žHÚÜÝˆËÈÙ[œØ][Ûˆ™Y›Ü™H[›Ý\ˆ›Û\Ø[ˆØœÙ\™H]‚ˆ]ØZ]Ü™XZ[ÛÛX]XÐYÙÜ™YØ]\Êˆ‹ˆ]U[YK™œ›ÛSZ[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+›ÝÊKˆ
+NÂˆBˆ™]\›ˆYNÂˆJNÂˆB‚ˆËËÈÚX\Ü›ÜÜËY[™Ú[™H™[˜ÙHÚXÚÈ\ÙYÚ[HHÝ™X[Z[™È™\]Y\Ý\ÈXÝ]™K‚ˆ]\™O›ÛÛˆ\ÑÙ[™\˜][Û”[Ý\œ™[
+ˆÝš[™ÈYÂˆ™\]Z\™YÝš[™È[•ÚÙ[‹ˆJH\Þ[˜ÈÂˆYˆ
+[•ÚÙ[‹š\Ñ[\JH™]\›ˆ˜[ÙNÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉËˆÚ\™P\™ÜÎˆÚY	Ü[›š[™ÉË[•ÚÙ[—Kˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ó›Ý[\NÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆ™^™XÛÝ™\˜X›QÙ[™\˜][Û’›ØŠÂˆ\˜][Ûˆ[›š[™ÔÝ[PY\ˆHÛÛœÝ\˜][ÛŠZ[]\ÎˆŠKˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[Ý[P™Y›Ü™HH]U[YK››ÝÊ
+BˆœÝX˜XÝ
+[›š[™ÔÝ[PY\ŠBˆ›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™NˆœÝ]\ÈH	Ü[™[™ÉÈÔˆ
+Ý]\ÈH	Ü™]žWÝØZ]	ÈS‘
+™^Ü™]žWØ]TÈ•SÔˆ™^Ü™]žWØ]HÊJHÔˆ
+Ý]\ÈH	Ü[›š[™ÉÈS‘\]YØ]HÊH‹ˆÚ\™P\™ÜÎˆÛ›ÝËÝ[P™Y›Ü™WKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O\˜][ÛÏˆ™^Ù[™\˜][Û”™XÛÝ™\žQ[^J
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÛÛ[[œÎˆÉÜÝ]\ÉË	Û™^Ü™]žWØ]	Ë	Ý\]YØ]	×KˆÚ\™NˆœÝ]\ÈSˆ
+	Ü[™[™ÉË	Ü[›š[™ÉË	Ü™]žWÝØZ]	ÊH‹ˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆš[˜[›ÝÈH›ÝÜË™š\œÝÂˆš[˜[Ý]\ÈH›ÝÖÉÜÝ]\É×H\ÈÝš[™ÏÈÏÈ	Ü[™[™ÉÎÂˆYˆ
+Ý]\ÈOH	Ü[™[™ÉÊH™]\›ˆ\˜][Û‹ž™\›ÎÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆYˆ
+Ý]\ÈOH	Ü™]žWÝØZ]	ÊHÂˆš[˜[\ÈH›ÝÖÉÛ™^Ü™]žWØ]	×H\È[ÎÂˆYˆ
+\ÈOH[
+H™]\›ˆ\˜][Û‹ž™\›ÎÂˆš[˜[]H]U[YK™œ›ÛSZ[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+\ÊNÂˆ™]\›ˆ]š\ÐY\Š›ÝÊHÈ]™Y™™\™[˜ÙJ›ÝÊHˆ\˜][Û‹ž™\›ÎÂˆBˆš[˜[\]YH]U[YK™œ›ÛSZ[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+ˆ›ÝÖÉÝ\]YØ]	×H\È[ÈÏÈ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ
+NÂˆš[˜[Ý[P]H\]Y˜Y
+ÛÛœÝ\˜][ÛŠZ[]\ÎˆŠJNÂˆ™]\›ˆÝ[P]š\ÐY\Š›ÝÊHÈÝ[P]™Y™™\™[˜ÙJ›ÝÊHˆ\˜][Û‹ž™\›ÎÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆÛZ[QÙ[™\˜][Û’›ØŠÝš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[ØØ[]šXÙRYH]ØZ][œÝ\™Q]šXÙRY
+
+NÂˆš[˜[[•ÚÙ[ˆHÝ]ZY
+
+NÂˆ™]\›ˆ‹˜[œØXÝ[ÛÙ[™\˜][Û’›ØÏŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊHÂˆš[˜[Ù^HH›ÝÖÉÚÙ^I×NÂˆYˆ
+Ù^H\ÈÝš[™ÊHÙ][™ÜÖÚÙ^WHH›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆBˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÈÙ][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ™]\›ˆ[ÂˆBˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆš[˜[Ý\œ™[HÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆYˆ
+Ý\œ™[š\Õ\›Z[˜[
+H™]\›ˆ[ÂˆYˆ
+Ý\œ™[œÝ]\ÈOH	Ü™]žWÝØZ]	È	‰‚ˆÝ\œ™[›™^™]žP]OH[	‰‚ˆÝ\œ™[›™^™]žP]Kš\ÐY\Š]U[YK››ÝÊ
+JJHÂˆ™]\›ˆ[ÂˆBˆYˆ
+Ý\œ™[œÝ]\ÈOH	Ü[›š[™ÉÈ	‰‚ˆ]U[YK››ÝÊ
+K™Y™™\™[˜ÙJÝ\œ™[\]Y]
+HÛÛœÝ\˜][ÛŠZ[]\ÎˆŠJHÂˆ™]\›ˆ[ÂˆBˆš[˜[™\Ý[YT™X\ÛÛˆHÝ\œ™[œÝ]\ÈOH	Ü[›š[™ÉÂˆÈ	ÜÝ[WÜ[›š[™×Ü™XÛÝ™\™Y	ÂˆˆÝ\œ™[˜][\ÈˆˆÈ	Ü™]žWØY\—Ù˜Z[\™IÂˆˆÝ\œ™[œ™\Ý[YT™X\ÛÛŽÂˆ]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	Ü[›š[™ÉËˆ	Ø][\ÉÎˆÝ\œ™[˜][\È
+ÈKˆ	ÜÝ\YØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆ	Û\ÝØÚXÚÜÚ[Ø]	Îˆ›ÝËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ	ÉËˆ	Ü\X[ØÛÛ[	Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ[•ÚÙ[‹ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ™\Ý[YT™X\ÛÛ‹ˆ	Ù]šXÙWÚY	ÎˆØØ[]šXÙRYˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ
+NÂˆš[˜[\]YH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ\]Y™š\œÝ
+NÂˆJNÂˆB‚ˆ]\™O›ÛÛˆÚXÚÜÚ[Ù[™\˜][Û’›ØŠˆÝš[™ÈYÂˆ™\]Z\™YÝš[™È[•ÚÙ[‹ˆ™\]Z\™YÝš[™È\X[™X\ÛÛš[™Ëˆ™\]Z\™YÝš[™È\X[ÛÛ[ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ\X[™X\ÛÛš[™Ëˆ	Ü\X[ØÛÛ[	Îˆ\X[ÛÛ[ˆ	Û\ÝØÚXÚÜÚ[Ø]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉËˆÚ\™P\™ÜÎˆÚY	Ü[›š[™ÉË[•ÚÙ[—Kˆ
+NÂˆ™]\›ˆÚ[™ÙYˆÂˆB‚ˆ]\™O›ÛÛˆÛÛ\]QÙ[™\˜][Û’›Ø’YÝ\œ™[
+Âˆ™\]Z\™YÝš[™È›Ø’Yˆ™\]Z\™YÝš[™È[•ÚÙ[‹ˆ™\]Z\™YÚ]Y\ÜØYÙH\ÜÚ\Ý[ˆ\ÝÛÛX]XÑ]™[ˆÛÛX]XÑ]™[ÈHÛÛœÝÛÛX]XÑ]™[–×KˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉ×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊHÂˆš[˜[Ù^HH›ÝÖÉÚÙ^I×NÂˆYˆ
+Ù^H\ÈÝš[™ÊHÙ][™ÜÖÚÙ^WHH›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÉÎÂˆBˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÈÙ][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊHÂˆ™]\›ˆ˜[ÙNÂˆBˆš[˜[›ØœÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚ›Ø’YKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ØœËš\Ñ[\JH™]\›ˆ˜[ÙNÂˆš[˜[›ØˆHÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ØœË™š\œÝ
+NÂˆYˆ
+›Ø‹œ[•ÚÙ[ˆOH[•ÚÙ[ˆ[•ÚÙ[‹š\Ñ[\JH™]\›ˆ˜[ÙNÂˆYˆ
+›Ø‹œÝ]\ÈOH	ØÛÛ\]Y	ÊHÂˆš[˜[^\Ý[™ÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚ›Ø‹˜\ÜÚ\Ý[Y\ÜØYÙRYKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ^\Ý[™Ëš\Ó›Ý[\NÂˆBˆYˆ
+›Ø‹œÝ]\ÈOH	Ü[›š[™ÉÊH™]\›ˆ˜[ÙNÂˆYˆ
+\ÜÚ\Ý[šYOH›Ø‹˜\ÜÚ\Ý[Y\ÜØYÙRY
+H™]\›ˆ˜[ÙNÂˆYˆ
+ÛÛX]XÑ]™[Ë˜[žJˆ
+]™[
+HO‚ˆ]™[\›’YOH\ÜÚ\Ý[šYˆ]™[™\™XÝ[ÛˆOHÛÛX]XÑ\™XÝ[Û‹˜ZUÔÙ[‹ˆ
+JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	Ú[˜[YØ\ÜÚ\Ý[ÜÛÛX]X×Ù]™[	ÊNÂˆB‚ˆš[˜[^\Ý[™ÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆØ\ÜÚ\Ý[šYKˆ[Z]ˆKˆ
+NÂˆYˆ
+^\Ý[™Ëš\Ñ[\JHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙ\ÉËˆ\ÜÚ\Ý[ÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆBˆš[˜[]Y]YTÙ][™ÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÝ˜[YI×KˆÚ\™Nˆ	ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÛÛœÝÉÜÜÝÝ\›—Ü]Y]YWÙ[˜X›Y	×Kˆ[Z]ˆKˆ
+NÂˆš[˜[]Y]YQ[˜X›YBˆ]Y]YTÙ][™Ëš\Ñ[\H
+]Y]YTÙ][™Ë™š\œÝÉÝ˜[YI×H\ÈÝš[™ÏÈÏÈ	ÌIÊHOH	Ì	ÎÂˆYˆ
+]Y]YQ[˜X›Y
+HÂˆ]ØZ]‹š[œÙ\
+ˆ	ÜÜÝÝ\›—Ú›ØœÉËˆÂˆ	ÚY	ÎˆÝ]ZY
+
+Kˆ	Ý\Ù\—ÛY\ÜØYÙWÚY	Îˆ›Ø‹\Ù\“Y\ÜØYÙRYˆ	Ø\ÜÚ\Ý[ÛY\ÜØYÙWÚY	Îˆ\ÜÚ\Ý[šYˆ	ÜÝ]\ÉÎˆ	Ü[™[™ÉËˆ	Ø][\ÉÎˆˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	ØÜ™X]YØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆš[˜[ÛÛ\]YH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	ØÛÛ\]Y	Ëˆ	Ü\X[Ü™X\ÛÛš[™ÉÎˆ\ÜÚ\Ý[œ™X\ÛÛš[™ÐÛÛ[ˆ	Ü\X[ØÛÛ[	Îˆ\ÜÚ\Ý[˜ÛÛ[ˆ	ØÛÛ\]YØ]	Îˆ›ÝËˆ	Û\ÝØÚXÚÜÚ[Ø]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆKˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉËˆÚ\™P\™ÜÎˆÚ›Ø’Y	Ü[›š[™ÉË[•ÚÙ[—Kˆ
+NÂˆYˆ
+ÛÛ\]YOHJHÂˆËÈ›ÝÚ[™È›ÛÈ˜XÚÈH\ÜÚ\Ý[ÜÜÝ]\›ˆ[œÙ\È[ˆ\ÈØ[YBˆËÈÔS]H˜[œØXÝ[Û‹ˆ™]\›š[™È˜[ÙH\™HÛÝ[[˜ÛÜœ™XÝHX]™HBˆËÈš\ÚX›H\ÜÚ\Ý[Y\ÜØYÙHÚ]Ý]HÛÛ\]YÙ[™\˜][Ûˆ›Ø‹‚ˆ›ÝÈÝ]Q\œ›ÜŠ	ÙÙ[™\˜][Û—ØÛÛ[Z]ÛÝÛ™\œÚ\ÛÜÝ	ÊNÂˆBˆËÈH™\KÛÛ\]Y›Øˆ[™RK]Ë\Ù[ˆ[ÙHÚ\™H\È˜[œØXÝ[ÛŽ‚ˆËÈØ[˜Ù[][Û‹Ý[HÜš]\œÈ[™˜Z[Y™]šY\È\™Y›Ü™HØ[››ÝX]™BˆËÈHÚÜÝÙ[œØ][Ûˆ™Z[™‚ˆ]ØZ]Ü™XÛÜ™ÛÛX]XÑ]™[Ò[•˜[œØXÝ[ÛŠˆ‹ˆÛÛX]XÑ]™[Ëˆ\ÜÚ\Ý[˜Ü™X]Y]ˆ
+NÂˆ]ØZ]Ü™XÛÜ™\œÛÛ˜[]UšX[™\R[•˜[œØXÝ[ÛŠ‹›ÝÊNÂˆ™]\›ˆYNÂˆJNÂˆB‚ˆ]\™OÙ[™\˜][Û’›ØÏˆ˜Z[Ù[™\˜][Û’›ØŠˆÝš[™ÈYÂˆ™\]Z\™YÝš[™È[•ÚÙ[‹ˆ™\]Z\™YÝš[™È\œ›Ü‹ˆ™\]Z\™Y›ÛÛ™XÛÝ™\˜X›KˆJH\Þ[˜ÈÂˆYˆ
+[•ÚÙ[‹š\Ñ[\JH™]\›ˆ[Âˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆËÈYX[œÈ[›[Z]Y™]šY\È›Üˆ˜[œÚY[ØÜ™Y[X[˜Z[\™\ËˆH\˜X›BˆËÈ\Ù\ˆ\›ˆ]\Ý›Ý™XÛÛYHH\›X[™[ÛÛ™\œØ][ÛˆÛH\Ý™XØ]\ÙHBˆËÈÛ™HÝ^YYÙ™›[™H›ÜˆH™]ÈÝ\œËˆ›Û‹\™XÛÝ™\˜X›H›ÝØÛÛÙ›Ü›X]ˆËÈ\œ›ÜœÈÝ[˜Z[[[YYX][K‚ˆš[˜[X^][\ÈBˆ[žT\œÙJ]ØZ]Ù]Ù][™Ê	ÙÙ[™\˜][Û—ÛX^Ø][\ÉÊHÏÈ	ÉÊHÏÈÂˆ™]\›ˆ‹˜[œØXÝ[ÛÙ[™\˜][Û’›ØÏŠ
+ŠH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉËˆÚ\™P\™ÜÎˆÚY	Ü[›š[™ÉË[•ÚÙ[—Kˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆš[˜[›ØˆHÙ[™\˜][Û’›Ø‹™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆš[˜[ÛÛ™šYÝ\™Y[Z]HX^][\ÈHÈ[ˆX^][\Ë˜Û[\
+KL
+NÂˆš[˜[Ø[”™]žHH™XÛÝ™\˜X›H	‰‚ˆ
+ÛÛ™šYÝ\™Y[Z]OH[›Ø‹˜][\ÈÛÛ™šYÝ\™Y[Z]
+NÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆ]U[YOÈ™]žP]ÂˆYˆ
+Ø[”™]žJHÂˆš[˜[ÙXÛÛ™ÈH›Ø‹˜][\ÈHBˆÈMBˆˆ›Ø‹˜][\ÈOH‚ˆÈŒˆˆ›Ø‹˜][\ÈOHÂˆÈÌˆˆ›Ø‹˜][\ÈOHˆÈLˆˆÍŒÂˆ™]žP]H›ÝË˜Y
+\˜][ÛŠÙXÛÛ™ÎˆÙXÛÛ™ÊJNÂˆBˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆØ[”™]žHÈ	Ü™]žWÝØZ]	Èˆ	Ù˜Z[Y	Ëˆ	Û™^Ü™]žWØ]	Îˆ™]žP]Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Û\ÝÙ\œ›Ü‰Îˆ\œ›Ü‹›[™ÝHÍŒÈ\œ›Üˆˆ\œ›Ü‹œÝXœÝš[™ÊÍŒ
+Kˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Ý\]YØ]	Îˆ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉËˆÚ\™P\™ÜÎˆÚY	Ü[›š[™ÉË[•ÚÙ[—Kˆ
+NÂˆYˆ
+Ú[™ÙYOH
+H™]\›ˆ[Âˆš[˜[\]YH]ØZ]‹œ]Y\žJˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ\]Yš\Ñ[\HÈ[ˆÙ[™\˜][Û’›Ø‹™œ›ÛQŠ\]Y™š\œÝ
+NÂˆJNÂˆB‚ˆ]\™O]U[YOÏˆY™\‘Ù[™\˜][Û’›ØŠˆÝš[™ÈYÂˆ™\]Z\™Y\˜][Ûˆ[^Kˆ™\]Z\™YÝš[™È™X\ÛÛ‹ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆš[˜[™]žP]H›ÝË˜Y
+[^JNÂˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	Ü™]žWÝØZ]	Ëˆ	Û™^Ü™]žWØ]	Îˆ™]žP]›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ™X\ÛÛ‹ˆ	Ý\]YØ]	Îˆ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™NˆšYHÈS‘Ý]\ÈSˆ
+	Ü[™[™ÉË	Ü™]žWÝØZ]	Ë	Ü[›š[™ÉÊH‹ˆÚ\™P\™ÜÎˆÚYKˆ
+NÂˆ™]\›ˆÚ[™ÙYˆÈ™]žP]ˆ[ÂˆB‚ˆ]\™O[ˆØZÙT™]žXX›QÙ[™\˜][Û’›ØœÊ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ™]\›ˆ‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	Û™^Ü™]žWØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™NˆœÝ]\ÈH	Ü™]žWÝØZ]	È‹ˆ
+NÂˆB‚ˆ]\™O›ÛÛˆÝ\Ü[™Ù[™\˜][Û’›ØŠˆÝš[™ÈYÂˆ™\]Z\™YÝš[™È™X\ÛÛ‹ˆÝš[™ÏÈ[•ÚÙ[‹ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[Ú\™HH[•ÚÙ[ˆOH[ˆÈšYHÈS‘Ý]\ÈSˆ
+	Ü[™[™ÉË	Ü™]žWÝØZ]	ÊH‚ˆˆ	ÚYHÈS‘Ý]\ÈHÈS‘[—ÝÚÙ[ˆHÉÎÂˆš[˜[Ú\™P\™ÜÈH[•ÚÙ[ˆOH[ˆÈØš™XÝÏ–ÚYBˆˆØš™XÝÏ–ÚY	Ü[›š[™ÉË[•ÚÙ[—NÂˆš[˜[Ú[™ÙYH]ØZ]‹\]Jˆ	ÙÙ[™\˜][Û—Ú›ØœÉËˆÂˆ	ÜÝ]\ÉÎˆ	Ü[™[™ÉËˆ	Û™^Ü™]žWØ]	Îˆ[ˆ	Û\ÝÙ\œ›Ü‰Îˆ	ÉËˆ	Ü[—ÝÚÙ[‰Îˆ	ÉËˆ	Ü™\Ý[YWÜ™X\ÛÛ‰Îˆ™X\ÛÛ‹ˆ	Ý\]YØ]	Îˆ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™NˆÚ\™KˆÚ\™P\™ÜÎˆÚ\™P\™ÜËˆ
+NÂˆ™]\›ˆÚ[™ÙYˆÂˆB‚ˆËËÈ]ÛZXØ[HÛÛ[Z]H›ØXÝ]™H\ÜÚ\Ý[Y\ÜØYÙHÛ›HYˆ\È]šXÙH\ÂˆËËÈÝ[HÜš]X›HXÝ]™Hœ˜Z[ˆ[™›È\Ù\ˆÚ]\›ˆ\ÈÝ\YÚ[˜ÙBˆËËÈH›ØXÝ]™H]˜[X][Ûˆ™YØ[‹ˆ\ÈÛÜÙ\ÈH[žH˜XÙH™]ÙY[ˆBˆËËÈ™KXÛÛ[Z]Ý]\ÈÚXÚÈ[™HXÝX[S”ÑT•‚ˆËËÂˆËËÈ™]\›œÈ[ÛˆÝXØÙ\ÜËÝ\Ú\ÙHHÛÛ\XÝ™X\ÛÛˆÙ^K‚ˆ]\™OÝš[™ÏÏˆÛÛ[Z]›ØXÝ]™SY\ÜØYÙRYÝ\œ™[
+Âˆ™\]Z\™YÚ]Y\ÜØYÙHY\ÜØYÙKˆ™\]Z\™Y]U[YH]˜[X][Û”Ý\Y]ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[ÛÝš[™ÏÏŠ
+ŠH\Þ[˜ÈÂˆš[˜[Ù][™ÜÔ›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÜÙ][™ÜÉËˆÛÛ[[œÎˆÉÚÙ^IË	Ý˜[YI×KˆÚ\™Nˆ	ÚÙ^HSˆ
+ËËÊIËˆÚ\™P\™ÜÎˆÛÛœÝÉØXÝ]™WØœ˜Z[‰Ë	Ý˜[œÙ™\—ÛØÚÉË	ØÚ]Ý\›—ÛX\ÙI×Kˆ
+NÂˆš[˜[Ù][™ÜÈHÝš[™ËÝš[™ÏžßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆÙ][™ÜÔ›ÝÜÊHÂˆš[˜[Ù][™ÒÙ^HH›ÝÖÉÚÙ^I×NÂˆYˆ
+Ù][™ÒÙ^H\ÈÝš[™ÊHÂˆÙ][™ÜÖÜÙ][™ÒÙ^WHH
+›ÝÖÉÝ˜[YI×H\ÈÝš[™ÏÊHÏÈ	ÉÎÂˆBˆBˆYˆ
+Ù][™ÜÖÉÝ˜[œÙ™\—ÛØÚÉ×HOH	ÌIÊH™]\›ˆ	Ý˜[œÙ™\—ÛØÚÉÎÂˆYˆ
+Ù][™ÜÖÉØXÝ]™WØœ˜Z[‰×HOH	Ì	ÊH™]\›ˆ	Ú[˜XÝ]™WØœ˜Z[‰ÎÂˆYˆ
+ÛX\ÙU[[
+Ù][™ÜÖÉØÚ]Ý\›—ÛX\ÙI×HÏÈ	ÉÊH‚ˆ]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+HÂˆ™]\›ˆ	ØÚ]Ý\›‰ÎÂˆB‚ˆš[˜[\Ý\Ù\”›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÉØÜ™X]YØ]	×KˆÚ\™Nˆ	Ü›ÛHHÉËˆÚ\™P\™ÜÎˆÛÛœÝÉÝ\Ù\‰×KˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆYˆ
+\Ý\Ù\”›ÝÜËš\Ó›Ý[\JHÂˆš[˜[Ü™X]Y]H\Ý\Ù\”›ÝÜË™š\œÝÉØÜ™X]YØ]	×H\È[ÈÏÈÂˆYˆ
+Ü™X]Y]ˆ]˜[X][Û”Ý\Y]›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+HÂˆ™]\›ˆ	Û™]×Ý\Ù\‰ÎÂˆBˆB‚ˆ]ØZ]‹š[œÙ\
+ˆ	ÛY\ÜØYÙ\ÉËˆY\ÜØYÙKÑŠ
+KˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]K˜X›Üˆ
+NÂˆ™]\›ˆ[ÂˆJNÂˆB‚ˆ]\™OÚ]Y\ÜØYÙOÏˆY\ÜØYÙPžRY
+Ýš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJ	ÛY\ÜØYÙ\ÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÚYK[Z]ˆJNÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆ™]\›ˆ
+]ØZ]ÛY\ÜØYÙ\ÕÚ]]XÚY[Ê‹›ÝÜÊJKœÚ[™ÛNÂˆB‚ˆ]\™O\ÝÚ]Y\ÜØYÙOˆ™XÙ[Y\ÜØYÙ\ÊÚ[[Z]HJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆÛY\ÜØYÙ\ÕÚ]]XÚY[Ê‹›ÝÜËœ™]™\œÙYÓ\Ý
+
+JNÂˆB‚ˆËËÈY]Y]K[Û›HÚ]\ÝÜžH›Üˆ™X[]HÜ›Ý[™[™È[™™YXÝYXYÛ›ÜÝXÜË‚ˆËËÈY\ÜØYÙKÜ™X\ÛÛš[™È›ÙY\È\™H[X™\˜][H›ÝÙ[XÝY‚ˆ]\™O\ÝÚ]Y\ÜØYÙOˆ™XÙ[Y\ÜØYÙRXY\œÊÚ[[Z]HLJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÛÛœÝÂˆ	ÚY	Ë	Ü›ÛIË	ØÜ™X]YØ]	Ë	Ú\×Ü›ØXÝ]™IË	Ù^XÝ×Ü™\IËˆKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜËœ™]™\œÙY›X\
+Ú]Y\ÜØYÙK™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™OÚ]Y\ÜØYÙOÏˆY\ÜØYÙRXY\žRY
+Ýš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÛÛœÝÂˆ	ÚY	Ë	Ü›ÛIË	ØÜ™X]YØ]	Ë	Ú\×Ü›ØXÝ]™IË	Ù^XÝ×Ü™\IËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆ™]\›ˆ
+]ØZ]ÛY\ÜØYÙ\ÕÚ]]XÚY[Ê‹›ÝÜÊJKœÚ[™ÛNÂˆB‚ˆ]\™OÚ]Y\ÜØYÙOÏˆ]\Ý›ØXÝ]™SY\ÜØYÙJ
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÚ\™Nˆ	Ú\×Ü›ØXÝ]™HHÉËˆÚ\™P\™ÜÎˆÛÛœÝÌWKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÚ]Y\ÜØYÙK™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O\ÝÚ]Y\ÜØYÙOˆY\ÜØYÙ\Ð™Y›Ü™Jˆ]U[YH™Y›Ü™KÂˆ[[Z]HLˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÚ\™Nˆ	ØÜ™X]YØ]ÉËˆÚ\™P\™ÜÎˆØ™Y›Ü™K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆÛY\ÜØYÙ\ÕÚ]]XÚY[Ê‹›ÝÜËœ™]™\œÙYÓ\Ý
+
+JNÂˆB‚ˆ]\™O\ÝÚ]Y\ÜØYÙOˆY\ÜØYÙ\ÐY\Šˆ]U[YOÈY\‹Âˆ[[Z]HˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÚ\™NˆY\ˆOH[È[ˆ	ØÜ™X]YØ]ˆÉËˆÚ\™P\™ÜÎˆY\ˆOH[È[ˆØY\‹›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚKˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆÛY\ÜØYÙ\ÕÚ]]XÚY[Ê‹›ÝÜÊNÂˆB‚ˆ]\™O\ÝÚ]Y\ÜØYÙOˆÛY\ÜØYÙ\ÕÚ]]XÚY[Êˆ]X˜\ÙQ^XÝ]Üˆ^XÝ]Ü‹ˆ\ÝX\Ýš[™ËØš™XÝÏˆ›ÝÜËˆ
+H\Þ[˜ÈÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆÛÛœÝÚ]Y\ÜØYÙO–×NÂˆš[˜[YÈH›ÝÜË›X\
+
+›ÝÊHOˆ›ÝÖÉÚY	×H\ÈÝš[™ÊKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆš[˜[XÙZÛ\œÈH\Ý™š[Y
+YË›[™Ý	ÏÉÊKš›Ú[Š	Ë	ÊNÂˆš[˜[]XÚY[›ÝÜÈH]ØZ]^XÝ]Ü‹œ]Y\žJˆ	ÛY\ÜØYÙWØ]XÚY[ÉËˆÚ\™Nˆ	ÛY\ÜØYÙWÚYSˆ
+	XÙZÛ\œÊIËˆÚ\™P\™ÜÎˆYËˆÜ™\žNˆ	ØÜ™X]YØ]TÐËYTÐÉËˆ
+NÂˆš[˜[žSY\ÜØYÙHHÝš[™Ë\ÝY\ÜØYÙP]XÚY[žßNÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ]XÚY[›ÝÜÊHÂˆš[˜[]XÚY[HY\ÜØYÙP]XÚY[™œ›ÛQŠ›ÝÊNÂˆžSY\ÜØYÙKœ]YXœÙ[
+]XÚY[›Y\ÜØYÙRY
+
+HOˆ×JK˜Y
+]XÚY[
+NÂˆBˆ™]\›ˆ›ÝÜÂˆ›X\
+ˆ
+›ÝÊHOˆÚ]Y\ÜØYÙK™œ›ÛQŠˆ›ÝËˆ]XÚY[ÎˆžSY\ÜØYÙVÜ›ÝÖÉÚY	×H\ÈÝš[™×HÏÂˆÛÛœÝY\ÜØYÙP]XÚY[–×Kˆ
+Kˆ
+BˆÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆ]\™O]U[YOÏˆ\Ý\Ù\“Y\ÜØYÙP]
+
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY\ÜØYÙ\ÉËˆÛÛ[[œÎˆÉØÜ™X]YØ]	×KˆÚ\™Nˆ	Ü›ÛHHÉËˆÚ\™P\™ÜÎˆÉÝ\Ù\‰×KˆÜ™\žNˆ	ØÜ™X]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ[Âˆ™]\›ˆ]U[YK™œ›ÛSZ[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚ
+›ÝÜË™š\œÝÉØÜ™X]YØ]	×H\È[
+NÂˆB‚ˆ]\™O›ÚYˆ[œÙ\Y[[ÜžJÂˆ™\]Z\™YÝš[™ÈÚ[™ˆ™\]Z\™YÝš[™ÈÛÛ[ˆ™\]Z\™YÝX›H[\Ü[˜ÙKˆÝX›HÛÛ™šY[˜ÙHHÌ‹ˆ\ÝÝš[™ÏˆYÜÈHÛÛœÝ×KˆÝš[™ÈÛÝ\˜ÙHH	ØÛÛ™\œØ][Û‰ËˆÝš[™ÈÝXš™XÝÙ^HH	ÉËˆ›ÛÛ[›™YH˜[ÙKˆÝš[™ÈÙ[X[XÕ\HH	ØÝ\œ™[Ù˜XÝ	ËˆÝš[™È]šY[˜ÙS[ÙHH	Ø]]ÉËˆÝš[™ÏÈ\™Ù]Y[[ÜžRYˆJH\Þ[˜ÈÂˆš[˜[›Ü›X[^™YHÛÛ[š[J
+NÂˆYˆ
+›Ü›X[^™Yš\Ñ[\JH™]\›ŽÂˆš[˜[›Ü›X[^™YÝXš™XÝHÝXš™XÝÙ^Kš[J
+KÓÝÙ\Ø\ÙJ
+NÂˆÛÛœÝÙ[X[XÕ\\ÈHÉØÝ\œ™[Ù˜XÝ	Ë	Ú[™™\™[˜ÙIË	ÜÚ\™YÙ^\šY[˜ÙIßNÂˆÛÛœÝ]šY[˜ÙS[Ù\ÈHÉØ]]ÉË	Ø\[™	Ë	Ü™Z[™›Ü˜ÙIË	Ü™\XÙIßNÂˆ˜\ˆÙ[X[XÈHÙ[X[XÕ\\Ë˜ÛÛZ[œÊÙ[X[XÕ\JHÈÙ[X[XÕ\Hˆ	ØÝ\œ™[Ù˜XÝ	ÎÂˆš[˜[[ÙHH]šY[˜ÙS[Ù\Ë˜ÛÛZ[œÊ]šY[˜ÙS[ÙJHÈ]šY[˜ÙS[ÙHˆ	Ø]]ÉÎÂˆYˆ
+Ú[™OH	ÜÚ\™YÙ^\šY[˜ÙIÊHÙ[X[XÈH	ÜÚ\™YÙ^\šY[˜ÙIÎÂˆYˆ
+Ù[X[XÈOH	ØÝ\œ™[Ù˜XÝ	È	‰ˆÛÛ™šY[˜ÙHŽ	‰ˆ\[›™Y
+HÂˆÙ[X[XÈH	Ú[™™\™[˜ÙIÎÂˆBˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂ‚ˆÝX›H]šY[˜ÙTÚ[Z[\š]JÝš[™ÈKÝš[™ÈŠHÂˆš[˜[YHÝÚÙ[œÊJNÂˆš[˜[šYÚHÝÚÙ[œÊŠNÂˆYˆ
+Yš\Ñ[\HšYÚš\Ñ[\JHÂˆ™]\›ˆKš[J
+KÓÝÙ\Ø\ÙJ
+HOH‹š[J
+KÓÝÙ\Ø\ÙJ
+HÈKŒˆŒÂˆBˆš[˜[Ú\™YHYÚ\™JšYÚ˜ÛÛZ[œÊK›[™ÝÂˆ™]\›ˆÚ\™YÈZ[ŠY›[™ÝšYÚ›[™Ý
+NÂˆB‚ˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆ]\™O›ÛÛˆ™XÛÜ™]šY[˜ÙJÂˆ™\]Z\™YÝš[™ÈY[[ÜžRYˆ™\]Z\™YÝš[™È]šY[˜ÙU^ˆ™\]Z\™YÝš[™È™[][Û‹ˆJH\Þ[˜ÈÂˆš[˜[[™XYHH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÙ]šY[˜ÙIËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÛY[[ÜžWÚYHÈS‘ÛÝ\˜ÙHHÈS‘]šY[˜ÙWÝ^HÉËˆÚ\™P\™ÜÎˆÛY[[ÜžRYÛÝ\˜ÙK]šY[˜ÙU^Kˆ[Z]ˆKˆ
+NÂˆYˆ
+[™XYKš\Ó›Ý[\JH™]\›ˆ˜[ÙNÂˆ]ØZ]‹š[œÙ\
+	ÛY[[ÜžWÙ]šY[˜ÙIËÂˆ	ÚY	ÎˆÝ]ZY
+
+Kˆ	ÛY[[ÜžWÚY	ÎˆY[[ÜžRYˆ	ÜÛÝ\˜ÙIÎˆÛÝ\˜ÙKˆ	Ù]šY[˜ÙWÝ^	Îˆ]šY[˜ÙU^ˆ	ØÛÛ™šY[˜ÙIÎˆÛÛ™šY[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	Ü™[][Û‰Îˆ™[][Û‹ˆ	ÛØœÙ\™YØ]	Îˆ›ÝËˆJNÂˆ™]\›ˆYNÂˆB‚ˆ]\™O›ÚYˆ™Z[™›Ü˜ÙJY[[ÜžR][H^\Ý[™ËÜ™\]Z\™YÝš[™È™[][ÛŸJH\Þ[˜ÈÂˆYˆ
+ÛÝ\˜ÙKœÝ\ÕÚ]
+	ØÛÛ™\œØ][Û—Ý\›Ž‰ÊH	‰ˆ^\Ý[™ËœÛÝ\˜ÙHOHÛÝ\˜ÙJHÂˆ™]\›ŽÂˆBˆš[˜[\Ó™]Ñ]šY[˜ÙHH]ØZ]™XÛÜ™]šY[˜ÙJˆY[[ÜžRYˆ^\Ý[™ËšYˆ]šY[˜ÙU^ˆ›Ü›X[^™Yˆ™[][ÛŽˆ™[][Û‹ˆ
+NÂˆYˆ
+Z\Ó™]Ñ]šY[˜ÙJH™]\›ŽÂˆš[˜[Y\™ÙYYÜÈHÝš[™ÏžË‹‹™^\Ý[™ËYÜË‹‹YÜßKZÙJLŠKš›Ú[Š	ß	ÊNÂˆ]ØZ]‹\]Jˆ	ÛY[[ÜžWÚ][\ÉËˆÂˆ	Ú[\Ü[˜ÙIÎˆ
+^\Ý[™Ëš[\Ü[˜ÙH
+ˆŽˆ
+È[\Ü[˜ÙH
+ˆŒŠBˆ˜Û[\
+ŒKŒ
+Kˆ	ØÛÛ™šY[˜ÙIÎˆ
+^\Ý[™Ë˜ÛÛ™šY[˜ÙH
+È
+HH^\Ý[™Ë˜ÛÛ™šY[˜ÙJH
+‚ˆ
+ŒLˆ
+ÈÛÛ™šY[˜ÙK˜Û[\
+ŒKŒ
+H
+ˆŒMŠJBˆ˜Û[\
+ŒKŒ
+Kˆ	ÝYÜÉÎˆY\™ÙYYÜËˆYˆ
+^\Ý[™ËœÝXš™XÝÙ^Kš\Ñ[\H	‰ˆ›Ü›X[^™YÝXš™XÝš\Ó›Ý[\JBˆ	ÜÝXš™XÝÚÙ^IÎˆ›Ü›X[^™YÝXš™XÝˆYˆ
+[›™Y
+H	Ü[›™Y	ÎˆKˆ	Ù]šY[˜ÙWØÛÝ[	Îˆ^\Ý[™Ë™]šY[˜ÙPÛÝ[
+ÈKˆ	Û\ÝÙ]šY[˜ÙWØ]	Îˆ›ÝËˆ	Ü™][[Û—ÜØÛÜ™IÎˆ
+^\Ý[™Ëœ™][[Û”ØÛÜ™H
+ÈŒL
+K˜Û[\
+ŒKŒ
+Kˆ	Ü™][[Û—ØÚXÚÙYØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÙ^\Ý[™ËšYKˆ
+NÂˆB‚ˆËÈH™Y›XÝ[ÛˆÛÝ[™H\˜X›HÜÝ]\›ˆ›ÜÜØ[\™HY[\Ý[‚ˆËÈ™\^Z[™ÈHœ›Þ™[ˆÛÜšÙ\ˆ]\Ý›ÝX[Y˜XÝ\™H^˜H]šY[˜ÙK‚ˆYˆ
+ÛÝ\˜ÙKœÝ\ÕÚ]
+	ÜÙ[—Ü™Y›XÝ[Û—Ü[Ž‰ÊJHÂˆš[˜[[™XYP\YYH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÙ]šY[˜ÙIËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÜÛÝ\˜ÙHHÉËˆÚ\™P\™ÜÎˆÜÛÝ\˜ÙWKˆ[Z]ˆKˆ
+NÂˆYˆ
+[™XYP\YYš\Ó›Ý[\JH™]\›ŽÂˆš[˜[YØXÞP\YYH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÜÛÝ\˜ÙHHÉËˆÚ\™P\™ÜÎˆÜÛÝ\˜ÙWKˆ[Z]ˆKˆ
+NÂˆYˆ
+YØXÞP\YYš\Ó›Ý[\JH™]\›ŽÂˆB‚ˆËÈ^XÚ]™Z[™›Ü˜ÙHœ›ÛHH^˜XÝÜˆ\ÈHXZ[ˆ\˜\˜\ÙK[Y\™ÙBˆËÈ]ˆ]™\Ù\™\ÈHØ[›ÛšXØ[Y[[ÜžH^Ú[HÝÜš[™ÈH™]ÂˆËÈÛÜ™[™È\È\˜X›H]šY[˜ÙH[ˆY[[ÜžWÙ]šY[˜ÙK‚ˆYˆ
+[ÙHOH	Ü™Z[™›Ü˜ÙIÈ	‰ˆ\™Ù]Y[[ÜžRYOH[	‰ˆ\™Ù]Y[[ÜžRYš[J
+Kš\Ó›Ý[\JHÂˆš[˜[\™Ù]›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚYHÈS‘Ý]\ÈHÉËˆÚ\™P\™ÜÎˆÝ\™Ù]Y[[ÜžRYš[J
+K	ØXÝ]™I×Kˆ[Z]ˆKˆ
+NÂˆYˆ
+\™Ù]›ÝÜËš\Ó›Ý[\JHÂˆš[˜[\™Ù]HY[[ÜžR][K™œ›ÛQŠ\™Ù]›ÝÜË™š\œÝ
+NÂˆš[˜[ÝXš™XÝÛÛ\]X›HH›Ü›X[^™YÝXš™XÝš\Ó›Ý[\H	‰‚ˆ\™Ù]œÝXš™XÝÙ^Kš\Ó›Ý[\H	‰‚ˆ›Ü›X[^™YÝXš™XÝOH\™Ù]œÝXš™XÝÙ^NÂˆš[˜[ÛÜ™[™ÐÛÛ\]X›HH]šY[˜ÙTÚ[Z[\š]J›Ü›X[^™Y\™Ù]˜ÛÛ[
+HHÂˆYˆ
+\™Ù]šÚ[™OHÚ[™	‰ˆ
+ÝXš™XÝÛÛ\]X›HÛÜ™[™ÐÛÛ\]X›JJHÂˆ]ØZ]™Z[™›Ü˜ÙJ\™Ù]™[][ÛŽˆ	Ü™Z[™›Ü˜ÙY	ÊNÂˆ™]\›ŽÂˆBˆBˆB‚ˆËÈ^XÝ\XØ]H™[XZ[œÈH]\›Z[š\ÝXÈØØ[˜[˜XÚÈ]™[ˆÚ[ˆBˆËÈ^˜XÝ[Ûˆ[Ù[Y›Ý[Z][ˆ^XÚ]™Z[™›Ü˜ÙH\™Ù]‚ˆš[˜[\XØ]HH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚÚ[™HÈS‘ÛÛ[HÈS‘Ý]\ÈHÉËˆÚ\™P\™ÜÎˆÚÚ[™›Ü›X[^™Y	ØXÝ]™I×Kˆ[Z]ˆKˆ
+NÂˆYˆ
+\XØ]Kš\Ó›Ý[\JHÂˆš[˜[^\Ý[™ÈHY[[ÜžR][K™œ›ÛQŠ\XØ]K™š\œÝ
+NÂˆYˆ
+J^\Ý[™Ëš\Ò[™™\™[˜ÙH	‰ˆÙ[X[XÈOH	ØÝ\œ™[Ù˜XÝ	ÊJHÂˆ]ØZ]™Z[™›Ü˜ÙJ^\Ý[™Ë™[][ÛŽˆ	Ü™Z[™›Ü˜ÙY	ÊNÂˆ™]\›ŽÂˆBˆËÈH^XÝÛÜ™[™ÈX^H]™HÝ\YY™H\ÈH[]]™H[™™\™[˜ÙK‚ˆËÈÛ˜ÙHHØ[YH›ÜÜÚ][Ûˆ\È^XÚ]HÛÛ™š\›YYÜ™X]HHÝ\œ™[ˆËÈ˜XÝ™\œÚ[Ûˆ™[ÝÈ[™Ý\\œÙYHHÛ[™™\™[˜ÙH[œÝXYÙˆ˜\[™ÂˆËÈ]›Ü™]™\ˆ[ˆH[˜Ù\Z[ˆ^Y\‹‚ˆB‚ˆš[˜[YHÝ]ZY
+
+NÂˆ˜\ˆ˜XÝ™\œÚ[ÛˆHNÂ‚ˆYˆ
+Ù[X[XÈOH	ØÝ\œ™[Ù˜XÝ	È	‰ˆ›Ü›X[^™YÝXš™XÝš\Ó›Ý[\JHÂˆš[˜[Ø[YTÝXš™XÝH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚÚ[™HÈS‘ÝXš™XÝÚÙ^HHÈS‘Ý]\ÈHÉËˆÚ\™P\™ÜÎˆÚÚ[™›Ü›X[^™YÝXš™XÝ	ØXÝ]™I×Kˆ
+NÂˆš[˜[ÛÛ™›XÝÈHØ[YTÝXš™XÝˆÚ\™J
+›ÝÊHOˆ
+›ÝÖÉÜÙ[X[X×Ý\I×H\ÈÝš[™ÏÈÏÈ	ØÝ\œ™[Ù˜XÝ	ÊHOH	ØÝ\œ™[Ù˜XÝ	ÊBˆÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂ‚ˆËÈ[žH\Ù\‹\[›™Y[\œ™]][ÛˆÙˆ\ÈÝXš™XÝ\È]]Üš]]]™H[[ˆËÈH\Ù\ˆY]ËÝ[œ[œÈ]ˆ]]ÛX]XÈ^˜XÝ[Ûˆ]\Ý›Ý›ÜšÈ\›Ý[™]‚ˆYˆ
+Ø[YTÝXš™XÝ˜[žJ
+›ÝÊHOˆ
+›ÝÖÉÜ[›™Y	×H\È[ÈÏÈ
+HOHJJH™]\›ŽÂ‚ˆYˆ
+[ÙHOH	Ø\[™	È	‰ˆÛÛ™›XÝËš\Ó›Ý[\JHÂˆËÈÛÈÚ[][[™[Ý\È˜Ý\œ™[ˆ˜[Y\È›ÜˆÛ™HÝXš™XÝ\™H[XšYÝ[Ý\Ë‚ˆËÈ™\Ù\™HH™]È›ÜÜØ[\È[ˆ[™™\™[˜ÙH[œÝXYÙˆÛÜœ\[™ÈBˆËÈÝ\œ™[Y˜XÝ[˜\šX[‚ˆÙ[X[XÈH	Ú[™™\™[˜ÙIÎÂˆH[ÙHÂˆš[˜[™\œÚ[Û”›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJˆ	ÔÑSPÕPV
+˜XÝÝ™\œÚ[ÛŠHTÈX^Ý™\œÚ[Ûˆ”“ÓHY[[ÜžWÚ][\ÈÒT‘HÚ[™HÈS‘ÝXš™XÝÚÙ^HHÉËˆÚÚ[™›Ü›X[^™YÝXš™XÝKˆ
+NÂˆš[˜[X^™\œÚ[ÛˆH
+™\œÚ[Û”›ÝÜË™š\œÝÉÛX^Ý™\œÚ[Û‰×H\È[OÊOËÒ[
+
+HÏÈÂˆ˜XÝ™\œÚ[ÛˆHX^™\œÚ[Ûˆ
+ÈNÂ‚ˆ›Üˆ
+š[˜[›ÝÈ[ˆØ[YTÝXš™XÝ
+HÂˆ]ØZ]‹\]Jˆ	ÛY[[ÜžWÚ][\ÉËˆÂˆ	ÜÝ]\ÉÎˆ	ÜÝ\\œÙYY	Ëˆ	ÜÝ\\œÙYYØžIÎˆYˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÜ›ÝÖÉÚY	×WKˆ
+NÂˆBˆBˆB‚ˆËÈ[™™\™[˜ÙH[™Ú\™YY^\šY[˜ÙH›ÝÜÈ[[[Û˜[HÛÙ^\Ýˆ^HØ[ˆ™BˆËÈ™Z[™›Ü˜ÙY]\‹]™]™\ˆ]]ÛX]XØ[H™\XÙHHÝ\œ™[˜XÝ‚ˆ]ØZ]‹š[œÙ\
+	ÛY[[ÜžWÚ][\ÉËÂˆ	ÚY	ÎˆYˆ	ÚÚ[™	ÎˆÚ[™ˆ	ØÛÛ[	Îˆ›Ü›X[^™Yˆ	Ú[\Ü[˜ÙIÎˆ[\Ü[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	ØÛÛ™šY[˜ÙIÎˆÛÛ™šY[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	ÝYÜÉÎˆYÜËZÙJLŠKš›Ú[Š	ß	ÊKˆ	ÜÛÝ\˜ÙIÎˆÛÝ\˜ÙKˆ	ÜÝ]\ÉÎˆ	ØXÝ]™IËˆ	ÜÝXš™XÝÚÙ^IÎˆ›Ü›X[^™YÝXš™XÝˆ	Ü[›™Y	Îˆ[›™YÈHˆˆ	ÜÝ\\œÙYYØžIÎˆ[ˆ	ØÜ™X]YØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆ	Û\ÝÜ™XØ[YØ]	Îˆ[ˆ	Ü™XØ[ØÛÝ[	Îˆˆ	Ü™][[Û—ÜØÛÜ™IÎˆKŒˆ	Ü™][[Û—ØÚXÚÙYØ]	Îˆ›ÝËˆ	ÜÙ[X[X×Ý\IÎˆÙ[X[XËˆ	Ù]šY[˜ÙWØÛÝ[	ÎˆKˆ	Ùš\œÝÛØœÙ\™YØ]	Îˆ›ÝËˆ	Û\ÝÙ]šY[˜ÙWØ]	Îˆ›ÝËˆ	Ù˜XÝÝ™\œÚ[Û‰Îˆ˜XÝ™\œÚ[Û‹ˆJNÂˆ]ØZ]™XÛÜ™]šY[˜ÙJˆY[[ÜžRYˆYˆ]šY[˜ÙU^ˆ›Ü›X[^™Yˆ™[][ÛŽˆ[ÙHOH	Ü™\XÙIÈÈ	Ü™\XÙY	Èˆ	ØÜ™X]Y	Ëˆ
+NÂˆJNÂˆB‚ˆ]\™O\ÝY[[ÜžR][OˆY[[ÜšY\ÐžRÚ[™
+ˆÝš[™ÈÚ[™Âˆ[[Z]HˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[Ù[X[XÈHÚ[™OH	ÜÚ\™YÙ^\šY[˜ÙIÈÈ	ÜÚ\™YÙ^\šY[˜ÙIÈˆ	ØÝ\œ™[Ù˜XÝ	ÎÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚÚ[™HÈS‘Ý]\ÈHÈS‘Ù[X[X×Ý\HHÈS‘
+™][[Û—ÜØÛÜ™HHÈÔˆ[›™YHJIËˆÚ\™P\™ÜÎˆÚÚ[™	ØXÝ]™IËÙ[X[XËŒMKˆÜ™\žNˆ	Ü[›™YTÐË[\Ü[˜ÙHTÐË™][[Û—ÜØÛÜ™HTÐËÛÛ™šY[˜ÙHTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+Y[[ÜžR][K™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O\ÝY[[ÜžR][OˆY[[ÜžR[™™\™[˜Ù\ÐžRÚ[™
+ˆÝš[™ÈÚ[™Âˆ[[Z]H‹ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚÚ[™HÈS‘Ý]\ÈHÈS‘Ù[X[X×Ý\HHÈS‘™][[Û—ÜØÛÜ™HHÉËˆÚ\™P\™ÜÎˆÚÚ[™	ØXÝ]™IË	Ú[™™\™[˜ÙIËŒNKˆÜ™\žNˆ	Ú[\Ü[˜ÙHTÐËÛÛ™šY[˜ÙHTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+Y[[ÜžR][K™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O\ÝY[[ÜžR][Oˆ™[]˜[Y[[ÜšY\ÊˆÝš[™È]Y\žKÂˆ[[Z]HL‹ˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™NˆœÝ]\ÈHÈS‘Ù[X[X×Ý\HSˆ
+	ØÝ\œ™[Ù˜XÝ	Ë	ÜÚ\™YÙ^\šY[˜ÙIÊH‹ˆÚ\™P\™ÜÎˆÉØXÝ]™I×KˆÜ™\žNˆ	Ú[\Ü[˜ÙHTÐË™][[Û—ÜØÛÜ™HTÐË\]YØ]TÐÉËˆ[Z]ˆNˆ
+NÂˆš[˜[]Y\žUÚÙ[œÈHÝÚÙ[œÊ]Y\žJNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆš[˜[ØÛÜ™YH
+ÓY[[ÜžR][H][KÝX›HØÛÜ™_JO–×NÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆš[˜[][HHY[[ÜžR][K™œ›ÛQŠ›ÝÊNÂˆš[˜[^ÚÙ[œÈHÝÚÙ[œÊ	ÉÚ][K˜ÛÛ[H	Ú][KYÜËš›Ú[Š	È	Ê_IÊNÂˆš[˜[Ý™\›\H]Y\žUÚÙ[œËš\Ñ[\BˆÈŒˆˆ]Y\žUÚÙ[œËÚ\™J^ÚÙ[œË˜ÛÛZ[œÊK›[™ÝÈ]Y\žUÚÙ[œË›[™ÝÂˆš[˜[YÙQ^\ÈH›ÝË™Y™™\™[˜ÙJ][K\]Y]
+Kš[’Ý\œÈÈŒÂˆš[˜[™XÙ[˜ÞHHHÈ
+H
+ÈYÙQ^\ÈÈKŒ
+NÂˆš[˜[Ú[™›ÛÜÝHÝÚ]Ú
+][KšÚ[™
+HÂˆ	ÜÚ\™YÙ^\šY[˜ÙIÈOˆŒKˆ	Ü™Y™\™[˜ÙIÈOˆŒKˆ	Ý\Ù\—Ü›Ùš[IÈOˆŒÍKˆ	ØZWÜÙ[‰ÈOˆŒËˆÈOˆŒˆNÂˆš[˜[˜[Z[X\š]HH
+][Kœ™XØ[ÛÝ[ÈL‹Œ
+K˜Û[\
+ŒKŒ
+KÑÝX›J
+NÂˆš[˜[ØÛÜ™HH][Kš[\Ü[˜ÙH
+ˆŒÍ
+Âˆ][K˜ÛÛ™šY[˜ÙH
+ˆŒMˆ
+ÂˆÝ™\›\
+ˆŒÌˆ
+Âˆ™XÙ[˜ÞH
+ˆŒL
+Âˆ˜[Z[X\š]H
+ˆŒÈ
+Âˆ][Kœ™][[Û”ØÛÜ™H
+ˆŒMH
+Âˆ
+][Kœ[›™YÈŒNˆŒ
+H
+ÂˆÚ[™›ÛÜÝÂˆØÛÜ™Y˜Y
+
+][Nˆ][KØÛÜ™NˆØÛÜ™JJNÂˆBˆØÛÜ™YœÛÜ
+
+KŠHOˆ‹œØÛÜ™K˜ÛÛ\\™UÊKœØÛÜ™JJNÂˆš[˜[Ù[XÝYHØÛÜ™YZÙJ[Z]
+K›X\
+
+JHOˆKš][JKÓ\Ý
+
+NÂˆYˆ
+Ù[XÝYš\Ó›Ý[\JHÂˆš[˜[˜]ÚH‹˜˜]Ú
+
+NÂˆ›Üˆ
+š[˜[][H[ˆÙ[XÝY
+HÂˆ˜]Ú\]Jˆ	ÛY[[ÜžWÚ][\ÉËˆÂˆ	Û\ÝÜ™XØ[YØ]	Îˆ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Ü™XØ[ØÛÝ[	Îˆ][Kœ™XØ[ÛÝ[
+ÈKˆ	Ü™][[Û—ÜØÛÜ™IÎˆ
+][Kœ™][[Û”ØÛÜ™H
+ÈŒJK˜Û[\
+ŒKŒ
+Kˆ	Ü™][[Û—ØÚXÚÙYØ]	Îˆ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚ][KšYKˆ
+NÂˆBˆ]ØZ]˜]Ú˜ÛÛ[Z]
+›Ô™\Ý[ˆYJNÂˆBˆ™]\›ˆÙ[XÝYÂˆB‚ˆ]\™O\ÝY[[ÜžR][OˆY[[ÜžPØ[™Y]\Ñ›Ü‘^˜XÝ[ÛŠˆÝš[™È]Y\žKÂˆ[[Z]HMˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÜÝ]\ÈHÉËˆÚ\™P\™ÜÎˆÉØXÝ]™I×KˆÜ™\žNˆ	Ü[›™YTÐË[\Ü[˜ÙHTÐËÛÛ™šY[˜ÙHTÐË\]YØ]TÐÉËˆ[Z]ˆŒŒˆ
+NÂˆš[˜[]Y\žUÚÙ[œÈHÝÚÙ[œÊ]Y\žJNÂˆš[˜[ØÛÜ™YH
+ÓY[[ÜžR][H][KÝX›HØÛÜ™_JO–×NÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆš[˜[][HHY[[ÜžR][K™œ›ÛQŠ›ÝÊNÂˆš[˜[^ÚÙ[œÈHÝÚÙ[œÊ	ÉÚ][K˜ÛÛ[H	Ú][KœÝXš™XÝÙ^_H	Ú][KYÜËš›Ú[Š	È	Ê_IÊNÂˆš[˜[Ý™\›\H]Y\žUÚÙ[œËš\Ñ[\BˆÈŒˆˆ]Y\žUÚÙ[œËÚ\™J^ÚÙ[œË˜ÛÛZ[œÊK›[™ÝÈ]Y\žUÚÙ[œË›[™ÝÂˆš[˜[Ù[X[XÐ›ÛÜÝHÝÚ]Ú
+][KœÙ[X[XÕ\JHÂˆ	ØÝ\œ™[Ù˜XÝ	ÈOˆŒˆ	ÜÚ\™YÙ^\šY[˜ÙIÈOˆŒˆÈOˆŒˆNÂˆš[˜[ØÛÜ™HHÝ™\›\
+ˆN
+Âˆ][Kš[\Ü[˜ÙH
+ˆŒMÈ
+Âˆ][K˜ÛÛ™šY[˜ÙH
+ˆŒL
+Âˆ
+][Kœ[›™YÈŒŒˆˆŒ
+H
+ÂˆÙ[X[XÐ›ÛÜÝÂˆØÛÜ™Y˜Y
+
+][Nˆ][KØÛÜ™NˆØÛÜ™JJNÂˆBˆØÛÜ™YœÛÜ
+
+KŠHOˆ‹œØÛÜ™K˜ÛÛ\\™UÊKœØÛÜ™JJNÂˆ™]\›ˆØÛÜ™YZÙJ[Z]
+K›X\
+
+JHOˆKš][JKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆ]\™O\ÝY[[ÜžR][Oˆ™[]˜[Y[[ÜžR[™™\™[˜Ù\ÊˆÝš[™È]Y\žKÂˆ[[Z]HËˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÜÝ]\ÈHÈS‘Ù[X[X×Ý\HHÈS‘™][[Û—ÜØÛÜ™HHÉËˆÚ\™P\™ÜÎˆÉØXÝ]™IË	Ú[™™\™[˜ÙIËŒNKˆÜ™\žNˆ	Ú[\Ü[˜ÙHTÐËÛÛ™šY[˜ÙHTÐË\]YØ]TÐÉËˆ[Z]ˆLŒˆ
+NÂˆš[˜[]Y\žUÚÙ[œÈHÝÚÙ[œÊ]Y\žJNÂˆYˆ
+]Y\žUÚÙ[œËš\Ñ[\JH™]\›ˆÛÛœÝ×NÂˆš[˜[ØÛÜ™YH
+ÓY[[ÜžR][H][KÝX›HØÛÜ™_JO–×NÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆš[˜[][HHY[[ÜžR][K™œ›ÛQŠ›ÝÊNÂˆš[˜[ÚÙ[œÈHÝÚÙ[œÊ	ÉÚ][K˜ÛÛ[H	Ú][KœÝXš™XÝÙ^_H	Ú][KYÜËš›Ú[Š	È	Ê_IÊNÂˆš[˜[Ý™\›\H]Y\žUÚÙ[œËÚ\™JÚÙ[œË˜ÛÛZ[œÊK›[™ÝÈ]Y\žUÚÙ[œË›[™ÝÂˆYˆ
+Ý™\›\H
+HÛÛ[YNÂˆØÛÜ™Y˜Y
+
+][Nˆ][KØÛÜ™NˆÝ™\›\
+ˆÌˆ
+È][K˜ÛÛ™šY[˜ÙH
+ˆŒN
+È][Kš[\Ü[˜ÙH
+ˆŒL
+JNÂˆBˆØÛÜ™YœÛÜ
+
+KŠHOˆ‹œØÛÜ™K˜ÛÛ\\™UÊKœØÛÜ™JJNÂˆ™]\›ˆØÛÜ™YZÙJ[Z]
+K›X\
+
+JHOˆKš][JKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆ]\™O\ÝY[[ÜžR][Oˆ™[]˜[\ÝÜšXØ[Y[[ÜšY\ÊˆÝš[™È]Y\žKÂˆ[[Z]HËˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÜÝ]\ÈHÈS‘Ù[X[X×Ý\HHÈS‘ÝXš™XÝÚÙ^HˆÉËˆÚ\™P\™ÜÎˆÉÜÝ\\œÙYY	Ë	ØÝ\œ™[Ù˜XÝ	Ë	É×KˆÜ™\žNˆ	Ý\]YØ]TÐÉËˆ[Z]ˆMˆ
+NÂˆš[˜[]Y\žUÚÙ[œÈHÝÚÙ[œÊ]Y\žJNÂˆYˆ
+]Y\žUÚÙ[œËš\Ñ[\JH™]\›ˆÛÛœÝ×NÂˆš[˜[ØÛÜ™YH
+ÓY[[ÜžR][H][KÝX›HØÛÜ™_JO–×NÂˆ›Üˆ
+š[˜[›ÝÈ[ˆ›ÝÜÊHÂˆš[˜[][HHY[[ÜžR][K™œ›ÛQŠ›ÝÊNÂˆš[˜[ÚÙ[œÈHÝÚÙ[œÊ	ÉÚ][K˜ÛÛ[H	Ú][KœÝXš™XÝÙ^_H	Ú][KYÜËš›Ú[Š	È	Ê_IÊNÂˆš[˜[Ý™\›\H]Y\žUÚÙ[œËÚ\™JÚÙ[œË˜ÛÛZ[œÊK›[™ÝÈ]Y\žUÚÙ[œË›[™ÝÂˆYˆ
+Ý™\›\H
+HÛÛ[YNÂˆØÛÜ™Y˜Y
+
+][Nˆ][KØÛÜ™NˆÝ™\›\
+ˆÎ
+È][Kš[\Ü[˜ÙH
+ˆŒM
+È][K˜ÛÛ™šY[˜ÙH
+ˆŒ
+JNÂˆBˆØÛÜ™YœÛÜ
+
+KŠHOˆ‹œØÛÜ™K˜ÛÛ\\™UÊKœØÛÜ™JJNÂˆ™]\›ˆØÛÜ™YZÙJ[Z]
+K›X\
+
+JHOˆKš][JKÓ\Ý
+Ü›ÝØX›Nˆ˜[ÙJNÂˆB‚ˆ]\™O\ÝX\Ýš[™ËØš™XÝÏˆY[[ÜžQ]šY[˜ÙQ›ÜŠˆÝš[™ÈY[[ÜžRYÂˆ[[Z]HˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹œ]Y\žJˆ	ÛY[[ÜžWÙ]šY[˜ÙIËˆÚ\™Nˆ	ÛY[[ÜžWÚYHÉËˆÚ\™P\™ÜÎˆÛY[[ÜžRYKˆÜ™\žNˆ	ÛØœÙ\™YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆB‚ˆ]\™O\ÝY[[ÜžR][OˆY[[ÜžPØ[™Y]\Ñ›Ü”Ù[‘š]™JÚ[[Z]HJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™NˆœÝ]\ÈHÈS‘™][[Û—ÜØÛÜ™HHÈS‘Ù[X[X×Ý\HSˆ
+	ØÝ\œ™[Ù˜XÝ	Ë	ÜÚ\™YÙ^\šY[˜ÙIÊH‹ˆÚ\™P\™ÜÎˆÉØXÝ]™IËŒNKˆÜ™\žNˆ	Ú[\Ü[˜ÙHTÐË™][[Û—ÜØÛÜ™HTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+Y[[ÜžR][K™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O\ÝY[[ÜžR][Oˆ\ÝY[[ÜšY\ÊÂˆÝš[™ÏÈÚ[™ˆÝš[™ÈÝ]\ÈH	ØXÝ]™IËˆ[[Z]HÌˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[Û]\Ù\ÈHÝš[™Ï–ÉÜÝ]\ÈHÉ×NÂˆš[˜[\™ÜÈHØš™XÝÏ–ÜÝ]\×NÂˆYˆ
+Ú[™OH[	‰ˆÚ[™š\Ó›Ý[\H	‰ˆÚ[™OH	Ø[	ÊHÂˆÛ]\Ù\Ë˜Y
+	ÚÚ[™HÉÊNÂˆ\™ÜË˜Y
+Ú[™
+NÂˆBˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™NˆÛ]\Ù\Ëš›Ú[Š	ÈS‘	ÊKˆÚ\™P\™ÜÎˆ\™ÜËˆÜ™\žNˆ	Ú[\Ü[˜ÙHTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+Y[[ÜžR][K™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O›ÚYˆ\]SY[[ÜžR][JÂˆ™\]Z\™YÝš[™ÈYˆ™\]Z\™YÝš[™ÈÛÛ[ˆ™\]Z\™YÝX›H[\Ü[˜ÙKˆ™\]Z\™YÝX›HÛÛ™šY[˜ÙKˆ™\]Z\™Y\ÝÝš[™ÏˆYÜËˆÝš[™ÏÈÝXš™XÝÙ^Kˆ›ÛÛÈ[›™YˆJH\Þ[˜ÈÂˆš[˜[›Ü›X[^™YHÛÛ[š[J
+NÂˆYˆ
+›Ü›X[^™Yš\Ñ[\JH™]\›ŽÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ŽÂˆš[˜[^\Ý[™ÈHY[[ÜžR][K™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆš[˜[›Ü›X[^™YÝXš™XÝHÝXš™XÝÙ^HOH[ˆÈÝXš™XÝÙ^Kš[J
+KÓÝÙ\Ø\ÙJ
+Bˆˆ^\Ý[™ËœÝXš™XÝÙ^NÂˆYˆ
+^\Ý[™ËœÝ]\ÈOH	ØXÝ]™IÈ	‰‚ˆ^\Ý[™ËœÙ[X[XÕ\HOH	ØÝ\œ™[Ù˜XÝ	È	‰‚ˆ›Ü›X[^™YÝXš™XÝš\Ó›Ý[\JHÂˆš[˜[ÛÛ™›XÝÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™NˆšÚ[™HÈS‘ÝXš™XÝÚÙ^HHÈS‘Ý]\ÈH	ØXÝ]™IÈS‘Ù[X[X×Ý\HH	ØÝ\œ™[Ù˜XÝ	ÈS‘YˆÈ‹ˆÚ\™P\™ÜÎˆÙ^\Ý[™ËšÚ[™›Ü›X[^™YÝXš™XÝYKˆ[Z]ˆKˆ
+NÂˆYˆ
+ÛÛ™›XÝËš\Ó›Ý[\JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ØÝ\œ™[Ù˜XÝÜÝXš™XÝØÛÛ™›XÝ	ÊNÂˆBˆB‚ˆš[˜[ÛÛ[Ú[™ÙYH^\Ý[™Ë˜ÛÛ[OH›Ü›X[^™YÂˆYˆ
+ÛÛ[Ú[™ÙY
+HÂˆš[˜[š[Ü‘]šY[˜ÙHHÜY›]K™š\œÝ[˜[YJ]ØZ]‹œ˜]Ô]Y\žJˆ	ÔÑSPÕÓÕS•
+
+ŠH”“ÓHY[[ÜžWÙ]šY[˜ÙHÒT‘HY[[ÜžWÚYHÉËˆÚYKˆ
+JHÏÂˆÂˆYˆ
+š[Ü‘]šY[˜ÙHOH	‰ˆ^\Ý[™Ë˜ÛÛ[š[J
+Kš\Ó›Ý[\JHÂˆ]ØZ]‹š[œÙ\
+ˆ	ÛY[[ÜžWÙ]šY[˜ÙIËˆÂˆ	ÚY	ÎˆÝ]ZY
+
+Kˆ	ÛY[[ÜžWÚY	ÎˆYˆ	ÜÛÝ\˜ÙIÎˆ	ÛYØXÞWØ™Y›Ü™WÛX[X[ÙY]‰›ÝÉËˆ	Ù]šY[˜ÙWÝ^	Îˆ^\Ý[™Ë˜ÛÛ[ˆ	ØÛÛ™šY[˜ÙIÎˆ^\Ý[™Ë˜ÛÛ™šY[˜ÙKˆ	Ü™[][Û‰Îˆ	ÛX[X[ÙY]Ü™]š[Ý\ÉËˆ	ÛØœÙ\™YØ]	Îˆ^\Ý[™Ë›\Ý]šY[˜ÙP]›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆš[˜[X[X[ÛÝ\˜ÙHH	ÛX[X[ÙY]‰›ÝÉÎÂˆ]ØZ]‹š[œÙ\
+ˆ	ÛY[[ÜžWÙ]šY[˜ÙIËˆÂˆ	ÚY	ÎˆÝ]ZY
+
+Kˆ	ÛY[[ÜžWÚY	ÎˆYˆ	ÜÛÝ\˜ÙIÎˆX[X[ÛÝ\˜ÙKˆ	Ù]šY[˜ÙWÝ^	Îˆ›Ü›X[^™Yˆ	ØÛÛ™šY[˜ÙIÎˆÛÛ™šY[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	Ü™[][Û‰Îˆ	ÛX[X[ÙY]	Ëˆ	ÛØœÙ\™YØ]	Îˆ›ÝËˆKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]KšYÛ›Ü™Kˆ
+NÂˆBˆ]ØZ]‹\]Jˆ	ÛY[[ÜžWÚ][\ÉËˆÂˆ	ØÛÛ[	Îˆ›Ü›X[^™Yˆ	Ú[\Ü[˜ÙIÎˆ[\Ü[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	ØÛÛ™šY[˜ÙIÎˆÛÛ™šY[˜ÙK˜Û[\
+ŒKŒ
+Kˆ	ÝYÜÉÎˆYÜË›X\
+
+JHOˆKš[J
+JKÚ\™J
+JHOˆKš\Ó›Ý[\JKZÙJLŠKš›Ú[Š	ß	ÊKˆYˆ
+ÝXš™XÝÙ^HOH[
+H	ÜÝXš™XÝÚÙ^IÎˆ›Ü›X[^™YÝXš™XÝˆYˆ
+[›™YOH[
+H	Ü[›™Y	Îˆ[›™YÈHˆˆYˆ
+ÛÛ[Ú[™ÙY
+H	Ù]šY[˜ÙWØÛÝ[	Îˆ^\Ý[™Ë™]šY[˜ÙPÛÝ[
+ÈKˆYˆ
+ÛÛ[Ú[™ÙY
+H	Û\ÝÙ]šY[˜ÙWØ]	Îˆ›ÝËˆ	Ü™][[Û—ÜØÛÜ™IÎˆKŒˆ	Ü™][[Û—ØÚXÚÙYØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ
+NÂˆJNÂˆB‚ˆ]\™O›ÚYˆÙ]Y[[ÜžTÝ]\ÊÝš[™ÈYÝš[™ÈÝ]\ÊH\Þ[˜ÈÂˆÛÛœÝ[ÝÙYHÉØXÝ]™IË	Ø\˜Ú]™Y	Ë	ÜÝ\\œÙYY	ßNÂˆYˆ
+X[ÝÙY˜ÛÛZ[œÊÝ]\ÊJHÂˆ›ÝÈ\™Ý[Y[\œ›Ü‹˜[YJÝ]\Ë	ÜÝ]\ÉË	Õ[œÝ\ÜYY[[ÜžHÝ]\ÉÊNÂˆBˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ[Z]ˆKˆ
+NÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ŽÂˆš[˜[^\Ý[™ÈHY[[ÜžR][K™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆYˆ
+Ý]\ÈOH	ØXÝ]™IÈ	‰‚ˆ^\Ý[™ËœÙ[X[XÕ\HOH	ØÝ\œ™[Ù˜XÝ	È	‰‚ˆ^\Ý[™ËœÝXš™XÝÙ^Kš\Ó›Ý[\JHÂˆš[˜[ÛÛ™›XÝÈH]ØZ]‹œ]Y\žJˆ	ÛY[[ÜžWÚ][\ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™NˆšÚ[™HÈS‘ÝXš™XÝÚÙ^HHÈS‘Ý]\ÈH	ØXÝ]™IÈS‘Ù[X[X×Ý\HH	ØÝ\œ™[Ù˜XÝ	ÈS‘YˆÈ‹ˆÚ\™P\™ÜÎˆÙ^\Ý[™ËšÚ[™^\Ý[™ËœÝXš™XÝÙ^KYKˆ[Z]ˆKˆ
+NÂˆYˆ
+ÛÛ™›XÝËš\Ó›Ý[\JHÂˆ›ÝÈÝ]Q\œ›ÜŠ	ØÝ\œ™[Ù˜XÝÜÝXš™XÝØÛÛ™›XÝ	ÊNÂˆBˆBˆ]ØZ]‹\]Jˆ	ÛY[[ÜžWÚ][\ÉËˆÂˆ	ÜÝ]\ÉÎˆÝ]\ËˆYˆ
+Ý]\ÈOH	ØXÝ]™IÊH	Ü™][[Û—ÜØÛÜ™IÎˆÌ‹ˆYˆ
+Ý]\ÈOH	ØXÝ]™IÊH	Ü™][[Û—ØÚXÚÙYØ]	Îˆ›ÝËˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÚYKˆ
+NÂˆJNÂˆB‚ˆÙ]Ýš[™ÏˆÝÚÙ[œÊÝš[™È^
+HÂˆš[˜[ÝÙ\™YH^ÓÝÙ\Ø\ÙJ
+NÂˆš[˜[][ˆH™YÑ^
+‰ÖØK^ŒNW×^Ì‹IÊK˜[X]Ú\ÊÝÙ\™Y
+K›X\
+
+JHOˆVÌHJNÂˆš[˜[Ú[™\ÙHHÝš[™Ï–×NÂˆš[˜[Ú\œÈHÝÙ\™Yœ[™\Ë›X\
+Ýš[™Ë™œ›ÛPÚ\ÛÙJKÓ\Ý
+
+NÂˆ›Üˆ
+˜\ˆHHÈHÚ\œË›[™ÝHNÈJÊÊHÂˆš[˜[Z\ˆH	ÉØÚ\œÖÚW_IØÚ\œÖÚH
+ÈW_IÎÂˆYˆ
+™YÑ^
+‰Ö×MLWNY™™—^ÌŸIÊKš\ÓX]Ú
+Z\ŠJHÚ[™\ÙK˜Y
+Z\ŠNÂˆBˆ™]\›ˆË‹‹›][‹‹‹˜Ú[™\Ù_NÂˆB‚ˆ]\™O\ÝÛÛ\[š[Û•ÝYÚˆXÝ]™UÝYÚÊÚ[[Z]HŒJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÉËˆÚ\™Nˆ›Y™XÞXÛWÜÝ]HSˆ
+	ØXÝ]™IË	Ùš^][Û‰Ë	ØXÝY	Ë	Ü™\ÚYX[	ÊH‹ˆÜ™\žNˆ	ÜÝ™[™ÝTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛ\[š[Û•ÝYÚ™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆËËÈY]Y]K[Û›HÝYÚ™XY›Üˆ™YXÝYXYÛ›ÜÝXÜËˆHÔSÝXœÝ]]\ÂˆËËÈ[ˆ[\H^˜[YHÛÈHš]˜]HÝYÚ›ÙH\È™]™\ˆ™XYœ›ÛH\ÚË‚ˆ]\™O\ÝÛÛ\[š[Û•ÝYÚˆXÝ]™UÝYÚY]Y]JÚ[[Z]HJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ˜]Ô]Y\žJ	ÉÉÂˆÑSPÕY	ÉÈTÈ^š]™WÚÙ^KÚ[™Ý™[™Ý›Ü›—Ø]\]YØ]ˆ™YØÛÝ[ÛÝ\˜ÙK\ÝÙ™YØ]Y™XÞXÛWÜÝ]KXÝ[Û—ØÛÝ[ˆ\ÝØXÝYØ]\ÝÜØ]\ÙšYYØ]\ÝÜ™\Ý\™˜XÙYØ]ˆ™\Ý\™˜XÙYØÛÝ[™\ÚYX[ÜÝ™[™Ý\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚYˆÜX×ÚÙ^KY\™ÙYØÛÝ[\ÝÛY\™ÙYØ]Û›ÛÞ™YÝ[[ˆ”“ÓHÝYÚÂˆÒT‘HY™XÞXÛWÜÝ]HSˆ
+	ØXÝ]™IË	Ùš^][Û‰Ë	ØXÝY	Ë	Ü™\ÚYX[	ÊBˆÔ‘Tˆ–HÝ™[™ÝTÐË\]YØ]TÐÂˆSRUÂˆ	ÉÉËÛ[Z]JNÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛ\[š[Û•ÝYÚ™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™OÛÛ\[š[Û•ÝYÚÏˆ]\ÝXÝ]™UÝYÚ
+
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÉËˆÚ\™Nˆ›Y™XÞXÛWÜÝ]HSˆ
+	ØXÝ]™IË	Ùš^][Û‰ÊHS‘‚ˆ	ÊÛ›ÛÞ™YÝ[[TÈ•SÔˆÛ›ÛÞ™YÝ[[HÊIËˆÚ\™P\™ÜÎˆÛ›Ý×KˆÜ™\žNˆ	Ý\]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÛÛ\[š[Û•ÝYÚ™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆËËÈ™XY[Û›HØ[™Y]\È›ÜˆZ[HÛÛ\[š[Û‹Y˜XÚ[™È™[][ÛœÚ\Ý\™˜XÙ\Ë‚ˆËËÈ™\ÚYX[ØXÝYÙÜ›X[[™Û›ÛÞ™YÝYÚÈ\™H^ÛYY[ˆÔSÛÈBˆËËÈ\™ÙHÛ™Ë\[›š[™ÈÛÛØ[››ÝÜ›ÝÙÝ\œ™[Ø\™\ÈÝ]ÙˆH›Ý[™Y™XY‚ˆ]\™O\ÝÛÛ\[š[Û•ÝYÚˆÝ\œ™[ÝYÚÑ›Ü”™\Ù[][ÛŠÚ[[Z]HÌJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÉËˆÚ\™Nˆ›Y™XÞXÛWÜÝ]HSˆ
+	ØXÝ]™IË	Ùš^][Û‰ÊHS‘‚ˆ	ÊÛ›ÛÞ™YÝ[[TÈ•SÔˆÛ›ÛÞ™YÝ[[HÊIËˆÚ\™P\™ÜÎˆÛ›Ý×KˆÜ™\žNˆ	ÜÝ™[™ÝTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛ\[š[Û•ÝYÚ™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O›ÚYˆ\Ù\ÝYÚ
+ÂˆÝš[™ÏÈYˆ™\]Z\™YÝš[™È^ˆ™\]Z\™Yš]™RÙ^Hš]™Kˆ™\]Z\™YÝš[™ÈÚ[™ˆ™\]Z\™YÝX›HÝ™[™Ýˆ[™YÛÝ[Hˆ]U[YOÈ›Ü›]ˆ]U[YOÈ\Ý™Y]ˆÝš[™ÈÛÝ\˜ÙHH	Ú[\›˜[	ËˆÝš[™ÈY™XÞXÛTÝ]HH	ØXÝ]™IËˆ[XÝ[ÛÛÝ[Hˆ]U[YOÈ\ÝXÝY]ˆ]U[YOÈ\ÝØ]\ÙšYY]ˆ]U[YOÈ\Ý™\Ý\™˜XÙY]ˆ[™\Ý\™˜XÙYÛÝ[HˆÝX›H™\ÚYX[Ý™[™ÝHˆÝš[™ÏÈ\ÝÝ]›Ý[™Y\ÜØYÙRYˆÝš[™ÈÜXÒÙ^HH	ÉËˆ[Y\™ÙYÛÝ[Hˆ]U[YOÈ\ÝY\™ÙY]ˆ]U[YOÈÛ›ÛÞ™Y[[ˆJH\Þ[˜ÈÂˆš[˜[›Ü›X[^™YH^š[J
+NÂˆYˆ
+›Ü›X[^™Yš\Ñ[\JH™]\›ŽÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆ]ØZ]‹š[œÙ\
+ˆ	ÝÝYÚÉËˆÂˆ	ÚY	ÎˆYÏÈÝ]ZY
+
+Kˆ	Ý^	Îˆ›Ü›X[^™Yˆ	Ùš]™WÚÙ^IÎˆš]™K›˜[YKˆ	ÚÚ[™	ÎˆÚ[™ˆ	ÜÝ™[™Ý	ÎˆÝ™[™Ý˜Û[\
+ŒKŒ
+Kˆ	Ø›Ü›—Ø]	Îˆ
+›Ü›]ÏÈ›ÝÊK›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Ý\]YØ]	Îˆ›ÝË›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Ù™YØÛÝ[	Îˆ™YÛÝ[ˆ	ÜÛÝ\˜ÙIÎˆÛÝ\˜ÙKˆ	Û\ÝÙ™YØ]	Îˆ
+\Ý™Y]ÏÈ›ÝÊK›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	ÛY™XÞXÛWÜÝ]IÎˆY™XÞXÛTÝ]Kˆ	ØXÝ[Û—ØÛÝ[	ÎˆXÝ[ÛÛÝ[ˆ	Û\ÝØXÝYØ]	Îˆ\ÝXÝY]Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Û\ÝÜØ]\ÙšYYØ]	Îˆ\ÝØ]\ÙšYY]Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Û\ÝÜ™\Ý\™˜XÙYØ]	Îˆ\Ý™\Ý\™˜XÙY]Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	Ü™\Ý\™˜XÙYØÛÝ[	Îˆ™\Ý\™˜XÙYÛÝ[ˆ	Ü™\ÚYX[ÜÝ™[™Ý	Îˆ™\ÚYX[Ý™[™Ý˜Û[\
+ŒKŒ
+Kˆ	Û\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚY	Îˆ\ÝÝ]›Ý[™Y\ÜØYÙRYˆ	ÝÜX×ÚÙ^IÎˆÜXÒÙ^Kš[J
+KÓÝÙ\Ø\ÙJ
+Kˆ	ÛY\™ÙYØÛÝ[	ÎˆY\™ÙYÛÝ[ˆ	Û\ÝÛY\™ÙYØ]	Îˆ\ÝY\™ÙY]Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆ	ÜÛ›ÛÞ™YÝ[[	ÎˆÛ›ÛÞ™Y[[Ë›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚˆKˆÛÛ™›XÝ[ÛÜš]NˆÛÛ™›XÝ[ÛÜš]Kœ™\XÙKˆ
+NÂˆB‚ˆ]\™O›ÚYˆ[]UÝYÚ
+Ýš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ]ØZ]‹˜[œØXÝ[ÛŠ
+ŠH\Þ[˜ÈÂˆËÈY™XÞXÛKØ]Y]›ÝÜÈ\™HÝÛ™YžHHÝYÚˆ™YY˜XÚÈ\È\ÝÜšXØ[ˆËÈ]šY[˜ÙKÛÈÙY\]]]XÚH[]YÝYÚ™Y™\™[˜ÙK‚ˆ]ØZ]‹™[]J	ÝÝYÚÛY™XÞXÛWÙ]™[ÉËÚ\™Nˆ	ÝÝYÚÚYHÉËÚ\™P\™ÜÎˆÚYJNÂˆ]ØZ]‹\]J	Ü›ØXÝ]™WÙ™YY˜XÚÉËÉÝÝYÚÚY	Îˆ[KÚ\™Nˆ	ÝÝYÚÚYHÉËÚ\™P\™ÜÎˆÚYJNÂˆ]ØZ]‹™[]J	ÝÝYÚÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÚYJNÂˆJNÂˆB‚ˆ]\™OÛÛ\[š[Û•ÝYÚÏˆÝYÚžRY
+Ýš[™ÈY
+H\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJ	ÝÝYÚÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÚYK[Z]ˆJNÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÛÛ\[š[Û•ÝYÚ™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O\ÝÛÛ\[š[Û•ÝYÚˆY™XÞXÛUÝYÚÊÚ[[Z]HJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJ	ÝÝYÚÉËÜ™\žNˆ	Ý\]YØ]TÐÉË[Z]ˆ[Z]
+NÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛ\[š[Û•ÝYÚ™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™OÛÛ\[š[Û•ÝYÚÏˆÝYÚžTÛÝ\˜ÙJÝš[™ÈÛÝ\˜ÙJH\Þ[˜ÈÂˆš[˜[›Ü›X[^™YHÛÝ\˜ÙKš[J
+NÂˆYˆ
+›Ü›X[^™Yš\Ñ[\JH™]\›ˆ[Âˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÉËˆÚ\™Nˆ	ÜÛÝ\˜ÙHHÉËˆÚ\™P\™ÜÎˆÛ›Ü›X[^™YKˆÜ™\žNˆ	Ý\]YØ]TÐÉËˆ[Z]ˆKˆ
+NÂˆ™]\›ˆ›ÝÜËš\Ñ[\HÈ[ˆÛÛ\[š[Û•ÝYÚ™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆB‚ˆ]\™O\ÝÛÛ\[š[Û•ÝYÚˆÝYÚÐžUÜXÊˆÝš[™ÈÜXÒÙ^KÂˆ[[Z]HˆJH\Þ[˜ÈÂˆš[˜[Ù^HHÜXÒÙ^Kš[J
+KÓÝÙ\Ø\ÙJ
+NÂˆYˆ
+Ù^Kš\Ñ[\JH™]\›ˆÛÛœÝ×NÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÉËˆÚ\™Nˆ	ÝÜX×ÚÙ^HHÉËˆÚ\™P\™ÜÎˆÚÙ^WKˆÜ™\žNˆ	ÜÝ™[™ÝTÐË\]YØ]TÐÉËˆ[Z]ˆ[Z]ˆ
+NÂˆ™]\›ˆ›ÝÜË›X\
+ÛÛ\[š[Û•ÝYÚ™œ›ÛQŠKÓ\Ý
+
+NÂˆB‚ˆ]\™O›ÛÛˆX\šÕÝYÚ™\ÜÛœÙT™XÙZ]™Y]ÛZXÊÂˆ™\]Z\™YÝš[™ÈÝYÚYˆ™\]Z\™YÝX›H™\ÜÛœÙT]X[]Kˆ™\]Z\™YÝš[™È™\ÜÛœÙSY\ÜØYÙRYˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[ÙY[ˆH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÛY™XÞXÛWÙ]™[ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÝÝYÚÚYHÈS‘]™[Ý\HHÈS‘Y\ÜØYÙWÚYHÉËˆÚ\™P\™ÜÎˆÝÝYÚY	Ü™\ÜÛœÙWÜ™XÙZ]™Y	Ë™\ÜÛœÙSY\ÜØYÙRYKˆ[Z]ˆKˆ
+NÂˆYˆ
+ÙY[‹š\Ó›Ý[\JH™]\›ˆYNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJ	ÝÝYÚÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÝÝYÚYK[Z]ˆJNÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ˜[ÙNÂˆš[˜[ÝYÚHÛÛ\[š[Û•ÝYÚ™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆš[˜[]X[]HH™\ÜÛœÙT]X[]K˜Û[\
+ŒKŒ
+KÑÝX›J
+NÂˆš[˜[˜\ÙHHX^
+ÝYÚœ™\ÚYX[Ý™[™ÝÝYÚœÝ™[™Ý
+NÂˆš[˜[™\ÚYX[H
+˜\ÙH
+ˆ
+ÎH]X[]H
+ˆŒŒ
+JK˜Û[\
+ŒM‹
+KÑÝX›J
+NÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+K›Z[\ÙXÛÛ™ÔÚ[˜ÙQ\ØÚÂˆ]ØZ]‹\]Jˆ	ÝÝYÚÉËˆÂˆ	ÛY™XÞXÛWÜÝ]IÎˆ	Ü™\ÚYX[	Ëˆ	ÜÝ™[™Ý	Îˆ™\ÚYX[ˆ	Ü™\ÚYX[ÜÝ™[™Ý	Îˆ™\ÚYX[ˆ	Û\ÝÛÝ]›Ý[™ÛY\ÜØYÙWÚY	Îˆ[ˆ	Ý\]YØ]	Îˆ›ÝËˆKˆÚ\™Nˆ	ÚYHÉËˆÚ\™P\™ÜÎˆÝÝYÚYKˆ
+NÂˆ]ØZ]‹š[œÙ\
+	ÝÝYÚÛY™XÞXÛWÙ]™[ÉËÂˆ	ÚY	ÎˆÝ]ZY
+
+Kˆ	ÝÝYÚÚY	ÎˆÝYÚYˆ	Ù]™[Ý\IÎˆ	Ü™\ÜÛœÙWÜ™XÙZ]™Y	Ëˆ	ÛY\ÜØYÙWÚY	Îˆ™\ÜÛœÙSY\ÜØYÙRYˆ	Ù]Z[	Îˆ	ùå*9¢-ùmì¹îãùfç¹n¥9..ùbª9­¢9 kûï&ùab:)èúfi9ëbyo¡yâ­¹  {ï#9¦+ùd)¹ç'ù«hú)èùa¬ú+éyoíyi-9åfyîæyk£9¥m9kîz+çyîäù§§9b)9¥«xà ‰Ëˆ	ØÜ™X]YØ]	Îˆ›ÝËˆJNÂˆ™]\›ˆYNÂˆJNÂˆB‚ˆ]\™O›ÛÛˆ\UÝYÚ™\ÜÛœÙSÝ]ÛÛYP]ÛZXÊÂˆ™\]Z\™YÝš[™ÈÝYÚYˆ™\]Z\™YÝš[™ÈÝ]ÛÛYKˆ™\]Z\™YÝX›H™\ÛÛ][Û‹ˆ™\]Z\™YÝš[™È™\ÜÛœÙSY\ÜØYÙRYˆJH\Þ[˜ÈÂˆš[˜[ˆH]ØZ]]X˜\ÙNÂˆš[˜[›Ü›X[^™YÝ]ÛÛYHHÛÛœÝÂˆ	Ü™\ÛÛ™Y	Ë	Ù[™ØYÙY	Ë	ÙY™\œ™Y	Ë	Ù\ÛZ\ÜÙY	Ë	Ü™Y\™XÝY	Ë	ØXÚÛ›ÝÛYÙY	ÂˆK˜ÛÛZ[œÊÝ]ÛÛYJHÈÝ]ÛÛYHˆ	ØXÚÛ›ÝÛYÙY	ÎÂˆ™]\›ˆ‹˜[œØXÝ[Û›ÛÛŠ
+ŠH\Þ[˜ÈÂˆš[˜[]™[\HH	Ü™\ÜÛœÙWÛÝ]ÛÛYWÉ›Ü›X[^™YÝ]ÛÛYIÎÂˆš[˜[ÙY[ˆH]ØZ]‹œ]Y\žJˆ	ÝÝYÚÛY™XÞXÛWÙ]™[ÉËˆÛÛ[[œÎˆÉÚY	×KˆÚ\™Nˆ	ÝÝYÚÚYHÈS‘]™[Ý\HHÈS‘Y\ÜØYÙWÚYHÉËˆÚ\™P\™ÜÎˆÝÝYÚY]™[\K™\ÜÛœÙSY\ÜØYÙRYKˆ[Z]ˆKˆ
+NÂˆYˆ
+ÙY[‹š\Ó›Ý[\JH™]\›ˆYNÂˆš[˜[›ÝÜÈH]ØZ]‹œ]Y\žJ	ÝÝYÚÉËÚ\™Nˆ	ÚYHÉËÚ\™P\™ÜÎˆÝÝYÚYK[Z]ˆJNÂˆYˆ
+›ÝÜËš\Ñ[\JH™]\›ˆ˜[ÙNÂˆš[˜[ÝYÚHÛÛ\[š[Û•ÝYÚ™œ›ÛQŠ›ÝÜË™š\œÝ
+NÂˆš[˜[›ÝÈH]U[YK››ÝÊ
+NÂˆš[˜[ˆH™\ÛÛ][Û‹˜Û[\
+ŒKŒ
+KÑÝX›J
+NÂˆš[˜[˜\ÙHHX^
+ÝYÚœ™\ÚYX[Ý™[™ÝÝYÚœÝ™[™Ý
+NÂˆ]Hš[˜[Ýš[™ÈÝ]NÂˆ]Hš[˜[ÝX›H™\ÚYX[Âˆ]U[YOÈÛ›ÛÞ™NÂˆÝÚ]Ú
+›Ü›X[^™YÝ]ÛÛYJHÂˆØ\ÙH	Ü™\ÛÛ™Y	Î‚ˆ™\ÚYX[H
+˜\ÙH
+ˆ
+ŒÌHˆ
+ˆ:óo-¢G§²ÚîÆ­y×Vææ–ærrÂw7V66VVFVBrÂvæõ÷&W7VÇBrÂvf–ÆVBr¢Ä”Ô•B¢rrrÀ¢¶FVGWT¶W•ÒÀ¢“°¢&WGW&â&÷w2æ—4æ÷DV×G“°¢Ð ¢gWGW&SÆ–çCâWFöæöÖ÷W5FööÅW6vU6–æ6R€¢WFöæöÖ÷W5FööÄ¶–æBFööÂÀ¢FFUF–ÖR6–æ6RÀ¢’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢rrp¢4TÄT5B4õTåB‚¢’26÷Vç@¢e$ôÒWFöæöÖ÷W5ö7F–öå÷'Vç0¢t„U$RFööÅö¶–æBÒð¢äB&WVW7FVEöBãÒð¢äBvFU÷&V6öâÒvÆÆ÷vVBp¢rrrÀ¢·FööÂæ¶W’Â6–æ6RæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢&WGW&â7fÆ—FRæf—'7D–çEfÇVR‡&÷w2’óò°¢Ð ¢òòò&VÆV6W2&æFöæVB6Æ–×2v—F†÷WBÇ––ærFööÂ÷WF6öÖRFòFW6—&Rà¢òòò&÷f–FW'2–âF†—2†6R†fR"×6V6öæBF–ÖV÷WBÂ6òf—fRÖ–çWFW2—2vVÆÀ¢òòò&W–öæBfÆ–B'Vâv†–ÆR7F–ÆÂ&WfVçF–ær7&6†VB&ö6W72g&öÒ†öÆF–æp¢òòòFVGWRv–æF÷rf÷&WfW"à¢gWGW&SÆ–çCâ&V6÷fW%7FÆTWFöæöÖ÷W47F–öç2‡°¢&WV—&VBFFUF–ÖRæ÷rÀ¢&WV—&VB–çB7FFTvVæW&F–öâÀ¢&WV—&VB7G&–ærFWf–6T–BÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"ç&uWFFR€¢rrp¢UDDRWFöæöÖ÷W5ö7F–öå÷'Vç0¢4UB7FGW2ÒòÂ÷WF6öÖUö¶–æBÒòÂf–æ—6†VEöBÒòÂ'Vå÷Fö¶VâÒrp¢t„U$R7FGW2”â‚w&WVW7FVBrÂw'Vææ–ærr¢äB€¢7FFUövVæW&F–öâÃâð¢õ"FWf–6Uö–BÃâð¢õ"&WVW7FVEöBÃÒð¢¢rrrÀ¢°¢WFöæöÖ÷W47F–öå7FGW2æ6æ6VÆÆVBæ¶W’À¢WFöæöÖ÷W4÷WF6öÖT¶–æBæ6æ6VÆÆVBæ¶W’À¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢7FFTvVæW&F–öâÀ¢FWf–6T–BÀ¢æ÷rç7V'G&7B†6öç7BGW&F–öâ†Ö–çWFW3¢R’’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢“°¢Ð ¢gWGW&SÄWFöæöÖ÷W47F–öå'Vãóâ6Æ–ÔWFöæöÖ÷W47F–öâ‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ær'VåFö¶VâÀ¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’’&WGW&âçVÆÃ°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢&WGW&âF"çG&ç67F–öãÄWFöæöÖ÷W47F–öå'Vãóâ‚‡G†â’7–æ2°¢gWGW&SÅ7G&–æsâ6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢6öç7B²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òrr¢&÷w2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢Ð ¢–b†v—B6WGF–ær‚v7F—fUö'&–âr’ÓÒsrÇÀ¢v—B6WGF–ær‚wG&ç6fW%öÆö6²r’ÓÒsr’°¢&WGW&âçVÆÃ°¢Ð¢f–æÂ&Æö6¶–ætvVæW&F–öâÒv—BG†âç&uVW'’€¢%4TÄT5Be$ôÒvVæW&F–öåö¦ö'2t„U$R7FGW2”â‚wVæF–ærrÂw'Vææ–ærrÂw&WG'•÷v—Br’Ä”Ô•B"À¢“°¢–b†&Æö6¶–ætvVæW&F–öâæ—4æ÷DV×G’’&WGW&âçVÆÃ°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶–BÂWFöæöÖ÷W47F–öå7FGW2ç&WVW7FVBæ¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âçVÆÃ°¢f–æÂ&÷rÒ&÷w2æf—'7C°¢f–æÂvVæW&F–öâÒ–çBçG'•'6R†v—B6WGF–ær‚w7FFUövVæW&F–öâr’’óò°¢f–æÂFWf–6T–BÒv—B6WGF–ær‚vFWf–6Uö–Br“°¢–b‚‡&÷u²w7FFUövVæW&F–öâuÒ2–çCòóòÓ’ÒvVæW&F–öâÇÀ¢‡&÷u²vFWf–6Uö–BuÒ27G&–æsòóòrr’ÒFWf–6T–B’°¢&WGW&âçVÆÃ°¢Ð¢v—BG†âçWFFR€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢°¢w7FGW2s¢WFöæöÖ÷W47F–öå7FGW2ç'Vææ–æræ¶W’À¢w'Vå÷Fö¶Vâs¢'VåFö¶VâÀ¢vGFV×Bs¢‡&÷u²vGFV×BuÒ2–çCòóò’²À¢w7F'FVEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶–BÂWFöæöÖ÷W47F–öå7FGW2ç&WVW7FVBæ¶W•ÒÀ¢“°¢f–æÂWFFVBÒv—BG†âçVW'’€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&âWFFVBæ—4V×G’òçVÆÂ¢öWFöæöÖ÷W47F–öå'Väg&öÔF"‡WFFVBæf—'7B“°¢Ò“°¢Ð ¢òòò6öÖÖ—G2öæRFW&Ö–æÂ÷WF6öÖRVæFW"'Vâ×Fö¶VâfVæ6–ærâöæÇ’&VÀ¢òòò7V66W76gVÂ&W7VÇBÖ’×WFFRFW6—&RÂæBF†R'VâÇW2FW6—&R¥4ôâ&P¢òòò6öÖÖ—GFVB–âF†R6ÖR5Æ—FRG&ç67F–öâ6ò&V6÷fW'’6ææ÷BF÷V&ÆRÖfVVBà¢gWGW&SÆ&ööÃâ6ö×ÆWFTWFöæöÖ÷W47F–öâ‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ær'VåFö¶VâÀ¢&WV—&VBWFöæöÖ÷W47F–öå7FGW27FGW2À¢&WV—&VBWFöæöÖ÷W4÷WF6öÖT¶–æB÷WF6öÖRÀ¢&WV—&VB–çB&W7VÇD6÷VçBÀ¢FW6—&U6æ6†÷BgVæ7F–öâ„FW6—&U6æ6†÷B7W'&VçB“ò6F—6g”öå7V66W72À¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢–b‚7FGW2æ—5FW&Ö–æÂÇÀ¢7FGW2ÓÒWFöæöÖ÷W47F–öå7FGW2æ&Æö6¶VBÇÀ¢7FGW2ÓÒWFöæöÖ÷W47F–öå7FGW2æFVGWÆ–6FVBÇÀ¢'VåFö¶Vâæ—4V×G’’°¢&WGW&âfÇ6S°¢Ð¢f–æÂ7V66W76gVÂÒ7FGW2ÓÒWFöæöÖ÷W47F–öå7FGW2ç7V66VVFVBb`¢&W7VÇD6÷VçBâb`¢†÷WF6öÖRÓÒWFöæöÖ÷W4÷WF6öÖT¶–æBæ6æF–FFU7F÷&VBÇÀ¢÷WF6öÖRÓÒWFöæöÖ÷W4÷WF6öÖT¶–æBæö'6W'fF–öå7F÷&VB“°¢–b‡7FGW2ÓÒWFöæöÖ÷W47F–öå7FGW2ç7V66VVFVBbb7V66W76gVÂ’°¢&WGW&âfÇ6S°¢Ð¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂWFöæöÖ÷W47F–öå7FGW2ç'Vææ–æræ¶W’Â'VåFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âfÇ6S°¢f–æÂ&÷rÒ&÷w2æf—'7C°¢gWGW&SÅ7G&–æsâ6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂfÇVW2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢6öç7B²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&âfÇVW2æ—4V×G’òrr¢fÇVW2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢Ð¢f–æÂ7W'&VçDvVæW&F–öâÐ¢–çBçG'•'6R†v—B6WGF–ær‚w7FFUövVæW&F–öâr’’óò°¢f–æÂ7W'&VçDFWf–6RÒv—B6WGF–ær‚vFWf–6Uö–Br“°¢–b†v—B6WGF–ær‚v7F—fUö'&–âr’ÓÒsrÇÀ¢v—B6WGF–ær‚wG&ç6fW%öÆö6²r’ÓÒsrÇÀ¢‡&÷u²w7FFUövVæW&F–öâuÒ2–çCòóòÓ’Ò7W'&VçDvVæW&F–öâÇÀ¢‡&÷u²vFWf–6Uö–BuÒ27G&–æsòóòrr’Ò7W'&VçDFWf–6R’°¢&WGW&âfÇ6S°¢Ð¢f–æÂ7F'FVDBÒ&÷u²w7F'FVEöBuÒ2–çCòóð¢&÷u²w&WVW7FVEöBuÒ2–çCòóð¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢°¢w7FGW2s¢7FGW2æ¶W’À¢v÷WF6öÖUö¶–æBs¢÷WF6öÖRæ¶W’À¢w&W7VÇEö6÷VçBs¢&W7VÇD6÷VçBæ6Æ×ƒÂ’À¢vf–æ—6†VEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vÆFVæ7•ö'V6¶WBs¢WFöæöÖ÷W4ÆFVæ7”'V6¶WB€¢–ç7FçBæF–ffW&Væ6R„FFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚‡7F'FVDB’’À¢’À¢w'Vå÷Fö¶Vâs¢rrÀ¢–b‡7V66W76gVÂbb6F—6g”öå7V66W72ÒçVÆÂ¢vFW6—&U÷6F—6f–VEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂWFöæöÖ÷W47F–öå7FGW2ç'Vææ–æræ¶W’Â'VåFö¶VåÒÀ¢“°¢–b†6†ævVBÒ’&WGW&âfÇ6S°¢–b‡7V66W76gVÂbb6F—6g”öå7V66W72ÒçVÆÂ’°¢f–æÂFW6—&U&÷w2Òv—BG†âçVW'’€¢vFW6—&U÷7FFRrÀ¢v†W&S¢v–BÒrÀ¢Æ–Ö—C¢À¢“°¢f–æÂ7W'&VçBÒFW6—&U&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR†FW6—&U&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂæW‡BÒ6F—6g”öå7V66W72†7W'&VçB“°¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢æW‡BæVæ6öFR‚’À¢wWFFVEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð¢&WGW&âG'VS°¢Ò“°¢Ð ¢òòò7F÷&W2V&Æ–26æF–FFW2Â6öÖÖ—G2F†R7V66W76gVÂ÷WF6öÖRÂæBÆ–W2F†P¢òòò6ÖÆÂFW6—&R6F—6f7F–öâ–âöæRG&ç67F–öââGWÆ–6FRÖöæÇ’&W7VÇG2&P¢òòò&VÂæò×&W7VÇBæBæWfW"6F—6g’FW6—&Rà¢gWGW&SÆ–çCâ6ö×ÆWFUV&Æ–5vV$F—66÷fW'’‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ær'VåFö¶VâÀ¢&WV—&VBÆ—7CÅV&Æ–5vV$6æF–FFTG&gCâ6æF–FFW2À¢&WV—&VBFW6—&U6æ6†÷BgVæ7F–öâ„FW6—&U6æ6†÷B7W'&VçB’6F—6g”öå7V66W72À¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’ÇÂ6æF–FFW2æ—4V×G’’&WGW&â°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢&WGW&âF"çG&ç67F–öãÆ–çCâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòäBFööÅö¶–æBÒòrÀ¢v†W&T&w3¢°¢–BÀ¢WFöæöÖ÷W47F–öå7FGW2ç'Vææ–æræ¶W’À¢'VåFö¶VâÀ¢WFöæöÖ÷W5FööÄ¶–æBçV&Æ–5vV"æ¶W’À¢ÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&â°¢f–æÂ&÷rÒ&÷w2æf—'7C° ¢gWGW&SÅ7G&–æsâ6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂfÇVW2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢6öç7B²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&âfÇVW2æ—4V×G’òrr¢fÇVW2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢Ð ¢f–æÂ7W'&VçDvVæW&F–öâÐ¢–çBçG'•'6R†v—B6WGF–ær‚w7FFUövVæW&F–öâr’’óò°¢f–æÂ7W'&VçDFWf–6RÒv—B6WGF–ær‚vFWf–6Uö–Br“°¢–b†v—B6WGF–ær‚v7F—fUö'&–âr’ÓÒsrÇÀ¢v—B6WGF–ær‚wG&ç6fW%öÆö6²r’ÓÒsrÇÀ¢‡&÷u²w7FFUövVæW&F–öâuÒ2–çCòóòÓ’Ò7W'&VçDvVæW&F–öâÇÀ¢‡&÷u²vFWf–6Uö–BuÒ27G&–æsòóòrr’Ò7W'&VçDFWf–6R’°¢&WGW&â°¢Ð¢òòF†R…EE&WVW7B'Vç2÷WG6–FR5Æ—FRâ&RÖ6†V6²F†RW6W"ÖvVæW&F–öà¢òòfVæ6RB6öÖÖ—BF–ÖR6ò6†B7F'FVBGW&–ærF†B&WVW7BÇv—2v–ç2à¢f–æÂ&Æö6¶–ætvVæW&F–öâÒv—BG†âç&uVW'’€¢%4TÄT5Be$ôÒvVæW&F–öåö¦ö'2t„U$R7FGW2”â‚wVæF–ærrÂw'Vææ–ærrÂw&WG'•÷v—Br’Ä”Ô•B"À¢“°¢–b†&Æö6¶–ætvVæW&F–öâæ—4æ÷DV×G’’&WGW&â° ¢v—BG†âæFVÆWFR€¢wV&Æ–5÷vV%ö6æF–FFW2rÀ¢v†W&S¢vW‡—&W5öBÃÒòrÀ¢v†W&T&w3¢¶–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢f"7F÷&VBÒ°¢f÷"†f–æÂ6æF–FFR–â6æF–FFW2çF¶Rƒ2’’°¢f–æÂW&’ÒW&’çG'•'6R†6æF–FFRçW&Â“°¢–b†6æF–FFRæf–ævW'&–çBæÆVæwF‚ÒcBÇÀ¢6æF–FFRçF—FÆRçG&–Ò‚’æ—4V×G’ÇÀ¢6æF–FFRç&÷f–FW"çG&–Ò‚’æ—4V×G’ÇÀ¢6æF–FFRç6÷W&6TFöÖ–âçG&–Ò‚’æ—4V×G’ÇÀ¢W&’ÓÒçVÆÂÇÀ¢W&’ç66†VÖRÒv‡GG2rÇÀ¢W&’æ†÷7BÒ6æF–FFRç6÷W&6TFöÖ–âÇÀ¢6æF–FFRç6fWG•7FFRÒwVçG'W7FVE÷V&Æ–2rÇÀ¢6æF–FFRæW‡—&W4Bæ—4&Vf÷&R†–ç7FçB’’°¢6öçF–çVS°¢Ð¢f–æÂ–ç6W'FVBÒv—BG†âæ–ç6W'B€¢wV&Æ–5÷vV%ö6æF–FFW2rÀ¢°¢v–Bs¢÷WV–BçcB‚’À¢vf–ævW'&–çBs¢6æF–FFRæf–ævW'&–çBÀ¢wF—FÆRs¢6æF–FFRçF—FÆRÀ¢w7VÖÖ'’s¢6æF–FFRç7VÖÖ'’À¢wW&Âs¢6æF–FFRçW&ÂÀ¢w6÷W&6UöFöÖ–âs¢6æF–FFRç6÷W&6TFöÖ–âÀ¢w&÷f–FW"s¢6æF–FFRç&÷f–FW"À¢vÆæwVvRs¢6æF–FFRæÆæwVvRÀ¢vG&—fUö¶W’s¢6æF–FFRæG&—fT¶W’À¢v–çFVçEö7F–öâs¢6æF–FFRæ–çFVçD7F–öâÀ¢v–çFW&W7Eö¶W’s¢6æF–FFRæ–çFW&W7D¶W’À¢w6fWG•÷7FFRs¢6æF–FFRç6fWG•7FFRÀ¢vÆ–fV7–6ÆU÷7FFRs¢wVç&VBrÀ¢v7F–öå÷'Våö–Bs¢–BÀ¢vF—66÷fW&VEöBs¢6æF–FFRæF—66÷fW&VDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vW‡—&W5öBs¢6æF–FFRæW‡—&W4BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢–b†–ç6W'FVBÒ’7F÷&VB²³°¢Ð ¢f–æÂ7F'FVDBÒ&÷u²w7F'FVEöBuÒ2–çCòóð¢&÷u²w&WVW7FVEöBuÒ2–çCòóð¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ7V66W76gVÂÒ7F÷&VBâ°¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢°¢w7FGW2s¢7V66W76gVÀ¢òWFöæöÖ÷W47F–öå7FGW2ç7V66VVFVBæ¶W¢¢WFöæöÖ÷W47F–öå7FGW2ææõ&W7VÇBæ¶W’À¢v÷WF6öÖUö¶–æBs¢7V66W76gVÀ¢òWFöæöÖ÷W4÷WF6öÖT¶–æBæ6æF–FFU7F÷&VBæ¶W¢¢WFöæöÖ÷W4÷WF6öÖT¶–æBææõW6VgVÅ&W7VÇBæ¶W’À¢w&W7VÇEö6÷VçBs¢7F÷&VBÀ¢vf–æ—6†VEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vÆFVæ7•ö'V6¶WBs¢WFöæöÖ÷W4ÆFVæ7”'V6¶WB€¢–ç7FçBæF–ffW&Væ6R„FFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚‡7F'FVDB’’À¢’À¢w'Vå÷Fö¶Vâs¢rrÀ¢–b‡7V66W76gVÂ¢vFW6—&U÷6F—6f–VEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂWFöæöÖ÷W47F–öå7FGW2ç'Vææ–æræ¶W’Â'VåFö¶VåÒÀ¢“°¢–b†6†ævVBÒ’°¢F‡&÷r7FFTW'&÷"‚wV&Æ–5÷vV%÷'VåöÆ÷7Eö&Vf÷&Uö6öÖÖ—Br“°¢Ð ¢–b‡7V66W76gVÂ’°¢f–æÂFW6—&U&÷w2Òv—BG†âçVW'’€¢vFW6—&U÷7FFRrÀ¢v†W&S¢v–BÒrÀ¢Æ–Ö—C¢À¢“°¢f–æÂ7W'&VçBÒFW6—&U&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR†FW6—&U&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂæW‡BÒ6F—6g”öå7V66W72†7W'&VçB“°¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢æW‡BæVæ6öFR‚’À¢wWFFVEöBs¢–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð ¢v—BG†âç&tFVÆWFR‚rrp¢DTÄUDRe$ôÒV&Æ–5÷vV%ö6æF–FFW0¢t„U$R–BäõB”â€¢4TÄT5B–Be$ôÒV&Æ–5÷vV%ö6æF–FFW0¢õ$DU"%’F—66÷fW&VEöBDU40¢Ä”Ô•B#C ¢¢rrr“°¢&WGW&â7F÷&VC°¢Ò“°¢Ð ¢òòòW‡÷6W2öæÇ’6ÖÆÂÂ&÷VæFVBV&Æ–2×vV"v÷&¶–ær6WBFòF†R&ö×Bà¢òòð¢òòò&VF–ær6æF–FFRÖ&·2—B&Wf–WvVBÂ'WBFöW2æ÷B7&VFRÖVÖ÷'’À¢òòòF†÷Vv‡BÂÖW76vRÂ÷"&ö7F—fRFVÆ—fW'’&WVW7Bà¢gWGW&SÄÆ—7CÅV&Æ–5vV$6öçFW‡D—FVÓãâ7F—fUV&Æ–5vV$6öçFW‡B‡°¢FFUF–ÖSòæ÷rÀ¢–çBÆ–Ö—BÒ2À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢f–æÂ6fTÆ–Ö—BÒÆ–Ö—Bæ6Æ×ƒÂ2’çFô–çB‚“°¢&WGW&âF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢wV&Æ–5÷vV%ö6æF–FFW2rÀ¢6öÇVÖç3¢6öç7B°¢v–BrÀ¢wF—FÆRrÀ¢w7VÖÖ'’rÀ¢wW&ÂrÀ¢w6÷W&6UöFöÖ–ârÀ¢w&÷f–FW"rÀ¢vF—66÷fW&VEöBrÀ¢w6fWG•÷7FFRrÀ¢ÒÀ¢v†W&S¢&W‡—&W5öBâòäBÆ–fV7–6ÆU÷7FFRÒvF—66&FVBr"À¢v†W&T&w3¢¶–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢÷&FW$'“ ¢$44Rt„TâÆ–fV7–6ÆU÷7FFRÒwVç&VBrD„TâTÅ4RTäBÂF—66÷fW&VEöBDU42"À¢Æ–Ö—C¢6fTÆ–Ö—BÀ¢“°¢–b‡&÷w2æ—4æ÷DV×G’’°¢f–æÂ–G2Ò&÷w2æÖ‚‡&÷r’Óâ&÷u²v–BuÒ27G&–ær’çFôÆ—7B‚“°¢f–æÂÆ6V†öÆFW'2ÒÆ—7Bæf–ÆÆVB†–G2æÆVæwF‚Âsòr’æ¦ö–â‚rÂr“°¢v—BG†âç&uWFFR€¢rrp¢UDDRV&Æ–5÷vV%ö6æF–FFW0¢4UBÆ–fV7–6ÆU÷7FFRÒw&Wf–WvVBrÀ¢Æ7E÷f–WvVEöBÒòÀ¢f–Wuö6÷VçBÒf–Wuö6÷VçB²¢t„U$R–B”â‚GÆ6V†öÆFW'2¢rrrÀ¢¶–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚Âââæ–G5ÒÀ¢“°¢Ð¢&WGW&â&÷w0¢æÖ‚‡&÷r’ÓâV&Æ–5vV$6öçFW‡D—FVÒ€¢–C¢&÷u²v–BuÒ27G&–ærÀ¢F—FÆS¢&÷u²wF—FÆRuÒ27G&–æsòóòrrÀ¢7VÖÖ'“¢&÷u²w7VÖÖ'’uÒ27G&–æsòóòrrÀ¢W&Ã¢&÷u²wW&ÂuÒ27G&–æsòóòrrÀ¢6÷W&6TFöÖ–ã¢&÷u²w6÷W&6UöFöÖ–âuÒ27G&–æsòóòrrÀ¢&÷f–FW#¢&÷u²w&÷f–FW"uÒ27G&–æsòóòrrÀ¢F—66÷fW&VDC¢FFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚€¢‡&÷u²vF—66÷fW&VEöBuÒ2çVÓò“òçFô–çB‚’óòÀ¢’À¢6fWG•7FFS ¢&÷u²w6fWG•÷7FFRuÒ27G&–æsòóòwVçG'W7FVE÷V&Æ–2rÀ¢’¢çFôÆ—7B†w&÷v&ÆS¢fÇ6R“°¢Ò“°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâWFöæöÖ÷W47F–öäF–væ÷7F–57FG2‡°¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢f–æÂ6÷VçG2Òv—BF"ç&uVW'’‚rrp¢4TÄT5B7FGW2Â4õTåB‚¢’26÷Vç@¢e$ôÒWFöæöÖ÷W5ö7F–öå÷'Vç0¢u$õU%’7FGW0¢rrr“°¢f–æÂ'•7FGW2ÒÅ7G&–ærÂ–çCç°¢f÷"†f–æÂ7FGW2–âWFöæöÖ÷W47F–öå7FGW2çfÇVW2’7FGW2æ¶W“¢À¢Ó°¢f÷"†f–æÂ&÷r–â6÷VçG2’°¢'•7FGW5·&÷u²w7FGW2uÒ27G&–æsòóòruÒÐ¢‡&÷u²v6÷VçBuÒ2çVÓò“òçFô–çB‚’óò°¢Ð¢f–æÂFööÄ6÷VçG2Òv—BF"ç&uVW'’‚rrp¢4TÄT5BFööÅö¶–æBÂ7FGW2Â4õTåB‚¢’26÷Vç@¢e$ôÒWFöæöÖ÷W5ö7F–öå÷'Vç0¢u$õU%’FööÅö¶–æBÂ7FGW0¢rrr“°¢f–æÂ'•FööÂÒÅ7G&–ærÂÖÅ7G&–ærÂ–çCãç·Ó°¢f÷"†f–æÂ&÷r–âFööÄ6÷VçG2’°¢f–æÂFööÂÒ&÷u²wFööÅö¶–æBuÒ27G&–æsòóòrs°¢f–æÂ7FGW2Ò&÷u²w7FGW2uÒ27G&–æsòóòrs°¢'•FööÂçWD–d'6VçB‡FööÂÂ‚’ÓâÅ7G&–ærÂ–çCç·Ò•·7FGW5ÒÐ¢‡&÷u²v6÷VçBuÒ2çVÓò“òçFô–çB‚’óò°¢Ð¢f–æÂÆ7E&÷w2Òv—BF"çVW'’€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢6öÇVÖç3¢6öç7B°¢wFööÅö¶–æBrÀ¢w7FGW2rÀ¢vvFU÷&V6öârÀ¢v÷WF6öÖUö¶–æBrÀ¢w&WVW7FVEöBrÀ¢w7F'FVEöBrÀ¢vf–æ—6†VEöBrÀ¢vÆFVæ7•ö'V6¶WBrÀ¢w&W7VÇEö6÷VçBrÀ¢w67&VVåö–çFW&7F—fRrÀ¢vFWf–6UöÆö6¶VBrÀ¢v'VFvWEöÆ–Ö—BrÀ¢v'VFvWE÷&VÖ–æ–ærrÀ¢vFVGWUö6÷VçBrÀ¢ÒÀ¢÷&FW$'“¢w&WVW7FVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢f–æÂ†÷W%7F'BÒ–ç7FçBç7V'G&7B†6öç7BGW&F–öâ††÷W'3¢’“°¢f–æÂ67&VVå&÷w2Òv—BF"ç&uVW'’€¢rrp¢4TÄT5B4õTåB‚¢’26÷Vç@¢e$ôÒWFöæöÖ÷W5ö7F–öå÷'Vç0¢t„U$RFööÅö¶–æBÒð¢äB&WVW7FVEöBãÒð¢äBvFU÷&V6öâÒð¢rrrÀ¢°¢WFöæöÖ÷W5FööÄ¶–æBç67&VVäö'6W'fF–öâæ¶W’À¢†÷W%7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢WFöæöÖ÷W4vFU&V6öâæÆÆ÷vVBæ¶W’À¢ÒÀ¢“°¢f–æÂ67&VVåW6VBÒ7fÆ—FRæf—'7D–çEfÇVR‡67&VVå&÷w2’óò°¢f–æÂF•7F'BÒ–ç7FçBç7V'G&7B†6öç7BGW&F–öâ††÷W'3¢#B’“°¢f–æÂV&Æ–5vV%&÷w2Òv—BF"ç&uVW'’€¢rrp¢4TÄT5B4õTåB‚¢’26÷Vç@¢e$ôÒWFöæöÖ÷W5ö7F–öå÷'Vç0¢t„U$RFööÅö¶–æBÒð¢äB&WVW7FVEöBãÒð¢äBvFU÷&V6öâÒð¢rrrÀ¢°¢WFöæöÖ÷W5FööÄ¶–æBçV&Æ–5vV"æ¶W’À¢F•7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢WFöæöÖ÷W4vFU&V6öâæÆÆ÷vVBæ¶W’À¢ÒÀ¢“°¢f–æÂV&Æ–5vV%W6VBÒ7fÆ—FRæf—'7D–çEfÇVR‡V&Æ–5vV%&÷w2’óò°¢f–æÂGvô†÷W%&ö7F—fRÒv—B&ö7F—fT6÷VçE6–æ6R†6öç7BGW&F–öâ††÷W'3¢"’“°¢f–æÂF•&ö7F—fRÒv—B&ö7F—fT6÷VçE6–æ6R†6öç7BGW&F–öâ††÷W'3¢#B’“°¢ÖÅ7G&–ærÂö&¦V7CóãòÆ7C°¢–b†Æ7E&÷w2æ—4æ÷DV×G’’°¢f–æÂ&÷rÒÆ7E&÷w2æf—'7C°¢Æ7BÒ°¢wFööÂs¢&÷u²wFööÅö¶–æBuÒóòrrÀ¢w7FGW2s¢&÷u²w7FGW2uÒóòrrÀ¢vvFU&V6öâs¢&÷u²vvFU÷&V6öâuÒóòrrÀ¢v÷WF6öÖRs¢&÷u²v÷WF6öÖUö¶–æBuÒóòrrÀ¢w&WVW7FVDBs¢&÷u²w&WVW7FVEöBuÒóòÀ¢w7F'FVDBs¢&÷u²w7F'FVEöBuÒóòÀ¢vf–æ—6†VDBs¢&÷u²vf–æ—6†VEöBuÒóòÀ¢vÆFVæ7”'V6¶WBs¢&÷u²vÆFVæ7•ö'V6¶WBuÒóòrrÀ¢w&W7VÇD6÷VçBs¢&÷u²w&W7VÇEö6÷VçBuÒóòÀ¢w67&VVä–çFW&7F—fRs¢&÷u²w67&VVåö–çFW&7F—fRuÒÓÒÀ¢vFWf–6TÆö6¶VBs¢&÷u²vFWf–6UöÆö6¶VBuÒÓÒÀ¢v'VFvWDÆ–Ö—Bs¢&÷u²v'VFvWEöÆ–Ö—BuÒÀ¢v'VFvWE&VÖ–æ–ærs¢&÷u²v'VFvWE÷&VÖ–æ–æruÒÀ¢vFVGWT6÷VçBs¢&÷u²vFVGWUö6÷VçBuÒóòÀ¢Ó°¢Ð¢&WGW&â°¢w†6Rs¢wV&Æ–5÷vV%÷66†VGVÆVBrÀ¢v'•7FGW2s¢'•7FGW2À¢v'•FööÂs¢'•FööÂÀ¢vÆ7Bs¢Æ7BÀ¢v'VFvWG2s¢°¢wV&Æ–5vV"s¢°¢v6öæf–wW&VBs¢G'VRÀ¢wv–æF÷tÖ–çWFW2s¢CCÀ¢vÆ–Ö—Bs¢BÀ¢wW6VBs¢V&Æ–5vV%W6VBÀ¢w&VÖ–æ–ærs¢ƒBÒV&Æ–5vV%W6VB’æ6Æ×ƒÂB’À¢ÒÀ¢w67&VVäö'6W'fF–öâs¢°¢v6öæf–wW&VBs¢G'VRÀ¢wv–æF÷tÖ–çWFW2s¢cÀ¢vÆ–Ö—Bs¢bÀ¢wW6VBs¢67&VVåW6VBÀ¢w&VÖ–æ–ærs¢ƒbÒ67&VVåW6VB’æ6Æ×ƒÂb’À¢ÒÀ¢wf–FVõVæFW'7FæF–ærs¢°¢v6öæf–wW&VBs¢fÇ6RÀ¢w&VÖ–æ–ærs¢çVÆÂÀ¢ÒÀ¢w&ö7F—fT6öçF7Bs¢°¢wGvô†÷W$Æ–Ö—Bs¢"À¢wGvô†÷W%W6VBs¢Gvô†÷W%&ö7F—fRÀ¢wGvô†÷W%&VÖ–æ–ærs¢ƒ"ÒGvô†÷W%&ö7F—fR’æ6Æ×ƒÂ"’À¢vF”Æ–Ö—Bs¢‚À¢vF•W6VBs¢F•&ö7F—fRÀ¢vF•&VÖ–æ–ærs¢ƒ‚ÒF•&ö7F—fR’æ6Æ×ƒÂ‚’À¢w6W&FTFVÆ—fW'”vFRs¢G'VRÀ¢ÒÀ¢ÒÀ¢w&—f7’s¢°¢v–çFVçE&V6öä–æ6ÇVFVBs¢fÇ6RÀ¢wF†÷Vv‡D&öG”–æ6ÇVFVBs¢fÇ6RÀ¢wVW'”–æ6ÇVFVBs¢fÇ6RÀ¢wvV$6öçFVçD–æ6ÇVFVBs¢fÇ6RÀ¢w67&VVä6öçFVçD–æ6ÇVFVBs¢fÇ6RÀ¢wW&Ä–æ6ÇVFVBs¢fÇ6RÀ¢v66÷VçD–æ6ÇVFVBs¢fÇ6RÀ¢ÒÀ¢Ó°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâV&Æ–5vV$6æF–FFTF–væ÷7F–57FG2‡°¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢f–æÂ6÷VçG2Òv—BF"ç&uVW'’‚rrp¢4TÄT5BÆ–fV7–6ÆU÷7FFRÂ4õTåB‚¢’26÷Vç@¢e$ôÒV&Æ–5÷vV%ö6æF–FFW0¢t„U$RW‡—&W5öBâð¢u$õU%’Æ–fV7–6ÆU÷7FFP¢rrrÂ¶–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6…Ò“°¢f–æÂ'”Æ–fV7–6ÆRÒÅ7G&–ærÂ–çCç·Ó°¢f÷"†f–æÂ&÷r–â6÷VçG2’°¢'”Æ–fV7–6ÆU·&÷u²vÆ–fV7–6ÆU÷7FFRuÒ27G&–æsòóòruÒÐ¢‡&÷u²v6÷VçBuÒ2çVÓò“òçFô–çB‚’óò°¢Ð¢f–æÂW‡—&VBÒ7fÆ—FRæf—'7D–çEfÇVR†v—BF"ç&uVW'’€¢u4TÄT5B4õTåB‚¢’26÷VçBe$ôÒV&Æ–5÷vV%ö6æF–FFW2t„U$RW‡—&W5öBÃÒòrÀ¢¶–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢’’óð¢°¢f–æÂÆ7E&÷w2Òv—BF"çVW'’€¢wV&Æ–5÷vV%ö6æF–FFW2rÀ¢6öÇVÖç3¢6öç7B°¢w&÷f–FW"rÀ¢w6÷W&6UöFöÖ–ârÀ¢vÆæwVvRrÀ¢vG&—fUö¶W’rÀ¢v–çFVçEö7F–öârÀ¢w6fWG•÷7FFRrÀ¢vÆ–fV7–6ÆU÷7FFRrÀ¢vF—66÷fW&VEöBrÀ¢vW‡—&W5öBrÀ¢wf–Wuö6÷VçBrÀ¢ÒÀ¢÷&FW$'“¢vF—66÷fW&VEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢f–æÂW‡G&6÷W&6TÆ–æW2Ð¢†v—BvWE6WGF–ær‚wV&Æ–5÷vV%öW‡G&÷6÷W&6W2r’óòrr¢ç7Æ—B…&VtW‡‡"uµÇ%ÆåÒ²r’¢çv†W&R‚†Æ–æR’ÓâÆ–æRçG&–Ò‚’æ—4æ÷DV×G’¢æÆVæwFƒ°¢&WGW&â°¢vVæ&ÆVBs¢†v—BvWE6WGF–ær‚wV&Æ–5÷vV%öF—66÷fW'•öVæ&ÆVBr’’ÒsrÀ¢w&÷f–FW"s¢Æ7E&÷w2æ—4V×G¢òwFf–Ç•öÆ–W&VBp¢¢Æ7E&÷w2æf—'7E²w&÷f–FW"uÒóòwFf–Ç•öÆ–W&VBrÀ¢w&÷f–FW$ÖöFRs¢vvÆö&Å÷ÇW5öFF—F—fU÷6÷W&6W5÷v—F…÷v–¶–ÖVF–öfÆÆ&6²rÀ¢vvæW46ö×7F–öäVæ&ÆVBs ¢†v—BvWE6WGF–ær‚vvæW5÷vV%ö6ö×7F–öåöVæ&ÆVBr’’ÒsrÀ¢vW‡G&6÷W&6T6÷VçBs¢W‡G&6÷W&6TÆ–æW2æ6Æ×ƒÂR’À¢v7F—fT6÷VçBs¢'”Æ–fV7–6ÆRçfÇVW2æföÆCÆ–çCâƒÂ†Â"’Óâ²"’À¢vW‡—&VD6÷VçBs¢W‡—&VBÀ¢v'”Æ–fV7–6ÆRs¢'”Æ–fV7–6ÆRÀ¢vÆ7Bs¢Æ7E&÷w2æ—4V×G¢òçVÆÀ¢¢°¢w&÷f–FW"s¢Æ7E&÷w2æf—'7E²w&÷f–FW"uÒóòrrÀ¢w6÷W&6TFöÖ–âs¢Æ7E&÷w2æf—'7E²w6÷W&6UöFöÖ–âuÒóòrrÀ¢vÆæwVvRs¢Æ7E&÷w2æf—'7E²vÆæwVvRuÒóòrrÀ¢vG&—fRs¢Æ7E&÷w2æf—'7E²vG&—fUö¶W’uÒóòrrÀ¢v–çFVçD7F–öâs¢Æ7E&÷w2æf—'7E²v–çFVçEö7F–öâuÒóòrrÀ¢w6fWG•7FFRs¢Æ7E&÷w2æf—'7E²w6fWG•÷7FFRuÒóòrrÀ¢vÆ–fV7–6ÆRs¢Æ7E&÷w2æf—'7E²vÆ–fV7–6ÆU÷7FFRuÒóòrrÀ¢vF—66÷fW&VDBs¢Æ7E&÷w2æf—'7E²vF—66÷fW&VEöBuÒóòÀ¢vW‡—&W4Bs¢Æ7E&÷w2æf—'7E²vW‡—&W5öBuÒóòÀ¢wf–Wt6÷VçBs¢Æ7E&÷w2æf—'7E²wf–Wuö6÷VçBuÒóòÀ¢ÒÀ¢w'VçF–ÖRs¢°¢vÆ7DGFV×DBs ¢–çBçG'•'6R†v—BvWE6WGF–ær‚vÆ7E÷V&Æ–5÷vV%öF—66÷fW'•öBr’óòrr’óòÀ¢vÆ7E7V66W74Bs¢–çBçG'•'6R€¢v—BvWE6WGF–ær‚vÆ7E÷V&Æ–5÷vV%öF—66÷fW'•÷7V66W75öBr’óòrrÀ¢’óð¢À¢vÆ7D÷WF6öÖRs ¢v—BvWE6WGF–ær‚vÆ7E÷V&Æ–5÷vV%öF—66÷fW'•ö÷WF6öÖRr’óòvæWfW"rÀ¢vÆ7DW'&÷"s¢v—BvWE6WGF–ær‚vÆ7E÷V&Æ–5÷vV%öF—66÷fW'•öW'&÷"r’óòrrÀ¢ÒÀ¢w&—f7’s¢°¢wF—FÆT–æ6ÇVFVBs¢fÇ6RÀ¢w7VÖÖ'”–æ6ÇVFVBs¢fÇ6RÀ¢wW&Ä–æ6ÇVFVBs¢fÇ6RÀ¢wVW'”–æ6ÇVFVBs¢fÇ6RÀ¢v–çFW&W7D¶W”–æ6ÇVFVBs¢fÇ6RÀ¢wF†÷Vv‡D&öG”–æ6ÇVFVBs¢fÇ6RÀ¢ÒÀ¢Ó°¢Ð ¢WFöæöÖ÷W47F–öå'VâöWFöæöÖ÷W47F–öå'Väg&öÔF"€¢ÖÅ7G&–ærÂö&¦V7Cóâ&÷rÀ¢’°¢FFUF–ÖSòF–ÖR…7G&–ær¶W’’Óâ&÷u¶¶W•ÒÓÒçVÆÀ¢òçVÆÀ¢¢FFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚‡&÷u¶¶W•Ò2–çB“°¢f–æÂ7FGW2ÒWFöæöÖ÷W47F–öå7FGW2çfÇVW2æf—'7Ev†W&R€¢‡fÇVR’ÓâfÇVRæ¶W’ÓÒ‡&÷u²w7FGW2uÒ27G&–æsòóòrr’À¢÷$VÇ6S¢‚’ÓâWFöæöÖ÷W47F–öå7FGW2æf–ÆVBÀ¢“°¢f–æÂvFRÒWFöæöÖ÷W4vFU&V6öâçfÇVW2æf—'7Ev†W&R€¢‡fÇVR’ÓâfÇVRæ¶W’ÓÒ‡&÷u²vvFU÷&V6öâuÒ27G&–æsòóòrr’À¢÷$VÇ6S¢‚’ÓâWFöæöÖ÷W4vFU&V6öâç&÷f–FW%Væf–Æ&ÆRÀ¢“°¢f–æÂ÷WF6öÖRÒWFöæöÖ÷W4÷WF6öÖT¶–æBçfÇVW2æf—'7Ev†W&R€¢‡fÇVR’ÓâfÇVRæ¶W’ÓÒ‡&÷u²v÷WF6öÖUö¶–æBuÒ27G&–æsòóòrr’À¢÷$VÇ6S¢‚’ÓâWFöæöÖ÷W4÷WF6öÖT¶–æBææöæRÀ¢“°¢&WGW&âWFöæöÖ÷W47F–öå'Vâ€¢–C¢&÷u²v–BuÒ27G&–ærÀ¢FVGWT¶W“¢&÷u²vFVGWUö¶W’uÒ27G&–ærÀ¢FööÃ¢WFöæöÖ÷W5FööÄ¶–æD¶W’æg&öÔ¶W’‡&÷u²wFööÅö¶–æBuÒ27G&–æsòóòrr’À¢–çFVçD7F–öã¢&÷u²v–çFVçEö7F–öâuÒ27G&–æsòóòrrÀ¢G&—fT¶W“¢&÷u²vG&—fUö¶W’uÒ27G&–æsòóòrrÀ¢–çFVçE66÷&S¢‡&÷u²v–çFVçE÷66÷&RuÒ2çVÓò“òçFôF÷V&ÆR‚’óòÀ¢&V6öå6÷W&6S¢&÷u²w&V6öå÷6÷W&6RuÒ27G&–æsòóòrrÀ¢F†÷Vv‡D–C¢&÷u²wF†÷Vv‡Eö–BuÒ27G&–æsòÀ¢7FGW3¢7FGW2À¢vFU&V6öã¢vFRÀ¢÷WF6öÖS¢÷WF6öÖRÀ¢&WVW7FVDC¢F–ÖR‚w&WVW7FVEöBr’óòFFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚ƒ’À¢7F'FVDC¢F–ÖR‚w7F'FVEöBr’À¢f–æ—6†VDC¢F–ÖR‚vf–æ—6†VEöBr’À¢'VåFö¶Vã¢&÷u²w'Vå÷Fö¶VâuÒ27G&–æsòóòrrÀ¢GFV×C¢&÷u²vGFV×BuÒ2–çCòóòÀ¢7FFTvVæW&F–öã¢&÷u²w7FFUövVæW&F–öâuÒ2–çCòóòÀ¢FWf–6T–C¢&÷u²vFWf–6Uö–BuÒ27G&–æsòóòrrÀ¢67&VVä–çFW&7F—fS¢&÷u²w67&VVåö–çFW&7F—fRuÒÓÒÀ¢FWf–6TÆö6¶VC¢&÷u²vFWf–6UöÆö6¶VBuÒÓÒÀ¢ÆFVæ7”'V6¶WC¢&÷u²vÆFVæ7•ö'V6¶WBuÒ27G&–æsòóòrrÀ¢&W7VÇD6÷VçC¢&÷u²w&W7VÇEö6÷VçBuÒ2–çCòóòÀ¢FW6—&U6F—6f–VDC¢F–ÖR‚vFW6—&U÷6F—6f–VEöBr’À¢“°¢Ð ¢gWGW&SÇfö–Câ6fTFW6—&R„FW6—&U6æ6†÷B6æ6†÷B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢6æ6†÷BæVæ6öFR‚’À¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð ¢òòòFöÖ–6ÆÇ’&VBÖÖöF–g’×w&—FRF†R6–ævÆRFW6—&R6æ6†÷Bâ×VÇF—ÆRfÇWGFW ¢òòòVæv–æW2…T’²f÷&Vw&÷VæB&6¶w&÷VæBVæv–æR’6âF÷V6‚–ææW"7FFRÂ6ò¢òòòÆ–âÆöBföÆÆ÷vVB'’6fRv÷VÆB÷F†W'v—6RÆ÷6R6öæ7W'&VçBVÇ6W2à¢gWGW&SÄFW6—&U6æ6†÷Câ×WFFTFW6—&R€¢FW6—&U6æ6†÷BgVæ7F–öâ„FW6—&U6æ6†÷B7W'&VçB’G&ç6f÷&ÒÀ¢’7–æ2°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çG&ç67F–öãÄFW6—&U6æ6†÷Câ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢vFW6—&U÷7FFRrÀ¢v†W&S¢v–BÒrÀ¢Æ–Ö—C¢À¢“°¢f–æÂ7W'&VçBÒ&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR‡&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂæW‡BÒG&ç6f÷&Ò†7W'&VçB“°¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢æW‡BæVæ6öFR‚’À¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢&WGW&âæW‡C°¢Ò“°¢Ð ¢gWGW&SÆ&ööÃâ–ç6W'D6öçfW'6F–öå7VÖÖ'’‡°¢&WV—&VBFFUF–ÖRg&öÔBÀ¢&WV—&VBFFUF–ÖRFôBÀ¢&WV—&VB7G&–ær7VÖÖ'’À¢Æ—7CÅ7G&–æsâ¶W•ö–çG2Ò6öç7BµÒÀ¢Ò’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒ7VÖÖ'’çG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VBæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–BÒ÷WV–BçcB‚“°¢f–æÂ–ç6W'FVBÒv—BF"æ–ç6W'B€¢v6öçfW'6F–öå÷7VÖÖ&–W2rÀ¢°¢v–Bs¢–BÀ¢vg&öÕöBs¢g&öÔBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wFõöBs¢FôBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w7VÖÖ'’s¢æ÷&ÖÆ—¦VBÀ¢v¶W•÷ö–çG2s¢¶W•ö–çG2çF¶Rƒ"’æ¦ö–â‚wÂr’À¢v7&VFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢òò7fÆ—FR&WGW&ç2f÷"â–væ÷&VB–ç6W'BöâF†RVæ—VR&ævR–æFW‚à¢&WGW&â–ç6W'FVBÒ°¢Ð ¢gWGW&SÄÆ—7CÄ6öçfW'6F–öå7VÖÖ'“ãâ&V6VçD6öçfW'6F–öå7VÖÖ&–W2‡°¢–çBÆ–Ö—BÒBÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢v6öçfW'6F–öå÷7VÖÖ&–W2rÀ¢÷&FW$'“¢wFõöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ„6öçfW'6F–öå7VÖÖ'’æg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÄ6†DÖW76vSãâVæF–ætÖW76vW4f÷%7VÖÖ'’‡¶–çBÆ–Ö—BÒ#GÒ’7–æ2°¢f–æÂ7VÖÖ&–W2Òv—B&V6VçD6öçfW'6F–öå7VÖÖ&–W2†Æ–Ö—C¢“°¢f–æÂgFW"Ò7VÖÖ&–W2æ—4V×G’òçVÆÂ¢7VÖÖ&–W2æf—'7BçFôC°¢&WGW&âÖW76vW4gFW"†gFW"ÂÆ–Ö—C¢Æ–Ö—B“°¢Ð ¢gWGW&SÇfö–CâW6W'EVæf–æ—6†VEF‡&VB‡°¢7G&–æsò–BÀ¢&WV—&VB7G&–ærF—FÆRÀ¢&WV—&VB7G&–ærFWF–ÂÀ¢&WV—&VBF÷V&ÆR–×÷'Fæ6RÀ¢7G&–æsò6÷W&6TÖW76vT–BÀ¢7G&–ærF÷–4¶W’ÒrrÀ¢Ò’7–æ2°¢f–æÂæ÷&ÖÆ—¦VEF—FÆRÒF—FÆRçG&–Ò‚“°¢f–æÂæ÷&ÖÆ—¦VDFWF–ÂÒFWF–ÂçG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VEF—FÆRæ—4V×G’ÇÂæ÷&ÖÆ—¦VDFWF–Âæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷&ÖÆ—¦VEF÷–2ÒF÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢f–æÂÆöö·W'•F÷–2Ò–BÓÒçVÆÂbbæ÷&ÖÆ—¦VEF÷–2æ—4æ÷DV×G“°¢f–æÂW†—7F–ærÒv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S¢–BÒçVÆÀ¢òv–BÒòäB7FGW2Òòp¢¢Æöö·W'•F÷–0¢òwF÷–5ö¶W’ÒòäB7FGW2Òòp¢¢wF—FÆRÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶–Bóò†Æöö·W'•F÷–2òæ÷&ÖÆ—¦VEF÷–2¢æ÷&ÖÆ—¦VEF—FÆR’Âv7F—fRuÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢–b†W†—7F–æræ—4æ÷DV×G’’°¢f–æÂW†—7F–æu6÷W&6RÒW†—7F–æræf—'7E²w6÷W&6UöÖW76vUö–BuÒ27G&–æsó°¢f–æÂW†—7F–æuF—FÆRÒ†W†—7F–æræf—'7E²wF—FÆRuÒ27G&–æsòóòrr’çG&–Ò‚“°¢f–æÂW†—7F–ætFWF–ÂÒ†W†—7F–æræf—'7E²vFWF–ÂuÒ27G&–æsòóòrr’çG&–Ò‚“°¢f–æÂW†—7F–æuF÷–2Ò†W†—7F–æræf—'7E²wF÷–5ö¶W’uÒ27G&–æsòóòrr’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢–b‡6÷W&6TÖW76vT–BÒçVÆÂb`¢6÷W&6TÖW76vT–Bæ—4æ÷DV×G’b`¢W†—7F–æu6÷W&6RÓÒ6÷W&6TÖW76vT–Bb`¢W†—7F–æuF—FÆRÓÒæ÷&ÖÆ—¦VEF—FÆRb`¢W†—7F–ætFWF–ÂÓÒæ÷&ÖÆ—¦VDFWF–Âb`¢†æ÷&ÖÆ—¦VEF÷–2æ—4V×G’ÇÂW†—7F–æuF÷–2ÓÒæ÷&ÖÆ—¦VEF÷–2’’°¢&WGW&ã°¢Ð¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢wF—FÆRs¢æ÷&ÖÆ—¦VEF—FÆRÀ¢vFWF–Âs¢æ÷&ÖÆ—¦VDFWF–ÂÀ¢v–×÷'Fæ6Rs¢–×÷'Fæ6Ræ6Æ×ƒãÂã’À¢w6÷W&6UöÖW76vUö–Bs¢6÷W&6TÖW76vT–BóòW†—7F–æræf—'7E²w6÷W&6UöÖW76vUö–BuÒÀ¢–b†æ÷&ÖÆ—¦VEF÷–2æ—4æ÷DV×G’’wF÷–5ö¶W’s¢æ÷&ÖÆ—¦VEF÷–2À¢òò&VÂ6öçfW'6F–öâWFFRÖVç2F†RF÷–2—2Ç&VG’7F—fRv–ã°¢òò6æ6VÂç’&Wf–÷W6Ç’66†VGVÆVBöæR×6†÷BFVfW'&VBföÆÆ÷r×Wà¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶W†—7F–æræf—'7E²v–BuÕÒÀ¢“°¢&WGW&ã°¢Ð¢v—BF"æ–ç6W'B‚wVæf–æ—6†VE÷F‡&VG2rÂ°¢v–Bs¢–Bóò÷WV–BçcB‚’À¢wF—FÆRs¢æ÷&ÖÆ—¦VEF—FÆRÀ¢vFWF–Âs¢æ÷&ÖÆ—¦VDFWF–ÂÀ¢v–×÷'Fæ6Rs¢–×÷'Fæ6Ræ6Æ×ƒãÂã’À¢w7FGW2s¢v7F—fRrÀ¢w6÷W&6UöÖW76vUö–Bs¢6÷W&6TÖW76vT–BÀ¢wF÷–5ö¶W’s¢æ÷&ÖÆ—¦VEF÷–2À¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢vföÆÆ÷wWö6÷VçBs¢À¢vÆ7EöföÆÆ÷wWöBs¢çVÆÂÀ¢w&WF—&VEöBs¢çVÆÂÀ¢w&WF—&U÷&V6öâs¢rrÀ¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢Ð ¢gWGW&SÇfö–Câ&W6öÇfUVæf–æ—6†VEF‡&VB…7G&–ærF—FÆR’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒF—FÆRçG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VBæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢w7FGW2s¢w&W6öÇfVBrÀ¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢wF—FÆRÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶æ÷&ÖÆ—¦VBÂv7F—fRuÒÀ¢“°¢Ð ¢gWGW&SÇfö–Câ&W6öÇfUVæf–æ—6†VEF‡&VD'”–B…7G&–ær–B’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒ–BçG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VBæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢w7FGW2s¢w&W6öÇfVBrÀ¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶æ÷&ÖÆ—¦VBÂv7F—fRuÒÀ¢“°¢Ð ¢gWGW&SÄÆ—7CÅVæf–æ—6†VEF‡&VCãâ7F—fUVæf–æ—6†VEF‡&VG2‡¶–çBÆ–Ö—BÒ‡Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S¢w7FGW2ÒòrÀ¢v†W&T&w3¢²v7F—fRuÒÀ¢÷&FW$'“¢v–×÷'Fæ6RDU42ÂWFFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…Væf–æ—6†VEF‡&VBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÅVæf–æ—6†VEF‡&VCóâVæf–æ—6†VEF‡&VD'”–B…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’‚wVæf–æ—6†VE÷F‡&VG2rÂv†W&S¢v–BÒòrÂv†W&T&w3¢¶–EÒÂÆ–Ö—C¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢Væf–æ—6†VEF‡&VBæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÅVæf–æ—6†VEF‡&VCóâ7F—fUVæf–æ—6†VEF‡&VD'•F÷–2…7G&–ærF÷–4¶W’’7–æ2°¢f–æÂ¶W’ÒF÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢–b†¶W’æ—4V×G’’&WGW&âçVÆÃ°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S¢w7FGW2ÒòäBF÷–5ö¶W’ÒòrÀ¢v†W&T&w3¢²v7F—fRrÂ¶W•ÒÀ¢÷&FW$'“¢v–×÷'Fæ6RDU42ÂWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢Væf–æ—6†VEF‡&VBæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÇfö–CâF÷V6…Væf–æ—6†VEF‡&VB…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢²wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶–BÂv7F—fRuÒÀ¢“°¢Ð ¢gWGW&SÇfö–Câ66†VGVÆUVæf–æ—6†VEF‡&VDföÆÆ÷wW€¢7G&–ær–BÂ°¢&WV—&VBFFUF–ÖRGVTBÀ¢Ò’7–æ2°¢f–æÂÖ„föÆÆ÷wW2Ð¢–çBçG'•'6R†v—BvWE6WGF–ær‚vÖ…öFVfW'&VEöföÆÆ÷wW2r’óòrr’óò°¢–b†Ö„föÆÆ÷wW2ÃÒ’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wWöGVUöBs¢GVTBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäBföÆÆ÷wWö6÷VçBÂòrÀ¢v†W&T&w3¢¶–BÂv7F—fRrÂÖ„föÆÆ÷wW2æ6Æ×ƒÂ2’çFô–çB‚•ÒÀ¢“°¢Ð ¢gWGW&SÇfö–Câ6ÆV%Væf–æ—6†VEF‡&VDföÆÆ÷wW…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢gWGW&SÅ7G&–æsóâ6Æ–ÕVæf–æ—6†VEF‡&VDföÆÆ÷wW6VVB…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ7FÆT&Vf÷&RÒæ÷rÒ6öç7BGW&F–öâ†Ö–çWFW3¢R’æ–äÖ–ÆÆ—6V6öæG3°¢f–æÂFö¶VâÒ÷WV–BçcB‚“°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢Fö¶VâÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S ¢&–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wWöGVUöB•2äõBåTÄÂäBföÆÆ÷wWöGVUöBÃÒòäBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäB†föÆÆ÷wW÷'Vå÷Fö¶VâÒrrõ"föÆÆ÷wWö6Æ–ÖVEöB•2åTÄÂõ"föÆÆ÷wWö6Æ–ÖVEöBÂò’"À¢v†W&T&w3¢¶–BÂæ÷rÂ7FÆT&Vf÷&UÒÀ¢“°¢&WGW&â6†ævVBÓÒòFö¶Vâ¢çVÆÃ°¢Ð ¢gWGW&SÆ&ööÃâ÷vç5Væf–æ—6†VEF‡&VDföÆÆ÷wW6VVB…7G&–ær–BÂ7G&–ærFö¶Vâ’7–æ2°¢–b‡Fö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢6öÇVÖç3¢²v–BuÒÀ¢v†W&S ¢&–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wW÷'Vå÷Fö¶VâÒò"À¢v†W&T&w3¢¶–BÂFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4æ÷DV×G“°¢Ð ¢gWGW&SÆ&ööÃâÇ”FVfW'&VDföÆÆ÷wW6VVDFöÖ–2‡°¢&WV—&VB7G&–ærF‡&VD–BÀ¢&WV—&VB7G&–ær6Æ–ÕFö¶VâÀ¢&WV—&VB7G&–ærF÷–4¶W’À¢&WV—&VB7G&–ærF†÷Vv‡EFW‡BÀ¢&WV—&VBG&—fT¶W’F†÷Vv‡DG&—fRÀ¢&WV—&VBF÷V&ÆRF†÷Vv‡E7G&VæwF‚À¢&WV—&VBÖÄG&—fT¶W’ÂF÷V&ÆSâVÇ6W2À¢Ò’7–æ2°¢–b†6Æ–ÕFö¶Vâæ—4V×G’ÇÂF÷–4¶W’çG&–Ò‚’æ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂF‡&VG2Òv—BG†âçVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S ¢&–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wW÷'Vå÷Fö¶VâÒò"À¢v†W&T&w3¢·F‡&VD–BÂ6Æ–ÕFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢–b‡F‡&VG2æ—4V×G’’&WGW&âfÇ6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢f–æÂæ÷t×2Òæ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ° ¢f–æÂ7FFU&÷w2Òv—BG†âçVW'’‚vFW6—&U÷7FFRrÂv†W&S¢v–BÒrÂÆ–Ö—C¢“°¢f–æÂ6æ6†÷BÒ7FFU&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR‡7FFU&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂG&—fW2ÒÖÄG&—fT¶W’ÂF÷V&ÆSâæg&öÒ‡6æ6†÷BæG&—fW2“°¢f÷"†f–æÂVçG'’–âVÇ6W2æVçG&–W2’°¢f–æÂæ6†÷"Ò6æ6†÷Bæ&6VÆ–æW5¶VçG'’æ¶W•Òóð¢FW6—&U6æ6†÷BæFVfVÇD&6VÆ–æW2‚•¶VçG'’æ¶W•Òóð¢ã#°¢G&—fW5¶VçG'’æ¶W•ÒÒ‚†G&—fW5¶VçG'’æ¶W•Òóòæ6†÷"’°¢VçG'’çfÇVRæ6Æ×‚Óã3RÂã3R’çFôF÷V&ÆR‚’¢æ6Æ×ƒãÂã¢çFôF÷V&ÆR‚“°¢Ð¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢6æ6†÷Bæ6÷•v—F‚†G&—fW3¢G&—fW2’æVæ6öFR‚’À¢wWFFVEöBs¢æ÷t×2À¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“° ¢f–æÂæ÷&ÖÆ—¦VEF÷–2ÒF÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢f–æÂÖF6†W2Òv—BG†âçVW'’€¢wF†÷Vv‡G2rÀ¢v†W&S¢vG&—fUö¶W’ÒòäBF÷–5ö¶W’ÒòrÀ¢v†W&T&w3¢·F†÷Vv‡DG&—fRææÖRÂæ÷&ÖÆ—¦VEF÷–5ÒÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢–b†ÖF6†W2æ—4V×G’’°¢v—BG†âæ–ç6W'B‚wF†÷Vv‡G2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢wFW‡Bs¢F†÷Vv‡EFW‡BçG&–Ò‚’À¢vG&—fUö¶W’s¢F†÷Vv‡DG&—fRææÖRÀ¢v¶–æBs¢F†÷Vv‡E7G&VæwF‚ãÒãc‚òvf—†F–öâr¢vfÆ—BrÀ¢w7G&VæwF‚s¢F†÷Vv‡E7G&VæwF‚æ6Æ×ƒã‚Âãs’À¢v&÷&åöBs¢æ÷t×2À¢wWFFVEöBs¢æ÷t×2À¢vfVEö6÷VçBs¢À¢w6÷W&6Rs¢vFVfW'&VEöföÆÆ÷wWrÀ¢vÆ7EöfVEöBs¢æ÷t×2À¢vÆ–fV7–6ÆU÷7FFRs¢F†÷Vv‡E7G&VæwF‚ãÒãc‚òvf—†F–öâr¢v7F—fRrÀ¢v7F–öåö6÷VçBs¢À¢vÆ7Eö7FVEöBs¢çVÆÂÀ¢vÆ7E÷6F—6f–VEöBs¢çVÆÂÀ¢vÆ7E÷&W7W&f6VEöBs¢çVÆÂÀ¢w&W7W&f6VEö6÷VçBs¢À¢w&W6–GVÅ÷7G&VæwF‚s¢ãÀ¢vÆ7Eö÷WF&÷VæEöÖW76vUö–Bs¢çVÆÂÀ¢wF÷–5ö¶W’s¢æ÷&ÖÆ—¦VEF÷–2À¢vÖW&vVEö6÷VçBs¢À¢vÆ7EöÖW&vVEöBs¢çVÆÂÀ¢w6æö÷¦VE÷VçF–Âs¢çVÆÂÀ¢Ò“°¢ÒVÇ6R°¢f–æÂF†÷Vv‡BÒ6ö×æ–öåF†÷Vv‡Bæg&öÔF"†ÖF6†W2æf—'7B“°¢f–æÂfVBÒF†÷Vv‡BæfVD6÷VçB²°¢f–æÂæW‡E7G&VæwF‚Ð¢‡F†÷Vv‡Bç7G&VæwF‚¢ãƒ‚²F†÷Vv‡E7G&VæwF‚¢ãSR²ãb¢æ6Æ×ƒãÂã¢çFôF÷V&ÆR‚“°¢f–æÂf—†F–öâÒfVBãÒ2ÇÂæW‡E7G&VæwF‚ãÒãcƒ°¢v—BG†âçWFFR€¢wF†÷Vv‡G2rÀ¢°¢w7G&VæwF‚s¢æW‡E7G&VæwF‚À¢vfVEö6÷VçBs¢fVBÀ¢v¶–æBs¢f—†F–öâòvf—†F–öâr¢F†÷Vv‡Bæ¶–æBÀ¢vÆ–fV7–6ÆU÷7FFRs¢f—†F–öâòvf—†F–öâr¢v7F—fRrÀ¢vÆ7EöfVEöBs¢æ÷t×2À¢wWFFVEöBs¢æ÷t×2À¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢·F†÷Vv‡Bæ–EÒÀ¢“°¢Ð ¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wW÷6VVFVEöBs¢æ÷t×2À¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢æ÷t×2À¢ÒÀ¢v†W&S ¢&–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wW÷'Vå÷Fö¶VâÒò"À¢v†W&T&w3¢·F‡&VD–BÂ6Æ–ÕFö¶VåÒÀ¢“°¢–b†6†ævVBÒ’F‡&÷r7FFTW'&÷"‚vFVfW'&VEöföÆÆ÷wWö6Æ–ÕöÆ÷7Br“°¢&WGW&âG'VS°¢Ò“°¢Ð ¢gWGW&SÆ&ööÃâ6ö×ÆWFUVæf–æ—6†VEF‡&VDföÆÆ÷wW6VVB…7G&–ær–BÂ7G&–ærFö¶Vâ’7–æ2°¢–b‡Fö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wW÷6VVFVEöBs¢æ÷rÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S ¢&–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wW÷'Vå÷Fö¶VâÒò"À¢v†W&T&w3¢¶–BÂFö¶VåÒÀ¢“°¢&WGW&â6†ævVBÓÒ°¢Ð ¢gWGW&SÇfö–Câ&VÆV6UVæf–æ—6†VEF‡&VDföÆÆ÷wW6VVB…7G&–ær–BÂ7G&–ærFö¶Vâ’7–æ2°¢–b‡Fö¶Vâæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢ÒÀ¢v†W&S ¢&–BÒòäBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wW÷'Vå÷Fö¶VâÒò"À¢v†W&T&w3¢¶–BÂFö¶VåÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâÖ&µVæf–æ—6†VEF‡&VDföÆÆ÷wW6VçB…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"ç&uWFFR€¢rrp¢UDDRVæf–æ—6†VE÷F‡&VG0¢4UBföÆÆ÷wWö6÷VçBÒföÆÆ÷wWö6÷VçB²À¢Æ7EöföÆÆ÷wWöBÒòÀ¢föÆÆ÷wWöGVUöBÒåTÄÂÀ¢föÆÆ÷wW÷6VVFVEöBÒåTÄÂÀ¢föÆÆ÷wW÷'Vå÷Fö¶VâÒrrÀ¢föÆÆ÷wWö6Æ–ÖVEöBÒåTÄÂÀ¢WFFVEöBÒð¢t„U$R–BÒòäB7FGW2Òv7F—fRräBföÆÆ÷wWöGVUöB•2äõBåTÄÂäBföÆÆ÷wWöGVUöBÃÒð¢rrrÀ¢¶æ÷rÂæ÷rÂ–BÂæ÷uÒÀ¢“°¢Ð ¢gWGW&SÄÆ—7CÅVæf–æ—6†VEF‡&VCãâGVUVæf–æ—6†VEF‡&VDföÆÆ÷wW2‡°¢FFUF–ÖSòæ÷rÀ¢–çBÆ–Ö—BÒBÀ¢Ò’7–æ2°¢f–æÂÖ„föÆÆ÷wW2Ð¢–çBçG'•'6R†v—BvWE6WGF–ær‚vÖ…öFVfW'&VEöföÆÆ÷wW2r’óòrr’óò°¢–b†Ö„föÆÆ÷wW2ÃÒ’&WGW&â6öç7BµÓ°¢f–æÂF"Òv—BFF&6S°¢f–æÂBÒ†æ÷róòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S¢'7FGW2ÒòäBföÆÆ÷wWöGVUöB•2äõBåTÄÂäBföÆÆ÷wWöGVUöBÃÒòäBföÆÆ÷wW÷6VVFVEöB•2åTÄÂäBföÆÆ÷wWö6÷VçBÂòäB†föÆÆ÷wW÷'Vå÷Fö¶VâÒrrõ"föÆÆ÷wWö6Æ–ÖVEöB•2åTÄÂõ"föÆÆ÷wWö6Æ–ÖVEöBÂò’"À¢v†W&T&w3¢°¢v7F—fRrÀ¢BÀ¢Ö„föÆÆ÷wW2æ6Æ×ƒÂ2’çFô–çB‚’À¢BÒ6öç7BGW&F–öâ†Ö–çWFW3¢R’æ–äÖ–ÆÆ—6V6öæG2À¢ÒÀ¢÷&FW$'“¢v–×÷'Fæ6RDU42ÂföÆÆ÷wWöGVUöB42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…Væf–æ—6†VEF‡&VBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÅVæf–æ—6†VEF‡&VCãâ&WF—&U7FÆUVæf–æ—6†VEF‡&VG2‡°¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂBÒæ÷róòFFUF–ÖRææ÷r‚“°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢v†W&S¢w7FGW2ÒòrÀ¢v†W&T&w3¢²v7F—fRuÒÀ¢÷&FW$'“¢wWFFVEöB42rÀ¢“°¢f–æÂ&WF—&VBÒÅVæf–æ—6†VEF‡&VCåµÓ°¢f÷"†f–æÂ&÷r–â&÷w2’°¢f–æÂF‡&VBÒVæf–æ—6†VEF‡&VBæg&öÔF"‡&÷r“°¢f–æÂvRÒBæF–ffW&Væ6R‡F‡&VBçWFFVDB“°¢7G&–æsò&V6öã°¢–b‡F‡&VBæ–×÷'Fæ6RÂãSRbbvRãÒ6öç7BGW&F–öâ†F—3¢B’’°¢&V6öâÒvÆ÷uö–×÷'Fæ6U÷7FÆUóFBs°¢ÒVÇ6R–b‡F‡&VBæ–×÷'Fæ6RÂãsRbbvRãÒ6öç7BGW&F–öâ†F—3¢CR’’°¢&V6öâÒw7FÆUóCVBs°¢ÒVÇ6R–b‡F‡&VBæ–×÷'Fæ6RÂã“"bbvRãÒ6öç7BGW&F–öâ†F—3¢#’’°¢&V6öâÒw7FÆUó#Bs°¢Ð¢–b‡&V6öâÓÒçVÆÂ’6öçF–çVS°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢w7FGW2s¢w&WF—&VBrÀ¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢w&WF—&VEöBs¢BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w&WF—&U÷&V6öâs¢&V6öâÀ¢wWFFVEöBs¢BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäBWFFVEöBÒòrÀ¢v†W&T&w3¢·F‡&VBæ–BÂv7F—fRrÂF‡&VBçWFFVDBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢–b†6†ævVBÓÒ’&WF—&VBæFB‡F‡&VB“°¢Ð¢&WGW&â&WF—&VC°¢Ð ¢gWGW&SÇfö–Câ6Æ÷6UVæf–æ—6†VEF‡&VD'”–B…7G&–ær–BÂµ7G&–ær7FGW2Òv6Æ÷6VBwÒ’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒ7FGW2ÓÒvF—6Ö—76VBròvF—6Ö—76VBr¢v6Æ÷6VBs°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢wVæf–æ—6†VE÷F‡&VG2rÀ¢°¢w7FGW2s¢æ÷&ÖÆ—¦VBÀ¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wW÷'Vå÷Fö¶Vâs¢rrÀ¢vföÆÆ÷wWö6Æ–ÖVEöBs¢çVÆÂÀ¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòrÀ¢v†W&T&w3¢¶–BÂv7F—fRuÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâFDFWf–6TWfVçB‡°¢&WV—&VB7G&–ær6÷W&6RÀ¢&WV—&VB7G&–ærWfVçEG—RÀ¢7G&–æsò6¶vRÀ¢7G&–æsò7VÖÖ'’À¢ÖÅ7G&–ærÂö&¦V7CóâÖWFFFÒ6öç7B·ÒÀ¢FFUF–ÖSòö67W'&VDBÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B‚vFWf–6UöWfVçG2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢vFWf–6Uö–Bs¢v—BVç7W&TFWf–6T–B‚’À¢w6÷W&6Rs¢6÷W&6RÀ¢vWfVçE÷G—Rs¢WfVçEG—RÀ¢v÷6¶vRs¢6¶vRÀ¢w7VÖÖ'’s¢7VÖÖ'’À¢vö67W'&VEöBs¢†ö67W'&VDBóòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vÖWFFFö§6öâs¢§6öäVæ6öFR†ÖWFFF’À¢Ò“°¢Ð ¢gWGW&SÄÆ—7CÄÖÅ7G&–ærÂö&¦V7Cóããâ&V6VçDFWf–6TWfVçG2‡°¢–çBÖ–çWFW2ÒƒÀ¢–çBÆ–Ö—BÒƒÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6–æ6RÒFFUF–ÖRææ÷r‚¢ç7V'G&7B„GW&F–öâ†Ö–çWFW3¢Ö–çWFW2’¢æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çVW'’€¢vFWf–6UöWfVçG2rÀ¢v†W&S¢vö67W'&VEöBãÒòrÀ¢v†W&T&w3¢·6–æ6UÒÀ¢÷&FW$'“¢vö67W'&VEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢Ð ¢gWGW&SÄÆ—7CÄÖÅ7G&–ærÂö&¦V7CóããâFWf–6TWfVçG4gFW"€¢FFUF–ÖRgFW"Â°¢–çBÆ–Ö—BÒcÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çVW'’€¢vFWf–6UöWfVçG2rÀ¢v†W&S¢vö67W'&VEöBâòrÀ¢v†W&T&w3¢¶gFW"æÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢÷&FW$'“¢vö67W'&VEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢Ð ¢gWGW&SÄÆ—7CÄÖÅ7G&–ærÂö&¦V7Cóããâ&V6VçDFWf–6U7FFTWfVçG2‡°¢–çBÖ–çWFW2Òs#À¢–çBÆ–Ö—BÒCÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6–æ6RÒFFUF–ÖRææ÷r‚¢ç7V'G&7B„GW&F–öâ†Ö–çWFW3¢Ö–çWFW2’¢æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çVW'’€¢vFWf–6UöWfVçG2rÀ¢v†W&S¢'6÷W&6RÒw7—7FVÒräBWfVçE÷G—R”â‚w67&VVåööârÂw67&VVåööfbrÂwW6W%÷&W6VçBrÂw÷vW%ö6öææV7FVBrÂw÷vW%öF—66öææV7FVBr’äBö67W'&VEöBãÒò"À¢v†W&T&w3¢·6–æ6UÒÀ¢÷&FW$'“¢vö67W'&VEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢Ð ¢òòòFöÖ–6ÆÇ’&V6öæ6–ÆW2F†R7W'&VçB–çFW'&WFVBv&VæW726WBà¢òòð¢òòòF†RG&ç67F–öâ&RÖ6†V6·27F—fR'&–â÷G&ç6fW"Æö6²6ò†öæR÷F&ÆW@¢òòòF¶V÷fW"6ææ÷B&6RW&6WF–öâ6GW&RF†B7F'FVB§W7B&Vf÷&RF†P¢òòòg&VW¦RâöæR&÷rW"FVGWUö¶W’7W&W76W2æö—7’GWÆ–6FRö'6W'fF–öç2à¢gWGW&SÄÆ—7CÄv&VæW74ö'6W'fF–öããâ7–æ4v&VæW74ö'6W'fF–öç2‡°¢&WV—&VBÆ—7CÄv&VæW74ö'6W'fF–öäG&gCâG&gG2À¢&WV—&VB6WCÅ7G&–æsâÖævVD¶W—2À¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ–ç7FçBÒæ÷róòFFUF–ÖRææ÷r‚“°¢f–æÂæ÷t×2Ò–ç7FçBæÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çG&ç67F–öãÄÆ—7CÄv&VæW74ö'6W'fF–öããâ‚‡G†â’7–æ2°¢gWGW&SÅ7G&–æsóâ6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&÷w2æf—'7E²wfÇVRuÒ27G&–æsó°¢Ð ¢–b†v—B6WGF–ær‚wG&ç6fW%öÆö6²r’ÓÒsrÇÂv—B6WGF–ær‚v7F—fUö'&–âr’ÓÒsr’°¢&WGW&â6öç7BµÓ°¢Ð¢f"FWf–6T–BÒv—B6WGF–ær‚vFWf–6Uö–Br“°¢–b†FWf–6T–BÓÒçVÆÂÇÂFWf–6T–Bæ—4V×G’’°¢FWf–6T–BÒ÷WV–BçcB‚“°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢vFWf–6Uö–BrÂwfÇVRs¢FWf–6T–GÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð ¢f–æÂ–æ6öÖ–æt¶W—2ÒG&gG2æÖ‚†R’ÓâRæFVGWT¶W’’çFõ6WB‚“°¢f–æÂFôW‡—&RÒÖævVD¶W—2æF–ffW&Væ6R†–æ6öÖ–æt¶W—2“°¢f÷"†f–æÂ¶W’–âFôW‡—&R’°¢v—BG†âç&uWFFR‚rrp¢UDDRv&VæW75öö'6W'fF–öç0¢4UBW‡—&W5öBÒ44Rt„TâW‡—&W5öBâòD„TâòTÅ4RW‡—&W5öBTäBÀ¢WFFVEöBÒð¢t„U$RFVGWUö¶W’ÒòäBW‡—&W5öBâð¢rrrÂ¶æ÷t×2Âæ÷t×2Âæ÷t×2Â¶W’Âæ÷t×5Ò“°¢Ð ¢f–æÂ&W7VÇBÒÄv&VæW74ö'6W'fF–öãåµÓ°¢f÷"†f–æÂG&gB–âG&gG2’°¢f–æÂW†—7F–ærÒv—BG†âçVW'’€¢vv&VæW75öö'6W'fF–öç2rÀ¢v†W&S¢vFVGWUö¶W’ÒòrÀ¢v†W&T&w3¢¶G&gBæFVGWT¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂfÇVW2ÒÅ7G&–ærÂö&¦V7Cóç°¢vFWf–6Uö–Bs¢FWf–6T–BÀ¢v¶–æBs¢G&gBæ¶–æBÀ¢w7VÖÖ'’s¢G&gBç7VÖÖ'’çG&–Ò‚’À¢v6öæf–FVæ6Rs¢G&gBæ6öæf–FVæ6Ræ6Æ×ƒãÂã’çFôF÷V&ÆR‚’À¢wv–æF÷u÷7F'Bs¢G&gBçv–æF÷u7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wv–æF÷uöVæBs¢G&gBçv–æF÷tVæBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vW‡—&W5öBs¢G&gBæW‡—&W4BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w6÷W&6Uöf–ævW'&–çBs¢G&gBç6÷W&6Tf–ævW'&–çBÀ¢vÖWFFFö§6öâs¢§6öäVæ6öFR†G&gBæÖWFFF’À¢wWFFVEöBs¢æ÷t×2À¢Ó°¢7G&–ær–C°¢–çB7&VFVDC°¢–b†W†—7F–æræ—4V×G’’°¢–BÒ÷WV–BçcB‚“°¢7&VFVDBÒæ÷t×3°¢v—BG†âæ–ç6W'B‚vv&VæW75öö'6W'fF–öç2rÂ°¢v–Bs¢–BÀ¢vFVGWUö¶W’s¢G&gBæFVGWT¶W’À¢v7&VFVEöBs¢7&VFVDBÀ¢ââçfÇVW2À¢Ò“°¢ÒVÇ6R°¢–BÒW†—7F–æræf—'7E²v–BuÒ27G&–æs°¢7&VFVDBÒW†—7F–æræf—'7E²v7&VFVEöBuÒ2–çCòóòæ÷t×3°¢v—BG†âçWFFR€¢vv&VæW75öö'6W'fF–öç2rÀ¢fÇVW2À¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð¢&W7VÇBæFB„v&VæW74ö'6W'fF–öâ€¢–C¢–BÀ¢¶–æC¢G&gBæ¶–æBÀ¢7VÖÖ'“¢G&gBç7VÖÖ'’çG&–Ò‚’À¢6öæf–FVæ6S¢G&gBæ6öæf–FVæ6Ræ6Æ×ƒãÂã’çFôF÷V&ÆR‚’À¢v–æF÷u7F'C¢G&gBçv–æF÷u7F'BÀ¢v–æF÷tVæC¢G&gBçv–æF÷tVæBÀ¢W‡—&W4C¢G&gBæW‡—&W4BÀ¢FVGWT¶W“¢G&gBæFVGWT¶W’À¢7&VFVDC¢FFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚†7&VFVDB’À¢WFFVDC¢–ç7FçBÀ¢FWf–6T–C¢FWf–6T–BÀ¢6÷W&6Tf–ævW'&–çC¢G&gBç6÷W&6Tf–ævW'&–çBÀ¢ÖWFFF¢G&gBæÖWFFFÀ¢’“°¢Ð¢&WGW&â&W7VÇC°¢Ò“°¢Ð ¢gWGW&SÄÆ—7CÄv&VæW74ö'6W'fF–öããâ7F—fTv&VæW74ö'6W'fF–öç2‡°¢–çBÆ–Ö—BÒbÀ¢F÷V&ÆRÖ–ä6öæf–FVæ6RÒãCRÀ¢FFUF–ÖSòæ÷rÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷t×2Ò†æ÷róòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ&÷w2Òv—BF"ç&uVW'’‚rrp¢4TÄT5B¢e$ôÒv&VæW75öö'6W'fF–öç0¢t„U$RW‡—&W5öBâòäB6öæf–FVæ6RãÒð¢õ$DU"%’44R¶–æ@¢t„Tâw67&VVå÷7FFRrD„Tâ ¢t„Tâv7W'&VçEö7F—f—G’rD„Tâ¢t„Tâvf–Æ&–Æ—G’rD„Tâ ¢t„Tâw&V6VçEö7F—f—G’rD„Tâ0¢t„Tâv÷7v—F6†–ærrD„Tâ@¢t„Tâvæ÷F–f–6F–öå÷&W77W&RrD„TâP¢TÅ4R¢TäB42À¢6öæf–FVæ6RDU42À¢WFFVEöBDU40¢Ä”Ô•Bð¢rrrÂ¶æ÷t×2ÂÖ–ä6öæf–FVæ6RÂÆ–Ö—Bæ6Æ×ƒÂ#’çFô–çB‚•Ò“°¢&WGW&â&÷w2æÖ„v&VæW74ö'6W'fF–öâæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÄv&VæW74ö'6W'fF–öããâv&VæW74ö'6W'fF–öç4&WGvVVâ€¢FFUF–ÖR7F'BÀ¢FFUF–ÖRVæBÂ°¢–çBÆ–Ö—BÒ"À¢F÷V&ÆRÖ–ä6öæf–FVæ6RÒãc"À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vv&VæW75öö'6W'fF–öç2rÀ¢v†W&S¢wWFFVEöBãÒòäBWFFVEöBÂòäB6öæf–FVæ6RãÒòrÀ¢v†W&T&w3¢°¢7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢VæBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ö–ä6öæf–FVæ6RÀ¢ÒÀ¢÷&FW$'“¢v6öæf–FVæ6RDU42ÂWFFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—Bæ6Æ×ƒÂC’çFô–çB‚’À¢“°¢&WGW&â&÷w2æÖ„v&VæW74ö'6W'fF–öâæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÆ–çCâÖW76vT6÷VçD&WGvVVâ„FFUF–ÖR7F'BÂFFUF–ÖRVæB’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢u4TÄT5B4õTåB‚¢’22e$ôÒÖW76vW2t„U$R7&VFVEöBãÒòäB7&VFVEöBÂòrÀ¢·7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚ÂVæBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢&WGW&â7fÆ—FRæf—'7D–çEfÇVR‡&÷w2’óò°¢Ð ¢gWGW&SÆF÷V&ÆSóâÆFW7EW&6WF–öä'W7•66÷&R‡°¢GW&F–öâÖ„vRÒ6öç7BGW&F–öâ†Ö–çWFW3¢R’À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6–æ6RÒFFUF–ÖRææ÷r‚’ç7V'G&7B†Ö„vR’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wW&6WF–öå÷6æ6†÷G2rÀ¢6öÇVÖç3¢²v'W7•÷66÷&RuÒÀ¢v†W&S¢vö67W'&VEöBãÒòrÀ¢v†W&T&w3¢·6–æ6UÒÀ¢÷&FW$'“¢vö67W'&VEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢‡&÷w2æf—'7E²v'W7•÷66÷&RuÒ2çVÓò“òçFôF÷V&ÆR‚“°¢Ð ¢gWGW&SÅW&6WF–öå6æ6†÷Câ–ç6W'EW&6WF–öå6æ6†÷B‡°¢&WV—&VB7G&–ær7VÖÖ'’À¢7G&–æsò7W'&VçE6¶vRÀ¢7G&–æsòFWf–6TÆ&VÂÀ¢F÷V&ÆR'W7•66÷&RÒÀ¢–çBæ÷F–f–6F–öä6÷VçBÒÀ¢ÖÅ7G&–ærÂö&¦V7CóâÖWFFFÒ6öç7B·ÒÀ¢FFUF–ÖSòö67W'&VDBÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6æ6†÷BÒW&6WF–öå6æ6†÷B€¢–C¢÷WV–BçcB‚’À¢7VÖÖ'“¢7VÖÖ'’çG&–Ò‚’À¢ö67W'&VDC¢ö67W'&VDBóòFFUF–ÖRææ÷r‚’À¢FWf–6T–C¢v—BVç7W&TFWf–6T–B‚’À¢FWf–6TÆ&VÃ¢FWf–6TÆ&VÂÀ¢7W'&VçE6¶vS¢7W'&VçE6¶vRÀ¢'W7•66÷&S¢'W7•66÷&Ræ6Æ×ƒãÂã’çFôF÷V&ÆR‚’À¢æ÷F–f–6F–öä6÷VçC¢æ÷F–f–6F–öä6÷VçBæ6Æ×ƒÂ““’’çFô–çB‚’À¢ÖWFFF¢ÖWFFFÀ¢“°¢v—BF"æ–ç6W'B‚wW&6WF–öå÷6æ6†÷G2rÂ°¢v–Bs¢6æ6†÷Bæ–BÀ¢w7VÖÖ'’s¢6æ6†÷Bç7VÖÖ'’À¢vFWf–6Uö–Bs¢6æ6†÷BæFWf–6T–BÀ¢vFWf–6UöÆ&VÂs¢6æ6†÷BæFWf–6TÆ&VÂÀ¢v7W'&VçE÷6¶vRs¢6æ6†÷Bæ7W'&VçE6¶vRÀ¢v'W7•÷66÷&Rs¢6æ6†÷Bæ'W7•66÷&RÀ¢væ÷F–f–6F–öåö6÷VçBs¢6æ6†÷Bææ÷F–f–6F–öä6÷VçBÀ¢vÖWFFFö§6öâs¢§6öäVæ6öFR‡6æ6†÷BæÖWFFF’À¢vö67W'&VEöBs¢6æ6†÷Bæö67W'&VDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ò“°¢&WGW&â6æ6†÷C°¢Ð ¢gWGW&SÄÆ—7CÅW&6WF–öå6æ6†÷Cãâ&V6VçEW&6WF–öå6æ6†÷G2‡¶–çBÆ–Ö—BÒ‡Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wW&6WF–öå÷6æ6†÷G2rÀ¢÷&FW$'“¢vö67W'&VEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…W&6WF–öå6æ6†÷Bæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–CâFE&VÆF–öç6†—WfVçB‡°¢&WV—&VB7G&–ær¶–æBÀ¢&WV—&VB7G&–ær7VÖÖ'’À¢F÷V&ÆR–çFVç6—G’ÒãRÀ¢F÷V&ÆRfÆVæ6RÒãÀ¢7G&–æsò6÷W&6TÖW76vT–BÀ¢ÖÅ7G&–ærÂö&¦V7CóâÖWFFFÒ6öç7B·ÒÀ¢Ò’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒ7VÖÖ'’çG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VBæ—4V×G’’&WGW&ã°¢6öç7BÆÆ÷vVBÒ°¢v6Æ÷6VæW72rÂwG'W7BrÂv6öæfÆ–7BrÂw&W—"rÂw&öÖ—6RrÂvÖ–ÆW7FöæRrÀ¢v–çF–Ö7’rÂv&÷VæF'’rÂw&öÆWÆ’rÂw7W÷'BrÂw6†&VEöF—66÷fW'’p¢Ó°¢–b‚ÆÆ÷vVBæ6öçF–ç2†¶–æB’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢–b‡6÷W&6TÖW76vT–BÒçVÆÂbb6÷W&6TÖW76vT–Bæ—4æ÷DV×G’’°¢f–æÂ6ÖUGW&âÒv—BF"çVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢6öÇVÖç3¢²v–BuÒÀ¢v†W&S¢w6÷W&6UöÖW76vUö–BÒòäB¶–æBÒòäB7VÖÖ'’ÒòrÀ¢v†W&T&w3¢·6÷W&6TÖW76vT–BÂ¶–æBÂæ÷&ÖÆ—¦VEÒÀ¢Æ–Ö—C¢À¢“°¢òò÷7B×GW&âW‡G&7F–öâ—2&WG'–&ÆRâ&RÖÇ––ærF†R6ÖR&÷÷6Âf÷ ¢òòF†R6ÖR76—7FçBGW&â×W7B&R–FV×÷FVçB&F†W"F†â&V–æf÷&6–ær—Bà¢–b‡6ÖUGW&âæ—4æ÷DV×G’’&WGW&ã°¢Ð¢f–æÂGWÆ–6FRÒv—BF"çVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢v†W&S¢v¶–æBÒòäB7VÖÖ'’ÒòäB7&VFVEöBãÒòrÀ¢v†W&T&w3¢¶¶–æBÂæ÷&ÖÆ—¦VBÂæ÷rÒ6öç7BGW&F–öâ†F—3¢B’æ–äÖ–ÆÆ—6V6öæG5ÒÀ¢÷&FW$'“¢v7&VFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢–b†GWÆ–6FRæ—4æ÷DV×G’’°¢f–æÂöÆD–çFVç6—G’Ò†GWÆ–6FRæf—'7E²v–çFVç6—G’uÒ2çVÓò“òçFôF÷V&ÆR‚’óòãS°¢f–æÂöÆEfÆVæ6RÒ†GWÆ–6FRæf—'7E²wfÆVæ6RuÒ2çVÓò“òçFôF÷V&ÆR‚’óòã°¢v—BF"çWFFR€¢w&VÆF–öç6†—öWfVçG2rÀ¢°¢v–çFVç6—G’s¢†öÆD–çFVç6—G’¢ãsR²–çFVç6—G’¢ã3R’æ6Æ×ƒãÂã’À¢wfÆVæ6Rs¢†öÆEfÆVæ6R¢ãsR²fÆVæ6R¢ã3R’æ6Æ×‚ÓãÂã’À¢w6÷W&6UöÖW76vUö–Bs¢6÷W&6TÖW76vT–BóòGWÆ–6FRæf—'7E²w6÷W&6UöÖW76vUö–BuÒÀ¢vÖWFFFö§6öâs¢§6öäVæ6öFR†ÖWFFF’À¢v7&VFVEöBs¢æ÷rÀ¢v–çFW&æÆ—¦VEöBs¢çVÆÂÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶GWÆ–6FRæf—'7E²v–BuÕÒÀ¢“°¢&WGW&ã°¢Ð¢v—BF"æ–ç6W'B‚w&VÆF–öç6†—öWfVçG2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢v¶–æBs¢¶–æBÀ¢w7VÖÖ'’s¢æ÷&ÖÆ—¦VBÀ¢v–çFVç6—G’s¢–çFVç6—G’æ6Æ×ƒãÂã’À¢wfÆVæ6Rs¢fÆVæ6Ræ6Æ×‚ÓãÂã’À¢w6÷W&6UöÖW76vUö–Bs¢6÷W&6TÖW76vT–BÀ¢vÖWFFFö§6öâs¢§6öäVæ6öFR†ÖWFFF’À¢v7&VFVEöBs¢æ÷rÀ¢v–çFW&æÆ—¦VEöBs¢çVÆÂÀ¢Ò“°¢Ð ¢gWGW&SÄÆ—7CÅ&VÆF–öç6†—WfVçCãâ&V6VçE&VÆF–öç6†—WfVçG2‡¶–çBÆ–Ö—BÒ'Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢÷&FW$'“¢v7&VFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…&VÆF–öç6†—WfVçBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÅ&VÆF–öç6†—WfVçCãâ&VÆF–öç6†—WfVçG4&WGvVVâ€¢FFUF–ÖR7F'BÀ¢FFUF–ÖRVæBÂ°¢–çBÆ–Ö—BÒ#BÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢v†W&S¢v7&VFVEöBãÒòäB7&VFVEöBÂòrÀ¢v†W&T&w3¢·7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚ÂVæBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢÷&FW$'“¢v7&VFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—Bæ6Æ×ƒÂƒ’çFô–çB‚’À¢“°¢&WGW&â&÷w2æÖ…&VÆF–öç6†—WfVçBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÅ&VÆF–öç6†—WfVçCãâVæF–æu&VÆF–öç6†—WfVçG2‡¶–çBÆ–Ö—BÒgÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢v†W&S¢v–çFW&æÆ—¦VEöB•2åTÄÂrÀ¢÷&FW$'“¢v7&VFVEöB42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…&VÆF–öç6†—WfVçBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–CâÖ&µ&VÆF–öç6†—WfVçD–çFW&æÆ—¦VB…7G&–ær–BÂ´FFUF–ÖSòGÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢w&VÆF–öç6†—öWfVçG2rÀ¢²v–çFW&æÆ—¦VEöBs¢†BóòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢òòòW†7FÇ’Ööæ6R&VÆF–öç6†—76–Ö–ÆF–öââFW6—&R6†ævW2ÂF†RGW&&ÆP¢òòò&VÆF–öç6†—ÖFW&—fVBF†÷Vv‡BæB–çFW&æÆ—¦VEöF&R6öÖÖ—GFVB–âöæP¢òòò5Æ—FRG&ç67F–öâÂ6òg&÷¦Vâv÷&¶W"6ææ÷B&WÆ’F†R6ÖRVÖ÷F–öæÀ¢òòòVÇ6RgFW"æ÷F†W"Væv–æRF¶W2÷fW"à¢gWGW&SÆ&ööÃâ76–Ö–ÆFU&VÆF–öç6†—WfVçDFöÖ–2‡°¢&WV—&VB&VÆF–öç6†—WfVçBWfVçBÀ¢&WV—&VBÖÄG&—fT¶W’ÂF÷V&ÆSâVÇ6W2À¢&WV—&VBF÷V&ÆR&6VÆ–æTÆV&æ–ærÀ¢&WV—&VBG&—fT¶W’F†÷Vv‡DG&—fRÀ¢&WV—&VB7G&–ærF†÷Vv‡EFW‡BÀ¢&WV—&VBF÷V&ÆRF†÷Vv‡E7G&VæwF‚À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w&VÆF–öç6†—öWfVçG2rÀ¢v†W&S¢v–BÒòäB–çFW&æÆ—¦VEöB•2åTÄÂrÀ¢v†W&T&w3¢¶WfVçBæ–EÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âfÇ6S°¢f–æÂ7W'&VçDWfVçBÒ&VÆF–öç6†—WfVçBæg&öÔF"‡&÷w2æf—'7B“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢f–æÂæ÷t×2Òæ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ° ¢f–æÂ7FFU&÷w2Òv—BG†âçVW'’‚vFW6—&U÷7FFRrÂv†W&S¢v–BÒrÂÆ–Ö—C¢“°¢f–æÂ6æ6†÷BÒ7FFU&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR‡7FFU&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂG&—fW2ÒÖÄG&—fT¶W’ÂF÷V&ÆSâæg&öÒ‡6æ6†÷BæG&—fW2“°¢f–æÂ&6VÆ–æW2ÒÖÄG&—fT¶W’ÂF÷V&ÆSâæg&öÒ‡6æ6†÷Bæ&6VÆ–æW2“°¢f–æÂæ6†÷'2ÒFW6—&U6æ6†÷BæFVfVÇD&6VÆ–æW2‚“°¢f÷"†f–æÂVçG'’–âVÇ6W2æVçG&–W2’°¢f–æÂG&—fRÒVçG'’æ¶W“°¢f–æÂFVÇFÒVçG'’çfÇVRæ6Æ×‚Óã3RÂã3R’çFôF÷V&ÆR‚“°¢f–æÂæ6†÷"Òæ6†÷'5¶G&—fUÒóòã#°¢G&—fW5¶G&—fUÒÒ‚†G&—fW5¶G&—fUÒóòæ6†÷"’²FVÇF¢æ6Æ×ƒãÂã¢çFôF÷V&ÆR‚“°¢f–æÂ7W'&VçD&6RÒ&6VÆ–æW5¶G&—fUÒóòæ6†÷#°¢&6VÆ–æW5¶G&—fUÒÒ†7W'&VçD&6R²FVÇF¢&6VÆ–æTÆV&æ–ær¢æ6Æ×†Ö‚ƒã"Âæ6†÷"Òã’ÂÖ–âƒã“"Âæ6†÷"²ã’¢çFôF÷V&ÆR‚“°¢Ð¢f–æÂæW‡E6æ6†÷BÒ6æ6†÷Bæ6÷•v—F‚†G&—fW3¢G&—fW2Â&6VÆ–æW3¢&6VÆ–æW2“°¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢²v–Bs¢Âv§6öâs¢æW‡E6æ6†÷BæVæ6öFR‚’ÂwWFFVEöBs¢æ÷t×7ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“° ¢f–æÂF÷–4¶W’Ò†7W'&VçDWfVçBæÖWFFF²wF÷–5ö¶W’uÒ27G&–æsòóòrr¢çG&–Ò‚¢çFôÆ÷vW$66R‚“°¢Æ—7CÄÖÅ7G&–ærÂö&¦V7CóãâÖF6†W3°¢–b‡F÷–4¶W’æ—4æ÷DV×G’’°¢ÖF6†W2Òv—BG†âçVW'’€¢wF†÷Vv‡G2rÀ¢v†W&S¢vG&—fUö¶W’ÒòäBF÷–5ö¶W’ÒòrÀ¢v†W&T&w3¢·F†÷Vv‡DG&—fRææÖRÂF÷–4¶W•ÒÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢ÒVÇ6R°¢ÖF6†W2Òv—BG†âçVW'’€¢wF†÷Vv‡G2rÀ¢v†W&S¢vG&—fUö¶W’ÒòäB6÷W&6RÒòäBFW‡BÒòrÀ¢v†W&T&w3¢·F†÷Vv‡DG&—fRææÖRÂw&VÆF–öç6†—òG¶7W'&VçDWfVçBæ¶–æGÒrÂF†÷Vv‡EFW‡EÒÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢Ð¢–b†ÖF6†W2æ—4V×G’’°¢v—BG†âæ–ç6W'B‚wF†÷Vv‡G2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢wFW‡Bs¢F†÷Vv‡EFW‡BçG&–Ò‚’À¢vG&—fUö¶W’s¢F†÷Vv‡DG&—fRææÖRÀ¢v¶–æBs¢F†÷Vv‡E7G&VæwF‚ãÒãc‚òvf—†F–öâr¢vfÆ—BrÀ¢w7G&VæwF‚s¢F†÷Vv‡E7G&VæwF‚æ6Æ×ƒã‚Âãs’À¢v&÷&åöBs¢æ÷t×2À¢wWFFVEöBs¢æ÷t×2À¢vfVEö6÷VçBs¢À¢w6÷W&6Rs¢w&VÆF–öç6†—òG¶7W'&VçDWfVçBæ¶–æGÒrÀ¢vÆ7EöfVEöBs¢æ÷t×2À¢vÆ–fV7–6ÆU÷7FFRs¢F†÷Vv‡E7G&VæwF‚ãÒãc‚òvf—†F–öâr¢v7F—fRrÀ¢v7F–öåö6÷VçBs¢À¢vÆ7Eö7FVEöBs¢çVÆÂÀ¢vÆ7E÷6F—6f–VEöBs¢çVÆÂÀ¢vÆ7E÷&W7W&f6VEöBs¢çVÆÂÀ¢w&W7W&f6VEö6÷VçBs¢À¢w&W6–GVÅ÷7G&VæwF‚s¢ãÀ¢vÆ7Eö÷WF&÷VæEöÖW76vUö–Bs¢çVÆÂÀ¢wF÷–5ö¶W’s¢F÷–4¶W’À¢vÖW&vVEö6÷VçBs¢À¢vÆ7EöÖW&vVEöBs¢çVÆÂÀ¢w6æö÷¦VE÷VçF–Âs¢çVÆÂÀ¢Ò“°¢ÒVÇ6R°¢f–æÂF†÷Vv‡BÒ6ö×æ–öåF†÷Vv‡Bæg&öÔF"†ÖF6†W2æf—'7B“°¢f–æÂfVBÒF†÷Vv‡BæfVD6÷VçB²°¢f–æÂæW‡E7G&VæwF‚Ð¢‡F†÷Vv‡Bç7G&VæwF‚¢ãƒ‚²F†÷Vv‡E7G&VæwF‚¢ãSR²ãb¢æ6Æ×ƒãÂã¢çFôF÷V&ÆR‚“°¢f–æÂf—†F–öâÒfVBãÒ2ÇÂæW‡E7G&VæwF‚ãÒãcƒ°¢v—BG†âçWFFR€¢wF†÷Vv‡G2rÀ¢°¢w7G&VæwF‚s¢æW‡E7G&VæwF‚À¢vfVEö6÷VçBs¢fVBÀ¢v¶–æBs¢f—†F–öâòvf—†F–öâr¢F†÷Vv‡Bæ¶–æBÀ¢vÆ–fV7–6ÆU÷7FFRs¢f—†F–öâòvf—†F–öâr¢v7F—fRrÀ¢vÆ7EöfVEöBs¢æ÷t×2À¢wWFFVEöBs¢æ÷t×2À¢–b‡F†÷Vv‡BçF÷–4¶W’æ—4V×G’bbF÷–4¶W’æ—4æ÷DV×G’’wF÷–5ö¶W’s¢F÷–4¶W’À¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢·F†÷Vv‡Bæ–EÒÀ¢“°¢Ð ¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢w&VÆF–öç6†—öWfVçG2rÀ¢²v–çFW&æÆ—¦VEöBs¢æ÷t×7ÒÀ¢v†W&S¢v–BÒòäB–çFW&æÆ—¦VEöB•2åTÄÂrÀ¢v†W&T&w3¢¶7W'&VçDWfVçBæ–EÒÀ¢“°¢–b†6†ævVBÒ’°¢F‡&÷r7FFTW'&÷"‚w&VÆF–öç6†—ö76–Ö–ÆF–öåö÷væW'6†—öÆ÷7Br“°¢Ð¢&WGW&âG'VS°¢Ò“°¢Ð ¢gWGW&SÇfö–CâWFFTÖVÖ÷'•&WFVçF–öâ‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VBF÷V&ÆR&WFVçF–öå66÷&RÀ¢&WV—&VBFFUF–ÖR6†V6¶VDBÀ¢7G&–æsò7FGW2À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢vÖVÖ÷'•ö—FV×2rÀ¢°¢w&WFVçF–öå÷66÷&Rs¢&WFVçF–öå66÷&Ræ6Æ×ƒãÂã’À¢w&WFVçF–öåö6†V6¶VEöBs¢6†V6¶VDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢–b‡7FGW2ÒçVÆÂ’w7FGW2s¢7FGW2À¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢òòò÷F–Ö—7F–2&WFVçF–öâWFFRW6VB'’Æöær×'Vææ–ærÖVÖ÷'’Ö–çFVææ6Rà¢òòò–bæ÷F†W"Væv–æRÇ&VG’&Vg&W6†VB÷&V6ÆÆVBF†—2ÖVÖ÷'’ÂF†R7FÆP¢òòòÖ–çFVææ6R72—2F—66&FVB–ç7FVBöb÷fW'w&—F–æræWvW"&WFVçF–öâà¢gWGW&SÆ&ööÃâWFFTÖVÖ÷'•&WFVçF–öä–eVæ6†ævVB‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VBFFUF–ÖRW‡V7FVD6†V6¶VDBÀ¢&WV—&VBF÷V&ÆR&WFVçF–öå66÷&RÀ¢&WV—&VBFFUF–ÖR6†V6¶VDBÀ¢7G&–æsò7FGW2À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢vÖVÖ÷'•ö—FV×2rÀ¢°¢w&WFVçF–öå÷66÷&Rs¢&WFVçF–öå66÷&Ræ6Æ×ƒãÂã’À¢w&WFVçF–öåö6†V6¶VEöBs¢6†V6¶VDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢–b‡7FGW2ÒçVÆÂ’w7FGW2s¢7FGW2À¢ÒÀ¢v†W&S¢v–BÒòäB4ôÄU44R‡&WFVçF–öåö6†V6¶VEöBÂWFFVEöB’ÒòrÀ¢v†W&T&w3¢¶–BÂW‡V7FVD6†V6¶VDBæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢&WGW&â6†ævVBÓÒ°¢Ð ¢gWGW&SÄÆ—7CÄÖVÖ÷'”—FVÓãâÖVÖ÷'”Ö–çFVææ6T6æF–FFW2‡¶–çBÆ–Ö—BÒSÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vÖVÖ÷'•ö—FV×2rÀ¢v†W&S¢w7FGW2ÒòäB–ææVBÒrÀ¢v†W&T&w3¢²v7F—fRuÒÀ¢÷&FW$'“¢w&WFVçF–öåö6†V6¶VEöB42ÂWFFVEöB42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ„ÖVÖ÷'”—FVÒæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–Câ–ç6W'E&VfW&Væ6T—FVÒ‡°¢&WV—&VB7G&–ær6÷W&6TæÖRÀ¢&WV—&VB7G&–ær6V7F–öâÀ¢&WV—&VB7G&–ærF—FÆRÀ¢&WV—&VB7G&–ær6öçFVçBÀ¢Æ—7CÅ7G&–æsâFw2Ò6öç7BµÒÀ¢F÷V&ÆRvV–v‡BÒãSRÀ¢7G&–æsòFö7VÖVçD–BÀ¢Ò’7–æ2°¢f–æÂæ÷&ÖÆ—¦VBÒ6öçFVçBçG&–Ò‚“°¢–b†æ÷&ÖÆ—¦VBæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢f–æÂGWÆ–6FRÒv—BF"çVW'’€¢w&VfW&Væ6Uö—FV×2rÀ¢v†W&S¢w6÷W&6UöæÖRÒòäB6öçFVçBÒòrÀ¢v†W&T&w3¢·6÷W&6TæÖRçG&–Ò‚’Âæ÷&ÖÆ—¦VEÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢–b†GWÆ–6FRæ—4æ÷DV×G’’°¢v—BF"çWFFR€¢w&VfW&Væ6Uö—FV×2rÀ¢°¢–b†Fö7VÖVçD–BÒçVÆÂ’vFö7VÖVçEö–Bs¢Fö7VÖVçD–BÀ¢w6V7F–öâs¢6V7F–öâÀ¢wF—FÆRs¢F—FÆRçG&–Ò‚’À¢wFw2s¢Fw2æÖ‚†R’ÓâRçG&–Ò‚’’çv†W&R‚†R’ÓâRæ—4æ÷DV×G’’çF¶Rƒ"’æ¦ö–â‚wÂr’À¢wvV–v‡Bs¢vV–v‡Bæ6Æ×ƒãRÂã’À¢vVæ&ÆVBs¢À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶GWÆ–6FRæf—'7E²v–BuÕÒÀ¢“°¢&WGW&ã°¢Ð¢v—BF"æ–ç6W'B‚w&VfW&Væ6Uö—FV×2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢vFö7VÖVçEö–Bs¢Fö7VÖVçD–BÀ¢w6÷W&6UöæÖRs¢6÷W&6TæÖRçG&–Ò‚’æ—4V×G’ò~iÊ®YÞYÞ‹XNii’r¢6÷W&6TæÖRçG&–Ò‚’À¢w6V7F–öâs¢6V7F–öâÀ¢wF—FÆRs¢F—FÆRçG&–Ò‚’À¢v6öçFVçBs¢æ÷&ÖÆ—¦VBÀ¢wFw2s¢Fw2æÖ‚†R’ÓâRçG&–Ò‚’’çv†W&R‚†R’ÓâRæ—4æ÷DV×G’’çF¶Rƒ"’æ¦ö–â‚wÂr’À¢wvV–v‡Bs¢vV–v‡Bæ6Æ×ƒãRÂã’À¢vVæ&ÆVBs¢À¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢Ð ¢gWGW&SÄÆ—7CÅ&VfW&Væ6T—FVÓãâÆ—7E&VfW&Væ6T—FV×2‡¶–çBÆ–Ö—BÒCÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VfW&Væ6Uö—FV×2rÀ¢÷&FW$'“¢vVæ&ÆVBDU42ÂvV–v‡BDU42ÂWFFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…&VfW&Væ6T—FVÒæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÅ&VfW&Væ6T—FVÓãâ&VÆWfçE&VfW&Væ6T—FV×2…7G&–ærVW'’Â¶–çBÆ–Ö—BÒgÒ’7–æ2°¢–b‚†v—BvWE6WGF–ær‚w&VfW&Væ6UöÆ–'&'•öVæ&ÆVBr’’ÓÒsr’&WGW&â6öç7BµÓ°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VfW&Væ6Uö—FV×2rÀ¢v†W&S¢vVæ&ÆVBÒrÀ¢÷&FW$'“¢wvV–v‡BDU42ÂWFFVEöBDU42rÀ¢Æ–Ö—C¢##À¢“°¢f–æÂÒ÷Fö¶Vç2‡VW'’“°¢f–æÂ66÷&VBÒÂ‡µ&VfW&Væ6T—FVÒ—FVÒÂF÷V&ÆR66÷&WÒ“åµÓ°¢f÷"†f–æÂ&÷r–â&÷w2’°¢f–æÂ—FVÒÒ&VfW&Væ6T—FVÒæg&öÔF"‡&÷r“°¢f–æÂFö¶Vç2Ò÷Fö¶Vç2‚rG¶—FVÒçF—FÆWÒG¶—FVÒæ6öçFVçGÒG¶—FVÒçFw2æ¦ö–â‚rr—Òr“°¢f–æÂ÷fW&ÆÒæ—4V×G’òã¢çv†W&R‡Fö¶Vç2æ6öçF–ç2’æÆVæwF‚òæÆVæwFƒ°¢f–æÂ66÷&RÒ—FVÒçvV–v‡B¢ãS"²÷fW&Æ¢ãCƒ°¢òò&VfW&Væ6RÖFW&–Â—2FVÆ–&W&FVÇ’öâÖFVÖæBâWfVâ7V¶–ær×7G–ÆP¢òò—FVÒFöW2æ÷B&V6öÖRW&ÖæVçBW"×GW&â6†&7FW"6&Bà¢–b†÷fW&ÆâÇÂ—FVÒçvV–v‡BãÒãƒ"’°¢66÷&VBæFB‚†—FVÓ¢—FVÒÂ66÷&S¢66÷&R’“°¢Ð¢Ð¢66÷&VBç6÷'B‚†Â"’Óâ"ç66÷&Ræ6ö×&UFò†ç66÷&R’“°¢&WGW&â66÷&VBçF¶R†Æ–Ö—B’æÖ‚†R’ÓâRæ—FVÒ’çFôÆ—7B†w&÷v&ÆS¢fÇ6R“°¢Ð ¢gWGW&SÇfö–Câ6WE&VfW&Væ6TVæ&ÆVB…7G&–ær–BÂ&ööÂVæ&ÆVB’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢w&VfW&Væ6Uö—FV×2rÀ¢²vVæ&ÆVBs¢Væ&ÆVBò¢ÂwWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâFVÆWFU&VfW&Væ6T—FVÒ…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æFVÆWFR‚w&VfW&Væ6Uö—FV×2rÂv†W&S¢v–BÒòrÂv†W&T&w3¢¶–EÒ“°¢Ð ¢gWGW&SÇfö–Câ6ÆV%&VfW&Væ6U6÷W&6R…7G&–ær6÷W&6TæÖR’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æFVÆWFR‚w&VfW&Væ6Uö—FV×2rÂv†W&S¢w6÷W&6UöæÖRÒòrÂv†W&T&w3¢·6÷W&6TæÖUÒ“°¢Ð ¢gWGW&SÅ7G&–æsâW6W'E&VfW&Væ6TFö7VÖVçB‡°¢7G&–æsò–BÀ¢&WV—&VB7G&–æræÖRÀ¢&WV—&VB7G&–ær¶–æBÀ¢&WV—&VB7G&–ær&t6öçFVçBÀ¢Æ—7CÅ7G&–æsâÆ–6W2Ò6öç7BµÒÀ¢&ööÂVæ&ÆVBÒG'VRÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂæ÷&ÖÆ—¦VDæÖRÒæÖRçG&–Ò‚’æ—4V×G’ò~iÊ®YÞYÞ‹XNii’r¢æÖRçG&–Ò‚“°¢f–æÂæ÷&ÖÆ—¦VDÆ–6W2ÒÆ–6W0¢æÖ‚†R’ÓâRçG&–Ò‚’¢çv†W&R‚†R’ÓâRæ—4æ÷DV×G’¢çF¶Rƒb¢æ¦ö–â‚wÂr“° ¢–b†–BÒçVÆÂbb–BçG&–Ò‚’æ—4æ÷DV×G’’°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢°¢væÖRs¢æ÷&ÖÆ—¦VDæÖRÀ¢v¶–æBs¢¶–æBÀ¢vÆ–6W2s¢æ÷&ÖÆ—¦VDÆ–6W2À¢w&uö6öçFVçBs¢&t6öçFVçBçG&–Ò‚’À¢vVæ&ÆVBs¢Væ&ÆVBò¢À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢–b†6†ævVBÓÒ’&WGW&â–C°¢Ð ¢f–æÂFö7VÖVçD–BÒ–Bóò÷WV–BçcB‚“°¢v—BF"æ–ç6W'B‚w&VfW&Væ6UöFö7VÖVçG2rÂ°¢v–Bs¢Fö7VÖVçD–BÀ¢væÖRs¢æ÷&ÖÆ—¦VDæÖRÀ¢v¶–æBs¢¶–æBÀ¢vÆ–6W2s¢æ÷&ÖÆ—¦VDÆ–6W2À¢w&uö6öçFVçBs¢&t6öçFVçBçG&–Ò‚’À¢vVæ&ÆVBs¢Væ&ÆVBò¢À¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢&WGW&âFö7VÖVçD–C°¢Ð ¢gWGW&SÅ7G&–æsâ6fU&VfW&Væ6TFö7VÖVçEv—F„6‡Væ·2‡°¢7G&–æsò–BÀ¢&WV—&VB7G&–æræÖRÀ¢&WV—&VB7G&–ær¶–æBÀ¢&WV—&VB7G&–ær&t6öçFVçBÀ¢Æ—7CÅ7G&–æsâÆ–6W2Ò6öç7BµÒÀ¢&ööÂVæ&ÆVBÒG'VRÀ¢&WV—&VBÆ—7CÄÖÅ7G&–ærÂö&¦V7Cóãâ6‡Væ·2À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂæ÷&ÖÆ—¦VDæÖRÒæÖRçG&–Ò‚’æ—4V×G’ò~iÊ®YÞYÞ‹XNii’r¢æÖRçG&–Ò‚“°¢f–æÂæ÷&ÖÆ—¦VDÆ–6W2ÒÆ–6W0¢æÖ‚†R’ÓâRçG&–Ò‚’¢çv†W&R‚†R’ÓâRæ—4æ÷DV×G’¢çF¶Rƒb¢æ¦ö–â‚wÂr“°¢f–æÂFö7VÖVçD–BÒ–Bóò÷WV–BçcB‚“° ¢&WGW&âF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f"WFFVBÒ°¢–b†–BÒçVÆÂbb–BçG&–Ò‚’æ—4æ÷DV×G’’°¢WFFVBÒv—BG†âçWFFR€¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢°¢væÖRs¢æ÷&ÖÆ—¦VDæÖRÀ¢v¶–æBs¢¶–æBÀ¢vÆ–6W2s¢æ÷&ÖÆ—¦VDÆ–6W2À¢w&uö6öçFVçBs¢&t6öçFVçBçG&–Ò‚’À¢vVæ&ÆVBs¢Væ&ÆVBò¢À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð¢–b‡WFFVBÒ’°¢v—BG†âæ–ç6W'B‚w&VfW&Væ6UöFö7VÖVçG2rÂ°¢v–Bs¢Fö7VÖVçD–BÀ¢væÖRs¢æ÷&ÖÆ—¦VDæÖRÀ¢v¶–æBs¢¶–æBÀ¢vÆ–6W2s¢æ÷&ÖÆ—¦VDÆ–6W2À¢w&uö6öçFVçBs¢&t6öçFVçBçG&–Ò‚’À¢vVæ&ÆVBs¢Væ&ÆVBò¢À¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢Ð ¢v—BG†âæFVÆWFR€¢w&VfW&Væ6Uö—FV×2rÀ¢v†W&S¢vFö7VÖVçEö–BÒòrÀ¢v†W&T&w3¢¶Fö7VÖVçD–EÒÀ¢“°¢f÷"†f–æÂ6‡Væ²–â6‡Væ·2’°¢f–æÂ6öçFVçBÒ†6‡Væµ²v6öçFVçBuÒ27G&–æsòóòrr’çG&–Ò‚“°¢–b†6öçFVçBæ—4V×G’’6öçF–çVS°¢v—BG†âæ–ç6W'B‚w&VfW&Væ6Uö—FV×2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢vFö7VÖVçEö–Bs¢Fö7VÖVçD–BÀ¢w6÷W&6UöæÖRs¢æ÷&ÖÆ—¦VDæÖRÀ¢w6V7F–öâs¢6‡Væµ²w6V7F–öâuÒ27G&–æsòóò¶–æBÀ¢wF—FÆRs¢6‡Væµ²wF—FÆRuÒ27G&–æsòóòrrÀ¢v6öçFVçBs¢6öçFVçBÀ¢wFw2s¢6‡Væµ²wFw2uÒ27G&–æsòóòrrÀ¢wvV–v‡Bs¢†6‡Væµ²wvV–v‡BuÒ2çVÓò“òçFôF÷V&ÆR‚’óòãS‚À¢vVæ&ÆVBs¢Væ&ÆVBò¢À¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢Ð¢&WGW&âFö7VÖVçD–C°¢Ò“°¢Ð ¢gWGW&SÅ&VfW&Væ6TFö7VÖVçCóâ&VfW&Væ6TFö7VÖVçD'”–B…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&VfW&Væ6TFö7VÖVçBæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÄÆ—7CÅ&VfW&Væ6TFö7VÖVçCãâÆ—7E&VfW&Væ6TFö7VÖVçG2‡¶–çBÆ–Ö—BÒÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’‚w&VfW&Væ6UöFö7VÖVçG2rÂ÷&FW$'“¢vVæ&ÆVBDU42ÂWFFVEöBDU42rÂÆ–Ö—C¢Æ–Ö—B“°¢&WGW&â&÷w2æÖ…&VfW&Væ6TFö7VÖVçBæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÅ&VfW&Væ6T—FVÓãâ&VfW&Væ6T—FV×4f÷$Fö7VÖVçB…7G&–ærFö7VÖVçD–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&VfW&Væ6Uö—FV×2rÀ¢v†W&S¢vFö7VÖVçEö–BÒòrÀ¢v†W&T&w3¢¶Fö7VÖVçD–EÒÀ¢÷&FW$'“¢v7&VFVEöB42rÀ¢“°¢&WGW&â&÷w2æÖ…&VfW&Væ6T—FVÒæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–Câ&WÆ6TFö7VÖVçD6‡Væ·2€¢7G&–ærFö7VÖVçD–BÂ°¢&WV—&VB7G&–ær6÷W&6TæÖRÀ¢&WV—&VBÆ—7CÄÖÅ7G&–ærÂö&¦V7Cóãâ6‡Væ·2À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f–æÂFö7VÖVçE&÷w2Òv—BG†âçVW'’€¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢6öÇVÖç3¢6öç7B²vVæ&ÆVBuÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶Fö7VÖVçD–EÒÀ¢Æ–Ö—C¢À¢“°¢–b†Fö7VÖVçE&÷w2æ—4V×G’’°¢F‡&÷r7FFTW'&÷"‚u&VfW&Væ6RFö7VÖVçBFöW2æ÷BW†—7C¢FFö7VÖVçD–Br“°¢Ð¢f–æÂFö7VÖVçDVæ&ÆVBÒ†Fö7VÖVçE&÷w2æf—'7E²vVæ&ÆVBuÒ2–çCòóò’ÓÒ°¢v—BG†âæFVÆWFR‚w&VfW&Væ6Uö—FV×2rÂv†W&S¢vFö7VÖVçEö–BÒòrÂv†W&T&w3¢¶Fö7VÖVçD–EÒ“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f÷"†f–æÂ6‡Væ²–â6‡Væ·2’°¢f–æÂ6öçFVçBÒ†6‡Væµ²v6öçFVçBuÒ27G&–æsòóòrr’çG&–Ò‚“°¢–b†6öçFVçBæ—4V×G’’6öçF–çVS°¢v—BG†âæ–ç6W'B‚w&VfW&Væ6Uö—FV×2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢vFö7VÖVçEö–Bs¢Fö7VÖVçD–BÀ¢w6÷W&6UöæÖRs¢6÷W&6TæÖRÀ¢w6V7F–öâs¢6‡Væµ²w6V7F–öâuÒ27G&–æsòóòv6†&7FW"rÀ¢wF—FÆRs¢6‡Væµ²wF—FÆRuÒ27G&–æsòóòrrÀ¢v6öçFVçBs¢6öçFVçBÀ¢wFw2s¢6‡Væµ²wFw2uÒ27G&–æsòóòrrÀ¢wvV–v‡Bs¢†6‡Væµ²wvV–v‡BuÒ2çVÓò“òçFôF÷V&ÆR‚’óòãS‚À¢vVæ&ÆVBs¢Fö7VÖVçDVæ&ÆVBò¢À¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢Ò“°¢Ð¢Ò“°¢Ð ¢gWGW&SÇfö–Câ6WE&VfW&Væ6TFö7VÖVçDVæ&ÆVB…7G&–ær–BÂ&ööÂVæ&ÆVB’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢v—BG†âçWFFR€¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢²vVæ&ÆVBs¢Væ&ÆVBò¢ÂwWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢v—BG†âçWFFR€¢w&VfW&Væ6Uö—FV×2rÀ¢²vVæ&ÆVBs¢Væ&ÆVBò¢ÂwWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢vFö7VÖVçEö–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ò“°¢Ð ¢gWGW&SÇfö–CâFVÆWFU&VfW&Væ6TFö7VÖVçB…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢v—BG†âæFVÆWFR‚w&VfW&Væ6Uö—FV×2rÂv†W&S¢vFö7VÖVçEö–BÒòrÂv†W&T&w3¢¶–EÒ“°¢v—BG†âæFVÆWFR‚w&VfW&Væ6UöFö7VÖVçG2rÂv†W&S¢v–BÒòrÂv†W&T&w3¢¶–EÒ“°¢Ò“°¢Ð ¢gWGW&SÄÆ—7CÅ'VÆTÆ–W#ãâÆ—7E'VÆTÆ–W'2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—B÷6VVE'VÆTÆ–W'2†F"“°¢f–æÂ&÷w2Òv—BF"çVW'’‚w'VÆUöÆ–W'2rÂ÷&FW$'“¢v¶W’42r“°¢&WGW&â&÷w2æÖ…'VÆTÆ–W"æg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–CâöW‡—&UW'6öæÆ—G•G&–Ç2„FF&6TW†V7WF÷"F"Â–çBæ÷r’7–æ2°¢v—BF"çWFFR€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢²w7FGW2s¢vW‡—&VBrÂvVæFVEöBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBÃÒò"À¢v†W&T&w3¢¶æ÷uÒÀ¢“°¢v—BF"çWFFR€¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢²w7FGW2s¢vW‡—&VBrÂvVæFVEöBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBÃÒò"À¢v†W&T&w3¢¶æ÷uÒÀ¢“°¢Ð ¢gWGW&SÅW'6öæÆ—G•G&–Ãóâ7F—fUW'6öæÆ—G•G&–Â‡´FFUF–ÖSòæ÷wÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂBÒ†æ÷róòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2†F"ÂB“°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBâò"À¢v†W&T&w3¢¶EÒÀ¢÷&FW$'“¢w7F'FVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢W'6öæÆ—G•G&–Âæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÅW'6öæÆ—G•G&–ÃóâÆFW7DF÷F&ÆUW'6öæÆ—G•G&–Â‡´FFUF–ÖSòæ÷wÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂBÒæ÷róòFFUF–ÖRææ÷r‚“°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2†F"ÂBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚“°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢v†W&S¢'7FGW2”â‚v7F—fRrÂvW‡—&VBrÂvVæFVBr’äBW‡—&W5öBãÒò"À¢v†W&T&w3¢¶Bç7V'G&7B†6öç7BGW&F–öâ†F—3¢r’’æÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢÷&FW$'“¢w7F'FVEöBDU42rÀ¢Æ–Ö—C¢"À¢“°¢f÷"†f–æÂ&÷r–â&÷w2’°¢f–æÂG&–ÂÒW'6öæÆ—G•G&–Âæg&öÔF"‡&÷r“°¢–b‡G&–Âæ—4F÷F&ÆTB†B’’&WGW&âG&–Ã°¢Ð¢&WGW&âçVÆÃ°¢Ð ¢gWGW&SÅ7V6–Å7G–ÆUG&–Ãóâ7F—fU7V6–Å7G–ÆUG&–Â‡´FFUF–ÖSòæ÷wÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂBÒ†æ÷róòFFUF–ÖRææ÷r‚’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2†F"ÂB“°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBâò"À¢v†W&T&w3¢¶EÒÀ¢÷&FW$'“¢w7F'FVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢7V6–Å7G–ÆUG&–Âæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÅW'6öæÆ—G•G&–Ãâ7F'EW'6öæÆ—G•G&–Â‡°¢&WV—&VB7G&–ær&6T¶W’À¢&WV—&VB7G&–ær÷7GW&T¶W’À¢&WV—&VBGW&F–öâGW&F–öâÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢f–æÂBÒæ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ–BÒ÷WV–BçcB‚“°¢f–æÂFV×ÆFW2Òv—B÷&ö×EFV×ÆFT6öçFVçG2†F"“°¢f–æÂ6öçFVçBÒW'6öæÆ—G”6FÆöræ6ö×–ÆU&öf–ÆR€¢&6T¶W’À¢÷7GW&T¶W’À¢G&–Ã¢G'VRÀ¢FV×ÆFW3¢FV×ÆFW2À¢“°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2‡G†âÂB“°¢v—BG†âçWFFR€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢²w7FGW2s¢w&WÆ6VBrÂvVæFVEöBs¢BÂwWFFVEöBs¢GÒÀ¢v†W&S¢'7FGW2Òv7F—fRr"À¢“°¢f–æÂ6VVBÒv—BG†âçVW'’€¢w'VÆUöÆ–W'2rÀ¢6öÇVÖç3¢6öç7B²v6öçFVçBuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢6öç7B²s5÷W'6öæÆ—G•÷6VVBuÒÀ¢Æ–Ö—C¢À¢“°¢v—BG†âæ–ç6W'B‚wW'6öæÆ—G•÷G&–Ç2rÂ°¢v–Bs¢–BÀ¢v&6Uö¶W’s¢&6T¶W’À¢w÷7GW&Uö¶W’s¢÷7GW&T¶W’À¢v6öçFVçBs¢6öçFVçBÀ¢w&Wf–÷W5ö6öçFVçBs¢6VVBæ—4V×G’òrr¢6VVBæf—'7E²v6öçFVçBuÒ27G&–æsòóòrrÀ¢w7FGW2s¢v7F—fRrÀ¢w7F'FVEöBs¢BÀ¢vW‡—&W5öBs¢æ÷ræFB†GW&F–öâ’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vVffV7F—fU÷GW&ç2s¢À¢v–çFW&7F–öå÷v–æF÷w2s¢À¢v7&VFVEöBs¢BÀ¢wWFFVEöBs¢BÀ¢Ò“°¢Ò“°¢&WGW&â†v—B7F—fUW'6öæÆ—G•G&–Â†æ÷s¢æ÷r’’°¢Ð ¢gWGW&SÇfö–CâW‡FVæEW'6öæÆ—G•G&–Â…7G&–ær–BÂGW&F–öâGW&F–öâ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"ç&uWFFR€¢%UDDRW'6öæÆ—G•÷G&–Ç24UBW‡—&W5öBÒW‡—&W5öB²òÂWFFVEöBÒòt„U$R–BÒòäB7FGW2Òv7F—fRr"À¢¶GW&F–öâæ–äÖ–ÆÆ—6V6öæG2Âæ÷rÂ–EÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâVæEW'6öæÆ—G•G&–Â…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"çWFFR€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢²w7FGW2s¢vVæFVBrÂvVæFVEöBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢&–BÒòäB7FGW2Òv7F—fRr"À¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢gWGW&SÅ7V6–Å7G–ÆUG&–Ãâ7F'E7V6–Å7G–ÆUG&–Â‡°¢&WV—&VB7G&–ær7G–ÆT¶W’À¢&WV—&VBGW&F–öâGW&F–öâÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢f–æÂBÒæ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ–BÒ÷WV–BçcB‚“°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2‡G†âÂB“°¢v—BG†âçWFFR€¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢²w7FGW2s¢w&WÆ6VBrÂvVæFVEöBs¢BÂwWFFVEöBs¢GÒÀ¢v†W&S¢'7FGW2Òv7F—fRr"À¢“°¢v—BG†âæ–ç6W'B‚w7V6–Å÷7G–ÆU÷G&–Ç2rÂ°¢v–Bs¢–BÀ¢w7G–ÆUö¶W’s¢7G–ÆT¶W’À¢w7FGW2s¢v7F—fRrÀ¢w7F'FVEöBs¢BÀ¢vW‡—&W5öBs¢æ÷ræFB†GW&F–öâ’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢v7&VFVEöBs¢BÀ¢wWFFVEöBs¢BÀ¢Ò“°¢Ò“°¢&WGW&â†v—B7F—fU7V6–Å7G–ÆUG&–Â†æ÷s¢æ÷r’’°¢Ð ¢gWGW&SÇfö–CâW‡FVæE7V6–Å7G–ÆUG&–Â…7G&–ær–BÂGW&F–öâGW&F–öâ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"ç&uWFFR€¢%UDDR7V6–Å÷7G–ÆU÷G&–Ç24UBW‡—&W5öBÒW‡—&W5öB²òÂWFFVEöBÒòt„U$R–BÒòäB7FGW2Òv7F—fRr"À¢¶GW&F–öâæ–äÖ–ÆÆ—6V6öæG2Âæ÷rÂ–EÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâVæE7V6–Å7G–ÆUG&–Â…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"çWFFR€¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢²w7FGW2s¢vVæFVBrÂvVæFVEöBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢&–BÒòäB7FGW2Òv7F—fRr"À¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢gWGW&SÆ&ööÃâF÷EW'6öæÆ—G•G&–Â…7G&–ær–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2‡G†âÂæ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚“°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âfÇ6S°¢f–æÂG&–ÂÒW'6öæÆ—G•G&–Âæg&öÔF"‡&÷w2æf—'7B“°¢–b‚G&–Âæ—4F÷F&ÆTB†æ÷r’’&WGW&âfÇ6S°¢f–æÂFV×ÆFW2Òv—B÷&ö×EFV×ÆFT6öçFVçG2‡G†â“°¢f–æÂF÷FVBÒW'6öæÆ—G”6FÆöræ6ö×–ÆU&öf–ÆR€¢G&–Âæ&6T¶W’À¢G&–Âç÷7GW&T¶W’À¢G&–Ã¢fÇ6RÀ¢FV×ÆFW3¢FV×ÆFW2À¢“°¢f–æÂ7W'&VçBÒv—BG†âçVW'’€¢w'VÆUöÆ–W'2rÀ¢6öÇVÖç3¢6öç7B²v6öçFVçBuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢6öç7B²s5÷W'6öæÆ—G•÷6VVBuÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂ&Wf–÷W2Ò7W'&VçBæ—4V×G’òrr¢7W'&VçBæf—'7E²v6öçFVçBuÒ27G&–æsòóòrs°¢v—BG†âçWFFR€¢wW'6öæÆ—G•÷&öf–ÆU÷fW'6–öç2rÀ¢²v7F—fRs¢Âw&WF—&VEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v7F—fRÒrÀ¢“°¢–b‡&Wf–÷W2æ—4æ÷DV×G’’°¢v—BG†âæ–ç6W'B‚wW'6öæÆ—G•÷&öf–ÆU÷fW'6–öç2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢v6öçFVçBs¢&Wf–÷W2À¢w6÷W&6Rs¢w&UöF÷F–öå÷6æ6†÷BrÀ¢v7F—fRs¢À¢v7&VFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢v7F—fFVEöBs¢G&–Âç7F'FVDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w&WF—&VEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ò“°¢Ð¢v—BG†âæ–ç6W'B‚wW'6öæÆ—G•÷&öf–ÆU÷fW'6–öç2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢v&6Uö¶W’s¢G&–Âæ&6T¶W’À¢w÷7GW&Uö¶W’s¢G&–Âç÷7GW&T¶W’À¢v6öçFVçBs¢F÷FVBÀ¢w6÷W&6Rs¢wG&–ÅöF÷F–öârÀ¢w6÷W&6U÷G&–Åö–Bs¢G&–Âæ–BÀ¢v7F—fRs¢À¢v7&VFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢v7F—fFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ò“°¢v—BG†âçWFFR€¢w'VÆUöÆ–W'2rÀ¢²v6öçFVçBs¢F÷FVBÂwWFFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‡ÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢6öç7B²s5÷W'6öæÆ—G•÷6VVBuÒÀ¢“°¢v—BG†âçWFFR€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢°¢w7FGW2s¢vF÷FVBrÀ¢vVæFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wWFFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢òòFW6—&R&6VÆ–æW2Â’6VÆbæB&VÆF–öç6†—ÖVÖ÷'’&R–çFVçF–öæÆÇ’VçF÷V6†VBà¢&WGW&âG'VS°¢Ò“°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂ7G&–æsãâ÷&ö×EFV×ÆFT6öçFVçG2€¢FF&6TW†V7WF÷"W†V7WF÷"À¢’7–æ2°¢f–æÂ&÷w2Òv—BW†V7WF÷"çVW'’€¢w'VÆUöÆ–W'2rÀ¢6öÇVÖç3¢6öç7B²v¶W’rÂv6öçFVçBuÒÀ¢v†W&S¢vÆöE÷öÆ–7’ÒòrÀ¢v†W&T&w3¢6öç7B²wFV×ÆFRuÒÀ¢“°¢&WGW&âÅ7G&–ærÂ7G&–æsç°¢f÷"†f–æÂ&÷r–â&÷w2¢–b‚‡&÷u²v¶W’uÒ27G&–æsòóòrr’æ—4æ÷DV×G’¢&÷u²v¶W’uÒ27G&–æs¢&÷u²v6öçFVçBuÒ27G&–æsòóòrrÀ¢Ó°¢Ð ¢gWGW&SÇfö–Câ÷&V6÷&EW'6öæÆ—G•G&–Å&WÇ”–åG&ç67F–öâ€¢FF&6TW†V7WF÷"G†âÀ¢–çBæ÷rÀ¢’7–æ2°¢v—BöW‡—&UW'6öæÆ—G•G&–Ç2‡G†âÂæ÷r“°¢f–æÂ7V6–ÂÒv—BG†âçVW'’€¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢6öÇVÖç3¢6öç7B²v–BuÒÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBâò"À¢v†W&T&w3¢¶æ÷uÒÀ¢Æ–Ö—C¢À¢“°¢–b‡7V6–Âæ—4æ÷DV×G’’&WGW&ã°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢v†W&S¢'7FGW2Òv7F—fRräBW‡—&W5öBâò"À¢v†W&T&w3¢¶æ÷uÒÀ¢÷&FW$'“¢w7F'FVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&ã°¢f–æÂG&–ÂÒW'6öæÆ—G•G&–Âæg&öÔF"‡&÷w2æf—'7B“°¢f–æÂæWuv–æF÷rÒG&–ÂæÆ7D–çFW&7F–öäBÓÒçVÆÂÇÀ¢æ÷rÒG&–ÂæÆ7D–çFW&7F–öäBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚ãÐ¢6öç7BGW&F–öâ††÷W'3¢’æ–äÖ–ÆÆ—6V6öæG3°¢v—BG†âçWFFR€¢wW'6öæÆ—G•÷G&–Ç2rÀ¢°¢vVffV7F—fU÷GW&ç2s¢G&–ÂæVffV7F—fUGW&ç2²À¢v–çFW&7F–öå÷v–æF÷w2s¢G&–Âæ–çFW&7F–öåv–æF÷w2²†æWuv–æF÷rò¢’À¢vÆ7Eö–çFW&7F–öåöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢·G&–Âæ–EÒÀ¢“°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâW'6öæÆ—G•G&–ÄF–væ÷7F–72‚’7–æ2°¢f–æÂ&öf–ÆRÒv—B7F—fUW'6öæÆ—G•G&–Â‚“°¢f–æÂ7V6–ÂÒv—B7F—fU7V6–Å7G–ÆUG&–Â‚“°¢&WGW&â°¢w&öf–ÆT7F—fRs¢&öf–ÆRÒçVÆÂÀ¢w&öf–ÆT&6T¶W’s¢&öf–ÆSòæ&6T¶W’óòrrÀ¢w&öf–ÆU÷7GW&T¶W’s¢&öf–ÆSòç÷7GW&T¶W’óòrrÀ¢w&öf–ÆTVffV7F—fUGW&ç2s¢&öf–ÆSòæVffV7F—fUGW&ç2óòÀ¢w&öf–ÆT–çFW&7F–öåv–æF÷w2s¢&öf–ÆSòæ–çFW&7F–öåv–æF÷w2óòÀ¢w&öf–ÆU&VÖ–æ–ætÖ–çWFW2s¢&öf–ÆRÓÒçVÆÀ¢ò ¢¢&öf–ÆRç&VÖ–æ–ær‚’æ–äÖ–çWFW2æ6Æ×ƒÂ’À¢w7V6–Ä7F—fRs¢7V6–ÂÒçVÆÂÀ¢w7V6–Å7G–ÆT¶W’s¢7V6–Ãòç7G–ÆT¶W’óòrrÀ¢w7V6–Å&VÖ–æ–ætÖ–çWFW2s¢7V6–ÂÓÒçVÆÀ¢ò ¢¢7V6–Âç&VÖ–æ–ær‚’æ–äÖ–çWFW2æ6Æ×ƒÂ’À¢w&ö×D&öF–W4–æ6ÇVFVBs¢fÇ6RÀ¢Ó°¢Ð ¢gWGW&SÇfö–CâWFFU'VÆTÆ–W"…7G&–ær¶W’Âµ7G&–æsò6öçFVçBÂ&ööÃòVæ&ÆVGÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢–b†Væ&ÆVBÓÒfÇ6R’°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w'VÆUöÆ–W'2rÀ¢6öÇVÖç3¢6öç7B²vÆö6¶VBuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4æ÷DV×G’bb‡&÷w2æf—'7E²vÆö6¶VBuÒ2–çCòóò’ÓÒ’°¢&WGW&ã°¢Ð¢Ð¢v—BF"çWFFR‚w'VÆUöÆ–W'2rÂ°¢–b†6öçFVçBÒçVÆÂ’v6öçFVçBs¢6öçFVçBÀ¢–b†Væ&ÆVBÒçVÆÂ’vVæ&ÆVBs¢Væ&ÆVBò¢À¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÂv†W&S¢v¶W’ÒòrÂv†W&T&w3¢¶¶W•Ò“°¢Ð ¢gWGW&SÇfö–Câ&W6WE'VÆTÆ–W"…7G&–ær¶W’’7–æ2°¢f–æÂÖF6‚ÒFVfVÇE'VÆTÆ–W'2çv†W&R‚†R’ÓâRæ¶W’ÓÒ¶W’“°¢–b†ÖF6‚æ—4V×G’’&WGW&ã°¢f–æÂÆ–W"ÒÖF6‚æf—'7C°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B‚w'VÆUöÆ–W'2rÂ°¢v¶W’s¢Æ–W"æ¶W’À¢wF—FÆRs¢Æ–W"çF—FÆRÀ¢v6öçFVçBs¢Æ–W"æ6öçFVçBÀ¢vÆöE÷öÆ–7’s¢Æ–W"æÆöEöÆ–7’À¢vVæ&ÆVBs¢À¢vÆö6¶VBs¢Æ–W"æÆö6¶VBò¢À¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÂ6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6R“°¢Ð ¢gWGW&SÇfö–Câ7&VFU&ö7F—fTfVVF&6²‡°¢&WV—&VB7G&–ær&ö7F—fTÖW76vT–BÀ¢7G&–æsòF†÷Vv‡D–BÀ¢7G&–ærF÷–4¶W’ÒrrÀ¢7G&–æsòF‡&VD–BÀ¢7G&–ær–çFVçD¶–æBÒrrÀ¢7G&–ærFVÆ—fW'•7G–ÆRÒrrÀ¢&WV—&VBFFUF–ÖR6VçDBÀ¢7G&–ær6öçFW‡D†÷W$'V6¶WBÒrrÀ¢7G&–ær6öçFW‡D7F—f—G’ÒwVæ¶æ÷vârÀ¢F÷V&ÆR6öçFW‡D'W7’ÒÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B‚w&ö7F—fUöfVVF&6²rÂ°¢v–Bs¢÷WV–BçcB‚’À¢w&ö7F—fUöÖW76vUö–Bs¢&ö7F—fTÖW76vT–BÀ¢wF†÷Vv‡Eö–Bs¢F†÷Vv‡D–BÀ¢wF÷–5ö¶W’s¢F÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚’À¢wF‡&VEö–Bs¢F‡&VD–BÀ¢v–çFVçEö¶–æBs¢–çFVçD¶–æBçG&–Ò‚’À¢vFVÆ—fW'•÷7G–ÆRs¢FVÆ—fW'•7G–ÆRçG&–Ò‚’À¢w6VçEöBs¢6VçDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢v6öçFW‡Eö†÷W%ö'V6¶WBs¢6öçFW‡D†÷W$'V6¶WBçG&–Ò‚’À¢v6öçFW‡Eö7F—f—G’s¢6öçFW‡D7F—f—G’çG&–Ò‚’æ—4V×G’òwVæ¶æ÷vâr¢6öçFW‡D7F—f—G’çG&–Ò‚’À¢v6öçFW‡Eö'W7’s¢6öçFW‡D'W7’æ6Æ×ƒãÂã’çFôF÷V&ÆR‚’À¢w&W7öç6Uö'V6¶WBs¢wVæF–ærrÀ¢wW6W%÷FW‡EöÆVæwF‚s¢À¢v7&VFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÂ6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&R“°¢Ð ¢gWGW&SÄÆ—7CÅ&ö7F—fTfVVF&6³ãâ&V6VçE&ö7F—fTfVVF&6²‡¶–çBÆ–Ö—BÒcÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’‚w&ö7F—fUöfVVF&6²rÂ÷&FW$'“¢w6VçEöBDU42rÂÆ–Ö—C¢Æ–Ö—B“°¢&WGW&â&÷w2æÖ…&ö7F—fTfVVF&6²æg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÅ&ö7F—fTfVVF&6³óâÆFW7EVæF–æu&ö7F—fTfVVF&6²‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&ö7F—fUöfVVF&6²rÀ¢v†W&S¢w&W7öç6Uö'V6¶WBÒòrÀ¢v†W&T&w3¢²wVæF–æruÒÀ¢÷&FW$'“¢w6VçEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&ö7F—fTfVVF&6²æg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÇfö–Câ&W6öÇfU&ö7F—fTfVVF&6²‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ærW6W%&W7öç6TÖW76vT–BÀ¢&WV—&VB–çBÆFVæ7•6V6öæG2À¢&WV—&VB7G&–ær&W7öç6T'V6¶WBÀ¢&WV—&VB–çBW6W%FW‡DÆVæwF‚À¢&WV—&VBF÷V&ÆR&W7öç6UVÆ—G’À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR‚w&ö7F—fUöfVVF&6²rÂ°¢wW6W%÷&W7öç6UöÖW76vUö–Bs¢W6W%&W7öç6TÖW76vT–BÀ¢w&W7öç6UöÆFVæ7•÷6V6öæG2s¢ÆFVæ7•6V6öæG2À¢w&W7öç6Uö'V6¶WBs¢&W7öç6T'V6¶WBÀ¢wW6W%÷FW‡EöÆVæwF‚s¢W6W%FW‡DÆVæwF‚À¢w&W7öç6U÷VÆ—G’s¢&W7öç6UVÆ—G’æ6Æ×ƒãÂã’À¢v÷WF6öÖRs¢w&W7öç6U÷&V6V—fVBrÀ¢ÒÂv†W&S¢v–BÒòrÂv†W&T&w3¢¶–EÒ“°¢Ð ¢gWGW&SÅ&ö7F—fTfVVF&6³óâ&ö7F—fTfVVF&6´f÷%W6W%&W7öç6R…7G&–ærÖW76vT–B’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&ö7F—fUöfVVF&6²rÀ¢v†W&S¢wW6W%÷&W7öç6UöÖW76vUö–BÒòrÀ¢v†W&T&w3¢¶ÖW76vT–EÒÀ¢÷&FW$'“¢w6VçEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&ö7F—fTfVVF&6²æg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÄÆ—7CÅ&ö7F—fTfVVF&6³ãâ&V6VçE&ö7F—fTfVVF&6´'•F÷–2€¢7G&–ærF÷–4¶W’Â°¢–çBÆ–Ö—BÒ#À¢Ò’7–æ2°¢f–æÂ¶W’ÒF÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢–b†¶W’æ—4V×G’’&WGW&â6öç7BµÓ°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&ö7F—fUöfVVF&6²rÀ¢v†W&S¢wF÷–5ö¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢÷&FW$'“¢w6VçEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…&ö7F—fTfVVF&6²æg&öÔF"’çFôÆ—7B‚“°¢Ð  ¢gWGW&SÄÆ—7CÅ&ö7F—fTfVVF&6³ãâ&V6VçE&ö7F—fTfVVF&6´'”–çFVçB€¢7G&–ær–çFVçD¶–æBÂ°¢–çBÆ–Ö—BÒ#À¢Ò’7–æ2°¢f–æÂ¶W’Ò–çFVçD¶–æBçG&–Ò‚“°¢–b†¶W’æ—4V×G’’&WGW&â6öç7BµÓ°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w&ö7F—fUöfVVF&6²rÀ¢v†W&S¢v–çFVçEö¶–æBÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢÷&FW$'“¢w6VçEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ…&ö7F—fTfVVF&6²æg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–Câf–æÆ—¦U&ö7F—fT÷WF6öÖR‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ær÷WF6öÖRÀ¢&WV—&VBF÷V&ÆR÷WF6öÖU66÷&RÀ¢&WV—&VBF÷V&ÆRF–Ö–ætf—BÀ¢&WV—&VBF÷V&ÆRF÷–4f—BÀ¢Ò’7–æ2°¢6öç7BÆÆ÷vVBÒ²vVævvVBrÂv6¶æ÷vÆVFvVBrÂvFVfW'&VBrÂw&W6öÇfVBrÂvF—6Ö—76VBrÂw&VF—&V7FVBrÂvæõ÷&W7öç6RwÓ°¢f–æÂæ÷&ÖÆ—¦VBÒÆÆ÷vVBæ6öçF–ç2†÷WF6öÖR’ò÷WF6öÖR¢v6¶æ÷vÆVFvVBs°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢w&ö7F—fUöfVVF&6²rÀ¢°¢v÷WF6öÖRs¢æ÷&ÖÆ—¦VBÀ¢v÷WF6öÖU÷66÷&Rs¢÷WF6öÖU66÷&Ræ6Æ×ƒãÂã’À¢wF–Ö–æuöf—Bs¢F–Ö–ætf—Bæ6Æ×‚ÓãÂã’çFôF÷V&ÆR‚’À¢wF÷–5öf—Bs¢F÷–4f—Bæ6Æ×‚ÓãÂã’çFôF÷V&ÆR‚’À¢w&ö6W76VEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâW‡—&U&ö7F—fTfVVF&6²‡·&WV—&VBFFUF–ÖR&Vf÷&WÒ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"çWFFR€¢w&ö7F—fUöfVVF&6²rÀ¢°¢w&W7öç6Uö'V6¶WBs¢væõ÷&W7öç6RrÀ¢v÷WF6öÖRs¢væõ÷&W7öç6RrÀ¢v÷WF6öÖU÷66÷&Rs¢ãÀ¢òò6–ÆVæ6R—2vV²Wf–FVæ6R&÷WBF–Ö–æræBæòWf–FVæ6RF†BF†RF÷–0¢òò—G6VÆbv2VçvVÆ6öÖRâ&öf–ÆR‚’Ç6òF÷vâ×vV–v‡G2æò×&W7öç6R&÷w2à¢wF–Ö–æuöf—Bs¢Óã‚À¢wF÷–5öf—Bs¢ãÀ¢w&ö6W76VEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢w&W7öç6Uö'V6¶WBÒòäB6VçEöBÂòrÀ¢v†W&T&w3¢²wVæF–ærrÂ&Vf÷&RæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢“°¢Ð ¢gWGW&SÇfö–CâVçVWVU÷7EGW&ä¦ö"‡°¢&WV—&VB7G&–ærW6W$ÖW76vT–BÀ¢&WV—&VB7G&–ær76—7FçDÖW76vT–BÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"æ–ç6W'B€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢v–Bs¢÷WV–BçcB‚’À¢wW6W%öÖW76vUö–Bs¢W6W$ÖW76vT–BÀ¢v76—7FçEöÖW76vUö–Bs¢76—7FçDÖW76vT–BÀ¢w7FGW2s¢wVæF–ærrÀ¢vGFV×G2s¢À¢vÆ7EöW'&÷"s¢rrÀ¢w'Vå÷Fö¶Vâs¢rrÀ¢w&W7VÇEö§6öâs¢rrÀ¢w7F'FVEöBs¢çVÆÂÀ¢v†V'F&VEöBs¢çVÆÂÀ¢væW‡E÷&WG'•öBs¢çVÆÂÀ¢vÖöFVÅö6ö×ÆWFVEöBs¢çVÆÂÀ¢vFW6—&UöÆ–VEöBs¢çVÆÂÀ¢v7&VFVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢Ð ¢gWGW&SÇfö–Câ&V6÷fW%7FÆU÷7EGW&ä¦ö'2‡°¢GW&F–öâ7FÆTgFW"Ò6öç7BGW&F–öâ†Ö–çWFW3¢R’À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ7WFöfbÒæ÷rÒ7FÆTgFW"æ–äÖ–ÆÆ—6V6öæG3°¢v—BF"çWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w7FGW2s¢w&WG'•÷v—BrÀ¢w'Vå÷Fö¶Vâs¢rrÀ¢væW‡E÷&WG'•öBs¢æ÷rÀ¢vÆ7EöW'&÷"s¢w7FÆU÷'Vææ–æu÷&V6÷fW&VBrÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S ¢'7FGW2Òw'Vææ–ærräB4ôÄU44R††V'F&VEöBÂWFFVEöB’Âò"À¢v†W&T&w3¢¶7WFöfeÒÀ¢“°¢Ð ¢òòòFöÖ–6ÆÇ’6VÆV7G2æB÷vç2öæRGVR÷7B×GW&â¦ö"âF†R&WGW&æVB'VâFö¶Và¢òòò—2F†RöæÇ’WF†÷&—G’ÆÆ÷vVBFò6†V6·ö–çB÷"6ö×ÆWFRF†BGFV×Bà¢gWGW&SÅ÷7EGW&ä¦ö#óâ6Æ–ÔæW‡E÷7EGW&ä¦ö"‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂFö¶VâÒ÷WV–BçcB‚“°¢&WGW&âF"çG&ç67F–öãÅ÷7EGW&ä¦ö#óâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S ¢'7FGW2ÒwVæF–ærrõ"‡7FGW2Òw&WG'•÷v—BräB†æW‡E÷&WG'•öB•2åTÄÂõ"æW‡E÷&WG'•öBÃÒò’’"À¢v†W&T&w3¢¶æ÷uÒÀ¢÷&FW$'“¢v7&VFVEöB42rÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âçVÆÃ°¢f–æÂ7W'&VçBÒ÷7EGW&ä¦ö"æg&öÔF"‡&÷w2æf—'7B“°¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w7FGW2s¢w'Vææ–ærrÀ¢vGFV×G2s¢7W'&VçBæGFV×G2²À¢w'Vå÷Fö¶Vâs¢Fö¶VâÀ¢w7F'FVEöBs¢æ÷rÀ¢v†V'F&VEöBs¢æ÷rÀ¢væW‡E÷&WG'•öBs¢çVÆÂÀ¢vÆ7EöW'&÷"s¢rrÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S ¢&–BÒòäB‡7FGW2ÒwVæF–ærrõ"‡7FGW2Òw&WG'•÷v—BräB†æW‡E÷&WG'•öB•2åTÄÂõ"æW‡E÷&WG'•öBÃÒò’’’"À¢v†W&T&w3¢¶7W'&VçBæ–BÂæ÷uÒÀ¢“°¢–b†6†ævVBÒ’&WGW&âçVÆÃ°¢f–æÂ6Æ–ÖVBÒv—BG†âçVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶7W'&VçBæ–BÂw'Vææ–ærrÂFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â6Æ–ÖVBæ—4V×G’òçVÆÂ¢÷7EGW&ä¦ö"æg&öÔF"†6Æ–ÖVBæf—'7B“°¢Ò“°¢Ð ¢gWGW&SÆ&ööÃâ÷vç5÷7EGW&ä¦ö%'Vâ…7G&–ær–BÂ7G&–ær'VåFö¶Vâ’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢6öÇVÖç3¢²v–BuÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4æ÷DV×G“°¢Ð ¢gWGW&SÆ&ööÃâ†V'F&VE÷7EGW&ä¦ö"…7G&–ær–BÂ7G&–ær'VåFö¶Vâ’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢²v†V'F&VEöBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢“°¢&WGW&â6†ævVBÓÒ°¢Ð ¢gWGW&SÆ&ööÃâ6†V6·ö–çE÷7EGW&å&÷÷6Â‡°¢&WV—&VB7G&–ær–BÀ¢&WV—&VB7G&–ær'VåFö¶VâÀ¢&WV—&VB7G&–ær&W7VÇD§6öâÀ¢Ò’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’ÇÂ&W7VÇD§6öâçG&–Ò‚’æ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w&W7VÇEö§6öâs¢&W7VÇD§6öâÀ¢vÖöFVÅö6ö×ÆWFVEöBs¢æ÷rÀ¢v†V'F&VEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢“°¢&WGW&â6†ævVBÓÒ°¢Ð ¢gWGW&SÆ&ööÃâÖ&µ÷7EGW&ä¦ö$FöæR…7G&–ær–BÂ7G&–ær'VåFö¶Vâ’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ6†ævVBÒv—BF"çWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w7FGW2s¢vFöæRrÀ¢w'Vå÷Fö¶Vâs¢rrÀ¢væW‡E÷&WG'•öBs¢çVÆÂÀ¢vÆ7EöW'&÷"s¢rrÀ¢v†V'F&VEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢“°¢&WGW&â6†ævVBÓÒ°¢Ð ¢gWGW&SÅ÷7EGW&ä¦ö#óâf–Å÷7EGW&ä¦ö"€¢7G&–ær–BÂ°¢&WV—&VB7G&–ær'VåFö¶VâÀ¢&WV—&VB7G&–ærW'&÷"À¢&WV—&VB&ööÂ&V6÷fW&&ÆRÀ¢Ò’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’’&WGW&âçVÆÃ°¢f–æÂF"Òv—BFF&6S°¢f–æÂÖ„GFV×G2Ð¢–çBçG'•'6R†v—BvWE6WGF–ær‚w÷7E÷GW&åöÖ…öGFV×G2r’óòrr’óò°¢&WGW&âF"çG&ç67F–öãÅ÷7EGW&ä¦ö#óâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âçVÆÃ°¢f–æÂ¦ö"Ò÷7EGW&ä¦ö"æg&öÔF"‡&÷w2æf—'7B“°¢f–æÂ6öæf–wW&VDÆ–Ö—BÒÖ„GFV×G2ÃÒòçVÆÂ¢Ö„GFV×G2æ6Æ×ƒÂ“°¢f–æÂ6å&WG'’Ò&V6÷fW&&ÆRb`¢†6öæf–wW&VDÆ–Ö—BÓÒçVÆÂÇÂ¦ö"æGFV×G2Â6öæf–wW&VDÆ–Ö—B“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢FFUF–ÖSò&WG'”C°¢–b†6å&WG'’’°¢f–æÂ6V6öæG2Ò¦ö"æGFV×G2ÃÒ¢ò3 ¢¢¦ö"æGFV×G2ÓÒ ¢ò# ¢¢¦ö"æGFV×G2ÓÒ0¢òc ¢¢¦ö"æGFV×G2ÓÒ@¢òƒ ¢¢3c°¢&WG'”BÒæ÷ræFB„GW&F–öâ‡6V6öæG3¢6V6öæG2’“°¢Ð¢f–æÂ6ö×7BÒW'&÷"æÆVæwF‚ÃÒ3còW'&÷"¢W'&÷"ç7V'7G&–ærƒÂ3c“°¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w7FGW2s¢6å&WG'’òw&WG'•÷v—Br¢vf–ÆVBrÀ¢w'Vå÷Fö¶Vâs¢rrÀ¢væW‡E÷&WG'•öBs¢&WG'”CòæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢vÆ7EöW'&÷"s¢6ö×7BÀ¢v†V'F&VEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wWFFVEöBs¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢ÒÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢“°¢–b†6†ævVBÒ’&WGW&âçVÆÃ°¢f–æÂWFFVBÒv—BG†âçVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&âWFFVBæ—4V×G’òçVÆÂ¢÷7EGW&ä¦ö"æg&öÔF"‡WFFVBæf—'7B“°¢Ò“°¢Ð ¢gWGW&SÆ–çCâv¶U&WG'–&ÆU÷7EGW&ä¦ö'2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢²væW‡E÷&WG'•öBs¢æ÷rÂwWFFVEöBs¢æ÷wÒÀ¢v†W&S¢'7FGW2Òw&WG'•÷v—Br"À¢“°¢Ð ¢gWGW&SÆ&ööÃâÇ•÷7EGW&äFW6—&UVÇ6W4öæ6R‡°¢&WV—&VB7G&–ær¦ö$–BÀ¢&WV—&VB7G&–ær'VåFö¶VâÀ¢&WV—&VBÖÄG&—fT¶W’ÂF÷V&ÆSâVÇ6W2À¢F÷V&ÆR&6VÆ–æTÆV&æ–ærÒã‚À¢Ò’7–æ2°¢–b‡'VåFö¶Vâæ—4V×G’ÇÂVÇ6W2æ—4V×G’’&WGW&âG'VS°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂ¦ö'2Òv—BG†âçVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòrÀ¢v†W&T&w3¢¶¦ö$–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢Æ–Ö—C¢À¢“°¢–b†¦ö'2æ—4V×G’’&WGW&âfÇ6S°¢–b†¦ö'2æf—'7E²vFW6—&UöÆ–VEöBuÒÒçVÆÂ’&WGW&âG'VS° ¢f–æÂ&÷w2Òv—BG†âçVW'’‚vFW6—&U÷7FFRrÂv†W&S¢v–BÒrÂÆ–Ö—C¢“°¢f–æÂ6æ6†÷BÒ&÷w2æ—4V×G¢òFW6—&U6æ6†÷B‚¢¢FW6—&U6æ6†÷BæFV6öFR‡&÷w2æf—'7E²v§6öâuÒ27G&–ær“°¢f–æÂG&—fW2ÒÖÄG&—fT¶W’ÂF÷V&ÆSâæg&öÒ‡6æ6†÷BæG&—fW2“°¢f–æÂ&6VÆ–æW2ÒÖÄG&—fT¶W’ÂF÷V&ÆSâæg&öÒ‡6æ6†÷Bæ&6VÆ–æW2“°¢f–æÂæ6†÷'2ÒFW6—&U6æ6†÷BæFVfVÇD&6VÆ–æW2‚“°¢f÷"†f–æÂVçG'’–âVÇ6W2æVçG&–W2’°¢f–æÂG&—fRÒVçG'’æ¶W“°¢f–æÂFVÇFÒVçG'’çfÇVRæ6Æ×‚Óã3RÂã3R’çFôF÷V&ÆR‚“°¢f–æÂæ6†÷"Òæ6†÷'5¶G&—fUÒóòã#°¢G&—fW5¶G&—fUÒÒ‚†G&—fW5¶G&—fUÒóòæ6†÷"’²FVÇF¢æ6Æ×ƒãÂã¢çFôF÷V&ÆR‚“°¢f–æÂ7W'&VçD&6RÒ&6VÆ–æW5¶G&—fUÒóòæ6†÷#°¢&6VÆ–æW5¶G&—fUÒÒ†7W'&VçD&6R²FVÇF¢&6VÆ–æTÆV&æ–ær¢æ6Æ×†Ö‚ƒã"Âæ6†÷"Òã’ÂÖ–âƒã“"Âæ6†÷"²ã’¢çFôF÷V&ÆR‚“°¢Ð¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BG†âæ–ç6W'B€¢vFW6—&U÷7FFRrÀ¢°¢v–Bs¢À¢v§6öâs¢6æ6†÷Bæ6÷•v—F‚†G&—fW3¢G&—fW2Â&6VÆ–æW3¢&6VÆ–æW2’æVæ6öFR‚’À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢f–æÂ6†ævVBÒv—BG†âçWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢vFW6—&UöÆ–VEöBs¢æ÷rÀ¢v†V'F&VEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S ¢v–BÒòäB7FGW2ÒòäB'Vå÷Fö¶VâÒòäBFW6—&UöÆ–VEöB•2åTÄÂrÀ¢v†W&T&w3¢¶¦ö$–BÂw'Vææ–ærrÂ'VåFö¶VåÒÀ¢“°¢–b†6†ævVBÒ’°¢F‡&÷r7FFTW'&÷"‚w÷7E÷GW&åöFW6—&Uö÷væW'6†—öÆ÷7Br“°¢Ð¢&WGW&âG'VS°¢Ò“°¢Ð ¢gWGW&SÄGW&F–öãóâæW‡E÷7EGW&å&V6÷fW'”FVÆ’‡°¢GW&F–öâ'Vææ–æu7FÆTgFW"Ò6öç7BGW&F–öâ†Ö–çWFW3¢R’À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w÷7E÷GW&åö¦ö'2rÀ¢6öÇVÖç3¢²w7FGW2rÂvæW‡E÷&WG'•öBrÂv†V'F&VEöBrÂwWFFVEöBuÒÀ¢v†W&S¢'7FGW2”â‚wVæF–ærrÂw'Vææ–ærrÂw&WG'•÷v—Br’"À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âçVÆÃ°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚“°¢GW&F–öãò6†÷'FW7C°¢f÷"†f–æÂ&÷r–â&÷w2’°¢f–æÂ7FGW2Ò&÷u²w7FGW2uÒ27G&–æsòóòwVæF–ærs°¢ÆFRGW&F–öâv—C°¢–b‡7FGW2ÓÒwVæF–ærr’°¢v—BÒGW&F–öâç¦W&ó°¢ÒVÇ6R–b‡7FGW2ÓÒw&WG'•÷v—Br’°¢f–æÂ×2Ò&÷u²væW‡E÷&WG'•öBuÒ2–çCó°¢–b†×2ÓÒçVÆÂ’°¢v—BÒGW&F–öâç¦W&ó°¢ÒVÇ6R°¢f–æÂGVRÒFFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚†×2“°¢v—BÒGVRæ—4gFW"†æ÷r’òGVRæF–ffW&Væ6R†æ÷r’¢GW&F–öâç¦W&ó°¢Ð¢ÒVÇ6R°¢f–æÂ†V'F&VD×2Ò&÷u²v†V'F&VEöBuÒ2–çCòóð¢&÷u²wWFFVEöBuÒ2–çCòóð¢æ÷ræÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ7FÆTBÒFFUF–ÖRæg&öÔÖ–ÆÆ—6V6öæG56–æ6TWö6‚††V'F&VD×2¢æFB‡'Vææ–æu7FÆTgFW"“°¢v—BÒ7FÆTBæ—4gFW"†æ÷r’ò7FÆTBæF–ffW&Væ6R†æ÷r’¢GW&F–öâç¦W&ó°¢Ð¢–b‡6†÷'FW7BÓÒçVÆÂÇÂv—BÂ6†÷'FW7B’6†÷'FW7BÒv—C°¢–b‡6†÷'FW7BÓÒGW&F–öâç¦W&ò’&WGW&âGW&F–öâç¦W&ó°¢Ð¢&WGW&â6†÷'FW7C°¢Ð ¢gWGW&SÆ–çCâ&WG'”f–ÆVE÷7EGW&ä¦ö'4ÖçVÆÇ’‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çG&ç67F–öãÆ–çCâ‚‡G†â’7–æ2°¢f–æÂ6WGF–æw5&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²v¶W’rÂwfÇVRuÒÀ¢v†W&S¢v¶W’”âƒòÂò’rÀ¢v†W&T&w3¢6öç7B²v7F—fUö'&–ârÂwG&ç6fW%öÆö6²uÒÀ¢“°¢f–æÂ6WGF–æw2ÒÅ7G&–ærÂ7G&–æsç°¢f÷"†f–æÂ&÷r–â6WGF–æw5&÷w2¢–b‡&÷u²v¶W’uÒ—27G&–ær¢&÷u²v¶W’uÒ27G&–æs¢&÷u²wfÇVRuÒ27G&–æsòóòrrÀ¢Ó°¢–b‡6WGF–æw5²wG&ç6fW%öÆö6²uÒÓÒsrÇÂ6WGF–æw5²v7F—fUö'&–âuÒÓÒsr’°¢&WGW&â°¢Ð¢&WGW&âG†âçWFFR€¢w÷7E÷GW&åö¦ö'2rÀ¢°¢w7FGW2s¢w&WG'•÷v—BrÀ¢w'Vå÷Fö¶Vâs¢rrÀ¢væW‡E÷&WG'•öBs¢æ÷rÀ¢vÆ7EöW'&÷"s¢rrÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢'7FGW2Òvf–ÆVBr"À¢“°¢Ò“°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂ–çCãâ÷7EGW&ä¦ö%7FG2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢u4TÄT5B7FGW2Â4õTåB‚¢’22e$ôÒ÷7E÷GW&åö¦ö'2u$õU%’7FGW2rÀ¢“°¢&WGW&â°¢f÷"†f–æÂ&÷r–â&÷w2¢&÷u²w7FGW2uÒ27G&–æs¢‡&÷u²v2uÒ2çVÓò“òçFô–çB‚’óòÀ¢Ó°¢Ð ¢gWGW&SÇfö–CâÖ&µF†÷Vv‡G4F÷&ÖçDf÷%F÷–2€¢7G&–ærF÷–4¶W’Â°¢7G&–ærFWF–ÂÒ~™[þiÉþiÊ®XhÞXùyIþy¨NiÊ®ZèÎh‰ŠùÞš)Ž[{.˜KÉ8"rÀ¢Ò’7–æ2°¢f–æÂ¶W’ÒF÷–4¶W’çG&–Ò‚’çFôÆ÷vW$66R‚“°¢–b†¶W’æ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wF†÷Vv‡G2rÀ¢6öÇVÖç3¢²v–BrÂw7G&VæwF‚rÂw&W6–GVÅ÷7G&VæwF‚uÒÀ¢v†W&S¢'F÷–5ö¶W’ÒòäBÆ–fV7–6ÆU÷7FFR”â‚v7F—fRrÂvf—†F–öârÂv7FVBrÂw&W6–GVÂr’"À¢v†W&T&w3¢¶¶W•ÒÀ¢“°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f÷"†f–æÂ&÷r–â&÷w2’°¢f–æÂ7G&VæwF‚Ò‡&÷u²w7G&VæwF‚uÒ2çVÓò“òçFôF÷V&ÆR‚’óòã°¢f–æÂ&W6–GVÂÒ‡&÷u²w&W6–GVÅ÷7G&VæwF‚uÒ2çVÓò“òçFôF÷V&ÆR‚’óò7G&VæwFƒ°¢v—BG†âçWFFR€¢wF†÷Vv‡G2rÀ¢°¢vÆ–fV7–6ÆU÷7FFRs¢vF÷&ÖçBrÀ¢v¶–æBs¢vfÆ—BrÀ¢w7G&VæwF‚s¢Ö–âƒãÂ7G&VæwF‚’À¢w&W6–GVÅ÷7G&VæwF‚s¢Ö–âƒã"Â&W6–GVÂ’À¢vÆ7Eö÷WF&÷VæEöÖW76vUö–Bs¢çVÆÂÀ¢w6æö÷¦VE÷VçF–Âs¢çVÆÂÀ¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢·&÷u²v–BuÕÒÀ¢“°¢v—BG†âæ–ç6W'B‚wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢wF†÷Vv‡Eö–Bs¢&÷u²v–BuÒÀ¢vWfVçE÷G—Rs¢wF÷–5÷&WF—&VBrÀ¢vFWF–Âs¢FWF–ÂÀ¢vÖW76vUö–Bs¢çVÆÂÀ¢v7&VFVEöBs¢æ÷rÀ¢Ò“°¢Ð¢Ò“°¢Ð ¢gWGW&SÆ–çCâ'VæUF†÷Vv‡DÆ–fV7–6ÆTWfVçG2‡°¢–çB¶VWW%F†÷Vv‡BÒcBÀ¢GW&F–öâÖ„vRÒ6öç7BGW&F–öâ†F—3¢ƒ’À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f"&VÖ÷fVBÒ°¢f–æÂ7WFöfbÒFFUF–ÖRææ÷r‚’ç7V'G&7B†Ö„vR’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂF†÷Vv‡D–G2Òv—BF"ç&uVW'’€¢u4TÄT5BD•5D”ä5BF†÷Vv‡Eö–Be$ôÒF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÀ¢“°¢f÷"†f–æÂ—FVÒ–âF†÷Vv‡D–G2’°¢f–æÂF†÷Vv‡D–BÒ—FVÕ²wF†÷Vv‡Eö–BuÒ27G&–æs°¢f–æÂ&÷w2Òv—BF"çVW'’€¢wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÀ¢6öÇVÖç3¢²v–BrÂv7&VFVEöBuÒÀ¢v†W&S¢wF†÷Vv‡Eö–BÒòrÀ¢v†W&T&w3¢·F†÷Vv‡D–EÒÀ¢÷&FW$'“¢v7&VFVEöBDU42rÀ¢“°¢f–æÂFVÆWFT–G2ÒÅ7G&–æsåµÓ°¢f÷"‡f"’Ò²’Â&÷w2æÆVæwFƒ²’²²’°¢f–æÂ7&VFVDBÒ&÷w5¶•Õ²v7&VFVEöBuÒ2–çC°¢–b†’ãÒ¶VWW%F†÷Vv‡BÇÂ7&VFVDBÂ7WFöfb’°¢FVÆWFT–G2æFB‡&÷w5¶•Õ²v–BuÒ27G&–ær“°¢Ð¢Ð¢f÷"†f–æÂ–B–âFVÆWFT–G2’°¢&VÖ÷fVB³Òv—BF"æFVÆWFR€¢wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶–EÒÀ¢“°¢Ð¢Ð¢&VÖ÷fVB³Òv—BF"ç&tFVÆWFR€¢tDTÄUDRe$ôÒF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2t„U$RF†÷Vv‡Eö–BäõB”â…4TÄT5B–Be$ôÒF†÷Vv‡G2’rÀ¢“°¢&WGW&â&VÖ÷fVC°¢Ð ¢gWGW&SÆ–çCâ'VæUF&ÆT'”vTæD6‡°¢&WV—&VB7G&–ærF&ÆRÀ¢&WV—&VB7G&–ærF–ÖT6öÇVÖâÀ¢&WV—&VBGW&F–öâÖ„vRÀ¢&WV—&VB–çBÖ…&÷w2À¢Ò’7–æ2°¢6öç7BÆÆ÷vVEF&ÆW2Ò°¢w&ö7F—fUöfVVF&6²rÀ¢w&ö7F—fUö†—7F÷'’rÀ¢wW&6WF–öå÷6æ6†÷G2rÀ¢vv&VæW75öö'6W'fF–öç2rÀ¢vFWf–6UöWfVçG2rÀ¢vF–Ç•ö6öçF–çV—G’rÀ¢w÷7E÷GW&åö¦ö'2rÀ¢vÖ–çFVææ6U÷'Vç2rÀ¢Ó°¢6öç7BÆÆ÷vVD6öÇVÖç2Ò°¢w6VçEöBrÀ¢v7&VFVEöBrÀ¢vö67W'&VEöBrÀ¢wWFFVEöBrÀ¢wv–æF÷u÷7F'BrÀ¢v6ö×ÆWFVEöBrÀ¢Ó°¢–b‚ÆÆ÷vVEF&ÆW2æ6öçF–ç2‡F&ÆR’ÇÂÆÆ÷vVD6öÇVÖç2æ6öçF–ç2‡F–ÖT6öÇVÖâ’’°¢F‡&÷r&wVÖVçDW'&÷"‚uVç7W÷'FVBÖ–çFVææ6RF&ÆRö6öÇVÖâr“°¢Ð¢f–æÂF"Òv—BFF&6S°¢f–æÂ7WFöfbÒFFUF–ÖRææ÷r‚’ç7V'G&7B†Ö„vR’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f"&VÖ÷fVBÒv—BF"æFVÆWFR€¢F&ÆRÀ¢v†W&S¢rGF–ÖT6öÇVÖâÂòrÀ¢v†W&T&w3¢¶7WFöfeÒÀ¢“°¢f–æÂ÷fW&fÆ÷rÒv—BF"ç&uVW'’€¢u4TÄT5B–Be$ôÒGF&ÆRõ$DU"%’GF–ÖT6öÇVÖâDU42Ä”Ô•BÓôde4UBòrÀ¢¶Ö…&÷w5ÒÀ¢“°¢f÷"†f–æÂ&÷r–â÷fW&fÆ÷r’°¢&VÖ÷fVB³Òv—BF"æFVÆWFR‡F&ÆRÂv†W&S¢v–BÒòrÂv†W&T&w3¢·&÷u²v–BuÕÒ“°¢Ð¢&WGW&â&VÖ÷fVC°¢Ð ¢gWGW&SÆ–çCâ'VæT6ö×ÆWFVE÷7EGW&ä¦ö'2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂFöæT7WFöfbÒFFUF–ÖRææ÷r‚’ç7V'G&7B†6öç7BGW&F–öâ†F—3¢B’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂf–ÆVD7WFöfbÒFFUF–ÖRææ÷r‚’ç7V'G&7B†6öç7BGW&F–öâ†F—3¢3’’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f"&VÖ÷fVBÒv—BF"æFVÆWFR€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢w7FGW2ÒòäBWFFVEöBÂòrÀ¢v†W&T&w3¢²vFöæRrÂFöæT7WFöfeÒÀ¢“°¢&VÖ÷fVB³Òv—BF"æFVÆWFR€¢w÷7E÷GW&åö¦ö'2rÀ¢v†W&S¢w7FGW2ÒòäBWFFVEöBÂòrÀ¢v†W&T&w3¢²vf–ÆVBrÂf–ÆVD7WFöfeÒÀ¢“°¢&WGW&â&VÖ÷fVC°¢Ð ¢gWGW&SÆ–çCâ'VæUFW&Ö–æÄvVæW&F–öä¦ö'2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6ö×ÆWFVD7WFöfbÒFFUF–ÖRææ÷r‚¢ç7V'G&7B†6öç7BGW&F–öâ†F—3¢3’¢æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂf–ÆVD7WFöfbÒFFUF–ÖRææ÷r‚¢ç7V'G&7B†6öç7BGW&F–öâ†F—3¢“’¢æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f"&VÖ÷fVBÒv—BF"æFVÆWFR€¢vvVæW&F–öåö¦ö'2rÀ¢v†W&S¢w7FGW2ÒòäBWFFVEöBÂòrÀ¢v†W&T&w3¢²v6ö×ÆWFVBrÂ6ö×ÆWFVD7WFöfeÒÀ¢“°¢&VÖ÷fVB³Òv—BF"æFVÆWFR€¢vvVæW&F–öåö¦ö'2rÀ¢v†W&S¢'7FGW2”â‚vf–ÆVBrÂv6æ6VÆÆVBrÂv6æ6VÆÆVEö'•÷W6W"r’äBWFFVEöBÂò"À¢v†W&T&w3¢¶f–ÆVD7WFöfeÒÀ¢“°¢&WGW&â&VÖ÷fVC°¢Ð ¢gWGW&SÇfö–CâFDÖ–çFVææ6U'Vâ‡°¢&WV—&VBFFUF–ÖR7F'FVDBÀ¢&WV—&VB–çB&WF—&VEF‡&VG2À¢&WV—&VB–çB'VæVDÆ–fV7–6ÆRÀ¢&WV—&VB–çB'VæVDfVVF&6²À¢&WV—&VB–çB'VæVD†—7F÷'’À¢&WV—&VB–çB'VæVEW&6WF–öç2À¢&WV—&VB–çB'VæVDFWf–6TWfVçG2À¢&WV—&VB–çB'VæVD¦ö'2À¢7G&–æræ÷FW2ÒrrÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B‚vÖ–çFVææ6U÷'Vç2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢w7F'FVEöBs¢7F'FVDBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢v6ö×ÆWFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w&WF—&VE÷F‡&VG2s¢&WF—&VEF‡&VG2À¢w'VæVEöÆ–fV7–6ÆRs¢'VæVDÆ–fV7–6ÆRÀ¢w'VæVEöfVVF&6²s¢'VæVDfVVF&6²À¢w'VæVEö†—7F÷'’s¢'VæVD†—7F÷'’À¢w'VæVE÷W&6WF–öç2s¢'VæVEW&6WF–öç2À¢w'VæVEöFWf–6UöWfVçG2s¢'VæVDFWf–6TWfVçG2À¢w'VæVEö¦ö'2s¢'VæVD¦ö'2À¢væ÷FW2s¢æ÷FW2æÆVæwF‚ÃÒSòæ÷FW2¢æ÷FW2ç7V'7G&–ærƒÂS’À¢Ò“°¢Ð ¢gWGW&SÄÖ–çFVææ6U'VãóâÆFW7DÖ–çFVææ6U'Vâ‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vÖ–çFVææ6U÷'Vç2rÀ¢÷&FW$'“¢v6ö×ÆWFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢Ö–çFVææ6U'Vâæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÄ–çFW&7F–öå6W76–öãóâ7F—fT–çFW&7F–öå6W76–öâ‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢v–çFW&7F–öå÷6W76–öç2rÀ¢v†W&S¢w7FGW2ÒòrÀ¢v†W&T&w3¢²v7F—fRuÒÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢–çFW&7F–öå6W76–öâæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÄÆ—7CÄ–çFW&7F–öå6W76–öããâ&V6VçD–çFW&7F–öå6W76–öç2‡¶–çBÆ–Ö—BÒ'Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢v–çFW&7F–öå÷6W76–öç2rÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢Æ–Ö—BÀ¢“°¢&WGW&â&÷w2æÖ„–çFW&7F–öå6W76–öâæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÇfö–CâÇ”–çFW&7F–öå6W76–öåWFFR‡°¢&WV—&VB7G&–ær7F–öâÀ¢7G&–ær¶–æBÒw&öÆWÆ’rÀ¢7G&–ærF—FÆRÒrrÀ¢7G&–ær&VÖ—6RÒrrÀ¢Æ—7CÅ7G&–æsâ&÷VæF&–W2Ò6öç7BµÒÀ¢7G&–ær6öçF–çV—G”æ÷FRÒrrÀ¢7G&–æsò6÷W&6TÖW76vT–BÀ¢Ò’7–æ2°¢–b‚†v—BvWE6WGF–ær‚w6W76–öå÷G&6¶–æuöVæ&ÆVBr’’ÓÒsrbb7F–öâÒvVæBr’&WGW&ã°¢6öç7B¶–æG2Ò²w&öÆWÆ’rÂv–çF–Ö7’rÂw&öÆWÆ•ö–çF–Ö7’wÓ°¢–b‚¶–æG2æ6öçF–ç2†¶–æB’’¶–æBÒw&öÆWÆ’s°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f–æÂ7F—fRÒv—BG†âçVW'’€¢v–çFW&7F–öå÷6W76–öç2rÀ¢v†W&S¢w7FGW2ÒòrÀ¢v†W&T&w3¢²v7F—fRuÒÀ¢÷&FW$'“¢wWFFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢–b†7F–öâÓÒvVæBr’°¢–b†7F—fRæ—4æ÷DV×G’’°¢v—BG†âçWFFR€¢v–çFW&7F–öå÷6W76–öç2rÀ¢²w7FGW2s¢vVæFVBrÂwWFFVEöBs¢æ÷rÂvVæFVEöBs¢æ÷wÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶7F—fRæf—'7E²v–BuÕÒÀ¢“°¢Ð¢&WGW&ã°¢Ð¢–b†7F–öâÒv÷Vârbb7F–öâÒwWFFRr’&WGW&ã° ¢–b†7F–öâÓÒv÷Vâr’°¢–b†7F—fRæ—4æ÷DV×G’b`¢6÷W&6TÖW76vT–BÒçVÆÂb`¢6÷W&6TÖW76vT–Bæ—4æ÷DV×G’b`¢7F—fRæf—'7E²w6÷W&6UöÖW76vUö–BuÒÓÒ6÷W&6TÖW76vT–B’°¢f–æÂ7W'&VçBÒ–çFW&7F–öå6W76–öâæg&öÔF"†7F—fRæf—'7B“°¢v—BG†âçWFFR€¢v–çFW&7F–öå÷6W76–öç2rÀ¢°¢v¶–æBs¢¶–æBÀ¢wF—FÆRs¢F—FÆRçG&–Ò‚’æ—4V×G’ò7W'&VçBçF—FÆR¢F—FÆRçG&–Ò‚’À¢w&VÖ—6Rs¢&VÖ—6RçG&–Ò‚’æ—4V×G’ò7W'&VçBç&VÖ—6R¢&VÖ—6RçG&–Ò‚’À¢v&÷VæF&–W5ö§6öâs¢&÷VæF&–W2æ—4V×G¢ò§6öäVæ6öFR†7W'&VçBæ&÷VæF&–W2¢¢§6öäVæ6öFR†&÷VæF&–W2æÖ‚†R’ÓâRçG&–Ò‚’’çv†W&R‚†R’ÓâRæ—4æ÷DV×G’’çF¶Rƒb’çFôÆ—7B‚’’À¢v6öçF–çV—G•öæ÷FRs¢6öçF–çV—G”æ÷FRçG&–Ò‚’æ—4V×G¢ò7W'&VçBæ6öçF–çV—G”æ÷FP¢¢6öçF–çV—G”æ÷FRçG&–Ò‚’À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶7W'&VçBæ–EÒÀ¢“°¢&WGW&ã°¢Ð¢–b†7F—fRæ—4æ÷DV×G’’°¢v—BG†âçWFFR€¢v–çFW&7F–öå÷6W76–öç2rÀ¢²w7FGW2s¢vVæFVBrÂwWFFVEöBs¢æ÷rÂvVæFVEöBs¢æ÷wÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶7F—fRæf—'7E²v–BuÕÒÀ¢“°¢Ð¢f–æÂæ÷&ÖÆ—¦VEF—FÆRÒF—FÆRçG&–Ò‚’æ—4V×G¢ò†¶–æBÓÒw&öÆWÆ’rò~K‹Ni{nŠy.ˆ›.hšîkÉBr¢~K«.ZønK©.Xª‚r¢¢F—FÆRçG&–Ò‚“°¢v—BG†âæ–ç6W'B‚v–çFW&7F–öå÷6W76–öç2rÂ°¢v–Bs¢÷WV–BçcB‚’À¢v¶–æBs¢¶–æBÀ¢wF—FÆRs¢æ÷&ÖÆ—¦VEF—FÆRÀ¢w7FGW2s¢v7F—fRrÀ¢w&VÖ—6Rs¢&VÖ—6RçG&–Ò‚’À¢v&÷VæF&–W5ö§6öâs¢§6öäVæ6öFR†&÷VæF&–W2æÖ‚†R’ÓâRçG&–Ò‚’’çv†W&R‚†R’ÓâRæ—4æ÷DV×G’’çF¶Rƒb’çFôÆ—7B‚’’À¢v6öçF–çV—G•öæ÷FRs¢6öçF–çV—G”æ÷FRçG&–Ò‚’À¢w6÷W&6UöÖW76vUö–Bs¢6÷W&6TÖW76vT–BÀ¢w7F'FVEöBs¢æ÷rÀ¢wWFFVEöBs¢æ÷rÀ¢vVæFVEöBs¢çVÆÂÀ¢Ò“°¢&WGW&ã°¢Ð ¢–b†7F—fRæ—4V×G’’&WGW&ã°¢f–æÂ7W'&VçBÒ–çFW&7F–öå6W76–öâæg&öÔF"†7F—fRæf—'7B“°¢v—BG†âçWFFR€¢v–çFW&7F–öå÷6W76–öç2rÀ¢°¢v¶–æBs¢¶–æBÀ¢wF—FÆRs¢F—FÆRçG&–Ò‚’æ—4V×G’ò7W'&VçBçF—FÆR¢F—FÆRçG&–Ò‚’À¢w&VÖ—6Rs¢&VÖ—6RçG&–Ò‚’æ—4V×G’ò7W'&VçBç&VÖ—6R¢&VÖ—6RçG&–Ò‚’À¢v&÷VæF&–W5ö§6öâs¢&÷VæF&–W2æ—4V×G¢ò§6öäVæ6öFR†7W'&VçBæ&÷VæF&–W2¢¢§6öäVæ6öFR†&÷VæF&–W2æÖ‚†R’ÓâRçG&–Ò‚’’çv†W&R‚†R’ÓâRæ—4æ÷DV×G’’çF¶Rƒb’çFôÆ—7B‚’’À¢v6öçF–çV—G•öæ÷FRs¢6öçF–çV—G”æ÷FRçG&–Ò‚’æ—4V×G¢ò7W'&VçBæ6öçF–çV—G”æ÷FP¢¢6öçF–çV—G”æ÷FRçG&–Ò‚’À¢wWFFVEöBs¢æ÷rÀ¢ÒÀ¢v†W&S¢v–BÒòrÀ¢v†W&T&w3¢¶7W'&VçBæ–EÒÀ¢“°¢Ò“°¢Ð ¢gWGW&SÆ–çCâF÷FÄÖW76vT6÷VçB‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"ç&uVW'’‚u4TÄT5B4õTåB‚¢’22e$ôÒÖW76vW2r“°¢&WGW&â7fÆ—FRæf—'7D–çEfÇVR‡&÷w2’óò°¢Ð ¢gWGW&SÇfö–CâFE&ö7F—fT†—7F÷'’‡°¢&WV—&VB7G&–ærG&–vvW%&V6öâÀ¢&WV—&VB7G&–ærFV6—6–öâÀ¢7G&–æsòÖW76vT–BÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B‚w&ö7F—fUö†—7F÷'’rÂ°¢v–Bs¢÷WV–BçcB‚’À¢wG&–vvW%÷&V6öâs¢G&–vvW%&V6öâÀ¢vFV6—6–öâs¢FV6—6–öâÀ¢vÖW76vUö–Bs¢ÖW76vT–BÀ¢v7&VFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ò“°¢Ð ¢gWGW&SÆ–çCâ&ö7F—fT6÷VçE6–æ6R„GW&F–öâGW&F–öâ’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ6–æ6RÒFFUF–ÖRææ÷r‚’ç7V'G&7B†GW&F–öâ’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢u4TÄT5B4õTåB‚¢’22e$ôÒ&ö7F—fUö†—7F÷'’t„U$RFV6—6–öâÒòäB7&VFVEöBãÒòrÀ¢²w6VçBrÂ6–æ6UÒÀ¢“°¢&WGW&â7fÆ—FRæf—'7D–çEfÇVR‡&÷w2’óò°¢Ð ¢gWGW&SÅ7G&–æsóâvWE6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&÷w2æf—'7E²wfÇVRuÒ27G&–æs°¢Ð ¢gWGW&SÇfö–Câ6WE6WGF–ær…7G&–ær¶W’Â7G&–ærfÇVR’7–æ2°¢f–æÂF"Òv—BFF&6S°¢v—BF"æ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢¶W’ÂwfÇVRs¢fÇVWÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð ¢gWGW&SÆ&ööÃâG'”7V—&TÆö6ÄÆV6R€¢7G&–ær¶W’Â°¢GW&F–öâ†öÆDf÷"Ò6öç7BGW&F–öâ‡6V6öæG3¢#’À¢Ò’7–æ2°¢òòFòæ÷BÆWBF†—2—6öÆFR&RÖ7V—&RÆV6R—B7F–ÆÂÆöv–6ÆÇ’÷vç2ÂWfVà¢òògFW"F†RFF&6REDÂW‡—&W2âv—F†÷WBF†—2wV&BÂâ÷fW&Æ–ærF6°¢òò–âF†R6ÖR—6öÆFR6÷VÆB÷fW'w&—FRF†R–âÖÖVÖ÷'’Fö¶Vã²F†RöÆFW"F6²w0¢òòf–æÆÇ’&Æö6²v÷VÆBF†Vâ66–FVçFÆÇ’&VÆV6RF†RæWvW"F6²w2ÆV6Rà¢–b…ö÷væVDÆV6UFö¶Vç2æ6öçF–ç4¶W’†¶W’’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂFö¶VâÒ÷WV–BçcB‚“°¢f–æÂ7V—&VBÒv—BF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂ&rÒ&÷w2æ—4V×G’òrr¢&÷w2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢f–æÂVçF–ÂÒöÆV6UVçF–Â‡&r“°¢–b‡VçF–Ââæ÷r’&WGW&âfÇ6S°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢°¢v¶W’s¢¶W’À¢wfÇVRs¢rGFö¶VçÂG¶æ÷r²†öÆDf÷"æ–äÖ–ÆÆ—6V6öæG7ÒrÀ¢ÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢&WGW&âG'VS°¢Ò“°¢–b†7V—&VB’°¢ö÷væVDÆV6UFö¶Vç5¶¶W•ÒÒFö¶Vã°¢Ð¢&WGW&â7V—&VC°¢Ð ¢gWGW&SÆ&ööÃâ&VæWtÆö6ÄÆV6R€¢7G&–ær¶W’Â°¢GW&F–öâ†öÆDf÷"Ò6öç7BGW&F–öâ‡6V6öæG3¢#’À¢Ò’7–æ2°¢f–æÂFö¶VâÒö÷væVDÆV6UFö¶Vç5¶¶W•Ó°¢–b‡Fö¶VâÓÒçVÆÂÇÂFö¶Vâæ—4V×G’’&WGW&âfÇ6S°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢&WGW&âF"çG&ç67F–öãÆ&ööÃâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&âfÇ6S°¢f–æÂ&rÒ&÷w2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢–b‚&rç7F'G5v—F‚‚rGFö¶VçÂr’’&WGW&âfÇ6S°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢¶W’ÂwfÇVRs¢rGFö¶VçÂG¶æ÷r²†öÆDf÷"æ–äÖ–ÆÆ—6V6öæG7ÒwÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢&WGW&âG'VS°¢Ò“°¢Ð ¢gWGW&SÇfö–Câ&VÆV6TÆö6ÄÆV6R…7G&–ær¶W’’7–æ2°¢f–æÂFö¶VâÒö÷væVDÆV6UFö¶Vç2ç&VÖ÷fR†¶W’“°¢–b‡Fö¶VâÓÒçVÆÂÇÂFö¶Vâæ—4V×G’’&WGW&ã°¢f–æÂF"Òv—BFF&6S°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢–b‡&÷w2æ—4V×G’’&WGW&ã°¢f–æÂ&rÒ&÷w2æf—'7E²wfÇVRuÒ27G&–æsòóòrs°¢–b‚&rç7F'G5v—F‚‚rGFö¶VçÂr’’&WGW&ã°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢¶W’ÂwfÇVRs¢swÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ò“°¢Ð ¢–çBöÆV6UVçF–Â…7G&–ær&r’°¢–b‡&ræ—4V×G’’&WGW&â°¢f–æÂ6W&F÷"Ò&ræÆ7D–æFW„öb‚wÂr“°¢f–æÂfÇVRÒ6W&F÷"Âò&r¢&rç7V'7G&–ær‡6W&F÷"²“°¢&WGW&â–çBçG'•'6R‡fÇVR’óò°¢Ð ¢gWGW&SÆ&ööÃâ—4Æö6ÄÆV6T†VÆB…7G&–ær¶W’’7–æ2°¢f–æÂ&rÒv—BvWE6WGF–ær†¶W’’óòrs°¢&WGW&âöÆV6UVçF–Â‡&r’âFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢Ð ¢òòòv†WF†W"âWFöæöÖ÷W2ö&6¶w&÷VæB7V'7—7FVÒÖ’×WFFRF†R6ö×æ–öâw0¢òòòGW&&ÆR–ææW"7FFRöâF†—2FWf–6Râ7FæF'’FWf–6W2&VÖ–âf–WrÖöæÇ’Âæ@¢òòòâ–â×&öw&W72G&ç6fW"g&VW¦W2æWr'&–âv÷&²VçF–ÂF†R6æ6†÷B†æFöf`¢òòòf–æ—6†W2âW6W"Öf6–ær6WGF–æw26â7F–ÆÂ&R6†ævVB6W&FVÇ’à¢gWGW&SÆ&ööÃâ'&–åv÷&´ÆÆ÷vVB‚’7–æ2°¢–b‚†v—BvWE6WGF–ær‚wG&ç6fW%öÆö6²r’’ÓÒsr’&WGW&âfÇ6S°¢&WGW&â†v—BvWE6WGF–ær‚v7F—fUö'&–âr’’Òss°¢Ð ¢gWGW&SÆ&ööÃâG'”7V—&U&ö7F—fTÆV6R‡°¢GW&F–öâ†öÆDf÷"Ò6öç7BGW&F–öâ‡6V6öæG3¢“’À¢Ò’Óà¢G'”7V—&TÆö6ÄÆV6R€¢w&ö7F—fUöÆV6U÷VçF–ÂrÀ¢†öÆDf÷#¢†öÆDf÷"À¢“° ¢gWGW&SÇfö–Câ&VÆV6U&ö7F—fTÆV6R‚’Óà¢&VÆV6TÆö6ÄÆV6R‚w&ö7F—fUöÆV6U÷VçF–Âr“° ¢gWGW&SÄF–Ç”6öçF–çV—G•&V6÷&CóâF–Ç”6öçF–çV—G”f÷$F’…7G&–ærÆö6ÄF’’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vF–Ç•ö6öçF–çV—G’rÀ¢v†W&S¢vÆö6ÅöF’ÒòrÀ¢v†W&T&w3¢¶Æö6ÄF•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢F–Ç”6öçF–çV—G•&V6÷&Bæg&öÔF"‡&÷w2æf—'7B“°¢Ð ¢gWGW&SÄÆ—7CÄF–Ç”6öçF–çV—G•&V6÷&CãâÆFW7DF–Ç”6öçF–çV—G’‡¶–çBÆ–Ö—BÒ7Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vF–Ç•ö6öçF–çV—G’rÀ¢÷&FW$'“¢wv–æF÷u÷7F'BDU42rÀ¢Æ–Ö—C¢Æ–Ö—Bæ6Æ×ƒÂB’çFô–çB‚’À¢“°¢&WGW&â&÷w2æÖ„F–Ç”6öçF–çV—G•&V6÷&Bæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄÆ—7CÄF–Ç”6öçF–çV—G•&V6÷&CãâF–Ç”6öçF–çV—G”&Vf÷&R€¢FFUF–ÖR&Vf÷&RÂ°¢–çBÆ–Ö—BÒ"À¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂ&÷w2Òv—BF"çVW'’€¢vF–Ç•ö6öçF–çV—G’rÀ¢v†W&S¢wv–æF÷u÷7F'BÂòrÀ¢v†W&T&w3¢¶&Vf÷&RæÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢÷&FW$'“¢wv–æF÷u÷7F'BDU42rÀ¢Æ–Ö—C¢Æ–Ö—Bæ6Æ×ƒÂB’çFô–çB‚’À¢“°¢&WGW&â&÷w2æÖ„F–Ç”6öçF–çV—G•&V6÷&Bæg&öÔF"’çFôÆ—7B‚“°¢Ð ¢gWGW&SÄF–Ç”6öçF–çV—G•6fU&W7VÇCâW6W'DF–Ç”6öçF–çV—G”–d'&–ä÷væVB‡°¢&WV—&VB7G&–ærÆö6ÄF’À¢&WV—&VBFFUF–ÖRv–æF÷u7F'BÀ¢&WV—&VBFFUF–ÖRv–æF÷tVæBÀ¢&WV—&VB7G&–ær6†&VDÖöÖVçG4§6öâÀ¢&WV—&VB7G&–ær6'&–VEF‡&VG4§6öâÀ¢&WV—&VB7G&–ær6&W4§6öâÀ¢&WV—&VB7G&–ærv&VæW74§6öâÀ¢&WV—&VB–çBÖW76vT6÷VçBÀ¢&WV—&VB–çB&VÆF–öç6†—WfVçD6÷VçBÀ¢&WV—&VB&ööÂV–WDF’À¢&WV—&VB7G&–ær6÷W&6Tf–ævW'&–çBÀ¢FFUF–ÖSòf–æÆ—¦VDBÀ¢Ò’7–æ2°¢f–æÂF"Òv—BFF&6S°¢&WGW&âF"çG&ç67F–öâ‚‡G†â’7–æ2°¢gWGW&SÅ7G&–æsóâ6WGF–ær…7G&–ær¶W’’7–æ2°¢f–æÂ&÷w2Òv—BG†âçVW'’€¢w6WGF–æw2rÀ¢6öÇVÖç3¢²wfÇVRuÒÀ¢v†W&S¢v¶W’ÒòrÀ¢v†W&T&w3¢¶¶W•ÒÀ¢Æ–Ö—C¢À¢“°¢&WGW&â&÷w2æ—4V×G’òçVÆÂ¢&÷w2æf—'7E²wfÇVRuÒ27G&–æsó°¢Ð ¢–b†v—B6WGF–ær‚wG&ç6fW%öÆö6²r’ÓÒsrÇÀ¢v—B6WGF–ær‚v7F—fUö'&–âr’ÓÒsr’°¢&WGW&â6öç7BF–Ç”6öçF–çV—G•6fU&W7VÇB€¢6†ævVC¢fÇ6RÀ¢f–æÆ—¦VDæ÷s¢fÇ6RÀ¢“°¢Ð ¢f–æÂW†—7F–æu&÷w2Òv—BG†âçVW'’€¢vF–Ç•ö6öçF–çV—G’rÀ¢v†W&S¢vÆö6ÅöF’ÒòrÀ¢v†W&T&w3¢¶Æö6ÄF•ÒÀ¢Æ–Ö—C¢À¢“°¢f–æÂæ÷t×2ÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢f–æÂf–æÄ×2Òf–æÆ—¦VDCòæÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢–b†W†—7F–æu&÷w2æ—4V×G’’°¢v—BG†âæ–ç6W'B‚vF–Ç•ö6öçF–çV—G’rÂ°¢v–Bs¢÷WV–BçcB‚’À¢vÆö6ÅöF’s¢Æö6ÄF’À¢wv–æF÷u÷7F'Bs¢v–æF÷u7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wv–æF÷uöVæBs¢v–æF÷tVæBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w6†&VEöÖöÖVçG5ö§6öâs¢6†&VDÖöÖVçG4§6öâÀ¢v6'&–VE÷F‡&VG5ö§6öâs¢6'&–VEF‡&VG4§6öâÀ¢v6&W5ö§6öâs¢6&W4§6öâÀ¢vv&VæW75ö§6öâs¢v&VæW74§6öâÀ¢vÖW76vUö6÷VçBs¢ÖW76vT6÷VçBÀ¢w&VÆF–öç6†—öWfVçEö6÷VçBs¢&VÆF–öç6†—WfVçD6÷VçBÀ¢wV–WEöF’s¢V–WDF’ò¢À¢w6÷W&6Uöf–ævW'&–çBs¢6÷W&6Tf–ævW'&–çBÀ¢vf–æÆ—¦VEöBs¢f–æÄ×2À¢v7&VFVEöBs¢æ÷t×2À¢wWFFVEöBs¢æ÷t×2À¢Ò“°¢&WGW&âF–Ç”6öçF–çV—G•6fU&W7VÇB€¢6†ævVC¢G'VRÀ¢f–æÆ—¦VDæ÷s¢f–æÄ×2ÒçVÆÂÀ¢“°¢Ð ¢f–æÂW†—7F–ærÒW†—7F–æu&÷w2æf—'7C°¢–b†W†—7F–æu²vf–æÆ—¦VEöBuÒÒçVÆÂ’°¢&WGW&â6öç7BF–Ç”6öçF–çV—G•6fU&W7VÇB€¢6†ævVC¢fÇ6RÀ¢f–æÆ—¦VDæ÷s¢fÇ6RÀ¢“°¢Ð¢f–æÂf–ævW'&–çD6†ævVBÐ¢†W†—7F–æu²w6÷W&6Uöf–ævW'&–çBuÒ27G&–æsòóòrr’Ò6÷W&6Tf–ævW'&–çC°¢f–æÂf–æÆ—¦VDæ÷rÒf–æÄ×2ÒçVÆÃ°¢–b‚f–ævW'&–çD6†ævVBbbf–æÆ—¦VDæ÷r’°¢&WGW&â6öç7BF–Ç”6öçF–çV—G•6fU&W7VÇB€¢6†ævVC¢fÇ6RÀ¢f–æÆ—¦VDæ÷s¢fÇ6RÀ¢“°¢Ð¢v—BG†âçWFFR€¢vF–Ç•ö6öçF–çV—G’rÀ¢°¢wv–æF÷u÷7F'Bs¢v–æF÷u7F'BæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢wv–æF÷uöVæBs¢v–æF÷tVæBæÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢w6†&VEöÖöÖVçG5ö§6öâs¢6†&VDÖöÖVçG4§6öâÀ¢v6'&–VE÷F‡&VG5ö§6öâs¢6'&–VEF‡&VG4§6öâÀ¢v6&W5ö§6öâs¢6&W4§6öâÀ¢vv&VæW75ö§6öâs¢v&VæW74§6öâÀ¢vÖW76vUö6÷VçBs¢ÖW76vT6÷VçBÀ¢w&VÆF–öç6†—öWfVçEö6÷VçBs¢&VÆF–öç6†—WfVçD6÷VçBÀ¢wV–WEöF’s¢V–WDF’ò¢À¢w6÷W&6Uöf–ævW'&–çBs¢6÷W&6Tf–ævW'&–çBÀ¢–b†f–æÄ×2ÒçVÆÂ’vf–æÆ—¦VEöBs¢f–æÄ×2À¢wWFFVEöBs¢æ÷t×2À¢ÒÀ¢v†W&S¢vÆö6ÅöF’ÒòrÀ¢v†W&T&w3¢¶Æö6ÄF•ÒÀ¢“°¢&WGW&âF–Ç”6öçF–çV—G•6fU&W7VÇB€¢6†ævVC¢f–ævW'&–çD6†ævVBÇÂf–æÆ—¦VDæ÷rÀ¢f–æÆ—¦VDæ÷s¢f–æÆ—¦VDæ÷rÀ¢“°¢Ò“°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂ–çCãâÖVÖ÷'•7FG2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢gWGW&SÆ–çCâ6÷VçB…7G&–ærF&ÆRÂµ7G&–æsòv†W&RÂÆ—7CÄö&¦V7Cóãò&w5Ò’7–æ2°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢u4TÄT5B4õTåB‚¢’22e$ôÒGF&ÆRG·v†W&RÓÒçVÆÂòrr¢rt„U$RGv†W&RwÒrÀ¢&w2À¢“°¢&WGW&â7fÆ—FRæf—'7D–çEfÇVR‡&÷w2’óò°¢Ð ¢&WGW&â°¢vÖVÖ÷&–W2s¢v—B6÷VçB‚vÖVÖ÷'•ö—FV×2rÂw7FGW2ÒòrÂ²v7F—fRuÒ’À¢vÖVÖ÷'•öWf–FVæ6Rs¢v—B6÷VçB‚vÖVÖ÷'•öWf–FVæ6Rr’À¢w7VÖÖ&–W2s¢v—B6÷VçB‚v6öçfW'6F–öå÷7VÖÖ&–W2r’À¢wF‡&VG2s¢v—B6÷VçB‚wVæf–æ—6†VE÷F‡&VG2rÂw7FGW2ÒòrÂ²v7F—fRuÒ’À¢wF†÷Vv‡G2s¢v—B6÷VçB‚wF†÷Vv‡G2r’À¢wW&6WF–öç2s¢v—B6÷VçB‚wW&6WF–öå÷6æ6†÷G2r’À¢vv&VæW75öö'6W'fF–öç2s¢v—B6÷VçB‚vv&VæW75öö'6W'fF–öç2r’À¢vF–Ç•ö6öçF–çV—G’s¢v—B6÷VçB‚vF–Ç•ö6öçF–çV—G’r’À¢w&VÆF–öç6†—öWfVçG2s¢v—B6÷VçB‚w&VÆF–öç6†—öWfVçG2r’À¢v7F—fU÷6W76–öç2s¢v—B6÷VçB‚v–çFW&7F–öå÷6W76–öç2rÂw7FGW2ÒòrÂ²v7F—fRuÒ’À¢w&VfW&Væ6W2s¢v—B6÷VçB‚w&VfW&Væ6Uö—FV×2rÂvVæ&ÆVBÒr’À¢w&VfW&Væ6UöFö7VÖVçG2s¢v—B6÷VçB‚w&VfW&Væ6UöFö7VÖVçG2rÂvVæ&ÆVBÒr’À¢wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2s¢v—B6÷VçB‚wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2r’À¢w&ö7F—fUöfVVF&6²s¢v—B6÷VçB‚w&ö7F—fUöfVVF&6²r’À¢w&WF—&VE÷F‡&VG2s¢v—B6÷VçB‚wVæf–æ—6†VE÷F‡&VG2rÂw7FGW2ÒòrÂ²w&WF—&VBuÒ’À¢wVæF–æu÷÷7E÷GW&åö¦ö'2s¢v—B6÷VçB‚w÷7E÷GW&åö¦ö'2rÂ'7FGW2”â‚wVæF–ærrÂw'Vææ–ærrÂw&WG'•÷v—BrÂvf–ÆVBr’"’À¢v7F—fUövVæW&F–öåö¦ö'2s¢v—B6÷VçB‚vvVæW&F–öåö¦ö'2rÂ'7FGW2”â‚wVæF–ærrÂw'Vææ–ærrÂw&WG'•÷v—Br’"’À¢vf–ÆVEövVæW&F–öåö¦ö'2s¢v—B6÷VçB‚vvVæW&F–öåö¦ö'2rÂw7FGW2ÒòrÂ²vf–ÆVBuÒ’À¢w6öÖF–5öWfVçG2s¢v—B6÷VçB‚w6öÖF–5öWfVçG2r’À¢w6öÖF–5÷W6W%÷Fõö•öWfVçG2s¢v—B6÷VçB€¢w6öÖF–5öWfVçG2rÀ¢vF—&V7F–öâÒòrÀ¢²wW6W%÷Fõö’uÒÀ¢’À¢w6öÖF–5ö•÷Fõ÷6VÆeöWfVçG2s¢v—B6÷VçB€¢w6öÖF–5öWfVçG2rÀ¢vF—&V7F–öâÒòrÀ¢²v•÷Fõ÷6VÆbuÒÀ¢’À¢v7F—fU÷6öÖF–5ö6†ææVÇ2s¢v—B6÷VçB€¢w6öÖF–5övw&VvFW2rÀ¢vW‡—&W5öBâòrÀ¢´FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢’À¢vWFöæöÖ÷W5ö7F–öå÷'Vç2s¢v—B6÷VçB‚vWFöæöÖ÷W5ö7F–öå÷'Vç2r’À¢v7F—fUöWFöæöÖ÷W5ö7F–öç2s¢v—B6÷VçB€¢vWFöæöÖ÷W5ö7F–öå÷'Vç2rÀ¢'7FGW2”â‚w&WVW7FVBrÂw'Vææ–ærr’"À¢’À¢wV&Æ–5÷vV%ö6æF–FFW2s¢v—B6÷VçB‚wV&Æ–5÷vV%ö6æF–FFW2r’À¢v7F—fU÷V&Æ–5÷vV%ö6æF–FFW2s¢v—B6÷VçB€¢wV&Æ–5÷vV%ö6æF–FFW2rÀ¢vW‡—&W5öBâòrÀ¢´FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6…ÒÀ¢’À¢Ó°¢Ð ¢òòòÖWFFFÖöæÇ’6öÖF–2ö'6W'f&–Æ—G’f÷"G'VRÖFWf–6R66WFæ6Rà¢òòð¢òòòF†—2FVÆ–&W&FVÇ’æWfW"6VÆV7G2ÖW76vR6öçFVçBÂ7F–öâÂ&öG’'BÀ¢òòò66VæUö¶W’÷"æ'&F—fRâ—BöæÇ’&W÷'G2v†WF†W"F†RÆFW7B6öÖÖ—GFVBW6W ¢òòòæB76—7FçBGW&ç2&öGV6VBF—&V7F–öæÂWfVçBÂÇW2vw&VvFR6÷VçG0¢òòòæBF–ÖW7F×2æVVFVBFòF—7F–æwV—6‚&FWFV7F÷"F–Bæ÷BÖF6‚"g&öÐ¢òòò&WfVçBv2w&—GFVâæBÆFW"W‡—&VB"à¢gWGW&SÄÖÅ7G&–ærÂö&¦V7Cóãâ6öÖF–4F–væ÷7F–57FG2‚’7–æ2°¢f–æÂF"Òv—BFF&6S°¢f–æÂæ÷rÒFFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ° ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâF—&V7F–öâ…7G&–ærfÇVR’7–æ2°¢f–æÂ&÷w2Òv—BF"ç&uVW'’€¢rrp¢4TÄT5B4õTåB‚¢’2F÷FÂÀ¢Ô‚†7&VFVEöB’2Æ7E÷w&—GFVåöBÀ¢5TÒ„44Rt„TâW‡—&W5öBâòD„TâTÅ4RTäB’27F—fP¢e$ôÒ6öÖF–5öWfVçG0¢t„U$RF—&V7F–öâÒð¢rrrÀ¢¶æ÷rÂfÇVUÒÀ¢“°¢f–æÂ&÷rÒ&÷w2æf—'7C°¢&WGW&â°¢wF÷FÂs¢‡&÷u²wF÷FÂuÒ2çVÓò“òçFô–çB‚’óòÀ¢v7F—fRs¢‡&÷u²v7F—fRuÒ2çVÓò“òçFô–çB‚’óòÀ¢vÆ7Ew&—GFVäBs¢‡&÷u²vÆ7E÷w&—GFVåöBuÒ2çVÓò“òçFô–çB‚’óòÀ¢Ó°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâÆFW7DWfÇVF–öâ‡°¢&WV—&VB7G&–ær&öÆRÀ¢&WV—&VB7G&–ærF—&V7F–öâÀ¢Ò’7–æ2°¢f–æÂGW&ç2Òv—BF"çVW'’€¢vÖW76vW2rÀ¢6öÇVÖç3¢6öç7B²v–BrÂv7&VFVEöBuÒÀ¢v†W&S¢w&öÆRÒòrÀ¢v†W&T&w3¢·&öÆUÒÀ¢÷&FW$'“¢v7&VFVEöBDU42rÀ¢Æ–Ö—C¢À¢“°¢–b‡GW&ç2æ—4V×G’’°¢&WGW&â6öç7B°¢vWfÇVFVDBs¢À¢w&W7VÇBs¢væõö6öÖÖ—GFVE÷GW&ârÀ¢ww&—GFVäWfVçD6÷VçBs¢À¢Ó°¢Ð¢f–æÂGW&âÒGW&ç2æf—'7C°¢f–æÂ6÷VçE&÷w2Òv—BF"ç&uVW'’€¢u4TÄT5B4õTåB‚¢’22e$ôÒ6öÖF–5öWfVçG2t„U$RGW&åö–BÒòäBF—&V7F–öâÒòrÀ¢·GW&å²v–BuÒÂF—&V7F–öåÒÀ¢“°¢f–æÂw&—GFVâÒ7fÆ—FRæf—'7D–çEfÇVR†6÷VçE&÷w2’óò°¢&WGW&â°¢vWfÇVFVDBs¢‡GW&å²v7&VFVEöBuÒ2çVÓò“òçFô–çB‚’óòÀ¢w&W7VÇBs¢w&—GFVââòww&—GFVâr¢væõö6ö×ÆWFVEö7F–öåöÖF6‚rÀ¢ww&—GFVäWfVçD6÷VçBs¢w&—GFVâÀ¢Ó°¢Ð ¢&WGW&â°¢wW6W%Fô’s¢v—BF—&V7F–öâ‚wW6W%÷Fõö’r’À¢v•Fõ6VÆbs¢v—BF—&V7F–öâ‚v•÷Fõ÷6VÆbr’À¢vÆFW7EW6W$WfÇVF–öâs¢v—BÆFW7DWfÇVF–öâ€¢&öÆS¢wW6W"rÀ¢F—&V7F–öã¢wW6W%÷Fõö’rÀ¢’À¢vÆFW7D76—7FçDWfÇVF–öâs¢v—BÆFW7DWfÇVF–öâ€¢&öÆS¢v76—7FçBrÀ¢F—&V7F–öã¢v•÷Fõ÷6VÆbrÀ¢’À¢vWfVçDæ'&F—fT–æ6ÇVFVBs¢fÇ6RÀ¢vÖW76vT&öF–W4–æ6ÇVFVBs¢fÇ6RÀ¢Ó°¢Ð ¢gWGW&SÄÖÅ7G&–ærÂö&¦V7CóãâW‡÷'DÆÂ‚’7–æ2°¢f–æÂ–FVçF—G’Òv—BG&ç6fW%7FFT–FVçF—G’‚“°¢f–æÂF"Òv—BFF&6S°¢6öç7BF&ÆW2Ò°¢vÖW76vW2rÀ¢vÖW76vUöGF6†ÖVçG2rÀ¢vÖVÖ÷'•ö—FV×2rÀ¢vÖVÖ÷'•öWf–FVæ6RrÀ¢v6öçfW'6F–öå÷7VÖÖ&–W2rÀ¢wVæf–æ—6†VE÷F‡&VG2rÀ¢wF†÷Vv‡G2rÀ¢vFW6—&U÷7FFRrÀ¢vFWf–6UöWfVçG2rÀ¢wW&6WF–öå÷6æ6†÷G2rÀ¢vv&VæW75öö'6W'fF–öç2rÀ¢vF–Ç•ö6öçF–çV—G’rÀ¢w&ö7F—fUö†—7F÷'’rÀ¢w&VÆF–öç6†—öWfVçG2rÀ¢v–çFW&7F–öå÷6W76–öç2rÀ¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢w&VfW&Væ6Uö—FV×2rÀ¢w'VÆUöÆ–W'2rÀ¢wW'6öæÆ—G•÷G&–Ç2rÀ¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢wW'6öæÆ—G•÷&öf–ÆU÷fW'6–öç2rÀ¢wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÀ¢w&ö7F—fUöfVVF&6²rÀ¢w÷7E÷GW&åö¦ö'2rÀ¢vvVæW&F–öåö¦ö'2rÀ¢w6öÖF–5öWfVçG2rÀ¢w6öÖF–5övw&VvFW2rÀ¢w6WGF–æw2rÀ¢Ó°¢òò&VBF†Rv†öÆR7FFR–ç6–FRöæR5Æ—FRG&ç67F–öâ6ò&6¶w&÷Væ@¢òòÖVÖ÷'’÷W&6WF–öâw&—FW'26ææ÷B&öGV6R7&÷72×F&ÆRF÷&â6æ6†÷Bà¢f–æÂFFÒv—BF"çG&ç67F–öãÄÖÅ7G&–ærÂö&¦V7Cóãâ‚‡G†â’7–æ2°¢f–æÂ&W7VÇBÒÅ7G&–ærÂö&¦V7Cóç·Ó°¢f÷"†f–æÂF&ÆR–âF&ÆW2’°¢–b‡F&ÆRÓÒw÷7E÷GW&åö¦ö'2r’°¢òò6ö×ÆWFVBÖ–çFVææ6R¦ö'2&RFWf–6RÖÆö6Â&öö¶¶VW–æs²öæÇ’6''¢òòVæf–æ—6†VBv÷&²7&÷72†öæR÷F&ÆWB7F—fR'&–âG&ç6fW"à¢&W7VÇE·F&ÆUÒÒv—BG†âçVW'’€¢F&ÆRÀ¢v†W&S¢'7FGW2Òò"À¢v†W&T&w3¢²vFöæRuÒÀ¢“°¢ÒVÇ6R°¢&W7VÇE·F&ÆUÒÒv—BG†âçVW'’‡F&ÆR“°¢Ð¢Ð¢&WGW&â&W7VÇC°¢Ò“°¢&WGW&â°¢vf÷&ÖBs¢v’Ö6ö×æ–öâÖÆö6Æf—'7BrÀ¢w66†VÖ÷fW'6–öâs¢66†VÖfW'6–öâÀ¢w7FFUöÆ–æVvUö–Bs¢–FVçF—G’æÆ–æVvT–BÀ¢w7FFUövVæW&F–öâs¢–FVçF—G’ævVæW&F–öâÀ¢w6÷W&6UöFWf–6Uö–Bs¢–FVçF—G’æFWf–6T–BÀ¢vW‡÷'FVEöBs¢FFUF–ÖRææ÷r‚’çFõWF2‚’çFô—6óƒc7G&–ær‚’À¢wF&ÆW2s¢FFÀ¢Ó°¢Ð ¢gWGW&SÇfö–Câ–×÷'DÆÂ€¢ÖÅ7G&–ærÂG–æÖ–3â&6·WÂ°¢ÖÅ7G&–ærÂ7G&–æsâ'VçF–ÖU6WGF–æt÷fW'&–FW2Ò6öç7BÅ7G&–ærÂ7G&–æsç·ÒÀ¢G&ç6fW%&V6V—CòÆö6ÅG&ç6fW%&V6V—BÀ¢Ò’7–æ2°¢–b†&6·W²vf÷&ÖBuÒÒv’Ö6ö×æ–öâÖÆö6Æf—'7Br’°¢F‡&÷r6öç7Bf÷&ÖDW†6WF–öâ‚~KˆÞiŠò’6ö×æ–öâx«nhXÈRr“°¢Ð¢f–æÂfW'6–öâÒ†&6·W²w66†VÖ÷fW'6–öâuÒ2çVÓò“òçFô–çB‚“°¢–b‡fW'6–öâÓÒçVÆÂÇÂfW'6–öâÂÇÂfW'6–öââ66†VÖfW'6–öâ’°¢F‡&÷rf÷&ÖDW†6WF–öâ‚~KˆÞiJþhÈy¨Nx«nhXÈ^x˜ŽiÊÂGfW'6–öâr“°¢Ð¢f–æÂ&uF&ÆW2Ò†&6·W²wF&ÆW2uÒ2Ö’æ67CÅ7G&–ærÂG–æÖ–3â‚“°¢f–æÂF"Òv—BFF&6S°¢v—BF"çG&ç67F–öâ‚‡G†â’7–æ2°¢6öç7B÷&FW&VBÒ°¢vÖW76vW2rÀ¢vÖW76vUöGF6†ÖVçG2rÀ¢vÖVÖ÷'•ö—FV×2rÀ¢vÖVÖ÷'•öWf–FVæ6RrÀ¢v6öçfW'6F–öå÷7VÖÖ&–W2rÀ¢wVæf–æ—6†VE÷F‡&VG2rÀ¢wF†÷Vv‡G2rÀ¢vFWf–6UöWfVçG2rÀ¢wW&6WF–öå÷6æ6†÷G2rÀ¢vv&VæW75öö'6W'fF–öç2rÀ¢vF–Ç•ö6öçF–çV—G’rÀ¢w&ö7F—fUö†—7F÷'’rÀ¢w&VÆF–öç6†—öWfVçG2rÀ¢v–çFW&7F–öå÷6W76–öç2rÀ¢w&VfW&Væ6UöFö7VÖVçG2rÀ¢w&VfW&Væ6Uö—FV×2rÀ¢w'VÆUöÆ–W'2rÀ¢wW'6öæÆ—G•÷G&–Ç2rÀ¢w7V6–Å÷7G–ÆU÷G&–Ç2rÀ¢wW'6öæÆ—G•÷&öf–ÆU÷fW'6–öç2rÀ¢wF†÷Vv‡EöÆ–fV7–6ÆUöWfVçG2rÀ¢w&ö7F—fUöfVVF&6²rÀ¢w÷7E÷GW&åö¦ö'2rÀ¢vvVæW&F–öåö¦ö'2rÀ¢w6öÖF–5öWfVçG2rÀ¢w6öÖF–5övw&VvFW2rÀ¢vFW6—&U÷7FFRrÀ¢w6WGF–æw2rÀ¢Ó°¢f÷"†f–æÂF&ÆR–â÷&FW&VB’°¢v—BG†âæFVÆWFR‡F&ÆR“°¢f–æÂ&÷w2Ò‡&uF&ÆW5·F&ÆUÒ2Æ—7Cò’óò6öç7BµÓ°¢f÷"†f–æÂ&r–â&÷w2’°¢f–æÂ&÷rÒÖÅ7G&–ærÂö&¦V7Cóâæg&öÒ‡&r2Ö“°¢–b‡F&ÆRÓÒvÖVÖ÷'•ö—FV×2rbbfW'6–öâÂ"’°¢f–æÂ7&VFVBÒ&÷u²v7&VFVEöBuÒ2–çC°¢&÷ræFDÆÂ‡°¢v6öæf–FVæ6Rs¢ãrÀ¢w6÷W&6Rs¢v6öçfW'6F–öârÀ¢w7FGW2s¢v7F—fRrÀ¢wWFFVEöBs¢7&VFVBÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒwF†÷Vv‡G2rbbfW'6–öâÂ"’°¢&÷ræFDÆÂ‡°¢w6÷W&6Rs¢v–çFW&æÂrÀ¢vÆ7EöfVEöBs¢&÷u²wWFFVEöBuÒÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒvÖVÖ÷'•ö—FV×2rbbfW'6–öâÂB’°¢&÷ræFDÆÂ‡°¢w7V&¦V7Eö¶W’s¢rrÀ¢w–ææVBs¢À¢w7WW'6VFVEö'’s¢çVÆÂÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒvÖVÖ÷'•ö—FV×2rbbfW'6–öâÂb’°¢&÷ræFDÆÂ‡°¢w&WFVçF–öå÷66÷&Rs¢ãÀ¢w&WFVçF–öåö6†V6¶VEöBs¢&÷u²wWFFVEöBuÒóò&÷u²v7&VFVEöBuÒÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒvÖVÖ÷'•ö—FV×2rbbfW'6–öâÂR’°¢&÷ræFDÆÂ‡°¢w6VÖçF–5÷G—Rs¢&÷u²v¶–æBuÒÓÒw6†&VEöW‡W&–Væ6Rp¢òw6†&VEöW‡W&–Væ6Rp¢¢v7W'&VçEöf7BrÀ¢vWf–FVæ6Uö6÷VçBs¢À¢vf—'7Eöö'6W'fVEöBs¢&÷u²v7&VFVEöBuÒÀ¢vÆ7EöWf–FVæ6UöBs¢&÷u²wWFFVEöBuÒóò&÷u²v7&VFVEöBuÒÀ¢vf7E÷fW'6–öâs¢À¢Ò“°¢Ð¢–b‡F&ÆRÓÒw&VÆF–öç6†—öWfVçG2rbbfW'6–öâÂb’°¢&÷u²v–çFW&æÆ—¦VEöBuÒÒ&÷u²v7&VFVEöBuÓ°¢Ð¢–b‡F&ÆRÓÒw&VfW&Væ6Uö—FV×2rbbfW'6–öâÂr’°¢&÷u²vFö7VÖVçEö–BuÒÒçVÆÃ°¢Ð¢–b‡F&ÆRÓÒwF†÷Vv‡G2rbbfW'6–öâÂ‚’°¢&÷ræFDÆÂ‡°¢vÆ–fV7–6ÆU÷7FFRs¢‡&÷u²v¶–æBuÒÓÒvf—†F–öâr’òvf—†F–öâr¢v7F—fRrÀ¢v7F–öåö6÷VçBs¢À¢vÆ7Eö7FVEöBs¢çVÆÂÀ¢vÆ7E÷6F—6f–VEöBs¢çVÆÂÀ¢vÆ7E÷&W7W&f6VEöBs¢çVÆÂÀ¢w&W7W&f6VEö6÷VçBs¢À¢w&W6–GVÅ÷7G&VæwF‚s¢ãÀ¢vÆ7Eö÷WF&÷VæEöÖW76vUö–Bs¢çVÆÂÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒwF†÷Vv‡G2rbbfW'6–öâÂ’’°¢&÷ræFDÆÂ‡°¢wF÷–5ö¶W’s¢rrÀ¢vÖW&vVEö6÷VçBs¢À¢vÆ7EöÖW&vVEöBs¢çVÆÂÀ¢w6æö÷¦VE÷VçF–Âs¢çVÆÂÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒwVæf–æ—6†VE÷F‡&VG2rbbfW'6–öâÂ’’°¢&÷u²wF÷–5ö¶W’uÒÒrs°¢Ð¢–b‡F&ÆRÓÒw&ö7F—fUöfVVF&6²rbbfW'6–öâÂ’’°¢&÷ræFDÆÂ‡°¢wF÷–5ö¶W’s¢rrÀ¢wF‡&VEö–Bs¢çVÆÂÀ¢w&W7öç6U÷VÆ—G’s¢çVÆÂÀ¢v÷WF6öÖRs¢&÷u²w&W7öç6Uö'V6¶WBuÒÓÒvæõ÷&W7öç6Rp¢òvæõ÷&W7öç6Rp¢¢&÷u²wW6W%÷&W7öç6UöÖW76vUö–BuÒÒçVÆÀ¢òw&W7öç6U÷&V6V—fVBp¢¢wVæF–ærrÀ¢v÷WF6öÖU÷66÷&Rs¢çVÆÂÀ¢w&ö6W76VEöBs¢&÷u²w&W7öç6Uö'V6¶WBuÒÓÒvæõ÷&W7öç6Rrò&÷u²w6VçEöBuÒ¢çVÆÂÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒwVæf–æ—6†VE÷F‡&VG2rbbfW'6–öâÂ’°¢&÷ræFDÆÂ‡°¢vföÆÆ÷wWöGVUöBs¢çVÆÂÀ¢vföÆÆ÷wW÷6VVFVEöBs¢çVÆÂÀ¢vföÆÆ÷wWö6÷VçBs¢À¢vÆ7EöföÆÆ÷wWöBs¢çVÆÂÀ¢w&WF—&VEöBs¢çVÆÂÀ¢w&WF—&U÷&V6öâs¢rrÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒwVæf–æ—6†VE÷F‡&VG2rbbfW'6–öâÂ"’°¢&÷u²vföÆÆ÷wW÷'Vå÷Fö¶VâuÒÒrs°¢&÷u²vföÆÆ÷wWö6Æ–ÖVEöBuÒÒçVÆÃ°¢&÷u²w&ö7F—fUö÷WF6öÖUöÖW76vUö–BuÒÒçVÆÃ°¢Ð¢–b‡F&ÆRÓÒw÷7E÷GW&åö¦ö'2rbbfW'6–öâÂ"’°¢&÷ræFDÆÂ‡°¢w'Vå÷Fö¶Vâs¢rrÀ¢w&W7VÇEö§6öâs¢rrÀ¢w7F'FVEöBs¢çVÆÂÀ¢v†V'F&VEöBs¢çVÆÂÀ¢væW‡E÷&WG'•öBs¢çVÆÂÀ¢vÖöFVÅö6ö×ÆWFVEöBs¢çVÆÂÀ¢vFW6—&UöÆ–VEöBs¢çVÆÂÀ¢Ò“°¢Ð¢–b‡F&ÆRÓÒvÖW76vW2rbbfW'6–öâÂ2’°¢&÷u²w&ö7F—fUö–çFVçBuÒÒrs°¢&÷u²w&ö7F—fUöFVÆ—fW'’uÒÒrs°¢Ð¢–b‡F&ÆRÓÒvÖW76vW2rbbfW'6–öâÂ#"’°¢&÷u²vW‡V7G5÷&WÇ’uÒÒ°¢Ð¢–b‡F&ÆRÓÒvÖW76vW2r’°¢&÷rç&VÖ÷fR‚w&÷f–FW%÷&V6öæ–ærr“°¢&÷rç&VÖ÷fR‚v6ö×æ–öå÷fö–6Rr“°¢Ð¢–b‡F&ÆRÓÒw6WGF–æw2rb`¢‡&÷u²v¶W’uÒ27G&–æsòóòrr’ç7F'G5v—F‚‚v6ö×æ–öå÷fö–6Rr’’°¢6öçF–çVS°¢Ð¢–b‡F&ÆRÓÒw6WGF–æw2rbb&÷u²v¶W’uÒÓÒv6†E÷FV×W&GW&Rr’°¢6öçF–çVS°¢Ð¢–b‡F&ÆRÓÒw&ö7F—fUöfVVF&6²rbbfW'6–öâÂ2’°¢&÷u²v–çFVçEö¶–æBuÒÒrs°¢&÷u²vFVÆ—fW'•÷7G–ÆRuÒÒrs°¢Ð¢–b‡F&ÆRÓÒw&ö7F—fUöfVVF&6²rbbfW'6–öâÂb’°¢&÷u²v6öçFW‡Eö†÷W%ö'V6¶WBuÒÒrs°¢&÷u²v6öçFW‡Eö7F—f—G’uÒÒwVæ¶æ÷vâs°¢&÷u²v6öçFW‡Eö'W7’uÒÒã°¢&÷u²wF–Ö–æuöf—BuÒÒ&÷u²v÷WF6öÖRuÒÓÒvæõ÷&W7öç6RròÓã‚¢çVÆÃ°¢&÷u²wF÷–5öf—BuÒÒ&÷u²v÷WF6öÖRuÒÓÒvæõ÷&W7öç6Rròã¢çVÆÃ°¢Ð¢–b‡F&ÆRÓÒw÷7E÷GW&åö¦ö'2rbb&÷u²w7FGW2uÒÓÒw'Vææ–ærr’°¢&÷u²w7FGW2uÒÒw&WG'•÷v—Bs°¢&÷u²w'Vå÷Fö¶VâuÒÒrs°¢&÷u²væW‡E÷&WG'•öBuÒÒçVÆÃ°¢&÷u²vÆ7EöW'&÷"uÒÒw&W7VÖVEögFW%÷G&ç6fW"s°¢Ð¢–b‡F&ÆRÓÒvvVæW&F–öåö¦ö'2rbb&÷u²w7FGW2uÒÓÒw'Vææ–ærr’°¢&÷u²w7FGW2uÒÒwVæF–ærs°¢&÷u²væW‡E÷&WG'•öBuÒÒçVÆÃ°¢&÷u²w'Vå÷Fö¶VâuÒÒrs°¢&÷u²w&W7VÖU÷&V6öâuÒÒw&W7VÖVEögFW%÷G&ç6fW"s°¢&÷u²vÆ7EöW'&÷"uÒÒw6÷W&6UövVæW&F–öåö–çFW''WFVEö'•÷G&ç6fW"s°¢Ð¢v—BG†âæ–ç6W'B€¢F&ÆRÀ¢&÷rÀ¢6öæfÆ–7DÆv÷&—F†Ó¢F&ÆRÓÒv6öçfW'6F–öå÷7VÖÖ&–W2p¢ò6öæfÆ–7DÆv÷&—F†Òæ–væ÷&P¢¢6öæfÆ–7DÆv÷&—F†Òæ&÷'BÀ¢“°¢Ð¢Ð¢–b‡fW'6–öâÂ2’°¢òòöÆB7FFR6¶vW2&VFFR&ö7F—fR&W6VçFF–öâÖWFFFâ&V'V–Æ@¢òòF†R6ÖR6öç6W'fF—fR6FVv÷&–W2W6VB'’F†Rc2FF&6RWw&FP¢òògFW"ÆÂ&VÆFVB&÷w2‡F†÷Vv‡G2öÖW76vW2öfVVF&6²’†fR'&—fVBà¢v—BG†âæW†V7WFR‚"" ¢UDDR&ö7F—fUöfVVF&6°¢4UB–çFVçEö¶–æBÒ44P¢t„TâF‡&VEö–B•2äõBåTÄÂäBF‡&VEö–BÃârrD„TâvföÆÆ÷wWp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’ÒvGF6†ÖVçBrD„TâvÖ—75÷–÷Rp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’Òv7W&–÷6—G’rD„Tâv7W&–÷6—G’p¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’Òw&VfÆV7F–öârD„Tâw6†&U÷F†÷Vv‡Bp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’ÒvGWG’rD„TâvföÆÆ÷wWp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’Òw6ö6–ÂrD„Tâw6ö6–Å÷6†&Rp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’ÒvÆ–&–FòrD„Tâv–çF–Ö7•ö–çf—FF–öâp¢t„Tâ…4TÄT5BG&—fUö¶W’e$ôÒF†÷Vv‡G2t„U$RF†÷Vv‡G2æ–BÒ&ö7F—fUöfVVF&6²çF†÷Vv‡Eö–B’Òw7G&W72rD„TâvVÖ÷F–öæÅ÷&V6‚p¢TÅ4RvvVçFÆU÷–ærp¢TäBÀ¢FVÆ—fW'•÷7G–ÆRÒ44Rt„TâFVÆ—fW'•÷7G–ÆRÒrrD„Tâvæ÷&ÖÂrTÅ4RFVÆ—fW'•÷7G–ÆRTä@¢t„U$R–çFVçEö¶–æBÒrp¢"""“°¢v—BG†âæW†V7WFR‚"" ¢UDDRÖW76vW0¢4UB&ö7F—fUö–çFVçBÒ4ôÄU44R€¢…4TÄT5B–çFVçEö¶–æBe$ôÒ&ö7F—fUöfVVF&6°¢t„U$R&ö7F—fUöfVVF&6²ç&ö7F—fUöÖW76vUö–BÒÖW76vW2æ–B’À¢vvVçFÆU÷–ærp¢’À¢&ö7F—fUöFVÆ—fW'’Ò4ôÄU44R€¢…4TÄT5BFVÆ—fW'•÷7G–ÆRe$ôÒ&ö7F—fUöfVVF&6°¢t„U$R&ö7F—fUöfVVF&6²ç&ö7F—fUöÖW76vUö–BÒÖW76vW2æ–B’À¢væ÷&ÖÂp¢¢t„U$R—5÷&ö7F—fRÒäB&ö7F—fUö–çFVçBÒrp¢"""“°¢Ð¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢vÖVÖ÷'•ö6öç6öÆ–FF–öåöVæ&ÆVBrÂwfÇVRs¢swÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢w6VÆeöG&—fUöVæ&ÆVBrÂwfÇVRs¢swÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢f÷"†f–æÂVçG'’–â6öç7BÅ7G&–ærÂ7G&–æsç°¢v7F—fUö'&–âs¢srÀ¢vÖöFVÂs¢vFVW6VV²×cBÖfÆ6‚rÀ¢w&V6öæ–æuöVff÷'Bs¢v†–v‚rÀ¢v6†E÷F†–æ¶–æuöVæ&ÆVBs¢srÀ¢vç6guö7F—fRs¢srÀ¢vç6gu÷&VfW&Væ6Uö7F—fRs¢srÀ¢vç6guöÖçVÅö÷fW'&–FRs¢rrÀ¢vç6gu÷&÷WFU÷6÷W&6Rs¢v–æ—F–ÂrÀ¢vç6gu÷&÷WFU÷GW&åö–Bs¢rrÀ¢vWFõöÖVÖ÷'’s¢srÀ¢wG&ç6fW%öÆö6²s¢srÀ¢wW&6WF–öåöVæ&ÆVBs¢srÀ¢v•÷6VÆe÷&VfÆV7F–öåöVæ&ÆVBs¢srÀ¢wGG5öVæ&ÆVBs¢srÀ¢vWFõ÷GG2s¢srÀ¢wGG5÷7G&VÖ–æuöVæ&ÆVBs¢srÀ¢w&ö7F—fU÷GG5÷öÆ–7’s¢w6–ÆVçBrÀ¢vÆ7E÷&ö7F—fU÷7ö¶VåöÖW76vUö–Bs¢rrÀ¢wGG5÷7VVBs¢sãrÀ¢wGG5÷föÇVÖRs¢sãrÀ¢wGG5÷&WÆ6VÖVçG5ö§6öâs¢w²%—V¶’#¢.iÈž[ˆÂ'ÒrÀ¢w&VÆF–öç6†—ö6öçF–çV—G•öVæ&ÆVBs¢srÀ¢w6W76–öå÷G&6¶–æuöVæ&ÆVBs¢srÀ¢vÖVÖ÷'•öfF–æuöVæ&ÆVBs¢srÀ¢w&VfW&Væ6UöÆ–'&'•öVæ&ÆVBs¢srÀ¢vÆ7EöÖVÖ÷'•öÖ–çFVææ6UöBs¢srÀ¢w'VÆUöÆ–W'5öVæ&ÆVBs¢srÀ¢wF†÷Vv‡EöÆ–fV7–6ÆUöVæ&ÆVBs¢srÀ¢w&ö7F—fUöFFF–öåöVæ&ÆVBs¢srÀ¢w&ö7F—fUöfVVF&6µöW‡—'•ö†÷W'2s¢srÀ¢w&ö7F—fUöæ÷F–f–6F–öå÷&—f7’s¢w6Ö'BrÀ¢wF†÷Vv‡Eö6öç6öÆ–FF–öåöVæ&ÆVBs¢srÀ¢vÆ7E÷F†÷Vv‡Eö6öç6öÆ–FF–öåöBs¢srÀ¢vÆöæu÷'Vææ–æuöÖ–çFVææ6UöVæ&ÆVBs¢srÀ¢vÆ7EöÆöæu÷'Vææ–æuöÖ–çFVææ6UöBs¢srÀ¢vFVfW'&VEöföÆÆ÷wWöVæ&ÆVBs¢srÀ¢vÖ…öFVfW'&VEöföÆÆ÷wW2s¢srÀ¢w÷7E÷GW&å÷VWVUöVæ&ÆVBs¢srÀ¢v&6¶w&÷VæEöW'&÷%ö6÷VçBs¢srÀ¢vÆ7Eö&6¶w&÷VæEöW'&÷"s¢rrÀ¢vGW&&ÆUövVæW&F–öåöVæ&ÆVBs¢srÀ¢vvVæW&F–öåöÖ…öGFV×G2s¢srÀ¢vÆ7EövVæW&F–öå÷&V6÷fW'•öW'&÷"s¢rrÀ¢w÷7E÷GW&åöÖ…öGFV×G2s¢srÀ¢vÆ7Eö7–æ5÷v÷&¶W%öW'&÷"s¢rrÀ¢vF–Ç•ö6öçF–çV—G•öVæ&ÆVBs¢srÀ¢vÆ7EöF–Ç•ö6öçF–çV—G•÷&Vg&W6…öBs¢srÀ¢vÆ7EöF–Ç•ö6öçF–çV—G•öW'&÷"s¢rrÀ¢w7FFUövVæW&F–öâs¢srÀ¢wVæF–æuö÷WF&÷VæE÷6æ6†÷Eö–Bs¢rrÀ¢wVæF–æuö÷WF&÷VæEövVæW&F–öâs¢srÀ¢wVæF–æuö–×÷'E÷6æ6†÷Eö–Bs¢rrÀ¢wVæF–æuö–×÷'EöÆ–æVvUö–Bs¢rrÀ¢wVæF–æuö–×÷'E÷6÷W&6UöFWf–6Uö–Bs¢rrÀ¢wVæF–æuö–×÷'EövVæW&F–öâs¢srÀ¢wVæF–æuö–×÷'E÷7FFU÷6†#Sbs¢rrÀ¢vÆ7E÷F¶V÷fW%÷6æ6†÷Eö–Bs¢rrÀ¢vÆ7E÷F¶V÷fW%÷6÷W&6UöFWf–6Uö–Bs¢rrÀ¢vÆ7E÷F¶V÷fW%öBs¢srÀ¢ÒæVçG&–W2’°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢VçG'’æ¶W’ÂwfÇVRs¢VçG'’çfÇVWÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ–væ÷&RÀ¢“°¢Ð¢f÷"†f–æÂVçG'’–â'VçF–ÖU6WGF–æt÷fW'&–FW2æVçG&–W2’°¢v—BG†âæ–ç6W'B€¢w6WGF–æw2rÀ¢²v¶W’s¢VçG'’æ¶W’ÂwfÇVRs¢VçG'’çfÇVWÒÀ¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òç&WÆ6RÀ¢“°¢Ð ¢òò7W'&VçB×7FFRv&VæW72g&öÒF†R6÷W&6RFWf–6R—2W6VgVÂ'&–VfÇ’gFW ¢òòF¶V÷fW"Â'WB×W7Bæ÷BÖ7VW&FR2F†RF&vWBFWf–6Rw2Æ—fR7FFRà¢òòv—fR–×÷'FVBö'6W'fF–öç26†÷'Bw&6Rv–æF÷s²F†RæWr7F—fR'&–à¢òòv–ÆÂF†Vâ&Vg&W6‚÷7WW'6VFRF†VÒg&öÒ—G2÷vâÆö6Â6Vç6÷'2à¢f–æÂF&vWDFWf–6T–BÒ'VçF–ÖU6WGF–æt÷fW'&–FW5²vFWf–6Uö–BuÓ°¢–b‡fW'6–öâãÒBbbF&vWDFWf–6T–BÒçVÆÂbbF&vWDFWf–6T–Bæ—4æ÷DV×G’’°¢f–æÂw&6UVçF–ÂÒFFUF–ÖRææ÷r‚¢æFB†6öç7BGW&F–öâ†Ö–çWFW3¢"’¢æÖ–ÆÆ—6V6öæG56–æ6TWö6ƒ°¢v—BG†âç&uWFFR‚rrp¢UDDRv&VæW75öö'6W'fF–öç0¢4UBW‡—&W5öBÒ44Rt„TâW‡—&W5öBâòD„TâòTÅ4RW‡—&W5öBTä@¢t„U$RFWf–6Uö–B•2äõBåTÄÂäBFWf–6Uö–BÃâð¢rrrÂ¶w&6UVçF–ÂÂw&6UVçF–ÂÂF&vWDFWf–6T–EÒ“°¢Ð ¢f–æÂFW6—&U&÷w2Òv—BG†âçVW'’‚vFW6—&U÷7FFRrÂv†W&S¢v–BÒrÂÆ–Ö—C¢“°¢–b†FW6—&U&÷w2æ—4V×G’’°¢v—BG†âæ–ç6W'B‚vFW6—&U÷7FFRrÂ°¢v–Bs¢À¢v§6öâs¢FW6—&U6æ6†÷B‚’æVæ6öFR‚’À¢wWFFVEöBs¢FFUF–ÖRææ÷r‚’æÖ–ÆÆ—6V6öæG56–æ6TWö6‚À¢Ò“°¢Ð¢–b†Æö6ÅG&ç6fW%&V6V—BÒçVÆÂ’°¢v—BG†âæ–ç6W'B€¢wG&ç6fW%÷&V6V—G2rÀ¢Æö6ÅG&ç6fW%&V6V—BçFôF"‚’À¢6öæfÆ–7DÆv÷&—F†Ó¢6öæfÆ–7DÆv÷&—F†Òæ&÷'BÀ¢“°¢Ð¢Ò“°¢v—B÷6VVE'VÆTÆ–W'2†v—BFF&6R“°¢v—BVç7W&TFWf–6T–B‚“°¢v—BVç7W&U7FFTÆ–æVvT–B‚“°¢Ð ¢gWGW&SÇfö–Câ6Æ÷6R‚’7–æ2°¢f–æÂ÷Væ–ærÒö÷Væ–æs°¢–b†÷Væ–ærÒçVÆÂ’°¢G'’°¢v—B÷Væ–æs°¢Ò6F6‚…ò’°¢òò÷Væ–ærf–ÆVC²F†W&R—2æòFF&6R†æFÆRFò6Æ÷6Rà¢Ð¢Ð¢v—BöF#òæ6Æ÷6R‚“°¢öF"ÒçVÆÃ°¢ö÷Væ–ærÒçVÆÃ°¢Ð§Ð

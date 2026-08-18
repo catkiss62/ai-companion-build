@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  test('sends temperature for non-thinking chat', () async {
+  test('uses provider sampling defaults for non-thinking chat', () async {
     Map<String, dynamic>? body;
     final client = DeepSeekClient(
       streamClientFactory: () => MockClient((request) async {
@@ -30,16 +30,15 @@ void main() {
             {'role': 'user', 'content': 'hello'},
           ],
           thinking: false,
-          temperature: 1.4,
         )
         .drain<void>();
 
-    expect(body?['temperature'], 1.4);
+    expect(body?.containsKey('temperature'), isFalse);
     expect(body?['thinking'], {'type': 'disabled'});
     client.close();
   });
 
-  test('omits ignored temperature for DeepSeek thinking mode', () async {
+  test('thinking mode sends reasoning effort without temperature', () async {
     Map<String, dynamic>? body;
     final client = DeepSeekClient(
       streamClientFactory: () => MockClient((request) async {
@@ -62,12 +61,12 @@ void main() {
             {'role': 'user', 'content': 'hello'},
           ],
           thinking: true,
-          temperature: 1.8,
         )
         .drain<void>();
 
     expect(body?.containsKey('temperature'), isFalse);
     expect(body?['thinking'], {'type': 'enabled'});
+    expect(body?['reasoning_effort'], 'high');
     client.close();
   });
 }

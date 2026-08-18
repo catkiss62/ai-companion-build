@@ -68,7 +68,6 @@ class _SettingsPageState extends State<SettingsPage> {
   double ttsSpeed = 1.0;
   double ttsVolume = 1.0;
   bool chatThinking = true;
-  double chatTemperature = 1.0;
   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
   ReasoningEffort effort = ReasoningEffort.high;
   TtsStatus? ttsStatus;
@@ -122,12 +121,6 @@ class _SettingsPageState extends State<SettingsPage> {
     ttsSpeed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
     ttsVolume = double.tryParse(await db.getSetting('tts_volume') ?? '') ?? 1.0;
     chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
-    chatTemperature = (double.tryParse(
-              await db.getSetting('chat_temperature') ?? '',
-            ) ??
-            1.0)
-        .clamp(0.0, 2.0)
-        .toDouble();
     ttsReplacementController.text =
         await db.getSetting('tts_replacements_json') ?? '{"Yuki":"有希"}';
     model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
@@ -197,10 +190,6 @@ class _SettingsPageState extends State<SettingsPage> {
         'chat_thinking_enabled',
         chatThinking ? '1' : '0',
       );
-      await db.setSetting(
-        'chat_temperature',
-        chatTemperature.toStringAsFixed(1),
-      );
       if (keyController.text.trim().isNotEmpty) {
         // API credentials are intentionally device-local. If a transferred or
         // crash-recovered turn was waiting on credentials/configuration, make
@@ -247,7 +236,6 @@ class _SettingsPageState extends State<SettingsPage> {
             model: model,
             effort: effort,
             thinking: chatThinking,
-            temperature: chatTemperature,
             messages: const <Map<String, Object?>>[
               {'role': 'user', 'content': 'Reply with OK only.'},
             ],
@@ -515,30 +503,10 @@ class _SettingsPageState extends State<SettingsPage> {
           contentPadding: EdgeInsets.zero,
           title: const Text('模型思考模式'),
           subtitle: const Text(
-            '开启时显示原生 reasoning_content；DeepSeek 官方在此模式下会忽略 Temperature。',
+            '开启时显示原生 reasoning_content，并使用所选思考强度。',
           ),
           value: chatThinking,
           onChanged: (value) => setState(() => chatThinking = value),
-        ),
-        Row(
-          children: [
-            const Expanded(child: Text('聊天 Temperature')),
-            Text(chatTemperature.toStringAsFixed(1)),
-          ],
-        ),
-        Slider(
-          value: chatTemperature,
-          min: 0.0,
-          max: 2.0,
-          divisions: 20,
-          label: chatTemperature.toStringAsFixed(1),
-          onChanged: (value) => setState(() => chatTemperature = value),
-        ),
-        Text(
-          chatThinking
-              ? '当前保留思考链：这个值会保存，但 DeepSeek 官方暂不采用；关闭上面的思考模式后生效。'
-              : '当前已生效：数值越低越稳定，越高越随机。官方默认值为 1.0。',
-          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(

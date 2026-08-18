@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前开发头为 `v0.35.2+77 Prompt Workbench`：六大规则、性格试穿与原保护锁定 Prompt 全部收口为六个可编辑长文本框；中文原生选择菜单、长文本顶端回弹修复、设定包导入/导出与“和她讨论后人工确认”已落源码。聊天设置新增思考开关与 Temperature `0.0～2.0`；DeepSeek 官方思考模式会忽略 Temperature，所以仅关闭思考后实际发送。实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`，Actions run `32173096666` 全绿，APK 已上传私有草稿 Release；真机交互与 Temperature A/B 待验。
+0. 当前开发头为 `v0.35.3+78 NSFW Context Router`：用户六份规则的 31 个小节已逐字进入默认正文并有逐节 SHA-256 防改校验；聊天顶栏加入白/紫长方形 NSFW 按钮，实际回复前由无思考 DeepSeek 判断 `daily / nsfw / nsfw_reference`，手动开关可纠正下一轮。旧固定短语与成人 Session 许可门槛已删除，Session 只负责共同场景连续性；痴女提供 NSFW 偏置。六规则主导入/导出改用系统 JSON 文件，剪贴板保留次级入口。Temperature 功能完全移除，数字化性格系统延期。本地源码已实现，CI/APK/真机尚未验证。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线仍是“手动看一次当前屏幕 + 实际 App 名称映射 + 敏感页 Gate”，完成明确用户触发后才讨论 Desire 驱动的低频屏幕视觉。
@@ -21,7 +21,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已构建基线为 `v0.35.2+77`，schema 26；实现 head `fdee4f49f96d52db02bfd07400735f36095c9930`。
+- GitHub 当前已构建基线仍为 `v0.35.2+77`；本地源码候选为 `v0.35.3+78`，schema 26，尚未发布到分支与 CI。
 - 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32173096666>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、167 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
 - v0.35.2 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-382bc37a74c8121eec70>；APK `AI-Companion-v0.35.2-77-Prompt-Workbench-APK.apk`（240.3MB），SHA-256 `2e7602c4cfba34e7f3dc1e64d2eef33b03f93566d1da07d71883b34d700248e2`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码/测试/打包成功，语言效果仍待真机 A/B。

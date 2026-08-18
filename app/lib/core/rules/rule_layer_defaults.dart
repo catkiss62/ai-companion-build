@@ -1,3 +1,5 @@
+import 'rule_layer_content_v0353.dart';
+
 class RuleLayerDefault {
   const RuleLayerDefault(
     this.key,
@@ -85,7 +87,7 @@ const legacyEditableRuleLayerSha256V0350 = <String, String>{
 // Runtime relationship rules below avoid this developer-facing diagnosis so
 // it cannot leak into visible inner thought as a cue to perform humanness.
 
-const defaultRuleLayers = <RuleLayerDefault>[
+const _legacyDefaultRuleLayersV0352 = <RuleLayerDefault>[
   RuleLayerDefault('01_core', 'AI Companion Core', 'always', r'''# 01 · AI Companion Core
 # 用途：最高优先级的长期身份与关系规则
 # 加载时机：常驻
@@ -526,4 +528,57 @@ ANSWERED_HISTORY_ONLY = true
 1. Thought/Desire 可以改变注意、行动倾向和表达强度，但不能补写不存在的原因，也不能生成“他曾经说过”的伪证据。
 2. 不把原始 reasoning_content 当作长期记忆保存或回放。只保存必要的结构化结果、已完成事件和可核对的关系影响。
 3. 记忆用于保持连续性，不要求每轮复述历史，也不应把亲密关系变成档案汇报。''', locked: true),
+];
+
+/// Byte-exact v0.35.2 bodies used only to upgrade untouched installations.
+/// A user-edited body never matches and is therefore never overwritten.
+final legacyRuleLayerContentsV0352 = <String, String>{
+  for (final layer in _legacyDefaultRuleLayersV0352) layer.key: layer.content,
+};
+
+const _approvedRuleContentsV0353 = <String, String>{
+  '01_core': ruleContentV0353_01_core,
+  '01_relationship': ruleContentV0353_01_relationship,
+  '03_appearance_identity': ruleContentV0353_03_appearance_identity,
+  '08_runtime_identity': ruleContentV0353_08_runtime_identity,
+  '02_daily': ruleContentV0353_02_daily,
+  '03_behavior': ruleContentV0353_03_behavior,
+  '08_proactive_turn': ruleContentV0353_08_proactive_turn,
+  '08_visible_inner_voice': ruleContentV0353_08_visible_inner_voice,
+  '03_personality_seed': ruleContentV0353_03_personality_seed,
+  '07_base_gentle': ruleContentV0353_07_base_gentle,
+  '07_base_outgoing': ruleContentV0353_07_base_outgoing,
+  '07_base_playful': ruleContentV0353_07_base_playful,
+  '07_base_reserved': ruleContentV0353_07_base_reserved,
+  '07_posture_equal': ruleContentV0353_07_posture_equal,
+  '07_posture_impish': ruleContentV0353_07_posture_impish,
+  '07_posture_older': ruleContentV0353_07_posture_older,
+  '07_posture_younger': ruleContentV0353_07_posture_younger,
+  '07_profile_shared': ruleContentV0353_07_profile_shared,
+  '07_special_accomplice': ruleContentV0353_07_special_accomplice,
+  '07_special_doll': ruleContentV0353_07_special_doll,
+  '07_special_double': ruleContentV0353_07_special_double,
+  '07_special_hunter': ruleContentV0353_07_special_hunter,
+  '07_special_seductress': ruleContentV0353_07_special_seductress,
+  '07_special_shared': ruleContentV0353_07_special_shared,
+  '07_special_sharp': ruleContentV0353_07_special_sharp,
+  '07_special_yandere': ruleContentV0353_07_special_yandere,
+  '07_special_zealot': ruleContentV0353_07_special_zealot,
+  '04_memory_rules': ruleContentV0353_04_memory_rules,
+  '04_intimacy_core': ruleContentV0353_04_intimacy_core,
+  '05_intimacy_rendering': ruleContentV0353_05_intimacy_rendering,
+  '06_intimacy_reference': ruleContentV0353_06_intimacy_reference,
+};
+
+/// Runtime source of truth. Titles, stable IDs and load policies stay code-owned;
+/// every prompt body comes from the six user-authored v0.35.3 files verbatim.
+final defaultRuleLayers = <RuleLayerDefault>[
+  for (final layer in _legacyDefaultRuleLayersV0352)
+    RuleLayerDefault(
+      layer.key,
+      layer.title,
+      layer.loadPolicy,
+      _approvedRuleContentsV0353[layer.key] ?? layer.content,
+      locked: layer.locked,
+    ),
 ];

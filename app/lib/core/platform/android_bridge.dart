@@ -429,4 +429,17 @@ class AndroidBridge {
         'suggestedName': suggestedName,
       }) ??
       false;
+
+  Future<bool> savePromptPack({
+    required String content,
+    required String suggestedName,
+  }) async =>
+      await _channel.invokeMethod<bool>('savePromptPack', {
+        'content': content,
+        'suggestedName': suggestedName,
+      }) ??
+      false;
+
+  Future<String?> openPromptPack() =>
+      _channel.invokeMethod<String>('openPromptPack');
 }

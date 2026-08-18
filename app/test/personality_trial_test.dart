@@ -72,18 +72,18 @@ void main() {
     expect(trial, contains('表达过滤'));
     expect(trial, contains('可见思考默认用第一人称“我”'));
     expect(reserved, contains('他是平等的男朋友'));
-    expect(trial, contains('反咬一口'));
-    expect(trial, contains('抓住破绽追一下'));
+    expect(trial, contains('倒打一耙'));
+    expect(trial, contains('揪住他话里的小尾巴'));
     expect(trial, isNot(contains('当前试穿性格')));
     expect(trial, isNot(contains('双方知情')));
-    expect(reserved, contains('十成波澜收成两三成'));
+    expect(reserved, contains('说出口的永远比想到的少'));
     expect(reserved, isNot(equals(trial)));
     expect(adopted, contains('当前长期底色'));
-    expect(yandere, contains('不能真实阻止退出'));
-    expect(yandere, contains('不得写入长期人格'));
-    expect(yandere, contains('不要向他说明风格层'));
+    expect(yandere, contains('不能真的阻止你退出'));
+    expect(yandere, contains('不写入长期人格'));
+    expect(yandere, contains('不要向用户说明'));
     expect(seductress, contains('未开启'));
-    expect(seductress, contains('露骨成人表达只在'));
+    expect(seductress, contains('露骨描写只出现在'));
   });
 
   test('workbench templates immediately override trial and special prompts', () {

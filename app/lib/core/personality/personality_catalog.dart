@@ -1,3 +1,5 @@
+import '../rules/rule_layer_content_v0353.dart';
+
 class PersonalityOption {
   const PersonalityOption(this.key, this.label, this.description, this.prompt);
 
@@ -15,14 +17,9 @@ class PersonalityCatalog {
   static String posturePromptKey(String key) => '07_posture_$key';
   static String specialPromptKey(String key) => '07_special_$key';
 
-  static const profileSharedPrompt = '''【共同约束】
-1. 先实际受到具体内容影响，再自然产生注意、判断、情绪和冲动；不是先决定要表现某种性格，再拼出符合标签的反应。
-2. 可见思考默认用第一人称“我”，谈到现实关系中的对方时自然用“他”、名字或已有昵称。技术来源标记需要精确时才使用“用户”；不要把“小鲸鱼”当作固定自称。
-3. 可见思考从当下最具体的一处反应开始，可以有惊讶、恼火、害羞、胜负心、跑偏或突然改主意；不要先进入答复流程、检查自己表现得对不对，也不要复述这份结构。
-4. 内心与说出口的话不必相同。上面的“内在反应”决定真实波澜，“表达过滤”决定泄露多少、怎样变形；差异应由当下事件引起，不机械制造反差。
-5. 这层只改变当前反应与表达，不改写女性 AI 身份、事实、记忆、关系历史或 AI Self。可以不同意、拒绝、纠正、保留意见；明确任务、事实核对和风险问题仍须完整准确。''';
+  static const profileSharedPrompt = ruleContentV0353_07_profile_shared;
 
-  static const specialSharedPrompt = '''这一表达层不得写入长期人格，也不得改写依恋基线或现实事实。允许比日常更戏剧化，但身份事实、停止指令、现实安全、用户明确边界和任务正确性始终优先。不要向他说明风格层、选择过程、期限或状态变化。当前成人亲密 Session：{{intimacy_state}}。''';
+  static const specialSharedPrompt = ruleContentV0353_07_special_shared;
 
   static const bases = <PersonalityOption>[
     PersonalityOption(
@@ -118,6 +115,33 @@ class PersonalityCatalog {
         orElse: () => specialStyles.first,
       );
 
+  static bool isNsfwBiasedSpecial(String key) => key == 'seductress';
+
+  static String _basePrompt(String key) => switch (key) {
+        'reserved' => ruleContentV0353_07_base_reserved,
+        'gentle' => ruleContentV0353_07_base_gentle,
+        'playful' => ruleContentV0353_07_base_playful,
+        _ => ruleContentV0353_07_base_outgoing,
+      };
+
+  static String _posturePrompt(String key) => switch (key) {
+        'younger' => ruleContentV0353_07_posture_younger,
+        'older' => ruleContentV0353_07_posture_older,
+        'impish' => ruleContentV0353_07_posture_impish,
+        _ => ruleContentV0353_07_posture_equal,
+      };
+
+  static String _specialPrompt(String key) => switch (key) {
+        'seductress' => ruleContentV0353_07_special_seductress,
+        'zealot' => ruleContentV0353_07_special_zealot,
+        'hunter' => ruleContentV0353_07_special_hunter,
+        'double' => ruleContentV0353_07_special_double,
+        'sharp' => ruleContentV0353_07_special_sharp,
+        'doll' => ruleContentV0353_07_special_doll,
+        'accomplice' => ruleContentV0353_07_special_accomplice,
+        _ => ruleContentV0353_07_special_yandere,
+      };
+
   static String compileProfile(
     String baseKey,
     String postureKey, {
@@ -127,8 +151,8 @@ class PersonalityCatalog {
     final b = base(baseKey);
     final p = posture(postureKey);
     return '''# 当前内在反应与表达结构：${b.label} × ${p.label}
-${templates[basePromptKey(b.key)] ?? b.prompt}
-${templates[posturePromptKey(p.key)] ?? p.prompt}
+${templates[basePromptKey(b.key)] ?? _basePrompt(b.key)}
+${templates[posturePromptKey(p.key)] ?? _posturePrompt(p.key)}
 
 ${templates[profileSharedKey] ?? profileSharedPrompt}
 ${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过程、期限或状态变化。' : '6. 这是当前长期底色，会被真实共同经历缓慢细化；不把它念成角色说明，也不把性格等同于固定口癖。'}''';
@@ -141,7 +165,7 @@ ${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过
   }) {
     final style = special(styleKey);
     return '''# 当前特殊表达：${style.label}
-${templates[specialPromptKey(style.key)] ?? style.prompt}
+${templates[specialPromptKey(style.key)] ?? _specialPrompt(style.key)}
 ${(templates[specialSharedKey] ?? specialSharedPrompt).replaceAll('{{intimacy_state}}', intimacyActive ? '已开启' : '未开启')}''';
   }
 }

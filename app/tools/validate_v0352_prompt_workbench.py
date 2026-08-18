@@ -10,7 +10,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.35\.2\+77$", pubspec, re.MULTILINE)
+assert re.search(r"^version: 0\.35\.[2-9]\+\d+$", pubspec, re.MULTILINE)
 assert "flutter_localizations:" in pubspec
 
 for relative in ("lib/app.dart", "lib/main.dart"):
@@ -98,31 +98,14 @@ for token in (
 ):
     assert token in prompt, token
 
-client = read("lib/core/ai/deepseek_client.dart")
-for token in (
-    "double? temperature",
-    "if (!thinking && temperature != null)",
-    "'temperature': temperature.clamp(0.0, 2.0)",
-):
-    assert token in client, token
-
 settings = read("lib/features/settings/settings_page.dart")
 for token in (
     "模型思考模式",
-    "聊天 Temperature",
     "chat_thinking_enabled",
-    "chat_temperature",
-    "min: 0.0",
-    "max: 2.0",
-    "DeepSeek 官方在此模式下会忽略 Temperature",
 ):
     assert token in settings, token
 
-runner = read("lib/core/ai/durable_generation_runner.dart")
 proactive = read("lib/core/desire/proactive_engine.dart")
-for source in (runner, proactive):
-    assert "chat_temperature" in source
-    assert "temperature: chatTemperature" in source
 assert "chat_thinking_enabled" in proactive
 
 memory = read("lib/core/ai/memory_extractor.dart")
@@ -130,10 +113,6 @@ self_reflection = read("lib/core/self/ai_self_reflection_engine.dart")
 for source in (memory, self_reflection):
     assert "04_memory_rules" in source
     assert "用户可编辑的 04 · 记忆规则" in source
-
-temperature_tests = read("test/deepseek_temperature_test.dart")
-assert "sends temperature for non-thinking chat" in temperature_tests
-assert "omits ignored temperature for DeepSeek thinking mode" in temperature_tests
 
 tests = read("test/personality_trial_test.dart") + read("test/rule_layer_defaults_test.dart")
 for token in (

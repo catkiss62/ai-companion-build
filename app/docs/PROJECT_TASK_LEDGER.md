@@ -8,7 +8,18 @@
 
 ## 2026-08-19 最新排期覆盖
 
-### ACTIVE / SOURCE IMPLEMENTED · v0.35.2 六大规则设定工作台
+### ACTIVE / SOURCE IMPLEMENTED · v0.35.3 NSFW 语境路由与六规则正文换代
+
+- [x] 六份用户规则共 31 个小节逐字进入运行时默认正文；新增每小节 SHA-256 校验，禁止自动润色或改写。稳定 ID、标题、load policy 与数据库围栏继续由代码控制。
+- [x] 聊天顶栏新增白/紫长方形 `NSFW` 按钮；自动路由在实际生成前用无思考 DeepSeek 判断 `daily / nsfw / nsfw_reference`，按钮反映实际装载，手动开/关优先覆盖下一轮后恢复自动。
+- [x] 移除固定短语 bootstrap 与成人 Session 许可门槛。Session 只负责共同场景连续性；双感官内部体验与外部共同在场事实继续分层。
+- [x] 痴女作为 NSFW-biased 特殊风格进入路由判断；无关普通话题不自动色情化，成人暗示与邀请更容易加载完整成人规则。
+- [x] 六规则主导入/导出改用系统 JSON 文件选择器，剪贴板作为次级入口；沿用 HyperOS direct-picker overlay guard。
+- [x] 删除聊天 Temperature UI、数据库读写、DeepSeek 请求参数、恢复/主动消息接线；思考开关保留。数字化性格系统明确延期到后续独立设计/版本。
+- [x] 版本提升至 `v0.35.3+78`，schema 保持 26；新增 `tools/validate_v0353_nsfw_context_router.py` 与 `docs/NSFW_CONTEXT_ROUTER_v1.md`。
+- [ ] GitHub Actions、APK、checksum、草稿 Release 与真机 NSFW 路由/文件往返验证尚待本轮完成。
+
+### BUILT BASELINE · v0.35.2 六大规则设定工作台
 
 - [x] 所有设定类 Prompt 收口为用户指定的六框：01 身份核心、02 日常说话规则、03 性格底色、04 记忆规则、05 NSFW 状态机、06 NSFW 渲染；性格试穿和原保护锁定正文在框内完整可见可改。
 - [x] `locked` 改为保护常驻：不能关闭，但可以编辑、导入和恢复默认；启动 seeding 不覆盖用户手工正文。权限、停止、隐私、Active Brain、transfer、run token、成人 Session Gate 与数据库事实校验继续由代码保护。

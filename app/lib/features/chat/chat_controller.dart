@@ -9,6 +9,7 @@ import '../../core/ai/durable_generation_runner.dart';
 import '../../core/ai/generation_cancellation.dart';
 import '../../core/ai/memory_extractor.dart';
 import '../../core/ai/model_profile.dart';
+import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
@@ -117,7 +118,8 @@ class ChatController extends ChangeNotifier {
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
   bool chatThinking = true;
-  double chatTemperature = 1.0;
+  bool nsfwActive = false;
+  bool nsfwRouting = false;
   TtsQueueState ttsState = TtsQueueState.idle;
   bool _disposed = false;
   int _recoveryScheduleEpoch = 0;
@@ -193,12 +195,7 @@ class ChatController extends ChangeNotifier {
       model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
-      chatTemperature = (double.tryParse(
-                await db.getSetting('chat_temperature') ?? '',
-              ) ??
-              1.0)
-          .clamp(0.0, 2.0)
-          .toDouble();
+      nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       messages = await db.recentMessages(limit: 120);
       unawaited(attachmentStorage.cleanOldDrafts());
       unawaited(_pruneOrphanAttachmentFiles());
@@ -305,23 +302,26 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> setChatTemperature(double next) async {
-    chatTemperature = next.clamp(0.0, 2.0).toDouble();
-    await db.setSetting(
-      'chat_temperature',
-      chatTemperature.toStringAsFixed(1),
-    );
+  Future<void> setNsfwActive(bool next) async {
+    if (sending || analyzingImage) return;
+    nsfwActive = next;
+    nsfwRouting = false;
+    await db.setSetting('nsfw_active', next ? '1' : '0');
+    await db.setSetting('nsfw_reference_active', '0');
+    await db.setSetting('nsfw_manual_override', next ? 'on' : 'off');
+    await db.setSetting('nsfw_route_source', next ? 'manual_pending_on' : 'manual_pending_off');
     _safeNotify();
   }
 
   Future<void> _refreshChatSamplingSettings() async {
     chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
-    chatTemperature = (double.tryParse(
-              await db.getSetting('chat_temperature') ?? '',
-            ) ??
-            1.0)
-        .clamp(0.0, 2.0)
-        .toDouble();
+    nsfwActive = (await db.getSetting('nsfw_active')) == '1';
+  }
+
+  void _applyNsfwRoute(NsfwRouteDecision decision) {
+    nsfwActive = decision.active;
+    nsfwRouting = false;
+    _safeNotify();
   }
 
   Future<PreparedImageAttachment> prepareImage({
@@ -568,6 +568,7 @@ class ChatController extends ChangeNotifier {
     }
 
     sending = true;
+    nsfwRouting = (await db.getSetting('nsfw_manual_override') ?? '').isEmpty;
     _petGenerationActive = true;
     recoveringGeneration = false;
     cancellingGeneration = false;
@@ -672,6 +673,7 @@ class ChatController extends ChangeNotifier {
       final result = await generationRunner.run(
         job,
         cancellationToken: cancellation,
+        onNsfwRoute: _applyNsfwRoute,
         onDelta: (delta) {
           if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
@@ -733,6 +735,7 @@ class ChatController extends ChangeNotifier {
           : e.toString();
     } finally {
       sending = false;
+      nsfwRouting = false;
       _petGenerationActive = false;
       recoveringGeneration = false;
       cancellingGeneration = false;
@@ -769,6 +772,7 @@ class ChatController extends ChangeNotifier {
     }
 
     sending = true;
+    nsfwRouting = (await db.getSetting('nsfw_manual_override') ?? '').isEmpty;
     _petGenerationActive = true;
     recoveringGeneration = true;
     cancellingGeneration = false;
@@ -784,6 +788,7 @@ class ChatController extends ChangeNotifier {
       final result = await generationRunner.run(
         job,
         cancellationToken: cancellation,
+        onNsfwRoute: _applyNsfwRoute,
         onDelta: (delta) {
           if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
@@ -821,6 +826,7 @@ class ChatController extends ChangeNotifier {
       }
     } finally {
       sending = false;
+      nsfwRouting = false;
       _petGenerationActive = false;
       recoveringGeneration = false;
       cancellingGeneration = false;

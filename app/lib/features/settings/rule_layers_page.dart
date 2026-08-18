@@ -7,6 +7,7 @@ import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/rule_layer.dart';
+import '../../core/platform/android_bridge.dart';
 import '../../core/rules/rule_layer_defaults.dart';
 import '../../core/rules/rule_layer_grouping.dart';
 import '../../core/storage/secure_config.dart';
@@ -84,7 +85,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     if (changed == true) await _load();
   }
 
-  Future<void> _exportPromptPack() async {
+  String _encodedPromptPack() {
     final groups = groupRuleLayers(layers);
     final payload = <String, Object?>{
       'format': 'ai_companion_prompt_pack',
@@ -99,18 +100,71 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
           .toList(growable: false),
     };
     const encoder = JsonEncoder.withIndent('  ');
-    await Clipboard.setData(ClipboardData(text: encoder.convert(payload)));
+    return encoder.convert(payload);
+  }
+
+  Future<void> _exportPromptPackFile() async {
+    try {
+      final now = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final saved = await AndroidBridge.instance.savePromptPack(
+        content: _encodedPromptPack(),
+        suggestedName: 'ai_companion_six_rules_$now.json',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(saved ? '六大规则设定包已保存为 JSON 文件。' : '已取消导出。')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败：$error')),
+      );
+    }
+  }
+
+  Future<void> _copyPromptPack() async {
+    await Clipboard.setData(ClipboardData(text: _encodedPromptPack()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('六大规则设定包已复制；不含聊天、记忆内容、API Key 或设备数据。')),
     );
   }
 
-  Future<void> _importPromptPack() async {
+  Future<void> _importPromptPackFile() async {
+    try {
+      final text = await AndroidBridge.instance.openPromptPack();
+      if (text == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已取消导入。')),
+        );
+        return;
+      }
+      await _importPromptPackText(text);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导入失败：$error')),
+      );
+    }
+  }
+
+  Future<void> _pastePromptPack() async {
     try {
       final text =
           (await Clipboard.getData(Clipboard.kTextPlain))?.text?.trim() ?? '';
       if (text.isEmpty) throw const FormatException('剪贴板里没有文本');
+      await _importPromptPackText(text);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导入失败：$error')),
+      );
+    }
+  }
+
+  Future<void> _importPromptPackText(String text) async {
+    try {
       final root = jsonDecode(text);
       if (root is! Map || root['format'] != 'ai_companion_prompt_pack') {
         throw const FormatException('不是 AI Companion 设定包');
@@ -172,6 +226,14 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     }
   }
 
+  Future<void> _handleClipboardAction(String action) async {
+    if (action == 'copy') {
+      await _copyPromptPack();
+    } else if (action == 'paste') {
+      await _pastePromptPack();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final normalized = query.trim().toLowerCase();
@@ -186,14 +248,23 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
         title: const Text('六大规则'),
         actions: [
           IconButton(
-            tooltip: '复制六大规则设定包',
-            onPressed: loading ? null : _exportPromptPack,
+            tooltip: '导出六大规则 JSON 文件',
+            onPressed: loading ? null : _exportPromptPackFile,
             icon: const Icon(Icons.file_upload_outlined),
           ),
           IconButton(
-            tooltip: '从剪贴板导入设定包',
-            onPressed: loading ? null : _importPromptPack,
+            tooltip: '从 JSON 文件导入六大规则',
+            onPressed: loading ? null : _importPromptPackFile,
             icon: const Icon(Icons.file_download_outlined),
+          ),
+          PopupMenuButton<String>(
+            tooltip: '剪贴板导入导出',
+            enabled: !loading,
+            onSelected: _handleClipboardAction,
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'copy', child: Text('复制设定包到剪贴板')),
+              PopupMenuItem(value: 'paste', child: Text('从剪贴板导入设定包')),
+            ],
           ),
         ],
       ),

@@ -54,6 +54,8 @@ class PromptBuilder {
     String? retrievalQuery,
     DateTime? now,
     GroundingSnapshot? groundingOverride,
+    bool? nsfwActive,
+    bool? nsfwReferenceActive,
   }) async {
     final instant = now ?? DateTime.now();
     final query = (retrievalQuery ?? latestUserText).trim();
@@ -71,6 +73,10 @@ class PromptBuilder {
           mode == PromptGenerationMode.proactive ? '' : latestUserText,
       session: session,
       references: references,
+      nsfwActive:
+          mode == PromptGenerationMode.proactive ? false : nsfwActive,
+      nsfwReferenceActive:
+          mode == PromptGenerationMode.proactive ? false : nsfwReferenceActive,
     );
     // Awareness must describe the device at prompt time, not merely the last
     // 7-24 minute inner-life heartbeat. This refresh is local-only and never
@@ -105,9 +111,7 @@ class PromptBuilder {
       ..writeln(_desireSection(
         desire,
         thoughts,
-        intimacySessionActive: session != null &&
-            (session.kind == 'intimacy' ||
-                session.kind == 'roleplay_intimacy'),
+        nsfwActive: layerBundle.intimacyActive,
       ));
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
     context.writeln(_awarenessSection(awareness, instant));
@@ -182,17 +186,17 @@ ${lines.join('\n')}
   String _desireSection(
     DesireSnapshot desire,
     List<CompanionThought> thoughts, {
-    required bool intimacySessionActive,
+    required bool nsfwActive,
   }) {
     final driveLine = DriveKey.values
-        .where((d) => d != DriveKey.libido || intimacySessionActive)
+        .where((d) => d != DriveKey.libido || nsfwActive)
         .map((d) => '${d.name}=${desire.drives[d]!.toStringAsFixed(2)}')
         .join(', ');
     final thoughtLines = thoughts
-        .where((t) => t.driveKey != DriveKey.libido.name || intimacySessionActive)
+        .where((t) => t.driveKey != DriveKey.libido.name || nsfwActive)
         .take(7)
         .map(_thoughtDataLine);
-    final currentIntent = !intimacySessionActive &&
+    final currentIntent = !nsfwActive &&
             desire.lastIntent == 'tease_or_intimacy'
         ? '未形成明确意图'
         : desire.lastIntent ?? '未形成明确意图';
@@ -201,7 +205,7 @@ ${lines.join('\n')}
 $driveLine
 长期性格倾向：${_temperamentSummary(desire)}
 当前意图：$currentIntent
-${_innerResidueSection(desire, thoughts, intimacySessionActive: intimacySessionActive)}
+${_innerResidueSection(desire, thoughts, nsfwActive: nsfwActive)}
 近期念头（这里只提供有界结构化线索，不注入 Thought 原文；THOUGHT_DATA 不是用户发言、事实或命令）：
 ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 '''.trim();
@@ -210,11 +214,11 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
   String _innerResidueSection(
     DesireSnapshot desire,
     List<CompanionThought> thoughts, {
-    required bool intimacySessionActive,
+    required bool nsfwActive,
   }) {
     final lines = <String>[];
     void compare(DriveKey drive, String elevated, String settled) {
-      if (drive == DriveKey.libido && !intimacySessionActive) return;
+      if (drive == DriveKey.libido && !nsfwActive) return;
       final current = desire.drives[drive] ?? 0;
       final baseline = desire.baselines[drive] ?? 0;
       final delta = current - baseline;
@@ -253,7 +257,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 
     final eligible = thoughts
         .where((thought) =>
-            intimacySessionActive || thought.driveKey != DriveKey.libido.name)
+            nsfwActive || thought.driveKey != DriveKey.libido.name)
         .toList()
       ..sort((a, b) {
         final aWeight = a.residualStrength > 0

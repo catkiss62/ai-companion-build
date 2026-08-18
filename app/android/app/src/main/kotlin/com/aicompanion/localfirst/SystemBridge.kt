@@ -23,6 +23,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.util.UUID
 
 class SystemBridge(
@@ -42,6 +43,9 @@ class SystemBridge(
     private var manualOperation: String? = null
     private var reportDocumentResult: MethodChannel.Result? = null
     private var reportSourcePath: String? = null
+    private var promptDocumentResult: MethodChannel.Result? = null
+    private var promptDocumentOperation: String? = null
+    private var promptDocumentContent: String? = null
     private var directPickerGuardDepth = 0
 
     init {
@@ -246,6 +250,13 @@ class SystemBridge(
                     suggestedName = call.argument<String>("suggestedName") ?: "ai_companion_diagnostics.txt",
                     result = result,
                 )
+                "savePromptPack" -> startPromptPackSave(
+                    content = call.argument<String>("content") ?: "",
+                    suggestedName = call.argument<String>("suggestedName")
+                        ?: "ai_companion_six_rules.json",
+                    result = result,
+                )
+                "openPromptPack" -> startPromptPackOpen(result)
                 else -> result.notImplemented()
             }
         }
@@ -264,6 +275,8 @@ class SystemBridge(
         reportDocumentResult?.error("activity_disposed", "Activity was destroyed during diagnostic export", null)
         reportDocumentResult = null
         reportSourcePath = null
+        promptDocumentResult?.error("activity_disposed", "Activity was destroyed during prompt import/export", null)
+        clearPromptDocumentState()
         if (directPickerGuardDepth > 0) {
             directPickerGuardDepth = 1
             endDirectPickerOverlayGuard("system_bridge_disposed")
@@ -283,6 +296,64 @@ class SystemBridge(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_PROMPT_SAVE || requestCode == REQUEST_PROMPT_OPEN) {
+            endDirectPickerOverlayGuard(
+                if (requestCode == REQUEST_PROMPT_SAVE) {
+                    "prompt_pack_save_picker_returned"
+                } else {
+                    "prompt_pack_open_picker_returned"
+                },
+            )
+            val result = promptDocumentResult ?: return
+            val operation = promptDocumentOperation
+            val content = promptDocumentContent
+            val uri = data?.data
+            clearPromptDocumentState()
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                result.success(null)
+                return
+            }
+            Thread {
+                runCatching {
+                    when (operation) {
+                        "save" -> {
+                            val bytes = requireNotNull(content).toByteArray(Charsets.UTF_8)
+                            require(bytes.size <= MAX_PROMPT_PACK_BYTES) { "prompt_pack_too_large" }
+                            activity.contentResolver.openOutputStream(uri, "w").use { output ->
+                                requireNotNull(output).write(bytes)
+                            }
+                            true
+                        }
+                        "open" -> activity.contentResolver.openInputStream(uri).use { input ->
+                            requireNotNull(input)
+                            val output = ByteArrayOutputStream()
+                            val buffer = ByteArray(16 * 1024)
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                require(output.size() <= MAX_PROMPT_PACK_BYTES) {
+                                    "prompt_pack_too_large"
+                                }
+                            }
+                            output.toString(Charsets.UTF_8.name())
+                        }
+                        else -> error("prompt_pack_unknown_operation")
+                    }
+                }.onSuccess { value ->
+                    activity.runOnUiThread { result.success(value) }
+                }.onFailure { error ->
+                    activity.runOnUiThread {
+                        result.error(
+                            "prompt_pack_failed",
+                            error.message ?: error.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+            }.start()
+            return
+        }
         if (requestCode == REQUEST_DIAGNOSTIC_SAVE) {
             endDirectPickerOverlayGuard("diagnostic_export_picker_returned")
             val result = reportDocumentResult ?: return
@@ -453,6 +524,76 @@ class SystemBridge(
                 reportSourcePath = null
                 result.error("diagnostic_export_picker", error.javaClass.simpleName, null)
             }
+    }
+
+    private fun startPromptPackSave(
+        content: String,
+        suggestedName: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!beginPromptDocumentOperation("save", content, result)) return
+        val safeStem = suggestedName
+            .removeSuffix(".json")
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .take(88)
+            .ifBlank { "ai_companion_six_rules" }
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "$safeStem.json")
+        }
+        beginDirectPickerOverlayGuard("prompt_pack_save_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_PROMPT_SAVE) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("prompt_pack_save_picker_launch_failed")
+                clearPromptDocumentState()
+                result.error("prompt_pack_picker", error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startPromptPackOpen(result: MethodChannel.Result) {
+        if (!beginPromptDocumentOperation("open", null, result)) return
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf("application/json", "text/json", "text/plain", "application/octet-stream"),
+            )
+        }
+        beginDirectPickerOverlayGuard("prompt_pack_open_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_PROMPT_OPEN) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("prompt_pack_open_picker_launch_failed")
+                clearPromptDocumentState()
+                result.error("prompt_pack_picker", error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun beginPromptDocumentOperation(
+        operation: String,
+        content: String?,
+        result: MethodChannel.Result,
+    ): Boolean {
+        if (promptDocumentResult != null) {
+            result.error("prompt_pack_busy", "Another prompt import/export picker is already open", null)
+            return false
+        }
+        if (operation == "save" && (content.isNullOrBlank() ||
+                    content.toByteArray(Charsets.UTF_8).size > MAX_PROMPT_PACK_BYTES)) {
+            result.error("prompt_pack_invalid", "Prompt pack is empty or too large", null)
+            return false
+        }
+        promptDocumentResult = result
+        promptDocumentOperation = operation
+        promptDocumentContent = content
+        return true
+    }
+
+    private fun clearPromptDocumentState() {
+        promptDocumentResult = null
+        promptDocumentOperation = null
+        promptDocumentContent = null
     }
 
     private fun beginManualOperation(
@@ -729,5 +870,8 @@ class SystemBridge(
         private const val REQUEST_MANUAL_SAVE = 4203
         private const val REQUEST_MANUAL_OPEN = 4204
         private const val REQUEST_DIAGNOSTIC_SAVE = 4205
+        private const val REQUEST_PROMPT_SAVE = 4206
+        private const val REQUEST_PROMPT_OPEN = 4207
+        private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
     }
 }

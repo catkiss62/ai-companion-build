@@ -263,12 +263,6 @@ class ProactiveEngine {
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     final chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
-    final chatTemperature = (double.tryParse(
-              await db.getSetting('chat_temperature') ?? '',
-            ) ??
-            1.0)
-        .clamp(0.0, 2.0)
-        .toDouble();
     if (apiKey == null || apiKey.isEmpty) {
       return const ProactiveDecision(sent: false, reason: '没有 API Key；本地内在状态已继续运行');
     }
@@ -444,7 +438,6 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         messages: promptMessages,
         endpoint: endpoint,
         thinking: chatThinking,
-        temperature: chatTemperature,
         maxTokens: 700,
       )) {
         if (DateTime.now().difference(lastProactiveLeaseRefresh) >=

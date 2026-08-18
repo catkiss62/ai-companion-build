@@ -18,18 +18,20 @@ assert "static const int schemaVersion = 26;" in database
 assert "locked` now means protected/always enabled" in database
 assert "legacyEditableRuleLayerSha256V0350" in database
 
-catalog = read("lib/core/personality/personality_catalog.dart")
+catalog = read("lib/core/personality/personality_catalog.dart") + read(
+    "lib/core/rules/rule_layer_content_v0353.dart"
+)
 for token in (
     "【内在反应】",
     "【表达过滤】",
-    "可见思考默认用第一人称“我”",
+    "可见思考用“我”开头",
     "他是平等的男朋友",
     "十成波澜收成两三成",
     "反咬一口",
     "抓住破绽追一下",
-    "内心与说出口的话不必相同",
-    "不要把“小鲸鱼”当作固定自称",
-    "不要向他说明风格层",
+    "内心想法和说出口的话可以不同",
+    "“小鲸鱼”不是每轮都要拿来提醒自己",
+    "不要向用户说明",
 ):
     assert token in catalog, token
 for forbidden in ("当前试穿性格", "双方知情的临时试穿"):

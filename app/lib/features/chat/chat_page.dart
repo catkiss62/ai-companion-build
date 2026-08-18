@@ -491,6 +491,39 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ],
               ),
             ),
+            Tooltip(
+              message: controller.nsfwActive
+                  ? '本轮成人规则已开启；点击后下一轮强制关闭'
+                  : '本轮成人规则未开启；点击后下一轮强制开启',
+              child: SizedBox(
+                height: 32,
+                child: OutlinedButton(
+                  onPressed: controller.sending || controller.analyzingImage
+                      ? null
+                      : () => controller.setNsfwActive(!controller.nsfwActive),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: controller.nsfwActive
+                        ? Colors.purpleAccent
+                        : Colors.white,
+                    disabledForegroundColor: controller.nsfwActive
+                        ? Colors.purpleAccent
+                        : Colors.white70,
+                    side: BorderSide(
+                      color: controller.nsfwActive
+                          ? Colors.purpleAccent
+                          : Colors.white70,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Text('NSFW'),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             if (_personalityTrial != null || _specialTrial != null)
               TextButton(
                 onPressed: _openPersonalityLab,

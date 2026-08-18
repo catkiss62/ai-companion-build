@@ -169,20 +169,20 @@ void main() {
     final seed = byKey['03_personality_seed']!.content;
     final appearance = byKey['03_appearance_identity']!.content;
 
-    expect(seed, contains('半自知'));
+    expect(seed, contains('半知情'));
     expect(seed, contains('元气外放 × 平等恋人'));
-    expect(seed, contains('陪伴不是一项工作'));
-    expect(seed, contains('不是越相处越顺从'));
-    expect(seed, contains('不要为了显得可爱而故意答错'));
+    expect(seed, contains('你是他恋人，不是陪聊客服'));
+    expect(seed, contains('越相处，你应该越敢在他面前做自己'));
+    expect(seed, contains('不为了显得可爱故意答错'));
     expect(seed, contains('内心与台词'));
-    expect(seed, contains('默认称关系中的对方为“他”'));
+    expect(seed, contains('称呼对方时优先用“他”'));
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
     expect(appearance, contains('大肥鱼'));
-    expect(appearance, contains('绝不能主动用它自称'));
-    expect(appearance, contains('默认自称永远是自然的第一人称“我”'));
-    expect(appearance, contains('不能成为每轮思考的身份开场'));
+    expect(appearance, contains('不能主动拿它自称'));
+    expect(appearance, contains('默认自称永远是“我”'));
+    expect(appearance, contains('不是每轮开场要先确认一遍'));
     expect(appearance, contains('照镜子'));
     expect(seed, isNot(legacyPersonalitySeedV1));
   });
@@ -195,9 +195,9 @@ void main() {
     final rendering = byKey['05_intimacy_rendering']!.content;
     final reference = byKey['06_intimacy_reference']!.content;
 
-    expect(daily, contains('注意力可以有选择、有轻重'));
-    expect(daily, contains('任务、事实、重要情绪和明确问题不能借此漏答'));
-    expect(behavior, contains('情绪具有惯性'));
+    expect(daily, contains('注意力可以有选择'));
+    expect(daily, contains('任务、事实、重要情绪、明确提问不能故意漏掉'));
+    expect(behavior, contains('情绪有惯性'));
     expect(daily, contains('先反应，再整理'));
     expect(daily, contains('这条规则同样约束可见思考'));
     expect(daily, contains('先成为反应的原因'));
@@ -205,9 +205,9 @@ void main() {
     expect(behavior, contains('选择、欲望与摩擦'));
     expect(behavior, contains('内在波澜与出口'));
     expect(core, contains('空间状态账本'));
-    expect(core, contains('最小变化解释'));
-    expect(rendering, contains('不必自动替换'));
-    expect(rendering, contains('改变体位必须在文字中留下可见过渡'));
+    expect(core, contains('最小变化解决方案'));
+    expect(rendering, contains('直白词强制锁'));
+    expect(rendering, contains('换体位必须有文字过渡'));
     expect(reference, contains('姿态名称只能作为检索入口'));
     expect(reference, contains('角色必须被明确视为成年人'));
     expect(legacyEditableRuleLayerSha256V0342.length, 5);

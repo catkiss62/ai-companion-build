@@ -189,6 +189,16 @@ class PreflightDiagnosticsService {
         'recordCounts': memoryStats,
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
+        'nsfwRouting': {
+          'active': (await db.getSetting('nsfw_active')) == '1',
+          'referenceActive':
+              (await db.getSetting('nsfw_reference_active')) == '1',
+          'source': await db.getSetting('nsfw_route_source') ?? 'initial',
+          'manualOverridePending':
+              (await db.getSetting('nsfw_manual_override') ?? '').isNotEmpty,
+          'promptBodiesIncluded': false,
+          'chatContentIncluded': false,
+        },
         'errorFlags': {
           'backgroundErrorCount':
               int.tryParse(await db.getSetting('background_error_count') ?? '') ?? 0,

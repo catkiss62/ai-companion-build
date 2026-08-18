@@ -10,6 +10,7 @@ import '../storage/secure_config.dart';
 import 'deepseek_client.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
+import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 
 class GenerationRunResult {
@@ -58,17 +59,20 @@ class DurableGenerationRunner {
     SecureConfig? secureConfig,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         desireEngine = DesireEngine(db),
-        somaticEngine = SomaticEngine(db);
+        somaticEngine = SomaticEngine(db),
+        nsfwRouter = NsfwContextRouter(db: db, client: client);
 
   final AppDatabase db;
   final DeepSeekClient client;
   final SecureConfig secureConfig;
   final DesireEngine desireEngine;
   final SomaticEngine somaticEngine;
+  final NsfwContextRouter nsfwRouter;
 
   Future<GenerationRunResult> run(
     GenerationJob requested, {
     void Function(DeepSeekDelta delta)? onDelta,
+    void Function(NsfwRouteDecision decision)? onNsfwRoute,
     GenerationCancellationToken? cancellationToken,
   }) async {
     if (cancellationToken?.isCancelled ?? false) {
@@ -85,12 +89,6 @@ class DurableGenerationRunner {
     // its key yet.
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
-    final chatTemperature = (double.tryParse(
-              await db.getSetting('chat_temperature') ?? '',
-            ) ??
-            1.0)
-        .clamp(0.0, 2.0)
-        .toDouble();
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -155,11 +153,22 @@ class DurableGenerationRunner {
       );
       final desire = await db.loadDesire();
       final thoughts = await db.activeThoughts(limit: 18);
+      final nsfwRoute = await nsfwRouter.decide(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        turnId: user.id,
+        latestUserText: user.content,
+        recent: recent,
+        cancellationToken: cancellationToken,
+      );
+      onNsfwRoute?.call(nsfwRoute);
       final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
         latestUserText: user.content,
         recent: recent,
         desire: desire,
         thoughts: thoughts,
+        nsfwActive: nsfwRoute.active,
+        nsfwReferenceActive: nsfwRoute.referenceActive,
       );
       Future<({String reasoning, String content})> generate(
         List<Map<String, Object?>> messages,
@@ -176,7 +185,6 @@ class DurableGenerationRunner {
           messages: messages,
           endpoint: endpoint,
           thinking: job.thinking,
-          temperature: chatTemperature,
           cancellationToken: cancellationToken,
         )) {
           cancellationToken?.throwIfCancelled();
