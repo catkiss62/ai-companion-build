@@ -19,6 +19,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
+- 当前实现版本：`v0.35.1+76`，schema 26；实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`。
+- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32160558352>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.1 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f>；APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`（239.8MB），SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码/测试/打包成功，语言效果仍待真机 A/B。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
@@ -748,6 +752,6 @@
 
 ### E. 当前交付边界
 
-- 当前 ChatGPT 工作区只有源码快照，没有可用 Git metadata，且缺部分仓库文件与 Flutter/Dart 工具链；不能在此提交/推送 GitHub、跑完整 analyze/tests、触发 Actions 或生成 APK。
-- 当前已通过 `validate_v0351_personality_inner_voice.py`、`validate_v0350_personality_trials.py`、`validate_v0349_layered_web_discovery.py` 及全部 Python validator 语法编译；尝试全量历史校验时，因快照缺少 `validate_v024.py`、`somatic_policy.dart`、`current_device_context_refresher.dart` 等输入而停止，这是工作区不完整，不是本轮功能断言失败。
-- 因此本节只落款源码实现与可运行静态验证。补回完整仓库后必须再跑 format、Flutter analyze/tests、历史 validators、release APK 和真机 A/B；完成前不得把 v0.35.1 写成 CI/APK/真机通过。
+- GitHub Draft PR #23 已更新；最终实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`。Actions run `32160558352` 通过完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。
+- APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`，约 239.8MB；SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f>。
+- 自动化已经证明源码、回归、编译和打包成功；不能据此宣称语言体验真机通过。普通/特殊性格差异、内心与台词反差、主动消息收尾仍须用户真机 A/B。PR 保持 Draft，未合并 main、未发布正式 Release。
