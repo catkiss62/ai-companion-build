@@ -6,7 +6,8 @@
 
 ## 0AA. 当前开发头 · v0.35.0+75 Personality Trial System
 
-- 当前 Draft PR #23 分支继续作为累计主线；App 目标 `v0.35.0+75`，SQLite schema 26。CI/真机结果必须在 Actions 完成后另行落款，不能把本地实现写成已验收。
+- 当前 Draft PR #23 分支继续作为累计主线；App `v0.35.0+75`，SQLite schema 26。Actions run `32139893450` 全绿：历史/新静态契约、Kotlin 桌宠回归、Flutter analyze、164 tests、release APK、原生/417 文件载荷、SHA-256 与私有草稿 Release 上传均成功；真机语言效果仍待验收。
+- APK `AI-Companion-v0.35.0-75-Personality-Trials-APK.apk`（约 239.7MB），SHA-256 `b47493f179a9fe850a6581d2a03bcdda843983f7c4637ac7d1aa22252319dd11`。
 - 常驻活人感规则已优化：日常先反应再整理，普通一句话不升格成关系论文；同样约束可见 reasoning。明确任务、事实与风险仍完整准确。
 - 新增“性格试穿间”：4 个性格底色 × 4 个相处姿态；普通试穿可转正，特殊风格 8 种只临时叠加、永不转正。
 - 普通/特殊倒计时独立；切换相应层重新计时，延长不重置。聊天顶栏只显示短计时，完整状态在“她的内心”。
