@@ -577,7 +577,7 @@
 2. 长测结束、轮到多来源网页阶段时，先完成 Agnes 独立评测；评测通过再接入正式链路。
 3. 若用户提前希望只做不影响 App 的独立模型评测，仍必须采用设备端输入 key 或受控 secret 方式，不能让用户在聊天里粘贴密钥。
 
-## 10.9 2026-08-18 v0.34.8 提前验收与 v0.34.9 分层联网实施（IMPLEMENTED / CI PENDING）
+## 10.9 2026-08-18 v0.34.8 提前验收与 v0.34.9 分层联网实施（IMPLEMENTED / CI PASSED）
 
 ### A. v0.34.8 诊断结论
 
@@ -625,4 +625,9 @@
 - 版本：v0.34.9+74，数据库仍为 schema 25（只复用现有 settings 与 candidate 表，无结构迁移）。
 - 新增 Provider/Agnes 单元测试覆盖：额外来源不替代全网搜索、HTTPS/私网过滤、Agnes JSON 压缩与 URL/provenance 保留。
 - 新增 validate_v0349_layered_web_discovery.py，并接入 APK workflow；Draft Release tag/APK/CI monitor 改为 v0.34.9。
-- 当前状态为本地源代码和静态验证已完成，待提交 PR 分支并等待 GitHub Actions 的 Flutter analyze/test/release APK 结果。
+- GitHub Actions run 32095469762 全部通过：历史源码回归、Kotlin 桌宠测试、Flutter analyze、
+  161 条 Flutter 测试、release APK、原生 TTS/417 文件资源字节校验、SHA256 与 Draft Release 上传均成功。
+- APK：AI-Companion-v0.34.9-74-Layered-Web-Discovery-APK.apk，239.6MB；
+  SHA256：7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f。
+- 成功构建对应 PR merge head 98de6ce655242ef09923df0a6e7e0633b2922a10，
+  源分支功能提交 9c47c3bbb815cb3aa534d9c9da25c45841d040e8。
