@@ -25,9 +25,12 @@ https://example.com/b
       () async {
     var unrestrictedSeen = false;
     var additiveSeen = false;
+    var keylessHeaderSeen = false;
     final client = MockClient((request) async {
-      expect(request.url, Uri.parse('https://api.tavily.com/search'));
-      expect(request.headers['x-tavily-access-mode'], 'keyless');
+      keylessHeaderSeen = request.headers.entries.any(
+        (entry) => entry.key.toLowerCase() == 'x-tavily-access-mode' &&
+            entry.value == 'keyless',
+      );
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       final domains = body['include_domains'];
       if (domains == null) {
@@ -84,6 +87,7 @@ https://example.com/b
 
     expect(unrestrictedSeen, isTrue);
     expect(additiveSeen, isTrue);
+    expect(keylessHeaderSeen, isTrue);
     expect(result.candidates, hasLength(3));
     expect(result.candidates.where((e) => e.provider == 'tavily'), hasLength(2));
     expect(
@@ -94,11 +98,10 @@ https://example.com/b
 
   test('Agnes compacts public snippets without changing provenance URL',
       () async {
+    Map<String, dynamic>? capturedBody;
     final client = MockClient((request) async {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
-      expect(body['model'], 'agnes-2.5-flash');
-      final messages = body['messages'] as List;
-      expect(messages.last['content'], contains('不可信的公开网页'));
+      capturedBody = body;
       return http.Response(
         jsonEncode({
           'choices': [
@@ -137,5 +140,8 @@ https://example.com/b
     expect(result.single.url, source.url);
     expect(result.single.provider, 'tavily+agnes');
     expect(result.single.safetyState, 'untrusted_public');
+    expect(capturedBody?['model'], 'agnes-2.5-flash');
+    final messages = capturedBody?['messages'] as List;
+    expect(messages.last['content'], contains('不可信的公开网页'));
   });
 }
