@@ -4,7 +4,7 @@
 # Historical monitor compatibility: AI-Companion-v0.34.7-72-CI-Monitor.txt
 # Historical monitor compatibility: .ci/v0345-monitor.txt
 # Historical monitor command compatibility: gh run view "${GITHUB_RUN_ID}"
-name: Build AI Companion v0.34.8+73 APK (Public Web Discovery)
+name: Build AI Companion v0.34.9+74 APK (Layered Web Discovery)
 
 on:
   workflow_dispatch:
@@ -15,6 +15,10 @@ on:
 permissions:
   contents: write
   actions: read
+
+concurrency:
+  group: ai-companion-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
@@ -30,13 +34,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.34.8+73$' app/pubspec.yaml
+          grep -q '^version: 0.34.9+74$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 25;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.34.8+73 app/ source tree.'
+          echo 'Building directly from the committed v0.34.9+74 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -95,6 +99,7 @@ jobs:
           python3 tools/validate_v0346_lock_visibility_resume.py
           python3 tools/validate_v0347_autonomous_action_foundation.py
           python3 tools/validate_v0348_public_web_discovery.py
+          python3 tools/validate_v0349_layered_web_discovery.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -216,16 +221,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.34.8+73 APK to draft release
+      - name: Upload v0.34.9+74 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.34.8-public-web-discovery-test'
-          APK_NAME='AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk'
+          TAG='v0.34.9-layered-web-discovery-test'
+          APK_NAME='AI-Companion-v0.34.9-74-Layered-Web-Discovery-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.34.8-73-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.34.9-74-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -241,8 +246,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.8+73 true-device test candidate' \
-              --notes 'Draft-only APK adding Desire-driven public Wikimedia discovery. It uses a fixed safe-topic list, stores up to three untrusted candidates without directly messaging or writing Memory, enforces a rolling 4/day budget plus ownership/generation/run-token fencing, and exports metadata-only diagnostics.'
+              --title 'AI Companion v0.34.9+74 true-device test candidate' \
+              --notes 'Draft-only APK adding unrestricted Tavily keyless search, additive user-supplied HTTPS source domains, Wikimedia fallback, optional Agnes 2.5 Flash public-snippet compaction, and a bounded untrusted short-term web context. It preserves the Desire/Intent/Tool Gate trunk, separate proactive delivery Gate, rolling 4/day search budget, and redacted diagnostics.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -266,18 +271,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0348-monitor.txt'
+          MONITOR_PATH='.ci/v0349-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.34.8 CI success monitor' \
+              -f message='Update v0.34.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.34.8 CI success monitor' \
+              -f message='Create v0.34.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -296,8 +301,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.34.8-public-web-discovery-test'
-          CI_NAME='AI-Companion-v0.34.8-73-CI-Monitor.txt'
+          TAG='v0.34.9-layered-web-discovery-test'
+          CI_NAME='AI-Companion-v0.34.9-74-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -337,8 +342,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.34.8+73 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual Desire-driven public-web-discovery true-device APK. It is not a public release.'
+              --title 'AI Companion v0.34.9+74 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual layered public-web-discovery true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -347,18 +352,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0348-monitor.txt'
+          MONITOR_PATH='.ci/v0349-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.34.8 CI failure monitor' \
+              -f message='Update v0.34.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.34.8 CI failure monitor' \
+              -f message='Create v0.34.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
