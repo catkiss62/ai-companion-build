@@ -1629,36 +1629,35 @@ class AppDatabase {
       where: 'key = ? AND content = ?',
       whereArgs: [currentPersonality.key, legacyPersonalitySeedV0349],
     );
-    for (final legacyHashes in [
-      legacyEditableRuleLayerSha256V0342,
-      legacyEditableRuleLayerSha256V0350,
-    ]) {
-      for (final entry in legacyHashes.entries) {
-        final rows = await db.query(
-          'rule_layers',
-          columns: const ['content'],
-          where: 'key = ?',
-          whereArgs: [entry.key],
-          limit: 1,
-        );
-        if (rows.isEmpty) continue;
-        final stored = rows.first['content'] as String? ?? '';
-        if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
-          continue;
-        }
-        final current = defaultRuleLayers.firstWhere(
-          (layer) => layer.key == entry.key,
-        );
-        await db.update(
-          'rule_layers',
-          {
-            'content': current.content,
-            'updated_at': now,
-          },
-          where: 'key = ?',
-          whereArgs: [entry.key],
-        );
+    final legacyEditableHashes = [
+      ...legacyEditableRuleLayerSha256V0342.entries,
+      ...legacyEditableRuleLayerSha256V0350.entries,
+    ];
+    for (final entry in legacyEditableHashes) {
+      final rows = await db.query(
+        'rule_layers',
+        columns: const ['content'],
+        where: 'key = ?',
+        whereArgs: [entry.key],
+        limit: 1,
+      );
+      if (rows.isEmpty) continue;
+      final stored = rows.first['content'] as String? ?? '';
+      if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
+        continue;
       }
+      final current = defaultRuleLayers.firstWhere(
+        (layer) => layer.key == entry.key,
+      );
+      await db.update(
+        'rule_layers',
+        {
+          'content': current.content,
+          'updated_at': now,
+        },
+        where: 'key = ?',
+        whereArgs: [entry.key],
+      );
     }
   }
 
