@@ -16,6 +16,7 @@ import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
 import '../models/perception_snapshot.dart';
+import '../models/personality_trial.dart';
 import '../models/post_turn_job.dart';
 import '../models/generation_job.dart';
 import '../models/maintenance_run.dart';
@@ -25,6 +26,7 @@ import '../models/rule_layer.dart';
 import '../models/proactive_feedback.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_defaults.dart';
+import '../personality/personality_catalog.dart';
 import '../models/relationship_event.dart';
 import '../models/interaction_session.dart';
 import '../models/thought.dart';
@@ -39,7 +41,8 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
   // Historical validator compatibility token: static const int schemaVersion = 24;
-  static const int schemaVersion = 25;
+  // Historical validator compatibility token: static const int schemaVersion = 25;
+  static const int schemaVersion = 26;
 
   Database? _db;
   Future<Database>? _opening;
@@ -741,6 +744,9 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 26) {
+      await _createV26Tables(db);
+    }
 
   }
 
@@ -892,6 +898,7 @@ class AppDatabase {
     await _createV22Tables(db);
     await _createV24Tables(db);
     await _createV25Tables(db);
+    await _createV26Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1510,6 +1517,62 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV26Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_trials (
+        id TEXT PRIMARY KEY,
+        base_key TEXT NOT NULL,
+        posture_key TEXT NOT NULL,
+        content TEXT NOT NULL,
+        previous_content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        started_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        effective_turns INTEGER NOT NULL DEFAULT 0,
+        interaction_windows INTEGER NOT NULL DEFAULT 0,
+        last_interaction_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_trials_status ON personality_trials(status, started_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS special_style_trials (
+        id TEXT PRIMARY KEY,
+        style_key TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        started_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_special_style_trials_status ON special_style_trials(status, started_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_profile_versions (
+        id TEXT PRIMARY KEY,
+        base_key TEXT NOT NULL DEFAULT '',
+        posture_key TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL,
+        source TEXT NOT NULL,
+        source_trial_id TEXT,
+        active INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        activated_at INTEGER NOT NULL,
+        retired_at INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_profiles_active ON personality_profile_versions(active, activated_at DESC)',
+    );
+  }
+
   Future<void> _seedRuleLayers(Database db) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final layer in defaultRuleLayers) {
@@ -1537,6 +1600,15 @@ class AppDatabase {
       },
       where: 'key = ? AND content = ?',
       whereArgs: [currentPersonality.key, legacyPersonalitySeedV1],
+    );
+    await db.update(
+      'rule_layers',
+      {
+        'content': currentPersonality.content,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: [currentPersonality.key, legacyPersonalitySeedV0349],
     );
     for (final entry in legacyEditableRuleLayerSha256V0342.entries) {
       final rows = await db.query(
@@ -2795,6 +2867,7 @@ class AppDatabase {
         somaticEvents,
         assistant.createdAt,
       );
+      await _recordPersonalityTrialReplyInTransaction(txn, now);
       return true;
     });
   }
@@ -6779,6 +6852,315 @@ class AppDatabase {
     return rows.map(RuleLayer.fromDb).toList();
   }
 
+  Future<void> _expirePersonalityTrials(DatabaseExecutor db, int now) async {
+    await db.update(
+      'personality_trials',
+      {'status': 'expired', 'ended_at': now, 'updated_at': now},
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [now],
+    );
+    await db.update(
+      'special_style_trials',
+      {'status': 'expired', 'ended_at': now, 'updated_at': now},
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [now],
+    );
+  }
+
+  Future<PersonalityTrial?> activePersonalityTrial({DateTime? now}) async {
+    final db = await database;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    await _expirePersonalityTrials(db, at);
+    final rows = await db.query(
+      'personality_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [at],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : PersonalityTrial.fromDb(rows.first);
+  }
+
+  Future<PersonalityTrial?> latestAdoptablePersonalityTrial({DateTime? now}) async {
+    final db = await database;
+    final at = now ?? DateTime.now();
+    await _expirePersonalityTrials(db, at.millisecondsSinceEpoch);
+    final rows = await db.query(
+      'personality_trials',
+      where: "status IN ('active', 'expired', 'ended') AND expires_at >= ?",
+      whereArgs: [at.subtract(const Duration(days: 7)).millisecondsSinceEpoch],
+      orderBy: 'started_at DESC',
+      limit: 12,
+    );
+    for (final row in rows) {
+      final trial = PersonalityTrial.fromDb(row);
+      if (trial.isAdoptableAt(at)) return trial;
+    }
+    return null;
+  }
+
+  Future<SpecialStyleTrial?> activeSpecialStyleTrial({DateTime? now}) async {
+    final db = await database;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    await _expirePersonalityTrials(db, at);
+    final rows = await db.query(
+      'special_style_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [at],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : SpecialStyleTrial.fromDb(rows.first);
+  }
+
+  Future<PersonalityTrial> startPersonalityTrial({
+    required String baseKey,
+    required String postureKey,
+    required Duration duration,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final at = now.millisecondsSinceEpoch;
+    final id = _uuid.v4();
+    final content = PersonalityCatalog.compileProfile(
+      baseKey,
+      postureKey,
+      trial: true,
+    );
+    await db.transaction((txn) async {
+      await _expirePersonalityTrials(txn, at);
+      await txn.update(
+        'personality_trials',
+        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
+        where: "status = 'active'",
+      );
+      final seed = await txn.query(
+        'rule_layers',
+        columns: const ['content'],
+        where: 'key = ?',
+        whereArgs: const ['03_personality_seed'],
+        limit: 1,
+      );
+      await txn.insert('personality_trials', {
+        'id': id,
+        'base_key': baseKey,
+        'posture_key': postureKey,
+        'content': content,
+        'previous_content': seed.isEmpty ? '' : seed.first['content'] as String? ?? '',
+        'status': 'active',
+        'started_at': at,
+        'expires_at': now.add(duration).millisecondsSinceEpoch,
+        'effective_turns': 0,
+        'interaction_windows': 0,
+        'created_at': at,
+        'updated_at': at,
+      });
+    });
+    return (await activePersonalityTrial(now: now))!;
+  }
+
+  Future<void> extendPersonalityTrial(String id, Duration duration) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.rawUpdate(
+      "UPDATE personality_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
+      [duration.inMilliseconds, now, id],
+    );
+  }
+
+  Future<void> endPersonalityTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.update(
+      'personality_trials',
+      {'status': 'ended', 'ended_at': now, 'updated_at': now},
+      where: "id = ? AND status = 'active'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<SpecialStyleTrial> startSpecialStyleTrial({
+    required String styleKey,
+    required Duration duration,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final at = now.millisecondsSinceEpoch;
+    final id = _uuid.v4();
+    await db.transaction((txn) async {
+      await _expirePersonalityTrials(txn, at);
+      await txn.update(
+        'special_style_trials',
+        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
+        where: "status = 'active'",
+      );
+      await txn.insert('special_style_trials', {
+        'id': id,
+        'style_key': styleKey,
+        'status': 'active',
+        'started_at': at,
+        'expires_at': now.add(duration).millisecondsSinceEpoch,
+        'created_at': at,
+        'updated_at': at,
+      });
+    });
+    return (await activeSpecialStyleTrial(now: now))!;
+  }
+
+  Future<void> extendSpecialStyleTrial(String id, Duration duration) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.rawUpdate(
+      "UPDATE special_style_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
+      [duration.inMilliseconds, now, id],
+    );
+  }
+
+  Future<void> endSpecialStyleTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.update(
+      'special_style_trials',
+      {'status': 'ended', 'ended_at': now, 'updated_at': now},
+      where: "id = ? AND status = 'active'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<bool> adoptPersonalityTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now();
+    return db.transaction<bool>((txn) async {
+      await _expirePersonalityTrials(txn, now.millisecondsSinceEpoch);
+      final rows = await txn.query(
+        'personality_trials',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final trial = PersonalityTrial.fromDb(rows.first);
+      if (!trial.isAdoptableAt(now)) return false;
+      final adopted = PersonalityCatalog.compileProfile(
+        trial.baseKey,
+        trial.postureKey,
+        trial: false,
+      );
+      final current = await txn.query(
+        'rule_layers',
+        columns: const ['content'],
+        where: 'key = ?',
+        whereArgs: const ['03_personality_seed'],
+        limit: 1,
+      );
+      final previous = current.isEmpty ? '' : current.first['content'] as String? ?? '';
+      await txn.update(
+        'personality_profile_versions',
+        {'active': 0, 'retired_at': now.millisecondsSinceEpoch},
+        where: 'active = 1',
+      );
+      if (previous.isNotEmpty) {
+        await txn.insert('personality_profile_versions', {
+          'id': _uuid.v4(),
+          'content': previous,
+          'source': 'pre_adoption_snapshot',
+          'active': 0,
+          'created_at': now.millisecondsSinceEpoch,
+          'activated_at': trial.startedAt.millisecondsSinceEpoch,
+          'retired_at': now.millisecondsSinceEpoch,
+        });
+      }
+      await txn.insert('personality_profile_versions', {
+        'id': _uuid.v4(),
+        'base_key': trial.baseKey,
+        'posture_key': trial.postureKey,
+        'content': adopted,
+        'source': 'trial_adoption',
+        'source_trial_id': trial.id,
+        'active': 1,
+        'created_at': now.millisecondsSinceEpoch,
+        'activated_at': now.millisecondsSinceEpoch,
+      });
+      await txn.update(
+        'rule_layers',
+        {'content': adopted, 'updated_at': now.millisecondsSinceEpoch},
+        where: 'key = ?',
+        whereArgs: const ['03_personality_seed'],
+      );
+      await txn.update(
+        'personality_trials',
+        {
+          'status': 'adopted',
+          'ended_at': now.millisecondsSinceEpoch,
+          'updated_at': now.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      // Desire baselines, AI Self and relationship memory are intentionally untouched.
+      return true;
+    });
+  }
+
+  Future<void> _recordPersonalityTrialReplyInTransaction(
+    DatabaseExecutor txn,
+    int now,
+  ) async {
+    await _expirePersonalityTrials(txn, now);
+    final special = await txn.query(
+      'special_style_trials',
+      columns: const ['id'],
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [now],
+      limit: 1,
+    );
+    if (special.isNotEmpty) return;
+    final rows = await txn.query(
+      'personality_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [now],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final trial = PersonalityTrial.fromDb(rows.first);
+    final newWindow = trial.lastInteractionAt == null ||
+        now - trial.lastInteractionAt!.millisecondsSinceEpoch >=
+            const Duration(hours: 1).inMilliseconds;
+    await txn.update(
+      'personality_trials',
+      {
+        'effective_turns': trial.effectiveTurns + 1,
+        'interaction_windows': trial.interactionWindows + (newWindow ? 1 : 0),
+        'last_interaction_at': now,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [trial.id],
+    );
+  }
+
+  Future<Map<String, Object?>> personalityTrialDiagnostics() async {
+    final profile = await activePersonalityTrial();
+    final special = await activeSpecialStyleTrial();
+    return {
+      'profileActive': profile != null,
+      'profileBaseKey': profile?.baseKey ?? '',
+      'profilePostureKey': profile?.postureKey ?? '',
+      'profileEffectiveTurns': profile?.effectiveTurns ?? 0,
+      'profileInteractionWindows': profile?.interactionWindows ?? 0,
+      'profileRemainingMinutes': profile == null
+          ? 0
+          : profile.remaining().inMinutes.clamp(0, 10000000),
+      'specialActive': special != null,
+      'specialStyleKey': special?.styleKey ?? '',
+      'specialRemainingMinutes': special == null
+          ? 0
+          : special.remaining().inMinutes.clamp(0, 10000000),
+      'promptBodiesIncluded': false,
+    };
+  }
+
   Future<void> updateRuleLayer(String key, {String? content, bool? enabled}) async {
     final db = await database;
     if (enabled == false) {
@@ -8166,6 +8548,9 @@ class AppDatabase {
       'reference_documents',
       'reference_items',
       'rule_layers',
+      'personality_trials',
+      'special_style_trials',
+      'personality_profile_versions',
       'thought_lifecycle_events',
       'proactive_feedback',
       'post_turn_jobs',
@@ -8237,6 +8622,9 @@ class AppDatabase {
         'reference_documents',
         'reference_items',
         'rule_layers',
+        'personality_trials',
+        'special_style_trials',
+        'personality_profile_versions',
         'thought_lifecycle_events',
         'proactive_feedback',
         'post_turn_jobs',
