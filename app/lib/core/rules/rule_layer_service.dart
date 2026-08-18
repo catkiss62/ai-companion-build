@@ -2,6 +2,7 @@ import '../database/app_database.dart';
 import '../models/interaction_session.dart';
 import '../models/reference_item.dart';
 import '../models/rule_layer.dart';
+import '../personality/personality_catalog.dart';
 import 'rule_layer_grouping.dart';
 
 class RuleLayerBundle {
@@ -9,11 +10,13 @@ class RuleLayerBundle {
     required this.layers,
     required this.intimacyActive,
     required this.referenceTriggered,
+    this.specialStylePrompt = '',
   });
 
   final List<RuleLayer> layers;
   final bool intimacyActive;
   final bool referenceTriggered;
+  final String specialStylePrompt;
 
   String formatForPrompt() {
     if (layers.isEmpty) return '';
@@ -25,6 +28,11 @@ class RuleLayerBundle {
           ..writeln('\n### ${ruleLayerSectionTitle(layer)}')
           ..writeln(layer.content.trim());
       }
+    }
+    if (specialStylePrompt.trim().isNotEmpty) {
+      buffer
+        ..writeln('\n## 临时特殊风格（不可转正）')
+        ..writeln(specialStylePrompt.trim());
     }
     return buffer.toString().trim();
   }
@@ -51,6 +59,8 @@ class RuleLayerService {
     final intimacy =
         _sessionIsIntimacy(session) || _bootstrapIntimacy(latestUserText);
     final referenceTriggered = intimacy && references.isNotEmpty;
+    final profileTrial = await db.activePersonalityTrial();
+    final specialTrial = await db.activeSpecialStyleTrial();
     final selected = <RuleLayer>[];
     for (final layer in all) {
       if (!layer.enabled && !layer.locked) continue;
@@ -61,12 +71,32 @@ class RuleLayerService {
         'reference_intimacy' => referenceTriggered,
         _ => false,
       };
-      if (include) selected.add(layer);
+      if (include) {
+        if (layer.key == '03_personality_seed' && profileTrial != null) {
+          selected.add(RuleLayer(
+            key: layer.key,
+            title: 'Current Personality Trial',
+            content: profileTrial.content,
+            loadPolicy: layer.loadPolicy,
+            enabled: true,
+            locked: false,
+            updatedAt: profileTrial.startedAt,
+          ));
+        } else {
+          selected.add(layer);
+        }
+      }
     }
     return RuleLayerBundle(
       layers: selected,
       intimacyActive: intimacy,
       referenceTriggered: referenceTriggered,
+      specialStylePrompt: specialTrial == null
+          ? ''
+          : PersonalityCatalog.compileSpecial(
+              specialTrial.styleKey,
+              intimacyActive: intimacy,
+            ),
     );
   }
 
