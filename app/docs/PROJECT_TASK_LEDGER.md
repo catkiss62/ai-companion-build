@@ -18,8 +18,8 @@
 - [x] 复用现有持久化 Desire/Thought 生成结构化情绪余波，不保存原始 reasoning、不增加试穿记忆库、不升 schema；状态包继续覆盖原数据。脱敏诊断只新增 policy 与最强余波 drive/state/band。
 - [x] 主动联系末层保持当前性格，在最有性格的自然落点结束；不自动追加随时守候、慢慢来或等待回复的保证。
 - [x] 版本提升到 `v0.35.1+76`，schema 保持 26；契约文档为 `docs/PERSONALITY_INNER_VOICE_v2.md`，静态校验为 `tools/validate_v0351_personality_inner_voice.py`。
-- [x] 当前快照静态验收：v0.35.1 新校验、v0.35.0 性格试穿回归、v0.34.9 联网回归及全部 Python validator 语法编译通过；历史全量运行会因快照缺少旧 validator 和部分冻结源码而停止，不误报为产品失败。
-- [ ] 完整仓库补齐后运行 Dart format、Flutter analyze/tests、GitHub Actions 与 release APK；当前源码快照缺少工具链和完整 Git metadata，不能伪报完成。
+- [x] 最终实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`；Actions run `32160558352` 已通过完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。
+- [x] APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`（239.8MB），SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`；草稿 Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f`。PR #23 仍为 Draft，未合并 main、未发布正式 Release。
 - [ ] 真机 A/B：同一组“被夸/被晾/被抓到嘴硬/认真求助/随口告别”分别测试四底色与姿态，确认 1～3 轮可辨、思考有情绪但不固定口癖、台词不过度解释内心、主动消息无万能守候尾巴。
 
 ## 2026-08-18 最新排期覆盖
@@ -503,3 +503,10 @@
 - [x] 数小时真机报告：4/4 次 public_web succeeded、12 条 active/reviewed 候选、`provider=tavily+agnes`、Agnes enabled、预算 4/4 用尽、重复 Gate 正常、无 Provider/后台错误；标题/摘要/URL/query/interest key/Thought 正文继续脱敏。
 - [x] 候选 reviewed 与 viewCount 证明短期 `WEB_CANDIDATE_DATA` 已实际读取；搜索仍不自动生成 Memory、Thought、消息或主动联系。
 - [ ] Agnes 内容质量若需进一步比较，使用设置页固定公开样本人工验收；管线已通过，不需要语音 API。
+
+## v0.35.1+76 · CI 验收落款
+
+- [x] 最终实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`；Actions run `32160558352` 全绿，包含历史 validators、v0.35.1 新契约、Kotlin 桌宠状态/物理测试、Flutter analyze、164 条 Flutter tests、release APK、6 个 arm64 原生库、417 文件桌宠载荷、外观/哈欠素材与 A2 native 前缀核验。
+- [x] APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`，约 239.8MB；SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`。
+- [x] 私有草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f`；APK、`.sha256` 与 CI monitor 三项资产上传成功。Draft PR #23 保持未合并，正式 Release 未发布。
+- [ ] 真机 A/B 仍是产品验收：普通底色/姿态是否 1～3 轮可辨、思考与台词反差是否自然、特殊风格是否足够强、主动消息是否摆脱万能守候收尾。
