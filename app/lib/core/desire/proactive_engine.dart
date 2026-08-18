@@ -129,6 +129,7 @@ class ProactiveEngine {
         db: db,
         desire: desireEngine,
         android: android,
+        secureConfig: secureConfig,
       );
 
   /// Advances local inner-life and maintenance state without sending an
