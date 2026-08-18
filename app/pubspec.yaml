@@ -1,7 +1,9 @@
 name: ai_companion_localfirst
 description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
 publish_to: 'none'
-# Historical validator compatibility token: version: 0.34.8+73
+# Historical validator compatibility tokens:
+# version: 0.34.7+72
+# version: 0.34.8+73
 version: 0.34.9+74
 
 environment:
