@@ -120,6 +120,7 @@ void main() {
     final appearance = byKey['03_appearance_identity']!.content;
 
     expect(seed, contains('半自知'));
+    expect(seed, contains('元气外放 × 平等恋人'));
     expect(seed, contains('陪伴不是一项工作'));
     expect(seed, contains('不是越相处越顺从'));
     expect(seed, contains('不要为了显得可爱而故意答错'));
@@ -143,6 +144,8 @@ void main() {
     expect(daily, contains('注意力可以有选择、有轻重'));
     expect(daily, contains('任务、事实、重要情绪和明确问题不能借此漏答'));
     expect(behavior, contains('情绪具有惯性'));
+    expect(daily, contains('先反应，再整理'));
+    expect(daily, contains('这条规则同样约束可见思考'));
     expect(behavior, contains('选择、欲望与摩擦'));
     expect(core, contains('空间状态账本'));
     expect(core, contains('最小变化解释'));
