@@ -1589,6 +1589,25 @@ class AppDatabase {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+      // Locked layers are application-owned identity/fact contracts rather
+      // than user-editable prose. Keep them current on every upgrade so fixes
+      // to relationship gender, appearance self-reference and safety bounds
+      // reach existing installations without touching editable rules.
+      if (layer.locked) {
+        await db.update(
+          'rule_layers',
+          {
+            'title': layer.title,
+            'content': layer.content,
+            'load_policy': layer.loadPolicy,
+            'enabled': 1,
+            'locked': 1,
+            'updated_at': now,
+          },
+          where: 'key = ?',
+          whereArgs: [layer.key],
+        );
+      }
     }
     final currentPersonality = defaultRuleLayers
         .firstWhere((layer) => layer.key == '03_personality_seed');
@@ -1610,31 +1629,36 @@ class AppDatabase {
       where: 'key = ? AND content = ?',
       whereArgs: [currentPersonality.key, legacyPersonalitySeedV0349],
     );
-    for (final entry in legacyEditableRuleLayerSha256V0342.entries) {
-      final rows = await db.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: [entry.key],
-        limit: 1,
-      );
-      if (rows.isEmpty) continue;
-      final stored = rows.first['content'] as String? ?? '';
-      if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
-        continue;
+    for (final legacyHashes in [
+      legacyEditableRuleLayerSha256V0342,
+      legacyEditableRuleLayerSha256V0350,
+    ]) {
+      for (final entry in legacyHashes.entries) {
+        final rows = await db.query(
+          'rule_layers',
+          columns: const ['content'],
+          where: 'key = ?',
+          whereArgs: [entry.key],
+          limit: 1,
+        );
+        if (rows.isEmpty) continue;
+        final stored = rows.first['content'] as String? ?? '';
+        if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
+          continue;
+        }
+        final current = defaultRuleLayers.firstWhere(
+          (layer) => layer.key == entry.key,
+        );
+        await db.update(
+          'rule_layers',
+          {
+            'content': current.content,
+            'updated_at': now,
+          },
+          where: 'key = ?',
+          whereArgs: [entry.key],
+        );
       }
-      final current = defaultRuleLayers.firstWhere(
-        (layer) => layer.key == entry.key,
-      );
-      await db.update(
-        'rule_layers',
-        {
-          'content': current.content,
-          'updated_at': now,
-        },
-        where: 'key = ?',
-        whereArgs: [entry.key],
-      );
     }
   }
 

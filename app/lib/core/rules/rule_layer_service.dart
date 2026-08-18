@@ -31,7 +31,7 @@ class RuleLayerBundle {
     }
     if (specialStylePrompt.trim().isNotEmpty) {
       buffer
-        ..writeln('\n## 临时特殊风格（不可转正）')
+        ..writeln('\n## 当前特殊表达与现实边界')
         ..writeln(specialStylePrompt.trim());
     }
     return buffer.toString().trim();
@@ -75,8 +75,16 @@ class RuleLayerService {
         if (layer.key == '03_personality_seed' && profileTrial != null) {
           selected.add(RuleLayer(
             key: layer.key,
-            title: 'Current Personality Trial',
-            content: profileTrial.content,
+            title: 'Current Personality Structure',
+            // Recompile from stable keys so an app update can improve the
+            // reaction/expression contract even when a trial was already
+            // active before the update. The stored snapshot remains useful
+            // for audit/backup but is not an immutable prompt cache.
+            content: PersonalityCatalog.compileProfile(
+              profileTrial.baseKey,
+              profileTrial.postureKey,
+              trial: true,
+            ),
             loadPolicy: layer.loadPolicy,
             enabled: true,
             locked: false,

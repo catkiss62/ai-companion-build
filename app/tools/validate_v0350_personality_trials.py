@@ -44,7 +44,7 @@ for token in (
     assert token in catalog, token
 
 service = read("lib/core/rules/rule_layer_service.dart")
-for token in ("activePersonalityTrial", "activeSpecialStyleTrial", "临时特殊风格（不可转正）"):
+for token in ("activePersonalityTrial", "activeSpecialStyleTrial", "当前特殊表达与现实边界"):
     assert token in service, token
 
 page = read("lib/features/personality/personality_lab_page.dart")

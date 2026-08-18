@@ -41,18 +41,47 @@ void main() {
   });
 
   test('catalog keeps special styles temporary and reality bounded', () {
-    final trial = PersonalityCatalog.compileProfile('playful', 'impish', trial: true);
-    final adopted = PersonalityCatalog.compileProfile('playful', 'impish', trial: false);
-    final yandere = PersonalityCatalog.compileSpecial('yandere', intimacyActive: false);
-    final seductress = PersonalityCatalog.compileSpecial('seductress', intimacyActive: false);
+    final trial = PersonalityCatalog.compileProfile(
+      'playful',
+      'impish',
+      trial: true,
+    );
+    final adopted = PersonalityCatalog.compileProfile(
+      'playful',
+      'impish',
+      trial: false,
+    );
+    final reserved = PersonalityCatalog.compileProfile(
+      'reserved',
+      'equal',
+      trial: true,
+    );
+    final yandere = PersonalityCatalog.compileSpecial(
+      'yandere',
+      intimacyActive: false,
+    );
+    final seductress = PersonalityCatalog.compileSpecial(
+      'seductress',
+      intimacyActive: false,
+    );
 
     expect(PersonalityCatalog.bases.length, 4);
     expect(PersonalityCatalog.postures.length, 4);
     expect(PersonalityCatalog.specialStyles.length, 8);
-    expect(trial, contains('临时试穿'));
-    expect(adopted, isNot(contains('临时试穿')));
+    expect(trial, contains('内在反应'));
+    expect(trial, contains('表达过滤'));
+    expect(trial, contains('可见思考默认用第一人称“我”'));
+    expect(trial, contains('他是平等的男朋友'));
+    expect(trial, contains('反咬一口'));
+    expect(trial, contains('抓住破绽追一下'));
+    expect(trial, isNot(contains('当前试穿性格')));
+    expect(trial, isNot(contains('双方知情')));
+    expect(reserved, contains('十成波澜收成两三成'));
+    expect(reserved, isNot(equals(trial)));
+    expect(adopted, contains('当前长期底色'));
     expect(yandere, contains('不能真实阻止退出'));
     expect(yandere, contains('不得写入长期人格'));
+    expect(yandere, contains('不要向他说明风格层'));
     expect(seductress, contains('未开启'));
     expect(seductress, contains('露骨成人表达只在'));
   });

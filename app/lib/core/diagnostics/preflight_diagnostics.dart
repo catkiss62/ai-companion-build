@@ -138,6 +138,22 @@ class PreflightDiagnosticsService {
         final key = thought.provenance.key;
         provenanceCounts[key] = (provenanceCounts[key] ?? 0) + 1;
       }
+      final residueOrdered = desireThoughts.toList()
+        ..sort((a, b) {
+          final aWeight = a.residualStrength > 0
+              ? a.residualStrength
+              : a.strength;
+          final bWeight = b.residualStrength > 0
+              ? b.residualStrength
+              : b.strength;
+          return bWeight.compareTo(aWeight);
+        });
+      final strongestResidue = residueOrdered.isEmpty ? null : residueOrdered.first;
+      final strongestResidueWeight = strongestResidue == null
+          ? 0.0
+          : strongestResidue.residualStrength > 0
+              ? strongestResidue.residualStrength
+              : strongestResidue.strength;
       final refractoryMinutes = <String, int>{};
       for (final entry in desireSnapshot.refractoryUntil.entries) {
         if (!entry.value.isAfter(now)) continue;
@@ -265,6 +281,18 @@ class PreflightDiagnosticsService {
               }).toList(),
           'activeThoughtCount': desireThoughts.length,
           'thoughtProvenanceCounts': provenanceCounts,
+          'innerVoiceContinuity': {
+            'policy': 'first_person_reaction_expression_v2',
+            'usesPersistedDesireAndThoughtMetadata': true,
+            'storesRawReasoningAsMemory': false,
+            'strongestResidueDrive': strongestResidue?.driveKey ?? '',
+            'strongestResidueState': strongestResidue?.lifecycleState ?? 'none',
+            'strongestResidueBand': strongestResidueWeight >= 0.68
+                ? 'high'
+                : strongestResidueWeight >= 0.32
+                    ? 'medium'
+                    : 'low',
+          },
         },
         'autonomousActions': autonomousActions,
         'publicWebCandidates': publicWebCandidates,

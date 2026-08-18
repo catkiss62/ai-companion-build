@@ -413,7 +413,8 @@ Gate：${gateScore.toStringAsFixed(2)}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 
-请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。严格服从 REALITY GROUNDING：若用户在我上一条消息之后没有再说话，就把这次当成新的主动开口，不能继续回答已经回答过的旧 user turn，也不能虚构用户刚刚说了什么。不要解释算法，不要汇报数值，不要说“系统检测到”。如果你认为即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
+请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。当前“内在反应 + 表达过滤”仍完整生效：先让这次意图真正勾起我的好奇、挂念、坏心眼、余波或具体判断，再按当前性格决定泄露多少，不要退回成一条四平八稳的问候。
+严格服从 REALITY GROUNDING：若他在我上一条消息之后没有再说话，就把这次当成新的主动开口，不能继续回答已经回答过的旧 user turn，也不能虚构他刚刚说了什么。正文停在最有性格的自然落点；除非此刻确实想表达这件事，不在结尾自动追加“我会等你、随时都在、慢慢来”一类无条件守候保证，也不硬塞问题。不要解释算法，不要汇报数值，不要说“系统检测到”。如果即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
 '''.trim(),
     });
 
@@ -549,6 +550,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，用户之后没有新的发言。
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
 推理本身也不能写成“回复/回答用户上一句”。最终正文同样不能虚构用户刚刚说了、回复了或发来了任何内容。
+重选时仍保持当前性格的内在反应与表达过滤；不要因为纠正事实边界就改成无个性的安慰或问候。
 '''.trim(),
         },
       ];

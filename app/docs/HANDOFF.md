@@ -4,6 +4,17 @@
 >
 > 历史回归取证（不代表当前版本）：`v0.34.5+70` · `direct picker` · `不回滚 v0.34.4 settle`。
 
+## 0AAA. 当前源码候选 · v0.35.1+76 Personality Inner Voice v2
+
+- App 已提升到 `v0.35.1+76`，SQLite schema 保持 26；本轮不改计时、转正门槛、联网、TTS、桌宠或沉浸房间。
+- 真机 v0.35.0 已证明普通试穿可选中 `playful × impish`，也暴露两点语言问题：四组差异太弱；模型会说“我换性格了/正式营业”并以万能守候句收尾。v0.35.1 针对这些已观测问题重构生成层。
+- 四个性格底色与四个相处姿态从一句风格标签扩为“内在反应 + 表达过滤 + 关系注意 + 相处动作”。思考与台词允许不同：内敛可内热外冷，调皮可把露怯翻成玩笑，外放更快泄露，温柔放缓但不抹掉立场。
+- 普通试穿仍由数据库状态计时，但 Prompt 每轮根据 base/posture key 动态编译；模型不再看到“当前试穿/双方知情”。特殊层也禁止向男朋友说明风格、选择、期限或状态变化。
+- 新增靠近历史之后的可见思考最终约束：默认“我/他”，先受具体内容影响，不写请求处理计划或自我表演检查；固定外观按相关性加载，“小鲸鱼”不作固定自称，“大肥鱼”仅引用/反击。
+- 情绪连续性复用现有 Desire/Thought 持久化元数据生成有界余波，不保存或回放原始 reasoning，不新增表；状态包天然覆盖。脱敏诊断新增 `innerVoiceContinuity` 的 policy/drive/state/band。
+- 主动消息末层重新锚定当前性格并禁止自动补万能守候保证。完整说明见 `docs/PERSONALITY_INNER_VOICE_v2.md`。
+- 当前工作区是缺少完整 Git metadata、部分导入文件与 Flutter/Dart 工具链的源码快照；只能做静态校验，不能在此声称 GitHub、CI、APK 或真机已经更新。`validate_v0351_personality_inner_voice.py`、`validate_v0350_personality_trials.py`、`validate_v0349_layered_web_discovery.py` 与全部 Python validator 语法编译已通过；其余历史 validator 因快照缺少被冻结源码/validator 输入而无法完整运行。
+
 ## 0AA. 当前开发头 · v0.35.0+75 Personality Trial System
 
 - 当前 Draft PR #23 分支继续作为累计主线；App `v0.35.0+75`，SQLite schema 26。Actions run `32139893450` 全绿：历史/新静态契约、Kotlin 桌宠回归、Flutter analyze、164 tests、release APK、原生/417 文件载荷、SHA-256 与私有草稿 Release 上传均成功；真机语言效果仍待验收。

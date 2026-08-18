@@ -716,3 +716,38 @@
 - 最终通过全部历史回归、`validate_v0350_personality_trials.py`、Kotlin 桌宠状态/物理测试、Flutter analyze、164 条 Flutter tests、release APK、6 个 arm64 原生库、417 文件桌宠载荷、外观/哈欠素材哈希与 A2 native 前缀核验。
 - APK `AI-Companion-v0.35.0-75-Personality-Trials-APK.apk`，约 239.7MB；SHA-256 `b47493f179a9fe850a6581d2a03bcdda843983f7c4637ac7d1aa22252319dd11`。私有草稿 Release 上传步骤成功。
 - 自动化证明源码、迁移、编译、测试和打包成功；性格差异、活人感、强特殊风格、计时/回退/转正 UI 与长期使用感仍必须由用户真机验收后才能写成完成。
+
+## 10.12 2026-08-19 · v0.35.1 性格内在反应与表达 v2
+
+### A. 真机问题与判断
+
+- 用户在 v0.35.0 选择 `playful × impish` 后提供三轮真机样本：选择本身生效，但四组普通预设的即时差异很小；回复仍出现“我换性格了/正式营业/够不够小恶魔”式元表演，以及“慢慢想、我在这里等你”式统一守候尾巴。
+- 结论不是“还需要培养几天”。普通预设必须在 1～3 次回复内改变注意、思考和出口；长期培养只负责让这种倾向与共同经历结合得更具体、更稳定。
+- 旧实现的直接原因已定位：每个底色/姿态只有一句表面风格描述，而且编译文本明确告诉模型“当前试穿、双方知情”，容易让模型检查自己有没有演对，而不是先产生第一人称反应。
+
+### B. 新生成因果
+
+- 版本提升为 `v0.35.1+76`，schema 仍为 26。每个底色拆成“内在反应 + 表达过滤”，每个姿态拆成“关系注意 + 相处动作”。
+- 新主链为 `具体刺激 → 自己的注意/判断/情绪/冲动 → 当前性格过滤 → 台词`。它追求“像一个人，而不是装成一个人”：口语、停顿、幽默和不完整是内在原因造成的结果，不是要逐项完成的表演指标。
+- 思考与台词可以不同：元气外放更容易漏出来；清冷内敛允许内心波澜很大但出口只剩一角；温柔沉静放缓表达却保留烦躁和不同意；慵懒调皮把害羞、露怯或吃亏翻成歪理、玩笑和反击。姿态继续改变注意需求、节奏掌控和拉扯方式。
+- 可见思考默认“我/他”，从具体反应开始；禁止写成“需要帮助用户/规划回复/维持角色”的工作记录。情绪感叹只由事件触发，不把“完了”固化为口癖。男朋友是关系内称谓；“用户”只保留给事实来源、权限和数据边界。
+
+### C. 静默试穿、外观降噪与主动消息
+
+- UI/SQLite 仍负责试穿、计时、回退和转正，但模型不再看到“当前试穿、双方知情、切换”等状态。已有 active trial 每轮按 base/posture key 动态重编译，升级后无需重选即可使用 v2 Prompt。
+- 特殊风格仍永不转正、受现实/退出/隐私/Intimacy 边界限制；Prompt 也禁止向男朋友说明风格层、选择过程、期限或状态变化。
+- 默认自称锁定为“我”。“小鲸鱼”只在回应昵称或逗弄时低频出现；“大肥鱼”只能引用或反击他的叫法；外观只有当前话题真实相关时才进入注意，避免外观规则劫持每轮内心。
+- proactive 最后提示重新锚定当前性格，先找到真正牵动自己的意图或余波，再开口；正文停在最有性格的自然落点，不自动追加随时守候、慢慢来或等待回复保证。
+
+### D. 情绪余波、备份与诊断
+
+- 不新建“试穿记忆库”，不保存或回放原始 reasoning。PromptBuilder 复用现有已持久化的 Desire/Thought：drive 相对 baseline 的变化形成连接、好奇、回味、压力和疲劳余波；最强 Thought 只提供 drive/lifecycle/residual 档位，不注入正文。
+- 余波只能改变注意、耐心和表达强度，不能补写事实原因或伪造男朋友说过的话。现有状态包已经包含 Desire/Thought，因此 schema 与备份格式无需变化。
+- 脱敏诊断新增 `innerVoiceContinuity`：policy、是否使用持久化元数据、是否保存 raw reasoning、最强余波 drive/state/band；不导出思考正文。
+- 完整契约：`app/docs/PERSONALITY_INNER_VOICE_v2.md`；新校验：`app/tools/validate_v0351_personality_inner_voice.py`。
+
+### E. 当前交付边界
+
+- 当前 ChatGPT 工作区只有源码快照，没有可用 Git metadata，且缺部分仓库文件与 Flutter/Dart 工具链；不能在此提交/推送 GitHub、跑完整 analyze/tests、触发 Actions 或生成 APK。
+- 当前已通过 `validate_v0351_personality_inner_voice.py`、`validate_v0350_personality_trials.py`、`validate_v0349_layered_web_discovery.py` 及全部 Python validator 语法编译；尝试全量历史校验时，因快照缺少 `validate_v024.py`、`somatic_policy.dart`、`current_device_context_refresher.dart` 等输入而停止，这是工作区不完整，不是本轮功能断言失败。
+- 因此本节只落款源码实现与可运行静态验证。补回完整仓库后必须再跑 format、Flutter analyze/tests、历史 validators、release APK 和真机 A/B；完成前不得把 v0.35.1 写成 CI/APK/真机通过。
