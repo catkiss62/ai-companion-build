@@ -26,6 +26,7 @@ https://example.com/b
     var unrestrictedSeen = false;
     var additiveSeen = false;
     var keylessHeaderSeen = false;
+    List<String>? additiveDomains;
     final client = MockClient((request) async {
       keylessHeaderSeen = request.headers.entries.any(
         (entry) => entry.key.toLowerCase() == 'x-tavily-access-mode' &&
@@ -56,10 +57,11 @@ https://example.com/b
             ]
           }),
           200,
+          headers: const {'content-type': 'application/json; charset=utf-8'},
         );
       }
       additiveSeen = true;
-      expect(domains, ['source.example']);
+      additiveDomains = (domains as List).cast<String>();
       return http.Response(
         jsonEncode({
           'results': [
@@ -71,6 +73,7 @@ https://example.com/b
           ]
         }),
         200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
       );
     });
     final provider = LayeredPublicWebProvider(
@@ -88,6 +91,7 @@ https://example.com/b
     expect(unrestrictedSeen, isTrue);
     expect(additiveSeen, isTrue);
     expect(keylessHeaderSeen, isTrue);
+    expect(additiveDomains, ['source.example']);
     expect(result.candidates, hasLength(3));
     expect(result.candidates.where((e) => e.provider == 'tavily'), hasLength(2));
     expect(
@@ -113,6 +117,7 @@ https://example.com/b
           ]
         }),
         200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
       );
     });
     final source = PublicWebCandidateDraft(
