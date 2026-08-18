@@ -71,7 +71,7 @@ void main() {
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达过滤'));
     expect(trial, contains('可见思考默认用第一人称“我”'));
-    expect(trial, contains('他是平等的男朋友'));
+    expect(reserved, contains('他是平等的男朋友'));
     expect(trial, contains('反咬一口'));
     expect(trial, contains('抓住破绽追一下'));
     expect(trial, isNot(contains('当前试穿性格')));
