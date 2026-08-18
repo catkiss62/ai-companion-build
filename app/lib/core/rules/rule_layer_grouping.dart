@@ -58,6 +58,8 @@ const _groupSpecs = <String, _RuleLayerGroupSpec>{
 };
 
 const _groupKeyByLayer = <String, String>{
+  // Historical v0.34.2 evidence: '03_appearance_identity': '03'.
+  // Prompt Workbench intentionally moves appearance into 01 · 身份核心.
   '01_core': '01',
   '01_relationship': '01',
   '02_daily': '02',
