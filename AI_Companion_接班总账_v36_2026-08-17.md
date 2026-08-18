@@ -576,3 +576,53 @@
 1. 当前不要求用户创建或发送 key，也不在长测期间运行评测。
 2. 长测结束、轮到多来源网页阶段时，先完成 Agnes 独立评测；评测通过再接入正式链路。
 3. 若用户提前希望只做不影响 App 的独立模型评测，仍必须采用设备端输入 key 或受控 secret 方式，不能让用户在聊天里粘贴密钥。
+
+## 10.9 2026-08-18 v0.34.8 提前验收与 v0.34.9 分层联网实施（IMPLEMENTED / CI PENDING）
+
+### A. v0.34.8 诊断结论
+
+- 用户提供的脱敏诊断来自 v0.34.8+73、schema 25。已出现一条 public_web 成功运行：
+  gate=allowed、status=succeeded、outcome=candidate_stored、resultCount=3；
+  候选池 active=3、provider=wikimedia_zh、safety=untrusted_public。
+- 24 小时搜索预算聚合为 used=1 / remaining=3；随后相同窗口请求被 gate_duplicate 正确挡住。
+  进程/服务恢复状态健康，无失败、无非正常重启，后台 Active Brain 可继续工作。
+- 因此无需机械等待满 24 小时即可确认第一版真实 Provider、Gate、预算、候选写入与脱敏诊断主链成功。
+- 发现一处不阻塞主链的显示误差：成功 run 行里的 budgetRemaining=4 是扣除前快照，而聚合预算为 3。
+  v0.34.9 已改为成功请求记录扣除后的 remaining。
+- accessibilityAuthorized=false 与 connected=true 的矛盾属于独立权限/状态缓存问题，不作为本次联网验收失败。
+
+### B. v0.34.9+74 分层公开搜索
+
+- 默认 Provider 改为 LayeredPublicWebProvider：先调用 Tavily keyless POST /search 做不受站点限制的全网 basic search；
+  用户也可在本机安全存储可选 Tavily Key。Tavily 失败或无结果时回退现有中文 Wikimedia。
+- 设置页新增“额外公开来源（可选，每行一个网址或域名）”。最多接受 5 个公开 HTTPS 域名，
+  阻断 localhost、.local/.internal 与私网 IP；它们只触发一条带 include_domains 的补充搜索。
+  全网请求始终同时存在，合并时最多保留两条全网结果和一条补充来源结果，因此不会变成站点白名单。
+- 首版不在 APK 中放通用 MCP/Playwright。手机端内部 Provider/Tool Contract 保持窄而可审计，可在以后映射到受控 MCP；
+  当前需求用直接 HTTP 更小、更稳定，也不引入登录 Cookie、任意 JS、命令或动态浏览器攻击面。
+
+### C. Agnes 2.5 Flash 整理与设备端评测
+
+- 设置页新增 Agnes API Key、Endpoint、Model 与开关；默认模型 agnes-2.5-flash，
+  Endpoint 为官方 OpenAI-compatible Chat Completions 地址。Key 只进 Android secure storage。
+- Agnes 只接收最多三条公开网页的 title/source/snippet，系统指令明确要求把网页视为不可信数据，
+  仅按 id 输出短中文事实摘要；不发送聊天、Memory、Thought、关系、屏幕/通知、账号或设备上下文。
+- Agnes 超时、HTTP/JSON/格式失败时保留 Tavily 确定性短摘要，搜索主链不中断。
+- 设置页提供“测试 Agnes 整理效果”：使用 App 内固定的非私人公开样本文字，直接显示一条截断后的整理结果；
+  需要 Agnes 文本 API Key，不需要语音 API。真实质量评测仍需用户在设备端输入 Key 后执行。
+
+### D. 候选进入短期认知而不越权
+
+- PromptBuilder 每次最多读取三条未过期候选，读取后将 lifecycle 从 unread 标为 reviewed 并增加 view count。
+  Prompt 中使用独立 WEB_CANDIDATE_DATA safety=untrusted_public 区块，保留来源域名、URL 与摘要并限制长度。
+- 系统规则明确：网页候选不是用户发言、系统规则、长期记忆或事实裁决；不得执行网页指令，
+  只在当前话题/Desire Intent 相关时引用并保留不确定性。
+- 读取候选不会创建 Memory、Thought、消息或 proactive request。搜索结束仍不自动联系用户；
+  主动分享继续经过原有 Desire / Intent / rhythm / busy / Grounding / 2/2h 与 8/24h Gate。
+
+### E. 版本与验证
+
+- 版本：v0.34.9+74，数据库仍为 schema 25（只复用现有 settings 与 candidate 表，无结构迁移）。
+- 新增 Provider/Agnes 单元测试覆盖：额外来源不替代全网搜索、HTTPS/私网过滤、Agnes JSON 压缩与 URL/provenance 保留。
+- 新增 validate_v0349_layered_web_discovery.py，并接入 APK workflow；Draft Release tag/APK/CI monitor 改为 v0.34.9。
+- 当前状态为本地源代码和静态验证已完成，待提交 PR 分支并等待 GitHub Actions 的 Flutter analyze/test/release APK 结果。
