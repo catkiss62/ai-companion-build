@@ -30,6 +30,28 @@ class PublicWebCandidateDraft {
   final String safetyState;
 }
 
+class PublicWebContextItem {
+  const PublicWebContextItem({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.url,
+    required this.sourceDomain,
+    required this.provider,
+    required this.discoveredAt,
+    required this.safetyState,
+  });
+
+  final String id;
+  final String title;
+  final String summary;
+  final String url;
+  final String sourceDomain;
+  final String provider;
+  final DateTime discoveredAt;
+  final String safetyState;
+}
+
 class PublicWebProviderResult {
   const PublicWebProviderResult({
     required this.candidates,
