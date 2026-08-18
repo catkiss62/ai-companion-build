@@ -5,6 +5,8 @@ import 'package:ai_companion_localfirst/core/rules/rule_layer_grouping.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
 
 void main() {
+  // Historical v0.34.2 test name: ships nine independently persisted sections.
+  // The workbench now persists more templates while presenting exactly six groups.
   test('ships rule sections plus every editable personality/runtime template', () {
     const expectedKeys = <String>{
       '01_core',

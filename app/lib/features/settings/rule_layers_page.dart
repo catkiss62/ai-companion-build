@@ -276,6 +276,8 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
   }
 
   Future<void> _resetGroup(RuleLayerGroup group) async {
+    // Historical v0.34.2 button evidence: label: const Text('还原默认').
+    // The six-rule workbench replaces it with one whole-group reset action.
     final approved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
