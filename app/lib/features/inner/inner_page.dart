@@ -24,6 +24,7 @@ import '../memory/memory_page.dart';
 import '../relationship/relationship_page.dart';
 import '../reference/reference_library_page.dart';
 import '../settings/rule_layers_page.dart';
+import '../personality/personality_lab_page.dart';
 
 class InnerPage extends StatefulWidget {
   const InnerPage({super.key});
@@ -271,6 +272,17 @@ class _InnerPageState extends State<InnerPage> {
           onPressed: busy ? null : _selfReflect,
           icon: const Icon(Icons.self_improvement),
           label: const Text('整理 AI Self'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.tonalIcon(
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PersonalityLabPage()),
+            );
+            await _refresh();
+          },
+          icon: const Icon(Icons.checkroom_outlined),
+          label: const Text('性格试穿间'),
         ),
         const SizedBox(height: 8),
         Row(
