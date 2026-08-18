@@ -13,7 +13,8 @@
 - 新增靠近历史之后的可见思考最终约束：默认“我/他”，先受具体内容影响，不写请求处理计划或自我表演检查；固定外观按相关性加载，“小鲸鱼”不作固定自称，“大肥鱼”仅引用/反击。
 - 情绪连续性复用现有 Desire/Thought 持久化元数据生成有界余波，不保存或回放原始 reasoning，不新增表；状态包天然覆盖。脱敏诊断新增 `innerVoiceContinuity` 的 policy/drive/state/band。
 - 主动消息末层重新锚定当前性格并禁止自动补万能守候保证。完整说明见 `docs/PERSONALITY_INNER_VOICE_v2.md`。
-- 当前工作区是缺少完整 Git metadata、部分导入文件与 Flutter/Dart 工具链的源码快照；只能做静态校验，不能在此声称 GitHub、CI、APK 或真机已经更新。`validate_v0351_personality_inner_voice.py`、`validate_v0350_personality_trials.py`、`validate_v0349_layered_web_discovery.py` 与全部 Python validator 语法编译已通过；其余历史 validator 因快照缺少被冻结源码/validator 输入而无法完整运行。
+- GitHub Draft PR #23 已更新到实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`。Actions run `32160558352` 全绿：完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传均成功。
+- APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`（239.8MB），SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`；草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f`。这证明源码、编译、测试与打包成功；普通/特殊性格的真实语言差异仍待真机 A/B，PR 尚未合并 main，也未发布正式 Release。
 
 ## 0AA. 当前开发头 · v0.35.0+75 Personality Trial System
 
