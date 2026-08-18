@@ -11,7 +11,8 @@
 - 删除旧固定短语 bootstrap 与“已有成人 Session 才能加载 NSFW”的代码门槛。NSFW 决定成人语言/渲染；Session 只保留共同场景的姿势、动作、衣物和阶段连续性，双感官仍可描述她自己的内部反应，但不能把未见到的表情、体温或接触写成现实事实。
 - `nsfw` 完整加载 05 状态机与 06 核心渲染；需要姿势/衣物/接触/设备/远程约束或长场景时再加载参考小节。痴女特殊风格向路由提供明确 NSFW 偏置，但无关日常话题仍保持普通模式。
 - 六大规则导出/导入的主入口改为 Android 系统 JSON 文件保存/选择，沿用 direct-picker overlay guard；剪贴板复制/粘贴保留为次级菜单。Temperature UI、设置读写和请求参数全部移除，思考模式保留。
-- 版本 `v0.35.3+78`，schema 保持 26。当前为本地源码实现，CI、APK、SHA-256 与真机验证尚未完成；完整契约见 `docs/NSFW_CONTEXT_ROUTER_v1.md`。
+- 版本 `v0.35.3+78`，schema 保持 26。最终源码 head `728910bbc1c34096eeef9768cd195d121cf28faa`；Actions run `32193850897` 全绿：完整新旧静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传均成功。
+- APK `AI-Companion-v0.35.3-78-NSFW-Context-Router-APK.apk`，SHA-256 `527cb134f205b71ef4096c7fc3edb944b642c6e54e383f0af175febb053ef5ee`；草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e85044b50d823eb96cbd`。PR #23 仍为 Draft、未合并 main、未发布正式 Release；NSFW 自动/手动路由、系统文件往返和真实语言效果待真机验收。完整契约见 `docs/NSFW_CONTEXT_ROUTER_v1.md`。
 
 ## 0AAAA. 已构建基线 · v0.35.2+77 Prompt Workbench
 

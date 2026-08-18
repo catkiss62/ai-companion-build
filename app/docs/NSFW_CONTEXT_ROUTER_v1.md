@@ -29,3 +29,12 @@ The 31 subsection bodies from the six supplied files are stored in `rule_layer_c
 ## Prompt-pack files and sampling
 
 Primary prompt-pack export/import now uses Android `ACTION_CREATE_DOCUMENT` / `ACTION_OPEN_DOCUMENT` with the existing direct-picker overlay guard. Clipboard copy/paste remains a secondary overflow-menu option. Temperature UI, persistence use, request parameter and chat/proactive wiring are removed; model thinking mode remains available.
+
+## Build evidence
+
+- Source head: `728910bbc1c34096eeef9768cd195d121cf28faa`
+- GitHub Actions run: `32193850897` (all validators, Kotlin tests, Flutter analyze/tests, APK build and payload verification passed)
+- APK: `AI-Companion-v0.35.3-78-NSFW-Context-Router-APK.apk`
+- SHA-256: `527cb134f205b71ef4096c7fc3edb944b642c6e54e383f0af175febb053ef5ee`
+- Draft release: `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e85044b50d823eb96cbd`
+- Remaining evidence: real-device routing, button correction, prompt-pack round trip, and language-quality checks. CI success does not claim those are already proven.

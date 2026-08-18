@@ -8,7 +8,7 @@
 
 ## 2026-08-19 最新排期覆盖
 
-### ACTIVE / SOURCE IMPLEMENTED · v0.35.3 NSFW 语境路由与六规则正文换代
+### ACTIVE / BUILT · v0.35.3 NSFW 语境路由与六规则正文换代
 
 - [x] 六份用户规则共 31 个小节逐字进入运行时默认正文；新增每小节 SHA-256 校验，禁止自动润色或改写。稳定 ID、标题、load policy 与数据库围栏继续由代码控制。
 - [x] 聊天顶栏新增白/紫长方形 `NSFW` 按钮；自动路由在实际生成前用无思考 DeepSeek 判断 `daily / nsfw / nsfw_reference`，按钮反映实际装载，手动开/关优先覆盖下一轮后恢复自动。
@@ -17,7 +17,9 @@
 - [x] 六规则主导入/导出改用系统 JSON 文件选择器，剪贴板作为次级入口；沿用 HyperOS direct-picker overlay guard。
 - [x] 删除聊天 Temperature UI、数据库读写、DeepSeek 请求参数、恢复/主动消息接线；思考开关保留。数字化性格系统明确延期到后续独立设计/版本。
 - [x] 版本提升至 `v0.35.3+78`，schema 保持 26；新增 `tools/validate_v0353_nsfw_context_router.py` 与 `docs/NSFW_CONTEXT_ROUTER_v1.md`。
-- [ ] GitHub Actions、APK、checksum、草稿 Release 与真机 NSFW 路由/文件往返验证尚待本轮完成。
+- [x] 最终源码 head `728910bbc1c34096eeef9768cd195d121cf28faa`；Actions run `32193850897` 已通过完整新旧静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。
+- [x] APK `AI-Companion-v0.35.3-78-NSFW-Context-Router-APK.apk`，SHA-256 `527cb134f205b71ef4096c7fc3edb944b642c6e54e383f0af175febb053ef5ee`；草稿 Release `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e85044b50d823eb96cbd`。Draft PR #23 未合并 main，正式 Release 未发布。
+- [ ] 真机验收：普通话题保持白色关闭；成人语境自动变紫并加载 05/06；手动纠错只覆盖下一轮；痴女提高成人语境命中但不污染日常；系统 JSON 导出/导入可往返并正确处理取消；未进入 Session 时不虚构共同在场。
 
 ### BUILT BASELINE · v0.35.2 六大规则设定工作台
 
