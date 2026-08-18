@@ -1,6 +1,12 @@
-status=success
-run_id=32095469762
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32095469762
-head_sha=98de6ce655242ef09923df0a6e7e0633b2922a10
-7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f  AI-Companion-v0.34.9-74-Layered-Web-Discovery-APK.apk
+status=failure
+build_result=cancelled
+run_id=32139252275
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32139252275
+head_sha=b1954f742902f6eee3f2f5585b110fb4a42992a2
+
+=== failed or cancelled job logs ===
+
+--- job=build-apk conclusion=cancelled id=95717733597 ---
+Unable to download this completed job log.
+the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-96b796cea6c1bd74c3e1
