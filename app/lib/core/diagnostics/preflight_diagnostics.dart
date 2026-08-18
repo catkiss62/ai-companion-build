@@ -114,6 +114,7 @@ class PreflightDiagnosticsService {
           await db.autonomousActionDiagnosticStats(now: now);
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
+      final personalityTrials = await db.personalityTrialDiagnostics();
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -171,6 +172,7 @@ class PreflightDiagnosticsService {
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
         'somaticObservability': somaticDiagnostics,
+        'personalityTrials': personalityTrials,
         'errorFlags': {
           'backgroundErrorCount':
               int.tryParse(await db.getSetting('background_error_count') ?? '') ?? 0,
