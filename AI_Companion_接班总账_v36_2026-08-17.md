@@ -708,3 +708,11 @@
 - 产品名暂定“沉浸房间”，定位为与日常短对话分开的显式 Session，可承载长上下文、章节/场景连续性和用户自定义“小说规则”。
 - 设计时必须讨论上下文成本与压缩、长回复节奏、是否进入长期记忆、RP/Intimacy 边界和退出余韵。
 - 专用规则只在房间 Session 内生效，不覆盖正式性格、AI Self、Desire、关系事实或常驻活人感；不能把普通聊天统一改成长篇小说。
+
+### G. v0.35.0 自动验收落款
+
+- 最终实现 head `ae59638a1fe94c7664767adc70ac80120d20abe3`；Actions run `32139893450` 全绿。
+- 第一次失败只因 HANDOFF 清理时移除了 v0.34.5 历史取证词；补一行历史兼容标记，不改变运行逻辑。第二次失败只因冻结 v0.32 版本正则截止 0.34.9；只更新 `validate_current_schema24_b.py` 的 current-release 适配，不改冻结原始校验。
+- 最终通过全部历史回归、`validate_v0350_personality_trials.py`、Kotlin 桌宠状态/物理测试、Flutter analyze、164 条 Flutter tests、release APK、6 个 arm64 原生库、417 文件桌宠载荷、外观/哈欠素材哈希与 A2 native 前缀核验。
+- APK `AI-Companion-v0.35.0-75-Personality-Trials-APK.apk`，约 239.7MB；SHA-256 `b47493f179a9fe850a6581d2a03bcdda843983f7c4637ac7d1aa22252319dd11`。私有草稿 Release 上传步骤成功。
+- 自动化证明源码、迁移、编译、测试和打包成功；性格差异、活人感、强特殊风格、计时/回退/转正 UI 与长期使用感仍必须由用户真机验收后才能写成完成。
