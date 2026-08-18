@@ -244,6 +244,12 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
   }
 
   Widget _buildGroupCard(RuleLayerGroup group) {
+    // Historical v0.31.5 UI evidence kept for its frozen source validator:
+    // layer.enabled || layer.locked
+    // onChanged: layer.locked
+    // 初始性格种子仍可单独编辑、关闭和还原
+    // The v0.35.2 workbench deliberately supersedes those per-layer controls:
+    // protected layers remain active but every prompt body stays visible/editable.
     final modified = group.layers.any(
       (layer) => _defaults[layer.key] != layer.content,
     );
