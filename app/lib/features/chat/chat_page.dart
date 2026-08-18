@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/chat_message.dart';
+import '../../core/models/personality_trial.dart';
+import '../../core/database/app_database.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
@@ -13,6 +15,7 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/reasoning_panel.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
+import '../personality/personality_lab_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -30,6 +33,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
   Timer? _externalSyncTimer;
+  Timer? _personalityTimer;
+  PersonalityTrial? _personalityTrial;
+  SpecialStyleTrial? _specialTrial;
   bool _appResumed = true;
   bool _pickingImage = false;
 
@@ -45,6 +51,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _initializeController() async {
     await controller.initialize();
     if (!mounted) return;
+    await _refreshPersonalityTrials();
+    _personalityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      unawaited(_refreshPersonalityTrials());
+    });
     await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -99,17 +109,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
     }
+    if (_appResumed) unawaited(_refreshPersonalityTrials());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _externalSyncTimer?.cancel();
+    _personalityTimer?.cancel();
     controller.removeListener(_onChanged);
     controller.dispose();
     input.dispose();
     scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshPersonalityTrials() async {
+    final profile = await AppDatabase.instance.activePersonalityTrial();
+    final special = await AppDatabase.instance.activeSpecialStyleTrial();
+    if (!mounted) return;
+    setState(() {
+      _personalityTrial = profile;
+      _specialTrial = special;
+    });
+  }
+
+  String _shortRemaining(Duration duration) {
+    if (duration.isNegative) return '0分';
+    if (duration.inDays > 0) return '${duration.inDays}天';
+    if (duration.inHours > 0) return '${duration.inHours}时';
+    return '${duration.inMinutes.clamp(0, 999)}分';
+  }
+
+  Future<void> _openPersonalityLab() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PersonalityLabPage()),
+    );
+    await _refreshPersonalityTrials();
   }
 
   Future<void> _send() async {
@@ -455,6 +491,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ],
               ),
             ),
+            if (_personalityTrial != null || _specialTrial != null)
+              TextButton(
+                onPressed: _openPersonalityLab,
+                child: Text([
+                  if (_personalityTrial != null)
+                    '试穿 ${_shortRemaining(_personalityTrial!.remaining())}',
+                  if (_specialTrial != null)
+                    '特殊 ${_shortRemaining(_specialTrial!.remaining())}',
+                ].join(' · ')),
+              ),
           ],
         ),
       ),
