@@ -70,7 +70,7 @@ void main() {
     expect(PersonalityCatalog.specialStyles.length, 8);
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达过滤'));
-    expect(trial, contains('可见思考默认用第一人称“我”'));
+    expect(trial, contains('可见思考用“我”开头'));
     expect(reserved, contains('他是平等的男朋友'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('揪住他话里的小尾巴'));
