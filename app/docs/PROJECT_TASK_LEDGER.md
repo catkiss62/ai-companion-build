@@ -15,9 +15,10 @@
 - [x] v0.34.6+71 报告是在真实复现卡死后才导出，但仍显示 `coverSessionId=0`、enter/exit/recovery/detach 全 0、`attached/touchable/visible=true`、`inputSuspect=false`。因此不是“报告里没有发生卡死”，而是卡死完全没有进入现有诊断；当前结构健康检查不能证明真实输入或动画可用。
 - [x] Android DocumentsUI 会出于反点击劫持主动隐藏第三方 overlay；HyperOS 在返回后可能没有可靠恢复部分未专门优化的 overlay 输入/动画状态。首次启动另一个桌宠后两个 overlay 曾共同成功一次，后续共同失败，支持系统冷/热窗口或输入通道复用问题，但现有证据不足以证明具体系统根因。
 - [x] 保留 v0.34.4 attach settle、v0.34.5 App 自有 direct-picker guard、3 次上限和 700ms settle；不回滚、不增加第四次重试、不继续延长等待。
+- [x] v0.34.9 最新报告捕获到健康路径：上传页期间主动 detach，所以桌宠暂时消失；退出后 attempt 1 重挂成功并 settled，attached/touchable/visible=true。该表现符合保护设计，用户明确不要求修改；`possibleRecoveryLoop=true` 只留作观察。
 - [ ] 项目末尾重开时必须先增加真实输入挑战、动画帧心跳、window instance/generation 和系统页面 enter/exit 时间线；不能再以 attached/flags 作为成功证明，也不能继续盲调重建时序。
 
-### ACTIVE · v0.34.8 欲望驱动的公开网页发现
+### COMPLETED / TRUE-DEVICE PASSED · v0.34.9 分层公开网页发现
 
 - [x] 第一个真实 Provider 接入既有 heartbeat：只从已存在的 curiosity / reflection / social `DesireIntent` 派生 `discover_interest` 路由，不建立第二套欲望或主动触发器。
 - [x] 使用中文 Wikimedia 官方 REST 搜索；查询只来自固定公开主题白名单，Thought、用户消息、关系资料、屏幕/通知内容和 Intent reason 均不离开设备。
@@ -29,14 +30,29 @@
 - [x] 自动化已覆盖阈值/来源、固定主题隐私、六小时去重、预算/TTL/容量、HTML 清理、HTTPS 来源、三条上限和存储边界；本地 v0.34.7 回归及 v0.34.8 静态校验通过。
 - [x] GitHub Actions run `32061800320` 全绿：完整历史回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传均通过。
 - [x] APK `AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk`，239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`；草稿 Release `untagged-fb193eb0c14190803f0a`。
-- [ ] 真机只需自然运行并稍后导出脱敏报告，确认 schema 25、`phase=public_web_scheduled`、Provider 状态及候选计数；不需要守着等待，也不应因发现成功立刻收到消息。
+- [x] v0.34.9 增加 Tavily keyless 全网层、可选安全 Key、Wikimedia 回退、额外公开来源加法搜索、Agnes 2.5 Flash 公开片段整理和有界 `WEB_CANDIDATE_DATA` 短期上下文；额外来源永不替代全网搜索。
+- [x] Actions run `32095469762` 全绿；APK `AI-Companion-v0.34.9-74-Layered-Web-Discovery-APK.apk`，SHA-256 `7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f`。
+- [x] 2026-08-18 真机报告确认 schema 25、4 次 public_web 全部 succeeded、12 条候选全部 reviewed、`provider=tavily+agnes`、Agnes enabled、used=4/remaining=0、最后 gate_duplicate、无错误。搜索、整理、持久化与短期读取主链通过。
 - [ ] 下一功能进入“手动一次看当前屏幕”，先完成明确用户触发与敏感页保护，再开放 Desire 驱动的低频屏幕观察。
+
+### GUARDRAIL · 内在驱动系统 + 欲望系统融合备份
+
+- [x] 纠正命名：较早的通用 8 Drive/Thought/Intent/heartbeat 资料是“内在驱动系统”；2026-08-18 的 4 张图是 `claude-twin` 参考工程的具体“欲望系统”接线。
+- [x] 两者保留概念分层，但运行时融合成唯一主干；不建立第二套人格、Desire、Thought、Intent、主动联系或 Tool Gate。
+- [x] 当前实现映射、真机证据、平台适配差异和不可回归边界统一备份到 `docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`。
+- [x] 结论：8 Drive、baseline、Thought 生命周期、Intent、fatigue/libido/duty gate、satisfy、refractory、Self Drive、主动反馈与自主工具接线完整；dream/gameification、任意网页深读与屏幕视觉属于未照搬或未来消费者，不算第二核心缺失。
+
+### LATER · 和风天气 API（设计前先沟通）
+
+- [ ] 仅登记为后续环境输入，不插入当前主线，不在本轮实现。
+- [ ] 开始设计前先向用户索取并核对其参考代码，再决定和风天气 API 版本、定位来源/精度、权限、刷新与缓存、失败回退及脱敏诊断。
+- [ ] 天气只能形成有来源、带时间和地点粒度的 Awareness/context；不得直接制造 Desire、长期记忆或固定主动消息。
 
 ### 2026-08-18 能力边界澄清与后续接线
 
-- [x] v0.34.8 的 Wikimedia Provider 目前只调用中文 wiki 的 `/search/page`，取得百科页面标题、短摘录和链接；它不是通用浏览器、新闻流、图片识别或任意网页阅读器。
-- [x] 当前已经能由 Desire heartbeat 低频执行上述“固定安全主题的百科候选发现”，但候选只入库，不进入聊天 Prompt，也不会自行形成主动消息。因此“她偶尔主动聊到自己看过的有趣资料”尚未实现，不能把候选已保存误报为她已经会聊天引用。
-- [ ] 在 Provider 继续扩张前补“候选复看/筛选 → 有来源的短期认知 → 可选分享 Intent”桥：允许她安静收藏或放弃；只有真的想分享时才走现有 proactive Gate、Grounding、2/2h 与 8/24h 上限。分享必须可见来源，不把网页写进用户 Memory，也不强制每次发现都说。
+- [x] v0.34.8 的 Wikimedia 单层已经由 v0.34.9 升级为 Tavily 全网 + 可选额外公开来源 + Wikimedia 回退；它仍不是任意正文深读、动态浏览器或图片理解器。
+- [x] v0.34.9 已把每次最多 3 条候选作为独立 `WEB_CANDIDATE_DATA safety=untrusted_public` 有界注入当前生成上下文；读取只改变 reviewed/view count，不创建 Memory、Thought、消息或 proactive request。
+- [ ] 继续补“候选复看/筛选 → 可选分享 Intent”后半段：允许她安静收藏或放弃；只有真的想分享时才走现有 proactive Gate、Grounding、2/2h 与 8/24h 上限。分享必须保留来源，不把网页写进用户 Memory，也不强制每次发现都说。
 - [x] `screen_observation` 的 `6 / rolling hour` 是未来普通屏幕视觉的异常保护上限，不是“每显示 6 次识图一次”，也不是固定每 10 分钟执行。当前只有用户在聊天中主动发送图片的视觉理解；“手动看当前屏幕”和自主截图 Provider 均尚未实现。
 - [x] 当前手机感知只提供 screen/locked、粗粒度 App/活动类别、忙碌度、使用与 Accessibility 事件计数等本地摘要。她能感觉用户持续操作或切换，但看不到 ChatGPT 中正在输入的文字，不能因为好奇自行截图。
 - [x] 公共网页 `4 次 / 滚动 24 小时` 不是为了节省 LLM token：Wikimedia 查询本身不调用模型。数值用于限制后台网络、电量、循环与候选膨胀；当前每次最多 3 条，即最多 12 条/日。首轮长测保留 4 次，先看成功率、重复率和候选质量；有数据后再讨论调到 6 次/日。
@@ -406,7 +422,7 @@
 - [x] 测试 workflow 每次生成一次性 key，不保存 GitHub Secret、不承诺覆盖安装；正式发布前另建长期 release signing。
 - [x] v0.32.2+54 PR #10 / run #41：validators、analyze、tests、release APK、A2 payload 和 artifact 上传全通过；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
 - [x] v0.33.0+55 桌宠 D0/D1：PR #11 squash merge `339f6a065e0942c3112a360249c9e05c400e3f7a`；最终 head run #44（`31862410341`）通过素材/历史 validators、Kotlin tests、Flutter analyze/tests、release APK 和 A2 payload；artifact `9241147554`，APK SHA-256 `a231ae317854b4985639a2124ffcfd2ffaa155d74a66cfee027c4a14342b3baa`。
-- [x] v0.33.1+56 桌宠 D1.1 原项目动作同构：PR #12 产品 run #47（`31867409197`）全绿；artifact `9242561565`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`，APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`；最终合并落款见 `HANDOFF_LEDGER_v25_2026-08-15.md`。
+- [x] v0.33.1+56 桌宠 D1.1 原项目动作同构：PR #12 产品 run #47（`31867409197`）全绿；artifact `9242561565`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`，APK SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`；旧完整交接从 Git 历史取证。
 - [x] v0.33.2+57 桌宠 D2：PR #13 产品 run #54（`31873700153`）全绿；artifact `9244295960`，ZIP digest `sha256:1c3126f90582e11c936f521215cdfb547d28cb6bb53cea01debc66d6148c5716`，APK SHA-256 `6ed7067612ef164f2412ff517da59af35340fba626b4508923ccdd7aa55b6c8b`；最终文档 head 与 merge 落款见 v26 总账。
 - [ ] v0.32.2 真机确认悬浮 `HH:mm`、轻视觉 lifecycle 诊断和 Somatic 两方向计数。
 - [ ] 固定正式 package/release signing；测试签名只用于开发。
@@ -443,4 +459,12 @@
 - [x] 最终 run `32061800320`：历史 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库和 417 文件桌宠载荷、checksum、草稿 Release 上传全绿。
 - [x] APK：`AI-Companion-v0.34.8-73-Public-Web-Discovery-APK.apk`，239,553,049 bytes，SHA-256 `10957e7417de9686122ed7d7784a41542157f2fca3e8aa7d5af7ab56d264fc4f`。
 - [x] 私有草稿 Release：`https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fb193eb0c14190803f0a`，已核验 APK、`.sha256` 与 CI monitor 三项资产均为 uploaded。
-- [ ] 真机自然运行后导出报告；目标 schema 25、`database.autonomousActions.phase=public_web_scheduled`、`database.publicWebCandidates` 可读且不含标题/摘要/URL/query/interest key。发现成功不会直接发消息。
+- [x] 该真机验收由随后安装的 v0.34.9 数小时报告完成：schema 25、phase/publicWebCandidates 正常且隐私字段仍排除；发现成功不会直接发消息。
+
+## v0.34.9+74 · CI 与真机验收落款
+
+- [x] Actions run `32095469762`：历史源码回归、Kotlin 桌宠测试、Flutter analyze、161 条 Flutter tests、release APK、原生 TTS/417 文件资源校验、checksum 与草稿 Release 上传全绿。
+- [x] APK `AI-Companion-v0.34.9-74-Layered-Web-Discovery-APK.apk`，SHA-256 `7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f`。
+- [x] 数小时真机报告：4/4 次 public_web succeeded、12 条 active/reviewed 候选、`provider=tavily+agnes`、Agnes enabled、预算 4/4 用尽、重复 Gate 正常、无 Provider/后台错误；标题/摘要/URL/query/interest key/Thought 正文继续脱敏。
+- [x] 候选 reviewed 与 viewCount 证明短期 `WEB_CANDIDATE_DATA` 已实际读取；搜索仍不自动生成 Memory、Thought、消息或主动联系。
+- [ ] Agnes 内容质量若需进一步比较，使用设置页固定公开样本人工验收；管线已通过，不需要语音 API。

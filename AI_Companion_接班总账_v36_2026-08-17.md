@@ -2,21 +2,17 @@
 
 更新时间：2026-08-18（Asia/Tokyo）
 
-> 本文件是当前唯一最新接班入口，继承 v35 以前的历史证据，但以本文件记录的基线、用户决定、真机结论和排期为准。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > 旧总账。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
+> 本文件是当前唯一最新接班入口，已吸收并取代 v35 以前接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
 ## 0. 下一轮开场先做什么
 
-1. v0.34.5+70 direct-picker 自动化已通过，但新真机报告证明用户当前复现的是“其他 App 发起的上传选择器 + 无障碍关闭”，不是 App 内 direct-picker 已进入后恢复失败。v0.34.6+71 只修复锁屏/解锁 WALKING、STROLLING 卡动作，CI 与真机待验。
-2. 安装 v0.34.6 后，先在系统设置重新开启 AI Companion 无障碍并确认诊断为 authorized/connected=true；卸载重装会清除该系统授权，App 不能静默恢复。
-3. 从 ChatGPT/浏览器等外部 App 打开上传选择器，返回后再进入 AI Companion 生成报告。预期 `coverSessionId>0`、Accessibility 原因与最终 `settled`；App 自己发起的相册/相机/诊断保存仍应看到 `direct_picker:`，且不要求无障碍。
-4. 锁屏复测：分别在 WALKING 与 STROLLING 时锁屏，解锁后应从 IDLE/重新调度开始，不再停留在失去移动任务的循环动作。
-5. 若无障碍已连接且外部上传仍卡住，用户发送同样的脱敏诊断，并说明症状属于：
-   - 动画仍运行，但点击/拖动/双击无反应；
-   - 动画也完全停止；
-   - 只有菜单或悬浮聊天打不开。
-6. 若 cover 已进入 session 仍失败，只允许再做一轮聚焦修复；应整体替换错误段或增加真实输入活性证明，不能继续延长等待、增加第四次重试或层层打补丁。再失败则冻结悬浮恢复，先推进其余主线。
+1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
+2. 下一产品主线仍是“手动看一次当前屏幕 + 实际 App 名称映射 + 敏感页 Gate”，完成明确用户触发后才讨论 Desire 驱动的低频屏幕视觉。
+3. HyperOS 上传选择器问题继续冻结到项目末尾。本次桌宠在系统上传页消失、回到 App 自动恢复，是 `enter → detach → exit → attempt 1 reattach → settled` 的预期隔离路径，不修改；只保留 `possibleRecoveryLoop=true` 的可观测性记录。
+4. 内在驱动系统与 4 图欲望系统已经核对为“概念层 + 具体接线层”，运行时融合为唯一 Desire / Thought / Intent / Gate 主干。新的长期备份为 `app/docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`。
+5. 和风天气 API 登记为后续简单环境输入，不插入当前主线。设计前先与用户核对其参考代码、定位/权限、刷新缓存与失败回退；本轮不实现。
 
 ## 1. 当前 GitHub / 构建基线
 
@@ -631,3 +627,41 @@
   SHA256：7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f。
 - 成功构建对应 PR merge head 98de6ce655242ef09923df0a6e7e0633b2922a10，
   源分支功能提交 9c47c3bbb815cb3aa534d9c9da25c45841d040e8。
+
+## 10.10 2026-08-18 数小时真机验收、驱动/欲望融合与账本收敛
+
+### A. v0.34.9 真机主链通过
+
+- 新报告来自 `v0.34.9+74`、schema 25，Active Brain=true；后台、生成、异步维护、Daily Continuity 与 TTS error flag 均为 0，possible unclean restart 为 0。
+- `autonomous_action_runs=4`，全部为 `public_web / succeeded / candidate_stored`，failed/no_result/cancelled 均为 0；最后一次保存 3 条，耗时落在 15～60 秒桶。
+- 滚动 24 小时预算 used=4 / remaining=0，成功行的 `budgetRemaining=0` 已证明 v0.34.9 修正了扣除前显示误差；随后请求被 `gate_duplicate` 正常挡住。
+- `public_web_candidates=12`、active=12、reviewed=12；最后候选 viewCount=2。Provider=`tavily+agnes`、Agnes enabled、lastError 为空，证明全网搜索、Agnes 整理、候选持久化与受限短期上下文均已在真机运行。
+- 诊断继续不含标题、摘要、URL、查询、interest key、Thought 正文、聊天或 secret。额外来源数量为 0，只说明用户尚未填写，不影响全网搜索成功。
+- 本结论只确认管线成功，不把 Agnes 摘要质量误写为已人工通过。若要比较整理效果，使用设置页固定公开样本与设备端文本 API Key，不需要语音 API。
+
+### B. 上传页桌宠消失的记录
+
+- 用户观察到：进入系统上传文件页时桌宠不再卡住，而是暂时消失；回到 AI Companion 后自动恢复，无需修改。
+- 诊断确实记录本次路径：`lastSystemCoverReason=accessibility_system_surface`、cover session 7、detach count 6、exit reason `accessibility_non_system_window`、attempt 1、result `success`、最终 `settled`，且 attached/touchable/visible=true。
+- 源码会在系统安全页面出现时主动 `removeViewImmediate` 退役旧输入通道，避免在 picker 下方保留可疑/失活的 Window；退出稳定窗口后才重建。因此“期间消失、回来恢复”是当前保护设计的预期表现，不是新故障。
+- 报告仍给出 `possibleRecoveryLoop=true`、self-heals per cover session 3.43；本轮只作为可观测性观察项保留。用户明确不要求修改，HyperOS overlay 任务继续冻结到项目末尾。
+
+### C. 内在驱动系统与欲望系统的最终关系
+
+- 较早 6 页通用资料按作者命名纠正为“内在驱动系统”；本次 4 图是 `claude-twin` 参考工程的具体“欲望系统”接线。旧审计把两者都称“欲望系统”会造成来源混淆。
+- 两者不是需要并行运行的两个内核。前者描述长期动机原则，后者描述 Drive / Thought / Intent / Action / satisfy 接线；参考图本身也写明“缝合三条旧线，不是新造第三套”。
+- 当前项目已在唯一主干中融合两者：8 Drive/baseline、Thought 全生命周期、Intent、fatigue/libido/duty gate、action-aware satisfy、per-drive refractory、Self Drive、heartbeat、主动 Gate、Outcome 与 v0.34.9 工具链均已接入。
+- Python server、HTTP API、环境变量、参考动作名和固定系数以 Dart/SQLite/Android 等价实现替代；dream/gameification、任意网页深读和屏幕视觉未照搬或属于未来消费者，不能据此误报核心不完整。
+- 新的长期规范备份：`app/docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`。旧 `DESIRE_SYSTEM_AUDIT_v1.md` 保留为历史审计和资料来源记录。
+
+### D. GitHub 账本维护与清理
+
+- 本次发现根目录 v36 总账持续追加到了 v0.34.9，但 `app/docs/HANDOFF.md` 的入口仍停在 v0.34.5，`app/docs/PROJECT_TASK_LEDGER.md` 的 ACTIVE 摘要仍停在 v0.34.8；不是源码遗漏，而是入口摘要漂移。
+- 已同步修正 HANDOFF、PROJECT_TASK_LEDGER 和 v36 当前开场，并登记融合备份、真机证据与天气后续项。
+- 旧 `HANDOFF_LEDGER_v15/v21～v26/v28` 与根目录 `接班总账_v29～v32/v34` 均在正文中明确声明被后续版继承并取代；工作区删除，只从 Git 历史取证。架构方案、专项审计、当前 HANDOFF、任务账和 v36 均保留。
+
+### E. 和风天气后续项
+
+- 只登记，不在本轮设计或实现，不改变版本/schema，也不为此触发 APK 构建。
+- 开始前必须先与用户核对其参考代码，再确定 API 版本、定位来源/精度、权限、缓存/刷新、离线/失败回退和脱敏字段。
+- 天气只能成为有来源、带时间与粗粒度地点的 Awareness/context；不能直接制造 Desire、长期记忆或固定主动消息。

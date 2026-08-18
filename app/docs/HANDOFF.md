@@ -2,24 +2,15 @@
 
 > 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
-## 0A. 当前开发头 · v0.34.5+70 Direct Picker Recovery
+## 0A. 当前开发头 · v0.34.9+74 Layered Web Discovery
 
-- Draft PR #23 分支 `agent/personality-appearance-self`；本轮从已安装的 `v0.34.4+69` 继续，SQLite schema 23 不变。
-- 最后报告 `ai_companion_diagnostics_2026-08-17T12-58-30-120929Z.txt` 显示系统选择器卡住后 `accessibilityAuthorized=false`、`coverSessionId=0`、`lastSystemCoverAt=0`、recovery attempt/count 均为 0。失败发生在 cover 检测入口，不能据此判定 settle 验证失败。
-- 源码只有 Accessibility system-surface 与 `onWindowVisibilityChanged` 两个自动入口；本机在无障碍关闭时没有触发前者，HyperOS 又保持 overlay window 为 visible，导致两条链都漏检。
-- v0.34.5 新增 direct picker guard：Flutter `image_picker` 的 gallery/camera，以及原生诊断导出、手动备份保存/打开，在启动系统选择器前直接调用既有 `notifySystemCoverEntered`，返回/取消/启动失败时调用 `notifySystemCoverExited`。
-- direct picker 复用同一个 cover session、恢复 ownership、WindowManager rebuild 和脱敏诊断；不新建第二套状态机。理由会以 `direct_picker:...` 粗粒度枚举进入现有诊断，不记录文件名、URI、图片内容或账号数据。
-- **不回滚 v0.34.4 settle**：同步读取 `isAttachedToWindow` 的误判已经有旧真机证据。最多恢复 3 次的上限保持不变，不增加第四次重试，也不延长 settle/retry 时间。
-- 首次 CI 提交后静态复核发现聊天页误用私有构造器 `AndroidBridge()`；已改为 `AndroidBridge.instance`，并由 v0.34.5 validator 锁定。版本仍为 `0.34.5+70`，direct picker 与恢复状态机均未改变。
-- Actions artifact 配额已满是既有约束；测试 APK 与 `.sha256` 继续上传到同一私有仓库的草稿 Release，不恢复 artifact 上传。
-- GitHub 连接能够提交源码但无法读取 Actions runs/logs（403），且用户当前安卓网页端没有可见的 Cloud Browser 接管入口。workflow 已增加失败自报告：`report-ci-failure` 使用本次 workflow 自身的 `actions: read` 权限读取已结束 job 日志，并把 `AI-Companion-v0.34.5-70-CI-Monitor.txt` 上传到同一私有草稿 Release；成功时该文件覆盖为 success + APK SHA-256。后续自动监测读取 Release 即可，无需用户反复截图日志。
-- 连接同样无法列出私有草稿 Releases，所以 workflow 还把同一状态镜像到 PR #23 的固定 CI 评论：failure 包含最多 50KB 日志尾部，success 包含 APK SHA-256 与由 `gh release view` 返回的真实草稿 Release URL。交付规则是优先直接发送 APK；做不到时发送草稿 Release 链接。监测任务、PR 评论和 `CI-Monitor.txt` 只作内部取证，不作为用户成品。
-- PR 评论列表接口随后也返回 404，因此该方案未作为最终通道。最终自报告位置是独立分支 `ci-monitor-v0345` 的 `.ci/v0345-monitor.txt`：workflow 用 `contents: write` 覆盖文件，连接用可用的 contents API 读取；独立分支不建 PR、不合并 main、不触发本 PR workflow。失败含日志尾部，成功含 APK SHA-256 与真实草稿 Release URL。
-- 首个自报告已经定位 run `32040383825` / job `95418527942`：最先失败的是 `validate_v0331_desktop_pet_source_parity.py` 的旧版本白名单，不是 Flutter/Kotlin 编译或 direct picker 行为。继续检查 workflow 的全部校验命令后，共确认 v0321、v0322、v0331～v0343 这 15 个历史校验器仍带 `0.34.4` 发布身份；已一次性迁移到 v0.34.5 的版本、workflow 标题与 APK 名称，功能断言保持不变。
-- 失败 run 对应的草稿 Release 只有 CI 诊断，没有 APK，禁止把它交给用户当成成品。下一次 Actions 全绿后优先直接交付 APK；聊天无法直传时只发送已核验包含 APK 与 `.sha256` 的草稿 Release 链接。
-- 真机验收：相册选择与诊断导出各连续 2～3 次；期望 `coverSessionId>0`、direct picker 原因可见、最终 `settled`、attached/touchable=true、`possibleRecoveryLoop=false`。
-- 若仍失败，只允许再做一轮以新证据为依据的聚焦修复；仍无效则冻结悬浮恢复，先完成其余主线。
-- Desire 与双通道 Somatic 是真人感核心备份；后续自主功能必须复用 Desire / Thought / Intent / Gate 和 Somatic 输入，不得另建平行人格或主动触发器。
+- Draft PR #23 分支 `agent/personality-appearance-self`；当前 App `v0.34.9+74`，SQLite schema 25。
+- 功能提交 `9c47c3bbb815cb3aa534d9c9da25c45841d040e8`；最终文档 head `ca8f9f78f039648757c0d067b54a35d9347dcf2e`。Actions run `32095469762` 全绿，APK SHA-256 `7fa1c47f4e87f50a461669098effa0e275bfa39fec336817edb9c1e94b9fe10f`。
+- 2026-08-18 数小时真机诊断已经验证 4/4 次 public_web succeeded、12 条 active/reviewed 候选、`provider=tavily+agnes`、Agnes compaction enabled、预算 used=4/remaining=0、最后重复请求被 gate_duplicate 拦截，且无 Provider/后台错误。
+- 候选被标为 reviewed 且 view count 已增加，证明受限 `WEB_CANDIDATE_DATA` 短期上下文也已实际读取；它仍不创建 Memory、Thought、消息或 proactive request。
+- 上传选择器期间桌宠消失、回到 App 恢复，是系统 cover 下主动退役旧悬浮输入通道并在退出后重挂的预期路径。本次 session 7、attempt 1、result success、最终 settled/attached/touchable/visible；按用户决定不修改，只记录 `possibleRecoveryLoop=true` 观察项。
+- 旧“内在驱动系统”与新 4 图“欲望系统”已确认为概念层和具体接线层，融合使用最合理。当前完整备份为 `docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`；运行时继续只有一套 Desire / Thought / Intent / Gate 主干。
+- 下一产品主线是手动一次看当前屏幕、实际 App 名称映射和敏感页 Gate。和风天气 API 只登记后续，设计前必须先与用户沟通其参考代码，本轮不实现。
 
 ## 1. 当前基底
 
@@ -71,7 +62,7 @@
 - 性格底色窗口方案只编辑 `03_personality_seed`；推荐“预设 + 可编辑文本”，当前未改变真实性格。
 - 用户已授权其私人、非商业项目使用上传素材并同意署名；v0.33.0 只打包 27 动作/66 张 238px 运行帧，公开发布前仍需换素材或取得额外许可。
 - run #41（`31857394060`）全绿；APK SHA-256 `f6d7d4aab377cace2449d7ffc35c791a3ef5a6ee039ef68fa3ae3b63f215d3b7`。
-- 完整交接见 `docs/HANDOFF_LEDGER_v23_2026-08-15.md`、`docs/ANDROID_DESKTOP_PET_PLAN_v2.md`、`docs/PERSONALITY_BASE_UI_v1.md`。
+- 历史交接已由当前 v36 总账吸收；专项资料见 `docs/ANDROID_DESKTOP_PET_PLAN_v2.md`、`docs/PERSONALITY_BASE_UI_v1.md`。
 
 ## 3. v0.32.0～v0.32.1 · 双通道感官
 
@@ -337,7 +328,7 @@ P2：
 - 私人运行皮肤为 27 动作、66 张 238px RGBA PNG、低于 6MiB；附来源与仅限私人非商业使用说明。
 - Kotlin 新增安全 skin loader、12MB LRU cache、动作状态机、帧播放器和系统页预览入口。
 - D2 下一步在同一前台服务内增加 Pet window，复用悬浮聊天和真停止能力；旧悬浮球在真机稳定前保留回退。
-- 完整入口：`docs/HANDOFF_LEDGER_v24_2026-08-15.md`、`docs/DESKTOP_PET_D0_D1_v0.33.0.md`。
+- 专项入口：`docs/DESKTOP_PET_D0_D1_v0.33.0.md`；当时完整交接只从 Git 历史取证。
 
 - D0/D1 CI：run #43（`31861829909`）全绿；artifact `9240951958`；APK SHA-256 `db532702a4b0e5412613f05e71b940688ba467e53b747aedf762e6d42dcd2d1a`。
 
