@@ -2,6 +2,16 @@
 
 > 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
 
+## 0AA. 当前开发头 · v0.35.0+75 Personality Trial System
+
+- 当前 Draft PR #23 分支继续作为累计主线；App 目标 `v0.35.0+75`，SQLite schema 26。CI/真机结果必须在 Actions 完成后另行落款，不能把本地实现写成已验收。
+- 常驻活人感规则已优化：日常先反应再整理，普通一句话不升格成关系论文；同样约束可见 reasoning。明确任务、事实与风险仍完整准确。
+- 新增“性格试穿间”：4 个性格底色 × 4 个相处姿态；普通试穿可转正，特殊风格 8 种只临时叠加、永不转正。
+- 普通/特殊倒计时独立；切换相应层重新计时，延长不重置。聊天顶栏只显示短计时，完整状态在“她的内心”。
+- 转正条件：至少 6 小时、20 次完成回复、2 个相隔至少 1 小时的互动时段；特殊风格期间不计普通转正进度。到期结果保留 7 天。
+- 转正只更新 `03_personality_seed` 并保存旧版快照，不重置 AI Self、Memory、关系或 Desire baseline。详见 `docs/PERSONALITY_TRIAL_SYSTEM_v1.md`。
+- 后续任务新增“沉浸房间（长对话模式）”：为长篇、小说规则和明确 Session 提供独立入口；本版只登记，尚未设计实现。
+
 ## 0A. 当前开发头 · v0.34.9+74 Layered Web Discovery
 
 - Draft PR #23 分支 `agent/personality-appearance-self`；当前 App `v0.34.9+74`，SQLite schema 25。
