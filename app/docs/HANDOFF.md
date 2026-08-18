@@ -1,6 +1,8 @@
 # AI Companion · HANDOFF
 
 > 每个正式版本都必须同步更新本文件与 `docs/PROJECT_TASK_LEDGER.md`。新窗口先读这两个文件，再读仓库根目录最新完整总账 `AI_Companion_接班总账_v36_2026-08-17.md`、`README.md`、`docs/DEV_STATUS.md` 和实际源码，不从旧聊天记录猜实现。
+>
+> 历史回归取证（不代表当前版本）：`v0.34.5+70` · `direct picker` · `不回滚 v0.34.4 settle`。
 
 ## 0AA. 当前开发头 · v0.35.0+75 Personality Trial System
 
