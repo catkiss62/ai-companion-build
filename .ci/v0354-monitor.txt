@@ -1,12 +1,6 @@
-status=failure
-build_result=failure
-run_id=32213734185
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32213734185
-head_sha=d73ec947a9fb21c252d4d134db71b5c82009af3d
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=95951246675 ---
-Unable to download this completed job log.
-the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a37a6f8d1d7e40e5b34e
+status=success
+run_id=32213988064
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32213988064
+head_sha=1c3f89d5eae4c860ea38d793885f5264c279e02a
+b2b001800f1f82f348e2a901a63708402484c7d1050e9238245dd90f0bc27b2a  AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-de8d4f23e99e9c7538c6
