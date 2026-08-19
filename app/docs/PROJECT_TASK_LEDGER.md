@@ -8,7 +8,7 @@
 
 ## 2026-08-19 最新排期覆盖
 
-### ACTIVE / SOURCE IMPLEMENTED · v0.35.4 动作格式、聊天回底与顶栏收口
+### ACTIVE / BUILT · v0.35.4 动作格式、聊天回底与顶栏收口
 
 - [x] 新版规则 06 逐字替换 `05_intimacy_rendering / 06_intimacy_reference`；动作格式位于极乐专注锁之前，两个稳定 ID 与路由标记完整。
 - [x] 同一动作与神态格式逐字加入 `02_daily` 的【叙事克制】之后。用户口头称 01，但指定标题实际属于 02；按明确位置执行并记录编号纠正。
@@ -17,7 +17,8 @@
 - [x] 悬浮思考入口改为整行横条；App 顶栏试穿移到 NSFW 左侧，NSFW 高度缩到 24dp，启用色改用主题浅紫。
 - [x] 删除聊天思考开关、设置读写和状态包恢复；聊天、图片回复、恢复、主动消息与 API 测试固定启用思考，内部分类/整理任务保持独立。
 - [x] 版本提升到 `v0.35.4+79`，schema 保持 26；新增 `tools/validate_v0354_prompt_format_chat_ui.py`，本地当前/历史静态校验通过。
-- [ ] GitHub Actions、APK、checksum、草稿 Release 与真机 UI/滚动/格式验收待本轮完成。
+- [x] 实现 head `017a194febb834e29825aa9603bced28ab9cea55`；Actions run `32213988064` 已通过完整新旧静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK SHA-256 `b2b001800f1f82f348e2a901a63708402484c7d1050e9238245dd90f0bc27b2a`。
+- [ ] 真机 UI、默认回底、动作括号格式与思考固定开启仍待安装验收。
 
 ### BUILT BASELINE · v0.35.3 NSFW 语境路由与六规则正文换代
 
