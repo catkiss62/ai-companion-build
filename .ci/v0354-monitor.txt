@@ -1,6 +1,6 @@
 status=success
-run_id=32213988064
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32213988064
-head_sha=1c3f89d5eae4c860ea38d793885f5264c279e02a
-b2b001800f1f82f348e2a901a63708402484c7d1050e9238245dd90f0bc27b2a  AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-de8d4f23e99e9c7538c6
+run_id=32214921748
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32214921748
+head_sha=c796407beb21c9942fb2cda14b77c2e25edaeb55
+424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003  AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c374249d800579faf13
