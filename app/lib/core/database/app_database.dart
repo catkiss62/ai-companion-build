@@ -911,7 +911,6 @@ class AppDatabase {
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
-    await db.insert('settings', {'key': 'chat_thinking_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'nsfw_active', 'value': '0'});
     await db.insert('settings', {'key': 'nsfw_reference_active', 'value': '0'});
     await db.insert('settings', {'key': 'nsfw_manual_override', 'value': ''});
@@ -1622,6 +1621,7 @@ class AppDatabase {
     final legacyEditableHashes = [
       ...legacyEditableRuleLayerSha256V0342.entries,
       ...legacyEditableRuleLayerSha256V0350.entries,
+      ...legacyEditableRuleLayerSha256V0353.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
@@ -1668,8 +1668,8 @@ class AppDatabase {
     final db = await database;
     await db.delete(
       'settings',
-      where: 'key = ?',
-      whereArgs: const ['chat_temperature'],
+      where: 'key IN (?, ?)',
+      whereArgs: const ['chat_temperature', 'chat_thinking_enabled'],
     );
     for (final entry in const <String, String>{
       'nsfw_active': '0',
@@ -8826,7 +8826,9 @@ class AppDatabase {
               (row['key'] as String? ?? '').startsWith('companion_voice')) {
             continue;
           }
-          if (table == 'settings' && row['key'] == 'chat_temperature') {
+          if (table == 'settings' &&
+              (row['key'] == 'chat_temperature' ||
+                  row['key'] == 'chat_thinking_enabled')) {
             continue;
           }
           if (table == 'proactive_feedback' && version < 13) {
@@ -8911,7 +8913,6 @@ class AppDatabase {
         'active_brain': '1',
         'model': 'deepseek-v4-flash',
         'reasoning_effort': 'high',
-        'chat_thinking_enabled': '1',
         'nsfw_active': '0',
         'nsfw_reference_active': '0',
         'nsfw_manual_override': '',

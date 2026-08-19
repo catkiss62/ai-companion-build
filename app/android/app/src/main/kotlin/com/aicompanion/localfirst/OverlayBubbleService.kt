@@ -868,6 +868,7 @@ class OverlayBubbleService : Service() {
             bubbleRoot?.visibility = View.GONE
         }
         chatRoot?.visibility = View.VISIBLE
+        scrollChatToBottom()
         chatInputMode = false
         chatParams?.let { params ->
             params.flags = readModeFlags()
@@ -2644,9 +2645,19 @@ class OverlayBubbleService : Service() {
         private fun smallInlineAction(label: String, onClick: () -> Unit): TextView =
             TextView(this@OverlayBubbleService).apply {
                 text = label
-                textSize = 14f
+                textSize = 13f
                 setTextColor(Color.rgb(210, 195, 235))
-                setPadding(dp(9), dp(4), dp(9), dp(2))
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(Color.rgb(44, 41, 50), 9f)
+                setPadding(dp(10), 0, dp(10), 0)
+                minHeight = dp(30)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(30),
+                ).apply {
+                    topMargin = dp(4)
+                    bottomMargin = dp(2)
+                }
                 setOnClickListener { onClick() }
             }
 

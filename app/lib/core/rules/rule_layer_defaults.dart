@@ -82,6 +82,17 @@ const legacyEditableRuleLayerSha256V0350 = <String, String>{
       'c20a5532951b6bb6209049616aeb96e5ea4aa717bbaa1924faa89d5b1fdf121e',
 };
 
+/// Untouched v0.35.3 bodies that changed in v0.35.4. Hash-only matching keeps
+/// the migration conservative without duplicating the large user-authored
+/// NSFW source in a second runtime file.
+const legacyEditableRuleLayerSha256V0353 = <String, String>{
+  '02_daily': 'f2edc5f4f0cbae257ddd063e5fd7c86fef1b534c5d7d5c9b547e6f71e71ae870',
+  '05_intimacy_rendering':
+      '343108532796cb68d586fca8cbe97e9d97bb5e5b1c82fba9dc33c1838a4a8cfe',
+  '06_intimacy_reference':
+      'dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so
@@ -536,7 +547,7 @@ final legacyRuleLayerContentsV0352 = <String, String>{
   for (final layer in _legacyDefaultRuleLayersV0352) layer.key: layer.content,
 };
 
-const _approvedRuleContentsV0353 = <String, String>{
+const _approvedRuleContentsV0354 = <String, String>{
   '01_core': ruleContentV0353_01_core,
   '01_relationship': ruleContentV0353_01_relationship,
   '03_appearance_identity': ruleContentV0353_03_appearance_identity,
@@ -571,14 +582,15 @@ const _approvedRuleContentsV0353 = <String, String>{
 };
 
 /// Runtime source of truth. Titles, stable IDs and load policies stay code-owned;
-/// every prompt body comes from the six user-authored v0.35.3 files verbatim.
+/// every prompt body comes from the approved six user-authored files verbatim,
+/// including the v0.35.4 rule-06 replacement and action-format addition.
 final defaultRuleLayers = <RuleLayerDefault>[
   for (final layer in _legacyDefaultRuleLayersV0352)
     RuleLayerDefault(
       layer.key,
       layer.title,
       layer.loadPolicy,
-      _approvedRuleContentsV0353[layer.key] ?? layer.content,
+      _approvedRuleContentsV0354[layer.key] ?? layer.content,
       locked: layer.locked,
     ),
 ];

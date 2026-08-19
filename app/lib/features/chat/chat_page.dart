@@ -51,6 +51,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _initializeController() async {
     await controller.initialize();
     if (!mounted) return;
+    _scrollToLatest();
     await _refreshPersonalityTrials();
     _personalityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(_refreshPersonalityTrials());
@@ -72,6 +73,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.active && widget.active) {
+      _scrollToLatest();
       unawaited(controller.acknowledgeOverlayUnread());
       if (!controller.sending && !controller.analyzingImage) {
         unawaited(controller.syncExternalMessages());
@@ -86,17 +88,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         (scroll.position.maxScrollExtent - scroll.offset) < 140 ||
         controller.sending;
     if (wasNearBottom) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !scroll.hasClients) return;
-        if (scroll.hasClients) {
-          scroll.animateTo(
-            scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToLatest(animate: true);
     }
+  }
+
+  void _scrollToLatest({bool animate = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scroll.hasClients) return;
+      final target = scroll.position.maxScrollExtent;
+      if (animate) {
+        scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+      } else {
+        scroll.jumpTo(target);
+      }
+    });
   }
 
   @override
@@ -454,6 +463,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _topBar(BuildContext context) {
+    final nsfwColor = Theme.of(context).colorScheme.primary;
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
@@ -491,42 +501,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            Tooltip(
-              message: controller.nsfwActive
-                  ? '本轮成人规则已开启；点击后下一轮强制关闭'
-                  : '本轮成人规则未开启；点击后下一轮强制开启',
-              child: SizedBox(
-                height: 32,
-                child: OutlinedButton(
-                  onPressed: controller.sending || controller.analyzingImage
-                      ? null
-                      : () => controller.setNsfwActive(!controller.nsfwActive),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: controller.nsfwActive
-                        ? Colors.purpleAccent
-                        : Colors.white,
-                    disabledForegroundColor: controller.nsfwActive
-                        ? Colors.purpleAccent
-                        : Colors.white70,
-                    side: BorderSide(
-                      color: controller.nsfwActive
-                          ? Colors.purpleAccent
-                          : Colors.white70,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('NSFW'),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
             if (_personalityTrial != null || _specialTrial != null)
               TextButton(
                 onPressed: _openPersonalityLab,
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                ),
                 child: Text([
                   if (_personalityTrial != null)
                     '试穿 ${_shortRemaining(_personalityTrial!.remaining())}',
@@ -534,6 +516,42 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     '特殊 ${_shortRemaining(_specialTrial!.remaining())}',
                 ].join(' · ')),
               ),
+            if (_personalityTrial != null || _specialTrial != null)
+              const SizedBox(width: 4),
+            Tooltip(
+              message: controller.nsfwActive
+                  ? '本轮成人规则已开启；点击后下一轮强制关闭'
+                  : '本轮成人规则未开启；点击后下一轮强制开启',
+              child: SizedBox(
+                height: 24,
+                child: OutlinedButton(
+                  onPressed: controller.sending || controller.analyzingImage
+                      ? null
+                      : () => controller.setNsfwActive(!controller.nsfwActive),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: controller.nsfwActive
+                        ? nsfwColor
+                        : Colors.white,
+                    disabledForegroundColor: controller.nsfwActive
+                        ? nsfwColor.withValues(alpha: 0.6)
+                        : Colors.white70,
+                    side: BorderSide(
+                      color: controller.nsfwActive
+                          ? nsfwColor
+                          : Colors.white70,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    textStyle: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  child: const Text('NSFW'),
+                ),
+              ),
+            ),
           ],
         ),
       ),

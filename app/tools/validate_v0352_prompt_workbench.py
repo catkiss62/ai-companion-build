@@ -99,14 +99,13 @@ for token in (
     assert token in prompt, token
 
 settings = read("lib/features/settings/settings_page.dart")
-for token in (
-    "模型思考模式",
-    "chat_thinking_enabled",
-):
-    assert token in settings, token
+assert "模型思考模式" not in settings
+assert "chat_thinking_enabled" not in settings
+assert "thinking: true" in settings
 
 proactive = read("lib/core/desire/proactive_engine.dart")
-assert "chat_thinking_enabled" in proactive
+assert "chat_thinking_enabled" not in proactive
+assert "thinking: true" in proactive
 
 memory = read("lib/core/ai/memory_extractor.dart")
 self_reflection = read("lib/core/self/ai_self_reflection_engine.dart")

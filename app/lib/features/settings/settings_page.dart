@@ -67,7 +67,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ProactiveNotificationPrivacy.smart;
   double ttsSpeed = 1.0;
   double ttsVolume = 1.0;
-  bool chatThinking = true;
   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
   ReasoningEffort effort = ReasoningEffort.high;
   TtsStatus? ttsStatus;
@@ -120,7 +119,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     ttsSpeed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
     ttsVolume = double.tryParse(await db.getSetting('tts_volume') ?? '') ?? 1.0;
-    chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
     ttsReplacementController.text =
         await db.getSetting('tts_replacements_json') ?? '{"Yuki":"有希"}';
     model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
@@ -186,10 +184,6 @@ class _SettingsPageState extends State<SettingsPage> {
       await db.setSetting('tts_replacements_json', ttsReplacementController.text.trim());
       await db.setSetting('model', model.apiName);
       await db.setSetting('reasoning_effort', effort.apiName);
-      await db.setSetting(
-        'chat_thinking_enabled',
-        chatThinking ? '1' : '0',
-      );
       if (keyController.text.trim().isNotEmpty) {
         // API credentials are intentionally device-local. If a transferred or
         // crash-recovered turn was waiting on credentials/configuration, make
@@ -235,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
             endpoint: endpoint,
             model: model,
             effort: effort,
-            thinking: chatThinking,
+            thinking: true,
             messages: const <Map<String, Object?>>[
               {'role': 'user', 'content': 'Reply with OK only.'},
             ],
@@ -497,16 +491,6 @@ class _SettingsPageState extends State<SettingsPage> {
               .map((e) => DropdownMenuItem(value: e, child: Text(e.label)))
               .toList(),
           onChanged: (v) => setState(() => effort = v ?? effort),
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('模型思考模式'),
-          subtitle: const Text(
-            '开启时显示原生 reasoning_content，并使用所选思考强度。',
-          ),
-          value: chatThinking,
-          onChanged: (value) => setState(() => chatThinking = value),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(

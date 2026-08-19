@@ -262,7 +262,6 @@ class ProactiveEngine {
 
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
-    final chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
     if (apiKey == null || apiKey.isEmpty) {
       return const ProactiveDecision(sent: false, reason: '没有 API Key；本地内在状态已继续运行');
     }
@@ -437,7 +436,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
         effort: ReasoningEffort.high,
         messages: promptMessages,
         endpoint: endpoint,
-        thinking: chatThinking,
+        thinking: true,
         maxTokens: 700,
       )) {
         if (DateTime.now().difference(lastProactiveLeaseRefresh) >=

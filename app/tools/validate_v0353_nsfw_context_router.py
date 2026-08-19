@@ -12,7 +12,12 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: 0\.35\.3\+78$", read("pubspec.yaml"), re.MULTILINE)
+version = re.search(
+    r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$",
+    read("pubspec.yaml"),
+    re.MULTILINE,
+)
+assert version and tuple(map(int, version.groups())) >= (0, 35, 3, 78)
 assert "static const int schemaVersion = 26;" in read("lib/core/database/app_database.dart")
 
 content_source = read("lib/core/rules/rule_layer_content_v0353.dart")
@@ -29,7 +34,7 @@ expected_hashes = {
     "01_relationship": "ff49b2327826869e121616068720c087f00b1903508247a6b89ba609ab003d7f",
     "03_appearance_identity": "6250a50a97a5c19ad16f6fa78d4665e558236bd50a8494ef65f340113d19d6d1",
     "08_runtime_identity": "1dc62d223f9b5d82b2afb8423be970cc29304b042d0732105c611a29b8848d87",
-    "02_daily": "f2edc5f4f0cbae257ddd063e5fd7c86fef1b534c5d7d5c9b547e6f71e71ae870",
+    "02_daily": "88ac7e4d3a1bab29bfcc3cb217080dfc21f0ac2494d7936beb9fcbb337f95ce6",
     "03_behavior": "3f20bfe48e191ec386ae1ea9335bf9fd3ff69c8e38f749fff03cf8d2caf8a230",
     "08_proactive_turn": "f9e5b355b8a23eea1f4e3e1404c37c9199f935f5381b2ce8aaaa16868907e541",
     "08_visible_inner_voice": "ded7b0a38c593656d4e055255514d55d32d7b0cf48e563dc35433e44c02d49d1",
@@ -54,7 +59,7 @@ expected_hashes = {
     "07_special_zealot": "3924e21435fbdf673eeb26968c514781182e4f71a0f15300059dc1b229ceaaf7",
     "04_memory_rules": "351444294710e7b8f2e48f348e650aa3048b3512b7e83a15a54a15efb09f4b21",
     "04_intimacy_core": "b15c9ca7fcd33f3b42116b881d7853b7ff86dd759fac929f52e38fe2893ddbc7",
-    "05_intimacy_rendering": "343108532796cb68d586fca8cbe97e9d97bb5e5b1c82fba9dc33c1838a4a8cfe",
+    "05_intimacy_rendering": "af3edbd207d81c79d1e328fa0eb0751b2d275ce5e332d954256feff5cd46241f",
     "06_intimacy_reference": "dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3",
 }
 assert set(parsed) == set(expected_hashes), (set(parsed), set(expected_hashes))
@@ -63,7 +68,7 @@ for key, expected in expected_hashes.items():
     assert actual == expected, f"user-authored prompt changed: {key} {actual}"
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
-assert "_approvedRuleContentsV0353" in defaults
+assert "_approvedRuleContentsV0354" in defaults
 assert "legacyRuleLayerContentsV0352" in defaults
 
 router = read("lib/core/ai/nsfw_context_router.dart")
@@ -90,7 +95,7 @@ for token in ("nsfwRouter.decide", "onNsfwRoute", "nsfwActive: nsfwRoute.active"
     assert token in runner, token
 for token in ("setNsfwActive", "nsfw_manual_override", "_applyNsfwRoute"):
     assert token in controller, token
-for token in ("const Text('NSFW')", "Colors.purpleAccent", "Colors.white"):
+for token in ("const Text('NSFW')", "colorScheme.primary", "Colors.white"):
     assert token in chat_page, token
 for token in ("'nsfwRouting'", "'manualOverridePending'", "'promptBodiesIncluded': false"):
     assert token in diagnostics, token
@@ -116,10 +121,10 @@ assert "Clipboard.setData" in rule_page and "Clipboard.getData" in rule_page
 
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 for token in (
-    "Build AI Companion v0.35.3+78 APK",
+    "Build AI Companion v0.35.4+79 APK",
     "validate_v0353_nsfw_context_router.py",
-    "AI-Companion-v0.35.3-78-NSFW-Context-Router-APK.apk",
+    "AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk",
 ):
     assert token in workflow, token
 
-print("v0.35.3 NSFW context router and exact six-rule content validation passed")
+print("v0.35.3+ NSFW context router and exact six-rule content validation passed")

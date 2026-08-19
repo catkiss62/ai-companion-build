@@ -117,7 +117,6 @@ class ChatController extends ChangeNotifier {
   String? error;
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
-  bool chatThinking = true;
   bool nsfwActive = false;
   bool nsfwRouting = false;
   TtsQueueState ttsState = TtsQueueState.idle;
@@ -194,7 +193,6 @@ class ChatController extends ChangeNotifier {
       await db.ensureReady();
       model = DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
-      chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       messages = await db.recentMessages(limit: 120);
       unawaited(attachmentStorage.cleanOldDrafts());
@@ -296,12 +294,6 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> setChatThinking(bool next) async {
-    chatThinking = next;
-    await db.setSetting('chat_thinking_enabled', next ? '1' : '0');
-    _safeNotify();
-  }
-
   Future<void> setNsfwActive(bool next) async {
     if (sending || analyzingImage) return;
     nsfwActive = next;
@@ -313,8 +305,7 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> _refreshChatSamplingSettings() async {
-    chatThinking = (await db.getSetting('chat_thinking_enabled')) != '0';
+  Future<void> _refreshChatRoutingSettings() async {
     nsfwActive = (await db.getSetting('nsfw_active')) == '1';
   }
 
@@ -444,7 +435,7 @@ class ChatController extends ChangeNotifier {
       }
       marked = await db.markAttachmentVisionAnalyzing(attachment.id);
       if (!marked) return;
-      await _refreshChatSamplingSettings();
+      await _refreshChatRoutingSettings();
       messages = await db.recentMessages(limit: 160);
       _safeNotify();
 
@@ -467,7 +458,7 @@ class ChatController extends ChangeNotifier {
         assistantMessageId: _uuid.v4(),
         model: model.apiName,
         reasoningEffort: effort.apiName,
-        thinking: chatThinking,
+        thinking: true,
       );
       messages = await db.recentMessages(limit: 160);
     } catch (exception) {
@@ -590,7 +581,7 @@ class ChatController extends ChangeNotifier {
       }
 
       cancellation.throwIfCancelled();
-      await _refreshChatSamplingSettings();
+      await _refreshChatRoutingSettings();
       final user = ChatMessage(
         id: stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
@@ -605,7 +596,7 @@ class ChatController extends ChangeNotifier {
         assistantMessageId: _uuid.v4(),
         model: model.apiName,
         reasoningEffort: effort.apiName,
-        thinking: chatThinking,
+        thinking: true,
       );
       durableTurnCreated = true;
       _activeGenerationJobId = job.id;
