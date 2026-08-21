@@ -56,13 +56,7 @@ def main() -> int:
     ]:
         assert token in diagnostics, token
 
-    handoff = (ROOT / 'docs/HANDOFF.md').read_text(encoding='utf-8')
-    handoff_tokens = ['schema v18', 'overlayTouch']
-    handoff_tokens += ((['v0.31.1+41', 'Grounded Desire Core'] if 'version: 0.31.1+41' in pubspec else ['v0.31.0+40', 'Grounded Desire Core'])
-                       if any(v in pubspec for v in ['version: 0.31.0+40', 'version: 0.31.1+41'])
-                       else ['v0.30.3+39', 'Overlay Regression Repair'])
-    for token in handoff_tokens:
-        assert token in handoff, token
+    # Historical runtime validation no longer freezes mutable handoff/task documents.
 
     # Numerical model of the safe-area clamp/snap invariants used by the Kotlin code.
     def clamp(x: int, y: int, left: int, top: int, right: int, bottom: int, size: int):
