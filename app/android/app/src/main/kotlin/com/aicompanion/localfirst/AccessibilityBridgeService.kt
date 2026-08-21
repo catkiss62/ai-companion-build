@@ -41,17 +41,18 @@ class AccessibilityBridgeService : AccessibilityService() {
                 sourcePackage,
                 e.className?.toString().orEmpty(),
             )
+            val sourceHash = CompanionRuntimeState.privacyHash(sourcePackage)
             if (systemSurface) {
                 systemCoverActive = true
                 OverlayBubbleService.notifySystemCoverEntered(
                     this,
-                    "accessibility_system_surface",
+                    "accessibility_system_surface:$sourceHash",
                 )
             } else if (systemCoverActive || CompanionRuntimeState.isOverlaySystemCoverActive()) {
                 systemCoverActive = false
                 OverlayBubbleService.notifySystemCoverExited(
                     this,
-                    "accessibility_non_system_window",
+                    "accessibility_non_system_window:$sourceHash",
                 )
             }
         }
