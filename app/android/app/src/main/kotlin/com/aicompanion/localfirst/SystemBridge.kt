@@ -1,7 +1,9 @@
 package com.aicompanion.localfirst
 
 import android.Manifest
+import android.app.ActivityManager
 import android.app.AppOpsManager
+import android.app.ApplicationExitInfo
 import android.app.KeyguardManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -657,13 +659,13 @@ class SystemBridge(
         NativePreflightProbe.collect(activity, capabilityStatus())
 
     private fun capabilityStatus(): Map<String, Any> {
+        val accessibilityStatus = accessibilityServiceStatus()
         val runtime = CompanionRuntimeState.runtimeInfo(activity)
         val power = activity.getSystemService(PowerManager::class.java)
         val keyguard = activity.getSystemService(KeyguardManager::class.java)
         return HashMap<String, Any>().apply {
             put("overlay", Settings.canDrawOverlays(activity))
             put("usage", hasUsageAccess())
-            val accessibilityStatus = accessibilityServiceStatus()
             val accessibilityAuthorized =
                 accessibilityStatus["accessibilityComponentMatch"] == true
             put("accessibility", accessibilityAuthorized)
@@ -678,7 +680,45 @@ class SystemBridge(
             put("screenInteractive", power.isInteractive)
             put("deviceLocked", keyguard.isDeviceLocked)
             putAll(runtime)
+            putAll(historicalExitReason())
         }
+    }
+
+    private fun historicalExitReason(): Map<String, Any> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyMap()
+        val manager = activity.getSystemService(ActivityManager::class.java)
+        val info = runCatching {
+            manager.getHistoricalProcessExitReasons(activity.packageName, 0, 5)
+                .firstOrNull()
+        }.getOrNull() ?: return emptyMap()
+        return mapOf(
+            "historicalExitReason" to exitReasonKey(info.reason),
+            "historicalExitAt" to info.timestamp,
+            "historicalExitStatus" to info.status,
+            "historicalExitImportance" to info.importance,
+            "historicalExitDescriptionIncluded" to false,
+            "historicalExitTraceIncluded" to false,
+        )
+    }
+
+    private fun exitReasonKey(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_EXIT_SELF -> "exit_self"
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
+        ApplicationExitInfo.REASON_CRASH -> "crash"
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "native_crash"
+        ApplicationExitInfo.REASON_ANR -> "anr"
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization_failure"
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission_change"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
+        ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
+        ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "dependency_died"
+        ApplicationExitInfo.REASON_OTHER -> "other"
+        ApplicationExitInfo.REASON_FREEZER -> "freezer"
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE -> "package_state_change"
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "package_updated"
+        else -> "unknown_$reason"
     }
 
     private fun hasNotificationPermission(): Boolean =
@@ -790,6 +830,10 @@ class SystemBridge(
         val packageEntryCount = components.count { component ->
             component.packageName.equals(activity.packageName, ignoreCase = true)
         }
+        CompanionRuntimeState.noteAccessibilityStatusProbe(
+            activity,
+            componentMatch,
+        )
         return mapOf(
             "accessibilityComponentMatch" to componentMatch,
             "accessibilityEnabledEntryCount" to components.size,
