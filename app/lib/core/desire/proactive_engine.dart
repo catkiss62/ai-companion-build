@@ -12,6 +12,7 @@ import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
 import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
+import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
@@ -534,23 +535,43 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       reasoning: candidate.reasoning,
       lastUserText: lastGroundedUserText,
     );
+    final recentAssistantTexts = recent
+        .where((message) => message.isAssistant)
+        .map((message) => message.content);
+    var serviceGuard = ServiceTemplateGuard.evaluate(
+      text: candidate.content,
+      recentAssistantTexts: recentAssistantTexts,
+      proactive: true,
+    );
 
-    if (!textGuard.allowed || !reasoningGuard.allowed) {
+    if (!textGuard.allowed ||
+        !reasoningGuard.allowed ||
+        !serviceGuard.allowed) {
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
-          : textGuard.reason;
+          : !textGuard.allowed
+              ? textGuard.reason
+              : serviceGuard.reason;
+      if (!serviceGuard.allowed) {
+        await ServiceTemplateGuardTelemetry.note(
+          db,
+          result: serviceGuard,
+          mode: 'proactive',
+          action: 'rewrite',
+        );
+      }
       await noteGroundingRetry(retryReason);
       final retryContext = <Map<String, Object?>>[
         ...context,
         {
           'role': 'system',
           'content': '''
-【REALITY GROUNDING CORRECTION · ONE RETRY】
-上一份候选生成违反了当前轮次事实边界：$retryReason。
+【PROACTIVE OUTPUT CORRECTION · ONE RETRY】
+上一份候选违反了当前出站约束：$retryReason。
 CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，用户之后没有新的发言。
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
-推理本身也不能写成“回复/回答用户上一句”。最终正文同样不能虚构用户刚刚说了、回复了或发来了任何内容。
-重选时仍保持当前性格的内在反应与表达过滤；不要因为纠正事实边界就改成无个性的安慰或问候。
+推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容；也不能用“一直在、不走、不催、你忙你的、等你回来”一类待命客服模板主动找话。
+重选时仍保持当前性格的内在反应与表达过滤；说具体内容、真实发现或自己的念头，没有值得说的就输出 WAIT。
 '''.trim(),
         },
       ];
@@ -587,6 +608,11 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
         reasoning: candidate.reasoning,
         lastUserText: lastGroundedUserText,
       );
+      serviceGuard = ServiceTemplateGuard.evaluate(
+        text: candidate.content,
+        recentAssistantTexts: recentAssistantTexts,
+        proactive: true,
+      );
     }
 
     if (!textGuard.allowed) {
@@ -594,6 +620,25 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     }
     if (!reasoningGuard.allowed) {
       return blockGrounding(reasoningGuard.reason);
+    }
+    if (!serviceGuard.allowed) {
+      await ServiceTemplateGuardTelemetry.note(
+        db,
+        result: serviceGuard,
+        mode: 'proactive',
+        action: 'block',
+      );
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:${intent.reason}',
+        decision: 'service_template_block',
+      );
+      return ProactiveDecision(
+        sent: false,
+        reason: '主动候选命中重复服务模板，已取消',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
     }
 
     final text = candidate.content;
