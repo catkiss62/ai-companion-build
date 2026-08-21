@@ -9,6 +9,7 @@ void main() {
       reasoning: '正在比较两种回答方式',
       content: '我觉得',
       assistantMessageId: 'assistant-1',
+      statusText: '正在搜索公开网页…',
     );
 
     expect(snapshot.phase, 'answering');
@@ -19,7 +20,21 @@ void main() {
       'content': '我觉得',
       'phase': 'answering',
       'assistant_message_id': 'assistant-1',
+      'status_text': '正在搜索公开网页…',
     });
+  });
+
+  test('shared runtime phase survives an empty cross-engine checkpoint', () {
+    const snapshot = OverlayGenerationSnapshot(
+      sending: true,
+      cancelling: false,
+      reasoning: '',
+      content: '',
+      runtimePhase: 'answering',
+      statusText: '正在整理工具结果…',
+    );
+    expect(snapshot.phase, 'answering');
+    expect(snapshot.toChannelMap()['status_text'], '正在整理工具结果…');
   });
 
   test('reports thinking, cancelling, and idle phases without inventing text', () {
