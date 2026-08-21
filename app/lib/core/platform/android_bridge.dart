@@ -9,6 +9,7 @@ class UsageEventInfo {
     required this.eventType,
     this.appCategory = 'unknown',
     this.appLabel = '',
+    this.contextSource = 'usage_events',
   });
 
   final String packageName;
@@ -16,6 +17,7 @@ class UsageEventInfo {
   final String eventType;
   final String appCategory;
   final String appLabel;
+  final String contextSource;
 
   factory UsageEventInfo.fromMap(Map<Object?, Object?> map) {
     return UsageEventInfo(
@@ -26,6 +28,7 @@ class UsageEventInfo {
       eventType: map['eventType'] as String? ?? 'unknown',
       appCategory: map['appCategory'] as String? ?? 'unknown',
       appLabel: map['appLabel'] as String? ?? '',
+      contextSource: map['contextSource'] as String? ?? 'usage_events',
     );
   }
 }
