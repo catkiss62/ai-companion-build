@@ -144,6 +144,28 @@ void main() {
     expect(snapshot.userSpokeAfterLastAssistant, isTrue);
   });
 
+
+  test('cross-day user turn records the gap from the previous conversation', () {
+    final previous = DateTime(2026, 8, 20, 21, 0);
+    final current = DateTime(2026, 8, 21, 12, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: current,
+      recent: [
+        message(id: 'u1', role: 'user', at: previous.subtract(const Duration(minutes: 2))),
+        message(id: 'a1', role: 'assistant', at: previous),
+        message(id: 'u2', role: 'user', at: current),
+      ],
+      answeredUserMessageIds: const {'u1'},
+    );
+
+    expect(snapshot.currentTurnGapMinutes, 15 * 60);
+    expect(snapshot.currentTurnCrossedCalendarDays, 1);
+    expect(snapshot.currentTurnCrossedDay, isTrue);
+    expect(snapshot.currentTurnHasLongGap, isTrue);
+    expect(snapshot.previousConversationAt, previous);
+    expect(snapshot.toRedactedJson()['currentTurnCrossedDay'], isTrue);
+  });
+
   test('20:47 is explicitly evening instead of model-guessed time', () {
     final now = DateTime(2026, 8, 12, 20, 47);
     final snapshot = ConversationGroundingPolicy.build(
