@@ -3,6 +3,7 @@ package com.aicompanion.localfirst
 import android.content.Context
 import android.os.SystemClock
 import java.security.MessageDigest
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -47,6 +48,16 @@ object CompanionRuntimeState {
     private const val KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH = "accessibility_last_event_package_hash"
     private const val KEY_ACCESSIBILITY_LAST_WINDOW_EVENT = "accessibility_last_window_event"
     private const val KEY_ACCESSIBILITY_LAST_ROOT = "accessibility_last_root"
+    private const val KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN =
+        "accessibility_authorization_known"
+    private const val KEY_ACCESSIBILITY_LAST_AUTHORIZED =
+        "accessibility_last_authorized"
+    private const val KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED =
+        "accessibility_last_authorization_changed"
+    private const val KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT =
+        "accessibility_authorization_change_count"
+    private const val KEY_ACCESSIBILITY_LAST_STATUS_PROBE =
+        "accessibility_last_status_probe"
 
     private val visibleActivities = AtomicInteger(0)
     private val processStartedElapsedMs = SystemClock.elapsedRealtime()
@@ -106,6 +117,8 @@ object CompanionRuntimeState {
     @Volatile var overlayLastCoverRecoveryResult: String = ""
         private set
     private val overlayCoverDetachCount = AtomicInteger(0)
+    private const val OVERLAY_COVER_HISTORY_LIMIT = 24
+    private val overlayCoverHistory = ArrayDeque<Map<String, Any>>()
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -226,6 +239,12 @@ object CompanionRuntimeState {
             "accessibilityLastWindowEventAt" to
                 prefs.getLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, 0L),
             "accessibilityLastRootAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_ROOT, 0L),
+            "accessibilityLastAuthorizationChangedAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED, 0L),
+            "accessibilityAuthorizationChangeCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT, 0),
+            "accessibilityLastStatusProbeAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_STATUS_PROBE, 0L),
             "processStartedAt" to processStartedWallMs,
             "overlayBubbleAttached" to overlayBubbleAttached,
             "overlayBubbleTouchable" to overlayBubbleTouchable,
@@ -251,6 +270,7 @@ object CompanionRuntimeState {
             "overlayLastCoverExitReason" to overlayLastCoverExitReason,
             "overlayLastCoverRecoveryResult" to overlayLastCoverRecoveryResult,
             "overlayCoverDetachCount" to overlayCoverDetachCount.get(),
+            "overlayCoverHistory" to overlayCoverHistorySnapshot(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
@@ -303,6 +323,27 @@ object CompanionRuntimeState {
 
     fun setNotificationListenerConnected(connected: Boolean) {
         notificationListenerConnected = connected
+    }
+
+    fun noteAccessibilityStatusProbe(context: Context, authorized: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val known = prefs.getBoolean(KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN, false)
+        val previous = prefs.getBoolean(KEY_ACCESSIBILITY_LAST_AUTHORIZED, false)
+        val now = System.currentTimeMillis()
+        prefs.edit()
+            .putBoolean(KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN, true)
+            .putBoolean(KEY_ACCESSIBILITY_LAST_AUTHORIZED, authorized)
+            .putLong(KEY_ACCESSIBILITY_LAST_STATUS_PROBE, now)
+            .apply {
+                if (known && previous != authorized) {
+                    putLong(KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED, now)
+                    putInt(
+                        KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT,
+                        prefs.getInt(KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT, 0) + 1,
+                    )
+                }
+            }
+            .apply()
     }
 
     fun markAccessibilityConnected(context: Context) {
@@ -399,6 +440,31 @@ object CompanionRuntimeState {
         return digest.take(6).joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
+    fun privacyHash(value: String): String = shortHash(value)
+
+    @Synchronized
+    private fun appendOverlayCoverHistory(stage: String, reason: String) {
+        if (overlayCoverHistory.size >= OVERLAY_COVER_HISTORY_LIMIT) {
+            overlayCoverHistory.removeFirst()
+        }
+        overlayCoverHistory.addLast(
+            mapOf(
+                "at" to System.currentTimeMillis(),
+                "stage" to stage.take(40),
+                "reason" to reason.take(120),
+                "sessionId" to overlayCoverSessionId,
+                "attempt" to overlayCoverRecoveryAttempt,
+                "bubbleAttached" to overlayBubbleAttached,
+                "bubbleTouchable" to overlayBubbleTouchable,
+                "appVisible" to (visibleActivities.get() > 0),
+            ),
+        )
+    }
+
+    @Synchronized
+    private fun overlayCoverHistorySnapshot(): List<Map<String, Any>> =
+        overlayCoverHistory.toList()
+
     fun setOverlayTouchHealth(
         bubbleAttached: Boolean,
         bubbleTouchable: Boolean,
@@ -426,6 +492,7 @@ object CompanionRuntimeState {
         overlayInputSuspect = true
         overlayLastSystemCoverAt = System.currentTimeMillis()
         overlayLastSystemCoverReason = reason.take(120)
+        appendOverlayCoverHistory("suspect", reason)
     }
 
     @Synchronized
@@ -441,6 +508,10 @@ object CompanionRuntimeState {
         overlayLastSystemCoverReason = reason.take(120)
         overlayLastCoverRecoveryResult = ""
         if (detached) overlayCoverDetachCount.incrementAndGet()
+        appendOverlayCoverHistory(
+            if (detached) "entered_detached" else "entered_suspect",
+            reason,
+        )
         return overlayCoverSessionId
     }
 
@@ -451,6 +522,7 @@ object CompanionRuntimeState {
         overlayCoverState = "exit_pending"
         overlayLastCoverExitAt = System.currentTimeMillis()
         overlayLastCoverExitReason = reason.take(120)
+        appendOverlayCoverHistory("exited", reason)
     }
 
     @Synchronized
@@ -459,6 +531,7 @@ object CompanionRuntimeState {
         overlayCoverState = "recovery_scheduled"
         overlayCoverRecoveryAttempt = attempt
         overlayLastCoverExitReason = reason.take(120)
+        appendOverlayCoverHistory("recovery_scheduled", reason)
     }
 
     @Synchronized
@@ -485,6 +558,10 @@ object CompanionRuntimeState {
         } else {
             overlayCoverState = "exit_pending"
         }
+        appendOverlayCoverHistory(
+            if (success) "recovery_succeeded" else "recovery_retry",
+            reason,
+        )
     }
 
     @Synchronized
@@ -493,6 +570,7 @@ object CompanionRuntimeState {
         overlayCoverRecoveryAttempt = attempt
         overlayCoverState = "failed"
         overlayLastCoverRecoveryResult = "failed:${reason.take(100)}"
+        appendOverlayCoverHistory("recovery_failed", reason)
     }
 
     @Synchronized
@@ -501,6 +579,7 @@ object CompanionRuntimeState {
         overlayCoverState = "exit_pending"
         overlayCoverRecoveryAttempt = 0
         overlayLastCoverRecoveryResult = "deferred:${reason.take(100)}"
+        appendOverlayCoverHistory("recovery_deferred", reason)
     }
 
     fun isOverlaySystemCoverActive(): Boolean = overlaySystemCoverActive
@@ -520,10 +599,12 @@ object CompanionRuntimeState {
         overlayLastCoverRecoveryAt = System.currentTimeMillis()
         overlayLastSelfHealReason = reason.take(120)
         overlayCoverRecoveryCount.incrementAndGet()
+        appendOverlayCoverHistory("recovered_legacy", reason)
     }
 
     fun noteOverlayWindowVisibility(visibility: Int) {
         overlayLastWindowVisibility = visibility
+        appendOverlayCoverHistory("window_visibility", visibility.toString())
     }
 
     fun setOverlayRecoveryInProgress(value: Boolean) {
