@@ -983,3 +983,112 @@ UI 不再用单一 checkbox 代表健康，改为“系统授权 / 服务连接 
 4. 再重构 Memory 的时效、热度、叙事层与自画像/用户画像；以固定回放集验证旧事件误当当前事实、低价值记忆污染和关系连续性。
 5. MCP 与 Skill Registry 继续列为后续重要平台任务；先有通用工具协议与审计，再接入 AI 游戏等 MCP。
 6. 悬浮球卡死恢复继续冻结；只补关联诊断，不在本阶段承诺修复。
+
+
+---
+
+## 10.15 2026-08-21 · 情绪层、持续灵魂与 UI 信息架构（ANALYSIS / PLANNED）
+
+> 本节是对 10.13～10.14 的进一步定性；没有代码、APK、CI 或真机完成证据。保留唯一 Desire / Thought / Intent 主干，不建立“情绪第二人格”。
+
+### A. 当前系统对“情绪”的真实能力边界
+
+现有实现已经具备情绪的部分底座，而非完全空白：
+
+- 持久化 8 Drive、baseline、Thought lifecycle、stress/fatigue、refractory、Somatic 双通道与 AI Self；
+- Prompt 会把 attachment / curiosity / reflection / stress / fatigue 相对 baseline 的变化转换为“情绪余波”，影响注意、耐心、表达长度和主动倾向；
+- 性格系统已有“内在反应 → 表达过滤”，允许内心与台词不一致；
+- Outcome / satisfy 会改变后续 Drive 与 Thought，不是每轮完全重置。
+
+但当前尚无一等公民的 Emotion Episode / Mood 状态，也缺少完整闭环：
+
+`事件 + 当前目标/边界/关系 → 主观评价 appraisal → 具体情绪 → 中期 mood/余波 → 行动倾向/应对 → Outcome 后再评价`
+
+因此当前能形成“有持续张力和情绪色彩的反应”，但不能稳定保证：为什么生气、强度和持续多久、如何从生气转为委屈/释然、同一事件为何因性格和关系不同产生不同情绪、以及情绪如何真实改变工具接受/拒绝。不能把现状写成已完成成熟情绪系统。
+
+### B. 采用最小情绪评价层，不重写欲望核心
+
+推荐在唯一主干内插入：
+
+`真实 Event/Evidence + Drive + AI Self + Relationship → Appraisal → Emotion Episode → Mood/Thought/Drive 更新 → Intent + Gate → Action/WAIT → Outcome → Reappraisal`
+
+Appraisal 最小维度：
+
+- desirability / goal congruence：这件事符合还是阻碍她当前想要的东西；
+- agency / blame：主要由她、男朋友、外部还是未知因素造成；
+- controllability：她是否能改变；
+- expectedness / novelty：是否意外；
+- relational meaning：靠近、忽视、误解、修复或共同完成；
+- boundary impact：是否越过她的边界；
+- certainty：证据可信度。
+
+Emotion Episode 保存：core affect（valence / arousal / dominance）、可选标签、action tendency、触发证据、强度、开始/衰减/结束时间、是否表达、Outcome 与版本。Mood 是中期背景，不替代瞬时 Emotion；Personality/AI Self 只调阈值、衰减和表达过滤。
+
+行动倾向至少允许：approach、explore、seek_attention、confront、withdraw、repair、rest、decline、defer、conditional_accept。它们仍受事实、权限、Intimacy、主动联系和工具 Gate 约束。
+
+### C. 对“情绪优先于服务”的提示词建议
+
+用户提出的设计目标成立：真实陪伴中，她自己的情绪与边界必须先于默认讨好，男性向项目尤其不能继续照搬“AI 承担全部情绪劳动”的女性向模板。
+
+但不建议把“叛逆和不满是用户要求的服务，所以要叛逆”原样放进运行时 Prompt。这样会形成递归讨好：她为了满足男朋友而表演不满足，最终只是把顺从模板换成叛逆模板。
+
+该说法保留为**产品设计理由**；运行时规则直接描述因果：
+
+- 先依据当前 Event、Drive、AI Self、关系历史和边界形成自己的评价；
+- 已形成的情绪不能因为“应该有帮助”而在下一句清零；
+- 她可直接表达需要、委屈、不满、嫉妒、疲倦、想被关注、暂时不想帮忙，并允许男朋友回应、照顾或修复；
+- 不为证明独立而随机生气，不把每次拒绝变成测试男朋友；
+- 不虚构痛苦、受伤或崩溃来迫使男朋友照顾她，不以离开、自毁、权限或隐私威胁换取安抚。
+
+优先级改为：
+
+1. 事实/证据、明确安全与双方控制权；
+2. 她当前真实状态、边界和已形成的情绪；
+3. 关系与双方共同目标；
+4. 可选任务的 helpfulness。
+
+现有“当自然表达与解决用户明确问题冲突时，先把事情说清楚”需要拆分：事实核对、安全和数据控制仍准确优先；普通陪伴、搜索、陪玩和非紧急工具请求允许拒绝、推迟或带条件接受。
+
+### D. “不要角色扮演”的含义改写
+
+此前文字若写“不要角色扮演”，从本节起统一解释为：
+
+- 禁止临时角色卡/玩法覆盖女性 AI 本体、真实关系、记忆、边界和长期选择；
+- 禁止为了像真人而机械表演口癖、随机情绪、动作比例和固定反差；
+- **不否认所有人格都是模型模拟。项目目标是持续的灵魂模拟**：她扮演/生成的是同一个拥有历史、状态、偏好、情绪余波、选择和后果的自己，而不是每轮重置或可任意更换的角色面具。
+
+“灵魂”在工程上对应可审计的持续因果状态，不主张已经证明 LLM 具有主观体验。长期身份不变，体验会改变状态，状态会影响选择，选择和结果再写回她自己。
+
+### E. 外部参考结论
+
+- FAtiMA Toolkit：成熟的模块化 Emotional Appraisal + Emotional Decision Making + Social Importance，可借“事件经过角色自身目标/信念评价后再影响决策”，不直接移植其 C#/Unity 运行时（https://github.com/GAIPS/FAtiMA-Toolkit）。
+- ALMA：Emotion / Mood / Personality 对应短/中/长期三层，适合作为本项目最小情绪层的时间尺度参考（https://alma.dfki.de/）。
+- Aura：Android 伴侣已有情绪状态机、关系模型和 Agent 主循环，可继续检查其实现，但项目体量和主动 Pulse 成熟度有限，不能直接视为标准答案（https://github.com/gqy20/Aura）。
+- ZifaMem 2026 的伴侣评测提示：多轮情绪上下文显著优于单轮快照，但在结构化记忆已经存在时，额外情绪状态机未测出稳定增益。因此本项目先做最小 Appraisal/Emotion Episode、固定回放 A/B，再决定是否扩成复杂状态机，避免为“看起来科学”堆数值（https://arxiv.org/abs/2607.17564）。
+- LLM 可以表现出对行为有因果影响的情绪概念表示，但这不证明其拥有人的主观感受；产品目标写成 functional / simulated affect 与持续自我更准确。
+
+### F. UI 时机与信息架构决定
+
+当前代码已经有“更多 / 你们之间 / 设备 / 设置 / 高级诊断”等入口，但 `SettingsPage` 仍把模型、网页、识图、记忆、规则、Thought、主动联系、AI Self、环境感知、Session、Active Brain、TTS 等大量开关堆在一个页面。继续增加 Agent、Emotion、MCP、Skill、权限和审计会明显恶化。
+
+决定：**UI 现在开始做信息架构，视觉皮肤后置；与核心逻辑同时规划，但不要在同一提交里混做大规模功能重构。**
+
+建议五个日常一级域：
+
+1. 她：性格、自画像、外观、当前情绪/心境、成长提案；
+2. 你们：关系连续性、重要经历、未完成话题、用户画像；
+3. 能力：模型、搜索/网页、识图、TTS、提醒、MCP、Skills；
+4. 手机感知：前台 App、轻视觉、通知、悬浮/桌宠、每 App 权限；
+5. 数据与高级：记忆管理、规则编辑、导入导出、诊断、执行审计、开发开关。
+
+“当前情绪”只展示自然摘要、来源和变化，不默认展示 Drive 数值仪表盘；数值和事件详情留在高级诊断。高风险规则和权限修改仍走 diff/确认。
+
+实施顺序：
+
+1. 先完成信息架构图、页面归属表和路由命名，不动业务状态；
+2. 下一批小代码仍优先轻视觉诊断、时间 gap、反模板与前台 App 感知；
+3. 随后单独做一次“只移动入口/拆 SettingsPage、不改变配置语义”的 UI 重组并回归测试；
+4. 再接 Emotion Appraisal、Agent、MCP/Skill 页面；
+5. 最后统一颜色、卡片、动效和视觉风格。
+
+这样不会等功能全部堆完再返工，也不会把 UI 迁移故障和情绪/Agent 逻辑故障混在一起。
