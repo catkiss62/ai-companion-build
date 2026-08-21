@@ -2,6 +2,7 @@ import '../ai/generation_cancellation.dart';
 import '../autonomy/layered_public_web_provider.dart';
 import '../database/app_database.dart';
 import '../memory/memory_brain.dart';
+import '../models/public_web_candidate.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
