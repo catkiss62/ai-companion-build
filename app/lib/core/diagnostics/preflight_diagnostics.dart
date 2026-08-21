@@ -406,6 +406,32 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'publicWebCompaction': {
+          'enabled':
+              (await db.getSetting('agnes_web_compaction_enabled')) != '0',
+          'lastAttemptAt': int.tryParse(
+                await db.getSetting('agnes_compaction_last_attempt_at') ?? '',
+              ) ??
+              0,
+          'lastSuccessAt': int.tryParse(
+                await db.getSetting('agnes_compaction_last_success_at') ?? '',
+              ) ??
+              0,
+          'lastOutcome':
+              await db.getSetting('agnes_compaction_last_outcome') ?? 'never',
+          'lastInputCount': int.tryParse(
+                await db.getSetting('agnes_compaction_last_input_count') ?? '',
+              ) ??
+              0,
+          'lastOutputCount': int.tryParse(
+                await db.getSetting('agnes_compaction_last_output_count') ?? '',
+              ) ??
+              0,
+          'lastError':
+              await db.getSetting('agnes_compaction_last_error') ?? '',
+          'queryOrWebContentIncluded': false,
+          'apiSecretIncluded': false,
+        },
         'currentContext': {
           'available': (int.tryParse(
                     await db.getSetting('current_context_last_refresh_at') ?? '',
@@ -435,6 +461,8 @@ class PreflightDiagnosticsService {
           'currentAppNameResolved':
               (await db.getSetting('current_context_current_app_resolved')) == '1',
           'currentAppNameIncluded': false,
+          'currentAppSource':
+              await db.getSetting('current_context_current_app_source') ?? 'none',
           'dominantActivityClass':
               await db.getSetting('current_context_dominant_activity') ?? '',
           'observationCount': int.tryParse(
