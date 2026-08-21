@@ -13,8 +13,8 @@
 # .ci/v0350-monitor.txt
 # Historical v0.35.4 compatibility:
 # Build AI Companion v0.35.4+79 APK
-# AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk
-# .ci/v0355-monitor.txt
+# AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk
+# .ci/v0354-monitor.txt
 name: Build AI Companion v0.35.5+80 APK (Time, Perception & Diagnostics)
 
 on:
