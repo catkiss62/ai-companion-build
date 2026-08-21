@@ -354,7 +354,24 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
     GroundingSnapshot grounding,
     PromptGenerationMode mode,
   ) {
-    String age(int? minutes) => minutes == null ? '无' : '${minutes}分钟';
+    String age(int? minutes) {
+      if (minutes == null) return '无';
+      if (minutes < 60) return '${minutes}分钟';
+      final hours = minutes ~/ 60;
+      final remain = minutes % 60;
+      if (hours < 24) return remain == 0 ? '${hours}小时' : '${hours}小时${remain}分钟';
+      final days = hours ~/ 24;
+      final restHours = hours % 24;
+      return restHours == 0 ? '${days}天' : '${days}天${restHours}小时';
+    }
+    final currentTurnGap = grounding.currentTurnGapMinutes;
+    final continuityRule = currentTurnGap == null
+        ? '本轮没有新的用户消息间隔需要判断。'
+        : grounding.currentTurnCrossedDay
+            ? '当前用户轮次与上一条聊天跨了${grounding.currentTurnCrossedCalendarDays}个自然日，不能称作“刚才/刚刚”；应按新的当天和当前时段理解。'
+            : grounding.currentTurnHasLongGap
+                ? '当前用户轮次距上一条聊天已经较久，不能默认仍是同一瞬间；旧状态是否持续必须重新核验。'
+                : '当前用户轮次与上一条聊天仍在同一短时段内。';
     final offset = grounding.utcOffset.inMinutes;
     final sign = offset >= 0 ? '+' : '-';
     final absMinutes = offset.abs();
@@ -387,6 +404,9 @@ UTC offset：$offsetText
 - $silenceRule
 - 距离最后真实用户发言：${age(grounding.minutesSinceLastUser)}
 - 距离最后 AI 发言：${age(grounding.minutesSinceLastAssistant)}
+- 当前用户轮次距上一条聊天：${age(currentTurnGap)}
+- 当前用户轮次跨自然日数：${grounding.currentTurnCrossedCalendarDays}
+- $continuityRule
 - 最后用户发言之后 AI 已发消息 ${grounding.assistantMessagesSinceLastUser} 条，其中主动消息 ${grounding.proactiveMessagesSinceLastUser} 条。
 
 事实来源规则：
