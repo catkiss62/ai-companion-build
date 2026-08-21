@@ -135,11 +135,7 @@ def main() -> int:
     ]:
         assert token in overlay, token
 
-    for relative in ["docs/HANDOFF.md", "docs/PROJECT_TASK_LEDGER.md"]:
-        body = read(relative)
-        assert "v0.31.4+46" in body or "v0.31.4" in body
-        assert "schema v20" in body
-        assert "wildcard_share" in body
+    # Historical runtime validation no longer freezes mutable handoff/task documents.
 
     print("v0.31.4 Grounded Desire Growth static validation passed")
     return 0
