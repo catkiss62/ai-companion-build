@@ -663,9 +663,12 @@ class SystemBridge(
         return HashMap<String, Any>().apply {
             put("overlay", Settings.canDrawOverlays(activity))
             put("usage", hasUsageAccess())
-            val accessibilityAuthorized = isAccessibilityEnabled()
+            val accessibilityStatus = accessibilityServiceStatus()
+            val accessibilityAuthorized =
+                accessibilityStatus["componentMatch"] == true
             put("accessibility", accessibilityAuthorized)
             put("accessibilityAuthorized", accessibilityAuthorized)
+            putAll(accessibilityStatus)
             put("notificationListener", isNotificationListenerEnabled())
             put("postNotifications", hasNotificationPermission())
             put("overlayRunning", OverlayBubbleService.running)
@@ -768,14 +771,35 @@ class SystemBridge(
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun isAccessibilityEnabled(): Boolean {
+    private fun accessibilityServiceStatus(): Map<String, Any> {
         val enabled = Settings.Secure.getString(
             activity.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
         ).orEmpty()
-        val expected = ComponentName(activity, AccessibilityBridgeService::class.java).flattenToString()
-        return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
+        val expected = ComponentName(activity, AccessibilityBridgeService::class.java)
+        val components = enabled
+            .split(':')
+            .mapNotNull { item ->
+                val trimmed = item.trim()
+                if (trimmed.isEmpty()) null else ComponentName.unflattenFromString(trimmed)
+            }
+        val componentMatch = components.any { component ->
+            component.packageName.equals(expected.packageName, ignoreCase = true) &&
+                component.className.equals(expected.className, ignoreCase = true)
+        }
+        val packageEntryCount = components.count { component ->
+            component.packageName.equals(activity.packageName, ignoreCase = true)
+        }
+        return mapOf(
+            "accessibilityComponentMatch" to componentMatch,
+            "accessibilityEnabledEntryCount" to components.size,
+            "accessibilityPackageEntryCount" to packageEntryCount,
+            "accessibilityStatusProbeAt" to System.currentTimeMillis(),
+        )
     }
+
+    private fun isAccessibilityEnabled(): Boolean =
+        accessibilityServiceStatus()["accessibilityComponentMatch"] == true
 
     private fun isNotificationListenerEnabled(): Boolean {
         val enabled = Settings.Secure.getString(
@@ -803,6 +827,27 @@ class SystemBridge(
             "notificationListenerConnected" to CompanionRuntimeState.notificationListenerConnected,
             "accessibilityConnected" to CompanionRuntimeState.accessibilityConnected,
         )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun appLabel(packageName: String): String {
+        val info = runCatching {
+            if (Build.VERSION.SDK_INT >= 33) {
+                activity.packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0),
+                )
+            } else {
+                activity.packageManager.getApplicationInfo(packageName, 0)
+            }
+        }.getOrNull() ?: return ""
+        return runCatching {
+            activity.packageManager.getApplicationLabel(info)
+                .toString()
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .take(80)
+        }.getOrDefault("")
     }
 
     @Suppress("DEPRECATION")
@@ -842,6 +887,7 @@ class SystemBridge(
         val event = UsageEvents.Event()
         val output = ArrayList<Map<String, Any>>()
         val categoryCache = HashMap<String, String>()
+        val labelCache = HashMap<String, String>()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             if (event.packageName == null || event.packageName == activity.packageName) continue
@@ -855,7 +901,12 @@ class SystemBridge(
                 "packageName" to event.packageName,
                 "timestamp" to event.timeStamp,
                 "eventType" to label,
-                "appCategory" to categoryCache.getOrPut(event.packageName) { appCategory(event.packageName) },
+                "appCategory" to categoryCache.getOrPut(event.packageName) {
+                    appCategory(event.packageName)
+                },
+                "appLabel" to labelCache.getOrPut(event.packageName) {
+                    appLabel(event.packageName)
+                },
             )
             if (output.size > 200) output.removeAt(0)
         }
