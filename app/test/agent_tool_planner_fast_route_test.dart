@@ -1,10 +1,11 @@
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('ordinary companionship turns bypass the tool planner', () {
-    expect(AgentToolPlanner.shouldConsultModel('今天有点累，抱抱我'), isFalse);
+  test('ordinary companionship turns have no local tool command', () {
+    expect(AgentToolPlanner.routeLocally('今天有点累，抱抱我'), isNull);
     expect(AgentToolPlanner.routeLocally('随便和我聊点什么'), isNull);
   });
 
@@ -23,7 +24,30 @@ void main() {
     expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);
   });
 
-  test('fresh ambiguous facts still consult the bounded model router', () {
-    expect(AgentToolPlanner.shouldConsultModel('现在汇率是多少？'), isTrue);
+  test('meta discussion does not become an explicit search command', () {
+    expect(
+      AgentToolPlanner.routeLocally(
+        '变聪明了，现在让你上网搜索你就搜索，没说搜索就不会调用，挺好',
+      ),
+      isNull,
+    );
+    expect(AgentToolPlanner.routeLocally('别上网搜索，这只是举例'), isNull);
+  });
+
+  test('native function call maps back into the gated local registry', () {
+    final plan = AgentToolPlanner.fromNativeToolCalls(const [
+      DeepSeekToolCall(
+        id: 'call-1',
+        name: 'public_web_search',
+        arguments: '{"query":"今天的公开新闻"}',
+      ),
+    ]);
+    expect(plan.calls.single.toolId, AgentToolRegistry.publicWebSearch.id);
+    expect(plan.calls.single.arguments['query'], '今天的公开新闻');
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      contains('public_web_search'),
+    );
   });
 }
