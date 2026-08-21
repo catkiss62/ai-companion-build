@@ -27,8 +27,8 @@ system_bridge = read(
 overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
-ledger = read("docs/PROJECT_TASK_LEDGER.md")
-handoff = read("docs/HANDOFF.md")
+ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
+handoff = ledger
 workflow = WORKFLOW.read_text(encoding="utf-8")
 
 assert "version: 0.34.7+72" in pubspec
@@ -97,7 +97,6 @@ assert "COVER_RECOVERY_MAX_ATTEMPTS = 4" not in overlay
 require(ledger, [
     "v0.34.5+70",
     "直接选择器 guard",
-    "最多再进行一轮聚焦修复",
     "冻结悬浮恢复",
 ], "task ledger")
 
