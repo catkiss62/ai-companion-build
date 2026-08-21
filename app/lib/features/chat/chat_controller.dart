@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/agent/agent_tool.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
@@ -114,6 +115,7 @@ class ChatController extends ChangeNotifier {
   bool cancellingGeneration = false;
   String streamingReasoning = '';
   String streamingContent = '';
+  AgentToolActivity? agentActivity;
   String? error;
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
@@ -130,6 +132,13 @@ class ChatController extends ChangeNotifier {
 
   String? get activeGenerationAssistantMessageId =>
       _activeGenerationAssistantMessageId;
+
+  bool get agentToolActive => agentActivity?.active ?? false;
+
+  void _applyAgentToolActivity(AgentToolActivity activity) {
+    agentActivity = activity;
+    _safeNotify();
+  }
 
   TtsPlaybackPhase ttsPhaseForMessage(String messageId) {
     if (ttsState.ownerId != messageId) return TtsPlaybackPhase.idle;
@@ -565,6 +574,7 @@ class ChatController extends ChangeNotifier {
     cancellingGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
+    agentActivity = null;
     final cancellation = GenerationCancellationToken();
     _activeGenerationCancellation = cancellation;
     _activeGenerationJobId = null;
@@ -665,6 +675,7 @@ class ChatController extends ChangeNotifier {
         job,
         cancellationToken: cancellation,
         onNsfwRoute: _applyNsfwRoute,
+        onAgentToolActivity: _applyAgentToolActivity,
         onDelta: (delta) {
           if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
@@ -732,6 +743,7 @@ class ChatController extends ChangeNotifier {
       cancellingGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
+      agentActivity = null;
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
@@ -769,6 +781,7 @@ class ChatController extends ChangeNotifier {
     cancellingGeneration = false;
     streamingReasoning = '';
     streamingContent = '';
+    agentActivity = null;
     error = null;
     final cancellation = GenerationCancellationToken();
     _activeGenerationCancellation = cancellation;
@@ -780,6 +793,7 @@ class ChatController extends ChangeNotifier {
         job,
         cancellationToken: cancellation,
         onNsfwRoute: _applyNsfwRoute,
+        onAgentToolActivity: _applyAgentToolActivity,
         onDelta: (delta) {
           if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
@@ -823,6 +837,7 @@ class ChatController extends ChangeNotifier {
       cancellingGeneration = false;
       streamingReasoning = '';
       streamingContent = '';
+      agentActivity = null;
       if (identical(_activeGenerationCancellation, cancellation)) {
         _activeGenerationCancellation = null;
         _activeGenerationJobId = null;
@@ -865,6 +880,7 @@ class ChatController extends ChangeNotifier {
     token?.cancel();
     streamingReasoning = '';
     streamingContent = '';
+    agentActivity = null;
     _safeNotify();
 
     await ttsPlayback.stop();
