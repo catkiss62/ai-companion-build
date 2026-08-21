@@ -20,7 +20,12 @@
 # AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk
 # v0.35.5-time-perception-diagnostics-test
 # .ci/v0355-monitor.txt
-name: Build AI Companion v0.35.6+81 APK (Agent Tool Loop & Exit Diagnostics)
+# Historical v0.35.6 compatibility:
+# Build AI Companion v0.35.6+81 APK (Agent Tool Loop & Exit Diagnostics)
+# AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk
+# v0.35.6-agent-tool-loop-test
+# .ci/v0356-monitor.txt
+name: Build AI Companion v0.35.7+82 APK (Device Context, Fast Router & Stable Signing)
 
 on:
   workflow_dispatch:
@@ -50,13 +55,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.35.6+81$' app/pubspec.yaml
+          grep -q '^version: 0.35.7+82$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 26;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.35.6+81 app/ source tree.'
+          echo 'Building directly from the committed v0.35.7+82 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -74,23 +79,65 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
 
-      - name: Generate ephemeral AI Companion test signing key
+      - name: Restore or create persistent private test signing identity
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 30 \
-            -dname 'CN=AI Companion Ephemeral Test,O=Local Development,C=JP'
-          chmod 600 "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
-          echo 'Ephemeral test key generated for this workflow run; uninstall the previous test APK before installation.'
+          SIGNING_TAG='ai-companion-private-signing-v1'
+          SIGNING_ASSET='AI-Companion-Private-Test-Signing-v1.p12'
+          SIGNER_INFO='AI-Companion-Private-Test-Signing-v1.sha256.txt'
+          SIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"
+          KEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"
+          INFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"
+          STORE_PASSWORD='AICompanion_Private_Test_v1_2026!'
+          KEY_ALIAS='ai-companion-private-test-v1'
+          mkdir -p "${SIGNING_DIR}"
+
+          if gh release view "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \
+              --pattern "${SIGNING_ASSET}" --dir "${SIGNING_DIR}"
+            gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \
+              --pattern "${SIGNER_INFO}" --dir "${SIGNING_DIR}"
+            test -s "${KEYSTORE}"
+            test -s "${INFO_FILE}"
+          else
+            keytool -genkeypair \
+              -storetype PKCS12 \
+              -keystore "${KEYSTORE}" \
+              -storepass "${STORE_PASSWORD}" \
+              -alias "${KEY_ALIAS}" \
+              -keypass "${STORE_PASSWORD}" \
+              -keyalg RSA \
+              -keysize 3072 \
+              -validity 10000 \
+              -dname 'CN=AI Companion Private Test,O=Local Development,C=JP'
+            SIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \
+              -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |
+              sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
+            test -n "${SIGNER_SHA256}"
+            printf 'sha256=%s\n' "${SIGNER_SHA256}" > "${INFO_FILE}"
+            gh release create "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}" --draft \
+              --title 'AI Companion private persistent test signing identity v1' \
+              --notes 'Private draft only. Deleting this signing asset breaks future APK update continuity. Anyone with repository read access must be treated as able to obtain this test signing identity.'
+            gh release upload "${SIGNING_TAG}" "${KEYSTORE}" "${INFO_FILE}" \
+              --repo "${GITHUB_REPOSITORY}"
+          fi
+
+          chmod 600 "${KEYSTORE}"
+          SIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \
+            -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |
+            sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"
+          test -n "${SIGNER_SHA256}"
+          grep -Fqx "sha256=${SIGNER_SHA256}" "${INFO_FILE}"
+          echo "AI_COMPANION_KEYSTORE_PATH=${KEYSTORE}" >> "${GITHUB_ENV}"
+          echo "AI_COMPANION_KEYSTORE_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"
+          echo "AI_COMPANION_KEY_ALIAS=${KEY_ALIAS}" >> "${GITHUB_ENV}"
+          echo "AI_COMPANION_KEY_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"
+          echo "AI_COMPANION_SIGNER_SHA256=${SIGNER_SHA256}" >> "${GITHUB_ENV}"
+          echo "Persistent private test signer ready: ${SIGNER_SHA256}"
 
       - name: Source and regression validation
         shell: bash
@@ -123,6 +170,7 @@ jobs:
           python3 tools/validate_v0354_prompt_format_chat_ui.py
           python3 tools/validate_v0355_time_perception_diagnostics.py
           python3 tools/validate_v0356_agent_tool_loop.py
+          python3 tools/validate_v0357_device_context_router_signing.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -174,6 +222,22 @@ jobs:
       - name: Build release APK
         working-directory: app
         run: flutter build apk --release
+
+      - name: Verify stable APK signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/app/outputs/flutter-apk/app-release.apk'
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "${APKSIGNER}"
+          "${APKSIGNER}" verify --print-certs "${APK}" | tee app/app-release.signer.txt
+          APK_SIGNER_SHA256="$("${APKSIGNER}" verify --print-certs "${APK}" |
+            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 |
+            tr '[:lower:]' '[:upper:]' |
+            sed 's/../&:/g;s/:$//')"
+          test -n "${APK_SIGNER_SHA256}"
+          test "${APK_SIGNER_SHA256}" = "${AI_COMPANION_SIGNER_SHA256}"
+          echo "APK signing identity verified: ${APK_SIGNER_SHA256}"
 
       - name: Verify release APK native and complete pet payloads
         shell: bash
@@ -244,16 +308,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.35.6+81 APK to draft release
+      - name: Upload v0.35.7+82 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.35.6-agent-tool-loop-test'
-          APK_NAME='AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk'
+          TAG='v0.35.7-device-context-router-test'
+          APK_NAME='AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.35.6-81-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.35.7-82-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -262,6 +326,7 @@ jobs:
             echo "run_id=${GITHUB_RUN_ID}"
             echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "head_sha=${GITHUB_SHA}"
+            echo "signer_sha256=${AI_COMPANION_SIGNER_SHA256}"
             cat "app/${SHA_NAME}"
           } > "app/${CI_NAME}"
           if ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
@@ -269,8 +334,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.6+81 true-device test candidate' \
-              --notes 'Draft-only APK adding a bounded real Agent tool loop for public-web search, current rule/memory reads and current device context, with truthful separate tool-activity UI. It also adds redacted Accessibility authorization transitions, Android historical process-exit evidence and cross-app overlay-cover history. High-risk memory/personality/rule writes remain proposal-only. Existing Desire/Thought/Intent/Gate remains the only autonomous motivation source; light-vision and overlay recovery timing are unchanged pending stronger real-device evidence.'
+              --title 'AI Companion v0.35.7+82 true-device test candidate' \
+              --notes 'Draft-only APK adding fused current-App detection (Accessibility window, UsageEvents and bounded UsageStats fallback), a fast local route that skips the separate tool-planner model for ordinary companionship turns, redacted Agnes compaction telemetry, and a persistent private test signer. Because v0.35.6 used an ephemeral signer, installing v0.35.7 requires one final uninstall/reinstall; later APKs signed by this v1 identity can update in place. Password text, Accessibility content and raw package names remain excluded from diagnostics. Light-vision and frozen overlay recovery timing are unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -294,18 +359,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0356-monitor.txt'
+          MONITOR_PATH='.ci/v0357-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.6 CI success monitor' \
+              -f message='Update v0.35.7 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.6 CI success monitor' \
+              -f message='Create v0.35.7 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -324,8 +389,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.35.6-agent-tool-loop-test'
-          CI_NAME='AI-Companion-v0.35.6-81-CI-Monitor.txt'
+          TAG='v0.35.7-device-context-router-test'
+          CI_NAME='AI-Companion-v0.35.7-82-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -365,8 +430,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.6+81 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual v0.35.6 Agent Tool Loop and exit-diagnostics true-device APK. It is not a public release.'
+              --title 'AI Companion v0.35.7+82 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual v0.35.7 device-context, fast-router, compaction-telemetry and stable-signing true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -375,18 +440,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0356-monitor.txt'
+          MONITOR_PATH='.ci/v0357-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.6 CI failure monitor' \
+              -f message='Update v0.35.7 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.6 CI failure monitor' \
+              -f message='Create v0.35.7 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
