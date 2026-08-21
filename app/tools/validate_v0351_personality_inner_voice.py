@@ -66,7 +66,7 @@ proactive = read("lib/core/desire/proactive_engine.dart")
 for token in (
     "当前“内在反应 + 表达过滤”仍完整生效",
     "正文停在最有性格的自然落点",
-    "不要因为纠正事实边界就改成无个性的安慰或问候",
+    "没有值得说的就输出 WAIT",
 ):
     assert token in proactive, token
 
