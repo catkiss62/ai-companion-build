@@ -12,6 +12,7 @@ class PerceptionInterpretation {
     required this.accessibilityEventCount,
     this.currentActivityKey,
     this.currentActivityLabel,
+    this.currentAppLabel,
     this.dominantActivityKey,
     this.dominantActivityLabel,
     this.dominantActivityMinutes = 0,
@@ -25,6 +26,7 @@ class PerceptionInterpretation {
   final int accessibilityEventCount;
   final String? currentActivityKey;
   final String? currentActivityLabel;
+  final String? currentAppLabel;
   final String? dominantActivityKey;
   final String? dominantActivityLabel;
   final int dominantActivityMinutes;
@@ -39,6 +41,7 @@ class PerceptionInterpreter {
   const PerceptionInterpreter();
 
   static const Set<String> usageManagedKeys = {
+    'current_app',
     'current_activity',
     'recent_activity',
     'app_switching',
@@ -114,6 +117,7 @@ class PerceptionInterpreter {
       currentActivityLabel: facts.currentCategory == null
           ? null
           : _activityLabel(facts.currentCategory!),
+      currentAppLabel: facts.currentAppLabel,
       dominantActivityKey: facts.dominantCategory,
       dominantActivityLabel: facts.dominantCategory == null
           ? null
@@ -128,6 +132,24 @@ class PerceptionInterpreter {
     _UsageFacts facts,
     DateTime now,
   ) {
+    final currentApp = facts.currentAppLabel?.trim();
+    if (currentApp != null && currentApp.isNotEmpty) {
+      out.add(
+        AwarenessObservationDraft(
+          kind: 'current_app',
+          summary: '当前打开的是 $currentApp。',
+          confidence: 0.90,
+          windowStart:
+              facts.currentStartedAt ?? now.subtract(const Duration(minutes: 2)),
+          windowEnd: now,
+          expiresAt: now.add(const Duration(minutes: 5)),
+          dedupeKey: 'current_app',
+          sourceFingerprint: 'current_app:${_stableLabelKey(currentApp)}',
+          metadata: const {'source': 'android_usage_label'},
+        ),
+      );
+    }
+
     final current = facts.currentCategory;
     if (current != null && current != 'unknown') {
       out.add(
@@ -264,9 +286,11 @@ class PerceptionInterpreter {
     final sorted = [...events]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     final starts = <String, DateTime>{};
     final categoryByPackage = <String, String>{};
+    final labelByPackage = <String, String>{};
     final durationsByCategory = <String, int>{};
     String? currentPackage;
     String? currentCategory;
+    String? currentAppLabel;
     DateTime? currentStartedAt;
     String? lastForegroundPackage;
     var switchesLast30 = 0;
@@ -275,10 +299,13 @@ class PerceptionInterpreter {
     for (final event in sorted) {
       final category = _resolvedCategory(event);
       categoryByPackage[event.packageName] = category;
+      final label = event.appLabel.trim();
+      if (label.isNotEmpty) labelByPackage[event.packageName] = label;
       if (event.eventType == 'foreground') {
         starts[event.packageName] = event.timestamp;
         currentPackage = event.packageName;
         currentCategory = category;
+        currentAppLabel = labelByPackage[event.packageName];
         currentStartedAt = event.timestamp;
         if (!event.timestamp.isBefore(switchSince) &&
             lastForegroundPackage != null &&
@@ -296,6 +323,7 @@ class PerceptionInterpreter {
         if (currentPackage == event.packageName) {
           currentPackage = null;
           currentCategory = null;
+          currentAppLabel = null;
           currentStartedAt = null;
         }
       }
@@ -312,6 +340,7 @@ class PerceptionInterpreter {
     final dominant = entries.isEmpty ? null : entries.first;
     return _UsageFacts(
       currentCategory: currentCategory,
+      currentAppLabel: currentAppLabel,
       currentStartedAt: currentStartedAt,
       durationsByCategory: {for (final e in entries) e.key: e.value},
       switchesLast30Minutes: switchesLast30,
@@ -378,6 +407,15 @@ class PerceptionInterpreter {
   bool _containsAny(String value, List<String> fragments) =>
       fragments.any(value.contains);
 
+  String _stableLabelKey(String value) {
+    var hash = 0x811c9dc5;
+    for (final code in value.codeUnits) {
+      hash ^= code;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return hash.toRadixString(16);
+  }
+
   String _activityPhrase(String category) => switch (category) {
         'game' => '玩游戏',
         'audio' => '听音乐或音频',
@@ -410,6 +448,7 @@ class PerceptionInterpreter {
 class _UsageFacts {
   const _UsageFacts({
     this.currentCategory,
+    this.currentAppLabel,
     this.currentStartedAt,
     this.durationsByCategory = const {},
     this.switchesLast30Minutes = 0,
@@ -419,6 +458,7 @@ class _UsageFacts {
   });
 
   final String? currentCategory;
+  final String? currentAppLabel;
   final DateTime? currentStartedAt;
   final Map<String, int> durationsByCategory;
   final int switchesLast30Minutes;
