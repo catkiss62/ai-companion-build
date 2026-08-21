@@ -11,7 +11,11 @@
 # AI-Companion-v0.35.0-75-Personality-Trials-APK.apk
 # v0.35.0-personality-trials-test
 # .ci/v0350-monitor.txt
-name: Build AI Companion v0.35.4+79 APK (Prompt Format & Chat UI)
+# Historical v0.35.4 compatibility:
+# Build AI Companion v0.35.4+79 APK
+# AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk
+# .ci/v0355-monitor.txt
+name: Build AI Companion v0.35.5+80 APK (Time, Perception & Diagnostics)
 
 on:
   workflow_dispatch:
@@ -41,13 +45,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.35.4+79$' app/pubspec.yaml
+          grep -q '^version: 0.35.5+80$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 26;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.35.4+79 app/ source tree.'
+          echo 'Building directly from the committed v0.35.5+80 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -112,6 +116,7 @@ jobs:
           python3 tools/validate_v0352_prompt_workbench.py
           python3 tools/validate_v0353_nsfw_context_router.py
           python3 tools/validate_v0354_prompt_format_chat_ui.py
+          python3 tools/validate_v0355_time_perception_diagnostics.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -233,16 +238,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.35.4+79 APK to draft release
+      - name: Upload v0.35.5+80 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.35.4-prompt-format-chat-ui-test'
-          APK_NAME='AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk'
+          TAG='v0.35.5-time-perception-diagnostics-test'
+          APK_NAME='AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.35.4-79-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.35.5-80-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -258,8 +263,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.4+79 true-device test candidate' \
-              --notes 'Draft-only APK replacing rule 06 with the latest user-authored text, adding the shared action/expression format after Daily Communication narrative restraint, opening both chat surfaces at the newest message, widening the overlay reasoning control, compacting/reordering the NSFW and trial controls, and making chat reasoning always enabled. Existing NSFW routing, Session/Somatic boundaries, memory, Desire, relationship and trial timing remain continuous.'
+              --title 'AI Companion v0.35.5+80 true-device test candidate' \
+              --notes 'Draft-only APK adding exact cross-day conversation grounding, a semantic anti-service-template rewrite/block guard, normalized Accessibility authorization matching with lifecycle and event-stream diagnostics, and exact foreground app labels without raw package names or screen text. Existing rule layers, NSFW routing, Session/Somatic boundaries, memory, Desire, relationship and trial timing remain continuous. Real-device light-vision persistence still requires separate observation.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -283,18 +288,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0354-monitor.txt'
+          MONITOR_PATH='.ci/v0355-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.4 CI success monitor' \
+              -f message='Update v0.35.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.4 CI success monitor' \
+              -f message='Create v0.35.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -313,8 +318,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.35.4-prompt-format-chat-ui-test'
-          CI_NAME='AI-Companion-v0.35.4-79-CI-Monitor.txt'
+          TAG='v0.35.5-time-perception-diagnostics-test'
+          CI_NAME='AI-Companion-v0.35.5-80-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -354,8 +359,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.4+79 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual v0.35.4 prompt-format/chat-UI true-device APK. It is not a public release.'
+              --title 'AI Companion v0.35.5+80 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual v0.35.5 time/perception/diagnostics true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -364,18 +369,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0354-monitor.txt'
+          MONITOR_PATH='.ci/v0355-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.4 CI failure monitor' \
+              -f message='Update v0.35.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.4 CI failure monitor' \
+              -f message='Create v0.35.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
