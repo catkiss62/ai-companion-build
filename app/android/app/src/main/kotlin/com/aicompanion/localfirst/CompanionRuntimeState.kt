@@ -2,6 +2,7 @@ package com.aicompanion.localfirst
 
 import android.content.Context
 import android.os.SystemClock
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -34,9 +35,22 @@ object CompanionRuntimeState {
     private const val KEY_ACCESSIBILITY_LAST_DISCONNECTED = "accessibility_last_disconnected"
     private const val KEY_ACCESSIBILITY_LAST_INTERRUPT = "accessibility_last_interrupt"
     private const val KEY_ACCESSIBILITY_LAST_REASON = "accessibility_last_reason"
+    private const val KEY_ACCESSIBILITY_SERVICE_GENERATION = "accessibility_service_generation"
+    private const val KEY_ACCESSIBILITY_CONNECT_COUNT = "accessibility_connect_count"
+    private const val KEY_ACCESSIBILITY_DISCONNECT_COUNT = "accessibility_disconnect_count"
+    private const val KEY_ACCESSIBILITY_INTERRUPT_COUNT = "accessibility_interrupt_count"
+    private const val KEY_ACCESSIBILITY_DESTROY_COUNT = "accessibility_destroy_count"
+    private const val KEY_ACCESSIBILITY_EVENT_COUNT = "accessibility_event_count"
+    private const val KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT = "accessibility_allowed_event_count"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT = "accessibility_last_event"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT_TYPE = "accessibility_last_event_type"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH = "accessibility_last_event_package_hash"
+    private const val KEY_ACCESSIBILITY_LAST_WINDOW_EVENT = "accessibility_last_window_event"
+    private const val KEY_ACCESSIBILITY_LAST_ROOT = "accessibility_last_root"
 
     private val visibleActivities = AtomicInteger(0)
     private val processStartedElapsedMs = SystemClock.elapsedRealtime()
+    private val processStartedWallMs = System.currentTimeMillis()
     @Volatile private var serviceStartedElapsedMs: Long = 0L
 
     @Volatile var overlayVisible: Boolean = false
@@ -193,6 +207,26 @@ object CompanionRuntimeState {
             "accessibilityLastDisconnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, 0L),
             "accessibilityLastInterruptAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, 0L),
             "accessibilityLastReason" to (prefs.getString(KEY_ACCESSIBILITY_LAST_REASON, "") ?: ""),
+            "accessibilityServiceGeneration" to
+                prefs.getInt(KEY_ACCESSIBILITY_SERVICE_GENERATION, 0),
+            "accessibilityConnectCount" to prefs.getInt(KEY_ACCESSIBILITY_CONNECT_COUNT, 0),
+            "accessibilityDisconnectCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_DISCONNECT_COUNT, 0),
+            "accessibilityInterruptCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_INTERRUPT_COUNT, 0),
+            "accessibilityDestroyCount" to prefs.getInt(KEY_ACCESSIBILITY_DESTROY_COUNT, 0),
+            "accessibilityEventCount" to prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0),
+            "accessibilityAllowedEventCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0),
+            "accessibilityLastEventAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_EVENT, 0L),
+            "accessibilityLastEventType" to
+                (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, "") ?: ""),
+            "accessibilityLastEventPackageHash" to
+                (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH, "") ?: ""),
+            "accessibilityLastWindowEventAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, 0L),
+            "accessibilityLastRootAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_ROOT, 0L),
+            "processStartedAt" to processStartedWallMs,
             "overlayBubbleAttached" to overlayBubbleAttached,
             "overlayBubbleTouchable" to overlayBubbleTouchable,
             "overlayPositionSafe" to overlayPositionSafe,
@@ -273,25 +307,96 @@ object CompanionRuntimeState {
 
     fun markAccessibilityConnected(context: Context) {
         accessibilityConnected = true
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_CONNECTED, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, "connected")
+            .putInt(
+                KEY_ACCESSIBILITY_SERVICE_GENERATION,
+                prefs.getInt(KEY_ACCESSIBILITY_SERVICE_GENERATION, 0) + 1,
+            )
+            .putInt(
+                KEY_ACCESSIBILITY_CONNECT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_CONNECT_COUNT, 0) + 1,
+            )
             .apply()
     }
 
     fun markAccessibilityDisconnected(context: Context, reason: String) {
         accessibilityConnected = false
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, reason.take(120))
+            .putInt(
+                KEY_ACCESSIBILITY_DISCONNECT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_DISCONNECT_COUNT, 0) + 1,
+            )
             .apply()
     }
 
     fun noteAccessibilityInterrupted(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, "interrupted")
+            .putInt(
+                KEY_ACCESSIBILITY_INTERRUPT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_INTERRUPT_COUNT, 0) + 1,
+            )
             .apply()
+    }
+
+    fun noteAccessibilityDestroyed(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_ACCESSIBILITY_LAST_REASON, "destroyed")
+            .putInt(
+                KEY_ACCESSIBILITY_DESTROY_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_DESTROY_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteAccessibilityEvent(
+        context: Context,
+        eventType: String,
+        sourcePackage: String,
+        allowedPackage: Boolean,
+        windowChanged: Boolean,
+        hasReadableRoot: Boolean,
+    ) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        prefs.edit()
+            .putLong(KEY_ACCESSIBILITY_LAST_EVENT, now)
+            .putString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, eventType.take(80))
+            .putString(
+                KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH,
+                shortHash(sourcePackage),
+            )
+            .putInt(
+                KEY_ACCESSIBILITY_EVENT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0) + 1,
+            )
+            .apply {
+                if (allowedPackage) {
+                    putInt(
+                        KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT,
+                        prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0) + 1,
+                    )
+                }
+                if (windowChanged) putLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, now)
+                if (hasReadableRoot) putLong(KEY_ACCESSIBILITY_LAST_ROOT, now)
+            }
+            .apply()
+    }
+
+    private fun shortHash(value: String): String {
+        if (value.isBlank()) return ""
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+        return digest.take(6).joinToString("") { "%02x".format(it) }
     }
 
     fun setOverlayTouchHealth(
