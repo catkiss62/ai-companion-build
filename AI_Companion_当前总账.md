@@ -6,9 +6,21 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
+
+- 用户已授权继续下一步，并要求每次修改后同步 GitHub 当前唯一总账。本批次合并四项：① 当前 App 三路融合；② 普通闲聊跳过额外工具规划模型；③ Agnes 网页整理成败脱敏遥测；④ 私有持久测试签名。
+- 当前 App 判定改为：Accessibility 窗口事件优先、UsageEvents 次级、UsageStats 仅作两分钟短时兜底。金融类 App 允许识别应用名称，但密码字段、Accessibility 文本、账号/金额/页面内容和原始包名仍不进入诊断。屏幕识图与自主识图尚未在本批次开放。
+- 工具主循环不再每条消息都调用一次 DeepSeek 路由：明确“上网搜索、读规则、检索记忆、查看当前手机/App”由本地快路由直接生成真实只读工具调用；疑似需要最新事实但不够明确的轮次才咨询 bounded model router；普通情绪、陪伴、闲聊直接进入主模型。
+- Agnes 仍只压缩不可信公开网页片段。新增最近尝试时间、成功时间、输入/输出数与粗粒度失败原因；不导出搜索词、网页正文或 API Key。
+- 签名根因已确认：v0.35.6 workflow 每次生成 30 天临时 debug key，因此跨 Actions run 无法覆盖安装。v0.35.7 起使用私有草稿 Release 保存的持久测试签名并校验证书 SHA-256。由于旧 APK 私钥无法恢复，v0.35.6 → v0.35.7 需要最后一次卸载重装；自 v0.35.7 起，只要签名资产不被删除且 versionCode 递增，后续 APK 可走系统覆盖更新。HyperOS 仍可能显示正常安装确认，不承诺静默安装。
+- REDMI K80 Ultra / Xiaomi HyperOS 已登记为当前重点真机。开发者模式不会绕过签名或权限，但 USB/无线调试可用于后续 ADB、logcat、dumpsys、AppOps 与窗口栈取证；不要求为了当前批次关闭系统安全保护。
+- 悬浮桌宠跨 App 消失与轻视觉掉授权仍按既定规则：不继续盲加等待/重试；待新的即时脱敏诊断或 ADB 证据再改。若长期无法定位，优先比对成熟 Android Accessibility/Shizuku 项目的前台 App 与权限实现。
+- 屏幕亮时“自主感知不设小时硬上限、以 App 变化/冷却/去重/敏感页 Gate 控制；熄屏禁止视觉并限制自主联网”仍是已确认设计，当前 screen_observation.inspect 尚未可执行，本批次不伪装成已实现。
+- 实现状态：源码修改准备中；CI、草稿 APK 与真机均未验收。目标版本 v0.35.7+82，schema 保持 26。
+
 ## 0. 下一轮开场先做什么
 
-0. 当前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
+0. 当前稳定可下载基线仍为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`；`v0.35.7+82` 当前处于源码实现/CI 待验，不得提前称为可用 APK。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
