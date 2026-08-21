@@ -125,6 +125,7 @@ class PromptBuilder {
       if (layerBundle.layers.isNotEmpty)
         {'role': 'system', 'content': layerBundle.formatForPrompt()},
       {'role': 'system', 'content': context.toString().trim()},
+      {'role': 'system', 'content': _serviceTemplateContract()},
       {
         'role': 'system',
         'content': _visibleInnerVoiceContract(
@@ -288,6 +289,14 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
     }
     return '情绪余波（由已持久化的 Desire/Thought 状态得出，不是用户原话）：\n- ${lines.join('\n- ')}';
   }
+
+  String _serviceTemplateContract() => '''
+【反服务模板 / NATURAL RELATIONSHIP OUTPUT】
+不要把每次体谅、暂别、沉默或话题收尾写成待命客服。尤其不要顺手拼接“一直在 / 不走 / 我不催你 / 你忙你的 / 等你忙完再来 / 你想怎样就怎样”及近义组合。
+这不是逐字禁词：如果当前对话正在引用、批评或讨论这些话，可以正常提到；真实语境也允许表达体谅。禁止的是脱离具体内容、反复复用的承诺—退场—等待模板。
+优先留下当下具体反应、自己的判断/情绪/需求、真正想继续的内容，或自然结束。不要为了显得独立而随机顶嘴，也不要把旧套话替换成固定叛逆套话。
+最终正文会经过语义族重复检测；命中时可能被重写或取消。
+'''.trim();
 
   String _visibleInnerVoiceContract(
     PromptGenerationMode mode, {
