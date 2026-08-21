@@ -62,7 +62,7 @@ def main() -> int:
     runner = read("lib/core/ai/durable_generation_runner.dart")
     assert "onDelta?.call(delta);" in runner
     assert "reasoningContent: generated.reasoning" in runner
-    assert "content: generated.content" in runner
+    assert "content: finalContent" in runner
 
     policy = read("lib/core/desire/desire_core_policy.dart")
     for token in [
