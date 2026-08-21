@@ -41,6 +41,13 @@ class AccessibilityBridgeService : AccessibilityService() {
                 sourcePackage,
                 e.className?.toString().orEmpty(),
             )
+            val transientSystemUi = sourcePackage == "com.android.systemui" ||
+                sourcePackage == "com.miui.home"
+            if (!systemSurface && !transientSystemUi) {
+                // App identity is process-local and may include finance apps;
+                // password fields and Accessibility text remain blocked below.
+                CompanionRuntimeState.noteForegroundWindow(sourcePackage)
+            }
             val sourceHash = CompanionRuntimeState.privacyHash(sourcePackage)
             if (systemSurface) {
                 systemCoverActive = true
