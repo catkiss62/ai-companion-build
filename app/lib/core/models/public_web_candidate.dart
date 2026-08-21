@@ -57,11 +57,21 @@ class PublicWebProviderResult {
     required this.candidates,
     required this.provider,
     this.failureReason = '',
+    this.compactionAttempted = false,
+    this.compactionSucceeded = false,
+    this.compactionInputCount = 0,
+    this.compactionOutputCount = 0,
+    this.compactionFailureReason = '',
   });
 
   final List<PublicWebCandidateDraft> candidates;
   final String provider;
   final String failureReason;
+  final bool compactionAttempted;
+  final bool compactionSucceeded;
+  final int compactionInputCount;
+  final int compactionOutputCount;
+  final String compactionFailureReason;
 
   bool get succeeded => failureReason.isEmpty;
 }
