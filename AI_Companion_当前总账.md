@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-21（Asia/Tokyo）
+更新时间：2026-08-22（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -22,8 +22,8 @@
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
 - GitHub 当前已确认构建基线为 `v0.35.5+80`，schema 26；PR #23 分支源码 head `7cf49881506236437c2912d32654f2afa49eba1a`，Actions PR merge SHA `074497ef3845960e5d36325a64cf19179eaec21a`。
-- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32214921748>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.4 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c374249d800579faf13>；APK `AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk`，SHA-256 `424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003`。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32495296443>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.5 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4905d721f42def847cab>；APK `AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk`，SHA-256 `3b2c7b96a123341ff39d4dffb59fc181b13d928961cbe79f59c7787afc3ee911`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
@@ -1276,3 +1276,75 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 - 自动化完成不等于真机完成；下一步让用户安装此 APK，优先做轻视觉长时间复测、跨日对话、服务模板重复率和前台 App 名称四类观察。
 - 下一代码批建议：统一 Agent Tool Registry 与工具执行状态流；之后再做 UI 信息架构分类迁移。MCP/Skills 继续登记为后续重点，不与本批混做。
 
+## 10.19 2026-08-22 · 统一 Agent 工具主循环与被动故障取证（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+
+> 本节对应 v0.35.6+81 代码批。提交和 Actions 成功前只能写“已实现、待 CI”；CI 成功也不等于真机完成。本批不改 SQLite schema（仍为 26），不改轻视觉服务连接/重连策略，也不改桌宠 cover recovery 的次数、延时或 settle 时序。
+
+### A. 用户新诊断结论与本轮边界
+
+已核对三份 2026-08-21 脱敏报告：
+
+- `15:32:58` 报告不足以单独定位，因为导出发生在重新打开桌宠/轻视觉之后；
+- `15:47:40` 报告明确捕获到一次真实 `SYSTEM_DISABLED`：最近 Accessibility 事件停在 `15:47:17.907`，新进程约在 `15:47:20.178` 启动，系统授权条目为空、服务未连接，且没有 disconnect/destroy 回调可解释；
+- `17:02:04` 报告显示用户约 `15:48:04` 重新授权后持续连接，累计约 31,616 个事件，直到导出时仍为 `CONNECTED_EVENTS_OK`。
+
+因此目前只能确认“系统授权确实曾从已开变成关闭/不可见”，不能确认是 App 主动关、HyperOS 撤销、应用进程/包状态变化还是设置组件异常。按用户决定：不凭猜测重写服务恢复逻辑；先增加下次复现所需证据。后续报告新增：
+
+1. 系统授权每次 probe 的最后时间、授权布尔值转变时间与累计转变次数；
+2. Android 11+ `ApplicationExitInfo` 最近进程退出原因、时间、status 与 importance；
+3. 不导出退出描述、trace、原始包名、屏幕文字或账号内容。
+
+桌宠问题重新归类为“跨 App 系统遮盖/窗口隔离”而非只针对金融 App。旧报告已有约 23 个 cover session、18 次 detach 和 18 次 recovery，但回到完整 App 再导出会覆盖卡住瞬间。此次增加 process-local、最多 24 条的 cover 历史：enter / exit / schedule / retry / success / fail / visibility、session、attempt、attached/touchable、App 是否可见与来源包短哈希。只加证据，不改变恢复策略。
+
+### B. 统一 Agent Tool Registry
+
+新增单一能力目录，同时供用户聊天轮次和既有 Desire 自主动作核对；它不产生第二套人格或第二个动机系统。自主动作仍只能来自既有：
+
+`Event/状态 → Desire/Thought → Intent → Gate → Provider → Outcome`。
+
+首批**真实可执行、只读、用户轮次工具**：
+
+1. `public_web.search`：调用现有 LayeredPublicWebProvider（Tavily、可选 Agnes、Wikimedia 回退）；
+2. `rules.read`：读取当前数据库规则，不修改；
+3. `memory.search`：检索当前长期记忆、历史版本与未完成话题；
+4. `device_context.read`：即时刷新并读取屏幕/锁屏、当前 App 显示名称、活动类别与粗粒度 busy score。
+
+每个用户轮次最多选择 2 个只读工具，防止模型循环和重复执行；这不是“每小时次数限制”。聊天中明确要求的工具调用**不计入**自主行动小时/日预算。工具路由失败不会把 durable turn 卡死，失败结果会明确注入最终生成，禁止假装已经搜索、读取或观察。
+
+统一 Registry 同时登记但暂不冒充已完成的后续能力：
+
+- 当前屏幕观察、视频理解；
+- 记忆 / AI Self / 人设 / 六大规则修改提案；
+- “半小时后找我”的真实 Android 提醒；
+- MCP 调用。
+
+记忆、人设和规则属于高风险写入：当前批只登记 proposal 能力，不允许模型静默改库；后续必须展示 diff、理由与影响，由男朋友明确确认后应用。MCP / Skills 仍在后续总账，不因出现 ID 就声称已能安装或调用。
+
+### C. 两阶段聊天执行与真实状态 UI
+
+用户聊天生成改为有界两阶段：
+
+1. 内部工具路由器只输出结构化 JSON，最多选择 2 个已登记的只读工具，不输出聊天人格或思考链；
+2. Provider 真正完成调用后，将带 status 的 `AGENT_TOOL_RESULT` 交给原来的关系人格生成最终回复。
+
+聊天页新增独立的灰色轻微闪烁状态，例如“正在搜索公开网页…”“正在读取当前规则…”；成功/无结果/失败均来自真实执行回调。此状态和现有可见内心/ReasoningPanel 分离：工具轨迹负责“她实际做了什么”，内心仍负责“她此刻在想什么”，不把内部 JSON、参数、搜索词、网页正文或隐藏链路当作思考链展示。
+
+诊断只保存工具 ID、状态、reason tag、结果条数、粗粒度错误码、时间和计数；不保存参数或结果正文。用户轮次与恢复后的同一 durable turn 都走相同工具链和取消 fence。
+
+### D. 明确限制
+
+- 本批的 `device_context.read` 能真实读取当前 App 名称，但“自主识图看当前屏幕”尚未接入用户轮次，不能口头假装；
+- 图片消息仍使用现有千问视觉路径；它尚未统一成当前屏幕工具；
+- 用户可要求搜索/读规则/查记忆/看当前 App；AI 也可在问题明显依赖最新公开事实或真实本地状态时选择工具；
+- 本批没有实现记忆/人设自动修改、真实提醒、MCP 或 Skills；
+- 没有实现“情绪不好时随机拒绝工具”。以后拒绝必须来自可追溯 Emotion/Drive/边界/风险状态，而不是为了显得叛逆随机失灵；
+- 轻视觉和桌宠本轮只增强诊断，真机行为是否更稳定不会因此自动改善。
+
+### E. 版本、自动验证与后续顺序
+
+- 目标版本：`v0.35.6+81`；schema 26。
+- 新增 Agent Registry 单元测试与 `validate_v0356_agent_tool_loop.py`，同时继续执行全部历史 validators、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生/417 文件载荷与 checksum。
+- 继续通过私有 Draft Release 上传 APK、SHA-256 和 CI monitor；Actions artifact 配额满不改变该交付方式。
+- 当前状态：本地/提交前静态实现完成，GitHub Actions 尚未给出结论。
+- CI 通过后的真机优先项：明确要求联网、读取规则、检索记忆、读取当前 App；观察灰色真实状态与最终回答是否一致；再次遇到轻视觉掉授权或跨 App 桌宠消失时立即导出报告。
+- 之后按已确认顺序单独做 UI IA-1/IA-2（只拆五域入口/设置页面，不改配置语义），再接当前屏幕观察、提案确认/真实提醒；最小 Emotion Appraisal 按固定回放判据决定是否扩建；MCP 为后续重点，Skills 继续作为可插拔能力契约研究。
