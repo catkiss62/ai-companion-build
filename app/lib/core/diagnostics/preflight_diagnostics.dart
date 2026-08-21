@@ -94,6 +94,11 @@ class PreflightDiagnosticsService {
         'publicWebCandidateSummaryIncluded': false,
         'publicWebCandidateUrlIncluded': false,
         'publicWebQueryOrInterestKeyIncluded': false,
+        'agentToolArgumentsIncluded': false,
+        'agentToolResultBodiesIncluded': false,
+        'overlayRawPackageIncluded': false,
+        'historicalExitDescriptionIncluded': false,
+        'historicalExitTraceIncluded': false,
       },
     };
 
@@ -271,6 +276,42 @@ class PreflightDiagnosticsService {
               await db.getSetting('service_template_guard_last_family') ?? '',
           'matchedTextIncluded': false,
           'chatContentIncluded': false,
+        },
+        'agentTools': {
+          'registry': 'unified_v1',
+          'userTurnRequestCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_request_count') ?? '',
+              ) ??
+              0,
+          'userTurnSuccessCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_success_count') ?? '',
+              ) ??
+              0,
+          'userTurnFailureCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_failure_count') ?? '',
+              ) ??
+              0,
+          'lastTool':
+              await db.getSetting('agent_tool_user_turn_last_tool') ?? '',
+          'lastStatus':
+              await db.getSetting('agent_tool_user_turn_last_status') ?? '',
+          'lastReasonTag':
+              await db.getSetting('agent_tool_user_turn_last_reason_tag') ?? '',
+          'lastResultCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_last_result_count') ??
+                    '',
+              ) ??
+              0,
+          'lastErrorCode':
+              await db.getSetting('agent_tool_user_turn_last_error_code') ?? '',
+          'lastAt': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_last_at') ?? '',
+              ) ??
+              0,
+          'maxCallsPerTurn': 2,
+          'countsAgainstAutonomousBudget': false,
+          'argumentsIncluded': false,
+          'resultBodiesIncluded': false,
         },
         'desireCore': {
           'drives': {
@@ -534,6 +575,8 @@ class PreflightDiagnosticsService {
         'lastCoverRecoveryResult':
             capabilities['overlayLastCoverRecoveryResult'] ?? '',
         'coverDetachCount': capabilities['overlayCoverDetachCount'] ?? 0,
+        'coverHistory': capabilities['overlayCoverHistory'] ?? const [],
+        'rawPackageIncluded': false,
         'transientSystemCoverRecovery': transientCoverRecovery,
         'possibleRecoveryLoop': possibleRecoveryLoop,
         'selfHealsPerCoverSession': coverSessionId <= 0
@@ -559,6 +602,14 @@ class PreflightDiagnosticsService {
             capabilities['backgroundBrainFailureCount'] ?? 0,
         'backgroundBrainFailureReason':
             capabilities['backgroundBrainFailureReason'] ?? '',
+        'historicalExitReason':
+            capabilities['historicalExitReason'] ?? 'unavailable',
+        'historicalExitAt': capabilities['historicalExitAt'] ?? 0,
+        'historicalExitStatus': capabilities['historicalExitStatus'] ?? 0,
+        'historicalExitImportance':
+            capabilities['historicalExitImportance'] ?? 0,
+        'historicalExitDescriptionIncluded': false,
+        'historicalExitTraceIncluded': false,
         'batteryOptimizationIgnored':
             androidInfo['batteryOptimizationIgnored'] == true,
         'backgroundRestricted': androidInfo['backgroundRestricted'] == true,
@@ -633,6 +684,12 @@ class PreflightDiagnosticsService {
             capabilities['accessibilityEnabledEntryCount'] ?? 0,
         'packageEntryCount': accessibilityPackageEntryCount,
         'statusProbeAt': accessibilityProbeAt,
+        'lastStatusProbeAt':
+            capabilities['accessibilityLastStatusProbeAt'] ?? 0,
+        'lastAuthorizationChangedAt':
+            capabilities['accessibilityLastAuthorizationChangedAt'] ?? 0,
+        'authorizationChangeCount':
+            capabilities['accessibilityAuthorizationChangeCount'] ?? 0,
         'connected': accessibilityConnected,
         'serviceGeneration':
             capabilities['accessibilityServiceGeneration'] ?? 0,
