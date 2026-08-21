@@ -89,6 +89,10 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       );
     }
 
+    var compactionAttempted = false;
+    var compactionSucceeded = false;
+    var compactionFailureReason = '';
+    final compactionInputCount = drafts.length;
     if (agnesEnabled && agnesApiKey.trim().isNotEmpty) {
       final compactor = AgnesWebCompactor(
         apiKey: agnesApiKey,
@@ -97,12 +101,21 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         client: _client,
       );
       drafts = await compactor.compact(drafts);
+      compactionAttempted = compactor.lastAttempted;
+      compactionSucceeded = compactor.lastSucceeded;
+      compactionFailureReason = compactor.lastFailureReason;
     }
     return PublicWebProviderResult(
       candidates: drafts,
       provider: drafts.any((e) => e.provider.endsWith('+agnes'))
           ? 'tavily_layered+agnes'
           : providerKey,
+      compactionAttempted: compactionAttempted,
+      compactionSucceeded: compactionSucceeded,
+      compactionInputCount: compactionInputCount,
+      compactionOutputCount:
+          drafts.where((e) => e.provider.endsWith('+agnes')).length,
+      compactionFailureReason: compactionFailureReason,
     );
   }
 
@@ -281,11 +294,17 @@ class AgnesWebCompactor {
   final String endpoint;
   final String model;
   final http.Client _client;
+  bool lastAttempted = false;
+  bool lastSucceeded = false;
+  String lastFailureReason = '';
 
   Future<List<PublicWebCandidateDraft>> compact(
     List<PublicWebCandidateDraft> candidates,
   ) async {
-    if (candidates.isEmpty || apiKey.trim().isEmpty) return candidates;
+    lastAttempted = candidates.isNotEmpty && apiKey.trim().isNotEmpty;
+    lastSucceeded = false;
+    lastFailureReason = '';
+    if (!lastAttempted) return candidates;
     final payload = candidates.asMap().entries.map((entry) => {
           'id': entry.key,
           'title': entry.value.title,
@@ -300,7 +319,10 @@ class AgnesWebCompactor {
           jsonEncode(payload),
       maxTokens: 900,
     );
-    if (response == null) return candidates;
+    if (response == null) {
+      lastFailureReason = 'no_valid_response';
+      return candidates;
+    }
     try {
       final decoded = jsonDecode(_jsonObject(response));
       if (decoded is! Map || decoded['items'] is! List) return candidates;
@@ -314,7 +336,11 @@ class AgnesWebCompactor {
         );
         if (id != null && summary.isNotEmpty) summaries[id] = summary;
       }
-      return candidates.asMap().entries.map((entry) {
+      if (summaries.isEmpty) {
+        lastFailureReason = 'no_valid_summaries';
+        return candidates;
+      }
+      final compacted = candidates.asMap().entries.map((entry) {
         final summary = summaries[entry.key];
         if (summary == null) return entry.value;
         final original = entry.value;
@@ -334,7 +360,12 @@ class AgnesWebCompactor {
           safetyState: original.safetyState,
         );
       }).toList(growable: false);
+      lastSucceeded =
+          compacted.any((candidate) => candidate.provider.endsWith('+agnes'));
+      if (!lastSucceeded) lastFailureReason = 'no_candidate_compacted';
+      return compacted;
     } catch (_) {
+      lastFailureReason = 'invalid_json_response';
       return candidates;
     }
   }
