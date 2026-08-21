@@ -8,12 +8,14 @@ class UsageEventInfo {
     required this.timestamp,
     required this.eventType,
     this.appCategory = 'unknown',
+    this.appLabel = '',
   });
 
   final String packageName;
   final DateTime timestamp;
   final String eventType;
   final String appCategory;
+  final String appLabel;
 
   factory UsageEventInfo.fromMap(Map<Object?, Object?> map) {
     return UsageEventInfo(
@@ -23,6 +25,7 @@ class UsageEventInfo {
       ),
       eventType: map['eventType'] as String? ?? 'unknown',
       appCategory: map['appCategory'] as String? ?? 'unknown',
+      appLabel: map['appLabel'] as String? ?? '',
     );
   }
 }
@@ -82,6 +85,23 @@ class CapabilityStatus {
     required this.accessibilityLastDisconnectedAt,
     required this.accessibilityLastInterruptAt,
     required this.accessibilityLastReason,
+    required this.accessibilityComponentMatch,
+    required this.accessibilityEnabledEntryCount,
+    required this.accessibilityPackageEntryCount,
+    required this.accessibilityStatusProbeAt,
+    required this.accessibilityServiceGeneration,
+    required this.accessibilityConnectCount,
+    required this.accessibilityDisconnectCount,
+    required this.accessibilityInterruptCount,
+    required this.accessibilityDestroyCount,
+    required this.accessibilityEventCount,
+    required this.accessibilityAllowedEventCount,
+    required this.accessibilityLastEventAt,
+    required this.accessibilityLastEventType,
+    required this.accessibilityLastEventPackageHash,
+    required this.accessibilityLastWindowEventAt,
+    required this.accessibilityLastRootAt,
+    required this.processStartedAt,
     required this.appVisible,
     required this.screenInteractive,
     required this.deviceLocked,
@@ -115,12 +135,65 @@ class CapabilityStatus {
   final DateTime? accessibilityLastDisconnectedAt;
   final DateTime? accessibilityLastInterruptAt;
   final String accessibilityLastReason;
+  final bool accessibilityComponentMatch;
+  final int accessibilityEnabledEntryCount;
+  final int accessibilityPackageEntryCount;
+  final DateTime? accessibilityStatusProbeAt;
+  final int accessibilityServiceGeneration;
+  final int accessibilityConnectCount;
+  final int accessibilityDisconnectCount;
+  final int accessibilityInterruptCount;
+  final int accessibilityDestroyCount;
+  final int accessibilityEventCount;
+  final int accessibilityAllowedEventCount;
+  final DateTime? accessibilityLastEventAt;
+  final String accessibilityLastEventType;
+  final String accessibilityLastEventPackageHash;
+  final DateTime? accessibilityLastWindowEventAt;
+  final DateTime? accessibilityLastRootAt;
+  final DateTime? processStartedAt;
   final bool appVisible;
   final bool screenInteractive;
   final bool deviceLocked;
   final DateTime? lastServiceStart;
   final DateTime? lastServiceStop;
   final String lastServiceReason;
+
+  String get accessibilityHealthState {
+    final now = DateTime.now();
+    if (accessibilityStatusProbeAt != null &&
+        now.difference(accessibilityStatusProbeAt!).abs() >
+            const Duration(minutes: 2)) {
+      return 'STALE_UI';
+    }
+    if (!accessibilityComponentMatch && accessibilityPackageEntryCount > 0) {
+      return 'COMPONENT_MISMATCH';
+    }
+    if (!accessibility) return 'SYSTEM_DISABLED';
+    if (!accessibilityConnected) {
+      final connectedBeforeProcess = accessibilityLastConnectedAt != null &&
+          processStartedAt != null &&
+          accessibilityLastConnectedAt!.isBefore(processStartedAt!);
+      final noDisconnectAfterConnect = accessibilityLastConnectedAt != null &&
+          (accessibilityLastDisconnectedAt == null ||
+              accessibilityLastDisconnectedAt!
+                  .isBefore(accessibilityLastConnectedAt!));
+      if (connectedBeforeProcess && noDisconnectAfterConnect) {
+        return 'PROCESS_RESTARTED';
+      }
+      return 'ENABLED_NOT_CONNECTED';
+    }
+    if (accessibilityEventCount <= 0 || accessibilityLastEventAt == null) {
+      return 'CONNECTED_NO_EVENTS';
+    }
+    if (screenInteractive &&
+        !deviceLocked &&
+        now.difference(accessibilityLastEventAt!) >
+            const Duration(minutes: 45)) {
+      return 'EVENT_STREAM_STALLED';
+    }
+    return 'CONNECTED_EVENTS_OK';
+  }
 
   factory CapabilityStatus.fromMap(Map<Object?, Object?> map) {
     bool b(String key) => map[key] == true;
@@ -156,6 +229,35 @@ class CapabilityStatus {
       accessibilityLastInterruptAt: date('accessibilityLastInterruptAt'),
       accessibilityLastReason:
           map['accessibilityLastReason'] as String? ?? '',
+      accessibilityComponentMatch: b('accessibilityComponentMatch'),
+      accessibilityEnabledEntryCount:
+          (map['accessibilityEnabledEntryCount'] as num?)?.toInt() ?? 0,
+      accessibilityPackageEntryCount:
+          (map['accessibilityPackageEntryCount'] as num?)?.toInt() ?? 0,
+      accessibilityStatusProbeAt: date('accessibilityStatusProbeAt'),
+      accessibilityServiceGeneration:
+          (map['accessibilityServiceGeneration'] as num?)?.toInt() ?? 0,
+      accessibilityConnectCount:
+          (map['accessibilityConnectCount'] as num?)?.toInt() ?? 0,
+      accessibilityDisconnectCount:
+          (map['accessibilityDisconnectCount'] as num?)?.toInt() ?? 0,
+      accessibilityInterruptCount:
+          (map['accessibilityInterruptCount'] as num?)?.toInt() ?? 0,
+      accessibilityDestroyCount:
+          (map['accessibilityDestroyCount'] as num?)?.toInt() ?? 0,
+      accessibilityEventCount:
+          (map['accessibilityEventCount'] as num?)?.toInt() ?? 0,
+      accessibilityAllowedEventCount:
+          (map['accessibilityAllowedEventCount'] as num?)?.toInt() ?? 0,
+      accessibilityLastEventAt: date('accessibilityLastEventAt'),
+      accessibilityLastEventType:
+          map['accessibilityLastEventType'] as String? ?? '',
+      accessibilityLastEventPackageHash:
+          map['accessibilityLastEventPackageHash'] as String? ?? '',
+      accessibilityLastWindowEventAt:
+          date('accessibilityLastWindowEventAt'),
+      accessibilityLastRootAt: date('accessibilityLastRootAt'),
+      processStartedAt: date('processStartedAt'),
       appVisible: b('appVisible'),
       screenInteractive: b('screenInteractive'),
       deviceLocked: b('deviceLocked'),
