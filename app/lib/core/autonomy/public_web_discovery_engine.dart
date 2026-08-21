@@ -124,6 +124,7 @@ class PublicWebDiscoveryEngine {
       interestKey: topic.interestKey,
       now: instant,
     );
+    await _recordCompactionTelemetry(result, instant);
     if (!result.succeeded) {
       final completed = await coordinator.completeWithoutSatisfaction(
         run: run,
@@ -209,6 +210,39 @@ class PublicWebDiscoveryEngine {
       agnesEnabled: agnesEnabled,
       extraSources: await db.getSetting('public_web_extra_sources') ?? '',
     );
+  }
+
+  Future<void> _recordCompactionTelemetry(
+    PublicWebProviderResult result,
+    DateTime at,
+  ) async {
+    if (!result.compactionAttempted || !await db.brainWorkAllowed()) return;
+    await db.setSetting(
+      'agnes_compaction_last_attempt_at',
+      at.millisecondsSinceEpoch.toString(),
+    );
+    await db.setSetting(
+      'agnes_compaction_last_outcome',
+      result.compactionSucceeded ? 'success' : 'failed',
+    );
+    await db.setSetting(
+      'agnes_compaction_last_input_count',
+      '${result.compactionInputCount}',
+    );
+    await db.setSetting(
+      'agnes_compaction_last_output_count',
+      '${result.compactionOutputCount}',
+    );
+    await db.setSetting(
+      'agnes_compaction_last_error',
+      result.compactionFailureReason,
+    );
+    if (result.compactionSucceeded) {
+      await db.setSetting(
+        'agnes_compaction_last_success_at',
+        at.millisecondsSinceEpoch.toString(),
+      );
+    }
   }
 
   Future<void> _recordRuntime({
