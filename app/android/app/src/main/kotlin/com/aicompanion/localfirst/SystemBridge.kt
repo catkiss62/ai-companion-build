@@ -923,36 +923,124 @@ class SystemBridge(
     }
 
     private fun recentUsage(minutes: Int): List<Map<String, Any>> {
-        if (!hasUsageAccess()) return emptyList()
         val manager = activity.getSystemService(UsageStatsManager::class.java)
+        val power = activity.getSystemService(PowerManager::class.java)
         val end = System.currentTimeMillis()
         val start = end - minutes.coerceIn(1, 24 * 60) * 60_000L
-        val events = manager.queryEvents(start, end)
-        val event = UsageEvents.Event()
         val output = ArrayList<Map<String, Any>>()
         val categoryCache = HashMap<String, String>()
         val labelCache = HashMap<String, String>()
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.packageName == null || event.packageName == activity.packageName) continue
-            val label = when (event.eventType) {
-                UsageEvents.Event.ACTIVITY_RESUMED -> "foreground"
-                UsageEvents.Event.ACTIVITY_PAUSED -> "background"
-                UsageEvents.Event.USER_INTERACTION -> "interaction"
-                else -> null
-            } ?: continue
+        var usageEventCount = 0
+        var eventCurrentPackage = ""
+        var eventCurrentObservedAt = 0L
+
+        if (hasUsageAccess()) {
+            val events = manager.queryEvents(start, end)
+            val event = UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val eventPackage = event.packageName ?: continue
+                if (eventPackage == activity.packageName) continue
+                val label = when (event.eventType) {
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        eventCurrentPackage = eventPackage
+                        eventCurrentObservedAt = event.timeStamp
+                        "foreground"
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED -> {
+                        if (eventCurrentPackage == eventPackage) {
+                            eventCurrentPackage = ""
+                            eventCurrentObservedAt = 0L
+                        }
+                        "background"
+                    }
+                    UsageEvents.Event.USER_INTERACTION -> "interaction"
+                    else -> null
+                } ?: continue
+                usageEventCount += 1
+                output += mapOf(
+                    "packageName" to eventPackage,
+                    "timestamp" to event.timeStamp,
+                    "eventType" to label,
+                    "appCategory" to categoryCache.getOrPut(eventPackage) {
+                        appCategory(eventPackage)
+                    },
+                    "appLabel" to labelCache.getOrPut(eventPackage) {
+                        appLabel(eventPackage)
+                    },
+                    "contextSource" to "usage_events",
+                )
+                if (output.size > 200) output.removeAt(0)
+            }
+        }
+
+        var currentPackage = ""
+        var currentSource = "none"
+        var currentObservedAt = 0L
+        if (power.isInteractive) {
+            val accessibility = CompanionRuntimeState.foregroundWindowSnapshot()
+            val accessibilityAge = accessibility
+                ?.let { (end - it.observedAt).coerceAtLeast(0L) }
+                ?: Long.MAX_VALUE
+            if (accessibility != null && accessibilityAge <= 30 * 60_000L) {
+                if (accessibility.packageName != activity.packageName) {
+                    currentPackage = accessibility.packageName
+                    currentSource = "accessibility_window"
+                    currentObservedAt = accessibility.observedAt
+                } else {
+                    currentSource = "self_window"
+                    currentObservedAt = accessibility.observedAt
+                }
+            } else if (eventCurrentPackage.isNotBlank()) {
+                currentPackage = eventCurrentPackage
+                currentSource = "usage_events"
+                currentObservedAt = eventCurrentObservedAt
+            } else if (hasUsageAccess()) {
+                val fallback = runCatching {
+                    manager.queryUsageStats(
+                        UsageStatsManager.INTERVAL_DAILY,
+                        (end - 10 * 60_000L).coerceAtLeast(0L),
+                        end,
+                    ).filter {
+                        it.packageName != activity.packageName && it.lastTimeUsed > 0L
+                    }.maxByOrNull { it.lastTimeUsed }
+                }.getOrNull()
+                if (fallback != null && end - fallback.lastTimeUsed <= 2 * 60_000L) {
+                    currentPackage = fallback.packageName
+                    currentSource = "usage_stats_fallback"
+                    currentObservedAt = fallback.lastTimeUsed
+                }
+            }
+        }
+
+        if (currentPackage.isNotBlank()) {
+            val resolvedLabel = labelCache.getOrPut(currentPackage) {
+                appLabel(currentPackage)
+            }
             output += mapOf(
-                "packageName" to event.packageName,
-                "timestamp" to event.timeStamp,
-                "eventType" to label,
-                "appCategory" to categoryCache.getOrPut(event.packageName) {
-                    appCategory(event.packageName)
+                "packageName" to currentPackage,
+                "timestamp" to end,
+                "eventType" to "foreground",
+                "appCategory" to categoryCache.getOrPut(currentPackage) {
+                    appCategory(currentPackage)
                 },
-                "appLabel" to labelCache.getOrPut(event.packageName) {
-                    appLabel(event.packageName)
-                },
+                "appLabel" to resolvedLabel,
+                "contextSource" to currentSource,
             )
-            if (output.size > 200) output.removeAt(0)
+            CompanionRuntimeState.noteCurrentAppFusion(
+                source = currentSource,
+                ageMs = (end - currentObservedAt).coerceAtLeast(0L),
+                usageEventCount = usageEventCount,
+                labelResolved = resolvedLabel.isNotBlank(),
+            )
+        } else {
+            CompanionRuntimeState.noteCurrentAppFusion(
+                source = currentSource,
+                ageMs = currentObservedAt.takeIf { it > 0L }
+                    ?.let { (end - it).coerceAtLeast(0L) } ?: -1L,
+                usageEventCount = usageEventCount,
+                labelResolved = false,
+            )
         }
         return output
     }
