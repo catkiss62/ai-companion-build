@@ -39,7 +39,7 @@ require(accessibility, 'markAccessibilityDisconnected(this, "unbound")', "unbind
 require(accessibility, "noteAccessibilityInterrupted(this)", "interrupt timestamp")
 require(dart_bridge, "accessibilityLastDisconnectedAt", "Flutter lifecycle bridge")
 require(system_page, "系统授权与实际连接是两件事", "user recovery guidance")
-require(diagnostics, "accessibilityAuthorized && accessibilityConnected", "two-state preflight")
+require(diagnostics, "'healthState': accessibilityHealthState", "multi-state preflight")
 require(diagnostics, "AI Companion $buildLabel", "dynamic report header")
 if "AI Companion v0.31.5+47" in diagnostics:
     raise SystemExit("ERROR: stale hard-coded diagnostic version remains")
