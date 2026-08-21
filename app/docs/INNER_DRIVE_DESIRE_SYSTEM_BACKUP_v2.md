@@ -134,13 +134,50 @@
 6. Drive/Thought/Somatic/候选均受来源、TTL/生命周期、幂等、Active Brain 和 transfer fencing。
 7. 后续天气、屏幕、媒体、GitHub、MCP/Provider 都只能接入这一主干。
 
-## 8. 维护入口
+## 8. 从旧审计吸收的长期约束
 
-- 设计审计历史：`docs/DESIRE_SYSTEM_AUDIT_v1.md`
+以下内容原记录于已退役的 `DESIRE_SYSTEM_AUDIT_v1.md`，因仍有独立价值而并入本融合备份。
+
+### 8.1 屏幕陪伴不是普通主动消息
+
+共同看电影、网页或游戏时应建立明确的 `screen_companion` Session：
+
+- `feedback_policy = neutral_silence`
+- `expects_user_reply = false`
+- `conversation_mode = co_presence`
+
+用户沉默不生成 `no_response`，不解释为冷落，不降低关系或话题适配；下一次评论由画面变化、内容价值和冷却决定。用户临时回复后处理真实 turn，再回到共同观看。结束时停止捕捉并清空短期视觉上下文，原始截图默认不落盘。
+
+### 8.2 工具消费者仍走唯一主干
+
+自主网页、看当前屏幕、媒体理解、天气、GitHub 与未来 MCP 只能遵循：
+
+```text
+Desire / Thought 形成探索意图
+→ Tool Gate / 权限 / 安全 / 预算
+→ 真实执行
+→ 带来源和 TTL 的候选
+→ Intent / 主动 Gate 决定分享或 WAIT
+```
+
+网页、Awareness、Somatic 与模型推断不能冒充用户原话；工具成功不自动新建用户 Memory，也不自动联系用户。
+
+### 8.3 长期维护回归
+
+- 1000+ tick 保持有界且不整体自激；
+- duty 无证据不行动，libido 无 Session 不行动，fatigue 不发消息；
+- wildcard 有真实压力来源且有冷却；
+- 重试、取消、Active Brain 转移不重复 pulse、satisfy 或出站；
+- user-to-AI 感官影响强于 AI-to-self 回响，且两者均有来源和幂等键；
+- screen companion 长时间无回复不产生负反馈；
+- `WAIT` 是健康结果，不以主动次数 KPI 强迫发言。
+
+## 9. 维护入口
+
 - 当前融合备份：`docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`
 - Desire 核心：`lib/core/desire/`
 - 数据模型：`lib/core/models/desire_state.dart`、`lib/core/models/thought.dart`
 - 自主工具底座：`lib/core/autonomy/`
 - 脱敏证据：`lib/core/diagnostics/preflight_diagnostics.dart`
-- 当前完整总账：仓库根目录 `AI_Companion_接班总账_v36_2026-08-17.md`
-
+- 当前完整总账：仓库根目录 `AI_Companion_当前总账.md`
+- 文档历史：通过 Git 历史读取，不在工作树保留旧审计副本
