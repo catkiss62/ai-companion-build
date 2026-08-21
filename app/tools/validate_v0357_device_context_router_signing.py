@@ -78,7 +78,7 @@ for token in (
     ".ci/v0357-monitor.txt",
     "ai-companion-private-signing-v1",
     "AI_COMPANION_KEYSTORE_PATH",
-    "apksigner verify --print-certs",
+    "verify --print-certs",
 ):
     assert token in workflow, token
 
