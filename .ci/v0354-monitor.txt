@@ -1,125 +1,14 @@
 status=failure
 build_result=cancelled
-run_id=32492617138
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32492617138
-head_sha=2e1d287494e6f4d08e297b9214f4db538c96acfd
+run_id=32492676245
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32492676245
+head_sha=13585d446df5bc648bbc3bf774c442eacb0a13fd
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=cancelled id=96803715792 ---
-﻿2026-08-21T14:32:14.5951004Z Current runner version: '2.336.0'
-2026-08-21T14:32:14.5998422Z ##[group]Runner Image Provisioner
-2026-08-21T14:32:14.5999990Z Hosted Compute Agent
-2026-08-21T14:32:14.6001060Z Version: 20260729.566
-2026-08-21T14:32:14.6002096Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
-2026-08-21T14:32:14.6003502Z Build Date: 2026-07-29T19:17:02Z
-2026-08-21T14:32:14.6004995Z Worker ID: {8fd66503-5882-41b3-bfaa-4c23bb781244}
-2026-08-21T14:32:14.6006470Z Azure Region: centralus
-2026-08-21T14:32:14.6007502Z ##[endgroup]
-2026-08-21T14:32:14.6010046Z ##[group]Operating System
-2026-08-21T14:32:14.6011240Z Ubuntu
-2026-08-21T14:32:14.6012108Z 24.04.4
-2026-08-21T14:32:14.6013151Z LTS
-2026-08-21T14:32:14.6014467Z ##[endgroup]
-2026-08-21T14:32:14.6015507Z ##[group]Runner Image
-2026-08-21T14:32:14.6016714Z Image: ubuntu-24.04
-2026-08-21T14:32:14.6017693Z Version: 20260816.277.1
-2026-08-21T14:32:14.6020149Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260816.277/images/ubuntu/Ubuntu2404-Readme.md
-2026-08-21T14:32:14.6023059Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260816.277
-2026-08-21T14:32:14.6025247Z ##[endgroup]
-2026-08-21T14:32:14.6027347Z ##[group]GITHUB_TOKEN Permissions
-2026-08-21T14:32:14.6030210Z Actions: read
-2026-08-21T14:32:14.6031215Z Contents: write
-2026-08-21T14:32:14.6032305Z Metadata: read
-2026-08-21T14:32:14.6033315Z ##[endgroup]
-2026-08-21T14:32:14.6037272Z Secret source: Actions
-2026-08-21T14:32:14.6039755Z Prepare workflow directory
-2026-08-21T14:32:14.6936430Z Prepare all required actions
-2026-08-21T14:32:14.7095741Z Getting action download info
-2026-08-21T14:32:15.0427705Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-08-21T14:32:15.1500693Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-08-21T14:32:15.7419209Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
-2026-08-21T14:32:16.0868146Z Getting action download info
-2026-08-21T14:32:16.1756944Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
-2026-08-21T14:32:16.3343977Z Complete job name: build-apk
-2026-08-21T14:32:16.4377456Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-2026-08-21T14:32:16.4387055Z ##[group]Run actions/checkout@v4
-2026-08-21T14:32:16.4387866Z with:
-2026-08-21T14:32:16.4388369Z   repository: catkiss62/ai-companion-build
-2026-08-21T14:32:16.4392948Z   token: ***
-2026-08-21T14:32:16.4393408Z   ssh-strict: true
-2026-08-21T14:32:16.4393877Z   ssh-user: git
-2026-08-21T14:32:16.4395027Z   persist-credentials: true
-2026-08-21T14:32:16.4395913Z   clean: true
-2026-08-21T14:32:16.4396717Z   sparse-checkout-cone-mode: true
-2026-08-21T14:32:16.4397699Z   fetch-depth: 1
-2026-08-21T14:32:16.4398413Z   fetch-tags: false
-2026-08-21T14:32:16.4399145Z   show-progress: true
-2026-08-21T14:32:16.4399895Z   lfs: false
-2026-08-21T14:32:16.4400672Z   submodules: false
-2026-08-21T14:32:16.4401525Z   set-safe-directory: true
-2026-08-21T14:32:16.4402489Z   allow-unsafe-pr-checkout: false
-2026-08-21T14:32:16.4404001Z ##[endgroup]
-2026-08-21T14:32:16.6121968Z Syncing repository: catkiss62/ai-companion-build
-2026-08-21T14:32:16.7511352Z ##[group]Getting Git version info
-2026-08-21T14:32:16.7515405Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-08-21T14:32:16.7521708Z [command]/usr/bin/git version
-2026-08-21T14:32:16.7524246Z git version 2.55.0
-2026-08-21T14:32:16.7543814Z ##[endgroup]
-2026-08-21T14:32:16.7558657Z Temporarily overriding HOME='/home/runner/work/_temp/c7cc6744-1aad-4c63-86cb-16a413ed511a' before making global git config changes
-2026-08-21T14:32:16.7562252Z Adding repository directory to the temporary git global config as a safe directory
-2026-08-21T14:32:16.7566778Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-08-21T14:32:16.7572600Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-08-21T14:32:16.7576369Z ##[group]Initializing the repository
-2026-08-21T14:32:16.7577908Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-08-21T14:32:16.7581709Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-08-21T14:32:16.7585141Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-08-21T14:32:16.7588400Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-08-21T14:32:16.7590892Z hint: call:
-2026-08-21T14:32:16.7592219Z hint:
-2026-08-21T14:32:16.7593987Z hint: 	git config --global init.defaultBranch <name>
-2026-08-21T14:32:16.7595932Z hint:
-2026-08-21T14:32:16.7598031Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-08-21T14:32:16.7600585Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-08-21T14:32:16.7603123Z hint:
-2026-08-21T14:32:16.7604762Z hint: 	git branch -m <name>
-2026-08-21T14:32:16.7606596Z hint:
-2026-08-21T14:32:16.7608344Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-08-21T14:32:16.7611692Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-08-21T14:32:16.7619619Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-08-21T14:32:16.7622917Z ##[endgroup]
-2026-08-21T14:32:16.7624593Z ##[group]Disabling automatic garbage collection
-2026-08-21T14:32:16.7625901Z [command]/usr/bin/git config --local gc.auto 0
-2026-08-21T14:32:16.7628870Z ##[endgroup]
-2026-08-21T14:32:16.7630353Z ##[group]Setting up auth
-2026-08-21T14:32:16.7631205Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-08-21T14:32:16.7634975Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-08-21T14:32:16.7640022Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-08-21T14:32:16.7645899Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-08-21T14:32:16.7785114Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-08-21T14:32:16.7795147Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-08-21T14:32:16.8050891Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-08-21T14:32:16.8095584Z ##[endgroup]
-2026-08-21T14:32:16.8097936Z ##[group]Fetching the repository
-2026-08-21T14:32:16.8108188Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2e1d287494e6f4d08e297b9214f4db538c96acfd:refs/remotes/pull/23/merge
-2026-08-21T14:32:18.9542883Z ##[error]The operation was canceled.
-2026-08-21T14:32:18.9913698Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-2026-08-21T14:32:18.9916982Z Post job cleanup.
-2026-08-21T14:32:19.1595239Z [command]/usr/bin/git version
-2026-08-21T14:32:19.1729085Z git version 2.55.0
-2026-08-21T14:32:19.1915548Z Temporarily overriding HOME='/home/runner/work/_temp/fe9a7a84-174e-4fd4-89c1-a244cb559053' before making global git config changes
-2026-08-21T14:32:19.1918366Z Adding repository directory to the temporary git global config as a safe directory
-2026-08-21T14:32:19.1955501Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-08-21T14:32:19.2025276Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-08-21T14:32:19.2066042Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-08-21T14:32:19.2532377Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-08-21T14:32:19.2589019Z http.https://github.com/.extraheader
-2026-08-21T14:32:19.2635288Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-08-21T14:32:19.2722538Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-08-21T14:32:19.3472100Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-08-21T14:32:19.3622837Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-08-21T14:32:19.4827278Z Cleaning up orphan processes
-2026-08-21T14:32:19.5708558Z Terminate orphan process: pid (2075) (git)
-2026-08-21T14:32:19.5919431Z Terminate orphan process: pid (2076) (git)
-2026-08-21T14:32:19.6027620Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+--- job=build-apk conclusion=cancelled id=96803813147 ---
+Unable to download this completed job log.
+﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
+RequestId:15adbe71-c01e-00e0-0a79-311468000000
+Time:2026-08-21T14:32:38.4131473Z</Message></Error>gh: HTTP 404
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c374249d800579faf13
