@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前已构建开发头为 `v0.35.5+80 Time, Perception & Diagnostics`：跨日聊天间隔、反服务模板语义守卫、轻视觉三层健康诊断和前台 App 精确名称已完成。Actions run `32495296443` 已通过 57 项历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk`，SHA-256 `3b2c7b96a123341ff39d4dffb59fc181b13d928961cbe79f59c7787afc3ee911`；轻视觉是否仍会随时间掉线和语言体验仍必须由真机单独验收。
+0. 当前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -21,9 +21,9 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认构建基线为 `v0.35.5+80`，schema 26；PR #23 分支源码 head `7cf49881506236437c2912d32654f2afa49eba1a`，Actions PR merge SHA `074497ef3845960e5d36325a64cf19179eaec21a`。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32495296443>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.5 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4905d721f42def847cab>；APK `AI-Companion-v0.35.5-80-Time-Perception-Diagnostics-APK.apk`，SHA-256 `3b2c7b96a123341ff39d4dffb59fc181b13d928961cbe79f59c7787afc3ee911`。
+- GitHub 当前已确认构建基线为 `v0.35.6+81`，schema 26；PR #23 分支源码 head `4151c2ad080a8c62a2cf6deb2cde9ce0b7a11d42`，Actions PR merge SHA `58c51ec168441f6fec33e4655cab808ac7574c9d`。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32515338233>；全部历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.6 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ca2e87bec285a9d831ec>；APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
@@ -1276,7 +1276,7 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 - 自动化完成不等于真机完成；下一步让用户安装此 APK，优先做轻视觉长时间复测、跨日对话、服务模板重复率和前台 App 名称四类观察。
 - 下一代码批建议：统一 Agent Tool Registry 与工具执行状态流；之后再做 UI 信息架构分类迁移。MCP/Skills 继续登记为后续重点，不与本批混做。
 
-## 10.19 2026-08-22 · 统一 Agent 工具主循环与被动故障取证（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+## 10.19 2026-08-22 · 统一 Agent 工具主循环与被动故障取证（IMPLEMENTED / CI PASSED / TRUE DEVICE PENDING）
 
 > 本节对应 v0.35.6+81 代码批。提交和 Actions 成功前只能写“已实现、待 CI”；CI 成功也不等于真机完成。本批不改 SQLite schema（仍为 26），不改轻视觉服务连接/重连策略，也不改桌宠 cover recovery 的次数、延时或 settle 时序。
 
@@ -1345,6 +1345,9 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 - 目标版本：`v0.35.6+81`；schema 26。
 - 新增 Agent Registry 单元测试与 `validate_v0356_agent_tool_loop.py`，同时继续执行全部历史 validators、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生/417 文件载荷与 checksum。
 - 继续通过私有 Draft Release 上传 APK、SHA-256 和 CI monitor；Actions artifact 配额满不改变该交付方式。
-- 当前状态：本地/提交前静态实现完成，GitHub Actions 尚未给出结论。
+- 工作流首次无法触发的根因不是 Actions 页面、Artifact 配额或用户权限：分支 YAML 在旧版本字符串替换时把约 340 行尾部重复拼接到文件末尾，第 393 行出现孤立 `app/pubspec.yaml`，GitHub 因语法无效而不注册 `workflow_dispatch`。已删除重复尾部并用 YAML parser 确认只保留 `build-apk` / `report-ci-failure` 两个 job；用户不需要手动删除任何 Actions、Artifact 或 Release。
+- 首次有效 run `32514404077` 证明 v0.35.6 新 validator 通过，随后只暴露 v0.32.0 历史版本白名单；run `32514605460` 通过静态回归与 Kotlin 后，Flutter analyze 只发现新增测试误用包名 `ai_companion`。两处均已修正。
+- CI PASSED：Actions run [32515338233](https://github.com/catkiss62/ai-companion-build/actions/runs/32515338233)，分支源码 head `4151c2ad080a8c62a2cf6deb2cde9ce0b7a11d42`，PR merge SHA `58c51ec168441f6fec33e4655cab808ac7574c9d`。全部 validators、Kotlin、Flutter analyze/tests、release APK、载荷、checksum 和私有草稿上传均成功。
+- 私有草稿 Release：[v0.35.6 true-device test candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ca2e87bec285a9d831ec)；APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`；SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`。
 - CI 通过后的真机优先项：明确要求联网、读取规则、检索记忆、读取当前 App；观察灰色真实状态与最终回答是否一致；再次遇到轻视觉掉授权或跨 App 桌宠消失时立即导出报告。
 - 之后按已确认顺序单独做 UI IA-1/IA-2（只拆五域入口/设置页面，不改配置语义），再接当前屏幕观察、提案确认/真实提醒；最小 Emotion Appraisal 按固定回放判据决定是否扩建；MCP 为后续重点，Skills 继续作为可插拔能力契约研究。
