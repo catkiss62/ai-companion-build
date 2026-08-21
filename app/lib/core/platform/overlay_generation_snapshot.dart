@@ -5,6 +5,8 @@ class OverlayGenerationSnapshot {
     required this.reasoning,
     required this.content,
     this.assistantMessageId = '',
+    this.statusText = '',
+    this.runtimePhase = '',
   });
 
   final bool sending;
@@ -12,10 +14,15 @@ class OverlayGenerationSnapshot {
   final String reasoning;
   final String content;
   final String assistantMessageId;
+  final String statusText;
+  final String runtimePhase;
 
   String get phase {
     if (cancelling) return 'cancelling';
     if (!sending) return 'idle';
+    if (runtimePhase == 'thinking' || runtimePhase == 'answering') {
+      return runtimePhase;
+    }
     if (content.isNotEmpty) return 'answering';
     return 'thinking';
   }
@@ -27,5 +34,6 @@ class OverlayGenerationSnapshot {
         'content': content,
         'phase': phase,
         'assistant_message_id': assistantMessageId,
+        'status_text': statusText,
       };
 }
