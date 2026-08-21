@@ -106,6 +106,10 @@ class CurrentDeviceContextRefresher {
         interpretation.currentActivityKey ?? '',
       );
       await db.setSetting(
+        'current_context_current_app_resolved',
+        interpretation.currentAppLabel?.trim().isNotEmpty == true ? '1' : '0',
+      );
+      await db.setSetting(
         'current_context_dominant_activity',
         interpretation.dominantActivityKey ?? '',
       );
