@@ -282,6 +282,17 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     if (mounted) await _refresh(clearNote: false);
   }
 
+  String _accessibilityHealthLabel(String state) => switch (state) {
+        'SYSTEM_DISABLED' => '系统未授权',
+        'COMPONENT_MISMATCH' => '组件不匹配',
+        'ENABLED_NOT_CONNECTED' => '已授权但未连接',
+        'PROCESS_RESTARTED' => '进程重启后未重连',
+        'CONNECTED_NO_EVENTS' => '已连接，等待事件',
+        'EVENT_STREAM_STALLED' => '事件流疑似停滞',
+        'STALE_UI' => '页面状态待刷新',
+        _ => '事件流正常',
+      };
+
   @override
   Widget build(BuildContext context) {
     final s = status;
@@ -467,17 +478,24 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   '${s?.notificationListenerConnected == true ? '已连接' : '未连接'}',
                 ),
                 Text(
-                  '轻视觉：${s?.accessibility == true ? '已授权' : '未授权'} / '
-                  '${s?.accessibilityConnected == true ? '已连接' : '未连接'}',
+                  '轻视觉：系统${s?.accessibility == true ? '已授权' : '未授权'} / '
+                  '服务${s?.accessibilityConnected == true ? '已连接' : '未连接'} / '
+                  '${_accessibilityHealthLabel(s?.accessibilityHealthState ?? 'STALE_UI')}',
                 ),
+                if (s != null)
+                  Text(
+                    '轻视觉事件：${s.accessibilityEventCount} 次'
+                    '${s.accessibilityLastEventAt == null ? '' : ' · 最近 ${s.accessibilityLastEventAt!.toLocal()}'}'
+                    '${s.accessibilityLastEventType.isEmpty ? '' : ' · ${s.accessibilityLastEventType}'}',
+                  ),
                 if (s?.accessibility == true &&
                     s?.accessibilityConnected != true)
                   const Text(
-                    '轻视觉已授权但未连接：请进入无障碍设置重新开关，并保存脱敏诊断。',
+                    '系统授权与实际连接是两件事；保存脱敏诊断可区分组件不匹配、进程重启或未连接。',
                   ),
                 if ((s?.accessibilityLastReason ?? '').isNotEmpty)
                   Text(
-                    '轻视觉最近状态：${s!.accessibilityLastReason}'
+                    '轻视觉最近生命周期：${s!.accessibilityLastReason}'
                     '${s.accessibilityLastDisconnectedAt == null ? '' : ' · ${s.accessibilityLastDisconnectedAt!.toLocal()}'}',
                   ),
                 Text(
