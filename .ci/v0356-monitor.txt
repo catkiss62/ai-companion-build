@@ -1,12 +1,6 @@
-status=failure
-build_result=failure
-run_id=32514605460
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32514605460
-head_sha=8718db29513125c40c7dffc2738a4d2bf73e2b42
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=96873298125 ---
-Unable to download this completed job log.
-the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8e4f914d3f7f24cf938d
+status=success
+run_id=32515338233
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32515338233
+head_sha=58c51ec168441f6fec33e4655cab808ac7574c9d
+1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849  AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ca2e87bec285a9d831ec
