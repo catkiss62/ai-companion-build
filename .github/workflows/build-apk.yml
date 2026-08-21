@@ -25,7 +25,12 @@
 # AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk
 # v0.35.6-agent-tool-loop-test
 # .ci/v0356-monitor.txt
-name: Build AI Companion v0.35.7+82 APK (Device Context, Fast Router & Stable Signing)
+# Historical v0.35.7 compatibility:
+# Build AI Companion v0.35.7+82 APK (Device Context, Fast Router & Stable Signing)
+# AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk
+# v0.35.7-device-context-router-test
+# .ci/v0357-monitor.txt
+name: Build AI Companion v0.35.8+83 APK (Native Tool Calling & Shared Runtime)
 
 on:
   workflow_dispatch:
@@ -55,13 +60,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.35.7+82$' app/pubspec.yaml
+          grep -q '^version: 0.35.8+83$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 26;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.35.7+82 app/ source tree.'
+          echo 'Building directly from the committed v0.35.8+83 app/ source tree.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -171,6 +176,7 @@ jobs:
           python3 tools/validate_v0355_time_perception_diagnostics.py
           python3 tools/validate_v0356_agent_tool_loop.py
           python3 tools/validate_v0357_device_context_router_signing.py
+          python3 tools/validate_v0358_native_tool_runtime.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -308,16 +314,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.35.7+82 APK to draft release
+      - name: Upload v0.35.8+83 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.35.7-device-context-router-test'
-          APK_NAME='AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk'
+          TAG='v0.35.8-native-tool-runtime-test'
+          APK_NAME='AI-Companion-v0.35.8-83-Native-Tool-Runtime-Sync-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.35.7-82-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.35.8-83-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -334,8 +340,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.7+82 true-device test candidate' \
-              --notes 'Draft-only APK adding fused current-App detection (Accessibility window, UsageEvents and bounded UsageStats fallback), a fast local route that skips the separate tool-planner model for ordinary companionship turns, redacted Agnes compaction telemetry, and a persistent private test signer. Because v0.35.6 used an ephemeral signer, installing v0.35.7 requires one final uninstall/reinstall; later APKs signed by this v1 identity can update in place. Password text, Accessibility content and raw package names remain excluded from diagnostics. Light-vision and frozen overlay recovery timing are unchanged.'
+              --title 'AI Companion v0.35.8+83 true-device test candidate' \
+              --notes 'Draft-only APK replacing the separate per-turn tool-router API with a hybrid loop: unmistakable commands execute through the bounded local fast path, while ambiguous intent uses DeepSeek native function calling inside the normal answer request. Native tool requests are still registry/risk gated, capped at two calls, and followed by real tool-result messages with reasoning_content continuity. Durable generation checkpoints and real tool status are now visible to the native overlay across Dart controllers. Light-vision and frozen overlay recovery timing are unchanged. The persistent v1 private test signer remains unchanged, so this APK can update v0.35.7 in place.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -359,18 +365,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0357-monitor.txt'
+          MONITOR_PATH='.ci/v0358-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.7 CI success monitor' \
+              -f message='Update v0.35.8 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.7 CI success monitor' \
+              -f message='Create v0.35.8 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -389,8 +395,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.35.7-device-context-router-test'
-          CI_NAME='AI-Companion-v0.35.7-82-CI-Monitor.txt'
+          TAG='v0.35.8-native-tool-runtime-test'
+          CI_NAME='AI-Companion-v0.35.8-83-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -430,8 +436,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.35.7+82 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual v0.35.7 device-context, fast-router, compaction-telemetry and stable-signing true-device APK. It is not a public release.'
+              --title 'AI Companion v0.35.8+83 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual v0.35.8 native-tool-calling and shared-runtime true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -440,18 +446,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0357-monitor.txt'
+          MONITOR_PATH='.ci/v0358-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.35.7 CI failure monitor' \
+              -f message='Update v0.35.8 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.35.7 CI failure monitor' \
+              -f message='Create v0.35.8 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
