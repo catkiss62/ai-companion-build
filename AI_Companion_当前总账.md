@@ -16,11 +16,11 @@
 - REDMI K80 Ultra / Xiaomi HyperOS 已登记为当前重点真机。开发者模式不会绕过签名或权限，但 USB/无线调试可用于后续 ADB、logcat、dumpsys、AppOps 与窗口栈取证；不要求为了当前批次关闭系统安全保护。
 - 悬浮桌宠跨 App 消失与轻视觉掉授权仍按既定规则：不继续盲加等待/重试；待新的即时脱敏诊断或 ADB 证据再改。若长期无法定位，优先比对成熟 Android Accessibility/Shizuku 项目的前台 App 与权限实现。
 - 屏幕亮时“自主感知不设小时硬上限、以 App 变化/冷却/去重/敏感页 Gate 控制；熄屏禁止视觉并限制自主联网”仍是已确认设计，当前 screen_observation.inspect 尚未可执行，本批次不伪装成已实现。
-- 实现状态：源码修改准备中；CI、草稿 APK 与真机均未验收。目标版本 v0.35.7+82，schema 保持 26。
+- 实现状态：v0.35.7+82 源码与自动化已通过，schema 保持 26；真机尚未验收。Actions run `32530979246` 完成全部历史/当前 validators、Kotlin、Flutter analyze、182 项 Flutter tests、release APK、持久签名指纹、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk`，SHA-256 `1219b9507d7002eb49c5330bee409fbbdfc05db9477c66370e692908c57928ec`；签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1c0a3cbc4ee17e237ce>。
 
 ## 0. 下一轮开场先做什么
 
-0. 当前稳定可下载基线仍为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`；`v0.35.7+82` 当前处于源码实现/CI 待验，不得提前称为可用 APK。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
+0. 当前稳定可下载开发基线为 `v0.35.7+82 Device Context, Fast Router & Stable Signing`：Actions run `32530979246` 已通过完整自动化并上传私有草稿 APK；当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名均已进入构建，但仍必须真机验收。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -33,9 +33,9 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认构建基线为 `v0.35.6+81`，schema 26；PR #23 分支源码 head `4151c2ad080a8c62a2cf6deb2cde9ce0b7a11d42`，Actions PR merge SHA `58c51ec168441f6fec33e4655cab808ac7574c9d`。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32515338233>；全部历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.6 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ca2e87bec285a9d831ec>；APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`。
+- GitHub 当前已确认构建基线为 `v0.35.7+82`，schema 26；PR #23 分支源码 head `3ce0bb4c9a525abff7dc355ba9bbafa4e431af8a`，Actions PR merge SHA `20eb3d971127f4757ba04247b48bdc30cde782c1`。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32530979246>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、182 项 Flutter tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.7 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1c0a3cbc4ee17e237ce>；APK `AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk`，SHA-256 `1219b9507d7002eb49c5330bee409fbbdfc05db9477c66370e692908c57928ec`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
