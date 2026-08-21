@@ -665,7 +665,7 @@ class SystemBridge(
             put("usage", hasUsageAccess())
             val accessibilityStatus = accessibilityServiceStatus()
             val accessibilityAuthorized =
-                accessibilityStatus["componentMatch"] == true
+                accessibilityStatus["accessibilityComponentMatch"] == true
             put("accessibility", accessibilityAuthorized)
             put("accessibilityAuthorized", accessibilityAuthorized)
             putAll(accessibilityStatus)
