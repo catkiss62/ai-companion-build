@@ -6,6 +6,6 @@ source = source.replace("static const int schemaVersion = 23;", "static const in
 # identity to move beyond the last version listed in that historical regex.
 source = source.replace(
     "|4\\+79))\\s*$",
-    "|4\\+79|5\\+80|6\\+81|7\\+82))\\s*$",
+    "|4\\+79|5\\+80|6\\+81|7\\+82|8\\+83))\\s*$",
 )
 exec(compile(source, "validate_v0320_somatic_contract.py", "exec"))
