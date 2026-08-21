@@ -363,6 +363,9 @@ class PreflightDiagnosticsService {
               0.0,
           'currentActivityClass':
               await db.getSetting('current_context_current_activity') ?? '',
+          'currentAppNameResolved':
+              (await db.getSetting('current_context_current_app_resolved')) == '1',
+          'currentAppNameIncluded': false,
           'dominantActivityClass':
               await db.getSetting('current_context_dominant_activity') ?? '',
           'observationCount': int.tryParse(
@@ -547,9 +550,81 @@ class PreflightDiagnosticsService {
               capabilities['accessibility'] == true;
       final accessibilityConnected =
           capabilities['accessibilityConnected'] == true;
+      final accessibilityComponentMatch =
+          capabilities['accessibilityComponentMatch'] == true;
+      final accessibilityPackageEntryCount =
+          (capabilities['accessibilityPackageEntryCount'] as num?)?.toInt() ?? 0;
+      final accessibilityEventCount =
+          (capabilities['accessibilityEventCount'] as num?)?.toInt() ?? 0;
+      final accessibilityLastEventAt =
+          (capabilities['accessibilityLastEventAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProcessStartedAt =
+          (capabilities['processStartedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityLastConnectedAt =
+          (capabilities['accessibilityLastConnectedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityLastDisconnectedAt =
+          (capabilities['accessibilityLastDisconnectedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProbeAt =
+          (capabilities['accessibilityStatusProbeAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProbeStale = accessibilityProbeAt > 0 &&
+          now.millisecondsSinceEpoch - accessibilityProbeAt >
+              const Duration(minutes: 2).inMilliseconds;
+      final accessibilityProcessRestarted = !accessibilityConnected &&
+          accessibilityLastConnectedAt > 0 &&
+          accessibilityProcessStartedAt > accessibilityLastConnectedAt &&
+          accessibilityLastDisconnectedAt < accessibilityLastConnectedAt;
+      final accessibilityEventStalled = accessibilityConnected &&
+          accessibilityEventCount > 0 &&
+          accessibilityLastEventAt > 0 &&
+          capabilities['screenInteractive'] == true &&
+          capabilities['deviceLocked'] != true &&
+          now.millisecondsSinceEpoch - accessibilityLastEventAt >
+              const Duration(minutes: 45).inMilliseconds;
+      final accessibilityHealthState = accessibilityProbeStale
+          ? 'STALE_UI'
+          : !accessibilityComponentMatch &&
+                  accessibilityPackageEntryCount > 0
+              ? 'COMPONENT_MISMATCH'
+              : !accessibilityAuthorized
+                  ? 'SYSTEM_DISABLED'
+                  : !accessibilityConnected
+                      ? accessibilityProcessRestarted
+                          ? 'PROCESS_RESTARTED'
+                          : 'ENABLED_NOT_CONNECTED'
+                      : accessibilityEventCount <= 0 ||
+                              accessibilityLastEventAt <= 0
+                          ? 'CONNECTED_NO_EVENTS'
+                          : accessibilityEventStalled
+                              ? 'EVENT_STREAM_STALLED'
+                              : 'CONNECTED_EVENTS_OK';
       report['accessibilityLifecycle'] = {
+        'healthState': accessibilityHealthState,
         'authorized': accessibilityAuthorized,
+        'componentMatch': accessibilityComponentMatch,
+        'enabledEntryCount':
+            capabilities['accessibilityEnabledEntryCount'] ?? 0,
+        'packageEntryCount': accessibilityPackageEntryCount,
+        'statusProbeAt': accessibilityProbeAt,
         'connected': accessibilityConnected,
+        'serviceGeneration':
+            capabilities['accessibilityServiceGeneration'] ?? 0,
+        'connectCount': capabilities['accessibilityConnectCount'] ?? 0,
+        'disconnectCount':
+            capabilities['accessibilityDisconnectCount'] ?? 0,
+        'interruptCount':
+            capabilities['accessibilityInterruptCount'] ?? 0,
+        'destroyCount': capabilities['accessibilityDestroyCount'] ?? 0,
+        'eventCount': accessibilityEventCount,
+        'allowedEventCount':
+            capabilities['accessibilityAllowedEventCount'] ?? 0,
+        'lastEventAt': accessibilityLastEventAt,
+        'lastEventType': capabilities['accessibilityLastEventType'] ?? '',
+        'lastEventPackageHash':
+            capabilities['accessibilityLastEventPackageHash'] ?? '',
+        'lastWindowEventAt':
+            capabilities['accessibilityLastWindowEventAt'] ?? 0,
+        'lastReadableRootAt': capabilities['accessibilityLastRootAt'] ?? 0,
+        'rawPackageOrTextIncluded': false,
         'lastConnectedAt': capabilities['accessibilityLastConnectedAt'] ?? 0,
         'lastDisconnectedAt':
             capabilities['accessibilityLastDisconnectedAt'] ?? 0,
@@ -559,14 +634,26 @@ class PreflightDiagnosticsService {
       checks.add(PreflightCheck(
         id: 'accessibility',
         title: 'Accessibility 轻视觉',
-        level: accessibilityAuthorized && accessibilityConnected
+        level: accessibilityHealthState == 'CONNECTED_EVENTS_OK'
             ? 'pass'
-            : 'warn',
-        summary: !accessibilityAuthorized
-            ? '系统当前未授权；轻视觉不会运行。'
-            : accessibilityConnected
-                ? '系统已授权，轻视觉服务已连接。'
-                : '系统仍显示已授权，但轻视觉服务未连接；请打开无障碍页重新开关该服务，并保存本报告。',
+            : accessibilityHealthState == 'CONNECTED_NO_EVENTS'
+                ? 'info'
+                : 'warn',
+        summary: switch (accessibilityHealthState) {
+          'SYSTEM_DISABLED' => '系统当前未授权；轻视觉不会运行。',
+          'COMPONENT_MISMATCH' =>
+            '系统存在本 App 的无障碍条目，但组件名不匹配；请保存本报告。',
+          'ENABLED_NOT_CONNECTED' =>
+            '系统已授权但服务未连接；请进入无障碍设置重新开关后保存本报告。',
+          'PROCESS_RESTARTED' =>
+            'App 进程曾重启，系统授权仍在但服务尚未重新连接。',
+          'CONNECTED_NO_EVENTS' =>
+            '服务已连接，但本次安装尚未收到 AccessibilityEvent。',
+          'EVENT_STREAM_STALLED' =>
+            '服务仍标记连接，但事件流长时间无心跳，疑似已停滞。',
+          'STALE_UI' => '当前权限快照已过期，请刷新页面后重新导出诊断。',
+          _ => '系统授权、服务连接与事件流心跳均正常。',
+        },
       ));
       _addPermissionCheck(
         checks,
