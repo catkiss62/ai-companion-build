@@ -1,12 +1,7 @@
-status=failure
-build_result=failure
-run_id=32530002204
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32530002204
-head_sha=62f0adfd8ac8dffbebaa243cecf4eb0cfd0c7d68
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=96919963299 ---
-Unable to download this completed job log.
-the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c86610df6f153cf887d5
+status=success
+run_id=32530979246
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32530979246
+head_sha=20eb3d971127f4757ba04247b48bdc30cde782c1
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+1219b9507d7002eb49c5330bee409fbbdfc05db9477c66370e692908c57928ec  AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1c0a3cbc4ee17e237ce
