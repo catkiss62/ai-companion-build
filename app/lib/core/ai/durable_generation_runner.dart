@@ -18,6 +18,29 @@ import 'model_profile.dart';
 import 'nsfw_context_router.dart';
 import 'prompt_builder.dart';
 
+final class _DeepSeekToolCallBuilder {
+  _DeepSeekToolCallBuilder(this.index);
+
+  final int index;
+  String id = '';
+  String name = '';
+  final StringBuffer arguments = StringBuffer();
+
+  void add(DeepSeekToolCallDelta fragment) {
+    if (fragment.id.isNotEmpty) id = fragment.id;
+    if (fragment.name.isNotEmpty) name = fragment.name;
+    if (fragment.argumentsFragment.isNotEmpty) {
+      arguments.write(fragment.argumentsFragment);
+    }
+  }
+
+  DeepSeekToolCall build() => DeepSeekToolCall(
+        id: id.isEmpty ? 'call_$index' : id,
+        name: name,
+        arguments: arguments.toString(),
+      );
+}
+
 class GenerationRunResult {
   const GenerationRunResult({
     required this.status,
@@ -66,7 +89,6 @@ class DurableGenerationRunner {
         desireEngine = DesireEngine(db),
         somaticEngine = SomaticEngine(db),
         nsfwRouter = NsfwContextRouter(db: db, client: client),
-        agentToolPlanner = AgentToolPlanner(client),
         agentToolRunner = AgentToolRunner(
           db: db,
           android: AndroidBridge.instance,
@@ -79,7 +101,6 @@ class DurableGenerationRunner {
   final DesireEngine desireEngine;
   final SomaticEngine somaticEngine;
   final NsfwContextRouter nsfwRouter;
-  final AgentToolPlanner agentToolPlanner;
   final AgentToolRunner agentToolRunner;
 
   Future<GenerationRunResult> run(
@@ -176,62 +197,28 @@ class DurableGenerationRunner {
         cancellationToken: cancellationToken,
       );
       onNsfwRoute?.call(nsfwRoute);
+      await _publishToolRuntime(
+        phase: 'thinking',
+        statusText: '',
+        toolId: '',
+      );
+      void emitToolActivity(AgentToolActivity activity) {
+        onAgentToolActivity?.call(activity);
+        unawaited(_publishToolRuntime(
+          phase: activity.active ? 'thinking' : 'answering',
+          statusText: activity.text,
+          toolId: activity.toolId,
+        ));
+      }
+
       var agentToolResults = const <AgentToolResult>[];
       final localPlan = AgentToolPlanner.routeLocally(user.content);
-      final shouldConsultToolRouter =
-          localPlan != null || AgentToolPlanner.shouldConsultModel(user.content);
-      if (shouldConsultToolRouter) {
-        try {
-          final plan = localPlan ??
-              await (() async {
-                onAgentToolActivity?.call(const AgentToolActivity(
-                  toolId: 'tool_router',
-                  status: AgentToolStatus.running,
-                  text: '正在判断是否需要调用工具…',
-                ));
-                return agentToolPlanner.plan(
-                  apiKey: apiKey,
-                  endpoint: endpoint,
-                  model: DeepSeekModelProfile.fromApiName(job.model),
-                  effort: ReasoningEffort.fromApiName(job.reasoningEffort),
-                  latestUserText: user.content,
-                  recent: recent,
-                  cancellationToken: cancellationToken,
-                );
-              })();
-          cancellationToken?.throwIfCancelled();
-          if (plan.isEmpty) {
-            onAgentToolActivity?.call(const AgentToolActivity(
-              toolId: 'tool_router',
-              status: AgentToolStatus.noResult,
-              text: '本轮不需要额外工具',
-            ));
-          } else {
-            agentToolResults = await agentToolRunner.runPlan(
-              plan,
-              onActivity: onAgentToolActivity,
-              cancellationToken: cancellationToken,
-            );
-          }
-        } on GenerationCancelledByUserException {
-          rethrow;
-        } catch (error) {
-          agentToolResults = <AgentToolResult>[
-            AgentToolResult(
-              toolId: 'tool_router',
-              status: AgentToolStatus.failed,
-              displayText: '工具判断暂时失败',
-              promptData:
-                  '工具路由没有完成（${error.runtimeType}）；不得声称已读取、检索或执行任何工具。',
-              errorCode: 'router_${error.runtimeType}',
-            ),
-          ];
-          onAgentToolActivity?.call(const AgentToolActivity(
-            toolId: 'tool_router',
-            status: AgentToolStatus.failed,
-            text: '工具判断暂时失败',
-          ));
-        }
+      if (localPlan != null) {
+        agentToolResults = await agentToolRunner.runPlan(
+          localPlan,
+          onActivity: emitToolActivity,
+          cancellationToken: cancellationToken,
+        );
       }
       final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
         latestUserText: user.content,
@@ -242,13 +229,20 @@ class DurableGenerationRunner {
         nsfwReferenceActive: nsfwRoute.referenceActive,
         agentToolResults: agentToolResults,
       );
-      Future<({String reasoning, String content})> generate(
+      Future<({
+        String reasoning,
+        String content,
+        List<DeepSeekToolCall> toolCalls,
+      })> generate(
         List<Map<String, Object?>> messages, {
         bool emitDeltas = true,
+        List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
       }) async {
         var reasoning = '';
         var content = '';
         var sawTerminalSignal = false;
+        var publishedAnswering = false;
+        final toolCallBuilders = <int, _DeepSeekToolCallBuilder>{};
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
         await for (final delta in client.streamChat(
@@ -258,6 +252,7 @@ class DurableGenerationRunner {
           messages: messages,
           endpoint: endpoint,
           thinking: job.thinking,
+          tools: tools,
           cancellationToken: cancellationToken,
         )) {
           cancellationToken?.throwIfCancelled();
@@ -298,7 +293,25 @@ class DurableGenerationRunner {
             sawTerminalSignal = true;
           }
           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
-          if (delta.content.isNotEmpty) content += delta.content;
+          if (delta.content.isNotEmpty) {
+            content += delta.content;
+            if (!publishedAnswering) {
+              publishedAnswering = true;
+              unawaited(_publishToolRuntime(
+                phase: 'answering',
+                statusText: '',
+                toolId: '',
+              ));
+            }
+          }
+          for (final fragment in delta.toolCallDeltas) {
+            toolCallBuilders
+                .putIfAbsent(
+                  fragment.index,
+                  () => _DeepSeekToolCallBuilder(fragment.index),
+                )
+                .add(fragment);
+          }
           if (emitDeltas) onDelta?.call(delta);
 
           final chars = reasoning.length + content.length;
@@ -322,11 +335,85 @@ class DurableGenerationRunner {
         if (!sawTerminalSignal) {
           throw const GenerationStreamIncompleteException();
         }
-        return (reasoning: reasoning.trim(), content: content.trim());
+        final indexes = toolCallBuilders.keys.toList()..sort();
+        final toolCalls = indexes
+            .map((index) => toolCallBuilders[index]!.build())
+            .take(2)
+            .toList(growable: false);
+        return (
+          reasoning: reasoning.trim(),
+          content: content.trim(),
+          toolCalls: toolCalls,
+        );
       }
 
-      var generated = await generate(baseRequestMessages);
+      var finalRequestMessages = baseRequestMessages;
+      var generated = await generate(
+        baseRequestMessages,
+        tools: localPlan == null
+            ? AgentToolPlanner.nativeToolDefinitions
+            : const <Map<String, Object?>>[],
+      );
       cancellationToken?.throwIfCancelled();
+
+      if (localPlan == null && generated.toolCalls.isNotEmpty) {
+        final nativePlan =
+            AgentToolPlanner.fromNativeToolCalls(generated.toolCalls);
+        if (nativePlan.isEmpty) {
+          throw const FormatException('模型返回了无法验证的工具调用');
+        }
+        agentToolResults = await agentToolRunner.runPlan(
+          nativePlan,
+          onActivity: emitToolActivity,
+          cancellationToken: cancellationToken,
+        );
+        cancellationToken?.throwIfCancelled();
+
+        final acceptedCalls = <DeepSeekToolCall>[];
+        final remaining = generated.toolCalls.toList();
+        for (final call in nativePlan.calls) {
+          final nativeName =
+              AgentToolPlanner.nativeNameForToolId(call.toolId);
+          final index = remaining.indexWhere(
+            (candidate) => candidate.name == nativeName,
+          );
+          if (index >= 0) acceptedCalls.add(remaining.removeAt(index));
+        }
+        if (acceptedCalls.length != agentToolResults.length) {
+          throw const FormatException('工具调用与本地执行结果无法对应');
+        }
+
+        final assistantToolMessage = <String, Object?>{
+          'role': 'assistant',
+          'content': generated.content.isEmpty ? null : generated.content,
+          if (generated.reasoning.isNotEmpty)
+            'reasoning_content': generated.reasoning,
+          'tool_calls': acceptedCalls
+              .map((call) => call.toAssistantMap())
+              .toList(growable: false),
+        };
+        final toolResultMessages = <Map<String, Object?>>[
+          for (var index = 0; index < acceptedCalls.length; index++)
+            <String, Object?>{
+              'role': 'tool',
+              'tool_call_id': acceptedCalls[index].id,
+              'content': agentToolResults[index].promptData,
+            },
+        ];
+        finalRequestMessages = <Map<String, Object?>>[
+          ...baseRequestMessages,
+          assistantToolMessage,
+          ...toolResultMessages,
+        ];
+        await _publishToolRuntime(
+          phase: 'thinking',
+          statusText: '正在整理工具结果…',
+          toolId: '',
+        );
+        generated = await generate(finalRequestMessages);
+        cancellationToken?.throwIfCancelled();
+      }
+
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
       }
@@ -348,7 +435,7 @@ class DurableGenerationRunner {
           action: 'rewrite',
         );
         final correctionMessages = <Map<String, Object?>>[
-          ...baseRequestMessages,
+          ...finalRequestMessages,
           {
             'role': 'system',
             'content': '''
@@ -456,7 +543,31 @@ class DurableGenerationRunner {
         error: e,
         retryAt: failed.nextRetryAt,
       );
+    } finally {
+      await _clearToolRuntime();
     }
+  }
+
+  Future<void> _publishToolRuntime({
+    required String phase,
+    required String statusText,
+    required String toolId,
+  }) async {
+    await db.setSetting('agent_tool_runtime_phase', phase);
+    await db.setSetting('agent_tool_runtime_status_text', statusText);
+    await db.setSetting('agent_tool_runtime_tool_id', toolId);
+    await db.setSetting(
+      'agent_tool_runtime_updated_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+  }
+
+  Future<void> _clearToolRuntime() async {
+    await _publishToolRuntime(
+      phase: 'idle',
+      statusText: '',
+      toolId: '',
+    );
   }
 
   bool _recoverable(Object error) {
