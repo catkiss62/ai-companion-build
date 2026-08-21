@@ -13,6 +13,7 @@ class PerceptionInterpretation {
     this.currentActivityKey,
     this.currentActivityLabel,
     this.currentAppLabel,
+    this.currentAppSource,
     this.dominantActivityKey,
     this.dominantActivityLabel,
     this.dominantActivityMinutes = 0,
@@ -27,6 +28,7 @@ class PerceptionInterpretation {
   final String? currentActivityKey;
   final String? currentActivityLabel;
   final String? currentAppLabel;
+  final String? currentAppSource;
   final String? dominantActivityKey;
   final String? dominantActivityLabel;
   final int dominantActivityMinutes;
@@ -68,7 +70,9 @@ class PerceptionInterpreter {
     final observations = <AwarenessObservationDraft>[];
     final managed = <String>{...deviceManagedKeys};
 
-    if (deviceState.usageAccess) {
+    final hasAppContext =
+        deviceState.usageAccess || deviceState.accessibilityConnected;
+    if (hasAppContext) {
       managed.addAll(usageManagedKeys);
       _addUsageObservations(observations, facts, now);
     }
@@ -89,7 +93,7 @@ class PerceptionInterpreter {
       deviceState: deviceState,
       now: now,
     );
-    if (deviceState.usageAccess && deviceState.screenInteractive && busyScore >= 0.56) {
+    if (hasAppContext && deviceState.screenInteractive && busyScore >= 0.56) {
       observations.add(
         AwarenessObservationDraft(
           kind: 'availability',
@@ -118,6 +122,7 @@ class PerceptionInterpreter {
           ? null
           : _activityLabel(facts.currentCategory!),
       currentAppLabel: facts.currentAppLabel,
+      currentAppSource: facts.currentSource,
       dominantActivityKey: facts.dominantCategory,
       dominantActivityLabel: facts.dominantCategory == null
           ? null
@@ -145,7 +150,9 @@ class PerceptionInterpreter {
           expiresAt: now.add(const Duration(minutes: 5)),
           dedupeKey: 'current_app',
           sourceFingerprint: 'current_app:${_stableLabelKey(currentApp)}',
-          metadata: const {'source': 'android_usage_label'},
+          metadata: {
+            'source': facts.currentSource ?? 'android_usage_label',
+          },
         ),
       );
     }
@@ -291,6 +298,7 @@ class PerceptionInterpreter {
     String? currentPackage;
     String? currentCategory;
     String? currentAppLabel;
+    String? currentSource;
     DateTime? currentStartedAt;
     String? lastForegroundPackage;
     var switchesLast30 = 0;
@@ -306,6 +314,7 @@ class PerceptionInterpreter {
         currentPackage = event.packageName;
         currentCategory = category;
         currentAppLabel = labelByPackage[event.packageName];
+        currentSource = event.contextSource;
         currentStartedAt = event.timestamp;
         if (!event.timestamp.isBefore(switchSince) &&
             lastForegroundPackage != null &&
@@ -324,6 +333,7 @@ class PerceptionInterpreter {
           currentPackage = null;
           currentCategory = null;
           currentAppLabel = null;
+          currentSource = null;
           currentStartedAt = null;
         }
       }
@@ -341,6 +351,7 @@ class PerceptionInterpreter {
     return _UsageFacts(
       currentCategory: currentCategory,
       currentAppLabel: currentAppLabel,
+      currentSource: currentSource,
       currentStartedAt: currentStartedAt,
       durationsByCategory: {for (final e in entries) e.key: e.value},
       switchesLast30Minutes: switchesLast30,
@@ -449,6 +460,7 @@ class _UsageFacts {
   const _UsageFacts({
     this.currentCategory,
     this.currentAppLabel,
+    this.currentSource,
     this.currentStartedAt,
     this.durationsByCategory = const {},
     this.switchesLast30Minutes = 0,
@@ -459,6 +471,7 @@ class _UsageFacts {
 
   final String? currentCategory;
   final String? currentAppLabel;
+  final String? currentSource;
   final DateTime? currentStartedAt;
   final Map<String, int> durationsByCategory;
   final int switchesLast30Minutes;
