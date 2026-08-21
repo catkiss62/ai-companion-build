@@ -13,6 +13,7 @@ void main() {
         timestamp: now.subtract(const Duration(minutes: 55)),
         eventType: 'foreground',
         appCategory: 'game',
+        appLabel: '支付宝',
       ),
     ];
     final result = interpreter.interpret(
@@ -31,7 +32,9 @@ void main() {
 
     final joined = result.observations.map((e) => e.summary).join('\n');
     expect(joined, contains('玩游戏'));
+    expect(joined, contains('当前打开的是 支付宝'));
     expect(joined, isNot(contains('com.example.secret.game')));
+    expect(result.currentAppLabel, '支付宝');
     expect(result.currentActivityKey, 'game');
     expect(result.currentActivityLabel, '游戏');
     expect(result.dominantActivityKey, 'game');
