@@ -11,7 +11,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: 0\.35\.7\+82$", read("pubspec.yaml"), re.MULTILINE)
+assert re.search(r"^version: 0\.35\.(?:7\+82|8\+83)$", read("pubspec.yaml"), re.MULTILINE)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -37,9 +37,9 @@ accessibility = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt"
 )
 
-for token in ("routeLocally", "shouldConsultModel", "explicit_web_request"):
+for token in ("routeLocally", "nativeToolDefinitions", "explicit_request"):
     assert token in planner, token
-assert "shouldConsultToolRouter" in generation
+assert "AgentToolPlanner.nativeToolDefinitions" in generation
 assert "contextSource" in bridge and "currentAppSource" in interpreter
 assert "deviceState.usageAccess || deviceState.accessibilityConnected" in context
 for token in (
