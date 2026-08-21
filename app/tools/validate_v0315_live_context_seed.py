@@ -149,15 +149,11 @@ def main() -> int:
     ]:
         assert token in overlay, token
 
-    for relative in [
-        "docs/HANDOFF.md",
-        "docs/PROJECT_TASK_LEDGER.md",
-        "docs/DEV_STATUS.md",
-        "docs/TEST_CHECKLIST.md",
-    ]:
-        body = read(relative)
-        assert "v0.31.5" in body, relative
-        assert "schema v20" in body, relative
+    # Keep the stable release checklist assertion; mutable handoff/status ledgers
+    # are governed by the evergreen root ledger and may be retired.
+    body = read("docs/TEST_CHECKLIST.md")
+    assert "v0.31.5" in body
+    assert "schema v20" in body
     assert "CurrentDeviceContextRefresher" in read(
         "docs/PROACTIVE_GROUNDING_v0.31.1.md"
     )
