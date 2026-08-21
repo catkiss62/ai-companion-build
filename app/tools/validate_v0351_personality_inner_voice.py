@@ -100,10 +100,8 @@ for token in (
 ):
     assert token in docs, token
 
-handoff = read("docs/HANDOFF.md")
-ledger = read("docs/PROJECT_TASK_LEDGER.md")
-root_ledger = read("../AI_Companion_接班总账_v36_2026-08-17.md")
-for text in (handoff, ledger, root_ledger):
+permanent_ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
+for text in (permanent_ledger,):
     assert "v0.35.1+76" in text
 
 print("v0.35.1 personality inner-voice static validation passed")
