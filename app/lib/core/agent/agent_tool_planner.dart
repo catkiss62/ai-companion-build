@@ -14,6 +14,76 @@ class AgentToolPlanner {
 
   final DeepSeekClient client;
 
+  static AgentToolPlan? routeLocally(String latestUserText) {
+    final text = latestUserText.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.isEmpty) return null;
+    final lower = text.toLowerCase();
+    final calls = <AgentToolCall>[];
+
+    void add(String toolId, Map<String, String> arguments, String reasonTag) {
+      if (calls.length >= 2 || calls.any((call) => call.toolId == toolId)) return;
+      calls.add(AgentToolCall(
+        toolId: toolId,
+        arguments: arguments,
+        reasonTag: reasonTag,
+      ));
+    }
+
+    final explicitWeb = RegExp(
+      r'(上网|联网|网页|网站|网址|搜索|搜一下|搜搜|查一下新闻|查查新闻|最新消息|用工具查)',
+      caseSensitive: false,
+    ).hasMatch(text) || lower.contains('http://') || lower.contains('https://');
+    if (explicitWeb) {
+      add(
+        AgentToolRegistry.publicWebSearch.id,
+        {'query': _bounded(text, 80)},
+        'explicit_web_request',
+      );
+    }
+    final explicitRules = RegExp(
+      r'((看|读|查|检查|检索|打开).{0,8}(规则|人设|提示词))|((规则|人设|提示词).{0,8}(看|读|查|检查|检索|打开))',
+    ).hasMatch(text);
+    if (explicitRules) {
+      add(
+        AgentToolRegistry.rulesRead.id,
+        {'scope': _bounded(text, 80)},
+        'explicit_rules_read',
+      );
+    }
+    final explicitMemory = RegExp(
+      r'((查|检索|搜索|翻|看看).{0,8}(记忆|记忆库|以前聊过|之前说过))|((记忆|记忆库).{0,8}(查|检索|搜索|看看))',
+    ).hasMatch(text);
+    if (explicitMemory) {
+      add(
+        AgentToolRegistry.memorySearch.id,
+        {'query': _bounded(text, 120)},
+        'explicit_memory_search',
+      );
+    }
+    final explicitDevice = RegExp(
+      r'(看看|查看|识别|查).{0,8}(当前|现在)?.{0,8}(手机|屏幕|app|应用|软件|前台)|我现在.{0,8}(打开|使用|看).{0,8}(什么|哪个)',
+      caseSensitive: false,
+    ).hasMatch(text);
+    if (explicitDevice) {
+      add(
+        AgentToolRegistry.deviceContextRead.id,
+        const {},
+        'explicit_device_context',
+      );
+    }
+    return calls.isEmpty ? null : AgentToolPlan(calls: calls);
+  }
+
+  static bool shouldConsultModel(String latestUserText) {
+    if (routeLocally(latestUserText) != null) return true;
+    final text = latestUserText.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.isEmpty) return false;
+    return RegExp(
+      r'(今天|现在|目前|最新).{0,12}(价格|天气|新闻|是谁|发生|结果|比分|汇率)|'
+      r'(能不能|可以不可以).{0,10}(查到|搜到|读取|看到)',
+    ).hasMatch(text);
+  }
+
   Future<AgentToolPlan> plan({
     required String apiKey,
     required String endpoint,
