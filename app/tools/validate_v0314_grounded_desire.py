@@ -96,7 +96,7 @@ def main() -> int:
         "intimacyAllowed: intimacyAllowed",
         "这里只提供结构化线索，不注入 Thought 原文",
         "ProactiveReasoningGroundingGuard.evaluate(",
-        "REALITY GROUNDING CORRECTION · ONE RETRY",
+        "PROACTIVE OUTPUT CORRECTION · ONE RETRY",
         "await desireEngine.satisfyIntent(",
     ]:
         assert token in proactive, token
