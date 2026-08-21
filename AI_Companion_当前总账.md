@@ -1183,3 +1183,54 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 
 实际 Android 服务连接、Accessibility 事件流、Overlay 生命周期和前台 App 感知，最终仍需下一版真机诊断确认。
 
+---
+
+## 10.17 2026-08-21 · 永久总账与文档清理完成（DOCS / VALIDATOR MAINTENANCE COMPLETED）
+
+> 本节完成并取代 10.16 中“等待用户确认”的清理计划。仍是纯文档与历史验证器维护：没有修改 App 运行源码、数据库、版本号或 APK，也不需要真机验收。
+
+### A. 唯一总账入口完成
+
+- 当前永久入口固定为仓库根目录 `AI_Companion_当前总账.md`。
+- 后续只更新本文件内容，不再创建 v37、v38 等新总账副本。
+- 根 README、`app/README.md`、`app/docs/ROADMAP.md` 与 `DOCUMENTATION_MAP.md` 已统一指向本文件。
+- 原版本号总账 `AI_Companion_接班总账_v36_2026-08-17.md` 已从工作树删除，仍可从 Git 历史恢复。
+
+### B. 已吸收独有内容
+
+删除旧方案前已逐段核对并吸收：
+
+1. `DESIRE_SYSTEM_AUDIT_v1.md` 中仍有效的 screen companion / neutral silence、工具消费者唯一主干与长期回归约束，进入 `INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`。
+2. `ANDROID_DESKTOP_PET_PLAN_v2.md` 中仍有效的单一人格表现层、一个前台 Service/双 controller、性能、敏感 App、视觉回音、私人素材许可与交互边界，进入 `DESKTOP_PET_SOURCE_PARITY_v0.33.1.md`。
+3. `PERSONALITY_BASE_UI_v1.md` 中仍有效的 `03_personality_seed` 唯一数据源、预设+可编辑文本、升级不覆盖用户编辑、冲突提示与男性向边界，进入 `UI_INFORMATION_ARCHITECTURE_v1.md`。
+
+### C. 已退役路径
+
+用户确认后，以下 7 个路径已从当前 PR 分支工作树删除：
+
+- `AI_Companion_接班总账_v36_2026-08-17.md`
+- `app/docs/HANDOFF.md`
+- `app/docs/PROJECT_TASK_LEDGER.md`
+- `app/docs/DEV_STATUS.md`
+- `app/docs/DESIRE_SYSTEM_AUDIT_v1.md`
+- `app/docs/ANDROID_DESKTOP_PET_PLAN_v2.md`
+- `app/docs/PERSONALITY_BASE_UI_v1.md`
+
+删除可通过 Git 历史恢复；没有建立历史副本目录。
+
+### D. 历史验证器兼容
+
+引用扫描发现 9 个 v0.29.1–v0.31.5 历史静态验证器仍硬编码读取可变的 HANDOFF/任务账/状态文档。已只移除这些文档存在性和旧文案断言，保留所有运行源码、哈希、状态机和安全回归断言；v0.31.5 继续验证稳定的 `TEST_CHECKLIST.md`。
+
+9 个修改后的 Python 文件已逐个通过 `ast.parse` 语法检查。v0.18–v0.28 验证器中出现的 `DEV_STATUS.md` 只是旧版本 baseline 差异 allowlist，并不读取或要求该文件存在，因此保留其历史语义，不会阻止删除。
+
+### E. 文档治理生效
+
+- 当前状态只进入永久总账；
+- 专项文档只保存稳定机制、接口、边界和验收标准；
+- README/ROADMAP 不再复制版本状态；
+- Git 历史保存演化过程；
+- 删除前必须继续执行“引用扫描 → 吸收独有内容 → 更新验证器 → 删除 → 反向验证”。
+
+下一批可以进入无需实机的代码/自动测试工作：时间与跨日 gap、服务模板检测、轻视觉诊断数据契约、前台 App 名称只读感知和 Agent Tool Registry；实际 Accessibility/Overlay 行为最终仍由下一版真机诊断验收。
+
