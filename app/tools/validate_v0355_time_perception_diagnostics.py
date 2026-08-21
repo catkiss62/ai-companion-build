@@ -84,7 +84,7 @@ perception = read("lib/core/perception/perception_interpreter.dart")
 perception_test = read("test/perception_interpreter_v20_test.dart")
 for token in ("currentAppLabel", "'current_app'", "当前打开的是 $currentApp"):
     assert token in perception, token
-for token in ("原神", "支付宝", "com.miHoYo", "com.eg.android.AlipayGphone"):
+for token in ("原神", "支付宝", "com.example.secret.game", "com.example.wallet.private"):
     assert token in perception_test, token
 
 guard = read("lib/core/grounding/service_template_guard.dart")
