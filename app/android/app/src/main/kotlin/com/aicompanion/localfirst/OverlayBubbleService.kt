@@ -316,6 +316,15 @@ class OverlayBubbleService : Service() {
                 appTtsPhase = intent.getStringExtra(EXTRA_TTS_PHASE)
                     ?.takeIf { it in setOf("idle", "synthesizing", "playing") }
                     ?: "idle"
+                if (appGenerationActive && (chatExpanded || petOverlayWindow != null)) {
+                    beginGenerationPolling()
+                } else if (!appGenerationActive && !chatSending) {
+                    stopGenerationPolling()
+                    removeStreamingMessage(notify = true)
+                    if (chatExpanded) {
+                        refreshOverlayMessages(opened = false, attempt = 0)
+                    }
+                }
                 updatePetConversationCue()
                 return START_STICKY
             }
@@ -1246,8 +1255,9 @@ class OverlayBubbleService : Service() {
         mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
     }
 
-    private fun shouldPollGeneration(): Boolean = chatSending &&
-        (chatExpanded || petOverlayWindow != null)
+    private fun shouldPollGeneration(): Boolean =
+        (chatSending || appGenerationActive) &&
+            (chatExpanded || petOverlayWindow != null)
 
     private fun beginTtsPolling() {
         val epoch = ++ttsPollEpoch
@@ -1313,11 +1323,17 @@ class OverlayBubbleService : Service() {
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
         val phase = map["phase"] as? String ?: "thinking"
+        val statusText = map["status_text"] as? String ?: ""
         overlayGenerationPhase = phase
         updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
         removeStreamingMessage(notify = false)
         if (map["sending"] == true) {
+            setChatStatus(statusText.takeIf { it.isNotBlank() } ?: when (phase) {
+                "answering" -> "正在回复…"
+                "cancelling" -> "正在停止…"
+                else -> "正在想…"
+            })
             loadedMessages.add(
                 NativeChatMessage(
                     id = STREAMING_MESSAGE_ID,
@@ -1333,13 +1349,7 @@ class OverlayBubbleService : Service() {
         }
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
-        setChatStatus(
-            when (phase) {
-                "cancelling" -> "正在停止…"
-                "answering" -> "她正在回复…"
-                else -> "她正在想…"
-            },
-        )
+        if (map["sending"] != true) setChatStatus(null)
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {
