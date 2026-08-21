@@ -1,6 +1,6 @@
-import 'package:ai_companion/core/agent/agent_tool.dart';
-import 'package:ai_companion/core/agent/agent_tool_registry.dart';
-import 'package:ai_companion/core/models/autonomous_action.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool.dart';
+import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
+import 'package:ai_companion_localfirst/core/models/autonomous_action.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
