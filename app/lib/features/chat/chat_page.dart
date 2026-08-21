@@ -899,6 +899,11 @@ class _StreamingBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (controller.agentActivity != null)
+              _AgentActivityLine(
+                text: controller.agentActivity!.text,
+                active: controller.agentActivity!.active,
+              ),
             ReasoningPanel(
               reasoning: controller.streamingReasoning,
               streaming: true,
@@ -906,7 +911,8 @@ class _StreamingBubble extends StatelessWidget {
             if (controller.streamingContent.isNotEmpty)
               SelectableText(controller.streamingContent),
             if (controller.streamingContent.isEmpty &&
-                controller.streamingReasoning.isEmpty)
+                controller.streamingReasoning.isEmpty &&
+                controller.agentActivity == null)
               Text(controller.recoveringGeneration ? '正在接回刚才没完成的回复…' : '她正在准备回复…'),
             if (controller.activeGenerationTtsPhase != TtsPlaybackPhase.idle)
               Align(
@@ -916,6 +922,88 @@ class _StreamingBubble extends StatelessWidget {
                   onPressed: controller.stopSpeech,
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentActivityLine extends StatefulWidget {
+  const _AgentActivityLine({
+    required this.text,
+    required this.active,
+  });
+
+  final String text;
+  final bool active;
+
+  @override
+  State<_AgentActivityLine> createState() => _AgentActivityLineState();
+}
+
+class _AgentActivityLineState extends State<_AgentActivityLine>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+      lowerBound: 0.48,
+      upperBound: 0.84,
+    );
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentActivityLine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active) {
+      _pulse.repeat(reverse: true);
+    } else {
+      _pulse.stop();
+      _pulse.value = 0.72;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return FadeTransition(
+      opacity: _pulse,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              widget.active ? Icons.auto_awesome_outlined : Icons.check,
+              size: 13,
+              color: color,
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                widget.text,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontSize: 11,
+                    ),
+              ),
+            ),
           ],
         ),
       ),
