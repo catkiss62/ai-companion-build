@@ -18,9 +18,19 @@
 - 屏幕亮时“自主感知不设小时硬上限、以 App 变化/冷却/去重/敏感页 Gate 控制；熄屏禁止视觉并限制自主联网”仍是已确认设计，当前 screen_observation.inspect 尚未可执行，本批次不伪装成已实现。
 - 实现状态：v0.35.7+82 源码与自动化已通过，schema 保持 26；真机尚未验收。Actions run `32530979246` 完成全部历史/当前 validators、Kotlin、Flutter analyze、182 项 Flutter tests、release APK、持久签名指纹、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.7-82-Device-Context-Router-APK.apk`，SHA-256 `1219b9507d7002eb49c5330bee409fbbdfc05db9477c66370e692908c57928ec`；签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1c0a3cbc4ee17e237ce>。
 
+## 0B. 2026-08-22 已确认并进入实现：v0.35.8 原生 Tool Calling 与跨窗口运行态
+
+- 用户确认采用混合工具路由：明确且无歧义的命令继续由本地快路由直接执行；其余轮次不再先调用一个独立 DeepSeek“工具规划器”，而是在正常回复的同一次 DeepSeek Chat Completion 中附带原生 Function Calling schema，由主模型选择是否调用。普通闲聊不增加第二次 API 请求，只增加少量工具 schema 输入 token；只有真的返回 tool_calls 时，执行工具后才会增加一次携带真实 tool result 的续答请求。
+- 本地代码仍是唯一执行权：模型只能请求，Agent Tool Registry / read-only risk gate / 参数边界决定是否运行；每轮最多两个已登记只读工具。工具结果以标准 assistant tool_calls + role=tool 消息回传；DeepSeek thinking 模式要求的 reasoning_content 会原样带回 API 维持协议连续性，但不会把模型声称当作执行证据。
+- 本地明确搜索正则改为“命令句 + 语义边界”，并锁定回归句“变聪明了，现在让你上网搜索你就搜索，没说搜索就不会调用，挺好”不得触发搜索。否定、引用、复述、举例和讨论“搜索/上网”字样不走本地工具；若确实存在含糊的新鲜事实需求，由同一个主模型判断。
+- 跨窗口运行态本批次先统一真实生成事实：完整 App 与 headless overlay 不再只看各自 ChatController；native overlay 会读取共享 SQLite generation_jobs 的 running/pending 状态、两秒级 durable checkpoint、assistant ID 和真实工具状态。完整 App 发起生成时，桌宠/悬浮聊天也会开始轮询并显示“正在搜索/读取/整理结果”等真实灰字；本批次不改已冻结的 HyperOS cover recovery 时序。
+- 版本目标 `v0.35.8+83`，schema 保持 26，继续使用 v0.35.7 已建立的持久私有测试签名，预期可直接覆盖更新。源码准备中；CI、草稿 APK 和真机均未验收。
+- DeepSeek Harness 已完成低优先级调研：官方 `deepseek-ai/deepseek-harness` 是 2026-08 developer preview、MIT、Node/npm 驱动的通用编码 Agent harness，工具/Skills/session/sandbox/scheduler/UI 均可插件化，但官方明确仍可能 breaking change。现有 Android 方向主要是①手机作为已运行 Harness 的远程客户端；②在 PRoot/Debian 内嵌 Node/Harness（体积与复杂度高，且常为 GPL）；③电脑侧 Harness 通过 ADB/UIAutomator 控制手机。它们面向代码/工作区，不会自动修复本项目的伴侣人格、记忆、欲望、Android 悬浮和敏感页 Gate，现阶段不接入；仅参考其“单一会话日志、工具注册表、权限审批、可插拔 loop”设计，等 MCP/Skills 平台阶段再复评。
+- 本批次范围边界：先完成原生 Tool Calling、误触发回归与工具状态跨窗口同步；悬浮图片渲染、统一未读提交事件、当前 App unknown、主动识图、桌宠跨 App 消失和 native crash stack 仍按总账后续项处理，不伪装成已完成。
+
 ## 0. 下一轮开场先做什么
 
-0. 当前稳定可下载开发基线为 `v0.35.7+82 Device Context, Fast Router & Stable Signing`：Actions run `32530979246` 已通过完整自动化并上传私有草稿 APK；当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名均已进入构建，但仍必须真机验收。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
+0. 当前稳定可下载开发基线仍为 `v0.35.7+82 Device Context, Fast Router & Stable Signing`；正在实现的开发目标为 `v0.35.8+83 Native Tool Calling & Shared Runtime`，在 Actions 成功前不得称为可下载版本。v0.35.7：Actions run `32530979246` 已通过完整自动化并上传私有草稿 APK；当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名均已进入构建，但仍必须真机验收。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
