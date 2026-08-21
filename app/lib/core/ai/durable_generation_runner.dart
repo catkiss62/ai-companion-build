@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
+import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
@@ -171,8 +172,9 @@ class DurableGenerationRunner {
         nsfwReferenceActive: nsfwRoute.referenceActive,
       );
       Future<({String reasoning, String content})> generate(
-        List<Map<String, Object?>> messages,
-      ) async {
+        List<Map<String, Object?>> messages, {
+        bool emitDeltas = true,
+      }) async {
         var reasoning = '';
         var content = '';
         var sawTerminalSignal = false;
@@ -226,7 +228,7 @@ class DurableGenerationRunner {
           }
           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
           if (delta.content.isNotEmpty) content += delta.content;
-          onDelta?.call(delta);
+          if (emitDeltas) onDelta?.call(delta);
 
           final chars = reasoning.length + content.length;
           if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
@@ -252,16 +254,82 @@ class DurableGenerationRunner {
         return (reasoning: reasoning.trim(), content: content.trim());
       }
 
-      final generated = await generate(baseRequestMessages);
+      var generated = await generate(baseRequestMessages);
       cancellationToken?.throwIfCancelled();
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
       }
 
+      final recentAssistantTexts = previous
+          .where((message) => message.isAssistant)
+          .map((message) => message.content);
+      var finalContent = generated.content;
+      var serviceGuard = ServiceTemplateGuard.evaluate(
+        text: finalContent,
+        recentAssistantTexts: recentAssistantTexts,
+        currentUserText: user.content,
+      );
+      if (!serviceGuard.allowed) {
+        await ServiceTemplateGuardTelemetry.note(
+          db,
+          result: serviceGuard,
+          mode: 'user_turn',
+          action: 'rewrite',
+        );
+        final correctionMessages = <Map<String, Object?>>[
+          ...baseRequestMessages,
+          {
+            'role': 'system',
+            'content': '''
+【NATURAL OUTPUT CORRECTION · ONE RETRY】
+上一份正文命中了重复的服务模板语义：${serviceGuard.reason} / ${serviceGuard.family}。
+完全丢弃“一直在、不走、不催、你忙你的、等你忙完、无条件顺从”这类承诺—退场—等待收尾。不要换成近义套话，也不要表演随机叛逆。
+重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
+'''.trim(),
+          },
+        ];
+        generated = await generate(
+          correctionMessages,
+          emitDeltas: false,
+        );
+        cancellationToken?.throwIfCancelled();
+        finalContent = generated.content;
+        serviceGuard = ServiceTemplateGuard.evaluate(
+          text: finalContent,
+          recentAssistantTexts: recentAssistantTexts,
+          currentUserText: user.content,
+        );
+        if (!serviceGuard.allowed) {
+          final stripped =
+              ServiceTemplateGuard.removeTemplateSentences(finalContent);
+          final strippedGuard = ServiceTemplateGuard.evaluate(
+            text: stripped,
+            recentAssistantTexts: recentAssistantTexts,
+            currentUserText: user.content,
+          );
+          if (stripped.isNotEmpty && strippedGuard.allowed) {
+            finalContent = stripped;
+          } else {
+            await ServiceTemplateGuardTelemetry.note(
+              db,
+              result: serviceGuard,
+              mode: 'user_turn',
+              action: 'block',
+            );
+            throw const FormatException(
+              '模型连续返回服务模板，已阻止写入',
+            );
+          }
+        }
+      }
+      if (finalContent.trim().isEmpty) {
+        throw const FormatException('模板重写后正文为空');
+      }
+
       final assistant = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
-        content: generated.content,
+        content: finalContent,
         reasoningContent: generated.reasoning,
         model: job.model,
         createdAt: DateTime.now(),
