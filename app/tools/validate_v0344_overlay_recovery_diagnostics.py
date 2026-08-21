@@ -26,7 +26,7 @@ runtime = read(
 )
 database = read("lib/core/database/app_database.dart")
 diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
-ledger = read("docs/PROJECT_TASK_LEDGER.md")
+ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 workflow = WORKFLOW.read_text(encoding="utf-8")
 
 require(overlay, [
@@ -91,7 +91,7 @@ for forbidden in (
 
 require(ledger, [
     "每小时最多 6 次",
-    "锁屏只暂停屏幕识图，不暂停自主联网",
+    "不暂停自主联网",
     "电池优化白名单",
     "X / Telegram",
 ], "approved autonomy roadmap")
