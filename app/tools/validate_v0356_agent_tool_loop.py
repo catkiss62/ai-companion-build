@@ -11,7 +11,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: 0\.35\.(?:6\+81|7\+82)$", read("pubspec.yaml"), re.MULTILINE)
+assert re.search(r"^version: 0\.35\.(?:6\+81|7\+82|8\+83)$", read("pubspec.yaml"), re.MULTILINE)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -37,8 +37,8 @@ for token in (
 ):
     assert token in registry, token
 assert "userTurnExecutable" in planner
-assert "最多选择 2 个" in planner
-assert "GenerationCancellationToken" in planner
+assert "nativeToolDefinitions" in planner
+assert "fromNativeToolCalls" in planner
 assert "LayeredPublicWebProvider" in runner
 assert "CurrentDeviceContextRefresher" in runner
 assert "agent_tool_user_turn_request_count" in diagnostics
