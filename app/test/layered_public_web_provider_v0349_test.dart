@@ -93,6 +93,8 @@ https://example.com/b
     expect(keylessHeaderSeen, isTrue);
     expect(additiveDomains, ['source.example']);
     expect(result.candidates, hasLength(3));
+    expect(result.compactionAttempted, isFalse);
+    expect(result.compactionSucceeded, isFalse);
     expect(result.candidates.where((e) => e.provider == 'tavily'), hasLength(2));
     expect(
       result.candidates.where((e) => e.provider == 'tavily_source'),
