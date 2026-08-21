@@ -65,7 +65,7 @@ diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
 assert "personalityTrialDiagnostics" in diagnostics
 assert "'personalityTrials': personalityTrials" in diagnostics
 
-ledger = read("docs/PROJECT_TASK_LEDGER.md")
+ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 assert "沉浸房间" in ledger
 assert "长对话模式" in ledger
 
