@@ -38,7 +38,7 @@ require(accessibility, "override fun onUnbind", "accessibility unbind lifecycle"
 require(accessibility, 'markAccessibilityDisconnected(this, "unbound")', "unbind reason")
 require(accessibility, "noteAccessibilityInterrupted(this)", "interrupt timestamp")
 require(dart_bridge, "accessibilityLastDisconnectedAt", "Flutter lifecycle bridge")
-require(system_page, "轻视觉已授权但未连接", "user recovery guidance")
+require(system_page, "系统授权与实际连接是两件事", "user recovery guidance")
 require(diagnostics, "accessibilityAuthorized && accessibilityConnected", "two-state preflight")
 require(diagnostics, "AI Companion $buildLabel", "dynamic report header")
 if "AI Companion v0.31.5+47" in diagnostics:
