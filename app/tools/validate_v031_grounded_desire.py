@@ -203,22 +203,7 @@ def main() -> int:
         for token in tokens:
             assert token in body, (rel, token)
 
-    handoff = text('docs/HANDOFF.md')
-    ledger = text('docs/PROJECT_TASK_LEDGER.md')
-    for token in [
-        ('v0.31.1+41' if 'version: 0.31.1+41' in pubspec else 'v0.31.0+40'), 'Grounded Desire Core', 'Reality Grounding',
-        'selfHealCount=28', '悬浮球任务冻结', 'schema v18',
-        'PROJECT_TASK_LEDGER.md',
-    ]:
-        assert token in handoff, token
-    for token in [
-        'P0 · ACTIVE · v0.31 Grounded Desire Core',
-        'HyperOS / Android 15 长后台生存',
-        '长期记忆压力测试',
-        '手机 / 平板同一个“她”',
-        'FROZEN · 已知问题',
-    ]:
-        assert token in ledger, token
+    # Historical runtime validation no longer freezes mutable handoff/task documents.
 
     print('v0.31.x Grounded Desire Core static validation passed.')
     return 0
