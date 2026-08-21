@@ -33,7 +33,7 @@ for token in (
     "【反服务模板 / NATURAL RELATIONSHIP OUTPUT】",
 ):
     assert token in prompt, token
-for token in ("2026, 8, 20, 21", "2026, 8, 21, 12", "900", "1"):
+for token in ("2026, 8, 20, 21", "2026, 8, 21, 12", "15 * 60", "1"):
     assert token in grounding_test, token
 
 system_bridge = read(
