@@ -177,55 +177,61 @@ class DurableGenerationRunner {
       );
       onNsfwRoute?.call(nsfwRoute);
       var agentToolResults = const <AgentToolResult>[];
-      try {
-        onAgentToolActivity?.call(const AgentToolActivity(
-          toolId: 'tool_router',
-          status: AgentToolStatus.running,
-          text: '正在判断是否需要调用工具…',
-        ));
-        final plan = await agentToolPlanner.plan(
-          apiKey: apiKey,
-          endpoint: endpoint,
-          model: DeepSeekModelProfile.fromApiName(job.model),
-          effort: ReasoningEffort.fromApiName(job.reasoningEffort),
-          latestUserText: user.content,
-          recent: recent,
-          cancellationToken: cancellationToken,
-        );
-        cancellationToken?.throwIfCancelled();
-        if (plan.isEmpty) {
+      final localPlan = AgentToolPlanner.routeLocally(user.content);
+      final shouldConsultToolRouter =
+          localPlan != null || AgentToolPlanner.shouldConsultModel(user.content);
+      if (shouldConsultToolRouter) {
+        try {
+          final plan = localPlan ??
+              await (() async {
+                onAgentToolActivity?.call(const AgentToolActivity(
+                  toolId: 'tool_router',
+                  status: AgentToolStatus.running,
+                  text: '正在判断是否需要调用工具…',
+                ));
+                return agentToolPlanner.plan(
+                  apiKey: apiKey,
+                  endpoint: endpoint,
+                  model: DeepSeekModelProfile.fromApiName(job.model),
+                  effort: ReasoningEffort.fromApiName(job.reasoningEffort),
+                  latestUserText: user.content,
+                  recent: recent,
+                  cancellationToken: cancellationToken,
+                );
+              })();
+          cancellationToken?.throwIfCancelled();
+          if (plan.isEmpty) {
+            onAgentToolActivity?.call(const AgentToolActivity(
+              toolId: 'tool_router',
+              status: AgentToolStatus.noResult,
+              text: '本轮不需要额外工具',
+            ));
+          } else {
+            agentToolResults = await agentToolRunner.runPlan(
+              plan,
+              onActivity: onAgentToolActivity,
+              cancellationToken: cancellationToken,
+            );
+          }
+        } on GenerationCancelledByUserException {
+          rethrow;
+        } catch (error) {
+          agentToolResults = <AgentToolResult>[
+            AgentToolResult(
+              toolId: 'tool_router',
+              status: AgentToolStatus.failed,
+              displayText: '工具判断暂时失败',
+              promptData:
+                  '工具路由没有完成（${error.runtimeType}）；不得声称已读取、检索或执行任何工具。',
+              errorCode: 'router_${error.runtimeType}',
+            ),
+          ];
           onAgentToolActivity?.call(const AgentToolActivity(
             toolId: 'tool_router',
-            status: AgentToolStatus.noResult,
-            text: '本轮不需要额外工具',
-          ));
-        } else {
-          agentToolResults = await agentToolRunner.runPlan(
-            plan,
-            onActivity: onAgentToolActivity,
-            cancellationToken: cancellationToken,
-          );
-        }
-      } on GenerationCancelledByUserException {
-        rethrow;
-      } catch (error) {
-        // Tool routing is best-effort. A provider/router failure must neither
-        // strand a durable chat turn nor be presented as a successful action.
-        agentToolResults = <AgentToolResult>[
-          AgentToolResult(
-            toolId: 'tool_router',
             status: AgentToolStatus.failed,
-            displayText: '工具判断暂时失败',
-            promptData:
-                '工具路由没有完成（${error.runtimeType}）；不得声称已读取、检索或执行任何工具。',
-            errorCode: 'router_${error.runtimeType}',
-          ),
-        ];
-        onAgentToolActivity?.call(const AgentToolActivity(
-          toolId: 'tool_router',
-          status: AgentToolStatus.failed,
-          text: '工具判断暂时失败',
-        ));
+            text: '工具判断暂时失败',
+          ));
+        }
       }
       final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
         latestUserText: user.content,
