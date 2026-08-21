@@ -1,6 +1,6 @@
 # AI Companion · 接班总账 v36
 
-更新时间：2026-08-19（Asia/Tokyo）
+更新时间：2026-08-21（Asia/Tokyo）
 
 > 本文件是当前唯一最新接班入口，已吸收并取代 v35 以前接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -8,10 +8,10 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前已构建开发头为 `v0.35.4+79 Prompt Format & Chat UI`：新版规则 06 已逐字替换且 ID/路由标记完整；同一动作与神态格式按指定标题加入实际属于 02 的【叙事克制】之后。App/悬浮聊天点开默认回到底部，悬浮思考入口改为横条；试穿移到 NSFW 左侧，NSFW 缩至 24dp 并使用主题浅紫。聊天思考开关与持久设置已删除，聊天/图片/恢复/主动消息固定开启思考。schema 仍为 26；Actions run `32213988064` 已通过全部静态回归、Kotlin/Flutter 测试、release APK 与载荷校验。APK SHA-256 `b2b001800f1f82f348e2a901a63708402484c7d1050e9238245dd90f0bc27b2a`，真机仍待验证。
+0. 当前已构建开发头为 `v0.35.4+79 Prompt Format & Chat UI`：新版规则 06 已逐字替换且 ID/路由标记完整；同一动作与神态格式按指定标题加入实际属于 02 的【叙事克制】之后。App/悬浮聊天点开默认回到底部，悬浮思考入口改为横条；试穿移到 NSFW 左侧，NSFW 缩至 24dp 并使用主题浅紫。聊天思考开关与持久设置已删除，聊天/图片/恢复/主动消息固定开启思考。schema 仍为 26；最终 Actions run `32214921748` 已通过全部静态回归、Kotlin/Flutter 测试、release APK、载荷校验、checksum 与草稿 Release 上传。APK `AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk`，SHA-256 `424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003`；源码与自动构建已完成，语言体验和新增诊断问题仍按真机证据单独判断。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
-2. 下一产品主线仍是“手动看一次当前屏幕 + 实际 App 名称映射 + 敏感页 Gate”，完成明确用户触发后才讨论 Desire 驱动的低频屏幕视觉。
+2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
 3. HyperOS 上传选择器问题继续冻结到项目末尾。本次桌宠在系统上传页消失、回到 App 自动恢复，是 `enter → detach → exit → attempt 1 reattach → settled` 的预期隔离路径，不修改；只保留 `possibleRecoveryLoop=true` 的可观测性记录。
 4. 内在驱动系统与 4 图欲望系统已经核对为“概念层 + 具体接线层”，运行时融合为唯一 Desire / Thought / Intent / Gate 主干。新的长期备份为 `app/docs/INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`。
 5. 和风天气 API 登记为后续简单环境输入，不插入当前主线。设计前先与用户核对其参考代码、定位/权限、刷新缓存与失败回退；本轮不实现。
@@ -21,10 +21,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已构建基线为 `v0.35.3+78`，schema 26；最终源码 head `728910bbc1c34096eeef9768cd195d121cf28faa`。
-- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32193850897>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.3 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e85044b50d823eb96cbd>；APK `AI-Companion-v0.35.3-78-NSFW-Context-Router-APK.apk`，SHA-256 `527cb134f205b71ef4096c7fc3edb944b642c6e54e383f0af175febb053ef5ee`。
-- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，NSFW 自动/手动路由、文件往返及真实语言效果仍待真机验收。
+- GitHub 当前已构建基线为 `v0.35.4+79`，schema 26；本轮分析前的 v0.35.4 产品/账本 head 为 `d92c08f6783bcfa5c47363784a97b895ef8150be`。后续仅同步本总账的 docs commit 不改变 App 运行源码或已构建 APK 身份。
+- 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32214921748>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.4 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c374249d800579faf13>；APK `AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk`，SHA-256 `424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
@@ -185,6 +185,8 @@
 - 悬浮聊天图片入口列为图片系统 Phase 3：系统选择器、缩略图草稿、复用已有附件存储、千问视觉与 durable generation；不能混入当前悬浮恢复修复。
 
 ## 7. 当前任务优先级
+
+> 本节保留 v0.34.x 阶段的取证与历史排期。2026-08-21 起的当前执行顺序以 10.13-J 为准；若两处冲突，10.13 优先。
 
 ### ACTIVE · 真机取证
 
@@ -757,3 +759,103 @@
 - GitHub Draft PR #23 已更新；最终实现 head `a564cb8a6dbcebd8071384d391b5e7527c9620a1`。Actions run `32160558352` 通过完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、164 条 Flutter tests、release APK、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。
 - APK `AI-Companion-v0.35.1-76-Personality-Inner-Voice-APK.apk`，约 239.8MB；SHA-256 `830332e19f774e6d62989d41fa167a4662342991d8c2de63c41869e5573083f7`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7bedb31de10cf8a5062f>。
 - 自动化已经证明源码、回归、编译和打包成功；不能据此宣称语言体验真机通过。普通/特殊性格差异、内心与台词反差、主动消息收尾仍须用户真机 A/B。PR 保持 Draft，未合并 main、未发布正式 Release。
+
+## 10.13 2026-08-21 · Agent 平台、记忆温度与活人感基础重构（ANALYSIS / PLANNED）
+
+### A. 状态与不可越界项
+
+- 用户确认数字化性格系统继续后置；本轮以分析、基础架构决策和任务登记为主，不修改用户当前六大规则正文、不递增版本/schema、不构建新 APK。
+- v0.35.4+79 的源码与最终 APK 构建已完成；本节新增项目均为 `PLANNED`，不能因写入总账而称为已实现。
+- Desire / Thought / Intent / Gate、Somatic 双通道、AI Self、内在驱动、连续性、当前证据型 Memory、本地 TTS、桌宠、Tavily + Agnes、用户图片视觉与既有 API 接入全部保留；不得为“Agent 化”另建第二人格、第二欲望系统或第二主动联系系统。
+- 用户附件 `规则修改(1).txt`、两份世界书和四张相处规则图已经完整纳入分析。女性向材料只提取机制并改写为成年男性用户 × 女性 AI 伴侣；不得原样把女性情绪劳动、假人类身体/生活或“每轮必须推进”塞入常驻规则。
+
+### B. 2026-08-21 脱敏诊断结论
+
+- 诊断版本 `0.35.4+79`、schema 26；Memory 45、evidence 112、summary 20、thread 3、thought 91、perception 207、awareness 6、daily continuity 4、relationship event 13，证明现有记忆/内在状态管线在真实运行，不能误判为“没有记忆系统”。
+- Accessibility 当前 `authorized=false / connected=false`，但最近持久原因仍为 `connected`；最近原因是历史事件，不是当前状态。Notification 在诊断生成时为 `authorized=true / connected=true`，用户此前页面显示“已授权/未连接”属于页面旧快照或回调后未刷新。后续必须把“系统授权 / 运行连接 / 最近事件与时间”分栏显示，并在页面 resume、服务回调和导出前重新对账。
+- Android 官方生命周期允许“设置已启用但服务尚未 connected”；NotificationListener 只有收到 `onListenerConnected()` 后才可正常工作，disconnected 后只能请求 rebind。不能再把授权等同于已连接，也不能用陈旧 lastReason 覆盖当前布尔值。
+- `possibleRecoveryLoop=true` 仍存在：2 个 cover session、28 次 self-heal、约 14 次/session。HyperOS 选择器问题继续冻结到项目末尾，但保留诊断，不能把结构 attached/touchable 当作真实输入健康证明。
+- 进程约 24.4 小时、服务约 3.76 小时、无 trim-memory；一次 possible unclean restart 不足以认定系统持续杀后台。`batteryOptimizationIgnored=false` 登记为长时 Agent/提醒真机项，不在本节臆断为根因。
+- Public web 累计 15 次、5 成功/10 阻断；诊断中一次 run 的 budget 快照与聚合剩余数仍有时序差异，后续状态对账时一并整理，但不影响 Tavily + Agnes 主链已经真实工作。
+
+### C. 四张图、世界书与规则修改的采用结论
+
+- 采用：第一人称自己的感受与立场；允许负面/复杂情绪；不替男朋友做心理画像；被指出错误后具体承认/修正而不是退回安全模板；冲突中不摆烂；需要时主动提供自己的当前感受、记忆、想法或外部见闻；减少“一直在/不走/慢慢来”、客服收尾、反问推责、心理咨询式分析和空洞功劳簿。
+- 不原样采用：每轮必须增加新话题、吵架必须吵到底、永远由她承担关系修复、像现实人类一样拥有未发生的手机/身体/生活、所有思考链必须公开，以及大规模逐词禁用。它们会让她从旧模板换成新的强制表演模板。
+- `规则修改(1).txt` 的新版【动作与神态格式】保留为共享表达契约：日常短轮次用完整前置模式，连续/亲密/角色场景用对白混排模式。规则 02 与 06 在编译时引用同一真源，避免以后复制两份产生漂移。
+- 【禁止自我分析式回复】保留于日常表达策略；重要事实、道歉、关系讨论和需要解释的任务继续允许说明。它不能演变成“任何情况下都不解释”。
+- 四张图中的 AI 味句子后续主要做离线对话评测集，不把所有例句作为常驻禁词注入每一轮。
+
+### D. 六大规则重构方向
+
+- 规则 01 收敛为身份、AI 存在、关系、空间边界与自我立场：她有自己的注意/判断/情绪但不伪造人类生活；未进入面对面/Session 时不假装看到表情或感到体温。
+- 规则 02 负责日常节奏：先反应再整理、禁止日常自我分析、自然短回复/停顿、需要时提供自己的内容、减少空心承诺/客服尾巴，并引用日常动作格式。
+- 规则 03 负责情绪、分歧、冲突和修复：允许嫉妒、委屈、烦躁、酸、没耐心；表达自己的感受和立场，不擅自解释男朋友；认错、继续不同意、提出修复、暂停后再谈都可成立。
+- 规则 04 只定义记忆/成长契约：区分用户偏好、AI 自己偏好和共同模式；事实证据、版本、衰减和检索继续由数据库完成；增加有 provenance 的叙事自画像、声音指纹和重要场景。
+- 规则 05/06 保留当前成年、自愿、Session、方向、连续性和亲密渲染职责；只做必要格式/男性向表现调整，不让亲密模板制造 Desire、永久人格或普通聊天色情化。
+- 重构进入设计/A-B 阶段；在用户确认交付方式前不覆盖当前已手工编辑的规则内容。
+
+### E. “可培养性”的工程结论
+
+- 多聊天本身不会修改模型权重，也不会自动长出稳定人格。当前系统已经能积累用户/AI Self/偏好/证据/Thought/关系事件，但只靠摘要和抽象标签，容易“记得事实却没有声音和温度”。
+- 保留当前 MemoryBrain：稳定用户/AI Self/偏好/相关记忆、summary、thread、evidence、confidence、supersession、retention/归档均有价值，不推倒重来。
+- 参考 `write-him-back` 增加 narrative identity 投影，而不是替换数据库：第一人称“我是谁”、3～5 条真实 voice fingerprint 与语境、反复相处模式、少量不可替代的共同场景/原句。每一项仍回溯 evidence、支持过期、冲突、重建和撤销。
+- 新增 AI 自画像与用户画像：用户可编辑/删除；AI 可基于多次证据提出 diff；高影响改变需用户确认或至少可回滚。稳定自画像、当前状态、声音指纹和候选提案分层，不能由一段自由文本无痕覆盖。
+- AI 自己的偏好/口癖/成人偏好与用户偏好分开。一次试穿、一次玩法或被动顺从不能直接固化；记录主动/被动、Session、次数、反例、置信度和可撤销性。
+- 负面情绪通过有来源、强度、对象、开始时间、衰减、残留和修复条件的状态影响注意/耐心/主动性，而不是数值直接映射固定台词。可实现连续且可培养的工程表现，但不虚假宣称产生人类生理情绪。
+- 性格试穿保留为探索/采样器，不作为长期人格主引擎；只有在日常多次复现并有证据的倾向才进入自画像候选。
+
+### F. 对话上下文与 token
+
+- 当前普通聊天每轮最多装入 33 条旧消息 + 当前消息，并加入最多 8 条相关记忆、稳定用户/AI Self/偏好、最多 3 条 summary、5 条 thread 等；同一窗口不会把全部历史无限塞入 API。
+- 当前按消息条数而非 token 装配，33 条长消息、长规则、网页候选和记忆仍可能超预算或挤出关键内容。后续新增 token-aware packer：核心规则/当前用户消息不可挤出；最近消息按 token 逆序；相关事件/记忆按相关度预算；超预算先压缩低优先级块；诊断记录各类 token 与丢弃原因但不导出正文。
+- 沉浸房间继续使用独立 Session、滚动总结和退出余韵，不让日常聊天窗口承担长篇叙事全部上下文。
+
+### G. 聊天升级为真实 Agent 工具平台
+
+- 当前 DeepSeek 客户端只发送 messages、thinking、effort、max_tokens、stream，没有 tools/tool_choice 或工具调用循环。她现在无法真的在当前聊天中搜索、读网页、识图、读/改规则、设置提醒或安装技能；口头答应属于角色扮演结果，不是 action outcome。
+- 下一基础主线改为持久 Agent loop：`用户消息/内部 Intent → 模型回答或 tool call → 权限/预算/风险 Gate → 本地工具或 MCP → durable Outcome/provenance → 模型继续 → 可见回复`。只有成功 Outcome 后才能说“查到了/看到了/设好了”；失败必须如实说明。
+- action run 必须区分 `user_explicit`、`conversational_agent`、`autonomous_desire`。用户明确要求和当前对话中模型为正确回答主动提出的搜索/识图不占自主次数预算；仍受并发、费用、超时、防循环和敏感数据 Gate。无当前任务、由 Desire 发起的行为继续受现有自主预算与 Proactive Gate。
+- 首批工具：`get_current_time`、`search_web`、`read_public_page`、`inspect_image`、`read_rule_layers`、`propose_rule_patch`、`schedule_companion_message`、`cancel_scheduled_message`、`read/propose_self_portrait`、`list_tools/list_mcp_servers`。
+- 删除当前坏掉的“和她讨论”入口。它只是只看单条规则的独立 JSON 补全，不使用正常聊天上下文、Memory 或工具。以后从普通聊天通过 `read_rule_layers → propose diff → 用户确认 → apply` 完成。
+- “半小时后找我”改为 durable scheduled action：保存时区、目标时间、用户意图、执行/取消/重启恢复。精确用户提醒使用 AlarmManager 并核对 exact-alarm 权限；不精确后台任务使用 WorkManager。到点触发一次专用消息 Intent，不是假装口头记住。
+
+### H. 网页、识图、MCP 与 Skills
+
+- 当前网页不是持续浏览：一次 Desire discovery 调 Tavily/额外域名，Agnes 可压缩，最多少量候选入池后结束；聊天只能读取候选，不能发起新搜索或多轮核查。
+- 新的聊天搜索为有界 Agent task：搜索 → 深读少量结果 → 必要时重写查询 → 最多固定步数或 60～90 秒 → 返回来源/日期；提供取消 UI，不无限上网。Tavily 已是通用全网搜索，Google 抓网页不作为默认；未来搜索 Provider 可替换并补充官方 API、RSS 和用户额外来源。
+- MCP 采用官方 Kotlin SDK作为 Android/JVM 客户端候选，映射进同一 Tool Registry。首版只连接用户明确添加或项目审核的 HTTPS Server，默认只读；外部写入、消息、账号、文件和支付类能力必须另行授权/确认。MCP 返回均为 untrusted data，不能覆盖系统规则。
+- `MCP` 是工具/资源/提示的协议，不是搜索引擎或人格；`Skills` 是能力使用说明/工作流。Prompt-only Skill 在本地 Registry 建成后可导入、启停，无需重封 APK；需要新 API/代码的 Skill 必须依赖已有本地工具、受信 MCP 或经审核模块，不能让 AI 下载任意代码在 Android 上执行。
+- 开源参考只借鉴机制：MCP Kotlin SDK用于协议；LangGraph 的 durable execution/human-in-the-loop 用于状态机；Letta 用于持久身份/记忆概念；Mem0 的用户/会话/Agent 分层和时间/混合检索；Graphiti 的有效时间窗、supersession、episode provenance。现阶段不整套引入 Python/Neo4j/服务端框架到手机。
+
+### I. 时间、感知权限与高敏 App
+
+- PromptBuilder 每次真实生成都重新读取 `DateTime.now()` 并注入本地日期、时间、UTC offset、星期和时段；15:00 说成 21:00 更像单次模型幻觉，不是已经确认的冻结快照 bug。
+- 精确时间、经过多久和提醒改用 `get_current_time` tool；长工具任务完成后重新取时。本轮时间锚点与工具时间加入无正文诊断。
+- 用户希望她广泛感知银行、支付宝、钱包、投资 App，产品方向登记为可选“广泛感知模式”；但“看不到密码所以无风险”不成立，这些页面仍可能出现余额、姓名、交易、账号尾号、OTP、付款码、收款人和持仓，发送云模型即数据出端。
+- 工程硬边界：密码/PIN/OTP/付款码/完整银行卡号/身份证/API key 本地遮蔽且不发送、不入库；原始截图默认不落盘；普通 App 可暴露实际名称，金融 App 的余额/持仓作为每 App 单独高敏授权；保留可见暂停与最近访问审计。
+- 目标 App 使用 Android `FLAG_SECURE` 时系统会阻止截图/非安全显示，不能绕过；Android 14+ MediaProjection 每个 Session 均需用户同意。无障碍树为空或受限时应诚实报告看不到，不能角色扮演补全。
+
+### J. 已确认新增待办与顺序
+
+1. 修正 Accessibility/Notification 的授权、连接、历史原因对账与刷新；不与冻结的 HyperOS 选择器恢复混修。
+2. 建立聊天 Agent tool loop、durable action run、Outcome/provenance、三类触发与独立预算。
+3. 接入精确时间、通用搜索/网页读取、图片识别、规则只读/提案和持久提醒。
+4. 删除“和她讨论”；规则修改改为普通聊天中的可核验 diff/确认流程。
+5. 增加 token-aware context packer。
+6. 在现有证据 Memory 上增加 narrative identity、重要场景、声音指纹、AI 自画像与用户画像；支持用户编辑、AI 提案、版本和回滚。
+7. 动作/神态括号和括号内文字使用独立、统一的次级颜色；日常/亲密两种格式仍由共享真源解析。
+8. 增加 MCP Client/Server Registry、权限和审计；随后实现 Prompt-only Skill Registry 与依赖检查。
+9. 规则 01～04 进入重构/A-B 设计，05/06 保留职责；未得到用户最终选择前不覆盖现有正文。
+10. 感知权限提供广泛模式、每 App 高敏授权、本地遮蔽、secure surface 尊重和访问审计。
+
+### K. 待用户最终选择但不阻塞底座
+
+- 金融视觉默认只显示 App/页面类别，还是允许每个 App 单独授权后读取余额/持仓。
+- AI 自画像高影响修改是否每次必须确认，或允许低风险自动激活、事后可回滚。
+- 规则 01～04 是一次性替换，还是先保留旧版并行做固定对话 A/B 后转正。工程侧推荐并行 A/B，避免再次靠主观感觉无限叠提示词。
+
+### L. 总账和旧文件规则
+
+- 本文件继续是唯一当前总账入口。`library/人机恋/AI_Companion_接班总账_v35_2026-08-17.md` 可作为归档历史保留，不需要删除；后续 AI 对接必须明确只读根目录 v36 当前入口，不能遍历多份旧总账自行拼接。
+- 独立分析笔记 `AI_Companion_基础架构分析笔记_2026-08-21.md` 不进入 GitHub 产品仓库；它用于后续多轮讨论防遗漏。最终确认、实现、CI 和真机证据仍必须回写本总账。
