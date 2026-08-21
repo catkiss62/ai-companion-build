@@ -1,0 +1,40 @@
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+
+client = (root / "lib/core/ai/deepseek_client.dart").read_text()
+planner = (root / "lib/core/agent/agent_tool_planner.dart").read_text()
+runner = (root / "lib/core/ai/durable_generation_runner.dart").read_text()
+server = (root / "lib/core/platform/background_chat_command_server.dart").read_text()
+snapshot = (root / "lib/core/platform/overlay_generation_snapshot.dart").read_text()
+overlay = (
+    root
+    / "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
+).read_text()
+planner_test = (root / "test/agent_tool_planner_fast_route_test.dart").read_text()
+deepseek_test = (root / "test/deepseek_temperature_test.dart").read_text()
+
+assert "List<Map<String, Object?>> tools" in client
+assert "'tool_choice': toolChoice ?? 'auto'" in client
+assert "toolCallDeltas" in client
+assert "reasoning_content" in runner
+assert "'role': 'tool'" in runner
+assert "AgentToolPlanner.nativeToolDefinitions" in runner
+assert "agentToolPlanner.plan" not in runner
+assert "正在判断是否需要调用工具" not in runner
+assert "model_selected" in planner
+assert "public_web_search" in planner
+assert "变聪明了" in planner_test
+assert "finishReason == 'tool_calls'" in deepseek_test
+
+assert "blockingGenerationJob()" in server
+assert "partialReasoning" in server and "partialContent" in server
+assert "status_text" in snapshot
+assert "(chatSending || appGenerationActive)" in overlay
+assert 'map["status_text"]' in overlay
+assert "beginGenerationPolling()" in overlay
+
+pubspec = (root / "pubspec.yaml").read_text()
+assert "version: 0.35.8+83" in pubspec
+
+print("v0.35.8 native tool calling and shared runtime validation passed")
