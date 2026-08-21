@@ -97,7 +97,7 @@ class BackgroundChatCommandServer {
           'messages': _rows(await db.recentMessages(limit: 8)),
         };
       case 'generationSnapshot':
-        return _generationSnapshot().toChannelMap();
+        return (await _generationSnapshot()).toChannelMap();
       case 'ttsSnapshot':
         final state = _controller?.ttsState;
         return <String, Object>{
@@ -110,7 +110,7 @@ class BackgroundChatCommandServer {
         _overlaySendEpoch++;
         final controller = await _ensureController();
         await controller.cancelCurrentGeneration();
-        return _generationSnapshot().toChannelMap();
+        return (await _generationSnapshot()).toChannelMap();
       case 'notificationReply':
         final text = _stringArg(call.arguments, 'text').trim();
         final replyId = _stringArg(call.arguments, 'replyId').trim();
@@ -165,9 +165,27 @@ class BackgroundChatCommandServer {
     ).toChannelMap();
   }
 
-  OverlayGenerationSnapshot _generationSnapshot() {
+  Future<OverlayGenerationSnapshot> _generationSnapshot() async {
     final controller = _controller;
-    if (controller == null) {
+    if (controller?.sending == true) {
+      return OverlayGenerationSnapshot(
+        sending: true,
+        cancelling: controller!.cancellingGeneration,
+        reasoning: controller.streamingReasoning,
+        content: controller.streamingContent,
+        assistantMessageId:
+            controller.activeGenerationAssistantMessageId ?? '',
+        statusText: controller.agentActivity?.text ?? '',
+      );
+    }
+
+    // A full-app ChatController and the headless overlay controller are separate
+    // Dart objects, but the generation job is durable and shared. Reading its
+    // checkpoint makes the native overlay observe the same real turn rather
+    // than showing an unrelated idle island.
+    final job = await db.blockingGenerationJob();
+    if (job == null ||
+        (job.status != 'pending' && job.status != 'running')) {
       return const OverlayGenerationSnapshot(
         sending: false,
         cancelling: false,
@@ -176,11 +194,14 @@ class BackgroundChatCommandServer {
       );
     }
     return OverlayGenerationSnapshot(
-      sending: controller.sending,
-      cancelling: controller.cancellingGeneration,
-      reasoning: controller.streamingReasoning,
-      content: controller.streamingContent,
-      assistantMessageId: controller.activeGenerationAssistantMessageId ?? '',
+      sending: true,
+      cancelling: false,
+      reasoning: job.partialReasoning,
+      content: job.partialContent,
+      assistantMessageId: job.assistantMessageId,
+      statusText:
+          await db.getSetting('agent_tool_runtime_status_text') ?? '',
+      runtimePhase: await db.getSetting('agent_tool_runtime_phase') ?? '',
     );
   }
 
