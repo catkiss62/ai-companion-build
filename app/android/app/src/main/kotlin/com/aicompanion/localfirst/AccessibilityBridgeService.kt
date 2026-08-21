@@ -21,8 +21,17 @@ class AccessibilityBridgeService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val e = event ?: return
-        if (e.isPassword) return
-        val sourcePackage = e.packageName?.toString() ?: return
+        val sourcePackage = e.packageName?.toString().orEmpty()
+        val allowedPackage = PrivacyFilter.allowPackage(sourcePackage)
+        CompanionRuntimeState.noteAccessibilityEvent(
+            context = this,
+            eventType = AccessibilityEvent.eventTypeToString(e.eventType),
+            sourcePackage = sourcePackage,
+            allowedPackage = allowedPackage,
+            windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            hasReadableRoot = runCatching { rootInActiveWindow != null }.getOrDefault(false),
+        )
+        if (e.isPassword || sourcePackage.isBlank()) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             // System file pickers/settings/permission surfaces may ask Android
@@ -47,7 +56,7 @@ class AccessibilityBridgeService : AccessibilityService() {
             }
         }
 
-        if (!PrivacyFilter.allowPackage(sourcePackage)) return
+        if (!allowedPackage) return
 
         val content = buildList {
             e.contentDescription?.let { add(it.toString()) }
@@ -126,6 +135,7 @@ class AccessibilityBridgeService : AccessibilityService() {
         if (CompanionRuntimeState.accessibilityConnected) {
             CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
         }
+        CompanionRuntimeState.noteAccessibilityDestroyed(this)
         super.onDestroy()
     }
 }
