@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../agent/agent_tool_registry.dart';
 import '../database/app_database.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_engine.dart';
@@ -35,6 +36,10 @@ class AutonomousActionCoordinator {
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
+    final registered = AgentToolRegistry.definitionForAutonomous(tool);
+    if (!registered.autonomousAvailable) {
+      throw StateError('autonomous_tool_not_registered');
+    }
     final identity = await db.transferStateIdentity();
     await db.recoverStaleAutonomousActions(
       now: instant,
