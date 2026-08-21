@@ -244,6 +244,34 @@ class PreflightDiagnosticsService {
           'proactiveGroundingRetryLastReason':
               await db.getSetting('grounding_retry_last_reason') ?? '',
         },
+        'serviceTemplateGuard': {
+          'matchCount': int.tryParse(
+                await db.getSetting('service_template_guard_match_count') ?? '',
+              ) ??
+              0,
+          'rewriteCount': int.tryParse(
+                await db.getSetting('service_template_guard_rewrite_count') ?? '',
+              ) ??
+              0,
+          'blockCount': int.tryParse(
+                await db.getSetting('service_template_guard_block_count') ?? '',
+              ) ??
+              0,
+          'lastAt': int.tryParse(
+                await db.getSetting('service_template_guard_last_at') ?? '',
+              ) ??
+              0,
+          'lastMode':
+              await db.getSetting('service_template_guard_last_mode') ?? '',
+          'lastAction':
+              await db.getSetting('service_template_guard_last_action') ?? '',
+          'lastReason':
+              await db.getSetting('service_template_guard_last_reason') ?? '',
+          'lastFamily':
+              await db.getSetting('service_template_guard_last_family') ?? '',
+          'matchedTextIncluded': false,
+          'chatContentIncluded': false,
+        },
         'desireCore': {
           'drives': {
             for (final entry in desireSnapshot.drives.entries)
