@@ -8,7 +8,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前已构建开发头为 `v0.35.4+79 Prompt Format & Chat UI`：新版规则 06 已逐字替换且 ID/路由标记完整；同一动作与神态格式按指定标题加入实际属于 02 的【叙事克制】之后。App/悬浮聊天点开默认回到底部，悬浮思考入口改为横条；试穿移到 NSFW 左侧，NSFW 缩至 24dp 并使用主题浅紫。聊天思考开关与持久设置已删除，聊天/图片/恢复/主动消息固定开启思考。schema 仍为 26；最终 Actions run `32214921748` 已通过全部静态回归、Kotlin/Flutter 测试、release APK、载荷校验、checksum 与草稿 Release 上传。APK `AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk`，SHA-256 `424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003`；源码与自动构建已完成，语言体验和新增诊断问题仍按真机证据单独判断。
+0. 当前开发头已进入 `v0.35.5+80 Time, Perception & Diagnostics`：跨日聊天间隔、反服务模板语义守卫、轻视觉三层健康诊断和前台 App 精确名称已完成源码接线；schema 仍为 26。Actions 自动化与草稿 Release 构建正在验证，在出现成功 run、APK checksum 和草稿 Release 链接前只能称 IMPLEMENTED / CI PENDING；轻视觉是否还会随时间掉线必须由此版本真机复测，不能由静态实现代替。上一份已确认可下载基线仍是 `v0.35.4+79`。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -21,7 +21,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已构建基线为 `v0.35.4+79`，schema 26；本轮分析前的 v0.35.4 产品/账本 head 为 `d92c08f6783bcfa5c47363784a97b895ef8150be`。后续仅同步本总账的 docs commit 不改变 App 运行源码或已构建 APK 身份。
+- GitHub 上一份已确认构建基线为 `v0.35.4+79`，schema 26；当前开发版本已提升为 `v0.35.5+80`、schema 仍为 26，代码与新校验器位于 PR #23 分支，Actions / APK 结果尚待落款。
 - 最新成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32214921748>；完整历史/新静态回归、Kotlin 桌宠测试、Flutter analyze、Flutter tests、release APK、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
 - v0.35.4 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c374249d800579faf13>；APK `AI-Companion-v0.35.4-79-Prompt-Format-Chat-UI-APK.apk`，SHA-256 `424527fb6774e7203d774f6cf519569d1a24fe2148af385376e1a2b008d83003`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
@@ -1233,4 +1233,44 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 - 删除前必须继续执行“引用扫描 → 吸收独有内容 → 更新验证器 → 删除 → 反向验证”。
 
 下一批可以进入无需实机的代码/自动测试工作：时间与跨日 gap、服务模板检测、轻视觉诊断数据契约、前台 App 名称只读感知和 Agent Tool Registry；实际 Accessibility/Overlay 行为最终仍由下一版真机诊断验收。
+
+## 10.18 2026-08-21 · v0.35.5 时间、反客服模板、轻视觉诊断与 App 名称（IMPLEMENTED / CI PENDING）
+
+### A. 本批范围与不越界项
+
+- 用户确认按清单直接实施，并再次说明 GitHub Actions artifact 配额已满；APK 必须继续通过私有仓库草稿 Release 交付，附带 `.sha256` 与 CI monitor，不创建公开正式 Release、不合并 main。
+- 本批只做无需用户先实机决策的底座：时间连续性、服务模板出站守卫、轻视觉可诊断性、前台 App 名称感知。Agent Tool Registry、UI 分类迁移、MCP 与 Skills 仍按后续批次推进。
+- 上传/文件选择器导致悬浮层消失或卡死的问题继续冻结，本批没有修改 Overlay cover/recovery 时序与恢复次数。
+
+### B. 精确时间与跨日连续性
+
+- Prompt 每轮仍读取实时本地时间；新增“当前用户轮次距上一段对话”的显式间隔、跨过自然日数量和上一段对话时间。
+- 21:00 结束、次日 12:00 再聊的测试固定为 15 小时 / 跨 1 个自然日；Prompt 明确禁止把这种情况称为“刚才/刚刚”，长间隔也不得默认旧状态仍持续。
+- 这解决的是时间和会话连续性的结构化依据；模型仍可能表达错误，需由真机语言样本继续验证。
+
+### C. 反服务模板不是机械禁词
+
+- 新增 `ServiceTemplateGuard` 语义族：永久待命、懂事退场、无条件让渡、空洞安慰。引用/讨论这些表达不拦截；普通体谅在具体语境中可以出现。
+- 用户聊天出站命中时先重写一次；仍命中则剥离模板句，无法保留有效正文才阻断。主动联系命中时重写一次，仍命中直接 WAIT / 取消，避免“我不催你、你忙你的、我一直在、不走”成为找话题本体。
+- 诊断只记录 match / rewrite / block 次数、模式、语义族和原因，不导出命中的聊天正文。此守卫用于压制套路复读，不会强迫角色随机顶嘴或固定叛逆。
+
+### D. 轻视觉三层健康诊断
+
+- 修复无障碍已启用组件的解析：不再用可能受简写类名影响的扁平字符串硬比较，改用 `ComponentName` 的 package/class 语义匹配。
+- 脱敏诊断拆分为系统授权、服务连接、事件流三层，并加入组件命中、已启用条目数量、服务代次、连接/断开/中断/销毁计数、最近事件类型与包名短哈希、窗口事件与可读 root 心跳、进程启动时间。
+- 健康状态可区分 `SYSTEM_DISABLED`、`COMPONENT_MISMATCH`、`PROCESS_RESTARTED`、`ENABLED_NOT_CONNECTED`、`CONNECTED_NO_EVENTS`、`EVENT_STREAM_STALLED`、`CONNECTED_EVENTS_OK` 与 `STALE_UI`。
+- 这些代码能让下次报告查到“显示未勾选究竟是 UI 误判、服务没连、进程重启还是事件流停了”；它尚不能证明真机长期运行已经恢复。
+
+### E. 前台 App 精确名称
+
+- Usage Access 的最近前台事件新增本地应用显示名称，Awareness 可得到“当前打开的是 原神/支付宝”等短期观察；原始包名不进入模型观察。
+- 诊断只报告当前 App 名称是否成功解析，不导出名称；Accessibility 的密码/敏感正文过滤仍保留，因此“知道打开了支付宝”不等于读取密码或金融页面正文。
+- 当前实现属于“正在运行的软件名称”能力；自主识图、屏幕内容 Gate 和金融视觉权限仍需统一 Agent Tool Registry 后续接入。
+
+### F. 验证与下一步
+
+- 版本：`v0.35.5+80`；schema 26，无数据库迁移。
+- 新增跨日 Grounding、前台 App 名称/金融 App 脱敏、服务模板守卫测试及 `validate_v0355_time_perception_diagnostics.py`；完整 Kotlin/Flutter/载荷/APK/draft Release 结果尚待 Actions。
+- Actions 成功后先更新本节为 CI PASSED，记录 run、head、草稿 Release、APK 与 SHA-256；随后才让用户做轻视觉长时间复测和语言体验观察。
+- 下一代码批建议：统一 Agent Tool Registry 与工具执行状态流；之后再做 UI 信息架构分类迁移。MCP/Skills 继续登记为后续重点，不与本批混做。
 
