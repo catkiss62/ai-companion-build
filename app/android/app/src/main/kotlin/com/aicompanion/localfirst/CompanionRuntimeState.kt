@@ -72,6 +72,12 @@ object CompanionRuntimeState {
         private set
     @Volatile var accessibilityConnected: Boolean = false
         private set
+    @Volatile private var foregroundWindowPackage: String = ""
+    @Volatile private var foregroundWindowObservedAt: Long = 0L
+    @Volatile private var currentAppFusionSource: String = "none"
+    @Volatile private var currentAppFusionAgeMs: Long = -1L
+    @Volatile private var currentAppFusionEventCount: Int = 0
+    @Volatile private var currentAppFusionLabelResolved: Boolean = false
     @Volatile var overlayBubbleAttached: Boolean = false
         private set
     @Volatile var overlayBubbleTouchable: Boolean = false
@@ -119,6 +125,36 @@ object CompanionRuntimeState {
     private val overlayCoverDetachCount = AtomicInteger(0)
     private const val OVERLAY_COVER_HISTORY_LIMIT = 24
     private val overlayCoverHistory = ArrayDeque<Map<String, Any>>()
+
+    data class ForegroundWindowSnapshot(
+        val packageName: String,
+        val observedAt: Long,
+    )
+
+    fun noteForegroundWindow(sourcePackage: String) {
+        if (sourcePackage.isBlank()) return
+        foregroundWindowPackage = sourcePackage
+        foregroundWindowObservedAt = System.currentTimeMillis()
+    }
+
+    fun foregroundWindowSnapshot(): ForegroundWindowSnapshot? {
+        val packageName = foregroundWindowPackage
+        val observedAt = foregroundWindowObservedAt
+        if (packageName.isBlank() || observedAt <= 0L) return null
+        return ForegroundWindowSnapshot(packageName, observedAt)
+    }
+
+    fun noteCurrentAppFusion(
+        source: String,
+        ageMs: Long,
+        usageEventCount: Int,
+        labelResolved: Boolean,
+    ) {
+        currentAppFusionSource = source.take(40)
+        currentAppFusionAgeMs = ageMs.coerceAtLeast(-1L)
+        currentAppFusionEventCount = usageEventCount.coerceAtLeast(0)
+        currentAppFusionLabelResolved = labelResolved
+    }
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -209,6 +245,10 @@ object CompanionRuntimeState {
 
     fun runtimeInfo(context: Context): Map<String, Any> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val foregroundAgeMs = foregroundWindowObservedAt
+            .takeIf { it > 0L }
+            ?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) }
+            ?: -1L
         return mapOf(
             "overlayUserEnabled" to prefs.getBoolean(KEY_OVERLAY_USER_ENABLED, false),
             "overlayVisible" to overlayVisible,
@@ -216,6 +256,14 @@ object CompanionRuntimeState {
             "appVisible" to (visibleActivities.get() > 0),
             "notificationListenerConnected" to notificationListenerConnected,
             "accessibilityConnected" to accessibilityConnected,
+            "foregroundWindowObserved" to (foregroundWindowPackage.isNotBlank()),
+            "foregroundWindowPackageHash" to shortHash(foregroundWindowPackage),
+            "foregroundWindowAgeMs" to foregroundAgeMs,
+            "currentAppFusionSource" to currentAppFusionSource,
+            "currentAppFusionAgeMs" to currentAppFusionAgeMs,
+            "currentAppFusionUsageEventCount" to currentAppFusionEventCount,
+            "currentAppFusionLabelResolved" to currentAppFusionLabelResolved,
+            "currentAppRawPackageIncluded" to false,
             "accessibilityLastConnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_CONNECTED, 0L),
             "accessibilityLastDisconnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, 0L),
             "accessibilityLastInterruptAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, 0L),
