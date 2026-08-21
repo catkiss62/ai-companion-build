@@ -224,7 +224,7 @@ class ConversationGroundingPolicy {
           currentLocal.day,
         );
         currentTurnCrossedCalendarDays =
-            currentDay.difference(previousDay).inDays.clamp(0, 36500);
+            currentDay.difference(previousDay).inDays.clamp(0, 36500).toInt();
       }
     }
 
