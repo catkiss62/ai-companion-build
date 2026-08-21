@@ -66,7 +66,7 @@ for token in (
     "shortHash",
 ):
     assert token in runtime, token
-for token in ("noteAccessibilityEvent", "eventType.toString()", "PrivacyFilter"):
+for token in ("noteAccessibilityEvent", "AccessibilityEvent.eventTypeToString", "PrivacyFilter"):
     assert token in accessibility_service, token
 for token in (
     "COMPONENT_MISMATCH",
@@ -77,7 +77,7 @@ for token in (
     "CONNECTED_EVENTS_OK",
 ):
     assert token in android_bridge and token in diagnostics, token
-for token in ("系统已授权", "轻视觉事件", "系统授权与实际连接是两件事"):
+for token in ("轻视觉：系统", "轻视觉事件", "系统授权与实际连接是两件事"):
     assert token in system_page, token
 
 perception = read("lib/core/perception/perception_interpreter.dart")
@@ -100,7 +100,7 @@ for token in (
     "removeTemplateSentences",
 ):
     assert token in guard, token
-for token in ("我不催你", "你忙你的", "proactive: true", "fallback strip"):
+for token in ("我不催你", "你忙你的", "proactive: true", "fallback removes template tail"):
     assert token in guard_test, token
 for token in ("ServiceTemplateGuard.evaluate", "action: 'rewrite'", "action: 'block'"):
     assert token in durable or token in proactive, token
