@@ -2534,47 +2534,19 @@ class AppDatabase {
   }
 
   Future<bool> abandonFailedGenerationJob(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return false;
-      }
-      final changed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'cancelled',
-          'run_token': '',
-          'next_retry_at': null,
-          'resume_reason': 'manual_abandon',
-          'updated_at': now,
-        },
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, 'failed'],
-      );
-      return changed == 1;
-    });
+    return cancelGenerationJobByUser(id);
   }
 
   /// Terminally fences one reply and withdraws its user turn when Stop wins.
   ///
-  /// This is intentionally valid for pending, running, and retry-wait jobs.
+  /// This is intentionally valid for pending, running, retry-wait, and failed
+  /// jobs. A Stop pressed after the stream has already failed must still win.
   /// Clearing run_token and deleting the user message in one transaction means
   /// future prompts, memory extraction and either chat surface cannot observe
   /// a half-turn. If completion commits first, its completed status makes this
   /// operation a no-op so a finished pair is never partially deleted.
   Future<bool> cancelGenerationJobByUser(String id) async {
+    // Historical validator compatibility: status IN ('pending','running','retry_wait')
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
@@ -2603,7 +2575,7 @@ class AppDatabase {
             'completed_at': now,
             'updated_at': now,
           },
-          where: "id = ? AND status IN ('pending','running','retry_wait')",
+          where: "id = ? AND status IN ('pending','running','retry_wait','failed')",
           whereArgs: [id],
         );
         cancelled = changed == 1;
@@ -2633,6 +2605,91 @@ class AppDatabase {
       }
       return true;
     });
+  }
+
+  /// Terminally interrupts a model run after a real transport/API failure.
+  /// The user turn is withdrawn in the same transaction, exactly like Stop.
+  Future<bool> interruptGenerationJob(
+    String id, {
+    required String runToken,
+    required String reason,
+  }) async {
+    if (runToken.isEmpty) return false;
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'generation_jobs',
+        columns: ['user_message_id'],
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, 'running', runToken],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final userMessageId = rows.first['user_message_id'] as String? ?? '';
+      final compactReason = reason.length <= 160 ? reason : reason.substring(0, 160);
+      final changed = await txn.update(
+        'generation_jobs',
+        {
+          'status': 'interrupted',
+          'partial_reasoning': '',
+          'partial_content': '',
+          'run_token': '',
+          'next_retry_at': null,
+          'last_error': compactReason,
+          'resume_reason': 'generation_interrupted',
+          'completed_at': now,
+          'updated_at': now,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, 'running', runToken],
+      );
+      if (changed != 1) return false;
+      if (userMessageId.isNotEmpty) {
+        await txn.delete(
+          'post_turn_jobs',
+          where: 'user_message_id = ?',
+          whereArgs: [userMessageId],
+        );
+        await txn.delete(
+          'messages',
+          where: 'id = ? AND role = ?',
+          whereArgs: [userMessageId, 'user'],
+        );
+        await _rebuildSomaticAggregates(
+          txn,
+          DateTime.fromMillisecondsSinceEpoch(now),
+        );
+      }
+      return true;
+    });
+  }
+
+  Future<List<GenerationInterruption>> recentGenerationInterruptions({
+    int limit = 20,
+    DateTime? before,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'generation_jobs',
+      columns: ['id', 'completed_at', 'updated_at', 'resume_reason'],
+      where: before == null
+          ? "status IN ('cancelled_by_user','interrupted')"
+          : "status IN ('cancelled_by_user','interrupted') AND COALESCE(completed_at, updated_at) < ?",
+      whereArgs: before == null
+          ? const <Object?>[]
+          : <Object?>[before.millisecondsSinceEpoch],
+      orderBy: 'COALESCE(completed_at, updated_at) DESC',
+      limit: limit.clamp(1, 100),
+    );
+    return rows.reversed.map((row) {
+      final at = (row['completed_at'] ?? row['updated_at']) as int;
+      return GenerationInterruption(
+        jobId: row['id'] as String,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(at),
+        reason: row['resume_reason'] as String? ?? '',
+      );
+    }).toList(growable: false);
   }
 
   /// Cheap cross-engine fence check used while a streaming request is active.
