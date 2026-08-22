@@ -38,7 +38,7 @@
 - 通知已读动作统一：点击顶部横幅、点击状态栏通知、直接回复、手动展开悬浮聊天、进入完整 App 聊天，任一路径都会只取消关系消息通知，不会误删悬浮后台服务的常驻通知。设置页新增“打开该频道的浮动通知设置”，便于直接检查 HyperOS 对当前提示音频道的“允许弹出”。
 - 5分钟测试继续是固定诊断消息：不调用模型、不写聊天、不写记忆，因此它只验证定时、当前 App 与对话通知外观；真实 Desire 主动联系仍使用生成后的实际聊天正文。
 - 悬浮聊天动作/神态括号文本由旧紫色 `RGB(216,177,255)` 改为与 Flutter 深色主题三级色一致的淡红色 `RGB(239,184,200)`，保留斜体与原文；不修改 Prompt、TTS 或括号解析规则。
-- 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；本地当前专项、v0.36.1 与 v0.35.9 回归及 workflow YAML 已通过，完整 GitHub Actions、APK、SHA-256 和 REDMI K80 Ultra 真机结果仍待记录。
+- 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；源码提交 `6ad530d4082699820d34cef7bdc545684b787a35`，本地当前专项、v0.36.1 与 v0.35.9 回归及 workflow YAML 已通过，完整 GitHub Actions、APK、SHA-256 和 REDMI K80 Ultra 真机结果仍待记录。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
