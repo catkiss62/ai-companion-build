@@ -21,6 +21,7 @@ import '../../core/maintenance/long_running_maintenance_engine.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/message_attachment.dart';
+import '../../core/models/generation_job.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
@@ -107,8 +108,10 @@ class ChatController extends ChangeNotifier {
   final Uuid _uuid = Uuid();
 
   List<ChatMessage> messages = [];
+  List<GenerationInterruption> generationInterruptions = [];
   bool loading = true;
   bool sending = false;
+  bool externalGenerationActive = false;
   bool savingImage = false;
   bool analyzingImage = false;
   bool recoveringGeneration = false;
@@ -127,11 +130,26 @@ class ChatController extends ChangeNotifier {
   GenerationCancellationToken? _activeGenerationCancellation;
   String? _activeGenerationJobId;
   String? _activeGenerationAssistantMessageId;
+  String? _externalGenerationAssistantMessageId;
   String _lastPetConversationState = '';
   bool _petGenerationActive = false;
 
   String? get activeGenerationAssistantMessageId =>
-      _activeGenerationAssistantMessageId;
+      _activeGenerationAssistantMessageId ??
+      _externalGenerationAssistantMessageId;
+
+  bool get generationActive => sending || externalGenerationActive;
+
+  List<ChatTimelineItem> get timelineItems {
+    final items = <ChatTimelineItem>[
+      for (final message in messages) ChatTimelineItem.message(message),
+      for (final marker in generationInterruptions)
+        if (messages.isEmpty || !marker.createdAt.isBefore(messages.first.createdAt))
+        ChatTimelineItem.interruption(marker),
+    ];
+    items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return items;
+  }
 
   bool get agentToolActive => agentActivity?.active ?? false;
 
@@ -204,6 +222,8 @@ class ChatController extends ChangeNotifier {
       effort = ReasoningEffort.fromApiName(await db.getSetting('reasoning_effort'));
       nsfwActive = (await db.getSetting('nsfw_active')) == '1';
       messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
       unawaited(attachmentStorage.cleanOldDrafts());
       unawaited(_pruneOrphanAttachmentFiles());
       loading = false;
@@ -263,6 +283,8 @@ class ChatController extends ChangeNotifier {
 
   Future<void> reload() async {
     messages = await db.recentMessages(limit: 120);
+    generationInterruptions =
+        await db.recentGenerationInterruptions(limit: 20);
     _safeNotify();
   }
 
@@ -274,19 +296,63 @@ class ChatController extends ChangeNotifier {
     }
   }
 
+  Future<void> _incrementOverlayUnread() async {
+    try {
+      await android.incrementOverlayUnread();
+    } catch (_) {
+      // The durable assistant commit is authoritative; badge delivery is
+      // cosmetic and must never turn a completed reply into an error.
+    }
+  }
+
   /// Refreshes messages written by another engine (native overlay/background).
   /// Returns true only when the visible tail actually changed.
   Future<bool> syncExternalMessages() async {
-    if (_disposed || sending) return false;
+    if (_disposed) return false;
+    final job = await db.blockingGenerationJob() ??
+        await db.failedGenerationNeedingAttention();
+    var runtimeChanged = false;
+    if (!sending) {
+      final nextActive = job != null;
+      final nextReasoning = job?.partialReasoning ?? '';
+      final nextContent = job?.partialContent ?? '';
+      final nextAssistantId = job?.assistantMessageId;
+      final statusText = nextActive
+          ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
+          : '';
+      runtimeChanged = externalGenerationActive != nextActive ||
+          streamingReasoning != nextReasoning ||
+          streamingContent != nextContent ||
+          _externalGenerationAssistantMessageId != nextAssistantId ||
+          (agentActivity?.text ?? '') != statusText;
+      externalGenerationActive = nextActive;
+      streamingReasoning = nextReasoning;
+      streamingContent = nextContent;
+      _externalGenerationAssistantMessageId = nextAssistantId;
+      agentActivity = statusText.isEmpty
+          ? null
+          : AgentToolActivity(
+              toolId: 'shared_runtime',
+              status: AgentToolStatus.running,
+              text: statusText,
+            );
+    }
     final latest = await db.recentMessages(limit: 120);
-    final same = latest.length == messages.length &&
+    final interruptions = await db.recentGenerationInterruptions(limit: 20);
+    final sameMessages = latest.length == messages.length &&
         (latest.isEmpty ||
             (messages.isNotEmpty &&
                 latest.last.id == messages.last.id &&
                 latest.last.content == messages.last.content &&
                 latest.last.attachments.length == messages.last.attachments.length));
-    if (same) return false;
-    messages = latest;
+    final sameInterruptions = interruptions.length == generationInterruptions.length &&
+        (interruptions.isEmpty ||
+            (generationInterruptions.isNotEmpty &&
+                interruptions.last.jobId == generationInterruptions.last.jobId &&
+                interruptions.last.createdAt == generationInterruptions.last.createdAt));
+    if (sameMessages && sameInterruptions && !runtimeChanged) return false;
+    if (!sending) messages = latest;
+    generationInterruptions = interruptions;
     _safeNotify();
     return true;
   }
@@ -304,7 +370,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> setNsfwActive(bool next) async {
-    if (sending || analyzingImage) return;
+    if (generationActive || analyzingImage) return;
     nsfwActive = next;
     nsfwRouting = false;
     await db.setSetting('nsfw_active', next ? '1' : '0');
@@ -508,7 +574,7 @@ class ChatController extends ChangeNotifier {
 
   Future<void> sendText(String raw, {String? requestedMessageId}) async {
     final text = raw.trim();
-    if (text.isEmpty || sending || analyzingImage) return;
+    if (text.isEmpty || generationActive || analyzingImage) return;
     error = null;
 
     final stableMessageId = requestedMessageId?.trim();
@@ -691,6 +757,7 @@ class ChatController extends ChangeNotifier {
 
       if (result.completed) {
         messages = [...messages, result.assistant!];
+        await _incrementOverlayUnread();
         _petGenerationActive = false;
         _safeNotify();
         if (streamTts) {
@@ -711,6 +778,14 @@ class ChatController extends ChangeNotifier {
       } else if (result.status == 'cancelled_by_user') {
         await ttsPlayback.stop();
         messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
+        error = null;
+      } else if (result.status == 'interrupted') {
+        await ttsPlayback.stop();
+        messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
         error = null;
       } else if (result.retryScheduled) {
         await ttsPlayback.stop();
@@ -732,9 +807,16 @@ class ChatController extends ChangeNotifier {
       error = null;
     } catch (e) {
       await ttsPlayback.stop();
-      error = durableTurnCreated
-          ? '这条消息已经保存，回复会在连接恢复后继续。\n$e'
-          : e.toString();
+      final jobId = _activeGenerationJobId;
+      if (durableTurnCreated && jobId != null) {
+        await db.cancelGenerationJobByUser(jobId);
+        messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
+        error = null;
+      } else {
+        error = e.toString();
+      }
     } finally {
       sending = false;
       nsfwRouting = false;
@@ -805,6 +887,7 @@ class ChatController extends ChangeNotifier {
       );
       if (result.completed) {
         messages = await db.recentMessages(limit: 120);
+        await _incrementOverlayUnread();
         _petGenerationActive = false;
         _safeNotify();
         await db.setSetting('last_generation_recovery_error', '');
@@ -818,6 +901,14 @@ class ChatController extends ChangeNotifier {
       } else if (result.status == 'cancelled_by_user') {
         await ttsPlayback.stop();
         messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
+        error = null;
+      } else if (result.status == 'interrupted') {
+        await ttsPlayback.stop();
+        messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
         error = null;
       } else if (result.retryScheduled) {
         error = '上一轮回复恢复时网络仍不可用，已经继续保留重试任务。';
@@ -884,13 +975,18 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
 
     await ttsPlayback.stop();
-    final jobId =
-        _activeGenerationJobId ?? (await db.blockingGenerationJob())?.id;
+    final jobId = _activeGenerationJobId ??
+        (await db.blockingGenerationJob())?.id ??
+        (await db.failedGenerationNeedingAttention())?.id;
     if (jobId != null) {
       await db.cancelGenerationJobByUser(jobId);
       messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
     }
 
+    externalGenerationActive = false;
+    _externalGenerationAssistantMessageId = null;
     cancellingGeneration = false;
     _safeNotify();
   }
@@ -950,4 +1046,29 @@ class ChatController extends ChangeNotifier {
     client.close();
     super.dispose();
   }
+}
+
+class ChatTimelineItem {
+  const ChatTimelineItem._({
+    required this.createdAt,
+    this.message,
+    this.interruption,
+  });
+
+  factory ChatTimelineItem.message(ChatMessage message) => ChatTimelineItem._(
+        createdAt: message.createdAt,
+        message: message,
+      );
+
+  factory ChatTimelineItem.interruption(GenerationInterruption interruption) =>
+      ChatTimelineItem._(
+        createdAt: interruption.createdAt,
+        interruption: interruption,
+      );
+
+  final DateTime createdAt;
+  final ChatMessage? message;
+  final GenerationInterruption? interruption;
+
+  bool get isInterruption => interruption != null;
 }
