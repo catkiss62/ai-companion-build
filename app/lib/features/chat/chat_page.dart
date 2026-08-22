@@ -674,6 +674,7 @@ class _InterruptionMarker extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.ttsPhase,
     required this.attachmentStorage,
