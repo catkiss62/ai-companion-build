@@ -528,20 +528,17 @@ class DurableGenerationRunner {
       );
       return GenerationRunResult(status: 'suspended', error: e);
     } catch (e) {
-      final recoverable = _recoverable(e);
-      final failed = await db.failGenerationJob(
+      final interrupted = await db.interruptGenerationJob(
         job.id,
         runToken: job.runToken,
-        error: _compactError(e),
-        recoverable: recoverable,
+        reason: _compactError(e),
       );
-      if (failed == null) {
+      if (!interrupted) {
         return GenerationRunResult(status: 'suspended', error: e);
       }
       return GenerationRunResult(
-        status: failed.status,
+        status: 'interrupted',
         error: e,
-        retryAt: failed.nextRetryAt,
       );
     } finally {
       await _clearToolRuntime();
