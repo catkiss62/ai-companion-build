@@ -16,6 +16,7 @@ import '../../core/models/desire_state.dart';
 import '../../core/models/thought.dart';
 import '../../core/models/thought_lifecycle_event.dart';
 import '../../core/models/relationship_event.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/models/unfinished_thread.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
@@ -53,6 +54,7 @@ class _InnerPageState extends State<InnerPage> {
   List<RelationshipEvent> relationshipEvents = const [];
   ProactiveRhythmProfile rhythmProfile = ProactiveRhythmProfile.neutral();
   Map<String, int> stats = const {};
+  Map<String, Object?> delayedProactiveTest = const {};
   bool busy = false;
   String? result;
 
@@ -84,6 +86,12 @@ class _InnerPageState extends State<InnerPage> {
     relationshipEvents = await db.recentRelationshipEvents(limit: 10);
     rhythmProfile = await proactiveRhythm.profile();
     stats = await db.memoryStats();
+    try {
+      delayedProactiveTest =
+          await AndroidBridge.instance.delayedProactiveTestStatus();
+    } catch (_) {
+      delayedProactiveTest = const {'status': 'unavailable'};
+    }
     if (mounted) setState(() {});
   }
 
@@ -204,6 +212,67 @@ class _InnerPageState extends State<InnerPage> {
     }
   }
 
+  Future<void> _scheduleDelayedProactiveTest() async {
+    setState(() {
+      busy = true;
+      result = '正在安排一条约5分钟后的跨 App 测试消息…';
+    });
+    try {
+      final sound = ProactiveNotificationSound.fromSetting(
+        await db.getSetting('proactive_notification_sound'),
+      );
+      delayedProactiveTest =
+          await AndroidBridge.instance.scheduleDelayedProactiveTest(
+        delay: const Duration(minutes: 5),
+        soundKey: sound.key,
+      );
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      final due = dueAt > 0
+          ? DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal().toString()
+          : '未知时间';
+      result = '已安排：约 $due 主动弹窗。你现在可以切到 B站、蚂蚁财富或游戏。'
+          '\n这条测试不调用模型、不写聊天记忆，也不改变她的主动联系节奏。';
+    } catch (e) {
+      result = '安排失败：$e';
+    } finally {
+      await _refresh();
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _cancelDelayedProactiveTest() async {
+    try {
+      delayedProactiveTest =
+          await AndroidBridge.instance.cancelDelayedProactiveTest();
+      result = '已取消尚未执行的5分钟测试。';
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) setState(() => result = '取消失败：$e');
+    }
+  }
+
+  String _delayedTestSummary() {
+    final status = delayedProactiveTest['status']?.toString() ?? 'idle';
+    if (status == 'scheduled') {
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      final due = dueAt > 0
+          ? DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal().toString()
+          : '未知';
+      return '等待执行 · 预计 $due';
+    }
+    if (status == 'completed') {
+      final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
+      final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final posted = delayedProactiveTest['notificationPosted'] == true;
+      final overlay = delayedProactiveTest['overlayAssessment']?.toString() ?? '';
+      return '上次已执行 · 当前 App=${label.isEmpty ? '未识别' : label} · '
+          '来源=$source · 通知=${posted ? '已发布' : '未发布'} · 桌宠=$overlay';
+    }
+    if (status == 'cancelled') return '上次测试已取消';
+    if (status == 'unavailable') return '当前原生桥不支持延迟测试';
+    return '尚未安排延迟测试';
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = snapshot;
@@ -266,6 +335,49 @@ class _InnerPageState extends State<InnerPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '跨 App 主动联系诊断',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _delayedTestSummary(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: busy ? null : _scheduleDelayedProactiveTest,
+                        icon: const Icon(Icons.timer_outlined),
+                        label: const Text('5分钟后找我'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: delayedProactiveTest['status'] == 'scheduled'
+                          ? _cancelDelayedProactiveTest
+                          : null,
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+                const Text(
+                  '测试会在到点时重新识别前台 App 并弹出系统消息；不调用模型、不写聊天记忆。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(

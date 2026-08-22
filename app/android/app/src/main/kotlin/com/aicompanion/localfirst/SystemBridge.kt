@@ -182,12 +182,45 @@ class SystemBridge(
                         call.argument<String>("messageId") ?: System.currentTimeMillis().toString(),
                         call.argument<String>("intentKind") ?: "",
                         call.argument<String>("deliveryStyle") ?: "normal",
+                        call.argument<String>("soundKey") ?: "chime",
                     )
                     result.success(null)
                 }
+                "testCompanionNotification" -> {
+                    result.success(
+                        CompanionNotification.postMessage(
+                            activity,
+                            "主动消息弹窗测试",
+                            "如果你看到了这条横幅，跨 App 联系和当前提示音可以工作。（不写入聊天和记忆）",
+                            "notification-test-${System.currentTimeMillis()}",
+                            "diagnostic_test",
+                            "normal",
+                            call.argument<String>("soundKey") ?: "chime",
+                        ),
+                    )
+                }
+                "scheduleDelayedProactiveTest" -> {
+                    result.success(
+                        DelayedProactiveTestReceiver.schedule(
+                            activity,
+                            (call.argument<Number>("delayMs")?.toLong()
+                                ?: 5 * 60_000L),
+                            call.argument<String>("soundKey") ?: "chime",
+                        ),
+                    )
+                }
+                "delayedProactiveTestStatus" ->
+                    result.success(DelayedProactiveTestReceiver.status(activity))
+                "cancelDelayedProactiveTest" ->
+                    result.success(DelayedProactiveTestReceiver.cancel(activity))
                 "deviceLabel" -> result.success(deviceLabel())
                 "getPerceptionState" -> result.success(perceptionState())
-                "getRecentUsage" -> result.success(recentUsage(call.argument<Int>("minutes") ?: 60))
+                "getRecentUsage" -> result.success(
+                    CurrentAppResolver.recentUsage(
+                        activity,
+                        call.argument<Int>("minutes") ?: 60,
+                    ),
+                )
                 "startNearbyReceive" -> {
                     nearby.startAdvertising()
                     result.success(null)
@@ -680,6 +713,8 @@ class SystemBridge(
             put("screenInteractive", power.isInteractive)
             put("deviceLocked", keyguard.isDeviceLocked)
             putAll(runtime)
+            putAll(CompanionNotification.diagnosticStatus(activity))
+            putAll(DelayedProactiveTestReceiver.diagnosticStatus(activity))
             putAll(historicalExitReason())
         }
     }

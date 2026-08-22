@@ -6,27 +6,81 @@ import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 
 object CompanionNotification {
     const val CHANNEL_MESSAGES = "companion_messages"
+    const val CHANNEL_MESSAGES_CHIME = "companion_messages_chime_v1"
+    const val CHANNEL_MESSAGES_SOFT = "companion_messages_soft_v1"
+    const val CHANNEL_MESSAGES_SYSTEM = "companion_messages_system_v1"
+    const val CHANNEL_MESSAGES_SILENT = "companion_messages_silent_v1"
     const val CHANNEL_MESSAGES_GENTLE = "companion_messages_gentle"
     const val CHANNEL_SERVICE = "companion_service"
     const val OVERLAY_FOREGROUND_ID = 41001
     const val REMOTE_INPUT_REPLY = "companion_inline_reply"
     const val EXTRA_MESSAGE_ID = "companion_message_id"
+    private const val DIAGNOSTIC_PREFS = "companion_notification_diagnostics"
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_MESSAGES,
-                "AI 女友消息",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = "AI Companion 主动消息与聊天提醒"
-            },
+        val notificationAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        fun soundUri(rawId: Int): Uri = Uri.parse(
+            "android.resource://${context.packageName}/$rawId",
+        )
+        fun popupChannel(
+            id: String,
+            name: String,
+            sound: Uri?,
+            silent: Boolean = false,
+        ) = NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "她主动找你时的系统横幅消息"
+            enableLights(true)
+            setShowBadge(true)
+            if (silent) {
+                setSound(null, null)
+                enableVibration(false)
+            } else {
+                setSound(sound, notificationAttributes)
+            }
+        }
+        manager.createNotificationChannels(
+            listOf(
+                // Keep the historical channel so existing installs retain
+                // their user-controlled notification settings.
+                popupChannel(
+                    CHANNEL_MESSAGES,
+                    "AI 女友消息（旧频道）",
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                ),
+                popupChannel(
+                    CHANNEL_MESSAGES_CHIME,
+                    "AI 女友消息 · 清脆双音",
+                    soundUri(R.raw.companion_chime),
+                ),
+                popupChannel(
+                    CHANNEL_MESSAGES_SOFT,
+                    "AI 女友消息 · 柔和双音",
+                    soundUri(R.raw.companion_soft),
+                ),
+                popupChannel(
+                    CHANNEL_MESSAGES_SYSTEM,
+                    "AI 女友消息 · 系统默认音",
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                ),
+                popupChannel(
+                    CHANNEL_MESSAGES_SILENT,
+                    "AI 女友消息 · 静音弹窗",
+                    null,
+                    silent = true,
+                ),
+            ),
         )
         manager.createNotificationChannel(
             NotificationChannel(
@@ -76,7 +130,8 @@ object CompanionNotification {
         messageId: String,
         intentKind: String = "",
         deliveryStyle: String = "normal",
-    ) {
+        soundKey: String = "chime",
+    ): Map<String, Any> {
         ensureChannels(context)
         val pending = overlayPendingIntent(
             context,
@@ -84,7 +139,12 @@ object CompanionNotification {
             "message_notification:$messageId",
         )
         val quiet = deliveryStyle == "quiet"
-        val channelId = if (quiet) CHANNEL_MESSAGES_GENTLE else CHANNEL_MESSAGES
+        val normalizedSound = normalizeSoundKey(soundKey)
+        val channelId = if (quiet) {
+            CHANNEL_MESSAGES_GENTLE
+        } else {
+            popupChannelId(normalizedSound)
+        }
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             android.app.Notification.Builder(context, channelId)
         } else {
@@ -111,9 +171,26 @@ object CompanionNotification {
             .addRemoteInput(remoteInput)
             .build()
         val label = intentLabel(intentKind)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && quiet) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             @Suppress("DEPRECATION")
-            builder.setPriority(android.app.Notification.PRIORITY_LOW)
+            builder.setPriority(
+                if (quiet) android.app.Notification.PRIORITY_LOW
+                else android.app.Notification.PRIORITY_HIGH,
+            )
+            if (!quiet) {
+                when (normalizedSound) {
+                    "silent" -> builder.setSound(null)
+                    "system" -> builder.setSound(
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    )
+                    "soft" -> builder.setSound(
+                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_soft}"),
+                    )
+                    else -> builder.setSound(
+                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_chime}"),
+                    )
+                }
+            }
         }
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_dialog_email)
@@ -129,6 +206,13 @@ object CompanionNotification {
             .build()
         val manager = context.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !manager.areNotificationsEnabled()) {
+            recordOutcome(
+                context,
+                posted = false,
+                reason = "notifications_disabled",
+                channelId = channelId,
+                soundKey = normalizedSound,
+            )
             NativeEventStore.addDeviceEvent(
                 context,
                 source = "system",
@@ -136,10 +220,42 @@ object CompanionNotification {
                 appPackage = context.packageName,
                 summary = "主动消息已经写入本地，但系统通知当前被关闭。",
             )
-            return
+            return mapOf(
+                "posted" to false,
+                "reason" to "notifications_disabled",
+                "channelId" to channelId,
+                "soundKey" to normalizedSound,
+            )
         }
-        runCatching { manager.notify(messageId.hashCode(), notification) }
-            .onFailure { error ->
+        val result = runCatching { manager.notify(messageId.hashCode(), notification) }
+        result.onSuccess {
+            recordOutcome(
+                context,
+                posted = true,
+                reason = "posted",
+                channelId = channelId,
+                soundKey = normalizedSound,
+            )
+            NativeEventStore.addDeviceEvent(
+                context,
+                source = "system",
+                eventType = "companion_notification_posted",
+                appPackage = context.packageName,
+                summary = "主动消息通知已交给 Android。",
+                metadata = mapOf(
+                    "channel" to channelId,
+                    "sound" to normalizedSound,
+                    "quiet" to quiet,
+                ),
+            )
+        }.onFailure { error ->
+                recordOutcome(
+                    context,
+                    posted = false,
+                    reason = error.javaClass.simpleName,
+                    channelId = channelId,
+                    soundKey = normalizedSound,
+                )
                 NativeEventStore.addDeviceEvent(
                     context,
                     source = "system",
@@ -148,6 +264,65 @@ object CompanionNotification {
                     summary = "${error.javaClass.simpleName}: ${error.message ?: "unknown"}",
                 )
             }
+        return mapOf(
+            "posted" to result.isSuccess,
+            "reason" to if (result.isSuccess) "posted" else
+                (result.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"),
+            "channelId" to channelId,
+            "soundKey" to normalizedSound,
+        )
+    }
+
+    fun diagnosticStatus(context: Context): Map<String, Any> {
+        val prefs = context.getSharedPreferences(DIAGNOSTIC_PREFS, Context.MODE_PRIVATE)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val channelId = prefs.getString("last_channel", "") ?: ""
+        val importance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && channelId.isNotBlank()) {
+            manager.getNotificationChannel(channelId)?.importance ?: -1
+        } else {
+            -1
+        }
+        return mapOf(
+            "companionNotificationsEnabled" to
+                (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || manager.areNotificationsEnabled()),
+            "companionNotificationLastPosted" to prefs.getBoolean("last_posted", false),
+            "companionNotificationLastAt" to prefs.getLong("last_at", 0L),
+            "companionNotificationLastReason" to
+                (prefs.getString("last_reason", "") ?: ""),
+            "companionNotificationLastChannel" to channelId,
+            "companionNotificationLastChannelImportance" to importance,
+            "companionNotificationLastSound" to
+                (prefs.getString("last_sound", "") ?: ""),
+        )
+    }
+
+    private fun normalizeSoundKey(soundKey: String): String = when (soundKey) {
+        "soft", "system", "silent" -> soundKey
+        else -> "chime"
+    }
+
+    private fun popupChannelId(soundKey: String): String = when (soundKey) {
+        "soft" -> CHANNEL_MESSAGES_SOFT
+        "system" -> CHANNEL_MESSAGES_SYSTEM
+        "silent" -> CHANNEL_MESSAGES_SILENT
+        else -> CHANNEL_MESSAGES_CHIME
+    }
+
+    private fun recordOutcome(
+        context: Context,
+        posted: Boolean,
+        reason: String,
+        channelId: String,
+        soundKey: String,
+    ) {
+        context.getSharedPreferences(DIAGNOSTIC_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("last_posted", posted)
+            .putLong("last_at", System.currentTimeMillis())
+            .putString("last_reason", reason.take(80))
+            .putString("last_channel", channelId.take(80))
+            .putString("last_sound", soundKey.take(20))
+            .apply()
     }
 
     private fun intentLabel(intentKind: String): String = when (intentKind) {
@@ -158,6 +333,7 @@ object CompanionNotification {
         "social_share" -> "随手分享"
         "intimacy_invitation" -> "亲密邀约"
         "emotional_reach" -> "想靠近你"
+        "diagnostic_test" -> "跨 App 测试"
         else -> "主动消息"
     }
 

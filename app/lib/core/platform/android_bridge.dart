@@ -417,6 +417,7 @@ class AndroidBridge {
     required String messageId,
     String intentKind = '',
     String deliveryStyle = 'normal',
+    String soundKey = 'chime',
   }) {
     return _channel.invokeMethod<void>('postCompanionNotification', {
       'title': title,
@@ -424,8 +425,52 @@ class AndroidBridge {
       'messageId': messageId,
       'intentKind': intentKind,
       'deliveryStyle': deliveryStyle,
+      'soundKey': soundKey,
     });
   }
+
+  Future<Map<String, Object?>> testCompanionNotification({
+    String soundKey = 'chime',
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'testCompanionNotification',
+      {'soundKey': soundKey},
+    );
+    return _stringKeyMap(raw);
+  }
+
+  Future<Map<String, Object?>> scheduleDelayedProactiveTest({
+    Duration delay = const Duration(minutes: 5),
+    String soundKey = 'chime',
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'scheduleDelayedProactiveTest',
+      {
+        'delayMs': delay.inMilliseconds,
+        'soundKey': soundKey,
+      },
+    );
+    return _stringKeyMap(raw);
+  }
+
+  Future<Map<String, Object?>> delayedProactiveTestStatus() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'delayedProactiveTestStatus',
+    );
+    return _stringKeyMap(raw);
+  }
+
+  Future<Map<String, Object?>> cancelDelayedProactiveTest() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'cancelDelayedProactiveTest',
+    );
+    return _stringKeyMap(raw);
+  }
+
+  Map<String, Object?> _stringKeyMap(Map<Object?, Object?>? raw) => {
+        for (final entry in (raw ?? const <Object?, Object?>{}).entries)
+          if (entry.key != null) entry.key.toString(): entry.value,
+      };
 
   Future<String> deviceLabel() async =>
       await _channel.invokeMethod<String>('deviceLabel') ?? 'Android device';

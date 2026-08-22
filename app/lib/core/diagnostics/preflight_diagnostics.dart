@@ -775,6 +775,72 @@ class PreflightDiagnosticsService {
         capabilities['postNotifications'] == true,
       );
 
+      report['currentAppFusion'] = {
+        'source': capabilities['currentAppFusionSource'] ?? 'none',
+        'ageMs': capabilities['currentAppFusionAgeMs'] ?? -1,
+        'usageEventCount':
+            capabilities['currentAppFusionUsageEventCount'] ?? 0,
+        'labelResolved':
+            capabilities['currentAppFusionLabelResolved'] == true,
+        'rawPackageIncluded': false,
+      };
+      report['proactiveNotificationDelivery'] = {
+        'notificationsEnabled':
+            capabilities['companionNotificationsEnabled'] == true,
+        'lastPosted':
+            capabilities['companionNotificationLastPosted'] == true,
+        'lastAt': capabilities['companionNotificationLastAt'] ?? 0,
+        'lastReason':
+            capabilities['companionNotificationLastReason'] ?? '',
+        'lastChannel':
+            capabilities['companionNotificationLastChannel'] ?? '',
+        'lastChannelImportance':
+            capabilities['companionNotificationLastChannelImportance'] ?? -1,
+        'lastSound': capabilities['companionNotificationLastSound'] ?? '',
+        'messageBodyIncluded': false,
+      };
+      final delayedStatus =
+          capabilities['delayedProactiveTestStatus'] as String? ?? 'idle';
+      report['delayedProactiveTest'] = {
+        'status': delayedStatus,
+        'scheduledAt':
+            capabilities['delayedProactiveTestScheduledAt'] ?? 0,
+        'dueAt': capabilities['delayedProactiveTestDueAt'] ?? 0,
+        'firedAt': capabilities['delayedProactiveTestFiredAt'] ?? 0,
+        'latencyMs': capabilities['delayedProactiveTestLatencyMs'] ?? -1,
+        'appSource':
+            capabilities['delayedProactiveTestAppSource'] ?? 'none',
+        'appAgeMs': capabilities['delayedProactiveTestAppAgeMs'] ?? -1,
+        'appCategory':
+            capabilities['delayedProactiveTestAppCategory'] ?? 'unknown',
+        'packageHash':
+            capabilities['delayedProactiveTestPackageHash'] ?? '',
+        'labelHash': capabilities['delayedProactiveTestLabelHash'] ?? '',
+        'labelResolved':
+            capabilities['delayedProactiveTestLabelResolved'] == true,
+        'overlayAssessment':
+            capabilities['delayedProactiveTestOverlayAssessment'] ?? '',
+        'notificationPosted':
+            capabilities['delayedProactiveTestNotificationPosted'] == true,
+        'notificationReason':
+            capabilities['delayedProactiveTestNotificationReason'] ?? '',
+        'rawAppIncluded': false,
+        'memoryWritten': false,
+        'modelCalled': false,
+      };
+      if (delayedStatus == 'completed') {
+        final notificationPosted =
+            capabilities['delayedProactiveTestNotificationPosted'] == true;
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_test',
+          title: '5分钟跨 App 主动联系测试',
+          level: notificationPosted ? 'pass' : 'warn',
+          summary: notificationPosted
+              ? '测试已到点执行并成功向 Android 发布通知；前台 App 与桌宠状态已脱敏记录。'
+              : '测试已经执行，但通知未成功发布；请查看本报告中的通知原因与频道状态。',
+        ));
+      }
+
       final overlayEnabled = capabilities['overlayUserEnabled'] == true;
       final overlayRunning = capabilities['overlayRunning'] == true;
       final backgroundReady = capabilities['backgroundBrainReady'] == true;

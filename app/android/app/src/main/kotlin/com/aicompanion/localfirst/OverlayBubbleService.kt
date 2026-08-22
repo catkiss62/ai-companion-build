@@ -12,6 +12,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
@@ -24,6 +25,7 @@ import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -2751,8 +2753,10 @@ class OverlayBubbleService : Service() {
                     } else {
                         message.content
                     }
-                    textSize = 15f
-                    setTextColor(Color.WHITE)
+                    textSize = 14f
+                    setTextColor(Color.rgb(231, 224, 236))
+                    setLineSpacing(0f, 1.45f)
+                    typeface = Typeface.DEFAULT
                     setPadding(0, dp(3), 0, 0)
                 })
             }
@@ -2787,6 +2791,12 @@ class OverlayBubbleService : Service() {
             Regex("""（[^（）\n]*）|\([^()\n]*\)""").findAll(value).forEach { match ->
                 result.setSpan(
                     ForegroundColorSpan(Color.rgb(216, 177, 255)),
+                    match.range.first,
+                    match.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                result.setSpan(
+                    StyleSpan(Typeface.ITALIC),
                     match.range.first,
                     match.range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,

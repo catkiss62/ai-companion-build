@@ -9,6 +9,7 @@ import '../../core/database/app_database.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
@@ -65,6 +66,9 @@ class _SettingsPageState extends State<SettingsPage> {
   ProactiveTtsPolicy proactiveTtsPolicy = ProactiveTtsPolicy.silent;
   ProactiveNotificationPrivacy proactiveNotificationPrivacy =
       ProactiveNotificationPrivacy.smart;
+  ProactivePopupMode proactivePopupMode = ProactivePopupMode.alwaysPopup;
+  ProactiveNotificationSound proactiveNotificationSound =
+      ProactiveNotificationSound.chime;
   double ttsSpeed = 1.0;
   double ttsVolume = 1.0;
   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
@@ -116,6 +120,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     proactiveNotificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),
+    );
+    proactivePopupMode = ProactivePopupMode.fromSetting(
+      await db.getSetting('proactive_popup_mode'),
+    );
+    proactiveNotificationSound = ProactiveNotificationSound.fromSetting(
+      await db.getSetting('proactive_notification_sound'),
     );
     ttsSpeed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
     ttsVolume = double.tryParse(await db.getSetting('tts_volume') ?? '') ?? 1.0;
@@ -179,6 +189,11 @@ class _SettingsPageState extends State<SettingsPage> {
         'proactive_notification_privacy',
         proactiveNotificationPrivacy.key,
       );
+      await db.setSetting('proactive_popup_mode', proactivePopupMode.key);
+      await db.setSetting(
+        'proactive_notification_sound',
+        proactiveNotificationSound.key,
+      );
       await db.setSetting('tts_speed', ttsSpeed.toStringAsFixed(2));
       await db.setSetting('tts_volume', ttsVolume.toStringAsFixed(2));
       await db.setSetting('tts_replacements_json', ttsReplacementController.text.trim());
@@ -197,6 +212,23 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) setState(() => status = '已保存到本机');
     } catch (e) {
       if (mounted) setState(() => status = '保存失败：$e');
+    }
+  }
+
+  Future<void> _testProactiveNotification() async {
+    setState(() => status = '正在发送一条不写入聊天和记忆的弹窗测试…');
+    try {
+      final result = await android.testCompanionNotification(
+        soundKey: proactiveNotificationSound.key,
+      );
+      if (!mounted) return;
+      setState(() {
+        status = result['posted'] == true
+            ? '测试通知已交给 Android；若没有横幅，请检查该提示音频道的“允许弹出”。'
+            : '测试通知未显示：${result['reason'] ?? '请检查通知权限和频道设置'}';
+      });
+    } catch (e) {
+      if (mounted) setState(() => status = '测试通知失败：$e');
     }
   }
 
@@ -738,6 +770,48 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Text(
             proactiveNotificationPrivacy.description,
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<ProactivePopupMode>(
+          value: proactivePopupMode,
+          decoration: const InputDecoration(
+            labelText: '她主动找你时的提醒方式',
+            border: OutlineInputBorder(),
+          ),
+          items: ProactivePopupMode.values
+              .map((e) => DropdownMenuItem(value: e, child: Text(e.zhLabel)))
+              .toList(),
+          onChanged: (v) => setState(
+            () => proactivePopupMode = v ?? proactivePopupMode,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 10),
+          child: Text(
+            proactivePopupMode.description,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        DropdownButtonFormField<ProactiveNotificationSound>(
+          value: proactiveNotificationSound,
+          decoration: const InputDecoration(
+            labelText: '主动消息提示音',
+            border: OutlineInputBorder(),
+          ),
+          items: ProactiveNotificationSound.values
+              .map((e) => DropdownMenuItem(value: e, child: Text(e.zhLabel)))
+              .toList(),
+          onChanged: (v) => setState(
+            () => proactiveNotificationSound = v ?? proactiveNotificationSound,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _testProactiveNotification,
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('测试当前弹窗与提示音'),
           ),
         ),
         SwitchListTile(

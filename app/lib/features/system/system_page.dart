@@ -11,6 +11,7 @@ import '../../core/maintenance/recovery_orchestrator.dart';
 import '../../core/models/generation_job.dart';
 import '../../core/models/maintenance_run.dart';
 import '../../core/models/perception_snapshot.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
 
@@ -75,6 +76,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
   DateTime? orchestratorNextHeartbeat;
   bool busy = false;
   String? note;
+  Map<String, Object?> delayedProactiveTest = const {};
 
   @override
   void initState() {
@@ -106,6 +108,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
       await db.ensureReady();
       status = await android.capabilityStatus();
       usage = await android.getRecentUsage(minutes: 60);
+      delayedProactiveTest = await android.delayedProactiveTestStatus();
       perceptions = await db.recentPerceptionSnapshots(limit: 6);
       maintenanceRun = await db.latestMaintenanceRun();
       postTurnJobs = await db.postTurnJobStats();
@@ -140,6 +143,46 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> _scheduleFiveMinuteContactTest() async {
+    setState(() {
+      busy = true;
+      note = '正在安排约5分钟后的跨 App 主动联系测试…';
+    });
+    try {
+      final sound = ProactiveNotificationSound.fromSetting(
+        await db.getSetting('proactive_notification_sound'),
+      );
+      delayedProactiveTest = await android.scheduleDelayedProactiveTest(
+        delay: const Duration(minutes: 5),
+        soundKey: sound.key,
+      );
+      note = '已安排。现在切到要测试的 App，保持屏幕亮着即可；测试不写入记忆。';
+    } catch (e) {
+      note = '安排失败：$e';
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  String _delayedContactStatus() {
+    final state = delayedProactiveTest['status']?.toString() ?? 'idle';
+    if (state == 'scheduled') {
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      return dueAt > 0
+          ? '等待执行 · ${DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal()}'
+          : '等待执行';
+    }
+    if (state == 'completed') {
+      final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
+      final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final posted = delayedProactiveTest['notificationPosted'] == true;
+      return '上次：App=${label.isEmpty ? '未识别' : label} · 来源=$source · '
+          '弹窗=${posted ? '已发布' : '失败'}';
+    }
+    if (state == 'cancelled') return '上次测试已取消';
+    return '尚未测试';
   }
 
   Future<void> _captureNow() async {
@@ -450,6 +493,50 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
             await android.requestNotificationPermission();
             await _refresh();
           },
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '跨 App 联系与当前 App 测试',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(_delayedContactStatus()),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: busy ? null : _scheduleFiveMinuteContactTest,
+                        icon: const Icon(Icons.timer_outlined),
+                        label: const Text('5分钟后找我'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: delayedProactiveTest['status'] == 'scheduled'
+                          ? () async {
+                              delayedProactiveTest =
+                                  await android.cancelDelayedProactiveTest();
+                              if (mounted) setState(() => note = '测试已取消。');
+                            }
+                          : null,
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+                const Text(
+                  '到点后重新读取前台 App，并用始终弹窗链路联系你；不调用模型、不进入聊天记忆。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         Card(

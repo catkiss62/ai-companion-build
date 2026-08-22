@@ -43,9 +43,14 @@ class AccessibilityBridgeService : AccessibilityService() {
             )
             val transientSystemUi = sourcePackage == "com.android.systemui" ||
                 sourcePackage == "com.miui.home"
-            if (!systemSurface && !transientSystemUi) {
+            val ownWindow = sourcePackage == packageName
+            if (!systemSurface && !transientSystemUi &&
+                (!ownWindow || CompanionRuntimeState.isAppVisible())
+            ) {
                 // App identity is process-local and may include finance apps;
                 // password fields and Accessibility text remain blocked below.
+                // An overlay owned by this process is deliberately transparent:
+                // it must not replace Bilibili/game/finance app underneath it.
                 CompanionRuntimeState.noteForegroundWindow(sourcePackage)
             }
             val sourceHash = CompanionRuntimeState.privacyHash(sourcePackage)

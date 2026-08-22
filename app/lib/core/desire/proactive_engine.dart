@@ -17,6 +17,7 @@ import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import '../models/proactive_intent.dart';
+import '../models/proactive_notification_settings.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
@@ -718,12 +719,32 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       privacy: notificationPrivacy,
       sensitiveContext: sensitiveSession,
     );
+    final popupMode = ProactivePopupMode.fromSetting(
+      await db.getSetting('proactive_popup_mode'),
+    );
+    final notificationSound = ProactiveNotificationSound.fromSetting(
+      await db.getSetting('proactive_notification_sound'),
+    );
+    final effectiveNotificationDelivery = popupMode.effectiveDeliveryStyle(
+      deliveryStyle.key,
+    );
+    await db.setSetting(
+      'last_proactive_notification_presentation',
+      jsonEncode({
+        'popupMode': popupMode.key,
+        'suggestedDelivery': deliveryStyle.key,
+        'effectiveDelivery': effectiveNotificationDelivery,
+        'sound': notificationSound.key,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      }),
+    );
     await android.postCompanionNotification(
       title: intentKind.notificationTitle,
       body: notificationBody,
       messageId: message.id,
       intentKind: intentKind.key,
-      deliveryStyle: deliveryStyle.key,
+      deliveryStyle: effectiveNotificationDelivery,
+      soundKey: notificationSound.key,
     );
 
     final voicePolicy = ProactiveTtsPolicy.fromSetting(

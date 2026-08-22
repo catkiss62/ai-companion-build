@@ -1,10 +1,30 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-22（Asia/Tokyo）
+更新时间：2026-08-23（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
+
+## 0D. 2026-08-22 真机确认：v0.36.0 IA-1、认识天数与双界面细节通过
+
+- 当前已真机确认稳定基线提升为 `v0.36.0+85`、schema 26。REDMI K80 Ultra / HyperOS 已验证：悬浮发送后按钮可立即变 Stop；Stop/恢复中断提示双端一致；App/悬浮均能显示图片；App 内发送后切出可出现未读 `①`；日期/星期分隔双端一致；五域 IA-1、认识第 N 天与动作括号换色均可用。
+- `v0.36.0` 仍是功能分类而非换肤：一级域为“她 / 你们 / 能力 / 手机感知 / 数据与高级”，原页面、路由、数据库和配置真源保持兼容；IA-2 细分设置页仍待后续。
+- Actions run `32577132077` 已通过；分支源码 head `a179731d03520e65b5e6d79c462d4b1f2e611439`，PR merge SHA `a62af02141839a82826125836914b904bfc9631c`。草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-84012bd05c8c740f496c>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`；SHA-256 `fc62a33e962ea8f83ced7a84b5e8c1068ff92a9ef753fac07604cc837052c3cf`。
+- v0.36.0 真机通过不代表当前 App 识别、目标 App 隐藏桌宠、主动屏幕识图或真实计划行动已完成；这些继续分别验收。
+
+## 0E. 2026-08-23 当前代码批：v0.36.1 跨 App 联系、弹窗与5分钟诊断（IMPLEMENTED / CI PENDING）
+
+- 用户确认主动联系默认采用“始终弹窗”，因为产品语义就是聊天消息；设置仍提供“智能弹窗 / 轻声通知”作为可选项。该设置只覆盖 Android 通知呈现，不覆盖 Desire / Thought 得出的内部情绪和 `proactiveDelivery` 记录。
+- 新增四档提示音：项目自行生成且随 APK 打包的“清脆双音 / 柔和双音”、系统默认、静音。Android 8+ 每种声音使用独立高优先级通知频道，避免频道声音创建后不可由 App 改写；设置页可以立即发送一条不写记忆的弹窗/声音测试。
+- 保留并强化既有通知直接回复与点击打开悬浮聊天。普通主动消息默认高优先级横幅；目标 App 禁止普通悬浮窗时，点击打开悬浮聊天仍可能受压制，但系统通知直接回复作为主要兜底。未使用面向闹钟/来电的全屏通知。
+- 新增统一 `CurrentAppResolver`，完整 App、后台 FlutterEngine 与5分钟原生探针共用：Accessibility 新鲜窗口优先、UsageEvents 次级、UsageStats 仅两分钟兜底；本 App 的悬浮窗口不再覆盖底层真实 App。私有侧载版本加入 `QUERY_ALL_PACKAGES` 只用于把已安装包名解析为人类可读名称；原始包名不进入模型观察、长期记忆或脱敏报告。
+- 新增“5分钟后找我”低风险探针，入口放在“手机感知 / Android 感知与悬浮”，内心页保留同一入口。采用 `AlarmManager.setAndAllowWhileIdle` 持久化计划，更新/重启后恢复；属于约5分钟而非申请精确闹钟特权。到点重新读取当前 App，发送固定标记的测试消息并记录桌宠/通知状态；不调用模型、不插入聊天消息、不写 Memory/Thought、不改变主动节奏。
+- 探针本地页面可显示实际识别到的 App 名称；脱敏诊断只导出来源、年龄、类别、包名/标签短哈希、是否解析成功、闹钟延迟桶、通知频道/成功状态和桌宠评估，不导出原始 App 名称或包名。
+- 桌宠普通应用层级已经是 `TYPE_APPLICATION_OVERLAY`，不存在更高的普通视觉层级。本批诊断明确区分 `service_not_running / view_detached / internally_hidden / known_system_cover / attached_external_suppression_not_observable`。Android 目标 App 或 HyperOS 若在合成阶段压制悬浮层，应用自身无法直接证明，所以不会把“attached”谎报成“用户一定看得到”；必要时仍需 ADB/dumpsys 取证。
+- 悬浮聊天正文调整为更接近 Flutter 聊天的 14sp、1.45 行距与 on-surface 字色；中英文成对括号动作继续使用三级色，并补真正 italic span。
+- 本批不增加 SQLite schema，目标版本 `v0.36.1+86`、schema 26。新增 `validate_v0361_cross_app_contact.py` 与通知设置单测；当前仅完成本地静态实现，GitHub Actions、APK、哈希和真机结果必须待真实结果后补写。
+- 日历决定不变：以后只把日期作为计划/记忆查询视图，不改变记忆库内部逻辑。真实计划行动优先级较低，本批不建立 AI 自由写计划或完整日历数据库；若以后做，先采用用户可见、可修改/删除的结构化提醒，再考虑经确认的 AI 提案。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
@@ -37,22 +57,11 @@
 - 共享时间线新增 `system_notice` 投影：App 与悬浮窗都显示跨日/星期分隔和中断标记；悬浮窗消息协议同时携带图片附件的绝对缩略图路径，原生侧按 1/2 采样渲染，避免把最高 1000px 缩略图按原尺寸常驻解码。
 - 未读改为真实 assistant durable commit 后由生成所有者统一递增；聊天页真正可见或悬浮聊天展开时清零。移除原生悬浮 send completion 的第二次递增，避免同一回复出现重复角标；App 内发起后切出、回复完成时可保留桌宠 `①`。
 - App 与悬浮工具状态都使用真实 `agent_tool_runtime_status_text`；原生灰字增加轻微 alpha 往返闪烁。没有展示或伪造模型私有思考链，仍只显示真实工具/运行状态和用户已选择可见的 reasoning 内容。
-- `v0.35.9+84` 源码与自动化已通过，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。run `32567573572` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-448f56d1d7db14468533>。源码/自动化完成不等于真机验收，双界面同步、Stop、跨日、中断标记、图片与未读仍须 REDMI K80 Ultra 实测。
-
-## 0D. 2026-08-22 已确认并进入实现：v0.36.0 UI 五域外壳、关系天数与悬浮 Stop 可见性
-
-- 用户已在 REDMI K80 Ultra 真机确认 v0.35.9 五项全部通过：① App/悬浮共享回复与恢复状态；② 任意端停止成功且双方都有本地中断提示；③ 图片双方可见；④ App 发言后切出，assistant 提交会出现未读①；⑤日期/星期双方一致。v0.35.9 统一会话运行态因此记为核心真机验收通过。
-- 唯一遗漏是原生悬浮输入区生成中仍显示发送键。源码已有 Stop 命令和文案，根因是悬浮提交后、generation_jobs 尚未落地的短窗口里，过早的空快照把本地 sending 清回 false。本批增加 overlaySubmitCommandPending 栅栏：命令回调结束前按钮保持“停止”，轮询也不会因早到空快照退出；不另建第二生成状态机。
-- IA-1 建立五个稳定一级入口与兼容路由：她 / 你们 / 能力 / 手机感知 / 数据与高级。现有真实页面继续复用原 Repository/Controller，旧 /settings、/system、/inner、/transfer 等入口继续有效；本批不改数据库 schema、不复制配置、不做皮肤，也不以空按钮伪装 MCP/Skills/完整情绪引擎。
-- App 与悬浮聊天的 assistant 正文统一把成对中文/英文括号及其中动作神态文本染为次强调色；不改原文、不改 Prompt、不影响 TTS。未闭合括号保持普通正文。
-- 记忆页新增“认识第 N 天”：首次读取时优先从数据库最早已提交消息推导认识起点，并写入 relationship_started_at；后续导出/接管随 settings 保留。按设备本地自然日包含首日计算，首日永远为第1天。
-- 同一可靠关系天数进入每轮 RELATIONSHIP AGE 现实锚点，明确禁止依据亲密语气、记忆数量或主观熟悉感虚构“认识很久”。它是时间事实，不是好感度或关系等级。
-- `v0.36.0+85` 源码与自动化已通过，schema 继续为 26、无数据库迁移。构建源码 head `72efa353e44eea7b17ff7490ee4a4be5a202a5eb`，Actions PR merge SHA `8f2589215c440e05d0e00b97218849cfbe0c3e81`；run `32576249708` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `e047579b7698698b54cf7c233a47fa75337dee383e244c2b96cc804c419be1db`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99bd2200188deaddac76>。自动化完成不等于真机完成；悬浮发送→停止可见性、五域导航、认识天数现实锚点与动作括号换色仍待 REDMI K80 Ultra 验收。
-- 情绪系统排期确认：IA-1/IA-2 基础分类后，先接当前屏幕观察与可确认的人设/记忆修改，再做最小 Emotion Appraisal 固定回放；只有达到总账 EMOTION_ENGINE_EXPANSION_EVAL_v1 的扩建阈值才扩大，不一次性堆庞大引擎。MCP 仍是后续重点，Skills 更后置。
+- `v0.35.9+84` 源码与自动化已通过，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。run `32567573572` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a8846e8d197e80efb84>。源码/自动化完成不等于真机验收，双界面同步、Stop、跨日、中断标记、图片与未读仍须 REDMI K80 Ultra 实测。
 
 ## 0. 下一轮开场先做什么
 
-0. 当前稳定可下载开发基线为 `v0.36.0+85 UI & Relationship Age`：Actions run `32576249708` 已通过完整自动化并上传私有草稿 APK；v0.35.9 的 App/悬浮共享生成、真正 Stop/中断、双方日期/星期、图片与未读①已由 REDMI K80 Ultra 真机确认通过。v0.36.0 新增悬浮提交窗口 Stop 栅栏、五域 UI 外壳、动作神态括号换色及“认识第 N 天”可靠现实锚点，仍待真机验收。轻视觉掉授权、当前 App unknown、主动识图与桌宠跨 App 消失没有在本批改动。
+0. 当前真机稳定基线为 `v0.36.0+85 UI Domains & Relationship Age`；双界面 Stop/中断、图片、未读、日期星期、五域入口、认识天数和括号换色已由 REDMI K80 Ultra 验收。当前开发批为 `v0.36.1+86 Cross-App Contact & Popup`，本地已实现但 CI/APK/真机尚未落款；下一窗口先核对 PR #23 head、Actions、草稿 Release 与本节 0E，不得把 CI pending 写成完成。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -65,10 +74,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认构建基线为 `v0.36.0+85`，schema 26、无迁移；构建源码 head `72efa353e44eea7b17ff7490ee4a4be5a202a5eb`，Actions PR merge SHA `8f2589215c440e05d0e00b97218849cfbe0c3e81`。总账等文档可在构建后继续更新，因此 Draft PR 的最新 head 可能高于该“实际构建源码 head”，二者不得混写。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32576249708>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.36.0 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99bd2200188deaddac76>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `e047579b7698698b54cf7c233a47fa75337dee383e244c2b96cc804c419be1db`；签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
-- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；v0.35.9 双界面同步、终止、图片、未读和日期/星期已有真机证据，v0.36.0 的悬浮 Stop 可见性、五域导航、关系天数与动作括号换色仍须分别验收。下方 v0.35.9 及更早构建条目仅作历史取证，不再代表当前构建基线。
+- GitHub 当前已确认真机构建基线为 `v0.36.0+85`，schema 26；PR #23 分支源码 head `a179731d03520e65b5e6d79c462d4b1f2e611439`，Actions PR merge SHA `a62af02141839a82826125836914b904bfc9631c`。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32577132077>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.36.0 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-84012bd05c8c740f496c>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `fc62a33e962ea8f83ced7a84b5e8c1068ff92a9ef753fac07604cc837052c3cf`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.35.9 及更早构建条目仅作历史取证，不再代表当前基线。v0.36.1 只有在本轮 Actions 成功后才能取代上述构建基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
