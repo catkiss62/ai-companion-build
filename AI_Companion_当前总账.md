@@ -13,7 +13,7 @@
 - Actions run `32577132077` 已通过；分支源码 head `a179731d03520e65b5e6d79c462d4b1f2e611439`，PR merge SHA `a62af02141839a82826125836914b904bfc9631c`。草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-84012bd05c8c740f496c>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`；SHA-256 `fc62a33e962ea8f83ced7a84b5e8c1068ff92a9ef753fac07604cc837052c3cf`。
 - v0.36.0 真机通过不代表当前 App 识别、目标 App 隐藏桌宠、主动屏幕识图或真实计划行动已完成；这些继续分别验收。
 
-## 0E. 2026-08-23 当前代码批：v0.36.1 跨 App 联系、弹窗与5分钟诊断（IMPLEMENTED / CI PENDING）
+## 0E. 2026-08-23 当前代码批：v0.36.1 跨 App 联系、弹窗与5分钟诊断（CI PASSED / APK READY / 真机待验收）
 
 - 用户确认主动联系默认采用“始终弹窗”，因为产品语义就是聊天消息；设置仍提供“智能弹窗 / 轻声通知”作为可选项。该设置只覆盖 Android 通知呈现，不覆盖 Desire / Thought 得出的内部情绪和 `proactiveDelivery` 记录。
 - 新增四档提示音：项目自行生成且随 APK 打包的“清脆双音 / 柔和双音”、系统默认、静音。Android 8+ 每种声音使用独立高优先级通知频道，避免频道声音创建后不可由 App 改写；设置页可以立即发送一条不写记忆的弹窗/声音测试。
@@ -23,7 +23,8 @@
 - 探针本地页面可显示实际识别到的 App 名称；脱敏诊断只导出来源、年龄、类别、包名/标签短哈希、是否解析成功、闹钟延迟桶、通知频道/成功状态和桌宠评估，不导出原始 App 名称或包名。
 - 桌宠普通应用层级已经是 `TYPE_APPLICATION_OVERLAY`，不存在更高的普通视觉层级。本批诊断明确区分 `service_not_running / view_detached / internally_hidden / known_system_cover / attached_external_suppression_not_observable`。Android 目标 App 或 HyperOS 若在合成阶段压制悬浮层，应用自身无法直接证明，所以不会把“attached”谎报成“用户一定看得到”；必要时仍需 ADB/dumpsys 取证。
 - 悬浮聊天正文调整为更接近 Flutter 聊天的 14sp、1.45 行距与 on-surface 字色；中英文成对括号动作继续使用三级色，并补真正 italic span。
-- 本批不增加 SQLite schema，目标版本 `v0.36.1+86`、schema 26。新增 `validate_v0361_cross_app_contact.py` 与通知设置单测；当前仅完成本地静态实现，GitHub Actions、APK、哈希和真机结果必须待真实结果后补写。
+- 本批不增加 SQLite schema，版本 `v0.36.1+86`、schema 26。新增 `validate_v0361_cross_app_contact.py` 与通知设置单测，并把 v0.35.2—v0.36.0 历史冻结验证器及 somatic 兼容包装器显式延续到本版本；这只更新版本白名单，不放宽原有功能断言。
+- 源码 head `d873dd77c020da7ef217bcc0448adff7b557a2f8`；Actions PR merge SHA `3ef4e362587901ef20d0ee604561edf3b16bc5de`。run `32582269264` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.1-86-Cross-App-Contact-APK.apk`；SHA-256 `8504c0b20f9494b543fbb9f4242a0d42cc6ba5f835bad3d72e2fd983d75bf3f7`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-82a5d264011053a8ecb2>。自动化完成不等于真机完成；默认横幅/四档声音、5分钟到点、当前 App 名称、目标 App 中点击/直接回复、脱敏字段与桌宠可见性仍须 REDMI K80 Ultra 分别验收。
 - 日历决定不变：以后只把日期作为计划/记忆查询视图，不改变记忆库内部逻辑。真实计划行动优先级较低，本批不建立 AI 自由写计划或完整日历数据库；若以后做，先采用用户可见、可修改/删除的结构化提醒，再考虑经确认的 AI 提案。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
@@ -61,7 +62,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前真机稳定基线为 `v0.36.0+85 UI Domains & Relationship Age`；双界面 Stop/中断、图片、未读、日期星期、五域入口、认识天数和括号换色已由 REDMI K80 Ultra 验收。当前开发批为 `v0.36.1+86 Cross-App Contact & Popup`，本地已实现但 CI/APK/真机尚未落款；下一窗口先核对 PR #23 head、Actions、草稿 Release 与本节 0E，不得把 CI pending 写成完成。
+0. 当前真机稳定基线仍为 `v0.36.0+85 UI Domains & Relationship Age`；双界面 Stop/中断、图片、未读、日期星期、五域入口、认识天数和括号换色已由 REDMI K80 Ultra 验收。最新自动化构建为 `v0.36.1+86 Cross-App Contact & Popup`，CI 与 APK 已完成但真机尚未落款；下一窗口先按本节 0E 的清单验收，不得把“CI 通过”写成“HyperOS 已通过”。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -74,10 +75,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认真机构建基线为 `v0.36.0+85`，schema 26；PR #23 分支源码 head `a179731d03520e65b5e6d79c462d4b1f2e611439`，Actions PR merge SHA `a62af02141839a82826125836914b904bfc9631c`。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32577132077>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.36.0 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-84012bd05c8c740f496c>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `fc62a33e962ea8f83ced7a84b5e8c1068ff92a9ef753fac07604cc837052c3cf`。
-- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.35.9 及更早构建条目仅作历史取证，不再代表当前基线。v0.36.1 只有在本轮 Actions 成功后才能取代上述构建基线。
+- GitHub 当前最新自动化构建为 `v0.36.1+86`、schema 26；PR #23 分支源码 head `d873dd77c020da7ef217bcc0448adff7b557a2f8`，Actions PR merge SHA `3ef4e362587901ef20d0ee604561edf3b16bc5de`。当前真机稳定基线仍是上一段记录的 v0.36.0，两者不得混写。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32582269264>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.36.1 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-82a5d264011053a8ecb2>；APK `AI-Companion-v0.36.1-86-Cross-App-Contact-APK.apk`，SHA-256 `8504c0b20f9494b543fbb9f4242a0d42cc6ba5f835bad3d72e2fd983d75bf3f7`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.36.0 及更早条目只作真机/历史取证，不再代表最新自动化构建。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
