@@ -27,7 +27,7 @@
 - 源码 head `d873dd77c020da7ef217bcc0448adff7b557a2f8`；Actions PR merge SHA `3ef4e362587901ef20d0ee604561edf3b16bc5de`。run `32582269264` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.1-86-Cross-App-Contact-APK.apk`；SHA-256 `8504c0b20f9494b543fbb9f4242a0d42cc6ba5f835bad3d72e2fd983d75bf3f7`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-82a5d264011053a8ecb2>。自动化完成不等于真机完成；默认横幅/四档声音、5分钟到点、当前 App 名称、目标 App 中点击/直接回复、脱敏字段与桌宠可见性仍须 REDMI K80 Ultra 分别验收。
 - 日历决定不变：以后只把日期作为计划/记忆查询视图，不改变记忆库内部逻辑。真实计划行动优先级较低，本批不建立 AI 自由写计划或完整日历数据库；若以后做，先采用用户可见、可修改/删除的结构化提醒，再考虑经确认的 AI 提案。
 
-## 0F. 2026-08-23 当前实现批：v0.36.2 前台 App 追踪与对话横幅（源码已实现 / CI 与真机待验收）
+## 0F. 2026-08-23 当前实现批：v0.36.2 前台 App 追踪与对话横幅（CI PASSED / APK READY / 真机待验收）
 
 - 新真机报告证明权限不是本次 `unknown` 的根因：Usage Access、Accessibility 授权/连接/事件流、通知权限和悬浮权限均正常；5分钟探针触发时一次性解析为 `none`，约1～2分钟后的同份诊断又能通过 Accessibility 识别到游戏并解析名称。根因收敛为“提醒瞬间单次取样 + 两分钟过期规则”，不是缺少新权限。
 - 当前 App 改为屏幕会话内持续追踪：Accessibility 的交互窗口列表作为主来源，按 active / focused / layer 选择外部应用窗口并排除本 App 悬浮窗、SystemUI 与桌面；最近可信结果持久到本机临时运行态，只有熄屏、桌面或明确边界才清空，不再因为游戏连续打开超过两分钟而自动失效。
@@ -38,7 +38,7 @@
 - 通知已读动作统一：点击顶部横幅、点击状态栏通知、直接回复、手动展开悬浮聊天、进入完整 App 聊天，任一路径都会只取消关系消息通知，不会误删悬浮后台服务的常驻通知。设置页新增“打开该频道的浮动通知设置”，便于直接检查 HyperOS 对当前提示音频道的“允许弹出”。
 - 5分钟测试继续是固定诊断消息：不调用模型、不写聊天、不写记忆，因此它只验证定时、当前 App 与对话通知外观；真实 Desire 主动联系仍使用生成后的实际聊天正文。
 - 悬浮聊天动作/神态括号文本由旧紫色 `RGB(216,177,255)` 改为与 Flutter 深色主题三级色一致的淡红色 `RGB(239,184,200)`，保留斜体与原文；不修改 Prompt、TTS 或括号解析规则。
-- 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；源码提交 `6ad530d4082699820d34cef7bdc545684b787a35`，本地当前专项、v0.36.1 与 v0.35.9 回归及 workflow YAML 已通过，完整 GitHub Actions、APK、SHA-256 和 REDMI K80 Ultra 真机结果仍待记录。
+- 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；首个功能提交 `6ad530d4082699820d34cef7bdc545684b787a35`，最终源码 head `a6d02ae77d8483f3e429893ef144a17ebb6b7808`，Actions PR merge SHA `201be3494a7f327091bc46a581e4bc28eec562a1`。run `32591690218` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk`；SHA-256 `8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91>。自动化完成不等于真机完成；更新后重新开关轻视觉、持续前台 App 名、真实顶部横幅、统一已读与悬浮括号淡红色仍须 REDMI K80 Ultra 分别验收。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
@@ -88,9 +88,9 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前最新自动化构建为 `v0.36.1+86`、schema 26；PR #23 分支源码 head `d873dd77c020da7ef217bcc0448adff7b557a2f8`，Actions PR merge SHA `3ef4e362587901ef20d0ee604561edf3b16bc5de`。当前真机稳定基线仍是上一段记录的 v0.36.0，两者不得混写。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32582269264>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.36.1 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-82a5d264011053a8ecb2>；APK `AI-Companion-v0.36.1-86-Cross-App-Contact-APK.apk`，SHA-256 `8504c0b20f9494b543fbb9f4242a0d42cc6ba5f835bad3d72e2fd983d75bf3f7`。
+- GitHub 当前最新自动化构建为 `v0.36.2+87`、schema 26；PR #23 分支源码 head `a6d02ae77d8483f3e429893ef144a17ebb6b7808`，Actions PR merge SHA `201be3494a7f327091bc46a581e4bc28eec562a1`。当前真机稳定基线仍是上一段记录的 v0.36.0，两者不得混写。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32591690218>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.36.2 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91>；APK `AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk`，SHA-256 `8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.36.0 及更早条目只作真机/历史取证，不再代表最新自动化构建。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
