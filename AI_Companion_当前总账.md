@@ -40,6 +40,15 @@
 - 悬浮聊天动作/神态括号文本由旧紫色 `RGB(216,177,255)` 改为与 Flutter 深色主题三级色一致的淡红色 `RGB(239,184,200)`，保留斜体与原文；不修改 Prompt、TTS 或括号解析规则。
 - 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；首个功能提交 `6ad530d4082699820d34cef7bdc545684b787a35`，最终源码 head `a6d02ae77d8483f3e429893ef144a17ebb6b7808`，Actions PR merge SHA `201be3494a7f327091bc46a581e4bc28eec562a1`。run `32591690218` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk`；SHA-256 `8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91>。自动化完成不等于真机完成；更新后重新开关轻视觉、持续前台 App 名、真实顶部横幅、统一已读与悬浮括号淡红色仍须 REDMI K80 Ultra 分别验收。
 
+## 0G. 2026-08-23 v0.36.2 真机回归与 v0.36.3 HyperOS Cover / Alarm Guard（源码已实现 / CI 与真机待验收）
+
+- REDMI K80 Ultra 已确认 v0.36.2 的“当前正在使用的 App”持续追踪有效，故 v0.36.3 不回退 `TYPE_WINDOWS_CHANGED`、`flagRetrieveInteractiveWindows`、持久候选或短窗口 Usage 兜底。
+- 同轮五分钟测试没有发布通知并非 MessagingStyle/频道失败。诊断为 `status=cancelled`、`firedAt=0`、`notificationPosted=false`、`appResolutionResult=not_run`；该状态只能由 App 内 `cancelDelayedProactiveTest` 写入，说明闹钟在到点前被取消。本报告版本没有取消时间/入口，因此不能继续猜是误触、重复点击还是陈旧页面请求。
+- v0.36.3 把取消改成两层保护：用户先在对话框确认；native 侧还要求页面携带的 `expectedDueAt` 与当前已安排任务完全相同。旧页面、过期状态或无 dueAt 的请求只记录为 rejected，不会取消新任务。脱敏诊断新增 `cancelledAt / cancelReason / cancelRejectedAt / cancelRejectedReason`，不包含消息或 App 明文。
+- 桌宠回归已由诊断定位，不是“目标游戏自身完全禁止悬浮窗”：报告记录 `overlayCoverDetachCount=7`、`coverRecoveryCount=8`、`possibleRecoveryLoop=true`；每次主动摘除原因哈希均为 `25b8fd59b6f8`，精确对应 `com.miui.securitycenter`。HyperOS Game Turbo 会借该包发短暂窗口事件，旧 cover 白名单把整个安全中心包当作系统权限页，因而在普通游戏中主动 detach 桌宠。
+- v0.36.3 仅从“主动摘除桌宠”的系统 cover 白名单移除宽泛的 `com.miui.securitycenter`；文件选择器、Photo Picker、PermissionController、PackageInstaller 等专用系统页仍保留原保护。当前 App 追踪仍可读取安全中心/Game Turbo 的窗口信息，但不再把它连接到桌宠 detach 动作；感知与遮盖恢复正式解耦。
+- 目标版本 `v0.36.3+88`、schema 26、持久签名不变。新增 `validate_v0363_hyperos_cover_alarm_guard.py` 并延续 v0.36.2/v0.36.1/统一会话历史断言；当前本地专项、v0.36.2、v0.36.1、v0.35.9 与 workflow YAML 已通过。完整 GitHub Actions、APK、SHA-256 与真机结果待记录。
+
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
 - 用户已授权继续下一步，并要求每次修改后同步 GitHub 当前唯一总账。本批次合并四项：① 当前 App 三路融合；② 普通闲聊跳过额外工具规划模型；③ Agnes 网页整理成败脱敏遥测；④ 私有持久测试签名。
@@ -75,7 +84,7 @@
 
 ## 0. 下一轮开场先做什么
 
-0. 当前真机稳定基线仍为 `v0.36.0+85 UI Domains & Relationship Age`；双界面 Stop/中断、图片、未读、日期星期、五域入口、认识天数和括号换色已由 REDMI K80 Ultra 验收。`v0.36.1+86` 的横幅基础、五分钟到点与轻视觉稳定性得到部分真机证据，但当前 App 在触发瞬间仍会 `unknown`、通知尚非真正 MessagingStyle、手动打开聊天不会清通知，不能整体落款。最新源码目标为本节 0F 的 `v0.36.2+87`；下一窗口优先验收：重新开关轻视觉后在 B站/棕色尘埃2等外部 App 等待五分钟，核对 App 名、顶部对话横幅、状态栏保留、四入口任一打开即清通知，以及悬浮括号淡红色。CI 通过仍不等于 HyperOS 已通过。
+0. 当前完整真机稳定基线仍为 `v0.36.0+85 UI Domains & Relationship Age`，但 v0.36.2 的持续前台 App 识别已单项真机通过。v0.36.2 五分钟测试被 App 侧取消、Game Turbo 被安全中心 broad cover 误判导致桌宠反复 detach，均已进入本节 0G 的 v0.36.3 窄修复。下一窗口优先验收：安排五分钟测试后不点确认取消，在 B站/游戏保持亮屏等待；核对通知、App 名和诊断的 cancel 字段；同时观察此前会消失的游戏中桌宠是否不再被主动摘除。CI 通过仍不等于 HyperOS 已通过。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。

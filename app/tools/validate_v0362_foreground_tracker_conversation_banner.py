@@ -7,7 +7,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-assert "version: 0.36.2+87" in read("pubspec.yaml")
+assert "version: 0.36.3+88" in read("pubspec.yaml")
 
 resolver = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/CurrentAppResolver.kt"

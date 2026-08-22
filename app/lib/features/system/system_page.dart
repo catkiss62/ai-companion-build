@@ -166,6 +166,36 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _confirmCancelFiveMinuteContactTest() async {
+    final expectedDueAt =
+        (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+    if (expectedDueAt <= 0) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('取消5分钟测试？'),
+            content: const Text('取消后不会再弹出这一次测试消息。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('继续等待'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('确认取消'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    delayedProactiveTest = await android.cancelDelayedProactiveTest(
+      expectedDueAt: expectedDueAt,
+      reason: 'system_page_confirmed',
+    );
+    if (mounted) setState(() => note = '测试已取消。');
+  }
+
   String _delayedContactStatus() {
     final state = delayedProactiveTest['status']?.toString() ?? 'idle';
     if (state == 'scheduled') {
@@ -522,11 +552,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                     const SizedBox(width: 8),
                     TextButton(
                       onPressed: delayedProactiveTest['status'] == 'scheduled'
-                          ? () async {
-                              delayedProactiveTest =
-                                  await android.cancelDelayedProactiveTest();
-                              if (mounted) setState(() => note = '测试已取消。');
-                            }
+                          ? _confirmCancelFiveMinuteContactTest
                           : null,
                       child: const Text('取消'),
                     ),

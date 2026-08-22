@@ -476,9 +476,16 @@ class AndroidBridge {
     return _stringKeyMap(raw);
   }
 
-  Future<Map<String, Object?>> cancelDelayedProactiveTest() async {
+  Future<Map<String, Object?>> cancelDelayedProactiveTest({
+    required int expectedDueAt,
+    required String reason,
+  }) async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>(
       'cancelDelayedProactiveTest',
+      {
+        'expectedDueAt': expectedDueAt,
+        'reason': reason,
+      },
     );
     return _stringKeyMap(raw);
   }

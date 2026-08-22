@@ -11,7 +11,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: (?:0\.35\.(?:7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87))$", read("pubspec.yaml"), re.MULTILINE)
+assert re.search(r"^version: (?:0\.35\.(?:7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88))$", read("pubspec.yaml"), re.MULTILINE)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )

@@ -226,7 +226,13 @@ class SystemBridge(
                 "delayedProactiveTestStatus" ->
                     result.success(DelayedProactiveTestReceiver.status(activity))
                 "cancelDelayedProactiveTest" ->
-                    result.success(DelayedProactiveTestReceiver.cancel(activity))
+                    result.success(
+                        DelayedProactiveTestReceiver.cancel(
+                            activity,
+                            call.argument<Number>("expectedDueAt")?.toLong() ?: 0L,
+                            call.argument<String>("reason") ?: "unknown_ui",
+                        ),
+                    )
                 "deviceLabel" -> result.success(deviceLabel())
                 "getPerceptionState" -> result.success(perceptionState())
                 "getRecentUsage" -> result.success(

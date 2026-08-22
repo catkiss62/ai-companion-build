@@ -241,9 +241,34 @@ class _InnerPageState extends State<InnerPage> {
   }
 
   Future<void> _cancelDelayedProactiveTest() async {
+    final expectedDueAt =
+        (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+    if (expectedDueAt <= 0) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('取消5分钟测试？'),
+            content: const Text('取消后不会再弹出这一次测试消息。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('继续等待'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('确认取消'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
     try {
       delayedProactiveTest =
-          await AndroidBridge.instance.cancelDelayedProactiveTest();
+          await AndroidBridge.instance.cancelDelayedProactiveTest(
+        expectedDueAt: expectedDueAt,
+        reason: 'inner_page_confirmed',
+      );
       result = '已取消尚未执行的5分钟测试。';
       if (mounted) setState(() {});
     } catch (e) {

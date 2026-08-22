@@ -128,6 +128,10 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
         private const val KEY_NOTIFICATION_POSTED = "notification_posted"
         private const val KEY_NOTIFICATION_REASON = "notification_reason"
         private const val KEY_NOTIFICATION_CHANNEL = "notification_channel"
+        private const val KEY_CANCELLED_AT = "cancelled_at"
+        private const val KEY_CANCEL_REASON = "cancel_reason"
+        private const val KEY_CANCEL_REJECTED_AT = "cancel_rejected_at"
+        private const val KEY_CANCEL_REJECTED_REASON = "cancel_rejected_reason"
 
         fun schedule(
             context: Context,
@@ -164,13 +168,56 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
             return status(context)
         }
 
-        fun cancel(context: Context): Map<String, Any> {
+        fun cancel(
+            context: Context,
+            expectedDueAt: Long,
+            reason: String,
+        ): Map<String, Any> {
             val previous = prefs(context)
             val dueAt = previous.getLong(KEY_DUE_AT, 0L)
+            val status = previous.getString(KEY_STATUS, "idle") ?: "idle"
+            val rejection = when {
+                status != "scheduled" -> "not_scheduled"
+                expectedDueAt <= 0L -> "missing_expected_due_at"
+                expectedDueAt != dueAt -> "stale_due_at"
+                else -> ""
+            }
+            if (rejection.isNotEmpty()) {
+                previous.edit()
+                    .putLong(KEY_CANCEL_REJECTED_AT, System.currentTimeMillis())
+                    .putString(KEY_CANCEL_REJECTED_REASON, rejection)
+                    .apply()
+                NativeEventStore.addDeviceEvent(
+                    context,
+                    source = "system",
+                    eventType = "delayed_proactive_test_cancel_rejected",
+                    appPackage = context.packageName,
+                    summary = "过期或无效的5分钟测试取消请求已被拒绝。",
+                    metadata = mapOf(
+                        "reason" to rejection,
+                        "caller" to reason.take(40),
+                    ),
+                )
+                return status(context)
+            }
             val sound = previous.getString(KEY_SOUND_KEY, "chime") ?: "chime"
             context.getSystemService(AlarmManager::class.java)
                 .cancel(pendingIntent(context, dueAt, sound))
-            previous.edit().putString(KEY_STATUS, "cancelled").apply()
+            previous.edit()
+                .putString(KEY_STATUS, "cancelled")
+                .putLong(KEY_CANCELLED_AT, System.currentTimeMillis())
+                .putString(KEY_CANCEL_REASON, reason.take(40))
+                .remove(KEY_CANCEL_REJECTED_AT)
+                .remove(KEY_CANCEL_REJECTED_REASON)
+                .apply()
+            NativeEventStore.addDeviceEvent(
+                context,
+                source = "system",
+                eventType = "delayed_proactive_test_cancelled",
+                appPackage = context.packageName,
+                summary = "用户确认取消了尚未执行的5分钟测试。",
+                metadata = mapOf("caller" to reason.take(40)),
+            )
             return status(context)
         }
 
@@ -223,6 +270,11 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
                     (p.getString(KEY_NOTIFICATION_REASON, "") ?: ""),
                 "notificationChannel" to
                     (p.getString(KEY_NOTIFICATION_CHANNEL, "") ?: ""),
+                "cancelledAt" to p.getLong(KEY_CANCELLED_AT, 0L),
+                "cancelReason" to (p.getString(KEY_CANCEL_REASON, "") ?: ""),
+                "cancelRejectedAt" to p.getLong(KEY_CANCEL_REJECTED_AT, 0L),
+                "cancelRejectedReason" to
+                    (p.getString(KEY_CANCEL_REJECTED_REASON, "") ?: ""),
                 "memoryWritten" to false,
                 "modelCalled" to false,
             )
@@ -260,6 +312,14 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
                     p.getBoolean(KEY_NOTIFICATION_POSTED, false),
                 "delayedProactiveTestNotificationReason" to
                     (p.getString(KEY_NOTIFICATION_REASON, "") ?: ""),
+                "delayedProactiveTestCancelledAt" to
+                    p.getLong(KEY_CANCELLED_AT, 0L),
+                "delayedProactiveTestCancelReason" to
+                    (p.getString(KEY_CANCEL_REASON, "") ?: ""),
+                "delayedProactiveTestCancelRejectedAt" to
+                    p.getLong(KEY_CANCEL_REJECTED_AT, 0L),
+                "delayedProactiveTestCancelRejectedReason" to
+                    (p.getString(KEY_CANCEL_REJECTED_REASON, "") ?: ""),
                 "delayedProactiveTestRawAppIncluded" to false,
                 "delayedProactiveTestMemoryWritten" to false,
                 "delayedProactiveTestModelCalled" to false,

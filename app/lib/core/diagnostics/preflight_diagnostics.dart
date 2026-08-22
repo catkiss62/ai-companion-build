@@ -858,6 +858,14 @@ class PreflightDiagnosticsService {
             capabilities['delayedProactiveTestNotificationPosted'] == true,
         'notificationReason':
             capabilities['delayedProactiveTestNotificationReason'] ?? '',
+        'cancelledAt':
+            capabilities['delayedProactiveTestCancelledAt'] ?? 0,
+        'cancelReason':
+            capabilities['delayedProactiveTestCancelReason'] ?? '',
+        'cancelRejectedAt':
+            capabilities['delayedProactiveTestCancelRejectedAt'] ?? 0,
+        'cancelRejectedReason':
+            capabilities['delayedProactiveTestCancelRejectedReason'] ?? '',
         'rawAppIncluded': false,
         'memoryWritten': false,
         'modelCalled': false,
@@ -882,6 +890,13 @@ class PreflightDiagnosticsService {
           summary: appResolved
               ? '提醒触发时成功解析当前 App；来源和取样次数已脱敏记录。'
               : '提醒触发时多次取样仍未解析当前 App；通知成功不再掩盖此项失败。',
+        ));
+      } else if (delayedStatus == 'cancelled') {
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_cancelled',
+          title: '5分钟测试 · 已取消',
+          level: 'info',
+          summary: '这次测试没有触发通知；取消时间和确认入口已脱敏记录。',
         ));
       }
 

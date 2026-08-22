@@ -169,7 +169,12 @@ class AccessibilityBridgeService : AccessibilityService() {
             p == "com.android.packageinstaller" ||
             p == "com.miui.packageinstaller" ||
             p == "com.android.settings" ||
-            p == "com.miui.securitycenter" ||
+            // Do not treat the whole HyperOS Security Center package as a
+            // cover. Game Turbo emits short-lived window-state events from
+            // this package while ordinary games are foreground; detaching the
+            // pet here creates the exact disappear/recover loop we are trying
+            // to avoid. Actual permission/install surfaces remain covered by
+            // their dedicated PermissionController/PackageInstaller packages.
             p.contains("documentsui") ||
             p.contains("fileexplorer") ||
             p.contains("photopicker") ||

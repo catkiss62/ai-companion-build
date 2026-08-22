@@ -8,7 +8,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-assert re.search(r"^version:\s*0\.36\.(?:1\+86|2\+87)\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*0\.36\.(?:1\+86|2\+87|3\+88)\s*$", read("pubspec.yaml"), re.M)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
