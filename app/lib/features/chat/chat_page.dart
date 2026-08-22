@@ -58,13 +58,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
     await _recoverLostImage();
     if (!mounted) return;
-    _externalSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _externalSyncTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
       if (_appResumed &&
           widget.active &&
-          !controller.sending &&
           !controller.analyzingImage) {
-        unawaited(controller.acknowledgeOverlayUnread());
         unawaited(controller.syncExternalMessages());
+        if (!controller.generationActive) {
+          unawaited(controller.acknowledgeOverlayUnread());
+        }
       }
     });
   }
@@ -75,7 +76,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (!oldWidget.active && widget.active) {
       _scrollToLatest();
       unawaited(controller.acknowledgeOverlayUnread());
-      if (!controller.sending && !controller.analyzingImage) {
+      if (!controller.analyzingImage) {
         unawaited(controller.syncExternalMessages());
       }
     }
@@ -86,9 +87,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {});
     final wasNearBottom = !scroll.hasClients ||
         (scroll.position.maxScrollExtent - scroll.offset) < 140 ||
-        controller.sending;
+        controller.generationActive;
     if (wasNearBottom) {
       _scrollToLatest(animate: true);
+    }
+    if (_appResumed && widget.active && !controller.generationActive) {
+      unawaited(controller.acknowledgeOverlayUnread());
     }
   }
 
@@ -113,7 +117,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _appResumed = state == AppLifecycleState.resumed;
     if (_appResumed &&
         widget.active &&
-        !controller.sending &&
         !controller.analyzingImage) {
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
@@ -180,7 +183,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _chooseImageSource() async {
-    if (_pickingImage || controller.sending || controller.savingImage || controller.analyzingImage) return;
+    if (_pickingImage || controller.generationActive || controller.savingImage || controller.analyzingImage) return;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
@@ -391,6 +394,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final timeline = controller.timelineItems;
     final body = Column(
       children: [
         _topBar(context),
@@ -400,42 +404,44 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               : ListView.builder(
                   controller: scroll,
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                  itemCount: controller.messages.length + (controller.sending ? 1 : 0),
+                  itemCount: timeline.length + (controller.generationActive ? 1 : 0),
                   itemBuilder: (context, index) {
-                    if (index < controller.messages.length) {
-                      final message = controller.messages[index];
-                      final previous = index == 0
-                          ? null
-                          : controller.messages[index - 1];
+                    if (index < timeline.length) {
+                      final item = timeline[index];
+                      final previous = index == 0 ? null : timeline[index - 1];
                       final showDate = ChatTimestampFormatter.shouldShowDateSeparator(
-                        message.createdAt,
+                        item.createdAt,
                         previous?.createdAt,
                       );
                       return Column(
                         children: [
                           if (showDate)
-                            _DateSeparator(createdAt: message.createdAt),
+                            _DateSeparator(createdAt: item.createdAt),
+                          if (item.isInterruption)
+                            const _InterruptionMarker()
+                          else
                           _MessageBubble(
-                            message: message,
-                            ttsPhase: controller.ttsPhaseForMessage(message.id),
+                            key: ValueKey(item.message!.id),
+                            message: item.message!,
+                            ttsPhase: controller.ttsPhaseForMessage(item.message!.id),
                             attachmentStorage: controller.attachmentStorage,
                             onOpenAttachment: _openAttachment,
-                            onDelete: message.isUser && message.hasAttachments
-                                ? () => _confirmDeleteAttachmentMessage(message)
+                            onDelete: item.message!.isUser && item.message!.hasAttachments
+                                ? () => _confirmDeleteAttachmentMessage(item.message!)
                                 : null,
-                            onRetryVision: message.isUser &&
-                                    message.attachments.any(
+                            onRetryVision: item.message!.isUser &&
+                                    item.message!.attachments.any(
                                       (item) => item.visionFailed,
                                     )
-                                ? () => _retryImageVision(message)
+                                ? () => _retryImageVision(item.message!)
                                 : null,
-                            onSpeechAction: message.isAssistant
+                            onSpeechAction: item.message!.isAssistant
                                 ? () {
-                                    if (controller.ttsPhaseForMessage(message.id) ==
+                                    if (controller.ttsPhaseForMessage(item.message!.id) ==
                                         TtsPlaybackPhase.playing) {
                                       controller.stopSpeech();
                                     } else {
-                                      controller.speakMessage(message);
+                                      controller.speakMessage(item.message!);
                                     }
                                   }
                                 : null,
@@ -493,7 +499,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       '正在看图片…',
                       style: Theme.of(context).textTheme.bodySmall,
                     )
-                  else if (controller.sending)
+                  else if (controller.generationActive)
                     Text(
                       '正在想…',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -525,7 +531,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: SizedBox(
                 height: 24,
                 child: OutlinedButton(
-                  onPressed: controller.sending || controller.analyzingImage
+                  onPressed: controller.generationActive || controller.analyzingImage
                       ? null
                       : () => controller.setNsfwActive(!controller.nsfwActive),
                   style: OutlinedButton.styleFrom(
@@ -567,7 +573,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             IconButton(
-              onPressed: controller.sending ||
+              onPressed: controller.generationActive ||
                       controller.savingImage ||
                       controller.analyzingImage ||
                       _pickingImage
@@ -597,15 +603,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              onPressed: controller.sending
+              onPressed: controller.generationActive
                   ? (controller.cancellingGeneration
                       ? null
                       : controller.cancelCurrentGeneration)
                   : controller.analyzingImage
                       ? null
                       : _send,
-              tooltip: controller.sending ? '停止这轮回复' : '发送',
-              icon: controller.sending
+              tooltip: controller.generationActive ? '停止这轮回复' : '发送',
+              icon: controller.generationActive
                   ? const Icon(Icons.stop_rounded)
                   : const Icon(Icons.send_rounded),
             ),
@@ -641,6 +647,25 @@ class _DateSeparator extends StatelessWidget {
                   ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InterruptionMarker extends StatelessWidget {
+  const _InterruptionMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Center(
+        child: Text(
+          '这一轮对话已中断',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
       ),
     );
