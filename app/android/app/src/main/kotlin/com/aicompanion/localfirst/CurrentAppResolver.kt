@@ -275,8 +275,11 @@ object CurrentAppResolver {
             "currentAppTrackerHasCandidate" to packageName.isNotBlank(),
             "currentAppTrackerPackageHash" to CompanionRuntimeState.privacyHash(packageName),
             "currentAppTrackerObservedAt" to observedAt,
-            "currentAppTrackerAgeMs" to observedAt.takeIf { it > 0L }
-                ?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) } ?: -1L,
+            "currentAppTrackerAgeMs" to (
+                observedAt.takeIf { it > 0L }
+                    ?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) }
+                    ?: -1L
+            ),
             "currentAppTrackerSource" to p.getString(KEY_SOURCE, "").orEmpty(),
             "currentAppTrackerInvalidatedAt" to p.getLong(KEY_INVALIDATED_AT, 0L),
             "currentAppTrackerInvalidationReason" to
