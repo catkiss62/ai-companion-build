@@ -21,6 +21,9 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -91,6 +94,7 @@ class OverlayBubbleService : Service() {
     private var chatExpanded = false
     private var chatInputMode = false
     private var chatSending = false
+    private var overlaySubmitCommandPending = false
     private var overlayCancelling = false
     private var overlayGenerationPhase = "idle"
     private var generationPollEpoch = 0
@@ -1075,6 +1079,7 @@ class OverlayBubbleService : Service() {
             setChatStatus("正在连接后台大脑…")
             return
         }
+        overlaySubmitCommandPending = true
         setComposerGenerationState(sending = true)
         chatInput?.setText("")
         val optimistic = NativeChatMessage(
@@ -1099,6 +1104,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         val map = result as? Map<*, *>
@@ -1127,6 +1133,7 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         setChatStatus("发送失败：${errorMessage ?: errorCode}", true)
@@ -1136,6 +1143,7 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         setChatStatus("她还在重新连接，请稍后再试。", true)
@@ -1160,6 +1168,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         removeStreamingMessage()
                         setComposerGenerationState(sending = false)
@@ -1261,7 +1270,7 @@ class OverlayBubbleService : Service() {
     }
 
     private fun shouldPollGeneration(): Boolean =
-        (chatSending || appGenerationActive) &&
+        (chatSending || overlaySubmitCommandPending || appGenerationActive) &&
             (chatExpanded || petOverlayWindow != null)
 
     private fun beginTtsPolling() {
@@ -1326,8 +1335,9 @@ class OverlayBubbleService : Service() {
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
         val sharedSending = map["sending"] == true
-        if (!overlayCancelling && chatSending != sharedSending) {
-            setComposerGenerationState(sending = sharedSending)
+        val composerSending = sharedSending || overlaySubmitCommandPending
+        if (!overlayCancelling && chatSending != composerSending) {
+            setComposerGenerationState(sending = composerSending)
         }
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
@@ -2734,7 +2744,11 @@ class OverlayBubbleService : Service() {
             }
             if (message.content.isNotEmpty() || message.id != STREAMING_MESSAGE_ID) {
                 bubble.addView(TextView(this@OverlayBubbleService).apply {
-                    text = message.content
+                    text = if (message.role == "assistant") {
+                        actionTintedText(message.content)
+                    } else {
+                        message.content
+                    }
                     textSize = 15f
                     setTextColor(Color.WHITE)
                     setPadding(0, dp(3), 0, 0)
@@ -2764,6 +2778,19 @@ class OverlayBubbleService : Service() {
                 },
             )
             return outer
+        }
+
+        private fun actionTintedText(value: String): CharSequence {
+            val result = SpannableString(value)
+            Regex("""（[^（）\n]*）|\([^()\n]*\)""").findAll(value).forEach { match ->
+                result.setSpan(
+                    ForegroundColorSpan(Color.rgb(216, 177, 255)),
+                    match.range.first,
+                    match.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            return result
         }
 
         private fun smallInlineAction(label: String, onClick: () -> Unit): TextView =

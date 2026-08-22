@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/models/memory_item.dart';
+import '../../core/relationship/relationship_age.dart';
 
 class MemoryPage extends StatefulWidget {
   const MemoryPage({super.key});
@@ -14,6 +15,7 @@ class _MemoryPageState extends State<MemoryPage> {
   final db = AppDatabase.instance;
   List<MemoryItem> items = const [];
   bool loading = true;
+  RelationshipAge? relationshipAge;
   String kind = 'all';
   String status = 'active';
 
@@ -42,8 +44,21 @@ class _MemoryPageState extends State<MemoryPage> {
 
   Future<void> _load() async {
     if (mounted) setState(() => loading = true);
-    items = await db.listMemories(kind: kind, status: status);
-    if (mounted) setState(() => loading = false);
+    final loadedItems = await db.listMemories(kind: kind, status: status);
+    final loadedAge = await db.relationshipAge();
+    if (!mounted) return;
+    setState(() {
+      items = loadedItems;
+      relationshipAge = loadedAge;
+      loading = false;
+    });
+  }
+
+  String _date(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year.toString().padLeft(4, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _edit(MemoryItem item) async {
@@ -211,6 +226,21 @@ class _MemoryPageState extends State<MemoryPage> {
       appBar: AppBar(title: const Text('本地记忆库')),
       body: Column(
         children: [
+          if (relationshipAge != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.calendar_month_outlined),
+                  title: Text('认识第 ${relationshipAge!.dayNumber} 天'),
+                  subtitle: Text(
+                    '从 ${_date(relationshipAge!.startedAt)} 开始记录'
+                    ' · 已跨过 ${relationshipAge!.elapsedCalendarDays} 个自然日',
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: LayoutBuilder(

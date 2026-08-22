@@ -12,6 +12,7 @@ import '../models/public_web_candidate.dart';
 import '../models/thought.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
+import '../relationship/relationship_age.dart';
 import '../relationship/relationship_brain.dart';
 import '../reference/reference_library.dart';
 import '../rules/rule_layer_service.dart';
@@ -98,11 +99,14 @@ class PromptBuilder {
     } catch (_) {}
     final awareness = await db.activeAwarenessObservations(limit: 6, now: instant);
     final grounding = groundingOverride ?? await GroundingEngine(db).capture(now: instant);
+    final relationshipAge = await db.relationshipAge(now: instant);
     final dailyContinuity = await db.latestDailyContinuity(limit: 2);
     final somaticSection = await somaticEngine.buildPromptSection(now: instant);
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
+      ..writeln()
+      ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
       ..writeln('【本地关系上下文】')
       ..writeln(memoryBrain.formatForPrompt(memoryContext))
@@ -377,6 +381,18 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
     add(DriveKey.social, '更愿意随手分享和主动开口', '更偏爱安静而有内容的交流');
     add(DriveKey.stress, '面对关系波动时更敏感', '面对关系波动时更从容');
     return labels.isEmpty ? '仍接近初始状态；具体偏好以长期记忆中的已确认事实为准' : labels.join('；');
+  }
+
+  String _relationshipAgeSection(RelationshipAge age) {
+    final start = age.startedAt.toLocal();
+    final startDate =
+        '${start.year.toString().padLeft(4, '0')}-${start.month.toString().padLeft(2, '0')}-${start.day.toString().padLeft(2, '0')}';
+    return '''
+【关系时间 / RELATIONSHIP AGE】
+数据库记录的认识起点：$startDate
+今天是认识第 ${age.dayNumber} 天（已跨过 ${age.elapsedCalendarDays} 个自然日）。
+这是可靠时间事实：首日必须称为“认识第1天”，不得仅凭亲密语气、记忆数量或主观感受声称已经认识很久；若要表达熟悉，只能描述当下感受，不能篡改认识天数。
+'''.trim();
   }
 
   String _groundingSection(

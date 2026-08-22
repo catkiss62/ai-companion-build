@@ -37,7 +37,18 @@
 - 共享时间线新增 `system_notice` 投影：App 与悬浮窗都显示跨日/星期分隔和中断标记；悬浮窗消息协议同时携带图片附件的绝对缩略图路径，原生侧按 1/2 采样渲染，避免把最高 1000px 缩略图按原尺寸常驻解码。
 - 未读改为真实 assistant durable commit 后由生成所有者统一递增；聊天页真正可见或悬浮聊天展开时清零。移除原生悬浮 send completion 的第二次递增，避免同一回复出现重复角标；App 内发起后切出、回复完成时可保留桌宠 `①`。
 - App 与悬浮工具状态都使用真实 `agent_tool_runtime_status_text`；原生灰字增加轻微 alpha 往返闪烁。没有展示或伪造模型私有思考链，仍只显示真实工具/运行状态和用户已选择可见的 reasoning 内容。
-- `v0.35.9+84` 源码与自动化已通过，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。run `32567573572` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a8846e8d197e80efb84>。源码/自动化完成不等于真机验收，双界面同步、Stop、跨日、中断标记、图片与未读仍须 REDMI K80 Ultra 实测。
+- `v0.35.9+84` 源码与自动化已通过，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。run `32567573572` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-448f56d1d7db14468533>。源码/自动化完成不等于真机验收，双界面同步、Stop、跨日、中断标记、图片与未读仍须 REDMI K80 Ultra 实测。
+
+## 0D. 2026-08-22 已确认并进入实现：v0.36.0 UI 五域外壳、关系天数与悬浮 Stop 可见性
+
+- 用户已在 REDMI K80 Ultra 真机确认 v0.35.9 五项全部通过：① App/悬浮共享回复与恢复状态；② 任意端停止成功且双方都有本地中断提示；③ 图片双方可见；④ App 发言后切出，assistant 提交会出现未读①；⑤日期/星期双方一致。v0.35.9 统一会话运行态因此记为核心真机验收通过。
+- 唯一遗漏是原生悬浮输入区生成中仍显示发送键。源码已有 Stop 命令和文案，根因是悬浮提交后、generation_jobs 尚未落地的短窗口里，过早的空快照把本地 sending 清回 false。本批增加 overlaySubmitCommandPending 栅栏：命令回调结束前按钮保持“停止”，轮询也不会因早到空快照退出；不另建第二生成状态机。
+- IA-1 建立五个稳定一级入口与兼容路由：她 / 你们 / 能力 / 手机感知 / 数据与高级。现有真实页面继续复用原 Repository/Controller，旧 /settings、/system、/inner、/transfer 等入口继续有效；本批不改数据库 schema、不复制配置、不做皮肤，也不以空按钮伪装 MCP/Skills/完整情绪引擎。
+- App 与悬浮聊天的 assistant 正文统一把成对中文/英文括号及其中动作神态文本染为次强调色；不改原文、不改 Prompt、不影响 TTS。未闭合括号保持普通正文。
+- 记忆页新增“认识第 N 天”：首次读取时优先从数据库最早已提交消息推导认识起点，并写入 relationship_started_at；后续导出/接管随 settings 保留。按设备本地自然日包含首日计算，首日永远为第1天。
+- 同一可靠关系天数进入每轮 RELATIONSHIP AGE 现实锚点，明确禁止依据亲密语气、记忆数量或主观熟悉感虚构“认识很久”。它是时间事实，不是好感度或关系等级。
+- 目标版本 v0.36.0+85，schema 继续为 26。新增 RelationshipAge、括号分段与五域入口测试，以及 validate_v0360_ui_relationship_age.py；源码提交、CI、APK、哈希与真机状态必须分别记录。
+- 情绪系统排期确认：IA-1/IA-2 基础分类后，先接当前屏幕观察与可确认的人设/记忆修改，再做最小 Emotion Appraisal 固定回放；只有达到总账 EMOTION_ENGINE_EXPANSION_EVAL_v1 的扩建阈值才扩大，不一次性堆庞大引擎。MCP 仍是后续重点，Skills 更后置。
 
 ## 0. 下一轮开场先做什么
 
@@ -56,7 +67,7 @@
 - PR 分支：`agent/personality-appearance-self`
 - GitHub 当前已确认构建基线为 `v0.35.9+84`，schema 26；PR #23 分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。
 - 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32567573572>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.9 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a8846e8d197e80efb84>；APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`。
+- v0.35.9 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-448f56d1d7db14468533>；APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实双界面同步、终止、图片、未读和 HyperOS 行为必须按真机证据分别落款。下方 v0.35.8 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。

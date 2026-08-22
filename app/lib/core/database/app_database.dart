@@ -26,6 +26,7 @@ import '../models/rule_layer.dart';
 import '../models/proactive_feedback.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_defaults.dart';
+import '../relationship/relationship_age.dart';
 import '../personality/personality_catalog.dart';
 import '../models/relationship_event.dart';
 import '../models/interaction_session.dart';
@@ -8240,6 +8241,55 @@ class AppDatabase {
       'settings',
       {'key': key, 'value': value},
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<DateTime> relationshipStartedAt({DateTime? fallbackNow}) async {
+    final db = await database;
+    final fallback = (fallbackNow ?? DateTime.now()).toLocal();
+    final milliseconds = await db.transaction<int>((txn) async {
+      final settingRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['relationship_started_at'],
+        limit: 1,
+      );
+      final stored = settingRows.isEmpty
+          ? null
+          : int.tryParse(settingRows.first['value'] as String? ?? '');
+      if (stored != null && stored > 0) return stored;
+
+      final firstRows = await txn.rawQuery(
+        'SELECT MIN(created_at) AS first_at FROM messages',
+      );
+      final firstMessageAt = (firstRows.first['first_at'] as num?)?.toInt();
+      final resolved = firstMessageAt != null && firstMessageAt > 0
+          ? firstMessageAt
+          : fallback.millisecondsSinceEpoch;
+      await txn.insert(
+        'settings',
+        {'key': 'relationship_started_at', 'value': resolved.toString()},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final resolvedRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['relationship_started_at'],
+        limit: 1,
+      );
+      return int.tryParse(resolvedRows.first['value'] as String? ?? '') ??
+          resolved;
+    });
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+  }
+
+  Future<RelationshipAge> relationshipAge({DateTime? now}) async {
+    final instant = (now ?? DateTime.now()).toLocal();
+    return RelationshipAge(
+      startedAt: await relationshipStartedAt(fallbackNow: instant),
+      now: instant,
     );
   }
 

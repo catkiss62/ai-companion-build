@@ -5,6 +5,7 @@ import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
 import 'features/inner/inner_page.dart';
 import 'features/more/companion_more_page.dart';
+import 'features/more/companion_domains_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/system/system_page.dart';
 import 'features/system/preflight_diagnostics_page.dart';
@@ -51,6 +52,26 @@ class AiCompanionApp extends StatelessWidget {
         '/settings': (_) => const _SecondaryScaffold(
               title: 'AI 与陪伴设置',
               child: SettingsPage(),
+            ),
+        '/companion': (_) => const _SecondaryScaffold(
+              title: '她',
+              child: CompanionDomainPage(),
+            ),
+        '/relationship': (_) => const _SecondaryScaffold(
+              title: '你们',
+              child: RelationshipDomainPage(),
+            ),
+        '/capabilities': (_) => const _SecondaryScaffold(
+              title: '能力',
+              child: CapabilitiesDomainPage(),
+            ),
+        '/perception': (_) => const _SecondaryScaffold(
+              title: '手机感知',
+              child: PerceptionDomainPage(),
+            ),
+        '/data-advanced': (_) => const _SecondaryScaffold(
+              title: '数据与高级',
+              child: DataAdvancedDomainPage(),
             ),
         '/inner': (_) => const _SecondaryScaffold(
               title: '内在状态诊断',

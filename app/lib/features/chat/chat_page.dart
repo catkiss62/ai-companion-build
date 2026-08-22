@@ -13,6 +13,7 @@ import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/reasoning_panel.dart';
+import '../../widgets/action_tint_text.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
@@ -737,10 +738,16 @@ class _MessageBubble extends StatelessWidget {
               ],
             if (message.content.trim().isNotEmpty) ...[
               if (message.hasAttachments) const SizedBox(height: 8),
-              SelectableText(
-                message.content,
-                style: const TextStyle(height: 1.45),
-              ),
+              if (message.isAssistant)
+                ActionTintText(
+                  text: message.content,
+                  style: const TextStyle(height: 1.45),
+                )
+              else
+                SelectableText(
+                  message.content,
+                  style: const TextStyle(height: 1.45),
+                ),
             ],
             const SizedBox(height: 4),
             Row(
@@ -935,7 +942,7 @@ class _StreamingBubble extends StatelessWidget {
               streaming: true,
             ),
             if (controller.streamingContent.isNotEmpty)
-              SelectableText(controller.streamingContent),
+              ActionTintText(text: controller.streamingContent),
             if (controller.streamingContent.isEmpty &&
                 controller.streamingReasoning.isEmpty &&
                 controller.agentActivity == null)

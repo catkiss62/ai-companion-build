@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 root = Path(__file__).resolve().parents[1]
 
@@ -35,6 +36,6 @@ assert 'map["status_text"]' in overlay
 assert "beginGenerationPolling()" in overlay
 
 pubspec = (root / "pubspec.yaml").read_text()
-assert "version: 0.35.8+83" in pubspec
+assert re.search(r"^version:\s*(?:0\.35\.(?:8\+83|9\+84)|0\.36\.0\+85)\s*$", pubspec, re.M)
 
 print("v0.35.8 native tool calling and shared runtime validation passed")
