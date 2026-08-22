@@ -1,7 +1,7 @@
 status=success
-run_id=32596042875
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32596042875
-head_sha=7a832e7b20e1f516d9bfad1238f9811f29846636
+run_id=32597216764
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32597216764
+head_sha=89175a61b7e2260287e07a862dab01ebb4b72dab
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-db8189b9b3425a49a57e85d10ffc06dda04c3a0e2307e1c0f09b360c9c527b16  AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-adb7cc898869684f9413
+c148dde0596c2cc6436c35a275922dd74ee95be9d332b8f01c0b3f2be32a98ca  AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bc5b2a3a945799282847
