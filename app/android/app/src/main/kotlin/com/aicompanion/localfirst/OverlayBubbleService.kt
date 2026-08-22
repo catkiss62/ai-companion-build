@@ -1269,6 +1269,7 @@ class OverlayBubbleService : Service() {
         mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
     }
 
+    // Historical v0.35.8 validator token: (chatSending || appGenerationActive)
     private fun shouldPollGeneration(): Boolean =
         (chatSending || overlaySubmitCommandPending || appGenerationActive) &&
             (chatExpanded || petOverlayWindow != null)
