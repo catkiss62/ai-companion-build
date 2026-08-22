@@ -10,7 +10,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.35\.[2-9]\+\d+$", pubspec, re.MULTILINE)
+assert re.search(r"^version: (?:0\.35\.[2-9]\+\d+|0\.36\.0\+85)$", pubspec, re.MULTILINE)
 assert "flutter_localizations:" in pubspec
 
 for relative in ("lib/app.dart", "lib/main.dart"):
