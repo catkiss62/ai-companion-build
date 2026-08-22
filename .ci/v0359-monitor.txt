@@ -1,42 +1,12 @@
 status=failure
-build_result=cancelled
-run_id=32567273686
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32567273686
-head_sha=37b410a7c616be4fa416b5f38eeacb514476f175
+build_result=failure
+run_id=32567276429
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32567276429
+head_sha=bff627d36077ae844b7b5c735d62d9f1969772ef
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=cancelled id=97017624926 ---
-﻿2026-08-22T10:18:42.5164285Z Current runner version: '2.336.0'
-2026-08-22T10:18:42.5200687Z ##[group]Runner Image Provisioner
-2026-08-22T10:18:42.5201960Z Hosted Compute Agent
-2026-08-22T10:18:42.5202971Z Version: 20260729.566
-2026-08-22T10:18:42.5204005Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
-2026-08-22T10:18:42.5205266Z Build Date: 2026-07-29T19:17:02Z
-2026-08-22T10:18:42.5206466Z Worker ID: {6274e768-4945-4bcb-ba62-a14b439379ce}
-2026-08-22T10:18:42.5210462Z Azure Region: eastus
-2026-08-22T10:18:42.5214333Z ##[endgroup]
-2026-08-22T10:18:42.5220946Z ##[group]Operating System
-2026-08-22T10:18:42.5224465Z Ubuntu
-2026-08-22T10:18:42.5226541Z 24.04.4
-2026-08-22T10:18:42.5229901Z LTS
-2026-08-22T10:18:42.5233221Z ##[endgroup]
-2026-08-22T10:18:42.5235344Z ##[group]Runner Image
-2026-08-22T10:18:42.5240241Z Image: ubuntu-24.04
-2026-08-22T10:18:42.5243410Z Version: 20260816.277.1
-2026-08-22T10:18:42.5249432Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260816.277/images/ubuntu/Ubuntu2404-Readme.md
-2026-08-22T10:18:42.5252315Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260816.277
-2026-08-22T10:18:42.5253966Z ##[endgroup]
-2026-08-22T10:18:42.5255889Z ##[group]GITHUB_TOKEN Permissions
-2026-08-22T10:18:42.5260394Z Actions: read
-2026-08-22T10:18:42.5263797Z Contents: write
-2026-08-22T10:18:42.5267146Z Metadata: read
-2026-08-22T10:18:42.5270596Z ##[endgroup]
-2026-08-22T10:18:42.5282028Z Secret source: Actions
-2026-08-22T10:18:42.5288539Z Prepare workflow directory
-2026-08-22T10:18:42.5906626Z Prepare all required actions
-2026-08-22T10:18:42.5974291Z Getting action download info
-2026-08-22T10:18:42.7686687Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-08-22T10:18:42.8800861Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-08-22T10:18:43.0166620Z ##[error]A task was canceled.
+--- job=build-apk conclusion=failure id=97017652542 ---
+Unable to download this completed job log.
+the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-dda73eee5b903ac91ef3
