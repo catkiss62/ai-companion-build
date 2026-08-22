@@ -11,7 +11,7 @@ def read(path: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*0\.36\.0\+85\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*0\.36\.(?:0\+85|1\+86)\s*$", read("pubspec.yaml"), re.M)
 
 app = read("lib/app.dart")
 more = read("lib/features/more/companion_more_page.dart")
@@ -45,3 +45,4 @@ assert "overlaySubmitCommandPending" in overlay
 assert "sharedSending || overlaySubmitCommandPending" in overlay
 
 print("v0.36.0 UI domains, relationship age, action tint and overlay Stop validation passed")
+
