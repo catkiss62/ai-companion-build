@@ -49,7 +49,7 @@ for token in (
     "queryUsageStats",
 ):
     assert token in system, token
-assert "noteForegroundWindow" in accessibility
+assert "noteForegroundWindow" in accessibility or "noteForegroundApp" in accessibility
 for token in (
     "foregroundWindowPackageHash",
     "currentAppFusionSource",
