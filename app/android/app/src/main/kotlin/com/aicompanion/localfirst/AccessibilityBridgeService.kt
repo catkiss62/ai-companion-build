@@ -2,7 +2,9 @@ package com.aicompanion.localfirst
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.PowerManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
@@ -28,9 +30,22 @@ class AccessibilityBridgeService : AccessibilityService() {
             eventType = AccessibilityEvent.eventTypeToString(e.eventType),
             sourcePackage = sourcePackage,
             allowedPackage = allowedPackage,
-            windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED,
             hasReadableRoot = runCatching { rootInActiveWindow != null }.getOrDefault(false),
         )
+        val power = getSystemService(PowerManager::class.java)
+        if (!power.isInteractive) {
+            CurrentAppResolver.clearTrackedApp(this, "screen_off_accessibility")
+        } else if (CurrentAppResolver.isLauncherPackage(sourcePackage)) {
+            CurrentAppResolver.clearTrackedApp(this, "launcher_window")
+        } else if (
+            e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+        ) {
+            refreshForegroundWindowTracker(sourcePackage)
+        }
+
         if (e.isPassword || sourcePackage.isBlank()) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -41,18 +56,8 @@ class AccessibilityBridgeService : AccessibilityService() {
                 sourcePackage,
                 e.className?.toString().orEmpty(),
             )
-            val transientSystemUi = sourcePackage == "com.android.systemui" ||
-                sourcePackage == "com.miui.home"
-            val ownWindow = sourcePackage == packageName
-            if (!systemSurface && !transientSystemUi &&
-                (!ownWindow || CompanionRuntimeState.isAppVisible())
-            ) {
-                // App identity is process-local and may include finance apps;
-                // password fields and Accessibility text remain blocked below.
-                // An overlay owned by this process is deliberately transparent:
-                // it must not replace Bilibili/game/finance app underneath it.
-                CompanionRuntimeState.noteForegroundWindow(sourcePackage)
-            }
+            // Foreground identity was already refreshed from the interactive
+            // window list above, with event-package fallback for OEM gaps.
             val sourceHash = CompanionRuntimeState.privacyHash(sourcePackage)
             if (systemSurface) {
                 systemCoverActive = true
@@ -92,6 +97,56 @@ class AccessibilityBridgeService : AccessibilityService() {
             // accessibility text.
             OverlayBubbleService.requestSignalBrainWake(this, "accessibility_window")
         }
+    }
+
+    private fun refreshForegroundWindowTracker(eventPackage: String) {
+        val observedWindows = runCatching { windows.orEmpty() }.getOrDefault(emptyList())
+        data class WindowCandidate(
+            val packageName: String,
+            val active: Boolean,
+            val focused: Boolean,
+            val layer: Int,
+        )
+        val candidates = observedWindows.mapNotNull { window ->
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@mapNotNull null
+            val packageName = runCatching {
+                window.root?.packageName?.toString().orEmpty()
+            }.getOrDefault("")
+            if (!CurrentAppResolver.isTrackablePackage(this, packageName)) return@mapNotNull null
+            WindowCandidate(
+                packageName = packageName,
+                active = window.isActive,
+                focused = window.isFocused,
+                layer = window.layer,
+            )
+        }
+        val selected = candidates.sortedWith(
+            compareByDescending<WindowCandidate> { it.active }
+                .thenByDescending { it.focused }
+                .thenByDescending { it.layer },
+        ).firstOrNull()
+        if (selected != null) {
+            CurrentAppResolver.noteForegroundApp(
+                this,
+                selected.packageName,
+                "accessibility_interactive_window",
+            )
+        } else if (CurrentAppResolver.isTrackablePackage(this, eventPackage)) {
+            CurrentAppResolver.noteForegroundApp(this, eventPackage, "accessibility_event")
+        }
+        CurrentAppResolver.noteWindowProbe(
+            context = this,
+            total = observedWindows.size,
+            active = observedWindows.count { it.isActive },
+            focused = observedWindows.count { it.isFocused },
+            candidates = candidates.size,
+            result = when {
+                selected != null -> "interactive_window_selected"
+                CurrentAppResolver.isTrackablePackage(this, eventPackage) -> "event_package_fallback"
+                observedWindows.isEmpty() -> "windows_empty"
+                else -> "no_external_candidate"
+            },
+        )
     }
 
     private fun isLikelySystemSurface(sourcePackage: String, sourceClass: String): Boolean {

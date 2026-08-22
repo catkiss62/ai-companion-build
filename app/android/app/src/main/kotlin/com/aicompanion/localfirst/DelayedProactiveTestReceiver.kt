@@ -16,10 +16,33 @@ import android.os.PowerManager
  */
 class DelayedProactiveTestReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        val probeIntent = intent?.let { Intent(it) }
+        Thread {
+            try {
+                runProbe(appContext, probeIntent)
+            } catch (error: Throwable) {
+                NativeEventStore.addDeviceEvent(
+                    appContext,
+                    source = "system",
+                    eventType = "delayed_proactive_test_failed",
+                    appPackage = appContext.packageName,
+                    summary = "${error.javaClass.simpleName}: ${error.message ?: "unknown"}",
+                )
+            } finally {
+                pendingResult.finish()
+            }
+        }.start()
+    }
+
+    private fun runProbe(context: Context, intent: Intent?) {
         val dueAt = intent?.getLongExtra(EXTRA_DUE_AT, 0L) ?: 0L
         val soundKey = normalizeSound(intent?.getStringExtra(EXTRA_SOUND_KEY))
         val now = System.currentTimeMillis()
-        val current = CurrentAppResolver.resolveCurrent(context)
+        val current = CurrentAppResolver.resolveCurrentWithRetries(context)
+        val tracker = CurrentAppResolver.diagnosticStatus(context)
+        val retryCount = tracker["currentAppLastRetryCount"] as? Int ?: 0
         val label = current?.appLabel.orEmpty()
         val appPhrase = if (label.isNotBlank()) {
             "我刚看到你在用 $label。"
@@ -48,6 +71,8 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
             .putString(KEY_APP_SOURCE, current?.source ?: "none")
             .putLong(KEY_APP_AGE_MS, current?.ageMs ?: -1L)
             .putBoolean(KEY_LABEL_RESOLVED, label.isNotBlank())
+            .putString(KEY_APP_RESULT, if (current == null) "unresolved" else "resolved")
+            .putInt(KEY_APP_RETRY_COUNT, retryCount)
             .putString(KEY_OVERLAY_ASSESSMENT, overlayAssessment)
             .putBoolean(KEY_NOTIFICATION_POSTED, notification["posted"] == true)
             .putString(KEY_NOTIFICATION_REASON, notification["reason"]?.toString().orEmpty())
@@ -65,6 +90,8 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
                 "currentAppSource" to (current?.source ?: "none"),
                 "currentAppAgeBucket" to ageBucket(current?.ageMs ?: -1L),
                 "currentAppLabelResolved" to label.isNotBlank(),
+                "currentAppResult" to if (current == null) "unresolved" else "resolved",
+                "currentAppRetryCount" to retryCount,
                 "currentAppPackageHash" to CompanionRuntimeState.privacyHash(
                     current?.packageName.orEmpty(),
                 ),
@@ -95,6 +122,8 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
         private const val KEY_APP_SOURCE = "app_source"
         private const val KEY_APP_AGE_MS = "app_age_ms"
         private const val KEY_LABEL_RESOLVED = "label_resolved"
+        private const val KEY_APP_RESULT = "app_result"
+        private const val KEY_APP_RETRY_COUNT = "app_retry_count"
         private const val KEY_OVERLAY_ASSESSMENT = "overlay_assessment"
         private const val KEY_NOTIFICATION_POSTED = "notification_posted"
         private const val KEY_NOTIFICATION_REASON = "notification_reason"
@@ -184,6 +213,9 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
                 "appSource" to (p.getString(KEY_APP_SOURCE, "none") ?: "none"),
                 "appAgeMs" to p.getLong(KEY_APP_AGE_MS, -1L),
                 "labelResolved" to p.getBoolean(KEY_LABEL_RESOLVED, false),
+                "appResolutionResult" to
+                    (p.getString(KEY_APP_RESULT, "not_run") ?: "not_run"),
+                "appRetryCount" to p.getInt(KEY_APP_RETRY_COUNT, 0),
                 "overlayAssessment" to
                     (p.getString(KEY_OVERLAY_ASSESSMENT, "") ?: ""),
                 "notificationPosted" to p.getBoolean(KEY_NOTIFICATION_POSTED, false),
@@ -218,6 +250,10 @@ class DelayedProactiveTestReceiver : BroadcastReceiver() {
                     CompanionRuntimeState.privacyHash(label),
                 "delayedProactiveTestLabelResolved" to
                     p.getBoolean(KEY_LABEL_RESOLVED, false),
+                "delayedProactiveTestAppResolutionResult" to
+                    (p.getString(KEY_APP_RESULT, "not_run") ?: "not_run"),
+                "delayedProactiveTestAppRetryCount" to
+                    p.getInt(KEY_APP_RETRY_COUNT, 0),
                 "delayedProactiveTestOverlayAssessment" to
                     (p.getString(KEY_OVERLAY_ASSESSMENT, "") ?: ""),
                 "delayedProactiveTestNotificationPosted" to

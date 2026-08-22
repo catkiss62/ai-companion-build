@@ -212,6 +212,10 @@ class OverlayBubbleService : Service() {
 
             when (action) {
                 Intent.ACTION_SCREEN_OFF -> {
+                    CurrentAppResolver.clearTrackedApp(
+                        this@OverlayBubbleService,
+                        "screen_off_broadcast",
+                    )
                     pendingShowAfterUnlock = false
                     closeBubbleOptions()
                     collapseChatOverlay("screen_off")
@@ -879,6 +883,7 @@ class OverlayBubbleService : Service() {
             return
         }
         if (!createChatWindow()) return
+        CompanionNotification.acknowledgeMessages(this, "overlay_chat_opened")
         closeBubbleOptions()
         pendingShowAfterUnlock = false
         setUnread(0)
@@ -2790,7 +2795,7 @@ class OverlayBubbleService : Service() {
             val result = SpannableString(value)
             Regex("""（[^（）\n]*）|\([^()\n]*\)""").findAll(value).forEach { match ->
                 result.setSpan(
-                    ForegroundColorSpan(Color.rgb(216, 177, 255)),
+                    ForegroundColorSpan(Color.rgb(239, 184, 200)),
                     match.range.first,
                     match.range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,

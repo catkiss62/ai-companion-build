@@ -137,6 +137,11 @@ object CompanionRuntimeState {
         foregroundWindowObservedAt = System.currentTimeMillis()
     }
 
+    fun clearForegroundWindow() {
+        foregroundWindowPackage = ""
+        foregroundWindowObservedAt = 0L
+    }
+
     fun foregroundWindowSnapshot(): ForegroundWindowSnapshot? {
         val packageName = foregroundWindowPackage
         val observedAt = foregroundWindowObservedAt
@@ -659,4 +664,3 @@ object CompanionRuntimeState {
         overlayRecoveryInProgress = value
     }
 }
-

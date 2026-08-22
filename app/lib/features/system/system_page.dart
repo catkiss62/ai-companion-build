@@ -177,8 +177,10 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     if (state == 'completed') {
       final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
       final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final retries = (delayedProactiveTest['appRetryCount'] as num?)?.toInt() ?? 0;
       final posted = delayedProactiveTest['notificationPosted'] == true;
       return '上次：App=${label.isEmpty ? '未识别' : label} · 来源=$source · '
+          '取样=$retries次 · App识别=${label.isEmpty ? '失败' : '成功'} · '
           '弹窗=${posted ? '已发布' : '失败'}';
     }
     if (state == 'cancelled') return '上次测试已取消';

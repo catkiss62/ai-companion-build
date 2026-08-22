@@ -2,6 +2,7 @@ package com.aicompanion.localfirst
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Person
 import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.Context
@@ -10,6 +11,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 
 object CompanionNotification {
     const val CHANNEL_MESSAGES = "companion_messages"
@@ -20,6 +22,7 @@ object CompanionNotification {
     const val CHANNEL_MESSAGES_GENTLE = "companion_messages_gentle"
     const val CHANNEL_SERVICE = "companion_service"
     const val OVERLAY_FOREGROUND_ID = 41001
+    const val CONVERSATION_NOTIFICATION_ID = 41003
     const val REMOTE_INPUT_REPLY = "companion_inline_reply"
     const val EXTRA_MESSAGE_ID = "companion_message_id"
     private const val DIAGNOSTIC_PREFS = "companion_notification_diagnostics"
@@ -135,7 +138,7 @@ object CompanionNotification {
         ensureChannels(context)
         val pending = overlayPendingIntent(
             context,
-            messageId.hashCode(),
+            CONVERSATION_NOTIFICATION_ID,
             "message_notification:$messageId",
         )
         val quiet = deliveryStyle == "quiet"
@@ -192,16 +195,26 @@ object CompanionNotification {
                 }
             }
         }
+        val style = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val user = Person.Builder().setName("你").build()
+            val companion = Person.Builder().setName(title.ifBlank { "她" }).build()
+            android.app.Notification.MessagingStyle(user)
+                .addMessage(body, System.currentTimeMillis(), companion)
+        } else {
+            android.app.Notification.BigTextStyle().bigText(body)
+        }
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(android.app.Notification.BigTextStyle().bigText(body))
+            .setStyle(style)
             .setContentIntent(pending)
             .setAutoCancel(true)
             .setOnlyAlertOnce(quiet)
             .setSubText(label)
             .setCategory(android.app.Notification.CATEGORY_MESSAGE)
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
             .addAction(replyAction)
             .build()
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -227,7 +240,11 @@ object CompanionNotification {
                 "soundKey" to normalizedSound,
             )
         }
-        val result = runCatching { manager.notify(messageId.hashCode(), notification) }
+        val result = runCatching {
+            // A single relationship conversation replaces its previous banner;
+            // durable chat history remains in SQLite, not in NotificationManager.
+            manager.notify(CONVERSATION_NOTIFICATION_ID, notification)
+        }
         result.onSuccess {
             recordOutcome(
                 context,
@@ -293,7 +310,38 @@ object CompanionNotification {
             "companionNotificationLastChannelImportance" to importance,
             "companionNotificationLastSound" to
                 (prefs.getString("last_sound", "") ?: ""),
+            "companionNotificationLastAcknowledgedAt" to
+                prefs.getLong("last_acknowledged_at", 0L),
+            "companionNotificationLastAcknowledgeReason" to
+                (prefs.getString("last_acknowledge_reason", "") ?: ""),
+            "companionNotificationStyle" to "messaging",
         )
+    }
+
+    fun acknowledgeMessages(context: Context, reason: String) {
+        context.getSystemService(NotificationManager::class.java)
+            .cancel(CONVERSATION_NOTIFICATION_ID)
+        context.getSharedPreferences(DIAGNOSTIC_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong("last_acknowledged_at", System.currentTimeMillis())
+            .putString("last_acknowledge_reason", reason.take(80))
+            .apply()
+    }
+
+    fun openMessageChannelSettings(context: Context, soundKey: String) {
+        ensureChannels(context)
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .putExtra(
+                    Settings.EXTRA_CHANNEL_ID,
+                    popupChannelId(normalizeSoundKey(soundKey)),
+                )
+        } else {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+        context.startActivity(intent)
     }
 
     private fun normalizeSoundKey(soundKey: String): String = when (soundKey) {

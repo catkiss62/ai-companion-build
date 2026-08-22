@@ -808,10 +808,22 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _testProactiveNotification,
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('测试当前弹窗与提示音'),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: _testProactiveNotification,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('测试当前弹窗与提示音'),
+              ),
+              TextButton.icon(
+                onPressed: () => android.openCompanionNotificationSettings(
+                  soundKey: proactiveNotificationSound.key,
+                ),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: const Text('打开该频道的浮动通知设置'),
+              ),
+            ],
           ),
         ),
         SwitchListTile(

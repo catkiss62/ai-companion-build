@@ -263,10 +263,12 @@ class _InnerPageState extends State<InnerPage> {
     if (status == 'completed') {
       final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
       final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final retries = (delayedProactiveTest['appRetryCount'] as num?)?.toInt() ?? 0;
       final posted = delayedProactiveTest['notificationPosted'] == true;
       final overlay = delayedProactiveTest['overlayAssessment']?.toString() ?? '';
       return '上次已执行 · 当前 App=${label.isEmpty ? '未识别' : label} · '
-          '来源=$source · 通知=${posted ? '已发布' : '未发布'} · 桌宠=$overlay';
+          '来源=$source（取样$retries次）· App识别=${label.isEmpty ? '失败' : '成功'} · '
+          '通知=${posted ? '已发布' : '未发布'} · 桌宠=$overlay';
     }
     if (status == 'cancelled') return '上次测试已取消';
     if (status == 'unavailable') return '当前原生桥不支持延迟测试';

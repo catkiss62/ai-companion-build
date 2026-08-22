@@ -784,6 +784,31 @@ class PreflightDiagnosticsService {
             capabilities['currentAppFusionLabelResolved'] == true,
         'rawPackageIncluded': false,
       };
+      report['currentAppTracker'] = {
+        'hasCandidate': capabilities['currentAppTrackerHasCandidate'] == true,
+        'candidatePackageHash':
+            capabilities['currentAppTrackerPackageHash'] ?? '',
+        'observedAt': capabilities['currentAppTrackerObservedAt'] ?? 0,
+        'ageMs': capabilities['currentAppTrackerAgeMs'] ?? -1,
+        'source': capabilities['currentAppTrackerSource'] ?? '',
+        'invalidatedAt':
+            capabilities['currentAppTrackerInvalidatedAt'] ?? 0,
+        'invalidationReason':
+            capabilities['currentAppTrackerInvalidationReason'] ?? '',
+        'windowProbeAt': capabilities['currentAppWindowProbeAt'] ?? 0,
+        'windowCount': capabilities['currentAppWindowCount'] ?? 0,
+        'activeWindowCount':
+            capabilities['currentAppWindowActiveCount'] ?? 0,
+        'focusedWindowCount':
+            capabilities['currentAppWindowFocusedCount'] ?? 0,
+        'candidateWindowCount':
+            capabilities['currentAppWindowCandidateCount'] ?? 0,
+        'windowResult': capabilities['currentAppWindowResult'] ?? '',
+        'lastRetryCount': capabilities['currentAppLastRetryCount'] ?? 0,
+        'lastRetryResult': capabilities['currentAppLastRetryResult'] ?? '',
+        'lastRetryAt': capabilities['currentAppLastRetryAt'] ?? 0,
+        'rawPackageIncluded': false,
+      };
       report['proactiveNotificationDelivery'] = {
         'notificationsEnabled':
             capabilities['companionNotificationsEnabled'] == true,
@@ -797,6 +822,11 @@ class PreflightDiagnosticsService {
         'lastChannelImportance':
             capabilities['companionNotificationLastChannelImportance'] ?? -1,
         'lastSound': capabilities['companionNotificationLastSound'] ?? '',
+        'style': capabilities['companionNotificationStyle'] ?? '',
+        'lastAcknowledgedAt':
+            capabilities['companionNotificationLastAcknowledgedAt'] ?? 0,
+        'lastAcknowledgeReason':
+            capabilities['companionNotificationLastAcknowledgeReason'] ?? '',
         'messageBodyIncluded': false,
       };
       final delayedStatus =
@@ -818,6 +848,10 @@ class PreflightDiagnosticsService {
         'labelHash': capabilities['delayedProactiveTestLabelHash'] ?? '',
         'labelResolved':
             capabilities['delayedProactiveTestLabelResolved'] == true,
+        'appResolutionResult':
+            capabilities['delayedProactiveTestAppResolutionResult'] ?? 'not_run',
+        'appRetryCount':
+            capabilities['delayedProactiveTestAppRetryCount'] ?? 0,
         'overlayAssessment':
             capabilities['delayedProactiveTestOverlayAssessment'] ?? '',
         'notificationPosted':
@@ -831,13 +865,23 @@ class PreflightDiagnosticsService {
       if (delayedStatus == 'completed') {
         final notificationPosted =
             capabilities['delayedProactiveTestNotificationPosted'] == true;
+        final appResolved =
+            capabilities['delayedProactiveTestLabelResolved'] == true;
         checks.add(PreflightCheck(
-          id: 'delayed_proactive_test',
-          title: '5分钟跨 App 主动联系测试',
+          id: 'delayed_proactive_notification',
+          title: '5分钟测试 · 通知送达',
           level: notificationPosted ? 'pass' : 'warn',
           summary: notificationPosted
-              ? '测试已到点执行并成功向 Android 发布通知；前台 App 与桌宠状态已脱敏记录。'
-              : '测试已经执行，但通知未成功发布；请查看本报告中的通知原因与频道状态。',
+              ? '测试已到点并成功向 Android 发布对话通知。'
+              : '测试已到点，但通知未成功发布；请查看通知原因与频道状态。',
+        ));
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_current_app',
+          title: '5分钟测试 · 当前 App',
+          level: appResolved ? 'pass' : 'warn',
+          summary: appResolved
+              ? '提醒触发时成功解析当前 App；来源和取样次数已脱敏记录。'
+              : '提醒触发时多次取样仍未解析当前 App；通知成功不再掩盖此项失败。',
         ));
       }
 

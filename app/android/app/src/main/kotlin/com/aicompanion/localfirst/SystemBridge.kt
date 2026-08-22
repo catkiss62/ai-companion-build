@@ -99,6 +99,13 @@ class SystemBridge(
                     activity.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     result.success(null)
                 }
+                "openCompanionNotificationSettings" -> {
+                    CompanionNotification.openMessageChannelSettings(
+                        activity,
+                        call.argument<String>("soundKey") ?: "chime",
+                    )
+                    result.success(null)
+                }
                 "requestNotificationPermission" -> requestNotifications(result)
                 "requestNearbyPermissions" -> requestNearbyPermissions(result)
                 "startOverlay" -> {
@@ -164,6 +171,13 @@ class SystemBridge(
                 }
                 "clearOverlayUnread" -> {
                     setOverlayUnread(0)
+                    result.success(null)
+                }
+                "acknowledgeCompanionNotifications" -> {
+                    CompanionNotification.acknowledgeMessages(
+                        activity,
+                        call.argument<String>("reason") ?: "full_chat_visible",
+                    )
                     result.success(null)
                 }
                 "setPetConversationState" -> {
@@ -713,6 +727,7 @@ class SystemBridge(
             put("screenInteractive", power.isInteractive)
             put("deviceLocked", keyguard.isDeviceLocked)
             putAll(runtime)
+            putAll(CurrentAppResolver.diagnosticStatus(activity))
             putAll(CompanionNotification.diagnosticStatus(activity))
             putAll(DelayedProactiveTestReceiver.diagnosticStatus(activity))
             putAll(historicalExitReason())

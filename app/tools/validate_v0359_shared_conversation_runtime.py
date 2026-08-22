@@ -10,7 +10,7 @@ def read(path: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.35\.9\+84|0\.36\.(?:0\+85|1\+86))\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.35\.9\+84|0\.36\.(?:0\+85|1\+86|2\+87))\s*$", pubspec, re.M)
 
 database = read("lib/core/database/app_database.dart")
 for token in [
@@ -82,4 +82,3 @@ for token in [
     assert token in overlay, token
 
 print("v0.35.9 shared conversation runtime validation passed")
-

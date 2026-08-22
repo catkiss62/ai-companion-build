@@ -291,8 +291,11 @@ class ChatController extends ChangeNotifier {
   Future<void> acknowledgeOverlayUnread() async {
     try {
       await android.clearOverlayUnread();
+      await android.acknowledgeCompanionNotifications(
+        reason: 'full_chat_visible',
+      );
     } catch (_) {
-      // Overlay unread state is cosmetic and must never block the chat UI.
+      // Unread/notification state is cosmetic and must never block chat UI.
     }
   }
 

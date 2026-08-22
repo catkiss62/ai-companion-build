@@ -331,6 +331,14 @@ class AndroidBridge {
   Future<void> openNotificationListenerSettings() =>
       _channel.invokeMethod<void>('openNotificationListenerSettings');
 
+  Future<void> openCompanionNotificationSettings({
+    String soundKey = 'chime',
+  }) =>
+      _channel.invokeMethod<void>(
+        'openCompanionNotificationSettings',
+        {'soundKey': soundKey},
+      );
+
   Future<bool> requestNotificationPermission() async =>
       await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
 
@@ -399,6 +407,14 @@ class AndroidBridge {
 
   Future<void> clearOverlayUnread() =>
       _channel.invokeMethod<void>('clearOverlayUnread');
+
+  Future<void> acknowledgeCompanionNotifications({
+    String reason = 'full_chat_visible',
+  }) =>
+      _channel.invokeMethod<void>(
+        'acknowledgeCompanionNotifications',
+        {'reason': reason},
+      );
 
   Future<void> setPetConversationState({
     required bool generationActive,

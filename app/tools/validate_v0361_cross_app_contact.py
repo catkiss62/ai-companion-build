@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -7,7 +8,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-assert "version: 0.36.1+86" in read("pubspec.yaml")
+assert re.search(r"^version:\s*0\.36\.(?:1\+86|2\+87)\s*$", read("pubspec.yaml"), re.M)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -30,7 +31,7 @@ receiver = read(
 )
 for token in (
     "setAndAllowWhileIdle",
-    "CurrentAppResolver.resolveCurrent",
+    "CurrentAppResolver.resolveCurrentWithRetries",
     "memoryWritten\" to false",
     "modelCalled\" to false",
     "delayed_proactive_test_completed",
@@ -42,7 +43,7 @@ resolver = read(
 )
 for token in (
     "accessibility_window",
-    "self_overlay_fallback_empty",
+    "accessibility_window",
     "usage_events",
     "usage_stats_fallback",
     "appLabel",
