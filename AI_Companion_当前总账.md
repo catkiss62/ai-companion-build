@@ -40,14 +40,14 @@
 - 悬浮聊天动作/神态括号文本由旧紫色 `RGB(216,177,255)` 改为与 Flutter 深色主题三级色一致的淡红色 `RGB(239,184,200)`，保留斜体与原文；不修改 Prompt、TTS 或括号解析规则。
 - 目标版本 `v0.36.2+87`，schema 仍为 26，沿用 v0.35.7 起的持久测试签名以支持覆盖更新。新增 `validate_v0362_foreground_tracker_conversation_banner.py`；首个功能提交 `6ad530d4082699820d34cef7bdc545684b787a35`，最终源码 head `a6d02ae77d8483f3e429893ef144a17ebb6b7808`，Actions PR merge SHA `201be3494a7f327091bc46a581e4bc28eec562a1`。run `32591690218` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk`；SHA-256 `8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91>。自动化完成不等于真机完成；更新后重新开关轻视觉、持续前台 App 名、真实顶部横幅、统一已读与悬浮括号淡红色仍须 REDMI K80 Ultra 分别验收。
 
-## 0G. 2026-08-23 v0.36.2 真机回归与 v0.36.3 HyperOS Cover / Alarm Guard（源码已实现 / CI 与真机待验收）
+## 0G. 2026-08-23 v0.36.2 真机回归与 v0.36.3 HyperOS Cover / Alarm Guard（CI PASSED / APK READY / 真机待验收）
 
 - REDMI K80 Ultra 已确认 v0.36.2 的“当前正在使用的 App”持续追踪有效，故 v0.36.3 不回退 `TYPE_WINDOWS_CHANGED`、`flagRetrieveInteractiveWindows`、持久候选或短窗口 Usage 兜底。
 - 同轮五分钟测试没有发布通知并非 MessagingStyle/频道失败。诊断为 `status=cancelled`、`firedAt=0`、`notificationPosted=false`、`appResolutionResult=not_run`；该状态只能由 App 内 `cancelDelayedProactiveTest` 写入，说明闹钟在到点前被取消。本报告版本没有取消时间/入口，因此不能继续猜是误触、重复点击还是陈旧页面请求。
 - v0.36.3 把取消改成两层保护：用户先在对话框确认；native 侧还要求页面携带的 `expectedDueAt` 与当前已安排任务完全相同。旧页面、过期状态或无 dueAt 的请求只记录为 rejected，不会取消新任务。脱敏诊断新增 `cancelledAt / cancelReason / cancelRejectedAt / cancelRejectedReason`，不包含消息或 App 明文。
 - 桌宠回归已由诊断定位，不是“目标游戏自身完全禁止悬浮窗”：报告记录 `overlayCoverDetachCount=7`、`coverRecoveryCount=8`、`possibleRecoveryLoop=true`；每次主动摘除原因哈希均为 `25b8fd59b6f8`，精确对应 `com.miui.securitycenter`。HyperOS Game Turbo 会借该包发短暂窗口事件，旧 cover 白名单把整个安全中心包当作系统权限页，因而在普通游戏中主动 detach 桌宠。
 - v0.36.3 仅从“主动摘除桌宠”的系统 cover 白名单移除宽泛的 `com.miui.securitycenter`；文件选择器、Photo Picker、PermissionController、PackageInstaller 等专用系统页仍保留原保护。当前 App 追踪仍可读取安全中心/Game Turbo 的窗口信息，但不再把它连接到桌宠 detach 动作；感知与遮盖恢复正式解耦。
-- 目标版本 `v0.36.3+88`、schema 26、持久签名不变。新增 `validate_v0363_hyperos_cover_alarm_guard.py` 并延续 v0.36.2/v0.36.1/统一会话历史断言；当前本地专项、v0.36.2、v0.36.1、v0.35.9 与 workflow YAML 已通过。完整 GitHub Actions、APK、SHA-256 与真机结果待记录。
+- 目标版本 `v0.36.3+88`、schema 26、持久签名不变。新增 `validate_v0363_hyperos_cover_alarm_guard.py` 并延续 v0.36.2/v0.36.1/统一会话历史断言；源码 head `52238f1db8ae300020a73d235204104219665cff`，Actions PR merge SHA `4366e2fc4621d8a0a5e77d9c7268fdd46c0bf885`。run `32593615387` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk`；SHA-256 `ebc5ab1aa59593ce8deefd3abf9c7e3aa6bb9511e56a3a2006fb8a2363d2aedc`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f28bfc1739e20d85d50a>。自动化完成不等于真机完成，Game Turbo 桌宠稳定性与五分钟到点通知仍须分别验收。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
@@ -97,9 +97,9 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前最新自动化构建为 `v0.36.2+87`、schema 26；PR #23 分支源码 head `a6d02ae77d8483f3e429893ef144a17ebb6b7808`，Actions PR merge SHA `201be3494a7f327091bc46a581e4bc28eec562a1`。当前真机稳定基线仍是上一段记录的 v0.36.0，两者不得混写。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32591690218>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.36.2 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91>；APK `AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk`，SHA-256 `8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd`。
+- GitHub 当前最新自动化构建为 `v0.36.3+88`、schema 26；PR #23 分支源码 head `52238f1db8ae300020a73d235204104219665cff`，Actions PR merge SHA `4366e2fc4621d8a0a5e77d9c7268fdd46c0bf885`。当前完整真机稳定基线仍是上一段记录的 v0.36.0，v0.36.2 的持续前台 App 识别已单项通过，两者不得混写。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32593615387>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.36.3 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f28bfc1739e20d85d50a>；APK `AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk`，SHA-256 `ebc5ab1aa59593ce8deefd3abf9c7e3aa6bb9511e56a3a2006fb8a2363d2aedc`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.36.0 及更早条目只作真机/历史取证，不再代表最新自动化构建。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
