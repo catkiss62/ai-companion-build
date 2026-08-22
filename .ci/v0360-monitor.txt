@@ -1,7 +1,7 @@
 status=success
-run_id=32576249708
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32576249708
-head_sha=8f2589215c440e05d0e00b97218849cfbe0c3e81
+run_id=32577132077
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32577132077
+head_sha=a62af02141839a82826125836914b904bfc9631c
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-e047579b7698698b54cf7c233a47fa75337dee383e244c2b96cc804c419be1db  AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99bd2200188deaddac76
+fc62a33e962ea8f83ced7a84b5e8c1068ff92a9ef753fac07604cc837052c3cf  AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-84012bd05c8c740f496c
