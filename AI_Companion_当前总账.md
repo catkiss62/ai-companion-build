@@ -28,6 +28,17 @@
 - DeepSeek Harness 已完成低优先级调研：官方 `deepseek-ai/deepseek-harness` 是 2026-08 developer preview、MIT、Node/npm 驱动的通用编码 Agent harness，工具/Skills/session/sandbox/scheduler/UI 均可插件化，但官方明确仍可能 breaking change。现有 Android 方向主要是①手机作为已运行 Harness 的远程客户端；②在 PRoot/Debian 内嵌 Node/Harness（体积与复杂度高，且常为 GPL）；③电脑侧 Harness 通过 ADB/UIAutomator 控制手机。它们面向代码/工作区，不会自动修复本项目的伴侣人格、记忆、欲望、Android 悬浮和敏感页 Gate，现阶段不接入；仅参考其“单一会话日志、工具注册表、权限审批、可插拔 loop”设计，等 MCP/Skills 平台阶段再复评。
 - 本批次范围边界：先完成原生 Tool Calling、误触发回归与工具状态跨窗口同步；悬浮图片渲染、统一未读提交事件、当前 App unknown、主动识图、桌宠跨 App 消失和 native crash stack 仍按总账后续项处理，不伪装成已完成。
 
+## 0C. 2026-08-22 已确认并完成源码实现：v0.35.9 统一会话运行态与真正中断
+
+- 用户决定无障碍替代架构暂缓，先继续在手机系统侧排查；本批次不改变 Accessibility、轻视觉授权/连接、HyperOS cover recovery 或桌宠跨 App 恢复架构。
+- App 与原生悬浮聊天不复制两套业务控制器 UI，而是继续以共享 SQLite `generation_jobs`、消息表和工具运行态为唯一事实源。App 可在约 400ms 轮询内观察由悬浮窗发起的 pending/running/failed 状态、durable reasoning/content checkpoint、assistant ID 与真实工具灰字；悬浮窗继续观察 App 发起的同一运行态，双方停止按钮作用于同一个 job/run-token fence。
+- Stop 语义补齐：`cancelGenerationJobByUser` 现在同时接管 pending/running/retry_wait/failed；即使网络错误先把任务落成 failed，Stop 仍会终止并原子撤回对应用户消息、post-turn job 与 Somatic 临时聚合。完成提交若先赢仍保持不可拆分，迟到 token 继续由 run-token fence 拒绝。
+- 普通传输/API 异常不再排入稍后自动续答：当前 running job 原子转为 terminal `interrupted`，撤回该用户轮次，不产生 assistant、不进入 Prompt、MemoryExtractor、摘要或关系消息历史。界面从 `generation_jobs` 投影“这一轮对话已中断”本地事件；该事件不是 `messages` 行，因此模型永远看不到。设备接管产生的显式 suspended/pending 语义仍保留，不与普通网络异常混同。
+- 共享时间线新增 `system_notice` 投影：App 与悬浮窗都显示跨日/星期分隔和中断标记；悬浮窗消息协议同时携带图片附件的绝对缩略图路径，原生侧按 1/2 采样渲染，避免把最高 1000px 缩略图按原尺寸常驻解码。
+- 未读改为真实 assistant durable commit 后由生成所有者统一递增；聊天页真正可见或悬浮聊天展开时清零。移除原生悬浮 send completion 的第二次递增，避免同一回复出现重复角标；App 内发起后切出、回复完成时可保留桌宠 `①`。
+- App 与悬浮工具状态都使用真实 `agent_tool_runtime_status_text`；原生灰字增加轻微 alpha 往返闪烁。没有展示或伪造模型私有思考链，仍只显示真实工具/运行状态和用户已选择可见的 reasoning 内容。
+- 源码目标版本 `v0.35.9+84`，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。当前状态仅为本地源码与静态 validator 通过，GitHub commit、Actions、签名/APK、checksum 与真机结果尚待回填，不能写成已构建或已验收。
+
 ## 0. 下一轮开场先做什么
 
 0. 当前稳定可下载开发基线为 `v0.35.8+83 Native Tool Calling & Shared Runtime`：Actions run `32537487037` 已通过完整自动化并上传私有草稿 APK；原生 Function Calling、工具误触发回归和跨窗口真实运行态已进入构建，但仍必须真机验收。此前 v0.35.7：Actions run `32530979246` 已通过完整自动化并上传私有草稿 APK；当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名均已进入构建，但仍必须真机验收。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
