@@ -37,11 +37,11 @@
 - 共享时间线新增 `system_notice` 投影：App 与悬浮窗都显示跨日/星期分隔和中断标记；悬浮窗消息协议同时携带图片附件的绝对缩略图路径，原生侧按 1/2 采样渲染，避免把最高 1000px 缩略图按原尺寸常驻解码。
 - 未读改为真实 assistant durable commit 后由生成所有者统一递增；聊天页真正可见或悬浮聊天展开时清零。移除原生悬浮 send completion 的第二次递增，避免同一回复出现重复角标；App 内发起后切出、回复完成时可保留桌宠 `①`。
 - App 与悬浮工具状态都使用真实 `agent_tool_runtime_status_text`；原生灰字增加轻微 alpha 往返闪烁。没有展示或伪造模型私有思考链，仍只显示真实工具/运行状态和用户已选择可见的 reasoning 内容。
-- 源码目标版本 `v0.35.9+84`，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。当前状态仅为本地源码与静态 validator 通过，GitHub commit、Actions、签名/APK、checksum 与真机结果尚待回填，不能写成已构建或已验收。
+- `v0.35.9+84` 源码与自动化已通过，schema 保持 26、无数据库迁移；新增 `validate_v0359_shared_conversation_runtime.py` 与 `shared_conversation_runtime_v0359_test.dart`，并保留 v0.31.7/0.31.8 Stop/Overlay 历史契约。分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。run `32567573572` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a8846e8d197e80efb84>。源码/自动化完成不等于真机验收，双界面同步、Stop、跨日、中断标记、图片与未读仍须 REDMI K80 Ultra 实测。
 
 ## 0. 下一轮开场先做什么
 
-0. 当前稳定可下载开发基线为 `v0.35.8+83 Native Tool Calling & Shared Runtime`：Actions run `32537487037` 已通过完整自动化并上传私有草稿 APK；原生 Function Calling、工具误触发回归和跨窗口真实运行态已进入构建，但仍必须真机验收。此前 v0.35.7：Actions run `32530979246` 已通过完整自动化并上传私有草稿 APK；当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名均已进入构建，但仍必须真机验收。此前已构建开发头为 `v0.35.6+81 Agent Tool Loop & Exit Diagnostics`：统一 Agent Tool Registry、用户轮次真实只读工具、独立灰色执行状态、轻视觉授权转变/进程退出证据和跨 App cover 历史已完成。Actions run `32515338233` 已通过全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、release APK、417 文件/原生库载荷校验、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.35.6-81-Agent-Tool-Loop-APK.apk`，SHA-256 `1b7aa93326767311fa12191e7f2aa268fe200cd3559f6e77841add2bf612e849`；Agent 实际行为、轻视觉再次掉授权和跨 App 桌宠卡住仍必须真机验收。
+0. 当前稳定可下载开发基线为 `v0.35.9+84 Unified Conversation Runtime`：Actions run `32567573572` 已通过完整自动化并上传私有草稿 APK；App/悬浮共享生成与工具状态、真正 Stop/中断、双方日期/星期与本地中断标记、悬浮图片、统一未读提交均已进入构建，但仍必须真机验收。此前 v0.35.8 run `32537487037` 的原生 Function Calling、工具误触发回归和第一层跨窗口运行态仍为历史基线；v0.35.7 run `32530979246` 的当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名继续保留。轻视觉掉授权、当前 App unknown、主动识图与桌宠跨 App 消失没有在 v0.35.9 改动。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -54,10 +54,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认构建基线为 `v0.35.8+83`，schema 26；PR #23 分支源码 head `61fe918e677b1a86f053d68a0da6b4c072644572`，Actions PR merge SHA `3ee53c42d295b6521b3ebb7092ccaaa3704be07a`。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32537487037>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.8 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-26069c79059eb842ea47>；APK `AI-Companion-v0.35.8-83-Native-Tool-Runtime-Sync-APK.apk`，SHA-256 `1c90b0a58e3f85060dabdb965d80f7af58815f52c21c4333766f19953f7c9f72`。
-- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实语言效果、规则新修改、Agent 工具化与本轮诊断问题都必须按后续实现/真机证据分别落款。下方 v0.35.3 及更早构建条目仅作历史取证，不再代表当前基线。
+- GitHub 当前已确认构建基线为 `v0.35.9+84`，schema 26；PR #23 分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32567573572>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.35.9 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a8846e8d197e80efb84>；APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实双界面同步、终止、图片、未读和 HyperOS 行为必须按真机证据分别落款。下方 v0.35.8 及更早构建条目仅作历史取证，不再代表当前基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
