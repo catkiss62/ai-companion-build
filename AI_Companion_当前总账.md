@@ -48,6 +48,7 @@
 - 桌宠回归已由诊断定位，不是“目标游戏自身完全禁止悬浮窗”：报告记录 `overlayCoverDetachCount=7`、`coverRecoveryCount=8`、`possibleRecoveryLoop=true`；每次主动摘除原因哈希均为 `25b8fd59b6f8`，精确对应 `com.miui.securitycenter`。HyperOS Game Turbo 会借该包发短暂窗口事件，旧 cover 白名单把整个安全中心包当作系统权限页，因而在普通游戏中主动 detach 桌宠。
 - v0.36.3 仅从“主动摘除桌宠”的系统 cover 白名单移除宽泛的 `com.miui.securitycenter`；文件选择器、Photo Picker、PermissionController、PackageInstaller 等专用系统页仍保留原保护。当前 App 追踪仍可读取安全中心/Game Turbo 的窗口信息，但不再把它连接到桌宠 detach 动作；感知与遮盖恢复正式解耦。
 - 目标版本 `v0.36.3+88`、schema 26、持久签名不变。新增 `validate_v0363_hyperos_cover_alarm_guard.py` 并延续 v0.36.2/v0.36.1/统一会话历史断言；源码 head `52238f1db8ae300020a73d235204104219665cff`，Actions PR merge SHA `4366e2fc4621d8a0a5e77d9c7268fdd46c0bf885`。run `32593615387` 已通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与草稿 Release 上传。APK `AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk`；SHA-256 `ebc5ab1aa59593ce8deefd3abf9c7e3aa6bb9511e56a3a2006fb8a2363d2aedc`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f28bfc1739e20d85d50a>。自动化完成不等于真机完成，Game Turbo 桌宠稳定性与五分钟到点通知仍须分别验收。
+- APK 交付状态补记：上述草稿 Release 与 APK 上传已由 Actions 成功记录，但上个聊天窗口在手机端打开该私有 Draft Release 地址时反复得到 `404`；截至当时尚未重新交付一个已验证可打开的下载入口。该问题当前归类为私有 Draft Release 页面/登录态或入口路径问题，不回写为 APK 构建失败。继续真机验收前，应先确认可用下载方式；不要因为重复发送同一 `untagged-*` 页面地址而把“链接已记录”误写成“用户已成功下载”。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
