@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -28,11 +29,14 @@ import android.view.ViewGroup
 import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
@@ -44,6 +48,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
@@ -1108,7 +1113,7 @@ class OverlayBubbleService : Service() {
                         val ok = map?.get("ok") == true
                         val cancelled = map?.get("cancelled") == true
                         val error = map?.get("error") as? String ?: ""
-                        if (ok && !chatExpanded) setUnread(readUnread() + 1)
+                        if (ok && chatExpanded) setUnread(0)
                         setChatStatus(
                             when {
                                 cancelled -> "已停止这轮回复。"
@@ -1320,6 +1325,10 @@ class OverlayBubbleService : Service() {
 
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
+        val sharedSending = map["sending"] == true
+        if (!overlayCancelling && chatSending != sharedSending) {
+            setComposerGenerationState(sending = sharedSending)
+        }
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
         val phase = map["phase"] as? String ?: "thinking"
@@ -1328,7 +1337,7 @@ class OverlayBubbleService : Service() {
         updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
         removeStreamingMessage(notify = false)
-        if (map["sending"] == true) {
+        if (sharedSending) {
             setChatStatus(statusText.takeIf { it.isNotBlank() } ?: when (phase) {
                 "answering" -> "正在回复…"
                 "cancelling" -> "正在停止…"
@@ -1349,7 +1358,7 @@ class OverlayBubbleService : Service() {
         }
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
-        if (map["sending"] != true) setChatStatus(null)
+        if (!sharedSending) setChatStatus(null)
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {
@@ -1506,12 +1515,22 @@ class OverlayBubbleService : Service() {
     private fun setChatStatus(text: String?, error: Boolean = false) {
         chatStatus?.apply {
             if (text.isNullOrBlank()) {
+                clearAnimation()
                 visibility = View.GONE
                 this.text = ""
             } else {
                 visibility = View.VISIBLE
                 this.text = text
                 setTextColor(if (error) Color.rgb(255, 135, 145) else Color.rgb(192, 180, 212))
+                if (error) {
+                    clearAnimation()
+                } else if (animation == null) {
+                    startAnimation(AlphaAnimation(0.52f, 1f).apply {
+                        duration = 900L
+                        repeatMode = Animation.REVERSE
+                        repeatCount = Animation.INFINITE
+                    })
+                }
             }
         }
     }
@@ -1527,6 +1546,19 @@ class OverlayBubbleService : Service() {
             val map = item as? Map<*, *> ?: return@mapNotNull null
             val id = map["id"] as? String ?: return@mapNotNull null
             val role = map["role"] as? String ?: return@mapNotNull null
+            val attachments = (map["attachments"] as? List<*>)
+                ?.mapNotNull attachmentLoop@{ rawAttachment ->
+                    val attachment = rawAttachment as? Map<*, *> ?: return@attachmentLoop null
+                    val path = attachment["thumbnail_path"] as? String ?: return@attachmentLoop null
+                    if (path.isBlank()) return@attachmentLoop null
+                    NativeAttachment(
+                        id = attachment["id"] as? String ?: path,
+                        kind = attachment["kind"] as? String ?: "",
+                        thumbnailPath = path,
+                        width = (attachment["width"] as? Number)?.toInt() ?: 0,
+                        height = (attachment["height"] as? Number)?.toInt() ?: 0,
+                    )
+                }.orEmpty()
             NativeChatMessage(
                 id = id,
                 role = role,
@@ -1540,6 +1572,7 @@ class OverlayBubbleService : Service() {
                 },
                 proactiveIntent = map["proactive_intent"] as? String ?: "",
                 proactiveDelivery = map["proactive_delivery"] as? String ?: "",
+                attachments = attachments,
             )
         }
     }
@@ -2548,6 +2581,29 @@ class OverlayBubbleService : Service() {
         }.getOrDefault("")
     }
 
+    private fun sameLocalDay(first: Long, second: Long): Boolean {
+        if (first <= 0L || second <= 0L) return false
+        val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        return format.format(Date(first)) == format.format(Date(second))
+    }
+
+    private fun formatDateSeparator(createdAt: Long): String {
+        if (createdAt <= 0L) return ""
+        return runCatching {
+            val target = Calendar.getInstance().apply { timeInMillis = createdAt }
+            val today = Calendar.getInstance()
+            val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+            val weekday = SimpleDateFormat("EEE", Locale.CHINA).format(target.time)
+            when {
+                sameLocalDay(target.timeInMillis, today.timeInMillis) -> "今天 · $weekday"
+                sameLocalDay(target.timeInMillis, yesterday.timeInMillis) -> "昨天 · $weekday"
+                target.get(Calendar.YEAR) == today.get(Calendar.YEAR) ->
+                    "${target.get(Calendar.MONTH) + 1}月${target.get(Calendar.DAY_OF_MONTH)}日 · $weekday"
+                else -> "${target.get(Calendar.YEAR)}年${target.get(Calendar.MONTH) + 1}月${target.get(Calendar.DAY_OF_MONTH)}日 · $weekday"
+            }
+        }.getOrDefault("")
+    }
+
     private data class PendingInlineReply(
         val replyId: String,
         val text: String,
@@ -2564,6 +2620,15 @@ class OverlayBubbleService : Service() {
         val proactive: Boolean,
         val proactiveIntent: String,
         val proactiveDelivery: String,
+        val attachments: List<NativeAttachment> = emptyList(),
+    )
+
+    private data class NativeAttachment(
+        val id: String,
+        val kind: String,
+        val thumbnailPath: String,
+        val width: Int,
+        val height: Int,
     )
 
     private inner class NativeChatAdapter : BaseAdapter() {
@@ -2577,8 +2642,35 @@ class OverlayBubbleService : Service() {
             val message = loadedMessages[position]
             val outer = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = if (message.role == "user") Gravity.END else Gravity.START
+                gravity = when (message.role) {
+                    "user" -> Gravity.END
+                    "system_notice" -> Gravity.CENTER_HORIZONTAL
+                    else -> Gravity.START
+                }
                 setPadding(dp(6), dp(3), dp(6), dp(3))
+            }
+            if (position == 0 || !sameLocalDay(
+                    message.createdAt,
+                    loadedMessages[position - 1].createdAt,
+                )
+            ) {
+                outer.addView(TextView(this@OverlayBubbleService).apply {
+                    text = formatDateSeparator(message.createdAt)
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.rgb(176, 169, 188))
+                    setPadding(dp(8), dp(7), dp(8), dp(4))
+                })
+            }
+            if (message.role == "system_notice") {
+                outer.addView(TextView(this@OverlayBubbleService).apply {
+                    text = message.content
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.rgb(176, 169, 188))
+                    setPadding(dp(8), dp(5), dp(8), dp(5))
+                })
+                return outer
             }
             val bubble = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
@@ -2601,6 +2693,28 @@ class OverlayBubbleService : Service() {
                 textSize = 11f
                 setTextColor(Color.rgb(188, 169, 220))
             })
+            message.attachments.filter { it.kind == "image" }.forEach { attachment ->
+                val bitmap = runCatching {
+                    BitmapFactory.decodeFile(
+                        attachment.thumbnailPath,
+                        BitmapFactory.Options().apply { inSampleSize = 2 },
+                    )
+                }.getOrNull()
+                if (bitmap != null) {
+                    bubble.addView(ImageView(this@OverlayBubbleService).apply {
+                        setImageBitmap(bitmap)
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        adjustViewBounds = true
+                        contentDescription = "聊天图片"
+                    }, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(180),
+                    ).apply {
+                        topMargin = dp(6)
+                        bottomMargin = dp(4)
+                    })
+                }
+            }
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
                 val live = message.id == STREAMING_MESSAGE_ID
                 bubble.addView(smallInlineAction(if (live) "🧠 思考中" else "🧠 思考") {
