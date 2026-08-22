@@ -1,12 +1,7 @@
-status=failure
-build_result=failure
-run_id=32591208825
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32591208825
-head_sha=0063129576f68c131ca84d4a64e0100715a15073
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=97075234009 ---
-Unable to download this completed job log.
-the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d7c6029c9dfb571799f9
+status=success
+run_id=32591690218
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32591690218
+head_sha=201be3494a7f327091bc46a581e4bc28eec562a1
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+8d51f726e4fb7e5beba692344dc6d264f4e96c52329ea490e55989b104714afd  AI-Companion-v0.36.2-87-Foreground-Tracker-Conversation-Banner-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-97b72d58daa7ffbe0d91
