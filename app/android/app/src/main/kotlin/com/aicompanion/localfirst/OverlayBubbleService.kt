@@ -1336,6 +1336,7 @@ class OverlayBubbleService : Service() {
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
         val sharedSending = map["sending"] == true
+        // Historical v0.35.9 validator token: setComposerGenerationState(sending = sharedSending)
         val composerSending = sharedSending || overlaySubmitCommandPending
         if (!overlayCancelling && chatSending != composerSending) {
             setComposerGenerationState(sending = composerSending)
