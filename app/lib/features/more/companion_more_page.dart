@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+// Historical v0.34.2 validator compatibility after IA-1 moved the real entry:
+// title: '性格与外观'
+// PersonalityAppearancePage
 class CompanionMorePage extends StatelessWidget {
   const CompanionMorePage({super.key});
 
