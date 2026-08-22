@@ -47,12 +47,12 @@
 - App 与悬浮聊天的 assistant 正文统一把成对中文/英文括号及其中动作神态文本染为次强调色；不改原文、不改 Prompt、不影响 TTS。未闭合括号保持普通正文。
 - 记忆页新增“认识第 N 天”：首次读取时优先从数据库最早已提交消息推导认识起点，并写入 relationship_started_at；后续导出/接管随 settings 保留。按设备本地自然日包含首日计算，首日永远为第1天。
 - 同一可靠关系天数进入每轮 RELATIONSHIP AGE 现实锚点，明确禁止依据亲密语气、记忆数量或主观熟悉感虚构“认识很久”。它是时间事实，不是好感度或关系等级。
-- 目标版本 v0.36.0+85，schema 继续为 26。新增 RelationshipAge、括号分段与五域入口测试，以及 validate_v0360_ui_relationship_age.py；源码提交、CI、APK、哈希与真机状态必须分别记录。
+- `v0.36.0+85` 源码与自动化已通过，schema 继续为 26、无数据库迁移。构建源码 head `72efa353e44eea7b17ff7490ee4a4be5a202a5eb`，Actions PR merge SHA `8f2589215c440e05d0e00b97218849cfbe0c3e81`；run `32576249708` 通过全部历史/当前 validators、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名、原生库/417 文件载荷、checksum 与私有草稿 Release 上传。APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `e047579b7698698b54cf7c233a47fa75337dee383e244c2b96cc804c419be1db`；签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99bd2200188deaddac76>。自动化完成不等于真机完成；悬浮发送→停止可见性、五域导航、认识天数现实锚点与动作括号换色仍待 REDMI K80 Ultra 验收。
 - 情绪系统排期确认：IA-1/IA-2 基础分类后，先接当前屏幕观察与可确认的人设/记忆修改，再做最小 Emotion Appraisal 固定回放；只有达到总账 EMOTION_ENGINE_EXPANSION_EVAL_v1 的扩建阈值才扩大，不一次性堆庞大引擎。MCP 仍是后续重点，Skills 更后置。
 
 ## 0. 下一轮开场先做什么
 
-0. 当前稳定可下载开发基线为 `v0.35.9+84 Unified Conversation Runtime`：Actions run `32567573572` 已通过完整自动化并上传私有草稿 APK；App/悬浮共享生成与工具状态、真正 Stop/中断、双方日期/星期与本地中断标记、悬浮图片、统一未读提交均已进入构建，但仍必须真机验收。此前 v0.35.8 run `32537487037` 的原生 Function Calling、工具误触发回归和第一层跨窗口运行态仍为历史基线；v0.35.7 run `32530979246` 的当前 App 三路融合、工具快路由、Agnes 脱敏遥测和持久测试签名继续保留。轻视觉掉授权、当前 App unknown、主动识图与桌宠跨 App 消失没有在 v0.35.9 改动。
+0. 当前稳定可下载开发基线为 `v0.36.0+85 UI & Relationship Age`：Actions run `32576249708` 已通过完整自动化并上传私有草稿 APK；v0.35.9 的 App/悬浮共享生成、真正 Stop/中断、双方日期/星期、图片与未读①已由 REDMI K80 Ultra 真机确认通过。v0.36.0 新增悬浮提交窗口 Stop 栅栏、五域 UI 外壳、动作神态括号换色及“认识第 N 天”可靠现实锚点，仍待真机验收。轻视觉掉授权、当前 App unknown、主动识图与桌宠跨 App 消失没有在本批改动。
 
 1. v0.34.9+74 分层公开搜索已经由 CI 和数小时真机诊断共同验收：Tavily + Agnes、候选池、24 小时预算、去重和受限短期上下文均成功。无需继续为“是否跑起来”等待；Agnes 摘要好不好可另做设置页固定样本人工评分。
 2. 下一产品主线已由用户在 2026-08-21 调整为“聊天 Agent 主循环 + 真实工具调用 + 有温度的记忆/自画像基础”。手动看一次当前屏幕、实际 App 名称和敏感页 Gate 仍保留，但作为首批 `inspect_image`/感知工具消费者接入统一 Agent Tool Registry，不再先于底座单独建设。
@@ -65,10 +65,10 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前已确认构建基线为 `v0.35.9+84`，schema 26；PR #23 分支源码 head `9f6ad92bd84f346b64acc61531ecc7d803af588c`，Actions PR merge SHA `b8e84c905e9a207cec1786a4106040b04e13e037`。
-- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32567573572>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
-- v0.35.9 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-448f56d1d7db14468533>；APK `AI-Companion-v0.35.9-84-Unified-Conversation-Runtime-APK.apk`，SHA-256 `244b02b9685b2b1ed8d14cd0cd9995ce571b440af9991c8a648c4f9e3cafa8e9`。
-- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；自动化证明源码、测试与打包成功，真实双界面同步、终止、图片、未读和 HyperOS 行为必须按真机证据分别落款。下方 v0.35.8 及更早构建条目仅作历史取证，不再代表当前基线。
+- GitHub 当前已确认构建基线为 `v0.36.0+85`，schema 26、无迁移；构建源码 head `72efa353e44eea7b17ff7490ee4a4be5a202a5eb`，Actions PR merge SHA `8f2589215c440e05d0e00b97218849cfbe0c3e81`。总账等文档可在构建后继续更新，因此 Draft PR 的最新 head 可能高于该“实际构建源码 head”，二者不得混写。
+- 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32576249708>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
+- v0.36.0 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-99bd2200188deaddac76>；APK `AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk`，SHA-256 `e047579b7698698b54cf7c233a47fa75337dee383e244c2b96cc804c419be1db`；签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；v0.35.9 双界面同步、终止、图片、未读和日期/星期已有真机证据，v0.36.0 的悬浮 Stop 可见性、五域导航、关系天数与动作括号换色仍须分别验收。下方 v0.35.9 及更早构建条目仅作历史取证，不再代表当前构建基线。
 - v0.34.4 已通过 head：`7715527ec0b20a3984bdf919e16c48c19fb678f1`
 - v0.34.5 实现提交：`66e5ddb7946519ce35f59d66cd124a92a511a557`；该提交同时包含源码、workflow、HANDOFF、长期任务账和 v36 总账初版。
 - 当前真机复测版本：`v0.34.5+70`；当前开发目标：`v0.34.6+71`；SQLite schema 23，不含数据库迁移。
