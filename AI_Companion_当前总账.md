@@ -138,6 +138,18 @@
 - 真机里程碑顺序修订：先做第一阶段地基但不为地基单独停工或出 APK；紧接完成第二阶段后交付首个真机候选；主动话题、自主查询规划和心跳候选多样性放在视觉/对话主链稳定之后，因为其代码量较小但真实行为观察时间更长。
 - 当前基线仍为 `v0.36.3+88`、schema 26、Draft PR #23、分支 `agent/personality-appearance-self`。正式实现尚未获得 CI 或真机结论，后续每个检查点必须分别登记 commit、schema、Actions、APK 和真实验收，禁止把“授权/开始”写成“已完成”。
 
+## 0M. 2026-08-23 v0.37.0 人格/消息地基与 App 聊天舞台检查点（IMPLEMENTED / CI INFRA BLOCKED / APK PENDING）
+
+- 第一阶段地基已提交为 `12c1da1c9173962a50d096099fbdbe56eb4c6949`：SQLite schema 从 26 升至 27，并为消息增加 `segments_json`；永久“核心人设 + 活人感基线”与可变性格底色/相处姿态正式分层，默认底色为显式 `neutral`、姿态为平等恋人，试穿和转正不再覆盖核心人格。
+- 可见输出契约已改为中文：联网工具路由 JSON / 英文规划不作为可见思考链；可见内心和最终回答使用中文，专业名词可保留英文。新格式为动作/神态直接独占一行，对白用 `「」` 包裹，段间不插空行；旧括号历史继续兼容。普通聊天在一条 durable message 内保存多个 segment，AI 主动联系仍严格是一条完整 message、一个气泡、一次未读和一条通知。
+- TTS 已增加 `仅对白（「」内）` / `全文（动作 + 对白）`，仍不朗读可见思考、工具状态、时间和来源标签。停止生成沿用同一 durable cancel fence 并停止 TTS；App 内逐段动画的 timer 在 widget dispose /动画结束时取消。悬浮窗没有进行高风险舞台重构，只继承消息原子、格式与 TTS 兼容。
+- 第二阶段 App 内视觉检查点已提交为 `611c29ab983b412b5b9b0f6c826e79be8acb7538`，版本提升为 `v0.37.0+89`、schema 保持 27。App 聊天页加入昼夜背景、DeepSeek 多情绪立绘、按 segment 切换表情、可调逐字速度、半透明聊天层、可拖动顶部调整聊天区高度、AI 左/用户右宽气泡及尾钩、圆头像与 DeepSeek 名称。
+- 点击头像/名称会从左侧打开同一设置真源的快捷面板：角色聊天舞台、情绪短音效、本地 TTS、逐段打字、背景模式、透明度、打字速度、性格试穿、系统通知管理、全部设置和上游素材说明。情绪短音效默认关闭；自动 TTS 同时开启时短音效主动避让，不叠音。主动消息不进入逐段拆气泡演出。
+- 精选素材来自 `SlimeBoyOwO/LingChat` 固定 commit `eae0d667413e490c3653488d43ce9b4464e07fda`：2 张昼夜背景、头像/20 张表情立绘、14 个情绪 WAV。仓库内保存的是经 Git LFS batch API 下载并按对象 SHA-256 验证的真实文件，不是 130 字节 pointer；`assets/lingchat/NOTICE.md` 区分 AGPL-3.0 软件许可与上游素材专门来源/非商业限制，声明本项目个人非商业学习用途、保留署名且后续可整体替换。
+- 本地可执行的 `validate_current_conversation_foundation.py`、`validate_current_chat_visual_stage.py` 与 v0.35.2 静态回归已通过；本地环境没有 Flutter/Dart SDK，完整 analyze/tests/release APK 必须由 Actions 完成。
+- Actions run `32610931667` 在约数秒内失败；`build-apk` 与 `report-ci-failure` 均为 `steps=null`、无日志，和前一检查点两次失败特征完全相同：job 没有获得 runner，不能据此判定源码编译失败或通过。当前状态必须写为“源码已提交、CI 基础设施阻塞、APK 未生成、真机未验收”，不得冒充完成。
+- 下一步仍按既定顺序：先恢复可执行的 GitHub runner 并处理真实 Flutter analyze/test/build 结果，成功后上传 `AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk`、checksum 与 CI monitor，再交付第一个真机里程碑；视觉主链稳定后才进入主动话题候选多样性、自主查询规划与 shareable discovery Thought。
+
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
 - 用户已授权继续下一步，并要求每次修改后同步 GitHub 当前唯一总账。本批次合并四项：① 当前 App 三路融合；② 普通闲聊跳过额外工具规划模型；③ Agnes 网页整理成败脱敏遥测；④ 私有持久测试签名。
@@ -186,7 +198,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- GitHub 当前最新自动化构建为 `v0.36.3+88`、schema 26；PR #23 分支源码 head `52238f1db8ae300020a73d235204104219665cff`，Actions PR merge SHA `4366e2fc4621d8a0a5e77d9c7268fdd46c0bf885`。当前完整真机稳定基线仍是上一段记录的 v0.36.0，v0.36.2 的持续前台 App 识别已单项通过，两者不得混写。
+- PR #23 当前源码检查点为 `v0.37.0+89`、schema 27，分支 head `611c29ab983b412b5b9b0f6c826e79be8acb7538`；Actions run `32610931667` 因 job 未取得 runner、无 steps/日志而失败，APK 尚未生成。最新已验证成功构建仍是下方 v0.36.3；当前完整真机稳定基线仍是 v0.36.0，v0.36.2 的持续前台 App 识别与 v0.36.3 桌宠恢复为单项真机通过，几者不得混写。
 - 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32593615387>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
 - v0.36.3 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f28bfc1739e20d85d50a>；APK `AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk`，SHA-256 `ebc5ab1aa59593ce8deefd3abf9c7e3aa6bb9511e56a3a2006fb8a2363d2aedc`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.36.0 及更早条目只作真机/历史取证，不再代表最新自动化构建。
