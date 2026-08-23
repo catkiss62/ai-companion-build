@@ -6,6 +6,44 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 接手必读 · 项目不可变约束
+
+1. **项目定位**：本项目是仅供私人测试的男性向 Android 人机恋游戏；核心关系为成年男性用户 × 有自身需要、立场、欲望、边界与生活感的女性 AI 伴侣。女性向参考只提取机制，不照搬“无条件承接情绪、永远等待、固定保护者/脆弱者、服务型顺从、冷战或情绪施压”等行为模板；也不通过随机叛逆讨好用户。
+2. **稳定优先**：正确性和可恢复性高于省配额或赶进度。不能判断时执行完整验证；高风险、需反复纠错的任务后置并用独立提交/APK 隔离。不能为替换系统静默删除旧素材或能力，保留、替换、延期都要写明。
+3. **两次总账**：每轮正式修改前先登记范围、依赖、来源、边界与验收；完成后再回填提交、测试、Actions、APK、SHA 与真机待验项。讨论已确定且有参考资料的任务必须记录出处，优先固定到提交版本。
+4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
+5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
+
+## 0R. 2026-08-24 · v0.37.3 19类表现层与立绘舞台对齐（IN PROGRESS / 任务前登记）
+
+> 用户授权继续至需要 REDMI K80 Ultra 真机验收的阶段。本节是本轮第一次总账更新；下列均为计划，尚未标记完成。候选版本暂定 **v0.37.3+92**，schema 保持 28。本轮不重复修改 v0.37.2 已完成的情绪防崩、孤儿锁终止、动作斜体、气泡透明度/收窄/尾角、流式跟随与发送收键盘。
+
+### A. 本轮实施范围
+
+1. **19类闭集表现真源**：标准表现类固定为高兴、兴奋、心动、调皮、自信、生气、厌恶、无奈、担心、紧张、慌张、害怕、惊讶、伤心、害羞、难为情、疑惑、认真、平静，另有不参与19类的系统兜底“正常”。兼容别名：哭泣→伤心、羞耻/尴尬→难为情、无语→无奈、情动→心动、慌乱→慌张。DeepSeek 为每条回复选择闭集标签；隐藏情绪信封继续由 v0.37.2 安全解析，正文/TTS 不得看到标签。
+2. **不恢复 native 19emo**：本轮只恢复19类契约、立绘、特效、音效和动画，不把 ONNX/ORT 重新装入聊天完成路径。native 19emo 继续作为尾部隔离 A/B 实验，不能阻断聊天或引入第二个权威判断。
+3. **LingChat 素材完整性**：保留已有 21 张 DeepSeek 立绘和昼夜背景；从固定参考提交补齐全部 16 个动画/气泡 WebP 与完整音效素材清单，建立来源/许可/哈希 manifest。运行时先严格使用参考配置映射，少用素材也不因频率低而删除。
+4. **一一对应的表现映射**：当前约12类合并映射扩展为19类各自立绘；气泡特效、音效和头像动画按参考配置接入。动画层必须使用位移/缩放关键帧而不是把头像切换做成消失再出现；高兴/兴奋双跳、生气大小跳、认真轻沉、心动轻心跳、调皮短跳、难为情横向晃动，其余按参考为 none/自然呼吸。
+5. **立绘舞台自定义**：默认立绘再放大一点；新增“自定义”入口，进入后支持双指缩放和拖动位置，提供确定与还原。持久变换与临时情绪动画分层，换情绪不能覆盖用户设置；限制缩放/位移避免角色完全移出舞台。
+6. **单一权威输出**：头像右侧文字仍只显示持久化的 DeepSeek 标准标签；视觉映射名称不得覆盖。TTS 继续消费同一个 EmotionCue；MiniMax TTS 本轮不接 API。
+
+### B. 明确后置
+
+- 专门的长期情绪系统（Appraisal → Emotion Episode → Mood/Relationship）单独实施，不和视觉表现混做；原始教程《AI Emotion Attachment System Tutorial》及 Ombre-Brain、FAtiMA、ALMA、Aura 参考保留。
+- 主动话题与自主搜索继续等待视觉和聊天主链真机稳定。
+- MiniMax TTS 在统一 EmotionCue 稳定后接入。
+- native 19emo 只在项目尾部做隔离准确率/稳定性实验，不直接回到正式聊天路径。
+
+### C. 固定参考与完成判据
+
+- LingChat 固定提交：<https://github.com/SlimeBoyOwO/LingChat/tree/eae0d667413e490c3653488d43ce9b4464e07fda>
+- 情绪/特效/声音映射：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src/controllers/emotion/config.ts>
+- 动画关键帧：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src/components/game/standard/avatar-animation.css>
+- 头像加载/动画结束恢复：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src/components/game/standard/GameRoleAvatar.vue>
+- 19类提示词/分类器：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src-tauri/src/utils/prompt.rs>、<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src-tauri/src/ai_service/emotion/classifier.rs>
+
+只有19类逐项映射测试、素材存在/哈希验证、动画状态测试、立绘变换持久化/还原测试、Flutter analyze/tests、全部历史 validators、Release APK、固定签名、原生/417桌宠载荷、ONNX仍缺席、checksum与Draft Release上传全部通过，并回填真实提交/Actions/APK/SHA后，才把本节改为完成；CI通过仍需真机检查动画观感、手势边界、音效频率与长对话稳定性。
+
 ## 0Q. 2026-08-23 · v0.37.2 情绪崩溃、孤儿生成锁与动作格式紧急热修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 用户在 REDMI K80 Ultra 真机确认 v0.37.1+90 不可用：正文出现 `<emotion>心动</emotion>` 时高频闪退；闪退后回复中断并持续显示“另一处聊天窗口正在发送消息”；顶部把 DeepSeek 的“心动”显示成旧视觉层“亲昵”；动作与神态也基本消失。脱敏诊断 `ai_companion_diagnostics_2026-08-23T13-27-03-098943Z.txt` 记录 `historicalExitReason=native_crash`、exit status 6、一个 `generation_jobs.status=running`、`blockingGenerationStatus=running` 与 `waiting_generation:running` 24 次，证明问题不是普通 Dart 异常，而是 native crash 加自动生成恢复形成的孤儿锁。本节已按用户要求完成两次总账更新：任务前登记提交 `3876ed01d23b5a39f0f34a77731db0dd00497843`；以下为实现与 CI 完成后的第二次回填。自动化通过不等于 REDMI K80 Ultra 真机已经通过。
