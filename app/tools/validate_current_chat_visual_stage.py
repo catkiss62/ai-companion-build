@@ -17,19 +17,51 @@ for token in (
     "assets/lingchat/background/",
     "assets/lingchat/deepseek/",
     "assets/lingchat/audio/",
+    "assets/lingchat/effects/",
     "assets/lingchat/NOTICE.md",
 ):
     assert token in pubspec, token
 
 visuals = read("lib/core/presentation/chat_visuals.dart")
 for token in (
+    "enum ChatPortraitAnimation",
     "class ChatEmotionVisual",
     "class ChatVisualChunk",
     "static List<ChatVisualChunk> chunks",
-    "assets/lingchat/deepseek/normal.webp",
-    "assets/lingchat/audio/joy.wav",
+    "ChatPortraitAnimation.happyBounce",
+    "ChatPortraitAnimation.angryJump",
+    "ChatPortraitAnimation.seriousThink",
+    "ChatPortraitAnimation.heartBeat",
+    "ChatPortraitAnimation.naughtyBounce",
+    "ChatPortraitAnimation.embarrassedShake",
+    "assets/lingchat/deepseek/excited.webp",
+    "assets/lingchat/deepseek/disgust.webp",
+    "assets/lingchat/deepseek/afraid.webp",
+    "assets/lingchat/deepseek/tense.webp",
+    "assets/lingchat/deepseek/ashamed.webp",
+    "assets/lingchat/effects/dialogue.webp",
+    "assets/lingchat/effects/heart.webp",
+    "assets/lingchat/audio/disgust.wav",
+    "assets/lingchat/audio/shock.wav",
+    "assets/lingchat/audio/chat.wav",
+    "assets/lingchat/audio/pleasant.wav",
 ):
     assert token in visuals, token
+assert visuals.count("key: '") == 20
+assert "AnimatedSwitcher" not in visuals
+
+portrait_stage = read("lib/widgets/chat_portrait_stage.dart")
+for token in (
+    "class ChatPortraitStage",
+    "class ChatPortraitTransformEditor",
+    "gaplessPlayback: true",
+    "SingleTickerProviderStateMixin",
+    "ChatPortraitTransform.defaults",
+    "单指拖动位置，双指缩放立绘",
+    "label: const Text('还原')",
+    "label: const Text('确定')",
+):
+    assert token in portrait_stage, token
 
 chat = read("lib/features/chat/chat_page.dart")
 for token in (
@@ -37,6 +69,12 @@ for token in (
     "_openQuickPanel",
     "chat_panel_fraction",
     "chat_panel_opacity",
+    "chat_portrait_scale",
+    "chat_portrait_offset_x",
+    "chat_portrait_offset_y",
+    "ChatPortraitStage(",
+    "ChatPortraitTransformEditor(",
+    "自定义立绘",
     "_AssistantSegmentSequence",
     "_BubbleTailPainter",
     "!item.message!.isProactive",
@@ -47,46 +85,125 @@ for token in (
     "只影响 App 内聊天；不改悬浮窗结构。",
 ):
     assert token in chat, token
+assert "duration: const Duration(milliseconds: 240)" not in chat
 
-database = read("lib/core/database/app_database.dart")
+contract = read("lib/core/emotion/emotion_contract.dart")
+assert "'crying': '伤心'" in contract
 for token in (
-    "'chat_visual_stage_enabled': '1'",
-    "'chat_background_mode': 'auto'",
-    "'chat_panel_opacity': '0.72'",
-    "'chat_panel_fraction': '0.62'",
-    "'chat_typewriter_enabled': '1'",
-    "'emotion_sound_enabled': '0'",
+    "'哭泣': 'crying'",
+    "'羞耻': 'embarrassed'",
+    "'尴尬': 'embarrassed'",
+    "'无语': 'helpless'",
+    "'情动': 'affection'",
+    "'慌乱': 'flustered'",
 ):
-    assert token in database, token
+    assert token in contract, token
 
 notice = read("assets/lingchat/NOTICE.md")
 for token in (
     "https://github.com/SlimeBoyOwO/LingChat",
     "eae0d667413e490c3653488d43ce9b4464e07fda",
     "GNU AGPL v3",
+    "21 DeepSeek portrait files",
+    "all 16 upstream expression-effect WebP files",
+    "all 23 upstream audio-effect files",
     "disabled by default",
 ):
     assert token in notice, token
 
-expected_minimum_sizes = {
-    "assets/lingchat/background/day.webp": 100_000,
-    "assets/lingchat/background/night.webp": 100_000,
-    "assets/lingchat/deepseek/avatar.webp": 10_000,
-    "assets/lingchat/deepseek/normal.webp": 100_000,
-    "assets/lingchat/audio/joy.wav": 10_000,
+expected_effects = {
+    "ai_thinking.webp",
+    "sigh.webp",
+    "shy.webp",
+    "noticed.webp",
+    "heart.webp",
+    "surprised.webp",
+    "flustered.webp",
+    "sweat.webp",
+    "tears.webp",
+    "angry.webp",
+    "angry_alt.webp",
+    "question.webp",
+    "nervous.webp",
+    "dialogue.webp",
+    "embarrassed.webp",
+    "happy.webp",
 }
-for relative, minimum in expected_minimum_sizes.items():
-    data = (ROOT / relative).read_bytes()
-    assert len(data) >= minimum, (relative, len(data))
-    assert not data.startswith(b"version https://git-lfs.github.com/spec"), relative
-    assert len(sha256(data).hexdigest()) == 64
+expected_audio = {
+    "achievement_common.wav",
+    "achievement_rare.wav",
+    "sad.wav",
+    "disgust.wav",
+    "sigh.wav",
+    "joy.wav",
+    "affection.wav",
+    "troubled.wav",
+    "shy.wav",
+    "noticed.wav",
+    "dialogue.wav",
+    "awkward.wav",
+    "thinking.wav",
+    "surprised.wav",
+    "pleasant.wav",
+    "speechless.wav",
+    "sweat.wav",
+    "angry.wav",
+    "question.wav",
+    "chat.wav",
+    "role_volume_test.wav",
+    "transition.wav",
+    "shock.wav",
+}
+expected_portraits = {
+    "avatar.webp",
+    "normal.webp",
+    "calm.webp",
+    "happy.webp",
+    "excited.webp",
+    "playful.webp",
+    "confident.webp",
+    "serious.webp",
+    "confused.webp",
+    "helpless.webp",
+    "worried.webp",
+    "surprised.webp",
+    "flustered.webp",
+    "shy.webp",
+    "affection.webp",
+    "angry.webp",
+    "sad.webp",
+    "disgust.webp",
+    "afraid.webp",
+    "tense.webp",
+    "ashamed.webp",
+}
+assert {p.name for p in (ROOT / "assets/lingchat/effects").iterdir()} == expected_effects
+assert {p.name for p in (ROOT / "assets/lingchat/audio").iterdir()} == expected_audio
+assert {p.name for p in (ROOT / "assets/lingchat/deepseek").iterdir()} == expected_portraits
+assert {p.name for p in (ROOT / "assets/lingchat/background").iterdir()} == {
+    "day.webp",
+    "night.webp",
+}
 
 asset_files = [
     path
     for path in (ROOT / "assets/lingchat").rglob("*")
     if path.is_file() and path.name != "NOTICE.md"
 ]
-assert len(asset_files) == 37, len(asset_files)
+assert len(asset_files) == 62, len(asset_files)
+for path in asset_files:
+    data = path.read_bytes()
+    assert len(data) > 100, (path, len(data))
+    assert not data.startswith(b"version https://git-lfs.github.com/spec"), path
+    assert len(sha256(data).hexdigest()) == 64
+
+fetcher = read("tools/fetch_lingchat_visual_assets.sh")
+mapping_lines = [
+    line for line in fetcher.splitlines()
+    if line.startswith(("data/", "public/")) and "|" in line
+]
+assert len(mapping_lines) == 62, len(mapping_lines)
+assert "(reused)" in fetcher
 
 manifest = read("android/app/src/main/AndroidManifest.xml")
 assert 'android:icon="@drawable/companion_launcher_icon"' in manifest
@@ -97,4 +214,4 @@ assert sha256(launcher).hexdigest() == (
     "01b4ac59905ab303c6241ab24ab3d2f59b253510cbe2c1f5a3420e1a8568347e"
 )
 
-print("current App chat visual stage validation passed")
+print("current App chat 19-expression visual parity validation passed")
