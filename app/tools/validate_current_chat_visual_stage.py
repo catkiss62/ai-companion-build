@@ -77,7 +77,7 @@ for token in (
     "自定义立绘",
     "_AssistantSegmentSequence",
     "_BubbleTailPainter",
-    "!item.message!.isProactive",
+    "message.isProactive && animateSegments",
     "情绪短音效",
     "主动消息提示音",
     "TTS 朗读内容",

@@ -60,7 +60,7 @@ for token in ("ChatSegmentKind", "parseAssistantText", "segments_json"):
 runner = read("lib/core/ai/durable_generation_runner.dart")
 for token in (
     "工具结果后的中文表达约束",
-    "_visibleChineseReasoning",
+    "preserveProviderReasoning",
     "segments: ChatSegmentCodec.parseAssistantText(finalContent)",
 ):
     assert token in runner, token
