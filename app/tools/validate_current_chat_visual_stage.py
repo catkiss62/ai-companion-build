@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from hashlib import sha256
 from pathlib import Path
+from struct import unpack
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -86,5 +87,14 @@ asset_files = [
     if path.is_file() and path.name != "NOTICE.md"
 ]
 assert len(asset_files) == 37, len(asset_files)
+
+manifest = read("android/app/src/main/AndroidManifest.xml")
+assert 'android:icon="@drawable/companion_launcher_icon"' in manifest
+launcher = (ROOT / "android/app/src/main/res/drawable-nodpi/companion_launcher_icon.png").read_bytes()
+assert launcher.startswith(b"\x89PNG\r\n\x1a\n")
+assert unpack(">II", launcher[16:24]) == (512, 512)
+assert sha256(launcher).hexdigest() == (
+    "01b4ac59905ab303c6241ab24ab3d2f59b253510cbe2c1f5a3420e1a8568347e"
+)
 
 print("current App chat visual stage validation passed")
