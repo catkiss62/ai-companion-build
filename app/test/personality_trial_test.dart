@@ -65,7 +65,12 @@ void main() {
       intimacyActive: false,
     );
 
-    expect(PersonalityCatalog.bases.length, 4);
+    expect(PersonalityCatalog.bases.length, 5);
+    expect(PersonalityCatalog.base('unknown').key, 'neutral');
+    expect(
+      PersonalityCatalog.compileProfile('neutral', 'equal', trial: false),
+      contains('不额外放大固定气质'),
+    );
     expect(PersonalityCatalog.postures.length, 4);
     expect(PersonalityCatalog.specialStyles.length, 8);
     expect(trial, contains('内在反应'));

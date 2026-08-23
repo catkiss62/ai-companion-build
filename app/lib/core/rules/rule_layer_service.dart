@@ -76,6 +76,10 @@ class RuleLayerService {
             ((await db.getSetting('nsfw_reference_active')) == '1'));
     final profileTrial = await db.activePersonalityTrial();
     final specialTrial = await db.activeSpecialStyleTrial();
+    final longTermBase =
+        await db.getSetting('personality_base_key') ?? 'neutral';
+    final longTermPosture =
+        await db.getSetting('personality_posture_key') ?? 'equal';
     final selected = <RuleLayer>[];
     for (final layer in all) {
       if (!layer.enabled && !layer.locked) continue;
@@ -87,27 +91,26 @@ class RuleLayerService {
         _ => false,
       };
       if (include) {
-        if (layer.key == '03_personality_seed' && profileTrial != null) {
+        selected.add(layer);
+        if (layer.key == '03_personality_seed') {
+          final baseKey = profileTrial?.baseKey ?? longTermBase;
+          final postureKey = profileTrial?.postureKey ?? longTermPosture;
           selected.add(RuleLayer(
-            key: layer.key,
-            title: 'Current Personality Structure',
-            // Recompile from stable keys so an app update can improve the
-            // reaction/expression contract even when a trial was already
-            // active before the update. The stored snapshot remains useful
-            // for audit/backup but is not an immutable prompt cache.
+            key: '03_personality_expression',
+            title: profileTrial == null
+                ? 'Current Personality Expression'
+                : 'Current Personality Trial',
             content: PersonalityCatalog.compileProfile(
-              profileTrial.baseKey,
-              profileTrial.postureKey,
-              trial: true,
+              baseKey,
+              postureKey,
+              trial: profileTrial != null,
               templates: templates,
             ),
-            loadPolicy: layer.loadPolicy,
+            loadPolicy: 'always',
             enabled: true,
-            locked: false,
-            updatedAt: profileTrial.startedAt,
+            locked: true,
+            updatedAt: profileTrial?.startedAt ?? DateTime.now(),
           ));
-        } else {
-          selected.add(layer);
         }
       }
     }

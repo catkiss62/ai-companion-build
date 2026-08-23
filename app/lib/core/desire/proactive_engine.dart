@@ -14,6 +14,7 @@ import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
 import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
+import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import '../models/proactive_intent.dart';
@@ -73,6 +74,15 @@ class _ProactiveGenerationCandidate {
 
   final String reasoning;
   final String content;
+}
+
+String _visibleChineseProactiveReasoning(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return '';
+  final cjk = RegExp(r'[\u3400-\u9fff]').allMatches(text).length;
+  final latinWords = RegExp(r'[A-Za-z]{2,}').allMatches(text).length;
+  if (latinWords >= 6 && (cjk == 0 || latinWords * 2 > cjk)) return '';
+  return text;
 }
 
 class ProactiveEngine {
@@ -651,13 +661,14 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       id: _uuid.v4(),
       role: 'assistant',
       content: text,
-      reasoningContent: candidate.reasoning,
+      reasoningContent: _visibleChineseProactiveReasoning(candidate.reasoning),
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,
       proactiveIntent: intentKind.key,
       proactiveDelivery: deliveryStyle.key,
       deviceId: await db.ensureDeviceId(),
+      segments: ChatSegmentCodec.parseAssistantText(text),
     );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,

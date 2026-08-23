@@ -7,6 +7,7 @@ import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
 import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
+import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../somatic/somatic_engine.dart';
@@ -312,7 +313,17 @@ class DurableGenerationRunner {
                 )
                 .add(fragment);
           }
-          if (emitDeltas) onDelta?.call(delta);
+          if (emitDeltas) {
+            // Provider reasoning may contain English tool-routing logs. Keep
+            // those out of the visible companion inner voice; the validated
+            // final Chinese reasoning is published once at commit time.
+            onDelta?.call(DeepSeekDelta(
+              content: delta.content,
+              done: delta.done,
+              finishReason: delta.finishReason,
+              toolCallDeltas: delta.toolCallDeltas,
+            ));
+          }
 
           final chars = reasoning.length + content.length;
           if (now.difference(lastCheckpoint) >= const Duration(seconds: 2) ||
@@ -350,11 +361,16 @@ class DurableGenerationRunner {
       var finalRequestMessages = baseRequestMessages;
       var generated = await generate(
         baseRequestMessages,
+        emitDeltas: localPlan != null,
         tools: localPlan == null
             ? AgentToolPlanner.nativeToolDefinitions
             : const <Map<String, Object?>>[],
       );
       cancellationToken?.throwIfCancelled();
+
+      if (localPlan == null && generated.toolCalls.isEmpty) {
+        onDelta?.call(DeepSeekDelta(content: generated.content));
+      }
 
       if (localPlan == null && generated.toolCalls.isNotEmpty) {
         final nativePlan =
@@ -404,6 +420,13 @@ class DurableGenerationRunner {
           ...baseRequestMessages,
           assistantToolMessage,
           ...toolResultMessages,
+          <String, Object?>{
+            'role': 'system',
+            'content': '''
+【工具结果后的中文表达约束】
+工具路由与搜索过程已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志或搜索步骤。
+'''.trim(),
+          },
         ];
         await _publishToolRuntime(
           phase: 'thinking',
@@ -484,14 +507,20 @@ class DurableGenerationRunner {
         throw const FormatException('模板重写后正文为空');
       }
 
+      final visibleReasoning = _visibleChineseReasoning(generated.reasoning);
+      if (visibleReasoning.isNotEmpty) {
+        onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
+      }
+
       final assistant = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
         content: finalContent,
-        reasoningContent: generated.reasoning,
+        reasoningContent: visibleReasoning,
         model: job.model,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
+        segments: ChatSegmentCodec.parseAssistantText(finalContent),
       );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.
@@ -557,6 +586,18 @@ class DurableGenerationRunner {
       'agent_tool_runtime_updated_at',
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
+  }
+
+  String _visibleChineseReasoning(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return '';
+    final cjk = RegExp(r'[\u3400-\u9fff]').allMatches(text).length;
+    final latinWords = RegExp(r'[A-Za-z]{2,}').allMatches(text).length;
+    // English product names and technical terms are fine inside Chinese. A
+    // wholly/mostly English block is almost certainly provider tool planning,
+    // not the companion's visible inner voice.
+    if (latinWords >= 6 && (cjk == 0 || latinWords * 2 > cjk)) return '';
+    return text;
   }
 
   Future<void> _clearToolRuntime() async {

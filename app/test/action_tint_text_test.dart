@@ -19,4 +19,14 @@ void main() {
     expect(segments.single.text, source);
     expect(segments.single.isAction, isFalse);
   });
+
+  test('new format marks quoted dialogue instead of direct action lines', () {
+    const source = '轻轻把耳鳍压低\n「才没有一直等你。」';
+    final segments = splitDialogueText(source);
+    expect(segments.map((item) => item.text).join(), source);
+    expect(
+      segments.where((item) => item.isDialogue).map((item) => item.text),
+      ['「才没有一直等你。」'],
+    );
+  });
 }

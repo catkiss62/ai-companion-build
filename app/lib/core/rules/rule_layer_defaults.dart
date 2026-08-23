@@ -86,6 +86,8 @@ const legacyEditableRuleLayerSha256V0350 = <String, String>{
 /// the migration conservative without duplicating the large user-authored
 /// NSFW source in a second runtime file.
 const legacyEditableRuleLayerSha256V0353 = <String, String>{
+  '03_personality_seed':
+      '188701faf65a06fde8ac9bbbfb193b80825207fb28776e9270cbee1dab749331',
   '02_daily': 'f2edc5f4f0cbae257ddd063e5fd7c86fef1b534c5d7d5c9b547e6f71e71ae870',
   '05_intimacy_rendering':
       '343108532796cb68d586fca8cbe97e9d97bb5e5b1c82fba9dc33c1838a4a8cfe',

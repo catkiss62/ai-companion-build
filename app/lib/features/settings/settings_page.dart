@@ -13,6 +13,7 @@ import '../../core/models/proactive_notification_settings.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
+import '../../core/tts/tts_text_processor.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -63,6 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool ttsEnabled = false;
   bool autoTts = false;
   bool streamingTts = false;
+  TtsReadingScope ttsReadingScope = TtsReadingScope.dialogueOnly;
   ProactiveTtsPolicy proactiveTtsPolicy = ProactiveTtsPolicy.silent;
   ProactiveNotificationPrivacy proactiveNotificationPrivacy =
       ProactiveNotificationPrivacy.smart;
@@ -115,6 +117,9 @@ class _SettingsPageState extends State<SettingsPage> {
     ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
     autoTts = (await db.getSetting('auto_tts')) != '0';
     streamingTts = (await db.getSetting('tts_streaming_enabled')) != '0';
+    ttsReadingScope = TtsReadingScope.fromSetting(
+      await db.getSetting('tts_reading_scope'),
+    );
     proactiveTtsPolicy = ProactiveTtsPolicy.fromSetting(
       await db.getSetting('proactive_tts_policy'),
     );
@@ -184,6 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await db.setSetting('tts_enabled', ttsEnabled ? '1' : '0');
       await db.setSetting('auto_tts', autoTts ? '1' : '0');
       await db.setSetting('tts_streaming_enabled', streamingTts ? '1' : '0');
+      await db.setSetting('tts_reading_scope', ttsReadingScope.key);
       await db.setSetting('proactive_tts_policy', proactiveTtsPolicy.settingValue);
       await db.setSetting(
         'proactive_notification_privacy',
@@ -896,6 +902,25 @@ class _SettingsPageState extends State<SettingsPage> {
           value: autoTts,
           onChanged: ttsEnabled ? (v) => setState(() => autoTts = v) : null,
         ),
+        DropdownButtonFormField<TtsReadingScope>(
+          value: ttsReadingScope,
+          decoration: const InputDecoration(
+            labelText: '朗读范围',
+            border: OutlineInputBorder(),
+          ),
+          items: TtsReadingScope.values
+              .map((scope) => DropdownMenuItem(
+                    value: scope,
+                    child: Text(scope.label),
+                  ))
+              .toList(),
+          onChanged: ttsEnabled
+              ? (value) => setState(
+                    () => ttsReadingScope = value ?? ttsReadingScope,
+                  )
+              : null,
+        ),
+        const SizedBox(height: 10),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('流式分句朗读'),

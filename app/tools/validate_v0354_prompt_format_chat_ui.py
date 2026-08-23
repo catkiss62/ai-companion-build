@@ -27,9 +27,9 @@ parsed = {
     )
 }
 changed_hashes = {
-    "02_daily": "88ac7e4d3a1bab29bfcc3cb217080dfc21f0ac2494d7936beb9fcbb337f95ce6",
+    "02_daily": "e657f56fd0293c35f0b42183e5e8e6fec95dd24b019c2ca542894f4774479790",
     "05_intimacy_rendering":
-        "af3edbd207d81c79d1e328fa0eb0751b2d275ce5e332d954256feff5cd46241f",
+        "282583ec2f352265da2135e3181a121789e70d749281f44b719dfc5b0f311c8e",
     "06_intimacy_reference":
         "dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3",
 }
@@ -51,9 +51,9 @@ assert parsed["05_intimacy_rendering"].index(action_heading) < parsed[
     "05_intimacy_rendering"
 ].index(scene_anchor)
 for token in (
-    "角色的动作、神态、语气、微表情，用英文或中文括号标注。",
-    "纯对白不加括号。",
-    "内心想法不用括号，用对白旁白的方式表达，或让对方通过你的话推测。",
+    "动作、神态、语气和微表情直接独占一行",
+    "真正说出口的对白独占一行，用「」包住。",
+    "相邻段之间不插空行",
 ):
     assert token in parsed["02_daily"] and token in parsed["05_intimacy_rendering"]
 

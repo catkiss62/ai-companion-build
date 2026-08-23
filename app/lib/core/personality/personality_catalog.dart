@@ -23,6 +23,12 @@ class PersonalityCatalog {
 
   static const bases = <PersonalityOption>[
     PersonalityOption(
+      'neutral',
+      '自然状态（不加底色）',
+      '只保留永久核心人设与长期成长，不额外放大某一种表达倾向。',
+      '',
+    ),
+    PersonalityOption(
       'outgoing',
       '元气外放',
       '反应鲜明，愿意先说出喜欢与不喜欢。',
@@ -118,10 +124,12 @@ class PersonalityCatalog {
   static bool isNsfwBiasedSpecial(String key) => key == 'seductress';
 
   static String _basePrompt(String key) => switch (key) {
+        'neutral' => '',
         'reserved' => ruleContentV0353_07_base_reserved,
         'gentle' => ruleContentV0353_07_base_gentle,
         'playful' => ruleContentV0353_07_base_playful,
-        _ => ruleContentV0353_07_base_outgoing,
+        'outgoing' => ruleContentV0353_07_base_outgoing,
+        _ => '',
       };
 
   static String _posturePrompt(String key) => switch (key) {
@@ -150,8 +158,10 @@ class PersonalityCatalog {
   }) {
     final b = base(baseKey);
     final p = posture(postureKey);
+    final basePrompt =
+        templates[basePromptKey(b.key)] ?? _basePrompt(b.key);
     return '''# 当前内在反应与表达结构：${b.label} × ${p.label}
-${templates[basePromptKey(b.key)] ?? _basePrompt(b.key)}
+${basePrompt.trim().isEmpty ? '【性格底色】不额外放大固定气质；由永久核心人设、当下情境、长期 AI Self 与真实共同经历自然决定反应。' : basePrompt}
 ${templates[posturePromptKey(p.key)] ?? _posturePrompt(p.key)}
 
 ${templates[profileSharedKey] ?? profileSharedPrompt}

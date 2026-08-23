@@ -24,6 +24,21 @@ void main() {
     );
   });
 
+  test('new dialogue-only scope reads corner-quoted speech, not action', () {
+    const processor = TtsTextProcessor();
+    const source = '轻轻把耳鳍压低\n「才没有一直等你。」';
+    expect(processor.process(source), '才没有一直等你。');
+  });
+
+  test('full-text scope includes actions and dialogue', () {
+    const processor = TtsTextProcessor();
+    const source = '轻轻把耳鳍压低\n「才没有一直等你。」';
+    expect(
+      processor.process(source, scope: TtsReadingScope.fullText),
+      '轻轻把耳鳍压低。才没有一直等你。',
+    );
+  });
+
   test('replacement JSON fails closed on malformed input', () {
     const processor = TtsTextProcessor();
     expect(processor.decodeReplacementJson('{bad json'), isEmpty);

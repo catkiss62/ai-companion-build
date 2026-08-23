@@ -43,7 +43,8 @@ class AppDatabase {
   static const String dbName = 'ai_companion.db';
   // Historical validator compatibility token: static const int schemaVersion = 24;
   // Historical validator compatibility token: static const int schemaVersion = 25;
-  static const int schemaVersion = 26;
+  // Historical validator compatibility token: static const int schemaVersion = 26;
+  static const int schemaVersion = 27;
 
   Database? _db;
   Future<Database>? _opening;
@@ -748,6 +749,63 @@ class AppDatabase {
     if (oldVersion < 26) {
       await _createV26Tables(db);
     }
+    if (oldVersion < 27) {
+      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+      if (!messageColumns.any((row) => row['name'] == 'segments_json')) {
+        await db.execute(
+          "ALTER TABLE messages ADD COLUMN segments_json TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      for (final entry in const <String, String>{
+        'personality_base_key': 'neutral',
+        'personality_posture_key': 'equal',
+        'tts_reading_scope': 'dialogue_only',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+      // v26 adoption wrote the variable personality directly into the core
+      // rule. Recover its stable keys, then restore only an exact adopted
+      // snapshot; user-edited core text is deliberately left untouched.
+      final activeProfiles = await db.query(
+        'personality_profile_versions',
+        columns: const ['base_key', 'posture_key', 'content'],
+        where: 'active = 1',
+        orderBy: 'activated_at DESC',
+        limit: 1,
+      );
+      if (activeProfiles.isNotEmpty) {
+        final profile = activeProfiles.first;
+        final base = profile['base_key'] as String? ?? '';
+        final posture = profile['posture_key'] as String? ?? '';
+        if (base.isNotEmpty && posture.isNotEmpty) {
+          await db.insert(
+            'settings',
+            {'key': 'personality_base_key', 'value': base},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          await db.insert(
+            'settings',
+            {'key': 'personality_posture_key', 'value': posture},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          final core = defaultRuleLayers
+              .firstWhere((layer) => layer.key == '03_personality_seed');
+          await db.update(
+            'rule_layers',
+            {
+              'content': core.content,
+              'updated_at': DateTime.now().millisecondsSinceEpoch,
+            },
+            where: 'key = ? AND content = ?',
+            whereArgs: ['03_personality_seed', profile['content']],
+          );
+        }
+      }
+    }
 
   }
 
@@ -764,7 +822,8 @@ class AppDatabase {
         proactive_intent TEXT NOT NULL DEFAULT '',
         proactive_delivery TEXT NOT NULL DEFAULT '',
         device_id TEXT,
-        expects_reply INTEGER NOT NULL DEFAULT 1
+        expects_reply INTEGER NOT NULL DEFAULT 1,
+        segments_json TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute(
@@ -943,6 +1002,9 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_speed', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
+    await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
+    await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
+    await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
     await db.insert('settings', {'key': 'relationship_continuity_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'session_tracking_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'memory_fading_enabled', 'value': '1'});
@@ -1678,6 +1740,9 @@ class AppDatabase {
       'nsfw_manual_override': '',
       'nsfw_route_source': 'initial',
       'nsfw_route_turn_id': '',
+      'personality_base_key': 'neutral',
+      'personality_posture_key': 'equal',
+      'tts_reading_scope': 'dialogue_only',
     }.entries) {
       await db.insert(
         'settings',
@@ -7038,19 +7103,28 @@ class AppDatabase {
         {'status': 'replaced', 'ended_at': at, 'updated_at': at},
         where: "status = 'active'",
       );
-      final seed = await txn.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
-        limit: 1,
+      final currentBase = await _settingFrom(
+        txn,
+        'personality_base_key',
+        fallback: 'neutral',
+      );
+      final currentPosture = await _settingFrom(
+        txn,
+        'personality_posture_key',
+        fallback: 'equal',
+      );
+      final previous = PersonalityCatalog.compileProfile(
+        currentBase,
+        currentPosture,
+        trial: false,
+        templates: templates,
       );
       await txn.insert('personality_trials', {
         'id': id,
         'base_key': baseKey,
         'posture_key': postureKey,
         'content': content,
-        'previous_content': seed.isEmpty ? '' : seed.first['content'] as String? ?? '',
+        'previous_content': previous,
         'status': 'active',
         'started_at': at,
         'expires_at': now.add(duration).millisecondsSinceEpoch,
@@ -7152,14 +7226,22 @@ class AppDatabase {
         trial: false,
         templates: templates,
       );
-      final current = await txn.query(
-        'rule_layers',
-        columns: const ['content'],
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
-        limit: 1,
+      final previousBase = await _settingFrom(
+        txn,
+        'personality_base_key',
+        fallback: 'neutral',
       );
-      final previous = current.isEmpty ? '' : current.first['content'] as String? ?? '';
+      final previousPosture = await _settingFrom(
+        txn,
+        'personality_posture_key',
+        fallback: 'equal',
+      );
+      final previous = PersonalityCatalog.compileProfile(
+        previousBase,
+        previousPosture,
+        trial: false,
+        templates: templates,
+      );
       await txn.update(
         'personality_profile_versions',
         {'active': 0, 'retired_at': now.millisecondsSinceEpoch},
@@ -7168,6 +7250,8 @@ class AppDatabase {
       if (previous.isNotEmpty) {
         await txn.insert('personality_profile_versions', {
           'id': _uuid.v4(),
+          'base_key': previousBase,
+          'posture_key': previousPosture,
           'content': previous,
           'source': 'pre_adoption_snapshot',
           'active': 0,
@@ -7187,11 +7271,15 @@ class AppDatabase {
         'created_at': now.millisecondsSinceEpoch,
         'activated_at': now.millisecondsSinceEpoch,
       });
-      await txn.update(
-        'rule_layers',
-        {'content': adopted, 'updated_at': now.millisecondsSinceEpoch},
-        where: 'key = ?',
-        whereArgs: const ['03_personality_seed'],
+      await txn.insert(
+        'settings',
+        {'key': 'personality_base_key', 'value': trial.baseKey},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_posture_key', 'value': trial.postureKey},
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
       await txn.update(
         'personality_trials',
@@ -7206,6 +7294,69 @@ class AppDatabase {
       // Desire baselines, AI Self and relationship memory are intentionally untouched.
       return true;
     });
+  }
+
+  Future<({String baseKey, String postureKey})> longTermPersonality() async {
+    return (
+      baseKey: await getSetting('personality_base_key') ?? 'neutral',
+      postureKey: await getSetting('personality_posture_key') ?? 'equal',
+    );
+  }
+
+  Future<void> restoreNaturalPersonality() async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.update(
+        'personality_trials',
+        {'status': 'ended', 'ended_at': now, 'updated_at': now},
+        where: "status = 'active'",
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_base_key', 'value': 'neutral'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_posture_key', 'value': 'equal'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.update(
+        'personality_profile_versions',
+        {'active': 0, 'retired_at': now},
+        where: 'active = 1',
+      );
+      await txn.insert('personality_profile_versions', {
+        'id': _uuid.v4(),
+        'base_key': 'neutral',
+        'posture_key': 'equal',
+        'content': PersonalityCatalog.compileProfile(
+          'neutral',
+          'equal',
+          trial: false,
+        ),
+        'source': 'restore_natural',
+        'active': 1,
+        'created_at': now,
+        'activated_at': now,
+      });
+    });
+  }
+
+  Future<String> _settingFrom(
+    DatabaseExecutor executor,
+    String key, {
+    required String fallback,
+  }) async {
+    final rows = await executor.query(
+      'settings',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    return rows.isEmpty ? fallback : rows.first['value'] as String? ?? fallback;
   }
 
   Future<Map<String, String>> _promptTemplateContents(
@@ -8925,6 +9076,9 @@ class AppDatabase {
           if (table == 'messages' && version < 22) {
             row['expects_reply'] = 1;
           }
+          if (table == 'messages' && version < 27) {
+            row['segments_json'] = '';
+          }
           if (table == 'messages') {
             row.remove('provider_reasoning');
             row.remove('companion_voice');
@@ -9037,6 +9191,9 @@ class AppDatabase {
         'tts_speed': '1.0',
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
+        'tts_reading_scope': 'dialogue_only',
+        'personality_base_key': 'neutral',
+        'personality_posture_key': 'equal',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',
         'memory_fading_enabled': '1',

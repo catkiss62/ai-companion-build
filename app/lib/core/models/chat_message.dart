@@ -1,4 +1,5 @@
 import 'message_attachment.dart';
+import 'chat_segment.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -14,6 +15,7 @@ class ChatMessage {
     this.deviceId,
     this.attachments = const <MessageAttachment>[],
     this.expectsReply = true,
+    this.segments = const <ChatSegment>[],
   });
 
   final String id;
@@ -28,10 +30,16 @@ class ChatMessage {
   final String? deviceId;
   final List<MessageAttachment> attachments;
   final bool expectsReply;
+  final List<ChatSegment> segments;
 
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
   bool get hasAttachments => attachments.isNotEmpty;
+  List<ChatSegment> get displaySegments => segments.isNotEmpty
+      ? segments
+      : isAssistant
+          ? ChatSegmentCodec.parseAssistantText(content)
+          : const <ChatSegment>[];
 
   String get promptContent {
     if (!hasAttachments) return content;
@@ -58,6 +66,7 @@ class ChatMessage {
     String? proactiveDelivery,
     List<MessageAttachment>? attachments,
     bool? expectsReply,
+    List<ChatSegment>? segments,
   }) {
     return ChatMessage(
       id: id,
@@ -72,6 +81,7 @@ class ChatMessage {
       deviceId: deviceId,
       attachments: attachments ?? this.attachments,
       expectsReply: expectsReply ?? this.expectsReply,
+      segments: segments ?? this.segments,
     );
   }
 
@@ -87,6 +97,7 @@ class ChatMessage {
         'proactive_delivery': proactiveDelivery,
         'device_id': deviceId,
         'expects_reply': expectsReply ? 1 : 0,
+        'segments_json': ChatSegmentCodec.encode(segments),
       };
 
   Map<String, Object?> toJson() => {
@@ -102,6 +113,7 @@ class ChatMessage {
         'device_id': deviceId,
         'attachments': attachments.map((item) => item.toJson()).toList(),
         'expects_reply': expectsReply,
+        'segments': segments.map((item) => item.toJson()).toList(),
       };
 
   factory ChatMessage.fromDb(
@@ -121,6 +133,10 @@ class ChatMessage {
       deviceId: row['device_id'] as String?,
       attachments: attachments,
       expectsReply: (row['expects_reply'] as int? ?? 1) == 1,
+      segments: ChatSegmentCodec.decode(
+        row['segments_json'] as String?,
+        fallbackText: (row['content'] as String?) ?? '',
+      ),
     );
   }
 }

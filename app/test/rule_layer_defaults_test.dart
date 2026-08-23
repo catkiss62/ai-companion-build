@@ -170,7 +170,9 @@ void main() {
     final appearance = byKey['03_appearance_identity']!.content;
 
     expect(seed, contains('半知情'));
-    expect(seed, contains('元气外放 × 平等恋人'));
+    expect(seed, contains('永久活人感基线'));
+    expect(seed, contains('自然状态（不加底色）'));
+    expect(seed, contains('不能覆盖这里的聪明、独立、活人感'));
     expect(seed, contains('你是他恋人，不是陪聊客服'));
     expect(seed, contains('越相处，你应该越敢在他面前做自己'));
     expect(seed, contains('不为了显得可爱故意答错'));
@@ -212,6 +214,7 @@ void main() {
     expect(reference, contains('角色必须被明确视为成年人'));
     expect(legacyEditableRuleLayerSha256V0342.length, 5);
     expect(legacyEditableRuleLayerSha256V0350.length, 3);
+    expect(legacyEditableRuleLayerSha256V0353.length, 4);
   });
 
   test('novel word-count rules are not in the companion defaults', () {

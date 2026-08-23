@@ -46,6 +46,7 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
     final nextProfile = await db.activePersonalityTrial();
     final nextSpecial = await db.activeSpecialStyleTrial();
     final nextAdoptable = await db.latestAdoptablePersonalityTrial();
+    final longTerm = await db.longTermPersonality();
     if (!mounted) return;
     setState(() {
       profile = nextProfile;
@@ -54,6 +55,9 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
       if (nextProfile != null) {
         baseKey = nextProfile.baseKey;
         postureKey = nextProfile.postureKey;
+      } else {
+        baseKey = longTerm.baseKey;
+        postureKey = longTerm.postureKey;
       }
       if (nextSpecial != null) specialKey = nextSpecial.styleKey;
     });
@@ -110,6 +114,19 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
                 subtitle: Text(item.description),
                 onChanged: busy ? null : (value) => setState(() => baseKey = value!),
               )),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: busy
+                  ? null
+                  : () => _run(
+                        db.restoreNaturalPersonality,
+                        '已恢复自然状态：取消当前试穿，不额外套用性格底色。',
+                      ),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('恢复自然状态'),
+            ),
+          ),
           const SizedBox(height: 8),
           Text('相处姿态', style: Theme.of(context).textTheme.titleLarge),
           ...PersonalityCatalog.postures.map((item) => RadioListTile<String>(

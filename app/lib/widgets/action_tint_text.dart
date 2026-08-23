@@ -6,6 +6,39 @@ class ActionTextSegment {
   final bool isAction;
 }
 
+class DialogueTextSegment {
+  const DialogueTextSegment(this.text, {required this.isDialogue});
+  final String text;
+  final bool isDialogue;
+}
+
+List<DialogueTextSegment> splitDialogueText(String text) {
+  if (text.isEmpty) return const [];
+  final matches = RegExp(r'「[^」\n]*」').allMatches(text);
+  final segments = <DialogueTextSegment>[];
+  var cursor = 0;
+  for (final match in matches) {
+    if (match.start > cursor) {
+      segments.add(DialogueTextSegment(
+        text.substring(cursor, match.start),
+        isDialogue: false,
+      ));
+    }
+    segments.add(DialogueTextSegment(
+      text.substring(match.start, match.end),
+      isDialogue: true,
+    ));
+    cursor = match.end;
+  }
+  if (cursor < text.length) {
+    segments.add(DialogueTextSegment(
+      text.substring(cursor),
+      isDialogue: false,
+    ));
+  }
+  return segments;
+}
+
 List<ActionTextSegment> splitActionText(String text) {
   if (text.isEmpty) return const [];
   final matches = RegExp(r'（[^（）\n]*）|\([^()\n]*\)').allMatches(text);
@@ -38,17 +71,17 @@ class ActionTintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style.merge(style);
-    final action = base.copyWith(
+    final dialogue = base.copyWith(
       color: Theme.of(context).colorScheme.tertiary,
-      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.w500,
     );
     return SelectableText.rich(
       TextSpan(
         children: [
-          for (final segment in splitActionText(text))
+          for (final segment in splitDialogueText(text))
             TextSpan(
               text: segment.text,
-              style: segment.isAction ? action : base,
+              style: segment.isDialogue ? dialogue : base,
             ),
         ],
       ),

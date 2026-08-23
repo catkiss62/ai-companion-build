@@ -61,6 +61,9 @@ class TtsService implements TtsQueueService {
       final spoken = processor.process(
         visibleText,
         replacements: replacements,
+        scope: TtsReadingScope.fromSetting(
+          await db.getSetting('tts_reading_scope'),
+        ),
       );
       return spoken.isEmpty ? null : spoken;
     } catch (e) {
