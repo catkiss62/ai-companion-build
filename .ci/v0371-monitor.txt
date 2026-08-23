@@ -1,12 +1,12 @@
 status=failure
 build_result=failure
-run_id=32639067479
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32639067479
-head_sha=b2af22bb6c70122ed73e51b84641594110805ff4
+run_id=32639219269
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32639219269
+head_sha=62d52e664eb3305253ce98ee11f9d117d3fce76d
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=failure id=97193247089 ---
+--- job=build-apk conclusion=failure id=97193618033 ---
 Unable to download this completed job log.
 the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f050504712afb769a39e
