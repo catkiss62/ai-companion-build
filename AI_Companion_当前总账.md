@@ -147,7 +147,7 @@
 - 点击头像/名称会从左侧打开同一设置真源的快捷面板：角色聊天舞台、情绪短音效、本地 TTS、TTS 朗读范围、主动消息提示音、逐段打字、背景模式、透明度、打字速度、性格试穿、系统通知管理、全部设置和上游素材说明。提示音选择附带“仍需在系统通知管理允许对应频道声音/横幅”的说明；情绪短音效默认关闭，自动 TTS 同时开启时主动避让，不叠音。主动消息不进入逐段拆气泡演出。快捷面板补充提交为 `21c737e766975ebc0783250cd950b15e2d67f63e`。
 - 精选素材来自 `SlimeBoyOwO/LingChat` 固定 commit `eae0d667413e490c3653488d43ce9b4464e07fda`：2 张昼夜背景、头像/20 张表情立绘、14 个情绪 WAV。仓库内保存的是经 Git LFS batch API 下载并按对象 SHA-256 验证的真实文件，不是 130 字节 pointer；`assets/lingchat/NOTICE.md` 区分 AGPL-3.0 软件许可与上游素材专门来源/非商业限制，声明本项目个人非商业学习用途、保留署名且后续可整体替换。
 - 本地可执行的 `validate_current_conversation_foundation.py`、`validate_current_chat_visual_stage.py` 与 v0.35.2 静态回归已通过；本地环境没有 Flutter/Dart SDK，完整 analyze/tests/release APK 必须由 Actions 完成。
-- Actions run `32610931667` 与补充提交 run `32611062368` 均在约数秒内失败；两次的 `build-apk` 与 `report-ci-failure` 都是 `steps=null`、无日志，和第一阶段失败特征完全相同：job 没有获得 runner，不能据此判定源码编译失败或通过。当前状态必须写为“源码已提交、CI 基础设施阻塞、APK 未生成、真机未验收”，不得冒充完成。
+- Actions run `32610931667` 与补充提交 run `32611062368` 均在约数秒内失败；2026-08-23 再次执行 run `32611062368` 的全部 failed jobs 后，新 job `97157768969` / `97157773703` 仍瞬间结束，依旧 `steps=null`、`logs_url=null`。原始及重跑的 `build-apk` / `report-ci-failure` 都没有获得 runner，不能据此判定源码编译失败或通过。当前状态必须写为“源码已提交、CI 基础设施阻塞、APK 未生成、真机未验收”，不得冒充完成。
 - 下一步仍按既定顺序：先恢复可执行的 GitHub runner 并处理真实 Flutter analyze/test/build 结果，成功后上传 `AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk`、checksum 与 CI monitor，再交付第一个真机里程碑；视觉主链稳定后才进入主动话题候选多样性、自主查询规划与 shareable discovery Thought。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
