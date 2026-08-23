@@ -293,6 +293,7 @@ jobs:
           python3 tools/validate_v0373_expression_visual_parity.py
           python3 tools/validate_v0374_audio_presentation_stabilization.py
           python3 tools/validate_v0375_grounded_emotion_episode.py
+          python3 tools/validate_v0376_chat_recovery_presentation.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
