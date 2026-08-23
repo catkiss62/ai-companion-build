@@ -10,7 +10,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert "version: 0.37.2+91" in read("pubspec.yaml")
+assert "version: 0.37.3+92" in read("pubspec.yaml")
 assert "static const int schemaVersion = 28;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -45,7 +45,7 @@ rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 segments = read("lib/core/models/chat_segment.dart")
 visuals = read("lib/core/presentation/chat_visuals.dart")
 for token in (
-    "必须严格从兴奋、厌恶、哭泣",
+    "必须严格从兴奋、厌恶、伤心",
     "不得自造标签",
     "绝不能在正文中重复或解释",
 ):
@@ -76,10 +76,10 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 for token in (
-    "Build AI Companion v0.37.2+91 APK",
+    "Build AI Companion v0.37.3+92 APK",
     "validate_v0372_emotion_crash_hotfix.py",
-    "AI-Companion-v0.37.2-91-Emotion-Crash-Stop-Action-Hotfix-APK.apk",
-    ".ci/v0372-monitor.txt",
+    "AI-Companion-v0.37.3-92-19-Expression-Visual-Parity-APK.apk",
+    ".ci/v0373-monitor.txt",
 ):
     assert token in workflow, token
 for forbidden in (
