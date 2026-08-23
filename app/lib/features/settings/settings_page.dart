@@ -475,6 +475,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final currentTtsStatus = ttsStatus;
+    final currentStatus = status;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -882,11 +884,11 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('本地 TTS · Bert-VITS2/MNN', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          ttsStatus == null
+          currentTtsStatus == null
               ? '尚未读取状态。'
-              : '${ttsStatus!.engine} · ${ttsStatus!.available ? '可用' : '未装入实体'}'
-                  '${ttsStatus!.goldenReference.isEmpty ? '' : ' · ${ttsStatus!.goldenReference}'}\n'
-                  '${ttsStatus!.detail}',
+              : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '可用' : '未装入实体'}'
+                  '${currentTtsStatus.goldenReference.isEmpty ? '' : ' · ${currentTtsStatus.goldenReference}'}\n'
+                  '${currentTtsStatus.detail}',
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -1003,10 +1005,10 @@ class _SettingsPageState extends State<SettingsPage> {
           icon: const Icon(Icons.save),
           label: const Text('保存'),
         ),
-        if (status != null)
+        if (currentStatus != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text(status!, textAlign: TextAlign.center),
+            child: Text(currentStatus, textAlign: TextAlign.center),
           ),
         const SizedBox(height: 24),
         const Text(
