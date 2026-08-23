@@ -19,7 +19,7 @@ class DurableGenerationRecovery {
     if (!await db.brainWorkAllowed()) return false;
     final acquired = await db.tryAcquireLocalLease(
       'chat_turn_lease',
-      holdFor: const Duration(minutes: 3),
+      holdFor: const Duration(seconds: 30),
     );
     if (!acquired) return false;
     try {
