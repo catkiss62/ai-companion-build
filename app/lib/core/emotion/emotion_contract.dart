@@ -168,7 +168,11 @@ class EmotionEnvelope {
   const EmotionEnvelope._();
 
   static final RegExp _complete = RegExp(
-    r'<\s*emotion\s*>\s*([^<\r\n]{1,40}?)\s*<\s*/\s*emotion\s*>',
+    r'<\s*emotion\s*>\s*([^<\r\n]{0,80}?)\s*<\s*/\s*emotion\s*>',
+    caseSensitive: false,
+  );
+  static final RegExp _selfClosing = RegExp(
+    r'<\s*emotion\s*/\s*>',
     caseSensitive: false,
   );
   static final RegExp _closing = RegExp(
@@ -204,6 +208,7 @@ class EmotionEnvelope {
 
   static String _stripReservedMarkup(String raw) {
     var value = raw.replaceAll(_complete, '');
+    value = value.replaceAll(_selfClosing, '');
     value = value.replaceAll(_closing, '');
 
     // A provider can be interrupted halfway through an opening envelope. From
