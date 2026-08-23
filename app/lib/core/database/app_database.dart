@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
+import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
 import '../models/message_attachment.dart';
@@ -45,7 +46,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 25;
   // Historical validator compatibility token: static const int schemaVersion = 26;
   // Historical validator compatibility token: static const int schemaVersion = 27;
-  static const int schemaVersion = 28;
+  // Historical validator compatibility token: static const int schemaVersion = 28;
+  static const int schemaVersion = 29;
 
   Database? _db;
   Future<Database>? _opening;
@@ -840,6 +842,9 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    if (oldVersion < 29) {
+      await _createV29Tables(db);
+    }
 
   }
 
@@ -999,6 +1004,7 @@ class AppDatabase {
     await _createV24Tables(db);
     await _createV25Tables(db);
     await _createV26Tables(db);
+    await _createV29Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1686,6 +1692,46 @@ class AppDatabase {
     ''');
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_personality_profiles_active ON personality_profile_versions(active, activated_at DESC)',
+    );
+  }
+
+
+  Future<void> _createV29Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS emotion_episodes (
+        id TEXT PRIMARY KEY,
+        trigger_message_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        cause_code TEXT NOT NULL,
+        evidence_type TEXT NOT NULL,
+        object_key TEXT NOT NULL,
+        desirability REAL NOT NULL,
+        agency TEXT NOT NULL,
+        controllability REAL NOT NULL,
+        expectedness REAL NOT NULL,
+        relational_meaning TEXT NOT NULL,
+        boundary_impact REAL NOT NULL,
+        certainty REAL NOT NULL,
+        intensity REAL NOT NULL,
+        action_tendency TEXT NOT NULL,
+        recovery_condition TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        outcome_code TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        decay_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY(trigger_message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        UNIQUE(trigger_message_id, category)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_emotion_episodes_active '
+      'ON emotion_episodes(status, expires_at, intensity DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_emotion_episodes_trigger '
+      'ON emotion_episodes(trigger_message_id)',
     );
   }
 
@@ -2481,6 +2527,96 @@ class AppDatabase {
       final event = SomaticEvent.fromDb(row);
       await _mergeSomaticEvent(txn, event, event.createdAt);
     }
+  }
+
+  Future<bool> insertEmotionEpisodeIfAbsent(
+    EmotionEpisode episode,
+  ) async {
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final existing = await txn.query(
+        'emotion_episodes',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [episode.id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return false;
+      await txn.insert(
+        'emotion_episodes',
+        episode.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+      return true;
+    });
+  }
+
+  Future<EmotionEpisode?> emotionEpisodeById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'emotion_episodes',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : EmotionEpisode.fromDb(rows.first);
+  }
+
+  Future<List<EmotionEpisode>> activeEmotionEpisodes({
+    DateTime? now,
+    int limit = 4,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'emotion_episodes',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [instant.millisecondsSinceEpoch],
+      orderBy: 'intensity DESC, updated_at DESC',
+      limit: limit,
+    );
+    return rows.map(EmotionEpisode.fromDb).toList(growable: false);
+  }
+
+  Future<int> expireEmotionEpisodes({DateTime? now}) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.update(
+      'emotion_episodes',
+      {
+        'status': 'expired',
+        'outcome_code': 'natural_decay',
+        'updated_at': instant.millisecondsSinceEpoch,
+      },
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [instant.millisecondsSinceEpoch],
+    );
+  }
+
+  Future<int> applyEmotionRepair({
+    required String triggerMessageId,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.rawUpdate('''
+      UPDATE emotion_episodes
+      SET intensity = intensity * 0.55,
+          status = CASE
+            WHEN intensity * 0.55 < 0.18 THEN 'resolved'
+            ELSE 'active'
+          END,
+          outcome_code = 'explicit_repair_evidence',
+          updated_at = ?
+      WHERE status = 'active'
+        AND category IN ('hurt', 'disagreement')
+        AND expires_at > ?
+        AND trigger_message_id <> ?
+    ''', [
+      instant.millisecondsSinceEpoch,
+      instant.millisecondsSinceEpoch,
+      triggerMessageId,
+    ]);
   }
 
   Future<GenerationJob> createGenerationTurn({
@@ -8798,6 +8934,11 @@ class AppDatabase {
       'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
       'somatic_events': await count('somatic_events'),
+      'active_emotion_episodes': await count(
+        'emotion_episodes',
+        "status = 'active' AND expires_at > ?",
+        [DateTime.now().millisecondsSinceEpoch],
+      ),
       'somatic_user_to_ai_events': await count(
         'somatic_events',
         'direction = ?',
@@ -8936,6 +9077,7 @@ class AppDatabase {
       'generation_jobs',
       'somatic_events',
       'somatic_aggregates',
+      'emotion_episodes',
       'settings',
     ];
     // Read the whole state inside one SQLite transaction so background
@@ -9010,6 +9152,7 @@ class AppDatabase {
         'generation_jobs',
         'somatic_events',
         'somatic_aggregates',
+        'emotion_episodes',
         'desire_state',
         'settings',
       ];
