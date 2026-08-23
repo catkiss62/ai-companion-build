@@ -10,7 +10,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert "version: 0.37.2+91" in read("pubspec.yaml")
+assert "version: 0.37.3+92" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 for token in (
     "static const int schemaVersion = 28;",
@@ -74,4 +74,4 @@ assert "EmotionClassifierBridge" not in main + overlay
 assert not (ROOT / "android/app/src/main/kotlin/com/aicompanion/localfirst/EmotionClassifierBridge.kt").exists()
 assert not (ROOT / "android/app/src/main/assets/emotion_model_19emo/model.onnx").exists()
 
-print("v0.37.1 lifelike personality and 19-label contract remain present in v0.37.2")
+print("v0.37.1 lifelike personality and 19-label contract remain present in v0.37.3")
