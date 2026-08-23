@@ -115,6 +115,9 @@ class PreflightDiagnosticsService {
       final jobs = await db.postTurnJobStats();
       final memoryStats = await db.memoryStats();
       final somaticDiagnostics = await db.somaticDiagnosticStats();
+      final emotionDiagnostics = await db.emotionDiagnosticStats(now: now);
+      final chatTurnLease =
+          await db.localLeaseDiagnostic('chat_turn_lease');
       final autonomousActions =
           await db.autonomousActionDiagnosticStats(now: now);
       final publicWebCandidates =
@@ -192,6 +195,8 @@ class PreflightDiagnosticsService {
         'blockingGenerationStatus': generationJob?.status ?? 'none',
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
+        'chatTurnLease': chatTurnLease,
+        'emotionObservability': emotionDiagnostics,
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
         'nsfwRouting': {
