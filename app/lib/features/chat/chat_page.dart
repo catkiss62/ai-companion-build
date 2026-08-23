@@ -47,6 +47,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
   bool _emotionSoundEnabled = false;
+  bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
   bool _ttsEnabled = false;
   double _panelOpacity = 0.72;
@@ -54,6 +55,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _typewriterMs = 56;
   String _backgroundMode = 'auto';
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
+  String _currentEmotionLabel = '平静';
+  bool _followLatest = true;
+  bool _programmaticScroll = false;
   ProactiveNotificationSound _notificationSound =
       ProactiveNotificationSound.chime;
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
@@ -65,6 +69,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller.addListener(_onChanged);
+    scroll.addListener(_onScrollChanged);
     _initializeController();
   }
 
@@ -114,29 +119,46 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _animatedMessageId = message.id;
       }
     }
-    String? expressionSource;
     if (controller.streamingContent.trim().isNotEmpty) {
-      expressionSource = controller.streamingContent;
+      _currentEmotion =
+          ChatVisualResolver.resolve(controller.streamingContent);
+      _currentEmotionLabel = _currentEmotion.zhLabel;
     } else {
       for (final message in controller.messages.reversed) {
-        if (message.isAssistant) {
-          expressionSource = message.content;
-          break;
+        if (!message.isAssistant) continue;
+        if (message.emotionKey.isNotEmpty) {
+          _currentEmotion =
+              ChatVisualResolver.resolveEmotionKey(message.emotionKey);
+          _currentEmotionLabel = message.emotionLabel.isEmpty
+              ? _currentEmotion.zhLabel
+              : message.emotionLabel;
+        } else {
+          _currentEmotion = ChatVisualResolver.resolve(message.content);
+          _currentEmotionLabel = _currentEmotion.zhLabel;
         }
+        break;
       }
     }
-    if (expressionSource != null && expressionSource.trim().isNotEmpty) {
-      _currentEmotion = ChatVisualResolver.resolve(expressionSource);
-    }
-    setState(() {});
     final wasNearBottom = !scroll.hasClients ||
-        (scroll.position.maxScrollExtent - scroll.offset) < 140 ||
-        controller.generationActive;
-    if (wasNearBottom) {
+        (scroll.position.maxScrollExtent - scroll.offset) < 140;
+    final shouldFollow = _followLatest || wasNearBottom;
+    setState(() {});
+    if (shouldFollow) {
+      _followLatest = true;
       _scrollToLatest(animate: true);
     }
     if (_appResumed && widget.active && !controller.generationActive) {
       unawaited(controller.acknowledgeOverlayUnread());
+    }
+  }
+
+  void _onScrollChanged() {
+    if (!scroll.hasClients || _programmaticScroll) return;
+    final distance = scroll.position.maxScrollExtent - scroll.offset;
+    if (distance < 90) {
+      _followLatest = true;
+    } else if (controller.generationActive) {
+      _followLatest = false;
     }
   }
 
@@ -146,6 +168,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
     _emotionSoundEnabled =
         (await db.getSetting('emotion_sound_enabled')) == '1';
+    _showEmotionLabel =
+        (await db.getSetting('show_emotion_label')) != '0';
     _typewriterEnabled =
         (await db.getSetting('chat_typewriter_enabled')) != '0';
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
@@ -194,14 +218,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !scroll.hasClients) return;
       final target = scroll.position.maxScrollExtent;
+      _programmaticScroll = true;
       if (animate) {
-        scroll.animateTo(
-          target,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        unawaited(
+          scroll
+              .animateTo(
+                target,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+              )
+              .whenComplete(() => _programmaticScroll = false),
         );
       } else {
         scroll.jumpTo(target);
+        _programmaticScroll = false;
       }
     });
   }
@@ -224,6 +254,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _externalSyncTimer?.cancel();
     _personalityTimer?.cancel();
     controller.removeListener(_onChanged);
+    scroll.removeListener(_onScrollChanged);
     controller.dispose();
     input.dispose();
     scroll.dispose();
@@ -257,6 +288,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _send() async {
     final text = input.text;
     if (text.trim().isEmpty || controller.analyzingImage) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    _followLatest = true;
     input.clear();
     await controller.sendText(text);
   }
@@ -519,6 +552,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       _MessageBubble(
                         key: ValueKey(item.message!.id),
                         message: item.message!,
+                        bubbleOpacity:
+                            _visualStageEnabled ? _panelOpacity : 1.0,
                         ttsPhase:
                             controller.ttsPhaseForMessage(item.message!.id),
                         attachmentStorage: controller.attachmentStorage,
@@ -527,6 +562,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             item.message!.id == latestAssistantId &&
                             item.message!.id == _animatedMessageId,
                         typewriterMs: _typewriterMs,
+                        onAnimationProgress: () {
+                          if (_followLatest) {
+                            _scrollToLatest(animate: true);
+                          }
+                        },
                         onAnimationFinished: () {
                           if (_animatedMessageId == item.message!.id) {
                             _animatedMessageId = null;
@@ -537,7 +577,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               emotion.key == _currentEmotion.key) {
                             return;
                           }
-                          setState(() => _currentEmotion = emotion);
+                          setState(() {
+                            _currentEmotion = emotion;
+                            _currentEmotionLabel = emotion.zhLabel;
+                          });
                         },
                         onEmotionSound: _emotionSoundEnabled
                             ? (emotion) => _emotionSounds.play(emotion)
@@ -569,7 +612,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ],
                 );
               }
-              return _StreamingBubble(controller: controller);
+              return _StreamingBubble(
+                controller: controller,
+                bubbleOpacity: _visualStageEnabled ? _panelOpacity : 1.0,
+              );
             },
           );
 
@@ -827,6 +873,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
+                        title: const Text('显示当前情绪'),
+                        subtitle: const Text('在头像旁显示本轮返回的情绪标签。'),
+                        value: _showEmotionLabel,
+                        onChanged: (value) async {
+                          setState(() => _showEmotionLabel = value);
+                          await update(
+                            'show_emotion_label',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
                         title: const Text('情绪短音效'),
                         subtitle: const Text('默认关闭；自动 TTS 开启时不会叠音。'),
                         value: _emotionSoundEnabled,
@@ -1020,9 +1079,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'DeepSeek',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                          Row(
+                            children: [
+                              const Text(
+                                'DeepSeek',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              if (_showEmotionLabel &&
+                                  _currentEmotionLabel.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  _currentEmotionLabel,
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                   if (controller.cancellingGeneration)
                     Text(
@@ -1220,12 +1295,14 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     super.key,
     required this.message,
+    required this.bubbleOpacity,
     required this.ttsPhase,
     required this.attachmentStorage,
     required this.onOpenAttachment,
     required this.animateSegments,
     required this.typewriterMs,
     required this.onEmotionChanged,
+    required this.onAnimationProgress,
     required this.onAnimationFinished,
     this.onSpeechAction,
     this.onEmotionSound,
@@ -1233,12 +1310,14 @@ class _MessageBubble extends StatelessWidget {
     this.onRetryVision,
   });
   final ChatMessage message;
+  final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
   final MessageAttachmentStorage attachmentStorage;
   final ValueChanged<MessageAttachment> onOpenAttachment;
   final bool animateSegments;
   final int typewriterMs;
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
+  final VoidCallback onAnimationProgress;
   final VoidCallback onAnimationFinished;
   final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
   final VoidCallback? onSpeechAction;
@@ -1287,7 +1366,10 @@ class _MessageBubble extends StatelessWidget {
         !message.isProactive &&
         !message.hasAttachments &&
         segments.isNotEmpty) {
-      final chunks = ChatVisualResolver.chunks(segments);
+      final chunks = ChatVisualResolver.chunks(
+        segments,
+        emotionKey: message.emotionKey,
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1295,14 +1377,17 @@ class _MessageBubble extends StatelessWidget {
             _ChatBubbleSurface(
               user: false,
               color: color,
+              opacity: bubbleOpacity,
               child: ReasoningPanel(reasoning: message.reasoningContent),
             ),
           _AssistantSegmentSequence(
             chunks: chunks,
+            bubbleOpacity: bubbleOpacity,
             animate: animateSegments,
             millisecondsPerCharacter: typewriterMs,
             onEmotionChanged: onEmotionChanged,
             onEmotionSound: onEmotionSound,
+            onProgress: onAnimationProgress,
             onFinished: onAnimationFinished,
             footer: _footer(context),
           ),
@@ -1313,6 +1398,7 @@ class _MessageBubble extends StatelessWidget {
     return _ChatBubbleSurface(
       user: user,
       color: color,
+      opacity: bubbleOpacity,
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1365,19 +1451,23 @@ class _MessageBubble extends StatelessWidget {
 class _AssistantSegmentSequence extends StatefulWidget {
   const _AssistantSegmentSequence({
     required this.chunks,
+    required this.bubbleOpacity,
     required this.animate,
     required this.millisecondsPerCharacter,
     required this.onEmotionChanged,
+    required this.onProgress,
     required this.onFinished,
     required this.footer,
     this.onEmotionSound,
   });
 
   final List<ChatVisualChunk> chunks;
+  final double bubbleOpacity;
   final bool animate;
   final int millisecondsPerCharacter;
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
   final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
+  final VoidCallback onProgress;
   final VoidCallback onFinished;
   final Widget footer;
 
@@ -1436,6 +1526,7 @@ class _AssistantSegmentSequenceState
           return;
         }
         setState(() => _currentCharacters++);
+        widget.onProgress();
         if (_currentCharacters >= length) {
           timer.cancel();
           _finishChunk(index);
@@ -1450,6 +1541,7 @@ class _AssistantSegmentSequenceState
       _completedChunks = index + 1;
       _currentCharacters = 0;
     });
+    widget.onProgress();
     if (_completedChunks >= widget.chunks.length) {
       widget.onFinished();
       return;
@@ -1478,6 +1570,7 @@ class _AssistantSegmentSequenceState
           _ChatBubbleSurface(
             user: false,
             color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            opacity: widget.bubbleOpacity,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1513,14 +1606,19 @@ class _ChatBubbleSurface extends StatelessWidget {
     required this.user,
     required this.color,
     required this.child,
+    this.opacity = 1,
   });
 
   final bool user;
   final Color color;
   final Widget child;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
+    final bubbleColor = color.withValues(
+      alpha: opacity.clamp(0.18, 1).toDouble(),
+    );
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(17),
       topRight: const Radius.circular(17),
@@ -1538,11 +1636,14 @@ class _ChatBubbleSurface extends StatelessWidget {
                       .width
                       .clamp(260, 560)
                       .toDouble() *
-                  0.91,
+                  0.84,
             ),
             margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
             padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(color: color, borderRadius: radius),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: radius,
+            ),
             child: child,
           ),
           Positioned(
@@ -1551,7 +1652,7 @@ class _ChatBubbleSurface extends StatelessWidget {
             right: user ? 0 : null,
             child: CustomPaint(
               size: const Size(8, 9),
-              painter: _BubbleTailPainter(color: color, user: user),
+              painter: _BubbleTailPainter(color: bubbleColor, user: user),
             ),
           ),
         ],
@@ -1716,14 +1817,19 @@ class _MissingAttachment extends StatelessWidget {
 }
 
 class _StreamingBubble extends StatelessWidget {
-  const _StreamingBubble({required this.controller});
+  const _StreamingBubble({
+    required this.controller,
+    required this.bubbleOpacity,
+  });
   final ChatController controller;
+  final double bubbleOpacity;
 
   @override
   Widget build(BuildContext context) {
     return _ChatBubbleSurface(
       user: false,
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      opacity: bubbleOpacity,
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

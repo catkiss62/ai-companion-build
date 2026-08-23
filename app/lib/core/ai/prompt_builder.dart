@@ -341,9 +341,13 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 7. 主动联系始终保存和显示为一条完整消息；可以在这一条内部换行，但不能制造多条独立消息、多个未读或连续通知。
 8. 最终正文停在自然落点。没有真实需要时，不追加万能安慰、随时待命、等待他回复的保证，也不以机械提问收尾。固定外观只在此刻确实相关时进入注意。
 ''';
-    return (template ?? fallback)
+    final base = (template ?? fallback)
         .replaceAll('{{turn_context}}', turn)
         .trim();
+    final emotionContract = mode == PromptGenerationMode.proactive
+        ? '''【本轮情绪标签】如果最终决定不发送，仍只输出 WAIT。否则最终正文第一行先输出 <emotion>情绪</emotion>，再换行输出正文。情绪优先从兴奋、厌恶、哭泣、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴中选最贴近的一项；如果都不贴切，可以写 2～5 个汉字的自然短标签。标签只描述这一轮表达，不写入长期心情，不在正文解释标签。'''
+        : '''【本轮情绪标签】最终正文第一行先输出 <emotion>情绪</emotion>，再换行输出正文。情绪优先从兴奋、厌恶、哭泣、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴中选最贴近的一项；如果都不贴切，可以写 2～5 个汉字的自然短标签。标签只描述这一轮表达，不写入长期心情，不在正文解释标签。''';
+    return '$base\n\n$emotionContract';
   }
 
   String _thoughtDataLine(CompanionThought thought) {

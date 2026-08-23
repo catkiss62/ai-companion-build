@@ -5,6 +5,8 @@ import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
+import '../emotion/emotion_classifier_service.dart';
+import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -86,7 +88,10 @@ class DurableGenerationRunner {
     required this.db,
     required this.client,
     SecureConfig? secureConfig,
+    EmotionClassifierService? emotionClassifier,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
+        emotionClassifier =
+            emotionClassifier ?? EmotionClassifierService.instance,
         desireEngine = DesireEngine(db),
         somaticEngine = SomaticEngine(db),
         nsfwRouter = NsfwContextRouter(db: db, client: client),
@@ -99,6 +104,7 @@ class DurableGenerationRunner {
   final AppDatabase db;
   final DeepSeekClient client;
   final SecureConfig secureConfig;
+  final EmotionClassifierService emotionClassifier;
   final DesireEngine desireEngine;
   final SomaticEngine somaticEngine;
   final NsfwContextRouter nsfwRouter;
@@ -241,6 +247,7 @@ class DurableGenerationRunner {
       }) async {
         var reasoning = '';
         var content = '';
+        var emittedVisibleContent = '';
         var sawTerminalSignal = false;
         var publishedAnswering = false;
         final toolCallBuilders = <int, _DeepSeekToolCallBuilder>{};
@@ -314,11 +321,19 @@ class DurableGenerationRunner {
                 .add(fragment);
           }
           if (emitDeltas) {
+            // Hold the leading machine-readable emotion envelope out of the
+            // visible bubble and streaming TTS. Providers that ignore the
+            // contract still stream ordinary text without waiting for commit.
+            final visibleContent = EmotionEnvelope.streamingVisible(content);
+            final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
+                ? visibleContent.substring(emittedVisibleContent.length)
+                : visibleContent;
+            emittedVisibleContent = visibleContent;
             // Provider reasoning may contain English tool-routing logs. Keep
             // those out of the visible companion inner voice; the validated
             // final Chinese reasoning is published once at commit time.
             onDelta?.call(DeepSeekDelta(
-              content: delta.content,
+              content: visibleDelta,
               done: delta.done,
               finishReason: delta.finishReason,
               toolCallDeltas: delta.toolCallDeltas,
@@ -444,7 +459,8 @@ class DurableGenerationRunner {
       final recentAssistantTexts = previous
           .where((message) => message.isAssistant)
           .map((message) => message.content);
-      var finalContent = generated.content;
+      var envelope = EmotionEnvelope.parse(generated.content);
+      var finalContent = envelope.visibleText;
       var serviceGuard = ServiceTemplateGuard.evaluate(
         text: finalContent,
         recentAssistantTexts: recentAssistantTexts,
@@ -474,7 +490,8 @@ class DurableGenerationRunner {
           emitDeltas: false,
         );
         cancellationToken?.throwIfCancelled();
-        finalContent = generated.content;
+        envelope = EmotionEnvelope.parse(generated.content);
+        finalContent = envelope.visibleText;
         serviceGuard = ServiceTemplateGuard.evaluate(
           text: finalContent,
           recentAssistantTexts: recentAssistantTexts,
@@ -507,6 +524,11 @@ class DurableGenerationRunner {
         throw const FormatException('模板重写后正文为空');
       }
 
+      final companionEmotion = await emotionClassifier.resolve(
+        rawTag: envelope.rawTag,
+        visibleText: finalContent,
+      );
+
       final visibleReasoning = _visibleChineseReasoning(generated.reasoning);
       if (visibleReasoning.isNotEmpty) {
         onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
@@ -521,6 +543,12 @@ class DurableGenerationRunner {
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(finalContent),
+        emotionRawTag: companionEmotion.rawTag,
+        emotionKey: companionEmotion.key,
+        emotionLabel: companionEmotion.label,
+        emotionConfidence: companionEmotion.confidence,
+        emotionTop3Json: companionEmotion.top3Json,
+        emotionSource: companionEmotion.source,
       );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.

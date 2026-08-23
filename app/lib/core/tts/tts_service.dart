@@ -73,10 +73,16 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<String?> generatePrepared(String spokenText) async {
+  Future<String?> generatePrepared(
+    String spokenText, {
+    TtsEmotionCue? emotion,
+  }) async {
     if (spokenText.trim().isEmpty) return null;
     try {
-      final audio = await provider.generate(spokenText.trim());
+      final audio = await provider.generate(
+        spokenText.trim(),
+        emotion: emotion,
+      );
       if (audio == null || audio.trim().isEmpty) return null;
       await _recordError('');
       return audio;

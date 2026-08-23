@@ -14,6 +14,7 @@ import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
+import '../../core/emotion/emotion_contract.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
 import '../../core/desire/thought_consolidation_engine.dart';
 import '../../core/desire/thought_lifecycle_engine.dart';
@@ -30,6 +31,7 @@ import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
+import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
 
 class ChatController extends ChangeNotifier {
@@ -318,7 +320,8 @@ class ChatController extends ChangeNotifier {
     if (!sending) {
       final nextActive = job != null;
       final nextReasoning = job?.partialReasoning ?? '';
-      final nextContent = job?.partialContent ?? '';
+      final nextContent =
+          EmotionEnvelope.streamingVisible(job?.partialContent ?? '');
       final nextAssistantId = job?.assistantMessageId;
       final statusText = nextActive
           ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
@@ -771,6 +774,7 @@ class ChatController extends ChangeNotifier {
               result.assistant!.content,
               manual: false,
               ownerId: result.assistant!.id,
+              emotion: _ttsEmotionCue(result.assistant!),
             ),
           );
         }
@@ -994,12 +998,23 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
   }
 
+  TtsEmotionCue? _ttsEmotionCue(ChatMessage message) {
+    if (message.emotionKey.isEmpty) return null;
+    return TtsEmotionCue(
+      key: message.emotionKey,
+      label: message.emotionLabel,
+      confidence: message.emotionConfidence,
+      source: message.emotionSource,
+    );
+  }
+
   Future<void> speakMessage(ChatMessage message) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
     await ttsPlayback.playText(
       message.content,
       manual: true,
       ownerId: message.id,
+      emotion: _ttsEmotionCue(message),
     );
   }
 
@@ -1027,6 +1042,7 @@ class ChatController extends ChangeNotifier {
       latest.content,
       manual: true,
       ownerId: latest.id,
+      emotion: _ttsEmotionCue(latest),
     );
   }
 

@@ -71,9 +71,14 @@ class ActionTintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style.merge(style);
+    final action = base.copyWith(
+      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.normal,
+    );
     final dialogue = base.copyWith(
       color: Theme.of(context).colorScheme.tertiary,
-      fontWeight: FontWeight.w500,
+      fontStyle: FontStyle.normal,
+      fontWeight: FontWeight.normal,
     );
     return SelectableText.rich(
       TextSpan(
@@ -81,7 +86,7 @@ class ActionTintText extends StatelessWidget {
           for (final segment in splitDialogueText(text))
             TextSpan(
               text: segment.text,
-              style: segment.isDialogue ? dialogue : base,
+              style: segment.isDialogue ? dialogue : action,
             ),
         ],
       ),

@@ -1,3 +1,4 @@
+import '../emotion/emotion_contract.dart';
 import '../models/chat_segment.dart';
 
 class ChatEmotionVisual {
@@ -149,7 +150,37 @@ class ChatVisualResolver {
     return normal;
   }
 
-  static List<ChatVisualChunk> chunks(List<ChatSegment> segments) {
+  static ChatEmotionVisual resolveEmotionKey(String key) {
+    final visualKey = switch (key) {
+      'excited' || 'happy' || 'confident' => 'happy',
+      'disgust' || 'angry' => 'angry',
+      'crying' || 'afraid' => 'sad',
+      'shy' || 'embarrassed' => 'shy',
+      'affection' => 'affection',
+      'surprised' || 'flustered' || 'nervous' => 'surprised',
+      'worried' => 'worried',
+      'helpless' => 'helpless',
+      'confused' => 'confused',
+      'serious' => 'serious',
+      'playful' => 'playful',
+      _ => 'normal',
+    };
+    final visual = _byKey(visualKey);
+    final label = EmotionCatalog.labelForKey(key);
+    return label.isEmpty
+        ? visual
+        : ChatEmotionVisual(
+            key: visual.key,
+            zhLabel: label,
+            portraitAsset: visual.portraitAsset,
+            soundAsset: visual.soundAsset,
+          );
+  }
+
+  static List<ChatVisualChunk> chunks(
+    List<ChatSegment> segments, {
+    String emotionKey = '',
+  }) {
     if (segments.isEmpty) return const <ChatVisualChunk>[];
     final result = <ChatVisualChunk>[];
     var pending = <ChatSegment>[];
@@ -158,7 +189,9 @@ class ChatVisualResolver {
       if (segment.kind == ChatSegmentKind.dialogue) {
         result.add(ChatVisualChunk(
           segments: List<ChatSegment>.unmodifiable(pending),
-          emotion: resolve(pending.map((item) => item.text).join('\n')),
+          emotion: emotionKey.isEmpty
+              ? resolve(pending.map((item) => item.text).join('\n'))
+              : resolveEmotionKey(emotionKey),
         ));
         pending = <ChatSegment>[];
       }
@@ -166,7 +199,9 @@ class ChatVisualResolver {
     if (pending.isNotEmpty) {
       result.add(ChatVisualChunk(
         segments: List<ChatSegment>.unmodifiable(pending),
-        emotion: resolve(pending.map((item) => item.text).join('\n')),
+        emotion: emotionKey.isEmpty
+            ? resolve(pending.map((item) => item.text).join('\n'))
+            : resolveEmotionKey(emotionKey),
       ));
     }
     return result;

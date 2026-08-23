@@ -24,7 +24,6 @@ import android.provider.Settings
 import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
@@ -115,6 +114,7 @@ class OverlayBubbleService : Service() {
     private var backgroundEngine: FlutterEngine? = null
     private var backgroundSystemBridge: BackgroundSystemBridge? = null
     private var backgroundTtsBridge: NativeTtsBridge? = null
+    private var backgroundEmotionBridge: EmotionClassifierBridge? = null
     private var backgroundCommands: MethodChannel? = null
     private var pendingBrainWakeReason: String? = null
     private var brainWakeAttempt = 0
@@ -518,6 +518,8 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
+        backgroundEmotionBridge?.dispose()
+        backgroundEmotionBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         backgroundEngine?.destroy()
@@ -1086,6 +1088,8 @@ class OverlayBubbleService : Service() {
             setChatStatus("正在连接后台大脑…")
             return
         }
+        hideKeyboard()
+        exitChatInputMode()
         overlaySubmitCommandPending = true
         setComposerGenerationState(sending = true)
         chatInput?.setText("")
@@ -2235,6 +2239,8 @@ class OverlayBubbleService : Service() {
             engine = createdEngine
             backgroundSystemBridge = BackgroundSystemBridge(applicationContext, createdEngine)
             backgroundTtsBridge = NativeTtsBridge(applicationContext, createdEngine)
+            backgroundEmotionBridge =
+                EmotionClassifierBridge(applicationContext, createdEngine)
             val commandChannel = MethodChannel(
                 createdEngine.dartExecutor.binaryMessenger,
                 BACKGROUND_COMMAND_CHANNEL,
@@ -2295,6 +2301,8 @@ class OverlayBubbleService : Service() {
             backgroundCommands = null
             backgroundTtsBridge?.dispose()
             backgroundTtsBridge = null
+            backgroundEmotionBridge?.dispose()
+            backgroundEmotionBridge = null
             backgroundSystemBridge?.dispose()
             backgroundSystemBridge = null
             runCatching { engine?.destroy() }
@@ -2333,6 +2341,8 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
+        backgroundEmotionBridge?.dispose()
+        backgroundEmotionBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         runCatching { expectedEngine.destroy() }
@@ -2588,6 +2598,20 @@ class OverlayBubbleService : Service() {
         cornerRadius = dpF(radiusDp)
     }
 
+    private fun messageBubbleBackground(
+        color: Int,
+        user: Boolean,
+    ): GradientDrawable = GradientDrawable().apply {
+        setColor(color)
+        val full = dpF(14f)
+        val pointer = dpF(3f)
+        cornerRadii = if (user) {
+            floatArrayOf(full, full, full, full, pointer, pointer, full, full)
+        } else {
+            floatArrayOf(full, full, full, full, full, full, pointer, pointer)
+        }
+    }
+
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
@@ -2694,9 +2718,9 @@ class OverlayBubbleService : Service() {
             val bubble = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(11), dp(8), dp(11), dp(8))
-                background = rounded(
+                background = messageBubbleBackground(
                     if (message.role == "user") Color.rgb(83, 62, 115) else Color.rgb(53, 51, 60),
-                    14f,
+                    user = message.role == "user",
                 )
             }
             val label = if (message.role == "user") {
@@ -2793,17 +2817,30 @@ class OverlayBubbleService : Service() {
 
         private fun actionTintedText(value: String): CharSequence {
             val result = SpannableString(value)
-            Regex("""（[^（）\n]*）|\([^()\n]*\)""").findAll(value).forEach { match ->
+            val dialogue = Regex("""「[^」\n]*」""")
+            var cursor = 0
+            dialogue.findAll(value).forEach { match ->
+                if (match.range.first > cursor) {
+                    result.setSpan(
+                        StyleSpan(Typeface.ITALIC),
+                        cursor,
+                        match.range.first,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
                 result.setSpan(
-                    ForegroundColorSpan(Color.rgb(239, 184, 200)),
+                    StyleSpan(Typeface.NORMAL),
                     match.range.first,
                     match.range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
+                cursor = match.range.last + 1
+            }
+            if (cursor < value.length) {
                 result.setSpan(
                     StyleSpan(Typeface.ITALIC),
-                    match.range.first,
-                    match.range.last + 1,
+                    cursor,
+                    value.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             }

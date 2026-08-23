@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../features/chat/chat_controller.dart';
 import '../database/app_database.dart';
+import '../emotion/emotion_contract.dart';
 import '../models/chat_message.dart';
 import '../storage/message_attachment_storage.dart';
 import 'overlay_generation_snapshot.dart';
@@ -200,7 +201,7 @@ class BackgroundChatCommandServer {
       sending: true,
       cancelling: false,
       reasoning: job.partialReasoning,
-      content: job.partialContent,
+      content: EmotionEnvelope.streamingVisible(job.partialContent),
       assistantMessageId: job.assistantMessageId,
       statusText:
           await db.getSetting('agent_tool_runtime_status_text') ?? '',

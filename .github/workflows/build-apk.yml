@@ -39,7 +39,7 @@
 # Build AI Companion v0.36.0+85 APK (UI Domains & Relationship Age)
 # AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk
 # .ci/v0360-monitor.txt
-name: Build AI Companion v0.37.0+89 APK (App Chat Visual Stage)
+name: Build AI Companion v0.37.1+90 APK (Lifelike 19emo Chat Polish)
 
 on:
   workflow_dispatch:
@@ -145,13 +145,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.37.0+89$' app/pubspec.yaml
-          grep -q '^  static const int schemaVersion = 27;$' app/lib/core/database/app_database.dart
+          grep -q '^version: 0.37.1+90$' app/pubspec.yaml
+          grep -q '^  static const int schemaVersion = 28;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
-          echo 'Building directly from the committed v0.37.0+89 app/ source tree.'
+          test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
+          echo 'Building directly from the committed v0.37.1+90 app/ source tree; the 19emo binary is injected later by CI.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -168,6 +169,29 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.44.9'
+
+      - name: Restore pinned LingChat 19emo ONNX payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL_DIR='app/android/app/src/main/assets/emotion_model_19emo'
+          BASE_URL='https://www.modelscope.cn/models/lingchat-research-studio/Emotion_model_19emo_small_onnx/resolve/master/model_int8_o2'
+          mkdir -p "${MODEL_DIR}"
+          curl --location --fail --retry 4 --retry-all-errors \
+            "${BASE_URL}/model.onnx" --output "${MODEL_DIR}/model.onnx"
+          curl --location --fail --retry 4 --retry-all-errors \
+            "${BASE_URL}/vocab.txt" --output "${MODEL_DIR}/vocab.txt"
+          curl --location --fail --retry 4 --retry-all-errors \
+            "${BASE_URL}/label_mapping.json" --output "${MODEL_DIR}/label_mapping.json"
+          (
+            cd "${MODEL_DIR}"
+            printf '%s  %s\n' \
+              '677b784abed285d22532df725b8e1947957a1d254b0c899a37a4a93a2a5b473e' model.onnx \
+              '45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c' vocab.txt \
+              '925c356c9a692e8d6a0466cc8d1bc0d40c40cf0ccc5b59695916d925319d4a78' label_mapping.json |
+              sha256sum --check
+          )
+          test "$(stat -c %s "${MODEL_DIR}/model.onnx")" = '60004728'
 
       - name: Restore or create persistent private test signing identity
         shell: bash
@@ -269,6 +293,7 @@ jobs:
           python3 tools/validate_v0363_hyperos_cover_alarm_guard.py
           python3 tools/validate_current_conversation_foundation.py
           python3 tools/validate_current_chat_visual_stage.py
+          python3 tools/validate_v0371_lifelike_emotion_chat.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -307,7 +332,7 @@ jobs:
 
       - name: Kotlin desktop-pet state and physics tests
         working-directory: app/android
-        run: ./gradlew :app:testDebugUnitTest --tests 'com.aicompanion.localfirst.pet.*Test'
+        run: ./gradlew :app:testDebugUnitTest --tests 'com.aicompanion.localfirst.pet.*Test' --tests 'com.aicompanion.localfirst.EmotionWordPieceTokenizerTest'
 
       - name: Flutter analyze
         working-directory: app
@@ -367,6 +392,26 @@ jobs:
                   print(f'ERROR: APK contains {len(pet_entries)} source-pack files, expected 417', file=sys.stderr)
                   sys.exit(1)
               print('Complete 417-file pet source pack is present in the APK.')
+              model_path = 'assets/emotion_model_19emo/model.onnx'
+              model_bytes = z.read(model_path)
+              if len(model_bytes) != 60_004_728 or hashlib.sha256(model_bytes).hexdigest() != '677b784abed285d22532df725b8e1947957a1d254b0c899a37a4a93a2a5b473e':
+                  print('ERROR: pinned 19emo ONNX payload is missing or changed', file=sys.stderr)
+                  sys.exit(1)
+              for name, expected in {
+                  'assets/emotion_model_19emo/vocab.txt': '45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c',
+                  'assets/emotion_model_19emo/label_mapping.json': '925c356c9a692e8d6a0466cc8d1bc0d40c40cf0ccc5b59695916d925319d4a78',
+              }.items():
+                  if hashlib.sha256(z.read(name)).hexdigest() != expected:
+                      print(f'ERROR: {name} changed', file=sys.stderr)
+                      sys.exit(1)
+              ort = [
+                  name for name in z.namelist()
+                  if name.startswith('lib/arm64-v8a/') and 'onnxruntime' in name
+              ]
+              if not ort:
+                  print('ERROR: arm64 ONNX Runtime libraries are absent', file=sys.stderr)
+                  sys.exit(1)
+              print('Pinned 19emo model and arm64 ONNX Runtime are present in the APK.')
               yawn_tiers = {
                   'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': (136, 160),
                   'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': (171, 202),
@@ -406,16 +451,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.37.0+89 APK to draft release
+      - name: Upload v0.37.1+90 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.37.0-chat-visual-stage-test'
-          APK_NAME='AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk'
+          TAG='v0.37.1-lifelike-19emo-chat-polish-test'
+          APK_NAME='AI-Companion-v0.37.1-90-Lifelike-19emo-Chat-Polish-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.37.0-89-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.37.1-90-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -432,8 +477,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.37.0+89 true-device test candidate' \
-              --notes 'Draft-only v0.37.0 candidate: permanent core personality plus optional expression trials, Chinese-visible reasoning, structured action/dialogue segments, App-only LingChat visual stage, resizable translucent chat pane, expression playback, wider left/right bubbles and linked quick settings. Proactive messages remain atomic. LingChat attribution and asset restrictions are preserved. The persistent v1 private test signer is unchanged for in-place update.'
+              --title 'AI Companion v0.37.1+90 true-device test candidate' \
+              --notes 'Draft-only v0.37.1 candidate: LingChat-inspired concrete personality examples without weakening thinking, structured per-turn emotion envelopes, bundled verified 19-label ONNX normalization, provider-ready TTS emotion cues, exact emotion header toggle, translucent/narrower App bubbles, overlay speaker corners, italic action rendering, streaming follow-scroll and send-to-hide-keyboard behavior. Persistent Desire/Thought mood remains separate from the per-turn expression label. The model binary is downloaded by CI and is not stored in Git. The persistent v1 private test signer is unchanged for in-place update.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -457,18 +502,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0370-monitor.txt'
+          MONITOR_PATH='.ci/v0371-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.37.0 CI success monitor' \
+              -f message='Update v0.37.1 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.37.0 CI success monitor' \
+              -f message='Create v0.37.1 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -489,8 +534,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.37.0-chat-visual-stage-test'
-          CI_NAME='AI-Companion-v0.37.0-89-CI-Monitor.txt'
+          TAG='v0.37.1-lifelike-19emo-chat-polish-test'
+          CI_NAME='AI-Companion-v0.37.1-90-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -530,8 +575,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.37.0+89 true-device test candidate' \
-              --notes 'Private draft used for CI diagnostics and the eventual v0.37.0 App chat visual stage true-device APK. It is not a public release.'
+              --title 'AI Companion v0.37.1+90 true-device test candidate' \
+              --notes 'Private draft used for CI diagnostics and the eventual v0.37.1 lifelike 19emo chat polish true-device APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -540,18 +585,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0370-monitor.txt'
+          MONITOR_PATH='.ci/v0371-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.37.0 CI failure monitor' \
+              -f message='Update v0.37.1 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.37.0 CI failure monitor' \
+              -f message='Create v0.37.1 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

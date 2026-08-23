@@ -44,7 +44,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 24;
   // Historical validator compatibility token: static const int schemaVersion = 25;
   // Historical validator compatibility token: static const int schemaVersion = 26;
-  static const int schemaVersion = 27;
+  // Historical validator compatibility token: static const int schemaVersion = 27;
+  static const int schemaVersion = 28;
 
   Database? _db;
   Future<Database>? _opening;
@@ -767,6 +768,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '56',
         'emotion_sound_enabled': '0',
+        'show_emotion_label': '1',
       }.entries) {
         await db.insert(
           'settings',
@@ -813,6 +815,31 @@ class AppDatabase {
         }
       }
     }
+    if (oldVersion < 28) {
+      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+      final existing = messageColumns
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final definition in const <String, String>{
+        'emotion_raw_tag': "TEXT NOT NULL DEFAULT ''",
+        'emotion_key': "TEXT NOT NULL DEFAULT ''",
+        'emotion_label': "TEXT NOT NULL DEFAULT ''",
+        'emotion_confidence': 'REAL NOT NULL DEFAULT 0',
+        'emotion_top3_json': "TEXT NOT NULL DEFAULT ''",
+        'emotion_source': "TEXT NOT NULL DEFAULT ''",
+      }.entries) {
+        if (!existing.contains(definition.key)) {
+          await db.execute(
+            'ALTER TABLE messages ADD COLUMN ${definition.key} ${definition.value}',
+          );
+        }
+      }
+      await db.insert(
+        'settings',
+        {'key': 'show_emotion_label', 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
 
   }
 
@@ -830,7 +857,13 @@ class AppDatabase {
         proactive_delivery TEXT NOT NULL DEFAULT '',
         device_id TEXT,
         expects_reply INTEGER NOT NULL DEFAULT 1,
-        segments_json TEXT NOT NULL DEFAULT ''
+        segments_json TEXT NOT NULL DEFAULT '',
+        emotion_raw_tag TEXT NOT NULL DEFAULT '',
+        emotion_key TEXT NOT NULL DEFAULT '',
+        emotion_label TEXT NOT NULL DEFAULT '',
+        emotion_confidence REAL NOT NULL DEFAULT 0,
+        emotion_top3_json TEXT NOT NULL DEFAULT '',
+        emotion_source TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute(
@@ -1017,6 +1050,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '56'});
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
+    await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
     await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
     await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
     await db.insert('settings', {'key': 'relationship_continuity_enabled', 'value': '1'});
@@ -1764,6 +1798,7 @@ class AppDatabase {
       'chat_typewriter_enabled': '1',
       'chat_typewriter_ms': '56',
       'emotion_sound_enabled': '0',
+        'show_emotion_label': '1',
     }.entries) {
       await db.insert(
         'settings',
@@ -9100,6 +9135,14 @@ class AppDatabase {
           if (table == 'messages' && version < 27) {
             row['segments_json'] = '';
           }
+          if (table == 'messages' && version < 28) {
+            row['emotion_raw_tag'] = '';
+            row['emotion_key'] = '';
+            row['emotion_label'] = '';
+            row['emotion_confidence'] = 0.0;
+            row['emotion_top3_json'] = '';
+            row['emotion_source'] = '';
+          }
           if (table == 'messages') {
             row.remove('provider_reasoning');
             row.remove('companion_voice');
@@ -9222,6 +9265,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '56',
         'emotion_sound_enabled': '0',
+        'show_emotion_label': '1',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',
         'memory_fading_enabled': '1',

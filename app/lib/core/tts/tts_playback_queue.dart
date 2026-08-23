@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'tts_sentence_segmenter.dart';
+import 'tts_provider.dart';
 import 'tts_queue_service.dart';
 
 enum TtsPlaybackPhase { idle, synthesizing, playing }
@@ -74,13 +75,18 @@ class TtsPlaybackQueue {
     );
   }
 
-  Future<void> beginStream({bool manual = false, String? ownerId}) async {
+  Future<void> beginStream({
+    bool manual = false,
+    String? ownerId,
+    TtsEmotionCue? emotion,
+  }) async {
     await stop();
     _generation++;
     _session = _A2Session(
       token: _generation,
       manual: manual,
       ownerId: ownerId,
+      emotion: emotion,
     );
     _streaming = true;
     _manual = manual;
@@ -112,6 +118,7 @@ class TtsPlaybackQueue {
     bool manual = true,
     bool segment = true,
     String? ownerId,
+    TtsEmotionCue? emotion,
   }) async {
     await stop();
     _generation++;
@@ -119,6 +126,7 @@ class TtsPlaybackQueue {
       token: _generation,
       manual: manual,
       ownerId: ownerId,
+      emotion: emotion,
     );
     _session = session;
     _streaming = false;
@@ -212,7 +220,10 @@ class TtsPlaybackQueue {
     unawaited(() async {
       String? audio;
       try {
-        audio = await service.generatePrepared(text);
+        audio = await service.generatePrepared(
+          text,
+          emotion: session.emotion,
+        );
       } catch (_) {
         audio = null;
       } finally {
@@ -307,11 +318,13 @@ class _A2Session {
     required this.token,
     required this.manual,
     required this.ownerId,
+    required this.emotion,
   });
 
   final int token;
   final bool manual;
   final String? ownerId;
+  final TtsEmotionCue? emotion;
   final Completer<void> idle = Completer<void>();
   final Map<int, String?> ready = <int, String?>{};
   final Map<int, String> textByIndex = <int, String>{};
