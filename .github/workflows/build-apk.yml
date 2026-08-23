@@ -396,7 +396,7 @@ jobs:
               ]
               expected_groups = {
                   'deepseek': 21,
-                  'backgrounds': 2,
+                  'background': 2,
                   'effects': 16,
                   'audio': 23,
               }
