@@ -14,9 +14,9 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
-## 0R. 2026-08-24 · v0.37.3 19类表现层与立绘舞台对齐（IN PROGRESS / 任务前登记）
+## 0R. 2026-08-24 · v0.37.3 19类表现层与立绘舞台对齐（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-> 用户授权继续至需要 REDMI K80 Ultra 真机验收的阶段。本节是本轮第一次总账更新；下列均为计划，尚未标记完成。候选版本暂定 **v0.37.3+92**，schema 保持 28。本轮不重复修改 v0.37.2 已完成的情绪防崩、孤儿锁终止、动作斜体、气泡透明度/收窄/尾角、流式跟随与发送收键盘。
+> 用户授权继续至需要 REDMI K80 Ultra 真机验收的阶段。本节按约定完成两次总账更新：任务前登记提交 `acaed45594b441f306a580f2d3a762c1c3179e96`；本次为实现、完整 CI 与 APK 完成后的第二次回填。正式候选为 **v0.37.3+92**，schema 保持 28；自动化通过不等于 REDMI K80 Ultra 真机已经通过。本轮没有重复修改 v0.37.2 已完成的情绪防崩、孤儿锁终止、动作斜体、气泡透明度/收窄/尾角、流式跟随与发送收键盘。
 
 ### A. 本轮实施范围
 
@@ -43,6 +43,26 @@
 - 19类提示词/分类器：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src-tauri/src/utils/prompt.rs>、<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src-tauri/src/ai_service/emotion/classifier.rs>
 
 只有19类逐项映射测试、素材存在/哈希验证、动画状态测试、立绘变换持久化/还原测试、Flutter analyze/tests、全部历史 validators、Release APK、固定签名、原生/417桌宠载荷、ONNX仍缺席、checksum与Draft Release上传全部通过，并回填真实提交/Actions/APK/SHA后，才把本节改为完成；CI通过仍需真机检查动画观感、手势边界、音效频率与长对话稳定性。
+
+### D. 实施、构建与交付结果
+
+1. **19类单一权威已落地**：DeepSeek 隐藏信封选择19类标准标签，头像文字、立绘、特效、短音效与 TTS EmotionCue 消费同一个持久化结果；旧称“哭泣/羞耻/尴尬/无语/情动/慌乱”只作为输入兼容别名。视觉层不再把标签合并成约12类，也不做第二次权威情绪判断。native 19emo、ONNX Runtime 与模型 payload 继续缺席，避免重现 v0.37.1 native crash。
+2. **固定参考素材完整恢复**：按 LingChat 固定提交 `eae0d667413e490c3653488d43ce9b4464e07fda` 恢复 21 张 DeepSeek 立绘、2 张昼夜背景、全部16个表情特效 WebP 与全部23个音频文件，共62个文件（本地解包约60MB）。文件通过 Git LFS pointer 的大小与 SHA-256 恢复，不把大二进制直接写进 Git 历史；APK 内又按真实目录 `deepseek/background/effects/audio` 做 21/2/16/23 与总数62双重检查。来源、AGPL 与上游素材限制保留在 `app/assets/lingchat/NOTICE.md`；情绪短音效默认关闭，未静默删除低频素材。
+3. **参考动画不再用透明切换近似**：高兴/兴奋双跳、生气大小跳、认真轻沉、心动轻心跳、调皮短跳、难为情横向晃动按固定参考的关键帧、时长与缓动实现；其余为 none 后恢复自然呼吸。立绘使用 gapless replacement，用户持久变换、短时角色动画、固定特效层三层分离，人物跳动不会带着表情特效漂移，也不会再以消失—出现模拟动作。
+4. **立绘舞台自定义完成**：默认缩放提高到110%；聊天快捷设置新增“自定义立绘”，支持单指拖动、双指缩放、确定与还原。缩放限制 85%～180%，横向/纵向位移有限界；确认后用通用 settings 持久化，不增加 schema，换情绪和临时动画不会覆盖用户设置。
+5. **验证链完整通过**：全部历史 Python validators、本轮19类/素材/动画/别名/立绘设置 validators、Kotlin 桌宠状态与物理测试、Flutter analyze、Flutter tests、Release APK、固定私有签名、6个原生库、417文件桌宠包、62文件 LingChat 表现包、无 native 19emo/ONNX/ORT、三档哈欠与外观素材哈希、APK checksum、Draft Release 上传均通过。
+6. **失败轮次透明记录**：#322 被旧历史 validator 的版本白名单拦截；#326 被 NOTICE 连续文本断言拦截；#327 被间接 schema24 包装器的旧版本白名单拦截；#328/#329 的 APK 已打包并签名，但新增载荷校验先后把逻辑目录名 `portraits/backgrounds` 误写成真实目录 `deepseek/background`，均在 checksum/上传前失败且未交付。只扩展版本门槛、修正文档排版和校验目录，不放宽功能断言。最终 #330 全部通过。
+
+### E. 最终证据与真机待验
+
+- 最终实现/工作流提交：`b9e8f4bfabd8c8963d401b55542493b199ddfc97`
+- 成功 Actions：<https://github.com/catkiss62/ai-companion-build/actions/runs/32651769147>（run #330）
+- APK：`AI-Companion-v0.37.3-92-19-Expression-Visual-Parity-APK.apk`
+- 构建日志大小：303.3 MB
+- SHA-256：`5407b643295b852d852b5e16bc622ab8ce00087aa3afcab6e1e06a1678515368`
+- 私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c3f4d0aaceaa1a5f8bdc>
+
+REDMI K80 Ultra 真机验收重点：从 v0.37.2 原签名覆盖安装；连续触发多类回复，确认正文不出现 `<emotion>`、不闪退、不残留“另一处窗口发送中”；观察高兴/兴奋、生气、认真、心动、调皮、难为情的动作无空白帧且特效不漂移；验证19类头像与紫色情绪文字一致；验证自定义立绘的拖动/缩放边界、确定后重启持久化与还原到110%；情绪短音效先保持默认关闭，手动开启时检查与自动 TTS 不重叠；顺带回归动作斜体、对白常规字体、透明气泡、流式跟随与发送收键盘。
 
 ## 0Q. 2026-08-23 · v0.37.2 情绪崩溃、孤儿生成锁与动作格式紧急热修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
