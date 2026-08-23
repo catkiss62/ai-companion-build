@@ -29,6 +29,35 @@ void main() {
     expect(parsed.visibleText, isNot(contains('<emotion')));
   });
 
+  test('empty and whitespace-only envelopes are removed without body loss', () {
+    for (final raw in const [
+      '<emotion></emotion>\n「正文还在。」',
+      '<EMOTION>   </EMOTION>\n「正文还在。」',
+      '< emotion >\t< / emotion >\n「正文还在。」',
+      '<emotion />\n「正文还在。」',
+    ]) {
+      final parsed = EmotionEnvelope.parse(raw);
+      expect(parsed.rawTag, isEmpty);
+      expect(parsed.visibleText, '「正文还在。」');
+      expect(parsed.visibleText.toLowerCase(), isNot(contains('emotion')));
+    }
+  });
+
+  test('invalid envelope falls back but never leaks into body', () async {
+    const service = EmotionClassifierService();
+    final parsed = EmotionEnvelope.parse(
+      '<emotion>非常非常开心</emotion>\n「正文还在。」',
+    );
+    expect(parsed.found, isTrue);
+    expect(parsed.rawTag, '非常非常开心');
+    expect(parsed.visibleText, '「正文还在。」');
+    final result = await service.resolve(
+      rawTag: parsed.rawTag,
+      visibleText: parsed.visibleText,
+    );
+    expect(result.source, 'heuristic');
+  });
+
   test('canonical DeepSeek tag is the authoritative 19-label emotion', () async {
     const service = EmotionClassifierService();
     final result = await service.resolve(
