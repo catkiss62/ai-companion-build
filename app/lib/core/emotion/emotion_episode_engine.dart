@@ -27,6 +27,10 @@ class EmotionEpisodeEngine {
     );
     if (appraisal == null) return null;
 
+    final episodeId = 'emotion:${user.id}:${appraisal.category.key}';
+    final existing = await db.emotionEpisodeById(episodeId);
+    if (existing != null) return existing;
+
     if (appraisal.category == EmotionEpisodeCategory.repair) {
       final repaired = await db.applyEmotionRepair(
         triggerMessageId: user.id,
