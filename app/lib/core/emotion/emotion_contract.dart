@@ -158,37 +158,65 @@ class EmotionEnvelope {
   const EmotionEnvelope._();
 
   static final RegExp _complete = RegExp(
-    r'^\s*<emotion>\s*([^<\r\n]{1,20})\s*</emotion>\s*(?:\r?\n)?',
+    r'<\s*emotion\s*>\s*([^<\r\n]{1,40}?)\s*<\s*/\s*emotion\s*>',
+    caseSensitive: false,
+  );
+  static final RegExp _closing = RegExp(
+    r'<\s*/\s*emotion\s*>',
+    caseSensitive: false,
+  );
+  static final RegExp _opening = RegExp(
+    r'<\s*emotion\b',
     caseSensitive: false,
   );
 
   static EmotionEnvelopeData parse(String raw) {
-    final match = _complete.firstMatch(raw);
-    if (match == null) {
-      return EmotionEnvelopeData(
-        rawTag: '',
-        visibleText: raw.trim(),
-        found: false,
-      );
+    final matches = _complete.allMatches(raw).toList(growable: false);
+    var rawTag = '';
+    for (final match in matches) {
+      final candidate = EmotionCatalog.normalizeTag(match.group(1) ?? '');
+      if (rawTag.isEmpty) rawTag = candidate;
+      if (EmotionCatalog.isCanonicalLabel(candidate)) {
+        rawTag = candidate;
+        break;
+      }
     }
     return EmotionEnvelopeData(
-      rawTag: EmotionCatalog.normalizeTag(match.group(1) ?? ''),
-      visibleText: raw.substring(match.end).trim(),
-      found: true,
+      rawTag: rawTag,
+      visibleText: _stripReservedMarkup(raw).trim(),
+      found: matches.isNotEmpty,
     );
   }
 
-  /// Hides an incomplete leading envelope during streaming. If the provider
-  /// ignores the contract, ordinary text is released as soon as it can no
-  /// longer be the beginning of the tag.
-  static String streamingVisible(String raw) {
-    final match = _complete.firstMatch(raw);
-    if (match != null) return raw.substring(match.end);
-    final leftTrimmed = raw.trimLeft();
-    if (leftTrimmed.isEmpty) return '';
-    const opening = '<emotion>';
-    final probe = leftTrimmed.toLowerCase();
-    if (opening.startsWith(probe) || probe.startsWith(opening)) return '';
-    return raw;
+  /// The envelope is machine-only. Complete, duplicated, misplaced and
+  /// incomplete tags are never released to chat bubbles, history or TTS.
+  static String streamingVisible(String raw) => _stripReservedMarkup(raw);
+
+  static String _stripReservedMarkup(String raw) {
+    var value = raw.replaceAll(_complete, '');
+    value = value.replaceAll(_closing, '');
+
+    // A provider can be interrupted halfway through an opening envelope. From
+    // the reserved opening token onward there is no safe user-visible text.
+    final opening = _opening.firstMatch(value);
+    if (opening != null) {
+      value = value.substring(0, opening.start);
+    }
+
+    // Hide a partial tag at the streaming tail, such as "<emo" or
+    // "</emotion". This only reserves the exact emotion tag prefix.
+    final marker = value.lastIndexOf('<');
+    if (marker >= 0) {
+      final compact = value
+          .substring(marker)
+          .replaceAll(RegExp(r'\s+'), '')
+          .toLowerCase();
+      if ('<emotion>'.startsWith(compact) ||
+          '</emotion>'.startsWith(compact) ||
+          compact.startsWith('<emotion')) {
+        value = value.substring(0, marker);
+      }
+    }
+    return value;
   }
 }

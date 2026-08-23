@@ -120,9 +120,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
     if (controller.streamingContent.trim().isNotEmpty) {
+      // Streaming may preview a portrait, but the header label only changes
+      // after the final DeepSeek 19-label envelope has been persisted.
       _currentEmotion =
           ChatVisualResolver.resolve(controller.streamingContent);
-      _currentEmotionLabel = _currentEmotion.zhLabel;
     } else {
       for (final message in controller.messages.reversed) {
         if (!message.isAssistant) continue;
@@ -578,8 +579,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             return;
                           }
                           setState(() {
+                            // Typewriter chunks may animate the portrait only.
+                            // Do not replace the persisted 19-label header text
+                            // with a legacy visual presentation label.
                             _currentEmotion = emotion;
-                            _currentEmotionLabel = emotion.zhLabel;
                           });
                         },
                         onEmotionSound: _emotionSoundEnabled

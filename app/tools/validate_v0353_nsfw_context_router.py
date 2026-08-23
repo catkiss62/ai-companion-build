@@ -34,10 +34,10 @@ expected_hashes = {
     "01_relationship": "ff49b2327826869e121616068720c087f00b1903508247a6b89ba609ab003d7f",
     "03_appearance_identity": "6250a50a97a5c19ad16f6fa78d4665e558236bd50a8494ef65f340113d19d6d1",
     "08_runtime_identity": "1dc62d223f9b5d82b2afb8423be970cc29304b042d0732105c611a29b8848d87",
-    "02_daily": "e657f56fd0293c35f0b42183e5e8e6fec95dd24b019c2ca542894f4774479790",
+    "02_daily": "4db97905f932b0d84c4fdc70f65a5895c7a5165faef23f24fa69153f1269a521",
     "03_behavior": "3f20bfe48e191ec386ae1ea9335bf9fd3ff69c8e38f749fff03cf8d2caf8a230",
     "08_proactive_turn": "f9e5b355b8a23eea1f4e3e1404c37c9199f935f5381b2ce8aaaa16868907e541",
-    "08_visible_inner_voice": "c6a50b59376d97589482f03d33c400d77fa05066002a05d3645150cad828d360",
+    "08_visible_inner_voice": "ee097e66859815af94c04fb35c5fc33ba9e236d1d9254c45cc37cbb972c74549",
     "03_personality_seed": "38fe20355a17f1b5668e03a0a3793efde7b12c3b951ffcad90c408a9f0082505",
     "07_base_gentle": "99401bb89d573d26f43a2a2f885514c8706e211913bce8d3967b578ddb98dfc2",
     "07_base_outgoing": "e5937bf0d065d42f68683a8a82cd072ae0888e236009bde14c7f028937e2196b",
@@ -59,7 +59,7 @@ expected_hashes = {
     "07_special_zealot": "3924e21435fbdf673eeb26968c514781182e4f71a0f15300059dc1b229ceaaf7",
     "04_memory_rules": "351444294710e7b8f2e48f348e650aa3048b3512b7e83a15a54a15efb09f4b21",
     "04_intimacy_core": "b15c9ca7fcd33f3b42116b881d7853b7ff86dd759fac929f52e38fe2893ddbc7",
-    "05_intimacy_rendering": "282583ec2f352265da2135e3181a121789e70d749281f44b719dfc5b0f311c8e",
+    "05_intimacy_rendering": "b7b9a425b8a02c6f6a415c293a47922a329c9c7712840a7ef01a1f6e954ec460",
     "06_intimacy_reference": "dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3",
 }
 assert set(parsed) == set(expected_hashes), (set(parsed), set(expected_hashes))

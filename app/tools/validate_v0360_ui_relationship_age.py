@@ -11,7 +11,7 @@ def read(path: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*(?:0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90)\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*(?:0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91)\s*$", read("pubspec.yaml"), re.M)
 
 app = read("lib/app.dart")
 more = read("lib/features/more/companion_more_page.dart")

@@ -114,7 +114,6 @@ class OverlayBubbleService : Service() {
     private var backgroundEngine: FlutterEngine? = null
     private var backgroundSystemBridge: BackgroundSystemBridge? = null
     private var backgroundTtsBridge: NativeTtsBridge? = null
-    private var backgroundEmotionBridge: EmotionClassifierBridge? = null
     private var backgroundCommands: MethodChannel? = null
     private var pendingBrainWakeReason: String? = null
     private var brainWakeAttempt = 0
@@ -518,8 +517,6 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
-        backgroundEmotionBridge?.dispose()
-        backgroundEmotionBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         backgroundEngine?.destroy()
@@ -2239,8 +2236,6 @@ class OverlayBubbleService : Service() {
             engine = createdEngine
             backgroundSystemBridge = BackgroundSystemBridge(applicationContext, createdEngine)
             backgroundTtsBridge = NativeTtsBridge(applicationContext, createdEngine)
-            backgroundEmotionBridge =
-                EmotionClassifierBridge(applicationContext, createdEngine)
             val commandChannel = MethodChannel(
                 createdEngine.dartExecutor.binaryMessenger,
                 BACKGROUND_COMMAND_CHANNEL,
@@ -2301,8 +2296,6 @@ class OverlayBubbleService : Service() {
             backgroundCommands = null
             backgroundTtsBridge?.dispose()
             backgroundTtsBridge = null
-            backgroundEmotionBridge?.dispose()
-            backgroundEmotionBridge = null
             backgroundSystemBridge?.dispose()
             backgroundSystemBridge = null
             runCatching { engine?.destroy() }
@@ -2341,8 +2334,6 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
-        backgroundEmotionBridge?.dispose()
-        backgroundEmotionBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         runCatching { expectedEngine.destroy() }
@@ -2817,7 +2808,7 @@ class OverlayBubbleService : Service() {
 
         private fun actionTintedText(value: String): CharSequence {
             val result = SpannableString(value)
-            val dialogue = Regex("""「[^」\n]*」""")
+            val dialogue = Regex("""「[^」\n]*」|“[^”\n]*”|"[^"\n]*"""")
             var cursor = 0
             dialogue.findAll(value).forEach { match ->
                 if (match.range.first > cursor) {

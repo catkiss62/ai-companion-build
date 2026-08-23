@@ -6,13 +6,11 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private var bridge: SystemBridge? = null
     private var ttsBridge: NativeTtsBridge? = null
-    private var emotionBridge: EmotionClassifierBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         bridge = SystemBridge(this, flutterEngine)
         ttsBridge = NativeTtsBridge(this, flutterEngine)
-        emotionBridge = EmotionClassifierBridge(this, flutterEngine)
     }
 
     override fun onStart() {
@@ -44,8 +42,6 @@ class MainActivity : FlutterActivity() {
         bridge = null
         ttsBridge?.dispose()
         ttsBridge = null
-        emotionBridge?.dispose()
-        emotionBridge = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

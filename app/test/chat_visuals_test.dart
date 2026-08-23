@@ -12,6 +12,10 @@ void main() {
     expect(chunks, hasLength(2));
     expect(chunks.first.segments, hasLength(2));
     expect(chunks.first.emotion.key, 'playful');
+    expect(
+      chunks.first.displayText,
+      '（轻轻把耳鳍压低）\n\n「才没有一直等你。」',
+    );
   });
 
   test('ordinary multiline answer is not mistaken for multiple actions', () {

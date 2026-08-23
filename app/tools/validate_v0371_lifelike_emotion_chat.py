@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from hashlib import sha256
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,7 +10,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert "version: 0.37.1+90" in read("pubspec.yaml")
+assert "version: 0.37.2+91" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 for token in (
     "static const int schemaVersion = 28;",
@@ -28,26 +27,27 @@ for token in (
     "class EmotionEnvelope",
     "labelsByKey",
     "minimaxByKey",
-    "confidence >= 0.42",
-    "margin >= 0.06",
     "source: 'llm'",
-    "source: '19emo'",
     "EmotionEnvelope.streamingVisible(content)",
     "emotionClassifier.resolve(",
 ):
     assert token in contract + classifier + runner, token
+assert contract.count("'") > 19
+assert "MethodChannel" not in classifier
+assert "source: '19emo'" not in classifier
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 catalog = read("lib/core/personality/personality_catalog.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
-assert "从不具体处开始" in rules  # Approved v0.35.4 prompt bytes remain untouched.
 for token in (
-    "具体对话参照（只学反应因果，不照抄句子）",
+    "具体对话参照（只学反应因果与排版，不照抄句子）",
     "_conversationExamples(b.key)",
     "<emotion>情绪</emotion>",
     "最终决定不发送，仍只输出 WAIT",
 ):
     assert token in catalog + prompt, token
+assert "用全角括号“（）”标注" in rules
+assert "括号块后空一行" in rules + prompt
 
 chat = read("lib/features/chat/chat_page.dart")
 action = read("lib/widgets/action_tint_text.dart")
@@ -69,22 +69,9 @@ for token in (
 
 gradle = read("android/app/build.gradle.kts")
 main = read("android/app/src/main/kotlin/com/aicompanion/localfirst/MainActivity.kt")
-bridge = read("android/app/src/main/kotlin/com/aicompanion/localfirst/EmotionClassifierBridge.kt")
-for token in (
-    "onnxruntime-android:1.22.0",
-    "EmotionClassifierBridge(this, flutterEngine)",
-    '"input_ids" to inputIds',
-    '"attention_mask" to attentionMask',
-    "MODEL_BYTES = 60_004_728L",
-):
-    assert token in gradle + main + bridge, token
+assert "onnxruntime" not in gradle.lower()
+assert "EmotionClassifierBridge" not in main + overlay
+assert not (ROOT / "android/app/src/main/kotlin/com/aicompanion/localfirst/EmotionClassifierBridge.kt").exists()
+assert not (ROOT / "android/app/src/main/assets/emotion_model_19emo/model.onnx").exists()
 
-model = ROOT / "android/app/src/main/assets/emotion_model_19emo/model.onnx"
-vocab = ROOT / "android/app/src/main/assets/emotion_model_19emo/vocab.txt"
-mapping = ROOT / "android/app/src/main/assets/emotion_model_19emo/label_mapping.json"
-assert model.stat().st_size == 60_004_728
-assert sha256(model.read_bytes()).hexdigest() == "677b784abed285d22532df725b8e1947957a1d254b0c899a37a4a93a2a5b473e"
-assert sha256(vocab.read_bytes()).hexdigest() == "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c"
-assert sha256(mapping.read_bytes()).hexdigest() == "925c356c9a692e8d6a0466cc8d1bc0d40c40cf0ccc5b59695916d925319d4a78"
-
-print("v0.37.1 lifelike personality, 19emo and chat polish validation passed")
+print("v0.37.1 lifelike personality and 19-label contract remain present in v0.37.2")

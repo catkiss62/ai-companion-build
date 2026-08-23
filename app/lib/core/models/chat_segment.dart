@@ -40,30 +40,32 @@ class ChatSegmentCodec {
         .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty);
+    final quotedLine = RegExp(
+      r'^(?:「([\s\S]*)」|“([\s\S]*)”|"([\s\S]*)")$',
+    );
     for (final line in lines) {
-      final corner = RegExp(r'^「([\s\S]*)」$').firstMatch(line);
-      if (corner != null) {
-        final body = (corner.group(1) ?? '').trim();
+      final quoted = quotedLine.firstMatch(line);
+      if (quoted != null) {
+        final body =
+            (quoted.group(1) ?? quoted.group(2) ?? quoted.group(3) ?? '').trim();
         if (body.isNotEmpty) {
           result.add(ChatSegment(kind: ChatSegmentKind.dialogue, text: body));
         }
         continue;
       }
 
-      // Compatibility for older messages: parenthesized spans were actions,
-      // while the surrounding text was dialogue. New output never needs the
-      // parentheses and is handled by the line-oriented branch below.
-      final legacy = RegExp(r'（[^（）\n]*）|\([^()\n]*\)').allMatches(line).toList();
-      if (legacy.isNotEmpty) {
+      // Actions use parenthesized blocks. Mixed legacy lines remain readable:
+      // text outside the blocks is dialogue, while the blocks are actions.
+      final actions =
+          RegExp(r'（[^（）\n]*）|\([^()\n]*\)').allMatches(line).toList();
+      if (actions.isNotEmpty) {
         var cursor = 0;
-        for (final match in legacy) {
+        for (final match in actions) {
           final before = line.substring(cursor, match.start).trim();
           if (before.isNotEmpty) {
             result.add(ChatSegment(kind: ChatSegmentKind.dialogue, text: before));
           }
-          final action = line
-              .substring(match.start + 1, match.end - 1)
-              .trim();
+          final action = line.substring(match.start + 1, match.end - 1).trim();
           if (action.isNotEmpty) {
             result.add(ChatSegment(kind: ChatSegmentKind.action, text: action));
           }
@@ -76,16 +78,19 @@ class ChatSegmentCodec {
         continue;
       }
 
-      // Under the new contract, an unquoted standalone line is an action.
-      // If a provider ignores the contract and returns one ordinary paragraph,
-      // keep it usable as dialogue instead of mislabelling a long answer.
-      final looksLikeAction =
-          RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) ||
-          (normalized.contains('「') &&
-              normalized.contains('\n') &&
-              line.length <= 80);
+      // Compatibility for v0.37.1's short-lived unparenthesized action format.
+      // Ordinary prose remains dialogue.
+      final looksLikeLegacyAction =
+          RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) &&
+          (normalized.contains('「') ||
+              normalized.contains('“') ||
+              normalized.contains('"')) &&
+          normalized.contains('\n') &&
+          line.length <= 80;
       result.add(ChatSegment(
-        kind: looksLikeAction ? ChatSegmentKind.action : ChatSegmentKind.dialogue,
+        kind: looksLikeLegacyAction
+            ? ChatSegmentKind.action
+            : ChatSegmentKind.dialogue,
         text: line,
       ));
     }

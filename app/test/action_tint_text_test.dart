@@ -20,13 +20,13 @@ void main() {
     expect(segments.single.isAction, isFalse);
   });
 
-  test('new format marks quoted dialogue instead of direct action lines', () {
-    const source = '轻轻把耳鳍压低\n「才没有一直等你。」';
+  test('dialogue tint recognizes both supported Chinese quote styles', () {
+    const source = '（她轻轻把耳鳍压低）\n\n「才没有一直等你。」\n“回来就好。”';
     final segments = splitDialogueText(source);
     expect(segments.map((item) => item.text).join(), source);
     expect(
       segments.where((item) => item.isDialogue).map((item) => item.text),
-      ['「才没有一直等你。」'],
+      ['「才没有一直等你。」', '“回来就好。”'],
     );
   });
 }

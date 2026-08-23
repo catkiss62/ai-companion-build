@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90)$", read("pubspec.yaml"), re.MULTILINE)
+assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91)$", read("pubspec.yaml"), re.MULTILINE)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -27,9 +27,9 @@ parsed = {
     )
 }
 changed_hashes = {
-    "02_daily": "e657f56fd0293c35f0b42183e5e8e6fec95dd24b019c2ca542894f4774479790",
+    "02_daily": "4db97905f932b0d84c4fdc70f65a5895c7a5165faef23f24fa69153f1269a521",
     "05_intimacy_rendering":
-        "282583ec2f352265da2135e3181a121789e70d749281f44b719dfc5b0f311c8e",
+        "b7b9a425b8a02c6f6a415c293a47922a329c9c7712840a7ef01a1f6e954ec460",
     "06_intimacy_reference":
         "dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3",
 }
@@ -51,9 +51,9 @@ assert parsed["05_intimacy_rendering"].index(action_heading) < parsed[
     "05_intimacy_rendering"
 ].index(scene_anchor)
 for token in (
-    "动作、神态、语气和微表情直接独占一行",
-    "真正说出口的对白独占一行，用「」包住。",
-    "相邻段之间不插空行",
+    "用全角括号“（）”标注",
+    "空一行",
+    "引号和对白都不加粗",
 ):
     assert token in parsed["02_daily"] and token in parsed["05_intimacy_rendering"]
 

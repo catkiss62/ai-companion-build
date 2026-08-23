@@ -11,10 +11,10 @@ class DurableGenerationRecovery {
   final AppDatabase db;
   final DurableGenerationRunner runner;
 
-  /// Recover at most one unfinished generation. Returns true when a job was
-  /// actually claimed/processed. The same chat lease is used by foreground,
-  /// overlay and headless engines, so two FlutterEngines cannot recover the
-  /// same turn concurrently.
+  /// Finalize at most one abandoned generation. A process interruption has
+  /// the same semantics as the user's Stop button: withdraw the incomplete
+  /// turn and release its durable lock. Recovery must never resend an LLM
+  /// request behind the user's back.
   Future<bool> recoverOne() async {
     if (!await db.brainWorkAllowed()) return false;
     final acquired = await db.tryAcquireLocalLease(
@@ -23,19 +23,12 @@ class DurableGenerationRecovery {
     );
     if (!acquired) return false;
     try {
-      final job = await db.nextRecoverableGenerationJob();
+      final job = await db.nextRecoverableGenerationJob(
+        runningStaleAfter: Duration.zero,
+      );
       if (job == null) return false;
-      final result = await runner.run(job);
-      if (result.completed) {
-        await db.setSetting('last_generation_recovery_error', '');
-      } else if (result.status != 'suspended' &&
-          result.status != 'cancelled_by_user') {
-        final raw = result.error?.toString() ?? result.status;
-        await db.setSetting(
-          'last_generation_recovery_error',
-          raw.length <= 320 ? raw : raw.substring(0, 320),
-        );
-      }
+      await db.cancelGenerationJobByUser(job.id);
+      await db.setSetting('last_generation_recovery_error', '');
       return true;
     } finally {
       await db.releaseLocalLease('chat_turn_lease');

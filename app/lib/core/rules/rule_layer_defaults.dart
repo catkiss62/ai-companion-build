@@ -95,6 +95,16 @@ const legacyEditableRuleLayerSha256V0353 = <String, String>{
       'dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3',
 };
 
+/// Exact v0.37.1 defaults replaced by the v0.37.2 action-format hotfix.
+/// Only untouched bundled content migrates; any user-edited prompt is kept.
+const legacyEditableRuleLayerSha256V0371 = <String, String>{
+  '02_daily': 'e657f56fd0293c35f0b42183e5e8e6fec95dd24b019c2ca542894f4774479790',
+  '08_visible_inner_voice':
+      'c6a50b59376d97589482f03d33c400d77fa05066002a05d3645150cad828d360',
+  '05_intimacy_rendering':
+      '282583ec2f352265da2135e3181a121789e70d749281f44b719dfc5b0f311c8e',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so

@@ -1,25 +1,9 @@
-import 'package:flutter/services.dart';
-
 import 'emotion_contract.dart';
 
-typedef EmotionPlatformClassifier =
-    Future<Map<Object?, Object?>?> Function(String text);
-
 class EmotionClassifierService {
-  EmotionClassifierService({EmotionPlatformClassifier? classify})
-      : _classify = classify ?? _classifyOnAndroid;
+  const EmotionClassifierService();
 
-  static final EmotionClassifierService instance = EmotionClassifierService();
-  static const MethodChannel _channel =
-      MethodChannel('ai_companion/emotion_classifier');
-
-  final EmotionPlatformClassifier _classify;
-
-  static Future<Map<Object?, Object?>?> _classifyOnAndroid(String text) =>
-      _channel.invokeMapMethod<Object?, Object?>(
-        'classify',
-        <String, Object?>{'text': text},
-      );
+  static const EmotionClassifierService instance = EmotionClassifierService();
 
   Future<CompanionEmotion> resolve({
     required String rawTag,
@@ -44,52 +28,13 @@ class EmotionClassifierService {
       );
     }
 
-    final sample = normalized.isNotEmpty ? normalized : visibleText.trim();
-    if (sample.isNotEmpty) {
-      try {
-        final raw = await _classify(sample);
-        final label = raw?['label']?.toString() ?? '';
-        final key = EmotionCatalog.keyForLabel(label);
-        final confidence = (raw?['confidence'] as num?)?.toDouble() ?? 0;
-        final margin = (raw?['margin'] as num?)?.toDouble() ?? 0;
-        final top3 = _readTop3(raw?['top3']);
-        if (key.isNotEmpty && confidence >= 0.42 && margin >= 0.06) {
-          return CompanionEmotion(
-            rawTag: normalized,
-            key: key,
-            label: EmotionCatalog.labelForKey(key),
-            confidence: confidence.clamp(0, 1).toDouble(),
-            top3: top3,
-            source: '19emo',
-          );
-        }
-      } catch (_) {
-        // The model is an enhancement. A missing/corrupt pack must never make
-        // the assistant lose a completed reply.
-      }
-    }
+    // v0.37.2 stability hotfix: never invoke a native classifier from the
+    // reply finalization path. The DeepSeek 19-label envelope is authoritative;
+    // malformed/missing tags degrade deterministically and cannot crash Android.
     return _heuristic(
       normalized.isEmpty ? visibleText : '$normalized\n$visibleText',
       rawTag: normalized,
     );
-  }
-
-  List<EmotionScore> _readTop3(Object? value) {
-    if (value is! List) return const <EmotionScore>[];
-    return value
-        .whereType<Map>()
-        .map((item) {
-          final label = item['label']?.toString() ?? '';
-          final key = EmotionCatalog.keyForLabel(label);
-          return EmotionScore(
-            key: key,
-            label: label,
-            confidence: (item['confidence'] as num?)?.toDouble() ?? 0,
-          );
-        })
-        .where((item) => item.key.isNotEmpty)
-        .take(3)
-        .toList(growable: false);
   }
 
   CompanionEmotion _heuristic(String text, {required String rawTag}) {
@@ -125,10 +70,7 @@ class EmotionClassifierService {
     }
     final key = EmotionCatalog.keyForLabel(label);
     return CompanionEmotion(
-      rawTag: rawTag.substring(
-        0,
-        rawTag.length.clamp(0, 20).toInt(),
-      ),
+      rawTag: rawTag.substring(0, rawTag.length.clamp(0, 20).toInt()),
       key: key,
       label: label,
       confidence: label == '平静' ? 0 : 0.34,

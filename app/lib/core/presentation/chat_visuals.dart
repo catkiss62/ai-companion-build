@@ -29,8 +29,8 @@ class ChatVisualChunk {
         if (segment.kind == ChatSegmentKind.dialogue) {
           return '「${segment.text}」';
         }
-        return segment.text;
-      }).join('\n');
+        return '（${segment.text}）';
+      }).join('\n\n');
 }
 
 class ChatVisualResolver {
