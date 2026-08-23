@@ -45,9 +45,9 @@ rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 for token in (
     "永久活人感基线",
     "不得输出英文工具规划",
-    "动作、神态、语气和微表情直接独占一行",
-    "真正说出口的对白独占一行，用「」包住",
-    "相邻段之间不插空行",
+    "用全角括号“（）”标注",
+    "引号和对白都不加粗",
+    "括号块后空一行",
     "主动联系仍是一条完整消息",
 ):
     assert token in rules, token
