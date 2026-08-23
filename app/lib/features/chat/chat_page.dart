@@ -21,7 +21,6 @@ import '../../widgets/chat_portrait_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
-import '../settings/settings_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -49,11 +48,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
   bool _ttsEnabled = false;
-  double _panelOpacity = 0.72;
+  double _panelOpacity = 0.60;
   double _panelFraction = 0.62;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
-  int _typewriterMs = 56;
+  int _typewriterMs = 48;
   String _backgroundMode = 'auto';
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
   String _currentEmotionLabel = '平静';
@@ -232,7 +231,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _panelOpacity = (double.tryParse(
               await db.getSetting('chat_panel_opacity') ?? '',
             ) ??
-            0.72)
+            0.60)
         .clamp(0.45, 0.95)
         .toDouble();
     _panelFraction = (double.tryParse(
@@ -264,7 +263,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
             ) ??
-            56)
+            48)
         .clamp(20, 120)
         .toInt();
     _backgroundMode =
@@ -1119,11 +1118,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         title: const Text('全部设置'),
                         onTap: () async {
                           Navigator.pop(dialogContext);
-                          await Navigator.of(pageContext).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsPage(),
-                            ),
-                          );
+                          await Navigator.of(pageContext).pushNamed('/settings');
                           await _loadVisualSettings();
                         },
                       ),
