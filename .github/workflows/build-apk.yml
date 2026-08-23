@@ -395,7 +395,7 @@ jobs:
                   and not name.endswith('/NOTICE.md')
               ]
               expected_groups = {
-                  'portraits': 21,
+                  'deepseek': 21,
                   'backgrounds': 2,
                   'effects': 16,
                   'audio': 23,
