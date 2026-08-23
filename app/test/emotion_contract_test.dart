@@ -53,6 +53,13 @@ void main() {
 
   test('19 labels have stable keys and future MiniMax mappings', () {
     expect(EmotionCatalog.labelsByKey, hasLength(19));
+    expect(EmotionCatalog.labelForKey('crying'), '伤心');
+    expect(EmotionCatalog.keyForLabel('哭泣'), 'crying');
+    expect(EmotionCatalog.keyForLabel('羞耻'), 'embarrassed');
+    expect(EmotionCatalog.keyForLabel('尴尬'), 'embarrassed');
+    expect(EmotionCatalog.keyForLabel('无语'), 'helpless');
+    expect(EmotionCatalog.keyForLabel('情动'), 'affection');
+    expect(EmotionCatalog.keyForLabel('慌乱'), 'flustered');
     final cue = TtsEmotionCue(
       key: 'angry',
       label: '生气',
