@@ -1,12 +1,7 @@
-status=failure
-build_result=failure
-run_id=32658213696
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32658213696
-head_sha=9af5f2eccd4ee3def9b08685bb9264842f7200ec
-
-=== failed or cancelled job logs ===
-
---- job=build-apk conclusion=failure id=97240250203 ---
-Unable to download this completed job log.
-the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce4c36f6f63854eb4cc1
+status=success
+run_id=32658354016
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32658354016
+head_sha=b31ba1781011a238aaad0f55a9397220fe2c207f
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+5d9c9c7f95846f0871bf5f954e8268bfce9b32a7851210c97aabd3f0590d02c0  AI-Companion-v0.37.4-93-Audio-Presentation-Stabilization-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a80f5087175f151d773c
