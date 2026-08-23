@@ -498,6 +498,9 @@ class AndroidBridge {
   Future<String> deviceLabel() async =>
       await _channel.invokeMethod<String>('deviceLabel') ?? 'Android device';
 
+  Future<String> runtimeProcessEpoch() async =>
+      await _channel.invokeMethod<String>('runtimeProcessEpoch') ?? '';
+
   Future<DevicePerceptionState> getPerceptionState() async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('getPerceptionState');
     return DevicePerceptionState.fromMap(raw ?? const {});
