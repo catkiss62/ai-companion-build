@@ -6,31 +6,44 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0P. 2026-08-23 · v0.37.1 活人感、19emo 与双聊天主链收口（IN PROGRESS / 任务前登记）
+## 0P. 2026-08-23 · v0.37.1 活人感、19emo 与双聊天主链收口（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-> 用户于 2026-08-23 明确授权正式开始，并新增总账治理规则：每次正式任务原则上更新两次——开工前先登记完整范围与未完成状态，代码/CI/APK完成后再更新同一条目为实际完成状态。这样即使窗口在实现中途达到上下文上限，下一窗口仍能从本节准确继续。本节是第一次更新；除本总账外尚未修改 App 源码、Prompt、schema、版本或素材。
+> 本节已完成用户要求的两次总账更新：开工前以 `0f71296df51e2bc4738b7e851267417919ecd254` 登记完整范围；代码、自动测试、Release APK 与私有 Draft Release 全部完成后，在此第二次回填真实证据。以下“已完成”仅代表源码与 CI，不等于 REDMI K80 Ultra 真机体验已经通过。
 
-### A. 本批目标、版本与稳定边界
+### A. 已完成范围
 
-- 目标候选版本：`v0.37.1+90`；计划 schema 由 27 升至 28，为每条助手消息持久化本轮表达情绪。最终版本/schema以实际代码和CI为准，第二次总账更新必须回填真实结果。
-- 本批一次完成三条相互依赖但按提交可回滚的主线：① LingChat机制启发的核心活人感与性格试穿兼容；② 19类本地情绪归一与未来MiniMax TTS EmotionCue地基；③ 用户在v0.37.0截图中提出的完整App/悬浮聊天视觉与交互修正。
-- 稳定性与正确性优先：每一子链先保留旧格式/旧数据库/模型缺失回退，再接新行为；任一模型加载、分类或情绪解析失败不得阻断聊天、SQLite durable turn、Stop/恢复、主动消息原子性或现有Meju TTS。
-- 本批不提前做任务3的主动话题与自主搜索，不实现MiniMax网络TTS供应商本身，不改变Desire / Thought / Intent / Gate、Somatic、AI Self、Memory和持续Emotion Episode的权威边界。
+- [x] ~~核心活人感与性格试穿兼容~~（已完成）：保留 DeepSeek thinking 开启；在 `PersonalityCatalog` 为各底色提供具体、原创、底色专属的对话参照，编译进当前有效人格表达层。普通试穿会替换长期底色及其示例，特殊风格继续作为更高优先级临时层；示例不写入 Memory / AI Self，不向模型暴露“正在试穿”，因此不会静默污染长期人格。
+- [x] ~~结构化本轮情绪~~（已完成）：助手正文采用前导 `<emotion>情绪</emotion>` 契约；流式 UI、TTS、恢复快照均过滤该信封，正文不会闪出标签。每条助手消息持久化 `emotion_raw_tag / emotion_key / emotion_label / emotion_confidence / emotion_top3_json / emotion_source`；本轮表达情绪与既有跨轮 Desire / Thought / Emotion Episode 明确分离。
+- [x] ~~19 类本地情绪归一~~（已完成）：标准 19 键由 LLM 直接透传；只有开放标签进入 ONNX 分类。分类器阈值为 confidence ≥ 0.42 且 top1-top2 margin ≥ 0.06，否则回退确定性旧视觉/平静路径。模型、词表、映射或 Runtime 加载失败只影响归一化，不阻断聊天、持久化、主动消息、Stop/恢复或 TTS。
+- [x] ~~TTS EmotionCue 地基~~（已完成）：可选情绪提示已贯穿 provider/service/queue/playback；当前 Meju A2 仍按原文本生成并安全忽略不支持的情绪参数。已预留未来 MiniMax 七类粗映射（happy / sad / angry / fearful / disgusted / surprised / neutral），本批没有调用 MiniMax API，也没有声称当前 Meju 已获得情感 conditioning。
+- [x] ~~App／悬浮聊天视觉修正~~（已完成）：动作与神态为斜体，`「对白」`与其中内容保持常规字重；完整 App 的透明度设置同时作用舞台与气泡背景但不降低文字 alpha，双方气泡宽度收至可用宽度约 84%；悬浮气泡保持原宽，AI 左下／用户右下角直角化形成轻尾角。
+- [x] ~~滚动、键盘与情绪 UI~~（已完成）：完整 App 的网络流式与打字机显示都会跟随到底部，用户主动上滑后暂停强制跟随；App 与悬浮聊天发送后均关闭软键盘。顶部在“头像 + DeepSeek”右侧用既有紫色显示最近助手消息情绪，头像快捷设置新增显示开关，旧消息/设置关闭均有兼容行为。
+- [x] ~~版本、数据库与兼容~~（已完成）：正式版本 `v0.37.1+90`，SQLite schema `28`；fresh schema、27→28 迁移及备份兼容均加入。受保护的 v0.35.4 用户规则正文最终保持原批准字节；原计划顺手修正“从不具体处开始”的措辞会触发提示词哈希保护，复核后确认不是本批机制必需，已撤回该字节修改，活人感改造只落在人格编译层和新生成契约中。
 
-### B. 实施顺序与验收契约
+### B. 19emo 载荷、体积与构建成本实测
 
-1. **核心活人感**：修正可见内心“从不具体处开始”与fallback的矛盾；保留thinking开启；把重复、抽象的自我检查式声线要求收敛为可测试机制，并加入项目原创的具体示范对白。示范只固定“具体反应、自我打断、技术比喻、自然停顿、不平均回应”等跨性格结构，底色/姿态专属样本随有效 `03_personality_seed` / 普通试穿替换，特殊风格仍为更高优先级临时表现层，禁止把试穿状态告诉模型或污染长期人格。
-2. **结构化本轮情绪**：模型输出2～5字 `emotion_raw_tag`；19个标准键直接透传，只有开放标签进入19emo；保存 `emotion_key / confidence / top3 / source`，旧消息和解析失败走确定性兼容回退。该字段只代表本轮表达，不冒充持续Mood/Emotion Episode。
-3. **19emo Android实验**：采用ONNX Runtime arm64并由CI从固定ModelScope路径按SHA下载运行所需模型、词表与映射，不把60MB二进制提交Git。分类器延迟加载、单线程、低置信度/低margin回退；标准标签绝不二次误分类。模型或runtime不可用时App仍可正常聊天并使用模型标准键/旧视觉回退。
-4. **TTS地基**：统一EmotionCue可以传给TTS provider；当前Meju只继续朗读文本，不伪称拥有情感conditioning。加入MiniMax枚举映射与单元测试，为后续供应商接入准备，不在本批调用MiniMax API。
-5. **双聊天UI**：完整App与悬浮聊天的动作/神态改斜体，对白及 `「」` 使用常规字重；透明度设置同时作用舞台与气泡背景但不降低文字alpha；完整App气泡向各自所属侧轻微收窄；悬浮气泡保持宽度并用AI左下/用户右下直角化形成轻尾角。
-6. **交互修复**：完整App流式回答随文字增长自动跟到底部，用户主动上滑后暂停强制跟随；两个界面发送时关闭软键盘；Stop/恢复、附件、空消息和主动消息不得回归。
-7. **情绪UI**：在“头像 + DeepSeek”右侧以既有紫色显示最近助手消息的原始/规范化情绪；头像快捷设置增加显示开关。历史恢复、流式中间态、主动消息、旧消息和设置关闭均有明确定义。
-8. **验证与交付**：新增schema迁移、情绪解析/直通/回退、few-shot/试穿优先级、TTS映射、字体、透明度、气泡、滚动与键盘的自动测试/静态验证；继续运行全部历史validators、Kotlin测试、Flutter analyze/tests、release APK、签名、arm64 native、417桌宠载荷与SHA。最终只上传私有Draft Release候选；CI通过仍标记真机待验收。
+- Git 仓库不保存 `.onnx` 二进制，只保存来源/校验说明。CI 从 ModelScope 固定路径下载 `model_int8_o2` 三个运行文件并逐一校验；失败即停止构建，绝不打包未知模型。
+- `model.onnx`：60,004,728 bytes，SHA-256 `677b784abed285d22532df725b8e1947957a1d254b0c899a37a4a93a2a5b473e`；`vocab.txt` SHA-256 `45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c`；`label_mapping.json` SHA-256 `925c356c9a692e8d6a0466cc8d1bc0d40c40cf0ccc5b59695916d925319d4a78`。
+- Android 依赖为 `onnxruntime-android:1.22.0`。最终 APK 为 308.6 MB；相对 v0.37.0 的 252.9 MB 实增约 55.7 MB，与此前“约 50～55 MB”估算基本一致。成功 run 从 runner 开始到 APK 上传约 15 分钟，未出现构建时间翻倍；主要增加为首次依赖解析、资源压缩、入包验证和更大 APK 上传。
+- APK 内部验证已实际读取模型三件套并重算 SHA，同时确认 arm64 ONNX Runtime 原生库存在；不是只验证下载目录。模型缺失时源码基线仍可 checkout，但正式候选构建会硬失败，避免误交付“声称含模型但实际没入包”的 APK。
 
-### C. 完成判据与第二次总账更新
+### C. 源码、CI 与 APK 证据
 
-只有以下证据齐备后，才把本节从 `IN PROGRESS` 改为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：源码提交SHA、Actions run、所有job结论、APK文件名/体积/SHA-256、签名与模型载荷校验、实际schema/版本、回退路径和真机清单。若中途失败或窗口中断，本节保持 `IN PROGRESS` 并记录最后通过的子步骤；不得把计划划成完成。
+- 开工前总账提交：`0f71296df51e2bc4738b7e851267417919ecd254`。
+- 主要实现提交：`915280eb867e7267a400d831b30c80ee7a9f3e41`；CI 兼容/保护修复最终 head：`3ce1ffc502b717c35c1e9f259ecf47e57e0d2403`。中间修复只延续正式版本白名单、保留用户规则哈希、把旧动作染色与 A2 调用断言迁移到本版明确需求，没有删除历史功能验证。
+- 最终成功 Actions：#311，run id `32639603029`，PR merge SHA `4878a3978159e39d2c72a6ae4454ea221e389670`。68 组源码/历史 validators、Flutter 依赖解析、Kotlin 桌宠与 19emo tokenizer 单测、Flutter analyze、全部 Flutter tests、Release APK、固定签名、原生库/模型/417 桌宠文件载荷、checksum 与 Draft Release 上传全部成功。
+- APK：`AI-Companion-v0.37.1-90-Lifelike-19emo-Chat-Polish-APK.apk`；构建日志体积 308.6 MB；SHA-256 `8b6f80aa92e270664df0bc4c7f9f47422546ecf82bc02854879242cecdd8ac0a`。
+- 签名证书 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装沿用该私有测试签名的旧版。
+- Actions：<https://github.com/catkiss62/ai-companion-build/actions/runs/32639603029>。私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-75cbdd9f42525d1c1a7b>。
+
+### D. 仍待真机验收（不得提前划为通过）
+
+1. 首次进入聊天与连续 20～100 轮时，19emo 延迟加载、内存、耗电、崩溃与低置信度回退；对比标准键直出、开放标签归一和旧视觉规则。
+2. 顶部紫色情绪的流式切换、历史恢复、主动消息、开关关闭；确认标签不闪进正文或 TTS。
+3. 性格盲测：thinking 保持开启时，具体反应、自我打断、自然停顿和底色辨识度是否提升；逐一切换普通试穿/特殊风格，确认示例随试穿替换且长期人格不污染。
+4. 完整 App：白天/夜晚背景上的气泡透明度、84% 宽度、动作斜体/对白正常、长回答网络流式＋打字机跟随、用户上滑不抢回、发送收键盘。
+5. 悬浮聊天：AI 左下／用户右下轻尾角、原宽度、动作/对白排版、发送收键盘，以及 Stop/恢复、附件、TTS、未读与后台恢复无回归。
+6. 覆盖安装、schema 27→28 迁移、旧消息显示和固定签名连续性。任务 3 的主动话题与自主搜索仍按原排期，等待本版视觉与对话主链真机稳定后再开始。
 
 ## 0O. 2026-08-23 · v0.37.0 真机视觉反馈与 LingChat 活人感源码审计（ANALYSIS / PLANNED / NO CODE CHANGE）
 
