@@ -6,6 +6,7 @@ import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
 import '../emotion/emotion_classifier_service.dart';
+import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
@@ -94,6 +95,7 @@ class DurableGenerationRunner {
             emotionClassifier ?? EmotionClassifierService.instance,
         desireEngine = DesireEngine(db),
         somaticEngine = SomaticEngine(db),
+        emotionEpisodeEngine = EmotionEpisodeEngine(db),
         nsfwRouter = NsfwContextRouter(db: db, client: client),
         agentToolRunner = AgentToolRunner(
           db: db,
@@ -107,6 +109,7 @@ class DurableGenerationRunner {
   final EmotionClassifierService emotionClassifier;
   final DesireEngine desireEngine;
   final SomaticEngine somaticEngine;
+  final EmotionEpisodeEngine emotionEpisodeEngine;
   final NsfwContextRouter nsfwRouter;
   final AgentToolRunner agentToolRunner;
 
@@ -195,6 +198,13 @@ class DurableGenerationRunner {
         now: user.createdAt,
       );
       final desire = await db.loadDesire();
+      await emotionEpisodeEngine.appraiseUserTurn(
+        user: user,
+        desire: desire,
+        previousConversationAt:
+            previous.isEmpty ? null : previous.last.createdAt,
+        now: user.createdAt,
+      );
       final thoughts = await db.activeThoughts(limit: 18);
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
