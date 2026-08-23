@@ -39,9 +39,10 @@
 # Build AI Companion v0.36.0+85 APK (UI Domains & Relationship Age)
 # AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk
 # .ci/v0360-monitor.txt
-# Historical v0.37.4 compatibility:
-# Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
-# AI-Companion-v0.37.6-95-Chat-Recovery-Presentation-APK.apk
+# Historical v0.37.5 compatibility:
+# Build AI Companion v0.37.5+94 APK (Grounded Emotion Episodes)
+# AI-Companion-v0.37.5-94-Grounded-Emotion-Episode-APK.apk
+# schema advances to 29; native 19emo remains absent
 # .ci/v0375-monitor.txt
 # Historical v0.37.4 validator compatibility:
 # Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
