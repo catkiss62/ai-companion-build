@@ -39,6 +39,10 @@
 # Build AI Companion v0.36.0+85 APK (UI Domains & Relationship Age)
 # AI-Companion-v0.36.0-85-UI-Relationship-Age-APK.apk
 # .ci/v0360-monitor.txt
+# Historical v0.37.4 compatibility:
+# Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
+# AI-Companion-v0.37.5-94-Grounded-Emotion-Episode-APK.apk
+# .ci/v0375-monitor.txt
 # Historical v0.37.3 compatibility:
 # Build AI Companion v0.37.3+92 APK (19-Expression Visual Parity)
 # AI-Companion-v0.37.3-92-19-Expression-Visual-Parity-APK.apk
@@ -149,8 +153,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.37.5+94
-          grep -q '^  static const int schemaVersion = 29; app/lib/core/database/app_database.dart
+          grep -q '^version: 0.37.5+94$' app/pubspec.yaml
+          grep -q '^  static const int schemaVersion = 29;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
