@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
+import '../platform/android_bridge.dart';
 import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
@@ -53,6 +54,7 @@ class AppDatabase {
   Future<Database>? _opening;
   final Uuid _uuid = Uuid();
   final Map<String, String> _ownedLeaseTokens = <String, String>{};
+  Future<String>? _leaseOwnerEpochFuture;
 
   Future<Database> get database async {
     final ready = _db;
@@ -8637,6 +8639,19 @@ class AppDatabase {
     );
   }
 
+  Future<String> _leaseOwnerEpoch() =>
+      _leaseOwnerEpochFuture ??= _resolveLeaseOwnerEpoch();
+
+  Future<String> _resolveLeaseOwnerEpoch() async {
+    try {
+      final native = (await AndroidBridge.instance.runtimeProcessEpoch()).trim();
+      if (native.isNotEmpty) return native;
+    } catch (_) {
+      // Unit tests and non-Android tooling have no platform channel.
+    }
+    return 'dart-${identityHashCode(this)}';
+  }
+
   Future<bool> tryAcquireLocalLease(
     String key, {
     Duration holdFor = const Duration(seconds: 120),
@@ -8648,7 +8663,8 @@ class AppDatabase {
     if (_ownedLeaseTokens.containsKey(key)) return false;
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final token = _uuid.v4();
+    final ownerEpoch = await _leaseOwnerEpoch();
+    final token = '$ownerEpoch:${_uuid.v4()}';
     final acquired = await db.transaction<bool>((txn) async {
       final rows = await txn.query(
         'settings',
@@ -8659,7 +8675,11 @@ class AppDatabase {
       );
       final raw = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
       final until = _leaseUntil(raw);
-      if (until > now) return false;
+      final heldByCurrentProcess = raw.startsWith('$ownerEpoch:');
+      // A live lease from this process protects the other FlutterEngine. A
+      // lease from an older process is orphan evidence and may be reclaimed
+      // immediately instead of blocking chat for the old three-minute TTL.
+      if (until > now && heldByCurrentProcess) return false;
       await txn.insert(
         'settings',
         {
@@ -8737,6 +8757,19 @@ class AppDatabase {
   Future<bool> isLocalLeaseHeld(String key) async {
     final raw = await getSetting(key) ?? '';
     return _leaseUntil(raw) > DateTime.now().millisecondsSinceEpoch;
+  }
+
+  Future<Map<String, Object?>> localLeaseDiagnostic(String key) async {
+    final raw = await getSetting(key) ?? '';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final until = _leaseUntil(raw);
+    final ownerEpoch = await _leaseOwnerEpoch();
+    return <String, Object?>{
+      'held': until > now,
+      'sameRuntime': raw.startsWith('$ownerEpoch:'),
+      'expiresInMs': (until - now).clamp(0, 24 * 60 * 60 * 1000),
+      'tokenIncluded': false,
+    };
   }
 
   /// Whether an autonomous/background subsystem may mutate the companion's
