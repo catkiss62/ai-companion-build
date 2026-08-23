@@ -2036,7 +2036,7 @@ class _StreamingBubble extends StatelessWidget {
             if (controller.streamingContent.isEmpty &&
                 controller.streamingReasoning.isEmpty &&
                 controller.agentActivity == null)
-              Text(controller.recoveringGeneration ? '正在接回刚才没完成的回复…' : '她正在准备回复…'),
+              Text(controller.recoveringGeneration ? '正在结束上次中断的回复…' : '她正在准备回复…'),
             if (controller.activeGenerationTtsPhase != TtsPlaybackPhase.idle)
               Align(
                 alignment: Alignment.centerRight,
