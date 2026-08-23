@@ -1,6 +1,7 @@
-# LingChat temporary visual/audio asset notice
+# LingChat pinned visual/audio parity asset notice
 
-This private, non-commercial learning build temporarily includes selected assets from:
+This private, non-commercial learning build temporarily includes the pinned
+DeepSeek presentation set from:
 
 - Project: LingChat
 - Upstream: https://github.com/SlimeBoyOwO/LingChat
@@ -14,6 +15,14 @@ The upstream README gives additional asset-specific notices which remain control
 - Dialogue beep material is identified by upstream as originating from *Undertale*.
 - These assets must not be used commercially.
 
-This repository uses the selected files only for personal study and local testing, preserves upstream attribution, and does not claim ownership or relicense the artwork/audio. They are intentionally isolated under `assets/lingchat/` so they can be replaced with original artwork later.
+The parity set contains 21 DeepSeek portrait files, two day/night backgrounds,
+all 16 upstream expression-effect WebP files and all 23 upstream audio-effect
+files. Runtime mappings initially follow the pinned `EMOTION_CONFIG`; dormant
+files remain available rather than being silently discarded.
+
+This repository uses these files only for personal study and local testing,
+preserves upstream attribution, and does not claim ownership or relicense the
+artwork/audio. They are intentionally isolated under `assets/lingchat/` so
+they can be replaced with original artwork later.
 
 `tools/fetch_lingchat_visual_assets.sh` records the exact source path, verifies every Git LFS object by SHA-256, and makes the selection reproducible. Emotion audio is disabled by default in the app.
