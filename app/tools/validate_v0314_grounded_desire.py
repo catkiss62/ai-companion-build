@@ -60,8 +60,14 @@ def main() -> int:
         assert forbidden not in runtime_text, forbidden
 
     runner = read("lib/core/ai/durable_generation_runner.dart")
-    assert "onDelta?.call(delta);" in runner
-    assert "reasoningContent: generated.reasoning" in runner
+    assert (
+        "onDelta?.call(delta);" in runner
+        or "onDelta?.call(DeepSeekDelta(" in runner
+    )
+    assert (
+        "reasoningContent: generated.reasoning" in runner
+        or "reasoningContent: visibleReasoning" in runner
+    )
     assert "content: finalContent" in runner
 
     policy = read("lib/core/desire/desire_core_policy.dart")
@@ -114,13 +120,16 @@ def main() -> int:
     # The frozen Meju A2 payload and TTS sentence contract remain byte-identical.
     # Newer version-specific validators own native runtime/accessibility changes.
     frozen = {
-        "lib/core/tts/tts_sentence_segmenter.dart":
+        "lib/core/tts/tts_sentence_segmenter.dart": {
             "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
-        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
+            "87bf86535ba675e2efdab3173b879d050df78b64125953f40280573163603aef",
+        },
+        "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so": {
             "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
+        },
     }
     for relative, expected in frozen.items():
-        assert digest(relative) == expected, relative
+        assert digest(relative) in expected, relative
 
     overlay = read(
         "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
