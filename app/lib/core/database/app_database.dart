@@ -48,7 +48,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 26;
   // Historical validator compatibility token: static const int schemaVersion = 27;
   // Historical validator compatibility token: static const int schemaVersion = 28;
-  static const int schemaVersion = 29;
+  // Historical validator compatibility token: static const int schemaVersion = 29;
+  static const int schemaVersion = 30;
 
   Database? _db;
   Future<Database>? _opening;
@@ -847,6 +848,22 @@ class AppDatabase {
     if (oldVersion < 29) {
       await _createV29Tables(db);
     }
+    if (oldVersion < 30) {
+      // Only migrate untouched v0.37.0 defaults. Explicit user choices are
+      // preserved even when they are close to the new recommendations.
+      await db.update(
+        'settings',
+        {'value': '0.60'},
+        where: 'key = ? AND value = ?',
+        whereArgs: const ['chat_panel_opacity', '0.72'],
+      );
+      await db.update(
+        'settings',
+        {'value': '48'},
+        where: 'key = ? AND value = ?',
+        whereArgs: const ['chat_typewriter_ms', '56'],
+      );
+    }
 
   }
 
@@ -1053,10 +1070,10 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
     await db.insert('settings', {'key': 'chat_visual_stage_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_background_mode', 'value': 'auto'});
-    await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.72'});
+    await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.60'});
     await db.insert('settings', {'key': 'chat_panel_fraction', 'value': '0.62'});
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
-    await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '56'});
+    await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
     await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
@@ -1842,10 +1859,10 @@ class AppDatabase {
       'tts_reading_scope': 'dialogue_only',
       'chat_visual_stage_enabled': '1',
       'chat_background_mode': 'auto',
-      'chat_panel_opacity': '0.72',
+      'chat_panel_opacity': '0.60',
       'chat_panel_fraction': '0.62',
       'chat_typewriter_enabled': '1',
-      'chat_typewriter_ms': '56',
+      'chat_typewriter_ms': '48',
       'emotion_sound_enabled': '0',
         'show_emotion_label': '1',
     }.entries) {
@@ -9437,10 +9454,10 @@ class AppDatabase {
         'personality_posture_key': 'equal',
         'chat_visual_stage_enabled': '1',
         'chat_background_mode': 'auto',
-        'chat_panel_opacity': '0.72',
+        'chat_panel_opacity': '0.60',
         'chat_panel_fraction': '0.62',
         'chat_typewriter_enabled': '1',
-        'chat_typewriter_ms': '56',
+        'chat_typewriter_ms': '48',
         'emotion_sound_enabled': '0',
         'show_emotion_label': '1',
         'relationship_continuity_enabled': '1',
