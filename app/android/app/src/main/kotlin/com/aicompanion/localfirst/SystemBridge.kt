@@ -234,6 +234,7 @@ class SystemBridge(
                         ),
                     )
                 "deviceLabel" -> result.success(deviceLabel())
+                "runtimeProcessEpoch" -> result.success(CompanionRuntimeState.runtimeProcessEpoch)
                 "getPerceptionState" -> result.success(perceptionState())
                 "getRecentUsage" -> result.success(
                     CurrentAppResolver.recentUsage(
