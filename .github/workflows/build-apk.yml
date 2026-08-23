@@ -43,6 +43,11 @@
 # Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
 # AI-Companion-v0.37.5-94-Grounded-Emotion-Episode-APK.apk
 # .ci/v0375-monitor.txt
+# Historical v0.37.4 validator compatibility:
+# Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
+# validate_v0374_audio_presentation_stabilization.py
+# AI-Companion-v0.37.4-93-Audio-Presentation-Stabilization-APK.apk
+# .ci/v0374-monitor.txt
 # Historical v0.37.3 compatibility:
 # Build AI Companion v0.37.3+92 APK (19-Expression Visual Parity)
 # AI-Companion-v0.37.3-92-19-Expression-Visual-Parity-APK.apk
