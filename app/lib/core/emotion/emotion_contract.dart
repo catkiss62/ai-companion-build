@@ -78,7 +78,7 @@ class EmotionCatalog {
   static const labelsByKey = <String, String>{
     'excited': '兴奋',
     'disgust': '厌恶',
-    'crying': '哭泣',
+    'crying': '伤心',
     'afraid': '害怕',
     'shy': '害羞',
     'calm': '平静',
@@ -121,8 +121,18 @@ class EmotionCatalog {
     'happy': 'happy',
   };
 
+  static const aliasKeysByLabel = <String, String>{
+    '哭泣': 'crying',
+    '羞耻': 'embarrassed',
+    '尴尬': 'embarrassed',
+    '无语': 'helpless',
+    '情动': 'affection',
+    '慌乱': 'flustered',
+  };
+
   static final keysByLabel = <String, String>{
     for (final entry in labelsByKey.entries) entry.value: entry.key,
+    ...aliasKeysByLabel,
   };
 
   static bool isCanonicalLabel(String value) =>
