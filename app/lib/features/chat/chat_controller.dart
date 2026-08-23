@@ -497,7 +497,7 @@ class ChatController extends ChangeNotifier {
     if (_disposed || analyzingImage || sending) return;
     final acquired = await db.tryAcquireLocalLease(
       'image_vision_lease',
-      holdFor: const Duration(minutes: 3),
+      holdFor: const Duration(seconds: 30),
     );
     if (!acquired) return;
     final message = await db.messageById(messageId);
@@ -644,7 +644,7 @@ class ChatController extends ChangeNotifier {
 
     final chatLease = await db.tryAcquireLocalLease(
       'chat_turn_lease',
-      holdFor: const Duration(minutes: 3),
+      holdFor: const Duration(seconds: 30),
     );
     if (!chatLease) {
       error = '另一处聊天窗口正在发送消息，请等她这一轮回复完成后再试。';
@@ -770,7 +770,7 @@ class ChatController extends ChangeNotifier {
       cancellation.throwIfCancelled();
       final stillOwnsTurn = await db.renewLocalLease(
         'chat_turn_lease',
-        holdFor: const Duration(minutes: 3),
+        holdFor: const Duration(seconds: 30),
       );
       if (!stillOwnsTurn) {
         await db.suspendGenerationJob(
@@ -897,102 +897,42 @@ class ChatController extends ChangeNotifier {
   Future<void> resumePendingGeneration() async {
     if (_disposed || sending) return;
     if (!await db.brainWorkAllowed()) return;
-    final job = await db.nextRecoverableGenerationJob();
-    if (job == null) {
-      unawaited(_scheduleGenerationRecovery());
-      return;
-    }
-    final acquired = await db.tryAcquireLocalLease(
-      'chat_turn_lease',
-      holdFor: const Duration(minutes: 3),
-    );
-    if (!acquired) {
-      unawaited(_scheduleGenerationRecovery(extraDelay: const Duration(seconds: 4)));
-      return;
-    }
 
-    sending = true;
-    nsfwRouting = (await db.getSetting('nsfw_manual_override') ?? '').isEmpty;
-    _petGenerationActive = true;
     recoveringGeneration = true;
     cancellingGeneration = false;
-    streamingReasoning = '';
-    streamingContent = '';
-    agentActivity = null;
     error = null;
-    final cancellation = GenerationCancellationToken();
-    _activeGenerationCancellation = cancellation;
-    _activeGenerationJobId = job.id;
-    _activeGenerationAssistantMessageId = job.assistantMessageId;
     _safeNotify();
     try {
-      final result = await generationRunner.run(
-        job,
-        cancellationToken: cancellation,
-        onNsfwRoute: _applyNsfwRoute,
-        onAgentToolActivity: _applyAgentToolActivity,
-        onDelta: (delta) {
-          if (cancellation.isCancelled) return;
-          if (delta.reasoning.isNotEmpty) {
-            streamingReasoning += delta.reasoning;
-          }
-          if (delta.content.isNotEmpty) streamingContent += delta.content;
-          _safeNotify();
-        },
+      final finalized = await generationRecovery.recoverOne();
+      if (finalized) {
+        await _stopTurnAudio();
+        messages = await db.recentMessages(limit: 120);
+        generationInterruptions =
+            await db.recentGenerationInterruptions(limit: 20);
+        externalGenerationActive = false;
+        _externalGenerationAssistantMessageId = null;
+        streamingReasoning = '';
+        streamingContent = '';
+        agentActivity = null;
+        error = null;
+      }
+    } catch (exception) {
+      final raw = exception.toString();
+      await db.setSetting(
+        'last_generation_recovery_error',
+        raw.length <= 320 ? raw : raw.substring(0, 320),
       );
-      if (result.completed) {
-        messages = await db.recentMessages(limit: 120);
-        await _incrementOverlayUnread();
-        _petGenerationActive = false;
-        _safeNotify();
-        await db.setSetting('last_generation_recovery_error', '');
-        final recoveredUser = await db.messageById(job.userMessageId);
-        if (recoveredUser != null) {
-          await memoryExtractor.extractFromTurn(
-            user: recoveredUser,
-            assistant: result.assistant!,
-          );
-        }
-      } else if (result.status == 'cancelled_by_user') {
-        await _stopTurnAudio();
-        messages = await db.recentMessages(limit: 120);
-        generationInterruptions =
-            await db.recentGenerationInterruptions(limit: 20);
-        error = null;
-      } else if (result.status == 'interrupted') {
-        await _stopTurnAudio();
-        messages = await db.recentMessages(limit: 120);
-        generationInterruptions =
-            await db.recentGenerationInterruptions(limit: 20);
-        error = null;
-      } else if (result.retryScheduled) {
-        error = '上一轮回复恢复时网络仍不可用，已经继续保留重试任务。';
-      } else if (result.status != 'suspended') {
-        final raw = result.error?.toString() ?? 'generation_recovery_failed';
-        error = raw;
-        await db.setSetting(
-          'last_generation_recovery_error',
-          raw.length <= 320 ? raw : raw.substring(0, 320),
-        );
-      }
+      error = '上次中断的回复还没有清理完成：$raw';
     } finally {
-      sending = false;
-      nsfwRouting = false;
-      _petGenerationActive = false;
       recoveringGeneration = false;
-      cancellingGeneration = false;
-      streamingReasoning = '';
-      streamingContent = '';
-      agentActivity = null;
-      if (identical(_activeGenerationCancellation, cancellation)) {
-        _activeGenerationCancellation = null;
-        _activeGenerationJobId = null;
-        _activeGenerationAssistantMessageId = null;
-      }
-      await db.releaseLocalLease('chat_turn_lease');
+      _petGenerationActive = false;
       _safeNotify();
-      if (!cancellation.isCancelled) {
-        unawaited(_scheduleGenerationRecovery());
+      if (await db.nextGenerationRecoveryDelay() != null) {
+        unawaited(
+          _scheduleGenerationRecovery(
+            extraDelay: const Duration(seconds: 4),
+          ),
+        );
       }
     }
   }
