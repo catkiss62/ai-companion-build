@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import java.security.MessageDigest
 import java.util.ArrayDeque
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -62,6 +63,11 @@ object CompanionRuntimeState {
     private val visibleActivities = AtomicInteger(0)
     private val processStartedElapsedMs = SystemClock.elapsedRealtime()
     private val processStartedWallMs = System.currentTimeMillis()
+    // Shared by every FlutterEngine in this Android process, but regenerated
+    // after a crash/force-stop. Durable leases use it to reject only a truly
+    // old process without stealing work from the live App/overlay engine.
+    val runtimeProcessEpoch: String =
+        "${processStartedWallMs.toString(36)}-${UUID.randomUUID()}"
     @Volatile private var serviceStartedElapsedMs: Long = 0L
 
     @Volatile var overlayVisible: Boolean = false
