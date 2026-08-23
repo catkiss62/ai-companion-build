@@ -6,6 +6,16 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0N. 2026-08-23 GitHub Pro 恢复、v0.37.0 CI 收口与 APK 交付（CI PASSED / APK READY / 真机待验收）
+
+- 用户已将个人 GitHub 方案升级为 Pro。此前 Actions 的阻断文本为“recent account payments have failed or your spending limit needs to be increased”；2026-08-23 重跑后任务成功进入 GitHub-hosted runner，证明本仓库的付款/消费上限拦截已解除。官方当前 GitHub Pro 含私有仓库 Actions 每月 3,000 分钟、1 GB artifact 存储；这是计算分钟与 Actions 制品额度，不等于仓库 Draft Release 容量。
+- 最终通过 run 为 #297，run id `32629961745`：源码/回归静态校验、417 文件桌宠包恢复、Kotlin 桌宠状态与物理单测、Flutter analyze、全部 Flutter tests、release APK 构建、稳定签名校验、原生库与完整素材载荷校验、SHA-256 生成、私有 Draft Release 上传全部成功。PR merge SHA `20f4b15949131826be8f52fc1f6b59019547a21c`，对应功能分支代码 head `b9cf45e1355ab7930bd9a1a9575dabc12d60aa16`。
+- APK：`AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk`，构建日志体积 252.9 MB，SHA-256 `d237b3ef79f35e720646fe13b86ca5750eca94daa591375d73fd609010cf49d4`。签名证书 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装沿用相同私有测试签名的旧版。Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-55b1a59ee261e6033111>。
+- 本次 CI 暴露并修复三类“历史验证器冻结旧实现、当前契约已经升级”的兼容断言：v0.35.1 人格试穿从直接 `profileTrial.baseKey` 改为试穿优先/长期底色回退的空安全表达式，并把固定自称约束迁入永久规则；v0.31.4 流式回调改为中文可见思考净化后的 `DeepSeekDelta`，TTS 分句器接受仓库当前既有基线哈希；v0.29 TTS 括号预处理由处理器内直接正则迁为统一 `ChatSegmentCodec` 动作/对白解析。旧路径仍被兼容接受，当前新版验证器和 Flutter 测试继续负责真实语义，不是删除验证。
+- 启动图标最终使用用户第二张“蓝发角色双手比心、粉色格纹背景”图片，原始 781×781 足够生成 512×512 启动图标，不重绘；LingChat 角色头像只用于 App 内聊天顶部与快捷面板，不作为游戏图标。
+- 配额优化结论：绝对最省 GitHub 托管分钟的是自托管 runner，但需要长期在线电脑、环境维护，并把私有代码/令牌/测试签名暴露给该机器，不适合当前以手机为主的工作方式。当前项目推荐保留 Linux 托管 runner与私有 Draft Release，下一轮再把 CI 拆为“普通提交轻量检查 + 真机里程碑手动完整 APK”，并开启 Flutter/pub/Gradle 依赖缓存；优点是明显减少重复下载和完整构建分钟，缺点是只在完整打包出现的问题会稍晚发现、缓存偶发异常时需清理重建。当前工作流已启用文档路径忽略和同分支新任务取消旧任务；本轮不在成功构建后立即改工作流，避免仅为省额设置再触发一次完整 APK。
+- 当前验收边界：`v0.37.0+89` 已完成代码与 CI，不等于真机视觉/交互通过。下一步真机重点检查新启动图标、App 内半透明聊天舞台、白天/夜晚背景、DeepSeek 圆形头像与左滑快捷面板、左右气泡、可拖动聊天区顶部、动作直显/对白 `「」`、普通聊天分段流式、主动消息单条原子显示、TTS 两种朗读范围；悬浮聊天框不做高风险舞台改造的决定不变。
+
 ## 0D. 2026-08-22 真机确认：v0.36.0 IA-1、认识天数与双界面细节通过
 
 - 当前已真机确认稳定基线提升为 `v0.36.0+85`、schema 26。REDMI K80 Ultra / HyperOS 已验证：悬浮发送后按钮可立即变 Stop；Stop/恢复中断提示双端一致；App/悬浮均能显示图片；App 内发送后切出可出现未读 `①`；日期/星期分隔双端一致；五域 IA-1、认识第 N 天与动作括号换色均可用。
@@ -138,7 +148,7 @@
 - 真机里程碑顺序修订：先做第一阶段地基但不为地基单独停工或出 APK；紧接完成第二阶段后交付首个真机候选；主动话题、自主查询规划和心跳候选多样性放在视觉/对话主链稳定之后，因为其代码量较小但真实行为观察时间更长。
 - 当前基线仍为 `v0.36.3+88`、schema 26、Draft PR #23、分支 `agent/personality-appearance-self`。正式实现尚未获得 CI 或真机结论，后续每个检查点必须分别登记 commit、schema、Actions、APK 和真实验收，禁止把“授权/开始”写成“已完成”。
 
-## 0M. 2026-08-23 v0.37.0 人格/消息地基与 App 聊天舞台检查点（IMPLEMENTED / CI INFRA BLOCKED / APK PENDING）
+## 0M. 2026-08-23 v0.37.0 人格/消息地基与 App 聊天舞台检查点（IMPLEMENTED / CI BLOCK RESOLVED IN 0N / APK READY）
 
 - 第一阶段地基已提交为 `12c1da1c9173962a50d096099fbdbe56eb4c6949`：SQLite schema 从 26 升至 27，并为消息增加 `segments_json`；永久“核心人设 + 活人感基线”与可变性格底色/相处姿态正式分层，默认底色为显式 `neutral`、姿态为平等恋人，试穿和转正不再覆盖核心人格。
 - 可见输出契约已改为中文：联网工具路由 JSON / 英文规划不作为可见思考链；可见内心和最终回答使用中文，专业名词可保留英文。新格式为动作/神态直接独占一行，对白用 `「」` 包裹，段间不插空行；旧括号历史继续兼容。普通聊天在一条 durable message 内保存多个 segment，AI 主动联系仍严格是一条完整 message、一个气泡、一次未读和一条通知。
