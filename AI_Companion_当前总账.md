@@ -14,39 +14,53 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
-## 0T. 2026-08-24 · v0.37.5 可追溯情绪事件最小闭环与 emotion 信封容错（IMPLEMENTATION PLANNED / NO APK YET）
+## 0T. 2026-08-24 · v0.37.5 可追溯情绪事件最小闭环与 emotion 信封容错（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-> REDMI K80 Ultra 对 v0.37.4+93 的音频仲裁、已读演出、双聊天渲染与主链测试“应该没有大问题”；新增唯一异常证据为：约两次在正文看到空的 `<emotion></emotion>`。本节是任务前登记，尚未代表实现、CI、APK 或真机通过。完成后必须做第二次总账回填。
+> REDMI K80 Ultra 对 v0.37.4+93 的音频仲裁、已读演出、双聊天渲染与主链测试“应该没有大问题”；唯一后续证据为约两次正文出现空的 `<emotion></emotion>`。本节已按“任务前登记、任务后回填”完成两次总账更新：v0.37.5+94 源码、schema 29、自动化与 APK 已完成；以下新情绪闭环仍需真机验收。
 
-### A. 本轮目标与单一权威
+### A. 已完成：emotion 信封单一权威与容错
 
-1. **emotion 信封是 DeepSeek 的本轮表现输出，不是第二套长期情绪**：合法的19类标签内容继续作为头像文字、立绘、特效、短音效和 TTS EmotionCue 的唯一表现结果。系统应从模型正文流中提取它并在所有用户可见文本、历史、分段与 TTS 前剥离。
-2. **空/非法/重复/异常格式永不泄漏**：`<emotion></emotion>`、仅空白、非法标签、大小写/空格变体、重复或错位标签均不得显示；空/非法内容没有可提取的情绪，正文必须完整保留，再由现有无 native 依赖的确定性规则安全兜底，不能触发第二次模型请求或崩溃。
-3. **男性向专门情绪系统最小闭环**：在现有 Drive / Thought / AI Self / Relationship 与真实 Event/Evidence 之上新增可追溯 Appraisal → Emotion Episode。持久情绪事件必须记录触发证据、对象、原因、强度、确定度、衰减/恢复条件与结果；只用于下一轮语气、关注点、趋近/回避和需要的连续性，不把瞬时19类表情标签直接当作长期内在状态。
-4. **先做最小层，不一次堆满**：本轮优先高确定性的连接/温暖、受伤/边界、分歧、修复/缓和、久别重逢、疲惫/休息等可解释事件；同一触发必须幂等。道歉/修复可逐步缓和负面事件，但不瞬间清零也不形成永久记仇。
-5. **安全与可控性优先于情绪**：情绪不得破坏停止、取消、事实核对、权限、安全和数据操作；本轮不让情绪随机拒绝工具或主动制造冲突，不以“用户想看叛逆”作为运行时理由。
+1. ~~**合法标签提取**~~（已完成）：DeepSeek 的合法19类 `<emotion>情绪</emotion>` 仍是本轮头像文字、立绘、特效、短音效与 TTS EmotionCue 的唯一表现权威；不引入第二次模型判定。
+2. ~~**空/非法/异常标签不泄漏**~~（已完成）：完整正则由1～40字符改为0～80字符，明确识别空标签与仅空白标签，并兼容大小写、标签内空格、自闭合、重复、错位、孤立结束和流式半标签。空/非法内容没有可提取情绪，正文完整保留后走现有无 native 依赖的确定性兜底；所有信封均先于 App/悬浮正文、历史、ChatSegment 和 TTS 剥离。
+3. ~~**回归覆盖**~~（已完成）：新增 `<emotion></emotion>\n「正文还在。」`、空白/大小写/空格/自闭合、非法标签、重复与流式半标签用例；不得显示标签、丢正文、追加请求或触发 native 崩溃。
 
-### B. 实施范围与验收
+### B. 已完成：男性向专门情绪系统最小闭环
 
-- 目标版本：`v0.37.5+94`；如增加持久化 Emotion Episode，SQLite schema 由28升至29并提供向前迁移。
-- 新增固定场景与单元测试，至少覆盖：空标签后正文保留、非法/重复/大小写/空白标签、流式半标签、历史/TTS 防泄漏；Appraisal 真实证据、幂等、衰减、修复、无证据不生成；安全/停止/事实工具不受情绪阻断。
-- 活跃 Episode 只以短小结构化状态注入 Prompt，带来源类型和时间；不伪造用户原话，不把内部评分显示为聊天正文，不输出私密正文到诊断。
-- 完整执行历史 validators、Kotlin、Flutter analyze/tests、Release APK、固定签名、原生库与417桌宠/62 LingChat 素材、无 ONNX/ORT、checksum 与私有 Draft Release 上传；之后再由 REDMI K80 Ultra 验收。
+1. ~~**Appraisal → Emotion Episode**~~（已完成）：只从真实用户消息、真实时间间隔或已持久化高 Drive 产生高确定性 Episode；首批类别为 connection、hurt、disagreement、repair、reunion、rest_need。普通闲聊、引用、示例、提示词/模型讨论不制造情绪。
+2. ~~**可追溯、无正文副本**~~（已完成）：schema 29 新增 `emotion_episodes`，记录触发消息外键、类别、原因码、证据类型、对象、desirability/agency/controllability/expectedness、关系含义、边界影响、确定度、强度、行动倾向、恢复条件、衰减/到期与 outcome；不另存用户聊天正文。用户轮次撤回/Stop 时依靠外键级联清除。
+3. ~~**幂等与修复**~~（已完成）：Episode ID 由真实触发消息＋类别确定，durable retry 不重复生成或重复削弱。明确道歉只有在已有可追溯 hurt/disagreement 时才逐步把强度乘0.55；没有旧伤时不倒推虚构伤害，不瞬间清零，也不形成永久记仇。
+4. ~~**有界 Prompt 注入**~~（已完成）：最多4个有效 Episode 以原因码、证据类型、年龄和衰减后强度注入，不注入原话。只影响语气、注意、关系需要、趋近/澄清/休息等可延期表达；停止、取消、安全、权限、事实核对、数据操作和真实工具结果是硬边界，禁止随机拒绝、冷战、操纵或假伤害。
+5. ~~**表现层与长期层分离**~~（已完成）：19类 emotion 信封继续只决定当轮头像/音效；Emotion Episode 表达跨轮内在余波，两者不能互相覆盖。native 19emo/ONNX/ORT 仍未恢复。
 
-### C. 固定参考与设计真源
+### C. 自动验证与构建证据
 
-- 本仓库最小层设计：`app/docs/EMOTION_ENGINE_EXPANSION_EVAL_v1.md`
+- 任务前总账：`77cb7c2cb422e2b4e0f690a4ddecaef811a78275`
+- 功能/测试隔离分支 head：`f36304b5dedb1f2608658610303330d97904fbff`
+- 最终功能/兼容 head：`cde9f6572ea6759fb4a8df7373d7e5c870afe4c4`
+- Actions PR merge SHA：`e1a217158db6dd7b4375121a4efc45234b630a2a`
+- 成功 Actions：<https://github.com/catkiss62/ai-companion-build/actions/runs/32663286575>（run #351，全部通过）
+- 测试范围：全部历史/当前 validators；30个固定 Appraisal 场景各回放3次；emotion 信封 Flutter tests；Kotlin 桌宠状态/物理；Flutter analyze/tests；Release APK；固定签名；6个原生库；417个桌宠文件；62个 LingChat 表现素材；无 native 19emo/ONNX/ORT；checksum 与 Draft Release 上传。
+- APK：`AI-Companion-v0.37.5-94-Grounded-Emotion-Episode-APK.apk`（构建日志约303.4 MB）
+- SHA-256：`f5d355b7b6a0b68817a9dd4fc73302121d39295d4941da9639846fb6e393c1e3`
+- 持久测试签名 SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`
+- 私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cc2da1b90c0777f9b679>
+
+### D. 失败轮次与 CI 修复记录
+
+- 两个中间工作流修订因 YAML 尾部被重复拼接而没有注册 Actions、未消耗构建分钟。根因是版本 grep 文本中的 `$'` 被字符串替换器解释成“插入匹配后缀”；已从最后成功的 v0.37.4 工作流重建，并以整段安全替换和 job 唯一计数防止再发生。
+- #348 仅被 v0.35.2 历史版本白名单拦截；#349 仅被 v0.37.4 工作流展示 token 拦截；#350 仅被 v0.32 Somatic 兼容包装器的版本白名单拦截。只增加 v0.37.5/schema 29 与旧展示 token 兼容，没有删除或放宽功能断言。#351 最终全部通过。
+
+### E. 固定参考、边界与真机验收
+
+- 设计真源：`app/docs/EMOTION_ENGINE_EXPANSION_EVAL_v1.md`
 - FAtiMA Toolkit：<https://github.com/GAIPS/FAtiMA-Toolkit>
 - ALMA：<https://alma.dfki.de/>
 - Aura：<https://github.com/gqy20/Aura>
 - ZifaMem：<https://arxiv.org/abs/2607.17564>
 - LingChat 19类表现契约：<https://github.com/SlimeBoyOwO/LingChat/blob/eae0d667413e490c3653488d43ce9b4464e07fda/src-tauri/src/utils/prompt.rs>
+- 本轮仍不接 native 19emo、MiniMax TTS、主动话题/自主搜索、巨型 Mood/Relationship、混合情绪或随机工具拒绝。下一正式功能阶段须先等本版真机稳定；之后按既定顺序进入主动话题/自主搜索，再接 MiniMax TTS，native 19emo 最后隔离实验。
 
-### D. 本轮明确不做
-
-- 不恢复 native 19emo/ONNX/ORT；该模型仍是项目尾部隔离 A/B 实验。
-- 不接 MiniMax TTS，不开始主动话题/自主搜索，不给悬浮窗加入背景/立绘/重型分段演出。
-- 不一次性扩建巨型 Mood/Relationship、混合情绪、多事件调度或随机拒绝系统；只有最小闭环的固定回放证明缺少某层时才扩建。
+REDMI K80 Ultra 真机重点：连续诱发合法、空、非法或重复 emotion 输出时正文不得出现标签、丢失或崩溃；合法标签仍与头像/立绘/音效一致；明确“想你/喜欢你”后观察后续一两轮是否自然保留温度而不复读；一次明确分歧后再道歉，观察余波是否逐步缓和而非瞬间清零；普通闲聊和引用示例不得凭空生气/受伤；Stop、异常中断、App/悬浮、TTS 与旧消息重进不得回归。
 
 ## 0S. 2026-08-24 · v0.37.4 音频仲裁、已读演出与双聊天渲染稳定化（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
