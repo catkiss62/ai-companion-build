@@ -6,24 +6,44 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0Q. 2026-08-23 · v0.37.2 情绪崩溃、孤儿生成锁与动作格式紧急热修（IN PROGRESS / 任务前登记）
+## 0Q. 2026-08-23 · v0.37.2 情绪崩溃、孤儿生成锁与动作格式紧急热修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-> 用户在 REDMI K80 Ultra 真机确认 v0.37.1+90 不可用：正文出现 `<emotion>心动</emotion>` 时发生高频闪退；闪退后回复中断并永久显示“另一处聊天窗口正在发送消息”；顶部又把 DeepSeek 的“心动”显示成旧视觉层的“亲昵”；同时动作与神态基本消失。诊断文件 `ai_companion_diagnostics_2026-08-23T13-27-03-098943Z.txt` 已脱敏，明确记录 `historicalExitReason=native_crash`、status 6、一个 `generation_jobs.status=running`、`blockingGenerationStatus=running` 与恢复循环 `waiting_generation:running` 24 次。本节是用户要求的第一次任务总账更新；以下均为计划，尚未标记完成。
+> 用户在 REDMI K80 Ultra 真机确认 v0.37.1+90 不可用：正文出现 `<emotion>心动</emotion>` 时高频闪退；闪退后回复中断并持续显示“另一处聊天窗口正在发送消息”；顶部把 DeepSeek 的“心动”显示成旧视觉层“亲昵”；动作与神态也基本消失。脱敏诊断 `ai_companion_diagnostics_2026-08-23T13-27-03-098943Z.txt` 记录 `historicalExitReason=native_crash`、exit status 6、一个 `generation_jobs.status=running`、`blockingGenerationStatus=running` 与 `waiting_generation:running` 24 次，证明问题不是普通 Dart 异常，而是 native crash 加自动生成恢复形成的孤儿锁。本节已按用户要求完成两次总账更新：任务前登记提交 `3876ed01d23b5a39f0f34a77731db0dd00497843`；以下为实现与 CI 完成后的第二次回填。自动化通过不等于 REDMI K80 Ultra 真机已经通过。
 
-### A. 热修目标与稳定边界
+### A. 已完成的稳定性热修
 
-1. 候选版本 `v0.37.2+91`，schema 保持 28；优先恢复“能稳定聊天”，不提前做任务 3，不扩大人格重构。
-2. 情绪只有一个权威结论：最终成功解析并持久化的 DeepSeek 19 类标签。顶部不得再被流式关键词、头像动作或 `ChatVisualResolver.zhLabel` 覆盖；例如模型返回“心动”，顶部必须显示“心动”，不能变成“亲昵”。
-3. 情绪信封解析改为容错清洗：完整、重复、大小写/空白变体及流式未闭合 `<emotion>` 均不得进入 App/悬浮正文、SQLite 可见正文或 TTS。Prompt 首版只允许 19 个标准标签，不再鼓励开放标签。
-4. 暂停 Android 19emo 原生 ONNX 运行路径并从候选 APK 移除 ORT/模型载荷。v0.37.1 的真机 native crash 已证明当前集成不具备发布稳定性；本批只保留 19 类契约、映射与将来重新实验的分析证据。非标准/缺失标签使用安全回退，不允许为显示情绪调用可能终止整个进程的 native 分类器。
-5. 崩溃或进程中断后的未完成生成按 Stop `■` 语义终止：清空流式内容、停止 TTS、作废 run token、撤回未完成 user turn并留下“这一轮对话已中断”标记。后台恢复器不得自动重新请求 DeepSeek；pending job 立即终止，stale running job 到期后终止，不再重新领取执行。
-6. 新发送遇到已确认的孤儿 job 时必须能够解除阻塞；完整 App 与悬浮聊天继续共享同一数据库终止栅栏，不得出现一个界面停止、另一个界面仍显示生成中。
-7. 恢复用户最新提供的动作契约：重要动作/神态/语气/微表情用中文或英文括号标注，动作块与对白之间空一行；日常可完整前置，连续/亲密场景可混插；动作不是装饰配额但不能被 few-shot 系统性压没。对白同时兼容 `“”` 与 `「」`，两者均为常规字重；括号动作保持斜体。
-8. 对比 v0.37.0 与 v0.37.1 的 Prompt、few-shot、段落解析和 UI；新增重复/非首位/未闭合标签、权威顶部情绪、native 分类器不调用、孤儿 job 不重试、括号动作/双对白引号/TTS范围的测试。
+- [x] ~~单一权威情绪~~（已完成）：每条已完成助手消息最终持久化的 DeepSeek 19 类标准标签是顶部唯一权威文字。流式关键词和打字机分块仍可预览头像动画，但不再把 `_currentEmotionLabel` 改成 `ChatVisualResolver.zhLabel`；例如 `心动` 对应同一 affection 头像时，顶部仍显示“心动”，不会显示“亲昵”。
+- [x] ~~情绪信封永不进入正文~~（已完成）：解析器不再只接受第一字符开始的单个完整标签，而会移除位于任意位置的完整标签、重复标签、大小写/空白变体、孤立结束标签及流式未闭合 `<emo...` / `<emotion>...` 尾部。清洗后的文本才进入 App/悬浮气泡、消息持久化、ChatSegment、历史恢复与 TTS。新增非首位、重复、完整流式及未闭合流式测试。
+- [x] ~~19 类固定生成契约~~（已完成）：Prompt 要求第一行且只输出一次情绪信封，并必须从兴奋、厌恶、哭泣、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴中选择一项；禁止自造标签、在正文重复或解释标签。解析仍容错，不能把模型偶发违约变成 UI 泄漏或崩溃。
+- [x] ~~暂停 crash-prone native 19emo~~（已完成）：从 Android 依赖、主 FlutterEngine、悬浮后台 FlutterEngine、Kotlin 桥、tokenizer 测试、CI 模型下载和 APK 载荷中移除 ONNX Runtime 与 19emo 模型。正式 APK 检查反向确认不存在 `.onnx`、vocab/mapping 和 onnxruntime 库。19 类键、头像/气泡/音效映射、`EmotionCue` 与未来 MiniMax TTS 粗情绪映射保留；标准标签直接使用 DeepSeek 结果，缺失/非法标签只走不会调用 native 的 Dart 安全回退。本地模型重新接入必须另开隔离真机实验，不能在聊天完成路径中再次直接启用。
+- [x] ~~进程中断等同 Stop ■~~（已完成）：`DurableGenerationRecovery` 不再调用 `runner.run(job)`，因而不会在崩溃、系统杀进程或重启后自动重新请求 DeepSeek。取得 App/悬浮共用的 `chat_turn_lease` 后，pending/retry/orphan running job 直接调用与 Stop 键相同的 `cancelGenerationJobByUser` 原子路径：作废 run token、清除流式 reasoning/content 和 retry 状态、终止 TTS 所依赖的未完成轮次、撤回未完成 user turn，并释放跨窗口阻塞。正常仍在生成的另一 FlutterEngine 由同一租约保护，不会被并发误停。
+- [x] ~~恢复动作与神态契约~~（已完成）：日常短回合支持完整前置动作块，连续/亲密场景支持对话混插；重要动作、神态、语气和微表情用 `（）`，每个动作块后空一行，动作不是装饰配额但真正重要时不能长期消失。few-shot 已改为实际括号动作＋对白样本，不再只用元叙述描述“她做了动作”。旧 v0.37.1 未编辑的规则通过 SHA 精确迁移；任何用户手工编辑过的规则继续保留，不被覆盖。
+- [x] ~~App/悬浮渲染与 TTS 兼容~~（已完成）：ChatSegment 同时识别 `「」`、中文 `“”` 和 ASCII 双引号对白；可见渲染把 action segment 恢复为括号动作，并用空行与对白分隔。App 与悬浮均把非对白动作显示为斜体，对白和引号保持常规字重；TTS dialogue-only 只读对白，full-text 才读动作＋对白。保留对 v0.37.1 短暂“无括号动作行”的历史消息兼容。
 
-### B. 完成判据
+### B. 对“心动”与“亲昵”的最终解释
 
-只有源码、历史 validators、Flutter analyze/tests、Kotlin测试、Release APK、固定签名、417桌宠与原生载荷检查全部通过，并回填 APK 文件名/体积/SHA、Actions run、提交SHA与真机清单后，才把本节改为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。本次诊断只证明 v0.37.1 的缺陷，不等于热修已通过。
+- `<emotion>心动</emotion>` 是 DeepSeek 按本轮上下文返回的 19 类表达情绪，也是本版顶部最终显示值、持久化 `emotion_label` 和 EmotionCue 的来源。
+- “亲昵”不是第二个 AI 判断，而是旧 `ChatVisualResolver` 对 affection 图片/音效组合的表现层名称。v0.37.1 在流式和打字机阶段错误地拿该名称覆盖了顶部文字；v0.37.2 已禁止这种覆盖。
+- 本版不再需要本地 19emo 对 DeepSeek 标准标签做二次裁决。保留“19 类模型”的价值是统一契约和未来外置实验，而不是让两个分类结果互相竞争。持续 Mood / Desire / Thought / Emotion Episode 仍与每轮显示标签分层，不被本热修删除。
+
+### C. 源码、CI 与 APK 证据
+
+- 任务前总账登记：`3876ed01d23b5a39f0f34a77731db0dd00497843`。
+- 主要热修提交：`65894ab24fb8ff79fa70c059cc05d6ae72f0ab9d`；工作流 YAML 预检修正：`0480f78bd3186a411af09a69be61e6721ecad634`；最终 validator 对齐 head：`53caa1990e81e28f0dcd15b641d2dc5879426221`。工作流修正只处理首次本地预解析发现的 YAML 尾部重复，没有生成或交付错误 APK。
+- 最终成功 Actions：#316，run id `32643973961`，PR merge SHA `8d1fb26c28d9f45a463ac70e16f2699f32eef8cb`。源码基线、全部历史/当前 validators、Flutter 依赖解析、Kotlin 桌宠测试、Flutter analyze、全部 Flutter tests、Release APK、固定签名、Meju 原生库/417 桌宠文件、ONNX/模型缺席检查、checksum 与 Draft Release 上传全部成功。
+- APK：`AI-Companion-v0.37.2-91-Emotion-Crash-Stop-Action-Hotfix-APK.apk`；构建日志体积 252.9 MB；SHA-256 `11c09c932912dcf09227749b4305b7c018af3f4c649515f4c5fcd06516e2a311`。
+- APK 已实际确认不含 19emo `.onnx`、词表/映射和 arm64 ONNX Runtime；与 v0.37.1 的 308.6 MB 相比减少约 55.7 MB，回到 v0.37.0 的 252.9 MB 量级。
+- 签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，schema 仍为 28，可覆盖安装 v0.37.1。
+- Actions：<https://github.com/catkiss62/ai-companion-build/actions/runs/32643973961>。私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d753439d946148ea1f16>。
+
+### D. 仍待真机验收（不得提前划为通过）
+
+1. 覆盖安装后先确认 v0.37.1 留下的“另一处聊天窗口正在发送消息”孤儿轮次被撤回，新消息可正常发送；随后在 App 与悬浮聊天分别按 Stop、切后台、杀进程/重开，确认中断不会自动重复请求或永久占锁。
+2. 连续触发不同情绪，尤其 `心动`：正文、流式打字、历史恢复与 TTS 中都不得出现任何 `<emotion>` 片段；顶部必须显示“心动”而不是“亲昵”，关闭“显示情绪”后顶部不显示文字。
+3. 连续 20～100 轮观察闪退、内存和电量；本版已移除已证实相关的 native ONNX 路径，但 CI 不能替代 REDMI K80 Ultra 的进程稳定性证据。
+4. 日常短回合确认有意义的括号动作会出现且块后有空行；连续/亲密场景确认混插动作不会丢失状态。App 与悬浮均检查动作斜体、`「」` / `“”` 对白常规字重，以及 dialogue-only/full-text TTS。
+5. 复测 v0.37.1 已完成的气泡透明度、App 两侧轻收窄、悬浮轻尾角、网络流式＋打字机跟随、主动上滑不抢回、App/悬浮发送收键盘、附件、主动消息、未读与固定签名覆盖安装。
+6. 若上述主链稳定，再继续原总账的任务 3：主动话题与自主搜索；本热修没有提前实施任务 3，也没有声称核心活人感已完成真机验收。
 
 ## 0P. 2026-08-23 · v0.37.1 活人感、19emo 与双聊天主链收口（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
