@@ -18,6 +18,7 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/chat_portrait_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
@@ -52,6 +53,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _ttsEnabled = false;
   double _panelOpacity = 0.72;
   double _panelFraction = 0.62;
+  double _portraitScale = ChatPortraitTransform.defaults.scale;
+  Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 56;
   String _backgroundMode = 'auto';
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
@@ -192,6 +195,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             0.62)
         .clamp(0.42, 0.88)
         .toDouble();
+    _portraitScale = (double.tryParse(
+              await db.getSetting('chat_portrait_scale') ?? '',
+            ) ??
+            ChatPortraitTransform.defaults.scale)
+        .clamp(0.85, 1.80)
+        .toDouble();
+    _portraitOffset = Offset(
+      (double.tryParse(
+                await db.getSetting('chat_portrait_offset_x') ?? '',
+              ) ??
+              ChatPortraitTransform.defaults.offset.dx)
+          .clamp(-0.45, 0.45)
+          .toDouble(),
+      (double.tryParse(
+                await db.getSetting('chat_portrait_offset_y') ?? '',
+              ) ??
+              ChatPortraitTransform.defaults.offset.dy)
+          .clamp(-0.35, 0.35)
+          .toDouble(),
+    );
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
             ) ??
@@ -206,6 +229,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _setVisualSetting(String key, String value) async {
     await AppDatabase.instance.setSetting(key, value);
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openPortraitTransformEditor() async {
+    final result = await Navigator.of(context).push<ChatPortraitTransform>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => ChatPortraitTransformEditor(
+          emotion: _currentEmotion,
+          initial: ChatPortraitTransform(
+            scale: _portraitScale,
+            offset: _portraitOffset,
+          ),
+          backgroundAsset: _useNightBackground
+              ? 'assets/lingchat/background/night.webp'
+              : 'assets/lingchat/background/day.webp',
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _portraitScale = result.scale;
+      _portraitOffset = result.offset;
+    });
+    await Future.wait([
+      _setVisualSetting(
+        'chat_portrait_scale',
+        result.scale.toStringAsFixed(4),
+      ),
+      _setVisualSetting(
+        'chat_portrait_offset_x',
+        result.offset.dx.toStringAsFixed(4),
+      ),
+      _setVisualSetting(
+        'chat_portrait_offset_y',
+        result.offset.dy.toStringAsFixed(4),
+      ),
+    ]);
   }
 
   bool get _useNightBackground {
@@ -643,14 +703,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ),
                     Positioned.fill(
                       child: IgnorePointer(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 240),
-                          child: Image.asset(
-                            _currentEmotion.portraitAsset,
-                            key: ValueKey(_currentEmotion.key),
-                            fit: BoxFit.contain,
-                            alignment: Alignment.topCenter,
+                        child: ChatPortraitStage(
+                          emotion: _currentEmotion,
+                          transform: ChatPortraitTransform(
+                            scale: _portraitScale,
+                            offset: _portraitOffset,
                           ),
+                          animationToken: latestAssistantId,
                         ),
                       ),
                     ),
@@ -824,6 +883,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           );
                         },
                       ),
+                      if (_visualStageEnabled)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.zoom_out_map_rounded),
+                          title: const Text('自定义立绘'),
+                          subtitle: Text(
+                            '当前 ${(100 * _portraitScale).round()}% · 双指缩放、拖动位置',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () async {
+                            Navigator.pop(dialogContext);
+                            await _openPortraitTransformEditor();
+                          },
+                        ),
                       DropdownButtonFormField<ProactiveNotificationSound>(
                         value: _notificationSound,
                         decoration: const InputDecoration(
