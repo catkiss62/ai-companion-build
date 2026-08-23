@@ -61,7 +61,78 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-change-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run-full-build: ${{ steps.scope.outputs.run-full-build }}
+      reason: ${{ steps.scope.outputs.reason }}
+
+    steps:
+      - name: Decide whether this event needs the full APK build
+        id: scope
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+
+          request_full_build() {
+            echo "run-full-build=true" >> "${GITHUB_OUTPUT}"
+            echo "reason=$1" >> "${GITHUB_OUTPUT}"
+            echo "Full APK validation required: $1" >> "${GITHUB_STEP_SUMMARY}"
+          }
+
+          if test "${EVENT_NAME}" = 'workflow_dispatch'; then
+            request_full_build 'manual_dispatch'
+            exit 0
+          fi
+          if test "${EVENT_NAME}" != 'pull_request' || test "${EVENT_ACTION}" != 'synchronize'; then
+            request_full_build 'non_synchronize_event'
+            exit 0
+          fi
+          if ! [[ "${BEFORE_SHA}" =~ ^[0-9a-f]{40}$ ]] || ! [[ "${AFTER_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            request_full_build 'missing_compare_range'
+            exit 0
+          fi
+
+          changed_files="$(mktemp)"
+          if ! gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/compare/${BEFORE_SHA}...${AFTER_SHA}" \
+            --jq '.files[].filename' > "${changed_files}"; then
+            request_full_build 'compare_api_failed'
+            exit 0
+          fi
+          if ! test -s "${changed_files}"; then
+            request_full_build 'empty_compare_result'
+            exit 0
+          fi
+
+          while IFS= read -r changed_path; do
+            case "${changed_path}" in
+              'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
+                ;;
+              *)
+                request_full_build "project_change:${changed_path}"
+                exit 0
+                ;;
+            esac
+          done < "${changed_files}"
+
+          echo 'run-full-build=false' >> "${GITHUB_OUTPUT}"
+          echo 'reason=documentation_only' >> "${GITHUB_OUTPUT}"
+          {
+            echo 'Documentation-only synchronization detected.'
+            echo 'The full APK build is intentionally skipped; no project source, asset, configuration, or workflow file changed.'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   build-apk:
+    needs: detect-change-scope
+    if: ${{ needs.detect-change-scope.outputs.run-full-build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -403,8 +474,10 @@ jobs:
           fi
 
   report-ci-failure:
-    needs: build-apk
-    if: ${{ always() && needs.build-apk.result != 'success' }}
+    needs:
+      - detect-change-scope
+      - build-apk
+    if: ${{ always() && needs.detect-change-scope.outputs.run-full-build == 'true' && needs.build-apk.result != 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
