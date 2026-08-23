@@ -6,6 +6,7 @@ import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
 import '../models/awareness_observation.dart';
+import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
@@ -26,7 +27,8 @@ class PromptBuilder {
         relationshipBrain = RelationshipBrain(db),
         referenceLibrary = ReferenceLibrary(db),
         ruleLayers = RuleLayerService(db),
-        somaticEngine = SomaticEngine(db);
+        somaticEngine = SomaticEngine(db),
+        emotionEpisodeEngine = EmotionEpisodeEngine(db);
 
   final AppDatabase db;
   final MemoryBrain memoryBrain;
@@ -34,6 +36,7 @@ class PromptBuilder {
   final ReferenceLibrary referenceLibrary;
   final RuleLayerService ruleLayers;
   final SomaticEngine somaticEngine;
+  final EmotionEpisodeEngine emotionEpisodeEngine;
 
   // Historical source-contract compatibility: 用户是成年男性。
   // Runtime wording deliberately uses “他” so relationship thought does not
@@ -102,6 +105,8 @@ class PromptBuilder {
     final relationshipAge = await db.relationshipAge(now: instant);
     final dailyContinuity = await db.latestDailyContinuity(limit: 2);
     final somaticSection = await somaticEngine.buildPromptSection(now: instant);
+    final emotionEpisodeSection =
+        await emotionEpisodeEngine.buildPromptSection(now: instant);
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
@@ -120,6 +125,7 @@ class PromptBuilder {
         nsfwActive: layerBundle.intimacyActive,
       ));
     if (somaticSection.isNotEmpty) context.writeln(somaticSection);
+    context.writeln(emotionEpisodeSection);
     context.writeln(_awarenessSection(awareness, instant));
 
     final messages = <Map<String, Object?>>[
