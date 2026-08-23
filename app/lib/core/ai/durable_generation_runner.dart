@@ -353,9 +353,9 @@ class DurableGenerationRunner {
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
             emittedVisibleContent = visibleContent;
-            // Provider reasoning may contain English tool-routing logs. Keep
-            // those out of the visible companion inner voice; the validated
-            // final Chinese reasoning is published once at commit time.
+            // Publish provider reasoning as it arrives so both chat surfaces
+            // can expand the reasoning panel immediately. Prompt language
+            // guidance still prefers Chinese without rewriting model thought.
             onDelta?.call(DeepSeekDelta(
               reasoning: delta.reasoning,
               content: visibleDelta,
