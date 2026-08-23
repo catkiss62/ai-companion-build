@@ -18,6 +18,7 @@ assert "static const int schemaVersion = 28;" in read(
 sound = read("lib/core/tts/emotion_sound_service.dart")
 assert "ai_companion/emotion_sound" in sound
 assert "NativeTtsProvider" not in sound
+assert "auto_tts" not in sound
 assert "await player.play(base64Encode(bytes))" in sound
 
 bridge = read(
