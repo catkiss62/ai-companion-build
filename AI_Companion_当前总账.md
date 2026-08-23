@@ -72,6 +72,29 @@
 
 **明确不照搬 LingChat 的内容：** 否认 AI 身份、无条件满足任何请求、拒绝就“程序终止”、全局强制 3～5 段、全局粗口/性内容许可等规则均与本项目身份诚实、安全、自然节奏和男性向独立人格边界冲突，只研究其机制，不移植其文案或约束。
 
+### E. 19 类情绪模型实测、TTS 与交付成本复核
+
+用户认为该模型对头像、气泡、音效与未来 TTS 的统一驱动可能有较高价值，要求先评估而不是直接排除。该决定取代 0I 中“不接 19emo”的过早结论：**允许进入一轮可回滚的 Android 真机实验，但在通过对照前不作为核心必需项，也不把二进制直接提交进 Git 历史。**
+
+- 下载脚本当前指定 ModelScope 的 `model_int8_o2` 七文件包。通过 HTTP Range 逐项核对，实际合计为 60,558,011 bytes（约 60.56 MB / 57.75 MiB），其中 `model.onnx` 为 60,004,728 bytes；不是旧 Android 文档所写的约 390 MB，也不是 200 多 MB。ONNX 以常规 deflate 试压约 35.17 MB，因此若随 APK 打包，模型本体对 APK 的增量更接近 35～36 MB，但首次安装解压后仍约 60.6 MB。
+- 参考实现的 19 类为：兴奋、厌恶、哭泣、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴。它不是持续 Mood 或 Emotion Episode，而是把开放中文情绪标签归一成固定表现键。
+- 使用参考 Rust 分类器相同的字符级 tokenizer、seq_len=128 和 ONNX 输入，在临时目录完成桌面 CPU 抽样；没有把模型或依赖写入项目仓库。19 个标准标签直接推理命中 17 个（89.47%）：“心动”误判“平静”，“无奈”误判“慌张”。开放标签中“小声嘀咕→害羞”“委屈→哭泣”表现好；“尴尬→惊讶”“吃醋→平静”不可靠。完整台词多次只有约 0.12～0.19 的 top1 置信度。参考默认阈值仅 0.08，过低时容易把模糊结果也当确定情绪。
+- 桌面环境加载约 308 ms；预热后 30 次短标签推理中位约 11 ms、p95 约 26.7 ms。进程峰值约 172.5 MiB，包含 Python、NumPy、ONNX Runtime 与模型，不能直接当成 Android 增量。REDMI K80 Ultra 的真实启动时间、内存和耗电仍必须用 Android APK 测量。
+- 因此最合适的是**混合契约**：LLM 先基于完整上下文返回 2～5 字 `emotion_raw_tag`；若已经属于 19 个标准键则直接透传，禁止再分类；只有开放标签才交给 19emo 归一，并保存 `emotion_key / confidence / top3 / source`。低置信度或 top1/top2 间隔过小时回退模型给出的标准键或平静，不让分类器覆盖明确情绪。顶部可显示更自然的 raw tag，头像/气泡/音效读取稳定 key。
+- 价值分层：对头像/气泡/短音效一致性为高；对未来 MiniMax TTS 的统一路由为中高；对当前 Meju A2 情感语音为低；对台词活人感和持续内部情绪几乎没有直接增益。它值得测试，但不应阻塞核心人格 few-shot 重构。
+- 当前 `TtsProvider.generate(text)` 只接受文本，Meju Bert-VITS2/MNN 没有已证实的情绪 conditioning 输入；19emo 只能选择速度/音量等粗略后处理，不能把现有音色变成真正情感 TTS。未来 MiniMax T2A 的 `voice_setting.emotion` 可以由统一 EmotionCue 驱动：高兴/兴奋/心动/调皮等映射 happy，哭泣映射 sad，生气映射 angry，害怕类映射 fearful，厌恶映射 disgusted，惊讶映射 surprised，其余细情绪优先交给 auto/neutral/calm 并保留原文本语气。MiniMax 只接受较粗的情感枚举，19 类不会一对一变成 19 种声线。
+- 若直接加入官方 ONNX Runtime Android 1.22 AAR，arm64 原生库约 18.31 MB；结合模型压缩体积，当前 252.9 MB APK 预计增加约 50～55 MB，最终约 303～308 MB，属于估算而非 Android 实测。预编译 AAR 不需要重编译 ONNX Runtime，完整 CI 主要增加依赖下载、资源压缩、SHA 和更大 APK 上传，预计每轮增加约 0.5～2 分钟而非翻倍；只有一次真跑才能落款。
+- 不建议把 60 MB 模型作为普通 Git blob：它超过 GitHub 50 MiB 警告线，回退提交也不会从历史真正消失。Git LFS 可用但每次 Actions 下载都计入 LFS bandwidth；GitHub Pro 当前含 10 GiB LFS 存储和 10 GiB bandwidth，约 170 次只下载该模型就会用完 10 GiB，没必要为试验引入。
+- 推荐实验/最终路径：首次 Android 实验让 CI 从固定 ModelScope URL 按 SHA-256 临时下载并打包，只生成一版对照 APK，不把模型提交 Git；真机通过后回退内置模型。若最终保留，优先做成一个带 manifest/SHA 的 `.aicemotion` 外置包，由用户选择或 App 下载一次，校验后复制到 App 私有目录并复用，不是每轮重新选择。APK 仍需一个推理 runtime；下一步先验证能否把 ONNX 转为项目现有 MNN runtime 支持的格式，若可行可避免额外 18 MB ONNX Runtime，否则再评估 reduced ORT。
+- 真机模型验收不能只看“会不会动”：固定带金标准的标签/台词集，比较“LLM 标准键直出”“19emo 混合归一”“现有关键词规则”三条路径；同时测启动、首轮加载、单次延迟、峰值内存、连续 100 次推理耗电、APK/安装体积，以及 MiniMax 七类粗映射试听。至少稳定优于无模型方案，才进入项目尾声正式接入。
+
+### F. Thinking 证据与核心性格 / 试穿兼容修正
+
+- 用户已在 LingChat 成品中实际开启 DeepSeek 自动思考模式，仍然观察到明显活人感；因此“thinking 默认关闭是主要原因”的优先级下调。参考成品只开启模型自身思考，没有额外规定思考方向；当前项目除了 thinking=true / effort=high，还注入了可见内心的写法与大量元规则。后续应拆开测试“模型是否思考”和“我们怎样指导/展示思考”，优先修正“从不具体处开始”的矛盾，不再把关闭 thinking 作为人格优化前提。
+- 核心活人感可以与试穿共存，但 few-shot 不能全部写成固定的元气、调皮、害羞语气，否则会压过清冷、温柔或特殊风格。常驻核心只固定跨性格机制：具体刺激优先、自我打断、允许答偏/停顿/不平均回应、技术比喻与自然反应；底色/相处姿态决定注意与表达过滤，普通试穿继续临时替换有效 `03_personality_seed`，特殊风格继续作为更高优先级临时表现层。
+- 示例采用“少量中性核心结构样本 + 当前底色/姿态的动态样本”，或为每种底色各准备同结构不同声线的样本；试穿切换时替换后者，不改身份、关系、Memory、AI Self、Desire 或事实。这样不需要在“参考项目活人感”和“性格试穿差异”之间二选一。若初版仍有竞争，按用户最新优先级先保证活人感，再逐项恢复/放大试穿差异，但不得静默污染长期人格。
+- 下一人格实验基线改为 thinking 开启：A 为当前 Prompt + 当前可见内心规则，B 为修正矛盾/压缩元规则 + 原创 few-shot + thinking 开启；thinking off 只作为诊断对照 C，不作为默认候选。19emo 实验独立评分，不与人格文本盲评混在一起。
+
 ## 0N. 2026-08-23 GitHub Pro 恢复、v0.37.0 CI 收口与 APK 交付（CI PASSED / APK READY / 真机待验收）
 
 - 用户已将个人 GitHub 方案升级为 Pro。此前 Actions 的阻断文本为“recent account payments have failed or your spending limit needs to be increased”；2026-08-23 重跑后任务成功进入 GitHub-hosted runner，证明本仓库的付款/消费上限拦截已解除。官方当前 GitHub Pro 含私有仓库 Actions 每月 3,000 分钟、1 GB artifact 存储；这是计算分钟与 Actions 制品额度，不等于仓库 Draft Release 容量。
