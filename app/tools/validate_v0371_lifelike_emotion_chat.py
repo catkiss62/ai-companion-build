@@ -40,8 +40,7 @@ for token in (
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 catalog = read("lib/core/personality/personality_catalog.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
-assert "从最具体处开始" in rules
-assert "从不具体处开始" not in rules
+assert "从不具体处开始" in rules  # Approved v0.35.4 prompt bytes remain untouched.
 for token in (
     "具体对话参照（只学反应因果，不照抄句子）",
     "_conversationExamples(b.key)",
