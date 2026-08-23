@@ -39,7 +39,10 @@ for forbidden in ("当前试穿性格", "双方知情的临时试穿"):
 
 service = read("lib/core/rules/rule_layer_service.dart")
 assert "PersonalityCatalog.compileProfile(" in service
-assert (\n    "profileTrial.baseKey" in service\n    or "profileTrial?.baseKey ?? longTermBase" in service\n)
+assert (
+    "profileTrial.baseKey" in service
+    or "profileTrial?.baseKey ?? longTermBase" in service
+)
 assert "profileTrial.content," not in service
 assert "当前特殊表达与现实边界" in service
 
