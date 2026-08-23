@@ -1,7 +1,7 @@
 status=success
-run_id=32630697593
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32630697593
-head_sha=28efd978760e0aef48555d3a6163adceaa596e2d
+run_id=32633507117
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32633507117
+head_sha=bbcfce9aa48edaf8f85b1469a369640e6b23df6c
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-259895a2f492a3fee9fb510214056ef837110d4439d96259c337ad86ee42d0db  AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ae7a32fa12bd55c5df48
+fbf15d1138a34b9f657b718b43b663608e97e531be4eaee9beea1ba7323724c8  AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d63d961d4dc35b9c4a68
