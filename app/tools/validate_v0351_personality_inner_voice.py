@@ -39,7 +39,7 @@ for forbidden in ("当前试穿性格", "双方知情的临时试穿"):
 
 service = read("lib/core/rules/rule_layer_service.dart")
 assert "PersonalityCatalog.compileProfile(" in service
-assert "profileTrial.baseKey" in service
+assert (\n    "profileTrial.baseKey" in service\n    or "profileTrial?.baseKey ?? longTermBase" in service\n)
 assert "profileTrial.content," not in service
 assert "当前特殊表达与现实边界" in service
 
@@ -53,7 +53,7 @@ for token in (
     "_innerResidueSection",
     "情绪余波（由已持久化的 Desire/Thought 状态得出",
     "不能补写事实原因",
-    "默认不把“小鲸鱼”当作自称",
+    "默认称自己为“我”",
 ):
     assert token in prompt, token
 for forbidden in ("我需要回应用户", "保持角色一致", "现在扮演"):
