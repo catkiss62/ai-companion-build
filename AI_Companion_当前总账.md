@@ -148,7 +148,9 @@
 - 精选素材来自 `SlimeBoyOwO/LingChat` 固定 commit `eae0d667413e490c3653488d43ce9b4464e07fda`：2 张昼夜背景、头像/20 张表情立绘、14 个情绪 WAV。仓库内保存的是经 Git LFS batch API 下载并按对象 SHA-256 验证的真实文件，不是 130 字节 pointer；`assets/lingchat/NOTICE.md` 区分 AGPL-3.0 软件许可与上游素材专门来源/非商业限制，声明本项目个人非商业学习用途、保留署名且后续可整体替换。
 - 本地可执行的 `validate_current_conversation_foundation.py`、`validate_current_chat_visual_stage.py` 与 v0.35.2 静态回归已通过；本地环境没有 Flutter/Dart SDK，完整 analyze/tests/release APK 必须由 Actions 完成。
 - Actions run `32610931667` 与补充提交 run `32611062368` 均在约数秒内失败；2026-08-23 再次执行 run `32611062368` 的全部 failed jobs 后，新 job `97157768969` / `97157773703` 仍瞬间结束，依旧 `steps=null`、`logs_url=null`。原始及重跑的 `build-apk` / `report-ci-failure` 都没有获得 runner，不能据此判定源码编译失败或通过。当前状态必须写为“源码已提交、CI 基础设施阻塞、APK 未生成、真机未验收”，不得冒充完成。
-- 下一步仍按既定顺序：先恢复可执行的 GitHub runner 并处理真实 Flutter analyze/test/build 结果，成功后上传 `AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk`、checksum 与 CI monitor，再交付第一个真机里程碑；视觉主链稳定后才进入主动话题候选多样性、自主查询规划与 shareable discovery Thought。
+- 用户随后在 Actions job 的 Annotations 中取得明确系统原因：`The job was not started because recent account payments have failed or your spending limit needs to be increased`。因此 blocker 已从“疑似 runner/账户基础设施”收敛为 GitHub Billing & plans 的付款失败或 Actions 消费上限；这与此前 Artifact 存储配额已满、改用 Draft Release 上传 APK 是两个独立限制。重做 workflow 或继续 rerun 不会绕过 billing gate；账户恢复前不再浪费 run。
+- 用户指定第二张 781×781 爱心手势角色图作为 Android App 启动图标，LingChat 的 DeepSeek 头像只用于聊天页头像/名称面板，不作为 App 图标。源图清晰度足够，不重绘；仅做方向校正、512×512 PNG 缩放与元数据移除。Manifest 改为 `@drawable/companion_launcher_icon`，图标 SHA-256 `01b4ac59905ab303c6241ab24ab3d2f59b253510cbe2c1f5a3420e1a8568347e`，提交 `59cecbf17caecaa47344b8de7ecb5b26408688bc`；当前静态视觉 validator 已通过。
+- 下一步仍按既定顺序：用户在 GitHub `Settings → Billing & plans` 修复支付方式或提高/解除 Actions budget 的 stop-usage 限制后，再重新运行最新 workflow；随后处理真实 Flutter analyze/test/build 结果，成功后上传 `AI-Companion-v0.37.0-89-App-Chat-Visual-Stage-APK.apk`、checksum 与 CI monitor并交付第一个真机里程碑。视觉主链稳定后才进入主动话题候选多样性、自主查询规划与 shareable discovery Thought。
 
 ## 0A. 2026-08-22 已确认并进入实现：v0.35.7 基础收口批次
 
@@ -198,7 +200,7 @@
 - 私有仓库：`catkiss62/ai-companion-build`；默认分支 `main`；唯一源码真源为仓库中的 `app/`。
 - 当前 Draft PR #23：<https://github.com/catkiss62/ai-companion-build/pull/23>
 - PR 分支：`agent/personality-appearance-self`
-- PR #23 当前源码检查点为 `v0.37.0+89`、schema 27，分支功能 head `21c737e766975ebc0783250cd950b15e2d67f63e`；Actions run `32610931667` / `32611062368` 因 job 未取得 runner、无 steps/日志而失败，APK 尚未生成。最新已验证成功构建仍是下方 v0.36.3；当前完整真机稳定基线仍是 v0.36.0，v0.36.2 的持续前台 App 识别与 v0.36.3 桌宠恢复为单项真机通过，几者不得混写。
+- PR #23 当前源码检查点为 `v0.37.0+89`、schema 27，分支功能 head `59cecbf17caecaa47344b8de7ecb5b26408688bc`；Actions run `32610931667` / `32611062368` 因 job 未取得 runner、无 steps/日志而失败，APK 尚未生成。最新已验证成功构建仍是下方 v0.36.3；当前完整真机稳定基线仍是 v0.36.0，v0.36.2 的持续前台 App 识别与 v0.36.3 桌宠恢复为单项真机通过，几者不得混写。
 - 最新已验证成功 Actions run：<https://github.com/catkiss62/ai-companion-build/actions/runs/32593615387>；全部历史/当前静态回归、Kotlin 桌宠测试、Flutter analyze/tests、release APK、持久签名校验、原生库/417 文件载荷、checksum 与草稿 Release 上传全部通过。
 - v0.36.3 草稿 Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f28bfc1739e20d85d50a>；APK `AI-Companion-v0.36.3-88-HyperOS-Cover-Alarm-Guard-APK.apk`，SHA-256 `ebc5ab1aa59593ce8deefd3abf9c7e3aa6bb9511e56a3a2006fb8a2363d2aedc`。
 - PR #23 仍是 Draft，未合并 `main`、未发布正式 Release；下方 v0.36.0 及更早条目只作真机/历史取证，不再代表最新自动化构建。
