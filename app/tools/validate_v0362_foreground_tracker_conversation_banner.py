@@ -55,7 +55,12 @@ overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
 assert 'acknowledgeMessages(this, "overlay_chat_opened")' in overlay
-assert "Color.rgb(239, 184, 200)" in overlay
+for token in (
+    'Regex("""「[^」\\n]*」""")',
+    "StyleSpan(Typeface.ITALIC)",
+    "StyleSpan(Typeface.NORMAL)",
+):
+    assert token in overlay, token
 assert "Color.rgb(216, 177, 255)" not in overlay
 
 controller = read("lib/features/chat/chat_controller.dart")
