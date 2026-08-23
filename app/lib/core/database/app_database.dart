@@ -2597,6 +2597,69 @@ class AppDatabase {
     return rows.map(EmotionEpisode.fromDb).toList(growable: false);
   }
 
+  Future<Map<String, Object?>> emotionDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final total = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM emotion_episodes'),
+        ) ??
+        0;
+    final active = Sqflite.firstIntValue(
+          await db.rawQuery(
+            "SELECT COUNT(*) FROM emotion_episodes "
+            "WHERE status = 'active' AND expires_at > ?",
+            [instant.millisecondsSinceEpoch],
+          ),
+        ) ??
+        0;
+    final categoryRows = await db.rawQuery(
+      'SELECT category, COUNT(*) AS count FROM emotion_episodes '
+      'GROUP BY category ORDER BY category ASC',
+    );
+    final latestEpisodes = await db.query(
+      'emotion_episodes',
+      columns: const [
+        'category',
+        'cause_code',
+        'evidence_type',
+        'status',
+        'intensity',
+        'created_at',
+        'updated_at',
+      ],
+      orderBy: 'updated_at DESC',
+      limit: 4,
+    );
+    final latestLabels = await db.query(
+      'messages',
+      columns: const [
+        'emotion_key',
+        'emotion_label',
+        'emotion_confidence',
+        'emotion_source',
+        'created_at',
+      ],
+      where: "role = 'assistant' AND emotion_key <> ''",
+      orderBy: 'created_at DESC',
+      limit: 4,
+    );
+    return <String, Object?>{
+      'episodeTotal': total,
+      'episodeActive': active,
+      'episodeByCategory': <String, int>{
+        for (final row in categoryRows)
+          row['category']?.toString() ?? '': (row['count'] as num?)?.toInt() ?? 0,
+      },
+      'latestEpisodes': latestEpisodes,
+      'latestAssistantLabels': latestLabels,
+      'messageBodiesIncluded': false,
+      'triggerMessageIdsIncluded': false,
+      'rawEmotionTagsIncluded': false,
+    };
+  }
+
   Future<int> expireEmotionEpisodes({DateTime? now}) async {
     final db = await database;
     final instant = now ?? DateTime.now();
