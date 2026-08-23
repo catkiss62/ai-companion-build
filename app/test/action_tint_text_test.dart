@@ -20,13 +20,13 @@ void main() {
     expect(segments.single.isAction, isFalse);
   });
 
-  test('dialogue tint recognizes both supported Chinese quote styles', () {
-    const source = '（她轻轻把耳鳍压低）\n\n「才没有一直等你。」\n“回来就好。”';
+  test('dialogue tint is limited to corner quotes', () {
+    const source = '（她轻轻把耳鳍压低，说“回来就好”）\\n\\n「才没有一直等你。」\\n"ordinary"';
     final segments = splitDialogueText(source);
     expect(segments.map((item) => item.text).join(), source);
     expect(
       segments.where((item) => item.isDialogue).map((item) => item.text),
-      ['「才没有一直等你。」', '“回来就好。”'],
+      ['「才没有一直等你。」'],
     );
   });
 
@@ -40,9 +40,9 @@ void main() {
     );
   });
 
-  test('streaming Chinese double and ASCII quotes tint before closing', () {
-    expect(splitDialogueText('“还没说完').last.isDialogue, isTrue);
-    expect(splitDialogueText('"still streaming').last.isDialogue, isTrue);
+  test('curly and ASCII double quotes inherit action styling', () {
+    expect(splitDialogueText('“还没说完').last.isDialogue, isFalse);
+    expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
   });
 
 }
