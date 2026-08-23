@@ -298,10 +298,10 @@ class DurableGenerationRunner {
             }
             lastFenceCheck = now;
           }
-          if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 45)) {
+          if (now.difference(lastLeaseRefresh) >= const Duration(seconds: 10)) {
             final renewed = await db.renewLocalLease(
               'chat_turn_lease',
-              holdFor: const Duration(minutes: 3),
+              holdFor: const Duration(seconds: 30),
             );
             if (!renewed) {
               throw const GenerationSuspendedException('聊天写入权限已经转移');
@@ -341,6 +341,9 @@ class DurableGenerationRunner {
                 )
                 .add(fragment);
           }
+          if (!emitDeltas && delta.reasoning.isNotEmpty) {
+            onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
+          }
           if (emitDeltas) {
             // Hold the leading machine-readable emotion envelope out of the
             // visible bubble and streaming TTS. Providers that ignore the
@@ -354,6 +357,7 @@ class DurableGenerationRunner {
             // those out of the visible companion inner voice; the validated
             // final Chinese reasoning is published once at commit time.
             onDelta?.call(DeepSeekDelta(
+              reasoning: delta.reasoning,
               content: visibleDelta,
               done: delta.done,
               finishReason: delta.finishReason,
