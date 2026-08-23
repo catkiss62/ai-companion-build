@@ -29,4 +29,20 @@ void main() {
       ['「才没有一直等你。」', '“回来就好。”'],
     );
   });
+
+  test('an unmatched opening quote is tinted during streaming', () {
+    const source = '（她抬起眼）\n\n「刚刚开始说';
+    final segments = splitDialogueText(source);
+    expect(segments.map((item) => item.text).join(), source);
+    expect(
+      segments.where((item) => item.isDialogue).map((item) => item.text),
+      ['「刚刚开始说'],
+    );
+  });
+
+  test('streaming Chinese double and ASCII quotes tint before closing', () {
+    expect(splitDialogueText('“还没说完').last.isDialogue, isTrue);
+    expect(splitDialogueText('"still streaming').last.isDialogue, isTrue);
+  });
+
 }

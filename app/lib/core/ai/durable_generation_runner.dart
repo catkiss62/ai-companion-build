@@ -115,6 +115,7 @@ class DurableGenerationRunner {
     void Function(DeepSeekDelta delta)? onDelta,
     void Function(NsfwRouteDecision decision)? onNsfwRoute,
     void Function(AgentToolActivity activity)? onAgentToolActivity,
+    void Function(String emotionKey)? onEmotionCue,
     GenerationCancellationToken? cancellationToken,
   }) async {
     if (cancellationToken?.isCancelled ?? false) {
@@ -219,6 +220,7 @@ class DurableGenerationRunner {
       }
 
       var agentToolResults = const <AgentToolResult>[];
+      var announcedEmotionKey = '';
       final localPlan = AgentToolPlanner.routeLocally(user.content);
       if (localPlan != null) {
         agentToolResults = await agentToolRunner.runPlan(
@@ -303,6 +305,15 @@ class DurableGenerationRunner {
           if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
           if (delta.content.isNotEmpty) {
             content += delta.content;
+            if (announcedEmotionKey.isEmpty) {
+              final partialEnvelope = EmotionEnvelope.parse(content);
+              final emotionKey =
+                  EmotionCatalog.keyForLabel(partialEnvelope.rawTag);
+              if (partialEnvelope.found && emotionKey.isNotEmpty) {
+                announcedEmotionKey = emotionKey;
+                onEmotionCue?.call(emotionKey);
+              }
+            }
             if (!publishedAnswering) {
               publishedAnswering = true;
               unawaited(_publishToolRuntime(
@@ -529,7 +540,7 @@ class DurableGenerationRunner {
         visibleText: finalContent,
       );
 
-      final visibleReasoning = _visibleChineseReasoning(generated.reasoning);
+      final visibleReasoning = preserveProviderReasoning(generated.reasoning);
       if (visibleReasoning.isNotEmpty) {
         onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
       }
@@ -616,18 +627,6 @@ class DurableGenerationRunner {
     );
   }
 
-  String _visibleChineseReasoning(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty) return '';
-    final cjk = RegExp(r'[\u3400-\u9fff]').allMatches(text).length;
-    final latinWords = RegExp(r'[A-Za-z]{2,}').allMatches(text).length;
-    // English product names and technical terms are fine inside Chinese. A
-    // wholly/mostly English block is almost certainly provider tool planning,
-    // not the companion's visible inner voice.
-    if (latinWords >= 6 && (cjk == 0 || latinWords * 2 > cjk)) return '';
-    return text;
-  }
-
   Future<void> _clearToolRuntime() async {
     await _publishToolRuntime(
       phase: 'idle',
@@ -657,3 +656,6 @@ class DurableGenerationRunner {
     return raw.length <= 360 ? raw : raw.substring(0, 360);
   }
 }
+
+/// Provider reasoning is optional, but language alone must never erase it.
+String preserveProviderReasoning(String raw) => raw.trim();

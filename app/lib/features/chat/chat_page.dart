@@ -13,7 +13,6 @@ import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/models/proactive_notification_settings.dart';
 import '../../core/presentation/chat_visuals.dart';
-import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
@@ -39,7 +38,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
-  final EmotionSoundService _emotionSounds = EmotionSoundService();
   Timer? _externalSyncTimer;
   Timer? _personalityTimer;
   PersonalityTrial? _personalityTrial;
@@ -66,6 +64,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
   final Set<String> _knownMessageIds = <String>{};
   String? _animatedMessageId;
+  bool _initializingMessages = true;
+  String _lastPresentedAssistantId = '';
 
   @override
   void initState() {
@@ -79,9 +79,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _initializeController() async {
     await controller.initialize();
-    _knownMessageIds.addAll(controller.messages.map((message) => message.id));
     await _loadVisualSettings();
+    await _restorePresentationCursor();
     if (!mounted) return;
+    _initializingMessages = false;
+    _onChanged();
     _scrollToLatest();
     await _refreshPersonalityTrials();
     _personalityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -101,6 +103,47 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _restorePresentationCursor() async {
+    final stored = await AppDatabase.instance.getSetting(
+          'chat_last_presented_assistant_id',
+        ) ??
+        '';
+    ChatMessage? unseenProactive;
+    if (stored.isNotEmpty) {
+      final cursor = controller.messages.indexWhere(
+        (message) => message.id == stored,
+      );
+      if (cursor >= 0) {
+        for (final message in controller.messages.skip(cursor + 1)) {
+          if (message.isAssistant && message.isProactive) {
+            unseenProactive = message;
+          }
+        }
+      }
+    }
+    _knownMessageIds.addAll(controller.messages.map((message) => message.id));
+    if (_typewriterEnabled && unseenProactive != null) {
+      _animatedMessageId = unseenProactive.id;
+    }
+    await _markLatestAssistantPresented();
+  }
+
+  Future<void> _markLatestAssistantPresented() async {
+    String latest = '';
+    for (final message in controller.messages.reversed) {
+      if (message.isAssistant) {
+        latest = message.id;
+        break;
+      }
+    }
+    if (latest.isEmpty || latest == _lastPresentedAssistantId) return;
+    _lastPresentedAssistantId = latest;
+    await AppDatabase.instance.setSetting(
+      'chat_last_presented_assistant_id',
+      latest,
+    );
+  }
+
   @override
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -114,13 +157,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   void _onChanged() {
-    if (!mounted) return;
+    if (!mounted || _initializingMessages) return;
+    var discoveredAssistant = false;
     for (final message in controller.messages) {
-      if (_knownMessageIds.add(message.id) &&
-          message.isAssistant &&
-          !message.isProactive) {
+      if (_knownMessageIds.add(message.id) && message.isAssistant) {
         _animatedMessageId = message.id;
+        discoveredAssistant = true;
       }
+    }
+    if (discoveredAssistant) {
+      unawaited(_markLatestAssistantPresented());
     }
     if (controller.streamingContent.trim().isNotEmpty) {
       // Streaming may preview a portrait, but the header label only changes
@@ -223,7 +269,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         .toInt();
     _backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
-    if (mounted) setState(() {});
+    if (mounted && !_initializingMessages) setState(() {});
   }
 
   Future<void> _setVisualSetting(String key, String value) async {
@@ -619,7 +665,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             controller.ttsPhaseForMessage(item.message!.id),
                         attachmentStorage: controller.attachmentStorage,
                         animateSegments: _typewriterEnabled &&
-                            !item.message!.isProactive &&
                             item.message!.id == latestAssistantId &&
                             item.message!.id == _animatedMessageId,
                         typewriterMs: _typewriterMs,
@@ -645,9 +690,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             _currentEmotion = emotion;
                           });
                         },
-                        onEmotionSound: _emotionSoundEnabled
-                            ? (emotion) => _emotionSounds.play(emotion)
-                            : null,
                         onOpenAttachment: _openAttachment,
                         onDelete: item.message!.isUser &&
                                 item.message!.hasAttachments
@@ -1381,7 +1423,6 @@ class _MessageBubble extends StatelessWidget {
     required this.onAnimationProgress,
     required this.onAnimationFinished,
     this.onSpeechAction,
-    this.onEmotionSound,
     this.onDelete,
     this.onRetryVision,
   });
@@ -1395,7 +1436,6 @@ class _MessageBubble extends StatelessWidget {
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
   final VoidCallback onAnimationProgress;
   final VoidCallback onAnimationFinished;
-  final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
   final VoidCallback? onSpeechAction;
   final VoidCallback? onDelete;
   final VoidCallback? onRetryVision;
@@ -1462,7 +1502,6 @@ class _MessageBubble extends StatelessWidget {
             animate: animateSegments,
             millisecondsPerCharacter: typewriterMs,
             onEmotionChanged: onEmotionChanged,
-            onEmotionSound: onEmotionSound,
             onProgress: onAnimationProgress,
             onFinished: onAnimationFinished,
             footer: _footer(context),
@@ -1506,10 +1545,18 @@ class _MessageBubble extends StatelessWidget {
             if (message.content.trim().isNotEmpty) ...[
               if (message.hasAttachments) const SizedBox(height: 8),
               if (message.isAssistant)
-                ActionTintText(
-                  text: message.content,
-                  style: const TextStyle(height: 1.45),
-                )
+                if (message.isProactive && animateSegments)
+                  _SingleBubbleTypewriterText(
+                    text: message.content,
+                    millisecondsPerCharacter: typewriterMs,
+                    onProgress: onAnimationProgress,
+                    onFinished: onAnimationFinished,
+                  )
+                else
+                  ActionTintText(
+                    text: message.content,
+                    style: const TextStyle(height: 1.45),
+                  )
               else
                 SelectableText(
                   message.content,
@@ -1524,6 +1571,77 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+class _SingleBubbleTypewriterText extends StatefulWidget {
+  const _SingleBubbleTypewriterText({
+    required this.text,
+    required this.millisecondsPerCharacter,
+    required this.onProgress,
+    required this.onFinished,
+  });
+
+  final String text;
+  final int millisecondsPerCharacter;
+  final VoidCallback onProgress;
+  final VoidCallback onFinished;
+
+  @override
+  State<_SingleBubbleTypewriterText> createState() =>
+      _SingleBubbleTypewriterTextState();
+}
+
+class _SingleBubbleTypewriterTextState
+    extends State<_SingleBubbleTypewriterText> {
+  Timer? _timer;
+  int _visibleCharacters = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  void _start() {
+    if (!mounted) return;
+    final length = widget.text.runes.length;
+    if (length == 0) {
+      widget.onFinished();
+      return;
+    }
+    _timer = Timer.periodic(
+      Duration(milliseconds: widget.millisecondsPerCharacter),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() => _visibleCharacters++);
+        widget.onProgress();
+        if (_visibleCharacters >= length) {
+          timer.cancel();
+          widget.onFinished();
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = String.fromCharCodes(
+      widget.text.runes.take(_visibleCharacters),
+    );
+    return ActionTintText(
+      text: visible,
+      style: const TextStyle(height: 1.45),
+    );
+  }
+}
+
 class _AssistantSegmentSequence extends StatefulWidget {
   const _AssistantSegmentSequence({
     required this.chunks,
@@ -1534,7 +1652,6 @@ class _AssistantSegmentSequence extends StatefulWidget {
     required this.onProgress,
     required this.onFinished,
     required this.footer,
-    this.onEmotionSound,
   });
 
   final List<ChatVisualChunk> chunks;
@@ -1542,7 +1659,6 @@ class _AssistantSegmentSequence extends StatefulWidget {
   final bool animate;
   final int millisecondsPerCharacter;
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
-  final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
   final VoidCallback onProgress;
   final VoidCallback onFinished;
   final Widget footer;
@@ -1585,9 +1701,6 @@ class _AssistantSegmentSequenceState
     }
     final chunk = widget.chunks[index];
     widget.onEmotionChanged(chunk.emotion);
-    if (widget.onEmotionSound != null) {
-      unawaited(widget.onEmotionSound!(chunk.emotion));
-    }
     final length = chunk.displayText.runes.length;
     if (length == 0) {
       _finishChunk(index);

@@ -26,9 +26,11 @@ import '../../core/models/generation_job.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/presentation/chat_visuals.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
+import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
@@ -42,6 +44,7 @@ class ChatController extends ChangeNotifier {
     SecureConfig? secureConfig,
     AndroidBridge? android,
     MessageAttachmentStorage? attachmentStorage,
+    EmotionSoundService? emotionSoundService,
     this.externalRecoveryOrchestrator = false,
   })  : db = db ?? AppDatabase.instance,
         client = client ?? DeepSeekClient(),
@@ -64,6 +67,8 @@ class ChatController extends ChangeNotifier {
       runner: generationRunner,
     );
     ttsService = TtsService(db: this.db);
+    emotionSounds =
+        emotionSoundService ?? EmotionSoundService(db: this.db);
     ttsPlayback = TtsPlaybackQueue(
       service: ttsService,
       onStateChanged: (state) {
@@ -102,6 +107,7 @@ class ChatController extends ChangeNotifier {
   late final DurableGenerationRecovery generationRecovery;
   late final MemoryExtractor memoryExtractor;
   late final TtsService ttsService;
+  late final EmotionSoundService emotionSounds;
   late final TtsPlaybackQueue ttsPlayback;
   late final PerceptionEngine perceptionEngine;
   late final RelationshipAssimilator relationshipAssimilator;
@@ -180,6 +186,13 @@ class ChatController extends ChangeNotifier {
     if (_disposed) return;
     _publishPetConversationState();
     notifyListeners();
+  }
+
+  Future<void> _stopTurnAudio() async {
+    await Future.wait<void>([
+      ttsPlayback.stop(),
+      emotionSounds.stop(),
+    ]);
   }
 
   Future<void> _ignorePetStateSync(Future<void> operation) async {
@@ -598,7 +611,7 @@ class ChatController extends ChangeNotifier {
       }
     }
 
-    await ttsPlayback.stop();
+    await _stopTurnAudio();
     if ((await db.getSetting('transfer_lock')) == '1') {
       error = '她正在换到另一台设备，接管完成前先不能继续聊天。';
       _safeNotify();
@@ -654,6 +667,27 @@ class ChatController extends ChangeNotifier {
 
     var streamTts = false;
     var durableTurnCreated = false;
+    var emotionCueStarted = false;
+    var emotionLeadIn = Future<void>.value();
+    Completer<void>? streamLeadIn;
+
+    Future<void> startEmotionCue(String emotionKey) {
+      if (emotionCueStarted) return emotionLeadIn;
+      emotionCueStarted = true;
+      final visual = ChatVisualResolver.resolveEmotionKey(emotionKey);
+      emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
+      final gate = streamLeadIn;
+      if (gate != null && !gate.isCompleted) {
+        gate.complete(emotionLeadIn);
+      }
+      return emotionLeadIn;
+    }
+
+    void releaseStreamLeadIn() {
+      final gate = streamLeadIn;
+      if (gate != null && !gate.isCompleted) gate.complete();
+    }
+
     try {
       if ((await db.getSetting('transfer_lock')) == '1') {
         throw StateError('她已经开始换到另一台设备，这轮发送已取消。');
@@ -717,12 +751,15 @@ class ChatController extends ChangeNotifier {
       streamTts = autoTts &&
           (await db.getSetting('tts_streaming_enabled')) != '0';
       if (streamTts) {
+        streamLeadIn = Completer<void>();
         try {
           await ttsPlayback.beginStream(
             manual: false,
             ownerId: job.assistantMessageId,
+            leadIn: streamLeadIn!.future,
           );
         } catch (_) {
+          releaseStreamLeadIn();
           streamTts = false;
         }
       }
@@ -748,12 +785,16 @@ class ChatController extends ChangeNotifier {
         cancellationToken: cancellation,
         onNsfwRoute: _applyNsfwRoute,
         onAgentToolActivity: _applyAgentToolActivity,
+        onEmotionCue: startEmotionCue,
         onDelta: (delta) {
           if (cancellation.isCancelled) return;
           if (delta.reasoning.isNotEmpty) {
             streamingReasoning += delta.reasoning;
           }
           if (delta.content.isNotEmpty) {
+            // A valid leading emotion envelope is announced before this visible
+            // delta. If the provider omitted it, never hold speech indefinitely.
+            if (streamTts && !emotionCueStarted) releaseStreamLeadIn();
             streamingContent += delta.content;
             if (streamTts) ttsPlayback.addDelta(delta.content);
           }
@@ -767,45 +808,52 @@ class ChatController extends ChangeNotifier {
         _petGenerationActive = false;
         _safeNotify();
         if (streamTts) {
+          releaseStreamLeadIn();
           ttsPlayback.endStream();
-        } else if (autoTts) {
-          unawaited(
-            ttsPlayback.playText(
-              result.assistant!.content,
-              manual: false,
-              ownerId: result.assistant!.id,
-              emotion: _ttsEmotionCue(result.assistant!),
-            ),
-          );
+        } else {
+          final leadIn = emotionCueStarted
+              ? emotionLeadIn
+              : startEmotionCue(result.assistant!.emotionKey);
+          if (autoTts) {
+            unawaited(
+              ttsPlayback.playText(
+                result.assistant!.content,
+                manual: false,
+                ownerId: result.assistant!.id,
+                emotion: _ttsEmotionCue(result.assistant!),
+                leadIn: leadIn,
+              ),
+            );
+          }
         }
         await memoryExtractor.extractFromTurn(
           user: user,
           assistant: result.assistant!,
         );
       } else if (result.status == 'cancelled_by_user') {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
         error = null;
       } else if (result.status == 'interrupted') {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
         error = null;
       } else if (result.retryScheduled) {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         error = '网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。';
       } else if (result.status == 'suspended') {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         error = '这轮回复已安全暂停；她回到当前设备后会继续。';
       } else {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         error = result.error?.toString() ?? '这一轮生成失败。';
       }
     } on GenerationCancelledByUserException {
-      await ttsPlayback.stop();
+      await _stopTurnAudio();
       final jobId = _activeGenerationJobId;
       if (jobId != null) {
         await db.cancelGenerationJobByUser(jobId);
@@ -813,7 +861,7 @@ class ChatController extends ChangeNotifier {
       }
       error = null;
     } catch (e) {
-      await ttsPlayback.stop();
+      await _stopTurnAudio();
       final jobId = _activeGenerationJobId;
       if (durableTurnCreated && jobId != null) {
         await db.cancelGenerationJobByUser(jobId);
@@ -906,13 +954,13 @@ class ChatController extends ChangeNotifier {
           );
         }
       } else if (result.status == 'cancelled_by_user') {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
         error = null;
       } else if (result.status == 'interrupted') {
-        await ttsPlayback.stop();
+        await _stopTurnAudio();
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
@@ -981,7 +1029,7 @@ class ChatController extends ChangeNotifier {
     agentActivity = null;
     _safeNotify();
 
-    await ttsPlayback.stop();
+    await _stopTurnAudio();
     final jobId = _activeGenerationJobId ??
         (await db.blockingGenerationJob())?.id ??
         (await db.failedGenerationNeedingAttention())?.id;
@@ -1052,6 +1100,7 @@ class ChatController extends ChangeNotifier {
     _recoveryScheduleEpoch++;
     _activeGenerationCancellation?.cancel();
     unawaited(ttsPlayback.stop());
+    unawaited(emotionSounds.stop());
     unawaited(
       _ignorePetStateSync(
         android.setPetConversationState(

@@ -79,6 +79,7 @@ class TtsPlaybackQueue {
     bool manual = false,
     String? ownerId,
     TtsEmotionCue? emotion,
+    Future<void>? leadIn,
   }) async {
     await stop();
     _generation++;
@@ -87,6 +88,7 @@ class TtsPlaybackQueue {
       manual: manual,
       ownerId: ownerId,
       emotion: emotion,
+      leadIn: leadIn,
     );
     _streaming = true;
     _manual = manual;
@@ -119,6 +121,7 @@ class TtsPlaybackQueue {
     bool segment = true,
     String? ownerId,
     TtsEmotionCue? emotion,
+    Future<void>? leadIn,
   }) async {
     await stop();
     _generation++;
@@ -127,6 +130,7 @@ class TtsPlaybackQueue {
       manual: manual,
       ownerId: ownerId,
       emotion: emotion,
+      leadIn: leadIn,
     );
     _session = session;
     _streaming = false;
@@ -264,6 +268,8 @@ class TtsPlaybackQueue {
 
   Future<void> _playOne(_A2Session session, String audio) async {
     try {
+      await session.waitForLeadIn();
+      if (!_isActive(session)) return;
       await service.playPrepared(audio);
     } catch (_) {
       // A2 treats one sentence failure as local: later generated speech should
@@ -319,12 +325,14 @@ class _A2Session {
     required this.manual,
     required this.ownerId,
     required this.emotion,
+    required this.leadIn,
   });
 
   final int token;
   final bool manual;
   final String? ownerId;
   final TtsEmotionCue? emotion;
+  final Future<void>? leadIn;
   final Completer<void> idle = Completer<void>();
   final Map<int, String?> ready = <int, String?>{};
   final Map<int, String> textByIndex = <int, String>{};
@@ -335,6 +343,17 @@ class _A2Session {
   int generating = 0;
   bool playing = false;
   bool closed = false;
+  bool _leadInConsumed = false;
+
+  Future<void> waitForLeadIn() async {
+    if (_leadInConsumed) return;
+    _leadInConsumed = true;
+    try {
+      await leadIn;
+    } catch (_) {
+      // A decorative cue failure never blocks companion speech.
+    }
+  }
 
   int reserve(String text) {
     final index = total++;

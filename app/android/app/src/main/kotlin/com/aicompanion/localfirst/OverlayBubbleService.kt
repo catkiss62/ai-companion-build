@@ -24,6 +24,7 @@ import android.provider.Settings
 import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
@@ -2808,7 +2809,9 @@ class OverlayBubbleService : Service() {
 
         private fun actionTintedText(value: String): CharSequence {
             val result = SpannableString(value)
-            val dialogue = Regex("""「[^」\n]*」|“[^”\n]*”|"[^"\n]*"""")
+            val dialogue = Regex(
+                "「[^」\\n]*(?:」|$)|“[^”\\n]*(?:”|$)|\\\"[^\\\"\\n]*(?:\\\"|$)",
+            )
             var cursor = 0
             dialogue.findAll(value).forEach { match ->
                 if (match.range.first > cursor) {
@@ -2821,6 +2824,12 @@ class OverlayBubbleService : Service() {
                 }
                 result.setSpan(
                     StyleSpan(Typeface.NORMAL),
+                    match.range.first,
+                    match.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                result.setSpan(
+                    ForegroundColorSpan(Color.rgb(239, 177, 199)),
                     match.range.first,
                     match.range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
