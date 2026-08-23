@@ -23,4 +23,72 @@ void main() {
     expect(segments, hasLength(2));
     expect(segments.every((item) => item.kind == ChatSegmentKind.dialogue), isTrue);
   });
+
+  test('all 19 expressions keep distinct pinned portraits', () {
+    final expressions = ChatVisualResolver.values
+        .where((item) => item.key != 'normal')
+        .toList(growable: false);
+    expect(expressions, hasLength(19));
+    expect(expressions.map((item) => item.key).toSet(), hasLength(19));
+    expect(expressions.map((item) => item.portraitAsset).toSet(), hasLength(19));
+    expect(
+      ChatVisualResolver.resolveEmotionKey('excited').portraitAsset,
+      endsWith('/excited.webp'),
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('disgust').portraitAsset,
+      endsWith('/disgust.webp'),
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('afraid').portraitAsset,
+      endsWith('/afraid.webp'),
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('nervous').portraitAsset,
+      endsWith('/tense.webp'),
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('embarrassed').portraitAsset,
+      endsWith('/ashamed.webp'),
+    );
+  });
+
+  test('reference animation and effect mapping stays exact', () {
+    expect(
+      ChatVisualResolver.resolveEmotionKey('happy').animation,
+      ChatPortraitAnimation.happyBounce,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('excited').animation,
+      ChatPortraitAnimation.happyBounce,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('angry').animation,
+      ChatPortraitAnimation.angryJump,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('serious').animation,
+      ChatPortraitAnimation.seriousThink,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('affection').animation,
+      ChatPortraitAnimation.heartBeat,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('playful').animation,
+      ChatPortraitAnimation.naughtyBounce,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('embarrassed').animation,
+      ChatPortraitAnimation.embarrassedShake,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('surprised').animation,
+      ChatPortraitAnimation.none,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('affection').effectAsset,
+      endsWith('/heart.webp'),
+    );
+  });
 }
