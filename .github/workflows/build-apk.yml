@@ -150,7 +150,7 @@ jobs:
           set -euo pipefail
           test -f app/pubspec.yaml
           grep -q '^version: 0.37.5+94
-          grep -q '^  static const int schemaVersion = 28;$' app/lib/core/database/app_database.dart
+          grep -q '^  static const int schemaVersion = 29; app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
@@ -611,14 +611,13 @@ jobs:
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
- app/pubspec.yaml
-          grep -q '^  static const int schemaVersion = 28;$' app/lib/core/database/app_database.dart
+ app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.37.4+93 with emotion-first audio fencing, presentation cursors and without native ONNX emotion runtime.'
+          echo 'Building v0.37.5+94 with grounded emotion episodes, strict envelope sanitation and without native ONNX emotion runtime.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -744,6 +743,7 @@ jobs:
           python3 tools/validate_v0372_emotion_crash_hotfix.py
           python3 tools/validate_v0373_expression_visual_parity.py
           python3 tools/validate_v0374_audio_presentation_stabilization.py
+          python3 tools/validate_v0375_grounded_emotion_episode.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -923,7 +923,7 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.37.4+93 stabilization APK to draft release
+      - name: Upload v0.37.5+94 grounded emotion APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -950,7 +950,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.37.5+94 grounded emotion episode test candidate' \
-              --notes 'Draft-only v0.37.4 candidate: keeps the v0.37.3 19-expression visual parity, plays one short emotion cue ahead of TTS while synthesis runs in parallel, prevents historical chat re-animation, aligns overlay dialogue tinting, preserves provider reasoning and colors unmatched streaming quotes. Native 19emo remains absent; the persistent v1 private test signer and schema 28 remain unchanged.'
+              --notes 'Draft-only v0.37.5 candidate: keeps the v0.37.4 audio/presentation stabilization, strips empty or invalid emotion envelopes without losing body text, and adds evidence-grounded Appraisal to Emotion Episode continuity. The per-turn DeepSeek 19-label expression remains the only avatar/audio authority. Native 19emo remains absent; the persistent v1 private test signer is unchanged and schema advances to 29.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -1048,7 +1048,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.37.5+94 grounded emotion episode test candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.37.4 audio/presentation stabilization APK. It is not a public release.'
+              --notes 'Private draft used for CI diagnostics and the v0.37.5 grounded emotion episode APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
