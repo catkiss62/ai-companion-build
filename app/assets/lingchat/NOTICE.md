@@ -16,8 +16,8 @@ The upstream README gives additional asset-specific notices which remain control
 - These assets must not be used commercially.
 
 The parity set contains 21 DeepSeek portrait files, two day/night backgrounds,
-all 16 upstream expression-effect WebP files and all 23 upstream audio-effect
-files. Runtime mappings initially follow the pinned `EMOTION_CONFIG`; dormant
+all 16 upstream expression-effect WebP files and all 23 upstream audio-effect files.
+Runtime mappings initially follow the pinned `EMOTION_CONFIG`; dormant
 files remain available rather than being silently discarded.
 
 This repository uses these files only for personal study and local testing,
