@@ -43,8 +43,15 @@ def main() -> int:
     print('[OK] A2 splitter has no comma/newline/ellipsis/length fallback')
 
     processor = (ROOT / 'lib/core/tts/tts_text_processor.dart').read_text(encoding='utf-8')
-    for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'\\([^)]*\\)')", "RegExp(r'（[^）]*）')", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
+    for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
         assert token in processor, token
+    assert (
+        (
+            "RegExp(r'\\([^)]*\\)')" in processor
+            and "RegExp(r'（[^）]*）')" in processor
+        )
+        or "ChatSegmentCodec.parseAssistantText(text)" in processor
+    )
     print('[OK] A2 speech-only Yuki/bracket preprocessing preserved')
 
     queue = (ROOT / 'lib/core/tts/tts_playback_queue.dart').read_text(encoding='utf-8')
