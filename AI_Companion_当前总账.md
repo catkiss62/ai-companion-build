@@ -6,6 +6,25 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0Q. 2026-08-23 · v0.37.2 情绪崩溃、孤儿生成锁与动作格式紧急热修（IN PROGRESS / 任务前登记）
+
+> 用户在 REDMI K80 Ultra 真机确认 v0.37.1+90 不可用：正文出现 `<emotion>心动</emotion>` 时发生高频闪退；闪退后回复中断并永久显示“另一处聊天窗口正在发送消息”；顶部又把 DeepSeek 的“心动”显示成旧视觉层的“亲昵”；同时动作与神态基本消失。诊断文件 `ai_companion_diagnostics_2026-08-23T13-27-03-098943Z.txt` 已脱敏，明确记录 `historicalExitReason=native_crash`、status 6、一个 `generation_jobs.status=running`、`blockingGenerationStatus=running` 与恢复循环 `waiting_generation:running` 24 次。本节是用户要求的第一次任务总账更新；以下均为计划，尚未标记完成。
+
+### A. 热修目标与稳定边界
+
+1. 候选版本 `v0.37.2+91`，schema 保持 28；优先恢复“能稳定聊天”，不提前做任务 3，不扩大人格重构。
+2. 情绪只有一个权威结论：最终成功解析并持久化的 DeepSeek 19 类标签。顶部不得再被流式关键词、头像动作或 `ChatVisualResolver.zhLabel` 覆盖；例如模型返回“心动”，顶部必须显示“心动”，不能变成“亲昵”。
+3. 情绪信封解析改为容错清洗：完整、重复、大小写/空白变体及流式未闭合 `<emotion>` 均不得进入 App/悬浮正文、SQLite 可见正文或 TTS。Prompt 首版只允许 19 个标准标签，不再鼓励开放标签。
+4. 暂停 Android 19emo 原生 ONNX 运行路径并从候选 APK 移除 ORT/模型载荷。v0.37.1 的真机 native crash 已证明当前集成不具备发布稳定性；本批只保留 19 类契约、映射与将来重新实验的分析证据。非标准/缺失标签使用安全回退，不允许为显示情绪调用可能终止整个进程的 native 分类器。
+5. 崩溃或进程中断后的未完成生成按 Stop `■` 语义终止：清空流式内容、停止 TTS、作废 run token、撤回未完成 user turn并留下“这一轮对话已中断”标记。后台恢复器不得自动重新请求 DeepSeek；pending job 立即终止，stale running job 到期后终止，不再重新领取执行。
+6. 新发送遇到已确认的孤儿 job 时必须能够解除阻塞；完整 App 与悬浮聊天继续共享同一数据库终止栅栏，不得出现一个界面停止、另一个界面仍显示生成中。
+7. 恢复用户最新提供的动作契约：重要动作/神态/语气/微表情用中文或英文括号标注，动作块与对白之间空一行；日常可完整前置，连续/亲密场景可混插；动作不是装饰配额但不能被 few-shot 系统性压没。对白同时兼容 `“”` 与 `「」`，两者均为常规字重；括号动作保持斜体。
+8. 对比 v0.37.0 与 v0.37.1 的 Prompt、few-shot、段落解析和 UI；新增重复/非首位/未闭合标签、权威顶部情绪、native 分类器不调用、孤儿 job 不重试、括号动作/双对白引号/TTS范围的测试。
+
+### B. 完成判据
+
+只有源码、历史 validators、Flutter analyze/tests、Kotlin测试、Release APK、固定签名、417桌宠与原生载荷检查全部通过，并回填 APK 文件名/体积/SHA、Actions run、提交SHA与真机清单后，才把本节改为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。本次诊断只证明 v0.37.1 的缺陷，不等于热修已通过。
+
 ## 0P. 2026-08-23 · v0.37.1 活人感、19emo 与双聊天主链收口（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 本节已完成用户要求的两次总账更新：开工前以 `0f71296df51e2bc4738b7e851267417919ecd254` 登记完整范围；代码、自动测试、Release APK 与私有 Draft Release 全部完成后，在此第二次回填真实证据。以下“已完成”仅代表源码与 CI，不等于 REDMI K80 Ultra 真机体验已经通过。
