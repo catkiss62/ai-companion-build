@@ -1,14 +1,12 @@
 status=failure
 build_result=cancelled
-run_id=32668019078
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32668019078
-head_sha=d2ced04f83a6478d308894731bb61f75eb8ebd2e
+run_id=32668033646
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32668033646
+head_sha=137a966e59bf708f49d3d9d500d89949f315028e
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=cancelled id=97264438152 ---
+--- job=build-apk conclusion=cancelled id=97264477061 ---
 Unable to download this completed job log.
-﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
-RequestId:79380b2e-801e-010a-6c47-336bc2000000
-Time:2026-08-23T21:36:36.7097195Z</Message></Error>gh: HTTP 404
+the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cc2da1b90c0777f9b679
