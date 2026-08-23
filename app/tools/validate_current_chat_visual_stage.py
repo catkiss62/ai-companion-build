@@ -211,7 +211,7 @@ launcher = (ROOT / "android/app/src/main/res/drawable-nodpi/companion_launcher_i
 assert launcher.startswith(b"\x89PNG\r\n\x1a\n")
 assert unpack(">II", launcher[16:24]) == (512, 512)
 assert sha256(launcher).hexdigest() == (
-    "01b4ac59905ab303c6241ab24ab3d2f59b253510cbe2c1f5a3420e1a8568347e"
+    "b98622b8c305f5ef71e57432ad23ee2bc714bd7b61f138daf1b1d10d46157058"
 )
 
 print("current App chat 19-expression visual parity validation passed")
