@@ -56,7 +56,7 @@ class BackgroundChatCommandServer {
     switch (call.method) {
       case 'loadRecentMessages':
         final limit = _intArg(call.arguments, 'limit', 8).clamp(1, 40);
-        return _timelineRows(await db.recentMessages(limit: limit));
+        return _presentRecentMessages(limit);
       case 'loadOlderMessages':
         final beforeMs = _intArg(call.arguments, 'beforeMs', 0);
         if (beforeMs <= 0) return const <Map<String, Object?>>[];
@@ -70,7 +70,7 @@ class BackgroundChatCommandServer {
         );
       case 'overlayOpened':
         onWake?.call('overlay_opened');
-        final visible = await _timelineRows(await db.recentMessages(limit: 8));
+        final visible = await _presentRecentMessages(8);
         unawaited(_warmOverlayController());
         return visible;
       case 'sendMessage':
@@ -79,7 +79,7 @@ class BackgroundChatCommandServer {
           return <String, Object?>{
             'ok': false,
             'error': '消息为空。',
-            'messages': await _timelineRows(await db.recentMessages(limit: 8)),
+            'messages': await _presentRecentMessages(8),
           };
         }
         final sendEpoch = ++_overlaySendEpoch;
@@ -89,7 +89,7 @@ class BackgroundChatCommandServer {
             'ok': false,
             'cancelled': true,
             'error': '',
-            'messages': await _timelineRows(await db.recentMessages(limit: 8)),
+            'messages': await _presentRecentMessages(8),
           };
         }
         await controller.sendText(text);
@@ -98,7 +98,7 @@ class BackgroundChatCommandServer {
           'ok': controller.error == null,
           'cancelled': sendEpoch != _overlaySendEpoch,
           'error': controller.error ?? '',
-          'messages': await _timelineRows(await db.recentMessages(limit: 8)),
+          'messages': await _presentRecentMessages(8),
         };
       case 'generationSnapshot':
         return (await _generationSnapshot()).toChannelMap();
@@ -239,6 +239,16 @@ class BackgroundChatCommandServer {
       _initializing = null;
     }
     return existing;
+  }
+
+  Future<List<Map<String, Object?>>> _presentRecentMessages(int limit) async {
+    final messages = await db.recentMessages(limit: limit);
+    for (final message in messages.reversed) {
+      if (!message.isAssistant) continue;
+      await db.setSetting('chat_last_presented_assistant_id', message.id);
+      break;
+    }
+    return _timelineRows(messages);
   }
 
   Future<List<Map<String, Object?>>> _timelineRows(
