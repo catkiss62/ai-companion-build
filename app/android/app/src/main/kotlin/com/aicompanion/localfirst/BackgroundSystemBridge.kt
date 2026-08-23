@@ -31,6 +31,7 @@ class BackgroundSystemBridge(
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "deviceLabel" -> result.success(deviceLabel())
+                "runtimeProcessEpoch" -> result.success(CompanionRuntimeState.runtimeProcessEpoch)
                 "getPerceptionState" -> result.success(perceptionState())
                 "getRecentUsage" -> result.success(
                     CurrentAppResolver.recentUsage(
