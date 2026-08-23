@@ -40,6 +40,9 @@ for token in (
     "_BubbleTailPainter",
     "!item.message!.isProactive",
     "情绪短音效",
+    "主动消息提示音",
+    "TTS 朗读内容",
+    "选择后还需要在系统通知管理中允许对应频道的声音和横幅。",
     "只影响 App 内聊天；不改悬浮窗结构。",
 ):
     assert token in chat, token

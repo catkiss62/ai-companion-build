@@ -11,9 +11,11 @@ import '../../core/models/message_attachment.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
+import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import 'chat_controller.dart';
@@ -52,6 +54,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _typewriterMs = 56;
   String _backgroundMode = 'auto';
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
+  ProactiveNotificationSound _notificationSound =
+      ProactiveNotificationSound.chime;
+  TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
   final Set<String> _knownMessageIds = <String>{};
   String? _animatedMessageId;
 
@@ -144,6 +149,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _typewriterEnabled =
         (await db.getSetting('chat_typewriter_enabled')) != '0';
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
+    _notificationSound = ProactiveNotificationSound.fromSetting(
+      await db.getSetting('proactive_notification_sound'),
+    );
+    _ttsReadingScope = TtsReadingScope.fromSetting(
+      await db.getSetting('tts_reading_scope'),
+    );
     _panelOpacity = (double.tryParse(
               await db.getSetting('chat_panel_opacity') ?? '',
             ) ??
@@ -764,6 +775,56 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           );
                         },
                       ),
+                      DropdownButtonFormField<ProactiveNotificationSound>(
+                        value: _notificationSound,
+                        decoration: const InputDecoration(
+                          labelText: '主动消息提示音',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ProactiveNotificationSound.values
+                            .map(
+                              (sound) => DropdownMenuItem(
+                                value: sound,
+                                child: Text(sound.zhLabel),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          setState(() => _notificationSound = value);
+                          await update(
+                            'proactive_notification_sound',
+                            value.key,
+                          );
+                        },
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6, bottom: 10),
+                        child: Text(
+                          '选择后还需要在系统通知管理中允许对应频道的声音和横幅。',
+                        ),
+                      ),
+                      if (_ttsEnabled)
+                        DropdownButtonFormField<TtsReadingScope>(
+                          value: _ttsReadingScope,
+                          decoration: const InputDecoration(
+                            labelText: 'TTS 朗读内容',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: TtsReadingScope.values
+                              .map(
+                                (scope) => DropdownMenuItem(
+                                  value: scope,
+                                  child: Text(scope.label),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            setState(() => _ttsReadingScope = value);
+                            await update('tts_reading_scope', value.key);
+                          },
+                        ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('情绪短音效'),
@@ -870,12 +931,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         title: const Text('通知管理'),
                         subtitle: const Text('提示音与横幅需在系统通知管理中允许。'),
                         onTap: () async {
-                          final soundKey = await AppDatabase.instance.getSetting(
-                                'proactive_notification_sound',
-                              ) ??
-                              'chime';
                           await _android.openCompanionNotificationSettings(
-                            soundKey: soundKey,
+                            soundKey: _notificationSound.key,
                           );
                         },
                       ),
