@@ -36,6 +36,6 @@ assert 'map["status_text"]' in overlay
 assert "beginGenerationPolling()" in overlay
 
 pubspec = (root / "pubspec.yaml").read_text()
-assert re.search(r"^version:\s*(?:0\.35\.(?:8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.35\.(?:8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90)\s*$", pubspec, re.M)
 
 print("v0.35.8 native tool calling and shared runtime validation passed")
