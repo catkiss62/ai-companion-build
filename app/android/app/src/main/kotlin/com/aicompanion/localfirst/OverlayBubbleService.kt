@@ -2810,7 +2810,7 @@ class OverlayBubbleService : Service() {
         private fun actionTintedText(value: String): CharSequence {
             val result = SpannableString(value)
             val dialogue = Regex(
-                "「[^」\\n]*(?:」|$)|“[^”\\n]*(?:”|$)|\\\"[^\\\"\\n]*(?:\\\"|$)",
+                "「[^」\\n]*(?:」|$)",
             )
             var cursor = 0
             dialogue.findAll(value).forEach { match ->
