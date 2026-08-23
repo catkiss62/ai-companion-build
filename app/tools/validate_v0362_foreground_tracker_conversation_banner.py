@@ -56,7 +56,7 @@ overlay = read(
 )
 assert 'acknowledgeMessages(this, "overlay_chat_opened")' in overlay
 for token in (
-    'Regex("""「[^」\\n]*」|“[^”\\n]*”|"[^"\\n]*"""")',
+    "val dialogue = Regex(",
     "StyleSpan(Typeface.ITALIC)",
     "StyleSpan(Typeface.NORMAL)",
 ):
