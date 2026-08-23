@@ -16,6 +16,13 @@ download_lfs() {
   size="$(sed -n 's/^size //p' <<<"$pointer")"
   test -n "$oid"
   test -n "$size"
+  if test -f "$destination" && test "$(wc -c < "$destination")" = "$size"; then
+    actual="$(sha256sum "$destination" | cut -d' ' -f1)"
+    if test "$actual" = "$oid"; then
+      printf '%s  %s (reused)\n' "$actual" "${destination#${ASSET_ROOT}/}"
+      return
+    fi
+  fi
   response="$(curl -sS --fail --retry 3 --max-time 60 \
     -H 'Accept: application/vnd.git-lfs+json' \
     -H 'Content-Type: application/vnd.git-lfs+json' \
@@ -71,5 +78,30 @@ public/audio_effects/无语.wav|audio/speechless.wav
 public/audio_effects/生气.wav|audio/angry.wav
 public/audio_effects/疑问.wav|audio/question.wav
 public/audio_effects/对话.wav|audio/dialogue.wav
+public/audio_effects/achievement_common.wav|audio/achievement_common.wav
+public/audio_effects/achievement_rare.wav|audio/achievement_rare.wav
+public/audio_effects/厌恶.wav|audio/disgust.wav
+public/audio_effects/愉快.wav|audio/pleasant.wav
+public/audio_effects/流汗.wav|audio/sweat.wav
+public/audio_effects/聊天.wav|audio/chat.wav
+public/audio_effects/角色音量测试.wav|audio/role_volume_test.wav
+public/audio_effects/转场.wav|audio/transition.wav
+public/audio_effects/震惊.wav|audio/shock.wav
+public/pictures/animation/AI思考.webp|effects/ai_thinking.webp
+public/pictures/animation/叹气.webp|effects/sigh.webp
+public/pictures/animation/害羞.webp|effects/shy.webp
+public/pictures/animation/察觉.webp|effects/noticed.webp
+public/pictures/animation/心动.webp|effects/heart.webp
+public/pictures/animation/惊讶.webp|effects/surprised.webp
+public/pictures/animation/慌乱.webp|effects/flustered.webp
+public/pictures/animation/流汗.webp|effects/sweat.webp
+public/pictures/animation/流泪.webp|effects/tears.webp
+public/pictures/animation/生气.webp|effects/angry.webp
+public/pictures/animation/生气2.webp|effects/angry_alt.webp
+public/pictures/animation/疑问.webp|effects/question.webp
+public/pictures/animation/紧张.webp|effects/nervous.webp
+public/pictures/animation/聊天.webp|effects/dialogue.webp
+public/pictures/animation/难为情.webp|effects/embarrassed.webp
+public/pictures/animation/高兴.webp|effects/happy.webp
 ASSETS
 
