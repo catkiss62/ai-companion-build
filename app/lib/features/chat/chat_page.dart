@@ -11,12 +11,15 @@ import '../../core/models/message_attachment.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/presentation/chat_visuals.dart';
+import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
+import '../settings/settings_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -33,12 +36,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
+  final EmotionSoundService _emotionSounds = EmotionSoundService();
   Timer? _externalSyncTimer;
   Timer? _personalityTimer;
   PersonalityTrial? _personalityTrial;
   SpecialStyleTrial? _specialTrial;
   bool _appResumed = true;
   bool _pickingImage = false;
+  bool _visualStageEnabled = true;
+  bool _emotionSoundEnabled = false;
+  bool _typewriterEnabled = true;
+  bool _ttsEnabled = false;
+  double _panelOpacity = 0.72;
+  double _panelFraction = 0.62;
+  int _typewriterMs = 56;
+  String _backgroundMode = 'auto';
+  ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
+  final Set<String> _knownMessageIds = <String>{};
+  String? _animatedMessageId;
 
   @override
   void initState() {
@@ -51,6 +66,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _initializeController() async {
     await controller.initialize();
+    _knownMessageIds.addAll(controller.messages.map((message) => message.id));
+    await _loadVisualSettings();
     if (!mounted) return;
     _scrollToLatest();
     await _refreshPersonalityTrials();
@@ -85,6 +102,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   void _onChanged() {
     if (!mounted) return;
+    for (final message in controller.messages) {
+      if (_knownMessageIds.add(message.id) &&
+          message.isAssistant &&
+          !message.isProactive) {
+        _animatedMessageId = message.id;
+      }
+    }
+    String? expressionSource;
+    if (controller.streamingContent.trim().isNotEmpty) {
+      expressionSource = controller.streamingContent;
+    } else {
+      for (final message in controller.messages.reversed) {
+        if (message.isAssistant) {
+          expressionSource = message.content;
+          break;
+        }
+      }
+    }
+    if (expressionSource != null && expressionSource.trim().isNotEmpty) {
+      _currentEmotion = ChatVisualResolver.resolve(expressionSource);
+    }
     setState(() {});
     final wasNearBottom = !scroll.hasClients ||
         (scroll.position.maxScrollExtent - scroll.offset) < 140 ||
@@ -95,6 +133,50 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_appResumed && widget.active && !controller.generationActive) {
       unawaited(controller.acknowledgeOverlayUnread());
     }
+  }
+
+  Future<void> _loadVisualSettings() async {
+    final db = AppDatabase.instance;
+    _visualStageEnabled =
+        (await db.getSetting('chat_visual_stage_enabled')) != '0';
+    _emotionSoundEnabled =
+        (await db.getSetting('emotion_sound_enabled')) == '1';
+    _typewriterEnabled =
+        (await db.getSetting('chat_typewriter_enabled')) != '0';
+    _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
+    _panelOpacity = (double.tryParse(
+              await db.getSetting('chat_panel_opacity') ?? '',
+            ) ??
+            0.72)
+        .clamp(0.45, 0.95)
+        .toDouble();
+    _panelFraction = (double.tryParse(
+              await db.getSetting('chat_panel_fraction') ?? '',
+            ) ??
+            0.62)
+        .clamp(0.42, 0.88)
+        .toDouble();
+    _typewriterMs = (int.tryParse(
+              await db.getSetting('chat_typewriter_ms') ?? '',
+            ) ??
+            56)
+        .clamp(20, 120)
+        .toInt();
+    _backgroundMode =
+        await db.getSetting('chat_background_mode') ?? 'auto';
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setVisualSetting(String key, String value) async {
+    await AppDatabase.instance.setSetting(key, value);
+    if (mounted) setState(() {});
+  }
+
+  bool get _useNightBackground {
+    if (_backgroundMode == 'night') return true;
+    if (_backgroundMode == 'day') return false;
+    final hour = DateTime.now().hour;
+    return hour < 6 || hour >= 18;
   }
 
   void _scrollToLatest({bool animate = false}) {
@@ -396,77 +478,464 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
-    final body = Column(
+    String? latestAssistantId;
+    for (final message in controller.messages.reversed) {
+      if (message.isAssistant) {
+        latestAssistantId = message.id;
+        break;
+      }
+    }
+    final timelineList = controller.loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView.builder(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
+            itemCount: timeline.length + (controller.generationActive ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index < timeline.length) {
+                final item = timeline[index];
+                final previous = index == 0 ? null : timeline[index - 1];
+                final showDate = ChatTimestampFormatter.shouldShowDateSeparator(
+                  item.createdAt,
+                  previous?.createdAt,
+                );
+                return Column(
+                  children: [
+                    if (showDate) _DateSeparator(createdAt: item.createdAt),
+                    if (item.isInterruption)
+                      const _InterruptionMarker()
+                    else
+                      _MessageBubble(
+                        key: ValueKey(item.message!.id),
+                        message: item.message!,
+                        ttsPhase:
+                            controller.ttsPhaseForMessage(item.message!.id),
+                        attachmentStorage: controller.attachmentStorage,
+                        animateSegments: _typewriterEnabled &&
+                            !item.message!.isProactive &&
+                            item.message!.id == latestAssistantId &&
+                            item.message!.id == _animatedMessageId,
+                        typewriterMs: _typewriterMs,
+                        onAnimationFinished: () {
+                          if (_animatedMessageId == item.message!.id) {
+                            _animatedMessageId = null;
+                          }
+                        },
+                        onEmotionChanged: (emotion) {
+                          if (!mounted ||
+                              emotion.key == _currentEmotion.key) {
+                            return;
+                          }
+                          setState(() => _currentEmotion = emotion);
+                        },
+                        onEmotionSound: _emotionSoundEnabled
+                            ? (emotion) => _emotionSounds.play(emotion)
+                            : null,
+                        onOpenAttachment: _openAttachment,
+                        onDelete: item.message!.isUser &&
+                                item.message!.hasAttachments
+                            ? () => _confirmDeleteAttachmentMessage(item.message!)
+                            : null,
+                        onRetryVision: item.message!.isUser &&
+                                item.message!.attachments.any(
+                                  (item) => item.visionFailed,
+                                )
+                            ? () => _retryImageVision(item.message!)
+                            : null,
+                        onSpeechAction: item.message!.isAssistant
+                            ? () {
+                                if (controller.ttsPhaseForMessage(
+                                      item.message!.id,
+                                    ) ==
+                                    TtsPlaybackPhase.playing) {
+                                  controller.stopSpeech();
+                                } else {
+                                  controller.speakMessage(item.message!);
+                                }
+                              }
+                            : null,
+                      ),
+                  ],
+                );
+              }
+              return _StreamingBubble(controller: controller);
+            },
+          );
+
+    return Column(
       children: [
         _topBar(context),
         Expanded(
-          child: controller.loading
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  controller: scroll,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                  itemCount: timeline.length + (controller.generationActive ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < timeline.length) {
-                      final item = timeline[index];
-                      final previous = index == 0 ? null : timeline[index - 1];
-                      final showDate = ChatTimestampFormatter.shouldShowDateSeparator(
-                        item.createdAt,
-                        previous?.createdAt,
-                      );
-                      return Column(
-                        children: [
-                          if (showDate)
-                            _DateSeparator(createdAt: item.createdAt),
-                          if (item.isInterruption)
-                            const _InterruptionMarker()
-                          else
-                          _MessageBubble(
-                            key: ValueKey(item.message!.id),
-                            message: item.message!,
-                            ttsPhase: controller.ttsPhaseForMessage(item.message!.id),
-                            attachmentStorage: controller.attachmentStorage,
-                            onOpenAttachment: _openAttachment,
-                            onDelete: item.message!.isUser && item.message!.hasAttachments
-                                ? () => _confirmDeleteAttachmentMessage(item.message!)
-                                : null,
-                            onRetryVision: item.message!.isUser &&
-                                    item.message!.attachments.any(
-                                      (item) => item.visionFailed,
-                                    )
-                                ? () => _retryImageVision(item.message!)
-                                : null,
-                            onSpeechAction: item.message!.isAssistant
-                                ? () {
-                                    if (controller.ttsPhaseForMessage(item.message!.id) ==
-                                        TtsPlaybackPhase.playing) {
-                                      controller.stopSpeech();
-                                    } else {
-                                      controller.speakMessage(item.message!);
-                                    }
-                                  }
-                                : null,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final fraction = _visualStageEnabled ? _panelFraction : 1.0;
+              final panelHeight = constraints.maxHeight * fraction;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_visualStageEnabled) ...[
+                    Image.asset(
+                      _useNightBackground
+                          ? 'assets/lingchat/background/night.webp'
+                          : 'assets/lingchat/background/day.webp',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 240),
+                          child: Image.asset(
+                            _currentEmotion.portraitAsset,
+                            key: ValueKey(_currentEmotion.key),
+                            fit: BoxFit.contain,
+                            alignment: Alignment.topCenter,
                           ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: panelHeight,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surface
+                            .withValues(
+                              alpha: _visualStageEnabled
+                                  ? _panelOpacity
+                                  : 1.0,
+                            ),
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Expanded(child: timelineList),
+                          if (controller.error != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                controller.error!,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          _composer(context),
                         ],
-                      );
-                    }
-                    return _StreamingBubble(controller: controller);
-                  },
-                ),
-        ),
-        if (controller.error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Text(
-              controller.error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+                      ),
+                    ),
+                  ),
+                  if (_visualStageEnabled)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: panelHeight - 13,
+                      child: Center(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onVerticalDragUpdate: (details) {
+                            final next = (_panelFraction -
+                                    details.delta.dy / constraints.maxHeight)
+                                .clamp(0.42, 0.88)
+                                .toDouble();
+                            setState(() => _panelFraction = next);
+                          },
+                          onVerticalDragEnd: (_) => _setVisualSetting(
+                            'chat_panel_fraction',
+                            _panelFraction.toStringAsFixed(3),
+                          ),
+                          child: Container(
+                            width: 84,
+                            height: 26,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Icon(
+                              Icons.drag_handle_rounded,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-        _composer(context),
+        ),
       ],
     );
+  }
 
-    return body;
+  Future<void> _openQuickPanel() async {
+    await _loadVisualSettings();
+    if (!mounted) return;
+    final pageContext = context;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭 DeepSeek 面板',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) => StatefulBuilder(
+        builder: (context, setPanelState) {
+          Future<void> update(String key, String value) async {
+            await _setVisualSetting(key, value);
+            setPanelState(() {});
+          }
+
+          return SafeArea(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Material(
+                elevation: 18,
+                color: Theme.of(context).colorScheme.surface,
+                child: SizedBox(
+                  width: MediaQuery.sizeOf(context)
+                      .width
+                      .clamp(280, 360)
+                      .toDouble(),
+                  height: double.infinity,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                    children: [
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 28,
+                            backgroundImage: AssetImage(
+                              'assets/lingchat/deepseek/avatar.webp',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'DeepSeek',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text('聊天外观与常用开关'),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('角色聊天舞台'),
+                        subtitle: const Text('只影响 App 内聊天；不改悬浮窗结构。'),
+                        value: _visualStageEnabled,
+                        onChanged: (value) async {
+                          setState(() => _visualStageEnabled = value);
+                          await update(
+                            'chat_visual_stage_enabled',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('情绪短音效'),
+                        subtitle: const Text('默认关闭；自动 TTS 开启时不会叠音。'),
+                        value: _emotionSoundEnabled,
+                        onChanged: (value) async {
+                          setState(() => _emotionSoundEnabled = value);
+                          await update(
+                            'emotion_sound_enabled',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('本地 TTS'),
+                        subtitle: const Text('与设置页使用同一开关。'),
+                        value: _ttsEnabled,
+                        onChanged: (value) async {
+                          setState(() => _ttsEnabled = value);
+                          await update('tts_enabled', value ? '1' : '0');
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('逐段打字演出'),
+                        subtitle: const Text('主动消息仍保持一个完整气泡。'),
+                        value: _typewriterEnabled,
+                        onChanged: (value) async {
+                          setState(() => _typewriterEnabled = value);
+                          await update(
+                            'chat_typewriter_enabled',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      if (_visualStageEnabled) ...[
+                        const Divider(height: 28),
+                        DropdownButtonFormField<String>(
+                          value: _backgroundMode,
+                          decoration: const InputDecoration(
+                            labelText: '聊天背景',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'auto', child: Text('跟随昼夜')),
+                            DropdownMenuItem(value: 'day', child: Text('固定白天')),
+                            DropdownMenuItem(value: 'night', child: Text('固定夜晚')),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            setState(() => _backgroundMode = value);
+                            await update('chat_background_mode', value);
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        Text('聊天面板透明度 ${(_panelOpacity * 100).round()}%'),
+                        Slider(
+                          value: _panelOpacity,
+                          min: 0.45,
+                          max: 0.95,
+                          divisions: 10,
+                          onChanged: (value) {
+                            setState(() => _panelOpacity = value);
+                            setPanelState(() {});
+                          },
+                          onChangeEnd: (value) => update(
+                            'chat_panel_opacity',
+                            value.toStringAsFixed(2),
+                          ),
+                        ),
+                      ],
+                      if (_typewriterEnabled) ...[
+                        Text('每字 ${_typewriterMs}ms'),
+                        Slider(
+                          value: _typewriterMs.toDouble(),
+                          min: 24,
+                          max: 104,
+                          divisions: 10,
+                          onChanged: (value) {
+                            setState(() => _typewriterMs = value.round());
+                            setPanelState(() {});
+                          },
+                          onChangeEnd: (value) => update(
+                            'chat_typewriter_ms',
+                            value.round().toString(),
+                          ),
+                        ),
+                      ],
+                      const Divider(height: 28),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.theater_comedy_outlined),
+                        title: const Text('性格试穿'),
+                        subtitle: const Text('只叠加表达倾向，不覆盖核心人设。'),
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await _openPersonalityLab();
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.notifications_outlined),
+                        title: const Text('通知管理'),
+                        subtitle: const Text('提示音与横幅需在系统通知管理中允许。'),
+                        onTap: () async {
+                          final soundKey = await AppDatabase.instance.getSetting(
+                                'proactive_notification_sound',
+                              ) ??
+                              'chime';
+                          await _android.openCompanionNotificationSettings(
+                            soundKey: soundKey,
+                          );
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.tune_rounded),
+                        title: const Text('全部设置'),
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await Navigator.of(pageContext).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsPage(),
+                            ),
+                          );
+                          await _loadVisualSettings();
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.copyright_outlined),
+                        title: const Text('上游与素材说明'),
+                        subtitle: const Text('LingChat · AGPL-3.0 与素材来源'),
+                        onTap: () => showDialog<void>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('LingChat 上游说明'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                '聊天舞台的首批角色立绘、昼夜背景与情绪短音效来自 '
+                                'SlimeBoyOwO/LingChat 固定版本。软件源码采用 AGPL-3.0；'
+                                '部分素材另有上游注明的来源与非商业限制。本项目仅按个人、'
+                                '非商业学习用途接入，并把素材隔离存放，便于后续替换。'
+                                '\n\n完整文件：assets/lingchat/NOTICE.md',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('知道了'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      transitionBuilder: (context, animation, _, child) => SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(-1, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+    );
   }
 
   Widget _topBar(BuildContext context) {
@@ -478,13 +947,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '她',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: _openQuickPanel,
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 19,
+                      backgroundImage: AssetImage(
+                        'assets/lingchat/deepseek/avatar.webp',
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'DeepSeek',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                   if (controller.cancellingGeneration)
                     Text(
                       '正在停止…',
@@ -505,7 +987,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       '正在想…',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             if (_personalityTrial != null || _specialTrial != null)
@@ -680,7 +1166,12 @@ class _MessageBubble extends StatelessWidget {
     required this.ttsPhase,
     required this.attachmentStorage,
     required this.onOpenAttachment,
+    required this.animateSegments,
+    required this.typewriterMs,
+    required this.onEmotionChanged,
+    required this.onAnimationFinished,
     this.onSpeechAction,
+    this.onEmotionSound,
     this.onDelete,
     this.onRetryVision,
   });
@@ -688,9 +1179,45 @@ class _MessageBubble extends StatelessWidget {
   final TtsPlaybackPhase ttsPhase;
   final MessageAttachmentStorage attachmentStorage;
   final ValueChanged<MessageAttachment> onOpenAttachment;
+  final bool animateSegments;
+  final int typewriterMs;
+  final ValueChanged<ChatEmotionVisual> onEmotionChanged;
+  final VoidCallback onAnimationFinished;
+  final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
   final VoidCallback? onSpeechAction;
   final VoidCallback? onDelete;
   final VoidCallback? onRetryVision;
+
+  Widget _footer(BuildContext context) => Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            ChatTimestampFormatter.time(message.createdAt),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 10.5,
+                ),
+          ),
+          if (message.isAssistant && onSpeechAction != null) ...[
+            const SizedBox(width: 2),
+            _SpeechActionButton(
+              phase: ttsPhase,
+              onPressed: onSpeechAction!,
+            ),
+          ],
+          if (onDelete != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              padding: EdgeInsets.zero,
+              iconSize: 17,
+              tooltip: '删除图片消息',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+            ),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -698,17 +1225,38 @@ class _MessageBubble extends StatelessWidget {
     final color = user
         ? Theme.of(context).colorScheme.primaryContainer
         : Theme.of(context).colorScheme.surfaceContainerHigh;
-    return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 520),
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
+    final segments = message.displaySegments;
+    if (message.isAssistant &&
+        !message.isProactive &&
+        !message.hasAttachments &&
+        segments.isNotEmpty) {
+      final chunks = ChatVisualResolver.chunks(segments);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (message.reasoningContent.trim().isNotEmpty)
+            _ChatBubbleSurface(
+              user: false,
+              color: color,
+              child: ReasoningPanel(reasoning: message.reasoningContent),
+            ),
+          _AssistantSegmentSequence(
+            chunks: chunks,
+            animate: animateSegments,
+            millisecondsPerCharacter: typewriterMs,
+            onEmotionChanged: onEmotionChanged,
+            onEmotionSound: onEmotionSound,
+            onFinished: onAnimationFinished,
+            footer: _footer(context),
+          ),
+        ],
+      );
+    }
+
+    return _ChatBubbleSurface(
+      user: user,
+      color: color,
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (message.isProactive)
@@ -750,41 +1298,238 @@ class _MessageBubble extends StatelessWidget {
                 ),
             ],
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  ChatTimestampFormatter.time(message.createdAt),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 10.5,
-                      ),
-                ),
-                if (message.isAssistant && onSpeechAction != null) ...[
-                  const SizedBox(width: 2),
-                  _SpeechActionButton(
-                    phase: ttsPhase,
-                    onPressed: onSpeechAction!,
-                  ),
-                ],
-                if (onDelete != null)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-                    padding: EdgeInsets.zero,
-                    iconSize: 17,
-                    tooltip: '删除图片消息',
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-              ],
-            ),
+            _footer(context),
           ],
         ),
+    );
+  }
+}
+
+class _AssistantSegmentSequence extends StatefulWidget {
+  const _AssistantSegmentSequence({
+    required this.chunks,
+    required this.animate,
+    required this.millisecondsPerCharacter,
+    required this.onEmotionChanged,
+    required this.onFinished,
+    required this.footer,
+    this.onEmotionSound,
+  });
+
+  final List<ChatVisualChunk> chunks;
+  final bool animate;
+  final int millisecondsPerCharacter;
+  final ValueChanged<ChatEmotionVisual> onEmotionChanged;
+  final Future<bool> Function(ChatEmotionVisual)? onEmotionSound;
+  final VoidCallback onFinished;
+  final Widget footer;
+
+  @override
+  State<_AssistantSegmentSequence> createState() =>
+      _AssistantSegmentSequenceState();
+}
+
+class _AssistantSegmentSequenceState
+    extends State<_AssistantSegmentSequence> {
+  Timer? _timer;
+  int _completedChunks = 0;
+  int _currentCharacters = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animate && widget.chunks.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startChunk(0));
+    } else {
+      _completedChunks = widget.chunks.length;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AssistantSegmentSequence oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animate && !widget.animate) {
+      _timer?.cancel();
+      _completedChunks = widget.chunks.length;
+      _currentCharacters = 0;
+    }
+  }
+
+  void _startChunk(int index) {
+    if (!mounted || index >= widget.chunks.length) {
+      widget.onFinished();
+      return;
+    }
+    final chunk = widget.chunks[index];
+    widget.onEmotionChanged(chunk.emotion);
+    if (widget.onEmotionSound != null) {
+      unawaited(widget.onEmotionSound!(chunk.emotion));
+    }
+    final length = chunk.displayText.runes.length;
+    if (length == 0) {
+      _finishChunk(index);
+      return;
+    }
+    _timer?.cancel();
+    _timer = Timer.periodic(
+      Duration(milliseconds: widget.millisecondsPerCharacter),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() => _currentCharacters++);
+        if (_currentCharacters >= length) {
+          timer.cancel();
+          _finishChunk(index);
+        }
+      },
+    );
+  }
+
+  void _finishChunk(int index) {
+    if (!mounted) return;
+    setState(() {
+      _completedChunks = index + 1;
+      _currentCharacters = 0;
+    });
+    if (_completedChunks >= widget.chunks.length) {
+      widget.onFinished();
+      return;
+    }
+    _timer = Timer(
+      const Duration(milliseconds: 180),
+      () => _startChunk(_completedChunks),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = widget.animate
+        ? (_completedChunks + (_completedChunks < widget.chunks.length ? 1 : 0))
+        : widget.chunks.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < visibleCount; index++)
+          _ChatBubbleSurface(
+            user: false,
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ActionTintText(
+                  text: _visibleText(index),
+                  style: const TextStyle(height: 1.45),
+                ),
+                if (_completedChunks >= widget.chunks.length &&
+                    index == widget.chunks.length - 1) ...[
+                  const SizedBox(height: 4),
+                  widget.footer,
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _visibleText(int index) {
+    final full = widget.chunks[index].displayText;
+    if (!widget.animate || index < _completedChunks) return full;
+    return String.fromCharCodes(
+      full.runes.take(
+        _currentCharacters.clamp(0, full.runes.length).toInt(),
       ),
     );
   }
+}
+
+class _ChatBubbleSurface extends StatelessWidget {
+  const _ChatBubbleSurface({
+    required this.user,
+    required this.color,
+    required this.child,
+  });
+
+  final bool user;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(17),
+      topRight: const Radius.circular(17),
+      bottomLeft: Radius.circular(user ? 17 : 4),
+      bottomRight: Radius.circular(user ? 4 : 17),
+    );
+    return Align(
+      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context)
+                      .width
+                      .clamp(260, 560)
+                      .toDouble() *
+                  0.91,
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(color: color, borderRadius: radius),
+            child: child,
+          ),
+          Positioned(
+            bottom: 7,
+            left: user ? null : 0,
+            right: user ? 0 : null,
+            child: CustomPaint(
+              size: const Size(8, 9),
+              painter: _BubbleTailPainter(color: color, user: user),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BubbleTailPainter extends CustomPainter {
+  const _BubbleTailPainter({required this.color, required this.user});
+
+  final Color color;
+  final bool user;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    if (user) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height);
+    } else {
+      path
+        ..moveTo(size.width, 0)
+        ..lineTo(0, size.height)
+        ..lineTo(size.width, size.height);
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BubbleTailPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.user != user;
 }
 
 class _VisionStatus extends StatelessWidget {
@@ -919,17 +1664,10 @@ class _StreamingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 520),
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
+    return _ChatBubbleSurface(
+      user: false,
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (controller.agentActivity != null)
@@ -956,7 +1694,6 @@ class _StreamingBubble extends StatelessWidget {
                 ),
               ),
           ],
-        ),
       ),
     );
   }

@@ -79,8 +79,11 @@ class ChatSegmentCodec {
       // Under the new contract, an unquoted standalone line is an action.
       // If a provider ignores the contract and returns one ordinary paragraph,
       // keep it usable as dialogue instead of mislabelling a long answer.
-      final looksLikeAction = normalized.contains('\n') ||
-          RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line);
+      final looksLikeAction =
+          RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) ||
+          (normalized.contains('「') &&
+              normalized.contains('\n') &&
+              line.length <= 80);
       result.add(ChatSegment(
         kind: looksLikeAction ? ChatSegmentKind.action : ChatSegmentKind.dialogue,
         text: line,
