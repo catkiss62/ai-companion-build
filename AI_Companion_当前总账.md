@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0V. 2026-08-24 · 分层记忆召回重构与主动消息 Emotion 规范化（IN PROGRESS / PRE-TASK LEDGER）
+## 0V. 2026-08-24 · v0.37.7 分层记忆召回重构与主动消息 Emotion 规范化（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 用户已授权正式开始；本节是开工前第一次总账更新。下一阶段只重构记忆召回与统一消息规范化，不同时实现动态萌属性/影响对话的情绪系统，避免两个大型变量并行改变后无法定位行为差异。完成后必须第二次回填实际源码、提交、测试、Actions、APK、SHA 与真机验收项。
 
@@ -41,7 +41,20 @@
 - 增加可执行测试覆盖：零相关高重要度记忆被拒、直接相关事实可召回、核心锚点受预算约束、近期重复记忆被冷却、推断/历史版本不越权、普通与主动消息标签同路径清理、正文不因坏标签丢失。
 - 跑完历史/current validators、Flutter analyze/tests、Release APK、持久签名与载荷校验；仅自动化通过仍标记真机待验。
 
-### D. 已登记的靠后任务（PLANNED / NOT STARTED）
+### D. 本轮真实实现、验证与交付
+
+- **任务前总账**：`bcb520dc01222bfe64717368ba315942caed2323`。正式修改前已冻结本批范围、Ombre 参考来源、男性向边界与靠后存档审计，避免窗口中断后丢任务。
+- **功能实现**：`e1f6f22211ba2e1a89a10da8b03f2808eee0411e`；最终构建分支 head：`578225bc3be92230d52b720b87fdb7a66166f295`；Actions PR merge SHA：`9b1110037bde8de963596e98acbb7d194a2d1b6d`。版本为 v0.37.7+96，数据库 schema 31。
+- **分层召回已完成**：新增纯本地 `MemoryRetrievalPolicy`。只有当前查询提供直接词项/短语证据，长期记忆才进入候选；重要度、置信度、保留分和 pinned 只能给已相关条目排序，不能凭空制造相关性。单独出现“喜欢/想你/爱你/想念/心动/关系/感情”等泛化词，不足以召回另一段关系记忆。原先每轮无条件注入 5 条 user_profile＋5 条 AI Self＋5 条 preference 已删除，所有分类共用一个最多8条的有界相关集合。
+- **层级与事实边界已完成**：current_fact/shared_experience 走直接准入；inference 与 superseded 历史版本分别保留“不确定线索/过去曾成立”的语义；conversation summary 与 unfinished thread 也必须通过同一直接相关门。保留 SQLite 单一真源、subject_key、证据链、事实版本、pinned 保护、事务化提案/应用、post-turn durable queue、Stop/强杀恢复与 transfer freeze。
+- **重复表达冷却已完成**：`memory_items` 新增 `last_expressed_at` 与 `expression_count`，`last_recalled_at` 明确为实际送入模型 Prompt 的持久游标。关系/想念类18小时、共同经历8小时、偏好4小时、其他90分钟冷却；当前用户明确重新点题时可突破弱冷却。可见回复只在与刚注入记忆具有强直接证据时更新表达游标，不把“被检索”误记成“她已经说出来”。
+- **主动消息标签窄修已完成**：确认普通用户轮原本经过 `EmotionEnvelope.parse`，主动生成此前直接持久化 raw candidate，正是偶发 `<emotion>想念</emotion>` / `<emotion>心动</emotion>` 泄漏的路径差异。现在主动首轮与纠正重试都先走同一 envelope，再进入 grounding/service guards、SQLite、App/悬浮、通知与 TTS；19类标签继续单独写 emotion 元数据并驱动既有外部表现，不进入正文或记忆。本批未恢复 native 19emo/ONNX/ORT，也未开始动态萌属性/影响对话的情绪系统。
+- **脱敏可观察性已完成**：新增30天有界、无正文的 `memory_retrieval_audit`；诊断只报告24小时检索轮数、候选数、直接命中、无直接证据拦截、冷却拦截、实际选择数及最近若干次粗粒度统计，不含 query、聊天/记忆正文、记忆 ID 或可逆内容。
+- **自动验证**：新增 `memory_retrieval_policy_test.dart` 与 `validate_v0377_layered_memory_retrieval.py`，覆盖高重要度/置顶不制造相关、具体话题可召回、泛化喜欢不串召回、近期弱匹配冷却、明确点题突破、可见表达游标、summary/thread 同门及主动 envelope 路径。历史 validators、Kotlin 桌宠状态/物理、Flutter analyze、Flutter tests、Release APK、固定签名、6个原生库、417桌宠文件、62个 LingChat 表现素材、无 native 19emo/ONNX/ORT、checksum 与 Draft Release 上传全部通过。#386～#388 只暴露旧 validator 版本/schema 白名单，已仅扩展到 v0.37.7/schema31，未删除或放宽旧功能断言。
+- **成功 Actions**：<https://github.com/catkiss62/ai-companion-build/actions/runs/32687927244>（run #389）。APK：`AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk`（构建日志约303.4 MB）；SHA-256：`1a333ea64fa6d64b970b84dc6c360ac0861a25a438ece4af8706583a47a3be4f`；持久测试签名 SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cd96d86659a7a5fcf451>。
+- **真机验收（待用户）**：先连续聊“喜欢/想你”后自然切换电影、音乐、日常等无关话题，确认她不会为了证明记得而复读恋爱事实；再明确重新点到某个旧偏好/共同经历，确认相关记忆仍能自然出现；等待或触发主动消息，确认正文、历史、悬浮、通知和 TTS 均不再出现 `<emotion>` 标签且19类外部表现仍正常；同时观察 schema31 首启、Stop/强杀与普通聊天无回归。动态萌属性系统继续后置，不能用本版结果提前判定完成。
+
+### E. 已登记的靠后任务（PLANNED / NOT STARTED）
 
 - **存档导出/导入完整性审计**：待数据库、记忆、性格、影响对话的情绪系统、欲望与主动能力基本稳定后，核对所有应持久化数据是否完整导出；执行导出 → 清空/重装 → 导入 → 逐项比对的往返恢复测试，并检查旧版本存档升级。位置在核心系统稳定之后、正式长期使用和最终发布验收之前。
 
