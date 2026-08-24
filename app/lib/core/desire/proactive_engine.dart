@@ -10,6 +10,8 @@ import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
+import '../emotion/emotion_classifier_service.dart';
+import '../emotion/emotion_contract.dart';
 import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
 import '../grounding/service_template_guard.dart';
@@ -523,6 +525,15 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
     bool isWait(_ProactiveGenerationCandidate value) =>
         value.content.isEmpty || value.content == 'WAIT';
 
+    // Proactive generation does not use DurableGenerationRunner, so it must
+    // explicitly share the same machine-only envelope normalization before
+    // guards, SQLite, notification, overlay and TTS can see the content.
+    var emotionEnvelope = EmotionEnvelope.parse(candidate.content);
+    candidate = _ProactiveGenerationCandidate(
+      reasoning: candidate.reasoning,
+      content: emotionEnvelope.visibleText,
+    );
+
     if (isWait(candidate)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -596,7 +607,11 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
           deliveryStyle: deliveryStyle,
         );
       }
-      candidate = retried;
+      emotionEnvelope = EmotionEnvelope.parse(retried.content);
+      candidate = _ProactiveGenerationCandidate(
+        reasoning: retried.reasoning,
+        content: emotionEnvelope.visibleText,
+      );
       if (isWait(candidate)) {
         await db.addProactiveHistory(
           triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -653,6 +668,10 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     }
 
     final text = candidate.content;
+    final companionEmotion = await EmotionClassifierService.instance.resolve(
+      rawTag: emotionEnvelope.rawTag,
+      visibleText: text,
+    );
 
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
@@ -669,6 +688,12 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       proactiveDelivery: deliveryStyle.key,
       deviceId: await db.ensureDeviceId(),
       segments: ChatSegmentCodec.parseAssistantText(text),
+      emotionRawTag: companionEmotion.rawTag,
+      emotionKey: companionEmotion.key,
+      emotionLabel: companionEmotion.label,
+      emotionConfidence: companionEmotion.confidence,
+      emotionTop3Json: companionEmotion.top3Json,
+      emotionSource: companionEmotion.source,
     );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
@@ -694,6 +719,10 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       triggerReason: '${intent.drive.name}:${intent.reason}',
       decision: 'sent',
       messageId: message.id,
+    );
+    await db.markRecentlyInjectedMemoriesExpressed(
+      message.content,
+      now: message.createdAt,
     );
     if (intentThought != null) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);

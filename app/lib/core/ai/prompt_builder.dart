@@ -69,6 +69,7 @@ class PromptBuilder {
       query,
       relevantLimit: memoryLimit,
       summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
+      retrievalMode: mode.name,
     );
     final relationshipContext = await relationshipBrain.buildContext();
     final references = await referenceLibrary.retrieve(query, limit: 6);

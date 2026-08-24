@@ -15,6 +15,8 @@ class MemoryItem {
     this.supersededBy,
     this.lastRecalledAt,
     this.recallCount = 0,
+    this.lastExpressedAt,
+    this.expressionCount = 0,
     this.retentionScore = 1.0,
     this.retentionCheckedAt,
     this.semanticType = 'current_fact',
@@ -40,6 +42,8 @@ class MemoryItem {
   final DateTime updatedAt;
   final DateTime? lastRecalledAt;
   final int recallCount;
+  final DateTime? lastExpressedAt;
+  final int expressionCount;
   final double retentionScore;
   final DateTime? retentionCheckedAt;
   final String semanticType;
@@ -79,6 +83,10 @@ class MemoryItem {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(row['last_recalled_at'] as int),
       recallCount: row['recall_count'] as int? ?? 0,
+      lastExpressedAt: row['last_expressed_at'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(row['last_expressed_at'] as int),
+      expressionCount: row['expression_count'] as int? ?? 0,
       retentionScore: (row['retention_score'] as num?)?.toDouble() ?? 1.0,
       retentionCheckedAt: row['retention_checked_at'] == null
           ? null

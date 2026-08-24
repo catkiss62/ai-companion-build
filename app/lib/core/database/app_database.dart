@@ -17,6 +17,7 @@ import '../models/conversation_summary.dart';
 import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
+import '../memory/memory_retrieval_policy.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
 import '../models/post_turn_job.dart';
@@ -49,7 +50,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 27;
   // Historical validator compatibility token: static const int schemaVersion = 28;
   // Historical validator compatibility token: static const int schemaVersion = 29;
-  static const int schemaVersion = 30;
+  // Historical validator compatibility token: static const int schemaVersion = 30;
+  static const int schemaVersion = 31;
 
   Database? _db;
   Future<Database>? _opening;
@@ -864,6 +866,22 @@ class AppDatabase {
         whereArgs: const ['chat_typewriter_ms', '56'],
       );
     }
+    if (oldVersion < 31) {
+      final columns = (await db.rawQuery('PRAGMA table_info(memory_items)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      if (!columns.contains('last_expressed_at')) {
+        await db.execute(
+          'ALTER TABLE memory_items ADD COLUMN last_expressed_at INTEGER',
+        );
+      }
+      if (!columns.contains('expression_count')) {
+        await db.execute(
+          'ALTER TABLE memory_items ADD COLUMN expression_count INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      await _createV31Tables(db);
+    }
 
   }
 
@@ -911,6 +929,8 @@ class AppDatabase {
         updated_at INTEGER NOT NULL,
         last_recalled_at INTEGER,
         recall_count INTEGER NOT NULL DEFAULT 0,
+        last_expressed_at INTEGER,
+        expression_count INTEGER NOT NULL DEFAULT 0,
         retention_score REAL NOT NULL DEFAULT 1.0,
         retention_checked_at INTEGER,
         semantic_type TEXT NOT NULL DEFAULT 'current_fact',
@@ -1024,6 +1044,7 @@ class AppDatabase {
     await _createV25Tables(db);
     await _createV26Tables(db);
     await _createV29Tables(db);
+    await _createV31Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1714,6 +1735,28 @@ class AppDatabase {
     );
   }
 
+
+  Future<void> _createV31Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS memory_retrieval_audit (
+        id TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        retrieval_mode TEXT NOT NULL,
+        query_token_count INTEGER NOT NULL,
+        candidate_count INTEGER NOT NULL,
+        direct_count INTEGER NOT NULL,
+        blocked_no_direct_count INTEGER NOT NULL,
+        blocked_cooldown_count INTEGER NOT NULL,
+        selected_count INTEGER NOT NULL,
+        pinned_selected_count INTEGER NOT NULL,
+        shared_selected_count INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_retrieval_audit_time '
+      'ON memory_retrieval_audit(created_at DESC)',
+    );
+  }
 
   Future<void> _createV29Tables(Database db) async {
     await db.execute('''
@@ -3854,6 +3897,8 @@ class AppDatabase {
         'updated_at': now,
         'last_recalled_at': null,
         'recall_count': 0,
+        'last_expressed_at': null,
+        'expression_count': 0,
         'retention_score': 1.0,
         'retention_checked_at': now,
         'semantic_type': semantic,
@@ -3904,64 +3949,184 @@ class AppDatabase {
   Future<List<MemoryItem>> relevantMemories(
     String query, {
     int limit = 12,
+    String retrievalMode = 'userTurn',
+    DateTime? now,
   }) async {
     final db = await database;
     final rows = await db.query(
       'memory_items',
       where: "status = ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: ['active'],
+      whereArgs: const ['active'],
       orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
       limit: 180,
     );
-    final queryTokens = _tokens(query);
-    final now = DateTime.now();
+    final instant = now ?? DateTime.now();
+    final queryTokenCount = MemoryRetrievalPolicy.tokensFor(query).length;
+    var directCount = 0;
+    var blockedNoDirect = 0;
+    var blockedCooldown = 0;
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
-      final ageDays = now.difference(item.updatedAt).inHours / 24.0;
-      final recency = 1 / (1 + ageDays / 45.0);
-      final kindBoost = switch (item.kind) {
-        'shared_experience' => 0.05,
-        'preference' => 0.045,
-        'user_profile' => 0.035,
-        'ai_self' => 0.03,
-        _ => 0.0,
-      };
-      final familiarity = (item.recallCount / 12.0).clamp(0.0, 1.0).toDouble();
-      final score = item.importance * 0.34 +
-          item.confidence * 0.16 +
-          overlap * 0.32 +
-          recency * 0.10 +
-          familiarity * 0.03 +
-          item.retentionScore * 0.15 +
-          (item.pinned ? 0.18 : 0.0) +
-          kindBoost;
-      scored.add((item: item, score: score));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        now: instant,
+      );
+      if (!decision.direct) {
+        blockedNoDirect += 1;
+        continue;
+      }
+      directCount += 1;
+      if (decision.cooldownBlocked) {
+        blockedCooldown += 1;
+        continue;
+      }
+      scored.add((item: item, score: decision.score));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    final selected = scored.take(limit).map((e) => e.item).toList();
-    if (selected.isNotEmpty) {
-      final batch = db.batch();
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    final selected =
+        scored.take(limit).map((entry) => entry.item).toList(growable: false);
+
+    await db.transaction((txn) async {
       for (final item in selected) {
-        batch.update(
+        await txn.update(
           'memory_items',
           {
-            'last_recalled_at': now.millisecondsSinceEpoch,
+            // last_recalled_at is the durable "actually injected" cursor. It
+            // is not advanced for rejected candidates.
+            'last_recalled_at': instant.millisecondsSinceEpoch,
             'recall_count': item.recallCount + 1,
-            'retention_score': (item.retentionScore + 0.025).clamp(0.0, 1.0),
-            'retention_checked_at': now.millisecondsSinceEpoch,
+            'retention_score':
+                (item.retentionScore + 0.015).clamp(0.0, 1.0),
+            'retention_checked_at': instant.millisecondsSinceEpoch,
           },
           where: 'id = ?',
           whereArgs: [item.id],
         );
       }
-      await batch.commit(noResult: true);
-    }
+      await txn.insert('memory_retrieval_audit', {
+        'id': _uuid.v4(),
+        'created_at': instant.millisecondsSinceEpoch,
+        'retrieval_mode': retrievalMode.length <= 32
+            ? retrievalMode
+            : retrievalMode.substring(0, 32),
+        'query_token_count': queryTokenCount,
+        'candidate_count': rows.length,
+        'direct_count': directCount,
+        'blocked_no_direct_count': blockedNoDirect,
+        'blocked_cooldown_count': blockedCooldown,
+        'selected_count': selected.length,
+        'pinned_selected_count':
+            selected.where((item) => item.pinned).length,
+        'shared_selected_count':
+            selected.where((item) => item.isSharedExperience).length,
+      });
+      await txn.delete(
+        'memory_retrieval_audit',
+        where: 'created_at < ?',
+        whereArgs: [
+          instant
+              .subtract(const Duration(days: 30))
+              .millisecondsSinceEpoch,
+        ],
+      );
+    });
     return selected;
+  }
+
+  Future<void> markRecentlyInjectedMemoriesExpressed(
+    String assistantText, {
+    DateTime? now,
+  }) async {
+    if (assistantText.trim().isEmpty) return;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final cutoff =
+        instant.subtract(const Duration(minutes: 20)).millisecondsSinceEpoch;
+    final rows = await db.query(
+      'memory_items',
+      where: "status = 'active' AND last_recalled_at >= ? "
+          'AND (last_expressed_at IS NULL OR last_expressed_at < last_recalled_at)',
+      whereArgs: [cutoff],
+      orderBy: 'last_recalled_at DESC',
+      limit: 24,
+    );
+    final expressed = <MemoryItem>[];
+    for (final row in rows) {
+      final item = MemoryItem.fromDb(row);
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: assistantText,
+        item: item,
+        now: instant,
+        enforceCooldown: false,
+      );
+      if (decision.direct && decision.strongEvidence) expressed.add(item);
+    }
+    if (expressed.isEmpty) return;
+    final batch = db.batch();
+    for (final item in expressed) {
+      batch.update(
+        'memory_items',
+        {
+          'last_expressed_at': instant.millisecondsSinceEpoch,
+          'expression_count': item.expressionCount + 1,
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<Map<String, Object?>> memoryRetrievalDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final since =
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+    final totals = await db.rawQuery('''
+      SELECT COUNT(*) AS runs,
+             COALESCE(SUM(candidate_count), 0) AS candidates,
+             COALESCE(SUM(direct_count), 0) AS direct,
+             COALESCE(SUM(blocked_no_direct_count), 0) AS blocked_no_direct,
+             COALESCE(SUM(blocked_cooldown_count), 0) AS blocked_cooldown,
+             COALESCE(SUM(selected_count), 0) AS selected
+      FROM memory_retrieval_audit
+      WHERE created_at >= ?
+    ''', [since]);
+    final latest = await db.query(
+      'memory_retrieval_audit',
+      columns: const [
+        'created_at',
+        'retrieval_mode',
+        'query_token_count',
+        'candidate_count',
+        'direct_count',
+        'blocked_no_direct_count',
+        'blocked_cooldown_count',
+        'selected_count',
+        'pinned_selected_count',
+        'shared_selected_count',
+      ],
+      orderBy: 'created_at DESC',
+      limit: 6,
+    );
+    final row = totals.isEmpty ? const <String, Object?>{} : totals.first;
+    return <String, Object?>{
+      'windowHours': 24,
+      'runs': (row['runs'] as num?)?.toInt() ?? 0,
+      'candidates': (row['candidates'] as num?)?.toInt() ?? 0,
+      'direct': (row['direct'] as num?)?.toInt() ?? 0,
+      'blockedNoDirect': (row['blocked_no_direct'] as num?)?.toInt() ?? 0,
+      'blockedCooldown': (row['blocked_cooldown'] as num?)?.toInt() ?? 0,
+      'selected': (row['selected'] as num?)?.toInt() ?? 0,
+      'latest': latest,
+      'queryTextIncluded': false,
+      'memoryBodiesIncluded': false,
+      'memoryIdsIncluded': false,
+    };
   }
 
   Future<List<MemoryItem>> memoryCandidatesForExtraction(
@@ -3972,32 +4137,37 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ?',
-      whereArgs: ['active'],
+      whereArgs: const ['active'],
       orderBy: 'pinned DESC, importance DESC, confidence DESC, updated_at DESC',
       limit: 220,
     );
-    final queryTokens = _tokens(query);
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
       final semanticBoost = switch (item.semanticType) {
         'current_fact' => 0.08,
         'shared_experience' => 0.04,
         _ => 0.0,
       };
-      final score = overlap * 0.58 +
-          item.importance * 0.17 +
-          item.confidence * 0.10 +
-          (item.pinned ? 0.22 : 0.0) +
-          semanticBoost;
-      scored.add((item: item, score: score));
+      scored.add((
+        item: item,
+        score: decision.score +
+            item.importance * 0.06 +
+            item.confidence * 0.04 +
+            semanticBoost,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<MemoryItem>> relevantMemoryInferences(
@@ -4008,22 +4178,31 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ? AND semantic_type = ? AND retention_score >= ?',
-      whereArgs: ['active', 'inference', 0.18],
+      whereArgs: const ['active', 'inference', 0.18],
       orderBy: 'importance DESC, confidence DESC, updated_at DESC',
       limit: 120,
     );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.72 + item.confidence * 0.18 + item.importance * 0.10));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
+      scored.add((
+        item: item,
+        score: decision.score * 0.82 +
+            item.confidence * 0.12 +
+            item.importance * 0.06,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<MemoryItem>> relevantHistoricalMemories(
@@ -4034,22 +4213,31 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ? AND semantic_type = ? AND subject_key <> ?',
-      whereArgs: ['superseded', 'current_fact', ''],
+      whereArgs: const ['superseded', 'current_fact', ''],
       orderBy: 'updated_at DESC',
       limit: 140,
     );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.78 + item.importance * 0.14 + item.confidence * 0.08));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
+      scored.add((
+        item: item,
+        score: decision.score * 0.84 +
+            item.importance * 0.10 +
+            item.confidence * 0.06,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<Map<String, Object?>>> memoryEvidenceFor(

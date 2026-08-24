@@ -154,6 +154,13 @@ class MemoryExtractor {
     PostTurnJob? job,
     bool runDeferredMaintenance = true,
   }) async {
+    // Retrieval and visible expression are separate durable cursors. This runs
+    // before auto-memory extraction so disabling model-written memory does not
+    // disable anti-repetition cooling for memories already used in a reply.
+    await db.markRecentlyInjectedMemoriesExpressed(
+      assistant.content,
+      now: assistant.createdAt,
+    );
     final enabled = (await db.getSetting('auto_memory')) != '0';
     if (!enabled) return;
     final apiKey = await secureConfig.readApiKey();
