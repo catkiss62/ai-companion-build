@@ -45,6 +45,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
   bool _emotionSoundEnabled = false;
+  double _emotionSoundVolume = 1.0;
   bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
   bool _ttsEnabled = false;
@@ -217,6 +218,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
     _emotionSoundEnabled =
         (await db.getSetting('emotion_sound_enabled')) == '1';
+    _emotionSoundVolume = (double.tryParse(
+              await db.getSetting('emotion_sound_volume') ?? '',
+            ) ??
+            1.0)
+        .clamp(0.0, 1.0)
+        .toDouble();
     _showEmotionLabel =
         (await db.getSetting('show_emotion_label')) != '0';
     _typewriterEnabled =
@@ -1014,6 +1021,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           );
                         },
                       ),
+                      if (_emotionSoundEnabled)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            '情绪音效音量 ${(_emotionSoundVolume * 100).round()}%',
+                          ),
+                          subtitle: Slider(
+                            value: _emotionSoundVolume,
+                            min: 0,
+                            max: 1,
+                            divisions: 20,
+                            label:
+                                '${(_emotionSoundVolume * 100).round()}%',
+                            onChanged: (value) {
+                              setState(() => _emotionSoundVolume = value);
+                              setPanelState(() {});
+                            },
+                            onChangeEnd: (value) async {
+                              await update(
+                                'emotion_sound_volume',
+                                value.toStringAsFixed(2),
+                              );
+                            },
+                          ),
+                        ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('本地 TTS'),

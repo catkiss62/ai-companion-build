@@ -85,6 +85,11 @@ class PreflightDiagnosticsService {
         'messageBodiesIncluded': false,
         'memoryBodiesIncluded': false,
         'memoryRetrievalQueriesIncluded': false,
+        'visionImageBytesIncluded': false,
+        'visionPathsIncluded': false,
+        'visionCaptionIncluded': false,
+        'visionSummaryIncluded': false,
+        'visionRawErrorIncluded': false,
         'rawNotificationTextIncluded': false,
         'rawAccessibilityTextIncluded': false,
         'apiSecretsIncluded': false,
@@ -120,6 +125,7 @@ class PreflightDiagnosticsService {
       final emotionDiagnostics = await db.emotionDiagnosticStats(now: now);
       final memoryRetrievalDiagnostics =
           await db.memoryRetrievalDiagnosticStats(now: now);
+      final visionDiagnostics = await db.attachmentVisionDiagnosticStats();
       final chatTurnLease =
           await db.localLeaseDiagnostic('chat_turn_lease');
       final autonomousActions =
@@ -202,6 +208,7 @@ class PreflightDiagnosticsService {
         'chatTurnLease': chatTurnLease,
         'emotionObservability': emotionDiagnostics,
         'memoryRetrieval': memoryRetrievalDiagnostics,
+        'imageVision': visionDiagnostics,
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
         'nsfwRouting': {

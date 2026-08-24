@@ -518,6 +518,8 @@ class ChatController extends ChangeNotifier {
     error = null;
     _safeNotify();
     var marked = false;
+    var chatLeaseHeld = false;
+    GenerationJob? trustedGeneration;
     try {
       final visionKey = await secureConfig.readVisionApiKey();
       if (visionKey == null || visionKey.trim().isEmpty) {
@@ -545,7 +547,14 @@ class ChatController extends ChangeNotifier {
         imageFile: thumbnail,
         caption: message.content,
       );
-      await db.completeAttachmentVisionAndCreateGeneration(
+      chatLeaseHeld = await db.tryAcquireLocalLease(
+        'chat_turn_lease',
+        holdFor: const Duration(seconds: 30),
+      );
+      if (!chatLeaseHeld) {
+        throw StateError('另一处聊天窗口正在发送消息，请稍后重试这张图片。');
+      }
+      trustedGeneration = await db.completeAttachmentVisionAndCreateGeneration(
         attachmentId: attachment.id,
         summary: observation.summary,
         visionModel: observation.model,
@@ -554,9 +563,8 @@ class ChatController extends ChangeNotifier {
         reasoningEffort: effort.apiName,
         thinking: true,
       );
-      messages = await db.recentMessages(limit: 160);
     } catch (exception) {
-      if (marked) {
+      if (marked && trustedGeneration == null) {
         await db.failAttachmentVision(attachment.id, exception.toString());
       }
       messages = await db.recentMessages(limit: 160);
@@ -564,10 +572,22 @@ class ChatController extends ChangeNotifier {
     } finally {
       analyzingImage = false;
       await db.releaseLocalLease('image_vision_lease');
+      if (trustedGeneration == null && chatLeaseHeld) {
+        await db.releaseLocalLease('chat_turn_lease');
+        chatLeaseHeld = false;
+      }
       _safeNotify();
     }
-    if (!_disposed && error == null) {
-      await resumePendingGeneration();
+    final generation = trustedGeneration;
+    if (generation != null && chatLeaseHeld) {
+      if (_disposed) {
+        await db.releaseLocalLease('chat_turn_lease');
+      } else {
+        await _runTrustedCurrentProcessGeneration(
+          generation,
+          leaseAlreadyHeld: true,
+        );
+      }
     }
   }
 
@@ -665,28 +685,7 @@ class ChatController extends ChangeNotifier {
     _activeGenerationJobId = null;
     _safeNotify();
 
-    var streamTts = false;
     var durableTurnCreated = false;
-    var emotionCueStarted = false;
-    var emotionLeadIn = Future<void>.value();
-    Completer<void>? streamLeadIn;
-
-    Future<void> startEmotionCue(String emotionKey) {
-      if (emotionCueStarted) return emotionLeadIn;
-      emotionCueStarted = true;
-      final visual = ChatVisualResolver.resolveEmotionKey(emotionKey);
-      emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
-      final gate = streamLeadIn;
-      if (gate != null && !gate.isCompleted) {
-        gate.complete(emotionLeadIn);
-      }
-      return emotionLeadIn;
-    }
-
-    void releaseStreamLeadIn() {
-      final gate = streamLeadIn;
-      if (gate != null && !gate.isCompleted) gate.complete();
-    }
 
     try {
       if ((await db.getSetting('transfer_lock')) == '1') {
@@ -746,112 +745,11 @@ class ChatController extends ChangeNotifier {
       });
       cancellation.throwIfCancelled();
 
-      final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
-      final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
-      streamTts = autoTts &&
-          (await db.getSetting('tts_streaming_enabled')) != '0';
-      if (streamTts) {
-        streamLeadIn = Completer<void>();
-        try {
-          await ttsPlayback.beginStream(
-            manual: false,
-            ownerId: job.assistantMessageId,
-            leadIn: streamLeadIn!.future,
-          );
-        } catch (_) {
-          releaseStreamLeadIn();
-          streamTts = false;
-        }
-      }
-
-      // Best-effort enrichment can take a while on a large local database.
-      // Refresh ownership immediately before opening the network stream so an
-      // expired lease cannot let another engine start a competing chat turn.
-      cancellation.throwIfCancelled();
-      final stillOwnsTurn = await db.renewLocalLease(
-        'chat_turn_lease',
-        holdFor: const Duration(seconds: 30),
+      await _executeCurrentProcessGeneration(
+        job: job,
+        user: user,
+        cancellation: cancellation,
       );
-      if (!stillOwnsTurn) {
-        await db.suspendGenerationJob(
-          job.id,
-          reason: 'chat_turn_lease_lost_before_stream',
-        );
-        throw StateError('这轮回复的处理已经转到恢复流程，会安全地继续。');
-      }
-
-      final result = await generationRunner.run(
-        job,
-        cancellationToken: cancellation,
-        onNsfwRoute: _applyNsfwRoute,
-        onAgentToolActivity: _applyAgentToolActivity,
-        onEmotionCue: startEmotionCue,
-        onDelta: (delta) {
-          if (cancellation.isCancelled) return;
-          if (delta.reasoning.isNotEmpty) {
-            streamingReasoning += delta.reasoning;
-          }
-          if (delta.content.isNotEmpty) {
-            // A valid leading emotion envelope is announced before this visible
-            // delta. If the provider omitted it, never hold speech indefinitely.
-            if (streamTts && !emotionCueStarted) releaseStreamLeadIn();
-            streamingContent += delta.content;
-            if (streamTts) ttsPlayback.addDelta(delta.content);
-          }
-          _safeNotify();
-        },
-      );
-
-      if (result.completed) {
-        messages = [...messages, result.assistant!];
-        await _incrementOverlayUnread();
-        _petGenerationActive = false;
-        _safeNotify();
-        if (streamTts) {
-          releaseStreamLeadIn();
-          ttsPlayback.endStream();
-        } else {
-          final leadIn = emotionCueStarted
-              ? emotionLeadIn
-              : startEmotionCue(result.assistant!.emotionKey);
-          if (autoTts) {
-            unawaited(
-              ttsPlayback.playText(
-                result.assistant!.content,
-                manual: false,
-                ownerId: result.assistant!.id,
-                emotion: _ttsEmotionCue(result.assistant!),
-                leadIn: leadIn,
-              ),
-            );
-          }
-        }
-        await memoryExtractor.extractFromTurn(
-          user: user,
-          assistant: result.assistant!,
-        );
-      } else if (result.status == 'cancelled_by_user') {
-        await _stopTurnAudio();
-        messages = await db.recentMessages(limit: 120);
-        generationInterruptions =
-            await db.recentGenerationInterruptions(limit: 20);
-        error = null;
-      } else if (result.status == 'interrupted') {
-        await _stopTurnAudio();
-        messages = await db.recentMessages(limit: 120);
-        generationInterruptions =
-            await db.recentGenerationInterruptions(limit: 20);
-        error = null;
-      } else if (result.retryScheduled) {
-        await _stopTurnAudio();
-        error = '网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。';
-      } else if (result.status == 'suspended') {
-        await _stopTurnAudio();
-        error = '这轮回复已安全暂停；她回到当前设备后会继续。';
-      } else {
-        await _stopTurnAudio();
-        error = result.error?.toString() ?? '这一轮生成失败。';
-      }
     } on GenerationCancelledByUserException {
       await _stopTurnAudio();
       final jobId = _activeGenerationJobId;
@@ -889,6 +787,241 @@ class ChatController extends ChangeNotifier {
       await db.releaseLocalLease('chat_turn_lease');
       _safeNotify();
       if (durableTurnCreated && !cancellation.isCancelled) {
+        unawaited(_scheduleGenerationRecovery());
+      }
+    }
+  }
+
+  Future<void> _executeCurrentProcessGeneration({
+    required GenerationJob job,
+    required ChatMessage user,
+    required GenerationCancellationToken cancellation,
+  }) async {
+    var streamTts = false;
+    var emotionCueStarted = false;
+    var emotionLeadIn = Future<void>.value();
+    Completer<void>? streamLeadIn;
+
+    Future<void> startEmotionCue(String emotionKey) {
+      if (emotionCueStarted) return emotionLeadIn;
+      emotionCueStarted = true;
+      final visual = ChatVisualResolver.resolveEmotionKey(emotionKey);
+      emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
+      final gate = streamLeadIn;
+      if (gate != null && !gate.isCompleted) {
+        gate.complete(emotionLeadIn);
+      }
+      return emotionLeadIn;
+    }
+
+    void releaseStreamLeadIn() {
+      final gate = streamLeadIn;
+      if (gate != null && !gate.isCompleted) gate.complete();
+    }
+
+    final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
+    final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
+    streamTts = autoTts &&
+        (await db.getSetting('tts_streaming_enabled')) != '0';
+    if (streamTts) {
+      streamLeadIn = Completer<void>();
+      try {
+        await ttsPlayback.beginStream(
+          manual: false,
+          ownerId: job.assistantMessageId,
+          leadIn: streamLeadIn!.future,
+        );
+      } catch (_) {
+        releaseStreamLeadIn();
+        streamTts = false;
+      }
+    }
+
+    // Best-effort enrichment can take a while on a large local database.
+    // Refresh ownership immediately before opening the network stream so an
+    // expired lease cannot let another engine start a competing chat turn.
+    cancellation.throwIfCancelled();
+    final stillOwnsTurn = await db.renewLocalLease(
+      'chat_turn_lease',
+      holdFor: const Duration(seconds: 30),
+    );
+    if (!stillOwnsTurn) {
+      await db.suspendGenerationJob(
+        job.id,
+        reason: 'chat_turn_lease_lost_before_stream',
+      );
+      throw StateError('这轮回复的处理已经转到恢复流程，会安全地继续。');
+    }
+
+    final result = await generationRunner.run(
+      job,
+      cancellationToken: cancellation,
+      onNsfwRoute: _applyNsfwRoute,
+      onAgentToolActivity: _applyAgentToolActivity,
+      onEmotionCue: startEmotionCue,
+      onDelta: (delta) {
+        if (cancellation.isCancelled) return;
+        if (delta.reasoning.isNotEmpty) {
+          streamingReasoning += delta.reasoning;
+        }
+        if (delta.content.isNotEmpty) {
+          // A valid leading emotion envelope is announced before this visible
+          // delta. If the provider omitted it, never hold speech indefinitely.
+          if (streamTts && !emotionCueStarted) releaseStreamLeadIn();
+          streamingContent += delta.content;
+          if (streamTts) ttsPlayback.addDelta(delta.content);
+        }
+        _safeNotify();
+      },
+    );
+
+    if (result.completed) {
+      messages = [...messages, result.assistant!];
+      await _incrementOverlayUnread();
+      _petGenerationActive = false;
+      _safeNotify();
+      if (streamTts) {
+        releaseStreamLeadIn();
+        ttsPlayback.endStream();
+      } else {
+        final leadIn = emotionCueStarted
+            ? emotionLeadIn
+            : startEmotionCue(result.assistant!.emotionKey);
+        if (autoTts) {
+          unawaited(
+            ttsPlayback.playText(
+              result.assistant!.content,
+              manual: false,
+              ownerId: result.assistant!.id,
+              emotion: _ttsEmotionCue(result.assistant!),
+              leadIn: leadIn,
+            ),
+          );
+        }
+      }
+      await memoryExtractor.extractFromTurn(
+        user: user,
+        assistant: result.assistant!,
+      );
+    } else if (result.status == 'cancelled_by_user') {
+      await _stopTurnAudio();
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      error = null;
+    } else if (result.status == 'interrupted') {
+      await _stopTurnAudio();
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      error = null;
+    } else if (result.retryScheduled) {
+      await _stopTurnAudio();
+      error = '网络/API 中断。这条消息已经安全保存在本机，恢复连接后会自动继续。';
+    } else if (result.status == 'suspended') {
+      await _stopTurnAudio();
+      error = '这轮回复已安全暂停；她回到当前设备后会继续。';
+    } else {
+      await _stopTurnAudio();
+      error = result.error?.toString() ?? '这一轮生成失败。';
+    }
+  }
+
+  Future<void> _runTrustedCurrentProcessGeneration(
+    GenerationJob job, {
+    required bool leaseAlreadyHeld,
+  }) async {
+    if (_disposed) {
+      if (leaseAlreadyHeld) await db.releaseLocalLease('chat_turn_lease');
+      return;
+    }
+    if (!await db.brainWorkAllowed()) {
+      await db.cancelGenerationJobByUser(job.id);
+      if (leaseAlreadyHeld) await db.releaseLocalLease('chat_turn_lease');
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      _safeNotify();
+      return;
+    }
+
+    var ownsLease = leaseAlreadyHeld;
+    if (!ownsLease) {
+      ownsLease = await db.tryAcquireLocalLease(
+        'chat_turn_lease',
+        holdFor: const Duration(seconds: 30),
+      );
+    }
+    if (!ownsLease) {
+      await db.cancelGenerationJobByUser(job.id);
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      error = '图片识别已经完成，但另一处聊天窗口占用了回复通道；本轮已安全停止，可以重新发送图片。';
+      _safeNotify();
+      return;
+    }
+
+    final user = await db.messageById(job.userMessageId);
+    if (user == null || !user.isUser) {
+      await db.cancelGenerationJobByUser(job.id);
+      await db.releaseLocalLease('chat_turn_lease');
+      return;
+    }
+
+    messages = await db.recentMessages(limit: 160);
+    sending = true;
+    nsfwRouting = (await db.getSetting('nsfw_manual_override') ?? '').isEmpty;
+    _petGenerationActive = true;
+    recoveringGeneration = false;
+    cancellingGeneration = false;
+    streamingReasoning = '';
+    streamingContent = '';
+    agentActivity = null;
+    error = null;
+    final cancellation = GenerationCancellationToken();
+    _activeGenerationCancellation = cancellation;
+    _activeGenerationJobId = job.id;
+    _activeGenerationAssistantMessageId = job.assistantMessageId;
+    _safeNotify();
+
+    try {
+      await _executeCurrentProcessGeneration(
+        job: job,
+        user: user,
+        cancellation: cancellation,
+      );
+    } on GenerationCancelledByUserException {
+      await _stopTurnAudio();
+      await db.cancelGenerationJobByUser(job.id);
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      error = null;
+    } catch (_) {
+      await _stopTurnAudio();
+      await db.cancelGenerationJobByUser(job.id);
+      messages = await db.recentMessages(limit: 120);
+      generationInterruptions =
+          await db.recentGenerationInterruptions(limit: 20);
+      error = null;
+    } finally {
+      sending = false;
+      nsfwRouting = false;
+      _petGenerationActive = false;
+      recoveringGeneration = false;
+      cancellingGeneration = false;
+      streamingReasoning = '';
+      streamingContent = '';
+      agentActivity = null;
+      if (identical(_activeGenerationCancellation, cancellation)) {
+        _activeGenerationCancellation = null;
+        _activeGenerationJobId = null;
+        _activeGenerationAssistantMessageId = null;
+      }
+      await db.releaseLocalLease('chat_turn_lease');
+      _safeNotify();
+      if (!cancellation.isCancelled) {
         unawaited(_scheduleGenerationRecovery());
       }
     }

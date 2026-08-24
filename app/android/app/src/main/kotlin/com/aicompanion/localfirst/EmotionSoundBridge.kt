@@ -40,10 +40,12 @@ class EmotionSoundBridge(
             when (call.method) {
                 "play" -> {
                     val encoded = call.argument<String>("audioData").orEmpty()
+                    val volume = (call.argument<Number>("volume")?.toFloat() ?: 1f)
+                        .coerceIn(0f, 1f)
                     if (encoded.isBlank()) {
                         result.error("emotion_sound_empty", "Audio payload is empty", null)
                     } else {
-                        prepareAndPlay(encoded, result)
+                        prepareAndPlay(encoded, volume, result)
                     }
                 }
                 "stop" -> {
@@ -56,7 +58,11 @@ class EmotionSoundBridge(
         }
     }
 
-    private fun prepareAndPlay(encoded: String, result: MethodChannel.Result) {
+    private fun prepareAndPlay(
+        encoded: String,
+        volume: Float,
+        result: MethodChannel.Result,
+    ) {
         requestToken++
         val token = requestToken
         stopCurrent(completePending = true)
@@ -76,7 +82,7 @@ class EmotionSoundBridge(
                         return@post
                     }
                     prepared.fold(
-                        onSuccess = { startPlayer(token, it) },
+                        onSuccess = { startPlayer(token, it, volume) },
                         onFailure = {
                             finish(token, "emotion_sound_decode_failed",
                                 it.message ?: "Unable to prepare emotion sound")
@@ -89,7 +95,7 @@ class EmotionSoundBridge(
         }
     }
 
-    private fun startPlayer(token: Long, file: File) {
+    private fun startPlayer(token: Long, file: File, volume: Float) {
         temporaryFile = file
         val next = MediaPlayer()
         player = next
@@ -99,6 +105,7 @@ class EmotionSoundBridge(
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build(),
         )
+        next.setVolume(volume, volume)
         next.setOnCompletionListener { finish(token, null, null) }
         next.setOnErrorListener { _, what, extra ->
             finish(token, "emotion_sound_playback_failed",

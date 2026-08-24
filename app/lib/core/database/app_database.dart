@@ -775,6 +775,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '56',
         'emotion_sound_enabled': '0',
+        'emotion_sound_volume': '1.0',
         'show_emotion_label': '1',
       }.entries) {
         await db.insert(
@@ -1096,6 +1097,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
+    await db.insert('settings', {'key': 'emotion_sound_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
     await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
     await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
@@ -1907,7 +1909,8 @@ class AppDatabase {
       'chat_typewriter_enabled': '1',
       'chat_typewriter_ms': '48',
       'emotion_sound_enabled': '0',
-        'show_emotion_label': '1',
+      'emotion_sound_volume': '1.0',
+      'show_emotion_label': '1',
     }.entries) {
       await db.insert(
         'settings',
@@ -2294,6 +2297,93 @@ class AppDatabase {
       where: "id = ? AND vision_status = 'analyzing'",
       whereArgs: [attachmentId],
     );
+  }
+
+  Future<Map<String, Object?>> attachmentVisionDiagnosticStats() async {
+    final db = await database;
+    final grouped = await db.rawQuery('''
+      SELECT vision_status, COUNT(*) AS count
+      FROM message_attachments
+      WHERE kind = ?
+      GROUP BY vision_status
+    ''', [MessageAttachment.imageKind]);
+    final counts = <String, int>{
+      MessageAttachment.visionPendingStatus: 0,
+      MessageAttachment.visionAnalyzingStatus: 0,
+      MessageAttachment.visionCompletedStatus: 0,
+      MessageAttachment.visionFailedStatus: 0,
+    };
+    for (final row in grouped) {
+      final status = row['vision_status']?.toString() ?? '';
+      if (counts.containsKey(status)) {
+        counts[status] = (row['count'] as num?)?.toInt() ?? 0;
+      }
+    }
+    final latest = await db.query(
+      'message_attachments',
+      columns: const [
+        'vision_status',
+        'vision_error',
+        'vision_attempts',
+        'vision_updated_at',
+        'source',
+      ],
+      where: 'kind = ?',
+      whereArgs: const [MessageAttachment.imageKind],
+      orderBy: 'COALESCE(vision_updated_at, created_at) DESC',
+      limit: 1,
+    );
+    final row = latest.isEmpty ? const <String, Object?>{} : latest.first;
+    final rawError = row['vision_error']?.toString().toLowerCase() ?? '';
+    String errorCategory() {
+      if (rawError.isEmpty) return 'none';
+      if (rawError.contains('api key') || rawError.contains('api_key')) {
+        return 'missing_key';
+      }
+      if (rawError.contains('401') || rawError.contains('403') ||
+          rawError.contains('unauthorized') || rawError.contains('forbidden')) {
+        return 'authorization';
+      }
+      if (rawError.contains('429') || rawError.contains('rate limit')) {
+        return 'rate_limited';
+      }
+      if (rawError.contains('timeout') || rawError.contains('timed out')) {
+        return 'timeout';
+      }
+      if (rawError.contains('socket') || rawError.contains('network') ||
+          rawError.contains('http')) {
+        return 'network';
+      }
+      if (rawError.contains('另一处聊天窗口')) return 'chat_busy';
+      if (rawError.contains('active brain') || rawError.contains('设备转移')) {
+        return 'ownership_changed';
+      }
+      if (rawError.contains('decode') || rawError.contains('format') ||
+          rawError.contains('图片')) {
+        return 'image_processing';
+      }
+      return 'other';
+    }
+
+    final source = row['source']?.toString() ?? '';
+    return <String, Object?>{
+      'total': counts.values.fold<int>(0, (sum, value) => sum + value),
+      'pending': counts[MessageAttachment.visionPendingStatus] ?? 0,
+      'analyzing': counts[MessageAttachment.visionAnalyzingStatus] ?? 0,
+      'completed': counts[MessageAttachment.visionCompletedStatus] ?? 0,
+      'failed': counts[MessageAttachment.visionFailedStatus] ?? 0,
+      'latestStatus': row['vision_status']?.toString() ?? 'none',
+      'latestAttempts': (row['vision_attempts'] as num?)?.toInt() ?? 0,
+      'latestUpdatedAt': (row['vision_updated_at'] as num?)?.toInt() ?? 0,
+      'latestSource':
+          source == 'camera' || source == 'gallery' ? source : 'unknown',
+      'latestErrorCategory': errorCategory(),
+      'imageBytesIncluded': false,
+      'pathsIncluded': false,
+      'captionIncluded': false,
+      'visionSummaryIncluded': false,
+      'rawErrorIncluded': false,
+    };
   }
 
   Future<GenerationJob> completeAttachmentVisionAndCreateGeneration({
@@ -9710,6 +9800,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '48',
         'emotion_sound_enabled': '0',
+        'emotion_sound_volume': '1.0',
         'show_emotion_label': '1',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',

@@ -10,16 +10,31 @@ abstract interface class EmotionSoundPlayer {
   Future<void> stop();
 }
 
-class NativeEmotionSoundPlayer implements EmotionSoundPlayer {
+abstract interface class EmotionSoundVolumePlayer {
+  void setVolume(double volume);
+}
+
+class NativeEmotionSoundPlayer
+    implements EmotionSoundPlayer, EmotionSoundVolumePlayer {
   NativeEmotionSoundPlayer._();
   static final NativeEmotionSoundPlayer instance = NativeEmotionSoundPlayer._();
 
   static const MethodChannel _channel =
       MethodChannel('ai_companion/emotion_sound');
 
+  double _volume = 1.0;
+
+  @override
+  void setVolume(double volume) {
+    _volume = volume.clamp(0.0, 1.0).toDouble();
+  }
+
   @override
   Future<void> play(String wavBase64) =>
-      _channel.invokeMethod<void>('play', {'audioData': wavBase64});
+      _channel.invokeMethod<void>('play', {
+        'audioData': wavBase64,
+        'volume': _volume,
+      });
 
   @override
   Future<void> stop() => _channel.invokeMethod<void>('stop');
@@ -39,6 +54,9 @@ class EmotionSoundService {
   final AppDatabase db;
   final EmotionSoundPlayer player;
 
+  static double normalizedVolume(String? stored) =>
+      (double.tryParse(stored ?? '') ?? 1.0).clamp(0.0, 1.0).toDouble();
+
   Future<bool> play(ChatEmotionVisual emotion) async {
     final asset = emotion.soundAsset;
     if (asset == null ||
@@ -49,6 +67,12 @@ class EmotionSoundService {
       final data = await rootBundle.load(asset);
       final bytes =
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      final volume =
+          normalizedVolume(await db.getSetting('emotion_sound_volume'));
+      final configurable = player;
+      if (configurable is EmotionSoundVolumePlayer) {
+        configurable.setVolume(volume);
+      }
       await player.play(base64Encode(bytes));
       return true;
     } catch (_) {
