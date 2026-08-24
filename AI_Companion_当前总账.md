@@ -15,6 +15,47 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0Y. 2026-08-24 · v0.37.9 动态萌属性 D1 独立状态引擎（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户已确认正式进入下一步，并再次锁定“两次总账”：每次正式修改前先登记，完成后再回填真实提交、测试、CI、APK与待验状态。本节是本批第一次总账更新。目标版本暂定 v0.37.9+98、schema 32；D1 只建立与 Desire/Inner Drive 解耦的萌属性领域底座，不让它提前影响对话、主动联系、19 Emotion、TTS或桌宠。
+
+### A. 用户确认与后续 UI 归属
+
+- 九个原子轴保留；命名属性保留“腹黑”；表现档默认“明显”。
+- “自然 / 明显 / 漫画化”未来放在头像/名字界面，靠近性格试穿；档位由用户主动选择并持久保存，不随机、不随内部数值自动切换、AI无权擅自修改。
+- “她的内心/内在状态”页未来在既有 Desire 八维当前值/基线旁增加独立萌属性卡片，显示九轴当前值、当前主/辅属性和表现档。两组数值必须分区并标明职责，不能让用户误以为属于同一引擎。
+- D1 不先加入尚未生效的 UI 开关。D2 Shadow Mode 产生真实旁路数值后接状态页；D3 文字表现真正读取档位时再接头像/名字设置，避免出现“能点但不生效”的假功能。
+
+### B. D1 正式实现范围
+
+1. 新建独立 `lib/core/moe/` 领域模块，包含九轴枚举/标签、状态快照、事件与输入契约、配方、动态策略、主辅解析、表现档枚举及 Repository 抽象。
+2. 九轴为 `defensive_mask / verbal_spice / closeness_bid / playful_impulse / cute_display / bashful_inhibition / unfiltered_directness / strategic_subtext / flustered_bumble`；九个派生配方为傲娇、毒舌、卖萌、撒娇、害羞、呆萌、天然直球、腹黑、恶作剧。
+3. 动力学仅在 Moe 模块内部实现 baseline、时间衰减、事件 pulse、有界耦合、进入/退出阈值、主属性+辅助属性、余波与冷却；所有数值有界，事件必须有来源/causeTag/幂等键。
+4. 在现有 SQLite 文件中建立 `moe_*` 专属表和独立 DAO/Repository，schema 31→32；不得向 desire、thought、relationship 或 emotion 表追加萌属性字段，也不得复制关系/记忆正文。
+5. 建立版本化只读 `MoeInputSnapshot` 与单向 `MoeExpressionPlan` 契约。D1 可以提供 Adapter 接口或纯转换器，但 `moe/` 不得 import Desire Repository/Policy/数据库内部实体；`desire/`、`relationship/`、`ai_self/` 不得 import `moe/`。
+6. 默认表现档持久值为 `obvious`；D1 仅保存与读取，不接 Prompt，不改变真实回复。
+7. fail-open：缺失、异常、超时、迁移失败或模块关闭时消费者必须可得到 neutral；聊天、欲望、主动行为和工具主链不依赖 Moe 才能运行。
+
+### C. 明确不进入本批
+
+- 不接 PromptBuilder、普通聊天或主动消息；
+- 不让萌属性创建 Intent、工具调用、主动消息、Gate 结果或 satisfy；
+- 不改现有19 Emotion判定、短音效、TTS、桌宠动作；
+- 不实现头像/名字设置 UI、内在状态数值卡或用户可见 A/B；
+- 不建立庞大 Emotion/Mood 引擎，不加入病娇/痴女等特殊试穿；
+- 不处理继续冻结的系统页桌宠消失/悬浮恢复循环。
+
+### D. 自动验收
+
+- 纯策略：九轴默认值/序列化、pulse/衰减/耦合/阈值/主辅解析/冲突抑制/冷却、1000+ tick 有界、相同输入确定性；
+- 事实与安全：无真实情境门不派生强傲娇/毒舌/撒娇/吃醋；无害“腹黑”不得产生操纵、谎言或行为指令；
+- 解耦：静态扫描反向 import；Moe 输出不含 send/tool/intent/gate/satisfy；处理前后 DesireSnapshot 序列化保持不变；
+- 数据库：全新 schema32建表、31→32迁移、默认 obvious、独立表读写/幂等事件、旧 desire/relationship 数据不变；
+- 故障：模块关闭、未知轴/配方、损坏行与缺失快照返回 neutral 或安全默认，不中断主链；
+- 执行 Flutter format/analyze/tests、全部历史/current validators、Release APK编译与固定签名/载荷回归。D1 无用户可见行为，自动化通过后通常不单独要求真机体验，也不把 D2/D3 写成完成。
+
+活动分支：`agent/dynamic-moe-d1-engine`。本节提交成功后才允许开始运行代码修改。
+
 ## 0X. 2026-08-24 · 动态萌属性参考审计与规格 v1（SPEC LOCKED / D1 NOT STARTED / NO RUNTIME CHANGE）
 
 > 用户确认下一步先完成“参考审计与萌属性规格”，并新增维护性硬要求：萌属性不能完全融合进欲望系统或内在驱动系统的代码；未来修改任一模块时，不应被迫同步重写另一模块。本节为设计批记录，只新增规格与总账，不改 App 运行代码、版本、schema 或 APK。用户随后确认九轴保留、“腹黑”保留、默认使用“明显”，v1 规格现已锁定。
