@@ -15,6 +15,51 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0Z. 2026-08-24 · v0.37.9+98 动态萌属性 D1 独立状态引擎（IMPLEMENTED / CI & APK PASSED / D2 NOT STARTED）
+
+> 本节是用户要求的本批第二次（修改后）总账更新。第一次修改前登记为 `a49d5c90240e61dcf4eefaee0048771a9a1cab21`；随后已在独立分支完成 D1、修正版本升级所需历史 validator 兼容，并以完整 Release CI 取得真实通过结果。D1 仍是旁路底座，没有改变用户当前聊天、欲望、主动联系、19 Emotion、TTS、桌宠或可见 UI；因此不能把 D2 Shadow Mode、状态页数值卡或 D3 文字表现写成完成。
+
+### A. 版本、分支与真实状态
+
+- 唯一源码真源仍为 `app/`；活动分支 `agent/dynamic-moe-d1-engine`。
+- App 版本 `0.37.9+98`；SQLite `schemaVersion = 32`，包含 31→32 保守迁移。
+- 实现/验证分支头（第二次总账前）为 `248f8d2bd57e7f1f46e861177b02e1bc3d8163c3`。
+- 活动 Draft PR 为 [#26](https://github.com/catkiss62/ai-companion-build/pull/26)。PR #24 记录了旧 clean-baseline 仍锁在 v0.37.8/schema31 的预编译失败；PR #25 仅用于重新触发 Actions，均已关闭且未合并。两者不是产品回归。
+- 完整成功 CI：run `32734137046`（run #402），head `248f8d2...`。状态为 `build-apk = success`。
+
+### B. D1 已实现内容
+
+1. 新增独立 `lib/core/moe/`：
+   - `domain/moe_models.dart`：九轴、九配方、表现档、状态/事件/输入/输出版本化契约；
+   - `application/moe_dynamics_policy.dart`：baseline 回归、时间衰减、有界 pulse/耦合、事实情境门、46/34 进入退出滞回、20 分钟冷却/余波、确定性主/辅解析与冲突抑制；
+   - `infrastructure/moe_repository.dart` 与 `sqlite_moe_repository.dart`：注入式独立仓储、幂等事件、默认 obvious、异常 fail-open neutral。
+2. 九轴与规格一致：`defensive_mask / verbal_spice / closeness_bid / playful_impulse / cute_display / bashful_inhibition / unfiltered_directness / strategic_subtext / flustered_bumble`。
+3. 九配方为傲娇、毒舌、卖萌、撒娇、害羞、呆萌、天然直球、腹黑、恶作剧；“腹黑”指无害小聪明/轻反转，表达指令明确禁止欺骗、操纵和现实后果。
+4. 新增专属表 `moe_axis_state / moe_recipe_state / moe_events / moe_config`；备份 export/import 已纳入，旧于 schema32 的状态包导入时补默认 `obvious`。没有给 desire、thought、relationship、emotion 表增加萌属性字段。
+5. `MoeInputSnapshot` 只接受版本化原始值/标签；`MoeExpressionPlan` 只产生单向文字风格建议，没有 send/tool/intent/gate/satisfy 能力。Moe 模块不 import Desire、Relationship、AI Self、AppDatabase 或 PromptBuilder。
+6. 三档 `natural / obvious / manga` 已作为持久枚举/配置存在，默认 `obvious`；D1 不随机切换、不由数值自动切换、不提供 AI 修改入口，也尚未接用户可见设置。
+
+### C. 自动验收与产物（全部真实通过）
+
+- `validate_v0379_dynamic_moe_d1.py`：九轴/九配方、独立 import、schema32/四张表、默认 obvious、事件幂等、neutral、事实门和安全输出静态/SQLite smoke 均通过。
+- `moe_dynamics_policy_test.dart`：默认/序列化/未知键、有界 pulse 与耦合、baseline 回归、确定性、无情境门不激活、滞回/冷却、1000 tick 有界、主辅兼容、三档可见强度、腹黑安全指令、错误契约 neutral 均通过。
+- 全部历史/current Python validators 通过；为允许当前版本，v0.35.2–v0.36.1 的冻结验证正则及 v0.32 Somatic 兼容 wrapper 仅追加 `0.37.9+98`，未放宽其余产品断言。
+- `flutter pub get`、Kotlin 桌宠单测、`flutter analyze --no-fatal-infos --no-fatal-warnings`、全量 `flutter test`、`flutter build apk --release` 全部通过。
+- 固定私有测试签名通过：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+- 417 文件桌宠源包、62 文件 LingChat 表现资源、原生库和冻结 19emo 载荷回归全部通过。
+- APK：`AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-APK.apk`；SHA-256 `b3a737dcb144eee7b637d3c739a6ef5b63fb80e99e2e50a774cae3c97ba26ef0`。
+- 私有草稿 Release：[v0.37.9 D1 candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-db1d267ffef90f42bfe8)。
+- D1 无用户可见行为，未做也不要求本批真机体验验收；不能把“CI 通过”写成“真机通过”。
+
+### D. 下一步任务（D2，尚未开始）
+
+1. 在正式修改前先做下一批第一次总账登记。
+2. 增加 Moe 输入 Adapter/Shadow Runner：只读 Desire、关系阶段、人格和已确认事件的公开快照，转为 `MoeInputSnapshot`；保持单向依赖与 fail-open，不让 Moe 反写或阻塞原系统。
+3. 在真实 turn/事件后旁路计算并持久化九轴/主辅属性，加入幂等、超时、重启恢复和诊断；仍不改变回复文字或主动行为。
+4. Shadow 数值稳定后，把“她的内心”页新增独立萌属性卡片：九轴当前值、主/辅属性、当前档位；与现有 Desire 数值卡分区显示、职责说明清楚。
+5. 头像/名字页靠近性格试穿的“自然/明显/漫画化”选择器留到 D3 文字表现真正读取档位时接入，避免出现可点但不生效的假开关。
+6. D2 完成后再做第二次总账、完整 CI/APK，并明确区分自动通过与用户真机观察。
+
 ## 0Y. 2026-08-24 · v0.37.9 动态萌属性 D1 独立状态引擎（IN PROGRESS / PRE-TASK LEDGER）
 
 > 用户已确认正式进入下一步，并再次锁定“两次总账”：每次正式修改前先登记，完成后再回填真实提交、测试、CI、APK与待验状态。本节是本批第一次总账更新。目标版本暂定 v0.37.9+98、schema 32；D1 只建立与 Desire/Inner Drive 解耦的萌属性领域底座，不让它提前影响对话、主动联系、19 Emotion、TTS或桌宠。
