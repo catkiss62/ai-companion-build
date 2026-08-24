@@ -69,10 +69,10 @@ class EmotionSoundService {
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       final volume =
           normalizedVolume(await db.getSetting('emotion_sound_volume'));
-      final configurable = player;
-      if (configurable is EmotionSoundVolumePlayer) {
-        configurable.setVolume(volume);
-      }
+      final configurable = player is EmotionSoundVolumePlayer
+          ? player as EmotionSoundVolumePlayer
+          : null;
+      configurable?.setVolume(volume);
       await player.play(base64Encode(bytes));
       return true;
     } catch (_) {
