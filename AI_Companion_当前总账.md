@@ -15,6 +15,31 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0W. 2026-08-24 · v0.37.8 千问识图可信派发热修与情绪短音效音量（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户已授权正式开始；本节是任务前第一次总账更新。目标版本暂定 v0.37.8+97、schema 31。只修复图片识别后新回复任务被误判为强杀遗留任务的问题，并加入独立情绪短音效音量；不得回退 v0.37.6 已真机通过的“崩溃/强杀等同 Stop、禁止后台偷偷重发”。
+
+### A. 已确认根因与真机证据
+
+- v0.37.7+96 脱敏报告 `ai_companion_diagnostics_2026-08-24T07-45-33-724401Z.txt` 显示相册两次、相机一次均完整进入并返回，三次系统 cover 均一次恢复成功；数据库 schema31、Active Brain、后台通道正常，导出时 active/failed generation job 均为0、chat-turn lease 未持有。因此问题不在 picker、权限或残留锁。
+- v0.37.5 的 `resumePendingGeneration()` 会取得 pending job 并运行 `generationRunner.run()`；v0.37.6 为实现强杀等同 Stop，将该入口改为 `generationRecovery.recoverOne()`，后者对任何 recoverable job 调用 `cancelGenerationJobByUser()`。图片识别仍在 `completeAttachmentVisionAndCreateGeneration()` 创建一个合法新 job 后调用该恢复入口，导致新 job 立即被撤回并显示“这一轮对话已中断”。
+- 这不是千问 API 失效：若 Qwen observe 本身失败，现有路径会保留图片并显示“图片识别失败”与重试；只有识图成功创建 DeepSeek job 后误入 Stop 恢复，才与当前现象完全一致。
+
+### B. 本批实现边界
+
+1. **可信新任务派发**：图片识别事务直接返回本进程刚创建的 `GenerationJob`，交给显式的当前进程生成执行入口；启动/进程恢复入口继续只做 Stop 式清理。不能通过重新放开通用 `resumePendingGeneration()` 来修，以免强杀后再次自动请求。
+2. **共用正常生成表现**：图片回复继续复用 DeepSeek thinking、reasoning 流式、Emotion envelope、分段气泡、情绪短音效/TTS 仲裁、Stop、run-token fence、记忆提取与悬浮未读；不得复制一套缺功能的简化生成器。
+3. **失败与竞争安全**：Qwen 失败保留图片和重试；图片识别后若 transfer/Active Brain/chat lease 变化，应安全中断且不后台重发；Stop/强杀仍撤回本轮用户图片消息和所有临时派生状态。
+4. **Vision 脱敏诊断**：增加图片消息总数、pending/analyzing/completed/failed粗粒度状态、最近阶段与安全错误类别；不得包含图片、缩略图、路径、caption、识图摘要、API Key、模型响应或可逆正文。
+5. **情绪短音效音量**：在现有头像面板“情绪短音效”开关下加入独立0～100%滑杆，默认100%；只控制独立 MediaPlayer，不影响 TTS 音量、系统通知音、音效优先级、并行合成/顺序发声、一轮一次与 Stop 同停。
+6. **暂不处理**：蚂蚁财富等系统页面导致桌宠消失/悬浮恢复警告按用户决定暂时不管；轻视觉系统授权、Nearby、电池优化、动态萌属性情绪系统、MiniMax TTS 均不进入本批。
+
+### C. 验收
+
+- 新增测试覆盖：图片识别成功后的同进程合法 job 会真实执行；启动恢复仍只撤回遗留 job；相册/相机共用路径；Qwen 失败仍可重试；Stop/强杀不自动重发；Vision 诊断不泄露内容。
+- 情绪音效测试覆盖默认100%、设置值夹取、原生播放器接收音量、0%静音仍不改变完成 fence/顺序；历史 v0.37.4 音频断言不得放宽。
+- 跑完全部历史/current validators、Kotlin、Flutter analyze/tests、Release APK、固定签名与完整载荷校验；自动化通过后仍标记真机待验，并做第二次总账回填。
+
 ## 0V. 2026-08-24 · v0.37.7 分层记忆召回重构与主动消息 Emotion 规范化（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 用户已授权正式开始；本节是开工前第一次总账更新。下一阶段只重构记忆召回与统一消息规范化，不同时实现动态萌属性/影响对话的情绪系统，避免两个大型变量并行改变后无法定位行为差异。完成后必须第二次回填实际源码、提交、测试、Actions、APK、SHA 与真机验收项。
