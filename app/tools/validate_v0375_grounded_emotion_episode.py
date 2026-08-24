@@ -44,7 +44,7 @@ assert "user_text" not in episode
 assert "class EmotionEpisodeEngine" in engine
 assert "An apology without an active" in engine
 assert "emotionEpisodeById(episodeId)" in engine
-assert "不得借此破坏停止/取消、安全、权限、事实核对、数据操作或真实工具结果" in engine
+assert "程序层的停止/取消、权限、事实核对、数据操作和工具结果仍按真实状态执行" in engine
 assert "瞬时19类 emotion 信封" in engine
 
 appraise_at = runner.index("emotionEpisodeEngine.appraiseUserTurn")
