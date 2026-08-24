@@ -1,6 +1,7 @@
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../moe/application/moe_dynamics_policy.dart';
+import '../moe/domain/moe_models.dart';
 import '../moe/infrastructure/sqlite_moe_repository.dart';
 import 'moe_input_adapter.dart';
 
