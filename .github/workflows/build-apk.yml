@@ -501,6 +501,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
+      - name: Upload v0.38.1+100 APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/app-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload v0.38.1+100 adult relationship capability APK to draft release
         shell: bash
         env:
