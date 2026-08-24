@@ -33,7 +33,7 @@
 - 推荐采用 `lib/core/moe/` 独立领域模块：自己的 domain/application/infrastructure/contracts、Repository、SQLite 专属表、诊断与测试；通过唯一 `MoeInputAdapter` 接收 Desire/Relationship/AI Self/Time 的版本化只读 DTO。
 - 依赖必须单向：`desire/` 不 import `moe/`；萌属性不读取 Desire Repository/Policy/表，不写 Drive、Thought、Intent、Gate 或 satisfy；输出 `MoeExpressionPlan` 只描述“怎么表达”，不能发消息、调用工具或绕过主动 Gate。
 - 萌属性关闭、超时、异常、迁移失败或状态损坏时 fail-open 为 neutral，欲望、内驱、聊天、主动联系和工具主链继续独立运行。同一 SQLite 文件可以保留备份/事务一致性，但萌属性必须使用独立表和迁移测试，不把字段塞入 desire/relationship 表。
-- 分阶段按 D1 独立状态引擎 → D2 Shadow Mode → D3 文字表现 A/B → D4 现有19 Emotion/TTS/桌宠软建议推进；规格确认前不开始代码。
+- 分阶段按 D1 独立状态引擎 → D2 Shadow Mode → D3 文字表现 A/B → D4 现有19 Emotion/TTS/桌宠软建议推进；规格现已确认，但 D1 仍须先做任务前代码审计和总账登记，当前尚未开始代码。
 
 ### C. 用户确认与运行时档位语义
 
