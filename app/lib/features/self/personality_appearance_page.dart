@@ -14,7 +14,8 @@ class PersonalityAppearancePage extends StatefulWidget {
 class _PersonalityAppearancePageState
     extends State<PersonalityAppearancePage> {
   static const _personalityKey = '03_personality_seed';
-  static const _appearanceAsset = 'assets/appearance/dafeiyu_reference.webp';
+  static const _appearanceAsset =
+      'assets/appearance/large_whale_mirror.jpg';
 
   final db = AppDatabase.instance;
   final controller = TextEditingController();

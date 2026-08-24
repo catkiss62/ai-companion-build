@@ -53,6 +53,20 @@ void main() {
     );
   });
 
+  test('large portrait set is the default and keeps 20 aligned asset keys', () {
+    expect(chatPortraitSetFromKey(null), ChatPortraitSet.largeWhale);
+    expect(chatPortraitSetFromKey('unknown'), ChatPortraitSet.largeWhale);
+    expect(chatPortraitSetFromKey('small_whale'), ChatPortraitSet.smallWhale);
+    final assets = ChatVisualResolver.values
+        .map((item) => item.portraitAssetFor(ChatPortraitSet.largeWhale))
+        .toSet();
+    expect(assets, hasLength(20));
+    expect(assets.every((asset) => asset.endsWith('.webp')), isTrue);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.left, .25);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.top, 0);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.size, .25);
+  });
+
   test('reference animation and effect mapping stays exact', () {
     expect(
       ChatVisualResolver.resolveEmotionKey('happy').animation,

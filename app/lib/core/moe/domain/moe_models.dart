@@ -370,7 +370,7 @@ class MoeExpressionPlan {
         secondary: null,
         visibleStrengths: const {},
         styleDirectives: const [],
-        safetyDirectives: const ['不虚构情境，不改变事实，不推动现实行为。'],
+        safetyDirectives: const ['萌属性保持只读呈现，不调用工具或改写其他系统。'],
         neutral: true,
       );
 

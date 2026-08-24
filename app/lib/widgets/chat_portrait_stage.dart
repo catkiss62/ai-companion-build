@@ -16,6 +16,9 @@ class ChatPortraitTransform {
     offset: Offset.zero,
   );
 
+  factory ChatPortraitTransform.defaultsFor(ChatPortraitSet set) =>
+      ChatPortraitTransform(scale: set.defaultScale, offset: Offset.zero);
+
   final double scale;
   final Offset offset;
 }
@@ -27,6 +30,7 @@ class ChatPortraitStage extends StatefulWidget {
   const ChatPortraitStage({
     super.key,
     required this.emotion,
+    this.portraitSet = ChatPortraitSet.largeWhale,
     required this.transform,
     this.animationToken,
     this.showEffect = true,
@@ -34,6 +38,7 @@ class ChatPortraitStage extends StatefulWidget {
   });
 
   final ChatEmotionVisual emotion;
+  final ChatPortraitSet portraitSet;
   final ChatPortraitTransform transform;
   final Object? animationToken;
   final bool showEffect;
@@ -66,7 +71,10 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    precacheImage(AssetImage(widget.emotion.portraitAsset), context);
+    precacheImage(
+      AssetImage(widget.emotion.portraitAssetFor(widget.portraitSet)),
+      context,
+    );
     final effect = widget.emotion.effectAsset;
     if (effect != null) precacheImage(AssetImage(effect), context);
   }
@@ -74,8 +82,11 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
   @override
   void didUpdateWidget(covariant ChatPortraitStage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.emotion.portraitAsset != oldWidget.emotion.portraitAsset) {
-      precacheImage(AssetImage(widget.emotion.portraitAsset), context);
+    final portraitAsset = widget.emotion.portraitAssetFor(widget.portraitSet);
+    final oldPortraitAsset =
+        oldWidget.emotion.portraitAssetFor(oldWidget.portraitSet);
+    if (portraitAsset != oldPortraitAsset) {
+      precacheImage(AssetImage(portraitAsset), context);
     }
     final effect = widget.emotion.effectAsset;
     if (effect != null && effect != oldWidget.emotion.effectAsset) {
@@ -210,6 +221,7 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
       builder: (context, constraints) {
         final dx = widget.transform.offset.dx * constraints.maxWidth;
         final dy = widget.transform.offset.dy * constraints.maxHeight;
+        final anchor = widget.portraitSet.effectAnchor;
         return ClipRect(
           child: Stack(
             fit: StackFit.expand,
@@ -240,7 +252,7 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
                       fit: StackFit.expand,
                       children: [
                         Image.asset(
-                          widget.emotion.portraitAsset,
+                          widget.emotion.portraitAssetFor(widget.portraitSet),
                           fit: BoxFit.contain,
                           alignment: Alignment.topCenter,
                           gaplessPlayback: true,
@@ -248,10 +260,10 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
                         ),
                         if (widget.emotion.effectAsset != null)
                           Positioned(
-                            top: constraints.maxHeight * 0.05,
-                            left: constraints.maxWidth * 0.20,
-                            width: constraints.maxWidth * 0.40,
-                            height: constraints.maxHeight * 0.40,
+                            top: constraints.maxHeight * anchor.top,
+                            left: constraints.maxWidth * anchor.left,
+                            width: constraints.maxWidth * anchor.size,
+                            height: constraints.maxHeight * anchor.size,
                             child: IgnorePointer(
                               child: AnimatedOpacity(
                                 opacity: _effectVisible ? 1 : 0,
@@ -281,11 +293,13 @@ class ChatPortraitTransformEditor extends StatefulWidget {
   const ChatPortraitTransformEditor({
     super.key,
     required this.emotion,
+    required this.portraitSet,
     required this.initial,
     required this.backgroundAsset,
   });
 
   final ChatEmotionVisual emotion;
+  final ChatPortraitSet portraitSet;
   final ChatPortraitTransform initial;
   final String backgroundAsset;
 
@@ -358,6 +372,7 @@ class _ChatPortraitTransformEditorState
                       Image.asset(widget.backgroundAsset, fit: BoxFit.cover),
                       ChatPortraitStage(
                         emotion: widget.emotion,
+                        portraitSet: widget.portraitSet,
                         transform:
                             ChatPortraitTransform(scale: _scale, offset: _offset),
                         showEffect: false,
@@ -396,7 +411,9 @@ class _ChatPortraitTransformEditorState
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => setState(() {
-                      _scale = ChatPortraitTransform.defaults.scale;
+                      final defaults =
+                          ChatPortraitTransform.defaultsFor(widget.portraitSet);
+                      _scale = defaults.scale;
                       _offset = ChatPortraitTransform.defaults.offset;
                     }),
                     icon: const Icon(Icons.restart_alt_rounded),

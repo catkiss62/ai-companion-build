@@ -51,6 +51,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _ttsEnabled = false;
   double _panelOpacity = 0.60;
   double _panelFraction = 0.62;
+  ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   int _typewriterMs = 48;
@@ -59,6 +60,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String _currentEmotionLabel = '平静';
   bool _followLatest = true;
   bool _programmaticScroll = false;
+  bool _lastGenerationActive = false;
+  final GlobalKey _timelineTailKey = GlobalKey();
   ProactiveNotificationSound _notificationSound =
       ProactiveNotificationSound.chime;
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
@@ -158,6 +161,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   void _onChanged() {
     if (!mounted || _initializingMessages) return;
+    final generationEnded =
+        _lastGenerationActive && !controller.generationActive;
+    _lastGenerationActive = controller.generationActive;
     var discoveredAssistant = false;
     for (final message in controller.messages) {
       if (_knownMessageIds.add(message.id) && message.isAssistant) {
@@ -195,7 +201,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {});
     if (shouldFollow) {
       _followLatest = true;
-      _scrollToLatest(animate: true);
+      if (generationEnded) {
+        _anchorTimelineTail();
+      } else {
+        _scrollToLatest(animate: true);
+      }
     }
     if (_appResumed && widget.active && !controller.generationActive) {
       unawaited(controller.acknowledgeOverlayUnread());
@@ -247,26 +257,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             0.62)
         .clamp(0.42, 0.88)
         .toDouble();
-    _portraitScale = (double.tryParse(
-              await db.getSetting('chat_portrait_scale') ?? '',
-            ) ??
-            ChatPortraitTransform.defaults.scale)
-        .clamp(0.85, 1.80)
-        .toDouble();
-    _portraitOffset = Offset(
-      (double.tryParse(
-                await db.getSetting('chat_portrait_offset_x') ?? '',
-              ) ??
-              ChatPortraitTransform.defaults.offset.dx)
-          .clamp(-0.45, 0.45)
-          .toDouble(),
-      (double.tryParse(
-                await db.getSetting('chat_portrait_offset_y') ?? '',
-              ) ??
-              ChatPortraitTransform.defaults.offset.dy)
-          .clamp(-0.35, 0.35)
-          .toDouble(),
+    _portraitSet = chatPortraitSetFromKey(
+      await db.getSetting('chat_portrait_set'),
     );
+    await _loadPortraitTransform(_portraitSet);
     _typewriterMs = (int.tryParse(
               await db.getSetting('chat_typewriter_ms') ?? '',
             ) ??
@@ -276,6 +270,57 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
     if (mounted && !_initializingMessages) setState(() {});
+  }
+
+  String _portraitSettingKey(String field, ChatPortraitSet set) =>
+      'chat_portrait_${field}_${set.key}';
+
+  Future<void> _loadPortraitTransform(ChatPortraitSet set) async {
+    final db = AppDatabase.instance;
+    final defaults = ChatPortraitTransform.defaultsFor(set);
+    final legacyScale = set == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_scale')
+        : null;
+    final legacyX = set == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_offset_x')
+        : null;
+    final legacyY = set == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_offset_y')
+        : null;
+    _portraitScale = (double.tryParse(
+              await db.getSetting(_portraitSettingKey('scale', set)) ??
+                  legacyScale ??
+                  '',
+            ) ??
+            defaults.scale)
+        .clamp(0.85, 1.80)
+        .toDouble();
+    _portraitOffset = Offset(
+      (double.tryParse(
+                await db.getSetting(_portraitSettingKey('offset_x', set)) ??
+                    legacyX ??
+                    '',
+              ) ??
+              defaults.offset.dx)
+          .clamp(-0.45, 0.45)
+          .toDouble(),
+      (double.tryParse(
+                await db.getSetting(_portraitSettingKey('offset_y', set)) ??
+                    legacyY ??
+                    '',
+              ) ??
+              defaults.offset.dy)
+          .clamp(-0.35, 0.35)
+          .toDouble(),
+    );
+  }
+
+  Future<void> _selectPortraitSet(ChatPortraitSet set) async {
+    if (set == _portraitSet) return;
+    await _loadPortraitTransform(set);
+    if (!mounted) return;
+    setState(() => _portraitSet = set);
+    await AppDatabase.instance.setSetting('chat_portrait_set', set.key);
   }
 
   Future<void> _setVisualSetting(String key, String value) async {
@@ -289,6 +334,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         fullscreenDialog: true,
         builder: (_) => ChatPortraitTransformEditor(
           emotion: _currentEmotion,
+          portraitSet: _portraitSet,
           initial: ChatPortraitTransform(
             scale: _portraitScale,
             offset: _portraitOffset,
@@ -306,15 +352,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
     await Future.wait([
       _setVisualSetting(
-        'chat_portrait_scale',
+        _portraitSettingKey('scale', _portraitSet),
         result.scale.toStringAsFixed(4),
       ),
       _setVisualSetting(
-        'chat_portrait_offset_x',
+        _portraitSettingKey('offset_x', _portraitSet),
         result.offset.dx.toStringAsFixed(4),
       ),
       _setVisualSetting(
-        'chat_portrait_offset_y',
+        _portraitSettingKey('offset_y', _portraitSet),
         result.offset.dy.toStringAsFixed(4),
       ),
     ]);
@@ -346,6 +392,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         scroll.jumpTo(target);
         _programmaticScroll = false;
       }
+    });
+  }
+
+  void _anchorTimelineTail() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_followLatest) return;
+      final tailContext = _timelineTailKey.currentContext;
+      if (tailContext == null) {
+        _scrollToLatest();
+        return;
+      }
+      _programmaticScroll = true;
+      unawaited(
+        Scrollable.ensureVisible(
+          tailContext,
+          alignment: 1,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ).whenComplete(() => _programmaticScroll = false),
+      );
     });
   }
 
@@ -647,7 +713,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         : ListView.builder(
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
-            itemCount: timeline.length + (controller.generationActive ? 1 : 0),
+            itemCount:
+                timeline.length + (controller.generationActive ? 1 : 0) + 1,
             itemBuilder: (context, index) {
               if (index < timeline.length) {
                 final item = timeline[index];
@@ -723,10 +790,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ],
                 );
               }
-              return _StreamingBubble(
-                controller: controller,
-                bubbleOpacity: _visualStageEnabled ? _panelOpacity : 1.0,
-              );
+              if (controller.generationActive && index == timeline.length) {
+                return _StreamingBubble(
+                  controller: controller,
+                  bubbleOpacity: _visualStageEnabled ? _panelOpacity : 1.0,
+                );
+              }
+              return SizedBox(key: _timelineTailKey, height: 1);
             },
           );
 
@@ -753,6 +823,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       child: IgnorePointer(
                         child: ChatPortraitStage(
                           emotion: _currentEmotion,
+                          portraitSet: _portraitSet,
                           transform: ChatPortraitTransform(
                             scale: _portraitScale,
                             offset: _portraitOffset,
@@ -932,12 +1003,35 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         },
                       ),
                       if (_visualStageEnabled)
+                        DropdownButtonFormField<ChatPortraitSet>(
+                          value: _portraitSet,
+                          decoration: const InputDecoration(
+                            labelText: '立绘套装',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: ChatPortraitSet.values
+                              .map(
+                                (set) => DropdownMenuItem(
+                                  value: set,
+                                  child: Text(set.label),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            await _selectPortraitSet(value);
+                            setPanelState(() {});
+                          },
+                        ),
+                      if (_visualStageEnabled)
+                        const SizedBox(height: 10),
+                      if (_visualStageEnabled)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.zoom_out_map_rounded),
                           title: const Text('自定义立绘'),
                           subtitle: Text(
-                            '当前 ${(100 * _portraitScale).round()}% · 双指缩放、拖动位置',
+                            '${_portraitSet.label} · 当前 ${(100 * _portraitScale).round()}% · 独立保存位置',
                           ),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: () async {

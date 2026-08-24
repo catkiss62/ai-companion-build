@@ -65,7 +65,7 @@ for token in (
     "cooldownUntil",
     "contextReady",
     "MoeRecipe.blackBelly",
-    "不欺骗、不操纵、不制造现实后果",
+    "萌属性只读取已提交的状态，不写入 Desire、关系、情绪或规则系统",
 ):
     assert token in policy, token
 

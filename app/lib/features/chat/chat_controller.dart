@@ -19,6 +19,7 @@ import '../../core/desire/proactive_rhythm_engine.dart';
 import '../../core/desire/thought_consolidation_engine.dart';
 import '../../core/desire/thought_lifecycle_engine.dart';
 import '../../core/maintenance/long_running_maintenance_engine.dart';
+import '../../core/integration/moe_shadow_coordinator.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/message_attachment.dart';
@@ -241,6 +242,11 @@ class ChatController extends ChangeNotifier {
           await db.recentGenerationInterruptions(limit: 20);
       unawaited(attachmentStorage.cleanOldDrafts());
       unawaited(_pruneOrphanAttachmentFiles());
+      unawaited(
+        MoeShadowCoordinator(db)
+            .reconcileRecentCommittedTurns()
+            .catchError((_) {}),
+      );
       loading = false;
       _safeNotify();
 

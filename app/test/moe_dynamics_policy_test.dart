@@ -160,7 +160,8 @@ void main() {
         lessThan(obvious.visibleStrengths[MoeRecipe.blackBelly]!));
     expect(manga.visibleStrengths[MoeRecipe.blackBelly]!,
         greaterThan(obvious.visibleStrengths[MoeRecipe.blackBelly]!));
-    expect(manga.styleDirectives.join(), contains('不欺骗、不操纵'));
+    expect(manga.styleDirectives.join(), contains('小聪明'));
+    expect(manga.safetyDirectives.join(), contains('不写入 Desire'));
   });
 
   test('disabled or incompatible contract fails open to neutral', () {

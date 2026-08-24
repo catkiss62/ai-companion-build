@@ -9,6 +9,7 @@ import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
+import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
@@ -599,6 +600,7 @@ class DurableGenerationRunner {
       }
 
       await desireEngine.satisfy(DriveKey.attachment, factor: 0.58);
+      unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));
       return GenerationRunResult(status: 'completed', assistant: assistant);
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);

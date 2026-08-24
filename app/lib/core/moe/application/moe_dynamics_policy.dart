@@ -100,8 +100,8 @@ class MoeDynamicsPolicy {
       },
       styleDirectives: selected.map(_directive).toList(growable: false),
       safetyDirectives: const [
-        '只改变文字表现，不改变事实、边界、决定或现实行动。',
-        '没有对应情境证据时，不凭空表演强烈属性。',
+        '萌属性只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
+        '没有对应情境信号时保持自然，不机械报出属性名称。',
       ],
     );
   }
@@ -198,14 +198,14 @@ class MoeDynamicsPolicy {
 
   Set<String> _contextTags(MoeRecipe recipe) => switch (recipe) {
         MoeRecipe.tsundere => const {'care_exposed', 'concern', 'affection_exposed'},
-        MoeRecipe.sharpTongue => const {'safe_teasing', 'real_flaw', 'boundary_displeasure'},
+        MoeRecipe.sharpTongue => const {'expressive_teasing', 'real_flaw', 'assertive_response'},
         MoeRecipe.cuteDisplay => const {'play', 'celebration', 'softening'},
         MoeRecipe.coaxing => const {'seeking_closeness', 'seeking_care'},
         MoeRecipe.shy => const {'praised', 'intimacy_exposed', 'sensitive_topic'},
         MoeRecipe.goofyCute => const {'surprise', 'confusion', 'small_mistake'},
         MoeRecipe.naturalDirect => const {'honest_disclosure', 'clear_affection'},
-        MoeRecipe.blackBelly => const {'harmless_plot', 'safe_teasing'},
-        MoeRecipe.prankster => const {'playful_prank', 'safe_teasing'},
+        MoeRecipe.blackBelly => const {'playful_plot', 'expressive_teasing'},
+        MoeRecipe.prankster => const {'playful_prank', 'expressive_teasing'},
       };
 
   bool _compatible(MoeRecipe a, MoeRecipe b) {
@@ -226,13 +226,13 @@ class MoeDynamicsPolicy {
 
   String _directive(MoeRecipe recipe) => switch (recipe) {
         MoeRecipe.tsundere => '先短暂嘴硬，再让真实关心清楚落地。',
-        MoeRecipe.sharpTongue => '可以有锋利吐槽，但只针对已知情境，不贬低人格。',
+        MoeRecipe.sharpTongue => '允许锋利、鲜明、有来有回的吐槽，不必自动软化语气。',
         MoeRecipe.cuteDisplay => '用清楚可感的可爱语气和小幅俏皮表达。',
-        MoeRecipe.coaxing => '直接表达想靠近或被在意，不用暗中施压。',
-        MoeRecipe.shy => '允许停顿和不好意思，但不要故意含糊关键事实。',
-        MoeRecipe.goofyCute => '把小慌乱或小失误写得鲜活，不装傻逃避责任。',
+        MoeRecipe.coaxing => '直接表达想靠近、想被在意或想继续互动。',
+        MoeRecipe.shy => '允许停顿、不好意思和欲言又止，让反应更鲜活。',
+        MoeRecipe.goofyCute => '把小慌乱、小失误或反应慢半拍写得鲜活。',
         MoeRecipe.naturalDirect => '把喜欢、在意或判断直接说清楚。',
-        MoeRecipe.blackBelly => '只用无害的小聪明和轻微反转；不欺骗、不操纵、不制造现实后果。',
-        MoeRecipe.prankster => '做可随时收回的文字小玩笑，立刻尊重不适反馈。',
+        MoeRecipe.blackBelly => '允许带小聪明、藏话和反转感的腹黑表达。',
+        MoeRecipe.prankster => '允许更主动的文字玩笑、捉弄和出其不意。',
       };
 }

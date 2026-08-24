@@ -20,6 +20,9 @@ import '../../core/models/proactive_notification_settings.dart';
 import '../../core/models/unfinished_thread.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
+import '../../core/moe/application/moe_dynamics_policy.dart';
+import '../../core/moe/domain/moe_models.dart';
+import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../memory/memory_page.dart';
 import '../relationship/relationship_page.dart';
@@ -44,6 +47,8 @@ class _InnerPageState extends State<InnerPage> {
   late final MemoryMaintenanceEngine memoryMaintenance = MemoryMaintenanceEngine(db);
   late final RelationshipAssimilator relationshipAssimilator =
       RelationshipAssimilator(db: db);
+  late final SqliteMoeRepository moeRepository =
+      SqliteMoeRepository(() => db.database);
   DesireSnapshot? snapshot;
   GroundingSnapshot? grounding;
   List<DesireIntent> desireCandidates = const [];
@@ -55,6 +60,8 @@ class _InnerPageState extends State<InnerPage> {
   ProactiveRhythmProfile rhythmProfile = ProactiveRhythmProfile.neutral();
   Map<String, int> stats = const {};
   Map<String, Object?> delayedProactiveTest = const {};
+  MoeStateSnapshot? moeState;
+  MoeExpressionPlan? moePlan;
   bool busy = false;
   String? result;
 
@@ -66,6 +73,8 @@ class _InnerPageState extends State<InnerPage> {
 
   Future<void> _refresh() async {
     snapshot = await db.loadDesire();
+    moeState = await moeRepository.loadState();
+    moePlan = const MoeDynamicsPolicy().expressionPlan(moeState!);
     grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
     desireCandidates = desire
@@ -296,6 +305,71 @@ class _InnerPageState extends State<InnerPage> {
     return '尚未安排延迟测试';
   }
 
+  Widget _moeStateCard(BuildContext context) {
+    final state = moeState;
+    final plan = moePlan;
+    if (state == null || plan == null) return const SizedBox.shrink();
+    final recipeLabel = [
+      if (plan.primary != null) plan.primary!.label,
+      if (plan.secondary != null) plan.secondary!.label,
+    ].join(' + ');
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '萌属性数值 · D2 影子模式',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                Text(state.expressionMode.label),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              recipeLabel.isEmpty ? '当前没有突出组合' : '当前组合：$recipeLabel',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            ...MoeAxis.values.map((axis) {
+              final value = state.current[axis] ?? axis.defaultBaseline;
+              final baseline = state.baselines[axis] ?? axis.defaultBaseline;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(width: 72, child: Text(axis.label)),
+                    Expanded(
+                      child: LinearProgressIndicator(value: value / 100),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 72,
+                      child: Text(
+                        '${value.toStringAsFixed(0)} / ${baseline.toStringAsFixed(0)}',
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 6),
+            const Text(
+              '当前只记录和显示数值，不参与提示词，不改写欲望、关系、情绪、规则或工具行为。',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = snapshot;
@@ -339,6 +413,8 @@ class _InnerPageState extends State<InnerPage> {
                 '${candidate.drive.zhLabel} → ${candidate.wantAction} · ${candidate.score.toStringAsFixed(2)} · 来源=${candidate.reasonSource}',
               )),
         ],
+        const SizedBox(height: 8),
+        _moeStateCard(context),
         const SizedBox(height: 12),
         Row(
           children: [

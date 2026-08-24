@@ -19,7 +19,8 @@ publish_to: 'none'
 # version: 0.37.7+96
 # Historical validator compatibility token: version: 0.37.8+97
 # Historical validator compatibility token: version: 0.37.9+98
-version: 0.38.1+100
+# Historical validator compatibility token: version: 0.38.1+100
+version: 0.38.2+101
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -28,10 +29,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/appearance/dafeiyu_reference.webp
+    - assets/appearance/large_whale_mirror.jpg
     - assets/lingchat/background/
     - assets/lingchat/deepseek/
     - assets/lingchat/audio/
     - assets/lingchat/effects/
+    - assets/portraits/large_whale/
     - assets/lingchat/NOTICE.md
 
 dependencies:

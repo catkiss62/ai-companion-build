@@ -12,6 +12,62 @@ enum ChatPortraitAnimation {
   embarrassedShake,
 }
 
+/// Presentation-only portrait choice. These labels and keys must never be
+/// included in model prompts or companion self-description.
+enum ChatPortraitSet {
+  smallWhale,
+  largeWhale,
+}
+
+extension ChatPortraitSetMetadata on ChatPortraitSet {
+  String get key => switch (this) {
+        ChatPortraitSet.smallWhale => 'small_whale',
+        ChatPortraitSet.largeWhale => 'large_whale',
+      };
+
+  String get label => switch (this) {
+        ChatPortraitSet.smallWhale => '小小鲸',
+        ChatPortraitSet.largeWhale => '大肥鱼',
+      };
+
+  double get defaultScale => 1.10;
+
+  ChatEffectAnchor get effectAnchor => switch (this) {
+        // LingChat pinned source: bubble_left=20, bubble_top=5, followed by
+        // GameRoleAvatar's +5/-5 offset and 25% bubble size.
+        ChatPortraitSet.smallWhale => const ChatEffectAnchor(
+            left: .25,
+            top: 0,
+            size: .25,
+          ),
+        // The second set uses the same 1152x2048 aligned canvas, but keeps its
+        // own anchor contract so future art revisions remain isolated.
+        ChatPortraitSet.largeWhale => const ChatEffectAnchor(
+            left: .25,
+            top: 0,
+            size: .25,
+          ),
+      };
+}
+
+ChatPortraitSet chatPortraitSetFromKey(String? key) =>
+    ChatPortraitSet.values.firstWhere(
+      (value) => value.key == key,
+      orElse: () => ChatPortraitSet.largeWhale,
+    );
+
+class ChatEffectAnchor {
+  const ChatEffectAnchor({
+    required this.left,
+    required this.top,
+    required this.size,
+  });
+
+  final double left;
+  final double top;
+  final double size;
+}
+
 class ChatEmotionVisual {
   const ChatEmotionVisual({
     required this.key,
@@ -28,6 +84,12 @@ class ChatEmotionVisual {
   final String? effectAsset;
   final String? soundAsset;
   final ChatPortraitAnimation animation;
+
+  String portraitAssetFor(ChatPortraitSet set) => switch (set) {
+        ChatPortraitSet.smallWhale => portraitAsset,
+        ChatPortraitSet.largeWhale =>
+          'assets/portraits/large_whale/$key.webp',
+      };
 }
 
 class ChatVisualChunk {

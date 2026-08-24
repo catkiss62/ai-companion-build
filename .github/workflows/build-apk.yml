@@ -4,7 +4,7 @@
 # AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-APK.apk
 # v0.37.9-dynamic-moe-d1-test
 # .ci/v0379-monitor.txt
-# Active baseline: v0.38.1+100 / SQLite schema 32 / adult relationship capability
+# Active baseline: v0.38.2+101 / SQLite schema 32 / Dynamic Moe D2 + dual portraits
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -76,7 +76,7 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.1+100 APK (Adult Relationship Capability)
+name: Build AI Companion v0.38.2+101 APK (Dynamic Moe D2 + Dual Portraits)
 
 on:
   workflow_dispatch:
@@ -182,14 +182,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.38.1+100$' app/pubspec.yaml
+          grep -q '^version: 0.38.2+101$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 32;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.1+100 adult relationship capability, portrait effect transform and 15 percent emotion sound default.'
+          echo 'Building v0.38.2+101 Dynamic Moe D2 shadow state, dual portraits and chat tail-anchor repair.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -322,6 +322,7 @@ jobs:
           python3 tools/validate_v0379_dynamic_moe_d1.py
           python3 tools/validate_v0380_emotion_fallback_recovery.py
           python3 tools/validate_v0381_adult_relationship_capability.py
+          python3 tools/validate_v0382_moe_shadow_dual_portraits.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -462,6 +463,26 @@ jobs:
                   sys.exit(1)
               print('Complete pinned 62-file LingChat presentation pack is present in the APK.')
 
+              portrait_prefix = 'assets/flutter_assets/assets/portraits/large_whale/'
+              portraits = sorted(
+                  name for name in z.namelist()
+                  if name.startswith(portrait_prefix) and name.endswith('.webp')
+              )
+              if len(portraits) != 20:
+                  print(f'ERROR: APK contains {len(portraits)} large-whale portraits, expected 20', file=sys.stderr)
+                  sys.exit(1)
+              if z.read(portrait_prefix + 'nervous.webp') != z.read(portrait_prefix + 'flustered.webp'):
+                  print('ERROR: approved nervous/flustered shared source changed', file=sys.stderr)
+                  sys.exit(1)
+              if any(name.startswith('assets/flutter_assets/assets_source/') for name in z.namelist()):
+                  print('ERROR: source ZIP was packaged into the APK', file=sys.stderr)
+                  sys.exit(1)
+              mirror = 'assets/flutter_assets/assets/appearance/large_whale_mirror.jpg'
+              if hashlib.sha256(z.read(mirror)).hexdigest() != '3eb20158a962f129adba4d7f732dd5526a2943d4139eea07078ea82c4b0f2071':
+                  print('ERROR: untouched large-whale mirror image changed', file=sys.stderr)
+                  sys.exit(1)
+              print('Dual portrait pack and untouched large-whale mirror image are present in the APK.')
+
               yawn_tiers = {
                   'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_187.png': (136, 160),
                   'assets/pets/dafeiyu/source/runtime_overrides/yawning/sleepy_yawn_238.png': (171, 202),
@@ -501,26 +522,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.1+100 APK as workflow artifact
+      - name: Upload v0.38.2+101 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK
+          name: AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.1+100 adult relationship capability APK to draft release
+      - name: Upload v0.38.2+101 Dynamic Moe D2 dual-portrait APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.1-adult-relationship-capability-test'
-          APK_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk'
+          TAG='v0.38.2-dynamic-moe-d2-dual-portraits-test'
+          APK_NAME='AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -537,8 +558,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.1+100 adult relationship capability test candidate' \
-              --notes 'Draft-only v0.38.1 candidate: makes adult romance a normal relationship capability, uses NSFW routing only for rendering depth, keeps libido visible outside Session, migrates untouched stock prompts away from boundary lectures, makes emotion effects follow portrait transforms, and sets the initial emotion-sound volume to 15 percent. Schema remains 32; native 19emo stays disabled; Dynamic Moe D2 and visible Moe UI remain paused. The persistent v1 private test signer is unchanged.'
+              --title 'AI Companion v0.38.2+101 Dynamic Moe D2 and dual portraits test candidate' \
+              --notes 'Draft-only v0.38.2 candidate: adds exactly-once Dynamic Moe D2 shadow numbers and inner diagnostics without Prompt/action writes; defaults to the new 20-image large portrait pack while preserving the small pack and per-pack transforms; aligns emotion effects to the pinned LingChat 25 percent anchor; keeps an untouched happy mirror image; and anchors the final chat bubble after long streamed reasoning collapses. Schema remains 32; the persistent v1 private test signer is unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -567,13 +588,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.1 CI success monitor' \
+              -f message='Update v0.38.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.1 CI success monitor' \
+              -f message='Create v0.38.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -594,8 +615,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.1-adult-relationship-capability-test'
-          CI_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-CI-Monitor.txt'
+          TAG='v0.38.2-dynamic-moe-d2-dual-portraits-test'
+          CI_NAME='AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -635,8 +656,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.1+100 adult relationship capability test candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.38.1 adult relationship capability APK. It is not a public release.'
+              --title 'AI Companion v0.38.2+101 Dynamic Moe D2 and dual portraits test candidate' \
+              --notes 'Private draft used for CI diagnostics and the v0.38.2 Dynamic Moe D2 and dual portraits APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -650,13 +671,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.1 CI failure monitor' \
+              -f message='Update v0.38.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.1 CI failure monitor' \
+              -f message='Create v0.38.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
