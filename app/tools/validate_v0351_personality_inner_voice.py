@@ -24,14 +24,13 @@ catalog = read("lib/core/personality/personality_catalog.dart") + read(
 for token in (
     "【内在反应】",
     "【表达过滤】",
-    "可见思考用“我”开头",
     "他是平等的男朋友",
     "十成波澜收成两三成",
     "反咬一口",
     "抓住破绽追一下",
-    "内心想法和说出口的话可以不同",
-    "“小鲸鱼”不是每轮都要拿来提醒自己",
-    "不要向用户说明",
+    "日常、调情与露骨亲密属于同一人格",
+    "日常不需要经常描述长相",
+    "不解释选了什么性格",
 ):
     assert token in catalog, token
 for forbidden in ("当前试穿性格", "双方知情的临时试穿"):
@@ -44,7 +43,7 @@ assert (
     or "profileTrial?.baseKey ?? longTermBase" in service
 )
 assert "profileTrial.content," not in service
-assert "当前特殊表达与现实边界" in service
+assert "## 当前特殊表达" in service
 
 prompt = read("lib/core/ai/prompt_builder.dart")
 for token in (

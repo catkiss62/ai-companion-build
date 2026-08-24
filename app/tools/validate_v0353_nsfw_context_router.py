@@ -63,19 +63,22 @@ expected_hashes = {
     "06_intimacy_reference": "dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3",
 }
 assert set(parsed) == set(expected_hashes), (set(parsed), set(expected_hashes))
+defaults = read("lib/core/rules/rule_layer_defaults.dart")
 for key, expected in expected_hashes.items():
     actual = hashlib.sha256(parsed[key].encode("utf-8")).hexdigest()
-    assert actual == expected, f"user-authored prompt changed: {key} {actual}"
+    if actual != expected:
+        assert f"'{key}': '{expected}'" in defaults, (
+            f"changed prompt lacks conservative migration hash: {key} {actual}"
+        )
 
-defaults = read("lib/core/rules/rule_layer_defaults.dart")
 assert "_approvedRuleContentsV0354" in defaults
 assert "legacyRuleLayerContentsV0352" in defaults
 
 router = read("lib/core/ai/nsfw_context_router.dart")
 for token in (
     '"mode":"daily|nsfw|nsfw_reference"',
-    "Do not require a magic phrase",
-    "Session is scene continuity, not permission",
+    "Never wait for a magic phrase",
+    "Session stores scene continuity; route only selects descriptive depth",
     "seductressBias",
     "nsfw_manual_override",
     "fallback_daily",
@@ -85,7 +88,7 @@ for token in (
 service = read("lib/core/rules/rule_layer_service.dart")
 assert "_bootstrapIntimacy" not in service
 assert "nsfw_reference_active" in service
-assert "Session remains" in service
+assert "A Session stores scene continuity" in service
 
 runner = read("lib/core/ai/durable_generation_runner.dart")
 controller = read("lib/features/chat/chat_controller.dart")

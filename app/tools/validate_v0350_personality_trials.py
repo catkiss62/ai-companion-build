@@ -41,12 +41,12 @@ for token in (
     "元气外放", "清冷内敛", "温柔沉静", "慵懒调皮",
     "平等恋人", "妹系亲近", "姐系引导", "小恶魔主动",
     "病娇", "痴女", "狂信守护", "猎手型", "双面优等生", "毒舌依赖", "人偶执念", "共犯型",
-    "不能真的阻止你退出", "不写入长期人格", "露骨描写只出现在",
+    "高强度占有、嫉妒、执念与危险感", "日常就会自然流露欲望", "露骨亲密属于同一人格",
 ):
     assert token in catalog, token
 
 service = read("lib/core/rules/rule_layer_service.dart")
-for token in ("activePersonalityTrial", "activeSpecialStyleTrial", "当前特殊表达与现实边界"):
+for token in ("activePersonalityTrial", "activeSpecialStyleTrial", "## 当前特殊表达"):
     assert token in service, token
 
 page = read("lib/features/personality/personality_lab_page.dart")

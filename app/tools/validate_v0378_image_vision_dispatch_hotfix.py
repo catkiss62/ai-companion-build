@@ -94,7 +94,7 @@ assert "setVolume(volume, volume)" in bridge
 assert "情绪音效音量" in chat
 assert "'emotion_sound_volume'" in chat
 for title in (
-    "emotion cue volume defaults to full scale",
+    "emotion cue volume defaults to initial 15 percent",
     "emotion cue volume preserves stored value and clamps safely",
 ):
     assert title in volume_tests, title
