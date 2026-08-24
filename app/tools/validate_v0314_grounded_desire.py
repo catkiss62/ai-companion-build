@@ -91,15 +91,15 @@ def main() -> int:
         "THOUGHT_DATA source=",
         "不注入 Thought 原文",
         "_temperamentSummary",
-        "d != DriveKey.libido || nsfwActive",
     ]:
         assert token in prompt, token
+    assert "d != DriveKey.libido || nsfwActive" not in prompt
     assert "${t.text}" not in prompt
     assert ": ${t.text}" not in prompt
 
     proactive = read("lib/core/desire/proactive_engine.dart")
     for token in [
-        "intimacyAllowed: intimacyAllowed",
+        "intimacyAllowed: true",
         "这里只提供结构化线索，不注入 Thought 原文",
         "ProactiveReasoningGroundingGuard.evaluate(",
         "PROACTIVE OUTPUT CORRECTION · ONE RETRY",
@@ -110,7 +110,7 @@ def main() -> int:
 
     tests = read("test/desire_core_policy_v031_test.dart")
     for token in [
-        "libido cannot become an action outside an explicit intimacy session",
+        "libido is a normal adult relationship drive without a Session gate",
         "learned temperament slowly pulls back toward its original anchor",
         "wildcard becomes a real pressure-release action and respects cooldown",
         "1000 deterministic ticks stay bounded and do not self-excite",
