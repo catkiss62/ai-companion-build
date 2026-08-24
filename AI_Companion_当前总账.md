@@ -14,22 +14,22 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
-## 0U. 2026-08-24 · v0.37.6 聊天进程恢复、思考链与双界面展示回归（IMPLEMENTED / STATIC CONTRACT PASSED / CI NOT STARTED / NO APK YET）
+## 0U. 2026-08-24 · v0.37.6 聊天进程恢复、思考链与双界面展示回归（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
-> 本节已按约定完成两次总账更新：任务前先登记范围，任务后已回填真实源码与只读审计。v0.37.6+95、schema 30 的实现和静态契约已完成，但 GitHub 没有为 API 提交或 Draft PR #23 的关闭/重新打开事件创建 Actions run；因此当前严禁写成 CI 通过、APK 可用或真机通过。稳定性优先；本批未恢复 native 19emo/ONNX/ORT，未接 MiniMax TTS，未开始主动话题/自主搜索。
+> 本节已按约定先登记任务、实现后回填源码审计，并在自动构建完成后再次纠正 CI/APK 状态。v0.37.6+95、schema 30 的源码、完整自动化与私有 APK 已完成，仍严格标记为真机待验。稳定性优先；本批未恢复 native 19emo/ONNX/ORT，未接 MiniMax TTS，未开始主动话题/自主搜索。
 
 ### A. 严重稳定性与思考链
 
-1. ~~**强杀/崩溃/孤儿生成等同 Stop ■**~~（代码完成，CI待跑）：新 Android 进程必须能区分旧进程遗留的 `chat_turn_lease` 与同一进程仍存活的 App/悬浮 FlutterEngine。旧进程租约立即失效；未完成 generation job 使用 `cancelGenerationJobByUser` 同一原子路径撤回 user turn、清空临时 reasoning/content、run token 与 retry、级联移除本轮短期派生状态并释放阻塞。不得在强杀、崩溃或孤儿恢复后自动重新请求 DeepSeek。
-2. ~~**真实 reasoning 恢复**~~（代码完成，CI待跑）：DeepSeek thinking 保持开启；App 与原生悬浮窗在 Provider 返回 reasoning delta 后自动展开、真实流式显示，正文开始后仍保持可读，生成完成后自动收起。无 reasoning 时只显示普通“正在想/准备回复”状态，不伪造思考内容。
-3. ~~**双界面同一已展示游标**~~（代码完成，CI待跑）：悬浮聊天已实际展示的最新助手回复写入 `chat_last_presented_assistant_id`；之后进入 App 不再对该已读回复重复逐字演出。未在任一聊天界面看过的主动消息首次进入仍演出一次。
+1. ~~**强杀/崩溃/孤儿生成等同 Stop ■**~~（已完成，CI通过，真机待验）：新 Android 进程必须能区分旧进程遗留的 `chat_turn_lease` 与同一进程仍存活的 App/悬浮 FlutterEngine。旧进程租约立即失效；未完成 generation job 使用 `cancelGenerationJobByUser` 同一原子路径撤回 user turn、清空临时 reasoning/content、run token 与 retry、级联移除本轮短期派生状态并释放阻塞。不得在强杀、崩溃或孤儿恢复后自动重新请求 DeepSeek。
+2. ~~**真实 reasoning 恢复**~~（已完成，CI通过，真机待验）：DeepSeek thinking 保持开启；App 与原生悬浮窗在 Provider 返回 reasoning delta 后自动展开、真实流式显示，正文开始后仍保持可读，生成完成后自动收起。无 reasoning 时只显示普通“正在想/准备回复”状态，不伪造思考内容。
+3. ~~**双界面同一已展示游标**~~（已完成，CI通过，真机待验）：悬浮聊天已实际展示的最新助手回复写入 `chat_last_presented_assistant_id`；之后进入 App 不再对该已读回复重复逐字演出。未在任一聊天界面看过的主动消息首次进入仍演出一次。
 
 ### B. UI、文字、默认值与资源
 
 1. ~~**头像/名字面板“全部设置”**~~（代码完成，真机若仍异常则删除重复入口）：优先修复整个重复设置页的 nullable 状态和布局错误；TTS 状态等异步字段不得使用不稳定 `!`，长状态文本使用明确的小字号/换行边界。若无法稳定保证，删除的只能是头像快捷面板中的重复“全部设置”入口，常规设置位置完整保留。
-2. ~~**对白着色真源**~~（代码完成，CI待跑）：App 与悬浮窗仅把 `「」` 及其中内容作为浅红色常规字体对白。中文弯引号 `“”` 和 ASCII 双引号不再触发对白着色；它们出现在动作/神态中时继承白色斜体。
-3. ~~**默认值迁移**~~（代码完成，CI待跑）：聊天面板透明度新默认 60%，流式逐字速度新默认 48ms；仅把仍等于旧默认 72%/56ms 的安装迁移到新默认，不覆盖用户已经自定义的值。
-4. ~~**新游戏图标**~~（资源完成，APK待构建）：使用用户附件 `1000141700.jpg`（675×675，方向正常）替换旧启动图标；只缩放为 Android 资源并移除元数据，不重绘。聊天头像与 LingChat 立绘不变。
+2. ~~**对白着色真源**~~（已完成，CI通过，真机待验）：App 与悬浮窗仅把 `「」` 及其中内容作为浅红色常规字体对白。中文弯引号 `“”` 和 ASCII 双引号不再触发对白着色；它们出现在动作/神态中时继承白色斜体。
+3. ~~**默认值迁移**~~（已完成，CI通过，真机待验）：聊天面板透明度新默认 60%，流式逐字速度新默认 48ms；仅把仍等于旧默认 72%/56ms 的安装迁移到新默认，不覆盖用户已经自定义的值。
+4. ~~**新游戏图标**~~（资源与APK完成，真机待验）：使用用户附件 `1000141700.jpg`（675×675，方向正常）替换旧启动图标；只缩放为 Android 资源并移除元数据，不重绘。聊天头像与 LingChat 立绘不变。
 5. ~~**脱敏可观测性**~~（代码完成，下一份真机诊断待验）：诊断补充不含正文/令牌的 chat-turn lease 状态与 Emotion Episode/本轮19类标签粗粒度元数据，使下一次报告能区分“未命中、已生成后衰减、租约仍由当前进程持有、旧进程孤儿”等状态；本批不借诊断修改情绪判定算法。用户已说明轻视觉自动关闭可能来自强杀，本批不处理该项。
 
 ### C. 任务结束时的只读审计
@@ -44,7 +44,9 @@
 - 任务前总账：`310e5fbb7c7a261a9324a439cdfa67c8504cbc31`。
 - 最终实现 head（第二次总账前）：`b6b117b35c870a6851331a58849f6dcaaff675ef`。关键内容：Android 进程 epoch＋30秒可续租聊天 lease；旧进程 lease 可立即接管；恢复器只做 `recoverOne/cancelGenerationJobByUser`，不再调用生成 runner；App/悬浮恢复 reasoning delta；悬浮展示写共享游标；标准设置路由与 nullable 安全；仅 `「」` 着色；旧默认精确迁移到60%/48ms；脱敏 lease/Emotion 元数据；用户675×675附件转为去元数据512×512 PNG，SHA-256 `b98622b8c305f5ef71e57432ad23ee2bc714bd7b61f138daf1b1d10d46157058`。
 - 静态验证：新增 `app/tools/validate_v0376_chat_recovery_presentation.py`，并逐项读取当前分支确认版本/schema、迁移、进程 epoch、恢复器无重跑、reasoning、标准设置路由、双端游标、双端引号、诊断和工作流 token 均命中；这不替代 Flutter analyze/tests 或 Release APK。
-- Actions 阻塞证据：普通 API 提交没有产生 run；Draft PR #23 于 2026-08-24 06:44（JST）关闭后立即重新打开，分支、Draft 状态与内容均保留，新的 merge SHA 为 `b93c6fdceac136709aef57104a882b3929547fa7`，仍无 workflow run。需要用户在 GitHub Actions 手动运行 `Build AI Companion v0.37.6+95 APK (Chat Recovery & Presentation)`；成功前没有 APK/SHA/Draft Release。
+- CI 入口纠正：`main` 仍只显示历史 v0.34.1 workflow 是长期 Draft PR #23 架构的预期表现，新版本一贯由 `agent/personality-appearance-self` 的 `pull_request/synchronize` 自动触发，用户不需要手动运行旧入口。此前误判为需用户手动触发；实际根因是分支 workflow 被旧 v0.37.5 尾段重复拼接到2010行，GitHub采用了后置旧检查。`9ce724b52298f2b89e593260cd18f39e9e6aca7f` 将其恢复为唯一625行 v0.37.6定义；随后补齐历史 validator 的 v0.37.6 兼容，并修正 App `「」` 流式正则的双重转义与 Kotlin 源码转义验证。中间 run #375/#376/#378/#379/#380 均由明确 validator 阻断并自动回传诊断，没有把失败产物冒充 APK。
+- 最终构建 head：`1be6eb45bf4cdd1bb3409e3ce57fc45a6a695af4`；Actions PR merge SHA：`aedc5d440f35f6c6fb74a8ec58d60d9e03855b70`；成功 Actions：<https://github.com/catkiss62/ai-companion-build/actions/runs/32678898443>（run #381）。全部历史/当前 validators、Kotlin 桌宠状态/物理、Flutter analyze/tests、Release APK、固定签名、6个原生库、417桌宠文件、62 LingChat素材、无ONNX/ORT、checksum与私有 Draft Release 上传均成功；失败报告 job 正确 skipped。
+- APK：`AI-Companion-v0.37.6-95-Chat-Recovery-Presentation-APK.apk`；SHA-256：`2e1583ec2bcb0f9e9b71412379df82178d751b26bb1ca353cf831077eb33526d`；固定测试签名 SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c6db29890eac4cbfd32e>。
 - 上下文审计：每次用户回复只送最近33条旧消息＋当前用户消息，reasoning 不回放；另按相关性有界注入 user profile 5、AI Self 5、preference 5、相关记忆8、推断3、历史记忆3、阶段摘要最多6、未完话题5、参考6、公开网页3、Thought 18、Awareness 6、日连续性2、有效 Emotion Episode 4。完成回复后才提取 current_fact/inference/shared_experience；阶段摘要每批最多处理24条未摘要消息。因此模型上下文不会随数据库聊天无限增长，长期记忆也不是全量塞回 Prompt。
 - 用户可见历史审计：App 启动/同步只载入最近120条（图片处理临时刷新最多160），悬浮首屏8条并可按20～200条分页取旧消息；SQLite `messages.created_at` 有索引，数据库可继续保存完整记录而不会把全部记录载入内存。当前无需删除聊天；后续若用户希望 App 内查看120条以前的内容，优先加分页/搜索/按日跳转，不做自动清空。文本库长期增长主要是存储而非 token 风险，附件另有草稿/孤儿清理。
 
