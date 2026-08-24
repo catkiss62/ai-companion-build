@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0W. 2026-08-24 · v0.37.8 千问识图可信派发热修与情绪短音效音量（IN PROGRESS / PRE-TASK LEDGER）
+## 0W. 2026-08-24 · v0.37.8 千问识图可信派发热修与情绪短音效音量（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 > 用户已授权正式开始；本节是任务前第一次总账更新。目标版本暂定 v0.37.8+97、schema 31。只修复图片识别后新回复任务被误判为强杀遗留任务的问题，并加入独立情绪短音效音量；不得回退 v0.37.6 已真机通过的“崩溃/强杀等同 Stop、禁止后台偷偷重发”。
 
@@ -39,6 +39,19 @@
 - 新增测试覆盖：图片识别成功后的同进程合法 job 会真实执行；启动恢复仍只撤回遗留 job；相册/相机共用路径；Qwen 失败仍可重试；Stop/强杀不自动重发；Vision 诊断不泄露内容。
 - 情绪音效测试覆盖默认100%、设置值夹取、原生播放器接收音量、0%静音仍不改变完成 fence/顺序；历史 v0.37.4 音频断言不得放宽。
 - 跑完全部历史/current validators、Kotlin、Flutter analyze/tests、Release APK、固定签名与完整载荷校验；自动化通过后仍标记真机待验，并做第二次总账回填。
+
+
+### D. 本轮真实实现、验证与交付
+
+- **两次总账**：任务前总账提交 `7c783392342f6ef9fb2ce8a3162dfcd06e8686cd` 已先锁定根因、范围、不可回退边界与验收；本节是 CI 成功后的第二次回填。
+- **可信派发已完成**：功能提交 `610352b89b4cfcbbf99078e68e7c44c7ed342be0`，编译窄修后的最终分支 head `19045d3a3bcf927900d5ce383193a56cd8ce884b`；成功 Actions 使用的 PR merge SHA 为 `44fc3081538ec25375fd368f628906a89af32eb2`。图片识别事务现在直接返回本进程新建的 `GenerationJob`，在持有 chat-turn lease 的前提下交给可信当前进程入口；相册和相机不再调用 recovery-only 的 `resumePendingGeneration()`。
+- **生成表现保持一条主链**：普通文字与图片回复共用同一个完整执行函数，继续包含真实 reasoning 流式、Emotion envelope、分段气泡、音效/TTS 仲裁、Stop/run-token fence、记忆提取和双界面未读。没有复制缺功能的图片专用简化生成器。进程启动/强杀遗留 job 仍由 `generationRecovery.recoverOne()` 原子撤回，v0.37.6 已真机通过的“异常退出等同 Stop、禁止自动重发”没有放开。
+- **脱敏 Vision 诊断已完成**：报告新增图片任务 pending/analyzing/completed/failed 数量、最近阶段/尝试时间/来源及安全错误类别；明确不包含图片字节、路径、caption、识图摘要、原始错误、API Key 或模型正文。
+- **情绪短音效音量已完成**：头像快捷面板的既有“情绪短音效”开关下新增独立 0～100% 滑杆，默认100%，持久键为 `emotion_sound_volume`。Flutter 通过可选兼容接口把音量送入原生 `MediaPlayer.setVolume`；旧播放器接口保持兼容。0% 只静音短音效，完成 fence 仍存在，因此不会让 TTS 抢先、重叠或改变“并行合成、音效优先、顺序发声”；也不影响 TTS/通知音量、一轮一次和 Stop 同停。
+- **自动验证**：新增 `validate_v0378_image_vision_dispatch_hotfix.py` 与 `emotion_sound_volume_test.dart`，并执行全部历史/current validators、Kotlin 桌宠状态/物理、Flutter analyze、Flutter tests、Release APK、固定签名、6个原生库、417个桌宠文件、62个 LingChat 表现素材、checksum 与 Draft Release 上传。第一次 run [#392](https://github.com/catkiss62/ai-companion-build/actions/runs/32705405200) 在 Kotlin 步骤附带的 Flutter debug 编译中发现可选接口类型提升错误，未生成或上传 APK；仅用显式可选接口 cast 修正为提交 `19045d3a3bcf927900d5ce383193a56cd8ce884b`，没有放宽测试或改行为。
+- **成功构建**：Actions run [#393](https://github.com/catkiss62/ai-companion-build/actions/runs/32705975991) 全部通过。APK `AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk`（构建日志约303.4 MB）；SHA-256 `a090e2beea02e3613b85bc4e7f8513e7cd7bee38e7aa3d496f95203ad754f575`；持久测试签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fcd73cd8f5c151b14de7>。
+- **真机验收（待用户）**：①相册图片与②相机拍照都应完成 Qwen 观察后真实进入 DeepSeek 回复，不再立刻显示“这一轮对话已中断”；③在识图/DeepSeek 回复中强杀仍应像 Stop 一样撤回且重开不自动重发；④故意造成 Qwen 失败时图片仍保留并可重试；⑤滑动短音效音量只改变情绪音效，TTS 音量不变，0%时 TTS 仍无需多等且不重叠；⑥测试后导出脱敏诊断，确认 imageVision 状态计数可见而无图片/文字泄漏。
+- **继续冻结**：用户已明确本批暂不处理蚂蚁财富等系统页触发的桌宠消失或悬浮恢复循环；不得把该现象误记为本版已修复。
 
 ## 0V. 2026-08-24 · v0.37.7 分层记忆召回重构与主动消息 Emotion 规范化（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
