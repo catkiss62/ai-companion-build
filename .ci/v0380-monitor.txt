@@ -1,7 +1,7 @@
 status=success
-run_id=32779319286
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32779319286
-head_sha=e6071fa86c429c09991121927c7423b1ca588799
+run_id=32781094596
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32781094596
+head_sha=6229d428c236116a9801728dc0048db5e2296219
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-f378927f39a12e85168114fc2ac23d97fb7cc723012f98c3b55b8a0cc98ce824  AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-dda7c66821fd1dbc5b0a
+1dcea6ad1938c4af969063601f51af30fa23968e15ce225114d034d07bb62e14  AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b977ea2fdd481f3b0920
