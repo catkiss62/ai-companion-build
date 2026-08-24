@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-24（Asia/Tokyo）
+更新时间：2026-08-25（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -15,9 +15,9 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAA. 2026-08-25 · v0.38.1 成年恋爱 / NSFW 常态能力与表现修复（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAA. 2026-08-25 · v0.38.1+100 成年恋爱 / NSFW 常态能力与表现修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
-> 用户已明确授权正式修改，并纠正项目早期方向：问题不是性格试穿或特殊风格本身，而是 LingChat / DeepSeek 鲸鱼娘核心人格外仍包着旧的“模仿真人边界”规则。本节是修改前总账；只有本提交成功后才允许修改运行源码。目标暂定 App `0.38.1+100`、SQLite 继续 schema32。
+> 本节先以提交 f195abc0c1a9931f7edc46a1d8150b991c4a0b97 完成修改前登记，随后已按用户授权完成运行源码、回归测试、Release APK 与交付 artifact；本节现为修改后总账。App 为 0.38.1+100、SQLite 继续 schema32；自动化已通过，尚不能写成真机通过。
 
 ### A. 最新产品决定与被废弃旧约束
 
@@ -49,6 +49,38 @@
 - Personality Catalog、试穿模板与 Emotion Episode 不重新加入底线说教；19标签剥离、兜底、立绘/音效映射保持。
 - Widget/纯函数测试证明 effect 与 portrait 共用用户变换和短动作；音效缺省/旧默认迁移为15%，用户自定义值保持有界。
 - 运行全部历史/current validators、Flutter analyze/tests、Kotlin桌宠回归、Release APK、固定签名、原生库、417桌宠与62个 LingChat 表现资源校验。自动化通过后仍需真机重点测试：日常色色玩笑、普通对话突然升温、完整成人场景连续性、边界测试不再输出政策式拒绝、立绘缩放/拖动时特效同步、首次开启音效为15%。
+
+
+### E. 实际实现与架构结果
+
+1. 六大规则、运行身份、日常说话、行为真实感、性格种子、性格试穿与八种特殊风格已统一改为“成年恋爱是同一人格的常态能力”：普通聊天可停在轻微暧昧，也可随真实语境自然升温；不再用底线、边界、许可、模式或 Session 宣讲打断关系。
+2. NsfwContextRouter 只选择 daily / explicit / reference 描写深度；daily 始终具备成人恋爱能力。Intimacy Session 只保存位置、动作、衣物、节奏与余韵，不再决定 libido、调情或成人话题能否形成。
+3. Desire/Prompt/主动联系链移除了普通会话对 libido 的全局过滤，默认 action 为 tease_or_intimacy；Desire → Thought → Intent → Gate → Outcome、失败/取消不 satisfy、事实 grounding 与设备操作权限仍保持。公开网页消费者仍可按自身用途显式过滤 libido，不反向改变伴侣人格。
+4. 成人渲染层由固定阶段、固定口令和强制同步流程改为自然接入、双向反馈、身体化视角、空间连续与余韵；Personality/Emotion 只改变表达颜色，不再注入抽象原则或“温柔边界”。
+5. App 聊天舞台把情绪 effect 与 portrait 放进同一用户缩放/位移及短动作变换组；立绘缩放、拖动、跳动或摇晃时，爱心、问号、汗滴等特效同步。
+6. 情绪短音效缺省值与数据库新装值改为 0.15；一次性迁移只把未改动的旧默认 1.0 降到15%，用户已有自定义值保持不变。TTS、通知音量与19类表现映射未改。
+7. 未恢复 native 19emo/ONNX 崩溃链；19类 Emotion envelope、确定性兜底、417桌宠源码/资源和62文件 LingChat 表现包保持。Dynamic Moe D2、九轴运行时接入与可见 UI 继续暂停；思考链自动翻译继续作为独立后续任务。
+
+### F. 提交、CI、签名与交付证据
+
+- 修改前总账提交：f195abc0c1a9931f7edc46a1d8150b991c4a0b97。
+- 主体实现提交：d9e21cf972ad3249236d611bdf0e35798f2bc466；后续提交均为版本基线、历史校验迁移、测试契约与 artifact 交付补全。最终可构建源码 head：7eb0c81c1cf4816bff90e4f087b9621ac4c2e090。
+- 活动 Draft PR：[PR #26](https://github.com/catkiss62/ai-companion-build/pull/26)；未把 Draft PR 写成已合并。
+- 最终成功 Actions：[run 32763715959 / #423](https://github.com/catkiss62/ai-companion-build/actions/runs/32763715959)。源码/历史/current validators、Kotlin 桌宠状态与物理测试、flutter analyze、Flutter 全量 241 tests、release APK、固定签名、原生库、19 Emotion、417桌宠与62文件 LingChat 表现包校验全部通过。
+- APK：AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk（303,394,754 bytes）。
+- APK SHA-256：d38d4a8a098ab780501b01a3cbc2fef0e2f20b6151e3bc6351b043f2abc94c87；本地交付文件已用 artifact 内校验文件复核一致。
+- 固定测试签名 SHA-256：30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，保持可覆盖安装。
+- Actions artifact：[artifact 9534138498](https://github.com/catkiss62/ai-companion-build/actions/runs/32763715959/artifacts/9534138498)，保留14天；artifact ZIP SHA-256：4f71ac45d09d57298afc706d453fbb8e08b03779044e281cb9834397ec10b311。
+- 最终私有草稿 Release：[v0.38.1 candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c7f38e77044148b687eb)。
+
+### G. 真机待验与后续顺序
+
+1. 覆盖安装后先测试普通闲聊中的轻微色色玩笑、原本正常话题突然升温、明确成人场景与余韵回到日常；重点观察是否还出现“规则/底线/边界/模式/Session/我不能”式出戏宣讲。
+2. 继续观察人格是否仍有主见、情绪惯性与可进可退的自然节奏，不能把“取消人格边界提示词”误解成每轮机械顺从或无关话题强制色情化。
+3. 缩放、拖动并触发多种19情绪，确认 effect 与立绘同步；首次/旧默认音效应约15%，用户自定义滑杆值不被覆盖。
+4. 自动化只能证明契约与构建通过；用户真机确认上述项目后，才可把本节改为 TRUE DEVICE PASSED。
+5. 真机通过前不启动 Dynamic Moe D2。思考链英文自动翻译仍待独立设计：需另行决定英文阈值、翻译提供方、缓存、失败回退与设置页，不能混入本批。
+
 
 ## 0ZZZ. 2026-08-25 · v0.38.0+99 19 Emotion 连续回落修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
