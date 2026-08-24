@@ -40,15 +40,16 @@ for key, expected in changed_hashes.items():
         assert f"'{key}': '{expected}'" in defaults, (key, actual)
 
 action_heading = "【动作与神态格式】"
+intimacy_action_heading = "【对白、动作与心理】"
 assert parsed["02_daily"].count(action_heading) == 1
 assert parsed["02_daily"].index("【成年恋爱与自然升温】") < parsed["02_daily"].index(
     action_heading
 )
-assert parsed["05_intimacy_rendering"].count(action_heading) == 1
+assert parsed["05_intimacy_rendering"].count(intimacy_action_heading) == 1
 assert parsed["05_intimacy_rendering"].index("【节奏而非流程】") < parsed[
     "05_intimacy_rendering"
-].index(action_heading)
-assert parsed["05_intimacy_rendering"].index(action_heading) < parsed[
+].index(intimacy_action_heading)
+assert parsed["05_intimacy_rendering"].index(intimacy_action_heading) < parsed[
     "05_intimacy_rendering"
 ].index("【连续性与余韵】")
 for token in (
