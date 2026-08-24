@@ -15,7 +15,7 @@ class DialogueTextSegment {
 List<DialogueTextSegment> splitDialogueText(String text) {
   if (text.isEmpty) return const [];
   final matches = RegExp(
-    r'「[^」\\n]*(?:」|$)',
+    r'「[^」\n]*(?:」|$)',
   ).allMatches(text);
   final segments = <DialogueTextSegment>[];
   var cursor = 0;
