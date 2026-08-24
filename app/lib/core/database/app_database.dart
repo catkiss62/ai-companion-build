@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../emotion/emotion_contract.dart';
 import '../models/chat_message.dart';
 import '../platform/android_bridge.dart';
 import '../models/emotion_episode.dart';
@@ -2852,6 +2853,29 @@ class AppDatabase {
       orderBy: 'created_at DESC',
       limit: 4,
     );
+    final sourceRows = await db.rawQuery(
+      "SELECT emotion_source, COUNT(*) AS count FROM messages "
+      "WHERE role = 'assistant' AND emotion_key <> '' "
+      'GROUP BY emotion_source ORDER BY emotion_source ASC',
+    );
+    final parseStatusCounts = <String, int>{};
+    for (final row in sourceRows) {
+      final status = EmotionSource.diagnosticStatus(
+        row['emotion_source']?.toString() ?? '',
+      );
+      final count = (row['count'] as num?)?.toInt() ?? 0;
+      parseStatusCounts[status] = (parseStatusCounts[status] ?? 0) + count;
+    }
+    final redactedLatestLabels = latestLabels
+        .map(
+          (row) => <String, Object?>{
+            ...row,
+            'emotion_parse_status': EmotionSource.diagnosticStatus(
+              row['emotion_source']?.toString() ?? '',
+            ),
+          },
+        )
+        .toList(growable: false);
     return <String, Object?>{
       'episodeTotal': total,
       'episodeActive': active,
@@ -2860,7 +2884,8 @@ class AppDatabase {
           row['category']?.toString() ?? '': (row['count'] as num?)?.toInt() ?? 0,
       },
       'latestEpisodes': latestEpisodes,
-      'latestAssistantLabels': latestLabels,
+      'latestAssistantLabels': redactedLatestLabels,
+      'emotionParseStatusCounts': parseStatusCounts,
       'messageBodiesIncluded': false,
       'triggerMessageIdsIncluded': false,
       'rawEmotionTagsIncluded': false,

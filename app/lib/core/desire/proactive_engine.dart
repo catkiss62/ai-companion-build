@@ -671,6 +671,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     final companionEmotion = await EmotionClassifierService.instance.resolve(
       rawTag: emotionEnvelope.rawTag,
       visibleText: text,
+      envelopeStatus: emotionEnvelope.status,
     );
 
     // The model call can take long enough for the real world to change. The

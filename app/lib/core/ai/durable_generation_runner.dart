@@ -552,6 +552,7 @@ class DurableGenerationRunner {
       final companionEmotion = await emotionClassifier.resolve(
         rawTag: envelope.rawTag,
         visibleText: finalContent,
+        envelopeStatus: envelope.status,
       );
 
       final visibleReasoning = preserveProviderReasoning(generated.reasoning);

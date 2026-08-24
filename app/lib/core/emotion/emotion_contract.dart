@@ -47,7 +47,7 @@ class CompanionEmotion {
     label: '平静',
     confidence: 0,
     top3: <EmotionScore>[],
-    source: 'fallback',
+    source: EmotionSource.fallback,
   );
 
   String get top3Json => jsonEncode(
@@ -70,6 +70,31 @@ class CompanionEmotion {
       return const <EmotionScore>[];
     }
   }
+}
+
+class EmotionSource {
+  const EmotionSource._();
+
+  static const llm = 'llm';
+  static const llmRecovered = 'llm_recovered';
+  static const fallbackMissing = 'heuristic_missing_tag';
+  static const fallbackEmpty = 'heuristic_empty_tag';
+  static const fallbackInvalid = 'heuristic_invalid_tag';
+  static const fallbackMalformed = 'heuristic_malformed_tag';
+  static const fallbackLegacy = 'heuristic';
+  static const fallback = 'fallback';
+
+  static String diagnosticStatus(String source) => switch (source) {
+        llm => 'valid_tag',
+        llmRecovered => 'recovered_tag',
+        fallbackMissing => 'missing_tag',
+        fallbackEmpty => 'empty_tag',
+        fallbackInvalid => 'invalid_tag',
+        fallbackMalformed => 'malformed_tag',
+        fallbackLegacy => 'legacy_heuristic',
+        fallback => 'neutral_fallback',
+        _ => 'unknown_source',
+      };
 }
 
 class EmotionCatalog {
@@ -128,6 +153,8 @@ class EmotionCatalog {
     '无语': 'helpless',
     '情动': 'affection',
     '慌乱': 'flustered',
+    '开心': 'happy',
+    '激动': 'excited',
   };
 
   static final keysByLabel = <String, String>{
@@ -141,7 +168,7 @@ class EmotionCatalog {
   static String normalizeTag(String value) => value
       .trim()
       .replaceAll(RegExp(r'^[\[【（(<{]+|[\]】）)>}]+$'), '')
-      .replaceAll(RegExp(r'^(情绪|emotion)\s*[:：]\s*', caseSensitive: false), '')
+      .replaceAll(RegExp(r'^(情绪|emotion)\s*[:：=]\s*', caseSensitive: false), '')
       .trim();
 
   static String keyForLabel(String label) =>
@@ -152,16 +179,27 @@ class EmotionCatalog {
   static String minimaxEmotionForKey(String key) => minimaxByKey[key] ?? 'neutral';
 }
 
+enum EmotionEnvelopeStatus {
+  canonical,
+  recovered,
+  missing,
+  empty,
+  invalid,
+  malformed,
+}
+
 class EmotionEnvelopeData {
   const EmotionEnvelopeData({
     required this.rawTag,
     required this.visibleText,
     required this.found,
+    required this.status,
   });
 
   final String rawTag;
   final String visibleText;
   final bool found;
+  final EmotionEnvelopeStatus status;
 }
 
 class EmotionEnvelope {
@@ -183,6 +221,18 @@ class EmotionEnvelope {
     r'<\s*emotion\b',
     caseSensitive: false,
   );
+  static final RegExp _recoverableXmlFirstLine = RegExp(
+    r'^\s*<\s*emotion\s*>\s*([^<\r\n]{1,80}?)\s*(?:\r?\n|$)',
+    caseSensitive: false,
+  );
+  static final RegExp _recoverableNamedFirstLine = RegExp(
+    r'^\s*(?:[\[【(（]\s*)?(?:emotion|情绪)\s*[:：=]\s*([^\]】)）\r\n]{1,80}?)(?:\s*[\]】)）])?\s*(?:\r?\n|$)',
+    caseSensitive: false,
+  );
+  static final RegExp _malformedFirstLine = RegExp(
+    r'^\s*<\s*emotion\b[^\r\n]*(?:\r?\n|$)',
+    caseSensitive: false,
+  );
 
   static EmotionEnvelopeData parse(String raw) {
     final matches = _complete.allMatches(raw).toList(growable: false);
@@ -192,13 +242,57 @@ class EmotionEnvelope {
       if (rawTag.isEmpty) rawTag = candidate;
       if (EmotionCatalog.isCanonicalLabel(candidate)) {
         rawTag = candidate;
-        break;
+        return EmotionEnvelopeData(
+          rawTag: rawTag,
+          visibleText: _stripReservedMarkup(raw).trim(),
+          found: true,
+          status: EmotionEnvelopeStatus.canonical,
+        );
       }
     }
+    if (matches.isNotEmpty) {
+      return EmotionEnvelopeData(
+        rawTag: rawTag,
+        visibleText: _stripReservedMarkup(raw).trim(),
+        found: true,
+        status: rawTag.isEmpty
+            ? EmotionEnvelopeStatus.empty
+            : EmotionEnvelopeStatus.invalid,
+      );
+    }
+
+    for (final pattern in [
+      _recoverableXmlFirstLine,
+      _recoverableNamedFirstLine,
+    ]) {
+      final match = pattern.firstMatch(raw);
+      if (match == null) continue;
+      final candidate = EmotionCatalog.normalizeTag(match.group(1) ?? '');
+      return EmotionEnvelopeData(
+        rawTag: candidate,
+        visibleText: _stripReservedMarkup(raw).trim(),
+        found: true,
+        status: candidate.isEmpty
+            ? EmotionEnvelopeStatus.empty
+            : EmotionCatalog.isCanonicalLabel(candidate)
+                ? EmotionEnvelopeStatus.recovered
+                : EmotionEnvelopeStatus.invalid,
+      );
+    }
+
+    final hasEmptyEnvelope =
+        _selfClosing.hasMatch(raw) || _closing.hasMatch(raw);
+    final hasMalformedEnvelope =
+        _opening.hasMatch(raw) || _malformedFirstLine.hasMatch(raw);
     return EmotionEnvelopeData(
-      rawTag: rawTag,
+      rawTag: '',
       visibleText: _stripReservedMarkup(raw).trim(),
-      found: matches.isNotEmpty,
+      found: hasEmptyEnvelope || hasMalformedEnvelope,
+      status: hasMalformedEnvelope
+          ? EmotionEnvelopeStatus.malformed
+          : hasEmptyEnvelope
+              ? EmotionEnvelopeStatus.empty
+              : EmotionEnvelopeStatus.missing,
     );
   }
 
@@ -208,6 +302,9 @@ class EmotionEnvelope {
 
   static String _stripReservedMarkup(String raw) {
     var value = raw.replaceAll(_complete, '');
+    value = value.replaceFirst(_recoverableXmlFirstLine, '');
+    value = value.replaceFirst(_recoverableNamedFirstLine, '');
+    value = value.replaceFirst(_malformedFirstLine, '');
     value = value.replaceAll(_selfClosing, '');
     value = value.replaceAll(_closing, '');
 
