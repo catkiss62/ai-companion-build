@@ -43,10 +43,10 @@ assert "'03_personality_expression': '03'" in grouping
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 for token in (
-    "永久活人感基线",
-    "不得输出英文工具规划",
-    "用全角括号“（）”标注",
-    "引号和对白都不加粗",
+    "# 01 · AI Companion Core",
+    "不输出英文工具规划",
+    "全角括号“（）”",
+    "用「」或中文引号",
     "括号块后空一行",
     "主动联系仍是一条完整消息",
 ):

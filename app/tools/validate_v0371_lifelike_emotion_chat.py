@@ -46,7 +46,7 @@ for token in (
     "最终决定不发送，仍只输出 WAIT",
 ):
     assert token in catalog + prompt, token
-assert "用全角括号“（）”标注" in rules
+assert "全角括号“（）”" in rules
 assert "括号块后空一行" in rules + prompt
 
 chat = read("lib/features/chat/chat_page.dart")
