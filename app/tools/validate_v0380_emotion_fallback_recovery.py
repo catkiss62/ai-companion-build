@@ -22,7 +22,11 @@ workflow = read("../.github/workflows/build-apk.yml")
 
 assert any(
     version in pubspec
-    for version in ("version: 0.38.0+99", "version: 0.38.1+100")
+    for version in (
+        "version: 0.38.0+99",
+        "version: 0.38.1+100",
+        "version: 0.38.2+101",
+    )
 )
 assert "static const int schemaVersion = 32;" in database
 assert "schemaVersion = 33" not in database
@@ -100,14 +104,17 @@ for alternatives in (
     (
         "Build AI Companion v0.38.0+99 APK (19 Emotion Recovery)",
         "Build AI Companion v0.38.1+100 APK (Adult Relationship Capability)",
+        "Build AI Companion v0.38.2+101 APK (Dynamic Moe D2 + Dual Portraits)",
     ),
     (
         "AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk",
         "AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk",
+        "AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK.apk",
     ),
     (
         "v0.38.0-emotion-recovery-test",
         "v0.38.1-adult-relationship-capability-test",
+        "v0.38.2-dynamic-moe-d2-dual-portraits-test",
     ),
 ):
     assert any(token in workflow for token in alternatives), alternatives
