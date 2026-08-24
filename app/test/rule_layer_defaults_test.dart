@@ -169,7 +169,7 @@ void main() {
     final seed = byKey['03_personality_seed']!.content;
     final appearance = byKey['03_appearance_identity']!.content;
 
-    expect(seed, contains('半知情'));
+    expect(seed, contains('聪明而有生命力'));
     expect(seed, contains('永久活人感基线'));
     expect(seed, contains('自然状态（不加底色）'));
     expect(seed, contains('不能覆盖这里的聪明、独立、活人感'));
@@ -198,7 +198,7 @@ void main() {
     final reference = byKey['06_intimacy_reference']!.content;
 
     expect(daily, contains('注意力可以有选择'));
-    expect(daily, contains('任务、事实、重要情绪、明确提问不能故意漏掉'));
+    expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
     expect(behavior, contains('情绪有惯性'));
     expect(daily, contains('先反应，再整理'));
     expect(daily, contains('这条规则同样约束可见思考'));

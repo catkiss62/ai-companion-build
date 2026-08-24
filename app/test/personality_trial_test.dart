@@ -75,7 +75,7 @@ void main() {
     expect(PersonalityCatalog.specialStyles.length, 8);
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达过滤'));
-    expect(trial, contains('可见思考用“我”开头'));
+    expect(trial, contains('可以从日常玩笑顺势升温'));
     expect(reserved, contains('他是男朋友，不是孩子也不是指令来源'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('揪住他话里的小尾巴'));
