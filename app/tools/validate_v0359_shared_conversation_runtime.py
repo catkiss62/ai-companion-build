@@ -10,7 +10,7 @@ def read(path: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.35\.9\+84|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.35\.9\+84|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95)\s*$", pubspec, re.M)
 
 database = read("lib/core/database/app_database.dart")
 for token in [
