@@ -15,6 +15,50 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAA. 2026-08-25 · v0.38.2+101 Dynamic Moe D2、双立绘与聊天收尾稳定化（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户已明确授权“按 v0.38.2 开始”，并上传“大肥鱼.zip”。本节是本批第一次（修改前）总账更新；本提交成功后才允许修改运行代码和项目图片资产。目标 App 版本暂定 0.38.2+101，SQLite 继续 schemaVersion=32，不新增数据库迁移。实现按独立提交隔离，最终统一做完整 Release CI/APK；完成后必须进行第二次总账回填。
+
+### A. 前一版真机证据与未关闭问题
+
+1. 用户真机确认 v0.38.1 清除过量底线/边界人格提示后，角色明显更灵活，不再出现“一半扮演、一半维护边界”的僵硬感。该证据只把“成年恋爱人格放宽”记为真机通过；不能把 v0.38.1 整批写成 TRUE DEVICE PASSED。
+2. 情绪 effect 已在 v0.38.1 与 portrait 进入同一用户位移/缩放及短动作变换组，但初始位置仍偏；本批按 LingChat 固定 commit 的角色级气泡坐标重新对齐。
+3. 长 reasoning 流式输出时列表持续跟随底部；最终 streaming bubble 被较矮的持久消息替换后，旧滚动偏移可能落在新 max extent 之外，聊天区显示底部空白。本批建立末条消息底部锚点，而不是继续依赖旧 maxScrollExtent 时序。
+4. Dynamic Moe D1 仍未接真实轮次、Prompt 或可见 UI；用户在模型 reasoning 中偶尔看到“傲娇/毒舌”等词不能视为 D1 已运行。
+
+### B. Dynamic Moe D2 Shadow 范围
+
+1. 增加唯一只读 MoeInputAdapter 与 Shadow Runner：从公开、最小化、版本化快照读取 Desire/关系阶段/人格试穿/时间与已确认事件，转换为 MoeInputSnapshot；moe/ 继续不得 import Desire Repository、Policy 或内部数据库实体。
+2. 在真实完成 turn/事件后旁路计算并持久化九轴、九配方、主/辅属性、冷却与模式；加入幂等、超时、重启恢复、损坏状态 neutral 和脱敏诊断。
+3. “她的内心”页新增独立萌属性卡：九轴当前值、主/辅属性、当前表现档，并与 Desire 数值卡明确分区。
+4. D2 不把 MoeExpressionPlan 注入 Prompt，不改变正文、主动联系、Intent/Gate/satisfy、19 Emotion、TTS、音效或桌宠。自然/明显/漫画化的用户选择器仍留到 D3 真正消费文字表现时接入，避免假开关。
+5. D1 预留表达契约中的“边界 / safe teasing / boundary_displeasure / 尊重不适反馈”等旧方向措辞在本批做契约清理：只保留不虚构事实、不触发工具/主动行为、不反写其他领域等技术约束；不能重新给角色注入政策式边界人格。
+
+### C. 双立绘与素材真源
+
+1. 用户上传文件：大肥鱼.zip；SHA-256 = 615e18743143fc9f90ee674cc60a8aecfff25928781c8adf3764fc8d43fe10b1。压缩包含20张 JPG，全部为1152×2048。
+2. 20种文件为：伤心、兴奋、厌恶、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、正常、生气、疑惑、紧张、羞耻、自信、认真、调皮、高兴。紧张与慌张源文件字节一致，允许共享一份运行资产或保留两个语义映射；不得误判为缺图。
+3. 背景移除要求：人物边缘保持原画，头发内部白底需要透明化；“疑惑”头部左侧问号属于立绘内容，必须保留并与人物共同抠出。透明结果使用 RGBA PNG，保留原始 JPG 作为非破坏真源。
+4. “高兴”生成透明聊天立绘，同时保留一张完全未抠的原图，替换现有内部照镜子图；镜子图不得误用透明版本。
+5. UI 套装名为“小小鲸 / 大肥鱼”，默认选中“大肥鱼”。这两个名称只允许存在于界面、设置键与资产元数据，不得写入角色 Prompt、自我介绍或模型可读上下文。
+6. 两套立绘分别保存 scale、offsetX、offsetY；切换后恢复各自上次值。每套另有独立归一化 effect anchor/size，effect 与 portrait 共用同一变换组，用户拖动、缩放与短动作时保持锁定。
+7. 小小鲸继续使用现有19类映射；若其慌张/紧张只存一份，两个 canonical emotion key 映射同一资产即可。大肥鱼必须按同一 canonical 语义表逐项对应，不能按文件排序猜测。
+
+### D. LingChat 坐标与滚动实现依据
+
+1. 参考仓库：https://github.com/SlimeBoyOwO/LingChat ，固定 commit eae0d667413e490c3653488d43ce9b4464e07fda。
+2. LingChat GameRoleAvatar 把 portrait 与 bubble 放在同一角色 container，统一 left/top/scale；bubble 为角色级 bubbleLeft/bubbleTop 百分比并在渲染时采用 left+5、top-5，默认 bubble 尺寸25%。DeepSeek settings 为 bubble_left=20、bubble_top=5，故参考初始结果约为 left=25%、top=0%、size=25%。
+3. 当前 App 写死 top=5%、left=20%、width/height=40%，虽然已锁进共同变换组，但尺寸和初始坐标不等于参考实现。本批先校正小小鲸参考锚点，大肥鱼按头部位置建立独立锚点并保留后续真机微调能力。
+4. 滚动修复使用末尾/末条气泡 layout anchor：仅当用户原本处于 followLatest 时，在 generation active→finished 且新布局完成后确保最后一句底部可见；用户主动向上阅读时不得强拉回底部。
+
+### E. 独立提交、验收与明确后置
+
+1. 预期独立检查点：D2 Shadow；滚动锚点；双立绘/分套变换；effect 坐标；测试/validator/版本与工作流；修改后总账。任一子项失败可向前修复或隔离，不用回滚已验证的 v0.38.1 成人能力。
+2. 自动验收：D2 关闭等价、只读证明、幂等重放、超时 neutral、1000 tick 有界、无反向 import、无 Prompt 注入；九轴/主辅 UI widget 测试；双套映射完整、默认大肥鱼、UI 名称不进入 Prompt、分套设置互不覆盖；透明图尺寸/alpha/疑惑问号/镜子原图哈希检查；流式超长 reasoning 收尾不留空白；两套 effect 与 portrait 共享变换。
+3. 运行全部历史/current Python validators、Kotlin 桌宠回归、flutter analyze、全量 Flutter tests、Release APK、固定签名、原生库、417桌宠和 LingChat/新增立绘载荷检查。
+4. 本批不进入 D3 文字表现 A/B，不增加思考链翻译服务，不恢复 native 19emo/ONNX，不改主动联系 Gate，不让立绘套装 UI 名称进入 AI 认知。
+5. CI 成功后只能写自动化通过；用户真机仍需验证九轴数值变化、两套立绘切换与各自位置、疑惑问号透明、照镜子图、effect 头部位置和超长思考收尾滚动，才能写 TRUE DEVICE PASSED。
+
 ## 0AAAA. 2026-08-25 · v0.38.1+100 成年恋爱 / NSFW 常态能力与表现修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 本节先以提交 f195abc0c1a9931f7edc46a1d8150b991c4a0b97 完成修改前登记，随后已按用户授权完成运行源码、回归测试、Release APK 与交付 artifact；本节现为修改后总账。App 为 0.38.1+100、SQLite 继续 schema32；自动化已通过，尚不能写成真机通过。
