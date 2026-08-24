@@ -71,7 +71,7 @@ for token in (
     "保存性格",
     "还原默认性格",
     "长期记忆、关系经历、Desire 和已经形成的 AI Self 不会被删除",
-    "assets/appearance/dafeiyu_reference.webp",
+    "assets/appearance/large_whale_mirror.jpg",
     "大肥鱼 · 只由用户调侃",
 ):
     assert token in page, token
