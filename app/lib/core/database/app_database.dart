@@ -51,7 +51,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 28;
   // Historical validator compatibility token: static const int schemaVersion = 29;
   // Historical validator compatibility token: static const int schemaVersion = 30;
-  static const int schemaVersion = 31;
+  // Historical validator compatibility token: static const int schemaVersion = 31;
+  static const int schemaVersion = 32;
 
   Database? _db;
   Future<Database>? _opening;
@@ -883,6 +884,9 @@ class AppDatabase {
       }
       await _createV31Tables(db);
     }
+    if (oldVersion < 32) {
+      await _createV32Tables(db);
+    }
 
   }
 
@@ -1046,6 +1050,7 @@ class AppDatabase {
     await _createV26Tables(db);
     await _createV29Tables(db);
     await _createV31Tables(db);
+    await _createV32Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1734,6 +1739,75 @@ class AppDatabase {
     ''');
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_personality_profiles_active ON personality_profile_versions(active, activated_at DESC)',
+    );
+  }
+
+
+  Future<void> _createV32Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS moe_axis_state (
+        axis_key TEXT PRIMARY KEY,
+        baseline REAL NOT NULL,
+        current_value REAL NOT NULL,
+        updated_at INTEGER NOT NULL,
+        policy_version INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_moe_axis_updated '
+      'ON moe_axis_state(updated_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS moe_recipe_state (
+        recipe_key TEXT PRIMARY KEY,
+        strength REAL NOT NULL,
+        active INTEGER NOT NULL DEFAULT 0,
+        entered_at INTEGER,
+        exited_at INTEGER,
+        cooldown_until INTEGER,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_moe_recipe_active '
+      'ON moe_recipe_state(active, strength DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS moe_events (
+        idempotency_key TEXT PRIMARY KEY,
+        source_type TEXT NOT NULL,
+        cause_tag TEXT NOT NULL,
+        pulses_json TEXT NOT NULL,
+        context_tags_json TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_moe_events_time '
+      'ON moe_events(occurred_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS moe_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        enabled INTEGER NOT NULL DEFAULT 1,
+        expression_mode TEXT NOT NULL DEFAULT 'obvious',
+        contract_version INTEGER NOT NULL DEFAULT 1,
+        policy_version INTEGER NOT NULL DEFAULT 1,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.insert(
+      'moe_config',
+      {
+        'id': 1,
+        'enabled': 1,
+        'expression_mode': 'obvious',
+        'contract_version': 1,
+        'policy_version': 1,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
@@ -9469,6 +9543,10 @@ class AppDatabase {
       'somatic_events',
       'somatic_aggregates',
       'emotion_episodes',
+      'moe_axis_state',
+      'moe_recipe_state',
+      'moe_events',
+      'moe_config',
       'settings',
     ];
     // Read the whole state inside one SQLite transaction so background
@@ -9544,6 +9622,10 @@ class AppDatabase {
         'somatic_events',
         'somatic_aggregates',
         'emotion_episodes',
+        'moe_axis_state',
+        'moe_recipe_state',
+        'moe_events',
+        'moe_config',
         'desire_state',
         'settings',
       ];
@@ -9724,6 +9806,18 @@ class AppDatabase {
           );
         }
       }
+      await txn.insert(
+        'moe_config',
+        {
+          'id': 1,
+          'enabled': 1,
+          'expression_mode': 'obvious',
+          'contract_version': 1,
+          'policy_version': 1,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
       if (version < 13) {
         // Old state packages predate proactive presentation metadata. Rebuild
         // the same conservative categories used by the v13 database upgrade
