@@ -15,6 +15,47 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0ZZZ. 2026-08-25 · v0.38.0+99 19 Emotion 连续回落修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 本节是用户要求的本批第二次（修改后）总账更新。开工前总账提交为 `a1292ca481dfab15c7bd9037b6bc6707368d9bb9`；现已在 schema32 基线上完成向前修复并取得完整 Release CI/APK 证据。不能把自动化通过写成真机通过；Dynamic Moe D2 与可见 Moe UI 仍未开始。
+
+### A. 实际实现
+
+1. `EmotionEnvelopeData` 新增逐轮状态：`canonical / recovered / missing / empty / invalid / malformed`。完整合法 XML 仍是最高优先级；首行缺闭合 XML、`[emotion:…]`、`【情绪：…】`、`情绪：…` 只在可安全确认机器元数据时恢复，普通正文中的“情绪：”不会被误删。
+2. 严格标签、容错标签、空标签、非法标签、畸形标签与完全缺失分别写入现有 `emotion_source` 的脱敏来源码；没有新增消息正文或 raw tag 导出，也没有改 SQLite schema。
+3. 兜底从原先少量顺序 if/else 扩为确定性19类中文线索评分：覆盖动作神态、口语和组合标点，处理“不生气/没有生气/不害怕”等否定，输出有界 confidence/top3；没有有效证据时仍返回平静，不随机轮换。
+4. 用户 durable turn 与主动消息都把同一 `envelope.status` 传给分类器；合法标签继续 `source=llm/confidence=1`，安全容错为 `llm_recovered`，失败来源区分 missing/empty/invalid/malformed。
+5. Prompt 进一步明确标签必须写在最终 `content` 第一行，不能只写进 reasoning/思考；机器标签在流式阶段也被保留，容错括号格式不会先闪出半截标签。
+6. 脱敏诊断新增 `emotion_parse_status` 与 `emotionParseStatusCounts`，可看到 valid/recovered/missing/empty/invalid/malformed/legacy 分布；查询列仍不包含 `emotion_raw_tag`，`rawEmotionTagsIncluded=false` 保持。
+
+### B. 保持不变的安全与架构边界
+
+- App `0.38.0+99`；SQLite 仍为 `schemaVersion=32`，没有降级、33迁移或新情绪表。
+- 没有恢复 native 19emo、ONNX Runtime、MethodChannel 分类器或崩溃路径；分类失败不会中断 durable commit。
+- 没有修改19张立绘、头像标签消费者、情绪音效/TTS映射、桌宠动作、Emotion Episode、Desire、Memory、Relationship 或 Agent Gate。
+- Dynamic Moe 仍是未接运行时的 D1旁路底座；D2、九轴真值、数值卡、档位选择与锁定 UI 均未实现。
+- `hasAsyncWorkerError=true` 仍作为独立旧告警保留，本批未凭相关性不足顺手修改。
+
+### C. 提交、CI 与 APK 事实
+
+- 开工前总账：`a1292ca481dfab15c7bd9037b6bc6707368d9bb9`。
+- 主体实现提交：`1b46cc5adc5a3f2a9b8826e955d59822558c449f`；流式机器标签与空/畸形分类补强提交：`920492e2f4d6d9d07c6e3e3ec7cc1e297e9f8b00`。
+- 完整成功 Actions run：[32747973466](https://github.com/catkiss62/ai-companion-build/actions/runs/32747973466)（run #407）；分支源码 head `920492e2...`，PR merge SHA `0472cb79a5f3e01a911141458184a970ccce93b7`。
+- 全部历史/current Python validators 通过；新增 `validate_v0380_emotion_fallback_recovery.py` 通过。
+- Kotlin 桌宠回归、`flutter analyze`、全量 `flutter test`（包含19类固定回放、容错/否定/脱敏测试）、Release APK 编译、固定签名、原生库、417桌宠文件及冻结表现载荷全部通过。
+- APK：`AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk`。
+- APK SHA-256：`3ad7c0cbbd60b9fb57ad0f38778833a9b8d749a6a1a410dddd95187fe0525a02`。
+- 固定签名：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.37.9 覆盖安装。
+- 私有草稿 Release：[v0.38.0 19 Emotion recovery candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce96589d32f89e9d97a2)。
+
+### D. 真机验收与下一步
+
+1. 覆盖安装后连续测试至少高兴、害羞、生气、疑惑、认真、心动与普通中性场景，观察头像旁标签是否重新变化且与语气大体一致。
+2. 测试6～10轮后导出新脱敏诊断；重点看 `emotionParseStatusCounts` 和最近四轮 `emotion_parse_status`。若模型恢复严格标签应出现 `valid_tag`；若仍不守格式但本地兜底生效，应出现 `missing_tag/invalid_tag` 且最终 key 不再全部 calm。
+3. 本版修复的是“持续回落到平静”的可恢复性与诊断能力，不宣称关键词评分等于完整语义模型；含蓄、反讽或无明显动作线索的句子仍可能合理落到平静。若真机仍大量缺标签且兜底不准，下一步再评估独立结构化轻量分类调用，不能恢复旧 native 崩溃链或用随机情绪遮盖。
+4. 用户确认本版情绪恢复前不启动 Dynamic Moe D2。通过后再按原计划做 Shadow Runner、九轴旁路值和内在状态数值卡；头像/名字页的自然/明显/漫画化控件仍等到文字表现真正消费档位时接入。
+
+
 ## 0ZZ. 2026-08-25 · v0.38.0 19 Emotion 连续回落修复（IN PROGRESS / PRE-TASK LEDGER）
 
 > 用户真机确认：头像旁情绪近期几乎持续显示“平静”，并要求在继续萌属性前先检查严重错误。只读审计已完成，本节是本批第一次（修改前）总账更新；提交成功后才允许修改运行代码。当前决定是不回退 schema32/D1，而是在现有分支向前修复既有19 Emotion 标签链路；Dynamic Moe D2、数值 UI 和档位控件继续暂停。
