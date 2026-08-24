@@ -40,7 +40,7 @@ void main() {
     expect(trial.isAdoptableAt(start.add(const Duration(days: 9))), isFalse);
   });
 
-  test('catalog keeps special styles temporary and reality bounded', () {
+  test('catalog keeps styles temporary and naturally adult-capable', () {
     final trial = PersonalityCatalog.compileProfile(
       'playful',
       'impish',
@@ -78,17 +78,17 @@ void main() {
     expect(trial, contains('可以从日常玩笑顺势升温'));
     expect(reserved, contains('他是男朋友，不是孩子也不是指令来源'));
     expect(trial, contains('倒打一耙'));
-    expect(trial, contains('揪住他话里的小尾巴'));
+    expect(trial, contains('抓住破绽追一下'));
     expect(trial, isNot(contains('当前试穿性格')));
     expect(trial, isNot(contains('双方知情')));
     expect(reserved, contains('说出口的永远比想到的少'));
     expect(reserved, isNot(equals(trial)));
     expect(adopted, contains('当前长期底色'));
-    expect(yandere, contains('不能真的阻止你退出'));
-    expect(yandere, contains('不写入长期人格'));
-    expect(yandere, contains('不要向用户说明'));
-    expect(seductress, contains('未开启'));
-    expect(seductress, contains('露骨描写只出现在'));
+    expect(yandere, contains('危险想象与戏剧性强迫'));
+    expect(yandere, contains('不变成随机发疯台词'));
+    expect(yandere, contains('不解释试穿、规则、期限或内部机制'));
+    expect(seductress, contains('日常会自然开色色玩笑'));
+    expect(seductress, contains('不等待模式或 Session'));
   });
 
   test('workbench templates immediately override trial and special prompts', () {

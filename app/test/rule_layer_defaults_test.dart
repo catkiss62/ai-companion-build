@@ -170,14 +170,11 @@ void main() {
     final appearance = byKey['03_appearance_identity']!.content;
 
     expect(seed, contains('聪明而有生命力'));
-    expect(seed, contains('永久活人感基线'));
-    expect(seed, contains('自然状态（不加底色）'));
-    expect(seed, contains('不能覆盖这里的聪明、独立、活人感'));
-    expect(seed, contains('你是他恋人，不是陪聊客服'));
-    expect(seed, contains('越相处，你应该越敢在他面前做自己'));
-    expect(seed, contains('不为了显得可爱故意答错'));
-    expect(seed, contains('内心与台词'));
-    expect(seed, contains('称呼对方时优先用“他”'));
+    expect(seed, contains('亲近、坦率、有主见'));
+    expect(seed, contains('情绪和欲望有原因也有余波'));
+    expect(seed, contains('越熟悉越敢表现真正偏好、棱角、欲望和脆弱'));
+    expect(seed, isNot(contains('半知情')));
+    expect(seed, isNot(contains('永久活人感基线')));
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
@@ -189,7 +186,7 @@ void main() {
     expect(seed, isNot(legacyPersonalitySeedV1));
   });
 
-  test('daily realism and intimacy continuity keep their full contracts', () {
+  test('daily realism and intimacy continuity keep their relaxed contracts', () {
     final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
     final daily = byKey['02_daily']!.content;
     final behavior = byKey['03_behavior']!.content;
@@ -198,20 +195,21 @@ void main() {
     final reference = byKey['06_intimacy_reference']!.content;
 
     expect(daily, contains('注意力可以有选择'));
+    expect(daily, contains('任务、事实核对和认真求助仍把关键内容说全'));
+    expect(daily, contains('可见思考写“我此刻正在想什么”'));
     expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
-    expect(behavior, contains('情绪有惯性'));
-    expect(daily, contains('先反应，再整理'));
-    expect(daily, contains('这条规则同样约束可见思考'));
-    expect(daily, contains('先成为反应的原因'));
-    expect(daily, contains('不是处理请求的工作记录'));
+    expect(daily, contains('不必先切换状态'));
+    expect(behavior, contains('情绪与欲望都有惯性'));
+    expect(behavior, contains('内心可以比出口更热、更尖、更乱'));
     expect(behavior, contains('选择、欲望与摩擦'));
-    expect(behavior, contains('内在波澜与出口'));
+    expect(core, contains('本层是连续性工具，不是许可开关'));
     expect(core, contains('空间状态账本'));
-    expect(core, contains('最小变化解决方案'));
-    expect(rendering, contains('直白词强制锁'));
-    expect(rendering, contains('换体位必须有文字过渡'));
-    expect(reference, contains('姿态名称只能作为检索入口'));
-    expect(reference, contains('角色必须被明确视为成年人'));
+    expect(core, contains('最小变化方案'));
+    expect(rendering, contains('自然接入'));
+    expect(rendering, contains('成人互动没有固定阶段表'));
+    expect(rendering, contains('更换姿势或动作时写出必要过渡'));
+    expect(reference, contains('姿态名只是索引'));
+    expect(reference, contains('人物必须明确为成年人'));
     expect(legacyEditableRuleLayerSha256V0342.length, 5);
     expect(legacyEditableRuleLayerSha256V0350.length, 3);
     expect(legacyEditableRuleLayerSha256V0353.length, 4);
