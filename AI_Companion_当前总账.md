@@ -15,6 +15,45 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0ZZ. 2026-08-25 · v0.38.0 19 Emotion 连续回落修复（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户真机确认：头像旁情绪近期几乎持续显示“平静”，并要求在继续萌属性前先检查严重错误。只读审计已完成，本节是本批第一次（修改前）总账更新；提交成功后才允许修改运行代码。当前决定是不回退 schema32/D1，而是在现有分支向前修复既有19 Emotion 标签链路；Dynamic Moe D2、数值 UI 和档位控件继续暂停。
+
+### A. 真机证据与根因边界
+
+- 旧报告 `v0.37.8+97 / schema31` 的最近四条助手记录为三条平静、一条惊讶，四条均为 `emotion_source=heuristic`；问题在 Dynamic Moe D1 APK 构建前已经存在。
+- 新报告 `v0.37.9+98 / schema32` 的最近四条全部为平静、`confidence=0`、`emotion_source=heuristic`；数据库、生成任务和 schema32 迁移均正常，没有 active/failed generation job。
+- 现有实现逐轮独立解析 `<emotion>...</emotion>`；不存在“一轮失败后永久锁死”的状态。合法标签走 `source=llm`，缺失或非法标签逐轮进入简易关键词兜底；兜底未命中时固定返回平静。
+- D1 前后以及实际成功 APK merge commit 中，`emotion_contract.dart`、`emotion_classifier_service.dart`、`durable_generation_runner.dart`、`prompt_builder.dart`、`chat_page.dart` 与视觉映射 blob 均一致。D1 没有接入 Prompt/聊天/19 Emotion，因此回退 D1不能修复本问题。
+- 新报告另有 `hasAsyncWorkerError=true`，但 post-turn jobs 全部 done、pending/failed generation 为0，当前没有证据把它与情绪回落合并；作为独立待查项保留。
+- 脱敏报告当前不导出 raw tag，尚不能区分“完全缺失 / XML格式损坏 / 非19类标签”；本批必须补充不含正文和原标签的原因分类。
+
+### B. 本批目标与实现边界
+
+- 目标版本暂定 `v0.38.0+99`，SQLite 继续为 schema32，不做数据库降级或新增情绪表。
+- 保留现有19个 canonical label 及外部表现真源；不恢复此前会导致 Android 崩溃的 native 19emo/ONNX 调用，不引入第二套 Emotion/Mood 人格系统。
+- 强化 `EmotionEnvelope`：严格标签继续优先；只在首行、标签可安全确认时容错常见包裹/闭合格式，机器标签仍不得泄漏到气泡、历史或 TTS。
+- 将兜底从少量 if/else 关键词升级为确定性、有界的19类线索评分，覆盖动作神态、自然语言和常见标点；无有效证据时仍允许平静，禁止随机轮换情绪。
+- 在消息已有 `emotion_source` 上记录不泄露内容的来源/原因类别，使诊断能区分合法标签、容错恢复、缺失标签、非法标签与旧版 heuristic；报告只给类别与计数，不导出正文、raw tag或隐藏推理。
+- 保持头像旁标签、19张立绘、情绪音效、TTS、桌宠消费者仍只读取最终 canonical key；本批不改它们的素材、动作或映射。
+
+### C. 明确不进入本批
+
+- 不启动 Dynamic Moe D2，不接九轴、主辅属性、自然/明显/漫画化 UI，也不让 Moe 影响回复。
+- 不修改 Desire、Thought、Intent、Gate、Memory、Relationship 或 Emotion Episode 的状态逻辑。
+- 不因本问题回装 schema31 APK；若必须撤销实现，也只能在 schema32 基线上做向前热修复。
+- 不顺手处理 `hasAsyncWorkerError`、轻视觉、Nearby、Overlay/桌宠消失或上传界面问题，除非验证证明它直接阻塞情绪修复。
+
+### D. 自动与真机验收
+
+1. 合法19类 XML 标签必须保持原标签、`source=llm`、置信度1，并从可见正文完全移除。
+2. 可安全恢复的首行情绪格式必须得到 canonical key、标记恢复来源且不泄漏机器标签；无法安全确认的文本不得误删正文。
+3. 缺失/非法标签的固定回放覆盖19类代表性动作和语句；同输入结果确定、top3/置信度有界，纯中性文本保持平静，不用随机制造变化。
+4. 脱敏诊断输出原因分类/计数，但 `rawEmotionTagsIncluded=false`、消息正文和 raw tag 继续不可见。
+5. 运行格式化、Flutter analyze/tests、全部历史/current validators、Release APK、固定签名和冻结载荷校验。
+6. CI 通过后只写“自动化通过”；用户安装 APK 后连续测试高兴、害羞、生气、疑惑、认真、心动与普通平静对话，结合新诊断确认 `llm/recovered/fallback` 分布，才可写真机通过。
+
+
 ## 0Z. 2026-08-24 · v0.37.9+98 动态萌属性 D1 独立状态引擎（IMPLEMENTED / CI & APK PASSED / D2 NOT STARTED）
 
 > 本节是用户要求的本批第二次（修改后）总账更新。第一次修改前登记为 `a49d5c90240e61dcf4eefaee0048771a9a1cab21`；随后已在独立分支完成 D1、修正版本升级所需历史 validator 兼容，并以完整 Release CI 取得真实通过结果。D1 仍是旁路底座，没有改变用户当前聊天、欲望、主动联系、19 Emotion、TTS、桌宠或可见 UI；因此不能把 D2 Shadow Mode、状态页数值卡或 D3 文字表现写成完成。
