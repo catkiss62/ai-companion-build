@@ -1,3 +1,8 @@
+# Historical v0.37.8 validator compatibility:
+# Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
+# AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
+# v0.37.8-image-vision-dispatch-hotfix-test
+# .ci/v0378-monitor.txt
 # Historical validator compatibility token:
 # Build AI Companion v0.34.7+72 APK (Autonomous Action Foundation)
 # AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK.apk
@@ -43,7 +48,7 @@
 # Build AI Companion v0.37.5+94 APK (Grounded Emotion Episodes)
 # AI-Companion-v0.37.5-94-Grounded-Emotion-Episode-APK.apk
 # schema advances to 29; native 19emo remains absent
-# .ci/v0378-monitor.txt
+# .ci/v0379-monitor.txt
 # Historical v0.37.4 validator compatibility:
 # Build AI Companion v0.37.4+93 APK (Audio & Presentation Stabilization)
 # validate_v0374_audio_presentation_stabilization.py
@@ -64,7 +69,7 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
+name: Build AI Companion v0.37.9+98 APK (Dynamic Moe D1 Engine)
 
 on:
   workflow_dispatch:
@@ -307,6 +312,7 @@ jobs:
           python3 tools/validate_v0376_chat_recovery_presentation.py
           python3 tools/validate_v0377_layered_memory_retrieval.py
           python3 tools/validate_v0378_image_vision_dispatch_hotfix.py
+          python3 tools/validate_v0379_dynamic_moe_d1.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -486,16 +492,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.37.8+97 image vision dispatch hotfix APK to draft release
+      - name: Upload v0.37.9+98 dynamic moe D1 engine APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.37.8-image-vision-dispatch-hotfix-test'
-          APK_NAME='AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk'
+          TAG='v0.37.9-dynamic-moe-d1-test'
+          APK_NAME='AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -512,8 +518,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.37.8+97 image vision dispatch hotfix test candidate' \
-              --notes 'Draft-only v0.37.8 candidate: restores same-process dispatch for a freshly created image-vision reply while crash/force-stop recovery remains terminal Stop, adds redacted Vision state diagnostics, and exposes independent emotion-cue volume without changing TTS arbitration. The persistent v1 private test signer is unchanged and schema remains 31.'
+              --title 'AI Companion v0.37.9+98 dynamic moe D1 engine test candidate' \
+              --notes 'Draft-only v0.37.9 candidate: adds the isolated dynamic Moe D1 state engine, schema 32 persistence, deterministic grounded recipes, cooldown and fail-open neutral behavior. It does not affect chat, Desire, proactive actions, 19 Emotion, TTS, pets or visible UI. The persistent v1 private test signer is unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -537,18 +543,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0378-monitor.txt'
+          MONITOR_PATH='.ci/v0379-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.37.8 CI success monitor' \
+              -f message='Update v0.37.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.37.8 CI success monitor' \
+              -f message='Create v0.37.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -569,8 +575,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.37.8-image-vision-dispatch-hotfix-test'
-          CI_NAME='AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-CI-Monitor.txt'
+          TAG='v0.37.9-dynamic-moe-d1-test'
+          CI_NAME='AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -610,8 +616,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.37.8+97 image vision dispatch hotfix test candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.37.8 image vision dispatch hotfix APK. It is not a public release.'
+              --title 'AI Companion v0.37.9+98 dynamic moe D1 engine test candidate' \
+              --notes 'Private draft used for CI diagnostics and the v0.37.9 dynamic Moe D1 engine APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -620,18 +626,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0378-monitor.txt'
+          MONITOR_PATH='.ci/v0379-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.37.8 CI failure monitor' \
+              -f message='Update v0.37.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.37.8 CI failure monitor' \
+              -f message='Create v0.37.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
