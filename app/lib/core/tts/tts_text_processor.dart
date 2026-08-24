@@ -1,13 +1,36 @@
 import 'dart:convert';
 
+import '../models/chat_segment.dart';
+
+enum TtsReadingScope {
+  dialogueOnly('dialogue_only', '仅朗读对白（「」内）'),
+  fullText('full_text', '朗读全文（动作 + 对白）');
+
+  const TtsReadingScope(this.key, this.label);
+  final String key;
+  final String label;
+
+  static TtsReadingScope fromSetting(String? value) =>
+      value == fullText.key ? fullText : dialogueOnly;
+}
+
 class TtsTextProcessor {
   const TtsTextProcessor();
 
   String process(
     String text, {
     Map<String, String> replacements = const {},
+    TtsReadingScope scope = TtsReadingScope.dialogueOnly,
   }) {
-    var result = text;
+    final segments = ChatSegmentCodec.parseAssistantText(text);
+    final selected = scope == TtsReadingScope.dialogueOnly
+        ? segments.where((item) => item.kind == ChatSegmentKind.dialogue)
+        : segments;
+    final spokenParts =
+        selected.map((item) => item.text.trim()).where((item) => item.isNotEmpty);
+    var result = spokenParts.join(
+      scope == TtsReadingScope.dialogueOnly ? '' : '。',
+    );
 
     // User replacements are speech-only and never touch the visible chat body.
     for (final entry in replacements.entries) {
@@ -20,10 +43,9 @@ class TtsTextProcessor {
     // so the companion remains robust to model capitalization variants.
     result = result.replaceAll(RegExp(r'\bYuki\b', caseSensitive: false), '有希');
 
-    // Meju A2 removes these blocks before sentence generation.
+    // Technical/markup blocks stay speech-only. Legacy action parentheses have
+    // already been decoded above, so full-text mode keeps their inner words.
     result = result
-        .replaceAll(RegExp(r'\([^)]*\)'), '')
-        .replaceAll(RegExp(r'（[^）]*）'), '')
         .replaceAll(RegExp(r'<[^>]*>'), '')
         .replaceAll(RegExp(r'\{[^}]*\}'), '')
         .replaceAll(RegExp(r'\[[^\]]*\]'), '')

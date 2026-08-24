@@ -12,6 +12,9 @@ class CompanionBootReceiver : BroadcastReceiver() {
         if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) {
             return
         }
+        // The diagnostic alarm is independent from the overlay preference and
+        // survives an update/reboot through its persisted due time.
+        runCatching { DelayedProactiveTestReceiver.restoreIfScheduled(context) }
         if (!CompanionRuntimeState.isOverlayUserEnabled(context)) return
         if (!Settings.canDrawOverlays(context)) {
             NativeEventStore.addDeviceEvent(

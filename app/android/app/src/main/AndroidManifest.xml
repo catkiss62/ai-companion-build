@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <!-- Private sideload build: needed to resolve human-readable labels for
+         whichever installed App is currently foreground. No package list is
+         exported or persisted into long-term memory. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -26,7 +32,7 @@
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
-        android:icon="@drawable/app_icon"
+        android:icon="@drawable/companion_launcher_icon"
         android:allowBackup="false"
         android:usesCleartextTraffic="false">
 
@@ -75,6 +81,11 @@
 
         <receiver
             android:name=".CompanionReplyReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".DelayedProactiveTestReceiver"
             android:enabled="true"
             android:exported="false" />
 

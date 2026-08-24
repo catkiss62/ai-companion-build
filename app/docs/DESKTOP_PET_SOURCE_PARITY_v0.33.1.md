@@ -56,3 +56,40 @@ v0.33.1 撤销该精简路线：
 - artifact `9242561565`：`AI-Companion-v0.33.1-56-Desktop-Pet-Source-Parity-APK`，ZIP digest `sha256:4058b67b7d8739c57dae6442306fc6524c81229e6b542d56c15c206e2aeafac9`。
 - APK：238,499,224 bytes；SHA-256 `456d618776b1729353ea1735a63a139eb344cab9e1b296066bdbed04ef1759b7`。
 - 下载后独立读取 APK ZIP 再确认：417 个 source 文件、210 张 runtime PNG、1 份原始 actions manifest、1 份中文标签表。
+
+## 从旧 Android 方案吸收的长期约束
+
+以下仍有效的内容已从退役的 `ANDROID_DESKTOP_PET_PLAN_v2.md` 并入，避免只保留素材同构而丢失系统边界。
+
+### 定位与架构
+
+桌宠只是同一个“她”的表现层，不建立第二人格、第二欲望或第二心情数据库：
+
+```text
+AI Self / Desire / Thought / Awareness / Chat / TTS
+→ Pet Presentation Policy
+→ Android Overlay Renderer
+```
+
+优先复用一个前台 Service，在内部区分 Pet window/controller 与 Chat window/controller；动画、触摸和聊天各自有职责，但共享同一生命周期与角色状态。桌宠不能读取 Thought 原文，也不能绕过主动消息 Gate。
+
+### 性能与系统边界
+
+- 屏幕关闭、锁屏、低电量、省电或内存压力时暂停/降级动画并释放非当前缓存；
+- 银行、敏感页或 `HIDE_OVERLAY_WINDOWS` 场景可能由系统/目标 App 主动隐藏，不能无限自愈抢回；
+- 桌宠窗口不得被屏幕识别再次捕捉而产生视觉回音；
+- 文件选择器、全屏页和 Overlay 恢复是独立问题，不能靠桌宠功能掩盖；
+- 拖拽、横竖屏、安全区、锁屏恢复和长时间内存稳定必须分别测试。
+
+### 素材许可
+
+当前素材仅按用户授权用于私人、非商业 AI Companion，并保留 attribution。该授权不自动扩展到公开发布、商业发行或第三方再分发；用途改变时必须替换素材或取得明确授权。皮肤导入还需校验路径穿越、压缩炸弹、超大图片、缺帧、非法 fps、hash 与许可字段。
+
+### 交互不可回归
+
+- 桌宠与悬浮球二选一；
+- 桌宠双击打开菜单，单击/触碰保留身体互动；
+- TTS 实际播放与已提交正文可触发 TALKING，合成等待不伪装为说话；
+- 用户沉默、屏幕陪伴或普通等待不映射成伤心、追问和关系确认；
+- 动作表达可甜、俏皮、好奇、专注、犯懒、得意或吐槽，不能全部退化为撒娇和等待。
+

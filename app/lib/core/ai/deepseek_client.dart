@@ -6,18 +6,55 @@ import 'package:http/http.dart' as http;
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 
+class DeepSeekToolCallDelta {
+  const DeepSeekToolCallDelta({
+    required this.index,
+    this.id = '',
+    this.name = '',
+    this.argumentsFragment = '',
+  });
+
+  final int index;
+  final String id;
+  final String name;
+  final String argumentsFragment;
+}
+
+class DeepSeekToolCall {
+  const DeepSeekToolCall({
+    required this.id,
+    required this.name,
+    required this.arguments,
+  });
+
+  final String id;
+  final String name;
+  final String arguments;
+
+  Map<String, Object?> toAssistantMap() => <String, Object?>{
+        'id': id,
+        'type': 'function',
+        'function': <String, Object?>{
+          'name': name,
+          'arguments': arguments,
+        },
+      };
+}
+
 class DeepSeekDelta {
   const DeepSeekDelta({
     this.reasoning = '',
     this.content = '',
     this.done = false,
     this.finishReason,
+    this.toolCallDeltas = const <DeepSeekToolCallDelta>[],
   });
 
   final String reasoning;
   final String content;
   final bool done;
   final String? finishReason;
+  final List<DeepSeekToolCallDelta> toolCallDeltas;
 }
 
 class DeepSeekClient {
@@ -41,6 +78,8 @@ class DeepSeekClient {
     String endpoint = defaultEndpoint,
     bool thinking = true,
     int? maxTokens,
+    List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
+    String? toolChoice,
     GenerationCancellationToken? cancellationToken,
   }) async* {
     final request = http.Request('POST', Uri.parse(endpoint))
@@ -55,6 +94,8 @@ class DeepSeekClient {
         'thinking': {'type': thinking ? 'enabled' : 'disabled'},
         if (thinking) 'reasoning_effort': effort.apiName,
         if (maxTokens != null) 'max_tokens': maxTokens,
+        if (tools.isNotEmpty) 'tools': tools,
+        if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto',
         'stream': true,
       });
 
@@ -102,13 +143,30 @@ class DeepSeekClient {
         final reasoning = delta['reasoning_content'] as String? ?? '';
         final content = delta['content'] as String? ?? '';
         final finishReason = first['finish_reason'] as String?;
+        final toolCallDeltas = <DeepSeekToolCallDelta>[];
+        final rawToolCalls = delta['tool_calls'];
+        if (rawToolCalls is List) {
+          for (final rawCall in rawToolCalls.whereType<Map>()) {
+            final call = rawCall.cast<String, dynamic>();
+            final function =
+                (call['function'] as Map?)?.cast<String, dynamic>() ?? const {};
+            toolCallDeltas.add(DeepSeekToolCallDelta(
+              index: (call['index'] as num?)?.toInt() ?? 0,
+              id: call['id'] as String? ?? '',
+              name: function['name'] as String? ?? '',
+              argumentsFragment: function['arguments'] as String? ?? '',
+            ));
+          }
+        }
         if (reasoning.isNotEmpty ||
             content.isNotEmpty ||
+            toolCallDeltas.isNotEmpty ||
             finishReason != null) {
           yield DeepSeekDelta(
             reasoning: reasoning,
             content: content,
             finishReason: finishReason,
+            toolCallDeltas: toolCallDeltas,
           );
         }
       }

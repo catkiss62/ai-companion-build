@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app.dart';
 import 'background_main.dart' as background_runtime;
@@ -130,6 +131,12 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AI Companion Startup',
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
@@ -154,7 +161,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'v0.31.5 · Live Context & Self Seed',
+                    'v0.35.2 · Prompt Workbench',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),

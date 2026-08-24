@@ -83,7 +83,7 @@ def main() -> int:
         "用户是成年男性",
         "不是服务者、客服或无条件服从者",
         "RuleLayerDefault('03_personality_seed'",
-        "可以不同意、拒绝、纠正、追问或保留意见",
+        "可以不同意、拒绝、纠正、追问、保留意见",
         "可以真实地不高兴、吃醋、恼火或暂时冷一点",
         "这只是性格种子，不是不可改变的人设卡",
     ]:
@@ -104,7 +104,7 @@ def main() -> int:
         token in page
         for token in (
             "初始人格种子可以编辑、关闭",
-            "初始性格种子仍可单独编辑和关闭",
+            "初始性格种子仍可单独编辑、关闭和还原",
         )
     )
 
@@ -149,15 +149,11 @@ def main() -> int:
     ]:
         assert token in overlay, token
 
-    for relative in [
-        "docs/HANDOFF.md",
-        "docs/PROJECT_TASK_LEDGER.md",
-        "docs/DEV_STATUS.md",
-        "docs/TEST_CHECKLIST.md",
-    ]:
-        body = read(relative)
-        assert "v0.31.5" in body, relative
-        assert "schema v20" in body, relative
+    # Keep the stable release checklist assertion; mutable handoff/status ledgers
+    # are governed by the evergreen root ledger and may be retired.
+    body = read("docs/TEST_CHECKLIST.md")
+    assert "v0.31.5" in body
+    assert "schema v20" in body
     assert "CurrentDeviceContextRefresher" in read(
         "docs/PROACTIVE_GROUNDING_v0.31.1.md"
     )

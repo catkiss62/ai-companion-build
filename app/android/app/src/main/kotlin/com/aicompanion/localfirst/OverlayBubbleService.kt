@@ -10,7 +10,9 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
@@ -20,6 +22,10 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -28,11 +34,14 @@ import android.view.ViewGroup
 import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
@@ -44,6 +53,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
@@ -86,6 +96,7 @@ class OverlayBubbleService : Service() {
     private var chatExpanded = false
     private var chatInputMode = false
     private var chatSending = false
+    private var overlaySubmitCommandPending = false
     private var overlayCancelling = false
     private var overlayGenerationPhase = "idle"
     private var generationPollEpoch = 0
@@ -201,6 +212,10 @@ class OverlayBubbleService : Service() {
 
             when (action) {
                 Intent.ACTION_SCREEN_OFF -> {
+                    CurrentAppResolver.clearTrackedApp(
+                        this@OverlayBubbleService,
+                        "screen_off_broadcast",
+                    )
                     pendingShowAfterUnlock = false
                     closeBubbleOptions()
                     collapseChatOverlay("screen_off")
@@ -316,6 +331,15 @@ class OverlayBubbleService : Service() {
                 appTtsPhase = intent.getStringExtra(EXTRA_TTS_PHASE)
                     ?.takeIf { it in setOf("idle", "synthesizing", "playing") }
                     ?: "idle"
+                if (appGenerationActive && (chatExpanded || petOverlayWindow != null)) {
+                    beginGenerationPolling()
+                } else if (!appGenerationActive && !chatSending) {
+                    stopGenerationPolling()
+                    removeStreamingMessage(notify = true)
+                    if (chatExpanded) {
+                        refreshOverlayMessages(opened = false, attempt = 0)
+                    }
+                }
                 updatePetConversationCue()
                 return START_STICKY
             }
@@ -415,12 +439,13 @@ class OverlayBubbleService : Service() {
         val reason = intent?.getStringExtra(EXTRA_REASON)
             ?: intent?.action
             ?: if (flags and START_FLAG_RETRY != 0) "system_retry" else "sticky_restart"
-        CompanionRuntimeState.markServiceStarted(this, reason)
+        CompanionRuntimeState.noteServiceCommand(this, reason)
         return START_STICKY
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        CompanionRuntimeState.noteTrimMemory(this, level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             backgroundEngine?.let { engine ->
                 runCatching { engine.systemChannel.sendMemoryPressureWarning() }
@@ -441,6 +466,7 @@ class OverlayBubbleService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        CompanionRuntimeState.noteTaskRemoved(this)
         NativeEventStore.addDeviceEvent(
             this,
             source = "system",
@@ -857,6 +883,7 @@ class OverlayBubbleService : Service() {
             return
         }
         if (!createChatWindow()) return
+        CompanionNotification.acknowledgeMessages(this, "overlay_chat_opened")
         closeBubbleOptions()
         pendingShowAfterUnlock = false
         setUnread(0)
@@ -866,6 +893,7 @@ class OverlayBubbleService : Service() {
             bubbleRoot?.visibility = View.GONE
         }
         chatRoot?.visibility = View.VISIBLE
+        scrollChatToBottom()
         chatInputMode = false
         chatParams?.let { params ->
             params.flags = readModeFlags()
@@ -1058,6 +1086,9 @@ class OverlayBubbleService : Service() {
             setChatStatus("正在连接后台大脑…")
             return
         }
+        hideKeyboard()
+        exitChatInputMode()
+        overlaySubmitCommandPending = true
         setComposerGenerationState(sending = true)
         chatInput?.setText("")
         val optimistic = NativeChatMessage(
@@ -1082,6 +1113,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         val map = result as? Map<*, *>
@@ -1096,7 +1128,7 @@ class OverlayBubbleService : Service() {
                         val ok = map?.get("ok") == true
                         val cancelled = map?.get("cancelled") == true
                         val error = map?.get("error") as? String ?: ""
-                        if (ok && !chatExpanded) setUnread(readUnread() + 1)
+                        if (ok && chatExpanded) setUnread(0)
                         setChatStatus(
                             when {
                                 cancelled -> "已停止这轮回复。"
@@ -1110,6 +1142,7 @@ class OverlayBubbleService : Service() {
 
                 override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         setChatStatus("发送失败：${errorMessage ?: errorCode}", true)
@@ -1119,6 +1152,7 @@ class OverlayBubbleService : Service() {
 
                 override fun notImplemented() {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         setComposerGenerationState(sending = false)
                         setChatStatus("她还在重新连接，请稍后再试。", true)
@@ -1143,6 +1177,7 @@ class OverlayBubbleService : Service() {
             object : MethodChannel.Result {
                 override fun success(result: Any?) {
                     mainHandler.post {
+                        overlaySubmitCommandPending = false
                         stopGenerationPolling()
                         removeStreamingMessage()
                         setComposerGenerationState(sending = false)
@@ -1243,8 +1278,10 @@ class OverlayBubbleService : Service() {
         mainHandler.postDelayed({ pollGenerationState(epoch) }, GENERATION_POLL_MS)
     }
 
-    private fun shouldPollGeneration(): Boolean = chatSending &&
-        (chatExpanded || petOverlayWindow != null)
+    // Historical v0.35.8 validator token: (chatSending || appGenerationActive)
+    private fun shouldPollGeneration(): Boolean =
+        (chatSending || overlaySubmitCommandPending || appGenerationActive) &&
+            (chatExpanded || petOverlayWindow != null)
 
     private fun beginTtsPolling() {
         val epoch = ++ttsPollEpoch
@@ -1307,14 +1344,26 @@ class OverlayBubbleService : Service() {
 
     private fun applyGenerationSnapshot(result: Any?) {
         val map = result as? Map<*, *> ?: return
+        val sharedSending = map["sending"] == true
+        // Historical v0.35.9 validator token: setComposerGenerationState(sending = sharedSending)
+        val composerSending = sharedSending || overlaySubmitCommandPending
+        if (!overlayCancelling && chatSending != composerSending) {
+            setComposerGenerationState(sending = composerSending)
+        }
         val reasoning = map["reasoning"] as? String ?: ""
         val content = map["content"] as? String ?: ""
         val phase = map["phase"] as? String ?: "thinking"
+        val statusText = map["status_text"] as? String ?: ""
         overlayGenerationPhase = phase
         updatePetConversationCue()
         streamingAssistantMessageId = map["assistant_message_id"] as? String ?: ""
         removeStreamingMessage(notify = false)
-        if (map["sending"] == true) {
+        if (sharedSending) {
+            setChatStatus(statusText.takeIf { it.isNotBlank() } ?: when (phase) {
+                "answering" -> "正在回复…"
+                "cancelling" -> "正在停止…"
+                else -> "正在想…"
+            })
             loadedMessages.add(
                 NativeChatMessage(
                     id = STREAMING_MESSAGE_ID,
@@ -1330,13 +1379,7 @@ class OverlayBubbleService : Service() {
         }
         chatAdapter?.notifyDataSetChanged()
         scrollChatToBottom()
-        setChatStatus(
-            when (phase) {
-                "cancelling" -> "正在停止…"
-                "answering" -> "她正在回复…"
-                else -> "她正在想…"
-            },
-        )
+        if (!sharedSending) setChatStatus(null)
     }
 
     private fun removeStreamingMessage(notify: Boolean = true) {
@@ -1493,12 +1536,22 @@ class OverlayBubbleService : Service() {
     private fun setChatStatus(text: String?, error: Boolean = false) {
         chatStatus?.apply {
             if (text.isNullOrBlank()) {
+                clearAnimation()
                 visibility = View.GONE
                 this.text = ""
             } else {
                 visibility = View.VISIBLE
                 this.text = text
                 setTextColor(if (error) Color.rgb(255, 135, 145) else Color.rgb(192, 180, 212))
+                if (error) {
+                    clearAnimation()
+                } else if (animation == null) {
+                    startAnimation(AlphaAnimation(0.52f, 1f).apply {
+                        duration = 900L
+                        repeatMode = Animation.REVERSE
+                        repeatCount = Animation.INFINITE
+                    })
+                }
             }
         }
     }
@@ -1514,6 +1567,19 @@ class OverlayBubbleService : Service() {
             val map = item as? Map<*, *> ?: return@mapNotNull null
             val id = map["id"] as? String ?: return@mapNotNull null
             val role = map["role"] as? String ?: return@mapNotNull null
+            val attachments = (map["attachments"] as? List<*>)
+                ?.mapNotNull attachmentLoop@{ rawAttachment ->
+                    val attachment = rawAttachment as? Map<*, *> ?: return@attachmentLoop null
+                    val path = attachment["thumbnail_path"] as? String ?: return@attachmentLoop null
+                    if (path.isBlank()) return@attachmentLoop null
+                    NativeAttachment(
+                        id = attachment["id"] as? String ?: path,
+                        kind = attachment["kind"] as? String ?: "",
+                        thumbnailPath = path,
+                        width = (attachment["width"] as? Number)?.toInt() ?: 0,
+                        height = (attachment["height"] as? Number)?.toInt() ?: 0,
+                    )
+                }.orEmpty()
             NativeChatMessage(
                 id = id,
                 role = role,
@@ -1527,6 +1593,7 @@ class OverlayBubbleService : Service() {
                 },
                 proactiveIntent = map["proactive_intent"] as? String ?: "",
                 proactiveDelivery = map["proactive_delivery"] as? String ?: "",
+                attachments = attachments,
             )
         }
     }
@@ -1978,11 +2045,23 @@ class OverlayBubbleService : Service() {
 
             inputRecoveryInProgress = true
             CompanionRuntimeState.setOverlayRecoveryInProgress(true)
-            try {
-                ensureOverlayHealth(
-                    "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
-                    rebuildInputChannel = true,
-                )
+            ensureOverlayHealth(
+                "bounded_cover_recovery:${reason.take(90)}:attempt_$attempt",
+                rebuildInputChannel = true,
+            )
+            // WindowManager.addView() returns before isAttachedToWindow becomes
+            // reliable on some HyperOS builds. The old code sampled attachment
+            // synchronously and therefore treated a healthy replacement as
+            // failed, rebuilding it up to three times per picker visit. Verify
+            // only after one settle window; keep recoveryInProgress true so no
+            // watchdog/Activity callback can start a competing rebuild.
+            mainHandler.postDelayed({
+                if (sessionId != CompanionRuntimeState.currentOverlayCoverSessionId()) {
+                    inputRecoveryInProgress = false
+                    CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+                    return@postDelayed
+                }
+                updateOverlayTouchHealth()
                 val healthy = bubbleRoot?.isAttachedToWindow == true &&
                     CompanionRuntimeState.overlayBubbleTouchable
                 CompanionRuntimeState.noteOverlayCoverRecoveryResult(
@@ -2003,12 +2082,9 @@ class OverlayBubbleService : Service() {
                         metadata = mapOf("session" to sessionId, "attempt" to attempt),
                     )
                 }
-            } finally {
-                mainHandler.postDelayed({
-                    inputRecoveryInProgress = false
-                    CompanionRuntimeState.setOverlayRecoveryInProgress(false)
-                }, INPUT_RECOVERY_SETTLE_MS)
-            }
+                inputRecoveryInProgress = false
+                CompanionRuntimeState.setOverlayRecoveryInProgress(false)
+            }, INPUT_RECOVERY_SETTLE_MS)
         }, delayMs)
     }
 
@@ -2174,6 +2250,7 @@ class OverlayBubbleService : Service() {
                     "backgroundDartReady" -> {
                         if (backgroundEngine === createdEngine && running) {
                             backgroundBrainReady = true
+                            CompanionRuntimeState.noteBackgroundBrainReady(this)
                             backgroundEngineStartAttempts = 0
                             backgroundEngineRestartScheduled = false
                             brainWakeAttempt = 0
@@ -2225,6 +2302,10 @@ class OverlayBubbleService : Service() {
             runCatching { engine?.destroy() }
             backgroundEngine = null
             backgroundBrainReady = false
+            CompanionRuntimeState.noteBackgroundBrainFailure(
+                this,
+                "start_failed:${error.javaClass.simpleName}",
+            )
             stopPetAutonomyPolling()
             backgroundEngineStartAttempts += 1
             NativeEventStore.addDeviceEvent(
@@ -2259,6 +2340,7 @@ class OverlayBubbleService : Service() {
         runCatching { expectedEngine.destroy() }
         backgroundEngine = null
         backgroundBrainReady = false
+        CompanionRuntimeState.noteBackgroundBrainFailure(this, "ready_timeout")
         stopPetAutonomyPolling()
         backgroundEngineStartAttempts += 1
         scheduleBackgroundEngineRestart()
@@ -2508,6 +2590,20 @@ class OverlayBubbleService : Service() {
         cornerRadius = dpF(radiusDp)
     }
 
+    private fun messageBubbleBackground(
+        color: Int,
+        user: Boolean,
+    ): GradientDrawable = GradientDrawable().apply {
+        setColor(color)
+        val full = dpF(14f)
+        val pointer = dpF(3f)
+        cornerRadii = if (user) {
+            floatArrayOf(full, full, full, full, pointer, pointer, full, full)
+        } else {
+            floatArrayOf(full, full, full, full, full, full, pointer, pointer)
+        }
+    }
+
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
@@ -2517,6 +2613,29 @@ class OverlayBubbleService : Service() {
         if (createdAt <= 0L) return ""
         return runCatching {
             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(createdAt))
+        }.getOrDefault("")
+    }
+
+    private fun sameLocalDay(first: Long, second: Long): Boolean {
+        if (first <= 0L || second <= 0L) return false
+        val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        return format.format(Date(first)) == format.format(Date(second))
+    }
+
+    private fun formatDateSeparator(createdAt: Long): String {
+        if (createdAt <= 0L) return ""
+        return runCatching {
+            val target = Calendar.getInstance().apply { timeInMillis = createdAt }
+            val today = Calendar.getInstance()
+            val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+            val weekday = SimpleDateFormat("EEE", Locale.CHINA).format(target.time)
+            when {
+                sameLocalDay(target.timeInMillis, today.timeInMillis) -> "今天 · $weekday"
+                sameLocalDay(target.timeInMillis, yesterday.timeInMillis) -> "昨天 · $weekday"
+                target.get(Calendar.YEAR) == today.get(Calendar.YEAR) ->
+                    "${target.get(Calendar.MONTH) + 1}月${target.get(Calendar.DAY_OF_MONTH)}日 · $weekday"
+                else -> "${target.get(Calendar.YEAR)}年${target.get(Calendar.MONTH) + 1}月${target.get(Calendar.DAY_OF_MONTH)}日 · $weekday"
+            }
         }.getOrDefault("")
     }
 
@@ -2536,6 +2655,15 @@ class OverlayBubbleService : Service() {
         val proactive: Boolean,
         val proactiveIntent: String,
         val proactiveDelivery: String,
+        val attachments: List<NativeAttachment> = emptyList(),
+    )
+
+    private data class NativeAttachment(
+        val id: String,
+        val kind: String,
+        val thumbnailPath: String,
+        val width: Int,
+        val height: Int,
     )
 
     private inner class NativeChatAdapter : BaseAdapter() {
@@ -2549,15 +2677,42 @@ class OverlayBubbleService : Service() {
             val message = loadedMessages[position]
             val outer = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = if (message.role == "user") Gravity.END else Gravity.START
+                gravity = when (message.role) {
+                    "user" -> Gravity.END
+                    "system_notice" -> Gravity.CENTER_HORIZONTAL
+                    else -> Gravity.START
+                }
                 setPadding(dp(6), dp(3), dp(6), dp(3))
+            }
+            if (position == 0 || !sameLocalDay(
+                    message.createdAt,
+                    loadedMessages[position - 1].createdAt,
+                )
+            ) {
+                outer.addView(TextView(this@OverlayBubbleService).apply {
+                    text = formatDateSeparator(message.createdAt)
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.rgb(176, 169, 188))
+                    setPadding(dp(8), dp(7), dp(8), dp(4))
+                })
+            }
+            if (message.role == "system_notice") {
+                outer.addView(TextView(this@OverlayBubbleService).apply {
+                    text = message.content
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.rgb(176, 169, 188))
+                    setPadding(dp(8), dp(5), dp(8), dp(5))
+                })
+                return outer
             }
             val bubble = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(11), dp(8), dp(11), dp(8))
-                background = rounded(
+                background = messageBubbleBackground(
                     if (message.role == "user") Color.rgb(83, 62, 115) else Color.rgb(53, 51, 60),
-                    14f,
+                    user = message.role == "user",
                 )
             }
             val label = if (message.role == "user") {
@@ -2573,6 +2728,28 @@ class OverlayBubbleService : Service() {
                 textSize = 11f
                 setTextColor(Color.rgb(188, 169, 220))
             })
+            message.attachments.filter { it.kind == "image" }.forEach { attachment ->
+                val bitmap = runCatching {
+                    BitmapFactory.decodeFile(
+                        attachment.thumbnailPath,
+                        BitmapFactory.Options().apply { inSampleSize = 2 },
+                    )
+                }.getOrNull()
+                if (bitmap != null) {
+                    bubble.addView(ImageView(this@OverlayBubbleService).apply {
+                        setImageBitmap(bitmap)
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                        adjustViewBounds = true
+                        contentDescription = "聊天图片"
+                    }, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(180),
+                    ).apply {
+                        topMargin = dp(6)
+                        bottomMargin = dp(4)
+                    })
+                }
+            }
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
                 val live = message.id == STREAMING_MESSAGE_ID
                 bubble.addView(smallInlineAction(if (live) "🧠 思考中" else "🧠 思考") {
@@ -2592,9 +2769,15 @@ class OverlayBubbleService : Service() {
             }
             if (message.content.isNotEmpty() || message.id != STREAMING_MESSAGE_ID) {
                 bubble.addView(TextView(this@OverlayBubbleService).apply {
-                    text = message.content
-                    textSize = 15f
-                    setTextColor(Color.WHITE)
+                    text = if (message.role == "assistant") {
+                        actionTintedText(message.content)
+                    } else {
+                        message.content
+                    }
+                    textSize = 14f
+                    setTextColor(Color.rgb(231, 224, 236))
+                    setLineSpacing(0f, 1.45f)
+                    typeface = Typeface.DEFAULT
                     setPadding(0, dp(3), 0, 0)
                 })
             }
@@ -2624,12 +2807,62 @@ class OverlayBubbleService : Service() {
             return outer
         }
 
+        private fun actionTintedText(value: String): CharSequence {
+            val result = SpannableString(value)
+            val dialogue = Regex(
+                "「[^」\\n]*(?:」|$)",
+            )
+            var cursor = 0
+            dialogue.findAll(value).forEach { match ->
+                if (match.range.first > cursor) {
+                    result.setSpan(
+                        StyleSpan(Typeface.ITALIC),
+                        cursor,
+                        match.range.first,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
+                }
+                result.setSpan(
+                    StyleSpan(Typeface.NORMAL),
+                    match.range.first,
+                    match.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                result.setSpan(
+                    ForegroundColorSpan(Color.rgb(239, 177, 199)),
+                    match.range.first,
+                    match.range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                cursor = match.range.last + 1
+            }
+            if (cursor < value.length) {
+                result.setSpan(
+                    StyleSpan(Typeface.ITALIC),
+                    cursor,
+                    value.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+            return result
+        }
+
         private fun smallInlineAction(label: String, onClick: () -> Unit): TextView =
             TextView(this@OverlayBubbleService).apply {
                 text = label
-                textSize = 14f
+                textSize = 13f
                 setTextColor(Color.rgb(210, 195, 235))
-                setPadding(dp(9), dp(4), dp(9), dp(2))
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(Color.rgb(44, 41, 50), 9f)
+                setPadding(dp(10), 0, dp(10), 0)
+                minHeight = dp(30)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(30),
+                ).apply {
+                    topMargin = dp(4)
+                    bottomMargin = dp(2)
+                }
                 setOnClickListener { onClick() }
             }
 

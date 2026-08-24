@@ -46,9 +46,10 @@ class CurrentDeviceContextRefresher {
     final instant = now ?? DateTime.now();
     try {
       final deviceState = await android.getPerceptionState();
-      final usage = deviceState.usageAccess
-          ? await android.getRecentUsage(minutes: 90)
-          : const <UsageEventInfo>[];
+      final usage =
+          deviceState.usageAccess || deviceState.accessibilityConnected
+              ? await android.getRecentUsage(minutes: 90)
+              : const <UsageEventInfo>[];
       final recentSignals = await db.recentDeviceEvents(
         minutes: 30,
         limit: 240,
@@ -104,6 +105,14 @@ class CurrentDeviceContextRefresher {
       await db.setSetting(
         'current_context_current_activity',
         interpretation.currentActivityKey ?? '',
+      );
+      await db.setSetting(
+        'current_context_current_app_resolved',
+        interpretation.currentAppLabel?.trim().isNotEmpty == true ? '1' : '0',
+      );
+      await db.setSetting(
+        'current_context_current_app_source',
+        interpretation.currentAppSource ?? 'none',
       );
       await db.setSetting(
         'current_context_dominant_activity',

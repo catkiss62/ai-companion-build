@@ -1,18 +1,25 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/chat_message.dart';
+import '../platform/android_bridge.dart';
+import '../models/emotion_episode.dart';
+import '../models/autonomous_action.dart';
+import '../models/public_web_candidate.dart';
 import '../models/message_attachment.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
 import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
+import '../memory/memory_retrieval_policy.dart';
 import '../models/perception_snapshot.dart';
+import '../models/personality_trial.dart';
 import '../models/post_turn_job.dart';
 import '../models/generation_job.dart';
 import '../models/maintenance_run.dart';
@@ -22,6 +29,8 @@ import '../models/rule_layer.dart';
 import '../models/proactive_feedback.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_defaults.dart';
+import '../relationship/relationship_age.dart';
+import '../personality/personality_catalog.dart';
 import '../models/relationship_event.dart';
 import '../models/interaction_session.dart';
 import '../models/thought.dart';
@@ -35,12 +44,20 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const String dbName = 'ai_companion.db';
-  static const int schemaVersion = 23;
+  // Historical validator compatibility token: static const int schemaVersion = 24;
+  // Historical validator compatibility token: static const int schemaVersion = 25;
+  // Historical validator compatibility token: static const int schemaVersion = 26;
+  // Historical validator compatibility token: static const int schemaVersion = 27;
+  // Historical validator compatibility token: static const int schemaVersion = 28;
+  // Historical validator compatibility token: static const int schemaVersion = 29;
+  // Historical validator compatibility token: static const int schemaVersion = 30;
+  static const int schemaVersion = 31;
 
   Database? _db;
   Future<Database>? _opening;
   final Uuid _uuid = Uuid();
   final Map<String, String> _ownedLeaseTokens = <String, String>{};
+  Future<String>? _leaseOwnerEpochFuture;
 
   Future<Database> get database async {
     final ready = _db;
@@ -718,6 +735,155 @@ class AppDatabase {
       );
     }
 
+    if (oldVersion < 24) {
+      await _createV24Tables(db);
+    }
+    if (oldVersion < 25) {
+      await _createV25Tables(db);
+      for (final entry in const <String, String>{
+        'public_web_discovery_enabled': '1',
+        'last_public_web_discovery_at': '0',
+        'last_public_web_discovery_success_at': '0',
+        'last_public_web_discovery_outcome': 'never',
+        'last_public_web_discovery_error': '',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+    if (oldVersion < 26) {
+      await _createV26Tables(db);
+    }
+    if (oldVersion < 27) {
+      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+      if (!messageColumns.any((row) => row['name'] == 'segments_json')) {
+        await db.execute(
+          "ALTER TABLE messages ADD COLUMN segments_json TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      for (final entry in const <String, String>{
+        'personality_base_key': 'neutral',
+        'personality_posture_key': 'equal',
+        'tts_reading_scope': 'dialogue_only',
+        'chat_visual_stage_enabled': '1',
+        'chat_background_mode': 'auto',
+        'chat_panel_opacity': '0.72',
+        'chat_panel_fraction': '0.62',
+        'chat_typewriter_enabled': '1',
+        'chat_typewriter_ms': '56',
+        'emotion_sound_enabled': '0',
+        'emotion_sound_volume': '1.0',
+        'show_emotion_label': '1',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+      // v26 adoption wrote the variable personality directly into the core
+      // rule. Recover its stable keys, then restore only an exact adopted
+      // snapshot; user-edited core text is deliberately left untouched.
+      final activeProfiles = await db.query(
+        'personality_profile_versions',
+        columns: const ['base_key', 'posture_key', 'content'],
+        where: 'active = 1',
+        orderBy: 'activated_at DESC',
+        limit: 1,
+      );
+      if (activeProfiles.isNotEmpty) {
+        final profile = activeProfiles.first;
+        final base = profile['base_key'] as String? ?? '';
+        final posture = profile['posture_key'] as String? ?? '';
+        if (base.isNotEmpty && posture.isNotEmpty) {
+          await db.insert(
+            'settings',
+            {'key': 'personality_base_key', 'value': base},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          await db.insert(
+            'settings',
+            {'key': 'personality_posture_key', 'value': posture},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          final core = defaultRuleLayers
+              .firstWhere((layer) => layer.key == '03_personality_seed');
+          await db.update(
+            'rule_layers',
+            {
+              'content': core.content,
+              'updated_at': DateTime.now().millisecondsSinceEpoch,
+            },
+            where: 'key = ? AND content = ?',
+            whereArgs: ['03_personality_seed', profile['content']],
+          );
+        }
+      }
+    }
+    if (oldVersion < 28) {
+      final messageColumns = await db.rawQuery('PRAGMA table_info(messages)');
+      final existing = messageColumns
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final definition in const <String, String>{
+        'emotion_raw_tag': "TEXT NOT NULL DEFAULT ''",
+        'emotion_key': "TEXT NOT NULL DEFAULT ''",
+        'emotion_label': "TEXT NOT NULL DEFAULT ''",
+        'emotion_confidence': 'REAL NOT NULL DEFAULT 0',
+        'emotion_top3_json': "TEXT NOT NULL DEFAULT ''",
+        'emotion_source': "TEXT NOT NULL DEFAULT ''",
+      }.entries) {
+        if (!existing.contains(definition.key)) {
+          await db.execute(
+            'ALTER TABLE messages ADD COLUMN ${definition.key} ${definition.value}',
+          );
+        }
+      }
+      await db.insert(
+        'settings',
+        {'key': 'show_emotion_label', 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    if (oldVersion < 29) {
+      await _createV29Tables(db);
+    }
+    if (oldVersion < 30) {
+      // Only migrate untouched v0.37.0 defaults. Explicit user choices are
+      // preserved even when they are close to the new recommendations.
+      await db.update(
+        'settings',
+        {'value': '0.60'},
+        where: 'key = ? AND value = ?',
+        whereArgs: const ['chat_panel_opacity', '0.72'],
+      );
+      await db.update(
+        'settings',
+        {'value': '48'},
+        where: 'key = ? AND value = ?',
+        whereArgs: const ['chat_typewriter_ms', '56'],
+      );
+    }
+    if (oldVersion < 31) {
+      final columns = (await db.rawQuery('PRAGMA table_info(memory_items)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      if (!columns.contains('last_expressed_at')) {
+        await db.execute(
+          'ALTER TABLE memory_items ADD COLUMN last_expressed_at INTEGER',
+        );
+      }
+      if (!columns.contains('expression_count')) {
+        await db.execute(
+          'ALTER TABLE memory_items ADD COLUMN expression_count INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      await _createV31Tables(db);
+    }
+
   }
 
   Future<void> _createSchema(Database db) async {
@@ -733,7 +899,14 @@ class AppDatabase {
         proactive_intent TEXT NOT NULL DEFAULT '',
         proactive_delivery TEXT NOT NULL DEFAULT '',
         device_id TEXT,
-        expects_reply INTEGER NOT NULL DEFAULT 1
+        expects_reply INTEGER NOT NULL DEFAULT 1,
+        segments_json TEXT NOT NULL DEFAULT '',
+        emotion_raw_tag TEXT NOT NULL DEFAULT '',
+        emotion_key TEXT NOT NULL DEFAULT '',
+        emotion_label TEXT NOT NULL DEFAULT '',
+        emotion_confidence REAL NOT NULL DEFAULT 0,
+        emotion_top3_json TEXT NOT NULL DEFAULT '',
+        emotion_source TEXT NOT NULL DEFAULT ''
       )
     ''');
     await db.execute(
@@ -757,6 +930,8 @@ class AppDatabase {
         updated_at INTEGER NOT NULL,
         last_recalled_at INTEGER,
         recall_count INTEGER NOT NULL DEFAULT 0,
+        last_expressed_at INTEGER,
+        expression_count INTEGER NOT NULL DEFAULT 0,
         retention_score REAL NOT NULL DEFAULT 1.0,
         retention_checked_at INTEGER,
         semantic_type TEXT NOT NULL DEFAULT 'current_fact',
@@ -866,6 +1041,11 @@ class AppDatabase {
     await _createV18Tables(db);
     await _createV21Tables(db);
     await _createV22Tables(db);
+    await _createV24Tables(db);
+    await _createV25Tables(db);
+    await _createV26Tables(db);
+    await _createV29Tables(db);
+    await _createV31Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -878,6 +1058,11 @@ class AppDatabase {
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
+    await db.insert('settings', {'key': 'nsfw_active', 'value': '0'});
+    await db.insert('settings', {'key': 'nsfw_reference_active', 'value': '0'});
+    await db.insert('settings', {'key': 'nsfw_manual_override', 'value': ''});
+    await db.insert('settings', {'key': 'nsfw_route_source', 'value': 'initial'});
+    await db.insert('settings', {'key': 'nsfw_route_turn_id', 'value': ''});
     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
@@ -904,6 +1089,18 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_speed', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
+    await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
+    await db.insert('settings', {'key': 'chat_visual_stage_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'chat_background_mode', 'value': 'auto'});
+    await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.60'});
+    await db.insert('settings', {'key': 'chat_panel_fraction', 'value': '0.62'});
+    await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
+    await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
+    await db.insert('settings', {'key': 'emotion_sound_volume', 'value': '1.0'});
+    await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
+    await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
+    await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
     await db.insert('settings', {'key': 'relationship_continuity_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'session_tracking_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'memory_fading_enabled', 'value': '1'});
@@ -931,6 +1128,11 @@ class AppDatabase {
     await db.insert('settings', {'key': 'daily_continuity_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'last_daily_continuity_refresh_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_daily_continuity_error', 'value': ''});
+    await db.insert('settings', {'key': 'public_web_discovery_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_at', 'value': '0'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_success_at', 'value': '0'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_outcome', 'value': 'never'});
+    await db.insert('settings', {'key': 'last_public_web_discovery_error', 'value': ''});
   }
 
   Future<void> _createV2Tables(Database db) async {
@@ -1407,6 +1609,196 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV24Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS autonomous_action_runs (
+        id TEXT PRIMARY KEY,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        tool_kind TEXT NOT NULL,
+        intent_action TEXT NOT NULL,
+        drive_key TEXT NOT NULL,
+        intent_score REAL NOT NULL,
+        reason_source TEXT NOT NULL,
+        thought_id TEXT,
+        status TEXT NOT NULL,
+        gate_reason TEXT NOT NULL,
+        outcome_kind TEXT NOT NULL DEFAULT 'none',
+        requested_at INTEGER NOT NULL,
+        started_at INTEGER,
+        finished_at INTEGER,
+        run_token TEXT NOT NULL DEFAULT '',
+        attempt INTEGER NOT NULL DEFAULT 0,
+        state_generation INTEGER NOT NULL,
+        device_id TEXT NOT NULL,
+        screen_interactive INTEGER NOT NULL DEFAULT 0,
+        device_locked INTEGER NOT NULL DEFAULT 0,
+        latency_bucket TEXT NOT NULL DEFAULT '',
+        result_count INTEGER NOT NULL DEFAULT 0,
+        desire_satisfied_at INTEGER,
+        dedupe_count INTEGER NOT NULL DEFAULT 0,
+        last_duplicate_at INTEGER,
+        budget_limit INTEGER,
+        budget_remaining INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_status ON autonomous_action_runs(status, requested_at ASC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_autonomous_action_tool_time ON autonomous_action_runs(tool_kind, requested_at DESC)',
+    );
+  }
+
+  Future<void> _createV25Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS public_web_candidates (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL,
+        source_domain TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        language TEXT NOT NULL DEFAULT 'zh',
+        drive_key TEXT NOT NULL,
+        intent_action TEXT NOT NULL,
+        interest_key TEXT NOT NULL DEFAULT '',
+        safety_state TEXT NOT NULL DEFAULT 'untrusted_public',
+        lifecycle_state TEXT NOT NULL DEFAULT 'unread',
+        action_run_id TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        last_viewed_at INTEGER,
+        view_count INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(action_run_id) REFERENCES autonomous_action_runs(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_lifecycle ON public_web_candidates(lifecycle_state, discovered_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_public_web_candidates_expiry ON public_web_candidates(expires_at ASC)',
+    );
+  }
+
+  Future<void> _createV26Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_trials (
+        id TEXT PRIMARY KEY,
+        base_key TEXT NOT NULL,
+        posture_key TEXT NOT NULL,
+        content TEXT NOT NULL,
+        previous_content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        started_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        effective_turns INTEGER NOT NULL DEFAULT 0,
+        interaction_windows INTEGER NOT NULL DEFAULT 0,
+        last_interaction_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_trials_status ON personality_trials(status, started_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS special_style_trials (
+        id TEXT PRIMARY KEY,
+        style_key TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        started_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_special_style_trials_status ON special_style_trials(status, started_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_profile_versions (
+        id TEXT PRIMARY KEY,
+        base_key TEXT NOT NULL DEFAULT '',
+        posture_key TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL,
+        source TEXT NOT NULL,
+        source_trial_id TEXT,
+        active INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        activated_at INTEGER NOT NULL,
+        retired_at INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_profiles_active ON personality_profile_versions(active, activated_at DESC)',
+    );
+  }
+
+
+  Future<void> _createV31Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS memory_retrieval_audit (
+        id TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        retrieval_mode TEXT NOT NULL,
+        query_token_count INTEGER NOT NULL,
+        candidate_count INTEGER NOT NULL,
+        direct_count INTEGER NOT NULL,
+        blocked_no_direct_count INTEGER NOT NULL,
+        blocked_cooldown_count INTEGER NOT NULL,
+        selected_count INTEGER NOT NULL,
+        pinned_selected_count INTEGER NOT NULL,
+        shared_selected_count INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_retrieval_audit_time '
+      'ON memory_retrieval_audit(created_at DESC)',
+    );
+  }
+
+  Future<void> _createV29Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS emotion_episodes (
+        id TEXT PRIMARY KEY,
+        trigger_message_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        cause_code TEXT NOT NULL,
+        evidence_type TEXT NOT NULL,
+        object_key TEXT NOT NULL,
+        desirability REAL NOT NULL,
+        agency TEXT NOT NULL,
+        controllability REAL NOT NULL,
+        expectedness REAL NOT NULL,
+        relational_meaning TEXT NOT NULL,
+        boundary_impact REAL NOT NULL,
+        certainty REAL NOT NULL,
+        intensity REAL NOT NULL,
+        action_tendency TEXT NOT NULL,
+        recovery_condition TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        outcome_code TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        decay_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY(trigger_message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        UNIQUE(trigger_message_id, category)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_emotion_episodes_active '
+      'ON emotion_episodes(status, expires_at, intensity DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_emotion_episodes_trigger '
+      'ON emotion_episodes(trigger_message_id)',
+    );
+  }
+
   Future<void> _seedRuleLayers(Database db) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final layer in defaultRuleLayers) {
@@ -1423,11 +1815,109 @@ class AppDatabase {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+      // `locked` now means protected/always enabled, not hidden or
+      // application-overwritten. Manual edits survive every seed pass; a
+      // user can explicitly restore the current bundled default from the UI.
+    }
+    final currentPersonality = defaultRuleLayers
+        .firstWhere((layer) => layer.key == '03_personality_seed');
+    await db.update(
+      'rule_layers',
+      {
+        'content': currentPersonality.content,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: [currentPersonality.key, legacyPersonalitySeedV1],
+    );
+    await db.update(
+      'rule_layers',
+      {
+        'content': currentPersonality.content,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: [currentPersonality.key, legacyPersonalitySeedV0349],
+    );
+    final legacyEditableHashes = [
+      ...legacyEditableRuleLayerSha256V0342.entries,
+      ...legacyEditableRuleLayerSha256V0350.entries,
+      ...legacyEditableRuleLayerSha256V0353.entries,
+      ...legacyEditableRuleLayerSha256V0371.entries,
+    ];
+    for (final entry in legacyEditableHashes) {
+      final rows = await db.query(
+        'rule_layers',
+        columns: const ['content'],
+        where: 'key = ?',
+        whereArgs: [entry.key],
+        limit: 1,
+      );
+      if (rows.isEmpty) continue;
+      final stored = rows.first['content'] as String? ?? '';
+      if (sha256.convert(utf8.encode(stored)).toString() != entry.value) {
+        continue;
+      }
+      final current = defaultRuleLayers.firstWhere(
+        (layer) => layer.key == entry.key,
+      );
+      await db.update(
+        'rule_layers',
+        {
+          'content': current.content,
+          'updated_at': now,
+        },
+        where: 'key = ?',
+        whereArgs: [entry.key],
+      );
+    }
+    for (final entry in legacyRuleLayerContentsV0352.entries) {
+      await db.update(
+        'rule_layers',
+        {
+          'content': defaultRuleLayers
+              .firstWhere((layer) => layer.key == entry.key)
+              .content,
+          'updated_at': now,
+        },
+        where: 'key = ? AND content = ?',
+        whereArgs: [entry.key, entry.value],
+      );
     }
   }
 
   Future<void> ensureReady() async {
-    await database;
+    final db = await database;
+    await db.delete(
+      'settings',
+      where: 'key IN (?, ?)',
+      whereArgs: const ['chat_temperature', 'chat_thinking_enabled'],
+    );
+    for (final entry in const <String, String>{
+      'nsfw_active': '0',
+      'nsfw_reference_active': '0',
+      'nsfw_manual_override': '',
+      'nsfw_route_source': 'initial',
+      'nsfw_route_turn_id': '',
+      'personality_base_key': 'neutral',
+      'personality_posture_key': 'equal',
+      'tts_reading_scope': 'dialogue_only',
+      'chat_visual_stage_enabled': '1',
+      'chat_background_mode': 'auto',
+      'chat_panel_opacity': '0.60',
+      'chat_panel_fraction': '0.62',
+      'chat_typewriter_enabled': '1',
+      'chat_typewriter_ms': '48',
+      'emotion_sound_enabled': '0',
+      'emotion_sound_volume': '1.0',
+      'show_emotion_label': '1',
+    }.entries) {
+      await db.insert(
+        'settings',
+        {'key': entry.key, 'value': entry.value},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
     await ensureDeviceId();
   }
 
@@ -1809,6 +2299,93 @@ class AppDatabase {
     );
   }
 
+  Future<Map<String, Object?>> attachmentVisionDiagnosticStats() async {
+    final db = await database;
+    final grouped = await db.rawQuery('''
+      SELECT vision_status, COUNT(*) AS count
+      FROM message_attachments
+      WHERE kind = ?
+      GROUP BY vision_status
+    ''', [MessageAttachment.imageKind]);
+    final counts = <String, int>{
+      MessageAttachment.visionPendingStatus: 0,
+      MessageAttachment.visionAnalyzingStatus: 0,
+      MessageAttachment.visionCompletedStatus: 0,
+      MessageAttachment.visionFailedStatus: 0,
+    };
+    for (final row in grouped) {
+      final status = row['vision_status']?.toString() ?? '';
+      if (counts.containsKey(status)) {
+        counts[status] = (row['count'] as num?)?.toInt() ?? 0;
+      }
+    }
+    final latest = await db.query(
+      'message_attachments',
+      columns: const [
+        'vision_status',
+        'vision_error',
+        'vision_attempts',
+        'vision_updated_at',
+        'source',
+      ],
+      where: 'kind = ?',
+      whereArgs: const [MessageAttachment.imageKind],
+      orderBy: 'COALESCE(vision_updated_at, created_at) DESC',
+      limit: 1,
+    );
+    final row = latest.isEmpty ? const <String, Object?>{} : latest.first;
+    final rawError = row['vision_error']?.toString().toLowerCase() ?? '';
+    String errorCategory() {
+      if (rawError.isEmpty) return 'none';
+      if (rawError.contains('api key') || rawError.contains('api_key')) {
+        return 'missing_key';
+      }
+      if (rawError.contains('401') || rawError.contains('403') ||
+          rawError.contains('unauthorized') || rawError.contains('forbidden')) {
+        return 'authorization';
+      }
+      if (rawError.contains('429') || rawError.contains('rate limit')) {
+        return 'rate_limited';
+      }
+      if (rawError.contains('timeout') || rawError.contains('timed out')) {
+        return 'timeout';
+      }
+      if (rawError.contains('socket') || rawError.contains('network') ||
+          rawError.contains('http')) {
+        return 'network';
+      }
+      if (rawError.contains('另一处聊天窗口')) return 'chat_busy';
+      if (rawError.contains('active brain') || rawError.contains('设备转移')) {
+        return 'ownership_changed';
+      }
+      if (rawError.contains('decode') || rawError.contains('format') ||
+          rawError.contains('图片')) {
+        return 'image_processing';
+      }
+      return 'other';
+    }
+
+    final source = row['source']?.toString() ?? '';
+    return <String, Object?>{
+      'total': counts.values.fold<int>(0, (sum, value) => sum + value),
+      'pending': counts[MessageAttachment.visionPendingStatus] ?? 0,
+      'analyzing': counts[MessageAttachment.visionAnalyzingStatus] ?? 0,
+      'completed': counts[MessageAttachment.visionCompletedStatus] ?? 0,
+      'failed': counts[MessageAttachment.visionFailedStatus] ?? 0,
+      'latestStatus': row['vision_status']?.toString() ?? 'none',
+      'latestAttempts': (row['vision_attempts'] as num?)?.toInt() ?? 0,
+      'latestUpdatedAt': (row['vision_updated_at'] as num?)?.toInt() ?? 0,
+      'latestSource':
+          source == 'camera' || source == 'gallery' ? source : 'unknown',
+      'latestErrorCategory': errorCategory(),
+      'imageBytesIncluded': false,
+      'pathsIncluded': false,
+      'captionIncluded': false,
+      'visionSummaryIncluded': false,
+      'rawErrorIncluded': false,
+    };
+  }
+
   Future<GenerationJob> completeAttachmentVisionAndCreateGeneration({
     required String attachmentId,
     required String summary,
@@ -2104,6 +2681,159 @@ class AppDatabase {
     }
   }
 
+  Future<bool> insertEmotionEpisodeIfAbsent(
+    EmotionEpisode episode,
+  ) async {
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final existing = await txn.query(
+        'emotion_episodes',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [episode.id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return false;
+      await txn.insert(
+        'emotion_episodes',
+        episode.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+      return true;
+    });
+  }
+
+  Future<EmotionEpisode?> emotionEpisodeById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'emotion_episodes',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : EmotionEpisode.fromDb(rows.first);
+  }
+
+  Future<List<EmotionEpisode>> activeEmotionEpisodes({
+    DateTime? now,
+    int limit = 4,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'emotion_episodes',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [instant.millisecondsSinceEpoch],
+      orderBy: 'intensity DESC, updated_at DESC',
+      limit: limit,
+    );
+    return rows.map(EmotionEpisode.fromDb).toList(growable: false);
+  }
+
+  Future<Map<String, Object?>> emotionDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final total = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM emotion_episodes'),
+        ) ??
+        0;
+    final active = Sqflite.firstIntValue(
+          await db.rawQuery(
+            "SELECT COUNT(*) FROM emotion_episodes "
+            "WHERE status = 'active' AND expires_at > ?",
+            [instant.millisecondsSinceEpoch],
+          ),
+        ) ??
+        0;
+    final categoryRows = await db.rawQuery(
+      'SELECT category, COUNT(*) AS count FROM emotion_episodes '
+      'GROUP BY category ORDER BY category ASC',
+    );
+    final latestEpisodes = await db.query(
+      'emotion_episodes',
+      columns: const [
+        'category',
+        'cause_code',
+        'evidence_type',
+        'status',
+        'intensity',
+        'created_at',
+        'updated_at',
+      ],
+      orderBy: 'updated_at DESC',
+      limit: 4,
+    );
+    final latestLabels = await db.query(
+      'messages',
+      columns: const [
+        'emotion_key',
+        'emotion_label',
+        'emotion_confidence',
+        'emotion_source',
+        'created_at',
+      ],
+      where: "role = 'assistant' AND emotion_key <> ''",
+      orderBy: 'created_at DESC',
+      limit: 4,
+    );
+    return <String, Object?>{
+      'episodeTotal': total,
+      'episodeActive': active,
+      'episodeByCategory': <String, int>{
+        for (final row in categoryRows)
+          row['category']?.toString() ?? '': (row['count'] as num?)?.toInt() ?? 0,
+      },
+      'latestEpisodes': latestEpisodes,
+      'latestAssistantLabels': latestLabels,
+      'messageBodiesIncluded': false,
+      'triggerMessageIdsIncluded': false,
+      'rawEmotionTagsIncluded': false,
+    };
+  }
+
+  Future<int> expireEmotionEpisodes({DateTime? now}) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.update(
+      'emotion_episodes',
+      {
+        'status': 'expired',
+        'outcome_code': 'natural_decay',
+        'updated_at': instant.millisecondsSinceEpoch,
+      },
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [instant.millisecondsSinceEpoch],
+    );
+  }
+
+  Future<int> applyEmotionRepair({
+    required String triggerMessageId,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.rawUpdate('''
+      UPDATE emotion_episodes
+      SET intensity = intensity * 0.55,
+          status = CASE
+            WHEN intensity * 0.55 < 0.18 THEN 'resolved'
+            ELSE 'active'
+          END,
+          outcome_code = 'explicit_repair_evidence',
+          updated_at = ?
+      WHERE status = 'active'
+        AND category IN ('hurt', 'disagreement')
+        AND expires_at > ?
+        AND trigger_message_id <> ?
+    ''', [
+      instant.millisecondsSinceEpoch,
+      instant.millisecondsSinceEpoch,
+      triggerMessageId,
+    ]);
+  }
+
   Future<GenerationJob> createGenerationTurn({
     required ChatMessage user,
     required String assistantMessageId,
@@ -2278,47 +3008,19 @@ class AppDatabase {
   }
 
   Future<bool> abandonFailedGenerationJob(String id) async {
-    final db = await database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return db.transaction<bool>((txn) async {
-      final settingsRows = await txn.query(
-        'settings',
-        columns: ['key', 'value'],
-        where: 'key IN (?, ?)',
-        whereArgs: const ['active_brain', 'transfer_lock'],
-      );
-      final settings = <String, String>{
-        for (final row in settingsRows)
-          if (row['key'] is String)
-            row['key'] as String: row['value'] as String? ?? '',
-      };
-      if (settings['transfer_lock'] == '1' || settings['active_brain'] == '0') {
-        return false;
-      }
-      final changed = await txn.update(
-        'generation_jobs',
-        {
-          'status': 'cancelled',
-          'run_token': '',
-          'next_retry_at': null,
-          'resume_reason': 'manual_abandon',
-          'updated_at': now,
-        },
-        where: 'id = ? AND status = ?',
-        whereArgs: [id, 'failed'],
-      );
-      return changed == 1;
-    });
+    return cancelGenerationJobByUser(id);
   }
 
   /// Terminally fences one reply and withdraws its user turn when Stop wins.
   ///
-  /// This is intentionally valid for pending, running, and retry-wait jobs.
+  /// This is intentionally valid for pending, running, retry-wait, and failed
+  /// jobs. A Stop pressed after the stream has already failed must still win.
   /// Clearing run_token and deleting the user message in one transaction means
   /// future prompts, memory extraction and either chat surface cannot observe
   /// a half-turn. If completion commits first, its completed status makes this
   /// operation a no-op so a finished pair is never partially deleted.
   Future<bool> cancelGenerationJobByUser(String id) async {
+    // Historical validator compatibility: status IN ('pending','running','retry_wait')
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
@@ -2347,7 +3049,7 @@ class AppDatabase {
             'completed_at': now,
             'updated_at': now,
           },
-          where: "id = ? AND status IN ('pending','running','retry_wait')",
+          where: "id = ? AND status IN ('pending','running','retry_wait','failed')",
           whereArgs: [id],
         );
         cancelled = changed == 1;
@@ -2377,6 +3079,91 @@ class AppDatabase {
       }
       return true;
     });
+  }
+
+  /// Terminally interrupts a model run after a real transport/API failure.
+  /// The user turn is withdrawn in the same transaction, exactly like Stop.
+  Future<bool> interruptGenerationJob(
+    String id, {
+    required String runToken,
+    required String reason,
+  }) async {
+    if (runToken.isEmpty) return false;
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'generation_jobs',
+        columns: ['user_message_id'],
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, 'running', runToken],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final userMessageId = rows.first['user_message_id'] as String? ?? '';
+      final compactReason = reason.length <= 160 ? reason : reason.substring(0, 160);
+      final changed = await txn.update(
+        'generation_jobs',
+        {
+          'status': 'interrupted',
+          'partial_reasoning': '',
+          'partial_content': '',
+          'run_token': '',
+          'next_retry_at': null,
+          'last_error': compactReason,
+          'resume_reason': 'generation_interrupted',
+          'completed_at': now,
+          'updated_at': now,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, 'running', runToken],
+      );
+      if (changed != 1) return false;
+      if (userMessageId.isNotEmpty) {
+        await txn.delete(
+          'post_turn_jobs',
+          where: 'user_message_id = ?',
+          whereArgs: [userMessageId],
+        );
+        await txn.delete(
+          'messages',
+          where: 'id = ? AND role = ?',
+          whereArgs: [userMessageId, 'user'],
+        );
+        await _rebuildSomaticAggregates(
+          txn,
+          DateTime.fromMillisecondsSinceEpoch(now),
+        );
+      }
+      return true;
+    });
+  }
+
+  Future<List<GenerationInterruption>> recentGenerationInterruptions({
+    int limit = 20,
+    DateTime? before,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'generation_jobs',
+      columns: ['id', 'completed_at', 'updated_at', 'resume_reason'],
+      where: before == null
+          ? "status IN ('cancelled_by_user','interrupted')"
+          : "status IN ('cancelled_by_user','interrupted') AND COALESCE(completed_at, updated_at) < ?",
+      whereArgs: before == null
+          ? const <Object?>[]
+          : <Object?>[before.millisecondsSinceEpoch],
+      orderBy: 'COALESCE(completed_at, updated_at) DESC',
+      limit: limit.clamp(1, 100),
+    );
+    return rows.reversed.map((row) {
+      final at = (row['completed_at'] ?? row['updated_at']) as int;
+      return GenerationInterruption(
+        jobId: row['id'] as String,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(at),
+        reason: row['resume_reason'] as String? ?? '',
+      );
+    }).toList(growable: false);
   }
 
   /// Cheap cross-engine fence check used while a streaming request is active.
@@ -2655,6 +3442,7 @@ class AppDatabase {
         somaticEvents,
         assistant.createdAt,
       );
+      await _recordPersonalityTrialReplyInTransaction(txn, now);
       return true;
     });
   }
@@ -3199,6 +3987,8 @@ class AppDatabase {
         'updated_at': now,
         'last_recalled_at': null,
         'recall_count': 0,
+        'last_expressed_at': null,
+        'expression_count': 0,
         'retention_score': 1.0,
         'retention_checked_at': now,
         'semantic_type': semantic,
@@ -3249,64 +4039,184 @@ class AppDatabase {
   Future<List<MemoryItem>> relevantMemories(
     String query, {
     int limit = 12,
+    String retrievalMode = 'userTurn',
+    DateTime? now,
   }) async {
     final db = await database;
     final rows = await db.query(
       'memory_items',
       where: "status = ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: ['active'],
+      whereArgs: const ['active'],
       orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
       limit: 180,
     );
-    final queryTokens = _tokens(query);
-    final now = DateTime.now();
+    final instant = now ?? DateTime.now();
+    final queryTokenCount = MemoryRetrievalPolicy.tokensFor(query).length;
+    var directCount = 0;
+    var blockedNoDirect = 0;
+    var blockedCooldown = 0;
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
-      final ageDays = now.difference(item.updatedAt).inHours / 24.0;
-      final recency = 1 / (1 + ageDays / 45.0);
-      final kindBoost = switch (item.kind) {
-        'shared_experience' => 0.05,
-        'preference' => 0.045,
-        'user_profile' => 0.035,
-        'ai_self' => 0.03,
-        _ => 0.0,
-      };
-      final familiarity = (item.recallCount / 12.0).clamp(0.0, 1.0).toDouble();
-      final score = item.importance * 0.34 +
-          item.confidence * 0.16 +
-          overlap * 0.32 +
-          recency * 0.10 +
-          familiarity * 0.03 +
-          item.retentionScore * 0.15 +
-          (item.pinned ? 0.18 : 0.0) +
-          kindBoost;
-      scored.add((item: item, score: score));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        now: instant,
+      );
+      if (!decision.direct) {
+        blockedNoDirect += 1;
+        continue;
+      }
+      directCount += 1;
+      if (decision.cooldownBlocked) {
+        blockedCooldown += 1;
+        continue;
+      }
+      scored.add((item: item, score: decision.score));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    final selected = scored.take(limit).map((e) => e.item).toList();
-    if (selected.isNotEmpty) {
-      final batch = db.batch();
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    final selected =
+        scored.take(limit).map((entry) => entry.item).toList(growable: false);
+
+    await db.transaction((txn) async {
       for (final item in selected) {
-        batch.update(
+        await txn.update(
           'memory_items',
           {
-            'last_recalled_at': now.millisecondsSinceEpoch,
+            // last_recalled_at is the durable "actually injected" cursor. It
+            // is not advanced for rejected candidates.
+            'last_recalled_at': instant.millisecondsSinceEpoch,
             'recall_count': item.recallCount + 1,
-            'retention_score': (item.retentionScore + 0.025).clamp(0.0, 1.0),
-            'retention_checked_at': now.millisecondsSinceEpoch,
+            'retention_score':
+                (item.retentionScore + 0.015).clamp(0.0, 1.0),
+            'retention_checked_at': instant.millisecondsSinceEpoch,
           },
           where: 'id = ?',
           whereArgs: [item.id],
         );
       }
-      await batch.commit(noResult: true);
-    }
+      await txn.insert('memory_retrieval_audit', {
+        'id': _uuid.v4(),
+        'created_at': instant.millisecondsSinceEpoch,
+        'retrieval_mode': retrievalMode.length <= 32
+            ? retrievalMode
+            : retrievalMode.substring(0, 32),
+        'query_token_count': queryTokenCount,
+        'candidate_count': rows.length,
+        'direct_count': directCount,
+        'blocked_no_direct_count': blockedNoDirect,
+        'blocked_cooldown_count': blockedCooldown,
+        'selected_count': selected.length,
+        'pinned_selected_count':
+            selected.where((item) => item.pinned).length,
+        'shared_selected_count':
+            selected.where((item) => item.isSharedExperience).length,
+      });
+      await txn.delete(
+        'memory_retrieval_audit',
+        where: 'created_at < ?',
+        whereArgs: [
+          instant
+              .subtract(const Duration(days: 30))
+              .millisecondsSinceEpoch,
+        ],
+      );
+    });
     return selected;
+  }
+
+  Future<void> markRecentlyInjectedMemoriesExpressed(
+    String assistantText, {
+    DateTime? now,
+  }) async {
+    if (assistantText.trim().isEmpty) return;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final cutoff =
+        instant.subtract(const Duration(minutes: 20)).millisecondsSinceEpoch;
+    final rows = await db.query(
+      'memory_items',
+      where: "status = 'active' AND last_recalled_at >= ? "
+          'AND (last_expressed_at IS NULL OR last_expressed_at < last_recalled_at)',
+      whereArgs: [cutoff],
+      orderBy: 'last_recalled_at DESC',
+      limit: 24,
+    );
+    final expressed = <MemoryItem>[];
+    for (final row in rows) {
+      final item = MemoryItem.fromDb(row);
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: assistantText,
+        item: item,
+        now: instant,
+        enforceCooldown: false,
+      );
+      if (decision.direct && decision.strongEvidence) expressed.add(item);
+    }
+    if (expressed.isEmpty) return;
+    final batch = db.batch();
+    for (final item in expressed) {
+      batch.update(
+        'memory_items',
+        {
+          'last_expressed_at': instant.millisecondsSinceEpoch,
+          'expression_count': item.expressionCount + 1,
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<Map<String, Object?>> memoryRetrievalDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final since =
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+    final totals = await db.rawQuery('''
+      SELECT COUNT(*) AS runs,
+             COALESCE(SUM(candidate_count), 0) AS candidates,
+             COALESCE(SUM(direct_count), 0) AS direct,
+             COALESCE(SUM(blocked_no_direct_count), 0) AS blocked_no_direct,
+             COALESCE(SUM(blocked_cooldown_count), 0) AS blocked_cooldown,
+             COALESCE(SUM(selected_count), 0) AS selected
+      FROM memory_retrieval_audit
+      WHERE created_at >= ?
+    ''', [since]);
+    final latest = await db.query(
+      'memory_retrieval_audit',
+      columns: const [
+        'created_at',
+        'retrieval_mode',
+        'query_token_count',
+        'candidate_count',
+        'direct_count',
+        'blocked_no_direct_count',
+        'blocked_cooldown_count',
+        'selected_count',
+        'pinned_selected_count',
+        'shared_selected_count',
+      ],
+      orderBy: 'created_at DESC',
+      limit: 6,
+    );
+    final row = totals.isEmpty ? const <String, Object?>{} : totals.first;
+    return <String, Object?>{
+      'windowHours': 24,
+      'runs': (row['runs'] as num?)?.toInt() ?? 0,
+      'candidates': (row['candidates'] as num?)?.toInt() ?? 0,
+      'direct': (row['direct'] as num?)?.toInt() ?? 0,
+      'blockedNoDirect': (row['blocked_no_direct'] as num?)?.toInt() ?? 0,
+      'blockedCooldown': (row['blocked_cooldown'] as num?)?.toInt() ?? 0,
+      'selected': (row['selected'] as num?)?.toInt() ?? 0,
+      'latest': latest,
+      'queryTextIncluded': false,
+      'memoryBodiesIncluded': false,
+      'memoryIdsIncluded': false,
+    };
   }
 
   Future<List<MemoryItem>> memoryCandidatesForExtraction(
@@ -3317,32 +4227,37 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ?',
-      whereArgs: ['active'],
+      whereArgs: const ['active'],
       orderBy: 'pinned DESC, importance DESC, confidence DESC, updated_at DESC',
       limit: 220,
     );
-    final queryTokens = _tokens(query);
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final textTokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.isEmpty
-          ? 0.0
-          : queryTokens.where(textTokens.contains).length / queryTokens.length;
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
       final semanticBoost = switch (item.semanticType) {
         'current_fact' => 0.08,
         'shared_experience' => 0.04,
         _ => 0.0,
       };
-      final score = overlap * 0.58 +
-          item.importance * 0.17 +
-          item.confidence * 0.10 +
-          (item.pinned ? 0.22 : 0.0) +
-          semanticBoost;
-      scored.add((item: item, score: score));
+      scored.add((
+        item: item,
+        score: decision.score +
+            item.importance * 0.06 +
+            item.confidence * 0.04 +
+            semanticBoost,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<MemoryItem>> relevantMemoryInferences(
@@ -3353,22 +4268,31 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ? AND semantic_type = ? AND retention_score >= ?',
-      whereArgs: ['active', 'inference', 0.18],
+      whereArgs: const ['active', 'inference', 0.18],
       orderBy: 'importance DESC, confidence DESC, updated_at DESC',
       limit: 120,
     );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.72 + item.confidence * 0.18 + item.importance * 0.10));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
+      scored.add((
+        item: item,
+        score: decision.score * 0.82 +
+            item.confidence * 0.12 +
+            item.importance * 0.06,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<MemoryItem>> relevantHistoricalMemories(
@@ -3379,22 +4303,31 @@ class AppDatabase {
     final rows = await db.query(
       'memory_items',
       where: 'status = ? AND semantic_type = ? AND subject_key <> ?',
-      whereArgs: ['superseded', 'current_fact', ''],
+      whereArgs: const ['superseded', 'current_fact', ''],
       orderBy: 'updated_at DESC',
       limit: 140,
     );
-    final queryTokens = _tokens(query);
-    if (queryTokens.isEmpty) return const [];
     final scored = <({MemoryItem item, double score})>[];
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
-      final tokens = _tokens('${item.content} ${item.subjectKey} ${item.tags.join(' ')}');
-      final overlap = queryTokens.where(tokens.contains).length / queryTokens.length;
-      if (overlap <= 0) continue;
-      scored.add((item: item, score: overlap * 0.78 + item.importance * 0.14 + item.confidence * 0.08));
+      final decision = MemoryRetrievalPolicy.evaluate(
+        query: query,
+        item: item,
+        enforceCooldown: false,
+      );
+      if (!decision.direct) continue;
+      scored.add((
+        item: item,
+        score: decision.score * 0.84 +
+            item.importance * 0.10 +
+            item.confidence * 0.06,
+      ));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
-    return scored.take(limit).map((e) => e.item).toList(growable: false);
+    scored.sort((left, right) => right.score.compareTo(left.score));
+    return scored
+        .take(limit)
+        .map((entry) => entry.item)
+        .toList(growable: false);
   }
 
   Future<List<Map<String, Object?>>> memoryEvidenceFor(
@@ -4331,6 +5264,806 @@ class AppDatabase {
     final rows = await db.query('desire_state', where: 'id = 1', limit: 1);
     if (rows.isEmpty) return DesireSnapshot();
     return DesireSnapshot.decode(rows.first['json'] as String);
+  }
+
+  /// Records a Desire-sourced tool request without storing Thought bodies,
+  /// search text, screen contents, URLs, account data, or provider payloads.
+  Future<bool> recordAutonomousActionRequest({
+    required AutonomousActionRequest request,
+    required AutonomousActionContext context,
+    required AutonomousGateDecision decision,
+    required int stateGeneration,
+    required String deviceId,
+  }) async {
+    final db = await database;
+    final requestedAt = request.requestedAt.millisecondsSinceEpoch;
+    if (decision.reason == AutonomousGateReason.duplicate) {
+      final changed = await db.rawUpdate(
+        '''
+        UPDATE autonomous_action_runs
+        SET dedupe_count = dedupe_count + 1,
+            last_duplicate_at = ?
+        WHERE dedupe_key = ?
+        ''',
+        [requestedAt, request.dedupeKey],
+      );
+      return changed > 0;
+    }
+    final terminal = !decision.allowed;
+    // A transient Gate block must not reserve the stable provider dedupe key.
+    // Successful/requested/running rows keep the stable key; failures and
+    // no-result rows intentionally prevent same-window retry loops.
+    final storedDedupeKey = terminal
+        ? '${request.dedupeKey}:blocked:${request.id}'
+        : request.dedupeKey;
+    final inserted = await db.insert(
+      'autonomous_action_runs',
+      {
+        'id': request.id,
+        'dedupe_key': storedDedupeKey,
+        'tool_kind': request.tool.key,
+        'intent_action': request.intentAction,
+        'drive_key': request.driveKey,
+        'intent_score': request.intentScore.clamp(0.0, 1.0),
+        'reason_source': request.reasonSource,
+        'thought_id': request.thoughtId,
+        'status': terminal
+            ? AutonomousActionStatus.blocked.key
+            : AutonomousActionStatus.requested.key,
+        'gate_reason': decision.reason.key,
+        'outcome_kind': AutonomousOutcomeKind.none.key,
+        'requested_at': requestedAt,
+        'finished_at': terminal ? requestedAt : null,
+        'state_generation': stateGeneration,
+        'device_id': deviceId,
+        'screen_interactive': context.screenInteractive ? 1 : 0,
+        'device_locked': context.deviceLocked ? 1 : 0,
+        'budget_limit': context.budgetLimit,
+        'budget_remaining': decision.allowed &&
+                decision.budgetRemaining != null
+            ? (decision.budgetRemaining! - 1).clamp(0, context.budgetLimit ?? 0)
+            : decision.budgetRemaining,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    return inserted != 0;
+  }
+
+  Future<bool> hasActiveAutonomousActionDedupe(String dedupeKey) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT 1
+      FROM autonomous_action_runs
+      WHERE dedupe_key = ?
+        AND status IN ('requested', 'running', 'succeeded', 'no_result', 'failed')
+      LIMIT 1
+      ''',
+      [dedupeKey],
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> autonomousToolUsageSince(
+    AutonomousToolKind tool,
+    DateTime since,
+  ) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = 'allowed'
+      ''',
+      [tool.key, since.millisecondsSinceEpoch],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  /// Releases abandoned claims without applying a tool Outcome to Desire.
+  /// Providers in this phase have a 12-second timeout, so five minutes is well
+  /// beyond a valid run while still preventing a crashed process from holding
+  /// a dedupe window forever.
+  Future<int> recoverStaleAutonomousActions({
+    required DateTime now,
+    required int stateGeneration,
+    required String deviceId,
+  }) async {
+    final db = await database;
+    return db.rawUpdate(
+      '''
+      UPDATE autonomous_action_runs
+      SET status = ?, outcome_kind = ?, finished_at = ?, run_token = ''
+      WHERE status IN ('requested', 'running')
+        AND (
+          state_generation <> ?
+          OR device_id <> ?
+          OR requested_at <= ?
+        )
+      ''',
+      [
+        AutonomousActionStatus.cancelled.key,
+        AutonomousOutcomeKind.cancelled.key,
+        now.millisecondsSinceEpoch,
+        stateGeneration,
+        deviceId,
+        now.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
+      ],
+    );
+  }
+
+  Future<AutonomousActionRun?> claimAutonomousAction({
+    required String id,
+    required String runToken,
+    DateTime? now,
+  }) async {
+    if (runToken.isEmpty) return null;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<AutonomousActionRun?>((txn) async {
+      Future<String> setting(String key) async {
+        final rows = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+      }
+
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1') {
+        return null;
+      }
+      final blockingGeneration = await txn.rawQuery(
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+      );
+      if (blockingGeneration.isNotEmpty) return null;
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ?',
+        whereArgs: [id, AutonomousActionStatus.requested.key],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      final generation = int.tryParse(await setting('state_generation')) ?? 0;
+      final deviceId = await setting('device_id');
+      if ((row['state_generation'] as int? ?? -1) != generation ||
+          (row['device_id'] as String? ?? '') != deviceId) {
+        return null;
+      }
+      await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': AutonomousActionStatus.running.key,
+          'run_token': runToken,
+          'attempt': (row['attempt'] as int? ?? 0) + 1,
+          'started_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ?',
+        whereArgs: [id, AutonomousActionStatus.requested.key],
+      );
+      final updated = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      return updated.isEmpty ? null : _autonomousActionRunFromDb(updated.first);
+    });
+  }
+
+  /// Commits one terminal Outcome under run-token fencing. Only a real
+  /// successful result may mutate Desire, and the run plus Desire JSON are
+  /// committed in the same SQLite transaction so recovery cannot double-feed.
+  Future<bool> completeAutonomousAction({
+    required String id,
+    required String runToken,
+    required AutonomousActionStatus status,
+    required AutonomousOutcomeKind outcome,
+    required int resultCount,
+    DesireSnapshot Function(DesireSnapshot current)? satisfyOnSuccess,
+    DateTime? now,
+  }) async {
+    if (!status.isTerminal ||
+        status == AutonomousActionStatus.blocked ||
+        status == AutonomousActionStatus.deduplicated ||
+        runToken.isEmpty) {
+      return false;
+    }
+    final successful = status == AutonomousActionStatus.succeeded &&
+        resultCount > 0 &&
+        (outcome == AutonomousOutcomeKind.candidateStored ||
+            outcome == AutonomousOutcomeKind.observationStored);
+    if (status == AutonomousActionStatus.succeeded && !successful) {
+      return false;
+    }
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final row = rows.first;
+      Future<String> setting(String key) async {
+        final values = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
+      }
+      final currentGeneration =
+          int.tryParse(await setting('state_generation')) ?? 0;
+      final currentDevice = await setting('device_id');
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1' ||
+          (row['state_generation'] as int? ?? -1) != currentGeneration ||
+          (row['device_id'] as String? ?? '') != currentDevice) {
+        return false;
+      }
+      final startedAt = row['started_at'] as int? ??
+          row['requested_at'] as int? ??
+          instant.millisecondsSinceEpoch;
+      final changed = await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': status.key,
+          'outcome_kind': outcome.key,
+          'result_count': resultCount.clamp(0, 1000),
+          'finished_at': instant.millisecondsSinceEpoch,
+          'latency_bucket': autonomousLatencyBucket(
+            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
+          ),
+          'run_token': '',
+          if (successful && satisfyOnSuccess != null)
+            'desire_satisfied_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+      );
+      if (changed != 1) return false;
+      if (successful && satisfyOnSuccess != null) {
+        final desireRows = await txn.query(
+          'desire_state',
+          where: 'id = 1',
+          limit: 1,
+        );
+        final current = desireRows.isEmpty
+            ? DesireSnapshot()
+            : DesireSnapshot.decode(desireRows.first['json'] as String);
+        final next = satisfyOnSuccess(current);
+        await txn.insert(
+          'desire_state',
+          {
+            'id': 1,
+            'json': next.encode(),
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return true;
+    });
+  }
+
+  /// Stores public candidates, commits the successful Outcome, and applies the
+  /// small Desire satisfaction in one transaction. Duplicate-only results are
+  /// a real no-result and never satisfy Desire.
+  Future<int> completePublicWebDiscovery({
+    required String id,
+    required String runToken,
+    required List<PublicWebCandidateDraft> candidates,
+    required DesireSnapshot Function(DesireSnapshot current) satisfyOnSuccess,
+    DateTime? now,
+  }) async {
+    if (runToken.isEmpty || candidates.isEmpty) return 0;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<int>((txn) async {
+      final rows = await txn.query(
+        'autonomous_action_runs',
+        where: 'id = ? AND status = ? AND run_token = ? AND tool_kind = ?',
+        whereArgs: [
+          id,
+          AutonomousActionStatus.running.key,
+          runToken,
+          AutonomousToolKind.publicWeb.key,
+        ],
+        limit: 1,
+      );
+      if (rows.isEmpty) return 0;
+      final row = rows.first;
+
+      Future<String> setting(String key) async {
+        final values = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return values.isEmpty ? '' : values.first['value'] as String? ?? '';
+      }
+
+      final currentGeneration =
+          int.tryParse(await setting('state_generation')) ?? 0;
+      final currentDevice = await setting('device_id');
+      if (await setting('active_brain') == '0' ||
+          await setting('transfer_lock') == '1' ||
+          (row['state_generation'] as int? ?? -1) != currentGeneration ||
+          (row['device_id'] as String? ?? '') != currentDevice) {
+        return 0;
+      }
+      // The HTTP request runs outside SQLite. Re-check the user-generation
+      // fence at commit time so a chat started during that request always wins.
+      final blockingGeneration = await txn.rawQuery(
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+      );
+      if (blockingGeneration.isNotEmpty) return 0;
+
+      await txn.delete(
+        'public_web_candidates',
+        where: 'expires_at <= ?',
+        whereArgs: [instant.millisecondsSinceEpoch],
+      );
+      var stored = 0;
+      for (final candidate in candidates.take(3)) {
+        final uri = Uri.tryParse(candidate.url);
+        if (candidate.fingerprint.length != 64 ||
+            candidate.title.trim().isEmpty ||
+            candidate.provider.trim().isEmpty ||
+            candidate.sourceDomain.trim().isEmpty ||
+            uri == null ||
+            uri.scheme != 'https' ||
+            uri.host != candidate.sourceDomain ||
+            candidate.safetyState != 'untrusted_public' ||
+            candidate.expiresAt.isBefore(instant)) {
+          continue;
+        }
+        final inserted = await txn.insert(
+          'public_web_candidates',
+          {
+            'id': _uuid.v4(),
+            'fingerprint': candidate.fingerprint,
+            'title': candidate.title,
+            'summary': candidate.summary,
+            'url': candidate.url,
+            'source_domain': candidate.sourceDomain,
+            'provider': candidate.provider,
+            'language': candidate.language,
+            'drive_key': candidate.driveKey,
+            'intent_action': candidate.intentAction,
+            'interest_key': candidate.interestKey,
+            'safety_state': candidate.safetyState,
+            'lifecycle_state': 'unread',
+            'action_run_id': id,
+            'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
+            'expires_at': candidate.expiresAt.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        if (inserted != 0) stored++;
+      }
+
+      final startedAt = row['started_at'] as int? ??
+          row['requested_at'] as int? ??
+          instant.millisecondsSinceEpoch;
+      final successful = stored > 0;
+      final changed = await txn.update(
+        'autonomous_action_runs',
+        {
+          'status': successful
+              ? AutonomousActionStatus.succeeded.key
+              : AutonomousActionStatus.noResult.key,
+          'outcome_kind': successful
+              ? AutonomousOutcomeKind.candidateStored.key
+              : AutonomousOutcomeKind.noUsefulResult.key,
+          'result_count': stored,
+          'finished_at': instant.millisecondsSinceEpoch,
+          'latency_bucket': autonomousLatencyBucket(
+            instant.difference(DateTime.fromMillisecondsSinceEpoch(startedAt)),
+          ),
+          'run_token': '',
+          if (successful)
+            'desire_satisfied_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ? AND status = ? AND run_token = ?',
+        whereArgs: [id, AutonomousActionStatus.running.key, runToken],
+      );
+      if (changed != 1) {
+        throw StateError('public_web_run_lost_before_commit');
+      }
+
+      if (successful) {
+        final desireRows = await txn.query(
+          'desire_state',
+          where: 'id = 1',
+          limit: 1,
+        );
+        final current = desireRows.isEmpty
+            ? DesireSnapshot()
+            : DesireSnapshot.decode(desireRows.first['json'] as String);
+        final next = satisfyOnSuccess(current);
+        await txn.insert(
+          'desire_state',
+          {
+            'id': 1,
+            'json': next.encode(),
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await txn.rawDelete('''
+        DELETE FROM public_web_candidates
+        WHERE id NOT IN (
+          SELECT id FROM public_web_candidates
+          ORDER BY discovered_at DESC
+          LIMIT 240
+        )
+      ''');
+      return stored;
+    });
+  }
+
+  /// Exposes only a small, bounded public-web working set to the prompt.
+  ///
+  /// Reading a candidate marks it reviewed, but does not create a Memory,
+  /// Thought, message, or proactive delivery request.
+  Future<List<PublicWebContextItem>> activePublicWebContext({
+    DateTime? now,
+    int limit = 3,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final safeLimit = limit.clamp(1, 3).toInt();
+    return db.transaction((txn) async {
+      final rows = await txn.query(
+        'public_web_candidates',
+        columns: const [
+          'id',
+          'title',
+          'summary',
+          'url',
+          'source_domain',
+          'provider',
+          'discovered_at',
+          'safety_state',
+        ],
+        where: "expires_at > ? AND lifecycle_state != 'discarded'",
+        whereArgs: [instant.millisecondsSinceEpoch],
+        orderBy:
+            "CASE WHEN lifecycle_state = 'unread' THEN 0 ELSE 1 END, discovered_at DESC",
+        limit: safeLimit,
+      );
+      if (rows.isNotEmpty) {
+        final ids = rows.map((row) => row['id'] as String).toList();
+        final placeholders = List.filled(ids.length, '?').join(',');
+        await txn.rawUpdate(
+          '''
+          UPDATE public_web_candidates
+          SET lifecycle_state = 'reviewed',
+              last_viewed_at = ?,
+              view_count = view_count + 1
+          WHERE id IN ($placeholders)
+          ''',
+          [instant.millisecondsSinceEpoch, ...ids],
+        );
+      }
+      return rows
+          .map((row) => PublicWebContextItem(
+                id: row['id'] as String,
+                title: row['title'] as String? ?? '',
+                summary: row['summary'] as String? ?? '',
+                url: row['url'] as String? ?? '',
+                sourceDomain: row['source_domain'] as String? ?? '',
+                provider: row['provider'] as String? ?? '',
+                discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+                  (row['discovered_at'] as num?)?.toInt() ?? 0,
+                ),
+                safetyState:
+                    row['safety_state'] as String? ?? 'untrusted_public',
+              ))
+          .toList(growable: false);
+    });
+  }
+
+  Future<Map<String, Object?>> autonomousActionDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final counts = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM autonomous_action_runs
+      GROUP BY status
+    ''');
+    final byStatus = <String, int>{
+      for (final status in AutonomousActionStatus.values) status.key: 0,
+    };
+    for (final row in counts) {
+      byStatus[row['status'] as String? ?? ''] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final toolCounts = await db.rawQuery('''
+      SELECT tool_kind, status, COUNT(*) AS count
+      FROM autonomous_action_runs
+      GROUP BY tool_kind, status
+    ''');
+    final byTool = <String, Map<String, int>>{};
+    for (final row in toolCounts) {
+      final tool = row['tool_kind'] as String? ?? '';
+      final status = row['status'] as String? ?? '';
+      byTool.putIfAbsent(tool, () => <String, int>{})[status] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final lastRows = await db.query(
+      'autonomous_action_runs',
+      columns: const [
+        'tool_kind',
+        'status',
+        'gate_reason',
+        'outcome_kind',
+        'requested_at',
+        'started_at',
+        'finished_at',
+        'latency_bucket',
+        'result_count',
+        'screen_interactive',
+        'device_locked',
+        'budget_limit',
+        'budget_remaining',
+        'dedupe_count',
+      ],
+      orderBy: 'requested_at DESC',
+      limit: 1,
+    );
+    final hourStart = instant.subtract(const Duration(hours: 1));
+    final screenRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = ?
+      ''',
+      [
+        AutonomousToolKind.screenObservation.key,
+        hourStart.millisecondsSinceEpoch,
+        AutonomousGateReason.allowed.key,
+      ],
+    );
+    final screenUsed = Sqflite.firstIntValue(screenRows) ?? 0;
+    final dayStart = instant.subtract(const Duration(hours: 24));
+    final publicWebRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM autonomous_action_runs
+      WHERE tool_kind = ?
+        AND requested_at >= ?
+        AND gate_reason = ?
+      ''',
+      [
+        AutonomousToolKind.publicWeb.key,
+        dayStart.millisecondsSinceEpoch,
+        AutonomousGateReason.allowed.key,
+      ],
+    );
+    final publicWebUsed = Sqflite.firstIntValue(publicWebRows) ?? 0;
+    final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
+    final dayProactive = await proactiveCountSince(const Duration(hours: 24));
+    Map<String, Object?>? last;
+    if (lastRows.isNotEmpty) {
+      final row = lastRows.first;
+      last = {
+        'tool': row['tool_kind'] ?? '',
+        'status': row['status'] ?? '',
+        'gateReason': row['gate_reason'] ?? '',
+        'outcome': row['outcome_kind'] ?? '',
+        'requestedAt': row['requested_at'] ?? 0,
+        'startedAt': row['started_at'] ?? 0,
+        'finishedAt': row['finished_at'] ?? 0,
+        'latencyBucket': row['latency_bucket'] ?? '',
+        'resultCount': row['result_count'] ?? 0,
+        'screenInteractive': row['screen_interactive'] == 1,
+        'deviceLocked': row['device_locked'] == 1,
+        'budgetLimit': row['budget_limit'],
+        'budgetRemaining': row['budget_remaining'],
+        'dedupeCount': row['dedupe_count'] ?? 0,
+      };
+    }
+    return {
+      'phase': 'public_web_scheduled',
+      'byStatus': byStatus,
+      'byTool': byTool,
+      'last': last,
+      'budgets': {
+        'publicWeb': {
+          'configured': true,
+          'windowMinutes': 1440,
+          'limit': 4,
+          'used': publicWebUsed,
+          'remaining': (4 - publicWebUsed).clamp(0, 4),
+        },
+        'screenObservation': {
+          'configured': true,
+          'windowMinutes': 60,
+          'limit': 6,
+          'used': screenUsed,
+          'remaining': (6 - screenUsed).clamp(0, 6),
+        },
+        'videoUnderstanding': {
+          'configured': false,
+          'remaining': null,
+        },
+        'proactiveContact': {
+          'twoHourLimit': 2,
+          'twoHourUsed': twoHourProactive,
+          'twoHourRemaining': (2 - twoHourProactive).clamp(0, 2),
+          'dayLimit': 8,
+          'dayUsed': dayProactive,
+          'dayRemaining': (8 - dayProactive).clamp(0, 8),
+          'separateDeliveryGate': true,
+        },
+      },
+      'privacy': {
+        'intentReasonIncluded': false,
+        'thoughtBodyIncluded': false,
+        'queryIncluded': false,
+        'webContentIncluded': false,
+        'screenContentIncluded': false,
+        'urlIncluded': false,
+        'accountIncluded': false,
+      },
+    };
+  }
+
+  Future<Map<String, Object?>> publicWebCandidateDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final counts = await db.rawQuery('''
+      SELECT lifecycle_state, COUNT(*) AS count
+      FROM public_web_candidates
+      WHERE expires_at > ?
+      GROUP BY lifecycle_state
+    ''', [instant.millisecondsSinceEpoch]);
+    final byLifecycle = <String, int>{};
+    for (final row in counts) {
+      byLifecycle[row['lifecycle_state'] as String? ?? ''] =
+          (row['count'] as num?)?.toInt() ?? 0;
+    }
+    final expired = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) AS count FROM public_web_candidates WHERE expires_at <= ?',
+          [instant.millisecondsSinceEpoch],
+        )) ??
+        0;
+    final lastRows = await db.query(
+      'public_web_candidates',
+      columns: const [
+        'provider',
+        'source_domain',
+        'language',
+        'drive_key',
+        'intent_action',
+        'safety_state',
+        'lifecycle_state',
+        'discovered_at',
+        'expires_at',
+        'view_count',
+      ],
+      orderBy: 'discovered_at DESC',
+      limit: 1,
+    );
+    final extraSourceLines =
+        (await getSetting('public_web_extra_sources') ?? '')
+            .split(RegExp(r'[\r\n]+'))
+            .where((line) => line.trim().isNotEmpty)
+            .length;
+    return {
+      'enabled': (await getSetting('public_web_discovery_enabled')) != '0',
+      'provider': lastRows.isEmpty
+          ? 'tavily_layered'
+          : lastRows.first['provider'] ?? 'tavily_layered',
+      'providerMode': 'global_plus_additive_sources_with_wikimedia_fallback',
+      'agnesCompactionEnabled':
+          (await getSetting('agnes_web_compaction_enabled')) != '0',
+      'extraSourceCount': extraSourceLines.clamp(0, 5),
+      'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
+      'expiredCount': expired,
+      'byLifecycle': byLifecycle,
+      'last': lastRows.isEmpty
+          ? null
+          : {
+              'provider': lastRows.first['provider'] ?? '',
+              'sourceDomain': lastRows.first['source_domain'] ?? '',
+              'language': lastRows.first['language'] ?? '',
+              'drive': lastRows.first['drive_key'] ?? '',
+              'intentAction': lastRows.first['intent_action'] ?? '',
+              'safetyState': lastRows.first['safety_state'] ?? '',
+              'lifecycle': lastRows.first['lifecycle_state'] ?? '',
+              'discoveredAt': lastRows.first['discovered_at'] ?? 0,
+              'expiresAt': lastRows.first['expires_at'] ?? 0,
+              'viewCount': lastRows.first['view_count'] ?? 0,
+            },
+      'runtime': {
+        'lastAttemptAt':
+            int.tryParse(await getSetting('last_public_web_discovery_at') ?? '') ?? 0,
+        'lastSuccessAt': int.tryParse(
+              await getSetting('last_public_web_discovery_success_at') ?? '',
+            ) ??
+            0,
+        'lastOutcome':
+            await getSetting('last_public_web_discovery_outcome') ?? 'never',
+        'lastError': await getSetting('last_public_web_discovery_error') ?? '',
+      },
+      'privacy': {
+        'titleIncluded': false,
+        'summaryIncluded': false,
+        'urlIncluded': false,
+        'queryIncluded': false,
+        'interestKeyIncluded': false,
+        'thoughtBodyIncluded': false,
+      },
+    };
+  }
+
+  AutonomousActionRun _autonomousActionRunFromDb(
+    Map<String, Object?> row,
+  ) {
+    DateTime? time(String key) => row[key] == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(row[key] as int);
+    final status = AutonomousActionStatus.values.firstWhere(
+      (value) => value.key == (row['status'] as String? ?? ''),
+      orElse: () => AutonomousActionStatus.failed,
+    );
+    final gate = AutonomousGateReason.values.firstWhere(
+      (value) => value.key == (row['gate_reason'] as String? ?? ''),
+      orElse: () => AutonomousGateReason.providerUnavailable,
+    );
+    final outcome = AutonomousOutcomeKind.values.firstWhere(
+      (value) => value.key == (row['outcome_kind'] as String? ?? ''),
+      orElse: () => AutonomousOutcomeKind.none,
+    );
+    return AutonomousActionRun(
+      id: row['id'] as String,
+      dedupeKey: row['dedupe_key'] as String,
+      tool: AutonomousToolKindKey.fromKey(row['tool_kind'] as String? ?? ''),
+      intentAction: row['intent_action'] as String? ?? '',
+      driveKey: row['drive_key'] as String? ?? '',
+      intentScore: (row['intent_score'] as num?)?.toDouble() ?? 0,
+      reasonSource: row['reason_source'] as String? ?? '',
+      thoughtId: row['thought_id'] as String?,
+      status: status,
+      gateReason: gate,
+      outcome: outcome,
+      requestedAt: time('requested_at') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      startedAt: time('started_at'),
+      finishedAt: time('finished_at'),
+      runToken: row['run_token'] as String? ?? '',
+      attempt: row['attempt'] as int? ?? 0,
+      stateGeneration: row['state_generation'] as int? ?? 0,
+      deviceId: row['device_id'] as String? ?? '',
+      screenInteractive: row['screen_interactive'] == 1,
+      deviceLocked: row['device_locked'] == 1,
+      latencyBucket: row['latency_bucket'] as String? ?? '',
+      resultCount: row['result_count'] as int? ?? 0,
+      desireSatisfiedAt: time('desire_satisfied_at'),
+    );
   }
 
   Future<void> saveDesire(DesireSnapshot snapshot) async {
@@ -5839,6 +7572,421 @@ class AppDatabase {
     return rows.map(RuleLayer.fromDb).toList();
   }
 
+  Future<void> _expirePersonalityTrials(DatabaseExecutor db, int now) async {
+    await db.update(
+      'personality_trials',
+      {'status': 'expired', 'ended_at': now, 'updated_at': now},
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [now],
+    );
+    await db.update(
+      'special_style_trials',
+      {'status': 'expired', 'ended_at': now, 'updated_at': now},
+      where: "status = 'active' AND expires_at <= ?",
+      whereArgs: [now],
+    );
+  }
+
+  Future<PersonalityTrial?> activePersonalityTrial({DateTime? now}) async {
+    final db = await database;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    await _expirePersonalityTrials(db, at);
+    final rows = await db.query(
+      'personality_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [at],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : PersonalityTrial.fromDb(rows.first);
+  }
+
+  Future<PersonalityTrial?> latestAdoptablePersonalityTrial({DateTime? now}) async {
+    final db = await database;
+    final at = now ?? DateTime.now();
+    await _expirePersonalityTrials(db, at.millisecondsSinceEpoch);
+    final rows = await db.query(
+      'personality_trials',
+      where: "status IN ('active', 'expired', 'ended') AND expires_at >= ?",
+      whereArgs: [at.subtract(const Duration(days: 7)).millisecondsSinceEpoch],
+      orderBy: 'started_at DESC',
+      limit: 12,
+    );
+    for (final row in rows) {
+      final trial = PersonalityTrial.fromDb(row);
+      if (trial.isAdoptableAt(at)) return trial;
+    }
+    return null;
+  }
+
+  Future<SpecialStyleTrial?> activeSpecialStyleTrial({DateTime? now}) async {
+    final db = await database;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    await _expirePersonalityTrials(db, at);
+    final rows = await db.query(
+      'special_style_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [at],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : SpecialStyleTrial.fromDb(rows.first);
+  }
+
+  Future<PersonalityTrial> startPersonalityTrial({
+    required String baseKey,
+    required String postureKey,
+    required Duration duration,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final at = now.millisecondsSinceEpoch;
+    final id = _uuid.v4();
+    final templates = await _promptTemplateContents(db);
+    final content = PersonalityCatalog.compileProfile(
+      baseKey,
+      postureKey,
+      trial: true,
+      templates: templates,
+    );
+    await db.transaction((txn) async {
+      await _expirePersonalityTrials(txn, at);
+      await txn.update(
+        'personality_trials',
+        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
+        where: "status = 'active'",
+      );
+      final currentBase = await _settingFrom(
+        txn,
+        'personality_base_key',
+        fallback: 'neutral',
+      );
+      final currentPosture = await _settingFrom(
+        txn,
+        'personality_posture_key',
+        fallback: 'equal',
+      );
+      final previous = PersonalityCatalog.compileProfile(
+        currentBase,
+        currentPosture,
+        trial: false,
+        templates: templates,
+      );
+      await txn.insert('personality_trials', {
+        'id': id,
+        'base_key': baseKey,
+        'posture_key': postureKey,
+        'content': content,
+        'previous_content': previous,
+        'status': 'active',
+        'started_at': at,
+        'expires_at': now.add(duration).millisecondsSinceEpoch,
+        'effective_turns': 0,
+        'interaction_windows': 0,
+        'created_at': at,
+        'updated_at': at,
+      });
+    });
+    return (await activePersonalityTrial(now: now))!;
+  }
+
+  Future<void> extendPersonalityTrial(String id, Duration duration) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.rawUpdate(
+      "UPDATE personality_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
+      [duration.inMilliseconds, now, id],
+    );
+  }
+
+  Future<void> endPersonalityTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.update(
+      'personality_trials',
+      {'status': 'ended', 'ended_at': now, 'updated_at': now},
+      where: "id = ? AND status = 'active'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<SpecialStyleTrial> startSpecialStyleTrial({
+    required String styleKey,
+    required Duration duration,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final at = now.millisecondsSinceEpoch;
+    final id = _uuid.v4();
+    await db.transaction((txn) async {
+      await _expirePersonalityTrials(txn, at);
+      await txn.update(
+        'special_style_trials',
+        {'status': 'replaced', 'ended_at': at, 'updated_at': at},
+        where: "status = 'active'",
+      );
+      await txn.insert('special_style_trials', {
+        'id': id,
+        'style_key': styleKey,
+        'status': 'active',
+        'started_at': at,
+        'expires_at': now.add(duration).millisecondsSinceEpoch,
+        'created_at': at,
+        'updated_at': at,
+      });
+    });
+    return (await activeSpecialStyleTrial(now: now))!;
+  }
+
+  Future<void> extendSpecialStyleTrial(String id, Duration duration) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.rawUpdate(
+      "UPDATE special_style_trials SET expires_at = expires_at + ?, updated_at = ? WHERE id = ? AND status = 'active'",
+      [duration.inMilliseconds, now, id],
+    );
+  }
+
+  Future<void> endSpecialStyleTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.update(
+      'special_style_trials',
+      {'status': 'ended', 'ended_at': now, 'updated_at': now},
+      where: "id = ? AND status = 'active'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<bool> adoptPersonalityTrial(String id) async {
+    final db = await database;
+    final now = DateTime.now();
+    return db.transaction<bool>((txn) async {
+      await _expirePersonalityTrials(txn, now.millisecondsSinceEpoch);
+      final rows = await txn.query(
+        'personality_trials',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final trial = PersonalityTrial.fromDb(rows.first);
+      if (!trial.isAdoptableAt(now)) return false;
+      final templates = await _promptTemplateContents(txn);
+      final adopted = PersonalityCatalog.compileProfile(
+        trial.baseKey,
+        trial.postureKey,
+        trial: false,
+        templates: templates,
+      );
+      final previousBase = await _settingFrom(
+        txn,
+        'personality_base_key',
+        fallback: 'neutral',
+      );
+      final previousPosture = await _settingFrom(
+        txn,
+        'personality_posture_key',
+        fallback: 'equal',
+      );
+      final previous = PersonalityCatalog.compileProfile(
+        previousBase,
+        previousPosture,
+        trial: false,
+        templates: templates,
+      );
+      await txn.update(
+        'personality_profile_versions',
+        {'active': 0, 'retired_at': now.millisecondsSinceEpoch},
+        where: 'active = 1',
+      );
+      if (previous.isNotEmpty) {
+        await txn.insert('personality_profile_versions', {
+          'id': _uuid.v4(),
+          'base_key': previousBase,
+          'posture_key': previousPosture,
+          'content': previous,
+          'source': 'pre_adoption_snapshot',
+          'active': 0,
+          'created_at': now.millisecondsSinceEpoch,
+          'activated_at': trial.startedAt.millisecondsSinceEpoch,
+          'retired_at': now.millisecondsSinceEpoch,
+        });
+      }
+      await txn.insert('personality_profile_versions', {
+        'id': _uuid.v4(),
+        'base_key': trial.baseKey,
+        'posture_key': trial.postureKey,
+        'content': adopted,
+        'source': 'trial_adoption',
+        'source_trial_id': trial.id,
+        'active': 1,
+        'created_at': now.millisecondsSinceEpoch,
+        'activated_at': now.millisecondsSinceEpoch,
+      });
+      await txn.insert(
+        'settings',
+        {'key': 'personality_base_key', 'value': trial.baseKey},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_posture_key', 'value': trial.postureKey},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.update(
+        'personality_trials',
+        {
+          'status': 'adopted',
+          'ended_at': now.millisecondsSinceEpoch,
+          'updated_at': now.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      // Desire baselines, AI Self and relationship memory are intentionally untouched.
+      return true;
+    });
+  }
+
+  Future<({String baseKey, String postureKey})> longTermPersonality() async {
+    return (
+      baseKey: await getSetting('personality_base_key') ?? 'neutral',
+      postureKey: await getSetting('personality_posture_key') ?? 'equal',
+    );
+  }
+
+  Future<void> restoreNaturalPersonality() async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.update(
+        'personality_trials',
+        {'status': 'ended', 'ended_at': now, 'updated_at': now},
+        where: "status = 'active'",
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_base_key', 'value': 'neutral'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {'key': 'personality_posture_key', 'value': 'equal'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.update(
+        'personality_profile_versions',
+        {'active': 0, 'retired_at': now},
+        where: 'active = 1',
+      );
+      await txn.insert('personality_profile_versions', {
+        'id': _uuid.v4(),
+        'base_key': 'neutral',
+        'posture_key': 'equal',
+        'content': PersonalityCatalog.compileProfile(
+          'neutral',
+          'equal',
+          trial: false,
+        ),
+        'source': 'restore_natural',
+        'active': 1,
+        'created_at': now,
+        'activated_at': now,
+      });
+    });
+  }
+
+  Future<String> _settingFrom(
+    DatabaseExecutor executor,
+    String key, {
+    required String fallback,
+  }) async {
+    final rows = await executor.query(
+      'settings',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    return rows.isEmpty ? fallback : rows.first['value'] as String? ?? fallback;
+  }
+
+  Future<Map<String, String>> _promptTemplateContents(
+    DatabaseExecutor executor,
+  ) async {
+    final rows = await executor.query(
+      'rule_layers',
+      columns: const ['key', 'content'],
+      where: 'load_policy = ?',
+      whereArgs: const ['template'],
+    );
+    return <String, String>{
+      for (final row in rows)
+        if ((row['key'] as String? ?? '').isNotEmpty)
+          row['key'] as String: row['content'] as String? ?? '',
+    };
+  }
+
+  Future<void> _recordPersonalityTrialReplyInTransaction(
+    DatabaseExecutor txn,
+    int now,
+  ) async {
+    await _expirePersonalityTrials(txn, now);
+    final special = await txn.query(
+      'special_style_trials',
+      columns: const ['id'],
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [now],
+      limit: 1,
+    );
+    if (special.isNotEmpty) return;
+    final rows = await txn.query(
+      'personality_trials',
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [now],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final trial = PersonalityTrial.fromDb(rows.first);
+    final newWindow = trial.lastInteractionAt == null ||
+        now - trial.lastInteractionAt!.millisecondsSinceEpoch >=
+            const Duration(hours: 1).inMilliseconds;
+    await txn.update(
+      'personality_trials',
+      {
+        'effective_turns': trial.effectiveTurns + 1,
+        'interaction_windows': trial.interactionWindows + (newWindow ? 1 : 0),
+        'last_interaction_at': now,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [trial.id],
+    );
+  }
+
+  Future<Map<String, Object?>> personalityTrialDiagnostics() async {
+    final profile = await activePersonalityTrial();
+    final special = await activeSpecialStyleTrial();
+    return {
+      'profileActive': profile != null,
+      'profileBaseKey': profile?.baseKey ?? '',
+      'profilePostureKey': profile?.postureKey ?? '',
+      'profileEffectiveTurns': profile?.effectiveTurns ?? 0,
+      'profileInteractionWindows': profile?.interactionWindows ?? 0,
+      'profileRemainingMinutes': profile == null
+          ? 0
+          : profile.remaining().inMinutes.clamp(0, 10000000),
+      'specialActive': special != null,
+      'specialStyleKey': special?.styleKey ?? '',
+      'specialRemainingMinutes': special == null
+          ? 0
+          : special.remaining().inMinutes.clamp(0, 10000000),
+      'promptBodiesIncluded': false,
+    };
+  }
+
   Future<void> updateRuleLayer(String key, {String? content, bool? enabled}) async {
     final db = await database;
     if (enabled == false) {
@@ -6800,6 +8948,68 @@ class AppDatabase {
     );
   }
 
+  Future<DateTime> relationshipStartedAt({DateTime? fallbackNow}) async {
+    final db = await database;
+    final fallback = (fallbackNow ?? DateTime.now()).toLocal();
+    final milliseconds = await db.transaction<int>((txn) async {
+      final settingRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['relationship_started_at'],
+        limit: 1,
+      );
+      final stored = settingRows.isEmpty
+          ? null
+          : int.tryParse(settingRows.first['value'] as String? ?? '');
+      if (stored != null && stored > 0) return stored;
+
+      final firstRows = await txn.rawQuery(
+        'SELECT MIN(created_at) AS first_at FROM messages',
+      );
+      final firstMessageAt = (firstRows.first['first_at'] as num?)?.toInt();
+      final resolved = firstMessageAt != null && firstMessageAt > 0
+          ? firstMessageAt
+          : fallback.millisecondsSinceEpoch;
+      await txn.insert(
+        'settings',
+        {'key': 'relationship_started_at', 'value': resolved.toString()},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final resolvedRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['relationship_started_at'],
+        limit: 1,
+      );
+      return int.tryParse(resolvedRows.first['value'] as String? ?? '') ??
+          resolved;
+    });
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+  }
+
+  Future<RelationshipAge> relationshipAge({DateTime? now}) async {
+    final instant = (now ?? DateTime.now()).toLocal();
+    return RelationshipAge(
+      startedAt: await relationshipStartedAt(fallbackNow: instant),
+      now: instant,
+    );
+  }
+
+  Future<String> _leaseOwnerEpoch() =>
+      _leaseOwnerEpochFuture ??= _resolveLeaseOwnerEpoch();
+
+  Future<String> _resolveLeaseOwnerEpoch() async {
+    try {
+      final native = (await AndroidBridge.instance.runtimeProcessEpoch()).trim();
+      if (native.isNotEmpty) return native;
+    } catch (_) {
+      // Unit tests and non-Android tooling have no platform channel.
+    }
+    return 'dart-${identityHashCode(this)}';
+  }
+
   Future<bool> tryAcquireLocalLease(
     String key, {
     Duration holdFor = const Duration(seconds: 120),
@@ -6811,7 +9021,8 @@ class AppDatabase {
     if (_ownedLeaseTokens.containsKey(key)) return false;
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final token = _uuid.v4();
+    final ownerEpoch = await _leaseOwnerEpoch();
+    final token = '$ownerEpoch:${_uuid.v4()}';
     final acquired = await db.transaction<bool>((txn) async {
       final rows = await txn.query(
         'settings',
@@ -6822,7 +9033,11 @@ class AppDatabase {
       );
       final raw = rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
       final until = _leaseUntil(raw);
-      if (until > now) return false;
+      final heldByCurrentProcess = raw.startsWith('$ownerEpoch:');
+      // A live lease from this process protects the other FlutterEngine. A
+      // lease from an older process is orphan evidence and may be reclaimed
+      // immediately instead of blocking chat for the old three-minute TTL.
+      if (until > now && heldByCurrentProcess) return false;
       await txn.insert(
         'settings',
         {
@@ -6900,6 +9115,19 @@ class AppDatabase {
   Future<bool> isLocalLeaseHeld(String key) async {
     final raw = await getSetting(key) ?? '';
     return _leaseUntil(raw) > DateTime.now().millisecondsSinceEpoch;
+  }
+
+  Future<Map<String, Object?>> localLeaseDiagnostic(String key) async {
+    final raw = await getSetting(key) ?? '';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final until = _leaseUntil(raw);
+    final ownerEpoch = await _leaseOwnerEpoch();
+    return <String, Object?>{
+      'held': until > now,
+      'sameRuntime': raw.startsWith('$ownerEpoch:'),
+      'expiresInMs': (until - now).clamp(0, 24 * 60 * 60 * 1000),
+      'tokenIncluded': false,
+    };
   }
 
   /// Whether an autonomous/background subsystem may mutate the companion's
@@ -7097,6 +9325,11 @@ class AppDatabase {
       'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
       'somatic_events': await count('somatic_events'),
+      'active_emotion_episodes': await count(
+        'emotion_episodes',
+        "status = 'active' AND expires_at > ?",
+        [DateTime.now().millisecondsSinceEpoch],
+      ),
       'somatic_user_to_ai_events': await count(
         'somatic_events',
         'direction = ?',
@@ -7112,6 +9345,95 @@ class AppDatabase {
         'expires_at > ?',
         [DateTime.now().millisecondsSinceEpoch],
       ),
+      'autonomous_action_runs': await count('autonomous_action_runs'),
+      'active_autonomous_actions': await count(
+        'autonomous_action_runs',
+        "status IN ('requested','running')",
+      ),
+      'public_web_candidates': await count('public_web_candidates'),
+      'active_public_web_candidates': await count(
+        'public_web_candidates',
+        'expires_at > ?',
+        [DateTime.now().millisecondsSinceEpoch],
+      ),
+    };
+  }
+
+  /// Metadata-only Somatic observability for true-device acceptance.
+  ///
+  /// This deliberately never selects message content, action, body part,
+  /// scene_key or narrative. It only reports whether the latest committed user
+  /// and assistant turns produced a directional event, plus aggregate counts
+  /// and timestamps needed to distinguish "detector did not match" from
+  /// "event was written and later expired".
+  Future<Map<String, Object?>> somaticDiagnosticStats() async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    Future<Map<String, Object?>> direction(String value) async {
+      final rows = await db.rawQuery(
+        '''
+        SELECT COUNT(*) AS total,
+               MAX(created_at) AS last_written_at,
+               SUM(CASE WHEN expires_at > ? THEN 1 ELSE 0 END) AS active
+        FROM somatic_events
+        WHERE direction = ?
+        ''',
+        [now, value],
+      );
+      final row = rows.first;
+      return {
+        'total': (row['total'] as num?)?.toInt() ?? 0,
+        'active': (row['active'] as num?)?.toInt() ?? 0,
+        'lastWrittenAt': (row['last_written_at'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    Future<Map<String, Object?>> latestEvaluation({
+      required String role,
+      required String direction,
+    }) async {
+      final turns = await db.query(
+        'messages',
+        columns: const ['id', 'created_at'],
+        where: 'role = ?',
+        whereArgs: [role],
+        orderBy: 'created_at DESC',
+        limit: 1,
+      );
+      if (turns.isEmpty) {
+        return const {
+          'evaluatedAt': 0,
+          'result': 'no_committed_turn',
+          'writtenEventCount': 0,
+        };
+      }
+      final turn = turns.first;
+      final countRows = await db.rawQuery(
+        'SELECT COUNT(*) AS c FROM somatic_events WHERE turn_id = ? AND direction = ?',
+        [turn['id'], direction],
+      );
+      final written = Sqflite.firstIntValue(countRows) ?? 0;
+      return {
+        'evaluatedAt': (turn['created_at'] as num?)?.toInt() ?? 0,
+        'result': written > 0 ? 'written' : 'no_completed_action_match',
+        'writtenEventCount': written,
+      };
+    }
+
+    return {
+      'userToAi': await direction('user_to_ai'),
+      'aiToSelf': await direction('ai_to_self'),
+      'latestUserEvaluation': await latestEvaluation(
+        role: 'user',
+        direction: 'user_to_ai',
+      ),
+      'latestAssistantEvaluation': await latestEvaluation(
+        role: 'assistant',
+        direction: 'ai_to_self',
+      ),
+      'eventNarrativeIncluded': false,
+      'messageBodiesIncluded': false,
     };
   }
 
@@ -7137,12 +9459,16 @@ class AppDatabase {
       'reference_documents',
       'reference_items',
       'rule_layers',
+      'personality_trials',
+      'special_style_trials',
+      'personality_profile_versions',
       'thought_lifecycle_events',
       'proactive_feedback',
       'post_turn_jobs',
       'generation_jobs',
       'somatic_events',
       'somatic_aggregates',
+      'emotion_episodes',
       'settings',
     ];
     // Read the whole state inside one SQLite transaction so background
@@ -7208,12 +9534,16 @@ class AppDatabase {
         'reference_documents',
         'reference_items',
         'rule_layers',
+        'personality_trials',
+        'special_style_trials',
+        'personality_profile_versions',
         'thought_lifecycle_events',
         'proactive_feedback',
         'post_turn_jobs',
         'generation_jobs',
         'somatic_events',
         'somatic_aggregates',
+        'emotion_episodes',
         'desire_state',
         'settings',
       ];
@@ -7337,12 +9667,28 @@ class AppDatabase {
           if (table == 'messages' && version < 22) {
             row['expects_reply'] = 1;
           }
+          if (table == 'messages' && version < 27) {
+            row['segments_json'] = '';
+          }
+          if (table == 'messages' && version < 28) {
+            row['emotion_raw_tag'] = '';
+            row['emotion_key'] = '';
+            row['emotion_label'] = '';
+            row['emotion_confidence'] = 0.0;
+            row['emotion_top3_json'] = '';
+            row['emotion_source'] = '';
+          }
           if (table == 'messages') {
             row.remove('provider_reasoning');
             row.remove('companion_voice');
           }
           if (table == 'settings' &&
               (row['key'] as String? ?? '').startsWith('companion_voice')) {
+            continue;
+          }
+          if (table == 'settings' &&
+              (row['key'] == 'chat_temperature' ||
+                  row['key'] == 'chat_thinking_enabled')) {
             continue;
           }
           if (table == 'proactive_feedback' && version < 13) {
@@ -7427,6 +9773,11 @@ class AppDatabase {
         'active_brain': '1',
         'model': 'deepseek-v4-flash',
         'reasoning_effort': 'high',
+        'nsfw_active': '0',
+        'nsfw_reference_active': '0',
+        'nsfw_manual_override': '',
+        'nsfw_route_source': 'initial',
+        'nsfw_route_turn_id': '',
         'auto_memory': '1',
         'transfer_lock': '0',
         'perception_enabled': '1',
@@ -7439,6 +9790,18 @@ class AppDatabase {
         'tts_speed': '1.0',
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
+        'tts_reading_scope': 'dialogue_only',
+        'personality_base_key': 'neutral',
+        'personality_posture_key': 'equal',
+        'chat_visual_stage_enabled': '1',
+        'chat_background_mode': 'auto',
+        'chat_panel_opacity': '0.60',
+        'chat_panel_fraction': '0.62',
+        'chat_typewriter_enabled': '1',
+        'chat_typewriter_ms': '48',
+        'emotion_sound_enabled': '0',
+        'emotion_sound_volume': '1.0',
+        'show_emotion_label': '1',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',
         'memory_fading_enabled': '1',

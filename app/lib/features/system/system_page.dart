@@ -11,6 +11,7 @@ import '../../core/maintenance/recovery_orchestrator.dart';
 import '../../core/models/generation_job.dart';
 import '../../core/models/maintenance_run.dart';
 import '../../core/models/perception_snapshot.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
 
@@ -75,6 +76,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
   DateTime? orchestratorNextHeartbeat;
   bool busy = false;
   String? note;
+  Map<String, Object?> delayedProactiveTest = const {};
 
   @override
   void initState() {
@@ -106,6 +108,7 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
       await db.ensureReady();
       status = await android.capabilityStatus();
       usage = await android.getRecentUsage(minutes: 60);
+      delayedProactiveTest = await android.delayedProactiveTestStatus();
       perceptions = await db.recentPerceptionSnapshots(limit: 6);
       maintenanceRun = await db.latestMaintenanceRun();
       postTurnJobs = await db.postTurnJobStats();
@@ -140,6 +143,78 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<void> _scheduleFiveMinuteContactTest() async {
+    setState(() {
+      busy = true;
+      note = '正在安排约5分钟后的跨 App 主动联系测试…';
+    });
+    try {
+      final sound = ProactiveNotificationSound.fromSetting(
+        await db.getSetting('proactive_notification_sound'),
+      );
+      delayedProactiveTest = await android.scheduleDelayedProactiveTest(
+        delay: const Duration(minutes: 5),
+        soundKey: sound.key,
+      );
+      note = '已安排。现在切到要测试的 App，保持屏幕亮着即可；测试不写入记忆。';
+    } catch (e) {
+      note = '安排失败：$e';
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _confirmCancelFiveMinuteContactTest() async {
+    final expectedDueAt =
+        (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+    if (expectedDueAt <= 0) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('取消5分钟测试？'),
+            content: const Text('取消后不会再弹出这一次测试消息。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('继续等待'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('确认取消'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    delayedProactiveTest = await android.cancelDelayedProactiveTest(
+      expectedDueAt: expectedDueAt,
+      reason: 'system_page_confirmed',
+    );
+    if (mounted) setState(() => note = '测试已取消。');
+  }
+
+  String _delayedContactStatus() {
+    final state = delayedProactiveTest['status']?.toString() ?? 'idle';
+    if (state == 'scheduled') {
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      return dueAt > 0
+          ? '等待执行 · ${DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal()}'
+          : '等待执行';
+    }
+    if (state == 'completed') {
+      final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
+      final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final retries = (delayedProactiveTest['appRetryCount'] as num?)?.toInt() ?? 0;
+      final posted = delayedProactiveTest['notificationPosted'] == true;
+      return '上次：App=${label.isEmpty ? '未识别' : label} · 来源=$source · '
+          '取样=$retries次 · App识别=${label.isEmpty ? '失败' : '成功'} · '
+          '弹窗=${posted ? '已发布' : '失败'}';
+    }
+    if (state == 'cancelled') return '上次测试已取消';
+    return '尚未测试';
   }
 
   Future<void> _captureNow() async {
@@ -281,6 +356,17 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     }
     if (mounted) await _refresh(clearNote: false);
   }
+
+  String _accessibilityHealthLabel(String state) => switch (state) {
+        'SYSTEM_DISABLED' => '系统未授权',
+        'COMPONENT_MISMATCH' => '组件不匹配',
+        'ENABLED_NOT_CONNECTED' => '已授权但未连接',
+        'PROCESS_RESTARTED' => '进程重启后未重连',
+        'CONNECTED_NO_EVENTS' => '已连接，等待事件',
+        'EVENT_STREAM_STALLED' => '事件流疑似停滞',
+        'STALE_UI' => '页面状态待刷新',
+        _ => '事件流正常',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -448,6 +534,46 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  '跨 App 联系与当前 App 测试',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(_delayedContactStatus()),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: busy ? null : _scheduleFiveMinuteContactTest,
+                        icon: const Icon(Icons.timer_outlined),
+                        label: const Text('5分钟后找我'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: delayedProactiveTest['status'] == 'scheduled'
+                          ? _confirmCancelFiveMinuteContactTest
+                          : null,
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+                const Text(
+                  '到点后重新读取前台 App，并用始终弹窗链路联系你；不调用模型、不进入聊天记忆。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   'Android 生命周期状态',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -467,17 +593,24 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                   '${s?.notificationListenerConnected == true ? '已连接' : '未连接'}',
                 ),
                 Text(
-                  '轻视觉：${s?.accessibility == true ? '已授权' : '未授权'} / '
-                  '${s?.accessibilityConnected == true ? '已连接' : '未连接'}',
+                  '轻视觉：系统${s?.accessibility == true ? '已授权' : '未授权'} / '
+                  '服务${s?.accessibilityConnected == true ? '已连接' : '未连接'} / '
+                  '${_accessibilityHealthLabel(s?.accessibilityHealthState ?? 'STALE_UI')}',
                 ),
+                if (s != null)
+                  Text(
+                    '轻视觉事件：${s.accessibilityEventCount} 次'
+                    '${s.accessibilityLastEventAt == null ? '' : ' · 最近 ${s.accessibilityLastEventAt!.toLocal()}'}'
+                    '${s.accessibilityLastEventType.isEmpty ? '' : ' · ${s.accessibilityLastEventType}'}',
+                  ),
                 if (s?.accessibility == true &&
                     s?.accessibilityConnected != true)
                   const Text(
-                    '轻视觉已授权但未连接：请进入无障碍设置重新开关，并保存脱敏诊断。',
+                    '系统授权与实际连接是两件事；保存脱敏诊断可区分组件不匹配、进程重启或未连接。',
                   ),
                 if ((s?.accessibilityLastReason ?? '').isNotEmpty)
                   Text(
-                    '轻视觉最近状态：${s!.accessibilityLastReason}'
+                    '轻视觉最近生命周期：${s!.accessibilityLastReason}'
                     '${s.accessibilityLastDisconnectedAt == null ? '' : ' · ${s.accessibilityLastDisconnectedAt!.toLocal()}'}',
                   ),
                 Text(

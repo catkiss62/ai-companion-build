@@ -2,6 +2,9 @@ package com.aicompanion.localfirst
 
 import android.content.Context
 import android.os.SystemClock
+import java.security.MessageDigest
+import java.util.ArrayDeque
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -17,12 +20,55 @@ object CompanionRuntimeState {
     private const val KEY_LAST_SERVICE_START = "last_service_start"
     private const val KEY_LAST_SERVICE_STOP = "last_service_stop"
     private const val KEY_LAST_SERVICE_REASON = "last_service_reason"
+    private const val KEY_SERVICE_ACTIVE_MARKER = "service_active_marker"
+    private const val KEY_SERVICE_START_COUNT = "service_start_count"
+    private const val KEY_SERVICE_CLEAN_STOP_COUNT = "service_clean_stop_count"
+    private const val KEY_SERVICE_UNCLEAN_RESTART_COUNT = "service_unclean_restart_count"
+    private const val KEY_LAST_UNCLEAN_RESTART = "last_unclean_restart"
+    private const val KEY_LAST_TASK_REMOVED = "last_task_removed"
+    private const val KEY_LAST_TRIM_MEMORY = "last_trim_memory"
+    private const val KEY_LAST_TRIM_MEMORY_LEVEL = "last_trim_memory_level"
+    private const val KEY_BACKGROUND_BRAIN_READY_AT = "background_brain_ready_at"
+    private const val KEY_BACKGROUND_BRAIN_READY_COUNT = "background_brain_ready_count"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_AT = "background_brain_failure_at"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_COUNT = "background_brain_failure_count"
+    private const val KEY_BACKGROUND_BRAIN_FAILURE_REASON = "background_brain_failure_reason"
     private const val KEY_ACCESSIBILITY_LAST_CONNECTED = "accessibility_last_connected"
     private const val KEY_ACCESSIBILITY_LAST_DISCONNECTED = "accessibility_last_disconnected"
     private const val KEY_ACCESSIBILITY_LAST_INTERRUPT = "accessibility_last_interrupt"
     private const val KEY_ACCESSIBILITY_LAST_REASON = "accessibility_last_reason"
+    private const val KEY_ACCESSIBILITY_SERVICE_GENERATION = "accessibility_service_generation"
+    private const val KEY_ACCESSIBILITY_CONNECT_COUNT = "accessibility_connect_count"
+    private const val KEY_ACCESSIBILITY_DISCONNECT_COUNT = "accessibility_disconnect_count"
+    private const val KEY_ACCESSIBILITY_INTERRUPT_COUNT = "accessibility_interrupt_count"
+    private const val KEY_ACCESSIBILITY_DESTROY_COUNT = "accessibility_destroy_count"
+    private const val KEY_ACCESSIBILITY_EVENT_COUNT = "accessibility_event_count"
+    private const val KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT = "accessibility_allowed_event_count"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT = "accessibility_last_event"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT_TYPE = "accessibility_last_event_type"
+    private const val KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH = "accessibility_last_event_package_hash"
+    private const val KEY_ACCESSIBILITY_LAST_WINDOW_EVENT = "accessibility_last_window_event"
+    private const val KEY_ACCESSIBILITY_LAST_ROOT = "accessibility_last_root"
+    private const val KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN =
+        "accessibility_authorization_known"
+    private const val KEY_ACCESSIBILITY_LAST_AUTHORIZED =
+        "accessibility_last_authorized"
+    private const val KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED =
+        "accessibility_last_authorization_changed"
+    private const val KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT =
+        "accessibility_authorization_change_count"
+    private const val KEY_ACCESSIBILITY_LAST_STATUS_PROBE =
+        "accessibility_last_status_probe"
 
     private val visibleActivities = AtomicInteger(0)
+    private val processStartedElapsedMs = SystemClock.elapsedRealtime()
+    private val processStartedWallMs = System.currentTimeMillis()
+    // Shared by every FlutterEngine in this Android process, but regenerated
+    // after a crash/force-stop. Durable leases use it to reject only a truly
+    // old process without stealing work from the live App/overlay engine.
+    val runtimeProcessEpoch: String =
+        "${processStartedWallMs.toString(36)}-${UUID.randomUUID()}"
+    @Volatile private var serviceStartedElapsedMs: Long = 0L
 
     @Volatile var overlayVisible: Boolean = false
         private set
@@ -32,6 +78,12 @@ object CompanionRuntimeState {
         private set
     @Volatile var accessibilityConnected: Boolean = false
         private set
+    @Volatile private var foregroundWindowPackage: String = ""
+    @Volatile private var foregroundWindowObservedAt: Long = 0L
+    @Volatile private var currentAppFusionSource: String = "none"
+    @Volatile private var currentAppFusionAgeMs: Long = -1L
+    @Volatile private var currentAppFusionEventCount: Int = 0
+    @Volatile private var currentAppFusionLabelResolved: Boolean = false
     @Volatile var overlayBubbleAttached: Boolean = false
         private set
     @Volatile var overlayBubbleTouchable: Boolean = false
@@ -77,6 +129,43 @@ object CompanionRuntimeState {
     @Volatile var overlayLastCoverRecoveryResult: String = ""
         private set
     private val overlayCoverDetachCount = AtomicInteger(0)
+    private const val OVERLAY_COVER_HISTORY_LIMIT = 24
+    private val overlayCoverHistory = ArrayDeque<Map<String, Any>>()
+
+    data class ForegroundWindowSnapshot(
+        val packageName: String,
+        val observedAt: Long,
+    )
+
+    fun noteForegroundWindow(sourcePackage: String) {
+        if (sourcePackage.isBlank()) return
+        foregroundWindowPackage = sourcePackage
+        foregroundWindowObservedAt = System.currentTimeMillis()
+    }
+
+    fun clearForegroundWindow() {
+        foregroundWindowPackage = ""
+        foregroundWindowObservedAt = 0L
+    }
+
+    fun foregroundWindowSnapshot(): ForegroundWindowSnapshot? {
+        val packageName = foregroundWindowPackage
+        val observedAt = foregroundWindowObservedAt
+        if (packageName.isBlank() || observedAt <= 0L) return null
+        return ForegroundWindowSnapshot(packageName, observedAt)
+    }
+
+    fun noteCurrentAppFusion(
+        source: String,
+        ageMs: Long,
+        usageEventCount: Int,
+        labelResolved: Boolean,
+    ) {
+        currentAppFusionSource = source.take(40)
+        currentAppFusionAgeMs = ageMs.coerceAtLeast(-1L)
+        currentAppFusionEventCount = usageEventCount.coerceAtLeast(0)
+        currentAppFusionLabelResolved = labelResolved
+    }
 
     fun setOverlayUserEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -88,21 +177,89 @@ object CompanionRuntimeState {
             .getBoolean(KEY_OVERLAY_USER_ENABLED, false)
 
     fun markServiceStarted(context: Context, reason: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val possibleUncleanRestart = prefs.getBoolean(KEY_SERVICE_ACTIVE_MARKER, false)
+        serviceStartedElapsedMs = SystemClock.elapsedRealtime()
+        prefs.edit()
+            .putLong(KEY_LAST_SERVICE_START, now)
+            .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
+            .putBoolean(KEY_SERVICE_ACTIVE_MARKER, true)
+            .putInt(KEY_SERVICE_START_COUNT, prefs.getInt(KEY_SERVICE_START_COUNT, 0) + 1)
+            .apply {
+                if (possibleUncleanRestart) {
+                    putInt(
+                        KEY_SERVICE_UNCLEAN_RESTART_COUNT,
+                        prefs.getInt(KEY_SERVICE_UNCLEAN_RESTART_COUNT, 0) + 1,
+                    )
+                    putLong(KEY_LAST_UNCLEAN_RESTART, now)
+                }
+            }
+            .apply()
+    }
+
+    fun noteServiceCommand(context: Context, reason: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putLong(KEY_LAST_SERVICE_START, System.currentTimeMillis())
             .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
             .apply()
     }
 
     fun markServiceStopped(context: Context, reason: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        serviceStartedElapsedMs = 0L
+        prefs.edit()
             .putLong(KEY_LAST_SERVICE_STOP, System.currentTimeMillis())
             .putString(KEY_LAST_SERVICE_REASON, reason.take(120))
+            .putBoolean(KEY_SERVICE_ACTIVE_MARKER, false)
+            .putInt(
+                KEY_SERVICE_CLEAN_STOP_COUNT,
+                prefs.getInt(KEY_SERVICE_CLEAN_STOP_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteTaskRemoved(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_LAST_TASK_REMOVED, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun noteTrimMemory(context: Context, level: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_LAST_TRIM_MEMORY, System.currentTimeMillis())
+            .putInt(KEY_LAST_TRIM_MEMORY_LEVEL, level)
+            .apply()
+    }
+
+    fun noteBackgroundBrainReady(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_BACKGROUND_BRAIN_READY_AT, System.currentTimeMillis())
+            .putInt(
+                KEY_BACKGROUND_BRAIN_READY_COUNT,
+                prefs.getInt(KEY_BACKGROUND_BRAIN_READY_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteBackgroundBrainFailure(context: Context, reason: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_BACKGROUND_BRAIN_FAILURE_AT, System.currentTimeMillis())
+            .putInt(
+                KEY_BACKGROUND_BRAIN_FAILURE_COUNT,
+                prefs.getInt(KEY_BACKGROUND_BRAIN_FAILURE_COUNT, 0) + 1,
+            )
+            .putString(KEY_BACKGROUND_BRAIN_FAILURE_REASON, reason.take(120))
             .apply()
     }
 
     fun runtimeInfo(context: Context): Map<String, Any> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val foregroundAgeMs = foregroundWindowObservedAt
+            .takeIf { it > 0L }
+            ?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) }
+            ?: -1L
         return mapOf(
             "overlayUserEnabled" to prefs.getBoolean(KEY_OVERLAY_USER_ENABLED, false),
             "overlayVisible" to overlayVisible,
@@ -110,10 +267,44 @@ object CompanionRuntimeState {
             "appVisible" to (visibleActivities.get() > 0),
             "notificationListenerConnected" to notificationListenerConnected,
             "accessibilityConnected" to accessibilityConnected,
+            "foregroundWindowObserved" to (foregroundWindowPackage.isNotBlank()),
+            "foregroundWindowPackageHash" to shortHash(foregroundWindowPackage),
+            "foregroundWindowAgeMs" to foregroundAgeMs,
+            "currentAppFusionSource" to currentAppFusionSource,
+            "currentAppFusionAgeMs" to currentAppFusionAgeMs,
+            "currentAppFusionUsageEventCount" to currentAppFusionEventCount,
+            "currentAppFusionLabelResolved" to currentAppFusionLabelResolved,
+            "currentAppRawPackageIncluded" to false,
             "accessibilityLastConnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_CONNECTED, 0L),
             "accessibilityLastDisconnectedAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, 0L),
             "accessibilityLastInterruptAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, 0L),
             "accessibilityLastReason" to (prefs.getString(KEY_ACCESSIBILITY_LAST_REASON, "") ?: ""),
+            "accessibilityServiceGeneration" to
+                prefs.getInt(KEY_ACCESSIBILITY_SERVICE_GENERATION, 0),
+            "accessibilityConnectCount" to prefs.getInt(KEY_ACCESSIBILITY_CONNECT_COUNT, 0),
+            "accessibilityDisconnectCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_DISCONNECT_COUNT, 0),
+            "accessibilityInterruptCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_INTERRUPT_COUNT, 0),
+            "accessibilityDestroyCount" to prefs.getInt(KEY_ACCESSIBILITY_DESTROY_COUNT, 0),
+            "accessibilityEventCount" to prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0),
+            "accessibilityAllowedEventCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0),
+            "accessibilityLastEventAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_EVENT, 0L),
+            "accessibilityLastEventType" to
+                (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, "") ?: ""),
+            "accessibilityLastEventPackageHash" to
+                (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH, "") ?: ""),
+            "accessibilityLastWindowEventAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, 0L),
+            "accessibilityLastRootAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_ROOT, 0L),
+            "accessibilityLastAuthorizationChangedAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED, 0L),
+            "accessibilityAuthorizationChangeCount" to
+                prefs.getInt(KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT, 0),
+            "accessibilityLastStatusProbeAt" to
+                prefs.getLong(KEY_ACCESSIBILITY_LAST_STATUS_PROBE, 0L),
+            "processStartedAt" to processStartedWallMs,
             "overlayBubbleAttached" to overlayBubbleAttached,
             "overlayBubbleTouchable" to overlayBubbleTouchable,
             "overlayPositionSafe" to overlayPositionSafe,
@@ -138,10 +329,36 @@ object CompanionRuntimeState {
             "overlayLastCoverExitReason" to overlayLastCoverExitReason,
             "overlayLastCoverRecoveryResult" to overlayLastCoverRecoveryResult,
             "overlayCoverDetachCount" to overlayCoverDetachCount.get(),
+            "overlayCoverHistory" to overlayCoverHistorySnapshot(),
             "lastServiceStart" to prefs.getLong(KEY_LAST_SERVICE_START, 0L),
             "lastServiceStop" to prefs.getLong(KEY_LAST_SERVICE_STOP, 0L),
             "lastServiceReason" to (prefs.getString(KEY_LAST_SERVICE_REASON, "") ?: ""),
-            "processUptimeMs" to SystemClock.elapsedRealtime(),
+            "processAgeMs" to
+                (SystemClock.elapsedRealtime() - processStartedElapsedMs).coerceAtLeast(0L),
+            // Backward-compatible diagnostic alias; unlike the old value this
+            // now measures this process lifetime rather than device uptime.
+            "processUptimeMs" to
+                (SystemClock.elapsedRealtime() - processStartedElapsedMs).coerceAtLeast(0L),
+            "serviceUptimeMs" to if (serviceStartedElapsedMs > 0L) {
+                (SystemClock.elapsedRealtime() - serviceStartedElapsedMs).coerceAtLeast(0L)
+            } else {
+                0L
+            },
+            "serviceStartCount" to prefs.getInt(KEY_SERVICE_START_COUNT, 0),
+            "serviceCleanStopCount" to prefs.getInt(KEY_SERVICE_CLEAN_STOP_COUNT, 0),
+            "possibleUncleanRestartCount" to
+                prefs.getInt(KEY_SERVICE_UNCLEAN_RESTART_COUNT, 0),
+            "lastPossibleUncleanRestartAt" to prefs.getLong(KEY_LAST_UNCLEAN_RESTART, 0L),
+            "lastTaskRemovedAt" to prefs.getLong(KEY_LAST_TASK_REMOVED, 0L),
+            "lastTrimMemoryAt" to prefs.getLong(KEY_LAST_TRIM_MEMORY, 0L),
+            "lastTrimMemoryLevel" to prefs.getInt(KEY_LAST_TRIM_MEMORY_LEVEL, 0),
+            "backgroundBrainReadyAt" to prefs.getLong(KEY_BACKGROUND_BRAIN_READY_AT, 0L),
+            "backgroundBrainReadyCount" to prefs.getInt(KEY_BACKGROUND_BRAIN_READY_COUNT, 0),
+            "backgroundBrainFailureAt" to prefs.getLong(KEY_BACKGROUND_BRAIN_FAILURE_AT, 0L),
+            "backgroundBrainFailureCount" to
+                prefs.getInt(KEY_BACKGROUND_BRAIN_FAILURE_COUNT, 0),
+            "backgroundBrainFailureReason" to
+                (prefs.getString(KEY_BACKGROUND_BRAIN_FAILURE_REASON, "") ?: ""),
         )
     }
 
@@ -167,28 +384,145 @@ object CompanionRuntimeState {
         notificationListenerConnected = connected
     }
 
+    fun noteAccessibilityStatusProbe(context: Context, authorized: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val known = prefs.getBoolean(KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN, false)
+        val previous = prefs.getBoolean(KEY_ACCESSIBILITY_LAST_AUTHORIZED, false)
+        val now = System.currentTimeMillis()
+        prefs.edit()
+            .putBoolean(KEY_ACCESSIBILITY_AUTHORIZATION_KNOWN, true)
+            .putBoolean(KEY_ACCESSIBILITY_LAST_AUTHORIZED, authorized)
+            .putLong(KEY_ACCESSIBILITY_LAST_STATUS_PROBE, now)
+            .apply {
+                if (known && previous != authorized) {
+                    putLong(KEY_ACCESSIBILITY_LAST_AUTHORIZATION_CHANGED, now)
+                    putInt(
+                        KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT,
+                        prefs.getInt(KEY_ACCESSIBILITY_AUTHORIZATION_CHANGE_COUNT, 0) + 1,
+                    )
+                }
+            }
+            .apply()
+    }
+
     fun markAccessibilityConnected(context: Context) {
         accessibilityConnected = true
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_CONNECTED, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, "connected")
+            .putInt(
+                KEY_ACCESSIBILITY_SERVICE_GENERATION,
+                prefs.getInt(KEY_ACCESSIBILITY_SERVICE_GENERATION, 0) + 1,
+            )
+            .putInt(
+                KEY_ACCESSIBILITY_CONNECT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_CONNECT_COUNT, 0) + 1,
+            )
             .apply()
     }
 
     fun markAccessibilityDisconnected(context: Context, reason: String) {
         accessibilityConnected = false
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_DISCONNECTED, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, reason.take(120))
+            .putInt(
+                KEY_ACCESSIBILITY_DISCONNECT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_DISCONNECT_COUNT, 0) + 1,
+            )
             .apply()
     }
 
     fun noteAccessibilityInterrupted(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
             .putLong(KEY_ACCESSIBILITY_LAST_INTERRUPT, System.currentTimeMillis())
             .putString(KEY_ACCESSIBILITY_LAST_REASON, "interrupted")
+            .putInt(
+                KEY_ACCESSIBILITY_INTERRUPT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_INTERRUPT_COUNT, 0) + 1,
+            )
             .apply()
     }
+
+    fun noteAccessibilityDestroyed(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString(KEY_ACCESSIBILITY_LAST_REASON, "destroyed")
+            .putInt(
+                KEY_ACCESSIBILITY_DESTROY_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_DESTROY_COUNT, 0) + 1,
+            )
+            .apply()
+    }
+
+    fun noteAccessibilityEvent(
+        context: Context,
+        eventType: String,
+        sourcePackage: String,
+        allowedPackage: Boolean,
+        windowChanged: Boolean,
+        hasReadableRoot: Boolean,
+    ) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        prefs.edit()
+            .putLong(KEY_ACCESSIBILITY_LAST_EVENT, now)
+            .putString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, eventType.take(80))
+            .putString(
+                KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH,
+                shortHash(sourcePackage),
+            )
+            .putInt(
+                KEY_ACCESSIBILITY_EVENT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0) + 1,
+            )
+            .apply {
+                if (allowedPackage) {
+                    putInt(
+                        KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT,
+                        prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0) + 1,
+                    )
+                }
+                if (windowChanged) putLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, now)
+                if (hasReadableRoot) putLong(KEY_ACCESSIBILITY_LAST_ROOT, now)
+            }
+            .apply()
+    }
+
+    private fun shortHash(value: String): String {
+        if (value.isBlank()) return ""
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+        return digest.take(6).joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }
+
+    fun privacyHash(value: String): String = shortHash(value)
+
+    @Synchronized
+    private fun appendOverlayCoverHistory(stage: String, reason: String) {
+        if (overlayCoverHistory.size >= OVERLAY_COVER_HISTORY_LIMIT) {
+            overlayCoverHistory.removeFirst()
+        }
+        overlayCoverHistory.addLast(
+            mapOf(
+                "at" to System.currentTimeMillis(),
+                "stage" to stage.take(40),
+                "reason" to reason.take(120),
+                "sessionId" to overlayCoverSessionId,
+                "attempt" to overlayCoverRecoveryAttempt,
+                "bubbleAttached" to overlayBubbleAttached,
+                "bubbleTouchable" to overlayBubbleTouchable,
+                "appVisible" to (visibleActivities.get() > 0),
+            ),
+        )
+    }
+
+    @Synchronized
+    private fun overlayCoverHistorySnapshot(): List<Map<String, Any>> =
+        overlayCoverHistory.toList()
 
     fun setOverlayTouchHealth(
         bubbleAttached: Boolean,
@@ -217,6 +551,7 @@ object CompanionRuntimeState {
         overlayInputSuspect = true
         overlayLastSystemCoverAt = System.currentTimeMillis()
         overlayLastSystemCoverReason = reason.take(120)
+        appendOverlayCoverHistory("suspect", reason)
     }
 
     @Synchronized
@@ -232,6 +567,10 @@ object CompanionRuntimeState {
         overlayLastSystemCoverReason = reason.take(120)
         overlayLastCoverRecoveryResult = ""
         if (detached) overlayCoverDetachCount.incrementAndGet()
+        appendOverlayCoverHistory(
+            if (detached) "entered_detached" else "entered_suspect",
+            reason,
+        )
         return overlayCoverSessionId
     }
 
@@ -242,6 +581,7 @@ object CompanionRuntimeState {
         overlayCoverState = "exit_pending"
         overlayLastCoverExitAt = System.currentTimeMillis()
         overlayLastCoverExitReason = reason.take(120)
+        appendOverlayCoverHistory("exited", reason)
     }
 
     @Synchronized
@@ -250,6 +590,7 @@ object CompanionRuntimeState {
         overlayCoverState = "recovery_scheduled"
         overlayCoverRecoveryAttempt = attempt
         overlayLastCoverExitReason = reason.take(120)
+        appendOverlayCoverHistory("recovery_scheduled", reason)
     }
 
     @Synchronized
@@ -276,6 +617,10 @@ object CompanionRuntimeState {
         } else {
             overlayCoverState = "exit_pending"
         }
+        appendOverlayCoverHistory(
+            if (success) "recovery_succeeded" else "recovery_retry",
+            reason,
+        )
     }
 
     @Synchronized
@@ -284,6 +629,7 @@ object CompanionRuntimeState {
         overlayCoverRecoveryAttempt = attempt
         overlayCoverState = "failed"
         overlayLastCoverRecoveryResult = "failed:${reason.take(100)}"
+        appendOverlayCoverHistory("recovery_failed", reason)
     }
 
     @Synchronized
@@ -292,6 +638,7 @@ object CompanionRuntimeState {
         overlayCoverState = "exit_pending"
         overlayCoverRecoveryAttempt = 0
         overlayLastCoverRecoveryResult = "deferred:${reason.take(100)}"
+        appendOverlayCoverHistory("recovery_deferred", reason)
     }
 
     fun isOverlaySystemCoverActive(): Boolean = overlaySystemCoverActive
@@ -311,10 +658,12 @@ object CompanionRuntimeState {
         overlayLastCoverRecoveryAt = System.currentTimeMillis()
         overlayLastSelfHealReason = reason.take(120)
         overlayCoverRecoveryCount.incrementAndGet()
+        appendOverlayCoverHistory("recovered_legacy", reason)
     }
 
     fun noteOverlayWindowVisibility(visibility: Int) {
         overlayLastWindowVisibility = visibility
+        appendOverlayCoverHistory("window_visibility", visibility.toString())
     }
 
     fun setOverlayRecoveryInProgress(value: Boolean) {

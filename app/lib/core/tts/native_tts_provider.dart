@@ -39,8 +39,11 @@ class NativeTtsProvider implements TtsProvider {
       _channel.invokeMethod<void>('speak', {'text': text});
 
   @override
-  Future<String?> generate(String text) =>
-      _channel.invokeMethod<String>('generate', {'text': text});
+  Future<String?> generate(String text, {TtsEmotionCue? emotion}) =>
+      _channel.invokeMethod<String>('generate', <String, Object?>{
+        'text': text,
+        if (emotion != null) ...emotion.toChannelMap(),
+      });
 
   @override
   Future<void> playAudio(String wavBase64) =>

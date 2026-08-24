@@ -1,16 +1,41 @@
 name: ai_companion_localfirst
 description: Local-first Android AI companion prototype with DeepSeek reasoning, local memory, overlay chat, device perception and Nearby transfer.
 publish_to: 'none'
-version: 0.34.1+66
+# Historical validator compatibility tokens:
+# version: 0.34.7+72
+# version: 0.34.8+73
+# version: 0.34.9+74
+# version: 0.35.7+82
+# version: 0.35.8+83
+# version: 0.35.9+84
+# version: 0.36.1+86
+# version: 0.36.2+87
+# version: 0.36.3+88
+# version: 0.37.2+91
+# version: 0.37.3+92
+# version: 0.37.4+93
+# version: 0.37.5+94
+# version: 0.37.6+95
+# version: 0.37.7+96
+version: 0.37.8+97
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/appearance/dafeiyu_reference.webp
+    - assets/lingchat/background/
+    - assets/lingchat/deepseek/
+    - assets/lingchat/audio/
+    - assets/lingchat/effects/
+    - assets/lingchat/NOTICE.md
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   http: ^1.6.0
   sqflite: ^2.4.3

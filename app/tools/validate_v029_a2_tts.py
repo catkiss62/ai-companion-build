@@ -43,15 +43,23 @@ def main() -> int:
     print('[OK] A2 splitter has no comma/newline/ellipsis/length fallback')
 
     processor = (ROOT / 'lib/core/tts/tts_text_processor.dart').read_text(encoding='utf-8')
-    for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'\\([^)]*\\)')", "RegExp(r'（[^）]*）')", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
+    for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
         assert token in processor, token
+    assert (
+        (
+            "RegExp(r'\\([^)]*\\)')" in processor
+            and "RegExp(r'（[^）]*）')" in processor
+        )
+        or "ChatSegmentCodec.parseAssistantText(text)" in processor
+    )
     print('[OK] A2 speech-only Yuki/bracket preprocessing preserved')
 
     queue = (ROOT / 'lib/core/tts/tts_playback_queue.dart').read_text(encoding='utf-8')
     assert 'interSentenceGap = const Duration(milliseconds: 200)' in queue
-    assert 'service.generatePrepared(text)' in queue
+    assert 'service.generatePrepared(' in queue
+    assert 'text,\n          emotion: session.emotion,' in queue
     assert 'service.playPrepared(audio)' in queue
-    assert 'await service.generatePrepared(text)' in queue  # inside independent async task, not playback chain
+    assert 'audio = await service.generatePrepared(' in queue  # inside independent async task, not playback chain
     assert '_hasPlayableReady(session)' in queue
     assert '_tail = _tail.then' not in queue
     print('[OK] A2 generation-ahead queue replaces serial generate+play tail')

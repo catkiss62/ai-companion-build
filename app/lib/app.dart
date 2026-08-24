@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
 import 'features/inner/inner_page.dart';
 import 'features/more/companion_more_page.dart';
+import 'features/more/companion_domains_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/system/system_page.dart';
 import 'features/system/preflight_diagnostics_page.dart';
@@ -18,6 +20,12 @@ class AiCompanionApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AI Companion',
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
@@ -45,6 +53,26 @@ class AiCompanionApp extends StatelessWidget {
               title: 'AI 与陪伴设置',
               child: SettingsPage(),
             ),
+        '/companion': (_) => const _SecondaryScaffold(
+              title: '她',
+              child: CompanionDomainPage(),
+            ),
+        '/relationship': (_) => const _SecondaryScaffold(
+              title: '你们',
+              child: RelationshipDomainPage(),
+            ),
+        '/capabilities': (_) => const _SecondaryScaffold(
+              title: '能力',
+              child: CapabilitiesDomainPage(),
+            ),
+        '/perception': (_) => const _SecondaryScaffold(
+              title: '手机感知',
+              child: PerceptionDomainPage(),
+            ),
+        '/data-advanced': (_) => const _SecondaryScaffold(
+              title: '数据与高级',
+              child: DataAdvancedDomainPage(),
+            ),
         '/inner': (_) => const _SecondaryScaffold(
               title: '内在状态诊断',
               child: InnerPage(),
@@ -64,17 +92,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int index = 0;
-  late final List<Widget> pages;
-
-  @override
-  void initState() {
-    super.initState();
-    pages = [
-      CompanionHomePage(onOpenChat: _openChat),
-      const ChatPage(),
-      const CompanionMorePage(),
-    ];
-  }
 
   void _openChat() {
     if (!mounted) return;
@@ -86,7 +103,14 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: index, children: pages),
+        child: IndexedStack(
+          index: index,
+          children: [
+            CompanionHomePage(onOpenChat: _openChat),
+            ChatPage(active: index == 1),
+            const CompanionMorePage(),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,

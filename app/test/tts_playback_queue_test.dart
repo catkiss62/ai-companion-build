@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_playback_queue.dart';
+import 'package:ai_companion_localfirst/core/tts/tts_provider.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_queue_service.dart';
 
 class _FakeQueueService implements TtsQueueService {
@@ -20,7 +21,10 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
-  Future<String?> generatePrepared(String spokenText) async {
+  Future<String?> generatePrepared(
+    String spokenText, {
+    TtsEmotionCue? emotion,
+  }) async {
     generated.add(spokenText);
     if (generated.length == 1 && firstGenerationGate != null) {
       await firstGenerationGate!.future;
@@ -160,4 +164,51 @@ void main() {
     await queue.stop();
     expect(queue.state.phase, TtsPlaybackPhase.idle);
   });
+
+  test('lead-in audio and TTS synthesis run in parallel', () async {
+    final cue = Completer<void>();
+    final fake = _FakeQueueService();
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      interSentenceGap: Duration.zero,
+    );
+
+    await queue.playText(
+      '情绪音效之后说话。',
+      manual: true,
+      leadIn: cue.future,
+    );
+    await _turn();
+    await _turn();
+
+    expect(fake.generated, ['情绪音效之后说话']);
+    expect(fake.played, isEmpty);
+
+    cue.complete();
+    await queue.waitUntilIdle();
+    expect(fake.played, ['wav:情绪音效之后说话']);
+  });
+
+  test('a finished lead-in adds no wait after slow synthesis', () async {
+    final cue = Completer<void>()..complete();
+    final generation = Completer<void>();
+    final fake = _FakeQueueService()..firstGenerationGate = generation;
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      interSentenceGap: Duration.zero,
+    );
+
+    await queue.playText(
+      '合成完成立即播放。',
+      manual: true,
+      leadIn: cue.future,
+    );
+    await _turn();
+    expect(fake.played, isEmpty);
+
+    generation.complete();
+    await queue.waitUntilIdle();
+    expect(fake.played, ['wav:合成完成立即播放']);
+  });
+
 }

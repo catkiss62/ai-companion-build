@@ -24,7 +24,7 @@ assert any(version in pubspec for version in (
     "version: 0.33.5+60",
     "version: 0.33.6+61",
     "version: 0.33.7+62",
-    "version: 0.33.9+64", "version: 0.34.1+66",
+    "version: 0.33.9+64", "version: 0.34.1+66", "version: 0.34.3+68", "version: 0.34.6+71",
 ))
 
 pet = read(
@@ -74,9 +74,9 @@ workflow = read("../.github/workflows/build-apk.yml")
 require(
     workflow,
     [
-        "Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)",
+        "Build AI Companion v0.34.6+71 APK (Lock Resume)",
         "python3 tools/validate_v0333_overlay_menus_unread.py",
-        "AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK",
+        "AI-Companion-v0.34.6-71-Lock-Resume-APK",
     ],
     "workflow",
 )

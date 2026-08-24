@@ -23,6 +23,8 @@ class CompanionReplyReceiver : BroadcastReceiver() {
             .orEmpty()
         if (text.isEmpty()) return
 
+        CompanionNotification.acknowledgeMessages(context, "notification_inline_reply")
+
         val replyId = "notification-reply:${UUID.randomUUID()}"
         val serviceIntent = Intent(context, OverlayBubbleService::class.java)
             .setAction(OverlayBubbleService.ACTION_NOTIFICATION_REPLY)
