@@ -20,7 +20,10 @@ prompt = read("lib/core/ai/prompt_builder.dart")
 tests = read("test/emotion_contract_test.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.0+99" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.38.0+99", "version: 0.38.1+100")
+)
 assert "static const int schemaVersion = 32;" in database
 assert "schemaVersion = 33" not in database
 
@@ -89,12 +92,24 @@ for title in (
 assert "expect(cases, hasLength(19))" in tests
 
 for token in (
-    "Build AI Companion v0.38.0+99 APK (19 Emotion Recovery)",
     "validate_v0380_emotion_fallback_recovery.py",
-    "AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk",
-    "v0.38.0-emotion-recovery-test",
     ".ci/v0380-monitor.txt",
 ):
     assert token in workflow, token
+for alternatives in (
+    (
+        "Build AI Companion v0.38.0+99 APK (19 Emotion Recovery)",
+        "Build AI Companion v0.38.1+100 APK (Adult Relationship Capability)",
+    ),
+    (
+        "AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk",
+        "AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk",
+    ),
+    (
+        "v0.38.0-emotion-recovery-test",
+        "v0.38.1-adult-relationship-capability-test",
+    ),
+):
+    assert any(token in workflow for token in alternatives), alternatives
 
 print("v0.38.0 19 Emotion envelope, deterministic fallback and redacted diagnostics validation passed")

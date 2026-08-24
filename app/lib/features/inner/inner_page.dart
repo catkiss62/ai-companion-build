@@ -68,15 +68,11 @@ class _InnerPageState extends State<InnerPage> {
     snapshot = await db.loadDesire();
     grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
-    final activeSession = await db.activeInteractionSession();
-    final intimacyAllowed = activeSession != null &&
-        (activeSession.kind == 'intimacy' ||
-            activeSession.kind == 'roleplay_intimacy');
     desireCandidates = desire
         .previewCandidates(
           snapshot!,
           thoughts,
-          intimacyAllowed: intimacyAllowed,
+          intimacyAllowed: true,
         )
         .take(4)
         .toList();

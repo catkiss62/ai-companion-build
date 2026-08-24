@@ -97,6 +97,34 @@ const legacyEditableRuleLayerSha256V0353 = <String, String>{
 
 /// Exact v0.37.1 defaults replaced by the v0.37.2 action-format hotfix.
 /// Only untouched bundled content migrates; any user-edited prompt is kept.
+// Exact hashes of the editable v0.38.0 defaults. v0.38.1 replaces only an
+// untouched stock prompt; every user-edited rule body remains byte-preserved.
+const legacyEditableRuleLayerSha256V0380 = <String, String>{
+  '01_core': '32903d851d7776e4e5e34e4e1273a65786171504cf5e4c1db866591687a4c0a1',
+  '01_relationship': 'ff49b2327826869e121616068720c087f00b1903508247a6b89ba609ab003d7f',
+  '03_appearance_identity': '6250a50a97a5c19ad16f6fa78d4665e558236bd50a8494ef65f340113d19d6d1',
+  '08_runtime_identity': '1dc62d223f9b5d82b2afb8423be970cc29304b042d0732105c611a29b8848d87',
+  '02_daily': '4db97905f932b0d84c4fdc70f65a5895c7a5165faef23f24fa69153f1269a521',
+  '03_behavior': '3f20bfe48e191ec386ae1ea9335bf9fd3ff69c8e38f749fff03cf8d2caf8a230',
+  '08_visible_inner_voice': 'ee097e66859815af94c04fb35c5fc33ba9e236d1d9254c45cc37cbb972c74549',
+  '03_personality_seed': '38fe20355a17f1b5668e03a0a3793efde7b12c3b951ffcad90c408a9f0082505',
+  '07_base_gentle': '99401bb89d573d26f43a2a2f885514c8706e211913bce8d3967b578ddb98dfc2',
+  '07_posture_impish': 'df8d4e6b85f61b3ca479204c1ab568e522457d64900dea43356be3ecd2ea34f3',
+  '07_profile_shared': 'a53fd61edf178f4d52fea82e43d778b430af7d4899946bc20433cac22cc2744e',
+  '07_special_accomplice': 'bba48380bc6505cd9d4f7814c72eac0cdf360a18dd968dea1f094dbd28803fb9',
+  '07_special_doll': 'b1f4304a17babead15b2737ba66b0e29441ae8343be39ede4b1780642d9f0fec',
+  '07_special_double': '9b30acdabcb8a03587990b672fe9842f0b373fc1548322ffc257050814227d06',
+  '07_special_hunter': 'c69d253b8cdf85f7b4414e4186d68b4b367cd57eae704304157c7a32c8f3b6d9',
+  '07_special_seductress': '10eee7abb049a0b3b4a11354970a9afd08936b009461043c77726e73b4ee6ec6',
+  '07_special_shared': 'e385e54450ae6fba7a29b9f4bf3a8ba952c6ca063d44f7a936b6117c3baf9879',
+  '07_special_sharp': '2bc68805705e839519de080b9036aff8d7af621512351e4717698a5f5a9f20cb',
+  '07_special_yandere': '98710c6b8bf6a42124b772905aaed424008c73dbc19ca7fe33165865eb034a5c',
+  '07_special_zealot': '3924e21435fbdf673eeb26968c514781182e4f71a0f15300059dc1b229ceaaf7',
+  '04_intimacy_core': 'b15c9ca7fcd33f3b42116b881d7853b7ff86dd759fac929f52e38fe2893ddbc7',
+  '05_intimacy_rendering': 'b7b9a425b8a02c6f6a415c293a47922a329c9c7712840a7ef01a1f6e954ec460',
+  '06_intimacy_reference': 'dc0283f42fb1670d9a2ad3ab47a7ad225988c29dacc80cbe331fdd685bf226a3',
+};
+
 const legacyEditableRuleLayerSha256V0371 = <String, String>{
   '02_daily': 'e657f56fd0293c35f0b42183e5e8e6fec95dd24b019c2ca542894f4774479790',
   '08_visible_inner_voice':

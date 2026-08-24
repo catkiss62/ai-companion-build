@@ -4,7 +4,7 @@
 # AI-Companion-v0.37.9-98-Dynamic-Moe-D1-Engine-APK.apk
 # v0.37.9-dynamic-moe-d1-test
 # .ci/v0379-monitor.txt
-# Active baseline: v0.38.0+99 / SQLite schema 32 / 19 Emotion recovery
+# Active baseline: v0.38.1+100 / SQLite schema 32 / adult relationship capability
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -76,7 +76,7 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.0+99 APK (19 Emotion Recovery)
+name: Build AI Companion v0.38.1+100 APK (Adult Relationship Capability)
 
 on:
   workflow_dispatch:
@@ -189,7 +189,7 @@ jobs:
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.0+99 19 Emotion envelope, deterministic fallback and redacted diagnostics recovery.'
+          echo 'Building v0.38.1+100 adult relationship capability, portrait effect transform and 15 percent emotion sound default.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -321,6 +321,7 @@ jobs:
           python3 tools/validate_v0378_image_vision_dispatch_hotfix.py
           python3 tools/validate_v0379_dynamic_moe_d1.py
           python3 tools/validate_v0380_emotion_fallback_recovery.py
+          python3 tools/validate_v0381_adult_relationship_capability.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -500,16 +501,16 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.0+99 19 Emotion recovery APK to draft release
+      - name: Upload v0.38.1+100 adult relationship capability APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.0-emotion-recovery-test'
-          APK_NAME='AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk'
+          TAG='v0.38.1-adult-relationship-capability-test'
+          APK_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.0-99-19-Emotion-Recovery-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -526,8 +527,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.0+99 19 Emotion recovery test candidate' \
-              --notes 'Draft-only v0.38.0 candidate: repairs repeated calm fallback with recoverable first-line envelopes, deterministic 19-label local cue scoring and redacted parse-status diagnostics. Schema remains 32; native 19emo stays disabled; Dynamic Moe D2 and visible Moe UI remain paused. The persistent v1 private test signer is unchanged.'
+              --title 'AI Companion v0.38.1+100 adult relationship capability test candidate' \
+              --notes 'Draft-only v0.38.1 candidate: makes adult romance a normal relationship capability, uses NSFW routing only for rendering depth, keeps libido visible outside Session, migrates untouched stock prompts away from boundary lectures, makes emotion effects follow portrait transforms, and sets the initial emotion-sound volume to 15 percent. Schema remains 32; native 19emo stays disabled; Dynamic Moe D2 and visible Moe UI remain paused. The persistent v1 private test signer is unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -556,13 +557,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.0 CI success monitor' \
+              -f message='Update v0.38.1 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.0 CI success monitor' \
+              -f message='Create v0.38.1 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -583,8 +584,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.0-emotion-recovery-test'
-          CI_NAME='AI-Companion-v0.38.0-99-19-Emotion-Recovery-CI-Monitor.txt'
+          TAG='v0.38.1-adult-relationship-capability-test'
+          CI_NAME='AI-Companion-v0.38.1-100-Adult-Relationship-Capability-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -624,8 +625,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.0+99 19 Emotion recovery test candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.38.0 19 Emotion recovery APK. It is not a public release.'
+              --title 'AI Companion v0.38.1+100 adult relationship capability test candidate' \
+              --notes 'Private draft used for CI diagnostics and the v0.38.1 adult relationship capability APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -639,13 +640,13 @@ jobs:
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.0 CI failure monitor' \
+              -f message='Update v0.38.1 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.0 CI failure monitor' \
+              -f message='Create v0.38.1 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

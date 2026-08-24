@@ -140,7 +140,7 @@ class DesireCorePolicy {
     required DateTime now,
     Map<DriveKey, double>? baselines,
     DateTime? lastWildcardAt,
-    bool intimacyAllowed = false,
+    bool intimacyAllowed = true,
     bool wildcardAllowed = true,
   }) {
     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
@@ -159,8 +159,9 @@ class DesireCorePolicy {
     final result = <DesireCoreCandidate>[];
     for (final drive in DriveKey.values) {
       if (drive == DriveKey.fatigue) continue;
-      // Libido can fluctuate internally, but it cannot become an executable
-      // outbound action unless an explicit intimacy session is already active.
+      // Libido is included by default. This flag is only a consumer-surface
+      // filter (for example, public-web discovery must not create libido search
+      // actions); it is never an Intimacy Session gate.
       if (drive == DriveKey.libido && !intimacyAllowed) continue;
       final until = refractoryUntil[drive];
       if (until != null && until.isAfter(now)) continue;

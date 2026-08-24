@@ -236,34 +236,39 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
                         ),
                       );
                     },
-                    child: Image.asset(
-                      widget.emotion.portraitAsset,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.topCenter,
-                      gaplessPlayback: true,
-                      filterQuality: FilterQuality.high,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          widget.emotion.portraitAsset,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.high,
+                        ),
+                        if (widget.emotion.effectAsset != null)
+                          Positioned(
+                            top: constraints.maxHeight * 0.05,
+                            left: constraints.maxWidth * 0.20,
+                            width: constraints.maxWidth * 0.40,
+                            height: constraints.maxHeight * 0.40,
+                            child: IgnorePointer(
+                              child: AnimatedOpacity(
+                                opacity: _effectVisible ? 1 : 0,
+                                duration: const Duration(milliseconds: 300),
+                                child: Image.asset(
+                                  widget.emotion.effectAsset!,
+                                  fit: BoxFit.contain,
+                                  gaplessPlayback: true,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              if (widget.emotion.effectAsset != null)
-                Positioned(
-                  top: constraints.maxHeight * 0.05,
-                  left: constraints.maxWidth * 0.20,
-                  width: constraints.maxWidth * 0.40,
-                  height: constraints.maxHeight * 0.40,
-                  child: IgnorePointer(
-                    child: AnimatedOpacity(
-                      opacity: _effectVisible ? 1 : 0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Image.asset(
-                        widget.emotion.effectAsset!,
-                        fit: BoxFit.contain,
-                        gaplessPlayback: true,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         );

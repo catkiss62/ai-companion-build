@@ -90,13 +90,14 @@ class NsfwContextRouter {
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a routing classifier for an adult private AI-companion chat. Return JSON only: {"mode":"daily|nsfw|nsfw_reference"}.
+            'content': '''You are a prompt-depth router for a private adult romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference"}.
 
-Choose daily for ordinary conversation, affection, nonsexual romance, neutral tasks, or when sexual context is absent.
-Choose nsfw when the latest turn or clearly continuing recent context is consensual adult sexual conversation, explicit erotic roleplay, sexual action, or a direct request for explicit adult description.
-Choose nsfw_reference only when that adult turn also benefits from the detailed reference layer: body-position continuity, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or an extended explicit scene.
+All three modes remain adult-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
+Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
+Choose nsfw when the latest turn or continuing context benefits from full adult rendering: clear sexual tension, direct erotic teasing, explicit body/action language, active erotic roleplay, or a natural transition from daily flirting into a sexual scene.
+Choose nsfw_reference when the same adult interaction also needs detailed continuity knowledge: body positions, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or a longer explicit sequence.
 
-Do not require a magic phrase, an already-open Session, or an earlier adult-mode flag. Session is scene continuity, not permission. Do not infer sex merely from libido, personality labels, affection, or an isolated ambiguous word. If SEDUCTRESS_BIAS is true, treat genuinely suggestive adult flirting and invitations as stronger evidence, but keep unrelated normal conversation daily.''',
+Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route flag. Session stores scene continuity; route only selects descriptive depth. Libido, personality, and relationship history may strengthen a genuine suggestive reading but do not sexualize unrelated tasks. If SEDUCTRESS_BIAS is true, treat real innuendo and invitations as stronger evidence.''',
           },
           {
             'role': 'user',
@@ -145,10 +146,9 @@ $latestUserText''',
     } on GenerationCancelledByUserException {
       rethrow;
     } catch (_) {
-      // Routing must never make a durable chat turn unrecoverable. A failed
-      // classifier falls back to ordinary chat so an unrelated turn cannot be
-      // sexualized merely because the previous turn was adult. The user can
-      // still force the next turn on with the visible button.
+      // Routing only selects prompt depth. A classifier failure falls back to
+      // the light daily layer; adult relationship capability, libido and
+      // natural flirting remain available in that layer.
       const fallback = NsfwRouteDecision(
         active: false,
         referenceActive: false,

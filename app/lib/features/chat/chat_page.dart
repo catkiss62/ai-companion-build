@@ -45,7 +45,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
   bool _emotionSoundEnabled = false;
-  double _emotionSoundVolume = 1.0;
+  double _emotionSoundVolume = 0.15;
   bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
   bool _ttsEnabled = false;
@@ -221,7 +221,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _emotionSoundVolume = (double.tryParse(
               await db.getSetting('emotion_sound_volume') ?? '',
             ) ??
-            1.0)
+            0.15)
         .clamp(0.0, 1.0)
         .toDouble();
     _showEmotionLabel =

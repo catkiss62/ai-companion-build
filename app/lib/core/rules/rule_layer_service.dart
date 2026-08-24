@@ -33,7 +33,7 @@ class RuleLayerBundle {
     }
     if (specialStylePrompt.trim().isNotEmpty) {
       buffer
-        ..writeln('\n## 当前特殊表达与现实边界')
+        ..writeln('\n## 当前特殊表达')
         ..writeln(specialStylePrompt.trim());
     }
     return buffer.toString().trim();
@@ -65,10 +65,9 @@ class RuleLayerService {
         templates: templates,
       );
     }
-    // NSFW prompt loading is decided before generation by the dedicated model
-    // router (or by the user's one-turn manual correction). A Session remains
-    // useful for scene/spatial continuity, but is no longer an adult-content
-    // permission gate.
+    // The router selects adult rendering/reference depth. Daily relationship
+    // rules stay loaded in every mode. A Session stores scene continuity and
+    // is never a permission gate.
     final intimacy = nsfwActive ??
         ((await db.getSetting('nsfw_active')) == '1');
     final referenceTriggered = intimacy &&
@@ -85,7 +84,7 @@ class RuleLayerService {
       if (!layer.enabled && !layer.locked) continue;
       final include = switch (layer.loadPolicy) {
         'always' => true,
-        'daily' => !intimacy,
+        'daily' => true,
         'intimacy' => intimacy,
         'reference_intimacy' => referenceTriggered,
         _ => false,

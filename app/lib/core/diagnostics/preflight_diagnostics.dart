@@ -138,10 +138,7 @@ class PreflightDiagnosticsService {
       final grounding = await GroundingEngine(db).capture(now: now);
       final desireSnapshot = await db.loadDesire();
       final desireThoughts = await db.activeThoughtMetadata(limit: 40);
-      final activeSession = await db.activeInteractionSession();
-      final intimacyAllowed = activeSession != null &&
-          (activeSession.kind == 'intimacy' ||
-              activeSession.kind == 'roleplay_intimacy');
+      const adultRelationshipDriveEnabled = true;
       final desireCandidates = DesireCorePolicy.candidates(
         drives: desireSnapshot.drives,
         refractoryUntil: desireSnapshot.refractoryUntil,
@@ -149,7 +146,7 @@ class PreflightDiagnosticsService {
         now: now,
         baselines: desireSnapshot.baselines,
         lastWildcardAt: desireSnapshot.lastWildcardAt,
-        intimacyAllowed: intimacyAllowed,
+        intimacyAllowed: adultRelationshipDriveEnabled,
       );
       final provenanceCounts = <String, int>{};
       for (final thought in desireThoughts) {
@@ -331,6 +328,7 @@ class PreflightDiagnosticsService {
           'resultBodiesIncluded': false,
         },
         'desireCore': {
+          'adultRelationshipDriveEnabled': adultRelationshipDriveEnabled,
           'drives': {
             for (final entry in desireSnapshot.drives.entries)
               entry.key.name: double.parse(entry.value.toStringAsFixed(4)),
@@ -350,7 +348,7 @@ class PreflightDiagnosticsService {
           'fatigueGateActive':
               (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
                   DesireCorePolicy.fatigueRestGate,
-          'intimacyActionAllowed': intimacyAllowed,
+          'intimacyActionAllowed': adultRelationshipDriveEnabled,
           'wildcardCooldownMinutes': desireSnapshot.lastWildcardAt == null
               ? 0
               : max(

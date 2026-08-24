@@ -22,7 +22,7 @@ class NativeEmotionSoundPlayer
   static const MethodChannel _channel =
       MethodChannel('ai_companion/emotion_sound');
 
-  double _volume = 1.0;
+  double _volume = 0.15;
 
   @override
   void setVolume(double volume) {
@@ -55,7 +55,7 @@ class EmotionSoundService {
   final EmotionSoundPlayer player;
 
   static double normalizedVolume(String? stored) =>
-      (double.tryParse(stored ?? '') ?? 1.0).clamp(0.0, 1.0).toDouble();
+      (double.tryParse(stored ?? '') ?? 0.15).clamp(0.0, 1.0).toDouble();
 
   Future<bool> play(ChatEmotionVisual emotion) async {
     final asset = emotion.soundAsset;

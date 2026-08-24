@@ -777,7 +777,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '56',
         'emotion_sound_enabled': '0',
-        'emotion_sound_volume': '1.0',
+        'emotion_sound_volume': '0.15',
         'show_emotion_label': '1',
       }.entries) {
         await db.insert(
@@ -1103,7 +1103,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
-    await db.insert('settings', {'key': 'emotion_sound_volume', 'value': '1.0'});
+    await db.insert('settings', {'key': 'emotion_sound_volume', 'value': '0.15'});
     await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
     await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
     await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
@@ -1919,6 +1919,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0350.entries,
       ...legacyEditableRuleLayerSha256V0353.entries,
       ...legacyEditableRuleLayerSha256V0371.entries,
+      ...legacyEditableRuleLayerSha256V0380.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
@@ -1984,7 +1985,7 @@ class AppDatabase {
       'chat_typewriter_enabled': '1',
       'chat_typewriter_ms': '48',
       'emotion_sound_enabled': '0',
-      'emotion_sound_volume': '1.0',
+      'emotion_sound_volume': '0.15',
       'show_emotion_label': '1',
     }.entries) {
       await db.insert(
@@ -1992,6 +1993,17 @@ class AppDatabase {
         {'key': entry.key, 'value': entry.value},
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+    }
+    final emotionVolumeMigration =
+        await getSetting('emotion_sound_volume_default_v0381_applied');
+    if (emotionVolumeMigration != '1') {
+      final storedEmotionVolume = await getSetting('emotion_sound_volume');
+      if (storedEmotionVolume == null ||
+          storedEmotionVolume.trim().isEmpty ||
+          storedEmotionVolume == '1.0') {
+        await setSetting('emotion_sound_volume', '0.15');
+      }
+      await setSetting('emotion_sound_volume_default_v0381_applied', '1');
     }
     await ensureDeviceId();
   }
@@ -9919,7 +9931,7 @@ class AppDatabase {
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '48',
         'emotion_sound_enabled': '0',
-        'emotion_sound_volume': '1.0',
+        'emotion_sound_volume': '0.15',
         'show_emotion_label': '1',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',

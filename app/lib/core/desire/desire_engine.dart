@@ -43,11 +43,6 @@ class DesireEngine {
       await _tickThoughts(instant);
     }
     final thoughts = await db.activeThoughts(limit: 24);
-    final activeSession = await db.activeInteractionSession();
-    final intimacyAllowed = activeSession != null &&
-        (activeSession.kind == 'intimacy' ||
-            activeSession.kind == 'roleplay_intimacy');
-
     return db.mutateDesire((snapshot) {
       final advanced = DesireCorePolicy.advance(
         snapshot: snapshot,
@@ -66,7 +61,7 @@ class DesireEngine {
         advanced.refractoryUntil,
         thoughts,
         instant,
-        intimacyAllowed: intimacyAllowed,
+        intimacyAllowed: true,
       );
       return snapshot.copyWith(
         drives: drives,
@@ -273,7 +268,7 @@ class DesireEngine {
     DesireSnapshot snapshot,
     List<CompanionThought> thoughts, {
     DateTime? now,
-    bool intimacyAllowed = false,
+    bool intimacyAllowed = true,
   }) {
     return _pickIntent(
       snapshot,
@@ -289,7 +284,7 @@ class DesireEngine {
     DesireSnapshot snapshot,
     List<CompanionThought> thoughts, {
     DateTime? now,
-    bool intimacyAllowed = false,
+    bool intimacyAllowed = true,
   }) {
     final candidates = DesireCorePolicy.candidates(
       drives: snapshot.drives,

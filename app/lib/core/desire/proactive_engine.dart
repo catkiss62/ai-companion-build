@@ -247,15 +247,14 @@ class ProactiveEngine {
       final userBusy = localHeartbeat.userBusy;
       final snapshot = localHeartbeat.snapshot;
     final thoughts = await db.activeThoughts(limit: 20);
+    // Session is retained only for notification privacy and scene continuity;
+    // it no longer decides whether libido may form an intent.
     final activeSession = await db.activeInteractionSession();
-    final intimacyAllowed = activeSession != null &&
-        (activeSession.kind == 'intimacy' ||
-            activeSession.kind == 'roleplay_intimacy');
     final intent = desireEngine.previewIntent(
       snapshot,
       thoughts,
       now: evaluationStartedAt,
-      intimacyAllowed: intimacyAllowed,
+      intimacyAllowed: true,
     );
     if (intent == null) {
       return const ProactiveDecision(sent: false, reason: '没有形成意图');
@@ -753,12 +752,14 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     final notificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),
     );
-    final sensitiveSession = activeSession?.kind.toLowerCase().contains('intimacy') ?? false;
+    final sensitiveSession =
+        activeSession?.kind.toLowerCase().contains('intimacy') ?? false;
+    final sensitiveIntent = intent.drive == DriveKey.libido;
     final notificationBody = ProactivePresentationPolicy.notificationBody(
       kind: intentKind,
       fullText: text,
       privacy: notificationPrivacy,
-      sensitiveContext: sensitiveSession,
+      sensitiveContext: sensitiveSession || sensitiveIntent,
     );
     final popupMode = ProactivePopupMode.fromSetting(
       await db.getSetting('proactive_popup_mode'),
