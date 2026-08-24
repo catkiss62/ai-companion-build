@@ -18,6 +18,13 @@
 
 > 本节已按约定先登记任务、实现后回填源码审计，并在自动构建完成后再次纠正 CI/APK 状态。v0.37.6+95、schema 30 的源码、完整自动化与私有 APK 已完成，仍严格标记为真机待验。稳定性优先；本批未恢复 native 19emo/ONNX/ORT，未接 MiniMax TTS，未开始主动话题/自主搜索。
 
+### v0.37.5 旧版补充证据（OBSERVED / NOT v0.37.6 ACCEPTANCE / NO CODE CHANGE）
+
+- 2026-08-24 旧版脱敏报告 `ai_companion_diagnostics_2026-08-24T01-23-02-268984Z.txt` 确认为 v0.37.5+94/schema 29。主动联系确实运行：当日已使用5/8次、两小时窗口2/2次，`proactive_feedback=5`；Desire 的 attachment 0.5458（baseline 0.3905）且存在 medium residual，最近候选为 curiosity/check_in。报告导出时 `active_emotion_episodes=0`，因此只能证明 Desire/主动联系有效，不能证明跨轮 Emotion Episode 已命中或保持。
+- 用户在旧版观察到主动消息正文偶尔泄漏 `<emotion>想念</emotion>` / `<emotion>心动</emotion>`。无论标签是否合法都不应进入可见正文；高度怀疑主动生成/持久化路径没有完整复用普通聊天的 emotion envelope 剥离，但必须先用 v0.37.6+95 复测，当前不改代码、不回退、不提前判定根因。
+- 当前情绪并非全部是固定台词：当轮19类表现优先采用 DeepSeek 返回标签，只有缺失/非法标签才走 `EmotionClassifierService` 的确定性关键词兜底；但 v0.37.5 的跨轮 `EmotionAppraisalPolicy` 确实只是高精度最小闭环，主要靠有限正则识别 repair/hurt/connection/disagreement/reunion，另加真实时间间隔与 fatigue/stress Drive 阈值。例如 `我喜欢你` 可命中，而省略主语的 `喜欢你` 不一定命中。它目前价值是可追溯、低误判与不虚构伤害，不足以作为最终“活人式语义情绪系统”。
+- 后置方向：保留固定短语作为高置信快速路径/兜底；在高风险情绪任务阶段加入“模型结构化语义 Appraisal 提案 + 真实证据/来源/置信度/强度/对象/边界的确定性 Gate”，由 Episode 负责跨轮余波，19类标签继续只负责当轮头像/特效/短音效。不得让语义模型凭空制造受伤、冷战或情绪绑架。复测与设计来源固定到 `app/lib/core/models/emotion_episode.dart`、`app/lib/core/emotion/emotion_episode_engine.dart`、`app/lib/core/emotion/emotion_classifier_service.dart`、`app/lib/core/emotion/emotion_contract.dart`。
+
 ### A. 严重稳定性与思考链
 
 1. ~~**强杀/崩溃/孤儿生成等同 Stop ■**~~（已完成，CI通过，真机待验）：新 Android 进程必须能区分旧进程遗留的 `chat_turn_lease` 与同一进程仍存活的 App/悬浮 FlutterEngine。旧进程租约立即失效；未完成 generation job 使用 `cancelGenerationJobByUser` 同一原子路径撤回 user turn、清空临时 reasoning/content、run token 与 retry、级联移除本轮短期派生状态并释放阻塞。不得在强杀、崩溃或孤儿恢复后自动重新请求 DeepSeek。
