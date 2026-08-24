@@ -15,7 +15,35 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0W. 2026-08-24 · v0.37.8 千问识图可信派发热修与情绪短音效音量（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
+## 0X. 2026-08-24 · 动态萌属性参考审计与规格 v1（SPEC DRAFTED / USER REVIEW PENDING / NO RUNTIME CHANGE）
+
+> 用户确认下一步先完成“参考审计与萌属性规格”，并新增维护性硬要求：萌属性不能完全融合进欲望系统或内在驱动系统的代码；未来修改任一模块时，不应被迫同步重写另一模块。本节为设计批记录，只新增规格与总账，不改 App 运行代码、版本、schema 或 APK。
+
+### A. 参考审计结论
+
+- 项目内部以 `INNER_DRIVE_DESIRE_SYSTEM_BACKUP_v2.md`、`EMOTION_ENGINE_EXPANSION_EVAL_v1.md`、`PERSONALITY_TRIAL_SYSTEM_v1.md`、`PERSONALITY_INNER_VOICE_v2.md` 为主架构依据：复用 baseline、pulse、衰减、有界耦合、冷却、事件来源和固定回放方法，但不复制 Drive/Thought/Intent/Gate/Action/satisfy 主干。
+- 外部核对 ALMA、FAtiMA、Emotional Chatting Machine、Vela、MeuxCompanion、Project AIRI 与 Crescent Grove。可借的是长期/中期/短期分层、事件 Appraisal、内部状态与外显词语分离、逐句和多通道表现；未发现可直接移植的“男性向 AI 女友动态萌属性引擎”。
+- 女性向或情绪陪护型资料只借状态衰减、记忆证据、冲突修复、表现协调和测试方法；不搬无条件安慰、持续追逐、甜度即关系等级、随机拒绝或情绪施压。小红书等社区内容只作为体感样本，不作为公式与数据库依据。
+
+### B. 规格与代码边界
+
+- 新增正式规格：`app/docs/DYNAMIC_MOE_ATTRIBUTE_REFERENCE_AUDIT_SPEC_v1.md`。
+- 原子偏向为运行真源，傲娇、毒舌、卖萌、撒娇、害羞、呆萌、天然直球、腹黑、恶作剧为带情境门和禁止条件的派生配方；每轮最多一个主属性加一个辅助属性。
+- 状态强度与表现强度分开；内部值分为潜伏/染色/明显/强烈/爆发，纯文字默认表现档锁定为“明显”，激活后不能只靠一个括号或标签暗示。
+- 推荐采用 `lib/core/moe/` 独立领域模块：自己的 domain/application/infrastructure/contracts、Repository、SQLite 专属表、诊断与测试；通过唯一 `MoeInputAdapter` 接收 Desire/Relationship/AI Self/Time 的版本化只读 DTO。
+- 依赖必须单向：`desire/` 不 import `moe/`；萌属性不读取 Desire Repository/Policy/表，不写 Drive、Thought、Intent、Gate 或 satisfy；输出 `MoeExpressionPlan` 只描述“怎么表达”，不能发消息、调用工具或绕过主动 Gate。
+- 萌属性关闭、超时、异常、迁移失败或状态损坏时 fail-open 为 neutral，欲望、内驱、聊天、主动联系和工具主链继续独立运行。同一 SQLite 文件可以保留备份/事务一致性，但萌属性必须使用独立表和迁移测试，不把字段塞入 desire/relationship 表。
+- 分阶段按 D1 独立状态引擎 → D2 Shadow Mode → D3 文字表现 A/B → D4 现有19 Emotion/TTS/桌宠软建议推进；规格确认前不开始代码。
+
+### C. 待用户确认
+
+1. 九个原子轴是否保留；
+2. “腹黑”是否继续使用无害小算计定义，或改名为“坏心眼”；
+3. 默认“明显”、可选“自然/漫画化”的表现档是否锁定。
+
+本批没有构建 APK。规格文档提交为 `bbeed4445caf8442cc02502b50c84f79d3086ee2`；活动分支为 `agent/dynamic-moe-reference-spec-v1`。
+
+## 0W. 2026-08-24 · v0.37.8 千问识图可信派发热修与情绪短音效音量（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PASSED）
 
 > 用户已授权正式开始；本节是任务前第一次总账更新。目标版本暂定 v0.37.8+97、schema 31。只修复图片识别后新回复任务被误判为强杀遗留任务的问题，并加入独立情绪短音效音量；不得回退 v0.37.6 已真机通过的“崩溃/强杀等同 Stop、禁止后台偷偷重发”。
 
@@ -50,7 +78,7 @@
 - **情绪短音效音量已完成**：头像快捷面板的既有“情绪短音效”开关下新增独立 0～100% 滑杆，默认100%，持久键为 `emotion_sound_volume`。Flutter 通过可选兼容接口把音量送入原生 `MediaPlayer.setVolume`；旧播放器接口保持兼容。0% 只静音短音效，完成 fence 仍存在，因此不会让 TTS 抢先、重叠或改变“并行合成、音效优先、顺序发声”；也不影响 TTS/通知音量、一轮一次和 Stop 同停。
 - **自动验证**：新增 `validate_v0378_image_vision_dispatch_hotfix.py` 与 `emotion_sound_volume_test.dart`，并执行全部历史/current validators、Kotlin 桌宠状态/物理、Flutter analyze、Flutter tests、Release APK、固定签名、6个原生库、417个桌宠文件、62个 LingChat 表现素材、checksum 与 Draft Release 上传。第一次 run [#392](https://github.com/catkiss62/ai-companion-build/actions/runs/32705405200) 在 Kotlin 步骤附带的 Flutter debug 编译中发现可选接口类型提升错误，未生成或上传 APK；仅用显式可选接口 cast 修正为提交 `19045d3a3bcf927900d5ce383193a56cd8ce884b`，没有放宽测试或改行为。
 - **成功构建**：Actions run [#393](https://github.com/catkiss62/ai-companion-build/actions/runs/32705975991) 全部通过。APK `AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk`（构建日志约303.4 MB）；SHA-256 `a090e2beea02e3613b85bc4e7f8513e7cd7bee38e7aa3d496f95203ad754f575`；持久测试签名 SHA-256 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；私有 Draft Release：<https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fcd73cd8f5c151b14de7>。
-- **真机验收（待用户）**：①相册图片与②相机拍照都应完成 Qwen 观察后真实进入 DeepSeek 回复，不再立刻显示“这一轮对话已中断”；③在识图/DeepSeek 回复中强杀仍应像 Stop 一样撤回且重开不自动重发；④故意造成 Qwen 失败时图片仍保留并可重试；⑤滑动短音效音量只改变情绪音效，TTS 音量不变，0%时 TTS 仍无需多等且不重叠；⑥测试后导出脱敏诊断，确认 imageVision 状态计数可见而无图片/文字泄漏。
+- **真机验收（已通过）**：用户确认 v0.37.8 本轮测试未发现问题；图片识别/回复恢复正常，中断后重新读取、再点关闭也正常。脱敏报告 `ai_companion_diagnostics_2026-08-24T12-08-52-602823Z.txt` 显示图片任务 completed=2、failed=0，导出时无 active/failed generation job；未见图片或正文泄漏。由此本批从 TRUE DEVICE PENDING 回填为 TRUE DEVICE PASSED。
 - **继续冻结**：用户已明确本批暂不处理蚂蚁财富等系统页触发的桌宠消失或悬浮恢复循环；不得把该现象误记为本版已修复。
 
 ## 0V. 2026-08-24 · v0.37.7 分层记忆召回重构与主动消息 Emotion 规范化（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
