@@ -282,8 +282,8 @@ class EmotionEnvelope {
 
     final hasEmptyEnvelope =
         _selfClosing.hasMatch(raw) || _closing.hasMatch(raw);
-    final hasMalformedEnvelope =
-        _opening.hasMatch(raw) || _malformedFirstLine.hasMatch(raw);
+    final hasMalformedEnvelope = !hasEmptyEnvelope &&
+        (_opening.hasMatch(raw) || _malformedFirstLine.hasMatch(raw));
     return EmotionEnvelopeData(
       rawTag: '',
       visibleText: _stripReservedMarkup(raw).trim(),
@@ -329,6 +329,35 @@ class EmotionEnvelope {
         value = value.substring(0, marker);
       }
     }
+    if (_isPartialNamedPrefix(value)) return '';
     return value;
+  }
+
+  static bool _isPartialNamedPrefix(String value) {
+    final trimmed = value.trimLeft();
+    if (trimmed.isEmpty || trimmed.contains('\n') || trimmed.contains('\r')) {
+      return false;
+    }
+    final compact =
+        trimmed.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    const prefixes = <String>[
+      '[emotion:',
+      '[emotion：',
+      '【emotion:',
+      '【emotion：',
+      '(emotion:',
+      '（emotion：',
+      'emotion:',
+      'emotion：',
+      '[情绪:',
+      '[情绪：',
+      '【情绪:',
+      '【情绪：',
+      '(情绪:',
+      '（情绪：',
+      '情绪:',
+      '情绪：',
+    ];
+    return prefixes.any((prefix) => prefix.startsWith(compact));
   }
 }

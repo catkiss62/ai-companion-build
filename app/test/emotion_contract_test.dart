@@ -6,6 +6,12 @@ import 'package:ai_companion_localfirst/core/tts/tts_provider.dart';
 void main() {
   test('emotion envelope is machine-only throughout streaming', () {
     expect(EmotionEnvelope.streamingVisible('<emo'), isEmpty);
+    expect(EmotionEnvelope.streamingVisible('[emo'), isEmpty);
+    expect(EmotionEnvelope.streamingVisible('【情绪'), isEmpty);
+    expect(
+      EmotionEnvelope.streamingVisible('情绪会自然变化。'),
+      '情绪会自然变化。',
+    );
     expect(
       EmotionEnvelope.streamingVisible(
         '<emotion>害羞</emotion>\n（她轻轻偏开脸）\n\n「别看。」',
