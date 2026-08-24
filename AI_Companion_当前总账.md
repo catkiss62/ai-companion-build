@@ -24,6 +24,7 @@
 - 唯一源码真源仍为 `app/`；活动分支 `agent/dynamic-moe-d1-engine`。
 - App 版本 `0.37.9+98`；SQLite `schemaVersion = 32`，包含 31→32 保守迁移。
 - 实现/验证分支头（第二次总账前）为 `248f8d2bd57e7f1f46e861177b02e1bc3d8163c3`。
+- 第二次（修改后）总账主体提交为 `3b38b8edab325032432c77184529ae237d1e4379`；本条为提交号回填。
 - 活动 Draft PR 为 [#26](https://github.com/catkiss62/ai-companion-build/pull/26)。PR #24 记录了旧 clean-baseline 仍锁在 v0.37.8/schema31 的预编译失败；PR #25 仅用于重新触发 Actions，均已关闭且未合并。两者不是产品回归。
 - 完整成功 CI：run `32734137046`（run #402），head `248f8d2...`。状态为 `build-apk = success`。
 
