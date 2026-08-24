@@ -51,9 +51,9 @@ for token in (
 ):
     assert token in prompt, token
 for token in (
-    "用全角括号“（）”标注",
-    "括号块结束后空一行",
-    "对话混插模式",
+    "全角括号“（）”",
+    "括号块后空一行",
+    "动作与对白混插",
 ):
     assert token in rules, token
 for token in (
