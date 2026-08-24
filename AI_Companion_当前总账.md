@@ -15,6 +15,59 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAAA. 2026-08-25 · v0.38.2+101 Dynamic Moe D2、双立绘与聊天收尾稳定化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 本节是用户要求的本批第二次（修改后）总账更新。第一次修改前登记提交为 `d42b33996d19f7afeab8e67ed77bc3ad9caec6ec`；现已完成实现、全量 Release CI 与 APK 交付。App 为 `0.38.2+101`，SQLite 继续 `schemaVersion=32`、无迁移；自动化通过不等于真机通过。
+
+### A. 实际完成范围
+
+1. Dynamic Moe D2 Shadow 已接入真实 durable assistant turn 与 Desire satisfy 事件：新增唯一 `MoeInputAdapter`，只读取已提交的 emotion key、Desire 数值快照、关系天数与试穿是否存在等最小元数据；不读取消息正文或隐藏 reasoning。Shadow Coordinator 计算并持久化九轴、九配方、主/辅属性、冷却与档位，失败/超时一律 fail-open，不阻断聊天。
+2. Moe 事件插入与状态推进合并到同一 SQLite transaction，并以事件键幂等；启动只对 D2 启用后的未处理事件做 reconciliation，不回放历史制造数值尖峰。Moe 输出仍只进入专属状态表、设置与脱敏诊断，不写 Prompt、Emotion、Desire、Intent/Gate、动作、工具调用或主动发送。
+3. “她的内心”页新增独立萌属性卡，显示九轴当前值/基线值、当前模式和主辅配方组合；与 Desire 数值卡分区。D2 的 `natural / obvious / manga` 配置底座保留、默认 `obvious`，但本版仍没有假装可影响文字的用户档位开关；档位选择与 Prompt 消费留到 D3。
+4. 新增 UI-only 立绘套装“小小鲸 / 大肥鱼”，默认新安装选择“大肥鱼”。套装名只存在于 UI、设置键和资产元数据，未进入 Prompt、自我介绍或模型上下文。两套分别保存 scale/offsetX/offsetY；旧全局位置只向“小小鲸”兼容迁移，切换套装不会互相覆盖。
+5. 立绘与情绪 effect 进入同一用户位移/缩放和短动作组合变换；每套拥有独立归一化 effect anchor。初始锚点按 LingChat 固定 commit `eae0d667413e490c3653488d43ce9b4464e07fda` 的 DeepSeek 角色配置校正为约 `left=25% / top=0% / size=25%`，不再使用旧的 `20% / 5% / 40%`。
+6. 超长 reasoning 收尾新增永久尾部 sentinel 与 generation `true→false` 布局后 `Scrollable.ensureVisible`：仅在用户原本跟随最新消息时校正最后一句底部；用户主动上翻时不强拉回底部，避免思考块收起后停留在旧滚动偏移而出现空白。
+7. 内部照镜子图改为“大肥鱼·高兴”的未抠原图；旧 `dafeiyu_reference.webp` 仍保留在源码与 APK 作为非破坏回退。v0.38.1 已完成的成人恋爱人格放宽、情绪音效默认15%、19 Emotion 恢复链与417桌宠均未回退。
+
+### B. 大肥鱼素材处理与可追溯性
+
+- 用户上传真源 `大肥鱼.zip` SHA-256：`615e18743143fc9f90ee674cc60a8aecfff25928781c8adf3764fc8d43fe10b1`；原始 ZIP 不打入仓库或 APK，只记录哈希并保留当前会话附件作为来源。
+- 20张1152×2048原图逐一映射到20个语义；透明聊天资产输出为1152×2048 alpha WebP（quality 92），位于 `assets/portraits/large_whale/`。`紧张`与`慌张`按用户说明保持字节一致，但保留两个独立语义映射；APK validator 确认恰好20张、尺寸/alpha/映射完整。
+- 未抠的“高兴”原图原样保存为 `assets/appearance/large_whale_mirror.jpg`，SHA-256：`3eb20158a962f129adba4d7f732dd5526a2943d4139eea07078ea82c4b0f2071`；构建校验确认镜子图哈希未变化。
+- 本批先尝试图像生成/编辑工具处理复杂发丝空隙，但任务运行超过8分钟仍无可用输出，已安全终止；最终采用确定性连通白底 flood-fill 与人工选定发间白区种子抠图，并在青色底合成图上逐张目视检查。“疑惑”左侧问号作为前景保留。该结果满足自动化与当前目检，但细发丝/发间残白仍列入真机放大检查，用户可继续手工精修。
+- 修改前规格写“RGBA PNG”；实际为保持同分辨率 alpha 且控制 APK 体积，运行资产改用 alpha WebP。原图未被覆盖，语义与透明通道验收不变，此偏离已在本节明确记录。
+
+### C. 架构隔离与维护边界
+
+- `core/moe/` 仍为独立纯状态/策略域；`core/integration/moe_input_adapter.dart` 是 App 状态到 Moe 的唯一只读适配层，Coordinator 负责旁路调度，Repository 负责原子持久化。Desire、Relationship、Emotion 与 PromptBuilder 不 import Moe 内部模型来改变自身逻辑。
+- D2 不把九轴名称、配方名称、立绘套装名或调试数值暴露给模型；reasoning 中偶尔出现“傲娇/毒舌”等自然词仍不能视为 Moe Prompt 已接入。D3 未开始前，九轴只作为可观测 shadow truth。
+- D1 残留的政策式“边界/safe teasing/boundary displeasure”措辞已改为纯技术隔离与表达建议；没有重新加入用户已要求删除的底线、许可仪式或“温柔边界”人格。
+- SQLite 保持 schema32；没有恢复 native 19emo/ONNX 崩溃路径，没有改 TTS、主动联系 Gate、Intimacy 连续性、Memory 或 Somatic 主干。
+
+### D. 自动验收、修复记录与 CI
+
+1. 新增/更新 `moe_input_adapter_test.dart`、Moe 表达契约测试、双立绘映射/默认值测试和 `validate_v0382_moe_shadow_dual_portraits.py`；D2 幂等、超时 neutral、只读输入、启动无历史尖峰、九轴有界、无 Prompt/动作写入等约束通过。
+2. 全部历史/current Python validators、Kotlin 桌宠测试、`flutter analyze`、Flutter 全量 tests、Release APK、固定签名、原生库、417桌宠、LingChat 表现载荷、20张新立绘与镜子原图校验全部通过。
+3. 构建过程中发现并向前修复三类问题：v0.34.2 历史 validator 仍断言旧照镜子图；历史版本 allowlist 未包含 `0.38.2+101`；Shadow Coordinator 使用 Moe 配方扩展时缺少直接 metadata import。三项均补充精确契约后重跑完整 CI，不以跳过测试绕过。
+4. 为受限工作区取回源码临时加入的 export workflow 已从最终源码删除；最终分支不保留临时导出入口。
+5. 最终可构建源码 head：`6919c32c8e1c5763dfdff8277b364a4e73797d4e`；活动 Draft PR 仍为 [#26](https://github.com/catkiss62/ai-companion-build/pull/26)，没有写成已合并。
+6. 完整成功 Actions：[run 32779319286](https://github.com/catkiss62/ai-companion-build/actions/runs/32779319286)。Artifact ID `9539605424`，名称 `AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK`，GitHub artifact digest `sha256:4aae8f594dc518f1ac1a90b2b004d42c58e7f2b06398adc10aaea53b426d6dc6`。
+
+### E. APK 与签名证据
+
+- 交付文件：`AI-Companion-v0.38.2-101.apk`（307,830,742 bytes）。
+- APK SHA-256：`f378927f39a12e85168114fc2ac23d97fb7cc723012f98c3b55b8a0cc98ce824`；本地交付副本、artifact 解包 APK 与 artifact 内 `.sha256` 文件三方一致。
+- 固定测试签名 SHA-256：`30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，保持可覆盖安装。
+
+### F. 真机待验与下一步
+
+1. 覆盖安装后先确认默认显示“大肥鱼”，20种情绪切换正确；重点放大看“疑惑”问号、发丝内白区、边缘光晕，以及“高兴”是否同时用于透明聊天立绘和未抠照镜子图。
+2. 分别调整两套立绘的位置/缩放、来回切换并重启，确认各自设置独立保存；触发爱心、问号、汗滴等 effect，确认它们随立绘共同移动、缩放、跳动，且两套初始锚点都落在脑袋附近。御姐比例可能仍需基于真机做一次大肥鱼专属 anchor 微调。
+3. 连续聊天与触发 Desire 后观察“她的内心”萌属性卡：九轴应有平滑、有限变化，主辅配方与当前档位可读；重启不应突然回放历史产生尖峰，聊天正文不应直接“报出萌属性数值/配方”。
+4. 生成一段很长的思考链，等正文生成并自动收起思考后，最后一句底部应仍可见；手动上翻再生成时不应被强拉到底。
+5. 上述真机证据取得前，本节状态保持 `TRUE DEVICE PENDING`。下一阶段优先依据测试结果修素材/anchor；稳定后再做 D3 档位锁定与文字表现接入。思考链英文自动翻译继续后置，需单独确定英文阈值、翻译提供方、缓存、隐私与失败回退。
+
+
 ## 0AAAAA. 2026-08-25 · v0.38.2+101 Dynamic Moe D2、双立绘与聊天收尾稳定化（IN PROGRESS / PRE-TASK LEDGER）
 
 > 用户已明确授权“按 v0.38.2 开始”，并上传“大肥鱼.zip”。本节是本批第一次（修改前）总账更新；本提交成功后才允许修改运行代码和项目图片资产。目标 App 版本暂定 0.38.2+101，SQLite 继续 schemaVersion=32，不新增数据库迁移。实现按独立提交隔离，最终统一做完整 Release CI/APK；完成后必须进行第二次总账回填。
