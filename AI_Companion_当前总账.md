@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已安装 v0.38.6+105 并多次点击“测试网页分享闭环”，但聊天中始终没有主动分享。脱敏报告 `ai_companion_diagnostics_2026-08-25T17-13-10-856491Z.txt` 证明这不是模型连续选择 WAIT，而是测试入口被既有 `share_ready` 候选挡在 seed/stage 之间。用户确认开始修复，并要求以后把“旧 index参考资料库”统一称为“参考资料”：旧 index 项目本身不会导入，只会保存用户实际导入的角色/设定资料。本节是本批第一次（修改前）总账；本提交成功后才允许修改运行源码、提示词、版本与工作流。目标 App 为 `0.38.7+106`，SQLite 继续 `schemaVersion=32`、无迁移；继续在未验收的 Draft PR #28 分支上向前修复，不合并损坏候选到 main。
 
@@ -56,6 +56,25 @@
 2. 本批不改公开搜索 Provider/预算、主动联系上限、Desire算法、网页内容安全边界、Memory、Emotion/D3、相册、Pixiv、Harness/MCP、TTS、桌宠、悬浮恢复、当前 App 解析或schema。
 3. 失败不覆盖旧 APK/Release；新版本通过所有历史/current Python validators、Kotlin桌宠测试、Flutter analyze/tests、release APK、固定签名与完整载荷校验后再交付。
 4. 完成后第二次更新本节，回填真实提交、CI run、APK/Artifact/Release、SHA、签名和真机待验项；不能因自动测试通过宣称真机闭环已验收。
+
+
+### F. 实际实施与自动验收（POST-TASK LEDGER）
+
+1. 修改前总账已先提交为 `0ddd530b3dab41ab72f9fa68ea90a973ccae702b`，之后才修改运行源码；目标与实际版本均为 `0.38.7+106`，SQLite 保持 `schemaVersion=32`、无迁移。main 仍是 `a466bb331952c10ba18145e4158c523f7352eef8` / `0.38.5+104`，Draft PR #28 未 ready、未合并。
+2. `PublicWebShareCoordinator.seedDiagnosticCandidate` 已改为：先清理旧 synthetic fixture与无候选绑定的 public-web orphan Thought，再查询真实 active `share_ready`；存在则读取其原绑定 Thought并返回 `candidateSource=existing_ready`，不创建新候选。只有没有 ready 时才创建固定安全夹具并返回 `diagnostic_seeded`；若后台心跳在窄竞态中先赢，会移除未领取夹具并复用真实赢家。
+3. 真实 ready 若缺失绑定 Thought，不会静默绕过或堆第二条 ready，而是返回 `stale_ready`。自然心跳的“一条 active ready”原则、Gate等待不消费、WAIT→declined、原子发送→shared均保持不变。
+4. 测试按钮现在先 `beginPublicWebShareTest`，再把返回的精确 `thoughtId` 传给 `ProactiveEngine.evaluate(forceForDebug:true)`；最后必写 sent / model_wait / blocked / stage_failed / stale_ready / error之一。强制模式仍只跳过意图竞争与概率 Gate，不跳过 Active Brain、chat/proactive lease、API Key、pending turn、Grounding、服务模板守卫、设备所有权和原子写入。
+5. 新增 `PublicWebShareTestPolicy`，把 UI 的可读 decision reason 映射为稳定脱敏类别，例如 proactive_lease、chat_turn、api_key、pending_user_turn、grounding_guard、service_template_guard、writer_lease、device_state；数据库不保存任意 reason字符串。
+6. `publicWebCandidates.sharing.test` 新增 attemptCount、lastResult、lastAt、candidateSource、reachedEvaluation、modelDecisionReached、blockCategory；并明确 candidateId/reasonText/modelOutput/Prompt 全false。重复点击不会再只留下 `diagnostic_seeded` 而无测试终态。
+7. 运行时设置页标题已从“旧 index 参考资料库”改为“参考资料”；参考注入 Prompt 改为“用户导入的人设/设定参考资料”；六层规则默认文案和 `docs/REFERENCE_LIBRARY.md` 同步清理来源历史标签。没有导入旧 index 项目、没有迁移存档、没有改 references表、检索算法或 AI Self隔离。
+8. 新增 `public_web_share_test_policy_v0387_test.dart`，覆盖 sent/WAIT、生成前阻断、Grounding/服务模板生成后阻断与候选来源；新增 `validate_v0387_public_web_share_test.py`，锁定“clean → reuse ready → seed”顺序、stale-ready、绑定 Thought、测试 telemetry隐私与运行时旧措辞清零。所有历史版本 validator 已向前兼容 `0.38.7+106`。
+9. 首次最终候选 run #482 / `32878870616` 在源码校验阶段发现5个历史 validator 的新增版本行被写成字面量 `\\n`，因此 Flutter依赖、编译、测试、APK均未开始；随后只修正换行格式，未降低校验或改运行逻辑。
+10. 最终 GitHub Actions [run #484 / 32879192401](https://github.com/catkiss62/ai-companion-build/actions/runs/32879192401) completed/success：全部历史/current Python validators、新 v0.38.7 validator、Kotlin桌宠状态/物理、Flutter analyze、完整 Flutter tests、release APK、固定签名、原生与全载荷、checksum、artifact、Draft Release均成功。
+11. APK 文件名为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK.apk`，构建大小约308.6 MB；SHA-256 为 `fd8cf4f81d9ccf3d80246dba5aa4bb0aaf6003c746d3b7682d5e985557ef941c`。固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。
+12. Actions artifact 为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK`，artifact ID `9575710465`、压缩包302,422,327 bytes，[下载页](https://github.com/catkiss62/ai-companion-build/actions/runs/32879192401/artifacts/9575710465)；Draft Release 为 [v0.38.7 public-web share test repair](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-032746597d469b56b4ab)。
+13. 实包再次确认417文件桌宠、62文件 LingChat、20张优化立绘、新聊天头像、保留旧 LingChat头像与镜子图、三档哈欠图、A2原始native prefix均完整；本批没有修改这些载荷，也没有改搜索预算/Provider、Desire、Memory、Emotion/D3、TTS、相册、Pixiv、Harness、悬浮恢复或当前App解析。
+14. 当前只能写为“实现、完整CI与APK通过，真机待验”。覆盖安装并保留现有数据后点一次“测试网页分享闭环”：旧 v0.38.6 留下的真实 ready 应优先被复用；UI必须给出 sent、模型WAIT或明确blocked，诊断 `sharing.test.lastResult` 不得停在 started/never，`reachedEvaluation` 应与结果一致。sent时核对聊天/通知，WAIT时核对 declined；随后导出新脱敏报告。
+15. v0.38.7 真机接受前，PR #28继续保持 Draft且main不动；接受后再更新验收总账并收口。独立 Harness实验仍排在本闭环之后。
 
 ## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
