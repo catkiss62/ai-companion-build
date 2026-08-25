@@ -504,7 +504,7 @@ AI 本体身份与现实状态 > 当前用户明确要求 > 当前关系与长�
 2. 参考资料与 Relationship Memory 分开保存。
 3. 用户手工修正的姿态、偏好和人物资料优先于模型自动推断。
 4. 发现资料过时或与新设定冲突时，可保留旧版本并标记为 superseded。
-5. 不把小说字数规则、输出标签、旧 index 的章节/flag/token/cache 等运行数据放进本参考库。''', locked: false),
+5. 不把小说字数规则、输出标签、章节/flag/token/cache 等运行数据放进本参考资料库。''', locked: false),
 
   // Personality trial templates are stored beside the six rule groups so
   // every setting-like prompt has one editable, exportable source of truth.
