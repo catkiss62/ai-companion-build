@@ -728,7 +728,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('旧 index 参考资料库'),
+          title: const Text('参考资料'),
           subtitle: const Text('允许按当前话题检索导入的人设/设定资料；它只是参考，不覆盖 AI 本体身份与 AI Self。'),
           value: referenceLibrary,
           onChanged: (v) => setState(() => referenceLibrary = v),
