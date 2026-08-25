@@ -27,7 +27,11 @@ workflow = read("../.github/workflows/build-apk.yml")
 
 assert any(
     version in pubspec
-    for version in ("version: 0.38.2+101", "version: 0.38.3+102")
+    for version in (
+        "version: 0.38.2+101",
+        "version: 0.38.3+102",
+        "version: 0.38.4+103",
+    )
 )
 assert "assets/portraits/large_whale/" in pubspec
 assert "assets/appearance/large_whale_mirror.jpg" in pubspec
@@ -47,7 +51,10 @@ assert "return db.transaction" in repository
 assert "conflictAlgorithm: ConflictAlgorithm.ignore" in repository
 assert "MoeShadowCoordinator(db).observeCompletedTurn(assistant)" in runner
 assert "reconcileRecentCommittedTurns" in coordinator
-assert "萌属性数值 · D2 影子模式" in inner
+assert any(
+    title in inner
+    for title in ("萌属性数值 · D2 影子模式", "萌属性数值 · D2 数值引擎")
+)
 assert "不参与提示词" in inner
 
 for ui_only in ("小小鲸", "大肥鱼"):

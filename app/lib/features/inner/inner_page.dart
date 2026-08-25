@@ -29,6 +29,7 @@ import '../relationship/relationship_page.dart';
 import '../reference/reference_library_page.dart';
 import '../settings/rule_layers_page.dart';
 import '../personality/personality_lab_page.dart';
+import '../self/personality_appearance_page.dart';
 
 class InnerPage extends StatefulWidget {
   const InnerPage({super.key});
@@ -62,6 +63,7 @@ class _InnerPageState extends State<InnerPage> {
   Map<String, Object?> delayedProactiveTest = const {};
   MoeStateSnapshot? moeState;
   MoeExpressionPlan? moePlan;
+  bool moeExpressionEnabled = true;
   bool busy = false;
   String? result;
 
@@ -75,6 +77,8 @@ class _InnerPageState extends State<InnerPage> {
     snapshot = await db.loadDesire();
     moeState = await moeRepository.loadState();
     moePlan = const MoeDynamicsPolicy().expressionPlan(moeState!);
+    moeExpressionEnabled =
+        (await db.getSetting('moe_expression_enabled')) != '0';
     grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
     desireCandidates = desire
@@ -305,6 +309,80 @@ class _InnerPageState extends State<InnerPage> {
     return '尚未安排延迟测试';
   }
 
+  static const double _metricLabelWidth = 72;
+  static const double _metricValueWidth = 92;
+  static const double _metricGap = 8;
+  static const EdgeInsets _metricCardPadding = EdgeInsets.all(12);
+
+  Widget _metricProgressRow({
+    required String label,
+    required double progress,
+    required String valueText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: _metricLabelWidth, child: Text(label)),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0).toDouble(),
+            ),
+          ),
+          const SizedBox(width: _metricGap),
+          SizedBox(
+            width: _metricValueWidth,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                valueText,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desireStateCard(BuildContext context, DesireSnapshot state) {
+    return Card(
+      child: Padding(
+        padding: _metricCardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '欲望系统数值',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 10),
+            ...DriveKey.values.map((drive) {
+              final value = state.drives[drive] ?? 0;
+              final baseline = state.baselines[drive] ?? 0;
+              return _metricProgressRow(
+                label: drive.zhLabel,
+                progress: value,
+                valueText:
+                    '${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}',
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMoeAppearanceSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PersonalityAppearancePage()),
+    );
+    await _refresh();
+  }
+
   Widget _moeStateCard(BuildContext context) {
     final state = moeState;
     final plan = moePlan;
@@ -313,24 +391,35 @@ class _InnerPageState extends State<InnerPage> {
       if (plan.primary != null) plan.primary!.label,
       if (plan.secondary != null) plan.secondary!.label,
     ].join(' + ');
+    final d3Status = moeExpressionEnabled
+        ? '已开启 · ${state.expressionMode.label}'
+        : '已关闭';
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: _metricCardPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              '萌属性数值 · D2 数值引擎',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 2),
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    '萌属性数值 · D2 影子模式',
-                    style: Theme.of(context).textTheme.titleSmall,
+                    'D3 表现：$d3Status',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
-                Text(state.expressionMode.label),
+                TextButton.icon(
+                  onPressed: _openMoeAppearanceSettings,
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('调整 D3'),
+                ),
               ],
             ),
-            const SizedBox(height: 4),
             Text(
               recipeLabel.isEmpty ? '当前没有突出组合' : '当前组合：$recipeLabel',
               style: Theme.of(context).textTheme.bodySmall,
@@ -339,29 +428,16 @@ class _InnerPageState extends State<InnerPage> {
             ...MoeAxis.values.map((axis) {
               final value = state.current[axis] ?? axis.defaultBaseline;
               final baseline = state.baselines[axis] ?? axis.defaultBaseline;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(width: 72, child: Text(axis.label)),
-                    Expanded(
-                      child: LinearProgressIndicator(value: value / 100),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 72,
-                      child: Text(
-                        '${value.toStringAsFixed(0)} / ${baseline.toStringAsFixed(0)}',
-                        textAlign: TextAlign.end,
-                      ),
-                    ),
-                  ],
-                ),
+              return _metricProgressRow(
+                label: axis.label,
+                progress: value / 100,
+                valueText:
+                    '${value.toStringAsFixed(0)} / ${baseline.toStringAsFixed(0)}',
               );
             }),
             const SizedBox(height: 6),
             const Text(
-              '当前只记录和显示数值，不参与提示词，不改写欲望、关系、情绪、规则或工具行为。',
+              'D2 负责旁路记录数值；D3 只读取这些状态来调整表达，不改写欲望、关系、情绪、规则或工具行为。',
               style: TextStyle(fontSize: 12),
             ),
           ],
@@ -381,21 +457,7 @@ class _InnerPageState extends State<InnerPage> {
         const SizedBox(height: 4),
         const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
         const SizedBox(height: 16),
-        ...DriveKey.values.map((drive) {
-          final value = s.drives[drive] ?? 0;
-          final baseline = s.baselines[drive] ?? 0;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                SizedBox(width: 64, child: Text(drive.zhLabel)),
-                Expanded(child: LinearProgressIndicator(value: value)),
-                const SizedBox(width: 8),
-                SizedBox(width: 74, child: Text('${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}')),
-              ],
-            ),
-          );
-        }),
+        _desireStateCard(context, s),
         const SizedBox(height: 10),
         Text('当前意图：${s.lastIntent ?? '暂无'} · 驱动=${s.lastIntentDrive ?? '无'} · 分数=${s.lastIntentScore?.toStringAsFixed(2) ?? '无'}'),
         Text('上次满足：${s.lastSatisfiedAction ?? '暂无'} · ${s.lastSatisfiedAt?.toLocal().toString() ?? '尚未发生'}'),

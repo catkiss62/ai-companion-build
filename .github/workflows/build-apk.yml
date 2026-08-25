@@ -5,7 +5,12 @@
 # v0.37.9-dynamic-moe-d1-test
 # .ci/v0379-monitor.txt
 # Historical active baseline: v0.38.2+101 / SQLite schema 32 / Dynamic Moe D2 + dual portraits
-# Active baseline: v0.38.3+102 / SQLite schema 32 / Moe D3 + Chinese reasoning + normal presentation
+# Historical v0.38.3 validator compatibility:
+# Build AI Companion v0.38.4+103 APK (Inner Metric Layout + D2/D3 Visibility)
+# AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK
+# v0.38.4-inner-metric-layout-test
+# .ci/v0384-monitor.txt
+# Active baseline: v0.38.4+103 / SQLite schema 32 / inner metric layout + D2/D3 visibility
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -77,7 +82,7 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.3+102 APK (Moe D3 + Chinese Reasoning + Normal Presentation)
+name: Build AI Companion v0.38.4+103 APK (Inner Metric Layout + D2/D3 Visibility)
 
 on:
   workflow_dispatch:
@@ -190,7 +195,7 @@ jobs:
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.3+102 Dynamic Moe D3, Chinese-visible-reasoning preference and normal/calm presentation semantics.'
+          echo 'Building v0.38.4+103 matching Desire/Moe metric rows, single-line values and visible D2/D3 controls.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -325,6 +330,7 @@ jobs:
           python3 tools/validate_v0381_adult_relationship_capability.py
           python3 tools/validate_v0382_moe_shadow_dual_portraits.py
           python3 tools/validate_v0383_moe_d3_reasoning_normal_emotion.py
+          python3 tools/validate_v0384_inner_metric_layout.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -524,26 +530,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.3+102 APK as workflow artifact
+      - name: Upload v0.38.4+103 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK
+          name: AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.3+102 Moe D3 and normal-emotion APK to draft release
+      - name: Upload v0.38.4+103 inner metric layout APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.3-moe-d3-chinese-reasoning-normal-emotion-test'
-          APK_NAME='AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK.apk'
+          TAG='v0.38.4-inner-metric-layout-test'
+          APK_NAME='AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.4-103-Inner-Metric-Layout-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -560,8 +566,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.3+102 Moe D3, Chinese reasoning and normal emotion test candidate' \
-              --notes 'Draft-only v0.38.3 candidate: lets Dynamic Moe D3 provide bounded expression-only advice with a real on/off switch and natural/obvious/manga modes; reinforces Chinese visible reasoning without a second translation request; separates the normal default portrait from deliberate calm while retaining all 19 canonical emotions; and keeps v0.38.2 dual portraits, anchors, scrolling, adult relationship capability and schema 32 unchanged.'
+              --title 'AI Companion v0.38.4+103 inner metric layout and D2/D3 visibility test candidate' \
+              --notes 'Draft-only v0.38.4 candidate: gives Desire and Moe metrics the same card geometry and shared progress-row component, keeps current/baseline values on one line, and exposes the active D3 mode from the D2 diagnostics card. Desire/Moe state behavior, normal/calm semantics, portraits and schema 32 remain unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -585,18 +591,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0383-monitor.txt'
+          MONITOR_PATH='.ci/v0384-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.3 CI success monitor' \
+              -f message='Update v0.38.4 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.3 CI success monitor' \
+              -f message='Create v0.38.4 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -617,8 +623,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.3-moe-d3-chinese-reasoning-normal-emotion-test'
-          CI_NAME='AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-CI-Monitor.txt'
+          TAG='v0.38.4-inner-metric-layout-test'
+          CI_NAME='AI-Companion-v0.38.4-103-Inner-Metric-Layout-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -658,8 +664,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.3+102 Moe D3, Chinese reasoning and normal emotion test candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.38.3 Moe D3, Chinese reasoning and normal-emotion APK. It is not a public release.'
+              --title 'AI Companion v0.38.4+103 inner metric layout and D2/D3 visibility test candidate' \
+              --notes 'Private draft used for CI diagnostics and the v0.38.4 inner metric layout APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -668,18 +674,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0383-monitor.txt'
+          MONITOR_PATH='.ci/v0384-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.3 CI failure monitor' \
+              -f message='Update v0.38.4 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.3 CI failure monitor' \
+              -f message='Create v0.38.4 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

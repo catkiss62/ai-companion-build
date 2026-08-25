@@ -30,7 +30,10 @@ language_tests = read("test/visible_reasoning_language_telemetry_test.dart")
 reminder_tests = read("test/prompt_generation_reminder_test.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.3+102" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.38.3+102", "version: 0.38.4+103")
+)
 assert "static const int schemaVersion = 32;" in database
 assert "schemaVersion = 33" not in database
 
