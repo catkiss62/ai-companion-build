@@ -65,6 +65,14 @@ void main() {
     expect(ChatPortraitSet.smallWhale.effectAnchor.left, .25);
     expect(ChatPortraitSet.smallWhale.effectAnchor.top, 0);
     expect(ChatPortraitSet.smallWhale.effectAnchor.size, .25);
+    final normal = ChatVisualResolver.resolveEmotionKey('normal');
+    final calm = ChatVisualResolver.resolveEmotionKey('calm');
+    expect(normal.key, 'normal');
+    expect(normal.soundAsset, isNull);
+    expect(normal.portraitAsset, endsWith('/normal.webp'));
+    expect(calm.key, 'calm');
+    expect(calm.portraitAsset, endsWith('/calm.webp'));
+    expect(calm.portraitAsset, isNot(normal.portraitAsset));
   });
 
   test('reference animation and effect mapping stays exact', () {

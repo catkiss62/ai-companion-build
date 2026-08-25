@@ -45,9 +45,9 @@ rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 segments = read("lib/core/models/chat_segment.dart")
 visuals = read("lib/core/presentation/chat_visuals.dart")
 for token in (
-    "必须严格从兴奋、厌恶、伤心",
+    "从兴奋、厌恶、伤心",
     "不得自造标签",
-    "绝不能在正文中重复或解释",
+    "不得在正文",
 ):
     assert token in prompt, token
 for token in (

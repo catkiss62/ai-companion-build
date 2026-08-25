@@ -10,6 +10,7 @@ import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
+import '../diagnostics/visible_reasoning_language_telemetry.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/grounding_engine.dart';
@@ -430,6 +431,12 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
     });
+    context.add({
+      'role': 'system',
+      'content': PromptBuilder.visibleChineseGenerationReminder(
+        proactive: true,
+      ),
+    });
 
     final model = DeepSeekModelProfile.flash;
     final lastGroundedUser = proactiveGrounding.lastUserMessageId == null
@@ -593,6 +600,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
 推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容；也不能用“一直在、不走、不催、你忙你的、等你回来”一类待命客服模板主动找话。
 重选时仍保持当前性格的内在反应与表达过滤；说具体内容、真实发现或自己的念头，没有值得说的就输出 WAIT。
+${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
         },
       ];
@@ -676,11 +684,16 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
     // below, so a user chat lease cannot slip into the check/commit gap.
+    final visibleReasoning =
+        _visibleChineseProactiveReasoning(candidate.reasoning);
+    unawaited(
+      VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
+    );
     final message = ChatMessage(
       id: _uuid.v4(),
       role: 'assistant',
       content: text,
-      reasoningContent: _visibleChineseProactiveReasoning(candidate.reasoning),
+      reasoningContent: visibleReasoning,
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,

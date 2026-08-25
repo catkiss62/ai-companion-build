@@ -11,6 +11,7 @@ class EmotionClassifierService {
     'crying': ['伤心', '难过', '哭', '眼泪', '泪水', '失落', '委屈', '鼻子发酸', '声音发颤'],
     'afraid': ['害怕', '吓到', '吓了一跳', '恐惧', '缩了缩', '躲到', '发抖', '不敢动'],
     'shy': ['害羞', '脸红', '耳鳍红', '偏开脸', '不敢看', '声音小了', '小声嘟囔'],
+    'calm': ['平静', '安静', '放松', '沉着', '冷静下来', '闭上眼', '闭了闭眼', '缓了口气'],
     'affection': ['心动', '爱你', '喜欢你', '想你', '抱抱', '亲亲', '贴贴', '靠近了一点', '蹭了蹭'],
     'surprised': ['惊讶', '居然', '竟然', '没想到', '睁大眼', '愣了一下', '诶？', '欸？', '什么？', '？！', '?!'],
     'flustered': ['慌张', '慌乱', '糟了', '手忙脚乱', '语无伦次', '尾巴打结', '差点忘了'],
@@ -54,7 +55,8 @@ class EmotionClassifierService {
 
     // v0.38.0 keeps the v0.37.2 crash boundary: never invoke native code from
     // reply finalization. Invalid or missing envelopes use a deterministic,
-    // bounded Chinese cue scorer instead of collapsing almost everything to calm.
+    // bounded Chinese cue scorer. No cue means the presentation-only normal
+    // state; calm is reserved for an explicit tag or an actual calm cue.
     return _heuristic(
       normalized.isEmpty ? visibleText : '$normalized\n$visibleText',
       rawTag: normalized,
@@ -121,11 +123,11 @@ class EmotionClassifierService {
     if (candidates.isEmpty) {
       return CompanionEmotion(
         rawTag: _boundedRawTag(rawTag),
-        key: 'calm',
-        label: EmotionCatalog.labelForKey('calm'),
+        key: EmotionCatalog.normalKey,
+        label: EmotionCatalog.normalLabel,
         confidence: 0.18,
         top3: const <EmotionScore>[
-          EmotionScore(key: 'calm', label: '平静', confidence: 0.18),
+          EmotionScore(key: 'normal', label: '正常', confidence: 0.18),
         ],
         source: source,
       );

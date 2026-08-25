@@ -42,10 +42,13 @@ prompt = read("lib/core/ai/prompt_builder.dart")
 for token in (
     "具体对话参照（只学反应因果与排版，不照抄句子）",
     "_conversationExamples(b.key)",
-    "<emotion>情绪</emotion>",
     "最终决定不发送，仍只输出 WAIT",
 ):
     assert token in catalog + prompt, token
+assert (
+    "<emotion>情绪</emotion>" in catalog + prompt
+    or "<emotion>标签</emotion>" in catalog + prompt
+)
 assert "全角括号“（）”" in rules
 assert "括号块后空一行" in rules + prompt
 

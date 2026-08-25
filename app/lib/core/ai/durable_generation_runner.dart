@@ -5,6 +5,7 @@ import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
+import '../diagnostics/visible_reasoning_language_telemetry.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
@@ -466,6 +467,7 @@ class DurableGenerationRunner {
             'content': '''
 【工具结果后的中文表达约束】
 工具路由与搜索过程已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志或搜索步骤。
+${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
           },
         ];
@@ -508,6 +510,7 @@ class DurableGenerationRunner {
 上一份正文命中了重复的服务模板语义：${serviceGuard.reason} / ${serviceGuard.family}。
 完全丢弃“一直在、不走、不催、你忙你的、等你忙完、无条件顺从”这类承诺—退场—等待收尾。不要换成近义套话，也不要表演随机叛逆。
 重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
+${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
           },
         ];
@@ -557,6 +560,9 @@ class DurableGenerationRunner {
       );
 
       final visibleReasoning = preserveProviderReasoning(generated.reasoning);
+      unawaited(
+        VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
+      );
       if (visibleReasoning.isNotEmpty) {
         onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
       }

@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../grounding/grounding_engine.dart';
 import '../models/desire_state.dart';
@@ -106,6 +107,8 @@ class PreflightDiagnosticsService {
         'overlayRawPackageIncluded': false,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
+        'reasoningLanguageTextIncluded': false,
+        'reasoningLanguageMatchedWordsIncluded': false,
       },
     };
 
@@ -123,6 +126,8 @@ class PreflightDiagnosticsService {
       final memoryStats = await db.memoryStats();
       final somaticDiagnostics = await db.somaticDiagnosticStats();
       final emotionDiagnostics = await db.emotionDiagnosticStats(now: now);
+      final reasoningLanguageDiagnostics =
+          await VisibleReasoningLanguageTelemetry.snapshot(db);
       final memoryRetrievalDiagnostics =
           await db.memoryRetrievalDiagnosticStats(now: now);
       final visionDiagnostics = await db.attachmentVisionDiagnosticStats();
@@ -204,6 +209,7 @@ class PreflightDiagnosticsService {
         'recordCounts': memoryStats,
         'chatTurnLease': chatTurnLease,
         'emotionObservability': emotionDiagnostics,
+        'visibleReasoningLanguage': reasoningLanguageDiagnostics,
         'memoryRetrieval': memoryRetrievalDiagnostics,
         'imageVision': visionDiagnostics,
         'somaticObservability': somaticDiagnostics,

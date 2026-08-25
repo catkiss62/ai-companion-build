@@ -5,6 +5,7 @@ import '../grounding/grounding_snapshot.dart';
 import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
+import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
@@ -106,6 +107,8 @@ class PromptBuilder {
     final somaticSection = await somaticEngine.buildPromptSection(now: instant);
     final emotionEpisodeSection =
         await emotionEpisodeEngine.buildPromptSection(now: instant);
+    final moeExpressionSection =
+        await MoeExpressionPromptAdapter(db).buildPromptSection();
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
@@ -135,6 +138,8 @@ class PromptBuilder {
       if (agentToolResults.isNotEmpty)
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
       {'role': 'system', 'content': _serviceTemplateContract()},
+      if (moeExpressionSection.isNotEmpty)
+        {'role': 'system', 'content': moeExpressionSection},
       {
         'role': 'system',
         'content': _visibleInnerVoiceContract(
@@ -163,11 +168,38 @@ ANSWERED_HISTORY_ONLY = true
 如果想引用旧对话，只能明确作为“之前/刚才聊过的历史”来回想；不能写成用户此刻又说了一遍，也不能把主动任务描述成“回复用户上一句”。
 ''').trim(),
       });
+      messages.add({
+        'role': 'system',
+        'content': visibleChineseGenerationReminder(proactive: true),
+      });
     } else {
-      messages.addAll(PromptHistoryPolicy.userTurnHistory(recent));
+      final history = PromptHistoryPolicy.userTurnHistory(recent);
+      if (history.isEmpty) {
+        messages.add({
+          'role': 'system',
+          'content': visibleChineseGenerationReminder(),
+        });
+      } else {
+        // Keep the real current role=user message last while placing the short
+        // per-turn reminder immediately before it. This is the API-native
+        // equivalent of a harness pre-step reminder; no fake user message or
+        // provider-specific wrapper markup is introduced.
+        messages.addAll(history.take(history.length - 1));
+        messages.add({
+          'role': 'system',
+          'content': visibleChineseGenerationReminder(),
+        });
+        messages.add(history.last);
+      }
     }
     return messages;
   }
+
+  static String visibleChineseGenerationReminder({bool proactive = false}) => '''
+【本轮最终呈现提醒】
+可见 reasoning 与最终正文默认使用自然简体中文；代码、命令、文件路径、变量、API、型号和无法自然翻译的专名可保留原文。不要输出英文工具规划、参数或工作日志，也不要为追求中文缩短真实思考。
+${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
+'''.trim();
 
   String _agentToolResultSection(List<AgentToolResult> results) {
     final blocks = results.map((result) {
@@ -333,8 +365,8 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
         .replaceAll('{{turn_context}}', turn)
         .trim();
     final emotionContract = mode == PromptGenerationMode.proactive
-        ? '''【本轮情绪标签】如果最终决定不发送，仍只输出 WAIT。否则最终正文第一行必须且只能输出一次 <emotion>情绪</emotion>，再换行输出正文。情绪必须严格从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴中选择一项，不得自造标签。标签必须写在最终 content 正文的第一行，不得只写进 reasoning/思考。该标签只描述这一轮表达，不写入长期心情，也绝不能在正文中重复或解释。'''
-        : '''【本轮情绪标签】最终正文第一行必须且只能输出一次 <emotion>情绪</emotion>，再换行输出正文。情绪必须严格从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴中选择一项，不得自造标签。标签必须写在最终 content 正文的第一行，不得只写进 reasoning/思考。该标签只描述这一轮表达，不写入长期心情，也绝不能在正文中重复或解释。''';
+        ? '''【本轮情绪标签】如果最终决定不发送，仍只输出 WAIT。否则最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。'''
+        : '''【本轮情绪标签】最终正文第一行必须且只能输出一次 <emotion>标签</emotion>，再换行输出正文。可用“正常”默认态，或从兴奋、厌恶、伤心、害怕、害羞、平静、心动、惊讶、慌张、担心、无奈、生气、疑惑、紧张、自信、认真、调皮、难为情、高兴19种真实情绪中选择一项，不得自造标签。没有清晰情绪色彩时选正常；平静只用于明确安静、放松、沉着或闭目缓和。标签必须写在最终 content 正文第一行，不得只写进 reasoning/思考，也不得在正文重复或解释。''';
     return '$base\n\n$emotionContract';
   }
 

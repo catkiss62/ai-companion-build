@@ -34,7 +34,15 @@ chat = read("lib/features/chat/chat_page.dart")
 database = read("lib/core/database/app_database.dart")
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
 
-require(pubspec, "version: 0.38.1+100", "version")
+if not any(
+    version in pubspec
+    for version in (
+        "version: 0.38.1+100",
+        "version: 0.38.2+101",
+        "version: 0.38.3+102",
+    )
+):
+    raise SystemExit("FAIL: unsupported post-v0.38.1 version")
 require(prompt, "恋爱中的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力", "adult capability")
 reject(prompt, ".where((d) => d != DriveKey.libido || nsfwActive)", "libido prompt gate")
 reject(prompt, "mode == PromptGenerationMode.proactive ? false", "proactive adult-depth gate")

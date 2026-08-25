@@ -26,6 +26,7 @@ assert any(
         "version: 0.38.0+99",
         "version: 0.38.1+100",
         "version: 0.38.2+101",
+        "version: 0.38.3+102",
     )
 )
 assert "static const int schemaVersion = 32;" in database
@@ -95,26 +96,28 @@ for title in (
     assert title in tests, title
 assert "expect(cases, hasLength(19))" in tests
 
-for token in (
-    "validate_v0380_emotion_fallback_recovery.py",
-    ".ci/v0380-monitor.txt",
-):
-    assert token in workflow, token
+assert "validate_v0380_emotion_fallback_recovery.py" in workflow
+assert any(
+    token in workflow for token in (".ci/v0380-monitor.txt", ".ci/v0383-monitor.txt")
+)
 for alternatives in (
     (
         "Build AI Companion v0.38.0+99 APK (19 Emotion Recovery)",
         "Build AI Companion v0.38.1+100 APK (Adult Relationship Capability)",
         "Build AI Companion v0.38.2+101 APK (Dynamic Moe D2 + Dual Portraits)",
+        "Build AI Companion v0.38.3+102 APK (Moe D3 + Chinese Reasoning + Normal Presentation)",
     ),
     (
         "AI-Companion-v0.38.0-99-19-Emotion-Recovery-APK.apk",
         "AI-Companion-v0.38.1-100-Adult-Relationship-Capability-APK.apk",
         "AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK.apk",
+        "AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK.apk",
     ),
     (
         "v0.38.0-emotion-recovery-test",
         "v0.38.1-adult-relationship-capability-test",
         "v0.38.2-dynamic-moe-d2-dual-portraits-test",
+        "v0.38.3-moe-d3-chinese-reasoning-normal-emotion-test",
     ),
 ):
     assert any(token in workflow for token in alternatives), alternatives

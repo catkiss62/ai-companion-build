@@ -50,6 +50,19 @@ class CompanionEmotion {
     source: EmotionSource.fallback,
   );
 
+  /// Presentation-only default. `normal` is deliberately not a twentieth
+  /// long-lived Emotion category: it means this turn has no distinct emotion
+  /// signal and should use the ordinary portrait instead of pretending to be
+  /// deliberately calm.
+  static const normal = CompanionEmotion(
+    rawTag: '',
+    key: EmotionCatalog.normalKey,
+    label: EmotionCatalog.normalLabel,
+    confidence: 0,
+    top3: <EmotionScore>[],
+    source: EmotionSource.fallback,
+  );
+
   String get top3Json => jsonEncode(
         top3.map((item) => item.toJson()).toList(growable: false),
       );
@@ -99,6 +112,9 @@ class EmotionSource {
 
 class EmotionCatalog {
   const EmotionCatalog._();
+
+  static const String normalKey = 'normal';
+  static const String normalLabel = '正常';
 
   static const labelsByKey = <String, String>{
     'excited': '兴奋',
@@ -163,7 +179,7 @@ class EmotionCatalog {
   };
 
   static bool isCanonicalLabel(String value) =>
-      keysByLabel.containsKey(normalizeTag(value));
+      keyForLabel(value).isNotEmpty;
 
   static String normalizeTag(String value) => value
       .trim()
@@ -171,12 +187,17 @@ class EmotionCatalog {
       .replaceAll(RegExp(r'^(情绪|emotion)\s*[:：=]\s*', caseSensitive: false), '')
       .trim();
 
-  static String keyForLabel(String label) =>
-      keysByLabel[normalizeTag(label)] ?? '';
+  static String keyForLabel(String label) {
+    final normalized = normalizeTag(label);
+    if (normalized == normalLabel) return normalKey;
+    return keysByLabel[normalized] ?? '';
+  }
 
-  static String labelForKey(String key) => labelsByKey[key] ?? '';
+  static String labelForKey(String key) =>
+      key == normalKey ? normalLabel : labelsByKey[key] ?? '';
 
-  static String minimaxEmotionForKey(String key) => minimaxByKey[key] ?? 'neutral';
+  static String minimaxEmotionForKey(String key) =>
+      key == normalKey ? 'neutral' : minimaxByKey[key] ?? 'neutral';
 }
 
 enum EmotionEnvelopeStatus {

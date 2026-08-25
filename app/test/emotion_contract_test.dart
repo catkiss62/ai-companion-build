@@ -119,6 +119,24 @@ void main() {
     expect(result.confidence, 1);
   });
 
+  test('normal is an explicit presentation token outside the 19 emotions', () async {
+    const service = EmotionClassifierService();
+    final parsed = EmotionEnvelope.parse(
+      '<emotion>正常</emotion>\n「这事就是这样。」',
+    );
+    expect(EmotionCatalog.labelsByKey, hasLength(19));
+    expect(parsed.status, EmotionEnvelopeStatus.canonical);
+    final result = await service.resolve(
+      rawTag: parsed.rawTag,
+      visibleText: parsed.visibleText,
+      envelopeStatus: parsed.status,
+    );
+    expect(result.key, 'normal');
+    expect(result.label, '正常');
+    expect(result.source, EmotionSource.llm);
+    expect(EmotionCatalog.minimaxEmotionForKey('normal'), 'neutral');
+  });
+
   test('noncanonical tag degrades without calling native code', () async {
     const service = EmotionClassifierService();
     final result = await service.resolve(
@@ -126,7 +144,7 @@ void main() {
       visibleText: '「猜错了，重来。」',
       envelopeStatus: EmotionEnvelopeStatus.invalid,
     );
-    expect(result.key, 'calm');
+    expect(result.key, 'normal');
     expect(result.source, EmotionSource.fallbackInvalid);
   });
 
@@ -181,8 +199,26 @@ void main() {
       visibleText: '「我没有生气，也不害怕。」',
       envelopeStatus: EmotionEnvelopeStatus.missing,
     );
-    expect(result.key, 'calm');
+    expect(result.key, 'normal');
     expect(result.source, EmotionSource.fallbackMissing);
+  });
+
+  test('missing tag without a cue uses normal while real calm stays calm', () async {
+    const service = EmotionClassifierService();
+    final ordinary = await service.resolve(
+      rawTag: '',
+      visibleText: '「这事就是这样。」',
+      envelopeStatus: EmotionEnvelopeStatus.missing,
+    );
+    final calm = await service.resolve(
+      rawTag: '',
+      visibleText: '（她闭了闭眼，缓了口气。）\n「嗯，先安静一下。」',
+      envelopeStatus: EmotionEnvelopeStatus.missing,
+    );
+    expect(ordinary.key, 'normal');
+    expect(ordinary.confidence, 0.18);
+    expect(calm.key, 'calm');
+    expect(calm.confidence, greaterThan(ordinary.confidence));
   });
 
   test('source diagnostics expose categories without raw tags', () {
@@ -203,6 +239,8 @@ void main() {
 
   test('19 labels have stable keys and future MiniMax mappings', () {
     expect(EmotionCatalog.labelsByKey, hasLength(19));
+    expect(EmotionCatalog.keyForLabel('正常'), 'normal');
+    expect(EmotionCatalog.labelForKey('normal'), '正常');
     expect(EmotionCatalog.labelForKey('crying'), '伤心');
     expect(EmotionCatalog.keyForLabel('哭泣'), 'crying');
     expect(EmotionCatalog.keyForLabel('羞耻'), 'embarrassed');

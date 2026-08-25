@@ -25,7 +25,10 @@ inner = read("lib/features/inner/inner_page.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.2+101" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.38.2+101", "version: 0.38.3+102")
+)
 assert "assets/portraits/large_whale/" in pubspec
 assert "assets/appearance/large_whale_mirror.jpg" in pubspec
 assert "orElse: () => ChatPortraitSet.largeWhale" in visuals
@@ -66,12 +69,21 @@ assert sha256(mirror.read_bytes()).hexdigest() == (
     "3eb20158a962f129adba4d7f732dd5526a2943d4139eea07078ea82c4b0f2071"
 )
 
-for token in (
-    "Build AI Companion v0.38.2+101 APK",
-    "validate_v0382_moe_shadow_dual_portraits.py",
-    "AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK",
-    "v0.38.2-dynamic-moe-d2-dual-portraits-test",
+assert "validate_v0382_moe_shadow_dual_portraits.py" in workflow
+for alternatives in (
+    (
+        "Build AI Companion v0.38.2+101 APK",
+        "Build AI Companion v0.38.3+102 APK",
+    ),
+    (
+        "AI-Companion-v0.38.2-101-Dynamic-Moe-D2-Dual-Portraits-APK",
+        "AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK",
+    ),
+    (
+        "v0.38.2-dynamic-moe-d2-dual-portraits-test",
+        "v0.38.3-moe-d3-chinese-reasoning-normal-emotion-test",
+    ),
 ):
-    assert token in workflow, token
+    assert any(token in workflow for token in alternatives), alternatives
 
 print("v0.38.2 D2 shadow, dual portraits and tail-anchor validation passed")

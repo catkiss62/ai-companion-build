@@ -83,8 +83,8 @@ for token in (
     "'慌乱': 'flustered'",
 ):
     assert token in contract, token
-assert "必须严格从兴奋、厌恶、伤心" in prompt
-assert "必须严格从兴奋、厌恶、哭泣" not in prompt
+assert "从兴奋、厌恶、伤心" in prompt
+assert "从兴奋、厌恶、哭泣" not in prompt
 
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"

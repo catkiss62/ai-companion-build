@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/moe/domain/moe_models.dart';
+import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
 import '../../core/rules/rule_layer_defaults.dart';
 
 class PersonalityAppearancePage extends StatefulWidget {
@@ -18,9 +20,13 @@ class _PersonalityAppearancePageState
       'assets/appearance/large_whale_mirror.jpg';
 
   final db = AppDatabase.instance;
+  late final SqliteMoeRepository _moeRepository =
+      SqliteMoeRepository(() => db.database);
   final controller = TextEditingController();
   bool loading = true;
   bool saving = false;
+  bool _moeExpressionEnabled = true;
+  MoeExpressionMode _moeExpressionMode = MoeExpressionMode.obvious;
   String? status;
 
   @override
@@ -31,6 +37,9 @@ class _PersonalityAppearancePageState
 
   Future<void> _load() async {
     final layers = await db.listRuleLayers();
+    final moeExpressionEnabled =
+        (await db.getSetting('moe_expression_enabled')) != '0';
+    final moeExpressionMode = await _moeRepository.loadExpressionMode();
     final personality = layers.where((layer) => layer.key == _personalityKey);
     if (personality.isNotEmpty) {
       controller.text = personality.first.content;
@@ -40,6 +49,8 @@ class _PersonalityAppearancePageState
     if (mounted) {
       setState(() {
         loading = false;
+        _moeExpressionEnabled = moeExpressionEnabled;
+        _moeExpressionMode = moeExpressionMode;
         status = null;
       });
     }
@@ -94,6 +105,28 @@ class _PersonalityAppearancePageState
     await db.resetRuleLayer(_personalityKey);
     controller.text = _defaultPersonality;
     if (mounted) setState(() => status = '已还原为当前版本的默认性格。');
+  }
+
+  Future<void> _setMoeExpressionEnabled(bool value) async {
+    await db.setSetting('moe_expression_enabled', value ? '1' : '0');
+    if (mounted) {
+      setState(() {
+        _moeExpressionEnabled = value;
+        status = value
+            ? '动态萌属性已开始影响表达；内部数值和属性名称不会写进对话。'
+            : '动态萌属性数值仍会旁路更新，但不再影响对话表达。';
+      });
+    }
+  }
+
+  Future<void> _setMoeExpressionMode(MoeExpressionMode mode) async {
+    await _moeRepository.setExpressionMode(mode);
+    if (mounted) {
+      setState(() {
+        _moeExpressionMode = mode;
+        status = '萌属性表现强度已切换为“${mode.label}”。';
+      });
+    }
   }
 
   @override
@@ -153,6 +186,52 @@ class _PersonalityAppearancePageState
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(status!),
                   ),
+                const Divider(height: 36),
+                Text(
+                  '动态萌属性',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '九轴状态只给当下表达增加一点反差和习惯，不改变记忆、事实、长期人格、工具或主动联系资格。关闭后数值仍可在“她的内心”中旁路观察。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 10),
+                Card(
+                  child: Column(
+                    children: [
+                      SwitchListTile.adaptive(
+                        title: const Text('让萌属性影响对话表达'),
+                        subtitle: const Text('只传递具体表达建议，不会让她报出属性或数值'),
+                        value: _moeExpressionEnabled,
+                        onChanged: _setMoeExpressionEnabled,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<MoeExpressionMode>(
+                            segments: [
+                              for (final mode in MoeExpressionMode.values)
+                                ButtonSegment<MoeExpressionMode>(
+                                  value: mode,
+                                  label: Text(mode.label),
+                                ),
+                            ],
+                            selected: {_moeExpressionMode},
+                            onSelectionChanged: !_moeExpressionEnabled
+                                ? null
+                                : (selection) {
+                                    if (selection.isNotEmpty) {
+                                      _setMoeExpressionMode(selection.first);
+                                    }
+                                  },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const Divider(height: 36),
                 Text(
                   '固定外观 · 照镜子',
