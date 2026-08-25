@@ -17,9 +17,9 @@
 # .ci/v0384-monitor.txt
 # Historical v0.38.5 validator compatibility:
 # Build AI Companion v0.38.5+104 APK
-# AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK
-# v0.38.6-autonomous-web-sharing-test
-# .ci/v0386-monitor.txt
+# AI-Companion-v0.38.5-104-Portraits-Avatar-Moe-Diagnostics-APK
+# v0.38.5-portraits-avatar-moe-diagnostics-test
+# .ci/v0385-monitor.txt
 # Active baseline: v0.38.6+105 / SQLite schema 32 / autonomous public-web sharing closure
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
