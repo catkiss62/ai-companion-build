@@ -4,6 +4,7 @@ import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
 import '../../core/ai/memory_extractor.dart';
+import '../../core/autonomy/public_web_share_coordinator.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_engine.dart';
@@ -163,6 +164,40 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
       note = '安排失败：$e';
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _testPublicWebShareClosure() async {
+    if (!mounted) return;
+    setState(() {
+      busy = true;
+      note = '正在写入一条本地安全候选，并走真实人格与主动联系链…';
+    });
+    String resultNote;
+    try {
+      final sharing = PublicWebShareCoordinator(db: db, desire: desire);
+      final staged = await sharing.seedDiagnosticCandidate();
+      if (!staged.ready) {
+        resultNote = '测试候选没有形成待判断 Thought：${staged.state}';
+      } else {
+        final decision = await proactive.evaluate(
+          forceForDebug: true,
+          forcedThoughtIdForDebug: staged.thoughtId,
+          perceptionMinInterval: Duration.zero,
+        );
+        resultNote = decision.sent
+            ? '网页分享闭环已发送一条真实主动消息；请回聊天页查看，并导出脱敏诊断。'
+            : '闭环已真实判断但没有发送：${decision.reason}。若模型选择 WAIT，候选会记为 declined；系统阻断则保留待下次判断。';
+      }
+      await _refresh(clearNote: false);
+    } catch (e) {
+      resultNote = '网页分享闭环测试失败：$e';
+    }
+    if (mounted) {
+      setState(() {
+        busy = false;
+        note = resultNote;
+      });
     }
   }
 
@@ -560,6 +595,20 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
                 ),
                 const Text(
                   '到点后重新读取前台 App，并用始终弹窗链路联系你；不调用模型、不进入聊天记忆。',
+                  style: TextStyle(fontSize: 12),
+                ),
+                const Divider(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: busy ? null : _testPublicWebShareClosure,
+                    icon: const Icon(Icons.ios_share_outlined),
+                    label: const Text('测试网页分享闭环'),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '写入一条固定安全候选，调用真实模型并走 Thought、Desire、主动 Gate、聊天与通知；可能发送一条测试分享，也可能由她选择 WAIT。',
                   style: TextStyle(fontSize: 12),
                 ),
               ],
