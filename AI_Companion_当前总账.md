@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAA. 2026-08-25 · v0.38.4+103 内心页数值条统一与 D2/D3 可发现性（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAAA. 2026-08-25 · v0.38.4+103 内心页数值条统一与 D2/D3 可发现性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已确认在 v0.38.3 真机看到了此前几乎不会出现的“正常”立绘；新脱敏诊断同时证明 normal 已真实进入持久情绪记录。用户授权修正“她的内心”中萌属性数值条与欲望系统数值条长度/间距不一致、欲望当前值/基线值偶尔换行的问题。本节是本批第一次（修改前）总账；提交后才改运行代码。目标 App 为 `0.38.4+103`，SQLite 继续 `schemaVersion=32`、无迁移。
 
@@ -45,6 +45,41 @@
 1. 增加布局契约测试/validator，锁定两个数值区共用组件、同一 Card padding、数值单行和 D3状态入口。
 2. 跑 Flutter format/analyze/tests、全部历史/current validators、Kotlin桌宠测试、Release APK、固定签名、原生库、417桌宠、LingChat/双立绘与镜子图载荷校验。
 3. 真机重点只需观察：两组数值条起止位置与行距一致；欲望数值不再换行；小屏/较大系统字体下不溢出；D3状态与入口可找到。自动化通过不等于这些视觉项已真机通过。
+
+
+### E. 实际实现结果
+
+1. 新增唯一共享的 `_metricProgressRow`：欲望与萌属性九轴统一使用 72px 标签列、8px 间距、92px 数值列、每行上下 4px 间距和 Card 内边距 12px；两组进度条在相同屏宽下获得相同起止位置与可用长度。
+2. 欲望数值区改为与萌属性区相同的 Card 几何。右侧“当前值 / 长期基线”使用单行、禁止软换行、右对齐并以 `FittedBox(BoxFit.scaleDown)` 处理极窄可用宽度；此前 `0.30 / 0.22` 在斜杠后换行的直接原因是旧数值列仅约 74px，且文本允许软换行，不是 Desire 数据错误。
+3. 萌属性标题改为“萌属性数值 · D2 数值引擎”；同卡显示“D3 表现：已开启/已关闭 · 当前档位”，并新增“调整 D3”直达“性格与外观”设置。D2 仍只负责旁路记录数值、不参与提示词；D3 仍是只读表达消费者。
+4. 本批只改 UI、可发现性、版本与自动验证；没有改 Desire/Moe 数值算法、Prompt行为、normal/calm 分类、数据库 schema、立绘资产、TTS、桌宠、通知、Memory 或冻结恢复链。App 已升至 `0.38.4+103`，SQLite 继续 `schemaVersion=32`、无迁移。
+
+### F. CI 发现与向前修复
+
+1. 首次 run #440（32813566989）发现 clean-baseline grep 仍把当前版本写死为 v0.38.3；改为 v0.38.4，同时保留历史 v0.38.3 工作流 token。
+2. run #441（32813676203）进入源码回归后失败，且失败报告器最初无法读取带 ANSI 转义的日志；报告器增加 `--allow-escape-sequences`，后续失败可在 CI monitor 中保留真实日志。
+3. run #442（32813999325）发现历史 v0.38.3 artifact token 少了 `.apk`；恢复精确历史 token，不削弱旧版 validator。run #443（32814177236）发现 D2 说明改写后缺少历史隔离措辞“不参与提示词”；在新 D2/D3 说明中保留该明确契约。
+4. 最终 run #444 全部通过：clean baseline、全部历史/current Python validators、Kotlin桌宠状态/物理测试、Flutter analyze、Flutter全量 tests、Release APK、固定签名、原生库、417桌宠、LingChat 19表现载荷、双立绘与镜子图实包校验均成功；没有删测试或放宽核心隔离断言。
+
+### G. 提交、Actions、APK 与签名证据
+
+- 修改前总账：`ce15ca7b13c3fd32a8247d3723274c3b4804aae1`。
+- 主体实现：`95b4c74f2ce81bc964fcbea16fe6ddfa555dcf5a`。
+- CI/历史契约向前修复：`5929125252cc08f448c623eafae630de5f36b417`、`50a87294561d5cf942059d1d15cb55a7a88e8a69`、`5a130cb3b2e8729d3c58fbd1b3cd30ed81cad433`、`75edcd3f00aebe2e00284975fc9fa80295db6bc7`；最终可构建源码 head 为 `75edcd3f00aebe2e00284975fc9fa80295db6bc7`。
+- 活动 Draft PR 仍为 [#26](https://github.com/catkiss62/ai-companion-build/pull/26)，没有合并到 main。
+- 最终成功 Actions：[run 32814455446 / #444](https://github.com/catkiss62/ai-companion-build/actions/runs/32814455446)。
+- Artifact：[9551229004](https://github.com/catkiss62/ai-companion-build/actions/runs/32814455446/artifacts/9551229004)，名称 `AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK`，大小 301,729,313 bytes，GitHub artifact digest `sha256:eceecdc2ef8f10446778902d86789098d272a59e456d335c05abd860850e433b`，到期时间 2026-09-08。
+- Draft release：[v0.38.4 inner metric layout test candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8968a7c55ec176ac3203)。
+- APK：`AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK.apk`（307,870,418 bytes），SHA-256 `51b5cd0af5303ba821bfdeda858618bc6502d5154bb296c19593329177af8e83`。
+- 固定测试签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。
+
+### H. 真机待验、main 收口与下一步
+
+1. 本批代码、CI 与 APK 已通过，但布局尚未真机验收。覆盖安装后只需核对：欲望/萌属性进度条左右起止和行距一致；`0.30 / 0.22` 等数值始终单行；较大系统字体下没有溢出；D3状态与“调整 D3”入口可直接找到。
+2. 用户已看到“正常”立绘，且新诊断持久记录中出现 normal/calm/normal 等真实序列，因此 v0.38.3 的正常默认态修复获得正向真机证据；missing_tag 仍为7/8，故模型 emotion envelope 合规率仍未验收为改善。
+3. main 长期停在 v0.34.1、开发分支已到 v0.38.4，确有必要优化。执行顺序维持：先完成本 APK 的窄真机布局验收，再开独立仓库治理步骤核对 PR head、Actions、签名、总账和冻结载荷后收口 main；本批未合并、未改默认分支。
+4. main 收口后从更新后的 main 建短期分支/Draft PR，停止让 `agent/dynamic-moe-d1-engine` 无限承载后续版本。合并策略需在执行前检查 PR 提交结构后决定，不在本轮预设 squash 或保留全部历史。
+
 
 ## 0AAAAAAA. 2026-08-25 · v0.38.3+102 Dynamic Moe D3、中文思考优先与正常/平静语义修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
