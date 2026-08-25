@@ -236,7 +236,7 @@ class PreflightDiagnosticsService {
           },
           'd3': {
             'enabled': moeExpressionEnabled,
-            'mode': moeState.expressionMode.key,
+            'mode': moeState.expressionMode.name,
             'planNeutral': moePlan.neutral,
             'primaryPresent': moePlan.primary != null,
             'secondaryPresent': moePlan.secondary != null,
