@@ -6,10 +6,10 @@
 # .ci/v0379-monitor.txt
 # Historical active baseline: v0.38.2+101 / SQLite schema 32 / Dynamic Moe D2 + dual portraits
 # Historical v0.38.3 validator compatibility:
-# Build AI Companion v0.38.4+103 APK (Inner Metric Layout + D2/D3 Visibility)
-# AI-Companion-v0.38.4-103-Inner-Metric-Layout-APK
-# v0.38.4-inner-metric-layout-test
-# .ci/v0384-monitor.txt
+# Build AI Companion v0.38.3+102 APK (Moe D3 + Chinese Reasoning + Normal Presentation)
+# AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK
+# v0.38.3-moe-d3-chinese-reasoning-normal-emotion-test
+# .ci/v0383-monitor.txt
 # Active baseline: v0.38.4+103 / SQLite schema 32 / inner metric layout + D2/D3 visibility
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
@@ -188,7 +188,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -q '^version: 0.38.3+102$' app/pubspec.yaml
+          grep -q '^version: 0.38.4+103$' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 32;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
