@@ -5829,6 +5829,272 @@ class AppDatabase {
     });
   }
 
+  Future<PublicWebShareCandidate?> claimNextPublicWebCandidateForSharing({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final staleBefore =
+        instant.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch;
+    return db.transaction((txn) async {
+      await txn.update(
+        'public_web_candidates',
+        {
+          'lifecycle_state': 'unread',
+          'last_viewed_at': null,
+        },
+        where:
+            "lifecycle_state = 'share_staging' AND expires_at > ? AND COALESCE(last_viewed_at, 0) <= ?",
+        whereArgs: [instant.millisecondsSinceEpoch, staleBefore],
+      );
+      final ready = await txn.query(
+        'public_web_candidates',
+        columns: const ['id'],
+        where: "lifecycle_state = 'share_ready' AND expires_at > ?",
+        whereArgs: [instant.millisecondsSinceEpoch],
+        limit: 1,
+      );
+      if (ready.isNotEmpty) return null;
+
+      final rows = await txn.query(
+        'public_web_candidates',
+        columns: const [
+          'id',
+          'drive_key',
+          'lifecycle_state',
+          'discovered_at',
+          'action_run_id',
+        ],
+        where: "lifecycle_state = 'unread' AND expires_at > ?",
+        whereArgs: [instant.millisecondsSinceEpoch],
+        orderBy: 'discovered_at DESC',
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      final id = row['id'] as String;
+      final claimed = await txn.update(
+        'public_web_candidates',
+        {
+          'lifecycle_state': 'share_staging',
+          'last_viewed_at': instant.millisecondsSinceEpoch,
+        },
+        where: "id = ? AND lifecycle_state = 'unread'",
+        whereArgs: [id],
+      );
+      if (claimed != 1) return null;
+
+      // One discovery run may store three results, but at most one may become
+      // a proactive share Thought. Siblings remain available as quiet chat
+      // context and can never queue a burst of three notifications.
+      await txn.update(
+        'public_web_candidates',
+        {'lifecycle_state': 'reviewed'},
+        where:
+            "action_run_id = ? AND id != ? AND lifecycle_state = 'unread'",
+        whereArgs: [row['action_run_id'], id],
+      );
+      return PublicWebShareCandidate(
+        id: id,
+        driveKey: row['drive_key'] as String? ?? 'curiosity',
+        lifecycleState: 'share_staging',
+        discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+          row['discovered_at'] as int? ?? instant.millisecondsSinceEpoch,
+        ),
+      );
+    });
+  }
+
+  Future<bool> completePublicWebCandidateShareStage(
+    String candidateId, {
+    required bool ready,
+    required String outcome,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction((txn) async {
+      final nextLifecycle = ready ? 'share_ready' : 'declined';
+      final updated = await txn.update(
+        'public_web_candidates',
+        {
+          'lifecycle_state': nextLifecycle,
+          'last_viewed_at': instant.millisecondsSinceEpoch,
+        },
+        where: "id = ? AND lifecycle_state = 'share_staging'",
+        whereArgs: [candidateId],
+      );
+      if (updated != 1) return false;
+      if (!ready) {
+        await txn.update(
+          'thoughts',
+          {
+            'lifecycle_state': 'dormant',
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          where: 'topic_key = ?',
+          whereArgs: ['public_web_candidate:${candidateId.toLowerCase()}'],
+        );
+      }
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_last_outcome',
+        outcome,
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_last_at',
+        instant.millisecondsSinceEpoch.toString(),
+        instant,
+      );
+      if (ready) {
+        await _setSettingInTransaction(
+          txn,
+          'public_web_share_thought_created_at',
+          instant.millisecondsSinceEpoch.toString(),
+          instant,
+        );
+      }
+      return true;
+    });
+  }
+
+  Future<bool> markPublicWebCandidateShareOutcome(
+    String candidateId, {
+    required String outcome,
+    DateTime? now,
+  }) async {
+    if (outcome != 'shared' && outcome != 'declined') {
+      throw ArgumentError.value(outcome, 'outcome');
+    }
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction((txn) async {
+      final updated = await txn.update(
+        'public_web_candidates',
+        {
+          'lifecycle_state': outcome,
+          'last_viewed_at': instant.millisecondsSinceEpoch,
+          'view_count': 1,
+        },
+        where: "id = ? AND lifecycle_state = 'share_ready'",
+        whereArgs: [candidateId],
+      );
+      if (updated != 1) return false;
+      if (outcome == 'declined') {
+        await txn.update(
+          'thoughts',
+          {
+            'lifecycle_state': 'dormant',
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          where: 'topic_key = ?',
+          whereArgs: ['public_web_candidate:${candidateId.toLowerCase()}'],
+        );
+      }
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_last_outcome',
+        outcome,
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_last_at',
+        instant.millisecondsSinceEpoch.toString(),
+        instant,
+      );
+      return true;
+    });
+  }
+
+  Future<String> seedDiagnosticPublicWebShareCandidate({
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final identity = await transferStateIdentity();
+    final db = await database;
+    final actionId = _uuid.v4();
+    final candidateId = _uuid.v4();
+    final fingerprint = sha256
+        .convert(utf8.encode('diagnostic-public-web-share|${instant.microsecondsSinceEpoch}'))
+        .toString();
+    await db.transaction((txn) async {
+      // Keep only one diagnostic fixture. Deleting its synthetic action also
+      // cascades the old candidate without touching real discoveries.
+      await txn.delete(
+        'autonomous_action_runs',
+        where: "reason_source = 'diagnostic_public_web_share'",
+      );
+      final outsideBudget =
+          instant.subtract(const Duration(hours: 25)).millisecondsSinceEpoch;
+      await txn.insert('autonomous_action_runs', {
+        'id': actionId,
+        'dedupe_key': 'diagnostic_public_web_share:${instant.microsecondsSinceEpoch}',
+        'tool_kind': AutonomousToolKind.publicWeb.key,
+        'intent_action': 'diagnostic_share_test',
+        'drive_key': 'curiosity',
+        'intent_score': 1.0,
+        'reason_source': 'diagnostic_public_web_share',
+        'thought_id': null,
+        'status': AutonomousActionStatus.succeeded.key,
+        'gate_reason': AutonomousGateReason.allowed.key,
+        'outcome_kind': AutonomousOutcomeKind.candidateStored.key,
+        'requested_at': outsideBudget,
+        'started_at': outsideBudget,
+        'finished_at': instant.millisecondsSinceEpoch,
+        'run_token': '',
+        'attempt': 1,
+        'state_generation': identity.generation,
+        'device_id': identity.deviceId,
+        'screen_interactive': 1,
+        'device_locked': 0,
+        'latency_bucket': 'diagnostic',
+        'result_count': 1,
+        'desire_satisfied_at': null,
+        'dedupe_count': 0,
+        'last_duplicate_at': null,
+        'budget_limit': null,
+        'budget_remaining': null,
+      });
+      await txn.insert('public_web_candidates', {
+        'id': candidateId,
+        'fingerprint': fingerprint,
+        'title': '座头鲸的歌声会随时间变化',
+        'summary': '座头鲸会发出结构复杂的歌声；同一群体的歌声结构会逐渐变化。',
+        'url': 'https://zh.wikipedia.org/wiki/%E5%BA%A7%E5%A4%B4%E9%B2%B8',
+        'source_domain': 'zh.wikipedia.org',
+        'provider': 'diagnostic_local',
+        'language': 'zh',
+        'drive_key': 'curiosity',
+        'intent_action': 'diagnostic_share_test',
+        'interest_key': 'diagnostic',
+        'safety_state': 'untrusted_public',
+        'lifecycle_state': 'unread',
+        'action_run_id': actionId,
+        'discovered_at': instant.millisecondsSinceEpoch,
+        'expires_at':
+            instant.add(const Duration(days: 1)).millisecondsSinceEpoch,
+        'last_viewed_at': null,
+        'view_count': 0,
+      });
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_diagnostic_seeded_at',
+        instant.millisecondsSinceEpoch.toString(),
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_last_outcome',
+        'diagnostic_seeded',
+        instant,
+      );
+    });
+    return candidateId;
+  }
+
   /// Exposes only a small, bounded public-web working set to the prompt.
   ///
   /// Reading a candidate marks it reviewed, but does not create a Memory,
@@ -5853,10 +6119,11 @@ class AppDatabase {
           'discovered_at',
           'safety_state',
         ],
-        where: "expires_at > ? AND lifecycle_state != 'discarded'",
+        where:
+            "expires_at > ? AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging')",
         whereArgs: [instant.millisecondsSinceEpoch],
         orderBy:
-            "CASE WHEN lifecycle_state = 'unread' THEN 0 ELSE 1 END, discovered_at DESC",
+            "CASE WHEN lifecycle_state = 'share_ready' THEN 0 WHEN lifecycle_state = 'unread' THEN 1 ELSE 2 END, discovered_at DESC",
         limit: safeLimit,
       );
       if (rows.isNotEmpty) {
@@ -5869,6 +6136,7 @@ class AppDatabase {
               last_viewed_at = ?,
               view_count = view_count + 1
           WHERE id IN ($placeholders)
+            AND lifecycle_state = 'unread'
           ''',
           [instant.millisecondsSinceEpoch, ...ids],
         );
@@ -6079,6 +6347,10 @@ class AppDatabase {
       orderBy: 'discovered_at DESC',
       limit: 1,
     );
+    final shareThoughtCount = Sqflite.firstIntValue(await db.rawQuery(
+          "SELECT COUNT(*) AS count FROM thoughts WHERE source LIKE 'public_web_candidate:%'",
+        )) ??
+        0;
     final extraSourceLines =
         (await getSetting('public_web_extra_sources') ?? '')
             .split(RegExp(r'[\r\n]+'))
@@ -6110,6 +6382,32 @@ class AppDatabase {
               'expiresAt': lastRows.first['expires_at'] ?? 0,
               'viewCount': lastRows.first['view_count'] ?? 0,
             },
+      'sharing': {
+        'stagingCount': byLifecycle['share_staging'] ?? 0,
+        'readyCount': byLifecycle['share_ready'] ?? 0,
+        'sharedCount': byLifecycle['shared'] ?? 0,
+        'declinedCount': byLifecycle['declined'] ?? 0,
+        'boundThoughtCount': shareThoughtCount,
+        'hasPendingCandidate':
+            (byLifecycle['share_staging'] ?? 0) + (byLifecycle['share_ready'] ?? 0) > 0,
+        'lastOutcome':
+            await getSetting('public_web_share_last_outcome') ?? 'never',
+        'lastAt': int.tryParse(
+              await getSetting('public_web_share_last_at') ?? '',
+            ) ??
+            0,
+        'thoughtCreatedAt': int.tryParse(
+              await getSetting('public_web_share_thought_created_at') ?? '',
+            ) ??
+            0,
+        'diagnosticSeededAt': int.tryParse(
+              await getSetting('public_web_share_diagnostic_seeded_at') ?? '',
+            ) ??
+            0,
+        'candidateIdIncluded': false,
+        'thoughtBodyIncluded': false,
+        'messageBodyIncluded': false,
+      },
       'runtime': {
         'lastAttemptAt':
             int.tryParse(await getSetting('last_public_web_discovery_at') ?? '') ?? 0,
@@ -6128,6 +6426,8 @@ class AppDatabase {
         'queryIncluded': false,
         'interestKeyIncluded': false,
         'thoughtBodyIncluded': false,
+        'candidateIdIncluded': false,
+        'outboundMessageIncluded': false,
       },
     };
   }
