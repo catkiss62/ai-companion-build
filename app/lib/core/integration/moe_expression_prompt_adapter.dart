@@ -183,11 +183,15 @@ class MoeExpressionPromptTelemetry {
 
   static Map<String, Object?> _decode(String? raw) {
     if (raw == null || raw.trim().isEmpty) return _empty();
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) return _empty();
-    return decoded.map(
-      (key, value) => MapEntry(key.toString(), value),
-    );
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return _empty();
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    } catch (_) {
+      return _empty();
+    }
   }
 
   static Map<String, Object?> _sanitize(Map<String, Object?> source) {
