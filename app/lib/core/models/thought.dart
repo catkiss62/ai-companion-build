@@ -4,6 +4,7 @@ enum ThoughtProvenance {
   memory,
   selfExperience,
   inference,
+  publicWebCandidate,
   internal,
 }
 
@@ -14,6 +15,7 @@ extension ThoughtProvenanceLabel on ThoughtProvenance {
         ThoughtProvenance.memory => 'memory',
         ThoughtProvenance.selfExperience => 'self_experience',
         ThoughtProvenance.inference => 'inference',
+        ThoughtProvenance.publicWebCandidate => 'public_web_candidate',
         ThoughtProvenance.internal => 'internal',
       };
 
@@ -23,6 +25,7 @@ extension ThoughtProvenanceLabel on ThoughtProvenance {
         ThoughtProvenance.memory => '长期记忆',
         ThoughtProvenance.selfExperience => '自身经历',
         ThoughtProvenance.inference => '内部推断',
+        ThoughtProvenance.publicWebCandidate => '公开网页候选',
         ThoughtProvenance.internal => '内部状态',
       };
 }
@@ -41,6 +44,9 @@ class ThoughtProvenancePolicy {
         normalized.startsWith('perception/') ||
         normalized.startsWith('awareness/')) {
       return ThoughtProvenance.awareness;
+    }
+    if (normalized.startsWith('public_web_candidate:')) {
+      return ThoughtProvenance.publicWebCandidate;
     }
     if (normalized.contains('memory')) return ThoughtProvenance.memory;
     if (normalized.startsWith('self_drive/') ||
