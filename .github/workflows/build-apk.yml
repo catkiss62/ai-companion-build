@@ -645,6 +645,7 @@ jobs:
                   echo "--- job=${job_name} conclusion=${conclusion} id=${job_id} ---"
                   JOB_LOG="${RUNNER_TEMP}/job-${job_id}.log"
                   if gh api \
+                    --allow-escape-sequences \
                     -H 'Accept: application/vnd.github+json' \
                     "/repos/${GITHUB_REPOSITORY}/actions/jobs/${job_id}/logs" \
                     > "${JOB_LOG}" 2>&1; then
