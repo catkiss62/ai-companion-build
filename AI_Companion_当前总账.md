@@ -15,7 +15,44 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAA. 2026-08-26 · v0.38.7 真机验收完成与模拟手机最终阶段登记（TRUE DEVICE PASSED / MERGE PENDING / DESIGN DISCUSSION）
+
+> 本节按用户要求在“查她的模拟手机”正式讨论前先更新总账。它记录 v0.38.7 已取得的真实验收结果，并把相册、模拟手机、Pixiv、最终视觉收口与独立 Harness 实验的顺序固定为当前讨论基线。本提交只更新永久总账，不修改 App 运行源码、版本、SQLite、CI、APK、Release 或 PR 状态；模拟手机八个 App 仍是待讨论候选，不得写成已经实现或已经最终定案。
+
+### A. v0.38.7 真机验收已完成
+
+1. 用户在真实使用中先观察到一次自然主动分享。v0.38.6+105 报告 `ai_companion_diagnostics_2026-08-25T17-53-54-110802Z.txt` 记录 `sharedCount=1`、`lastOutcome=shared`、`readyCount=0`、绑定 public-web Thought 已行动；自然主动 Gate 为 `0.723 > 0.600`，后台/生成/异步/维护错误均为0，候选标题、摘要、URL、查询、Thought与出站正文均未进入脱敏报告。这是未经测试入口强制的自然闭环证据。
+2. 用户随后安装 v0.38.7+106 并点击“测试网页分享闭环”。报告 `ai_companion_diagnostics_2026-08-25T18-23-20-718691Z.txt` 记录 `test.lastResult=sent`、`candidateSource=diagnostic_seeded`、`reachedEvaluation=true`、`modelDecisionReached=true`、`blockCategory=none`；总计 `sharedCount=2`、`readyCount=0`、`declinedCount=0`，无后台/恢复/异步/维护错误，测试 telemetry 与网页内容继续脱敏。
+3. 手动测试消息也进入主动联系统计，因此报告出现两小时 `used=3 / limit=2`；这是用户显式测试在自然两条之后完成发送的结果，会在滚动窗口内暂时压住新的自然主动联系，不代表自然 Gate、频率上限或分享机制损坏。本阶段不为此另开版本。
+4. 结论：自然“发现 → 内容无关 Thought → Desire Intent → 主动 Gate → 人格判断 → shared”与 v0.38.7 手动测试入口均已真机通过。用户明确认为 v0.38.7 已做过收口；后续接班不得无证据重复打开该功能，只在下一次仓库操作时核对总账、PR与main是否一致。
+5. GitHub 当前实际状态：Draft PR #28 仍 open/draft/mergeable，head `d7c29e8dc04ad8c38ec6354b00a6fc01017cf104`（本次纯总账提交前），base/main `a466bb331952c10ba18145e4158c523f7352eef8` / v0.38.5+104。真机功能已验收，但用户本轮未要求 ready/merge，因此准确状态为“TRUE DEVICE PASSED / MERGE PENDING”，不能再写“TRUE DEVICE PENDING”，也不能擅自合并。
+
+### B. 模拟手机参考与不可直接移植项
+
+1. 用户提供 `phone_system.html` 与购物车截图作为功能参考。原型约1182行/86KB，包含概率解锁失败、“软件破解成功”、三次每日重生成缓存以及消息、钱包、备忘录、文字相册、Safari、邮件、健身、购物车、家居、玩具等大量人设随机内容。它只能作为功能灵感，不是 Android 直接移植源码。
+2. 明确删除/不照搬：50%解锁失败彩蛋、破解提示、五颜六色 App 皮肤、伪造用户说过的话、把虚构搜索/交易冒充真实行动。UI目标为黑色/深蓝黑主色、蓝色副色、白灰文字、简约 iOS 层级与克制玻璃质感；完整皮肤可后置，但信息架构与复用组件应在新页面实现前先确定。
+3. 模拟手机只表现同一个 AI Self，复用现有 Desire / Thought / Intent / Gate / Memory / Emotion / Continuity 与真实工具 Outcome；不得建立第二人格、第二套欲望或第二份长期记忆，不展示原始思维链。
+4. 内容允许“真实来源”和“人格生成”并存，但必须在数据层保存 provenance：真实浏览、真实保存图片、真实跨日经历不能被随机内容覆盖；随机内容应属于她明确写下的随笔、愿望、幻想、搞怪购物项或娱乐解释，不能伪造成用户消息、真实付款、真实网页访问或外部事实。
+
+### C. 八宫格候选（两排四个，待本轮讨论确认）
+
+1. **相册**：来源无关，后续接用户发图、全网公开图片、`fisharchive.pages.dev` 与可选 Pixiv；分类、赞踩审美学习、独立删除、审美备注、缓存/原图/缩略图生命周期仍按专项讨论收口。
+2. **浏览器**：优先展示真实自主搜索/浏览记录及来源；是否允许少量“想搜但还没搜”的随机条目，必须以草稿/愿望明确区分，不冒充真实工具 Outcome。
+3. **随笔**：取代不合适的“备忘录/标签”命名；允许随时生成短或长的即时心情文字，不设机械字数上限。用户示例包括“今天天气不错，心情也很好”“突然有点想看海”，属于人格随机表达，可参考当前状态但不伪装为事实统计。
+4. **心情**：替代原型的健身/心率假数据；应读取现有 Emotion、Desire、Somatic与当天事件，只做可解释的情绪/精神状态表现，不新建第二套情绪引擎。
+5. **愿望单**：候选保留，需讨论它与真实 Desire 的关系、是否展示已形成的愿望或允许人格生成的想做事项，以及怎样避免把 UI 文案反向写成系统欲望事实。
+6. **日记**：新增候选。每天本地时间跨过0点后，为刚结束的前一自然日最多生成一篇；不写流水账，可写发生了什么、看到什么、心情变化与未说出口的感受。可读取前一日有界事实、Continuity、Emotion与已行动/未行动 Desire，但必须生成“她主动整理后的日记”，不能暴露 Thought原文或隐藏推理。
+7. **Token购物车**：保留原型的正常与搞怪商品混合体验，去掉人民币与真实支付；用小额 `token` 作纯模拟数字消耗，不连接真实模型账单、API配额或支付。商品可来自人格、随笔/愿望与关系梗，但不能把成人或搞怪项目强制写入 Memory/Desire事实。
+8. **每日塔罗**：新增候选。每天最多一次，以娱乐性“今日牌/今日主题”呈现，可使用合法可打包的牌面素材或自制简化牌面，并由她用自身语气给出较详细解释；不得冒充真实预测、医疗/财务结论，也不得直接修改 Desire、Emotion或事实记忆。具体牌阵、正逆位、更新时间和素材许可待讨论。
+
+### D. 当前最终阶段顺序
+
+1. v0.38.7 功能验收已完成；下一次正式仓库操作先核对并决定 PR #28 的 ready/merge，不重复修改分享机制。
+2. 本轮先更新总账，再讨论模拟手机的真实性契约、八个 App、每日调度、随机内容边界与 UI 信息架构；讨论确认后再回填最终规格。
+3. 实现顺序基线：轻量 UI/信息架构与模拟手机外壳 → 相册与图片生命周期/审美反馈 → 模拟手机八 App 的受控消费者 → 全网与小鲸鱼图片站 → Pixiv 可选登录适配 → 最终前端视觉/诊断/真机收口。
+4. 主项目完成上述受控版本后冻结大功能扩张，再建立物理隔离的精简 Harness 实验仓库，验证聊天/工作分窗、受限 GitHub 自我修改、构建 APK、审计、失败回退与 MCP；Harness 不与当前生产数据库、密钥、CI或人格状态直接混用。
+
+## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED / MERGE PENDING）
 
 > 用户已安装 v0.38.6+105 并多次点击“测试网页分享闭环”，但聊天中始终没有主动分享。脱敏报告 `ai_companion_diagnostics_2026-08-25T17-13-10-856491Z.txt` 证明这不是模型连续选择 WAIT，而是测试入口被既有 `share_ready` 候选挡在 seed/stage 之间。用户确认开始修复，并要求以后把“旧 index参考资料库”统一称为“参考资料”：旧 index 项目本身不会导入，只会保存用户实际导入的角色/设定资料。本节是本批第一次（修改前）总账；本提交成功后才允许修改运行源码、提示词、版本与工作流。目标 App 为 `0.38.7+106`，SQLite 继续 `schemaVersion=32`、无迁移；继续在未验收的 Draft PR #28 分支上向前修复，不合并损坏候选到 main。
 
@@ -73,8 +110,8 @@
 11. APK 文件名为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK.apk`，构建大小约308.6 MB；SHA-256 为 `fd8cf4f81d9ccf3d80246dba5aa4bb0aaf6003c746d3b7682d5e985557ef941c`。固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。
 12. Actions artifact 为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK`，artifact ID `9575710465`、压缩包302,422,327 bytes，[下载页](https://github.com/catkiss62/ai-companion-build/actions/runs/32879192401/artifacts/9575710465)；Draft Release 为 [v0.38.7 public-web share test repair](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-032746597d469b56b4ab)。
 13. 实包再次确认417文件桌宠、62文件 LingChat、20张优化立绘、新聊天头像、保留旧 LingChat头像与镜子图、三档哈欠图、A2原始native prefix均完整；本批没有修改这些载荷，也没有改搜索预算/Provider、Desire、Memory、Emotion/D3、TTS、相册、Pixiv、Harness、悬浮恢复或当前App解析。
-14. 当前只能写为“实现、完整CI与APK通过，真机待验”。覆盖安装并保留现有数据后点一次“测试网页分享闭环”：旧 v0.38.6 留下的真实 ready 应优先被复用；UI必须给出 sent、模型WAIT或明确blocked，诊断 `sharing.test.lastResult` 不得停在 started/never，`reachedEvaluation` 应与结果一致。sent时核对聊天/通知，WAIT时核对 declined；随后导出新脱敏报告。
-15. v0.38.7 真机接受前，PR #28继续保持 Draft且main不动；接受后再更新验收总账并收口。独立 Harness实验仍排在本闭环之后。
+14. 本条原为真机验收步骤，现已由上方 0AAAAAAAAAAAAA 节的两份真实报告完成：自然分享与 v0.38.7 测试入口均成功发送，`sharing.test.lastResult=sent`、`reachedEvaluation=true`、`modelDecisionReached=true`，不再属于真机待验。
+15. v0.38.7 已获真机接受；PR #28 当前仍保持 Draft且main不动，是因为本轮未授权 ready/merge，不是功能仍待验。下一次正式仓库操作核对后再决定合并；独立 Harness实验继续排在模拟手机/自主相册受控版本之后。
 
 ## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
