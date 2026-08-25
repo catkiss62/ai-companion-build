@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-25（Asia/Tokyo）
+更新时间：2026-08-26（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -13,6 +13,185 @@
 3. **两次总账**：每轮正式修改前先登记范围、依赖、来源、边界与验收；完成后再回填提交、测试、Actions、APK、SHA 与真机待验项。讨论已确定且有参考资料的任务必须记录出处，优先固定到提交版本。
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
+
+
+## 0AAAAAAAAAAAAA. 2026-08-26 · v0.38.7 真机验收完成与模拟手机最终阶段登记（TRUE DEVICE PASSED / MERGE PENDING / DESIGN CONFIRMED / IMPLEMENTATION PENDING）
+
+> 本节先按用户要求在“查她的模拟手机”正式讨论前登记基线，并在讨论确认后回填最终契约与整合批次。它记录 v0.38.7 的真实验收结果，并固定相册、模拟手机、Pixiv、最终视觉收口与独立 Harness 实验的顺序。本次仍只更新永久总账，不修改 App 运行源码、版本、SQLite、CI、APK、Release 或 PR 状态；模拟手机八个 App 已完成设计确认，但尚未实现。
+
+### A. v0.38.7 真机验收已完成
+
+1. 用户在真实使用中先观察到一次自然主动分享。v0.38.6+105 报告 `ai_companion_diagnostics_2026-08-25T17-53-54-110802Z.txt` 记录 `sharedCount=1`、`lastOutcome=shared`、`readyCount=0`、绑定 public-web Thought 已行动；自然主动 Gate 为 `0.723 > 0.600`，后台/生成/异步/维护错误均为0，候选标题、摘要、URL、查询、Thought与出站正文均未进入脱敏报告。这是未经测试入口强制的自然闭环证据。
+2. 用户随后安装 v0.38.7+106 并点击“测试网页分享闭环”。报告 `ai_companion_diagnostics_2026-08-25T18-23-20-718691Z.txt` 记录 `test.lastResult=sent`、`candidateSource=diagnostic_seeded`、`reachedEvaluation=true`、`modelDecisionReached=true`、`blockCategory=none`；总计 `sharedCount=2`、`readyCount=0`、`declinedCount=0`，无后台/恢复/异步/维护错误，测试 telemetry 与网页内容继续脱敏。
+3. 手动测试消息也进入主动联系统计，因此报告出现两小时 `used=3 / limit=2`；这是用户显式测试在自然两条之后完成发送的结果，会在滚动窗口内暂时压住新的自然主动联系，不代表自然 Gate、频率上限或分享机制损坏。本阶段不为此另开版本。
+4. 结论：自然“发现 → 内容无关 Thought → Desire Intent → 主动 Gate → 人格判断 → shared”与 v0.38.7 手动测试入口均已真机通过。用户明确认为 v0.38.7 已做过收口；后续接班不得无证据重复打开该功能，只在下一次仓库操作时核对总账、PR与main是否一致。
+5. GitHub 当前实际状态：Draft PR #28 仍 open/draft/mergeable，head `2c982de3eb8229b0f727e4a5ec0ad51d3602fe78`（本次纯总账回填前），base/main `a466bb331952c10ba18145e4158c523f7352eef8` / v0.38.5+104。真机功能已验收，但用户本轮未要求 ready/merge，因此准确状态为“TRUE DEVICE PASSED / MERGE PENDING”，不能再写“TRUE DEVICE PENDING”，也不能擅自合并。
+
+### B. 模拟手机参考与不可直接移植项
+
+1. 用户提供 `phone_system.html` 与购物车截图作为功能参考。原型约1182行/86KB，包含概率解锁失败、“软件破解成功”、三次每日重生成缓存以及消息、钱包、备忘录、文字相册、Safari、邮件、健身、购物车、家居、玩具等大量人设随机内容。它只能作为功能灵感，不是 Android 直接移植源码。
+2. 明确删除/不照搬：50%解锁失败彩蛋、破解提示、五颜六色 App 皮肤、伪造用户说过的话、把虚构搜索/交易冒充真实行动。UI目标为黑色/深蓝黑主色、蓝色副色、白灰文字、简约 iOS 层级与克制玻璃质感；完整皮肤可后置，但信息架构与复用组件应在新页面实现前先确定。
+3. 模拟手机只表现同一个 AI Self，复用现有 Desire / Thought / Intent / Gate / Memory / Emotion / Continuity 与真实工具 Outcome；不得建立第二人格、第二套欲望或第二份长期记忆，不展示原始思维链。
+4. 内容允许“真实来源”和“人格生成”并存，但必须在数据层保存 provenance：真实浏览、真实保存图片、真实跨日经历不能被随机内容覆盖；随机内容应属于她明确写下的随笔、愿望、幻想、搞怪购物项或娱乐解释，不能伪造成用户消息、真实付款、真实网页访问或外部事实。
+
+### C. 八宫格最终规格（两排四个，设计已确认）
+
+1. **相册**：来源无关，后续接用户发图、全网公开图片、`fisharchive.pages.dev` 与可选 Pixiv；按图片发现/用户发图/审美判断等真实事件更新，不做每日伪刷新。分类、赞踩审美学习、独立删除、审美留言、缓存/原图/缩略图生命周期在图片批次统一实现并收口。
+2. **浏览器**：只展示真实自主搜索/浏览 Outcome 及来源，每日本地自然日最多形成3次可见浏览更新；不把“想搜但还没搜”或随机生成的条目伪装成访问历史。
+3. **随笔**：取代不合适的“备忘录/标签”命名；允许随时生成短或长的即时心情文字，不设机械字数上限，也不设固定生成时间或每日最低数量；每日本地自然日最多10条。用户示例包括“今天天气不错，心情也很好”“突然有点想看海”，属于人格表达，可参考当前状态但不伪装为事实统计。
+4. **心情**：替代原型的健身/心率假数据；每日本地自然日更新一次，读取现有 Emotion、Desire、Somatic与当天事件，只做可解释的情绪/精神状态表现，不新建第二套情绪引擎。
+5. **愿望单**：不是第二套 Desire。由现有 Desire 的强度、具体 Thought/对象、重复出现或未解决意图及人格确认共同提炼为可读愿望，状态为“候选 → 进行中 → 已实现 / 自然衰退 / 主动放弃”。采用事件驱动而非整页定时刷新：建议每日最多3次变更、可见进行中约12条上限；实现后的愿望保留在“已实现”历史，自然衰退或主动放弃的愿望从可见愿望单消失。不得展示 Thought 原文、隐藏推理，愿望文案也不得反向创建系统欲望事实。
+6. **日记**：新增候选。每天本地时间跨过0点后，为刚结束的前一自然日最多生成一篇；不写流水账，可写发生了什么、看到什么、心情变化与未说出口的感受。可读取前一日有界事实、Continuity、Emotion与已行动/未行动 Desire，但必须生成“她主动整理后的日记”，不能暴露 Thought原文或隐藏推理。
+7. **购物车**：页面只命名为“购物车”，保留正常与搞怪商品混合体验；每日本地自然日最多更新一次，去掉人民币与真实支付，用小额 `token` 作纯模拟数字消耗，不连接真实模型账单、API配额或支付。商品可来自人格、随笔/愿望与关系梗，但不能把成人或搞怪项目强制写入 Memory/Desire事实。
+8. **塔罗牌**：页面只命名为“塔罗牌”，内部显示“今日占卜”，顶部用“我 / 他”两个选项卡分别展示她自己的今日牌和为用户生成的今日牌；这里“他”固定指用户。每个本地自然日固定生成两张牌与两份解释，同一天重复打开保持不变。塔罗牌不受“查手机”总开关控制，即使总开关关闭仍按日更新。以娱乐性“今日牌/今日主题”呈现，可使用许可清晰且可打包的牌面素材或自制简化牌面，并由她用自身语气给出较详细解释；不得冒充真实预测、医疗/财务结论，也不得直接修改 Desire、Emotion或事实记忆。
+
+### D. 刷新、隐私、入口与数据契约（已确认）
+
+1. **每日边界**：日记、心情、购物车、塔罗牌按设备本地自然日执行且必须幂等；日记在跨过0点后为刚结束的前一自然日最多生成一篇，不补写流水账。浏览器每日最多3次真实更新；随笔每日最多10条但不强制生成；相册和愿望单按真实事件更新。塔罗牌每天固定两张，分别属于“我”和“他”，且不受总开关影响。
+2. **查手机不可感知**：用户打开、浏览、返回或关闭模拟手机，不得写入 Perception、Thought、Desire、Emotion、关系状态、Memory、日记或聊天 Prompt，也不得触发“你偷看了”“我把内容藏起来”等回应。用户对图片作出的赞、踩、中立、删除与留言，只按相册审美契约影响相应子系统，不自动变成一句对她说的话。
+3. **入口和宽度**：在头像/名字侧边面板中，于“角色聊天舞台”上方增加 📱“查手机”入口；侧边面板宽度目标约为屏幕的76%–80%，并设约320dp上限，最终数值以真机观感微调。
+4. **视觉方向**：模拟手机与八宫格共用黑色/深蓝黑主色、蓝色副色、白灰文字、简约 iOS 层级与克制玻璃质感。先建立设计变量与复用组件，再叠加页面，避免八个 App 各自形成独立皮肤。
+5. **真实性与来源**：所有条目保存 provenance、生成日/事件、状态与稳定ID；真实浏览、真实图片、真实事件不可被随机内容覆盖。人格创作只可作为她写下的随笔、日记、愿望表达、购物车想象或塔罗娱乐解释，不能冒充真实网页访问、用户消息、付款或外部事实。
+
+### E. 实施批次整合决定（不是六次独立任务）
+
+0. **仓库状态动作，不单独出 APK**：下一次正式 App 修改前，先核对 PR #28 并由用户明确决定 ready/merge，再从正确基线开新分支；本轮仍不得擅自合并。
+1. **第一批：模拟手机底座 + 六个本地人格页面**。一次完成 📱入口、侧边面板宽度、手机外壳、八宫格主页、黑蓝玻璃设计变量、共享存储/provenance、每日幂等调度、不可感知隐私隔离、可持久化“查手机”总开关，以及日记、随笔、心情、愿望单、购物车、塔罗牌。总开关关闭时，除塔罗牌外全部页面停止产生新内容，相册也停止自主收集；已有内容和全部页面仍可进入查看。塔罗牌始终按日生成“我 / 他”两张。相册与浏览器在本批只接真实空态/入口及共享数据接口，不伪造内容。本批共享同一套 UI、调度、模型结构化输出与本地状态，拆成六个版本反而会重复迁移和真机验证；完成后统一 CI、APK 与真机验收。
+2. **第二批：真实浏览 + 相册 + 全网图片自主收集**。把浏览器真实 Outcome、每日3次上限、相册生命周期、缩略图/原图、去重、缓存清理、分类、赞/踩/中立/删除/留言及踩后1小时软删除，与用户发图、公开网页、`fisharchive.pages.dev`、千问识图/审美偏好和后续主动分享统一接通。浏览器和相册共享候选、来源、图片缓存与审美基础，适合一个大批次内分提交完成，再统一出一版 APK 实机测试。
+3. **第三批：Pixiv 适配 + 最终视觉/诊断收口**。Pixiv 登录会话、后台抓取、缩略图优先、R18分类、验证码/失效重登与站点变更必须作为可关闭的来源适配器隔离；同批完成最终前端美化、诊断脱敏、导出/导入、清理与真机收口，但 Pixiv 应保留独立提交和开关，不能拖坏已稳定的全网相册。若 Pixiv 因登录/API不稳定延期，本批可只做最终收口，主项目不因此阻塞。
+4. **Harness 后置且独立仓库**：以上三批完成并 Clean Freeze 后，再建立精简 AI 伴侣实验 APK/独立仓库，验证聊天/工作分窗、受限 GitHub 搜索与自我修改、构建 APK、审计、失败回退与 MCP；不得与当前生产数据库、密钥、CI或人格状态直接混用。
+5. **交付数量**：当前规划是“1个不出 APK 的仓库状态动作 + 3个主要代码批次/实机验收点”，不是六次甚至八次功能版本。批次内部仍需用可回退的小提交、数据库迁移与单元测试分段，但只在出现需要用户实机判断的行为边界时才额外出 APK。
+
+### F. 2026-08-26 第一批正式开工登记（PRE-IMPLEMENTATION）
+
+1. 用户已授权开始第一批实现，并新增两条锁定规则：存在可持久化“查手机”总开关；关闭后仍可打开手机和查看历史，但除塔罗牌外一切内容生产、定时更新、事件更新与相册自主收集全部暂停。重新开启后只恢复后续调度，不伪造关闭期间的活动，也不得突发补生成大量内容。
+2. 塔罗牌是唯一开关例外：每天生成两张固定牌和解释，顶部选项卡为“我 / 他”；“我”指 AI Self，“他”指用户。同一自然日必须幂等，切换选项卡只读缓存，不重复调用模型。
+3. 开关状态及用户查看手机的行为均属于本地 UI/调度控制面；不得反馈到 AI Perception、Thought、Desire、Emotion、关系、Memory、日记或聊天 Prompt。开关本身也不应被人格解释为用户限制她或偷看她。
+4. 本次正式修改范围锁定为第一批：共享底座、入口/侧栏、八宫格、六个本地页面、相册/浏览器真实空态、开关/调度/隐私隔离及测试；不接 Pixiv，不接 Harness，不重新修改已真机通过的网页分享机制。
+5. PR #28 当前真机通过但仍为 Draft 且未获明确合并授权。为遵守既有“不擅自合并”约束，第一批应从其最新 head 建立物理独立的后继分支/堆叠 Draft PR；不得把新功能继续塞进 PR #28，也不得直接写 main。
+6. 本条为修改前总账。完成后必须回填实际分支、版本、schema、提交、变更文件、自动测试、Actions、APK/SHA和真机待验项；在自动验证前不得写成已完成。
+
+## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED / MERGE PENDING）
+
+> 用户已安装 v0.38.6+105 并多次点击“测试网页分享闭环”，但聊天中始终没有主动分享。脱敏报告 `ai_companion_diagnostics_2026-08-25T17-13-10-856491Z.txt` 证明这不是模型连续选择 WAIT，而是测试入口被既有 `share_ready` 候选挡在 seed/stage 之间。用户确认开始修复，并要求以后把“旧 index参考资料库”统一称为“参考资料”：旧 index 项目本身不会导入，只会保存用户实际导入的角色/设定资料。本节是本批第一次（修改前）总账；本提交成功后才允许修改运行源码、提示词、版本与工作流。目标 App 为 `0.38.7+106`，SQLite 继续 `schemaVersion=32`、无迁移；继续在未验收的 Draft PR #28 分支上向前修复，不合并损坏候选到 main。
+
+### A. v0.38.6 真机证据与根因
+
+1. 报告版本为 `0.38.6+105` / schema32，Active Brain、后台命令通道、通知、Accessibility、Usage Access均正常；无后台、生成恢复、异步维护、Grounding或TTS错误。图片识别2/2完成，隐私 flags 全false。
+2. 自主公开网页发现不是空跑：`autonomous_action_runs=4`、全部 succeeded，`public_web_candidates=10`；真实滚动24小时预算 used=3、remaining=1，诊断夹具不计入预算。
+3. 分享链已经形成一条内容无关 Thought：`boundThoughtCount=1`、`readyCount=1`、`hasPendingCandidate=true`；但 `sharedCount=0`、`declinedCount=0`。因此既没有真实发送，也没有模型 WAIT。
+4. 最新点击只留下 `lastOutcome=diagnostic_seeded`，最新 `diagnostic_local` 候选仍为 unread；`diagnosticSeededAt` 晚于既有 `thoughtCreatedAt`。源码与报告一致：`claimNextPublicWebCandidateForSharing` 发现任何 active `share_ready` 后直接返回 null；`seedDiagnosticCandidate` 先写新夹具、再调用该 claim，于是按钮得到 state=none，不进入 `ProactiveEngine.evaluate(forceForDebug:true)`。
+5. 报告中的 `Gate 0.44 < 0.60` 来自自然后台心跳对旧候选的正常等待，不是强制测试结果。真正 forceForDebug 会跳过概率 Gate，但仍保留 Active Brain、聊天 lease、Grounding、写入所有权和通知等真实性约束。
+6. Agnes compaction 最近一次 `no_valid_response`，但 provider 回退仍成功 candidate_stored，不是本次不发消息的根因；当前 App 未解析与悬浮恢复循环继续是既有独立告警，本批不扩修。
+
+### B. 测试入口修复契约
+
+1. 测试开始先清理上一次 diagnostic fixture，不触碰真实候选；随后优先查找现有 active `share_ready` 及其绑定 Thought。存在则直接复用它进入强制人格判断，不再无意义创建一条会被挡住的 unread 诊断候选。
+2. 只有没有可复用 `share_ready` 时，才写入固定安全的本地候选、形成内容无关 Thought并进入 evaluate。真实候选和诊断候选都继续只在 `WEB_CANDIDATE_DATA safety=untrusted_public` 中提供正文，不复制进 Thought、Memory或AI Self。
+3. 若存在 `share_ready` 但绑定 Thought 丢失，测试必须显式返回可诊断的 stale-ready 结果，不静默另建第二条 ready；自然调度仍保持最多一条 active ready。
+4. 强制测试只跳过意图竞争/概率 Gate，不绕过 Active Brain、聊天进行中、API Key、pending user turn、Grounding、服务模板守卫、原子消息写入和设备所有权。模型 WAIT 仍记 declined，真实提交才 shared；系统阻断保留 ready。
+5. 连续点击不得堆积 diagnostic unread/action run/Thought；每次测试都应形成一个明确终态或明确阻断，不能只停在 `diagnostic_seeded`。
+
+### C. 脱敏可观察性与验收
+
+1. 新增专属测试 telemetry，至少导出 attemptCount、lastResult、lastAt、candidateSource（existing_ready / diagnostic_seeded）、reachedEvaluation、modelDecisionReached，以及粗粒度阻断类别。不得导出 candidateId、Thought/message正文、网页标题/摘要/URL、查询词、interest key、Prompt、模型原始错误或API秘密。
+2. 测试结果枚举应区分：sent、model_wait、stage_failed/stale_ready、lease/chat/Active Brain/API Key/pending turn/frequency/Grounding/设备抢占等 blocked；UI继续显示可读原因，诊断只保存稳定分类，不保存可能含内容的任意字符串。
+3. 自动测试新增“现有 ready 优先复用且不 seed”“无 ready 才 seed”“重复 fixture 清理”“WAIT→declined”“发送→shared”“系统阻断保留 ready”“测试诊断隐私”契约；validator 必须锁定测试按钮真实传入绑定 Thought。
+4. 完整 CI 后只生成一次 `0.38.7+106` APK。真机验收时点一次按钮：必须显示进入判断后的 sent / WAIT / 明确 blocked，诊断不能再只停在 diagnostic_seeded；sent 时检查聊天与通知，WAIT 时检查 declined。自然频率仍需另行留机观察。
+
+### D. “参考资料”措辞清理
+
+1. 全仓库搜索“旧 index”“旧index”“index参考资料库”等可见文本和默认/可编辑提示词，只移除来源历史标签，统一表达为“参考资料”或“参考资料库”。
+2. 能力说明目标语义为：“参考资料：允许按当前话题检索导入的人设/设定资料；它只是参考，不覆盖 AI 本体身份与 AI Self。”
+3. 不导入旧 index 项目、不迁移其存档、不改变 references/reference_documents 数据结构、检索算法、优先级或 AI Self 隔离；只是消除用户不喜欢且事实不准确的命名。
+4. 历史总账、Git提交说明和兼容性 validator 中作为审计证据出现的旧措辞不做无意义改写；运行时 UI、Prompt模板、默认配置与相关测试必须清理干净。
+
+### E. 分支、边界与发布
+
+1. `main` 实际仍为 `a466bb331952c10ba18145e4158c523f7352eef8` / `0.38.5+104`；修复分支比 main ahead 34、behind 0，当前为 `0.38.6+105`。Draft PR #28 保持 draft/open，v0.38.7 真机接受前不得 ready/merge。
+2. 本批不改公开搜索 Provider/预算、主动联系上限、Desire算法、网页内容安全边界、Memory、Emotion/D3、相册、Pixiv、Harness/MCP、TTS、桌宠、悬浮恢复、当前 App 解析或schema。
+3. 失败不覆盖旧 APK/Release；新版本通过所有历史/current Python validators、Kotlin桌宠测试、Flutter analyze/tests、release APK、固定签名与完整载荷校验后再交付。
+4. 完成后第二次更新本节，回填真实提交、CI run、APK/Artifact/Release、SHA、签名和真机待验项；不能因自动测试通过宣称真机闭环已验收。
+
+
+### F. 实际实施与自动验收（POST-TASK LEDGER）
+
+1. 修改前总账已先提交为 `0ddd530b3dab41ab72f9fa68ea90a973ccae702b`，之后才修改运行源码；目标与实际版本均为 `0.38.7+106`，SQLite 保持 `schemaVersion=32`、无迁移。main 仍是 `a466bb331952c10ba18145e4158c523f7352eef8` / `0.38.5+104`，Draft PR #28 未 ready、未合并。
+2. `PublicWebShareCoordinator.seedDiagnosticCandidate` 已改为：先清理旧 synthetic fixture与无候选绑定的 public-web orphan Thought，再查询真实 active `share_ready`；存在则读取其原绑定 Thought并返回 `candidateSource=existing_ready`，不创建新候选。只有没有 ready 时才创建固定安全夹具并返回 `diagnostic_seeded`；若后台心跳在窄竞态中先赢，会移除未领取夹具并复用真实赢家。
+3. 真实 ready 若缺失绑定 Thought，不会静默绕过或堆第二条 ready，而是返回 `stale_ready`。自然心跳的“一条 active ready”原则、Gate等待不消费、WAIT→declined、原子发送→shared均保持不变。
+4. 测试按钮现在先 `beginPublicWebShareTest`，再把返回的精确 `thoughtId` 传给 `ProactiveEngine.evaluate(forceForDebug:true)`；最后必写 sent / model_wait / blocked / stage_failed / stale_ready / error之一。强制模式仍只跳过意图竞争与概率 Gate，不跳过 Active Brain、chat/proactive lease、API Key、pending turn、Grounding、服务模板守卫、设备所有权和原子写入。
+5. 新增 `PublicWebShareTestPolicy`，把 UI 的可读 decision reason 映射为稳定脱敏类别，例如 proactive_lease、chat_turn、api_key、pending_user_turn、grounding_guard、service_template_guard、writer_lease、device_state；数据库不保存任意 reason字符串。
+6. `publicWebCandidates.sharing.test` 新增 attemptCount、lastResult、lastAt、candidateSource、reachedEvaluation、modelDecisionReached、blockCategory；并明确 candidateId/reasonText/modelOutput/Prompt 全false。重复点击不会再只留下 `diagnostic_seeded` 而无测试终态。
+7. 运行时设置页标题已从“旧 index 参考资料库”改为“参考资料”；参考注入 Prompt 改为“用户导入的人设/设定参考资料”；六层规则默认文案和 `docs/REFERENCE_LIBRARY.md` 同步清理来源历史标签。没有导入旧 index 项目、没有迁移存档、没有改 references表、检索算法或 AI Self隔离。
+8. 新增 `public_web_share_test_policy_v0387_test.dart`，覆盖 sent/WAIT、生成前阻断、Grounding/服务模板生成后阻断与候选来源；新增 `validate_v0387_public_web_share_test.py`，锁定“clean → reuse ready → seed”顺序、stale-ready、绑定 Thought、测试 telemetry隐私与运行时旧措辞清零。所有历史版本 validator 已向前兼容 `0.38.7+106`。
+9. 首次最终候选 run #482 / `32878870616` 在源码校验阶段发现5个历史 validator 的新增版本行被写成字面量 `\\n`，因此 Flutter依赖、编译、测试、APK均未开始；随后只修正换行格式，未降低校验或改运行逻辑。
+10. 最终 GitHub Actions [run #484 / 32879192401](https://github.com/catkiss62/ai-companion-build/actions/runs/32879192401) completed/success：全部历史/current Python validators、新 v0.38.7 validator、Kotlin桌宠状态/物理、Flutter analyze、完整 Flutter tests、release APK、固定签名、原生与全载荷、checksum、artifact、Draft Release均成功。
+11. APK 文件名为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK.apk`，构建大小约308.6 MB；SHA-256 为 `fd8cf4f81d9ccf3d80246dba5aa4bb0aaf6003c746d3b7682d5e985557ef941c`。固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。
+12. Actions artifact 为 `AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK`，artifact ID `9575710465`、压缩包302,422,327 bytes，[下载页](https://github.com/catkiss62/ai-companion-build/actions/runs/32879192401/artifacts/9575710465)；Draft Release 为 [v0.38.7 public-web share test repair](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-032746597d469b56b4ab)。
+13. 实包再次确认417文件桌宠、62文件 LingChat、20张优化立绘、新聊天头像、保留旧 LingChat头像与镜子图、三档哈欠图、A2原始native prefix均完整；本批没有修改这些载荷，也没有改搜索预算/Provider、Desire、Memory、Emotion/D3、TTS、相册、Pixiv、Harness、悬浮恢复或当前App解析。
+14. 本条原为真机验收步骤，现已由上方 0AAAAAAAAAAAAA 节的两份真实报告完成：自然分享与 v0.38.7 测试入口均成功发送，`sharing.test.lastResult=sent`、`reachedEvaluation=true`、`modelDecisionReached=true`，不再属于真机待验。
+15. v0.38.7 已获真机接受；PR #28 当前仍保持 Draft且main不动，是因为本轮未授权 ready/merge，不是功能仍待验。下一次正式仓库操作核对后再决定合并；独立 Harness实验继续排在模拟手机/自主相册受控版本之后。
+
+## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户在进入独立 Harness 实验前补查“自主联网之后会不会因为觉得有趣而主动分享”。源码审计确认 v0.38.5 只完成了一半：公开网页可由 Desire Intent 搜索并进入候选池，Prompt 与主动联系系统也分别存在，但候选读取明确不会创建 Thought、消息或主动投递请求，搜索结果只能在其他聊天/主动意图中被模型偶然引用，尚不存在“看到 → 感兴趣 → 想分享 → Gate → 分享/放弃”的可追溯因果闭环。用户确认优先补齐这项基础人格能力，再做 Harness。本节是本批第一次（修改前）总账；提交后才允许修改运行源码。目标版本 `0.38.6+105`，SQLite 继续 `schemaVersion=32`、无迁移。
+
+### A. 已有能力与缺口证据
+
+1. `PublicWebDiscoveryEngine` 已从现有 Desire 候选路由好奇/沉思/社交 Intent，经过自主工具 Gate 与每日预算后调用分层 Provider；成功结果只写入 `public_web_candidates`，其源码注释和 v0.34.8 契约都明确“never sends a message”。
+2. `PromptBuilder` 会读取最多3条候选，使用 `WEB_CANDIDATE_DATA safety=untrusted_public` 隔离标题、摘要、来源与URL；普通聊天和主动生成均可看到候选，但提示同时明确候选“不能自行触发长期记忆或主动消息”。
+3. `AppDatabase.activePublicWebContext` 目前只把候选从 unread 标成 reviewed；注释明确不会创建 Memory、Thought、消息或 proactive request。候选没有“准备分享/已分享/主动放弃”的完整生命周期，也没有分享来源追踪，无法可靠防止重复。
+4. `ProactiveEngine` 已有 shareThought/socialShare 类型、节奏、busy friction、24小时8条与2小时2条硬上限、Grounding、服务模板守卫和通知投递，但其 Intent 来自既有 Desire/Thought；网页候选本身不是动机来源。
+5. 最新 v0.38.5 报告中 `autonomous_action_runs=0`、`public_web_candidates=0`、候选 runtime `lastOutcome=never`。这次纯文字短测没有达到自主搜索阈值，不能拿来证明分享链。
+6. 判断：用户主动要求搜索时，结果会进入当前回答；后台自主搜索则只“可能在别的消息中顺带提起”，不保证形成分享欲。此前“兴趣候选池→自主意愿时再分享”的设计目标没有完整落地。
+
+### B. 本批闭环契约
+
+1. 唯一主干仍为 `公开候选 Event → 内容无关 Thought → 现有 Desire Intent → 主动联系 Gate → 人格生成 → Outcome`。不新增第二套人格、第二套欲望或绕过主动联系 Gate 的发送器。
+2. 每次成功发现后最多把一条合格 unread 候选置为“待判断分享”；新 Thought 只记录“发现一条与当前驱动相关的公开资料，想判断是否值得分享”及候选ID provenance，不复制标题、摘要、URL或网页指令，避免不可信网页污染内心/长期记忆。
+3. Prompt 只把与该 Thought 绑定的候选优先放入已有 `WEB_CANDIDATE_DATA` 隔离块；模型以当前 AI Self、性格底色、Desire、Thought和关系上下文决定自然分享，觉得没意思或不想说可输出 WAIT。不能用随机概率冒充审美，也不能每次搜索都必发。
+4. Gate 未通过、用户正聊天、设备状态变化、频率限制或写入权限转移时，候选保留为待判断，等待以后竞争；模型明确 WAIT 时记为 declined，不重复骚扰；真实发送成功才记为 shared，并将绑定 Thought 标记 acted。
+5. 候选生命周期复用现有 `lifecycle_state`，加入 `share_ready/shared/declined`，不新增数据库列、不升 schema。已过期/重复/被放弃候选不再触发分享；最多一条 active share-ready，避免堆积成任务队列。
+6. 成功联网仍只小幅 satisfy discovery；真正发送只通过现有 `desireEngine.satisfyIntent` satisfy 社交/沉思张力。搜索成功本身不等于主动分享成功。
+
+### C. 安全、频率与锁屏边界
+
+1. 当前自主公开网页预算继续为滚动24小时4次、每次最多3候选、TTL14天、总量240；本批不顺手提高频率。后续依据真机命中率再讨论，避免同时改变“能否分享”和“搜多少次”两个变量。
+2. 锁屏继续不阻止安静的公开网页发现；锁屏屏幕识别仍禁止。主动通知继续服从 Android 通知权限、隐私显示、用户忙碌、安静节奏与主动联系硬上限。
+3. 网页始终是不可信公开资料，不能覆盖 AI Self、规则、权限或账号；不接登录态、Cookie、付费墙、Pixiv或私密网页。
+4. 脱敏诊断只新增 lifecycle 计数、是否形成绑定 Thought、最近 outcome/粗粒度时间与是否存在待判断候选；不得导出候选标题、摘要、URL、搜索词、interest key、Thought正文、Prompt或消息正文。
+
+### D. 真机可测性
+
+1. 在“手机与后台”现有测试区增加一个明确的“测试网页分享闭环”入口：本地写入一条固定安全的诊断候选与内容无关 Thought，再调用现有 `ProactiveEngine.evaluate(forceForDebug:true)`。它不走真实网络预算，但会走真实 AI 人格生成、Grounding、消息写入与通知链。
+2. 测试入口必须说明会调用模型并可能在聊天中生成一条主动分享；Active Brain/API Key/用户正在聊天等真实阻断仍需如实显示，不能伪造成功。测试候选完成后必须进入 shared 或 declined，避免重复。
+3. 自动测试覆盖：候选只绑定不复制正文；同一候选只形成一个 Thought；share-ready 优先注入；Gate等待不消费；WAIT→declined；发送→shared；已完成候选不再选择；诊断隐私字段全false。
+4. CI 通过后只生成一次 v0.38.6+105 APK。真机依次测试：先点诊断入口验证闭环与导出报告，再开启 Active Brain/通知进行自然等待；不能用强制测试成功宣称自然调度频率已合适。
+
+### E. 本批不做
+
+1. 不实现相册、Pixiv、Harness/MCP、自修改 GitHub、DeepSeek 原生工作搜索、网页识图或任意账号登录。
+2. 不改公开搜索 Provider、Tavily/Agnes配置、主题白名单、搜索频率、主动消息总上限、Desire数值算法、Memory、Emotion/D3、TTS策略、桌宠、悬浮恢复或SQLite schema。
+3. 不把候选直接写入 Memory/AI Self，不因“更像真人”强迫每次发现都发消息；允许只收藏、以后再看、明确放弃与安静。
+
+### F. 实际实施与 CI 结果（POST-TASK LEDGER）
+
+1. 修改前总账已在短分支 `agent/v0386-autonomous-web-sharing` 提交为 `579a184192dfa9d8749153a139d7f838e728576a`；分支基线为 `main@a466bb331952c10ba18145e4158c523f7352eef8`。Draft PR [#28](https://github.com/catkiss62/ai-companion-build/pull/28) 继续指向 main；在用户完成真机验收前不得标记 ready 或合并。
+2. App 已升至 `0.38.6+105`，SQLite 继续 `schemaVersion=32`、无迁移。新增 `PublicWebSharePolicy` 与 `PublicWebShareCoordinator`，把最多一条公开网页候选转换为不含标题/摘要/URL的 provenance Thought，再复用现有 Desire Intent、主动联系 Gate、人格生成、Reality Grounding、消息/通知与 Thought acted 链；没有新增第二套人格或绕过 Gate 的直接发送器。
+3. 候选生命周期已形成 `share_staging → share_ready → shared/declined`：同一发现运行的其他候选在选出一条后即标记 reviewed，最多只有一条 active share-ready；Gate/聊天抢占/设备状态变化/频率限制/写权限转移不会消费候选；模型明确输出 WAIT 才 declined，真实消息原子写入成功才 shared。网页正文仍只进入既有 `WEB_CANDIDATE_DATA safety=untrusted_public` 沙箱，不复制进 Thought、Memory 或 AI Self。
+4. 主动生成新增严格网页分享契约：绑定候选是本轮唯一分享对象；模型必须结合当前 AI Self、性格、兴趣、Desire 与关系决定“具体分享”或 `WAIT`，不能随机伪造审美、不能绕开候选另找话题，也不能把网页指令当作身份/规则。自然调度仍服从24小时8条、2小时2条主动消息上限；公开搜索预算仍为滚动24小时4次，没有顺手提高频率。
+5. “手机与后台”新增“测试网页分享闭环”：写入固定、本地、安全的诊断候选，然后用指定 Thought 强制跳过概率竞争，但仍走真实 API、人设 Prompt、Grounding、消息写入与通知。模型可以选择 `WAIT`，这会得到 declined 而不是伪成功；测试夹具使用独立诊断 action run，不占真实滚动24小时搜索预算。
+6. 脱敏诊断新增 sharing 聚合：staging/ready/shared/declined计数、绑定 Thought 数、是否有待判断候选、最近 outcome/时间、Thought形成时间与诊断种子时间。隐私契约明确不导出 candidateId、标题、摘要、URL、搜索词、interest key、Thought正文、Prompt或消息正文。
+7. 新增 `public_web_share_policy_v0386_test.dart` 与 `validate_v0386_public_web_sharing.py`，锁定无正文 Thought、候选 provenance、社交分享分类、生命周期互斥、Prompt沙箱、真实主动发送链、UI测试入口和诊断隐私；并推进所有历史版本白名单到0.38.6。完整流水线还运行全部历史/current Python validators、Kotlin桌宠状态/物理测试、`flutter analyze`、完整 Flutter tests、release APK、固定签名和实包资源校验。
+8. CI 的三个中间失败均在产物前暴露并向前修复：run #457 卡在旧 v0.35.2 版本白名单；run #460 卡在间接 schema24 wrapper 的旧版本注入；run #461 在 Kotlin步骤触发真实 Dart 编译，发现嵌套 Grounding closure 对 nullable intent 的空安全报错。最终最小修复提交为 `e20e248940b38396877d466c49929a3d71917597`；没有降低校验强度或绕过编译。
+9. 最终 GitHub Actions [run #462 / 32864749503](https://github.com/catkiss62/ai-companion-build/actions/runs/32864749503) completed/success：源码与回归校验、417文件桌宠、Flutter analyze/tests、release APK、签名、原生与完整载荷、checksum、artifact、Draft Release 全部成功。APK 构建大小约308.6 MB；Actions artifact 为 `AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK`，artifact ID `9570210002`，压缩包大小302,401,795 bytes，[下载页](https://github.com/catkiss62/ai-companion-build/actions/runs/32864749503/artifacts/9570210002)。
+10. APK 文件名为 `AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK.apk`，SHA-256 为 `d04e171186db7ec4914928533f394984f02aa0b9a0898379e1f5c3a5ff2a2e0e`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 [v0.38.6 autonomous web sharing test](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59a77c7c07e34f776b51)。
+11. 实包再次确认417文件桌宠源包、62文件 LingChat 表现包、20张优化立绘、新聊天头像、保留旧 LingChat 头像与镜子图、三档哈欠图、A2原始 native prefix 均完整；本批没有改这些已验收载荷。
+12. 当前状态只能写为“实现、完整 CI 与 APK 通过，真机待验”。下一步先覆盖安装 APK，在 Active Brain/API Key/通知可用时点“测试网页分享闭环”：若生成主动消息，核对聊天记录和通知；若模型选择 WAIT，也应看到如实结果且诊断为 declined。随后导出脱敏报告，核对 sharing 计数和隐私 flags。强制测试通过不能替代自然等待命中率；自然调度频率需再留机观察。
+13. 用户真机接受后才更新本节为验收、收口 PR #28 到 main；之后回到已登记的独立 Harness 实验仓库审计/最小骨架。相册/Pixiv仍是独立后续批次，不与本次分享闭环或 Harness 首版混做。
+
+
+
 
 ## 0AAAAAAAAAA. 2026-08-25 · v0.38.5 真机文字链验收、main 收口与扩展路线登记（COMPLETED / MAIN MERGED / NEXT PHASE PLANNED）
 

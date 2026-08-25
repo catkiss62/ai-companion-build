@@ -1,6 +1,6 @@
 # Reference Library · v0.7
 
-目的：复用旧 index 人设资料，但不把 AI Companion 重新变成酒馆式角色扮演。
+目的：保存用户实际导入的人设/设定参考资料，但不把 AI Companion 重新变成酒馆式角色扮演。
 
 ## 与 Memory Brain 的区别
 

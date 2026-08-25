@@ -11,6 +11,9 @@ class ProactivePresentationPolicy {
     required DesireIntent intent,
     UnfinishedThread? linkedThread,
   }) {
+    if (intent.reasonSource.startsWith('public_web_candidate:')) {
+      return ProactiveIntentKind.socialShare;
+    }
     if (intent.wantAction == 'wildcard_share') {
       return ProactiveIntentKind.socialShare;
     }

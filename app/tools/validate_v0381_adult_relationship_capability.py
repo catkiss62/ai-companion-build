@@ -42,6 +42,8 @@ if not any(
         "version: 0.38.3+102",
         "version: 0.38.4+103",
         "version: 0.38.5+104",
+        "version: 0.38.6+105",
+        "version: 0.38.7+106",
     )
 ):
     raise SystemExit("FAIL: unsupported post-v0.38.1 version")
