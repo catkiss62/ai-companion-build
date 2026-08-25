@@ -437,7 +437,7 @@ class _InnerPageState extends State<InnerPage> {
             }),
             const SizedBox(height: 6),
             const Text(
-              'D2 负责旁路记录数值；D3 只读取这些状态来调整表达，不改写欲望、关系、情绪、规则或工具行为。',
+              'D2 负责旁路记录数值，不参与提示词；D3 只读取这些状态来调整表达，不改写欲望、关系、情绪、规则或工具行为。',
               style: TextStyle(fontSize: 12),
             ),
           ],
