@@ -21,7 +21,8 @@ publish_to: 'none'
 # Historical validator compatibility token: version: 0.37.9+98
 # Historical validator compatibility token: version: 0.38.1+100
 # Historical validator compatibility token: version: 0.38.7+106
-version: 0.38.8+107
+# Historical validator compatibility token: version: 0.38.8+107
+version: 0.38.9+108
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -37,6 +38,7 @@ flutter:
     - assets/lingchat/audio/
     - assets/lingchat/effects/
     - assets/portraits/large_whale/
+    - assets/tarot/rws_major/
     - assets/lingchat/NOTICE.md
 
 dependencies:
