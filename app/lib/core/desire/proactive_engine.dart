@@ -540,7 +540,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       );
       await db.setSetting('grounding_guard_last_reason', reason);
       await db.addProactiveHistory(
-        triggerReason: '${intent.drive.name}:grounding_guard',
+        triggerReason: '${intent!.drive.name}:grounding_guard',
         decision: 'grounding_guard_block',
       );
       return ProactiveDecision(
