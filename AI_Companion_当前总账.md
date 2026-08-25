@@ -14,7 +14,7 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
-## 0AAAAAAAAAA. 2026-08-25 · v0.38.5 真机文字链验收、main 收口与扩展路线登记（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAAAAA. 2026-08-25 · v0.38.5 真机文字链验收、main 收口与扩展路线登记（COMPLETED / MAIN MERGED / NEXT PHASE PLANNED）
 
 > 用户已安装并短测 v0.38.5+104：本轮主要测试文字对话，主观体验正常、未发现新问题；其他权限与能力本次未重复开启，但对应运行路径没有在 v0.38.5 批次中改动，用户接受按既有真机基线收口。用户同时确认下一阶段优先采用独立 Harness 实验仓库，不把高风险自修改运行时直接塞入正式 AI Companion。本节是本轮第一次（修改前）总账：先登记验收证据、main 合并范围与后续探索边界，随后才允许改变 PR/main 状态。
 
@@ -55,6 +55,17 @@
 2. 合并成功的最低证据：PR #27 为 merged；main 包含 `version: 0.38.5+104`；当前总账仍是唯一接班入口；合并后的 docs-only 总账提交 Actions 不报错。
 3. 下一位任务先做独立 Harness 实验仓库的“仓库/许可证/威胁模型/最小闭环规格”审计，再决定创建骨架；正式 App 后续可独立实施相册 MVP，但不得与 Harness 运行时首版混在一个高风险批次。
 
+
+
+### F. 实际收口结果（POST-TASK LEDGER）
+
+1. 修改前总账已提交到 PR 分支：`ee2e639bac7a24723917905b9119b02632c37138`；对应 docs-only Actions [run #456 / 32855950571](https://github.com/catkiss62/ai-companion-build/actions/runs/32855950571) completed/success，没有重新构建 APK。
+2. PR [#27](https://github.com/catkiss62/ai-companion-build/pull/27) 已由 Draft 转为 ready；合并前 GitHub 返回 mergeable=true、base=`main@5612cdededf71e2be9cebe9b5d85b24f8109c562`、head=`ee2e639bac7a24723917905b9119b02632c37138`，与本轮锁定 head 一致。
+3. PR #27 已使用 squash 成功合并，merge SHA 为 `9a203b9f923b9026d737a838d6d5209149829769`；GitHub merge API 返回 `merged=true`，PR 随后为 closed。
+4. 合并后重新读取 `main/app/pubspec.yaml`，实际版本为 `0.38.5+104`；不是只凭 PR 状态推断。v0.38.5 全量构建证据仍为 run #454，APK SHA-256 仍为 `836b697ea4167e004a44e62144dc440dcac794001032eb028c863d40374c0ded`。
+5. 本轮没有改 App 源码、资产、schema、Prompt 或运行能力，也没有创建新 APK、Harness 仓库、相册或 Pixiv 模块；因此无需再次真机安装。本次 main 之后的唯一变化是这份修改后总账。
+6. v0.38.5 到此从“CI/APK通过、真机待验”升级为“文字主链用户验收、已并入 main”。未重复开启的视觉/TTS/后台/悬浮等能力仍沿用既有通过基线，不能伪装成这份新诊断已全覆盖。
+7. 下一位正式任务固定为：先对独立 Harness 实验仓库做许可证、可裁剪架构、权限/威胁模型与最小闭环规格审计；随后单独建仓库骨架。任何 GitHub 写入型 Agent 开始前，先给正式仓库 main 配置 PR/CI 强制保护。相册 MVP 可作为正式 App 的另一个独立批次，不能和 Harness 首版混做。
 
 
 
