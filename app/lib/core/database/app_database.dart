@@ -9359,6 +9359,19 @@ class AppDatabase {
     );
   }
 
+  Future<void> _setSettingInTransaction(
+    DatabaseExecutor txn,
+    String key,
+    String value,
+    DateTime at,
+  ) async {
+    await txn.insert(
+      'settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<DateTime> relationshipStartedAt({DateTime? fallbackNow}) async {
     final db = await database;
     final fallback = (fallbackNow ?? DateTime.now()).toLocal();
