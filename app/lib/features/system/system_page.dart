@@ -5,6 +5,7 @@ import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
 import '../../core/ai/memory_extractor.dart';
 import '../../core/autonomy/public_web_share_coordinator.dart';
+import '../../core/autonomy/public_web_share_policy.dart';
 import '../../core/database/app_database.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/desire/proactive_engine.dart';
@@ -171,27 +172,66 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       busy = true;
-      note = '正在写入一条本地安全候选，并走真实人格与主动联系链…';
+      note = '正在选择一条待分享候选，并走真实人格与主动联系链…';
     });
-    String resultNote;
+    var resultNote = '网页分享闭环测试没有完成。';
+    var candidateSource = 'none';
+    var testStarted = false;
     try {
+      await db.beginPublicWebShareTest();
+      testStarted = true;
       final sharing = PublicWebShareCoordinator(db: db, desire: desire);
       final staged = await sharing.seedDiagnosticCandidate();
+      candidateSource = staged.candidateSource;
       if (!staged.ready) {
-        resultNote = '测试候选没有形成待判断 Thought：${staged.state}';
+        final stale = staged.state == 'stale_ready';
+        await db.completePublicWebShareTest(
+          result: stale ? 'stale_ready' : 'stage_failed',
+          candidateSource: candidateSource,
+          reachedEvaluation: false,
+          modelDecisionReached: false,
+          blockCategory: 'stage',
+        );
+        resultNote = stale
+            ? '已有待分享候选，但绑定 Thought 已丢失；测试已记录 stale_ready，没有伪造发送。'
+            : '测试候选没有形成待判断 Thought：${staged.state}';
       } else {
         final decision = await proactive.evaluate(
           forceForDebug: true,
           forcedThoughtIdForDebug: staged.thoughtId,
           perceptionMinInterval: Duration.zero,
         );
+        final classified = PublicWebShareTestPolicy.classify(
+          sent: decision.sent,
+          reason: decision.reason,
+        );
+        await db.completePublicWebShareTest(
+          result: classified.result,
+          candidateSource: candidateSource,
+          reachedEvaluation: true,
+          modelDecisionReached: classified.modelDecisionReached,
+          blockCategory: classified.blockCategory,
+        );
         resultNote = decision.sent
             ? '网页分享闭环已发送一条真实主动消息；请回聊天页查看，并导出脱敏诊断。'
             : '闭环已真实判断但没有发送：${decision.reason}。若模型选择 WAIT，候选会记为 declined；系统阻断则保留待下次判断。';
       }
       await _refresh(clearNote: false);
-    } catch (e) {
-      resultNote = '网页分享闭环测试失败：$e';
+    } catch (_) {
+      if (testStarted) {
+        try {
+          await db.completePublicWebShareTest(
+            result: 'error',
+            candidateSource: candidateSource,
+            reachedEvaluation: false,
+            modelDecisionReached: false,
+            blockCategory: 'other',
+          );
+        } catch (_) {
+          // The UI still reports failure even if telemetry storage also fails.
+        }
+      }
+      resultNote = '网页分享闭环测试失败；已记录脱敏错误类别，请导出诊断。';
     }
     if (mounted) {
       setState(() {
