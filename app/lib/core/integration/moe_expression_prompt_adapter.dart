@@ -161,7 +161,9 @@ class MoeExpressionPromptTelemetry {
       previous['counts']! as Map<String, int>,
     );
     counts[normalizedStatus] =
-        ((counts[normalizedStatus] ?? 0) + 1).clamp(0, 1000000000);
+        ((counts[normalizedStatus] ?? 0) + 1)
+            .clamp(0, 1000000000)
+            .toInt();
     return <String, Object?>{
       'counts': counts,
       'lastStatus': normalizedStatus,
@@ -195,6 +197,7 @@ class MoeExpressionPromptTelemetry {
         status: rawCounts is Map
             ? ((rawCounts[status] as num?)?.toInt() ?? 0)
                 .clamp(0, 1000000000)
+                .toInt()
             : 0,
     };
     final status = source['lastStatus']?.toString() ?? 'never';
