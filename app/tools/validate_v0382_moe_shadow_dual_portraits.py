@@ -32,6 +32,7 @@ assert any(
         "version: 0.38.3+102",
         "version: 0.38.4+103",
         "version: 0.38.5+104",
+        "version: 0.38.6+105",
     )
 )
 assert "assets/portraits/large_whale/" in pubspec
