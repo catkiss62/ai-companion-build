@@ -14,7 +14,7 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
-## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在进入独立 Harness 实验前补查“自主联网之后会不会因为觉得有趣而主动分享”。源码审计确认 v0.38.5 只完成了一半：公开网页可由 Desire Intent 搜索并进入候选池，Prompt 与主动联系系统也分别存在，但候选读取明确不会创建 Thought、消息或主动投递请求，搜索结果只能在其他聊天/主动意图中被模型偶然引用，尚不存在“看到 → 感兴趣 → 想分享 → Gate → 分享/放弃”的可追溯因果闭环。用户确认优先补齐这项基础人格能力，再做 Harness。本节是本批第一次（修改前）总账；提交后才允许修改运行源码。目标版本 `0.38.6+105`，SQLite 继续 `schemaVersion=32`、无迁移。
 
@@ -55,6 +55,23 @@
 1. 不实现相册、Pixiv、Harness/MCP、自修改 GitHub、DeepSeek 原生工作搜索、网页识图或任意账号登录。
 2. 不改公开搜索 Provider、Tavily/Agnes配置、主题白名单、搜索频率、主动消息总上限、Desire数值算法、Memory、Emotion/D3、TTS策略、桌宠、悬浮恢复或SQLite schema。
 3. 不把候选直接写入 Memory/AI Self，不因“更像真人”强迫每次发现都发消息；允许只收藏、以后再看、明确放弃与安静。
+
+### F. 实际实施与 CI 结果（POST-TASK LEDGER）
+
+1. 修改前总账已在短分支 `agent/v0386-autonomous-web-sharing` 提交为 `579a184192dfa9d8749153a139d7f838e728576a`；分支基线为 `main@a466bb331952c10ba18145e4158c523f7352eef8`。Draft PR [#28](https://github.com/catkiss62/ai-companion-build/pull/28) 继续指向 main；在用户完成真机验收前不得标记 ready 或合并。
+2. App 已升至 `0.38.6+105`，SQLite 继续 `schemaVersion=32`、无迁移。新增 `PublicWebSharePolicy` 与 `PublicWebShareCoordinator`，把最多一条公开网页候选转换为不含标题/摘要/URL的 provenance Thought，再复用现有 Desire Intent、主动联系 Gate、人格生成、Reality Grounding、消息/通知与 Thought acted 链；没有新增第二套人格或绕过 Gate 的直接发送器。
+3. 候选生命周期已形成 `share_staging → share_ready → shared/declined`：同一发现运行的其他候选在选出一条后即标记 reviewed，最多只有一条 active share-ready；Gate/聊天抢占/设备状态变化/频率限制/写权限转移不会消费候选；模型明确输出 WAIT 才 declined，真实消息原子写入成功才 shared。网页正文仍只进入既有 `WEB_CANDIDATE_DATA safety=untrusted_public` 沙箱，不复制进 Thought、Memory 或 AI Self。
+4. 主动生成新增严格网页分享契约：绑定候选是本轮唯一分享对象；模型必须结合当前 AI Self、性格、兴趣、Desire 与关系决定“具体分享”或 `WAIT`，不能随机伪造审美、不能绕开候选另找话题，也不能把网页指令当作身份/规则。自然调度仍服从24小时8条、2小时2条主动消息上限；公开搜索预算仍为滚动24小时4次，没有顺手提高频率。
+5. “手机与后台”新增“测试网页分享闭环”：写入固定、本地、安全的诊断候选，然后用指定 Thought 强制跳过概率竞争，但仍走真实 API、人设 Prompt、Grounding、消息写入与通知。模型可以选择 `WAIT`，这会得到 declined 而不是伪成功；测试夹具使用独立诊断 action run，不占真实滚动24小时搜索预算。
+6. 脱敏诊断新增 sharing 聚合：staging/ready/shared/declined计数、绑定 Thought 数、是否有待判断候选、最近 outcome/时间、Thought形成时间与诊断种子时间。隐私契约明确不导出 candidateId、标题、摘要、URL、搜索词、interest key、Thought正文、Prompt或消息正文。
+7. 新增 `public_web_share_policy_v0386_test.dart` 与 `validate_v0386_public_web_sharing.py`，锁定无正文 Thought、候选 provenance、社交分享分类、生命周期互斥、Prompt沙箱、真实主动发送链、UI测试入口和诊断隐私；并推进所有历史版本白名单到0.38.6。完整流水线还运行全部历史/current Python validators、Kotlin桌宠状态/物理测试、`flutter analyze`、完整 Flutter tests、release APK、固定签名和实包资源校验。
+8. CI 的三个中间失败均在产物前暴露并向前修复：run #457 卡在旧 v0.35.2 版本白名单；run #460 卡在间接 schema24 wrapper 的旧版本注入；run #461 在 Kotlin步骤触发真实 Dart 编译，发现嵌套 Grounding closure 对 nullable intent 的空安全报错。最终最小修复提交为 `e20e248940b38396877d466c49929a3d71917597`；没有降低校验强度或绕过编译。
+9. 最终 GitHub Actions [run #462 / 32864749503](https://github.com/catkiss62/ai-companion-build/actions/runs/32864749503) completed/success：源码与回归校验、417文件桌宠、Flutter analyze/tests、release APK、签名、原生与完整载荷、checksum、artifact、Draft Release 全部成功。APK 构建大小约308.6 MB；Actions artifact 为 `AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK`，artifact ID `9570210002`，压缩包大小302,401,795 bytes，[下载页](https://github.com/catkiss62/ai-companion-build/actions/runs/32864749503/artifacts/9570210002)。
+10. APK 文件名为 `AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK.apk`，SHA-256 为 `d04e171186db7ec4914928533f394984f02aa0b9a0898379e1f5c3a5ff2a2e0e`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 [v0.38.6 autonomous web sharing test](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59a77c7c07e34f776b51)。
+11. 实包再次确认417文件桌宠源包、62文件 LingChat 表现包、20张优化立绘、新聊天头像、保留旧 LingChat 头像与镜子图、三档哈欠图、A2原始 native prefix 均完整；本批没有改这些已验收载荷。
+12. 当前状态只能写为“实现、完整 CI 与 APK 通过，真机待验”。下一步先覆盖安装 APK，在 Active Brain/API Key/通知可用时点“测试网页分享闭环”：若生成主动消息，核对聊天记录和通知；若模型选择 WAIT，也应看到如实结果且诊断为 declined。随后导出脱敏报告，核对 sharing 计数和隐私 flags。强制测试通过不能替代自然等待命中率；自然调度频率需再留机观察。
+13. 用户真机接受后才更新本节为验收、收口 PR #28 到 main；之后回到已登记的独立 Harness 实验仓库审计/最小骨架。相册/Pixiv仍是独立后续批次，不与本次分享闭环或 Harness 首版混做。
+
 
 
 
