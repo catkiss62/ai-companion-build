@@ -71,7 +71,7 @@
 5. PR #28 当前真机通过但仍为 Draft 且未获明确合并授权。为遵守既有“不擅自合并”约束，第一批应从其最新 head 建立物理独立的后继分支/堆叠 Draft PR；不得把新功能继续塞进 PR #28，也不得直接写 main。
 6. 本条为修改前总账。完成后必须回填实际分支、版本、schema、提交、变更文件、自动测试、Actions、APK/SHA和真机待验项；在自动验证前不得写成已完成。
 
-## 0AAAAAAAAAAAAAAA. 2026-08-26 · v0.38.9 模拟手机参考页视觉返工（PRE-IMPLEMENTATION / USER REJECTED v0.38.8 UI / IMPLEMENTATION PENDING）
+## 0AAAAAAAAAAAAAAA. 2026-08-26 · v0.38.9 模拟手机参考页视觉返工（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING / MERGE PENDING）
 
 > 用户已在真机看到 v0.38.8 模拟手机第一批，并明确判定机制方向可保留，但视觉实现不合格：整体像“大号记事本”，黑蓝单色与通用列表/卡片把八个 App 做成同一种页面，弱于用户提供的 `phone_system.html`。本条是返工前总账；后续必须在独立后继分支重做视觉并重新出 APK，不能把 v0.38.8 写成真机通过。
 
@@ -102,6 +102,18 @@
 1. 自动测试需覆盖：锁屏每次进入重置、解锁无概率失败、总开关/塔罗例外、22张牌索引和资产映射、同日双牌稳定、心情指标范围与7日图表数据、隐私边界。
 2. 真机重点不只看“能打开”：对照参考页验证背景层次、App图标色彩和emoji、锁屏手感、主页密度、Dock/状态栏、心情图表、各页面差异化以及塔罗牌面/长解释的可读性。
 3. 本批不接真实图片收集/Pixiv/Harness；相册和浏览器仍保持诚实空态，但空态与页面框架按参考页重做。完成后必须再次回填总账、CI、APK SHA与真机待验项。
+
+
+### E. 修改后回填（2026-08-26）
+
+1. 已在后继分支 `agent/v0389-simulated-phone-reference-ui` 完成，版本 `0.38.9+108`、SQLite schema继续为32；源码验证 head为 `7a6e8c03e10280ea77b9f3c3304f34a61b242aad`。已建立堆叠 Draft PR #30（base=`agent/v0388-simulated-phone-foundation`），未写 main、未合并；PR当时共23个细粒度提交、22个变更文件、+2295/-570。
+2. 视觉已按用户提供的 `phone_system.html` 重建：每次进入先见锁屏，点击或上滑稳定解锁且无随机失败；主页采用紫蓝径向壁纸、状态栏胶囊、4×2彩色玻璃emoji图标、Dock与home indicator。相册、浏览器、随笔、心情、愿望单、日记、购物车、塔罗牌分别使用网格、筛选、紧凑列表、指标图表、分页卡片、日期块、emoji商品行和牌面长文，不再全部复用同一种记事本列表。
+3. 心情页已保留参考健康页的信息结构：2×2指标卡展示心情能量、亲近感、好奇心和精神余量，下方为最近7个自然日的可点击折线/面积图。数据来自现有Desire/Emotion/Somatic的有界映射并保存energy/closeness/curiosity/reserve/score元数据，不生成步数、心率等虚假健康事实。
+4. 塔罗已加入22张Rider–Waite–Smith大阿卡纳JPG，固定来源为 `sixseeds/tarot-api@71825eed74683305b139a669b23ca5dc12f76857`；Git仅保存恢复脚本、22个SHA-256和归属说明，CI下载后逐张验证，APK构建完成后再次检查包内22张牌与固定哈希完全一致。每日“我/他”仍幂等且尽量不重复；每张解读包含主题、牌面象征、当前处境、行动提示、阴影面和人格化收束，不写成一句话。
+5. 机制边界未回退：总开关关闭时暂停除塔罗外的所有模拟手机更新，但历史仍可进入查看；塔罗无论开关每日更新；查手机与解锁行为不写入AI可感知上下文；愿望仍是Desire/Thought的只读投影；相册和浏览器继续使用诚实空态。本批未加入Pixiv、真实图片收藏或Harness。
+6. Actions run #495（`32906504340`）完整成功：固定桌宠/LingChat/塔罗资源恢复、全部源码与历史回归校验、Kotlin测试、Flutter analyze、Flutter tests、release APK构建、持久签名校验、原有APK资源完整性、22张塔罗牌包内哈希、artifact与私有Draft Release上传均通过。此前run #493/#494分别仅暴露历史版本白名单与v0.38.8旧视觉标点断言，均已按兼容性目的收敛，不是产品机制回退。
+7. APK：`AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK.apk`；APK SHA-256 `e4e16697adc2c48d6a48593e9fd328a50d3118ba37340a7e99e3482eaba66e2c`；workflow artifact id `9585412684`，artifact ZIP digest `sha256:b83022732bd6de51ff600f8a43f69d9e30f6a84792c38bf0577765a402b29db5`；Draft Release `v0.38.9-simulated-phone-reference-ui`。
+8. 当前唯一未完成验收是用户真机视觉/交互：重点对照参考页检查锁屏手感、壁纸层次、图标密度、emoji、Dock、八页差异、心情图表节点、塔罗JPG清晰度和长文滚动。真机反馈前不得把本批写成完成或合并；若只是尺寸/间距/色彩问题，应优先在PR #30做小范围视觉修订，不重写已通过的机制层。
 
 ## 0AAAAAAAAAAAAAA. 2026-08-26 · v0.38.8 模拟手机第一批底座（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING / MERGE PENDING）
 
