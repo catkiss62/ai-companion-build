@@ -15,6 +15,55 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+
+## 0AAAAAAAAA. 2026-08-25 · v0.38.5+104 优化立绘、聊天头像、数值条回调与 D2/D3 诊断（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户已对 v0.38.4+103 做短聊与“她的内心”真机检查：短聊体验正常，两组数值条确已对齐，但用户明确认为原先“欲望与萌属性各自按文字长度形成不同进度条长度”的视觉更自然，要求恢复差异，只把欲望进度条略微缩短以防右侧数值换行。用户同时授权开始上一轮拟定的优化立绘、聊天头像、main 收口和可观察性批次。本节是本批第一次（修改前）总账；本提交成功后才允许修改 main、运行源码和资产。目标 App 为 `0.38.5+104`，SQLite 继续 `schemaVersion=32`、无迁移。
+
+### A. v0.38.4 真机与新诊断证据
+
+1. 用户确认 v0.38.4 两组数值条已经对齐，证明共享布局与单行约束在真机可显示；但这是功能性正向证据，不代表等长设计被用户接受。新决定优先于上一批视觉契约：恢复两组各自几何，不再把“完全等长”视为目标。
+2. 新报告 `ai_companion_diagnostics_2026-08-25T10-16-42-819625Z.txt` 对应 v0.38.4+103 / schema32，短测3轮均完成：post-turn done=3，无 pending/active/failed generation，无后台、恢复、异步维护或TTS错误。
+3. 最近3条 assistant emotion 为 happy(valid_tag)、normal(missing_tag heuristic)、helpless(missing_tag heuristic)；normal 回退与显著 cue 仍工作，但 valid 仅1/3，不宣称模型 envelope 合规率稳定。
+4. 可见 reasoning 为 total=3、chineseFirst=2、mixed=1、mainlyEnglish=0；Desire 正常推进并形成2条 Thought。报告不含正文，且当前没有 Dynamic Moe/D3 专属可观察字段，因此只能把“几句体验还行”记为短聊正向样本，不能从报告证明 D3 每轮确实消费表达计划。
+5. 本报告未启用悬浮、Accessibility、Usage Access、通知与后台大脑，不用于验收这些能力；系统文件选择器/跨 App 悬浮恢复循环继续冻结。
+
+### B. main 与分支治理
+
+1. `main` 仍为 v0.34.1+66，Draft PR #26 head 已为 v0.38.4+103；PR 标题/正文仍停在 v0.38.0，默认分支与活动 PR 元数据均已明显过时。
+2. 本批先把 PR #26 标题/说明更新到真实 v0.38.4 状态，核对 head、成功 Actions、固定签名、总账和冻结载荷后合并到 main；仓库治理本身不单独构建 APK。
+3. main 收口后从新 main 建短期分支 `agent/v0385-portrait-avatar-diagnostics`，停止继续在 `agent/dynamic-moe-d1-engine` 叠加产品版本。合并方法以保留可审计历史和不丢二进制素材为前提，执行前读取 PR mergeability/提交结构，不盲目 squash。
+4. 合并后必须重新读取 main 的 `app/pubspec.yaml`、总账和关键资产树，确认 main 真正到 v0.38.4，再开始 v0.38.5；不能只凭 merge API 成功返回。
+
+### C. 数值条回调契约
+
+1. 欲望系统恢复为原先独立区块与自己的行几何；萌属性继续保留 Card 与自己的标签/数值布局。两组不再共用强制等长的行组件，允许因中文标签长度和容器内边距不同而呈现不同进度条长度。
+2. 欲望行在旧版基础上只略微缩短中间进度条：保留原标签观感，扩大右侧数值预留宽度并保留8px间距；`0.30 / 0.22` 强制单行、禁用软换行、右对齐，极窄屏可缩小但不得拆行。
+3. 萌属性九轴恢复/保留原有较短标签与整数显示几何，不因欲望数值的小数位数被迫共用同一宽度。D2标题、D3状态和“调整 D3”入口不得回退。
+4. 自动测试锁定“各自组件、长度允许不同、欲望数值单行”，不再断言两组进度条等长。
+
+### D. 优化立绘与头像资产
+
+1. 使用已登记真源 `大肥鱼透明图优化.zip`：ZIP 47,806,033 bytes；SHA-256 `51df5005f636b4729837f0276d32a491f2bb00d6bd77b39e782c4fe405c68bad`。包内20张1152×2048 RGBA PNG总计47,867,363 bytes，中文语义完整；慌张/紧张保持同图。
+2. 只替换 `app/assets/portraits/large_whale/` 的20张聊天立绘，按上一批 alpha WebP quality 92 输出；逐张核对画布、alpha、映射、疑惑问号、慌张/紧张同图与边缘。不得用透明高兴图覆盖 `large_whale_mirror.jpg`，不得改两套位置、effect anchor、Emotion key或显示逻辑。
+3. 新头像源 `1000141797.jpg` 为1256×1256 JPEG、870,285 bytes，SHA-256 `08ec7a634b4522075cd139653e4acba67486cbad6dcf3700e70b416f20d21e03`。转换为独立 `assets/appearance/chat_avatar.webp`，更新聊天页左上角“DeepSeek”左侧头像及聊天外观面板头像。
+4. 不直接覆盖固定 LingChat 的 `assets/lingchat/deepseek/avatar.webp`：旧上游头像继续保留作为非破坏载荷，避免混淆来源/许可与历史校验。App launcher icon、桌宠头像、未抠照镜子图均不随本次聊天头像变化。
+
+### E. 相邻窄修与 D2/D3 可观察性
+
+1. 修正聊天页初始化不一致：当前 `_currentEmotion=normal`，但空历史/首帧 `_currentEmotionLabel` 仍初始化为“平静”；改为“正常”，后续仍由持久 assistant emotion 覆盖。
+2. 脱敏诊断新增 Dynamic Moe/D2/D3 非正文块，至少记录 D2状态是否存在/版本、D3开关、自然/明显/漫画化档位、当前表达计划是否具有主/辅建议，以及可证明正式生成路径消费过D3计划的粗粒度计数/最近时间。
+3. 不导出聊天/reasoning正文、Prompt、九轴/配方名称、内部数值或阈值；关闭D3、neutral plan与读取失败需可区分，诊断写入失败不得阻断聊天。
+4. 本批不调整D3强度、Moe九轴算法、Desire、Prompt内容、Memory、Agent、TTS、主动联系或Emotion Appraisal，只提高后续真机判断能力。
+
+### F. 提交、自动验收与 APK 边界
+
+1. 独立检查点：修改前总账；PR/main收口；新分支；优化立绘；聊天头像；数值条回调/正常标签；D2/D3诊断；版本/validators/工作流；完整CI；修改后总账。
+2. 自动验收覆盖：20张WebP尺寸/alpha/语义与指定源转换哈希；疑惑问号人工/像素检查；慌张/紧张字节一致；镜子图/旧LingChat头像不变；新头像路径两处引用；数值行各自几何与欲望单行；normal初值；D3诊断脱敏、关闭/开启/neutral/已消费状态。
+3. 跑全部历史/current Python validators、Kotlin桌宠回归、Flutter format/analyze/tests、Release APK、固定签名、原生库、417桌宠、LingChat固定载荷、双立绘与镜子图实包校验。
+4. 不为 main 收口或中间素材步骤单独出 APK。全部范围通过后只交付一次 v0.38.5+104 APK；CI通过仍需真机核对20情绪中的代表样本、透明边缘/问号、聊天圆形头像、两组进度条长度观感、欲望数值单行及D3诊断状态。
+5. 本批不加入思考链翻译、自主能力扩建、Memory压力测试、桌宠历史细节或冻结悬浮恢复，避免把明确的视觉/诊断批次扩大为高风险主干修改。
+
 ## 0AAAAAAAA. 2026-08-25 · v0.38.4+103 内心页数值条统一与 D2/D3 可发现性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已确认在 v0.38.3 真机看到了此前几乎不会出现的“正常”立绘；新脱敏诊断同时证明 normal 已真实进入持久情绪记录。用户授权修正“她的内心”中萌属性数值条与欲望系统数值条长度/间距不一致、欲望当前值/基线值偶尔换行的问题。本节是本批第一次（修改前）总账；提交后才改运行代码。目标 App 为 `0.38.4+103`，SQLite 继续 `schemaVersion=32`、无迁移。
