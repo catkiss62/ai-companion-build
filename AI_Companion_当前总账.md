@@ -14,6 +14,50 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
+## 0AAAAAAAAAAA. 2026-08-25 · v0.38.6 欲望驱动的公开网页分享闭环（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户在进入独立 Harness 实验前补查“自主联网之后会不会因为觉得有趣而主动分享”。源码审计确认 v0.38.5 只完成了一半：公开网页可由 Desire Intent 搜索并进入候选池，Prompt 与主动联系系统也分别存在，但候选读取明确不会创建 Thought、消息或主动投递请求，搜索结果只能在其他聊天/主动意图中被模型偶然引用，尚不存在“看到 → 感兴趣 → 想分享 → Gate → 分享/放弃”的可追溯因果闭环。用户确认优先补齐这项基础人格能力，再做 Harness。本节是本批第一次（修改前）总账；提交后才允许修改运行源码。目标版本 `0.38.6+105`，SQLite 继续 `schemaVersion=32`、无迁移。
+
+### A. 已有能力与缺口证据
+
+1. `PublicWebDiscoveryEngine` 已从现有 Desire 候选路由好奇/沉思/社交 Intent，经过自主工具 Gate 与每日预算后调用分层 Provider；成功结果只写入 `public_web_candidates`，其源码注释和 v0.34.8 契约都明确“never sends a message”。
+2. `PromptBuilder` 会读取最多3条候选，使用 `WEB_CANDIDATE_DATA safety=untrusted_public` 隔离标题、摘要、来源与URL；普通聊天和主动生成均可看到候选，但提示同时明确候选“不能自行触发长期记忆或主动消息”。
+3. `AppDatabase.activePublicWebContext` 目前只把候选从 unread 标成 reviewed；注释明确不会创建 Memory、Thought、消息或 proactive request。候选没有“准备分享/已分享/主动放弃”的完整生命周期，也没有分享来源追踪，无法可靠防止重复。
+4. `ProactiveEngine` 已有 shareThought/socialShare 类型、节奏、busy friction、24小时8条与2小时2条硬上限、Grounding、服务模板守卫和通知投递，但其 Intent 来自既有 Desire/Thought；网页候选本身不是动机来源。
+5. 最新 v0.38.5 报告中 `autonomous_action_runs=0`、`public_web_candidates=0`、候选 runtime `lastOutcome=never`。这次纯文字短测没有达到自主搜索阈值，不能拿来证明分享链。
+6. 判断：用户主动要求搜索时，结果会进入当前回答；后台自主搜索则只“可能在别的消息中顺带提起”，不保证形成分享欲。此前“兴趣候选池→自主意愿时再分享”的设计目标没有完整落地。
+
+### B. 本批闭环契约
+
+1. 唯一主干仍为 `公开候选 Event → 内容无关 Thought → 现有 Desire Intent → 主动联系 Gate → 人格生成 → Outcome`。不新增第二套人格、第二套欲望或绕过主动联系 Gate 的发送器。
+2. 每次成功发现后最多把一条合格 unread 候选置为“待判断分享”；新 Thought 只记录“发现一条与当前驱动相关的公开资料，想判断是否值得分享”及候选ID provenance，不复制标题、摘要、URL或网页指令，避免不可信网页污染内心/长期记忆。
+3. Prompt 只把与该 Thought 绑定的候选优先放入已有 `WEB_CANDIDATE_DATA` 隔离块；模型以当前 AI Self、性格底色、Desire、Thought和关系上下文决定自然分享，觉得没意思或不想说可输出 WAIT。不能用随机概率冒充审美，也不能每次搜索都必发。
+4. Gate 未通过、用户正聊天、设备状态变化、频率限制或写入权限转移时，候选保留为待判断，等待以后竞争；模型明确 WAIT 时记为 declined，不重复骚扰；真实发送成功才记为 shared，并将绑定 Thought 标记 acted。
+5. 候选生命周期复用现有 `lifecycle_state`，加入 `share_ready/shared/declined`，不新增数据库列、不升 schema。已过期/重复/被放弃候选不再触发分享；最多一条 active share-ready，避免堆积成任务队列。
+6. 成功联网仍只小幅 satisfy discovery；真正发送只通过现有 `desireEngine.satisfyIntent` satisfy 社交/沉思张力。搜索成功本身不等于主动分享成功。
+
+### C. 安全、频率与锁屏边界
+
+1. 当前自主公开网页预算继续为滚动24小时4次、每次最多3候选、TTL14天、总量240；本批不顺手提高频率。后续依据真机命中率再讨论，避免同时改变“能否分享”和“搜多少次”两个变量。
+2. 锁屏继续不阻止安静的公开网页发现；锁屏屏幕识别仍禁止。主动通知继续服从 Android 通知权限、隐私显示、用户忙碌、安静节奏与主动联系硬上限。
+3. 网页始终是不可信公开资料，不能覆盖 AI Self、规则、权限或账号；不接登录态、Cookie、付费墙、Pixiv或私密网页。
+4. 脱敏诊断只新增 lifecycle 计数、是否形成绑定 Thought、最近 outcome/粗粒度时间与是否存在待判断候选；不得导出候选标题、摘要、URL、搜索词、interest key、Thought正文、Prompt或消息正文。
+
+### D. 真机可测性
+
+1. 在“手机与后台”现有测试区增加一个明确的“测试网页分享闭环”入口：本地写入一条固定安全的诊断候选与内容无关 Thought，再调用现有 `ProactiveEngine.evaluate(forceForDebug:true)`。它不走真实网络预算，但会走真实 AI 人格生成、Grounding、消息写入与通知链。
+2. 测试入口必须说明会调用模型并可能在聊天中生成一条主动分享；Active Brain/API Key/用户正在聊天等真实阻断仍需如实显示，不能伪造成功。测试候选完成后必须进入 shared 或 declined，避免重复。
+3. 自动测试覆盖：候选只绑定不复制正文；同一候选只形成一个 Thought；share-ready 优先注入；Gate等待不消费；WAIT→declined；发送→shared；已完成候选不再选择；诊断隐私字段全false。
+4. CI 通过后只生成一次 v0.38.6+105 APK。真机依次测试：先点诊断入口验证闭环与导出报告，再开启 Active Brain/通知进行自然等待；不能用强制测试成功宣称自然调度频率已合适。
+
+### E. 本批不做
+
+1. 不实现相册、Pixiv、Harness/MCP、自修改 GitHub、DeepSeek 原生工作搜索、网页识图或任意账号登录。
+2. 不改公开搜索 Provider、Tavily/Agnes配置、主题白名单、搜索频率、主动消息总上限、Desire数值算法、Memory、Emotion/D3、TTS策略、桌宠、悬浮恢复或SQLite schema。
+3. 不把候选直接写入 Memory/AI Self，不因“更像真人”强迫每次发现都发消息；允许只收藏、以后再看、明确放弃与安静。
+
+
+
 ## 0AAAAAAAAAA. 2026-08-25 · v0.38.5 真机文字链验收、main 收口与扩展路线登记（COMPLETED / MAIN MERGED / NEXT PHASE PLANNED）
 
 > 用户已安装并短测 v0.38.5+104：本轮主要测试文字对话，主观体验正常、未发现新问题；其他权限与能力本次未重复开启，但对应运行路径没有在 v0.38.5 批次中改动，用户接受按既有真机基线收口。用户同时确认下一阶段优先采用独立 Harness 实验仓库，不把高风险自修改运行时直接塞入正式 AI Companion。本节是本轮第一次（修改前）总账：先登记验收证据、main 合并范围与后续探索边界，随后才允许改变 PR/main 状态。
