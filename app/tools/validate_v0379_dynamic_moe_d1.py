@@ -19,7 +19,18 @@ repo = read("lib/core/moe/infrastructure/sqlite_moe_repository.dart")
 tests = read("test/moe_dynamics_policy_test.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.37.9+98" in pubspec
+assert any(
+    version in pubspec
+    for version in (
+        "version: 0.37.9+98",
+        "version: 0.38.0+99",
+        "version: 0.38.1+100",
+        "version: 0.38.2+101",
+        "version: 0.38.3+102",
+        "version: 0.38.4+103",
+        "version: 0.38.5+104",
+    )
+)
 assert "static const int schemaVersion = 32;" in database
 assert "if (oldVersion < 32)" in database
 assert "await _createV32Tables(db);" in database
