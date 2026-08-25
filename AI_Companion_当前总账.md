@@ -71,6 +71,42 @@
 5. PR #28 当前真机通过但仍为 Draft 且未获明确合并授权。为遵守既有“不擅自合并”约束，第一批应从其最新 head 建立物理独立的后继分支/堆叠 Draft PR；不得把新功能继续塞进 PR #28，也不得直接写 main。
 6. 本条为修改前总账。完成后必须回填实际分支、版本、schema、提交、变更文件、自动测试、Actions、APK/SHA和真机待验项；在自动验证前不得写成已完成。
 
+## 0AAAAAAAAAAAAAA. 2026-08-26 · v0.38.8 模拟手机第一批底座（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING / MERGE PENDING）
+
+> 本节是第一批正式修改后的总账回填。它对应“📱入口 + 八宫格底座 + 六个本地人格页面 + 相册/浏览器真实空态 + 总开关 + 双塔罗”的同一实机验收批次。自动验证和 APK 已完成，但用户尚未安装验证，因此不得写成真机完成。
+
+### A. 分支、版本与隔离状态
+
+1. 在 PR #28 最新 head 的修改前总账提交 `fccd3de9c3f7150aa43c2094770107cec35b8756` 之后，新建物理独立后继分支 `agent/v0388-simulated-phone-foundation`，并创建 Draft PR [#29](https://github.com/catkiss62/ai-companion-build/pull/29)。PR #29 堆叠在 `agent/v0386-autonomous-web-sharing` 上；没有合并 PR #28、PR #29 或 main。
+2. App 版本为 `0.38.8+107`；SQLite 仍为 `schemaVersion=32`，无迁移。模拟手机数据使用既有 settings 表保存带 provenance 的有界 JSON；不会产生第二套 AI Self、Desire、Thought、Emotion 或长期记忆。
+3. CI 真正验证的运行源码 head 为 `47311ba230246c83a37425e25786eac72da3cd44`。本次总账回填是其后的纯文档提交；后续如再改运行源码，必须重新跑完整 CI，不能沿用本条证据。
+
+### B. 已实现行为
+
+1. 头像/名字快捷面板在“角色聊天舞台”上方新增 📱“查手机”入口；面板宽度改为屏幕约78%，并限制在260–320dp。模拟手机首页采用黑色/深蓝黑主色、蓝色副色、白灰文字与克制玻璃卡片，两排四列展示：相册、浏览器、随笔、心情、愿望单、日记、购物车、塔罗牌。
+2. 新增可持久化总开关，默认开启。关闭后仍可进入全部页面并查看已有历史，但除塔罗牌外所有生产者停止：不生成日记、随笔、心情、愿望或购物车，也不进行相册自主收集和浏览器更新。重新开启只恢复之后的正常调度，不补造关闭期间的活动。
+3. 塔罗牌是唯一开关例外：每个本地自然日固定生成“我 / 他”两张与两份解释，顶部选项卡切换；“我”是 AI Self，“他”固定是用户。同一天重复打开读取同一缓存，不重复调用模型；当前使用本地确定性娱乐文案，不产生事实预测，也不反写 Desire、Emotion 或 Memory。
+4. 日记每天为刚结束的前一自然日最多一篇，读取已收口的 DailyContinuity；心情读取现有 Emotion / Desire；随笔只从活跃 Thought 的 drive 生成安全人格化表达，不展示 Thought 原文。
+5. 愿望单只在“活跃 Thought + Desire 强度 + 重复/持续 + 具体对象”同时成立时提炼，条目只保存来源 Thought ID 与 drive key，不保存隐藏思考正文。来源 Thought 满足后移入“已实现”历史；自然衰退、消失或主动放弃后从进行中列表移除；已满足 Thought 不能被重新加入。目标维持约12条进行中、每日最多3次变化。
+6. 购物车每天最多一次，正常物品与搞怪物品混合，只显示小额 `token` 娱乐价格，不连接真实账单、API配额或支付。相册与浏览器本批只提供诚实空态和共享接口，不伪造图片、网页访问或外部事实。
+7. `RecoveryOrchestrator.runOnce` 在数据库 ready 后执行模拟手机到期刷新。塔罗刷新先于总开关和 Active Brain 检查；其他页面同时受 Active Brain 与总开关约束。打开手机、查看页面、切换开关或切换塔罗选项卡不会写入 Perception、Thought、Desire、Emotion、关系、Memory、日记或聊天 Prompt。
+
+### C. 代码与提交
+
+- `0ba30a838506b9198c105953b6d7187d8aacd646`：新增模拟手机策略、存储、八宫格页面、单元测试和 v0.38.8 静态验证器。
+- `a76e1c3276c5fc7069dd64b15187d1b2613f0ee6`：把入口、后台刷新、版本与 CI 交付接入现有 App。
+- `b3eec3b506df290580b0f92f8345b2e7dd3b4f52`、`c49c4c64a6cd3c3d20b51cab95d91dec7d2e4edb`、`47311ba230246c83a37425e25786eac72da3cd44`：只扩展历史验证器对 v0.38.8 的兼容范围，保留旧版本运行行为断言。
+- 主要新增：`app/lib/core/phone/simulated_phone_policy.dart`、`simulated_phone_repository.dart`、`app/lib/features/phone/simulated_phone_page.dart`、`app/test/simulated_phone_policy_v0388_test.dart`、`app/tools/validate_v0388_simulated_phone_foundation.py`。
+- 主要修改：`chat_page.dart`、`recovery_orchestrator.dart`、`pubspec.yaml`、`.github/workflows/build-apk.yml` 及少量冻结历史验证器版本白名单。
+
+### D. 自动验证、APK 与真机待验
+
+1. Actions run [32899630262](https://github.com/catkiss62/ai-companion-build/actions/runs/32899630262) 全部成功：clean baseline、源码/历史回归验证、Kotlin 桌宠状态与物理测试、Flutter analyze、Flutter tests、release APK、稳定签名、原生库/417桌宠文件/19表情素材完整性、checksum、artifact 与私有草稿 Release 上传均通过。
+2. Workflow artifact：`AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-APK`（artifact ID `9583065439`，14天保留；artifact ZIP digest `5e90cc3955fd9d788d0394213a10c30ab599512dbddef973046d597c09d4467b`）。
+3. 私有草稿 Release：[v0.38.8 simulated phone foundation](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3b3def8f3820ab22ece3)。APK `AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-APK.apk`；APK SHA-256 `84867cd5866a94662b082bf9acaf3337ebdd6e3c439db31e1b15c44c281662ae`。
+4. 真机必须验证：头像面板宽度与📱入口位置；八宫格/各页是否可滚动且无溢出；“我/他”切换与同日固定；总开关关闭后历史仍可看且非塔罗不再变化；重新开启无突发补生成；聊天、主动联系、桌宠和已验收网页分享没有回归。
+5. 本批实机通过后，第二批再接真实浏览 Outcome、相册生命周期、用户发图/全网图片收集、审美赞踩/中立/留言/删除、缓存清理与 `fisharchive.pages.dev`；Pixiv仍在第三批适配器，Harness仍在主项目 Clean Freeze 后的独立仓库。
+
 ## 0AAAAAAAAAAAA. 2026-08-26 · v0.38.7 网页分享真机测试抢占修复与参考资料措辞清理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED / MERGE PENDING）
 
 > 用户已安装 v0.38.6+105 并多次点击“测试网页分享闭环”，但聊天中始终没有主动分享。脱敏报告 `ai_companion_diagnostics_2026-08-25T17-13-10-856491Z.txt` 证明这不是模型连续选择 WAIT，而是测试入口被既有 `share_ready` 候选挡在 seed/stage 之间。用户确认开始修复，并要求以后把“旧 index参考资料库”统一称为“参考资料”：旧 index 项目本身不会导入，只会保存用户实际导入的角色/设定资料。本节是本批第一次（修改前）总账；本提交成功后才允许修改运行源码、提示词、版本与工作流。目标 App 为 `0.38.7+106`，SQLite 继续 `schemaVersion=32`、无迁移；继续在未验收的 Draft PR #28 分支上向前修复，不合并损坏候选到 main。

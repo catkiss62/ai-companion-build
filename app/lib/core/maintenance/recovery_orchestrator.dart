@@ -6,6 +6,7 @@ import '../database/app_database.dart';
 import '../desire/proactive_engine.dart';
 import '../models/desire_state.dart';
 import '../presence/background_presence_policy.dart';
+import '../phone/simulated_phone_repository.dart';
 
 class RecoveryCycleResult {
   const RecoveryCycleResult({
@@ -49,6 +50,7 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
+    await SimulatedPhoneRepository(db).refreshIfDue();
     if (!await db.brainWorkAllowed()) {
       return const RecoveryCycleResult(
         state: 'inactive_brain',
