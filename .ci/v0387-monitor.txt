@@ -1,0 +1,108 @@
+status=failure
+build_result=cancelled
+run_id=32878687963
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32878687963
+head_sha=309367ccf3cf0513bea5d6adc9cbfb55ff38d593
+
+=== failed or cancelled job logs ===
+
+--- job=detect-change-scope conclusion=cancelled id=97902734414 ---
+﻿2026-08-25T17:34:41.1953341Z Current runner version: '2.336.0'
+2026-08-25T17:34:41.1992148Z ##[group]Runner Image Provisioner
+2026-08-25T17:34:41.1993813Z Hosted Compute Agent
+2026-08-25T17:34:41.1995018Z Version: 20260729.566
+2026-08-25T17:34:41.1996243Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-25T17:34:41.1997838Z Build Date: 2026-07-29T19:17:02Z
+2026-08-25T17:34:41.1999125Z Worker ID: {2051ada8-7d03-4c24-b079-a896206b6682}
+2026-08-25T17:34:41.2000376Z Azure Region: westus2
+2026-08-25T17:34:41.2001519Z ##[endgroup]
+2026-08-25T17:34:41.2004807Z ##[group]Operating System
+2026-08-25T17:34:41.2006059Z Ubuntu
+2026-08-25T17:34:41.2007008Z 24.04.4
+2026-08-25T17:34:41.2007865Z LTS
+2026-08-25T17:34:41.2008838Z ##[endgroup]
+2026-08-25T17:34:41.2009884Z ##[group]Runner Image
+2026-08-25T17:34:41.2011189Z Image: ubuntu-24.04
+2026-08-25T17:34:41.2012241Z Version: 20260816.277.1
+2026-08-25T17:34:41.2014862Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260816.277/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-25T17:34:41.2017657Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260816.277
+2026-08-25T17:34:41.2019570Z ##[endgroup]
+2026-08-25T17:34:41.2021783Z ##[group]GITHUB_TOKEN Permissions
+2026-08-25T17:34:41.2025324Z Actions: read
+2026-08-25T17:34:41.2026310Z Contents: write
+2026-08-25T17:34:41.2027277Z Metadata: read
+2026-08-25T17:34:41.2028298Z ##[endgroup]
+2026-08-25T17:34:41.2031457Z Secret source: Actions
+2026-08-25T17:34:41.2034071Z Prepare workflow directory
+2026-08-25T17:34:41.2626776Z Prepare all required actions
+2026-08-25T17:34:41.2788283Z Complete job name: detect-change-scope
+2026-08-25T17:34:41.5053928Z ##[group]Run set -euo pipefail
+2026-08-25T17:34:41.5055407Z [36;1mset -euo pipefail[0m
+2026-08-25T17:34:41.5056594Z [36;1m[0m
+2026-08-25T17:34:41.5057552Z [36;1mrequest_full_build() {[0m
+2026-08-25T17:34:41.5058951Z [36;1m  echo "run-full-build=true" >> "${GITHUB_OUTPUT}"[0m
+2026-08-25T17:34:41.5060653Z [36;1m  echo "reason=$1" >> "${GITHUB_OUTPUT}"[0m
+2026-08-25T17:34:41.5062291Z [36;1m  echo "Full APK validation required: $1" >> "${GITHUB_STEP_SUMMARY}"[0m
+2026-08-25T17:34:41.5064081Z [36;1m}[0m
+2026-08-25T17:34:41.5065044Z [36;1m[0m
+2026-08-25T17:34:41.5066134Z [36;1mif test "${EVENT_NAME}" = 'workflow_dispatch'; then[0m
+2026-08-25T17:34:41.5067624Z [36;1m  request_full_build 'manual_dispatch'[0m
+2026-08-25T17:34:41.5068770Z [36;1m  exit 0[0m
+2026-08-25T17:34:41.5069635Z [36;1mfi[0m
+2026-08-25T17:34:41.5071320Z [36;1mif test "${EVENT_NAME}" != 'pull_request' || test "${EVENT_ACTION}" != 'synchronize'; then[0m
+2026-08-25T17:34:41.5073320Z [36;1m  request_full_build 'non_synchronize_event'[0m
+2026-08-25T17:34:41.5095329Z [36;1m  exit 0[0m
+2026-08-25T17:34:41.5096458Z [36;1mfi[0m
+2026-08-25T17:34:41.5097895Z [36;1mif ! [[ "${BEFORE_SHA}" =~ ^[0-9a-f]{40}$ ]] || ! [[ "${AFTER_SHA}" =~ ^[0-9a-f]{40}$ ]]; then[0m
+2026-08-25T17:34:41.5099640Z [36;1m  request_full_build 'missing_compare_range'[0m
+2026-08-25T17:34:41.5101081Z [36;1m  exit 0[0m
+2026-08-25T17:34:41.5102032Z [36;1mfi[0m
+2026-08-25T17:34:41.5102890Z [36;1m[0m
+2026-08-25T17:34:41.5104390Z [36;1mchanged_files="$(mktemp)"[0m
+2026-08-25T17:34:41.5105687Z [36;1mif ! gh api --paginate \[0m
+2026-08-25T17:34:41.5107546Z [36;1m  "/repos/${GITHUB_REPOSITORY}/compare/${BEFORE_SHA}...${AFTER_SHA}" \[0m
+2026-08-25T17:34:41.5109368Z [36;1m  --jq '.files[].filename' > "${changed_files}"; then[0m
+2026-08-25T17:34:41.5110851Z [36;1m  request_full_build 'compare_api_failed'[0m
+2026-08-25T17:34:41.5112271Z [36;1m  exit 0[0m
+2026-08-25T17:34:41.5113200Z [36;1mfi[0m
+2026-08-25T17:34:41.5135554Z [36;1mif ! test -s "${changed_files}"; then[0m
+2026-08-25T17:34:41.5136947Z [36;1m  request_full_build 'empty_compare_result'[0m
+2026-08-25T17:34:41.5138341Z [36;1m  exit 0[0m
+2026-08-25T17:34:41.5139391Z [36;1mfi[0m
+2026-08-25T17:34:41.5140506Z [36;1m[0m
+2026-08-25T17:34:41.5141633Z [36;1mwhile IFS= read -r changed_path; do[0m
+2026-08-25T17:34:41.5142885Z [36;1m  case "${changed_path}" in[0m
+2026-08-25T17:34:41.5145278Z [36;1m    'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)[0m
+2026-08-25T17:34:41.5146863Z [36;1m      ;;[0m
+2026-08-25T17:34:41.5147909Z [36;1m    *)[0m
+2026-08-25T17:34:41.5149287Z [36;1m      request_full_build "project_change:${changed_path}"[0m
+2026-08-25T17:34:41.5150662Z [36;1m      exit 0[0m
+2026-08-25T17:34:41.5151698Z [36;1m      ;;[0m
+2026-08-25T17:34:41.5152647Z [36;1m  esac[0m
+2026-08-25T17:34:41.5174242Z [36;1mdone < "${changed_files}"[0m
+2026-08-25T17:34:41.5175432Z [36;1m[0m
+2026-08-25T17:34:41.5176529Z [36;1mecho 'run-full-build=false' >> "${GITHUB_OUTPUT}"[0m
+2026-08-25T17:34:41.5178233Z [36;1mecho 'reason=documentation_only' >> "${GITHUB_OUTPUT}"[0m
+2026-08-25T17:34:41.5179747Z [36;1m{[0m
+2026-08-25T17:34:41.5181074Z [36;1m  echo 'Documentation-only synchronization detected.'[0m
+2026-08-25T17:34:41.5183354Z [36;1m  echo 'The full APK build is intentionally skipped; no project source, asset, configuration, or workflow file changed.'[0m
+2026-08-25T17:34:41.5185748Z [36;1m} >> "${GITHUB_STEP_SUMMARY}"[0m
+2026-08-25T17:34:41.5958067Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-25T17:34:41.5959803Z env:
+2026-08-25T17:34:41.5968169Z   GH_TOKEN: ***
+2026-08-25T17:34:41.5969001Z   EVENT_NAME: pull_request
+2026-08-25T17:34:41.5969849Z   EVENT_ACTION: synchronize
+2026-08-25T17:34:41.5970825Z   BEFORE_SHA: fa50f9d0eda8797b1adfa1c6ddb38955e9e8b076
+2026-08-25T17:34:41.5972043Z   AFTER_SHA: 7b1a6395ed0688c85691ed21c2ee0dbb9e4d802b
+2026-08-25T17:34:41.5973088Z ##[endgroup]
+2026-08-25T17:34:42.2561713Z Evaluate and set job outputs
+2026-08-25T17:34:42.2572562Z Set output 'run-full-build'
+2026-08-25T17:34:42.2576346Z Set output 'reason'
+2026-08-25T17:34:42.2578672Z Cleaning up orphan processes
+
+--- job=build-apk conclusion=cancelled id=97902779453 ---
+Unable to download this completed job log.
+﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
+RequestId:33b6c759-501e-007b-6db8-34a051000000
+Time:2026-08-25T17:34:52.0732071Z</Message></Error>gh: HTTP 404
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f606d4e619b430c04492
