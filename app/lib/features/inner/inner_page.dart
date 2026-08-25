@@ -309,29 +309,24 @@ class _InnerPageState extends State<InnerPage> {
     return '尚未安排延迟测试';
   }
 
-  static const double _metricLabelWidth = 72;
-  static const double _metricValueWidth = 92;
-  static const double _metricGap = 8;
-  static const EdgeInsets _metricCardPadding = EdgeInsets.all(12);
-
-  Widget _metricProgressRow({
+  Widget _desireProgressRow({
     required String label,
     required double progress,
     required String valueText,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          SizedBox(width: _metricLabelWidth, child: Text(label)),
+          SizedBox(width: 64, child: Text(label)),
           Expanded(
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0).toDouble(),
             ),
           ),
-          const SizedBox(width: _metricGap),
+          const SizedBox(width: 8),
           SizedBox(
-            width: _metricValueWidth,
+            width: 92,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
@@ -348,30 +343,36 @@ class _InnerPageState extends State<InnerPage> {
     );
   }
 
-  Widget _desireStateCard(BuildContext context, DesireSnapshot state) {
-    return Card(
-      child: Padding(
-        padding: _metricCardPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '欲望系统数值',
-              style: Theme.of(context).textTheme.titleSmall,
+  Widget _moeProgressRow({
+    required String label,
+    required double progress,
+    required String valueText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 72, child: Text(label)),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0).toDouble(),
             ),
-            const SizedBox(height: 10),
-            ...DriveKey.values.map((drive) {
-              final value = state.drives[drive] ?? 0;
-              final baseline = state.baselines[drive] ?? 0;
-              return _metricProgressRow(
-                label: drive.zhLabel,
-                progress: value,
-                valueText:
-                    '${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}',
-              );
-            }),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 72,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                valueText,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -396,7 +397,7 @@ class _InnerPageState extends State<InnerPage> {
         : '已关闭';
     return Card(
       child: Padding(
-        padding: _metricCardPadding,
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -428,7 +429,7 @@ class _InnerPageState extends State<InnerPage> {
             ...MoeAxis.values.map((axis) {
               final value = state.current[axis] ?? axis.defaultBaseline;
               final baseline = state.baselines[axis] ?? axis.defaultBaseline;
-              return _metricProgressRow(
+              return _moeProgressRow(
                 label: axis.label,
                 progress: value / 100,
                 valueText:
@@ -457,7 +458,16 @@ class _InnerPageState extends State<InnerPage> {
         const SizedBox(height: 4),
         const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
         const SizedBox(height: 16),
-        _desireStateCard(context, s),
+        ...DriveKey.values.map((drive) {
+          final value = s.drives[drive] ?? 0;
+          final baseline = s.baselines[drive] ?? 0;
+          return _desireProgressRow(
+            label: drive.zhLabel,
+            progress: value,
+            valueText:
+                '${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}',
+          );
+        }),
         const SizedBox(height: 10),
         Text('当前意图：${s.lastIntent ?? '暂无'} · 驱动=${s.lastIntentDrive ?? '无'} · 分数=${s.lastIntentScore?.toStringAsFixed(2) ?? '无'}'),
         Text('上次满足：${s.lastSatisfiedAction ?? '暂无'} · ${s.lastSatisfiedAt?.toLocal().toString() ?? '尚未发生'}'),

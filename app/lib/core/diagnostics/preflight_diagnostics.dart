@@ -10,6 +10,9 @@ import '../database/app_database.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../grounding/grounding_engine.dart';
+import '../integration/moe_expression_prompt_adapter.dart';
+import '../moe/application/moe_dynamics_policy.dart';
+import '../moe/infrastructure/sqlite_moe_repository.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import '../platform/android_bridge.dart';
@@ -109,6 +112,10 @@ class PreflightDiagnosticsService {
         'historicalExitTraceIncluded': false,
         'reasoningLanguageTextIncluded': false,
         'reasoningLanguageMatchedWordsIncluded': false,
+        'moePromptBodiesIncluded': false,
+        'moeStyleDirectivesIncluded': false,
+        'moeAxisOrRecipeNamesIncluded': false,
+        'moeValuesOrThresholdsIncluded': false,
       },
     };
 
@@ -138,6 +145,13 @@ class PreflightDiagnosticsService {
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
       final personalityTrials = await db.personalityTrialDiagnostics();
+      final moeRepository = SqliteMoeRepository(() => db.database);
+      final moeState = await moeRepository.loadState();
+      final moePlan = const MoeDynamicsPolicy().expressionPlan(moeState);
+      final moeExpressionEnabled =
+          (await db.getSetting('moe_expression_enabled')) != '0';
+      final moePromptTelemetry =
+          await MoeExpressionPromptTelemetry.snapshot(db);
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -214,6 +228,28 @@ class PreflightDiagnosticsService {
         'imageVision': visionDiagnostics,
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
+        'dynamicMoe': {
+          'd2': {
+            'enabled': moeState.enabled,
+            'policyVersion': moeState.policyVersion,
+            'stateUpdatedAt': moeState.updatedAt.millisecondsSinceEpoch,
+          },
+          'd3': {
+            'enabled': moeExpressionEnabled,
+            'mode': moeState.expressionMode.name,
+            'planNeutral': moePlan.neutral,
+            'primaryPresent': moePlan.primary != null,
+            'secondaryPresent': moePlan.secondary != null,
+            'promptConsumption': moePromptTelemetry,
+          },
+          'privacy': {
+            'promptBodiesIncluded': false,
+            'styleDirectivesIncluded': false,
+            'axisOrRecipeNamesIncluded': false,
+            'valuesOrThresholdsIncluded': false,
+            'eventProvenanceIncluded': false,
+          },
+        },
         'nsfwRouting': {
           'active': (await db.getSetting('nsfw_active')) == '1',
           'referenceActive':

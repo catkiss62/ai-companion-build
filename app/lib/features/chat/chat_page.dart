@@ -57,7 +57,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   int _typewriterMs = 48;
   String _backgroundMode = 'auto';
   ChatEmotionVisual _currentEmotion = ChatVisualResolver.normal;
-  String _currentEmotionLabel = '平静';
+  String _currentEmotionLabel = '正常';
   bool _followLatest = true;
   bool _programmaticScroll = false;
   bool _lastGenerationActive = false;
@@ -963,7 +963,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           const CircleAvatar(
                             radius: 28,
                             backgroundImage: AssetImage(
-                              'assets/lingchat/deepseek/avatar.webp',
+                              'assets/appearance/chat_avatar.webp',
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1310,7 +1310,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     const CircleAvatar(
                       radius: 19,
                       backgroundImage: AssetImage(
-                        'assets/lingchat/deepseek/avatar.webp',
+                        'assets/appearance/chat_avatar.webp',
                       ),
                     ),
                     const SizedBox(width: 9),

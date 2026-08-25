@@ -14,9 +14,52 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
+## 0AAAAAAAAAA. 2026-08-25 · v0.38.5 真机文字链验收、main 收口与扩展路线登记（IN PROGRESS / PRE-TASK LEDGER）
+
+> 用户已安装并短测 v0.38.5+104：本轮主要测试文字对话，主观体验正常、未发现新问题；其他权限与能力本次未重复开启，但对应运行路径没有在 v0.38.5 批次中改动，用户接受按既有真机基线收口。用户同时确认下一阶段优先采用独立 Harness 实验仓库，不把高风险自修改运行时直接塞入正式 AI Companion。本节是本轮第一次（修改前）总账：先登记验收证据、main 合并范围与后续探索边界，随后才允许改变 PR/main 状态。
+
+### A. v0.38.5 真机与脱敏诊断证据
+
+1. 用户对 v0.38.5+104 做了数轮纯文字对话，目测体验正常，没有发现立绘、头像、数值条或文字生成方面需要继续阻断发布的问题；这构成本候选的用户验收结论。
+2. 新报告 `ai_companion_diagnostics_2026-08-25T12-43-55-003268Z.txt` 对应 v0.38.5+104 / schema32。最近5轮均完成，post-turn done=5，无 pending/active/failed generation，也没有阻断项。
+3. D3 `promptConsumption` 为 applied=2、neutral=3、disabled=0、error=0，最近一次明显档位为 applied；证明正式生成路径真实读取并消费了表达计划，但计数只证明链路，不证明每次表达质量。
+4. 诊断隐私 flags 全为 false；Emotion 缺标签时的 normal/显著 cue 确定性回退正常。最近5轮模型 emotion tag 有效1、缺失4，属于已知模型输出波动而非运行失败；reasoning 为中文优先3、mixed2、mainlyEnglish0，Memory 检索保持选择性。
+5. 本报告没有重新验收图片识别、TTS、后台大脑、悬浮/Accessibility、主动联网与身体感受。由于这些路径未被 v0.38.5 改动，且用户此前已经测试，本次不强制重复全权限回归；不能把“未改坏的接受性判断”误写成这份报告已覆盖全部能力。
+
+### B. 本轮正式修改范围
+
+1. 将 PR #27 从 Draft 标为可审阅，并以已通过的最终源码 head 与用户真机接受为前提收口到 `main`；合并前必须验证 head 未漂移、PR 可合并，合并后必须重新读取 main 的版本和总账。
+2. 采用 squash 合并，避免把本批为 CI 向前修复产生的中间失败提交永久铺满 main；PR、Actions、各检查点提交和旧分支仍提供完整审计历史。
+3. 本轮不修改 App 运行源码、资产、SQLite schema、Prompt 或能力，不重新构建 APK。可安装候选仍是 run #454 产出的 v0.38.5+104，SHA-256 `836b697ea4167e004a44e62144dc440dcac794001032eb028c863d40374c0ded`。
+4. main 合并完成后进行第二次（修改后）总账更新，回填真实 merge SHA、main 版本、Actions/PR状态与下一阶段任务；不得先写“已完成”再执行。
+
+### C. 相册与 Pixiv 路线（PLANNED / NOT IMPLEMENTED）
+
+1. 相册不做“模型一句话就永久保存”的无界文件夹。图片消息和网页候选先进入短期缓存，经视觉摘要、现有 Desire/Thought、风险与重复 Gate 决定提议保存；成功保存才进入长期相册，拒绝/超时项可由缓存清理回收。
+2. 首批相册建议区分“共同回忆”和“她自己的照片”；NSFW 必须成为独立分区并有本地开关、来源与删除能力。自主性仍复用既有 `Event → Desire/Thought → Intent → Gate → Outcome`，不新增第二个人格或随机收藏器。
+3. Pixiv 不依赖不稳定的非官方 API。候选路线为用户在可见 WebView 中自行登录，AI 只在低频、明确授权的会话里搜索固定词 `deepseek`，优先缓存中等尺寸预览和来源链接，不默认下载十几 MB 原图。
+4. “审美”可通过多模态视觉模型输出结构化题材/构图/质量/角色相似度，再结合她的偏好和欲望形成可解释选择；这只能形成可测试的偏好代理，不能宣称具有人类式客观审美。未通过固定样本集验证前，Pixiv 自动保存保持关闭。
+
+### D. 独立 Harness 实验仓库（NEXT PHASE / NOT CREATED YET）
+
+1. 下一阶段允许新建一个与正式 App 隔离的实验仓库，做最小 AI 陪伴 APK：基础稳定人设、聊天/工作两个窗口，以及二者共享的身份与长期记忆摘要；不复制正式 App 的桌宠、感官、欲望全套或复杂 UI。
+2. 工作窗只针对用户自己的 AI Companion 仓库，最小能力为 GitHub 读取/搜索、建立分支、修改代码、运行 CI/构建 APK、把结果链接送回聊天窗；DeepSeek 原生搜索作为工作模式的可选快速研究源，现有免费搜索作为回退。
+3. 参考 [Operit](https://github.com/AAswordman/Operit) 的成熟 Android Agent/工具组织与 OperitForge messenger v0.6.0 的跨窗口传话思路，但必须先固定到具体 commit/tag、核对许可证和可裁剪模块；不从零重造完整手机 Agent，也不直接复制未知许可代码。
+4. Harness 第一阶段验证的是“可恢复的自我优化闭环”，不是允许她直接修改正式 main。强制流程为：固定基线 → 短分支 → 小变更 → 自动测试/Actions → 生成 APK → 用户验收 → PR；失败则丢弃分支或回退 PR，不自动安装 APK。
+5. 在任何 Agent 获得写权限前，必须给 main 启用 branch protection/ruleset，至少要求 PR、Actions 成功、禁止 force push/直接写 main。当前核对结果仍为 main `protected=false`、rulesets 为空，这是下一阶段的前置治理任务。
+6. Git clone/fetch 本身不消耗大模型 token；只有把文件内容送入模型上下文、生成补丁、搜索/诊断和重试才消耗模型配额。实验项目须用 repo map、目标文件检索、diff 和增量测试，避免每轮把整仓库塞入上下文。
+
+### E. 本轮边界与验收
+
+1. 本轮只做 v0.38.5 PR/main 收口与总账更新，不创建 Harness 仓库、不接 Pixiv、不实现相册、不新增 APK。
+2. 合并成功的最低证据：PR #27 为 merged；main 包含 `version: 0.38.5+104`；当前总账仍是唯一接班入口；合并后的 docs-only 总账提交 Actions 不报错。
+3. 下一位任务先做独立 Harness 实验仓库的“仓库/许可证/威胁模型/最小闭环规格”审计，再决定创建骨架；正式 App 后续可独立实施相册 MVP，但不得与 Harness 运行时首版混在一个高风险批次。
 
 
-## 0AAAAAAAAA. 2026-08-25 · v0.38.5+104 优化立绘、聊天头像、数值条回调与 D2/D3 诊断（IN PROGRESS / PRE-TASK LEDGER）
+
+
+
+## 0AAAAAAAAA. 2026-08-25 · v0.38.5+104 优化立绘、聊天头像、数值条回调与 D2/D3 诊断（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已对 v0.38.4+103 做短聊与“她的内心”真机检查：短聊体验正常，两组数值条确已对齐，但用户明确认为原先“欲望与萌属性各自按文字长度形成不同进度条长度”的视觉更自然，要求恢复差异，只把欲望进度条略微缩短以防右侧数值换行。用户同时授权开始上一轮拟定的优化立绘、聊天头像、main 收口和可观察性批次。本节是本批第一次（修改前）总账；本提交成功后才允许修改 main、运行源码和资产。目标 App 为 `0.38.5+104`，SQLite 继续 `schemaVersion=32`、无迁移。
 
@@ -63,6 +106,48 @@
 3. 跑全部历史/current Python validators、Kotlin桌宠回归、Flutter format/analyze/tests、Release APK、固定签名、原生库、417桌宠、LingChat固定载荷、双立绘与镜子图实包校验。
 4. 不为 main 收口或中间素材步骤单独出 APK。全部范围通过后只交付一次 v0.38.5+104 APK；CI通过仍需真机核对20情绪中的代表样本、透明边缘/问号、聊天圆形头像、两组进度条长度观感、欲望数值单行及D3诊断状态。
 5. 本批不加入思考链翻译、自主能力扩建、Memory压力测试、桌宠历史细节或冻结悬浮恢复，避免把明确的视觉/诊断批次扩大为高风险主干修改。
+
+
+### G. 实际实施结果
+
+1. 仓库治理已先完成：更新并收口旧 Draft PR #26，squash merge 后 `main` 为 `5612cdededf71e2be9cebe9b5d85b24f8109c562`，真实包含 v0.38.4+103、当前总账、20张大肥鱼立绘与镜子图；随后从该 main 建立短分支 `agent/v0385-portrait-avatar-diagnostics`。因此“每次对接都发现 main 版本不同”的结构性问题已经解决，不再让旧 D1 分支无限承载新版本。
+2. 用 `大肥鱼透明图优化.zip` 的20张1152×2048透明原图重新生成 alpha WebP（quality 92）并逐一替换 `assets/portraits/large_whale/`；20张均保留alpha和画布，疑惑问号存在，慌张/紧张按源文件保持字节一致。未改 `large_whale_mirror.jpg`，也未改固定 LingChat 19表现资源。
+3. 新头像源 `1000141797.jpg` 转为 `assets/appearance/chat_avatar.webp`（1256×1256，SHA-256 `f5a5eac2c00fa8c15005adea269ed514d778222b8a005ed38693b51b535eda46`），聊天页左上角“DeepSeek”左侧和聊天外观面板共两处改用新头像；旧 `assets/lingchat/deepseek/avatar.webp` 继续保留并做哈希保护。
+4. 数值条按用户最终决定恢复为两套独立行：欲望为64px标签/92px数值/上下5px，萌属性为72px标签/72px数值/上下4px；两者各自使用 `LinearProgressIndicator`，不再共享等长组件。欲望右侧保留8px间距、`FittedBox(scaleDown)`、单行、禁止软换行和右对齐，目标是让 `0.30 / 0.22` 不换行，同时只略微缩短中间进度条。
+5. 聊天首帧可见情绪标签从“平静”改为“正常”，与已初始化的 normal 状态一致；真实 assistant emotion 仍会覆盖该初值。
+6. D3新增单一脱敏 telemetry setting：只保存 applied/neutral/disabled/error计数、最近时间/档位和主辅建议是否存在。Preflight 新增 `database.dynamicMoe` 的 D2/D3/隐私块；不保存 Prompt、正文、reasoning、指令、九轴/配方名、数值/阈值、消息ID或事件来源。损坏JSON回退为空快照，记录失败不得阻断聊天。
+7. App 已升至 `0.38.5+104`；SQLite 保持 `schemaVersion=32`、无迁移。冻结的系统文件选择器/跨 App 悬浮恢复链没有改动。
+
+### H. 自动校验、CI发现与向前修复
+
+1. 新增 `validate_v0385_portrait_avatar_metric_diagnostics.py`，锁定20张立绘精确哈希、1152×2048与alpha、慌张/紧张同图、新头像精确哈希/尺寸、旧头像和镜子图不变、聊天两处新头像引用、normal初值、两套独立数值几何以及D3诊断脱敏字段。
+2. 首次 run #447（32842761920）在最前版本门禁发现旧 `0.38.4+103` grep，未下载依赖、未跑测试、未产APK；改为精确检查 `0.38.5+104`。
+3. run #448（32842869037）发现较早历史 validator 的版本白名单封顶0.38.4。随后扫描工作流直接调用的82个脚本，并再扫描 `app/tools` 全部122个Python脚本/间接wrapper；共推进9个直接白名单与1个 `validate_current_schema24_b.py` 间接白名单。
+4. run #451（32843331155）证明主回归已全部跑至 v0.38.4，发现回调布局后“欲望系统数值”Card标题断言过时；只删除该过时断言。run #452（32843531163）中 v0.38.5 专属校验已通过，随后发现上述间接wrapper白名单并修复。
+5. run #453（32844001118）通过全部源回归、依赖解析并进入Android编译，发现 Preflight 对扩展getter `.key` 缺少直接导入；改用Dart枚举内建 `.name`，输出仍为 natural/obvious/manga且减少耦合。
+6. 最终 run #454（32844618701）全部通过：clean baseline、417桌宠恢复、固定LingChat恢复、全部历史/current Python validators、Kotlin桌宠测试、Flutter analyze、Flutter全量 tests、Release APK、固定签名、原生库、417桌宠、62个LingChat表现文件、20张新立绘、新聊天头像、旧LingChat头像与镜子图实包校验、Artifact及Draft Release上传均成功。
+7. 前述失败/取消运行都未进入 release APK 阶段；最终只产出一个可安装 v0.38.5+104 候选。
+
+### I. 提交、Actions、APK与签名证据
+
+- 修改前总账：`52c157baa0658904105eedf4dae34b98a3f10368`。
+- PR #26 收口后的 main：`5612cdededf71e2be9cebe9b5d85b24f8109c562`。
+- 资源提交：`cae8dc324bc63a93759b2e1bcfaf8b5435eeecff`；数值条回调：`ef7d7eda0818ab3711d18c69c61ca982e5ad638a`；头像/normal初值：`3c5a6050be7d342c4fdefec8a5a233e6a3729c45`；版本：`264bd89499be327c831ee87aa9fa91e5d2e5687f`。
+- D3 telemetry/测试/Preflight及容错检查点：`d1fb4196b937c7e56172a25321b7ce30801cae4a`、`7e9e837ba4a80f45ffd9edd0e4ec69b38130b39e`、`13c33c76990149837b9b29324bc8ca62cb98b158`、`e8f6d77e1ba718595420d8b19020b3365712fce7`、`591deb278d5a59b9f1081e684685fff8a6d5db1e`。
+- 最终可构建源码 head：`90e79a698d98c0bfc27d5122cc4d4c3ce546488d`；活动 Draft PR：[\#27](https://github.com/catkiss62/ai-companion-build/pull/27)，未合并，等待真机验收。
+- 最终成功 Actions：[run 32844618701 / #454](https://github.com/catkiss62/ai-companion-build/actions/runs/32844618701)。
+- Artifact：[9562288274](https://github.com/catkiss62/ai-companion-build/actions/runs/32844618701/artifacts/9562288274)，名称 `AI-Companion-v0.38.5-104-Portraits-Avatar-Moe-Diagnostics-APK`，大小302,386,582 bytes，GitHub artifact digest `sha256:941edb97a4d57cd99dd8046d2dac17979e506ba2cf1741586cf71bc396e54760`，到期时间2026-09-08。
+- Draft release：[v0.38.5 portrait/avatar/diagnostics test candidate](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1b049cb9020b83a9ea07)。
+- APK：`AI-Companion-v0.38.5-104-Portraits-Avatar-Moe-Diagnostics-APK.apk`，308,585,956 bytes，SHA-256 `836b697ea4167e004a44e62144dc440dcac794001032eb028c863d40374c0ded`。
+- ChatGPT Library持久交付：`/人机恋/AI-Companion-v0.38.5-104-Portraits-Avatar-Moe-Diagnostics-APK.apk`，`library_file_id=libfile_ce1c9c88c268819195ecc7b544811a4d`。
+- 固定测试签名SHA-256仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。
+
+### J. 真机待验与下一位任务
+
+1. 本批代码、CI、APK和资源实包校验已通过，但真机视觉与真实D3消费仍待用户确认。覆盖安装后优先检查：普通/疑惑/紧张等代表立绘是否来自新优化包、透明边缘和问号；聊天左上角与消息区头像是否为新图且圆形裁切自然。
+2. 检查“她的内心”：欲望与萌属性恢复为各自长度/间距；欲望 `0.30 / 0.22` 等值不换行；D2标题、D3状态与“调整 D3”入口仍存在；较大系统字体下无明显溢出。
+3. 随便短聊数轮后导出新脱敏诊断，下一位先看 `database.dynamicMoe.d3.promptConsumption`：applied/neutral/disabled/error计数与最近档位应随真实生成变化，隐私flags必须全false；结合实际语气判断D3是否生效，但不能用计数宣称表达质量。
+4. 真机通过后再把 Draft PR #27 收口到 main；如发现视觉问题，只在同一短分支做窄修。下一批功能建议继续按总账未完成优先级选择，不把 Memory压力测试、思考链翻译、自主能力扩建或冻结的选择器/悬浮恢复混入本次视觉验收。
 
 ## 0AAAAAAAA. 2026-08-25 · v0.38.4+103 内心页数值条统一与 D2/D3 可发现性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
