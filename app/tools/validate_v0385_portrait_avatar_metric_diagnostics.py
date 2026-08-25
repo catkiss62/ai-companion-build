@@ -36,7 +36,10 @@ preflight = read("lib/core/diagnostics/preflight_diagnostics.dart")
 tests = read("test/moe_expression_prompt_adapter_test.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.5+104" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.38.5+104", "version: 0.38.6+105")
+)
 assert "static const int schemaVersion = 32;" in database
 assert "schemaVersion = 33" not in database
 assert "assets/appearance/chat_avatar.webp" in pubspec
