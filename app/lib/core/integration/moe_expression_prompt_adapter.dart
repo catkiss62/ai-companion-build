@@ -45,6 +45,7 @@ class MoeExpressionPromptPresentation {
     };
     final directives = plan.styleDirectives
         .take(2)
+        .map(_withoutInternalVocabulary)
         .map((value) => '- $value')
         .join('\n');
     return '''
@@ -53,5 +54,18 @@ $intensity
 $directives
 这只是“怎么自然表达”的临时建议：不要说出任何属性、配方、档位、数值、阈值或系统机制；不要据此改变事实、记忆、关系身份、工具选择、主动联系资格或情绪标签。
 '''.trim();
+  }
+
+  static String _withoutInternalVocabulary(String value) {
+    var visible = value;
+    for (final recipe in MoeRecipe.values) {
+      visible = visible.replaceAll(recipe.label, '');
+      visible = visible.replaceAll(recipe.key, '');
+    }
+    for (final axis in MoeAxis.values) {
+      visible = visible.replaceAll(axis.label, '');
+      visible = visible.replaceAll(axis.key, '');
+    }
+    return visible.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
   }
 }

@@ -35,8 +35,8 @@ class VisibleReasoningLanguageTelemetry {
       return VisibleReasoningLanguageStatus.mainlyEnglish;
     }
     if (chineseCount > 0 &&
-        latinWords >= 4 &&
-        latinLetters > chineseCount * 1.5) {
+        latinWords >= 8 &&
+        latinLetters > chineseCount * 3) {
       return VisibleReasoningLanguageStatus.mixed;
     }
     return VisibleReasoningLanguageStatus.chineseFirst;

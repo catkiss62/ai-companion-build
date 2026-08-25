@@ -21,6 +21,12 @@ void main() {
     );
     expect(
       VisibleReasoningLanguageTelemetry.classify(
+        '先看 I should inspect the full response and decide how to answer it.',
+      ),
+      VisibleReasoningLanguageStatus.mixed,
+    );
+    expect(
+      VisibleReasoningLanguageTelemetry.classify(
         'I should inspect the user request and then produce a concise answer.',
       ),
       VisibleReasoningLanguageStatus.mainlyEnglish,
