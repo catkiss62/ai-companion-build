@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
+import '../models/public_web_candidate.dart';
 import '../models/thought.dart';
 import 'public_web_share_policy.dart';
 
