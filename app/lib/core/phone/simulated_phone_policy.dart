@@ -62,6 +62,7 @@ class SimulatedPhonePolicy {
         thought.actionCount >= 1;
     final hasObject = thought.topicKey.trim().isNotEmpty || thought.isFixation;
     return thought.canDriveIntent &&
+        thought.lastSatisfiedAt == null &&
         thought.strength >= 0.58 &&
         value >= 0.52 &&
         value >= baseline + 0.08 &&
