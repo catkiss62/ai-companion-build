@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ai_companion_localfirst/core/integration/moe_expression_prompt_adapter.dart';
 import 'package:ai_companion_localfirst/core/moe/application/moe_dynamics_policy.dart';
 import 'package:ai_companion_localfirst/core/moe/domain/moe_models.dart';
@@ -76,5 +78,52 @@ void main() {
     expect(natural, contains('轻微染色'));
     expect(obvious, contains('清楚可感'));
     expect(manga, contains('放大反差'));
+  });
+
+  test('D3 telemetry records applied and disabled paths without prompt data', () {
+    final applied = MoeExpressionPromptTelemetry.nextSnapshot(
+      status: 'applied',
+      mode: 'obvious',
+      primaryPresent: true,
+      secondaryPresent: false,
+      now: DateTime.fromMillisecondsSinceEpoch(1234),
+    );
+    expect((applied['counts'] as Map)['applied'], 1);
+    expect(applied['lastStatus'], 'applied');
+    expect(applied['lastMode'], 'obvious');
+    expect(applied['primaryPresent'], isTrue);
+    expect(applied['secondaryPresent'], isFalse);
+    expect(applied['promptBodiesIncluded'], isFalse);
+    expect(applied['styleDirectivesIncluded'], isFalse);
+    expect(applied['axisOrRecipeNamesIncluded'], isFalse);
+    expect(applied['valuesOrThresholdsIncluded'], isFalse);
+
+    final disabled = MoeExpressionPromptTelemetry.nextSnapshot(
+      raw: jsonEncode(applied),
+      status: 'disabled',
+      primaryPresent: true,
+      secondaryPresent: true,
+      now: DateTime.fromMillisecondsSinceEpoch(2345),
+    );
+    expect((disabled['counts'] as Map)['applied'], 1);
+    expect((disabled['counts'] as Map)['disabled'], 1);
+    expect(disabled['lastStatus'], 'disabled');
+    expect(disabled['primaryPresent'], isFalse);
+    expect(disabled['secondaryPresent'], isFalse);
+  });
+
+  test('D3 telemetry fails closed to redacted error counters', () {
+    final snapshot = MoeExpressionPromptTelemetry.nextSnapshot(
+      raw: '{broken',
+      status: 'unexpected',
+      mode: 'private-mode',
+      primaryPresent: true,
+      now: DateTime.fromMillisecondsSinceEpoch(3456),
+    );
+    expect((snapshot['counts'] as Map)['error'], 1);
+    expect(snapshot['lastStatus'], 'error');
+    expect(snapshot['lastMode'], 'unknown');
+    expect(snapshot['primaryPresent'], isFalse);
+    expect(snapshot['messageIdsIncluded'], isFalse);
   });
 }
