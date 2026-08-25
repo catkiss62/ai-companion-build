@@ -35,7 +35,6 @@ for token in (
     "maxLines: 1",
     "softWrap: false",
     "textAlign: TextAlign.end",
-    "'欲望系统数值'",
     "'萌属性数值 · D2 数值引擎'",
     "'D3 表现：$d3Status'",
     "'调整 D3'",
