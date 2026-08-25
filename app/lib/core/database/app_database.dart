@@ -5829,6 +5829,192 @@ class AppDatabase {
     });
   }
 
+  Future<void> clearDiagnosticPublicWebShareFixture() async {
+    final db = await database;
+    await db.delete(
+      'autonomous_action_runs',
+      where: "reason_source = 'diagnostic_public_web_share'",
+    );
+  }
+
+  Future<PublicWebShareCandidate?> activeReadyPublicWebShareCandidate({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'public_web_candidates',
+      columns: const [
+        'id',
+        'drive_key',
+        'lifecycle_state',
+        'discovered_at',
+      ],
+      where: "lifecycle_state = 'share_ready' AND expires_at > ?",
+      whereArgs: [instant.millisecondsSinceEpoch],
+      orderBy: 'last_viewed_at ASC, discovered_at ASC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    return PublicWebShareCandidate(
+      id: row['id'] as String,
+      driveKey: row['drive_key'] as String? ?? 'curiosity',
+      lifecycleState: row['lifecycle_state'] as String? ?? 'share_ready',
+      discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+        row['discovered_at'] as int? ?? instant.millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  Future<void> beginPublicWebShareTest({DateTime? now}) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: "key = 'public_web_share_test_attempt_count'",
+        limit: 1,
+      );
+      final count = rows.isEmpty
+          ? 0
+          : int.tryParse(rows.first['value'] as String? ?? '') ?? 0;
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_attempt_count',
+        (count + 1).toString(),
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_last_result',
+        'started',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_last_at',
+        instant.millisecondsSinceEpoch.toString(),
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_candidate_source',
+        'pending',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_reached_evaluation',
+        '0',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_model_decision_reached',
+        '0',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_block_category',
+        'none',
+        instant,
+      );
+    });
+  }
+
+  Future<void> completePublicWebShareTest({
+    required String result,
+    required String candidateSource,
+    required bool reachedEvaluation,
+    required bool modelDecisionReached,
+    required String blockCategory,
+    DateTime? now,
+  }) async {
+    const allowedResults = {
+      'sent',
+      'model_wait',
+      'blocked',
+      'stage_failed',
+      'stale_ready',
+      'error',
+    };
+    const allowedSources = {
+      'existing_ready',
+      'diagnostic_seeded',
+      'pending',
+      'none',
+    };
+    const allowedBlocks = {
+      'none',
+      'transfer_lock',
+      'active_brain',
+      'proactive_lease',
+      'chat_turn',
+      'pending_user_turn',
+      'api_key',
+      'daily_ceiling',
+      'short_window_ceiling',
+      'delivery_gate',
+      'fatigue',
+      'no_intent',
+      'writer_lease',
+      'user_preempted',
+      'device_state',
+      'grounding_guard',
+      'service_template_guard',
+      'stage',
+      'other',
+    };
+    if (!allowedResults.contains(result) ||
+        !allowedSources.contains(candidateSource) ||
+        !allowedBlocks.contains(blockCategory)) {
+      throw ArgumentError('invalid public web share test telemetry');
+    }
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    await db.transaction((txn) async {
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_last_result',
+        result,
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_last_at',
+        instant.millisecondsSinceEpoch.toString(),
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_candidate_source',
+        candidateSource,
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_reached_evaluation',
+        reachedEvaluation ? '1' : '0',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_model_decision_reached',
+        modelDecisionReached ? '1' : '0',
+        instant,
+      );
+      await _setSettingInTransaction(
+        txn,
+        'public_web_share_test_block_category',
+        blockCategory,
+        instant,
+      );
+    });
+  }
+
   Future<PublicWebShareCandidate?> claimNextPublicWebCandidateForSharing({
     DateTime? now,
   }) async {
@@ -6407,6 +6593,35 @@ class AppDatabase {
         'candidateIdIncluded': false,
         'thoughtBodyIncluded': false,
         'messageBodyIncluded': false,
+        'test': {
+          'attemptCount': int.tryParse(
+                await getSetting('public_web_share_test_attempt_count') ?? '',
+              ) ??
+              0,
+          'lastResult':
+              await getSetting('public_web_share_test_last_result') ?? 'never',
+          'lastAt': int.tryParse(
+                await getSetting('public_web_share_test_last_at') ?? '',
+              ) ??
+              0,
+          'candidateSource':
+              await getSetting('public_web_share_test_candidate_source') ??
+                  'none',
+          'reachedEvaluation':
+              (await getSetting('public_web_share_test_reached_evaluation')) ==
+                  '1',
+          'modelDecisionReached': (await getSetting(
+                'public_web_share_test_model_decision_reached',
+              )) ==
+              '1',
+          'blockCategory':
+              await getSetting('public_web_share_test_block_category') ??
+                  'none',
+          'candidateIdIncluded': false,
+          'reasonTextIncluded': false,
+          'modelOutputIncluded': false,
+          'promptIncluded': false,
+        },
       },
       'runtime': {
         'lastAttemptAt':
