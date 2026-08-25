@@ -1,6 +1,7 @@
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/models/thought.dart';
 import 'package:ai_companion_localfirst/core/phone/simulated_phone_policy.dart';
+import 'package:ai_companion_localfirst/core/phone/tarot_catalog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -41,6 +42,64 @@ void main() {
       SimulatedPhonePolicy.stableIndex('2026-08-26', 12, salt: 307),
       inInclusiveRange(0, 11),
     );
+  });
+
+  test('all 22 major arcana map to bundled jpg paths and rich readings', () {
+    expect(majorArcana, hasLength(22));
+    expect(SimulatedPhonePolicy.tarotAssetCount, 22);
+    for (var index = 0; index < majorArcana.length; index++) {
+      final card = majorArcana[index];
+      expect(
+        SimulatedPhonePolicy.tarotAssetPath(index),
+        'assets/tarot/rws_major/ar' +
+            index.toString().padLeft(2, '0') +
+            '.jpg',
+      );
+      expect(card.name, isNotEmpty);
+      expect(card.theme.length, greaterThan(12));
+      expect(card.symbols.length, greaterThan(20));
+      expect(card.upright.length, greaterThan(20));
+      expect(card.reversed.length, greaterThan(20));
+      expect(card.guidance.length, greaterThan(15));
+      expect(card.shadow.length, greaterThan(15));
+    }
+  });
+
+  test('mood metrics are bounded and react to fatigue and stress', () {
+    final calm = DesireSnapshot(
+      drives: {
+        ...DesireSnapshot.defaultDrives(),
+        DriveKey.attachment: 0.72,
+        DriveKey.curiosity: 0.68,
+        DriveKey.fatigue: 0.18,
+        DriveKey.stress: 0.22,
+      },
+      baselines: DesireSnapshot.defaultBaselines(),
+    );
+    final tired = DesireSnapshot(
+      drives: {
+        ...DesireSnapshot.defaultDrives(),
+        DriveKey.attachment: 0.72,
+        DriveKey.curiosity: 0.68,
+        DriveKey.fatigue: 0.88,
+        DriveKey.stress: 0.81,
+      },
+      baselines: DesireSnapshot.defaultBaselines(),
+    );
+    final calmMetrics = SimulatedPhonePolicy.moodMetrics(calm);
+    final tiredMetrics = SimulatedPhonePolicy.moodMetrics(tired);
+    expect(calmMetrics.keys, containsAll([
+      'energy',
+      'closeness',
+      'curiosity',
+      'reserve',
+      'score',
+    ]));
+    for (final value in [...calmMetrics.values, ...tiredMetrics.values]) {
+      expect(value, inInclusiveRange(0, 100));
+    }
+    expect(calmMetrics['energy']!, greaterThan(tiredMetrics['energy']!));
+    expect(calmMetrics['reserve']!, greaterThan(tiredMetrics['reserve']!));
   });
 
   test('wish requires drive strength, recurrence and a concrete object', () {

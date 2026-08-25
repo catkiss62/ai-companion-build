@@ -1,3 +1,8 @@
+# Historical v0.38.8 validator compatibility:
+# Build AI Companion v0.38.8+107 APK (Simulated Phone Foundation)
+# AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-APK
+# v0.38.8-simulated-phone-foundation
+# .ci/v0388-monitor.txt
 # Historical v0.38.6 validator compatibility:
 # Build AI Companion v0.38.6+105 APK (Autonomous Public Web Sharing)
 # AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK
@@ -32,7 +37,7 @@
 # .ci/v0385-monitor.txt
 # Historical baseline: v0.38.6+105 / SQLite schema 32 / autonomous public-web sharing closure
 # Historical baseline: v0.38.7+106 / SQLite schema 32 / public-web share test repair
-# Active baseline: v0.38.8+107 / SQLite schema 32 / simulated phone foundation
+# Active baseline: v0.38.9+108 / SQLite schema 32 / simulated phone reference UI
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -104,7 +109,7 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.8+107 APK (Simulated Phone Foundation)
+name: Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
 
 on:
   workflow_dispatch:
@@ -210,14 +215,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.38.8+107' app/pubspec.yaml
+          grep -Fqx 'version: 0.38.9+108' app/pubspec.yaml
           grep -q '^  static const int schemaVersion = 32;$' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.8+107 simulated phone privacy boundary, master switch, local pages and dual daily tarot.'
+          echo 'Building v0.38.9+108 reference-style simulated phone UI, mood chart and pinned rich daily tarot.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -226,6 +231,10 @@ jobs:
       - name: Restore pinned LingChat 19-expression presentation assets
         working-directory: app
         run: bash tools/fetch_lingchat_visual_assets.sh
+
+      - name: Restore pinned 22-card Rider-Waite-Smith tarot JPG pack
+        working-directory: app
+        run: bash tools/fetch_tarot_assets.sh
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -357,6 +366,7 @@ jobs:
           python3 tools/validate_v0386_public_web_sharing.py
           python3 tools/validate_v0387_public_web_share_test.py
           python3 tools/validate_v0388_simulated_phone_foundation.py
+          python3 tools/validate_v0389_simulated_phone_reference_ui.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -557,6 +567,34 @@ jobs:
           print('A2 original native prefix and APK byte identity verified.')
           PY2
 
+      - name: Verify bundled tarot JPG payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          apk = Path('app/build/app/outputs/flutter-apk/app-release.apk')
+          manifest = Path('app/assets/tarot/rws_major/SHA256SUMS')
+          expected = {
+              name: digest
+              for digest, name in (
+                  line.split()
+                  for line in manifest.read_text(encoding='utf-8').splitlines()
+                  if line.strip()
+              )
+          }
+          assert len(expected) == 22
+          with ZipFile(apk) as archive:
+              for name, digest in expected.items():
+                  path = f'assets/flutter_assets/assets/tarot/rws_major/{name}'
+                  actual = sha256(archive.read(path)).hexdigest()
+                  assert actual == digest, (path, actual, digest)
+          print('All 22 pinned tarot JPGs are present and hash-exact in the APK.')
+          PY
+
       - name: Create APK checksum
         shell: bash
         run: |
@@ -564,26 +602,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.8+107 APK as workflow artifact
+      - name: Upload v0.38.9+108 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-APK
+          name: AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.8+107 simulated phone foundation APK to draft release
+      - name: Upload v0.38.9+108 simulated phone reference UI APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.8-simulated-phone-foundation'
-          APK_NAME='AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-APK.apk'
+          TAG='v0.38.9-simulated-phone-reference-ui'
+          APK_NAME='AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -600,7 +638,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.8+107 simulated phone foundation candidate' \
+              --title 'AI Companion v0.38.9+108 simulated phone reference UI candidate' \
               --notes 'Draft-only v0.38.8 candidate: adds a privacy-isolated simulated phone with a persistent master update switch, black-blue eight-app shell, local diary/notes/mood/wishes/cart consumers and two deterministic daily tarot readings for self and user. The switch pauses every producer including album except tarot; schema 32 and accepted public-web sharing remain unchanged.'
           else
             gh release edit "${TAG}" \
@@ -625,18 +663,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0388-monitor.txt'
+          MONITOR_PATH='.ci/v0389-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.8 CI success monitor' \
+              -f message='Update v0.38.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.8 CI success monitor' \
+              -f message='Create v0.38.9 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -657,8 +695,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.8-simulated-phone-foundation'
-          CI_NAME='AI-Companion-v0.38.8-107-Simulated-Phone-Foundation-CI-Monitor.txt'
+          TAG='v0.38.9-simulated-phone-reference-ui'
+          CI_NAME='AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -699,8 +737,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.8+107 simulated phone foundation candidate' \
-              --notes 'Private draft used for CI diagnostics and the v0.38.8 simulated phone foundation APK. It is not a public release.'
+              --title 'AI Companion v0.38.9+108 simulated phone reference UI candidate' \
+              --notes 'Private draft used for CI diagnostics and the v0.38.8 simulated phone reference UI APK. It is not a public release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -709,18 +747,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0388-monitor.txt'
+          MONITOR_PATH='.ci/v0389-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.8 CI failure monitor' \
+              -f message='Update v0.38.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.8 CI failure monitor' \
+              -f message='Create v0.38.9 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

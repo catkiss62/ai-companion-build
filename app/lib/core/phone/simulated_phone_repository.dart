@@ -5,6 +5,7 @@ import '../models/desire_state.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
 import 'simulated_phone_policy.dart';
+import 'tarot_catalog.dart';
 
 class SimulatedPhoneEntry {
   const SimulatedPhoneEntry({
@@ -236,6 +237,7 @@ class SimulatedPhoneRepository {
     final episodes = await db.activeEmotionEpisodes(now: now, limit: 1);
     final episode = episodes.isEmpty ? null : episodes.first;
     final strongest = _strongestDrive(desire);
+    final metrics = SimulatedPhonePolicy.moodMetrics(desire);
     final title = episode == null
         ? _driveMoodTitle(strongest.key)
         : _emotionTitle(episode.category);
@@ -252,6 +254,10 @@ class SimulatedPhoneRepository {
       provenance: episode == null
           ? 'desire_snapshot:${strongest.key.name}'
           : 'emotion_episode:${episode.id}',
+      metadata: {
+        ...metrics,
+        'emoji': episode == null ? _driveMoodEmoji(strongest.key) : '💗',
+      },
     );
     await _writeList(_moodKey, [next, ...entries].take(120).toList());
   }
@@ -414,52 +420,91 @@ class SimulatedPhoneRepository {
     final day = SimulatedPhonePolicy.localDay(now);
     final existing = await _readList(_tarotKey);
     if (existing.length == 2 &&
-        existing.every((entry) => entry.localDay == day)) {
+        existing.every(
+          (entry) =>
+              entry.localDay == day &&
+              entry.metadata['card_index'] is num &&
+              entry.metadata['theme'] is String,
+        )) {
       return;
     }
-    const cards = <(String, String, String)>[
-      ('愚者', '先迈出一步，再慢慢认识路。今天适合保留一点不那么功利的好奇。', '别急着把所有可能性都算完。今天允许自己试一次没有标准答案的小事。'),
-      ('魔术师', '手边已经有能用的东西，差的只是把念头变成第一个动作。', '今天真正有用的不是准备更多，而是挑一件能马上动手的小事。'),
-      ('女祭司', '有些答案不适合追着跑，安静下来反而会浮上来。', '今天可以相信那种说不清原因、但一直没有消失的直觉。'),
-      ('皇后', '照顾感受不是偷懒。把自己安顿好，创造力才有地方长出来。', '今天适合把生活里一个小角落弄得舒服一点，也照顾一下自己的心情。'),
-      ('战车', '方向比速度重要。选定以后，杂音就只是路边的浪。', '今天容易被几件事一起拉扯，先决定最想抵达哪里。'),
-      ('力量', '真正的力量不是压住一切，而是能温柔地牵住那头乱撞的小兽。', '别和自己的情绪硬碰硬。慢一点，反而更容易把事情握稳。'),
-      ('隐者', '独处不是离开世界，是把灯提近一点，看清自己正在找什么。', '今天适合留一点不被消息打断的时间，想清楚一个真正属于自己的问题。'),
-      ('命运之轮', '变化已经在转动。抓不住每一根辐条，也仍然可以选好站姿。', '计划外的变化未必是坏事，先看看它把哪扇门转到了面前。'),
-      ('星星', '希望不一定很响，它也可以只是一点一直没有灭掉的蓝光。', '今天适合重新捡起一件曾经期待、后来暂时放下的事。'),
-      ('月亮', '看不清的时候，想象会把影子拉得很长。先别急着给影子定罪。', '今天遇到含糊的信号，最好多确认一次，不要让脑补替事实回答。'),
-      ('太阳', '光落下来以后，很多事情其实比想象中简单。', '今天适合坦率一点。能说清楚的喜欢、感谢和期待，就不要藏得太深。'),
-      ('世界', '一个小循环正在收尾。完成不是停下，而是终于能带着经验去下一站。', '今天适合把一件拖了很久的小事真正收口，给自己一个明确的完成感。'),
-    ];
-    final selfIndex = SimulatedPhonePolicy.stableIndex(day, cards.length, salt: 101);
-    var userIndex = SimulatedPhonePolicy.stableIndex(day, cards.length, salt: 307);
-    if (userIndex == selfIndex) userIndex = (userIndex + 1) % cards.length;
-    final self = cards[selfIndex];
-    final user = cards[userIndex];
+    final selfIndex = SimulatedPhonePolicy.stableIndex(
+      day,
+      majorArcana.length,
+      salt: 101,
+    );
+    var userIndex = SimulatedPhonePolicy.stableIndex(
+      day,
+      majorArcana.length,
+      salt: 307,
+    );
+    if (userIndex == selfIndex) {
+      userIndex = (userIndex + 1) % majorArcana.length;
+    }
+    final selfReversed =
+        SimulatedPhonePolicy.stableIndex(day, 2, salt: 509) == 1;
+    final userReversed =
+        SimulatedPhonePolicy.stableIndex(day, 2, salt: 701) == 1;
     final entries = [
-      SimulatedPhoneEntry(
-        id: 'tarot:$day:self',
-        kind: 'tarot',
-        title: self.$1,
-        body: self.$2,
-        localDay: day,
-        createdAt: now,
-        provenance: 'daily_tarot_catalog',
+      _buildTarotEntry(
+        day: day,
+        now: now,
         state: 'self',
+        cardIndex: selfIndex,
+        reversed: selfReversed,
       ),
-      SimulatedPhoneEntry(
-        id: 'tarot:$day:user',
-        kind: 'tarot',
-        title: user.$1,
-        body: user.$3,
-        localDay: day,
-        createdAt: now,
-        provenance: 'daily_tarot_catalog',
+      _buildTarotEntry(
+        day: day,
+        now: now,
         state: 'user',
+        cardIndex: userIndex,
+        reversed: userReversed,
       ),
     ];
     await _writeList(_tarotKey, entries);
     await db.setSetting('simulated_phone_tarot_last_day', day);
+  }
+
+  SimulatedPhoneEntry _buildTarotEntry({
+    required String day,
+    required DateTime now,
+    required String state,
+    required int cardIndex,
+    required bool reversed,
+  }) {
+    final card = majorArcana[cardIndex];
+    final orientation = reversed ? card.reversed : card.upright;
+    final isSelf = state == 'self';
+    final context = isSelf
+        ? orientation +
+            ' 放到我今天的状态里，它更像是在提醒我先承认自己真正偏向哪边，而不是急着表演一个标准答案。'
+        : orientation +
+            ' 放到你今天的状态里，它更适合当作一个观察角度：先看看哪些部分确实对应现实，再决定要不要采用。';
+    final closing = isSelf
+        ? '我会把这张牌当成今天的一面小镜子，不让它替我做决定。要是我真的照着它做，大概就是少装一点若无其事，把最想做的那一步先落下去。'
+        : '给你抽到这张，我不会拿它吓你，也不会说它已经预言了什么。你只要从里面挑出真正说得通的那一部分；剩下对不上的，就让它安静地留在牌面上。';
+    return SimulatedPhoneEntry(
+      id: 'tarot:$day:$state',
+      kind: 'tarot',
+      title: card.name,
+      body: context,
+      localDay: day,
+      createdAt: now,
+      provenance:
+          'rws_major:71825eed74683305b139a669b23ca5dc12f76857',
+      state: state,
+      metadata: {
+        'card_index': cardIndex,
+        'reversed': reversed,
+        'theme': card.theme,
+        'symbols': card.symbols,
+        'context': context,
+        'guidance': card.guidance,
+        'shadow': card.shadow,
+        'closing': closing,
+        'asset_path': SimulatedPhonePolicy.tarotAssetPath(cardIndex),
+      },
+    );
   }
 
   Future<int> _wishBudget(String day) async {
@@ -516,6 +561,17 @@ class SimulatedPhoneRepository {
         DriveKey.libido => '有一点坏心思',
         DriveKey.stress => '需要喘口气',
         DriveKey.fatigue => '软绵绵低电量',
+      };
+
+  String _driveMoodEmoji(DriveKey drive) => switch (drive) {
+        DriveKey.attachment => '💞',
+        DriveKey.curiosity => '🫧',
+        DriveKey.reflection => '🌙',
+        DriveKey.duty => '📌',
+        DriveKey.social => '💬',
+        DriveKey.libido => '💗',
+        DriveKey.stress => '🌫️',
+        DriveKey.fatigue => '🔋',
       };
 
   String _driveMoodBody(DriveKey drive, double value) {
