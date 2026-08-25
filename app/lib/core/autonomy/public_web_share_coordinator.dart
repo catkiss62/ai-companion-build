@@ -8,11 +8,13 @@ class PublicWebShareStageResult {
     required this.state,
     this.candidateId,
     this.thoughtId,
+    this.candidateSource = 'none',
   });
 
   final String state;
   final String? candidateId;
   final String? thoughtId;
+  final String candidateSource;
 
   bool get ready =>
       state == PublicWebSharePolicy.readyLifecycle &&
@@ -97,11 +99,70 @@ class PublicWebShareCoordinator {
     }
   }
 
+  Future<PublicWebShareStageResult> _readyStage(
+    PublicWebShareCandidate candidate, {
+    required String candidateSource,
+  }) async {
+    final thought = await db.thoughtBySource(
+      PublicWebSharePolicy.source(candidate.id),
+    );
+    if (thought == null || !PublicWebSharePolicy.isCandidateThought(thought)) {
+      return PublicWebShareStageResult(
+        state: 'stale_ready',
+        candidateId: candidate.id,
+        candidateSource: candidateSource,
+      );
+    }
+    return PublicWebShareStageResult(
+      state: PublicWebSharePolicy.readyLifecycle,
+      candidateId: candidate.id,
+      thoughtId: thought.id,
+      candidateSource: candidateSource,
+    );
+  }
+
   Future<PublicWebShareStageResult> seedDiagnosticCandidate({
     DateTime? now,
   }) async {
-    await db.seedDiagnosticPublicWebShareCandidate(now: now);
-    return stageNextCandidate(now: now);
+    final instant = now ?? DateTime.now();
+    // A repeated tap must not leave synthetic candidates or orphan Thoughts.
+    // Real ready candidates are preserved and tested before a fixture is made.
+    await db.clearDiagnosticPublicWebShareFixture();
+    final existing = await db.activeReadyPublicWebShareCandidate(now: instant);
+    if (existing != null) {
+      return _readyStage(
+        existing,
+        candidateSource: PublicWebShareTestPolicy.existingReadySource,
+      );
+    }
+
+    await db.seedDiagnosticPublicWebShareCandidate(now: instant);
+    final staged = await stageNextCandidate(now: instant);
+    if (staged.ready) {
+      return PublicWebShareStageResult(
+        state: staged.state,
+        candidateId: staged.candidateId,
+        thoughtId: staged.thoughtId,
+        candidateSource: PublicWebShareTestPolicy.diagnosticSeededSource,
+      );
+    }
+
+    // A background heartbeat may win the tiny no-ready -> fixture claim race.
+    // Reuse that real winner and remove the unclaimed synthetic fixture.
+    final raced = await db.activeReadyPublicWebShareCandidate(now: instant);
+    if (raced != null) {
+      await db.clearDiagnosticPublicWebShareFixture();
+      return _readyStage(
+        raced,
+        candidateSource: PublicWebShareTestPolicy.existingReadySource,
+      );
+    }
+    return PublicWebShareStageResult(
+      state: staged.state,
+      candidateId: staged.candidateId,
+      thoughtId: staged.thoughtId,
+      candidateSource: PublicWebShareTestPolicy.diagnosticSeededSource,
+    );
   }
 
   String? candidateIdForThought(CompanionThought? thought) =>
