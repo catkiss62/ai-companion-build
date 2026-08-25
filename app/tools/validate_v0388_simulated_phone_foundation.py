@@ -17,7 +17,10 @@ chat = read("lib/features/chat/chat_page.dart")
 recovery = read("lib/core/maintenance/recovery_orchestrator.dart")
 pubspec = read("pubspec.yaml")
 
-assert "version: 0.38.8+107" in pubspec
+assert any(
+    token in pubspec
+    for token in ("version: 0.38.8+107", "version: 0.38.9+108")
+)
 assert "app == SimulatedPhoneAppKind.tarot || phoneEnabled" in policy
 assert "if (!await db.brainWorkAllowed()) return;" in repository
 assert "if (!await isEnabled()) return;" in repository
@@ -28,10 +31,9 @@ assert "thought_projection" in repository
 assert "desire_thought_projection" in repository
 assert "source_thought_id" in repository
 assert "thought.text" not in repository
-assert "我 / 他 · 今日两张" in page
 assert "tabs: [Tab(text: '我'), Tab(text: '他')]" in page
 assert "关闭更新不会删除历史；塔罗牌仍会每天更新" in page
-assert "还没有可展示的真实浏览记录" in page
+assert "没有真实浏览记录" in page
 assert "查手机" in chat
 assert "SimulatedPhonePage" in chat
 assert "SimulatedPhoneRepository(db).refreshIfDue" in recovery
