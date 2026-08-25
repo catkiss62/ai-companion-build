@@ -87,3 +87,18 @@ class PublicWebDiscoveryDecision {
   final String gateReason;
   final int storedCount;
 }
+
+
+class PublicWebShareCandidate {
+  const PublicWebShareCandidate({
+    required this.id,
+    required this.driveKey,
+    required this.lifecycleState,
+    required this.discoveredAt,
+  });
+
+  final String id;
+  final String driveKey;
+  final String lifecycleState;
+  final DateTime discoveredAt;
+}
