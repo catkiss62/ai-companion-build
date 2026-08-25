@@ -53,6 +53,7 @@ void main() {
       int fedCount = 2,
       String topicKey = 'public-web:whale-art',
       double strength = 0.70,
+      DateTime? lastSatisfiedAt,
     }) =>
         CompanionThought(
           id: 'thought-1',
@@ -64,6 +65,7 @@ void main() {
           updatedAt: now,
           fedCount: fedCount,
           topicKey: topicKey,
+          lastSatisfiedAt: lastSatisfiedAt,
         );
 
     expect(
@@ -90,6 +92,13 @@ void main() {
     expect(
       SimulatedPhonePolicy.wishEligible(
         thought: thought(strength: 0.30),
+        desire: desire,
+      ),
+      isFalse,
+    );
+    expect(
+      SimulatedPhonePolicy.wishEligible(
+        thought: thought(lastSatisfiedAt: now),
         desire: desire,
       ),
       isFalse,

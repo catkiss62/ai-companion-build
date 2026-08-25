@@ -3,6 +3,11 @@
 # AI-Companion-v0.38.6-105-Autonomous-Web-Sharing-APK
 # v0.38.6-autonomous-web-sharing-test
 # .ci/v0386-monitor.txt
+# Historical v0.38.7 validator compatibility:
+# Build AI Companion v0.38.7+106 APK (Public Web Share Test Repair)
+# AI-Companion-v0.38.7-106-Public-Web-Share-Test-Repair-APK
+# v0.38.7-public-web-share-test-repair
+# .ci/v0387-monitor.txt
 # Historical v0.37.9 D1 validator compatibility:
 # D1 active baseline: v0.37.9+98 / SQLite schema 32 / no visible Moe integration
 # Build AI Companion v0.37.9+98 APK (Dynamic Moe D1 Engine)
