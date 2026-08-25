@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAA. 2026-08-25 · v0.38.3+102 Dynamic Moe D3、中文思考优先与正常/平静语义修复（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAA. 2026-08-25 · v0.38.3+102 Dynamic Moe D3、中文思考优先与正常/平静语义修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已确认 v0.38.2 真机连续对话数轮“看起来没什么大问题”，并授权把新发现的普通情绪/平静立绘问题与上一轮拟定的 D3、中文思考强化同批实施。本节是本批第一次（修改前）总账；提交成功后才修改运行代码。目标 App 为 `0.38.3+102`，SQLite 继续 `schemaVersion=32`、无迁移。三个功能必须分离为可测试契约，不能因同时进入一个 APK 而互相污染。
 
@@ -57,6 +57,41 @@
 3. D3覆盖开关关闭等价、三档强度、默认obvious、九轴/配方名不泄露、最多主+辅、事实/工具/主动Gate/Desire/Emotion不受影响、异常neutral；中文强化覆盖每个正式生成路径和脱敏统计无正文。
 4. 跑完全部历史/current Python validators、Kotlin桌宠测试、Flutter analyze、全量Flutter tests、Release APK、固定签名、原生库、417桌宠、LingChat与双立绘载荷及SHA校验。CI通过仍需真机观察，不写成已完全通过。
 5. 本批不增加生成后翻译模型，不恢复native 19emo/ONNX，不扩建Emotion Appraisal，不改SQLite schema，不处理继续冻结的系统文件选择器/跨App悬浮恢复循环，不让 UI-only“小小鲸/大肥鱼”名称进入模型。
+
+### F. 实际实现结果
+
+1. normal/正常 已作为 presentation-only token 接入统一 envelope：它可被模型显式输出，也可在 missing/empty/invalid/malformed 且正文没有明确 cue 时确定性回退；EmotionCatalog.labelsByKey 仍严格为19项。normal 使用普通立绘、neutral TTS、无情绪短音效，不会伪造“她正在平静”的长期状态。
+2. calm/平静 保留为原19类真实情绪，仅在合法平静标签或安静、放松、沉着、冷静下来、闭眼缓和等非否定 cue 时产生，继续使用闭眼 calm 立绘。没有采用 normal/calm 随机轮换，也没有把 canonical 名称改成“冷静”。
+3. 普通用户 turn、主动生成、工具结果后二次生成与服务模板修正统一收到短 system 级最终呈现提醒：可见 reasoning 与正文默认自然简体中文，代码、命令、路径、变量、API、型号和专名可保留英文；最终 content 先写一次 emotion envelope。没有伪造 user 消息、没有安装 Cordis/TypeScript Harness、没有第二次翻译 API 请求。
+4. 新增可见 reasoning 语言形态遥测，只累计 empty/chinese-first/mixed/mainly-English 数量、最近状态和时间；诊断明确标记不保存 reasoning 文本或命中词。少量 API response / tool result 技术词不会误判为英文主导，真正大段英文仍能被标记。
+5. D3 新增唯一只读 MoeExpressionPromptAdapter：读取 D2 已提交状态与当前档位，每轮最多转成两条具体表达建议。Prompt 出口再次剥离全部内部配方名、轴名称、key、数值与阈值；不能改变事实、记忆、关系身份、工具、主动 Gate、Desire 或 emotion。
+6. “性格与外观”页新增“让萌属性影响对话表达”总开关和自然/明显/漫画化三档，默认打开且为明显。关闭只停止 D3 表达染色，D2 九轴仍旁路更新并可在“她的内心”观察；读取或存储异常 fail-open 为 v0.38.2 等价 neutral。
+7. SQLite 继续 schema32，无迁移；双立绘、分套位置/effect anchor、未抠照镜子图、长 reasoning 收尾锚点、15%情绪音效、成人恋爱能力、19类 emotion 资产与417桌宠均未回退。
+
+### G. 测试发现与向前修复
+
+1. 首次完整构建 run 435 已通过全部源码回归、Kotlin/Flutter debug 编译与 flutter analyze，Flutter 252项中250项通过、2项失败。
+2. 第一项失败证明底层 styleDirectives 仍可能把“腹黑”等内部配方名带到 D3 Prompt。未放宽测试；改为在唯一 Prompt 出口遍历清除所有 recipe/axis label 与 key，并保留去名后的具体表达行为。
+3. 第二项失败证明最初语言遥测把含 API response / tool result 的中文句误记为 mixed。按中文优先契约提高混合阈值，并新增真正中英混杂反例，避免把允许保留的技术词当成违规。
+4. 修复后重新跑完整 run 436；全部历史/current Python validators、Kotlin桌宠状态/物理测试、Flutter debug、flutter analyze、252项 Flutter tests、release构建、固定签名、原生库、417桌宠、LingChat 19表现资源、两套立绘与镜子图实包校验全部通过。没有以跳过或删测试绕过失败。
+
+### H. 提交、CI、APK 与签名证据
+
+- 修改前总账提交：c87cb42817af6bc5e277367dcd9603e3ed378b51。
+- 主体实现提交：ac94bea7073fa87d8c9b7dc488dafc3429ed2319；D3词汇脱敏与语言遥测修复提交/最终可构建源码 head：f5e2bdff525fb8d8dbfbf724779836893b2b25d7。
+- 活动 Draft PR 仍为 [#26](https://github.com/catkiss62/ai-companion-build/pull/26)，没有写成已合并。
+- 最终成功 Actions：[run 32800708173 / #436](https://github.com/catkiss62/ai-companion-build/actions/runs/32800708173)。
+- Artifact：[9546714995](https://github.com/catkiss62/ai-companion-build/actions/runs/32800708173/artifacts/9546714995)，名称 AI-Companion-v0.38.3-102-Moe-D3-Chinese-Reasoning-Normal-Emotion-APK，GitHub artifact digest sha256:dcbd3480508b60c9bd3167dd90c9310dce7c5fab5d276f02383afca10a95ab53，到期时间 2026-09-08。
+- APK：AI-Companion-v0.38.3-102.apk（307,861,078 bytes）。
+- APK SHA-256：1a97c7c9b61dc88cfaefd76ad68cc2a1d2a8137d0667bbd0dce76ace7507e496；本地解包值与 artifact 内校验文件一致。
+- 固定测试签名 SHA-256 仍为 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48，保持可覆盖安装。
+
+### I. 真机待验与下一步
+
+1. 连续普通闲聊至少8轮，重点观察缺少 emotion 标签时应展示“正常”普通立绘；只有明确平静/闭眼/放松语境才显示“平静”闭眼立绘。再分别触发高兴、疑惑、生气、心动，确认显著 cue 仍进入原19类。
+2. 在“性格与外观”切换 D3 总开关和自然/明显/漫画化：关闭应近似 v0.38.2；打开后语气反差应能感到但不应在正文或 reasoning 报出傲娇、腹黑、轴值、档位或系统机制。
+3. 观察可见 reasoning 是否以自然中文为主，同时允许 API、代码、路径等技术词保留；诊断只应出现语言状态计数，不应包含 reasoning 原文。
+4. 本批自动化与 APK 已通过，但上述证据取得前仍保持 TRUE DEVICE PENDING。下一阶段先根据真机结果微调 normal/calm cue 或 D3强度；若稳定，再决定是否需要真正的生成后思考链翻译。参考 Harness 已用尽当前可复用机制，不因“插件存在”自动引入第二模型与额外延迟。
 
 ## 0AAAAAA. 2026-08-25 · v0.38.2+101 Dynamic Moe D2、双立绘与聊天收尾稳定化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
