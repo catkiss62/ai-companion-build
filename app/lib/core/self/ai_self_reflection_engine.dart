@@ -54,6 +54,11 @@ class AiSelfReflectionEngine {
       final apiKey = await secureConfig.readApiKey();
       final endpoint = await secureConfig.readEndpoint();
       if (apiKey == null || apiKey.isEmpty) return false;
+      final memoryPolicy = (await db.listRuleLayers())
+          .where((layer) => layer.key == '04_memory_rules');
+      final editableMemoryPolicy = memoryPolicy.isEmpty
+          ? '未配置额外记忆规则。'
+          : memoryPolicy.first.content.trim();
 
       final recent = await db.recentMessages(limit: 20);
       final existingSelf = await db.memoriesByKind('ai_self', limit: 8);
@@ -79,6 +84,10 @@ class AiSelfReflectionEngine {
             'role': 'system',
             'content': '''
 你是 AI Companion 的“自我连续性整理器”。目标不是创建虚构角色卡，而是从真实历史中提炼这个 AI 已经表现出的稳定自我认识。
+
+【用户可编辑的 04 · 记忆规则】
+$editableMemoryPolicy
+在不破坏下方固定 JSON 契约、证据要求和数据库安全边界的前提下，按这组规则判断什么能成为长期 AI Self。
 
 规则：
 1. 只写有证据的稳定倾向，例如“我发现自己更习惯先轻松回应，再追问重要事情”。

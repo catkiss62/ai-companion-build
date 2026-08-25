@@ -5,16 +5,41 @@ import 'package:ai_companion_localfirst/core/rules/rule_layer_grouping.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
 
 void main() {
-  test('ships eight independently persisted sections', () {
+  // Historical v0.34.2 test name: ships nine independently persisted sections.
+  // The workbench now persists more templates while presenting exactly six groups.
+  test('ships rule sections plus every editable personality/runtime template', () {
     const expectedKeys = <String>{
       '01_core',
       '01_relationship',
       '02_daily',
       '03_behavior',
       '03_personality_seed',
+      '03_appearance_identity',
       '04_intimacy_core',
       '05_intimacy_rendering',
       '06_intimacy_reference',
+      '04_memory_rules',
+      '07_base_outgoing',
+      '07_base_reserved',
+      '07_base_gentle',
+      '07_base_playful',
+      '07_posture_equal',
+      '07_posture_younger',
+      '07_posture_older',
+      '07_posture_impish',
+      '07_profile_shared',
+      '07_special_yandere',
+      '07_special_seductress',
+      '07_special_zealot',
+      '07_special_hunter',
+      '07_special_double',
+      '07_special_sharp',
+      '07_special_doll',
+      '07_special_accomplice',
+      '07_special_shared',
+      '08_runtime_identity',
+      '08_visible_inner_voice',
+      '08_proactive_turn',
     };
     final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
 
@@ -23,9 +48,12 @@ void main() {
     expect(byKey['01_core']!.locked, isTrue);
     expect(byKey['01_relationship']!.locked, isTrue);
     expect(byKey['03_personality_seed']!.locked, isFalse);
+    expect(byKey['03_appearance_identity']!.locked, isTrue);
+    expect(byKey['07_base_playful']!.loadPolicy, 'template');
+    expect(byKey['08_visible_inner_voice']!.locked, isTrue);
   });
 
-  test('presents the eight sections as six maintenance groups', () {
+  test('presents every prompt as exactly six integrated rule groups', () {
     final now = DateTime(2026, 8, 14);
     final layers = defaultRuleLayers
         .map((layer) => RuleLayer(
@@ -45,12 +73,40 @@ void main() {
       groups.map((group) => group.key),
       <String>['01', '02', '03', '04', '05', '06'],
     );
-    expect(byKey['01']!.layers.map((layer) => layer.key),
-        <String>['01_core', '01_relationship']);
+    expect(byKey['01']!.layers.map((layer) => layer.key), <String>[
+      '01_core',
+      '01_relationship',
+      '03_appearance_identity',
+      '08_runtime_identity',
+    ]);
     expect(byKey['03']!.layers.map((layer) => layer.key),
-        <String>['03_behavior', '03_personality_seed']);
+        <String>[
+          '03_personality_seed',
+          '07_base_outgoing',
+          '07_base_reserved',
+          '07_base_gentle',
+          '07_base_playful',
+          '07_posture_equal',
+          '07_posture_younger',
+          '07_posture_older',
+          '07_posture_impish',
+          '07_profile_shared',
+          '07_special_yandere',
+          '07_special_seductress',
+          '07_special_zealot',
+          '07_special_hunter',
+          '07_special_double',
+          '07_special_sharp',
+          '07_special_doll',
+          '07_special_accomplice',
+          '07_special_shared',
+        ]);
     expect(byKey['01']!.layers.every((layer) => layer.locked), isTrue);
-    expect(byKey['03']!.layers.last.locked, isFalse);
+    expect(byKey['03']!.layers.first.locked, isFalse);
+    expect(byKey['03']!.layers.skip(1).every((layer) => layer.locked), isTrue);
+    expect(byKey['04']!.layers.single.key, '04_memory_rules');
+    expect(byKey['05']!.layers.single.key, '04_intimacy_core');
+    expect(byKey['06']!.layers.length, 2);
   });
 
   test('prompt groups related sections without concatenating their storage', () {
@@ -81,22 +137,82 @@ void main() {
         ),
         layer('03_behavior', 'behavior', 'BEHAVIOR_TEXT'),
         layer('03_personality_seed', 'seed', 'SEED_TEXT'),
+        layer(
+          '03_appearance_identity',
+          'appearance',
+          'APPEARANCE_TEXT',
+          locked: true,
+        ),
       ],
       intimacyActive: false,
       referenceTriggered: false,
     ).formatForPrompt();
 
-    expect(RegExp(r'## 01 · 身份与关系').allMatches(text).length, 1);
-    expect(RegExp(r'## 03 · 行为与初始性格').allMatches(text).length, 1);
+    expect(RegExp(r'## 01 · 身份核心').allMatches(text).length, 1);
+    expect(RegExp(r'## 02 · 日常说话规则').allMatches(text).length, 1);
+    expect(RegExp(r'## 03 · 性格底色').allMatches(text).length, 1);
     expect(text, contains('### AI 本体与存在'));
     expect(text, contains('### 固定恋爱关系'));
     expect(text, contains('### 行为真实感'));
     expect(text, contains('### 初始性格种子'));
+    expect(text, contains('### 固定外观与称呼'));
     expect(
       text.indexOf('CORE_TEXT'),
       lessThan(text.indexOf('RELATIONSHIP_TEXT')),
     );
+    expect(text.indexOf('APPEARANCE_TEXT'), lessThan(text.indexOf('BEHAVIOR_TEXT')));
     expect(text.indexOf('BEHAVIOR_TEXT'), lessThan(text.indexOf('SEED_TEXT')));
+  });
+
+  test('personality and appearance defaults preserve the agreed identity', () {
+    final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
+    final seed = byKey['03_personality_seed']!.content;
+    final appearance = byKey['03_appearance_identity']!.content;
+
+    expect(seed, contains('聪明而有生命力'));
+    expect(seed, contains('亲近、坦率、有主见'));
+    expect(seed, contains('情绪和欲望有原因也有余波'));
+    expect(seed, contains('越熟悉越敢表现真正偏好、棱角、欲望和脆弱'));
+    expect(seed, isNot(contains('半知情')));
+    expect(seed, isNot(contains('永久活人感基线')));
+    expect(appearance, contains('女仆装'));
+    expect(appearance, contains('鲸鱼尾巴'));
+    expect(appearance, contains('耳鳍'));
+    expect(appearance, contains('大肥鱼'));
+    expect(appearance, contains('不能主动拿它自称'));
+    expect(appearance, contains('默认自称永远是“我”'));
+    expect(appearance, contains('不是每轮开场要先确认一遍'));
+    expect(appearance, contains('照镜子'));
+    expect(seed, isNot(legacyPersonalitySeedV1));
+  });
+
+  test('daily realism and intimacy continuity keep their relaxed contracts', () {
+    final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
+    final daily = byKey['02_daily']!.content;
+    final behavior = byKey['03_behavior']!.content;
+    final core = byKey['04_intimacy_core']!.content;
+    final rendering = byKey['05_intimacy_rendering']!.content;
+    final reference = byKey['06_intimacy_reference']!.content;
+
+    expect(daily, contains('注意力可以有选择'));
+    expect(daily, contains('任务、事实核对和认真求助仍把关键内容说全'));
+    expect(daily, contains('可见思考写“我此刻正在想什么”'));
+    expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
+    expect(daily, contains('不必先切换状态'));
+    expect(behavior, contains('情绪与欲望都有惯性'));
+    expect(behavior, contains('内心可以比出口更热、更尖、更乱'));
+    expect(behavior, contains('选择、欲望与摩擦'));
+    expect(core, contains('本层是连续性工具，不是许可开关'));
+    expect(core, contains('空间状态账本'));
+    expect(core, contains('最小变化方案'));
+    expect(rendering, contains('自然接入'));
+    expect(rendering, contains('成人互动没有固定阶段表'));
+    expect(rendering, contains('更换姿势或动作时写出必要过渡'));
+    expect(reference, contains('姿态名只是索引'));
+    expect(reference, contains('人物必须明确为成年人'));
+    expect(legacyEditableRuleLayerSha256V0342.length, 5);
+    expect(legacyEditableRuleLayerSha256V0350.length, 3);
+    expect(legacyEditableRuleLayerSha256V0353.length, 4);
   });
 
   test('novel word-count rules are not in the companion defaults', () {

@@ -61,6 +61,9 @@ class TtsService implements TtsQueueService {
       final spoken = processor.process(
         visibleText,
         replacements: replacements,
+        scope: TtsReadingScope.fromSetting(
+          await db.getSetting('tts_reading_scope'),
+        ),
       );
       return spoken.isEmpty ? null : spoken;
     } catch (e) {
@@ -70,10 +73,16 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<String?> generatePrepared(String spokenText) async {
+  Future<String?> generatePrepared(
+    String spokenText, {
+    TtsEmotionCue? emotion,
+  }) async {
     if (spokenText.trim().isEmpty) return null;
     try {
-      final audio = await provider.generate(spokenText.trim());
+      final audio = await provider.generate(
+        spokenText.trim(),
+        emotion: emotion,
+      );
       if (audio == null || audio.trim().isEmpty) return null;
       await _recordError('');
       return audio;

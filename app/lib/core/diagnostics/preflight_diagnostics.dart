@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../grounding/grounding_engine.dart';
 import '../models/desire_state.dart';
@@ -83,10 +84,31 @@ class PreflightDiagnosticsService {
       'privacy': {
         'relationshipPlaintextIncluded': false,
         'messageBodiesIncluded': false,
+        'memoryBodiesIncluded': false,
+        'memoryRetrievalQueriesIncluded': false,
+        'visionImageBytesIncluded': false,
+        'visionPathsIncluded': false,
+        'visionCaptionIncluded': false,
+        'visionSummaryIncluded': false,
+        'visionRawErrorIncluded': false,
         'rawNotificationTextIncluded': false,
         'rawAccessibilityTextIncluded': false,
         'apiSecretsIncluded': false,
         'fullOwnershipIdsIncluded': false,
+        'autonomousIntentReasonIncluded': false,
+        'autonomousQueryOrUrlIncluded': false,
+        'autonomousScreenOrWebContentIncluded': false,
+        'publicWebCandidateTitleIncluded': false,
+        'publicWebCandidateSummaryIncluded': false,
+        'publicWebCandidateUrlIncluded': false,
+        'publicWebQueryOrInterestKeyIncluded': false,
+        'agentToolArgumentsIncluded': false,
+        'agentToolResultBodiesIncluded': false,
+        'overlayRawPackageIncluded': false,
+        'historicalExitDescriptionIncluded': false,
+        'historicalExitTraceIncluded': false,
+        'reasoningLanguageTextIncluded': false,
+        'reasoningLanguageMatchedWordsIncluded': false,
       },
     };
 
@@ -102,15 +124,26 @@ class PreflightDiagnosticsService {
       final lastTakeoverAt = int.tryParse(await db.getSetting('last_takeover_at') ?? '') ?? 0;
       final jobs = await db.postTurnJobStats();
       final memoryStats = await db.memoryStats();
+      final somaticDiagnostics = await db.somaticDiagnosticStats();
+      final emotionDiagnostics = await db.emotionDiagnosticStats(now: now);
+      final reasoningLanguageDiagnostics =
+          await VisibleReasoningLanguageTelemetry.snapshot(db);
+      final memoryRetrievalDiagnostics =
+          await db.memoryRetrievalDiagnosticStats(now: now);
+      final visionDiagnostics = await db.attachmentVisionDiagnosticStats();
+      final chatTurnLease =
+          await db.localLeaseDiagnostic('chat_turn_lease');
+      final autonomousActions =
+          await db.autonomousActionDiagnosticStats(now: now);
+      final publicWebCandidates =
+          await db.publicWebCandidateDiagnosticStats(now: now);
+      final personalityTrials = await db.personalityTrialDiagnostics();
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
       final desireSnapshot = await db.loadDesire();
       final desireThoughts = await db.activeThoughtMetadata(limit: 40);
-      final activeSession = await db.activeInteractionSession();
-      final intimacyAllowed = activeSession != null &&
-          (activeSession.kind == 'intimacy' ||
-              activeSession.kind == 'roleplay_intimacy');
+      const adultRelationshipDriveEnabled = true;
       final desireCandidates = DesireCorePolicy.candidates(
         drives: desireSnapshot.drives,
         refractoryUntil: desireSnapshot.refractoryUntil,
@@ -118,13 +151,29 @@ class PreflightDiagnosticsService {
         now: now,
         baselines: desireSnapshot.baselines,
         lastWildcardAt: desireSnapshot.lastWildcardAt,
-        intimacyAllowed: intimacyAllowed,
+        intimacyAllowed: adultRelationshipDriveEnabled,
       );
       final provenanceCounts = <String, int>{};
       for (final thought in desireThoughts) {
         final key = thought.provenance.key;
         provenanceCounts[key] = (provenanceCounts[key] ?? 0) + 1;
       }
+      final residueOrdered = desireThoughts.toList()
+        ..sort((a, b) {
+          final aWeight = a.residualStrength > 0
+              ? a.residualStrength
+              : a.strength;
+          final bWeight = b.residualStrength > 0
+              ? b.residualStrength
+              : b.strength;
+          return bWeight.compareTo(aWeight);
+        });
+      final strongestResidue = residueOrdered.isEmpty ? null : residueOrdered.first;
+      final strongestResidueWeight = strongestResidue == null
+          ? 0.0
+          : strongestResidue.residualStrength > 0
+              ? strongestResidue.residualStrength
+              : strongestResidue.strength;
       final refractoryMinutes = <String, int>{};
       for (final entry in desireSnapshot.refractoryUntil.entries) {
         if (!entry.value.isAfter(now)) continue;
@@ -158,6 +207,23 @@ class PreflightDiagnosticsService {
         'blockingGenerationStatus': generationJob?.status ?? 'none',
         'failedGenerationNeedsAttention': failedGeneration != null,
         'recordCounts': memoryStats,
+        'chatTurnLease': chatTurnLease,
+        'emotionObservability': emotionDiagnostics,
+        'visibleReasoningLanguage': reasoningLanguageDiagnostics,
+        'memoryRetrieval': memoryRetrievalDiagnostics,
+        'imageVision': visionDiagnostics,
+        'somaticObservability': somaticDiagnostics,
+        'personalityTrials': personalityTrials,
+        'nsfwRouting': {
+          'active': (await db.getSetting('nsfw_active')) == '1',
+          'referenceActive':
+              (await db.getSetting('nsfw_reference_active')) == '1',
+          'source': await db.getSetting('nsfw_route_source') ?? 'initial',
+          'manualOverridePending':
+              (await db.getSetting('nsfw_manual_override') ?? '').isNotEmpty,
+          'promptBodiesIncluded': false,
+          'chatContentIncluded': false,
+        },
         'errorFlags': {
           'backgroundErrorCount':
               int.tryParse(await db.getSetting('background_error_count') ?? '') ?? 0,
@@ -203,7 +269,72 @@ class PreflightDiagnosticsService {
           'proactiveGroundingRetryLastReason':
               await db.getSetting('grounding_retry_last_reason') ?? '',
         },
+        'serviceTemplateGuard': {
+          'matchCount': int.tryParse(
+                await db.getSetting('service_template_guard_match_count') ?? '',
+              ) ??
+              0,
+          'rewriteCount': int.tryParse(
+                await db.getSetting('service_template_guard_rewrite_count') ?? '',
+              ) ??
+              0,
+          'blockCount': int.tryParse(
+                await db.getSetting('service_template_guard_block_count') ?? '',
+              ) ??
+              0,
+          'lastAt': int.tryParse(
+                await db.getSetting('service_template_guard_last_at') ?? '',
+              ) ??
+              0,
+          'lastMode':
+              await db.getSetting('service_template_guard_last_mode') ?? '',
+          'lastAction':
+              await db.getSetting('service_template_guard_last_action') ?? '',
+          'lastReason':
+              await db.getSetting('service_template_guard_last_reason') ?? '',
+          'lastFamily':
+              await db.getSetting('service_template_guard_last_family') ?? '',
+          'matchedTextIncluded': false,
+          'chatContentIncluded': false,
+        },
+        'agentTools': {
+          'registry': 'unified_v1',
+          'userTurnRequestCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_request_count') ?? '',
+              ) ??
+              0,
+          'userTurnSuccessCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_success_count') ?? '',
+              ) ??
+              0,
+          'userTurnFailureCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_failure_count') ?? '',
+              ) ??
+              0,
+          'lastTool':
+              await db.getSetting('agent_tool_user_turn_last_tool') ?? '',
+          'lastStatus':
+              await db.getSetting('agent_tool_user_turn_last_status') ?? '',
+          'lastReasonTag':
+              await db.getSetting('agent_tool_user_turn_last_reason_tag') ?? '',
+          'lastResultCount': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_last_result_count') ??
+                    '',
+              ) ??
+              0,
+          'lastErrorCode':
+              await db.getSetting('agent_tool_user_turn_last_error_code') ?? '',
+          'lastAt': int.tryParse(
+                await db.getSetting('agent_tool_user_turn_last_at') ?? '',
+              ) ??
+              0,
+          'maxCallsPerTurn': 2,
+          'countsAgainstAutonomousBudget': false,
+          'argumentsIncluded': false,
+          'resultBodiesIncluded': false,
+        },
         'desireCore': {
+          'adultRelationshipDriveEnabled': adultRelationshipDriveEnabled,
           'drives': {
             for (final entry in desireSnapshot.drives.entries)
               entry.key.name: double.parse(entry.value.toStringAsFixed(4)),
@@ -223,7 +354,7 @@ class PreflightDiagnosticsService {
           'fatigueGateActive':
               (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
                   DesireCorePolicy.fatigueRestGate,
-          'intimacyActionAllowed': intimacyAllowed,
+          'intimacyActionAllowed': adultRelationshipDriveEnabled,
           'wildcardCooldownMinutes': desireSnapshot.lastWildcardAt == null
               ? 0
               : max(
@@ -250,7 +381,21 @@ class PreflightDiagnosticsService {
               }).toList(),
           'activeThoughtCount': desireThoughts.length,
           'thoughtProvenanceCounts': provenanceCounts,
+          'innerVoiceContinuity': {
+            'policy': 'first_person_reaction_expression_v2',
+            'usesPersistedDesireAndThoughtMetadata': true,
+            'storesRawReasoningAsMemory': false,
+            'strongestResidueDrive': strongestResidue?.driveKey ?? '',
+            'strongestResidueState': strongestResidue?.lifecycleState ?? 'none',
+            'strongestResidueBand': strongestResidueWeight >= 0.68
+                ? 'high'
+                : strongestResidueWeight >= 0.32
+                    ? 'medium'
+                    : 'low',
+          },
         },
+        'autonomousActions': autonomousActions,
+        'publicWebCandidates': publicWebCandidates,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
@@ -282,6 +427,32 @@ class PreflightDiagnosticsService {
             await db.getSetting('presence_last_gate_breakdown') ?? '',
           ),
         },
+        'publicWebCompaction': {
+          'enabled':
+              (await db.getSetting('agnes_web_compaction_enabled')) != '0',
+          'lastAttemptAt': int.tryParse(
+                await db.getSetting('agnes_compaction_last_attempt_at') ?? '',
+              ) ??
+              0,
+          'lastSuccessAt': int.tryParse(
+                await db.getSetting('agnes_compaction_last_success_at') ?? '',
+              ) ??
+              0,
+          'lastOutcome':
+              await db.getSetting('agnes_compaction_last_outcome') ?? 'never',
+          'lastInputCount': int.tryParse(
+                await db.getSetting('agnes_compaction_last_input_count') ?? '',
+              ) ??
+              0,
+          'lastOutputCount': int.tryParse(
+                await db.getSetting('agnes_compaction_last_output_count') ?? '',
+              ) ??
+              0,
+          'lastError':
+              await db.getSetting('agnes_compaction_last_error') ?? '',
+          'queryOrWebContentIncluded': false,
+          'apiSecretIncluded': false,
+        },
         'currentContext': {
           'available': (int.tryParse(
                     await db.getSetting('current_context_last_refresh_at') ?? '',
@@ -308,6 +479,11 @@ class PreflightDiagnosticsService {
               0.0,
           'currentActivityClass':
               await db.getSetting('current_context_current_activity') ?? '',
+          'currentAppNameResolved':
+              (await db.getSetting('current_context_current_app_resolved')) == '1',
+          'currentAppNameIncluded': false,
+          'currentAppSource':
+              await db.getSetting('current_context_current_app_source') ?? 'none',
           'dominantActivityClass':
               await db.getSetting('current_context_dominant_activity') ?? '',
           'observationCount': int.tryParse(
@@ -324,6 +500,42 @@ class PreflightDiagnosticsService {
         title: '本地数据库',
         level: 'pass',
         summary: '数据库可打开，身份与 schema 可读取。',
+      ));
+      final aiToSelf = _asMap(somaticDiagnostics['aiToSelf']);
+      final aiToSelfCount = (aiToSelf['total'] as num?)?.toInt() ?? 0;
+      checks.add(PreflightCheck(
+        id: 'somatic_ai_to_self',
+        title: 'AI → self 感官回响',
+        level: aiToSelfCount > 0 ? 'pass' : 'info',
+        summary: aiToSelfCount > 0
+            ? '至少一条已提交的 AI 自发完成动作产生了脱敏感官回响。'
+            : '尚无 AI → self 正向事件；需用一条明确已完成的自发触碰动作定向验收。',
+      ));
+      final actionByStatus =
+          _asMap(autonomousActions['byStatus']);
+      final runningActions =
+          (actionByStatus['running'] as num?)?.toInt() ?? 0;
+      checks.add(PreflightCheck(
+        id: 'autonomous_action_foundation',
+        title: '自主行动公共底座',
+        level: runningActions > 0 ? 'info' : 'pass',
+        summary: runningActions > 0
+            ? '当前存在已领取的自主工具任务；报告已保留脱敏执行状态。'
+            : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪。',
+      ));
+      final publicWebRuntime =
+          _asMap(publicWebCandidates['runtime']);
+      final publicWebOutcome =
+          publicWebRuntime['lastOutcome'] as String? ?? 'never';
+      checks.add(PreflightCheck(
+        id: 'public_web_discovery',
+        title: '欲望驱动的公开网页发现',
+        level: publicWebOutcome == 'provider_failure' ? 'warn' : 'pass',
+        summary: publicWebOutcome == 'never'
+            ? '真实 Provider 已接入；等待符合阈值的 Desire Intent，候选只进入不可信候选池。'
+            : publicWebOutcome == 'provider_failure'
+                ? '最近一次公开网页发现由 Provider/网络失败；脱敏原因已记录，未满足欲望。'
+                : '公开网页发现已有脱敏运行结果；标题、摘要、网址、查询词均未进入报告。',
       ));
       if (transferLock) {
         final expected = pendingImport != null || pendingOutboundId.isNotEmpty;
@@ -367,6 +579,24 @@ class PreflightDiagnosticsService {
       final nearby = _asMap(native['nearby']);
       final androidInfo = _asMap(native['android']);
       final audio = _asMap(native['audio']);
+      final selfHealCount =
+          (capabilities['overlaySelfHealCount'] as num?)?.toInt() ?? 0;
+      final coverSessionId =
+          (capabilities['overlayCoverSessionId'] as num?)?.toInt() ?? 0;
+      final coverState = capabilities['overlayCoverState'] as String? ?? 'idle';
+      final inputSuspect = capabilities['overlayInputSuspect'] == true;
+      final systemCoverActive = capabilities['overlaySystemCoverActive'] == true;
+      final recoveryInProgress =
+          capabilities['overlayRecoveryInProgress'] == true;
+      final transientCoverRecovery = inputSuspect &&
+          (systemCoverActive ||
+              recoveryInProgress ||
+              coverState == 'covered_detached' ||
+              coverState == 'covered_suspect' ||
+              coverState == 'exit_pending' ||
+              coverState == 'recovery_scheduled');
+      final possibleRecoveryLoop = coverSessionId > 0 &&
+          selfHealCount > (coverSessionId * 2 + 2);
       report['overlayTouch'] = {
         'bubbleAttached': capabilities['overlayBubbleAttached'] == true,
         'bubbleTouchable': capabilities['overlayBubbleTouchable'] == true,
@@ -377,23 +607,62 @@ class PreflightDiagnosticsService {
         'lastTouchAction': capabilities['overlayLastTouchAction'] ?? '',
         'lastSelfHealAt': capabilities['overlayLastSelfHealAt'] ?? 0,
         'lastSelfHealReason': capabilities['overlayLastSelfHealReason'] ?? '',
-        'selfHealCount': capabilities['overlaySelfHealCount'] ?? 0,
-        'inputSuspect': capabilities['overlayInputSuspect'] == true,
+        'selfHealCount': selfHealCount,
+        'inputSuspect': inputSuspect,
         'lastSystemCoverAt': capabilities['overlayLastSystemCoverAt'] ?? 0,
         'lastSystemCoverReason': capabilities['overlayLastSystemCoverReason'] ?? '',
         'lastCoverRecoveryAt': capabilities['overlayLastCoverRecoveryAt'] ?? 0,
         'windowVisibility': capabilities['overlayLastWindowVisibility'] ?? 0,
-        'recoveryInProgress': capabilities['overlayRecoveryInProgress'] == true,
+        'recoveryInProgress': recoveryInProgress,
         'coverRecoveryCount': capabilities['overlayCoverRecoveryCount'] ?? 0,
-        'coverState': capabilities['overlayCoverState'] ?? 'idle',
-        'systemCoverActive': capabilities['overlaySystemCoverActive'] == true,
-        'coverSessionId': capabilities['overlayCoverSessionId'] ?? 0,
+        'coverState': coverState,
+        'systemCoverActive': systemCoverActive,
+        'coverSessionId': coverSessionId,
         'coverRecoveryAttempt': capabilities['overlayCoverRecoveryAttempt'] ?? 0,
         'lastCoverExitAt': capabilities['overlayLastCoverExitAt'] ?? 0,
         'lastCoverExitReason': capabilities['overlayLastCoverExitReason'] ?? '',
         'lastCoverRecoveryResult':
             capabilities['overlayLastCoverRecoveryResult'] ?? '',
         'coverDetachCount': capabilities['overlayCoverDetachCount'] ?? 0,
+        'coverHistory': capabilities['overlayCoverHistory'] ?? const [],
+        'rawPackageIncluded': false,
+        'transientSystemCoverRecovery': transientCoverRecovery,
+        'possibleRecoveryLoop': possibleRecoveryLoop,
+        'selfHealsPerCoverSession': coverSessionId <= 0
+            ? 0.0
+            : double.parse((selfHealCount / coverSessionId).toStringAsFixed(2)),
+      };
+      report['backgroundContinuity'] = {
+        'processAgeMs': capabilities['processAgeMs'] ?? 0,
+        'serviceUptimeMs': capabilities['serviceUptimeMs'] ?? 0,
+        'serviceStartCount': capabilities['serviceStartCount'] ?? 0,
+        'serviceCleanStopCount': capabilities['serviceCleanStopCount'] ?? 0,
+        'possibleUncleanRestartCount':
+            capabilities['possibleUncleanRestartCount'] ?? 0,
+        'lastPossibleUncleanRestartAt':
+            capabilities['lastPossibleUncleanRestartAt'] ?? 0,
+        'lastTaskRemovedAt': capabilities['lastTaskRemovedAt'] ?? 0,
+        'lastTrimMemoryAt': capabilities['lastTrimMemoryAt'] ?? 0,
+        'lastTrimMemoryLevel': capabilities['lastTrimMemoryLevel'] ?? 0,
+        'backgroundBrainReadyAt': capabilities['backgroundBrainReadyAt'] ?? 0,
+        'backgroundBrainReadyCount': capabilities['backgroundBrainReadyCount'] ?? 0,
+        'backgroundBrainFailureAt': capabilities['backgroundBrainFailureAt'] ?? 0,
+        'backgroundBrainFailureCount':
+            capabilities['backgroundBrainFailureCount'] ?? 0,
+        'backgroundBrainFailureReason':
+            capabilities['backgroundBrainFailureReason'] ?? '',
+        'historicalExitReason':
+            capabilities['historicalExitReason'] ?? 'unavailable',
+        'historicalExitAt': capabilities['historicalExitAt'] ?? 0,
+        'historicalExitStatus': capabilities['historicalExitStatus'] ?? 0,
+        'historicalExitImportance':
+            capabilities['historicalExitImportance'] ?? 0,
+        'historicalExitDescriptionIncluded': false,
+        'historicalExitTraceIncluded': false,
+        'batteryOptimizationIgnored':
+            androidInfo['batteryOptimizationIgnored'] == true,
+        'backgroundRestricted': androidInfo['backgroundRestricted'] == true,
+        'contentsIncluded': false,
       };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
@@ -409,9 +678,87 @@ class PreflightDiagnosticsService {
               capabilities['accessibility'] == true;
       final accessibilityConnected =
           capabilities['accessibilityConnected'] == true;
+      final accessibilityComponentMatch =
+          capabilities['accessibilityComponentMatch'] == true;
+      final accessibilityPackageEntryCount =
+          (capabilities['accessibilityPackageEntryCount'] as num?)?.toInt() ?? 0;
+      final accessibilityEventCount =
+          (capabilities['accessibilityEventCount'] as num?)?.toInt() ?? 0;
+      final accessibilityLastEventAt =
+          (capabilities['accessibilityLastEventAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProcessStartedAt =
+          (capabilities['processStartedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityLastConnectedAt =
+          (capabilities['accessibilityLastConnectedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityLastDisconnectedAt =
+          (capabilities['accessibilityLastDisconnectedAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProbeAt =
+          (capabilities['accessibilityStatusProbeAt'] as num?)?.toInt() ?? 0;
+      final accessibilityProbeStale = accessibilityProbeAt > 0 &&
+          now.millisecondsSinceEpoch - accessibilityProbeAt >
+              const Duration(minutes: 2).inMilliseconds;
+      final accessibilityProcessRestarted = !accessibilityConnected &&
+          accessibilityLastConnectedAt > 0 &&
+          accessibilityProcessStartedAt > accessibilityLastConnectedAt &&
+          accessibilityLastDisconnectedAt < accessibilityLastConnectedAt;
+      final accessibilityEventStalled = accessibilityConnected &&
+          accessibilityEventCount > 0 &&
+          accessibilityLastEventAt > 0 &&
+          capabilities['screenInteractive'] == true &&
+          capabilities['deviceLocked'] != true &&
+          now.millisecondsSinceEpoch - accessibilityLastEventAt >
+              const Duration(minutes: 45).inMilliseconds;
+      final accessibilityHealthState = accessibilityProbeStale
+          ? 'STALE_UI'
+          : !accessibilityComponentMatch &&
+                  accessibilityPackageEntryCount > 0
+              ? 'COMPONENT_MISMATCH'
+              : !accessibilityAuthorized
+                  ? 'SYSTEM_DISABLED'
+                  : !accessibilityConnected
+                      ? accessibilityProcessRestarted
+                          ? 'PROCESS_RESTARTED'
+                          : 'ENABLED_NOT_CONNECTED'
+                      : accessibilityEventCount <= 0 ||
+                              accessibilityLastEventAt <= 0
+                          ? 'CONNECTED_NO_EVENTS'
+                          : accessibilityEventStalled
+                              ? 'EVENT_STREAM_STALLED'
+                              : 'CONNECTED_EVENTS_OK';
       report['accessibilityLifecycle'] = {
+        'healthState': accessibilityHealthState,
         'authorized': accessibilityAuthorized,
+        'componentMatch': accessibilityComponentMatch,
+        'enabledEntryCount':
+            capabilities['accessibilityEnabledEntryCount'] ?? 0,
+        'packageEntryCount': accessibilityPackageEntryCount,
+        'statusProbeAt': accessibilityProbeAt,
+        'lastStatusProbeAt':
+            capabilities['accessibilityLastStatusProbeAt'] ?? 0,
+        'lastAuthorizationChangedAt':
+            capabilities['accessibilityLastAuthorizationChangedAt'] ?? 0,
+        'authorizationChangeCount':
+            capabilities['accessibilityAuthorizationChangeCount'] ?? 0,
         'connected': accessibilityConnected,
+        'serviceGeneration':
+            capabilities['accessibilityServiceGeneration'] ?? 0,
+        'connectCount': capabilities['accessibilityConnectCount'] ?? 0,
+        'disconnectCount':
+            capabilities['accessibilityDisconnectCount'] ?? 0,
+        'interruptCount':
+            capabilities['accessibilityInterruptCount'] ?? 0,
+        'destroyCount': capabilities['accessibilityDestroyCount'] ?? 0,
+        'eventCount': accessibilityEventCount,
+        'allowedEventCount':
+            capabilities['accessibilityAllowedEventCount'] ?? 0,
+        'lastEventAt': accessibilityLastEventAt,
+        'lastEventType': capabilities['accessibilityLastEventType'] ?? '',
+        'lastEventPackageHash':
+            capabilities['accessibilityLastEventPackageHash'] ?? '',
+        'lastWindowEventAt':
+            capabilities['accessibilityLastWindowEventAt'] ?? 0,
+        'lastReadableRootAt': capabilities['accessibilityLastRootAt'] ?? 0,
+        'rawPackageOrTextIncluded': false,
         'lastConnectedAt': capabilities['accessibilityLastConnectedAt'] ?? 0,
         'lastDisconnectedAt':
             capabilities['accessibilityLastDisconnectedAt'] ?? 0,
@@ -421,14 +768,26 @@ class PreflightDiagnosticsService {
       checks.add(PreflightCheck(
         id: 'accessibility',
         title: 'Accessibility 轻视觉',
-        level: accessibilityAuthorized && accessibilityConnected
+        level: accessibilityHealthState == 'CONNECTED_EVENTS_OK'
             ? 'pass'
-            : 'warn',
-        summary: !accessibilityAuthorized
-            ? '系统当前未授权；轻视觉不会运行。'
-            : accessibilityConnected
-                ? '系统已授权，轻视觉服务已连接。'
-                : '系统仍显示已授权，但轻视觉服务未连接；请打开无障碍页重新开关该服务，并保存本报告。',
+            : accessibilityHealthState == 'CONNECTED_NO_EVENTS'
+                ? 'info'
+                : 'warn',
+        summary: switch (accessibilityHealthState) {
+          'SYSTEM_DISABLED' => '系统当前未授权；轻视觉不会运行。',
+          'COMPONENT_MISMATCH' =>
+            '系统存在本 App 的无障碍条目，但组件名不匹配；请保存本报告。',
+          'ENABLED_NOT_CONNECTED' =>
+            '系统已授权但服务未连接；请进入无障碍设置重新开关后保存本报告。',
+          'PROCESS_RESTARTED' =>
+            'App 进程曾重启，系统授权仍在但服务尚未重新连接。',
+          'CONNECTED_NO_EVENTS' =>
+            '服务已连接，但本次安装尚未收到 AccessibilityEvent。',
+          'EVENT_STREAM_STALLED' =>
+            '服务仍标记连接，但事件流长时间无心跳，疑似已停滞。',
+          'STALE_UI' => '当前权限快照已过期，请刷新页面后重新导出诊断。',
+          _ => '系统授权、服务连接与事件流心跳均正常。',
+        },
       ));
       _addPermissionCheck(
         checks,
@@ -436,6 +795,131 @@ class PreflightDiagnosticsService {
         '发送通知',
         capabilities['postNotifications'] == true,
       );
+
+      report['currentAppFusion'] = {
+        'source': capabilities['currentAppFusionSource'] ?? 'none',
+        'ageMs': capabilities['currentAppFusionAgeMs'] ?? -1,
+        'usageEventCount':
+            capabilities['currentAppFusionUsageEventCount'] ?? 0,
+        'labelResolved':
+            capabilities['currentAppFusionLabelResolved'] == true,
+        'rawPackageIncluded': false,
+      };
+      report['currentAppTracker'] = {
+        'hasCandidate': capabilities['currentAppTrackerHasCandidate'] == true,
+        'candidatePackageHash':
+            capabilities['currentAppTrackerPackageHash'] ?? '',
+        'observedAt': capabilities['currentAppTrackerObservedAt'] ?? 0,
+        'ageMs': capabilities['currentAppTrackerAgeMs'] ?? -1,
+        'source': capabilities['currentAppTrackerSource'] ?? '',
+        'invalidatedAt':
+            capabilities['currentAppTrackerInvalidatedAt'] ?? 0,
+        'invalidationReason':
+            capabilities['currentAppTrackerInvalidationReason'] ?? '',
+        'windowProbeAt': capabilities['currentAppWindowProbeAt'] ?? 0,
+        'windowCount': capabilities['currentAppWindowCount'] ?? 0,
+        'activeWindowCount':
+            capabilities['currentAppWindowActiveCount'] ?? 0,
+        'focusedWindowCount':
+            capabilities['currentAppWindowFocusedCount'] ?? 0,
+        'candidateWindowCount':
+            capabilities['currentAppWindowCandidateCount'] ?? 0,
+        'windowResult': capabilities['currentAppWindowResult'] ?? '',
+        'lastRetryCount': capabilities['currentAppLastRetryCount'] ?? 0,
+        'lastRetryResult': capabilities['currentAppLastRetryResult'] ?? '',
+        'lastRetryAt': capabilities['currentAppLastRetryAt'] ?? 0,
+        'rawPackageIncluded': false,
+      };
+      report['proactiveNotificationDelivery'] = {
+        'notificationsEnabled':
+            capabilities['companionNotificationsEnabled'] == true,
+        'lastPosted':
+            capabilities['companionNotificationLastPosted'] == true,
+        'lastAt': capabilities['companionNotificationLastAt'] ?? 0,
+        'lastReason':
+            capabilities['companionNotificationLastReason'] ?? '',
+        'lastChannel':
+            capabilities['companionNotificationLastChannel'] ?? '',
+        'lastChannelImportance':
+            capabilities['companionNotificationLastChannelImportance'] ?? -1,
+        'lastSound': capabilities['companionNotificationLastSound'] ?? '',
+        'style': capabilities['companionNotificationStyle'] ?? '',
+        'lastAcknowledgedAt':
+            capabilities['companionNotificationLastAcknowledgedAt'] ?? 0,
+        'lastAcknowledgeReason':
+            capabilities['companionNotificationLastAcknowledgeReason'] ?? '',
+        'messageBodyIncluded': false,
+      };
+      final delayedStatus =
+          capabilities['delayedProactiveTestStatus'] as String? ?? 'idle';
+      report['delayedProactiveTest'] = {
+        'status': delayedStatus,
+        'scheduledAt':
+            capabilities['delayedProactiveTestScheduledAt'] ?? 0,
+        'dueAt': capabilities['delayedProactiveTestDueAt'] ?? 0,
+        'firedAt': capabilities['delayedProactiveTestFiredAt'] ?? 0,
+        'latencyMs': capabilities['delayedProactiveTestLatencyMs'] ?? -1,
+        'appSource':
+            capabilities['delayedProactiveTestAppSource'] ?? 'none',
+        'appAgeMs': capabilities['delayedProactiveTestAppAgeMs'] ?? -1,
+        'appCategory':
+            capabilities['delayedProactiveTestAppCategory'] ?? 'unknown',
+        'packageHash':
+            capabilities['delayedProactiveTestPackageHash'] ?? '',
+        'labelHash': capabilities['delayedProactiveTestLabelHash'] ?? '',
+        'labelResolved':
+            capabilities['delayedProactiveTestLabelResolved'] == true,
+        'appResolutionResult':
+            capabilities['delayedProactiveTestAppResolutionResult'] ?? 'not_run',
+        'appRetryCount':
+            capabilities['delayedProactiveTestAppRetryCount'] ?? 0,
+        'overlayAssessment':
+            capabilities['delayedProactiveTestOverlayAssessment'] ?? '',
+        'notificationPosted':
+            capabilities['delayedProactiveTestNotificationPosted'] == true,
+        'notificationReason':
+            capabilities['delayedProactiveTestNotificationReason'] ?? '',
+        'cancelledAt':
+            capabilities['delayedProactiveTestCancelledAt'] ?? 0,
+        'cancelReason':
+            capabilities['delayedProactiveTestCancelReason'] ?? '',
+        'cancelRejectedAt':
+            capabilities['delayedProactiveTestCancelRejectedAt'] ?? 0,
+        'cancelRejectedReason':
+            capabilities['delayedProactiveTestCancelRejectedReason'] ?? '',
+        'rawAppIncluded': false,
+        'memoryWritten': false,
+        'modelCalled': false,
+      };
+      if (delayedStatus == 'completed') {
+        final notificationPosted =
+            capabilities['delayedProactiveTestNotificationPosted'] == true;
+        final appResolved =
+            capabilities['delayedProactiveTestLabelResolved'] == true;
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_notification',
+          title: '5分钟测试 · 通知送达',
+          level: notificationPosted ? 'pass' : 'warn',
+          summary: notificationPosted
+              ? '测试已到点并成功向 Android 发布对话通知。'
+              : '测试已到点，但通知未成功发布；请查看通知原因与频道状态。',
+        ));
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_current_app',
+          title: '5分钟测试 · 当前 App',
+          level: appResolved ? 'pass' : 'warn',
+          summary: appResolved
+              ? '提醒触发时成功解析当前 App；来源和取样次数已脱敏记录。'
+              : '提醒触发时多次取样仍未解析当前 App；通知成功不再掩盖此项失败。',
+        ));
+      } else if (delayedStatus == 'cancelled') {
+        checks.add(PreflightCheck(
+          id: 'delayed_proactive_cancelled',
+          title: '5分钟测试 · 已取消',
+          level: 'info',
+          summary: '这次测试没有触发通知；取消时间和确认入口已脱敏记录。',
+        ));
+      }
 
       final overlayEnabled = capabilities['overlayUserEnabled'] == true;
       final overlayRunning = capabilities['overlayRunning'] == true;
@@ -465,16 +949,24 @@ class PreflightDiagnosticsService {
         title: '悬浮球触摸健康',
         level: !overlayEnabled
             ? 'info'
-            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
-                    (!chatWindowAttached || chatExpanded)
-                ? 'pass'
-                : 'warn',
+            : possibleRecoveryLoop
+                ? 'warn'
+                : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                        (!chatWindowAttached || chatExpanded)
+                    ? 'pass'
+                    : transientCoverRecovery
+                        ? 'info'
+                        : 'warn',
         summary: !overlayEnabled
             ? '悬浮陪伴未启用，本轮不检查触摸窗口。'
-            : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
-                    (!chatWindowAttached || chatExpanded)
-                ? '悬浮球窗口已附着、可触摸且位于系统安全区域。'
-                : '悬浮球存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
+            : possibleRecoveryLoop
+                ? '系统页面次数与自愈次数不成比例，疑似重复恢复循环。'
+                : bubbleAttached && bubbleTouchable && bubblePositionSafe &&
+                        (!chatWindowAttached || chatExpanded)
+                    ? '悬浮入口已附着、可触摸且位于系统安全区域。'
+                    : transientCoverRecovery
+                        ? '系统图片/文件/权限页面刚退出，悬浮输入通道正在一次性恢复。'
+                        : '悬浮入口存在输入通道、坐标或隐藏聊天窗口异常；服务会尝试自动恢复。',
       ));
 
       final nearbyPermission = nearby['permissionsGranted'] == true;

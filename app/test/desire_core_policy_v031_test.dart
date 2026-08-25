@@ -183,7 +183,7 @@ void main() {
     );
   });
 
-  test('libido cannot become an action outside an explicit intimacy session', () {
+  test('libido is a normal adult relationship drive without a Session gate', () {
     final now = DateTime(2026, 8, 12, 20, 0);
     final snapshot = DesireSnapshot(
       drives: {
@@ -198,17 +198,20 @@ void main() {
       thoughts: const [],
       now: now,
     );
-    final intimacy = DesireCorePolicy.candidates(
+    final consumerFiltered = DesireCorePolicy.candidates(
       drives: snapshot.drives,
       refractoryUntil: const {},
       thoughts: const [],
       now: now,
-      intimacyAllowed: true,
+      intimacyAllowed: false,
     );
 
-    expect(ordinary.any((c) => c.drive == DriveKey.libido), isFalse);
-    expect(intimacy.first.drive, DriveKey.libido);
-    expect(intimacy.first.action, 'tease_or_intimacy');
+    expect(ordinary.first.drive, DriveKey.libido);
+    expect(ordinary.first.action, 'tease_or_intimacy');
+    expect(
+      consumerFiltered.any((candidate) => candidate.drive == DriveKey.libido),
+      isFalse,
+    );
   });
 
   test('learned temperament slowly pulls back toward its original anchor', () {

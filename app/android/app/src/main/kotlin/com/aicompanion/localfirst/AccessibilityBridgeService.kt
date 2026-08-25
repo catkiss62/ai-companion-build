@@ -2,7 +2,9 @@ package com.aicompanion.localfirst
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.PowerManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
@@ -21,8 +23,30 @@ class AccessibilityBridgeService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val e = event ?: return
-        if (e.isPassword) return
-        val sourcePackage = e.packageName?.toString() ?: return
+        val sourcePackage = e.packageName?.toString().orEmpty()
+        val allowedPackage = PrivacyFilter.allowPackage(sourcePackage)
+        CompanionRuntimeState.noteAccessibilityEvent(
+            context = this,
+            eventType = AccessibilityEvent.eventTypeToString(e.eventType),
+            sourcePackage = sourcePackage,
+            allowedPackage = allowedPackage,
+            windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+            hasReadableRoot = runCatching { rootInActiveWindow != null }.getOrDefault(false),
+        )
+        val power = getSystemService(PowerManager::class.java)
+        if (!power.isInteractive) {
+            CurrentAppResolver.clearTrackedApp(this, "screen_off_accessibility")
+        } else if (CurrentAppResolver.isLauncherPackage(sourcePackage)) {
+            CurrentAppResolver.clearTrackedApp(this, "launcher_window")
+        } else if (
+            e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+        ) {
+            refreshForegroundWindowTracker(sourcePackage)
+        }
+
+        if (e.isPassword || sourcePackage.isBlank()) return
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             // System file pickers/settings/permission surfaces may ask Android
@@ -32,22 +56,25 @@ class AccessibilityBridgeService : AccessibilityService() {
                 sourcePackage,
                 e.className?.toString().orEmpty(),
             )
+            // Foreground identity was already refreshed from the interactive
+            // window list above, with event-package fallback for OEM gaps.
+            val sourceHash = CompanionRuntimeState.privacyHash(sourcePackage)
             if (systemSurface) {
                 systemCoverActive = true
                 OverlayBubbleService.notifySystemCoverEntered(
                     this,
-                    "accessibility_system_surface",
+                    "accessibility_system_surface:$sourceHash",
                 )
             } else if (systemCoverActive || CompanionRuntimeState.isOverlaySystemCoverActive()) {
                 systemCoverActive = false
                 OverlayBubbleService.notifySystemCoverExited(
                     this,
-                    "accessibility_non_system_window",
+                    "accessibility_non_system_window:$sourceHash",
                 )
             }
         }
 
-        if (!PrivacyFilter.allowPackage(sourcePackage)) return
+        if (!allowedPackage) return
 
         val content = buildList {
             e.contentDescription?.let { add(it.toString()) }
@@ -72,6 +99,56 @@ class AccessibilityBridgeService : AccessibilityService() {
         }
     }
 
+    private fun refreshForegroundWindowTracker(eventPackage: String) {
+        val observedWindows = runCatching { windows.orEmpty() }.getOrDefault(emptyList())
+        data class WindowCandidate(
+            val packageName: String,
+            val active: Boolean,
+            val focused: Boolean,
+            val layer: Int,
+        )
+        val candidates = observedWindows.mapNotNull { window ->
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@mapNotNull null
+            val packageName = runCatching {
+                window.root?.packageName?.toString().orEmpty()
+            }.getOrDefault("")
+            if (!CurrentAppResolver.isTrackablePackage(this, packageName)) return@mapNotNull null
+            WindowCandidate(
+                packageName = packageName,
+                active = window.isActive,
+                focused = window.isFocused,
+                layer = window.layer,
+            )
+        }
+        val selected = candidates.sortedWith(
+            compareByDescending<WindowCandidate> { it.active }
+                .thenByDescending { it.focused }
+                .thenByDescending { it.layer },
+        ).firstOrNull()
+        if (selected != null) {
+            CurrentAppResolver.noteForegroundApp(
+                this,
+                selected.packageName,
+                "accessibility_interactive_window",
+            )
+        } else if (CurrentAppResolver.isTrackablePackage(this, eventPackage)) {
+            CurrentAppResolver.noteForegroundApp(this, eventPackage, "accessibility_event")
+        }
+        CurrentAppResolver.noteWindowProbe(
+            context = this,
+            total = observedWindows.size,
+            active = observedWindows.count { it.isActive },
+            focused = observedWindows.count { it.isFocused },
+            candidates = candidates.size,
+            result = when {
+                selected != null -> "interactive_window_selected"
+                CurrentAppResolver.isTrackablePackage(this, eventPackage) -> "event_package_fallback"
+                observedWindows.isEmpty() -> "windows_empty"
+                else -> "no_external_candidate"
+            },
+        )
+    }
+
     private fun isLikelySystemSurface(sourcePackage: String, sourceClass: String): Boolean {
         // v0.30.2 treated every system / updated-system app as a cover surface.
         // On HyperOS that is far too broad and caused repeated overlay rebuilds.
@@ -92,7 +169,12 @@ class AccessibilityBridgeService : AccessibilityService() {
             p == "com.android.packageinstaller" ||
             p == "com.miui.packageinstaller" ||
             p == "com.android.settings" ||
-            p == "com.miui.securitycenter" ||
+            // Do not treat the whole HyperOS Security Center package as a
+            // cover. Game Turbo emits short-lived window-state events from
+            // this package while ordinary games are foreground; detaching the
+            // pet here creates the exact disappear/recover loop we are trying
+            // to avoid. Actual permission/install surfaces remain covered by
+            // their dedicated PermissionController/PackageInstaller packages.
             p.contains("documentsui") ||
             p.contains("fileexplorer") ||
             p.contains("photopicker") ||
@@ -126,6 +208,7 @@ class AccessibilityBridgeService : AccessibilityService() {
         if (CompanionRuntimeState.accessibilityConnected) {
             CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
         }
+        CompanionRuntimeState.noteAccessibilityDestroyed(this)
         super.onDestroy()
     }
 }

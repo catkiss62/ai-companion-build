@@ -7,14 +7,21 @@ import 'package:uuid/uuid.dart';
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
+import '../autonomy/public_web_discovery_engine.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../database/app_database.dart';
+import '../diagnostics/visible_reasoning_language_telemetry.dart';
+import '../emotion/emotion_classifier_service.dart';
+import '../emotion/emotion_contract.dart';
 import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
+import '../grounding/service_template_guard.dart';
 import '../models/chat_message.dart';
+import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import '../models/proactive_intent.dart';
+import '../models/proactive_notification_settings.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
@@ -72,6 +79,15 @@ class _ProactiveGenerationCandidate {
   final String content;
 }
 
+String _visibleChineseProactiveReasoning(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return '';
+  final cjk = RegExp(r'[\u3400-\u9fff]').allMatches(text).length;
+  final latinWords = RegExp(r'[A-Za-z]{2,}').allMatches(text).length;
+  if (latinWords >= 6 && (cjk == 0 || latinWords * 2 > cjk)) return '';
+  return text;
+}
+
 class ProactiveEngine {
   ProactiveEngine({
     required this.db,
@@ -123,6 +139,13 @@ class ProactiveEngine {
   late final LongRunningMaintenanceEngine longMaintenance =
       LongRunningMaintenanceEngine(db);
   late final DailyContinuityEngine dailyContinuity = DailyContinuityEngine(db);
+  late final PublicWebDiscoveryEngine publicWebDiscovery =
+      PublicWebDiscoveryEngine(
+        db: db,
+        desire: desireEngine,
+        android: android,
+        secureConfig: secureConfig,
+      );
 
   /// Advances local inner-life and maintenance state without sending an
   /// outbound message. Used while a durable user reply is waiting for recovery.
@@ -174,7 +197,16 @@ class ProactiveEngine {
         await db.latestPerceptionBusyScore();
     final busyScore = (recentBusyScore ?? 0.30).clamp(0.0, 1.0).toDouble();
     final userBusy = busyScore >= 0.58;
-    final snapshot = await desireEngine.tick(userBusy: userBusy);
+    final advancedSnapshot = await desireEngine.tick(userBusy: userBusy);
+    try {
+      await publicWebDiscovery.maybeDiscover(snapshot: advancedSnapshot);
+    } catch (_) {
+      // Public discovery is optional enrichment. A provider/network fault must
+      // never stop Desire, maintenance, recovery, or proactive evaluation.
+    }
+    // Discovery may have atomically satisfied the selected drive. Reload so a
+    // proactive message in the same heartbeat cannot act on a stale snapshot.
+    final snapshot = await db.loadDesire();
     return LocalCompanionHeartbeat(
       snapshot: snapshot,
       userBusy: userBusy,
@@ -216,15 +248,14 @@ class ProactiveEngine {
       final userBusy = localHeartbeat.userBusy;
       final snapshot = localHeartbeat.snapshot;
     final thoughts = await db.activeThoughts(limit: 20);
+    // Session is retained only for notification privacy and scene continuity;
+    // it no longer decides whether libido may form an intent.
     final activeSession = await db.activeInteractionSession();
-    final intimacyAllowed = activeSession != null &&
-        (activeSession.kind == 'intimacy' ||
-            activeSession.kind == 'roleplay_intimacy');
     final intent = desireEngine.previewIntent(
       snapshot,
       thoughts,
       now: evaluationStartedAt,
-      intimacyAllowed: intimacyAllowed,
+      intimacyAllowed: true,
     );
     if (intent == null) {
       return const ProactiveDecision(sent: false, reason: '没有形成意图');
@@ -380,6 +411,8 @@ class ProactiveEngine {
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
     );
+    // The editable 08_proactive_turn template now owns these former inline
+    // contracts: 当前“内在反应 + 表达过滤”仍完整生效；正文停在最有性格的自然落点。
     context.add({
       'role': 'system',
       'content': '''
@@ -395,9 +428,14 @@ Gate：${gateScore.toStringAsFixed(2)}
 用户当前可能${userBusy ? '在使用其他 App，偏忙' : '可被打扰'}；即使偏忙，也不是禁止联系，只应降低打扰强度。
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
-
-请输出一条自然、短到中等长度、像长期伴侣自己想发出的消息。严格服从 REALITY GROUNDING：若用户在我上一条消息之后没有再说话，就把这次当成新的主动开口，不能继续回答已经回答过的旧 user turn，也不能虚构用户刚刚说了什么。不要解释算法，不要汇报数值，不要说“系统检测到”。如果你认为即便已经过 Gate 也确实没有值得说的，最终正文只输出 WAIT。
+严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
+    });
+    context.add({
+      'role': 'system',
+      'content': PromptBuilder.visibleChineseGenerationReminder(
+        proactive: true,
+      ),
     });
 
     final model = DeepSeekModelProfile.flash;
@@ -493,6 +531,15 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
     bool isWait(_ProactiveGenerationCandidate value) =>
         value.content.isEmpty || value.content == 'WAIT';
 
+    // Proactive generation does not use DurableGenerationRunner, so it must
+    // explicitly share the same machine-only envelope normalization before
+    // guards, SQLite, notification, overlay and TTS can see the content.
+    var emotionEnvelope = EmotionEnvelope.parse(candidate.content);
+    candidate = _ProactiveGenerationCandidate(
+      reasoning: candidate.reasoning,
+      content: emotionEnvelope.visibleText,
+    );
+
     if (isWait(candidate)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -516,22 +563,44 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       reasoning: candidate.reasoning,
       lastUserText: lastGroundedUserText,
     );
+    final recentAssistantTexts = recent
+        .where((message) => message.isAssistant)
+        .map((message) => message.content);
+    var serviceGuard = ServiceTemplateGuard.evaluate(
+      text: candidate.content,
+      recentAssistantTexts: recentAssistantTexts,
+      proactive: true,
+    );
 
-    if (!textGuard.allowed || !reasoningGuard.allowed) {
+    if (!textGuard.allowed ||
+        !reasoningGuard.allowed ||
+        !serviceGuard.allowed) {
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
-          : textGuard.reason;
+          : !textGuard.allowed
+              ? textGuard.reason
+              : serviceGuard.reason;
+      if (!serviceGuard.allowed) {
+        await ServiceTemplateGuardTelemetry.note(
+          db,
+          result: serviceGuard,
+          mode: 'proactive',
+          action: 'rewrite',
+        );
+      }
       await noteGroundingRetry(retryReason);
       final retryContext = <Map<String, Object?>>[
         ...context,
         {
           'role': 'system',
           'content': '''
-【REALITY GROUNDING CORRECTION · ONE RETRY】
-上一份候选生成违反了当前轮次事实边界：$retryReason。
+【PROACTIVE OUTPUT CORRECTION · ONE RETRY】
+上一份候选违反了当前出站约束：$retryReason。
 CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，用户之后没有新的发言。
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
-推理本身也不能写成“回复/回答用户上一句”。最终正文同样不能虚构用户刚刚说了、回复了或发来了任何内容。
+推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容；也不能用“一直在、不走、不催、你忙你的、等你回来”一类待命客服模板主动找话。
+重选时仍保持当前性格的内在反应与表达过滤；说具体内容、真实发现或自己的念头，没有值得说的就输出 WAIT。
+${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
         },
       ];
@@ -545,7 +614,11 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
           deliveryStyle: deliveryStyle,
         );
       }
-      candidate = retried;
+      emotionEnvelope = EmotionEnvelope.parse(retried.content);
+      candidate = _ProactiveGenerationCandidate(
+        reasoning: retried.reasoning,
+        content: emotionEnvelope.visibleText,
+      );
       if (isWait(candidate)) {
         await db.addProactiveHistory(
           triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -568,6 +641,11 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
         reasoning: candidate.reasoning,
         lastUserText: lastGroundedUserText,
       );
+      serviceGuard = ServiceTemplateGuard.evaluate(
+        text: candidate.content,
+        recentAssistantTexts: recentAssistantTexts,
+        proactive: true,
+      );
     }
 
     if (!textGuard.allowed) {
@@ -576,23 +654,59 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     if (!reasoningGuard.allowed) {
       return blockGrounding(reasoningGuard.reason);
     }
+    if (!serviceGuard.allowed) {
+      await ServiceTemplateGuardTelemetry.note(
+        db,
+        result: serviceGuard,
+        mode: 'proactive',
+        action: 'block',
+      );
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:${intent.reason}',
+        decision: 'service_template_block',
+      );
+      return ProactiveDecision(
+        sent: false,
+        reason: '主动候选命中重复服务模板，已取消',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
+    }
 
     final text = candidate.content;
+    final companionEmotion = await EmotionClassifierService.instance.resolve(
+      rawTag: emotionEnvelope.rawTag,
+      visibleText: text,
+      envelopeStatus: emotionEnvelope.status,
+    );
 
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
     // below, so a user chat lease cannot slip into the check/commit gap.
+    final visibleReasoning =
+        _visibleChineseProactiveReasoning(candidate.reasoning);
+    unawaited(
+      VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
+    );
     final message = ChatMessage(
       id: _uuid.v4(),
       role: 'assistant',
       content: text,
-      reasoningContent: candidate.reasoning,
+      reasoningContent: visibleReasoning,
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,
       proactiveIntent: intentKind.key,
       proactiveDelivery: deliveryStyle.key,
       deviceId: await db.ensureDeviceId(),
+      segments: ChatSegmentCodec.parseAssistantText(text),
+      emotionRawTag: companionEmotion.rawTag,
+      emotionKey: companionEmotion.key,
+      emotionLabel: companionEmotion.label,
+      emotionConfidence: companionEmotion.confidence,
+      emotionTop3Json: companionEmotion.top3Json,
+      emotionSource: companionEmotion.source,
     );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,
@@ -618,6 +732,10 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
       triggerReason: '${intent.drive.name}:${intent.reason}',
       decision: 'sent',
       messageId: message.id,
+    );
+    await db.markRecentlyInjectedMemoriesExpressed(
+      message.content,
+      now: message.createdAt,
     );
     if (intentThought != null) {
       await thoughtLifecycle.markActed(thought: intentThought, messageId: message.id);
@@ -647,19 +765,41 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
     final notificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),
     );
-    final sensitiveSession = activeSession?.kind.toLowerCase().contains('intimacy') ?? false;
+    final sensitiveSession =
+        activeSession?.kind.toLowerCase().contains('intimacy') ?? false;
+    final sensitiveIntent = intent.drive == DriveKey.libido;
     final notificationBody = ProactivePresentationPolicy.notificationBody(
       kind: intentKind,
       fullText: text,
       privacy: notificationPrivacy,
-      sensitiveContext: sensitiveSession,
+      sensitiveContext: sensitiveSession || sensitiveIntent,
+    );
+    final popupMode = ProactivePopupMode.fromSetting(
+      await db.getSetting('proactive_popup_mode'),
+    );
+    final notificationSound = ProactiveNotificationSound.fromSetting(
+      await db.getSetting('proactive_notification_sound'),
+    );
+    final effectiveNotificationDelivery = popupMode.effectiveDeliveryStyle(
+      deliveryStyle.key,
+    );
+    await db.setSetting(
+      'last_proactive_notification_presentation',
+      jsonEncode({
+        'popupMode': popupMode.key,
+        'suggestedDelivery': deliveryStyle.key,
+        'effectiveDelivery': effectiveNotificationDelivery,
+        'sound': notificationSound.key,
+        'at': DateTime.now().millisecondsSinceEpoch,
+      }),
     );
     await android.postCompanionNotification(
       title: intentKind.notificationTitle,
       body: notificationBody,
       messageId: message.id,
       intentKind: intentKind.key,
-      deliveryStyle: deliveryStyle.key,
+      deliveryStyle: effectiveNotificationDelivery,
+      soundKey: notificationSound.key,
     );
 
     final voicePolicy = ProactiveTtsPolicy.fromSetting(

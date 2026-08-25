@@ -31,9 +31,13 @@ class BackgroundSystemBridge(
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "deviceLabel" -> result.success(deviceLabel())
+                "runtimeProcessEpoch" -> result.success(CompanionRuntimeState.runtimeProcessEpoch)
                 "getPerceptionState" -> result.success(perceptionState())
                 "getRecentUsage" -> result.success(
-                    recentUsage(call.argument<Int>("minutes") ?: 60),
+                    CurrentAppResolver.recentUsage(
+                        context,
+                        call.argument<Int>("minutes") ?: 60,
+                    ),
                 )
                 "setOverlayUnread" -> {
                     setOverlayUnread(call.argument<Int>("count") ?: 0)
@@ -60,6 +64,7 @@ class BackgroundSystemBridge(
                             ?: System.currentTimeMillis().toString(),
                         call.argument<String>("intentKind") ?: "",
                         call.argument<String>("deliveryStyle") ?: "normal",
+                        call.argument<String>("soundKey") ?: "chime",
                     )
                     result.success(null)
                 }

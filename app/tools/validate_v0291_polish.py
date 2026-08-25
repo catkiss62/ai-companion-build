@@ -38,13 +38,8 @@ def main() -> int:
     adapter = overlay[overlay.index('private inner class NativeChatAdapter'):overlay.index('private fun proactiveIntentLabel')]
     assert adapter.index('smallInlineAction("🧠 思考")') < adapter.index('text = message.content')
 
-    handoff = ROOT / 'docs/HANDOFF.md'
-    assert handoff.exists()
-    text = handoff.read_text(encoding='utf-8')
-    for token in ['v0.29.1', 'v0.29.0', 'schema v18', 'MejuTTS_A2_OriginalNative_v2.5.apk', 'Active Brain']:
-        assert token in text, token
-
-    print('v0.29.1 TTS/UI/HANDOFF static validation passed.')
+    # Mutable handoff documents are governed by the evergreen root ledger.
+    print('v0.29.1 TTS/UI static validation passed.')
     return 0
 
 

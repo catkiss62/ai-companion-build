@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/model_profile.dart';
+import '../../core/autonomy/layered_public_web_provider.dart';
 import '../../core/database/app_database.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
+import '../../core/tts/tts_text_processor.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -29,12 +32,20 @@ class _SettingsPageState extends State<SettingsPage> {
   final visionKeyController = TextEditingController();
   final visionEndpointController = TextEditingController();
   final visionModelController = TextEditingController();
+  final tavilyKeyController = TextEditingController();
+  final agnesKeyController = TextEditingController();
+  final agnesEndpointController = TextEditingController();
+  final agnesModelController = TextEditingController();
+  final publicWebSourcesController = TextEditingController();
   final ttsReplacementController = TextEditingController();
 
   bool loading = true;
   bool revealKey = false;
   bool revealVisionKey = false;
+  bool revealTavilyKey = false;
+  bool revealAgnesKey = false;
   bool testingApi = false;
+  bool testingAgnes = false;
   bool autoMemory = true;
   bool memoryConsolidation = true;
   bool memoryFading = true;
@@ -48,12 +59,18 @@ class _SettingsPageState extends State<SettingsPage> {
   bool relationshipContinuity = true;
   bool sessionTracking = true;
   bool activeBrain = true;
+  bool publicWebDiscovery = true;
+  bool agnesWebCompaction = true;
   bool ttsEnabled = false;
   bool autoTts = false;
   bool streamingTts = false;
+  TtsReadingScope ttsReadingScope = TtsReadingScope.dialogueOnly;
   ProactiveTtsPolicy proactiveTtsPolicy = ProactiveTtsPolicy.silent;
   ProactiveNotificationPrivacy proactiveNotificationPrivacy =
       ProactiveNotificationPrivacy.smart;
+  ProactivePopupMode proactivePopupMode = ProactivePopupMode.alwaysPopup;
+  ProactiveNotificationSound proactiveNotificationSound =
+      ProactiveNotificationSound.chime;
   double ttsSpeed = 1.0;
   double ttsVolume = 1.0;
   DeepSeekModelProfile model = DeepSeekModelProfile.pro;
@@ -74,6 +91,12 @@ class _SettingsPageState extends State<SettingsPage> {
     visionKeyController.text = await secure.readVisionApiKey() ?? '';
     visionEndpointController.text = await secure.readVisionEndpoint();
     visionModelController.text = await secure.readVisionModel();
+    tavilyKeyController.text = await secure.readTavilyApiKey() ?? '';
+    agnesKeyController.text = await secure.readAgnesApiKey() ?? '';
+    agnesEndpointController.text = await secure.readAgnesEndpoint();
+    agnesModelController.text = await secure.readAgnesModel();
+    publicWebSourcesController.text =
+        await db.getSetting('public_web_extra_sources') ?? '';
     autoMemory = (await db.getSetting('auto_memory')) != '0';
     memoryConsolidation = (await db.getSetting('memory_consolidation_enabled')) != '0';
     memoryFading = (await db.getSetting('memory_fading_enabled')) != '0';
@@ -87,14 +110,27 @@ class _SettingsPageState extends State<SettingsPage> {
     relationshipContinuity = (await db.getSetting('relationship_continuity_enabled')) != '0';
     sessionTracking = (await db.getSetting('session_tracking_enabled')) != '0';
     activeBrain = (await db.getSetting('active_brain')) != '0';
+    publicWebDiscovery =
+        (await db.getSetting('public_web_discovery_enabled')) != '0';
+    agnesWebCompaction =
+        (await db.getSetting('agnes_web_compaction_enabled')) != '0';
     ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
     autoTts = (await db.getSetting('auto_tts')) != '0';
     streamingTts = (await db.getSetting('tts_streaming_enabled')) != '0';
+    ttsReadingScope = TtsReadingScope.fromSetting(
+      await db.getSetting('tts_reading_scope'),
+    );
     proactiveTtsPolicy = ProactiveTtsPolicy.fromSetting(
       await db.getSetting('proactive_tts_policy'),
     );
     proactiveNotificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),
+    );
+    proactivePopupMode = ProactivePopupMode.fromSetting(
+      await db.getSetting('proactive_popup_mode'),
+    );
+    proactiveNotificationSound = ProactiveNotificationSound.fromSetting(
+      await db.getSetting('proactive_notification_sound'),
     );
     ttsSpeed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
     ttsVolume = double.tryParse(await db.getSetting('tts_volume') ?? '') ?? 1.0;
@@ -119,6 +155,22 @@ class _SettingsPageState extends State<SettingsPage> {
       await secure.writeVisionEndpoint(visionEndpointController.text);
       await secure.writeVisionModel(visionModelController.text);
       await secure.writeVisionApiKey(visionKeyController.text);
+      await secure.writeTavilyApiKey(tavilyKeyController.text);
+      await secure.writeAgnesEndpoint(agnesEndpointController.text);
+      await secure.writeAgnesModel(agnesModelController.text);
+      await secure.writeAgnesApiKey(agnesKeyController.text);
+      await db.setSetting(
+        'public_web_discovery_enabled',
+        publicWebDiscovery ? '1' : '0',
+      );
+      await db.setSetting(
+        'agnes_web_compaction_enabled',
+        agnesWebCompaction ? '1' : '0',
+      );
+      await db.setSetting(
+        'public_web_extra_sources',
+        publicWebSourcesController.text.trim(),
+      );
       await db.setSetting('auto_memory', autoMemory ? '1' : '0');
       await db.setSetting('memory_consolidation_enabled', memoryConsolidation ? '1' : '0');
       await db.setSetting('memory_fading_enabled', memoryFading ? '1' : '0');
@@ -137,10 +189,16 @@ class _SettingsPageState extends State<SettingsPage> {
       await db.setSetting('tts_enabled', ttsEnabled ? '1' : '0');
       await db.setSetting('auto_tts', autoTts ? '1' : '0');
       await db.setSetting('tts_streaming_enabled', streamingTts ? '1' : '0');
+      await db.setSetting('tts_reading_scope', ttsReadingScope.key);
       await db.setSetting('proactive_tts_policy', proactiveTtsPolicy.settingValue);
       await db.setSetting(
         'proactive_notification_privacy',
         proactiveNotificationPrivacy.key,
+      );
+      await db.setSetting('proactive_popup_mode', proactivePopupMode.key);
+      await db.setSetting(
+        'proactive_notification_sound',
+        proactiveNotificationSound.key,
       );
       await db.setSetting('tts_speed', ttsSpeed.toStringAsFixed(2));
       await db.setSetting('tts_volume', ttsVolume.toStringAsFixed(2));
@@ -160,6 +218,23 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) setState(() => status = '已保存到本机');
     } catch (e) {
       if (mounted) setState(() => status = '保存失败：$e');
+    }
+  }
+
+  Future<void> _testProactiveNotification() async {
+    setState(() => status = '正在发送一条不写入聊天和记忆的弹窗测试…');
+    try {
+      final result = await android.testCompanionNotification(
+        soundKey: proactiveNotificationSound.key,
+      );
+      if (!mounted) return;
+      setState(() {
+        status = result['posted'] == true
+            ? '测试通知已交给 Android；若没有横幅，请检查该提示音频道的“允许弹出”。'
+            : '测试通知未显示：${result['reason'] ?? '请检查通知权限和频道设置'}';
+      });
+    } catch (e) {
+      if (mounted) setState(() => status = '测试通知失败：$e');
     }
   }
 
@@ -192,7 +267,7 @@ class _SettingsPageState extends State<SettingsPage> {
             endpoint: endpoint,
             model: model,
             effort: effort,
-            thinking: false,
+            thinking: true,
             messages: const <Map<String, Object?>>[
               {'role': 'user', 'content': 'Reply with OK only.'},
             ],
@@ -223,6 +298,33 @@ class _SettingsPageState extends State<SettingsPage> {
     } finally {
       client.close();
       if (mounted) setState(() => testingApi = false);
+    }
+  }
+
+  Future<void> _testAgnesCompaction() async {
+    final apiKey = agnesKeyController.text.trim();
+    if (apiKey.isEmpty) {
+      setState(() => status = 'Agnes 测试失败：请先填写 Agnes API Key。');
+      return;
+    }
+    setState(() {
+      testingAgnes = true;
+      status = '正在用固定公开样本文字测试 Agnes 整理…';
+    });
+    try {
+      final result = await AgnesWebCompactor(
+        apiKey: apiKey,
+        endpoint: agnesEndpointController.text.trim(),
+        model: agnesModelController.text.trim(),
+      ).testConnection();
+      if (!mounted) return;
+      setState(() {
+        status = result == null
+            ? 'Agnes 测试失败：未收到有效回复，请检查 Key、地址与模型名。'
+            : 'Agnes 整理通过：${result.length <= 160 ? result : '${result.substring(0, 160)}…'}';
+      });
+    } finally {
+      if (mounted) setState(() => testingAgnes = false);
     }
   }
 
@@ -361,6 +463,11 @@ class _SettingsPageState extends State<SettingsPage> {
     visionKeyController.dispose();
     visionEndpointController.dispose();
     visionModelController.dispose();
+    tavilyKeyController.dispose();
+    agnesKeyController.dispose();
+    agnesEndpointController.dispose();
+    agnesModelController.dispose();
+    publicWebSourcesController.dispose();
     ttsReplacementController.dispose();
     super.dispose();
   }
@@ -368,6 +475,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final currentTtsStatus = ttsStatus;
+    final currentStatus = status;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -434,6 +543,116 @@ class _SettingsPageState extends State<SettingsPage> {
                 )
               : const Icon(Icons.network_check),
           label: Text(testingApi ? '正在测试 API…' : '测试 API 连接'),
+        ),
+        const SizedBox(height: 22),
+        Text('公开网页搜索与整理',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Text(
+          '默认先做 Tavily 全网搜索；下方网址只增加补充来源，不会把搜索限制在这些站点。'
+          '失败时回退中文维基。网页始终先进入不可信候选池，不直接写长期记忆或自动发消息。',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('欲望驱动的公开网页发现'),
+          subtitle: const Text('继续使用独立的 4 次/24 小时搜索预算；锁屏不暂停安静搜索。'),
+          value: publicWebDiscovery,
+          onChanged: (v) => setState(() => publicWebDiscovery = v),
+        ),
+        TextField(
+          controller: tavilyKeyController,
+          obscureText: !revealTavilyKey,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            labelText: 'Tavily API Key（可选）',
+            helperText: '留空使用免 Key 搜索；填 Key 可使用你自己的额度。',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              onPressed: () =>
+                  setState(() => revealTavilyKey = !revealTavilyKey),
+              icon: Icon(
+                revealTavilyKey ? Icons.visibility_off : Icons.visibility,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: publicWebSourcesController,
+          minLines: 3,
+          maxLines: 7,
+          keyboardType: TextInputType.multiline,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(
+            labelText: '额外公开来源（可选，每行一个网址或域名）',
+            hintText: 'https://example.com\nnews.example.org',
+            helperText: '最多读取 5 个公开 HTTPS 域名；它们只加入补充搜索。',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('用 Agnes 2.5 Flash 整理网页片段'),
+          subtitle: const Text(
+            '只发送公开标题和片段；不发送聊天、记忆、Thought、关系或屏幕内容。',
+          ),
+          value: agnesWebCompaction,
+          onChanged: (v) => setState(() => agnesWebCompaction = v),
+        ),
+        TextField(
+          controller: agnesKeyController,
+          obscureText: !revealAgnesKey,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            labelText: 'Agnes API Key（可选）',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              onPressed: () =>
+                  setState(() => revealAgnesKey = !revealAgnesKey),
+              icon: Icon(
+                revealAgnesKey ? Icons.visibility_off : Icons.visibility,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: agnesEndpointController,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'Agnes Chat Completions 地址',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: agnesModelController,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(
+            labelText: 'Agnes 整理模型',
+            hintText: 'agnes-2.5-flash',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: testingAgnes ? null : _testAgnesCompaction,
+          icon: testingAgnes
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_awesome_outlined),
+          label: Text(testingAgnes ? '正在测试整理…' : '测试 Agnes 整理效果'),
         ),
         const SizedBox(height: 22),
         Text('图片识别（千问视觉）',
@@ -516,7 +735,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('六层行为规则路由'),
+          title: const Text('六大规则路由'),
           subtitle: const Text('按日常/亲密/参考资料场景动态加载六层规则；关闭后仍保留最小 AI 本体硬身份。'),
           value: ruleLayersEnabled,
           onChanged: (v) => setState(() => ruleLayersEnabled = v),
@@ -559,6 +778,60 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Text(
             proactiveNotificationPrivacy.description,
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<ProactivePopupMode>(
+          value: proactivePopupMode,
+          decoration: const InputDecoration(
+            labelText: '她主动找你时的提醒方式',
+            border: OutlineInputBorder(),
+          ),
+          items: ProactivePopupMode.values
+              .map((e) => DropdownMenuItem(value: e, child: Text(e.zhLabel)))
+              .toList(),
+          onChanged: (v) => setState(
+            () => proactivePopupMode = v ?? proactivePopupMode,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 10),
+          child: Text(
+            proactivePopupMode.description,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        DropdownButtonFormField<ProactiveNotificationSound>(
+          value: proactiveNotificationSound,
+          decoration: const InputDecoration(
+            labelText: '主动消息提示音',
+            border: OutlineInputBorder(),
+          ),
+          items: ProactiveNotificationSound.values
+              .map((e) => DropdownMenuItem(value: e, child: Text(e.zhLabel)))
+              .toList(),
+          onChanged: (v) => setState(
+            () => proactiveNotificationSound = v ?? proactiveNotificationSound,
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: _testProactiveNotification,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('测试当前弹窗与提示音'),
+              ),
+              TextButton.icon(
+                onPressed: () => android.openCompanionNotificationSettings(
+                  soundKey: proactiveNotificationSound.key,
+                ),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: const Text('打开该频道的浮动通知设置'),
+              ),
+            ],
           ),
         ),
         SwitchListTile(
@@ -611,11 +884,11 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('本地 TTS · Bert-VITS2/MNN', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          ttsStatus == null
+          currentTtsStatus == null
               ? '尚未读取状态。'
-              : '${ttsStatus!.engine} · ${ttsStatus!.available ? '可用' : '未装入实体'}'
-                  '${ttsStatus!.goldenReference.isEmpty ? '' : ' · ${ttsStatus!.goldenReference}'}\n'
-                  '${ttsStatus!.detail}',
+              : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '可用' : '未装入实体'}'
+                  '${currentTtsStatus.goldenReference.isEmpty ? '' : ' · ${currentTtsStatus.goldenReference}'}\n'
+                  '${currentTtsStatus.detail}',
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -631,6 +904,25 @@ class _SettingsPageState extends State<SettingsPage> {
           value: autoTts,
           onChanged: ttsEnabled ? (v) => setState(() => autoTts = v) : null,
         ),
+        DropdownButtonFormField<TtsReadingScope>(
+          value: ttsReadingScope,
+          decoration: const InputDecoration(
+            labelText: '朗读范围',
+            border: OutlineInputBorder(),
+          ),
+          items: TtsReadingScope.values
+              .map((scope) => DropdownMenuItem(
+                    value: scope,
+                    child: Text(scope.label),
+                  ))
+              .toList(),
+          onChanged: ttsEnabled
+              ? (value) => setState(
+                    () => ttsReadingScope = value ?? ttsReadingScope,
+                  )
+              : null,
+        ),
+        const SizedBox(height: 10),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('流式分句朗读'),
@@ -713,10 +1005,10 @@ class _SettingsPageState extends State<SettingsPage> {
           icon: const Icon(Icons.save),
           label: const Text('保存'),
         ),
-        if (status != null)
+        if (currentStatus != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text(status!, textAlign: TextAlign.center),
+            child: Text(currentStatus, textAlign: TextAlign.center),
           ),
         const SizedBox(height: 24),
         const Text(

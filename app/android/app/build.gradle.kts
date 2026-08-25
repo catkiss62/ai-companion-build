@@ -4,6 +4,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val privateSigningStorePath = System.getenv("AI_COMPANION_KEYSTORE_PATH")
+val privateSigningStorePassword = System.getenv("AI_COMPANION_KEYSTORE_PASSWORD")
+val privateSigningKeyAlias = System.getenv("AI_COMPANION_KEY_ALIAS")
+val privateSigningKeyPassword = System.getenv("AI_COMPANION_KEY_PASSWORD")
+val privateSigningAvailable =
+    !privateSigningStorePath.isNullOrBlank() &&
+        !privateSigningStorePassword.isNullOrBlank() &&
+        !privateSigningKeyAlias.isNullOrBlank() &&
+        !privateSigningKeyPassword.isNullOrBlank()
+
 android {
     namespace = "com.aicompanion.localfirst"
     compileSdk = flutter.compileSdkVersion
@@ -29,10 +39,26 @@ android {
         }
     }
 
+    signingConfigs {
+        if (privateSigningAvailable) {
+            create("privateStableTest") {
+                storeFile = file(privateSigningStorePath!!)
+                storePassword = privateSigningStorePassword
+                keyAlias = privateSigningKeyAlias
+                keyPassword = privateSigningKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Prototype: replace with a private release keystore before distributing broadly.
-            signingConfig = signingConfigs.getByName("debug")
+            // CI uses one persistent private test identity. Local builds keep the
+            // debug fallback so contributors do not need the private keystore.
+            signingConfig = if (privateSigningAvailable) {
+                signingConfigs.getByName("privateStableTest")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

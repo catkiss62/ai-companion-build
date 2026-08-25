@@ -44,6 +44,9 @@ class GroundingSnapshot {
     required this.lastAssistantWasProactive,
     required this.minutesSinceLastUser,
     required this.minutesSinceLastAssistant,
+    this.previousConversationAt,
+    this.currentTurnGapMinutes,
+    this.currentTurnCrossedCalendarDays = 0,
   });
 
   final DateTime nowLocal;
@@ -62,6 +65,13 @@ class GroundingSnapshot {
   final bool lastAssistantWasProactive;
   final int? minutesSinceLastUser;
   final int? minutesSinceLastAssistant;
+  final DateTime? previousConversationAt;
+  final int? currentTurnGapMinutes;
+  final int currentTurnCrossedCalendarDays;
+
+  bool get currentTurnCrossedDay => currentTurnCrossedCalendarDays > 0;
+  bool get currentTurnHasLongGap =>
+      currentTurnGapMinutes != null && currentTurnGapMinutes! >= 120;
 
   bool get hasConversation => lastUserMessageId != null || lastAssistantMessageId != null;
 
@@ -104,6 +114,12 @@ class GroundingSnapshot {
         'lastAssistantWasProactive': lastAssistantWasProactive,
         'minutesSinceLastUser': minutesSinceLastUser,
         'minutesSinceLastAssistant': minutesSinceLastAssistant,
+        'hasPreviousConversationBeforeCurrentTurn':
+            previousConversationAt != null,
+        'currentTurnGapMinutes': currentTurnGapMinutes,
+        'currentTurnCrossedCalendarDays': currentTurnCrossedCalendarDays,
+        'currentTurnCrossedDay': currentTurnCrossedDay,
+        'currentTurnHasLongGap': currentTurnHasLongGap,
       };
 
   static GroundingDaypart daypartFor(DateTime value) {
@@ -179,6 +195,39 @@ class ConversationGroundingPolicy {
       return localNow.difference(at).inMinutes;
     }
 
+    ChatMessage? previousConversation;
+    int? currentTurnGapMinutes;
+    var currentTurnCrossedCalendarDays = 0;
+    if (lastUser != null && userAfterAssistant) {
+      for (final message in recent) {
+        if (!message.createdAt.isBefore(lastUser.createdAt)) continue;
+        if (previousConversation == null ||
+            message.createdAt.isAfter(previousConversation.createdAt)) {
+          previousConversation = message;
+        }
+      }
+      if (previousConversation != null) {
+        final gap = lastUser.createdAt.difference(
+          previousConversation.createdAt,
+        );
+        currentTurnGapMinutes = gap.isNegative ? 0 : gap.inMinutes;
+        final previousLocal = previousConversation.createdAt.toLocal();
+        final currentLocal = lastUser.createdAt.toLocal();
+        final previousDay = DateTime(
+          previousLocal.year,
+          previousLocal.month,
+          previousLocal.day,
+        );
+        final currentDay = DateTime(
+          currentLocal.year,
+          currentLocal.month,
+          currentLocal.day,
+        );
+        currentTurnCrossedCalendarDays =
+            currentDay.difference(previousDay).inDays.clamp(0, 36500).toInt();
+      }
+    }
+
     return GroundingSnapshot(
       nowLocal: localNow,
       utcOffset: localNow.timeZoneOffset,
@@ -196,6 +245,9 @@ class ConversationGroundingPolicy {
       lastAssistantWasProactive: lastAssistant?.isProactive ?? false,
       minutesSinceLastUser: ageMinutes(lastUser?.createdAt),
       minutesSinceLastAssistant: ageMinutes(lastAssistant?.createdAt),
+      previousConversationAt: previousConversation?.createdAt,
+      currentTurnGapMinutes: currentTurnGapMinutes,
+      currentTurnCrossedCalendarDays: currentTurnCrossedCalendarDays,
     );
   }
 }

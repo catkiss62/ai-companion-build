@@ -24,6 +24,12 @@ class PetOverlayContractTest {
         assertEquals(238, PetOverlaySizing.assetHeight(PetOverlaySizing.MEDIUM))
         assertEquals(306, PetOverlaySizing.assetHeight(PetOverlaySizing.LARGE))
         assertEquals(PetOverlaySizing.MEDIUM, PetOverlaySizing.normalized("unexpected"))
+        assertEquals(9, PetOverlaySizing.badgeTopDp(PetOverlaySizing.SMALL))
+        assertEquals(24, PetOverlaySizing.badgeEndDp(PetOverlaySizing.SMALL))
+        assertEquals(15, PetOverlaySizing.badgeTopDp(PetOverlaySizing.MEDIUM))
+        assertEquals(36, PetOverlaySizing.badgeEndDp(PetOverlaySizing.MEDIUM))
+        assertEquals(30, PetOverlaySizing.badgeTopDp(PetOverlaySizing.LARGE))
+        assertEquals(56, PetOverlaySizing.badgeEndDp(PetOverlaySizing.LARGE))
     }
 
     @Test
@@ -64,7 +70,7 @@ class PetOverlayContractTest {
             PetConversationPolicy.cueFor(false, "idle", "synthesizing"),
         )
         assertEquals(
-            PetConversationPolicy.TALKING,
+            PetConversationPolicy.THINKING,
             PetConversationPolicy.cueFor(true, "answering", "idle"),
         )
         assertEquals(

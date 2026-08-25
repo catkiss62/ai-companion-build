@@ -28,7 +28,7 @@ pet_test = read(
     "android/app/src/test/kotlin/com/aicompanion/localfirst/pet/PetOverlayContractTest.kt"
 )
 
-assert "version: 0.34.1+66" in pubspec
+assert "version: 0.34.7+72" in pubspec
 for historical_validator in (
     "tools/validate_v0321_ai_to_self.py",
     "tools/validate_v0322_overlay_time_diagnostics.py",
@@ -47,14 +47,14 @@ for historical_validator in (
         or "version: 0.34.1+66" in historical
     ), historical_validator
 assert "image_picker: ^1.2.3" in pubspec
-assert "Build AI Companion v0.34.1+66 APK (Image Vision Phase 2)" in workflow
-assert "AI-Companion-v0.34.1-66-Image-Vision-Phase-2-APK" in workflow
+assert "Build AI Companion v0.34.7+72 APK (Autonomous Action Foundation)" in workflow
+assert "AI-Companion-v0.34.7-72-Autonomous-Action-Foundation-APK" in workflow
 somatic_validator = read("tools/validate_v0320_somatic_contract.py")
 assert "0\\.34\\." in somatic_validator and "1\\+66" in somatic_validator
 assert "static const int schemaVersion = 22;" in read(
     "tools/validate_v0313_overlay_picker.py"
 )
-assert "static const int schemaVersion = 23;" in database
+assert "static const int schemaVersion = 24;" in database
 for token in (
     "CREATE TABLE IF NOT EXISTS message_attachments",
     "FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE",

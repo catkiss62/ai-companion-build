@@ -16,14 +16,20 @@ import '../../core/models/desire_state.dart';
 import '../../core/models/thought.dart';
 import '../../core/models/thought_lifecycle_event.dart';
 import '../../core/models/relationship_event.dart';
+import '../../core/models/proactive_notification_settings.dart';
 import '../../core/models/unfinished_thread.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
+import '../../core/moe/application/moe_dynamics_policy.dart';
+import '../../core/moe/domain/moe_models.dart';
+import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../memory/memory_page.dart';
 import '../relationship/relationship_page.dart';
 import '../reference/reference_library_page.dart';
 import '../settings/rule_layers_page.dart';
+import '../personality/personality_lab_page.dart';
+import '../self/personality_appearance_page.dart';
 
 class InnerPage extends StatefulWidget {
   const InnerPage({super.key});
@@ -42,6 +48,8 @@ class _InnerPageState extends State<InnerPage> {
   late final MemoryMaintenanceEngine memoryMaintenance = MemoryMaintenanceEngine(db);
   late final RelationshipAssimilator relationshipAssimilator =
       RelationshipAssimilator(db: db);
+  late final SqliteMoeRepository moeRepository =
+      SqliteMoeRepository(() => db.database);
   DesireSnapshot? snapshot;
   GroundingSnapshot? grounding;
   List<DesireIntent> desireCandidates = const [];
@@ -52,6 +60,10 @@ class _InnerPageState extends State<InnerPage> {
   List<RelationshipEvent> relationshipEvents = const [];
   ProactiveRhythmProfile rhythmProfile = ProactiveRhythmProfile.neutral();
   Map<String, int> stats = const {};
+  Map<String, Object?> delayedProactiveTest = const {};
+  MoeStateSnapshot? moeState;
+  MoeExpressionPlan? moePlan;
+  bool moeExpressionEnabled = true;
   bool busy = false;
   String? result;
 
@@ -63,17 +75,17 @@ class _InnerPageState extends State<InnerPage> {
 
   Future<void> _refresh() async {
     snapshot = await db.loadDesire();
+    moeState = await moeRepository.loadState();
+    moePlan = const MoeDynamicsPolicy().expressionPlan(moeState!);
+    moeExpressionEnabled =
+        (await db.getSetting('moe_expression_enabled')) != '0';
     grounding = await GroundingEngine(db).capture();
     thoughts = await db.activeThoughts(limit: 30);
-    final activeSession = await db.activeInteractionSession();
-    final intimacyAllowed = activeSession != null &&
-        (activeSession.kind == 'intimacy' ||
-            activeSession.kind == 'roleplay_intimacy');
     desireCandidates = desire
         .previewCandidates(
           snapshot!,
           thoughts,
-          intimacyAllowed: intimacyAllowed,
+          intimacyAllowed: true,
         )
         .take(4)
         .toList();
@@ -83,6 +95,12 @@ class _InnerPageState extends State<InnerPage> {
     relationshipEvents = await db.recentRelationshipEvents(limit: 10);
     rhythmProfile = await proactiveRhythm.profile();
     stats = await db.memoryStats();
+    try {
+      delayedProactiveTest =
+          await AndroidBridge.instance.delayedProactiveTestStatus();
+    } catch (_) {
+      delayedProactiveTest = const {'status': 'unavailable'};
+    }
     if (mounted) setState(() {});
   }
 
@@ -203,6 +221,231 @@ class _InnerPageState extends State<InnerPage> {
     }
   }
 
+  Future<void> _scheduleDelayedProactiveTest() async {
+    setState(() {
+      busy = true;
+      result = '正在安排一条约5分钟后的跨 App 测试消息…';
+    });
+    try {
+      final sound = ProactiveNotificationSound.fromSetting(
+        await db.getSetting('proactive_notification_sound'),
+      );
+      delayedProactiveTest =
+          await AndroidBridge.instance.scheduleDelayedProactiveTest(
+        delay: const Duration(minutes: 5),
+        soundKey: sound.key,
+      );
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      final due = dueAt > 0
+          ? DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal().toString()
+          : '未知时间';
+      result = '已安排：约 $due 主动弹窗。你现在可以切到 B站、蚂蚁财富或游戏。'
+          '\n这条测试不调用模型、不写聊天记忆，也不改变她的主动联系节奏。';
+    } catch (e) {
+      result = '安排失败：$e';
+    } finally {
+      await _refresh();
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _cancelDelayedProactiveTest() async {
+    final expectedDueAt =
+        (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+    if (expectedDueAt <= 0) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('取消5分钟测试？'),
+            content: const Text('取消后不会再弹出这一次测试消息。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('继续等待'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('确认取消'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    try {
+      delayedProactiveTest =
+          await AndroidBridge.instance.cancelDelayedProactiveTest(
+        expectedDueAt: expectedDueAt,
+        reason: 'inner_page_confirmed',
+      );
+      result = '已取消尚未执行的5分钟测试。';
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) setState(() => result = '取消失败：$e');
+    }
+  }
+
+  String _delayedTestSummary() {
+    final status = delayedProactiveTest['status']?.toString() ?? 'idle';
+    if (status == 'scheduled') {
+      final dueAt = (delayedProactiveTest['dueAt'] as num?)?.toInt() ?? 0;
+      final due = dueAt > 0
+          ? DateTime.fromMillisecondsSinceEpoch(dueAt).toLocal().toString()
+          : '未知';
+      return '等待执行 · 预计 $due';
+    }
+    if (status == 'completed') {
+      final label = delayedProactiveTest['appLabel']?.toString().trim() ?? '';
+      final source = delayedProactiveTest['appSource']?.toString() ?? 'none';
+      final retries = (delayedProactiveTest['appRetryCount'] as num?)?.toInt() ?? 0;
+      final posted = delayedProactiveTest['notificationPosted'] == true;
+      final overlay = delayedProactiveTest['overlayAssessment']?.toString() ?? '';
+      return '上次已执行 · 当前 App=${label.isEmpty ? '未识别' : label} · '
+          '来源=$source（取样$retries次）· App识别=${label.isEmpty ? '失败' : '成功'} · '
+          '通知=${posted ? '已发布' : '未发布'} · 桌宠=$overlay';
+    }
+    if (status == 'cancelled') return '上次测试已取消';
+    if (status == 'unavailable') return '当前原生桥不支持延迟测试';
+    return '尚未安排延迟测试';
+  }
+
+  static const double _metricLabelWidth = 72;
+  static const double _metricValueWidth = 92;
+  static const double _metricGap = 8;
+  static const EdgeInsets _metricCardPadding = EdgeInsets.all(12);
+
+  Widget _metricProgressRow({
+    required String label,
+    required double progress,
+    required String valueText,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: _metricLabelWidth, child: Text(label)),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0).toDouble(),
+            ),
+          ),
+          const SizedBox(width: _metricGap),
+          SizedBox(
+            width: _metricValueWidth,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                valueText,
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desireStateCard(BuildContext context, DesireSnapshot state) {
+    return Card(
+      child: Padding(
+        padding: _metricCardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '欲望系统数值',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 10),
+            ...DriveKey.values.map((drive) {
+              final value = state.drives[drive] ?? 0;
+              final baseline = state.baselines[drive] ?? 0;
+              return _metricProgressRow(
+                label: drive.zhLabel,
+                progress: value,
+                valueText:
+                    '${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}',
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMoeAppearanceSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PersonalityAppearancePage()),
+    );
+    await _refresh();
+  }
+
+  Widget _moeStateCard(BuildContext context) {
+    final state = moeState;
+    final plan = moePlan;
+    if (state == null || plan == null) return const SizedBox.shrink();
+    final recipeLabel = [
+      if (plan.primary != null) plan.primary!.label,
+      if (plan.secondary != null) plan.secondary!.label,
+    ].join(' + ');
+    final d3Status = moeExpressionEnabled
+        ? '已开启 · ${state.expressionMode.label}'
+        : '已关闭';
+    return Card(
+      child: Padding(
+        padding: _metricCardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '萌属性数值 · D2 数值引擎',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'D3 表现：$d3Status',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _openMoeAppearanceSettings,
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('调整 D3'),
+                ),
+              ],
+            ),
+            Text(
+              recipeLabel.isEmpty ? '当前没有突出组合' : '当前组合：$recipeLabel',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            ...MoeAxis.values.map((axis) {
+              final value = state.current[axis] ?? axis.defaultBaseline;
+              final baseline = state.baselines[axis] ?? axis.defaultBaseline;
+              return _metricProgressRow(
+                label: axis.label,
+                progress: value / 100,
+                valueText:
+                    '${value.toStringAsFixed(0)} / ${baseline.toStringAsFixed(0)}',
+              );
+            }),
+            const SizedBox(height: 6),
+            const Text(
+              'D2 负责旁路记录数值，不参与提示词；D3 只读取这些状态来调整表达，不改写欲望、关系、情绪、规则或工具行为。',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = snapshot;
@@ -214,21 +457,7 @@ class _InnerPageState extends State<InnerPage> {
         const SizedBox(height: 4),
         const Text('每项显示“当前值 / 长期基线”；长期基线会随真实关系经历缓慢成长，也会在长期缺少强化时逐渐回归，避免一次对话永久改写性格。'),
         const SizedBox(height: 16),
-        ...DriveKey.values.map((drive) {
-          final value = s.drives[drive] ?? 0;
-          final baseline = s.baselines[drive] ?? 0;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                SizedBox(width: 64, child: Text(drive.zhLabel)),
-                Expanded(child: LinearProgressIndicator(value: value)),
-                const SizedBox(width: 8),
-                SizedBox(width: 74, child: Text('${value.toStringAsFixed(2)} / ${baseline.toStringAsFixed(2)}')),
-              ],
-            ),
-          );
-        }),
+        _desireStateCard(context, s),
         const SizedBox(height: 10),
         Text('当前意图：${s.lastIntent ?? '暂无'} · 驱动=${s.lastIntentDrive ?? '无'} · 分数=${s.lastIntentScore?.toStringAsFixed(2) ?? '无'}'),
         Text('上次满足：${s.lastSatisfiedAction ?? '暂无'} · ${s.lastSatisfiedAt?.toLocal().toString() ?? '尚未发生'}'),
@@ -246,6 +475,8 @@ class _InnerPageState extends State<InnerPage> {
                 '${candidate.drive.zhLabel} → ${candidate.wantAction} · ${candidate.score.toStringAsFixed(2)} · 来源=${candidate.reasonSource}',
               )),
         ],
+        const SizedBox(height: 8),
+        _moeStateCard(context),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -267,10 +498,64 @@ class _InnerPageState extends State<InnerPage> {
           ],
         ),
         const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '跨 App 主动联系诊断',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _delayedTestSummary(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: busy ? null : _scheduleDelayedProactiveTest,
+                        icon: const Icon(Icons.timer_outlined),
+                        label: const Text('5分钟后找我'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: delayedProactiveTest['status'] == 'scheduled'
+                          ? _cancelDelayedProactiveTest
+                          : null,
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+                const Text(
+                  '测试会在到点时重新识别前台 App 并弹出系统消息；不调用模型、不写聊天记忆。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: busy ? null : _selfReflect,
           icon: const Icon(Icons.self_improvement),
           label: const Text('整理 AI Self'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.tonalIcon(
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PersonalityLabPage()),
+            );
+            await _refresh();
+          },
+          icon: const Icon(Icons.checkroom_outlined),
+          label: const Text('性格试穿间'),
         ),
         const SizedBox(height: 8),
         Row(
@@ -378,7 +663,7 @@ class _InnerPageState extends State<InnerPage> {
                   await _refresh();
                 },
                 icon: const Icon(Icons.rule_folder_outlined),
-                label: const Text('六层行为规则'),
+                label: const Text('六大规则'),
               ),
             ),
           ],

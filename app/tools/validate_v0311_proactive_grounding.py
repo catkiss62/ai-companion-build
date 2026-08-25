@@ -127,24 +127,7 @@ def main() -> int:
     assert sha('lib/core/tts/tts_service.dart') == '691605c38107e1d4293f1fdbb176e51392555c7d39ee07abe006f0c01cffa47f'
     assert sha('lib/core/tts/tts_playback_queue.dart') == '4cdd466553664b3039d81c30ff4cad2cb71dc2ea8fb6234a5371c153a8adfc5b'
 
-    handoff = text('docs/HANDOFF.md')
-    ledger = text('docs/PROJECT_TASK_LEDGER.md')
-    for token in [
-        'v0.31.1+41',
-        'Proactive Context Isolation',
-        'Reasoning Grounding',
-        'Chat Timestamps',
-        '悬浮球任务冻结',
-    ]:
-        assert token in handoff, token
-    for token in [
-        'Proactive Context Isolation',
-        'Reasoning Grounding',
-        '聊天时间 metadata 展示',
-        'Notification Experience',
-        'FROZEN · 已知问题',
-    ]:
-        assert token in ledger, token
+    # Historical runtime validation no longer freezes mutable handoff/task documents.
 
     print('v0.31.1 Proactive Grounding + Chat Timestamps static validation passed.')
     return 0

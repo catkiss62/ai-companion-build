@@ -47,7 +47,8 @@ class GenerationJob {
       status == 'completed' ||
       status == 'failed' ||
       status == 'cancelled' ||
-      status == 'cancelled_by_user';
+      status == 'cancelled_by_user' ||
+      status == 'interrupted';
 
   bool get isBlocking => !isTerminal;
 
@@ -78,4 +79,21 @@ class GenerationJob {
     if (value is! int) return null;
     return DateTime.fromMillisecondsSinceEpoch(value);
   }
+}
+
+/// A local-only timeline fact produced when a reply is stopped or interrupted.
+///
+/// It is projected from generation_jobs rather than inserted into messages, so
+/// it can be rendered by both chat surfaces without ever entering prompts,
+/// memory extraction, summaries, or relationship learning.
+class GenerationInterruption {
+  const GenerationInterruption({
+    required this.jobId,
+    required this.createdAt,
+    required this.reason,
+  });
+
+  final String jobId;
+  final DateTime createdAt;
+  final String reason;
 }

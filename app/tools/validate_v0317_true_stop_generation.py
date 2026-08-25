@@ -43,7 +43,9 @@ controller = read("lib/features/chat/chat_controller.dart")
 assert "Future<void> cancelCurrentGeneration()" in controller
 assert "_activeGenerationCancellation" in controller
 assert "token?.cancel()" in controller
-assert "await ttsPlayback.stop()" in controller
+assert "await _stopTurnAudio()" in controller
+assert "ttsPlayback.stop()" in controller
+assert "emotionSounds.stop()" in controller
 assert "await db.cancelGenerationJobByUser(jobId)" in controller
 assert "_recoveryScheduleEpoch++" in controller
 

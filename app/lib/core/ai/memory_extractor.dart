@@ -154,10 +154,18 @@ class MemoryExtractor {
     PostTurnJob? job,
     bool runDeferredMaintenance = true,
   }) async {
+    // Retrieval and visible expression are separate durable cursors. This runs
+    // before auto-memory extraction so disabling model-written memory does not
+    // disable anti-repetition cooling for memories already used in a reply.
+    await db.markRecentlyInjectedMemoriesExpressed(
+      assistant.content,
+      now: assistant.createdAt,
+    );
     final enabled = (await db.getSetting('auto_memory')) != '0';
     if (!enabled) return;
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
+    final editableMemoryPolicy = await _editableMemoryPolicy();
     if (apiKey == null || apiKey.isEmpty) {
       if (job != null) throw const _RetryablePostTurnException('post_turn_api_key_missing');
       return;
@@ -203,6 +211,10 @@ class MemoryExtractor {
             'role': 'system',
             'content': '''
 你是本地 AI Companion 的“经验整合器”。你不负责继续聊天，只把刚刚发生的一轮真实对话整理成可长期保存在手机 SQLite 的结构化 JSON 数据。
+
+【用户可编辑的 04 · 记忆规则】
+$editableMemoryPolicy
+在不破坏下方固定 JSON 契约、事实来源和数据库安全边界的前提下，按这组规则决定什么值得写入、强化、替换或忽略。
 
 原则：
 1. 只保存未来仍有价值的信息。寒暄、一次性措辞、完整成人正文、模型 reasoning 都不要存成长记忆。
@@ -343,6 +355,12 @@ AI：${assistant.content}
       }
       rethrow;
     }
+  }
+
+  Future<String> _editableMemoryPolicy() async {
+    final matches = (await db.listRuleLayers())
+        .where((layer) => layer.key == '04_memory_rules');
+    return matches.isEmpty ? '未配置额外记忆规则。' : matches.first.content.trim();
   }
 
   Future<String> _buildProactiveContext(ProactiveFeedback? feedback) async {

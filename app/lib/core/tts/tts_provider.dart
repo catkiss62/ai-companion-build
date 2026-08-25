@@ -1,3 +1,29 @@
+import '../emotion/emotion_contract.dart';
+
+class TtsEmotionCue {
+  const TtsEmotionCue({
+    required this.key,
+    required this.label,
+    required this.confidence,
+    required this.source,
+  });
+
+  final String key;
+  final String label;
+  final double confidence;
+  final String source;
+
+  String get minimaxEmotion => EmotionCatalog.minimaxEmotionForKey(key);
+
+  Map<String, Object?> toChannelMap() => <String, Object?>{
+        'emotion_key': key,
+        'emotion_label': label,
+        'emotion_confidence': confidence,
+        'emotion_source': source,
+        'minimax_emotion': minimaxEmotion,
+      };
+}
+
 class TtsStatus {
   const TtsStatus({
     required this.available,
@@ -54,7 +80,7 @@ abstract class TtsProvider {
   /// Legacy one-shot compatibility path. Normal companion speech uses
   /// generate()+playAudio() so inference can run ahead of playback like A2.
   Future<void> speak(String text);
-  Future<String?> generate(String text);
+  Future<String?> generate(String text, {TtsEmotionCue? emotion});
   Future<void> playAudio(String wavBase64);
 
   Future<void> stop();

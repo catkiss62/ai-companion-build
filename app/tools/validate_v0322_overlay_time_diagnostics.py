@@ -24,7 +24,7 @@ database = read("lib/core/database/app_database.dart")
 pubspec = read("pubspec.yaml")
 
 if not any(version in pubspec for version in (
-    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.0+65", "version: 0.34.1+66",
+    "version: 0.32.2+54", "version: 0.33.0+55", "version: 0.33.1+56", "version: 0.33.2+57", "version: 0.33.3+58", "version: 0.33.4+59", "version: 0.33.5+60", "version: 0.33.6+61", "version: 0.33.7+62", "version: 0.33.9+64", "version: 0.34.0+65", "version: 0.34.1+66", "version: 0.34.3+68", "version: 0.34.7+72",
 )):
     raise SystemExit("ERROR: unsupported release version")
 require(overlay, 'SimpleDateFormat("HH:mm", Locale.getDefault())', "overlay local time formatter")
@@ -38,8 +38,8 @@ require(accessibility, "override fun onUnbind", "accessibility unbind lifecycle"
 require(accessibility, 'markAccessibilityDisconnected(this, "unbound")', "unbind reason")
 require(accessibility, "noteAccessibilityInterrupted(this)", "interrupt timestamp")
 require(dart_bridge, "accessibilityLastDisconnectedAt", "Flutter lifecycle bridge")
-require(system_page, "轻视觉已授权但未连接", "user recovery guidance")
-require(diagnostics, "accessibilityAuthorized && accessibilityConnected", "two-state preflight")
+require(system_page, "系统授权与实际连接是两件事", "user recovery guidance")
+require(diagnostics, "'healthState': accessibilityHealthState", "multi-state preflight")
 require(diagnostics, "AI Companion $buildLabel", "dynamic report header")
 if "AI Companion v0.31.5+47" in diagnostics:
     raise SystemExit("ERROR: stale hard-coded diagnostic version remains")

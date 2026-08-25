@@ -91,7 +91,7 @@ def main() -> int:
         assert token in accessibility, token
     assert "sourcePackage" not in accessibility[
         accessibility.index("notifySystemCoverEntered") :
-        accessibility.index("if (!PrivacyFilter.allowPackage")
+        accessibility.index("if (!allowedPackage) return")
     ]
 
     diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
