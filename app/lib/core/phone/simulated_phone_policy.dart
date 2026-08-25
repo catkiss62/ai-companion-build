@@ -15,6 +15,8 @@ enum SimulatedPhoneAppKind {
 class SimulatedPhonePolicy {
   const SimulatedPhonePolicy._();
 
+  static const int tarotAssetCount = 22;
+
   static bool updatesAllowed({
     required bool phoneEnabled,
     required SimulatedPhoneAppKind app,
@@ -45,6 +47,40 @@ class SimulatedPhonePolicy {
       hash = (hash * 0x01000193) & 0x7fffffff;
     }
     return hash % length;
+  }
+
+  static String tarotAssetPath(int index) {
+    final safe = index.clamp(0, tarotAssetCount - 1);
+    return 'assets/tarot/rws_major/ar' +
+        safe.toString().padLeft(2, '0') +
+        '.jpg';
+  }
+
+  static Map<String, int> moodMetrics(DesireSnapshot desire) {
+    double value(DriveKey key) => (desire.drives[key] ?? 0).clamp(0, 1);
+    final fatigue = value(DriveKey.fatigue);
+    final stress = value(DriveKey.stress);
+    final energy =
+        ((1 - fatigue) * 62 + (1 - stress) * 38)
+            .round()
+            .clamp(0, 100)
+            .toInt();
+    final closeness = (value(DriveKey.attachment) * 100).round();
+    final curiosity = (value(DriveKey.curiosity) * 100).round();
+    final reserve =
+        ((1 - (fatigue > stress ? fatigue : stress)) * 100).round();
+    final score =
+        (energy * 0.34 + closeness * 0.24 + curiosity * 0.20 + reserve * 0.22)
+            .round()
+            .clamp(0, 100)
+            .toInt();
+    return {
+      'energy': energy,
+      'closeness': closeness,
+      'curiosity': curiosity,
+      'reserve': reserve,
+      'score': score,
+    };
   }
 
   static bool wishEligible({
