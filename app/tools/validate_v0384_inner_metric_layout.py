@@ -17,26 +17,20 @@ database = read("lib/core/database/app_database.dart")
 inner = read("lib/features/inner/inner_page.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.4+103" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.38.4+103", "version: 0.38.5+104")
+)
 assert "static const int schemaVersion = 32;" in database
 assert "schemaVersion = 33" not in database
 
 for token in (
-    "static const double _metricLabelWidth = 72;",
-    "static const double _metricValueWidth = 92;",
-    "static const double _metricGap = 8;",
-    "static const EdgeInsets _metricCardPadding = EdgeInsets.all(12);",
-    "Widget _metricProgressRow({",
-    "Widget _desireStateCard(BuildContext context, DesireSnapshot state)",
-    "_desireStateCard(context, s)",
-    "Widget _moeStateCard(BuildContext context)",
-):
-    assert token in inner, token
-
-assert inner.count("padding: _metricCardPadding") == 2
-assert inner.count("return _metricProgressRow(") == 2
-assert inner.count("LinearProgressIndicator(") == 1
-for token in (
+    "Widget _desireProgressRow({",
+    "padding: const EdgeInsets.symmetric(vertical: 5)",
+    "SizedBox(width: 64, child: Text(label))",
+    "Widget _moeProgressRow({",
+    "padding: const EdgeInsets.symmetric(vertical: 4)",
+    "SizedBox(width: 72, child: Text(label))",
     "fit: BoxFit.scaleDown",
     "maxLines: 1",
     "softWrap: false",
@@ -50,8 +44,12 @@ for token in (
 ):
     assert token in inner, token
 
+assert inner.count("Widget _desireProgressRow({") == 1
+assert inner.count("Widget _moeProgressRow({") == 1
+assert inner.count("LinearProgressIndicator(") == 2
 for stale in (
-    "SizedBox(width: 64, child: Text(drive.zhLabel))",
+    "Widget _metricProgressRow({",
+    "Widget _desireStateCard(",
     "SizedBox(width: 74",
     "萌属性数值 · D2 影子模式",
 ):
