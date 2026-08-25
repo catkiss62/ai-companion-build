@@ -5831,10 +5831,25 @@ class AppDatabase {
 
   Future<void> clearDiagnosticPublicWebShareFixture() async {
     final db = await database;
-    await db.delete(
-      'autonomous_action_runs',
-      where: "reason_source = 'diagnostic_public_web_share'",
-    );
+    await db.transaction((txn) async {
+      await txn.delete(
+        'autonomous_action_runs',
+        where: "reason_source = 'diagnostic_public_web_share'",
+      );
+      // The candidate is removed by the action-run cascade. Thought provenance
+      // is a content-free topic key rather than a foreign key, so clean only
+      // orphaned public-web Thoughts after the candidate is gone.
+      await txn.rawDelete('''
+        DELETE FROM thoughts
+        WHERE topic_key LIKE 'public_web_candidate:%'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public_web_candidates candidate
+            WHERE ('public_web_candidate:' || LOWER(candidate.id)) =
+                  LOWER(thoughts.topic_key)
+          )
+      ''');
+    });
   }
 
   Future<PublicWebShareCandidate?> activeReadyPublicWebShareCandidate({
