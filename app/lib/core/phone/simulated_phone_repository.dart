@@ -155,6 +155,7 @@ class SimulatedPhoneRepository {
   Future<void> refreshIfDue({DateTime? now}) async {
     final current = (now ?? DateTime.now()).toLocal();
     await _refreshTarot(current);
+    if (!await db.brainWorkAllowed()) return;
     if (!await isEnabled()) return;
 
     final acquired = await db.tryAcquireLocalLease(
@@ -465,7 +466,8 @@ class SimulatedPhoneRepository {
     final storedDay = await db.getSetting(_wishBudgetDayKey);
     if (storedDay != day) return 0;
     return (int.tryParse(await db.getSetting(_wishBudgetCountKey) ?? '') ?? 0)
-        .clamp(0, 3);
+        .clamp(0, 3)
+        .toInt();
   }
 
   Future<List<SimulatedPhoneEntry>> _readList(String key) async {

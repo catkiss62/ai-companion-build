@@ -21,6 +21,7 @@ import '../../widgets/chat_portrait_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
+import '../phone/simulated_phone_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -950,9 +951,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 elevation: 18,
                 color: Theme.of(context).colorScheme.surface,
                 child: SizedBox(
-                  width: MediaQuery.sizeOf(context)
-                      .width
-                      .clamp(280, 360)
+                  width: (MediaQuery.sizeOf(context).width * 0.78)
+                      .clamp(260.0, 320.0)
                       .toDouble(),
                   height: double.infinity,
                   child: ListView(
@@ -989,6 +989,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.phone_iphone_rounded),
+                        title: const Text('查手机'),
+                        subtitle: const Text(
+                          '关闭更新后仍可查看历史；塔罗牌照常每日更新。',
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await Navigator.of(pageContext).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SimulatedPhonePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 24),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('角色聊天舞台'),
