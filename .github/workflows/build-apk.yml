@@ -55,6 +55,7 @@
 # Historical baseline: v0.38.15+114 / SQLite schema 33 / chat style regression hotfix
 # Historical baseline: v0.38.16+115 / SQLite schema 33 / action segment parser hotfix
 # Active baseline: v0.38.17+116 / SQLite schema 33 / final-body single playback
+# Remote handoff: the branch is dispatched only after its tree matches the audited local commit.
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
