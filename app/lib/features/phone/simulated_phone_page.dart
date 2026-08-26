@@ -391,7 +391,9 @@ class _ReferenceUnlockControlState extends State<ReferenceUnlockControl>
       pressed = false;
       dragging = false;
     });
-    pulseController.repeat(from: 0);
+    pulseController
+      ..reset()
+      ..repeat();
     reboundStart = drag;
     reboundController.forward(from: 0);
     if (completed) widget.onUnlock();
@@ -400,7 +402,9 @@ class _ReferenceUnlockControlState extends State<ReferenceUnlockControl>
   void _releasePress() {
     if (!pressed) return;
     setState(() => pressed = false);
-    pulseController.repeat(from: 0);
+    pulseController
+      ..reset()
+      ..repeat();
   }
 
   @override
