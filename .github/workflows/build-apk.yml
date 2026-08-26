@@ -261,6 +261,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          AI_COMPANION_SIGNING_PASSWORD: ${{ secrets.AI_COMPANION_SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
           SIGNING_TAG='ai-companion-private-signing-v1'
@@ -269,7 +270,7 @@ jobs:
           SIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"
           KEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"
           INFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"
-          STORE_PASSWORD='AICompanion_Private_Test_v1_2026!'
+          STORE_PASSWORD="${AI_COMPANION_SIGNING_PASSWORD:?missing AI_COMPANION_SIGNING_PASSWORD repository secret}"
           KEY_ALIAS='ai-companion-private-test-v1'
           mkdir -p "${SIGNING_DIR}"
 
