@@ -28,7 +28,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert "version: 0.38.17+116" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # Match phone_system(1).html geometry and timing instead of approximating it.
@@ -52,8 +52,8 @@ assert "HomeIndicator" not in lock
 assert "onTap:" not in lock
 assert "AnimatedScale(" not in phone[: phone.index("class Wallpaper")]
 
-# One durable assistant turn uses one reading rail; its ordered chunks remain
-# visible through dividers and the v0.38.13 live body/scroll contract remains.
+# One durable assistant turn uses one reading rail. Reasoning stays live while
+# the approved body is played once from its authoritative raw text.
 assert "class _AssistantTranscriptSurface" in chat
 assert "class _AssistantSegmentDivider" in chat
 assert "width: double.infinity" in chat
@@ -63,8 +63,10 @@ assert "IntrinsicWidth(" in chat
 assert "_BubbleTailPainter" not in chat
 assert "_streamingBodyTailKey" in chat
 assert "NotificationListener<UserScrollNotification>" in chat
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert "assistantTranscriptBlocks(message.content)" in chat
+assert runner.count("emitDeltas: false,") >= 3
+assert "if (!emitDeltas && delta.reasoning.isNotEmpty)" in runner
+assert "action: 'stream_preserved'" not in runner
 
 # New text follows action-line + corner-quoted-dialogue grammar. Old bracketed
 # history is still parsed, while both renderers hide delimiters and share gold.
@@ -83,8 +85,8 @@ assert "fun dialogueRanges(value: String)" in overlay_formatter
 assert "reasoning_translation" not in database
 
 assert "python3 tools/validate_v03814_reference_unlock_chat_transcript_ui.py" in workflow
-assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
-assert "agent/v03816-action-segment-parser-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
+assert "agent/v03817-final-body-single-playback" in workflow
 
 print("v0.38.14 reference unlock and chat transcript UI validated")

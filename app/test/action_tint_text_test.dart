@@ -75,4 +75,22 @@ void main() {
     expect(chatDialogueGold, const Color(0xFFFDE68A));
   });
 
+  testWidgets('subjectless narration remains visible and italic', (tester) async {
+    const narration = '歪头看你，尾巴在身后轻轻扫了一下。';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ActionTintText(text: '$narration\n\n「抓到你了。」'),
+        ),
+      ),
+    );
+
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final children = selectable.textSpan!.children!.cast<TextSpan>();
+    expect(children.first.text, contains(narration));
+    expect(children.first.style!.fontStyle, FontStyle.italic);
+    expect(children.last.text, '「抓到你了。」');
+    expect(children.last.style!.color, chatDialogueGold);
+  });
+
 }

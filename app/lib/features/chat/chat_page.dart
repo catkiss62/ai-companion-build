@@ -747,7 +747,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
             itemCount:
-                timeline.length + (controller.generationActive ? 1 : 0) + 1,
+                timeline.length + (controller.showGenerationDraft ? 1 : 0) + 1,
             itemBuilder: (context, index) {
               if (index < timeline.length) {
                 final item = timeline[index];
@@ -823,7 +823,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ],
                 );
               }
-              if (controller.generationActive && index == timeline.length) {
+              if (controller.showGenerationDraft && index == timeline.length) {
                 return _StreamingBubble(
                   controller: controller,
                   bodyTailKey: _streamingBodyTailKey,
@@ -1654,15 +1654,11 @@ class _MessageBubble extends StatelessWidget {
     final color = user
         ? Theme.of(context).colorScheme.primaryContainer
         : Theme.of(context).colorScheme.surfaceContainerHigh;
-    final segments = message.displaySegments;
+    final transcriptBlocks = assistantTranscriptBlocks(message.content);
     if (message.isAssistant &&
         !message.isProactive &&
         !message.hasAttachments &&
-        segments.isNotEmpty) {
-      final chunks = ChatVisualResolver.chunks(
-        segments,
-        emotionKey: message.emotionKey,
-      );
+        transcriptBlocks.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1671,8 +1667,9 @@ class _MessageBubble extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 5),
               child: ReasoningPanel(reasoning: message.reasoningContent),
             ),
-          _AssistantSegmentSequence(
-            chunks: chunks,
+          _AssistantTranscriptSequence(
+            blocks: transcriptBlocks,
+            emotion: ChatVisualResolver.resolveEmotionKey(message.emotionKey),
             animate: animateSegments,
             millisecondsPerCharacter: typewriterMs,
             onEmotionChanged: onEmotionChanged,
@@ -1825,9 +1822,10 @@ class _SingleBubbleTypewriterTextState
   }
 }
 
-class _AssistantSegmentSequence extends StatefulWidget {
-  const _AssistantSegmentSequence({
-    required this.chunks,
+class _AssistantTranscriptSequence extends StatefulWidget {
+  const _AssistantTranscriptSequence({
+    required this.blocks,
+    required this.emotion,
     required this.animate,
     required this.millisecondsPerCharacter,
     required this.onEmotionChanged,
@@ -1836,7 +1834,8 @@ class _AssistantSegmentSequence extends StatefulWidget {
     required this.footer,
   });
 
-  final List<ChatVisualChunk> chunks;
+  final List<String> blocks;
+  final ChatEmotionVisual emotion;
   final bool animate;
   final int millisecondsPerCharacter;
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
@@ -1845,12 +1844,12 @@ class _AssistantSegmentSequence extends StatefulWidget {
   final Widget footer;
 
   @override
-  State<_AssistantSegmentSequence> createState() =>
-      _AssistantSegmentSequenceState();
+  State<_AssistantTranscriptSequence> createState() =>
+      _AssistantTranscriptSequenceState();
 }
 
-class _AssistantSegmentSequenceState
-    extends State<_AssistantSegmentSequence> {
+class _AssistantTranscriptSequenceState
+    extends State<_AssistantTranscriptSequence> {
   Timer? _timer;
   int _completedChunks = 0;
   int _currentCharacters = 0;
@@ -1858,31 +1857,30 @@ class _AssistantSegmentSequenceState
   @override
   void initState() {
     super.initState();
-    if (widget.animate && widget.chunks.isNotEmpty) {
+    if (widget.animate && widget.blocks.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _startChunk(0));
     } else {
-      _completedChunks = widget.chunks.length;
+      _completedChunks = widget.blocks.length;
     }
   }
 
   @override
-  void didUpdateWidget(covariant _AssistantSegmentSequence oldWidget) {
+  void didUpdateWidget(covariant _AssistantTranscriptSequence oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.animate && !widget.animate) {
       _timer?.cancel();
-      _completedChunks = widget.chunks.length;
+      _completedChunks = widget.blocks.length;
       _currentCharacters = 0;
     }
   }
 
   void _startChunk(int index) {
-    if (!mounted || index >= widget.chunks.length) {
+    if (!mounted || index >= widget.blocks.length) {
       widget.onFinished();
       return;
     }
-    final chunk = widget.chunks[index];
-    widget.onEmotionChanged(chunk.emotion);
-    final length = chunk.displayText.runes.length;
+    widget.onEmotionChanged(widget.emotion);
+    final length = widget.blocks[index].runes.length;
     if (length == 0) {
       _finishChunk(index);
       return;
@@ -1912,7 +1910,7 @@ class _AssistantSegmentSequenceState
       _currentCharacters = 0;
     });
     widget.onProgress();
-    if (_completedChunks >= widget.chunks.length) {
+    if (_completedChunks >= widget.blocks.length) {
       widget.onFinished();
       return;
     }
@@ -1931,8 +1929,8 @@ class _AssistantSegmentSequenceState
   @override
   Widget build(BuildContext context) {
     final visibleCount = widget.animate
-        ? (_completedChunks + (_completedChunks < widget.chunks.length ? 1 : 0))
-        : widget.chunks.length;
+        ? (_completedChunks + (_completedChunks < widget.blocks.length ? 1 : 0))
+        : widget.blocks.length;
     return _AssistantTranscriptSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1943,8 +1941,8 @@ class _AssistantSegmentSequenceState
               text: _visibleText(index),
               style: const TextStyle(height: 1.45),
             ),
-            if (_completedChunks >= widget.chunks.length &&
-                index == widget.chunks.length - 1) ...[
+            if (_completedChunks >= widget.blocks.length &&
+                index == widget.blocks.length - 1) ...[
               const SizedBox(height: 4),
               widget.footer,
             ],
@@ -1955,7 +1953,7 @@ class _AssistantSegmentSequenceState
   }
 
   String _visibleText(int index) {
-    final full = widget.chunks[index].displayText;
+    final full = widget.blocks[index];
     if (!widget.animate || index < _completedChunks) return full;
     return String.fromCharCodes(
       full.runes.take(
@@ -1994,7 +1992,7 @@ class _AssistantSegmentDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Container(
           width: double.infinity,
           height: 1,
@@ -2197,8 +2195,6 @@ class _StreamingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = controller.streamingContent;
-    final blocks = assistantStreamingTranscriptBlocks(content);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2211,7 +2207,6 @@ class _StreamingBubble extends StatelessWidget {
             ),
           ),
         if (controller.agentActivity != null ||
-            content.isNotEmpty ||
             (controller.streamingReasoning.isEmpty &&
                 controller.agentActivity == null))
           _AssistantTranscriptSurface(
@@ -2223,24 +2218,14 @@ class _StreamingBubble extends StatelessWidget {
                     text: controller.agentActivity!.text,
                     active: controller.agentActivity!.active,
                   ),
-                if (content.isNotEmpty) ...[
-                  for (var index = 0; index < blocks.length; index++) ...[
-                    if (index > 0) const _AssistantSegmentDivider(),
-                    ActionTintText(
-                      text: blocks[index],
-                      style: const TextStyle(height: 1.45),
-                    ),
-                  ],
-                  SizedBox(key: bodyTailKey, height: 1),
-                ],
-                if (content.isEmpty &&
-                    controller.streamingReasoning.isEmpty &&
+                if (controller.streamingReasoning.isEmpty &&
                     controller.agentActivity == null)
                   Text(
                     controller.recoveringGeneration
                         ? '正在结束上次中断的回复…'
                         : '她正在准备回复…',
                   ),
+                SizedBox(key: bodyTailKey, height: 1),
                 if (controller.activeGenerationTtsPhase !=
                     TtsPlaybackPhase.idle)
                   Align(

@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../../features/chat/chat_controller.dart';
 import '../database/app_database.dart';
-import '../emotion/emotion_contract.dart';
 import '../models/chat_message.dart';
 import '../storage/message_attachment_storage.dart';
 import 'overlay_generation_snapshot.dart';
@@ -184,9 +183,9 @@ class BackgroundChatCommandServer {
     }
 
     // A full-app ChatController and the headless overlay controller are separate
-    // Dart objects, but the generation job is durable and shared. Reading its
-    // checkpoint makes the native overlay observe the same real turn rather
-    // than showing an unrelated idle island.
+    // Dart objects, but the generation job is durable and shared. The checkpoint
+    // may expose provider candidate body text before the final guards approve it,
+    // so only reasoning and phase are shared while the turn is unfinished.
     final job = await db.blockingGenerationJob() ??
         await db.failedGenerationNeedingAttention();
     if (job == null) {
@@ -201,7 +200,7 @@ class BackgroundChatCommandServer {
       sending: true,
       cancelling: false,
       reasoning: job.partialReasoning,
-      content: EmotionEnvelope.streamingVisible(job.partialContent),
+      content: '',
       assistantMessageId: job.assistantMessageId,
       statusText:
           await db.getSetting('agent_tool_runtime_status_text') ?? '',

@@ -29,6 +29,7 @@ import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
@@ -150,6 +151,17 @@ class ChatController extends ChangeNotifier {
       _externalGenerationAssistantMessageId;
 
   bool get generationActive => sending || externalGenerationActive;
+
+  /// The transient reasoning/activity row disappears as soon as the durable
+  /// assistant message has been committed. Generation can remain busy for
+  /// post-turn work without rendering a second copy of the same reply.
+  bool get showGenerationDraft {
+    return GenerationPresentationPolicy.showDraft(
+      generationActive: generationActive,
+      assistantMessageId: activeGenerationAssistantMessageId,
+      committedMessageIds: messages.map((message) => message.id),
+    );
+  }
 
   List<ChatTimelineItem> get timelineItems {
     final items = <ChatTimelineItem>[
@@ -959,6 +971,10 @@ class ChatController extends ChangeNotifier {
       _safeNotify();
       if (streamTts) {
         releaseStreamLeadIn();
+        // Visible body deltas are intentionally buffered until the durable
+        // reply is final. Feed the approved body to streaming TTS once, at
+        // commit, so this setting keeps working without exposing candidate A.
+        ttsPlayback.addDelta(result.assistant!.content);
         ttsPlayback.endStream();
       } else {
         final leadIn = emotionCueStarted

@@ -20,7 +20,7 @@ attribution = read("assets/tarot/rws_major/ATTRIBUTION.md")
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert "version: 0.38.17+116" in pubspec
 assert "- assets/tarot/rws_major/" in pubspec
 assert "class LockScreen" in page
 assert "上滑解锁" in page
@@ -73,6 +73,6 @@ hash_lines = re.findall(r"^[0-9a-f]{64}  ar\d{2}\.jpg$", fetch, re.MULTILINE)
 assert len(hash_lines) == 22
 assert "Restore pinned 22-card Rider-Waite-Smith tarot JPG pack" in workflow
 assert "python3 tools/validate_v0389_simulated_phone_reference_ui.py" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
 
 print("v0.38.9 simulated phone reference UI validation passed")

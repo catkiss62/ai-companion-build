@@ -23,7 +23,7 @@ database = read("lib/core/database/app_database.dart")
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert "version: 0.38.17+116" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # The parser must skip the required visual blank line before deciding whether
@@ -45,19 +45,20 @@ assert "她把耳鳍往后压了压，尾尖停在半空。" in tests
 # The repair must retain the approved v0.38.13-v0.38.15 presentation and
 # routing behavior instead of replacing it with another rendering path.
 assert ".join('\\n\\n')" in visuals
-assert "assistantStreamingTranscriptBlocks(content)" in chat
+assert "assistantTranscriptBlocks(message.content)" in chat
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "fontStyle: FontStyle.italic" in text
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert runner.count("emitDeltas: false,") >= 3
+assert "if (!emitDeltas && delta.reasoning.isNotEmpty)" in runner
+assert "action: 'stream_preserved'" not in runner
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 assert "double _panelOpacity = 0.75;" in chat
 assert "horizontal: 14" in chat and "vertical: 11" in chat
 
 assert "python3 tools/validate_v03816_action_segment_parser_hotfix.py" in workflow
-assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
-assert "agent/v03816-action-segment-parser-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
+assert "agent/v03817-final-body-single-playback" in workflow
 
 print("v0.38.16 action segment parser hotfix validated")

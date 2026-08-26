@@ -23,11 +23,14 @@ class TtsTextProcessor {
     TtsReadingScope scope = TtsReadingScope.dialogueOnly,
   }) {
     final segments = ChatSegmentCodec.parseAssistantText(text);
-    final selected = scope == TtsReadingScope.dialogueOnly
-        ? segments.where((item) => item.kind == ChatSegmentKind.dialogue)
-        : segments;
-    final spokenParts =
-        selected.map((item) => item.text.trim()).where((item) => item.isNotEmpty);
+    final quoted = ChatSegmentCodec.quotedDialogueParts(text);
+    final spokenParts = scope == TtsReadingScope.dialogueOnly && quoted.isNotEmpty
+        ? quoted
+        : (scope == TtsReadingScope.dialogueOnly
+                ? segments.where((item) => item.kind == ChatSegmentKind.dialogue)
+                : segments)
+            .map((item) => item.text.trim())
+            .where((item) => item.isNotEmpty);
     var result = spokenParts.join(
       scope == TtsReadingScope.dialogueOnly ? '' : '。',
     );

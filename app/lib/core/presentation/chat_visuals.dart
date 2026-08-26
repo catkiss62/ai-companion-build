@@ -110,10 +110,13 @@ class ChatVisualChunk {
       }).join('\n\n');
 }
 
-/// Keeps an action block and its following corner-quoted dialogue together
-/// while a response is still streaming. Blank-line-separated action/dialogue
-/// pairs remain separated from later pairs by the transcript divider.
-List<String> assistantStreamingTranscriptBlocks(String text) {
+/// Splits the authoritative assistant body into visual transcript groups.
+///
+/// This deliberately does not classify action vs dialogue. The novel-style
+/// contract is presentation-native: corner-quoted spans are spoken dialogue;
+/// everything outside those spans is narration. Keeping the source text
+/// intact makes durable, first-play and restored messages render identically.
+List<String> assistantTranscriptBlocks(String text) {
   final blocks = text
       .replaceAll('\r\n', '\n')
       .split(RegExp(r'\n\s*\n'))
@@ -136,6 +139,12 @@ List<String> assistantStreamingTranscriptBlocks(String text) {
   }
   return result;
 }
+
+/// Historical name retained for source/API compatibility. New presentation
+/// code must use [assistantTranscriptBlocks] for both finalized and restored
+/// content rather than maintaining a separate streaming parser.
+List<String> assistantStreamingTranscriptBlocks(String text) =>
+    assistantTranscriptBlocks(text);
 
 /// LingChat's pinned 19-expression presentation contract.
 ///

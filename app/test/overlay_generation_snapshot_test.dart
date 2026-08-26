@@ -2,7 +2,7 @@ import 'package:ai_companion_localfirst/core/platform/overlay_generation_snapsho
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('serializes real reasoning and answer deltas for the native overlay', () {
+  test('serializes a finalized body only when explicitly supplied', () {
     const snapshot = OverlayGenerationSnapshot(
       sending: true,
       cancelling: false,
@@ -22,6 +22,20 @@ void main() {
       'assistant_message_id': 'assistant-1',
       'status_text': '正在搜索公开网页…',
     });
+  });
+
+  test('unfinished snapshots can share reasoning without a candidate body', () {
+    const snapshot = OverlayGenerationSnapshot(
+      sending: true,
+      cancelling: false,
+      reasoning: '还在确认最终说法',
+      content: '',
+      assistantMessageId: 'assistant-2',
+    );
+
+    expect(snapshot.phase, 'thinking');
+    expect(snapshot.toChannelMap()['reasoning'], '还在确认最终说法');
+    expect(snapshot.toChannelMap()['content'], isEmpty);
   });
 
   test('shared runtime phase survives an empty cross-engine checkpoint', () {

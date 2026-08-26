@@ -28,7 +28,7 @@ overlay_formatter = read(
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert "version: 0.38.17+116" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # Removing visible brackets must preserve the pre-existing typography:
@@ -40,7 +40,7 @@ assert "style: segment.isDialogue ? dialogue : action" in text
 assert "RegExp(r'([^\\n])\\n(?=「)')" in text
 assert ".join('\\n\\n')" in visuals
 assert "assistantStreamingTranscriptBlocks" in visuals
-assert "assistantStreamingTranscriptBlocks(content)" in chat
+assert "assistantTranscriptBlocks(message.content)" in chat
 assert "动作行后空一行" in prompt
 assert rules.count("动作行后空一行") >= 3
 assert "legacyEditableRuleLayerSha256V03814" in rule_defaults
@@ -65,19 +65,20 @@ assert "IntrinsicWidth(" in chat
 assert "horizontal: 14" in chat and "vertical: 11" in chat
 assert "_BubbleTailPainter" not in chat
 
-# This hotfix must not disturb the already accepted unlock, streaming or
+# This hotfix must not disturb the already accepted unlock, single-playback or
 # two-level overlay routing behavior, and must not introduce translation.
 assert "class ReferenceUnlockControl" in phone
 assert "static const double slideDistance = 100" in phone
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert runner.count("emitDeltas: false,") >= 3
+assert "if (!emitDeltas && delta.reasoning.isNotEmpty)" in runner
+assert "action: 'stream_preserved'" not in runner
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 assert "reasoning_translation" not in database
 
 assert "python3 tools/validate_v03815_chat_style_regression_hotfix.py" in workflow
-assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
-assert "agent/v03816-action-segment-parser-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
+assert "agent/v03817-final-body-single-playback" in workflow
 
 print("v0.38.15 chat style regression hotfix validated")

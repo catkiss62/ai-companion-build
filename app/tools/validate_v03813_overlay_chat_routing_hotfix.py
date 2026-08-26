@@ -26,7 +26,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert "version: 0.38.17+116" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # These are deliberately two different routes:
@@ -53,19 +53,20 @@ assert "openChatLaunches" in bridge
 assert "_openChatSubscription" in app
 assert "setState(() => index = 1)" in app
 
-# Native tool availability must not buffer every ordinary answer. Once any
-# body text is visible, the guard keeps that exact answer; a legal tool-call
-# preamble is also persisted with the post-tool answer instead of disappearing.
-assert "emitDeltas: true," in runner
+# The current final-body contract buffers ordinary and tool-path candidates
+# while keeping provider reasoning live. A legal tool-call preamble is still
+# persisted with the post-tool answer instead of disappearing.
+assert runner.count("emitDeltas: false,") >= 3
 assert "emitDeltas: localPlan != null" not in runner
-assert "if (!serviceGuard.allowed && visibleAnswerStreamed)" in runner
-assert "action: 'stream_preserved'" in runner
+assert "if (!emitDeltas && delta.reasoning.isNotEmpty)" in runner
+assert "visibleAnswerStreamed" not in runner
+assert "action: 'stream_preserved'" not in runner
 assert "streamedToolPreamble" in runner
 assert "finalContent = '$streamedToolPreamble\\n\\n$finalContent'.trim();" in runner
 
 assert "python3 tools/validate_v03813_overlay_chat_routing_hotfix.py" in workflow
-assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
-assert "agent/v03816-action-segment-parser-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
+assert "agent/v03817-final-body-single-playback" in workflow
 
 print("v0.38.13 streaming and overlay chat routing hotfix validated")

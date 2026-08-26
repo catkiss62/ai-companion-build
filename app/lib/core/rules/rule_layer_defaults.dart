@@ -144,6 +144,17 @@ const legacyEditableRuleLayerSha256V03814 = <String, String>{
       '10d66dc2bbc83d3e4617165bb3c77172b2852c24d60d17243e7e842304b545a5',
 };
 
+/// Exact v0.38.16 stock prompt bodies. v0.38.17 upgrades only untouched
+/// rules to the subjectless novel-style action contract; any user edit stays
+/// byte-preserved.
+const legacyEditableRuleLayerSha256V03816 = <String, String>{
+  '02_daily': '760bd2e78281f7266ac61358901ea8acc6bb638d0a38499c9f60c404006d8423',
+  '08_visible_inner_voice':
+      '81126848608b0a463e35fd030ade83bf8b7c21a5737ebfb1a5908447f98b4685',
+  '05_intimacy_rendering':
+      'bba5221999054923ed8ddfa50104179410f145b190173dc40615a2e794b25253',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so

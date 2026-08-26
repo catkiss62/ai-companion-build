@@ -30,6 +30,12 @@ void main() {
     expect(processor.process(source), '才没有一直等你。');
   });
 
+  test('subjectless novel narration is skipped while corner dialogue is read', () {
+    const processor = TtsTextProcessor();
+    const source = '歪头看你，尾巴在身后轻轻扫了一下。\n\n「你刚才是不是故意的？」';
+    expect(processor.process(source), '你刚才是不是故意的？');
+  });
+
   test('dialogue-only scope also accepts Chinese curly quotes', () {
     const processor = TtsTextProcessor();
     const source = '（她轻轻吸了口气）\n\n“你轻点……”';

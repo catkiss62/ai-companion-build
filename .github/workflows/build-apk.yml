@@ -53,7 +53,8 @@
 # Historical baseline: v0.38.13+112 / SQLite schema 33 / streaming + overlay chat routing hotfix
 # Historical baseline: v0.38.14+113 / SQLite schema 33 / reference unlock + chat transcript UI
 # Historical baseline: v0.38.15+114 / SQLite schema 33 / chat style regression hotfix
-# Active baseline: v0.38.16+115 / SQLite schema 33 / action segment parser hotfix
+# Historical baseline: v0.38.16+115 / SQLite schema 33 / action segment parser hotfix
+# Active baseline: v0.38.17+116 / SQLite schema 33 / final-body single playback
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -125,12 +126,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.16+115 APK (Action Segment Parser Hotfix)
+name: Build AI Companion v0.38.17+116 APK (Final Body Single Playback)
 
 on:
   push:
     branches:
-      - agent/v03816-action-segment-parser-hotfix
+      - agent/v03817-final-body-single-playback
   workflow_dispatch:
   pull_request:
     branches:
@@ -238,14 +239,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml
+          grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 33;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.16+115 action segment parser hotfix.'
+          echo 'Building v0.38.17+116 final-body single playback.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -398,6 +399,7 @@ jobs:
           python3 tools/validate_v03814_reference_unlock_chat_transcript_ui.py
           python3 tools/validate_v03815_chat_style_regression_hotfix.py
           python3 tools/validate_v03816_action_segment_parser_hotfix.py
+          python3 tools/validate_v03817_final_body_single_playback.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -636,26 +638,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.16+115 APK as workflow artifact
+      - name: Upload v0.38.17+116 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK
+          name: AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.16+115 action segment parser hotfix APK to draft release
+      - name: Upload v0.38.17+116 final-body single playback APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.16-action-segment-parser-hotfix'
-          APK_NAME='AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK.apk'
+          TAG='v0.38.17-final-body-single-playback'
+          APK_NAME='AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.17-116-Final-Body-Single-Playback-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -672,8 +674,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.16+115 action segment parser hotfix candidate' \
-              --notes 'Draft candidate: restores italic action/state text and the blank line before dialogue in Flutter and the native overlay; matches index.html novel gold; defaults new chat panels to 75 percent opacity; slightly increases user-bubble horizontal padding; and preserves the v0.38.14 unlock, transcript and streaming contracts. SQLite schema remains 33.'
+              --title 'AI Companion v0.38.17+116 final-body single playback candidate' \
+              --notes 'Draft candidate: keeps provider reasoning live, buffers the candidate body through the emotion and service guards, and plays the single committed body locally once. Subjectless narration remains white italic, corner-quoted dialogue uses index.html novel gold, emotion metadata stays independent, and the native overlay uses the same raw-body styling. SQLite schema remains 33.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -697,18 +699,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03816-monitor.txt'
+          MONITOR_PATH='.ci/v03817-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.16 CI success monitor' \
+              -f message='Update v0.38.17 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.16 CI success monitor' \
+              -f message='Create v0.38.17 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -729,8 +731,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.16-action-segment-parser-hotfix'
-          CI_NAME='AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-CI-Monitor.txt'
+          TAG='v0.38.17-final-body-single-playback'
+          CI_NAME='AI-Companion-v0.38.17-116-Final-Body-Single-Playback-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -771,8 +773,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.16+115 action segment parser hotfix candidate' \
-              --notes 'Draft used for v0.38.16 CI diagnostics and the action segment parser hotfix APK. It is not a published release.'
+              --title 'AI Companion v0.38.17+116 final-body single playback candidate' \
+              --notes 'Draft used for v0.38.17 CI diagnostics and the final-body single-playback APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -781,18 +783,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03816-monitor.txt'
+          MONITOR_PATH='.ci/v03817-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.16 CI failure monitor' \
+              -f message='Update v0.38.17 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.16 CI failure monitor' \
+              -f message='Create v0.38.17 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

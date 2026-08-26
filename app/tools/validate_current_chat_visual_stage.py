@@ -75,7 +75,7 @@ for token in (
     "ChatPortraitStage(",
     "ChatPortraitTransformEditor(",
     "自定义立绘",
-    "_AssistantSegmentSequence",
+    "_AssistantTranscriptSequence",
     "_AssistantTranscriptSurface",
     "_AssistantSegmentDivider",
     "_UserBubbleSurface",

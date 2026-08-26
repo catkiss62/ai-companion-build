@@ -30,6 +30,17 @@ void main() {
     );
   });
 
+  test('final transcript preserves subjectless narration without classification', () {
+    const source =
+        '歪头看你，尾巴在身后轻轻扫了一下。\n\n「你刚才是不是故意的？」\n\n抿住笑，耳鳍却悄悄抖了抖。\n\n「再猜一次。」';
+    final blocks = assistantTranscriptBlocks(source);
+    expect(blocks, [
+      '歪头看你，尾巴在身后轻轻扫了一下。\n\n「你刚才是不是故意的？」',
+      '抿住笑，耳鳍却悄悄抖了抖。\n\n「再猜一次。」',
+    ]);
+    expect(blocks.join('\n\n'), source);
+  });
+
   test('unparenthesized action line stays paired with following dialogue', () {
     final segments = ChatSegmentCodec.parseAssistantText(
       '轻轻把耳鳍压低\n「才没有一直等你。」\n\n第二点是普通说明。',

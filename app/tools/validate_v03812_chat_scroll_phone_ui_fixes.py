@@ -54,14 +54,15 @@ assert "Scrollable.ensureVisible(" in chat
 assert "scroll.addListener(_onScrollChanged)" not in chat
 assert "duration: Duration.zero" in chat
 
-# v0.38.12 prevents hidden replacement after a visible stream and stops
-# provider reasoning from being emitted a second time at commit. v0.38.13
-# restores the ordinary body's incremental stream itself.
+# The current successor keeps reasoning provider-streamed, but does not expose
+# a candidate body before the final guards. The approved durable body is then
+# played once locally, so A cannot flash and then become B.
 early_publish = "if (localPlan == null && generated.toolCalls.isEmpty)"
 assert early_publish not in runner
-assert "action: 'stream_preserved'" in runner
-assert "if (!visibleAnswerStreamed)" in runner
-assert "onDelta?.call(DeepSeekDelta(content: finalContent))" in runner
+assert runner.count("emitDeltas: false,") >= 3
+assert "action: 'stream_preserved'" not in runner
+assert "visibleAnswerStreamed" not in runner
+assert "onDelta?.call(DeepSeekDelta(content: finalContent))" not in runner
 visible_reasoning = runner.index(
     "final visibleReasoning = preserveProviderReasoning(generated.reasoning);"
 )
@@ -83,8 +84,8 @@ assert "openChatLaunches" in bridge
 assert "setState(() => index = 1)" in app
 
 assert "python3 tools/validate_v03812_chat_scroll_phone_ui_fixes.py" in workflow
-assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
-assert "agent/v03816-action-segment-parser-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.17+116' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK" in workflow
+assert "agent/v03817-final-body-single-playback" in workflow
 
 print("v0.38.12 chat scroll and phone UI fixes validated")

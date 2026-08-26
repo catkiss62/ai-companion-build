@@ -4,6 +4,15 @@ import 'package:ai_companion_localfirst/core/emotion/emotion_contract.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_provider.dart';
 
 void main() {
+  test('emotion envelope stays independent from subjectless novel body', () {
+    const body =
+        '歪头看你，尾巴在身后轻轻扫了一下。\n\n「你刚才是不是故意的？」';
+    final parsed = EmotionEnvelope.parse('<emotion>调皮</emotion>\n$body');
+    expect(parsed.rawTag, '调皮');
+    expect(parsed.status, EmotionEnvelopeStatus.canonical);
+    expect(parsed.visibleText, body);
+  });
+
   test('emotion envelope is machine-only throughout streaming', () {
     expect(EmotionEnvelope.streamingVisible('<emo'), isEmpty);
     expect(EmotionEnvelope.streamingVisible('[emo'), isEmpty);

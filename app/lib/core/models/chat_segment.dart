@@ -31,6 +31,20 @@ class ChatSegment {
 class ChatSegmentCodec {
   const ChatSegmentCodec._();
 
+  /// Spoken dialogue is a presentation-native part of the authoritative body:
+  /// corner quotes are canonical, with Chinese/ASCII double quotes retained
+  /// only for historical compatibility. No action inference is involved.
+  static List<String> quotedDialogueParts(String text) => RegExp(
+        r'「([^」\n]*(?:」|$))|“([^”\n]*(?:”|$))|"([^"\n]*(?:"|$))',
+      )
+          .allMatches(text)
+          .map((match) =>
+              (match.group(1) ?? match.group(2) ?? match.group(3) ?? '')
+                  .replaceFirst(RegExp(r'[」”"]$'), '')
+                  .trim())
+          .where((part) => part.isNotEmpty)
+          .toList(growable: false);
+
   static List<ChatSegment> parseAssistantText(String text) {
     final normalized = text.replaceAll('\r\n', '\n').trim();
     if (normalized.isEmpty) return const <ChatSegment>[];
