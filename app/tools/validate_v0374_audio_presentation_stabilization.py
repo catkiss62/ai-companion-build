@@ -74,9 +74,9 @@ assert r"「[^」\n]*(?:」|$)" in tint
 overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
-assert "ForegroundColorSpan(Color.rgb(239, 177, 199))" in overlay
-assert "(?:」|$)" in overlay
-assert "StyleSpan(Typeface.ITALIC)" in overlay
+assert "ForegroundColorSpan(Color.rgb(231, 216, 167))" in overlay
+assert "OverlayDialogueFormatter.dialogueRanges(visible)" in overlay
+assert "OverlayDialogueFormatter.visibleText(value)" in overlay
 
 prompt = read("lib/core/ai/prompt_builder.dart")
 assert "语言要求只约束可见呈现" in prompt

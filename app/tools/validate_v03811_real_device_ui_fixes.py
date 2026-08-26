@@ -16,7 +16,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.13+112" in pubspec
+assert "version: 0.38.14+113" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # The real-device narrow layout must allocate the remaining row width to the
@@ -33,7 +33,7 @@ assert "softWrap: false" in home
 # purple recognition ring and check, then lock fade + home fade.
 assert "class UnlockSuccessOverlay" in page
 assert "Timer(const Duration(milliseconds: 700)" in page
-assert "opacity: locked ? 0 : 1" in page
+assert "opacity: homeVisible ? 1 : 0" in page
 assert "opacity: locked ? 1 : 0" in page
 assert "color: Colors.black.withValues(alpha: 0.60)" in page
 assert "width: 108" in page and "height: 108" in page
@@ -59,7 +59,7 @@ assert "entry.metadata['list_summary'] as String?" not in page
 assert "entry.body,\n                        maxLines: 1" in page
 
 assert "python3 tools/validate_v03811_real_device_ui_fixes.py" in workflow
-assert "AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK" in workflow
-assert "agent/v03813-overlay-chat-routing-hotfix" in workflow
+assert "AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK" in workflow
+assert "agent/v03814-unlock-chat-transcript-ui" in workflow
 
 print("v0.38.11 real-device simulated-phone UI fixes validated")

@@ -26,7 +26,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.13+112" in pubspec
+assert "version: 0.38.14+113" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # These are deliberately two different routes:
@@ -64,8 +64,8 @@ assert "streamedToolPreamble" in runner
 assert "finalContent = '$streamedToolPreamble\\n\\n$finalContent'.trim();" in runner
 
 assert "python3 tools/validate_v03813_overlay_chat_routing_hotfix.py" in workflow
-assert "grep -Fqx 'version: 0.38.13+112' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK" in workflow
-assert "agent/v03813-overlay-chat-routing-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.14+113' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK" in workflow
+assert "agent/v03814-unlock-chat-transcript-ui" in workflow
 
 print("v0.38.13 streaming and overlay chat routing hotfix validated")

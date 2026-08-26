@@ -12,7 +12,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112)$", read("pubspec.yaml"), re.MULTILINE)
+assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112|0\.38\.14\+113)$", read("pubspec.yaml"), re.MULTILINE)
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -52,12 +52,10 @@ assert parsed["05_intimacy_rendering"].index("【节奏而非流程】") < parse
 assert parsed["05_intimacy_rendering"].index(intimacy_action_heading) < parsed[
     "05_intimacy_rendering"
 ].index("【连续性与余韵】")
-for token in (
-    "全角括号“（）”",
-    "括号块后空一行",
-    "用「」或中文引号",
-):
+for token in ("不加括号", "多个动作/对白段之间空一行"):
     assert token in parsed["02_daily"] and token in parsed["05_intimacy_rendering"]
+assert "统一用直角引号「」" in parsed["02_daily"]
+assert "统一用「」" in parsed["05_intimacy_rendering"]
 
 database = read("lib/core/database/app_database.dart")
 grouping = read("lib/core/rules/rule_layer_grouping.dart")

@@ -45,9 +45,9 @@ rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 for token in (
     "# 01 · AI Companion Core",
     "不输出英文工具规划",
-    "全角括号“（）”",
-    "用「」或中文引号",
-    "括号块后空一行",
+    "不加括号",
+    "统一用直角引号「」",
+    "多个动作/对白段之间空一行",
     "主动联系仍是一条完整消息",
 ):
     assert token in rules, token

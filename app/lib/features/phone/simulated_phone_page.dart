@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -34,12 +35,13 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
   SimulatedPhoneSnapshot? snapshot;
   Timer? timer;
   Timer? unlockTimer;
+  Timer? homeTimer;
   DateTime now = DateTime.now();
   bool locked = true;
   bool unlocking = false;
+  bool homeVisible = false;
   bool loading = true;
   bool changingSwitch = false;
-  double unlockDrag = 0;
   String? error;
 
   @override
@@ -55,6 +57,7 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
   void dispose() {
     timer?.cancel();
     unlockTimer?.cancel();
+    homeTimer?.cancel();
     super.dispose();
   }
 
@@ -95,17 +98,17 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
 
   void unlock() {
     if (!locked || unlocking) return;
-    setState(() {
-      unlocking = true;
-      unlockDrag = 0;
-    });
+    setState(() => unlocking = true);
     unlockTimer?.cancel();
+    homeTimer?.cancel();
     unlockTimer = Timer(const Duration(milliseconds: 700), () {
       if (!mounted) return;
       setState(() {
         locked = false;
         unlocking = false;
-        unlockDrag = 0;
+      });
+      homeTimer = Timer(const Duration(milliseconds: 100), () {
+        if (mounted) setState(() => homeVisible = true);
       });
     });
   }
@@ -118,28 +121,31 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
           fit: StackFit.expand,
           children: [
             const Wallpaper(),
-            AnimatedOpacity(
-              opacity: locked ? 0 : 1,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutCubic,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    PhoneStatusBar(now: now),
-                    Expanded(
-                      child: loading && snapshot == null
-                          ? const Center(
-                              child: CircularProgressIndicator(color: purple),
-                            )
-                          : HomeScreen(
-                              snapshot: snapshot,
-                              error: error,
-                              changingSwitch: changingSwitch,
-                              onEnabledChanged: setEnabled,
-                              onRefresh: load,
-                            ),
-                    ),
-                  ],
+            IgnorePointer(
+              ignoring: !homeVisible,
+              child: AnimatedOpacity(
+                opacity: homeVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.ease,
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      PhoneStatusBar(now: now),
+                      Expanded(
+                        child: loading && snapshot == null
+                            ? const Center(
+                                child: CircularProgressIndicator(color: purple),
+                              )
+                            : HomeScreen(
+                                snapshot: snapshot,
+                                error: error,
+                                changingSwitch: changingSwitch,
+                                onEnabledChanged: setEnabled,
+                                onRefresh: load,
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -148,34 +154,15 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
               child: AnimatedOpacity(
                 opacity: locked ? 1 : 0,
                 duration: const Duration(milliseconds: 400),
-                curve: Curves.easeInOutCubic,
-                child: AnimatedScale(
-                  scale: locked ? 1 : 1.015,
+                curve: Curves.ease,
+                child: AnimatedSlide(
+                  offset: locked ? Offset.zero : const Offset(0, -0.01),
                   duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOutCubic,
-                  child: AnimatedSlide(
-                    offset: locked ? Offset.zero : const Offset(0, -0.01),
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeInOutCubic,
-                    child: LockScreen(
-                      now: now,
-                      snapshot: snapshot,
-                      drag: unlockDrag,
-                      onDrag: (delta) {
-                        setState(() {
-                          unlockDrag =
-                              (unlockDrag - delta).clamp(0, 108).toDouble();
-                        });
-                      },
-                      onDragEnd: () {
-                        if (unlockDrag >= 72) {
-                          unlock();
-                        } else {
-                          setState(() => unlockDrag = 0);
-                        }
-                      },
-                      onUnlock: unlock,
-                    ),
+                  curve: Curves.ease,
+                  child: LockScreen(
+                    now: now,
+                    snapshot: snapshot,
+                    onUnlock: unlock,
                   ),
                 ),
               ),
@@ -251,18 +238,12 @@ class LockScreen extends StatelessWidget {
   const LockScreen({
     required this.now,
     required this.snapshot,
-    required this.drag,
-    required this.onDrag,
-    required this.onDragEnd,
     required this.onUnlock,
     super.key,
   });
 
   final DateTime now;
   final SimulatedPhoneSnapshot? snapshot;
-  final double drag;
-  final ValueChanged<double> onDrag;
-  final VoidCallback onDragEnd;
   final VoidCallback onUnlock;
 
   @override
@@ -325,69 +306,11 @@ class LockScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   const Text(
-                    '向上滑动，或轻触解锁',
+                    '上滑解锁',
                     style: TextStyle(color: text3, fontSize: 12),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: 62,
-                    height: 160,
-                    child: Stack(
-                      alignment: Alignment.bottomCenter,
-                      children: [
-                        Positioned(
-                          top: 0,
-                          child: Container(
-                            width: 1,
-                            height: 102,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0),
-                                  Colors.white.withValues(alpha: 0.19),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Transform.translate(
-                          offset: Offset(0, -drag),
-                          child: GestureDetector(
-                            onTap: onUnlock,
-                            onVerticalDragUpdate: (details) =>
-                                onDrag(details.delta.dy),
-                            onVerticalDragEnd: (_) => onDragEnd(),
-                            child: Container(
-                              width: 58,
-                              height: 58,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.09),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.20),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: purple.withValues(alpha: 0.18),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: const Text(
-                                '↑',
-                                style: TextStyle(fontSize: 23),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const HomeIndicator(),
+                  const SizedBox(height: 13),
+                  ReferenceUnlockControl(onUnlock: onUnlock),
                 ],
               ),
             ),
@@ -396,6 +319,189 @@ class LockScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class ReferenceUnlockControl extends StatefulWidget {
+  const ReferenceUnlockControl({required this.onUnlock, super.key});
+
+  final VoidCallback onUnlock;
+
+  @override
+  State<ReferenceUnlockControl> createState() =>
+      _ReferenceUnlockControlState();
+}
+
+class _ReferenceUnlockControlState extends State<ReferenceUnlockControl>
+    with TickerProviderStateMixin {
+  static const double slideDistance = 100;
+  static const Curve reboundCurve = Cubic(0.4, 0, 0.2, 1);
+
+  late final AnimationController pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2500),
+  )..repeat();
+  late final AnimationController reboundController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  )..addListener(_tickRebound);
+
+  double drag = 0;
+  double reboundStart = 0;
+  double dragOriginY = 0;
+  double dragAtPress = 0;
+  bool pressed = false;
+  bool dragging = false;
+
+  void _tickRebound() {
+    if (!mounted) return;
+    final eased = reboundCurve.transform(reboundController.value);
+    setState(() => drag = reboundStart * (1 - eased));
+  }
+
+  void _press(DragDownDetails details) {
+    reboundController.stop();
+    pulseController.stop();
+    setState(() {
+      pressed = true;
+      dragOriginY = details.globalPosition.dy;
+      dragAtPress = drag;
+    });
+  }
+
+  void _startDrag(DragStartDetails _) {
+    setState(() => dragging = true);
+  }
+
+  void _updateDrag(DragUpdateDetails details) {
+    if (!dragging) return;
+    setState(() {
+      drag = (dragAtPress + dragOriginY - details.globalPosition.dy)
+          .clamp(0, slideDistance)
+          .toDouble();
+    });
+  }
+
+  void _finishDrag({bool cancelled = false}) {
+    if (!dragging) {
+      _releasePress();
+      return;
+    }
+    final completed = !cancelled && drag >= slideDistance;
+    setState(() {
+      pressed = false;
+      dragging = false;
+    });
+    pulseController.repeat(from: 0);
+    reboundStart = drag;
+    reboundController.forward(from: 0);
+    if (completed) widget.onUnlock();
+  }
+
+  void _releasePress() {
+    if (!pressed) return;
+    setState(() => pressed = false);
+    pulseController.repeat(from: 0);
+  }
+
+  @override
+  void dispose() {
+    pulseController.dispose();
+    reboundController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 56,
+        height: 156,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Positioned(
+              top: 0,
+              child: Container(
+                width: 1,
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(1),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0),
+                      Colors.white.withValues(alpha: 0.18),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Transform.translate(
+              offset: Offset(0, -drag),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragDown: _press,
+                onVerticalDragStart: _startDrag,
+                onVerticalDragUpdate: _updateDrag,
+                onVerticalDragEnd: (_) => _finishDrag(),
+                onVerticalDragCancel: () => _finishDrag(cancelled: true),
+                child: AnimatedBuilder(
+                  animation: pulseController,
+                  builder: (context, child) {
+                    final active = pressed || dragging;
+                    final expansion = active
+                        ? 0.0
+                        : math.sin(math.pi * pulseController.value);
+                    return Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: active
+                            ? const []
+                            : [
+                                BoxShadow(
+                                  color: purple.withValues(
+                                    alpha: 0.15 * (1 - expansion),
+                                  ),
+                                  spreadRadius: 10 * expansion,
+                                ),
+                              ],
+                      ),
+                      child: ClipOval(
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(
+                                alpha: active ? 0.18 : 0.08,
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: child,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: Center(
+                    child: Text(
+                      '↑',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.70),
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class UnlockSuccessOverlay extends StatelessWidget {

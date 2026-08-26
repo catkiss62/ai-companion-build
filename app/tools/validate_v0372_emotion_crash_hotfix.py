@@ -51,16 +51,17 @@ for token in (
 ):
     assert token in prompt, token
 for token in (
-    "全角括号“（）”",
-    "括号块后空一行",
+    "不加括号",
+    "多个动作/对白段之间空一行",
     "动作与对白混插",
 ):
     assert token in rules, token
 for token in (
     "quotedLine",
+    "nextLineIsDialogue",
     "ChatSegmentKind.action",
-    "return '（${segment.text}）';",
-    "join('\\n\\n')",
+    "return segment.text;",
+    "join('\\n')",
 ):
     assert token in segments + visuals, token
 
