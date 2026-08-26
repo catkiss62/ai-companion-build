@@ -13,6 +13,9 @@ class PublicWebCandidateDraft {
     required this.discoveredAt,
     required this.expiresAt,
     this.safetyState = 'untrusted_public',
+    this.imageUrl = '',
+    this.imageDomain = '',
+    this.imageDescription = '',
   });
 
   final String fingerprint;
@@ -28,6 +31,9 @@ class PublicWebCandidateDraft {
   final DateTime discoveredAt;
   final DateTime expiresAt;
   final String safetyState;
+  final String imageUrl;
+  final String imageDomain;
+  final String imageDescription;
 }
 
 class PublicWebContextItem {
