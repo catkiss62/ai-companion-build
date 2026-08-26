@@ -71,6 +71,30 @@
 5. PR #28 当前真机通过但仍为 Draft 且未获明确合并授权。为遵守既有“不擅自合并”约束，第一批应从其最新 head 建立物理独立的后继分支/堆叠 Draft PR；不得把新功能继续塞进 PR #28，也不得直接写 main。
 6. 本条为修改前总账。完成后必须回填实际分支、版本、schema、提交、变更文件、自动测试、Actions、APK/SHA和真机待验项；在自动验证前不得写成已完成。
 
+## 0AAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.11 真机模拟手机 UI 修正（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 依据用户安装 v0.38.10 后提供的两张真机截图与再次上传的 `phone_system(1).html`：主页头像旁白被挤成竖卡；心情页把单日空图放大且底部正文被 Android 系统导航栏遮住；参考页的解锁成功反馈没有真正移植；塔罗页签需改名；购物车列表摘要与展开正文重复。当前条目记录本地实现候选，Actions、APK与真机结果尚未完成，禁止提前写成通过。
+
+### A. 边界与分支
+
+1. 后继分支 `agent/v03811-real-device-ui-fixes` 从 v0.38.10 Draft PR #31 head `a215933cde7599ef989cbeaeb55a98c4998424c3` 建立；版本递增为 `0.38.11+110`，SQLite schema 保持33。PR #31与main均不修改/不合并，新建堆叠Draft PR。
+2. 本批只修用户点名的模拟手机真机呈现，不改真实相册/浏览器数据契约、AI人格、Memory、Desire/Thought、桌宠、TTS、Pixiv或Harness。
+
+### B. 实际修正
+
+1. **主页头像横条**：根因是 `Flexible + Spacer` 在窄屏把旁白框只分到约半行宽；改为头像框占满关闭按钮之外的剩余宽度，标题/状态强制单行省略，开关保留固定紧凑宽度。
+2. **心情页留白与底部遮挡**：v0.38.10把图表固定增高到210，但真机当前只有一天数据，因此只是放大空图。改为按1天/2～3天/4～7天使用76/118/150的有界高度；同时所有模拟手机子App正文统一加入底部 `SafeArea`，避免手势导航或三键导航遮挡最后一段文字/按钮。
+3. **解锁成功动画**：按用户重传参考页的真实顺序实现：成功后先保留锁屏700ms，显示60%黑色遮罩、108px紫色发光识别圆环、从0.6放大到1的450ms动画与✅；随后锁屏400ms轻微上移淡出，主页350ms淡入。仍无随机失败彩蛋，不破坏上滑/轻触入口。
+4. **塔罗文案**：页签及页内标题统一由“我/我的今日占卜”改为“鲸鱼运势”，由“他/他的今日占卜”改为“为他占卜”。
+5. **购物车两层文案**：现有目录为每件商品增加独立 `list_summary` 用途摘要；折叠列表显示摘要，展开后继续显示她具体为什么想买。当天旧缓存若缺摘要会自动重建，不升schema、不伪造联网商品。
+6. **构建效率**：`detect-change-scope` 同时识别push与PR synchronize的纯文档变更，后续总账单独回填不会再误跑一轮完整APK构建；产品/工作流变更仍强制全量验证。
+
+### C. 验证状态与下一步
+
+1. 新增 `validate_v03811_real_device_ui_fixes.py`，覆盖横条宽度、成功动画时序/视觉元素、自适应图表、底部安全区、塔罗新文案、购物车两层摘要、版本和workflow；v0.38.8～v0.38.10历史契约已按合法后继文案更新。
+2. 最终产品/CI提交 `0d13b7a9176959e6bac6bf22fe158f8d38e01c38` 的公开 Actions run [`32938020456`](https://github.com/catkiss62/ai-companion-build/actions/runs/32938020456) 全绿：全部历史与v0.38.11 validators、Kotlin桌宠测试、Flutter analyze、Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗牌、checksum、Artifact及Draft Release上传均成功；签名证书SHA-256保持 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+3. 真机重点验收：窄屏头像框始终横向；一天心情记录不再出现大空图；正文可滚到系统导航栏上方；点击/上滑解锁都能清楚看到圆环✅后再进入主页；塔罗两页签文字正确；购物车折叠与展开小字不再重复。\n4. APK `AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK.apk`，329,560,964 bytes，SHA-256 `5bc9de44541922f919e162fb7fa3e8d7a0c62552a865b0019d422c4843737609`；Artifact ID `9595761756`；草稿Release [`untagged-6afef4bf2f9f0dd07faf`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6afef4bf2f9f0dd07faf)。自动化通过不等于真机通过，PR #32继续保持Draft，main与PR #31均未合并。
+
 ## 0AAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.10 真实相册/浏览器第二批与模拟手机 UI 收口（PRE-IMPLEMENTATION / IMPLEMENTATION PENDING）
 
 > 用户已在真机检查 v0.38.9：八个页面与既有机制目测正常，功能方向接受；剩余反馈集中在模拟手机外观与排版，并授权将这些轻量 UI 收口与既定第二批“真实浏览 + 相册 + 全网公开图片收集”一起实现、统一出一版 APK。本条是正式修改前总账；后续必须按真实代码和 CI 再回填，当前不得写成完成。

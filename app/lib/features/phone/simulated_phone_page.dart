@@ -97,10 +97,10 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
     if (!locked || unlocking) return;
     setState(() {
       unlocking = true;
-      unlockDrag = 108;
+      unlockDrag = 0;
     });
     unlockTimer?.cancel();
-    unlockTimer = Timer(const Duration(milliseconds: 520), () {
+    unlockTimer = Timer(const Duration(milliseconds: 700), () {
       if (!mounted) return;
       setState(() {
         locked = false;
@@ -118,62 +118,70 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
           fit: StackFit.expand,
           children: [
             const Wallpaper(),
-            SafeArea(
-              child: Column(
-                children: [
-                  PhoneStatusBar(now: now),
-                  Expanded(
-                    child: loading && snapshot == null
-                        ? const Center(
-                            child: CircularProgressIndicator(color: purple),
-                          )
-                        : HomeScreen(
-                            snapshot: snapshot,
-                            error: error,
-                            changingSwitch: changingSwitch,
-                            onEnabledChanged: setEnabled,
-                            onRefresh: load,
-                          ),
-                  ),
-                ],
+            AnimatedOpacity(
+              opacity: locked ? 0 : 1,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    PhoneStatusBar(now: now),
+                    Expanded(
+                      child: loading && snapshot == null
+                          ? const Center(
+                              child: CircularProgressIndicator(color: purple),
+                            )
+                          : HomeScreen(
+                              snapshot: snapshot,
+                              error: error,
+                              changingSwitch: changingSwitch,
+                              onEnabledChanged: setEnabled,
+                              onRefresh: load,
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
             IgnorePointer(
               ignoring: !locked || unlocking,
               child: AnimatedOpacity(
-                opacity: locked && !unlocking ? 1 : 0,
-                duration: const Duration(milliseconds: 480),
+                opacity: locked ? 1 : 0,
+                duration: const Duration(milliseconds: 400),
                 curve: Curves.easeInOutCubic,
                 child: AnimatedScale(
-                  scale: unlocking ? 1.08 : 1,
-                  duration: const Duration(milliseconds: 520),
+                  scale: locked ? 1 : 1.015,
+                  duration: const Duration(milliseconds: 400),
                   curve: Curves.easeInOutCubic,
                   child: AnimatedSlide(
-                    offset: unlocking ? const Offset(0, -0.07) : Offset.zero,
-                    duration: const Duration(milliseconds: 520),
+                    offset: locked ? Offset.zero : const Offset(0, -0.01),
+                    duration: const Duration(milliseconds: 400),
                     curve: Curves.easeInOutCubic,
                     child: LockScreen(
-                    now: now,
-                    snapshot: snapshot,
-                    drag: unlockDrag,
-                    onDrag: (delta) {
-                      setState(() {
-                        unlockDrag =
-                            (unlockDrag - delta).clamp(0, 108).toDouble();
-                      });
-                    },
-                    onDragEnd: () {
-                      if (unlockDrag >= 72) {
-                        unlock();
-                      } else {
-                        setState(() => unlockDrag = 0);
-                      }
-                    },
+                      now: now,
+                      snapshot: snapshot,
+                      drag: unlockDrag,
+                      onDrag: (delta) {
+                        setState(() {
+                          unlockDrag =
+                              (unlockDrag - delta).clamp(0, 108).toDouble();
+                        });
+                      },
+                      onDragEnd: () {
+                        if (unlockDrag >= 72) {
+                          unlock();
+                        } else {
+                          setState(() => unlockDrag = 0);
+                        }
+                      },
                       onUnlock: unlock,
                     ),
                   ),
                 ),
               ),
+            ),
+            IgnorePointer(
+              child: UnlockSuccessOverlay(visible: unlocking),
             ),
           ],
       ),
@@ -390,6 +398,45 @@ class LockScreen extends StatelessWidget {
   }
 }
 
+class UnlockSuccessOverlay extends StatelessWidget {
+  const UnlockSuccessOverlay({required this.visible, super.key});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) => AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: 0.60),
+          child: Center(
+            child: AnimatedScale(
+              scale: visible ? 1 : 0.60,
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeOutCubic,
+              child: Container(
+                width: 108,
+                height: 108,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: purple, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: purple.withValues(alpha: 0.40),
+                      blurRadius: 26,
+                    ),
+                  ],
+                ),
+                child: const Text('✅', style: TextStyle(fontSize: 42)),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     required this.snapshot,
@@ -423,67 +470,74 @@ class HomeScreen extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Flexible(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 290),
-                        child: Glass(
-                          radius: 28,
-                          padding: const EdgeInsets.fromLTRB(7, 6, 8, 6),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Color(0xFFEEEAF8),
-                                backgroundImage: AssetImage(
-                                  'assets/appearance/chat_avatar.webp',
-                                ),
+                    Expanded(
+                      child: Glass(
+                        radius: 28,
+                        padding: const EdgeInsets.fromLTRB(7, 6, 8, 6),
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Color(0xFFEEEAF8),
+                              backgroundImage: AssetImage(
+                                'assets/appearance/chat_avatar.webp',
                               ),
-                              const SizedBox(width: 9),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Whale Phone',
-                                      style: TextStyle(
-                                        color: text1,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Whale Phone',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: text1,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                    Text(
-                                      snapshot?.enabled == false
-                                          ? '更新已暂停'
-                                          : '生活更新中',
-                                      style: const TextStyle(
-                                        color: text3,
-                                        fontSize: 10.5,
-                                      ),
+                                  ),
+                                  Text(
+                                    snapshot?.enabled == false
+                                        ? '更新已暂停'
+                                        : '生活更新中',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: text3,
+                                      fontSize: 10.5,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              if (changingSwitch)
-                                const SizedBox.square(
-                                  dimension: 21,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              else
-                                Transform.scale(
-                                  scale: 0.82,
+                            ),
+                            if (changingSwitch)
+                              const SizedBox.square(
+                                dimension: 21,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            else
+                              SizedBox(
+                                width: 45,
+                                height: 30,
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
                                   child: Switch(
                                     value: snapshot?.enabled ?? true,
                                     activeThumbColor: purple,
                                     onChanged: onEnabledChanged,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 10),
                     IconButton.filledTonal(
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
@@ -1390,6 +1444,11 @@ class _MoodPageState extends State<MoodPage> {
         selected == null || selected! >= history.length
             ? null
             : history[selected!];
+    final chartHeight = history.length <= 1
+        ? 76.0
+        : history.length <= 3
+            ? 118.0
+            : 150.0;
     return PhoneAppScaffold(
       emoji: '💗',
       title: '心情',
@@ -1467,7 +1526,7 @@ class _MoodPageState extends State<MoodPage> {
                 ),
                 const SizedBox(height: 9),
                 SizedBox(
-                  height: 210,
+                  height: chartHeight,
                   child: MoodChart(
                     entries: history,
                     values: values,
@@ -1889,7 +1948,8 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       subtitle: Text(
-                        entry.body,
+                        entry.metadata['list_summary'] as String? ??
+                            '今天想先留在清单里',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
@@ -1960,12 +2020,12 @@ class TarotPage extends StatelessWidget {
             indicatorColor: pink,
             labelColor: text1,
             unselectedLabelColor: text3,
-            tabs: [Tab(text: '我'), Tab(text: '他')],
+            tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')],
           ),
           child: TabBarView(
             children: [
-              TarotReading(entry: self, label: '我的今日占卜'),
-              TarotReading(entry: user, label: '他的今日占卜'),
+              TarotReading(entry: self, label: '鲸鱼运势'),
+              TarotReading(entry: user, label: '为他占卜'),
             ],
           ),
         ),
@@ -2169,9 +2229,12 @@ class PhoneAppScaffold extends StatelessWidget {
           actions: actions,
           bottom: bottom,
         ),
-        body: Stack(
-          fit: StackFit.expand,
-          children: [const Wallpaper(), child],
+        body: SafeArea(
+          top: false,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [const Wallpaper(), child],
+          ),
         ),
       );
 }

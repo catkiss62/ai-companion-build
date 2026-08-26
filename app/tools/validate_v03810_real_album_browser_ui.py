@@ -75,9 +75,9 @@ assert "notesUnread" in repository
 
 assert "'assets/appearance/chat_avatar.webp'" in page
 assert "AnimatedScale" in page
-assert "scale: unlocking ? 1.08 : 1" in page
+assert "class UnlockSuccessOverlay" in page
 assert "phoneTime(entry.createdAt)" in page
-assert "height: 210" in page
+assert "final chartHeight = history.length <= 1" in page
 assert "badge:" in page and page.count("badge:") == 2
 assert "class AlbumDetailPage" in page
 for label in ("👍 喜欢", "👎 不喜欢", "➖ 不判断", "修改留言", "删除"):

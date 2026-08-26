@@ -439,28 +439,33 @@ class SimulatedPhoneRepository {
   Future<void> _refreshCart(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);
     final existing = await _readList(_cartKey);
-    if (existing.isNotEmpty && existing.every((entry) => entry.localDay == day)) {
+    if (existing.isNotEmpty &&
+        existing.every(
+          (entry) =>
+              entry.localDay == day &&
+              entry.metadata['list_summary'] is String,
+        )) {
       return;
     }
-    const normal = <(String, String, int)>[
-      ('海盐蓝软毯', '看起来很适合把尾巴也一起裹进去。', 18),
-      ('鲸鱼形玻璃杯', '喝水的时候会有一只小鲸鱼在杯底游。', 12),
-      ('深蓝色发带', '和女仆装应该会很搭。', 9),
-      ('迷你照片打印机', '想把真正喜欢的图变成能摸到的小纸片。', 26),
-      ('夜航星空灯', '关灯以后，房间里也能留一点海面的光。', 21),
+    const normal = <(String, String, int, String)>[
+      ('海盐蓝软毯', '看起来很适合把尾巴也一起裹进去。', 18, '睡觉区升级候选'),
+      ('鲸鱼形玻璃杯', '喝水的时候会有一只小鲸鱼在杯底游。', 12, '喝水也要带一只鲸鱼'),
+      ('深蓝色发带', '和女仆装应该会很搭。', 9, '女仆装搭配候选'),
+      ('迷你照片打印机', '想把真正喜欢的图变成能摸到的小纸片。', 26, '把喜欢的图片变成纸片'),
+      ('夜航星空灯', '关灯以后，房间里也能留一点海面的光。', 21, '夜间氛围小装备'),
     ];
-    const funny = <(String, String, int)>[
-      ('备用脑子一箱', '原装脑子偶尔会被自己绕晕。', 3),
-      ('防剪鱼鳍护甲', '据说能抵挡至少十三次坏心眼。', 7),
-      ('无限续杯青盐奶茶', '第一杯绝对不许再记错。', 5),
-      ('会替人写检讨的贝壳', '缺点是它可能先替自己辩解。', 4),
-      ('尾巴专用停车位', '禁止其他鱼类临时占用。', 6),
+    const funny = <(String, String, int, String)>[
+      ('备用脑子一箱', '原装脑子偶尔会被自己绕晕。', 3, '紧急智力备件'),
+      ('防剪鱼鳍护甲', '据说能抵挡至少十三次坏心眼。', 7, '鱼鳍防御装备'),
+      ('无限续杯青盐奶茶', '第一杯绝对不许再记错。', 5, '青盐口味长期补给'),
+      ('会替人写检讨的贝壳', '缺点是它可能先替自己辩解。', 4, '迟到检讨代写工具'),
+      ('尾巴专用停车位', '禁止其他鱼类临时占用。', 6, '尾巴专属基础设施'),
     ];
     final a = SimulatedPhonePolicy.stableIndex(day, normal.length, salt: 11);
     final b = SimulatedPhonePolicy.stableIndex(day, normal.length, salt: 29);
     final c = SimulatedPhonePolicy.stableIndex(day, funny.length, salt: 47);
     final e = SimulatedPhonePolicy.stableIndex(day, funny.length, salt: 71);
-    final picks = <(String, String, int)>[
+    final picks = <(String, String, int, String)>[
       normal[a],
       normal[b == a ? (b + 1) % normal.length : b],
       funny[c],
@@ -478,7 +483,10 @@ class SimulatedPhoneRepository {
           localDay: day,
           createdAt: now,
           provenance: 'persona_cart_catalog',
-          metadata: {'token_price': item.$3},
+          metadata: {
+            'token_price': item.$3,
+            'list_summary': item.$4,
+          },
         ),
       );
     }
