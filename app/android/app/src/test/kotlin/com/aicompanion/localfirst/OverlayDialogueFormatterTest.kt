@@ -11,10 +11,14 @@ class OverlayDialogueFormatterTest {
         )
 
         assertEquals(
-            "耳鳍轻轻抖了一下\n「才没有一直等你。」\n尾巴晃了晃",
+            "耳鳍轻轻抖了一下\n\n「才没有一直等你。」\n尾巴晃了晃",
             visible,
         )
-        assertEquals(listOf(9..18), OverlayDialogueFormatter.dialogueRanges(visible))
+        assertEquals(listOf(10..19), OverlayDialogueFormatter.dialogueRanges(visible))
+        assertEquals(
+            listOf("耳鳍轻轻抖了一下\n\n", "\n尾巴晃了晃"),
+            OverlayDialogueFormatter.actionRanges(visible).map { visible.substring(it) },
+        )
     }
 
     @Test

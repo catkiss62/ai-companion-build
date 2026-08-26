@@ -58,7 +58,7 @@ assert 'acknowledgeMessages(this, "overlay_chat_opened")' in overlay
 for token in (
     "OverlayDialogueFormatter.visibleText(value)",
     "OverlayDialogueFormatter.dialogueRanges(visible)",
-    "ForegroundColorSpan(Color.rgb(231, 216, 167))",
+    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
 ):
     assert token in overlay, token
 assert "Color.rgb(216, 177, 255)" not in overlay

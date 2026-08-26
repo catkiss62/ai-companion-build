@@ -25,6 +25,7 @@ import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -2812,9 +2813,23 @@ class OverlayBubbleService : Service() {
         private fun actionTintedText(value: String): CharSequence {
             val visible = OverlayDialogueFormatter.visibleText(value)
             val result = SpannableString(visible)
+            OverlayDialogueFormatter.actionRanges(visible).forEach { range ->
+                result.setSpan(
+                    StyleSpan(Typeface.ITALIC),
+                    range.first,
+                    range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
             OverlayDialogueFormatter.dialogueRanges(visible).forEach { range ->
                 result.setSpan(
-                    ForegroundColorSpan(Color.rgb(231, 216, 167)),
+                    StyleSpan(Typeface.NORMAL),
+                    range.first,
+                    range.last + 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                result.setSpan(
+                    ForegroundColorSpan(Color.rgb(253, 230, 138)),
                     range.first,
                     range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,

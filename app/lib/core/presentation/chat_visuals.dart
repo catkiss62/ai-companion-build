@@ -107,7 +107,34 @@ class ChatVisualChunk {
           return '「${segment.text}」';
         }
         return segment.text;
-      }).join('\n');
+      }).join('\n\n');
+}
+
+/// Keeps an action block and its following corner-quoted dialogue together
+/// while a response is still streaming. Blank-line-separated action/dialogue
+/// pairs remain separated from later pairs by the transcript divider.
+List<String> assistantStreamingTranscriptBlocks(String text) {
+  final blocks = text
+      .replaceAll('\r\n', '\n')
+      .split(RegExp(r'\n\s*\n'))
+      .where((block) => block.trim().isNotEmpty)
+      .toList(growable: false);
+  if (blocks.length < 2) return blocks;
+
+  final result = <String>[];
+  for (var index = 0; index < blocks.length; index++) {
+    final block = blocks[index];
+    final next = index + 1 < blocks.length ? blocks[index + 1] : '';
+    final blockStartsDialogue = block.trimLeft().startsWith('「');
+    final nextStartsDialogue = next.trimLeft().startsWith('「');
+    if (!blockStartsDialogue && nextStartsDialogue) {
+      result.add('${block.trimRight()}\n\n${next.trimLeft()}');
+      index++;
+    } else {
+      result.add(block);
+    }
+  }
+  return result;
 }
 
 /// LingChat's pinned 19-expression presentation contract.

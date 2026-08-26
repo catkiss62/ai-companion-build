@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-const chatDialogueGold = Color(0xFFE7D8A7);
+/// Matches the dialogue gold used by index.html's novel renderer.
+const chatDialogueGold = Color(0xFFFDE68A);
 
 class ActionTextSegment {
   const ActionTextSegment(this.text, {required this.isAction});
@@ -80,7 +81,12 @@ String stripActionDelimitersForDisplay(String text) {
     RegExp(r'(^|\n)[（(](?=[^）)\n]*(?:$|\n))', multiLine: true),
     (match) => match.group(1) ?? '',
   );
-  return result;
+  // Removing action brackets must not remove the established visual pause
+  // between an action/state line and the following corner-quoted dialogue.
+  return result.replaceAllMapped(
+    RegExp(r'([^\n])\n(?=「)'),
+    (match) => '${match.group(1)}\n\n',
+  );
 }
 
 class ActionTintText extends StatelessWidget {
@@ -91,6 +97,10 @@ class ActionTintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style.merge(style);
+    final action = base.copyWith(
+      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.normal,
+    );
     final dialogue = base.copyWith(
       color: chatDialogueGold,
       fontStyle: FontStyle.normal,
@@ -103,7 +113,7 @@ class ActionTintText extends StatelessWidget {
           for (final segment in splitDialogueText(visibleText))
             TextSpan(
               text: segment.text,
-              style: segment.isDialogue ? dialogue : base,
+              style: segment.isDialogue ? dialogue : action,
             ),
         ],
       ),

@@ -83,8 +83,8 @@ assert "openChatLaunches" in bridge
 assert "setState(() => index = 1)" in app
 
 assert "python3 tools/validate_v03812_chat_scroll_phone_ui_fixes.py" in workflow
-assert "grep -Fqx 'version: 0.38.14+113' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK" in workflow
-assert "agent/v03814-unlock-chat-transcript-ui" in workflow
+assert "grep -Fqx 'version: 0.38.15+114' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK" in workflow
+assert "agent/v03815-chat-style-regression-hotfix" in workflow
 
 print("v0.38.12 chat scroll and phone UI fixes validated")

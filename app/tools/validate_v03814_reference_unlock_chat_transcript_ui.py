@@ -28,7 +28,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.14+113" in pubspec
+assert "version: 0.38.15+114" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # Match phone_system(1).html geometry and timing instead of approximating it.
@@ -70,12 +70,12 @@ assert "action: 'stream_preserved'" in runner
 # history is still parsed, while both renderers hide delimiters and share gold.
 assert "nextLineIsDialogue" in segments
 assert "return segment.text;" in visuals
-assert "const chatDialogueGold = Color(0xFFE7D8A7);" in text
+assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "stripActionDelimitersForDisplay" in text
 assert "不加括号" in rules and "统一用直角引号「」" in rules
 assert "不加括号" in prompt and "统一用「」" in prompt
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
-assert "ForegroundColorSpan(Color.rgb(231, 216, 167))" in overlay
+assert "ForegroundColorSpan(Color.rgb(253, 230, 138))" in overlay
 assert "fun visibleText(value: String)" in overlay_formatter
 assert "fun dialogueRanges(value: String)" in overlay_formatter
 
@@ -83,8 +83,8 @@ assert "fun dialogueRanges(value: String)" in overlay_formatter
 assert "reasoning_translation" not in database
 
 assert "python3 tools/validate_v03814_reference_unlock_chat_transcript_ui.py" in workflow
-assert "grep -Fqx 'version: 0.38.14+113' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK" in workflow
-assert "agent/v03814-unlock-chat-transcript-ui" in workflow
+assert "grep -Fqx 'version: 0.38.15+114' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK" in workflow
+assert "agent/v03815-chat-style-regression-hotfix" in workflow
 
 print("v0.38.14 reference unlock and chat transcript UI validated")
