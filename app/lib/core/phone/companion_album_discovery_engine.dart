@@ -111,15 +111,18 @@ class CompanionAlbumDiscoveryEngine {
     if (!begun) return 'duplicate_source';
 
     PreparedImageAttachment? draft;
+    File? downloaded;
     String savedPath = '';
     try {
-      final downloaded = await _downloadPreview(sourceUrl, candidateId);
+      downloaded = await _downloadPreview(sourceUrl, candidateId);
+      final downloadedFile = downloaded!;
       draft = await attachmentStorage.prepareImage(
-        sourcePath: downloaded.path,
+        sourcePath: downloadedFile.path,
         source: sourceKind,
         mimeType: 'image/${p.extension(downloaded.path).replaceFirst('.', '')}',
       );
-      if (await downloaded.exists()) await downloaded.delete();
+      if (await downloadedFile.exists()) await downloadedFile.delete();
+      downloaded = null;
       final observation = await vision.observe(
         apiKey: apiKey,
         endpoint: await config.readVisionEndpoint(),
@@ -150,6 +153,8 @@ class CompanionAlbumDiscoveryEngine {
         thumbnailPath: savedPath,
         contentSha256: contentSha,
         visualFingerprint: observation.aestheticTags.join('|'),
+        width: draft.width,
+        height: draft.height,
         recognizedAt: DateTime.now(),
       );
       if (!completed && savedPath.isNotEmpty) {
@@ -161,6 +166,10 @@ class CompanionAlbumDiscoveryEngine {
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
       return 'failed';
     } finally {
+      final temporaryDownload = downloaded;
+      if (temporaryDownload != null && await temporaryDownload.exists()) {
+        await temporaryDownload.delete();
+      }
       if (draft != null) await attachmentStorage.discardDraft(draft);
     }
   }
