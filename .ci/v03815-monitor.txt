@@ -1,0 +1,7 @@
+status=success
+run_id=32968040884
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32968040884
+head_sha=ffe1355ce99e7ac2a001ef7277bdb9e05b6fbb38
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+746e3e809dc075fda3121eaf479798bd792dcfbd0c5113bf2296adbec6b1e1f5  AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2014b873540bf46735b4
