@@ -1,0 +1,7 @@
+status=success
+run_id=32981768115
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32981768115
+head_sha=a23d90c9e893954e4177f3f55bd1fe1d2ed8493a
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+0476e563170ddd62c36028ba075f1398b6c964763a85b1e8c85d5dc64cdf33f2  AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1210434c6bc95299697
