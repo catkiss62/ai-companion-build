@@ -634,10 +634,12 @@ List<PhoneAppItem> buildApps(
 }
 
 Future<void> openPhoneApp(BuildContext context, PhoneAppItem item) async {
-  await item.onOpen?.call();
+  final onOpen = item.onOpen;
+  if (onOpen != null) await onOpen();
   if (!context.mounted) return;
   await openPhonePage(context, item.page);
-  await item.onClosed?.call();
+  final onClosed = item.onClosed;
+  if (onClosed != null) await onClosed();
 }
 
 class AppIcon extends StatelessWidget {
