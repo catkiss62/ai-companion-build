@@ -1,0 +1,7 @@
+status=success
+run_id=32938020456
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32938020456
+head_sha=0d13b7a9176959e6bac6bf22fe158f8d38e01c38
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+5bc9de44541922f919e162fb7fa3e8d7a0c62552a865b0019d422c4843737609  AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6afef4bf2f9f0dd07faf
