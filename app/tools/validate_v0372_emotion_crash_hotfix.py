@@ -58,7 +58,7 @@ for token in (
     assert token in rules, token
 for token in (
     "quotedLine",
-    "nextLineIsDialogue",
+    "nextContentIsDialogue",
     "ChatSegmentKind.action",
     "return segment.text;",
     "join('\\n')",

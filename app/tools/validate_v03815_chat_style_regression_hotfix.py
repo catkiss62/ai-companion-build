@@ -28,7 +28,7 @@ overlay_formatter = read(
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.15+114" in pubspec
+assert "version: 0.38.16+115" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # Removing visible brackets must preserve the pre-existing typography:
@@ -76,8 +76,8 @@ assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 assert "reasoning_translation" not in database
 
 assert "python3 tools/validate_v03815_chat_style_regression_hotfix.py" in workflow
-assert "grep -Fqx 'version: 0.38.15+114' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK" in workflow
-assert "agent/v03815-chat-style-regression-hotfix" in workflow
+assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
+assert "agent/v03816-action-segment-parser-hotfix" in workflow
 
 print("v0.38.15 chat style regression hotfix validated")
