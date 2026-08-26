@@ -41,10 +41,48 @@ void main() {
     expect(segments[2].kind, ChatSegmentKind.dialogue);
   });
 
+  test('blank line between action and dialogue keeps action semantics', () {
+    const source =
+        '她把耳鳍往后压了压，尾尖停在半空。\n\n「你是不是故意的？」';
+    final segments = ChatSegmentCodec.parseAssistantText(source);
+    expect(segments, hasLength(2));
+    expect(segments[0].kind, ChatSegmentKind.action);
+    expect(segments[0].text, '她把耳鳍往后压了压，尾尖停在半空。');
+    expect(segments[1].kind, ChatSegmentKind.dialogue);
+    expect(
+      ChatVisualResolver.chunks(segments).single.displayText,
+      source,
+    );
+  });
+
+  test('stored v03815 dialogue misclassification self-heals from source', () {
+    const source =
+        '她把耳鳍往后压了压，尾尖停在半空。\n\n「你是不是故意的？」';
+    const stale =
+        '[{"kind":"dialogue","text":"她把耳鳍往后压了压，尾尖停在半空。"},'
+        '{"kind":"dialogue","text":"你是不是故意的？"}]';
+    final segments = ChatSegmentCodec.decode(stale, fallbackText: source);
+    expect(segments, hasLength(2));
+    expect(segments[0].kind, ChatSegmentKind.action);
+    expect(segments[1].kind, ChatSegmentKind.dialogue);
+    expect(ChatVisualResolver.chunks(segments).single.displayText, source);
+  });
+
   test('ordinary multiline answer is not mistaken for multiple actions', () {
     final segments = ChatSegmentCodec.parseAssistantText('第一点是这样。\n第二点也成立。');
     expect(segments, hasLength(2));
     expect(segments.every((item) => item.kind == ChatSegmentKind.dialogue), isTrue);
+  });
+
+  test('blank-line ordinary prose without quoted dialogue stays dialogue', () {
+    final segments = ChatSegmentCodec.parseAssistantText(
+      '第一点是这样。\n\n第二点也成立。',
+    );
+    expect(segments, hasLength(2));
+    expect(
+      segments.every((item) => item.kind == ChatSegmentKind.dialogue),
+      isTrue,
+    );
   });
 
   test('all 19 expressions keep distinct pinned portraits', () {

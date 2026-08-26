@@ -79,9 +79,13 @@ class ChatSegmentCodec {
 
       // Compatibility for v0.37.1's short-lived unparenthesized action format.
       // Ordinary prose remains dialogue.
-      final nextLineIsDialogue = index + 1 < lines.length &&
-          lines[index + 1].trim().isNotEmpty &&
-          quotedLine.hasMatch(lines[index + 1].trim());
+      var nextContentIndex = index + 1;
+      while (nextContentIndex < lines.length &&
+          lines[nextContentIndex].trim().isEmpty) {
+        nextContentIndex++;
+      }
+      final nextContentIsDialogue = nextContentIndex < lines.length &&
+          quotedLine.hasMatch(lines[nextContentIndex].trim());
       final looksLikeLegacyAction =
           RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) &&
           (normalized.contains('「') ||
@@ -90,7 +94,7 @@ class ChatSegmentCodec {
           normalized.contains('\n') &&
           line.length <= 80;
       result.add(ChatSegment(
-        kind: nextLineIsDialogue || looksLikeLegacyAction
+        kind: nextContentIsDialogue || looksLikeLegacyAction
             ? ChatSegmentKind.action
             : ChatSegmentKind.dialogue,
         text: line,
@@ -115,7 +119,21 @@ class ChatSegmentCodec {
                   ))
               .where((segment) => segment.text.trim().isNotEmpty)
               .toList(growable: false);
-          if (segments.isNotEmpty) return segments;
+          if (segments.isNotEmpty) {
+            // v0.38.15 stored bracketless actions as dialogue when the
+            // required blank line appeared before the quoted dialogue.
+            // Reparse only when the source now proves that the stored
+            // derived segments lost one or more action classifications.
+            final reparsed = parseAssistantText(fallbackText);
+            final storedActionCount = segments
+                .where((segment) => segment.kind == ChatSegmentKind.action)
+                .length;
+            final reparsedActionCount = reparsed
+                .where((segment) => segment.kind == ChatSegmentKind.action)
+                .length;
+            if (reparsedActionCount > storedActionCount) return reparsed;
+            return segments;
+          }
         }
       } catch (_) {}
     }

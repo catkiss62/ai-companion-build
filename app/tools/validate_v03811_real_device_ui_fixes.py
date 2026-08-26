@@ -16,7 +16,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.15+114" in pubspec
+assert "version: 0.38.16+115" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # The real-device narrow layout must allocate the remaining row width to the
@@ -59,7 +59,7 @@ assert "entry.metadata['list_summary'] as String?" not in page
 assert "entry.body,\n                        maxLines: 1" in page
 
 assert "python3 tools/validate_v03811_real_device_ui_fixes.py" in workflow
-assert "AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK" in workflow
-assert "agent/v03815-chat-style-regression-hotfix" in workflow
+assert "AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK" in workflow
+assert "agent/v03816-action-segment-parser-hotfix" in workflow
 
 print("v0.38.11 real-device simulated-phone UI fixes validated")

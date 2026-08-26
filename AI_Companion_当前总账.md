@@ -15,7 +15,24 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED LOCALLY / CI & APK PENDING）
+
+> 用户真机确认 v0.38.15 不可作为聊天候选：模型按新契约输出“无括号动作行 → 空一行 → `「对白」`”后，回复完成时动作被最终界面错误渲染为 `「动作」`。本批只修复该语义解析缺陷并恢复已存 v0.38.15 消息，不修改用户已确认的斜体、动作/对白空行、分隔线、小说黄色、用户气泡、75%初始透明度、正文流式、解锁或悬浮入口。目标 `0.38.16+115`，SQLite schema 保持33；思考链翻译继续独立后置。
+
+### A. 根因与最小修复
+
+1. `ChatSegmentCodec.parseAssistantText()` 只检查动作行的物理下一行是否为引号对白；v0.38.15 恢复空行后，物理下一行必然为空，因此不在旧动词前缀白名单内的动作被误标为 `dialogue`。`ChatVisualChunk.displayText` 按既有职责给所有 dialogue 加 `「」`，最终形成 `「动作」`；实时 `_StreamingBubble` 使用原始正文，所以错误主要在持久化/完成切换后出现。
+2. 解析器改为跳过连续空行，检查“下一条非空内容”是否为完整引号对白；若是，则当前无括号行按输出语法识别为 action。没有后续引号对白的普通事实段落仍为 dialogue，不把整篇说明误判成动作。
+3. v0.38.15 已写入数据库的 `segments_json` 是从正文派生的缓存，可能已经把动作存为 dialogue。本版读取时只在用原始 `content` 重解析得到更多 action 的情况下采用重解析结果，因此旧错误消息无需清库即可恢复；已有正确 action 或普通段落保持原存储结果，schema不需要推进。
+4. 新增真实格式测试：动作文本故意不使用旧动词前缀，动作与对白中间有空行，最终 `displayText` 必须与模型原文一致；另覆盖 v0.38.15 错误 `segments_json` 自愈及“普通段落＋空行但无引号”不误判。新增 v0.38.16 静态契约，继续锁住 v0.38.13～15 的正文逐字流式、A→B守卫、斜体、空行、分隔线、`#FDE68A`、14dp用户气泡、75%初始透明度、参考解锁与悬浮两级入口。
+
+### B. 当前进度与待验
+
+1. 独立分支 `agent/v03816-action-segment-parser-hotfix` 已从 v0.38.15 总账 head 建立；本地代码和测试已实现。当前工作区没有 Flutter SDK，完整 Dart/Flutter/Kotlin编译、全量测试、release APK、稳定签名及载荷仍必须由公开 Actions 验证，在此之前不得写成 CI 或 APK 已通过。
+2. 真机待验：新回复的动作保持无括号白色斜体，不出现 `「动作」`；动作后空一行再显示 `#FDE68A` 的 `「对白」`；v0.38.15 已产生的错误历史消息重新打开后也恢复；正文仍逐字流式，完成瞬间不改变动作/对白语义；其余解锁、气泡和悬浮入口无回退。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.16）
 
 > 用户真机确认 v0.38.14 在“去动作括号、改助手正文阅读层”时错误删除了已经完成的样式：App 内动作/神态斜体消失、动作与对白之间的空行消失，原生悬浮聊天的动作斜体也一并消失。用户要求对白色改成新附件 `index(1).html` 小说模式的准确黄色，聊天面板初始透明度改为75%，并把用户气泡内部左右留白略微增大。本热修从 v0.38.14 独立向前，目标 `0.38.15+114`、SQLite schema 仍为33；思考链英文自动翻译继续独立后置，不进入本批。
 
@@ -34,6 +51,7 @@
 2. GitHub Actions [run #546（32968040884）](https://github.com/catkiss62/ai-companion-build/actions/runs/32968040884) 全绿：源码/历史回归、依赖解析、Kotlin 桌宠与悬浮窗文字测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact 与 Draft Release 上传均成功。该次云端验证明确覆盖 App/悬浮窗动作斜体、隐藏括号、动作与对白空行、`#FDE68A`、流式分组、75%新初始值及14dp用户气泡水平 padding；同时保留 v0.38.13/14 正文逐字流式、正文尾贴底、A→B守卫、参考解锁和悬浮两级入口契约。
 3. APK `AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK.apk`，329,587,436 bytes，SHA-256 `746e3e809dc075fda3121eaf479798bd792dcfbd0c5113bf2296adbec6b1e1f5`。Artifact ID `9606801482`（ZIP 323,372,480 bytes，digest `05e86faa514d596a5e99c55ef926dd10deecf6236f0a2649d8776639bdf3d36a`）；草稿 Release [untagged-2014b873540bf46735b4](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2014b873540bf46735b4)。签名证书沿用既有持久测试身份。
 4. 真机待验：App 与悬浮窗动作/神态均为斜体且不显示括号；动作与 `「对白」` 中间有一个空行；多组之间仍有细分隔线；对白为 `#FDE68A`；短用户气泡仍随内容伸缩但左右更宽松；初始聊天面板透明度75%；正文逐字流式、长思考收起贴底、参考解锁与悬浮两级入口无回退。自动测试通过不等于真机通过。
+5. 真机失败：回复完成后的持久分段把“动作＋空行＋`「对白」`”中的动作误分类为 dialogue，导致 `ChatVisualChunk.displayText` 额外渲染为 `「动作」`。v0.38.15 APK 不再作为可用候选；根因、历史消息恢复与新测试由 v0.38.16 接管。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.14 参考解锁交互与聊天正文阅读层（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
