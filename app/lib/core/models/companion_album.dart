@@ -14,6 +14,8 @@ class CompanionAlbumItem {
     required this.contentSha256,
     required this.visualFingerprint,
     required this.visionModel,
+    required this.width,
+    required this.height,
     required this.lifecycle,
     required this.feedback,
     required this.comment,
@@ -45,6 +47,8 @@ class CompanionAlbumItem {
   final String contentSha256;
   final String visualFingerprint;
   final String visionModel;
+  final int width;
+  final int height;
   final String lifecycle;
   final String feedback;
   final String comment;
@@ -79,6 +83,8 @@ class CompanionAlbumItem {
       contentSha256: row['content_sha256'] as String? ?? '',
       visualFingerprint: row['visual_fingerprint'] as String? ?? '',
       visionModel: row['vision_model'] as String? ?? '',
+      width: (row['width'] as num?)?.toInt() ?? 0,
+      height: (row['height'] as num?)?.toInt() ?? 0,
       lifecycle: row['lifecycle_state'] as String? ?? candidate,
       feedback: row['user_feedback'] as String? ?? 'neutral',
       comment: row['user_comment'] as String? ?? '',
