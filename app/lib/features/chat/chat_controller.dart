@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -31,6 +32,7 @@ import '../../core/presentation/chat_visuals.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
+import '../../core/storage/companion_album_storage.dart';
 import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
@@ -546,12 +548,17 @@ class ChatController extends ChangeNotifier {
       final thumbnail = await attachmentStorage.fileFor(
         attachment.thumbnailPath,
       );
+      final albumEnabled =
+          (await db.getSetting('simulated_phone_enabled')) != '0';
       final observation = await visionClient.observe(
         apiKey: visionKey,
         endpoint: await secureConfig.readVisionEndpoint(),
         model: await secureConfig.readVisionModel(),
         imageFile: thumbnail,
         caption: message.content,
+        assessForAlbum: albumEnabled,
+        albumPreferenceHint:
+            albumEnabled ? await db.companionAlbumPreferenceHint() : '',
       );
       chatLeaseHeld = await db.tryAcquireLocalLease(
         'chat_turn_lease',
@@ -569,6 +576,23 @@ class ChatController extends ChangeNotifier {
         reasoningEffort: effort.apiName,
         thinking: true,
       );
+      if (albumEnabled) {
+        try {
+          await _recordUserImageAlbumDecision(
+            message: message,
+            attachment: attachment,
+            thumbnail: thumbnail,
+            observation: observation,
+          );
+        } catch (albumError) {
+          await db.setSetting(
+            'companion_album_last_error',
+            albumError.toString().length <= 360
+                ? albumError.toString()
+                : albumError.toString().substring(0, 360),
+          );
+        }
+      }
     } catch (exception) {
       if (marked && trustedGeneration == null) {
         await db.failAttachmentVision(attachment.id, exception.toString());
@@ -594,6 +618,53 @@ class ChatController extends ChangeNotifier {
           leaseAlreadyHeld: true,
         );
       }
+    }
+  }
+
+  Future<void> _recordUserImageAlbumDecision({
+    required ChatMessage message,
+    required MessageAttachment attachment,
+    required File thumbnail,
+    required QwenVisionObservation observation,
+  }) async {
+    final candidateId = _uuid.v4();
+    final begun = await db.beginCompanionAlbumCandidate(
+      id: candidateId,
+      sourceKind: 'user_message',
+      sourceId: attachment.id,
+      sourceUrl: '',
+      sourceDomain: '',
+      title: message.content.trim().isEmpty ? '你发来的图片' : message.content,
+      createdAt: DateTime.now(),
+    );
+    if (!begun) return;
+    String path = '';
+    String contentSha = '';
+    if (observation.albumSave) {
+      final stored = await CompanionAlbumStorage().saveThumbnail(
+        id: candidateId,
+        source: thumbnail,
+      );
+      path = stored.relativePath;
+      contentSha = stored.contentSha256;
+    }
+    final completed = await db.completeCompanionAlbumCandidate(
+      id: candidateId,
+      save: observation.albumSave,
+      visionSummary: observation.albumSave ? observation.summary : '',
+      visionModel: observation.model,
+      aiReason: observation.albumReason,
+      category: observation.albumCategory,
+      nsfw: observation.nsfw,
+      thumbnailPath: path,
+      contentSha256: contentSha,
+      visualFingerprint: observation.aestheticTags.join('|'),
+      width: attachment.width,
+      height: attachment.height,
+      recognizedAt: DateTime.now(),
+    );
+    if (!completed && path.isNotEmpty) {
+      await CompanionAlbumStorage().deleteThumbnail(path);
     }
   }
 

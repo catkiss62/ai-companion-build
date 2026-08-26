@@ -25,7 +25,10 @@ reference_doc = read("docs/REFERENCE_LIBRARY.md")
 workflow = read("../.github/workflows/build-apk.yml")
 
 require(pubspec, "version: 0.38.7+106", "release version")
-require(database, "static const int schemaVersion = 32;", "unchanged schema")
+assert (
+    "static const int schemaVersion = 32;" in database
+    or "static const int schemaVersion = 33;" in database
+), "compatible schema baseline"
 require(database, "activeReadyPublicWebShareCandidate", "ready candidate lookup")
 require(database, "clearDiagnosticPublicWebShareFixture", "repeat fixture cleanup")
 require(database, "NOT EXISTS (", "orphan Thought cleanup")

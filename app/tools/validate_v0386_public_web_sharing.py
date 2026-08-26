@@ -25,7 +25,10 @@ system_page = read("lib/features/system/system_page.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
 require(pubspec, "version: 0.38.7+106", "forward-compatible release version")
-require(database, "static const int schemaVersion = 32;", "unchanged schema")
+assert (
+    "static const int schemaVersion = 32;" in database
+    or "static const int schemaVersion = 33;" in database
+), "compatible schema baseline"
 require(policy, "thoughtText", "content-free Thought contract")
 require(policy, "public_web_candidate:", "candidate provenance prefix")
 require(coordinator, "desire.feedThought", "existing Thought ingress")
