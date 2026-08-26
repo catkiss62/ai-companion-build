@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED LOCALLY / CI & APK PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.38.14 在“去动作括号、改助手正文阅读层”时错误删除了已经完成的样式：App 内动作/神态斜体消失、动作与对白之间的空行消失，原生悬浮聊天的动作斜体也一并消失。用户要求对白色改成新附件 `index(1).html` 小说模式的准确黄色，聊天面板初始透明度改为75%，并把用户气泡内部左右留白略微增大。本热修从 v0.38.14 独立向前，目标 `0.38.15+114`、SQLite schema 仍为33；思考链英文自动翻译继续独立后置，不进入本批。
 
@@ -30,8 +30,10 @@
 
 ### B. 当前进度与验收
 
-1. 独立分支 `agent/v03815-chat-style-regression-hotfix` 已建立；本地受影响的 v0.35.2～v0.38.15 连续静态契约、schema兼容器及 `git diff --check` 已通过。工作区没有 Flutter SDK，桌宠/立绘素材仍由 CI 恢复，因此 Kotlin、Flutter analyze/tests、release APK、稳定签名和载荷校验仍必须以公开 Actions 为准。
-2. 真机待验：App 与悬浮窗动作/神态均为斜体且不显示括号；动作与 `「对白」` 中间有一个空行；多组之间仍有细分隔线；对白为 `#FDE68A`；短用户气泡仍随内容伸缩但左右更宽松；初始聊天面板透明度75%；正文逐字流式、长思考收起贴底、参考解锁与悬浮两级入口无回退。
+1. 独立分支 `agent/v03815-chat-style-regression-hotfix` 已建立；远端产品提交 `ffe1355ce99e7ac2a001ef7277bdb9e05b6fbb38`，堆叠 [Draft PR #36](https://github.com/catkiss62/ai-companion-build/pull/36) 以 v0.38.14 分支为 base，main 与更早 Draft PR 均未修改或合并。本地受影响的 v0.35.2～v0.38.15 连续静态契约、schema兼容器及 `git diff --check` 已通过。
+2. GitHub Actions [run #546（32968040884）](https://github.com/catkiss62/ai-companion-build/actions/runs/32968040884) 全绿：源码/历史回归、依赖解析、Kotlin 桌宠与悬浮窗文字测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact 与 Draft Release 上传均成功。该次云端验证明确覆盖 App/悬浮窗动作斜体、隐藏括号、动作与对白空行、`#FDE68A`、流式分组、75%新初始值及14dp用户气泡水平 padding；同时保留 v0.38.13/14 正文逐字流式、正文尾贴底、A→B守卫、参考解锁和悬浮两级入口契约。
+3. APK `AI-Companion-v0.38.15-114-Chat-Style-Regression-Hotfix-APK.apk`，329,587,436 bytes，SHA-256 `746e3e809dc075fda3121eaf479798bd792dcfbd0c5113bf2296adbec6b1e1f5`。Artifact ID `9606801482`（ZIP 323,372,480 bytes，digest `05e86faa514d596a5e99c55ef926dd10deecf6236f0a2649d8776639bdf3d36a`）；草稿 Release [untagged-2014b873540bf46735b4](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2014b873540bf46735b4)。签名证书沿用既有持久测试身份。
+4. 真机待验：App 与悬浮窗动作/神态均为斜体且不显示括号；动作与 `「对白」` 中间有一个空行；多组之间仍有细分隔线；对白为 `#FDE68A`；短用户气泡仍随内容伸缩但左右更宽松；初始聊天面板透明度75%；正文逐字流式、长思考收起贴底、参考解锁与悬浮两级入口无回退。自动测试通过不等于真机通过。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.14 参考解锁交互与聊天正文阅读层（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
