@@ -234,6 +234,7 @@ class DurableGenerationRunner {
       var agentToolResults = const <AgentToolResult>[];
       var announcedEmotionKey = '';
       var visibleAnswerStreamed = false;
+      var streamedToolPreamble = '';
       final localPlan = AgentToolPlanner.routeLocally(user.content);
       if (localPlan != null) {
         agentToolResults = await agentToolRunner.runPlan(
@@ -405,7 +406,11 @@ class DurableGenerationRunner {
       var finalRequestMessages = baseRequestMessages;
       var generated = await generate(
         baseRequestMessages,
-        emitDeltas: localPlan != null,
+        // A native tool definition must not turn every ordinary reply into a
+        // buffered completion. DeepSeek tool-call streams normally carry tool
+        // fragments (and no visible body); ordinary answer streams must keep
+        // publishing their body deltas in real time.
+        emitDeltas: true,
         tools: localPlan == null
             ? AgentToolPlanner.nativeToolDefinitions
             : const <Map<String, Object?>>[],
@@ -413,6 +418,14 @@ class DurableGenerationRunner {
       cancellationToken?.throwIfCancelled();
 
       if (localPlan == null && generated.toolCalls.isNotEmpty) {
+        // A provider may legally emit a short visible preamble before its tool
+        // call. It has already reached the UI, so retain it in the committed
+        // answer instead of letting the post-tool response replace it.
+        streamedToolPreamble =
+            EmotionEnvelope.parse(generated.content).visibleText.trim();
+        if (streamedToolPreamble.isNotEmpty) {
+          onDelta?.call(const DeepSeekDelta(content: '\n\n'));
+        }
         final nativePlan =
             AgentToolPlanner.fromNativeToolCalls(generated.toolCalls);
         if (nativePlan.isEmpty) {
@@ -487,6 +500,9 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           .map((message) => message.content);
       var envelope = EmotionEnvelope.parse(generated.content);
       var finalContent = envelope.visibleText;
+      if (streamedToolPreamble.isNotEmpty) {
+        finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
+      }
       var serviceGuard = ServiceTemplateGuard.evaluate(
         text: finalContent,
         recentAssistantTexts: recentAssistantTexts,
