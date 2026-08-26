@@ -71,7 +71,7 @@
 5. PR #28 当前真机通过但仍为 Draft 且未获明确合并授权。为遵守既有“不擅自合并”约束，第一批应从其最新 head 建立物理独立的后继分支/堆叠 Draft PR；不得把新功能继续塞进 PR #28，也不得直接写 main。
 6. 本条为修改前总账。完成后必须回填实际分支、版本、schema、提交、变更文件、自动测试、Actions、APK/SHA和真机待验项；在自动验证前不得写成已完成。
 
-## 0AAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.11 真机模拟手机 UI 修正（IMPLEMENTED LOCALLY / CI & APK PENDING / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.11 真机模拟手机 UI 修正（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 依据用户安装 v0.38.10 后提供的两张真机截图与再次上传的 `phone_system(1).html`：主页头像旁白被挤成竖卡；心情页把单日空图放大且底部正文被 Android 系统导航栏遮住；参考页的解锁成功反馈没有真正移植；塔罗页签需改名；购物车列表摘要与展开正文重复。当前条目记录本地实现候选，Actions、APK与真机结果尚未完成，禁止提前写成通过。
 
@@ -92,8 +92,8 @@
 ### C. 验证状态与下一步
 
 1. 新增 `validate_v03811_real_device_ui_fixes.py`，覆盖横条宽度、成功动画时序/视觉元素、自适应图表、底部安全区、塔罗新文案、购物车两层摘要、版本和workflow；v0.38.8～v0.38.10历史契约已按合法后继文案更新。
-2. 本地Python validator编译、v0.35.2～v0.36.3版本链、v0.38.0～v0.38.11相关静态校验及workflow YAML解析已通过；本地环境无Flutter/Dart SDK，Flutter format/analyze/tests、Kotlin、release APK、签名与载荷校验必须等公开Actions真实运行后回填。
-3. 真机重点验收：窄屏头像框始终横向；一天心情记录不再出现大空图；正文可滚到系统导航栏上方；点击/上滑解锁都能清楚看到圆环✅后再进入主页；塔罗两页签文字正确；购物车折叠与展开小字不再重复。
+2. 最终产品/CI提交 `0d13b7a9176959e6bac6bf22fe158f8d38e01c38` 的公开 Actions run [`32938020456`](https://github.com/catkiss62/ai-companion-build/actions/runs/32938020456) 全绿：全部历史与v0.38.11 validators、Kotlin桌宠测试、Flutter analyze、Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗牌、checksum、Artifact及Draft Release上传均成功；签名证书SHA-256保持 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+3. 真机重点验收：窄屏头像框始终横向；一天心情记录不再出现大空图；正文可滚到系统导航栏上方；点击/上滑解锁都能清楚看到圆环✅后再进入主页；塔罗两页签文字正确；购物车折叠与展开小字不再重复。\n4. APK `AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK.apk`，329,560,964 bytes，SHA-256 `5bc9de44541922f919e162fb7fa3e8d7a0c62552a865b0019d422c4843737609`；Artifact ID `9595761756`；草稿Release [`untagged-6afef4bf2f9f0dd07faf`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6afef4bf2f9f0dd07faf)。自动化通过不等于真机通过，PR #32继续保持Draft，main与PR #31均未合并。
 
 ## 0AAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.10 真实相册/浏览器第二批与模拟手机 UI 收口（PRE-IMPLEMENTATION / IMPLEMENTATION PENDING）
 
