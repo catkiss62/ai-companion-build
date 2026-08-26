@@ -1,5 +1,6 @@
 package com.aicompanion.localfirst
 
+import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -34,6 +35,15 @@ class MainActivity : FlutterActivity() {
         OverlayBubbleService.reconcileFromVisibleActivity(this)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Flutter keeps a single Activity for overlay launches. Retain the
+        // newest intent so Dart can consume the requested destination after
+        // onResume, whether the app was cold, backgrounded or already visible.
+        setIntent(intent)
+        bridge?.notifyOpenChatLaunch(intent)
+    }
+
     override fun onStop() {
         CompanionRuntimeState.activityStopped()
         super.onStop()
@@ -61,5 +71,9 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         bridge?.onActivityResult(requestCode, resultCode, data)
+    }
+
+    companion object {
+        const val EXTRA_OPEN_CHAT = "ai_companion_open_chat"
     }
 }

@@ -619,7 +619,7 @@ class OverlayBubbleService : Service() {
             context = this,
             windowManager = windowManager,
             overlayWindowType = overlayWindowType(),
-            onOpenChat = { showChatOverlay("pet_double_tap_menu") },
+            onOpenChat = { openFullApp(openChat = true) },
             onSwitchToBubble = {
                 switchEntryMode(ENTRY_MODE_BUBBLE, "pet_double_tap_menu")
             },
@@ -804,7 +804,7 @@ class OverlayBubbleService : Service() {
             },
             LinearLayout.LayoutParams(0, dp(46), 1f).apply { gravity = Gravity.CENTER_VERTICAL },
         )
-        bar.addView(smallButton("打开") { openFullApp() })
+        bar.addView(smallButton("打开") { openFullApp(openChat = true) })
         bar.addView(smallButton("×") { collapseChatOverlay("user_close") })
         return bar
     }
@@ -1497,11 +1497,12 @@ class OverlayBubbleService : Service() {
     private fun shouldPollPetAutonomy(): Boolean =
         running && petOverlayWindow != null && backgroundBrainReady
 
-    private fun openFullApp() {
+    private fun openFullApp(openChat: Boolean = false) {
         // Do not collapse/rebuild WindowManager immediately before launching the
         // Activity. v0.30.2 could race the overlay self-heal with startActivity(),
         // making the visible “打开” tap appear to do nothing on HyperOS.
         val launchIntent = Intent(this, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_OPEN_CHAT, openChat)
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or

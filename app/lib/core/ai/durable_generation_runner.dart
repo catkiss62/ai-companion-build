@@ -233,6 +233,7 @@ class DurableGenerationRunner {
 
       var agentToolResults = const <AgentToolResult>[];
       var announcedEmotionKey = '';
+      var visibleAnswerStreamed = false;
       final localPlan = AgentToolPlanner.routeLocally(user.content);
       if (localPlan != null) {
         agentToolResults = await agentToolRunner.runPlan(
@@ -355,6 +356,7 @@ class DurableGenerationRunner {
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
             emittedVisibleContent = visibleContent;
+            if (visibleDelta.isNotEmpty) visibleAnswerStreamed = true;
             // Publish provider reasoning as it arrives so both chat surfaces
             // can expand the reasoning panel immediately. Prompt language
             // guidance still prefers Chinese without rewriting model thought.
@@ -409,10 +411,6 @@ class DurableGenerationRunner {
             : const <Map<String, Object?>>[],
       );
       cancellationToken?.throwIfCancelled();
-
-      if (localPlan == null && generated.toolCalls.isEmpty) {
-        onDelta?.call(DeepSeekDelta(content: generated.content));
-      }
 
       if (localPlan == null && generated.toolCalls.isNotEmpty) {
         final nativePlan =
@@ -494,7 +492,18 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         recentAssistantTexts: recentAssistantTexts,
         currentUserText: user.content,
       );
-      if (!serviceGuard.allowed) {
+      if (!serviceGuard.allowed && visibleAnswerStreamed) {
+        // Once a body has genuinely streamed token-by-token, replacing it
+        // with a second hidden generation is more damaging than allowing a
+        // rare style-guard miss: the user otherwise sees answer A suddenly
+        // become unrelated answer B at commit time.
+        await ServiceTemplateGuardTelemetry.note(
+          db,
+          result: serviceGuard,
+          mode: 'user_turn',
+          action: 'stream_preserved',
+        );
+      } else if (!serviceGuard.allowed) {
         await ServiceTemplateGuardTelemetry.note(
           db,
           result: serviceGuard,
@@ -553,6 +562,13 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         throw const FormatException('模板重写后正文为空');
       }
 
+      if (!visibleAnswerStreamed) {
+        // Native tool detection buffers the candidate until it is known not
+        // to contain tool calls. Publish only the guard-approved final body;
+        // the old path exposed candidate A and then committed rewritten B.
+        onDelta?.call(DeepSeekDelta(content: finalContent));
+      }
+
       final companionEmotion = await emotionClassifier.resolve(
         rawTag: envelope.rawTag,
         visibleText: finalContent,
@@ -563,9 +579,9 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       unawaited(
         VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
       );
-      if (visibleReasoning.isNotEmpty) {
-        onDelta?.call(DeepSeekDelta(reasoning: visibleReasoning));
-      }
+      // generate() already forwarded every provider reasoning delta in both
+      // buffered and visible-content modes. Do not re-emit the full reasoning
+      // here: that doubled the live panel height just before it collapsed.
 
       final assistant = ChatMessage(
         id: job.assistantMessageId,

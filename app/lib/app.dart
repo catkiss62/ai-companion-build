@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/platform/android_bridge.dart';
 import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
 import 'features/inner/inner_page.dart';
@@ -90,8 +93,41 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int index = 0;
+  StreamSubscription<void>? _openChatSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _openChatSubscription = AndroidBridge.instance.openChatLaunches.listen((_) {
+      _openChat();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeOpenChatLaunch();
+    });
+  }
+
+  Future<void> _consumeOpenChatLaunch() async {
+    final requested = await AndroidBridge.instance.consumeOpenChatLaunch();
+    if (!mounted || !requested) return;
+    setState(() => index = 1);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _consumeOpenChatLaunch();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _openChatSubscription?.cancel();
+    super.dispose();
+  }
 
   void _openChat() {
     if (!mounted) return;
