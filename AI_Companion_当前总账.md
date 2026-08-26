@@ -109,6 +109,21 @@
 3. 真机至少验证：已有聊天图片不被批量误导入；新发图可出现“保存/不保存”的真实结果；相册缩略图可离线查看；清缓存不删已保存图；浏览器只出现真实记录；关闭总开关无新数据；八宫格、锁屏、Dock、心情与随笔视觉无回归。
 4. 本批完成后统一生成一个APK；若外部公开站点在CI/真机临时不可用，必须以明确失败/空态降级，不允许用伪造图片填充，也不因此破坏本地相册和既有聊天。
 
+
+### E. 2026-08-26 修改后阶段回填（IMPLEMENTED / STATIC CONTRACTS PASS / ACTIONS ACCOUNT-RUNNER BLOCKED / APK NOT BUILT / TRUE DEVICE PENDING）
+
+1. **安全隔离**：实现位于后继分支 `agent/v03810-real-album-browser-ui`，版本 `0.38.10+109`、SQLite schema 33；堆叠 Draft PR #31（base=`agent/v0389-simulated-phone-reference-ui`）保持 open/draft/mergeable。未写 `main`、未合并 PR #30/#31，也未把 Pixiv 或 Harness 混入本批。进入最终总账回填前的源码/测试修复 head 为 `afdd8f62b5a6dad5eda643ad5deb0ebdd74470b9`。
+2. **真实浏览器**：新增持久化 `companion_browser_visits`。只有与成功 `candidate_stored` Action/Outcome 同事务落地、非 diagnostic 的自主公开网页结果才形成可见记录；按设备本地自然日最多3条，失败、测试夹具、仅有意图和随机生成内容均不显示。总开关关闭时不写新记录，也不回填关闭期间历史。
+3. **真实相册与文件边界**：新增 `companion_album_candidates` 状态机及私有 `companion_album/thumbnails` 存储，状态覆盖 candidate / recognized / saved / rejected / expired / soft_deleted / deleted。保存文件限制为6MB内PNG缩略图，公开网页下载限制4MB并经现有附件处理缩放到1000px内；保存SHA-256、尺寸、来源与类别，已保存图不被“清缓存”删除，清理只裁掉无引用候选文件。
+4. **来源与识图**：Tavily请求启用图片与图片描述，并保留每条结果的安全图片候选；恢复周期每次最多处理一个候选，网页图片不可用时才按日确定性使用 `https://fisharchive.pages.dev/stickers/manifest.json` 的公开预览。识图仍复用一次Qwen调用，同时输出聊天观察和相册选择；用户图片只有她明确选择保存时才复制独立缩略图，拒绝时不把图片正文、路径或视觉摘要写进相册。
+5. **审美反馈与隐私**：相册已支持喜欢、踩、不判断、独立删除和可选留言；踩进入1小时软删除，独立删除立即隐藏。反馈只形成独立、有限、匿名化的弱审美偏好提示，不自动成为聊天消息、事实Memory或对用户的好恶判断。分类首批为回忆、形象/自拍语义、NSFW和其他；NSFW网格默认遮罩。脱敏诊断只输出状态计数，不输出图片字节、路径、URL、标题/摘要、保存原因或留言。
+6. **模拟手机UI收口**：已删除主页顶部“查手机”标题，头像改为聊天头像 `assets/appearance/chat_avatar.webp`；Dock固定到底部安全区，补回解锁淡出/放大/滑动动画；随笔显示真实24小时 `HH:mm`，心情周图提高到210px；八宫格只给相册和随笔接真实未读角标。相册与浏览器已由空壳换成真实数据页面，相册含分类网格、详情、来源/保存原因、反馈/留言/删除与清缓存，浏览器只显示真实成功记录和诚实空态。
+7. **静态与工作流修复**：新增 `validate_v03810_real_album_browser_ui.py`，已对版本/schema、表、状态机、每日上限、总开关、FishArchive、Tavily/Qwen、用户图保存、UI与诊断脱敏做静态契约检查；本地字符/括号扫描及重建后的GitHub Actions YAML解析通过。工作流最初被错误重复拼接并出现断引号，已从v0.38.9已验证原件干净重建；有效 run `32924657218` 已正常跑到“Source and regression validation”，证明YAML、资源恢复、Java/Flutter和签名底座可启动。
+8. **历史验证器兼容修复**：run `32924657218` 首先暴露9个旧验证器只允许版本到0.38.9，已统一加入0.38.10；run `32924987806` 随后通过v0.35.2至v0.37.9全部历史校验，继续暴露6个v0.38.x旧验证器硬性禁止schema 33，已改为允许32或33且仍保留旧功能结构断言。这些是后继版本白名单/迁移兼容修复，不是放宽本批相册/浏览器验收。
+9. **当前唯一阻塞必须如实保留**：修复后的同一提交 run `32925293641`（含一次failed-jobs重跑）以及Contents API重新触发的 run `32925375266` 均在约2–4秒内把 `detect-change-scope` 标为 failure，但作业有0个steps、无日志、check-run仅有1条平台annotation；build与failure-report均未开始。GitHub官方状态页当时显示Actions整体Operational，因此形态更像该私有仓库账户的Actions分钟/计费/runner授权拦截；连接器无法读取私有annotation正文，尚不能把推测写成已确认根因。
+10. **交付状态**：本批应用实现和静态契约已落库，但Flutter analyze、Flutter tests、release APK、签名/包内资源校验和Draft Release上传尚未在修复后跑到，因此**没有v0.38.10可交付APK，也不得写CI通过或真机完成**。下一步先打开 run `32925375266` 读取红色平台提示并恢复Actions运行条件；随后只需对当前head重跑，按真实Flutter/测试日志继续修复，成功后回填run、artifact、APK SHA-256和真机验收项。
+11. **后续队列不变**：v0.38.10自动构建和真机收口完成后，Pixiv仍作为可关闭的第三方来源适配器单独讨论/实现并再次收口；最终视觉与诊断Clean Freeze之后，才在独立仓库开始精简聊天/工作分窗与受限GitHub自我优化Harness实验。
+
 ## 0AAAAAAAAAAAAAAA. 2026-08-26 · v0.38.9 模拟手机参考页视觉返工（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FUNCTIONALLY PASSED / VISUAL FOLLOW-UP IN v0.38.10 / MERGE PENDING）
 
 > 用户已在真机看到 v0.38.8 模拟手机第一批，并明确判定机制方向可保留，但视觉实现不合格：整体像“大号记事本”，黑蓝单色与通用列表/卡片把八个 App 做成同一种页面，弱于用户提供的 `phone_system.html`。本条是返工前总账；后续必须在独立后继分支重做视觉并重新出 APK，不能把 v0.38.8 写成真机通过。
