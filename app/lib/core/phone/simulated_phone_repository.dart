@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import '../models/desire_state.dart';
+import '../models/companion_album.dart';
+import '../storage/companion_album_storage.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
 import 'simulated_phone_policy.dart';
@@ -88,6 +90,10 @@ class SimulatedPhoneSnapshot {
     required this.cart,
     required this.tarotSelf,
     required this.tarotUser,
+    required this.albumItems,
+    required this.browserVisits,
+    required this.albumUnread,
+    required this.notesUnread,
   });
 
   final bool enabled;
@@ -99,6 +105,10 @@ class SimulatedPhoneSnapshot {
   final List<SimulatedPhoneEntry> cart;
   final SimulatedPhoneEntry? tarotSelf;
   final SimulatedPhoneEntry? tarotUser;
+  final List<CompanionAlbumItem> albumItems;
+  final List<CompanionBrowserVisit> browserVisits;
+  final int albumUnread;
+  final int notesUnread;
 }
 
 /// A privacy boundary and local projection store for the simulated phone.
@@ -139,17 +149,69 @@ class SimulatedPhoneRepository {
     bool refresh = true,
   }) async {
     if (refresh) await refreshIfDue(now: now);
+    final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
+    final albumStorage = CompanionAlbumStorage();
+    for (final path in duePaths) {
+      try {
+        await albumStorage.deleteThumbnail(path);
+      } catch (_) {}
+    }
     final tarot = await _readList(_tarotKey);
+    final notes = await _readList(_notesKey);
+    final notesSeenAt =
+        int.tryParse(await db.getSetting('simulated_phone_notes_seen_at') ?? '') ??
+            0;
+    final albumItems = await db.companionAlbumItems(includeNsfw: true);
     return SimulatedPhoneSnapshot(
       enabled: await isEnabled(),
       diary: await _readList(_diaryKey),
-      notes: await _readList(_notesKey),
+      notes: notes,
       moods: await _readList(_moodKey),
       wishes: await _readList(_wishesKey),
       completedWishes: await _readList(_completedWishesKey),
       cart: await _readList(_cartKey),
       tarotSelf: _firstWhereOrNull(tarot, (entry) => entry.state == 'self'),
       tarotUser: _firstWhereOrNull(tarot, (entry) => entry.state == 'user'),
+      albumItems: albumItems,
+      browserVisits: await db.companionBrowserVisits(),
+      albumUnread: await db.companionAlbumUnreadCount(),
+      notesUnread: notes
+          .where((entry) => entry.createdAt.millisecondsSinceEpoch > notesSeenAt)
+          .length,
+    );
+  }
+
+  Future<void> markNotesRead() async {
+    await db.setSetting(
+      'simulated_phone_notes_seen_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+  }
+
+  Future<void> markAlbumRead() => db.markCompanionAlbumRead();
+
+  Future<void> setAlbumFeedback(
+    String id, {
+    required String feedback,
+    String? comment,
+  }) =>
+      db.setCompanionAlbumFeedback(
+        id,
+        feedback: feedback,
+        comment: comment,
+      );
+
+  Future<void> deleteAlbumItem(String id) async {
+    final path = await db.deleteCompanionAlbumItem(id);
+    if (path.isNotEmpty) {
+      await CompanionAlbumStorage().deleteThumbnail(path);
+    }
+  }
+
+  Future<int> clearAlbumCache() async {
+    final items = await db.companionAlbumItems(includeNsfw: true, limit: 500);
+    return CompanionAlbumStorage().pruneUnreferencedFiles(
+      items.map((item) => item.thumbnailPath),
     );
   }
 
