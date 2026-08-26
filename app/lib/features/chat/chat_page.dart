@@ -826,7 +826,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               if (controller.generationActive && index == timeline.length) {
                 return _StreamingBubble(
                   controller: controller,
-                  bubbleOpacity: _visualStageEnabled ? _panelOpacity : 1.0,
                   bodyTailKey: _streamingBodyTailKey,
                 );
               }
@@ -1668,15 +1667,12 @@ class _MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (message.reasoningContent.trim().isNotEmpty)
-            _ChatBubbleSurface(
-              user: false,
-              color: color,
-              opacity: bubbleOpacity,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
               child: ReasoningPanel(reasoning: message.reasoningContent),
             ),
           _AssistantSegmentSequence(
             chunks: chunks,
-            bubbleOpacity: bubbleOpacity,
             animate: animateSegments,
             millisecondsPerCharacter: typewriterMs,
             onEmotionChanged: onEmotionChanged,
@@ -1688,63 +1684,72 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
-    return _ChatBubbleSurface(
-      user: user,
-      color: color,
-      opacity: bubbleOpacity,
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (message.isProactive)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '她 · ${ProactiveIntentKind.fromKey(message.proactiveIntent).zhLabel}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-            if (message.isAssistant)
-              ReasoningPanel(
-                reasoning: message.reasoningContent,
-              ),
-            for (final attachment in message.attachments)
-              if (attachment.isImage) ...[
-                _AttachmentThumbnail(
-                  attachment: attachment,
-                  storage: attachmentStorage,
-                  onTap: () => onOpenAttachment(attachment),
-                ),
-                const SizedBox(height: 5),
-                _VisionStatus(
-                  attachment: attachment,
-                  onRetry: onRetryVision,
-                ),
-              ],
-            if (message.content.trim().isNotEmpty) ...[
-              if (message.hasAttachments) const SizedBox(height: 8),
-              if (message.isAssistant)
-                if (message.isProactive && animateSegments)
-                  _SingleBubbleTypewriterText(
-                    text: message.content,
-                    millisecondsPerCharacter: typewriterMs,
-                    onProgress: onAnimationProgress,
-                    onFinished: onAnimationFinished,
-                  )
-                else
-                  ActionTintText(
-                    text: message.content,
-                    style: const TextStyle(height: 1.45),
-                  )
-              else
-                SelectableText(
-                  message.content,
-                  style: const TextStyle(height: 1.45),
-                ),
-            ],
-            const SizedBox(height: 4),
-            _footer(context),
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (message.isProactive)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '她 · ${ProactiveIntentKind.fromKey(message.proactiveIntent).zhLabel}',
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        for (final attachment in message.attachments)
+          if (attachment.isImage) ...[
+            _AttachmentThumbnail(
+              attachment: attachment,
+              storage: attachmentStorage,
+              onTap: () => onOpenAttachment(attachment),
+            ),
+            const SizedBox(height: 5),
+            _VisionStatus(
+              attachment: attachment,
+              onRetry: onRetryVision,
+            ),
           ],
-        ),
+        if (message.content.trim().isNotEmpty) ...[
+          if (message.hasAttachments) const SizedBox(height: 8),
+          if (message.isAssistant)
+            if (message.isProactive && animateSegments)
+              _SingleBubbleTypewriterText(
+                text: message.content,
+                millisecondsPerCharacter: typewriterMs,
+                onProgress: onAnimationProgress,
+                onFinished: onAnimationFinished,
+              )
+            else
+              ActionTintText(
+                text: message.content,
+                style: const TextStyle(height: 1.45),
+              )
+          else
+            SelectableText(
+              message.content,
+              style: const TextStyle(height: 1.45),
+            ),
+        ],
+        const SizedBox(height: 4),
+        _footer(context),
+      ],
+    );
+    if (user) {
+      return _UserBubbleSurface(
+        color: color,
+        opacity: bubbleOpacity,
+        child: body,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (message.reasoningContent.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: ReasoningPanel(reasoning: message.reasoningContent),
+          ),
+        _AssistantTranscriptSurface(child: body),
+      ],
     );
   }
 }
@@ -1823,7 +1828,6 @@ class _SingleBubbleTypewriterTextState
 class _AssistantSegmentSequence extends StatefulWidget {
   const _AssistantSegmentSequence({
     required this.chunks,
-    required this.bubbleOpacity,
     required this.animate,
     required this.millisecondsPerCharacter,
     required this.onEmotionChanged,
@@ -1833,7 +1837,6 @@ class _AssistantSegmentSequence extends StatefulWidget {
   });
 
   final List<ChatVisualChunk> chunks;
-  final double bubbleOpacity;
   final bool animate;
   final int millisecondsPerCharacter;
   final ValueChanged<ChatEmotionVisual> onEmotionChanged;
@@ -1930,30 +1933,24 @@ class _AssistantSegmentSequenceState
     final visibleCount = widget.animate
         ? (_completedChunks + (_completedChunks < widget.chunks.length ? 1 : 0))
         : widget.chunks.length;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var index = 0; index < visibleCount; index++)
-          _ChatBubbleSurface(
-            user: false,
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            opacity: widget.bubbleOpacity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ActionTintText(
-                  text: _visibleText(index),
-                  style: const TextStyle(height: 1.45),
-                ),
-                if (_completedChunks >= widget.chunks.length &&
-                    index == widget.chunks.length - 1) ...[
-                  const SizedBox(height: 4),
-                  widget.footer,
-                ],
-              ],
+    return _AssistantTranscriptSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < visibleCount; index++) ...[
+            if (index > 0) const _AssistantSegmentDivider(),
+            ActionTintText(
+              text: _visibleText(index),
+              style: const TextStyle(height: 1.45),
             ),
-          ),
-      ],
+            if (_completedChunks >= widget.chunks.length &&
+                index == widget.chunks.length - 1) ...[
+              const SizedBox(height: 4),
+              widget.footer,
+            ],
+          ],
+        ],
+      ),
     );
   }
 
@@ -1968,15 +1965,51 @@ class _AssistantSegmentSequenceState
   }
 }
 
-class _ChatBubbleSurface extends StatelessWidget {
-  const _ChatBubbleSurface({
-    required this.user,
+class _AssistantTranscriptSurface extends StatelessWidget {
+  const _AssistantTranscriptSurface({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+        padding: const EdgeInsets.fromLTRB(13, 7, 5, 7),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: purple.withValues(alpha: 0.82),
+              width: 2,
+            ),
+          ),
+        ),
+        child: child,
+      );
+}
+
+class _AssistantSegmentDivider extends StatelessWidget {
+  const _AssistantSegmentDivider();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Container(
+          width: double.infinity,
+          height: 1,
+          color: purple.withValues(alpha: 0.24),
+        ),
+      );
+}
+
+class _UserBubbleSurface extends StatelessWidget {
+  const _UserBubbleSurface({
     required this.color,
     required this.child,
     this.opacity = 1,
   });
 
-  final bool user;
   final Color color;
   final Widget child;
   final double opacity;
@@ -1986,18 +2019,24 @@ class _ChatBubbleSurface extends StatelessWidget {
     final bubbleColor = color.withValues(
       alpha: opacity.clamp(0.18, 1).toDouble(),
     );
-    final radius = BorderRadius.only(
-      topLeft: const Radius.circular(17),
-      topRight: const Radius.circular(17),
-      bottomLeft: Radius.circular(user ? 17 : 4),
-      bottomRight: Radius.circular(user ? 4 : 17),
+    const radius = BorderRadius.only(
+      topLeft: Radius.circular(17),
+      topRight: Radius.circular(17),
+      bottomLeft: Radius.circular(17),
+      bottomRight: Radius.circular(4),
     );
     return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context)
+                  .width
+                  .clamp(260, 560)
+                  .toDouble() *
+              0.84,
+        ),
+        child: IntrinsicWidth(
+          child: Container(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.sizeOf(context)
                       .width
@@ -2013,48 +2052,10 @@ class _ChatBubbleSurface extends StatelessWidget {
             ),
             child: child,
           ),
-          Positioned(
-            bottom: 7,
-            left: user ? null : 0,
-            right: user ? 0 : null,
-            child: CustomPaint(
-              size: const Size(8, 9),
-              painter: _BubbleTailPainter(color: bubbleColor, user: user),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-
-class _BubbleTailPainter extends CustomPainter {
-  const _BubbleTailPainter({required this.color, required this.user});
-
-  final Color color;
-  final bool user;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path();
-    if (user) {
-      path
-        ..moveTo(0, 0)
-        ..lineTo(size.width, size.height)
-        ..lineTo(0, size.height);
-    } else {
-      path
-        ..moveTo(size.width, 0)
-        ..lineTo(0, size.height)
-        ..lineTo(size.width, size.height);
-    }
-    path.close();
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _BubbleTailPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.user != user;
 }
 
 class _VisionStatus extends StatelessWidget {
@@ -2186,49 +2187,73 @@ class _MissingAttachment extends StatelessWidget {
 class _StreamingBubble extends StatelessWidget {
   const _StreamingBubble({
     required this.controller,
-    required this.bubbleOpacity,
     required this.bodyTailKey,
   });
   final ChatController controller;
-  final double bubbleOpacity;
   final GlobalKey bodyTailKey;
 
   @override
   Widget build(BuildContext context) {
-    return _ChatBubbleSurface(
-      user: false,
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      opacity: bubbleOpacity,
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (controller.agentActivity != null)
-              _AgentActivityLine(
-                text: controller.agentActivity!.text,
-                active: controller.agentActivity!.active,
-              ),
-            ReasoningPanel(
+    final content = controller.streamingContent;
+    final blocks = content
+        .split(RegExp(r'\n\s*\n'))
+        .where((block) => block.trim().isNotEmpty)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (controller.streamingReasoning.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: ReasoningPanel(
               reasoning: controller.streamingReasoning,
               streaming: true,
             ),
-            if (controller.streamingContent.isNotEmpty) ...[
-              ActionTintText(text: controller.streamingContent),
-              SizedBox(key: bodyTailKey, height: 1),
-            ],
-            if (controller.streamingContent.isEmpty &&
-                controller.streamingReasoning.isEmpty &&
-                controller.agentActivity == null)
-              Text(controller.recoveringGeneration ? '正在结束上次中断的回复…' : '她正在准备回复…'),
-            if (controller.activeGenerationTtsPhase != TtsPlaybackPhase.idle)
-              Align(
-                alignment: Alignment.centerRight,
-                child: _SpeechActionButton(
-                  phase: controller.activeGenerationTtsPhase,
-                  onPressed: controller.stopSpeech,
-                ),
-              ),
-          ],
-      ),
+          ),
+        if (controller.agentActivity != null ||
+            content.isNotEmpty ||
+            (controller.streamingReasoning.isEmpty &&
+                controller.agentActivity == null))
+          _AssistantTranscriptSurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (controller.agentActivity != null)
+                  _AgentActivityLine(
+                    text: controller.agentActivity!.text,
+                    active: controller.agentActivity!.active,
+                  ),
+                if (content.isNotEmpty) ...[
+                  for (var index = 0; index < blocks.length; index++) ...[
+                    if (index > 0) const _AssistantSegmentDivider(),
+                    ActionTintText(
+                      text: blocks[index],
+                      style: const TextStyle(height: 1.45),
+                    ),
+                  ],
+                  SizedBox(key: bodyTailKey, height: 1),
+                ],
+                if (content.isEmpty &&
+                    controller.streamingReasoning.isEmpty &&
+                    controller.agentActivity == null)
+                  Text(
+                    controller.recoveringGeneration
+                        ? '正在结束上次中断的回复…'
+                        : '她正在准备回复…',
+                  ),
+                if (controller.activeGenerationTtsPhase !=
+                    TtsPlaybackPhase.idle)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _SpeechActionButton(
+                      phase: controller.activeGenerationTtsPhase,
+                      onPressed: controller.stopSpeech,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

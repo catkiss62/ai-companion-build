@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const chatDialogueGold = Color(0xFFE7D8A7);
+
 class ActionTextSegment {
   const ActionTextSegment(this.text, {required this.isAction});
   final String text;
@@ -65,6 +67,22 @@ List<ActionTextSegment> splitActionText(String text) {
   return segments;
 }
 
+/// Removes legacy action delimiters for presentation without changing the
+/// stored source used by segment parsing, TTS or historical compatibility.
+/// An unmatched opening delimiter at the start of a streaming line is hidden
+/// immediately so it does not flash and then disappear when the line closes.
+String stripActionDelimitersForDisplay(String text) {
+  var result = text.replaceAllMapped(
+    RegExp(r'（([^（）\n]*)）|\(([^()\n]*)\)'),
+    (match) => match.group(1) ?? match.group(2) ?? '',
+  );
+  result = result.replaceAllMapped(
+    RegExp(r'(^|\n)[（(](?=[^）)\n]*(?:$|\n))', multiLine: true),
+    (match) => match.group(1) ?? '',
+  );
+  return result;
+}
+
 class ActionTintText extends StatelessWidget {
   const ActionTintText({super.key, required this.text, this.style});
   final String text;
@@ -73,22 +91,19 @@ class ActionTintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style.merge(style);
-    final action = base.copyWith(
-      fontStyle: FontStyle.italic,
-      fontWeight: FontWeight.normal,
-    );
     final dialogue = base.copyWith(
-      color: Theme.of(context).colorScheme.tertiary,
+      color: chatDialogueGold,
       fontStyle: FontStyle.normal,
       fontWeight: FontWeight.normal,
     );
+    final visibleText = stripActionDelimitersForDisplay(text);
     return SelectableText.rich(
       TextSpan(
         children: [
-          for (final segment in splitDialogueText(text))
+          for (final segment in splitDialogueText(visibleText))
             TextSpan(
               text: segment.text,
-              style: segment.isDialogue ? dialogue : action,
+              style: segment.isDialogue ? dialogue : base,
             ),
         ],
       ),

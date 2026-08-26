@@ -20,11 +20,19 @@ attribution = read("assets/tarot/rws_major/ATTRIBUTION.md")
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.9+108" in pubspec
+assert "version: 0.38.14+113" in pubspec
 assert "- assets/tarot/rws_major/" in pubspec
 assert "class LockScreen" in page
-assert "向上滑动，或轻触解锁" in page
-assert "unlockDrag >= 72" in page
+assert "上滑解锁" in page
+assert "class ReferenceUnlockControl" in page
+assert "static const double slideDistance = 100" in page
+assert "drag >= slideDistance" in page
+unlock = page[
+    page.index("class ReferenceUnlockControl") : page.index(
+        "class UnlockSuccessOverlay"
+    )
+]
+assert "onTap:" not in unlock
 assert "解锁失败" not in page
 assert "软件破解" not in page
 assert "RadialGradient" in page
@@ -65,6 +73,6 @@ hash_lines = re.findall(r"^[0-9a-f]{64}  ar\d{2}\.jpg$", fetch, re.MULTILINE)
 assert len(hash_lines) == 22
 assert "Restore pinned 22-card Rider-Waite-Smith tarot JPG pack" in workflow
 assert "python3 tools/validate_v0389_simulated_phone_reference_ui.py" in workflow
-assert "AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK" in workflow
+assert "AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK" in workflow
 
 print("v0.38.9 simulated phone reference UI validation passed")

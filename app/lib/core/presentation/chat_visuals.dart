@@ -106,8 +106,8 @@ class ChatVisualChunk {
         if (segment.kind == ChatSegmentKind.dialogue) {
           return '「${segment.text}」';
         }
-        return '（${segment.text}）';
-      }).join('\n\n');
+        return segment.text;
+      }).join('\n');
 }
 
 /// LingChat's pinned 19-expression presentation contract.

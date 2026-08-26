@@ -20,6 +20,17 @@ void main() {
     expect(segments.single.isAction, isFalse);
   });
 
+  test('presentation hides legacy action delimiters and streaming opener', () {
+    expect(
+      stripActionDelimitersForDisplay('（耳鳍抖了一下）\n「回来啦。」'),
+      '耳鳍抖了一下\n「回来啦。」',
+    );
+    expect(
+      stripActionDelimitersForDisplay('（她刚刚抬起眼'),
+      '她刚刚抬起眼',
+    );
+  });
+
   test('dialogue tint is limited to corner quotes', () {
     const source = '（她轻轻把耳鳍压低，说“回来就好”）\\n\\n「才没有一直等你。」\\n"ordinary"';
     final segments = splitDialogueText(source);

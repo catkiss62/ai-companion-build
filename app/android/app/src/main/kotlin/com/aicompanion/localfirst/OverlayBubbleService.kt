@@ -25,7 +25,6 @@ import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -2811,39 +2810,13 @@ class OverlayBubbleService : Service() {
         }
 
         private fun actionTintedText(value: String): CharSequence {
-            val result = SpannableString(value)
-            val dialogue = Regex(
-                "「[^」\\n]*(?:」|$)",
-            )
-            var cursor = 0
-            dialogue.findAll(value).forEach { match ->
-                if (match.range.first > cursor) {
-                    result.setSpan(
-                        StyleSpan(Typeface.ITALIC),
-                        cursor,
-                        match.range.first,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                    )
-                }
+            val visible = OverlayDialogueFormatter.visibleText(value)
+            val result = SpannableString(visible)
+            OverlayDialogueFormatter.dialogueRanges(visible).forEach { range ->
                 result.setSpan(
-                    StyleSpan(Typeface.NORMAL),
-                    match.range.first,
-                    match.range.last + 1,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                )
-                result.setSpan(
-                    ForegroundColorSpan(Color.rgb(239, 177, 199)),
-                    match.range.first,
-                    match.range.last + 1,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                )
-                cursor = match.range.last + 1
-            }
-            if (cursor < value.length) {
-                result.setSpan(
-                    StyleSpan(Typeface.ITALIC),
-                    cursor,
-                    value.length,
+                    ForegroundColorSpan(Color.rgb(231, 216, 167)),
+                    range.first,
+                    range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             }

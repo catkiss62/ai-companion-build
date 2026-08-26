@@ -76,7 +76,9 @@ for token in (
     "ChatPortraitTransformEditor(",
     "自定义立绘",
     "_AssistantSegmentSequence",
-    "_BubbleTailPainter",
+    "_AssistantTranscriptSurface",
+    "_AssistantSegmentDivider",
+    "_UserBubbleSurface",
     "message.isProactive && animateSegments",
     "情绪短音效",
     "主动消息提示音",
@@ -85,6 +87,7 @@ for token in (
     "只影响 App 内聊天；不改悬浮窗结构。",
 ):
     assert token in chat, token
+assert "_BubbleTailPainter" not in chat
 assert "duration: const Duration(milliseconds: 240)" not in chat
 
 contract = read("lib/core/emotion/emotion_contract.dart")

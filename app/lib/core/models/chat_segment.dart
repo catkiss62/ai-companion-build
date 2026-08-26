@@ -36,14 +36,13 @@ class ChatSegmentCodec {
     if (normalized.isEmpty) return const <ChatSegment>[];
 
     final result = <ChatSegment>[];
-    final lines = normalized
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty);
+    final lines = normalized.split('\n');
     final quotedLine = RegExp(
       r'^(?:「([\s\S]*)」|“([\s\S]*)”|"([\s\S]*)")$',
     );
-    for (final line in lines) {
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index].trim();
+      if (line.isEmpty) continue;
       final quoted = quotedLine.firstMatch(line);
       if (quoted != null) {
         final body =
@@ -80,6 +79,9 @@ class ChatSegmentCodec {
 
       // Compatibility for v0.37.1's short-lived unparenthesized action format.
       // Ordinary prose remains dialogue.
+      final nextLineIsDialogue = index + 1 < lines.length &&
+          lines[index + 1].trim().isNotEmpty &&
+          quotedLine.hasMatch(lines[index + 1].trim());
       final looksLikeLegacyAction =
           RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) &&
           (normalized.contains('「') ||
@@ -88,7 +90,7 @@ class ChatSegmentCodec {
           normalized.contains('\n') &&
           line.length <= 80;
       result.add(ChatSegment(
-        kind: looksLikeLegacyAction
+        kind: nextLineIsDialogue || looksLikeLegacyAction
             ? ChatSegmentKind.action
             : ChatSegmentKind.dialogue,
         text: line,

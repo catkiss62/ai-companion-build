@@ -49,8 +49,8 @@ assert (
     "<emotion>情绪</emotion>" in catalog + prompt
     or "<emotion>标签</emotion>" in catalog + prompt
 )
-assert "全角括号“（）”" in rules
-assert "括号块后空一行" in rules + prompt
+assert "不加括号" in rules
+assert "多个动作/对白段之间空一行" in rules + prompt
 
 chat = read("lib/features/chat/chat_page.dart")
 action = read("lib/widgets/action_tint_text.dart")
@@ -61,12 +61,13 @@ for token in (
     "bubbleOpacity",
     "_followLatest",
     "FocusManager.instance.primaryFocus?.unfocus()",
-    "fontStyle: FontStyle.italic",
+    "chatDialogueGold",
+    "stripActionDelimitersForDisplay",
     "fontWeight: FontWeight.normal",
     "hideKeyboard()",
     "exitChatInputMode()",
     "messageBubbleBackground",
-    "StyleSpan(Typeface.NORMAL)",
+    "OverlayDialogueFormatter.visibleText(value)",
 ):
     assert token in chat + action + overlay, token
 

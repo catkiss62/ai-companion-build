@@ -56,9 +56,9 @@ overlay = read(
 )
 assert 'acknowledgeMessages(this, "overlay_chat_opened")' in overlay
 for token in (
-    "val dialogue = Regex(",
-    "StyleSpan(Typeface.ITALIC)",
-    "StyleSpan(Typeface.NORMAL)",
+    "OverlayDialogueFormatter.visibleText(value)",
+    "OverlayDialogueFormatter.dialogueRanges(visible)",
+    "ForegroundColorSpan(Color.rgb(231, 216, 167))",
 ):
     assert token in overlay, token
 assert "Color.rgb(216, 177, 255)" not in overlay

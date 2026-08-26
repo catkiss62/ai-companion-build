@@ -15,6 +15,37 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.14 参考解锁交互与聊天正文阅读层（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户确认先把思考链英文自动翻译拆出本批，避免新增翻译请求、缓存与数据库迁移污染本次视觉/交互验收。本批从已全绿但仍待真机验收的 v0.38.13 独立向前，目标版本 `0.38.14+113`，SQLite schema 保持33；不修改 main、不合并前序 Draft PR，也不触碰 v0.38.13 已恢复的正文逐字流式、正文尾贴底、服务模板 A→B 防线或悬浮聊天两级入口语义。
+
+### A. 用户证据与锁定范围
+
+1. 用户真机截图确认模拟手机锁屏底部出现参考文件不存在的横向 `HomeIndicator`；当前按钮缺少参考 HTML 的2.5秒紫色呼吸扩散、按压增亮、拖动时停脉冲及300ms标准曲线回弹，且只滑72dp就能触发成功。参考真源为会话附件 `phone_system(1).html`：轨道 `56×156`、竖线100px、按钮 `56×56`、真实滑距100px、拖动1:1、未到顶按 `transform .3s cubic-bezier(.4,0,.2,1)` 回弹。正式 App 不移植原型的50%随机拒绝彩蛋，其余按钮视觉与物理按参考参数转译为 Flutter；去掉额外轻触解锁与提示文案，只保留完整上滑。
+2. App 内 AI 正文不再使用多枚圆角气泡：一个 durable assistant turn 形成一个全宽阅读层，左侧一条紫色细竖线；内部 ordered segments 继续保留，并在相邻 segment 间使用低透明度细横分隔线。分段仍驱动逐字输出、情绪立绘/短动画与 TTS，不能为了改外观合并或删除 `segments_json`。
+3. 用户消息继续右对齐使用气泡，但宽度随实际文字伸缩并设置最大宽度；删除 `_BubbleTailPainter` 产生的小三角。AI 正文也不再显示气泡尾巴、填充背景或圆角卡片；reasoning 折叠、附件与时间/语音操作保持可用。
+4. 对白 `「……」` 在 Flutter 与 Android 原生悬浮聊天统一使用用户截图的浅黄色（参考截图采样主色约 `#E7D8A7`）。动作/神态对用户显示时不带 `（）`；新回复的共享输出契约同步改为无括号动作行 + `「对白」`，旧历史括号继续兼容解析并去括号显示。通知/TTS仍按 action/dialogue 语义消费，不能把动作误读成对白或丢失真实正文。
+5. 思考链自动翻译明确移到后继独立批次：本批不新增翻译 API 调用、译文缓存、schema34、设置项或 reasoning 替换逻辑。
+
+### B. 实现与验收边界
+
+1. 解锁交互需用有状态动画控制器表达 idle / pressed-dragging / rebound / success，不能再以 Stateless `Transform + setState(0)` 造成瞬时回弹；按钮达到完整100dp才成功，释放不足即300ms回底。成功遮罩继续保持黑色60%、108dp紫环、450ms进入与700ms成功停留，锁屏退场去掉参考中不存在的额外缩放。
+2. App 持久消息与临时 `_StreamingBubble` 必须消费同一 AI 阅读层，正文 delta 仍逐字可见；分隔线只在后一 segment 真正出现时建立，不能在流式尾部预留空线。长 reasoning 收起后继续以 v0.38.12/13 的正文尾锚点贴底。
+3. Dart `ChatSegmentCodec` 与原生悬浮文本解析需覆盖新版无括号格式、旧全角/ASCII括号格式、纯事实普通段落和未闭合流式 `「`；TTS仅对白/全文两档、情绪 chunk、主动消息单原子与历史消息兼容测试保持通过。
+4. 新增 v0.38.14 静态契约与 Flutter/Kotlin单测；本地先运行全部可用 validators、格式/语法与 `git diff --check`，随后公开 Actions 完整执行 Kotlin、Flutter analyze/tests、release APK、稳定签名和载荷校验。自动化通过不等于真机通过。
+
+### C. 实际实现、云端验证与交付
+
+1. `ReferenceUnlockControl` 已按 `phone_system(1).html` 转译为独立有状态控件：轨道 `56×156dp`、竖线100dp、按钮56dp、手指起点到当前位置1:1位移、完整100dp门槛、未完成时300ms `Cubic(0.4, 0, 0.2, 1)` 回弹、2.5秒紫色呼吸扩散、按下/拖动背景透明度 `0.08 → 0.18` 且暂停呼吸。旧轻触解锁和锁屏底部 `HomeIndicator` 已删除；成功仍为60%黑幕、108dp紫环、450ms进入与✅，700ms后锁屏退场并按参考延迟淡入主页。正式版按约定不移植50%随机失败。
+2. App 内普通持久消息、主动消息/附件回退路径和 `_StreamingBubble` 统一使用无底色、无圆角、无尾巴的全宽 `_AssistantTranscriptSurface`；左侧2dp紫线，同一 assistant turn 内保留原有 ordered chunks，并只在相邻可见段之间加入低透明度1dp紫色分隔线。用户消息保留右侧气泡，使用 `IntrinsicWidth + 84% maxWidth` 随内容伸缩，`_BubbleTailPainter` 已删除。
+3. Flutter 与原生悬浮聊天对白色统一为 `#E7D8A7`；旧全角/ASCII动作括号继续兼容解析但展示时去除，新 Prompt 固定为“无括号动作行紧邻 `「对白」`，多组之间空一行”。`ChatSegmentCodec` 对新版相邻行、旧括号历史、普通事实段落保持兼容；TTS、情绪 chunk 与正文持久化语义未删除。思考链英文自动翻译没有进入本版代码、数据库或设置，继续作为独立后继批次。
+4. v0.38.13 的关键回归已由连续静态契约锁住并在 CI 通过：普通首轮仍 `emitDeltas: true`，已显示正文命中反模板守卫时仍 `stream_preserved`，正文尾锚点/真实向上手势判断保留；桌宠“打开聊天”仍展开当前第三方 App 上方的悬浮聊天栏，只有悬浮栏顶端“打开”进入完整 App 的聊天 tab。
+5. 远端产品提交 `72df4101f869003587c593c813ecd82dbfa823d8`；第一次 Actions run [#543（32959934328）](https://github.com/catkiss62/ai-companion-build/actions/runs/32959934328) 已通过全部静态回归，随后在 Kotlin 任务预编译 Flutter debug 时发现 `AnimationController.repeat(from:)` 不受固定 Flutter 3.44.9 支持。仅将两处改为 `reset() + repeat()`，交互参数不变；修复提交 `300f038bebbdae9ce574a0e61ff490e7731c9a48`。堆叠 [Draft PR #35](https://github.com/catkiss62/ai-companion-build/pull/35) 以 v0.38.13 分支为 base；main 与更早 Draft PR 均未修改或合并。
+6. 最终 GitHub Actions run [#544（32960454935）](https://github.com/catkiss62/ai-companion-build/actions/runs/32960454935) 全绿：全部历史与 v0.38.14 validators、依赖解析、Kotlin 桌宠/悬浮窗文字单测、Flutter analyze、全部 Flutter tests（含100dp解锁/72dp回弹/轻触无效/无横杠）、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact与Draft Release上传均成功。
+7. APK `AI-Companion-v0.38.14-113-Reference-Unlock-Chat-Transcript-UI-APK.apk`，329,582,452 bytes，SHA-256 `b0ec60a549a26fbbfece256a8518ad33faf83087c37c6e72f48bab5fc3e92a3b`。Artifact ID `9603963942`（ZIP 323,366,493 bytes，digest `e86d288b33885e83fbc1e1d260cc90f45cf6aacfeb81a6f29bc3d90da7b626bf`）；草稿 Release [untagged-3730bba87ac497ddde28](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3730bba87ac497ddde28)。签名证书 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+8. 真机待验：锁屏无额外横杠；按下立即增亮、空闲呼吸光、拖动1:1、短拖300ms回弹、完整100dp成功与700ms识别层/主页淡入观感；AI整栏紫线与段间分隔线；短用户消息气泡确实缩短且无三角尾；App/悬浮窗 `「」` 浅黄及旧动作括号隐藏；长 reasoning 收起后正文流式仍贴底，悬浮两级入口语义仍正确。自动测试通过不等于真机通过。
+
+
 ## 0AAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.13 正文流式与悬浮聊天两级入口热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机纠正 v0.38.12 的入口语义：桌宠/外部入口中的“打开聊天”只应在当前正在使用的其他 App 上展开原生悬浮聊天框；悬浮聊天框顶栏的“打开”才进入完整 App，并且必须强制落到 App 内“聊天”栏，不能恢复到设置等上次停留栏。v0.38.12 将两者错误统一为完整 App 跳转，导致前一级悬浮聊天入口被绕过。用户随后确认 App 内正文逐字流式也已经消失；完整生成链复核证明，从 v0.38.4 原生工具整合开始，普通首轮被错误设成 `emitDeltas: false`，v0.38.12 又继续按缓冲前提收口。本热修同时恢复实时正文流，并且不回退 v0.38.12 的聊天贴底、生成守卫与模拟手机 UI 修复。

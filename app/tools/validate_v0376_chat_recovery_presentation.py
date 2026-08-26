@@ -70,7 +70,7 @@ assert "chat_last_presented_assistant_id" in commands
 assert r"r'「[^」\n]*(?:」|$)'" in tint
 assert "“[^”" not in tint
 assert '\\"[^\\\"' not in overlay
-assert r'"「[^」\\n]*(?:」|$)"' in overlay
+assert "OverlayDialogueFormatter.dialogueRanges(visible)" in overlay
 
 assert "emotionDiagnosticStats" in database
 assert "localLeaseDiagnostic('chat_turn_lease')" in diagnostics

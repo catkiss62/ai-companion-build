@@ -14,8 +14,19 @@ void main() {
     expect(chunks.first.emotion.key, 'playful');
     expect(
       chunks.first.displayText,
-      '（轻轻把耳鳍压低）\n\n「才没有一直等你。」',
+      '轻轻把耳鳍压低\n「才没有一直等你。」',
     );
+  });
+
+  test('unparenthesized action line stays paired with following dialogue', () {
+    final segments = ChatSegmentCodec.parseAssistantText(
+      '轻轻把耳鳍压低\n「才没有一直等你。」\n\n第二点是普通说明。',
+    );
+    expect(segments, hasLength(3));
+    expect(segments[0].kind, ChatSegmentKind.action);
+    expect(segments[0].text, '轻轻把耳鳍压低');
+    expect(segments[1].kind, ChatSegmentKind.dialogue);
+    expect(segments[2].kind, ChatSegmentKind.dialogue);
   });
 
   test('ordinary multiline answer is not mistaken for multiple actions', () {
