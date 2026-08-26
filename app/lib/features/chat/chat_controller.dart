@@ -659,6 +659,8 @@ class ChatController extends ChangeNotifier {
       thumbnailPath: path,
       contentSha256: contentSha,
       visualFingerprint: observation.aestheticTags.join('|'),
+      width: attachment.width,
+      height: attachment.height,
       recognizedAt: DateTime.now(),
     );
     if (!completed && path.isNotEmpty) {
