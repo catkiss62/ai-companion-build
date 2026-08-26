@@ -113,7 +113,7 @@ for title in (
     assert title in emotion_tests, title
 assert "D3 never exposes recipe labels, axes, values or control abilities" in moe_tests
 assert "reasoning language telemetry classifies shape without retaining text" in language_tests
-assert "per-turn reminder prefers Chinese and separates normal from calm" in reminder_tests
+assert "per-turn reminder locks Chinese and separates normal from calm" in reminder_tests
 
 for token in (
     "Build AI Companion v0.38.3+102 APK",

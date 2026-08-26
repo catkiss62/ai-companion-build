@@ -235,6 +235,8 @@ class DurableGenerationRunner {
       var announcedEmotionKey = '';
       var visibleAnswerStreamed = false;
       var streamedToolPreamble = '';
+      var upstreamReasoningDeltaSeen = false;
+      var reasoningDeltaForwardedToSurface = false;
       final localPlan = AgentToolPlanner.routeLocally(user.content);
       if (localPlan != null) {
         agentToolResults = await agentToolRunner.runPlan(
@@ -316,7 +318,10 @@ class DurableGenerationRunner {
           if (delta.done || delta.finishReason != null) {
             sawTerminalSignal = true;
           }
-          if (delta.reasoning.isNotEmpty) reasoning += delta.reasoning;
+          if (delta.reasoning.isNotEmpty) {
+            reasoning += delta.reasoning;
+            upstreamReasoningDeltaSeen = true;
+          }
           if (delta.content.isNotEmpty) {
             content += delta.content;
             if (announcedEmotionKey.isEmpty) {
@@ -347,6 +352,7 @@ class DurableGenerationRunner {
           }
           if (!emitDeltas && delta.reasoning.isNotEmpty) {
             onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
+            if (onDelta != null) reasoningDeltaForwardedToSurface = true;
           }
           if (emitDeltas) {
             // Hold the leading machine-readable emotion envelope out of the
@@ -368,6 +374,9 @@ class DurableGenerationRunner {
               finishReason: delta.finishReason,
               toolCallDeltas: delta.toolCallDeltas,
             ));
+            if (onDelta != null && delta.reasoning.isNotEmpty) {
+              reasoningDeltaForwardedToSurface = true;
+            }
           }
 
           final chars = reasoning.length + content.length;
@@ -593,7 +602,12 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 
       final visibleReasoning = preserveProviderReasoning(generated.reasoning);
       unawaited(
-        VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
+        VisibleReasoningLanguageTelemetry.note(
+          db,
+          visibleReasoning,
+          providerDeltaSeen: upstreamReasoningDeltaSeen,
+          forwardedToSurface: reasoningDeltaForwardedToSurface,
+        ),
       );
       // generate() already forwarded every provider reasoning delta in both
       // buffered and visible-content modes. Do not re-emit the full reasoning

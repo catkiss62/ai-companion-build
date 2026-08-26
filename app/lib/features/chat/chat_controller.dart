@@ -14,6 +14,7 @@ import '../../core/ai/model_profile.dart';
 import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
+import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/emotion/emotion_contract.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
@@ -930,6 +931,7 @@ class ChatController extends ChangeNotifier {
       throw StateError('这轮回复的处理已经转到恢复流程，会安全地继续。');
     }
 
+    var reasoningPresentationNoted = false;
     final result = await generationRunner.run(
       job,
       cancellationToken: cancellation,
@@ -940,6 +942,12 @@ class ChatController extends ChangeNotifier {
         if (cancellation.isCancelled) return;
         if (delta.reasoning.isNotEmpty) {
           streamingReasoning += delta.reasoning;
+          if (!reasoningPresentationNoted) {
+            reasoningPresentationNoted = true;
+            unawaited(
+              VisibleReasoningLanguageTelemetry.noteUiPresentation(db),
+            );
+          }
         }
         if (delta.content.isNotEmpty) {
           // A valid leading emotion envelope is announced before this visible

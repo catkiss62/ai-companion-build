@@ -42,7 +42,12 @@ class VisibleReasoningLanguageTelemetry {
     return VisibleReasoningLanguageStatus.chineseFirst;
   }
 
-  static Future<void> note(AppDatabase db, String reasoning) async {
+  static Future<void> note(
+    AppDatabase db,
+    String reasoning, {
+    bool providerDeltaSeen = false,
+    bool forwardedToSurface = false,
+  }) async {
     try {
       final status = classify(reasoning);
       final total = _int(await db.getSetting('reasoning_language_total')) + 1;
@@ -51,12 +56,45 @@ class VisibleReasoningLanguageTelemetry {
       await db.setSetting('reasoning_language_total', total.toString());
       await db.setSetting(key, count.toString());
       await db.setSetting('reasoning_language_last_status', status.key);
+      await _incrementFlag(
+        db,
+        prefix: 'reasoning_provider_delta',
+        value: providerDeltaSeen,
+      );
+      await _incrementFlag(
+        db,
+        prefix: 'reasoning_final_present',
+        value: reasoning.trim().isNotEmpty,
+      );
+      await _incrementFlag(
+        db,
+        prefix: 'reasoning_surface_forwarded',
+        value: forwardedToSurface,
+      );
       await db.setSetting(
         'reasoning_language_last_at',
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
     } catch (_) {
       // Diagnostics must never delay or reject a completed message.
+    }
+  }
+
+  /// Records only that the Flutter chat state received a non-empty reasoning
+  /// delta and requested a repaint. It never stores the delta itself.
+  static Future<void> noteUiPresentation(AppDatabase db) async {
+    try {
+      final count = _int(
+            await db.getSetting('reasoning_ui_presentation_count'),
+          ) +
+          1;
+      await db.setSetting('reasoning_ui_presentation_count', count.toString());
+      await db.setSetting(
+        'reasoning_ui_presentation_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    } catch (_) {
+      // Diagnostics must never delay or reject a visible reasoning update.
     }
   }
 
@@ -79,10 +117,45 @@ class VisibleReasoningLanguageTelemetry {
       'lastStatus':
           await db.getSetting('reasoning_language_last_status') ?? 'none',
       'lastAt': value(await db.getSetting('reasoning_language_last_at')),
+      'providerDeltaSeen': value(
+        await db.getSetting('reasoning_provider_delta_true_count'),
+      ),
+      'providerDeltaMissing': value(
+        await db.getSetting('reasoning_provider_delta_false_count'),
+      ),
+      'finalReasoningPresent': value(
+        await db.getSetting('reasoning_final_present_true_count'),
+      ),
+      'finalReasoningMissing': value(
+        await db.getSetting('reasoning_final_present_false_count'),
+      ),
+      'reasoningDeltaForwardedToSurface': value(
+        await db.getSetting('reasoning_surface_forwarded_true_count'),
+      ),
+      'reasoningDeltaNotForwardedToSurface': value(
+        await db.getSetting('reasoning_surface_forwarded_false_count'),
+      ),
+      'uiPresentationTriggered': value(
+        await db.getSetting('reasoning_ui_presentation_count'),
+      ),
+      'uiPresentationLastAt': value(
+        await db.getSetting('reasoning_ui_presentation_last_at'),
+      ),
       'reasoningTextIncluded': false,
       'matchedWordsIncluded': false,
     };
   }
 
   static int _int(String? value) => int.tryParse(value ?? '') ?? 0;
+
+  static Future<void> _incrementFlag(
+    AppDatabase db, {
+    required String prefix,
+    required bool value,
+  }) async {
+    final suffix = value ? 'true' : 'false';
+    final key = '${prefix}_${suffix}_count';
+    final count = _int(await db.getSetting(key)) + 1;
+    await db.setSetting(key, count.toString());
+  }
 }

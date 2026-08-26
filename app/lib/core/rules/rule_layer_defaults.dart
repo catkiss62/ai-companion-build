@@ -147,6 +147,8 @@ const legacyEditableRuleLayerSha256V03814 = <String, String>{
 /// Exact editable defaults shipped by the accepted v0.38.16 baseline.
 /// v0.38.18 replaces only these untouched bodies; any user edit is retained.
 const legacyEditableRuleLayerSha256V03816 = <String, String>{
+  '08_visible_inner_voice':
+      '81126848608b0a463e35fd030ade83bf8b7c21a5737ebfb1a5908447f98b4685',
   '05_intimacy_rendering':
       'bba5221999054923ed8ddfa50104179410f145b190173dc40615a2e794b25253',
   '06_intimacy_reference':
