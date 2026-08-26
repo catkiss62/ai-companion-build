@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.18 沉浸房间前置优化（LOCAL IMPLEMENTED / CI PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.18 沉浸房间前置优化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户明确授权开始下一步。本批从已经真机验收成功的 `agent/v03816-action-segment-parser-hotfix` 独立建立 `agent/v03818-pre-immersive-polish`，跳过未验收且含正文单次播放实验的 v0.38.17 分支。v0.38.17 已占用 Android build 116，因此本批目标为 `0.38.18+117`；沉浸房间本体仍为下一独立阶段，本批只记录其入口将放在“查手机”下方，不提前接入房间路由、规则07、长篇上下文或记忆。
 
@@ -35,10 +35,16 @@
 
 ### C. 本地实现与验证（2026-08-27）
 
-1. 基础优化提交 `52d502b`：已把附件两个运行时小节原文写入规则06；重新拼装后的完整内容与 `新规则06.txt` 完全相等，SHA-256仍为 `592b21ccad6188e100fb23f4c4838b612390cdf4989f8498740053b469a5d1ca`。附件在“她一边含着肉棒吞吐……”一行本来含一个行尾空格，为满足“原封不动”而有意保留；这是唯一 `git diff --check` 例外，不是误改。旧默认哈希迁移只覆盖未编辑的 v0.38.16 内置05/06，用户手改内容不覆盖。
+1. 远端基础优化提交 `5e0e5dc353b498ef55f54de5c1743b8dc902839f`：已把附件两个运行时小节原文写入规则06；重新拼装后的完整内容与 `新规则06.txt` 完全相等，SHA-256仍为 `592b21ccad6188e100fb23f4c4838b612390cdf4989f8498740053b469a5d1ca`。附件在“她一边含着肉棒吞吐……”一行本来含一个行尾空格，为满足“原封不动”而有意保留；这是唯一 `git diff --check` 例外，不是误改。旧默认哈希迁移只覆盖未编辑的 v0.38.16 内置05/06，用户手改内容不覆盖。
 2. 同一基础提交已把聊天面板上限改为94%，默认62%、最小42%和75%初始透明度不变；桌宠菜单移除单独贴边项，旧 `edge` 值启动时迁移为 `free` 并保留吸附轴。只有自由模式下用户轻拖到边缘附近才新建吸附；拖离、抛掷、重力落地和自主移动不会新建吸附，四个半屏模式不变。
-3. 中文思考实验独立提交 `e904567`：规则08和每轮提醒增加简体中文绝对呈现约束，但不翻译、改写或伪造上游 reasoning；新增的脱敏计数能区分“上游是否发出 reasoning delta / 最终 reasoning 是否非空 / 是否交给界面 / Flutter 是否收到首个非空 delta”，不保存思考正文或命中词。若真机无效或有副作用，可独立回退本提交而不撤销规则06、面板和桌宠改动。
-4. 本地已执行工作流列出的93个验证入口：92个通过；唯一未执行成功的是 `validate_manual_crypto_v26.py`，原因是当前容器没有 `kotlinc`。Flutter/Dart SDK及Gradle依赖也未在本地环境提供，因此 Kotlin编译、Flutter analyze/tests、release APK及签名/载荷检查必须以 GitHub Actions 为准，当前不得写成 CI 或 APK 已通过。
+3. 中文思考实验远端独立提交 `f4b7822cedcc922744d57efac58ef477d433baaf`：规则08和每轮提醒增加简体中文绝对呈现约束，但不翻译、改写或伪造上游 reasoning；新增的脱敏计数能区分“上游是否发出 reasoning delta / 最终 reasoning 是否非空 / 是否交给界面 / Flutter 是否收到首个非空 delta”，不保存思考正文或命中词。若真机无效或有副作用，可独立回退本提交而不撤销规则06、面板和桌宠改动。
+4. 本地已执行工作流列出的93个验证入口：92个通过；唯一未执行成功的是 `validate_manual_crypto_v26.py`，原因是当前容器没有 `kotlinc`。Flutter/Dart SDK及Gradle依赖也未在本地环境提供，因此本地阶段没有冒充编译或APK成功；这些缺口随后全部由下述 GitHub Actions 有效 run 补齐。
+
+### D. 云端验证、APK与真机待验
+
+1. 远端分支 `agent/v03818-pre-immersive-polish` 已发布；版本封装提交为 `3680dae2578b6b6b1cec467d3e9fee3efa4ecd61`，有效构建 head 为 `41fe349dc4ed72d6d5b8d054d96cfdc45d91b90e`。GitHub Actions [run 33012701748](https://github.com/catkiss62/ai-companion-build/actions/runs/33012701748) 全绿：93个源码/历史验证入口、Kotlin桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact与Draft Release上传全部成功。分支建立/触发期间的 run `33012607503`、`33012651000` 已取消，不是失败候选。
+2. APK名 `AI-Companion-v0.38.18-117-Pre-Immersive-Polish-APK.apk`，SHA-256 `eaf9bea7bf74462941436214afb6ae08b48070bc90b87af0c200270b3f7b84e8`；Artifact ID `9623535450`，ZIP 323,427,249 bytes，Artifact digest `a0988b5d7afb6e096b9d5af9562ab07e79271884e28f5e9ede6d49b601146f7b`，保留至2026-09-09。草稿 Release：[untagged-3d8940cb171fb27b5455](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3d8940cb171fb27b5455)。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装前版。
+3. 真机必须分别验收：规则06在规则编辑器/实际成人路由中确为新附件原文且用户手改规则未被覆盖；聊天面板可拖到约94%且75%初始透明度未变；自由模式下轻拖边缘会吸附、拖离恢复自由、自主走到边缘与抛掷落地不吸附、旧贴边用户升级后位置不突变；中文 reasoning 是否明显减少英文、是否仍有偶发整段缺失。若中文实验无效或产生副作用，只回退 `f4b7822`；上游完全没有 `reasoning_content` 时客户端仍不伪造。并继续复验 v0.38.16 六项硬基线、解锁动画、用户气泡和悬浮两级入口。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED）
