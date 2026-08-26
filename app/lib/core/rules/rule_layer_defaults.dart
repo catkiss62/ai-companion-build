@@ -133,6 +133,17 @@ const legacyEditableRuleLayerSha256V0371 = <String, String>{
       '282583ec2f352265da2135e3181a121789e70d749281f44b719dfc5b0f311c8e',
 };
 
+/// Exact v0.38.14 stock prompt bodies. v0.38.15 restores the established
+/// blank line between bracketless action/state text and dialogue only when the
+/// stored rule is untouched; any user-edited rule remains byte-preserved.
+const legacyEditableRuleLayerSha256V03814 = <String, String>{
+  '02_daily': '2d44a3517fec9d4f04d677767fae350475617d4825322f2d31cd8f99f392442b',
+  '08_visible_inner_voice':
+      'a71582b047d591f025adca3cfefade270fd76dc5e523a7879c535194d50bb5b7',
+  '05_intimacy_rendering':
+      '10d66dc2bbc83d3e4617165bb3c77172b2852c24d60d17243e7e842304b545a5',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so

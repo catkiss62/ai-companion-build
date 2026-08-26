@@ -51,7 +51,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
   bool _ttsEnabled = false;
-  double _panelOpacity = 0.60;
+  double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
@@ -263,7 +263,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _panelOpacity = (double.tryParse(
               await db.getSetting('chat_panel_opacity') ?? '',
             ) ??
-            0.60)
+            0.75)
         .clamp(0.45, 0.95)
         .toDouble();
     _panelFraction = (double.tryParse(
@@ -2045,7 +2045,10 @@ class _UserBubbleSurface extends StatelessWidget {
                   0.84,
             ),
             margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-            padding: const EdgeInsets.all(11),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 11,
+            ),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: radius,
@@ -2195,10 +2198,7 @@ class _StreamingBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = controller.streamingContent;
-    final blocks = content
-        .split(RegExp(r'\n\s*\n'))
-        .where((block) => block.trim().isNotEmpty)
-        .toList(growable: false);
+    final blocks = assistantStreamingTranscriptBlocks(content);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

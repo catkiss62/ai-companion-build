@@ -1104,7 +1104,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
     await db.insert('settings', {'key': 'chat_visual_stage_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_background_mode', 'value': 'auto'});
-    await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.60'});
+    await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.75'});
     await db.insert('settings', {'key': 'chat_panel_fraction', 'value': '0.62'});
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
@@ -2011,6 +2011,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0353.entries,
       ...legacyEditableRuleLayerSha256V0371.entries,
       ...legacyEditableRuleLayerSha256V0380.entries,
+      ...legacyEditableRuleLayerSha256V03814.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
@@ -2071,7 +2072,7 @@ class AppDatabase {
       'tts_reading_scope': 'dialogue_only',
       'chat_visual_stage_enabled': '1',
       'chat_background_mode': 'auto',
-      'chat_panel_opacity': '0.60',
+      'chat_panel_opacity': '0.75',
       'chat_panel_fraction': '0.62',
       'chat_typewriter_enabled': '1',
       'chat_typewriter_ms': '48',
@@ -10980,7 +10981,7 @@ class AppDatabase {
         'personality_posture_key': 'equal',
         'chat_visual_stage_enabled': '1',
         'chat_background_mode': 'auto',
-        'chat_panel_opacity': '0.60',
+        'chat_panel_opacity': '0.75',
         'chat_panel_fraction': '0.62',
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '48',

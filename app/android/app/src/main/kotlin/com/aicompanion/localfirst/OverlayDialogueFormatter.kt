@@ -6,9 +6,10 @@ object OverlayDialogueFormatter {
         val closed = Regex("（([^（）\\n]*)）|\\(([^()\\n]*)\\)").replace(value) { match ->
             match.groups[1]?.value ?: match.groups[2]?.value.orEmpty()
         }
-        return Regex("(?m)(^|\\n)[（(](?=[^）)\\n]*(?:$|\\n))").replace(closed) { match ->
+        val withoutOpening = Regex("(?m)(^|\\n)[（(](?=[^）)\\n]*(?:$|\\n))").replace(closed) { match ->
             match.groups[1]?.value.orEmpty()
         }
+        return Regex("([^\\n])\\n(?=「)").replace(withoutOpening, "$1\n\n")
     }
 
     fun dialogueRanges(value: String): List<IntRange> =
@@ -16,4 +17,17 @@ object OverlayDialogueFormatter {
             .findAll(value)
             .map { it.range }
             .toList()
+
+    fun actionRanges(value: String): List<IntRange> {
+        val dialogue = dialogueRanges(value)
+        if (dialogue.isEmpty()) return if (value.isEmpty()) emptyList() else listOf(value.indices)
+        val result = mutableListOf<IntRange>()
+        var cursor = 0
+        dialogue.forEach { range ->
+            if (range.first > cursor) result += cursor until range.first
+            cursor = range.last + 1
+        }
+        if (cursor < value.length) result += cursor until value.length
+        return result
+    }
 }

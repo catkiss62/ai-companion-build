@@ -14,7 +14,19 @@ void main() {
     expect(chunks.first.emotion.key, 'playful');
     expect(
       chunks.first.displayText,
-      '轻轻把耳鳍压低\n「才没有一直等你。」',
+      '轻轻把耳鳍压低\n\n「才没有一直等你。」',
+    );
+  });
+
+  test('streaming transcript keeps action and dialogue in one rail segment', () {
+    expect(
+      assistantStreamingTranscriptBlocks(
+        '耳鳍轻轻压低\n\n「才没有等你。」\n\n尾巴晃了晃\n\n「回来就好。」',
+      ),
+      [
+        '耳鳍轻轻压低\n\n「才没有等你。」',
+        '尾巴晃了晃\n\n「回来就好。」',
+      ],
     );
   });
 

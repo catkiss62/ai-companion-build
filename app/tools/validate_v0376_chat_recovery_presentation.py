@@ -41,7 +41,7 @@ assert "static const int schemaVersion = 30;" in database
 assert "if (oldVersion < 30)" in database
 assert "whereArgs: const ['chat_panel_opacity', '0.72']" in database
 assert "whereArgs: const ['chat_typewriter_ms', '56']" in database
-assert "'chat_panel_opacity': '0.60'" in database
+assert "'chat_panel_opacity': '0.75'" in database
 assert "'chat_typewriter_ms': '48'" in database
 
 for source in (runtime, system_bridge, background_bridge, android_bridge, database):
