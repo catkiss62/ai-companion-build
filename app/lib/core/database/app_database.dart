@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../emotion/emotion_contract.dart';
 import '../models/chat_message.dart';
+import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
 import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
@@ -53,7 +54,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 29;
   // Historical validator compatibility token: static const int schemaVersion = 30;
   // Historical validator compatibility token: static const int schemaVersion = 31;
-  static const int schemaVersion = 32;
+  // Historical validator compatibility token: static const int schemaVersion = 32;
+  static const int schemaVersion = 33;
 
   Database? _db;
   Future<Database>? _opening;
@@ -888,6 +890,9 @@ class AppDatabase {
     if (oldVersion < 32) {
       await _createV32Tables(db);
     }
+    if (oldVersion < 33) {
+      await _createV33Tables(db);
+    }
 
   }
 
@@ -1052,6 +1057,7 @@ class AppDatabase {
     await _createV29Tables(db);
     await _createV31Tables(db);
     await _createV32Tables(db);
+    await _createV33Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1809,6 +1815,72 @@ class AppDatabase {
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+
+  Future<void> _createV33Tables(Database db) async {
+    final publicColumns = (await db.rawQuery(
+      'PRAGMA table_info(public_web_candidates)',
+    ))
+        .map((row) => row['name'] as String)
+        .toSet();
+    if (!publicColumns.contains('image_url')) {
+      await db.execute(
+        "ALTER TABLE public_web_candidates ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!publicColumns.contains('image_domain')) {
+      await db.execute(
+        "ALTER TABLE public_web_candidates ADD COLUMN image_domain TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    if (!publicColumns.contains('image_description')) {
+      await db.execute(
+        "ALTER TABLE public_web_candidates ADD COLUMN image_description TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS companion_album_candidates (
+        id TEXT PRIMARY KEY,
+        source_kind TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        source_url TEXT NOT NULL DEFAULT '',
+        source_domain TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        vision_summary TEXT NOT NULL DEFAULT '',
+        ai_reason TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT 'other',
+        nsfw INTEGER NOT NULL DEFAULT 0,
+        thumbnail_path TEXT NOT NULL DEFAULT '',
+        content_sha256 TEXT NOT NULL DEFAULT '',
+        visual_fingerprint TEXT NOT NULL DEFAULT '',
+        vision_model TEXT NOT NULL DEFAULT '',
+        lifecycle_state TEXT NOT NULL DEFAULT 'candidate',
+        user_feedback TEXT NOT NULL DEFAULT 'neutral',
+        user_comment TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        recognized_at INTEGER,
+        saved_at INTEGER,
+        delete_after INTEGER,
+        unread INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL,
+        UNIQUE(source_kind, source_id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_companion_album_visible '
+      'ON companion_album_candidates(lifecycle_state, saved_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_companion_album_delete_after '
+      'ON companion_album_candidates(delete_after)',
+    );
+    await db.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_album_content_saved "
+      "ON companion_album_candidates(content_sha256) "
+      "WHERE content_sha256 != '' AND lifecycle_state IN ('saved','soft_deleted')",
     );
   }
 
@@ -5761,6 +5833,9 @@ class AppDatabase {
             'action_run_id': id,
             'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
             'expires_at': candidate.expiresAt.millisecondsSinceEpoch,
+            'image_url': candidate.imageUrl,
+            'image_domain': candidate.imageDomain,
+            'image_description': candidate.imageDescription,
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
@@ -6358,6 +6433,354 @@ class AppDatabase {
               ))
           .toList(growable: false);
     });
+  }
+
+  /// Read-only projection of successful public-web Outcomes for the private
+  /// browser. It never marks a candidate reviewed and never creates AI state.
+  Future<List<CompanionBrowserVisit>> companionBrowserVisits({
+    int days = 14,
+    int maxPerDay = 3,
+  }) async {
+    final db = await database;
+    final cutoff = DateTime.now()
+        .subtract(Duration(days: days.clamp(1, 60).toInt()))
+        .millisecondsSinceEpoch;
+    final rows = await db.rawQuery(
+      '''
+      SELECT p.id, p.title, p.summary, p.url, p.source_domain, p.provider,
+             p.discovered_at, p.action_run_id
+      FROM public_web_candidates p
+      JOIN autonomous_action_runs a ON a.id = p.action_run_id
+      WHERE p.discovered_at >= ?
+        AND a.status = 'succeeded'
+        AND a.outcome_kind = 'candidate_stored'
+        AND a.reason_source NOT LIKE 'diagnostic_%'
+        AND p.provider NOT LIKE 'diagnostic%'
+      ORDER BY p.discovered_at DESC, p.id DESC
+      LIMIT 180
+      ''',
+      [cutoff],
+    );
+    final counts = <String, int>{};
+    final result = <CompanionBrowserVisit>[];
+    for (final row in rows) {
+      final at = DateTime.fromMillisecondsSinceEpoch(
+        (row['discovered_at'] as num?)?.toInt() ?? 0,
+      ).toLocal();
+      final day =
+          '${at.year.toString().padLeft(4, '0')}-${at.month.toString().padLeft(2, '0')}-${at.day.toString().padLeft(2, '0')}';
+      final count = counts[day] ?? 0;
+      if (count >= maxPerDay.clamp(1, 3).toInt()) continue;
+      counts[day] = count + 1;
+      result.add(CompanionBrowserVisit.fromDb(row));
+    }
+    return result;
+  }
+
+  Future<Map<String, Object?>?> nextCompanionAlbumWebSource() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT p.id, p.title, p.summary, p.image_url, p.image_domain,
+             p.image_description
+      FROM public_web_candidates p
+      JOIN autonomous_action_runs a ON a.id = p.action_run_id
+      LEFT JOIN companion_album_candidates c
+        ON c.source_kind = 'public_web' AND c.source_id = p.id
+      WHERE p.image_url != ''
+        AND c.id IS NULL
+        AND a.status = 'succeeded'
+        AND a.outcome_kind = 'candidate_stored'
+        AND a.reason_source NOT LIKE 'diagnostic_%'
+      ORDER BY p.discovered_at DESC
+      LIMIT 1
+    ''');
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<bool> companionAlbumSourceHandled(
+    String sourceKind,
+    String sourceId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      'companion_album_candidates',
+      columns: const ['id'],
+      where: 'source_kind = ? AND source_id = ?',
+      whereArgs: [sourceKind, sourceId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<bool> beginCompanionAlbumCandidate({
+    required String id,
+    required String sourceKind,
+    required String sourceId,
+    required String sourceUrl,
+    required String sourceDomain,
+    required String title,
+    required DateTime createdAt,
+  }) async {
+    final db = await database;
+    final inserted = await db.insert(
+      'companion_album_candidates',
+      {
+        'id': id,
+        'source_kind': sourceKind,
+        'source_id': sourceId,
+        'source_url': sourceUrl,
+        'source_domain': sourceDomain,
+        'title': _bounded(title.trim(), 240),
+        'created_at': createdAt.millisecondsSinceEpoch,
+        'updated_at': createdAt.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    return inserted != 0;
+  }
+
+  Future<bool> completeCompanionAlbumCandidate({
+    required String id,
+    required bool save,
+    required String visionSummary,
+    required String visionModel,
+    required String aiReason,
+    required String category,
+    required bool nsfw,
+    required String thumbnailPath,
+    required String contentSha256,
+    required String visualFingerprint,
+    required DateTime recognizedAt,
+  }) async {
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'companion_album_candidates',
+        columns: const ['lifecycle_state'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty || rows.first['lifecycle_state'] != 'candidate') {
+        return false;
+      }
+      if (save && contentSha256.isNotEmpty) {
+        final duplicate = await txn.query(
+          'companion_album_candidates',
+          columns: const ['id'],
+          where:
+              "id != ? AND content_sha256 = ? AND lifecycle_state IN ('saved','soft_deleted')",
+          whereArgs: [id, contentSha256],
+          limit: 1,
+        );
+        if (duplicate.isNotEmpty) {
+          await txn.update(
+            'companion_album_candidates',
+            {
+              'lifecycle_state': 'rejected',
+              'vision_summary': _bounded(visionSummary, 1800),
+              'vision_model': _bounded(visionModel, 120),
+              'ai_reason': '与相册现有缩略图重复',
+              'recognized_at': recognizedAt.millisecondsSinceEpoch,
+              'updated_at': recognizedAt.millisecondsSinceEpoch,
+            },
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+          return false;
+        }
+      }
+      final normalizedCategory =
+          const {'memory', 'self_image', 'nsfw', 'other'}.contains(category)
+              ? category
+              : 'other';
+      final changed = await txn.update(
+        'companion_album_candidates',
+        {
+          'lifecycle_state': save ? 'saved' : 'rejected',
+          'vision_summary': _bounded(visionSummary, 1800),
+          'vision_model': _bounded(visionModel, 120),
+          'ai_reason': _bounded(aiReason, 360),
+          'category': nsfw ? 'nsfw' : normalizedCategory,
+          'nsfw': nsfw ? 1 : 0,
+          'thumbnail_path': save ? thumbnailPath : '',
+          'content_sha256': save ? contentSha256 : '',
+          'visual_fingerprint': _bounded(visualFingerprint, 600),
+          'recognized_at': recognizedAt.millisecondsSinceEpoch,
+          'saved_at': save ? recognizedAt.millisecondsSinceEpoch : null,
+          'unread': save ? 1 : 0,
+          'last_error': '',
+          'updated_at': recognizedAt.millisecondsSinceEpoch,
+        },
+        where: "id = ? AND lifecycle_state = 'candidate'",
+        whereArgs: [id],
+      );
+      return changed == 1;
+    });
+  }
+
+  Future<void> expireCompanionAlbumCandidate(String id, String error) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.update(
+      'companion_album_candidates',
+      {
+        'lifecycle_state': 'expired',
+        'last_error': _bounded(error, 360),
+        'updated_at': now,
+      },
+      where: "id = ? AND lifecycle_state = 'candidate'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<CompanionAlbumItem>> companionAlbumItems({
+    bool includeNsfw = false,
+    int limit = 240,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'companion_album_candidates',
+      where:
+          "lifecycle_state IN ('saved','soft_deleted')" +
+              (includeNsfw ? '' : ' AND nsfw = 0'),
+      orderBy: 'saved_at DESC, id DESC',
+      limit: limit.clamp(1, 500).toInt(),
+    );
+    return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
+  }
+
+  Future<int> companionAlbumUnreadCount() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      "SELECT COUNT(*) FROM companion_album_candidates WHERE unread = 1 AND lifecycle_state IN ('saved','soft_deleted')",
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  Future<void> markCompanionAlbumRead() async {
+    final db = await database;
+    await db.update(
+      'companion_album_candidates',
+      {'unread': 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      where: "unread = 1 AND lifecycle_state IN ('saved','soft_deleted')",
+    );
+  }
+
+  Future<void> setCompanionAlbumFeedback(
+    String id, {
+    required String feedback,
+    String? comment,
+  }) async {
+    const allowed = {'like', 'dislike', 'neutral'};
+    if (!allowed.contains(feedback)) {
+      throw ArgumentError.value(feedback, 'feedback');
+    }
+    final db = await database;
+    final now = DateTime.now();
+    await db.update(
+      'companion_album_candidates',
+      {
+        'user_feedback': feedback,
+        if (comment != null) 'user_comment': _bounded(comment.trim(), 600),
+        'lifecycle_state': feedback == 'dislike' ? 'soft_deleted' : 'saved',
+        'delete_after': feedback == 'dislike'
+            ? now.add(const Duration(hours: 1)).millisecondsSinceEpoch
+            : null,
+        'updated_at': now.millisecondsSinceEpoch,
+      },
+      where: "id = ? AND lifecycle_state IN ('saved','soft_deleted')",
+      whereArgs: [id],
+    );
+  }
+
+  Future<String> deleteCompanionAlbumItem(String id) async {
+    final db = await database;
+    return db.transaction<String>((txn) async {
+      final rows = await txn.query(
+        'companion_album_candidates',
+        columns: const ['thumbnail_path'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return '';
+      await txn.update(
+        'companion_album_candidates',
+        {
+          'lifecycle_state': 'deleted',
+          'delete_after': null,
+          'unread': 0,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      return rows.first['thumbnail_path'] as String? ?? '';
+    });
+  }
+
+  Future<List<String>> purgeDueCompanionAlbumDeletes({DateTime? now}) async {
+    final db = await database;
+    final at = (now ?? DateTime.now()).millisecondsSinceEpoch;
+    return db.transaction<List<String>>((txn) async {
+      final rows = await txn.query(
+        'companion_album_candidates',
+        columns: const ['id', 'thumbnail_path'],
+        where: "lifecycle_state = 'soft_deleted' AND delete_after IS NOT NULL AND delete_after <= ?",
+        whereArgs: [at],
+      );
+      if (rows.isEmpty) return const [];
+      final ids = rows.map((row) => row['id'] as String).toList();
+      final placeholders = List.filled(ids.length, '?').join(',');
+      await txn.rawUpdate(
+        "UPDATE companion_album_candidates SET lifecycle_state = 'deleted', unread = 0, updated_at = ? WHERE id IN ($placeholders)",
+        [at, ...ids],
+      );
+      return rows
+          .map((row) => row['thumbnail_path'] as String? ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  Future<String> companionAlbumPreferenceHint() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT category, user_feedback, COUNT(*) AS count
+      FROM companion_album_candidates
+      WHERE user_feedback IN ('like','dislike')
+      GROUP BY category, user_feedback
+      ORDER BY count DESC
+    ''');
+    if (rows.isEmpty) return '';
+    final parts = rows.take(12).map((row) =>
+        '${row['category']}:${row['user_feedback']}=${row['count']}');
+    return '仅把这些匿名分类计数作为弱审美提示：${parts.join('，')}。'
+        '不要把它解释为聊天内容或用户对角色的评价。';
+  }
+
+  Future<Map<String, Object?>> companionAlbumDiagnosticStats() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT lifecycle_state, COUNT(*) AS count
+      FROM companion_album_candidates
+      GROUP BY lifecycle_state
+    ''');
+    final byState = <String, int>{
+      for (final row in rows)
+        row['lifecycle_state']?.toString() ?? 'unknown':
+            (row['count'] as num?)?.toInt() ?? 0,
+    };
+    return {
+      'byState': byState,
+      'unread': await companionAlbumUnreadCount(),
+      'preferenceFeedbackRows': (await db.rawQuery(
+        "SELECT COUNT(*) FROM companion_album_candidates WHERE user_feedback IN ('like','dislike')",
+      )).first.values.first,
+      'imageBodiesIncluded': false,
+      'commentsIncluded': false,
+    };
   }
 
   Future<Map<String, Object?>> autonomousActionDiagnosticStats({
@@ -10564,6 +10987,13 @@ class AppDatabase {
     await _seedRuleLayers(await database);
     await ensureDeviceId();
     await ensureStateLineageId();
+  }
+
+  static String _bounded(String value, int limit) {
+    final normalized = value.trim();
+    return normalized.length <= limit
+        ? normalized
+        : normalized.substring(0, limit).trimRight();
   }
 
   Future<void> close() async {
