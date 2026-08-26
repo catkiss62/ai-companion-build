@@ -21,7 +21,7 @@ assert any(
     version in pubspec
     for version in ("version: 0.38.4+103", "version: 0.38.5+104", "version: 0.38.6+105", "version: 0.38.7+106")
 )
-assert any(\n    token in database\n    for token in (\n        "static const int schemaVersion = 32;",\n        "static const int schemaVersion = 33;",\n    )\n)
+assert (\n    "static const int schemaVersion = 32;" in database\n    or "static const int schemaVersion = 33;" in database\n)
 
 for token in (
     "Widget _desireProgressRow({",
