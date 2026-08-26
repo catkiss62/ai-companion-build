@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED LOCALLY / CI & APK PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.38.15 不可作为聊天候选：模型按新契约输出“无括号动作行 → 空一行 → `「对白」`”后，回复完成时动作被最终界面错误渲染为 `「动作」`。本批只修复该语义解析缺陷并恢复已存 v0.38.15 消息，不修改用户已确认的斜体、动作/对白空行、分隔线、小说黄色、用户气泡、75%初始透明度、正文流式、解锁或悬浮入口。目标 `0.38.16+115`，SQLite schema 保持33；思考链翻译继续独立后置。
 
@@ -28,8 +28,10 @@
 
 ### B. 当前进度与待验
 
-1. 独立分支 `agent/v03816-action-segment-parser-hotfix` 已从 v0.38.15 总账 head 建立；本地代码和测试已实现。当前工作区没有 Flutter SDK，完整 Dart/Flutter/Kotlin编译、全量测试、release APK、稳定签名及载荷仍必须由公开 Actions 验证，在此之前不得写成 CI 或 APK 已通过。
-2. 真机待验：新回复的动作保持无括号白色斜体，不出现 `「动作」`；动作后空一行再显示 `#FDE68A` 的 `「对白」`；v0.38.15 已产生的错误历史消息重新打开后也恢复；正文仍逐字流式，完成瞬间不改变动作/对白语义；其余解锁、气泡和悬浮入口无回退。
+1. 独立分支 `agent/v03816-action-segment-parser-hotfix` 已从 v0.38.15 总账 head 建立；远端产品提交 `a23d90c9e893954e4177f3f55bd1fe1d2ed8493a`，堆叠 [Draft PR #37](https://github.com/catkiss62/ai-companion-build/pull/37) 以 v0.38.15 分支为 base，main 与更早 Draft PR 均未修改或合并。
+2. GitHub Actions [run #548（32981768115）](https://github.com/catkiss62/ai-companion-build/actions/runs/32981768115) 全绿：全部源码/历史回归、依赖解析、Kotlin 桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact 与 Draft Release 上传均成功。Flutter tests 实际执行并通过“动作—空行—对白”、v0.38.15 错误缓存自愈及普通段落不误判三类用例。
+3. APK `AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK.apk`，329,587,588 bytes，SHA-256 `0476e563170ddd62c36028ba075f1398b6c964763a85b1e8c85d5dc64cdf33f2`。Artifact ID `9612138304`（ZIP 323,372,707 bytes，digest `97709155db8040c01bed90b8e053cf398081ddfa09f6bcac21742c9039a87cb3`）；草稿 Release [untagged-a1210434c6bc95299697](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1210434c6bc95299697)。签名身份保持不变，可覆盖安装前版。
+4. 真机待验：新回复的动作保持无括号白色斜体，不出现 `「动作」`；动作后空一行再显示 `#FDE68A` 的 `「对白」`；v0.38.15 已产生的错误历史消息重新打开后也恢复；正文仍逐字流式，完成瞬间不改变动作/对白语义；其余解锁、气泡和悬浮入口无回退。自动测试通过不等于真机通过。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.16）
