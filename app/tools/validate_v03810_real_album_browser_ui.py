@@ -27,6 +27,7 @@ assert "version: 0.38.10+109" in pubspec
 assert "static const int schemaVersion = 33;" in db
 assert "_createV33Tables" in db
 assert "CREATE TABLE IF NOT EXISTS companion_album_candidates" in db
+assert "CREATE TABLE IF NOT EXISTS companion_browser_visits" in db
 for column in ("image_url", "image_domain", "image_description"):
     assert column in db
 for lifecycle in (
@@ -43,6 +44,7 @@ assert "a.status = 'succeeded'" in db
 assert "a.outcome_kind = 'candidate_stored'" in db
 assert "a.reason_source NOT LIKE 'diagnostic_%'" in db
 assert "maxPerDay.clamp(1, 3)" in db
+assert "phoneEnabled && !diagnosticRun && browserUsed < 3" in db
 assert "Duration(hours: 1)" in db
 assert "commentsIncluded': false" in db
 assert "imageBodiesIncluded': false" in db
