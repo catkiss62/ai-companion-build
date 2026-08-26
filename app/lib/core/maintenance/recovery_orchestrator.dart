@@ -7,6 +7,7 @@ import '../desire/proactive_engine.dart';
 import '../models/desire_state.dart';
 import '../presence/background_presence_policy.dart';
 import '../phone/simulated_phone_repository.dart';
+import '../phone/companion_album_discovery_engine.dart';
 
 class RecoveryCycleResult {
   const RecoveryCycleResult({
@@ -77,6 +78,25 @@ class RecoveryOrchestrator {
         retryIfBusy: false,
         maxJobs: 2,
       );
+      await _guardOrchestratorOwnership();
+
+      if (await db.blockingGenerationJob() == null) {
+        final albumDiscovery = CompanionAlbumDiscoveryEngine(db: db);
+        try {
+          final albumState = await albumDiscovery.runOneIfDue();
+          await db.setSetting('companion_album_last_worker_state', albumState);
+          if (albumState != 'failed') {
+            await db.setSetting('companion_album_last_error', '');
+          }
+        } catch (albumError) {
+          await db.setSetting(
+            'companion_album_last_error',
+            _compact(albumError.toString(), 360),
+          );
+        } finally {
+          albumDiscovery.close();
+        }
+      }
       await _guardOrchestratorOwnership();
 
       final now = DateTime.now();
