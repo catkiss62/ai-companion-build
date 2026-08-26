@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/phone/simulated_phone_repository.dart';
+import '../../core/models/companion_album.dart';
+import '../../core/storage/companion_album_storage.dart';
 
 const bg = Color(0xFF080C18);
 const text1 = Color(0xFFF0F0F5);
@@ -30,8 +33,10 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
       SimulatedPhoneRepository(AppDatabase.instance);
   SimulatedPhoneSnapshot? snapshot;
   Timer? timer;
+  Timer? unlockTimer;
   DateTime now = DateTime.now();
   bool locked = true;
+  bool unlocking = false;
   bool loading = true;
   bool changingSwitch = false;
   double unlockDrag = 0;
@@ -49,6 +54,7 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
   @override
   void dispose() {
     timer?.cancel();
+    unlockTimer?.cancel();
     super.dispose();
   }
 
@@ -88,10 +94,19 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
   }
 
   void unlock() {
-    if (!locked) return;
+    if (!locked || unlocking) return;
     setState(() {
-      locked = false;
-      unlockDrag = 0;
+      unlocking = true;
+      unlockDrag = 108;
+    });
+    unlockTimer?.cancel();
+    unlockTimer = Timer(const Duration(milliseconds: 520), () {
+      if (!mounted) return;
+      setState(() {
+        locked = false;
+        unlocking = false;
+        unlockDrag = 0;
+      });
     });
   }
 
@@ -124,14 +139,20 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
               ),
             ),
             IgnorePointer(
-              ignoring: !locked,
+              ignoring: !locked || unlocking,
               child: AnimatedOpacity(
-                opacity: locked ? 1 : 0,
-                duration: const Duration(milliseconds: 360),
-                child: AnimatedSlide(
-                  offset: locked ? Offset.zero : const Offset(0, -0.025),
-                  duration: const Duration(milliseconds: 360),
-                  child: LockScreen(
+                opacity: locked && !unlocking ? 1 : 0,
+                duration: const Duration(milliseconds: 480),
+                curve: Curves.easeInOutCubic,
+                child: AnimatedScale(
+                  scale: unlocking ? 1.08 : 1,
+                  duration: const Duration(milliseconds: 520),
+                  curve: Curves.easeInOutCubic,
+                  child: AnimatedSlide(
+                    offset: unlocking ? const Offset(0, -0.07) : Offset.zero,
+                    duration: const Duration(milliseconds: 520),
+                    curve: Curves.easeInOutCubic,
+                    child: LockScreen(
                     now: now,
                     snapshot: snapshot,
                     drag: unlockDrag,
@@ -148,7 +169,8 @@ class _SimulatedPhonePageState extends State<SimulatedPhonePage> {
                         setState(() => unlockDrag = 0);
                       }
                     },
-                    onUnlock: unlock,
+                      onUnlock: unlock,
+                    ),
                   ),
                 ),
               ),
@@ -205,15 +227,6 @@ class PhoneStatusBar extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                   ),
-                ),
-              ),
-              Glass(
-                radius: 18,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
-                child: const Text(
-                  '查手机',
-                  style: TextStyle(color: text2, fontSize: 12),
                 ),
               ),
               const Align(
@@ -395,109 +408,117 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final apps = buildApps(snapshot);
-    return RefreshIndicator(
-      onRefresh: () => onRefresh(),
-      color: purple,
-      backgroundColor: const Color(0xFF151625),
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 9),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Glass(
-                  radius: 28,
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF7C3AED), purple],
+    final apps = buildApps(snapshot, onRefresh);
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => onRefresh(),
+            color: purple,
+            backgroundColor: const Color(0xFF151625),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 290),
+                        child: Glass(
+                          radius: 28,
+                          padding: const EdgeInsets.fromLTRB(7, 6, 8, 6),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFEEEAF8),
+                                backgroundImage: AssetImage(
+                                  'assets/appearance/chat_avatar.webp',
+                                ),
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Whale Phone',
+                                      style: TextStyle(
+                                        color: text1,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      snapshot?.enabled == false
+                                          ? '更新已暂停'
+                                          : '生活更新中',
+                                      style: const TextStyle(
+                                        color: text3,
+                                        fontSize: 10.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (changingSwitch)
+                                const SizedBox.square(
+                                  dimension: 21,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else
+                                Transform.scale(
+                                  scale: 0.82,
+                                  child: Switch(
+                                    value: snapshot?.enabled ?? true,
+                                    activeThumbColor: purple,
+                                    onChanged: onEnabledChanged,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        child:
-                            const Text('🐋', style: TextStyle(fontSize: 19)),
                       ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Whale Phone',
-                              style: TextStyle(
-                                color: text1,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              snapshot?.enabled == false
-                                  ? '更新已暂停'
-                                  : '生活更新中',
-                              style: const TextStyle(
-                                color: text3,
-                                fontSize: 10.5,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const Spacer(),
+                    IconButton.filledTonal(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.07),
+                        foregroundColor: text2,
                       ),
-                      if (changingSwitch)
-                        const SizedBox.square(
-                          dimension: 21,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        Transform.scale(
-                          scale: 0.82,
-                          child: Switch(
-                            value: snapshot?.enabled ?? true,
-                            activeThumbColor: purple,
-                            onChanged: onEnabledChanged,
-                          ),
-                        ),
-                    ],
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                    ),
+                  ],
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(error!, style: const TextStyle(color: Color(0xFFFF9DA8))),
+                ],
+                const SizedBox(height: 23),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 21,
+                    crossAxisSpacing: 4,
+                    childAspectRatio: 0.78,
                   ),
+                  itemCount: apps.length,
+                  itemBuilder: (_, index) => AppIcon(item: apps[index]),
                 ),
-              ),
-              const SizedBox(width: 9),
-              IconButton.filledTonal(
-                onPressed: () => Navigator.of(context).pop(),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.07),
-                  foregroundColor: text2,
-                ),
-                icon: const Icon(Icons.close_rounded, size: 19),
-              ),
-            ],
-          ),
-          if (error != null) ...[
-            const SizedBox(height: 8),
-            Text(error!, style: const TextStyle(color: Color(0xFFFF9DA8))),
-          ],
-          const SizedBox(height: 23),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 21,
-              crossAxisSpacing: 4,
-              childAspectRatio: 0.78,
+              ],
             ),
-            itemCount: apps.length,
-            itemBuilder: (_, index) => AppIcon(item: apps[index]),
           ),
-          const SizedBox(height: 30),
-          Glass(
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+          child: Glass(
             radius: 24,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
@@ -507,16 +528,17 @@ class HomeScreen extends StatelessWidget {
                   .toList(),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            '关闭更新不会删除历史 · 塔罗牌仍会每天更新',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: text3, fontSize: 11),
-          ),
-          const SizedBox(height: 11),
-          const HomeIndicator(),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '关闭更新不会删除历史 · 塔罗牌仍会每天更新',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: text3, fontSize: 11),
+        ),
+        const SizedBox(height: 8),
+        const HomeIndicator(),
+        const SizedBox(height: 3),
+      ],
     );
   }
 }
@@ -528,6 +550,8 @@ class PhoneAppItem {
     required this.colors,
     required this.page,
     this.badge,
+    this.onOpen,
+    this.onClosed,
   });
 
   final String title;
@@ -535,66 +559,86 @@ class PhoneAppItem {
   final List<Color> colors;
   final int? badge;
   final Widget page;
+  final Future<void> Function()? onOpen;
+  final Future<void> Function()? onClosed;
 }
 
-List<PhoneAppItem> buildApps(SimulatedPhoneSnapshot? snapshot) => [
-      const PhoneAppItem(
-        title: '相册',
-        emoji: '🖼️',
-        colors: [Color(0xFF381146), Color(0xFF8B5CF6)],
-        page: AlbumPage(),
+List<PhoneAppItem> buildApps(
+  SimulatedPhoneSnapshot? snapshot,
+  Future<void> Function({bool silent}) onRefresh,
+) {
+  final repository = SimulatedPhoneRepository(AppDatabase.instance);
+  Future<void> refreshAfterClose() => onRefresh(silent: true);
+  return [
+    PhoneAppItem(
+      title: '相册',
+      emoji: '🖼️',
+      colors: const [Color(0xFF381146), Color(0xFF8B5CF6)],
+      badge: snapshot?.albumUnread,
+      onOpen: repository.markAlbumRead,
+      onClosed: refreshAfterClose,
+      page: AlbumPage(
+        entries: snapshot?.albumItems ?? const [],
+        repository: repository,
       ),
-      const PhoneAppItem(
-        title: '浏览器',
-        emoji: '🌐',
-        colors: [Color(0xFF062D5D), Color(0xFF3B82F6)],
-        page: BrowserPage(),
+    ),
+    PhoneAppItem(
+      title: '浏览器',
+      emoji: '🌐',
+      colors: const [Color(0xFF062D5D), Color(0xFF3B82F6)],
+      page: BrowserPage(entries: snapshot?.browserVisits ?? const []),
+    ),
+    PhoneAppItem(
+      title: '随笔',
+      emoji: '📝',
+      colors: const [Color(0xFF493D04), yellow],
+      badge: snapshot?.notesUnread,
+      onOpen: repository.markNotesRead,
+      onClosed: refreshAfterClose,
+      page: NotesPage(entries: snapshot?.notes ?? const []),
+    ),
+    PhoneAppItem(
+      title: '心情',
+      emoji: '💗',
+      colors: const [Color(0xFF50101A), pink],
+      page: MoodPage(entries: snapshot?.moods ?? const []),
+    ),
+    PhoneAppItem(
+      title: '愿望单',
+      emoji: '✨',
+      colors: const [Color(0xFF261153), purple],
+      page: WishPage(snapshot: snapshot),
+    ),
+    PhoneAppItem(
+      title: '日记',
+      emoji: '📔',
+      colors: const [Color(0xFF0A3526), green],
+      page: DiaryPage(entries: snapshot?.diary ?? const []),
+    ),
+    PhoneAppItem(
+      title: '购物车',
+      emoji: '🛒',
+      colors: const [Color(0xFF482006), orange],
+      page: CartPage(entries: snapshot?.cart ?? const []),
+    ),
+    PhoneAppItem(
+      title: '塔罗牌',
+      emoji: '🔮',
+      colors: const [Color(0xFF301044), Color(0xFFE879F9)],
+      page: TarotPage(
+        self: snapshot?.tarotSelf,
+        user: snapshot?.tarotUser,
       ),
-      PhoneAppItem(
-        title: '随笔',
-        emoji: '📝',
-        colors: const [Color(0xFF493D04), yellow],
-        badge: snapshot?.notes.length,
-        page: NotesPage(entries: snapshot?.notes ?? const []),
-      ),
-      PhoneAppItem(
-        title: '心情',
-        emoji: '💗',
-        colors: const [Color(0xFF50101A), pink],
-        page: MoodPage(entries: snapshot?.moods ?? const []),
-      ),
-      PhoneAppItem(
-        title: '愿望单',
-        emoji: '✨',
-        colors: const [Color(0xFF261153), purple],
-        badge: snapshot?.wishes.length,
-        page: WishPage(snapshot: snapshot),
-      ),
-      PhoneAppItem(
-        title: '日记',
-        emoji: '📔',
-        colors: const [Color(0xFF0A3526), green],
-        badge: snapshot?.diary.length,
-        page: DiaryPage(entries: snapshot?.diary ?? const []),
-      ),
-      PhoneAppItem(
-        title: '购物车',
-        emoji: '🛒',
-        colors: const [Color(0xFF482006), orange],
-        badge: snapshot?.cart.length,
-        page: CartPage(entries: snapshot?.cart ?? const []),
-      ),
-      PhoneAppItem(
-        title: '塔罗牌',
-        emoji: '🔮',
-        colors: const [Color(0xFF301044), Color(0xFFE879F9)],
-        badge: 2,
-        page: TarotPage(
-          self: snapshot?.tarotSelf,
-          user: snapshot?.tarotUser,
-        ),
-      ),
-    ];
+    ),
+  ];
+}
+
+Future<void> openPhoneApp(BuildContext context, PhoneAppItem item) async {
+  await item.onOpen?.call();
+  if (!context.mounted) return;
+  await openPhonePage(context, item.page);
+  await item.onClosed?.call();
+}
 
 class AppIcon extends StatelessWidget {
   const AppIcon({required this.item, super.key});
@@ -602,7 +646,7 @@ class AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkResponse(
-        onTap: () => openPhonePage(context, item.page),
+        onTap: () => openPhoneApp(context, item),
         radius: 42,
         child: Column(
           children: [
@@ -678,7 +722,7 @@ class DockIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkResponse(
-        onTap: () => openPhonePage(context, item.page),
+        onTap: () => openPhoneApp(context, item),
         radius: 32,
         child: Container(
           width: 52,
@@ -694,96 +738,550 @@ class DockIcon extends StatelessWidget {
       );
 }
 
-class AlbumPage extends StatelessWidget {
-  const AlbumPage({super.key});
+class AlbumPage extends StatefulWidget {
+  const AlbumPage({
+    required this.entries,
+    required this.repository,
+    super.key,
+  });
+
+  final List<CompanionAlbumItem> entries;
+  final SimulatedPhoneRepository repository;
+
+  @override
+  State<AlbumPage> createState() => _AlbumPageState();
+}
+
+class _AlbumPageState extends State<AlbumPage> {
+  String category = 'all';
+  late List<CompanionAlbumItem> entries = [...widget.entries];
+
+  List<CompanionAlbumItem> get visible => category == 'all'
+      ? entries
+      : entries.where((item) => item.category == category).toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final items = visible;
+    return PhoneAppScaffold(
+      emoji: '🖼️',
+      title: '相册',
+      actions: [
+        IconButton(
+          tooltip: '清理未引用缓存',
+          onPressed: () async {
+            final removed = await widget.repository.clearAlbumCache();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已清理 ${removed} 个未引用缩略图')),
+            );
+          },
+          icon: const Icon(Icons.cleaning_services_outlined, size: 20),
+        ),
+      ],
+      child: entries.isEmpty
+          ? const HonestEmpty(
+              emoji: '🌊',
+              title: '还没有保存图片',
+              body: '只有她真正看过并决定收藏的图片才会出现在这里。',
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _AlbumFilter(
+                        label: '全部',
+                        active: category == 'all',
+                        onTap: () => setState(() => category = 'all'),
+                      ),
+                      _AlbumFilter(
+                        label: '回忆',
+                        active: category == 'memory',
+                        onTap: () => setState(() => category = 'memory'),
+                      ),
+                      _AlbumFilter(
+                        label: '形象插画',
+                        active: category == 'self_image',
+                        onTap: () => setState(() => category = 'self_image'),
+                      ),
+                      _AlbumFilter(
+                        label: 'NSFW',
+                        active: category == 'nsfw',
+                        onTap: () => setState(() => category = 'nsfw'),
+                      ),
+                      _AlbumFilter(
+                        label: '其他',
+                        active: category == 'other',
+                        onTap: () => setState(() => category = 'other'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      '${items.length} 张',
+                      style: const TextStyle(
+                        color: text1,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Text(
+                      '仅本地缩略图',
+                      style: TextStyle(color: text3, fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 72),
+                    child: HonestEmpty(
+                      emoji: '🫧',
+                      title: '这个分类还是空的',
+                      body: '她还没有把图片放进这里。',
+                    ),
+                  )
+                else
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 4,
+                      crossAxisSpacing: 4,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _AlbumTile(
+                        item: item,
+                        onTap: () async {
+                          await openPhonePage(
+                            context,
+                            AlbumDetailPage(
+                              item: item,
+                              repository: widget.repository,
+                            ),
+                          );
+                          if (!mounted) return;
+                          final current = await AppDatabase.instance
+                              .companionAlbumItems(includeNsfw: true);
+                          setState(() => entries = current);
+                        },
+                      );
+                    },
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _AlbumFilter extends StatelessWidget {
+  const _AlbumFilter({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 7),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: active,
+          onSelected: (_) => onTap(),
+          selectedColor: purple.withValues(alpha: 0.28),
+          backgroundColor: Colors.white.withValues(alpha: 0.055),
+          side: BorderSide(
+            color: active
+                ? purple.withValues(alpha: 0.48)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+          labelStyle: TextStyle(color: active ? text1 : text2),
+          showCheckmark: false,
+        ),
+      );
+}
+
+class _AlbumTile extends StatelessWidget {
+  const _AlbumTile({required this.item, required this.onTap});
+  final CompanionAlbumItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              FutureBuilder<File>(
+                future: CompanionAlbumStorage().fileFor(item.thumbnailPath),
+                builder: (context, snapshot) => snapshot.hasData
+                    ? Image.file(
+                        snapshot.data!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const _MissingAlbumImage(),
+                      )
+                    : const ColoredBox(
+                        color: Color(0x191F2937),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                      ),
+              ),
+              if (item.nsfw)
+                Container(
+                  color: const Color(0xDD11131B),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '🔞\n轻触查看',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: text2, fontSize: 11),
+                  ),
+                ),
+              if (item.isPendingDelete)
+                Positioned(
+                  left: 5,
+                  right: 5,
+                  bottom: 5,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xDDB91C1C),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      '1小时后清理',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 9),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _MissingAlbumImage extends StatelessWidget {
+  const _MissingAlbumImage();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        color: Colors.white.withValues(alpha: 0.04),
+        alignment: Alignment.center,
+        child: const Text('🫥', style: TextStyle(fontSize: 26)),
+      );
+}
+
+class AlbumDetailPage extends StatefulWidget {
+  const AlbumDetailPage({
+    required this.item,
+    required this.repository,
+    super.key,
+  });
+  final CompanionAlbumItem item;
+  final SimulatedPhoneRepository repository;
+
+  @override
+  State<AlbumDetailPage> createState() => _AlbumDetailPageState();
+}
+
+class _AlbumDetailPageState extends State<AlbumDetailPage> {
+  late String feedback = widget.item.feedback;
+  late String comment = widget.item.comment;
+  bool revealNsfw = false;
+  bool busy = false;
+
+  Future<void> setFeedback(String value) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      await widget.repository.setAlbumFeedback(
+        widget.item.id,
+        feedback: value,
+        comment: comment,
+      );
+      if (!mounted) return;
+      setState(() => feedback = value);
+      if (value == 'dislike') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已记录审美偏好；这张图会在 1 小时后清理')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> editComment() async {
+    final controller = TextEditingController(text: comment);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('给这张图留个备注'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 600,
+          maxLines: 4,
+          decoration: const InputDecoration(hintText: '不会变成聊天消息或事实记忆'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    await widget.repository.setAlbumFeedback(
+      widget.item.id,
+      feedback: feedback,
+      comment: value,
+    );
+    if (mounted) setState(() => comment = value);
+  }
+
+  Future<void> deleteNow() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('删除这张收藏？'),
+            content: const Text('这会立即删除本地相册缩略图；不会删除原聊天消息。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    await widget.repository.deleteAlbumItem(widget.item.id);
+    if (mounted) Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) => PhoneAppScaffold(
         emoji: '🖼️',
-        title: '相册',
+        title: widget.item.title.isEmpty ? '图片详情' : widget.item.title,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
           children: [
-            const SectionLabel('所有照片 · 0 张'),
-            const SizedBox(height: 8),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 6,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 3,
-                crossAxisSpacing: 3,
+            AspectRatio(
+              aspectRatio: 1,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    FutureBuilder<File>(
+                      future: CompanionAlbumStorage()
+                          .fileFor(widget.item.thumbnailPath),
+                      builder: (context, snapshot) => snapshot.hasData
+                          ? Image.file(snapshot.data!, fit: BoxFit.contain)
+                          : const _MissingAlbumImage(),
+                    ),
+                    if (widget.item.nsfw && !revealNsfw)
+                      InkWell(
+                        onTap: () => setState(() => revealNsfw = true),
+                        child: Container(
+                          color: const Color(0xF211131B),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            '🔞\nNSFW 分类\n轻触后显示',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: text1, height: 1.6),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              itemBuilder: (_, index) => Container(
-                alignment: Alignment.center,
+            ),
+            const SizedBox(height: 15),
+            Text(
+              widget.item.summary,
+              style: const TextStyle(color: text1, height: 1.55),
+            ),
+            if (widget.item.reason.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              Text(
+                '她保存它的理由：${widget.item.reason}',
+                style: const TextStyle(color: purple, height: 1.5),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              '来源：${widget.item.sourceDomain.isEmpty ? '你发来的图片' : widget.item.sourceDomain}'
+              ' · ${albumCategoryLabel(widget.item.category)}',
+              style: const TextStyle(color: text3, fontSize: 11),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _FeedbackButton(
+                  label: '👍 喜欢',
+                  active: feedback == 'like',
+                  onPressed: busy ? null : () => setFeedback('like'),
+                ),
+                _FeedbackButton(
+                  label: '👎 不喜欢',
+                  active: feedback == 'dislike',
+                  onPressed: busy ? null : () => setFeedback('dislike'),
+                ),
+                _FeedbackButton(
+                  label: '➖ 不判断',
+                  active: feedback == 'neutral',
+                  onPressed: busy ? null : () => setFeedback('neutral'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: busy ? null : editComment,
+                  icon: const Icon(Icons.mode_comment_outlined, size: 16),
+                  label: Text(comment.isEmpty ? '留言' : '修改留言'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: busy ? null : deleteNow,
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+            if (comment.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.035),
-                  borderRadius: BorderRadius.circular(3),
+                  color: Colors.white.withValues(alpha: 0.055),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Text(
-                  index == 1 ? '🐋' : index == 4 ? '📷' : '·',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.13),
-                    fontSize: 26,
-                  ),
-                ),
+                child: Text(comment,
+                    style: const TextStyle(color: text2, height: 1.5)),
               ),
-            ),
-            const SizedBox(height: 22),
-            const HonestEmpty(
-              emoji: '🌊',
-              title: '还没有保存图片',
-              body: '这里会在下一批接入用户发图和她真正从网页发现、决定收藏的图片。',
-            ),
+            ],
           ],
         ),
       );
 }
 
+class _FeedbackButton extends StatelessWidget {
+  const _FeedbackButton({
+    required this.label,
+    required this.active,
+    required this.onPressed,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton.tonal(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              active ? purple.withValues(alpha: 0.32) : null,
+        ),
+        child: Text(label),
+      );
+}
+
 class BrowserPage extends StatelessWidget {
-  const BrowserPage({super.key});
+  const BrowserPage({required this.entries, super.key});
+  final List<CompanionBrowserVisit> entries;
 
   @override
   Widget build(BuildContext context) => PhoneAppScaffold(
         emoji: '🌐',
         title: '浏览器',
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-          children: [
-            const Glass(
-              radius: 13,
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Text('🔍', style: TextStyle(fontSize: 13)),
-                  SizedBox(width: 8),
-                  Text('搜索浏览记录…',
-                      style: TextStyle(color: text3)),
-                ],
+        child: entries.isEmpty
+            ? const HonestEmpty(
+                emoji: '🧭',
+                title: '没有真实浏览记录',
+                body: '这里只显示她真正完成的自主公开网页搜索；失败、测试和搜索意图不会冒充历史。',
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+                itemCount: entries.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 9),
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xB3141824),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.07),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('🌐', style: TextStyle(fontSize: 17)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                entry.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: text1,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          entry.summary,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: text2, height: 1.48),
+                        ),
+                        const SizedBox(height: 9),
+                        Text(
+                          '${entry.domain} · ${entry.provider} · ${phoneDateTime(entry.discoveredAt)}',
+                          style: const TextStyle(color: text3, fontSize: 10.5),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 10),
-            const SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  FilterTag('全部', active: true),
-                  FilterTag('图片'),
-                  FilterTag('生活'),
-                  FilterTag('关于我'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 36),
-            const HonestEmpty(
-              emoji: '🧭',
-              title: '没有真实浏览记录',
-              body: '这里不会用随机文字冒充访问历史。下一批只接入真正完成的网页搜索与浏览。',
-            ),
-          ],
-        ),
       );
 }
 
@@ -835,7 +1333,7 @@ class NotesPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          entry.localDay,
+                          '${entry.localDay} · ${phoneTime(entry.createdAt)}',
                           style:
                               const TextStyle(color: text3, fontSize: 11),
                         ),
@@ -905,7 +1403,7 @@ class _MoodPageState extends State<MoodPage> {
               crossAxisCount: 2,
               mainAxisSpacing: 9,
               crossAxisSpacing: 9,
-              childAspectRatio: 1.18,
+              childAspectRatio: 1.30,
             ),
             itemBuilder: (_, index) {
               final item = stats[index];
@@ -967,7 +1465,7 @@ class _MoodPageState extends State<MoodPage> {
                 ),
                 const SizedBox(height: 9),
                 SizedBox(
-                  height: 142,
+                  height: 210,
                   child: MoodChart(
                     entries: history,
                     values: values,
@@ -1642,12 +2140,14 @@ class PhoneAppScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.bottom,
+    this.actions = const [],
     super.key,
   });
   final String emoji;
   final String title;
   final Widget child;
   final PreferredSizeWidget? bottom;
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1664,6 +2164,7 @@ class PhoneAppScaffold extends StatelessWidget {
               Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
             ],
           ),
+          actions: actions,
           bottom: bottom,
         ),
         body: Stack(
@@ -1796,8 +2297,8 @@ class HomeIndicator extends StatelessWidget {
       );
 }
 
-void openPhonePage(BuildContext context, Widget page) {
-  Navigator.of(context).push(
+Future<void> openPhonePage(BuildContext context, Widget page) async {
+  await Navigator.of(context).push(
     PageRouteBuilder<void>(
       pageBuilder: (_, animation, __) => page,
       transitionsBuilder: (_, animation, __, child) => FadeTransition(
@@ -1862,6 +2363,18 @@ String phoneTime(DateTime now) =>
     now.hour.toString().padLeft(2, '0') +
     ':' +
     now.minute.toString().padLeft(2, '0');
+
+String phoneDateTime(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}-'
+    '${value.day.toString().padLeft(2, '0')} '
+    '${phoneTime(value)}';
+
+String albumCategoryLabel(String value) => switch (value) {
+      'memory' => '回忆',
+      'self_image' => '形象插画',
+      'nsfw' => 'NSFW',
+      _ => '其他',
+    };
 
 String phoneDate(DateTime now) {
   const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
