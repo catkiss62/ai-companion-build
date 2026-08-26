@@ -33,7 +33,7 @@ assert any(
         "version: 0.38.7+106",
     )
 )
-assert any(\n    token in database\n    for token in (\n        "static const int schemaVersion = 32;",\n        "static const int schemaVersion = 33;",\n    )\n)
+assert (\n    "static const int schemaVersion = 32;" in database\n    or "static const int schemaVersion = 33;" in database\n)
 
 for token in (
     "enum EmotionEnvelopeStatus",
