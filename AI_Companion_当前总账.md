@@ -15,7 +15,21 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.17 最终正文单次播放与小说式渲染收口（PRE-IMPLEMENTATION）
+
+> 用户真机确认 v0.38.16 仍不可用：思考结束瞬间会闪现包含动作的完整正文，随后正式逐字播放时动作/神态消失。只读对照会话附件 `index(1).html` 小说模式与 v0.38.13～16 源码后确认，当前 App 同时保留 provider 正文 delta 临时层和 durable message 本地逐字层，并在完成通知时先插入最终消息、后清理 `streamingContent`，造成一帧双重正文；最终层又把原文重新拆成 action/dialogue，形成与临时原文不同的第二条渲染路径。本批目标 `0.38.17+116`、schema 33，禁止继续在无括号动作上增加启发式正则。
+
+### A. 锁定方案与边界
+
+1. 思考链继续真实流式；正文在 provider 生成和情绪/服务模板校验完成前不进入可见 UI。最终 durable message 成为唯一正文来源，思考收起后只执行一次本地逐字播放，不允许临时完整正文与最终消息同时存在，也不允许候选 A 在校验前曝光。
+2. 情绪继续使用既有首行 `<emotion>标签</emotion>` 机器信封，由 `EmotionEnvelope` 在正文呈现前独立提取并隐藏；正文不新增 `[MIND]`、内心独白或可见结构标签。情绪缺失/损坏只能触发既有回退，不得删除正文。
+3. 按 `index(1).html::formatNovelText()` 的原理呈现最终正文：`「……」` 内为 `#FDE68A` 正常字形，外部全部为白色斜体叙述；不再为了显示目的把正文二次猜成 action/dialogue。分段按原始空行决定，组间保留细紫色分隔线，分隔线上下留白必须明显大于普通空行。
+4. 最终动作/神态采用中文省略主语写法，例如“歪头看你，尾巴在身后轻轻扫了一下。”；禁止以“我”“她”或角色名作为动作主语。可见思考仍可用第一人称；对白继续独占一行并用 `「」` 包裹。规则同时锁定不得代写用户动作、台词或反应。
+5. App durable message、首次逐字播放、历史恢复、TTS对白范围与 Android 原生悬浮聊天必须消费同一份原始正文。旧括号历史继续只在显示层隐藏括号；v0.38.15/16 派生 `segments_json` 不得继续覆盖权威 `content`。
+6. 本批不做思考链英文翻译、不改解锁控件、不改用户气泡、手机页面、人格/记忆、桌宠入口或数据库 schema。分支 `agent/v03817-final-body-single-playback` 从 v0.38.16 总账 head 建立；修改前先登记，自动测试与真机结论严格分开。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.17）
 
 > 用户真机确认 v0.38.15 不可作为聊天候选：模型按新契约输出“无括号动作行 → 空一行 → `「对白」`”后，回复完成时动作被最终界面错误渲染为 `「动作」`。本批只修复该语义解析缺陷并恢复已存 v0.38.15 消息，不修改用户已确认的斜体、动作/对白空行、分隔线、小说黄色、用户气泡、75%初始透明度、正文流式、解锁或悬浮入口。目标 `0.38.16+115`，SQLite schema 保持33；思考链翻译继续独立后置。
 
@@ -31,7 +45,7 @@
 1. 独立分支 `agent/v03816-action-segment-parser-hotfix` 已从 v0.38.15 总账 head 建立；远端产品提交 `a23d90c9e893954e4177f3f55bd1fe1d2ed8493a`，堆叠 [Draft PR #37](https://github.com/catkiss62/ai-companion-build/pull/37) 以 v0.38.15 分支为 base，main 与更早 Draft PR 均未修改或合并。
 2. GitHub Actions [run #548（32981768115）](https://github.com/catkiss62/ai-companion-build/actions/runs/32981768115) 全绿：全部源码/历史回归、依赖解析、Kotlin 桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact 与 Draft Release 上传均成功。Flutter tests 实际执行并通过“动作—空行—对白”、v0.38.15 错误缓存自愈及普通段落不误判三类用例。
 3. APK `AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK.apk`，329,587,588 bytes，SHA-256 `0476e563170ddd62c36028ba075f1398b6c964763a85b1e8c85d5dc64cdf33f2`。Artifact ID `9612138304`（ZIP 323,372,707 bytes，digest `97709155db8040c01bed90b8e053cf398081ddfa09f6bcac21742c9039a87cb3`）；草稿 Release [untagged-a1210434c6bc95299697](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a1210434c6bc95299697)。签名身份保持不变，可覆盖安装前版。
-4. 真机待验：新回复的动作保持无括号白色斜体，不出现 `「动作」`；动作后空一行再显示 `#FDE68A` 的 `「对白」`；v0.38.15 已产生的错误历史消息重新打开后也恢复；正文仍逐字流式，完成瞬间不改变动作/对白语义；其余解锁、气泡和悬浮入口无回退。自动测试通过不等于真机通过。
+4. 真机失败：思考结束瞬间闪现包含动作的完整正文，随后本地逐字播放阶段动作/神态消失。v0.38.16 的合成解析单测只证明理想样例能被分类，没有覆盖 provider 正文、完成通知、临时层清理、durable message 接管和历史恢复整条时序，因此 CI 全绿不能支持可用结论；该 APK 不再作为候选，由 v0.38.17 统一正文来源与显示路径。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.15 聊天样式回归热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.16）
