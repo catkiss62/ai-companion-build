@@ -105,6 +105,11 @@ class PreflightDiagnosticsService {
         'publicWebCandidateSummaryIncluded': false,
         'publicWebCandidateUrlIncluded': false,
         'publicWebQueryOrInterestKeyIncluded': false,
+        'companionAlbumImageBytesIncluded': false,
+        'companionAlbumPathsIncluded': false,
+        'companionAlbumSourceUrlsIncluded': false,
+        'companionAlbumTitlesOrSummariesIncluded': false,
+        'companionAlbumReasonsOrCommentsIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
         'overlayRawPackageIncluded': false,
@@ -144,6 +149,7 @@ class PreflightDiagnosticsService {
           await db.autonomousActionDiagnosticStats(now: now);
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
+      final companionAlbum = await db.companionAlbumDiagnosticStats();
       final personalityTrials = await db.personalityTrialDiagnostics();
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
@@ -432,6 +438,7 @@ class PreflightDiagnosticsService {
         },
         'autonomousActions': autonomousActions,
         'publicWebCandidates': publicWebCandidates,
+        'companionAlbum': companionAlbum,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
