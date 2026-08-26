@@ -33,6 +33,7 @@
 3. 新增 v0.38.13 静态回归，明确断言两条调用链必须不同；同时保留 v0.38.12 其他 UI、滚动和生成修复。待本地 validators、Kotlin/Flutter CI、APK与真机验收后回填准确证据。
 4. 常规首轮恢复 `emitDeltas: true`，正文继续逐 delta 进入 App 内聊天与共用流式 TTS；若 provider 选择原生工具且在 tool call 前确实输出了可见短前言，该前言与工具结果后的正文一起持久化，结束时不会消失。已显示正文命中反服务模板守卫时继续记录 `stream_preserved` 并原样提交，不进行隐藏的第二份生成，因此兼顾实时流式与 A→B 不突变。
 5. 本地已通过 v0.38.11/v0.38.12/v0.38.13 连续静态契约、受版本推进影响的 v0.35.2～v0.36.1 validators、schema兼容器、全部 Python 语法编译与 `git diff --check`。当前工作区没有 Flutter SDK，417文件桌宠素材也按仓库约定由 CI 恢复，因此 Kotlin/Flutter 编译、全量测试、release APK、签名与载荷仍必须等待公开 Actions，不得把本地通过写成 CI/APK 已通过。
+6. 首次公开 Actions run #540（32949280326）通过版本门槛、全部素材恢复和稳定签名恢复，随后在第二个静态验证器失败：旧 `validate_v0332_desktop_pet_overlay_d2.py` 被 v0.38.12 的错误改动同步成要求 `onOpenChat = openFullApp(...)`，与本轮恢复的正确悬浮入口冲突，尚未进入 Kotlin/Flutter 编译。已扫描全部 validators，只有该旧契约残留同一错误字符串；将其改回要求 `showChatOverlay("pet_double_tap_menu")` 后再触发完整构建。此失败是历史验证契约错误，不得误记为新流式或路由实现已发生编译失败。
 
 
 ## 0AAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.12 聊天贴底、悬浮跳转与模拟手机真机窄修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.13）
