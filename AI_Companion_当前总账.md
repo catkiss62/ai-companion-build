@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.17 最终正文单次播放与小说式渲染收口（PRE-IMPLEMENTATION）
+## 0AAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.17 最终正文单次播放与小说式渲染收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.38.16 仍不可用：思考结束瞬间会闪现包含动作的完整正文，随后正式逐字播放时动作/神态消失。只读对照会话附件 `index(1).html` 小说模式与 v0.38.13～16 源码后确认，当前 App 同时保留 provider 正文 delta 临时层和 durable message 本地逐字层，并在完成通知时先插入最终消息、后清理 `streamingContent`，造成一帧双重正文；最终层又把原文重新拆成 action/dialogue，形成与临时原文不同的第二条渲染路径。本批目标 `0.38.17+116`、schema 33，禁止继续在无括号动作上增加启发式正则。
 
@@ -27,6 +27,16 @@
 4. 最终动作/神态采用中文省略主语写法，例如“歪头看你，尾巴在身后轻轻扫了一下。”；禁止以“我”“她”或角色名作为动作主语。可见思考仍可用第一人称；对白继续独占一行并用 `「」` 包裹。规则同时锁定不得代写用户动作、台词或反应。
 5. App durable message、首次逐字播放、历史恢复、TTS对白范围与 Android 原生悬浮聊天必须消费同一份原始正文。旧括号历史继续只在显示层隐藏括号；v0.38.15/16 派生 `segments_json` 不得继续覆盖权威 `content`。
 6. 本批不做思考链英文翻译、不改解锁控件、不改用户气泡、手机页面、人格/记忆、桌宠入口或数据库 schema。分支 `agent/v03817-final-body-single-playback` 从 v0.38.16 总账 head 建立；修改前先登记，自动测试与真机结论严格分开。
+
+### B. 实际实现、云端验证与交付
+
+1. provider reasoning 继续真实流式；provider 正文候选改为在情绪信封与服务模板守卫完成前只缓冲、不进入 UI。守卫通过后的 durable `content` 成为唯一正文来源，并只由本地逐字播放一次；持久消息出现时临时 reasoning 行原子隐藏，消除“思考结束一帧完整正文 → 第二次逐字播放”与候选 A 被重写为 B 的可见切换。
+2. 最终 App 阅读层不再消费 v0.38.15/16 的语义分段缓存来重写正文，而是直接按权威原文中的 `「」` 切换样式：引号内 `#FDE68A` 正常字形，引号外白色斜体；原始空行保留，组间紫色分隔线上下各16dp。TTS 只读取原文中的直角引号对白；情绪信封继续独立提取，不与省略主语的动作正文冲突。
+3. 默认规则已改为无动作人称的中文省略主语表达，例如“歪头看你，尾巴在身后轻轻扫了一下。”，并继续锁定对白独占一行、使用 `「」`、不得代写用户动作/台词/反应。规则迁移只升级 SHA-256 精确匹配的旧默认，用户自定义规则保持不变。
+4. Android 原生悬浮聊天使用同一份未完成 reasoning 快照和最终原始正文，不显示未通过守卫的候选正文；动作斜体、对白黄色与 App 对齐。v0.38.13 已确认的悬浮两级入口、v0.38.14 参考解锁、v0.38.15 的75%初始透明度与14dp用户气泡留白均未改动；思考链英文自动翻译仍独立后置。
+5. 远端分支 `agent/v03817-final-body-single-playback` 的构建 head 为 `405e4cc1fe682f4b361dcfa5cdc8ce073d789a97`。GitHub Actions [run #550（32986888865）](https://github.com/catkiss62/ai-companion-build/actions/runs/32986888865) 一次全绿：全部源码/历史回归、新 v0.38.17 契约、依赖解析、Kotlin 桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗素材、checksum、Artifact 与 Draft Release 上传均成功。
+6. APK `AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK.apk`，329,586,736 bytes，SHA-256 `1b0b8969f5d4e52d8e4510f47b504aa83e41416ec5c86079d9b6b9fa7370b23d`。Artifact ID `9613442226`（ZIP 323,372,484 bytes，digest `7ce56ccf8d370692208da5df0d2cc503a4f1e19b234d1fe291ba01d7e1715e55`）；草稿 Release [untagged-02dba6673847e592978e](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-02dba6673847e592978e)。签名身份沿用既有持久测试证书，可覆盖安装前版。
+7. 真机待验且不能由 CI 代替：长思考结束时不得闪现完整正文；最终正文只逐字播放一次且动作不消失；动作无括号、白色斜体、无第一/第三人称主语；对白单独一行、`#FDE68A`；动作与对白空行及多组分隔线留白正确；App 与悬浮窗表现一致。自动化通过不等于真机通过。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.16 动作分段解析紧急热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.17）
