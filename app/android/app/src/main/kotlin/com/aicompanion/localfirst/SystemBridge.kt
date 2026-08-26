@@ -65,6 +65,14 @@ class SystemBridge(
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "consumeOpenChatLaunch" -> {
+                    val requested = activity.intent?.getBooleanExtra(
+                        MainActivity.EXTRA_OPEN_CHAT,
+                        false,
+                    ) == true
+                    activity.intent?.removeExtra(MainActivity.EXTRA_OPEN_CHAT)
+                    result.success(requested)
+                }
                 "capabilityStatus" -> result.success(capabilityStatus())
                 "preflightStatus" -> result.success(preflightStatus())
                 "runtimeDiagnostics" -> result.success(
@@ -315,6 +323,12 @@ class SystemBridge(
                 "openPromptPack" -> startPromptPackOpen(result)
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    fun notifyOpenChatLaunch(intent: Intent?) {
+        if (intent?.getBooleanExtra(MainActivity.EXTRA_OPEN_CHAT, false) == true) {
+            methodChannel.invokeMethod("openChatLaunch", null)
         }
     }
 

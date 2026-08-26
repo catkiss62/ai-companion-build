@@ -283,11 +283,22 @@ class NearbyEvent {
 }
 
 class AndroidBridge {
-  AndroidBridge._();
+  AndroidBridge._() {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'openChatLaunch') {
+        _openChatLaunchController.add(null);
+      }
+    });
+  }
   static final AndroidBridge instance = AndroidBridge._();
 
   static const MethodChannel _channel = MethodChannel('ai_companion/system');
-  static const EventChannel _nearbyChannel = EventChannel('ai_companion/nearby_events');
+  static const EventChannel _nearbyChannel =
+      EventChannel('ai_companion/nearby_events');
+  final StreamController<void> _openChatLaunchController =
+      StreamController<void>.broadcast();
+
+  Stream<void> get openChatLaunches => _openChatLaunchController.stream;
 
   String get packageNameHint => 'com.aicompanion.localfirst';
 
@@ -347,6 +358,17 @@ class AndroidBridge {
 
   Future<void> openDesktopPetPreview() =>
       _channel.invokeMethod<void>('openDesktopPetPreview');
+
+  Future<bool> consumeOpenChatLaunch() async {
+    try {
+      return await _channel.invokeMethod<bool>('consumeOpenChatLaunch') ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 
   Future<void> startOverlay() => _channel.invokeMethod<void>('startOverlay');
 

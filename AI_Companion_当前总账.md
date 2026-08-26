@@ -15,6 +15,34 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.12 聊天贴底、悬浮跳转与模拟手机真机窄修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户安装 v0.38.11 后继续提供两张真机截图，并上传 v0.38.9 的脱敏诊断。正式范围锁定为：恢复心情折线图可读高度；缩小主页第一/第二排 App 间距；购物车恢复折叠/展开同文案；修复长 reasoning 收起与正文流式期间的聊天贴底；让悬浮聊天“打开”及桌宠菜单进入完整 App 的聊天页；查明正文 A 被 B 替换的原因。仍不得直接写 main 或合并前序 Draft PR。
+
+### A. 修改前证据与根因
+
+1. v0.38.11 真机截图确认：中部异常空隙与底部系统导航遮挡已经修复，但单日心情图被压到76dp，无法为后续七日折线提供明显起伏；主页第一排与第二排纵向间距仍偏大。用户明确要求利用下方空余空间增高图表，并通过“第一排下移、第二排基本不动”缩小两排间隔。
+2. `chat_page.dart` 仍通过 `maxScrollExtent - offset` 判断是否贴底，列表因 reasoning 增长而改变尺寸时也会触发监听，从而把自动布局变化误判成用户离开底部；正文 delta 继续到达后不再跟随。旧修复只在 generation 结束时寻找列表尾，无法稳定抵抗长 reasoning 面板收起及尚未完成的滚动动画。
+3. `durable_generation_runner.dart` 在 provider reasoning 已逐 delta 发送后，提交前又把完整 reasoning 追加一次，使流式面板临近结束时接近双倍高度，最终持久消息却只保留一份并默认折叠，进一步放大列表 extent 突变。
+4. 用户上传的报告明确是 `v0.38.9+108`，不是当前 v0.38.11。报告中 generation job 无失败、无恢复错误，`active_generation_jobs=0`、`failed_generation_jobs=0`；但 `serviceTemplateGuard` 恰好记录 `matchCount=1`、`rewriteCount=1`、`lastAction=rewrite`、`lastReason=repeated_service_template_family`、`lastFamily=empty_reassurance`。因此 A→B 不是网络/API自动重试：第一份正文命中反服务模板守卫后，程序进行了第二次正文生成；旧 UI 在守卫完成前先显示候选 A，最终再用入库的 B 替换。
+5. 悬浮聊天顶栏“打开”只启动 `MainActivity`，没有携带目标页；App 默认仍停在首页。桌宠双击菜单“打开聊天”则仍只展开原生悬浮聊天。两者都没有完整 App 内聊天 tab 的端到端路由。
+
+### B. 本地实现范围
+
+1. 新分支 `agent/v03812-chat-scroll-phone-ui-fixes` 从 v0.38.11 Draft PR #32 最新总账 head `190971fb0547b26fff7fa439c3a629c334f979b6` 建立；版本为 `0.38.12+111`，SQLite schema 保持33。PR #32与main均不修改/不合并，完成后新建堆叠 Draft PR。
+2. 心情图按1天/2～3天/4～7天使用184/204/224dp；主页图标区上边距由23增至34，同时行距由21降至10，使第一排下移约11dp且第二排位置近似不变。购物车目录恢复只保存 `token_price`，折叠列表和展开详情都显示同一 `entry.body`。
+3. 聊天页新增正文尾锚点：有正文 delta 时直接锚定可见正文底部；reasoning阶段使用无动画的最新位置，避免180ms动画排队。自动贴底只会被真实向上手势关闭，内容增长/折叠造成的尺寸变化不再冒充用户滚动；生成结束再锚定最终时间线尾。
+4. 生成器删除提交前重复追加整段 reasoning 的路径。对普通缓冲候选，反模板守卫完成后只发布最终批准正文，避免先显示A再入库B；若某条正文已经真实逐 token 显示，则不再用隐藏的第二次生成突然替换它，并记录脱敏 `stream_preserved` 动作。
+5. Android overlay 启动完整 App 时携带 `EXTRA_OPEN_CHAT`；冷启动通过可消费 launch target 进入聊天，已启动/前台状态通过原生 MethodChannel 事件即时切到 `AppShell` 的聊天 tab。悬浮聊天顶栏“打开”和桌宠菜单“打开聊天”统一走此路径。
+6. 新增 `validate_v03812_chat_scroll_phone_ui_fixes.py`，并更新 v0.38.11 后继兼容断言与工作流版本/分支/APK/草稿Release标识。
+
+### C. 云端验证、交付与待验
+
+1. 产品与CI修复后的远端 head 为 `209d7ec961e3961d5a1c51f71a76ff273cfc1ff1`；堆叠 Draft PR #33（base=`agent/v03811-real-device-ui-fixes`）保持 Draft，main、PR #32及更早堆叠分支均未合并或改写。
+2. 最终 GitHub Actions run [`32944350553`](https://github.com/catkiss62/ai-companion-build/actions/runs/32944350553) 全绿：全部历史与v0.38.12 validators、Kotlin桌宠测试、Flutter analyze、Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗牌、checksum、Artifact与Draft Release上传均成功。此前一次旧基线断言失败和一次缺少显式 `ScrollDirection` 导入的编译失败均已修正，不能误记为最终通过前没有发生过失败。
+3. APK `AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK.apk`，329,571,684 bytes，SHA-256 `debf17a10bfdf86be374bba5c35fbc522b85ec83070eca9b07ddae996cb80e59`；Artifact ID `9597967376`（ZIP digest `de9b6846639d61a575e2d88688a0944a6d52ca9eea3f35eba306bc01241eaf46`）；草稿Release [`untagged-11178d0884d424be00bf`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-11178d0884d424be00bf)。自动验证通过不等于真机通过。
+4. 真机重点验收：心情折线图在1～7日记录下都有足够可读高度；主页第一排下移且第二排近似不动；长 reasoning 流式增长、收起及正文流式期间始终能看到当前正文底部，用户主动上滑后不会被强制拉回；悬浮聊天顶栏“打开”和桌宠菜单“打开聊天”都进入完整App聊天页；购物车折叠/展开恢复同文案；反服务模板守卫不再先展示候选A后突然替换为B。
+
 ## 0AAAAAAAAAAAAA. 2026-08-26 · v0.38.7 真机验收完成与模拟手机最终阶段登记（TRUE DEVICE PASSED / MERGE PENDING / DESIGN CONFIRMED / IMPLEMENTATION PENDING）
 
 > 本节先按用户要求在“查她的模拟手机”正式讨论前登记基线，并在讨论确认后回填最终契约与整合批次。它记录 v0.38.7 的真实验收结果，并固定相册、模拟手机、Pixiv、最终视觉收口与独立 Harness 实验的顺序。本次仍只更新永久总账，不修改 App 运行源码、版本、SQLite、CI、APK、Release 或 PR 状态；模拟手机八个 App 已完成设计确认，但尚未实现。

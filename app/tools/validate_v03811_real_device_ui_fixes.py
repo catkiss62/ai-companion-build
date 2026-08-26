@@ -16,7 +16,7 @@ pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.11+110" in pubspec
+assert "version: 0.38.12+111" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
 # The real-device narrow layout must allocate the remaining row width to the
@@ -40,10 +40,10 @@ assert "width: 108" in page and "height: 108" in page
 assert "duration: const Duration(milliseconds: 450)" in page
 assert "child: const Text('✅'" in page
 
-# One-day history is compact instead of magnifying an empty plot; longer
-# history grows in bounded steps. All app bodies respect Android bottom insets.
+# The v0.38.12 follow-up intentionally restores a readable plot height after
+# real-device feedback showed the compact v0.38.11 strip was too short.
 assert "final chartHeight = history.length <= 1" in page
-assert "? 76.0" in page and "? 118.0" in page and ": 150.0" in page
+assert "? 184.0" in page and "? 204.0" in page and ": 224.0" in page
 scaffold_start = page.index("class PhoneAppScaffold")
 scaffold = page[scaffold_start:]
 assert "body: SafeArea(" in scaffold
@@ -53,13 +53,13 @@ assert "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page
 assert "TarotReading(entry: self, label: '鲸鱼运势')" in page
 assert "TarotReading(entry: user, label: '为他占卜')" in page
 
-assert "entry.metadata['list_summary'] is String" in repository
-assert "'list_summary': item.$4" in repository
-assert "entry.metadata['list_summary'] as String?" in page
-assert "entry.body,\n                        maxLines: 1" not in page
+assert "entry.metadata['list_summary'] is String" not in repository
+assert "'list_summary': item.$4" not in repository
+assert "entry.metadata['list_summary'] as String?" not in page
+assert "entry.body,\n                        maxLines: 1" in page
 
 assert "python3 tools/validate_v03811_real_device_ui_fixes.py" in workflow
-assert "AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK" in workflow
-assert "agent/v03811-real-device-ui-fixes" in workflow
+assert "AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK" in workflow
+assert "agent/v03812-chat-scroll-phone-ui-fixes" in workflow
 
 print("v0.38.11 real-device simulated-phone UI fixes validated")

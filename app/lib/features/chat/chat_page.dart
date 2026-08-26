@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/chat_message.dart';
@@ -63,6 +64,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _programmaticScroll = false;
   bool _lastGenerationActive = false;
   final GlobalKey _timelineTailKey = GlobalKey();
+  final GlobalKey _streamingBodyTailKey = GlobalKey();
   ProactiveNotificationSound _notificationSound =
       ProactiveNotificationSound.chime;
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
@@ -76,7 +78,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller.addListener(_onChanged);
-    scroll.addListener(_onScrollChanged);
     _initializeController();
   }
 
@@ -202,10 +203,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     setState(() {});
     if (shouldFollow) {
       _followLatest = true;
-      if (generationEnded) {
+      if (controller.generationActive &&
+          controller.streamingContent.trim().isNotEmpty) {
+        // Follow the actual visible answer tail. A long reasoning panel above
+        // it may change height dramatically while streaming/collapsing, so the
+        // ListView's old max extent is not a stable anchor.
+        _anchorStreamingBody();
+      } else if (generationEnded) {
         _anchorTimelineTail();
       } else {
-        _scrollToLatest(animate: true);
+        // Reasoning deltas arrive faster than a 180 ms animation can finish.
+        // Jumping here prevents queued animations from lagging behind the
+        // provider stream and later winning against the final collapse anchor.
+        _scrollToLatest();
       }
     }
     if (_appResumed && widget.active && !controller.generationActive) {
@@ -213,14 +223,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  void _onScrollChanged() {
-    if (!scroll.hasClients || _programmaticScroll) return;
+  bool _onUserScroll(UserScrollNotification notification) {
+    if (_programmaticScroll || !scroll.hasClients) return false;
     final distance = scroll.position.maxScrollExtent - scroll.offset;
-    if (distance < 90) {
-      _followLatest = true;
-    } else if (controller.generationActive) {
+    if (notification.direction == ScrollDirection.forward &&
+        controller.generationActive) {
+      // Only an actual upward user gesture disables follow mode. Content-size
+      // changes from a growing/collapsing reasoning panel are not user scrolls.
       _followLatest = false;
+    } else if (distance < 90) {
+      _followLatest = true;
     }
+    return false;
   }
 
   Future<void> _loadVisualSettings() async {
@@ -416,6 +430,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
   }
 
+  void _anchorStreamingBody() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_followLatest) return;
+      final bodyTailContext = _streamingBodyTailKey.currentContext;
+      if (bodyTailContext == null) {
+        _scrollToLatest();
+        return;
+      }
+      _programmaticScroll = true;
+      unawaited(
+        Scrollable.ensureVisible(
+          bodyTailContext,
+          alignment: 1,
+          duration: Duration.zero,
+        ).whenComplete(() => _programmaticScroll = false),
+      );
+    });
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
@@ -434,7 +467,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _externalSyncTimer?.cancel();
     _personalityTimer?.cancel();
     controller.removeListener(_onChanged);
-    scroll.removeListener(_onScrollChanged);
     controller.dispose();
     input.dispose();
     scroll.dispose();
@@ -795,6 +827,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 return _StreamingBubble(
                   controller: controller,
                   bubbleOpacity: _visualStageEnabled ? _panelOpacity : 1.0,
+                  bodyTailKey: _streamingBodyTailKey,
                 );
               }
               return SizedBox(key: _timelineTailKey, height: 1);
@@ -860,7 +893,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ),
                       child: Column(
                         children: [
-                          Expanded(child: timelineList),
+                          Expanded(
+                            child:
+                                NotificationListener<UserScrollNotification>(
+                              onNotification: _onUserScroll,
+                              child: timelineList,
+                            ),
+                          ),
                           if (controller.error != null)
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -2148,9 +2187,11 @@ class _StreamingBubble extends StatelessWidget {
   const _StreamingBubble({
     required this.controller,
     required this.bubbleOpacity,
+    required this.bodyTailKey,
   });
   final ChatController controller;
   final double bubbleOpacity;
+  final GlobalKey bodyTailKey;
 
   @override
   Widget build(BuildContext context) {
@@ -2170,8 +2211,10 @@ class _StreamingBubble extends StatelessWidget {
               reasoning: controller.streamingReasoning,
               streaming: true,
             ),
-            if (controller.streamingContent.isNotEmpty)
+            if (controller.streamingContent.isNotEmpty) ...[
               ActionTintText(text: controller.streamingContent),
+              SizedBox(key: bodyTailKey, height: 1),
+            ],
             if (controller.streamingContent.isEmpty &&
                 controller.streamingReasoning.isEmpty &&
                 controller.agentActivity == null)

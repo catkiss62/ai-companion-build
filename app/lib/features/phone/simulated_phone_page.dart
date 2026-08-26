@@ -552,14 +552,17 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(error!, style: const TextStyle(color: Color(0xFFFF9DA8))),
                 ],
-                const SizedBox(height: 23),
+                // Move only the first row down and keep the second row almost
+                // where it was: the matching spacing reduction closes the
+                // oversized inter-row gap seen on the real device.
+                const SizedBox(height: 34),
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
-                    mainAxisSpacing: 21,
+                    mainAxisSpacing: 10,
                     crossAxisSpacing: 4,
                     childAspectRatio: 0.78,
                   ),
@@ -1444,11 +1447,14 @@ class _MoodPageState extends State<MoodPage> {
         selected == null || selected! >= history.length
             ? null
             : history[selected!];
+    // Reserve a readable seven-day plot even when only today's point exists.
+    // New samples can then form a visibly undulating line instead of being
+    // squeezed into a short strip while the rest of the screen stays empty.
     final chartHeight = history.length <= 1
-        ? 76.0
+        ? 184.0
         : history.length <= 3
-            ? 118.0
-            : 150.0;
+            ? 204.0
+            : 224.0;
     return PhoneAppScaffold(
       emoji: '💗',
       title: '心情',
@@ -1948,8 +1954,7 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       subtitle: Text(
-                        entry.metadata['list_summary'] as String? ??
-                            '今天想先留在清单里',
+                        entry.body,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
