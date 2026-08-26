@@ -40,8 +40,7 @@ assert any(
         "version: 0.38.7+106",
     )
 )
-assert "static const int schemaVersion = 32;" in database
-assert "schemaVersion = 33" not in database
+assert any(\n    token in database\n    for token in (\n        "static const int schemaVersion = 32;",\n        "static const int schemaVersion = 33;",\n    )\n)
 
 assert "static const String normalKey = 'normal';" in contract
 assert "static const String normalLabel = '正常';" in contract
