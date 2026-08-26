@@ -46,6 +46,7 @@ assert page.count("entry.body,") >= 5
 # Follow mode is changed only by a real user scroll. During answer streaming it
 # anchors to the visible body-tail marker rather than a stale ListView extent.
 assert "NotificationListener<UserScrollNotification>" in chat
+assert "package:flutter/rendering.dart' show ScrollDirection" in chat
 assert "_onUserScroll" in chat
 assert "_anchorStreamingBody" in chat
 assert "_streamingBodyTailKey" in chat

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/chat_message.dart';
