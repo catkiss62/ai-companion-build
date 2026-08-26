@@ -43,7 +43,12 @@
 # Historical baseline: v0.38.6+105 / SQLite schema 32 / autonomous public-web sharing closure
 # Historical baseline: v0.38.7+106 / SQLite schema 32 / public-web share test repair
 # Historical baseline: v0.38.9+108 / SQLite schema 32 / simulated phone reference UI
-# Active baseline: v0.38.10+109 / SQLite schema 33 / real album and browser
+# Historical v0.38.10 validator compatibility:
+# Build AI Companion v0.38.10+109 APK (Real Album, Browser & Phone UI)
+# AI-Companion-v0.38.10-109-Real-Album-Browser-UI-APK
+# v0.38.10-real-album-browser-ui
+# .ci/v03810-monitor.txt
+# Active baseline: v0.38.11+110 / SQLite schema 33 / real-device phone UI fixes
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -115,12 +120,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.10+109 APK (Real Album, Browser & Phone UI)
+name: Build AI Companion v0.38.11+110 APK (Real-Device UI Fixes)
 
 on:
   push:
     branches:
-      - agent/v03810-real-album-browser-ui
+      - agent/v03811-real-device-ui-fixes
   workflow_dispatch:
   pull_request:
     branches:
@@ -170,7 +175,11 @@ jobs:
             request_full_build 'manual_dispatch'
             exit 0
           fi
-          if test "${EVENT_NAME}" != 'pull_request' || test "${EVENT_ACTION}" != 'synchronize'; then
+          if test "${EVENT_NAME}" = 'push'; then
+            :
+          elif test "${EVENT_NAME}" = 'pull_request' && test "${EVENT_ACTION}" = 'synchronize'; then
+            :
+          else
             request_full_build 'non_synchronize_event'
             exit 0
           fi
@@ -224,14 +233,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.38.10+109' app/pubspec.yaml
+          grep -Fqx 'version: 0.38.11+110' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 33;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.10+109 real local album, truthful browser history and simulated phone UI closure.'
+          echo 'Building v0.38.11+110 real-device simulated-phone UI fixes.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -378,6 +387,7 @@ jobs:
           python3 tools/validate_v0388_simulated_phone_foundation.py
           python3 tools/validate_v0389_simulated_phone_reference_ui.py
           python3 tools/validate_v03810_real_album_browser_ui.py
+          python3 tools/validate_v03811_real_device_ui_fixes.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -613,26 +623,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.10+109 APK as workflow artifact
+      - name: Upload v0.38.11+110 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.10-109-Real-Album-Browser-UI-APK
+          name: AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.10+109 real album, browser and phone UI APK to draft release
+      - name: Upload v0.38.11+110 real-device phone UI fixes APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.10-real-album-browser-ui'
-          APK_NAME='AI-Companion-v0.38.10-109-Real-Album-Browser-UI-APK.apk'
+          TAG='v0.38.11-real-device-ui-fixes'
+          APK_NAME='AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.10-109-Real-Album-Browser-UI-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -649,8 +659,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.10+109 real album, browser and phone UI candidate' \
-              --notes 'Private draft candidate: adds the real local album and truthful successful browser history, Qwen-assisted bounded image choice, FishArchive fallback discovery, aesthetic feedback controls and the approved simulated-phone UI closure. The master switch pauses album and browser producers while daily tarot remains independent. SQLite schema 33.'
+              --title 'AI Companion v0.38.11+110 real-device phone UI fixes candidate' \
+              --notes 'Draft candidate: fixes the real-device simulated-phone avatar strip, adaptive mood chart spacing and bottom safe area, ports the reference unlock-success ring/check animation, renames the tarot tabs, and separates cart list summaries from expanded reasons. SQLite schema remains 33.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -674,18 +684,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03810-monitor.txt'
+          MONITOR_PATH='.ci/v03811-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.10 CI success monitor' \
+              -f message='Update v0.38.11 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.10 CI success monitor' \
+              -f message='Create v0.38.11 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -706,8 +716,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.10-real-album-browser-ui'
-          CI_NAME='AI-Companion-v0.38.10-109-Real-Album-Browser-UI-CI-Monitor.txt'
+          TAG='v0.38.11-real-device-ui-fixes'
+          CI_NAME='AI-Companion-v0.38.11-110-Real-Device-UI-Fixes-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -748,8 +758,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.10+109 real album, browser and phone UI candidate' \
-              --notes 'Private draft used for v0.38.10 CI diagnostics and the real album/browser simulated-phone APK. It is not a public release.'
+              --title 'AI Companion v0.38.11+110 real-device phone UI fixes candidate' \
+              --notes 'Draft used for v0.38.11 CI diagnostics and the simulated-phone real-device UI fixes APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -758,18 +768,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03810-monitor.txt'
+          MONITOR_PATH='.ci/v03811-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.10 CI failure monitor' \
+              -f message='Update v0.38.11 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.10 CI failure monitor' \
+              -f message='Create v0.38.11 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

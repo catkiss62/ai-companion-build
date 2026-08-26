@@ -51,7 +51,13 @@ assert "shadow" in repository
 assert "closing" in repository
 assert "await _refreshTarot(current);" in repository
 assert "if (!await isEnabled()) return;" in repository
-assert "tabs: [Tab(text: '我'), Tab(text: '他')]" in page
+assert any(
+    tabs in page
+    for tabs in (
+        "tabs: [Tab(text: '我'), Tab(text: '他')]",
+        "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]",
+    )
+)
 assert "rws_major:71825eed74683305b139a669b23ca5dc12f76857" in repository
 assert "71825eed74683305b139a669b23ca5dc12f76857" in fetch
 assert "public domain" in attribution.lower()
