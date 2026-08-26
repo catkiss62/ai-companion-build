@@ -158,9 +158,16 @@ class SimulatedPhoneRepository {
     }
     final tarot = await _readList(_tarotKey);
     final notes = await _readList(_notesKey);
-    final notesSeenAt =
-        int.tryParse(await db.getSetting('simulated_phone_notes_seen_at') ?? '') ??
-            0;
+    final rawNotesSeenAt =
+        await db.getSetting('simulated_phone_notes_seen_at') ?? '';
+    var notesSeenAt = int.tryParse(rawNotesSeenAt) ?? 0;
+    if (notesSeenAt <= 0) {
+      notesSeenAt = DateTime.now().millisecondsSinceEpoch;
+      await db.setSetting(
+        'simulated_phone_notes_seen_at',
+        notesSeenAt.toString(),
+      );
+    }
     final albumItems = await db.companionAlbumItems(includeNsfw: true);
     return SimulatedPhoneSnapshot(
       enabled: await isEnabled(),
