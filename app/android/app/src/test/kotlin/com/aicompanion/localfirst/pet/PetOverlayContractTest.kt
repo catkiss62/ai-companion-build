@@ -36,7 +36,7 @@ class PetOverlayContractTest {
     fun motionModesDefaultToFreeAndKeepEveryHalfDistinct() {
         assertEquals(PetMotionPolicy.FREE, PetMotionPolicy.normalized(null))
         assertEquals(PetMotionPolicy.FREE, PetMotionPolicy.normalized("unexpected"))
-        assertEquals(PetMotionPolicy.EDGE, PetMotionPolicy.normalized("edge"))
+        assertEquals(PetMotionPolicy.FREE, PetMotionPolicy.normalized("edge"))
         assertEquals(true, PetMotionPolicy.isHalf(PetMotionPolicy.HALF_TOP))
         assertEquals(true, PetMotionPolicy.isHalf(PetMotionPolicy.HALF_RIGHT))
         assertEquals(false, PetMotionPolicy.isHalf(PetMotionPolicy.EDGE))
@@ -49,6 +49,15 @@ class PetOverlayContractTest {
         assertEquals(false, PetMotionPolicy.shouldThrow(500f, 60f, 120f, false))
         assertEquals(false, PetMotionPolicy.shouldThrow(900f, 18f, 120f, false))
         assertEquals(false, PetMotionPolicy.shouldThrow(900f, 60f, 30f, false))
+    }
+
+    @Test
+    fun onlyGentleUserDragInFreeModeCreatesDocking() {
+        assertTrue(PetMotionPolicy.shouldDockAfterUserDrag("free", false, true))
+        assertTrue(PetMotionPolicy.shouldDockAfterUserDrag("edge", false, true))
+        assertFalse(PetMotionPolicy.shouldDockAfterUserDrag("free", true, true))
+        assertFalse(PetMotionPolicy.shouldDockAfterUserDrag("free", false, false))
+        assertFalse(PetMotionPolicy.shouldDockAfterUserDrag("half_top", false, true))
     }
 
     @Test
@@ -179,17 +188,18 @@ class PetOverlayContractTest {
         assertEquals("STROLLING", half?.actionId)
         assertTrue(half?.continuous2D == true)
 
-        val sideEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "left")
+        val sideEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.FREE, "left")
         assertEquals("STROLLING", sideEdge?.actionId)
         assertEquals(listOf("up", "down"), sideEdge?.directions)
         assertFalse(sideEdge?.continuous2D ?: true)
 
-        val horizontalEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, "bottom")
+        val horizontalEdge = PetAutonomousMotionPolicy.plan(PetMotionPolicy.FREE, "bottom")
         assertEquals("WALKING", horizontalEdge?.actionId)
         assertEquals(listOf("left", "right"), horizontalEdge?.directions)
         assertFalse(horizontalEdge?.continuous2D ?: true)
 
-        assertEquals(null, PetAutonomousMotionPolicy.plan(PetMotionPolicy.EDGE, ""))
+        val undocked = PetAutonomousMotionPolicy.plan(PetMotionPolicy.FREE, "")
+        assertTrue(undocked?.continuous2D == true)
     }
 
     @Test

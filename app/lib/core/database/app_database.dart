@@ -2012,6 +2012,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0371.entries,
       ...legacyEditableRuleLayerSha256V0380.entries,
       ...legacyEditableRuleLayerSha256V03814.entries,
+      ...legacyEditableRuleLayerSha256V03816.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
