@@ -54,8 +54,9 @@ assert "Scrollable.ensureVisible(" in chat
 assert "scroll.addListener(_onScrollChanged)" not in chat
 assert "duration: Duration.zero" in chat
 
-# A buffered candidate is not exposed before the service-template guard can
-# rewrite it, and provider reasoning is not emitted a second time at commit.
+# v0.38.12 prevents hidden replacement after a visible stream and stops
+# provider reasoning from being emitted a second time at commit. v0.38.13
+# restores the ordinary body's incremental stream itself.
 early_publish = "if (localPlan == null && generated.toolCalls.isEmpty)"
 assert early_publish not in runner
 assert "action: 'stream_preserved'" in runner
@@ -69,10 +70,10 @@ assert "onDelta?.call(DeepSeekDelta(reasoning:" not in runner[
     visible_reasoning:assistant
 ]
 
-# Both the overlay chat header and pet menu request the full app's chat tab.
+# The overlay chat header requests the full app's chat tab. The pet menu's
+# separate “打开聊天” contract is checked by the v0.38.13 follow-up.
 assert 'putExtra(MainActivity.EXTRA_OPEN_CHAT, openChat)' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
-assert 'onOpenChat = { openFullApp(openChat = true) }' in overlay
 assert "EXTRA_OPEN_CHAT" in main_activity
 assert "override fun onNewIntent" in main_activity
 assert '"consumeOpenChatLaunch"' in system_bridge
@@ -82,8 +83,8 @@ assert "openChatLaunches" in bridge
 assert "setState(() => index = 1)" in app
 
 assert "python3 tools/validate_v03812_chat_scroll_phone_ui_fixes.py" in workflow
-assert "grep -Fqx 'version: 0.38.12+111' app/pubspec.yaml" in workflow
-assert "AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK" in workflow
-assert "agent/v03812-chat-scroll-phone-ui-fixes" in workflow
+assert "grep -Fqx 'version: 0.38.13+112' app/pubspec.yaml" in workflow
+assert "AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK" in workflow
+assert "agent/v03813-overlay-chat-routing-hotfix" in workflow
 
 print("v0.38.12 chat scroll and phone UI fixes validated")

@@ -86,7 +86,7 @@ require(
         'const val ENTRY_MODE_PET = "pet"',
         "fun setEntryMode(context: Context, mode: String)",
         "fun setPetSize(context: Context, size: String)",
-        'onOpenChat = { openFullApp(openChat = true) }',
+        'onOpenChat = { showChatOverlay("pet_double_tap_menu") }',
         "petOverlayWindow?.setVisible(false)",
         "petOverlayWindow?.setVisible(true)",
     ],

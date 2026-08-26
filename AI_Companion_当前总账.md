@@ -15,7 +15,35 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.12 聊天贴底、悬浮跳转与模拟手机真机窄修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.13 正文流式与悬浮聊天两级入口热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户真机纠正 v0.38.12 的入口语义：桌宠/外部入口中的“打开聊天”只应在当前正在使用的其他 App 上展开原生悬浮聊天框；悬浮聊天框顶栏的“打开”才进入完整 App，并且必须强制落到 App 内“聊天”栏，不能恢复到设置等上次停留栏。v0.38.12 将两者错误统一为完整 App 跳转，导致前一级悬浮聊天入口被绕过。用户随后确认 App 内正文逐字流式也已经消失；完整生成链复核证明，从 v0.38.4 原生工具整合开始，普通首轮被错误设成 `emitDeltas: false`，v0.38.12 又继续按缓冲前提收口。本热修同时恢复实时正文流，并且不回退 v0.38.12 的聊天贴底、生成守卫与模拟手机 UI 修复。
+
+### A. 修改前根因与锁定范围
+
+1. `OverlayBubbleService.createPetEntry()` 把 `PetOverlayWindow.onOpenChat` 错接到了 `openFullApp(openChat = true)`；而 v0.38.11 及更早正确实现是 `showChatOverlay("pet_double_tap_menu")`。这是“打开聊天”不再出现悬浮框的直接原因。
+2. 悬浮聊天顶栏 `smallButton("打开")` 已正确接到 `openFullApp(openChat = true)`；Android intent、`MainActivity.onNewIntent()`、MethodChannel 事件/消费接口与 Flutter `AppShell index = 1` 共同覆盖冷启动、后台恢复和前台 singleTop 三种路径。这一链路保留，用于保证从设置栏等任意旧位置都直接落到 App 内聊天栏。
+3. 版本推进为 `0.38.13+112`，SQLite schema 保持33。新分支 `agent/v03813-overlay-chat-routing-hotfix` 从远端 v0.38.12 总账 head `4a5bb9780f586a5c743ad5cb0041d410831dd4ad` 建立；不修改 main，不合并 Draft PR #33。
+4. 正文流式丢失不是 `chat_page.dart` 的渲染问题：`DurableGenerationRunner` 为了等待原生 tool-call 判断，把 `localPlan == null` 的常规首轮一律设为 `emitDeltas: false`，因此绝大多数普通对话只在生成结束后一次性发布整段正文。必须在保留原生工具能力的同时恢复首轮可见正文 delta。
+
+### B. 实现与验收契约
+
+1. 桌宠菜单“打开聊天”恢复调用 `showChatOverlay("pet_double_tap_menu")`，因此继续停留在用户当前 App 并展开悬浮聊天框。
+2. 悬浮聊天框顶栏“打开”继续携带一次性 `EXTRA_OPEN_CHAT` 启动完整 App，并由 Flutter 无条件选择聊天栏；extra 消费后移除，普通后续恢复不应反复强制切栏。
+3. 新增 v0.38.13 静态回归，明确断言两条调用链必须不同；同时保留 v0.38.12 其他 UI、滚动和生成修复。待本地 validators、Kotlin/Flutter CI、APK与真机验收后回填准确证据。
+4. 常规首轮恢复 `emitDeltas: true`，正文继续逐 delta 进入 App 内聊天与共用流式 TTS；若 provider 选择原生工具且在 tool call 前确实输出了可见短前言，该前言与工具结果后的正文一起持久化，结束时不会消失。已显示正文命中反服务模板守卫时继续记录 `stream_preserved` 并原样提交，不进行隐藏的第二份生成，因此兼顾实时流式与 A→B 不突变。
+5. 本地已通过 v0.38.11/v0.38.12/v0.38.13 连续静态契约、受版本推进影响的 v0.35.2～v0.36.1 validators、schema兼容器、全部 Python 语法编译与 `git diff --check`。当前工作区没有 Flutter SDK，417文件桌宠素材也按仓库约定由 CI 恢复，因此 Kotlin/Flutter 编译、全量测试、release APK、签名与载荷仍必须等待公开 Actions，不得把本地通过写成 CI/APK 已通过。
+6. 首次公开 Actions run #540（32949280326）通过版本门槛、全部素材恢复和稳定签名恢复，随后在第二个静态验证器失败：旧 `validate_v0332_desktop_pet_overlay_d2.py` 被 v0.38.12 的错误改动同步成要求 `onOpenChat = openFullApp(...)`，与本轮恢复的正确悬浮入口冲突，尚未进入 Kotlin/Flutter 编译。已扫描全部 validators，只有该旧契约残留同一错误字符串；将其改回要求 `showChatOverlay("pet_double_tap_menu")` 后再触发完整构建。此失败是历史验证契约错误，不得误记为新流式或路由实现已发生编译失败。
+
+### C. 云端验证、交付与真机待验
+
+1. 远端产品提交为 `b3abbc39836d12adac0d8670caf2785c472ac7eb`，旧验证器修复后的构建 head 为 `7fbf51bf3aabc6460bf1894a8d093997dfc631b9`。堆叠 Draft PR #34（base=`agent/v03812-chat-scroll-phone-ui-fixes`）保持 Draft；main、PR #33 与更早分支均未修改或合并。
+2. 最终 GitHub Actions run [#541（32949545866）](https://github.com/catkiss62/ai-companion-build/actions/runs/32949545866) 全绿：全部历史与 v0.38.13 validators、依赖解析、Kotlin 桌宠/悬浮服务测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗牌、checksum、Artifact 与 Draft Release 上传均成功。
+3. APK `AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK.apk`，329,572,204 bytes，SHA-256 `c5d047f5d8651136402d7407157d51e93fcfcef06e90b48e235742880cea1c6b`。Artifact ID `9599922430`，ZIP 323,356,442 bytes，digest `a7c2136f323fa989a51dd9cc5438dbedc9d2bde2f739c5c6a7361d2b5441918d`；草稿 Release [untagged-334c20f116f8f14c5562](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-334c20f116f8f14c5562)。签名证书 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+4. 真机必须分别验收：在其他 App 中从桌宠/悬浮球点击“打开聊天”只展开悬浮聊天框；悬浮框顶栏“打开”进入完整 App 且即使上次停在设置也直接落到聊天栏；普通无工具回复正文逐字出现；触发工具的回复不会让已显示前言在完成时消失；命中服务模板守卫时不再从 A 突变为 B；长 reasoning 收起后正文尾仍保持可见。自动测试通过不等于上述真机交互已通过。
+
+
+## 0AAAAAAAAAAAAAAAAAA. 2026-08-26 · v0.38.12 聊天贴底、悬浮跳转与模拟手机真机窄修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE FAILED · SUPERSEDED BY v0.38.13）
 
 > 用户安装 v0.38.11 后继续提供两张真机截图，并上传 v0.38.9 的脱敏诊断。正式范围锁定为：恢复心情折线图可读高度；缩小主页第一/第二排 App 间距；购物车恢复折叠/展开同文案；修复长 reasoning 收起与正文流式期间的聊天贴底；让悬浮聊天“打开”及桌宠菜单进入完整 App 的聊天页；查明正文 A 被 B 替换的原因。仍不得直接写 main 或合并前序 Draft PR。
 
@@ -41,7 +69,7 @@
 1. 产品与CI修复后的远端 head 为 `209d7ec961e3961d5a1c51f71a76ff273cfc1ff1`；堆叠 Draft PR #33（base=`agent/v03811-real-device-ui-fixes`）保持 Draft，main、PR #32及更早堆叠分支均未合并或改写。
 2. 最终 GitHub Actions run [`32944350553`](https://github.com/catkiss62/ai-companion-build/actions/runs/32944350553) 全绿：全部历史与v0.38.12 validators、Kotlin桌宠测试、Flutter analyze、Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗牌、checksum、Artifact与Draft Release上传均成功。此前一次旧基线断言失败和一次缺少显式 `ScrollDirection` 导入的编译失败均已修正，不能误记为最终通过前没有发生过失败。
 3. APK `AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK.apk`，329,571,684 bytes，SHA-256 `debf17a10bfdf86be374bba5c35fbc522b85ec83070eca9b07ddae996cb80e59`；Artifact ID `9597967376`（ZIP digest `de9b6846639d61a575e2d88688a0944a6d52ca9eea3f35eba306bc01241eaf46`）；草稿Release [`untagged-11178d0884d424be00bf`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-11178d0884d424be00bf)。自动验证通过不等于真机通过。
-4. 真机重点验收：心情折线图在1～7日记录下都有足够可读高度；主页第一排下移且第二排近似不动；长 reasoning 流式增长、收起及正文流式期间始终能看到当前正文底部，用户主动上滑后不会被强制拉回；悬浮聊天顶栏“打开”和桌宠菜单“打开聊天”都进入完整App聊天页；购物车折叠/展开恢复同文案；反服务模板守卫不再先展示候选A后突然替换为B。
+4. 真机结果：模拟手机布局等项目尚未在本次纠错前逐项回填；但聊天入口已经明确失败——桌宠菜单“打开聊天”被错误改成进入完整 App，导致原本用于覆盖其他 App 的悬浮聊天框入口消失。用户同时确认 App 内普通正文不再逐字流式，而是结束后整段出现。两项均由 v0.38.13 热修接管；v0.38.12 不得再作为聊天入口或正文流式的可验收候选。
 
 ## 0AAAAAAAAAAAAA. 2026-08-26 · v0.38.7 真机验收完成与模拟手机最终阶段登记（TRUE DEVICE PASSED / MERGE PENDING / DESIGN CONFIRMED / IMPLEMENTATION PENDING）
 

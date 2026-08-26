@@ -619,7 +619,9 @@ class OverlayBubbleService : Service() {
             context = this,
             windowManager = windowManager,
             overlayWindowType = overlayWindowType(),
-            onOpenChat = { openFullApp(openChat = true) },
+            // “打开聊天” belongs to the overlay surface: keep the user in the
+            // app they are currently using and expand the floating chat.
+            onOpenChat = { showChatOverlay("pet_double_tap_menu") },
             onSwitchToBubble = {
                 switchEntryMode(ENTRY_MODE_BUBBLE, "pet_double_tap_menu")
             },

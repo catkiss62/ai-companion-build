@@ -49,7 +49,8 @@
 # v0.38.10-real-album-browser-ui
 # .ci/v03810-monitor.txt
 # Historical baseline: v0.38.11+110 / SQLite schema 33 / real-device phone UI fixes
-# Active baseline: v0.38.12+111 / SQLite schema 33 / chat scroll + phone UI fixes
+# Historical baseline: v0.38.12+111 / SQLite schema 33 / chat scroll + phone UI fixes
+# Active baseline: v0.38.13+112 / SQLite schema 33 / streaming + overlay chat routing hotfix
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -121,12 +122,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.38.12+111 APK (Chat Scroll & Phone UI Fixes)
+name: Build AI Companion v0.38.13+112 APK (Streaming & Overlay Chat Hotfix)
 
 on:
   push:
     branches:
-      - agent/v03812-chat-scroll-phone-ui-fixes
+      - agent/v03813-overlay-chat-routing-hotfix
   workflow_dispatch:
   pull_request:
     branches:
@@ -234,14 +235,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.38.12+111' app/pubspec.yaml
+          grep -Fqx 'version: 0.38.13+112' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 33;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.38.12+111 chat scroll and simulated-phone UI fixes.'
+          echo 'Building v0.38.13+112 streaming and overlay chat routing hotfix.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -390,6 +391,7 @@ jobs:
           python3 tools/validate_v03810_real_album_browser_ui.py
           python3 tools/validate_v03811_real_device_ui_fixes.py
           python3 tools/validate_v03812_chat_scroll_phone_ui_fixes.py
+          python3 tools/validate_v03813_overlay_chat_routing_hotfix.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -625,26 +627,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.38.12+111 APK as workflow artifact
+      - name: Upload v0.38.13+112 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK
+          name: AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.38.12+111 chat scroll and phone UI fixes APK to draft release
+      - name: Upload v0.38.13+112 streaming and overlay chat hotfix APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.38.12-chat-scroll-phone-ui-fixes'
-          APK_NAME='AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-APK.apk'
+          TAG='v0.38.13-streaming-overlay-chat-hotfix'
+          APK_NAME='AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -661,8 +663,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.12+111 chat scroll and phone UI fixes candidate' \
-              --notes 'Draft candidate: keeps streamed answer text anchored at the bottom through long reasoning collapse, opens the in-app chat tab from overlay controls, prevents guard-rewritten candidate text from flashing before commit, enlarges the mood chart, tightens the home icon rows, and restores matching cart subtitles/details. SQLite schema remains 33.'
+              --title 'AI Companion v0.38.13+112 streaming and overlay chat hotfix candidate' \
+              --notes 'Draft candidate: restores incremental answer-body streaming; keeps “打开聊天” inside the floating overlay; makes only the floating chat header “打开” enter the full App chat tab; preserves visible text instead of replacing it after a service-template guard; and retains the v0.38.12 scroll and phone UI fixes. SQLite schema remains 33.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -686,18 +688,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03812-monitor.txt'
+          MONITOR_PATH='.ci/v03813-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.12 CI success monitor' \
+              -f message='Update v0.38.13 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.12 CI success monitor' \
+              -f message='Create v0.38.13 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -718,8 +720,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.38.12-chat-scroll-phone-ui-fixes'
-          CI_NAME='AI-Companion-v0.38.12-111-Chat-Scroll-Phone-UI-Fixes-CI-Monitor.txt'
+          TAG='v0.38.13-streaming-overlay-chat-hotfix'
+          CI_NAME='AI-Companion-v0.38.13-112-Streaming-Overlay-Chat-Hotfix-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -760,8 +762,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.38.12+111 chat scroll and phone UI fixes candidate' \
-              --notes 'Draft used for v0.38.12 CI diagnostics and the chat scroll / simulated-phone UI fixes APK. It is not a published release.'
+              --title 'AI Companion v0.38.13+112 streaming and overlay chat hotfix candidate' \
+              --notes 'Draft used for v0.38.13 CI diagnostics and the streaming / overlay chat routing hotfix APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -770,18 +772,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v03812-monitor.txt'
+          MONITOR_PATH='.ci/v03813-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.38.12 CI failure monitor' \
+              -f message='Update v0.38.13 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.38.12 CI failure monitor' \
+              -f message='Create v0.38.13 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
