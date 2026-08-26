@@ -57,8 +57,9 @@ data class PetAutonomousMovementPlan(
 
 object PetAutonomousMotionPolicy {
     fun plan(mode: String, dockedEdge: String): PetAutonomousMovementPlan? =
-        when (PetMotionPolicy.normalized(mode)) {
-            PetMotionPolicy.EDGE -> when (dockedEdge) {
+        when {
+            PetMotionPolicy.normalized(mode) == PetMotionPolicy.FREE &&
+                dockedEdge in setOf("left", "right", "top", "bottom") -> when (dockedEdge) {
                 "left", "right" -> PetAutonomousMovementPlan(
                     actionId = "STROLLING",
                     directions = listOf("up", "down"),

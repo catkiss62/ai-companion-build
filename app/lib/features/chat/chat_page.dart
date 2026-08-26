@@ -270,7 +270,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               await db.getSetting('chat_panel_fraction') ?? '',
             ) ??
             0.62)
-        .clamp(0.42, 0.88)
+        .clamp(0.42, 0.94)
         .toDouble();
     _portraitSet = chatPortraitSetFromKey(
       await db.getSetting('chat_portrait_set'),
@@ -929,7 +929,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           onVerticalDragUpdate: (details) {
                             final next = (_panelFraction -
                                     details.delta.dy / constraints.maxHeight)
-                                .clamp(0.42, 0.88)
+                                .clamp(0.42, 0.94)
                                 .toDouble();
                             setState(() => _panelFraction = next);
                           },

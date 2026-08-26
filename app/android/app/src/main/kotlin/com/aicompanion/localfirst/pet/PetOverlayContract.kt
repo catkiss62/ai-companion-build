@@ -61,16 +61,24 @@ object PetMotionPolicy {
 
     private val modes = setOf(
         FREE,
-        EDGE,
         HALF_TOP,
         HALF_BOTTOM,
         HALF_LEFT,
         HALF_RIGHT,
     )
 
-    fun normalized(value: String?): String = value?.takeIf(modes::contains) ?: FREE
+    /** `edge` remains a read-only migration token; it is now free + dock state. */
+    fun normalized(value: String?): String =
+        if (value == EDGE) FREE else value?.takeIf(modes::contains) ?: FREE
 
     fun isHalf(value: String?): Boolean = normalized(value).startsWith("half_")
+
+    /** Called only for an actual user drag release, never autonomous motion. */
+    fun shouldDockAfterUserDrag(
+        mode: String?,
+        isThrow: Boolean,
+        nearEdge: Boolean,
+    ): Boolean = normalized(mode) == FREE && !isThrow && nearEdge
 
     /**
      * A throw needs sustained evidence, not one noisy last sample. A stable tail

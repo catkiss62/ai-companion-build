@@ -131,11 +131,9 @@ class PetOverlayWindow(
             if (step.settled) {
                 player?.play("LANDING", reason = "pet_overlay_landing", force = true, immediate = true)
                 if (step.hardLanding) player?.queueAfterCurrent("DIZZY")
-                if (motionMode() == PetMotionPolicy.EDGE) {
-                    setDockedEdge(EDGE_BOTTOM)
-                } else {
-                    setDockedEdge("")
-                }
+                // A throw or gravity landing never creates edge docking. Only
+                // a gentle user drag release near an edge may do that.
+                setDockedEdge("")
                 persistPosition()
                 return
             }
@@ -207,6 +205,7 @@ class PetOverlayWindow(
 
     fun attach(): Boolean {
         if (root?.isAttachedToWindow == true) return true
+        migrateLegacyMotionMode()
         val manifest = PetSkinManifest.load(context.assets)
         val frameCache = PetFrameCache(context.assets)
         val petView = PetFrameView(context)
@@ -392,6 +391,7 @@ class PetOverlayWindow(
         layout.x = oldCenterX - next / 2
         layout.y = oldBottom - next
         clamp(layout)
+        enforceDockedAxis(layout)
         player?.setTargetHeight(assetHeight(normalized))
         badge?.let { unread ->
             (unread.layoutParams as? FrameLayout.LayoutParams)?.let { badgeLayout ->
@@ -422,7 +422,7 @@ class PetOverlayWindow(
         val nextLimits = next.limits(layout)
         layout.x = nextLimits.xAt(oldFractionX)
         layout.y = nextLimits.yAt(oldFractionY)
-        if (motionMode() == PetMotionPolicy.EDGE) {
+        if (hasActiveDock()) {
             when (edge) {
                 EDGE_LEFT -> layout.x = nextLimits.minX
                 EDGE_RIGHT -> layout.x = nextLimits.maxX
@@ -664,10 +664,6 @@ class PetOverlayWindow(
                 setMotionMode(PetMotionPolicy.FREE)
                 closeOptions(resumeMotion = false)
             })
-            addView(optionButton(selectedLabel("贴边模式", currentMode == PetMotionPolicy.EDGE)) {
-                setMotionMode(PetMotionPolicy.EDGE)
-                closeOptions(resumeMotion = false)
-            })
             addView(sectionLabel("半屏模式"))
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -818,6 +814,7 @@ class PetOverlayWindow(
 
     private fun setMotionMode(value: String) {
         cancelAutonomyPlayback(resetToIdle = true)
+        val previous = motionMode()
         val normalized = PetMotionPolicy.normalized(value)
         prefs.edit().putString(KEY_PET_MOTION_MODE, normalized).apply()
         pendingLightLanding?.let(handler::removeCallbacks)
@@ -825,16 +822,15 @@ class PetOverlayWindow(
         gravityResumePending = false
         physics.cancel()
         handler.removeCallbacks(physicsTick)
-        if (normalized == PetMotionPolicy.EDGE) {
-            dockToNearestEdge()
-            return
+        if (PetMotionPolicy.isHalf(normalized) || PetMotionPolicy.isHalf(previous)) {
+            setDockedEdge("")
         }
-        setDockedEdge("")
         val layout = params ?: return
         val view = root ?: return
         val oldX = layout.x
         val oldY = layout.y
         clamp(layout)
+        enforceDockedAxis(layout)
         runCatching { windowManager.updateViewLayout(view, layout) }
         persistPosition()
         if (layout.x != oldX || layout.y != oldY) {
@@ -845,6 +841,14 @@ class PetOverlayWindow(
     private fun motionMode(): String = PetMotionPolicy.normalized(
         prefs.getString(KEY_PET_MOTION_MODE, PetMotionPolicy.FREE),
     )
+
+    private fun migrateLegacyMotionMode() {
+        if (prefs.getString(KEY_PET_MOTION_MODE, PetMotionPolicy.FREE) ==
+            PetMotionPolicy.EDGE
+        ) {
+            prefs.edit().putString(KEY_PET_MOTION_MODE, PetMotionPolicy.FREE).apply()
+        }
+    }
 
     private fun mobilityMode(): String = PetMobilityPolicy.normalized(
         prefs.getString(KEY_PET_MOBILITY_MODE, PetMobilityPolicy.MOBILE),
@@ -871,17 +875,26 @@ class PetOverlayWindow(
 
     private fun dockedEdge(): String = prefs.getString(KEY_PET_DOCK_EDGE, "").orEmpty()
 
+    private fun hasActiveDock(): Boolean =
+        motionMode() == PetMotionPolicy.FREE &&
+            dockedEdge() in setOf(EDGE_LEFT, EDGE_RIGHT, EDGE_TOP, EDGE_BOTTOM)
+
     private fun handleDragRelease(
         layout: WindowManager.LayoutParams,
         animation: PetAnimationPlayer,
         release: ReleaseGesture,
     ) {
         val mode = motionMode()
-        if (!release.isThrow && mode == PetMotionPolicy.EDGE && isNearAnyEdge(layout)) {
+        if (PetMotionPolicy.shouldDockAfterUserDrag(
+                mode = mode,
+                isThrow = release.isThrow,
+                nearEdge = isNearAnyEdge(layout),
+            )
+        ) {
             dockToNearestEdge()
             return
         }
-        if (!release.isThrow && mode != PetMotionPolicy.EDGE) {
+        if (!release.isThrow) {
             setDockedEdge("")
             persistPosition()
             playLightLanding("pet_overlay_light_place")
@@ -890,7 +903,7 @@ class PetOverlayWindow(
         setDockedEdge("")
         animation.play(
             "FALLING",
-            reason = if (release.isThrow) "pet_overlay_throw" else "pet_overlay_edge_drop",
+            reason = "pet_overlay_throw",
             force = true,
             immediate = true,
         )
@@ -1300,7 +1313,7 @@ class PetOverlayWindow(
         if (layout.x !in limits.minX..limits.maxX || layout.y !in limits.minY..limits.maxY) {
             return false
         }
-        if (dragging || physics.active || motionMode() != PetMotionPolicy.EDGE) return true
+        if (dragging || physics.active || !hasActiveDock()) return true
         return when (dockedEdge()) {
             EDGE_LEFT -> layout.x == limits.minX
             EDGE_RIGHT -> layout.x == limits.maxX
@@ -1319,7 +1332,7 @@ class PetOverlayWindow(
     }
 
     private fun enforceDockedAxis(layout: WindowManager.LayoutParams) {
-        if (motionMode() != PetMotionPolicy.EDGE) return
+        if (!hasActiveDock()) return
         val limits = activeArea(layout).limits(layout)
         when (dockedEdge()) {
             EDGE_LEFT -> layout.x = limits.minX

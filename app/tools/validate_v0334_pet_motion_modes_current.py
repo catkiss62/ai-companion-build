@@ -51,7 +51,9 @@ require(
     pet,
     [
         'selectedLabel("自由模式"',
-        'selectedLabel("贴边模式"',
+        "private fun migrateLegacyMotionMode()",
+        "PetMotionPolicy.shouldDockAfterUserDrag(",
+        "private fun hasActiveDock()",
         'sectionLabel("半屏模式")',
         "PetMotionPolicy.HALF_TOP to \"上\"",
         "PetMotionPolicy.HALF_BOTTOM to \"下\"",
@@ -74,6 +76,7 @@ require(
 )
 assert 'optionButton("贴边缩进")' not in pet
 assert 'optionButton("关闭菜单")' not in pet
+assert 'selectedLabel("贴边模式"' not in pet
 
 service = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"

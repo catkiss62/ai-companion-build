@@ -144,6 +144,15 @@ const legacyEditableRuleLayerSha256V03814 = <String, String>{
       '10d66dc2bbc83d3e4617165bb3c77172b2852c24d60d17243e7e842304b545a5',
 };
 
+/// Exact editable defaults shipped by the accepted v0.38.16 baseline.
+/// v0.38.18 replaces only these untouched bodies; any user edit is retained.
+const legacyEditableRuleLayerSha256V03816 = <String, String>{
+  '05_intimacy_rendering':
+      'bba5221999054923ed8ddfa50104179410f145b190173dc40615a2e794b25253',
+  '06_intimacy_reference':
+      '5f9b9d8ba819e90150a1ca5d400a42d99b7f3797a39d106bbc28d9b60770d1c4',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so
