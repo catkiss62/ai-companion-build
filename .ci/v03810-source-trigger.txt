@@ -1,3 +1,4 @@
 v0.38.10 source validation trigger
 schema=33
 version=0.38.10+109
+validation_retry=2026-08-26T03:10:00Z
