@@ -140,7 +140,8 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       'max_results': includeDomains.isEmpty ? 5 : 3,
       'include_answer': false,
       'include_raw_content': false,
-      'include_images': false,
+      'include_images': true,
+      'include_image_descriptions': true,
       if (includeDomains.isNotEmpty) 'include_domains': includeDomains,
     };
     try {
@@ -169,11 +170,15 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         final title = _plain(item['title']?.toString() ?? '');
         final content = _plain(item['content']?.toString() ?? '');
         if (title.isEmpty || content.isEmpty) continue;
+        final image = _firstSafeImage(item['images']);
         results.add(_TavilyResult(
           title: _bounded(title, 160),
           content: _bounded(content, 1200),
           url: uri!.toString(),
           domain: uri.host.toLowerCase(),
+          imageUrl: image?.url ?? '',
+          imageDomain: image?.domain ?? '',
+          imageDescription: image?.description ?? '',
         ));
       }
       return _TavilyBatch(results: results);
@@ -225,8 +230,28 @@ class LayeredPublicWebProvider implements PublicWebProvider {
               interestKey: interestKey,
               discoveredAt: now,
               expiresAt: now.add(const Duration(days: 14)),
+              imageUrl: item.imageUrl,
+              imageDomain: item.imageDomain,
+              imageDescription: item.imageDescription,
             ))
         .toList(growable: false);
+  }
+
+  static _TavilyImage? _firstSafeImage(Object? raw) {
+    if (raw is! List) return null;
+    for (final value in raw.take(8)) {
+      final url = value is Map ? value['url']?.toString() ?? '' : value.toString();
+      final uri = Uri.tryParse(url);
+      if (!_safePublicHttps(uri)) continue;
+      final description =
+          value is Map ? _plain(value['description']?.toString() ?? '') : '';
+      return _TavilyImage(
+        url: uri!.toString(),
+        domain: uri.host.toLowerCase(),
+        description: _bounded(description, 500),
+      );
+    }
+    return null;
   }
 
   static List<String> parseExtraSourceDomains(String value) {
@@ -358,6 +383,9 @@ class AgnesWebCompactor {
           discoveredAt: original.discoveredAt,
           expiresAt: original.expiresAt,
           safetyState: original.safetyState,
+          imageUrl: original.imageUrl,
+          imageDomain: original.imageDomain,
+          imageDescription: original.imageDescription,
         );
       }).toList(growable: false);
       lastSucceeded =
@@ -443,10 +471,28 @@ class _TavilyResult {
     required this.content,
     required this.url,
     required this.domain,
+    this.imageUrl = '',
+    this.imageDomain = '',
+    this.imageDescription = '',
   });
 
   final String title;
   final String content;
   final String url;
   final String domain;
+  final String imageUrl;
+  final String imageDomain;
+  final String imageDescription;
+}
+
+class _TavilyImage {
+  const _TavilyImage({
+    required this.url,
+    required this.domain,
+    required this.description,
+  });
+
+  final String url;
+  final String domain;
+  final String description;
 }
