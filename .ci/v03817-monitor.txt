@@ -1,0 +1,7 @@
+status=success
+run_id=32986888865
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/32986888865
+head_sha=405e4cc1fe682f4b361dcfa5cdc8ce073d789a97
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+1b0b8969f5d4e52d8e4510f47b504aa83e41416ec5c86079d9b6b9fa7370b23d  AI-Companion-v0.38.17-116-Final-Body-Single-Playback-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-02dba6673847e592978e
