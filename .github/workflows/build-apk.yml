@@ -65,6 +65,7 @@
 # AI-Companion-v0.39.0-118-Immersive-Room-APK
 # .ci/v0390-monitor.txt
 # Active candidate: v0.39.1+119 / SQLite schema 34 / immersive room polish
+# CI trigger: connector-authenticated v0.39.1 contents update
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
