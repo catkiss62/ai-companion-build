@@ -16,7 +16,36 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 沉浸双时间、TTS合成停止与按需思考翻译（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING）
+
+> 用户已真机确认 v0.39.4+122“测试没有问题”，因此上一批升级为 TRUE DEVICE PASSED。本批从 `agent/v0394-immersive-chat-ui-tts` 建立 `agent/v0395-time-tts-reasoning-translation`，目标 `0.39.5+123`、SQLite schema 35 不变；将两个小修和此前后置的思考翻译合为一个独立候选。用户已确认翻译必须是英文占主导后才出现的手动入口，不得成为原始生成的强制兜底或增加每轮生成延迟。
+
+### A. 本批锁定范围
+
+1. **沉浸房间双时间**：普通聊天现有 `GroundingEngine` 每轮注入现实日期、时间、UTC offset、星期和间隔；沉浸 builder 目前只发送规则、关系/记忆、房间背景、滚动摘要、现场账和不含时间戳的原文。本批为沉浸每轮新增实时设备当地日期/时间/offset/星期，但明确标成“现实系统时间”；小说场景时间继续由入场背景、现场账和剧情决定，现实钟表不得自动推进或覆盖虚构场景时间。
+2. **TTS 合成中可停止**：普通聊天与沉浸房间当前都在 `TtsPlaybackPhase.synthesizing` 时把“…”按钮设为 disabled，虽然共用 `TtsPlaybackQueue.stop()` 与 native generation token 已能作废合成结果。本批让“…”保持可点击；synthesizing/playing 均执行 stop，立即恢复 idle，当前不可中断的 native 句子即使在后台完成也不得播放。
+3. **按需思考翻译**：只在完整 reasoning 结束后由本地语言形状判断决定是否展示，不在流式中调用翻译。英文占主导时，在思考正文下方显示无背景/边框的紫色下划线文字“翻译成中文”；点击后才使用当前 DeepSeek API、当前 endpoint/API Key、关闭 thinking 的非思考请求，且只发送该条 reasoning，不发送聊天历史、记忆、人设或规则。
+4. 翻译必须忠实转为自然简体中文，保留代码、命令、URL、路径、API/模型名和专名；不得总结、解释、润色、补写或改变原始思考。原始 `reasoning_content` 永不覆盖。成功译文只做当前运行期、按消息 ID 的内存缓存，不新增数据库列/表，不升 schema；失败显示可重试，不影响聊天、房间、TTS或消息原文。
+5. 普通聊天和沉浸房间共用同一个 `ReasoningPanel` 翻译呈现与同一服务；中文优先不显示入口，英文夹少量技术词不误触发。翻译请求不取得 durable chat generation lease、不改变发送/停止状态、不进入 Memory、AI Self、诊断正文或悬浮聊天；离开页面/控制器释放时取消未完成翻译。
+
+### B. 验证与交付边界
+
+1. 新增语言判定、翻译请求隔离/忠实输出、临时缓存/失败重试、双时间 prompt、两页 TTS 合成停止和共享 UI 契约测试；继续执行全部历史/current validators、Kotlin、Flutter analyze/tests、release APK、稳定签名和完整载荷校验。
+2. 真机重点：沉浸询问现实几点能基于本轮设备时间回答，但小说时间不被现实钟表强行推进；普通/沉浸 TTS 显示“…”时点击后立即回到音量图标且之后不出声；中文思考不显示翻译入口，英文为主时才显示紫色下划线文字，点击后译文出现且不拖慢原回复。
+3. A/B 为修改前锁定范围；实现与本地证据见下方 C。Actions、APK、SHA及真机状态仍必须按真实结果另行回填。
+
+### C. 本地实现与验证回填
+
+1. 功能提交为 `03312fb`。`ImmersivePromptBuilder` 每次真实房间生成时重新读取 `DateTime.now()`，注入设备当地日期、时间、UTC offset与星期；同一 system section 明确现实钟表只用于现实时间认知，小说场景时间仍由入场背景、现场账和剧情决定。测试可传固定 `now`，运行时没有冻结会话启动时间。
+2. 普通聊天和沉浸房间的 TTS 消息按钮都不再在 synthesizing 时禁用；已保存消息的回调改为 phase 非 idle 即 stop，正在生成轮次原本就直接走 stop。共用 `TtsPlaybackQueue.stop()` 会增加 Dart/native generation epoch、清空队列并停止 AudioTrack，因此正在 native 推理的当前句即使完成也只会被丢弃，不会播放。
+3. 新增 `ReasoningTranslationCoordinator` 与独立 DeepSeek gateway：本地去除代码块、行内代码和URL后复用语言形状分类，只有 mixed（英文显著占优）或 mainlyEnglish 才显示入口。点击后用 V4 Flash、`thinking:false`、当前 API Key/endpoint，只发送固定翻译 system contract和该条 reasoning；返回必须非空且含中文，否则视为失败。
+4. `ReasoningPanel` 在完整思考下显示紫色 `#8B5CF6`、下划线、无背景/边框的文字入口；支持“翻译中…”、失败重试及成功后的显示/隐藏。普通与沉浸页面各自持有 page-lifetime coordinator，缓存按 message ID 保存于内存；页面销毁会取消所有未完成请求、清空缓存并关闭独立 HTTP client。流式思考不显示入口，原始 reasoning、正文、数据库、Memory、AI Self、诊断和悬浮窗均不改写。
+5. 版本已升为 `0.39.5+123`，SQLite 继续 schema 35。新增语言门槛、翻译请求隔离/缓存/取消/重试/UI和沉浸双时间测试，并新增 `validate_v0395_time_tts_reasoning_translation.py`；历史 v0.35.2—v0.36.1 版本白名单及 v0.39.3/0.39.4工作流契约已向前兼容。
+6. 本地正式工作流中可运行的97项源码/历史 validator 全部通过，YAML解析、Python compileall与 `git diff --check` 通过。仅两项未在本地声称通过：LingChat视觉契约依赖 CI 从固定源恢复缺失资源；Kotlin crypto harness依赖本容器不存在的 `kotlinc`。本地同样没有 Dart/Flutter SDK，因此真正的 Flutter format/analyze/tests、Kotlin、release APK、签名及载荷必须由 Actions 完成。
+7. 当前状态只允许写“已实现、本地静态通过、CI待跑”；尚无 APK、SHA或真机证据。Actions成功后再回填远端 head、run、Artifact、Draft Release和APK校验值。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED）
 
 > 用户真机确认 v0.39.3 的嵌套对白和普通聊天热修后，发现正确的规则02【动作与神态格式】增强文本只曾落在 v0.38.17 实验分支，后续从已验收 v0.38.16 建立 v0.38.18 时被一并跳过。本批从 `agent/v0393-ordinary-chat-presentation-hotfix` 建立 `agent/v0394-immersive-chat-ui-tts`，预定 `0.39.4+122`、schema 35 不变；先恢复规则真源，再同批改善沉浸房间聊天呈现。
 
@@ -44,6 +73,7 @@
 6. 真机待验：规则02升级且手改不被覆盖；普通聊天不再依赖隐藏人称长提醒；沉浸 `「」/“”/""` 对白黄色、NSFW无转圈、气泡/透明度/留白、双方时间与 TTS；直接删除未结束房间不产生共享记忆。
 7. 远端分支 `agent/v0394-immersive-chat-ui-tts`、Draft PR [#41](https://github.com/catkiss62/ai-companion-build/pull/41)；有效构建 head `366cca7fe12b3c856f3cafbd635c3610df19cc92`。GitHub Actions [run 33062297165](https://github.com/catkiss62/ai-companion-build/actions/runs/33062297165) 全绿：源码/历史回归、Kotlin、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生库、417 桌宠、62 LingChat 视觉资源、22 塔罗、checksum、Artifact 与 Draft Release 上传均成功。
 8. APK `AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK.apk`，329,809,580 bytes，SHA-256 `8aedffbed1cd73914292fe48f60cc1f005b8b7c02b1fcdca01eb03e5052be7b7`；Draft Release [untagged-68904b25993b8c3d4d84](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-68904b25993b8c3d4d84)。Artifact ID `9642537843`，ZIP 323,594,782 bytes，digest `758a70be752554a04549ef1f57036caebebbea03249cde49943814dbb9d5d25c`，保留至 2026-09-10。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.3。
+9. 用户于 2026-08-27 真机明确反馈“测试了没有问题”，本批所列沉浸引号着色、NSFW按钮、气泡/时间/TTS及规则02恢复没有发现阻断问题；v0.39.4 因此升级为 TRUE DEVICE PASSED。该结论不等于后续 v0.39.5 新增能力已验收。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.3 普通聊天人称、顶部情绪与嵌套对白热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
