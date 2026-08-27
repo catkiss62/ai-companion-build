@@ -9,6 +9,9 @@ class ImmersiveRoom {
     required this.sceneLedger,
     required this.sharedMemorySummary,
     required this.summarizedMessageCount,
+    required this.nsfwActive,
+    required this.nsfwManualOverride,
+    required this.nsfwRouteSource,
     required this.createdAt,
     required this.updatedAt,
     this.endedAt,
@@ -23,6 +26,9 @@ class ImmersiveRoom {
   final String sceneLedger;
   final String sharedMemorySummary;
   final int summarizedMessageCount;
+  final bool nsfwActive;
+  final String nsfwManualOverride;
+  final String nsfwRouteSource;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? endedAt;
@@ -41,6 +47,9 @@ class ImmersiveRoom {
         sharedMemorySummary: row['shared_memory_summary'] as String? ?? '',
         summarizedMessageCount:
             (row['summarized_message_count'] as num?)?.toInt() ?? 0,
+        nsfwActive: row['nsfw_active'] == 1,
+        nsfwManualOverride: row['nsfw_manual_override'] as String? ?? '',
+        nsfwRouteSource: row['nsfw_route_source'] as String? ?? 'initial',
         createdAt: DateTime.fromMillisecondsSinceEpoch(
           (row['created_at'] as num).toInt(),
         ),
