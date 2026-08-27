@@ -1356,48 +1356,46 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
         child: Row(
           children: [
-            Flexible(
-              fit: FlexFit.loose,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: _openQuickPanel,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircleAvatar(
-                        radius: 19,
-                        backgroundImage: AssetImage(
-                          'assets/appearance/chat_avatar.webp',
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: _openQuickPanel,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircleAvatar(
+                          radius: 19,
+                          backgroundImage: AssetImage(
+                            'assets/appearance/chat_avatar.webp',
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 9),
-                      const Text(
-                        'DeepSeek',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      if (_showEmotionLabel &&
-                          _currentEmotionLabel.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
+                        const SizedBox(width: 9),
+                        const Text(
+                          'DeepSeek',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        if (_showEmotionLabel &&
+                            _currentEmotionLabel.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
                             _currentEmotionLabel,
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-            const Spacer(),
             if (_personalityTrial != null || _specialTrial != null)
               TextButton(
                 onPressed: _openPersonalityLab,

@@ -17,23 +17,48 @@ class DialogueTextSegment {
 
 List<DialogueTextSegment> splitDialogueText(String text) {
   if (text.isEmpty) return const [];
-  final matches = RegExp(
-    r'「[^」\n]*(?:」|$)',
-  ).allMatches(text);
   final segments = <DialogueTextSegment>[];
   var cursor = 0;
-  for (final match in matches) {
-    if (match.start > cursor) {
+  var index = 0;
+  while (index < text.length) {
+    if (text[index] != '「') {
+      index++;
+      continue;
+    }
+
+    final start = index;
+    var depth = 1;
+    index++;
+    while (index < text.length && text[index] != '\n') {
+      if (text[index] == '「') {
+        depth++;
+      } else if (text[index] == '」') {
+        depth--;
+        index++;
+        if (depth == 0) break;
+        continue;
+      }
+      index++;
+    }
+
+    // Preserve the established streaming behavior: an unmatched outer quote
+    // is tinted through the current end of the stream. A malformed quote that
+    // crosses a newline is left as ordinary text instead of swallowing the
+    // following action block.
+    final reachedEnd = index == text.length;
+    if (depth != 0 && !reachedEnd) continue;
+    final end = index;
+    if (start > cursor) {
       segments.add(DialogueTextSegment(
-        text.substring(cursor, match.start),
+        text.substring(cursor, start),
         isDialogue: false,
       ));
     }
     segments.add(DialogueTextSegment(
-      text.substring(match.start, match.end),
+      text.substring(start, end),
       isDialogue: true,
     ));
-    cursor = match.end;
+    cursor = end;
   }
   if (cursor < text.length) {
     segments.add(DialogueTextSegment(

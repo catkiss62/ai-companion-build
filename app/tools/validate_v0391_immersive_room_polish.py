@@ -77,7 +77,13 @@ assert "'immersive_messages'" in repository
 assert "Future<bool> deleteRoom" in controller
 
 chat = read("lib/features/chat/chat_page.dart")
-assert "const Spacer()" in chat
+# v0.39.1 used a loose Flexible + Spacer to keep the quick-panel hit target
+# content-sized. v0.39.3 replaces that layout with Expanded + left Align so the
+# emotion label cannot collapse while the InkWell itself remains content-sized.
+assert (
+    "const Spacer()" in chat
+    or "alignment: Alignment.centerLeft" in chat
+)
 assert "distance < 8" in chat
 assert "_scrollToLatest(animate: true)" not in chat
 assert "duration: const Duration(milliseconds: 180)" not in chat

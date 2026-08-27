@@ -12,11 +12,40 @@ object OverlayDialogueFormatter {
         return Regex("([^\\n])\\n(?=「)").replace(withoutOpening, "$1\n\n")
     }
 
-    fun dialogueRanges(value: String): List<IntRange> =
-        Regex("「[^」\\n]*(?:」|$)")
-            .findAll(value)
-            .map { it.range }
-            .toList()
+    fun dialogueRanges(value: String): List<IntRange> {
+        val result = mutableListOf<IntRange>()
+        var index = 0
+        while (index < value.length) {
+            if (value[index] != '「') {
+                index += 1
+                continue
+            }
+
+            val start = index
+            var depth = 1
+            index += 1
+            while (index < value.length && value[index] != '\n') {
+                when (value[index]) {
+                    '「' -> depth += 1
+                    '」' -> {
+                        depth -= 1
+                        index += 1
+                        if (depth == 0) break
+                        continue
+                    }
+                }
+                index += 1
+            }
+
+            // Unclosed streaming dialogue remains tinted through the current
+            // end. A malformed cross-line quote does not consume later blocks.
+            val reachedEnd = index == value.length
+            if (depth == 0 || reachedEnd) {
+                result += start until index
+            }
+        }
+        return result
+    }
 
     fun actionRanges(value: String): List<IntRange> {
         val dialogue = dialogueRanges(value)

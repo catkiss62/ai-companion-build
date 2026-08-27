@@ -28,4 +28,24 @@ class OverlayDialogueFormatterTest {
             OverlayDialogueFormatter.visibleText("（她刚刚抬起眼"),
         )
     }
+
+    @Test
+    fun `nested corner quotes keep the outer dialogue range intact`() {
+        val value = "动作在前\n\n「正被你那句「在干嘛呢」从刚才的坏心思里拽回来呢。」\n\n动作在后"
+        assertEquals(
+            listOf("「正被你那句「在干嘛呢」从刚才的坏心思里拽回来呢。」"),
+            OverlayDialogueFormatter.dialogueRanges(value).map {
+                value.substring(it)
+            },
+        )
+    }
+
+    @Test
+    fun `nested quote stays dialogue while outer quote is streaming`() {
+        val value = "「正被你那句「在干嘛呢」从刚才"
+        assertEquals(
+            listOf(value.indices),
+            OverlayDialogueFormatter.dialogueRanges(value),
+        )
+    }
 }

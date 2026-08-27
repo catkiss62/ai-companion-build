@@ -52,6 +52,25 @@ void main() {
     );
   });
 
+  test('nested corner quotes keep the whole outer dialogue tinted', () {
+    const source =
+        '动作在前\n\n「正被你那句「在干嘛呢」从刚才的坏心思里拽回来呢。」\n\n动作在后';
+    final segments = splitDialogueText(source);
+    expect(segments.map((item) => item.text).join(), source);
+    expect(
+      segments.where((item) => item.isDialogue).map((item) => item.text),
+      ['「正被你那句「在干嘛呢」从刚才的坏心思里拽回来呢。」'],
+    );
+  });
+
+  test('nested quote remains tinted while the outer quote is streaming', () {
+    const source = '「正被你那句「在干嘛呢」从刚才';
+    final segments = splitDialogueText(source);
+    expect(segments, hasLength(1));
+    expect(segments.single.text, source);
+    expect(segments.single.isDialogue, isTrue);
+  });
+
   test('curly and ASCII double quotes inherit action styling', () {
     expect(splitDialogueText('“还没说完').last.isDialogue, isFalse);
     expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
