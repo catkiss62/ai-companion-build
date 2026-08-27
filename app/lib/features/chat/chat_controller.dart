@@ -30,6 +30,7 @@ import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
@@ -151,6 +152,12 @@ class ChatController extends ChangeNotifier {
       _externalGenerationAssistantMessageId;
 
   bool get generationActive => sending || externalGenerationActive;
+
+  bool get showGenerationDraft => GenerationPresentationPolicy.showDraft(
+        generationActive: generationActive,
+        assistantMessageId: activeGenerationAssistantMessageId,
+        committedMessageIds: messages.map((message) => message.id),
+      );
 
   List<ChatTimelineItem> get timelineItems {
     final items = <ChatTimelineItem>[
@@ -342,8 +349,10 @@ class ChatController extends ChangeNotifier {
     if (!sending) {
       final nextActive = job != null;
       final nextReasoning = job?.partialReasoning ?? '';
-      final nextContent =
-          EmotionEnvelope.streamingVisible(job?.partialContent ?? '');
+      // Durable checkpoints may already contain the provider candidate body.
+      // Ordinary chat must not expose it before the guarded final commit; the
+      // app-local typewriter will present the single approved body afterwards.
+      const nextContent = '';
       final nextAssistantId = job?.assistantMessageId;
       final statusText = nextActive
           ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
@@ -967,6 +976,9 @@ class ChatController extends ChangeNotifier {
       _safeNotify();
       if (streamTts) {
         releaseStreamLeadIn();
+        // Ordinary visible body deltas are buffered until commit. Preserve the
+        // optional streaming-TTS setting by feeding the approved body once.
+        ttsPlayback.addDelta(result.assistant!.content);
         ttsPlayback.endStream();
       } else {
         final leadIn = emotionCueStarted

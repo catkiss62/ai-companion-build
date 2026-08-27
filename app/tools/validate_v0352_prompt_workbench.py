@@ -10,7 +10,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: (?:0\.35\.[2-9]\+\d+|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112|0\.38\.14\+113|0\.38\.15\+114|0\.38\.16\+115|0\.38\.18\+117)$", pubspec, re.MULTILINE)
+assert re.search(r"^version: (?:0\.35\.[2-9]\+\d+|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112|0\.38\.14\+113|0\.38\.15\+114|0\.38\.16\+115|0\.38\.18\+117|0\.39\.0\+118)$", pubspec, re.MULTILINE)
 assert "flutter_localizations:" in pubspec
 
 for relative in ("lib/app.dart", "lib/main.dart"):
@@ -24,7 +24,7 @@ for relative in ("lib/app.dart", "lib/main.dart"):
 
 page = read("lib/features/settings/rule_layers_page.dart")
 for token in (
-    "六大规则",
+    "七大规则",
     "_composeGroup",
     "_parseGroup",
     "ai_companion_prompt_pack",
@@ -117,7 +117,7 @@ tests = read("test/personality_trial_test.dart") + read("test/rule_layer_default
 for token in (
     "workbench templates immediately override",
     "07_base_playful",
-    "exactly six integrated rule groups",
+    "exactly seven integrated rule groups",
 ):
     assert token in tests, token
 

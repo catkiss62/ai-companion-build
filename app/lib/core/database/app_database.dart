@@ -55,7 +55,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 30;
   // Historical validator compatibility token: static const int schemaVersion = 31;
   // Historical validator compatibility token: static const int schemaVersion = 32;
-  static const int schemaVersion = 33;
+  // Historical validator compatibility token: static const int schemaVersion = 33;
+  static const int schemaVersion = 34;
 
   Database? _db;
   Future<Database>? _opening;
@@ -893,6 +894,9 @@ class AppDatabase {
     if (oldVersion < 33) {
       await _createV33Tables(db);
     }
+    if (oldVersion < 34) {
+      await _createV34Tables(db);
+    }
 
   }
 
@@ -1058,6 +1062,7 @@ class AppDatabase {
     await _createV31Tables(db);
     await _createV32Tables(db);
     await _createV33Tables(db);
+    await _createV34Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1900,6 +1905,43 @@ class AppDatabase {
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_album_content_saved "
       "ON companion_album_candidates(content_sha256) "
       "WHERE content_sha256 != '' AND lifecycle_state IN ('saved','soft_deleted')",
+    );
+  }
+
+  Future<void> _createV34Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS immersive_rooms (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'paused',
+        novel_rules TEXT NOT NULL DEFAULT '',
+        entry_context TEXT NOT NULL DEFAULT '',
+        rolling_summary TEXT NOT NULL DEFAULT '',
+        scene_ledger TEXT NOT NULL DEFAULT '',
+        shared_memory_summary TEXT NOT NULL DEFAULT '',
+        summarized_message_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        ended_at INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_immersive_rooms_status '
+      'ON immersive_rooms(status, updated_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS immersive_messages (
+        id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        reasoning_content TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_immersive_messages_room '
+      'ON immersive_messages(room_id, created_at ASC)',
     );
   }
 
@@ -10625,6 +10667,8 @@ class AppDatabase {
       'interaction_sessions',
       'reference_documents',
       'reference_items',
+      'immersive_rooms',
+      'immersive_messages',
       'rule_layers',
       'personality_trials',
       'special_style_trials',
@@ -10704,6 +10748,8 @@ class AppDatabase {
         'interaction_sessions',
         'reference_documents',
         'reference_items',
+        'immersive_rooms',
+        'immersive_messages',
         'rule_layers',
         'personality_trials',
         'special_style_trials',

@@ -735,8 +735,8 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('六大规则路由'),
-          subtitle: const Text('按日常/亲密/参考资料场景动态加载六层规则；关闭后仍保留最小 AI 本体硬身份。'),
+          title: const Text('七大规则路由'),
+          subtitle: const Text('按日常/亲密/沉浸房间场景动态加载七层规则；关闭后仍保留最小 AI 本体硬身份。'),
           value: ruleLayersEnabled,
           onChanged: (v) => setState(() => ruleLayersEnabled = v),
         ),

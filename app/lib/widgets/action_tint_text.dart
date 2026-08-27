@@ -120,3 +120,33 @@ class ActionTintText extends StatelessWidget {
     );
   }
 }
+
+/// Immersive-room prose keeps ordinary narration upright and only colors
+/// corner-quoted dialogue. Unlike normal chat presentation it never removes
+/// parentheses or treats the whole narration as an action block.
+class NovelTintText extends StatelessWidget {
+  const NovelTintText({super.key, required this.text, this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = DefaultTextStyle.of(context).style.merge(style).copyWith(
+          fontStyle: FontStyle.normal,
+          fontWeight: FontWeight.normal,
+        );
+    final dialogue = base.copyWith(color: chatDialogueGold);
+    return SelectableText.rich(
+      TextSpan(
+        children: [
+          for (final segment in splitDialogueText(text))
+            TextSpan(
+              text: segment.text,
+              style: segment.isDialogue ? dialogue : base,
+            ),
+        ],
+      ),
+    );
+  }
+}

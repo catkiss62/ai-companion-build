@@ -69,8 +69,8 @@ assert "_BubbleTailPainter" not in chat
 # two-level overlay routing behavior, and must not introduce translation.
 assert "class ReferenceUnlockControl" in phone
 assert "static const double slideDistance = 100" in phone
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert "emitDeltas: false," in runner
+assert "showGenerationDraft" in chat
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 assert "reasoning_translation" not in database

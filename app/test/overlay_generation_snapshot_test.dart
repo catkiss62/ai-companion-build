@@ -24,6 +24,20 @@ void main() {
     });
   });
 
+  test('unfinished snapshots can share reasoning without a candidate body', () {
+    const snapshot = OverlayGenerationSnapshot(
+      sending: true,
+      cancelling: false,
+      reasoning: '还在确认最终说法',
+      content: '',
+      assistantMessageId: 'assistant-2',
+    );
+
+    expect(snapshot.phase, 'thinking');
+    expect(snapshot.toChannelMap()['reasoning'], '还在确认最终说法');
+    expect(snapshot.toChannelMap()['content'], isEmpty);
+  });
+
   test('shared runtime phase survives an empty cross-engine checkpoint', () {
     const snapshot = OverlayGenerationSnapshot(
       sending: true,

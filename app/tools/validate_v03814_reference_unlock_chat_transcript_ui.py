@@ -63,8 +63,8 @@ assert "IntrinsicWidth(" in chat
 assert "_BubbleTailPainter" not in chat
 assert "_streamingBodyTailKey" in chat
 assert "NotificationListener<UserScrollNotification>" in chat
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert "emitDeltas: false," in runner
+assert "finalContent" in runner
 
 # New text follows action-line + corner-quoted-dialogue grammar. Old bracketed
 # history is still parsed, while both renderers hide delimiters and share gold.
