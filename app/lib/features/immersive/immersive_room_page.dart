@@ -307,13 +307,13 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   bool _visualStageEnabled = true;
   bool _visualSettingsLoaded = false;
   double _panelOpacity = 0.75;
-  double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
   String _backgroundMode = 'auto';
   bool _followLatest = true;
   bool _programmaticScroll = false;
+  bool _scrollFrameScheduled = false;
 
   @override
   void initState() {
@@ -335,8 +335,14 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   void _onChanged() {
     if (!mounted) return;
     setState(() {});
-    if (!_followLatest) return;
+    _scheduleFollowLatest();
+  }
+
+  void _scheduleFollowLatest() {
+    if (!_followLatest || _scrollFrameScheduled) return;
+    _scrollFrameScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollFrameScheduled = false;
       if (!mounted || !_followLatest || !scroll.hasClients) return;
       _programmaticScroll = true;
       scroll.jumpTo(scroll.position.maxScrollExtent);
@@ -364,12 +370,6 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             ) ??
             0.75)
         .clamp(0.45, 0.95)
-        .toDouble();
-    final panelFraction = (double.tryParse(
-              await db.getSetting('chat_panel_fraction') ?? '',
-            ) ??
-            0.62)
-        .clamp(0.42, 0.94)
         .toDouble();
     final backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
@@ -422,13 +422,13 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     setState(() {
       _visualStageEnabled = visualStageEnabled;
       _panelOpacity = panelOpacity;
-      _panelFraction = panelFraction;
       _backgroundMode = backgroundMode;
       _portraitSet = portraitSet;
       _portraitScale = scale;
       _portraitOffset = offset;
       _visualSettingsLoaded = true;
     });
+    _scheduleFollowLatest();
   }
 
   bool get _useNightBackground {
@@ -662,6 +662,50 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
         ],
       );
 
+  Widget _nsfwButton(ImmersiveRoom room) {
+    final active = room.nsfwActive;
+    final manualPending = room.nsfwManualOverride.isNotEmpty;
+    final color = immersiveRailPink;
+    final tooltip = controller.nsfwRouting
+        ? '正在根据当前房间剧情判定本轮是否需要成人小说规则'
+        : manualPending
+            ? '已手动${active ? '开启' : '关闭'}；下一轮使用后恢复自动判定'
+            : '自动判定当前${active ? '已开启' : '未开启'}；点击后下一轮强制${active ? '关闭' : '开启'}';
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        height: 24,
+        child: OutlinedButton(
+          onPressed: controller.sending ||
+                  controller.ending ||
+                  controller.nsfwRouting ||
+                  room.isEnded
+              ? null
+              : () => controller.setNsfwActive(!active),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: active ? color : Colors.white,
+            disabledForegroundColor:
+                active ? color.withValues(alpha: 0.6) : Colors.white70,
+            side: BorderSide(color: active ? color : Colors.white70),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            textStyle: Theme.of(context).textTheme.labelSmall,
+          ),
+          child: controller.nsfwRouting
+              ? const SizedBox.square(
+                  dimension: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.6),
+                )
+              : const Text('NSFW'),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final room = controller.room;
@@ -675,6 +719,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           actions: [
+            if (room != null) _nsfwButton(room),
+            if (room != null) const SizedBox(width: 4),
             if (room != null)
               PopupMenuButton<String>(
                 onSelected: (value) async {
@@ -716,69 +762,54 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
         ),
         body: controller.loading || !_visualSettingsLoaded
             ? const Center(child: CircularProgressIndicator())
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  final fraction =
-                      _visualStageEnabled ? _panelFraction : 1.0;
-                  final panelHeight = constraints.maxHeight * fraction;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (_visualStageEnabled) ...[
-                        Image.asset(
-                          _useNightBackground
-                              ? 'assets/lingchat/background/night.webp'
-                              : 'assets/lingchat/background/day.webp',
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: ChatPortraitStage(
-                              emotion: ChatVisualResolver.resolveEmotionKey(
-                                'affection',
-                              ),
-                              portraitSet: _portraitSet,
-                              transform: ChatPortraitTransform(
-                                scale: _portraitScale,
-                                offset: _portraitOffset,
-                              ),
-                              showEffect: false,
-                              animate: false,
-                            ),
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_visualStageEnabled) ...[
+                    Image.asset(
+                      _useNightBackground
+                          ? 'assets/lingchat/background/night.webp'
+                          : 'assets/lingchat/background/day.webp',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ChatPortraitStage(
+                          emotion: ChatVisualResolver.resolveEmotionKey(
+                            'affection',
                           ),
-                        ),
-                      ],
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: panelHeight,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surface
-                                .withValues(
-                                  alpha: _visualStageEnabled
-                                      ? _panelOpacity
-                                      : 1.0,
-                                ),
-                            border: Border(
-                              top: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant
-                                    .withValues(alpha: 0.75),
-                              ),
-                            ),
+                          portraitSet: _portraitSet,
+                          transform: ChatPortraitTransform(
+                            scale: _portraitScale,
+                            offset: _portraitOffset,
                           ),
-                          child: _conversationPanel(room),
+                          showEffect: false,
+                          animate: false,
                         ),
                       ),
-                    ],
-                  );
-                },
+                    ),
+                  ],
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface.withValues(
+                              alpha:
+                                  _visualStageEnabled ? _panelOpacity : 1.0,
+                            ),
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ),
+                      child: _conversationPanel(room),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
