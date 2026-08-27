@@ -16,6 +16,26 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.5 新版妹居 TTS 真机生成故障（DIAGNOSED / FIX IN PROGRESS / TRUE DEVICE FAILED）
+
+> 用户安装上一节 APK 后真机确认：点击普通聊天语音键时图标会进入“…”但立即恢复喇叭，没有任何声音。附件 `ai_companion_diagnostics_2026-08-27T16-51-59-574234Z.txt` 是当前最高优先级证据；本节只修新运行时在 AI Companion 宿主中的动态类加载边界，不重做模型迁移、A2 队列、播放、停止或情绪音效。
+
+### A. 修改前诊断与根因
+
+1. 报告为真实 `v0.39.5+123`：TTS `available=true`、`initialized=true`、`integrity=verified`、32 项载荷通过，诊断轨迹已越过 runtime JAR 类加载、`LocalTTSEngine` 实例、`TtsLanguage.ZH`、`initialize`、`setLengthScale`，每次都到达 `generateTTS_invoked`。因此不是资源漏打包、模型/JNI 初始化失败，也不是语音按钮点击失效。
+2. Native 诊断共记录 118 个 `InstantiationError`，全部发生于 generate 阶段；除最初单条外，后续九组每组恰好 13 条，并在约 23–41ms 内整组失败。A2 队列把每段异常隔离为 null audio，13 段全空后正常收尾，故界面表现为“喇叭 → … → 喇叭”；按钮状态机不作为本轮修改对象。
+3. 独立试听 APK 是无 Kotlin 插件/无 Flutter 依赖的纯 Java 宿主；AI Companion 是 Kotlin + Flutter 宿主。当前 `LegacyTtsRuntime.buildClassLoader()` 虽称运行时隔离，实际使用标准父优先 `DexClassLoader(..., appContext.classLoader)`。提取自完整 APK 的两份 DEX 同时携带 Kotlin、kotlinx.coroutines、AndroidX、预处理与混淆短类名；生成路径首次进入 `BuildersKt.withContext`、协程状态机与中文预处理后，父加载器可能解析到宿主同名但二进制不兼容的类，和真机即时 `InstantiationError`、试听 APK 成功的差异一致。
+4. 本轮根修方向：为动态 TTS 载荷建立受控 child-first ClassLoader。仅 `java.*`、`javax.*`、`android.*`、`dalvik.*` 等平台命名空间始终父优先；载荷 DEX 内实际存在的 Kotlin/协程/AndroidX/预处理/混淆类优先由子加载器解析，找不到才回退宿主。不能只对 `kotlin.*` 打补丁，因为完整 DEX 还含大量可能冲突的混淆类。
+5. 同批补充脱敏但可定位的类加载/异常诊断：记录运行时类来源与完整 Throwable 类型链/阶段，不保存朗读正文；若仍失败，下一份报告必须能指出具体冲突类，禁止继续只留下空 detail 的 `InstantiationError`。
+
+### B. 冻结边界与验收
+
+1. 不修改 27 个 TTS asset、5 个 native library、黄金哈希、中文 300-phone 保护、72 字异常长句二次切分、`ByteArray/Uint8List` 通道或 44.1kHz WAV 校验。
+2. 不修改 A2 标点分句、generation-ahead、FIFO、约 200ms 句间隔、单句失败隔离；不修改“喇叭 → … → ■ → 喇叭”、点击 `…/■` 全轮 stop、迟到 WAV 丢弃、页面切换停止契约。
+3. 不修改每轮一次情绪音效、音效先响/TTS并行合成、音效提前结束后首句就绪即播，以及独立情绪 WAV Base64 通道。
+4. 自动验证必须新增 child-first/平台父优先/父回退/已加载类复用契约，并继续跑全部历史 validators、Kotlin、Flutter analyze/tests、release APK 与32项载荷校验。CI 通过仍不等于修复成功；最终必须由 REDMI K80 Ultra 真机验证普通聊天与沉浸房间语音、长回复连续播放及 `…/■` 停止不复活。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 新版妹居 TTS 运行时迁移（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已在独立试听 APK `meju-tts-parity-test-android` v0.1.2 上真机确认：新完整包的中文本地 `LocalTTSEngine → JNI → Bert-VITS2/MNN → byte[] WAV` 分句生成/播放成功，听感语速更快、生成等待更短；200/1000 字整段返回空已取证为新引擎中文 `maxPhones=300` 的防崩溃保护，不是用户实际分段路径故障。用户确认不保留应用内新旧引擎可选项，直接把 AI Companion 的本地妹居生成后端替换为新运行时。
