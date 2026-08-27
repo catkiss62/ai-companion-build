@@ -129,6 +129,11 @@ for token in (
     "buildRuntimeJarWithPinyin",
     'PINYIN_ASSET_DIR = "legacy_tts/pinyin"',
     'RUNTIME_CACHE_DIR = "meju_tts_v395_b72ebc85"',
+    "private class RuntimeDexClassLoader",
+    "findClass(name)",
+    "internal fun isAlwaysParentFirstClass",
+    'LOADER_POLICY = "payload_child_first"',
+    "fun failureDiagnosticMetadata(error: Throwable)",
 ):
     assert token in legacy, token
 
@@ -145,8 +150,14 @@ for token in (
     "speechGeneration",
     "speechLock",
     "allowing sentence N+1 to infer while sentence N is audible",
+    "metadata = runtime.failureDiagnosticMetadata(t)",
 ):
     assert token in engine, token
+diagnostic_store = read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/RuntimeDiagnosticStore.kt",
+)
+for token in ("loaderPolicy", "failureType", "failureTarget"):
+    assert token in diagnostic_store, token
 assert 'call.argument<ByteArray>("audioData")' in bridge
 assert "appContext.assets.open(path).use { true }" in verifier
 assert "it.read() >= 0" not in verifier

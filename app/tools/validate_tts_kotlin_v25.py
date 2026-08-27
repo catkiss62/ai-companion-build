@@ -42,7 +42,7 @@ class Looper { companion object { fun getMainLooper(): Looper = Looper() } }
 class Handler(looper: Looper) { fun post(r: () -> Unit): Boolean { r(); return true } }
 ''',
     'dalvik/system/DexClassLoader.kt': '''package dalvik.system
-class DexClassLoader(dexPath: String, optimizedDirectory: String, librarySearchPath: String?, parent: ClassLoader?) : ClassLoader(parent)
+open class DexClassLoader(dexPath: String, optimizedDirectory: String, librarySearchPath: String?, parent: ClassLoader?) : ClassLoader(parent)
 ''',
     'io/flutter/embedding/engine/FlutterEngine.kt': '''package io.flutter.embedding.engine
 class FlutterEngine { val dartExecutor = DartExecutor(); class DartExecutor { val binaryMessenger: Any = Any() } }

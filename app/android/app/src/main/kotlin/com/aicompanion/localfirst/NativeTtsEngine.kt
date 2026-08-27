@@ -147,10 +147,8 @@ class NativeTtsEngine private constructor(context: Context) {
                 }
                 RuntimeDiagnosticStore.record(
                     appContext, "tts", "diagnose", "error",
-                    "staged_probe_failed", lastError,
-                    metadata = mapOf(
-                        "stage" to runtime.diagnosticTrace().lastOrNull().orEmpty(),
-                    ),
+                    "staged_probe_failed",
+                    metadata = runtime.failureDiagnosticMetadata(t),
                 )
                 status().toMutableMap().apply {
                     this["diagnosticOk"] = false
@@ -199,6 +197,7 @@ class NativeTtsEngine private constructor(context: Context) {
                 t.javaClass.simpleName,
                 // Do not persist inference-time text or legacy error bodies.
                 detail = "",
+                metadata = runtime.failureDiagnosticMetadata(t),
             )
             throw t
         } finally {

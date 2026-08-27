@@ -21,13 +21,16 @@ import java.util.zip.ZipOutputStream
 /**
  * Compatibility adapter for the user-validated multi-language LocalTTSEngine.
  *
- * The compiled Meju preprocessing/runtime remains isolated behind a local
- * DexClassLoader. v0.28.5 deliberately avoids reflecting Kotlin singleton
- * fields such as EmptyCoroutineContext.INSTANCE or COROUTINE_SUSPENDED: those
- * names can refer to the host app's R8-processed Kotlin runtime because Android
- * class loading is parent-first. Instead we build the exact CoroutineContext
- * interface required by the resolved legacy Continuation and detect suspension
- * from the value returned by the legacy suspend call itself.
+ * The compiled Meju preprocessing/runtime remains isolated behind a controlled
+ * child-first DexClassLoader. Only Java/Android platform classes and this host
+ * bridge are delegated to the parent first; every class carried by the supplied
+ * runtime DEX (including Kotlin, coroutines, AndroidX and obfuscated helpers) is
+ * resolved from that DEX before falling back to the app. This keeps the runtime
+ * binary-compatible without allowing it to shadow Android or the bridge.
+ *
+ * We also avoid reflecting Kotlin singleton fields such as
+ * EmptyCoroutineContext.INSTANCE or COROUTINE_SUSPENDED. The continuation proxy
+ * is built from the exact interfaces resolved by the isolated runtime.
  */
 class LegacyTtsRuntime(private val context: Context) {
     private val appContext = context.applicationContext
@@ -55,6 +58,33 @@ class LegacyTtsRuntime(private val context: Context) {
         artifactVerifier.verify(force = force)
 
     internal fun diagnosticTrace(): List<String> = diagnosticTrace.toList()
+
+    /** Redacted class-loading evidence; never includes the sentence being synthesized. */
+    internal fun failureDiagnosticMetadata(error: Throwable): Map<String, Any?> {
+        val types = ArrayList<String>()
+        var target = ""
+        var current: Throwable? = error
+        var depth = 0
+        while (current != null && depth < 8) {
+            types += current.javaClass.name
+            if (target.isEmpty()) {
+                target = CLASS_TOKEN_REGEX.find(current.message.orEmpty())
+                    ?.value
+                    ?.replace('/', '.')
+                    .orEmpty()
+            }
+            val next = current.cause
+            current = if (next == null || next === current) null else next
+            depth += 1
+        }
+        return linkedMapOf(
+            "stage" to diagnosticTrace.lastOrNull().orEmpty(),
+            "loaderPolicy" to LOADER_POLICY,
+            "failureType" to types.joinToString(">"),
+        ).apply {
+            if (target.isNotEmpty()) put("failureTarget", target)
+        }
+    }
 
     internal fun resetDiagnosticTrace() {
         diagnosticTrace = emptyList()
@@ -300,12 +330,47 @@ class LegacyTtsRuntime(private val context: Context) {
             target
         }
 
-        return DexClassLoader(
+        return RuntimeDexClassLoader(
             runtimeFiles.joinToString(File.pathSeparator) { it.absolutePath },
             optimized.absolutePath,
             appContext.applicationInfo.nativeLibraryDir,
             appContext.classLoader,
         )
+    }
+
+    /**
+     * Android's normal DexClassLoader is parent-first. That is unsafe for this
+     * payload because its two DEX files contain their own Kotlin/coroutines and
+     * obfuscated state-machine classes, while the Flutter host contains another
+     * version of the same dependencies. Keep platform/bridge identity shared;
+     * isolate every other payload class and fall back only when absent from DEX.
+     */
+    private class RuntimeDexClassLoader(
+        dexPath: String,
+        optimizedDirectory: String,
+        librarySearchPath: String?,
+        parent: ClassLoader,
+    ) : DexClassLoader(dexPath, optimizedDirectory, librarySearchPath, parent) {
+        override fun loadClass(name: String, resolve: Boolean): Class<*> {
+            synchronized(getClassLoadingLock(name)) {
+                findLoadedClass(name)?.let { loaded ->
+                    if (resolve) resolveClass(loaded)
+                    return loaded
+                }
+
+                val loaded = if (isAlwaysParentFirstClass(name)) {
+                    super.loadClass(name, false)
+                } else {
+                    try {
+                        findClass(name)
+                    } catch (_: ClassNotFoundException) {
+                        super.loadClass(name, false)
+                    }
+                }
+                if (resolve) resolveClass(loaded)
+                return loaded
+            }
+        }
     }
 
     /** Inject the five APK-root houbb-pinyin dictionaries into its class path. */
@@ -548,6 +613,27 @@ class LegacyTtsRuntime(private val context: Context) {
     }
 
     companion object {
+        private const val LOADER_POLICY = "payload_child_first"
+        private val CLASS_TOKEN_REGEX = Regex(
+            "(?:[A-Za-z_$][A-Za-z0-9_$]*[./])+[A-Za-z_$][A-Za-z0-9_$]*",
+        )
+        private val ALWAYS_PARENT_FIRST_PREFIXES = listOf(
+            "java.",
+            "javax.",
+            "android.",
+            "dalvik.",
+            "libcore.",
+            "sun.",
+            "org.w3c.",
+            "org.xml.",
+            "org.json.",
+            "com.android.",
+            "com.aicompanion.localfirst.",
+        )
+
+        internal fun isAlwaysParentFirstClass(name: String): Boolean =
+            ALWAYS_PARENT_FIRST_PREFIXES.any(name::startsWith)
+
         private const val ENGINE_CLASS =
             "com.gamedeveloper.urbanfriendshipstory.tts.LocalTTSEngine"
         private const val LANGUAGE_CLASS =
