@@ -64,8 +64,8 @@
 # agent/v0390-immersive-room
 # AI-Companion-v0.39.0-118-Immersive-Room-APK
 # .ci/v0390-monitor.txt
-# Active candidate: v0.39.1+119 / SQLite schema 34 / immersive room polish
-# CI trigger: connector-authenticated v0.39.1 contents update
+# Historical baseline: v0.39.1+119 / SQLite schema 34 / immersive room polish
+# Active candidate: v0.39.2+120 / SQLite schema 35 / immersive NSFW and stream stability
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -137,12 +137,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.39.1+119 APK (Immersive Room Polish)
+name: Build AI Companion v0.39.2+120 APK (Immersive NSFW Stream Stability)
 
 on:
   push:
     branches:
-      - agent/v0391-immersive-room-polish
+      - agent/v0392-immersive-nsfw-stream-stability
   workflow_dispatch:
   pull_request:
     branches:
@@ -250,14 +250,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.39.1+119' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 34;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.39.2+120' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 35;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.39.1+119 immersive room polish.'
+          echo 'Building v0.39.2+120 immersive NSFW and stream stability.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -413,6 +413,7 @@ jobs:
           python3 tools/validate_v03818_pre_immersive_polish.py
           python3 tools/validate_v0390_immersive_room.py
           python3 tools/validate_v0391_immersive_room_polish.py
+          python3 tools/validate_v0392_immersive_nsfw_stream.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -651,26 +652,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.39.1+119 APK as workflow artifact
+      - name: Upload v0.39.2+120 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.39.1-119-Immersive-Room-Polish-APK
+          name: AI-Companion-v0.39.2-120-Immersive-NSFW-Stream-Stability-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.39.1+119 immersive-room polish APK to draft release
+      - name: Upload v0.39.2+120 immersive NSFW stream APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.39.1-immersive-room-polish'
-          APK_NAME='AI-Companion-v0.39.1-119-Immersive-Room-Polish-APK.apk'
+          TAG='v0.39.2-immersive-nsfw-stream-stability'
+          APK_NAME='AI-Companion-v0.39.2-120-Immersive-NSFW-Stream-Stability-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.39.1-119-Immersive-Room-Polish-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.39.2-120-Immersive-NSFW-Stream-Stability-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -687,8 +688,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.1+119 immersive-room polish candidate' \
-              --notes 'Draft candidate: updates Rule 07, aligns immersive visuals with ordinary chat, adds user-controlled stream following plus room rename/delete, and removes the obsolete rule-discussion action. SQLite schema remains 34.'
+              --title 'AI Companion v0.39.2+120 immersive NSFW stream stability candidate' \
+              --notes 'Draft candidate: makes immersive chat full-screen, adds room-isolated automatic/manual NSFW routing, and coalesces true-stream rendering and scrolling once per frame. SQLite schema 35.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -712,18 +713,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0391-monitor.txt'
+          MONITOR_PATH='.ci/v0392-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.1 CI success monitor' \
+              -f message='Update v0.39.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.1 CI success monitor' \
+              -f message='Create v0.39.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -744,8 +745,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.39.1-immersive-room-polish'
-          CI_NAME='AI-Companion-v0.39.1-119-Immersive-Room-Polish-CI-Monitor.txt'
+          TAG='v0.39.2-immersive-nsfw-stream-stability'
+          CI_NAME='AI-Companion-v0.39.2-120-Immersive-NSFW-Stream-Stability-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -786,8 +787,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.1+119 immersive-room polish candidate' \
-              --notes 'Draft used for v0.39.1 CI diagnostics and the immersive-room polish APK. It is not a published release.'
+              --title 'AI Companion v0.39.2+120 immersive NSFW stream stability candidate' \
+              --notes 'Draft used for v0.39.2 CI diagnostics and the immersive fullscreen/NSFW/stream-stability APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -796,18 +797,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0391-monitor.txt'
+          MONITOR_PATH='.ci/v0392-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.1 CI failure monitor' \
+              -f message='Update v0.39.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.1 CI failure monitor' \
+              -f message='Create v0.39.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
