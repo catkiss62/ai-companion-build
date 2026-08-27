@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IN PROGRESS / CI NOT RUN / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.39.3 的嵌套对白和普通聊天热修后，发现正确的规则02【动作与神态格式】增强文本只曾落在 v0.38.17 实验分支，后续从已验收 v0.38.16 建立 v0.38.18 时被一并跳过。本批从 `agent/v0393-ordinary-chat-presentation-hotfix` 建立 `agent/v0394-immersive-chat-ui-tts`，预定 `0.39.4+122`、schema 35 不变；先恢复规则真源，再同批改善沉浸房间聊天呈现。
 
@@ -42,6 +42,8 @@
 4. 删除确认现按房间状态区分：未整理房间直接删除不新增长期记忆；已整理房间删除时明示先前已分离写入的共享记忆不随房间删除。这是文案澄清，未改交易删除边界。
 5. 已升版 `0.39.4+122`，schema 35 不变；新增 v0.39.4 静态契约与小说引号单测，相关 v0.35.2—v0.39.4 历史/当前静态验证、YAML 解析及 `git diff --check` 已通过。本地精简检出仍缺 417 文件桌宠与 LingChat 特效资源，并无 Flutter/Dart/Kotlin SDK；这些必须由 Actions 固定资源恢复后做真正编译、单测、APK、签名和载荷校验，当前不冒充 CI 通过。
 6. 真机待验：规则02升级且手改不被覆盖；普通聊天不再依赖隐藏人称长提醒；沉浸 `「」/“”/""` 对白黄色、NSFW无转圈、气泡/透明度/留白、双方时间与 TTS；直接删除未结束房间不产生共享记忆。
+7. 远端分支 `agent/v0394-immersive-chat-ui-tts`、Draft PR [#41](https://github.com/catkiss62/ai-companion-build/pull/41)；有效构建 head `366cca7fe12b3c856f3cafbd635c3610df19cc92`。GitHub Actions [run 33062297165](https://github.com/catkiss62/ai-companion-build/actions/runs/33062297165) 全绿：源码/历史回归、Kotlin、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生库、417 桌宠、62 LingChat 视觉资源、22 塔罗、checksum、Artifact 与 Draft Release 上传均成功。
+8. APK `AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK.apk`，329,809,580 bytes，SHA-256 `8aedffbed1cd73914292fe48f60cc1f005b8b7c02b1fcdca01eb03e5052be7b7`；Draft Release [untagged-68904b25993b8c3d4d84](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-68904b25993b8c3d4d84)。Artifact ID `9642537843`，ZIP 323,594,782 bytes，digest `758a70be752554a04549ef1f57036caebebbea03249cde49943814dbb9d5d25c`，保留至 2026-09-10。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.3。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.3 普通聊天人称、顶部情绪与嵌套对白热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
