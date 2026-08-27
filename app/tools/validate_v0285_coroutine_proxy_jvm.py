@@ -32,6 +32,9 @@ open class AssetManager {
     'android/content/pm/ApplicationInfo.kt': '''package android.content.pm
 open class ApplicationInfo { var nativeLibraryDir: String = "." }
 ''',
+    'android/util/Base64.kt': '''package android.util
+object Base64 { const val DEFAULT: Int = 0; fun decode(value: String, flags: Int): ByteArray = byteArrayOf() }
+''',
     'dalvik/system/DexClassLoader.kt': '''package dalvik.system
 class DexClassLoader(dexPath: String, optimizedDirectory: String, librarySearchPath: String?, parent: ClassLoader?) : ClassLoader(parent)
 ''',

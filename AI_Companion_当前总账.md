@@ -37,6 +37,7 @@
 5. 完成前必须通过：新负载指纹和 DEX 签名检查、Kotlin/Flutter 类型编译、TTS 分句预生成/顺序/单句失败隔离/stop 回归、全部历史 validators、Flutter analyze/tests、release APK 与安装包内实体校验。Actions/APK 通过仍只表示可供真机测试，最终音色、语速、首声延迟和长对话稳定性继续等用户安装验收。
 6. 用户于本任务中再次明确授权将新 TTS 模型、runtime JAR、拼音词典和原生库公开上传并用 Actions 构建。为避免与已公开试听仓库重复保存 135 MB 二进制，AI Companion 改为构建时从 `catkiss62/meju-tts-parity-test-android` 的固定提交 `2059a660cc9768b95ace2561741fcb0312f3ac60` 及 `runtime-payload-v1` 恢复；Release ZIP SHA-256 固定为 `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`，恢复后再做本项目 32 项逐文件校验及 APK 内复核。
 7. Actions 第一轮 run `33091291960` 和第二轮 run `33091653183` 均已证明固定仓库/Release 下载、ZIP SHA、模型/runtime/native 恢复成功；失败点都只在 `pinyin_dict_phrase.txt` 精确指纹。逐字节对照确认并非 Git checkout 换行转换，而是试听仓库原文件漏了完整素材最后一条 `乐亭:lào tíng`，正好少 17 bytes。试听仓库已用完整源文件修复为提交 `2059a660cc9768b95ace2561741fcb0312f3ac60`；主项目删除临时换行改写，直接从该提交恢复并继续要求原始大小 `1159971` 与 SHA-256 `a959653d…ac775`，没有放宽校验或在构建中临时补词条。
+8. 第三轮 run `33092422230` 已证明完整 32 项源资源大小/SHA、DEX/调用、A2 分句、generation-ahead、stop 与历史 TTS 校验全部通过；随后旧 `validate_v0285_coroutine_proxy_jvm.py` 的独立 JVM 编译桩因未模拟新兼容兜底所引用的 Android 标准类 `android.util.Base64` 而失败。正式 Android SDK 与另一套当前 TTS 编译桩都已提供该类；修复仅给旧测试桩补同一最小声明，不修改 APK 运行代码或降低测试断言。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
