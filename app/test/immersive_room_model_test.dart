@@ -1,4 +1,4 @@
-import 'package:ai_companion/core/models/immersive_room.dart';
+import 'package:ai_companion_localfirst/core/models/immersive_room.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
