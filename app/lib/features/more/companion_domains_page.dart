@@ -102,7 +102,7 @@ class DataAdvancedDomainPage extends StatelessWidget {
         entries: [
           _DomainEntry(
             icon: Icons.rule_folder_outlined,
-            title: '六大规则',
+            title: '七大规则',
             subtitle: '运行规则的唯一编辑入口',
             onTap: () => _push(context, const RuleLayersPage()),
           ),

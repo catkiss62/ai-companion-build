@@ -38,8 +38,8 @@ pet_tests = read(
 )
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.18+117" in pubspec
-assert "static const int schemaVersion = 33;" in database
+assert "version: 0.39.0+118" in pubspec
+assert "static const int schemaVersion = 34;" in database
 
 # Reassemble the uploaded Rule 06 envelope from its two runtime stable keys.
 parsed = {
@@ -141,16 +141,16 @@ assert "if (reparsedActionCount > storedActionCount) return reparsed;" in segmen
 assert ".join('\\n\\n')" in visuals
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "fontStyle: FontStyle.italic" in text
-assert "emitDeltas: true," in runner
+assert "emitDeltas: false," in runner
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 
 for token in (
-    "Build AI Companion v0.38.18+117 APK (Pre-Immersive Polish)",
-    "agent/v03818-pre-immersive-polish",
+    "Build AI Companion v0.39.0+118 APK (Immersive Room)",
+    "agent/v0390-immersive-room",
     "python3 tools/validate_v03818_pre_immersive_polish.py",
-    "AI-Companion-v0.38.18-117-Pre-Immersive-Polish-APK",
-    ".ci/v03818-monitor.txt",
+    "AI-Companion-v0.39.0-118-Immersive-Room-APK",
+    ".ci/v0390-monitor.txt",
 ):
     assert token in workflow, token
 

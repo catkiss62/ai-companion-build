@@ -55,6 +55,11 @@ const _groupSpecs = <String, _RuleLayerGroupSpec>{
     '06 · NSFW 渲染',
     '亲密 Session 的表达、动作连续性与按需参考资料。',
   ),
+  '07': _RuleLayerGroupSpec(
+    '07',
+    '07 · 沉浸房间',
+    '房间隔离、小说视角、长篇结构与沉浸玩法参考，只在沉浸房间生效。',
+  ),
 };
 
 const _groupKeyByLayer = <String, String>{
@@ -74,6 +79,8 @@ const _groupKeyByLayer = <String, String>{
   '08_runtime_identity': '01',
   '08_visible_inner_voice': '02',
   '08_proactive_turn': '02',
+  'immersive_07_global': '07',
+  'immersive_07_nsfw_source': '07',
 };
 
 const _sectionTitles = <String, String>{
@@ -87,6 +94,8 @@ const _sectionTitles = <String, String>{
   '04_intimacy_core': '亲密关系核心',
   '05_intimacy_rendering': '亲密表现规则',
   '06_intimacy_reference': '亲密参考资料',
+  'immersive_07_global': '沉浸房间全局协议',
+  'immersive_07_nsfw_source': '成人小说参考原文',
 };
 
 String ruleLayerSectionTitle(RuleLayer layer) =>

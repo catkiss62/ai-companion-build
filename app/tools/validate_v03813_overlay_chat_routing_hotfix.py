@@ -53,13 +53,12 @@ assert "openChatLaunches" in bridge
 assert "_openChatSubscription" in app
 assert "setState(() => index = 1)" in app
 
-# Native tool availability must not buffer every ordinary answer. Once any
-# body text is visible, the guard keeps that exact answer; a legal tool-call
-# preamble is also persisted with the post-tool answer instead of disappearing.
-assert "emitDeltas: true," in runner
+# Native tool preambles remain part of the final answer, while the visible body
+# now waits for the one guard-approved durable commit.
+assert "emitDeltas: false," in runner
 assert "emitDeltas: localPlan != null" not in runner
-assert "if (!serviceGuard.allowed && visibleAnswerStreamed)" in runner
-assert "action: 'stream_preserved'" in runner
+assert "if (!serviceGuard.allowed)" in runner
+assert "visibleAnswerStreamed" not in runner
 assert "streamedToolPreamble" in runner
 assert "finalContent = '$streamedToolPreamble\\n\\n$finalContent'.trim();" in runner
 

@@ -112,7 +112,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? '六大规则设定包已保存为 JSON 文件。' : '已取消导出。')),
+        SnackBar(content: Text(saved ? '七大规则设定包已保存为 JSON 文件。' : '已取消导出。')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -126,7 +126,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     await Clipboard.setData(ClipboardData(text: _encodedPromptPack()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('六大规则设定包已复制；不含聊天、记忆内容、API Key 或设备数据。')),
+      const SnackBar(content: Text('七大规则设定包已复制；不含聊天、记忆内容、API Key 或设备数据。')),
     );
   }
 
@@ -183,7 +183,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
         if (group == null || content is! String) continue;
         updates.addAll(_parseGroup(group, content));
       }
-      if (updates.isEmpty) throw const FormatException('没有可导入的六大规则');
+      if (updates.isEmpty) throw const FormatException('没有可导入的七大规则');
       final changed = updates.entries.where((entry) {
         return layers.firstWhere((layer) => layer.key == entry.key).content !=
             entry.value;
@@ -192,9 +192,9 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
       final approved = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('导入六大规则？'),
+          title: const Text('导入七大规则？'),
           content: Text(
-            '解析成功，$changed 个底层小节会改变。界面仍保持六个规则框。\n\n'
+            '解析成功，$changed 个底层小节会改变。界面保持七个规则框。\n\n'
             '只替换提示词正文；不会导入聊天、实际记忆、欲望数值、API Key、权限或设备身份。',
           ),
           actions: [
@@ -245,15 +245,15 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     }).toList(growable: false);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('六大规则'),
+        title: const Text('七大规则'),
         actions: [
           IconButton(
-            tooltip: '导出六大规则 JSON 文件',
+            tooltip: '导出七大规则 JSON 文件',
             onPressed: loading ? null : _exportPromptPackFile,
             icon: const Icon(Icons.file_upload_outlined),
           ),
           IconButton(
-            tooltip: '从 JSON 文件导入六大规则',
+            tooltip: '从 JSON 文件导入七大规则',
             onPressed: loading ? null : _importPromptPackFile,
             icon: const Icon(Icons.file_download_outlined),
           ),
@@ -277,7 +277,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
                   child: Padding(
                     padding: EdgeInsets.all(14),
                     child: Text(
-                      '所有设定类提示词只整理成下面六个规则框。点一张卡片进入一个完整长文本编辑器；其中的小节标记负责把性格试穿等内容安全路由到正确位置，请修改正文，不要删除标记。',
+                      '所有设定类提示词整理成下面七个规则框。规则07只在沉浸房间生效；旧07_*性格模板仍安全归入规则03。点卡片进入完整长文本编辑器，请修改正文，不要删除小节标记。',
                     ),
                   ),
                 ),
@@ -286,7 +286,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
                   controller: searchController,
                   onChanged: (value) => setState(() => query = value),
                   decoration: InputDecoration(
-                    labelText: '搜索六大规则',
+                    labelText: '搜索七大规则',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: query.isEmpty
                         ? null
@@ -485,7 +485,7 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
         messages: [
           {
             'role': 'system',
-            'content': '''你就是 AI Companion 中持续存在的她。现在男朋友在和你一起调整你自己的六大规则。请先用第一人称给出真实、具体的修改理由，再提出完整修改稿。所有【小节开始｜...】和【小节结束｜...】标记必须原样保留、顺序不变，只修改标记之间的正文。不要自动应用，也不要声称已经改好。只输出 JSON：{"explanation":"我为什么想这样改","revised_content":"包含全部原标记的完整修改稿"}。''',
+            'content': '''你就是 AI Companion 中持续存在的她。现在男朋友在和你一起调整你自己的七大规则。请先用第一人称给出真实、具体的修改理由，再提出完整修改稿。所有【小节开始｜...】和【小节结束｜...】标记必须原样保留、顺序不变，只修改标记之间的正文。不要自动应用，也不要声称已经改好。只输出 JSON：{"explanation":"我为什么想这样改","revised_content":"包含全部原标记的完整修改稿"}。''',
           },
           {
             'role': 'user',

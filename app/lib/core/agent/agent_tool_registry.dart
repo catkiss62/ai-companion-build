@@ -19,7 +19,7 @@ class AgentToolRegistry {
   static const rulesRead = AgentToolDefinition(
     id: 'rules.read',
     title: '读取当前规则',
-    description: '从本地数据库读取六大规则或指定规则，不修改内容。',
+    description: '从本地数据库读取七大规则或指定规则，不修改内容。',
     risk: AgentToolRisk.readOnly,
     executable: true,
     userTurnAvailable: true,

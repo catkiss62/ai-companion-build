@@ -75,4 +75,21 @@ void main() {
     expect(chatDialogueGold, const Color(0xFFFDE68A));
   });
 
+  testWidgets('immersive prose stays upright and preserves parentheses',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: NovelTintText(text: '她停了一下（没有转身）。\n\n「继续。」'),
+        ),
+      ),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final children = selectable.textSpan!.children!.cast<TextSpan>();
+    expect(children.map((item) => item.text).join(),
+        '她停了一下（没有转身）。\n\n「继续。」');
+    expect(children.first.style!.fontStyle, FontStyle.normal);
+    expect(children.last.style!.color, chatDialogueGold);
+  });
+
 }

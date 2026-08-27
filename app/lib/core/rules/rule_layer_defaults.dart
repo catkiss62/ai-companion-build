@@ -1,4 +1,5 @@
 import 'rule_layer_content_v0353.dart';
+import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
   const RuleLayerDefault(
@@ -655,4 +656,16 @@ final defaultRuleLayers = <RuleLayerDefault>[
       _approvedRuleContentsV0354[layer.key] ?? layer.content,
       locked: layer.locked,
     ),
+  const RuleLayerDefault(
+    'immersive_07_global',
+    'Immersive Room Protocol',
+    'immersive',
+    immersiveRuleGlobal,
+  ),
+  const RuleLayerDefault(
+    'immersive_07_nsfw_source',
+    'Immersive Adult Reference',
+    'immersive_reference',
+    immersiveNsfwSource,
+  ),
 ];

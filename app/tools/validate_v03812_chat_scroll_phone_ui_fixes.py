@@ -54,14 +54,13 @@ assert "Scrollable.ensureVisible(" in chat
 assert "scroll.addListener(_onScrollChanged)" not in chat
 assert "duration: Duration.zero" in chat
 
-# v0.38.12 prevents hidden replacement after a visible stream and stops
-# provider reasoning from being emitted a second time at commit. v0.38.13
-# restores the ordinary body's incremental stream itself.
+# The later single-playback contract retains the reasoning de-duplication while
+# keeping the ordinary visible body buffered until durable commit.
 early_publish = "if (localPlan == null && generated.toolCalls.isEmpty)"
 assert early_publish not in runner
-assert "action: 'stream_preserved'" in runner
-assert "if (!visibleAnswerStreamed)" in runner
-assert "onDelta?.call(DeepSeekDelta(content: finalContent))" in runner
+assert "emitDeltas: false," in runner
+assert "visibleAnswerStreamed" not in runner
+assert "onDelta?.call(DeepSeekDelta(content: finalContent))" not in runner
 visible_reasoning = runner.index(
     "final visibleReasoning = preserveProviderReasoning(generated.reasoning);"
 )

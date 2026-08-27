@@ -23,6 +23,7 @@ import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
 import '../phone/simulated_phone_page.dart';
+import '../immersive/immersive_room_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -747,7 +748,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
             itemCount:
-                timeline.length + (controller.generationActive ? 1 : 0) + 1,
+                timeline.length + (controller.showGenerationDraft ? 1 : 0) + 1,
             itemBuilder: (context, index) {
               if (index < timeline.length) {
                 final item = timeline[index];
@@ -823,7 +824,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ],
                 );
               }
-              if (controller.generationActive && index == timeline.length) {
+              if (controller.showGenerationDraft && index == timeline.length) {
                 return _StreamingBubble(
                   controller: controller,
                   bodyTailKey: _streamingBodyTailKey,
@@ -1040,6 +1041,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           await Navigator.of(pageContext).push(
                             MaterialPageRoute(
                               builder: (_) => const SimulatedPhonePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.auto_stories_rounded),
+                        title: const Text('沉浸房间'),
+                        subtitle: const Text('独立长篇场景、真流式输出与房间记忆。'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () async {
+                          Navigator.pop(dialogContext);
+                          await Navigator.of(pageContext).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ImmersiveRoomLobbyPage(),
                             ),
                           );
                         },

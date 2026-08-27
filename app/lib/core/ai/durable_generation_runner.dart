@@ -233,7 +233,6 @@ class DurableGenerationRunner {
 
       var agentToolResults = const <AgentToolResult>[];
       var announcedEmotionKey = '';
-      var visibleAnswerStreamed = false;
       var streamedToolPreamble = '';
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
@@ -363,7 +362,6 @@ class DurableGenerationRunner {
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
             emittedVisibleContent = visibleContent;
-            if (visibleDelta.isNotEmpty) visibleAnswerStreamed = true;
             // Publish provider reasoning as it arrives so both chat surfaces
             // can expand the reasoning panel immediately. Prompt language
             // guidance still prefers Chinese without rewriting model thought.
@@ -415,11 +413,10 @@ class DurableGenerationRunner {
       var finalRequestMessages = baseRequestMessages;
       var generated = await generate(
         baseRequestMessages,
-        // A native tool definition must not turn every ordinary reply into a
-        // buffered completion. DeepSeek tool-call streams normally carry tool
-        // fragments (and no visible body); ordinary answer streams must keep
-        // publishing their body deltas in real time.
-        emitDeltas: true,
+        // Ordinary chat keeps provider reasoning live, but holds the visible
+        // body until every guard has approved one durable answer. The chat UI
+        // then performs its established local typewriter playback exactly once.
+        emitDeltas: false,
         tools: localPlan == null
             ? AgentToolPlanner.nativeToolDefinitions
             : const <Map<String, Object?>>[],
@@ -427,14 +424,10 @@ class DurableGenerationRunner {
       cancellationToken?.throwIfCancelled();
 
       if (localPlan == null && generated.toolCalls.isNotEmpty) {
-        // A provider may legally emit a short visible preamble before its tool
-        // call. It has already reached the UI, so retain it in the committed
-        // answer instead of letting the post-tool response replace it.
+        // A provider may legally emit a short preamble before its tool call.
+        // Keep it buffered and retain it in the single committed answer.
         streamedToolPreamble =
             EmotionEnvelope.parse(generated.content).visibleText.trim();
-        if (streamedToolPreamble.isNotEmpty) {
-          onDelta?.call(const DeepSeekDelta(content: '\n\n'));
-        }
         final nativePlan =
             AgentToolPlanner.fromNativeToolCalls(generated.toolCalls);
         if (nativePlan.isEmpty) {
@@ -496,7 +489,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           statusText: '正在整理工具结果…',
           toolId: '',
         );
-        generated = await generate(finalRequestMessages);
+        generated = await generate(finalRequestMessages, emitDeltas: false);
         cancellationToken?.throwIfCancelled();
       }
 
@@ -517,18 +510,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         recentAssistantTexts: recentAssistantTexts,
         currentUserText: user.content,
       );
-      if (!serviceGuard.allowed && visibleAnswerStreamed) {
-        // Once a body has genuinely streamed token-by-token, replacing it
-        // with a second hidden generation is more damaging than allowing a
-        // rare style-guard miss: the user otherwise sees answer A suddenly
-        // become unrelated answer B at commit time.
-        await ServiceTemplateGuardTelemetry.note(
-          db,
-          result: serviceGuard,
-          mode: 'user_turn',
-          action: 'stream_preserved',
-        );
-      } else if (!serviceGuard.allowed) {
+      if (!serviceGuard.allowed) {
         await ServiceTemplateGuardTelemetry.note(
           db,
           result: serviceGuard,
@@ -585,13 +567,6 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       }
       if (finalContent.trim().isEmpty) {
         throw const FormatException('模板重写后正文为空');
-      }
-
-      if (!visibleAnswerStreamed) {
-        // Native tool detection buffers the candidate until it is known not
-        // to contain tool calls. Publish only the guard-approved final body;
-        // the old path exposed candidate A and then committed rewritten B.
-        onDelta?.call(DeepSeekDelta(content: finalContent));
       }
 
       final companionEmotion = await emotionClassifier.resolve(

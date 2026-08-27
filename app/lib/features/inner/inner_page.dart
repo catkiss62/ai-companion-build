@@ -673,7 +673,7 @@ class _InnerPageState extends State<InnerPage> {
                   await _refresh();
                 },
                 icon: const Icon(Icons.rule_folder_outlined),
-                label: const Text('六大规则'),
+                label: const Text('七大规则'),
               ),
             ),
           ],

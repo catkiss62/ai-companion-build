@@ -6,7 +6,8 @@ import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
 
 void main() {
   // Historical v0.34.2 test name: ships nine independently persisted sections.
-  // The workbench now persists more templates while presenting exactly six groups.
+  // The workbench persists historical 07_* templates under personality while
+  // presenting the separate immersive protocol as the seventh visible group.
   test('ships rule sections plus every editable personality/runtime template', () {
     const expectedKeys = <String>{
       '01_core',
@@ -40,6 +41,8 @@ void main() {
       '08_runtime_identity',
       '08_visible_inner_voice',
       '08_proactive_turn',
+      'immersive_07_global',
+      'immersive_07_nsfw_source',
     };
     final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
 
@@ -53,7 +56,7 @@ void main() {
     expect(byKey['08_visible_inner_voice']!.locked, isTrue);
   });
 
-  test('presents every prompt as exactly six integrated rule groups', () {
+  test('presents every prompt as exactly seven integrated rule groups', () {
     final now = DateTime(2026, 8, 14);
     final layers = defaultRuleLayers
         .map((layer) => RuleLayer(
@@ -71,7 +74,7 @@ void main() {
 
     expect(
       groups.map((group) => group.key),
-      <String>['01', '02', '03', '04', '05', '06'],
+      <String>['01', '02', '03', '04', '05', '06', '07'],
     );
     expect(byKey['01']!.layers.map((layer) => layer.key), <String>[
       '01_core',
@@ -103,6 +106,10 @@ void main() {
         ]);
     expect(byKey['01']!.layers.every((layer) => layer.locked), isTrue);
     expect(byKey['03']!.layers.first.locked, isFalse);
+    expect(byKey['07']!.layers.map((layer) => layer.key), <String>[
+      'immersive_07_global',
+      'immersive_07_nsfw_source',
+    ]);
     expect(byKey['03']!.layers.skip(1).every((layer) => layer.locked), isTrue);
     expect(byKey['04']!.layers.single.key, '04_memory_rules');
     expect(byKey['05']!.layers.single.key, '04_intimacy_core');

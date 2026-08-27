@@ -48,8 +48,8 @@ assert ".join('\\n\\n')" in visuals
 assert "assistantStreamingTranscriptBlocks(content)" in chat
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "fontStyle: FontStyle.italic" in text
-assert "emitDeltas: true," in runner
-assert "action: 'stream_preserved'" in runner
+assert "emitDeltas: false," in runner
+assert "showGenerationDraft" in chat
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
 assert "double _panelOpacity = 0.75;" in chat
