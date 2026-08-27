@@ -251,7 +251,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: catkiss62/meju-tts-parity-test-android
-          ref: ebc128fff5e788a3e7516690ebd7f8bc82a46e2b
+          ref: 2059a660cc9768b95ace2561741fcb0312f3ac60
           path: .tts-source
 
       - name: Restore exact validated Meju TTS runtime payload
@@ -276,11 +276,6 @@ jobs:
             "${TTS_MAIN}/assets/legacy_tts/"
           cp -a .tts-source/app/src/main/assets/legacy_tts/pinyin \
             "${TTS_MAIN}/assets/legacy_tts/"
-          # GitHub checkout normalizes these source dictionaries to LF. Restore
-          # the original APK's byte-exact CRLF form before manifest validation.
-          for dictionary in "${TTS_MAIN}"/assets/legacy_tts/pinyin/*.txt; do
-            perl -pi -e 's/\r\n/\n/g; s/\n/\r\n/g' "${dictionary}"
-          done
           cp -a .tts-payload/unpacked/app/src/main/jniLibs/arm64-v8a \
             "${TTS_MAIN}/jniLibs/"
 

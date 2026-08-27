@@ -35,8 +35,8 @@
 3. Kotlin 适配层显式锁定 `TtsLanguage.ZH`，适配 suspend `initialize/setLengthScale/release`，将 `generateTTS` 产物改为校验过 RIFF/WAVE 头的 `ByteArray`。Flutter MethodChannel 使用 `Uint8List`，不再 Base64 膨胀/解码；情绪 WAV 的独立 Base64 通道不与本批混改。
 4. 对新引擎 300 音素上限加“异常长单句”二次切分/验收；普通标点分句与现有 200ms 句间隔不改。
 5. 完成前必须通过：新负载指纹和 DEX 签名检查、Kotlin/Flutter 类型编译、TTS 分句预生成/顺序/单句失败隔离/stop 回归、全部历史 validators、Flutter analyze/tests、release APK 与安装包内实体校验。Actions/APK 通过仍只表示可供真机测试，最终音色、语速、首声延迟和长对话稳定性继续等用户安装验收。
-6. 用户于本任务中再次明确授权将新 TTS 模型、runtime JAR、拼音词典和原生库公开上传并用 Actions 构建。为避免与已公开试听仓库重复保存 135 MB 二进制，AI Companion 改为构建时从 `catkiss62/meju-tts-parity-test-android` 的固定提交 `ebc128fff5e788a3e7516690ebd7f8bc82a46e2b` 及 `runtime-payload-v1` 恢复；Release ZIP SHA-256 固定为 `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`，恢复后再做本项目 32 项逐文件校验及 APK 内复核。
-7. Actions 第一轮 run `33091291960` 已证明固定仓库/Release 下载、ZIP SHA、模型/runtime/native 恢复均成功；在新校验器处发现 GitHub checkout 把 3 个非空拼音词典从源包 CRLF 规范化为 LF，导致 `pinyin_dict_phrase.txt` 指纹失败。修复为构建时先恢复源包 CRLF 字节再校验，未放宽或改写 manifest 预期哈希。
+6. 用户于本任务中再次明确授权将新 TTS 模型、runtime JAR、拼音词典和原生库公开上传并用 Actions 构建。为避免与已公开试听仓库重复保存 135 MB 二进制，AI Companion 改为构建时从 `catkiss62/meju-tts-parity-test-android` 的固定提交 `2059a660cc9768b95ace2561741fcb0312f3ac60` 及 `runtime-payload-v1` 恢复；Release ZIP SHA-256 固定为 `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`，恢复后再做本项目 32 项逐文件校验及 APK 内复核。
+7. Actions 第一轮 run `33091291960` 和第二轮 run `33091653183` 均已证明固定仓库/Release 下载、ZIP SHA、模型/runtime/native 恢复成功；失败点都只在 `pinyin_dict_phrase.txt` 精确指纹。逐字节对照确认并非 Git checkout 换行转换，而是试听仓库原文件漏了完整素材最后一条 `乐亭:lào tíng`，正好少 17 bytes。试听仓库已用完整源文件修复为提交 `2059a660cc9768b95ace2561741fcb0312f3ac60`；主项目删除临时换行改写，直接从该提交恢复并继续要求原始大小 `1159971` 与 SHA-256 `a959653d…ac775`，没有放宽校验或在构建中临时补词条。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）

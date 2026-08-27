@@ -9,9 +9,9 @@
 - CI 负载来源：公开试听仓库 `catkiss62/meju-tts-parity-test-android` 的固定
   `runtime-payload-v1` Release（ZIP SHA-256
   `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`）及
-  固定提交 `ebc128fff5e788a3e7516690ebd7f8bc82a46e2b` 中的 5 个拼音字典
+  固定提交 `2059a660cc9768b95ace2561741fcb0312f3ac60` 中的 5 个拼音字典
 
-拼音词典在 Git checkout 后会从 LF 恢复为原 APK 的 CRLF 字节形式，再参与清单校验；这一步只恢复换行编码，不改变任何词条。
+该固定提交已恢复完整源包 `pinyin_dict_phrase.txt` 最后一条 `乐亭:lào tíng`；Actions 直接校验 checkout 得到的原始字节，不在构建中补词条或改写换行，也不放宽清单哈希。
 
 旧版 9 个拆分 runtime JAR、旧目录模型和 `libMNN_Vulkan.so` 已从当前运行路径移除。当前版本使用新版 2 个 runtime JAR、5 个独立拼音字典、`zh/` 模型/预处理目录及 5 个 native library。为避免两个公开仓库重复保存 135 MB 二进制，AI Companion 源码分支不再跟踪这批实体；Actions 在校验/编译前按固定提交、Release 标签和 ZIP 哈希恢复，最终 APK 中仍须通过 32 项逐文件大小与 SHA-256 校验。旧版文档与 manifest 只作为 Git 历史证据，不再参与当前校验。
 

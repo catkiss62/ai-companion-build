@@ -176,10 +176,9 @@ assert "python3 tools/validate_v0395_meju_tts_runtime_upgrade.py" in workflow
 assert "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK" in workflow
 for token in (
     "catkiss62/meju-tts-parity-test-android",
-    "ebc128fff5e788a3e7516690ebd7f8bc82a46e2b",
+    "2059a660cc9768b95ace2561741fcb0312f3ac60",
     "runtime-payload-v1",
     "a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c",
-    "perl -pi -e 's/\\r\\n/\\n/g; s/\\n/\\r\\n/g'",
 ):
     assert token in workflow, token
 ledger = read("../AI_Companion_当前总账.md")
