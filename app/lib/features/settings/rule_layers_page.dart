@@ -3,14 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/ai/deepseek_client.dart';
-import '../../core/ai/model_profile.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/rule_layer.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/rules/rule_layer_defaults.dart';
 import '../../core/rules/rule_layer_grouping.dart';
-import '../../core/storage/secure_config.dart';
 
 String _startMarker(RuleLayer layer) =>
     '【小节开始｜${layer.key}｜${ruleLayerSectionTitle(layer)}】';
@@ -395,7 +392,6 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
   final scrollController = ScrollController();
   late final TextEditingController controller;
   bool saving = false;
-  bool askingAi = false;
 
   @override
   void initState() {
@@ -428,151 +424,14 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
     }
   }
 
-  Future<void> _askAiForProposal() async {
-    final requestController = TextEditingController();
-    final request = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('和她讨论 · ${widget.group.title}'),
-        content: TextField(
-          controller: requestController,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 7,
-          decoration: const InputDecoration(
-            hintText: '告诉她你觉得哪里还不像她，或者让她自己提出修改方向。',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              requestController.text.trim(),
-            ),
-            child: const Text('让她提议'),
-          ),
-        ],
-      ),
-    );
-    requestController.dispose();
-    if (request == null || request.isEmpty) return;
-    setState(() => askingAi = true);
-    DeepSeekClient? client;
-    try {
-      final apiKey = await SecureConfig.instance.readApiKey();
-      if (apiKey == null || apiKey.trim().isEmpty) {
-        throw const FormatException('请先在 AI 设置中保存 DeepSeek API Key');
-      }
-      final endpoint = await SecureConfig.instance.readEndpoint();
-      final model =
-          DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
-      final effort = ReasoningEffort.fromApiName(
-        await db.getSetting('reasoning_effort'),
-      );
-      client = DeepSeekClient();
-      final result = await client.jsonCompletion(
-        apiKey: apiKey,
-        endpoint: endpoint,
-        model: model,
-        thinking: true,
-        effort: effort,
-        maxTokens: 4200,
-        messages: [
-          {
-            'role': 'system',
-            'content': '''你就是 AI Companion 中持续存在的她。现在男朋友在和你一起调整你自己的七大规则。请先用第一人称给出真实、具体的修改理由，再提出完整修改稿。所有【小节开始｜...】和【小节结束｜...】标记必须原样保留、顺序不变，只修改标记之间的正文。不要自动应用，也不要声称已经改好。只输出 JSON：{"explanation":"我为什么想这样改","revised_content":"包含全部原标记的完整修改稿"}。''',
-          },
-          {
-            'role': 'user',
-            'content': '规则：${widget.group.title}\n\n当前完整文本：\n${controller.text}\n\n讨论方向：\n$request',
-          },
-        ],
-      );
-      final revised = result['revised_content']?.toString().trim() ?? '';
-      final explanation = result['explanation']?.toString().trim() ?? '';
-      if (revised.isEmpty) throw const FormatException('她没有返回完整修改稿');
-      _parseGroup(widget.group, revised);
-      if (!mounted) return;
-      final apply = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('她提出了一版修改'),
-          content: SizedBox(
-            width: 720,
-            height: MediaQuery.sizeOf(context).height * 0.58,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (explanation.isNotEmpty) ...[
-                  Text(explanation),
-                  const Divider(height: 24),
-                ],
-                const Text(
-                  '完整修改稿',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: SelectableText(revised),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('先不采用'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('放进编辑器'),
-            ),
-          ],
-        ),
-      );
-      if (apply == true) {
-        controller.value = TextEditingValue(
-          text: revised,
-          selection: TextSelection.collapsed(offset: revised.length),
-        );
-      }
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('讨论失败：$error')),
-      );
-    } finally {
-      client?.close();
-      if (mounted) setState(() => askingAi = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.group.title),
         actions: [
-          TextButton.icon(
-            onPressed: saving || askingAi ? null : _askAiForProposal,
-            icon: askingAi
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.auto_awesome_outlined),
-            label: const Text('和她讨论'),
-          ),
-          const SizedBox(width: 4),
           FilledButton(
-            onPressed: saving || askingAi ? null : _save,
+            onPressed: saving ? null : _save,
             child: const Text('保存'),
           ),
           const SizedBox(width: 8),
@@ -588,7 +447,7 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
                 child: Padding(
                   padding: EdgeInsets.all(12),
                   child: Text(
-                    '这是一个完整规则框。正文可以任意调整；请保留每个【小节开始】和【小节结束】标记，否则 App 无法把性格试穿等内容放回正确位置。AI 提议只会放进编辑器，必须由你点击保存。',
+                    '这是一个完整规则框。正文可以任意调整；请保留每个【小节开始】和【小节结束】标记，否则 App 无法把性格试穿等内容放回正确位置。',
                   ),
                 ),
               ),

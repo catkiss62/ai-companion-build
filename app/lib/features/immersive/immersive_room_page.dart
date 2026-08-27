@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
 import '../../core/models/immersive_room.dart';
+import '../../core/presentation/chat_visuals.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/reasoning_panel.dart';
 
 const immersiveRailPink = Color(0xFFF472B6);
@@ -123,6 +126,68 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
     if (mounted) await _load();
   }
 
+  Future<void> _renameRoom(ImmersiveRoom room) async {
+    final title = TextEditingController(text: room.title);
+    try {
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('修改房间名称'),
+          content: TextField(
+            controller: title,
+            autofocus: true,
+            maxLength: 40,
+            decoration: const InputDecoration(
+              labelText: '房间名称',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      if (approved != true) return;
+      await repository.renameRoom(room.id, title.text);
+      await _load();
+    } finally {
+      title.dispose();
+    }
+  }
+
+  Future<void> _deleteRoom(ImmersiveRoom room) async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除这个房间？'),
+        content: Text('“${room.title}”的完整原文、现场和归档都会永久删除，此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    await repository.deleteRoom(room.id);
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,7 +243,32 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           isThreeLine: room.rollingSummary.trim().isNotEmpty,
-                          trailing: const Icon(Icons.chevron_right_rounded),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PopupMenuButton<String>(
+                                tooltip: '房间操作',
+                                onSelected: (value) async {
+                                  if (value == 'rename') {
+                                    await _renameRoom(room);
+                                  } else if (value == 'delete') {
+                                    await _deleteRoom(room);
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'rename',
+                                    child: Text('修改名称'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('删除房间'),
+                                  ),
+                                ],
+                              ),
+                              const Icon(Icons.chevron_right_rounded),
+                            ],
+                          ),
                           onTap: () => _openRoom(room),
                         ),
                       ),
@@ -214,12 +304,23 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       ImmersiveRoomController(roomId: widget.roomId);
   final input = TextEditingController();
   final scroll = ScrollController();
+  bool _visualStageEnabled = true;
+  bool _visualSettingsLoaded = false;
+  double _panelOpacity = 0.75;
+  double _panelFraction = 0.62;
+  ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
+  double _portraitScale = ChatPortraitTransform.defaults.scale;
+  Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
+  String _backgroundMode = 'auto';
+  bool _followLatest = true;
+  bool _programmaticScroll = false;
 
   @override
   void initState() {
     super.initState();
     controller.addListener(_onChanged);
     unawaited(controller.initialize());
+    unawaited(_loadVisualSettings());
   }
 
   @override
@@ -234,10 +335,107 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   void _onChanged() {
     if (!mounted) return;
     setState(() {});
+    if (!_followLatest) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !scroll.hasClients) return;
+      if (!mounted || !_followLatest || !scroll.hasClients) return;
+      _programmaticScroll = true;
       scroll.jumpTo(scroll.position.maxScrollExtent);
+      _programmaticScroll = false;
     });
+  }
+
+  bool _onUserScroll(UserScrollNotification notification) {
+    if (_programmaticScroll || !scroll.hasClients) return false;
+    final distance = scroll.position.maxScrollExtent - scroll.offset;
+    if (notification.direction == ScrollDirection.forward) {
+      _followLatest = false;
+    } else if (distance < 8) {
+      _followLatest = true;
+    }
+    return false;
+  }
+
+  Future<void> _loadVisualSettings() async {
+    final db = AppDatabase.instance;
+    final visualStageEnabled =
+        (await db.getSetting('chat_visual_stage_enabled')) != '0';
+    final panelOpacity = (double.tryParse(
+              await db.getSetting('chat_panel_opacity') ?? '',
+            ) ??
+            0.75)
+        .clamp(0.45, 0.95)
+        .toDouble();
+    final panelFraction = (double.tryParse(
+              await db.getSetting('chat_panel_fraction') ?? '',
+            ) ??
+            0.62)
+        .clamp(0.42, 0.94)
+        .toDouble();
+    final backgroundMode =
+        await db.getSetting('chat_background_mode') ?? 'auto';
+    final portraitSet = chatPortraitSetFromKey(
+      await db.getSetting('chat_portrait_set'),
+    );
+    final defaults = ChatPortraitTransform.defaultsFor(portraitSet);
+    final legacyScale = portraitSet == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_scale')
+        : null;
+    final legacyX = portraitSet == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_offset_x')
+        : null;
+    final legacyY = portraitSet == ChatPortraitSet.smallWhale
+        ? await db.getSetting('chat_portrait_offset_y')
+        : null;
+    final scale = (double.tryParse(
+              await db.getSetting(
+                    'chat_portrait_scale_${portraitSet.key}',
+                  ) ??
+                  legacyScale ??
+                  '',
+            ) ??
+            defaults.scale)
+        .clamp(0.85, 1.80)
+        .toDouble();
+    final offset = Offset(
+      (double.tryParse(
+                await db.getSetting(
+                      'chat_portrait_offset_x_${portraitSet.key}',
+                    ) ??
+                    legacyX ??
+                    '',
+              ) ??
+              defaults.offset.dx)
+          .clamp(-0.45, 0.45)
+          .toDouble(),
+      (double.tryParse(
+                await db.getSetting(
+                      'chat_portrait_offset_y_${portraitSet.key}',
+                    ) ??
+                    legacyY ??
+                    '',
+              ) ??
+              defaults.offset.dy)
+          .clamp(-0.35, 0.35)
+          .toDouble(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _visualStageEnabled = visualStageEnabled;
+      _panelOpacity = panelOpacity;
+      _panelFraction = panelFraction;
+      _backgroundMode = backgroundMode;
+      _portraitSet = portraitSet;
+      _portraitScale = scale;
+      _portraitOffset = offset;
+      _visualSettingsLoaded = true;
+    });
+  }
+
+  bool get _useNightBackground {
+    if (_backgroundMode == 'night') return true;
+    if (_backgroundMode == 'day') return false;
+    final hour = DateTime.now().hour;
+    return hour < 6 || hour >= 18;
   }
 
   Future<bool> _leave() async {
@@ -254,8 +452,72 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   Future<void> _send() async {
     final text = input.text.trim();
     if (text.isEmpty) return;
+    _followLatest = true;
     input.clear();
     await controller.send(text);
+  }
+
+  Future<void> _renameRoom() async {
+    final room = controller.room;
+    if (room == null || controller.sending || controller.ending) return;
+    final title = TextEditingController(text: room.title);
+    try {
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('修改房间名称'),
+          content: TextField(
+            controller: title,
+            autofocus: true,
+            maxLength: 40,
+            decoration: const InputDecoration(
+              labelText: '房间名称',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      );
+      if (approved == true) await controller.rename(title.text);
+    } finally {
+      title.dispose();
+    }
+  }
+
+  Future<void> _deleteRoom() async {
+    final room = controller.room;
+    if (room == null || controller.sending || controller.ending) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除这个房间？'),
+        content: Text('“${room.title}”的完整原文、现场和归档都会永久删除，此操作无法撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    if (await controller.deleteRoom() && mounted) Navigator.pop(context);
   }
 
   Future<void> _editRoom() async {
@@ -354,6 +616,52 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     if (ended && mounted) Navigator.pop(context);
   }
 
+  Widget _conversationPanel(ImmersiveRoom? room) => Column(
+        children: [
+          if (controller.error != null)
+            MaterialBanner(
+              content: Text(controller.error!),
+              actions: [
+                TextButton(
+                  onPressed: () => setState(() => controller.error = null),
+                  child: const Text('知道了'),
+                ),
+              ],
+            ),
+          if (room?.isEnded == true)
+            Container(
+              width: double.infinity,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              padding: const EdgeInsets.all(12),
+              child: const Text('这个房间已经结束，下面保留完整原文供回看。'),
+            ),
+          Expanded(
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: _onUserScroll,
+              child: ListView.builder(
+                controller: scroll,
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
+                itemCount: controller.messages.length +
+                    (controller.showStreamingDraft ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index < controller.messages.length) {
+                    return _ImmersiveMessageView(
+                      message: controller.messages[index],
+                    );
+                  }
+                  return _ImmersiveStreamingView(
+                    reasoning: controller.streamingReasoning,
+                    content: controller.streamingContent,
+                  );
+                },
+              ),
+            ),
+          ),
+          if (controller.ending) const LinearProgressIndicator(),
+          if (room?.isEnded != true) _inputBar(),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final room = controller.room;
@@ -361,68 +669,116 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       onWillPop: _leave,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(room?.title ?? '沉浸房间'),
+          title: Text(
+            room?.title ?? '沉浸房间',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
           actions: [
-            if (room != null && !room.isEnded)
+            if (room != null)
               PopupMenuButton<String>(
                 onSelected: (value) async {
+                  if (value == 'rename') await _renameRoom();
                   if (value == 'edit') await _editRoom();
                   if (value == 'leave' && await _leave() && mounted) {
                     Navigator.pop(context);
                   }
                   if (value == 'end') await _endRoom();
+                  if (value == 'delete') await _deleteRoom();
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('房间设定与小说规则')),
-                  PopupMenuItem(value: 'leave', child: Text('暂时离开')),
-                  PopupMenuItem(value: 'end', child: Text('结束房间')),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'rename',
+                    child: Text('修改名称'),
+                  ),
+                  if (!room.isEnded)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Text('房间设定与小说规则'),
+                    ),
+                  if (!room.isEnded)
+                    const PopupMenuItem(
+                      value: 'leave',
+                      child: Text('暂时离开'),
+                    ),
+                  if (!room.isEnded)
+                    const PopupMenuItem(
+                      value: 'end',
+                      child: Text('结束房间'),
+                    ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('删除房间'),
+                  ),
                 ],
               ),
           ],
         ),
-        body: controller.loading
+        body: controller.loading || !_visualSettingsLoaded
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  if (controller.error != null)
-                    MaterialBanner(
-                      content: Text(controller.error!),
-                      actions: [
-                        TextButton(
-                          onPressed: () => setState(() => controller.error = null),
-                          child: const Text('知道了'),
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final fraction =
+                      _visualStageEnabled ? _panelFraction : 1.0;
+                  final panelHeight = constraints.maxHeight * fraction;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (_visualStageEnabled) ...[
+                        Image.asset(
+                          _useNightBackground
+                              ? 'assets/lingchat/background/night.webp'
+                              : 'assets/lingchat/background/day.webp',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                        ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ChatPortraitStage(
+                              emotion: ChatVisualResolver.resolveEmotionKey(
+                                'affection',
+                              ),
+                              portraitSet: _portraitSet,
+                              transform: ChatPortraitTransform(
+                                scale: _portraitScale,
+                                offset: _portraitOffset,
+                              ),
+                              showEffect: false,
+                              animate: false,
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                  if (room?.isEnded == true)
-                    Container(
-                      width: double.infinity,
-                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                      padding: const EdgeInsets.all(12),
-                      child: const Text('这个房间已经结束，下面保留完整原文供回看。'),
-                    ),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scroll,
-                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
-                      itemCount: controller.messages.length +
-                          (controller.showStreamingDraft ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index < controller.messages.length) {
-                          return _ImmersiveMessageView(
-                            message: controller.messages[index],
-                          );
-                        }
-                        return _ImmersiveStreamingView(
-                          reasoning: controller.streamingReasoning,
-                          content: controller.streamingContent,
-                        );
-                      },
-                    ),
-                  ),
-                  if (controller.ending) const LinearProgressIndicator(),
-                  if (room?.isEnded != true) _inputBar(),
-                ],
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: panelHeight,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surface
+                                .withValues(
+                                  alpha: _visualStageEnabled
+                                      ? _panelOpacity
+                                      : 1.0,
+                                ),
+                            border: Border(
+                              top: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ),
+                          child: _conversationPanel(room),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
       ),
     );
@@ -546,28 +902,21 @@ class _ImmersiveAssistantRail extends StatelessWidget {
   final String content;
 
   @override
-  Widget build(BuildContext context) => IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          Container(
-            width: 3,
-            decoration: BoxDecoration(
-              color: immersiveRailPink,
-              borderRadius: BorderRadius.circular(99),
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+        padding: const EdgeInsets.fromLTRB(13, 7, 5, 7),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: immersiveRailPink.withValues(alpha: 0.82),
+              width: 2,
             ),
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: NovelTintText(
-                text: content,
-                style: const TextStyle(height: 1.62),
-              ),
-            ),
-          ),
-          ],
+        ),
+        child: NovelTintText(
+          text: content,
+          style: const TextStyle(height: 1.62),
         ),
       );
 }

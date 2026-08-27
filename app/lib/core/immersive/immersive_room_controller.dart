@@ -237,6 +237,22 @@ class ImmersiveRoomController extends ChangeNotifier {
     _safeNotify();
   }
 
+  Future<void> rename(String title) async {
+    if (sending || ending || room == null) return;
+    await repository.renameRoom(roomId, title);
+    room = await repository.roomById(roomId);
+    _safeNotify();
+  }
+
+  Future<bool> deleteRoom() async {
+    if (sending || ending || room == null) return false;
+    await repository.deleteRoom(roomId);
+    room = null;
+    messages = const [];
+    _safeNotify();
+    return true;
+  }
+
   Future<void> updateDetails({
     required String title,
     required String entryContext,

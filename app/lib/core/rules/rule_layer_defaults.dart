@@ -156,6 +156,16 @@ const legacyEditableRuleLayerSha256V03816 = <String, String>{
       '5f9b9d8ba819e90150a1ca5d400a42d99b7f3797a39d106bbc28d9b60770d1c4',
 };
 
+/// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
+/// cleanup upgrades only untouched copies, so a user's room-protocol edits
+/// are never replaced by the bundled Rule 07 revision.
+const legacyEditableRuleLayerSha256V0390 = <String, String>{
+  'immersive_07_global':
+      '3a8fb1d8c4bba07596dd8488ef507d5deb91cf2f471bb945baea88a59c807a8f',
+  'immersive_07_nsfw_source':
+      'a1c6018c391c194bd808b1bc2adcfbf511cc37d4671557070289df4291172875',
+};
+
 // Historical source-contract compatibility only:
 // 不是服务者、客服或无条件服从者。
 // Runtime relationship rules below avoid this developer-facing diagnosis so

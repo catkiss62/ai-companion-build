@@ -198,12 +198,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         break;
       }
     }
-    final wasNearBottom = !scroll.hasClients ||
-        (scroll.position.maxScrollExtent - scroll.offset) < 140;
-    final shouldFollow = _followLatest || wasNearBottom;
     setState(() {});
-    if (shouldFollow) {
-      _followLatest = true;
+    if (_followLatest) {
       if (controller.generationActive &&
           controller.streamingContent.trim().isNotEmpty) {
         // Follow the actual visible answer tail. A long reasoning panel above
@@ -228,11 +224,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_programmaticScroll || !scroll.hasClients) return false;
     final distance = scroll.position.maxScrollExtent - scroll.offset;
     if (notification.direction == ScrollDirection.forward &&
-        controller.generationActive) {
+        (controller.generationActive || _animatedMessageId != null)) {
       // Only an actual upward user gesture disables follow mode. Content-size
       // changes from a growing/collapsing reasoning panel are not user scrolls.
       _followLatest = false;
-    } else if (distance < 90) {
+    } else if (distance < 8) {
       _followLatest = true;
     }
     return false;
@@ -389,25 +385,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return hour < 6 || hour >= 18;
   }
 
-  void _scrollToLatest({bool animate = false}) {
+  void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !scroll.hasClients) return;
       final target = scroll.position.maxScrollExtent;
       _programmaticScroll = true;
-      if (animate) {
-        unawaited(
-          scroll
-              .animateTo(
-                target,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-              )
-              .whenComplete(() => _programmaticScroll = false),
-        );
-      } else {
-        scroll.jumpTo(target);
-        _programmaticScroll = false;
-      }
+      scroll.jumpTo(target);
+      _programmaticScroll = false;
     });
   }
 
@@ -424,8 +408,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         Scrollable.ensureVisible(
           tailContext,
           alignment: 1,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+          duration: Duration.zero,
         ).whenComplete(() => _programmaticScroll = false),
       );
     });
@@ -777,7 +760,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         typewriterMs: _typewriterMs,
                         onAnimationProgress: () {
                           if (_followLatest) {
-                            _scrollToLatest(animate: true);
+                            _scrollToLatest();
                           }
                         },
                         onAnimationFinished: () {
@@ -1373,70 +1356,48 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
         child: Row(
           children: [
-            Expanded(
+            Flexible(
+              fit: FlexFit.loose,
               child: InkWell(
                 borderRadius: BorderRadius.circular(999),
                 onTap: _openQuickPanel,
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 19,
-                      backgroundImage: AssetImage(
-                        'assets/appearance/chat_avatar.webp',
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircleAvatar(
+                        radius: 19,
+                        backgroundImage: AssetImage(
+                          'assets/appearance/chat_avatar.webp',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'DeepSeek',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                              if (_showEmotionLabel &&
-                                  _currentEmotionLabel.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Text(
-                                  _currentEmotionLabel,
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ],
+                      const SizedBox(width: 9),
+                      const Text(
+                        'DeepSeek',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (_showEmotionLabel &&
+                          _currentEmotionLabel.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _currentEmotionLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                  if (controller.cancellingGeneration)
-                    Text(
-                      '正在停止…',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  else if (controller.recoveringGeneration)
-                    Text(
-                      '正在接回刚才没完成的回复…',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  else if (controller.analyzingImage)
-                    Text(
-                      '正在看图片…',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  else if (controller.generationActive)
-                    Text(
-                      '正在想…',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
+            const Spacer(),
             if (_personalityTrial != null || _specialTrial != null)
               TextButton(
                 onPressed: _openPersonalityLab,
