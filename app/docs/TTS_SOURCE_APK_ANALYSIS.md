@@ -1,4 +1,8 @@
-# MejuTTS source APK analysis · v0.25
+# MejuTTS source APK analysis · v0.25 (historical)
+
+> Superseded for the current runtime by `TTS_RUNTIME_UPGRADE_v0.39.5.md` and
+> `TTS_RUNTIME_MANIFEST_v0.39.5.json`. This file records the retired v0.25
+> baseline only.
 
 Golden source supplied by the user:
 

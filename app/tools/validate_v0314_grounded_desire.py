@@ -123,9 +123,11 @@ def main() -> int:
         "lib/core/tts/tts_sentence_segmenter.dart": {
             "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
             "87bf86535ba675e2efdab3173b879d050df78b64125953f40280573163603aef",
+            "e81eddb131e6ba905c86bf37fa0c94edb0aa6b1e519bfb8e68670b15c028436b",
         },
         "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so": {
             "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
+            "a6f11da0df792a82820b833f1b6951078179d16c4e15dd8a6abc18d52d227f08",
         },
     }
     for relative, expected in frozen.items():

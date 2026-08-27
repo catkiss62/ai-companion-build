@@ -9,13 +9,13 @@ void main() {
       'engine': 'Meju Bert-VITS2 · MNN (local)',
       'detail': 'ok',
       'integrity': 'verified',
-      'artifactCount': 37,
-      'goldenReference': 'MejuTTS v2.7 · 63a8c10f5fc0',
+      'artifactCount': 32,
+      'goldenReference': '新版妹居本地 TTS · b72ebc8544de',
     });
     expect(status.available, isTrue);
     expect(status.integrityVerified, isTrue);
     expect(status.integrityFailed, isFalse);
-    expect(status.artifactCount, 37);
+    expect(status.artifactCount, 32);
   });
 
   test('missing integrity fields fail closed as unchecked', () {

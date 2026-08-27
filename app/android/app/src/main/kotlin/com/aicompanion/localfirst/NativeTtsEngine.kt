@@ -1,11 +1,10 @@
 package com.aicompanion.localfirst
 
 import android.content.Context
-import android.util.Base64
 import java.util.concurrent.locks.ReentrantLock
 
 /**
- * v0.4 real local Bert-VITS2/MNN binding.
+ * Process-scoped local Meju Bert-VITS2/MNN binding.
  *
  * The proven TTS runtime from the supplied APK is isolated behind
  * LegacyTtsRuntime. Chat/UI code never depends on its original package names.
@@ -51,9 +50,9 @@ class NativeTtsEngine private constructor(context: Context) {
                 integrity.state == "failed" -> integrity.detail
                 lastError.isNotBlank() -> lastError
                 initialized && runtime.isReady() ->
-                    "本地模型已初始化；黄金资源已校验；Flutter→Kotlin→legacy runtime→JNI→MNN 链路已绑定"
-                integrity.ok -> "黄金资源校验通过；模型尚未初始化"
-                else -> "TTS 实体已装入；初始化前会先核对 MejuTTS v2.7 黄金资源指纹"
+                    "本地模型已初始化；新版资源已校验；Flutter→Kotlin→Meju runtime→JNI→MNN 链路已绑定"
+                integrity.ok -> "新版资源校验通过；模型尚未初始化"
+                else -> "TTS 实体已装入；初始化前会先核对新版妹居资源指纹"
             },
         )
     }
@@ -71,7 +70,7 @@ class NativeTtsEngine private constructor(context: Context) {
                     mapOf("count" to result.checked),
                 )
             } else {
-                if (lastError.startsWith("TTS 黄金资源校验失败")) lastError = ""
+                if (lastError.startsWith("TTS 资源校验失败")) lastError = ""
                 RuntimeDiagnosticStore.record(
                     appContext, "tts", "integrity", "info",
                     "golden_integrity_verified", metadata = mapOf("count" to result.checked),
@@ -119,9 +118,7 @@ class NativeTtsEngine private constructor(context: Context) {
         speechLock.lock()
         try {
             return try {
-                val base64 = runtime.diagnoseWavBase64(DIAGNOSTIC_TEXT)
-                val clean = base64.substringAfter("base64,", base64).trim()
-                val wav = Base64.decode(clean, Base64.DEFAULT)
+                val wav = runtime.diagnoseWavBytes(DIAGNOSTIC_TEXT)
                 if (wav.size < 12) error("TTS diagnostic WAV is too short")
                 val riff = String(wav, 0, 4, Charsets.US_ASCII)
                 val wave = String(wav, 8, 4, Charsets.US_ASCII)
@@ -174,7 +171,7 @@ class NativeTtsEngine private constructor(context: Context) {
      * runtime is process-scoped. Playback intentionally does not take this lock,
      * allowing sentence N+1 to infer while sentence N is audible.
      */
-    fun generate(text: String, generation: Long = generationToken()): String? {
+    fun generate(text: String, generation: Long = generationToken()): ByteArray? {
         if (text.isBlank()) return null
         speechLock.lock()
         try {
@@ -187,11 +184,11 @@ class NativeTtsEngine private constructor(context: Context) {
             }
             if (generation != generationToken()) return null
 
-            val base64 = runtime.generateWavBase64(text)
+            val wav = runtime.generateWavBytes(text)
             if (generation != generationToken()) return null
-            if (base64.isBlank()) error("TTS returned empty WAV data")
+            if (wav.isEmpty()) error("TTS returned empty WAV data")
             lastError = ""
-            return base64
+            return wav
         } catch (t: Throwable) {
             if (generation != generationToken()) return null
             lastError = runtime.lastError.ifBlank {
@@ -210,12 +207,9 @@ class NativeTtsEngine private constructor(context: Context) {
     }
 
     /** Play one already-generated WAV; completes after AudioTrack drains. */
-    fun playAudio(base64: String, generation: Long = generationToken()) {
-        if (base64.isBlank() || generation != generationToken()) return
+    fun playAudio(wav: ByteArray, generation: Long = generationToken()) {
+        if (wav.isEmpty() || generation != generationToken()) return
         try {
-            val clean = base64.substringAfter("base64,", base64).trim()
-            val wav = Base64.decode(clean, Base64.DEFAULT)
-            if (wav.isEmpty()) error("TTS returned empty WAV data")
             if (generation != generationToken()) return
             player.setVolume(volume.toFloat())
             player.play(wav)

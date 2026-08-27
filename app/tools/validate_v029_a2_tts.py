@@ -7,10 +7,8 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
-ORIGINAL_ELF_SIZE = 635_352
-ORIGINAL_ELF_SHA = 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
-PADDED_SIZE = 710_848
-PADDED_SHA = 'a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792'
+UPGRADED_SIZE = 690_920
+UPGRADED_SHA = 'a6f11da0df792a82820b833f1b6951078179d16c4e15dd8a6abc18d52d227f08'
 
 
 def sha(data: bytes) -> str:
@@ -29,18 +27,18 @@ def main() -> int:
 
     native = ROOT / 'android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so'
     data = native.read_bytes()
-    assert len(data) == PADDED_SIZE, len(data)
-    assert sha(data) == PADDED_SHA
-    assert sha(data[:ORIGINAL_ELF_SIZE]) == ORIGINAL_ELF_SHA
-    assert set(data[ORIGINAL_ELF_SIZE:]) <= {0}
-    print('[OK] libbertvits2.so is the verified original 635352-byte A2 ELF plus zero alignment padding')
+    assert len(data) == UPGRADED_SIZE, len(data)
+    assert sha(data) == UPGRADED_SHA
+    print('[OK] libbertvits2.so matches the user-validated upgraded local runtime')
 
     segmenter = (ROOT / 'lib/core/tts/tts_sentence_segmenter.dart').read_text(encoding='utf-8')
     for token in ["c == '。'", "c == '！'", "c == '？'", "c == '；'", "c == '.'", "c == '!'", "c == '?'", "c == ';'"]:
         assert token in segmenter, token
-    for forbidden in ['softLimit', 'hardLimit', "const candidates = '，,、：: \\n'", "c == '…'", "c == '\\n' &&"]:
+    for forbidden in ["c == '…'", "c == '\\n' &&"]:
         assert forbidden not in segmenter, forbidden
-    print('[OK] A2 splitter has no comma/newline/ellipsis/length fallback')
+    assert 'maxSafeChunkChars = 72' in segmenter
+    assert '_findSafetyBoundary' in segmenter
+    print('[OK] A2 punctuation remains primary with a 72-character max-phone safety fallback')
 
     processor = (ROOT / 'lib/core/tts/tts_text_processor.dart').read_text(encoding='utf-8')
     for token in ["RegExp(r'\\bYuki\\b'", "RegExp(r'<[^>]*>')", "RegExp(r'\\{[^}]*\\}')", "RegExp(r'\\[[^\\]]*\\]')", "RegExp(r'【[^】]*】')"]:
@@ -69,7 +67,7 @@ def main() -> int:
     for token in ['generationWorker', 'playbackWorker', '"generate"', '"playAudio"']:
         assert token in bridge, token
     assert 'fun generate(text: String' in engine
-    assert 'fun playAudio(base64: String' in engine
+    assert 'fun playAudio(wav: ByteArray' in engine
     assert 'allowing sentence N+1 to infer while sentence N is audible' in engine
     print('[OK] native inference and AudioTrack workers are separated with one serialized MNN generator')
 

@@ -4,12 +4,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-GOLDEN_SHA = '63a8c10f5fc097205f7be8649bf9a60974e02714ef550b54eb5bd74bbc58c5e7'
-MANIFEST = ROOT / 'docs/TTS_GOLDEN_MANIFEST_v0.25.json'
+SOURCE_SHA = 'b72ebc8544de88ee368946d2ac824ea1641377ddbe6e2da378d4112c379a9671'
+MANIFEST = ROOT / 'docs/TTS_RUNTIME_MANIFEST_v0.39.5.json'
 
 
 def sha_bytes(data: bytes) -> str:
@@ -30,12 +29,12 @@ def fail(message: str) -> None:
 
 def load_manifest() -> dict:
     data = json.loads(MANIFEST.read_text(encoding='utf-8'))
-    if data.get('golden_apk_sha256') != GOLDEN_SHA:
-        fail('golden manifest APK SHA mismatch')
-    if len(data.get('assets', {})) != 31:
-        fail('expected 31 packaged TTS assets (22 model + 9 runtime)')
-    if len(data.get('native_libraries', {})) != 6:
-        fail('expected 6 native TTS libraries')
+    if data.get('source_sha256') != SOURCE_SHA:
+        fail('upgraded TTS source SHA mismatch')
+    if len(data.get('assets', {})) != 27:
+        fail('expected 27 packaged TTS assets (20 model/preprocess + 7 runtime/pinyin)')
+    if len(data.get('native_libraries', {})) != 5:
+        fail('expected 5 native TTS libraries')
     return data
 
 
@@ -86,16 +85,16 @@ def check_wiring() -> None:
     settings = (ROOT / 'lib/features/settings/settings_page.dart').read_text()
 
     expected = {
-        'golden': ['GOLDEN_APK_SHA256', 'TOTAL_ARTIFACTS = 37'],
+        'golden': ['GOLDEN_APK_SHA256', 'TOTAL_ARTIFACTS = 32', 'b72ebc8544de'],
         'verifier': ['sha256AndSize', 'fingerprint mismatch', 'checked == TtsGoldenBaseline.TOTAL_ARTIFACTS'],
-        'legacy': ['verifyArtifacts()', 'legacy_tts_v25_63a8c10f', 'cachedValid', 'Runtime copy fingerprint mismatch', 'target.setReadOnly()'],
+        'legacy': ['verifyArtifacts()', 'meju_tts_v395_b72ebc85', 'buildRuntimeJarWithPinyin', 'language_zh', 'generateWavBytes', 'validateWav', 'target.setReadOnly()'],
         'engine': ['fun verifyArtifacts()', 'integrity.state', 'artifactCount', 'speechGeneration', 'speechLock'],
         'bridge': ['"verifyArtifacts"', 'tts_verify_failed', '"generate"', '"playAudio"', 'generationWorker', 'playbackWorker'],
-        'provider': ["invokeMapMethod<Object?, Object?>('verifyArtifacts')", "invokeMethod<String>('generate'", "invokeMethod<void>('playAudio'"],
+        'provider': ["invokeMapMethod<Object?, Object?>('verifyArtifacts')", "invokeMethod<Uint8List>('generate'", "invokeMethod<void>('playAudio'"],
         'service': ['implements TtsQueueService', 'Future<TtsStatus> verifyArtifacts()', 'generatePrepared', 'playPrepared', 'Future<void> _recordError'],
         'queue': ['final TtsQueueService service', 'waitUntilIdle()', 'generation-ahead', 'interSentenceGap = const Duration(milliseconds: 200)'],
         'chat': ['if (delta.reasoning.isNotEmpty)', 'if (delta.content.isNotEmpty)', 'ttsPlayback.addDelta(delta.content)'],
-        'settings': ['正在核对本地 TTS 与 MejuTTS v2.7 黄金资源', "label: const Text('校验 TTS')"],
+        'settings': ['正在核对新版妹居本地 TTS 资源', "label: const Text('校验 TTS')"],
     }
     values = dict(golden=golden, verifier=verifier, legacy=legacy, engine=engine, bridge=bridge,
                   provider=provider, service=service, queue=queue, chat=chat, settings=settings)
@@ -122,40 +121,10 @@ def check_test_sources() -> None:
         fail('missing TTS integrity status test')
 
 
-def compare_golden_apk(apk: Path, manifest: dict) -> None:
-    if sha_file(apk) != GOLDEN_SHA:
-        fail('supplied golden APK hash differs from recorded MejuTTS v2.7 baseline')
-    main = ROOT / 'android/app/src/main'
-    with zipfile.ZipFile(apk) as zf:
-        names = set(zf.namelist())
-        for rel in sorted(manifest['assets']):
-            if rel.startswith('tts_models/'):
-                apk_name = 'assets/' + rel
-                if apk_name not in names:
-                    fail(f'golden APK missing {apk_name}')
-                src = (main / 'assets' / rel).read_bytes()
-                if src != zf.read(apk_name):
-                    fail(f'packaged source differs from golden APK: {rel}')
-        for name in sorted(manifest['native_libraries']):
-            apk_name = 'lib/arm64-v8a/' + name
-            if (main / 'jniLibs/arm64-v8a' / name).read_bytes() != zf.read(apk_name):
-                fail(f'native library differs from golden APK: {name}')
-
-        runtime_dir = main / 'assets/legacy_tts/runtime'
-        for i in range(1, 10):
-            jar = runtime_dir / f'runtime_{i:02d}.jar'
-            dex_name = 'classes.dex' if i == 1 else f'classes{i}.dex'
-            with zipfile.ZipFile(jar) as rj:
-                if rj.read('classes.dex') != zf.read(dex_name):
-                    fail(f'runtime_{i:02d}.jar classes.dex differs from golden {dex_name}')
-        with zipfile.ZipFile(runtime_dir / 'runtime_01.jar') as rj:
-            for name in (
-                'pinyin_dict_phrase.txt', 'pinyin_dict_char.txt', 'pinyin_dict_tone.txt',
-                'pinyin_dict_phrase_define.txt', 'pinyin_dict_char_define.txt',
-                'DebugProbesKt.bin', 'nlp/word_freq_dict.txt', 'nlp/chinese_ts_char.txt',
-            ):
-                if rj.read(name) != zf.read(name):
-                    fail(f'runtime classpath resource differs from golden APK: {name}')
+def compare_golden_apk(source: Path, manifest: dict) -> None:
+    del manifest
+    if sha_file(source) != SOURCE_SHA:
+        fail('supplied complete package differs from the recorded upgraded TTS source')
 
 
 def main() -> int:
@@ -164,7 +133,7 @@ def main() -> int:
     args = ap.parse_args()
     manifest = load_manifest()
     check_source_payload(manifest)
-    print('[OK] 37 packaged TTS artifacts match v0.25 golden manifest')
+    print('[OK] 32 packaged TTS artifacts match the v0.39.5 upgraded runtime manifest')
     check_no_shell()
     print('[OK] HTML/WebView/JS shell excluded from AI Companion TTS')
     check_wiring()
@@ -173,7 +142,7 @@ def main() -> int:
     print('[OK] deterministic Dart queue/integrity test sources present')
     if args.golden_apk:
         compare_golden_apk(args.golden_apk, manifest)
-        print('[OK] source TTS payload matches user-supplied MejuTTS v2.7 golden APK')
+        print('[OK] source package matches the user-supplied upgraded TTS archive')
     return 0
 
 

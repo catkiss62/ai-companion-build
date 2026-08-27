@@ -104,7 +104,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
         'generate_signature' => 'generateTTS 签名',
         'generateTTS_invoked' => 'generateTTS 调用',
         'generateTTS_completed' => 'generateTTS 完成',
-        'wav_base64' => 'Base64 WAV',
+        'wav_bytes' => 'WAV 字节',
         'wav_header' => 'RIFF/WAVE 校验',
         _ => stage,
       };

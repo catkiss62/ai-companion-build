@@ -1,4 +1,4 @@
-# Voice Pipeline · v0.25
+# Voice Pipeline · current (v0.39.5)
 
 ## 普通聊天
 
@@ -12,10 +12,11 @@ DeepSeek SSE
         -> Flutter MethodChannel
         -> NativeTtsBridge
         -> NativeTtsEngine
-        -> 黄金资源校验（首次初始化/手动强制）
+        -> 新版资源校验（首次初始化/手动强制）
         -> LegacyTtsRuntime
+        -> ZH language override / suspend bridge
         -> JNI / libbertvits2.so / MNN / .mnn
-        -> WAV
+        -> byte[] RIFF/WAV
         -> AudioTrack
 ```
 
@@ -48,6 +49,8 @@ Kotlin 层 speechGeneration：处理“用户在 MNN 正在生成 WAV 时点击�
 - 更自然的流式预生成（当前 native worker 单线程，稳定优先）。
 
 
-## v0.25 integrity boundary
+## Current integrity boundary
 
-首次初始化前会按 MejuTTS v2.7 黄金指纹校验 37 项模型/runtime/native 资源；失败即 fail-closed，不进入 JNI/MNN。私有 Dex runtime cache 也必须匹配黄金 SHA-256 才允许加载。
+首次初始化前会按用户提供的 `完整文件(1).zip` 指纹清单校验 32 项模型/runtime/native 资源；失败即 fail-closed，不进入 JNI/MNN。私有 Dex runtime cache 使用版本化目录，新运行时所需的 5 个拼音字典会在只读缓存 JAR 中注入后再加载。
+
+新版中文前端单次最多接受 300 phones。正常标点分句规则不变；只在极端无句末标点长段落中启用 72 字符安全兜底。队列仍保持分句预生成、严格顺序播放和整队停止语义。

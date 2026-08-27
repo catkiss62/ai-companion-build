@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../database/app_database.dart';
 import 'native_tts_provider.dart';
 import 'tts_playback_queue.dart';
@@ -73,7 +75,7 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<String?> generatePrepared(
+  Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
   }) async {
@@ -83,7 +85,7 @@ class TtsService implements TtsQueueService {
         spokenText.trim(),
         emotion: emotion,
       );
-      if (audio == null || audio.trim().isEmpty) return null;
+      if (audio == null || audio.isEmpty) return null;
       await _recordError('');
       return audio;
     } catch (e) {
@@ -93,9 +95,9 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<void> playPrepared(String wavBase64) async {
-    if (wavBase64.trim().isEmpty) return;
-    await provider.playAudio(wavBase64);
+  Future<void> playPrepared(Uint8List wavBytes) async {
+    if (wavBytes.isEmpty) return;
+    await provider.playAudio(wavBytes);
   }
 
   /// One-shot convenience used by proactive speech. It deliberately routes

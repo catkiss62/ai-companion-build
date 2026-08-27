@@ -1,5 +1,8 @@
 # Native TTS Core Integration · v0.25
 
+> Historical baseline. The active v0.39.5 contract is documented in
+> `TTS_RUNTIME_UPGRADE_v0.39.5.md`.
+
 ## Goal
 
 Integrate the user's verified MejuTTS voice directly into AI Companion without carrying the historical HTML/WebView/JS shell.

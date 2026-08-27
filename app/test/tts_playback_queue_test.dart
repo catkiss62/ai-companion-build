@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_playback_queue.dart';
@@ -21,7 +22,7 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
-  Future<String?> generatePrepared(
+  Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
   }) async {
@@ -30,12 +31,12 @@ class _FakeQueueService implements TtsQueueService {
       await firstGenerationGate!.future;
     }
     if (generated.length == 1 && failFirstGeneration) return null;
-    return 'wav:$spokenText';
+    return Uint8List.fromList('wav:$spokenText'.codeUnits);
   }
 
   @override
-  Future<void> playPrepared(String wavBase64) async {
-    played.add(wavBase64);
+  Future<void> playPrepared(Uint8List wavBytes) async {
+    played.add(String.fromCharCodes(wavBytes));
     if (played.length == 1 && firstPlaybackGate != null) {
       await firstPlaybackGate!.future;
     }

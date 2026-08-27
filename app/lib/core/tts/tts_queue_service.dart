@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'tts_provider.dart';
 
 /// Narrow interface used by the A2 speech scheduler so queue/cancel behavior
@@ -7,15 +9,15 @@ abstract interface class TtsQueueService {
   /// ensure the local engine/settings are ready for this session.
   Future<String?> prepareText(String visibleText, {bool manual = false});
 
-  /// Generate one sentence to WAV Base64. Generation and playback are kept
+  /// Generate one sentence to validated WAV bytes. Generation and playback are kept
   /// separate so later sentences can be prepared while the current one plays.
-  Future<String?> generatePrepared(
+  Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
   });
 
   /// Play one already-generated WAV and complete only after AudioTrack drains.
-  Future<void> playPrepared(String wavBase64);
+  Future<void> playPrepared(Uint8List wavBytes);
 
   Future<void> stop();
 }

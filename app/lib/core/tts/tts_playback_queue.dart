@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'tts_sentence_segmenter.dart';
 import 'tts_provider.dart';
@@ -222,7 +223,7 @@ class TtsPlaybackQueue {
     session.generating++;
     _notify();
     unawaited(() async {
-      String? audio;
+      Uint8List? audio;
       try {
         audio = await service.generatePrepared(
           text,
@@ -239,7 +240,7 @@ class TtsPlaybackQueue {
     }());
   }
 
-  void _markGenerated(_A2Session session, int index, String? audio) {
+  void _markGenerated(_A2Session session, int index, Uint8List? audio) {
     if (!_isActive(session)) return;
     session.ready[index] = audio;
     _pump(session);
@@ -266,7 +267,7 @@ class TtsPlaybackQueue {
     _maybeComplete(session);
   }
 
-  Future<void> _playOne(_A2Session session, String audio) async {
+  Future<void> _playOne(_A2Session session, Uint8List audio) async {
     try {
       await session.waitForLeadIn();
       if (!_isActive(session)) return;
@@ -334,7 +335,7 @@ class _A2Session {
   final TtsEmotionCue? emotion;
   final Future<void>? leadIn;
   final Completer<void> idle = Completer<void>();
-  final Map<int, String?> ready = <int, String?>{};
+  final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
 
   Future<void> prepareTail = Future<void>.value();

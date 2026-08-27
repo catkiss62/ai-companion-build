@@ -108,7 +108,7 @@ def compare_v024_freeze(baseline_zip: Path | None) -> int:
 def compare_tts_binary_freeze(baseline_zip: Path | None) -> int:
     if baseline_zip is None:
         return 0
-    manifest = json.loads((ROOT / 'docs/TTS_GOLDEN_MANIFEST_v0.25.json').read_text(encoding='utf-8'))
+    manifest = json.loads((ROOT / 'docs/TTS_RUNTIME_MANIFEST_v0.39.5.json').read_text(encoding='utf-8'))
     rels = [f'android/app/src/main/assets/{r}' for r in manifest['assets']]
     rels += [f'android/app/src/main/jniLibs/arm64-v8a/{n}' for n in manifest['native_libraries']]
     with zipfile.ZipFile(baseline_zip) as zf:
