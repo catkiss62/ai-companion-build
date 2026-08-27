@@ -56,7 +56,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 31;
   // Historical validator compatibility token: static const int schemaVersion = 32;
   // Historical validator compatibility token: static const int schemaVersion = 33;
-  static const int schemaVersion = 34;
+  // Historical validator compatibility token: static const int schemaVersion = 34;
+  static const int schemaVersion = 35;
 
   Database? _db;
   Future<Database>? _opening;
@@ -896,6 +897,26 @@ class AppDatabase {
     }
     if (oldVersion < 34) {
       await _createV34Tables(db);
+    }
+    if (oldVersion < 35) {
+      final columns = (await db.rawQuery('PRAGMA table_info(immersive_rooms)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      if (!columns.contains('nsfw_active')) {
+        await db.execute(
+          'ALTER TABLE immersive_rooms ADD COLUMN nsfw_active INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (!columns.contains('nsfw_manual_override')) {
+        await db.execute(
+          "ALTER TABLE immersive_rooms ADD COLUMN nsfw_manual_override TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      if (!columns.contains('nsfw_route_source')) {
+        await db.execute(
+          "ALTER TABLE immersive_rooms ADD COLUMN nsfw_route_source TEXT NOT NULL DEFAULT 'initial'",
+        );
+      }
     }
 
   }
@@ -1920,6 +1941,9 @@ class AppDatabase {
         scene_ledger TEXT NOT NULL DEFAULT '',
         shared_memory_summary TEXT NOT NULL DEFAULT '',
         summarized_message_count INTEGER NOT NULL DEFAULT 0,
+        nsfw_active INTEGER NOT NULL DEFAULT 0,
+        nsfw_manual_override TEXT NOT NULL DEFAULT '',
+        nsfw_route_source TEXT NOT NULL DEFAULT 'initial',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         ended_at INTEGER
