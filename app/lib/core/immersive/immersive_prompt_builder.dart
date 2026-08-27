@@ -18,6 +18,7 @@ class ImmersivePromptBuilder {
     required ImmersiveRoom room,
     required List<ImmersiveMessage> history,
     required String latestUserText,
+    required bool nsfwActive,
   }) async {
     final all = await db.listRuleLayers();
     final byKey = {for (final layer in all) layer.key: layer};
@@ -27,16 +28,17 @@ class ImmersivePromptBuilder {
     };
     final identity = templates['08_runtime_identity'] ?? PromptBuilder.identityPrompt;
     final selected = <String>[];
-    for (final key in const [
+    final selectedKeys = <String>[
       '01_core',
       '01_relationship',
       '03_personality_seed',
       '03_appearance_identity',
       '04_memory_rules',
-      '04_intimacy_core',
-      'immersive_07_nsfw_source',
       'immersive_07_global',
-    ]) {
+      if (nsfwActive) '04_intimacy_core',
+      if (nsfwActive) 'immersive_07_nsfw_source',
+    ];
+    for (final key in selectedKeys) {
       final layer = byKey[key];
       if (layer == null || (!layer.enabled && !layer.locked)) continue;
       selected.add('【${layer.title}】\n${layer.content.trim()}');
@@ -58,7 +60,7 @@ class ImmersivePromptBuilder {
         ? ''
         : PersonalityCatalog.compileSpecial(
             specialTrial.styleKey,
-            intimacyActive: true,
+            intimacyActive: nsfwActive,
             templates: templates,
           );
 
