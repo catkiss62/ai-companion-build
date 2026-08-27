@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 沉浸双时间、TTS合成停止与按需思考翻译（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 沉浸双时间、TTS合成停止与按需思考翻译（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已真机确认 v0.39.4+122“测试没有问题”，因此上一批升级为 TRUE DEVICE PASSED。本批从 `agent/v0394-immersive-chat-ui-tts` 建立 `agent/v0395-time-tts-reasoning-translation`，目标 `0.39.5+123`、SQLite schema 35 不变；将两个小修和此前后置的思考翻译合为一个独立候选。用户已确认翻译必须是英文占主导后才出现的手动入口，不得成为原始生成的强制兜底或增加每轮生成延迟。
 
@@ -42,7 +42,8 @@
 4. `ReasoningPanel` 在完整思考下显示紫色 `#8B5CF6`、下划线、无背景/边框的文字入口；支持“翻译中…”、失败重试及成功后的显示/隐藏。普通与沉浸页面各自持有 page-lifetime coordinator，缓存按 message ID 保存于内存；页面销毁会取消所有未完成请求、清空缓存并关闭独立 HTTP client。流式思考不显示入口，原始 reasoning、正文、数据库、Memory、AI Self、诊断和悬浮窗均不改写。
 5. 版本已升为 `0.39.5+123`，SQLite 继续 schema 35。新增语言门槛、翻译请求隔离/缓存/取消/重试/UI和沉浸双时间测试，并新增 `validate_v0395_time_tts_reasoning_translation.py`；历史 v0.35.2—v0.36.1 版本白名单及 v0.39.3/0.39.4工作流契约已向前兼容。
 6. 本地正式工作流中可运行的97项源码/历史 validator 全部通过，YAML解析、Python compileall与 `git diff --check` 通过。仅两项未在本地声称通过：LingChat视觉契约依赖 CI 从固定源恢复缺失资源；Kotlin crypto harness依赖本容器不存在的 `kotlinc`。本地同样没有 Dart/Flutter SDK，因此真正的 Flutter format/analyze/tests、Kotlin、release APK、签名及载荷必须由 Actions 完成。
-7. 当前状态只允许写“已实现、本地静态通过、CI待跑”；尚无 APK、SHA或真机证据。Actions成功后再回填远端 head、run、Artifact、Draft Release和APK校验值。
+7. 远端分支 `agent/v0395-time-tts-reasoning-translation`、Draft PR [#42](https://github.com/catkiss62/ai-companion-build/pull/42)；有效构建 head `0a1ecb6a5c862d8ee523eb75f3ec0762f90b9e6d`。GitHub Actions [run 33080590755](https://github.com/catkiss62/ai-companion-build/actions/runs/33080590755) 全绿：干净源码/97项历史与当前回归、Kotlin、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生库、417 桌宠、62 LingChat 视觉资源、22 塔罗、checksum、Artifact 与 Draft Release 上传均成功。
+8. APK `AI-Companion-v0.39.5-123-Time-TTS-Reasoning-Translation-APK.apk`，构建日志显示 329.8MB，SHA-256 `6b4db5f2844dfec7b21709e831834847ab861c4f47f4bb16093514f21b9712f6`；Draft Release [untagged-57d25eda2ed48593a0db](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-57d25eda2ed48593a0db)。Artifact ID `9650283168`，ZIP 323,619,759 bytes，digest `797d5c2427f102b7d068e2a0d71419518cd0d9b9e7228e1fadceec5eeea696ae`，保留至 2026-09-10。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.4；当前仅剩三项真机行为待验。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PASSED）
