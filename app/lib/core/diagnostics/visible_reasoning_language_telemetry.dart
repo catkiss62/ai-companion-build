@@ -42,6 +42,19 @@ class VisibleReasoningLanguageTelemetry {
     return VisibleReasoningLanguageStatus.chineseFirst;
   }
 
+  /// UI-only offer gate for an optional manual translation. Code blocks,
+  /// inline code and URLs do not count as English prose because they should be
+  /// preserved rather than translated.
+  static bool shouldOfferTranslation(String reasoning) {
+    final prose = reasoning
+        .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
+        .replaceAll(RegExp(r'`[^`\n]*`'), ' ')
+        .replaceAll(RegExp(r'https?://\S+'), ' ');
+    final status = classify(prose);
+    return status == VisibleReasoningLanguageStatus.mixed ||
+        status == VisibleReasoningLanguageStatus.mainlyEnglish;
+  }
+
   static Future<void> note(
     AppDatabase db,
     String reasoning, {
