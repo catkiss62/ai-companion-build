@@ -100,6 +100,35 @@ class ImmersiveRoomRepository {
     );
   }
 
+  Future<void> renameRoom(String id, String title) async {
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'title': title.trim().isEmpty ? '未命名房间' : title.trim(),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteRoom(String id) async {
+    final database = await db.database;
+    await database.transaction((txn) async {
+      await txn.delete(
+        'immersive_messages',
+        where: 'room_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        'immersive_rooms',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
   Future<void> updateRoomDetails({
     required String id,
     required String title,

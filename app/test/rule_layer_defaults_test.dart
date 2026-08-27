@@ -220,6 +220,15 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0342.length, 5);
     expect(legacyEditableRuleLayerSha256V0350.length, 3);
     expect(legacyEditableRuleLayerSha256V0353.length, 4);
+    expect(legacyEditableRuleLayerSha256V0390.length, 2);
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      endsWith('专注描写，至少500字]'),
+    );
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      isNot(contains('【口交描写规则】')),
+    );
   });
 
   test('novel word-count rules are not in the companion defaults', () {

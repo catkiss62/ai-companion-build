@@ -34,8 +34,10 @@ assert "'immersive_07_nsfw_source'" in defaults
 rule_source = read("lib/core/rules/rule_layer_content_immersive.dart")
 start = "const immersiveNsfwSource = r'''"
 exact = rule_source.split(start, 1)[1].rsplit("''';", 1)[0]
-expected_hash = "a1c6018c391c194bd808b1bc2adcfbf511cc37d4671557070289df4291172875"
+expected_hash = "88dfc6c0055b0cda50f459706f67bfc2e7c4e59054e337dc98fb9cfd114faffd"
 assert sha256(exact.encode("utf-8")).hexdigest() == expected_hash
+assert "legacyEditableRuleLayerSha256V0390" in defaults
+assert "...legacyEditableRuleLayerSha256V0390.entries" in database
 for token in (
     "1200至1600个可见中文字符",
     "硬下限1000",

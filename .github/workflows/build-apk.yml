@@ -59,8 +59,12 @@
 # grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml
 # AI-Companion-v0.38.16-115-Action-Segment-Parser-Hotfix-APK
 # agent/v03816-action-segment-parser-hotfix
-# Active candidate: v0.39.0+118 / SQLite schema 34 / isolated immersive room
-# CI trigger: v0.39.0 connector-authenticated branch publication
+# Historical v0.39.0 compatibility:
+# Build AI Companion v0.39.0+118 APK (Immersive Room)
+# agent/v0390-immersive-room
+# AI-Companion-v0.39.0-118-Immersive-Room-APK
+# .ci/v0390-monitor.txt
+# Active candidate: v0.39.1+119 / SQLite schema 34 / immersive room polish
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -132,12 +136,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.39.0+118 APK (Immersive Room)
+name: Build AI Companion v0.39.1+119 APK (Immersive Room Polish)
 
 on:
   push:
     branches:
-      - agent/v0390-immersive-room
+      - agent/v0391-immersive-room-polish
   workflow_dispatch:
   pull_request:
     branches:
@@ -245,14 +249,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.39.0+118' app/pubspec.yaml
+          grep -Fqx 'version: 0.39.1+119' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 34;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.39.0+118 isolated immersive room.'
+          echo 'Building v0.39.1+119 immersive room polish.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -407,6 +411,7 @@ jobs:
           python3 tools/validate_v03816_action_segment_parser_hotfix.py
           python3 tools/validate_v03818_pre_immersive_polish.py
           python3 tools/validate_v0390_immersive_room.py
+          python3 tools/validate_v0391_immersive_room_polish.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -645,163 +650,21 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.39.0+118 APK as workflow artifact
+      - name: Upload v0.39.1+119 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.39.0-118-Immersive-Room-APK
+          name: AI-Companion-v0.39.1-119-Immersive-Room-Polish-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.39.0+118 immersive-room APK to draft release
+      - name: Upload v0.39.1+119 immersive-room polish APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.39.0-immersive-room'
-          APK_NAME='AI-Companion-v0.39.0-118-Immersive-Room-APK.apk'
-          SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.39.0-118-Immersive-Room-CI-Monitor.txt'
-          cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
-          sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
-            app/app-release.apk.sha256 > "app/${SHA_NAME}"
-          {
-            echo 'status=success'
-            echo "run_id=${GITHUB_RUN_ID}"
-            echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "head_sha=${GITHUB_SHA}"
-            echo "signer_sha256=${AI_COMPANION_SIGNER_SHA256}"
-            cat "app/${SHA_NAME}"
-          } > "app/${CI_NAME}"
-          if ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release create "${TAG}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --target "${GITHUB_SHA}" \
-              --draft \
-              --title 'AI Companion v0.39.0+118 immersive-room candidate' \
-              --notes 'Draft candidate: adds isolated immersive rooms with true SSE body streaming, room-specific novel rules, rolling summaries and code-filtered shared memories. Ordinary chat keeps its accepted local typewriter presentation. SQLite schema is 34.'
-          else
-            gh release edit "${TAG}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --target "${GITHUB_SHA}"
-          fi
-          RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
-          echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
-          upload_ok=0
-          for attempt in 1 2 3 4; do
-            if gh release upload "${TAG}" \
-              "app/${APK_NAME}" \
-              "app/${SHA_NAME}" \
-              "app/${CI_NAME}" \
-              --clobber \
-              --repo "${GITHUB_REPOSITORY}"; then
-              upload_ok=1
-              break
-            fi
-            echo "Draft Release upload attempt ${attempt}/4 failed; retrying shortly."
-            sleep $((attempt * 5))
-          done
-          test "${upload_ok}" = '1'
-          MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0390-monitor.txt'
-          MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
-          MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
-          if test -n "${MONITOR_SHA}"; then
-            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.0 CI success monitor' \
-              -f content="${MONITOR_CONTENT}" \
-              -f branch="${MONITOR_BRANCH}" \
-              -f sha="${MONITOR_SHA}" >/dev/null
-          else
-            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.0 CI success monitor' \
-              -f content="${MONITOR_CONTENT}" \
-              -f branch="${MONITOR_BRANCH}" >/dev/null
-          fi
-
-  report-ci-failure:
-    needs:
-      - detect-change-scope
-      - build-apk
-    if: ${{ always() && needs.detect-change-scope.outputs.run-full-build == 'true' && needs.build-apk.result != 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Publish failed-job diagnostics to the private draft release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BUILD_RESULT: ${{ needs.build-apk.result }}
-        run: |
-          set -uo pipefail
-          TAG='v0.39.0-immersive-room'
-          CI_NAME='AI-Companion-v0.39.0-118-Immersive-Room-CI-Monitor.txt'
-          REPORT="${RUNNER_TEMP}/${CI_NAME}"
-          JOBS_JSON="${RUNNER_TEMP}/jobs.json"
-          {
-            echo 'status=failure'
-            echo "build_result=${BUILD_RESULT}"
-            echo "run_id=${GITHUB_RUN_ID}"
-            echo "run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            echo "head_sha=${GITHUB_SHA}"
-            echo
-            echo '=== failed or cancelled job logs ==='
-            if gh api \
-              "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?filter=latest&per_page=100" \
-              > "${JOBS_JSON}" 2>&1 && jq -e '.jobs' "${JOBS_JSON}" >/dev/null 2>&1; then
-              jq -r \
-                '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != null) | [.id, .name, .conclusion] | @tsv' \
-                "${JOBS_JSON}" | while IFS=$'\t' read -r job_id job_name conclusion; do
-                  echo
-                  echo "--- job=${job_name} conclusion=${conclusion} id=${job_id} ---"
-                  JOB_LOG="${RUNNER_TEMP}/job-${job_id}.log"
-                  if gh api \
-                    --allow-escape-sequences \
-                    -H 'Accept: application/vnd.github+json' \
-                    "/repos/${GITHUB_REPOSITORY}/actions/jobs/${job_id}/logs" \
-                    > "${JOB_LOG}" 2>&1; then
-                    tail -n 1200 "${JOB_LOG}"
-                  else
-                    echo 'Unable to download this completed job log.'
-                    tail -n 120 "${JOB_LOG}" 2>/dev/null || true
-                  fi
-                done
-            else
-              echo 'Unable to enumerate job logs; raw API response follows.'
-              test -f "${JOBS_JSON}" && cat "${JOBS_JSON}"
-            fi
-          } > "${REPORT}"
-          if ! gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release create "${TAG}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --target "${GITHUB_SHA}" \
-              --draft \
-              --title 'AI Companion v0.39.0+118 immersive-room candidate' \
-              --notes 'Draft used for v0.39.0 CI diagnostics and the immersive-room APK. It is not a published release.'
-          fi
-          RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
-          echo "release_url=${RELEASE_URL}" >> "${REPORT}"
-          gh release upload "${TAG}" \
-            "${REPORT}" \
-            --clobber \
-            --repo "${GITHUB_REPOSITORY}"
-          MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0390-monitor.txt'
-          MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
-          MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
-          if test -n "${MONITOR_SHA}"; then
-            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.0 CI failure monitor' \
-              -f content="${MONITOR_CONTENT}" \
-              -f branch="${MONITOR_BRANCH}" \
-              -f sha="${MONITOR_SHA}" >/dev/null
-          else
-            gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.0 CI failure monitor' \
-              -f content="${MONITOR_CONTENT}" \
-              -f branch="${MONITOR_BRANCH}" >/dev/null
-          fi
+          TAG='v0.39.1-immersive-room-polish'
+          APK_NAME='AI-Companion-v0.39.1-119-Immersive-Room-Pol
