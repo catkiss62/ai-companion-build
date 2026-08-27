@@ -15,6 +15,38 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.1 沉浸房间视觉与交互优化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户确认 v0.39.0 真机测试总体没有问题，并提供完整 `规则07修改.txt` 与 `ai_companion_diagnostics_2026-08-27T01-49-25-306926Z.txt`。本批从 `agent/v0390-immersive-room` 建立 `agent/v0391-immersive-room-polish`，目标 `0.39.1+119`、SQLite schema 仍为34；不改变房间隔离、真正 SSE、共享记忆代码筛选、普通聊天正文单次呈现及此前真机基线。
+
+### A. 附件与诊断结论
+
+1. 新版规则07附件为11,502 bytes，完整 SHA-256 `df39e7347976003c74eac2f2a1dab8fde1f933a51c4034b4f68cf197192cbce6`。全局协议保持不变；成人参考删除重复的口交、角色高潮引导与姿势参考附录，只保留一条高潮描写补充，并把该条下限改为500字。运行时两个小节重新组合后的字节与附件完全一致。
+2. 数据库升级只在 `immersive_07_global` / `immersive_07_nsfw_source` 仍等于 v0.39.0 内置 SHA 时替换；用户编辑过哪怕一个字符的内容都不会覆盖。房间自己的 `novel_rules` 继续独立保存，也不因全局默认更新而重置。
+3. 诊断报告为真实 `v0.39.0+118`、schema 34；没有后台、生成、恢复、维护、TTS或房间运行错误，没有失败 generation job。3次可见 reasoning 样本均为中文优先，mixed/mainlyEnglish 均为0；这证明本次样本健康，不等于以后绝不会偶发英文。未授权项只有悬浮窗、Usage、通知读取、无障碍、通知与附近设备等可选系统权限，用户已确认当前测试无异常，本批不擅自改权限逻辑。
+
+### B. 视觉与顶部交互
+
+1. 沉浸助手粉色竖线改为与普通聊天完全相同的容器结构：左右/上下 margin、padding一致，左边框宽2、透明度0.82；只把紫色替换成粉色 `#F472B6`，不加入普通聊天段间横线。
+2. 沉浸页读取普通聊天同一套 `chat_visual_stage_enabled`、日/夜背景、面板高度、面板透明度、立绘套装及每套立绘 scale/offset 设置。固定使用 `affection`（心动）立绘，`showEffect:false`、`animate:false`，不跟随回复情绪、不播放特效或呼吸动画；视觉设置未读取完成前保持加载页，避免先闪默认位置。
+3. 沉浸 AppBar 标题使用14px、700字重并省略溢出，与普通聊天头像旁 `DeepSeek` 的正文级字号对齐，不再使用 Material 默认大标题。
+4. 普通聊天头像按钮从整行 `Expanded` 收窄为内容自适应点击区，只包裹头像、`DeepSeek` 与情绪；使用 loose `Flexible` 和情绪省略防止窄屏溢出，右侧余白不再误触快速面板。试穿与 NSFW 按钮不回退。
+
+### C. 流式滚动与房间管理
+
+1. 对照 `index(2).html` 的 `userScrollUp` / 8px 触底契约：普通聊天本地逐字和沉浸真正 SSE 都在跟随开启时即时贴底；用户向上拖立即关闭跟随，正文继续增长但不抢回位置；用户回到距底部8px内才恢复跟随。发送新一轮时强制重新跟底。
+2. 普通聊天移除逐字回调及结束锚点的180ms滚动动画，改为即时跳转，避免积压动画在用户上拖后反向抢夺滚动位置。reasoning 折叠和正文单次呈现逻辑不变。
+3. 沉浸大厅和房间内菜单均新增“修改名称 / 删除房间”；已结束房间也可操作。删除必须二次确认，并在同一事务中只删除目标 `immersive_rooms` 记录及其 `immersive_messages` 原文；发送/归档进行中禁止删除。
+4. 七大规则编辑器右上角废弃“和她讨论”已删除；同步移除它独占的 DeepSeek client、模型参数、API Key 与 JSON 提案逻辑。规则展示、标记解析、保存、整组还原、导入导出和正常聊天读取均不依赖该入口，继续保留。
+
+### D. 当前验证与待完成
+
+1. 新增 `validate_v0391_immersive_room_polish.py`，锁定完整规则07附件哈希、保守迁移、2px粉线、共享视觉设置、静态心动立绘、14px标题、8px滚动阈值、房间改名/删除及废弃入口移除。
+2. 本地正式工作流88项非 Kotlin 源码/历史验证全部通过；固定417文件桌宠、62文件 LingChat与22张塔罗恢复脚本也完成哈希核对。容器没有 Dart/Flutter/kotlinc，7项 Kotlin验证、Flutter analyze/tests与release APK必须由 Actions 完成，当前不得写成编译或真机通过。
+3. CI 后真机重点：粉线宽度与普通聊天一致；背景、透明度及两套立绘的位置/大小一致且始终心动静态图；两种流式上拖不抢回、回到底部恢复；标题字号；大厅/房间内改名删除；七大规则页只剩保存；普通聊天头像点击热区和窄屏布局。
+4. GitHub Actions [run 33035288662](https://github.com/catkiss62/ai-companion-build/actions/runs/33035288662) 全绿：源码/历史回归、Kotlin桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、62项视觉资源、22张塔罗、checksum、Artifact与Draft Release上传均成功。有效构建 head `325ff52c248dcb1585be27757a1f973742d9b628`；APK `AI-Companion-v0.39.1-119-Immersive-Room-Polish-APK.apk`，SHA-256 `456b4f84cf554149568f7fa1713f19cbca6468218d473329a07bae0cec210ffe`。Artifact ID `9631955578`，ZIP 323,564,866 bytes，digest `a293daf10b9d2c45d83d4de859ec085029e94c3bc5aa352712a4396af031bd31`，保留至2026-09-10；草稿 Release：[untagged-7f9252f44f7dae4698cd](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7f9252f44f7dae4698cd)。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装前版。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.0 沉浸房间首版与普通聊天闪帧修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认 v0.38.18 仍偶发英文，自动翻译/中文兜底作为后续独立功能登记，本批不继续堆叠提示词。用户授权开始沉浸房间，但要求先检查普通聊天在 reasoning 结束瞬间“正文完整闪现一帧 → 消失 → 再本地逐字播放”的问题。本批从 `agent/v03818-pre-immersive-polish` 建立独立候选，目标 `0.39.0+118`、SQLite schema 34；v0.38.16 六项真机成功和 v0.38.18 前置优化继续作为不可回退基线。
