@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.0 沉浸房间首版与普通聊天闪帧修复（IMPLEMENTED LOCALLY / SOURCE VALIDATION PASSED / CI & APK PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.0 沉浸房间首版与普通聊天闪帧修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认 v0.38.18 仍偶发英文，自动翻译/中文兜底作为后续独立功能登记，本批不继续堆叠提示词。用户授权开始沉浸房间，但要求先检查普通聊天在 reasoning 结束瞬间“正文完整闪现一帧 → 消失 → 再本地逐字播放”的问题。本批从 `agent/v03818-pre-immersive-polish` 建立独立候选，目标 `0.39.0+118`、SQLite schema 34；v0.38.16 六项真机成功和 v0.38.18 前置优化继续作为不可回退基线。
 
@@ -41,11 +41,12 @@
 3. 结束房间前必须成功生成归档摘要、最终现场账和0～3条共享记忆候选；整理失败时不得结束房间，原始记录继续保留。模型候选还必须经过 `ImmersiveSharedMemoryPolicy` 代码筛选：限制数量/长度、去重，拒绝引号台词及姿势、衣物、接触点、阶段、露骨身体/动作词，接受项强制标记 `[沉浸房间经历·虚构]` 后才可写入普通长期记忆。隔离和记忆选择因此不是只靠提示词。
 4. 用户后续要求“偶发英文做翻译功能”已登记为独立后续任务：需要在不保存私密思考正文的前提下，明确只翻译可见思考还是同时处理小说正文，并设计流式增量翻译/完成后替换的视觉策略。本批不实施，避免再次引入正文闪帧。
 
-### D. 当前本地验证与待完成项
+### D. 验证、APK与真机待验
 
 1. 新增普通聊天呈现策略测试、沉浸记忆代码筛选测试、小说对白着色测试及 v0.39.0 静态契约；新契约锁定 schema 34、独立表、入口顺序、规则分组、NSFW 原文哈希、真正 SSE、一次续写、粉色竖线、无悬浮桥、上下文预算和普通聊天不暴露候选正文。
-2. 已执行工作流全部 Python 源码/历史验证至 Kotlin 编译入口：所有可运行静态验证通过；当前本地容器缺少 `kotlinc`、Flutter/Dart SDK，因此没有冒充本地编译成功。必须发布分支后由 GitHub Actions 执行 Kotlin、Flutter analyze、全部 Flutter tests、release APK、签名及完整素材载荷验证。
+2. 本地已执行工作流全部 Python 源码/历史验证至 Kotlin 编译入口：所有可运行静态验证通过；本地容器缺少 `kotlinc`、Flutter/Dart SDK，因此没有冒充本地编译成功。远端分支 `agent/v0390-immersive-room` 已发布，构建 head `996ec2a29887bfb85c26aa1d4d51c531a882a7a2`；堆叠 [Draft PR #39](https://github.com/catkiss62/ai-companion-build/pull/39) 以 v0.38.18 前置优化分支为 base，main 和其他实验分支未修改或合并。
 3. 真机待验重点：普通聊天 reasoning 结束时不再出现完整正文闪帧，仍只本地逐字一次；沉浸正文是真 SSE 且完成瞬间不重播/变义；不足1000字符最多续写一次；新建/暂离/继续/结束与失败保留原文；普通聊天和悬浮窗不出现房间原文；规则页为七大规则且历史性格试穿不迁移；粉色竖线、白色正体、黄色对白和空行分段准确。并完整回归 v0.38.16 六项与 v0.38.18 面板/桌宠优化。
+4. GitHub Actions [run 33029100571](https://github.com/catkiss62/ai-companion-build/actions/runs/33029100571) 全绿：干净源码、全部源码/历史回归、Kotlin桌宠与悬浮窗测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417文件桌宠载荷、22张塔罗、checksum、Artifact与Draft Release上传均成功。APK `AI-Companion-v0.39.0-118-Immersive-Room-APK.apk`，329,781,964 bytes，SHA-256 `d654d829603e6df5a0513b7cf6d660c8980b132ad6e1f8c69724018fab5d89a6`；Artifact ID `9629735787`，ZIP 323,564,892 bytes，digest `18fdaa44af2dfdbeb28bd201c1ac6082277122c5d9ea90187308fb33e99740da`，保留至2026-09-10。草稿 Release：[untagged-90b3a00b09d8fdcf166c](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90b3a00b09d8fdcf166c)。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装前版。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.38.18 沉浸房间前置优化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
