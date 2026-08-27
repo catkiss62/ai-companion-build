@@ -1,0 +1,7 @@
+status=success
+run_id=33035288662
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33035288662
+head_sha=325ff52c248dcb1585be27757a1f973742d9b628
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+456b4f84cf554149568f7fa1713f19cbca6468218d473329a07bae0cec210ffe  AI-Companion-v0.39.1-119-Immersive-Room-Polish-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7f9252f44f7dae4698cd
