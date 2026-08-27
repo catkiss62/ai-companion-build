@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.6 Rule02 引号边界与主动消息提示音（PLANNED / IMPLEMENTATION IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.6 Rule02 引号边界与主动消息提示音（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认 v0.39.5 修复包中普通对话朗读与播放按钮均已真机恢复；本轮不继续改 TTS。新任务只做两项：在不改变现有说话方式的前提下最小收紧 Rule02，防止动作/神态/旁白被 `「」` 包成对白并被“仅对白”TTS 朗读；诊断并修复主动消息提示音在设置测试与真实主动消息中都听不到的问题。
 
@@ -27,6 +27,28 @@
 3. 主动消息提示音独立于每轮一次情绪音效和本地妹居 TTS：不修改情绪 WAV、TTS 音量/速度、A2 队列、`…/■` stop、TALKING 只在真实播放时触发的约定，也不把通知提示音接入聊天音频队列。
 4. 先核对原始 OGG 的编码、持续时间、实际峰值/平均响度、Android NotificationChannel ID 与系统保存状态、设置页测试路径和真实主动消息路径。只有素材确有问题才替换；新提示音需彼此可区分、音量正常、包内可校验，并通过新的频道版本保证覆盖安装后不继续沿用旧频道声音配置。
 5. 目标分支 `agent/v0396-rule02-message-sound`，目标版本 `0.39.6+124`，SQLite schema 35 不变。完成前必须通过规则默认值/迁移保护、通知声音枚举与路由、频道版本、音频实体/响度门禁、Kotlin/Flutter、全部历史 validators、release APK、稳定签名与包内素材检查；Actions/APK 通过后仍需 REDMI K80 Ultra 真机分别试听每种自带音、系统默认音和真实主动消息。
+
+### B. 实际实现与根因
+
+1. Rule02 只按用户最终决定做最小修改：第 1 条保留原写法并加入“每轮对话至少要出现一次”；第 2 条删除“允许纯对白”，补充 `「」` 内只能写真正说出口、能够被听见的原话，动作、神态、微表情、旁白及“顿了顿、说道、补了一句、嘴上这么说着”等说话提示必须写在引号外，并禁止嵌套 `「」`。其余人格、措辞、回复长度、动作密度和 TTS 清洗逻辑均未改，避免改变当前已满意的说话方式。
+2. 数据库保守迁移同时识别三种已知 Rule02：v0.39.5 原始默认、用户加入“每轮至少一次”但保留纯对白的版本、用户再删除“允许纯对白”的版本；只有内容 SHA-256 精确命中才换成新真源，其他自定义内容仍逐字保留。新 Rule02 正文 SHA-256 为 `7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297`。
+3. 原提示音不是损坏文件，而是素材本身近乎静音：`companion_chime.ogg` 仅 0.27 秒、峰值约 -37.8 dBFS，`companion_soft.ogg` 仅 0.47 秒、峰值约 -37.1 dBFS。设置页原“测试”也只发送系统通知，无法区分素材太轻与通知频道被系统静音。另因 Android 8+ 的 NotificationChannel 声音在频道创建后不能由应用修改，只覆盖同名素材或继续复用 v1 频道不能可靠修复既有安装。
+4. 新增三段项目内原创合成短音，不下载或混用第三方录音：清脆三音 `companion_chime_v2.wav`（0.62 秒，峰值 -4.6 dBFS）、柔和水滴 `companion_soft_v2.wav`（0.73 秒，峰值 -5.0 dBFS）、气泡轻弹 `companion_bubble_v1.wav`（0.57 秒，峰值 -5.1 dBFS）；均为 PCM16、mono、48 kHz。旧 OGG 仅为历史可恢复性保留，已退出当前选项路由。
+5. 三段新音分别使用全新频道 `companion_messages_chime_v2`、`companion_messages_soft_v2`、`companion_messages_bubble_v1`，原 `system/silent/gentle` 语义不变。设置页把原单一测试拆成“试听当前声音”（MediaPlayer/Ringtone 直接播放，不经过 NotificationChannel）和“测试系统弹窗”（走真实主动消息通知路径）；若前者有声、后者无声，可直接判定为频道/系统设置问题。
+6. 本轮未改本地妹居 TTS、情绪音效、A2 generation-ahead/FIFO、`…/■` stop、TALKING 时机、主动消息正文生成或 SQLite schema 35。版本仅升为 `0.39.6+124`。
+
+### C. 提交、构建与交付证据
+
+1. 干净工作树本地提交 `fa2a868f49d843a44476c16da3959ce5c1821419`；因命令行 GitHub 凭据不可见，通过已连接 GitHub 接口上传后的远端提交为 `a7bf08822322ae51571aa7bdf33b5d7f71a10366`。二者 tree SHA 均为 `3fb721c8009baa5c559edc6b2764c5fb7059159e`，33 个改动文件逐字节一致；远端分支为 `agent/v0396-rule02-message-sound`，未改 `main`、未触发重复 PR 构建。
+2. [Actions run 33109989498](https://github.com/catkiss62/ai-companion-build/actions/runs/33109989498) 一次全绿：固定桌宠/LingChat/塔罗与新版妹居 TTS 载荷恢复、全部当前/历史 Python validators、新 Rule02/迁移/频道/声音实体与响度门禁、正式 Kotlin 编译和测试、Flutter analyze、294 项 Flutter tests、release APK、稳定签名、32 项 TTS 与既有大型素材复核、Artifact 和 Draft Release 上传全部通过。
+3. APK `AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK.apk`，324,700,138 bytes，SHA-256 `5211177644315a1a519d7c30b3eff20a1020e3f9b402c50f092529bc51b6d563`。签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.5。Draft Release 为 [untagged-85e3ad83ec29dbced733](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-85e3ad83ec29dbced733)。
+4. Artifact ID `9662468752`，ZIP 318,403,619 bytes，digest `da67d5329bff3e9c4bfd412fe0c76c3f55284bc5fd204fd6e630c6cdf63351f4`，保留至 2026-09-10T19:56:53Z。本地从最终 Artifact 流式读取 APK 再验得到同一大小与 SHA；Android 资源压缩后的 `res/26.wav`、`res/n6.wav`、`res/yf.wav` 分别与清脆、气泡、柔和源 WAV 的大小和 SHA-256 精确一致，三段声音并非只存在于源码。
+
+### D. 真机待验
+
+1. 规则验收以全新对话为主，连续观察多轮：每轮至少有一次动作/神态/语气/微表情行；`「」` 内只有真正说出口的内容；重点复测“顿了顿，又小小声补了一句”和“嘴上这么说着，眼睛却弯成月牙”不再整体进入引号。若仍偶发，先保留原始完整回复取证，不立即增加会改变说话方式的本地重写器。
+2. 提示音先在设置中依次选择清脆三音、柔和水滴、气泡轻弹和系统默认并点“试听当前声音”；再将主动消息弹窗模式设为“始终弹窗”，逐个点“测试系统弹窗”。直接试听有声而系统弹窗无声时，进入按钮指向的新频道检查系统音量/允许发声；“静音”和智能/轻声模式产生的 quiet 通知不作为有声失败。
+3. 最后等待或触发一条真实主动消息，确认当前所选提示音可闻且不播放 TTS/情绪音效。只有 Rule02 新对话与至少一个内置声音的直接试听、系统弹窗、真实主动消息都通过，才把本节改为 TRUE DEVICE PASSED。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.5 新版妹居 TTS 真机生成故障（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE CORE PASSED）
