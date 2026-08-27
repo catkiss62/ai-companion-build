@@ -1,0 +1,7 @@
+status=success
+run_id=33029100571
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33029100571
+head_sha=996ec2a29887bfb85c26aa1d4d51c531a882a7a2
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+d654d829603e6df5a0513b7cf6d660c8980b132ad6e1f8c69724018fab5d89a6  AI-Companion-v0.39.0-118-Immersive-Room-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90b3a00b09d8fdcf166c
