@@ -55,6 +55,11 @@
 - `UI_INFORMATION_ARCHITECTURE_v1.md`：五域迁移；已吸收性格底色 UI 的唯一数据源约束。
 - `DOCUMENTATION_MAP.md`
 
+### 本地 TTS
+
+- `TTS_RUNTIME_UPGRADE_v0.39.5.md`：当前妹居 TTS 资源、调用、分句与停止契约。
+- `TTS_RUNTIME_MANIFEST_v0.39.5.json`：当前 32 项打包资源的大小与 SHA-256 清单。
+
 ## 4. 后续可逐步合并，但不阻塞开发
 
 | 未来当前契约 | 可吸收来源 |

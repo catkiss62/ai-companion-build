@@ -124,14 +124,13 @@ def main() -> int:
     seed_sql = database[database.index("Future<void> _seedRuleLayers"):]
     assert "ConflictAlgorithm.ignore" in seed_sql
 
-    # The frozen Meju A2 payload and TTS sentence contract remain byte-identical.
-    # Native runtime/accessibility files may evolve under newer version-specific
-    # validators. Overlay input recovery is asserted structurally below.
+    # Historical baselines plus the explicitly audited v0.39.5 TTS upgrade.
+    # The current version-specific validator owns the new behavior contract.
     frozen = {
         "lib/core/tts/tts_sentence_segmenter.dart":
-            "8ee58af4cfab2e03bf3d80f527a777bab9a3790d75370ffe0760dfc4fe8906d8",
+            "e81eddb131e6ba905c86bf37fa0c94edb0aa6b1e519bfb8e68670b15c028436b",
         "android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so":
-            "a599d482539fdbe01ccd82a9c688d0dce574c19dd681b15fd580185890e65792",
+            "a6f11da0df792a82820b833f1b6951078179d16c4e15dd8a6abc18d52d227f08",
     }
     for relative, expected in frozen.items():
         assert digest(relative) == expected, relative

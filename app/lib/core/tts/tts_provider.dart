@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../emotion/emotion_contract.dart';
 
 class TtsEmotionCue {
@@ -80,8 +82,8 @@ abstract class TtsProvider {
   /// Legacy one-shot compatibility path. Normal companion speech uses
   /// generate()+playAudio() so inference can run ahead of playback like A2.
   Future<void> speak(String text);
-  Future<String?> generate(String text, {TtsEmotionCue? emotion});
-  Future<void> playAudio(String wavBase64);
+  Future<Uint8List?> generate(String text, {TtsEmotionCue? emotion});
+  Future<void> playAudio(Uint8List wavBytes);
 
   Future<void> stop();
   Future<void> pause();

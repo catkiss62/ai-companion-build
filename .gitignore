@@ -1,0 +1,10 @@
+# The exact 135 MB Meju runtime payload is restored from the pinned public
+# parity-test Release during CI. Keep one authoritative binary copy instead of
+# duplicating it in this repository's Git object database.
+/app/android/app/src/main/assets/legacy_tts/
+/app/android/app/src/main/assets/tts_models/
+/app/android/app/src/main/jniLibs/arm64-v8a/libMNN.so
+/app/android/app/src/main/jniLibs/arm64-v8a/libMNN_Express.so
+/app/android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so
+/app/android/app/src/main/jniLibs/arm64-v8a/libcppjieba.so
+/app/android/app/src/main/jniLibs/arm64-v8a/libcpptokenizer.so

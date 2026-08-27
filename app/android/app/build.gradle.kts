@@ -75,7 +75,6 @@ android {
                 "**/libbertvits2.so",
                 "**/libMNN.so",
                 "**/libMNN_Express.so",
-                "**/libMNN_Vulkan.so",
                 "**/libcppjieba.so",
                 "**/libcpptokenizer.so",
             )

@@ -410,19 +410,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _checkTts() async {
-    setState(() => status = '正在核对本地 TTS 与 MejuTTS v2.7 黄金资源…');
+    setState(() => status = '正在核对新版妹居本地 TTS 资源…');
     try {
       final next = await tts.verifyArtifacts();
       if (mounted) {
         setState(() {
           ttsStatus = next;
           status = next.integrityVerified
-              ? '本地 TTS 黄金资源校验通过（${next.artifactCount} 项）'
+              ? '新版本地 TTS 资源校验通过（${next.artifactCount} 项）'
               : '本地 TTS 校验失败：${next.detail}';
         });
       }
     } catch (e) {
-      if (mounted) setState(() => status = 'TTS 黄金资源检查失败：$e');
+      if (mounted) setState(() => status = 'TTS 资源检查失败：$e');
     }
   }
 

@@ -3,8 +3,10 @@
 ///
 /// A2 splits only on:
 ///   。 ！ ？ ； . ! ? ;
-/// It does not split on commas, ideographic commas, newlines or ellipsis and
-/// it has no 72/116-character fallback. Layout line breaks are normalized to
+/// Normal sentences still do not split on commas, ideographic commas, newlines
+/// or ellipsis. The upgraded local engine rejects Chinese input above 300
+/// phones, so an exceptional punctuation-free run is capped at 72 characters,
+/// preferring a nearby comma/colon/space. Layout line breaks are normalized to
 /// ordinary spaces before boundary scanning. Delimiters themselves are not spoken.
 ///
 /// The original A2 removes bracketed blocks before splitting. For streaming
@@ -12,6 +14,9 @@
 /// is inside one of those removable bracket pairs; TtsTextProcessor removes
 /// the bracketed block itself before generation.
 class TtsSentenceSegmenter {
+  static const int maxSafeChunkChars = 72;
+  static const int _preferredSplitFloor = 36;
+
   String _buffer = '';
   String _fenceCarry = '';
   bool _inFence = false;
@@ -111,7 +116,16 @@ class TtsSentenceSegmenter {
   List<String> _drain({required bool finalFlush}) {
     final out = <String>[];
     while (true) {
-      final boundary = _findA2Boundary(_buffer);
+      final natural = _findA2Boundary(_buffer);
+      final safety = _findSafetyBoundary(_buffer);
+      final _Boundary? boundary;
+      if (natural == null) {
+        boundary = safety;
+      } else if (safety == null || natural.start <= safety.start) {
+        boundary = natural;
+      } else {
+        boundary = safety;
+      }
       if (boundary == null) break;
       final chunk = _buffer.substring(0, boundary.start).trim();
       _buffer = _buffer.substring(boundary.end);
@@ -162,6 +176,53 @@ class TtsSentenceSegmenter {
   bool _isA2Delimiter(String c) =>
       c == '。' || c == '！' || c == '？' || c == '；' ||
       c == '.' || c == '!' || c == '?' || c == ';';
+
+  _Boundary? _findSafetyBoundary(String text) {
+    if (text.length <= maxSafeChunkChars) return null;
+    final hardCut = _avoidSplittingSurrogate(text, maxSafeChunkChars);
+    final stack = <String>[];
+    const pairs = <String, String>{
+      '(': ')',
+      '（': '）',
+      '<': '>',
+      '{': '}',
+      '[': ']',
+      '【': '】',
+    };
+    var preferred = -1;
+    for (var i = 0; i < hardCut; i++) {
+      final c = text[i];
+      final close = pairs[c];
+      if (close != null) {
+        stack.add(close);
+        continue;
+      }
+      if (stack.isNotEmpty && c == stack.last) {
+        stack.removeLast();
+        continue;
+      }
+      if (stack.isEmpty && i >= _preferredSplitFloor && _isSafetyDelimiter(c)) {
+        preferred = i;
+      }
+    }
+    return preferred >= 0
+        ? _Boundary(preferred, preferred + 1)
+        : _Boundary(hardCut, hardCut);
+  }
+
+  int _avoidSplittingSurrogate(String text, int requested) {
+    var cut = requested.clamp(1, text.length - 1).toInt();
+    final current = text.codeUnitAt(cut);
+    final previous = text.codeUnitAt(cut - 1);
+    if (current >= 0xDC00 && current <= 0xDFFF &&
+        previous >= 0xD800 && previous <= 0xDBFF) {
+      cut--;
+    }
+    return cut;
+  }
+
+  bool _isSafetyDelimiter(String c) =>
+      c == '，' || c == ',' || c == '、' || c == '：' || c == ':' || c == ' ';
 }
 
 class _Boundary {

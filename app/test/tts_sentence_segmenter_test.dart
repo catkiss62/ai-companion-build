@@ -38,10 +38,32 @@ void main() {
     expect(out, ['先说一句', '然后继续']);
   });
 
-  test('punctuation-free text waits until final flush without soft split', () {
+  test('short punctuation-free text waits until final flush', () {
     final s = TtsSentenceSegmenter();
     final text = '这是一段非常长的内容，为了严格保持妹居A2行为，即使很长也不会因为字符数量被人为切开';
     expect(s.add(text), isEmpty);
     expect(s.flush(), [text]);
+  });
+
+  test('exceptional long runs stay below the new engine safety cap', () {
+    final s = TtsSentenceSegmenter();
+    final text = List<String>.filled(150, '长').join();
+    final chunks = <String>[...s.add(text), ...s.flush()];
+    expect(chunks.join(), text);
+    expect(chunks, hasLength(3));
+    expect(
+      chunks.every(
+        (chunk) => chunk.length <= TtsSentenceSegmenter.maxSafeChunkChars,
+      ),
+      isTrue,
+    );
+  });
+
+  test('long-run safety split prefers a nearby comma', () {
+    final s = TtsSentenceSegmenter();
+    final left = List<String>.filled(40, '前').join();
+    final right = List<String>.filled(40, '后').join();
+    expect(s.add('$left，$right'), [left]);
+    expect(s.flush(), [right]);
   });
 }

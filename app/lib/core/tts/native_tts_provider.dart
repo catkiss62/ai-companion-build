@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 
 import 'tts_provider.dart';
@@ -39,15 +41,15 @@ class NativeTtsProvider implements TtsProvider {
       _channel.invokeMethod<void>('speak', {'text': text});
 
   @override
-  Future<String?> generate(String text, {TtsEmotionCue? emotion}) =>
-      _channel.invokeMethod<String>('generate', <String, Object?>{
+  Future<Uint8List?> generate(String text, {TtsEmotionCue? emotion}) =>
+      _channel.invokeMethod<Uint8List>('generate', <String, Object?>{
         'text': text,
         if (emotion != null) ...emotion.toChannelMap(),
       });
 
   @override
-  Future<void> playAudio(String wavBase64) =>
-      _channel.invokeMethod<void>('playAudio', {'audioData': wavBase64});
+  Future<void> playAudio(Uint8List wavBytes) =>
+      _channel.invokeMethod<void>('playAudio', {'audioData': wavBytes});
 
   @override
   Future<void> stop() => _channel.invokeMethod<void>('stop');

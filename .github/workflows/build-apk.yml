@@ -67,7 +67,7 @@
 # Historical baseline: v0.39.1+119 / SQLite schema 34 / immersive room polish
 # Historical baseline: v0.39.2+120 / SQLite schema 35 / immersive NSFW and stream stability
 # Historical baseline: v0.39.3+121 / SQLite schema 35 / ordinary-chat presentation hotfix
-# Active candidate: v0.39.4+122 / SQLite schema 35 / Rule 02 + immersive chat UI/TTS
+# Active candidate: v0.39.5+123 / SQLite schema 35 / upgraded Meju local-TTS runtime
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -139,12 +139,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.39.4+122 APK (Immersive Chat UI and TTS)
+name: Build AI Companion v0.39.5+123 APK (Meju TTS Runtime Upgrade)
 
 on:
   push:
     branches:
-      - agent/v0394-immersive-chat-ui-tts
+      - agent/v0395-meju-tts-runtime-upgrade
   workflow_dispatch:
   pull_request:
     branches:
@@ -247,19 +247,51 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout pinned Meju TTS dictionary source
+        uses: actions/checkout@v4
+        with:
+          repository: catkiss62/meju-tts-parity-test-android
+          ref: 2059a660cc9768b95ace2561741fcb0312f3ac60
+          path: .tts-source
+
+      - name: Restore exact validated Meju TTS runtime payload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tts-payload/unpacked
+          gh release download runtime-payload-v1 \
+            --repo catkiss62/meju-tts-parity-test-android \
+            --pattern meju-tts-runtime-payload.zip \
+            --dir .tts-payload
+          echo 'a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c  .tts-payload/meju-tts-runtime-payload.zip' | sha256sum -c -
+          unzip -q .tts-payload/meju-tts-runtime-payload.zip \
+            -d .tts-payload/unpacked
+          TTS_MAIN='app/android/app/src/main'
+          mkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"
+          cp -a .tts-payload/unpacked/app/src/main/assets/tts_models \
+            "${TTS_MAIN}/assets/"
+          cp -a .tts-payload/unpacked/app/src/main/assets/legacy_tts/runtime \
+            "${TTS_MAIN}/assets/legacy_tts/"
+          cp -a .tts-source/app/src/main/assets/legacy_tts/pinyin \
+            "${TTS_MAIN}/assets/legacy_tts/"
+          cp -a .tts-payload/unpacked/app/src/main/jniLibs/arm64-v8a \
+            "${TTS_MAIN}/jniLibs/"
+
       - name: Verify clean source baseline
         shell: bash
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.39.4+122' app/pubspec.yaml
+          grep -Fqx 'version: 0.39.5+123' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 35;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.39.4+122 immersive chat UI and TTS.'
+          echo 'Building v0.39.5+123 upgraded Meju local-TTS runtime.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -418,6 +450,7 @@ jobs:
           python3 tools/validate_v0392_immersive_nsfw_stream.py
           python3 tools/validate_v0393_ordinary_chat_presentation.py
           python3 tools/validate_v0394_immersive_chat_ui_tts.py
+          python3 tools/validate_v0395_meju_tts_runtime_upgrade.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -494,14 +527,17 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY2'
-          import hashlib, pathlib, struct, sys, zipfile
+          import hashlib, json, pathlib, struct, sys, zipfile
           root = pathlib.Path('app')
           apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
           src = root / 'android/app/src/main/jniLibs/arm64-v8a'
           libs = [
               'libbertvits2.so', 'libMNN.so', 'libMNN_Express.so',
-              'libMNN_Vulkan.so', 'libcppjieba.so', 'libcpptokenizer.so',
+              'libcppjieba.so', 'libcpptokenizer.so',
           ]
+          tts_manifest = json.loads(
+              (root / 'docs/TTS_RUNTIME_MANIFEST_v0.39.5.json').read_text(encoding='utf-8')
+          )
           with zipfile.ZipFile(apk) as z:
               for name in libs:
                   source = (src / name).read_bytes()
@@ -510,6 +546,13 @@ jobs:
                       print(f'ERROR: release packaging changed {name}', file=sys.stderr)
                       sys.exit(1)
                   print(name, len(source), hashlib.sha256(source).hexdigest())
+              for relative, expected in tts_manifest['assets'].items():
+                  packed = z.read('assets/' + relative)
+                  actual = hashlib.sha256(packed).hexdigest()
+                  if len(packed) != expected['size'] or actual != expected['sha256']:
+                      print(f'ERROR: release APK TTS asset mismatch: {relative}', file=sys.stderr)
+                      sys.exit(1)
+              print('All 27 upgraded Meju TTS assets are size/hash exact in the APK.')
               pet_entries = [
                   name for name in z.namelist()
                   if name.startswith('assets/pets/dafeiyu/source/assets/')
@@ -615,10 +658,7 @@ jobs:
                   print('ERROR: appearance reference bytes changed', file=sys.stderr)
                   sys.exit(1)
               print('Approved three-tier yawn art and appearance reference are present in the APK.')
-          bert = (src / 'libbertvits2.so').read_bytes()
-          assert hashlib.sha256(bert[:635352]).hexdigest() == 'a1ca5180532aae3a7c378371f6ddb44bbf35d8826a8b8750db4fd12179c5551b'
-          assert set(bert[635352:]) <= {0}
-          print('A2 original native prefix and APK byte identity verified.')
+          print('Upgraded Meju native libraries and APK byte identity verified.')
           PY2
 
       - name: Verify bundled tarot JPG payload
@@ -656,26 +696,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.39.4+122 APK as workflow artifact
+      - name: Upload v0.39.5+123 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK
+          name: AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.39.4+122 immersive chat UI/TTS APK to draft release
+      - name: Upload v0.39.5+123 Meju TTS runtime upgrade APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.39.4-immersive-chat-ui-tts'
-          APK_NAME='AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK.apk'
+          TAG='v0.39.5-meju-tts-runtime-upgrade'
+          APK_NAME='AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -692,8 +732,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.4+122 immersive chat UI and TTS candidate' \
-              --notes 'Draft candidate: restores the complete editable Rule 02 contract and adds immersive curly/ASCII dialogue tinting, ordinary-style user bubbles and timestamps, shared TTS controls, clearer direct-delete semantics, and a stable NSFW label. SQLite schema remains 35.'
+              --title 'AI Companion v0.39.5+123 Meju TTS runtime upgrade candidate' \
+              --notes 'Draft candidate: replaces the local Meju generation backend with the user-validated Chinese byte[] WAV runtime while retaining A2 sentence segmentation, generation-ahead, FIFO playback, emotion lead-in and stop-token fencing. SQLite schema remains 35.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -717,18 +757,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0394-monitor.txt'
+          MONITOR_PATH='.ci/v0395-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.4 CI success monitor' \
+              -f message='Update v0.39.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.4 CI success monitor' \
+              -f message='Create v0.39.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -749,8 +789,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.39.4-immersive-chat-ui-tts'
-          CI_NAME='AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-CI-Monitor.txt'
+          TAG='v0.39.5-meju-tts-runtime-upgrade'
+          CI_NAME='AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -791,8 +831,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.4+122 immersive chat UI and TTS candidate' \
-              --notes 'Draft used for v0.39.4 CI diagnostics and the Rule 02 / immersive chat UI and TTS APK. It is not a published release.'
+              --title 'AI Companion v0.39.5+123 Meju TTS runtime upgrade candidate' \
+              --notes 'Draft used for v0.39.5 CI diagnostics and the upgraded Meju local-TTS APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -801,18 +841,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0394-monitor.txt'
+          MONITOR_PATH='.ci/v0395-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.4 CI failure monitor' \
+              -f message='Update v0.39.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.4 CI failure monitor' \
+              -f message='Create v0.39.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

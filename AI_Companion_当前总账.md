@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-27（Asia/Tokyo）
+更新时间：2026-08-28（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -14,6 +14,69 @@
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.5 新版妹居 TTS 真机生成故障（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE RE-TEST PENDING）
+
+> 用户安装上一节 APK 后真机确认：点击普通聊天语音键时图标会进入“…”但立即恢复喇叭，没有任何声音。附件 `ai_companion_diagnostics_2026-08-27T16-51-59-574234Z.txt` 是当前最高优先级证据；本节只修新运行时在 AI Companion 宿主中的动态类加载边界，不重做模型迁移、A2 队列、播放、停止或情绪音效。
+
+### A. 修改前诊断与根因
+
+1. 报告为真实 `v0.39.5+123`：TTS `available=true`、`initialized=true`、`integrity=verified`、32 项载荷通过，诊断轨迹已越过 runtime JAR 类加载、`LocalTTSEngine` 实例、`TtsLanguage.ZH`、`initialize`、`setLengthScale`，每次都到达 `generateTTS_invoked`。因此不是资源漏打包、模型/JNI 初始化失败，也不是语音按钮点击失效。
+2. Native 诊断共记录 118 个 `InstantiationError`，全部发生于 generate 阶段；除最初单条外，后续九组每组恰好 13 条，并在约 23–41ms 内整组失败。A2 队列把每段异常隔离为 null audio，13 段全空后正常收尾，故界面表现为“喇叭 → … → 喇叭”；按钮状态机不作为本轮修改对象。
+3. 独立试听 APK 是无 Kotlin 插件/无 Flutter 依赖的纯 Java 宿主；AI Companion 是 Kotlin + Flutter 宿主。当前 `LegacyTtsRuntime.buildClassLoader()` 虽称运行时隔离，实际使用标准父优先 `DexClassLoader(..., appContext.classLoader)`。提取自完整 APK 的两份 DEX 同时携带 Kotlin、kotlinx.coroutines、AndroidX、预处理与混淆短类名；生成路径首次进入 `BuildersKt.withContext`、协程状态机与中文预处理后，父加载器可能解析到宿主同名但二进制不兼容的类，和真机即时 `InstantiationError`、试听 APK 成功的差异一致。
+4. 本轮根修方向：为动态 TTS 载荷建立受控 child-first ClassLoader。仅 `java.*`、`javax.*`、`android.*`、`dalvik.*` 等平台命名空间始终父优先；载荷 DEX 内实际存在的 Kotlin/协程/AndroidX/预处理/混淆类优先由子加载器解析，找不到才回退宿主。不能只对 `kotlin.*` 打补丁，因为完整 DEX 还含大量可能冲突的混淆类。
+5. 同批补充脱敏但可定位的类加载/异常诊断：记录运行时类来源与完整 Throwable 类型链/阶段，不保存朗读正文；若仍失败，下一份报告必须能指出具体冲突类，禁止继续只留下空 detail 的 `InstantiationError`。
+
+### B. 冻结边界与验收
+
+1. 不修改 27 个 TTS asset、5 个 native library、黄金哈希、中文 300-phone 保护、72 字异常长句二次切分、`ByteArray/Uint8List` 通道或 44.1kHz WAV 校验。
+2. 不修改 A2 标点分句、generation-ahead、FIFO、约 200ms 句间隔、单句失败隔离；不修改“喇叭 → … → ■ → 喇叭”、点击 `…/■` 全轮 stop、迟到 WAV 丢弃、页面切换停止契约。
+3. 不修改每轮一次情绪音效、音效先响/TTS并行合成、音效提前结束后首句就绪即播，以及独立情绪 WAV Base64 通道。
+4. 自动验证必须新增 child-first/平台父优先/父回退/已加载类复用契约，并继续跑全部历史 validators、Kotlin、Flutter analyze/tests、release APK 与32项载荷校验。CI 通过仍不等于修复成功；最终必须由 REDMI K80 Ultra 真机验证普通聊天与沉浸房间语音、长回复连续播放及 `…/■` 停止不复活。
+
+### C. 实际修复
+
+1. `LegacyTtsRuntime` 已将普通父优先 `DexClassLoader` 改为受控 `RuntimeDexClassLoader`：`java/javax/android/dalvik/libcore/sun/org.w3c/org.xml/org.json/com.android` 与 `com.aicompanion.localfirst` 始终父优先；其余类先从两份载荷 DEX 查找，只有 `ClassNotFoundException` 才回退宿主。这样载荷自带的 Kotlin、kotlinx.coroutines、AndroidX、houbb-pinyin、预处理及混淆短类保持同一二进制世界，同时不允许载荷覆盖平台与主程序桥接类型。
+2. 类加载使用加载器实例级同步，已加载类先复用，解析请求仍按 `resolve` 处理；TTS 外层继续由全局 `speechLock` 串行访问 MNN。首轮正式 Android 编译证明 JVM 可见的 `ClassLoader.getClassLoadingLock()` 不在 Android SDK 可调用接口中，最终改为 `synchronized(this)`；线程安全不变，并新增静态门禁禁止该 API 回归。
+3. `RuntimeDiagnosticStore` 新增白名单元数据 `stage/loaderPolicy/failureType/failureTarget`。generate/diagnose 失败时只保存阶段、`payload_child_first`、最多 8 层 Throwable 类型及从异常消息提取的类名式 token；不保存朗读正文、一般异常正文、路径或密钥。若真机仍失败，下一份诊断应能直接给出冲突类，不再只有空 detail 的 `InstantiationError`。
+4. 生产改动只涉及 `LegacyTtsRuntime.kt`、`NativeTtsEngine.kt`、`RuntimeDiagnosticStore.kt`；另更新三份验证脚本。27 个 TTS asset、5 个 native library、模型/词典/JNI 哈希、`ByteArray/Uint8List`、A2 队列、情绪音效、按钮/stop 状态机和 SQLite schema 35 均未改。
+
+### D. 提交、构建与交付证据
+
+1. 根修提交 `e36c4a85c525fc617bfebcd37ddf4db168b98e24`；CI 标记提交 `52ca411af2b9eee3fa4916e956904445bf644f20`；Android 同步兼容修正及最终有效 head `bd8dc52b23b9a577d0ed59a191b48543eaf95003`。分支仍为 `agent/v0395-meju-tts-runtime-upgrade`，Draft PR 仍为 [#43](https://github.com/catkiss62/ai-companion-build/pull/43)，未合并主线。
+2. Actions 事件查询延迟导致根修 run [33097717056](https://github.com/catkiss62/ai-companion-build/actions/runs/33097717056) 在约 3 分 35 秒时被随后 CI 标记触发的并发策略自动取消；没有两轮并行继续消耗。标记 run [33097979916](https://github.com/catkiss62/ai-companion-build/actions/runs/33097979916) 通过资源恢复、全部源码/历史回归后，在正式 Android `compileDebugKotlin` 精确暴露 `getClassLoadingLock` 不可用；Flutter 与 APK 阶段未执行。失败未伪装为通过，也未放宽测试。
+3. 最终 Actions [run 33098796438](https://github.com/catkiss62/ai-companion-build/actions/runs/33098796438) 全绿：固定 TTS 载荷恢复与32项源指纹、全部当前/历史 validators、新 child-first/平台父优先/父回退/脱敏失败证据契约、正式 Kotlin 编译/测试、Flutter analyze、294 项 Flutter tests、release APK、稳定签名、APK 内27个 TTS asset + 5个 arm64 native library，以及417桌宠、62 LingChat、22塔罗与 Draft Release 上传全部通过。
+4. APK `AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK.apk`，324,520,622 bytes，SHA-256 `6cd34a14e03d64fd4c1cbf5ac69c0b139c8d776b8f24256a3b50bd7ef74f3482`；签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版。Draft Release [untagged-2b6cc9d32bc547359a79](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b6cc9d32bc547359a79)；Artifact ID `9657819942`，ZIP 318,264,721 bytes，digest `44063ab658e15dea659a31168926974ed05cb0e8bd6185f175760a75489c0c52`，保留至 2026-09-10T17:39:46Z。
+5. 当前只能标记“代码、CI 与 APK 通过”，不能标记 TRUE DEVICE PASSED。真机复测顺序：先普通聊天短句确认喇叭不再 `…` 后立即回退；再测13段左右长回复连续 generation-ahead；沉浸房间同样复测；生成中点 `…`、播放中点 `■` 都应整轮停止且旧 WAV 不复活。若仍失败，立即导出新版诊断，重点读取 `loaderPolicy/failureType/failureTarget/stage`。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 新版妹居 TTS 运行时迁移（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
+
+> 用户已在独立试听 APK `meju-tts-parity-test-android` v0.1.2 上真机确认：新完整包的中文本地 `LocalTTSEngine → JNI → Bert-VITS2/MNN → byte[] WAV` 分句生成/播放成功，听感语速更快、生成等待更短；200/1000 字整段返回空已取证为新引擎中文 `maxPhones=300` 的防崩溃保护，不是用户实际分段路径故障。用户确认不保留应用内新旧引擎可选项，直接把 AI Companion 的本地妹居生成后端替换为新运行时。
+
+### A. 已核对事实与迁移边界
+
+1. 新旧 BERT 及 6 个主妹居 MNN 权重 SHA-256 完全一致；本批不冒充重新训练或更换音色，变化来自新 tokenizer、全套中文分词/拼音/音素词典、编译后预处理运行时及已更换的 `libbertvits2.so` / `libcppjieba.so` / `libcpptokenizer.so`。`libMNN.so` 与 `libMNN_Express.so` 同旧版字节一致。
+2. 只迁移新完整包中已真机验证的中文本地 TTS 链；不引入包内 DashScope/CosyVoice 云端路由、`tts_server.py` 桌面代理、ASR `libsherpa-onnx-jni.so`、Live2D 或其他无关资源。
+3. 保留 AI Companion 已验收的 A2 语义：按句切分，生成线程串行访问 MNN，播放第 N 句时提前生成 N+1/N+2，最终 FIFO 顺序播放；不退回试听 APK 的“生成一句再播一句”串行播放。
+4. 保留全轮 stop/generation token 隔离：点击播放 `■` 或合成中 `…` 均立即清队列、停当前播放、屏蔽旧轮迟到 WAV；在途 MNN 调用无法强杀，完成后必须丢弃，不得让旧轮复活。对话切换/页面卸载继续走同一 stop 路径。
+5. 保留每轮仅一次情绪音效、音效先响与 TTS 并行合成、音效提前结束则首句就绪后立即播放、stop 同时停两者的现有契约；TTS 只读正文，继续清理 `<emotion>` 及不可朗读标记。
+
+### B. 预定实现
+
+1. 新建分支 `agent/v0395-meju-tts-runtime-upgrade`，版本目标 `0.39.5+123`，SQLite schema 35 不变。
+2. 用新包两份 runtime JAR、5 份 houbb-pinyin 根资源、`zh/` 目录模型/词典及 5 份必需 arm64 原生库替换 MejuTTS v2.7 旧负载；对每份源资源重建完整性基线。五份拼音字典按原 APK 类路径注入第一份 runtime JAR，防止再出现 `PinyinHelper`/classpath 故障。
+3. Kotlin 适配层显式锁定 `TtsLanguage.ZH`，适配 suspend `initialize/setLengthScale/release`，将 `generateTTS` 产物改为校验过 RIFF/WAVE 头的 `ByteArray`。Flutter MethodChannel 使用 `Uint8List`，不再 Base64 膨胀/解码；情绪 WAV 的独立 Base64 通道不与本批混改。
+4. 对新引擎 300 音素上限加“异常长单句”二次切分/验收；普通标点分句与现有 200ms 句间隔不改。
+5. 完成前必须通过：新负载指纹和 DEX 签名检查、Kotlin/Flutter 类型编译、TTS 分句预生成/顺序/单句失败隔离/stop 回归、全部历史 validators、Flutter analyze/tests、release APK 与安装包内实体校验。Actions/APK 通过仍只表示可供真机测试，最终音色、语速、首声延迟和长对话稳定性继续等用户安装验收。
+6. 用户于本任务中再次明确授权将新 TTS 模型、runtime JAR、拼音词典和原生库公开上传并用 Actions 构建。为避免与已公开试听仓库重复保存 135 MB 二进制，AI Companion 改为构建时从 `catkiss62/meju-tts-parity-test-android` 的固定提交 `2059a660cc9768b95ace2561741fcb0312f3ac60` 及 `runtime-payload-v1` 恢复；Release ZIP SHA-256 固定为 `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`，恢复后再做本项目 32 项逐文件校验及 APK 内复核。
+7. Actions 第一轮 run `33091291960` 和第二轮 run `33091653183` 均已证明固定仓库/Release 下载、ZIP SHA、模型/runtime/native 恢复成功；失败点都只在 `pinyin_dict_phrase.txt` 精确指纹。逐字节对照确认并非 Git checkout 换行转换，而是试听仓库原文件漏了完整素材最后一条 `乐亭:lào tíng`，正好少 17 bytes。试听仓库已用完整源文件修复为提交 `2059a660cc9768b95ace2561741fcb0312f3ac60`；主项目删除临时换行改写，直接从该提交恢复并继续要求原始大小 `1159971` 与 SHA-256 `a959653d…ac775`，没有放宽校验或在构建中临时补词条。
+8. 第三轮 run `33092422230` 已证明完整 32 项源资源大小/SHA、DEX/调用、A2 分句、generation-ahead、stop 与历史 TTS 校验全部通过；随后旧 `validate_v0285_coroutine_proxy_jvm.py` 的独立 JVM 编译桩因未模拟新兼容兜底所引用的 Android 标准类 `android.util.Base64` 而失败。正式 Android SDK 与另一套当前 TTS 编译桩都已提供该类；修复仅给旧测试桩补同一最小声明，不修改 APK 运行代码或降低测试断言。
+9. 第四轮 run `33092817675` 已进一步通过全部源码/历史回归、Kotlin 测试与 Flutter analyze；288 项 Flutter 测试通过，只有本批新增的 6 项队列测试因假服务用 `String.codeUnits → Uint8List` 表示中文假 WAV 而断言乱码。Dart `Uint8List.fromList` 会把 UTF-16 code unit 截成 8-bit，生产队列收到真实 RIFF/WAV 字节不受影响；测试夹具改为 `utf8.encode/decode`，继续断言相同的中文句序、stop、失败隔离和 lead-in 并行语义，不改生产实现。
+10. 远端分支 `agent/v0395-meju-tts-runtime-upgrade`、Draft PR [#43](https://github.com/catkiss62/ai-companion-build/pull/43)；最终有效构建 head `576caf4f7c1af2051356c8e47556d97249784741`。GitHub Actions [run 33093489402](https://github.com/catkiss62/ai-companion-build/actions/runs/33093489402) 全绿。固定试听仓库提交/Release 恢复、32 项源负载大小/SHA、全部当前与历史 validators、Kotlin 编译/测试、Flutter analyze、294 项 Flutter tests、release APK、稳定签名、APK 内 27 个 TTS asset + 5 个 arm64 native library、417 桌宠、62 LingChat 视觉素材、22 塔罗与 Draft Release 上传均通过。
+11. APK `AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK.apk`，324,519,670 bytes，SHA-256 `478b6ae9addcf61359afd8fe84a6fbcb73f3bb88e9315173ff16664cc2fe3eec`；Draft Release [untagged-e6f47ea984eea6a8597e](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e6f47ea984eea6a8597e)。Artifact ID `9655764269`，ZIP 318,263,437 bytes，digest `23b15d42239aba58c2c9f6c9f02658d4f3b35a064b5194e7e7e17a77afbf5021`，保留至 2026-09-10T16:40:52Z。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版同签名 APK。
+12. 当前结论只到“代码、CI 与 APK 通过”。真机仍需用户重点验收：首次 TTS 初始化、普通聊天与沉浸房间分段播放、首声等待/语速是否与试听 APK 一致、长回复 generation-ahead 连续性、点击 `…/■` 后旧音频不复活、来电/耳机/后台切换行为。真机未回报前不得把本批标成 TRUE DEVICE PASSED。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）

@@ -1,26 +1,36 @@
 package com.aicompanion.localfirst
 
 import android.content.Context
+import android.util.Base64
 import dalvik.system.DexClassLoader
 import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 /**
- * Compatibility adapter for the already-working LocalTTSEngine shipped in the
- * user supplied MejuTTS APK.
+ * Compatibility adapter for the user-validated multi-language LocalTTSEngine.
  *
- * The compiled Meju preprocessing/runtime remains isolated behind a local
- * DexClassLoader. v0.28.5 deliberately avoids reflecting Kotlin singleton
- * fields such as EmptyCoroutineContext.INSTANCE or COROUTINE_SUSPENDED: those
- * names can refer to the host app's R8-processed Kotlin runtime because Android
- * class loading is parent-first. Instead we build the exact CoroutineContext
- * interface required by the resolved legacy Continuation and detect suspension
- * from the value returned by the legacy suspend call itself.
+ * The compiled Meju preprocessing/runtime remains isolated behind a controlled
+ * child-first DexClassLoader. Only Java/Android platform classes and this host
+ * bridge are delegated to the parent first; every class carried by the supplied
+ * runtime DEX (including Kotlin, coroutines, AndroidX and obfuscated helpers) is
+ * resolved from that DEX before falling back to the app. This keeps the runtime
+ * binary-compatible without allowing it to shadow Android or the bridge.
+ *
+ * We also avoid reflecting Kotlin singleton fields such as
+ * EmptyCoroutineContext.INSTANCE or COROUTINE_SUSPENDED. The continuation proxy
+ * is built from the exact interfaces resolved by the isolated runtime.
  */
 class LegacyTtsRuntime(private val context: Context) {
     private val appContext = context.applicationContext
@@ -48,6 +58,33 @@ class LegacyTtsRuntime(private val context: Context) {
         artifactVerifier.verify(force = force)
 
     internal fun diagnosticTrace(): List<String> = diagnosticTrace.toList()
+
+    /** Redacted class-loading evidence; never includes the sentence being synthesized. */
+    internal fun failureDiagnosticMetadata(error: Throwable): Map<String, Any?> {
+        val types = ArrayList<String>()
+        var target = ""
+        var current: Throwable? = error
+        var depth = 0
+        while (current != null && depth < 8) {
+            types += current.javaClass.name
+            if (target.isEmpty()) {
+                target = CLASS_TOKEN_REGEX.find(current.message.orEmpty())
+                    ?.value
+                    ?.replace('/', '.')
+                    .orEmpty()
+            }
+            val next = current.cause
+            current = if (next == null || next === current) null else next
+            depth += 1
+        }
+        return linkedMapOf(
+            "stage" to diagnosticTrace.lastOrNull().orEmpty(),
+            "loaderPolicy" to LOADER_POLICY,
+            "failureType" to types.joinToString(">"),
+        ).apply {
+            if (target.isNotEmpty()) put("failureTarget", target)
+        }
+    }
 
     internal fun resetDiagnosticTrace() {
         diagnosticTrace = emptyList()
@@ -91,10 +128,17 @@ class LegacyTtsRuntime(private val context: Context) {
             val clazz = loader.loadClass(ENGINE_CLASS)
             markDiagnosticStage("engine_class")
 
+            val languageClass = loader.loadClass(LANGUAGE_CLASS)
+            val chinese = languageClass.getField("ZH").get(null)
+
             val instance = engine ?: clazz.getConstructor(Context::class.java)
                 .newInstance(appContext)
                 .also { engine = it }
             markDiagnosticStage("engine_instance")
+
+            clazz.getMethod("setLanguageOverride", languageClass)
+                .invoke(instance, chinese)
+            markDiagnosticStage("language_zh")
 
             val initialize = findLegacySuspendMethod(
                 clazz = clazz,
@@ -102,10 +146,10 @@ class LegacyTtsRuntime(private val context: Context) {
                 leadingParameterTypes = emptyList(),
             )
             markDiagnosticStage("initialize_signature")
-            invokeLegacySuspendBlocking(instance, initialize, timeoutSeconds = 180)
+            invokeLegacySuspendBlocking(instance, initialize, timeoutSeconds = 300)
 
             val ready = clazz.getMethod("isReady").invoke(instance) as? Boolean ?: false
-            if (!ready) error("legacy LocalTTSEngine finished initialize() but isReady=false")
+            if (!ready) error("Meju LocalTTSEngine finished initialize() but isReady=false")
             markDiagnosticStage("engine_ready")
             lastError = ""
             true
@@ -122,26 +166,26 @@ class LegacyTtsRuntime(private val context: Context) {
         }.getOrDefault(false)
     }
 
-    fun generateWavBase64(text: String): String {
+    fun generateWavBytes(text: String): ByteArray {
         require(text.isNotBlank()) { "TTS text is blank" }
         if (!isReady() && !initialize()) {
             error("TTS initialization failed: $lastError")
         }
-        return generateWavBase64Internal(text)
+        return generateWavBytesInternal(text)
     }
 
     /** Same real inference path as speak(), but without AudioTrack playback. */
-    fun diagnoseWavBase64(text: String): String {
+    fun diagnoseWavBytes(text: String): ByteArray {
         require(text.isNotBlank()) { "TTS diagnostic text is blank" }
         resetDiagnosticTrace()
         if (!initializeInternal()) {
             error("TTS initialization failed: $lastError")
         }
-        return generateWavBase64Internal(text)
+        return generateWavBytesInternal(text)
     }
 
-    private fun generateWavBase64Internal(text: String): String {
-        val instance = engine ?: error("legacy TTS engine is unavailable")
+    private fun generateWavBytesInternal(text: String): ByteArray {
+        val instance = engine ?: error("Meju TTS engine is unavailable")
         return runCatching {
             val method = findLegacySuspendMethod(
                 clazz = instance.javaClass,
@@ -153,25 +197,48 @@ class LegacyTtsRuntime(private val context: Context) {
                 instance,
                 method,
                 text,
-                timeoutSeconds = 240,
+                timeoutSeconds = 1_200,
             )
-            val result = value as? String
-                ?: error("legacy generateTTS returned ${value?.javaClass?.name ?: "null"}")
-            if (result.isBlank()) error("legacy generateTTS returned empty audio")
-            markDiagnosticStage("wav_base64")
+            val wav = when (value) {
+                is ByteArray -> value
+                is String -> {
+                    val encoded = value.substringAfter("base64,", value).trim()
+                    if (encoded.isEmpty()) error("Meju generateTTS returned empty Base64 audio")
+                    Base64.decode(encoded, Base64.DEFAULT)
+                }
+                null -> error(
+                    "Meju generateTTS returned null; the sentence may exceed the ZH 300-phone limit",
+                )
+                else -> error("Meju generateTTS returned ${value.javaClass.name}")
+            }
+            validateWav(wav)
+            markDiagnosticStage("wav_bytes")
             lastError = ""
-            result
+            wav
         }.getOrElse {
             lastError = rootMessage(it)
             throw it
         }
     }
 
+    private fun validateWav(wav: ByteArray) {
+        val riff = wav.size >= 12 &&
+            wav[0] == 'R'.code.toByte() && wav[1] == 'I'.code.toByte() &&
+            wav[2] == 'F'.code.toByte() && wav[3] == 'F'.code.toByte() &&
+            wav[8] == 'W'.code.toByte() && wav[9] == 'A'.code.toByte() &&
+            wav[10] == 'V'.code.toByte() && wav[11] == 'E'.code.toByte()
+        if (!riff) error("Meju generateTTS returned invalid WAV bytes: ${wav.size}")
+    }
+
     fun setLengthScale(value: Float) {
         val instance = engine ?: return
         runCatching {
-            instance.javaClass.getMethod("setLengthScale", Float::class.javaPrimitiveType!!)
-                .invoke(instance, value)
+            val method = findLegacySuspendMethod(
+                clazz = instance.javaClass,
+                name = "setLengthScale",
+                leadingParameterTypes = listOf(Float::class.javaPrimitiveType!!),
+            )
+            invokeLegacySuspendBlocking(instance, method, value, timeoutSeconds = 60)
         }.onFailure { lastError = rootMessage(it) }
     }
 
@@ -187,7 +254,14 @@ class LegacyTtsRuntime(private val context: Context) {
     fun release() {
         val instance = engine
         if (instance != null) {
-            runCatching { instance.javaClass.getMethod("release").invoke(instance) }
+            runCatching {
+                val method = findLegacySuspendMethod(
+                    clazz = instance.javaClass,
+                    name = "release",
+                    leadingParameterTypes = emptyList(),
+                )
+                invokeLegacySuspendBlocking(instance, method, timeoutSeconds = 60)
+            }
                 .onFailure { lastError = rootMessage(it) }
         }
         engine = null
@@ -213,18 +287,30 @@ class LegacyTtsRuntime(private val context: Context) {
             val assetPath = "$RUNTIME_ASSET_DIR/$assetName"
             val expected = TtsGoldenBaseline.assets[assetPath]
                 ?: error("Missing golden fingerprint for $assetPath")
-            val cachedValid = target.isFile &&
+            val injectPinyin = assetName == PINYIN_RUNTIME_JAR
+            val cachedValid = target.isFile && if (injectPinyin) {
+                target.length() > expected.size
+            } else {
                 target.length() == expected.size &&
-                runCatching { TtsArtifactVerifier.sha256(target) == expected.sha256 }
-                    .getOrDefault(false)
+                    runCatching { TtsArtifactVerifier.sha256(target) == expected.sha256 }
+                        .getOrDefault(false)
+            }
             if (!cachedValid) {
                 val temp = File(versionDir, "$assetName.tmp")
                 runCatching { temp.delete() }
-                appContext.assets.open(assetPath).use { input ->
-                    temp.outputStream().use { output -> input.copyTo(output) }
+                if (injectPinyin) {
+                    buildRuntimeJarWithPinyin(assetPath, temp)
+                } else {
+                    appContext.assets.open(assetPath).use { input ->
+                        temp.outputStream().use { output -> input.copyTo(output) }
+                    }
                 }
-                val copiedValid = temp.length() == expected.size &&
-                    TtsArtifactVerifier.sha256(temp) == expected.sha256
+                val copiedValid = if (injectPinyin) {
+                    temp.length() > expected.size
+                } else {
+                    temp.length() == expected.size &&
+                        TtsArtifactVerifier.sha256(temp) == expected.sha256
+                }
                 if (!copiedValid) {
                     temp.delete()
                     error("Runtime copy fingerprint mismatch: $assetName")
@@ -244,12 +330,86 @@ class LegacyTtsRuntime(private val context: Context) {
             target
         }
 
-        return DexClassLoader(
+        return RuntimeDexClassLoader(
             runtimeFiles.joinToString(File.pathSeparator) { it.absolutePath },
             optimized.absolutePath,
             appContext.applicationInfo.nativeLibraryDir,
             appContext.classLoader,
         )
+    }
+
+    /**
+     * Android's normal DexClassLoader is parent-first. That is unsafe for this
+     * payload because its two DEX files contain their own Kotlin/coroutines and
+     * obfuscated state-machine classes, while the Flutter host contains another
+     * version of the same dependencies. Keep platform/bridge identity shared;
+     * isolate every other payload class and fall back only when absent from DEX.
+     */
+    private class RuntimeDexClassLoader(
+        dexPath: String,
+        optimizedDirectory: String,
+        librarySearchPath: String?,
+        parent: ClassLoader,
+    ) : DexClassLoader(dexPath, optimizedDirectory, librarySearchPath, parent) {
+        override fun loadClass(name: String, resolve: Boolean): Class<*> {
+            synchronized(this) {
+                findLoadedClass(name)?.let { loaded ->
+                    if (resolve) resolveClass(loaded)
+                    return loaded
+                }
+
+                val loaded = if (isAlwaysParentFirstClass(name)) {
+                    super.loadClass(name, false)
+                } else {
+                    try {
+                        findClass(name)
+                    } catch (_: ClassNotFoundException) {
+                        super.loadClass(name, false)
+                    }
+                }
+                if (resolve) resolveClass(loaded)
+                return loaded
+            }
+        }
+    }
+
+    /** Inject the five APK-root houbb-pinyin dictionaries into its class path. */
+    private fun buildRuntimeJarWithPinyin(runtimeAsset: String, output: File) {
+        ZipInputStream(appContext.assets.open(runtimeAsset)).use { input ->
+            ZipOutputStream(FileOutputStream(output)).use { stream ->
+                stream.setLevel(Deflater.NO_COMPRESSION)
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    stream.putNextEntry(ZipEntry(entry.name))
+                    if (!entry.isDirectory) copyStream(input, stream)
+                    stream.closeEntry()
+                    input.closeEntry()
+                }
+
+                val dictionaries = appContext.assets.list(PINYIN_ASSET_DIR)
+                    .orEmpty()
+                    .sorted()
+                if (dictionaries.size != 5) {
+                    error("Expected 5 houbb-pinyin dictionaries, found ${dictionaries.size}")
+                }
+                for (name in dictionaries) {
+                    stream.putNextEntry(ZipEntry(name))
+                    appContext.assets.open("$PINYIN_ASSET_DIR/$name").use { dictionary ->
+                        copyStream(dictionary, stream)
+                    }
+                    stream.closeEntry()
+                }
+            }
+        }
+    }
+
+    private fun copyStream(input: InputStream, output: OutputStream) {
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            if (count > 0) output.write(buffer, 0, count)
+        }
     }
 
     /** Resolve suspend methods from the loaded legacy engine, never host Kotlin. */
@@ -403,7 +563,7 @@ class LegacyTtsRuntime(private val context: Context) {
     /**
      * Kotlin's suspend marker is an enum singleton. For the only two supported
      * legacy methods, legitimate immediate values are Unit/null (initialize)
-     * or String (generateTTS), so an enum value is unambiguously suspension.
+     * or ByteArray (generateTTS), so an enum value is unambiguously suspension.
      * Name/toString fallbacks cover a non-enum compatibility runtime without
      * reflecting IntrinsicsKt or a static COROUTINE_SUSPENDED field.
      */
@@ -419,9 +579,9 @@ class LegacyTtsRuntime(private val context: Context) {
         if (raw == null) return LegacySuspendOutcome(value = null)
         if (raw is Throwable) return LegacySuspendOutcome(error = raw)
         // The only successful resume payloads used by this bridge are the
-        // generated String and Kotlin Unit. Avoid reflective field scans for
+        // generated ByteArray/String and Kotlin Unit. Avoid reflective field scans for
         // those normal hot-path values.
-        if (raw is String || raw.javaClass.name == "kotlin.Unit") {
+        if (raw is ByteArray || raw is String || raw.javaClass.name == "kotlin.Unit") {
             return LegacySuspendOutcome(value = raw)
         }
 
@@ -453,10 +613,35 @@ class LegacyTtsRuntime(private val context: Context) {
     }
 
     companion object {
+        private const val LOADER_POLICY = "payload_child_first"
+        private val CLASS_TOKEN_REGEX = Regex(
+            "(?:[A-Za-z_$][A-Za-z0-9_$]*[./])+[A-Za-z_$][A-Za-z0-9_$]*",
+        )
+        private val ALWAYS_PARENT_FIRST_PREFIXES = listOf(
+            "java.",
+            "javax.",
+            "android.",
+            "dalvik.",
+            "libcore.",
+            "sun.",
+            "org.w3c.",
+            "org.xml.",
+            "org.json.",
+            "com.android.",
+            "com.aicompanion.localfirst.",
+        )
+
+        internal fun isAlwaysParentFirstClass(name: String): Boolean =
+            ALWAYS_PARENT_FIRST_PREFIXES.any(name::startsWith)
+
         private const val ENGINE_CLASS =
             "com.gamedeveloper.urbanfriendshipstory.tts.LocalTTSEngine"
+        private const val LANGUAGE_CLASS =
+            "com.gamedeveloper.urbanfriendshipstory.tts.TtsLanguage"
         private const val RUNTIME_ASSET_DIR = "legacy_tts/runtime"
-        private const val RUNTIME_CACHE_DIR = "legacy_tts_v25_63a8c10f"
+        private const val PINYIN_ASSET_DIR = "legacy_tts/pinyin"
+        private const val PINYIN_RUNTIME_JAR = "runtime_01.jar"
+        private const val RUNTIME_CACHE_DIR = "meju_tts_v395_b72ebc85"
         private const val LEGACY_CONTINUATION_CLASS = "kotlin.coroutines.Continuation"
         private const val LEGACY_COROUTINE_CONTEXT_CLASS = "kotlin.coroutines.CoroutineContext"
     }

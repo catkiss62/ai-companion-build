@@ -57,7 +57,7 @@ class NativeTtsBridge(
                     }
                 }
                 "playAudio" -> {
-                    val audio = call.argument<String>("audioData").orEmpty()
+                    val audio = call.argument<ByteArray>("audioData") ?: byteArrayOf()
                     val generation = engine.generationToken()
                     submit(playbackWorker, result, "tts_playback_failed") {
                         engine.playAudio(audio, generation)

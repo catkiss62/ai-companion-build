@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME = ROOT / 'android/app/src/main/assets/legacy_tts/runtime/runtime_06.jar'
+RUNTIME_DIR = ROOT / 'android/app/src/main/assets/legacy_tts/runtime'
 SOURCE = ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/LegacyTtsRuntime.kt'
 ENGINE = 'Lcom/gamedeveloper/urbanfriendshipstory/tts/LocalTTSEngine;'
 CONT = 'Lkotlin/coroutines/Continuation;'
@@ -57,8 +57,12 @@ def dex_engine_methods(data: bytes) -> dict[str, list[list[str]]]:
 
 
 def main() -> int:
-    with zipfile.ZipFile(RUNTIME) as zf:
-        methods = dex_engine_methods(zf.read('classes.dex'))
+    methods: dict[str, list[list[str]]] = {}
+    for runtime in sorted(RUNTIME_DIR.glob('runtime_*.jar')):
+        with zipfile.ZipFile(runtime) as zf:
+            found = dex_engine_methods(zf.read('classes.dex'))
+        for name, signatures in found.items():
+            methods.setdefault(name, []).extend(signatures)
     assert [CONT] in methods.get('initialize', []), methods.get('initialize')
     assert ['Ljava/lang/String;', CONT] in methods.get('generateTTS', []), methods.get('generateTTS')
 
@@ -69,8 +73,7 @@ def main() -> int:
         'findLegacySuspendMethod',
         'Proxy.newProxyInstance',
         'LEGACY_CONTINUATION_CLASS',
-        'LEGACY_EMPTY_CONTEXT_CLASS',
-        'LEGACY_INTRINSICS_CLASS',
+        'LEGACY_COROUTINE_CONTEXT_CLASS',
         'decodeLegacyResult',
     ]:
         assert required in source, required

@@ -1,0 +1,42 @@
+{
+  "source_name": "完整文件(1).zip",
+  "source_sha256": "b72ebc8544de88ee368946d2ac824ea1641377ddbe6e2da378d4112c379a9671",
+  "runtime_contract": "LocalTTSEngine ZH -> byte[] RIFF/WAV -> AudioTrack",
+  "max_phones_zh": 300,
+  "assets": {
+    "legacy_tts/pinyin/pinyin_dict_char.txt": {"sha256": "981eba86a5ba114830e59167d588992eb3b5691f7ca584ae47c539e53952b5da", "size": 489767},
+    "legacy_tts/pinyin/pinyin_dict_char_define.txt": {"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "size": 0},
+    "legacy_tts/pinyin/pinyin_dict_phrase.txt": {"sha256": "a959653ddd712f39665bbe1da4a7f8a67fbe592fcceb61ce32f32c0a75dac775", "size": 1159971},
+    "legacy_tts/pinyin/pinyin_dict_phrase_define.txt": {"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "size": 0},
+    "legacy_tts/pinyin/pinyin_dict_tone.txt": {"sha256": "a00d943ad3ad7bb4ff2e9da9dfaa5302f6e10d9611aa24f449e327e01e249715", "size": 277},
+    "legacy_tts/runtime/runtime_01.jar": {"sha256": "4de6c823dcc4aec19b4dc40859d6a17aa2ab445f11665f197a238682ab93610c", "size": 15310085},
+    "legacy_tts/runtime/runtime_02.jar": {"sha256": "eb1669133ff6529be69d9e183d00d75dc7fe23b1cecb1f2a101bf5688c220d7d", "size": 3456136},
+    "tts_models/bert/zh/chinese-roberta-wwm-ext-large-distilled-fp16.mnn": {"sha256": "756197286c18bdf78c30b1aede62b5fbf1608f7b5ae119fb24bd72374e5b987d", "size": 31762468},
+    "tts_models/bert/zh/tokenizer.json": {"sha256": "7398d782758fabcb399215b76239cb05d787252a0724800948a3c25c0c4de56c", "size": 268957},
+    "tts_models/bv2_model/zh/config.json": {"sha256": "7afffd9e9720ab740aa5f39c5fdc7ae7df37fd995e785ad60600e86207fbad9b", "size": 115},
+    "tts_models/bv2_model/zh/meju_dec.mnn": {"sha256": "1d1df6334919578d218f13a81c3fee1aac4b66619e74c7548ecd571092766584", "size": 14842308},
+    "tts_models/bv2_model/zh/meju_dp.mnn": {"sha256": "50ffced8bac4419876fb454f5cf57da3461a5e5b641d0364a065a3f66e3c11a0", "size": 1781772},
+    "tts_models/bv2_model/zh/meju_emb.mnn": {"sha256": "2c63f06ef1b69bffcceb721b61f265913233e17536ff8a3017035a45b9c8a611", "size": 3004},
+    "tts_models/bv2_model/zh/meju_enc.mnn": {"sha256": "8b8d7d42e238bdfd04fdcc0331a8a37dd0506ed4a9c85cca931badaccc2530c3", "size": 7579628},
+    "tts_models/bv2_model/zh/meju_flow.mnn": {"sha256": "dffaf4f22823ac4a0b26a439c362a41deac3c5efb2c012319d95bf3b9e593db0", "size": 27863056},
+    "tts_models/bv2_model/zh/meju_sdp.mnn": {"sha256": "5f12548e4fb2b8e8483b4fc97c2f9b8f2faf6b28318c68c26cfa156bb91b9ece", "size": 2922776},
+    "tts_models/preprocess/zh/dict/README.md": {"sha256": "324dbf050d1516b8eb938b02d19a3f90cc67c97e9fc002033595c54c0cd5cd9e", "size": 714},
+    "tts_models/preprocess/zh/dict/hmm_model.utf8": {"sha256": "c2781984c4c6be66862ff1bc9aace264256bcd174cd900d7f3725debe6c71255", "size": 519773},
+    "tts_models/preprocess/zh/dict/idf.utf8": {"sha256": "d91455238e015eb0af6dd9539d55d5c4f5059513724545e1b057ed696438c663", "size": 6257543},
+    "tts_models/preprocess/zh/dict/jieba.dict.utf8": {"sha256": "59578ca2e4bf8b0ca9de879d6484fe70453cb7d46dbc430d15bf943541d5a330", "size": 5420186},
+    "tts_models/preprocess/zh/dict/pos_dict/char_state_tab.utf8": {"sha256": "d5e2f71cfb65aeeda9899b0268aa3fb2ce917813c5b5f89d4393f5ca39e030c0", "size": 333792},
+    "tts_models/preprocess/zh/dict/pos_dict/prob_emit.utf8": {"sha256": "5f4dca59263df0f2a1c3cf706daf0222619a979315a94b3f05fd750951a01ff0", "size": 1687852},
+    "tts_models/preprocess/zh/dict/pos_dict/prob_start.utf8": {"sha256": "46446f353d293b934d6bacb4f8e16adc2535ff2e72bc0712de6846c33d732993", "size": 4606},
+    "tts_models/preprocess/zh/dict/pos_dict/prob_trans.utf8": {"sha256": "5c051d34df75d414bf41d8df2b080961e3760b900e8f13e5f891df3cb4ea7e03", "size": 129381},
+    "tts_models/preprocess/zh/dict/stop_words.utf8": {"sha256": "01190ee2a5199f1eafaa90a4d192420d3389ff17a81772a303c8912a1882a485", "size": 10508},
+    "tts_models/preprocess/zh/dict/user.dict.utf8": {"sha256": "88b5d41305b7fc121dbf0c762b708a3c863fa4ac0769316b1819f44cd452d22b", "size": 53},
+    "tts_models/preprocess/zh/opencpop-strict.txt": {"sha256": "86c4b30928e3a4305c9148058c9e2e56b04ce741363fedff382421f4a1e3709d", "size": 4513}
+  },
+  "native_libraries": {
+    "libMNN.so": {"sha256": "c1409cba5eae1450ed4d08bf0b0f002bdb409ee8439b501e2f46e78cb61cc9e1", "size": 2686312},
+    "libMNN_Express.so": {"sha256": "69acb50888a67af8915f51c966b02a799914d75b5b92a6f709ee1fa2b7821b44", "size": 806584},
+    "libbertvits2.so": {"sha256": "a6f11da0df792a82820b833f1b6951078179d16c4e15dd8a6abc18d52d227f08", "size": 690920},
+    "libcppjieba.so": {"sha256": "540462127cd2ccf1b0819aa15eed316b611f8fdc0f6609154ca684b207b48caa", "size": 1033320},
+    "libcpptokenizer.so": {"sha256": "15fee22b59cb8ea40fa46d772bc776e59d71e929f063cfd498fb91c5f9981f0f", "size": 8028416}
+  }
+}

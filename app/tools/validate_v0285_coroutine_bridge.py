@@ -78,7 +78,7 @@ def main() -> int:
         'called.parameterCount == 1 && called.returnType == Void.TYPE',
         'isCoroutineSuspended',
         'decodeLegacyResult',
-        'diagnoseWavBase64',
+        'diagnoseWavBytes',
         'markDiagnosticStage("coroutine_context")',
         'markDiagnosticStage("continuation_proxy")',
     ]:
@@ -87,7 +87,7 @@ def main() -> int:
     engine = ENGINE.read_text(encoding='utf-8')
     for required in [
         'fun diagnose(): Map<String, Any>',
-        'runtime.diagnoseWavBase64(DIAGNOSTIC_TEXT)',
+        'runtime.diagnoseWavBytes(DIAGNOSTIC_TEXT)',
         'riff != "RIFF" || wave != "WAVE"',
         'runtime.markDiagnosticStage("wav_header")',
         '"diagnosticTrace" to runtime.diagnosticTrace()',
@@ -109,7 +109,7 @@ def main() -> int:
     assert "'wav_header' => 'RIFF/WAVE 校验'" in checkpoint
 
     pubspec = (ROOT / 'pubspec.yaml').read_text(encoding='utf-8')
-    assert any(v in pubspec for v in ['version: 0.28.5+33', 'version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44'])
+    assert any(v in pubspec for v in ['version: 0.28.5+33', 'version: 0.29.0+34', 'version: 0.29.1+35', 'version: 0.30.0+36', 'version: 0.30.1+37', 'version: 0.30.2+38', 'version: 0.30.3+39', 'version: 0.31.0+40', 'version: 0.31.1+41', 'version: 0.31.2+42', 'version: 0.31.2+43', 'version: 0.31.2+44', 'version: 0.39.5+123'])
 
     print('v0.28.5 coroutine/ClassLoader bridge invariant retained in current source.')
     return 0

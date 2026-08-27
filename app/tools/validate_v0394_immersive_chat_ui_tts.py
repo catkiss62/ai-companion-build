@@ -11,7 +11,10 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.39.4+122" in read("pubspec.yaml")
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.39.4+122", "version: 0.39.5+123")
+)
 assert "static const int schemaVersion = 35;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -78,7 +81,7 @@ assert "child: controller.nsfwRouting" not in page
 
 workflow = read("../.github/workflows/build-apk.yml")
 assert "python3 tools/validate_v0394_immersive_chat_ui_tts.py" in workflow
-assert "agent/v0394-immersive-chat-ui-tts" in workflow
-assert "AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK" in workflow
+assert "agent/v0395-meju-tts-runtime-upgrade" in workflow
+assert "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK" in workflow
 
 print("v0.39.4 immersive chat UI/TTS contracts passed")

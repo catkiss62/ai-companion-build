@@ -13,8 +13,8 @@ internal data class TtsIntegrityResult(
 )
 
 /**
- * Verifies the packaged local-TTS payload against the user-supplied MejuTTS v2.7
- * golden APK fingerprints before JNI/model initialization.
+ * Verifies the packaged local-TTS payload against the user-validated upgraded
+ * Chinese Meju runtime fingerprints before JNI/model initialization.
  *
  * The expensive full scan is cached for the process lifetime. `force=true` is
  * reserved for the explicit Settings -> 检查 TTS action.
@@ -27,7 +27,10 @@ internal class TtsArtifactVerifier(context: Context) {
 
     fun quickArtifactsPresent(): Boolean = runCatching {
         TtsGoldenBaseline.assets.keys.all { path ->
-            appContext.assets.open(path).use { it.read() >= 0 }
+            // Two valid houbb-pinyin definition resources are intentionally
+            // zero bytes. Successfully opening the asset is the presence test;
+            // the full verifier below owns its exact size/hash check.
+            appContext.assets.open(path).use { true }
         } && TtsGoldenBaseline.nativeLibraries.keys.all { name ->
             File(appContext.applicationInfo.nativeLibraryDir, name).isFile
         }
@@ -37,7 +40,7 @@ internal class TtsArtifactVerifier(context: Context) {
         state = "unchecked",
         ok = false,
         checked = 0,
-        detail = "尚未执行黄金资源校验",
+        detail = "尚未执行 TTS 资源校验",
     )
 
     @Synchronized
@@ -85,7 +88,7 @@ internal class TtsArtifactVerifier(context: Context) {
                 state = "verified",
                 ok = true,
                 checked = checked,
-                detail = "黄金资源校验通过：$checked/${TtsGoldenBaseline.TOTAL_ARTIFACTS} · ${TtsGoldenBaseline.GOLDEN_REFERENCE}",
+                detail = "TTS 资源校验通过：$checked/${TtsGoldenBaseline.TOTAL_ARTIFACTS} · ${TtsGoldenBaseline.GOLDEN_REFERENCE}",
             )
         } else {
             val preview = failures.take(3).joinToString("; ")
@@ -93,7 +96,7 @@ internal class TtsArtifactVerifier(context: Context) {
                 state = "failed",
                 ok = false,
                 checked = checked,
-                detail = "TTS 黄金资源校验失败：$preview",
+                detail = "TTS 资源校验失败：$preview",
             )
         }
         cached = result

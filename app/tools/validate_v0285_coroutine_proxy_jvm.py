@@ -32,8 +32,11 @@ open class AssetManager {
     'android/content/pm/ApplicationInfo.kt': '''package android.content.pm
 open class ApplicationInfo { var nativeLibraryDir: String = "." }
 ''',
+    'android/util/Base64.kt': '''package android.util
+object Base64 { const val DEFAULT: Int = 0; fun decode(value: String, flags: Int): ByteArray = byteArrayOf() }
+''',
     'dalvik/system/DexClassLoader.kt': '''package dalvik.system
-class DexClassLoader(dexPath: String, optimizedDirectory: String, librarySearchPath: String?, parent: ClassLoader?) : ClassLoader(parent)
+open class DexClassLoader(dexPath: String, optimizedDirectory: String, librarySearchPath: String?, parent: ClassLoader?) : ClassLoader(parent)
 ''',
 }
 
@@ -60,6 +63,15 @@ enum class FakeMarker { COROUTINE_SUSPENDED }
 class RenamedFailure(val z: Throwable)
 
 fun main() {
+    check(LegacyTtsRuntime.isAlwaysParentFirstClass("java.lang.String"))
+    check(LegacyTtsRuntime.isAlwaysParentFirstClass("android.content.Context"))
+    check(LegacyTtsRuntime.isAlwaysParentFirstClass("com.aicompanion.localfirst.NativeTtsEngine"))
+    check(!LegacyTtsRuntime.isAlwaysParentFirstClass("kotlin.coroutines.Continuation"))
+    check(!LegacyTtsRuntime.isAlwaysParentFirstClass("kotlinx.coroutines.Dispatchers"))
+    check(!LegacyTtsRuntime.isAlwaysParentFirstClass("androidx.collection.ArrayMap"))
+    check(!LegacyTtsRuntime.isAlwaysParentFirstClass("_COROUTINE.a"))
+    check(!LegacyTtsRuntime.isAlwaysParentFirstClass("com.gamedeveloper.urbanfriendshipstory.tts.LocalTTSEngine"))
+
     val runtime = LegacyTtsRuntime(Context())
     val create = LegacyTtsRuntime::class.java.getDeclaredMethod(
         "createEmptyCoroutineContext", Class::class.java, ClassLoader::class.java,
@@ -85,7 +97,13 @@ fun main() {
     val errorGetter = outcome.javaClass.getMethod("getError").apply { isAccessible = true }
     check(errorGetter.invoke(outcome) === boom)
 
-    println("[OK] synthetic coroutine context proxy / suspend marker / R8-style failure box")
+    val failureMetadata = runtime.failureDiagnosticMetadata(
+        InstantiationError("_COROUTINE.a"),
+    )
+    check(failureMetadata["loaderPolicy"] == "payload_child_first")
+    check(failureMetadata["failureTarget"] == "_COROUTINE.a")
+
+    println("[OK] child-first policy / coroutine proxy / suspend marker / redacted failure evidence")
 }
 '''
 

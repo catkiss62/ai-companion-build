@@ -46,6 +46,8 @@ object RuntimeDiagnosticStore {
                     "generation", "sourceGeneration", "targetActivationGeneration",
                     "payloadBytes", "totalBytes", "sdk", "count" -> if (value is Number) safeMetadata.put(key, value)
                     "direction", "operation", "transport", "state" -> safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
+                    "stage", "loaderPolicy", "failureType", "failureTarget" ->
+                        safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
                     "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256" -> {
                         if (!value?.toString().isNullOrBlank()) safeMetadata.put("${key}Fp", DiagnosticRedaction.fingerprint(value.toString()))
                     }
