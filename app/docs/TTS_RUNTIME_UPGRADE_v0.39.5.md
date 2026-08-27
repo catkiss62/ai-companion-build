@@ -11,6 +11,8 @@
   `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`）及
   固定提交 `ebc128fff5e788a3e7516690ebd7f8bc82a46e2b` 中的 5 个拼音字典
 
+拼音词典在 Git checkout 后会从 LF 恢复为原 APK 的 CRLF 字节形式，再参与清单校验；这一步只恢复换行编码，不改变任何词条。
+
 旧版 9 个拆分 runtime JAR、旧目录模型和 `libMNN_Vulkan.so` 已从当前运行路径移除。当前版本使用新版 2 个 runtime JAR、5 个独立拼音字典、`zh/` 模型/预处理目录及 5 个 native library。为避免两个公开仓库重复保存 135 MB 二进制，AI Companion 源码分支不再跟踪这批实体；Actions 在校验/编译前按固定提交、Release 标签和 ZIP 哈希恢复，最终 APK 中仍须通过 32 项逐文件大小与 SHA-256 校验。旧版文档与 manifest 只作为 Git 历史证据，不再参与当前校验。
 
 ## 当前调用链

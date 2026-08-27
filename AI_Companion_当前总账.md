@@ -16,6 +16,29 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 新版妹居 TTS 运行时迁移（IN PROGRESS）
+
+> 用户已在独立试听 APK `meju-tts-parity-test-android` v0.1.2 上真机确认：新完整包的中文本地 `LocalTTSEngine → JNI → Bert-VITS2/MNN → byte[] WAV` 分句生成/播放成功，听感语速更快、生成等待更短；200/1000 字整段返回空已取证为新引擎中文 `maxPhones=300` 的防崩溃保护，不是用户实际分段路径故障。用户确认不保留应用内新旧引擎可选项，直接把 AI Companion 的本地妹居生成后端替换为新运行时。
+
+### A. 已核对事实与迁移边界
+
+1. 新旧 BERT 及 6 个主妹居 MNN 权重 SHA-256 完全一致；本批不冒充重新训练或更换音色，变化来自新 tokenizer、全套中文分词/拼音/音素词典、编译后预处理运行时及已更换的 `libbertvits2.so` / `libcppjieba.so` / `libcpptokenizer.so`。`libMNN.so` 与 `libMNN_Express.so` 同旧版字节一致。
+2. 只迁移新完整包中已真机验证的中文本地 TTS 链；不引入包内 DashScope/CosyVoice 云端路由、`tts_server.py` 桌面代理、ASR `libsherpa-onnx-jni.so`、Live2D 或其他无关资源。
+3. 保留 AI Companion 已验收的 A2 语义：按句切分，生成线程串行访问 MNN，播放第 N 句时提前生成 N+1/N+2，最终 FIFO 顺序播放；不退回试听 APK 的“生成一句再播一句”串行播放。
+4. 保留全轮 stop/generation token 隔离：点击播放 `■` 或合成中 `…` 均立即清队列、停当前播放、屏蔽旧轮迟到 WAV；在途 MNN 调用无法强杀，完成后必须丢弃，不得让旧轮复活。对话切换/页面卸载继续走同一 stop 路径。
+5. 保留每轮仅一次情绪音效、音效先响与 TTS 并行合成、音效提前结束则首句就绪后立即播放、stop 同时停两者的现有契约；TTS 只读正文，继续清理 `<emotion>` 及不可朗读标记。
+
+### B. 预定实现
+
+1. 新建分支 `agent/v0395-meju-tts-runtime-upgrade`，版本目标 `0.39.5+123`，SQLite schema 35 不变。
+2. 用新包两份 runtime JAR、5 份 houbb-pinyin 根资源、`zh/` 目录模型/词典及 5 份必需 arm64 原生库替换 MejuTTS v2.7 旧负载；对每份源资源重建完整性基线。五份拼音字典按原 APK 类路径注入第一份 runtime JAR，防止再出现 `PinyinHelper`/classpath 故障。
+3. Kotlin 适配层显式锁定 `TtsLanguage.ZH`，适配 suspend `initialize/setLengthScale/release`，将 `generateTTS` 产物改为校验过 RIFF/WAVE 头的 `ByteArray`。Flutter MethodChannel 使用 `Uint8List`，不再 Base64 膨胀/解码；情绪 WAV 的独立 Base64 通道不与本批混改。
+4. 对新引擎 300 音素上限加“异常长单句”二次切分/验收；普通标点分句与现有 200ms 句间隔不改。
+5. 完成前必须通过：新负载指纹和 DEX 签名检查、Kotlin/Flutter 类型编译、TTS 分句预生成/顺序/单句失败隔离/stop 回归、全部历史 validators、Flutter analyze/tests、release APK 与安装包内实体校验。Actions/APK 通过仍只表示可供真机测试，最终音色、语速、首声延迟和长对话稳定性继续等用户安装验收。
+6. 用户于本任务中再次明确授权将新 TTS 模型、runtime JAR、拼音词典和原生库公开上传并用 Actions 构建。为避免与已公开试听仓库重复保存 135 MB 二进制，AI Companion 改为构建时从 `catkiss62/meju-tts-parity-test-android` 的固定提交 `ebc128fff5e788a3e7516690ebd7f8bc82a46e2b` 及 `runtime-payload-v1` 恢复；Release ZIP SHA-256 固定为 `a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c`，恢复后再做本项目 32 项逐文件校验及 APK 内复核。
+7. Actions 第一轮 run `33091291960` 已证明固定仓库/Release 下载、ZIP SHA、模型/runtime/native 恢复均成功；在新校验器处发现 GitHub checkout 把 3 个非空拼音词典从源包 CRLF 规范化为 LF，导致 `pinyin_dict_phrase.txt` 指纹失败。修复为构建时先恢复源包 CRLF 字节再校验，未放宽或改写 manifest 预期哈希。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.39.3 的嵌套对白和普通聊天热修后，发现正确的规则02【动作与神态格式】增强文本只曾落在 v0.38.17 实验分支，后续从已验收 v0.38.16 建立 v0.38.18 时被一并跳过。本批从 `agent/v0393-ordinary-chat-presentation-hotfix` 建立 `agent/v0394-immersive-chat-ui-tts`，预定 `0.39.4+122`、schema 35 不变；先恢复规则真源，再同批改善沉浸房间聊天呈现。
