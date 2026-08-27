@@ -67,7 +67,12 @@ assert "final currentTtsStatus = ttsStatus;" in settings
 
 assert "_presentRecentMessages" in commands
 assert "chat_last_presented_assistant_id" in commands
-assert r"r'「[^」\n]*(?:」|$)'" in tint
+for token in (
+    "List<DialogueTextSegment> splitDialogueText(String text)",
+    "var depth = 1;",
+    "final reachedEnd = index == text.length;",
+):
+    assert token in tint, token
 assert "“[^”" not in tint
 assert '\\"[^\\\"' not in overlay
 assert "OverlayDialogueFormatter.dialogueRanges(visible)" in overlay

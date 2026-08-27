@@ -69,7 +69,14 @@ for token in (
 assert "onEmotionSound" not in chat
 
 tint = read("lib/widgets/action_tint_text.dart")
-assert r"「[^」\n]*(?:」|$)" in tint
+# v0.39.3 replaced the one-level regex with a balanced scanner so quoted
+# phrases inside dialogue do not terminate the highlighted outer dialogue.
+for token in (
+    "List<DialogueTextSegment> splitDialogueText(String text)",
+    "var depth = 1;",
+    "final reachedEnd = index == text.length;",
+):
+    assert token in tint, token
 
 overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
