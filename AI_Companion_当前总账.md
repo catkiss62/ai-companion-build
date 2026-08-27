@@ -15,7 +15,7 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.2 沉浸房间全屏、NSFW路由与流式稳定（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.2 沉浸房间全屏、NSFW路由与流式稳定（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.39.1 总体无异常后追加三项：沉浸聊天面板不跟随普通聊天高度且固定铺满 AppBar 下方；房间右上增加可自动开关也可手动指定下一轮的 NSFW 按钮；修复真正 SSE 在自动续写边界出现的停顿与上下抽动。本批从 `agent/v0391-immersive-room-polish` 建立 `agent/v0392-immersive-nsfw-stream-stability`，目标 `0.39.2+120`。普通聊天、悬浮聊天和已验收规则正文不重写。
 
@@ -36,6 +36,16 @@
 1. 沉浸正文区域始终铺满 AppBar 下方，不读取 `chat_panel_fraction`，无拖动入口；背景、透明度、心动静态立绘的选择/大小/位置保持 v0.39.1。
 2. AppBar 显示 NSFW 状态；自动判定期间有明确忙碌态，按钮可手动指定下一轮开/关，房间间互不影响。关闭时 Prompt 不含05主干或07成人原文，开启时含05主干与07成人原文，始终不含普通规则06正文。
 3. 高频流式一帧至多一次界面通知和一次贴底；自动续写不让第二段 reasoning 实时改变正文上方高度；停止、异常和正常完成都保存已经收到的完整正文。
+
+### D. 实现、验证与交付
+
+1. 功能实现完成：沉浸页不再读取 `chat_panel_fraction`，透明聊天层固定铺满 AppBar 下方；背景、透明度、静态心动立绘及其 scale/offset 继续复用普通聊天视觉设置。打开页面和发送新轮都会稳定贴底，用户上拖与8px回底契约保持。
+2. SQLite schema 35 为每个 `immersive_rooms` 增加 `nsfw_active`、`nsfw_manual_override`、`nsfw_route_source`。自动路由结合最近12条房间原文、当前状态和本轮输入判定 daily/nsfw；分类失败保留该房间上次状态，手动按钮只覆盖下一轮后恢复自动。普通聊天全局 `nsfw_*` 设置完全不读写。
+3. SSE delta 继续立即累计，不做本地逐字限速；界面通知用16ms计时合并为每帧最多一次，页面 post-frame 贴底也去重。自动续写的第二段 reasoning 保存进最终消息但不实时加入正文上方展开面板，消除“正文暂停时上方高度持续增长”的抽动源。
+4. 本地完整工作流除容器缺少 `kotlinc` 的既有一项外全部通过；固定417文件桌宠、62项 LingChat与22张塔罗也完成哈希恢复校验。第一轮 Actions `33042128289` 仅因新增测试误写包名在 Flutter analyze 失败，业务代码无编译错误；改为项目真实包名 `ai_companion_localfirst` 后重新完整构建。
+5. 有效 GitHub Actions [run 33042507452](https://github.com/catkiss62/ai-companion-build/actions/runs/33042507452) 全绿：源码/历史回归、Kotlin、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生/417桌宠/22塔罗载荷、checksum、Artifact及Draft Release上传全部成功。有效远端 head `011896dc1c52665b4dab9f1ee474e6e391856090`。
+6. APK `AI-Companion-v0.39.2-120-Immersive-NSFW-Stream-Stability-APK.apk`，329,798,204 bytes，SHA-256 `5c0ad5b233c8f7703234c18e6bb39375b8b7f68c1d11135d6f568a570b16de83`。Artifact ID `9634586611`，ZIP 323,581,404 bytes，digest `c5557189f2c95f0b71812bca7c51da19cbcbbc55991beb918cd87cf4ddb0c62b`，保留至2026-09-10；草稿 Release：[untagged-87ca1e1956f3c24d117e](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-87ca1e1956f3c24d117e)。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.1。
+7. 真机重点：全屏透明聊天层是否符合预期；NSFW按钮自动开/关和下一轮手动覆盖是否自然、切房是否隔离；普通长流是否平稳，特别是低于1000字触发自动续写时不再停住并上下抽动；上拖后不抢回、回到底部恢复；普通聊天与悬浮聊天无回退。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.1 沉浸房间视觉与交互优化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
