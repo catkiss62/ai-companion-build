@@ -1,0 +1,7 @@
+status=success
+run_id=33080590755
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33080590755
+head_sha=0a1ecb6a5c862d8ee523eb75f3ec0762f90b9e6d
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+6b4db5f2844dfec7b21709e831834847ab861c4f47f4bb16093514f21b9712f6  AI-Companion-v0.39.5-123-Time-TTS-Reasoning-Translation-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-57d25eda2ed48593a0db
