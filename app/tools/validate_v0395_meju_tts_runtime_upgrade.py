@@ -181,12 +181,24 @@ for token in (
 assert "exceptional long runs stay below the new engine safety cap" in segmenter_test
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.39\.5\+123$", pubspec, re.MULTILINE)
+assert re.search(r"^version: 0\.39\.(?:5\+123|6\+124)$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 35;" in read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
-assert "agent/v0395-meju-tts-runtime-upgrade" in workflow
+assert any(
+    branch in workflow
+    for branch in (
+        "agent/v0395-meju-tts-runtime-upgrade",
+        "agent/v0396-rule02-message-sound",
+    )
+)
 assert "python3 tools/validate_v0395_meju_tts_runtime_upgrade.py" in workflow
-assert "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK" in workflow
+assert any(
+    artifact in workflow
+    for artifact in (
+        "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK",
+        "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
+    )
+)
 for token in (
     "catkiss62/meju-tts-parity-test-android",
     "2059a660cc9768b95ace2561741fcb0312f3ac60",

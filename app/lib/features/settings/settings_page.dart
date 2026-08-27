@@ -238,7 +238,26 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-
+  Future<void> _previewProactiveNotificationSound() async {
+    setState(() => status = '正在直接试听当前提示音…');
+    try {
+      final result = await android.previewCompanionNotificationSound(
+        soundKey: proactiveNotificationSound.key,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (proactiveNotificationSound == ProactiveNotificationSound.silent) {
+          status = '当前选择是静音；真实主动消息只显示横幅。';
+        } else {
+          status = result['played'] == true
+              ? '已直接播放当前提示音；这一步不经过系统通知频道。'
+              : '试听失败：${result['reason'] ?? '无法启动音频'}';
+        }
+      });
+    } catch (e) {
+      if (mounted) setState(() => status = '试听失败：$e');
+    }
+  }
 
   Future<void> _testApiConnection() async {
     final apiKey = keyController.text.trim();
@@ -820,9 +839,14 @@ class _SettingsPageState extends State<SettingsPage> {
             spacing: 8,
             children: [
               TextButton.icon(
+                onPressed: _previewProactiveNotificationSound,
+                icon: const Icon(Icons.volume_up_outlined),
+                label: const Text('试听当前声音'),
+              ),
+              TextButton.icon(
                 onPressed: _testProactiveNotification,
                 icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text('测试当前弹窗与提示音'),
+                label: const Text('测试系统弹窗'),
               ),
               TextButton.icon(
                 onPressed: () => android.openCompanionNotificationSettings(

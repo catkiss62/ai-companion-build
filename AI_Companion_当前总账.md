@@ -16,7 +16,20 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.5 新版妹居 TTS 真机生成故障（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE RE-TEST PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.6 Rule02 引号边界与主动消息提示音（PLANNED / IMPLEMENTATION IN PROGRESS）
+
+> 用户确认 v0.39.5 修复包中普通对话朗读与播放按钮均已真机恢复；本轮不继续改 TTS。新任务只做两项：在不改变现有说话方式的前提下最小收紧 Rule02，防止动作/神态/旁白被 `「」` 包成对白并被“仅对白”TTS 朗读；诊断并修复主动消息提示音在设置测试与真实主动消息中都听不到的问题。
+
+### A. 修改前决定与边界
+
+1. Rule02 以用户 2026-08-28 最终确认的四条为准：保留“重要动作、神态、语气与微表情直接写成一行”“每轮对话至少要出现一次”“动作不是装饰配额”等原有表达；删除“允许纯对白”，只在对白条目补充 `「」` 内只能是真正说出口、能被听见的原话，动作、神态、微表情、旁白及说话提示必须留在引号外，并禁止嵌套 `「」`。不新增固定措辞、对白数量、回复长度、动作关键词禁令或风格重写器。
+2. 当前普通聊天显示与 `dialogue_only` TTS 都按直角引号机械分类，无法仅凭语义识别“顿了顿”“眼睛弯成月牙”等旁白；本轮先以提示词真源和回归契约解决，不擅自本地改写模型正文。若全新对话真机仍有低概率违规，再单独评估只在违规时触发的格式修复，不与本轮混做。
+3. 主动消息提示音独立于每轮一次情绪音效和本地妹居 TTS：不修改情绪 WAV、TTS 音量/速度、A2 队列、`…/■` stop、TALKING 只在真实播放时触发的约定，也不把通知提示音接入聊天音频队列。
+4. 先核对原始 OGG 的编码、持续时间、实际峰值/平均响度、Android NotificationChannel ID 与系统保存状态、设置页测试路径和真实主动消息路径。只有素材确有问题才替换；新提示音需彼此可区分、音量正常、包内可校验，并通过新的频道版本保证覆盖安装后不继续沿用旧频道声音配置。
+5. 目标分支 `agent/v0396-rule02-message-sound`，目标版本 `0.39.6+124`，SQLite schema 35 不变。完成前必须通过规则默认值/迁移保护、通知声音枚举与路由、频道版本、音频实体/响度门禁、Kotlin/Flutter、全部历史 validators、release APK、稳定签名与包内素材检查；Actions/APK 通过后仍需 REDMI K80 Ultra 真机分别试听每种自带音、系统默认音和真实主动消息。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.5 新版妹居 TTS 真机生成故障（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE CORE PASSED）
 
 > 用户安装上一节 APK 后真机确认：点击普通聊天语音键时图标会进入“…”但立即恢复喇叭，没有任何声音。附件 `ai_companion_diagnostics_2026-08-27T16-51-59-574234Z.txt` 是当前最高优先级证据；本节只修新运行时在 AI Companion 宿主中的动态类加载边界，不重做模型迁移、A2 队列、播放、停止或情绪音效。
 
@@ -49,6 +62,11 @@
 3. 最终 Actions [run 33098796438](https://github.com/catkiss62/ai-companion-build/actions/runs/33098796438) 全绿：固定 TTS 载荷恢复与32项源指纹、全部当前/历史 validators、新 child-first/平台父优先/父回退/脱敏失败证据契约、正式 Kotlin 编译/测试、Flutter analyze、294 项 Flutter tests、release APK、稳定签名、APK 内27个 TTS asset + 5个 arm64 native library，以及417桌宠、62 LingChat、22塔罗与 Draft Release 上传全部通过。
 4. APK `AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK.apk`，324,520,622 bytes，SHA-256 `6cd34a14e03d64fd4c1cbf5ac69c0b139c8d776b8f24256a3b50bd7ef74f3482`；签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版。Draft Release [untagged-2b6cc9d32bc547359a79](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b6cc9d32bc547359a79)；Artifact ID `9657819942`，ZIP 318,264,721 bytes，digest `44063ab658e15dea659a31168926974ed05cb0e8bd6185f175760a75489c0c52`，保留至 2026-09-10T17:39:46Z。
 5. 当前只能标记“代码、CI 与 APK 通过”，不能标记 TRUE DEVICE PASSED。真机复测顺序：先普通聊天短句确认喇叭不再 `…` 后立即回退；再测13段左右长回复连续 generation-ahead；沉浸房间同样复测；生成中点 `…`、播放中点 `■` 都应整轮停止且旧 WAV 不复活。若仍失败，立即导出新版诊断，重点读取 `loaderPolicy/failureType/failureTarget/stage`。
+
+### E. 2026-08-28 真机回报
+
+1. 用户安装最终修复包后明确确认“对话测试没问题，播放按钮也没问题”。因此本节原始故障——普通聊天点击语音后 `…` 立即退回喇叭且无声——已真机恢复，可标记核心路径 TRUE DEVICE PASSED。
+2. 本次回报没有逐项声明沉浸房间、13段长回复和生成/播放中途 stop 的独立复测结果，故只收口核心故障，不把未明确回报的扩展场景伪写为已验收；后续若自然使用中覆盖这些场景，再补充证据即可。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.5 新版妹居 TTS 运行时迁移（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）

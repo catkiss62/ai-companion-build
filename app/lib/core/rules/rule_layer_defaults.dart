@@ -166,6 +166,22 @@ const legacyEditableRuleLayerSha256V0393 = <String, String>{
       '496e6538972d338ee6050601d6932491ae0927272caf27e39f8a0d40f6a73cba',
 };
 
+/// Exact Rule02 variants known to exist immediately before v0.39.6. The
+/// stock body and the two user-confirmed one-line edits all migrate to the
+/// same quote-boundary contract; unrelated user edits remain byte-preserved.
+const legacyEditableRuleLayerSha256V0395 = <String, String>{
+  '02_daily': '6b9db829f50484714894feac685edc640768596dbf6146a5f7489d3bcbf6daa9',
+};
+
+const legacyEditableRuleLayerSha256V0395UserOnce = <String, String>{
+  '02_daily': '0cc47a4abb1e831333de488c54d0fca00282232b0348078bb353f7769cf951f3',
+};
+
+const legacyEditableRuleLayerSha256V0395UserOnceWithoutPureDialogue =
+    <String, String>{
+  '02_daily': '7c0e7ed0270de488f37205d4ba3732763f2728efa34ec117b468e21f8fc8db4e',
+};
+
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
 /// cleanup upgrades only untouched copies, so a user's room-protocol edits
 /// are never replaced by the bundled Rule 07 revision.

@@ -477,6 +477,16 @@ class AndroidBridge {
     return _stringKeyMap(raw);
   }
 
+  Future<Map<String, Object?>> previewCompanionNotificationSound({
+    String soundKey = 'chime',
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'previewCompanionNotificationSound',
+      {'soundKey': soundKey},
+    );
+    return _stringKeyMap(raw);
+  }
+
   Future<Map<String, Object?>> scheduleDelayedProactiveTest({
     Duration delay = const Duration(minutes: 5),
     String soundKey = 'chime',

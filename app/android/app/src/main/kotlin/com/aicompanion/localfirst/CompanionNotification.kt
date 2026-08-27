@@ -17,6 +17,9 @@ object CompanionNotification {
     const val CHANNEL_MESSAGES = "companion_messages"
     const val CHANNEL_MESSAGES_CHIME = "companion_messages_chime_v1"
     const val CHANNEL_MESSAGES_SOFT = "companion_messages_soft_v1"
+    const val CHANNEL_MESSAGES_CHIME_V2 = "companion_messages_chime_v2"
+    const val CHANNEL_MESSAGES_SOFT_V2 = "companion_messages_soft_v2"
+    const val CHANNEL_MESSAGES_BUBBLE_V1 = "companion_messages_bubble_v1"
     const val CHANNEL_MESSAGES_SYSTEM = "companion_messages_system_v1"
     const val CHANNEL_MESSAGES_SILENT = "companion_messages_silent_v1"
     const val CHANNEL_MESSAGES_GENTLE = "companion_messages_gentle"
@@ -63,14 +66,19 @@ object CompanionNotification {
                     RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                 ),
                 popupChannel(
-                    CHANNEL_MESSAGES_CHIME,
-                    "AI 女友消息 · 清脆双音",
-                    soundUri(R.raw.companion_chime),
+                    CHANNEL_MESSAGES_CHIME_V2,
+                    "AI 女友消息 · 清脆三音",
+                    soundUri(R.raw.companion_chime_v2),
                 ),
                 popupChannel(
-                    CHANNEL_MESSAGES_SOFT,
-                    "AI 女友消息 · 柔和双音",
-                    soundUri(R.raw.companion_soft),
+                    CHANNEL_MESSAGES_SOFT_V2,
+                    "AI 女友消息 · 柔和水滴",
+                    soundUri(R.raw.companion_soft_v2),
+                ),
+                popupChannel(
+                    CHANNEL_MESSAGES_BUBBLE_V1,
+                    "AI 女友消息 · 气泡轻弹",
+                    soundUri(R.raw.companion_bubble_v1),
                 ),
                 popupChannel(
                     CHANNEL_MESSAGES_SYSTEM,
@@ -187,10 +195,13 @@ object CompanionNotification {
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                     )
                     "soft" -> builder.setSound(
-                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_soft}"),
+                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_soft_v2}"),
+                    )
+                    "bubble" -> builder.setSound(
+                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_bubble_v1}"),
                     )
                     else -> builder.setSound(
-                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_chime}"),
+                        Uri.parse("android.resource://${context.packageName}/${R.raw.companion_chime_v2}"),
                     )
                 }
             }
@@ -344,16 +355,26 @@ object CompanionNotification {
         context.startActivity(intent)
     }
 
-    private fun normalizeSoundKey(soundKey: String): String = when (soundKey) {
-        "soft", "system", "silent" -> soundKey
+    internal fun normalizeSoundKey(soundKey: String): String = when (soundKey) {
+        "soft", "bubble", "system", "silent" -> soundKey
         else -> "chime"
     }
 
-    private fun popupChannelId(soundKey: String): String = when (soundKey) {
-        "soft" -> CHANNEL_MESSAGES_SOFT
+    internal fun popupChannelId(soundKey: String): String = when (soundKey) {
+        "soft" -> CHANNEL_MESSAGES_SOFT_V2
+        "bubble" -> CHANNEL_MESSAGES_BUBBLE_V1
         "system" -> CHANNEL_MESSAGES_SYSTEM
         "silent" -> CHANNEL_MESSAGES_SILENT
-        else -> CHANNEL_MESSAGES_CHIME
+        else -> CHANNEL_MESSAGES_CHIME_V2
+    }
+
+    internal fun bundledSoundResource(soundKey: String): Int? = when (
+        normalizeSoundKey(soundKey)
+    ) {
+        "chime" -> R.raw.companion_chime_v2
+        "soft" -> R.raw.companion_soft_v2
+        "bubble" -> R.raw.companion_bubble_v1
+        else -> null
     }
 
     private fun recordOutcome(

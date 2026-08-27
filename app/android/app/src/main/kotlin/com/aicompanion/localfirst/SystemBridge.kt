@@ -221,6 +221,14 @@ class SystemBridge(
                         ),
                     )
                 }
+                "previewCompanionNotificationSound" -> {
+                    result.success(
+                        NotificationSoundPreview.play(
+                            activity,
+                            call.argument<String>("soundKey") ?: "chime",
+                        ),
+                    )
+                }
                 "scheduleDelayedProactiveTest" -> {
                     result.success(
                         DelayedProactiveTestReceiver.schedule(

@@ -37,20 +37,23 @@ enum ProactivePopupMode {
 enum ProactiveNotificationSound {
   chime,
   soft,
+  bubble,
   system,
   silent;
 
   String get key => name;
 
   String get zhLabel => switch (this) {
-        chime => '清脆双音',
-        soft => '柔和双音',
+        chime => '清脆三音',
+        soft => '柔和水滴',
+        bubble => '气泡轻弹',
         system => '系统默认',
         silent => '静音',
       };
 
   static ProactiveNotificationSound fromSetting(String? raw) => switch (raw) {
         'soft' => soft,
+        'bubble' => bubble,
         'system' => system,
         'silent' => silent,
         _ => chime,

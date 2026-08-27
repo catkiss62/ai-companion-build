@@ -66,7 +66,19 @@ assert "nested corner quotes keep the outer dialogue range intact" in native_tes
 assert "nested quote stays dialogue while outer quote is streaming" in native_test
 
 assert "python3 tools/validate_v0393_ordinary_chat_presentation.py" in workflow
-assert "agent/v0395-meju-tts-runtime-upgrade" in workflow
-assert "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK" in workflow
+assert any(
+    branch in workflow
+    for branch in (
+        "agent/v0395-meju-tts-runtime-upgrade",
+        "agent/v0396-rule02-message-sound",
+    )
+)
+assert any(
+    artifact in workflow
+    for artifact in (
+        "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK",
+        "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
+    )
+)
 
 print("v0.39.3 ordinary-chat presentation contracts passed")

@@ -37,5 +37,9 @@ void main() {
       ProactiveNotificationSound.fromSetting('silent'),
       ProactiveNotificationSound.silent,
     );
+    expect(
+      ProactiveNotificationSound.fromSetting('bubble'),
+      ProactiveNotificationSound.bubble,
+    );
   });
 }
