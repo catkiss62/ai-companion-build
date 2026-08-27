@@ -55,7 +55,6 @@ for token in (
     "immersiveRailPink.withValues(alpha: 0.82)",
     "chat_visual_stage_enabled",
     "chat_panel_opacity",
-    "chat_panel_fraction",
     "chat_background_mode",
     "chat_portrait_set",
     "'affection'",
