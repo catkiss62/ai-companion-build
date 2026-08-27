@@ -78,7 +78,7 @@ assert "child: controller.nsfwRouting" not in page
 
 workflow = read("../.github/workflows/build-apk.yml")
 assert "python3 tools/validate_v0394_immersive_chat_ui_tts.py" in workflow
-assert "agent/v0394-immersive-chat-ui-tts" in workflow
-assert "AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK" in workflow
+assert "agent/v0395-time-tts-reasoning-translation" in workflow
+assert "AI-Companion-v0.39.5-123-Time-TTS-Reasoning-Translation-APK" in workflow
 
 print("v0.39.4 immersive chat UI/TTS contracts passed")
