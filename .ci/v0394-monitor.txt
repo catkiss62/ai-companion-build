@@ -1,0 +1,7 @@
+status=success
+run_id=33062297165
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33062297165
+head_sha=366cca7fe12b3c856f3cafbd635c3610df19cc92
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+8aedffbed1cd73914292fe48f60cc1f005b8b7c02b1fcdca01eb03e5052be7b7  AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-68904b25993b8c3d4d84
