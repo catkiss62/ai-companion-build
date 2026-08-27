@@ -352,7 +352,7 @@ class LegacyTtsRuntime(private val context: Context) {
         parent: ClassLoader,
     ) : DexClassLoader(dexPath, optimizedDirectory, librarySearchPath, parent) {
         override fun loadClass(name: String, resolve: Boolean): Class<*> {
-            synchronized(getClassLoadingLock(name)) {
+            synchronized(this) {
                 findLoadedClass(name)?.let { loaded ->
                     if (resolve) resolveClass(loaded)
                     return loaded

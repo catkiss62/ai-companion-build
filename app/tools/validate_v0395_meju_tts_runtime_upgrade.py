@@ -131,11 +131,13 @@ for token in (
     'RUNTIME_CACHE_DIR = "meju_tts_v395_b72ebc85"',
     "private class RuntimeDexClassLoader",
     "findClass(name)",
+    "synchronized(this)",
     "internal fun isAlwaysParentFirstClass",
     'LOADER_POLICY = "payload_child_first"',
     "fun failureDiagnosticMetadata(error: Throwable)",
 ):
     assert token in legacy, token
+assert "getClassLoadingLock" not in legacy
 
 engine = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt")
 bridge = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt")
