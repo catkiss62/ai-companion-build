@@ -15,6 +15,29 @@
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.2 沉浸房间全屏、NSFW路由与流式稳定（IN PROGRESS）
+
+> 用户真机确认 v0.39.1 总体无异常后追加三项：沉浸聊天面板不跟随普通聊天高度且固定铺满 AppBar 下方；房间右上增加可自动开关也可手动指定下一轮的 NSFW 按钮；修复真正 SSE 在自动续写边界出现的停顿与上下抽动。本批从 `agent/v0391-immersive-room-polish` 建立 `agent/v0392-immersive-nsfw-stream-stability`，目标 `0.39.2+120`。普通聊天、悬浮聊天和已验收规则正文不重写。
+
+### A. 已核对的现状与规则边界
+
+1. v0.39.1 沉浸页没有拖动手柄，但仍读取 `chat_panel_fraction` 并只占普通面板保存高度；本批只解除高度联动并固定全屏。此前明确共享的日夜背景、视觉开关、面板透明度、立绘套装与每套立绘 scale/offset 继续共享，心动立绘仍为静态背景板。
+2. 当前 Prompt 每轮都加载界面规则05对应的 `04_intimacy_core` 和 `immersive_07_nsfw_source`，没有 NSFW 状态；同时从未加载普通聊天规则06的 `05_intimacy_rendering` / `06_intimacy_reference`。本批改成：日常房间只加载07全局协议；自动或手动 NSFW 开启后再加载05状态主干与07成人小说原文。普通规则06仍不注入沉浸房间，避免普通动作/对白格式与长篇小说格式冲突。
+3. NSFW 状态必须按房间独立保存，不复用普通聊天全局 `nsfw_*` 设置；手动按钮只指定下一轮，随后恢复自动判定。结束/暂离/切换房间不得串状态。
+
+### B. 流式根因与预定修复
+
+1. 当前每个 DeepSeek delta 都 `notifyListeners()`，沉浸页每次通知又无去重地登记一次 post-frame `jumpTo(maxScrollExtent)`；高频 delta 会造成整页重建和滚动回调积压。
+2. 正文低于硬下限时会自动发起第二次续写。第二次请求先返回新的 `reasoning_content`，当前实现把它继续追加到正文上方已展开的思考面板，正文暂时停止而列表上部持续变高，正好对应真机“停住—上下抽动—恢复”的表现。
+3. 对照 `index(2).html` 的 `requestAnimationFrame + userScrollUp + 8px`：正文仍保留真实 SSE，不做本地逐字限速；仅把 UI 通知与贴底动作合并到每帧最多一次。自动续写的第二段 reasoning 仍保存进最终消息，但不在已有正文上方实时扩高；发送结束前强制 flush，保证不丢任何 delta。用户向上拖后继续不抢回，回到底部8px内恢复。
+
+### C. 验收边界
+
+1. 沉浸正文区域始终铺满 AppBar 下方，不读取 `chat_panel_fraction`，无拖动入口；背景、透明度、心动静态立绘的选择/大小/位置保持 v0.39.1。
+2. AppBar 显示 NSFW 状态；自动判定期间有明确忙碌态，按钮可手动指定下一轮开/关，房间间互不影响。关闭时 Prompt 不含05主干或07成人原文，开启时含05主干与07成人原文，始终不含普通规则06正文。
+3. 高频流式一帧至多一次界面通知和一次贴底；自动续写不让第二段 reasoning 实时改变正文上方高度；停止、异常和正常完成都保存已经收到的完整正文。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.1 沉浸房间视觉与交互优化（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认 v0.39.0 真机测试总体没有问题，并提供完整 `规则07修改.txt` 与 `ai_companion_diagnostics_2026-08-27T01-49-25-306926Z.txt`。本批从 `agent/v0390-immersive-room` 建立 `agent/v0391-immersive-room-polish`，目标 `0.39.1+119`、SQLite schema 仍为34；不改变房间隔离、真正 SSE、共享记忆代码筛选、普通聊天正文单次呈现及此前真机基线。
