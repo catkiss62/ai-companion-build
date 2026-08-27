@@ -19,6 +19,7 @@ class ImmersivePromptBuilder {
     required List<ImmersiveMessage> history,
     required String latestUserText,
     required bool nsfwActive,
+    DateTime? now,
   }) async {
     final all = await db.listRuleLayers();
     final byKey = {for (final layer in all) layer.key: layer};
@@ -106,6 +107,10 @@ class ImmersivePromptBuilder {
       {'role': 'system', 'content': identity.trim()},
       {
         'role': 'system',
+        'content': realityTimeSection(now ?? DateTime.now()),
+      },
+      {
+        'role': 'system',
         'content': '【沉浸房间专用规则层】\n${selected.join('\n\n')}',
       },
       {'role': 'system', 'content': context.toString().trim()},
@@ -127,6 +132,32 @@ class ImmersivePromptBuilder {
       {'role': 'user', 'content': latestUserText},
     ];
     return messages;
+  }
+
+  static String realityTimeSection(DateTime instant) {
+    final local = instant.toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final weekday = switch (local.weekday) {
+      DateTime.monday => '星期一',
+      DateTime.tuesday => '星期二',
+      DateTime.wednesday => '星期三',
+      DateTime.thursday => '星期四',
+      DateTime.friday => '星期五',
+      DateTime.saturday => '星期六',
+      _ => '星期日',
+    };
+    final offsetMinutes = local.timeZoneOffset.inMinutes;
+    final sign = offsetMinutes >= 0 ? '+' : '-';
+    final absoluteOffset = offsetMinutes.abs();
+    final offset =
+        '$sign${two(absoluteOffset ~/ 60)}:${two(absoluteOffset % 60)}';
+    return '''【现实系统时间 / REAL-WORLD CLOCK】
+设备当地日期：${local.year.toString().padLeft(4, '0')}-${two(local.month)}-${two(local.day)}
+设备当地时间：${two(local.hour)}:${two(local.minute)}
+UTC offset：$offset
+星期：$weekday
+
+这是现实世界此刻的系统时间，用于理解用户询问的“现在几点”、现实日期与现实时间间隔。沉浸房间内的小说场景时间仍以入场背景、现场账和已经发生的剧情为准；现实钟表流逝不会自动推进、覆盖或重写虚构场景时间。只有用户明确询问现实时间，或明确把现实时间带入剧情时，才把两者建立联系。''';
   }
 
   List<Map<String, Object?>> _boundedHistory(

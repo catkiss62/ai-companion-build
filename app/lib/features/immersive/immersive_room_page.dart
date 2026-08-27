@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
+import '../../core/ai/reasoning_translation.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
@@ -308,6 +309,8 @@ class ImmersiveRoomPage extends StatefulWidget {
 class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   late final ImmersiveRoomController controller =
       ImmersiveRoomController(roomId: widget.roomId);
+  final ReasoningTranslationCoordinator _reasoningTranslations =
+      ReasoningTranslationCoordinator();
   final input = TextEditingController();
   final scroll = ScrollController();
   bool _visualStageEnabled = true;
@@ -333,6 +336,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   void dispose() {
     controller.removeListener(_onChanged);
     controller.dispose();
+    _reasoningTranslations.dispose();
     input.dispose();
     scroll.dispose();
     super.dispose();
@@ -673,10 +677,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                               _visualStageEnabled ? _panelOpacity : 1.0,
                           ttsPhase:
                               controller.ttsPhaseForMessage(message.id),
+                          reasoningTranslations: _reasoningTranslations,
                           onSpeechAction: message.isAssistant
                               ? () {
-                                  if (controller.ttsPhaseForMessage(message.id) ==
-                                      TtsPlaybackPhase.playing) {
+                                  if (controller.ttsPhaseForMessage(message.id) !=
+                                      TtsPlaybackPhase.idle) {
                                     controller.stopSpeech();
                                   } else {
                                     controller.speakMessage(message);
@@ -892,12 +897,14 @@ class _ImmersiveMessageView extends StatelessWidget {
     required this.message,
     required this.bubbleOpacity,
     required this.ttsPhase,
+    required this.reasoningTranslations,
     this.onSpeechAction,
   });
 
   final ImmersiveMessage message;
   final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
+  final ReasoningTranslationCoordinator reasoningTranslations;
   final VoidCallback? onSpeechAction;
 
   @override
@@ -936,7 +943,11 @@ class _ImmersiveMessageView extends StatelessWidget {
           if (message.reasoningContent.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 7, right: 4, bottom: 7),
-              child: ReasoningPanel(reasoning: message.reasoningContent),
+              child: ReasoningPanel(
+                reasoning: message.reasoningContent,
+                messageId: message.id,
+                translationCoordinator: reasoningTranslations,
+              ),
             ),
           _ImmersiveAssistantRail(
             content: message.content,
@@ -1123,14 +1134,14 @@ class _ImmersiveSpeechActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
       padding: EdgeInsets.zero,
       iconSize: 18,
-      onPressed: synthesizing ? null : onPressed,
+      onPressed: onPressed,
       icon: synthesizing
           ? const Text('…', style: TextStyle(fontSize: 20, height: 0.8))
           : playing
               ? const Text('■', style: TextStyle(fontSize: 15, height: 1))
               : const Icon(Icons.volume_up_outlined),
       tooltip: synthesizing
-          ? '正在合成语音'
+          ? '停止合成'
           : playing
               ? '停止播放'
               : '朗读这条回复',

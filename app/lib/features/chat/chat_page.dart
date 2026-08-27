@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/ai/reasoning_translation.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/database/app_database.dart';
@@ -40,6 +41,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
+  final ReasoningTranslationCoordinator _reasoningTranslations =
+      ReasoningTranslationCoordinator();
   Timer? _externalSyncTimer;
   Timer? _personalityTimer;
   PersonalityTrial? _personalityTrial;
@@ -452,6 +455,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _personalityTimer?.cancel();
     controller.removeListener(_onChanged);
     controller.dispose();
+    _reasoningTranslations.dispose();
     input.dispose();
     scroll.dispose();
     super.dispose();
@@ -754,6 +758,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ttsPhase:
                             controller.ttsPhaseForMessage(item.message!.id),
                         attachmentStorage: controller.attachmentStorage,
+                        reasoningTranslations: _reasoningTranslations,
                         animateSegments: _typewriterEnabled &&
                             item.message!.id == latestAssistantId &&
                             item.message!.id == _animatedMessageId,
@@ -795,8 +800,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             ? () {
                                 if (controller.ttsPhaseForMessage(
                                       item.message!.id,
-                                    ) ==
-                                    TtsPlaybackPhase.playing) {
+                                    ) !=
+                                    TtsPlaybackPhase.idle) {
                                   controller.stopSpeech();
                                 } else {
                                   controller.speakMessage(item.message!);
@@ -1568,6 +1573,7 @@ class _MessageBubble extends StatelessWidget {
     required this.bubbleOpacity,
     required this.ttsPhase,
     required this.attachmentStorage,
+    required this.reasoningTranslations,
     required this.onOpenAttachment,
     required this.animateSegments,
     required this.typewriterMs,
@@ -1582,6 +1588,7 @@ class _MessageBubble extends StatelessWidget {
   final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
   final MessageAttachmentStorage attachmentStorage;
+  final ReasoningTranslationCoordinator reasoningTranslations;
   final ValueChanged<MessageAttachment> onOpenAttachment;
   final bool animateSegments;
   final int typewriterMs;
@@ -1644,7 +1651,11 @@ class _MessageBubble extends StatelessWidget {
           if (message.reasoningContent.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 5),
-              child: ReasoningPanel(reasoning: message.reasoningContent),
+              child: ReasoningPanel(
+                reasoning: message.reasoningContent,
+                messageId: message.id,
+                translationCoordinator: reasoningTranslations,
+              ),
             ),
           _AssistantSegmentSequence(
             chunks: chunks,
@@ -1721,7 +1732,11 @@ class _MessageBubble extends StatelessWidget {
         if (message.reasoningContent.trim().isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
-            child: ReasoningPanel(reasoning: message.reasoningContent),
+            child: ReasoningPanel(
+              reasoning: message.reasoningContent,
+              messageId: message.id,
+              translationCoordinator: reasoningTranslations,
+            ),
           ),
         _AssistantTranscriptSurface(child: body),
       ],
@@ -2333,7 +2348,7 @@ class _SpeechActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
       padding: EdgeInsets.zero,
       iconSize: 18,
-      onPressed: synthesizing ? null : onPressed,
+      onPressed: onPressed,
       icon: synthesizing
           ? const Text(
               '…',
@@ -2346,7 +2361,7 @@ class _SpeechActionButton extends StatelessWidget {
                 )
               : const Icon(Icons.volume_up_outlined),
       tooltip: synthesizing
-          ? '正在合成语音'
+          ? '停止合成'
           : playing
               ? '停止播放'
               : '朗读这条回复',

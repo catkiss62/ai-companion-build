@@ -32,4 +32,31 @@ void main() {
       VisibleReasoningLanguageStatus.mainlyEnglish,
     );
   });
+
+  test('manual translation is offered only for English-dominant prose', () {
+    expect(
+      VisibleReasoningLanguageTelemetry.shouldOfferTranslation(
+        '先检查 API response，再自然地用中文回答他。',
+      ),
+      isFalse,
+    );
+    expect(
+      VisibleReasoningLanguageTelemetry.shouldOfferTranslation(
+        'I should inspect what he meant and decide why this suddenly makes me feel shy.',
+      ),
+      isTrue,
+    );
+    expect(
+      VisibleReasoningLanguageTelemetry.shouldOfferTranslation(
+        '先停一下。 I should inspect the emotional cue and then decide how I actually feel about him.',
+      ),
+      isTrue,
+    );
+    expect(
+      VisibleReasoningLanguageTelemetry.shouldOfferTranslation(
+        '先核对这段代码：```dart\nfinal apiResponse = await client.send();\n```',
+      ),
+      isFalse,
+    );
+  });
 }
