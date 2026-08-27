@@ -60,6 +60,9 @@ class ImmersiveRoomRepository {
         'scene_ledger': openingScene.trim(),
         'shared_memory_summary': '',
         'summarized_message_count': 0,
+        'nsfw_active': 0,
+        'nsfw_manual_override': '',
+        'nsfw_route_source': 'initial',
         'created_at': now,
         'updated_at': now,
         'ended_at': null,
@@ -144,6 +147,40 @@ class ImmersiveRoomRepository {
         'novel_rules': novelRules.trim().isEmpty
             ? immersiveDefaultRoomNovelRules
             : novelRules.trim(),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status != 'ended'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setNsfwManualOverride(String id, bool active) async {
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'nsfw_active': active ? 1 : 0,
+        'nsfw_manual_override': active ? 'on' : 'off',
+        'nsfw_route_source': active ? 'manual_pending_on' : 'manual_pending_off',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status != 'ended'",
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> saveNsfwRoute({
+    required String id,
+    required bool active,
+    required String source,
+  }) async {
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'nsfw_active': active ? 1 : 0,
+        'nsfw_manual_override': '',
+        'nsfw_route_source': source,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
       where: "id = ? AND status != 'ended'",
