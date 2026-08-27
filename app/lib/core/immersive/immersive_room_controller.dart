@@ -455,7 +455,9 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
   }
 
   static int _visibleCharacterCount(String value) =>
-      value.runes.where((rune) => !String.fromCharCode(rune).trim().isEmpty).length;
+      value.runes
+          .where((rune) => String.fromCharCode(rune).trim().isNotEmpty)
+          .length;
 
   void _scheduleStreamNotify() {
     if (_disposed || _streamNotifyTimer != null) return;
