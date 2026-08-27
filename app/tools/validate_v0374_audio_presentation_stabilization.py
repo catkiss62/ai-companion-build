@@ -69,7 +69,7 @@ for token in (
 assert "onEmotionSound" not in chat
 
 tint = read("lib/widgets/action_tint_text.dart")
-# v0.39.3 replaced the one-level regex with a balanced scanner so quoted
+# Compatibility contract: v0.39.3 replaced the one-level regex with a balanced scanner so quoted
 # phrases inside dialogue do not terminate the highlighted outer dialogue.
 for token in (
     "List<DialogueTextSegment> splitDialogueText(String text)",
