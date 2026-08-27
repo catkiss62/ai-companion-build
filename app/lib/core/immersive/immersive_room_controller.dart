@@ -8,6 +8,7 @@ import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
 import '../storage/secure_config.dart';
+import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
 
@@ -22,6 +23,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         secureConfig = secureConfig ?? SecureConfig.instance {
     repository = ImmersiveRoomRepository(this.db);
     promptBuilder = ImmersivePromptBuilder(this.db);
+    nsfwRouter = ImmersiveNsfwRouter(this.client);
   }
 
   final String roomId;
@@ -30,17 +32,21 @@ class ImmersiveRoomController extends ChangeNotifier {
   final SecureConfig secureConfig;
   late final ImmersiveRoomRepository repository;
   late final ImmersivePromptBuilder promptBuilder;
+  late final ImmersiveNsfwRouter nsfwRouter;
 
   ImmersiveRoom? room;
   List<ImmersiveMessage> messages = const [];
   bool loading = true;
   bool sending = false;
   bool ending = false;
+  bool nsfwRouting = false;
   String streamingReasoning = '';
   String streamingContent = '';
   String? error;
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
+  String _allStreamingReasoning = '';
+  Timer? _streamNotifyTimer;
   bool _disposed = false;
 
   bool get showStreamingDraft => sending && _streamingDraftVisible;
@@ -96,8 +102,10 @@ class ImmersiveRoomController extends ChangeNotifier {
     );
     messages = [...messages, user];
     sending = true;
+    nsfwRouting = true;
     streamingReasoning = '';
     streamingContent = '';
+    _allStreamingReasoning = '';
     error = null;
     final cancellation = GenerationCancellationToken();
     _cancellation = cancellation;
@@ -106,10 +114,30 @@ class ImmersiveRoomController extends ChangeNotifier {
 
     var committed = false;
     try {
+      final endpoint = await secureConfig.readEndpoint();
+      final routedRoom = (await repository.roomById(roomId))!;
+      final route = await nsfwRouter.decide(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        room: routedRoom,
+        latestUserText: text,
+        recent: historyBeforeTurn,
+        cancellationToken: cancellation,
+      );
+      cancellation.throwIfCancelled();
+      await repository.saveNsfwRoute(
+        id: roomId,
+        active: route.active,
+        source: route.source,
+      );
+      room = await repository.roomById(roomId);
+      nsfwRouting = false;
+      _safeNotify();
       final request = await promptBuilder.build(
-        room: (await repository.roomById(roomId))!,
+        room: room!,
         history: historyBeforeTurn,
         latestUserText: text,
+        nsfwActive: route.active,
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),
@@ -117,7 +145,6 @@ class ImmersiveRoomController extends ChangeNotifier {
       final effort = ReasoningEffort.fromApiName(
         await db.getSetting('reasoning_effort'),
       );
-      final endpoint = await secureConfig.readEndpoint();
       var finishReason = await _streamRequest(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -125,6 +152,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         effort: effort,
         request: request,
         cancellation: cancellation,
+        displayReasoning: true,
       );
       cancellation.throwIfCancelled();
 
@@ -142,6 +170,7 @@ class ImmersiveRoomController extends ChangeNotifier {
             streamingContent,
           ),
           cancellation: cancellation,
+          displayReasoning: false,
         );
         cancellation.throwIfCancelled();
       }
@@ -152,7 +181,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         roomId: roomId,
         role: 'assistant',
         content: streamingContent,
-        reasoningContent: streamingReasoning,
+        reasoningContent: _allStreamingReasoning,
       );
       committed = true;
       _streamingDraftVisible = false;
@@ -173,8 +202,12 @@ class ImmersiveRoomController extends ChangeNotifier {
       error = '这一轮没有完整结束：$exception';
     } finally {
       sending = false;
+      nsfwRouting = false;
+      _streamNotifyTimer?.cancel();
+      _streamNotifyTimer = null;
       streamingReasoning = '';
       streamingContent = '';
+      _allStreamingReasoning = '';
       _streamingDraftVisible = false;
       if (identical(_cancellation, cancellation)) _cancellation = null;
       await db.releaseLocalLease('immersive_room_lease');
@@ -189,6 +222,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     required ReasoningEffort effort,
     required List<Map<String, Object?>> request,
     required GenerationCancellationToken cancellation,
+    required bool displayReasoning,
   }) async {
     var finishReason = '';
     await for (final delta in client.streamChat(
@@ -203,14 +237,19 @@ class ImmersiveRoomController extends ChangeNotifier {
     )) {
       cancellation.throwIfCancelled();
       if (delta.reasoning.isNotEmpty) {
-        streamingReasoning += delta.reasoning;
+        _allStreamingReasoning += delta.reasoning;
+        if (displayReasoning) streamingReasoning += delta.reasoning;
       }
       if (delta.content.isNotEmpty) {
         streamingContent += delta.content;
       }
       if (delta.finishReason != null) finishReason = delta.finishReason!;
-      _safeNotify();
+      if (delta.content.isNotEmpty ||
+          (displayReasoning && delta.reasoning.isNotEmpty)) {
+        _scheduleStreamNotify();
+      }
     }
+    _flushStreamNotify();
     return finishReason;
   }
 
@@ -221,13 +260,21 @@ class ImmersiveRoomController extends ChangeNotifier {
       roomId: roomId,
       role: 'assistant',
       content: content,
-      reasoningContent: streamingReasoning,
+      reasoningContent: _allStreamingReasoning,
     );
     messages = [...messages, assistant];
   }
 
   Future<void> stop() async {
     _cancellation?.cancel();
+  }
+
+  Future<void> setNsfwActive(bool active) async {
+    final current = room;
+    if (sending || ending || current == null || current.isEnded) return;
+    await repository.setNsfwManualOverride(roomId, active);
+    room = await repository.roomById(roomId);
+    _safeNotify();
   }
 
   Future<void> pause() async {
@@ -410,6 +457,22 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
   static int _visibleCharacterCount(String value) =>
       value.runes.where((rune) => !String.fromCharCode(rune).trim().isEmpty).length;
 
+  void _scheduleStreamNotify() {
+    if (_disposed || _streamNotifyTimer != null) return;
+    _streamNotifyTimer = Timer(const Duration(milliseconds: 16), () {
+      _streamNotifyTimer = null;
+      _safeNotify();
+    });
+  }
+
+  void _flushStreamNotify() {
+    final pending = _streamNotifyTimer;
+    if (pending == null) return;
+    pending.cancel();
+    _streamNotifyTimer = null;
+    _safeNotify();
+  }
+
   void _safeNotify() {
     if (!_disposed) notifyListeners();
   }
@@ -417,6 +480,7 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
   @override
   void dispose() {
     _disposed = true;
+    _streamNotifyTimer?.cancel();
     _cancellation?.cancel();
     client.close();
     super.dispose();
