@@ -8,9 +8,11 @@ import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
 import '../../core/models/immersive_room.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/reasoning_panel.dart';
+import '../chat/chat_timestamp_formatter.dart';
 
 const immersiveRailPink = Color(0xFFF472B6);
 
@@ -167,7 +169,7 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('删除这个房间？'),
-        content: Text('“${room.title}”的完整原文、现场和归档都会永久删除，此操作无法撤销。'),
+        content: Text(_deleteRoomWarning(room)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -288,6 +290,10 @@ class _ImmersiveRoomLobbyPageState extends State<ImmersiveRoomLobbyPage> {
   static String _roomTime(DateTime time) =>
       '${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} '
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  static String _deleteRoomWarning(ImmersiveRoom room) => room.isEnded
+      ? '“${room.title}”的完整原文、现场和归档都会永久删除。这个房间已经整理结束，当时已经筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
+      : '“${room.title}”的完整原文和现场都会永久删除。直接删除不会执行“整理并结束”，也不会新增长期记忆。此操作无法撤销。';
 }
 
 class ImmersiveRoomPage extends StatefulWidget {
@@ -500,7 +506,9 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('删除这个房间？'),
-        content: Text('“${room.title}”的完整原文、现场和归档都会永久删除，此操作无法撤销。'),
+        content: Text(room.isEnded
+            ? '“${room.title}”的完整原文、现场和归档都会永久删除。这个房间已经整理结束，当时已筛选进长期记忆的条目不会随房间删除。此操作无法撤销。'
+            : '“${room.title}”的完整原文和现场都会永久删除。直接删除不会执行“整理并结束”，也不会新增长期记忆。此操作无法撤销。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -640,13 +648,43 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               onNotification: _onUserScroll,
               child: ListView.builder(
                 controller: scroll,
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
                 itemCount: controller.messages.length +
                     (controller.showStreamingDraft ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < controller.messages.length) {
-                    return _ImmersiveMessageView(
-                      message: controller.messages[index],
+                    final message = controller.messages[index];
+                    final previous = index == 0
+                        ? null
+                        : controller.messages[index - 1];
+                    return Column(
+                      children: [
+                        if (ChatTimestampFormatter.shouldShowDateSeparator(
+                          message.createdAt,
+                          previous?.createdAt,
+                        ))
+                          _ImmersiveDateSeparator(
+                            createdAt: message.createdAt,
+                          ),
+                        _ImmersiveMessageView(
+                          key: ValueKey(message.id),
+                          message: message,
+                          bubbleOpacity:
+                              _visualStageEnabled ? _panelOpacity : 1.0,
+                          ttsPhase:
+                              controller.ttsPhaseForMessage(message.id),
+                          onSpeechAction: message.isAssistant
+                              ? () {
+                                  if (controller.ttsPhaseForMessage(message.id) ==
+                                      TtsPlaybackPhase.playing) {
+                                    controller.stopSpeech();
+                                  } else {
+                                    controller.speakMessage(message);
+                                  }
+                                }
+                              : null,
+                        ),
+                      ],
                     );
                   }
                   return _ImmersiveStreamingView(
@@ -695,12 +733,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             padding: const EdgeInsets.symmetric(horizontal: 7),
             textStyle: Theme.of(context).textTheme.labelSmall,
           ),
-          child: controller.nsfwRouting
-              ? const SizedBox.square(
-                  dimension: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.6),
-                )
-              : const Text('NSFW'),
+          child: const Text('NSFW'),
         ),
       ),
     );
@@ -854,27 +887,44 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 }
 
 class _ImmersiveMessageView extends StatelessWidget {
-  const _ImmersiveMessageView({required this.message});
+  const _ImmersiveMessageView({
+    super.key,
+    required this.message,
+    required this.bubbleOpacity,
+    required this.ttsPhase,
+    this.onSpeechAction,
+  });
 
   final ImmersiveMessage message;
+  final double bubbleOpacity;
+  final TtsPlaybackPhase ttsPhase;
+  final VoidCallback? onSpeechAction;
 
   @override
   Widget build(BuildContext context) {
     if (message.isUser) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 330),
-          margin: const EdgeInsets.only(left: 44, bottom: 14),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: SelectableText(
-            message.content,
-            style: const TextStyle(height: 1.5),
-          ),
+      return _ImmersiveUserBubbleSurface(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        opacity: bubbleOpacity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText(
+              message.content,
+              style: const TextStyle(height: 1.45),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                ChatTimestampFormatter.time(message.createdAt),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 10.5,
+                    ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -888,7 +938,29 @@ class _ImmersiveMessageView extends StatelessWidget {
               padding: const EdgeInsets.only(left: 7, right: 4, bottom: 7),
               child: ReasoningPanel(reasoning: message.reasoningContent),
             ),
-          _ImmersiveAssistantRail(content: message.content),
+          _ImmersiveAssistantRail(
+            content: message.content,
+            footer: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  ChatTimestampFormatter.time(message.createdAt),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 10.5,
+                      ),
+                ),
+                if (onSpeechAction != null) ...[
+                  const SizedBox(width: 2),
+                  _ImmersiveSpeechActionButton(
+                    phase: ttsPhase,
+                    onPressed: onSpeechAction!,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -928,9 +1000,10 @@ class _ImmersiveStreamingView extends StatelessWidget {
 }
 
 class _ImmersiveAssistantRail extends StatelessWidget {
-  const _ImmersiveAssistantRail({required this.content});
+  const _ImmersiveAssistantRail({required this.content, this.footer});
 
   final String content;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -945,9 +1018,122 @@ class _ImmersiveAssistantRail extends StatelessWidget {
             ),
           ),
         ),
-        child: NovelTintText(
-          text: content,
-          style: const TextStyle(height: 1.62),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            NovelTintText(
+              text: content,
+              style: const TextStyle(height: 1.62),
+            ),
+            if (footer != null) ...[
+              const SizedBox(height: 4),
+              footer!,
+            ],
+          ],
         ),
       );
+}
+
+class _ImmersiveUserBubbleSurface extends StatelessWidget {
+  const _ImmersiveUserBubbleSurface({
+    required this.color,
+    required this.child,
+    required this.opacity,
+  });
+
+  final Color color;
+  final Widget child;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth =
+        MediaQuery.sizeOf(context).width.clamp(260, 560).toDouble() * 0.84;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: IntrinsicWidth(
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: color.withValues(
+                alpha: opacity.clamp(0.18, 1).toDouble(),
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(17),
+                topRight: Radius.circular(17),
+                bottomLeft: Radius.circular(17),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImmersiveDateSeparator extends StatelessWidget {
+  const _ImmersiveDateSeparator({required this.createdAt});
+
+  final DateTime createdAt;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
+        child: Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Text(
+                ChatTimestampFormatter.dateSeparator(createdAt),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _ImmersiveSpeechActionButton extends StatelessWidget {
+  const _ImmersiveSpeechActionButton({
+    required this.phase,
+    required this.onPressed,
+  });
+
+  final TtsPlaybackPhase phase;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final synthesizing = phase == TtsPlaybackPhase.synthesizing;
+    final playing = phase == TtsPlaybackPhase.playing;
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+      padding: EdgeInsets.zero,
+      iconSize: 18,
+      onPressed: synthesizing ? null : onPressed,
+      icon: synthesizing
+          ? const Text('…', style: TextStyle(fontSize: 20, height: 0.8))
+          : playing
+              ? const Text('■', style: TextStyle(fontSize: 15, height: 1))
+              : const Icon(Icons.volume_up_outlined),
+      tooltip: synthesizing
+          ? '正在合成语音'
+          : playing
+              ? '停止播放'
+              : '朗读这条回复',
+    );
+  }
 }

@@ -11,9 +11,9 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-pubspec = read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
+rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 chat = read("lib/features/chat/chat_page.dart")
 flutter_formatter = read("lib/widgets/action_tint_text.dart")
 flutter_test = read("test/action_tint_text_test.dart")
@@ -25,19 +25,25 @@ native_test = read(
 )
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.39.3+121" in pubspec
 assert "static const int schemaVersion = 35;" in database
 
-# Ordinary-chat body perspective is distinct from visible inner thought. The
-# code-owned last-turn reminder applies even when editable Rule 06 is inactive
-# or later third-person examples are present in the reference body.
+# v0.39.4 supersedes the duplicated v0.39.3 code-owned person reminder. The
+# complete subjectless format lives in editable Rule 02; internal Rule 08 only
+# delegates to it and keeps visible-thought/body perspective distinct.
 for token in (
+    "不加括号并默认省略主语",
+    "不要写“我/她/角色名歪头看你”",
+    "省略主语的动作默认只描述自己",
+    "不替他编写动作、台词、内心或没有真实提供的反应",
+    "严格遵守规则02【动作与神态格式】",
+):
+    assert token in rules, token
+for removed in (
     "普通聊天正文的人称与可见 reasoning 分开",
     "禁止用“我”“她”",
     "只用第二人称“你”",
-    "这不禁止对白中自然使用第一人称",
 ):
-    assert token in prompt, token
+    assert removed not in prompt, removed
 
 # The left region retains row width for the emotion label, while Align keeps
 # the actual InkWell limited to avatar + DeepSeek + emotion content.
@@ -60,7 +66,7 @@ assert "nested corner quotes keep the outer dialogue range intact" in native_tes
 assert "nested quote stays dialogue while outer quote is streaming" in native_test
 
 assert "python3 tools/validate_v0393_ordinary_chat_presentation.py" in workflow
-assert "agent/v0393-ordinary-chat-presentation-hotfix" in workflow
-assert "AI-Companion-v0.39.3-121-Ordinary-Chat-Presentation-Hotfix-APK" in workflow
+assert "agent/v0394-immersive-chat-ui-tts" in workflow
+assert "AI-Companion-v0.39.4-122-Immersive-Chat-UI-TTS-APK" in workflow
 
 print("v0.39.3 ordinary-chat presentation contracts passed")

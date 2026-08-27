@@ -42,7 +42,8 @@ assert ".join('\\n\\n')" in visuals
 assert "assistantStreamingTranscriptBlocks" in visuals
 assert "assistantStreamingTranscriptBlocks(content)" in chat
 assert "动作行后空一行" in prompt
-assert rules.count("动作行后空一行") >= 3
+assert rules.count("动作行后空一行") >= 2
+assert "动作行后空一行，再写它修饰的对白" in rules
 assert "legacyEditableRuleLayerSha256V03814" in rule_defaults
 assert "...legacyEditableRuleLayerSha256V03814.entries" in database
 

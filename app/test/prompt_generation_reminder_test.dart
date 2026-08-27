@@ -11,10 +11,9 @@ void main() {
     expect(reminder, contains('<emotion>标签</emotion>'));
     expect(reminder, contains('没有清晰情绪色彩时用“正常”'));
     expect(reminder, contains('“平静”只用于明确安静'));
-    expect(reminder, contains('普通聊天正文的人称与可见 reasoning 分开'));
-    expect(reminder, contains('禁止用“我”“她”'));
-    expect(reminder, contains('只用第二人称“你”'));
-    expect(reminder, contains('这不禁止对白中自然使用第一人称'));
+    expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
+    expect(reminder, isNot(contains('禁止用“我”“她”')));
+    expect(reminder, isNot(contains('只用第二人称“你”')));
     expect(reminder, isNot(contains('<system-reminder>')));
   });
 

@@ -206,6 +206,10 @@ void main() {
     expect(daily, contains('可见思考写“我此刻正在想什么”'));
     expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
     expect(daily, contains('不必先切换状态'));
+    expect(daily, contains('不加括号并默认省略主语'));
+    expect(daily, contains('不要写“我/她/角色名歪头看你”'));
+    expect(daily, contains('省略主语的动作默认只描述自己'));
+    expect(daily, contains('不替他编写动作、台词、内心或没有真实提供的反应'));
     expect(behavior, contains('情绪与欲望都有惯性'));
     expect(behavior, contains('内心可以比出口更热、更尖、更乱'));
     expect(behavior, contains('选择、欲望与摩擦'));

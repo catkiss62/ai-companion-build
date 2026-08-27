@@ -76,6 +76,32 @@ void main() {
     expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
   });
 
+  test('immersive prose recognizes curly and ASCII dialogue quotes', () {
+    const source = '叙述。\n\n“你回来了。”\n\n"Welcome back."';
+    final segments = splitNovelDialogueText(source);
+    expect(segments.map((item) => item.text).join(), source);
+    expect(
+      segments.where((item) => item.isDialogue).map((item) => item.text),
+      ['“你回来了。”', '"Welcome back."'],
+    );
+  });
+
+  test('immersive prose keeps mixed nested quotes in one dialogue span', () {
+    const source = '「正被你那句“在干嘛呢”拽回来呢。」';
+    final segments = splitNovelDialogueText(source);
+    expect(segments, hasLength(1));
+    expect(segments.single.text, source);
+    expect(segments.single.isDialogue, isTrue);
+  });
+
+  test('immersive curly quote remains tinted while streaming', () {
+    const source = '“还没说完';
+    final segments = splitNovelDialogueText(source);
+    expect(segments, hasLength(1));
+    expect(segments.single.text, source);
+    expect(segments.single.isDialogue, isTrue);
+  });
+
   testWidgets('actions stay italic and corner dialogue uses novel gold',
       (tester) async {
     await tester.pumpWidget(

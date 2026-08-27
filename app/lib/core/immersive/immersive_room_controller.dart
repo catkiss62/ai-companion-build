@@ -8,6 +8,8 @@ import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
 import '../storage/secure_config.dart';
+import '../tts/tts_playback_queue.dart';
+import '../tts/tts_service.dart';
 import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
@@ -24,6 +26,14 @@ class ImmersiveRoomController extends ChangeNotifier {
     repository = ImmersiveRoomRepository(this.db);
     promptBuilder = ImmersivePromptBuilder(this.db);
     nsfwRouter = ImmersiveNsfwRouter(this.client);
+    ttsService = TtsService(db: this.db);
+    ttsPlayback = TtsPlaybackQueue(
+      service: ttsService,
+      onStateChanged: (state) {
+        ttsState = state;
+        _safeNotify();
+      },
+    );
   }
 
   final String roomId;
@@ -33,6 +43,8 @@ class ImmersiveRoomController extends ChangeNotifier {
   late final ImmersiveRoomRepository repository;
   late final ImmersivePromptBuilder promptBuilder;
   late final ImmersiveNsfwRouter nsfwRouter;
+  late final TtsService ttsService;
+  late final TtsPlaybackQueue ttsPlayback;
 
   ImmersiveRoom? room;
   List<ImmersiveMessage> messages = const [];
@@ -42,6 +54,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   bool nsfwRouting = false;
   String streamingReasoning = '';
   String streamingContent = '';
+  TtsQueueState ttsState = TtsQueueState.idle;
   String? error;
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
@@ -50,6 +63,11 @@ class ImmersiveRoomController extends ChangeNotifier {
   bool _disposed = false;
 
   bool get showStreamingDraft => sending && _streamingDraftVisible;
+
+  TtsPlaybackPhase ttsPhaseForMessage(String messageId) {
+    if (ttsState.ownerId != messageId) return TtsPlaybackPhase.idle;
+    return ttsState.phase;
+  }
 
   Future<void> initialize() async {
     room = await repository.roomById(roomId);
@@ -95,6 +113,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     }
 
     final historyBeforeTurn = List<ImmersiveMessage>.from(messages);
+    await ttsPlayback.stop();
     final user = await repository.addMessage(
       roomId: roomId,
       role: 'user',
@@ -188,6 +207,14 @@ class ImmersiveRoomController extends ChangeNotifier {
       messages = [...messages, assistant];
       room = await repository.roomById(roomId);
       _safeNotify();
+      if ((await db.getSetting('tts_enabled')) != '0' &&
+          (await db.getSetting('auto_tts')) != '0') {
+        unawaited(ttsPlayback.playText(
+          assistant.content,
+          manual: false,
+          ownerId: assistant.id,
+        ));
+      }
       unawaited(_maybeRefreshRollingState(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -269,6 +296,17 @@ class ImmersiveRoomController extends ChangeNotifier {
     _cancellation?.cancel();
   }
 
+  Future<void> speakMessage(ImmersiveMessage message) async {
+    if (!message.isAssistant || message.content.trim().isEmpty) return;
+    await ttsPlayback.playText(
+      message.content,
+      manual: true,
+      ownerId: message.id,
+    );
+  }
+
+  Future<void> stopSpeech() => ttsPlayback.stop();
+
   Future<void> setNsfwActive(bool active) async {
     final current = room;
     if (sending || ending || current == null || current.isEnded) return;
@@ -293,6 +331,7 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   Future<bool> deleteRoom() async {
     if (sending || ending || room == null) return false;
+    await ttsPlayback.stop();
     await repository.deleteRoom(roomId);
     room = null;
     messages = const [];
@@ -484,6 +523,7 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
     _disposed = true;
     _streamNotifyTimer?.cancel();
     _cancellation?.cancel();
+    unawaited(ttsPlayback.stop());
     client.close();
     super.dispose();
   }

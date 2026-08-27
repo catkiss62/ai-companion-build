@@ -13,9 +13,38 @@
 3. **两次总账**：每轮正式修改前先登记范围、依赖、来源、边界与验收；完成后再回填提交、测试、Actions、APK、SHA 与真机待验项。讨论已确定且有参考资料的任务必须记录出处，优先固定到提交版本。
 4. **接班标准**：记录不追求逐行流水账，但必须让新窗口能立即判断“已完成 / 仅代码完成 / CI 通过 / APK 可用 / 真机待验 / 冻结 / 后置”，并能从精简任务信息、参考链接、版本与证据继续工作而不漏项。
 5. **参考优先**：已有成熟开源实现时先做素材、行为和映射对照；需要偏离时写明原因与验收，不从零近似重做。
+6. **持续发布授权**：用户于 2026-08-27 明确授权：后续 AI Companion 任务可直接将源码分支上传至 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付 APK，不再按每个新分支重复索要同一授权。授权仅覆盖该项目的正常源码发布与构建，不扩展到删除仓库/发布、改动保护分支或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.3 普通聊天人称、顶部情绪与嵌套对白热修（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.4 规则02恢复与沉浸聊天呈现/TTS（IN PROGRESS / CI NOT RUN / TRUE DEVICE PENDING）
+
+> 用户真机确认 v0.39.3 的嵌套对白和普通聊天热修后，发现正确的规则02【动作与神态格式】增强文本只曾落在 v0.38.17 实验分支，后续从已验收 v0.38.16 建立 v0.38.18 时被一并跳过。本批从 `agent/v0393-ordinary-chat-presentation-hotfix` 建立 `agent/v0394-immersive-chat-ui-tts`，预定 `0.39.4+122`、schema 35 不变；先恢复规则真源，再同批改善沉浸房间聊天呈现。
+
+### A. 诊断与规则取证
+
+1. 用户提供诊断 `ai_companion_diagnostics_2026-08-27T09-43-13-517462Z(1).txt`：真实版本 `0.39.3+121`、schema 35；无生成/恢复/数据库/维护/TTS error，3次可见 reasoning 都收到 provider delta、都交给 UI 且均为中文优先。最近3条助手消息有1条缺 `<emotion>`，客户端以启发式回退为“心动”（0.49）；记为偶发漏标签，不误判成情绪链路丢失。悬浮、Usage、通知、Accessibility 与 Nearby warn 均是未授权/未启用现状。
+2. 正确规则02文本的历史证据为 v0.38.17 提交 `64ddc75`；当前正式线仍是较弱的 v0.38.16 动作四条。本批将用户重发的四条原文恢复为 `02_daily` 真源，只迁移仍等于 v0.39.3 内置默认值的数据；用户手改规则继续保留。
+3. v0.39.3 新增的隐藏人称长提醒将移除，避免和可编辑规则02双真源。内部稳定键 `08_visible_inner_voice` 仍归入界面“02 · 日常说话规则”，只负责可见思考与最终正文的人称分工并引用规则02动作契约，不再复制第三份完整格式。规则06用户附件原文本批不静默改写。
+
+### B. 房间删除与沉浸呈现范围
+
+1. 未结束房间直接删除时，同一事务只删除目标 `immersive_messages` 和 `immersive_rooms`；普通自动记忆提取器不接入房间，也不调用 `endRoom`，因此不会新写长期记忆。若之前已“整理并结束”，当时已独立写入的共享记忆不会因后续删房自动反向删除；删除确认文案需明确这个区别。
+2. 沉浸小说着色在保留 `「」` 嵌套/流式契约的同时，增加中文弯引号 `“”` 和常见双引号对的黄色对白呈现；只改沉浸 `NovelTintText`，普通聊天的动作斜体/只认 `「」` 不回退。
+3. 房间 NSFW 按钮复用普通模式的固定 `NSFW` 文字与颜色；自动路由仍在后台运行，判定期间不再把按钮替换成转圈。
+4. 房间用户气泡复用普通聊天的宽度、左右留白、右下4px直角、padding 及视觉面板透明度。用户和助手每条都显示本地 `HH:mm`，跨日时使用普通聊天同一日期分隔。
+5. 房间助手消息接入普通聊天同一 `TtsService + TtsPlaybackQueue`：显示同样的“音量/合成…/停止■”按钮，遵循全局 TTS 开关、速度、音量、替换表及“仅对白/全文”范围；手动播放不改消息原文。
+
+### C. 本地实现与待交付
+
+1. 规则02已按用户重发四条恢复，新默认 SHA-256 `6b9db829f50484714894feac685edc640768596dbf6146a5f7489d3bcbf6daa9`；v0.39.3 旧默认 `02_daily` 哈希 `760bd2e7…8423` 及 `08_visible_inner_voice` 哈希 `496e6538…73cba` 已进保守迁移白名单，只替换字节未改的库内默认。规则06工作区前后 SHA-256 均为 `88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648`，本批未改。
+2. 沉浸页已完成：独立小说引号扫描器识别嵌套 `「」`、`“”` 与 ASCII 双引号，流式外层未闭合时持续染黄；普通 `ActionTintText` 仍只识别 `「」`。NSFW 判定仍后台执行，按钮始终显示 `NSFW`，不再用转圈替换文字。
+3. 用户气泡已对齐普通聊天的 84% 最大宽度、左右 5px margin、水平 14px/垂直 11px padding、`17/17/17/4` 圆角及全局面板透明度。房间双方消息都复用 `ChatTimestampFormatter` 显示 `HH:mm` 和跨日分隔；助手消息接入同一 `TtsService + TtsPlaybackQueue`，遵守全局开关、自动朗读、范围、替换表、速度和音量。
+4. 删除确认现按房间状态区分：未整理房间直接删除不新增长期记忆；已整理房间删除时明示先前已分离写入的共享记忆不随房间删除。这是文案澄清，未改交易删除边界。
+5. 已升版 `0.39.4+122`，schema 35 不变；新增 v0.39.4 静态契约与小说引号单测，相关 v0.35.2—v0.39.4 历史/当前静态验证、YAML 解析及 `git diff --check` 已通过。本地精简检出仍缺 417 文件桌宠与 LingChat 特效资源，并无 Flutter/Dart/Kotlin SDK；这些必须由 Actions 固定资源恢复后做真正编译、单测、APK、签名和载荷校验，当前不冒充 CI 通过。
+6. 真机待验：规则02升级且手改不被覆盖；普通聊天不再依赖隐藏人称长提醒；沉浸 `「」/“”/""` 对白黄色、NSFW无转圈、气泡/透明度/留白、双方时间与 TTS；直接删除未结束房间不产生共享记忆。
+
+
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.3 普通聊天人称、顶部情绪与嵌套对白热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.39.2 真机发现普通聊天正文重新出现第三人称，并明确纠正：问题是普通聊天，不是沉浸房间；刚对接的规则要求 AI 动作旁白省略主语，不使用“我／她／角色名”，对现实恋人使用“你”。同时普通聊天顶部按钮被收窄后情绪标签不可见。随后用户补充真实嵌套对白样本 `「正被你那句「在干嘛呢」从刚才的坏心思里拽回来呢。」`，现有 Flutter 与 Android 正则会在内层第一个 `」` 提前结束黄色对白。本批从 `agent/v0392-immersive-nsfw-stream-stability` 建立 `agent/v0393-ordinary-chat-presentation-hotfix`，目标 `0.39.3+121`，SQLite 保持 schema 35；不修改沉浸房间第三人称小说规则。
 
@@ -31,11 +60,13 @@
 2. Flutter `splitDialogueText()` 与 Android `OverlayDialogueFormatter.dialogueRanges()` 原先均使用“`「` 到第一个 `」`”正则，嵌套引用会提前结束对白样式。两端改为相同的深度计数扫描：内层 `「` 加深、内层 `」` 只退一层，深度回零才关闭外层；流式期间外层尚未闭合时，已收到全文继续保持对白样式。格式错误且跨行未闭合时不吞掉下一动作块。
 3. `ChatSegmentCodec` 与 TTS 使用整行首尾判断，样例原本不会在第一个内层 `」` 截断；本批不改消息原文、`segments_json` 或 TTS语义，只修 App 正文着色与原生悬浮聊天着色。
 
-### C. 当前验证与待完成
+### C. 验证、APK 与真机待验
 
 1. 新增 Flutter 完整嵌套／未闭合流式嵌套测试、Android 悬浮窗范围测试、普通聊天最终 reminder 人称测试，以及 `validate_v0393_ordinary_chat_presentation.py` 静态契约；版本为 `0.39.3+121`，schema 35 无迁移。
-2. 本地 `git diff --check` 与本批静态契约通过。全历史脚本首项因精简检出未恢复 CI 固定417文件桌宠包而停止，不是业务代码失败；Flutter/Dart/Kotlin 编译、全部历史回归、资源载荷、签名和 APK 仍须正式 Actions 验证，完成前不得写成 CI 或真机通过。
-3. 真机重点：普通聊天动作行不再以“我／她／角色名”开头，对用户保持“你”；可见思考仍自然使用“我／他”，对白内“我”不被误伤；顶部情绪标签稳定可见且右侧空白不可误触；完整与逐字中的嵌套 `「……「……」……」` 始终整段黄色，悬浮聊天一致；沉浸房间第三人称小说规则、全屏、房间 NSFW 和真 SSE 不回退。
+2. 本地 `git diff --check` 与本批静态契约通过。第一轮 Actions `33056594105` 暴露的不是业务失败，而是 v0.37.4 / v0.37.6 历史 validator 把已被嵌套扫描器取代的单层正则写死；历史契约改为检查深度计数后通过。中间 run `33056990645` 被同分支更新的并发策略正常取消，不是失败候选。
+3. 有效 GitHub Actions [run 33057033936](https://github.com/catkiss62/ai-companion-build/actions/runs/33057033936) 全绿：源码/历史回归、Kotlin 桌宠与悬浮对白测试、Flutter analyze、全部 Flutter tests、release APK、稳定签名、原生库/417文件桌宠/22张塔罗载荷、checksum、Artifact 及 Draft Release 上传全部成功。有效远端 head `b15f8f78a7475162be10574b52e17455f6045622`。
+4. APK `AI-Companion-v0.39.3-121-Ordinary-Chat-Presentation-Hotfix-APK.apk`，329,798,416 bytes，SHA-256 `63e835270561bbd4ce38eb30656e08f3addbe0d97e62b93c3ff54ce41a470294`。Artifact ID `9640387541`，ZIP 323,582,884 bytes，digest `d2ac6082b52c7cc68281ab21305227d30ea86350d59293e5dbf6cc6b62eda9f2`，保留至2026-09-10；草稿 Release：[untagged-46b773977c4538894b09](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-46b773977c4538894b09)。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.2。
+5. 真机重点：普通聊天动作行不再以“我／她／角色名”开头，对用户保持“你”；可见思考仍自然使用“我／他”，对白内“我”不被误伤；顶部情绪标签稳定可见且右侧空白不可误触；完整与逐字中的嵌套 `「……「……」……」` 始终整段黄色，悬浮聊天一致；沉浸房间第三人称小说规则、全屏、房间 NSFW 和真 SSE 不回退。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-27 · v0.39.2 沉浸房间全屏、NSFW路由与流式稳定（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）

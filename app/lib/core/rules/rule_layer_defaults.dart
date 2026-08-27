@@ -145,15 +145,25 @@ const legacyEditableRuleLayerSha256V03814 = <String, String>{
       '10d66dc2bbc83d3e4617165bb3c77172b2852c24d60d17243e7e842304b545a5',
 };
 
-/// Exact editable defaults shipped by the accepted v0.38.16 baseline.
-/// v0.38.18 replaces only these untouched bodies; any user edit is retained.
+/// Exact editable defaults shipped by the accepted v0.38.16 baseline and
+/// retained through v0.39.3. v0.39.4 restores the subjectless Rule 02 body
+/// that was stranded on the v0.38.17 experiment while preserving user edits.
 const legacyEditableRuleLayerSha256V03816 = <String, String>{
+  '02_daily': '760bd2e78281f7266ac61358901ea8acc6bb638d0a38499c9f60c404006d8423',
   '08_visible_inner_voice':
       '81126848608b0a463e35fd030ade83bf8b7c21a5737ebfb1a5908447f98b4685',
   '05_intimacy_rendering':
       'bba5221999054923ed8ddfa50104179410f145b190173dc40615a2e794b25253',
   '06_intimacy_reference':
       '5f9b9d8ba819e90150a1ca5d400a42d99b7f3797a39d106bbc28d9b60770d1c4',
+};
+
+/// Exact visible-inner-voice template shipped by v0.38.18 through v0.39.3.
+/// The v0.39.4 wording delegates body formatting to editable Rule 02 instead
+/// of maintaining a third near-duplicate contract.
+const legacyEditableRuleLayerSha256V0393 = <String, String>{
+  '08_visible_inner_voice':
+      '496e6538972d338ee6050601d6932491ae0927272caf27e39f8a0d40f6a73cba',
 };
 
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1

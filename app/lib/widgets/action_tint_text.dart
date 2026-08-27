@@ -69,6 +69,76 @@ List<DialogueTextSegment> splitDialogueText(String text) {
   return segments;
 }
 
+/// Novel prose accepts the quote pairs commonly emitted by long-form models.
+/// Normal chat intentionally keeps using [splitDialogueText], whose contract
+/// only treats Chinese corner quotes as spoken dialogue.
+List<DialogueTextSegment> splitNovelDialogueText(String text) {
+  if (text.isEmpty) return const [];
+  const openers = <String, String>{
+    '「': '」',
+    '“': '”',
+    '"': '"',
+  };
+  final segments = <DialogueTextSegment>[];
+  var cursor = 0;
+  var index = 0;
+  while (index < text.length) {
+    final opener = text[index];
+    final outerCloser = openers[opener];
+    if (outerCloser == null) {
+      index++;
+      continue;
+    }
+
+    final start = index;
+    final expectedClosers = <String>[outerCloser];
+    index++;
+    var crossedNewline = false;
+    while (index < text.length && expectedClosers.isNotEmpty) {
+      final character = text[index];
+      if (character == '\n') {
+        crossedNewline = true;
+        break;
+      }
+      // Check the current closer first because ASCII double quotes use the
+      // same character for both sides.
+      if (character == expectedClosers.last) {
+        expectedClosers.removeLast();
+        index++;
+        continue;
+      }
+      final nestedCloser = openers[character];
+      if (nestedCloser != null) expectedClosers.add(nestedCloser);
+      index++;
+    }
+
+    final reachedEnd = index == text.length;
+    if (expectedClosers.isNotEmpty && (!reachedEnd || crossedNewline)) {
+      index = start + 1;
+      continue;
+    }
+    final end = index;
+    if (start > cursor) {
+      segments.add(DialogueTextSegment(
+        text.substring(cursor, start),
+        isDialogue: false,
+      ));
+    }
+    segments.add(DialogueTextSegment(
+      text.substring(start, end),
+      isDialogue: true,
+    ));
+    cursor = end;
+  }
+  if (cursor < text.length) {
+    segments.add(DialogueTextSegment(
+      text.substring(cursor),
+      isDialogue: false,
+    ));
+  }
+  return segments;
+}
+
 List<ActionTextSegment> splitActionText(String text) {
   if (text.isEmpty) return const [];
   final matches = RegExp(r'（[^（）\n]*）|\([^()\n]*\)').allMatches(text);
@@ -147,7 +217,7 @@ class ActionTintText extends StatelessWidget {
 }
 
 /// Immersive-room prose keeps ordinary narration upright and only colors
-/// corner-quoted dialogue. Unlike normal chat presentation it never removes
+/// quoted dialogue. Unlike normal chat presentation it never removes
 /// parentheses or treats the whole narration as an action block.
 class NovelTintText extends StatelessWidget {
   const NovelTintText({super.key, required this.text, this.style});
@@ -165,7 +235,7 @@ class NovelTintText extends StatelessWidget {
     return SelectableText.rich(
       TextSpan(
         children: [
-          for (final segment in splitDialogueText(text))
+          for (final segment in splitNovelDialogueText(text))
             TextSpan(
               text: segment.text,
               style: segment.isDialogue ? dialogue : base,
