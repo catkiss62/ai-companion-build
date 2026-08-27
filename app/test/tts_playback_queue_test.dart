@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -31,12 +32,12 @@ class _FakeQueueService implements TtsQueueService {
       await firstGenerationGate!.future;
     }
     if (generated.length == 1 && failFirstGeneration) return null;
-    return Uint8List.fromList('wav:$spokenText'.codeUnits);
+    return Uint8List.fromList(utf8.encode('wav:$spokenText'));
   }
 
   @override
   Future<void> playPrepared(Uint8List wavBytes) async {
-    played.add(String.fromCharCodes(wavBytes));
+    played.add(utf8.decode(wavBytes));
     if (played.length == 1 && firstPlaybackGate != null) {
       await firstPlaybackGate!.future;
     }
