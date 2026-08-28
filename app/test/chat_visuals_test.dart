@@ -218,3 +218,24 @@ void main() {
       ChatPortraitAnimation.seriousThink,
     );
     expect(
+      ChatVisualResolver.resolveEmotionKey('affection').animation,
+      ChatPortraitAnimation.heartBeat,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('playful').animation,
+      ChatPortraitAnimation.naughtyBounce,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('embarrassed').animation,
+      ChatPortraitAnimation.embarrassedShake,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('surprised').animation,
+      ChatPortraitAnimation.none,
+    );
+    expect(
+      ChatVisualResolver.resolveEmotionKey('affection').effectAsset,
+      endsWith('/heart.webp'),
+    );
+  });
+}
