@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/phone/simulated_phone_repository.dart';
 import '../../core/models/companion_album.dart';
+import '../../core/platform/android_bridge.dart';
 import '../../core/storage/companion_album_storage.dart';
 
 const bg = Color(0xFF080C18);
@@ -977,11 +978,6 @@ class _AlbumPageState extends State<AlbumPage> {
                         onTap: () => setState(() => category = 'self_image'),
                       ),
                       _AlbumFilter(
-                        label: 'NSFW',
-                        active: category == 'nsfw',
-                        onTap: () => setState(() => category = 'nsfw'),
-                      ),
-                      _AlbumFilter(
                         label: '其他',
                         active: category == 'other',
                         onTap: () => setState(() => category = 'other'),
@@ -1042,7 +1038,7 @@ class _AlbumPageState extends State<AlbumPage> {
                           );
                           if (!mounted) return;
                           final current = await AppDatabase.instance
-                              .companionAlbumItems(includeNsfw: true);
+                              .companionAlbumItems();
                           setState(() => entries = current);
                         },
                       );
@@ -1113,16 +1109,6 @@ class _AlbumTile extends StatelessWidget {
                         ),
                       ),
               ),
-              if (item.nsfw)
-                Container(
-                  color: const Color(0xDD11131B),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    '🔞\n轻触查看',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: text2, fontSize: 11),
-                  ),
-                ),
               if (item.isPendingDelete)
                 Positioned(
                   left: 5,
@@ -1175,8 +1161,29 @@ class AlbumDetailPage extends StatefulWidget {
 class _AlbumDetailPageState extends State<AlbumDetailPage> {
   late String feedback = widget.item.feedback;
   late String comment = widget.item.comment;
-  bool revealNsfw = false;
+  late String category = widget.item.category;
   bool busy = false;
+
+  Future<void> setCategory(String value) async {
+    if (busy || value == category) return;
+    setState(() => busy = true);
+    try {
+      await widget.repository.setAlbumCategory(widget.item.id, value);
+      if (mounted) setState(() => category = value);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> openSource() async {
+    final opened = await AndroidBridge.instance.openExternalHttpsUrl(
+      widget.item.sourceUrl,
+    );
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('没有可打开的安全 HTTPS 图片来源')),
+    );
+  }
 
   Future<void> setFeedback(String value) async {
     if (busy) return;
@@ -1269,30 +1276,12 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
               aspectRatio: 1,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    FutureBuilder<File>(
-                      future: CompanionAlbumStorage()
-                          .fileFor(widget.item.thumbnailPath),
-                      builder: (context, snapshot) => snapshot.hasData
-                          ? Image.file(snapshot.data!, fit: BoxFit.contain)
-                          : const _MissingAlbumImage(),
-                    ),
-                    if (widget.item.nsfw && !revealNsfw)
-                      InkWell(
-                        onTap: () => setState(() => revealNsfw = true),
-                        child: Container(
-                          color: const Color(0xF211131B),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            '🔞\nNSFW 分类\n轻触后显示',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: text1, height: 1.6),
-                          ),
-                        ),
-                      ),
-                  ],
+                child: FutureBuilder<File>(
+                  future: CompanionAlbumStorage()
+                      .fileFor(widget.item.thumbnailPath),
+                  builder: (context, snapshot) => snapshot.hasData
+                      ? Image.file(snapshot.data!, fit: BoxFit.contain)
+                      : const _MissingAlbumImage(),
                 ),
               ),
             ),
@@ -1311,8 +1300,40 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             const SizedBox(height: 12),
             Text(
               '来源：${widget.item.sourceDomain.isEmpty ? '你发来的图片' : widget.item.sourceDomain}'
-              ' · ${albumCategoryLabel(widget.item.category)}',
+              ' · ${albumCategoryLabel(category)}',
               style: const TextStyle(color: text3, fontSize: 11),
+            ),
+            if (widget.item.sourceUrl.startsWith('https://')) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: busy ? null : openSource,
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('打开图片来源'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            const Text(
+              '分类（可手动纠正）',
+              style: TextStyle(color: text2, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: const ['memory', 'self_image', 'other']
+                  .map(
+                    (value) => ChoiceChip(
+                      label: Text(albumCategoryLabel(value)),
+                      selected: category == value,
+                      onSelected: busy ? null : (_) => setCategory(value),
+                      selectedColor: purple.withValues(alpha: 0.28),
+                      showCheckmark: false,
+                    ),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 18),
             Wrap(
@@ -2552,7 +2573,6 @@ String phoneDateTime(DateTime value) =>
 String albumCategoryLabel(String value) => switch (value) {
       'memory' => '回忆',
       'self_image' => '形象插画',
-      'nsfw' => 'NSFW',
       _ => '其他',
     };
 

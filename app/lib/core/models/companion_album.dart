@@ -13,12 +13,14 @@ class CompanionAlbumItem {
     required this.thumbnailPath,
     required this.contentSha256,
     required this.visualFingerprint,
+    required this.perceptualHash,
     required this.visionModel,
     required this.width,
     required this.height,
     required this.lifecycle,
     required this.feedback,
     required this.comment,
+    required this.categorySource,
     required this.createdAt,
     required this.savedAt,
     required this.deleteAfter,
@@ -46,12 +48,14 @@ class CompanionAlbumItem {
   final String thumbnailPath;
   final String contentSha256;
   final String visualFingerprint;
+  final String perceptualHash;
   final String visionModel;
   final int width;
   final int height;
   final String lifecycle;
   final String feedback;
   final String comment;
+  final String categorySource;
   final DateTime createdAt;
   final DateTime? savedAt;
   final DateTime? deleteAfter;
@@ -82,12 +86,14 @@ class CompanionAlbumItem {
       thumbnailPath: row['thumbnail_path'] as String? ?? '',
       contentSha256: row['content_sha256'] as String? ?? '',
       visualFingerprint: row['visual_fingerprint'] as String? ?? '',
+      perceptualHash: row['perceptual_hash'] as String? ?? '',
       visionModel: row['vision_model'] as String? ?? '',
       width: (row['width'] as num?)?.toInt() ?? 0,
       height: (row['height'] as num?)?.toInt() ?? 0,
       lifecycle: row['lifecycle_state'] as String? ?? candidate,
       feedback: row['user_feedback'] as String? ?? 'neutral',
       comment: row['user_comment'] as String? ?? '',
+      categorySource: row['category_source'] as String? ?? 'ai',
       createdAt: date('created_at') ?? DateTime.fromMillisecondsSinceEpoch(0),
       savedAt: date('saved_at'),
       deleteAfter: date('delete_after'),

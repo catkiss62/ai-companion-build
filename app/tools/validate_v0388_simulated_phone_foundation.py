@@ -42,6 +42,6 @@ assert "关闭更新不会删除历史 · 塔罗牌仍会每天更新" in page
 assert "没有真实浏览记录" in page
 assert "查手机" in chat
 assert "SimulatedPhonePage" in chat
-assert "SimulatedPhoneRepository(db).refreshIfDue" in recovery
+assert "phoneRepository.refreshIfDue" in recovery
 
 print("v0.38.8 simulated phone foundation validation passed")

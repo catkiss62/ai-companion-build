@@ -86,6 +86,22 @@ class SystemBridge(
                     PetPreviewActivity.launch(activity)
                     result.success(null)
                 }
+                "openExternalHttpsUrl" -> {
+                    val uri = Uri.parse(call.argument<String>("url") ?: "")
+                    if (uri.scheme != "https" || uri.host.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                            addCategory(Intent.CATEGORY_BROWSABLE)
+                        }
+                        if (intent.resolveActivity(activity.packageManager) == null) {
+                            result.success(false)
+                        } else {
+                            activity.startActivity(intent)
+                            result.success(true)
+                        }
+                    }
+                }
                 "openOverlaySettings" -> {
                     activity.startActivity(
                         Intent(

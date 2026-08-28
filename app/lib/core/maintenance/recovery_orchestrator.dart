@@ -51,7 +51,9 @@ class RecoveryOrchestrator {
     bool allowProactive = true,
   }) async {
     await db.ensureReady();
-    await SimulatedPhoneRepository(db).refreshIfDue();
+    final phoneRepository = SimulatedPhoneRepository(db);
+    await phoneRepository.maintainAlbum();
+    await phoneRepository.refreshIfDue();
     if (!await db.brainWorkAllowed()) {
       return const RecoveryCycleResult(
         state: 'inactive_brain',

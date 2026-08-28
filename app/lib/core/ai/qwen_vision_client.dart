@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 class QwenVisionObservation {
@@ -10,7 +12,6 @@ class QwenVisionObservation {
     this.albumSave = false,
     this.albumCategory = 'other',
     this.albumReason = '',
-    this.nsfw = false,
     this.aestheticTags = const [],
     this.albumConfidence = 0,
   });
@@ -20,19 +21,25 @@ class QwenVisionObservation {
   final bool albumSave;
   final String albumCategory;
   final String albumReason;
-  final bool nsfw;
   final List<String> aestheticTags;
   final double albumConfidence;
 }
 
 class QwenVisionClient {
-  QwenVisionClient({http.Client? client}) : _client = client ?? http.Client();
+  QwenVisionClient({
+    http.Client? client,
+    Future<Uint8List> Function()? albumIdentityReferenceLoader,
+  })  : _client = client ?? http.Client(),
+        _albumIdentityReferenceLoader = albumIdentityReferenceLoader;
 
   static const String defaultEndpoint =
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   static const String defaultModel = 'qwen3-vl-plus';
+  static const String albumIdentityReferenceAsset =
+      'assets/appearance/dafeiyu_reference.webp';
 
   final http.Client _client;
+  final Future<Uint8List> Function()? _albumIdentityReferenceLoader;
 
   Future<QwenVisionObservation> observe({
     required String apiKey,
@@ -58,6 +65,36 @@ class QwenVisionClient {
     final userText = caption.trim().isEmpty
         ? '请观察这张图片。'
         : '用户对这张图片的附言：${caption.trim()}';
+    final referenceBytes = assessForAlbum
+        ? await _loadAlbumIdentityReference()
+        : null;
+    final userContent = <Map<String, dynamic>>[
+      {
+        'type': 'image_url',
+        'image_url': {
+          'url': 'data:image/png;base64,${base64Encode(bytes)}',
+        },
+      },
+      {
+        'type': 'text',
+        'text': assessForAlbum
+            ? '第一张图是本次候选，只描述和判断第一张图。$userText'
+            : userText,
+      },
+      if (referenceBytes != null && referenceBytes.isNotEmpty) ...[
+        {
+          'type': 'image_url',
+          'image_url': {
+            'url':
+                'data:image/webp;base64,${base64Encode(referenceBytes)}',
+          },
+        },
+        {
+          'type': 'text',
+          'text': '第二张图只是相册主人照镜子时的身份软参照，不是候选图，不要描述或收藏第二张图。',
+        },
+      ],
+    ];
     final response = await _client
         .post(
           Uri.parse(endpoint),
@@ -77,15 +114,7 @@ class QwenVisionClient {
               },
               {
                 'role': 'user',
-                'content': [
-                  {
-                    'type': 'image_url',
-                    'image_url': {
-                      'url': 'data:image/png;base64,${base64Encode(bytes)}',
-                    },
-                  },
-                  {'type': 'text', 'text': userText},
-                ],
+                'content': userContent,
               },
             ],
             'response_format': {'type': 'json_object'},
@@ -120,7 +149,11 @@ class QwenVisionClient {
     final album = parsed['album'] is Map
         ? Map<String, dynamic>.from(parsed['album'] as Map)
         : const <String, dynamic>{};
-    final category = _albumCategory(album['category']?.toString() ?? '');
+    final rawCategory = album['category']?.toString() ?? '';
+    final adultContent = album['adult_content'] == true ||
+        album['nsfw'] == true ||
+        rawCategory == 'nsfw';
+    final category = _albumCategory(rawCategory);
     final reason = album['reason']?.toString().trim() ?? '';
     final rawTags = album['aesthetic_tags'];
     final tags = rawTags is List
@@ -135,10 +168,10 @@ class QwenVisionClient {
       model: responseModel == null || responseModel.isEmpty
           ? (model.trim().isEmpty ? defaultModel : model.trim())
           : responseModel,
-      albumSave: assessForAlbum && album['save'] == true,
+      albumSave:
+          assessForAlbum && !adultContent && album['save'] == true,
       albumCategory: category,
       albumReason: reason.length > 360 ? reason.substring(0, 360) : reason,
-      nsfw: assessForAlbum && album['nsfw'] == true,
       aestheticTags: tags,
       albumConfidence:
           ((album['confidence'] as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
@@ -169,8 +202,21 @@ class QwenVisionClient {
 
   void close() => _client.close();
 
+  Future<Uint8List?> _loadAlbumIdentityReference() async {
+    try {
+      final loader = _albumIdentityReferenceLoader;
+      if (loader != null) return await loader();
+      final data = await rootBundle.load(albumIdentityReferenceAsset);
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } catch (_) {
+      // The textual identity contract remains usable if an unusual background
+      // engine cannot resolve the bundled soft reference.
+      return null;
+    }
+  }
+
   static String _albumCategory(String value) {
-    const allowed = {'memory', 'self_image', 'nsfw', 'other'};
+    const allowed = {'memory', 'self_image', 'other'};
     return allowed.contains(value) ? value : 'other';
   }
 
@@ -195,14 +241,16 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
     return base +
         '''
 另外，以独立相册整理模块的身份判断这张受控缩略图是否值得她收藏。
-相册主人的视觉底色是蓝色、海洋、鲸鱼娘形象，以及可爱、有趣或完成度较高的插画；
-这只是起始偏好，不得因此机械保存所有蓝色图片。
+只判断第一张候选图。第二张若存在，是她照镜子时的身份软参照，只用于帮助识别“是不是她的形象”，绝不能被当作候选、聊天内容或必须逐像素匹配的模板。
+她的核心身份组合是鲸鱼耳鳍、明显的鲸鱼尾、脸部与蓝色系长发的整体特征；应综合判断，不能看到单一蓝色或海洋元素就认作她。
+服装、裙长、配饰、姿势、发型细节和轻微发色变化都允许改变；不得因为没穿参考图中的女仆装、构图不同或画风变化就拒绝。
+相册也可以收藏与她无关但可爱、有趣或完成度较高、符合已知弱偏好的普通插画；不得机械保存所有蓝色图片。
 这只是相册候选判断，不得改变聊天回复、人格、记忆或关系结论。
 “self_image”表示与她的人格形象有关的插画/形象图，并不强行称为自拍；
 “memory”表示用户发来的、有共同回忆或明显交流价值的图片；
-“nsfw”只用于明确成人向图片并与其他分类隔离；其余用“other”。
+“other”表示其他值得收藏的普通图片。明确成人向或裸露图片必须 save=false，不建立成人分类。
 必须只输出 JSON：
-{"summary":"...","album":{"save":true,"category":"memory|self_image|nsfw|other","reason":"...","nsfw":false,"aesthetic_tags":["..."],"confidence":0.0}}
+{"summary":"...","album":{"save":true,"category":"memory|self_image|other","reason":"...","adult_content":false,"aesthetic_tags":["..."],"confidence":0.0}}
 用户审美反馈只作为弱偏好，不把点赞/点踩解释成用户对她说的话。
 审美提示：''' +
         preference;

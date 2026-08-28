@@ -359,6 +359,22 @@ class AndroidBridge {
   Future<void> openDesktopPetPreview() =>
       _channel.invokeMethod<void>('openDesktopPetPreview');
 
+  Future<bool> openExternalHttpsUrl(String value) async {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            'openExternalHttpsUrl',
+            {'url': uri.toString()},
+          ) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   Future<bool> consumeOpenChatLaunch() async {
     try {
       return await _channel.invokeMethod<bool>('consumeOpenChatLaunch') ??

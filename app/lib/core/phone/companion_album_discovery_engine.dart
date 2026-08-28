@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../ai/qwen_vision_client.dart';
 import '../database/app_database.dart';
+import 'album_perceptual_hash.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/secure_config.dart';
@@ -134,6 +135,7 @@ class CompanionAlbumDiscoveryEngine {
       );
 
       String contentSha = '';
+      String perceptualHash = '';
       if (observation.albumSave) {
         final stored = await albumStorage.saveThumbnail(
           id: candidateId,
@@ -141,6 +143,9 @@ class CompanionAlbumDiscoveryEngine {
         );
         savedPath = stored.relativePath;
         contentSha = stored.contentSha256;
+        perceptualHash = await AlbumPerceptualHash.fromFile(
+          draft.thumbnailFile,
+        );
       }
       final completed = await db.completeCompanionAlbumCandidate(
         id: candidateId,
@@ -149,9 +154,9 @@ class CompanionAlbumDiscoveryEngine {
         visionModel: observation.model,
         aiReason: observation.albumReason,
         category: observation.albumCategory,
-        nsfw: observation.nsfw,
         thumbnailPath: savedPath,
         contentSha256: contentSha,
+        perceptualHash: perceptualHash,
         visualFingerprint: observation.aestheticTags.join('|'),
         width: draft.width,
         height: draft.height,

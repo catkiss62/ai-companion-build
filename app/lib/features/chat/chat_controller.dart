@@ -29,6 +29,7 @@ import '../../core/models/generation_job.dart';
 import '../../core/models/desire_state.dart';
 import '../../core/perception/perception_engine.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/phone/album_perceptual_hash.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/relationship/relationship_assimilator.dart';
@@ -650,6 +651,7 @@ class ChatController extends ChangeNotifier {
     if (!begun) return;
     String path = '';
     String contentSha = '';
+    String perceptualHash = '';
     if (observation.albumSave) {
       final stored = await CompanionAlbumStorage().saveThumbnail(
         id: candidateId,
@@ -657,6 +659,7 @@ class ChatController extends ChangeNotifier {
       );
       path = stored.relativePath;
       contentSha = stored.contentSha256;
+      perceptualHash = await AlbumPerceptualHash.fromFile(thumbnail);
     }
     final completed = await db.completeCompanionAlbumCandidate(
       id: candidateId,
@@ -665,9 +668,9 @@ class ChatController extends ChangeNotifier {
       visionModel: observation.model,
       aiReason: observation.albumReason,
       category: observation.albumCategory,
-      nsfw: observation.nsfw,
       thumbnailPath: path,
       contentSha256: contentSha,
+      perceptualHash: perceptualHash,
       visualFingerprint: observation.aestheticTags.join('|'),
       width: attachment.width,
       height: attachment.height,

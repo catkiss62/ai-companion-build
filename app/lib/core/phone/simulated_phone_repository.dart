@@ -149,13 +149,7 @@ class SimulatedPhoneRepository {
     bool refresh = true,
   }) async {
     if (refresh) await refreshIfDue(now: now);
-    final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
-    final albumStorage = CompanionAlbumStorage();
-    for (final path in duePaths) {
-      try {
-        await albumStorage.deleteThumbnail(path);
-      } catch (_) {}
-    }
+    await maintainAlbum(now: now);
     final tarot = await _readList(_tarotKey);
     final notes = await _readList(_notesKey);
     final rawNotesSeenAt =
@@ -168,7 +162,7 @@ class SimulatedPhoneRepository {
         notesSeenAt.toString(),
       );
     }
-    final albumItems = await db.companionAlbumItems(includeNsfw: true);
+    final albumItems = await db.companionAlbumItems();
     return SimulatedPhoneSnapshot(
       enabled: await isEnabled(),
       diary: await _readList(_diaryKey),
@@ -208,6 +202,9 @@ class SimulatedPhoneRepository {
         comment: comment,
       );
 
+  Future<void> setAlbumCategory(String id, String category) =>
+      db.setCompanionAlbumCategory(id, category: category);
+
   Future<void> deleteAlbumItem(String id) async {
     final path = await db.deleteCompanionAlbumItem(id);
     if (path.isNotEmpty) {
@@ -216,10 +213,25 @@ class SimulatedPhoneRepository {
   }
 
   Future<int> clearAlbumCache() async {
-    final items = await db.companionAlbumItems(includeNsfw: true, limit: 500);
+    final items = await db.companionAlbumItems(limit: 500);
     return CompanionAlbumStorage().pruneUnreferencedFiles(
       items.map((item) => item.thumbnailPath),
     );
+  }
+
+  Future<int> maintainAlbum({DateTime? now}) async {
+    final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
+    final retiredNsfwPaths = await db.retireLegacyNsfwAlbumItems();
+    final storage = CompanionAlbumStorage();
+    var removed = 0;
+    for (final path in [...duePaths, ...retiredNsfwPaths]) {
+      if (path.isEmpty) continue;
+      try {
+        await storage.deleteThumbnail(path);
+        removed += 1;
+      } catch (_) {}
+    }
+    return removed;
   }
 
   Future<void> refreshIfDue({DateTime? now}) async {
