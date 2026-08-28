@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/database/app_database.dart';
@@ -1644,7 +1645,11 @@ class _MessageBubble extends StatelessWidget {
           if (message.reasoningContent.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 5),
-              child: ReasoningPanel(reasoning: message.reasoningContent),
+              child: ReasoningPanel(
+                reasoning: message.reasoningContent,
+                messageId: message.id,
+                translationScope: ReasoningTranslationScope.chat,
+              ),
             ),
           _AssistantSegmentSequence(
             chunks: chunks,
@@ -1721,7 +1726,11 @@ class _MessageBubble extends StatelessWidget {
         if (message.reasoningContent.trim().isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
-            child: ReasoningPanel(reasoning: message.reasoningContent),
+            child: ReasoningPanel(
+              reasoning: message.reasoningContent,
+              messageId: message.id,
+              translationScope: ReasoningTranslationScope.chat,
+            ),
           ),
         _AssistantTranscriptSurface(child: body),
       ],

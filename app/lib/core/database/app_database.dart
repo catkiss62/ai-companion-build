@@ -57,7 +57,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 32;
   // Historical validator compatibility token: static const int schemaVersion = 33;
   // Historical validator compatibility token: static const int schemaVersion = 34;
-  static const int schemaVersion = 35;
+  // Historical validator compatibility token: static const int schemaVersion = 35;
+  static const int schemaVersion = 36;
 
   Database? _db;
   Future<Database>? _opening;
@@ -918,6 +919,10 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 36) {
+      await _createV36Tables(db);
+      await _seedRuleLayers(db);
+    }
 
   }
 
@@ -1084,6 +1089,7 @@ class AppDatabase {
     await _createV32Tables(db);
     await _createV33Tables(db);
     await _createV34Tables(db);
+    await _createV36Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1969,6 +1975,38 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV36Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS reasoning_translations (
+        scope TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        source_sha256 TEXT NOT NULL,
+        translated_text TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'deepseek',
+        model TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (scope, message_id)
+      )
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS delete_chat_reasoning_translation
+      AFTER DELETE ON messages
+      BEGIN
+        DELETE FROM reasoning_translations
+        WHERE scope = 'chat' AND message_id = OLD.id;
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS delete_immersive_reasoning_translation
+      AFTER DELETE ON immersive_messages
+      BEGIN
+        DELETE FROM reasoning_translations
+        WHERE scope = 'immersive' AND message_id = OLD.id;
+      END
+    ''');
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2084,6 +2122,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0395.entries,
       ...legacyEditableRuleLayerSha256V0395UserOnce.entries,
       ...legacyEditableRuleLayerSha256V0395UserOnceWithoutPureDialogue.entries,
+      ...legacyEditableRuleLayerSha256V0396.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
@@ -3911,6 +3950,74 @@ class AppDatabase {
     final rows = await db.query('messages', where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return (await _messagesWithAttachments(db, rows)).single;
+  }
+
+  Future<Map<String, Object?>?> reasoningTranslation({
+    required String scope,
+    required String messageId,
+    required String sourceSha256,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'reasoning_translations',
+      where: 'scope = ? AND message_id = ? AND source_sha256 = ?',
+      whereArgs: [scope, messageId, sourceSha256],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.single;
+  }
+
+  Future<void> saveReasoningTranslation({
+    required String scope,
+    required String messageId,
+    required String sourceSha256,
+    required String translatedText,
+    required String provider,
+    required String model,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.insert(
+      'reasoning_translations',
+      {
+        'scope': scope,
+        'message_id': messageId,
+        'source_sha256': sourceSha256,
+        'translated_text': translatedText,
+        'provider': provider,
+        'model': model,
+        'created_at': now,
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<Map<String, String>> reasoningTranslationsFor({
+    required String scope,
+    required Map<String, String> messageSourceSha256,
+  }) async {
+    if (messageSourceSha256.isEmpty) return const <String, String>{};
+    final db = await database;
+    final ids = messageSourceSha256.keys.toList(growable: false);
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = await db.query(
+      'reasoning_translations',
+      where: 'scope = ? AND message_id IN ($placeholders)',
+      whereArgs: [scope, ...ids],
+    );
+    final result = <String, String>{};
+    for (final row in rows) {
+      final id = row['message_id'] as String? ?? '';
+      final sourceSha256 = row['source_sha256'] as String? ?? '';
+      final translated = row['translated_text'] as String? ?? '';
+      if (id.isNotEmpty &&
+          translated.trim().isNotEmpty &&
+          messageSourceSha256[id] == sourceSha256) {
+        result[id] = translated;
+      }
+    }
+    return result;
   }
 
   Future<List<ChatMessage>> recentMessages({int limit = 80}) async {
@@ -10698,6 +10805,7 @@ class AppDatabase {
       'reference_items',
       'immersive_rooms',
       'immersive_messages',
+      'reasoning_translations',
       'rule_layers',
       'personality_trials',
       'special_style_trials',
@@ -10779,6 +10887,7 @@ class AppDatabase {
         'reference_items',
         'immersive_rooms',
         'immersive_messages',
+        'reasoning_translations',
         'rule_layers',
         'personality_trials',
         'special_style_trials',

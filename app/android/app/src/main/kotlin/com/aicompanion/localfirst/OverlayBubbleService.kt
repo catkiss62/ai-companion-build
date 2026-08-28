@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.BitmapFactory
+import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -1588,6 +1589,8 @@ class OverlayBubbleService : Service() {
                 role = role,
                 content = map["content"] as? String ?: "",
                 reasoning = map["reasoning_content"] as? String ?: "",
+                reasoningTranslation = map["reasoning_translation"] as? String ?: "",
+                reasoningTranslationOffer = map["reasoning_translation_offer"] == true,
                 createdAt = (map["created_at"] as? Number)?.toLong() ?: 0L,
                 proactive = when (val value = map["is_proactive"]) {
                     is Boolean -> value
@@ -2654,6 +2657,8 @@ class OverlayBubbleService : Service() {
         val role: String,
         val content: String,
         val reasoning: String,
+        val reasoningTranslation: String = "",
+        val reasoningTranslationOffer: Boolean = false,
         val createdAt: Long,
         val proactive: Boolean,
         val proactiveIntent: String,
@@ -2671,6 +2676,8 @@ class OverlayBubbleService : Service() {
 
     private inner class NativeChatAdapter : BaseAdapter() {
         private val expandedReasoning = mutableSetOf<String>()
+        private val translatingReasoning = mutableSetOf<String>()
+        private val reasoningTranslationErrors = mutableMapOf<String, String>()
 
         override fun getCount(): Int = loadedMessages.size
         override fun getItem(position: Int): Any = loadedMessages[position]
@@ -2768,6 +2775,50 @@ class OverlayBubbleService : Service() {
                         setTextColor(Color.rgb(190, 185, 202))
                         setPadding(0, dp(4), 0, dp(5))
                     })
+                    if (message.reasoningTranslation.isNotBlank()) {
+                        bubble.addView(TextView(this@OverlayBubbleService).apply {
+                            text = "中文翻译"
+                            textSize = 12f
+                            setTextColor(Color.rgb(179, 136, 255))
+                            typeface = Typeface.DEFAULT_BOLD
+                            setPadding(0, dp(6), 0, dp(2))
+                        })
+                        bubble.addView(TextView(this@OverlayBubbleService).apply {
+                            text = message.reasoningTranslation
+                            textSize = 12f
+                            setTextColor(Color.rgb(190, 185, 202))
+                            setLineSpacing(0f, 1.45f)
+                            setPadding(0, 0, 0, dp(5))
+                        })
+                    } else if (!live && message.reasoningTranslationOffer) {
+                        val translating = translatingReasoning.contains(message.id)
+                        val failed = reasoningTranslationErrors[message.id]
+                        bubble.addView(TextView(this@OverlayBubbleService).apply {
+                            text = when {
+                                translating -> "翻译中…"
+                                failed != null -> "重试翻译"
+                                else -> "翻译"
+                            }
+                            textSize = 12.5f
+                            setTextColor(Color.rgb(179, 136, 255))
+                            paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+                            setPadding(0, dp(4), dp(12), dp(3))
+                            isEnabled = !translating
+                            setOnClickListener {
+                                if (!translatingReasoning.contains(message.id)) {
+                                    requestReasoningTranslation(message.id)
+                                }
+                            }
+                        })
+                        if (failed != null) {
+                            bubble.addView(TextView(this@OverlayBubbleService).apply {
+                                text = failed
+                                textSize = 11f
+                                setTextColor(Color.rgb(255, 138, 128))
+                                setPadding(0, 0, 0, dp(4))
+                            })
+                        }
+                    }
                 }
             }
             if (message.content.isNotEmpty() || message.id != STREAMING_MESSAGE_ID) {
@@ -2808,6 +2859,70 @@ class OverlayBubbleService : Service() {
                 },
             )
             return outer
+        }
+
+        private fun requestReasoningTranslation(messageId: String) {
+            if (!translatingReasoning.add(messageId)) return
+            reasoningTranslationErrors.remove(messageId)
+            notifyDataSetChanged()
+            val channel = backgroundCommands
+            if (channel == null) {
+                translatingReasoning.remove(messageId)
+                reasoningTranslationErrors[messageId] = "后台大脑尚未连接，请稍后重试。"
+                notifyDataSetChanged()
+                return
+            }
+            channel.invokeMethod(
+                "translateReasoning",
+                mapOf("messageId" to messageId),
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        mainHandler.post {
+                            translatingReasoning.remove(messageId)
+                            val map = result as? Map<*, *>
+                            val translation = map?.get("translation") as? String ?: ""
+                            if (map?.get("ok") == true && translation.isNotBlank()) {
+                                val index = loadedMessages.indexOfFirst { it.id == messageId }
+                                if (index >= 0) {
+                                    loadedMessages[index] = loadedMessages[index].copy(
+                                        reasoningTranslation = translation,
+                                    )
+                                }
+                                reasoningTranslationErrors.remove(messageId)
+                            } else {
+                                reasoningTranslationErrors[messageId] =
+                                    (map?.get("error") as? String)
+                                        ?.take(220)
+                                        ?.ifBlank { "翻译失败，请重试。" }
+                                        ?: "翻译失败，请重试。"
+                            }
+                            notifyDataSetChanged()
+                        }
+                    }
+
+                    override fun error(
+                        errorCode: String,
+                        errorMessage: String?,
+                        errorDetails: Any?,
+                    ) {
+                        mainHandler.post {
+                            translatingReasoning.remove(messageId)
+                            reasoningTranslationErrors[messageId] =
+                                (errorMessage ?: errorCode).take(220)
+                            notifyDataSetChanged()
+                        }
+                    }
+
+                    override fun notImplemented() {
+                        mainHandler.post {
+                            translatingReasoning.remove(messageId)
+                            reasoningTranslationErrors[messageId] =
+                                "后台翻译功能尚未就绪，请稍后重试。"
+                            notifyDataSetChanged()
+                        }
+                    }
+                },
+            )
         }
 
         private fun actionTintedText(value: String): CharSequence {

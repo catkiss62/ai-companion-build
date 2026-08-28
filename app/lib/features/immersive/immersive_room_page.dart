@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
+import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
@@ -936,7 +937,11 @@ class _ImmersiveMessageView extends StatelessWidget {
           if (message.reasoningContent.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(left: 7, right: 4, bottom: 7),
-              child: ReasoningPanel(reasoning: message.reasoningContent),
+              child: ReasoningPanel(
+                reasoning: message.reasoningContent,
+                messageId: message.id,
+                translationScope: ReasoningTranslationScope.immersive,
+              ),
             ),
           _ImmersiveAssistantRail(
             content: message.content,

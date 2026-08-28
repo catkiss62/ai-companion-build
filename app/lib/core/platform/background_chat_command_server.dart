@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../../features/chat/chat_controller.dart';
+import '../ai/reasoning_translation_service.dart';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../storage/message_attachment_storage.dart';
@@ -21,9 +22,12 @@ class BackgroundChatCommandServer {
   BackgroundChatCommandServer({
     AppDatabase? db,
     ChatController? controller,
+    ReasoningTranslationService? translationService,
     this.onWake,
   })  : db = db ?? AppDatabase.instance,
-        _controller = controller;
+        _controller = controller,
+        _translationService =
+            translationService ?? ReasoningTranslationService.instance;
 
   static const MethodChannel _channel =
       MethodChannel('ai_companion/background_commands');
@@ -31,6 +35,7 @@ class BackgroundChatCommandServer {
   final AppDatabase db;
   final MessageAttachmentStorage _attachmentStorage = MessageAttachmentStorage();
   final void Function(String reason)? onWake;
+  final ReasoningTranslationService _translationService;
   ChatController? _controller;
   bool _controllerInitialized = false;
   Future<void>? _initializing;
@@ -148,6 +153,45 @@ class BackgroundChatCommandServer {
         final controller = await _ensureController();
         await controller.stopSpeech();
         return null;
+      case 'translateReasoning':
+        final id = _stringArg(call.arguments, 'messageId').trim();
+        final message = await db.messageById(id);
+        if (message == null || !message.isAssistant) {
+          return const <String, Object?>{
+            'ok': false,
+            'error': '没有找到这条助手思考。',
+          };
+        }
+        if (!ReasoningTranslationPolicy.shouldOffer(
+          message.reasoningContent,
+        )) {
+          return const <String, Object?>{
+            'ok': false,
+            'error': '这条思考不是英文居多，无需翻译。',
+          };
+        }
+        try {
+          final outcome = await _translationService.translate(
+            scope: ReasoningTranslationScope.chat,
+            messageId: message.id,
+            reasoning: message.reasoningContent,
+          );
+          return <String, Object?>{
+            'ok': true,
+            'translation': outcome.translation,
+            'cached': outcome.fromCache,
+          };
+        } catch (error) {
+          final raw = error is ReasoningTranslationException
+              ? error.message
+              : error.toString();
+          return <String, Object?>{
+            'ok': false,
+            'error': raw.length <= 220
+                ? raw
+                : '${raw.substring(0, 220)}…',
+          };
+        }
       case 'wakeBackground':
         final reason = _stringArg(call.arguments, 'reason').trim();
         onWake?.call(reason.isEmpty ? 'native_wake' : reason);
@@ -254,6 +298,18 @@ class BackgroundChatCommandServer {
     List<ChatMessage> messages, {
     DateTime? before,
   }) async {
+    final translationSources = <String, String>{
+      for (final message in messages)
+        if (message.isAssistant &&
+            ReasoningTranslationPolicy.shouldOffer(message.reasoningContent))
+          message.id: ReasoningTranslationPolicy.sourceSha256(
+            message.reasoningContent,
+          ),
+    };
+    final translations = await db.reasoningTranslationsFor(
+      scope: ReasoningTranslationScope.chat.key,
+      messageSourceSha256: translationSources,
+    );
     final rows = <Map<String, Object?>>[];
     for (final message in messages) {
       final attachments = <Map<String, Object?>>[];
@@ -271,6 +327,9 @@ class BackgroundChatCommandServer {
       }
       rows.add(<String, Object?>{
         ...message.toDb(),
+        'reasoning_translation_offer':
+            translationSources.containsKey(message.id),
+        'reasoning_translation': translations[message.id] ?? '',
         'attachments': attachments,
       });
     }
