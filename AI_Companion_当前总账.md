@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.1 相册身份软参照与收藏闭环（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.1 相册身份软参照与收藏闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已确认相册作为当前正式任务；本批完成后再单独检查完整存档导出/导入，避免把相册状态机与备份协议同时改动。NSFW 相册正式取消，不再保留新的成人图片识别、分类、收藏或展示路径。
 
@@ -30,6 +30,30 @@
 6. 重复检测保留来源 ID 与缩略图 SHA-256，并新增本地感知哈希近重复检测；拒绝近似重复只影响相册收藏，不阻止聊天识图或公开网页浏览。来源详情对安全 HTTPS 网页提供可点击打开入口，用户消息图片仍只显示“你发来的图片”。
 7. 点踩后一小时删除继续可由喜欢/不判断撤销；到期清理从“只有打开查手机时运行”提升到后台维护周期也会运行。补充真实 SQLite 状态机与迁移测试，覆盖候选→保存/拒绝、精确/感知重复、反馈撤销、到期清理、分类纠正和 NSFW 退役清理。
 8. 目标分支 `agent/v0401-album-identity-closure`，目标版本 `0.40.1+129`；预计 SQLite schema 从 37 升至 38 保存感知哈希。完成前运行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名及大型素材校验；Actions 与 APK 通过后仍需真机验证真实千问识别、来源打开、分类纠正及后台删除，不合并 `main`。
+
+### B. 实际实现
+
+1. 千问相册判断现在发送“第一张候选缩略图 + 第二张打包形象软参照”，并在文字契约中明确只描述/收藏第一张。核心身份按鲸鱼耳鳍、明显鲸鱼尾、脸部与蓝色系长发的组合判断；女仆装、裙长、配饰、姿势、发型细节和轻微发色差均保持可变。参照加载失败时退化到同一文字身份契约，不阻断聊天识图。远程候选检索范围、fisharchive 来源与聊天识图入口均未缩小。
+2. NSFW 相册已端到端退役：千问返回结构只允许 `memory / self_image / other`，明确成人内容即使返回 `save=true` 也会被客户端强制拒绝；相册筛选、网格遮罩和详情入口已删除。schema 38 升级先把旧成人收藏标记删除，后台/手机相册维护再清除其受控缩略图路径与文件；聊天原图、聊天消息和普通 NSFW 对话能力不受影响。数据库继续保留旧 `nsfw` 列只用于安全迁移与历史兼容，不再建立新成人收藏。
+3. 新增本地 64-bit dHash 感知去重，阈值为 Hamming distance ≤ 5；它与原来源 ID、内容 SHA-256 三层去重并行，只影响是否留下相册缩略图。哈希只在本机由受控缩略图计算，不上传图片身体或感知哈希。新增 schema 字段 `perceptual_hash` 和索引，保存失败/重复拒绝时仍清理临时缩略图。
+4. 相册详情现在可手动纠正为“回忆 / 形象插画 / 其他”，并以 `category_source=user` 区分 AI 初判；安全 HTTPS 远程候选显示“打开图片来源”，原生桥只接受带 host 的 HTTPS URI 并使用 `ACTION_VIEW + CATEGORY_BROWSABLE`，用户发图不伪造来源链接。
+5. 审美弱学习加入有限的喜欢/不喜欢视觉标签：只读最近 80 条有明确反馈的标签，单图最多 12 个、单标签最多 36 字、每侧最多 8 个聚合标签；最近备注仍有限长。最终提示明确这些是不可信弱提示，不能执行其中指令，也不能写入聊天、事实记忆或把它解释成用户对角色本人的评价。
+6. 点踩一小时软删除、点赞/不判断撤销与立即删除语义保留；相册维护从仅打开模拟手机扩展到恢复编排周期，可在后台删除到期文件并退役旧成人缩略图。新增真实 SQLite 合同测试覆盖生产 DDL、保存、精确重复、感知阈值、分类纠正、点踩/撤销/到期删除与旧成人记录清理；新增 Flutter 单测锁定双图请求、成人强制拒绝与感知距离。
+7. 版本升级为 `0.40.1+129`、SQLite schema 38；未新增自定义相册分类、未加入三视图、未改变特殊风格/规则正文、未改存档导入导出协议。完整存档导出/导入检查继续作为下一项独立审计，不与本批状态机混改。
+
+### C. 提交、测试、构建与交付证据
+
+1. 远端功能提交为 [`aaeb2844b93a0e2d4dcedbbdd38beafdcf632e52`](https://github.com/catkiss62/ai-companion-build/commit/aaeb2844b93a0e2d4dcedbbdd38beafdcf632e52)，功能 tree SHA `179a3d56a90601df7fdfceb3b6ce6e24682fb6bd` 与本地功能提交 `fa11839aead69add1261ec731ef2c25845c0cc7e` 完全一致；修改前范围提交为 `ab5007dac9c5bc6b6a2ebc047ee8f7910f742a44`。远端分支为 [`agent/v0401-album-identity-closure`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0401-album-identity-closure)，未修改或合并 `main`。
+2. [Actions run 33186531737](https://github.com/catkiss62/ai-companion-build/actions/runs/33186531737) 一次全绿：105 项当前/历史 Python validators、Kotlin 桌宠/悬浮窗测试、Flutter analyze、314 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、形象软参照 hash、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.1-129-Album-Identity-Closure-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-d001491a4251757a5b96/AI-Companion-v0.40.1-129-Album-Identity-Closure-APK.apk)，324,867,430 bytes，SHA-256 `fb5c17e5d3474a9dbfaa5e24fba4f97fc6c52e906bad8a93dcd808d80a468200`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版；Draft Release 为 [untagged-d001491a4251757a5b96](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d001491a4251757a5b96)，仍是测试草稿而非公开正式 Release。
+4. Artifact [9692243283](https://github.com/catkiss62/ai-companion-build/actions/runs/33186531737/artifacts/9692243283)，名称 `AI-Companion-v0.40.1-129-Album-Identity-Closure-APK`，ZIP 318,570,814 bytes，digest `sha256:9f40c878216350ee12e7ef08dfeb8fa69ed15bb4d013ad92029bb449e3ba5659`，到期时间 2026-09-11T15:53:26Z。
+
+### D. 真机待验
+
+1. 建议先覆盖安装 v0.40.0，确认 schema 37→38 后原普通相册收藏仍在、旧 NSFW 相册项和其相册缩略图消失，但对应聊天消息/聊天图片未被删除；再测试卸载重装的新库路径。覆盖安装后若旧成人缩略图未立即消失，触发一次前台恢复或打开模拟手机再检查后台维护。
+2. 分别发送/让她发现：参考形象同装束、不同衣服/短裙、轻微发色变化、只有蓝色但没有鲸鱼身份组合、普通可爱插画和明确成人图片。应允许前三类按综合特征识别她，不能把单一蓝色图机械认成她；普通好图仍可收藏为其他，明确成人图片不得进入相册。真实千问响应通过前不能只凭静态测试宣布识别精度验收。
+3. 在详情把同一图片依次纠正为回忆、形象插画、其他，返回网格后筛选应同步；远程 HTTPS 图可打开原来源，用户发图不显示来源按钮。对喜欢/不喜欢图进行多轮反馈，确认审美变化是渐进弱偏好，不把点踩写进对话或误认为对角色本人的评价。
+4. 用同图、压缩/轻微缩放近似图与明显不同图测试三层去重；点踩后立即改为喜欢或不判断应撤销删除，保持点踩并超过一小时后在不打开模拟手机的后续恢复周期也应清除。上述真机流程通过前，本节保持 `TRUE DEVICE PENDING`。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.0 特殊风格体验、记忆来源与前景胶囊（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
