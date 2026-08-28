@@ -1,0 +1,3 @@
+AI Companion v0.39.8+126 CI source trigger
+branch=agent/v0398-rule-refresh-immersive-control-parser
+scope=rule-refresh-immersive-control-action-parser
