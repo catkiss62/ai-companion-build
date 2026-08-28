@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.9 用户称谓与沉浸视角冲突根修（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.9 用户称谓与沉浸视角冲突根修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > v0.39.8 真机在卸载重装、无旧上下文条件下确认：普通聊天与沉浸房间的最终正文仍把用户写成“他”。同轮可见思考已经准确复述“动作提及用户用‘你’”，正文却立即写成第三人称，证明末端称呼提醒真实进入模型但未能覆盖上游高密度第三人称范式；不是数据库污染、规则未安装、解析器或生成后替换造成。
 
@@ -39,11 +39,20 @@
 6. 新增 `legacyEditableRuleLayerSha256V0398`，覆盖本轮改变的24个普通可编辑/模板层和2个沉浸层。覆盖安装只迁移 SHA-256 精确命中 v0.39.8 库存正文的规则；任何用户手工编辑仍逐字保留。SQLite schema 继续为36。
 7. 新增 v0.39.9 静态门禁，精确锁定31个普通规则正文、沉浸全局正文及实际注入的成人参考哈希，并检查运行身份、性格、身体状态和记忆提取等隐藏上游不存在正向第三人称用户提示；同时新增 Flutter 单测断言可见思考/最终正文称呼、Rule07无矛盾及实际成人参考无“玩家”。
 
-### C. 当前验证状态
+### C. 提交、测试、构建与交付证据
 
-1. v0.39.8历史规则刷新门禁、v0.39.9新人称门禁、NSFW路由、v0.38.18规则06、沉浸房间、普通聊天格式等针对性 validators 已通过；工作区 `git diff --check` 通过。
-2. GitHub Actions 清单中的103项 Python validators 已逐项执行：所有不依赖当前工作区缺失的大型素材/本机构建器的项目均通过；本地缺少417文件桌宠包、TTS payload/native libraries、LingChat素材、Dart/Flutter与kotlinc，相关完整门禁留给 Actions 按既有下载/恢复流程验证，不把缺素材误报成实现失败。
-3. 当前仍为 `IN PROGRESS`：尚未提交、推送或启动 Actions；Flutter analyze/tests、Kotlin tests、release APK、稳定签名、大型素材完整性、APK SHA 与真机结果待后续回填。
+1. 远端功能提交为 [`ab5c6c8633b0e94dc3161da40043b18caadb23b8`](https://github.com/catkiss62/ai-companion-build/commit/ab5c6c8633b0e94dc3161da40043b18caadb23b8)，完整保存本轮规则、隐藏提示、迁移、测试、版本与门禁；远端分支为 [`agent/v0399-user-address-viewpoint`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0399-user-address-viewpoint)，未修改或合并 `main`。
+2. 第一轮 [Actions run 33155672371](https://github.com/catkiss62/ai-companion-build/actions/runs/33155672371) 在源码校验前停止：历史固定依赖仓库 `catkiss62/meju-tts-parity-test-android` 对 Actions 持续返回404。构建兜底提交 [`01a5a90ff7cb9fc5d176b6b4dbc892cfc58b3772`](https://github.com/catkiss62/ai-companion-build/commit/01a5a90ff7cb9fc5d176b6b4dbc892cfc58b3772) 改为从已验收 v0.39.8 APK提取完全相同的TTS资源；先锁定上一版APK SHA-256，再继续按既有manifest逐项校验27项assets和5个native libraries，不改变TTS内容。
+3. 第二轮 [Actions run 33155903410](https://github.com/catkiss62/ai-companion-build/actions/runs/33155903410) 已通过TTS/大型素材恢复、103项Python validators、Kotlin测试及Flutter analyze；Flutter tests为306通过、1失败，唯一失败是历史测试仍期待性格提示含“他是男朋友”。提交 [`123d63d5c251af4b9c2f29f6c69b2712a76dbed6`](https://github.com/catkiss62/ai-companion-build/commit/123d63d5c251af4b9c2f29f6c69b2712a76dbed6) 只把该测试期望同步为“用户是男朋友”，没有再改生产规则。
+4. 最终 [Actions run 33156422221](https://github.com/catkiss62/ai-companion-build/actions/runs/33156422221) 全绿：103项当前/历史Python validators、Kotlin桌宠/悬浮窗测试、Flutter analyze、307项Flutter tests、release APK、稳定签名、27项TTS assets + 5个native libraries、417文件桌宠包、62项LingChat资产、22张塔罗素材、Artifact与Draft Release上传全部通过。
+5. APK [`AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-65169ffaa7ff95b27b4a/AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK.apk)，324,763,062 bytes，SHA-256 `cfd015df3178de41118dddcc177f8e540972979141bd7ce78bd646312122d2b3`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版；Draft Release为 [untagged-65169ffaa7ff95b27b4a](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-65169ffaa7ff95b27b4a)，仍是测试草稿而非公开正式Release。
+6. Artifact [9680045441](https://github.com/catkiss62/ai-companion-build/actions/runs/33156422221/artifacts/9680045441)，名称 `AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK`，ZIP 318,466,778 bytes，digest `sha256:492a2d8d32803098b37b8d62be4247df50c23ae0d61f548cf25a8814a393d432`，到期时间2026-09-11T08:53:06Z。
+
+### D. 真机待验
+
+1. 按用户当前习惯卸载后重装，以全新普通聊天分别测试普通与NSFW首轮、多轮：可见思考提及用户时使用“你”、名字或昵称；最终动作、神态、旁白和台词提及用户时稳定写“你”，不再被上游“他”范式拉回第三人称。
+2. 重点确认规则05/06原有亲密表现力、篇幅、节奏、词汇与身体反馈没有下降；本轮没有整合、精简或生成后替换正文，也没有增加模型重试，因此不应出现由本地改写导致的文风变化。
+3. 沉浸房间分别测试首次输出和硬下限续写：保持AI角色为焦点的“她/你”第二人称互动视角；可以充分描写直接刺激造成的被动生理、身体和物理反馈，但不得替用户新增台词、主动动作、内心、态度、同意、意图、决定或场景跳转。真实DeepSeek输出通过前，本节保持 `TRUE DEVICE PENDING`。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.8 规则真源、人称控制与动作段解析（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
