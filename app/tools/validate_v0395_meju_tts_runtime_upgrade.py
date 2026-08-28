@@ -181,8 +181,11 @@ for token in (
 assert "exceptional long runs stay below the new engine safety cap" in segmenter_test
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.39\.(?:5\+123|6\+124|7\+125|8\+126)$", pubspec, re.MULTILINE)
-assert "static const int schemaVersion = 35;" in read("lib/core/database/app_database.dart")
+assert re.search(r"^version: 0\.39\.(?:5\+123|6\+124|7\+125|8\+126|9\+127)$", pubspec, re.MULTILINE)
+assert re.search(
+    r"static const int schemaVersion = (?:35|36);",
+    read("lib/core/database/app_database.dart"),
+)
 workflow = read("../.github/workflows/build-apk.yml")
 assert any(
     branch in workflow
@@ -190,6 +193,7 @@ assert any(
         "agent/v0395-meju-tts-runtime-upgrade",
         "agent/v0396-rule02-message-sound",
         "agent/v0397-reasoning-translation-dialogue-boundary",
+        "agent/v0399-user-address-viewpoint",
     )
 )
 assert "python3 tools/validate_v0395_meju_tts_runtime_upgrade.py" in workflow
@@ -199,13 +203,14 @@ assert any(
         "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK",
         "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
         "AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK",
+        "AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK",
     )
 )
 for token in (
-    "catkiss62/meju-tts-parity-test-android",
-    "2059a660cc9768b95ace2561741fcb0312f3ac60",
-    "runtime-payload-v1",
-    "a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c",
+    "v0.39.8-rule-refresh-immersive-control-parser",
+    "AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk",
+    "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8",
+    "assets/legacy_tts/pinyin",
 ):
     assert token in workflow, token
 ledger = read("../AI_Companion_当前总账.md")

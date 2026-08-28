@@ -257,36 +257,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout pinned Meju TTS dictionary source
-        uses: actions/checkout@v4
-        with:
-          repository: catkiss62/meju-tts-parity-test-android
-          ref: 2059a660cc9768b95ace2561741fcb0312f3ac60
-          path: .tts-source
-
       - name: Restore exact validated Meju TTS runtime payload
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          PREVIOUS_TAG='v0.39.8-rule-refresh-immersive-control-parser'
+          PREVIOUS_APK='AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk'
           mkdir -p .tts-payload/unpacked
-          gh release download runtime-payload-v1 \
-            --repo catkiss62/meju-tts-parity-test-android \
-            --pattern meju-tts-runtime-payload.zip \
+          gh release download "${PREVIOUS_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "${PREVIOUS_APK}" \
             --dir .tts-payload
-          echo 'a826452fdf4ef8d86c7d995382ebdf092b3e341357182201a85ab204f06db24c  .tts-payload/meju-tts-runtime-payload.zip' | sha256sum -c -
-          unzip -q .tts-payload/meju-tts-runtime-payload.zip \
+          echo "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8  .tts-payload/${PREVIOUS_APK}" | sha256sum -c -
+          unzip -q ".tts-payload/${PREVIOUS_APK}" \
+            'assets/tts_models/*' \
+            'assets/legacy_tts/*' \
+            'lib/arm64-v8a/*' \
             -d .tts-payload/unpacked
           TTS_MAIN='app/android/app/src/main'
           mkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"
-          cp -a .tts-payload/unpacked/app/src/main/assets/tts_models \
+          cp -a .tts-payload/unpacked/assets/tts_models \
             "${TTS_MAIN}/assets/"
-          cp -a .tts-payload/unpacked/app/src/main/assets/legacy_tts/runtime \
+          cp -a .tts-payload/unpacked/assets/legacy_tts/runtime \
             "${TTS_MAIN}/assets/legacy_tts/"
-          cp -a .tts-source/app/src/main/assets/legacy_tts/pinyin \
+          cp -a .tts-payload/unpacked/assets/legacy_tts/pinyin \
             "${TTS_MAIN}/assets/legacy_tts/"
-          cp -a .tts-payload/unpacked/app/src/main/jniLibs/arm64-v8a \
+          cp -a .tts-payload/unpacked/lib/arm64-v8a \
             "${TTS_MAIN}/jniLibs/"
 
       - name: Verify clean source baseline
