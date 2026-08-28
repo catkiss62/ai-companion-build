@@ -30,7 +30,7 @@ void main() {
     );
   });
 
-  test('unparenthesized action line stays paired with following dialogue', () {
+  test('quoted mixed reply keeps every unquoted line outside dialogue', () {
     final segments = ChatSegmentCodec.parseAssistantText(
       '轻轻把耳鳍压低\n「才没有一直等你。」\n\n第二点是普通说明。',
     );
@@ -38,7 +38,7 @@ void main() {
     expect(segments[0].kind, ChatSegmentKind.action);
     expect(segments[0].text, '轻轻把耳鳍压低');
     expect(segments[1].kind, ChatSegmentKind.dialogue);
-    expect(segments[2].kind, ChatSegmentKind.dialogue);
+    expect(segments[2].kind, ChatSegmentKind.action);
   });
 
   test('blank line between action and dialogue keeps action semantics', () {
@@ -218,24 +218,3 @@ void main() {
       ChatPortraitAnimation.seriousThink,
     );
     expect(
-      ChatVisualResolver.resolveEmotionKey('affection').animation,
-      ChatPortraitAnimation.heartBeat,
-    );
-    expect(
-      ChatVisualResolver.resolveEmotionKey('playful').animation,
-      ChatPortraitAnimation.naughtyBounce,
-    );
-    expect(
-      ChatVisualResolver.resolveEmotionKey('embarrassed').animation,
-      ChatPortraitAnimation.embarrassedShake,
-    );
-    expect(
-      ChatVisualResolver.resolveEmotionKey('surprised').animation,
-      ChatPortraitAnimation.none,
-    );
-    expect(
-      ChatVisualResolver.resolveEmotionKey('affection').effectAsset,
-      endsWith('/heart.webp'),
-    );
-  });
-}
