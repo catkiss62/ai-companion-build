@@ -14,6 +14,7 @@ class QwenVisionObservation {
     this.albumReason = '',
     this.aestheticTags = const [],
     this.albumConfidence = 0,
+    this.albumAdultContent = false,
   });
 
   final String summary;
@@ -23,6 +24,7 @@ class QwenVisionObservation {
   final String albumReason;
   final List<String> aestheticTags;
   final double albumConfidence;
+  final bool albumAdultContent;
 }
 
 class QwenVisionClient {
@@ -175,6 +177,7 @@ class QwenVisionClient {
       aestheticTags: tags,
       albumConfidence:
           ((album['confidence'] as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
+      albumAdultContent: assessForAlbum && adultContent,
     );
   }
 

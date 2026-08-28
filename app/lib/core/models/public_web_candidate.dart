@@ -64,20 +64,38 @@ class PublicWebProviderResult {
     required this.provider,
     this.failureReason = '',
     this.compactionAttempted = false,
+    this.compactionEnabled = false,
+    this.compactionConfigured = false,
     this.compactionSucceeded = false,
     this.compactionInputCount = 0,
     this.compactionOutputCount = 0,
     this.compactionFailureReason = '',
+    this.primaryProvider = '',
+    this.primaryFailureReason = '',
+    this.fallbackProvider = '',
+    this.fallbackEligible = false,
+    this.fallbackAttempted = false,
+    this.fallbackSucceeded = false,
+    this.fallbackFailureReason = '',
   });
 
   final List<PublicWebCandidateDraft> candidates;
   final String provider;
   final String failureReason;
   final bool compactionAttempted;
+  final bool compactionEnabled;
+  final bool compactionConfigured;
   final bool compactionSucceeded;
   final int compactionInputCount;
   final int compactionOutputCount;
   final String compactionFailureReason;
+  final String primaryProvider;
+  final String primaryFailureReason;
+  final String fallbackProvider;
+  final bool fallbackEligible;
+  final bool fallbackAttempted;
+  final bool fallbackSucceeded;
+  final String fallbackFailureReason;
 
   bool get succeeded => failureReason.isEmpty;
 }

@@ -1,6 +1,7 @@
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import '../diagnostics/provider_health.dart';
 import '../desire/desire_engine.dart';
 import '../models/autonomous_action.dart';
 import '../models/desire_state.dart';
@@ -94,6 +95,15 @@ class PublicWebDiscoveryEngine {
       now: instant,
     );
     if (!requestResult.decision.allowed || !requestResult.recorded) {
+      await db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'search',
+        context: 'autonomous',
+        primaryProvider: ProviderHealth.providerKey(provider.providerKey),
+        primaryOutcome: 'not_called',
+        finalOutcome: 'gate_blocked',
+        latencyBucket: 'under_1s',
+        createdAt: instant,
+      ));
       await _recordRuntime(
         at: instant,
         outcome: requestResult.recorded
@@ -117,6 +127,7 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'claim_lost');
     }
 
+    final providerStarted = DateTime.now();
     final result = await provider.discover(
       query: topic.query,
       driveKey: run.driveKey,
@@ -124,6 +135,17 @@ class PublicWebDiscoveryEngine {
       interestKey: topic.interestKey,
       now: instant,
     );
+    final providerElapsed = DateTime.now().difference(providerStarted);
+    await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
+      result: result,
+      context: 'autonomous',
+      elapsed: providerElapsed,
+    ));
+    await db.recordProviderHealthEvent(ProviderHealth.webCompactionEvent(
+      result: result,
+      context: 'autonomous',
+      elapsed: providerElapsed,
+    ));
     await _recordCompactionTelemetry(result, instant);
     if (!result.succeeded) {
       final completed = await coordinator.completeWithoutSatisfaction(

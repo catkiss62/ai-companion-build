@@ -125,6 +125,13 @@ class LongRunningMaintenanceEngine {
       final postTurnJobs = await db.pruneCompletedPostTurnJobs();
       final generationJobs = await db.pruneTerminalGenerationJobs();
       final jobs = postTurnJobs + generationJobs;
+      if (!await stillOwn()) return null;
+      await db.pruneTableByAgeAndCap(
+        table: 'provider_health_events',
+        timeColumn: 'created_at',
+        maxAge: const Duration(days: 14),
+        maxRows: 500,
+      );
 
       final result = LongRunningMaintenanceResult(
         retiredThreads: retired.length,

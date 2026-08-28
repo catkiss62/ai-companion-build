@@ -1,6 +1,7 @@
 import '../ai/generation_cancellation.dart';
 import '../autonomy/layered_public_web_provider.dart';
 import '../database/app_database.dart';
+import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../models/public_web_candidate.dart';
 import '../perception/current_device_context_refresher.dart';
@@ -140,6 +141,7 @@ class AgentToolRunner {
           (await db.getSetting('agnes_web_compaction_enabled')) != '0',
       extraSources: await db.getSetting('public_web_extra_sources') ?? '',
     );
+    final providerStarted = DateTime.now();
     final result = await provider.discover(
       query: normalized,
       driveKey: 'curiosity',
@@ -147,6 +149,17 @@ class AgentToolRunner {
       interestKey: 'user_turn',
       now: DateTime.now(),
     );
+    final providerElapsed = DateTime.now().difference(providerStarted);
+    await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
+      result: result,
+      context: 'user_turn',
+      elapsed: providerElapsed,
+    ));
+    await db.recordProviderHealthEvent(ProviderHealth.webCompactionEvent(
+      result: result,
+      context: 'user_turn',
+      elapsed: providerElapsed,
+    ));
     cancellationToken?.throwIfCancelled();
     await _recordCompactionTelemetry(result, DateTime.now());
     if (!result.succeeded) {

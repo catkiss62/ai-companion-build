@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import '../emotion/emotion_contract.dart';
+import '../diagnostics/provider_health.dart';
 import '../models/chat_message.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -63,7 +64,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 35;
   // Historical validator compatibility token: static const int schemaVersion = 36;
   // Historical validator compatibility token: static const int schemaVersion = 37;
-  static const int schemaVersion = 38;
+  // Historical validator compatibility token: static const int schemaVersion = 38;
+  static const int schemaVersion = 39;
 
   Database? _db;
   Future<Database>? _opening;
@@ -983,6 +985,17 @@ class AppDatabase {
         WHERE nsfw = 1
       ''');
     }
+    if (oldVersion < 39) {
+      await _createV39Tables(db);
+      await db.insert(
+        'settings',
+        {
+          'key': 'provider_health_started_at',
+          'value': DateTime.now().millisecondsSinceEpoch.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
 
   }
 
@@ -1150,6 +1163,7 @@ class AppDatabase {
     await _createV33Tables(db);
     await _createV34Tables(db);
     await _createV36Tables(db);
+    await _createV39Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1160,6 +1174,10 @@ class AppDatabase {
       'updated_at': now,
     });
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
+    await db.insert('settings', {
+      'key': 'provider_health_started_at',
+      'value': now.toString(),
+    });
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
     await db.insert('settings', {'key': 'reasoning_effort', 'value': 'high'});
     await db.insert('settings', {'key': 'nsfw_active', 'value': '0'});
@@ -2077,6 +2095,37 @@ class AppDatabase {
     ''');
   }
 
+  Future<void> _createV39Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS provider_health_events (
+        id TEXT PRIMARY KEY,
+        lane TEXT NOT NULL,
+        context TEXT NOT NULL,
+        primary_provider TEXT NOT NULL,
+        primary_outcome TEXT NOT NULL,
+        primary_error_category TEXT NOT NULL DEFAULT 'none',
+        fallback_provider TEXT NOT NULL DEFAULT 'none',
+        fallback_eligible INTEGER NOT NULL DEFAULT 0,
+        fallback_attempted INTEGER NOT NULL DEFAULT 0,
+        fallback_outcome TEXT NOT NULL DEFAULT 'not_attempted',
+        fallback_error_category TEXT NOT NULL DEFAULT 'none',
+        final_provider TEXT NOT NULL DEFAULT 'none',
+        final_outcome TEXT NOT NULL,
+        result_count INTEGER NOT NULL DEFAULT 0,
+        latency_bucket TEXT NOT NULL DEFAULT 'unknown',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_provider_health_time '
+      'ON provider_health_events(created_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_provider_health_lane_time '
+      'ON provider_health_events(lane, created_at DESC)',
+    );
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2715,6 +2764,197 @@ class AppDatabase {
     );
   }
 
+  Future<bool> recordProviderHealthEvent(ProviderHealthEvent event) async {
+    try {
+      final db = await database;
+      final createdAt = (event.createdAt ?? DateTime.now()).millisecondsSinceEpoch;
+      await db.insert('provider_health_events', {
+        'id': _uuid.v4(),
+        'lane': ProviderHealth.safeLane(event.lane),
+        'context': ProviderHealth.safeContext(event.context),
+        'primary_provider': ProviderHealth.safeProvider(event.primaryProvider),
+        'primary_outcome': ProviderHealth.safeOutcome(event.primaryOutcome),
+        'primary_error_category':
+            ProviderHealth.safeErrorCategory(event.primaryErrorCategory),
+        'fallback_provider': ProviderHealth.safeProvider(event.fallbackProvider),
+        'fallback_eligible': event.fallbackEligible ? 1 : 0,
+        'fallback_attempted': event.fallbackAttempted ? 1 : 0,
+        'fallback_outcome': ProviderHealth.safeOutcome(event.fallbackOutcome),
+        'fallback_error_category':
+            ProviderHealth.safeErrorCategory(event.fallbackErrorCategory),
+        'final_provider': ProviderHealth.safeProvider(event.finalProvider),
+        'final_outcome': ProviderHealth.safeOutcome(event.finalOutcome),
+        'result_count': event.resultCount.clamp(0, 999),
+        'latency_bucket': ProviderHealth.safeLatencyBucket(event.latencyBucket),
+        'created_at': createdAt,
+      });
+      await db.delete(
+        'provider_health_events',
+        where: 'created_at < ?',
+        whereArgs: [createdAt - const Duration(days: 14).inMilliseconds],
+      );
+      await db.rawDelete('''
+        DELETE FROM provider_health_events
+        WHERE id NOT IN (
+          SELECT id FROM provider_health_events
+          ORDER BY created_at DESC LIMIT 500
+        )
+      ''');
+      return true;
+    } catch (_) {
+      // Observability must never change the provider's user-visible behavior.
+      return false;
+    }
+  }
+
+  Future<Map<String, Object?>> providerHealthDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final cutoff = instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+
+    Future<Map<String, int>> grouped(String column) async {
+      final rows = await db.rawQuery('''
+        SELECT $column AS value, COUNT(*) AS count
+        FROM provider_health_events
+        WHERE created_at >= ?
+        GROUP BY $column
+      ''', [cutoff]);
+      return <String, int>{
+        for (final row in rows)
+          row['value']?.toString() ?? 'unknown':
+              (row['count'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    Future<Map<String, int>> groupedFallback(String column) async {
+      final rows = await db.rawQuery('''
+        SELECT $column AS value, COUNT(*) AS count
+        FROM provider_health_events
+        WHERE created_at >= ? AND fallback_eligible = 1
+        GROUP BY $column
+      ''', [cutoff]);
+      return <String, int>{
+        for (final row in rows)
+          row['value']?.toString() ?? 'unknown':
+              (row['count'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    Future<Map<String, Map<String, int>>> groupedByLane(String column) async {
+      final rows = await db.rawQuery('''
+        SELECT lane, $column AS value, COUNT(*) AS count
+        FROM provider_health_events
+        WHERE created_at >= ?
+        GROUP BY lane, $column
+      ''', [cutoff]);
+      final result = <String, Map<String, int>>{};
+      for (final row in rows) {
+        final lane = row['lane']?.toString() ?? 'unknown';
+        final value = row['value']?.toString() ?? 'unknown';
+        result.putIfAbsent(lane, () => <String, int>{})[value] =
+            (row['count'] as num?)?.toInt() ?? 0;
+      }
+      return result;
+    }
+
+    final latest = await db.query(
+      'provider_health_events',
+      columns: const [
+        'lane',
+        'context',
+        'primary_provider',
+        'primary_outcome',
+        'primary_error_category',
+        'fallback_provider',
+        'fallback_eligible',
+        'fallback_attempted',
+        'fallback_outcome',
+        'fallback_error_category',
+        'final_provider',
+        'final_outcome',
+        'result_count',
+        'latency_bucket',
+        'created_at',
+      ],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    final total24h = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM provider_health_events WHERE created_at >= ?',
+          [cutoff],
+        )) ??
+        0;
+    final total = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM provider_health_events'),
+        ) ??
+        0;
+    final fallbackEligible = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM provider_health_events '
+          'WHERE created_at >= ? AND fallback_eligible = 1',
+          [cutoff],
+        )) ??
+        0;
+    final fallbackAttempted = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM provider_health_events '
+          'WHERE created_at >= ? AND fallback_attempted = 1',
+          [cutoff],
+        )) ??
+        0;
+    final row = latest.isEmpty ? null : latest.first;
+    return {
+      'mode': 'diagnostics_only_no_behavior_change',
+      'retention': {'days': 14, 'maxRows': 500},
+      'total': total,
+      'last24h': total24h,
+      'byLane24h': await grouped('lane'),
+      'byContext24h': await grouped('context'),
+      'byPrimaryOutcome24h': await grouped('primary_outcome'),
+      'byFinalOutcome24h': await grouped('final_outcome'),
+      'byPrimaryErrorCategory24h': await grouped('primary_error_category'),
+      'byFinalProvider24h': await grouped('final_provider'),
+      'byLaneFinalOutcome24h': await groupedByLane('final_outcome'),
+      'byLanePrimaryErrorCategory24h':
+          await groupedByLane('primary_error_category'),
+      'fallback24h': {
+        'eligible': fallbackEligible,
+        'attempted': fallbackAttempted,
+        'notAttempted': (fallbackEligible - fallbackAttempted).clamp(0, 999),
+        'byOutcome': await groupedFallback('fallback_outcome'),
+        'byErrorCategory': await groupedFallback('fallback_error_category'),
+      },
+      'latest': row == null
+          ? null
+          : {
+              'lane': row['lane'],
+              'context': row['context'],
+              'primaryProvider': row['primary_provider'],
+              'primaryOutcome': row['primary_outcome'],
+              'primaryErrorCategory': row['primary_error_category'],
+              'fallbackProvider': row['fallback_provider'],
+              'fallbackEligible': row['fallback_eligible'] == 1,
+              'fallbackAttempted': row['fallback_attempted'] == 1,
+              'fallbackOutcome': row['fallback_outcome'],
+              'fallbackErrorCategory': row['fallback_error_category'],
+              'finalProvider': row['final_provider'],
+              'finalOutcome': row['final_outcome'],
+              'resultCount': row['result_count'],
+              'latencyBucket': row['latency_bucket'],
+              'createdAt': row['created_at'],
+            },
+      'privacy': {
+        'queryIncluded': false,
+        'urlIncluded': false,
+        'imageBytesIncluded': false,
+        'imagePathIncluded': false,
+        'captionOrSummaryIncluded': false,
+        'rawErrorIncluded': false,
+        'candidateIdIncluded': false,
+      },
+    };
+  }
+
   Future<Map<String, Object?>> attachmentVisionDiagnosticStats() async {
     final db = await database;
     final grouped = await db.rawQuery('''
@@ -2750,36 +2990,7 @@ class AppDatabase {
       limit: 1,
     );
     final row = latest.isEmpty ? const <String, Object?>{} : latest.first;
-    final rawError = row['vision_error']?.toString().toLowerCase() ?? '';
-    String errorCategory() {
-      if (rawError.isEmpty) return 'none';
-      if (rawError.contains('api key') || rawError.contains('api_key')) {
-        return 'missing_key';
-      }
-      if (rawError.contains('401') || rawError.contains('403') ||
-          rawError.contains('unauthorized') || rawError.contains('forbidden')) {
-        return 'authorization';
-      }
-      if (rawError.contains('429') || rawError.contains('rate limit')) {
-        return 'rate_limited';
-      }
-      if (rawError.contains('timeout') || rawError.contains('timed out')) {
-        return 'timeout';
-      }
-      if (rawError.contains('socket') || rawError.contains('network') ||
-          rawError.contains('http')) {
-        return 'network';
-      }
-      if (rawError.contains('另一处聊天窗口')) return 'chat_busy';
-      if (rawError.contains('active brain') || rawError.contains('设备转移')) {
-        return 'ownership_changed';
-      }
-      if (rawError.contains('decode') || rawError.contains('format') ||
-          rawError.contains('图片')) {
-        return 'image_processing';
-      }
-      return 'other';
-    }
+    final rawError = row['vision_error']?.toString() ?? '';
 
     final source = row['source']?.toString() ?? '';
     return <String, Object?>{
@@ -2793,7 +3004,7 @@ class AppDatabase {
       'latestUpdatedAt': (row['vision_updated_at'] as num?)?.toInt() ?? 0,
       'latestSource':
           source == 'camera' || source == 'gallery' ? source : 'unknown',
-      'latestErrorCategory': errorCategory(),
+      'latestErrorCategory': ProviderHealth.errorCategory(rawError),
       'imageBytesIncluded': false,
       'pathsIncluded': false,
       'captionIncluded': false,
@@ -7017,6 +7228,27 @@ class AppDatabase {
     });
   }
 
+  Future<String> companionAlbumCandidateOutcomeCategory(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'companion_album_candidates',
+      columns: const ['lifecycle_state', 'ai_reason'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return 'failed';
+    final state = rows.first['lifecycle_state']?.toString() ?? '';
+    final reason = rows.first['ai_reason']?.toString() ?? '';
+    if (state == 'saved') return 'saved';
+    if (reason == '与相册现有缩略图重复') return 'exact_duplicate';
+    if (reason == '与相册现有图片视觉近似，已避免重复收藏') {
+      return 'visual_duplicate';
+    }
+    if (state == 'rejected') return 'ai_rejected';
+    return 'failed';
+  }
+
   Future<void> expireCompanionAlbumCandidate(String id, String error) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -7274,8 +7506,22 @@ class AppDatabase {
         row['lifecycle_state']?.toString() ?? 'unknown':
             (row['count'] as num?)?.toInt() ?? 0,
     };
+    final diagnosticsStartedAt = int.tryParse(
+          await getSetting('provider_health_started_at') ?? '',
+        ) ??
+        DateTime.now().millisecondsSinceEpoch;
+    final legacyUnclassified = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM companion_album_candidates WHERE created_at < ?',
+          [diagnosticsStartedAt],
+        )) ??
+        0;
     return {
       'byState': byState,
+      'outcomeClassification': {
+        'startedAt': diagnosticsStartedAt,
+        'legacyUnclassified': legacyUnclassified,
+        'newRowsUseProviderHealthEvents': true,
+      },
       'unread': await companionAlbumUnreadCount(),
       'preferenceFeedbackRows': (await db.rawQuery(
         "SELECT COUNT(*) FROM companion_album_candidates WHERE nsfw = 0 AND user_feedback IN ('like','dislike')",
@@ -7572,7 +7818,9 @@ class AppDatabase {
             0,
         'lastOutcome':
             await getSetting('last_public_web_discovery_outcome') ?? 'never',
-        'lastError': await getSetting('last_public_web_discovery_error') ?? '',
+        'lastErrorCategory': ProviderHealth.errorCategory(
+          await getSetting('last_public_web_discovery_error') ?? '',
+        ),
       },
       'privacy': {
         'titleIncluded': false,
@@ -7583,6 +7831,7 @@ class AppDatabase {
         'thoughtBodyIncluded': false,
         'candidateIdIncluded': false,
         'outboundMessageIncluded': false,
+        'rawErrorIncluded': false,
       },
     };
   }

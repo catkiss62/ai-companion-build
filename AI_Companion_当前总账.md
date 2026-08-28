@@ -16,6 +16,32 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.2 Provider 脱敏诊断先行（PLANNED / IMPLEMENTING）
+
+> 用户确认改变此前“完整存档立即作为下一版”的排期：先单独交付一版只增强诊断、不启用任何新兜底 Provider 的测试 APK，运行约一天后读取新报告，确认分类准确再实现联网搜索、网页整理与视觉识别兜底。完整存档与存储体检继续后置，不能与本诊断专项混改。
+
+### A. 修改前证据与决定
+
+1. 用户提供的 v0.40.1 脱敏报告显示：4 次公开网页行动成功并保存 12 条候选，最近一次尝试因 24 小时预算 `4/4` 在 Provider 调用前被 `budget_exhausted` 阻断；Agnes 最近一次整理 `3→3` 成功。相册累计为 `saved=1 / rejected=6 / expired=4`，但现有报告无法区分 4 条 `expired` 是下载、图片解码、千问鉴权/限流/超时、响应格式还是本地文件写入失败，也无法明确展示 `rejected` 是模型有效拒绝、成人安全拒绝、精确重复还是感知近重复。
+2. 当前项目已有部分确定性兜底：公开搜索为 Tavily 无候选后回退 Wikimedia；Agnes 失败时保留原始受限网页摘要，因此不会因整理模型失败直接丢掉候选。千问视觉仍是单 Provider。现有运行诊断只保存最终 Provider/结果和少量最后错误，不能还原“主 Provider → 现有回退 → 最终结果”的分层路径。
+3. DeepSeek 官方文档已确认 Responses API 支持服务端 `web_search`，视觉模型正式 ID 为 `deepseek-v4-flash-vision-exp`，支持 URL/base64/Files API 图片输入且仍标为实验模型。来源固定为 `https://api-docs.deepseek.com/guides/responses_api/`、`https://api-docs.deepseek.com/guides/vision/`、`https://api-docs.deepseek.com/news/news260821/`。这些能力只登记为下一版候选，本批不得实际调用。
+4. 后续视觉顺序已经锁定为“千问主识图 → 仅技术失败时 DeepSeek Vision 兜底”。千问正常返回 `save=false`、成人拒绝或重复图判定属于有效业务结果，绝不能调用备用模型推翻。普通聊天可在千问技术失败后使用备用观察摘要；相册备用收藏判断需更保守，但均不进入本批。
+
+### B. 本批实现范围
+
+1. 建立统一、受限、无正文的 Provider 健康事件，只记录 lane/context、主 Provider、主结果、脱敏错误分类、既有回退是否尝试及结果、最终 Provider/结果、数量、延迟档位和时间。lane 至少覆盖自主/用户轮公开搜索、Agnes 网页整理、聊天图片千问识别、相册候选下载/解码/千问识别/收藏结果；禁止保存查询词、网址、网页正文、图片、路径、识图摘要、相册理由/备注、原始 API 错误、密钥或完整状态身份。
+2. 错误分类固定为可判因枚举：未配置、鉴权、限流、超时、网络、HTTP 客户端/服务端、内容过滤、空结果、无效响应/JSON、下载、图片解码、所有权变化、聊天占用、本地写入和其他。报告必须把 Gate 阻断、真正调用后无结果、Provider 技术失败和模型有效业务决定分开。
+3. 相册报告增加最近/累计分类：AI 有效拒绝、成人安全拒绝、精确重复、感知近重复、下载/解码失败、千问 Provider 失败、本地缩略图写入失败和成功保存。无法从旧记录可靠恢复的历史原因标为 `legacy_unclassified`，不得凭字符串猜成 AI 自主拒绝。
+4. Provider 事件只保留小型、有限时间窗口并纳入现有长期维护清理；它属于本机可观测性，不是关系状态、Memory、Thought 或网页候选，不进入当前完整状态快照。下一阶段完整存档审计必须再次显式确认这一排除项。
+5. 脱敏报告增加统一 `providerHealth` 区块和明确隐私布尔项；现有 `imageVision`、`publicWebCandidates`、`publicWebCompaction`、`companionAlbum` 保留兼容字段，但移除/替换可能暴露原始错误的输出。自动检查需证明报告中不存在测试查询、URL、摘要、路径、原始错误或密钥。
+6. 本批不调用 DeepSeek 搜索/整理/视觉，不改变 Tavily/Wikimedia/Agnes/千问选择顺序、搜索频率、预算、Desire/Gate、相册判断、聊天生成、规则正文、特殊风格、存档协议、悬浮窗或 TTS。目标分支 `agent/v0402-provider-diagnostics`，目标版本 `0.40.2+130`；预计 SQLite schema 38→39，仅增加本机脱敏 Provider 事件表。
+
+### C. 验收与后续顺序
+
+1. 本地必须覆盖 schema 38→39、事件有界清理、错误分类、搜索成功/预算阻断/Wikimedia 回退、Agnes 成功/失败原摘要保留、聊天千问成功/失败、相册保存/有效拒绝/重复/技术失败以及整份报告隐私负断言；随后运行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、固定签名与大型素材校验。
+2. Actions 与测试 APK 通过后仍只标记 `TRUE DEVICE OBSERVATION PENDING`。用户覆盖安装并运行约一天，再提供新报告核对真实 Provider 分层与分类；报告确认无误后才进入下一版“DeepSeek 搜索/整理/视觉兜底”。完整存档与存储体检排在兜底版之后，版本号在实际开工前重新登记。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.1 相册身份软参照与收藏闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户已确认相册作为当前正式任务；本批完成后再单独检查完整存档导出/导入，避免把相册状态机与备份协议同时改动。NSFW 相册正式取消，不再保留新的成人图片识别、分类、收藏或展示路径。

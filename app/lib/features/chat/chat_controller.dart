@@ -15,6 +15,7 @@ import '../../core/ai/nsfw_context_router.dart';
 import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
+import '../../core/diagnostics/provider_health.dart';
 import '../../core/desire/desire_engine.dart';
 import '../../core/emotion/emotion_contract.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
@@ -538,6 +539,8 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
     var marked = false;
     var chatLeaseHeld = false;
+    var visionRecorded = false;
+    final visionStarted = DateTime.now();
     GenerationJob? trustedGeneration;
     try {
       final visionKey = await secureConfig.readVisionApiKey();
@@ -571,6 +574,18 @@ class ChatController extends ChangeNotifier {
         albumPreferenceHint:
             albumEnabled ? await db.companionAlbumPreferenceHint() : '',
       );
+      await db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'vision',
+        context: 'chat_image',
+        primaryProvider: 'qwen_vision',
+        primaryOutcome: 'success',
+        finalProvider: 'qwen_vision',
+        finalOutcome: 'success',
+        resultCount: 1,
+        latencyBucket:
+            ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
+      ));
+      visionRecorded = true;
       chatLeaseHeld = await db.tryAcquireLocalLease(
         'chat_turn_lease',
         holdFor: const Duration(seconds: 30),
@@ -596,6 +611,14 @@ class ChatController extends ChangeNotifier {
             observation: observation,
           );
         } catch (albumError) {
+          await db.recordProviderHealthEvent(ProviderHealthEvent(
+            lane: 'album',
+            context: 'user_image_album',
+            primaryProvider: 'local_album',
+            primaryOutcome: 'failed',
+            primaryErrorCategory: ProviderHealth.errorCategory(albumError),
+            finalOutcome: 'failed',
+          ));
           await db.setSetting(
             'companion_album_last_error',
             albumError.toString().length <= 360
@@ -605,6 +628,18 @@ class ChatController extends ChangeNotifier {
         }
       }
     } catch (exception) {
+      if (!visionRecorded) {
+        await db.recordProviderHealthEvent(ProviderHealthEvent(
+          lane: 'vision',
+          context: 'chat_image',
+          primaryProvider: 'qwen_vision',
+          primaryOutcome: marked ? 'failed' : 'not_called',
+          primaryErrorCategory: ProviderHealth.errorCategory(exception),
+          finalOutcome: 'failed',
+          latencyBucket:
+              ProviderHealth.latencyBucket(DateTime.now().difference(visionStarted)),
+        ));
+      }
       if (marked && trustedGeneration == null) {
         await db.failAttachmentVision(attachment.id, exception.toString());
       }
@@ -638,6 +673,7 @@ class ChatController extends ChangeNotifier {
     required File thumbnail,
     required QwenVisionObservation observation,
   }) async {
+    final started = DateTime.now();
     final candidateId = _uuid.v4();
     final begun = await db.beginCompanionAlbumCandidate(
       id: candidateId,
@@ -679,6 +715,20 @@ class ChatController extends ChangeNotifier {
     if (!completed && path.isNotEmpty) {
       await CompanionAlbumStorage().deleteThumbnail(path);
     }
+    final outcome = observation.albumAdultContent
+        ? 'adult_rejected'
+        : await db.companionAlbumCandidateOutcomeCategory(candidateId);
+    await db.recordProviderHealthEvent(ProviderHealthEvent(
+      lane: 'album',
+      context: 'user_image_album',
+      primaryProvider: 'local_album',
+      primaryOutcome: outcome,
+      finalProvider: completed && observation.albumSave ? 'local_album' : 'none',
+      finalOutcome: outcome,
+      resultCount: completed && observation.albumSave ? 1 : 0,
+      latencyBucket:
+          ProviderHealth.latencyBucket(DateTime.now().difference(started)),
+    ));
   }
 
   Future<void> discardPreparedImage(PreparedImageAttachment draft) async {

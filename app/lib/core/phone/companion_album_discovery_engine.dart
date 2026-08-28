@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../ai/qwen_vision_client.dart';
 import '../database/app_database.dart';
+import '../diagnostics/provider_health.dart';
 import 'album_perceptual_hash.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
@@ -49,7 +50,17 @@ class CompanionAlbumDiscoveryEngine {
       return 'disabled';
     }
     final apiKey = await config.readVisionApiKey();
-    if (apiKey == null || apiKey.trim().isEmpty) return 'vision_unconfigured';
+    if (apiKey == null || apiKey.trim().isEmpty) {
+      await db.recordProviderHealthEvent(const ProviderHealthEvent(
+        lane: 'vision',
+        context: 'album_discovery',
+        primaryProvider: 'qwen_vision',
+        primaryOutcome: 'not_configured',
+        primaryErrorCategory: 'missing_key',
+        finalOutcome: 'not_configured',
+      ));
+      return 'vision_unconfigured';
+    }
 
     final web = await db.nextCompanionAlbumWebSource();
     if (web != null) {
@@ -96,7 +107,15 @@ class CompanionAlbumDiscoveryEngine {
     required String apiKey,
     required DateTime now,
   }) async {
+    final started = DateTime.now();
     if (sourceId.isEmpty || !_safePublicHttps(Uri.tryParse(sourceUrl))) {
+      await db.recordProviderHealthEvent(const ProviderHealthEvent(
+        lane: 'album',
+        context: 'album_discovery',
+        primaryProvider: 'local_album',
+        primaryOutcome: 'unsafe_source',
+        finalOutcome: 'unsafe_source',
+      ));
       return 'unsafe_or_empty_source';
     }
     final candidateId = _uuid.v4();
@@ -109,14 +128,26 @@ class CompanionAlbumDiscoveryEngine {
       title: title,
       createdAt: now,
     );
-    if (!begun) return 'duplicate_source';
+    if (!begun) {
+      await db.recordProviderHealthEvent(const ProviderHealthEvent(
+        lane: 'album',
+        context: 'album_discovery',
+        primaryProvider: 'local_album',
+        primaryOutcome: 'duplicate_source',
+        finalOutcome: 'duplicate_source',
+      ));
+      return 'duplicate_source';
+    }
 
     PreparedImageAttachment? draft;
     File? downloaded;
     String savedPath = '';
+    var stage = 'download';
+    var visionRecorded = false;
     try {
       downloaded = await _downloadPreview(sourceUrl, candidateId);
       final downloadedFile = downloaded!;
+      stage = 'image_processing';
       draft = await attachmentStorage.prepareImage(
         sourcePath: downloadedFile.path,
         source: sourceKind,
@@ -124,6 +155,7 @@ class CompanionAlbumDiscoveryEngine {
       );
       if (await downloadedFile.exists()) await downloadedFile.delete();
       downloaded = null;
+      stage = 'vision';
       final observation = await vision.observe(
         apiKey: apiKey,
         endpoint: await config.readVisionEndpoint(),
@@ -133,20 +165,35 @@ class CompanionAlbumDiscoveryEngine {
         assessForAlbum: true,
         albumPreferenceHint: await db.companionAlbumPreferenceHint(),
       );
+      await db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'vision',
+        context: 'album_discovery',
+        primaryProvider: 'qwen_vision',
+        primaryOutcome: 'success',
+        finalProvider: 'qwen_vision',
+        finalOutcome: 'success',
+        resultCount: 1,
+        latencyBucket:
+            ProviderHealth.latencyBucket(DateTime.now().difference(started)),
+      ));
+      visionRecorded = true;
 
       String contentSha = '';
       String perceptualHash = '';
       if (observation.albumSave) {
+        stage = 'local_write';
         final stored = await albumStorage.saveThumbnail(
           id: candidateId,
           source: draft.thumbnailFile,
         );
         savedPath = stored.relativePath;
         contentSha = stored.contentSha256;
+        stage = 'image_processing';
         perceptualHash = await AlbumPerceptualHash.fromFile(
           draft.thumbnailFile,
         );
       }
+      stage = 'local_write';
       final completed = await db.completeCompanionAlbumCandidate(
         id: candidateId,
         save: observation.albumSave,
@@ -165,10 +212,54 @@ class CompanionAlbumDiscoveryEngine {
       if (!completed && savedPath.isNotEmpty) {
         await albumStorage.deleteThumbnail(savedPath);
       }
+      final outcome = observation.albumAdultContent
+          ? 'adult_rejected'
+          : await db.companionAlbumCandidateOutcomeCategory(candidateId);
+      await db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'album',
+        context: 'album_discovery',
+        primaryProvider: 'local_album',
+        primaryOutcome: outcome,
+        finalProvider:
+            observation.albumSave && completed ? 'local_album' : 'none',
+        finalOutcome: outcome,
+        resultCount: observation.albumSave && completed ? 1 : 0,
+        latencyBucket:
+            ProviderHealth.latencyBucket(DateTime.now().difference(started)),
+      ));
       return observation.albumSave && completed ? 'saved' : 'rejected';
     } catch (error) {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
+      final category = stage == 'download'
+          ? 'download'
+          : stage == 'image_processing'
+              ? 'image_processing'
+              : stage == 'local_write'
+                  ? 'local_write'
+                  : ProviderHealth.errorCategory(error);
+      if (!visionRecorded && stage == 'vision') {
+        await db.recordProviderHealthEvent(ProviderHealthEvent(
+          lane: 'vision',
+          context: 'album_discovery',
+          primaryProvider: 'qwen_vision',
+          primaryOutcome: 'failed',
+          primaryErrorCategory: category,
+          finalOutcome: 'failed',
+          latencyBucket:
+              ProviderHealth.latencyBucket(DateTime.now().difference(started)),
+        ));
+      }
+      await db.recordProviderHealthEvent(ProviderHealthEvent(
+        lane: 'album',
+        context: 'album_discovery',
+        primaryProvider: 'local_album',
+        primaryOutcome: 'failed',
+        primaryErrorCategory: category,
+        finalOutcome: 'failed',
+        latencyBucket:
+            ProviderHealth.latencyBucket(DateTime.now().difference(started)),
+      ));
       return 'failed';
     } finally {
       final temporaryDownload = downloaded;

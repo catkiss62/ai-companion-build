@@ -160,12 +160,18 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.40.1+129 APK (Album Identity Closure)
+# Historical v0.40.1 workflow compatibility:
+# Build AI Companion v0.40.1+129 APK (Album Identity Closure)
+# agent/v0401-album-identity-closure
+# grep -Fqx 'version: 0.40.1+129' app/pubspec.yaml
+# AI-Companion-v0.40.1-129-Album-Identity-Closure-APK
+# v0.40.1-album-identity-closure
+name: Build AI Companion v0.40.2+130 APK (Provider Diagnostics)
 
 on:
   push:
     branches:
-      - agent/v0401-album-identity-closure
+      - agent/v0402-provider-diagnostics
   workflow_dispatch:
   pull_request:
     branches:
@@ -303,14 +309,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.40.1+129' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 38;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.40.2+130' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 39;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.40.1+129 album identity and collection closure.'
+          echo 'Building v0.40.2+130 redacted provider diagnostics.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -476,6 +482,7 @@ jobs:
           python3 tools/validate_v0399_user_address_viewpoint.py
           python3 tools/validate_v0400_special_style_memory_capsule.py
           python3 tools/validate_v0401_album_identity_closure.py
+          python3 tools/validate_v0402_provider_diagnostics.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -721,26 +728,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.40.1+129 APK as workflow artifact
+      - name: Upload v0.40.2+130 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.40.1-129-Album-Identity-Closure-APK
+          name: AI-Companion-v0.40.2-130-Provider-Diagnostics-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.40.1+129 album identity closure APK to draft release
+      - name: Upload v0.40.2+130 provider diagnostics APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.40.1-album-identity-closure'
-          APK_NAME='AI-Companion-v0.40.1-129-Album-Identity-Closure-APK.apk'
+          TAG='v0.40.2-provider-diagnostics'
+          APK_NAME='AI-Companion-v0.40.2-130-Provider-Diagnostics-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.40.1-129-Album-Identity-Closure-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.2-130-Provider-Diagnostics-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -757,8 +764,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.1+129 album identity closure candidate' \
-              --notes 'Draft candidate: adds a soft appearance reference for album identity, perceptual duplicate protection, manual category correction, safe source links, weak aesthetic learning, and retires the NSFW album. SQLite schema 38.'
+              --title 'AI Companion v0.40.2+130 provider diagnostics candidate' \
+              --notes 'Draft candidate: adds bounded, redacted diagnostics for search, compaction, Qwen vision, and album outcomes without changing provider behavior. SQLite schema 39.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -782,18 +789,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0401-monitor.txt'
+          MONITOR_PATH='.ci/v0402-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.1 CI success monitor' \
+              -f message='Update v0.40.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.1 CI success monitor' \
+              -f message='Create v0.40.2 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -814,8 +821,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.40.1-album-identity-closure'
-          CI_NAME='AI-Companion-v0.40.1-129-Album-Identity-Closure-CI-Monitor.txt'
+          TAG='v0.40.2-provider-diagnostics'
+          CI_NAME='AI-Companion-v0.40.2-130-Provider-Diagnostics-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -856,8 +863,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.1+129 album identity closure candidate' \
-              --notes 'Draft used for v0.40.1 CI diagnostics and the album identity closure APK. It is not a published release.'
+              --title 'AI Companion v0.40.2+130 provider diagnostics candidate' \
+              --notes 'Draft used for v0.40.2 CI diagnostics and the redacted provider-observability APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -866,18 +873,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0401-monitor.txt'
+          MONITOR_PATH='.ci/v0402-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.1 CI failure monitor' \
+              -f message='Update v0.40.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.1 CI failure monitor' \
+              -f message='Create v0.40.2 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

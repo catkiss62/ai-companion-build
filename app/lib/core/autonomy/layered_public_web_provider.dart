@@ -50,6 +50,10 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         candidates: const [],
         provider: providerKey,
         failureReason: 'invalid_safe_topic',
+        primaryProvider: 'tavily',
+        primaryFailureReason: 'invalid_safe_topic',
+        compactionEnabled: agnesEnabled,
+        compactionConfigured: agnesApiKey.trim().isNotEmpty,
       );
     }
 
@@ -79,13 +83,41 @@ class LayeredPublicWebProvider implements PublicWebProvider {
         interestKey: interestKey,
         now: now,
       );
-      if (fallback.candidates.isNotEmpty) return fallback;
+      if (fallback.candidates.isNotEmpty) {
+        return PublicWebProviderResult(
+          candidates: fallback.candidates,
+          provider: fallback.provider,
+          primaryProvider: 'tavily',
+          primaryFailureReason: global.failureReason.isNotEmpty
+              ? global.failureReason
+              : 'empty_result',
+          fallbackProvider: 'wikimedia',
+          fallbackEligible: true,
+          fallbackAttempted: true,
+          fallbackSucceeded: true,
+          compactionEnabled: agnesEnabled,
+          compactionConfigured: agnesApiKey.trim().isNotEmpty,
+        );
+      }
       return PublicWebProviderResult(
         candidates: const [],
         provider: providerKey,
         failureReason: global.failureReason.isNotEmpty
             ? global.failureReason
             : fallback.failureReason,
+        primaryProvider: 'tavily',
+        primaryFailureReason: global.failureReason.isNotEmpty
+            ? global.failureReason
+            : 'empty_result',
+        fallbackProvider: 'wikimedia',
+        fallbackEligible: true,
+        fallbackAttempted: true,
+        fallbackSucceeded: false,
+        fallbackFailureReason: fallback.failureReason.isNotEmpty
+            ? fallback.failureReason
+            : 'empty_result',
+        compactionEnabled: agnesEnabled,
+        compactionConfigured: agnesApiKey.trim().isNotEmpty,
       );
     }
 
@@ -111,11 +143,16 @@ class LayeredPublicWebProvider implements PublicWebProvider {
           ? 'tavily_layered+agnes'
           : providerKey,
       compactionAttempted: compactionAttempted,
+      compactionEnabled: agnesEnabled,
+      compactionConfigured: agnesApiKey.trim().isNotEmpty,
       compactionSucceeded: compactionSucceeded,
       compactionInputCount: compactionInputCount,
       compactionOutputCount:
           drafts.where((e) => e.provider.endsWith('+agnes')).length,
       compactionFailureReason: compactionFailureReason,
+      primaryProvider: 'tavily',
+      fallbackProvider: 'wikimedia',
+      fallbackEligible: false,
     );
   }
 

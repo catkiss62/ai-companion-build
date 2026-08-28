@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'provider_health.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../grounding/grounding_engine.dart';
@@ -110,6 +111,9 @@ class PreflightDiagnosticsService {
         'companionAlbumSourceUrlsIncluded': false,
         'companionAlbumTitlesOrSummariesIncluded': false,
         'companionAlbumReasonsOrCommentsIncluded': false,
+        'providerHealthRawErrorIncluded': false,
+        'providerHealthQueryOrUrlIncluded': false,
+        'providerHealthImageContentIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
         'overlayRawPackageIncluded': false,
@@ -150,6 +154,7 @@ class PreflightDiagnosticsService {
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
       final companionAlbum = await db.companionAlbumDiagnosticStats();
+      final providerHealth = await db.providerHealthDiagnosticStats(now: now);
       final personalityTrials = await db.personalityTrialDiagnostics();
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
@@ -439,6 +444,7 @@ class PreflightDiagnosticsService {
         'autonomousActions': autonomousActions,
         'publicWebCandidates': publicWebCandidates,
         'companionAlbum': companionAlbum,
+        'providerHealth': providerHealth,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
@@ -491,10 +497,12 @@ class PreflightDiagnosticsService {
                 await db.getSetting('agnes_compaction_last_output_count') ?? '',
               ) ??
               0,
-          'lastError':
-              await db.getSetting('agnes_compaction_last_error') ?? '',
+          'lastErrorCategory': ProviderHealth.errorCategory(
+            await db.getSetting('agnes_compaction_last_error') ?? '',
+          ),
           'queryOrWebContentIncluded': false,
           'apiSecretIncluded': false,
+          'rawErrorIncluded': false,
         },
         'currentContext': {
           'available': (int.tryParse(
