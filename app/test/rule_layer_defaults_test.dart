@@ -215,7 +215,8 @@ void main() {
     expect(daily, contains('【最终正文中的现实恋人称呼】'));
     expect(daily, isNot(contains('允许纯对白')));
     expect(daily, contains('省略主语的动作默认只描述自己'));
-    expect(daily, contains('不替他编写动作、台词、内心或没有真实提供的反应'));
+    expect(daily, contains('不替用户编写动作、台词、内心或没有真实提供的反应'));
+    expect(daily, contains('可见思考中，可以用“你”、名字或昵称指代用户'));
     expect(behavior, contains('情绪与欲望都有惯性'));
     expect(behavior, contains('内心可以比出口更热、更尖、更乱'));
     expect(behavior, contains('选择、欲望与摩擦'));
@@ -232,9 +233,18 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0353.length, 4);
     expect(legacyEditableRuleLayerSha256V0390.length, 2);
     expect(legacyEditableRuleLayerSha256V0397.length, 4);
+    expect(legacyEditableRuleLayerSha256V0398.length, 26);
     expect(
       byKey['immersive_07_global']!.content,
       contains('用户在正文中始终写作“你”'),
+    );
+    expect(
+      byKey['immersive_07_global']!.content,
+      contains('第二人称互动视角、用户控制权'),
+    );
+    expect(
+      byKey['immersive_07_global']!.content,
+      isNot(contains('正文是连续小说文本，可以使用第三人称')),
     );
     expect(
       byKey['immersive_07_global']!.content,
@@ -260,6 +270,16 @@ void main() {
       byKey['immersive_07_nsfw_source']!.content,
       isNot(contains('【口交描写规则】')),
     );
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      isNot(contains('玩家')),
+    );
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      contains('以AI角色为叙事焦点的第二人称互动视角'),
+    );
+    expect(rendering, isNot(contains('他的')));
+    expect(rendering, isNot(contains('不替他')));
   });
 
   test('novel word-count rules are not in the companion defaults', () {

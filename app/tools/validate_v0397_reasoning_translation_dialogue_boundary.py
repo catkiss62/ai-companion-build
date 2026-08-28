@@ -14,7 +14,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*0\.39\.(?:7\+125|8\+126)\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*0\.39\.(?:7\+125|8\+126|9\+127)\s*$", read("pubspec.yaml"), re.M)
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 for token in (
@@ -105,6 +105,7 @@ daily = match.group(1)
 assert hashlib.sha256(daily.encode()).hexdigest() in {
     "8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465",
     "e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11",
+    "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
 }
 for token in (
     "每轮对话至少要出现一次",

@@ -16,11 +16,20 @@ void main() {
     expect(reminder, contains('必须另起一行留在「」外'));
     expect(reminder, contains('顿了顿，又小小声补了一句。'));
     expect(reminder, contains('「……再摸一会儿也行。」'));
+    expect(reminder, contains('可见思考提及用户时也使用“你”'));
+    expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));
     expect(reminder, isNot(contains('允许纯对白')));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
     expect(reminder, isNot(contains('禁止用“我”“她”')));
     expect(reminder, isNot(contains('只用第二人称“你”')));
     expect(reminder, isNot(contains('<system-reminder>')));
+  });
+
+  test('runtime identity does not prime third-person user narration', () {
+    expect(PromptBuilder.identityPrompt, contains('用户是成年男性'));
+    expect(PromptBuilder.identityPrompt, contains('你和用户都是成年人'));
+    expect(PromptBuilder.identityPrompt, isNot(contains('他是成年男性')));
+    expect(PromptBuilder.identityPrompt, isNot(contains('你和他都是成年人')));
   });
 
   test('proactive reminder preserves WAIT without inventing a user turn', () {

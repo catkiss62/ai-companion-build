@@ -259,7 +259,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 必须输出严格 JSON，例如：
 {
   "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","content":"用户通常晚上会换到安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
-  "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"他刚才主动回来继续和我聊了","strength":0.28}],
+  "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
   "session_update":{"action":"none","kind":"roleplay","title":"","premise":"","boundaries":[],"continuity_note":""},

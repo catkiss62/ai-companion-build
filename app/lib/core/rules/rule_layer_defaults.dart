@@ -203,6 +203,62 @@ const legacyEditableRuleLayerSha256V0397 = <String, String>{
       '5916af04bb0f01ebd640218792844116ff997047712340a21107d6d97b22b643',
 };
 
+/// Exact editable defaults shipped by v0.39.8. v0.39.9 changes only the
+/// user-reference vocabulary and the contradictory immersive viewpoint cues.
+/// Byte-exact stock copies migrate; every user-edited body remains untouched.
+const legacyEditableRuleLayerSha256V0398 = <String, String>{
+  '01_core': 'a785115b89831f3b4eea0319a4c7fbd3ec7955b61fdcf2d2e9f34a41f32efbb1',
+  '01_relationship':
+      '0e3c437154974dd1903e261740eefeeba1846eef05a0e55bdee82a9c52dd611a',
+  '03_appearance_identity':
+      'bc6335b1d1bfa2399d136c3a40e884b67a4e66c3eed6721966bc6815cc02178e',
+  '08_runtime_identity':
+      '9d4c4f3f3108aa72fda24aa5cc3893e421c458a7311c22892811974ec6f36990',
+  '02_daily': 'e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11',
+  '08_proactive_turn':
+      'f9e5b355b8a23eea1f4e3e1404c37c9199f935f5381b2ce8aaaa16868907e541',
+  '08_visible_inner_voice':
+      '7cb2eafe4c8b174656f60c554c6d00f28aae98d17d9ba8f763972a074e6eafec',
+  '03_personality_seed':
+      '40b4b8bbc990f8ca0cc6a8a06491c5162d4e890e0f7518238e19a1e7ade25dbb',
+  '07_base_gentle':
+      'eb1f0f3a5b2042fc95add090018b2ace41412c49a405d8bc0fb4a64719220538',
+  '07_base_outgoing':
+      'e5937bf0d065d42f68683a8a82cd072ae0888e236009bde14c7f028937e2196b',
+  '07_base_playful':
+      'b72bcd5d3bfa69b6a924a8ec1a7157595e3cb96bf6b988f2a395df48e534b606',
+  '07_base_reserved':
+      'd841691e600fcdc6c95826fdf96bf08880358505d4b812826bd3ec8d91cd9dd3',
+  '07_posture_equal':
+      '0a3648f579798076ed75085dee158110f1df3360f2013d294f951c048b17056b',
+  '07_posture_impish':
+      '7587a4fd76698e4dc478c1917c4cc77f8c12002cd8b3cd2a677b1b4af40c9c10',
+  '07_posture_older':
+      '631bc46e0c5cc555bd95edf11fd7a286c9b0755b2c1376e07132046b83159559',
+  '07_posture_younger':
+      'cc0c1ee7d988dcca070676545157e6fd181889581832a7cbf9cd25142bd2956d',
+  '07_special_doll':
+      '788a892744fde56bf22856bda0d0825dea5114ebcf284ef3e895a8505d22f649',
+  '07_special_hunter':
+      '9c2de96146d2a82ed1bd28568083347aa640057cb70ce8048b7b782fd040b9b9',
+  '07_special_seductress':
+      '0a48dd654b20f6f48c0574702c1dfa2d70140a29b1ff7786518e3ea0060c1e2e',
+  '07_special_yandere':
+      '20650a98bff10e970b5988e92c066b5068f065af209dfb564adbcf265a10a617',
+  '07_special_zealot':
+      'e5fd1f16086859f5ad90788c5c80c4121c3ffa69b1f890aba4f728208f600032',
+  '04_memory_rules':
+      '351444294710e7b8f2e48f348e650aa3048b3512b7e83a15a54a15efb09f4b21',
+  '04_intimacy_core':
+      '3ea48294f4646acf45eb449ddcad75366fd5a1278fa1667cf5fc3da17dced202',
+  '05_intimacy_rendering':
+      'ed1b5b73f0f35e7d8277a8a2f4c923fbde0092c095440cd91fda08d818ae4b86',
+  'immersive_07_global':
+      'db84d6249f3ea32ae9e85920105ca0eb869894bd1c24a1a2c7948e9603108612',
+  'immersive_07_nsfw_source':
+      '88dfc6c0055b0cda50f459706f67bfc2e7c4e59054e337dc98fb9cfd114faffd',
+};
+
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
 /// cleanup upgrades only untouched copies, so a user's room-protocol edits
 /// are never replaced by the bundled Rule 07 revision.
@@ -719,10 +775,10 @@ final defaultRuleLayers = <RuleLayerDefault>[
     'immersive',
     immersiveRuleGlobal,
   ),
-  const RuleLayerDefault(
+  RuleLayerDefault(
     'immersive_07_nsfw_source',
     'Immersive Adult Reference',
     'immersive_reference',
-    immersiveNsfwSource,
+    immersiveNsfwSourceForPrompt(immersiveNsfwSource),
   ),
 ];

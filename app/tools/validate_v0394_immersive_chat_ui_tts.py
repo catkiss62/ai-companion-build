@@ -19,6 +19,7 @@ assert any(
         "version: 0.39.6+124",
         "version: 0.39.7+125",
         "version: 0.39.8+126",
+        "version: 0.39.9+127",
     )
 )
 assert "static const int schemaVersion = 35;" in read(
@@ -30,7 +31,7 @@ for token in (
     "不加括号并默认省略主语",
     "不使用“我/她/角色名”作动作主语",
     "省略主语的动作默认只描述自己",
-    "不替他编写动作、台词、内心或没有真实提供的反应",
+    "不替用户编写动作、台词、内心或没有真实提供的反应",
     "严格遵守规则02【动作与神态格式】和【最终正文中的现实恋人称呼】",
 ):
     assert token in rules, token

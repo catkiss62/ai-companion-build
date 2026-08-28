@@ -24,7 +24,7 @@ catalog = read("lib/core/personality/personality_catalog.dart") + read(
 for token in (
     "【内在反应】",
     "【表达过滤】",
-    "他是平等的男朋友",
+    "用户是平等的男朋友",
     "十成波澜收成两三成",
     "反咬一口",
     "抓住破绽追一下",
@@ -47,7 +47,7 @@ assert "## 当前特殊表达" in service
 
 prompt = read("lib/core/ai/prompt_builder.dart")
 for token in (
-    "他是成年男性，是你的男朋友",
+    "用户是成年男性，是你的男朋友",
     "_visibleInnerVoiceContract(",
     "【可见思考与最终表达】",
     "不是工作记录",

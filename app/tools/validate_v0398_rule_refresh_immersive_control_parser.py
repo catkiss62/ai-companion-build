@@ -15,9 +15,10 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*0\.39\.8\+126\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*0\.39\.(?:8\+126|9\+127)\s*$", read("pubspec.yaml"), re.M)
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
+defaults = read("lib/core/rules/rule_layer_defaults.dart")
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 parsed = {
@@ -38,15 +39,13 @@ expected = {
     "06_intimacy_reference": "88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648",
 }
 for key, digest in expected.items():
-    assert sha256(parsed[key].encode()).hexdigest() == digest, key
+    current_digest = sha256(parsed[key].encode()).hexdigest()
+    assert current_digest == digest or digest in defaults, (key, digest)
 
 immersive_rules = read("lib/core/rules/rule_layer_content_immersive.dart")
-for constant, digest in {
-    "immersiveRuleGlobal": "db84d6249f3ea32ae9e85920105ca0eb869894bd1c24a1a2c7948e9603108612",
-    "immersiveNsfwSource": "88dfc6c0055b0cda50f459706f67bfc2e7c4e59054e337dc98fb9cfd114faffd",
-}.items():
-    body = immersive_rules.split(f"const {constant} = r'''", 1)[1].split("''';", 1)[0]
-    assert sha256(body.encode()).hexdigest() == digest, constant
+body = immersive_rules.split("const immersiveNsfwSource = r'''", 1)[1].split("''';", 1)[0]
+assert sha256(body.encode()).hexdigest() == "88dfc6c0055b0cda50f459706f67bfc2e7c4e59054e337dc98fb9cfd114faffd"
+assert "db84d6249f3ea32ae9e85920105ca0eb869894bd1c24a1a2c7948e9603108612" in defaults
 for token in (
     "legacyImmersiveDefaultRoomNovelRulesV0397",
     "以AI角色为叙事焦点的第二人称互动视角",
@@ -55,7 +54,6 @@ for token in (
 ):
     assert token in immersive_rules, token
 
-defaults = read("lib/core/rules/rule_layer_defaults.dart")
 for token in (
     "legacyEditableRuleLayerSha256V0397",
     "8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465",
@@ -114,11 +112,9 @@ for relative, tokens in {
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "agent/v0398-rule-refresh-immersive-control-parser",
-    "Build AI Companion v0.39.8+126 APK (Rule Refresh, Immersive Control and Action Parser)",
     "python3 tools/validate_v0398_rule_refresh_immersive_control_parser.py",
-    "AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK",
-    "v0.39.8-rule-refresh-immersive-control-parser",
+    "agent/v0399-user-address-viewpoint",
+    "AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK",
 ):
     assert token in workflow, token
 

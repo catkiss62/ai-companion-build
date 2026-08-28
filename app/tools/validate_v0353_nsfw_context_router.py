@@ -67,7 +67,7 @@ defaults = read("lib/core/rules/rule_layer_defaults.dart")
 for key, expected in expected_hashes.items():
     actual = hashlib.sha256(parsed[key].encode("utf-8")).hexdigest()
     if actual != expected:
-        assert f"'{key}': '{expected}'" in defaults, (
+        assert f"'{key}'" in defaults and expected in defaults, (
             f"changed prompt lacks conservative migration hash: {key} {actual}"
         )
 

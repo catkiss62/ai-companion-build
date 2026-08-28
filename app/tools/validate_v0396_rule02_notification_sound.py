@@ -17,7 +17,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*0\.39\.(?:6\+124|7\+125|8\+126)\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.39\.(?:6\+124|7\+125|8\+126|9\+127)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 35;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -34,6 +34,7 @@ assert hashlib.sha256(daily.encode("utf-8")).hexdigest() in {
     "7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297",
     "8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465",
     "e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11",
+    "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
 }
 for token in (
     "每轮对话至少要出现一次",

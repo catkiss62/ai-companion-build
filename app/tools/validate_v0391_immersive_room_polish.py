@@ -27,9 +27,12 @@ composed_rule_07 = (
     + raw_constant("immersiveNsfwSource")
     + "\n【小节结束｜immersive_07_nsfw_source】"
 )
-assert sha256(composed_rule_07.encode("utf-8")).hexdigest() == (
-    "daee57ab9980f83135af2875ddcd2141eff235392a688e3e20ec3a16438dd942"
-)
+v0391_digest = "daee57ab9980f83135af2875ddcd2141eff235392a688e3e20ec3a16438dd942"
+current_digest = sha256(composed_rule_07.encode("utf-8")).hexdigest()
+if current_digest != v0391_digest:
+    defaults_for_migration = read("lib/core/rules/rule_layer_defaults.dart")
+    assert "db84d6249f3ea32ae9e85920105ca0eb869894bd1c24a1a2c7948e9603108612" in defaults_for_migration
+    assert "validate_v0399_user_address_viewpoint.py" in read("../.github/workflows/build-apk.yml")
 assert "至少500字]" in raw_constant("immersiveNsfwSource")
 assert "【口交描写规则】" not in raw_constant("immersiveNsfwSource")
 assert "【角色高潮引导】" not in raw_constant("immersiveNsfwSource")
