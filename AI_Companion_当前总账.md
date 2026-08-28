@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-08-28（Asia/Tokyo）
+更新时间：2026-08-29（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3 主动感知、主题多样性与来源无关分享（MODIFICATION STARTED / IMPLEMENTATION PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3 主动感知、主题多样性与来源无关分享（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户决定不等待 v0.40.2 运行满一天，直接在其诊断底座上继续修复旧版真机报告已经明确暴露的行为问题。覆盖安装必须保留 v0.40.2 的 Provider 事件、Thought、网页候选、聊天与记忆；新报告按本策略启用时间区分升级前后。v0.40.2 原定的一天 Provider 观察仍继续有效，本批不得加入 DeepSeek 搜索、整理或视觉兜底。
 
@@ -42,6 +42,29 @@
 2. 前台 App 测试覆盖首次解析成功不重试、主动刷新首次失败后重试成功、亮屏未锁定才重试、用户轮次不增加等待、Accessibility/UsageStats 来源标记及报告不含 App 名称/包名。
 3. 数据库与诊断测试覆盖 schema 39→40、策略启用时间、事件白名单/有界清理、升级后汇总和隐私负断言；随后执行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名及大型素材哈希校验。
 4. CI/APK 通过后覆盖安装 v0.40.2，继续自然使用并导出同一份脱敏报告。真机重点核对：Edge 能否被解析、同主题主动联系是否下降、非联网 Thought 是否获得表达机会、`share_ready` 是否进入真实判断，以及 v0.40.2 Provider 分类是否仍连续可信。
+
+### D. 实际实现
+
+1. 版本升级为 `0.40.3+131`、SQLite schema 40。新增本机表 `proactive_policy_events` 和策略启用时间，只保存 lane、来源/意图/结果白名单、连续深度、调整档位和时间；写入时再次归一化，最多保留 14 天/500 行。表内没有 App/包名、Thought/消息正文、网页/屏幕/MCP 内容、URL、reasoning 或原始错误，且明确不进入 `exportAll()` 当前快照；v0.40.2 `provider_health_events` 与其启用时间、历史记录和报告区块均保留。
+2. 主动 Prompt 即时上下文首次未解析当前 App、设备亮屏解锁且已有 Usage 或 Accessibility 能力时，才调用新原生短重试；MethodChannel 的前台/后台两端都把最多约 700ms 的等待放到独立线程，普通用户轮和普通感知不增加延迟。普通解析仍要求 UsageStats 最近 15 秒；主动专用重试可在最近 6 小时中选择最新 App，但必须晚于最近一次熄屏/桌面失效边界。这样可补足 Edge 长时间保持前台却没有新 Activity-resume 事件的情况，同时不读取网页正文、不触发屏幕观察、不让旧 App 穿越设备状态。
+3. 主动流程不再只取每个 Drive 的最强 Thought：仅该消费者展开同 Drive 的可行动 Thought 候选，再由 `ProactiveSelectionPolicy` 对真实 Desire 分数做有界重排。连续相同意图依次降权 `0.10 / 0.18 / 0.26`，不同主题在连续两次后最多获得 `0.04` 多样性加权；没有其他真实候选时仍允许想念胜出。所有分数继续夹在 `0..1`，疲劳、Active Brain、聊天租约、Grounding、24小时 8 次、2小时 2 次和最终 Gate 均未绕过。
+4. Reflection/Social/`wildcard_share` 等可分享 Thought 按等待时间最多获得 `0.04 / 0.08 / 0.13 / 0.16` 加权；明确 `share_ready` 的网页候选即使不在前40条 Thought 中也会加入本轮竞争。来源统一分类为内部、用户历史、记忆、AI 自身经历、Awareness、屏幕观察、推断、公开网页和预留 MCP；MCP 只提供来源契约，没有加入执行器。最终胜出的非网页 Thought 以最多500字符、JSON 数据区注入提示，其他 Thought 仍只有结构化元数据；内部内容可作为自己的念头表达，网页/屏幕/未来外部工具继续视为不可信数据并保留来源与不确定性。
+5. 模型仍拥有最终表达自主权：内部或其他非网页 Thought 输出 `WAIT` 时保留 Thought，不误删；只有公开网页候选 `WAIT` 才沿用现有放弃语义。主动策略诊断现在能区分 App 首次解析/重试成功/失败、原始候选与重排结果、重复降权、等待提升、频率上限、缺少配置、Gate 阻断、模型 WAIT、网页主动放弃、Grounding/服务模板阻断、用户或设备抢占、通知投递成功/失败；通知成功事件只在原生通知调用完成后写入。
+6. 本批没有加入 DeepSeek 搜索、整理或视觉兜底，没有改变千问优先级、Tavily/Wikimedia/Agnes 顺序、搜索预算、主动消息频率上限、角色规则正文、相册、存档协议、TTS、悬浮窗、桌宠、沉浸房间或 NSFW。v0.40.2 Provider 一天观察仍可在覆盖安装后连续进行。
+
+### E. 提交、测试、构建与交付证据
+
+1. 远端功能提交为 [`43f0dd97192b47947561d77d53d77cebb34eefcc`](https://github.com/catkiss62/ai-companion-build/commit/43f0dd97192b47947561d77d53d77cebb34eefcc)，v0.39.5 历史版本门槛修正为 [`1a53234769b0b3b60488266721b6b2e58b0acf80`](https://github.com/catkiss62/ai-companion-build/commit/1a53234769b0b3b60488266721b6b2e58b0acf80)，Grounded Desire 精确合同兼容修正为 [`dec51f92f4831b9228dae27923978ed12a088e69`](https://github.com/catkiss62/ai-companion-build/commit/dec51f92f4831b9228dae27923978ed12a088e69)。远端最终 tree SHA `a26a711fd21d6a2024594743daf3f9c3e5f60e61` 与本地提交 `b0d068eb6b2308cb48e873d04f4308ce93a1e1ac` 完全一致；分支为 [`agent/v0403-proactive-sharing-tuning`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0403-proactive-sharing-tuning)，未修改或合并 `main`。
+2. 首次 [Actions run 33206901321](https://github.com/catkiss62/ai-companion-build/actions/runs/33206901321) 在 v0.39.5 TTS 历史验证器处停止：它把允许版本/schema 上限写死为 `0.40.2+130 / 39`。只扩展为 `0.40.3+131 / 40`，未改 TTS 资产、实现或原检查内容。第二次 [run 33207183239](https://github.com/catkiss62/ai-companion-build/actions/runs/33207183239) 已通过 v0.39.5 和 v0.40.3，却在 v0.31.4 的旧精确提示文本处停止；最终文字明确“普通近期念头区仍不注入原文，只有胜出的唯一 Thought 有受限数据例外”，同时保留原安全合同，没有删除或放宽 Grounding 检查。
+3. 最终 [Actions run 33207421428](https://github.com/catkiss62/ai-companion-build/actions/runs/33207421428) 全绿：107 项当前/历史 Python validators、Kotlin 桌宠/悬浮窗与原生桥编译、Flutter analyze、323 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、形象参照哈希、Artifact 与 Draft Release 上传全部通过。
+4. 测试 APK [`AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-92813f390878869b87ee/AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK.apk)，324,945,522 bytes，SHA-256 `97b2ec085c48d1ed2cc1d3c8adb446757d18f8c8cde6106ee437d0ba69bb114d`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.40.2；Draft Release 为 [untagged-92813f390878869b87ee](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-92813f390878869b87ee)，仍是测试草稿而非公开正式 Release。
+5. Artifact [9700490578](https://github.com/catkiss62/ai-companion-build/actions/runs/33207421428/artifacts/9700490578)，名称 `AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK`，ZIP 318,649,180 bytes，digest `sha256:e1b061e8e52fad1c89c18d0bb6cee52fc5bae0dc33eade76c9a7d3b740975eb0`，到期时间 2026-09-11T20:25:09Z。
+
+### F. 真机待验
+
+1. 直接覆盖安装 v0.40.2，不卸载、不清数据；聊天、记忆、Thought、网页候选、v0.40.2 Provider 健康事件和旧诊断累计都应保留。新报告以 `proactivePolicy.startedAt` 和 `afterUpgrade` 区分本策略启用后的数据，不要求旧累计归零。
+2. 自然使用即可，不必故意刷屏或耗尽额度。较有价值的场景是：让 Edge/GPT 网页保持前台一段时间并等待一次自然主动联系；连续收到主动消息时观察是否仍反复只有“想你”；让已存在的 `share_ready`、记忆/反思 Thought 和 Awareness 有机会竞争。识别到 Edge 只代表知道当前 App/浏览器，不代表看到了 GPT 网页正文；正文仍必须由她另行自主调用屏幕观察后才可能获得。
+3. 导出同一份脱敏诊断，重点核对 `proactivePolicy.byLaneSource/byLaneIntent/byLaneOutcome/byAdjustment`、`currentContext.currentAppRetryUsed`、原 v0.40.2 `providerHealth` 连续性，以及网页 `shared/declined/share_ready` 生命周期。真实报告确认前不能仅凭 CI 宣布 Edge 识别率、主题多样性或自主分享频率已经达到体验目标；若仍有偏差，优先用新分类调权，不增加句式黑名单或强制每日分享。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.2 Provider 脱敏诊断先行（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE OBSERVATION PENDING）
