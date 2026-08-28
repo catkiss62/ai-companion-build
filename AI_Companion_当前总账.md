@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.0 特殊风格体验、记忆来源与前景胶囊（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.0 特殊风格体验、记忆来源与前景胶囊（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 本批以用户本轮上传的 `特殊风格-新修改.txt` 为唯一特殊风格正文真源；此前上传的 `特殊风格(2).txt` 及旧内置八项只作迁移来源，不再决定新安装内容。用户特别确认“痴女”以本轮再次修改的版本为准，八项正文不得整合、精简、润色或改变表现力。
 
@@ -28,6 +28,29 @@
 4. 普通性格试穿继续全局动态生效，沉浸房间不永久固定普通性格。特殊风格一旦由沉浸房间继承则固定到该房间：暂时离开、全局关闭或到期不改变已开始房间的现场身体与叙事连续性；新房间和普通聊天只读取届时仍有效的全局试穿。房间提供最小的解除/替换入口，结束归档继续由原房间逻辑唯一负责。
 5. 普通聊天和沉浸房间在NSFW按钮下方、右侧显示全圆角自适应名称胶囊；仅显示正在试穿的普通性格与特殊风格，普通性格转正后不显示。沉浸房间胶囊放在全屏聊天框和文字之后的Stack最上层，允许遮住可滚动文字。
 6. 目标分支 `agent/v0400-special-style-memory-capsule`，目标版本 `0.40.0+128`。预计SQLite schema升级以保存生成时来源与房间固定风格；完成前必须新增精确正文/迁移/来源/房间固定/胶囊测试，运行全部历史validators、Flutter analyze/tests、Kotlin测试、release APK、签名与大型素材校验。Actions和APK通过后仍标记真机待验，不合并main。
+
+### B. 实际实现
+
+1. 八项特殊风格已按 `特殊风格-新修改.txt` 逐字落入独立 v0.40.0 真源，痴女使用用户最后一次修改稿；静态门禁分别锁定八段正文 SHA-256。目录、规则默认值与运行编译统一使用病娇、痴女、高岭之花、史莱姆、人偶执念、毒舌依赖、AI模拟、神人模式；未知或退役 ID 返回空提示，不再回退成病娇。覆盖安装仅替换精确命中旧库存哈希的保留项并退役精确库存旧项，用户手工编辑的旧规则保留但不再出现在可选目录。
+2. 新版共同规则明确让 AI 知情并主动参与临时试穿：被问到时可自然承认、讨论或回忆，不主动播报风格名、规则、期限、倒计时或按钮；临时身体结构、机械机制、语言规则和能力不得进入永久 AI Self 或当前现实事实，真实共同经历、稳定偏好与关系变化可作为带“特殊风格体验”来源的长期记忆。最终 CI 还捕获并修复了一处旧共同规则引用，现已由测试与静态门禁共同锁定运行时实际编译的是 v0.40.0 共同规则。
+3. SQLite schema 由36升至37。每次生成在 PromptBuilder 前快照当前特殊风格 trial ID/key，提示编译、助手消息结果与异步 post-turn job 复用同一快照，不在稍后整理时读取可能已经变化的全局开关。记忆 evidence/source/tags 写入 trial 与风格来源；试穿期间拟写为 AI Self 的临时形态/机制内容确定性降级为带风格标签的共同经历，避免异步竞态与人格污染。
+4. 沉浸房间新增特殊风格 `inherit / pinned / disabled` 绑定。创建或首次实际使用房间时继承仍有效的全局特殊风格并固定；暂时离开、全局关闭、到期均不改变房间，重进仍保持现场连续性；可用当前全局风格替换，或手动解除固定。普通性格试穿继续按全局实时状态生效，不固定进房间。房间结束仍只走原有唯一归档器，归档内容附带特殊风格体验来源，不新建重复总结任务。
+5. 普通聊天与沉浸房间新增统一全圆角自适应试穿胶囊，仅显示当前普通性格试穿与特殊风格试穿；普通性格转正后自动消失，两者并存时合并为一个胶囊。普通聊天胶囊位于 NSFW 按钮下方右侧；沉浸房间胶囊是全屏 Stack 的最后前景层，位于聊天框和可滚动文字上方，可遮挡文字但不阻断滚动阅读。沉浸胶囊菜单同时提供特殊风格替换/解除入口。
+6. 本轮未加入特殊风格自定义新增/删除 UI，未改变用户附件中的八项正文，未另建独立“扮演记忆库”，也未把普通性格永久固定在沉浸房间。版本为 `0.40.0+128`，数据库名与稳定测试签名保持不变。
+
+### C. 提交、测试、构建与交付证据
+
+1. 远端最终功能提交为 [`e9261088aa1b9972588e82d82d003f140919714c`](https://github.com/catkiss62/ai-companion-build/commit/e9261088aa1b9972588e82d82d003f140919714c)，功能 tree SHA `4bc0c8e54d811d7ca424c25f962e0e14849baaa5` 与本地完全一致；远端分支为 [`agent/v0400-special-style-memory-capsule`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0400-special-style-memory-capsule)，未修改或合并 `main`。
+2. 早期 CI 依次发现并修正：连接器上传大文件时的截断、v0.35.0/v0.35.4 历史校验器仍只接受旧特殊风格目录/旧计时文字、当前体感契约版本白名单缺少 `0.40.0+128`。这些修复只恢复完整源码并更新历史校验兼容分支，没有改动八项特殊风格正文。随后 [Actions run 33169237754](https://github.com/catkiss62/ai-companion-build/actions/runs/33169237754) 已通过104项 validators、Kotlin与Flutter analyze，但 Flutter tests 为309通过、1失败，真实暴露新版试穿自知共同规则虽已保存却仍引用旧版；生产引用修复后新增静态锁定。
+3. 最终 [Actions run 33169857902](https://github.com/catkiss62/ai-companion-build/actions/runs/33169857902) 全绿：104项当前/历史 Python validators、Kotlin桌宠/悬浮窗测试、Flutter analyze、310项 Flutter tests、release APK、稳定签名、27项TTS assets + 5个native libraries、417文件桌宠包、62项LingChat资产、22张塔罗素材、Artifact与Draft Release上传全部通过。
+4. APK [`AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-9c0df03d22308b0d4f08/AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-APK.apk)，324,824,870 bytes，SHA-256 `8bea948825069fce3e8e7cd79c5dc0e3beac4441fb98c12112682d3f51c138f1`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装上一版；Draft Release为 [untagged-9c0df03d22308b0d4f08](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9c0df03d22308b0d4f08)，仍是测试草稿而非公开正式Release。
+5. Artifact [9685405060](https://github.com/catkiss62/ai-companion-build/actions/runs/33169857902/artifacts/9685405060)，名称 `AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-APK`，ZIP 318,528,458 bytes，digest `sha256:a701bafe7a5f751be52309a74c26ff8a5cc5e63f92a9d609454709958918a37d`，到期时间2026-09-11T12:18:33Z。
+
+### D. 真机待验
+
+1. 卸载重装后逐项打开八种特殊风格，重点核对痴女为最后附件版本；询问 AI 当前状态时可自然知道自己在试穿，但普通对话中不机械播报风格名、规则、倒计时或界面状态。关闭试穿后，后续长期记忆可以自然提及当时真实发生的体验或偏好，但不得把史莱姆身体、AI机械机制等临时设定误当当前永久身体/能力。
+2. 普通聊天分别测试仅普通性格、仅特殊风格和两者同时试穿：NSFW按钮下方右侧胶囊名称正确、宽度随文本变化、转正普通性格后对应名称消失；普通聊天结束/切换风格后，异步整理的记忆来源仍对应生成当时的风格而不是整理时的开关。
+3. 沉浸房间进入时固定特殊风格，暂时离开后在普通聊天关闭或更换全局特殊风格，再回房确认原风格和现场身体连续性不变；再测试菜单替换与解除。胶囊必须处在全屏聊天框和文字上方，允许遮住文字，聊天内容仍可上下拖动。结束房间后只生成一次原有归档，且临时身体/机制不污染 AI Self。上述真实 DeepSeek 与真机流程通过前，本节保持 `TRUE DEVICE PENDING`。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.9 用户称谓与沉浸视角冲突根修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
