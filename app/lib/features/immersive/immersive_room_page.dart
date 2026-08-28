@@ -8,9 +8,12 @@ import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
 import '../../core/models/immersive_room.dart';
+import '../../core/models/personality_trial.dart';
+import '../../core/personality/personality_catalog.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../chat/chat_timestamp_formatter.dart';
@@ -321,6 +324,9 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   bool _followLatest = true;
   bool _programmaticScroll = false;
   bool _scrollFrameScheduled = false;
+  Timer? _trialTimer;
+  PersonalityTrial? _personalityTrial;
+  SpecialStyleTrial? _activeSpecialTrial;
 
   @override
   void initState() {
@@ -328,15 +334,31 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     controller.addListener(_onChanged);
     unawaited(controller.initialize());
     unawaited(_loadVisualSettings());
+    unawaited(_refreshTrials());
+    _trialTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => unawaited(_refreshTrials()),
+    );
   }
 
   @override
   void dispose() {
     controller.removeListener(_onChanged);
+    _trialTimer?.cancel();
     controller.dispose();
     input.dispose();
     scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshTrials() async {
+    final profile = await AppDatabase.instance.activePersonalityTrial();
+    final special = await AppDatabase.instance.activeSpecialStyleTrial();
+    if (!mounted) return;
+    setState(() {
+      _personalityTrial = profile;
+      _activeSpecialTrial = special;
+    });
   }
 
   void _onChanged() {
@@ -765,6 +787,13 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                   }
                   if (value == 'end') await _endRoom();
                   if (value == 'delete') await _deleteRoom();
+                  if (value == 'special_pin') {
+                    await controller.pinCurrentSpecialStyle();
+                    await _refreshTrials();
+                  }
+                  if (value == 'special_disable') {
+                    await controller.disableSpecialStyle();
+                  }
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(
@@ -785,6 +814,25 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                     const PopupMenuItem(
                       value: 'end',
                       child: Text('结束房间'),
+                    ),
+                  if (!room.isEnded &&
+                      _activeSpecialTrial != null &&
+                      PersonalityCatalog.isKnownSpecial(
+                        _activeSpecialTrial!.styleKey,
+                      ) &&
+                      room.specialStyleKey != _activeSpecialTrial!.styleKey)
+                    PopupMenuItem(
+                      value: 'special_pin',
+                      child: Text(
+                        '改用 ${PersonalityCatalog.special(_activeSpecialTrial!.styleKey).label}',
+                      ),
+                    ),
+                  if (!room.isEnded && room.specialStyleKey.isNotEmpty)
+                    PopupMenuItem(
+                      value: 'special_disable',
+                      child: Text(
+                        '解除 ${PersonalityCatalog.special(room.specialStyleKey).label}',
+                      ),
                     ),
                   const PopupMenuItem(
                     value: 'delete',
@@ -843,6 +891,23 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                       child: _conversationPanel(room),
                     ),
                   ),
+                  if (_personalityTrial != null ||
+                      (room != null && room.specialStyleKey.isNotEmpty))
+                    Positioned(
+                      top: 8,
+                      right: 12,
+                      child: ActiveTrialCapsule(
+                        labels: [
+                          if (_personalityTrial != null)
+                            '${PersonalityCatalog.base(_personalityTrial!.baseKey).label} × ${PersonalityCatalog.posture(_personalityTrial!.postureKey).label}',
+                          if (room != null &&
+                              PersonalityCatalog.isKnownSpecial(
+                                room.specialStyleKey,
+                              ))
+                            PersonalityCatalog.special(room.specialStyleKey).label,
+                        ],
+                      ),
+                    ),
                 ],
               ),
       ),

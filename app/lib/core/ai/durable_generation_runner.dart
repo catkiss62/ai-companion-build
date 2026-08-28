@@ -53,12 +53,16 @@ class GenerationRunResult {
     this.assistant,
     this.error,
     this.retryAt,
+    this.specialStyleTrialId = '',
+    this.specialStyleKey = '',
   });
 
   final String status;
   final ChatMessage? assistant;
   final Object? error;
   final DateTime? retryAt;
+  final String specialStyleTrialId;
+  final String specialStyleKey;
 
   bool get completed => status == 'completed' && assistant != null;
   bool get retryScheduled => status == 'retry_wait';
@@ -187,6 +191,8 @@ class DurableGenerationRunner {
     var charsAtCheckpoint = 0;
     var lastLeaseRefresh = DateTime.now();
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
+    var generationSpecialStyleTrialId = '';
+    var generationSpecialStyleKey = '';
 
     try {
       final previous = await db.messagesBefore(user.createdAt, limit: 33);
@@ -244,6 +250,9 @@ class DurableGenerationRunner {
           cancellationToken: cancellationToken,
         );
       }
+      final generationSpecialStyle = await db.activeSpecialStyleTrial();
+      generationSpecialStyleTrialId = generationSpecialStyle?.id ?? '';
+      generationSpecialStyleKey = generationSpecialStyle?.styleKey ?? '';
       final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
         latestUserText: user.content,
         recent: recent,
@@ -252,6 +261,7 @@ class DurableGenerationRunner {
         nsfwActive: nsfwRoute.active,
         nsfwReferenceActive: nsfwRoute.referenceActive,
         agentToolResults: agentToolResults,
+        specialStyleKeyOverride: generationSpecialStyleKey,
       );
       Future<({
         String reasoning,
@@ -628,7 +638,12 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 
       await desireEngine.satisfy(DriveKey.attachment, factor: 0.58);
       unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));
-      return GenerationRunResult(status: 'completed', assistant: assistant);
+      return GenerationRunResult(
+        status: 'completed',
+        assistant: assistant,
+        specialStyleTrialId: generationSpecialStyleTrialId,
+        specialStyleKey: generationSpecialStyleKey,
+      );
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);
       return GenerationRunResult(status: 'cancelled_by_user', error: e);

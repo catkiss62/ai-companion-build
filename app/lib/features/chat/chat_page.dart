@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/personality_trial.dart';
+import '../../core/personality/personality_catalog.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/platform/android_bridge.dart';
@@ -19,6 +20,7 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
+import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
@@ -466,13 +468,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _personalityTrial = profile;
       _specialTrial = special;
     });
-  }
-
-  String _shortRemaining(Duration duration) {
-    if (duration.isNegative) return '0分';
-    if (duration.inDays > 0) return '${duration.inDays}天';
-    if (duration.inHours > 0) return '${duration.inHours}时';
-    return '${duration.inMinutes.clamp(0, 999)}分';
   }
 
   Future<void> _openPersonalityLab() async {
@@ -941,6 +936,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  if (_personalityTrial != null || _specialTrial != null)
+                    Positioned(
+                      top: 8,
+                      right: 12,
+                      child: ActiveTrialCapsule(
+                        onTap: _openPersonalityLab,
+                        labels: [
+                          if (_personalityTrial != null)
+                            '${PersonalityCatalog.base(_personalityTrial!.baseKey).label} × ${PersonalityCatalog.posture(_personalityTrial!.postureKey).label}',
+                          if (_specialTrial != null)
+                            PersonalityCatalog.special(_specialTrial!.styleKey).label,
+                        ],
+                      ),
+                    ),
                 ],
               );
             },
@@ -1397,23 +1406,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            if (_personalityTrial != null || _specialTrial != null)
-              TextButton(
-                onPressed: _openPersonalityLab,
-                style: TextButton.styleFrom(
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                ),
-                child: Text([
-                  if (_personalityTrial != null)
-                    '试穿 ${_shortRemaining(_personalityTrial!.remaining())}',
-                  if (_specialTrial != null)
-                    '特殊 ${_shortRemaining(_specialTrial!.remaining())}',
-                ].join(' · ')),
-              ),
-            if (_personalityTrial != null || _specialTrial != null)
-              const SizedBox(width: 4),
             Tooltip(
               message: controller.nsfwActive
                   ? '本轮成人规则已开启；点击后下一轮强制关闭'

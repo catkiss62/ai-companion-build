@@ -45,7 +45,6 @@ class ImmersivePromptBuilder {
     }
 
     final profileTrial = await db.activePersonalityTrial();
-    final specialTrial = await db.activeSpecialStyleTrial();
     final baseKey = profileTrial?.baseKey ??
         (await db.getSetting('personality_base_key') ?? 'neutral');
     final postureKey = profileTrial?.postureKey ??
@@ -56,10 +55,11 @@ class ImmersivePromptBuilder {
       trial: profileTrial != null,
       templates: templates,
     );
-    final special = specialTrial == null
+    final special = room.specialStyleKey.isEmpty ||
+            !PersonalityCatalog.isKnownSpecial(room.specialStyleKey)
         ? ''
         : PersonalityCatalog.compileSpecial(
-            specialTrial.styleKey,
+            room.specialStyleKey,
             intimacyActive: nsfwActive,
             templates: templates,
           );
@@ -80,7 +80,7 @@ class ImmersivePromptBuilder {
     if (special.trim().isNotEmpty) {
       context
         ..writeln()
-        ..writeln('【当前特殊风格试穿】')
+        ..writeln('【本房间固定的特殊风格试穿】')
         ..writeln(special.trim());
     }
     if (room.entryContext.trim().isNotEmpty) {

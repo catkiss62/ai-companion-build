@@ -14,6 +14,8 @@ void main() {
     expect(room.nsfwActive, isFalse);
     expect(room.nsfwManualOverride, isEmpty);
     expect(room.nsfwRouteSource, 'initial');
+    expect(room.specialStyleKey, isEmpty);
+    expect(room.specialStyleBinding, 'inherit');
   });
 
   test('room NSFW route reads independently persisted state', () {
@@ -31,5 +33,20 @@ void main() {
     expect(room.nsfwActive, isTrue);
     expect(room.nsfwManualOverride, 'on');
     expect(room.nsfwRouteSource, 'manual_pending_on');
+  });
+
+  test('room keeps a pinned special style independently from global trials', () {
+    final room = ImmersiveRoom.fromDb({
+      'id': 'room-special',
+      'title': '史莱姆房间',
+      'status': 'paused',
+      'special_style_key': 'slime',
+      'special_style_binding': 'pinned',
+      'created_at': 1000,
+      'updated_at': 2000,
+    });
+
+    expect(room.specialStyleKey, 'slime');
+    expect(room.specialStyleBinding, 'pinned');
   });
 }

@@ -51,6 +51,7 @@ class RuleLayerService {
     required List<ReferenceItem> references,
     bool? nsfwActive,
     bool? nsfwReferenceActive,
+    String? specialStyleKeyOverride,
   }) async {
     final all = await db.listRuleLayers();
     final templates = <String, String>{
@@ -74,7 +75,11 @@ class RuleLayerService {
         (nsfwReferenceActive ??
             ((await db.getSetting('nsfw_reference_active')) == '1'));
     final profileTrial = await db.activePersonalityTrial();
-    final specialTrial = await db.activeSpecialStyleTrial();
+    final specialTrial = specialStyleKeyOverride == null
+        ? await db.activeSpecialStyleTrial()
+        : null;
+    final specialStyleKey =
+        specialStyleKeyOverride ?? specialTrial?.styleKey ?? '';
     final longTermBase =
         await db.getSetting('personality_base_key') ?? 'neutral';
     final longTermPosture =
@@ -117,10 +122,11 @@ class RuleLayerService {
       layers: selected,
       intimacyActive: intimacy,
       referenceTriggered: referenceTriggered,
-      specialStylePrompt: specialTrial == null
+      specialStylePrompt: specialStyleKey.isEmpty ||
+              !PersonalityCatalog.isKnownSpecial(specialStyleKey)
           ? ''
           : PersonalityCatalog.compileSpecial(
-              specialTrial.styleKey,
+              specialStyleKey,
               intimacyActive: intimacy,
               templates: templates,
             ),

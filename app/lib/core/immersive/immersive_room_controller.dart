@@ -77,7 +77,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       messages = await repository.messagesForRoom(roomId);
       if (!room!.isEnded) {
         await repository.activateRoom(roomId);
-        room = await repository.roomById(roomId);
+        room = await repository.inheritActiveSpecialStyleIfNeeded(roomId);
       }
     }
     loading = false;
@@ -134,7 +134,9 @@ class ImmersiveRoomController extends ChangeNotifier {
     var committed = false;
     try {
       final endpoint = await secureConfig.readEndpoint();
-      final routedRoom = (await repository.roomById(roomId))!;
+      final routedRoom =
+          (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
+      room = routedRoom;
       final route = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -315,6 +317,18 @@ class ImmersiveRoomController extends ChangeNotifier {
     _safeNotify();
   }
 
+  Future<void> pinCurrentSpecialStyle() async {
+    if (sending || ending || room == null || room!.isEnded) return;
+    room = await repository.pinCurrentSpecialStyle(roomId);
+    _safeNotify();
+  }
+
+  Future<void> disableSpecialStyle() async {
+    if (sending || ending || room == null || room!.isEnded) return;
+    room = await repository.disableSpecialStyle(roomId);
+    _safeNotify();
+  }
+
   Future<void> pause() async {
     if (sending || ending) return;
     await repository.pauseRoom(roomId);
@@ -385,6 +399,7 @@ archive_summary 可以相对详细但去除重复描写。shared_memories 只保
           {
             'role': 'user',
             'content': '''房间标题：${room!.title}
+本房间固定特殊风格：${room!.specialStyleKey.isEmpty ? '无' : room!.specialStyleKey}（只作为临时体验来源，不是永久AI Self或现实身体）
 已有滚动摘要：${room!.rollingSummary}
 已有现场账：${room!.sceneLedger}
 

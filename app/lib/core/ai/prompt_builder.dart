@@ -64,6 +64,7 @@ class PromptBuilder {
     bool? nsfwActive,
     bool? nsfwReferenceActive,
     List<AgentToolResult> agentToolResults = const [],
+    String? specialStyleKeyOverride,
   }) async {
     final instant = now ?? DateTime.now();
     final query = (retrievalQuery ?? latestUserText).trim();
@@ -84,6 +85,7 @@ class PromptBuilder {
       references: references,
       nsfwActive: nsfwActive,
       nsfwReferenceActive: nsfwReferenceActive,
+      specialStyleKeyOverride: specialStyleKeyOverride,
     );
     // Awareness must describe the device at prompt time, not merely the last
     // 7-24 minute inner-life heartbeat. This refresh is local-only and never

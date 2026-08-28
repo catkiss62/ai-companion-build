@@ -12,6 +12,8 @@ class ImmersiveRoom {
     required this.nsfwActive,
     required this.nsfwManualOverride,
     required this.nsfwRouteSource,
+    this.specialStyleKey = '',
+    this.specialStyleBinding = 'inherit',
     required this.createdAt,
     required this.updatedAt,
     this.endedAt,
@@ -29,6 +31,8 @@ class ImmersiveRoom {
   final bool nsfwActive;
   final String nsfwManualOverride;
   final String nsfwRouteSource;
+  final String specialStyleKey;
+  final String specialStyleBinding;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? endedAt;
@@ -50,6 +54,8 @@ class ImmersiveRoom {
         nsfwActive: row['nsfw_active'] == 1,
         nsfwManualOverride: row['nsfw_manual_override'] as String? ?? '',
         nsfwRouteSource: row['nsfw_route_source'] as String? ?? 'initial',
+        specialStyleKey: row['special_style_key'] as String? ?? '',
+        specialStyleBinding: row['special_style_binding'] as String? ?? 'inherit',
         createdAt: DateTime.fromMillisecondsSinceEpoch(
           (row['created_at'] as num).toInt(),
         ),

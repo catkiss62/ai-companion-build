@@ -15,6 +15,8 @@ class PostTurnJob {
     this.nextRetryAt,
     this.modelCompletedAt,
     this.desireAppliedAt,
+    this.specialStyleTrialId = '',
+    this.specialStyleKey = '',
   });
 
   final String id;
@@ -32,6 +34,8 @@ class PostTurnJob {
   final DateTime? nextRetryAt;
   final DateTime? modelCompletedAt;
   final DateTime? desireAppliedAt;
+  final String specialStyleTrialId;
+  final String specialStyleKey;
 
   bool get isRunning => status == 'running' && runToken.isNotEmpty;
   bool get hasProposal => resultJson.trim().isNotEmpty;
@@ -62,5 +66,7 @@ class PostTurnJob {
         desireAppliedAt: row['desire_applied_at'] == null
             ? null
             : DateTime.fromMillisecondsSinceEpoch(row['desire_applied_at'] as int),
+        specialStyleTrialId: row['special_style_trial_id'] as String? ?? '',
+        specialStyleKey: row['special_style_key'] as String? ?? '',
       );
 }

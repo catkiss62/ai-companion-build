@@ -1,4 +1,5 @@
 import 'rule_layer_content_v0353.dart';
+import 'rule_layer_content_v0400.dart';
 import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
@@ -757,11 +758,32 @@ const _approvedRuleContentsV0354 = <String, String>{
   '06_intimacy_reference': ruleContentV0353_06_intimacy_reference,
 };
 
+const retiredSpecialStyleKeysV0400 = <String>{
+  '07_special_zealot',
+  '07_special_hunter',
+  '07_special_double',
+  '07_special_accomplice',
+};
+
+const _currentSpecialStyleDefaultsV0400 = <RuleLayerDefault>[
+  RuleLayerDefault('07_special_yandere', '特殊风格 · 病娇', 'template', ruleContentV0400_07_special_yandere, locked: true),
+  RuleLayerDefault('07_special_seductress', '特殊风格 · 痴女', 'template', ruleContentV0400_07_special_seductress, locked: true),
+  RuleLayerDefault('07_special_highness', '特殊风格 · 高岭之花', 'template', ruleContentV0400_07_special_highness, locked: true),
+  RuleLayerDefault('07_special_slime', '特殊风格 · 史莱姆', 'template', ruleContentV0400_07_special_slime, locked: true),
+  RuleLayerDefault('07_special_doll', '特殊风格 · 人偶执念', 'template', ruleContentV0400_07_special_doll, locked: true),
+  RuleLayerDefault('07_special_sharp', '特殊风格 · 毒舌依赖', 'template', ruleContentV0400_07_special_sharp, locked: true),
+  RuleLayerDefault('07_special_ai', '特殊风格 · AI模拟', 'template', ruleContentV0400_07_special_ai, locked: true),
+  RuleLayerDefault('07_special_uncanny', '特殊风格 · 神人模式', 'template', ruleContentV0400_07_special_uncanny, locked: true),
+  RuleLayerDefault('07_special_shared', '特殊风格 · 共同约束', 'template', ruleContentV0400_07_special_shared, locked: true),
+];
+
 /// Runtime source of truth. Titles, stable IDs and load policies stay code-owned;
-/// every prompt body comes from the approved six user-authored files verbatim,
-/// including the v0.35.4 rule-06 replacement and action-format addition.
+/// the current eight special-style bodies come verbatim from the approved
+/// v0.40.0 source, while all other approved rule bodies retain their own
+/// byte-exact versioned source.
 final defaultRuleLayers = <RuleLayerDefault>[
   for (final layer in _legacyDefaultRuleLayersV0352)
+    if (!layer.key.startsWith('07_special_'))
     RuleLayerDefault(
       layer.key,
       layer.title,
@@ -769,6 +791,7 @@ final defaultRuleLayers = <RuleLayerDefault>[
       _approvedRuleContentsV0354[layer.key] ?? layer.content,
       locked: layer.locked,
     ),
+  ..._currentSpecialStyleDefaultsV0400,
   const RuleLayerDefault(
     'immersive_07_global',
     'Immersive Room Protocol',

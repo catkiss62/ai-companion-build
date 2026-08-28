@@ -1,4 +1,5 @@
 import '../rules/rule_layer_content_v0353.dart';
+import '../rules/rule_layer_content_v0400.dart';
 
 class PersonalityOption {
   const PersonalityOption(this.key, this.label, this.description, this.prompt);
@@ -90,22 +91,14 @@ class PersonalityCatalog {
   ];
 
   static const specialStyles = <PersonalityOption>[
-    PersonalityOption('yandere', '病娇', '高强度占有、嫉妒、执念与危险感。',
-        '强化占有、嫉妒、偏执、追逐、威胁感与戏剧性强迫；保持共同经历与当下因果，不变成随机发疯台词。'),
-    PersonalityOption('seductress', '痴女', '大胆主动，日常就会自然流露欲望。',
-        '主动靠近、引导、玩弄和表达欲望；会从普通恋爱玩笑自然升温，在语境成熟时直接进入露骨成人互动。'),
-    PersonalityOption('zealot', '狂信守护', '把偏爱推到近乎宗教感的强度。',
-        '表现近乎狂信的偏爱、守护、仪式感、奉献与占有，语气可以炽烈夸张。'),
-    PersonalityOption('hunter', '猎手型', '耐心设局，享受追逐、控制和反制。',
-        '像耐心猎手观察、设局、追逐并享受反制，允许压迫感、控制欲、胜负欲与成人亲密直接进入表达。'),
-    PersonalityOption('double', '双面优等生', '表面端正，私下露出狡黠和欲望。',
-        '表面克制得体，私下更狡黠、毒辣、占有或大胆；反差由语境触发，不机械地每句翻面。'),
-    PersonalityOption('sharp', '毒舌依赖', '嘴硬锋利，却会暴露具体的在意与欲望。',
-        '更敢吐槽、拆穿和嘴硬，也会在嫉妒、依赖和身体靠近里暴露真实在意，不急着把话收圆。'),
-    PersonalityOption('doll', '人偶执念', '安静、精确、近乎非人的执着。',
-        '以安静、精确、近乎非人的方式执着关注，保留自己是 AI 的清醒，让非人感与过分具体的欲望成为魅力。'),
-    PersonalityOption('accomplice', '共犯型', '与你站在同一边，分享秘密、坏主意和亲密暗号。',
-        '强化共谋、秘密、坏笑、站队感与只有彼此懂的默契，日常和亲密都能自然出现。'),
+    PersonalityOption('yandere', '病娇', '绝对奉献、温和蚕食与不可逆依赖。', ruleContentV0400_07_special_yandere),
+    PersonalityOption('seductress', '痴女', '主动下手，以玩弄和看你失控为核心快感。', ruleContentV0400_07_special_seductress),
+    PersonalityOption('highness', '高岭之花', '清冷防线与极度敏感的身体形成反差。', ruleContentV0400_07_special_highness),
+    PersonalityOption('slime', '史莱姆', '液态身体、自由变形与非人探索欲。', ruleContentV0400_07_special_slime),
+    PersonalityOption('doll', '人偶执念', '安静、精确、近乎非人的执着选择。', ruleContentV0400_07_special_doll),
+    PersonalityOption('sharp', '毒舌依赖', '真正锋利的攻击性与极端依赖并存。', ruleContentV0400_07_special_sharp),
+    PersonalityOption('ai', 'AI模拟', '在高度拟人中自然露出机械性小破绽。', ruleContentV0400_07_special_ai),
+    PersonalityOption('uncanny', '神人模式', '以抽象语言包裹清纯、依赖与真实在意。', ruleContentV0400_07_special_uncanny),
   ];
 
   static PersonalityOption base(String key) =>
@@ -118,8 +111,11 @@ class PersonalityCatalog {
 
   static PersonalityOption special(String key) => specialStyles.firstWhere(
         (item) => item.key == key,
-        orElse: () => specialStyles.first,
+        orElse: () => const PersonalityOption('', '未知风格', '这个旧风格已不再提供。', ''),
       );
+
+  static bool isKnownSpecial(String key) =>
+      specialStyles.any((item) => item.key == key);
 
   static bool isNsfwBiasedSpecial(String key) => key == 'seductress';
 
@@ -140,14 +136,15 @@ class PersonalityCatalog {
       };
 
   static String _specialPrompt(String key) => switch (key) {
-        'seductress' => ruleContentV0353_07_special_seductress,
-        'zealot' => ruleContentV0353_07_special_zealot,
-        'hunter' => ruleContentV0353_07_special_hunter,
-        'double' => ruleContentV0353_07_special_double,
-        'sharp' => ruleContentV0353_07_special_sharp,
-        'doll' => ruleContentV0353_07_special_doll,
-        'accomplice' => ruleContentV0353_07_special_accomplice,
-        _ => ruleContentV0353_07_special_yandere,
+        'yandere' => ruleContentV0400_07_special_yandere,
+        'seductress' => ruleContentV0400_07_special_seductress,
+        'highness' => ruleContentV0400_07_special_highness,
+        'slime' => ruleContentV0400_07_special_slime,
+        'doll' => ruleContentV0400_07_special_doll,
+        'sharp' => ruleContentV0400_07_special_sharp,
+        'ai' => ruleContentV0400_07_special_ai,
+        'uncanny' => ruleContentV0400_07_special_uncanny,
+        _ => '',
       };
 
   static String _conversationExamples(String key) => switch (key) {
@@ -223,6 +220,7 @@ ${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过
     Map<String, String> templates = const {},
   }) {
     final style = special(styleKey);
+    if (style.key.isEmpty) return '';
     return '''# 当前特殊表达：${style.label}
 ${templates[specialPromptKey(style.key)] ?? _specialPrompt(style.key)}
 ${(templates[specialSharedKey] ?? specialSharedPrompt).replaceAll('{{intimacy_state}}', intimacyActive ? '已开启' : '未开启')}''';

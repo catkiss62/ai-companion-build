@@ -9,6 +9,7 @@ import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/proactive_feedback.dart';
 import '../models/post_turn_job.dart';
+import '../personality/personality_catalog.dart';
 import '../storage/secure_config.dart';
 import '../self/ai_self_reflection_engine.dart';
 import '../relationship/relationship_assimilator.dart';
@@ -47,9 +48,26 @@ class MemoryExtractor {
   Future<void> extractFromTurn({
     required ChatMessage user,
     required ChatMessage assistant,
+    String? specialStyleTrialId,
+    String? specialStyleKey,
   }) async {
+    final historicalSpecial = specialStyleKey == null
+        ? await db.specialStyleTrialAt(user.createdAt)
+        : null;
+    final resolvedSpecialStyleKey = specialStyleKey ??
+        (historicalSpecial != null &&
+                PersonalityCatalog.isKnownSpecial(historicalSpecial.styleKey)
+            ? historicalSpecial.styleKey
+            : '');
+    final resolvedSpecialStyleTrialId =
+        specialStyleTrialId ?? historicalSpecial?.id ?? '';
     if ((await db.getSetting('post_turn_queue_enabled')) == '0') {
-      await _extractTurnNow(user: user, assistant: assistant);
+      await _extractTurnNow(
+        user: user,
+        assistant: assistant,
+        specialStyleTrialId: resolvedSpecialStyleTrialId,
+        specialStyleKey: resolvedSpecialStyleKey,
+      );
       return;
     }
     // Durably record the work before returning to ChatController. The caller
@@ -58,6 +76,8 @@ class MemoryExtractor {
     await db.enqueuePostTurnJob(
       userMessageId: user.id,
       assistantMessageId: assistant.id,
+      specialStyleTrialId: resolvedSpecialStyleTrialId,
+      specialStyleKey: resolvedSpecialStyleKey,
     );
     unawaited(drainPendingSafely());
   }
@@ -125,6 +145,8 @@ class MemoryExtractor {
             user: user,
             assistant: assistant,
             job: job,
+            specialStyleTrialId: job.specialStyleTrialId,
+            specialStyleKey: job.specialStyleKey,
             runDeferredMaintenance: false,
           );
           final done = await db.markPostTurnJobDone(job.id, job.runToken);
@@ -153,6 +175,8 @@ class MemoryExtractor {
     required ChatMessage assistant,
     PostTurnJob? job,
     bool runDeferredMaintenance = true,
+    String specialStyleTrialId = '',
+    String specialStyleKey = '',
   }) async {
     // Retrieval and visible expression are separate durable cursors. This runs
     // before auto-memory extraction so disabling model-written memory does not
@@ -181,6 +205,10 @@ class MemoryExtractor {
               .join('\n');
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
       final proactiveContext = await _buildProactiveContext(proactiveFeedback);
+      final style = PersonalityCatalog.special(specialStyleKey);
+      final specialStyleContext = style.key.isEmpty
+          ? '无。本轮不是特殊风格试穿生成。'
+          : 'trial_id=$specialStyleTrialId | style_key=${style.key} | 名称=${style.label}';
       final memoryCandidates = await db.memoryCandidatesForExtraction(
         '${user.promptContent}\n${assistant.content}',
         limit: 12,
@@ -251,6 +279,7 @@ $editableMemoryPolicy
    - redirected：回应后明显转去别的话题。
    没有主动消息上下文时 outcome=none。proactive_followup 与 threads 必须一致：deferred 不应同时 resolve 同一话题，resolved 才应真正关闭已完成事项，dismissed 表示用户不希望继续该主题。
    当 outcome=deferred 时可额外给 followup_after_hours：用户明确说“晚点/今晚/明天”等时，估计一次自然再跟进的等待时间，范围 6~72 小时；不确定或不适合再跟进则填 0。系统最多只会自动再跟进一次，它不是提醒器。
+16. 如果【生成时特殊风格来源】不是“无”，这轮是双方知情参与的临时试穿体验：真实共同经历、用户明确偏好和关系变化仍可整理；临时身体结构、机械机制、特殊能力、语言规则与风格人格不得写成 ai_self、current_fact 或当前现实。不要仅因试穿设定本身生成 thought、thread 或关系变化。系统会对共同经历加来源标记，不要自行删除该语义。
 
 允许的 memory kind：user_profile / shared_experience / ai_self / preference。
 允许的 drive：attachment / curiosity / reflection / duty / social / libido / stress / fatigue。
@@ -281,6 +310,9 @@ $proactiveContext
 【相关既有长期记忆】
 $memoryCandidateContext
 
+【生成时特殊风格来源】
+$specialStyleContext
+
 【刚发生的对话】
 用户：${user.promptContent}
 AI：${assistant.content}
@@ -304,7 +336,12 @@ AI：${assistant.content}
         result['proactive_followup'],
       );
       await _guardPostTurnJob(job);
-      await _applyMemories(result['memories'], assistant.id);
+      await _applyMemories(
+        result['memories'],
+        assistant.id,
+        specialStyleTrialId: specialStyleTrialId,
+        specialStyleKey: specialStyleKey,
+      );
       await _guardPostTurnJob(job);
       await _applyThreads(
         result['threads'],
@@ -527,36 +564,60 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     );
   }
 
-  Future<void> _applyMemories(Object? rawMemories, String sourceMessageId) async {
+  Future<void> _applyMemories(
+    Object? rawMemories,
+    String sourceMessageId, {
+    String specialStyleTrialId = '',
+    String specialStyleKey = '',
+  }) async {
     if (rawMemories is! List) return;
     const kinds = {'user_profile', 'shared_experience', 'ai_self', 'preference'};
     for (final raw in rawMemories.take(5)) {
       if (raw is! Map) continue;
       final item = raw.cast<String, dynamic>();
-      final kind = item['kind'] as String?;
-      final content = item['content'] as String?;
+      final proposedKind = item['kind'] as String?;
+      final proposedContent = item['content'] as String?;
+      final style = PersonalityCatalog.special(specialStyleKey);
+      final hasSpecialStyle = style.key.isNotEmpty;
+      final kind = hasSpecialStyle && proposedKind == 'ai_self'
+          ? 'shared_experience'
+          : proposedKind;
+      final content = hasSpecialStyle &&
+              (proposedKind == 'ai_self' || proposedKind == 'shared_experience') &&
+              proposedContent != null
+          ? '[特殊风格体验·${style.label}] ${proposedContent.trim()}'
+          : proposedContent;
       if (kind == null || !kinds.contains(kind) || content == null || content.trim().isEmpty) {
         continue;
       }
       final importance = (item['importance'] as num?)?.toDouble() ?? 0.55;
       final confidence = (item['confidence'] as num?)?.toDouble() ?? 0.72;
-      final tags = (item['tags'] as List?)
+      final tags = <String>{
+        ...((item['tags'] as List?)
               ?.whereType<String>()
               .map((e) => e.trim())
               .where((e) => e.isNotEmpty)
-              .take(10)
-              .toList() ??
-          const <String>[];
-      final subjectKey = item['subject_key'] as String? ?? '';
+              .take(10) ??
+          const <String>[]),
+        if (hasSpecialStyle) '特殊风格体验',
+        if (hasSpecialStyle) style.label,
+      }.take(12).toList(growable: false);
+      final subjectKey = hasSpecialStyle && kind == 'shared_experience'
+          ? ''
+          : item['subject_key'] as String? ?? '';
       const semantics = {'current_fact', 'inference', 'shared_experience'};
       const actions = {'append', 'reinforce', 'replace'};
       final proposedSemantic = item['semantic'] as String? ??
           (kind == 'shared_experience' ? 'shared_experience' : 'current_fact');
-      final semantic = semantics.contains(proposedSemantic)
+      final semantic = hasSpecialStyle && kind == 'shared_experience'
+          ? 'shared_experience'
+          : semantics.contains(proposedSemantic)
           ? proposedSemantic
           : (kind == 'shared_experience' ? 'shared_experience' : 'current_fact');
       final proposedAction = item['action'] as String? ?? 'append';
-      final action = actions.contains(proposedAction) ? proposedAction : 'append';
+      final action = hasSpecialStyle && kind == 'shared_experience'
+          ? 'append'
+          : actions.contains(proposedAction) ? proposedAction : 'append';
       final targetId = (item['target_id'] as String?)?.trim();
       await db.insertMemory(
         kind: kind,
@@ -564,7 +625,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         importance: importance,
         confidence: confidence,
         tags: tags,
-        source: 'conversation_turn:$sourceMessageId',
+        source: 'conversation_turn:$sourceMessageId${hasSpecialStyle ? '|special_style:${style.key}|trial:$specialStyleTrialId' : ''}',
         subjectKey: subjectKey,
         semanticType: semantic,
         evidenceMode: action,

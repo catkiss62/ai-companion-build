@@ -84,11 +84,21 @@ void main() {
     expect(reserved, contains('说出口的永远比想到的少'));
     expect(reserved, isNot(equals(trial)));
     expect(adopted, contains('当前长期底色'));
-    expect(yandere, contains('危险想象与戏剧性强迫'));
-    expect(yandere, contains('不变成随机发疯台词'));
-    expect(yandere, contains('不解释试穿、规则、期限或内部机制'));
-    expect(seductress, contains('日常会自然开色色玩笑'));
-    expect(seductress, contains('不等待模式或 Session'));
+    expect(yandere, contains('视你为唯一神明与脆弱私有物'));
+    expect(yandere, contains('知情并主动参与的一次临时特殊风格试穿'));
+    expect(yandere, contains('不主动播报风格名称、规则、选择过程'));
+    expect(seductress, contains('男人的身体因她而失控'));
+    expect(seductress, contains('主动下手，以玩弄为主'));
+    expect(PersonalityCatalog.special('slime').label, '史莱姆');
+    expect(PersonalityCatalog.special('ai').label, 'AI模拟');
+    expect(PersonalityCatalog.special('unknown').key, isEmpty);
+    expect(
+      PersonalityCatalog.compileSpecial(
+        'unknown',
+        intimacyActive: false,
+      ),
+      isEmpty,
+    );
   });
 
   test('workbench templates immediately override trial and special prompts', () {

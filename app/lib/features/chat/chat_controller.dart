@@ -999,6 +999,8 @@ class ChatController extends ChangeNotifier {
       await memoryExtractor.extractFromTurn(
         user: user,
         assistant: result.assistant!,
+        specialStyleTrialId: result.specialStyleTrialId,
+        specialStyleKey: result.specialStyleKey,
       );
     } else if (result.status == 'cancelled_by_user') {
       await _stopTurnAudio();

@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
+import '../personality/personality_catalog.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import 'immersive_shared_memory_policy.dart';
 
@@ -39,6 +40,11 @@ class ImmersiveRoomRepository {
     final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final id = _uuid.v4();
+    final activeSpecial = await db.activeSpecialStyleTrial();
+    final inheritedSpecialKey = activeSpecial != null &&
+            PersonalityCatalog.isKnownSpecial(activeSpecial.styleKey)
+        ? activeSpecial.styleKey
+        : '';
     final inherited = inheritCurrentChat ? await currentChatEntryContext() : '';
     final entryParts = <String>[
       if (openingScene.trim().isNotEmpty) '【开场设定】\n${openingScene.trim()}',
@@ -63,6 +69,8 @@ class ImmersiveRoomRepository {
         'nsfw_active': 0,
         'nsfw_manual_override': '',
         'nsfw_route_source': 'initial',
+        'special_style_key': inheritedSpecialKey,
+        'special_style_binding': inheritedSpecialKey.isEmpty ? 'inherit' : 'pinned',
         'created_at': now,
         'updated_at': now,
         'ended_at': null,
@@ -88,6 +96,63 @@ class ImmersiveRoomRepository {
         whereArgs: [id],
       );
     });
+  }
+
+  Future<ImmersiveRoom?> inheritActiveSpecialStyleIfNeeded(String id) async {
+    final current = await roomById(id);
+    if (current == null || current.isEnded || current.specialStyleBinding != 'inherit') {
+      return current;
+    }
+    final active = await db.activeSpecialStyleTrial();
+    if (active == null || !PersonalityCatalog.isKnownSpecial(active.styleKey)) {
+      return current;
+    }
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'special_style_key': active.styleKey,
+        'special_style_binding': 'pinned',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status != 'ended' AND special_style_binding = 'inherit'",
+      whereArgs: [id],
+    );
+    return roomById(id);
+  }
+
+  Future<ImmersiveRoom?> pinCurrentSpecialStyle(String id) async {
+    final active = await db.activeSpecialStyleTrial();
+    if (active == null || !PersonalityCatalog.isKnownSpecial(active.styleKey)) {
+      return roomById(id);
+    }
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'special_style_key': active.styleKey,
+        'special_style_binding': 'pinned',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status != 'ended'",
+      whereArgs: [id],
+    );
+    return roomById(id);
+  }
+
+  Future<ImmersiveRoom?> disableSpecialStyle(String id) async {
+    final database = await db.database;
+    await database.update(
+      'immersive_rooms',
+      {
+        'special_style_key': '',
+        'special_style_binding': 'disabled',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status != 'ended'",
+      whereArgs: [id],
+    );
+    return roomById(id);
   }
 
   Future<void> pauseRoom(String id) async {
@@ -263,6 +328,8 @@ class ImmersiveRoomRepository {
     final database = await db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final admittedMemories = ImmersiveSharedMemoryPolicy.admit(sharedMemories);
+    final room = await roomById(roomId);
+    final style = PersonalityCatalog.special(room?.specialStyleKey ?? '');
     await database.update(
       'immersive_rooms',
       {
@@ -281,11 +348,17 @@ class ImmersiveRoomRepository {
       if (normalized.isEmpty) continue;
       await db.insertMemory(
         kind: 'shared_experience',
-        content: normalized,
+        content: style.key.isEmpty
+            ? normalized
+            : '[特殊风格体验·${style.label}] $normalized',
         importance: 0.72,
         confidence: 0.82,
-        tags: const ['沉浸房间'],
-        source: 'immersive_room:$roomId',
+        tags: [
+          '沉浸房间',
+          if (style.key.isNotEmpty) '特殊风格体验',
+          if (style.key.isNotEmpty) style.label,
+        ],
+        source: 'immersive_room:$roomId${style.key.isNotEmpty ? '|special_style:${style.key}' : ''}',
         semanticType: 'shared_experience',
       );
     }

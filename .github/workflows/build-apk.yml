@@ -77,7 +77,12 @@
 # .ci/v0397-monitor.txt
 # Historical source-baseline command compatibility:
 # grep -Fqx 'version: 0.39.7+125' app/pubspec.yaml
-# Active candidate: v0.39.9+127 / SQLite schema 36 / user address and immersive viewpoint correction
+# Historical v0.39.9 validator compatibility:
+# Build AI Companion v0.39.9+127 APK (User Address and Viewpoint Correction)
+# agent/v0399-user-address-viewpoint
+# AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK
+# v0.39.9-user-address-viewpoint
+# Active candidate: v0.40.0+128 / SQLite schema 37 / special-style experience, memory provenance and capsule
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -149,12 +154,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.39.9+127 APK (User Address and Viewpoint Correction)
+name: Build AI Companion v0.40.0+128 APK (Special Style Memory Capsule)
 
 on:
   push:
     branches:
-      - agent/v0399-user-address-viewpoint
+      - agent/v0400-special-style-memory-capsule
   workflow_dispatch:
   pull_request:
     branches:
@@ -292,14 +297,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.39.9+127' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 36;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.40.0+128' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 37;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.39.9+127 user-address and immersive-viewpoint correction.'
+          echo 'Building v0.40.0+128 special-style experience, memory provenance and capsule.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -463,6 +468,7 @@ jobs:
           python3 tools/validate_v0397_reasoning_translation_dialogue_boundary.py
           python3 tools/validate_v0398_rule_refresh_immersive_control_parser.py
           python3 tools/validate_v0399_user_address_viewpoint.py
+          python3 tools/validate_v0400_special_style_memory_capsule.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -708,26 +714,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.39.9+127 APK as workflow artifact
+      - name: Upload v0.40.0+128 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK
+          name: AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.39.9+127 user-address and viewpoint APK to draft release
+      - name: Upload v0.40.0+128 special-style memory capsule APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.39.9-user-address-viewpoint'
-          APK_NAME='AI-Companion-v0.39.9-127-User-Address-Viewpoint-APK.apk'
+          TAG='v0.40.0-special-style-memory-capsule'
+          APK_NAME='AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.39.9-127-User-Address-Viewpoint-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -744,8 +750,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.9+127 user-address and viewpoint candidate' \
-              --notes 'Draft candidate: preserves the approved rule content while changing only user-reference vocabulary and contradictory viewpoint cues. Ordinary and immersive visible thought use second person; final prose uses 你; immersive body-feedback and user-control boundaries remain unchanged. SQLite remains schema 36.'
+              --title 'AI Companion v0.40.0+128 special-style memory capsule candidate' \
+              --notes 'Draft candidate: installs the exact approved eight special styles, keeps temporary embodiment out of permanent AI Self, records generation-time style provenance, pins inherited special styles per immersive room, and shows foreground trial capsules. SQLite schema 37.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -769,18 +775,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0399-monitor.txt'
+          MONITOR_PATH='.ci/v0400-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.9 CI success monitor' \
+              -f message='Update v0.40.0 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.9 CI success monitor' \
+              -f message='Create v0.40.0 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -801,8 +807,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.39.9-user-address-viewpoint'
-          CI_NAME='AI-Companion-v0.39.9-127-User-Address-Viewpoint-CI-Monitor.txt'
+          TAG='v0.40.0-special-style-memory-capsule'
+          CI_NAME='AI-Companion-v0.40.0-128-Special-Style-Memory-Capsule-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -843,8 +849,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.9+127 user-address and viewpoint candidate' \
-              --notes 'Draft used for v0.39.9 CI diagnostics and the user-address/viewpoint APK. It is not a published release.'
+              --title 'AI Companion v0.40.0+128 special-style memory capsule candidate' \
+              --notes 'Draft used for v0.40.0 CI diagnostics and the special-style experience APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -853,18 +859,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0399-monitor.txt'
+          MONITOR_PATH='.ci/v0400-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.9 CI failure monitor' \
+              -f message='Update v0.40.0 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.9 CI failure monitor' \
+              -f message='Create v0.40.0 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
