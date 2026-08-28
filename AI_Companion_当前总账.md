@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.2 Provider 脱敏诊断先行（PLANNED / IMPLEMENTING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.2 Provider 脱敏诊断先行（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE OBSERVATION PENDING）
 
 > 用户确认改变此前“完整存档立即作为下一版”的排期：先单独交付一版只增强诊断、不启用任何新兜底 Provider 的测试 APK，运行约一天后读取新报告，确认分类准确再实现联网搜索、网页整理与视觉识别兜底。完整存档与存储体检继续后置，不能与本诊断专项混改。
 
@@ -40,6 +40,29 @@
 
 1. 本地必须覆盖 schema 38→39、事件有界清理、错误分类、搜索成功/预算阻断/Wikimedia 回退、Agnes 成功/失败原摘要保留、聊天千问成功/失败、相册保存/有效拒绝/重复/技术失败以及整份报告隐私负断言；随后运行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、固定签名与大型素材校验。
 2. Actions 与测试 APK 通过后仍只标记 `TRUE DEVICE OBSERVATION PENDING`。用户覆盖安装并运行约一天，再提供新报告核对真实 Provider 分层与分类；报告确认无误后才进入下一版“DeepSeek 搜索/整理/视觉兜底”。完整存档与存储体检排在兜底版之后，版本号在实际开工前重新登记。
+
+### D. 实际实现
+
+1. 版本升级为 `0.40.2+130`、SQLite schema 39。新增本机表 `provider_health_events`，只接受白名单 lane/context/provider/outcome/error category/latency bucket，并在写入入口再次归一化；最多保留 14 天、500 行，写入与长期维护都会清理。表中没有查询词、URL、网页内容、图片、路径、说明、原始错误或业务对象 ID，且明确不进入 `exportAll()` 当前完整状态快照。
+2. 公共网页链路现在分别记录自主 Gate 未调用、Tavily 主搜索、既有 Wikimedia 回退、最终 Provider/结果与数量；用户轮 Agent 搜索使用同一脱敏合同。`PublicWebProviderResult` 只新增安全遥测元数据，不改变 Tavily→Wikimedia 的实际选择与候选内容。Agnes 整理另记为独立 lane，区分关闭、未配置、未调用、成功与失败；失败时保留原摘要的既有行为未改。
+3. 聊天图片与后台相册候选都记录千问成功/技术失败、固定错误分类和延迟档位；没有加入 DeepSeek Vision 客户端或任何备用调用。相册收藏另记保存、AI 有效拒绝、成人安全拒绝、精确 SHA 重复、感知近重复、来源重复、下载、图片处理和本地写入失败。为区分成人有效拒绝，只把千问已有 `adult_content` 解析为内存中的安全布尔值，不保存图片正文或拒绝理由，也不改变 `save=false` 行为。
+4. 脱敏报告新增 `providerHealth`，提供最近 24 小时按 lane、context、主/最终结果、错误分类、最终 Provider、回退资格/尝试/结果的汇总以及最后一条无正文事件；相册旧记录以 schema 39 启用时间为界标记 `legacyUnclassified`。原 `publicWebCandidates.runtime.lastError` 与 `publicWebCompaction.lastError` 已替换为 `lastErrorCategory`，并新增原始错误、查询/URL、图片内容均未包含的隐私负断言。
+5. 新增 Flutter 分类/回退/Agnes 状态单测与 `validate_v0402_provider_diagnostics.py`：真实执行新表 DDL，验证敏感列不存在、事件表不进存档、千问仍是唯一视觉 Provider、聊天/相册/搜索/整理埋点齐全、报告只导出分类，并锁定分支、版本、schema 与 Artifact 名。历史版本 validator 只扩展 `0.40.2+130`/schema 39 白名单，未删减原合同。
+6. 本批没有修改规则正文、Prompt、记忆/Thought/Desire、搜索预算和频率、相册审美判断、聊天回复、沉浸房间、特殊风格、存档协议、TTS、桌宠或悬浮窗。后续已锁定的顺序仍是千问主识图；只有报告确认的技术失败才允许下一版考虑 DeepSeek Vision，AI 正常拒绝、成人拒绝和重复判定不得触发备用模型。
+
+### E. 提交、测试、构建与交付证据
+
+1. 远端功能提交为 [`867f84c3bd773aac7a6c1051db3d07903cf3e52d`](https://github.com/catkiss62/ai-companion-build/commit/867f84c3bd773aac7a6c1051db3d07903cf3e52d)，测试断言修正提交为 [`cf92ea514d43bf0982f2c1c79121da3deef1c6ae`](https://github.com/catkiss62/ai-companion-build/commit/cf92ea514d43bf0982f2c1c79121da3deef1c6ae)。远端最终 tree SHA `5f9f4b885d1ae377f8a7ffcc5e012056165ab2e6` 与本地 `cd32d40be9e89310def49fb851b50a37679f7c80` 完全一致；分支为 [`agent/v0402-provider-diagnostics`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0402-provider-diagnostics)，未修改或合并 `main`。
+2. 首次 [Actions run 33198920886](https://github.com/catkiss62/ai-companion-build/actions/runs/33198920886) 的 316 项测试通过、1 项新测试失败：测试把带单词 `path` 的示例强行期望为 `other`，实际安全分类为 `image_processing`；运行逻辑与脱敏边界没有失败。断言随后改为“结果必须属于固定枚举且不得等于原文”，没有修改生产分类器或 Provider 行为。
+3. 修正后的 [Actions run 33199614877](https://github.com/catkiss62/ai-companion-build/actions/runs/33199614877) 全绿：106 项当前/历史 Python validators、Kotlin 桌宠/悬浮窗测试、Flutter analyze、317 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、形象参照 hash、Artifact 与 Draft Release 上传全部通过。
+4. 测试 APK [`AI-Companion-v0.40.2-130-Provider-Diagnostics-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-6f59a97dbb7cf10176fc/AI-Companion-v0.40.2-130-Provider-Diagnostics-APK.apk)，324,904,618 bytes，SHA-256 `4f17e5df69e7c1017d66bdf0f78ff75ae76222da4c5c3d4fadc012475a36be11`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.40.1；Draft Release 为 [untagged-6f59a97dbb7cf10176fc](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6f59a97dbb7cf10176fc)，仍是测试草稿而非公开正式 Release。
+5. Artifact [9697500809](https://github.com/catkiss62/ai-companion-build/actions/runs/33199614877/artifacts/9697500809)，名称 `AI-Companion-v0.40.2-130-Provider-Diagnostics-APK`，ZIP 318,608,886 bytes，digest `sha256:b9678053f302b21baed07712cbbe5dd110c50c75b2a41e7435a3ca248e6ba98e`，到期时间 2026-09-11T18:40:51Z。
+
+### F. 一天真机观察要求
+
+1. 覆盖安装后正常使用约 24 小时，不需要故意把 API Key 改错或破坏网络。期间尽量自然覆盖一次用户轮联网搜索、普通聊天发图，并让后台相册有机会处理候选；自主搜索受 24 小时 4 次预算限制属于预期，Gate 阻断本身也会进入分类。
+2. 约一天后导出新的脱敏诊断报告并交给后续窗口。重点检查 `providerHealth.last24h`、`byLaneFinalOutcome24h`、`byLanePrimaryErrorCategory24h`、`fallback24h`，以及 `companionAlbum.outcomeClassification`；旧相册记录显示为 `legacyUnclassified` 是正确结果，不能据此判断她自主拒绝。
+3. 报告确认分类可信后，才开下一版兜底：搜索为 Tavily 主→DeepSeek 搜索技术兜底→Wikimedia 最终确定性兜底；整理为 Agnes 主→DeepSeek 非思考 Flash 技术兜底→保留原摘要；视觉为千问主→DeepSeek `deepseek-v4-flash-vision-exp` 仅技术失败兜底。若报告暴露误分类，先修诊断，不直接加入备用 Provider。完整存档与存储体检继续排在兜底版之后。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.40.1 相册身份软参照与收藏闭环（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
