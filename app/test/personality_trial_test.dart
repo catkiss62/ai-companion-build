@@ -76,7 +76,7 @@ void main() {
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达过滤'));
     expect(trial, contains('可以从日常玩笑顺势升温'));
-    expect(reserved, contains('他是男朋友，不是孩子也不是指令来源'));
+    expect(reserved, contains('用户是男朋友，不是孩子也不是指令来源'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('抓住破绽追一下'));
     expect(trial, isNot(contains('当前试穿性格')));
