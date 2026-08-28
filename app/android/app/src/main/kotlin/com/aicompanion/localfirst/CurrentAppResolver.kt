@@ -57,6 +57,11 @@ object CurrentAppResolver {
     private const val USAGE_EVENT_LOOKBACK_MS = 30_000L
     private const val USAGE_EVENT_MAX_AGE_MS = 15_000L
     private const val USAGE_STATS_MAX_AGE_MS = 15_000L
+    // A proactive prompt may run long after the foreground Activity resumed.
+    // This wider window is used only by the explicit retry path. The
+    // invalidated-at boundary (screen off / launcher) below still prevents an
+    // app from leaking across a device-state transition.
+    private const val PROACTIVE_USAGE_STATS_MAX_AGE_MS = 6 * 60 * 60_000L
 
     fun recentUsage(context: Context, minutes: Int): List<Map<String, Any>> {
         val now = System.currentTimeMillis()
@@ -147,13 +152,17 @@ object CurrentAppResolver {
         context: Context,
         attempts: Int = 3,
         retryDelayMs: Long = 350L,
+        usageStatsMaxAgeMs: Long = USAGE_STATS_MAX_AGE_MS,
     ): ResolvedCurrentApp? {
         val safeAttempts = attempts.coerceIn(1, 4)
         var result: ResolvedCurrentApp? = null
         var used = 0
         for (index in 0 until safeAttempts) {
             used = index + 1
-            result = resolveCurrent(context)
+            result = resolveCurrent(
+                context,
+                usageStatsMaxAgeMs = usageStatsMaxAgeMs,
+            )
             if (result != null) break
             if (index < safeAttempts - 1) Thread.sleep(retryDelayMs.coerceIn(100L, 600L))
         }
@@ -165,7 +174,17 @@ object CurrentAppResolver {
         return result
     }
 
-    fun resolveCurrent(context: Context, knownEventCount: Int = 0): ResolvedCurrentApp? {
+    fun resolveCurrentForProactiveWithRetries(context: Context): ResolvedCurrentApp? =
+        resolveCurrentWithRetries(
+            context,
+            usageStatsMaxAgeMs = PROACTIVE_USAGE_STATS_MAX_AGE_MS,
+        )
+
+    fun resolveCurrent(
+        context: Context,
+        knownEventCount: Int = 0,
+        usageStatsMaxAgeMs: Long = USAGE_STATS_MAX_AGE_MS,
+    ): ResolvedCurrentApp? {
         val now = System.currentTimeMillis()
         val power = context.getSystemService(PowerManager::class.java)
         if (!power.isInteractive) {
@@ -252,7 +271,11 @@ object CurrentAppResolver {
                 isTrackablePackage(context, it.packageName) && it.lastTimeUsed > invalidatedAt
             }.maxByOrNull { it.lastTimeUsed }
         }.getOrNull()
-        if (fallback != null && now - fallback.lastTimeUsed <= USAGE_STATS_MAX_AGE_MS) {
+        val safeUsageStatsAge = usageStatsMaxAgeMs.coerceIn(
+            USAGE_STATS_MAX_AGE_MS,
+            PROACTIVE_USAGE_STATS_MAX_AGE_MS,
+        )
+        if (fallback != null && now - fallback.lastTimeUsed <= safeUsageStatsAge) {
             noteForegroundApp(context, fallback.packageName, "usage_stats_fallback")
             return resolved(
                 context,

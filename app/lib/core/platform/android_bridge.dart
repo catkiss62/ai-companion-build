@@ -566,6 +566,15 @@ class AndroidBridge {
         .toList();
   }
 
+  Future<UsageEventInfo?> resolveCurrentAppWithRetries() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'resolveCurrentAppWithRetries',
+    );
+    if (raw == null) return null;
+    final value = UsageEventInfo.fromMap(raw);
+    return value.packageName.isEmpty ? null : value;
+  }
+
   Future<void> startNearbyReceive() =>
       _channel.invokeMethod<void>('startNearbyReceive');
 

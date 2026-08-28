@@ -142,6 +142,7 @@ class DesireCorePolicy {
     DateTime? lastWildcardAt,
     bool intimacyAllowed = true,
     bool wildcardAllowed = true,
+    bool includeThoughtAlternatives = false,
   }) {
     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
     if (fatigue >= fatigueRestGate) {
@@ -199,6 +200,33 @@ class DesireCorePolicy {
         reasonSource: strongest?.source ?? 'drive_state',
         thoughtId: strongest?.id,
       ));
+
+      if (includeThoughtAlternatives && related.length > 1) {
+        for (final alternative in related.skip(1)) {
+          final alternativeWeight =
+              alternative.isFixation ? 0.20 : 0.095;
+          final alternativeCombined =
+              (base + alternative.strength * alternativeWeight)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+          final alternativeNonlinear =
+              1 - sqrt(max(0.0, 1 - alternativeCombined));
+          final alternativeScore =
+              (alternativeNonlinear + base * 0.62)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+          result.add(
+            DesireCoreCandidate(
+              drive: drive,
+              score: alternativeScore,
+              action: actionForDrive[drive] ?? 'wait',
+              reason: alternative.text,
+              reasonSource: alternative.source,
+              thoughtId: alternative.id,
+            ),
+          );
+        }
+      }
     }
 
     result.sort((a, b) => b.score.compareTo(a.score));

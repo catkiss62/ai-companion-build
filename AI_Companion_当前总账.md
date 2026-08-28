@@ -16,6 +16,34 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3 主动感知、主题多样性与来源无关分享（MODIFICATION STARTED / IMPLEMENTATION PENDING）
+
+> 用户决定不等待 v0.40.2 运行满一天，直接在其诊断底座上继续修复旧版真机报告已经明确暴露的行为问题。覆盖安装必须保留 v0.40.2 的 Provider 事件、Thought、网页候选、聊天与记忆；新报告按本策略启用时间区分升级前后。v0.40.2 原定的一天 Provider 观察仍继续有效，本批不得加入 DeepSeek 搜索、整理或视觉兜底。
+
+### A. 修改前真机证据与根因
+
+1. 旧版报告最后一次主动消息在本地约 03:04 通过 Gate 并成功投递，但 `screenObservation.used=0`，当前 App 解析为失败；模型只得到亮屏、已解锁和粗粒度忙碌度，没有认出 Edge，也没有读取 GPT 网页内容。`prompt_proactive` 是主动流程已经启动后的即时上下文刷新，不是触发源。
+2. 当天公开网页搜索 4 次、形成 12 条候选，其中 1 条已进入 `share_ready` 并绑定 Thought，但 `sharedCount=0`。现有选择器按各 Drive 的最强 Thought 与数值竞争；已经准备好的分享候选没有等待加权或稳定的模型判断机会。
+3. 报告同时显示 attachment fixation 较强、主动意图反复为 `check_in/miss_you`，当天 8 次和两小时 2 次额度可被同主题亲密联系消耗。现有 ServiceTemplateGuard 只处理待命客服语义，不识别“我想你”主题的连续重复，因此不应继续用句式黑名单解决。
+4. 用户进一步澄清：“分享”不是“分享联网结果”的别名。她自己的临时心思、记忆联想、Awareness/屏幕观察、公开网页以及未来 MCP 都应通过同一来源无关的主动表达调度；外部内容继续保留来源和不确定性，内部想法不得伪装成外部事实。
+
+### B. 本批锁定范围
+
+1. 前台 App 补强只在主动 Prompt 即时刷新第一次未解析、且设备亮屏未锁定时进行短暂本地重试；优先 Accessibility 已跟踪窗口，再用 UsageEvents/UsageStats 兜底。普通感知继续使用 15 秒严格窗口，只有这条主动重试允许读取最长 6 小时内最新 UsageStats，并继续要求记录晚于最近一次熄屏/桌面失效边界，避免长时间停留 Edge 时因没有新 Activity-resume 事件而持续判空，也避免旧 App 穿越设备状态。目标是尽量得到 Edge/浏览器等 App 名称和粗粒度类别；不得因此读取网页正文、绕过屏幕观察 Gate、保存原始包名或延长普通用户聊天生成。
+2. 主动选择从“直接取最高候选”改为有界重排：近期连续相同主动意图会获得逐级但有上限的降权；不同主题和已经等待的分享 Thought 得到有限机会。不是禁止想念或固定轮播，只有其他真实候选存在时才让它们更容易胜出；所有主动消息仍受 Desire/Thought、疲劳、Active Brain、聊天租约、Grounding、每天 8 次、两小时 2 次和最终 Gate 约束。
+3. 分享候选按 Thought 来源统一分类为内部心思、记忆、AI 自身经历、环境感知、屏幕观察、内部推断、公开网页和未来 MCP。当前没有 MCP 执行器，只预留稳定来源契约；不能声称已经接入 MCP。公开网页 `share_ready` 仍携带唯一候选内容与安全边界；其他来源使用既有 Thought 内容，不建立第二套人格或第二个动机系统。
+4. 等待加权必须来源无关：Reflection/Social/Wildcard 以及由上述来源形成的可分享 Thought 均可获得有限老化加权；公开网页因已有明确 `share_ready` 生命周期可额外记录候选等待档位，但不能绕过模型的分享/WAIT 判断。模型对公开网页选择 WAIT 后仍按既有语义放弃该候选；普通内部 Thought 的 WAIT 不应被误删。
+5. 新增无正文、受限、自动清理的主动策略事件：记录策略启用时间、当前 App 是否重试及最终来源/结果、候选来源类别、意图类别、连续重复深度、是否降权、是否因等待得到机会、模型 WAIT/守卫阻断/发送结果。禁止保存 App 名称/包名、Thought 正文、消息正文、网页内容/URL、屏幕内容、模型 reasoning、原始错误或密钥。
+6. 本批不改角色规则正文、主动频率上限、搜索频率/预算、Provider 顺序、相册、存档协议、TTS、悬浮窗、桌宠、沉浸房间或 NSFW。目标分支 `agent/v0403-proactive-sharing-tuning`，目标版本暂定 `0.40.3+131`；如新增本机策略事件表，SQLite schema 39→40，该表与 Provider 健康事件相同属于可重建本机诊断，不进入当前完整状态快照。
+
+### C. 预定验收
+
+1. 单元测试覆盖连续 miss-you 降权但不禁用、存在其他真实 Thought 时来源多样性、没有其他候选时仍允许自然想念、内部/记忆/Awareness/公开网页/MCP 来源分类、分享等待加权上限、公开网页 WAIT 放弃与内部 Thought WAIT 保留。
+2. 前台 App 测试覆盖首次解析成功不重试、主动刷新首次失败后重试成功、亮屏未锁定才重试、用户轮次不增加等待、Accessibility/UsageStats 来源标记及报告不含 App 名称/包名。
+3. 数据库与诊断测试覆盖 schema 39→40、策略启用时间、事件白名单/有界清理、升级后汇总和隐私负断言；随后执行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名及大型素材哈希校验。
+4. CI/APK 通过后覆盖安装 v0.40.2，继续自然使用并导出同一份脱敏报告。真机重点核对：Edge 能否被解析、同主题主动联系是否下降、非联网 Thought 是否获得表达机会、`share_ready` 是否进入真实判断，以及 v0.40.2 Provider 分类是否仍连续可信。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.2 Provider 脱敏诊断先行（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE OBSERVATION PENDING）
 
 > 用户确认改变此前“完整存档立即作为下一版”的排期：先单独交付一版只增强诊断、不启用任何新兜底 Provider 的测试 APK，运行约一天后读取新报告，确认分类准确再实现联网搜索、网页整理与视觉识别兜底。完整存档与存储体检继续后置，不能与本诊断专项混改。

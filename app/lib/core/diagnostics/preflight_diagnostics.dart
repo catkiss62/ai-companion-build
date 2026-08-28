@@ -114,6 +114,9 @@ class PreflightDiagnosticsService {
         'providerHealthRawErrorIncluded': false,
         'providerHealthQueryOrUrlIncluded': false,
         'providerHealthImageContentIncluded': false,
+        'proactivePolicyAppIdentityIncluded': false,
+        'proactivePolicyThoughtOrMessageTextIncluded': false,
+        'proactivePolicyExternalContentIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
         'overlayRawPackageIncluded': false,
@@ -155,6 +158,8 @@ class PreflightDiagnosticsService {
           await db.publicWebCandidateDiagnosticStats(now: now);
       final companionAlbum = await db.companionAlbumDiagnosticStats();
       final providerHealth = await db.providerHealthDiagnosticStats(now: now);
+      final proactivePolicy =
+          await db.proactivePolicyDiagnosticStats(now: now);
       final personalityTrials = await db.personalityTrialDiagnostics();
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
@@ -445,6 +450,7 @@ class PreflightDiagnosticsService {
         'publicWebCandidates': publicWebCandidates,
         'companionAlbum': companionAlbum,
         'providerHealth': providerHealth,
+        'proactivePolicy': proactivePolicy,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',
@@ -535,6 +541,9 @@ class PreflightDiagnosticsService {
           'currentAppNameIncluded': false,
           'currentAppSource':
               await db.getSetting('current_context_current_app_source') ?? 'none',
+          'currentAppRetryUsed':
+              (await db.getSetting('current_context_current_app_retry_used')) ==
+                  '1',
           'dominantActivityClass':
               await db.getSetting('current_context_dominant_activity') ?? '',
           'observationCount': int.tryParse(

@@ -14,6 +14,10 @@ class ProactivePresentationPolicy {
     if (intent.reasonSource.startsWith('public_web_candidate:')) {
       return ProactiveIntentKind.socialShare;
     }
+    if (intent.reasonSource.startsWith('mcp/') ||
+        intent.reasonSource.startsWith('mcp:')) {
+      return ProactiveIntentKind.socialShare;
+    }
     if (intent.wantAction == 'wildcard_share') {
       return ProactiveIntentKind.socialShare;
     }

@@ -1,4 +1,5 @@
 import '../database/app_database.dart';
+import '../diagnostics/proactive_policy_telemetry.dart';
 import '../platform/android_bridge.dart';
 import 'perception_interpreter.dart';
 
@@ -46,7 +47,7 @@ class CurrentDeviceContextRefresher {
     final instant = now ?? DateTime.now();
     try {
       final deviceState = await android.getPerceptionState();
-      final usage =
+      var usage =
           deviceState.usageAccess || deviceState.accessibilityConnected
               ? await android.getRecentUsage(minutes: 90)
               : const <UsageEventInfo>[];
@@ -55,13 +56,84 @@ class CurrentDeviceContextRefresher {
         limit: 240,
       );
       final deviceStateEvents = await db.recentDeviceStateEvents();
-      final interpretation = interpreter.interpret(
+      var interpretation = interpreter.interpret(
         usage: usage,
         recentSignals: recentSignals,
         deviceStateEvents: deviceStateEvents,
         deviceState: deviceState,
         now: instant,
       );
+      final proactivePrompt = reason == 'prompt_proactive';
+      var currentAppRetryUsed = false;
+      if (proactivePrompt &&
+          interpretation.currentAppLabel?.trim().isNotEmpty != true) {
+        if (!deviceState.screenInteractive || deviceState.deviceLocked) {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'current_app',
+              sourceType: 'none',
+              intentKind: 'none',
+              outcome: 'retry_skipped_device_state',
+              reasonTag: deviceState.deviceLocked
+                  ? 'device_locked'
+                  : 'screen_off',
+              createdAt: instant,
+            ),
+          );
+        } else if (deviceState.usageAccess ||
+            deviceState.accessibilityConnected) {
+          currentAppRetryUsed = true;
+          final retried = await android.resolveCurrentAppWithRetries();
+          if (retried != null) {
+            usage = <UsageEventInfo>[...usage, retried];
+            interpretation = interpreter.interpret(
+              usage: usage,
+              recentSignals: recentSignals,
+              deviceStateEvents: deviceStateEvents,
+              deviceState: deviceState,
+              now: instant,
+            );
+          }
+          final source = interpretation.currentAppSource ?? 'none';
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'current_app',
+              sourceType: ProactivePolicyTelemetry.appSourceType(source),
+              intentKind: 'none',
+              outcome:
+                  interpretation.currentAppLabel?.trim().isNotEmpty == true
+                      ? 'resolved_after_retry'
+                      : 'unresolved_after_retry',
+              reasonTag: 'initial_miss',
+              createdAt: instant,
+            ),
+          );
+        } else {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'current_app',
+              sourceType: 'none',
+              intentKind: 'none',
+              outcome: 'unresolved_no_capability',
+              reasonTag: 'initial_miss',
+              createdAt: instant,
+            ),
+          );
+        }
+      } else if (proactivePrompt) {
+        await db.recordProactivePolicyEvent(
+          ProactivePolicyEvent(
+            lane: 'current_app',
+            sourceType: ProactivePolicyTelemetry.appSourceType(
+              interpretation.currentAppSource ?? 'none',
+            ),
+            intentKind: 'none',
+            outcome: 'resolved_first_try',
+            reasonTag: 'prompt_proactive',
+            createdAt: instant,
+          ),
+        );
+      }
 
       // A transfer can begin while the Android snapshot is being interpreted.
       // Do not let the old device persist even short-lived Awareness after it
@@ -121,6 +193,10 @@ class CurrentDeviceContextRefresher {
       await db.setSetting(
         'current_context_observation_count',
         '${interpretation.observations.length}',
+      );
+      await db.setSetting(
+        'current_context_current_app_retry_used',
+        currentAppRetryUsed ? '1' : '0',
       );
       await db.setSetting('current_context_last_error', '');
 

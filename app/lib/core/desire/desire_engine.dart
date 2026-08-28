@@ -285,6 +285,7 @@ class DesireEngine {
     List<CompanionThought> thoughts, {
     DateTime? now,
     bool intimacyAllowed = true,
+    bool includeThoughtAlternatives = false,
   }) {
     final candidates = DesireCorePolicy.candidates(
       drives: snapshot.drives,
@@ -294,6 +295,7 @@ class DesireEngine {
       baselines: snapshot.baselines,
       lastWildcardAt: snapshot.lastWildcardAt,
       intimacyAllowed: intimacyAllowed,
+      includeThoughtAlternatives: includeThoughtAlternatives,
     );
     return candidates.map(_fromCandidate).toList();
   }

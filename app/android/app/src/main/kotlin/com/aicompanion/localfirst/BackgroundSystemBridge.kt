@@ -11,6 +11,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -39,6 +41,11 @@ class BackgroundSystemBridge(
                         call.argument<Int>("minutes") ?: 60,
                     ),
                 )
+                "resolveCurrentAppWithRetries" -> Thread {
+                    val resolved = CurrentAppResolver.resolveCurrentForProactiveWithRetries(context)
+                        ?.asUsageEvent()
+                    Handler(Looper.getMainLooper()).post { result.success(resolved) }
+                }.start()
                 "setOverlayUnread" -> {
                     setOverlayUnread(call.argument<Int>("count") ?: 0)
                     result.success(null)

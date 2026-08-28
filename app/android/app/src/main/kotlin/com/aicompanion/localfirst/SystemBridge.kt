@@ -17,6 +17,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import com.aicompanion.localfirst.pet.PetPreviewActivity
@@ -274,6 +276,11 @@ class SystemBridge(
                         call.argument<Int>("minutes") ?: 60,
                     ),
                 )
+                "resolveCurrentAppWithRetries" -> Thread {
+                    val resolved = CurrentAppResolver.resolveCurrentForProactiveWithRetries(activity)
+                        ?.asUsageEvent()
+                    Handler(Looper.getMainLooper()).post { result.success(resolved) }
+                }.start()
                 "startNearbyReceive" -> {
                     nearby.startAdvertising()
                     result.success(null)

@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../emotion/emotion_contract.dart';
 import '../diagnostics/provider_health.dart';
+import '../diagnostics/proactive_policy_telemetry.dart';
 import '../models/chat_message.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -65,7 +66,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 36;
   // Historical validator compatibility token: static const int schemaVersion = 37;
   // Historical validator compatibility token: static const int schemaVersion = 38;
-  static const int schemaVersion = 39;
+  // Historical validator compatibility token: static const int schemaVersion = 39;
+  static const int schemaVersion = 40;
 
   Database? _db;
   Future<Database>? _opening;
@@ -996,6 +998,17 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    if (oldVersion < 40) {
+      await _createV40Tables(db);
+      await db.insert(
+        'settings',
+        {
+          'key': 'proactive_policy_started_at',
+          'value': DateTime.now().millisecondsSinceEpoch.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
 
   }
 
@@ -1164,6 +1177,7 @@ class AppDatabase {
     await _createV34Tables(db);
     await _createV36Tables(db);
     await _createV39Tables(db);
+    await _createV40Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1176,6 +1190,10 @@ class AppDatabase {
     await db.insert('settings', {'key': 'active_brain', 'value': '1'});
     await db.insert('settings', {
       'key': 'provider_health_started_at',
+      'value': now.toString(),
+    });
+    await db.insert('settings', {
+      'key': 'proactive_policy_started_at',
       'value': now.toString(),
     });
     await db.insert('settings', {'key': 'model', 'value': 'deepseek-v4-flash'});
@@ -2126,6 +2144,30 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV40Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS proactive_policy_events (
+        id TEXT PRIMARY KEY,
+        lane TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        intent_kind TEXT NOT NULL DEFAULT 'none',
+        outcome TEXT NOT NULL,
+        reason_tag TEXT NOT NULL DEFAULT 'none',
+        repeat_depth INTEGER NOT NULL DEFAULT 0,
+        adjustment_bucket TEXT NOT NULL DEFAULT 'none',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proactive_policy_time '
+      'ON proactive_policy_events(created_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_proactive_policy_lane_time '
+      'ON proactive_policy_events(lane, created_at DESC)',
+    );
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2805,6 +2847,169 @@ class AppDatabase {
       // Observability must never change the provider's user-visible behavior.
       return false;
     }
+  }
+
+  Future<bool> recordProactivePolicyEvent(ProactivePolicyEvent event) async {
+    try {
+      final db = await database;
+      final createdAt =
+          (event.createdAt ?? DateTime.now()).millisecondsSinceEpoch;
+      await db.insert('proactive_policy_events', {
+        'id': _uuid.v4(),
+        'lane': ProactivePolicyTelemetry.safeLane(event.lane),
+        'source_type':
+            ProactivePolicyTelemetry.safeSourceType(event.sourceType),
+        'intent_kind':
+            ProactivePolicyTelemetry.safeIntentKind(event.intentKind),
+        'outcome': ProactivePolicyTelemetry.safeOutcome(event.outcome),
+        'reason_tag':
+            ProactivePolicyTelemetry.safeReasonTag(event.reasonTag),
+        'repeat_depth': event.repeatDepth.clamp(0, 9),
+        'adjustment_bucket': ProactivePolicyTelemetry.safeAdjustmentBucket(
+          event.adjustmentBucket,
+        ),
+        'created_at': createdAt,
+      });
+      await db.delete(
+        'proactive_policy_events',
+        where: 'created_at < ?',
+        whereArgs: [createdAt - const Duration(days: 14).inMilliseconds],
+      );
+      await db.rawDelete('''
+        DELETE FROM proactive_policy_events
+        WHERE id NOT IN (
+          SELECT id FROM proactive_policy_events
+          ORDER BY created_at DESC LIMIT 500
+        )
+      ''');
+      return true;
+    } catch (_) {
+      // Diagnostics must never change proactive selection or delivery.
+      return false;
+    }
+  }
+
+  Future<Map<String, Object?>> proactivePolicyDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final startedAt = int.tryParse(
+          await getSetting('proactive_policy_started_at') ?? '',
+        ) ??
+        instant.millisecondsSinceEpoch;
+    final cutoff = max(
+      startedAt,
+      instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch,
+    );
+
+    Future<Map<String, int>> grouped(String column) async {
+      const allowed = {
+        'lane',
+        'source_type',
+        'intent_kind',
+        'outcome',
+        'reason_tag',
+        'adjustment_bucket',
+      };
+      if (!allowed.contains(column)) return const <String, int>{};
+      final rows = await db.rawQuery('''
+        SELECT $column AS value, COUNT(*) AS count
+        FROM proactive_policy_events
+        WHERE created_at >= ?
+        GROUP BY $column
+      ''', [cutoff]);
+      return <String, int>{
+        for (final row in rows)
+          row['value']?.toString() ?? 'unknown':
+              (row['count'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    Future<Map<String, Map<String, int>>> groupedByLane(String column) async {
+      const allowed = {'source_type', 'intent_kind', 'outcome'};
+      if (!allowed.contains(column)) {
+        return const <String, Map<String, int>>{};
+      }
+      final rows = await db.rawQuery('''
+        SELECT lane, $column AS value, COUNT(*) AS count
+        FROM proactive_policy_events
+        WHERE created_at >= ?
+        GROUP BY lane, $column
+      ''', [cutoff]);
+      final result = <String, Map<String, int>>{};
+      for (final row in rows) {
+        final lane = row['lane']?.toString() ?? 'unknown';
+        final value = row['value']?.toString() ?? 'unknown';
+        result.putIfAbsent(lane, () => <String, int>{})[value] =
+            (row['count'] as num?)?.toInt() ?? 0;
+      }
+      return result;
+    }
+
+    final latest = await db.query(
+      'proactive_policy_events',
+      columns: const [
+        'lane',
+        'source_type',
+        'intent_kind',
+        'outcome',
+        'reason_tag',
+        'repeat_depth',
+        'adjustment_bucket',
+        'created_at',
+      ],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    final total = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM proactive_policy_events'),
+        ) ??
+        0;
+    final afterUpgrade = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM proactive_policy_events WHERE created_at >= ?',
+          [startedAt],
+        )) ??
+        0;
+    final row = latest.isEmpty ? null : latest.first;
+    return {
+      'mode': 'source_agnostic_selection_v0403',
+      'startedAt': startedAt,
+      'retention': {'days': 14, 'maxRows': 500},
+      'total': total,
+      'afterUpgrade': afterUpgrade,
+      'windowStart': cutoff,
+      'byLane': await grouped('lane'),
+      'bySource': await grouped('source_type'),
+      'byIntent': await grouped('intent_kind'),
+      'byOutcome': await grouped('outcome'),
+      'byAdjustment': await grouped('adjustment_bucket'),
+      'byLaneSource': await groupedByLane('source_type'),
+      'byLaneIntent': await groupedByLane('intent_kind'),
+      'byLaneOutcome': await groupedByLane('outcome'),
+      'latest': row == null
+          ? null
+          : {
+              'lane': row['lane'],
+              'source': row['source_type'],
+              'intent': row['intent_kind'],
+              'outcome': row['outcome'],
+              'reason': row['reason_tag'],
+              'repeatDepth': row['repeat_depth'],
+              'adjustment': row['adjustment_bucket'],
+              'createdAt': row['created_at'],
+            },
+      'privacy': {
+        'appNameIncluded': false,
+        'packageNameIncluded': false,
+        'thoughtBodyIncluded': false,
+        'messageBodyIncluded': false,
+        'webContentOrUrlIncluded': false,
+        'screenContentIncluded': false,
+        'modelReasoningIncluded': false,
+        'rawErrorIncluded': false,
+      },
+    };
   }
 
   Future<Map<String, Object?>> providerHealthDiagnosticStats({
@@ -10496,6 +10701,7 @@ class AppDatabase {
       'daily_continuity',
       'post_turn_jobs',
       'maintenance_runs',
+      'proactive_policy_events',
     };
     const allowedColumns = {
       'sent_at',
