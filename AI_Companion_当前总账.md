@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.8 规则真源、人称控制与动作段解析（IN PROGRESS / PRE-IMPLEMENTATION LEDGER）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.8 规则真源、人称控制与动作段解析（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户提交最新版规则 02、05、06、07，要求按附件完整替换，不再沿用旧窗口中间稿；同时授权修改普通聊天和沉浸房间的代码级隐藏收口。用户明确说明：沉浸长篇必须允许描写由当前刺激直接造成的合理生理、身体与物理反馈，避免只剩 AI 角色独角戏；但不得替用户生成台词、主观决定、内心或主动配合动作。
 
@@ -40,6 +40,28 @@
 2. 规则层迁移只识别上一版内置正文的 SHA-256；一字符用户编辑也不得被覆盖。用户本次采用卸载、重装测试，新安装必须直接得到四份附件正文；覆盖安装仍保持保守迁移。
 3. 完成前运行规则附件重组哈希、提示拼装、沉浸首次/续写锁、摘要标签、房间规则迁移、动作显示与 TTS 单测，并执行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名和既有大型素材校验。
 4. Actions 与 APK 通过后仍需真机验收：普通/NSFW 普通聊天观察“你”与独立动作段；沉浸房间观察首次和继续生成均保持“她/你”、有足够身体反馈、无用户台词和主动代写。自动测试不能替代模型真机输出。
+
+### D. 实际实现
+
+1. 四份 2026-08-28 附件已按其中的小节边界完整替换 9 个规则真源；新增 v0.39.8 validator 对 `02_daily / 03_behavior / 08_proactive_turn / 08_visible_inner_voice / 04_intimacy_core / 05_intimacy_rendering / 06_intimacy_reference / immersive_07_global / immersive_07_nsfw_source` 的正文分别锁定 SHA-256，防止代码侧整理时丢字或混入旧稿。上一版库存规则只在 SHA-256 精确命中时迁移，任何用户自定义编辑仍保留。
+2. 普通聊天在最靠近真实用户消息的最终提醒中补入正文称呼锁：动作、神态、旁白和台词提及用户时一律写“你”；可见思考仍可按规则使用名字、昵称或第三人称。没有向 Rule06 重复加入同义称呼条款。
+3. 沉浸房间首次生成与硬下限续写均加入高优先级“她/你”锁，并明确允许充分描写由 AI 行为直接造成的生理反应、身体反应、非自主反射和维持接触所需的被动物理变化；同时禁止生成或复述用户台词、主动动作、内心、态度、同意、意图、决定与场景跳转。旧隐藏锁中与本项目无关的 `[TEXT] / [MIND] / JSON / 状态栏` 清单和 `reasoning_content` 技术措辞已删除。
+4. 房间入口历史、滚动摘要、现场账和结束归档的内部来源标签由“他/她”改为“用户输入/AI正文”；摘要模型用中性“用户”记录事实，不再持续注入“他”。新建房间默认小说规则同步采用“她/你”和上述玩家控制权；已有房间仅在规则逐字等于 v0.39.7 旧默认时自动升级，自定义房间规则不覆盖。
+5. 普通聊天解析器不再依赖窄动作动词表或“动作后面必须紧跟台词”的位置猜测。一条回复只要存在完整显式引号台词，其他未加引号、未加动作括号的独立行统一按动作/叙述处理；完全无显式引号的普通信息回答继续按 dialogue 回退。旧数据库中已误存为 dialogue 的尾部动作会按原正文自愈，因此界面不再补假 `「」`，`dialogue_only` TTS 也不会朗读该动作。
+
+### E. 提交、测试、构建与交付证据
+
+1. 本地实现提交为 `7a9881db96892e3a3c538c042089194baaafcd3b`，CI 触发提交为 `7b7085261d8ce93983d3d67840b8f564155e7d3e`，旧断言修正提交为 `92cc3dc7723f9b9de134b1b36a960718437f69b9`。远端最终提交为 [`15595bd202c6977198249e82d72e17d2dd158dd2`](https://github.com/catkiss62/ai-companion-build/commit/15595bd202c6977198249e82d72e17d2dd158dd2)，最终 tree SHA `8ac353e5082b79e8fe438f8876be87f6d8e77822` 与本地完全一致；远端分支为 [`agent/v0398-rule-refresh-immersive-control-parser`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0398-rule-refresh-immersive-control-parser)，未修改或合并 `main`。
+2. 第一轮 [Actions run 33149236997](https://github.com/catkiss62/ai-companion-build/actions/runs/33149236997) 已通过 102 项源码 validators、Kotlin 与 Flutter analyze，但 Flutter tests 为 305 通过、1 失败：历史测试仍把带显式台词的混合回复中最后一个未加引号段落期待为 dialogue，与本轮结构契约冲突。只修正该测试期望为 action，生产解析器未为过门禁回退。
+3. 最终 [Actions run 33149821785](https://github.com/catkiss62/ai-companion-build/actions/runs/33149821785) 全绿：102 项当前/历史 Python validators、Kotlin 桌宠/悬浮窗测试、Flutter analyze、306 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、Artifact 与 Draft Release 上传全部通过。
+4. APK [`AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-ef492550d913401aa963/AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk)，324,752,330 bytes，SHA-256 `97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.7；Draft Release 为 [untagged-ef492550d913401aa963](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ef492550d913401aa963)，仍是测试草稿而非公开正式 Release。
+5. Artifact [9677499845](https://github.com/catkiss62/ai-companion-build/actions/runs/33149821785/artifacts/9677499845)，名称 `AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK`，ZIP 318,455,331 bytes，digest `sha256:4e7c7a587e9612e70092d0e8534b61a4f65aaba232a28bb91127d476ed952970`，到期时间 2026-09-11T07:10:55Z。
+
+### F. 真机待验
+
+1. 按用户当前测试习惯卸载后重装，确认规则工作台的 02、05、06、07 对应小节均是本轮附件原文；普通聊天新建无污染上下文，分别测试普通与 NSFW 回复，重点观察台词之后单独出现的动作段不再被界面补 `「」`，且“仅对白”TTS 不朗读该段。
+2. 普通聊天连续观察动作、神态、旁白和台词提及用户时是否稳定使用“你”；允许极少称呼遗漏，但不应以“他、用户、玩家、男方、男人”直接代称正文中的用户。
+3. 沉浸房间分别测试首次输出与达到硬下限后的继续生成：正文保持“她/你”，能够充分写出直接身体与生理反馈而非 AI 独角戏，同时不得替用户新增台词、主动动作、内心、态度、同意、意图、决定或场景跳转。上述真实模型输出通过前，本节保持 `TRUE DEVICE PENDING`。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.7 英文思考按需翻译与普通聊天台词边界二次收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
