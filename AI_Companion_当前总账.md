@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.7 英文思考按需翻译与普通聊天台词边界二次收口（DECIDED / IMPLEMENTATION IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.7 英文思考按需翻译与普通聊天台词边界二次收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户真机确认 v0.39.6 的对话、播放按钮与多种主动消息提示音均无问题，但普通聊天仍频繁把动作、神态或说话提示整体写入 `「」`；相同角色在沉浸房间的小说格式下没有该问题。用户决定把相册第二阶段整体后移，本轮只把此前任务1“英文思考按需翻译”与该格式问题合并，避免同时改动自主搜索、识图和相册状态机。
 
@@ -37,6 +37,31 @@
 2. 普通聊天与沉浸房间的历史消息共用同一翻译组件；悬浮窗通过现有后台 FlutterEngine 命令调用同一翻译服务，不在 Kotlin 保存或读取明文 API Key。三处均只对最终英文居多思考显示紫色下划线操作，流式阶段不发翻译请求。
 3. 规则回归锁定 Rule02 真源、可见思考模板与普通用户轮次末端提醒；沉浸房间继续使用自身小说协议，不被普通聊天短格式污染。
 4. 完成前运行全部历史 validators、Kotlin 编译/测试、Flutter analyze/tests、release APK、稳定签名与既有大型素材校验。CI/APK 通过后仍需 REDMI K80 Ultra 真机分别验证普通聊天、沉浸房间、悬浮聊天框的翻译按钮及普通聊天多轮台词边界。
+
+### C. 实际实现
+
+1. 新增统一 `ReasoningTranslationService`，只处理完整、非流式且经本地确定性规则判断为英文居多的可见 reasoning。无中文时至少 3 个拉丁词且 12 个拉丁字母；中英混合时至少 8 个拉丁词、40 个拉丁字母，且拉丁字母数大于中文字数两倍。中文思考、短代码/缩写及未完成流式内容不显示翻译入口。
+2. 普通聊天与沉浸房间共用新的有状态 `ReasoningPanel`：原文始终保留，符合条件时在下方显示紫色 `#B388FF` 下划线“翻译”；请求期间显示“翻译中…”，失败显示“重试翻译”，成功后显示“中文翻译”。点击才调用当前 DeepSeek endpoint/API Key，固定 Flash、关闭 thinking；未点击不增加正常回复延迟或 API 消耗。
+3. SQLite 升至 schema 36，新增 `reasoning_translations(scope,message_id,source_sha256,translated_text,provider,model,created_at,updated_at)`。缓存以 scope/message 和原文 SHA-256 校验，原文变化即失效；聊天消息删除时由触发器删除派生缓存，导出/导入已覆盖。翻译文本不写回消息正文，也不进入记忆、AI Self、欲望/Thought/Intent/Gate、检索、提示词或 TTS。
+4. 原生悬浮聊天框使用相同紫色下划线状态与同一 SQLite 缓存；Kotlin 只把真实 message ID 交给后台 FlutterEngine，Dart 重新从数据库读取助手消息后调用统一翻译服务。Kotlin 不接触、不保存 API Key，也不接受任意待翻译文本作为命令参数。
+5. 普通聊天 Rule02 最终真源保持用户四条结构，只把第 2 条进一步收窄为“实际发声的台词”。每轮最靠近真实用户消息的提醒明确：`「」` 是台词边界，只能包住现实中能够直接听见的原话；动作、神态、微表情、旁白及“顿了顿/补了一句/嘴上这么说着”等说话提示必须放在引号外，禁止嵌套直角引号，并加入失败样本的唯一正确排版：`顿了顿，又小小声补了一句。` 空一行后写 `「……再摸一会儿也行。」`。
+6. 本轮没有本地正则拆句或正文重写，没有增加固定措辞、台词数量、回复长度或动作关键词禁令；说话方式、TTS、提示音、沉浸小说协议均未改。Rule02 新真源 SHA-256 为 `8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465`；只对字节精确等于 v0.39.6 内置默认哈希 `7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297` 的库存规则自动迁移，用户自定义规则继续逐字保留。
+7. 相册、Pixiv/B站/小红书/X 搜图、普通/私密相册和 Desire/Thought/Intent/Gate 搜图判断均未进入 v0.39.7，继续整体后置，避免与翻译/格式收口混淆。
+
+### D. 提交、构建与交付证据
+
+1. 远端公开分支为 [`agent/v0397-reasoning-translation-dialogue-boundary`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0397-reasoning-translation-dialogue-boundary)，未修改或合并 `main`。功能按独立提交隔离：`c9c7c152e05be69003ac733e5072e4ef8ef38a6a` 收紧普通聊天台词边界，`2c425599c24349ebd6f08f59cbdf475a7fbb8854` 加入三界面按需翻译，`f567f36f950b432fa4768f9a3b5a885ccbda17d8` 完成版本、schema、测试、工作流和修改前总账，`ca3fa1ea34056f072802a363c177ac588cb4ca5d` 只允许旧妹居回归门禁识别 v0.39.7。
+2. 第一轮 [Actions run 33131972719](https://github.com/catkiss62/ai-companion-build/actions/runs/33131972719) 在历史 `validate_v0395_meju_tts_runtime_upgrade.py` 的版本正则处停止：该门禁只允许 0.39.5/0.39.6，尚未允许 0.39.7；素材恢复和此前验证均已通过，未进入编译/APK。仅扩展该一行历史版本门禁，生产功能代码未为通过 CI 改动。
+3. 最终 [Actions run 33132118942](https://github.com/catkiss62/ai-companion-build/actions/runs/33132118942) 全绿：101 项当前/历史源码 validators、Kotlin 悬浮窗/桌宠测试、Flutter analyze、302 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、Artifact 与 Draft Release 上传全部通过。
+4. APK [`AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-c9917e317040426259c4/AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK.apk)，324,734,922 bytes，SHA-256 `c1bb8c7691d86fdc2b5e97b7be284fb304252c76c73a612d281eeae23f2c9820`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.39.6；Draft Release 为 [untagged-c9917e317040426259c4](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c9917e317040426259c4)，仍是测试草稿而非公开正式 Release。
+5. Artifact [9670838348](https://github.com/catkiss62/ai-companion-build/actions/runs/33132118942/artifacts/9670838348)，名称 `AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK`，ZIP 318,439,849 bytes，digest `sha256:1314fac9d8456d500782eef5b4d178fa7b94ab7117ba9d73776f9eedf7ed1e8c`，到期时间 2026-09-11T01:22:30Z。
+
+### E. 真机待验
+
+1. 普通聊天：等待一条完整的英文居多思考，确认流式期间无按钮、完成后出现紫色下划线“翻译”；点击后原文仍在且下方出现自然中文，重复进入直接读缓存。中文思考、短缩写和少量英文专业名词不应出现按钮。
+2. 沉浸房间与悬浮聊天框分别重复同一流程；三处对同一消息应共享结果，缺 Key、断网或接口失败只能显示可重试状态，不能清掉原文或写入假翻译。
+3. 普通聊天以全新上下文连续观察多轮：每轮至少一次动作/神态/语气/微表情行；`「」` 内只含实际发声台词；重点复测“顿了顿，又小小声补了一句”及“嘴上这么说着，眼睛却弯成月牙”均留在引号外。其余说话风格、长度和自然度不应因格式提醒发生明显变化。
+4. 上述真机证据取得前，本节保持 `TRUE DEVICE PENDING`；自动化与 APK 通过不能代替真实模型输出和三界面交互验收。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-28 · v0.39.6 Rule02 引号边界与主动消息提示音（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PARTIAL）
