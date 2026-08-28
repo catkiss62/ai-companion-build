@@ -20,7 +20,7 @@ class PersonalityCatalog {
 
   static const profileSharedPrompt = ruleContentV0353_07_profile_shared;
 
-  static const specialSharedPrompt = ruleContentV0353_07_special_shared;
+  static const specialSharedPrompt = ruleContentV0400_07_special_shared;
 
   static const bases = <PersonalityOption>[
     PersonalityOption(

@@ -44,6 +44,7 @@ for key, digest in expected.items():
 assert "主动下手，以玩弄为主" in parsed["07_special_seductress"]
 
 catalog = read("lib/core/personality/personality_catalog.dart")
+assert "specialSharedPrompt = ruleContentV0400_07_special_shared" in catalog
 for key, label in (
     ("yandere", "病娇"),
     ("seductress", "痴女"),
