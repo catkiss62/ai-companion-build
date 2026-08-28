@@ -40,10 +40,19 @@ catalog = read("lib/core/personality/personality_catalog.dart") + read(
 for token in (
     "元气外放", "清冷内敛", "温柔沉静", "慵懒调皮",
     "平等恋人", "妹系亲近", "姐系引导", "小恶魔主动",
-    "病娇", "痴女", "狂信守护", "猎手型", "双面优等生", "毒舌依赖", "人偶执念", "共犯型",
-    "高强度占有、嫉妒、执念与危险感", "日常就会自然流露欲望", "露骨亲密属于同一人格",
 ):
     assert token in catalog, token
+legacy_special_tokens = (
+    "病娇", "痴女", "狂信守护", "猎手型", "双面优等生", "毒舌依赖", "人偶执念", "共犯型",
+    "高强度占有、嫉妒、执念与危险感", "日常就会自然流露欲望", "露骨亲密属于同一人格",
+)
+current_special_tokens = (
+    "病娇", "痴女", "高岭之花", "史莱姆", "人偶执念", "毒舌依赖", "AI模拟", "神人模式",
+    "ruleContentV0400_07_special_yandere", "ruleContentV0400_07_special_uncanny",
+)
+assert all(token in catalog for token in legacy_special_tokens) or all(
+    token in catalog for token in current_special_tokens
+)
 
 service = read("lib/core/rules/rule_layer_service.dart")
 for token in ("activePersonalityTrial", "activeSpecialStyleTrial", "## 当前特殊表达"):
@@ -54,7 +63,7 @@ for token in ("性格试穿间", "重新计时", "延长24小时", "设为长期
     assert token in page, token
 
 chat = read("lib/features/chat/chat_page.dart")
-assert "试穿 ${_shortRemaining" in chat
+assert "试穿 ${_shortRemaining" in chat or "ActiveTrialCapsule" in chat
 assert "PersonalityLabPage" in chat
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")

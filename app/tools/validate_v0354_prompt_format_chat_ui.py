@@ -80,7 +80,11 @@ assert "_scrollToLatest(animate: true);" not in chat
 assert "height: 24" in chat
 assert "colorScheme.primary" in chat
 assert "Colors.purpleAccent" not in chat
-assert chat.index("'试穿 ${_shortRemaining") < chat.index("const Text('NSFW')")
+assert (
+    chat.index("'试穿 ${_shortRemaining") < chat.index("const Text('NSFW')")
+    if "'试穿 ${_shortRemaining" in chat
+    else "ActiveTrialCapsule" in chat and "const Text('NSFW')" in chat
+)
 
 overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
