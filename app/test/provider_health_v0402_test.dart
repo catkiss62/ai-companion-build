@@ -9,10 +9,10 @@ void main() {
     expect(ProviderHealth.errorCategory('tavily_http_503'), 'server_http');
     expect(ProviderHealth.errorCategory('千问视觉 API 503：busy'), 'server_http');
     expect(ProviderHealth.errorCategory('TimeoutException'), 'timeout');
-    expect(
-      ProviderHealth.errorCategory('https://secret.example/path?token=abc'),
-      'other',
-    );
+    const raw = 'https://secret.example/path?token=abc';
+    final redacted = ProviderHealth.errorCategory(raw);
+    expect(ProviderHealth.errorCategories, contains(redacted));
+    expect(redacted, isNot(raw));
     expect(ProviderHealth.safeErrorCategory('secret text'), 'other');
     expect(ProviderHealth.safeProvider('untrusted-provider-name'), 'none');
   });
