@@ -209,7 +209,8 @@ void main() {
     expect(daily, contains('不加括号并默认省略主语'));
     expect(daily, contains('不要写“我/她/角色名歪头看你”'));
     expect(daily, contains('每轮对话至少要出现一次'));
-    expect(daily, contains('「」内只能写真正说出口、能够被听见的原话'));
+    expect(daily, contains('「」是台词边界'));
+    expect(daily, contains('对方能够直接听见的原话'));
     expect(daily, contains('不得嵌套使用「」'));
     expect(daily, isNot(contains('允许纯对白')));
     expect(daily, contains('省略主语的动作默认只描述自己'));

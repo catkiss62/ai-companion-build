@@ -182,6 +182,14 @@ const legacyEditableRuleLayerSha256V0395UserOnceWithoutPureDialogue =
   '02_daily': '7c0e7ed0270de488f37205d4ba3732763f2728efa34ec117b468e21f8fc8db4e',
 };
 
+/// Exact Rule02 shipped by v0.39.6. It explained the quote boundary in the
+/// editable layer, but true-device use showed that ordinary chat still needed
+/// narrower spoken-line wording plus a final-turn reminder. Only this
+/// byte-exact stock body migrates; unrelated user edits remain untouched.
+const legacyEditableRuleLayerSha256V0396 = <String, String>{
+  '02_daily': '7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297',
+};
+
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
 /// cleanup upgrades only untouched copies, so a user's room-protocol edits
 /// are never replaced by the bundled Rule 07 revision.
