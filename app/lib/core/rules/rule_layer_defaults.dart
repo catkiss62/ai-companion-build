@@ -190,6 +190,19 @@ const legacyEditableRuleLayerSha256V0396 = <String, String>{
   '02_daily': '7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297',
 };
 
+/// Exact editable bodies shipped by v0.39.7 that are replaced by the user's
+/// complete 2026-08-28 Rule 02/05/06 refresh. Only untouched stock copies
+/// migrate; any manual prompt edit remains byte-preserved.
+const legacyEditableRuleLayerSha256V0397 = <String, String>{
+  '02_daily': '8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465',
+  '08_visible_inner_voice':
+      '250a89bd0bfe8d073c59e9b25c7168b83f867a5a0d8a3933411523a13d60117f',
+  '04_intimacy_core':
+      '7939af3d9dc5b8c702ae53685758d5c36e20366c689dc284c4d9f47e4b2fa4fc',
+  '05_intimacy_rendering':
+      '5916af04bb0f01ebd640218792844116ff997047712340a21107d6d97b22b643',
+};
+
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
 /// cleanup upgrades only untouched copies, so a user's room-protocol edits
 /// are never replaced by the bundled Rule 07 revision.

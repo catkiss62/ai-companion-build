@@ -68,11 +68,11 @@ assert "finalContent" in runner
 
 # New text follows action-line + corner-quoted-dialogue grammar. Old bracketed
 # history is still parsed, while both renderers hide delimiters and share gold.
-assert "nextContentIsDialogue" in segments
+assert "hasExplicitDialogueLine" in segments
 assert "return segment.text;" in visuals
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "stripActionDelimitersForDisplay" in text
-assert "不加括号" in rules and "统一用直角引号「」" in rules
+assert "不加括号" in rules and "所有台词必须用「」包裹" in rules
 assert "不加括号" in prompt
 assert any(token in prompt for token in ("统一用「」", "实际发声的台词"))
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay

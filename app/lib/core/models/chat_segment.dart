@@ -40,6 +40,9 @@ class ChatSegmentCodec {
     final quotedLine = RegExp(
       r'^(?:「([\s\S]*)」|“([\s\S]*)”|"([\s\S]*)")$',
     );
+    final hasExplicitDialogueLine = lines.any(
+      (candidate) => quotedLine.hasMatch(candidate.trim()),
+    );
     for (var index = 0; index < lines.length; index++) {
       final line = lines[index].trim();
       if (line.isEmpty) continue;
@@ -77,24 +80,14 @@ class ChatSegmentCodec {
         continue;
       }
 
-      // Compatibility for v0.37.1's short-lived unparenthesized action format.
-      // Ordinary prose remains dialogue.
-      var nextContentIndex = index + 1;
-      while (nextContentIndex < lines.length &&
-          lines[nextContentIndex].trim().isEmpty) {
-        nextContentIndex++;
-      }
-      final nextContentIsDialogue = nextContentIndex < lines.length &&
-          quotedLine.hasMatch(lines[nextContentIndex].trim());
-      final looksLikeLegacyAction =
-          RegExp(r'^(轻轻|悄悄|抬|垂|眨|偏|歪|抱|靠|凑|缩|晃|摇|点|皱|抿|笑|叹|耳鳍|尾巴)').hasMatch(line) &&
-          (normalized.contains('「') ||
-              normalized.contains('“') ||
-              normalized.contains('"')) &&
-          normalized.contains('\n') &&
-          line.length <= 80;
+      // Rule 02 gives mixed ordinary-chat replies an explicit structural
+      // boundary: spoken lines are fully quoted and every other standalone
+      // line is action/narration. Use that response-wide evidence instead of
+      // a fragile action-verb whitelist or the line's position relative to a
+      // quote. A fully unquoted informational reply keeps the legacy dialogue
+      // fallback so ordinary prose is not restyled as role-play action.
       result.add(ChatSegment(
-        kind: nextContentIsDialogue || looksLikeLegacyAction
+        kind: hasExplicitDialogueLine
             ? ChatSegmentKind.action
             : ChatSegmentKind.dialogue,
         text: line,

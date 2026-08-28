@@ -379,6 +379,7 @@ class ImmersiveRoomController extends ChangeNotifier {
             'role': 'system',
             'content': '''你在整理一个已经结束的独立沉浸房间。只输出 JSON：
 {"archive_summary":"供房间归档继续回看的剧情摘要","scene_ledger":"结束时的地点、人物、姿势、衣物、当前阶段、身体状态和未完成事件","shared_memories":["0至3条可让普通聊天知道的简短共同经历"]}
+archive_summary 和 scene_ledger 中提及用户时统一写“用户”，不得写成“他”或替用户新增台词、主动动作、内心、态度、同意、意图和决定。可以记录原文中已经发生的用户输入，以及由AI行为直接造成、原文已经写出的生理或被动身体反馈。
 archive_summary 可以相对详细但去除重复描写。shared_memories 只保留真正重要的共同经历、稳定偏好、关系变化或约定；不得把临时姿势、角色身份、露骨动作流水账或虚构场景当成现实事实。没有值得共享的内容就返回空数组。''',
           },
           {
@@ -447,7 +448,7 @@ $transcript''',
         messages: [
           {
             'role': 'system',
-            'content': '''只输出 JSON：{"rolling_summary":"按事件顺序合并旧摘要与新增剧情，去掉重复感官和重复动作，保留变化、承诺与未完成事件","scene_ledger":"当前地点、时间、人物、姿势、衣物、接触点、阶段、身体状态、未完成事件"}。不得把虚构房间写成现实事实。''',
+            'content': '''只输出 JSON：{"rolling_summary":"按事件顺序合并旧摘要与新增剧情，去掉重复感官和重复动作，保留变化、承诺与未完成事件","scene_ledger":"当前地点、时间、人物、姿势、衣物、接触点、阶段、身体状态、未完成事件"}。不得把虚构房间写成现实事实。摘要和现场账提及用户时统一写“用户”，不得写成“他”；不得替用户新增台词、主动动作、内心、态度、同意、意图或决定。可以记录用户明确输入的事实，以及原文已经出现的生理和被动身体反馈。''',
           },
           {
             'role': 'user',
@@ -489,7 +490,10 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
       used += message.content.length;
     }
     return selected.reversed
-        .map((message) => '${message.isUser ? '他' : '她'}：${message.content}')
+        .map(
+          (message) =>
+              '${message.isUser ? '用户输入' : 'AI正文'}：${message.content}',
+        )
         .join('\n\n');
   }
 

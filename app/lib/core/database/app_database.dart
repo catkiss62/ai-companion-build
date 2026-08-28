@@ -30,6 +30,7 @@ import '../models/reference_document.dart';
 import '../models/rule_layer.dart';
 import '../models/proactive_feedback.dart';
 import '../models/thought_lifecycle_event.dart';
+import '../rules/rule_layer_content_immersive.dart';
 import '../rules/rule_layer_defaults.dart';
 import '../relationship/relationship_age.dart';
 import '../personality/personality_catalog.dart';
@@ -2123,6 +2124,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0395UserOnce.entries,
       ...legacyEditableRuleLayerSha256V0395UserOnceWithoutPureDialogue.entries,
       ...legacyEditableRuleLayerSha256V0396.entries,
+      ...legacyEditableRuleLayerSha256V0397.entries,
     ];
     for (final entry in legacyEditableHashes) {
       final rows = await db.query(
@@ -2165,8 +2167,21 @@ class AppDatabase {
     }
   }
 
+  Future<void> _migrateUntouchedImmersiveRoomNovelRules(Database db) async {
+    await db.update(
+      'immersive_rooms',
+      {
+        'novel_rules': immersiveDefaultRoomNovelRules,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'novel_rules = ?',
+      whereArgs: const [legacyImmersiveDefaultRoomNovelRulesV0397],
+    );
+  }
+
   Future<void> ensureReady() async {
     final db = await database;
+    await _migrateUntouchedImmersiveRoomNovelRules(db);
     await db.delete(
       'settings',
       where: 'key IN (?, ?)',

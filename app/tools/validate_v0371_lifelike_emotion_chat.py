@@ -50,7 +50,8 @@ assert (
     or "<emotion>标签</emotion>" in catalog + prompt
 )
 assert "不加括号" in rules
-assert "多个动作/对白段之间空一行" in rules + prompt
+assert "动作禁止写进「」内" in rules
+assert "每轮正文至少有一行重要动作、神态、语气或微表情" in prompt
 
 chat = read("lib/features/chat/chat_page.dart")
 action = read("lib/widgets/action_tint_text.dart")

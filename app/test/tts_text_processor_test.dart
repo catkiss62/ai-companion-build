@@ -36,6 +36,12 @@ void main() {
     expect(processor.process(source), '你轻点……');
   });
 
+  test('dialogue-only scope skips a standalone action after dialogue', () {
+    const processor = TtsTextProcessor();
+    const source = '「才没有。」\n\n话音落下，尾巴尖又偷偷晃了一下。';
+    expect(processor.process(source), '才没有。');
+  });
+
   test('full-text scope includes actions and dialogue', () {
     const processor = TtsTextProcessor();
     const source = '（她轻轻把耳鳍压低）\n\n「才没有一直等你。」';

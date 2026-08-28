@@ -51,7 +51,7 @@ parsed = {
     )
 }
 assert sha256(parsed["05_intimacy_rendering"].encode()).hexdigest() == (
-    "5916af04bb0f01ebd640218792844116ff997047712340a21107d6d97b22b643"
+    "ed1b5b73f0f35e7d8277a8a2f4c923fbde0092c095440cd91fda08d818ae4b86"
 )
 assert sha256(parsed["06_intimacy_reference"].encode()).hexdigest() == (
     "88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648"
@@ -65,7 +65,7 @@ envelope = (
     + "\n【小节结束｜06_intimacy_reference】"
 )
 assert sha256(envelope.encode()).hexdigest() == (
-    "592b21ccad6188e100fb23f4c4838b612390cdf4989f8498740053b469a5d1ca"
+    "ebd7ce8faecf4af148e743e7482830c95e07228b0907d738a3d8a7b6ea8d0278"
 )
 for token in (
     "legacyEditableRuleLayerSha256V03816",

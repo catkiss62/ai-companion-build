@@ -55,6 +55,55 @@ void main() {
     );
   });
 
+  test('standalone action after earlier dialogue never gains fake quotes', () {
+    const source = '''尾巴轻轻摆了一下，凑到你面前。
+
+「那我可先说好，第一天就让我做这个，你有点得寸进尺。」
+
+话是这么说，手却没缩回去。''';
+    final segments = ChatSegmentCodec.parseAssistantText(source);
+    expect(segments, hasLength(3));
+    expect(
+      segments.map((item) => item.kind),
+      [
+        ChatSegmentKind.action,
+        ChatSegmentKind.dialogue,
+        ChatSegmentKind.action,
+      ],
+    );
+    expect(
+      ChatVisualResolver.chunks(segments).last.displayText,
+      '话是这么说，手却没缩回去。',
+    );
+  });
+
+  test('all unquoted lines in a mixed reply use the explicit quote boundary', () {
+    const source = '''视线落到你手上，呼吸停了一瞬。
+
+「别闹。」
+
+指尖沿着杯沿转了半圈。
+
+「先把话说完。」''';
+    final segments = ChatSegmentCodec.parseAssistantText(source);
+    expect(
+      segments.map((item) => item.kind),
+      [
+        ChatSegmentKind.action,
+        ChatSegmentKind.dialogue,
+        ChatSegmentKind.action,
+        ChatSegmentKind.dialogue,
+      ],
+    );
+    expect(
+      ChatVisualResolver.chunks(segments)
+          .expand((chunk) => chunk.segments)
+          .where((item) => item.kind == ChatSegmentKind.action)
+          .map((item) => item.text),
+      ['视线落到你手上，呼吸停了一瞬。', '指尖沿着杯沿转了半圈。'],
+    );
+  });
+
   test('stored v03815 dialogue misclassification self-heals from source', () {
     const source =
         '她把耳鳍往后压了压，尾尖停在半空。\n\n「你是不是故意的？」';
@@ -66,6 +115,21 @@ void main() {
     expect(segments[0].kind, ChatSegmentKind.action);
     expect(segments[1].kind, ChatSegmentKind.dialogue);
     expect(ChatVisualResolver.chunks(segments).single.displayText, source);
+  });
+
+  test('stored standalone trailing action self-heals from mixed source', () {
+    const source = '「知道了。」\n\n话音落下，尾巴才慢慢松开。';
+    const stale =
+        '[{"kind":"dialogue","text":"知道了。"},'
+        '{"kind":"dialogue","text":"话音落下，尾巴才慢慢松开。"}]';
+    final segments = ChatSegmentCodec.decode(stale, fallbackText: source);
+    expect(segments, hasLength(2));
+    expect(segments.first.kind, ChatSegmentKind.dialogue);
+    expect(segments.last.kind, ChatSegmentKind.action);
+    expect(
+      ChatVisualResolver.chunks(segments).last.displayText,
+      '话音落下，尾巴才慢慢松开。',
+    );
   });
 
   test('ordinary multiline answer is not mistaken for multiple actions', () {

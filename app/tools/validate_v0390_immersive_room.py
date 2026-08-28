@@ -41,7 +41,9 @@ assert "...legacyEditableRuleLayerSha256V0390.entries" in database
 for token in (
     "1200至1600个可见中文字符",
     "硬下限1000",
-    "不替他新增台词、重大动作、关键决定",
+    "不替用户新增任何主动动作，无论大小",
+    "只允许写由AI角色的行为直接造成的被动身体反应",
+    "不生成或复述用户的台词",
     "不得把临时姿势、衣物、地点、角色身份或剧情当成现实事实",
 ):
     assert token in rule_source, token

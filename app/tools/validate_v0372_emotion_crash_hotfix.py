@@ -54,14 +54,11 @@ for token in (
     "不加括号",
 ):
     assert token in rules, token
-assert any(token in rules for token in (
-    "多个动作/对白段之间空一行",
-    "多个动作/台词段之间空一行",
-))
-assert any(token in rules for token in ("动作与对白混插", "动作与台词混插"))
+assert "所有台词必须用「」包裹" in rules
+assert "动作禁止写进「」内" in rules
 for token in (
     "quotedLine",
-    "nextContentIsDialogue",
+    "hasExplicitDialogueLine",
     "ChatSegmentKind.action",
     "return segment.text;",
     "join('\\n')",

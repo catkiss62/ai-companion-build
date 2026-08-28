@@ -26,12 +26,12 @@ workflow = read("../.github/workflows/build-apk.yml")
 assert "version: 0.38.16+115" in pubspec
 assert "static const int schemaVersion = 33;" in database
 
-# The parser must skip the required visual blank line before deciding whether
-# a bracketless source line is the action paired with the quoted dialogue.
-assert "while (nextContentIndex < lines.length" in segment
-assert "lines[nextContentIndex].trim().isEmpty" in segment
-assert "final nextContentIsDialogue" in segment
-assert "kind: nextContentIsDialogue || looksLikeLegacyAction" in segment
+# The current parser supersedes the position-based v0.38.16 repair: any
+# response with an explicit fully quoted spoken line uses that quote as the
+# response-wide boundary, so trailing standalone actions cannot become speech.
+assert "hasExplicitDialogueLine" in segment
+assert "kind: hasExplicitDialogueLine" in segment
+assert "looksLikeLegacyAction" not in segment
 
 # Existing v0.38.15 rows stored segments_json as derived dialogue segments.
 # Loading them must self-heal from the authoritative raw message content.
@@ -39,6 +39,8 @@ assert "final reparsed = parseAssistantText(fallbackText);" in segment
 assert "if (reparsedActionCount > storedActionCount) return reparsed;" in segment
 assert "blank line between action and dialogue keeps action semantics" in tests
 assert "stored v03815 dialogue misclassification self-heals from source" in tests
+assert "standalone action after earlier dialogue never gains fake quotes" in tests
+assert "stored standalone trailing action self-heals from mixed source" in tests
 assert "blank-line ordinary prose without quoted dialogue stays dialogue" in tests
 assert "她把耳鳍往后压了压，尾尖停在半空。" in tests
 

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/models/rule_layer.dart';
+import 'package:ai_companion_localfirst/core/rules/rule_layer_content_immersive.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_defaults.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_grouping.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
@@ -207,11 +208,11 @@ void main() {
     expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
     expect(daily, contains('不必先切换状态'));
     expect(daily, contains('不加括号并默认省略主语'));
-    expect(daily, contains('不要写“我/她/角色名歪头看你”'));
+    expect(daily, contains('不使用“我/她/角色名”作动作主语'));
     expect(daily, contains('每轮对话至少要出现一次'));
-    expect(daily, contains('「」是台词边界'));
-    expect(daily, contains('对方能够直接听见的原话'));
-    expect(daily, contains('不得嵌套使用「」'));
+    expect(daily, contains('所有台词必须用「」包裹'));
+    expect(daily, contains('动作禁止写进「」内'));
+    expect(daily, contains('【最终正文中的现实恋人称呼】'));
     expect(daily, isNot(contains('允许纯对白')));
     expect(daily, contains('省略主语的动作默认只描述自己'));
     expect(daily, contains('不替他编写动作、台词、内心或没有真实提供的反应'));
@@ -230,6 +231,27 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0350.length, 3);
     expect(legacyEditableRuleLayerSha256V0353.length, 4);
     expect(legacyEditableRuleLayerSha256V0390.length, 2);
+    expect(legacyEditableRuleLayerSha256V0397.length, 4);
+    expect(
+      byKey['immersive_07_global']!.content,
+      contains('用户在正文中始终写作“你”'),
+    );
+    expect(
+      byKey['immersive_07_global']!.content,
+      isNot(contains('DeepSeek reasoning_content')),
+    );
+    expect(
+      immersiveDefaultRoomNovelRules,
+      contains('可以充分描写AI角色行为直接造成的用户生理反应'),
+    );
+    expect(
+      immersiveDefaultRoomNovelRules,
+      contains('不生成或复述用户台词'),
+    );
+    expect(
+      legacyImmersiveDefaultRoomNovelRulesV0397,
+      contains('使用第三人称有限视角'),
+    );
     expect(
       byKey['immersive_07_nsfw_source']!.content,
       endsWith('专注描写，至少500字]'),

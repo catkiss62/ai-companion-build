@@ -28,7 +28,7 @@ composed_rule_07 = (
     + "\n【小节结束｜immersive_07_nsfw_source】"
 )
 assert sha256(composed_rule_07.encode("utf-8")).hexdigest() == (
-    "df39e7347976003c74eac2f2a1dab8fde1f933a51c4034b4f68cf197192cbce6"
+    "daee57ab9980f83135af2875ddcd2141eff235392a688e3e20ec3a16438dd942"
 )
 assert "至少500字]" in raw_constant("immersiveNsfwSource")
 assert "【口交描写规则】" not in raw_constant("immersiveNsfwSource")

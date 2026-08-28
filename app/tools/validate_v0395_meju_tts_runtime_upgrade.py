@@ -181,7 +181,7 @@ for token in (
 assert "exceptional long runs stay below the new engine safety cap" in segmenter_test
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: 0\.39\.(?:5\+123|6\+124|7\+125)$", pubspec, re.MULTILINE)
+assert re.search(r"^version: 0\.39\.(?:5\+123|6\+124|7\+125|8\+126)$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 35;" in read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 assert any(

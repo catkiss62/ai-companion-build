@@ -304,7 +304,7 @@ class ImmersiveRoomRepository {
       final clipped = text.length <= remaining
           ? text
           : '${text.substring(0, remaining)}…';
-      buffer.writeln('${message.isUser ? '他' : '她'}：$clipped');
+      buffer.writeln('${message.isUser ? '用户输入' : 'AI正文'}：$clipped');
       used += clipped.length;
     }
     return buffer.toString().trim();
