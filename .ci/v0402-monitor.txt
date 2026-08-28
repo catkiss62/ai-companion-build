@@ -1,0 +1,7 @@
+status=success
+run_id=33199614877
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33199614877
+head_sha=cf92ea514d43bf0982f2c1c79121da3deef1c6ae
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+4f17e5df69e7c1017d66bdf0f78ff75ae76222da4c5c3d4fadc012475a36be11  AI-Companion-v0.40.2-130-Provider-Diagnostics-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6f59a97dbb7cf10176fc
