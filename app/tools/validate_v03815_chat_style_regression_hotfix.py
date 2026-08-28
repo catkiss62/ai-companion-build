@@ -67,14 +67,17 @@ assert "horizontal: 14" in chat and "vertical: 11" in chat
 assert "_BubbleTailPainter" not in chat
 
 # This hotfix must not disturb the already accepted unlock, streaming or
-# two-level overlay routing behavior, and must not introduce translation.
+# two-level overlay routing behavior. A later release may add a separately
+# keyed manual reasoning-translation cache without altering body formatting.
 assert "class ReferenceUnlockControl" in phone
 assert "static const double slideDistance = 100" in phone
 assert "emitDeltas: false," in runner
 assert "showGenerationDraft" in chat
 assert 'onOpenChat = { showChatOverlay("pet_double_tap_menu") }' in overlay
 assert 'smallButton("打开") { openFullApp(openChat = true) }' in overlay
-assert "reasoning_translation" not in database
+if "reasoning_translation" in database:
+    assert "CREATE TABLE IF NOT EXISTS reasoning_translations" in database
+    assert "PRIMARY KEY (scope, message_id)" in database
 
 assert "python3 tools/validate_v03815_chat_style_regression_hotfix.py" in workflow
 assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow

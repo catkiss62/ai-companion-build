@@ -68,7 +68,8 @@
 # Historical baseline: v0.39.2+120 / SQLite schema 35 / immersive NSFW and stream stability
 # Historical baseline: v0.39.3+121 / SQLite schema 35 / ordinary-chat presentation hotfix
 # Historical baseline: v0.39.5+123 / SQLite schema 35 / upgraded Meju local-TTS runtime
-# Active candidate: v0.39.6+124 / SQLite schema 35 / Rule02 quote boundary and proactive-message sounds
+# Historical baseline: v0.39.6+124 / SQLite schema 35 / Rule02 quote boundary and proactive-message sounds
+# Active candidate: v0.39.7+125 / SQLite schema 36 / reasoning translation and spoken-line boundary
 # Historical v0.37.8 validator compatibility:
 # Build AI Companion v0.37.8+97 APK (Image Vision Dispatch Hotfix)
 # AI-Companion-v0.37.8-97-Image-Vision-Dispatch-Hotfix-APK.apk
@@ -140,12 +141,12 @@
 # Build AI Companion v0.37.7+96 APK (Layered Memory Retrieval)
 # AI-Companion-v0.37.7-96-Layered-Memory-Retrieval-APK.apk
 # .ci/v0377-monitor.txt
-name: Build AI Companion v0.39.6+124 APK (Rule02 and Notification Sounds)
+name: Build AI Companion v0.39.7+125 APK (Reasoning Translation and Spoken-Line Boundary)
 
 on:
   push:
     branches:
-      - agent/v0396-rule02-message-sound
+      - agent/v0397-reasoning-translation-dialogue-boundary
   workflow_dispatch:
   pull_request:
     branches:
@@ -285,14 +286,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.39.6+124' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 35;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.39.7+125' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 36;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.39.6+124 Rule02 quote-boundary and proactive-message sound update.'
+          echo 'Building v0.39.7+125 manual reasoning translation and spoken-line boundary update.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -453,6 +454,7 @@ jobs:
           python3 tools/validate_v0394_immersive_chat_ui_tts.py
           python3 tools/validate_v0395_meju_tts_runtime_upgrade.py
           python3 tools/validate_v0396_rule02_notification_sound.py
+          python3 tools/validate_v0397_reasoning_translation_dialogue_boundary.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -698,26 +700,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.39.6+124 APK as workflow artifact
+      - name: Upload v0.39.7+125 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK
+          name: AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.39.6+124 Rule02 and notification sounds APK to draft release
+      - name: Upload v0.39.7+125 reasoning translation and spoken-line APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.39.6-rule02-notification-sounds'
-          APK_NAME='AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK.apk'
+          TAG='v0.39.7-reasoning-translation-spoken-line'
+          APK_NAME='AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -734,8 +736,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.6+124 Rule02 and notification sounds candidate' \
-              --notes 'Draft candidate: clarifies that only audible speech belongs inside corner quotes, requires at least one action/expression line per turn, and replaces inaudibly quiet proactive-message sounds with three directly previewable original tones on fresh Android notification channels. The v0.39.5 Meju TTS runtime and SQLite schema 35 are unchanged.'
+              --title 'AI Companion v0.39.7+125 reasoning translation and spoken-line candidate' \
+              --notes 'Draft candidate: adds on-demand cached Chinese translation for English-dominant visible reasoning in ordinary chat, immersive rooms and the native overlay, and reinforces the ordinary-chat spoken-line boundary without rewriting generated text. Notification sounds, Meju TTS and album behavior are unchanged. SQLite advances to schema 36 only for the translation cache.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -759,18 +761,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0396-monitor.txt'
+          MONITOR_PATH='.ci/v0397-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.6 CI success monitor' \
+              -f message='Update v0.39.7 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.6 CI success monitor' \
+              -f message='Create v0.39.7 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -791,8 +793,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.39.6-rule02-notification-sounds'
-          CI_NAME='AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-CI-Monitor.txt'
+          TAG='v0.39.7-reasoning-translation-spoken-line'
+          CI_NAME='AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -833,8 +835,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.39.6+124 Rule02 and notification sounds candidate' \
-              --notes 'Draft used for v0.39.6 CI diagnostics and the Rule02/notification-sound APK. It is not a published release.'
+              --title 'AI Companion v0.39.7+125 reasoning translation and spoken-line candidate' \
+              --notes 'Draft used for v0.39.7 CI diagnostics and the reasoning-translation/spoken-line APK. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -843,18 +845,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0396-monitor.txt'
+          MONITOR_PATH='.ci/v0397-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.39.6 CI failure monitor' \
+              -f message='Update v0.39.7 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.39.6 CI failure monitor' \
+              -f message='Create v0.39.7 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

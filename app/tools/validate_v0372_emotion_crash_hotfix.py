@@ -52,10 +52,13 @@ for token in (
     assert token in prompt, token
 for token in (
     "不加括号",
-    "多个动作/对白段之间空一行",
-    "动作与对白混插",
 ):
     assert token in rules, token
+assert any(token in rules for token in (
+    "多个动作/对白段之间空一行",
+    "多个动作/台词段之间空一行",
+))
+assert any(token in rules for token in ("动作与对白混插", "动作与台词混插"))
 for token in (
     "quotedLine",
     "nextContentIsDialogue",

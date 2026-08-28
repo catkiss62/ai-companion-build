@@ -73,14 +73,18 @@ assert "return segment.text;" in visuals
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "stripActionDelimitersForDisplay" in text
 assert "不加括号" in rules and "统一用直角引号「」" in rules
-assert "不加括号" in prompt and "统一用「」" in prompt
+assert "不加括号" in prompt
+assert any(token in prompt for token in ("统一用「」", "实际发声的台词"))
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
 assert "ForegroundColorSpan(Color.rgb(253, 230, 138))" in overlay
 assert "fun visibleText(value: String)" in overlay_formatter
 assert "fun dialogueRanges(value: String)" in overlay_formatter
 
-# Automatic reasoning translation is deliberately isolated to a later batch.
-assert "reasoning_translation" not in database
+# A later release may add an isolated manual translation cache without
+# changing this historical transcript-layout contract.
+if "reasoning_translation" in database:
+    assert "CREATE TABLE IF NOT EXISTS reasoning_translations" in database
+    assert "PRIMARY KEY (scope, message_id)" in database
 
 assert "python3 tools/validate_v03814_reference_unlock_chat_transcript_ui.py" in workflow
 assert "grep -Fqx 'version: 0.38.16+115' app/pubspec.yaml" in workflow

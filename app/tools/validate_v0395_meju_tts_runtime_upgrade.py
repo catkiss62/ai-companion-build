@@ -189,6 +189,7 @@ assert any(
     for branch in (
         "agent/v0395-meju-tts-runtime-upgrade",
         "agent/v0396-rule02-message-sound",
+        "agent/v0397-reasoning-translation-dialogue-boundary",
     )
 )
 assert "python3 tools/validate_v0395_meju_tts_runtime_upgrade.py" in workflow
@@ -197,6 +198,7 @@ assert any(
     for artifact in (
         "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK",
         "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
+        "AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK",
     )
 )
 for token in (

@@ -17,6 +17,7 @@ assert any(
         "version: 0.39.4+122",
         "version: 0.39.5+123",
         "version: 0.39.6+124",
+        "version: 0.39.7+125",
     )
 )
 assert "static const int schemaVersion = 35;" in read(
@@ -90,6 +91,7 @@ assert any(
     for branch in (
         "agent/v0395-meju-tts-runtime-upgrade",
         "agent/v0396-rule02-message-sound",
+        "agent/v0397-reasoning-translation-dialogue-boundary",
     )
 )
 assert any(
@@ -97,6 +99,7 @@ assert any(
     for artifact in (
         "AI-Companion-v0.39.5-123-Meju-TTS-Runtime-Upgrade-APK",
         "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
+        "AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK",
     )
 )
 

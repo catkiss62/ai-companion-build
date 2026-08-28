@@ -17,7 +17,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*0\.39\.6\+124\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.39\.[67]\+(124|125)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 35;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -30,14 +30,16 @@ daily_match = re.search(
 )
 assert daily_match is not None
 daily = daily_match.group(1)
-assert hashlib.sha256(daily.encode("utf-8")).hexdigest() == (
-    "7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297"
-)
+assert hashlib.sha256(daily.encode("utf-8")).hexdigest() in {
+    "7b44d761ace955eed046e744a710d9b354a8377ba2372eb6cd21581db125b297",
+    "8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465",
+}
 for token in (
     "每轮对话至少要出现一次",
-    "「」内只能写真正说出口、能够被听见的原话",
+    "「」是台词边界",
+    "对方能够直接听见的原话",
     "动作、神态、微表情、旁白",
-    "必须写在「」外",
+    "另起一行写在「」外",
     "不得嵌套使用「」",
     "动作不是装饰配额",
 ):
@@ -56,6 +58,7 @@ for migration in (
     "legacyEditableRuleLayerSha256V0395.entries",
     "legacyEditableRuleLayerSha256V0395UserOnce.entries",
     "legacyEditableRuleLayerSha256V0395UserOnceWithoutPureDialogue.entries",
+    "legacyEditableRuleLayerSha256V0396.entries",
 ):
     assert migration in database, migration
 
@@ -122,13 +125,22 @@ for expected_hash in expected_audio.values():
     assert expected_hash in notice
 
 workflow = read("../.github/workflows/build-apk.yml")
-for token in (
+assert "python3 tools/validate_v0396_rule02_notification_sound.py" in workflow
+assert any(branch in workflow for branch in (
     "agent/v0396-rule02-message-sound",
+    "agent/v0397-reasoning-translation-dialogue-boundary",
+))
+assert any(name in workflow for name in (
     "Build AI Companion v0.39.6+124 APK (Rule02 and Notification Sounds)",
-    "python3 tools/validate_v0396_rule02_notification_sound.py",
+    "Build AI Companion v0.39.7+125 APK (Reasoning Translation and Spoken-Line Boundary)",
+))
+assert any(artifact in workflow for artifact in (
     "AI-Companion-v0.39.6-124-Rule02-Notification-Sounds-APK",
+    "AI-Companion-v0.39.7-125-Reasoning-Translation-Spoken-Line-APK",
+))
+assert any(tag in workflow for tag in (
     "v0.39.6-rule02-notification-sounds",
-):
-    assert token in workflow, token
+    "v0.39.7-reasoning-translation-spoken-line",
+))
 
 print("v0.39.6 Rule02 quote boundary and notification sound validation passed")
