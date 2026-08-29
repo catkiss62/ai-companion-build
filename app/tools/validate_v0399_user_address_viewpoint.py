@@ -15,7 +15,7 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133)\s*$", read("pubspec.yaml"), re.M)
+assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134)\s*$", read("pubspec.yaml"), re.M)
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 

@@ -87,6 +87,7 @@ class ProviderHealth {
     'content_filter',
     'download',
     'image_processing',
+    'image_binding',
     'chat_busy',
     'ownership_changed',
     'local_write',
@@ -164,6 +165,7 @@ class ProviderHealth {
       return 'content_filter';
     }
     if (text.contains('download') || text.contains('下载')) return 'download';
+    if (text.contains('album_image_binding_mismatch')) return 'image_binding';
     if (text.contains('decode') ||
         text.contains('format') ||
         text.contains('invalid_response') ||

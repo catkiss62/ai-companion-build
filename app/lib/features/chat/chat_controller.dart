@@ -574,6 +574,10 @@ class ChatController extends ChangeNotifier {
         albumPreferenceHint:
             albumEnabled ? await db.companionAlbumPreferenceHint() : '',
       );
+      await CompanionAlbumStorage().requireContentSha256(
+        thumbnail,
+        observation.inputContentSha256,
+      );
       await db.recordProviderHealthEvent(ProviderHealthEvent(
         lane: 'vision',
         context: 'chat_image',
@@ -692,6 +696,7 @@ class ChatController extends ChangeNotifier {
       final stored = await CompanionAlbumStorage().saveThumbnail(
         id: candidateId,
         source: thumbnail,
+        expectedContentSha256: observation.inputContentSha256,
       );
       path = stored.relativePath;
       contentSha = stored.contentSha256;

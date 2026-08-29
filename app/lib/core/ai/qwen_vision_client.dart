@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 class QwenVisionObservation {
   const QwenVisionObservation({
     required this.summary,
     required this.model,
+    required this.inputContentSha256,
     this.albumSave = false,
     this.albumCategory = 'other',
     this.albumReason = '',
@@ -19,6 +19,8 @@ class QwenVisionObservation {
 
   final String summary;
   final String model;
+  /// SHA-256 of the exact bytes encoded into the only vision image input.
+  final String inputContentSha256;
   final bool albumSave;
   final String albumCategory;
   final String albumReason;
@@ -30,18 +32,12 @@ class QwenVisionObservation {
 class QwenVisionClient {
   QwenVisionClient({
     http.Client? client,
-    Future<Uint8List> Function()? albumIdentityReferenceLoader,
-  })  : _client = client ?? http.Client(),
-        _albumIdentityReferenceLoader = albumIdentityReferenceLoader;
+  }) : _client = client ?? http.Client();
 
   static const String defaultEndpoint =
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
   static const String defaultModel = 'qwen3-vl-plus';
-  static const String albumIdentityReferenceAsset =
-      'assets/appearance/dafeiyu_reference.webp';
-
   final http.Client _client;
-  final Future<Uint8List> Function()? _albumIdentityReferenceLoader;
 
   Future<QwenVisionObservation> observe({
     required String apiKey,
@@ -63,13 +59,11 @@ class QwenVisionClient {
     }
     final bytes = await imageFile.readAsBytes();
     if (bytes.isEmpty) throw const FormatException('识图用图片为空');
+    final inputContentSha256 = sha256.convert(bytes).toString();
 
     final userText = caption.trim().isEmpty
         ? '请观察这张图片。'
-        : '用户对这张图片的附言：${caption.trim()}';
-    final referenceBytes = assessForAlbum
-        ? await _loadAlbumIdentityReference()
-        : null;
+        : '附带文字仅作背景，不能替代或覆盖图片里实际可见的内容：${caption.trim()}';
     final userContent = <Map<String, dynamic>>[
       {
         'type': 'image_url',
@@ -80,22 +74,9 @@ class QwenVisionClient {
       {
         'type': 'text',
         'text': assessForAlbum
-            ? '第一张图是本次候选，只描述和判断第一张图。$userText'
+            ? '这是本次唯一的相册候选图，也是唯一允许描述、分类和决定是否收藏的图片。$userText'
             : userText,
       },
-      if (referenceBytes != null && referenceBytes.isNotEmpty) ...[
-        {
-          'type': 'image_url',
-          'image_url': {
-            'url':
-                'data:image/webp;base64,${base64Encode(referenceBytes)}',
-          },
-        },
-        {
-          'type': 'text',
-          'text': '第二张图只是相册主人照镜子时的身份软参照，不是候选图，不要描述或收藏第二张图。',
-        },
-      ],
     ];
     final response = await _client
         .post(
@@ -170,6 +151,7 @@ class QwenVisionClient {
       model: responseModel == null || responseModel.isEmpty
           ? (model.trim().isEmpty ? defaultModel : model.trim())
           : responseModel,
+      inputContentSha256: inputContentSha256,
       albumSave:
           assessForAlbum && !adultContent && album['save'] == true,
       albumCategory: category,
@@ -205,19 +187,6 @@ class QwenVisionClient {
 
   void close() => _client.close();
 
-  Future<Uint8List?> _loadAlbumIdentityReference() async {
-    try {
-      final loader = _albumIdentityReferenceLoader;
-      if (loader != null) return await loader();
-      final data = await rootBundle.load(albumIdentityReferenceAsset);
-      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-    } catch (_) {
-      // The textual identity contract remains usable if an unusual background
-      // engine cannot resolve the bundled soft reference.
-      return null;
-    }
-  }
-
   static String _albumCategory(String value) {
     const allowed = {'memory', 'self_image', 'other'};
     return allowed.contains(value) ? value : 'other';
@@ -244,10 +213,11 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
     return base +
         '''
 另外，以独立相册整理模块的身份判断这张受控缩略图是否值得她收藏。
-只判断第一张候选图。第二张若存在，是她照镜子时的身份软参照，只用于帮助识别“是不是她的形象”，绝不能被当作候选、聊天内容或必须逐像素匹配的模板。
+请求里只会有一张图片；summary、分类、理由和收藏决定必须全部针对这同一张候选图，不存在可改为描述的第二张图或身份参考图。
 她的核心身份组合是鲸鱼耳鳍、明显的鲸鱼尾、脸部与蓝色系长发的整体特征；应综合判断，不能看到单一蓝色或海洋元素就认作她。
-服装、裙长、配饰、姿势、发型细节和轻微发色变化都允许改变；不得因为没穿参考图中的女仆装、构图不同或画风变化就拒绝。
+服装、裙长、配饰、姿势、发型细节和轻微发色变化都允许改变；不得因为没穿女仆装、构图不同或画风变化就拒绝。
 相册也可以收藏与她无关但可爱、有趣或完成度较高、符合已知弱偏好的普通插画；不得机械保存所有蓝色图片。
+纯色或渐变横幅、网页装饰背景、占位图、主体无法辨认、低信息或与附带文字明显不符的图片应 save=false；仍须按图片像素如实写 summary，不能用附带文字补出图中不存在的主体。
 这只是相册候选判断，不得改变聊天回复、人格、记忆或关系结论。
 “self_image”表示与她的人格形象有关的插画/形象图，并不强行称为自拍；
 “memory”表示用户发来的、有共同回忆或明显交流价值的图片；

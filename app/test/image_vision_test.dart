@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:ai_companion_localfirst/core/ai/qwen_vision_client.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
@@ -89,16 +88,16 @@ void main() {
       final imageUrl = image['image_url'] as Map<String, dynamic>;
       expect(imageUrl['url'], startsWith('data:image/png;base64,'));
       expect(result.summary, '桌上有一只蓝色杯子。');
+      expect(result.inputContentSha256, hasLength(64));
     } finally {
       client.close();
       await directory.delete(recursive: true);
     }
   });
 
-  test('album assessment sends candidate plus soft identity reference', () async {
+  test('album assessment sends exactly one candidate image', () async {
     late Map<String, dynamic> requestBody;
     final client = QwenVisionClient(
-      albumIdentityReferenceLoader: () async => Uint8List.fromList([1, 2, 3]),
       client: MockClient((request) async {
         requestBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
@@ -143,14 +142,18 @@ void main() {
       final system = messages.first as Map<String, dynamic>;
       final user = messages[1] as Map<String, dynamic>;
       final content = user['content'] as List<dynamic>;
-      expect(content, hasLength(4));
+      expect(content, hasLength(2));
       expect(
-        ((content[2] as Map<String, dynamic>)['image_url']
-                as Map<String, dynamic>)['url'],
-        startsWith('data:image/webp;base64,'),
+        content.where(
+          (item) => (item as Map<String, dynamic>)['type'] == 'image_url',
+        ),
+        hasLength(1),
       );
       expect(system['content'], contains('鲸鱼耳鳍'));
       expect(system['content'], contains('服装、裙长、配饰'));
+      expect(system['content'], contains('请求里只会有一张图片'));
+      expect(system['content'], contains('渐变横幅'));
+      expect(jsonEncode(requestBody), isNot(contains('data:image/webp')));
       expect(result.albumSave, isTrue);
       expect(result.albumCategory, 'self_image');
     } finally {
@@ -161,7 +164,6 @@ void main() {
 
   test('adult album result is never saved', () async {
     final client = QwenVisionClient(
-      albumIdentityReferenceLoader: () async => Uint8List(0),
       client: MockClient((request) async => http.Response(
             jsonEncode({
               'choices': [

@@ -112,6 +112,7 @@ class PreflightDiagnosticsService {
         'companionAlbumSourceUrlsIncluded': false,
         'companionAlbumTitlesOrSummariesIncluded': false,
         'companionAlbumReasonsOrCommentsIncluded': false,
+        'companionAlbumContentHashesIncluded': false,
         'providerHealthRawErrorIncluded': false,
         'providerHealthQueryOrUrlIncluded': false,
         'providerHealthImageContentIncluded': false,

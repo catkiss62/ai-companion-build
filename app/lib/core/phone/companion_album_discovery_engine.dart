@@ -70,8 +70,6 @@ class CompanionAlbumDiscoveryEngine {
         sourceUrl: web['image_url']?.toString() ?? '',
         sourceDomain: web['image_domain']?.toString() ?? '',
         title: web['title']?.toString() ?? '网页发现',
-        caption: web['image_description']?.toString() ??
-            web['summary']?.toString() ?? '',
         apiKey: apiKey,
         now: instant,
       );
@@ -91,7 +89,6 @@ class CompanionAlbumDiscoveryEngine {
       sourceUrl: fish.previewUrl,
       sourceDomain: 'fisharchive.pages.dev',
       title: fish.title,
-      caption: '来自蓝色大肥鱼档案馆的鲸鱼娘同人图片候选。${fish.alt}',
       apiKey: apiKey,
       now: instant,
     );
@@ -103,7 +100,6 @@ class CompanionAlbumDiscoveryEngine {
     required String sourceUrl,
     required String sourceDomain,
     required String title,
-    required String caption,
     required String apiKey,
     required DateTime now,
   }) async {
@@ -161,9 +157,13 @@ class CompanionAlbumDiscoveryEngine {
         endpoint: await config.readVisionEndpoint(),
         model: await config.readVisionModel(),
         imageFile: draft.thumbnailFile,
-        caption: caption,
         assessForAlbum: true,
         albumPreferenceHint: await db.companionAlbumPreferenceHint(),
+      );
+      stage = 'image_binding';
+      await albumStorage.requireContentSha256(
+        draft.thumbnailFile,
+        observation.inputContentSha256,
       );
       await db.recordProviderHealthEvent(ProviderHealthEvent(
         lane: 'vision',
@@ -185,6 +185,7 @@ class CompanionAlbumDiscoveryEngine {
         final stored = await albumStorage.saveThumbnail(
           id: candidateId,
           source: draft.thumbnailFile,
+          expectedContentSha256: observation.inputContentSha256,
         );
         savedPath = stored.relativePath;
         contentSha = stored.contentSha256;
@@ -235,9 +236,11 @@ class CompanionAlbumDiscoveryEngine {
           ? 'download'
           : stage == 'image_processing'
               ? 'image_processing'
-              : stage == 'local_write'
-                  ? 'local_write'
-                  : ProviderHealth.errorCategory(error);
+              : stage == 'image_binding'
+                  ? 'image_binding'
+                  : stage == 'local_write'
+                      ? 'local_write'
+                      : ProviderHealth.errorCategory(error);
       if (!visionRecorded && stage == 'vision') {
         await db.recordProviderHealthEvent(ProviderHealthEvent(
           lane: 'vision',
@@ -318,7 +321,6 @@ class CompanionAlbumDiscoveryEngine {
           id: id,
           previewUrl: url,
           title: filename.isEmpty ? '鲸鱼娘同人图片' : filename,
-          alt: raw['alt']?.toString() ?? '',
         );
       }
     } catch (_) {}
@@ -345,11 +347,9 @@ class _FishCandidate {
     required this.id,
     required this.previewUrl,
     required this.title,
-    required this.alt,
   });
 
   final String id;
   final String previewUrl;
   final String title;
-  final String alt;
 }

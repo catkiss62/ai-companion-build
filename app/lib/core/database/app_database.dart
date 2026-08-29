@@ -7844,6 +7844,9 @@ class AppDatabase {
 
   Future<Map<String, Object?>> companionAlbumDiagnosticStats() async {
     final db = await database;
+    final bindingCutoff = DateTime.now()
+        .subtract(const Duration(hours: 24))
+        .millisecondsSinceEpoch;
     final rows = await db.rawQuery('''
       SELECT lifecycle_state, COUNT(*) AS count
       FROM companion_album_candidates
@@ -7863,6 +7866,12 @@ class AppDatabase {
           [diagnosticsStartedAt],
         )) ??
         0;
+    final bindingMismatches24h = Sqflite.firstIntValue(await db.rawQuery(
+          'SELECT COUNT(*) FROM provider_health_events '
+          'WHERE created_at >= ? AND primary_error_category = ?',
+          [bindingCutoff, 'image_binding'],
+        )) ??
+        0;
     return {
       'byState': byState,
       'outcomeClassification': {
@@ -7874,6 +7883,16 @@ class AppDatabase {
       'preferenceFeedbackRows': (await db.rawQuery(
         "SELECT COUNT(*) FROM companion_album_candidates WHERE nsfw = 0 AND user_feedback IN ('like','dislike')",
       )).first.values.first,
+      'imageBinding': {
+        'mode': 'single_primary_image_sha256_v0405',
+        'primaryAssessmentImageCount': 1,
+        'identityReferenceIncludedInPrimaryRequest': false,
+        'autonomousWebMetadataUsedAsVisionCaption': false,
+        'observedBytesVerifiedBeforeCommit': true,
+        'storedBytesReReadAndVerified': true,
+        'mismatchEvents24h': bindingMismatches24h,
+        'contentHashesIncluded': false,
+      },
       'imageBodiesIncluded': false,
       'commentsIncluded': false,
     };

@@ -27,7 +27,7 @@ kotlin = read("android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBrid
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 reference = ROOT / "assets/appearance/dafeiyu_reference.webp"
 
-assert re.search(r"^version:\s*0\.40\.(?:1\+129|2\+130|3\+(?:131|132)|4\+133)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.40\.(?:1\+129|2\+130|3\+(?:131|132)|4\+133|5\+134)\s*$", pubspec, re.M)
 assert re.search(r"static const int schemaVersion = (?:38|39);", database)
 for token in (
     "perceptual_hash TEXT NOT NULL DEFAULT ''",
@@ -41,8 +41,8 @@ for token in (
     assert token in database, token
 
 for token in (
-    "albumIdentityReferenceAsset",
-    "data:image/webp;base64",
+    "请求里只会有一张图片",
+    "不存在可改为描述的第二张图或身份参考图",
     "鲸鱼耳鳍",
     "明显的鲸鱼尾",
     "服装、裙长、配饰",
@@ -50,6 +50,8 @@ for token in (
     "adult_content",
 ):
     assert token in vision, token
+assert "data:image/webp;base64" not in vision
+assert "albumIdentityReferenceLoader" not in vision
 assert "final bool nsfw" not in vision
 assert "required this.perceptualHash" in model
 assert "required this.categorySource" in model
