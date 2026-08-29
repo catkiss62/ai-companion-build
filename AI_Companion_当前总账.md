@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3+132 后台维护与主动频率热修（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3+132 后台维护与主动频率热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > v0.40.3+131 覆盖安装约半小时后的首份 schema 40 真机报告确认升级和脱敏结构生效，但同时暴露出长期维护回归。用户进一步确认：每天 8 次主动联系与“持续生活着、可以不断冒出心思并自主分享”的目标不符；本批在修复后台阻断的同时加入可选主动频率，入口固定在聊天头像/名字打开的左侧边栏。仍沿用已授权公开源码分支 `agent/v0403-proactive-sharing-tuning`，只生成测试 APK，不合并 `main`、不发布正式 Release。
 
@@ -43,6 +43,28 @@
 2. 数据库测试覆盖 schema 39→40 后强制长期维护、两张诊断表的 14 天/500 行清理和不再出现 unsupported table；诊断测试覆盖当前错误警告、恢复后历史累计提示与原始错误负断言。
 3. Widget/源码合同覆盖侧边栏入口、三档标签与说明，不把它误放到系统页或只做不可操作展示；随后执行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名及大型素材哈希校验。
 4. 覆盖安装真机后先确认 `backgroundErrorCount` 不再增长、`recovery` 回到非 error、维护告警消失；额度按默认自然显示 `16/24h、3/2h`。待旧 8 条记录逐渐滚出窗口或立即选择频繁档后，再自然观察来源无关分享、重复主题降权与前台 App 主动重试。
+
+### D. 实际实现
+
+1. 新增 `MaintenancePrunePolicy` 作为维护表/时间列单一安全白名单；`provider_health_events` 与 `proactive_policy_events` 均允许按 `created_at` 清理。长期维护现在明确对两张本机诊断表执行 14 天/500 行有界清理，修复 v0.40.3+131 每次心跳在 Thought、感知和主动选择之前因 `Unsupported maintenance table/column` 中断的问题；未知表或列仍会拒绝，不以吞异常掩盖合同错误。
+2. 后台入口、长期维护和恢复编排增加固定脱敏错误类别及最近错误/成功时间，类别仅包括维护合同、数据库忙、schema、超时、所有权/租约和其他；恢复成功会清除当前错误类别，同时保留累计历史。诊断新增 `background_recovery` 检查：当前失败为警告，历史有错但已经恢复为信息；明确 `runtimeErrorTextIncluded=false`，不导出原始异常、SQL、路径、内容或密钥。
+3. 新增 `ProactiveFrequencyMode` 单一策略真源，三档为安静 `8/24h + 2/2h`、自然 `16/24h + 3/2h`、频繁 `24/24h + 4/2h`；缺失或未知设置统一回到默认自然。主动运行 Gate 与脱敏诊断均读取 `proactive_frequency_mode`，不再各自硬编码。计数继续只认已经提交到聊天的主动消息，旧历史不清零，切换档位立即按同一滚动 24 小时/2 小时窗口重算剩余量。
+4. 点击聊天页头像/名字打开的左侧快捷面板新增“主动频率”下拉项和说明，切换后立即保存、无需重启。说明明确这些数字只是成功主动消息的安全上限，不是每日发送目标；Desire/Thought、忙碌度、聊天租约、Grounding、主题多样性、模型 `WAIT`、最终 Gate 与通知投递继续决定是否真的联系。
+5. 脱敏报告的主动预算新增档位 key/中文标签、24 小时与 2 小时的上限、已用和剩余；仍不包含消息正文、Thought 正文或用户活动内容。版本升级为 `0.40.3+132`，SQLite schema 保持 40；未加入 DeepSeek 兜底，未改搜索预算、角色规则、TTS、相册、存档、悬浮窗、桌宠或沉浸房间。
+
+### E. 提交、测试、构建与交付证据
+
+1. 远端功能提交为 [`a0111fc0053596bab4a1288c5442a78c76acfb5e`](https://github.com/catkiss62/ai-companion-build/commit/a0111fc0053596bab4a1288c5442a78c76acfb5e)，总账路径/工作树清理提交为 [`c985d4dfcbfb9b0831e0dd49a69be1f134b574b6`](https://github.com/catkiss62/ai-companion-build/commit/c985d4dfcbfb9b0831e0dd49a69be1f134b574b6)，测试包名修正提交为 [`b4bf83eaae589a3eae4a484c70ef370b53dead92`](https://github.com/catkiss62/ai-companion-build/commit/b4bf83eaae589a3eae4a484c70ef370b53dead92)。远端最终 tree SHA `cfca6f740ea09824435323b835fde1964720fc6e` 与本地提交 `6204cdaeca482c4c17cf8dcbae34c0dd71b6b5a1` 完全一致；分支仍为 [`agent/v0403-proactive-sharing-tuning`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0403-proactive-sharing-tuning)，未修改或合并 `main`。
+2. 首次 [Actions run 33244974298](https://github.com/catkiss62/ai-companion-build/actions/runs/33244974298) 的 Kotlin 和全部源码合同通过，Flutter analyze 在新增测试的三个错误包名前缀处停止；生产代码没有失败。只将 `package:ai_companion/...` 修正为项目真实包名 `package:ai_companion_localfirst/...`，未改变热修行为。
+3. 修正后的 [Actions run 33245335188](https://github.com/catkiss62/ai-companion-build/actions/runs/33245335188) 全绿：全部当前/历史 Python validators、Kotlin 桌宠/悬浮窗与原生桥测试、Flutter analyze、329 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、形象参照哈希、Artifact 与 Draft Release 上传全部通过。
+4. 测试 APK [`AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-cd5007571673410051ba/AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK.apk)，324,961,910 bytes，SHA-256 `c87b1c5b4b319dbd398960653a124cd8ba7e648f149872e21f0d5f8cecca87e4`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.40.3+131；Draft Release 为 [untagged-cd5007571673410051ba](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cd5007571673410051ba)，仍是测试草稿而非正式 Release。
+5. Artifact [9712764897](https://github.com/catkiss62/ai-companion-build/actions/runs/33245335188/artifacts/9712764897)，名称 `AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK`，ZIP 318,664,587 bytes，digest `sha256:9040924dfd2a36e886b699745e5eb758be440b802b078f9f2e6af41a7ded86e3`，到期时间 2026-09-12T09:32:21Z。
+
+### F. 真机待验
+
+1. 覆盖安装后无需清数据；聊天、Thought、网页候选、Provider/主动策略事件和过去主动发送历史均继续保留。先进入聊天页左侧头像/名字面板确认默认显示“自然（16次/24小时，3次/2小时）”，切换到安静或频繁后再次打开面板确认持久化；不需要重启。
+2. 正常使用约半天至一天后导出脱敏诊断。重点核对 `backgroundErrorCount` 不再随维护心跳增长、当前后台错误类别为空、`background_recovery` 显示健康或“历史有错但已恢复”；主动预算里的档位、两组上限/已用/剩余应与侧栏选择一致。旧累计错误不会被伪造归零，判断修复以“升级后不再增长且当前已恢复”为准。
+3. 频繁档只是放宽到滚动 `24/24h + 4/2h`，并不保证每天发满 24 条；若仍长时间没有主动消息，应继续对照 Desire/Gate、忙碌度、聊天占用、模型 `WAIT` 和通知投递分类，而不能再只归因于固定 8 次上限。后台心跳恢复后，再继续观察 v0.40.3+131 的 Edge 主动重试、重复主题降权、非联网 Thought 分享与 `share_ready` 判断。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3 主动感知、主题多样性与来源无关分享（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
