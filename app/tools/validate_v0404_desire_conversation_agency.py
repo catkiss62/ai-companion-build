@@ -56,6 +56,7 @@ require(PROMPT, "conversationInitiative.promptSection()", "prompt integration")
 
 require(DB, "beginFreshConversationContext", "safe context reset")
 require(DB, "conversation_context_reset_at", "context boundary")
+require(DB, "conversation_context_reset_count", "reset audit counter")
 require(DB, "recentMessagesForPrompt", "prompt-only recent history")
 require(DB, "status IN ('pending','running','retry_wait')", "active job refusal")
 require(DB, "g.status = 'failed'", "failed turn refusal")
