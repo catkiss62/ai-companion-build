@@ -36,6 +36,7 @@ import '../storage/secure_config.dart';
 import '../tts/tts_policy.dart';
 import '../tts/tts_service.dart';
 import 'deferred_followup_engine.dart';
+import 'desire_core_policy.dart';
 import 'desire_engine.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
