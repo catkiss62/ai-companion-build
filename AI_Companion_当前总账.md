@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.4 Desire 普通对话人格融合与安全上下文重置（DESIGN LOCKED / IMPLEMENTING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.4 Desire 普通对话人格融合与安全上下文重置（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.40.3+132 真机观察期间确认下一项主任务：普通对话仍主要围绕用户“接话”，即使会追问，也缺少由 AI 自己的欲望、立场和需要造成的方向感；整体过于体谅、退让和成熟承接，更像姐姐而不是会主动、会讨关注、偶尔有一点任性的小女友。用户同时明确：继续用户话题、继续盘问都可以是主动性，不得把新逻辑写成无论如何都换话题；用户是 i 人且多数消息天然较短，严禁以字数、回复长度或短句形式推断冷淡、敷衍、无兴趣或希望结束。用户随后要求在设置中增加安全重置入口，使修改性格或其他规则后能够让下一轮摆脱旧近场对话风格并重新读取当前状态。本批不再等待 Provider/屏幕观察/相册诊断；相册联网存图闭环与相册模糊检索继续作为后续独立任务。
 
@@ -46,6 +46,27 @@
 3. Prompt/源码合同覆盖普通用户轮次加载 Desire 表达计划、明确不强迫换题、不以短句判冷淡、保留女友立场/轻微坚持且排除固定傲娇和随机冲突；历史规则层、成人能力、事实来源、中文 reasoning、动作/台词排版、ServiceTemplateGuard 与动态 Moe 仍全部生效。
 4. 重置测试覆盖：按钮位于设置页且二次确认；无活动任务时写入边界并结束临时 Session；有未完成/失败待处理用户轮次时拒绝；旧聊天仍可读取/显示，长期数据和 Desire 不变；下一轮只把边界后的真实消息放进普通/主动 Prompt，并显示已重新读取当前状态的无正文标记。
 5. 诊断测试覆盖模式/结果/重置统计及所有隐私负断言；随后执行全部历史 Python validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名和大型素材哈希校验。真机重点不以某句固定台词验收，而观察多轮中是否既能继续/盘问用户话题，也会自然表达自己的方向、需要与立场；修改性格后按一次重置，下一轮不再明显照搬旧近场风格。
+
+### D. 实际实现
+
+1. 新增 `ConversationInitiativePolicy`，每个普通用户轮都会从同一份 Desire/Thought 候选选择本轮关系方向，模式包括继续用户话题、继续盘问、表达自己的看法、开启自己的话题、讨关注、邀请共同活动、调情/轻微坚持和表达自己的需要。继续或盘问始终是合法备选，不要求机械换题；提示明确短句、单字和消息长度绝不代表冷淡或想结束。
+2. 普通回复提交后不再无条件降低 attachment。既有 post-turn Flash 整理器新增 `ordinary_desire_response` 语义结果，只在上一条普通回复确实表达了 AI 自己的问题、观点、分享、邀请或亲密需要时判断用户是接住、简单回应、延后、回避、拒绝还是转向；只有接住/简单回应按不同强度满足对应 Drive/Action。满足与原 Desire pulse 使用同一幂等事务，后台重试不会重复扣减；关闭自动记忆也不会恢复旧的“回复成功即满足”。
+3. Prompt 强化“女友而非成熟姐姐”的姿态：允许有偏好、不同意、讨关注、小任性和一两轮情绪余波，同时禁止随机争吵、机械反驳、固定傲娇口癖、幼儿化、操控惩罚和明确拒绝后的纠缠。它影响参与方向，不覆盖事实 Grounding、成人关系能力、动态 Moe、动作/台词排版或必要帮助。
+4. 设置页新增二次确认的“开始新的对话上下文”。成功后只写入原始消息近场边界，下一轮重新组合当前人设、规则、Desire、Thought、AI Self、关系和长期记忆；旧聊天仍完整显示，记忆/关系/相册/Thought/Desire/API Key/权限等均不删除或归零。当前临时 roleplay/intimacy Session 会结束；存在 pending/running/retry 或相关 failed 用户轮时拒绝操作，避免丢失待回复内容。主动联系的近期对话也遵守同一边界。
+5. 新增本机有界脱敏诊断，记录主动方向与语义回应分类计数、最近一次模式/Drive/Action、重置时间和次数；固定声明没有使用消息长度判冷淡，也不导出 Prompt/聊天/Thought/记忆正文、消息 ID、topic key 或原始模型 JSON。版本为 `0.40.4+133`，SQLite schema 保持 40；未改 Provider、相册保存/检索、搜索预算、主动频率、TTS、桌宠、悬浮窗、存档或沉浸房间协议。
+
+### E. 提交、测试、构建与交付证据
+
+1. 远端功能提交为 [`102271f4ede5bb803f2f45cf69ff3ac8de35337e`](https://github.com/catkiss62/ai-companion-build/commit/102271f4ede5bb803f2f45cf69ff3ac8de35337e)。首次通过连接器上传 643 KB 中文总账时内容被截断；功能源码 Blob 均与本地一致，但总账远端 Blob 不一致并导致 UTF-8 解码失败。随后用分块上传恢复为与本地完全一致的 Blob `3cc1cc051fd07ffdafe341f130513f9cfc2df80a`，修复提交为 [`64bdf6204dfcf4bcb9ea40cb0b07112e7b61f9ef`](https://github.com/catkiss62/ai-companion-build/commit/64bdf6204dfcf4bcb9ea40cb0b07112e7b61f9ef)；再由源码合同提交 [`d8854176f5fbf7f7d08fd2134d8f5fca602cb986`](https://github.com/catkiss62/ai-companion-build/commit/d8854176f5fbf7f7d08fd2134d8f5fca602cb986) 触发完整构建。分支为 [`agent/v0404-desire-conversation-agency`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0404-desire-conversation-agency)，未修改或合并 `main`。
+2. 首次 [Actions run 33257188167](https://github.com/catkiss62/ai-companion-build/actions/runs/33257188167) 只因上述总账 UTF-8 损坏在历史 validator 读取阶段停止，未进入 Flutter 编译；恢复总账后的文档提交 [run 33257375427](https://github.com/catkiss62/ai-companion-build/actions/runs/33257375427) 按变更范围正确跳过重型构建。最终 [run 33257420332](https://github.com/catkiss62/ai-companion-build/actions/runs/33257420332) 全绿：全部当前/历史 Python validators、Kotlin 桌宠/悬浮窗与原生桥测试、Flutter analyze、336 项 Flutter tests、release APK、稳定签名、27 项 TTS assets + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材、形象参照哈希、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.4-133-Desire-Conversation-Agency-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-fdd74cc6e3c953d7886b/AI-Companion-v0.40.4-133-Desire-Conversation-Agency-APK.apk)，325,004,786 bytes，SHA-256 `7aae0a412ec7ff53fd819576ca3230cd4e4ed37467cd5aa7e51be2752ea9919d`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装 v0.40.3+132；Draft Release 为 [untagged-fdd74cc6e3c953d7886b](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fdd74cc6e3c953d7886b)，仍是测试草稿而非正式 Release。
+4. Artifact [9716345541](https://github.com/catkiss62/ai-companion-build/actions/runs/33257420332/artifacts/9716345541)，名称 `AI-Companion-v0.40.4-133-Desire-Conversation-Agency-APK`，ZIP 318,707,520 bytes，digest `sha256:eed5f011abbdbd48b2d833b0f4df7e193c53ed2fb0196497e777f73c085e0426`，到期时间 2026-09-12T14:31:31Z。
+
+### F. 真机待验
+
+1. 直接覆盖安装，不卸载、不清数据。先正常聊若干轮，观察她是否既会顺着/盘问用户话题，也会根据自己的当前需要表达看法、开自己的话题、讨关注、提出一起做的事或轻微坚持；不要求每轮换题，也不以固定台词和短回复数量验收。
+2. 修改长期/试穿性格或其他规则后，先按原设置页方式保存，再点击“开始新的对话上下文”并确认。旧聊天应继续可见；下一条不应明显照搬重置前的近场语气，但仍应认识用户并保留长期共同经历。若正在生成或存在失败待处理轮次，按钮应明确拒绝，不静默删除或跳过。
+3. 新诊断只用于解释方向分布与欲望回应闭环，不需要继续等待旧 Provider/屏幕观察样本才开始本版测试。相册自主联网存图为何没有成功、以及她能否模糊检索自己相册内容，继续保留为下一项独立源码审计与诊断任务，不能由本版结果代替验收。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3+132 后台维护与主动频率热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
