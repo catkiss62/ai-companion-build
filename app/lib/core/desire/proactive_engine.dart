@@ -23,6 +23,7 @@ import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/proactive_intent.dart';
+import '../models/proactive_frequency.dart';
 import '../models/proactive_notification_settings.dart';
 import '../models/thought.dart';
 import '../perception/perception_engine.dart';
@@ -442,7 +443,10 @@ class ProactiveEngine {
         : max(0, DateTime.now().difference(lastUser).inMinutes);
     final sentToday = await db.proactiveCountSince(const Duration(hours: 24));
     final sentLastTwoHours = await db.proactiveCountSince(const Duration(hours: 2));
-    if (!forceForDebug && sentToday >= 8) {
+    final frequencyMode = ProactiveFrequencyMode.fromSetting(
+      await db.getSetting(ProactiveFrequencyPolicy.settingKey),
+    );
+    if (!forceForDebug && sentToday >= frequencyMode.dayLimit) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'daily_ceiling',
@@ -453,7 +457,8 @@ class ProactiveEngine {
         reason: '过去24小时已经主动联系较多，暂时留一点空间',
       );
     }
-    if (!forceForDebug && sentLastTwoHours >= 2) {
+    if (!forceForDebug &&
+        sentLastTwoHours >= frequencyMode.twoHourLimit) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'short_window_ceiling',

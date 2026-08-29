@@ -14,6 +14,7 @@ import '../../core/models/message_attachment.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
+import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_notification_settings.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/tts/tts_playback_queue.dart';
@@ -71,6 +72,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final GlobalKey _streamingBodyTailKey = GlobalKey();
   ProactiveNotificationSound _notificationSound =
       ProactiveNotificationSound.chime;
+  ProactiveFrequencyMode _proactiveFrequency =
+      ProactiveFrequencyPolicy.defaultMode;
   TtsReadingScope _ttsReadingScope = TtsReadingScope.dialogueOnly;
   final Set<String> _knownMessageIds = <String>{};
   String? _animatedMessageId;
@@ -256,6 +259,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
     _notificationSound = ProactiveNotificationSound.fromSetting(
       await db.getSetting('proactive_notification_sound'),
+    );
+    _proactiveFrequency = ProactiveFrequencyMode.fromSetting(
+      await db.getSetting(ProactiveFrequencyPolicy.settingKey),
     );
     _ttsReadingScope = TtsReadingScope.fromSetting(
       await db.getSetting('tts_reading_scope'),
@@ -1052,6 +1058,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             ),
                           );
                         },
+                      ),
+                      DropdownButtonFormField<ProactiveFrequencyMode>(
+                        value: _proactiveFrequency,
+                        decoration: const InputDecoration(
+                          labelText: '主动频率',
+                          border: OutlineInputBorder(),
+                          helperText: '这是成功送达上限；她仍会按自己的欲望和时机决定。',
+                          helperMaxLines: 2,
+                        ),
+                        items: ProactiveFrequencyMode.values
+                            .map(
+                              (mode) => DropdownMenuItem(
+                                value: mode,
+                                child: Text(
+                                  '${mode.zhLabel} · ${mode.dayLimit}次/24小时',
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) async {
+                          if (value == null) return;
+                          setState(() => _proactiveFrequency = value);
+                          await update(
+                            ProactiveFrequencyPolicy.settingKey,
+                            value.key,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _proactiveFrequency.description,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const Divider(height: 24),
                       SwitchListTile(

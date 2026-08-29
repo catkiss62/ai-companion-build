@@ -3,6 +3,7 @@ import 'dart:math';
 import '../ai/durable_generation_recovery.dart';
 import '../ai/memory_extractor.dart';
 import '../database/app_database.dart';
+import '../diagnostics/runtime_error_category.dart';
 import '../desire/proactive_engine.dart';
 import '../models/desire_state.dart';
 import '../presence/background_presence_policy.dart';
@@ -290,6 +291,7 @@ class RecoveryOrchestrator {
       _compact(wakeReason, 120),
     );
     await db.setSetting('recovery_orchestrator_last_error', '');
+    await db.setSetting('recovery_orchestrator_last_error_category', 'none');
     await db.setSetting(
       'recovery_orchestrator_next_wake_at',
       now.add(nextDelay).millisecondsSinceEpoch.toString(),
@@ -319,6 +321,14 @@ class RecoveryOrchestrator {
     await db.setSetting(
       'recovery_orchestrator_last_error',
       _compact(error.toString(), 360),
+    );
+    await db.setSetting(
+      'recovery_orchestrator_last_error_category',
+      classifyRuntimeError(error),
+    );
+    await db.setSetting(
+      'recovery_orchestrator_last_error_at',
+      now.millisecondsSinceEpoch.toString(),
     );
     await db.setSetting(
       'recovery_orchestrator_next_wake_at',

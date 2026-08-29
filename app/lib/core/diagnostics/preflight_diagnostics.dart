@@ -117,6 +117,7 @@ class PreflightDiagnosticsService {
         'proactivePolicyAppIdentityIncluded': false,
         'proactivePolicyThoughtOrMessageTextIncluded': false,
         'proactivePolicyExternalContentIncluded': false,
+        'runtimeErrorTextIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
         'overlayRawPackageIncluded': false,
@@ -209,6 +210,52 @@ class PreflightDiagnosticsService {
         if (!entry.value.isAfter(now)) continue;
         refractoryMinutes[entry.key.name] = entry.value.difference(now).inMinutes;
       }
+      final backgroundErrorCount = int.tryParse(
+            await db.getSetting('background_error_count') ?? '',
+          ) ??
+          0;
+      final hasBackgroundError =
+          (await db.getSetting('last_background_error') ?? '').isNotEmpty;
+      final backgroundErrorCategory = hasBackgroundError
+          ? (await db.getSetting('last_background_error_category')) ??
+              'legacy_unclassified'
+          : 'none';
+      final backgroundErrorAt = int.tryParse(
+            await db.getSetting('last_background_error_at') ?? '',
+          ) ??
+          0;
+      final hasMaintenanceError =
+          (await db.getSetting('last_long_running_maintenance_error') ?? '')
+              .isNotEmpty;
+      final maintenanceErrorCategory = hasMaintenanceError
+          ? (await db.getSetting(
+                'last_long_running_maintenance_error_category',
+              )) ??
+              'legacy_unclassified'
+          : 'none';
+      final maintenanceErrorAt = int.tryParse(
+            await db.getSetting('last_long_running_maintenance_error_at') ?? '',
+          ) ??
+          0;
+      final maintenanceSuccessAt = int.tryParse(
+            await db.getSetting('last_long_running_maintenance_success_at') ?? '',
+          ) ??
+          0;
+      final recoveryState =
+          await db.getSetting('recovery_orchestrator_state') ?? 'never';
+      final hasRecoveryError =
+          (await db.getSetting('recovery_orchestrator_last_error') ?? '')
+              .isNotEmpty;
+      final recoveryErrorCategory = hasRecoveryError
+          ? (await db.getSetting(
+                'recovery_orchestrator_last_error_category',
+              )) ??
+              'legacy_unclassified'
+          : 'none';
+      final recoveryErrorAt = int.tryParse(
+            await db.getSetting('recovery_orchestrator_last_error_at') ?? '',
+          ) ??
+          0;
 
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,
@@ -277,26 +324,30 @@ class PreflightDiagnosticsService {
           'chatContentIncluded': false,
         },
         'errorFlags': {
-          'backgroundErrorCount':
-              int.tryParse(await db.getSetting('background_error_count') ?? '') ?? 0,
-          'hasBackgroundError': (await db.getSetting('last_background_error') ?? '').isNotEmpty,
+          'backgroundErrorCount': backgroundErrorCount,
+          'hasBackgroundError': hasBackgroundError,
+          'backgroundErrorCategory': backgroundErrorCategory,
+          'backgroundErrorAt': backgroundErrorAt,
           'hasGenerationRecoveryError':
               (await db.getSetting('last_generation_recovery_error') ?? '').isNotEmpty,
           'hasAsyncWorkerError': (await db.getSetting('last_async_worker_error') ?? '').isNotEmpty,
-          'hasMaintenanceError':
-              (await db.getSetting('last_long_running_maintenance_error') ?? '').isNotEmpty,
+          'hasMaintenanceError': hasMaintenanceError,
+          'maintenanceErrorCategory': maintenanceErrorCategory,
+          'maintenanceErrorAt': maintenanceErrorAt,
+          'maintenanceSuccessAt': maintenanceSuccessAt,
           'hasDailyContinuityError':
               (await db.getSetting('last_daily_continuity_error') ?? '').isNotEmpty,
           'hasTtsError': (await db.getSetting('last_tts_error') ?? '').isNotEmpty,
         },
         'recovery': {
-          'state': await db.getSetting('recovery_orchestrator_state') ?? 'never',
+          'state': recoveryState,
           'cycleCount': int.tryParse(
                 await db.getSetting('recovery_orchestrator_cycle_count') ?? '',
               ) ??
               0,
-          'hasLastError':
-              (await db.getSetting('recovery_orchestrator_last_error') ?? '').isNotEmpty,
+          'hasLastError': hasRecoveryError,
+          'lastErrorCategory': recoveryErrorCategory,
+          'lastErrorAt': recoveryErrorAt,
         },
         'grounding': {
           ...grounding.toRedactedJson(),
@@ -560,6 +611,26 @@ class PreflightDiagnosticsService {
         title: '本地数据库',
         level: 'pass',
         summary: '数据库可打开，身份与 schema 可读取。',
+      ));
+      final hasCurrentBackgroundFault = hasBackgroundError ||
+          hasMaintenanceError ||
+          hasRecoveryError ||
+          recoveryState == 'error';
+      checks.add(PreflightCheck(
+        id: 'background_recovery',
+        title: '后台自主循环与长期维护',
+        level: hasCurrentBackgroundFault
+            ? 'warn'
+            : backgroundErrorCount > 0
+                ? 'info'
+                : 'pass',
+        summary: hasMaintenanceError
+            ? '当前长期维护失败，类别=$maintenanceErrorCategory；后台自主心跳可能在主动选择前中断。'
+            : hasCurrentBackgroundFault
+                ? '当前后台恢复循环仍有错误，类别=$recoveryErrorCategory/$backgroundErrorCategory。'
+                : backgroundErrorCount > 0
+                    ? '当前循环已恢复；历史累计后台错误 $backgroundErrorCount 次未清零，仅用于连续观察。'
+                    : '后台恢复循环和长期维护未发现当前错误。',
       ));
       final aiToSelf = _asMap(somaticDiagnostics['aiToSelf']);
       final aiToSelfCount = (aiToSelf['total'] as num?)?.toInt() ?? 0;

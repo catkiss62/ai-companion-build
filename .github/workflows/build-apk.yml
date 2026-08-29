@@ -171,7 +171,7 @@
 # agent/v0402-provider-diagnostics
 # AI-Companion-v0.40.2-130-Provider-Diagnostics-APK
 # v0.40.2-provider-diagnostics
-name: Build AI Companion v0.40.3+131 APK (Proactive Sharing Tuning)
+name: Build AI Companion v0.40.3+132 APK (Proactive Sharing Hotfix)
 
 on:
   push:
@@ -314,14 +314,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.40.3+131' app/pubspec.yaml
+          grep -Fqx 'version: 0.40.3+132' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 40;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.40.3+131 proactive sharing and current-App tuning.'
+          echo 'Building v0.40.3+132 maintenance and proactive-frequency hotfix.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -489,6 +489,7 @@ jobs:
           python3 tools/validate_v0401_album_identity_closure.py
           python3 tools/validate_v0402_provider_diagnostics.py
           python3 tools/validate_v0403_proactive_sharing_tuning.py
+          python3 tools/validate_v0403_proactive_frequency_hotfix.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -734,26 +735,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.40.3+131 APK as workflow artifact
+      - name: Upload v0.40.3+132 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK
+          name: AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.40.3+131 proactive sharing APK to draft release
+      - name: Upload v0.40.3+132 proactive frequency hotfix APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG='v0.40.3-proactive-sharing-tuning'
-          APK_NAME='AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK.apk'
+          APK_NAME='AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -770,8 +771,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.3+131 proactive sharing tuning candidate' \
-              --notes 'Draft candidate: keeps v0.40.2 provider diagnostics, retries unresolved proactive current-App context, and adds bounded source-agnostic Thought sharing with theme diversity. SQLite schema 40.'
+              --title 'AI Companion v0.40.3+132 proactive frequency hotfix candidate' \
+              --notes 'Draft candidate: fixes schema-40 maintenance, adds redacted recovery diagnostics, and provides quiet/natural/frequent proactive delivery ceilings in the chat sidebar. SQLite schema remains 40.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -828,7 +829,7 @@ jobs:
         run: |
           set -uo pipefail
           TAG='v0.40.3-proactive-sharing-tuning'
-          CI_NAME='AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -869,8 +870,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.3+131 proactive sharing tuning candidate' \
-              --notes 'Draft used for v0.40.3 current-App retry, proactive theme diversity and source-agnostic sharing diagnostics. It is not a published release.'
+              --title 'AI Companion v0.40.3+132 proactive frequency hotfix candidate' \
+              --notes 'Draft used for schema-40 maintenance recovery and configurable proactive frequency validation. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

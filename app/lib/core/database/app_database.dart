@@ -28,10 +28,12 @@ import '../models/personality_trial.dart';
 import '../models/post_turn_job.dart';
 import '../models/generation_job.dart';
 import '../models/maintenance_run.dart';
+import '../models/maintenance_prune_policy.dart';
 import '../models/reference_item.dart';
 import '../models/reference_document.dart';
 import '../models/rule_layer.dart';
 import '../models/proactive_feedback.dart';
+import '../models/proactive_frequency.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import '../rules/rule_layer_content_v0353.dart';
@@ -244,6 +246,8 @@ class AppDatabase {
         'rule_layers_enabled': '1',
         'thought_lifecycle_enabled': '1',
         'proactive_adaptation_enabled': '1',
+        ProactiveFrequencyPolicy.settingKey:
+            ProactiveFrequencyPolicy.defaultKey,
         'proactive_feedback_expiry_hours': '10',
         'proactive_notification_privacy': 'smart',
         'thought_consolidation_enabled': '1',
@@ -1249,6 +1253,10 @@ class AppDatabase {
     await db.insert('settings', {'key': 'rule_layers_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'thought_lifecycle_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'proactive_adaptation_enabled', 'value': '1'});
+    await db.insert('settings', {
+      'key': ProactiveFrequencyPolicy.settingKey,
+      'value': ProactiveFrequencyPolicy.defaultKey,
+    });
     await db.insert('settings', {'key': 'proactive_feedback_expiry_hours', 'value': '10'});
     await db.insert('settings', {'key': 'proactive_notification_privacy', 'value': 'smart'});
     await db.insert('settings', {'key': 'thought_consolidation_enabled', 'value': '1'});
@@ -7820,6 +7828,9 @@ class AppDatabase {
     final publicWebUsed = Sqflite.firstIntValue(publicWebRows) ?? 0;
     final twoHourProactive = await proactiveCountSince(const Duration(hours: 2));
     final dayProactive = await proactiveCountSince(const Duration(hours: 24));
+    final proactiveFrequency = ProactiveFrequencyMode.fromSetting(
+      await getSetting(ProactiveFrequencyPolicy.settingKey),
+    );
     Map<String, Object?>? last;
     if (lastRows.isNotEmpty) {
       final row = lastRows.first;
@@ -7865,12 +7876,17 @@ class AppDatabase {
           'remaining': null,
         },
         'proactiveContact': {
-          'twoHourLimit': 2,
+          'mode': proactiveFrequency.key,
+          'modeLabel': proactiveFrequency.zhLabel,
+          'twoHourLimit': proactiveFrequency.twoHourLimit,
           'twoHourUsed': twoHourProactive,
-          'twoHourRemaining': (2 - twoHourProactive).clamp(0, 2),
-          'dayLimit': 8,
+          'twoHourRemaining':
+              (proactiveFrequency.twoHourLimit - twoHourProactive)
+                  .clamp(0, proactiveFrequency.twoHourLimit),
+          'dayLimit': proactiveFrequency.dayLimit,
           'dayUsed': dayProactive,
-          'dayRemaining': (8 - dayProactive).clamp(0, 8),
+          'dayRemaining': (proactiveFrequency.dayLimit - dayProactive)
+              .clamp(0, proactiveFrequency.dayLimit),
           'separateDeliveryGate': true,
         },
       },
@@ -10692,26 +10708,10 @@ class AppDatabase {
     required Duration maxAge,
     required int maxRows,
   }) async {
-    const allowedTables = {
-      'proactive_feedback',
-      'proactive_history',
-      'perception_snapshots',
-      'awareness_observations',
-      'device_events',
-      'daily_continuity',
-      'post_turn_jobs',
-      'maintenance_runs',
-      'proactive_policy_events',
-    };
-    const allowedColumns = {
-      'sent_at',
-      'created_at',
-      'occurred_at',
-      'updated_at',
-      'window_start',
-      'completed_at',
-    };
-    if (!allowedTables.contains(table) || !allowedColumns.contains(timeColumn)) {
+    if (!MaintenancePrunePolicy.supports(
+      table: table,
+      timeColumn: timeColumn,
+    )) {
       throw ArgumentError('Unsupported maintenance table/column');
     }
     final db = await database;
@@ -11890,6 +11890,8 @@ class AppDatabase {
         'rule_layers_enabled': '1',
         'thought_lifecycle_enabled': '1',
         'proactive_adaptation_enabled': '1',
+        ProactiveFrequencyPolicy.settingKey:
+            ProactiveFrequencyPolicy.defaultKey,
         'proactive_feedback_expiry_hours': '10',
         'proactive_notification_privacy': 'smart',
         'thought_consolidation_enabled': '1',

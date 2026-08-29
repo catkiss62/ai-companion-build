@@ -1,4 +1,5 @@
 import '../database/app_database.dart';
+import '../diagnostics/runtime_error_category.dart';
 
 class LongRunningMaintenanceResult {
   const LongRunningMaintenanceResult({
@@ -132,6 +133,13 @@ class LongRunningMaintenanceEngine {
         maxAge: const Duration(days: 14),
         maxRows: 500,
       );
+      if (!await stillOwn()) return null;
+      await db.pruneTableByAgeAndCap(
+        table: 'proactive_policy_events',
+        timeColumn: 'created_at',
+        maxAge: const Duration(days: 14),
+        maxRows: 500,
+      );
 
       final result = LongRunningMaintenanceResult(
         retiredThreads: retired.length,
@@ -166,6 +174,14 @@ class LongRunningMaintenanceEngine {
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
       await db.setSetting('last_long_running_maintenance_error', '');
+      await db.setSetting(
+        'last_long_running_maintenance_error_category',
+        'none',
+      );
+      await db.setSetting(
+        'last_long_running_maintenance_success_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
       return result;
     } catch (e) {
       if (await db.brainWorkAllowed() &&
@@ -177,6 +193,14 @@ class LongRunningMaintenanceEngine {
         await db.setSetting(
           'last_long_running_maintenance_error',
           text.length <= 320 ? text : text.substring(0, 320),
+        );
+        await db.setSetting(
+          'last_long_running_maintenance_error_category',
+          classifyRuntimeError(e),
+        );
+        await db.setSetting(
+          'last_long_running_maintenance_error_at',
+          DateTime.now().millisecondsSinceEpoch.toString(),
         );
       }
       rethrow;

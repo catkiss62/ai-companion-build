@@ -31,7 +31,7 @@ def require(text: str, token: str, label: str) -> None:
     assert token in text, f"missing {label}: {token}"
 
 
-require(PUBSPEC, "version: 0.40.3+131", "app version")
+require(PUBSPEC, "version: 0.40.3+132", "app version")
 require(DB, "static const int schemaVersion = 40;", "schema version")
 require(DB, "if (oldVersion < 40)", "v40 migration")
 require(DB, "CREATE TABLE IF NOT EXISTS proactive_policy_events", "policy table")
@@ -131,13 +131,13 @@ require(
 
 require(
     WORKFLOW,
-    "name: Build AI Companion v0.40.3+131 APK (Proactive Sharing Tuning)",
+    "name: Build AI Companion v0.40.3+132 APK (Proactive Sharing Hotfix)",
     "workflow name",
 )
 require(WORKFLOW, "agent/v0403-proactive-sharing-tuning", "workflow branch")
 require(
     WORKFLOW,
-    "AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK",
+    "AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK",
     "workflow artifact",
 )
 

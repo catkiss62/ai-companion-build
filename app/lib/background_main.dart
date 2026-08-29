@@ -9,6 +9,7 @@ import 'core/ai/memory_extractor.dart';
 import 'core/database/app_database.dart';
 import 'core/desire/desire_engine.dart';
 import 'core/desire/proactive_engine.dart';
+import 'core/diagnostics/runtime_error_category.dart';
 import 'core/maintenance/recovery_orchestrator.dart';
 import 'core/platform/android_bridge.dart';
 import 'core/platform/background_chat_command_server.dart';
@@ -76,6 +77,7 @@ Future<void> _clearBackgroundErrorSafely(AppDatabase db) async {
   try {
     if (!await db.brainWorkAllowed()) return;
     await db.setSetting('last_background_error', '');
+    await db.setSetting('last_background_error_category', 'none');
   } catch (_) {}
 }
 
@@ -89,6 +91,14 @@ Future<void> _recordBackgroundErrorSafely(AppDatabase db, Object error) async {
     await db.setSetting(
       'last_background_error',
       raw.length <= 320 ? raw : raw.substring(0, 320),
+    );
+    await db.setSetting(
+      'last_background_error_category',
+      classifyRuntimeError(error),
+    );
+    await db.setSetting(
+      'last_background_error_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
     );
   } catch (_) {}
 }
