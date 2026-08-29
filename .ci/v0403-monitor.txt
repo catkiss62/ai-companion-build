@@ -1,7 +1,7 @@
 status=success
-run_id=33207421428
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33207421428
-head_sha=dec51f92f4831b9228dae27923978ed12a088e69
+run_id=33245335188
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33245335188
+head_sha=b4bf83eaae589a3eae4a484c70ef370b53dead92
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-97b2ec085c48d1ed2cc1d3c8adb446757d18f8c8cde6106ee437d0ba69bb114d  AI-Companion-v0.40.3-131-Proactive-Sharing-Tuning-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-92813f390878869b87ee
+c87b1c5b4b319dbd398960653a124cd8ba7e648f149872e21f0d5f8cecca87e4  AI-Companion-v0.40.3-132-Proactive-Frequency-Hotfix-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cd5007571673410051ba
