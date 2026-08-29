@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.5 相册识图与保存对象强绑定（IN PROGRESS / PRE-TASK LEDGER）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.5 相册识图与保存对象强绑定（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.40.4 真机观察中发现一条自主联网相册记录：相册实际缩略图是 Microsoft 网页的白绿渐变横幅，但视觉摘要和收藏理由却精确描述蓝发、鲸鱼耳鳍、鲸鱼尾、女仆装、提裙与招手的人设参考图。用户明确纠正：不能只为“她自己的形象”做特判；无论收藏她的形象、普通插画或其他任意图片，千问实际识别并决定收藏的图片都必须与最终写入相册的图片完全一致。本批作为独立正确性热修立即实施，不继续等待低概率诊断样本。
 
@@ -33,8 +33,30 @@
 2. 主摘要必须以图片可见像素为准；聊天用户真实附言只能作为背景，不能替代可见事实；自主网页标题、摘要和 image description 不再伪装成用户附言进入主识图。纯色/渐变横幅、装饰背景、占位图、主体不可辨或低信息图片应明确 `save=false`，但不以来源或类别机械拒绝普通好图。
 3. 识图前计算候选 PNG 的 SHA-256，模型返回后复核同一文件；收藏时只能把该文件写入私有相册。存储层写入并重读目标文件，要求目标 SHA 与识图前候选 SHA 完全一致；任何不一致立即删除临时/目标文件、终止数据库保存并记录固定类别的脱敏失败，不允许带着错误摘要落库。
 4. 同一强绑定同时覆盖自主联网图片、FishArchive 与用户聊天发图的相册收藏路径。诊断新增固定合同与聚合计数：主判定图片数恒为 1、主请求不含身份参考、保存字节已校验、近 24 小时绑定不一致次数；不得导出图片、路径、SHA、URL、标题、摘要、理由或模型原始 JSON。
-5. 测试至少覆盖：相册请求只有一张图片；即使注入身份参考 loader 也不会装入主请求；普通 `other` 仍可保存；网页元数据不进入视觉附言；候选在识图期间被替换会失败；落盘字节与候选 SHA 不同会回滚；正确字节可保存；聊天发图与自主发现共用相同校验。
+5. 测试至少覆盖：相册请求只有一张图片且身份参考 loader/第二图入口不再存在；普通 `other` 仍可保存；网页元数据不进入视觉附言；候选在识图期间被替换会失败；落盘字节与候选 SHA 不同会回滚；正确字节可保存；聊天发图与自主发现共用相同校验。
 6. 目标分支 `agent/v0405-album-image-binding`，版本 `0.40.5+134`，SQLite schema 保持 40。本批不改相册审美自由度、联网 Provider 顺序、主动频率、人格/Desire、聊天上下文重置、TTS、悬浮窗、桌宠或完整存档协议。完成后按项目约定回填真实提交、测试、Actions、APK、SHA 与真机待验，不把自动测试写成真机已通过。
+
+### C. 实际实现
+
+1. `QwenVisionClient` 的相册模式现在与普通识图一样只上传候选缩略图这一张图片；原来同请求中的 `dafeiyu_reference.webp` 身份软参照已移除，返回的 summary、category、reason 与 save 再无第二张图可错绑。她仍按文字身份组合识别 `self_image`，同时继续允许收藏与形象无关但值得保留的 `memory/other`，没有把相册改成形象专用。
+2. 视觉请求对真实用户附言明确标记“只能作为背景、不能覆盖像素事实”；自主网页和 FishArchive 不再把网页 `image_description/summary/alt` 伪装成用户附言。Prompt 新增低信息拒绝：纯色/渐变横幅、网页装饰背景、占位图、主体不可辨或文字与画面明显不符时应 `save=false`，但不会按来源机械拒绝普通插画。
+3. 千问客户端对实际 base64 上传的候选字节计算 SHA-256，并随本地 `QwenVisionObservation` 返回；自主发现与聊天发图路径都会在模型响应后重新读取候选，要求 SHA 完全一致才继续。`CompanionAlbumStorage` 写入前再次验证源字节，原子改名后再重读目标文件，目标 SHA 与千问输入 SHA 不同会删除临时/目标文件并抛出固定 `album_image_binding_mismatch`，数据库不会提交错误相册项。
+4. Provider 脱敏分类新增 `image_binding`；相册诊断新增 `single_primary_image_sha256_v0405` 合同，固定展示主判定图片数为 1、主请求不含身份参考、网页元数据未作为视觉附言、识图后候选已复核、落盘字节已重读复核，以及 24 小时绑定不一致聚合次数。图片、路径、SHA、URL、标题、摘要、理由和模型 JSON 仍不导出。
+5. 新增回归覆盖普通 `other` 图片仍可保存且识图/落盘字节一致、识图后替换候选必定拒绝、绑定错误只形成固定脱敏类别；既有视觉测试改为断言相册请求恰好 1 张图片且请求体不含 WebP 身份参照。版本为 `0.40.5+134`，schema 仍为 40。
+
+### D. 提交、测试、构建与交付证据
+
+1. 开工前总账提交为 [`ec7eb062025c987aeea91bd43b80050a5ab3ceb0`](https://github.com/catkiss62/ai-companion-build/commit/ec7eb062025c987aeea91bd43b80050a5ab3ceb0)；功能提交为 [`a4de2078810b6d4b8da70dc6e490d29e7fb8c356`](https://github.com/catkiss62/ai-companion-build/commit/a4de2078810b6d4b8da70dc6e490d29e7fb8c356)；历史门禁补丁为 [`52a30af9c9cffe4cdf0d6f04e09e4b7210e0af5f`](https://github.com/catkiss62/ai-companion-build/commit/52a30af9c9cffe4cdf0d6f04e09e4b7210e0af5f)；UTF-8 测试夹具修正及最终构建 head 为 [`959b640a4782d956e21d153b1211a26f4e119a2a`](https://github.com/catkiss62/ai-companion-build/commit/959b640a4782d956e21d153b1211a26f4e119a2a)。远端最终 tree `faa3783335a0f40727860983d4ffae415adfdcc5` 与本地最终 tree 完全一致；分支为 [`agent/v0405-album-image-binding`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0405-album-image-binding)，未修改或合并 `main`。
+2. 首次 [Actions run 33274094711](https://github.com/catkiss62/ai-companion-build/actions/runs/33274094711) 在新 v0.40.5 校验已通过后，被历史 `validate_current_schema24_b` 的旧版本白名单拦截，未进入 Flutter；补白名单后第二次 [run 33274254953](https://github.com/catkiss62/ai-companion-build/actions/runs/33274254953) 已通过源码门禁、Kotlin 与 Flutter analyze，只因两条新 Mock 的中文 JSON 未声明 UTF-8 而在测试夹具失败，生产源码没有报错。最终 [run 33274512455](https://github.com/catkiss62/ai-companion-build/actions/runs/33274512455) 全绿：全部当前/历史 Python validators、Kotlin 桌宠/悬浮窗与原生桥测试、Flutter analyze、339 项 Flutter tests、Release APK、固定签名、完整 TTS/native/pet/LingChat/Tarot 载荷、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.5-134-Album-Image-Binding-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-29bd35ad34bfcb273617/AI-Companion-v0.40.5-134-Album-Image-Binding-APK.apk)，325,009,278 bytes，SHA-256 `6db794e15c32e23cb94d51a5ee39943b8887f5dd4018cf8a500ca2fc967e2838`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可直接覆盖安装 v0.40.4+133；Draft Release 为 [untagged-29bd35ad34bfcb273617](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-29bd35ad34bfcb273617)，仍是测试草稿而非正式 Release。
+4. Artifact [9721212617](https://github.com/catkiss62/ai-companion-build/actions/runs/33274512455/artifacts/9721212617)，名称 `AI-Companion-v0.40.5-134-Album-Image-Binding-APK`，ZIP 318,712,933 bytes，digest `sha256:39b027a00ad4052ec5a94405d6b2466d16614dd3f5128390d318182783c7fc3f`，到期时间 2026-09-12T21:01:09Z。
+
+### E. 真机待验
+
+1. 直接覆盖安装，不卸载、不清数据。截图中那条“渐变横幅却描述鲸鱼娘”的旧错误记录不会被新版本反向改写，建议在模拟手机相册里手动删除；本批保证的是之后的新识图/收藏。
+2. 后续自然出现自主联网存图时，详情缩略图、视觉摘要与收藏理由必须描述同一张图；普通可爱/有趣图片仍允许保存为“其他”，形象图仍可分为“形象插画”。纯渐变、页面横幅或装饰背景应被拒绝，不应再借人设参考内容通过收藏。
+3. 新诊断应显示 `primaryAssessmentImageCount=1`、`identityReferenceIncludedInPrimaryRequest=false`、两项字节复核为 true；正常情况下 `mismatchEvents24h=0`。若未来出现非零，代表本地候选或落盘字节曾发生变化并被安全拦截，不代表错图已经进入相册。
+4. 自动化已经证明请求结构和字节强绑定成立，但“真实千问对各类网页图片的审美取舍”仍只能由真机自然样本观察；不再需要为了旧 Provider/屏幕观察诊断阻塞其他任务。相册内容模糊检索仍是独立下一项，未被本批提前实现。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.4 Desire 普通对话人格融合与安全上下文重置（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
