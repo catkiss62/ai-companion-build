@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../emotion/emotion_contract.dart';
 import '../diagnostics/provider_health.dart';
 import '../diagnostics/proactive_policy_telemetry.dart';
+import '../desire/desire_core_policy.dart';
 import '../models/chat_message.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -47,6 +48,18 @@ import '../models/unfinished_thread.dart';
 import '../models/somatic_state.dart';
 import '../somatic/somatic_policy.dart';
 import '../sync/transfer_identity.dart';
+
+class ConversationContextResetResult {
+  const ConversationContextResetResult({
+    required this.applied,
+    required this.reason,
+    this.resetAt,
+  });
+
+  final bool applied;
+  final String reason;
+  final DateTime? resetAt;
+}
 
 class AppDatabase {
   AppDatabase._();
@@ -4580,6 +4593,24 @@ class AppDatabase {
     return _messagesWithAttachments(db, rows.reversed.toList());
   }
 
+  /// Recent raw dialogue for model prompts only. The visible transcript keeps
+  /// using [recentMessages], so starting a fresh conversational context never
+  /// deletes or hides history from the user.
+  Future<List<ChatMessage>> recentMessagesForPrompt({int limit = 80}) async {
+    final resetAt = int.tryParse(
+      await getSetting('conversation_context_reset_at') ?? '',
+    );
+    final db = await database;
+    final rows = await db.query(
+      'messages',
+      where: resetAt == null || resetAt <= 0 ? null : 'created_at >= ?',
+      whereArgs: resetAt == null || resetAt <= 0 ? null : [resetAt],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return _messagesWithAttachments(db, rows.reversed.toList());
+  }
+
   /// Metadata-only chat history for Reality Grounding and redacted diagnostics.
   /// Message/reasoning bodies are deliberately not selected.
   Future<List<ChatMessage>> recentMessageHeaders({int limit = 100}) async {
@@ -4625,16 +4656,120 @@ class AppDatabase {
   Future<List<ChatMessage>> messagesBefore(
     DateTime before, {
     int limit = 100,
+    DateTime? notBefore,
   }) async {
     final db = await database;
     final rows = await db.query(
       'messages',
-      where: 'created_at < ?',
-      whereArgs: [before.millisecondsSinceEpoch],
+      where: notBefore == null
+          ? 'created_at < ?'
+          : 'created_at < ? AND created_at >= ?',
+      whereArgs: notBefore == null
+          ? [before.millisecondsSinceEpoch]
+          : [
+              before.millisecondsSinceEpoch,
+              notBefore.millisecondsSinceEpoch,
+            ],
       orderBy: 'created_at DESC',
       limit: limit,
     );
     return _messagesWithAttachments(db, rows.reversed.toList());
+  }
+
+  Future<DateTime?> conversationContextResetAt() async {
+    final value = int.tryParse(
+      await getSetting('conversation_context_reset_at') ?? '',
+    );
+    return value == null || value <= 0
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(value);
+  }
+
+  /// Starts a new raw-dialogue context without deleting messages, memories,
+  /// relationship state, Desire/Thought, album data, or identity. A pending
+  /// user turn must be handled explicitly in chat before this can proceed.
+  Future<ConversationContextResetResult> beginFreshConversationContext() async {
+    final db = await database;
+    return db.transaction<ConversationContextResetResult>((txn) async {
+      final blocking = await txn.rawQuery('''
+        SELECT g.id
+        FROM generation_jobs g
+        LEFT JOIN messages u
+          ON u.id = g.user_message_id AND u.role = 'user'
+        WHERE g.status IN ('pending','running','retry_wait')
+           OR (
+             g.status = 'failed'
+             AND u.id IS NOT NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM messages newer
+               WHERE newer.role = 'user' AND newer.created_at > u.created_at
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM messages a WHERE a.id = g.assistant_message_id
+             )
+           )
+        LIMIT 1
+      ''');
+      if (blocking.isNotEmpty) {
+        return const ConversationContextResetResult(
+          applied: false,
+          reason: 'pending_generation',
+        );
+      }
+
+      final now = DateTime.now();
+      final nowMs = now.millisecondsSinceEpoch;
+      final countRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['conversation_context_reset_count'],
+        limit: 1,
+      );
+      final count = countRows.isEmpty
+          ? 0
+          : int.tryParse(countRows.first['value'] as String? ?? '') ?? 0;
+      await txn.insert(
+        'settings',
+        {'key': 'conversation_context_reset_at', 'value': nowMs.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {
+          'key': 'conversation_context_reset_count',
+          'value': (count + 1).clamp(1, 1000000000).toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.update(
+        'interaction_sessions',
+        {'status': 'ended', 'updated_at': nowMs, 'ended_at': nowMs},
+        where: 'status = ?',
+        whereArgs: const ['active'],
+      );
+      for (final entry in const <String, String>{
+        'agent_tool_runtime_phase': 'idle',
+        'agent_tool_runtime_status_text': '',
+        'agent_tool_runtime_tool_id': '',
+      }.entries) {
+        await txn.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await txn.insert(
+        'settings',
+        {'key': 'agent_tool_runtime_updated_at', 'value': nowMs.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return ConversationContextResetResult(
+        applied: true,
+        reason: 'applied',
+        resetAt: now,
+      );
+    });
   }
 
   Future<List<ChatMessage>> messagesAfter(
@@ -10475,9 +10610,17 @@ class AppDatabase {
     required String jobId,
     required String runToken,
     required Map<DriveKey, double> pulses,
+    DriveKey? satisfiedDrive,
+    String satisfiedAction = '',
+    double satisfactionIntensity = 0,
     double baselineLearning = 0.018,
   }) async {
-    if (runToken.isEmpty || pulses.isEmpty) return true;
+    final applySatisfaction = satisfiedDrive != null &&
+        satisfiedAction.isNotEmpty &&
+        satisfactionIntensity > 0;
+    if (runToken.isEmpty || (pulses.isEmpty && !applySatisfaction)) {
+      return true;
+    }
     final db = await database;
     return db.transaction<bool>((txn) async {
       final jobs = await txn.query(
@@ -10493,7 +10636,7 @@ class AppDatabase {
       final snapshot = rows.isEmpty
           ? DesireSnapshot()
           : DesireSnapshot.decode(rows.first['json'] as String);
-      final drives = Map<DriveKey, double>.from(snapshot.drives);
+      var drives = Map<DriveKey, double>.from(snapshot.drives);
       final baselines = Map<DriveKey, double>.from(snapshot.baselines);
       final anchors = DesireSnapshot.defaultBaselines();
       for (final entry in pulses.entries) {
@@ -10508,12 +10651,39 @@ class AppDatabase {
             .clamp(max(0.02, anchor - 0.10), min(0.92, anchor + 0.10))
             .toDouble();
       }
-      final now = DateTime.now().millisecondsSinceEpoch;
+      var refractory = Map<DriveKey, DateTime>.from(
+        snapshot.refractoryUntil,
+      );
+      final instant = DateTime.now();
+      if (applySatisfaction) {
+        drives = DesireCorePolicy.satisfiedDrives(
+          snapshot: snapshot.copyWith(
+            drives: drives,
+            baselines: baselines,
+          ),
+          action: satisfiedAction,
+          primaryDrive: satisfiedDrive!,
+          intensity: satisfactionIntensity,
+        );
+        refractory[satisfiedDrive!] = instant.add(
+          const Duration(minutes: 30),
+        );
+      }
+      final now = instant.millisecondsSinceEpoch;
       await txn.insert(
         'desire_state',
         {
           'id': 1,
-          'json': snapshot.copyWith(drives: drives, baselines: baselines).encode(),
+          'json': snapshot
+              .copyWith(
+                drives: drives,
+                baselines: baselines,
+                refractoryUntil: refractory,
+                lastSatisfiedAction:
+                    applySatisfaction ? satisfiedAction : null,
+                lastSatisfiedAt: applySatisfaction ? instant : null,
+              )
+              .encode(),
           'updated_at': now,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,

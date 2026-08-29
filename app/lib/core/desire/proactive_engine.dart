@@ -555,7 +555,7 @@ class ProactiveEngine {
       );
     }
 
-    final recent = await db.recentMessages(limit: 28);
+    final recent = await db.recentMessagesForPrompt(limit: 28);
     final prompt = PromptBuilder(db);
     final context = await prompt.buildChatMessages(
       latestUserText: '',

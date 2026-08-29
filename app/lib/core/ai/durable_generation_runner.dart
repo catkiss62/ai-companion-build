@@ -4,7 +4,6 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
-import '../desire/desire_engine.dart';
 import '../diagnostics/visible_reasoning_language_telemetry.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
@@ -99,7 +98,6 @@ class DurableGenerationRunner {
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         emotionClassifier =
             emotionClassifier ?? EmotionClassifierService.instance,
-        desireEngine = DesireEngine(db),
         somaticEngine = SomaticEngine(db),
         emotionEpisodeEngine = EmotionEpisodeEngine(db),
         nsfwRouter = NsfwContextRouter(db: db, client: client),
@@ -113,7 +111,6 @@ class DurableGenerationRunner {
   final DeepSeekClient client;
   final SecureConfig secureConfig;
   final EmotionClassifierService emotionClassifier;
-  final DesireEngine desireEngine;
   final SomaticEngine somaticEngine;
   final EmotionEpisodeEngine emotionEpisodeEngine;
   final NsfwContextRouter nsfwRouter;
@@ -195,7 +192,11 @@ class DurableGenerationRunner {
     var generationSpecialStyleKey = '';
 
     try {
-      final previous = await db.messagesBefore(user.createdAt, limit: 33);
+      final previous = await db.messagesBefore(
+        user.createdAt,
+        limit: 33,
+        notBefore: await db.conversationContextResetAt(),
+      );
       final recent = <ChatMessage>[...previous, user];
       // Capture after the durable user turn exists and before prompt build.
       // Stable event IDs make recovered attempts idempotent; cancellation
@@ -636,7 +637,6 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         return const GenerationRunResult(status: 'suspended');
       }
 
-      await desireEngine.satisfy(DriveKey.attachment, factor: 0.58);
       unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));
       return GenerationRunResult(
         status: 'completed',

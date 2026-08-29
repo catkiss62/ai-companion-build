@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'conversation_initiative_telemetry.dart';
 import 'provider_health.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
@@ -129,6 +130,10 @@ class PreflightDiagnosticsService {
         'moeStyleDirectivesIncluded': false,
         'moeAxisOrRecipeNamesIncluded': false,
         'moeValuesOrThresholdsIncluded': false,
+        'conversationInitiativePromptBodiesIncluded': false,
+        'conversationInitiativeMessageBodiesIncluded': false,
+        'conversationInitiativeThoughtBodiesIncluded': false,
+        'conversationInitiativeModelJsonIncluded': false,
       },
     };
 
@@ -169,6 +174,16 @@ class PreflightDiagnosticsService {
           (await db.getSetting('moe_expression_enabled')) != '0';
       final moePromptTelemetry =
           await MoeExpressionPromptTelemetry.snapshot(db);
+      final conversationInitiative =
+          await ConversationInitiativeTelemetry.snapshot(db);
+      conversationInitiative['contextResetAt'] = int.tryParse(
+            await db.getSetting('conversation_context_reset_at') ?? '',
+          ) ??
+          0;
+      conversationInitiative['contextResetCount'] = int.tryParse(
+            await db.getSetting('conversation_context_reset_count') ?? '',
+          ) ??
+          0;
       final generationJob = await db.blockingGenerationJob();
       final failedGeneration = await db.failedGenerationNeedingAttention();
       final grounding = await GroundingEngine(db).capture(now: now);
@@ -502,6 +517,7 @@ class PreflightDiagnosticsService {
         'companionAlbum': companionAlbum,
         'providerHealth': providerHealth,
         'proactivePolicy': proactivePolicy,
+        'conversationInitiative': conversationInitiative,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',

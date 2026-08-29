@@ -4,7 +4,9 @@ import 'dart:convert';
 import '../database/app_database.dart';
 import '../continuity/daily_continuity_engine.dart';
 import '../desire/desire_engine.dart';
+import '../desire/ordinary_desire_response.dart';
 import '../desire/thought_lifecycle_engine.dart';
+import '../diagnostics/conversation_initiative_telemetry.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/proactive_feedback.dart';
@@ -185,8 +187,10 @@ class MemoryExtractor {
       assistant.content,
       now: assistant.createdAt,
     );
-    final enabled = (await db.getSetting('auto_memory')) != '0';
-    if (!enabled) return;
+    // The user-facing toggle controls durable memory extraction, not the
+    // Desire response loop. The latter must keep working even when the user
+    // chooses not to create model-written long-term memories.
+    final memoryEnabled = (await db.getSetting('auto_memory')) != '0';
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
     final editableMemoryPolicy = await _editableMemoryPolicy();
@@ -205,6 +209,12 @@ class MemoryExtractor {
               .join('\n');
       final proactiveFeedback = await db.proactiveFeedbackForUserResponse(user.id);
       final proactiveContext = await _buildProactiveContext(proactiveFeedback);
+      final previousAssistant = proactiveFeedback == null
+          ? await _previousOrdinaryAssistant(user.createdAt)
+          : null;
+      final ordinaryDesireContext = previousAssistant == null
+          ? '无。本轮没有边界内可供判断的上一条普通 AI 回复。'
+          : '上一条普通 AI 回复（仅用于判断它是否表达了自己的需要）：\n${previousAssistant.content}';
       final style = PersonalityCatalog.special(specialStyleKey);
       final specialStyleContext = style.key.isEmpty
           ? '无。本轮不是特殊风格试穿生成。'
@@ -280,6 +290,12 @@ $editableMemoryPolicy
    没有主动消息上下文时 outcome=none。proactive_followup 与 threads 必须一致：deferred 不应同时 resolve 同一话题，resolved 才应真正关闭已完成事项，dismissed 表示用户不希望继续该主题。
    当 outcome=deferred 时可额外给 followup_after_hours：用户明确说“晚点/今晚/明天”等时，估计一次自然再跟进的等待时间，范围 6~72 小时；不确定或不适合再跟进则填 0。系统最多只会自动再跟进一次，它不是提醒器。
 16. 如果【生成时特殊风格来源】不是“无”，这轮是双方知情参与的临时试穿体验：真实共同经历、用户明确偏好和关系变化仍可整理；临时身体结构、机械机制、特殊能力、语言规则与风格人格不得写成 ai_self、current_fact 或当前现实。不要仅因试穿设定本身生成 thought、thread 或关系变化。系统会对共同经历加来源标记，不要自行删除该语义。
+17. 如果【上一条普通 AI 回复】不是“无”，判断 ordinary_desire_response。它只处理上一条 AI 是否真的表达了自己的需要、好奇、观点、自主分享、共同活动邀请、亲密靠近或希望用户回应：
+   - had_ai_bid=false：上一条只是回答、安慰、说明事实、礼貌收尾或泛泛提问，没有 AI 自己想得到的东西；outcome=none。
+   - had_ai_bid=true 时，drive 只能是 attachment / curiosity / reflection / duty / social / libido / stress / fatigue；action 只能是 reach_out / continue_thread / share_thought / check_in / tease_or_intimacy / comfort_or_ground / discover_interest / remember_shared_experience / wildcard_share / rest / wait。
+   - outcome 只能是 engaged / acknowledged / deferred / dodged / refused / redirected / none。engaged 表示用户真实接住并继续；acknowledged 表示简单但明确地接住；deferred 表示明确晚点再回应；dodged 表示语义上明显回避这个需要；refused 表示明确拒绝；redirected 表示自然转去别的话题但没有负面拒绝；拿不准就 none。
+   - resolution 范围 0~1，只表示 AI 原需要被满足的程度。短句、单字、消息字数和回复长度绝不能作为冷淡、敷衍、回避、拒绝或满足程度的证据；“嗯”“好”“抱抱”等很短的回复也可能明确接住，长回复也可能完全转向。只按真实语义判断。
+   - 如果上一条是系统主动消息，本轮由 proactive_followup 处理，ordinary_desire_response 必须 had_ai_bid=false/outcome=none，禁止重复满足。
 
 允许的 memory kind：user_profile / shared_experience / ai_self / preference。
 允许的 drive：attachment / curiosity / reflection / duty / social / libido / stress / fatigue。
@@ -293,6 +309,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
   "session_update":{"action":"none","kind":"roleplay","title":"","premise":"","boundaries":[],"continuity_note":""},
   "proactive_followup":{"outcome":"none","resolution":0.0,"timing_fit":0.0,"topic_fit":0.0,"followup_after_hours":0},
+  "ordinary_desire_response":{"had_ai_bid":false,"drive":"attachment","action":"reach_out","outcome":"none","resolution":0.0},
   "desire_pulses":{"attachment":0.03,"reflection":0.01}
 }
 没有对应内容时使用空数组/空对象。不要输出 JSON 以外的文字。
@@ -306,6 +323,9 @@ $threadContext
 
 【本轮回应的主动消息】
 $proactiveContext
+
+【上一条普通 AI 回复】
+$ordinaryDesireContext
 
 【相关既有长期记忆】
 $memoryCandidateContext
@@ -335,49 +355,69 @@ AI：${assistant.content}
         proactiveFeedback,
         result['proactive_followup'],
       );
-      await _guardPostTurnJob(job);
-      await _applyMemories(
-        result['memories'],
-        assistant.id,
-        specialStyleTrialId: specialStyleTrialId,
-        specialStyleKey: specialStyleKey,
+      final ordinaryDesireOutcome = OrdinaryDesireResponseOutcome.parse(
+        hasPreviousOrdinaryAssistant: previousAssistant != null,
+        raw: result['ordinary_desire_response'],
       );
       await _guardPostTurnJob(job);
-      await _applyThreads(
-        result['threads'],
-        user.id,
-        proactiveFeedback: proactiveFeedback,
-        proactiveOutcome: proactiveOutcome?.outcome,
-      );
-      await _guardPostTurnJob(job);
-      await _applyThoughts(result['thoughts'], assistant.id);
-      await _guardPostTurnJob(job);
-      await _applyRelationshipEvents(result['relationship_events'], user.id);
-      await _guardPostTurnJob(job);
-      await _applySessionUpdate(result['session_update'], user.id);
-      await _guardPostTurnJob(job);
-      await _applyProactiveFollowup(
-        proactiveFeedback,
-        result['proactive_followup'],
-        user.id,
-        parsed: proactiveOutcome,
-      );
+      if (memoryEnabled) {
+        await _applyMemories(
+          result['memories'],
+          assistant.id,
+          specialStyleTrialId: specialStyleTrialId,
+          specialStyleKey: specialStyleKey,
+        );
+        await _guardPostTurnJob(job);
+        await _applyThreads(
+          result['threads'],
+          user.id,
+          proactiveFeedback: proactiveFeedback,
+          proactiveOutcome: proactiveOutcome?.outcome,
+        );
+        await _guardPostTurnJob(job);
+        await _applyThoughts(result['thoughts'], assistant.id);
+        await _guardPostTurnJob(job);
+        await _applyRelationshipEvents(result['relationship_events'], user.id);
+        await _guardPostTurnJob(job);
+        await _applySessionUpdate(result['session_update'], user.id);
+        await _guardPostTurnJob(job);
+        await _applyProactiveFollowup(
+          proactiveFeedback,
+          result['proactive_followup'],
+          user.id,
+          parsed: proactiveOutcome,
+        );
+      }
       await _guardPostTurnJob(job);
       if (job == null) {
-        await _applyPulses(result['desire_pulses']);
+        if (memoryEnabled) await _applyPulses(result['desire_pulses']);
+        await _applyOrdinaryDesireOutcome(ordinaryDesireOutcome);
       } else {
-        final pulses = _parsePulses(result['desire_pulses']);
+        final pulses = memoryEnabled
+            ? _parsePulses(result['desire_pulses'])
+            : const <DriveKey, double>{};
         final applied = await db.applyPostTurnDesirePulsesOnce(
           jobId: job.id,
           runToken: job.runToken,
           pulses: pulses,
+          satisfiedDrive: ordinaryDesireOutcome?.satisfiedDrive,
+          satisfiedAction: ordinaryDesireOutcome?.action ?? '',
+          satisfactionIntensity:
+              ordinaryDesireOutcome?.satisfactionIntensity ?? 0,
         );
         if (!applied) throw const _PostTurnOwnershipLost();
       }
+      await ConversationInitiativeTelemetry.recordOutcome(
+        db,
+        outcome: ordinaryDesireOutcome?.outcome ?? 'none',
+        hadAiBid: ordinaryDesireOutcome?.hadAiBid ?? false,
+        satisfactionApplied:
+            (ordinaryDesireOutcome?.satisfactionIntensity ?? 0) > 0,
+      );
       await _guardPostTurnJob(job);
       await db.setSetting('last_memory_success_at', DateTime.now().millisecondsSinceEpoch.toString());
       await db.setSetting('last_memory_error', '');
-      if (runDeferredMaintenance) {
+      if (memoryEnabled && runDeferredMaintenance) {
         await _runPostTurnMaintenance(apiKey: apiKey, endpoint: endpoint);
       }
     } catch (e) {
@@ -415,6 +455,38 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
 发送时活动情境：${feedback.contextActivity}
 发送时忙碌度：${feedback.contextBusy.toStringAsFixed(2)}
 '''.trim();
+  }
+
+  Future<ChatMessage?> _previousOrdinaryAssistant(DateTime before) async {
+    final messages = await db.messagesBefore(
+      before,
+      limit: 8,
+      notBefore: await db.conversationContextResetAt(),
+    );
+    for (final message in messages.reversed) {
+      if (message.isAssistant && !message.isProactive) return message;
+    }
+    return null;
+  }
+
+  Future<void> _applyOrdinaryDesireOutcome(
+    OrdinaryDesireResponseOutcome? outcome,
+  ) async {
+    if (outcome == null ||
+        outcome.drive == null ||
+        outcome.satisfactionIntensity <= 0) {
+      return;
+    }
+    await desireEngine.satisfyIntent(
+      DesireIntent(
+        drive: outcome.drive!,
+        score: outcome.resolution,
+        reason: 'ordinary_user_response',
+        wantAction: outcome.action,
+        reasonSource: 'conversation_outcome',
+      ),
+      intensity: outcome.satisfactionIntensity,
+    );
   }
 
   _ProactiveOutcomeData? _parseProactiveOutcome(
@@ -804,6 +876,11 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
 
   Future<void> _applySessionUpdate(Object? raw, String sourceMessageId) async {
     if (raw is! Map) return;
+    final resetAt = await db.conversationContextResetAt();
+    if (resetAt != null) {
+      final source = await db.messageById(sourceMessageId);
+      if (source != null && source.createdAt.isBefore(resetAt)) return;
+    }
     final item = raw.cast<String, dynamic>();
     final action = item['action'] as String? ?? 'none';
     if (action == 'none') return;

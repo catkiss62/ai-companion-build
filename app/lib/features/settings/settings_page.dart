@@ -6,6 +6,7 @@ import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/model_profile.dart';
 import '../../core/autonomy/layered_public_web_provider.dart';
 import '../../core/database/app_database.dart';
+import '../../core/diagnostics/conversation_initiative_telemetry.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/models/proactive_intent.dart';
@@ -46,6 +47,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool revealAgnesKey = false;
   bool testingApi = false;
   bool testingAgnes = false;
+  bool resettingConversationContext = false;
   bool autoMemory = true;
   bool memoryConsolidation = true;
   bool memoryFading = true;
@@ -426,6 +428,65 @@ class _SettingsPageState extends State<SettingsPage> {
       activeBrain = true;
       status = '本机已手动上线为 Active Brain。';
     });
+  }
+
+  Future<void> _resetConversationContext() async {
+    if (resettingConversationContext) return;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('开始新的对话上下文？'),
+            content: const Text(
+              '下一轮会重新读取已经保存的人设、规则、欲望、念头和其他设置，'
+              '不再把这次边界以前的原始台词当作近场续写。\n\n'
+              '聊天记录、长期记忆、关系进度、AI Self、相册、Desire 和 Thought 都不会删除或归零；'
+              '当前临时角色扮演或亲密 Session 会结束。若刚修改了本页内容，请先点“保存”。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('开始新上下文'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+    setState(() {
+      resettingConversationContext = true;
+      status = '正在建立新的对话上下文…';
+    });
+    try {
+      final result = await db.beginFreshConversationContext();
+      if (!result.applied) {
+        if (!mounted) return;
+        setState(() {
+          status = result.reason == 'pending_generation'
+              ? '当前还有一轮回复正在生成、等待恢复或需要处理。请先回聊天停止、重试或放弃，再重新开始上下文。'
+              : '暂时无法开始新的对话上下文。';
+        });
+        return;
+      }
+      await ConversationInitiativeTelemetry.recordReset(
+        db,
+        at: result.resetAt!,
+      );
+      try {
+        await android.wakeBackgroundBrain(reason: 'conversation_context_reset');
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        status = '新的对话上下文已建立；下一条消息会按当前已保存的人设和状态重新开始。';
+      });
+    } catch (e) {
+      if (mounted) setState(() => status = '建立新上下文失败：$e');
+    } finally {
+      if (mounted) setState(() => resettingConversationContext = false);
+    }
   }
 
   Future<void> _checkTts() async {
@@ -892,6 +953,31 @@ class _SettingsPageState extends State<SettingsPage> {
           subtitle: const Text('自动记录角色扮演/亲密场景的当前前提与边界；结束后回到 AI 本体关系层。'),
           value: sessionTracking,
           onChanged: (v) => setState(() => sessionTracking = v),
+        ),
+        const SizedBox(height: 6),
+        OutlinedButton.icon(
+          onPressed: resettingConversationContext
+              ? null
+              : _resetConversationContext,
+          icon: resettingConversationContext
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.restart_alt_rounded),
+          label: Text(
+            resettingConversationContext
+                ? '正在开始新上下文…'
+                : '开始新的对话上下文',
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6, bottom: 8),
+          child: Text(
+            '保留聊天、记忆、关系、相册和欲望状态，只结束旧近场续写与临时 Session。',
+            style: TextStyle(fontSize: 12),
+          ),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
