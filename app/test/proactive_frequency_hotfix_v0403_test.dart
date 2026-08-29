@@ -1,6 +1,6 @@
-import 'package:ai_companion/core/diagnostics/runtime_error_category.dart';
-import 'package:ai_companion/core/models/maintenance_prune_policy.dart';
-import 'package:ai_companion/core/models/proactive_frequency.dart';
+import 'package:ai_companion_localfirst/core/diagnostics/runtime_error_category.dart';
+import 'package:ai_companion_localfirst/core/models/maintenance_prune_policy.dart';
+import 'package:ai_companion_localfirst/core/models/proactive_frequency.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
