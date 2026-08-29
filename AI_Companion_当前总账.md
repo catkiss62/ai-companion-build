@@ -16,6 +16,35 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3+132 后台维护与主动频率热修（IN PROGRESS）
+
+> v0.40.3+131 覆盖安装约半小时后的首份 schema 40 真机报告确认升级和脱敏结构生效，但同时暴露出长期维护回归。用户进一步确认：每天 8 次主动联系与“持续生活着、可以不断冒出心思并自主分享”的目标不符；本批在修复后台阻断的同时加入可选主动频率，入口固定在聊天头像/名字打开的左侧边栏。仍沿用已授权公开源码分支 `agent/v0403-proactive-sharing-tuning`，只生成测试 APK，不合并 `main`、不发布正式 Release。
+
+### A. 修改前真机证据与根因
+
+1. 报告为 `v0.40.3+131`、schema 40；本地进程约 15:41 启动，16:11 导出，`proactivePolicy.mode=source_agnostic_selection_v0403`，新隐私负标记全部为 false，说明迁移、报告结构和来源无关策略开关均已部署。
+2. 新窗口内 `proactivePolicy.total=0 / afterUpgrade=0`、`providerHealth.total=0`。旧 `share_ready` 网页候选仍为 1 条且未进入判断；当前 App 已由 Accessibility 解析但主动专用重试未运行，屏幕观察仍为 `0/6`。因此尚无主题降权、非联网 Thought 分享、App 重试或 Provider 分类的真机样本。
+3. 上一份报告为 `backgroundErrorCount=0 / recovery=idle`，本报告变为 `backgroundErrorCount=34 / hasMaintenanceError=true / recovery=error`。源码确认 `LongRunningMaintenanceEngine` 调用 `pruneTableByAgeAndCap(table: provider_health_events)`，但该方法的安全允许表集合遗漏 `provider_health_events`，每次清理都会抛出 `Unsupported maintenance table/column`；异常发生在自主心跳的 Thought/感知/主动选择之前，会阻断本批真正需要观察的后台行为。`proactive_policy_events` 虽在允许集合中，也应补齐与报告声明一致的 14 天/500 行长期清理。
+4. 报告只在 `errorFlags` 暴露累计数和布尔值，底部 checks 仍全部显示通过，无法让普通用户直接看出后台维护已经阻断；本批必须增加不含错误原文的后台恢复/维护告警与可判因分类。
+5. 当前主动限制是成功发送记录的滚动窗口：过去 24 小时最多 8 次、过去 2 小时最多 2 次，并非自然日零点重置。报告已经 `8/8`，所以即使维护无错误，也会在最早一条发送满 24 小时前完全禁止新的主动表达；普通想念、内部心思、联网/屏幕/未来 MCP 分享均竞争同一发送额度。
+
+### B. 本批锁定范围
+
+1. 修复长期维护允许表并同时清理 `provider_health_events`、`proactive_policy_events`；增加强制 schema 40 维护回归，要求不抛错、清理结果有界并清除旧维护错误。不得靠捕获后静默跳过掩盖数据库合同错误。
+2. 脱敏报告新增后台恢复/维护检查：至少区分健康、历史累计但当前已恢复、当前维护失败和当前后台循环失败；只输出固定错误类别、累计数、状态和时间，不输出异常原文、SQL、路径、密钥或内容。版本启用后的新错误应可与旧累计区分。
+3. 主动频率建立单一策略真源，提供三档：安静 `8/24h + 2/2h`、自然 `16/24h + 3/2h`、频繁 `24/24h + 4/2h`。默认“自然”；不存在设置的覆盖安装与新安装均按自然档读取。上限只是成功投递后的安全天花板，不是每日目标，不绕过 Desire/Thought、忙碌度、聊天租约、Grounding、主题多样性、模型 WAIT、最终 Gate 或通知投递。
+4. 设置入口位于点击聊天页头像/名字打开的左侧快捷面板，展示三档及明确说明；切换后立即持久化，后台下一轮直接生效，不重启、不清空历史计数。过去已成功发送的记录继续按所选档位的滚动窗口计算，切档不得伪造、删除或重置记录。
+5. 脱敏报告的主动预算同时显示档位、24 小时和 2 小时实际上限/已用/剩余；不得输出消息正文、Thought 正文或用户活动内容。诊断与运行 Gate 必须调用同一策略定义，禁止重复硬编码。
+6. 版本目标为 `0.40.3+132`，SQLite schema 保持 40。除上述热修外，不加入 DeepSeek 搜索/整理/视觉兜底，不改搜索预算、角色规则、TTS、相册、存档、悬浮窗、桌宠或沉浸房间。
+
+### C. 预定验收
+
+1. 单测覆盖三档解析、默认自然、滚动 24 小时/2 小时边界、成功送达才计数、切档不清历史，以及运行 Gate 和诊断预算读取同一档位。
+2. 数据库测试覆盖 schema 39→40 后强制长期维护、两张诊断表的 14 天/500 行清理和不再出现 unsupported table；诊断测试覆盖当前错误警告、恢复后历史累计提示与原始错误负断言。
+3. Widget/源码合同覆盖侧边栏入口、三档标签与说明，不把它误放到系统页或只做不可操作展示；随后执行全部历史 validators、Flutter analyze/tests、Kotlin 测试、release APK、稳定签名及大型素材哈希校验。
+4. 覆盖安装真机后先确认 `backgroundErrorCount` 不再增长、`recovery` 回到非 error、维护告警消失；额度按默认自然显示 `16/24h、3/2h`。待旧 8 条记录逐渐滚出窗口或立即选择频繁档后，再自然观察来源无关分享、重复主题降权与前台 App 主动重试。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.3 主动感知、主题多样性与来源无关分享（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户决定不等待 v0.40.2 运行满一天，直接在其诊断底座上继续修复旧版真机报告已经明确暴露的行为问题。覆盖安装必须保留 v0.40.2 的 Provider 事件、Thought、网页候选、聊天与记忆；新报告按本策略启用时间区分升级前后。v0.40.2 原定的一天 Provider 观察仍继续有效，本批不得加入 DeepSeek 搜索、整理或视觉兜底。
