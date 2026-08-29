@@ -149,20 +149,28 @@ class DesireEngine {
     });
   }
 
-  Future<void> satisfyIntent(
+  Future<double> satisfyIntent(
     DesireIntent intent, {
     double intensity = 0.55,
     DateTime? now,
+    bool outboundEffort = false,
   }) async {
     final instant = now ?? DateTime.now();
     final refractoryUntil =
         instant.add(Duration(minutes: 22 + _random.nextInt(35)));
+    var fatigueCost = 0.0;
     await db.mutateDesire((snapshot) {
+      final fatigueBefore = snapshot.drives[DriveKey.fatigue] ?? 0.0;
       final drives = DesireCorePolicy.satisfiedDrives(
         snapshot: snapshot,
         action: intent.wantAction,
         primaryDrive: intent.drive,
         intensity: intensity,
+        outboundEffort: outboundEffort,
+      );
+      fatigueCost = max(
+        0.0,
+        (drives[DriveKey.fatigue] ?? fatigueBefore) - fatigueBefore,
       );
       final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
         ..[intent.drive] = refractoryUntil;
@@ -176,6 +184,7 @@ class DesireEngine {
             : snapshot.lastWildcardAt,
       );
     });
+    return fatigueCost;
   }
 
   Future<void> feedThought({

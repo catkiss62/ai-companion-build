@@ -981,11 +981,36 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     );
     // Sending the message itself releases some tension, but user response is
     // what can truly settle the originating thought later.
-    await desireEngine.satisfyIntent(
+    final fatigueBeforeSend = snapshot.drives[DriveKey.fatigue] ?? 0.0;
+    final fatigueCost = await desireEngine.satisfyIntent(
       intent,
       intensity: 0.55,
       now: DateTime.now(),
+      outboundEffort: true,
     );
+    if (fatigueBeforeSend >= DesireCorePolicy.fatigueCompetitionFloor &&
+        fatigueCost > 0) {
+      final overrideCount = int.tryParse(
+            await db.getSetting('circadian_fatigue_override_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting(
+        'circadian_fatigue_override_count',
+        '${overrideCount + 1}',
+      );
+      await db.setSetting(
+        'circadian_fatigue_override_last_at',
+        '${message.createdAt.millisecondsSinceEpoch}',
+      );
+      await db.setSetting(
+        'circadian_fatigue_override_last_drive',
+        intent.drive.name,
+      );
+      await db.setSetting(
+        'circadian_fatigue_override_last_cost',
+        fatigueCost.toStringAsFixed(4),
+      );
+    }
     await android.incrementOverlayUnread();
     final notificationPrivacy = ProactiveNotificationPrivacy.fromKey(
       await db.getSetting('proactive_notification_privacy'),

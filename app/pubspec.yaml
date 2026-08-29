@@ -41,7 +41,8 @@ publish_to: 'none'
 # Historical validator compatibility token: version: 0.40.3+131
 # Historical validator compatibility token: version: 0.40.3+132
 # Historical validator compatibility token: version: 0.40.4+133
-version: 0.40.5+134
+# Historical validator compatibility token: version: 0.40.5+134
+version: 0.40.6+135
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

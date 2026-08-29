@@ -119,6 +119,8 @@ class PreflightDiagnosticsService {
         'proactivePolicyAppIdentityIncluded': false,
         'proactivePolicyThoughtOrMessageTextIncluded': false,
         'proactivePolicyExternalContentIncluded': false,
+        'circadianFatigueThoughtOrMessageTextIncluded': false,
+        'circadianFatigueUserScheduleTextIncluded': false,
         'runtimeErrorTextIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
@@ -200,6 +202,40 @@ class PreflightDiagnosticsService {
         lastWildcardAt: desireSnapshot.lastWildcardAt,
         intimacyAllowed: adultRelationshipDriveEnabled,
       );
+      final currentFatigue =
+          desireSnapshot.drives[DriveKey.fatigue] ?? 0.0;
+      final circadianFatigueFloor =
+          DesireCorePolicy.circadianFatigueFloor(now);
+      DesireCoreCandidate? restCandidate;
+      DesireCoreCandidate? strongestNonRestCandidate;
+      for (final candidate in desireCandidates) {
+        if (candidate.drive == DriveKey.fatigue ||
+            candidate.action == 'rest') {
+          restCandidate ??= candidate;
+        } else {
+          strongestNonRestCandidate ??= candidate;
+        }
+      }
+      final selectedDesireCandidate =
+          desireCandidates.isEmpty ? null : desireCandidates.first;
+      final strongDesireOverrideActive = restCandidate != null &&
+          selectedDesireCandidate != null &&
+          selectedDesireCandidate.drive != DriveKey.fatigue &&
+          selectedDesireCandidate.action != 'rest';
+      final fatigueOverrideCount = int.tryParse(
+            await db.getSetting('circadian_fatigue_override_count') ?? '',
+          ) ??
+          0;
+      final fatigueOverrideLastAt = int.tryParse(
+            await db.getSetting('circadian_fatigue_override_last_at') ?? '',
+          ) ??
+          0;
+      final fatigueOverrideLastDrive =
+          await db.getSetting('circadian_fatigue_override_last_drive') ?? '';
+      final fatigueOverrideLastCost = double.tryParse(
+            await db.getSetting('circadian_fatigue_override_last_cost') ?? '',
+          ) ??
+          0.0;
       final provenanceCounts = <String, int>{};
       for (final thought in desireThoughts) {
         final key = thought.provenance.key;
@@ -471,8 +507,42 @@ class PreflightDiagnosticsService {
           'lastSatisfiedAction': desireSnapshot.lastSatisfiedAction ?? '',
           'lastSatisfiedAt': desireSnapshot.lastSatisfiedAt?.millisecondsSinceEpoch ?? 0,
           'fatigueGateActive':
-              (desireSnapshot.drives.values.isEmpty ? 0.0 : desireSnapshot.drives[DriveKey.fatigue] ?? 0.0) >=
-                  DesireCorePolicy.fatigueRestGate,
+              currentFatigue >= DesireCorePolicy.fatigueRestGate,
+          'fatiguePolicyMode': 'circadian_competition_v0406',
+          'circadianFatigue': {
+            'localHour': now.hour,
+            'floor': double.parse(
+              circadianFatigueFloor.toStringAsFixed(4),
+            ),
+            'current': double.parse(currentFatigue.toStringAsFixed(4)),
+            'floorAppliedToCurrent':
+                currentFatigue + 0.0001 >= circadianFatigueFloor,
+            'competitionFloor': DesireCorePolicy.fatigueCompetitionFloor,
+            'restCompeting': restCandidate != null,
+            'restScore': restCandidate == null
+                ? 0.0
+                : double.parse(restCandidate.score.toStringAsFixed(4)),
+            'strongestNonRestScore': strongestNonRestCandidate == null
+                ? 0.0
+                : double.parse(
+                    strongestNonRestCandidate.score.toStringAsFixed(4),
+                  ),
+            'outboundActionPenalty': double.parse(
+              DesireCorePolicy.fatigueActionPenalty(currentFatigue)
+                  .toStringAsFixed(4),
+            ),
+            'strongDesireOverrideActive': strongDesireOverrideActive,
+            'hardVetoEnabled': false,
+            'outboundFatigueCostEnabled': true,
+            'overrideCount': fatigueOverrideCount,
+            'lastOverrideAt': fatigueOverrideLastAt,
+            'lastOverrideDrive': fatigueOverrideLastDrive,
+            'lastOverrideCost': double.parse(
+              fatigueOverrideLastCost.toStringAsFixed(4),
+            ),
+            'thoughtOrMessageTextIncluded': false,
+            'userScheduleTextIncluded': false,
+          },
           'intimacyActionAllowed': adultRelationshipDriveEnabled,
           'wildcardCooldownMinutes': desireSnapshot.lastWildcardAt == null
               ? 0

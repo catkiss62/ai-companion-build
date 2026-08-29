@@ -180,12 +180,17 @@
 # agent/v0404-desire-conversation-agency
 # AI-Companion-v0.40.4-133-Desire-Conversation-Agency-APK
 # v0.40.4-desire-conversation-agency
-name: Build AI Companion v0.40.5+134 APK (Album Image Binding)
+# Historical v0.40.5 workflow compatibility:
+# name: Build AI Companion v0.40.5+134 APK (Album Image Binding)
+# agent/v0405-album-image-binding
+# AI-Companion-v0.40.5-134-Album-Image-Binding-APK
+# v0.40.5-album-image-binding
+name: Build AI Companion v0.40.6+135 APK (Circadian Fatigue Competition)
 
 on:
   push:
     branches:
-      - agent/v0405-album-image-binding
+      - agent/v0406-circadian-fatigue
   workflow_dispatch:
   pull_request:
     branches:
@@ -323,14 +328,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.40.5+134' app/pubspec.yaml
+          grep -Fqx 'version: 0.40.6+135' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 40;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.40.5+134 single-image album assessment with byte-exact save binding.'
+          echo 'Building v0.40.6+135 circadian fatigue and Desire competition.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -501,6 +506,7 @@ jobs:
           python3 tools/validate_v0403_proactive_frequency_hotfix.py
           python3 tools/validate_v0404_desire_conversation_agency.py
           python3 tools/validate_v0405_album_image_binding.py
+          python3 tools/validate_v0406_circadian_fatigue.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -746,26 +752,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.40.5+134 APK as workflow artifact
+      - name: Upload v0.40.6+135 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.40.5-134-Album-Image-Binding-APK
+          name: AI-Companion-v0.40.6-135-Circadian-Fatigue-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.40.5+134 album image binding APK to draft release
+      - name: Upload v0.40.6+135 circadian fatigue APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.40.5-album-image-binding'
-          APK_NAME='AI-Companion-v0.40.5-134-Album-Image-Binding-APK.apk'
+          TAG='v0.40.6-circadian-fatigue'
+          APK_NAME='AI-Companion-v0.40.6-135-Circadian-Fatigue-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.40.5-134-Album-Image-Binding-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.6-135-Circadian-Fatigue-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -782,8 +788,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.5+134 Album image binding candidate' \
-              --notes 'Draft candidate: forces album assessment to one image, binds the exact observed thumbnail to saved bytes with SHA-256 verification, and records redacted binding diagnostics. SQLite schema remains 40.'
+              --title 'AI Companion v0.40.6+135 Circadian fatigue candidate' \
+              --notes 'Draft candidate: adds local circadian fatigue, lets rest compete with strong Desire instead of hard-vetoing it, and records redacted fatigue diagnostics. SQLite schema remains 40.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -807,18 +813,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0405-monitor.txt'
+          MONITOR_PATH='.ci/v0406-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.5 CI success monitor' \
+              -f message='Update v0.40.6 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.5 CI success monitor' \
+              -f message='Create v0.40.6 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -839,8 +845,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.40.5-album-image-binding'
-          CI_NAME='AI-Companion-v0.40.5-134-Album-Image-Binding-CI-Monitor.txt'
+          TAG='v0.40.6-circadian-fatigue'
+          CI_NAME='AI-Companion-v0.40.6-135-Circadian-Fatigue-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -881,8 +887,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.5+134 Album image binding candidate' \
-              --notes 'Draft used for single-image album assessment and byte-exact save-binding validation. It is not a published release.'
+              --title 'AI Companion v0.40.6+135 Circadian fatigue candidate' \
+              --notes 'Draft used for circadian fatigue and competing-Desire validation. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -891,18 +897,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0405-monitor.txt'
+          MONITOR_PATH='.ci/v0406-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.5 CI failure monitor' \
+              -f message='Update v0.40.6 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.5 CI failure monitor' \
+              -f message='Create v0.40.6 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

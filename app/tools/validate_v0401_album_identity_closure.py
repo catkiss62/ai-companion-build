@@ -27,7 +27,7 @@ kotlin = read("android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBrid
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 reference = ROOT / "assets/appearance/dafeiyu_reference.webp"
 
-assert re.search(r"^version:\s*0\.40\.(?:1\+129|2\+130|3\+(?:131|132)|4\+133|5\+134)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.40\.(?:1\+129|2\+130|3\+(?:131|132)|4\+133|5\+134|6\+135)\s*$", pubspec, re.M)
 assert re.search(r"static const int schemaVersion = (?:38|39);", database)
 for token in (
     "perceptual_hash TEXT NOT NULL DEFAULT ''",

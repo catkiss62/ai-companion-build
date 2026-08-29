@@ -12,7 +12,7 @@ CompanionThought thought({
   bool fixation = false,
   String source = 'internal',
 }) {
-  final now = DateTime(2026, 8, 12, 12, 0);
+  final now = DateTime(2026, 8, 12, 0, 0);
   return CompanionThought(
     id: id,
     text: 'thought-$id',
@@ -27,11 +27,12 @@ CompanionThought thought({
 }
 
 void main() {
-  test('fatigue is a rest gate, not an outbound contact reason', () {
+  test('ordinary desire yields to rest while exceptional attachment can override', () {
+    final now = DateTime(2026, 8, 12, 4, 0);
     final snapshot = DesireSnapshot(
       drives: {
         ...DesireSnapshot.defaultDrives(),
-        DriveKey.attachment: 0.95,
+        DriveKey.attachment: 0.60,
         DriveKey.fatigue: 0.82,
       },
     );
@@ -39,11 +40,109 @@ void main() {
       drives: snapshot.drives,
       refractoryUntil: snapshot.refractoryUntil,
       thoughts: const [],
-      now: DateTime(2026, 8, 12, 20, 0),
+      now: now,
     );
 
-    expect(candidates.single.drive, DriveKey.fatigue);
-    expect(candidates.single.action, 'rest');
+    expect(candidates.first.drive, DriveKey.fatigue);
+    expect(candidates.first.action, 'rest');
+
+    final exceptional = DesireCorePolicy.candidates(
+      drives: {
+        ...snapshot.drives,
+        DriveKey.attachment: 0.78,
+      },
+      refractoryUntil: const {},
+      thoughts: [
+        thought(
+          id: 'miss-you',
+          drive: DriveKey.attachment,
+          strength: 0.90,
+          fixation: true,
+          source: 'user_message',
+        ),
+      ],
+      now: now,
+    );
+
+    expect(exceptional.first.drive, DriveKey.attachment);
+    expect(exceptional.first.action, 'reach_out');
+    expect(
+      exceptional.any((candidate) => candidate.drive == DriveKey.fatigue),
+      isTrue,
+    );
+  });
+
+  test('circadian floor is low by day and creates real late-night sleepiness', () {
+    expect(
+      DesireCorePolicy.circadianFatigueFloor(DateTime(2026, 8, 12, 12)),
+      closeTo(0.16, 1e-9),
+    );
+    expect(
+      DesireCorePolicy.circadianFatigueFloor(DateTime(2026, 8, 13, 4)),
+      closeTo(0.78, 1e-9),
+    );
+    expect(
+      DesireCorePolicy.circadianFatigueFloor(DateTime(2026, 8, 13, 5, 10)),
+      closeTo(0.6967, 0.0001),
+    );
+
+    final lateNight = DesireCorePolicy.advance(
+      snapshot: DesireSnapshot(
+        drives: {
+          ...DesireSnapshot.defaultDrives(),
+          DriveKey.fatigue: 0.10,
+        },
+        lastTickAt: DateTime(2026, 8, 13, 3, 48),
+      ),
+      now: DateTime(2026, 8, 13, 4),
+    );
+    expect(lateNight.drives[DriveKey.fatigue], closeTo(0.78, 1e-9));
+  });
+
+  test('morning passage recovers fatigue without pretending user reply is sleep', () {
+    final recovered = DesireCorePolicy.advance(
+      snapshot: DesireSnapshot(
+        drives: {
+          ...DesireSnapshot.defaultDrives(),
+          DriveKey.fatigue: 0.82,
+        },
+        lastTickAt: DateTime(2026, 8, 13, 4),
+      ),
+      now: DateTime(2026, 8, 13, 9),
+    );
+
+    expect(recovered.drives[DriveKey.fatigue]!, lessThan(0.82));
+    expect(recovered.drives[DriveKey.fatigue]!, greaterThanOrEqualTo(0.16));
+  });
+
+  test('only high-fatigue outbound effort adds a bounded body cost', () {
+    final tired = DesireSnapshot(
+      drives: {
+        ...DesireSnapshot.defaultDrives(),
+        DriveKey.attachment: 0.88,
+        DriveKey.fatigue: 0.72,
+      },
+    );
+    final outbound = DesireCorePolicy.satisfiedDrives(
+      snapshot: tired,
+      action: 'reach_out',
+      primaryDrive: DriveKey.attachment,
+      intensity: 0.55,
+      outboundEffort: true,
+    );
+    final replyOnly = DesireCorePolicy.satisfiedDrives(
+      snapshot: tired,
+      action: 'reach_out',
+      primaryDrive: DriveKey.attachment,
+      intensity: 0.55,
+    );
+
+    expect(outbound[DriveKey.attachment]!, lessThan(0.88));
+    expect(outbound[DriveKey.fatigue]!, greaterThan(0.72));
+    expect(outbound[DriveKey.fatigue]!, lessThanOrEqualTo(0.805));
+    expect(replyOnly[DriveKey.fatigue], closeTo(0.72, 1e-9));
+    expect(DesireCorePolicy.fatigueActionPenalty(0.20), 0.0);
+    expect(DesireCorePolicy.outboundFatigueCost(0.20), 0.0);
   });
 
   test('per-drive refractory blocks one desire without muting all others', () {

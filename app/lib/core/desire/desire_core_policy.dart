@@ -43,7 +43,10 @@ class DesireCorePolicy {
   const DesireCorePolicy._();
 
   static const unitMinutes = 12.0;
+  // Kept as the legacy "very tired" band used by emotion presentation. It is
+  // no longer a hard veto over every other Desire candidate.
   static const fatigueRestGate = 0.78;
+  static const fatigueCompetitionFloor = 0.48;
   static const baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0;
   static const wildcardCooldown = Duration(hours: 6);
 
@@ -112,6 +115,15 @@ class DesireCorePolicy {
 
     _applyCoupling(drives, scale);
 
+    // Fatigue has a real circadian body component. Other drives retain their
+    // own values: late-night attachment/curiosity is allowed to remain real,
+    // while the body becomes progressively sleepier underneath it.
+    final circadianFloor = circadianFatigueFloor(now);
+    drives[DriveKey.fatigue] = max(
+      drives[DriveKey.fatigue] ?? 0.0,
+      circadianFloor,
+    ).clamp(0.0, 1.0).toDouble();
+
     // Busy is friction, not a hard mute. It increases internal strain a little;
     // the delivery gate separately decides how softly to contact the user.
     if (userBusy) {
@@ -145,19 +157,19 @@ class DesireCorePolicy {
     bool includeThoughtAlternatives = false,
   }) {
     final fatigue = drives[DriveKey.fatigue] ?? 0.0;
-    if (fatigue >= fatigueRestGate) {
-      return [
+    final result = <DesireCoreCandidate>[];
+    if (fatigue >= fatigueCompetitionFloor) {
+      result.add(
         DesireCoreCandidate(
           drive: DriveKey.fatigue,
-          score: fatigue,
+          score: fatigueRestScore(fatigue),
           action: 'rest',
-          reason: '我现在更需要安静休息一下，不想为了主动而硬找话题。',
+          reason: '困意正在变得具体，身体更想慢下来休息；但特别强的念头仍可能让我暂时撑一下。',
           reasonSource: 'drive_state',
         ),
-      ];
+      );
     }
 
-    final result = <DesireCoreCandidate>[];
     for (final drive in DriveKey.values) {
       if (drive == DriveKey.fatigue) continue;
       // Libido is included by default. This flag is only a consumer-surface
@@ -189,7 +201,11 @@ class DesireCorePolicy {
 
       final combined = (base + thoughtBoost).clamp(0.0, 1.0).toDouble();
       final nonlinear = 1 - sqrt(max(0.0, 1 - combined));
-      final score = (nonlinear + base * 0.62).clamp(0.0, 1.0).toDouble();
+      final rawScore =
+          (nonlinear + base * 0.62).clamp(0.0, 1.0).toDouble();
+      final score = (rawScore - fatigueActionPenalty(fatigue))
+          .clamp(0.0, 1.0)
+          .toDouble();
       final strongest = related.isEmpty ? null : related.first;
 
       result.add(DesireCoreCandidate(
@@ -211,8 +227,12 @@ class DesireCorePolicy {
                   .toDouble();
           final alternativeNonlinear =
               1 - sqrt(max(0.0, 1 - alternativeCombined));
-          final alternativeScore =
+          final alternativeRawScore =
               (alternativeNonlinear + base * 0.62)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+          final alternativeScore =
+              (alternativeRawScore - fatigueActionPenalty(fatigue))
                   .clamp(0.0, 1.0)
                   .toDouble();
           result.add(
@@ -278,6 +298,7 @@ class DesireCorePolicy {
     required String action,
     required DriveKey primaryDrive,
     double intensity = 1.0,
+    bool outboundEffort = false,
   }) {
     final drives = Map<DriveKey, double>.from(snapshot.drives);
     final safeIntensity = intensity.clamp(0.0, 1.0).toDouble();
@@ -340,7 +361,71 @@ class DesireCorePolicy {
         settle(primaryDrive, 0.82);
         break;
     }
+    if (outboundEffort && action != 'rest' && action != 'wait') {
+      final fatigue = drives[DriveKey.fatigue] ?? 0.0;
+      drives[DriveKey.fatigue] =
+          (fatigue + outboundFatigueCost(fatigue)).clamp(0.0, 1.0).toDouble();
+    }
     return drives;
+  }
+
+  /// Local wall-clock fatigue floor. The interpolation avoids a cliff at a
+  /// particular bedtime and intentionally remains independent of the user's
+  /// willingness to receive a message at that hour.
+  static double circadianFatigueFloor(DateTime now) {
+    final minute = now.hour * 60 + now.minute;
+    const points = <(int, double)>[
+      (0, 0.52),
+      (60, 0.60),
+      (120, 0.68),
+      (180, 0.74),
+      (240, 0.78),
+      (300, 0.72),
+      (360, 0.58),
+      (420, 0.40),
+      (480, 0.24),
+      (540, 0.16),
+      (1080, 0.16),
+      (1200, 0.18),
+      (1320, 0.28),
+      (1380, 0.42),
+      (1440, 0.52),
+    ];
+    for (var i = 0; i < points.length - 1; i++) {
+      final start = points[i];
+      final end = points[i + 1];
+      if (minute < start.$1 || minute > end.$1) continue;
+      final width = end.$1 - start.$1;
+      if (width <= 0) return end.$2;
+      final progress = (minute - start.$1) / width;
+      return (start.$2 + (end.$2 - start.$2) * progress)
+          .clamp(0.0, 1.0)
+          .toDouble();
+    }
+    return points.last.$2;
+  }
+
+  static double fatigueRestScore(double fatigue) {
+    if (fatigue < fatigueCompetitionFloor) return 0.0;
+    return (0.54 + (fatigue - 0.45) * 0.66)
+        .clamp(0.54, 0.86)
+        .toDouble();
+  }
+
+  /// Sleepiness makes outward action harder without muting it. A sufficiently
+  /// strong Drive + Thought score can still beat the competing rest candidate.
+  static double fatigueActionPenalty(double fatigue) {
+    if (fatigue <= 0.45) return 0.0;
+    return ((fatigue - 0.45) * 0.30).clamp(0.0, 0.18).toDouble();
+  }
+
+  /// Only self-initiated outbound action pays this extra body cost. Merely
+  /// answering a user or receiving a reply must not pretend that she slept.
+  static double outboundFatigueCost(double fatigue) {
+    if (fatigue < fatigueCompetitionFloor) return 0.0;
+    return (0.055 + (fatigue - fatigueCompetitionFloor) * 0.12)
+        .clamp(0.055, 0.11)
+        .toDouble();
   }
 
   static void _applyCoupling(Map<DriveKey, double> d, double scale) {
