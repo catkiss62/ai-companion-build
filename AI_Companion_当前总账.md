@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.6 昼夜疲劳与欲望竞争（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.6 昼夜疲劳与欲望竞争（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户根据 2026-08-29 21:33、2026-08-30 03:56 与 05:10 三份连续真机诊断纠正本批方向：夜间依恋、好奇或其他欲望仍可正常存在，某项欲望特别强时也应允许她“困得不行但实在太想你了”而主动发一条；真正不合理的是深夜完全不犯困。不得把本批实现成夜间静音、固定睡眠禁区、压低依恋，或把所有深夜回复误作打扰。目标是让疲劳成为真实的昼夜身体状态，并与其他 Desire/Thought 公平竞争。
 
@@ -41,6 +41,27 @@
 1. 不修改 v0.40.5 相册图片强绑定、Provider 顺序、联网/相册预算、完整存档、相册模糊检索、角色规则正文、TTS、悬浮窗、桌宠或沉浸房间。
 2. 不把“用户深夜回复”一律判为鼓励或打扰；现有节律学习的反馈语义以后可独立细化，本批只保证它不能绕过当前真实疲劳竞争。
 3. 完成后运行 Flutter 格式化、静态检查、相关与全量测试、历史 validators、Kotlin/Release APK/素材/签名 CI；回填真实提交、Actions、APK、SHA 与真机待验。自动测试只证明数学与状态合同，不提前宣布真实作息体验已通过。
+
+### D. 实际实现
+
+1. `DesireCorePolicy.advance()` 新增连续的本地昼夜疲劳底色：白天仍维持约 `0.16`，22 点后逐渐升高，凌晨 4 点目标约 `0.78`，之后向清晨回落；它只在当前疲劳低于时抬高 fatigue，忙碌/压力和既有自然恢复仍照常参与，不会顺带压低 attachment、curiosity、social 或 libido。
+2. 原 fatigue `>=0.78` 后只允许 `rest` 的硬返回已删除。疲劳从 `0.48` 起让休息成为正常候选，并给其他对外行动一个最大 `0.18` 的有界体力扣分：普通欲望在很困时会输给休息，特别强的 Drive 加具体 Thought 仍能压过它，因此不是夜间静音，也不会阻止用户先发消息后的正常回复。
+3. 高疲劳下主动消息成功送达时，才追加约 `0.055~0.11` 的有界疲劳代价；普通聊天回复不会被误算成熬夜主动行动。这样“太想你所以顶着困意发一条”仍成立，但这次行动会让她更累，下一次更容易选择休息，减少连续整夜主动。
+4. 脱敏诊断新增 `circadian_competition_v0406` 策略、本地小时、当前昼夜底色、当前疲劳、休息分数、最强非休息分数、行动扣分、是否由强欲望压过休息，以及高疲劳主动行动累计次数/最近 Drive/时间/代价；固定声明不含 Thought、消息正文或用户作息文本。
+5. 新测试覆盖白天底色、凌晨峰值、05:10 回落、夜间自然抬升与早晨恢复、普通欲望让位休息、强依恋+具体 Thought 可覆盖疲劳，以及只有高疲劳主动行动才增加体力代价。版本为 `0.40.6+135`，SQLite schema 保持 40；主动频率三档和既有节律学习均未删除。
+
+### E. 提交、测试、构建与交付证据
+
+1. 开工总账提交为 [`c5ebf923ff505a676c1e01b1b652b9111e4c5318`](https://github.com/catkiss62/ai-companion-build/commit/c5ebf923ff505a676c1e01b1b652b9111e4c5318)，功能提交为 [`14ebf25d4f03f309f95389c9d28b2c7e3103ca49`](https://github.com/catkiss62/ai-companion-build/commit/14ebf25d4f03f309f95389c9d28b2c7e3103ca49)，最终编译修正及构建 head 为 [`2ea1fe8d2a5f325e5f976d896b8538103c63364a`](https://github.com/catkiss62/ai-companion-build/commit/2ea1fe8d2a5f325e5f976d896b8538103c63364a)。远端最终 tree `4f4cbd734404f3803dd8e650d7ce858d6fddb38c` 与本地最终功能 tree 完全一致；分支为 [`agent/v0406-circadian-fatigue`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0406-circadian-fatigue)，未修改或合并 `main`。
+2. 首次 [Actions run 33276843841](https://github.com/catkiss62/ai-companion-build/actions/runs/33276843841) 已通过全部新旧 Python 门禁，但在 Kotlin 步骤内的 Flutter debug 编译发现 `proactive_engine.dart` 漏引入 `DesireCorePolicy`，属于明确的一行编译问题，未生成 APK；补齐 import 后最终 [run 33277088656](https://github.com/catkiss62/ai-companion-build/actions/runs/33277088656) 全绿：全部源码与历史门禁、Kotlin 测试、Flutter analyze、342 项 Flutter tests、Release APK、固定签名、27 项 TTS + 5 个 native libraries、417 文件桌宠包、62 项 LingChat 资产、22 张塔罗素材和形象参照哈希、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.6-135-Circadian-Fatigue-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-3eb52854cafbb506a15a/AI-Companion-v0.40.6-135-Circadian-Fatigue-APK.apk)，325,022,446 bytes，SHA-256 `bd8704bf6f36ef711f343e6ff5353e32060be2ffb9027be9b3893c47dc279204`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可直接覆盖安装 v0.40.5+134；Draft Release 为 [untagged-3eb52854cafbb506a15a](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3eb52854cafbb506a15a)，仍是测试草稿而非正式 Release。
+4. Artifact [9721956062](https://github.com/catkiss62/ai-companion-build/actions/runs/33277088656/artifacts/9721956062)，名称 `AI-Companion-v0.40.6-135-Circadian-Fatigue-APK`，ZIP 318,725,681 bytes，digest `sha256:f817fed9ad3cb9fad356884a34f69bd1f6f52ffc66c4b36fb9e93d3e43232b5f`，到期时间 2026-09-12T22:00:57Z。
+
+### F. 真机待验
+
+1. 直接覆盖安装，不卸载、不清数据。无需刻意保持清醒或连续聊天；自然跨过 22:00 至凌晨使用即可。白天她仍可正常主动，夜间也不是绝对禁发，但凌晨疲劳应明显高于旧报告中的 `0.10~0.12`。
+2. 导出诊断时重点看 `desireCore.fatiguePolicyMode=circadian_competition_v0406`、`circadianFatigue.floor/current` 与 `restCompeting`。普通欲望在很困时应更常让位休息；若某个真实欲望连同 Thought 足够强，`strongDesireOverrideActive` 可以为 true 并允许一次主动，而不是被钟点硬拦截。
+3. 若发生高疲劳主动发送，`overrideCount` 应增加并记录不含正文的最近 Drive/时间/代价，随后 fatigue 会再升一点；体验上应是偶尔“困但想你”，而不是完全沉默，也不是连续一整夜精神饱满地发消息。昼夜曲线和竞争数学已由自动测试证明，真实频率与语气仍等待这一版自然真机体验确认。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-29 · v0.40.5 相册识图与保存对象强绑定（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
