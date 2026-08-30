@@ -16,6 +16,37 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.9 非破坏性加密备份与大包治理（IN PROGRESS / IMPLEMENTATION PENDING）
+
+> 用户在 v0.40.8+137 第一批完整状态包恢复正确性完成后明确继续既定下一任务。本批把“留一份备份且本机继续使用”与“换机接管后源设备下线”拆成两条独立产品流程，并补齐超大包的流式分卷、Nearby 单文件边界和 App 私有缓存残留清理；目标是可长期使用的普通备份，不改变第一批已经验证的关系隔离与原子回滚基础。Agent 自我系统读取和 MCP 游戏继续排在本批之后。
+
+### A. 修改前审计事实
+
+1. v0.40.8 的 `.aicomp` 已使用 PBKDF2-HMAC-SHA256 派生密钥和 AES-256-GCM，Native 加解密以 64 KiB 缓冲流式复制；Snapshot ZIP 也直接向文件编码。当前缺口不是“没有加密”，而是所有导出都先预留接管代次和 pending snapshot，手动保存成功后来源设备必定进入 standby，因此不能当作日常备份。
+2. Snapshot protocol 4 已完整纳入 40 schema 下真实关系状态、聊天图片和私人相册缩略图，并具备校验、目录暂存、文件先切换、数据库失败回滚与重复投递 no-op。普通备份必须复用这一条可信恢复链，不能另写一套只恢复数据库或先覆盖后补文件的弱路径。
+3. Nearby 当前把整个 ZIP 作为一个 FILE Payload，接收侧发现 `totalBytes > 512 MiB` 才取消；发送侧没有生成前/发送前的清晰预检。多年聊天图片可能让包超过边界，既浪费冻结与压缩时间，也只得到模糊传输失败。Nearby 不适合作为任意大文件分卷协议，本批应在超过单文件边界时明确转向分卷加密备份。
+4. 手动文件当前通过 `ACTION_CREATE_DOCUMENT/ACTION_OPEN_DOCUMENT` 保存或打开一个加密文件。虽然密码流不进内存，但单文件仍受文件提供方、可用空间和 512 MiB Nearby 边界影响；App 也无法从单个选择器可靠找到分卷的兄弟文件。分卷需要以 SAF 目录作为一个备份集合，并在集合内保存无关系正文的部件清单。
+5. Flutter 临时目录会产生 `companion_snapshot_work_*`、`companion_import_*` 与导出 ZIP，Native 接收/解密会产生 `ai_companion_received_*`、`ai_companion_manual_*`。正常 UI 路径多有即时删除，但进程终止、Activity 销毁或 Provider 抛错仍可能留下明文 ZIP/解压目录；当前没有统一启动时限清理。
+
+### B. 本批锁定实现范围
+
+1. 建立 Snapshot protocol 5，并在 manifest 强制区分 `archive_kind=takeover/backup`。接管继续保留冻结、单调代次、pending、ACK 和单 Active Brain；普通备份不得预留接管代次、不得写 pending outbound、不得让来源设备 standby，导出结束后本机立即解锁继续运行。protocol 1~4 仍按旧接管包兼容导入。
+2. 普通备份导出在短暂 `transfer_lock` 下等待聊天/记忆/后台写入完成，复制同一份完整数据库与图片状态；写入包前把冻结期间的运行锁、租约和 pending 传输字段归一为非冻结状态，但不修改手机数据库本身。备份成功、用户取消或失败都必须解锁，且不得增加状态代次。
+3. 普通备份恢复继续使用 v0.40.8 的完整预校验、聊天/相册目录暂存、原子切换和数据库失败回滚。恢复到原来源设备时，在显式覆盖确认后采用高于当前值的新代次并继续保持 Active Brain；恢复到另一设备时先进入 standby，只有用户确认原设备已下线后才能手动接管，避免备份副本直接制造两个 Active Brain。
+4. 新增 SAF 目录备份：用户选择父目录后，App 创建一个独立 `.aibackup` 子目录；ZIP 经现有 AES-256-GCM 连续加密后按 192 MiB 自动切分，每个部件顺序写入、不整包进内存。集合 manifest 只保存格式版本、时间、部件名/顺序、加密字节数、逐部件 SHA-256，不含聊天、Prompt、标题、摘要、路径或密钥；导入时用户选择该备份目录，App 按清单逐部件流式校验、拼接解密到受控临时 ZIP，缺件、乱序、篡改、错口令或截断均拒绝且清理临时文件。
+5. Nearby 在发送前同时做 Flutter 与 Native 双层 `512 MiB` 预检。未超过时继续使用现有单文件加密传输和接管 ACK；超过时不发 Payload、不让源设备下线，明确提示改用“创建加密备份”。本批不把 Nearby 改成多 Payload 接管，不以分卷绕过 ACK/单 Active Brain。
+6. 新增统一状态包缓存清理：每次打开传输页、开始导出/导入和 Native bridge 初始化时，删除超过 24 小时的已知 App 私有状态包临时文件/目录；当前正在使用的路径不进入清理，正常成功/取消/失败仍即时删除。清理严格限定固定前缀与 `cacheDir`，不得扫描或删除用户通过 SAF 保存的备份目录。
+7. UI 将“手动备用”拆为“普通加密备份”和“设备接管备用”：普通备份提供“创建加密备份/恢复加密备份”，明确创建后本机继续使用；接管 `.aicomp` 继续保留但明确会让本机 standby。所有覆盖、旧包缺域、跨设备 standby 和手动接管仍需原有二次确认。
+8. 版本目标 `0.40.9+138`，SQLite schema 保持 40；分支 `agent/v0409-nondestructive-backup`。本批不修改相册识图/检索、Provider、Desire/疲劳、主动频率、人格、规则、聊天、TTS、悬浮窗、桌宠、Agent 自我读取或 MCP。
+
+### C. 预定验收
+
+1. Dart 测试覆盖 backup 导出不预留/不增代次、运行锁归一、原设备恢复继续 active、异设备恢复 standby、关系替换确认、protocol 5 kind 校验、旧 protocol 4 接管兼容、任一文件/数据库失败完整回滚。
+2. Kotlin 测试覆盖 AES-GCM 跨分卷往返、恰好跨 192 MiB 边界、空/缺失/重复/乱序/篡改部件、集合 manifest 限制、逐件 SHA、错口令、失败删除半成品，以及不会把完整加密包或明文 ZIP读入单个 ByteArray。
+3. Nearby 测试/源码门禁覆盖发送端 `>512 MiB` 在 `Payload.fromFile` 前拒绝、等于边界仍允许、UI 超限后取消本次接管 reservation 并保持 active；缓存测试覆盖固定前缀、24 小时阈值、当前活跃路径保护和 SAF 用户目录不触碰。
+4. 完成后运行格式化、全部当前/历史 Python validators、Kotlin/Gradle、Flutter analyze/tests、Release APK、固定签名和全部大型素材校验；回填真实提交、Actions、APK/SHA 与真机待验。不得把自动化通过写成真机大包/第三方文件 Provider 已稳定。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.8 完整状态包恢复正确性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认按 2026-08-30 完整存档与存储只读体检的结论开始第一批实现。本批只修现有设备接管状态包的完整性、关系隔离和恢复正确性；普通的非破坏性加密备份、超大状态包容量治理与 Agent 自我系统读取均不混入本批。完成后仍需自动测试、Actions、APK 与真机接管验收，不能把源码实现写成真机稳定。
