@@ -26,6 +26,16 @@ enum SnapshotArchiveKind {
       orElse: () => throw FormatException('未知状态包用途：$value'),
     );
   }
+
+  bool acceptsSourceGeneration(int generation) => switch (this) {
+        SnapshotArchiveKind.takeover => generation > 0,
+        SnapshotArchiveKind.backup => generation >= 0,
+      };
+
+  String get manifestEncryption => switch (this) {
+        SnapshotArchiveKind.takeover => 'nearby_transport_or_manual_aes_gcm',
+        SnapshotArchiveKind.backup => 'none',
+      };
 }
 
 class SnapshotMetadata {
@@ -306,9 +316,7 @@ class SnapshotService {
         'album_files': albumFiles,
         'missing_album_files': missingAlbumFiles,
         'album_bytes': albumBytes,
-        'encryption': isTakeover
-            ? 'nearby_transport_or_manual_aes_gcm'
-            : 'manual_multipart_aes_256_gcm',
+        'encryption': archiveKind.manifestEncryption,
       };
       await manifestFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(manifest),
@@ -787,7 +795,10 @@ class SnapshotService {
         final sourceGeneration = (manifest['source_generation'] as num?)?.toInt() ?? 0;
         final targetActivationGeneration =
             (manifest['target_activation_generation'] as num?)?.toInt() ?? 0;
-        if (snapshotId.isEmpty || lineageId.isEmpty || sourceDeviceId.isEmpty || sourceGeneration <= 0) {
+        if (snapshotId.isEmpty ||
+            lineageId.isEmpty ||
+            sourceDeviceId.isEmpty ||
+            !archiveKind.acceptsSourceGeneration(sourceGeneration)) {
           throw const FormatException('v2 状态包缺少必要身份字段');
         }
         if (targetActivationGeneration != sourceGeneration + 1) {

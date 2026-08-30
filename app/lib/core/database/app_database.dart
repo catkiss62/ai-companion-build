@@ -8047,7 +8047,7 @@ class AppDatabase {
       };
     }
     return {
-      'phase': 'public_web_scheduled',
+      'phase': 'public_web_scheduled_screen_foundation_only',
       'byStatus': byStatus,
       'byTool': byTool,
       'last': last,
@@ -8060,11 +8060,14 @@ class AppDatabase {
           'remaining': (4 - publicWebUsed).clamp(0, 4),
         },
         'screenObservation': {
-          'configured': true,
-          'windowMinutes': 60,
-          'limit': 6,
+          'configured': false,
+          'implementationStatus': 'not_implemented',
+          'schedulerAvailable': false,
+          'providerAvailable': false,
+          'futureWindowMinutes': 60,
+          'futureLimit': 6,
           'used': screenUsed,
-          'remaining': (6 - screenUsed).clamp(0, 6),
+          'remaining': null,
         },
         'videoUnderstanding': {
           'configured': false,

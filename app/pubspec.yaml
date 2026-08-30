@@ -47,8 +47,9 @@ publish_to: 'none'
 # Historical validator compatibility token: version: 0.40.8+137
 # Historical build identity: v0.40.9 nondestructive encrypted backup
 # Historical validator compatibility token: version: 0.40.9+138
-# Current build identity: v0.41.0 plain backup, overlay routing and Desire balance
-version: 0.41.0+139
+# Historical validator compatibility token: version: 0.41.0+139
+# Current build identity: v0.41.1 backup preflight and screen observation audit
+version: 0.41.1+140
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

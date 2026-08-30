@@ -39,11 +39,11 @@ void main() {
       AgentToolRegistry.definitionForAutonomous(AutonomousToolKind.publicWeb),
       same(AgentToolRegistry.publicWebSearch),
     );
-    expect(
-      AgentToolRegistry
-          .definitionForAutonomous(AutonomousToolKind.screenObservation)
-          .id,
-      'screen_observation.inspect',
+    final screen = AgentToolRegistry.definitionForAutonomous(
+      AutonomousToolKind.screenObservation,
     );
+    expect(screen.id, 'screen_observation.inspect');
+    expect(screen.executable, isFalse);
+    expect(screen.userTurnAvailable, isFalse);
   });
 }

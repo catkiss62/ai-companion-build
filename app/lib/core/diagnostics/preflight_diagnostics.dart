@@ -781,6 +781,12 @@ class PreflightDiagnosticsService {
             ? '当前存在已领取的自主工具任务；报告已保留脱敏执行状态。'
             : 'Desire → Intent → Tool Gate → Action → Outcome 持久化与脱敏诊断已就绪。',
       ));
+      checks.add(const PreflightCheck(
+        id: 'screen_observation',
+        title: '当前屏幕视觉观察',
+        level: 'info',
+        summary: '尚未接入截图 Provider 与 Desire 调度器；当前只有工具底座和未来 Gate，0 次不是低概率未命中。',
+      ));
       final publicWebRuntime =
           _asMap(publicWebCandidates['runtime']);
       final publicWebOutcome =

@@ -838,7 +838,7 @@ class _TransferPageState extends State<TransferPage> {
             title: const Text('恢复这份完整备份？'),
             content: Text(
               '继续会用备份里的聊天、记忆、联网记录、浏览器和私人相册完整替换本机当前关系数据。'
-              '\n\n${sameInstallation ? '这是本安装创建的备份；恢复成功后本机继续作为 Active Brain。' : '这份备份来自另一安装；恢复后本机先保持 standby，确认原设备已下线后才能手动接管。'}'
+              '\n\n${sameInstallation ? '这是本安装创建的备份；恢复成功后本机继续作为当前主设备（Active Brain）。' : '这份备份来自另一安装；恢复后本机先处于待机（standby），确认原设备已下线后才能手动接管。'}'
               '\n\n当前本机数据不会与备份自动合并。',
             ),
             actions: [
@@ -881,7 +881,7 @@ class _TransferPageState extends State<TransferPage> {
       final bytes = (saved['archiveBytes'] as num?)?.toInt() ?? 0;
       _append(
         '完整备份已保存为 $parts 个分卷（${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
-        '本机保持 Active，可继续正常使用。',
+        '本机仍是当前主设备（Active），可继续正常使用。',
       );
     } catch (e) {
       _append('创建完整备份失败：$e。本机数据和 Active 状态未改变。');
@@ -921,13 +921,13 @@ class _TransferPageState extends State<TransferPage> {
       }
       if (result.requiresManualTakeover) {
         if (mounted) setState(() => importedStandby = true);
-        _append('完整备份已恢复并通过校验。本机保持 standby；确认原设备已下线后再手动接管。');
+        _append('完整备份已恢复并通过校验。本机先处于待机（standby）；确认原设备已下线后再手动接管。');
       } else {
         try {
           await android.reconcileOverlayAfterTakeover();
         } catch (_) {}
         if (mounted) setState(() => importedStandby = false);
-        _append('完整备份已恢复并通过校验。本机继续作为 Active Brain。');
+        _append('完整备份已恢复并通过校验。本机继续作为当前主设备（Active Brain）。');
       }
     } catch (e) {
       final active = await db.getSetting('active_brain');
@@ -937,6 +937,37 @@ class _TransferPageState extends State<TransferPage> {
       if (restoredPath != null) await _deleteCachePath(restoredPath);
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _backupVerify() async {
+    setState(() => busy = true);
+    String? checkedPath;
+    try {
+      await SnapshotCacheJanitor.clean();
+      final opened = await android.openMultipartBackup();
+      checkedPath = opened?['filePath'] as String?;
+      if (checkedPath == null) {
+        _append('已取消选择备份目录。');
+        return;
+      }
+      final metadata = await snapshots.inspectBundle(checkedPath);
+      if (!metadata.isBackup) {
+        throw const FormatException('这不是普通完整备份。');
+      }
+      final parts = (opened?['partCount'] as num?)?.toInt() ?? 0;
+      final bytes = (opened?['archiveBytes'] as num?)?.toInt() ?? 0;
+      _append(
+        '完整备份基础检查通过：$parts 个分卷，'
+        '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
+        '协议 ${metadata.protocolVersion}，数据库结构版本 ${metadata.schemaVersion}。'
+        '内部状态、聊天图片和私人相册清单均可读取；没有覆盖本机数据。',
+      );
+    } catch (e) {
+      _append('完整备份检查失败：$e；没有覆盖或修改本机数据。');
+    } finally {
+      if (checkedPath != null) await _deleteCachePath(checkedPath);
       if (mounted) setState(() => busy = false);
     }
   }
@@ -1031,6 +1062,15 @@ class _TransferPageState extends State<TransferPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: busy || awaitingTakeoverAck ? null : _backupVerify,
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('检查完整备份（不覆盖）'),
+          ),
         ),
         const SizedBox(height: 22),
         Text('设备接管备用', style: Theme.of(context).textTheme.titleMedium),

@@ -22,7 +22,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*(?:0\.40\.(?:8\+137|9\+138)|0\.41\.0\+139)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.40\.(?:8\+137|9\+138)|0\.41\.(?:0\+139|1\+140))\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 40;" in database
 
 export = database.split("Future<Map<String, Object?>> exportAll()", 1)[1].split(
@@ -116,6 +116,7 @@ assert (
     "Build AI Companion v0.40.8+137 APK (Archive Restore Correctness)" in workflow
     or "Build AI Companion v0.40.9+138 APK (Nondestructive Backup)" in workflow
     or "Build AI Companion v0.41.0+139 APK (Plain Backup Overlay Desire)" in workflow
+    or "Build AI Companion v0.41.1+140 APK (Backup Preflight & Screen Audit)" in workflow
 )
 
 print("v0.40.8 archive restore correctness validation passed")
