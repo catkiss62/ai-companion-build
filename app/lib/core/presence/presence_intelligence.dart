@@ -196,9 +196,12 @@ class PresenceIntelligenceEngine {
       );
       if (!await db.brainWorkAllowed()) return result;
       await desire.applyExperience({
-        DriveKey.attachment: 0.006 + result.score * 0.012,
-        DriveKey.curiosity: 0.004 + result.score * 0.008,
-      });
+        // The mergeable Thought already carries most of the summon pressure.
+        // Keep this numeric nudge small so repeated phone activity is not
+        // counted as both a strong Thought and a strong attachment pulse.
+        DriveKey.attachment: 0.002 + result.score * 0.004,
+        DriveKey.curiosity: 0.003 + result.score * 0.005,
+      }, baselineLearning: 0.002);
       await db.setSetting(_thoughtAtKey, instant.millisecondsSinceEpoch.toString());
       await db.setSetting(
         _thoughtStrengthKey,

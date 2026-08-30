@@ -213,7 +213,7 @@ class _TransferPageState extends State<TransferPage> {
         final status = event.data['status']?.toString() ?? '';
         _append(
           status == 'payload_too_large_use_multipart_backup'
-              ? '状态包超过 Nearby 512 MiB 单文件上限，未开始发送；请使用下方“创建加密备份”。'
+              ? '状态包超过 Nearby 512 MiB 单文件上限，未开始发送；请使用下方“创建完整备份”。'
               : '传输失败：$status。本次包已作废，请重新生成。',
         );
         break;
@@ -355,7 +355,7 @@ class _TransferPageState extends State<TransferPage> {
         if (mounted) setState(() {});
         _append(
           '完整状态包为 ${(bundleBytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
-          '超过 Nearby 512 MiB 单文件上限。本机仍保持 Active，请改用分卷加密备份。',
+          '超过 Nearby 512 MiB 单文件上限。本机仍保持 Active，请改用分卷完整备份。',
         );
         return;
       }
@@ -667,7 +667,6 @@ class _TransferPageState extends State<TransferPage> {
 
   Future<String?> _askPassphrase({
     required bool confirm,
-    bool backup = false,
   }) async {
     if (!mounted) return null;
     final first = TextEditingController();
@@ -680,8 +679,8 @@ class _TransferPageState extends State<TransferPage> {
         builder: (context, setDialogState) => AlertDialog(
           title: Text(
             confirm
-                ? (backup ? '设置加密备份口令' : '设置手动接管口令')
-                : (backup ? '输入加密备份口令' : '输入手动接管口令'),
+                ? '设置手动接管口令'
+                : '输入手动接管口令',
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -753,7 +752,7 @@ class _TransferPageState extends State<TransferPage> {
         bundle = null;
         _append(
           '接管包超过 512 MiB，已取消本次接管冻结；本机保持 Active。'
-          '请使用“创建加密备份”，它会自动分卷。',
+          '请使用“创建完整备份”，它会自动分卷。',
         );
         return;
       }
@@ -858,8 +857,6 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Future<void> _backupExport() async {
-    final passphrase = await _askPassphrase(confirm: true, backup: true);
-    if (passphrase == null || !mounted) return;
     setState(() => busy = true);
     SnapshotBundle? bundle;
     try {
@@ -868,13 +865,12 @@ class _TransferPageState extends State<TransferPage> {
       await _waitForStateWriters();
       bundle = await snapshots.exportBackupBundle();
       // The complete ZIP is now immutable. Release writers before the user
-      // chooses a SAF directory or native encryption spends time on parts.
+      // chooses a SAF directory or native streaming spends time on parts.
       await db.setSetting('transfer_lock', '0');
       final now = DateTime.now().toUtc();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
       final saved = await android.saveMultipartBackup(
         sourcePath: bundle.filePath,
-        passphrase: passphrase,
         suggestedStem: 'ai_companion_backup_$stamp',
       );
       if (saved == null || saved['saved'] != true) {
@@ -882,13 +878,13 @@ class _TransferPageState extends State<TransferPage> {
         return;
       }
       final parts = (saved['partCount'] as num?)?.toInt() ?? 0;
-      final bytes = (saved['encryptedBytes'] as num?)?.toInt() ?? 0;
+      final bytes = (saved['archiveBytes'] as num?)?.toInt() ?? 0;
       _append(
-        '完整加密备份已保存为 $parts 个分卷（${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
+        '完整备份已保存为 $parts 个分卷（${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
         '本机保持 Active，可继续正常使用。',
       );
     } catch (e) {
-      _append('创建加密备份失败：$e。本机数据和 Active 状态未改变。');
+      _append('创建完整备份失败：$e。本机数据和 Active 状态未改变。');
     } finally {
       if (bundle != null) await _deleteCachePath(bundle.filePath);
       await db.setSetting('transfer_lock', '0');
@@ -897,20 +893,18 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Future<void> _backupImport() async {
-    final passphrase = await _askPassphrase(confirm: false, backup: true);
-    if (passphrase == null || !mounted) return;
     setState(() => busy = true);
-    String? decryptedPath;
+    String? restoredPath;
     try {
       await SnapshotCacheJanitor.clean();
-      final opened = await android.openMultipartBackup(passphrase: passphrase);
-      decryptedPath = opened?['filePath'] as String?;
-      if (decryptedPath == null) {
+      final opened = await android.openMultipartBackup();
+      restoredPath = opened?['filePath'] as String?;
+      if (restoredPath == null) {
         _append('已取消选择备份目录。');
         return;
       }
       final result = await snapshots.restoreBackupBundle(
-        decryptedPath,
+        restoredPath,
         allowLineageReplacement: true,
         confirmRestore: (metadata) async {
           if (!await _confirmBackupRestore(metadata)) return false;
@@ -938,9 +932,9 @@ class _TransferPageState extends State<TransferPage> {
     } catch (e) {
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
-      _append('恢复加密备份失败：$e；本机原数据未被半覆盖。');
+      _append('恢复完整备份失败：$e；本机原数据未被半覆盖。');
     } finally {
-      if (decryptedPath != null) await _deleteCachePath(decryptedPath);
+      if (restoredPath != null) await _deleteCachePath(restoredPath);
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
       if (mounted) setState(() => busy = false);
@@ -1013,10 +1007,10 @@ class _TransferPageState extends State<TransferPage> {
         const SizedBox(height: 22),
         const Divider(),
         const SizedBox(height: 10),
-        Text('普通加密备份', style: Theme.of(context).textTheme.titleMedium),
+        Text('完整备份', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text(
-          '保存完整关系状态、聊天图片和私人相册。文件使用口令派生密钥 + AES-256-GCM 加密，并自动按 192 MiB 分卷；口令不会保存。创建成功后本机不会下线，可以继续使用。',
+          '保存完整关系状态、聊天图片和私人相册，并自动按 192 MiB 分卷。备份不设置口令、不加密；每次创建独立存档文件夹。创建成功后本机不会下线，可以继续使用。',
         ),
         const SizedBox(height: 10),
         Row(
@@ -1024,8 +1018,8 @@ class _TransferPageState extends State<TransferPage> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _backupExport,
-                icon: const Icon(Icons.lock_outline),
-                label: const Text('创建加密备份'),
+                icon: const Icon(Icons.archive_outlined),
+                label: const Text('创建完整备份'),
               ),
             ),
             const SizedBox(width: 10),
@@ -1033,7 +1027,7 @@ class _TransferPageState extends State<TransferPage> {
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _backupImport,
                 icon: const Icon(Icons.folder_open),
-                label: const Text('恢复加密备份'),
+                label: const Text('恢复完整备份'),
               ),
             ),
           ],

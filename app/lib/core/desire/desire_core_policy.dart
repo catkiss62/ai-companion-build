@@ -49,6 +49,30 @@ class DesireCorePolicy {
   static const fatigueCompetitionFloor = 0.48;
   static const baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0;
   static const wildcardCooldown = Duration(hours: 6);
+  static const postTurnPulseBudget = 0.055;
+
+  /// A model-proposed post-turn pulse is transient interpretation, not a
+  /// second relationship event. Keep both each drive and the whole turn
+  /// bounded so a verbose extractor cannot push several axes to 1.0 at once.
+  static const postTurnPulseCaps = <DriveKey, double>{
+    DriveKey.attachment: 0.018,
+    DriveKey.curiosity: 0.022,
+    DriveKey.reflection: 0.022,
+    DriveKey.duty: 0.018,
+    DriveKey.social: 0.022,
+    DriveKey.libido: 0.018,
+    DriveKey.stress: 0.028,
+    DriveKey.fatigue: 0.020,
+  };
+
+  /// A normal incoming message refreshes attention, but is not by itself new
+  /// proof of closeness. Attachment growth remains owned by grounded model
+  /// pulses and durable relationship events.
+  static const ordinaryConversationPulses = <DriveKey, double>{
+    DriveKey.curiosity: 0.004,
+    DriveKey.reflection: 0.004,
+    DriveKey.social: 0.003,
+  };
 
   static const decayPerUnit = <DriveKey, double>{
     DriveKey.attachment: 0.010,
@@ -143,6 +167,26 @@ class DesireCorePolicy {
       refractoryUntil: refractory,
       scale: scale,
     );
+  }
+
+  static Map<DriveKey, double> normalizePostTurnPulses(
+    Map<DriveKey, double> pulses,
+  ) {
+    if (pulses.isEmpty) return const <DriveKey, double>{};
+    final bounded = <DriveKey, double>{};
+    var magnitude = 0.0;
+    for (final entry in pulses.entries) {
+      final cap = postTurnPulseCaps[entry.key] ?? 0.018;
+      final value = entry.value.clamp(-cap, cap).toDouble();
+      if (value.abs() < 0.000001) continue;
+      bounded[entry.key] = value;
+      magnitude += value.abs();
+    }
+    if (magnitude <= postTurnPulseBudget || magnitude == 0) return bounded;
+    final scale = postTurnPulseBudget / magnitude;
+    return {
+      for (final entry in bounded.entries) entry.key: entry.value * scale,
+    };
   }
 
   static List<DesireCoreCandidate> candidates({

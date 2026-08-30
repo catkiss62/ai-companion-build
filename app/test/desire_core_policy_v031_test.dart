@@ -394,4 +394,44 @@ void main() {
       lessThan(DriveKey.values.length),
     );
   });
+
+  test('post-turn model pulses have per-drive and whole-turn budgets', () {
+    final normalized = DesireCorePolicy.normalizePostTurnPulses({
+      for (final drive in DriveKey.values) drive: 0.12,
+    });
+
+    expect(
+      normalized[DriveKey.attachment]!,
+      lessThanOrEqualTo(DesireCorePolicy.postTurnPulseCaps[DriveKey.attachment]!),
+    );
+    expect(
+      normalized.values.fold<double>(0, (sum, value) => sum + value.abs()),
+      closeTo(DesireCorePolicy.postTurnPulseBudget, 1e-9),
+    );
+  });
+
+  test('rapid ordinary conversation does not mechanically pin attachment', () {
+    var now = DateTime(2026, 8, 12, 20, 0);
+    var snapshot = DesireSnapshot(lastTickAt: now);
+
+    for (var i = 0; i < 80; i++) {
+      now = now.add(const Duration(seconds: 20));
+      final advanced = DesireCorePolicy.advance(
+        snapshot: snapshot,
+        now: now,
+        pulses: DesireCorePolicy.ordinaryConversationPulses,
+      );
+      snapshot = snapshot.copyWith(
+        drives: advanced.drives,
+        baselines: advanced.baselines,
+        refractoryUntil: advanced.refractoryUntil,
+        lastTickAt: now,
+      );
+    }
+
+    expect(snapshot.drives[DriveKey.attachment]!, lessThan(0.60));
+    expect(snapshot.drives[DriveKey.curiosity]!, greaterThan(0.40));
+    expect(snapshot.drives[DriveKey.reflection]!, greaterThan(0.38));
+    expect(snapshot.drives[DriveKey.social]!, greaterThan(0.30));
+  });
 }

@@ -16,11 +16,12 @@ import '../../core/ai/qwen_vision_client.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/visible_reasoning_language_telemetry.dart';
 import '../../core/diagnostics/provider_health.dart';
+import '../../core/desire/desire_core_policy.dart';
 import '../../core/desire/desire_engine.dart';
-import '../../core/emotion/emotion_contract.dart';
 import '../../core/desire/proactive_rhythm_engine.dart';
 import '../../core/desire/thought_consolidation_engine.dart';
 import '../../core/desire/thought_lifecycle_engine.dart';
+import '../../core/emotion/emotion_contract.dart';
 import '../../core/maintenance/long_running_maintenance_engine.dart';
 import '../../core/integration/moe_shadow_coordinator.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
@@ -877,17 +878,11 @@ class ChatController extends ChangeNotifier {
       cancellation.throwIfCancelled();
       await memoryMaintenance.maybeRun();
       cancellation.throwIfCancelled();
-      await desireEngine.applyExperience({
-        DriveKey.attachment: 0.018,
-        DriveKey.social: 0.008,
-      }, baselineLearning: 0.0015);
-      cancellation.throwIfCancelled();
       await perceptionEngine.capture();
       cancellation.throwIfCancelled();
-      await desireEngine.tick(pulses: {
-        DriveKey.attachment: 0.025,
-        DriveKey.reflection: 0.012,
-      });
+      await desireEngine.tick(
+        pulses: DesireCorePolicy.ordinaryConversationPulses,
+      );
       cancellation.throwIfCancelled();
 
       await _executeCurrentProcessGeneration(

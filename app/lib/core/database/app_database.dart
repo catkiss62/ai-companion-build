@@ -10673,12 +10673,13 @@ class AppDatabase {
     DriveKey? satisfiedDrive,
     String satisfiedAction = '',
     double satisfactionIntensity = 0,
-    double baselineLearning = 0.018,
+    double baselineLearning = 0.002,
   }) async {
+    final normalizedPulses = DesireCorePolicy.normalizePostTurnPulses(pulses);
     final applySatisfaction = satisfiedDrive != null &&
         satisfiedAction.isNotEmpty &&
         satisfactionIntensity > 0;
-    if (runToken.isEmpty || (pulses.isEmpty && !applySatisfaction)) {
+    if (runToken.isEmpty || (normalizedPulses.isEmpty && !applySatisfaction)) {
       return true;
     }
     final db = await database;
@@ -10699,7 +10700,7 @@ class AppDatabase {
       var drives = Map<DriveKey, double>.from(snapshot.drives);
       final baselines = Map<DriveKey, double>.from(snapshot.baselines);
       final anchors = DesireSnapshot.defaultBaselines();
-      for (final entry in pulses.entries) {
+      for (final entry in normalizedPulses.entries) {
         final drive = entry.key;
         final delta = entry.value.clamp(-0.35, 0.35).toDouble();
         final anchor = anchors[drive] ?? 0.2;

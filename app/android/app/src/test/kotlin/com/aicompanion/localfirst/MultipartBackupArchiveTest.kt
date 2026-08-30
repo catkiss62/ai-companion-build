@@ -5,11 +5,13 @@ import java.io.ByteArrayOutputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONObject
 
 class MultipartBackupArchiveTest {
     @Test
-    fun aesGcmEnvelopeRoundTripsAcrossEncryptedParts() {
+    fun manualTakeoverAesGcmEnvelopeRoundTripsAcrossParts() {
         val source = ByteArray(257) { index -> (index * 11).toByte() }
         val outputs = linkedMapOf<String, ByteArrayOutputStream>()
         val split = SplitPartOutputStream(48) { name ->
@@ -36,6 +38,55 @@ class MultipartBackupArchiveTest {
         )
 
         assertArrayEquals(source, restored.toByteArray())
+    }
+
+    @Test
+    fun plainBackupManifestDeclaresNoProtectionAndRoundTrips() {
+        val parts = listOf(
+            BackupPartDescriptor(
+                name = "part-0001.aibpart",
+                bytes = 23L,
+                sha256 = "a".repeat(64),
+            ),
+            BackupPartDescriptor(
+                name = "part-0002.aibpart",
+                bytes = 19L,
+                sha256 = "b".repeat(64),
+            ),
+        )
+
+        val manifest = MultipartBackupArchive.buildManifest(parts, sourceBytes = 42L)
+
+        assertEquals("ai-companion-backup-parts", manifest.getString("format"))
+        assertEquals(2, manifest.getInt("format_version"))
+        assertEquals("none", manifest.getString("protection"))
+        assertEquals(42L, manifest.getLong("archive_bytes"))
+        assertEquals(parts, MultipartBackupArchive.parseManifest(manifest))
+    }
+
+    @Test
+    fun encryptedOrLegacyManifestIsRejectedByPlainBackupImporter() {
+        val parts = listOf(
+            BackupPartDescriptor(
+                name = "part-0001.aibpart",
+                bytes = 1L,
+                sha256 = "c".repeat(64),
+            ),
+        )
+        val encrypted = MultipartBackupArchive.buildManifest(parts, sourceBytes = 1L)
+            .put("protection", "aes-256-gcm")
+        val legacy = JSONObject(MultipartBackupArchive.buildManifest(parts, sourceBytes = 1L).toString())
+            .put("format", "ai-companion-encrypted-backup-parts")
+            .put("format_version", 1)
+
+        val encryptedError = assertThrows(IllegalArgumentException::class.java) {
+            MultipartBackupArchive.parseManifest(encrypted)
+        }
+        val legacyError = assertThrows(IllegalArgumentException::class.java) {
+            MultipartBackupArchive.parseManifest(legacy)
+        }
+        assertTrue(encryptedError.message.orEmpty().contains("protection"))
+        assertTrue(legacyError.message.orEmpty().contains("format"))
     }
 
     @Test

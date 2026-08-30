@@ -89,4 +89,5 @@ flutter {
 dependencies {
     implementation("com.google.android.gms:play-services-nearby:19.3.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }

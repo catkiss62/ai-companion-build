@@ -162,8 +162,8 @@ object MultipartBackupArchive {
     const val DEFAULT_PART_BYTES = 192L * 1024L * 1024L
     const val MAX_PARTS = 256
     private const val MANIFEST_NAME = "backup_manifest.json"
-    private const val FORMAT = "ai-companion-encrypted-backup-parts"
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT = "ai-companion-backup-parts"
+    private const val FORMAT_VERSION = 2
     private const val MAX_MANIFEST_BYTES = 1024 * 1024
     private const val MAX_SOURCE_ZIP_BYTES = 8L * 1024L * 1024L * 1024L
     private const val RESTORE_SPACE_RESERVE_BYTES = 256L * 1024L * 1024L
@@ -172,7 +172,6 @@ object MultipartBackupArchive {
         resolver: ContentResolver,
         parentTreeUri: Uri,
         sourceZip: File,
-        passphrase: CharArray,
         suggestedStem: String,
         partBytes: Long = DEFAULT_PART_BYTES,
     ): Map<String, Any?> {
@@ -204,7 +203,9 @@ object MultipartBackupArchive {
                 ) { "backup_part_create_failed" }
                 requireNotNull(resolver.openOutputStream(uri, "w")) { "backup_part_open_failed" }
             }
-            ManualSnapshotCrypto.encrypt(sourceZip.inputStream(), split, passphrase)
+            sourceZip.inputStream().use { input ->
+                split.use { output -> input.copyTo(output, 64 * 1024) }
+            }
             require(split.parts.isNotEmpty()) { "backup_parts_empty" }
             val manifest = buildManifest(split.parts, sourceZip.length())
             val manifestUri = requireNotNull(
@@ -223,7 +224,7 @@ object MultipartBackupArchive {
                 "saved" to true,
                 "directoryUri" to directory.toString(),
                 "partCount" to split.parts.size,
-                "encryptedBytes" to split.parts.sumOf { it.bytes },
+                "archiveBytes" to split.parts.sumOf { it.bytes },
                 "sourceBytes" to sourceZip.length(),
             )
         } catch (error: Throwable) {
@@ -236,7 +237,6 @@ object MultipartBackupArchive {
         resolver: ContentResolver,
         backupTreeUri: Uri,
         destinationZip: File,
-        passphrase: CharArray,
     ): Map<String, Any?> {
         val directory = documentUri(backupTreeUri)
         val children = listChildren(resolver, backupTreeUri, directory)
@@ -265,12 +265,10 @@ object MultipartBackupArchive {
             }
         }
         try {
-            VerifiedPartInputStream(inputs).use { encrypted ->
-                ManualSnapshotCrypto.decrypt(
-                    encrypted,
-                    FileOutputStream(destinationZip),
-                    passphrase,
-                )
+            VerifiedPartInputStream(inputs).use { source ->
+                FileOutputStream(destinationZip).use { target ->
+                    source.copyTo(target, 64 * 1024)
+                }
             }
             require(destinationZip.length() == sourceZipBytes) {
                 "backup_source_size_mismatch"
@@ -278,7 +276,7 @@ object MultipartBackupArchive {
             return mapOf(
                 "filePath" to destinationZip.absolutePath,
                 "partCount" to descriptors.size,
-                "encryptedBytes" to descriptors.sumOf { it.bytes },
+                "archiveBytes" to descriptors.sumOf { it.bytes },
             )
         } catch (error: Throwable) {
             runCatching { destinationZip.delete() }
@@ -310,9 +308,10 @@ object MultipartBackupArchive {
             .put("format", FORMAT)
             .put("format_version", FORMAT_VERSION)
             .put("archive_kind", "backup")
+            .put("protection", "none")
             .put("created_at", System.currentTimeMillis())
             .put("source_zip_bytes", sourceBytes)
-            .put("encrypted_bytes", parts.sumOf { it.bytes })
+            .put("archive_bytes", parts.sumOf { it.bytes })
             .put("part_bytes", DEFAULT_PART_BYTES)
             .put("parts", array)
     }
@@ -321,6 +320,7 @@ object MultipartBackupArchive {
         require(manifest.optString("format") == FORMAT) { "backup_manifest_format_invalid" }
         require(manifest.optInt("format_version", 0) == FORMAT_VERSION) { "backup_manifest_version_invalid" }
         require(manifest.optString("archive_kind") == "backup") { "backup_manifest_kind_invalid" }
+        require(manifest.optString("protection") == "none") { "backup_manifest_protection_invalid" }
         val array = manifest.optJSONArray("parts") ?: error("backup_manifest_parts_missing")
         require(array.length() in 1..MAX_PARTS) { "backup_part_count_invalid" }
         val names = mutableSetOf<String>()
@@ -338,8 +338,8 @@ object MultipartBackupArchive {
             require(sha256.matches(Regex("^[0-9a-f]{64}$"))) { "backup_part_hash_invalid" }
             parts += BackupPartDescriptor(name, bytes, sha256)
         }
-        require(manifest.optLong("encrypted_bytes", -1L) == parts.sumOf { it.bytes }) {
-            "backup_encrypted_size_mismatch"
+        require(manifest.optLong("archive_bytes", -1L) == parts.sumOf { it.bytes }) {
+            "backup_archive_size_mismatch"
         }
         return parts
     }

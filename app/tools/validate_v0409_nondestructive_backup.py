@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static contracts for v0.40.9 nondestructive encrypted backup."""
+"""Historical foundation contracts for v0.40.9 nondestructive backup."""
 
 from pathlib import Path
 import re
@@ -23,7 +23,7 @@ cleaner = read("android/app/src/main/kotlin/com/aicompanion/localfirst/SnapshotC
 dart_cleaner = read("lib/core/sync/snapshot_cache_janitor.dart")
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.40\.9\+138\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.40\.9\+138|0\.41\.0\+139)\s*$", pubspec, re.M)
 
 for token in (
     "enum SnapshotArchiveKind",
@@ -48,8 +48,6 @@ assert snapshot.index("await preparedFiles.activate()", snapshot.index("_restore
 )
 
 for token in (
-    "创建加密备份",
-    "恢复加密备份",
     "本机保持 Active",
     "512 MiB",
     "SnapshotCacheJanitor.clean()",
@@ -63,8 +61,6 @@ for token in ("saveMultipartBackup", "openMultipartBackup"):
 
 for token in (
     "DEFAULT_PART_BYTES = 192L * 1024L * 1024L",
-    "ManualSnapshotCrypto.encrypt",
-    "ManualSnapshotCrypto.decrypt",
     "SplitPartOutputStream",
     "VerifiedPartInputStream",
     "backup_manifest.json",
@@ -90,12 +86,10 @@ for token in (
 assert "static const Duration staleAfter = Duration(hours: 24)" in dart_cleaner
 assert "activePaths" in cleaner and "activePaths" in dart_cleaner
 
-for token in (
-    "Build AI Companion v0.40.9+138 APK (Nondestructive Backup)",
-    "agent/v0409-nondestructive-backup",
-    "AI-Companion-v0.40.9-138-Nondestructive-Backup-APK",
-    "python3 tools/validate_v0409_nondestructive_backup.py",
-):
-    assert token in workflow, token
+assert "python3 tools/validate_v0409_nondestructive_backup.py" in workflow
+assert (
+    "Build AI Companion v0.40.9+138 APK (Nondestructive Backup)" in workflow
+    or "Build AI Companion v0.41.0+139 APK (Plain Backup Overlay Desire)" in workflow
+)
 
 print("v0.40.9 nondestructive backup validation passed")

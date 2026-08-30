@@ -112,7 +112,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Future<void> _consumeOpenChatLaunch() async {
     final requested = await AndroidBridge.instance.consumeOpenChatLaunch();
     if (!mounted || !requested) return;
-    setState(() => index = 1);
+    _openChat();
   }
 
   @override
@@ -131,7 +131,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _openChat() {
     if (!mounted) return;
-    setState(() => index = 1);
+    // AppShell stays mounted underneath pushed pages such as “查手机”. Merely
+    // changing the IndexedStack tab therefore leaves that route covering the
+    // chat page. An overlay “打开” request is an explicit request to return to
+    // the real chat destination, so unwind every secondary route first.
+    Navigator.maybeOf(context, rootNavigator: true)?.popUntil(
+      (route) => route.isFirst,
+    );
+    if (index != 1) setState(() => index = 1);
   }
 
   @override

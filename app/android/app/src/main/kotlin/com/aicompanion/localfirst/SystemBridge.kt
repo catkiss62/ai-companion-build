@@ -344,15 +344,11 @@ class SystemBridge(
                 )
                 "saveMultipartBackup" -> startMultipartBackupSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
-                    passphrase = call.argument<String>("passphrase") ?: "",
                     suggestedStem = call.argument<String>("suggestedStem")
                         ?: "ai_companion_backup",
                     result = result,
                 )
-                "openMultipartBackup" -> startMultipartBackupOpen(
-                    passphrase = call.argument<String>("passphrase") ?: "",
-                    result = result,
-                )
+                "openMultipartBackup" -> startMultipartBackupOpen(result = result)
                 "saveDiagnosticReport" -> startDiagnosticReportSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     suggestedName = call.argument<String>("suggestedName") ?: "ai_companion_diagnostics.txt",
@@ -507,11 +503,10 @@ class SystemBridge(
             )
             val result = manualDocumentResult ?: return
             val operation = manualOperation
-            val passphrase = manualPassphrase
             val sourcePath = manualSourcePath
             val suggestedName = manualSuggestedName
             val treeUri = data?.data
-            if (resultCode != Activity.RESULT_OK || treeUri == null || passphrase == null) {
+            if (resultCode != Activity.RESULT_OK || treeUri == null) {
                 result.success(null)
                 clearManualDocumentState()
                 return
@@ -532,7 +527,6 @@ class SystemBridge(
                             resolver = activity.contentResolver,
                             parentTreeUri = treeUri,
                             sourceZip = File(requireNotNull(sourcePath)),
-                            passphrase = passphrase,
                             suggestedStem = suggestedName
                                 ?: File(sourcePath).nameWithoutExtension,
                         )
@@ -543,7 +537,6 @@ class SystemBridge(
                                 activity.cacheDir,
                                 "ai_companion_backup_${System.currentTimeMillis()}.zip",
                             ),
-                            passphrase = passphrase,
                         )
                         else -> error("multipart_backup_unknown_operation")
                     }
@@ -672,11 +665,10 @@ class SystemBridge(
 
     private fun startMultipartBackupSave(
         sourcePath: String,
-        passphrase: String,
         suggestedStem: String,
         result: MethodChannel.Result,
     ) {
-        if (!beginManualOperation("backup_save", sourcePath, passphrase, result)) return
+        if (!beginMultipartBackupOperation("backup_save", sourcePath, result)) return
         val safeStem = suggestedStem
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
             .take(80)
@@ -695,10 +687,9 @@ class SystemBridge(
     }
 
     private fun startMultipartBackupOpen(
-        passphrase: String,
         result: MethodChannel.Result,
     ) {
-        if (!beginManualOperation("backup_open", null, passphrase, result)) return
+        if (!beginMultipartBackupOperation("backup_open", null, result)) return
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -830,7 +821,7 @@ class SystemBridge(
             result.error("manual_snapshot_passphrase", "Passphrase must be 8..128 characters", null)
             return false
         }
-        if (operation == "save" || operation == "backup_save") {
+        if (operation == "save") {
             val file = File(sourcePath.orEmpty())
             if (!file.exists() || !file.isFile) {
                 result.error("manual_snapshot_source_missing", "Snapshot ZIP does not exist", null)
@@ -839,6 +830,29 @@ class SystemBridge(
         }
         manualDocumentResult = result
         manualPassphrase = passphrase.toCharArray()
+        manualSourcePath = sourcePath
+        manualOperation = operation
+        return true
+    }
+
+    private fun beginMultipartBackupOperation(
+        operation: String,
+        sourcePath: String?,
+        result: MethodChannel.Result,
+    ): Boolean {
+        if (manualDocumentResult != null) {
+            result.error("multipart_backup_busy", "Another backup picker is already open", null)
+            return false
+        }
+        if (operation == "backup_save") {
+            val file = File(sourcePath.orEmpty())
+            if (!file.exists() || !file.isFile) {
+                result.error("multipart_backup_source_missing", "Snapshot ZIP does not exist", null)
+                return false
+            }
+        }
+        manualDocumentResult = result
+        manualPassphrase = null
         manualSourcePath = sourcePath
         manualOperation = operation
         return true
