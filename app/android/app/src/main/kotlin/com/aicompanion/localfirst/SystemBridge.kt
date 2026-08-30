@@ -45,6 +45,7 @@ class SystemBridge(
     private var manualPassphrase: CharArray? = null
     private var manualSourcePath: String? = null
     private var manualOperation: String? = null
+    private var manualSuggestedName: String? = null
     private var reportDocumentResult: MethodChannel.Result? = null
     private var reportSourcePath: String? = null
     private var promptDocumentResult: MethodChannel.Result? = null
@@ -53,6 +54,7 @@ class SystemBridge(
     private var directPickerGuardDepth = 0
 
     init {
+        SnapshotCacheCleaner.clean(activity)
         nearbyEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 nearbySink = events
@@ -340,6 +342,17 @@ class SystemBridge(
                     passphrase = call.argument<String>("passphrase") ?: "",
                     result = result,
                 )
+                "saveMultipartBackup" -> startMultipartBackupSave(
+                    sourcePath = call.argument<String>("sourcePath") ?: "",
+                    passphrase = call.argument<String>("passphrase") ?: "",
+                    suggestedStem = call.argument<String>("suggestedStem")
+                        ?: "ai_companion_backup",
+                    result = result,
+                )
+                "openMultipartBackup" -> startMultipartBackupOpen(
+                    passphrase = call.argument<String>("passphrase") ?: "",
+                    result = result,
+                )
                 "saveDiagnosticReport" -> startDiagnosticReportSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     suggestedName = call.argument<String>("suggestedName") ?: "ai_companion_diagnostics.txt",
@@ -484,6 +497,70 @@ class SystemBridge(
             }.start()
             return
         }
+        if (requestCode == REQUEST_BACKUP_SAVE || requestCode == REQUEST_BACKUP_OPEN) {
+            endDirectPickerOverlayGuard(
+                if (requestCode == REQUEST_BACKUP_SAVE) {
+                    "multipart_backup_save_picker_returned"
+                } else {
+                    "multipart_backup_open_picker_returned"
+                },
+            )
+            val result = manualDocumentResult ?: return
+            val operation = manualOperation
+            val passphrase = manualPassphrase
+            val sourcePath = manualSourcePath
+            val suggestedName = manualSuggestedName
+            val treeUri = data?.data
+            if (resultCode != Activity.RESULT_OK || treeUri == null || passphrase == null) {
+                result.success(null)
+                clearManualDocumentState()
+                return
+            }
+            manualDocumentResult = null
+            manualPassphrase = null
+            manualSourcePath = null
+            manualOperation = null
+            manualSuggestedName = null
+            Thread {
+                runCatching {
+                    SnapshotCacheCleaner.clean(
+                        activity,
+                        activePaths = sourcePath?.let { setOf(it) } ?: emptySet(),
+                    )
+                    when (operation) {
+                        "backup_save" -> MultipartBackupArchive.export(
+                            resolver = activity.contentResolver,
+                            parentTreeUri = treeUri,
+                            sourceZip = File(requireNotNull(sourcePath)),
+                            passphrase = passphrase,
+                            suggestedStem = suggestedName
+                                ?: File(sourcePath).nameWithoutExtension,
+                        )
+                        "backup_open" -> MultipartBackupArchive.restore(
+                            resolver = activity.contentResolver,
+                            backupTreeUri = treeUri,
+                            destinationZip = File(
+                                activity.cacheDir,
+                                "ai_companion_backup_${System.currentTimeMillis()}.zip",
+                            ),
+                            passphrase = passphrase,
+                        )
+                        else -> error("multipart_backup_unknown_operation")
+                    }
+                }.onSuccess { value ->
+                    activity.runOnUiThread { result.success(value) }
+                }.onFailure { error ->
+                    activity.runOnUiThread {
+                        result.error(
+                            "multipart_backup_failed",
+                            error.message ?: error.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+            }.start()
+            return
+        }
         if (requestCode != REQUEST_MANUAL_SAVE && requestCode != REQUEST_MANUAL_OPEN) return
         endDirectPickerOverlayGuard(
             if (requestCode == REQUEST_MANUAL_SAVE) {
@@ -509,6 +586,7 @@ class SystemBridge(
         manualPassphrase = null
         manualSourcePath = null
         manualOperation = null
+        manualSuggestedName = null
         Thread {
             runCatching {
                 when (operation) {
@@ -589,6 +667,47 @@ class SystemBridge(
                 endDirectPickerOverlayGuard("manual_snapshot_open_picker_launch_failed")
                 clearManualDocumentState()
                 result.error("manual_snapshot_picker", error.message ?: error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startMultipartBackupSave(
+        sourcePath: String,
+        passphrase: String,
+        suggestedStem: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!beginManualOperation("backup_save", sourcePath, passphrase, result)) return
+        val safeStem = suggestedStem
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .take(80)
+            .ifBlank { "ai_companion_backup" }
+        manualSuggestedName = safeStem
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        beginDirectPickerOverlayGuard("multipart_backup_save_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_BACKUP_SAVE) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("multipart_backup_save_picker_launch_failed")
+                clearManualDocumentState()
+                result.error("multipart_backup_picker", error.message ?: error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startMultipartBackupOpen(
+        passphrase: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!beginManualOperation("backup_open", null, passphrase, result)) return
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        beginDirectPickerOverlayGuard("multipart_backup_open_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_BACKUP_OPEN) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("multipart_backup_open_picker_launch_failed")
+                clearManualDocumentState()
+                result.error("multipart_backup_picker", error.message ?: error.javaClass.simpleName, null)
             }
     }
 
@@ -711,7 +830,7 @@ class SystemBridge(
             result.error("manual_snapshot_passphrase", "Passphrase must be 8..128 characters", null)
             return false
         }
-        if (operation == "save") {
+        if (operation == "save" || operation == "backup_save") {
             val file = File(sourcePath.orEmpty())
             if (!file.exists() || !file.isFile) {
                 result.error("manual_snapshot_source_missing", "Snapshot ZIP does not exist", null)
@@ -730,6 +849,7 @@ class SystemBridge(
         manualPassphrase = null
         manualSourcePath = null
         manualOperation = null
+        manualSuggestedName = null
         manualDocumentResult = null
     }
 
@@ -1157,6 +1277,8 @@ class SystemBridge(
         private const val REQUEST_DIAGNOSTIC_SAVE = 4205
         private const val REQUEST_PROMPT_SAVE = 4206
         private const val REQUEST_PROMPT_OPEN = 4207
+        private const val REQUEST_BACKUP_SAVE = 4208
+        private const val REQUEST_BACKUP_OPEN = 4209
         private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
     }
 }

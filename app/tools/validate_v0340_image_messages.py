@@ -103,7 +103,10 @@ assert "insertMessageWithAttachments" in controller
 assert "message.promptContent" in history
 assert "!lastUser.expectsReply" in grounding
 
-assert "'protocol_version': 3" in snapshot or "'protocol_version': 4" in snapshot
+assert any(
+    token in snapshot
+    for token in ("'protocol_version': 3", "'protocol_version': 4", "'protocol_version': 5")
+)
 for token in (
     "'attachment_files': attachmentFiles",
     "'missing_attachment_files': missingAttachmentFiles",

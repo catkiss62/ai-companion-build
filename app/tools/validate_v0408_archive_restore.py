@@ -22,7 +22,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.40\.8\+137\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.40\.(?:8\+137|9\+138)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 40;" in database
 
 export = database.split("Future<Map<String, Object?>> exportAll()", 1)[1].split(
@@ -61,15 +61,15 @@ assert import_all.index("'autonomous_action_runs'") < import_all.index(
 assert "Future<bool> cancelPreparedTransferSnapshot(String snapshotId)" in database
 assert "'state_generation': '${current + 1}'" in database
 
+assert "'protocol_version': 4" in snapshot or "'protocol_version': 5" in snapshot
+assert "protocolVersion: 4" in snapshot or "protocolVersion: 5" in snapshot
+assert "protocolVersion > 4" in snapshot or "protocolVersion > 5" in snapshot
 for token in (
-    "'protocol_version': 4",
-    "protocolVersion: 4",
     "'album_files': albumFiles",
     "'missing_album_files': missingAlbumFiles",
     "'album_bytes': albumBytes",
     "_validateAlbumPayload(",
     "_normalizeArchiveStateDomains(backup, protocolVersion)",
-    "protocolVersion > 4",
     "final preparedFiles = await _prepareValidatedFiles(validated)",
     "await preparedFiles.activate()",
     "await db.importAll(",
@@ -111,12 +111,10 @@ for token in (
 ):
     assert token in tests, token
 
-for token in (
-    "Build AI Companion v0.40.8+137 APK (Archive Restore Correctness)",
-    "agent/v0408-archive-restore-correctness",
-    "AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK",
-    "python3 tools/validate_v0408_archive_restore.py",
-):
-    assert token in workflow, token
+assert "python3 tools/validate_v0408_archive_restore.py" in workflow
+assert (
+    "Build AI Companion v0.40.8+137 APK (Archive Restore Correctness)" in workflow
+    or "Build AI Companion v0.40.9+138 APK (Nondestructive Backup)" in workflow
+)
 
 print("v0.40.8 archive restore correctness validation passed")

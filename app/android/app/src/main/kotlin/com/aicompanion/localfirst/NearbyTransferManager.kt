@@ -162,6 +162,17 @@ class NearbyTransferManager private constructor(private val context: Context) {
             emit("transferFailed", mapOf("status" to "file_not_found"))
             return
         }
+        if (file.length() > MAX_NEARBY_PAYLOAD_BYTES) {
+            emit(
+                "transferFailed",
+                mapOf(
+                    "status" to "payload_too_large_use_multipart_backup",
+                    "payloadBytes" to file.length(),
+                    "maxPayloadBytes" to MAX_NEARBY_PAYLOAD_BYTES,
+                ),
+            )
+            return
+        }
         val session = SnapshotSession(snapshotId, lineageId, sourceDeviceId, sourceGeneration, stateSha256)
         if (!session.valid()) {
             emit("transferFailed", mapOf("status" to "invalid_snapshot_metadata"))

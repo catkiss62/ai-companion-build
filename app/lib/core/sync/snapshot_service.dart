@@ -13,6 +13,21 @@ import '../storage/message_attachment_storage.dart';
 import '../storage/snapshot_directory_swap.dart';
 import 'transfer_identity.dart';
 
+enum SnapshotArchiveKind {
+  takeover('takeover'),
+  backup('backup');
+
+  const SnapshotArchiveKind(this.key);
+  final String key;
+
+  static SnapshotArchiveKind parse(String value) {
+    return SnapshotArchiveKind.values.firstWhere(
+      (item) => item.key == value,
+      orElse: () => throw FormatException('未知状态包用途：$value'),
+    );
+  }
+}
+
 class SnapshotMetadata {
   const SnapshotMetadata({
     required this.snapshotId,
@@ -25,6 +40,7 @@ class SnapshotMetadata {
     required this.schemaVersion,
     required this.createdAt,
     required this.protocolVersion,
+    this.archiveKind = SnapshotArchiveKind.takeover,
     this.legacy = false,
   });
 
@@ -38,9 +54,12 @@ class SnapshotMetadata {
   final int schemaVersion;
   final DateTime createdAt;
   final int protocolVersion;
+  final SnapshotArchiveKind archiveKind;
   final bool legacy;
 
   bool get hasCompleteArchiveState => protocolVersion >= 4;
+  bool get isBackup => archiveKind == SnapshotArchiveKind.backup;
+  bool get isTakeover => archiveKind == SnapshotArchiveKind.takeover;
 }
 
 class SnapshotBundle {
@@ -61,11 +80,15 @@ class SnapshotImportResult {
     required this.metadata,
     required this.imported,
     required this.duplicate,
+    this.restoredFromBackup = false,
+    this.requiresManualTakeover = false,
   });
 
   final SnapshotMetadata metadata;
   final bool imported;
   final bool duplicate;
+  final bool restoredFromBackup;
+  final bool requiresManualTakeover;
 }
 
 class SnapshotLineageMismatch implements Exception {
@@ -155,11 +178,29 @@ class SnapshotService {
   final CompanionAlbumStorage albumStorage;
   final Uuid _uuid = const Uuid();
 
-  Future<SnapshotBundle> exportBundle() async {
+  Future<SnapshotBundle> exportBundle() =>
+      _exportBundle(SnapshotArchiveKind.takeover);
+
+  Future<SnapshotBundle> exportBackupBundle() =>
+      _exportBundle(SnapshotArchiveKind.backup);
+
+  Future<SnapshotBundle> _exportBundle(SnapshotArchiveKind archiveKind) async {
     final snapshotId = _uuid.v4();
-    final identity = await db.reserveTransferSnapshot(snapshotId);
+    final isTakeover = archiveKind == SnapshotArchiveKind.takeover;
+    final identity = isTakeover
+        ? await db.reserveTransferSnapshot(snapshotId)
+        : await db.transferStateIdentity();
     try {
+      if (!isTakeover) {
+        if (await db.getSetting('transfer_lock') != '1') {
+          throw StateError('创建普通备份前必须先冻结本机写入。');
+        }
+        if (await db.getSetting('active_brain') == '0') {
+          throw StateError('只有当前 Active Brain 可以创建普通备份。');
+        }
+      }
       final exported = await db.exportAll();
+      if (!isTakeover) _normalizeBackupRuntimeSettings(exported);
       final jsonBytes = utf8.encode(jsonEncode(exported));
       final digest = sha256.convert(jsonBytes).toString();
       final now = DateTime.now().toUtc();
@@ -183,8 +224,14 @@ class SnapshotService {
             _settingFromBackup(exported, 'pending_outbound_generation'),
           ) ??
           -1;
-      if (pendingSnapshotId != snapshotId || pendingGeneration != identity.generation) {
+      if (isTakeover &&
+          (pendingSnapshotId != snapshotId ||
+              pendingGeneration != identity.generation)) {
         throw StateError('冻结状态代次与导出内容不一致，已拒绝生成状态包。');
+      }
+      if (!isTakeover &&
+          (pendingSnapshotId.isNotEmpty || pendingGeneration != 0)) {
+        throw StateError('普通备份不能携带待发送接管状态。');
       }
       if (exported['state_lineage_id'] != identity.lineageId ||
           exported['state_generation'] != identity.generation ||
@@ -218,7 +265,7 @@ class SnapshotService {
         await target.parent.create(recursive: true);
         await source.copy(target.path);
         attachmentFiles[relative] =
-            sha256.convert(await target.readAsBytes()).toString();
+            (await sha256.bind(target.openRead()).first).toString();
       }
       final albumFiles = <String, String>{};
       final missingAlbumFiles = <String>[];
@@ -238,11 +285,12 @@ class SnapshotService {
         await target.parent.create(recursive: true);
         await source.copy(target.path);
         albumFiles[relative] =
-            sha256.convert(await target.readAsBytes()).toString();
+            (await sha256.bind(target.openRead()).first).toString();
       }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
-        'protocol_version': 4,
+        'protocol_version': 5,
+        'archive_kind': archiveKind.key,
         'schema_version': AppDatabase.schemaVersion,
         'snapshot_id': snapshotId,
         'lineage_id': identity.lineageId,
@@ -258,7 +306,9 @@ class SnapshotService {
         'album_files': albumFiles,
         'missing_album_files': missingAlbumFiles,
         'album_bytes': albumBytes,
-        'encryption': 'nearby_transport_or_manual_aes_gcm',
+        'encryption': isTakeover
+            ? 'nearby_transport_or_manual_aes_gcm'
+            : 'manual_multipart_aes_256_gcm',
       };
       await manifestFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(manifest),
@@ -297,7 +347,8 @@ class SnapshotService {
           stateBytes: jsonBytes.length,
           schemaVersion: AppDatabase.schemaVersion,
           createdAt: now,
-          protocolVersion: 4,
+          protocolVersion: 5,
+          archiveKind: archiveKind,
         ),
       );
       } finally {
@@ -307,7 +358,7 @@ class SnapshotService {
         if (await work.exists()) await work.delete(recursive: true);
       }
     } catch (_) {
-      await db.cancelPreparedTransferSnapshot(snapshotId);
+      if (isTakeover) await db.cancelPreparedTransferSnapshot(snapshotId);
       rethrow;
     }
   }
@@ -331,7 +382,33 @@ class SnapshotService {
   }) async {
     final validated = await _readValidatedBundle(zipPath, allowLegacy: allowLegacy);
     try {
+      if (validated.metadata.isBackup) {
+        throw const FormatException('这是普通备份，请使用“恢复加密备份”导入。');
+      }
       return await _importValidatedBundle(
+        validated,
+        allowLineageReplacement: allowLineageReplacement,
+      );
+    } finally {
+      await validated.dispose();
+    }
+  }
+
+  Future<SnapshotImportResult?> restoreBackupBundle(
+    String zipPath, {
+    bool allowLineageReplacement = false,
+    Future<bool> Function(SnapshotMetadata metadata)? confirmRestore,
+  }) async {
+    final validated = await _readValidatedBundle(zipPath, allowLegacy: false);
+    try {
+      if (!validated.metadata.isBackup) {
+        throw const FormatException('这不是普通备份，请使用设备接管入口导入。');
+      }
+      if (confirmRestore != null &&
+          !await confirmRestore(validated.metadata)) {
+        return null;
+      }
+      return await _restoreValidatedBackup(
         validated,
         allowLineageReplacement: allowLineageReplacement,
       );
@@ -464,6 +541,67 @@ class SnapshotService {
     );
   }
 
+  Future<SnapshotImportResult> _restoreValidatedBackup(
+    _ValidatedSnapshot validated, {
+    required bool allowLineageReplacement,
+  }) async {
+    final metadata = validated.metadata;
+    final localDeviceId = await db.ensureDeviceId();
+    final localIdentity = await db.transferStateIdentity();
+    if (metadata.lineageId != localIdentity.lineageId &&
+        !allowLineageReplacement) {
+      throw SnapshotLineageMismatch(
+        localLineageId: localIdentity.lineageId,
+        incomingLineageId: metadata.lineageId,
+      );
+    }
+
+    final sameInstallation = metadata.sourceDeviceId == localDeviceId;
+    final restoredGeneration =
+        (localIdentity.generation > metadata.sourceGeneration
+                ? localIdentity.generation
+                : metadata.sourceGeneration) +
+            1;
+    final runtime = <String, String>{
+      ..._restoredRuntimeSettings,
+      'device_id': localDeviceId,
+      'state_lineage_id': metadata.lineageId,
+      'state_generation': '$restoredGeneration',
+      'active_brain': sameInstallation ? '1' : '0',
+      'recovery_orchestrator_state':
+          sameInstallation ? 'idle_after_backup_restore' : 'standby_after_backup_restore',
+      'recovery_orchestrator_last_wake_reason': 'backup_restore',
+      'pending_import_snapshot_id': sameInstallation ? '' : metadata.snapshotId,
+      'pending_import_lineage_id': sameInstallation ? '' : metadata.lineageId,
+      'pending_import_source_device_id':
+          sameInstallation ? '' : metadata.sourceDeviceId,
+      'pending_import_generation':
+          sameInstallation ? '0' : '$restoredGeneration',
+      'pending_import_state_sha256':
+          sameInstallation ? '' : metadata.stateSha256,
+    };
+
+    final preparedFiles = await _prepareValidatedFiles(validated);
+    try {
+      await preparedFiles.activate();
+      await db.importAll(
+        validated.backup,
+        runtimeSettingOverrides: runtime,
+      );
+    } catch (_) {
+      await preparedFiles.rollback();
+      rethrow;
+    }
+    await preparedFiles.commit();
+    return SnapshotImportResult(
+      metadata: metadata,
+      imported: true,
+      duplicate: false,
+      restoredFromBackup: true,
+      requiresManualTakeover: !sameInstallation,
+    );
+  }
+
   Future<_PreparedSnapshotFiles> _prepareValidatedFiles(
     _ValidatedSnapshot validated,
   ) async {
@@ -504,7 +642,7 @@ class SnapshotService {
     if (!await source.exists()) {
       throw const FormatException('状态包文件不存在');
     }
-    const maxArchiveBytes = 768 * 1024 * 1024;
+    const maxArchiveBytes = 8 * 1024 * 1024 * 1024;
     if (await source.length() > maxArchiveBytes) {
       throw const FormatException('状态包异常过大，已拒绝导入');
     }
@@ -524,8 +662,8 @@ class SnapshotService {
       archive = ZipDecoder().decodeStream(input);
       const maxStateBytes = 480 * 1024 * 1024;
       const maxManifestBytes = 1024 * 1024;
-      const maxBundledFileBytes = 512 * 1024 * 1024;
-      const maxExpandedBytes = 768 * 1024 * 1024;
+      const maxBundledFileBytes = 8 * 1024 * 1024 * 1024;
+      const maxExpandedBytes = 9 * 1024 * 1024 * 1024;
       final seen = <String>{};
       var stateSize = 0;
       var manifestSize = 0;
@@ -621,9 +759,12 @@ class SnapshotService {
       }
 
       final protocolVersion = (manifest['protocol_version'] as num?)?.toInt() ?? 1;
-      if (protocolVersion < 1 || protocolVersion > 4) {
+      if (protocolVersion < 1 || protocolVersion > 5) {
         throw FormatException('状态包协议版本不受支持：$protocolVersion');
       }
+      final archiveKind = protocolVersion >= 5
+          ? SnapshotArchiveKind.parse(manifest['archive_kind']?.toString() ?? '')
+          : SnapshotArchiveKind.takeover;
       _normalizeArchiveStateDomains(backup, protocolVersion);
       await _validateAttachmentPayload(
         target: target,
@@ -657,12 +798,26 @@ class SnapshotService {
             backup['source_device_id'] != sourceDeviceId) {
           throw const FormatException('manifest 与 state.json 的状态身份不一致');
         }
-        if (_settingFromBackup(backup, 'state_lineage_id') != lineageId ||
-            int.tryParse(_settingFromBackup(backup, 'state_generation')) != sourceGeneration ||
-            _settingFromBackup(backup, 'device_id') != sourceDeviceId ||
-            _settingFromBackup(backup, 'pending_outbound_snapshot_id') != snapshotId ||
-            int.tryParse(_settingFromBackup(backup, 'pending_outbound_generation')) != sourceGeneration) {
-          throw const FormatException('状态包内部 settings 与 manifest 身份不一致');
+        final pendingSnapshotId =
+            _settingFromBackup(backup, 'pending_outbound_snapshot_id');
+        final pendingGeneration = int.tryParse(
+              _settingFromBackup(backup, 'pending_outbound_generation'),
+            ) ??
+            0;
+        final sharedIdentityMatches =
+            _settingFromBackup(backup, 'state_lineage_id') == lineageId &&
+                int.tryParse(_settingFromBackup(backup, 'state_generation')) ==
+                    sourceGeneration &&
+                _settingFromBackup(backup, 'device_id') == sourceDeviceId;
+        final archiveIntentMatches = archiveKind == SnapshotArchiveKind.takeover
+            ? pendingSnapshotId == snapshotId &&
+                pendingGeneration == sourceGeneration
+            : pendingSnapshotId.isEmpty &&
+                pendingGeneration == 0 &&
+                _settingFromBackup(backup, 'transfer_lock') == '0' &&
+                _settingFromBackup(backup, 'active_brain') == '1';
+        if (!sharedIdentityMatches || !archiveIntentMatches) {
+          throw const FormatException('状态包内部 settings、用途与 manifest 身份不一致');
         }
         final createdAt = DateTime.tryParse(manifest['created_at'] as String? ?? '')?.toUtc();
         if (createdAt == null) throw const FormatException('状态包创建时间无效');
@@ -679,6 +834,7 @@ class SnapshotService {
             schemaVersion: manifestVersion,
             createdAt: createdAt,
             protocolVersion: protocolVersion,
+            archiveKind: archiveKind,
           ),
           backup,
           target,
@@ -707,6 +863,7 @@ class SnapshotService {
           schemaVersion: manifestVersion,
           createdAt: createdAt,
           protocolVersion: 1,
+          archiveKind: SnapshotArchiveKind.takeover,
           legacy: true,
         ),
         backup,
@@ -817,9 +974,9 @@ class SnapshotService {
               .replaceAll('\\', '/'),
         );
         observed.add(relative);
-        final bytes = await entity.readAsBytes();
-        actualBytes += bytes.length;
-        if (sha256.convert(bytes).toString() != hashes[relative]) {
+        actualBytes += await entity.length();
+        final digest = await sha256.bind(entity.openRead()).first;
+        if (digest.toString() != hashes[relative]) {
           throw FormatException('图片附件 SHA-256 校验失败：$relative');
         }
       }
@@ -890,9 +1047,9 @@ class SnapshotService {
               .replaceAll('\\', '/'),
         );
         observed.add(relative);
-        final bytes = await entity.readAsBytes();
-        actualBytes += bytes.length;
-        if (sha256.convert(bytes).toString() != hashes[relative]) {
+        actualBytes += await entity.length();
+        final digest = await sha256.bind(entity.openRead()).first;
+        if (digest.toString() != hashes[relative]) {
           throw FormatException('私人相册 SHA-256 校验失败：$relative');
         }
       }
@@ -953,4 +1110,79 @@ class SnapshotService {
     }
     return '';
   }
+
+  static void _normalizeBackupRuntimeSettings(Map<String, Object?> backup) {
+    final rawTables = backup['tables'];
+    if (rawTables is! Map) {
+      throw const FormatException('普通备份缺少 settings 表。');
+    }
+    final rows = rawTables['settings'];
+    if (rows is! List) {
+      throw const FormatException('普通备份缺少 settings 表。');
+    }
+    final replacements = <String, String>{
+      ..._restoredRuntimeSettings,
+      'active_brain': '1',
+      'recovery_orchestrator_state': 'idle',
+      'recovery_orchestrator_last_wake_reason': 'backup_export',
+    };
+    final normalizedRows = <Map<String, Object?>>[];
+    final seen = <String>{};
+    for (final raw in rows) {
+      if (raw is! Map) continue;
+      final row = Map<String, Object?>.from(raw);
+      final key = row['key']?.toString() ?? '';
+      final value = replacements[key];
+      if (value != null) {
+        row['value'] = value;
+        seen.add(key);
+      }
+      normalizedRows.add(row);
+    }
+    for (final entry in replacements.entries) {
+      if (seen.contains(entry.key)) continue;
+      normalizedRows.add(<String, Object?>{
+        'key': entry.key,
+        'value': entry.value,
+      });
+    }
+    rawTables['settings'] = normalizedRows;
+  }
+
+  static const Map<String, String> _restoredRuntimeSettings = <String, String>{
+    'transfer_lock': '0',
+    'pending_outbound_snapshot_id': '',
+    'pending_outbound_generation': '0',
+    'pending_import_snapshot_id': '',
+    'pending_import_lineage_id': '',
+    'pending_import_source_device_id': '',
+    'pending_import_generation': '0',
+    'pending_import_state_sha256': '',
+    'proactive_lease_until': '0',
+    'memory_maintenance_lease_until': '0',
+    'relationship_assimilation_lease_until': '0',
+    'deferred_followup_lease_until': '0',
+    'self_drive_lease_until': '0',
+    'thought_lifecycle_lease_until': '0',
+    'thought_consolidation_lease_until': '0',
+    'ai_self_reflection_lease_until': '0',
+    'conversation_summary_lease_until': '0',
+    'long_running_maintenance_lease': '0',
+    'post_turn_memory_lease': '0',
+    'chat_turn_lease': '0',
+    'recovery_orchestrator_lease_until': '0',
+    'recovery_orchestrator_last_started_at': '0',
+    'recovery_orchestrator_last_completed_at': '0',
+    'recovery_orchestrator_cycle_count': '0',
+    'recovery_orchestrator_last_proactive_reason': '',
+    'recovery_orchestrator_next_wake_at': '0',
+    'recovery_orchestrator_next_heartbeat_at': '0',
+    'recovery_orchestrator_last_error': '',
+    'last_perception_capture_at': '0',
+    'last_perception_summary': '',
+    'last_long_usage_thought_at': '0',
+    'last_long_usage_package': '',
+    'last_accessibility_thought_text': '',
+    'last_accessibility_thought_at': '0',
+  };
 }

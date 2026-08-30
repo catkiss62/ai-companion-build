@@ -653,6 +653,34 @@ class AndroidBridge {
     return raw?['filePath'] as String?;
   }
 
+  Future<Map<String, Object?>?> saveMultipartBackup({
+    required String sourcePath,
+    required String passphrase,
+    required String suggestedStem,
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'saveMultipartBackup',
+      {
+        'sourcePath': sourcePath,
+        'passphrase': passphrase,
+        'suggestedStem': suggestedStem,
+      },
+    );
+    if (raw == null) return null;
+    return raw.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  Future<Map<String, Object?>?> openMultipartBackup({
+    required String passphrase,
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'openMultipartBackup',
+      {'passphrase': passphrase},
+    );
+    if (raw == null) return null;
+    return raw.map((key, value) => MapEntry(key.toString(), value));
+  }
+
   Future<bool> saveDiagnosticReport({
     required String sourcePath,
     required String suggestedName,

@@ -181,7 +181,7 @@ for token in (
 assert "exceptional long runs stay below the new engine safety cap" in segmenter_test
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version: (?:0\.39\.(?:5\+123|6\+124|7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)$", pubspec, re.MULTILINE) or "version: 0.40.8+137" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+assert re.search(r"^version: (?:0\.39\.(?:5\+123|6\+124|7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)$", pubspec, re.MULTILINE) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
 assert re.search(
     r"static const int schemaVersion = (?:35|36|39|40);",
     read("lib/core/database/app_database.dart"),

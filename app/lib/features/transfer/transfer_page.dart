@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/platform/android_bridge.dart';
+import '../../core/sync/snapshot_cache_janitor.dart';
 import '../../core/sync/snapshot_service.dart';
 
 class TransferPage extends StatefulWidget {
@@ -15,6 +16,7 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
+  static const int _maxNearbyBytes = 512 * 1024 * 1024;
   final db = AppDatabase.instance;
   final android = AndroidBridge.instance;
   late final SnapshotService snapshots = SnapshotService(db);
@@ -34,6 +36,7 @@ class _TransferPageState extends State<TransferPage> {
   void initState() {
     super.initState();
     sub = android.nearbyEvents.listen(_onNearbyEvent);
+    unawaited(SnapshotCacheJanitor.clean());
     unawaited(_restoreStandbyUiState());
   }
 
@@ -207,7 +210,12 @@ class _TransferPageState extends State<TransferPage> {
           await _clearSourceSnapshot();
           if (mounted) setState(() {});
         }
-        _append('传输失败：${event.data['status'] ?? ''}。本次包已作废，请重新生成。');
+        final status = event.data['status']?.toString() ?? '';
+        _append(
+          status == 'payload_too_large_use_multipart_backup'
+              ? '状态包超过 Nearby 512 MiB 单文件上限，未开始发送；请使用下方“创建加密备份”。'
+              : '传输失败：$status。本次包已作废，请重新生成。',
+        );
         break;
       case 'takeoverConfirmed':
         if (awaitingTakeoverAck) {
@@ -321,6 +329,7 @@ class _TransferPageState extends State<TransferPage> {
   }
 
   Future<void> _prepareAndDiscover() async {
+    await SnapshotCacheJanitor.clean();
     await _clearSourceSnapshot();
     await _clearReceivedSnapshot();
     if (!mounted) return;
@@ -340,6 +349,16 @@ class _TransferPageState extends State<TransferPage> {
       await _waitForStateWriters();
       final bundle = await snapshots.exportBundle();
       outboundBundle = bundle;
+      final bundleBytes = await File(bundle.filePath).length();
+      if (bundleBytes > _maxNearbyBytes) {
+        await _clearSourceSnapshot();
+        if (mounted) setState(() {});
+        _append(
+          '完整状态包为 ${(bundleBytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
+          '超过 Nearby 512 MiB 单文件上限。本机仍保持 Active，请改用分卷加密备份。',
+        );
+        return;
+      }
       _append(
         '状态包已冻结：第 ${bundle.metadata.sourceGeneration} 代 · '
         'SHA-256 ${bundle.sha256Hex.substring(0, 12)}…',
@@ -646,7 +665,10 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  Future<String?> _askPassphrase({required bool confirm}) async {
+  Future<String?> _askPassphrase({
+    required bool confirm,
+    bool backup = false,
+  }) async {
     if (!mounted) return null;
     final first = TextEditingController();
     final second = TextEditingController();
@@ -656,7 +678,11 @@ class _TransferPageState extends State<TransferPage> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(confirm ? '设置手动接管口令' : '输入手动接管口令'),
+          title: Text(
+            confirm
+                ? (backup ? '设置加密备份口令' : '设置手动接管口令')
+                : (backup ? '输入加密备份口令' : '输入手动接管口令'),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -721,6 +747,16 @@ class _TransferPageState extends State<TransferPage> {
       await _waitForStateWriters();
       bundle = await snapshots.exportBundle();
       outboundBundle = bundle;
+      final bundleBytes = await File(bundle.filePath).length();
+      if (bundleBytes > _maxNearbyBytes) {
+        await _clearSourceSnapshot();
+        bundle = null;
+        _append(
+          '接管包超过 512 MiB，已取消本次接管冻结；本机保持 Active。'
+          '请使用“创建加密备份”，它会自动分卷。',
+        );
+        return;
+      }
       final saved = await android.saveManualSnapshot(
         sourcePath: bundle.filePath,
         passphrase: passphrase,
@@ -792,6 +828,125 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
+  Future<bool> _confirmBackupRestore(SnapshotMetadata metadata) async {
+    if (!mounted) return false;
+    final local = await db.transferStateIdentity();
+    final sameInstallation = metadata.sourceDeviceId == local.deviceId;
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('恢复这份完整备份？'),
+            content: Text(
+              '继续会用备份里的聊天、记忆、联网记录、浏览器和私人相册完整替换本机当前关系数据。'
+              '\n\n${sameInstallation ? '这是本安装创建的备份；恢复成功后本机继续作为 Active Brain。' : '这份备份来自另一安装；恢复后本机先保持 standby，确认原设备已下线后才能手动接管。'}'
+              '\n\n当前本机数据不会与备份自动合并。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确认完整替换'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _backupExport() async {
+    final passphrase = await _askPassphrase(confirm: true, backup: true);
+    if (passphrase == null || !mounted) return;
+    setState(() => busy = true);
+    SnapshotBundle? bundle;
+    try {
+      await SnapshotCacheJanitor.clean();
+      await db.setSetting('transfer_lock', '1');
+      await _waitForStateWriters();
+      bundle = await snapshots.exportBackupBundle();
+      // The complete ZIP is now immutable. Release writers before the user
+      // chooses a SAF directory or native encryption spends time on parts.
+      await db.setSetting('transfer_lock', '0');
+      final now = DateTime.now().toUtc();
+      final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
+      final saved = await android.saveMultipartBackup(
+        sourcePath: bundle.filePath,
+        passphrase: passphrase,
+        suggestedStem: 'ai_companion_backup_$stamp',
+      );
+      if (saved == null || saved['saved'] != true) {
+        _append('已取消创建备份，本机没有下线，仍可继续使用。');
+        return;
+      }
+      final parts = (saved['partCount'] as num?)?.toInt() ?? 0;
+      final bytes = (saved['encryptedBytes'] as num?)?.toInt() ?? 0;
+      _append(
+        '完整加密备份已保存为 $parts 个分卷（${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
+        '本机保持 Active，可继续正常使用。',
+      );
+    } catch (e) {
+      _append('创建加密备份失败：$e。本机数据和 Active 状态未改变。');
+    } finally {
+      if (bundle != null) await _deleteCachePath(bundle.filePath);
+      await db.setSetting('transfer_lock', '0');
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _backupImport() async {
+    final passphrase = await _askPassphrase(confirm: false, backup: true);
+    if (passphrase == null || !mounted) return;
+    setState(() => busy = true);
+    String? decryptedPath;
+    try {
+      await SnapshotCacheJanitor.clean();
+      final opened = await android.openMultipartBackup(passphrase: passphrase);
+      decryptedPath = opened?['filePath'] as String?;
+      if (decryptedPath == null) {
+        _append('已取消选择备份目录。');
+        return;
+      }
+      final result = await snapshots.restoreBackupBundle(
+        decryptedPath,
+        allowLineageReplacement: true,
+        confirmRestore: (metadata) async {
+          if (!await _confirmBackupRestore(metadata)) return false;
+          if (!await _confirmLineageReplacement(metadata)) return false;
+          await db.setSetting('transfer_lock', '1');
+          await _waitForStateWriters();
+          return true;
+        },
+      );
+      if (result == null) {
+        await db.setSetting('transfer_lock', '0');
+        _append('已取消恢复，不改变本机数据。');
+        return;
+      }
+      if (result.requiresManualTakeover) {
+        if (mounted) setState(() => importedStandby = true);
+        _append('完整备份已恢复并通过校验。本机保持 standby；确认原设备已下线后再手动接管。');
+      } else {
+        try {
+          await android.reconcileOverlayAfterTakeover();
+        } catch (_) {}
+        if (mounted) setState(() => importedStandby = false);
+        _append('完整备份已恢复并通过校验。本机继续作为 Active Brain。');
+      }
+    } catch (e) {
+      final active = await db.getSetting('active_brain');
+      if (active != '0') await db.setSetting('transfer_lock', '0');
+      _append('恢复加密备份失败：$e；本机原数据未被半覆盖。');
+    } finally {
+      if (decryptedPath != null) await _deleteCachePath(decryptedPath);
+      final active = await db.getSetting('active_brain');
+      if (active != '0') await db.setSetting('transfer_lock', '0');
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -858,10 +1013,36 @@ class _TransferPageState extends State<TransferPage> {
         const SizedBox(height: 22),
         const Divider(),
         const SizedBox(height: 10),
-        Text('手动备用', style: Theme.of(context).textTheme.titleMedium),
+        Text('普通加密备份', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text(
-          '仅在 Nearby 实机不可靠时使用。文件使用口令派生密钥 + AES-256-GCM 加密；口令不会保存。手动导出成功后源设备会先进入 standby。',
+          '保存完整关系状态、聊天图片和私人相册。文件使用口令派生密钥 + AES-256-GCM 加密，并自动按 192 MiB 分卷；口令不会保存。创建成功后本机不会下线，可以继续使用。',
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: busy || awaitingTakeoverAck ? null : _backupExport,
+                icon: const Icon(Icons.lock_outline),
+                label: const Text('创建加密备份'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: busy || awaitingTakeoverAck ? null : _backupImport,
+                icon: const Icon(Icons.folder_open),
+                label: const Text('恢复加密备份'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        Text('设备接管备用', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
+        const Text(
+          '仅在 Nearby 接管不可靠时使用单个 .aicomp 文件。导出成功后本机会进入 standby；这不是普通备份。超过 512 MiB 时请使用上方分卷备份。',
         ),
         const SizedBox(height: 10),
         Row(
@@ -869,7 +1050,7 @@ class _TransferPageState extends State<TransferPage> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _manualExport,
-                icon: const Icon(Icons.lock_outline),
+                icon: const Icon(Icons.phonelink_erase),
                 label: const Text('导出加密接管包'),
               ),
             ),
@@ -877,7 +1058,7 @@ class _TransferPageState extends State<TransferPage> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _manualImport,
-                icon: const Icon(Icons.folder_open),
+                icon: const Icon(Icons.phonelink_setup),
                 label: const Text('打开加密接管包'),
               ),
             ),
