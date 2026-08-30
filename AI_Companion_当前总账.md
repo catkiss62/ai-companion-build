@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.9 非破坏性加密备份与大包治理（IN PROGRESS / IMPLEMENTATION PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.9 非破坏性加密备份与大包治理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.40.8+137 第一批完整状态包恢复正确性完成后明确继续既定下一任务。本批把“留一份备份且本机继续使用”与“换机接管后源设备下线”拆成两条独立产品流程，并补齐超大包的流式分卷、Nearby 单文件边界和 App 私有缓存残留清理；目标是可长期使用的普通备份，不改变第一批已经验证的关系隔离与原子回滚基础。Agent 自我系统读取和 MCP 游戏继续排在本批之后。
 
@@ -45,6 +45,29 @@
 2. Kotlin 测试覆盖 AES-GCM 跨分卷往返、恰好跨 192 MiB 边界、空/缺失/重复/乱序/篡改部件、集合 manifest 限制、逐件 SHA、错口令、失败删除半成品，以及不会把完整加密包或明文 ZIP读入单个 ByteArray。
 3. Nearby 测试/源码门禁覆盖发送端 `>512 MiB` 在 `Payload.fromFile` 前拒绝、等于边界仍允许、UI 超限后取消本次接管 reservation 并保持 active；缓存测试覆盖固定前缀、24 小时阈值、当前活跃路径保护和 SAF 用户目录不触碰。
 4. 完成后运行格式化、全部当前/历史 Python validators、Kotlin/Gradle、Flutter analyze/tests、Release APK、固定签名和全部大型素材校验；回填真实提交、Actions、APK/SHA 与真机待验。不得把自动化通过写成真机大包/第三方文件 Provider 已稳定。
+
+### D. 实际实现
+
+1. Snapshot 协议已升到 5，并用 `archive_kind=takeover/backup` 强制区分设备接管包和普通备份包；protocol 1~4 继续按旧接管包兼容。普通备份复用完整数据库、聊天图片和私人相册缩略图的同一份状态导出，但不调用接管 reservation、不增加接管代次、不写 pending outbound，也不会把来源设备切成 standby。
+2. 普通备份导出只在生成不可变 ZIP 前短暂取得 transfer lock 并等待后台写入；导出的运行设置副本会归一掉传输锁、租约和 pending 字段，而手机数据库本身不被改写。ZIP 完成后立即解锁，再让用户选择保存目录并进行分卷加密，因此用户停留在文件选择器或加密耗时时，原设备也能继续作为 Active Brain 使用。
+3. 新增 SAF `.aibackup` 目录格式：整份 ZIP 继续使用既有 PBKDF2-HMAC-SHA256 + AES-256-GCM 连续加密流，密文按最大 192 MiB 分为顺序部件；`backup_manifest.json` 只保存格式、时间、原始/加密字节数、部件名/顺序/大小和逐件 SHA-256。恢复会先检查清单、缺件、大小与逐件哈希，再连续解密到 App 受控临时 ZIP，不把整包读入单个 ByteArray；篡改、截断、错密码或空间不足都会拒绝并删除半成品。
+4. 普通备份恢复复用 v0.40.8 的完整预校验、聊天/相册目录暂存、文件原子切换与数据库失败回滚，并只解包一次：通过协议和文件校验后才显示关系覆盖确认并取得写锁。恢复到同一安装身份时以高于两边当前值的新代次继续 active；恢复到另一安装身份时先保持 standby，必须在确认原设备下线后手动接管，避免备份副本直接制造两个 Active Brain。
+5. Nearby 发送侧已在 `Payload.fromFile` 前拒绝严格大于 512 MiB 的单文件，Flutter 侧也在交付前取消本次接管 reservation、保持来源 active 并引导改用“创建加密备份”；恰好等于边界仍按原协议允许。UI 已把“普通加密备份”和“设备接管备用”拆开，前者明确创建后本机继续使用，后者仍明确成功交付后本机 standby。
+6. Flutter 与 Native 新增 24 小时状态包缓存清理，只识别 App cache 内固定前缀并保护当前活跃路径；传输页进入、导入导出和 Native bridge 初始化都会触发，正常成功/取消/失败仍即时删除。用户通过 SAF 保存的目录不在扫描范围。本批保持 SQLite schema 40，没有修改相册识图、Provider、Desire、人格、Agent 自我读取或 MCP。
+
+### E. 提交、测试、构建与交付证据
+
+1. 本地开工总账提交为 `28e080b`，功能提交为 `94f668c`；远端开工提交为 [`aadb2b6f3f2d2f3e00122ab9a8b0fed95e306f79`](https://github.com/catkiss62/ai-companion-build/commit/aadb2b6f3f2d2f3e00122ab9a8b0fed95e306f79)，功能提交为 [`b9656d71909b125f4259690620463fa68c3d9b5b`](https://github.com/catkiss62/ai-companion-build/commit/b9656d71909b125f4259690620463fa68c3d9b5b)，CI 触发 head 为 [`c14ac3fc935284898f13df25f1510501f802267a`](https://github.com/catkiss62/ai-companion-build/commit/c14ac3fc935284898f13df25f1510501f802267a)。远端构建 tree `fb71f6ca3327ee75922d3c4ba35073a2592faa98` 与本地功能 tree 完全一致；分支为 [`agent/v0409-nondestructive-backup`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0409-nondestructive-backup)，未修改或合并 `main`。
+2. 最终 [Actions run 33314942087](https://github.com/catkiss62/ai-companion-build/actions/runs/33314942087) 全绿：115 项当前/历史 Python 源码门禁、Kotlin/Gradle（含 4 项新分卷流测试）、Flutter analyze、353 项 Flutter tests、Release APK、固定签名，以及 TTS/native、417 文件桌宠包、62 项 LingChat、22 张塔罗、形象参照等完整载荷校验和 Artifact/Draft Release 上传全部通过。此前 run 33314913858 仅因同分支紧接着收到 CI 触发提交而被并发策略自动取消，不是测试失败。
+3. 测试 APK [`AI-Companion-v0.40.9-138-Nondestructive-Backup-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-120084408220ba3d23b6/AI-Companion-v0.40.9-138-Nondestructive-Backup-APK.apk)，325,126,762 bytes，SHA-256 `22801d2ef2039c5549492540a2f052ab7def6aba399ef060a93f55e91208a764`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.40.8+137 直接覆盖安装；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-120084408220ba3d23b6) 不是正式发布。
+4. Artifact [9733266735](https://github.com/catkiss62/ai-companion-build/actions/runs/33314942087/artifacts/9733266735)，名称 `AI-Companion-v0.40.9-138-Nondestructive-Backup-APK`，ZIP 318,828,698 bytes，digest `sha256:8b4616b41f37271084ab116b243408bdf098e085daf74169dcef889e1041fac5`，到期时间 2026-09-13T13:53:14Z。
+
+### F. 真机待验与后续顺序
+
+1. 可直接覆盖安装，不卸载、不清数据。先用“创建加密备份”选择一个可长期保留的父目录，确认生成独立 `.aibackup` 文件夹、创建后本机仍能聊天且没有进入 standby；不要把该目录里的 `part-*.aibpart` 单独改名、移动或删除。小数据也可能只有一个部件，这仍是正常分卷格式。
+2. 恢复属于破坏性覆盖，建议先在可接受被覆盖的环境验证：同一安装恢复后应继续 active；另一安装恢复后必须 standby，直到确认原设备下线再手动接管。重点核对聊天文字/图片、联网候选、浏览器历史、私人相册元数据与缩略图共同恢复；错密码、删掉一个部件或篡改部件应在覆盖前失败且旧关系仍完整。
+3. 自动化已证明加密流跨部件往返、精确边界不产生空部件、篡改拒绝、缓存前缀/24 小时/活跃路径保护、协议和 UI/Native 门禁；尚未证明不同 Android 文件管理器/云盘 Provider、真实数 GB 多分卷、磁盘临界空间和跨厂商两机长期稳定，因此这些只标记真机待验，不阻塞继续后续开发。
+4. 下一开发顺序按用户确认进入 Agent 自我系统读取：先建立只读、可审计、可按需进入聊天的 System Facts/Recent Outcomes，让她能准确回答“我给你做了什么功能”、说清最近自主行动和以后 MCP 游戏真实做过什么，同时不得直接看密钥、原始日志、数据库路径或把诊断正文塞满 Prompt。该层完成后再接 MCP 游戏底座；v0.40.6 夜间疲劳、相册自然存图等既有低概率项目继续“保留等待测试”，随以后诊断顺带核对。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.8 完整状态包恢复正确性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
