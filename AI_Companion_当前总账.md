@@ -6,7 +6,7 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.41.0 无口令完整备份、悬浮聊天归位与 Desire 平衡审计（IMPLEMENTED / LOCAL CONTRACTS PASSED / CI PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.41.0 无口令完整备份、悬浮聊天归位与 Desire 平衡审计（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在准备正式验证 v0.40.9 导出/恢复前明确确认：项目仅供本人和朋友私人使用，不需要用遗忘风险换取备份保密性；普通完整备份应直接改为无口令、无加密，再生成正式存档交给接班窗口做结构与恢复验证。本批同时修复悬浮聊天窗顶部“打开”在“查手机”等 App 内非聊天页面无法归位聊天页的问题，并审计用户真机观察到的“依恋长期偏高”。设备接管 `.aicomp` 的单 Active Brain 安全协议不因普通备份去加密而放宽。
 
@@ -40,7 +40,22 @@
 1. `validate_v0408_archive_restore.py`、改造后的历史基础 `validate_v0409_nondestructive_backup.py` 和新增 `validate_v0410_plain_backup_overlay_desire.py` 均通过；workflow YAML 可解析，`git diff --check` 与 Python 语法编译通过。新增 Kotlin 测试覆盖明文 manifest/拒绝旧加密格式，并保留 `.aicomp` AES-GCM 跨分卷回归；新增 Dart 数学测试覆盖模型 pulse 总预算和 80 轮高频普通聊天不机械钉死 attachment。
 2. 本地没有 Flutter/Dart/Kotlin 编译器；Gradle wrapper 尝试下载 Gradle 8.12 时被当前运行环境网络限制拒绝。直接遍历 154 个历史脚本得到的 47 个失败主要来自尚未按 CI 顺序恢复的 TTS/native、417 文件桌宠与 LingChat 固定资源、旧脚本运行目录及早期版本专用门禁，不能算本轮回归也不能冒充通过。正式结论必须等待 GitHub Actions 按既定顺序恢复资源后运行维护清单、Kotlin、Flutter analyze/tests、Release APK、签名与载荷校验。
 3. 当前源码版本 `0.41.0+139`、schema 40，分支 `agent/v0410-plain-backup-overlay-desire-balance`。开工总账/架构提交为 `a1a03f9`；功能提交、远端 Actions、APK、SHA 与真机待验将在 CI 后继续回填。本节尚不是可安装 APK 完成证据。
-4. 本地功能提交为 `5cb66b3`。用户在当前对话重新明确授权后，终端 Git 因无 HTTPS 凭据失败，随后使用当前会话已授权、对仓库有 admin/push 权限的官方 GitHub 连接按 blob/tree/commit/ref 原生对象上传；远端最终 tree `52e35a8527f39623fbd493f452339b7ce21a50d6` 与本地最终 tree 完全一致，分支已建立且未修改 `main`。首次 Actions run `33322606325` 的全部 v0.34～v0.41 当前门禁均先通过，随后历史 somatic wrapper `validate_current_schema24_b.py` 因版本白名单止于 `0.40.9+138` 失败；不是备份/悬浮/Desire 实现失败。本地已把该 wrapper 扩展到 `0.41.0+139`，等待修复提交与下一轮 CI。
+4. 本地功能提交为 `5cb66b3`。用户在当前对话重新明确授权后，终端 Git 因无 HTTPS 凭据失败，随后使用当前会话已授权、对仓库有 admin/push 权限的官方 GitHub 连接按 blob/tree/commit/ref 原生对象上传；分支已建立且未修改 `main`。首次 Actions run `33322606325` 的全部 v0.34～v0.41 当前门禁均先通过，随后历史 somatic wrapper `validate_current_schema24_b.py` 因版本白名单止于 `0.40.9+138` 失败；不是备份/悬浮/Desire 实现失败。wrapper 扩展到 `0.41.0+139` 后本地与第二轮 CI 均通过，最终远端/本地 tree 对照见下节。
+
+### E. 远端提交、CI、APK 与交付证据
+
+1. 远端分支为 [`agent/v0410-plain-backup-overlay-desire-balance`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0410-plain-backup-overlay-desire-balance)。远端开工提交 `e081ca642a55`、功能提交 `5f0fa251b9ee`、CI 触发提交 `a7232a5f2e08`，版本 wrapper 修复及最终构建 head 为 [`2292f86bc2e9`](https://github.com/catkiss62/ai-companion-build/commit/2292f86bc2e93b3f0caadde7610d7046ab3dd6fd)。构建 tree `cb356466e0efdc51509fc61fb3c54b002fa46fbb` 与本地 `62472c1` tree 完全一致；其后只追加本节 CI/APK 证据的 `[skip ci]` 总账提交。`main` 未修改、未合并。
+2. 首次 [Actions run 33322606325](https://github.com/catkiss62/ai-companion-build/actions/runs/33322606325) 只因冻结历史 wrapper 漏列 v0.41.0 而在源码门禁末段失败；修复后最终 [Actions run 33322788664](https://github.com/catkiss62/ai-companion-build/actions/runs/33322788664) 全绿。115 项维护中的当前/历史 Python 门禁、Kotlin/Gradle（含新增明文 manifest、旧加密普通备份拒绝、分卷校验和 `.aicomp` AES 回归）、Flutter analyze、355 项 Flutter tests、Release APK、固定签名与完整载荷均通过。
+3. 固定载荷继续通过：417 文件桌宠源码包、62 项 LingChat 表现素材、22 张塔罗 JPG、Meju TTS/native、头像/立绘与镜像哈希均正确。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.40.9+138 直接覆盖安装。
+4. 测试 APK [`AI-Companion-v0.41.0-139-Plain-Backup-Overlay-Desire-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-9d75bfe442e6adebffcb/AI-Companion-v0.41.0-139-Plain-Backup-Overlay-Desire-APK.apk)，SHA-256 `ccfc31a47f1f746c8a57f9876d0ce97595e313a90eaf0a2cb67c896d9afbecba`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9d75bfe442e6adebffcb) 不是正式发布。Artifact [`9735474280`](https://github.com/catkiss62/ai-companion-build/actions/runs/33322788664/artifacts/9735474280) 名称 `AI-Companion-v0.41.0-139-Plain-Backup-Overlay-Desire-APK`，ZIP 318,833,040 bytes，digest `sha256:af6a54c2bd008253e51439651ef9c6137f53aee0d8ccbb32efb23dd180c11c27`，到期时间 2026-09-13T16:42:13Z。
+
+### F. 真机待验与存档交接步骤
+
+1. 直接覆盖安装 v0.41.0+139，不卸载、不清数据。进入“更多 → 数据与高级 → 手机 / 平板接管 → 完整备份”，点击“创建完整备份”；应直接出现目录选择器，不再出现口令框。选择一个父目录后应生成带时间戳的独立 `.aibackup` 文件夹，本机仍保持 Active、可以继续聊天。
+2. 存档需要把整个 `.aibackup` 文件夹作为一个集合保留；发送给接班窗口验证时，先用文件管理器把这个完整文件夹压缩成一个 ZIP，再发送 ZIP。不能只发 `backup_manifest.json` 或单个 `part-0001.aibpart`，也不要改名、移动或漏掉任一部件。普通备份现在是明文/无口令，但 SHA、部件和内部 Snapshot 完整性校验仍在。
+3. 在确认存档结构和内容检查完成前不要用恢复入口覆盖当前安装。后续恢复真机测试仍需验证：同一安装恢复继续 active，另一安装恢复先 standby；缺件、篡改或空间不足必须在覆盖旧数据前失败。
+4. 悬浮聊天测试：先进入“查手机”页面并把 App 留在后台，打开悬浮聊天后点击顶部“打开”；必须回到 App 内真实聊天页，而不是仍停在“查手机”。可再从设置页或其他二级页重复一次。
+5. Desire 真机观察不要求依恋立刻清零。连续普通聊天不应再每轮固定抬高 attachment；已有高值应自然回落/波动，真实 closeness、trust、intimacy、repair 事件仍可有界上升。后续诊断需结合当前值、baseline、Thought、关系事件与时间间隔判断，不能只看单个高数值。
 
 
 ## 接手必读 · 项目不可变约束
