@@ -31,18 +31,29 @@ desire_test = read("test/desire_core_policy_v031_test.dart")
 architecture = read("docs/PHONE_PRIMARY_TABLET_COMPANION_ARCHITECTURE_v1.md")
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:0\+139|1\+140)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:0\+139|1\+140|2\+141)\s*$", pubspec, re.M)
+simple_file_backup = "version: 0.41.2+141" in pubspec
 
-for token in (
-    "完整备份",
-    "创建完整备份",
-    "恢复完整备份",
-    "备份不设置口令、不加密",
-    "每次创建独立存档文件夹",
-    "snapshots.exportBackupBundle()",
-    "snapshots.restoreBackupBundle(",
-):
-    assert token in transfer, token
+if simple_file_backup:
+    for token in (
+        "保存备份",
+        "恢复备份",
+        "恢复旧版文件夹备份",
+        "snapshots.exportBackupBundle()",
+        "snapshots.restoreBackupBundle(",
+    ):
+        assert token in transfer, token
+else:
+    for token in (
+        "完整备份",
+        "创建完整备份",
+        "恢复完整备份",
+        "备份不设置口令、不加密",
+        "每次创建独立存档文件夹",
+        "snapshots.exportBackupBundle()",
+        "snapshots.restoreBackupBundle(",
+    ):
+        assert token in transfer, token
 assert "_askPassphrase('创建完整备份" not in transfer
 assert "_askPassphrase('恢复完整备份" not in transfer
 
@@ -114,6 +125,7 @@ assert "python3 tools/validate_v0410_plain_backup_overlay_desire.py" in workflow
 assert (
     "Build AI Companion v0.41.0+139 APK (Plain Backup Overlay Desire)" in workflow
     or "Build AI Companion v0.41.1+140 APK (Backup Preflight & Screen Audit)" in workflow
+    or "Build AI Companion v0.41.2+141 APK (Simple Backup File)" in workflow
 )
 
 print("v0.41.0 plain backup, overlay routing and Desire balance validation passed")

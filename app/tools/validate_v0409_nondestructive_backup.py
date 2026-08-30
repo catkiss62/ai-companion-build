@@ -23,7 +23,7 @@ cleaner = read("android/app/src/main/kotlin/com/aicompanion/localfirst/SnapshotC
 dart_cleaner = read("lib/core/sync/snapshot_cache_janitor.dart")
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*(?:0\.40\.9\+138|0\.41\.(?:0\+139|1\+140))\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.40\.9\+138|0\.41\.(?:0\+139|1\+140|2\+141))\s*$", pubspec, re.M)
 
 for token in (
     "enum SnapshotArchiveKind",
@@ -91,6 +91,7 @@ assert (
     "Build AI Companion v0.40.9+138 APK (Nondestructive Backup)" in workflow
     or "Build AI Companion v0.41.0+139 APK (Plain Backup Overlay Desire)" in workflow
     or "Build AI Companion v0.41.1+140 APK (Backup Preflight & Screen Audit)" in workflow
+    or "Build AI Companion v0.41.2+141 APK (Simple Backup File)" in workflow
 )
 
 print("v0.40.9 nondestructive backup validation passed")

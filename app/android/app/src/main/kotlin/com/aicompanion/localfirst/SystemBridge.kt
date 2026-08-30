@@ -19,6 +19,7 @@ import android.os.PowerManager
 import android.os.Process
 import android.os.Handler
 import android.os.Looper
+import android.provider.DocumentsContract
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import com.aicompanion.localfirst.pet.PetPreviewActivity
@@ -28,6 +29,9 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.security.MessageDigest
 import java.util.UUID
 
 class SystemBridge(
@@ -342,6 +346,13 @@ class SystemBridge(
                     passphrase = call.argument<String>("passphrase") ?: "",
                     result = result,
                 )
+                "savePlainBackup" -> startPlainBackupSave(
+                    sourcePath = call.argument<String>("sourcePath") ?: "",
+                    suggestedName = call.argument<String>("suggestedName")
+                        ?: "AI_Companion_Backup.aibackup",
+                    result = result,
+                )
+                "openPlainBackup" -> startPlainBackupOpen(result = result)
                 "saveMultipartBackup" -> startMultipartBackupSave(
                     sourcePath = call.argument<String>("sourcePath") ?: "",
                     suggestedStem = call.argument<String>("suggestedStem")
@@ -490,6 +501,115 @@ class SystemBridge(
                             result.error("diagnostic_export_failed", error.javaClass.simpleName, null)
                         }
                     }
+            }.start()
+            return
+        }
+        if (requestCode == REQUEST_PLAIN_BACKUP_SAVE ||
+            requestCode == REQUEST_PLAIN_BACKUP_OPEN) {
+            endDirectPickerOverlayGuard(
+                if (requestCode == REQUEST_PLAIN_BACKUP_SAVE) {
+                    "plain_backup_save_picker_returned"
+                } else {
+                    "plain_backup_open_picker_returned"
+                },
+            )
+            val result = manualDocumentResult ?: return
+            val operation = manualOperation
+            val sourcePath = manualSourcePath
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                result.success(null)
+                clearManualDocumentState()
+                return
+            }
+            manualDocumentResult = null
+            manualPassphrase = null
+            manualSourcePath = null
+            manualOperation = null
+            manualSuggestedName = null
+            Thread {
+                runCatching {
+                    when (operation) {
+                        "plain_backup_save" -> {
+                            try {
+                                val source = File(requireNotNull(sourcePath))
+                                require(source.isFile) { "plain_backup_source_missing" }
+                                require(source.length() in 1..MAX_PLAIN_BACKUP_BYTES) {
+                                    "plain_backup_source_size_invalid"
+                                }
+                                val sourceDigest = digestStream(
+                                    source.inputStream(),
+                                    MAX_PLAIN_BACKUP_BYTES,
+                                )
+                                activity.contentResolver.openOutputStream(uri, "w").use { output ->
+                                    requireNotNull(output) { "plain_backup_output_open_failed" }
+                                    source.inputStream().use { input ->
+                                        input.copyTo(output, 64 * 1024)
+                                    }
+                                }
+                                val savedDigest = activity.contentResolver.openInputStream(uri).use { input ->
+                                    digestStream(
+                                        requireNotNull(input) { "plain_backup_verify_open_failed" },
+                                        MAX_PLAIN_BACKUP_BYTES,
+                                    )
+                                }
+                                require(savedDigest == sourceDigest) {
+                                    "plain_backup_saved_hash_mismatch"
+                                }
+                                mapOf(
+                                    "saved" to true,
+                                    "bytes" to sourceDigest.first,
+                                    "sha256" to sourceDigest.second,
+                                    "uri" to uri.toString(),
+                                    "verified" to true,
+                                )
+                            } catch (error: Throwable) {
+                                runCatching {
+                                    DocumentsContract.deleteDocument(activity.contentResolver, uri)
+                                }
+                                throw error
+                            }
+                        }
+                        "plain_backup_open" -> {
+                            val destination = File(
+                                activity.cacheDir,
+                                "ai_companion_backup_file_${System.currentTimeMillis()}.aibackup",
+                            )
+                            try {
+                                val copied = activity.contentResolver.openInputStream(uri).use { input ->
+                                    requireNotNull(input) { "plain_backup_input_open_failed" }
+                                    copyWithDigest(
+                                        input = input,
+                                        output = FileOutputStream(destination),
+                                        maxBytes = MAX_PLAIN_BACKUP_BYTES,
+                                    )
+                                }
+                                require(destination.length() == copied.first) {
+                                    "plain_backup_copy_size_mismatch"
+                                }
+                                mapOf(
+                                    "filePath" to destination.absolutePath,
+                                    "bytes" to copied.first,
+                                    "sha256" to copied.second,
+                                )
+                            } catch (error: Throwable) {
+                                runCatching { destination.delete() }
+                                throw error
+                            }
+                        }
+                        else -> error("plain_backup_unknown_operation")
+                    }
+                }.onSuccess { value ->
+                    activity.runOnUiThread { result.success(value) }
+                }.onFailure { error ->
+                    activity.runOnUiThread {
+                        result.error(
+                            "plain_backup_failed",
+                            error.message ?: error.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
             }.start()
             return
         }
@@ -660,6 +780,52 @@ class SystemBridge(
                 endDirectPickerOverlayGuard("manual_snapshot_open_picker_launch_failed")
                 clearManualDocumentState()
                 result.error("manual_snapshot_picker", error.message ?: error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startPlainBackupSave(
+        sourcePath: String,
+        suggestedName: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!beginPlainBackupOperation("plain_backup_save", sourcePath, result)) return
+        val safeName = suggestedName
+            .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
+            .take(120)
+            .ifBlank { "AI_Companion_Backup.aibackup" }
+        val fileName = if (safeName.endsWith(".aibackup", ignoreCase = true)) {
+            safeName
+        } else {
+            "$safeName.aibackup"
+        }
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_TITLE, fileName)
+        }
+        beginDirectPickerOverlayGuard("plain_backup_save_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_PLAIN_BACKUP_SAVE) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("plain_backup_save_picker_launch_failed")
+                clearManualDocumentState()
+                result.error("plain_backup_picker", error.message ?: error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startPlainBackupOpen(result: MethodChannel.Result) {
+        if (!beginPlainBackupOperation("plain_backup_open", null, result)) return
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            type = "*/*"
+        }
+        beginDirectPickerOverlayGuard("plain_backup_open_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_PLAIN_BACKUP_OPEN) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("plain_backup_open_picker_launch_failed")
+                clearManualDocumentState()
+                result.error("plain_backup_picker", error.message ?: error.javaClass.simpleName, null)
             }
     }
 
@@ -856,6 +1022,75 @@ class SystemBridge(
         manualSourcePath = sourcePath
         manualOperation = operation
         return true
+    }
+
+    private fun beginPlainBackupOperation(
+        operation: String,
+        sourcePath: String?,
+        result: MethodChannel.Result,
+    ): Boolean {
+        if (manualDocumentResult != null) {
+            result.error("plain_backup_busy", "Another backup picker is already open", null)
+            return false
+        }
+        if (operation == "plain_backup_save") {
+            val file = File(sourcePath.orEmpty())
+            if (!file.isFile || file.length() !in 1..MAX_PLAIN_BACKUP_BYTES) {
+                result.error(
+                    "plain_backup_source_missing",
+                    "Snapshot backup file does not exist or is too large",
+                    null,
+                )
+                return false
+            }
+        }
+        manualDocumentResult = result
+        manualPassphrase = null
+        manualSourcePath = sourcePath
+        manualOperation = operation
+        return true
+    }
+
+    private fun digestStream(input: InputStream, maxBytes: Long): Pair<Long, String> {
+        val digest = MessageDigest.getInstance("SHA-256")
+        var total = 0L
+        input.use { source ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = source.read(buffer)
+                if (count < 0) break
+                total += count
+                require(total <= maxBytes) { "plain_backup_file_too_large" }
+                digest.update(buffer, 0, count)
+            }
+        }
+        require(total > 0L) { "plain_backup_file_empty" }
+        return total to digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun copyWithDigest(
+        input: InputStream,
+        output: OutputStream,
+        maxBytes: Long,
+    ): Pair<Long, String> {
+        val digest = MessageDigest.getInstance("SHA-256")
+        var total = 0L
+        input.use { source ->
+            output.use { target ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = source.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= maxBytes) { "plain_backup_file_too_large" }
+                    target.write(buffer, 0, count)
+                    digest.update(buffer, 0, count)
+                }
+                target.flush()
+            }
+        }
+        require(total > 0L) { "plain_backup_file_empty" }
+        return total to digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun clearManualDocumentState() {
@@ -1293,6 +1528,9 @@ class SystemBridge(
         private const val REQUEST_PROMPT_OPEN = 4207
         private const val REQUEST_BACKUP_SAVE = 4208
         private const val REQUEST_BACKUP_OPEN = 4209
+        private const val REQUEST_PLAIN_BACKUP_SAVE = 4210
+        private const val REQUEST_PLAIN_BACKUP_OPEN = 4211
+        private const val MAX_PLAIN_BACKUP_BYTES = 8L * 1024L * 1024L * 1024L
         private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
     }
 }

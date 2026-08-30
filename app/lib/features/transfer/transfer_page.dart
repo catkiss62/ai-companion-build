@@ -213,7 +213,7 @@ class _TransferPageState extends State<TransferPage> {
         final status = event.data['status']?.toString() ?? '';
         _append(
           status == 'payload_too_large_use_multipart_backup'
-              ? '状态包超过 Nearby 512 MiB 单文件上限，未开始发送；请使用下方“创建完整备份”。'
+              ? '状态包超过 Nearby 512 MiB 发送上限，未开始发送；请使用下方“保存备份”。'
               : '传输失败：$status。本次包已作废，请重新生成。',
         );
         break;
@@ -355,7 +355,7 @@ class _TransferPageState extends State<TransferPage> {
         if (mounted) setState(() {});
         _append(
           '完整状态包为 ${(bundleBytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
-          '超过 Nearby 512 MiB 单文件上限。本机仍保持 Active，请改用分卷完整备份。',
+          '超过 Nearby 512 MiB 发送上限。本机仍可正常使用，请改用“保存备份”。',
         );
         return;
       }
@@ -752,7 +752,7 @@ class _TransferPageState extends State<TransferPage> {
         bundle = null;
         _append(
           '接管包超过 512 MiB，已取消本次接管冻结；本机保持 Active。'
-          '请使用“创建完整备份”，它会自动分卷。',
+          '请使用“保存备份”，它会保存成一个可直接选择的备份文件。',
         );
         return;
       }
@@ -835,10 +835,10 @@ class _TransferPageState extends State<TransferPage> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: const Text('恢复这份完整备份？'),
+            title: const Text('恢复这份备份？'),
             content: Text(
               '继续会用备份里的聊天、记忆、联网记录、浏览器和私人相册完整替换本机当前关系数据。'
-              '\n\n${sameInstallation ? '这是本安装创建的备份；恢复成功后本机继续作为当前主设备（Active Brain）。' : '这份备份来自另一安装；恢复后本机先处于待机（standby），确认原设备已下线后才能手动接管。'}'
+              '\n\n${sameInstallation ? '这是本机创建的备份；恢复成功后本机仍是当前主设备，可以继续正常使用。' : '这份备份来自另一台设备；恢复后本机先保持待机，确认原设备已停用后才能手动接管。'}'
               '\n\n当前本机数据不会与备份自动合并。',
             ),
             actions: [
@@ -864,27 +864,34 @@ class _TransferPageState extends State<TransferPage> {
       await db.setSetting('transfer_lock', '1');
       await _waitForStateWriters();
       bundle = await snapshots.exportBackupBundle();
-      // The complete ZIP is now immutable. Release writers before the user
-      // chooses a SAF directory or native streaming spends time on parts.
+      final metadata = await snapshots.inspectBundle(bundle.filePath);
+      if (!metadata.isBackup) {
+        throw const FormatException('新备份没有通过内部完整性检查。');
+      }
+      // The complete, inspected ZIP is now immutable. Release writers before
+      // the user chooses a destination or native streaming verifies the copy.
       await db.setSetting('transfer_lock', '0');
       final now = DateTime.now().toUtc();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
-      final saved = await android.saveMultipartBackup(
+      final saved = await android.savePlainBackup(
         sourcePath: bundle.filePath,
-        suggestedStem: 'ai_companion_backup_$stamp',
+        suggestedName: 'AI_Companion_Backup_$stamp.aibackup',
       );
       if (saved == null || saved['saved'] != true) {
-        _append('已取消创建备份，本机没有下线，仍可继续使用。');
+        _append('已取消保存备份，本机数据没有改变，仍可继续使用。');
         return;
       }
-      final parts = (saved['partCount'] as num?)?.toInt() ?? 0;
-      final bytes = (saved['archiveBytes'] as num?)?.toInt() ?? 0;
+      if (saved['verified'] != true) {
+        throw const FormatException('保存后的备份文件没有通过自动核对。');
+      }
+      final bytes = (saved['bytes'] as num?)?.toInt() ?? 0;
       _append(
-        '完整备份已保存为 $parts 个分卷（${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
-        '本机仍是当前主设备（Active），可继续正常使用。',
+        '备份文件已保存并自动检查通过（'
+        '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
+        '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。',
       );
     } catch (e) {
-      _append('创建完整备份失败：$e。本机数据和 Active 状态未改变。');
+      _append('保存备份失败：$e。本机数据和主设备状态没有改变。');
     } finally {
       if (bundle != null) await _deleteCachePath(bundle.filePath);
       await db.setSetting('transfer_lock', '0');
@@ -892,15 +899,28 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  Future<void> _backupImport() async {
+  Future<void> _backupImport() => _restoreBackupFromPicker(
+        picker: android.openPlainBackup,
+        cancelMessage: '已取消选择备份文件。',
+      );
+
+  Future<void> _legacyBackupImport() => _restoreBackupFromPicker(
+        picker: android.openMultipartBackup,
+        cancelMessage: '已取消选择旧版备份文件夹。',
+      );
+
+  Future<void> _restoreBackupFromPicker({
+    required Future<Map<String, Object?>?> Function() picker,
+    required String cancelMessage,
+  }) async {
     setState(() => busy = true);
     String? restoredPath;
     try {
       await SnapshotCacheJanitor.clean();
-      final opened = await android.openMultipartBackup();
+      final opened = await picker();
       restoredPath = opened?['filePath'] as String?;
       if (restoredPath == null) {
-        _append('已取消选择备份目录。');
+        _append(cancelMessage);
         return;
       }
       final result = await snapshots.restoreBackupBundle(
@@ -921,53 +941,22 @@ class _TransferPageState extends State<TransferPage> {
       }
       if (result.requiresManualTakeover) {
         if (mounted) setState(() => importedStandby = true);
-        _append('完整备份已恢复并通过校验。本机先处于待机（standby）；确认原设备已下线后再手动接管。');
+        _append('备份已恢复并通过校验。这是另一台设备的备份，本机先保持待机；确认原设备已停用后再手动接管。');
       } else {
         try {
           await android.reconcileOverlayAfterTakeover();
         } catch (_) {}
         if (mounted) setState(() => importedStandby = false);
-        _append('完整备份已恢复并通过校验。本机继续作为当前主设备（Active Brain）。');
+        _append('备份已恢复并通过校验。本机仍是当前主设备，可以继续正常使用。');
       }
     } catch (e) {
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
-      _append('恢复完整备份失败：$e；本机原数据未被半覆盖。');
+      _append('恢复备份失败：$e；本机原数据没有被半覆盖。');
     } finally {
       if (restoredPath != null) await _deleteCachePath(restoredPath);
       final active = await db.getSetting('active_brain');
       if (active != '0') await db.setSetting('transfer_lock', '0');
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> _backupVerify() async {
-    setState(() => busy = true);
-    String? checkedPath;
-    try {
-      await SnapshotCacheJanitor.clean();
-      final opened = await android.openMultipartBackup();
-      checkedPath = opened?['filePath'] as String?;
-      if (checkedPath == null) {
-        _append('已取消选择备份目录。');
-        return;
-      }
-      final metadata = await snapshots.inspectBundle(checkedPath);
-      if (!metadata.isBackup) {
-        throw const FormatException('这不是普通完整备份。');
-      }
-      final parts = (opened?['partCount'] as num?)?.toInt() ?? 0;
-      final bytes = (opened?['archiveBytes'] as num?)?.toInt() ?? 0;
-      _append(
-        '完整备份基础检查通过：$parts 个分卷，'
-        '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB，'
-        '协议 ${metadata.protocolVersion}，数据库结构版本 ${metadata.schemaVersion}。'
-        '内部状态、聊天图片和私人相册清单均可读取；没有覆盖本机数据。',
-      );
-    } catch (e) {
-      _append('完整备份检查失败：$e；没有覆盖或修改本机数据。');
-    } finally {
-      if (checkedPath != null) await _deleteCachePath(checkedPath);
       if (mounted) setState(() => busy = false);
     }
   }
@@ -1038,10 +1027,10 @@ class _TransferPageState extends State<TransferPage> {
         const SizedBox(height: 22),
         const Divider(),
         const SizedBox(height: 10),
-        Text('完整备份', style: Theme.of(context).textTheme.titleMedium),
+        Text('备份', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text(
-          '保存完整关系状态、聊天图片和私人相册，并自动按 192 MiB 分卷。备份不设置口令、不加密；每次创建独立存档文件夹。创建成功后本机不会下线，可以继续使用。',
+          '点击保存后会得到一个备份文件，并自动检查是否完整。恢复时直接选择这个文件；不需要口令，也不用处理文件夹或分卷。',
         ),
         const SizedBox(height: 10),
         Row(
@@ -1049,34 +1038,32 @@ class _TransferPageState extends State<TransferPage> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _backupExport,
-                icon: const Icon(Icons.archive_outlined),
-                label: const Text('创建完整备份'),
+                icon: const Icon(Icons.save_alt),
+                label: const Text('保存备份'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: busy || awaitingTakeoverAck ? null : _backupImport,
-                icon: const Icon(Icons.folder_open),
-                label: const Text('恢复完整备份'),
+                icon: const Icon(Icons.restore),
+                label: const Text('恢复备份'),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: busy || awaitingTakeoverAck ? null : _backupVerify,
-            icon: const Icon(Icons.verified_outlined),
-            label: const Text('检查完整备份（不覆盖）'),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: busy || awaitingTakeoverAck ? null : _legacyBackupImport,
+            child: const Text('恢复旧版文件夹备份'),
           ),
         ),
         const SizedBox(height: 22),
         Text('设备接管备用', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
         const Text(
-          '仅在 Nearby 接管不可靠时使用单个 .aicomp 文件。导出成功后本机会进入 standby；这不是普通备份。超过 512 MiB 时请使用上方分卷备份。',
+          '仅在 Nearby 接管不可靠时使用单个 .aicomp 文件。导出成功后本机会进入待机；这不是普通备份。超过 512 MiB 时请使用上方“保存备份”。',
         ),
         const SizedBox(height: 10),
         Row(
