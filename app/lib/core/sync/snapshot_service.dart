@@ -102,7 +102,8 @@ class _ValidatedSnapshot {
   Directory get attachmentsDirectory =>
       Directory(p.join(workDirectory.path, 'attachments'));
 
-  Directory get albumDirectory => Directory(p.join(workDirectory.path, 'album'));
+  Directory get albumDirectory =>
+      Directory(p.join(workDirectory.path, 'album'));
 
   Future<void> dispose() async {
     if (await workDirectory.exists()) {
@@ -146,8 +147,8 @@ class SnapshotService {
     this.db, {
     MessageAttachmentStorage? attachmentStorage,
     CompanionAlbumStorage? albumStorage,
-  })  : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
-        albumStorage = albumStorage ?? CompanionAlbumStorage();
+  }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
+       albumStorage = albumStorage ?? CompanionAlbumStorage();
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
@@ -216,7 +217,8 @@ class SnapshotService {
         );
         await target.parent.create(recursive: true);
         await source.copy(target.path);
-        attachmentFiles[relative] = sha256.convert(await target.readAsBytes()).toString();
+        attachmentFiles[relative] =
+            sha256.convert(await target.readAsBytes()).toString();
       }
       final albumFiles = <String, String>{};
       final missingAlbumFiles = <String>[];
@@ -235,7 +237,8 @@ class SnapshotService {
         );
         await target.parent.create(recursive: true);
         await source.copy(target.path);
-        albumFiles[relative] = sha256.convert(await target.readAsBytes()).toString();
+        albumFiles[relative] =
+            sha256.convert(await target.readAsBytes()).toString();
       }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
