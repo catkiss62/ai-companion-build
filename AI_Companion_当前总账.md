@@ -6,7 +6,7 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.1 普通备份恢复预检与屏幕观察诚实收口（IN PROGRESS / PRE-IMPLEMENTATION LEDGER）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.1 普通备份恢复预检与屏幕观察诚实收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE RESTORE PENDING）
 
 > 用户按 v0.41.0+139 真机生成第一份正式无口令 `.aibackup`，只保存并发送存档与脱敏诊断给接班窗口检查，没有在重要资料上执行恢复。只读审计证明外层分卷、逐件 SHA、内部 Snapshot ZIP、state SHA、40 张导出表、聊天附件/相册文件清单与外键引用均完整；同时发现初始安装的合法 `state_generation=0` 被当前 protocol 5 共用校验误判为非法，导致同安装 Active 恢复和异安装 standby 恢复都会在覆盖前被拒绝。用户确认直接进入修复，并要求普通备份增加不覆盖数据的基础检查能力；同时要求审计长期从未命中的低频屏幕观察。
 
@@ -26,6 +26,28 @@
 2. 新增 generation 0 普通备份的导出→inspect→同安装 Active 恢复和异安装 standby 恢复回归；补充 generation 0 takeover 仍拒绝、generation/identity 不连续仍拒绝、内层明文元数据正确、缺件/篡改/用途不符检查失败且数据库未改变。检查按钮与正式恢复必须共享同一 Snapshot 校验入口，不能另造宽松“看起来正常”检查。
 3. 屏幕观察诊断必须同时显示实现状态、调度器状态、Provider 状态和真实已用次数；未实现时不显示为“预算配置完成但尚未碰巧命中”。本批不增加截图权限、不采集屏幕文字/图片、不把粗粒度 current App 感知冒充屏幕视觉。
 4. 完成后第二次回填实际实现、提交、专项/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、签名与载荷、Actions、APK/SHA 和精简真机步骤；自动化通过不能替代同安装/异安装破坏性恢复真机验收。
+
+### C. 实际实现与防误导收口
+
+1. `SnapshotArchiveKind` 现在按用途校验来源代次：普通 `backup` 接受合法 `source_generation >= 0`，`takeover` 仍要求严格 `> 0`。修复发生在正式恢复与只读检查共用的 `_readValidatedBundle()`，没有复制一条宽松检查链；因此用户上传的 generation 0 正式存档现在能通过完整预检，而 generation 0 接管包仍被拒绝。
+2. 新导出的普通备份内部 manifest 如实写 `encryption=none`，接管包继续写 `nearby_transport_or_manual_aes_gcm`。v0.41.0 已生成存档里的旧说明字段不会造成兼容阻断，因为恢复的安全与完整性判断依赖外层 format/protection、分卷 SHA 和内部 state/file SHA，不把这个历史错误说明字段当作加密证明。
+3. “完整备份”区新增“检查完整备份（不覆盖）”。它直接要求用户选择 `.aibackup` 文件夹，复用 Native 分卷重组与 Snapshot protocol 5 全量校验，成功时显示分卷数、总大小、协议和数据库结构版本；全程不取 transfer lock、不进入覆盖确认、不替换数据库/聊天附件/相册文件，临时重组文件在成功或失败后都清理。发送给接班窗口用的 `.aibackup.zip` 只是传输封装，App 内不能直接选 ZIP，需保留或解压回完整 `.aibackup` 文件夹。
+4. 自主工具协调器新增能力真实性门禁：未注册为 `executable && autonomousAvailable` 的工具不能仅凭同名预算被自主调用。诊断把屏幕观察明确记录为 `implementationStatus=not_implemented`、`schedulerAvailable=false`、`providerAvailable=false`、`configured=false`；保留每小时 6 次只是未来上限，不再把 0 次伪装成低概率尚未命中。
+5. 本批没有实现截图或屏幕文字读取。后续若正式建设，必须另做“用户手动看一次当前屏幕”的 Screenshot Provider、App/支付/验证码等敏感页 Gate，再接 Desire 驱动的低频自主调度与可审计 Outcome；不能把现有粗粒度前台 App 分类冒充屏幕视觉。
+
+### D. 提交、自动化与 APK 证据
+
+1. 本地开工总账提交 `398e1d357389`、功能提交 `259cb8bdc5b7`；官方 GitHub 对象上传后的远端对应提交为 `0106ab1cac0d`、构建 head [`c59dedea05ac`](https://github.com/catkiss62/ai-companion-build/commit/c59dedea05ac318ed2427b57e42611dbbdb949c8)。构建 tree `374e7c9c41936bc997582f7192af110ad11f3aba` 与本地功能 tree 完全一致；分支为 [`agent/v0411-backup-preflight-screen-audit`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0411-backup-preflight-screen-audit)，`main` 未修改、未合并。
+2. 本地 `validate_v0411_backup_preflight_screen_audit.py`、v0.41.0、v0.40.9、v0.40.8 和 current schema wrapper 全部通过；workflow YAML、Python 语法和 `git diff --check` 通过。用户上传存档在修正规则下重新执行外层/内层完整性与 generation 预检通过。
+3. [Actions run 33327677165](https://github.com/catkiss62/ai-companion-build/actions/runs/33327677165) 全绿：当前与历史源码门禁、Kotlin/Gradle 桌宠及悬浮层测试、Flutter analyze/tests、Release APK、固定签名、TTS/native、417 文件桌宠包、LingChat/头像/立绘与 22 张塔罗载荷均通过。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.41.0+139 直接覆盖安装。
+4. 测试 APK [`AI-Companion-v0.41.1-140-Backup-Preflight-Screen-Audit-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-cd073f0a250cd4a9dfed/AI-Companion-v0.41.1-140-Backup-Preflight-Screen-Audit-APK.apk)，SHA-256 `584907fd72481dfbae6b337d8b69f3c012670caa1fec1b41d1ea0c4adaf0fca1`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cd073f0a250cd4a9dfed) 不是正式发布。Artifact [`9736852850`](https://github.com/catkiss62/ai-companion-build/actions/runs/33327677165/artifacts/9736852850) 名称 `AI-Companion-v0.41.1-140-Backup-Preflight-Screen-Audit-APK`，ZIP 318,838,026 bytes，digest `sha256:aa717a25bd319a57d215e0e5ac17df2460bdf5540aa852117bc59ee456d2e459`，到期时间 2026-09-13T18:28:58Z。
+
+### E. 精简真机步骤与仍未通过的边界
+
+1. 直接覆盖安装 v0.41.1+140，不卸载、不清数据。进入“更多 → 数据与高级 → 手机 / 平板接管 → 完整备份”，先点“检查完整备份（不覆盖）”，在目录选择器中直接选原始 `.aibackup` 文件夹；不要选择发给接班窗口的外层 ZIP。预期显示检查通过且当前聊天、Active 状态和文件均不改变。
+2. “同一安装恢复后继续 Active”是指把备份恢复回创建它的这套 App 身份后，这台手机仍是唯一主脑并可继续聊天；“另一安装恢复后先 standby”是指全新安装/另一台设备拿到同一关系副本后先保持被动，不能与原手机同时各自运行一个主脑，直到用户明确完成接管。这两个是验收语义，不是两个英文错误；v0.41.0 的共同 generation 0 校验缺陷曾同时阻断它们，v0.41.1 已修复代码但仍需真机分别验证。
+3. 用户当前只需先跑不覆盖检查；正式“恢复完整备份”仍会在全量预检后弹出覆盖确认，属于破坏性验收，可等确认检查结果和保留第二份备份后再做。异安装 standby、错用途、缺件/篡改、真实多分卷、临界空间与跨文件管理器/云盘仍不能因 CI 通过标记为真机成功。
+4. 观察分类继续沿用用户最新口径：相册自主联网保存、联网分享与相册检索等自然触发；attachment 依恋值看旧高值是否自然回落及真实关系事件能否有界抬升；App 前台解析重试仅为观察项，不算成功也不再列严格待测；屏幕观察标记“未实现/待独立开发”，不能继续等待一个当前不可能出现的自然样本。
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.41.0 无口令完整备份、悬浮聊天归位与 Desire 平衡审计（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
