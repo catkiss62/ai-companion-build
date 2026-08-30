@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.8 完整状态包恢复正确性（IN PROGRESS / IMPLEMENTATION PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.8 完整状态包恢复正确性（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认按 2026-08-30 完整存档与存储只读体检的结论开始第一批实现。本批只修现有设备接管状态包的完整性、关系隔离和恢复正确性；普通的非破坏性加密备份、超大状态包容量治理与 Agent 自我系统读取均不混入本批。完成后仍需自动测试、Actions、APK 与真机接管验收，不能把源码实现写成真机稳定。
 
@@ -48,6 +48,28 @@
 1. 数据库测试覆盖 45 表分类、四张状态表 round-trip、旧协议清空不混合、五张本机表不覆盖、相册/浏览器依赖完整、只有相册数据时不判定 pristine。
 2. Snapshot 测试覆盖聊天原图/缩略图与相册缩略图打包、缺失文件清单、安全路径、哈希/总大小篡改拒绝、暂存目录失败回滚、数据库失败回滚、已消费重放不碰文件、pending 同包可安全修复。
 3. 源码门禁固定 protocol 4、真实元数据版本、取消清理与旧包警告；之后运行格式化、Flutter analyze/tests、全部历史 Python validators、Kotlin 测试、Release APK、固定签名及所有大型素材校验。目标分支 `agent/v0408-archive-restore-correctness`，不合并 `main`，只生成测试 Artifact/Draft Release。
+
+### E. 实际实现
+
+1. Snapshot 协议已从 3 升到 4，SQLite schema 保持 40。`exportAll()/importAll()`、关系谱系空白判定和协议载荷已完整纳入 `autonomous_action_runs`、`public_web_candidates`、`companion_browser_visits`、`companion_album_candidates`；维护、Provider/主动策略诊断、记忆检索审计与接收回执继续留在目标设备本机，不会跨设备覆盖。
+2. 私人相册缩略图已与聊天图片一起进入状态包：manifest 保存安全相对路径、逐文件 SHA-256、缺失清单与总字节数。只有仍可恢复的非 NSFW `saved/soft_deleted` 条目要求文件；危险路径、哈希不一致、大小不符和比当前 App 更新的未知协议都会在动数据库前拒绝。
+3. 新增同文件系统的完整目录暂存与原子切换。恢复顺序为“先完整校验和构造聊天/相册暂存树 → 切换文件目录 → 导入数据库”；数据库失败会把两个目录恢复为原样，成功后才清理备份，避免旧数据库配新图片或新数据库配旧图片。protocol 1~3 仍可在明确警告后导入，但会清空这四类旧关系状态及目标私人相册目录，禁止把目标设备旧关系混进来源关系。
+4. 重放语义已收紧：已消费的普通重复包是真正 no-op，不再碰文件；只有目标设备仍处于同一 snapshot 的 pending 修复态时，才允许重装相同包。取消、离开未完成流程或导出失败会原子失效 pending outbound，避免下次误把半成品包继续当有效接管。
+5. 新增目录切换回滚/提交/危险路径测试与 v0.40.8 专项源码门禁；同步修正历史前向版本门禁，使 protocol 4、`0.40.8+137` 与旧 schema 兼容规则能共同接受，而没有放宽实际状态包安全校验。
+
+### F. 提交、测试、构建与交付证据
+
+1. 本地实现提交为 `571b0a3`，格式化提交为 `eac769e`；GitHub 最终构建 head 为 [`561c8c8543f7a1305af6bf8bbdbec0fd53b35206`](https://github.com/catkiss62/ai-companion-build/commit/561c8c8543f7a1305af6bf8bbdbec0fd53b35206)。远端最终 tree `417320a44a12ee27661cec535ac94644e6b51f2f` 与本地构建 tree 完全一致；分支为 [`agent/v0408-archive-restore-correctness`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0408-archive-restore-correctness)，未修改或合并 `main`。
+2. 首次 [Actions run 33307798737](https://github.com/catkiss62/ai-companion-build/actions/runs/33307798737) 只因连接器首次传输 687 KB 中文总账时内容被截断，历史 validator 在 UTF-8 读取阶段停止，功能源码并未编译失败；完整恢复总账后，最终 [Actions run 33307957195](https://github.com/catkiss62/ai-companion-build/actions/runs/33307957195) 全绿：114 项当前/历史源码门禁、Kotlin/Gradle、Flutter analyze、351 项 Flutter tests、Release APK、固定签名、TTS/native/桌宠/LingChat/塔罗/形象参照完整载荷、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-bc1195a6b15be937937a/AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK.apk)，325,073,470 bytes，SHA-256 `361c022b96dc8894d4d74dcd92fc51b58fd2c621b4653a0829c0aca0fd0a4196`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`；Draft Release 为 [untagged-bc1195a6b15be937937a](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bc1195a6b15be937937a)，不是正式发布。
+4. Artifact [9731205411](https://github.com/catkiss62/ai-companion-build/actions/runs/33307957195/artifacts/9731205411)，名称 `AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK`，ZIP 318,776,776 bytes，digest `sha256:f7989420880a1bd89435cc13689c175d0fb4a158378da103ccec70105339ce55`，到期时间 2026-09-13T11:14:00Z。
+
+### G. 真机待验与后续顺序
+
+1. 自动化已经验证数据库与文件恢复的完整性、回滚和重放语义；真机仍需两台设备或可清空的测试资料环境，实际走一次 protocol 4 接管，核对聊天图片、联网候选、浏览器历史、私人相册元数据与缩略图同时恢复，来源设备进入 standby，重复接收不改变目标。不能用唯一保存重要关系数据的手机冒险做破坏性试验；测试前应另留可恢复副本。
+2. 若用 v0.40.7 或更早生成的 protocol 1~3 状态包，目标应先明确警告“不包含自主联网、浏览器历史与私人相册”；用户确认后这几类目标旧数据必须被清空，而不是保留并伪装成来源数据。取消或中途失败后应能重新开始，不留下持续占用的待发送状态。
+3. 完整存档第二批仍待实现：普通非破坏性加密备份、本机继续使用、超大状态包的流式/分卷容量治理、Nearby 512 MiB 边界与缓存残留清理。本批没有把设备接管假装成普通备份。
+4. 当前后续顺序锁定为：先完成上述完整存档第二批，再建设 AI 对自己系统、能力和行动结果的受控只读 Agent 读取能力；随后接入由 Desire / Thought / Intent 驱动、经 Tool Gate 与审计的 MCP AI 专属小游戏。Provider 兜底与其余低概率真机项继续保留等待真实证据，不阻塞主线。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.7 相册回想与浏览器详情（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
