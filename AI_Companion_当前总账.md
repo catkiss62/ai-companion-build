@@ -16,6 +16,37 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.10 Agent 自我系统读取与真实 Outcome（IN PROGRESS / IMPLEMENTATION PENDING）
+
+> 用户在 v0.40.9+138 非破坏性完整备份完成后继续既定主线：让她不只拥有工具，还能在普通聊天里按需、真实地查看“自己所在系统现在有哪些能力、哪些能力当前可用、最近实际做过什么”。典型问题包括“我给你做了什么功能”“你现在能做什么”“你最近自己干了什么”；这也是以后她主动进入 MCP AI 专属小游戏后能依据真实 Outcome 讲述经历、而不是角色扮演编造经历的前置层。
+
+### A. 修改前审计事实
+
+1. 现有统一 `AgentToolRegistry` 已有五个用户轮只读工具：公开网页搜索、当前规则读取、本地记忆检索、已存相册模糊检索和当前设备状态；自主网页与屏幕观察也从同一注册表取定义。`mcp.invoke` 仍是不可执行的未来占位，说明执行边界已经统一，但没有“读取自己的系统与能力”的工具。
+2. `PromptBuilder` 只常驻“自己是持续存在的女性 AI 伴侣”等身份原则，不注入当前 App 版本、功能清单、配置可用性或实现状态；“能力”页面目前也只是跳转到模型/联网/识图/TTS 设置。模型因此知道自己是 AI，却无法核对用户具体给她做过哪些真实功能，也无法区分“系统支持”“当前已配置”“聊天中可直接调用”“只能由用户手动操作”和“未来计划”。
+3. 真实行动结果已经存在但分散：自主联网/屏幕观察写入 `autonomous_action_runs`，浏览器和相册有各自生命周期，用户轮 Agent 工具只在 settings 保存累计数与最后一次状态，Provider/主动策略另有脱敏诊断。当前没有一个面向她自己的、有界只读 Outcome 投影；直接让模型读取诊断报告会同时暴露大量内部噪声，也容易把技术计数说成亲身经历。
+4. `SecureConfig` 持有 DeepSeek、千问、Tavily、Agnes 等密钥和 endpoint；Android 能力状态还包含组件、包哈希与生命周期细节。Agent 自读只能得到“是否配置/是否启用/是否连接”等布尔或固定状态，不得得到密钥、密码、验证码、endpoint、数据库/文件路径、完整设备身份、原始错误、诊断全文或 Android 组件信息。
+5. 工具结果只进入当前轮 Grounding，但助手把系统说明复述进聊天后，既有 Memory Extractor 仍可能把它整理成长期 AI Self。系统能力和近期 Outcome 会随版本、配置及时间变化，必须明确禁止自动固化为永久 AI Self/Memory；需要时重新读取当前真源。
+
+### B. 本批锁定实现范围
+
+1. 在同一 `AgentToolRegistry` 新增只读 `system.self_read`，仅用户聊天轮可用、不开放自主调用、不计自主行动额度。明确中文请求走本地零额外规划调用；其他自然说法由现有 DeepSeek native function calling 在同一次普通聊天请求中选择，仍由本地 Registry/Gate 决定是否执行。
+2. 建立版本化 `System Facts` 只读目录，至少覆盖：持续关系/Memory/AI Self、Desire/Thought 与主动联系、公开网页、千问识图与私人相册、查手机、设备感知、悬浮球/桌宠、TTS、普通/沉浸聊天、完整状态接管与非破坏性加密备份、现有 Agent 工具和未来 MCP。每项明确 `chat_tool / autonomous / background / manual / foundation / future` 类型；MCP 必须显示尚未接入，不能因目录里有名称就声称已经玩过游戏。
+3. 运行时只读取有界状态：当前 build/schema、Active/standby、transfer lock、文字模型/千问是否配置、联网/相册/感知/TTS/AI Self/Desire 等开关，以及必要的 Android 授权/连接布尔值。失败或未知必须显示 unknown，不根据历史设置猜当前连接；绝不返回密钥值、endpoint、模型请求、包名、组件、路径和设备 ID。
+4. 建立可扩展的脱敏 Outcome Journal v1，使用现有受完整状态包保护的 settings 保存最多 24 条结构化事件，只允许 capability ID、origin、固定 status/outcome、结果数量和时间，不保存 query、URL、标题、摘要、屏幕/图片/通知/聊天/Thought 正文或原始错误。用户轮 Agent 工具和后台相册处理从本版起写入；已有自主行动从 `autonomous_action_runs` 只读归一；以后 MCP 复用同一接口写入经注册表映射的游戏 Outcome。
+5. `system.self_read` 按问题范围只返回“能力”“当前运行状态”“近期真实行动”或有界综合结果；近期结果按时间排序并使用固定含义映射，能说“自主查资料成功并保存了若干候选”“相册识别后保存/拒绝”“某个聊天工具真实执行成功”，但不能从结果数量反推出内容，也不能把失败说成成功。没有记录时如实说暂无可核对结果。
+6. Memory Extractor 增加强约束：`SYSTEM_FACT` 与 `RECENT_AGENT_OUTCOME` 是当前可变运行事实，只服务当前回答，不得自动写成 ai_self、shared_experience、current_fact、Thought 或 unfinished thread；真实用户明确表达的评价仍可按原规则整理，但不能把工具输出本体持久化。
+7. 脱敏诊断增加 System Self Read 的调用/状态/结果数量、Outcome Journal 条数与固定分类统计，并固定负断言：不包含 System Facts 正文、能力说明、工具参数/结果正文、密钥/endpoint、原始 settings、日志/错误、路径/设备身份、网页/屏幕/图片/通知/聊天/Thought 内容。
+8. 目标版本 `0.40.10+139`，SQLite schema 保持 40；分支 `agent/v04010-agent-self-read`。本批不让 Agent 修改设置/规则/记忆/人格，不开放自主系统读取，不实现 MCP 执行器或游戏，不修改 Desire 数学、主动频率、Provider 路线、相册识图、备份协议、TTS、悬浮窗或桌宠行为。
+
+### C. 预定验收
+
+1. Registry/Planner 测试覆盖典型中文能力问题与近期行动问题的本地路由、native function 映射、只读风险、每轮两工具上限和 MCP 仍不可执行；普通陪伴、假设/否定或讨论“Agent 概念”不误触发。
+2. System Facts 纯策略测试覆盖能力类型、当前 configured/enabled/connected/unknown 状态、Active/standby 与 future MCP 边界；Prompt 输出不得出现伪造版本能力、密钥、endpoint、路径、设备 ID、原始 settings 或诊断正文。
+3. Outcome Journal/投影测试与源码门禁覆盖 24 条上限、固定字段白名单、无自由正文、用户轮成功/失败、相册保存/拒绝、自主行动成功/阻止/失败排序与真实语义；`system.self_read` 本身不写入 Journal 制造递归噪声。
+4. 完成后运行格式化、全部当前/历史 Python validators、Kotlin/Gradle、Flutter analyze/tests、Release APK、固定签名与全部大型素材校验；回填真实提交、Actions、APK/SHA 和真机待验。自动测试只证明读取合同，真机仍需自然问答确认她不会背技术文档、不会把“系统支持”说成“我刚刚做过”。
+
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.9 非破坏性加密备份与大包治理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.40.8+137 第一批完整状态包恢复正确性完成后明确继续既定下一任务。本批把“留一份备份且本机继续使用”与“换机接管后源设备下线”拆成两条独立产品流程，并补齐超大包的流式分卷、Nearby 单文件边界和 App 私有缓存残留清理；目标是可长期使用的普通备份，不改变第一批已经验证的关系隔离与原子回滚基础。Agent 自我系统读取和 MCP 游戏继续排在本批之后。
