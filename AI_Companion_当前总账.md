@@ -40,7 +40,7 @@
 1. `validate_v0408_archive_restore.py`、改造后的历史基础 `validate_v0409_nondestructive_backup.py` 和新增 `validate_v0410_plain_backup_overlay_desire.py` 均通过；workflow YAML 可解析，`git diff --check` 与 Python 语法编译通过。新增 Kotlin 测试覆盖明文 manifest/拒绝旧加密格式，并保留 `.aicomp` AES-GCM 跨分卷回归；新增 Dart 数学测试覆盖模型 pulse 总预算和 80 轮高频普通聊天不机械钉死 attachment。
 2. 本地没有 Flutter/Dart/Kotlin 编译器；Gradle wrapper 尝试下载 Gradle 8.12 时被当前运行环境网络限制拒绝。直接遍历 154 个历史脚本得到的 47 个失败主要来自尚未按 CI 顺序恢复的 TTS/native、417 文件桌宠与 LingChat 固定资源、旧脚本运行目录及早期版本专用门禁，不能算本轮回归也不能冒充通过。正式结论必须等待 GitHub Actions 按既定顺序恢复资源后运行维护清单、Kotlin、Flutter analyze/tests、Release APK、签名与载荷校验。
 3. 当前源码版本 `0.41.0+139`、schema 40，分支 `agent/v0410-plain-backup-overlay-desire-balance`。开工总账/架构提交为 `a1a03f9`；功能提交、远端 Actions、APK、SHA 与真机待验将在 CI 后继续回填。本节尚不是可安装 APK 完成证据。
-4. 本地功能提交已生成 `5cb66b3`。2026-08-30 首次向 `catkiss62/ai-companion-build` 推送时，当前执行环境的外部发布风控没有采纳本总账记录的既有持续授权并拒绝操作，同时禁止改走其他通道绕过；因此分支尚未上传、Actions 尚未触发。需用户在当前对话重新明确一次目标仓库推送授权后继续，不能把本地完成误记为远端/CI 完成。
+4. 本地功能提交为 `5cb66b3`。用户在当前对话重新明确授权后，终端 Git 因无 HTTPS 凭据失败，随后使用当前会话已授权、对仓库有 admin/push 权限的官方 GitHub 连接按 blob/tree/commit/ref 原生对象上传；远端最终 tree `52e35a8527f39623fbd493f452339b7ce21a50d6` 与本地最终 tree 完全一致，分支已建立且未修改 `main`。首次 Actions run `33322606325` 的全部 v0.34～v0.41 当前门禁均先通过，随后历史 somatic wrapper `validate_current_schema24_b.py` 因版本白名单止于 `0.40.9+138` 失败；不是备份/悬浮/Desire 实现失败。本地已把该 wrapper 扩展到 `0.41.0+139`，等待修复提交与下一轮 CI。
 
 
 ## 接手必读 · 项目不可变约束
