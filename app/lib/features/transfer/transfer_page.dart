@@ -66,15 +66,14 @@ class _TransferPageState extends State<TransferPage> {
   void dispose() {
     unawaited(sub?.cancel() ?? Future<void>.value());
     unawaited(android.stopNearby());
-    if (outboundBundle != null || awaitingTakeoverAck) {
+    if (outboundBundle != null) {
+      unawaited(_clearSourceSnapshot());
+    } else if (awaitingTakeoverAck) {
       // Leaving the UI cancels transport. If this is the target it remains
-      // active_brain=0; if this is the source, stopNearby disconnects the peer
-      // and invalidates the unsafely half-finished handoff.
+      // active_brain=0 and keeps the imported state safely in standby.
       unawaited(db.setSetting('transfer_lock', '0'));
     }
-    final sourcePath = outboundBundle?.filePath;
     final incomingPath = receivedPath;
-    if (sourcePath != null) unawaited(_deleteCachePath(sourcePath));
     if (incomingPath != null) unawaited(_deleteCachePath(incomingPath));
     super.dispose();
   }
@@ -88,11 +87,20 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
-  Future<void> _clearSourceSnapshot({bool unlock = true}) async {
+  Future<void> _clearSourceSnapshot({
+    bool unlock = true,
+    bool invalidatePending = true,
+  }) async {
     final bundle = outboundBundle;
     outboundBundle = null;
-    if (bundle != null) await _deleteCachePath(bundle.filePath);
-    if (unlock) await db.setSetting('transfer_lock', '0');
+    try {
+      if (bundle != null && invalidatePending) {
+        await db.cancelPreparedTransferSnapshot(bundle.metadata.snapshotId);
+      }
+    } finally {
+      if (bundle != null) await _deleteCachePath(bundle.filePath);
+      if (unlock) await db.setSetting('transfer_lock', '0');
+    }
   }
 
   Future<void> _clearReceivedSnapshot() async {
@@ -276,7 +284,10 @@ class _TransferPageState extends State<TransferPage> {
       case 'remoteTookOver':
         // NativeEventStore already fenced the exact source snapshot generation
         // atomically before this event is emitted.
-        await _clearSourceSnapshot(unlock: false);
+        await _clearSourceSnapshot(
+          unlock: false,
+          invalidatePending: false,
+        );
         if (!mounted) return;
         setState(() {
           importedStandby = true;
@@ -336,7 +347,11 @@ class _TransferPageState extends State<TransferPage> {
       await android.startNearbyDiscovery();
       _append('正在搜索附近接收设备…');
     } catch (e) {
-      await db.setSetting('transfer_lock', '0');
+      if (outboundBundle != null) {
+        await _clearSourceSnapshot();
+      } else {
+        await db.setSetting('transfer_lock', '0');
+      }
       _append('发送准备失败：$e');
     } finally {
       if (mounted) setState(() => busy = false);
@@ -427,12 +442,43 @@ class _TransferPageState extends State<TransferPage> {
         false;
   }
 
+  Future<bool> _confirmIncompleteArchive(SnapshotMetadata metadata) async {
+    if (metadata.hasCompleteArchiveState) return true;
+    if (!mounted) return false;
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('这是旧版状态包'),
+            content: const Text(
+              '这个包不包含她的自主联网记录、查手机浏览器历史和私人相册。'
+              '\n\n继续导入会清空本机这三类内容，避免把另一段关系的数据混进来；聊天、记忆等旧包已有内容仍会正常恢复。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('了解并继续'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<SnapshotImportResult?> _importPath(
     String path, {
     required bool allowLegacy,
     required bool nearbyTakeover,
   }) async {
     final metadata = await snapshots.inspectBundle(path, allowLegacy: allowLegacy);
+    if (!await _confirmIncompleteArchive(metadata)) {
+      _append('已取消导入，不改变本机数据。');
+      return null;
+    }
     final allowReplace = await _confirmLineageReplacement(metadata);
     if (!allowReplace) {
       _append('已取消导入，不改变本机数据。');
@@ -696,15 +742,21 @@ class _TransferPageState extends State<TransferPage> {
         // The source is already fenced in SQLite. Stopping the visual overlay
         // is best effort and must not reactivate or invalidate the export.
       }
-      await _clearSourceSnapshot(unlock: false);
+      await _clearSourceSnapshot(
+        unlock: false,
+        invalidatePending: false,
+      );
       if (!mounted) return;
       setState(() => importedStandby = true);
       _append(
         '加密手动接管包已保存。本机已主动进入 standby；把 .aicomp 文件传到目标设备后再导入。',
       );
     } catch (e) {
-      await db.setSetting('transfer_lock', '0');
-      if (bundle != null) await _clearSourceSnapshot(unlock: false);
+      if (bundle != null) {
+        await _clearSourceSnapshot();
+      } else {
+        await db.setSetting('transfer_lock', '0');
+      }
       _append('手动导出失败：$e');
     } finally {
       if (mounted) setState(() => busy = false);

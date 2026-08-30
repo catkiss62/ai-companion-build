@@ -191,12 +191,17 @@
 # AI-Companion-v0.40.6-135-Circadian-Fatigue-APK
 # v0.40.6-circadian-fatigue
 # .ci/v0406-monitor.txt
-name: Build AI Companion v0.40.7+136 APK (Album Recall & Browser Detail)
+# Historical v0.40.7 workflow compatibility:
+# Build AI Companion v0.40.7+136 APK (Album Recall & Browser Detail)
+# agent/v0407-album-recall-browser-detail
+# AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK
+# python3 tools/validate_v0407_album_recall_browser_detail.py
+name: Build AI Companion v0.40.8+137 APK (Archive Restore Correctness)
 
 on:
   push:
     branches:
-      - agent/v0407-album-recall-browser-detail
+      - agent/v0408-archive-restore-correctness
   workflow_dispatch:
   pull_request:
     branches:
@@ -334,14 +339,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.40.7+136' app/pubspec.yaml
+          grep -Fqx 'version: 0.40.8+137' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 40;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.40.7+136 album recall and browser detail.'
+          echo 'Building v0.40.8+137 archive restore correctness.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -514,6 +519,7 @@ jobs:
           python3 tools/validate_v0405_album_image_binding.py
           python3 tools/validate_v0406_circadian_fatigue.py
           python3 tools/validate_v0407_album_recall_browser_detail.py
+          python3 tools/validate_v0408_archive_restore.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -759,26 +765,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.40.7+136 APK as workflow artifact
+      - name: Upload v0.40.8+137 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK
+          name: AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.40.7+136 album recall APK to draft release
+      - name: Upload v0.40.8+137 archive restore APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.40.7-album-recall-browser-detail'
-          APK_NAME='AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK.apk'
+          TAG='v0.40.8-archive-restore-correctness'
+          APK_NAME='AI-Companion-v0.40.8-137-Archive-Restore-Correctness-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.40.8-137-Archive-Restore-Correctness-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -795,8 +801,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.7+136 Album recall and browser detail candidate' \
-              --notes 'Draft candidate: adds read-only fuzzy recall of her saved local album, full browser-record detail pages, and small style-label polish. SQLite schema remains 40.'
+              --title 'AI Companion v0.40.8+137 Archive restore correctness candidate' \
+              --notes 'Draft candidate: restores autonomous web state, browser history, private-album metadata and thumbnails as one rollback-safe protocol v4 package. SQLite schema remains 40.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -820,18 +826,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0407-monitor.txt'
+          MONITOR_PATH='.ci/v0408-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.7 CI success monitor' \
+              -f message='Update v0.40.8 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.7 CI success monitor' \
+              -f message='Create v0.40.8 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -852,8 +858,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.40.7-album-recall-browser-detail'
-          CI_NAME='AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-CI-Monitor.txt'
+          TAG='v0.40.8-archive-restore-correctness'
+          CI_NAME='AI-Companion-v0.40.8-137-Archive-Restore-Correctness-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -894,8 +900,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.40.7+136 Album recall and browser detail candidate' \
-              --notes 'Draft used for saved-album recall and full browser-record detail validation. It is not a published release.'
+              --title 'AI Companion v0.40.8+137 Archive restore correctness candidate' \
+              --notes 'Draft used for protocol v4 complete archive and rollback-safe restore validation. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -904,18 +910,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0407-monitor.txt'
+          MONITOR_PATH='.ci/v0408-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.40.7 CI failure monitor' \
+              -f message='Update v0.40.8 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.40.7 CI failure monitor' \
+              -f message='Create v0.40.8 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

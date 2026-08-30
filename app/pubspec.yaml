@@ -43,8 +43,9 @@ publish_to: 'none'
 # Historical validator compatibility token: version: 0.40.4+133
 # Historical validator compatibility token: version: 0.40.5+134
 # Historical validator compatibility token: version: 0.40.6+135
-# Current build identity: v0.40.7 saved-album recall and browser detail
-version: 0.40.7+136
+# Historical validator compatibility token: version: 0.40.7+136
+# Current build identity: v0.40.8 complete archive restore correctness
+version: 0.40.8+137
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

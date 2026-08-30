@@ -103,16 +103,16 @@ assert "insertMessageWithAttachments" in controller
 assert "message.promptContent" in history
 assert "!lastUser.expectsReply" in grounding
 
+assert "'protocol_version': 3" in snapshot or "'protocol_version': 4" in snapshot
 for token in (
-    "'protocol_version': 3",
     "'attachment_files': attachmentFiles",
     "'missing_attachment_files': missingAttachmentFiles",
     "_validateAttachmentPayload",
     "图片附件 SHA-256 校验失败",
-    "_installValidatedAttachments",
     "p.joinAll(",
 ):
     assert token in snapshot, token
+assert "_installValidatedAttachments" in snapshot or "_prepareValidatedFiles" in snapshot
 
 for token in (
     'actionId == "SLEEPING"',

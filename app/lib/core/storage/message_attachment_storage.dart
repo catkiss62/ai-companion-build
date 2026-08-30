@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/message_attachment.dart';
+import 'snapshot_directory_swap.dart';
 
 class PreparedImageAttachment {
   const PreparedImageAttachment({
@@ -206,6 +207,20 @@ class MessageAttachmentStorage {
         if (!expected.contains(relative)) await entity.delete();
       }
     }
+  }
+
+  Future<PreparedDirectorySwap> prepareSnapshotInstall({
+    required Directory extractedAttachments,
+    required Iterable<String> expectedPaths,
+    required String snapshotId,
+  }) async {
+    return PreparedDirectorySwap.prepare(
+      sourceDirectory: extractedAttachments,
+      targetDirectory: await rootDirectory,
+      expectedPaths: expectedPaths,
+      validatePath: requireSafeRelativePath,
+      token: '${snapshotId}_${DateTime.now().microsecondsSinceEpoch}',
+    );
   }
 
   Future<void> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {

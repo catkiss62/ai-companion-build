@@ -2530,6 +2530,43 @@ class AppDatabase {
     });
   }
 
+  /// Cancel exactly the currently prepared outbound snapshot. The generation
+  /// bump makes any cache/file copy of that canceled package stale.
+  Future<bool> cancelPreparedTransferSnapshot(String snapshotId) async {
+    if (snapshotId.trim().isEmpty) return false;
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      Future<String> setting(String key) async {
+        final rows = await txn.query(
+          'settings',
+          columns: const ['value'],
+          where: 'key = ?',
+          whereArgs: [key],
+          limit: 1,
+        );
+        return rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+      }
+
+      if (await setting('pending_outbound_snapshot_id') != snapshotId) {
+        return false;
+      }
+      final current = int.tryParse(await setting('state_generation')) ?? 0;
+      for (final entry in <String, String>{
+        'state_generation': '${current + 1}',
+        'pending_outbound_snapshot_id': '',
+        'pending_outbound_generation': '0',
+        'transfer_lock': '0',
+      }.entries) {
+        await txn.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return true;
+    });
+  }
+
   Future<TransferReceipt?> transferReceipt(String snapshotId) async {
     final db = await database;
     final rows = await db.query(
@@ -2571,6 +2608,10 @@ class AppDatabase {
       'reference_documents',
       'reference_items',
       'daily_continuity',
+      'autonomous_action_runs',
+      'public_web_candidates',
+      'companion_browser_visits',
+      'companion_album_candidates',
     ];
     for (final table in tables) {
       final rows = await db.rawQuery('SELECT 1 FROM $table LIMIT 1');
@@ -11697,6 +11738,10 @@ class AppDatabase {
       'awareness_observations',
       'daily_continuity',
       'proactive_history',
+      'autonomous_action_runs',
+      'public_web_candidates',
+      'companion_browser_visits',
+      'companion_album_candidates',
       'relationship_events',
       'interaction_sessions',
       'reference_documents',
@@ -11779,6 +11824,10 @@ class AppDatabase {
         'awareness_observations',
         'daily_continuity',
         'proactive_history',
+        'autonomous_action_runs',
+        'public_web_candidates',
+        'companion_browser_visits',
+        'companion_album_candidates',
         'relationship_events',
         'interaction_sessions',
         'reference_documents',

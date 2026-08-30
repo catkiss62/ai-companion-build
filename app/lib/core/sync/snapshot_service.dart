@@ -8,7 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
+import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
+import '../storage/snapshot_directory_swap.dart';
 import 'transfer_identity.dart';
 
 class SnapshotMetadata {
@@ -37,6 +39,8 @@ class SnapshotMetadata {
   final DateTime createdAt;
   final int protocolVersion;
   final bool legacy;
+
+  bool get hasCompleteArchiveState => protocolVersion >= 4;
 }
 
 class SnapshotBundle {
@@ -98,6 +102,8 @@ class _ValidatedSnapshot {
   Directory get attachmentsDirectory =>
       Directory(p.join(workDirectory.path, 'attachments'));
 
+  Directory get albumDirectory => Directory(p.join(workDirectory.path, 'album'));
+
   Future<void> dispose() async {
     if (await workDirectory.exists()) {
       await workDirectory.delete(recursive: true);
@@ -105,34 +111,72 @@ class _ValidatedSnapshot {
   }
 }
 
+class _PreparedSnapshotFiles {
+  const _PreparedSnapshotFiles(this.attachments, this.album);
+
+  final PreparedDirectorySwap attachments;
+  final PreparedDirectorySwap album;
+
+  Future<void> activate() async {
+    await attachments.activate();
+    try {
+      await album.activate();
+    } catch (_) {
+      await attachments.rollback();
+      rethrow;
+    }
+  }
+
+  Future<void> rollback() async {
+    try {
+      await album.rollback();
+    } finally {
+      await attachments.rollback();
+    }
+  }
+
+  Future<void> commit() async {
+    await attachments.commit();
+    await album.commit();
+  }
+}
+
 class SnapshotService {
   SnapshotService(
     this.db, {
     MessageAttachmentStorage? attachmentStorage,
-  }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage();
+    CompanionAlbumStorage? albumStorage,
+  })  : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
+        albumStorage = albumStorage ?? CompanionAlbumStorage();
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
+  final CompanionAlbumStorage albumStorage;
   final Uuid _uuid = const Uuid();
 
   Future<SnapshotBundle> exportBundle() async {
     final snapshotId = _uuid.v4();
     final identity = await db.reserveTransferSnapshot(snapshotId);
-    final exported = await db.exportAll();
-    final jsonBytes = utf8.encode(jsonEncode(exported));
-    final digest = sha256.convert(jsonBytes).toString();
-    final now = DateTime.now().toUtc();
-    final temp = await getTemporaryDirectory();
-    final stamp = now.toIso8601String().replaceAll(':', '-');
-    final nonce = DateTime.now().microsecondsSinceEpoch;
-    final work = Directory(p.join(temp.path, 'companion_snapshot_work_$nonce'));
-    final zipPath = p.join(temp.path, 'ai_companion_${stamp}_$nonce.zip');
-    await work.create(recursive: true);
-
-    final stateFile = File(p.join(work.path, 'state.json'));
-    final manifestFile = File(p.join(work.path, 'manifest.json'));
-    final attachmentExportDirectory = Directory(p.join(work.path, 'attachments'));
     try {
+      final exported = await db.exportAll();
+      final jsonBytes = utf8.encode(jsonEncode(exported));
+      final digest = sha256.convert(jsonBytes).toString();
+      final now = DateTime.now().toUtc();
+      final temp = await getTemporaryDirectory();
+      final stamp = now.toIso8601String().replaceAll(':', '-');
+      final nonce = DateTime.now().microsecondsSinceEpoch;
+      final work = Directory(
+        p.join(temp.path, 'companion_snapshot_work_$nonce'),
+      );
+      final zipPath = p.join(temp.path, 'ai_companion_${stamp}_$nonce.zip');
+      await work.create(recursive: true);
+
+      final stateFile = File(p.join(work.path, 'state.json'));
+      final manifestFile = File(p.join(work.path, 'manifest.json'));
+      final attachmentExportDirectory =
+          Directory(p.join(work.path, 'attachments'));
+      final albumExportDirectory = Directory(p.join(work.path, 'album'));
+      try {
       final pendingSnapshotId = _settingFromBackup(exported, 'pending_outbound_snapshot_id');
       final pendingGeneration = int.tryParse(
             _settingFromBackup(exported, 'pending_outbound_generation'),
@@ -174,9 +218,28 @@ class SnapshotService {
         await source.copy(target.path);
         attachmentFiles[relative] = sha256.convert(await target.readAsBytes()).toString();
       }
+      final albumFiles = <String, String>{};
+      final missingAlbumFiles = <String>[];
+      var albumBytes = 0;
+      for (final rawPath in _expectedAlbumPaths(exported)) {
+        final relative = CompanionAlbumStorage.requireSafeRelativePath(rawPath);
+        final source = await albumStorage.fileFor(relative);
+        if (!await source.exists()) {
+          missingAlbumFiles.add(relative);
+          continue;
+        }
+        final length = await source.length();
+        albumBytes += length;
+        final target = File(
+          p.joinAll([albumExportDirectory.path, ...relative.split('/')]),
+        );
+        await target.parent.create(recursive: true);
+        await source.copy(target.path);
+        albumFiles[relative] = sha256.convert(await target.readAsBytes()).toString();
+      }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
-        'protocol_version': 3,
+        'protocol_version': 4,
         'schema_version': AppDatabase.schemaVersion,
         'snapshot_id': snapshotId,
         'lineage_id': identity.lineageId,
@@ -189,6 +252,9 @@ class SnapshotService {
         'attachment_files': attachmentFiles,
         'missing_attachment_files': missingAttachmentFiles,
         'attachment_bytes': attachmentBytes,
+        'album_files': albumFiles,
+        'missing_album_files': missingAlbumFiles,
+        'album_bytes': albumBytes,
         'encryption': 'nearby_transport_or_manual_aes_gcm',
       };
       await manifestFile.writeAsString(
@@ -203,6 +269,9 @@ class SnapshotService {
         await encoder.addFile(manifestFile);
         if (await attachmentExportDirectory.exists()) {
           await encoder.addDirectory(attachmentExportDirectory);
+        }
+        if (await albumExportDirectory.exists()) {
+          await encoder.addDirectory(albumExportDirectory);
         }
         await encoder.close();
       } catch (_) {
@@ -225,14 +294,18 @@ class SnapshotService {
           stateBytes: jsonBytes.length,
           schemaVersion: AppDatabase.schemaVersion,
           createdAt: now,
-          protocolVersion: 2,
+          protocolVersion: 4,
         ),
       );
-    } finally {
-      // state.json contains the full unencrypted relationship history. Keep the
-      // transport ZIP only as long as Nearby/manual encryption needs it; never
-      // leave the expanded plaintext workspace behind in cache.
-      if (await work.exists()) await work.delete(recursive: true);
+      } finally {
+        // state.json contains the full unencrypted relationship history. Keep
+        // the transport ZIP only as long as Nearby/manual encryption needs it;
+        // never leave the expanded plaintext workspace behind in cache.
+        if (await work.exists()) await work.delete(recursive: true);
+      }
+    } catch (_) {
+      await db.cancelPreparedTransferSnapshot(snapshotId);
+      rethrow;
     }
   }
 
@@ -280,7 +353,15 @@ class SnapshotService {
           priorReceipt.sourceDeviceId != metadata.sourceDeviceId) {
         throw const FormatException('检测到 snapshot_id 冲突，已拒绝导入。');
       }
-      await _installValidatedAttachments(validated);
+      final pending = await db.pendingImportedTransfer();
+      final mayRepairPending = pending?.snapshotId == metadata.snapshotId &&
+          pending?.lineageId == metadata.lineageId &&
+          pending?.sourceDeviceId == metadata.sourceDeviceId &&
+          pending?.sourceGeneration == metadata.sourceGeneration &&
+          pending?.stateSha256 == metadata.stateSha256;
+      if (mayRepairPending) {
+        await _replaceValidatedFiles(validated);
+      }
       return SnapshotImportResult(
         metadata: metadata,
         imported: false,
@@ -313,12 +394,18 @@ class SnapshotService {
       importedAt: DateTime.now().millisecondsSinceEpoch,
     );
 
-    // Device identity and transport receipts are installation-local and must
-    // never be overwritten by the source snapshot. Imported relationship state
-    // remains frozen until an ACK-bound or explicit manual takeover succeeds.
-    await db.importAll(
-      validated.backup,
-      runtimeSettingOverrides: <String, String>{
+    final preparedFiles = await _prepareValidatedFiles(validated);
+    try {
+      // Files become live first while their exact previous trees remain beside
+      // them for rollback. The database transaction only starts after both
+      // complete incoming trees can be activated.
+      await preparedFiles.activate();
+      // Device identity and transport receipts are installation-local and must
+      // never be overwritten by the source snapshot. Imported relationship
+      // state remains frozen until takeover succeeds.
+      await db.importAll(
+        validated.backup,
+        runtimeSettingOverrides: <String, String>{
         'device_id': localDeviceId,
         'state_lineage_id': metadata.lineageId,
         'state_generation': '${metadata.sourceGeneration}',
@@ -359,10 +446,14 @@ class SnapshotService {
         'last_long_usage_package': '',
         'last_accessibility_thought_text': '',
         'last_accessibility_thought_at': '0',
-      },
-      localTransferReceipt: receipt,
-    );
-    await _installValidatedAttachments(validated);
+        },
+        localTransferReceipt: receipt,
+      );
+    } catch (_) {
+      await preparedFiles.rollback();
+      rethrow;
+    }
+    await preparedFiles.commit();
     return SnapshotImportResult(
       metadata: metadata,
       imported: true,
@@ -370,13 +461,36 @@ class SnapshotService {
     );
   }
 
-  Future<void> _installValidatedAttachments(
+  Future<_PreparedSnapshotFiles> _prepareValidatedFiles(
     _ValidatedSnapshot validated,
   ) async {
-    await attachmentStorage.installSnapshotAttachments(
-      validated.attachmentsDirectory,
-      _expectedAttachmentPaths(validated.backup),
+    final attachments = await attachmentStorage.prepareSnapshotInstall(
+      extractedAttachments: validated.attachmentsDirectory,
+      expectedPaths: _expectedAttachmentPaths(validated.backup),
+      snapshotId: validated.metadata.snapshotId,
     );
+    try {
+      final album = await albumStorage.prepareSnapshotInstall(
+        extractedAlbum: validated.albumDirectory,
+        expectedPaths: _expectedAlbumPaths(validated.backup),
+        snapshotId: validated.metadata.snapshotId,
+      );
+      return _PreparedSnapshotFiles(attachments, album);
+    } catch (_) {
+      await attachments.rollback();
+      rethrow;
+    }
+  }
+
+  Future<void> _replaceValidatedFiles(_ValidatedSnapshot validated) async {
+    final prepared = await _prepareValidatedFiles(validated);
+    try {
+      await prepared.activate();
+    } catch (_) {
+      await prepared.rollback();
+      rethrow;
+    }
+    await prepared.commit();
   }
 
   Future<_ValidatedSnapshot> _readValidatedBundle(
@@ -407,22 +521,32 @@ class SnapshotService {
       archive = ZipDecoder().decodeStream(input);
       const maxStateBytes = 480 * 1024 * 1024;
       const maxManifestBytes = 1024 * 1024;
-      const maxAttachmentBytes = 512 * 1024 * 1024;
+      const maxBundledFileBytes = 512 * 1024 * 1024;
       const maxExpandedBytes = 768 * 1024 * 1024;
       final seen = <String>{};
       var stateSize = 0;
       var manifestSize = 0;
       var attachmentSize = 0;
+      var albumSize = 0;
       var totalExpanded = 0;
       for (final entry in archive.files) {
         final name = entry.name.replaceAll('\\', '/');
         final isAttachment = name.startsWith('attachments/');
-        if (name != 'state.json' && name != 'manifest.json' && !isAttachment) {
+        final isAlbum = name.startsWith('album/');
+        if (name != 'state.json' &&
+            name != 'manifest.json' &&
+            !isAttachment &&
+            !isAlbum) {
           throw FormatException('状态包含意外文件：$name');
         }
         if (isAttachment && !name.endsWith('/')) {
           MessageAttachmentStorage.requireSafeRelativePath(
             name.substring('attachments/'.length),
+          );
+        }
+        if (isAlbum && !name.endsWith('/')) {
+          CompanionAlbumStorage.requireSafeRelativePath(
+            name.substring('album/'.length),
           );
         }
         if (!seen.add(name)) {
@@ -434,6 +558,7 @@ class SnapshotService {
         if (name == 'state.json') stateSize = size;
         if (name == 'manifest.json') manifestSize = size;
         if (isAttachment && !name.endsWith('/')) attachmentSize += size;
+        if (isAlbum && !name.endsWith('/')) albumSize += size;
       }
       if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
         throw const FormatException('状态包必须包含 state.json 与 manifest.json');
@@ -444,7 +569,8 @@ class SnapshotService {
       if (manifestSize <= 0 || manifestSize > maxManifestBytes) {
         throw const FormatException('manifest.json 大小异常');
       }
-      if (attachmentSize > maxAttachmentBytes || totalExpanded > maxExpandedBytes) {
+      if (attachmentSize + albumSize > maxBundledFileBytes ||
+          totalExpanded > maxExpandedBytes) {
         throw const FormatException('状态包解压后大小异常');
       }
 
@@ -492,12 +618,23 @@ class SnapshotService {
       }
 
       final protocolVersion = (manifest['protocol_version'] as num?)?.toInt() ?? 1;
+      if (protocolVersion < 1 || protocolVersion > 4) {
+        throw FormatException('状态包协议版本不受支持：$protocolVersion');
+      }
+      _normalizeArchiveStateDomains(backup, protocolVersion);
       await _validateAttachmentPayload(
         target: target,
         manifest: manifest,
         backup: backup,
         protocolVersion: protocolVersion,
         observedAttachmentBytes: attachmentSize,
+      );
+      await _validateAlbumPayload(
+        target: target,
+        manifest: manifest,
+        backup: backup,
+        protocolVersion: protocolVersion,
+        observedAlbumBytes: albumSize,
       );
       if (protocolVersion >= 2) {
         final snapshotId = manifest['snapshot_id'] as String? ?? '';
@@ -589,6 +726,37 @@ class SnapshotService {
     }
   }
 
+  static void _normalizeArchiveStateDomains(
+    Map<String, dynamic> backup,
+    int protocolVersion,
+  ) {
+    final rawTables = backup['tables'];
+    if (rawTables is! Map) {
+      throw const FormatException('state.json 缺少数据表');
+    }
+    final tables = Map<String, dynamic>.from(rawTables);
+    const completeArchiveTables = <String>[
+      'autonomous_action_runs',
+      'public_web_candidates',
+      'companion_browser_visits',
+      'companion_album_candidates',
+    ];
+    if (protocolVersion >= 4) {
+      for (final table in completeArchiveTables) {
+        if (tables[table] is! List) {
+          throw FormatException('v4 状态包缺少完整状态表：$table');
+        }
+      }
+    } else {
+      // Protocol 1-3 never promised these domains. Clear them explicitly so a
+      // target device cannot retain another relationship's local rows.
+      for (final table in completeArchiveTables) {
+        tables[table] = const <Object?>[];
+      }
+    }
+    backup['tables'] = tables;
+  }
+
   static Future<void> _validateAttachmentPayload({
     required Directory target,
     required Map<String, dynamic> manifest,
@@ -662,6 +830,79 @@ class SnapshotService {
     }
   }
 
+  static Future<void> _validateAlbumPayload({
+    required Directory target,
+    required Map<String, dynamic> manifest,
+    required Map<String, dynamic> backup,
+    required int protocolVersion,
+    required int observedAlbumBytes,
+  }) async {
+    final expected = _expectedAlbumPaths(backup);
+    if (protocolVersion < 4) {
+      if (observedAlbumBytes != 0 || expected.isNotEmpty) {
+        throw const FormatException('旧版状态包不能包含私人相册图片');
+      }
+      return;
+    }
+
+    final rawHashes = manifest['album_files'];
+    final rawMissing = manifest['missing_album_files'];
+    if (rawHashes is! Map || rawMissing is! List) {
+      throw const FormatException('状态包缺少私人相册文件清单');
+    }
+    final hashes = <String, String>{};
+    for (final entry in rawHashes.entries) {
+      final relative = CompanionAlbumStorage.requireSafeRelativePath(
+        entry.key.toString(),
+      );
+      final digest = entry.value?.toString() ?? '';
+      if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
+        throw FormatException('私人相册校验值无效：$relative');
+      }
+      hashes[relative] = digest;
+    }
+    final missing = <String>{
+      for (final item in rawMissing)
+        CompanionAlbumStorage.requireSafeRelativePath(item.toString()),
+    };
+    final included = hashes.keys.toSet();
+    final declared = included.union(missing);
+    if (included.intersection(missing).isNotEmpty ||
+        declared.length != expected.length ||
+        !declared.containsAll(expected)) {
+      throw const FormatException('私人相册文件清单与数据库记录不一致');
+    }
+
+    final albumDirectory = Directory(p.join(target.path, 'album'));
+    final observed = <String>{};
+    var actualBytes = 0;
+    if (await albumDirectory.exists()) {
+      await for (final entity in albumDirectory.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        final relative = CompanionAlbumStorage.requireSafeRelativePath(
+          p.relative(entity.path, from: albumDirectory.path)
+              .replaceAll('\\', '/'),
+        );
+        observed.add(relative);
+        final bytes = await entity.readAsBytes();
+        actualBytes += bytes.length;
+        if (sha256.convert(bytes).toString() != hashes[relative]) {
+          throw FormatException('私人相册 SHA-256 校验失败：$relative');
+        }
+      }
+    }
+    if (observed.length != included.length || !observed.containsAll(included)) {
+      throw const FormatException('状态包中的私人相册文件与清单不一致');
+    }
+    final declaredBytes = (manifest['album_bytes'] as num?)?.toInt();
+    if (actualBytes != observedAlbumBytes || declaredBytes != actualBytes) {
+      throw const FormatException('私人相册总大小与清单不一致');
+    }
+  }
+
   static Set<String> _expectedAttachmentPaths(Map<String, dynamic> backup) {
     final tables = backup['tables'];
     if (tables is! Map) return const <String>{};
@@ -673,6 +914,26 @@ class SnapshotService {
       for (final key in const ['original_path', 'thumbnail_path']) {
         final value = raw[key]?.toString() ?? '';
         result.add(MessageAttachmentStorage.requireSafeRelativePath(value));
+      }
+    }
+    return result;
+  }
+
+  static Set<String> _expectedAlbumPaths(Map<String, dynamic> backup) {
+    final tables = backup['tables'];
+    if (tables is! Map) return const <String>{};
+    final rows = tables['companion_album_candidates'];
+    if (rows is! List) return const <String>{};
+    final result = <String>{};
+    for (final raw in rows) {
+      if (raw is! Map) throw const FormatException('私人相册数据库记录无效');
+      final lifecycle = raw['lifecycle_state']?.toString() ?? '';
+      final nsfw = (raw['nsfw'] as num?)?.toInt() ?? 0;
+      final value = raw['thumbnail_path']?.toString() ?? '';
+      if ((lifecycle == 'saved' || lifecycle == 'soft_deleted') &&
+          nsfw == 0 &&
+          value.isNotEmpty) {
+        result.add(CompanionAlbumStorage.requireSafeRelativePath(value));
       }
     }
     return result;

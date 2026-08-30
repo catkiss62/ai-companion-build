@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'snapshot_directory_swap.dart';
+
 class StoredAlbumThumbnail {
   const StoredAlbumThumbnail({
     required this.relativePath,
@@ -95,6 +97,20 @@ class CompanionAlbumStorage {
     return File(p.joinAll([root.path, ...safe.split('/')]));
   }
 
+  Future<PreparedDirectorySwap> prepareSnapshotInstall({
+    required Directory extractedAlbum,
+    required Iterable<String> expectedPaths,
+    required String snapshotId,
+  }) async {
+    return PreparedDirectorySwap.prepare(
+      sourceDirectory: extractedAlbum,
+      targetDirectory: await rootDirectory,
+      expectedPaths: expectedPaths,
+      validatePath: requireSafeRelativePath,
+      token: '${snapshotId}_${DateTime.now().microsecondsSinceEpoch}',
+    );
+  }
+
   Future<void> deleteThumbnail(String relativePath) async {
     if (relativePath.trim().isEmpty) return;
     final file = await fileFor(relativePath);
@@ -124,6 +140,7 @@ class CompanionAlbumStorage {
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');
     if (!normalized.startsWith('thumbnails/') ||
+        normalized == 'thumbnails/' ||
         normalized.contains('..') ||
         p.posix.normalize(normalized) != normalized) {
       throw FormatException('不安全的相册缩略图路径：$value');
