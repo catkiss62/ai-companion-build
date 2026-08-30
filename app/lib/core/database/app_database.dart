@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
+import '../agent/agent_outcome_journal.dart';
 import '../emotion/emotion_contract.dart';
 import '../diagnostics/provider_health.dart';
 import '../diagnostics/proactive_policy_telemetry.dart';
@@ -11196,6 +11197,74 @@ class AppDatabase {
       ['sent', since],
     );
     return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  static const String agentOutcomeJournalSettingKey =
+      'agent_outcome_journal_v1';
+
+  Future<bool> recordAgentOutcomeEvent({
+    required String capabilityId,
+    required String origin,
+    required String status,
+    required String outcome,
+    required int resultCount,
+    DateTime? occurredAt,
+  }) async {
+    final event = AgentOutcomeJournal.create(
+      capabilityId: capabilityId,
+      origin: origin,
+      status: status,
+      outcome: outcome,
+      resultCount: resultCount,
+      occurredAt: occurredAt ?? DateTime.now(),
+    );
+    if (event == null) return false;
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const [agentOutcomeJournalSettingKey],
+        limit: 1,
+      );
+      final current =
+          rows.isEmpty ? '' : rows.first['value'] as String? ?? '';
+      await txn.insert(
+        'settings',
+        {
+          'key': agentOutcomeJournalSettingKey,
+          'value': AgentOutcomeJournal.append(current, event),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return true;
+    });
+  }
+
+  Future<List<AgentOutcomeEvent>> agentOutcomeJournal({int limit = 8}) async {
+    final events = AgentOutcomeJournal.decode(
+      await getSetting(agentOutcomeJournalSettingKey) ?? '',
+    ).reversed;
+    return List<AgentOutcomeEvent>.unmodifiable(
+      events.take(limit.clamp(1, 24).toInt()),
+    );
+  }
+
+  Future<List<AutonomousActionRun>> recentAutonomousActionRuns({
+    int limit = 8,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'autonomous_action_runs',
+      where: "status NOT IN ('requested','running') "
+          "AND reason_source NOT LIKE 'diagnostic_%'",
+      orderBy: 'COALESCE(finished_at, requested_at) DESC',
+      limit: limit.clamp(1, 24).toInt(),
+    );
+    return List<AutonomousActionRun>.unmodifiable(
+      rows.map(_autonomousActionRunFromDb),
+    );
   }
 
   Future<String?> getSetting(String key) async {

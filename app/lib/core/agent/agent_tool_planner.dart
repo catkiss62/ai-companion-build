@@ -46,6 +46,14 @@ class AgentToolPlanner {
       r'我现在.{0,8}(打开|使用|看).{0,8}(什么|哪个)',
       caseSensitive: false,
     ).hasMatch(text);
+    final explicitSystemSelf = RegExp(
+      r'(我.{0,10}(给|帮).{0,6}你.{0,10}(做|加|装|实现).{0,10}(什么|哪些)?.{0,8}(功能|能力))|'
+      r'(你.{0,8}(现在|当前)?.{0,8}(有|会|能).{0,8}(什么|哪些).{0,8}(功能|能力|事情))|'
+      r'(你.{0,8}(现在|当前)?.{0,8}(会什么|能做什么|可以做什么|能干什么|会干什么))|'
+      r'((看看|读取|检查|核对).{0,8}(你自己|你自己的|你的).{0,8}(系统|功能|能力|行动记录|最近结果))|'
+      r'(你.{0,8}(最近|刚才|今天|这两天).{0,12}(自己|主动)?.{0,8}(做了|干了|查了|保存了|玩了).{0,6}(什么|哪些)?)',
+      caseSensitive: false,
+    ).hasMatch(text);
 
     final webCommand = RegExp(
       r'(^|[，。！？；])\s*'
@@ -66,7 +74,8 @@ class AgentToolPlanner {
                 (!explicitRules &&
                     !explicitMemory &&
                     !explicitAlbum &&
-                    !explicitDevice)));
+                    !explicitDevice &&
+                    !explicitSystemSelf)));
 
     if (explicitWeb) {
       add(
@@ -94,6 +103,12 @@ class AgentToolPlanner {
     }
     if (explicitDevice) {
       add(AgentToolRegistry.deviceContextRead.id, const {});
+    }
+    if (explicitSystemSelf) {
+      add(
+        AgentToolRegistry.systemSelfRead.id,
+        {'scope': _systemSelfScope(text)},
+      );
     }
     return calls.isEmpty ? null : AgentToolPlan(calls: calls);
   }
@@ -172,6 +187,12 @@ class AgentToolPlanner {
         'description': '用户对她已保存相册内容的自然语言描述；可模糊、不必是精确标题。',
       };
       required.add('query');
+    } else if (tool.id == AgentToolRegistry.systemSelfRead.id) {
+      properties['scope'] = const <String, Object?>{
+        'type': 'string',
+        'enum': <String>['capabilities', 'runtime', 'recent_outcomes', 'all'],
+        'description': '按问题只读取能力、当前运行状态、近期真实行动，或有界综合信息。',
+      };
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -185,6 +206,9 @@ class AgentToolPlanner {
         '仅在用户询问你已经保存到自己相册里的图片时调用。它只检索已存相册，不负责联网找图、识别新图或保存图片。',
       'device_context.read' =>
         '仅在用户要你查看当前手机/App 状态，或当前回答明确依赖实时设备状态时调用；不得猜测屏幕内容。',
+      'system.self_read' =>
+        '仅在用户询问你当前真实功能、系统状态、他给你做过哪些能力，或你近期实际做过什么时调用。'
+        '它只读当前真源；不要用它回答抽象的 Agent 概念讨论，也不得声称尚未实现的 MCP 已可使用。',
       _ => '',
     };
     return <String, Object?>{
@@ -225,12 +249,28 @@ class AgentToolPlanner {
     return stripped.isEmpty ? text : stripped;
   }
 
+  static String _systemSelfScope(String text) {
+    if (RegExp(r'(最近|刚才|今天|这两天|做过|做了|干了|查了|保存了|玩了)')
+        .hasMatch(text)) {
+      return 'recent_outcomes';
+    }
+    if (RegExp(r'(状态|运行|连接|启用|配置)').hasMatch(text)) {
+      return 'runtime';
+    }
+    if (RegExp(r'(功能|能力|会什么|能做什么|可以做什么|能干什么|会干什么)')
+        .hasMatch(text)) {
+      return 'capabilities';
+    }
+    return 'all';
+  }
+
   static const _nativeNameByToolId = <String, String>{
     'public_web.search': 'public_web_search',
     'rules.read': 'rules_read',
     'memory.search': 'memory_search',
     'album.search': 'album_search',
     'device_context.read': 'device_context_read',
+    'system.self_read': 'system_self_read',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -238,6 +278,7 @@ class AgentToolPlanner {
     'memory_search': 'memory.search',
     'album_search': 'album.search',
     'device_context_read': 'device_context.read',
+    'system_self_read': 'system.self_read',
   };
 
   static String _bounded(String value, int limit) =>

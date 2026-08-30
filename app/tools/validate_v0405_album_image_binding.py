@@ -27,7 +27,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.40\.(?:5\+134|6\+135|7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+assert re.search(r"^version:\s*0\.40\.(?:5\+134|6\+135|7\+136)\s*$", pubspec, re.M) or "version: 0.40.10+139" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
 assert "static const int schemaVersion = 40;" in database
 
 for token in (

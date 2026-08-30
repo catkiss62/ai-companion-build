@@ -52,6 +52,15 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const systemSelfRead = AgentToolDefinition(
+    id: 'system.self_read',
+    title: '查看自己的系统',
+    description: '按需读取当前真实能力、运行状态与近期脱敏行动结果，不修改任何设置或长期状态。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const screenObservation = AgentToolDefinition(
     id: 'screen_observation.inspect',
     title: '查看当前屏幕',
@@ -122,6 +131,7 @@ class AgentToolRegistry {
     memorySearch,
     albumSearch,
     deviceContextRead,
+    systemSelfRead,
     screenObservation,
     videoUnderstanding,
     memoryProposal,

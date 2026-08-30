@@ -33,6 +33,36 @@ void main() {
     expect(plan.calls.single.arguments['query'], contains('你自己的图片'));
   });
 
+  test('explicit self-system and recent outcome questions route locally', () {
+    final capabilities = AgentToolPlanner.routeLocally(
+      '我给你做了哪些功能，你现在会什么？',
+    );
+    expect(capabilities, isNotNull);
+    expect(
+      capabilities!.calls.single.toolId,
+      AgentToolRegistry.systemSelfRead.id,
+    );
+    expect(capabilities.calls.single.arguments['scope'], 'capabilities');
+
+    final shortCapabilities = AgentToolPlanner.routeLocally('你现在能做什么？');
+    expect(
+      shortCapabilities!.calls.single.toolId,
+      AgentToolRegistry.systemSelfRead.id,
+    );
+    expect(shortCapabilities.calls.single.arguments['scope'], 'capabilities');
+
+    final recent = AgentToolPlanner.routeLocally('你这两天自己做了什么？');
+    expect(recent!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(recent.calls.single.arguments['scope'], 'recent_outcomes');
+  });
+
+  test('abstract Agent discussion does not pretend to inspect her system', () {
+    expect(
+      AgentToolPlanner.routeLocally('你觉得真正的 Agent 能力应该怎么设计？'),
+      isNull,
+    );
+  });
+
   test('meta discussion does not become an explicit search command', () {
     expect(
       AgentToolPlanner.routeLocally(
@@ -63,6 +93,11 @@ void main() {
           .map((item) => (item['function'] as Map)['name']),
       contains('album_search'),
     );
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      contains('system_self_read'),
+    );
   });
 
   test('native album function maps back into the read-only registry', () {
@@ -75,5 +110,17 @@ void main() {
     ]);
     expect(plan.calls.single.toolId, AgentToolRegistry.albumSearch.id);
     expect(plan.calls.single.arguments['query'], '蓝发鲸鱼尾的图片');
+  });
+
+  test('native self-system function maps back into the read-only registry', () {
+    final plan = AgentToolPlanner.fromNativeToolCalls(const [
+      DeepSeekToolCall(
+        id: 'call-system',
+        name: 'system_self_read',
+        arguments: '{"scope":"runtime"}',
+      ),
+    ]);
+    expect(plan.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(plan.calls.single.arguments['scope'], 'runtime');
   });
 }

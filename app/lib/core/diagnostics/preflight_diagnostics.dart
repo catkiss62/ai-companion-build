@@ -82,6 +82,7 @@ class PreflightDiagnosticsService {
   Future<PreflightSnapshot> run({bool deep = false}) async {
     final now = DateTime.now();
     final checks = <PreflightCheck>[];
+    final agentOutcomeJournal = await db.agentOutcomeJournal(limit: 24);
     final report = <String, Object?>{
       'format': 'ai-companion-redacted-preflight-v1',
       'createdAt': now.toUtc().toIso8601String(),
@@ -129,6 +130,12 @@ class PreflightDiagnosticsService {
         'albumSearchImageBytesOrPathsIncluded': false,
         'albumSearchUrlsOrHashesIncluded': false,
         'albumSearchCommentsIncluded': false,
+        'systemSelfFactsBodyIncluded': false,
+        'systemSelfCapabilityDescriptionsIncluded': false,
+        'systemSelfSecretsOrEndpointsIncluded': false,
+        'systemSelfRawSettingsOrLogsIncluded': false,
+        'systemSelfPathsOrDeviceIdentityIncluded': false,
+        'agentOutcomeContentBodiesIncluded': false,
         'overlayRawPackageIncluded': false,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
@@ -526,6 +533,77 @@ class PreflightDiagnosticsService {
             'imageBytesOrPathsIncluded': false,
             'urlsOrHashesIncluded': false,
             'commentsIncluded': false,
+          },
+          'systemSelfRead': {
+            'contract': 'system_facts_outcomes_v1',
+            'requestCount': int.tryParse(
+                  await db.getSetting('system_self_read_request_count') ?? '',
+                ) ??
+                0,
+            'successCount': int.tryParse(
+                  await db.getSetting('system_self_read_success_count') ?? '',
+                ) ??
+                0,
+            'failureCount': int.tryParse(
+                  await db.getSetting('system_self_read_failure_count') ?? '',
+                ) ??
+                0,
+            'lastOutcome':
+                await db.getSetting('system_self_read_last_outcome') ?? '',
+            'lastScope':
+                await db.getSetting('system_self_read_last_scope') ?? '',
+            'lastResultCount': int.tryParse(
+                  await db.getSetting('system_self_read_last_result_count') ??
+                      '',
+                ) ??
+                0,
+            'lastAt': int.tryParse(
+                  await db.getSetting('system_self_read_last_at') ?? '',
+                ) ??
+                0,
+            'autonomousAvailable': false,
+            'countsAgainstAutonomousBudget': false,
+            'factsBodyIncluded': false,
+            'capabilityDescriptionsIncluded': false,
+            'secretsOrEndpointsIncluded': false,
+            'rawSettingsOrLogsIncluded': false,
+            'pathsOrDeviceIdentityIncluded': false,
+          },
+          'outcomeJournal': {
+            'contract': 'content_free_codes_v1',
+            'count': agentOutcomeJournal.length,
+            'maxEntries': 24,
+            'byOrigin': {
+              for (final origin in const [
+                'user_turn',
+                'autonomous',
+                'background',
+                'mcp',
+              ])
+                origin: agentOutcomeJournal
+                    .where((event) => event.origin == origin)
+                    .length,
+            },
+            'lastCapability': agentOutcomeJournal.isEmpty
+                ? ''
+                : agentOutcomeJournal.first.capabilityId,
+            'lastStatus': agentOutcomeJournal.isEmpty
+                ? ''
+                : agentOutcomeJournal.first.status,
+            'lastOutcome': agentOutcomeJournal.isEmpty
+                ? ''
+                : agentOutcomeJournal.first.outcome,
+            'lastResultCount': agentOutcomeJournal.isEmpty
+                ? 0
+                : agentOutcomeJournal.first.resultCount,
+            'lastAt': agentOutcomeJournal.isEmpty
+                ? 0
+                : agentOutcomeJournal.first.occurredAt.millisecondsSinceEpoch,
+            'freeTextIncluded': false,
+            'queryOrUrlIncluded': false,
+            'titleOrSummaryIncluded': false,
+            'screenImageNotificationChatThoughtBodyIncluded': false,
+            'rawErrorIncluded': false,
           },
         },
         'desireCore': {

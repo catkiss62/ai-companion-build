@@ -14,6 +14,7 @@ void main() {
         'memory.search',
         'album.search',
         'device_context.read',
+        'system.self_read',
       ]),
     );
     expect(tools.every((tool) => tool.risk == AgentToolRisk.readOnly), isTrue);

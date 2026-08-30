@@ -228,7 +228,14 @@ class CompanionAlbumDiscoveryEngine {
         latencyBucket:
             ProviderHealth.latencyBucket(DateTime.now().difference(started)),
       ));
-      return observation.albumSave && completed ? 'saved' : 'rejected';
+      final saved = observation.albumSave && completed;
+      await _recordOutcome(
+        status: saved ? 'succeeded' : 'no_result',
+        outcome: outcome,
+        resultCount: saved ? 1 : 0,
+        at: DateTime.now(),
+      );
+      return saved ? 'saved' : 'rejected';
     } catch (error) {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
@@ -263,6 +270,12 @@ class CompanionAlbumDiscoveryEngine {
         latencyBucket:
             ProviderHealth.latencyBucket(DateTime.now().difference(started)),
       ));
+      await _recordOutcome(
+        status: 'failed',
+        outcome: category,
+        resultCount: 0,
+        at: DateTime.now(),
+      );
       return 'failed';
     } finally {
       final temporaryDownload = downloaded;
@@ -270,6 +283,27 @@ class CompanionAlbumDiscoveryEngine {
         await temporaryDownload.delete();
       }
       if (draft != null) await attachmentStorage.discardDraft(draft);
+    }
+  }
+
+  Future<void> _recordOutcome({
+    required String status,
+    required String outcome,
+    required int resultCount,
+    required DateTime at,
+  }) async {
+    try {
+      await db.recordAgentOutcomeEvent(
+        capabilityId: 'album.autonomous_review',
+        origin: 'background',
+        status: status,
+        outcome: outcome,
+        resultCount: resultCount,
+        occurredAt: at,
+      );
+    } catch (_) {
+      // Outcome journaling is observational and must not turn a completed
+      // album decision into a failed album transaction.
     }
   }
 

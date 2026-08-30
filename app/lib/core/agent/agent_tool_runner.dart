@@ -9,6 +9,7 @@ import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
 import 'agent_tool.dart';
+import 'agent_system_self_reader.dart';
 import 'agent_tool_registry.dart';
 
 typedef AgentToolActivityCallback = void Function(AgentToolActivity activity);
@@ -66,6 +67,7 @@ class AgentToolRunner {
           errorCode: result.errorCode,
           reasonTag: call.reasonTag,
         );
+        await _recordOutcome(call.toolId, result);
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
           status: result.status,
@@ -89,6 +91,7 @@ class AgentToolRunner {
           errorCode: code,
           reasonTag: call.reasonTag,
         );
+        await _recordOutcome(call.toolId, result);
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
           status: result.status,
@@ -118,6 +121,13 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.deviceContextRead.id) {
       return _readDeviceContext();
+    }
+    if (call.toolId == AgentToolRegistry.systemSelfRead.id) {
+      return AgentSystemSelfReader(
+        db: db,
+        android: android,
+        secureConfig: secureConfig,
+      ).read(requestedScope: call.arguments['scope'] ?? 'all');
     }
     throw StateError('unimplemented_registered_tool');
   }
@@ -463,6 +473,34 @@ ${lines.join('\n')}
       '${prefix}_last_at',
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
+  }
+
+  Future<void> _recordOutcome(
+    String toolId,
+    AgentToolResult result,
+  ) async {
+    // Reading the journal must not write a new journal row about itself and
+    // make every later answer look like the latest meaningful activity.
+    if (toolId == AgentToolRegistry.systemSelfRead.id) return;
+    final outcome = switch (result.status) {
+      AgentToolStatus.succeeded => 'completed',
+      AgentToolStatus.noResult => 'no_result',
+      AgentToolStatus.blocked => 'blocked',
+      AgentToolStatus.failed => 'failed',
+      AgentToolStatus.requested || AgentToolStatus.running => 'incomplete',
+    };
+    try {
+      await db.recordAgentOutcomeEvent(
+        capabilityId: toolId,
+        origin: AgentToolOrigin.userTurn.key,
+        status: result.status.key,
+        outcome: outcome,
+        resultCount: result.resultCount,
+      );
+    } catch (_) {
+      // Outcome telemetry is observational. A journal write failure must never
+      // turn an already completed read-only tool call into a failed chat turn.
+    }
   }
 
   static const callIdPublicWeb = 'public_web.search';

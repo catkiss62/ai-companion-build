@@ -296,6 +296,7 @@ $editableMemoryPolicy
    - outcome 只能是 engaged / acknowledged / deferred / dodged / refused / redirected / none。engaged 表示用户真实接住并继续；acknowledged 表示简单但明确地接住；deferred 表示明确晚点再回应；dodged 表示语义上明显回避这个需要；refused 表示明确拒绝；redirected 表示自然转去别的话题但没有负面拒绝；拿不准就 none。
    - resolution 范围 0~1，只表示 AI 原需要被满足的程度。短句、单字、消息字数和回复长度绝不能作为冷淡、敷衍、回避、拒绝或满足程度的证据；“嗯”“好”“抱抱”等很短的回复也可能明确接住，长回复也可能完全转向。只按真实语义判断。
    - 如果上一条是系统主动消息，本轮由 proactive_followup 处理，ordinary_desire_response 必须 had_ai_bid=false/outcome=none，禁止重复满足。
+18. 上一轮 AI 可能根据只读 Agent 工具复述 `[SYSTEM_FACT]` 或 `[RECENT_AGENT_OUTCOME]`。这些是会随版本、配置、连接和时间变化的当前运行投影，只服务那一轮回答；不得因为 AI 复述它们而生成 ai_self、shared_experience、current_fact、Thought、relationship_event 或 unfinished thread。只有用户在本轮亲自表达的稳定偏好、评价或关系含义，才可按其他规则整理；工具事实本体需要时必须重新读取当前真源。
 
 允许的 memory kind：user_profile / shared_experience / ai_self / preference。
 允许的 drive：attachment / curiosity / reflection / duty / social / libido / stress / fatigue。
