@@ -42,7 +42,7 @@ class ActiveTrialCapsule extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: colors.primary,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.normal,
             ),
       ),
     );

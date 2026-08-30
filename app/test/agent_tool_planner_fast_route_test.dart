@@ -24,6 +24,15 @@ void main() {
     expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);
   });
 
+  test('explicit saved-album recall is local and never becomes web search', () {
+    final plan = AgentToolPlanner.routeLocally(
+      '你记不记得之前你存的一张你自己的图片？',
+    );
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.albumSearch.id);
+    expect(plan.calls.single.arguments['query'], contains('你自己的图片'));
+  });
+
   test('meta discussion does not become an explicit search command', () {
     expect(
       AgentToolPlanner.routeLocally(
@@ -49,5 +58,22 @@ void main() {
           .map((item) => (item['function'] as Map)['name']),
       contains('public_web_search'),
     );
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      contains('album_search'),
+    );
+  });
+
+  test('native album function maps back into the read-only registry', () {
+    final plan = AgentToolPlanner.fromNativeToolCalls(const [
+      DeepSeekToolCall(
+        id: 'call-album',
+        name: 'album_search',
+        arguments: '{"query":"蓝发鲸鱼尾的图片"}',
+      ),
+    ]);
+    expect(plan.calls.single.toolId, AgentToolRegistry.albumSearch.id);
+    expect(plan.calls.single.arguments['query'], '蓝发鲸鱼尾的图片');
   });
 }

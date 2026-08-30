@@ -942,15 +942,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                  if (_personalityTrial != null || _specialTrial != null)
+                  if (_specialTrial != null)
                     Positioned(
                       top: 8,
                       right: 12,
                       child: ActiveTrialCapsule(
                         onTap: _openPersonalityLab,
                         labels: [
-                          if (_personalityTrial != null)
-                            '${PersonalityCatalog.base(_personalityTrial!.baseKey).label} × ${PersonalityCatalog.posture(_personalityTrial!.postureKey).label}',
                           if (_specialTrial != null)
                             PersonalityCatalog.special(_specialTrial!.styleKey).label,
                         ],

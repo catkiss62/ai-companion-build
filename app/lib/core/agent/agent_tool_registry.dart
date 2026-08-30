@@ -34,6 +34,15 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const albumSearch = AgentToolDefinition(
+    id: 'album.search',
+    title: '回想已存相册',
+    description: '按当前问题模糊检索她已经保存的本地相册内容，不读取图片文件且不修改相册。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const deviceContextRead = AgentToolDefinition(
     id: 'device_context.read',
     title: '查看当前手机状态',
@@ -111,6 +120,7 @@ class AgentToolRegistry {
     publicWebSearch,
     rulesRead,
     memorySearch,
+    albumSearch,
     deviceContextRead,
     screenObservation,
     videoUnderstanding,

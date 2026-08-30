@@ -24,7 +24,7 @@ for token in (
 catalog = read("lib/core/personality/personality_catalog.dart")
 for token in (
     "'neutral'",
-    "自然状态（不加底色）",
+    "自然状态",
     "不额外放大固定气质",
 ):
     assert token in catalog, token

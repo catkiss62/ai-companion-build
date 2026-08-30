@@ -124,6 +124,11 @@ class PreflightDiagnosticsService {
         'runtimeErrorTextIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
+        'albumSearchQueryIncluded': false,
+        'albumSearchTitlesOrSummariesIncluded': false,
+        'albumSearchImageBytesOrPathsIncluded': false,
+        'albumSearchUrlsOrHashesIncluded': false,
+        'albumSearchCommentsIncluded': false,
         'overlayRawPackageIncluded': false,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
@@ -487,6 +492,41 @@ class PreflightDiagnosticsService {
           'countsAgainstAutonomousBudget': false,
           'argumentsIncluded': false,
           'resultBodiesIncluded': false,
+          'albumSearch': {
+            'requestCount': int.tryParse(
+                  await db.getSetting('album_search_tool_request_count') ?? '',
+                ) ??
+                0,
+            'successCount': int.tryParse(
+                  await db.getSetting('album_search_tool_success_count') ?? '',
+                ) ??
+                0,
+            'noResultCount': int.tryParse(
+                  await db.getSetting('album_search_tool_no_result_count') ??
+                      '',
+                ) ??
+                0,
+            'failureCount': int.tryParse(
+                  await db.getSetting('album_search_tool_failure_count') ?? '',
+                ) ??
+                0,
+            'lastOutcome':
+                await db.getSetting('album_search_tool_last_outcome') ?? '',
+            'lastResultCount': int.tryParse(
+                  await db.getSetting('album_search_tool_last_result_count') ??
+                      '',
+                ) ??
+                0,
+            'lastAt': int.tryParse(
+                  await db.getSetting('album_search_tool_last_at') ?? '',
+                ) ??
+                0,
+            'queryIncluded': false,
+            'titlesOrSummariesIncluded': false,
+            'imageBytesOrPathsIncluded': false,
+            'urlsOrHashesIncluded': false,
+            'commentsIncluded': false,
+          },
         },
         'desireCore': {
           'adultRelationshipDriveEnabled': adultRelationshipDriveEnabled,

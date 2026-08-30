@@ -12,6 +12,7 @@ void main() {
         'public_web.search',
         'rules.read',
         'memory.search',
+        'album.search',
         'device_context.read',
       ]),
     );

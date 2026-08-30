@@ -37,6 +37,10 @@ class AgentToolPlanner {
       r'((查|检索|搜索|翻|看看).{0,8}(记忆|记忆库|以前聊过|之前说过))|'
       r'((记忆|记忆库).{0,8}(查|检索|搜索|看看))',
     ).hasMatch(text);
+    final explicitAlbum = RegExp(
+      r'((记得|回想|找|查|搜索|看看).{0,14}(相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,10}(图片|照片|图像|一张|那张)?)|'
+      r'((相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,14}(图片|照片|图像).{0,10}(记得|回想|找|查|看看)?)',
+    ).hasMatch(text);
     final explicitDevice = RegExp(
       r'(看看|查看|识别|查).{0,8}(当前|现在)?.{0,8}(手机|屏幕|app|应用|软件|前台)|'
       r'我现在.{0,8}(打开|使用|看).{0,8}(什么|哪个)',
@@ -59,7 +63,10 @@ class AgentToolPlanner {
     final explicitWeb = explicitUrl ||
         (webCommand &&
             (hasWebMarker ||
-                (!explicitRules && !explicitMemory && !explicitDevice)));
+                (!explicitRules &&
+                    !explicitMemory &&
+                    !explicitAlbum &&
+                    !explicitDevice)));
 
     if (explicitWeb) {
       add(
@@ -77,6 +84,12 @@ class AgentToolPlanner {
       add(
         AgentToolRegistry.memorySearch.id,
         {'query': _bounded(text, 120)},
+      );
+    }
+    if (explicitAlbum) {
+      add(
+        AgentToolRegistry.albumSearch.id,
+        {'query': _bounded(text, 160)},
       );
     }
     if (explicitDevice) {
@@ -153,6 +166,12 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '要从本地记忆中查找的话题。',
       };
+    } else if (tool.id == AgentToolRegistry.albumSearch.id) {
+      properties['query'] = const <String, Object?>{
+        'type': 'string',
+        'description': '用户对她已保存相册内容的自然语言描述；可模糊、不必是精确标题。',
+      };
+      required.add('query');
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -162,6 +181,8 @@ class AgentToolPlanner {
         '仅在用户要你真实读取当前规则、人设或提示词时调用；讨论“规则”这个词本身不调用。',
       'memory.search' =>
         '仅在用户要你查找过去对话/本地记忆，或当前回答确实需要核对长期记忆时调用。',
+      'album.search' =>
+        '仅在用户询问你已经保存到自己相册里的图片时调用。它只检索已存相册，不负责联网找图、识别新图或保存图片。',
       'device_context.read' =>
         '仅在用户要你查看当前手机/App 状态，或当前回答明确依赖实时设备状态时调用；不得猜测屏幕内容。',
       _ => '',
@@ -208,12 +229,14 @@ class AgentToolPlanner {
     'public_web.search': 'public_web_search',
     'rules.read': 'rules_read',
     'memory.search': 'memory_search',
+    'album.search': 'album_search',
     'device_context.read': 'device_context_read',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
     'rules_read': 'rules.read',
     'memory_search': 'memory.search',
+    'album_search': 'album.search',
     'device_context_read': 'device_context.read',
   };
 

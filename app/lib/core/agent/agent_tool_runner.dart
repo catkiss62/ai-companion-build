@@ -4,6 +4,7 @@ import '../database/app_database.dart';
 import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../models/public_web_candidate.dart';
+import '../phone/companion_album_search_policy.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
@@ -111,6 +112,9 @@ class AgentToolRunner {
     }
     if (call.toolId == AgentToolRegistry.memorySearch.id) {
       return _searchMemory(call.arguments['query'] ?? '');
+    }
+    if (call.toolId == AgentToolRegistry.albumSearch.id) {
+      return _searchAlbum(call.arguments['query'] ?? '');
     }
     if (call.toolId == AgentToolRegistry.deviceContextRead.id) {
       return _readDeviceContext();
@@ -258,6 +262,100 @@ ${lines.join('\n')}
           context.threads.length,
     );
   }
+
+  Future<AgentToolResult> _searchAlbum(String query) async {
+    final normalized = query.trim();
+    await _noteAlbumSearch('request');
+    if (normalized.isEmpty || normalized.length > 160) {
+      await _noteAlbumSearch('blocked');
+      return const AgentToolResult(
+        toolId: 'album.search',
+        status: AgentToolStatus.blocked,
+        displayText: '相册描述不符合边界',
+        promptData: '本地相册没有执行检索；不得编造相册内容。',
+        errorCode: 'invalid_query',
+      );
+    }
+    try {
+      final items = await db.companionAlbumItems(limit: 240);
+      final matches = CompanionAlbumSearchPolicy.rank(
+        query: normalized,
+        items: items,
+        limit: 5,
+      );
+      if (matches.isEmpty) {
+        await _noteAlbumSearch('no_result');
+        return const AgentToolResult(
+          toolId: 'album.search',
+          status: AgentToolStatus.noResult,
+          displayText: '相册里没有找到相关图片',
+          promptData: '已真实检索她的本地相册，但没有找到相关的已保存图片；不得编造。',
+        );
+      }
+
+      final ambiguous = matches.first.confidence == 'ambiguous_recent' ||
+          (matches.length > 1 &&
+              (matches.first.score - matches[1].score).abs() < 1.5);
+      final lines = matches.map((match) {
+        final item = match.item;
+        final savedAt = item.savedAt ?? item.createdAt;
+        return '''
+- [PRIVATE_SAVED_ALBUM confidence=${match.confidence}]
+  title: ${_oneLine(item.title, 180)}
+  visual_summary: ${_oneLine(item.summary, 900)}
+  save_reason: ${_oneLine(item.reason, 500)}
+  category: ${_albumCategoryLabel(item.category)}
+  source_domain: ${_oneLine(item.sourceDomain, 120).isEmpty ? 'local_chat' : _oneLine(item.sourceDomain, 120)}
+  saved_at: ${savedAt.toLocal().toIso8601String()}
+'''.trimRight();
+      });
+      await _noteAlbumSearch('success', resultCount: matches.length);
+      return AgentToolResult(
+        toolId: AgentToolRegistry.albumSearch.id,
+        status: AgentToolStatus.succeeded,
+        displayText: '从相册找到 ${matches.length} 个可能结果',
+        promptData: '''
+已真实、只读地检索她的本地已保存相册。以下摘要来自保存时的识图结果，可能不完整；不得声称重新看见了原图，也不得把摘要当成绝对准确的视觉事实。
+${ambiguous ? '结果不唯一。不要假装确定是哪一张；请结合当前对话简短追问，或清楚说明找到的是几个可能结果。' : '可以基于最匹配条目自然回想，但不要补写条目中没有的细节。'}
+${lines.join('\n')}
+'''.trim(),
+        resultCount: matches.length,
+      );
+    } catch (_) {
+      await _noteAlbumSearch('failed');
+      rethrow;
+    }
+  }
+
+  Future<void> _noteAlbumSearch(
+    String outcome, {
+    int resultCount = 0,
+  }) async {
+    const prefix = 'album_search_tool';
+    Future<void> increment(String key) async {
+      final current = int.tryParse(await db.getSetting(key) ?? '') ?? 0;
+      await db.setSetting(key, '${current + 1}');
+    }
+
+    if (outcome == 'request') await increment('${prefix}_request_count');
+    if (outcome == 'success') await increment('${prefix}_success_count');
+    if (outcome == 'no_result') await increment('${prefix}_no_result_count');
+    if (outcome == 'blocked' || outcome == 'failed') {
+      await increment('${prefix}_failure_count');
+    }
+    await db.setSetting('${prefix}_last_outcome', outcome);
+    await db.setSetting('${prefix}_last_result_count', '$resultCount');
+    await db.setSetting(
+      '${prefix}_last_at',
+      DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+  }
+
+  static String _albumCategoryLabel(String value) => switch (value) {
+        'self_image' => '她自己的形象',
+        'memory' => '共同回忆',
+        _ => '其他收藏',
+      };
 
   Future<AgentToolResult> _readDeviceContext() async {
     final capture = await CurrentDeviceContextRefresher(

@@ -25,7 +25,7 @@ class PersonalityCatalog {
   static const bases = <PersonalityOption>[
     PersonalityOption(
       'neutral',
-      '自然状态（不加底色）',
+      '自然状态',
       '只保留永久核心人设与长期成长，不额外放大某一种表达倾向。',
       '',
     ),

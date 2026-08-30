@@ -1425,53 +1425,152 @@ class BrowserPage extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 9),
                 itemBuilder: (context, index) {
                   final entry = entries[index];
-                  return Container(
-                    padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xB3141824),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.07),
+                  final radius = BorderRadius.circular(16);
+                  return Material(
+                    color: Colors.transparent,
+                    borderRadius: radius,
+                    clipBehavior: Clip.antiAlias,
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        color: const Color(0xB3141824),
+                        borderRadius: radius,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.07),
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text('🌐', style: TextStyle(fontSize: 17)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                entry.title,
-                                maxLines: 2,
+                      child: InkWell(
+                        borderRadius: radius,
+                        onTap: () => openPhonePage(
+                          context,
+                          BrowserDetailPage(entry: entry),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 13, 10, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('🌐',
+                                      style: TextStyle(fontSize: 17)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      entry.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: text1,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: text3,
+                                    size: 21,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                entry.summary,
+                                maxLines: 4,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: text1,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.3,
-                                ),
+                                    color: text2, height: 1.48),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 9),
+                              Text(
+                                '${entry.domain} · ${entry.provider} · ${phoneDateTime(entry.discoveredAt)}',
+                                style: const TextStyle(
+                                    color: text3, fontSize: 10.5),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          entry.summary,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: text2, height: 1.48),
-                        ),
-                        const SizedBox(height: 9),
-                        Text(
-                          '${entry.domain} · ${entry.provider} · ${phoneDateTime(entry.discoveredAt)}',
-                          style: const TextStyle(color: text3, fontSize: 10.5),
-                        ),
-                      ],
+                      ),
                     ),
                   );
                 },
               ),
+      );
+}
+
+class BrowserDetailPage extends StatelessWidget {
+  const BrowserDetailPage({required this.entry, super.key});
+
+  final CompanionBrowserVisit entry;
+
+  Future<void> openSource(BuildContext context) async {
+    final opened = await AndroidBridge.instance.openExternalHttpsUrl(entry.url);
+    if (!context.mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('没有可打开的安全 HTTPS 原网页')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => PhoneAppScaffold(
+        emoji: '🌐',
+        title: '浏览记录',
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                entry.title.isEmpty ? '未命名网页' : entry.title,
+                style: const TextStyle(
+                  color: text1,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${entry.domain.isEmpty ? '未知来源' : entry.domain}'
+                ' · ${entry.provider.isEmpty ? '公开网页' : entry.provider}'
+                ' · ${phoneDateTime(entry.discoveredAt)}',
+                style: const TextStyle(color: text3, fontSize: 11.5),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xB3141824),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.07),
+                  ),
+                ),
+                child: SelectableText(
+                  entry.summary.isEmpty ? '这条记录没有可展示的摘要。' : entry.summary,
+                  style: const TextStyle(
+                    color: text1,
+                    fontSize: 15,
+                    height: 1.72,
+                  ),
+                ),
+              ),
+              if (entry.url.startsWith('https://')) ...[
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => openSource(context),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                    label: const Text('打开原网页'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       );
 }
 
