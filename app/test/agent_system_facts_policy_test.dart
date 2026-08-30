@@ -2,6 +2,17 @@ import 'package:ai_companion_localfirst/core/agent/agent_system_self_reader.dart
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('feature wording is not mistaken for a recent action request', () {
+    expect(
+      AgentSystemReadScopeKey.fromInput('我给你做了哪些功能？'),
+      AgentSystemReadScope.capabilities,
+    );
+    expect(
+      AgentSystemReadScopeKey.fromInput('你最近自己做了什么？'),
+      AgentSystemReadScope.recentOutcomes,
+    );
+  });
+
   test('capability catalog separates executable, manual and future abilities', () {
     final facts = AgentSystemFactsPolicy.capabilities(runtime());
     final byId = {for (final fact in facts) fact.id: fact};

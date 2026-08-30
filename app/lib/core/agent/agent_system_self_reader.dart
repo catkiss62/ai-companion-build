@@ -22,8 +22,9 @@ extension AgentSystemReadScopeKey on AgentSystemReadScope {
         normalized.contains('outcome') ||
         normalized.contains('近期') ||
         normalized.contains('最近') ||
-        normalized.contains('做过') ||
-        normalized.contains('干了')) {
+        normalized.contains('刚才') ||
+        normalized.contains('今天') ||
+        normalized.contains('这两天')) {
       return AgentSystemReadScope.recentOutcomes;
     }
     if (normalized.contains('runtime') ||
@@ -39,6 +40,14 @@ extension AgentSystemReadScopeKey on AgentSystemReadScope {
         normalized.contains('会什么') ||
         normalized.contains('能做什么')) {
       return AgentSystemReadScope.capabilities;
+    }
+    if (normalized.contains('做过') ||
+        normalized.contains('做了') ||
+        normalized.contains('干了') ||
+        normalized.contains('查了') ||
+        normalized.contains('保存了') ||
+        normalized.contains('玩了')) {
+      return AgentSystemReadScope.recentOutcomes;
     }
     return AgentSystemReadScope.all;
   }

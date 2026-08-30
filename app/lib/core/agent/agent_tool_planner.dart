@@ -250,8 +250,7 @@ class AgentToolPlanner {
   }
 
   static String _systemSelfScope(String text) {
-    if (RegExp(r'(最近|刚才|今天|这两天|做过|做了|干了|查了|保存了|玩了)')
-        .hasMatch(text)) {
+    if (RegExp(r'(最近|刚才|今天|这两天)').hasMatch(text)) {
       return 'recent_outcomes';
     }
     if (RegExp(r'(状态|运行|连接|启用|配置)').hasMatch(text)) {
@@ -260,6 +259,9 @@ class AgentToolPlanner {
     if (RegExp(r'(功能|能力|会什么|能做什么|可以做什么|能干什么|会干什么)')
         .hasMatch(text)) {
       return 'capabilities';
+    }
+    if (RegExp(r'(做过|做了|干了|查了|保存了|玩了)').hasMatch(text)) {
+      return 'recent_outcomes';
     }
     return 'all';
   }
