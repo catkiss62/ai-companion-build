@@ -6,7 +6,7 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.2 单文件普通备份与自动校验（IN PROGRESS / PRE-IMPLEMENTATION LEDGER）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.2 单文件普通备份与自动校验（IMPLEMENTED / CI & APK PASSED / SIMPLE FILE TRUE DEVICE PENDING）
 
 > 用户安装 v0.41.1 后成功创建第二份无口令备份，但“选择父目录 → App 再创建 `.aibackup` 子目录 → 检查时重新选该子目录”的产品流程和术语使非技术用户无法判断是否保存成功；用户把“检查完整备份”理解为再次导出，看到没有新文件后合理地认为失败，并明确要求不要把私人自用备份设计得复杂。本批把默认日常流程改为一个可见文件，不再要求用户理解文件夹、manifest 或分卷。
 
@@ -22,6 +22,25 @@
 3. 主界面移除独立“检查完整备份”按钮、分卷和 `.aibackup 文件夹` 术语，只说明“每次保存得到一个文件，恢复时选择它”。旧 v0.41.0/v0.41.1 文件夹备份继续保留兼容入口，命名为“恢复旧版文件夹备份”，放在次级位置；底层 192 MiB 分卷实现不删除，以免现有有效存档无法恢复，但不再作为默认日常操作。
 4. 单文件写入继续是无口令/无加密、流式、不整包进内存；内部 Snapshot manifest/state/附件/相册 SHA 保留。用户可通过不同文件名自然保存多个恢复点。超大单文件若个别云盘 Provider 不可靠，旧文件夹分卷仅作为兼容/应急路径，不把复杂性提前展示给普通用户。
 5. 目标版本 `0.41.2+141`、SQLite schema 保持 40，分支 `agent/v0412-simple-backup-file`。本批不修改接管 `.aicomp`、Active/standby 协议、Desire、相册、联网分享、屏幕观察或后续手机主存储/平板伴随端架构；完成后回填提交、专项/历史测试、Actions、APK/SHA 与只需两步的真机说明。
+
+### C. 实际实现与兼容结果
+
+1. 默认“保存备份”现在调用系统 `ACTION_CREATE_DOCUMENT`，建议文件名 `AI_Companion_Backup_时间.aibackup`，把已通过 `SnapshotService.inspectBundle()` 的完整 Snapshot ZIP 以 64 KiB 流复制成一个文件。写入结束后 Native 从目标 URI 重新打开文件，重新计算实际字节数和 SHA-256，与 App 缓存源文件完全一致才返回 `verified=true`；失败时尽力删除不完整目标文件，UI 只有同时通过内部预检和写后核对才显示“已保存并自动检查通过”。
+2. 默认“恢复备份”使用系统 `ACTION_OPEN_DOCUMENT` 选择一个文件，流式复制到受控缓存并计算大小/SHA，再进入 v0.41.1 共用的 protocol 5、generation、state、数据库、附件和相册全量预检与显式覆盖确认；错误文件、截断或用途不符仍在替换前失败，缓存失败残留即时清理。单文件上限 8 GiB，不整包进内存。
+3. 主界面只保留“保存备份 / 恢复备份”两个默认按钮，说明改为“保存得到一个文件、恢复时选择它”；独立“检查完整备份（不覆盖）”按钮和默认分卷/文件夹术语移除。旧格式没有删除，`openMultipartBackup()` 与 192 MiB 分卷校验继续存在，并通过次级“恢复旧版文件夹备份”入口接回同一恢复链。因此用户本次上传的有效 v0.41.1 文件夹存档仍可用，新存档不再要求理解目录结构。
+4. 恢复确认与结果提示移除 `Active Brain / standby` 英文：同安装写“本机仍是当前主设备，可以继续正常使用”，异安装写“本机先保持待机，确认原设备已停用后再手动接管”。内部唯一主脑协议没有放宽。
+
+### D. 提交、验证、Actions 与 APK
+
+1. 本地开工总账提交 `8f5b247a419e`、功能提交 `1e38b93660ce`；官方 GitHub 对象上传后的远端对应提交为 `8ed4b108bcc9`、构建 head [`28d66ec26515`](https://github.com/catkiss62/ai-companion-build/commit/28d66ec26515b9f669d5afc28a35ee72fdfe1766)。构建 tree `63a50c22d8b0008410a3870dcbc1457c97db69de` 与本地功能 tree 完全一致；分支为 [`agent/v0412-simple-backup-file`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0412-simple-backup-file)，`main` 未修改、未合并。
+2. 新增 `validate_v0412_simple_backup_file.py`，并把 v0.41.1、v0.41.0、v0.40.9、v0.40.8 与 current somatic wrapper 扩展为向前兼容；全部本地通过，workflow YAML 与 `git diff --check` 通过。本地 Gradle 仅因当前执行环境不能下载 Gradle 8.12 而未运行，正式 Kotlin/Gradle 编译由远端 CI 完成。
+3. [Actions run 33333576731](https://github.com/catkiss62/ai-companion-build/actions/runs/33333576731) 全绿：源码/历史门禁、Kotlin/Gradle（含新增单文件 Native 桥接编译）、Flutter analyze/tests、Release APK、稳定签名、TTS/native、417 文件桌宠包、LingChat/头像/立绘和 22 张塔罗载荷均通过。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.41.1+140 直接覆盖安装。
+4. 测试 APK [`AI-Companion-v0.41.2-141-Simple-Backup-File-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-5ac3494381f43b4da2fc/AI-Companion-v0.41.2-141-Simple-Backup-File-APK.apk)，SHA-256 `36ba8a674dad624fb120ac1a8d4eeb5762aecca9562d2fbacadd19d1b1083ec3`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5ac3494381f43b4da2fc) 不是正式发布。Artifact [`9738474780`](https://github.com/catkiss62/ai-companion-build/actions/runs/33333576731/artifacts/9738474780) 名称 `AI-Companion-v0.41.2-141-Simple-Backup-File-APK`，ZIP 318,838,210 bytes，digest `sha256:00b184e7f6f3471d94bf506214e7715a28319df70f5c7953d0e500963aba0d52`，到期时间 2026-09-13T20:34:48Z。
+
+### E. 只需两步的真机验收
+
+1. 覆盖安装 v0.41.2+141，不卸载、不清数据。进入“更多 → 数据与高级 → 手机 / 平板接管 → 备份”，点击“保存备份”，选择一个容易找到的位置后点击系统保存；预期只出现一个 `AI_Companion_Backup_时间.aibackup` 文件，并显示“备份文件已保存并自动检查通过”。不需要再点检查、不需要压缩、不需要打开文件夹。
+2. 本轮先把这个单文件发给接班窗口做结构核对即可；“恢复备份”会直接选择同一个文件，但属于完整替换数据的破坏性验收，可继续延后。用户刚上传的 v0.41.1 `.aibackup.zip` 已被只读确认完整，保留作安全存档即可，不需要为了测试新 UI 冒险恢复。
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.1 普通备份恢复预检与屏幕观察诚实收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE RESTORE PENDING）
 
