@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.7 相册回想与浏览器详情（IN PROGRESS）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.7 相册回想与浏览器详情（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户确认无需等待 v0.40.6 夜间疲劳真机样本即可继续下一任务。当前主线是让 AI 在普通聊天里真实、只读地模糊检索自己已经保存的相册内容，并让“查手机”的浏览器长记录可点进独立详情页完整阅读；同时收口风格胶囊与性格试穿的三个短文案问题。其他尚未自然命中的真机项统一保留为“等待测试”，以后随诊断报告顺带核对，不再阻塞开发。
 
@@ -43,11 +43,27 @@
 2. Widget/源码合同覆盖浏览器卡片可点、详情无行数截断、长摘要滚动、HTTPS 来源按钮和非 HTTPS 隐藏；风格胶囊只显示特殊风格、普通字重，neutral 新短名称不改变 key/Prompt。
 3. 运行全部当前与历史 validators、Flutter analyze/tests、Kotlin 测试、Release APK、固定签名和 TTS/桌宠/LingChat/塔罗/形象参照载荷校验。完成后回填真实提交、Actions、APK/SHA 与真机待验；v0.40.6 夜间疲劳、相册自然存图等项目继续标记“保留等待测试”。
 
-### D. 当前代码进度（CI PENDING）
+### D. 实际实现
 
-1. 开工总账远端提交为 [`239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09`](https://github.com/catkiss62/ai-companion-build/commit/239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09)，功能提交为 [`219634a5b2220d0972ca3cc3068d2a04f7f5f5c5`](https://github.com/catkiss62/ai-companion-build/commit/219634a5b2220d0972ca3cc3068d2a04f7f5f5c5)，目标分支已创建；远端功能 tree `5d8acfe9b95e3452f371cacf2ad3ac1d8b6d1aa2` 与本地功能 tree 完全一致，未修改或合并 `main`。
-2. 已实现只读 `album.search` 本地快速路由与原生工具映射、有界模糊排序/多候选不确定性、排除 NSFW 和删除中条目、脱敏诊断计数；工具提示不含图片、路径、URL、哈希、ID 或用户评论。浏览器列表已可点进完整滚动详情并安全打开 HTTPS 原网页；三处风格文案/气泡显示也已按用户要求收口。
-3. 本地可运行的本版与相关历史 Python validators 已通过；当前执行环境没有 Flutter SDK，Flutter analyze/tests、Kotlin、Release APK、签名和完整素材门禁必须以 Actions 结果为准。本节只表示代码已提交，不提前宣布 CI、APK 或真机通过。
+1. `album.search` 已进入统一 Agent Tool Registry：明确中文请求走零额外模型调用的本地快速路由，其余自然表达由普通 DeepSeek 原生 function calling 选择；执行器仍用统一只读 Gate，每轮最多两个工具，不计入自主行动额度，也不开放自主调用、写入或相册管理权限。
+2. 本机检索只读 `saved + nsfw=0`，额外在策略层再次排除 `soft_deleted`；使用标题、已有视觉摘要、收藏理由、分类与来源域名做中文片段/双字模糊排序，保存时间只用于同分排序。自己的形象、共同回忆与其他收藏有分类语义；无可靠匹配时最多给三个最近候选并标记 `ambiguous_recent`，主模型必须承认不唯一并追问。
+3. 当前回答只收到单行化的标题、视觉摘要、保存理由、分类、来源域名、保存时间和匹配强度；固定提醒这是保存时的旧识图摘要，不得声称重新看见原图或补写细节。图片字节、缩略图路径、URL、数据库 ID、SHA/视觉哈希和用户评论均不进入 Prompt 或脱敏诊断，也不自动写 Memory/AI Self。
+4. “查手机 → 浏览器”列表卡片整体可点，详情页可滚动、可选择全文，完整展示标题/摘要/来源/Provider/时间；仅安全 HTTPS URL 显示“打开原网页”，失败会如实提示。返回沿用原 Navigator 页面，不重新搜索或改写记录。
+5. `neutral` 的显示名缩短为“自然状态”，key/Prompt/迁移均未改；普通性格试穿仍真实生效但不再占用聊天顶部胶囊，胶囊只显示特殊风格并改为普通字重，普通与沉浸聊天一致。
+
+### E. 提交、测试、构建与交付证据
+
+1. 开工总账远端提交为 [`239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09`](https://github.com/catkiss62/ai-companion-build/commit/239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09)，功能提交为 [`219634a5b2220d0972ca3cc3068d2a04f7f5f5c5`](https://github.com/catkiss62/ai-companion-build/commit/219634a5b2220d0972ca3cc3068d2a04f7f5f5c5)，最终构建 head 为 [`24a5a3efbcf7ce502643b773fdf531fd8f7e3ca2`](https://github.com/catkiss62/ai-companion-build/commit/24a5a3efbcf7ce502643b773fdf531fd8f7e3ca2)。远端最终构建 tree `5649f6f20a91a89ad937e1dda9a039589e0303d1` 与本地构建 tree 完全一致；分支为 [`agent/v0407-album-recall-browser-detail`](https://github.com/catkiss62/ai-companion-build/tree/agent/v0407-album-recall-browser-detail)，未修改或合并 `main`。
+2. 最终 [Actions run 33299553095](https://github.com/catkiss62/ai-companion-build/actions/runs/33299553095) 全绿：全部新旧 Python 门禁、Kotlin/Gradle、Flutter analyze、348 项 Flutter tests、Release APK、固定签名、417 文件桌宠包、62 项 LingChat 资产、TTS native 载荷、22 张塔罗素材和形象参照哈希、Artifact 与 Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-f9d802cbdff2ee67a99d/AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK.apk)，325,046,822 bytes，SHA-256 `b56c002f6b52341087102b3f76366297d2029aa65cdf012e7def13936ff84c03`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可直接覆盖安装 v0.40.6+135；Draft Release 为 [untagged-f9d802cbdff2ee67a99d](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f9d802cbdff2ee67a99d)，不是正式发布。
+4. Artifact [9728579355](https://github.com/catkiss62/ai-companion-build/actions/runs/33299553095/artifacts/9728579355)，名称 `AI-Companion-v0.40.7-136-Album-Recall-Browser-Detail-APK`，ZIP 318,750,812 bytes，digest `sha256:a54b09320d258eed0b82c39a2300c0486b149144d542a4af7a14206f8e6047cd`，到期时间 2026-09-13T07:44:15Z。
+
+### F. 真机待验与后续顺序
+
+1. 覆盖安装后，在相册已有真实保存条目的前提下，可自然说“你记不记得之前你存的一张你自己的图片”或给出画面线索；应出现真实工具活动，能引用已存摘要，多个相近结果时承认不确定并追问。空相册、已删除/删除中的图片不得被冒充回想；脱敏诊断 `agentTools.albumSearch` 只应出现次数、状态、结果数量与时间。
+2. “查手机 → 浏览器”点任意长记录，应进入独立完整详情，长摘要可滚动/选择；HTTPS 条目可打开原网页，返回后列表位置不应被主动刷新。顶部风格胶囊只显示特殊风格且不加粗；普通性格试穿仍生效但不再显示长名称，“自然状态”不再带括号。
+3. 以下不阻塞本版，统一保留等待测试，之后用户逐渐提供诊断时顺带核对：v0.40.6 深夜疲劳/强欲望覆盖、相册自主联网存图自然样本、相册图片强绑定真实样本、Provider 失败分类、网页候选主动分享、App 主动重试、低概率屏幕观察、对话主动性与欲望人格的长期体验。
+4. 下一开发顺序保持：先做完整存档与存储体检，确认联网候选、相册文件/元数据、特殊风格等导出恢复完整；随后优先建设 MCP 游戏底座，让 Desire / Thought 能在独立权限、预算、审计和真实 Outcome 下主动进入 AI 专属小游戏。没有真实故障证据的 Provider 兜底和一般来源扩展排在其后。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.6 昼夜疲劳与欲望竞争（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
