@@ -16,7 +16,7 @@
 6. **持续发布授权**：用户于 2026-08-27 明确授权，并于 2026-08-28 再次逐字确认：本次 v0.39.7 及后续 AI Companion 正常开发任务均可直接将源码分支上传至公开 GitHub 仓库 `catkiss62/ai-companion-build`，运行 Actions 并构建/交付测试 APK，不再按每个新分支重复索要同一授权。授权不扩展到删除仓库/发布、改动保护分支、擅自合并 `main` 或公开正式 Release。
 
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.10 Agent 自我系统读取与真实 Outcome（IN PROGRESS / IMPLEMENTATION PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.10 Agent 自我系统读取与真实 Outcome（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.40.9+138 非破坏性完整备份完成后继续既定主线：让她不只拥有工具，还能在普通聊天里按需、真实地查看“自己所在系统现在有哪些能力、哪些能力当前可用、最近实际做过什么”。典型问题包括“我给你做了什么功能”“你现在能做什么”“你最近自己干了什么”；这也是以后她主动进入 MCP AI 专属小游戏后能依据真实 Outcome 讲述经历、而不是角色扮演编造经历的前置层。
 
@@ -45,6 +45,28 @@
 2. System Facts 纯策略测试覆盖能力类型、当前 configured/enabled/connected/unknown 状态、Active/standby 与 future MCP 边界；Prompt 输出不得出现伪造版本能力、密钥、endpoint、路径、设备 ID、原始 settings 或诊断正文。
 3. Outcome Journal/投影测试与源码门禁覆盖 24 条上限、固定字段白名单、无自由正文、用户轮成功/失败、相册保存/拒绝、自主行动成功/阻止/失败排序与真实语义；`system.self_read` 本身不写入 Journal 制造递归噪声。
 4. 完成后运行格式化、全部当前/历史 Python validators、Kotlin/Gradle、Flutter analyze/tests、Release APK、固定签名与全部大型素材校验；回填真实提交、Actions、APK/SHA 和真机待验。自动测试只证明读取合同，真机仍需自然问答确认她不会背技术文档、不会把“系统支持”说成“我刚刚做过”。
+
+### D. 实际实现
+
+1. 已在统一 `AgentToolRegistry` 注册只读 `system.self_read`：仅普通聊天用户轮可执行、不开放自主调用、不计自主额度，也不能修改设置、记忆、人格或规则。明确中文能力/状态/近期行动请求走本地快路由，其他自然表达仍可由同一次 DeepSeek native function calling 选择；本地 Registry 和只读风险 Gate 最终裁决。
+2. 新增版本化 System Facts：能按问题只读 `capabilities/runtime/recent_outcomes/all`，区分系统基础、聊天工具、自主/后台能力、用户手动流程和未来能力；从 SQLite settings、SecureConfig 和 Android bridge 只读取版本/schema、Active/standby、开关、是否配置及授权/连接布尔值，失败保留 unknown。密钥、endpoint、模型请求、数据库/文件路径、设备身份、组件、包名与原始日志均不进入结果；MCP 明确保持 `future/not_implemented`。
+3. 新增 `AgentOutcomeJournal v1`：在完整状态包已覆盖的 settings 内最多保留 24 条无正文事件，只接受 capability/origin/status/outcome/result_count/time 六类固定字段。用户轮 Agent 工具与后台相册判断从本版开始写入，既有 `autonomous_action_runs` 在读取时归一合并；系统自读本身不写 Journal，避免每次查询都覆盖真正行动。Journal 或诊断计数写入失败也不会反向把已经完成的工具或相册事务判成失败。
+4. 近期结果增加固定中文能力名和结果含义，只能说明“真实完成/保存候选/相册保存或拒绝/被 Gate 阻止/固定失败阶段”等已知事实，不提供网页、图片、屏幕、聊天、通知或 Thought 内容。Memory Extractor 同步声明 System Facts/Recent Outcome 是会变化的当前投影，不得因 AI 复述而固化为长期 AI Self、shared experience、current fact、Thought、关系事件或未完成话题。
+5. 脱敏诊断新增 `agentTools.systemSelfRead` 和 `outcomeJournal`：只展示调用数、scope、状态、结果数量、时间与 origin 分类，并固定声明不含 System Facts 正文、能力说明、密钥/endpoint、原始 settings/日志、路径/设备身份或任何内容正文。版本为 `0.40.10+139`，SQLite schema 保持 40；Desire、主动频率、Provider、相册识图绑定、备份协议、TTS、悬浮窗和桌宠行为均未改变。
+
+### E. 提交、测试、构建与交付证据
+
+1. 本地开工总账提交为 `6bbaf3f`，功能提交为 `559189e`，能力/近期行动分流修正为 `03bb09d`；远端对应提交为 [`347282c6d5b9acc4c9e4aaaa081b6b2b6cc60383`](https://github.com/catkiss62/ai-companion-build/commit/347282c6d5b9acc4c9e4aaaa081b6b2b6cc60383)、[`a206936c3eaac1b9f7ec4640a492db5c07bc96e1`](https://github.com/catkiss62/ai-companion-build/commit/a206936c3eaac1b9f7ec4640a492db5c07bc96e1) 与最终构建 head [`f1287c7361afe5575bf84ac9c1e276c109419d25`](https://github.com/catkiss62/ai-companion-build/commit/f1287c7361afe5575bf84ac9c1e276c109419d25)。远端最终 tree `d78b8f2f18a5e896a7adc07f968a5a5445e0d1cc` 与本地完全一致；分支为 [`agent/v04010-agent-self-read`](https://github.com/catkiss62/ai-companion-build/tree/agent/v04010-agent-self-read)，没有修改或合并 `main`。
+2. 首次 [Actions run 33317974747](https://github.com/catkiss62/ai-companion-build/actions/runs/33317974747) 已通过源码门禁、Kotlin 和 Flutter analyze，但回归测试发现“我给你做了哪些功能”中的“做了”被误分为近期行动；这不是编译错误，修正为“明确时间词优先，能力词随后，普通行动词最后”并增加直接测试。最终 [run 33318389251](https://github.com/catkiss62/ai-companion-build/actions/runs/33318389251) 全绿：115 项当前/历史 Python 门禁、Kotlin/Gradle、Flutter analyze、362 项 Flutter tests、Release APK、固定签名，以及 TTS/native、417 文件桌宠包、62 项 LingChat、22 张塔罗、形象参照与 Artifact/Draft Release 上传全部通过。
+3. 测试 APK [`AI-Companion-v0.40.10-139-Agent-Self-Read-APK.apk`](https://github.com/catkiss62/ai-companion-build/releases/download/untagged-579b14d29c0ca8b8093a/AI-Companion-v0.40.10-139-Agent-Self-Read-APK.apk)，325,183,230 bytes，SHA-256 `689c1fbf0c04f53e96dd3b557c983e74bb96cc93df3ae738077089195f79d11a`。签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可从 v0.40.9+138 直接覆盖安装；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-579b14d29c0ca8b8093a) 不是正式发布。
+4. Artifact [9734291492](https://github.com/catkiss62/ai-companion-build/actions/runs/33318389251/artifacts/9734291492)，名称 `AI-Companion-v0.40.10-139-Agent-Self-Read-APK`，ZIP 318,887,096 bytes，digest `sha256:7d4c40adce2c72eac05ee5ff60fe0ea01ab5c635c6a1331fc23a1a0701f01ffd`，到期时间 2026-09-13T15:10:19Z。
+
+### F. 真机待验与后续顺序
+
+1. 可直接覆盖安装，不卸载、不清数据。自然问“我给你做了哪些功能”或“你现在能做什么”时，应出现“查看自己的系统”工具活动，回答应结合她自己当前可用能力自然概括，而不是背诵开发清单；系统支持但设置未开、需用户手动操作和未来 MCP 必须明确区分。
+2. 再问“你最近自己做了什么”时，只能依据近期真实 Outcome 回答：没有可核对记录就承认暂无；自主联网被 Gate 阻止不能说成成功，候选保存不能说成已经分享，相册拒绝/重复不能说成已收藏。询问抽象的“真正 Agent 应怎么设计”不应触发自读。
+3. 使用几次联网、相册回想或等待一次后台相册判断后导出脱敏诊断，可顺带核对 `agentTools.systemSelfRead` 调用数与 `outcomeJournal` 条数/origin；报告仍不应出现能力正文、查询词、网页/图片/屏幕/聊天/Thought 内容、密钥、endpoint、路径或原始错误。自动化已证明读取和隐私合同，回答是否足够自然、是否混淆“系统支持”和“最近做过”仍标记真机待验。
+4. 下一开发任务按用户确认进入 MCP AI 专属小游戏底座：复用当前 Registry、Desire/Thought/Intent/Gate 和 Outcome Journal，先做独立权限、预算、审计与真实结果闭环，再允许她主动进入游戏并依据真实 Outcome 讲经历。v0.40.6 深夜疲劳、相册自主联网存图等低概率项目继续“保留等待测试”，随以后诊断顺带核对。
 
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.9 非破坏性加密备份与大包治理（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
