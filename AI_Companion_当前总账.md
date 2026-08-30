@@ -43,6 +43,12 @@
 2. Widget/源码合同覆盖浏览器卡片可点、详情无行数截断、长摘要滚动、HTTPS 来源按钮和非 HTTPS 隐藏；风格胶囊只显示特殊风格、普通字重，neutral 新短名称不改变 key/Prompt。
 3. 运行全部当前与历史 validators、Flutter analyze/tests、Kotlin 测试、Release APK、固定签名和 TTS/桌宠/LingChat/塔罗/形象参照载荷校验。完成后回填真实提交、Actions、APK/SHA 与真机待验；v0.40.6 夜间疲劳、相册自然存图等项目继续标记“保留等待测试”。
 
+### D. 当前代码进度（CI PENDING）
+
+1. 开工总账远端提交为 [`239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09`](https://github.com/catkiss62/ai-companion-build/commit/239dcac970eb2fe9ed94f4f4ac6fa6a13ad54b09)，功能提交为 [`219634a5b2220d0972ca3cc3068d2a04f7f5f5c5`](https://github.com/catkiss62/ai-companion-build/commit/219634a5b2220d0972ca3cc3068d2a04f7f5f5c5)，目标分支已创建；远端功能 tree `5d8acfe9b95e3452f371cacf2ad3ac1d8b6d1aa2` 与本地功能 tree 完全一致，未修改或合并 `main`。
+2. 已实现只读 `album.search` 本地快速路由与原生工具映射、有界模糊排序/多候选不确定性、排除 NSFW 和删除中条目、脱敏诊断计数；工具提示不含图片、路径、URL、哈希、ID 或用户评论。浏览器列表已可点进完整滚动详情并安全打开 HTTPS 原网页；三处风格文案/气泡显示也已按用户要求收口。
+3. 本地可运行的本版与相关历史 Python validators 已通过；当前执行环境没有 Flutter SDK，Flutter analyze/tests、Kotlin、Release APK、签名和完整素材门禁必须以 Actions 结果为准。本节只表示代码已提交，不提前宣布 CI、APK 或真机通过。
+
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.40.6 昼夜疲劳与欲望竞争（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
