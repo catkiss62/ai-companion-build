@@ -1,0 +1,7 @@
+status=success
+run_id=33327677165
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33327677165
+head_sha=c59dedea05ac318ed2427b57e42611dbbdb949c8
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+584907fd72481dfbae6b337d8b69f3c012670caa1fec1b41d1ea0c4adaf0fca1  AI-Companion-v0.41.1-140-Backup-Preflight-Screen-Audit-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cd073f0a250cd4a9dfed
