@@ -6,6 +6,23 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.2 单文件普通备份与自动校验（IN PROGRESS / PRE-IMPLEMENTATION LEDGER）
+
+> 用户安装 v0.41.1 后成功创建第二份无口令备份，但“选择父目录 → App 再创建 `.aibackup` 子目录 → 检查时重新选该子目录”的产品流程和术语使非技术用户无法判断是否保存成功；用户把“检查完整备份”理解为再次导出，看到没有新文件后合理地认为失败，并明确要求不要把私人自用备份设计得复杂。本批把默认日常流程改为一个可见文件，不再要求用户理解文件夹、manifest 或分卷。
+
+### A. 新真机证据与真实问题
+
+1. 用户上传的 `ai_companion_backup_2026-08-30T20-07-48.aibackup.zip` 外层传输 ZIP 内确有 App 创建的 `ai_companion_backup_2026-08-30T20-07-48.aibackup/` 目录、`backup_manifest.json` 和 `part-0001.aibpart`。外层 format 2、`protection=none`、单部件 4,318,158 bytes，部件 SHA `e563f512...e1759` 一致；内部 protocol 5/schema 40/generation 0、`encryption=none`，10,420,864 bytes state SHA 一致，40 表、195 消息、43 memory、61 Thought、4 个附件和 2 个相册文件完整。v0.41.1 导出与元数据修复真机通过，用户没有执行恢复。
+2. “检查完整备份（不覆盖）”按实现只读取既有文件夹并删除临时重组 ZIP，本来就不会生成新文件；但 UI 没有把“保存”和“读取检查”区分成门外汉可预测的动作。问题是产品交互而非用户操作错误，不能继续要求用户记住 `.aibackup` 文件夹和分卷层级。
+
+### B. 本批锁定范围与兼容边界
+
+1. 默认普通备份改为单文件：点击“保存备份”后使用系统“另存为”选择位置和文件名，直接流式保存完整 Snapshot ZIP 为一个 `AI伴侣备份_时间.aibackup` 文件；保存后 Native 重新读取目标文件，按字节数和 SHA-256 与源文件核对，Flutter 先后执行 Snapshot 全量预检，因此成功提示同时代表“已保存且自动检查通过”。
+2. 默认“恢复备份”使用系统文件选择器选择一个 `.aibackup` 文件，先复制到 App 缓存并执行既有 protocol/state/file 全量预检，再显示完整替换确认；恢复仍不合并数据，generation 0、同安装 Active、异安装 standby、原子文件切换和数据库失败回滚沿用 v0.41.1，不另造弱恢复链。
+3. 主界面移除独立“检查完整备份”按钮、分卷和 `.aibackup 文件夹` 术语，只说明“每次保存得到一个文件，恢复时选择它”。旧 v0.41.0/v0.41.1 文件夹备份继续保留兼容入口，命名为“恢复旧版文件夹备份”，放在次级位置；底层 192 MiB 分卷实现不删除，以免现有有效存档无法恢复，但不再作为默认日常操作。
+4. 单文件写入继续是无口令/无加密、流式、不整包进内存；内部 Snapshot manifest/state/附件/相册 SHA 保留。用户可通过不同文件名自然保存多个恢复点。超大单文件若个别云盘 Provider 不可靠，旧文件夹分卷仅作为兼容/应急路径，不把复杂性提前展示给普通用户。
+5. 目标版本 `0.41.2+141`、SQLite schema 保持 40，分支 `agent/v0412-simple-backup-file`。本批不修改接管 `.aicomp`、Active/standby 协议、Desire、相册、联网分享、屏幕观察或后续手机主存储/平板伴随端架构；完成后回填提交、专项/历史测试、Actions、APK/SHA 与只需两步的真机说明。
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.1 普通备份恢复预检与屏幕观察诚实收口（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE RESTORE PENDING）
 
 > 用户按 v0.41.0+139 真机生成第一份正式无口令 `.aibackup`，只保存并发送存档与脱敏诊断给接班窗口检查，没有在重要资料上执行恢复。只读审计证明外层分卷、逐件 SHA、内部 Snapshot ZIP、state SHA、40 张导出表、聊天附件/相册文件清单与外键引用均完整；同时发现初始安装的合法 `state_generation=0` 被当前 protocol 5 共用校验误判为非法，导致同安装 Active 恢复和异安装 standby 恢复都会在覆盖前被拒绝。用户确认直接进入修复，并要求普通备份增加不覆盖数据的基础检查能力；同时要求审计长期从未命中的低频屏幕观察。
