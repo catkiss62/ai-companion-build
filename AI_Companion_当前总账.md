@@ -6,6 +6,27 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.1 普通备份恢复预检与屏幕观察诚实收口（IN PROGRESS / PRE-IMPLEMENTATION LEDGER）
+
+> 用户按 v0.41.0+139 真机生成第一份正式无口令 `.aibackup`，只保存并发送存档与脱敏诊断给接班窗口检查，没有在重要资料上执行恢复。只读审计证明外层分卷、逐件 SHA、内部 Snapshot ZIP、state SHA、40 张导出表、聊天附件/相册文件清单与外键引用均完整；同时发现初始安装的合法 `state_generation=0` 被当前 protocol 5 共用校验误判为非法，导致同安装 Active 恢复和异安装 standby 恢复都会在覆盖前被拒绝。用户确认直接进入修复，并要求普通备份增加不覆盖数据的基础检查能力；同时要求审计长期从未命中的低频屏幕观察。
+
+### A. 修改前真实证据与用户最新分类
+
+1. 真机存档 `ai_companion_backup_2026-08-30T17-39-19.aibackup` 为 format 2、`protection=none`，单部件 4,229,266 bytes；部件大小/SHA、内部 ZIP CRC、9,692,376 bytes `state.json` 的 SHA、40 张导出表、4 个聊天附件文件与 2 个相册缩略图全部一致，没有缺件、重复路径、目录穿越或引用断裂。创建后诊断仍为 Active Brain、`transferLock=false`、无 pending import/outbound，证明无口令导出和非破坏性创建真机通过。
+2. 阻断恢复的真实缺陷位于 `SnapshotService._readValidatedBundle()`：protocol 2～5 共用 `sourceGeneration <= 0` 拒绝条件；但普通 backup 明确不得调用 takeover reservation、不得增加代次，因此从未接管过的合法安装会导出 generation 0。该包在任何确认或覆盖前都会被拒绝，当前资料不会半覆盖；接管包仍必须保持严格正代次。
+3. 内层 Snapshot manifest 对普通 backup 仍写 `encryption=manual_multipart_aes_256_gcm`，与外层 format 2 明文事实不一致。恢复当前不读取该说明字段，因此它不是阻断原因，但新包必须如实写 `none`，`.aicomp` takeover 继续写传输/AES 语义。
+4. 普通备份新增独立“检查完整备份”流程：用户选择 `.aibackup` 文件夹后，只重组并校验分卷，再复用正式 Snapshot 全量预检验证协议、用途、schema、state SHA、身份、40 表域、附件/相册清单及逐文件 SHA；不得取得 transfer lock、不得显示覆盖确认、不得写数据库或替换文件。检查结果只显示基础的“可读取/不完整”与协议、schema、分卷/大小等非正文摘要，临时 ZIP 必须清理。正式恢复仍在检查通过后另行明确确认。
+5. “App 主动重试”不是悬浮球/桌宠卡死自愈，而是主动消息生成前解析当前前台 App 失败时的短重试。用户确认该项影响低，不再列为严格待验或成功，只保留观察；悬浮层 self-heal/系统页面 cover recovery 是另一套 Native 机制。
+6. 低频屏幕观察审计确认不是概率过低：当前仅有 `screen_observation.inspect` 注册、Tool Gate、Outcome 类型和未来每小时 6 次预算，既没有 Desire 调度器，也没有截图 Provider/视觉执行器；早期总账已明确 `foundation_not_scheduled` 和“尚不可执行”，后期“低概率屏幕观察等待真机”属于错误转录。v0.41.1 将诊断从误导性的 `0/6 configured` 改为 `not_implemented`，并把“手动看一次当前屏幕 → App/敏感页 Gate → Desire 驱动低频自主观察”恢复为独立后续开发任务；本批不在没有权限/UI/隐私验收的情况下偷偷读取屏幕。
+7. 保留项按用户最新决定重分类：相册自主联网存图确有实现，过去选择保存失败，继续等待自然样本；联网分享曾真机成功，未发现回归前继续等待自然样本；相册检索因用户尚未主动提出而继续等待；历史漏洞造成的高 attachment 即依恋度继续自然回落观察，不强制清零。v0.40.6 深夜 fatigue/强欲望竞争和相册真实图片强绑定已由本次诊断/存档得到正向证据，不再伪装成完全无样本。
+
+### B. 本批边界与预定验收
+
+1. 目标版本 `0.41.1+140`、SQLite schema 保持 40，分支 `agent/v0411-backup-preflight-screen-audit`。修复只放宽 `archive_kind=backup` 的合法 generation 0；takeover 的 snapshot/generation/pending/ACK 与单 Active Brain 约束不变。已有真机存档必须在修复版中通过只读检查，不能要求用户先冒险恢复或人为改包。
+2. 新增 generation 0 普通备份的导出→inspect→同安装 Active 恢复和异安装 standby 恢复回归；补充 generation 0 takeover 仍拒绝、generation/identity 不连续仍拒绝、内层明文元数据正确、缺件/篡改/用途不符检查失败且数据库未改变。检查按钮与正式恢复必须共享同一 Snapshot 校验入口，不能另造宽松“看起来正常”检查。
+3. 屏幕观察诊断必须同时显示实现状态、调度器状态、Provider 状态和真实已用次数；未实现时不显示为“预算配置完成但尚未碰巧命中”。本批不增加截图权限、不采集屏幕文字/图片、不把粗粒度 current App 感知冒充屏幕视觉。
+4. 完成后第二次回填实际实现、提交、专项/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、签名与载荷、Actions、APK/SHA 和精简真机步骤；自动化通过不能替代同安装/异安装破坏性恢复真机验收。
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-30 · v0.41.0 无口令完整备份、悬浮聊天归位与 Desire 平衡审计（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在准备正式验证 v0.40.9 导出/恢复前明确确认：项目仅供本人和朋友私人使用，不需要用遗忘风险换取备份保密性；普通完整备份应直接改为无口令、无加密，再生成正式存档交给接班窗口做结构与恢复验证。本批同时修复悬浮聊天窗顶部“打开”在“查手机”等 App 内非聊天页面无法归位聊天页的问题，并审计用户真机观察到的“依恋长期偏高”。设备接管 `.aicomp` 的单 Active Brain 安全协议不因普通备份去加密而放宽。
