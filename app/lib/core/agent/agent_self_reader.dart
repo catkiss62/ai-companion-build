@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../platform/android_bridge.dart';
+import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
 enum AgentSelfReadScope { facts, outcomes, all }
