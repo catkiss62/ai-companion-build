@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Static contracts for v0.41.4 personality seed and backup export closure."""
+"""Static contracts for v0.41.4 personality seed and backup export closure.
+
+This source-path touch also requests the full APK pipeline after repairing the
+large UTF-8 ledger upload; documentation-only runs are intentionally skipped.
+"""
 
 from __future__ import annotations
 
