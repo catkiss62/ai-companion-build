@@ -112,8 +112,16 @@ class PromptBuilder {
     final somaticSection = await somaticEngine.buildPromptSection(now: instant);
     final emotionEpisodeSection =
         await emotionEpisodeEngine.buildPromptSection(now: instant);
-    final moeExpressionSection =
-        await MoeExpressionPromptAdapter(db).buildPromptSection();
+    final moeExpressionSection = await MoeExpressionPromptAdapter(db)
+        .buildPromptSection(
+          now: instant,
+          latestUserText:
+              mode == PromptGenerationMode.userTurn ? latestUserText : '',
+          turnKey: mode == PromptGenerationMode.userTurn
+              ? (grounding.lastUserMessageId ??
+                  'user:${instant.millisecondsSinceEpoch ~/ 60000}')
+              : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}',
+        );
     final conversationInitiative = mode == PromptGenerationMode.userTurn
         ? ConversationInitiativePolicy.select(
             snapshot: desire,

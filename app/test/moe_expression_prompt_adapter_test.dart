@@ -93,6 +93,8 @@ void main() {
     expect(applied['lastMode'], 'obvious');
     expect(applied['primaryPresent'], isTrue);
     expect(applied['secondaryPresent'], isFalse);
+    expect(applied['selectionSeed'], 0);
+    expect(applied['candidateCount'], 0);
     expect(applied['promptBodiesIncluded'], isFalse);
     expect(applied['styleDirectivesIncluded'], isFalse);
     expect(applied['axisOrRecipeNamesIncluded'], isFalse);
@@ -110,6 +112,27 @@ void main() {
     expect(disabled['lastStatus'], 'disabled');
     expect(disabled['primaryPresent'], isFalse);
     expect(disabled['secondaryPresent'], isFalse);
+  });
+
+  test('D3 telemetry exposes reproducible decision metadata but no recipe', () {
+    final snapshot = MoeExpressionPromptTelemetry.nextSnapshot(
+      status: 'applied',
+      mode: 'obvious',
+      primaryPresent: true,
+      selectionSeed: 123456,
+      candidateCount: 3,
+      contextGrounded: true,
+      afterglowOnly: false,
+      projectedAgeMinutes: 12,
+      now: DateTime.fromMillisecondsSinceEpoch(4567),
+    );
+    expect(snapshot['selectionSeed'], 123456);
+    expect(snapshot['candidateCount'], 3);
+    expect(snapshot['contextGrounded'], isTrue);
+    expect(snapshot['afterglowOnly'], isFalse);
+    expect(snapshot['projectedAgeMinutes'], 12);
+    expect(snapshot['axisOrRecipeNamesIncluded'], isFalse);
+    expect(snapshot['messageIdsIncluded'], isFalse);
   });
 
   test('D3 telemetry fails closed to redacted error counters', () {

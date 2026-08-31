@@ -203,12 +203,18 @@
 # v0.41.2-simple-backup-file
 # .ci/v0412-monitor.txt
 # python3 tools/validate_v0412_simple_backup_file.py
-name: Build AI Companion v0.41.4+143 APK (Personality Seed Backup Closure)
+# Historical v0.41.4 workflow compatibility:
+# Build AI Companion v0.41.4+143 APK (Personality Seed Backup Closure)
+# agent/v0414-personality-seed-backup-closure
+# AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK
+# .ci/v0414-monitor.txt
+# python3 tools/validate_v0414_personality_seed_backup_closure.py
+name: Build AI Companion v0.41.5+144 APK (Personality State Diversity)
 
 on:
   push:
     branches:
-      - agent/v0414-personality-seed-backup-closure
+      - agent/v0415-personality-state-diversity
   workflow_dispatch:
   pull_request:
     branches:
@@ -346,14 +352,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.4+143' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.5+144' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 40;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.4+143 personality seed and backup export closure.'
+          echo 'Building v0.41.5+144 personality state diversity and circadian rhythm.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -533,6 +539,7 @@ jobs:
           python3 tools/validate_v0412_simple_backup_file.py
           python3 tools/validate_v0413_backup_zip_hardening.py
           python3 tools/validate_v0414_personality_seed_backup_closure.py
+          python3 tools/validate_v0415_personality_state_diversity.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -779,26 +786,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.4+143 APK as workflow artifact
+      - name: Upload v0.41.5+144 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK
+          name: AI-Companion-v0.41.5-144-Personality-State-Diversity-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.4+143 personality seed and backup closure APK to draft release
+      - name: Upload v0.41.5+144 personality state diversity APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.4-personality-seed-backup-closure'
-          APK_NAME='AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK.apk'
+          TAG='v0.41.5-personality-state-diversity'
+          APK_NAME='AI-Companion-v0.41.5-144-Personality-State-Diversity-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.5-144-Personality-State-Diversity-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -815,8 +822,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.4+143 personality seed and backup export closure candidate' \
-              --notes 'Draft candidate: install the user-approved DeepSeek personality seed with canonical emotion examples and record true-device portable backup export completion. Backup implementation and SQLite schema 40 remain unchanged.'
+              --title 'AI Companion v0.41.5+144 personality state diversity candidate' \
+              --notes 'Draft candidate: bound periodic awareness, diversify proactive motives, project and sample contextual Moe expression, accumulate only semantic unmet bids, and merge night rest need into one continuous episode. Rules 01/03, backup implementation and SQLite schema 40 remain unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -840,18 +847,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0414-monitor.txt'
+          MONITOR_PATH='.ci/v0415-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.4 CI success monitor' \
+              -f message='Update v0.41.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.4 CI success monitor' \
+              -f message='Create v0.41.5 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -872,8 +879,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.4-personality-seed-backup-closure'
-          CI_NAME='AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-CI-Monitor.txt'
+          TAG='v0.41.5-personality-state-diversity'
+          CI_NAME='AI-Companion-v0.41.5-144-Personality-State-Diversity-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -914,8 +921,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.4+143 personality seed and backup export closure candidate' \
-              --notes 'Draft used for the user-approved personality seed and true-device backup export closure. It is not a published release.'
+              --title 'AI Companion v0.41.5+144 personality state diversity candidate' \
+              --notes 'Draft used for the personality-state diversity, semantic reciprocity and circadian-rest repair batch. It is not a published release.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -924,18 +931,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v0414-monitor.txt'
+          MONITOR_PATH='.ci/v0415-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.4 CI failure monitor' \
+              -f message='Update v0.41.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.4 CI failure monitor' \
+              -f message='Create v0.41.5 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

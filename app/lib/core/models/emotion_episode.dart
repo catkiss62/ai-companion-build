@@ -9,6 +9,7 @@ enum EmotionEpisodeCategory {
   repair,
   reunion,
   restNeed,
+  unmetBid,
 }
 
 extension EmotionEpisodeCategoryKey on EmotionEpisodeCategory {
@@ -19,6 +20,7 @@ extension EmotionEpisodeCategoryKey on EmotionEpisodeCategory {
         EmotionEpisodeCategory.repair => 'repair',
         EmotionEpisodeCategory.reunion => 'reunion',
         EmotionEpisodeCategory.restNeed => 'rest_need',
+        EmotionEpisodeCategory.unmetBid => 'unmet_bid',
       };
 
   static EmotionEpisodeCategory? parse(String value) {
@@ -217,6 +219,7 @@ class EmotionAppraisalPolicy {
     required DesireSnapshot desire,
     required DateTime now,
     DateTime? previousConversationAt,
+    bool includeRestNeed = true,
   }) {
     final text = _evidenceText(userText);
     final compact = text.replaceAll(RegExp(r'\s+'), '');
@@ -248,7 +251,9 @@ class EmotionAppraisalPolicy {
 
     final fatigue = desire.drives[DriveKey.fatigue] ?? 0;
     final stress = desire.drives[DriveKey.stress] ?? 0;
-    if (fatigue >= 0.78 || stress >= 0.82) {
+    if (includeRestNeed &&
+        (fatigue >= RestNeedThresholds.fatigueEntry ||
+            stress >= RestNeedThresholds.stressEntry)) {
       return EmotionAppraisal(
         category: EmotionEpisodeCategory.restNeed,
         causeCode: fatigue >= stress ? 'drive_fatigue_high' : 'drive_stress_high',
@@ -384,4 +389,13 @@ class EmotionAppraisalPolicy {
     decayAfter: Duration(hours: 8),
     expiresAfter: Duration(days: 2),
   );
+}
+
+/// Kept in the model layer so deterministic appraisal fixtures do not need to
+/// import an engine. The runtime hysteresis policy owns continuation/exit.
+class RestNeedThresholds {
+  const RestNeedThresholds._();
+
+  static const fatigueEntry = 0.66;
+  static const stressEntry = 0.82;
 }

@@ -415,6 +415,12 @@ AI：${assistant.content}
         satisfactionApplied:
             (ordinaryDesireOutcome?.satisfactionIntensity ?? 0) > 0,
       );
+      await db.applyInteractionReciprocityOutcomeOnce(
+        responseMessageId: user.id,
+        hadAiBid: ordinaryDesireOutcome?.hadAiBid ?? false,
+        outcome: ordinaryDesireOutcome?.outcome ?? 'none',
+        now: user.createdAt,
+      );
       await _guardPostTurnJob(job);
       await db.setSetting('last_memory_success_at', DateTime.now().millisecondsSinceEpoch.toString());
       await db.setSetting('last_memory_error', '');

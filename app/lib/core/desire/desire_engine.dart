@@ -6,6 +6,7 @@ import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_core_policy.dart';
+import 'thought_feed_policy.dart';
 import 'thought_similarity.dart';
 
 class DesireIntent {
@@ -193,6 +194,7 @@ class DesireEngine {
     double incomingStrength = 0.25,
     String source = 'internal',
     String topicKey = '',
+    DateTime? now,
   }) async {
     final normalized = text.trim();
     if (normalized.isEmpty) return;
@@ -224,38 +226,40 @@ class DesireEngine {
       }
     }
 
-    final now = DateTime.now();
+    final instant = now ?? DateTime.now();
     if (match == null) {
       await db.upsertThought(
         id: _uuid.v4(),
         text: normalized,
         drive: drive,
         kind: 'flit',
-        strength: incomingStrength.clamp(0.08, 0.70).toDouble(),
+        strength: ThoughtFeedPolicy.initialStrength(
+          source: source,
+          incomingStrength: incomingStrength,
+        ),
         source: source,
-        lastFedAt: now,
+        lastFedAt: instant,
         topicKey: normalizedTopic,
       );
       return;
     }
 
-    final fed = match.fedCount + 1;
-    final nextStrength = (match.strength * 0.88 + incomingStrength * 0.55 + 0.06)
-        .clamp(0.0, 1.0)
-        .toDouble();
-    final kind = fed >= 3 || nextStrength >= 0.68 ? 'fixation' : match.kind;
-    final lifecycleState = kind == 'fixation' ? 'fixation' : 'active';
+    final decision = ThoughtFeedPolicy.merge(
+      existing: match,
+      source: source,
+      incomingStrength: incomingStrength,
+    );
     await db.upsertThought(
       id: match.id,
       text: match.text,
       drive: drive,
-      kind: kind,
-      strength: nextStrength,
-      fedCount: fed,
+      kind: decision.kind,
+      strength: decision.strength,
+      fedCount: decision.fedCount,
       bornAt: match.bornAt,
       source: match.source == 'internal' ? source : match.source,
-      lastFedAt: now,
-      lifecycleState: lifecycleState,
+      lastFedAt: instant,
+      lifecycleState: decision.lifecycleState,
       actionCount: match.actionCount,
       lastActedAt: match.lastActedAt,
       lastSatisfiedAt: match.lastSatisfiedAt,

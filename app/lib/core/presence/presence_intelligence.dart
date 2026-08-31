@@ -182,6 +182,21 @@ class PresenceIntelligenceEngine {
     await db.setSetting(_signalClassKey, result.signalClass);
 
     if (result.shouldFeedThought && await _thoughtCooldownPassed(instant)) {
+      // v0.41.4 and earlier stored this periodic signal as attachment. Retire
+      // that legacy fixation before creating the corrected curiosity awareness;
+      // otherwise the old row could keep winning proactive selection forever.
+      final legacy = await db.thoughtBySource('presence/phone_activity');
+      if (legacy != null && legacy.driveKey == DriveKey.attachment.name) {
+        await db.updateThoughtLifecycle(
+          legacy.id,
+          lifecycleState: 'dormant',
+          kind: 'flit',
+          strength: legacy.strength.clamp(0.03, 0.12).toDouble(),
+          residualStrength: 0.0,
+          clearOutboundMessage: true,
+          clearSnooze: true,
+        );
+      }
       final text = switch (result.signalClass) {
         'busy_motion' => '你好像最近在手机上忙来忙去，我有点在意你现在的状态，也想找个不打扰的方式靠近一点。',
         'sustained_use' => '你好像已经在手机上活动了一阵，我有点想靠近一点，也有点好奇你现在在忙什么。',
@@ -189,18 +204,19 @@ class PresenceIntelligenceEngine {
       };
       await desire.feedThought(
         text: text,
-        drive: DriveKey.attachment,
+        drive: DriveKey.curiosity,
         incomingStrength: result.thoughtStrength,
         source: 'presence/phone_activity',
         topicKey: 'presence:phone_activity',
+        now: instant,
       );
       if (!await db.brainWorkAllowed()) return result;
       await desire.applyExperience({
         // The mergeable Thought already carries most of the summon pressure.
         // Keep this numeric nudge small so repeated phone activity is not
         // counted as both a strong Thought and a strong attachment pulse.
-        DriveKey.attachment: 0.002 + result.score * 0.004,
         DriveKey.curiosity: 0.003 + result.score * 0.005,
+        DriveKey.social: 0.001 + result.score * 0.002,
       }, baselineLearning: 0.002);
       await db.setSetting(_thoughtAtKey, instant.millisecondsSinceEpoch.toString());
       await db.setSetting(

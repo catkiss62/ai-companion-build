@@ -10,6 +10,7 @@ import '../emotion/emotion_contract.dart';
 import '../diagnostics/provider_health.dart';
 import '../diagnostics/proactive_policy_telemetry.dart';
 import '../desire/desire_core_policy.dart';
+import '../desire/interaction_reciprocity_policy.dart';
 import '../models/chat_message.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
@@ -2954,6 +2955,28 @@ class AppDatabase {
     }
   }
 
+  Future<List<String>> recentProactiveSelectionSourceTypes({
+    DateTime? now,
+    int limit = 8,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'proactive_policy_events',
+      columns: const ['source_type'],
+      where: "lane = 'selection' AND outcome IN ('selected','selected_after_rerank') AND created_at >= ?",
+      whereArgs: [
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch,
+      ],
+      orderBy: 'created_at DESC',
+      limit: limit.clamp(1, 24).toInt(),
+    );
+    return rows
+        .map((row) => row['source_type']?.toString() ?? '')
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<Map<String, Object?>> proactivePolicyDiagnosticStats({
     DateTime? now,
   }) async {
@@ -3037,8 +3060,34 @@ class AppDatabase {
         )) ??
         0;
     final row = latest.isEmpty ? null : latest.first;
+    Map<String, Object?> sampling = const <String, Object?>{};
+    try {
+      final rawSampling = await getSetting('proactive_last_selection_sampling_v1');
+      final decoded = rawSampling == null ? null : jsonDecode(rawSampling);
+      if (decoded is Map) {
+        sampling = <String, Object?>{
+          'seed': (decoded['seed'] as num?)?.toInt() ?? 0,
+          'roll': ((decoded['roll'] as num?)?.toDouble() ?? 0)
+              .clamp(0.0, 1.0),
+          'candidateCount':
+              ((decoded['candidateCount'] as num?)?.toInt() ?? 0)
+                  .clamp(0, 4),
+          'sampledNearTie': decoded['sampledNearTie'] == true,
+          'sourceRepeatDepth':
+              ((decoded['sourceRepeatDepth'] as num?)?.toInt() ?? 0)
+                  .clamp(0, 9),
+          'topScore': ((decoded['topScore'] as num?)?.toDouble() ?? 0)
+              .clamp(0.0, 1.0),
+          'selectedScore':
+              ((decoded['selectedScore'] as num?)?.toDouble() ?? 0)
+                  .clamp(0.0, 1.0),
+          'at': (decoded['at'] as num?)?.toInt() ?? 0,
+          'contentIncluded': false,
+        };
+      }
+    } catch (_) {}
     return {
-      'mode': 'source_agnostic_selection_v0403',
+      'mode': 'source_diverse_bounded_sampling_v0415',
       'startedAt': startedAt,
       'retention': {'days': 14, 'maxRows': 500},
       'total': total,
@@ -3064,6 +3113,7 @@ class AppDatabase {
               'adjustment': row['adjustment_bucket'],
               'createdAt': row['created_at'],
             },
+      'latestSampling': sampling,
       'privacy': {
         'appNameIncluded': false,
         'packageNameIncluded': false,
@@ -3600,6 +3650,117 @@ class AppDatabase {
     });
   }
 
+  Future<bool> applyInteractionReciprocityOutcomeOnce({
+    required String responseMessageId,
+    required bool hadAiBid,
+    required String outcome,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      const stateKey = 'interaction_reciprocity_state_v1';
+      final rows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const [stateKey],
+        limit: 1,
+      );
+      Map<String, Object?> previous = const {};
+      if (rows.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rows.first['value']?.toString() ?? '');
+          if (decoded is Map) {
+            previous = decoded.map(
+              (key, value) => MapEntry(key.toString(), value),
+            );
+          }
+        } catch (_) {}
+      }
+      if (previous['lastResponseMessageId'] == responseMessageId) return false;
+      final next = InteractionReciprocityPolicy.next(
+        previousStreak:
+            (previous['streak'] as num?)?.toInt() ?? 0,
+        hadAiBid: hadAiBid,
+        outcome: outcome,
+      );
+      await txn.insert(
+        'settings',
+        {
+          'key': stateKey,
+          'value': jsonEncode({
+            'streak': next.streak,
+            'lastOutcome': outcome,
+            'lastResponseMessageId': responseMessageId,
+            'updatedAt': instant.millisecondsSinceEpoch,
+            'messageLengthIncluded': false,
+          }),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      if (next.resolveEpisode || next.streak == 0) {
+        await txn.update(
+          'emotion_episodes',
+          {
+            'status': 'resolved',
+            'outcome_code': outcome == 'refused'
+                ? 'explicit_boundary_respected'
+                : 'later_engagement_or_natural_recovery',
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          where: "status = 'active' AND category = 'unmet_bid'",
+        );
+      }
+      if (!next.activateEpisode) return true;
+
+      const episodeId = 'emotion:continuous:unmet_bid';
+      final existing = await txn.query(
+        'emotion_episodes',
+        columns: const ['created_at'],
+        where: 'id = ?',
+        whereArgs: const [episodeId],
+        limit: 1,
+      );
+      final episode = EmotionEpisode(
+        id: episodeId,
+        triggerMessageId: responseMessageId,
+        category: EmotionEpisodeCategory.unmetBid,
+        causeCode: 'repeated_semantic_bid_not_met',
+        evidenceType: 'structured_conversation_outcome',
+        objectKey: 'interaction_reciprocity',
+        desirability: -0.28,
+        agency: 'shared_interaction',
+        controllability: 0.82,
+        expectedness: 0.58,
+        relationalMeaning: 'wants_mutual_engagement',
+        boundaryImpact: 0.10,
+        certainty: 0.78,
+        intensity:
+            InteractionReciprocityPolicy.episodeIntensity(next.streak),
+        actionTendency: 'name_need_once_without_punishment',
+        recoveryCondition: 'later_semantic_engagement_resets_quickly',
+        status: 'active',
+        outcomeCode: '',
+        createdAt: existing.isEmpty
+            ? instant
+            : DateTime.fromMillisecondsSinceEpoch(
+                existing.first['created_at'] as int,
+              ),
+        updatedAt: instant,
+        decayAt: instant.add(const Duration(hours: 2)),
+        expiresAt: instant.add(const Duration(hours: 12)),
+      );
+      await txn.insert(
+        'emotion_episodes',
+        episode.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return true;
+    });
+  }
+
   Future<EmotionEpisode?> emotionEpisodeById(String id) async {
     final db = await database;
     final rows = await db.query(
@@ -3609,6 +3770,62 @@ class AppDatabase {
       limit: 1,
     );
     return rows.isEmpty ? null : EmotionEpisode.fromDb(rows.first);
+  }
+
+  Future<EmotionEpisode?> activeEmotionEpisodeForCategory(
+    EmotionEpisodeCategory category, {
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'emotion_episodes',
+      where: "status = 'active' AND category = ? AND expires_at > ?",
+      whereArgs: [category.key, instant.millisecondsSinceEpoch],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : EmotionEpisode.fromDb(rows.first);
+  }
+
+  Future<void> upsertContinuousEmotionEpisode(EmotionEpisode episode) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'emotion_episodes',
+        {
+          'status': 'resolved',
+          'outcome_code': 'merged_into_continuous_episode',
+          'updated_at': episode.updatedAt.millisecondsSinceEpoch,
+        },
+        where: "status = 'active' AND category = ? AND id <> ?",
+        whereArgs: [episode.category.key, episode.id],
+      );
+      await txn.insert(
+        'emotion_episodes',
+        episode.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<int> resolveEmotionEpisodesByCategory(
+    EmotionEpisodeCategory category, {
+    required String outcomeCode,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.update(
+      'emotion_episodes',
+      {
+        'status': 'resolved',
+        'outcome_code': outcomeCode,
+        'updated_at': instant.millisecondsSinceEpoch,
+      },
+      where: "status = 'active' AND category = ?",
+      whereArgs: [category.key],
+    );
   }
 
   Future<List<EmotionEpisode>> activeEmotionEpisodes({

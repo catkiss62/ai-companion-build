@@ -8,3 +8,7 @@
 /app/android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so
 /app/android/app/src/main/jniLibs/arm64-v8a/libcppjieba.so
 /app/android/app/src/main/jniLibs/arm64-v8a/libcpptokenizer.so
+
+# Local Python validator bytecode is reproducible and must never enter source.
+__pycache__/
+*.py[cod]

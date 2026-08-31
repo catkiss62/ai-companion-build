@@ -106,6 +106,228 @@ class MoeDynamicsPolicy {
     );
   }
 
+  /// Read-only projection used immediately before a prompt is built. It fixes
+  /// the former first-turn-after-silence bug without writing a synthetic Moe
+  /// event or changing ownership of the persisted D2 state.
+  MoeStateSnapshot projectForPrompt({
+    required MoeStateSnapshot previous,
+    required DateTime now,
+  }) {
+    if (!previous.enabled) return previous;
+    final elapsedHours = now
+        .difference(previous.updatedAt)
+        .inMilliseconds
+        .clamp(0, const Duration(hours: 72).inMilliseconds) /
+        const Duration(hours: 1).inMilliseconds;
+    final axes = <MoeAxis, double>{};
+    for (final axis in MoeAxis.values) {
+      final baseline = previous.baselines[axis] ?? axis.defaultBaseline;
+      final current = previous.current[axis] ?? baseline;
+      final retention = math.exp(-_returnRate(axis) * elapsedHours);
+      axes[axis] = clampMoeValue(
+        baseline + (current - baseline) * retention,
+      );
+    }
+    final stale = elapsedHours >= 6.0;
+    final recipes = <MoeRecipe, MoeRecipeStatus>{};
+    for (final recipe in MoeRecipe.values) {
+      final old = previous.recipes[recipe] ?? const MoeRecipeStatus();
+      final strength = math.min(
+        _score(recipe, axes),
+        old.strength * math.exp(-0.30 * elapsedHours),
+      );
+      recipes[recipe] = MoeRecipeStatus(
+        strength: clampMoeValue(strength),
+        active: old.active && !stale && strength >= 24.0,
+        enteredAt: old.enteredAt,
+        exitedAt: old.exitedAt,
+        cooldownUntil: old.cooldownUntil,
+      );
+    }
+    return MoeStateSnapshot(
+      baselines: previous.baselines,
+      current: axes,
+      recipes: recipes,
+      // Preserve the committed timestamp. Consumers use it to identify which
+      // durable state supplied this read-only projection.
+      updatedAt: previous.updatedAt,
+      policyVersion: previous.policyVersion,
+      expressionMode: previous.expressionMode,
+    );
+  }
+
+  MoeExpressionPlan expressionPlanForTurn(
+    MoeStateSnapshot state, {
+    Set<String> contextTags = const <String>{},
+    bool allowAfterglow = true,
+    MoeRecipe? recentPrimary,
+    int recentPrimaryRun = 0,
+    int selectionSeed = 0,
+    double selectionUnit = 0.0,
+    double neutralUnit = 1.0,
+    double intensityUnit = 0.5,
+  }) {
+    if (!state.enabled) {
+      return MoeExpressionPlan.neutral(expressionMode: state.expressionMode);
+    }
+    final candidates = <({
+      MoeRecipe recipe,
+      double strength,
+      bool contextReady,
+      double weight,
+    })>[];
+    for (final recipe in MoeRecipe.values) {
+      final status = state.recipes[recipe] ?? const MoeRecipeStatus();
+      final contextReady = _contextTags(recipe).any(contextTags.contains);
+      final scored = _score(recipe, state.current);
+      final afterglowReady = allowAfterglow && status.active;
+      if (!(contextReady && scored >= entryThreshold - 8.0) &&
+          !afterglowReady) {
+        continue;
+      }
+      final strength = contextReady
+          ? math.max(scored, status.strength)
+          : status.strength;
+      var weight = 0.45 + strength / 100.0;
+      if (recipe == recentPrimary) {
+        weight *= recentPrimaryRun >= 2 ? 0.30 : 0.58;
+      }
+      candidates.add((
+        recipe: recipe,
+        strength: strength,
+        contextReady: contextReady,
+        weight: weight,
+      ));
+    }
+    if (candidates.isEmpty) {
+      return MoeExpressionPlan.neutral(expressionMode: state.expressionMode);
+    }
+    final contextual = candidates
+        .where((candidate) => candidate.contextReady)
+        .toList(growable: false);
+    // A real current-turn context outranks a leftover afterglow. Afterglow is
+    // considered only when no currently grounded recipe is available.
+    final eligible = contextual.isNotEmpty ? contextual : candidates;
+    eligible.sort((a, b) {
+      final byWeight = b.weight.compareTo(a.weight);
+      return byWeight != 0
+          ? byWeight
+          : a.recipe.index.compareTo(b.recipe.index);
+    });
+    final hasContext = contextual.isNotEmpty;
+    final neutralChance = hasContext ? 0.08 : 0.20;
+    if (neutralUnit.clamp(0.0, 1.0) < neutralChance &&
+        eligible.first.strength < 76.0) {
+      return MoeExpressionPlan(
+        expressionMode: state.expressionMode,
+        primary: null,
+        secondary: null,
+        visibleStrengths: const {},
+        styleDirectives: const [],
+        safetyDirectives: const ['萌属性保持只读呈现，不调用工具或改写其他系统。'],
+        neutral: true,
+        selectionSeed: selectionSeed,
+        candidateCount: eligible.length,
+        contextGrounded: hasContext,
+        afterglowOnly: !hasContext,
+      );
+    }
+    final total = eligible.fold<double>(
+      0.0,
+      (sum, value) => sum + value.weight,
+    );
+    var cursor = selectionUnit.clamp(0.0, 0.999999999) * total;
+    var selected = eligible.first;
+    for (final candidate in eligible) {
+      cursor -= candidate.weight;
+      if (cursor < 0) {
+        selected = candidate;
+        break;
+      }
+    }
+    final intensityJitter =
+        ((intensityUnit.clamp(0.0, 1.0) - 0.5) * 8.0).toDouble();
+    final compatible = eligible
+        .where(
+          (candidate) =>
+              candidate.recipe != selected.recipe &&
+              candidate.strength >= selected.strength * 0.76 &&
+              _compatible(selected.recipe, candidate.recipe),
+        )
+        .toList(growable: false);
+    final secondary = compatible.isNotEmpty &&
+            ((selectionUnit * 997.0) % 1.0) >= 0.62
+        ? compatible.first.recipe
+        : null;
+    final chosen = <MoeRecipe>[
+      selected.recipe,
+      if (secondary != null) secondary,
+    ];
+    return MoeExpressionPlan(
+      expressionMode: state.expressionMode,
+      primary: selected.recipe,
+      secondary: secondary,
+      visibleStrengths: {
+        for (final recipe in chosen)
+          recipe: (_visibleStrength(
+                    state.recipes[recipe]?.strength ??
+                        _score(recipe, state.current),
+                    state.expressionMode,
+                  ) +
+                  intensityJitter)
+              .clamp(0.0, 100.0)
+              .toDouble(),
+      },
+      styleDirectives: chosen.map(_directive).toList(growable: false),
+      safetyDirectives: const [
+        '萌属性只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
+        '没有对应情境信号时保持自然，不机械报出属性名称。',
+      ],
+      selectionSeed: selectionSeed,
+      candidateCount: eligible.length,
+      contextGrounded: selected.contextReady,
+      afterglowOnly: !hasContext,
+      intensityJitter: intensityJitter,
+    );
+  }
+
+  static Set<String> contextTagsForUserText(String raw) {
+    final text = raw.replaceAll(RegExp(r'\s+'), '');
+    if (text.isEmpty) return const <String>{};
+    final tags = <String>{};
+    if (RegExp(r'(爱你|喜欢你|想你|抱抱|亲亲|宝贝|老婆)').hasMatch(text)) {
+      tags.addAll(const {
+        'clear_affection',
+        'seeking_closeness',
+        'intimacy_exposed',
+      });
+    }
+    if (RegExp(r'(你好棒|真棒|厉害|可爱|漂亮|聪明|好乖|夸夸)').hasMatch(text)) {
+      tags.addAll(const {'praised', 'softening'});
+    }
+    if (RegExp(r'(哈哈|嘿嘿|逗你|骗你的|开玩笑|捉弄|调皮|坏蛋|笨蛋|玩一下)').hasMatch(text)) {
+      tags.addAll(const {
+        'play',
+        'playful_prank',
+        'playful_plot',
+        'expressive_teasing',
+      });
+    }
+    if (RegExp(r'(怎么了|没事吧|累不累|困了吗|早点休息|担心你|照顾好)').hasMatch(text)) {
+      tags.addAll(const {'concern', 'care_exposed', 'seeking_care'});
+    }
+    if (RegExp(r'(不对|不同意|才不是|胡说|别闹|讨厌你|闭嘴)').hasMatch(text)) {
+      tags.addAll(const {'assertive_response', 'real_flaw'});
+    }
+    if (RegExp(r'(什么情况|为什么|怎么会|没懂|不明白)').hasMatch(text)) {
+      tags.addAll(const {'confusion', 'surprise'});
+    }
+    if (RegExp(r'(其实|我觉得|我想告诉你|认真说|说真的)').hasMatch(text)) {
+      tags.add('honest_disclosure');
+    }
+    return tags;
+  }
+
   double _returnRate(MoeAxis axis) => switch (axis) {
         MoeAxis.closenessBid || MoeAxis.bashfulInhibition => 0.24,
         MoeAxis.defensiveMask || MoeAxis.strategicSubtext => 0.32,
@@ -142,7 +364,7 @@ class MoeDynamicsPolicy {
       final grounded = contextReady ? raw : math.min(raw, entryThreshold - 7.0);
       final cooling = old.cooldownUntil?.isAfter(now) ?? false;
       final active = old.active
-          ? grounded >= exitThreshold
+          ? contextReady && grounded >= exitThreshold
           : !cooling && contextReady && grounded >= entryThreshold;
       if (active) {
         result[recipe] = MoeRecipeStatus(

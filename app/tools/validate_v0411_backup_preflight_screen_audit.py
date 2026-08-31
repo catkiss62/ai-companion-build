@@ -24,8 +24,8 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.(?:1\+140|2\+141|3\+142|4\+143)\s*$", pubspec, re.M)
-simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143)\s*$", pubspec, re.M) is not None
+assert re.search(r"^version:\s*0\.41\.(?:1\+140|2\+141|3\+142|4\+143|5\+144)\s*$", pubspec, re.M)
+simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144)\s*$", pubspec, re.M) is not None
 assert "static const int schemaVersion = 40;" in database
 
 for token in (

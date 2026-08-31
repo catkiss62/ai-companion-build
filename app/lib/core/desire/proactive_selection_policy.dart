@@ -18,6 +18,13 @@ class ProactiveSelectionResult {
     required this.rawIntentKind,
     required this.rawRepeatDepth,
     required this.rawRepetitionPenalty,
+    required this.sourceRepeatDepth,
+    required this.sourceRepetitionPenalty,
+    required this.sampledNearTie,
+    required this.samplingCandidateCount,
+    required this.samplingUnit,
+    required this.topAdjustedScore,
+    required this.selectedAdjustedScore,
   });
 
   final DesireIntent intent;
@@ -34,6 +41,13 @@ class ProactiveSelectionResult {
   final String rawIntentKind;
   final int rawRepeatDepth;
   final double rawRepetitionPenalty;
+  final int sourceRepeatDepth;
+  final double sourceRepetitionPenalty;
+  final bool sampledNearTie;
+  final int samplingCandidateCount;
+  final double samplingUnit;
+  final double topAdjustedScore;
+  final double selectedAdjustedScore;
 }
 
 class _ScoredIntent {
@@ -46,6 +60,8 @@ class _ScoredIntent {
     required this.repetitionPenalty,
     required this.waitingBoost,
     required this.adjustmentBucket,
+    required this.sourceRepeatDepth,
+    required this.sourceRepetitionPenalty,
   });
 
   final DesireIntent original;
@@ -56,6 +72,8 @@ class _ScoredIntent {
   final double repetitionPenalty;
   final double waitingBoost;
   final String adjustmentBucket;
+  final int sourceRepeatDepth;
+  final double sourceRepetitionPenalty;
 }
 
 /// Re-ranks real Desire/Thought candidates without creating a second motive
@@ -69,11 +87,18 @@ class ProactiveSelectionPolicy {
     required List<DesireIntent> candidates,
     required Map<String, CompanionThought> thoughtsById,
     required List<String> recentIntentKinds,
+    List<String> recentSourceTypes = const [],
     required DateTime now,
     Map<String, DateTime> readySinceByThoughtId = const {},
+    double samplingUnit = 0.0,
   }) {
     if (candidates.isEmpty) return null;
     final recent = recentIntentKinds
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .take(8)
+        .toList(growable: false);
+    final recentSources = recentSourceTypes
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .take(8)
@@ -97,12 +122,21 @@ class ProactiveSelectionPolicy {
           intent: candidate,
         ).key;
         final repeatDepth = _repeatDepth(recent, intentKind);
+        final sourceRepeatDepth = _repeatDepth(recentSources, sourceType);
         final repetitionPenalty = repetition
             ? switch (repeatDepth) {
                 0 => 0.0,
                 1 => 0.10,
                 2 => 0.18,
                 _ => 0.26,
+              }
+            : 0.0;
+        final sourceRepetitionPenalty = repetition
+            ? switch (sourceRepeatDepth) {
+                0 => 0.0,
+                1 => 0.04,
+                2 => 0.08,
+                _ => 0.12,
               }
             : 0.0;
         final waitingData = waiting
@@ -118,23 +152,34 @@ class ProactiveSelectionPolicy {
         final repeatedNewestDepth = recent.isEmpty
             ? 0
             : _repeatDepth(recent, recent.first);
+        final repeatedSourceDepth = recentSources.isEmpty
+            ? 0
+            : _repeatDepth(recentSources, recentSources.first);
         final diversityBoost = repetition &&
-                repeatedNewestDepth >= 2 &&
-                intentKind != recent.first
+                ((repeatedNewestDepth >= 2 && intentKind != recent.first) ||
+                    (repeatedSourceDepth >= 2 &&
+                        sourceType != recentSources.first))
             ? 0.04
             : 0.0;
         final adjustedScore = (candidate.score -
                 repetitionPenalty +
+                -sourceRepetitionPenalty +
                 waitingData.value +
                 diversityBoost)
             .clamp(0.0, 1.0)
             .toDouble();
-        final bucket = repetitionPenalty > 0 && waitingData.value > 0
+        final bucket = (repetitionPenalty > 0 ||
+                    sourceRepetitionPenalty > 0) &&
+                waitingData.value > 0
             ? 'mixed'
             : repetitionPenalty > 0
                 ? repeatDepth >= 3
                     ? 'repeat_3_plus'
                     : 'repeat_$repeatDepth'
+                : sourceRepetitionPenalty > 0
+                    ? sourceRepeatDepth >= 3
+                        ? 'source_repeat_3_plus'
+                        : 'source_repeat_$sourceRepeatDepth'
                 : waitingData.bucket;
         values.add(
           _ScoredIntent(
@@ -153,6 +198,8 @@ class ProactiveSelectionPolicy {
             repetitionPenalty: repetitionPenalty,
             waitingBoost: waitingData.value,
             adjustmentBucket: bucket,
+            sourceRepeatDepth: sourceRepeatDepth,
+            sourceRepetitionPenalty: sourceRepetitionPenalty,
           ),
         );
       }
@@ -169,7 +216,22 @@ class ProactiveSelectionPolicy {
     final repetitionOnly = score(repetition: true, waiting: false).first;
     final waitingOnly = score(repetition: false, waiting: true).first;
     final scored = score(repetition: true, waiting: true);
-    final selected = scored.first;
+    final top = scored.first;
+    final samplePool = top.adjusted.drive == DriveKey.fatigue ||
+            top.adjusted.wantAction == 'rest'
+        ? <_ScoredIntent>[top]
+        : scored
+            .where(
+              (value) =>
+                  value.adjusted.drive != DriveKey.fatigue &&
+                  value.adjusted.wantAction != 'rest' &&
+                  value.adjusted.score >= 0.52 &&
+                  top.adjusted.score - value.adjusted.score <= 0.08,
+            )
+            .take(4)
+            .toList(growable: false);
+    final safeUnit = samplingUnit.clamp(0.0, 0.999999999).toDouble();
+    final selected = _sampleNearTie(samplePool, safeUnit);
     final raw = scored.firstWhere(
       (value) => identical(value.original, rawWinner),
     );
@@ -196,7 +258,37 @@ class ProactiveSelectionPolicy {
       rawIntentKind: raw.intentKind,
       rawRepeatDepth: raw.repeatDepth,
       rawRepetitionPenalty: raw.repetitionPenalty,
+      sourceRepeatDepth: selected.sourceRepeatDepth,
+      sourceRepetitionPenalty: selected.sourceRepetitionPenalty,
+      sampledNearTie: samplePool.length > 1 && !identical(selected, top),
+      samplingCandidateCount: samplePool.length,
+      samplingUnit: safeUnit,
+      topAdjustedScore: top.adjusted.score,
+      selectedAdjustedScore: selected.adjusted.score,
     );
+  }
+
+  static _ScoredIntent _sampleNearTie(
+    List<_ScoredIntent> values,
+    double unit,
+  ) {
+    if (values.length <= 1) return values.first;
+    final floor = values.last.adjusted.score;
+    final weights = values
+        .map(
+          (value) => (0.5 +
+                  ((value.adjusted.score - floor) / 0.08)
+                      .clamp(0.0, 1.0))
+              .toDouble(),
+        )
+        .toList(growable: false);
+    final total = weights.fold<double>(0.0, (sum, value) => sum + value);
+    var cursor = unit * total;
+    for (var i = 0; i < values.length; i++) {
+      cursor -= weights[i];
+      if (cursor < 0) return values[i];
+    }
+    return values.last;
   }
 
   static String sourceTypeFor({

@@ -183,7 +183,10 @@ class ProactiveRhythmEngine {
     }
     final latency = rawLatency.inSeconds.clamp(0, 7 * 86400).toInt();
     final bucket = _bucket(latency);
-    final quality = _responseQuality(latency, user.content.length);
+    // This immediate placeholder knows only timing. Message length is retained
+    // as a redacted aggregate for diagnostics, never as evidence of coldness or
+    // satisfaction; the post-turn semantic outcome owns that judgment.
+    final quality = _responseQuality(latency);
     await db.resolveProactiveFeedback(
       id: pending.id,
       userResponseMessageId: user.id,
@@ -388,7 +391,7 @@ class ProactiveRhythmEngine {
     return 'very_late';
   }
 
-  double _responseQuality(int seconds, int textLength) {
+  double _responseQuality(int seconds) {
     var q = 0.38;
     if (seconds <= 30 * 60) {
       q += 0.28;
@@ -396,11 +399,6 @@ class ProactiveRhythmEngine {
       q += 0.17;
     } else if (seconds <= 6 * 3600) {
       q += 0.07;
-    }
-    if (textLength >= 20) {
-      q += 0.15;
-    } else if (textLength <= 3) {
-      q -= 0.08;
     }
     return q.clamp(0.12, 0.88).toDouble();
   }

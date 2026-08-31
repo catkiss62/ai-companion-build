@@ -183,7 +183,7 @@ class PerceptionEngine {
         );
         await desire.applyExperience({
           DriveKey.curiosity: 0.012,
-          DriveKey.attachment: 0.006,
+          DriveKey.social: 0.003,
         });
         await db.setSetting(
           'last_long_usage_thought_at',

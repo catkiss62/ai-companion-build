@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import '../database/app_database.dart';
 import '../moe/application/moe_dynamics_policy.dart';
@@ -20,8 +21,15 @@ class MoeExpressionPromptAdapter {
   final MoeDynamicsPolicy _policy;
   final SqliteMoeRepository _repository;
 
-  Future<String> buildPromptSection() async {
+  static const selectionStateKey = 'moe_expression_selection_state_v2';
+
+  Future<String> buildPromptSection({
+    DateTime? now,
+    String latestUserText = '',
+    String turnKey = '',
+  }) async {
     try {
+      final instant = now ?? DateTime.now();
       if ((await db.getSetting('moe_expression_enabled')) == '0') {
         await MoeExpressionPromptTelemetry.record(
           db,
@@ -29,14 +37,103 @@ class MoeExpressionPromptAdapter {
         );
         return '';
       }
-      final plan = _policy.expressionPlan(await _repository.loadState());
+      final committed = await _repository.loadState();
+      final projected = _policy.projectForPrompt(
+        previous: committed,
+        now: instant,
+      );
+      final tags = MoeDynamicsPolicy.contextTagsForUserText(latestUserText);
+      final turnHash = _stableHash(
+        turnKey.isNotEmpty
+            ? turnKey
+            : 'fallback:${instant.millisecondsSinceEpoch ~/ 60000}',
+      );
+      final prior = _decodeSelectionState(
+        await db.getSetting(selectionStateKey),
+      );
+      final sameTurn = prior['lastTurnHash'] == turnHash;
+      final oldLastPrimary = moeRecipeFromKey(
+        prior['lastPrimary']?.toString() ?? '',
+      );
+      final priorPrimaryForTurn = sameTurn
+          ? moeRecipeFromKey(
+              prior['priorPrimaryForTurn']?.toString() ?? '',
+            )
+          : oldLastPrimary;
+      final priorRunForTurn = sameTurn
+          ? ((prior['priorRunForTurn'] as num?)?.toInt() ?? 0)
+          : ((prior['repeatRun'] as num?)?.toInt() ?? 0);
+      final previousNoContext =
+          ((prior['noContextTurns'] as num?)?.toInt() ?? 0)
+              .clamp(0, 99);
+      final noContextTurns = sameTurn
+          ? previousNoContext
+          : tags.isEmpty
+              ? previousNoContext + 1
+              : 0;
+      final afterglowBudget = 1 +
+          ((committed.updatedAt.millisecondsSinceEpoch ^ turnHash).abs() % 3);
+      final selectionSeed = _stableHash(
+        '$turnHash:${committed.updatedAt.millisecondsSinceEpoch}',
+      );
+      final random = Random(selectionSeed);
+      final plan = _policy.expressionPlanForTurn(
+        projected,
+        contextTags: tags,
+        allowAfterglow: tags.isNotEmpty || noContextTurns <= afterglowBudget,
+        recentPrimary: priorPrimaryForTurn,
+        recentPrimaryRun: priorRunForTurn,
+        selectionSeed: selectionSeed,
+        selectionUnit: random.nextDouble(),
+        neutralUnit: random.nextDouble(),
+        intensityUnit: random.nextDouble(),
+      );
       final section = MoeExpressionPromptPresentation.render(plan);
+      final selectedKey = plan.primary?.key ?? '';
+      final repeatRun = sameTurn
+          ? ((prior['repeatRun'] as num?)?.toInt() ?? 0)
+          : selectedKey.isEmpty
+              ? 0
+              : oldLastPrimary?.key == selectedKey
+                  ? (((prior['repeatRun'] as num?)?.toInt() ?? 0) + 1)
+                      .clamp(1, 99)
+                  : 1;
+      await db.setSetting(
+        selectionStateKey,
+        jsonEncode({
+          'lastTurnHash': turnHash,
+          'sourceStateUpdatedAt':
+              committed.updatedAt.millisecondsSinceEpoch,
+          'lastPrimary': selectedKey,
+          'priorPrimaryForTurn': priorPrimaryForTurn?.key ?? '',
+          'priorRunForTurn': priorRunForTurn,
+          'repeatRun': repeatRun,
+          'noContextTurns': noContextTurns,
+          'afterglowBudget': afterglowBudget,
+          'selectionSeed': selectionSeed,
+          'candidateCount': plan.candidateCount,
+          'contextGrounded': plan.contextGrounded,
+          'afterglowOnly': plan.afterglowOnly,
+          'updatedAt': instant.millisecondsSinceEpoch,
+          'rawTextIncluded': false,
+        }),
+      );
       await MoeExpressionPromptTelemetry.record(
         db,
         status: section.isEmpty ? 'neutral' : 'applied',
         mode: plan.expressionMode.key,
         primaryPresent: plan.primary != null,
         secondaryPresent: plan.secondary != null,
+        selectionSeed: selectionSeed,
+        candidateCount: plan.candidateCount,
+        contextGrounded: plan.contextGrounded,
+        afterglowOnly: plan.afterglowOnly,
+        projectedAgeMinutes: instant
+            .difference(committed.updatedAt)
+            .inMinutes
+            .clamp(0, 999999)
+            .toInt(),
+        now: instant,
       );
       return section;
     } catch (_) {
@@ -48,6 +145,28 @@ class MoeExpressionPromptAdapter {
       // v0.38.2 path when storage is unavailable or state is damaged.
       return '';
     }
+  }
+
+  static Map<String, Object?> _decodeSelectionState(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const {};
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  static int _stableHash(String value) {
+    var hash = 0x811c9dc5;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return hash;
   }
 }
 
@@ -119,6 +238,11 @@ class MoeExpressionPromptTelemetry {
     String mode = 'unknown',
     bool primaryPresent = false,
     bool secondaryPresent = false,
+    int selectionSeed = 0,
+    int candidateCount = 0,
+    bool contextGrounded = false,
+    bool afterglowOnly = false,
+    int projectedAgeMinutes = 0,
     DateTime? now,
   }) async {
     try {
@@ -129,6 +253,11 @@ class MoeExpressionPromptTelemetry {
         mode: mode,
         primaryPresent: primaryPresent,
         secondaryPresent: secondaryPresent,
+        selectionSeed: selectionSeed,
+        candidateCount: candidateCount,
+        contextGrounded: contextGrounded,
+        afterglowOnly: afterglowOnly,
+        projectedAgeMinutes: projectedAgeMinutes,
         now: now,
       );
       await db.setSetting(settingKey, jsonEncode(next));
@@ -151,6 +280,11 @@ class MoeExpressionPromptTelemetry {
     String mode = 'unknown',
     bool primaryPresent = false,
     bool secondaryPresent = false,
+    int selectionSeed = 0,
+    int candidateCount = 0,
+    bool contextGrounded = false,
+    bool afterglowOnly = false,
+    int projectedAgeMinutes = 0,
     DateTime? now,
   }) {
     final normalizedStatus =
@@ -173,6 +307,11 @@ class MoeExpressionPromptTelemetry {
           normalizedStatus == 'applied' && primaryPresent,
       'secondaryPresent':
           normalizedStatus == 'applied' && secondaryPresent,
+      'selectionSeed': selectionSeed.clamp(0, 0x7fffffff),
+      'candidateCount': candidateCount.clamp(0, MoeRecipe.values.length),
+      'contextGrounded': normalizedStatus == 'applied' && contextGrounded,
+      'afterglowOnly': normalizedStatus == 'applied' && afterglowOnly,
+      'projectedAgeMinutes': projectedAgeMinutes.clamp(0, 999999),
       'promptBodiesIncluded': false,
       'styleDirectivesIncluded': false,
       'axisOrRecipeNamesIncluded': false,
@@ -214,6 +353,17 @@ class MoeExpressionPromptTelemetry {
       'lastMode': _modes.contains(mode) ? mode : 'unknown',
       'primaryPresent': source['primaryPresent'] == true,
       'secondaryPresent': source['secondaryPresent'] == true,
+      'selectionSeed':
+          ((source['selectionSeed'] as num?)?.toInt() ?? 0)
+              .clamp(0, 0x7fffffff),
+      'candidateCount':
+          ((source['candidateCount'] as num?)?.toInt() ?? 0)
+              .clamp(0, MoeRecipe.values.length),
+      'contextGrounded': source['contextGrounded'] == true,
+      'afterglowOnly': source['afterglowOnly'] == true,
+      'projectedAgeMinutes':
+          ((source['projectedAgeMinutes'] as num?)?.toInt() ?? 0)
+              .clamp(0, 999999),
       'promptBodiesIncluded': false,
       'styleDirectivesIncluded': false,
       'axisOrRecipeNamesIncluded': false,
@@ -231,6 +381,11 @@ class MoeExpressionPromptTelemetry {
         'lastMode': 'unknown',
         'primaryPresent': false,
         'secondaryPresent': false,
+        'selectionSeed': 0,
+        'candidateCount': 0,
+        'contextGrounded': false,
+        'afterglowOnly': false,
+        'projectedAgeMinutes': 0,
         'promptBodiesIncluded': false,
         'styleDirectivesIncluded': false,
         'axisOrRecipeNamesIncluded': false,

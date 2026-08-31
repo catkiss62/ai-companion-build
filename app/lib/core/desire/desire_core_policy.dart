@@ -47,6 +47,7 @@ class DesireCorePolicy {
   // no longer a hard veto over every other Desire candidate.
   static const fatigueRestGate = 0.78;
   static const fatigueCompetitionFloor = 0.48;
+  static const fatigueProactiveQuietGate = 0.76;
   static const baselineHalfLifeMinutes = 120.0 * 24.0 * 60.0;
   static const wildcardCooldown = Duration(hours: 6);
   static const postTurnPulseBudget = 0.055;

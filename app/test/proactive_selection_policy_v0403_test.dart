@@ -227,4 +227,140 @@ void main() {
       'usage_stats',
     );
   });
+
+  test('bounded sampling varies only among genuinely near candidates', () {
+    final memory = thought(
+      id: 'memory-near',
+      drive: DriveKey.reflection,
+      source: 'self_drive/memory',
+    );
+    final awareness = thought(
+      id: 'awareness-near',
+      drive: DriveKey.curiosity,
+      source: 'perception/awareness',
+    );
+    ProactiveSelectionResult pick(double unit) =>
+        ProactiveSelectionPolicy.select(
+          candidates: [
+            intent(
+              drive: DriveKey.reflection,
+              score: 0.68,
+              action: 'share_thought',
+              thought: memory,
+            ),
+            intent(
+              drive: DriveKey.curiosity,
+              score: 0.65,
+              action: 'check_in',
+              thought: awareness,
+            ),
+          ],
+          thoughtsById: {memory.id: memory, awareness.id: awareness},
+          recentIntentKinds: const [],
+          now: now,
+          samplingUnit: unit,
+        )!;
+
+    final lowRoll = pick(0.0);
+    final sameLowRoll = pick(0.0);
+    final highRoll = pick(0.999);
+    expect(lowRoll.intent.thoughtId, sameLowRoll.intent.thoughtId);
+    expect(lowRoll.intent.thoughtId, memory.id);
+    expect(highRoll.intent.thoughtId, awareness.id);
+    expect(highRoll.sampledNearTie, isTrue);
+    expect(highRoll.samplingCandidateCount, 2);
+  });
+
+  test('sampling cannot promote a clearly weaker candidate or override rest', () {
+    final strong = thought(
+      id: 'strong',
+      drive: DriveKey.reflection,
+      source: 'self_drive/memory',
+    );
+    final weak = thought(
+      id: 'weak',
+      drive: DriveKey.curiosity,
+      source: 'perception/awareness',
+    );
+    final clearWinner = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(
+          drive: DriveKey.reflection,
+          score: 0.74,
+          action: 'share_thought',
+          thought: strong,
+        ),
+        intent(
+          drive: DriveKey.curiosity,
+          score: 0.60,
+          action: 'check_in',
+          thought: weak,
+        ),
+      ],
+      thoughtsById: {strong.id: strong, weak.id: weak},
+      recentIntentKinds: const [],
+      now: now,
+      samplingUnit: 0.999,
+    )!;
+    expect(clearWinner.intent.thoughtId, strong.id);
+    expect(clearWinner.samplingCandidateCount, 1);
+
+    final rest = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(
+          drive: DriveKey.fatigue,
+          score: 0.73,
+          action: 'rest',
+        ),
+        intent(
+          drive: DriveKey.reflection,
+          score: 0.70,
+          action: 'share_thought',
+          thought: strong,
+        ),
+      ],
+      thoughtsById: {strong.id: strong},
+      recentIntentKinds: const [],
+      now: now,
+      samplingUnit: 0.999,
+    )!;
+    expect(rest.intent.drive, DriveKey.fatigue);
+    expect(rest.samplingCandidateCount, 1);
+  });
+
+  test('repeating one evidence source gives a different source room to win', () {
+    final awareness = thought(
+      id: 'awareness-repeat',
+      drive: DriveKey.curiosity,
+      source: 'perception/awareness',
+    );
+    final memory = thought(
+      id: 'memory-alternative',
+      drive: DriveKey.reflection,
+      source: 'self_drive/memory',
+    );
+    final result = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(
+          drive: DriveKey.curiosity,
+          score: 0.70,
+          action: 'check_in',
+          thought: awareness,
+        ),
+        intent(
+          drive: DriveKey.reflection,
+          score: 0.66,
+          action: 'share_thought',
+          thought: memory,
+        ),
+      ],
+      thoughtsById: {awareness.id: awareness, memory.id: memory},
+      recentIntentKinds: const [],
+      recentSourceTypes: const ['awareness', 'awareness', 'awareness'],
+      now: now,
+      samplingUnit: 0.0,
+    )!;
+    expect(result.intent.thoughtId, memory.id);
+    expect(result.sourceType, 'memory');
+  });
 }

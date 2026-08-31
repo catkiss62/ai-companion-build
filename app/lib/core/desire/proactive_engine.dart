@@ -261,6 +261,22 @@ class ProactiveEngine {
       );
       final userBusy = localHeartbeat.userBusy;
       final snapshot = localHeartbeat.snapshot;
+      final fatigue = snapshot.drives[DriveKey.fatigue] ?? 0.0;
+      if (!forceForDebug &&
+          fatigue >= DesireCorePolicy.fatigueProactiveQuietGate) {
+        await db.setSetting(
+          'circadian_fatigue_quiet_gate_last_at',
+          evaluationStartedAt.millisecondsSinceEpoch.toString(),
+        );
+        await db.setSetting(
+          'circadian_fatigue_quiet_gate_last_value',
+          fatigue.toStringAsFixed(4),
+        );
+        return const ProactiveDecision(
+          sent: false,
+          reason: '当前疲劳已进入安静休息区间，不触发普通主动消息',
+        );
+      }
       final thoughts = (await db.activeThoughts(limit: 40)).toList();
       // Session is retained only for notification privacy and scene continuity;
       // it no longer decides whether libido may form an intent.
@@ -299,12 +315,21 @@ class ProactiveEngine {
           )
           .map((item) => item.intentKind)
           .toList(growable: false);
+      final recentSourceTypes = await db.recentProactiveSelectionSourceTypes(
+        now: evaluationStartedAt,
+        limit: 8,
+      );
+      final selectionSeed =
+          evaluationStartedAt.millisecondsSinceEpoch & 0x7fffffff;
+      final selectionUnit = Random(selectionSeed).nextDouble();
       var selection = ProactiveSelectionPolicy.select(
         candidates: previewCandidates,
         thoughtsById: thoughtsById,
         recentIntentKinds: recentIntentKinds,
+        recentSourceTypes: recentSourceTypes,
         now: evaluationStartedAt,
         readySinceByThoughtId: readySinceByThoughtId,
+        samplingUnit: selectionUnit,
       );
       var intent = selection?.intent;
       if (forceForDebug && forcedThoughtIdForDebug != null) {
@@ -324,8 +349,10 @@ class ProactiveEngine {
             candidates: [intent],
             thoughtsById: thoughtsById,
             recentIntentKinds: const [],
+            recentSourceTypes: const [],
             now: evaluationStartedAt,
             readySinceByThoughtId: readySinceByThoughtId,
+            samplingUnit: selectionUnit,
           );
         }
       }
@@ -337,6 +364,23 @@ class ProactiveEngine {
       }
 
     if (selection != null) {
+      await db.setSetting(
+        'proactive_last_selection_sampling_v1',
+        jsonEncode({
+          'seed': selectionSeed,
+          'roll': double.parse(selection.samplingUnit.toStringAsFixed(6)),
+          'candidateCount': selection.samplingCandidateCount,
+          'sampledNearTie': selection.sampledNearTie,
+          'sourceRepeatDepth': selection.sourceRepeatDepth,
+          'topScore': double.parse(
+            selection.topAdjustedScore.toStringAsFixed(4),
+          ),
+          'selectedScore': double.parse(
+            selection.selectedAdjustedScore.toStringAsFixed(4),
+          ),
+          'at': evaluationStartedAt.millisecondsSinceEpoch,
+        }),
+      );
       if (selection.rawRepetitionPenalty > 0) {
         await db.recordProactivePolicyEvent(
           ProactivePolicyEvent(
@@ -363,6 +407,22 @@ class ProactiveEngine {
             reasonTag: 'share_waiting',
             repeatDepth: selection.repeatDepth,
             adjustmentBucket: selection.adjustmentBucket,
+            createdAt: evaluationStartedAt,
+          ),
+        );
+      }
+      if (selection.samplingCandidateCount > 1) {
+        await db.recordProactivePolicyEvent(
+          ProactivePolicyEvent(
+            lane: 'selection',
+            sourceType: selection.sourceType,
+            intentKind: selection.intentKind,
+            outcome: 'near_tie_sampled',
+            reasonTag: 'bounded_sampling',
+            repeatDepth: selection.repeatDepth,
+            adjustmentBucket: selection.samplingCandidateCount >= 3
+                ? 'sample_pool_3_plus'
+                : 'sample_pool_2',
             createdAt: evaluationStartedAt,
           ),
         );

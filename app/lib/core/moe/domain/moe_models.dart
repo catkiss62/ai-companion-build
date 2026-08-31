@@ -358,6 +358,11 @@ class MoeExpressionPlan {
     required List<String> styleDirectives,
     required List<String> safetyDirectives,
     this.neutral = false,
+    this.selectionSeed = 0,
+    this.candidateCount = 0,
+    this.contextGrounded = false,
+    this.afterglowOnly = false,
+    this.intensityJitter = 0,
   })  : visibleStrengths = Map.unmodifiable(visibleStrengths),
         styleDirectives = List.unmodifiable(styleDirectives),
         safetyDirectives = List.unmodifiable(safetyDirectives);
@@ -381,4 +386,9 @@ class MoeExpressionPlan {
   final List<String> styleDirectives;
   final List<String> safetyDirectives;
   final bool neutral;
+  final int selectionSeed;
+  final int candidateCount;
+  final bool contextGrounded;
+  final bool afterglowOnly;
+  final double intensityJitter;
 }

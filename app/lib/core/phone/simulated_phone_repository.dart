@@ -668,6 +668,7 @@ class SimulatedPhoneRepository {
         EmotionEpisodeCategory.repair => '正在慢慢和好',
         EmotionEpisodeCategory.reunion => '重新见面的开心',
         EmotionEpisodeCategory.restNeed => '需要慢下来',
+        EmotionEpisodeCategory.unmetBid => '有一点没被接住',
       };
 
   String _emotionBody(EmotionEpisode episode) {

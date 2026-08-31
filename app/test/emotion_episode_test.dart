@@ -69,6 +69,18 @@ void main() {
     }
   });
 
+  test('night-level fatigue can enter rest need before the extreme band', () {
+    final desire = DesireSnapshot();
+    desire.drives[DriveKey.fatigue] = .68;
+    desire.drives[DriveKey.stress] = .2;
+    final result = EmotionAppraisalPolicy.appraise(
+      userText: '今天聊点普通的',
+      desire: desire,
+      now: DateTime(2026, 8, 31, 2),
+    );
+    expect(result?.category, EmotionEpisodeCategory.restNeed);
+  });
+
   test('episode intensity stays bounded and decays to zero', () {
     final now = DateTime(2026, 8, 24, 12);
     final appraisal = EmotionAppraisalPolicy.appraise(

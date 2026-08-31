@@ -82,6 +82,113 @@ void main() {
     expect(next.recipes.values.where((value) => value.active), isEmpty);
   });
 
+  test('an active recipe exits when its factual context disappears', () {
+    const policy = MoeDynamicsPolicy();
+    final previous = MoeStateSnapshot(
+      baselines: {for (final axis in MoeAxis.values) axis: 100},
+      current: {for (final axis in MoeAxis.values) axis: 100},
+      recipes: const {
+        MoeRecipe.prankster: MoeRecipeStatus(
+          strength: 88,
+          active: true,
+        ),
+      },
+      updatedAt: start,
+    );
+    final next = policy.advance(
+      previous: previous,
+      input: MoeInputSnapshot(capturedAt: start.add(const Duration(minutes: 1))),
+      now: start.add(const Duration(minutes: 1)),
+    );
+    expect(next.recipes[MoeRecipe.prankster]!.active, isFalse);
+    expect(next.recipes[MoeRecipe.prankster]!.strength, lessThan(34));
+  });
+
+  test('prompt projection decays before the first turn after long silence', () {
+    const policy = MoeDynamicsPolicy();
+    final previous = MoeStateSnapshot(
+      baselines: {for (final axis in MoeAxis.values) axis: axis.defaultBaseline},
+      current: {for (final axis in MoeAxis.values) axis: 90},
+      recipes: const {
+        MoeRecipe.blackBelly: MoeRecipeStatus(
+          strength: 86,
+          active: true,
+        ),
+      },
+      updatedAt: start,
+    );
+    final projected = policy.projectForPrompt(
+      previous: previous,
+      now: start.add(const Duration(hours: 9)),
+    );
+    expect(projected.current[MoeAxis.strategicSubtext]!, lessThan(90));
+    expect(projected.recipes[MoeRecipe.blackBelly]!.active, isFalse);
+    expect(
+      policy.expressionPlanForTurn(
+        projected,
+        allowAfterglow: true,
+        neutralUnit: 1,
+      ).neutral,
+      isTrue,
+    );
+  });
+
+  test('turn expression sampling is reproducible and context bounded', () {
+    const policy = MoeDynamicsPolicy();
+    final state = MoeStateSnapshot(
+      baselines: {for (final axis in MoeAxis.values) axis: 70},
+      current: {for (final axis in MoeAxis.values) axis: 70},
+      recipes: const {
+        MoeRecipe.blackBelly: MoeRecipeStatus(strength: 72, active: true),
+        MoeRecipe.prankster: MoeRecipeStatus(strength: 70, active: true),
+        MoeRecipe.cuteDisplay: MoeRecipeStatus(strength: 68, active: true),
+      },
+      updatedAt: start,
+    );
+    MoeExpressionPlan pick(double unit) => policy.expressionPlanForTurn(
+          state,
+          contextTags: const {
+            'expressive_teasing',
+            'playful_prank',
+            'play',
+          },
+          recentPrimary: MoeRecipe.blackBelly,
+          recentPrimaryRun: 3,
+          selectionSeed: 42,
+          selectionUnit: unit,
+          neutralUnit: 1,
+          intensityUnit: .75,
+        );
+    final first = pick(.15);
+    final replay = pick(.15);
+    expect(first.primary, replay.primary);
+    expect(first.visibleStrengths, replay.visibleStrengths);
+    expect(first.candidateCount, greaterThanOrEqualTo(2));
+    expect(first.contextGrounded, isTrue);
+    expect(first.intensityJitter, closeTo(2, .001));
+
+    final noAfterglow = policy.expressionPlanForTurn(
+      state,
+      contextTags: const {},
+      allowAfterglow: false,
+      selectionUnit: .9,
+      neutralUnit: 1,
+    );
+    expect(noAfterglow.neutral, isTrue);
+  });
+
+  test('current user text supplies only bounded semantic context tags', () {
+    final playful = MoeDynamicsPolicy.contextTagsForUserText('哈哈，骗你的，笨蛋');
+    expect(playful, contains('expressive_teasing'));
+    expect(playful, contains('playful_prank'));
+    final affection = MoeDynamicsPolicy.contextTagsForUserText('抱抱，我喜欢你');
+    expect(affection, contains('clear_affection'));
+    expect(
+      MoeDynamicsPolicy.contextTagsForUserText('今天普通地吃了饭'),
+      isEmpty,
+    );
+  });
+
   test('hysteresis exit creates cooldown and prevents immediate re-entry', () {
     const policy = MoeDynamicsPolicy();
     final initial = MoeStateSnapshot.initial(now: start);
