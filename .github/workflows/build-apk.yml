@@ -215,6 +215,7 @@
 # AI-Companion-v0.41.5-144-Personality-State-Diversity-APK
 # .ci/v0415-monitor.txt
 # python3 tools/validate_v0415_personality_state_diversity.py
+# Current v0.41.6 workflow: gated Agent System Facts and metadata-only Recent Outcomes.
 name: Build AI Companion v0.41.6+145 APK (Agent Self Facts)
 
 on:
