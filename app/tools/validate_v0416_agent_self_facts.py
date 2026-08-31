@@ -118,7 +118,7 @@ for token in (
 assert durable.count("eventScopeId: job.id") == 2
 
 for token in (
-    "buildLabel = 'v0.41.8+147'",
+    "buildLabel = 'v0.41.9+148'",
     "Duration(days: 14)",
     ".take(8)",
     "'not_implemented'",

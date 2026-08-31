@@ -23,6 +23,7 @@ model = read("lib/core/models/personality_learning.dart")
 extractor = read("lib/core/ai/memory_extractor.dart")
 snapshot = read("lib/core/sync/snapshot_service.dart")
 diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
+agent_self = read("lib/core/agent/agent_self_reader.dart")
 prompt_builder = read("lib/core/ai/prompt_builder.dart")
 desire_engine = read("lib/core/desire/desire_engine.dart")
 moe_adapter = read("lib/core/integration/moe_expression_prompt_adapter.dart")
@@ -33,6 +34,7 @@ ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
 assert re.search(r"^version:\s*0\.41\.9\+148\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 42;" in database
+assert "buildLabel = 'v0.41.9+148'" in agent_self
 assert "if (oldVersion < 42)" in database
 assert "_createV42Tables" in database
 
