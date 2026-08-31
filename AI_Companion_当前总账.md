@@ -27,21 +27,21 @@
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 当前开发分支 | `agent/v0419-personality-learning-observation`；从 v0.41.8 已通过 CI/APK、且已真机确认静态“直爽泼辣”强度失败的基线开始 Phase 0+1 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 远端 CI head `b4c1e613f4ea770902ca05a392df4c1842a170bc`；tree `90577f1581d1bec11c49947d7068eea5f75bf158` 与本地触发提交精确一致；核心功能 head `99e3fb4df5780484422ad8ec2496f6beacf57f4a` |
-| App / 数据库 | 当前 `0.41.8+147` / schema 41；Snapshot/备份 protocol 5 不变 |
-| 最终 CI | Actions run `33409376560`，run number 646，head `b4c1e613f4ea...`，全绿；385 项 Flutter tests 通过 |
-| 测试 APK | `AI-Companion-v0.41.8-147-Personality-Trial-Strength-Hotfix-APK.apk`，325,256,678 bytes |
-| APK SHA-256 | `34fc89145df10376e51c39bad968f93c3789dc304183d72e8b8bb49a5d5358b3` |
-| Artifact / Release | Artifact ID `9764826372`；Draft Release `untagged-3100bfd0c5710092715c`，未发布正式 Release |
+| 当前代码 head / tree | 远端 CI head `ef67b5b544849d842b17e0805e2b0eb5b7e12ce9`；tree `0aa778486e9888b3a5779de4b196dd1ffcb53e33` 与本地触发提交精确一致；核心 Phase 0+1 功能提交为本地 `a9d7acb49766...` / 远端 `36d933d92182...` |
+| App / 数据库 | 当前 `0.41.9+148` / schema 42；Snapshot/备份 protocol 5 不变 |
+| 最终 CI | Actions run `33445328264`，run number 649，head `ef67b5b54484...`，全绿；392 项 Flutter tests 通过 |
+| 测试 APK | `AI-Companion-v0.41.9-148-Personality-Learning-Observation-APK.apk`，325,297,082 bytes |
+| APK SHA-256 | `35ce0338af8bbe1742a34d27db91c5fceb4bd74834eeeadf6037c6dc11e43324` |
+| Artifact / Release | Artifact ID `9778103747`；Draft Release `untagged-bea3998f921f56995b8b`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.8 胶囊代码与 CI/APK 已通过；静态“直爽泼辣”强度真机失败。人格 Phase 0+1 已正式开工：先完成规则/Prompt 分类合同，再实现只观察、不影响回复的用户偏好证据候选、反证、成熟度、备份和脱敏诊断；目标 `0.41.9+148 / schema 42`。联网存图缺陷继续保留 P0，但本批不混入 |
+| 当前总状态 | v0.41.9 人格 Phase 0+1 已实现并通过完整 CI/APK：规则分类合同、只观察的偏好/关系许可/试穿证据、反证、成熟度、备份和脱敏诊断已落地；学习候选不会改变当前回复，仍待真机导出诊断验收。联网存图缺陷继续保留 P0，未混入本批 |
 
 ### 3. 当前模块状态总表
 
 | 模块 | 当前状态 | 还需什么 / 不得误判 |
 |---|---|---|
 | 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过 | 后续版本未对所有视觉边角做一次总体验收；偶发多余 `「` 见低优先级问题 |
-| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；学习/成长第一阶段已完成开源调研与设计冻结 | 不再继续堆词库/场景/每轮强制；保留身份、关系事实、工具真值、排版与反客服硬边界，把普通偏好改为证据成熟后才生效的可撤销习惯；试穿继续是 AI 明知的娱乐层，规则 01/02/03 须先逐条分类迁移，不一次性大删 |
+| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.9 Phase 0+1 已把规则分类和观察证据层落地 | 当前学习层只观察、不改表达；不再继续堆词库/场景/每轮强制。身份、关系事实、工具真值、排版与反客服仍是硬边界；Phase 2 须等真机证据闭合后才可给成熟偏好小幅 bias |
 | Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
 | Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · IN PROGRESS | 人格学习与成长主框架 Phase 0+1 | 目标 `0.41.9+148 / schema 42`：规则/Prompt 分类与回放合同 + 只观察的偏好证据、反证、成熟度、备份和脱敏诊断。学习结果不进入聊天 Prompt、不改 Desire/Moe、不生成 AI 习惯；完成后生成第一个观察型 APK |
+| P0 · CI/APK PASSED / TRUE DEVICE PENDING | 人格学习与成长主框架 Phase 0+1 | `0.41.9+148 / schema 42` 已实现规则/Prompt 分类与只观察的偏好证据、反证、成熟度、备份和脱敏诊断；run 649 与观察型 APK 已完成。真机只验证抓取/反证/备份/不影响台词，未闭合前不得进入 Phase 2 或宣称她已经会成长 |
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
@@ -258,7 +258,7 @@
 13. 分阶段实施顺序冻结为：Phase 0 先逐条审计规则 01/02/03 与当前 Prompt 装配，把内容标成 `immutable_core / hard_style_ban / relationship_fact / expression_protocol / trial_script / growth_seed`，建立旧行为回放样本；Phase 1 实现用户偏好证据候选、反证、成熟度与只读诊断，不立即改 AI 表达；Phase 2 在 Memory Phase 1 的 topic/subject 轻连接上接入关系偏好召回，并仅以小幅 bias 影响回复；Phase 3 才实现 AI 自身习惯候选、版本/回滚、激活预算与试穿蒸馏；Phase 4 再考虑低频主动澄清和娱乐测试。每一阶段独立 schema/备份迁移、validator、Flutter tests、CI/APK 与真机 A/B，上一阶段证据不闭合不得宣称“会成长”。
 14. 本节是研究与设计冻结，未修改运行代码、规则正文、试穿转正数据、Memory schema、Desire/Moe 或联网工具；版本仍为 `0.41.8+147`、schema 41、Snapshot protocol 5。正式开工必须先更新本入口状态，并以 Phase 0 的 Prompt 分类清单和回放合同为第一批，不在同批修联网图片事务。
 
-### 15. 2026-09-01 · v0.41.9 人格学习观察层 Phase 0+1 开工（IN PROGRESS / APK AUTHORIZED）
+### 15. 2026-09-01 · v0.41.9 人格学习观察层 Phase 0+1（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 1. 用户确认按三个真机卡点实施，不为 Phase 0～4 每个内部步骤单独出包，也不把全部成长链一次性焊完后才验收。第一批连续完成 Phase 0+1，结束时生成一个观察型 APK；Phase 2 第一次影响表达、Phase 3 第一次形成 AI 自身习惯时再分别生成后续 APK。
 2. 用户明确授权：本批及后续 AI Companion APK 代码批完成后，可以直接推送到公开仓库 `catkiss62/ai-companion-build` 并运行 GitHub Actions、创建 Artifact 与 Draft Release，不必每次重新申请。该授权不包括合并 `main` 或发布正式 Release；仍使用独立开发分支、固定测试签名和草稿交付流程。
@@ -271,6 +271,15 @@
 9. 脱敏诊断只输出 enabled、各状态/scope/evidence 类型计数、最近写入时间、是否出现普通/试穿来源和错误布尔值；不得输出 subject、proposition、证据文本、消息正文、trial 文本或模型 JSON。备份属于用户持有的完整关系资料，可携带新表正文并继续受现有单文件状态包完整性保护。
 10. 自动验收至少覆盖：用户明确偏好形成 forming 候选；相同真实证据重放幂等；第二条独立支持可成熟；反证可降级/contradict；AI 单方面台词和沉默不落证据；特殊试穿来源被隔离；非法 scope/subject/证据 quote 被手机拒绝；旧 schema 41 导入为空学习历史；新表完整导出/导入；诊断零正文；现有 Prompt 生成字节不消费学习表。
 11. 完成后集中运行当前/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、稳定签名和大型载荷校验，回填本节提交、Actions、APK 文件名/大小/SHA、Artifact/Draft Release 与真机边界。第一包真机只需自然聊几轮、给出一条明确偏好和一条限定/相反反馈，再导出脱敏诊断；正确表现是后台证据变化而台词没有因学习层突然改风格。
+12. 实际实现新增 `personality_learning_candidates` 与 `personality_learning_evidence` 两张 schema 42 表：候选按 scope/subject/context 唯一，证据按候选/真实用户消息幂等；模型只能提案，手机重新核对用户原话片段、scope、subject、trial context、target 与置信度上限，再由确定性策略计算 `candidate/forming/established/contradicted`。AI 回复只保存为语境消息 ID，不参与证据权重。
+13. 普通轮只允许 `user_preference / relationship_permission`，普通或特殊试穿轮只允许隔离的 `trial_preference`；试穿 key/ID 随证据保存。用户没有反对、短回复、消息长度、AI 自述、reasoning、无目标的反证和跨 trial target 都会被 Prompt 与本地解析双重拒绝。学习提案单轮最多三条，后台 job 重放不会重复加权。
+14. Phase 1 严格保持观察态：`prompt_builder.dart`、Desire engine 与 Moe adapter 均不导入/读取学习模型或表；候选不会写 AI Self、长期习惯、当前人格、试穿转正或 Agent 自读。新增 Phase 0/1 文档把现有规则来源冻结为 `immutable_core / hard_style_ban / relationship_fact / expression_protocol / trial_script / growth_seed`，未改写用户规则 01/02/03 正文。
+15. 两张新表进入 `exportAll/importAll`；schema 42 完整包缺表会拒绝，schema 1～41 包恢复时补为空历史，Snapshot protocol 继续为 5。脱敏诊断只输出计数、状态/scope/evidence kind、最近时间、普通/试穿布尔值与拒绝计数，并显式声明 candidate/evidence/subject/model proposal 正文均未包含。
+16. 自动测试新增 7 项 Phase 1 纯策略回归，覆盖真实用户 quote、AI-only 拒绝、无 target 反证拒绝、明确纠正、两条独立支持成熟、普通/试穿隔离与跨 trial 拒绝。最终 124 个源码/历史 validator、Kotlin/Gradle、Flutter analyze、392 项 Flutter tests、Release APK、固定签名、TTS/native/417 文件桌宠/19 表情 LingChat/22 张 Tarot 与上传链全部通过。
+17. 首轮 run `33444331145`（647）只因 workflow 干净基线仍检查 schema 41，在 Flutter 安装前失败；改为 42 后，run `33444589301`（648）通过编译/analyze 和全部 7 个新测试，但旧 `agent_self_reader_v0416_test` 仍期待 v0.41.8/schema 41，结果为 391 通过、1 失败。最终同步 System Facts build 为 v0.41.9/schema 42 后，run `33445328264`（649）全绿；前两轮不能当作最终代码证据。
+18. 本地最终触发提交 `83d26c9ba210...`、远端最终 CI head `ef67b5b544849d842b17e0805e2b0eb5b7e12ce9`，共同 tree `0aa778486e9888b3a5779de4b196dd1ffcb53e33`。Artifact ID `9778103747`，ZIP 319,001,117 bytes、digest `757ee8d1535d7138040b5c99d674adc5276bc70745746835c84e8dac319b345f`，保留至 2026-09-14T22:26:07Z。
+19. 独立下载 Artifact 后得到 APK 325,297,082 bytes，SHA-256 `35ce0338af8bbe1742a34d27db91c5fceb4bd74834eeeadf6037c6dc11e43324`，与 CI checksum 一致；固定签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bea3998f921f56995b8b`；`main` 未合并，正式 Release 未发布。
+20. 真机验收只做观察：覆盖安装后在普通状态明确说一条偏好，再用限定或相反反馈纠正；另在一次普通性格试穿中明确评价试穿特征，随后导出脱敏诊断与完整备份。正确结果是 candidate/evidence/rejected 计数和普通/试穿布尔值合理变化、备份含新表，而她的当前台词不因这些候选突然改变。若抓错、未抓、无法反证或表达被影响，停在 Phase 1 修复；不得直接进入 Phase 2。联网识图/相册保存仍是独立 P0 真机失败任务，本批没有修复或掩盖。
 
 ## 历史工作记录（原文保留，按需检索）
 

@@ -144,7 +144,7 @@ for token in (
     "v0.41.9 人格学习观察层 Phase 0+1",
     "agent/v0419-personality-learning-observation",
     "0.41.9+148 / schema 42",
-    "只观察、不影响回复",
+    "只观察、不改表达",
     "不合并 `main`、不发布正式 Release",
 ):
     assert token in ledger, token
