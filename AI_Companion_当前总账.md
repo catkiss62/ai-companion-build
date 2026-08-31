@@ -6,7 +6,7 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.5 性格状态多样性与夜间节律修复（PLANNED / PRE-IMPLEMENTATION LEDGER）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.5 性格状态多样性与夜间节律修复（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 > 用户在 v0.41.4 真机自然对话体验总体良好，但根据最新脱敏诊断与源码只读审计确认：手机活动感知会反复喂养同一个 attachment Thought，主动联系因而过度集中于“想你”；Dynamic Moe 已激活配方在语境消失后仍可能卡在 39，并且长时间静默后的第一轮仍读取未投影衰减的旧状态；短回复长度扣分并不会真正积累不满；高疲劳时则可能每条用户消息都创建新的 `rest_need`。用户同意按审计方案优化，并进一步批准加入“受控随机”：底层状态演化保持可解释，只在合理候选选择、短寿命自发念头和萌属性表现强度上增加可复现、可诊断的变化。
 
@@ -27,6 +27,29 @@
 2. 所有随机决策必须支持固定种子复现，自动测试至少覆盖：重复手机活动不 fixation、相近候选可多样且高低分不逆转、相同种子相同结果、Moe 无语境退出/长静默首轮衰减/防连续重复、单个短回复不扣情绪、连续未满足互动才轻微累积、重复高疲劳消息只保留一个 `rest_need`、晨间恢复和高疲劳不主动但仍可回复。
 3. 完成后运行新增专项与当前/历史 validators、Flutter analyze/tests、Kotlin/Gradle 和 Release APK 构建；回填真实测试与 CI/APK 证据。自动测试只能证明逻辑合同，不能代替用户真机观察“想你”占比、萌属性可感变化、夜间主动频率和长期自然度。
 4. 用户此前已授权后续测试 APK 使用公开仓库构建；本批只推送同名源码分支并运行 Actions、生成测试 APK，不合并 `main`、不发布正式 Release。实施后必须进行第二次总账回填。
+
+### C. 实际实现与逻辑收口
+
+1. 新增 `ThoughtFeedPolicy`，把所有 `awareness` 来源的 Thought 初始强度限制为 0.34、刷新上限限制为 0.42，并固定为短寿命 `flit/active`、`fedCount=1`；重复手机活动心跳不再把 Thought 推入 fixation。`presence/phone_activity` 从 attachment 改为 curiosity，并移除 attachment 数值脉冲；旧安装中已经形成的同来源 attachment fixation 会在下一次刷新时降级。真实用户证据与持久经历仍可按原合同形成 fixation，没有把依恋系统整体削平。
+2. 主动候选继续只来自真实 Desire/Thought/Intent；新增近期来源 0.04/0.08/0.12 重复降权，并只允许与最高调整分相差不超过 0.08、得分至少 0.52 的最多四个非休息候选进入确定性种子加权抽样。低分候选不能翻盘，原始最高候选为 fatigue/rest 时锁定休息优先，Gate/额度仍在抽样之外硬执行；抽样种子、roll、候选数、最高/选中分和来源重复深度以不含正文的固定字段进入诊断。没有为追求随机而另建 `spontaneous` 第二套状态机，本批按预案只完成安全的真实候选抽样。
+3. Dynamic Moe 修复了无当前语境时已激活配方仍卡在 39 的确切条件错误；Prompt 使用前先按当前时间只读投影衰减，超过 6 小时的旧活跃配方不再污染静默后的第一轮。当前用户文本只映射为有限语义标签，当前语境候选优先于余韵；余韵固定为 1～3 个表达轮次，上一配方重复降权为 0.58、连续重复时降至 0.30，并保留 8% 当前语境中性轮次、20% 余韵中性轮次和 ±4 的小幅表现强度波动。相同 turn/seed 可复现，选择状态与遥测不保存原文、消息 ID、配方名或轴名。
+4. `ProactiveRhythmEngine` 已完全删除按单句字数扣/加回应质量，只保留延迟作为节奏统计；新增 `InteractionReciprocityPolicy`，只有 AI 确实发出互动 bid 后的语义 outcome 才参与累积。acknowledged/redirected 每次 +1、连续到 4 才出现轻微未满足；dodged 每次 +2、累计到 3 才出现；engaged 立即恢复，deferred 不增加，refused 尊重边界并结束，普通无 bid 轮次自然衰减。数据库按 response message id 幂等，只维持一个 `emotion:continuous:unmet_bid`，Prompt 只允许一次轻微直说需要，禁止惩罚、冷战和反复催促。
+5. 新增 `RestNeedPolicy`：fatigue 进入/退出阈值 0.66/0.52，stress 进入/退出阈值 0.82/0.64；`EmotionEpisodeEngine` 只同步一个稳定的 `emotion:continuous:rest_need`，会合并旧重复活跃项并在恢复阈值下结束。高疲劳仍可与关系事件并存，但不再按用户消息堆满 Prompt 槽；普通主动联系从 fatigue 0.76 起被禁止，用户主动消息仍正常回答。原有平滑昼夜睡眠压力保留，没有改成整点硬跳变。
+6. 版本为 `0.41.5+144`、SQLite/schema 40、Snapshot/备份协议不变。规则 01、规则 03 和两条 `<emotion>` 示例源码未改，v0.41.4 精确哈希 validator 继续通过；自主截屏仍明确为 `not_implemented`，没有把 App 标签冒充截图内容，也没有绕过 MediaProjection/Accessibility 授权。
+
+### D. 本地与 GitHub Actions 验证
+
+1. 新增 Thought 重复心跳、主动近分抽样/弱候选/休息优先/来源多样、Moe 无语境退出/长静默投影/确定性选择、语义未满足互动、连续休息 Episode 等 Flutter 单测，并新增 `validate_v0415_personality_state_diversity.py`。本地专项、v0.41.4～v0.40.8、current wrapper、workflow YAML、Python 语法和 `git diff --check` 通过；正式 workflow 的 120 个 Python validators 本地为 112 通过，另 8 个只因本地没有 CI 恢复的 417 文件桌宠、LingChat/TTS/native 大型载荷或 `kotlinc` 而无法执行，没有本批逻辑断言失败。
+2. 命令行环境无 GitHub HTTPS 凭据，用户明确授权后使用已连接的 GitHub Git 数据接口创建远端分支；最终聚合源码树 SHA `7714489f59d330b9a8da8db48f816dfcf35c0663` 与本地功能提交 `6663c5f` 的 tree 精确一致。远端聚合提交为 `95cd4239828a`；首轮 run `33366566831`（637）在 Android 调试编译暴露缺少 `DriveKey` import，修复提交为远端 `6c7de401afa4` / 本地 `d58ed80`。
+3. 第二轮 run `33367017626`（638）通过 validators、Kotlin/调试编译和 Flutter analyze，随后 376 项 Flutter tests 中 374 通过、2 项失败：测试夹具中一个“近分”分享念头实际已等待 24 小时获得 +0.16，以及等待补偿可越过原始最高 rest 候选。最终修复将夹具时间设为当前，并从逻辑上锁定原始 fatigue/rest 赢家；远端修复提交 `494796ef02e3`、本地提交 `12b7a64`。
+4. 最终 Actions run `33367689222`（run number 639）在 head `494796ef02e369f98e6896bc5acea7185e3c35dd` 上全部成功。源码/历史 validators、Kotlin 桌宠与悬浮窗测试、Flutter analyze、376 项 Flutter tests、Release APK、稳定签名、Native/TTS/桌宠/LingChat/Tarot 完整载荷、checksum、Artifact 和 Draft Release 上传全部通过；`report-ci-failure` 正常 skipped。前两轮失败均已由最终 run 覆盖，不能算作残留失败。
+
+### E. APK、交付边界与真机待验
+
+1. 测试 APK `AI-Companion-v0.41.5-144-Personality-State-Diversity-APK.apk` 为 325,201,598 bytes；从 Actions Artifact 独立解包后实算 SHA-256 `0d0bcbd7fc5c3ab58436508d0c27bb5369ba62675afe6af095e15248f39286c6`，与 CI checksum 完全一致。签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，与上一测试版连续，可覆盖安装。
+2. Actions Artifact ID `9749136965`，名称 `AI-Companion-v0.41.5-144-Personality-State-Diversity-APK`，ZIP 为 318,904,549 bytes，digest `sha256:3b660b0e2c56746b320f463d27f83255bae8e4fd79fbbba09d315bf515080c2b`，保留到 2026-09-14 07:27:44Z。Draft Release URL 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f7033cc1a0948197b34b`；它保持 draft，未发布正式 Release。
+3. `main` 未合并、未修改；备份实现和已真机收口的单文件导出链未改。CI 只能证明代码合同与构建链，v0.41.5 的真实效果仍需覆盖安装后观察：主动消息是否不再长期被“想你”垄断、萌属性是否有可感变化且允许自然中性轮次、短但投入的回复是否不触发不满、连续真正躲避互动时是否只出现一次轻微表达、夜间高疲劳是否降低普通主动频率且用户发话仍正常回应。
+4. 自主截屏没有随本批完成，后续仍应先实现用户点击的“看一次”与敏感页面 Gate，再讨论低频自主调度。用户真机自然使用一段时间后可导出新的脱敏诊断，届时复核 source/intent 多样性、Moe 选择遥测、`unmet_bid` 和连续 `rest_need`，再决定是否调整阈值；在此之前不得把 CI 写成“活人感已真机验收”。
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.4 初始性格种子替换与备份导出收口（IMPLEMENTED / CI & APK PASSED / BACKUP EXPORT CLOSED / PERSONALITY TRUE DEVICE PENDING）
 
