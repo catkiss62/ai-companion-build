@@ -1,0 +1,7 @@
+status=success
+run_id=33346502310
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33346502310
+head_sha=34143f2376a40bf3f6865a62c9fe8adaffb71b3c
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+dd5fcaf120f9a19dc2ae7d67db034533d4ca19c5a4c44669557f63ce439ea046  AI-Companion-v0.41.3-142-Backup-ZIP-Hardening-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-042e1c31a159fdf1e2e4
