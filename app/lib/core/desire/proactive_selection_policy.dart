@@ -1,3 +1,4 @@
+import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_engine.dart';
 import 'proactive_presentation.dart';
