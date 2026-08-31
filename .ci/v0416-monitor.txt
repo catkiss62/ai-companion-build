@@ -1,0 +1,920 @@
+status=failure
+build_result=failure
+run_id=33385683667
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33385683667
+head_sha=bb583ddc23101886bc833ec46cbe60dac36d3c85
+
+=== failed or cancelled job logs ===
+
+--- job=build-apk conclusion=failure id=99467761706 ---
+﻿2026-08-31T11:10:21.7810499Z Current runner version: '2.336.0'
+2026-08-31T11:10:21.7833613Z ##[group]Runner Image Provisioner
+2026-08-31T11:10:21.7834409Z Hosted Compute Agent
+2026-08-31T11:10:21.7834957Z Version: 20260819.586
+2026-08-31T11:10:21.7835487Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-08-31T11:10:21.7836144Z Build Date: 2026-08-18T23:20:18Z
+2026-08-31T11:10:21.7836703Z Worker ID: {8a730466-954f-4d1f-81a6-5efeb2185a60}
+2026-08-31T11:10:21.7837264Z Azure Region: westus3
+2026-08-31T11:10:21.7837863Z ##[endgroup]
+2026-08-31T11:10:21.7839281Z ##[group]Operating System
+2026-08-31T11:10:21.7839875Z Ubuntu
+2026-08-31T11:10:21.7840317Z 24.04.4
+2026-08-31T11:10:21.7840731Z LTS
+2026-08-31T11:10:21.7841260Z ##[endgroup]
+2026-08-31T11:10:21.7841764Z ##[group]Runner Image
+2026-08-31T11:10:21.7842323Z Image: ubuntu-24.04
+2026-08-31T11:10:21.7842811Z Version: 20260823.283.1
+2026-08-31T11:10:21.7843914Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260823.283/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-31T11:10:21.7845165Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260823.283
+2026-08-31T11:10:21.7845987Z ##[endgroup]
+2026-08-31T11:10:21.7846990Z ##[group]GITHUB_TOKEN Permissions
+2026-08-31T11:10:21.7849031Z Actions: read
+2026-08-31T11:10:21.7849573Z Contents: write
+2026-08-31T11:10:21.7850095Z Metadata: read
+2026-08-31T11:10:21.7850578Z ##[endgroup]
+2026-08-31T11:10:21.7852357Z Secret source: Actions
+2026-08-31T11:10:21.7853298Z Prepare workflow directory
+2026-08-31T11:10:21.8130946Z Prepare all required actions
+2026-08-31T11:10:21.8171147Z Getting action download info
+2026-08-31T11:10:22.1022072Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-31T11:10:22.8968314Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-08-31T11:10:23.9347692Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-08-31T11:10:24.3278162Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-08-31T11:10:24.5681275Z Getting action download info
+2026-08-31T11:10:24.6764893Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-08-31T11:10:24.8547511Z Complete job name: build-apk
+2026-08-31T11:10:24.9255956Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T11:10:24.9262492Z ##[group]Run actions/checkout@v4
+2026-08-31T11:10:24.9262851Z with:
+2026-08-31T11:10:24.9263060Z   repository: catkiss62/ai-companion-build
+2026-08-31T11:10:24.9265091Z   token: ***
+2026-08-31T11:10:24.9265271Z   ssh-strict: true
+2026-08-31T11:10:24.9265459Z   ssh-user: git
+2026-08-31T11:10:24.9265670Z   persist-credentials: true
+2026-08-31T11:10:24.9265870Z   clean: true
+2026-08-31T11:10:24.9266075Z   sparse-checkout-cone-mode: true
+2026-08-31T11:10:24.9266285Z   fetch-depth: 1
+2026-08-31T11:10:24.9266452Z   fetch-tags: false
+2026-08-31T11:10:24.9266630Z   show-progress: true
+2026-08-31T11:10:24.9266806Z   lfs: false
+2026-08-31T11:10:24.9267022Z   submodules: false
+2026-08-31T11:10:24.9267226Z   set-safe-directory: true
+2026-08-31T11:10:24.9267436Z   allow-unsafe-pr-checkout: false
+2026-08-31T11:10:24.9267771Z ##[endgroup]
+2026-08-31T11:10:25.0101310Z Syncing repository: catkiss62/ai-companion-build
+2026-08-31T11:10:25.0102877Z ##[group]Getting Git version info
+2026-08-31T11:10:25.0103304Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-08-31T11:10:25.0103926Z [command]/usr/bin/git version
+2026-08-31T11:10:25.0253628Z git version 2.55.0
+2026-08-31T11:10:25.0270503Z ##[endgroup]
+2026-08-31T11:10:25.0284121Z Temporarily overriding HOME='/home/runner/work/_temp/5b9787dd-a5d0-453b-923a-6d9a5f8a9918' before making global git config changes
+2026-08-31T11:10:25.0285685Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-31T11:10:25.0289745Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-08-31T11:10:25.0334382Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-08-31T11:10:25.0337653Z ##[group]Initializing the repository
+2026-08-31T11:10:25.0342550Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-08-31T11:10:25.0426791Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-31T11:10:25.0427892Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-31T11:10:25.0428974Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-31T11:10:25.0429645Z hint: call:
+2026-08-31T11:10:25.0430069Z hint:
+2026-08-31T11:10:25.0430676Z hint: 	git config --global init.defaultBranch <name>
+2026-08-31T11:10:25.0431284Z hint:
+2026-08-31T11:10:25.0431901Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-31T11:10:25.0432769Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-31T11:10:25.0433431Z hint:
+2026-08-31T11:10:25.0433901Z hint: 	git branch -m <name>
+2026-08-31T11:10:25.0434370Z hint:
+2026-08-31T11:10:25.0435004Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-31T11:10:25.0436229Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-08-31T11:10:25.0438507Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-08-31T11:10:25.0476235Z ##[endgroup]
+2026-08-31T11:10:25.0476779Z ##[group]Disabling automatic garbage collection
+2026-08-31T11:10:25.0480428Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-31T11:10:25.0512851Z ##[endgroup]
+2026-08-31T11:10:25.0513518Z ##[group]Setting up auth
+2026-08-31T11:10:25.0520834Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-31T11:10:25.0569799Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-31T11:10:25.0899422Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-31T11:10:25.0931134Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-31T11:10:25.1132532Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-31T11:10:25.1165149Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-31T11:10:25.1366869Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-31T11:10:25.1402900Z ##[endgroup]
+2026-08-31T11:10:25.1403423Z ##[group]Fetching the repository
+2026-08-31T11:10:25.1411136Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +bb583ddc23101886bc833ec46cbe60dac36d3c85:refs/remotes/origin/agent/v0416-agent-self-facts
+2026-08-31T11:10:30.4111299Z From https://github.com/catkiss62/ai-companion-build
+2026-08-31T11:10:30.4112932Z  * [new ref]         bb583ddc23101886bc833ec46cbe60dac36d3c85 -> origin/agent/v0416-agent-self-facts
+2026-08-31T11:10:30.4114602Z ##[endgroup]
+2026-08-31T11:10:30.4115215Z ##[group]Determining the checkout info
+2026-08-31T11:10:30.4118954Z ##[endgroup]
+2026-08-31T11:10:30.4122862Z [command]/usr/bin/git sparse-checkout disable
+2026-08-31T11:10:30.4171675Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-31T11:10:30.4201595Z ##[group]Checking out the ref
+2026-08-31T11:10:30.4206763Z [command]/usr/bin/git checkout --progress --force -B agent/v0416-agent-self-facts refs/remotes/origin/agent/v0416-agent-self-facts
+2026-08-31T11:10:30.6010485Z Switched to a new branch 'agent/v0416-agent-self-facts'
+2026-08-31T11:10:30.6029356Z branch 'agent/v0416-agent-self-facts' set up to track 'origin/agent/v0416-agent-self-facts'.
+2026-08-31T11:10:30.6041017Z ##[endgroup]
+2026-08-31T11:10:30.6089126Z [command]/usr/bin/git log -1 --format=%H
+2026-08-31T11:10:30.6108536Z bb583ddc23101886bc833ec46cbe60dac36d3c85
+2026-08-31T11:10:30.6297422Z ##[group]Run set -euo pipefail
+2026-08-31T11:10:30.6297768Z [36;1mset -euo pipefail[0m
+2026-08-31T11:10:30.6298310Z [36;1mPREVIOUS_TAG='v0.39.8-rule-refresh-immersive-control-parser'[0m
+2026-08-31T11:10:30.6298825Z [36;1mPREVIOUS_APK='AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk'[0m
+2026-08-31T11:10:30.6299253Z [36;1mmkdir -p .tts-payload/unpacked[0m
+2026-08-31T11:10:30.6299535Z [36;1mgh release download "${PREVIOUS_TAG}" \[0m
+2026-08-31T11:10:30.6299811Z [36;1m  --repo "${GITHUB_REPOSITORY}" \[0m
+2026-08-31T11:10:30.6300052Z [36;1m  --pattern "${PREVIOUS_APK}" \[0m
+2026-08-31T11:10:30.6300276Z [36;1m  --dir .tts-payload[0m
+2026-08-31T11:10:30.6300734Z [36;1mecho "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8  .tts-payload/${PREVIOUS_APK}" | sha256sum -c -[0m
+2026-08-31T11:10:30.6301219Z [36;1munzip -q ".tts-payload/${PREVIOUS_APK}" \[0m
+2026-08-31T11:10:30.6301480Z [36;1m  'assets/tts_models/*' \[0m
+2026-08-31T11:10:30.6301729Z [36;1m  'assets/legacy_tts/*' \[0m
+2026-08-31T11:10:30.6301940Z [36;1m  'lib/arm64-v8a/*' \[0m
+2026-08-31T11:10:30.6302146Z [36;1m  -d .tts-payload/unpacked[0m
+2026-08-31T11:10:30.6302405Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
+2026-08-31T11:10:30.6302740Z [36;1mmkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"[0m
+2026-08-31T11:10:30.6303068Z [36;1mcp -a .tts-payload/unpacked/assets/tts_models \[0m
+2026-08-31T11:10:30.6303334Z [36;1m  "${TTS_MAIN}/assets/"[0m
+2026-08-31T11:10:30.6303595Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/runtime \[0m
+2026-08-31T11:10:30.6303880Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
+2026-08-31T11:10:30.6304156Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/pinyin \[0m
+2026-08-31T11:10:30.6304426Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
+2026-08-31T11:10:30.6304681Z [36;1mcp -a .tts-payload/unpacked/lib/arm64-v8a \[0m
+2026-08-31T11:10:30.6304937Z [36;1m  "${TTS_MAIN}/jniLibs/"[0m
+2026-08-31T11:10:30.6340330Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:10:30.6340628Z env:
+2026-08-31T11:10:30.6342578Z   GH_TOKEN: ***
+2026-08-31T11:10:30.6342871Z ##[endgroup]
+2026-08-31T11:10:37.7625908Z .tts-payload/AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk: OK
+2026-08-31T11:10:38.8727556Z ##[group]Run set -euo pipefail
+2026-08-31T11:10:38.8727833Z [36;1mset -euo pipefail[0m
+2026-08-31T11:10:38.8728279Z [36;1mtest -f app/pubspec.yaml[0m
+2026-08-31T11:10:38.8728556Z [36;1mgrep -Fqx 'version: 0.41.6+145' app/pubspec.yaml[0m
+2026-08-31T11:10:38.8728969Z [36;1mgrep -Fqx '  static const int schemaVersion = 41;' app/lib/core/database/app_database.dart[0m
+2026-08-31T11:10:38.8729328Z [36;1mtest -d app/lib[0m
+2026-08-31T11:10:38.8729540Z [36;1mtest -d app/android[0m
+2026-08-31T11:10:38.8729743Z [36;1mtest -d app/test[0m
+2026-08-31T11:10:38.8729941Z [36;1mtest -d app/tools[0m
+2026-08-31T11:10:38.8730240Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
+2026-08-31T11:10:38.8730651Z [36;1mecho 'Building v0.41.6+145 Agent System Facts and Recent Outcomes.'[0m
+2026-08-31T11:10:38.8763229Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:10:38.8763527Z ##[endgroup]
+2026-08-31T11:10:38.8833611Z Building v0.41.6+145 Agent System Facts and Recent Outcomes.
+2026-08-31T11:10:38.8856329Z ##[group]Run python3 tools/restore_dafeiyu_asset_pack.py
+2026-08-31T11:10:38.8856810Z [36;1mpython3 tools/restore_dafeiyu_asset_pack.py[0m
+2026-08-31T11:10:38.8885544Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:10:38.8885757Z ##[endgroup]
+2026-08-31T11:10:39.4462643Z Restored exact desktop-pet pack: 417 files, 111962623 bytes, tree caa4939627ee3a773566d4c793e355df5de98ad38698ddeb5b67519d03715582.
+2026-08-31T11:10:39.4544620Z ##[group]Run bash tools/fetch_lingchat_visual_assets.sh
+2026-08-31T11:10:39.4544958Z [36;1mbash tools/fetch_lingchat_visual_assets.sh[0m
+2026-08-31T11:10:39.4577460Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:10:39.4577672Z ##[endgroup]
+2026-08-31T11:10:39.6154078Z 09ff689d1959fd8789aa9dccdd22c3f7d62fe4a7bbb52ce671c501e6551af75c  background/day.webp (reused)
+2026-08-31T11:10:40.3656991Z 0e91d1b708fc9eee554a653c10b16f317daa2589460ace54f9ca79762559c469  background/night.webp (reused)
+2026-08-31T11:10:40.5523855Z 68772d09789c9557509dad6ae64472fe0046b5cf35b91abffb5c3f03c2d0cb00  deepseek/avatar.webp (reused)
+2026-08-31T11:10:40.7094824Z daaf3734be59772fc21689827f3d7a6114bdeec2b9fffb78dd4247936c4ca54c  deepseek/normal.webp (reused)
+2026-08-31T11:10:41.4410240Z 18c175644877130ab4787ceed3c548feb9602a6dfae57c2c8cf854f9404df899  deepseek/calm.webp (reused)
+2026-08-31T11:10:41.5915622Z 40ef9602ba84f978cdcfb456e1880a772c6efd307ff14e8fee34eec6d11756bc  deepseek/happy.webp (reused)
+2026-08-31T11:10:41.7272060Z 81d8f7d903cc7c66d69e3fd8d98c90167a0334da5f82266fd5120e1c1c110c38  deepseek/excited.webp (reused)
+2026-08-31T11:10:41.8814832Z b48f0ebbeb80a97cb23fc04f2284228b299f3edc263a11c7d54513533f5f88c8  deepseek/playful.webp (reused)
+2026-08-31T11:10:42.0257718Z cade7bd2c3477949cb710237dcd06a7aa08a9bffe1f425015f3427c844d5a714  deepseek/confident.webp (reused)
+2026-08-31T11:10:42.4259862Z 55b701dde7a2e89eed13484e8a60843a133f09cdfd111054984025d45f7a92b6  deepseek/serious.webp (reused)
+2026-08-31T11:10:42.5813521Z b94abbe4504d9fcb91d451b52caa00a33343d24669221847cbd9faffbf861655  deepseek/confused.webp (reused)
+2026-08-31T11:10:42.7291296Z a5ca70ec1c52befaa29c672ee043e04685710fd68aa0ad65b2cda52abcc2192c  deepseek/helpless.webp (reused)
+2026-08-31T11:10:43.0785871Z b0a598803629346230526c7973adbb1045c1aab26ed9a4adf148495d610f518f  deepseek/worried.webp (reused)
+2026-08-31T11:10:43.4374487Z 44cdf843db10aae78382c5c0cf91e3cd0d0339c8e91613905c3c004aa88720d4  deepseek/surprised.webp (reused)
+2026-08-31T11:10:43.5920790Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/flustered.webp (reused)
+2026-08-31T11:10:43.9455345Z 5fb28d50153dfe8fa1c7b77700adfd9718ac68426a656e5568a141905cdd31c9  deepseek/shy.webp (reused)
+2026-08-31T11:10:44.0936310Z 26676559f88ad090642a058bd3e1908563d721f9d52e7e50afb2a19197ed2e6d  deepseek/affection.webp (reused)
+2026-08-31T11:10:44.2387667Z 68efc1645f4d8e44e3d672ce0c4202204665ee06504bb65ab5d393745db554c6  deepseek/angry.webp (reused)
+2026-08-31T11:10:44.3991135Z 6dc2298f89da2d25e6feb4083920fefaf49696e3f0dddd764e1a452b64e2992d  deepseek/sad.webp (reused)
+2026-08-31T11:10:44.5513010Z 627a8122b4c3c5bf72d5d4a0d045c9480617ca725468668a6303037240411459  deepseek/disgust.webp (reused)
+2026-08-31T11:10:44.7112571Z 9d8c1412b0dbc183cb8fa86f7dcebce2462cb9e097126e8fc78aac78165cfe35  deepseek/afraid.webp (reused)
+2026-08-31T11:10:44.8679695Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/tense.webp (reused)
+2026-08-31T11:10:45.0134050Z 025564c19730b427b949ca53efb411cf7dffc707febc45fb176669a3d43e3e62  deepseek/ashamed.webp (reused)
+2026-08-31T11:10:45.5443861Z 6216747962e017c04ba526b9327ccf0745d2cdb61727e275de956046191d4efa  audio/sad.wav (reused)
+2026-08-31T11:10:45.9314105Z 0918d0250935a86ca56f94dcb1ed6c8fc05fb79a142e77a72e881c8f361f2100  audio/sigh.wav (reused)
+2026-08-31T11:10:46.0876021Z 53d750da6ab227a3c51d8b35a816c79d90ce576810209ed474760203a481986c  audio/joy.wav (reused)
+2026-08-31T11:10:46.2347805Z 9c9d6aa4067f67126ded6aeba31abdcb184d6dfcd1dadfde4854afbf60e27c2c  audio/affection.wav (reused)
+2026-08-31T11:10:46.6175825Z 2369cbec1a2af3c0bfe47a673a3b02f3f553b1532216d5b218b8219f465eb3f6  audio/troubled.wav (reused)
+2026-08-31T11:10:46.7833039Z 0f4ea932304ef8b652f372327e5fd52cbf6ddbd06573b17904b304b87cfd20a3  audio/shy.wav (reused)
+2026-08-31T11:10:46.9198192Z 5230e98ceca267ed4897754310a79ceea7ae5489ae9a1f310f5f3cc93a94ff60  audio/noticed.wav (reused)
+2026-08-31T11:10:47.0570130Z fc23c45b9ed39d9f38a74be1801a38b7dcb6d0ef7116a0fdd3ea5ea69a1652bf  audio/awkward.wav (reused)
+2026-08-31T11:10:47.1965702Z 518b8d778f9fbc4846ea40c8963e782ea9d3e7fcf5e9bf831065d006f0e857a3  audio/thinking.wav (reused)
+2026-08-31T11:10:47.3584086Z 3e8e92133fc4b9308a021692f70e925dd7212854ab06c87fff25a1b19a5a3a70  audio/surprised.wav (reused)
+2026-08-31T11:10:47.5082138Z 5b405e7d8d2310890adfa9f43dbffb41f791f787d55a3ef72f407d44e06b4a05  audio/speechless.wav (reused)
+2026-08-31T11:10:47.6507752Z 179b281551d74fc9dd3764d76eb92ae41dc815781ada628fc16882846f6814ff  audio/angry.wav (reused)
+2026-08-31T11:10:48.0001655Z cabfa82d66ebfa7a0cfb2c4aaa116c829c0a4f36f6d39681149074324d834a87  audio/question.wav (reused)
+2026-08-31T11:10:48.1417027Z 20cbfa170f96dffefe0d6764efd0f88e81f297fccda300e091d13c85051debdc  audio/dialogue.wav (reused)
+2026-08-31T11:10:49.0372889Z c645e2061fcb73c619581a9490e127362b7f108bca462d761aa072a39d3e8cca  audio/achievement_common.wav
+2026-08-31T11:10:49.9228270Z 9a4becd5aa1f8f1ccef8400d194438c434ce390a3ffdf83c1eecdc13f83e1db3  audio/achievement_rare.wav
+2026-08-31T11:10:50.8654509Z 528f0adf829d4e86c27a5567d1de0c7e60c6117082b9aa5d71008e22fbb11cd7  audio/disgust.wav
+2026-08-31T11:10:51.4583375Z 83c0d4f48c3906d0a99eaf95c27baa1953a3e1c8e176e9a2030e4a3d1935483f  audio/pleasant.wav
+2026-08-31T11:10:52.0777785Z 49cebbe308f337c20b13f7c8be39a65d4133e171353eb5abbea38596aa525b59  audio/sweat.wav
+2026-08-31T11:10:52.6799958Z 465f70ac178925800982bde9891946535f230b2e008814852c618296ac894934  audio/chat.wav
+2026-08-31T11:10:53.5133808Z 1a0f218979febc952806005c663475a83426c8aeac72d0e9bc7d25ba14aeda76  audio/role_volume_test.wav
+2026-08-31T11:10:54.1073890Z 4451ad195177a15b28dd124634ee39b8d46d66312682276741a3a0f4622456e8  audio/transition.wav
+2026-08-31T11:10:54.7419403Z ae7d21d3933f05421d83ed1f1c43c7510d00611b79cd4eb3af16f6bb24239600  audio/shock.wav
+2026-08-31T11:10:55.9066999Z 50d8b6f737dce53690a74b9ef5209db98107230db817f23cc95fd1549d697502  effects/ai_thinking.webp
+2026-08-31T11:10:56.6942367Z 530fa1139cb6f3b404d911a3ac865521ec1d0fc6911211e9574f5b2450679512  effects/sigh.webp
+2026-08-31T11:10:58.5394019Z 51510de7869b04971683037c9d5c160d967c2001c84269539e60b8655c46e62a  effects/shy.webp
+2026-08-31T11:10:59.3981016Z 7fd82a579a3464b5fe699da0a985634f945b6c576de813f4433c9c53ea1000ca  effects/noticed.webp
+2026-08-31T11:11:00.5916925Z 1d49f8e22c1215a091ef2b6b77b444b536c5e8b64213d752b5243e727c99dfb1  effects/heart.webp
+2026-08-31T11:11:01.4316069Z 6ad4db5d1a54d64d52ca973cbe3d73b413f46943d99b7684f570b2ae840d6792  effects/surprised.webp
+2026-08-31T11:11:02.4656021Z ac504b9ba3af6052128331e13602b947759c45db928236041f1e78b65e8679b2  effects/flustered.webp
+2026-08-31T11:11:03.2343048Z 890696a67c4e71b888d0f1f0b4ab0aa280cc613e7c8df3f5d1a0da0131a4b657  effects/sweat.webp
+2026-08-31T11:11:04.3929412Z 78e4fdc8236bf739948678d1d36d88187c8295577d05a827f3aef0e2c1d2073d  effects/tears.webp
+2026-08-31T11:11:05.2375744Z 1f0a9ade1fecf3ddd73759824b357f49ea31c12c37ca66dedd9fe72ce8049a4c  effects/angry.webp
+2026-08-31T11:11:06.2558607Z c3ba07639516462f78f8d51b05d9a3fb78f42c2e6e9d658b94920b4805cfc235  effects/angry_alt.webp
+2026-08-31T11:11:07.2473868Z 672af36db82754aec819e516fae2f823687dd130582e5a0a9ed892d7fcbd6f76  effects/question.webp
+2026-08-31T11:11:08.1519526Z e4a6c91907a5adf489628151fa429cda91c75da1240d1c67f2c060088138b1ea  effects/nervous.webp
+2026-08-31T11:11:09.0497366Z 908f3e832591a37f750aebca77fe5f11df7b31e2497c2bce7b55d7e54b77544d  effects/dialogue.webp
+2026-08-31T11:11:10.5195254Z 9c9fb289cb0f5d0043669bc4fcf01df971e6b032eef32a49d4c274b067b42a9f  effects/embarrassed.webp
+2026-08-31T11:11:11.8847422Z 25ce7b06f43cd0e13af040d7cabb53884c58dcf8a51403a6f90e93d3985fb56f  effects/happy.webp
+2026-08-31T11:11:11.8880814Z ##[group]Run bash tools/fetch_tarot_assets.sh
+2026-08-31T11:11:11.8881259Z [36;1mbash tools/fetch_tarot_assets.sh[0m
+2026-08-31T11:11:11.8913741Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:11:11.8913952Z ##[endgroup]
+2026-08-31T11:11:13.2513842Z Pinned 22-card Rider-Waite-Smith Major Arcana JPG pack restored.
+2026-08-31T11:11:13.2612478Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T11:11:13.2614018Z ##[group]Run actions/setup-java@v4
+2026-08-31T11:11:13.2614227Z with:
+2026-08-31T11:11:13.2614398Z   distribution: temurin
+2026-08-31T11:11:13.2614589Z   java-version: 17
+2026-08-31T11:11:13.2614761Z   java-package: jdk
+2026-08-31T11:11:13.2614937Z   check-latest: false
+2026-08-31T11:11:13.2615115Z   server-id: github
+2026-08-31T11:11:13.2615290Z   server-username: GITHUB_ACTOR
+2026-08-31T11:11:13.2615514Z   server-password: GITHUB_TOKEN
+2026-08-31T11:11:13.2615725Z   overwrite-settings: true
+2026-08-31T11:11:13.2615914Z   job-status: success
+2026-08-31T11:11:13.2617814Z   token: ***
+2026-08-31T11:11:13.2618196Z ##[endgroup]
+2026-08-31T11:11:13.3961795Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-08-31T11:11:13.3971505Z ##[group]Installed distributions
+2026-08-31T11:11:13.3995036Z Resolved Java 17.0.20+1 from tool-cache
+2026-08-31T11:11:13.3995431Z Setting Java 17.0.20+1 as the default
+2026-08-31T11:11:13.4003563Z (node:3093) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-31T11:11:13.4004296Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-31T11:11:13.4006250Z Creating toolchains.xml for JDK version 17 from temurin
+2026-08-31T11:11:13.4066306Z Writing to /home/runner/.m2/toolchains.xml
+2026-08-31T11:11:13.4066642Z 
+2026-08-31T11:11:13.4066764Z Java configuration:
+2026-08-31T11:11:13.4067071Z   Distribution: temurin
+2026-08-31T11:11:13.4067488Z   Version: 17.0.20+1
+2026-08-31T11:11:13.4067919Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4068462Z 
+2026-08-31T11:11:13.4068862Z ##[endgroup]
+2026-08-31T11:11:13.4082916Z Creating settings.xml with server-id: github
+2026-08-31T11:11:13.4104544Z Writing to /home/runner/.m2/settings.xml
+2026-08-31T11:11:13.4426374Z ##[group]Run subosito/flutter-action@v2
+2026-08-31T11:11:13.4426760Z with:
+2026-08-31T11:11:13.4427005Z   channel: stable
+2026-08-31T11:11:13.4427235Z   flutter-version: 3.44.9
+2026-08-31T11:11:13.4427542Z   architecture: X64
+2026-08-31T11:11:13.4427840Z   cache: false
+2026-08-31T11:11:13.4428230Z   pub-cache-path: default
+2026-08-31T11:11:13.4428521Z   dry-run: false
+2026-08-31T11:11:13.4428856Z   git-source: https://github.com/flutter/flutter.git
+2026-08-31T11:11:13.4429249Z env:
+2026-08-31T11:11:13.4429651Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4430278Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4430727Z ##[endgroup]
+2026-08-31T11:11:13.4487162Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+2026-08-31T11:11:13.4496438Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-08-31T11:11:13.4498388Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+2026-08-31T11:11:13.4516998Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+2026-08-31T11:11:13.4517305Z [36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"[0m
+2026-08-31T11:11:13.4552124Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:11:13.4552405Z env:
+2026-08-31T11:11:13.4552671Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4553246Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4553542Z ##[endgroup]
+2026-08-31T11:11:13.4625020Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=12]
+2026-08-31T11:11:13.4627213Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+2026-08-31T11:11:13.4669260Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+2026-08-31T11:11:13.4669595Z [36;1m$GITHUB_ACTION_PATH/setup.sh -p \[0m
+2026-08-31T11:11:13.4669843Z [36;1m  -n '3.44.9' \[0m
+2026-08-31T11:11:13.4670031Z [36;1m  -f '' \[0m
+2026-08-31T11:11:13.4670212Z [36;1m  -a 'X64' \[0m
+2026-08-31T11:11:13.4670384Z [36;1m  -k '' \[0m
+2026-08-31T11:11:13.4670544Z [36;1m  -c '' \[0m
+2026-08-31T11:11:13.4670704Z [36;1m  -l '' \[0m
+2026-08-31T11:11:13.4670874Z [36;1m  -d 'default' \[0m
+2026-08-31T11:11:13.4671119Z [36;1m  -g 'https://github.com/flutter/flutter.git' \[0m
+2026-08-31T11:11:13.4671380Z [36;1m  stable[0m
+2026-08-31T11:11:13.4704199Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:11:13.4704472Z env:
+2026-08-31T11:11:13.4704721Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4705103Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.4705402Z ##[endgroup]
+2026-08-31T11:11:13.6236344Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=160]
+2026-08-31T11:11:13.6241029Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+2026-08-31T11:11:13.6245172Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-08-31T11:11:13.6246829Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+2026-08-31T11:11:13.6252347Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-08-31T11:11:13.6253934Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+2026-08-31T11:11:13.6281061Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+2026-08-31T11:11:13.6281342Z [36;1m$GITHUB_ACTION_PATH/setup.sh \[0m
+2026-08-31T11:11:13.6281571Z [36;1m  -n '3.44.9' \[0m
+2026-08-31T11:11:13.6281763Z [36;1m  -a 'x64' \[0m
+2026-08-31T11:11:13.6282003Z [36;1m  -c '/opt/hostedtoolcache/flutter/stable-3.44.9-x64' \[0m
+2026-08-31T11:11:13.6282509Z [36;1m  -d '/home/runner/.pub-cache' \[0m
+2026-08-31T11:11:13.6282740Z [36;1m  stable[0m
+2026-08-31T11:11:13.6316390Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:11:13.6316663Z env:
+2026-08-31T11:11:13.6316916Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.6317301Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:13.6317595Z ##[endgroup]
+2026-08-31T11:11:13.7733995Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-08-31T11:11:13.7735065Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-08-31T11:11:13.7735815Z 
+2026-08-31T11:11:14.2311103Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-08-31T11:11:15.2310826Z   5 1475M    5 76.6M    0     0   167M      0  0:00:08 --:--:--  0:00:08  167M
+2026-08-31T11:11:16.2310241Z  30 1475M   30  451M    0     0   309M      0  0:00:04  0:00:01  0:00:03  309M
+2026-08-31T11:11:17.2314495Z  58 1475M   58  862M    0     0   351M      0  0:00:04  0:00:02  0:00:02  351M
+2026-08-31T11:11:17.8992297Z  86 1475M   86 1278M    0     0   369M      0  0:00:03  0:00:03 --:--:--  369M
+2026-08-31T11:11:17.8992733Z 100 1475M  100 1475M    0     0   357M      0  0:00:04  0:00:04 --:--:--  357M
+2026-08-31T11:11:59.6439207Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=46018]
+2026-08-31T11:11:59.6490389Z ##[group]Run set -euo pipefail
+2026-08-31T11:11:59.6490935Z [36;1mset -euo pipefail[0m
+2026-08-31T11:11:59.6491177Z [36;1mSIGNING_TAG='ai-companion-private-signing-v1'[0m
+2026-08-31T11:11:59.6491533Z [36;1mSIGNING_ASSET='AI-Companion-Private-Test-Signing-v1.p12'[0m
+2026-08-31T11:11:59.6491925Z [36;1mSIGNER_INFO='AI-Companion-Private-Test-Signing-v1.sha256.txt'[0m
+2026-08-31T11:11:59.6492277Z [36;1mSIGNING_DIR="${RUNNER_TEMP}/ai-companion-signing"[0m
+2026-08-31T11:11:59.6492565Z [36;1mKEYSTORE="${SIGNING_DIR}/${SIGNING_ASSET}"[0m
+2026-08-31T11:11:59.6492826Z [36;1mINFO_FILE="${SIGNING_DIR}/${SIGNER_INFO}"[0m
+2026-08-31T11:11:59.6493253Z [36;1mSTORE_PASSWORD="${AI_COMPANION_SIGNING_PASSWORD:?missing AI_COMPANION_SIGNING_PASSWORD repository secret}"[0m
+2026-08-31T11:11:59.6493678Z [36;1mKEY_ALIAS='ai-companion-private-test-v1'[0m
+2026-08-31T11:11:59.6493935Z [36;1mmkdir -p "${SIGNING_DIR}"[0m
+2026-08-31T11:11:59.6494140Z [36;1m[0m
+2026-08-31T11:11:59.6494460Z [36;1mif gh release view "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then[0m
+2026-08-31T11:11:59.6494888Z [36;1m  gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-08-31T11:11:59.6495238Z [36;1m    --pattern "${SIGNING_ASSET}" --dir "${SIGNING_DIR}"[0m
+2026-08-31T11:11:59.6495567Z [36;1m  gh release download "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-08-31T11:11:59.6495919Z [36;1m    --pattern "${SIGNER_INFO}" --dir "${SIGNING_DIR}"[0m
+2026-08-31T11:11:59.6496172Z [36;1m  test -s "${KEYSTORE}"[0m
+2026-08-31T11:11:59.6496389Z [36;1m  test -s "${INFO_FILE}"[0m
+2026-08-31T11:11:59.6496586Z [36;1melse[0m
+2026-08-31T11:11:59.6496761Z [36;1m  keytool -genkeypair \[0m
+2026-08-31T11:11:59.6496969Z [36;1m    -storetype PKCS12 \[0m
+2026-08-31T11:11:59.6497183Z [36;1m    -keystore "${KEYSTORE}" \[0m
+2026-08-31T11:11:59.6497420Z [36;1m    -storepass "${STORE_PASSWORD}" \[0m
+2026-08-31T11:11:59.6497671Z [36;1m    -alias "${KEY_ALIAS}" \[0m
+2026-08-31T11:11:59.6497895Z [36;1m    -keypass "${STORE_PASSWORD}" \[0m
+2026-08-31T11:11:59.6498287Z [36;1m    -keyalg RSA \[0m
+2026-08-31T11:11:59.6498483Z [36;1m    -keysize 3072 \[0m
+2026-08-31T11:11:59.6498675Z [36;1m    -validity 10000 \[0m
+2026-08-31T11:11:59.6498946Z [36;1m    -dname 'CN=AI Companion Private Test,O=Local Development,C=JP'[0m
+2026-08-31T11:11:59.6499306Z [36;1m  SIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-08-31T11:11:59.6499644Z [36;1m    -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-08-31T11:11:59.6499947Z [36;1m    sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-08-31T11:11:59.6500202Z [36;1m  test -n "${SIGNER_SHA256}"[0m
+2026-08-31T11:11:59.6500467Z [36;1m  printf 'sha256=%s\n' "${SIGNER_SHA256}" > "${INFO_FILE}"[0m
+2026-08-31T11:11:59.6500810Z [36;1m  gh release create "${SIGNING_TAG}" --repo "${GITHUB_REPOSITORY}" \[0m
+2026-08-31T11:11:59.6501124Z [36;1m    --target "${GITHUB_SHA}" --draft \[0m
+2026-08-31T11:11:59.6501447Z [36;1m    --title 'AI Companion private persistent test signing identity v1' \[0m
+2026-08-31T11:11:59.6502142Z [36;1m    --notes 'Private draft only. Deleting this signing asset breaks future APK update continuity. Anyone with repository read access must be treated as able to obtain this test signing identity.'[0m
+2026-08-31T11:11:59.6502813Z [36;1m  gh release upload "${SIGNING_TAG}" "${KEYSTORE}" "${INFO_FILE}" \[0m
+2026-08-31T11:11:59.6503121Z [36;1m    --repo "${GITHUB_REPOSITORY}"[0m
+2026-08-31T11:11:59.6503338Z [36;1mfi[0m
+2026-08-31T11:11:59.6503499Z [36;1m[0m
+2026-08-31T11:11:59.6503664Z [36;1mchmod 600 "${KEYSTORE}"[0m
+2026-08-31T11:11:59.6503930Z [36;1mSIGNER_SHA256="$(keytool -list -v -keystore "${KEYSTORE}" \[0m
+2026-08-31T11:11:59.6504271Z [36;1m  -storepass "${STORE_PASSWORD}" -alias "${KEY_ALIAS}" |[0m
+2026-08-31T11:11:59.6504567Z [36;1m  sed -n 's/^[[:space:]]*SHA256: //p' | head -1)"[0m
+2026-08-31T11:11:59.6504817Z [36;1mtest -n "${SIGNER_SHA256}"[0m
+2026-08-31T11:11:59.6505228Z [36;1mgrep -Fqx "sha256=${SIGNER_SHA256}" "${INFO_FILE}"[0m
+2026-08-31T11:11:59.6505664Z [36;1mecho "AI_COMPANION_KEYSTORE_PATH=${KEYSTORE}" >> "${GITHUB_ENV}"[0m
+2026-08-31T11:11:59.6506056Z [36;1mecho "AI_COMPANION_KEYSTORE_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-08-31T11:11:59.6506428Z [36;1mecho "AI_COMPANION_KEY_ALIAS=${KEY_ALIAS}" >> "${GITHUB_ENV}"[0m
+2026-08-31T11:11:59.6506781Z [36;1mecho "AI_COMPANION_KEY_PASSWORD=${STORE_PASSWORD}" >> "${GITHUB_ENV}"[0m
+2026-08-31T11:11:59.6507150Z [36;1mecho "AI_COMPANION_SIGNER_SHA256=${SIGNER_SHA256}" >> "${GITHUB_ENV}"[0m
+2026-08-31T11:11:59.6507499Z [36;1mecho "Persistent private test signer ready: ${SIGNER_SHA256}"[0m
+2026-08-31T11:11:59.6541367Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:11:59.6541648Z env:
+2026-08-31T11:11:59.6541900Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:59.6542316Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:11:59.6542698Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-08-31T11:11:59.6543006Z   PUB_CACHE: /home/runner/.pub-cache
+2026-08-31T11:11:59.6544999Z   GH_TOKEN: ***
+2026-08-31T11:11:59.6545313Z   AI_COMPANION_SIGNING_PASSWORD: ***
+2026-08-31T11:11:59.6545542Z ##[endgroup]
+2026-08-31T11:12:03.5719845Z Persistent private test signer ready: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-08-31T11:12:03.5744929Z ##[group]Run set -euo pipefail
+2026-08-31T11:12:03.5745287Z [36;1mset -euo pipefail[0m
+2026-08-31T11:12:03.5745567Z [36;1mpython3 tools/validate_v0331_desktop_pet_source_parity.py[0m
+2026-08-31T11:12:03.5745910Z [36;1mpython3 tools/validate_v0332_desktop_pet_overlay_d2.py[0m
+2026-08-31T11:12:03.5746229Z [36;1mpython3 tools/validate_current_overlay_menus_unread.py[0m
+2026-08-31T11:12:03.5746550Z [36;1mpython3 tools/validate_v0334_pet_motion_modes_current.py[0m
+2026-08-31T11:12:03.5746880Z [36;1mpython3 tools/validate_v0335_pet_chat_action_arbiter.py[0m
+2026-08-31T11:12:03.5747275Z [36;1mpython3 tools/validate_current_pet_chat_state_finalization.py[0m
+2026-08-31T11:12:03.5747628Z [36;1mpython3 tools/validate_v0337_pet_falling_visual_rollback.py[0m
+2026-08-31T11:12:03.5748123Z [36;1mpython3 tools/validate_v0338_pet_semantic_autonomy.py[0m
+2026-08-31T11:12:03.5748566Z [36;1mpython3 tools/validate_v0339_pet_ambient_motion.py[0m
+2026-08-31T11:12:03.5748904Z [36;1mpython3 tools/validate_v0340_image_messages.py[0m
+2026-08-31T11:12:03.5749184Z [36;1mpython3 tools/validate_current_schema24_a.py[0m
+2026-08-31T11:12:03.5749475Z [36;1mpython3 tools/validate_v0342_personality_appearance.py[0m
+2026-08-31T11:12:03.5749798Z [36;1mpython3 tools/validate_current_lifelike_rules_overlay.py[0m
+2026-08-31T11:12:03.5750142Z [36;1mpython3 tools/validate_v0344_overlay_recovery_diagnostics.py[0m
+2026-08-31T11:12:03.5750486Z [36;1mpython3 tools/validate_v0345_direct_picker_overlay_guard.py[0m
+2026-08-31T11:12:03.5750811Z [36;1mpython3 tools/validate_v0346_lock_visibility_resume.py[0m
+2026-08-31T11:12:03.5751139Z [36;1mpython3 tools/validate_v0347_autonomous_action_foundation.py[0m
+2026-08-31T11:12:03.5751475Z [36;1mpython3 tools/validate_v0348_public_web_discovery.py[0m
+2026-08-31T11:12:03.5751790Z [36;1mpython3 tools/validate_v0349_layered_web_discovery.py[0m
+2026-08-31T11:12:03.5752091Z [36;1mpython3 tools/validate_v0350_personality_trials.py[0m
+2026-08-31T11:12:03.5752396Z [36;1mpython3 tools/validate_v0351_personality_inner_voice.py[0m
+2026-08-31T11:12:03.5752697Z [36;1mpython3 tools/validate_v0352_prompt_workbench.py[0m
+2026-08-31T11:12:03.5752990Z [36;1mpython3 tools/validate_v0353_nsfw_context_router.py[0m
+2026-08-31T11:12:03.5753296Z [36;1mpython3 tools/validate_v0354_prompt_format_chat_ui.py[0m
+2026-08-31T11:12:03.5753621Z [36;1mpython3 tools/validate_v0355_time_perception_diagnostics.py[0m
+2026-08-31T11:12:03.5753932Z [36;1mpython3 tools/validate_v0356_agent_tool_loop.py[0m
+2026-08-31T11:12:03.5754252Z [36;1mpython3 tools/validate_v0357_device_context_router_signing.py[0m
+2026-08-31T11:12:03.5754771Z [36;1mpython3 tools/validate_v0358_native_tool_runtime.py[0m
+2026-08-31T11:12:03.5755097Z [36;1mpython3 tools/validate_v0359_shared_conversation_runtime.py[0m
+2026-08-31T11:12:03.5755456Z [36;1mpython3 tools/validate_v0360_ui_relationship_age.py[0m
+2026-08-31T11:12:03.5755757Z [36;1mpython3 tools/validate_v0361_cross_app_contact.py[0m
+2026-08-31T11:12:03.5756108Z [36;1mpython3 tools/validate_v0362_foreground_tracker_conversation_banner.py[0m
+2026-08-31T11:12:03.5756475Z [36;1mpython3 tools/validate_v0363_hyperos_cover_alarm_guard.py[0m
+2026-08-31T11:12:03.5756831Z [36;1mpython3 tools/validate_current_conversation_foundation.py[0m
+2026-08-31T11:12:03.5757152Z [36;1mpython3 tools/validate_current_chat_visual_stage.py[0m
+2026-08-31T11:12:03.5757458Z [36;1mpython3 tools/validate_v0371_lifelike_emotion_chat.py[0m
+2026-08-31T11:12:03.5757764Z [36;1mpython3 tools/validate_v0372_emotion_crash_hotfix.py[0m
+2026-08-31T11:12:03.5758908Z [36;1mpython3 tools/validate_v0373_expression_visual_parity.py[0m
+2026-08-31T11:12:03.5759264Z [36;1mpython3 tools/validate_v0374_audio_presentation_stabilization.py[0m
+2026-08-31T11:12:03.5759611Z [36;1mpython3 tools/validate_v0375_grounded_emotion_episode.py[0m
+2026-08-31T11:12:03.5759970Z [36;1mpython3 tools/validate_v0376_chat_recovery_presentation.py[0m
+2026-08-31T11:12:03.5760462Z [36;1mpython3 tools/validate_v0377_layered_memory_retrieval.py[0m
+2026-08-31T11:12:03.5760793Z [36;1mpython3 tools/validate_v0378_image_vision_dispatch_hotfix.py[0m
+2026-08-31T11:12:03.5761105Z [36;1mpython3 tools/validate_v0379_dynamic_moe_d1.py[0m
+2026-08-31T11:12:03.5761405Z [36;1mpython3 tools/validate_v0380_emotion_fallback_recovery.py[0m
+2026-08-31T11:12:03.5761754Z [36;1mpython3 tools/validate_v0381_adult_relationship_capability.py[0m
+2026-08-31T11:12:03.5762094Z [36;1mpython3 tools/validate_v0382_moe_shadow_dual_portraits.py[0m
+2026-08-31T11:12:03.5762435Z [36;1mpython3 tools/validate_v0383_moe_d3_reasoning_normal_emotion.py[0m
+2026-08-31T11:12:03.5762782Z [36;1mpython3 tools/validate_v0384_inner_metric_layout.py[0m
+2026-08-31T11:12:03.5763125Z [36;1mpython3 tools/validate_v0385_portrait_avatar_metric_diagnostics.py[0m
+2026-08-31T11:12:03.5763479Z [36;1mpython3 tools/validate_v0386_public_web_sharing.py[0m
+2026-08-31T11:12:03.5763789Z [36;1mpython3 tools/validate_v0387_public_web_share_test.py[0m
+2026-08-31T11:12:03.5764116Z [36;1mpython3 tools/validate_v0388_simulated_phone_foundation.py[0m
+2026-08-31T11:12:03.5764459Z [36;1mpython3 tools/validate_v0389_simulated_phone_reference_ui.py[0m
+2026-08-31T11:12:03.5764792Z [36;1mpython3 tools/validate_v03810_real_album_browser_ui.py[0m
+2026-08-31T11:12:03.5765106Z [36;1mpython3 tools/validate_v03811_real_device_ui_fixes.py[0m
+2026-08-31T11:12:03.5765429Z [36;1mpython3 tools/validate_v03812_chat_scroll_phone_ui_fixes.py[0m
+2026-08-31T11:12:03.5765764Z [36;1mpython3 tools/validate_v03813_overlay_chat_routing_hotfix.py[0m
+2026-08-31T11:12:03.5766140Z [36;1mpython3 tools/validate_v03814_reference_unlock_chat_transcript_ui.py[0m
+2026-08-31T11:12:03.5766506Z [36;1mpython3 tools/validate_v03815_chat_style_regression_hotfix.py[0m
+2026-08-31T11:12:03.5766856Z [36;1mpython3 tools/validate_v03816_action_segment_parser_hotfix.py[0m
+2026-08-31T11:12:03.5767185Z [36;1mpython3 tools/validate_v03818_pre_immersive_polish.py[0m
+2026-08-31T11:12:03.5767491Z [36;1mpython3 tools/validate_v0390_immersive_room.py[0m
+2026-08-31T11:12:03.5767781Z [36;1mpython3 tools/validate_v0391_immersive_room_polish.py[0m
+2026-08-31T11:12:03.5768241Z [36;1mpython3 tools/validate_v0392_immersive_nsfw_stream.py[0m
+2026-08-31T11:12:03.5768648Z [36;1mpython3 tools/validate_v0393_ordinary_chat_presentation.py[0m
+2026-08-31T11:12:03.5768971Z [36;1mpython3 tools/validate_v0394_immersive_chat_ui_tts.py[0m
+2026-08-31T11:12:03.5769287Z [36;1mpython3 tools/validate_v0395_meju_tts_runtime_upgrade.py[0m
+2026-08-31T11:12:03.5769611Z [36;1mpython3 tools/validate_v0396_rule02_notification_sound.py[0m
+2026-08-31T11:12:03.5770113Z [36;1mpython3 tools/validate_v0397_reasoning_translation_dialogue_boundary.py[0m
+2026-08-31T11:12:03.5770523Z [36;1mpython3 tools/validate_v0398_rule_refresh_immersive_control_parser.py[0m
+2026-08-31T11:12:03.5770875Z [36;1mpython3 tools/validate_v0399_user_address_viewpoint.py[0m
+2026-08-31T11:12:03.5771211Z [36;1mpython3 tools/validate_v0400_special_style_memory_capsule.py[0m
+2026-08-31T11:12:03.5771538Z [36;1mpython3 tools/validate_v0401_album_identity_closure.py[0m
+2026-08-31T11:12:03.5771846Z [36;1mpython3 tools/validate_v0402_provider_diagnostics.py[0m
+2026-08-31T11:12:03.5772172Z [36;1mpython3 tools/validate_v0403_proactive_sharing_tuning.py[0m
+2026-08-31T11:12:03.5772498Z [36;1mpython3 tools/validate_v0403_proactive_frequency_hotfix.py[0m
+2026-08-31T11:12:03.5772827Z [36;1mpython3 tools/validate_v0404_desire_conversation_agency.py[0m
+2026-08-31T11:12:03.5773140Z [36;1mpython3 tools/validate_v0405_album_image_binding.py[0m
+2026-08-31T11:12:03.5773439Z [36;1mpython3 tools/validate_v0406_circadian_fatigue.py[0m
+2026-08-31T11:12:03.5773763Z [36;1mpython3 tools/validate_v0407_album_recall_browser_detail.py[0m
+2026-08-31T11:12:03.5774070Z [36;1mpython3 tools/validate_v0408_archive_restore.py[0m
+2026-08-31T11:12:03.5774364Z [36;1mpython3 tools/validate_v0409_nondestructive_backup.py[0m
+2026-08-31T11:12:03.5774799Z [36;1mpython3 tools/validate_v0410_plain_backup_overlay_desire.py[0m
+2026-08-31T11:12:03.5775143Z [36;1mpython3 tools/validate_v0411_backup_preflight_screen_audit.py[0m
+2026-08-31T11:12:03.5775474Z [36;1mpython3 tools/validate_v0412_simple_backup_file.py[0m
+2026-08-31T11:12:03.5775769Z [36;1mpython3 tools/validate_v0413_backup_zip_hardening.py[0m
+2026-08-31T11:12:03.5776099Z [36;1mpython3 tools/validate_v0414_personality_seed_backup_closure.py[0m
+2026-08-31T11:12:03.5776445Z [36;1mpython3 tools/validate_v0415_personality_state_diversity.py[0m
+2026-08-31T11:12:03.5776751Z [36;1mpython3 tools/validate_v0416_agent_self_facts.py[0m
+2026-08-31T11:12:03.5777061Z [36;1mpython3 tools/validate_v0322_overlay_time_diagnostics.py[0m
+2026-08-31T11:12:03.5777394Z [36;1mpython3 tools/validate_v0321_ai_to_self.py[0m
+2026-08-31T11:12:03.5777663Z [36;1mpython3 tools/validate_current_schema24_b.py[0m
+2026-08-31T11:12:03.5778084Z [36;1mpython3 tools/validate_v0319_tts_state_cancel_retract.py[0m
+2026-08-31T11:12:03.5778485Z [36;1mpython3 tools/validate_v0318_overlay_stop_stream.py[0m
+2026-08-31T11:12:03.5778789Z [36;1mpython3 tools/validate_v0317_true_stop_generation.py[0m
+2026-08-31T11:12:03.5779079Z [36;1mpython3 tools/validate_v0316_rule_grouping.py[0m
+2026-08-31T11:12:03.5779354Z [36;1mpython3 tools/validate_v0315_live_context_seed.py[0m
+2026-08-31T11:12:03.5779625Z [36;1mpython3 tools/validate_desire_v20_sql.py[0m
+2026-08-31T11:12:03.5779895Z [36;1mpython3 tools/validate_v0314_grounded_desire.py[0m
+2026-08-31T11:12:03.5780169Z [36;1mpython3 tools/validate_current_schema24_c.py[0m
+2026-08-31T11:12:03.5780439Z [36;1mpython3 tools/validate_v031_policy_math.py[0m
+2026-08-31T11:12:03.5780690Z [36;1mpython3 tools/validate_v029_a2_tts.py[0m
+2026-08-31T11:12:03.5780941Z [36;1mpython3 tools/validate_tts_kotlin_v25.py[0m
+2026-08-31T11:12:03.5781187Z [36;1mpython3 tools/validate_tts_queue_v25.py[0m
+2026-08-31T11:12:03.5781436Z [36;1mpython3 tools/validate_tts_v025.py[0m
+2026-08-31T11:12:03.5781706Z [36;1mpython3 tools/validate_durable_generation_sql.py[0m
+2026-08-31T11:12:03.5781998Z [36;1mpython3 tools/validate_recovery_orchestration_sql.py[0m
+2026-08-31T11:12:03.5782297Z [36;1mpython3 tools/validate_reference_library_sql.py[0m
+2026-08-31T11:12:03.5782561Z [36;1mpython3 tools/validate_awareness_sql.py[0m
+2026-08-31T11:12:03.5782855Z [36;1mpython3 tools/validate_relationship_presentation_sql.py[0m
+2026-08-31T11:12:03.5783147Z [36;1mpython3 tools/validate_memory_v15_sql.py[0m
+2026-08-31T11:12:03.5783423Z [36;1mpython3 tools/validate_proactive_rhythm_v16_sql.py[0m
+2026-08-31T11:12:03.5783842Z [36;1mpython3 tools/validate_daily_continuity_v17_sql.py[0m
+2026-08-31T11:12:03.5784116Z [36;1mpython3 tools/validate_transfer_v18_sql.py[0m
+2026-08-31T11:12:03.5784382Z [36;1mpython3 tools/validate_manual_crypto_v26.py[0m
+2026-08-31T11:12:03.5784660Z [36;1mpython3 tools/validate_preflight_redaction_v27.py[0m
+2026-08-31T11:12:03.5784953Z [36;1mpython3 tools/validate_preflight_kotlin_v27.py[0m
+2026-08-31T11:12:03.5785272Z [36;1mpython3 tools/validate_runtime_diagnostic_store_kotlin_v27.py[0m
+2026-08-31T11:12:03.5785596Z [36;1mpython3 tools/validate_v0285_coroutine_proxy_jvm.py[0m
+2026-08-31T11:12:03.5785882Z [36;1mpython3 tools/validate_transfer_kotlin_v26.py[0m
+2026-08-31T11:12:03.5819701Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-08-31T11:12:03.5819988Z env:
+2026-08-31T11:12:03.5820240Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:12:03.5820634Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:12:03.5821027Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-08-31T11:12:03.5821362Z   PUB_CACHE: /home/runner/.pub-cache
+2026-08-31T11:12:03.5821792Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-08-31T11:12:03.5822444Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-08-31T11:12:03.5822853Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-08-31T11:12:03.5823209Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-08-31T11:12:03.5823558Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-08-31T11:12:03.5823914Z ##[endgroup]
+2026-08-31T11:12:03.7536383Z v0.33.1 desktop-pet source parity validated: 417 complete source files, 18 actions, 210 preserved runtime frames (201 manifest-referenced).
+2026-08-31T11:12:03.7801779Z v0.33.2 overlay pet D2 validated: one shared foreground service, pet/bubble exclusive modes, real three-size windows, single-tap body reactions, double-tap options, drag/fall/land physics.
+2026-08-31T11:12:03.8063451Z v0.33.3 overlay D2.1 validated: scrollable menus, bubble mode switch/retract, reply-completion unread, resumed airborne fall, and full-display pet motion bounds.
+2026-08-31T11:12:03.8313042Z v0.33.4 pet motion D2.2 validated: persistent free/edge/half modes, gentle-place versus throw policy, adaptive landscape shift, restored portrait bottom inset, and contained header-close menus.
+2026-08-31T11:12:03.8553621Z v0.33.5 pet chat D3.1 validated: topmost pet/chat coexistence, durable THINKING/TALKING cues, transient-action resume, TTS discovery grace, portrait floor lift, and duplicate anger-X removal.
+2026-08-31T11:12:03.8810763Z v0.33.6+ chat finalization validated: App/overlay cues, synthesis silence, geometry, and current falling contract.
+2026-08-31T11:12:03.9051672Z v0.33.7 D3.1.2 validated: exact single FALLING rollback, original landing timing, no side-stand plan, yawn retained.
+2026-08-31T11:12:03.9296653Z v0.33.8 compatibility validated: durable Desire/Thought projection remains read-only and TTS-safe.
+2026-08-31T11:12:03.9562685Z v0.33.9 validated: pet-specific health bounds prevent idle inward jumps; speculative render locks are removed; ambient motion remains intact.
+2026-08-31T11:12:03.9826531Z v0.34.0 image-message and sleep-frame contracts verified
+2026-08-31T11:12:04.0086558Z v0.34.1 image vision source contract verified
+2026-08-31T11:12:04.0374867Z v0.34.2 personality, appearance self-source, aliases and aligned yawn assets verified
+2026-08-31T11:12:04.0644004Z v0.34.3 lifelike rules, conservative migration, unread acknowledgement, badge placement and reply animation verified
+2026-08-31T11:12:04.0942431Z v0.34.4 settled overlay recovery, background survival and Somatic diagnostics validated
+2026-08-31T11:12:04.1228644Z v0.34.5 direct system-picker overlay guard validated
+2026-08-31T11:12:04.1465845Z v0.34.6 lock/unlock visibility contract validated: hidden autonomous movement resets to IDLE, unlock reschedules ambient motion, and bounded picker recovery timings remain unchanged.
+2026-08-31T11:12:04.1708555Z v0.34.7 autonomous action foundation validation passed
+2026-08-31T11:12:04.2037703Z v0.34.8 public web discovery validation passed
+2026-08-31T11:12:04.2321762Z v0.34.9 layered public-web discovery validation passed
+2026-08-31T11:12:04.2627802Z v0.35.0 personality trial system static validation passed
+2026-08-31T11:12:04.2923649Z v0.35.1 personality inner-voice static validation passed
+2026-08-31T11:12:04.3198619Z v0.35.2 prompt workbench static validation passed
+2026-08-31T11:12:04.3492235Z v0.35.3+ NSFW context router and exact six-rule content validation passed
+2026-08-31T11:12:04.3817310Z v0.35.4 prompt format and chat UI validation passed
+2026-08-31T11:12:04.4143214Z v0.35.5 time, perception and diagnostics validation passed
+2026-08-31T11:12:04.4363026Z v0.35.6 agent tool loop and exit/overlay diagnostics validation passed
+2026-08-31T11:12:04.4633189Z v0.35.7 device context, fast router, compaction telemetry and signing validation passed
+2026-08-31T11:12:04.4882921Z v0.35.8 native tool calling and shared runtime validation passed
+2026-08-31T11:12:04.5150402Z v0.35.9 shared conversation runtime validation passed
+2026-08-31T11:12:04.5417472Z v0.36.0 UI domains, relationship age, action tint and overlay Stop validation passed
+2026-08-31T11:12:04.5681960Z v0.36.1 cross-App contact, popup sound and delayed probe validation passed
+2026-08-31T11:12:04.5925963Z v0.36.2 foreground tracker, conversation banner and tint validation passed
+2026-08-31T11:12:04.6153855Z v0.36.3 HyperOS cover and delayed-test cancellation guard validation passed
+2026-08-31T11:12:04.6404945Z current conversation/personality/TTS foundation validation passed
+2026-08-31T11:12:04.7162828Z current App chat 19-expression visual parity validation passed
+2026-08-31T11:12:04.7446037Z v0.37.1 lifelike personality and 19-label contract remain present in v0.37.3
+2026-08-31T11:12:04.7726227Z v0.37.2 emotion crash, Stop semantics and action-format hotfix validation passed
+2026-08-31T11:12:04.7998781Z v0.37.3 19-expression visual parity and portrait customization validation passed
+2026-08-31T11:12:04.8279221Z v0.37.4 audio, presentation cursor and rendering validation passed
+2026-08-31T11:12:04.8543127Z v0.37.5 grounded emotion episode validation passed
+2026-08-31T11:12:04.8839241Z v0.37.6 chat recovery and presentation validation passed
+2026-08-31T11:12:04.9102841Z v0.37.7 layered memory retrieval and proactive emotion normalization validation passed
+2026-08-31T11:12:04.9363021Z v0.37.8 image vision dispatch, diagnostics and emotion volume validation passed
+2026-08-31T11:12:05.0003852Z v0.37.9 dynamic moe D1 isolation, policy and schema validation passed
+2026-08-31T11:12:05.0267657Z v0.38.0 19 Emotion envelope, deterministic fallback and redacted diagnostics validation passed
+2026-08-31T11:12:05.0517242Z v0.38.1 adult relationship capability validation passed.
+2026-08-31T11:12:05.0793744Z v0.38.2 D2 shadow, dual portraits and tail-anchor validation passed
+2026-08-31T11:12:05.1051109Z v0.38.3 Moe D3, Chinese reasoning and normal/calm validation passed
+2026-08-31T11:12:05.1296794Z v0.38.4 inner metric layout and D2/D3 visibility validation passed
+2026-08-31T11:12:05.1614849Z v0.38.5 portrait, avatar, metric rollback and D3 diagnostics validation passed
+2026-08-31T11:12:05.1880767Z v0.38.6 public web sharing closure validation passed
+2026-08-31T11:12:05.2155387Z v0.38.7 public web share true-device test repair validation passed
+2026-08-31T11:12:05.2386261Z v0.38.8 simulated phone foundation validation passed
+2026-08-31T11:12:05.2625750Z v0.38.9 simulated phone reference UI validation passed
+2026-08-31T11:12:05.2891940Z v0.38.10 real album/browser and phone UI validation passed
+2026-08-31T11:12:05.3146722Z v0.38.11 real-device simulated-phone UI fixes validated
+2026-08-31T11:12:05.3422555Z v0.38.12 chat scroll and phone UI fixes validated
+2026-08-31T11:12:05.3695396Z v0.38.13 streaming and overlay chat routing hotfix validated
+2026-08-31T11:12:05.3978395Z v0.38.14 reference unlock and chat transcript UI validated
+2026-08-31T11:12:05.4257422Z v0.38.15 chat style regression hotfix validated
+2026-08-31T11:12:05.4535943Z v0.38.16 action segment parser hotfix validated
+2026-08-31T11:12:05.4829051Z v0.38.18 pre-immersive polish static contracts passed
+2026-08-31T11:12:05.5110756Z v0.39.0 immersive room static contracts passed
+2026-08-31T11:12:05.5392254Z v0.39.1 immersive room polish static contracts passed
+2026-08-31T11:12:05.5654267Z v0.39.2 immersive fullscreen/NSFW/stream contracts passed
+2026-08-31T11:12:05.5907513Z v0.39.3 ordinary-chat presentation contracts passed
+2026-08-31T11:12:05.6167744Z v0.39.4 immersive chat UI/TTS contracts passed
+2026-08-31T11:12:05.7865635Z v0.39.5 upgraded Meju local-TTS runtime contracts passed
+2026-08-31T11:12:05.8791692Z v0.39.6 Rule02 quote boundary and notification sound validation passed
+2026-08-31T11:12:05.9101494Z v0.39.7 reasoning translation and spoken-line boundary validation passed
+2026-08-31T11:12:05.9398585Z v0.39.8 rule refresh, immersive control and action parser validation passed
+2026-08-31T11:12:05.9694457Z v0.39.9 user-address and immersive-viewpoint contracts verified
+2026-08-31T11:12:05.9989596Z v0.40.0 special-style, provenance, immersive pin and capsule contracts verified
+2026-08-31T11:12:06.0301566Z v0.40.1 album identity closure validation passed
+2026-08-31T11:12:06.0580771Z v0.40.2 provider diagnostics validation passed
+2026-08-31T11:12:06.0860023Z v0.40.3 proactive sharing tuning validation passed
+2026-08-31T11:12:06.1110147Z v0.40.3 proactive frequency hotfix validation passed
+2026-08-31T11:12:06.1361264Z v0.40.4 desire conversation agency validation passed
+2026-08-31T11:12:06.1613807Z v0.40.5 album image binding validation passed
+2026-08-31T11:12:06.1861435Z v0.40.6 circadian fatigue validation passed
+2026-08-31T11:12:06.2118563Z v0.40.7 album recall and browser detail validation passed
+2026-08-31T11:12:06.2395051Z v0.40.8 archive restore correctness validation passed
+2026-08-31T11:12:06.2646451Z v0.40.9 nondestructive backup validation passed
+2026-08-31T11:12:06.2911242Z v0.41.0 plain backup, overlay routing and Desire balance validation passed
+2026-08-31T11:12:06.3163601Z v0.41.1 backup preflight and screen audit validation passed
+2026-08-31T11:12:06.3392473Z v0.41.2 simple backup file validation passed
+2026-08-31T11:12:06.3661085Z v0.41.3 backup ZIP hardening validation passed
+2026-08-31T11:12:06.3973270Z v0.41.4 personality seed and backup export closure validation passed
+2026-08-31T11:12:06.4281143Z v0.41.5 personality state diversity validation passed
+2026-08-31T11:12:06.4577193Z v0.41.6 Agent Self Facts validation passed
+2026-08-31T11:12:06.4837193Z v0.32.2 overlay time and diagnostic contracts validated.
+2026-08-31T11:12:06.5085286Z v0.32.1 AI-to-self somatic contract validated.
+2026-08-31T11:12:06.5365388Z v0.32.0 somatic contract and daily-touch MVP validation passed
+2026-08-31T11:12:06.5620741Z v0.31.9 TTS state and cancelled-turn withdrawal validation passed
+2026-08-31T11:12:06.5865497Z v0.31.8 overlay stop and live stream validation passed
+2026-08-31T11:12:06.6110941Z v0.31.7 true stop generation validation passed
+2026-08-31T11:12:06.6332050Z v0.31.6 rule grouping validation passed
+2026-08-31T11:12:06.6612506Z v0.31.5 Live Context & Self Seed static validation passed
+2026-08-31T11:12:06.6787893Z schema v20 message cleanup preserves visible history and removes retired state
+2026-08-31T11:12:06.7067327Z v0.31.4 Grounded Desire Growth static validation passed
+2026-08-31T11:12:06.7410298Z v0.31.3 HyperOS file-picker overlay recovery validation passed.
+2026-08-31T11:12:06.8110890Z v0.31 Desire policy numeric long-run validation passed.
+2026-08-31T11:12:06.8358297Z [OK] libbertvits2.so matches the user-validated upgraded local runtime
+2026-08-31T11:12:06.8359060Z [OK] A2 punctuation remains primary with a 72-character max-phone safety fallback
+2026-08-31T11:12:06.8359675Z [OK] A2 speech-only Yuki/bracket preprocessing preserved
+2026-08-31T11:12:06.8360212Z [OK] A2 generation-ahead queue replaces serial generate+play tail
+2026-08-31T11:12:06.8361403Z [OK] native inference and AudioTrack workers are separated with one serialized MNN generator
+2026-08-31T11:12:06.8362049Z [OK] v0.28.5 legacy coroutine/ClassLoader fix retained
+2026-08-31T11:12:18.3443091Z [OK] key Kotlin TTS runtime/bridge sources compile against API stubs
+2026-08-31T11:12:18.3645278Z [OK] A2 submits later sentence generation before waiting for playback
+2026-08-31T11:12:18.3645880Z [OK] stop epoch invalidates stale queued generation
+2026-08-31T11:12:18.3646277Z [OK] one sentence generation failure does not poison later playback
+2026-08-31T11:12:18.3646701Z [OK] A2 punctuation boundaries preserved; comma/newline/ellipsis do not split
+2026-08-31T11:12:18.5021056Z [OK] 32 packaged TTS artifacts match the v0.39.5 upgraded runtime manifest
+2026-08-31T11:12:18.5021628Z [OK] HTML/WebView/JS shell excluded from AI Companion TTS
+2026-08-31T11:12:18.5022108Z [OK] integrity/cache/cancel/error-isolation wiring present
+2026-08-31T11:12:18.5022609Z [OK] deterministic Dart queue/integrity test sources present
+2026-08-31T11:12:18.5263762Z v0.14 durable generation SQLite ownership/atomicity checks passed.
+2026-08-31T11:12:18.5451964Z [OK] failed generation attention only targets latest unanswered user turn
+2026-08-31T11:12:18.5452648Z [OK] manual generation retry respects Active Brain and transfer freeze
+2026-08-31T11:12:18.5453708Z [OK] manual generation retry cannot create a second blocking generation
+2026-08-31T11:12:18.5454234Z [OK] manual post-turn retry respects device ownership
+2026-08-31T11:12:18.5454741Z [OK] effective post-turn next-due selection is not tied to oldest created job
+2026-08-31T11:12:18.5455283Z v0.16 recovery orchestration SQLite simulation passed.
+2026-08-31T11:12:18.5641206Z [OK] disabled document stays excluded after rechunk
+2026-08-31T11:12:18.5641784Z [OK] editing preserves document created_at and updates full raw text
+2026-08-31T11:12:18.5642361Z [OK] rechunk does not mutate full raw text or silently re-enable retrieval
+2026-08-31T11:12:18.5642950Z [OK] document edit + chunk replacement rolls back atomically on failure
+2026-08-31T11:12:18.5643426Z [OK] re-enable keeps document and retrieval chunks in sync
+2026-08-31T11:12:18.5643884Z [OK] delete removes full document and all derived chunks together
+2026-08-31T11:12:18.5644346Z v0.19 Reference Library SQLite consistency checks passed.
+2026-08-31T11:12:18.5866731Z v0.20 awareness SQLite migration/dedupe/expiry/Active-Brain checks passed.
+2026-08-31T11:12:18.6033967Z [OK] companion-facing Thought SQL excludes residual/acted/dormant/snoozed before LIMIT
+2026-08-31T11:12:18.6034685Z v0.21 relationship presentation SQLite read-model checks passed.
+2026-08-31T11:12:18.6216024Z [OK] v14 -> v15 memory semantic migration preserves rows and classifies shared experience
+2026-08-31T11:12:18.6216833Z [OK] current fact replacement preserves historical version and monotonic version number
+2026-08-31T11:12:18.6217475Z [OK] uncertain inference coexists without superseding current fact
+2026-08-31T11:12:18.6218263Z [OK] evidence uniqueness prevents retry from double-reinforcing a memory
+2026-08-31T11:12:18.6218914Z [OK] pinned current fact exposes a deterministic automatic-replacement block
+2026-08-31T11:12:18.6219575Z [OK] manual restore guard prevents two current facts with the same subject key
+2026-08-31T11:12:18.6220219Z [OK] manual edit preserves migrated pre-v15 content as evidence before replacement
+2026-08-31T11:12:18.6220869Z [OK] manual subject edit guard detects an existing active current fact
+2026-08-31T11:12:18.6221459Z [OK] repeated full-state import remains idempotent with memory evidence
+2026-08-31T11:12:18.6221987Z v0.22 long-term memory semantics SQLite checks passed.
+2026-08-31T11:12:18.6416211Z [OK] v15 -> v16 proactive rhythm migration preserves legacy rows
+2026-08-31T11:12:18.6416772Z [OK] no-response is weak timing evidence, not topic rejection
+2026-08-31T11:12:18.6417297Z [OK] timing rejection and topic rejection adapt different dimensions
+2026-08-31T11:12:18.6418399Z [OK] short negative streak cannot cause a large personality swing
+2026-08-31T11:12:18.6418949Z [OK] repeated no-response remains bounded and does not become topic suppression
+2026-08-31T11:12:18.6419571Z [OK] anti-silence threshold recovery and 2h/24h spam ceilings stay bounded
+2026-08-31T11:12:18.6420168Z [OK] time-of-day and activity contexts learn independent comfort windows
+2026-08-31T11:12:18.6420687Z [OK] rhythm evidence decays with a 45-day half-life
+2026-08-31T11:12:18.6421219Z [OK] v16 phone/tablet state transfer preserves rhythm context and feedback signals
+2026-08-31T11:12:18.6421817Z v0.23 Proactive Rhythm Learning SQLite/simulation validation passed.
+2026-08-31T11:12:18.6721870Z [OK] v16 -> v17 additive daily continuity table contract
+2026-08-31T11:12:18.6722454Z [OK] retry/exactly-once keeps one UNIQUE row per local day
+2026-08-31T11:12:18.6722943Z [OK] finalized yesterday is immutable across later retries
+2026-08-31T11:12:18.6723510Z [OK] standby/transfer lock blocks durable continuity writes inside transaction
+2026-08-31T11:12:18.6724231Z [OK] unresolved thread carry-forward avoids daily repetition but allows real updates
+2026-08-31T11:12:18.6724873Z [OK] quiet day is stored as neutral continuity, not relationship regression
+2026-08-31T11:12:18.6725510Z [OK] phone/tablet full-state transfer preserves daily continuity rows
+2026-08-31T11:12:18.6726107Z [OK] continuity retention remains bounded to the recent bridge window
+2026-08-31T11:12:18.6727018Z v0.24 Daily Continuity SQLite/simulation validation passed.
+2026-08-31T11:12:18.6986049Z [OK] v18 transfer generation / replay / rollback / fencing SQLite simulation
+2026-08-31T11:12:23.6474753Z [OK] AES-256-GCM manual snapshot roundtrip / wrong-pass / truncation
+2026-08-31T11:12:27.6395530Z [OK] native diagnostic redaction is deterministic and bounded
+2026-08-31T11:12:31.9513048Z [OK] NativePreflightProbe Kotlin compiles against Android/Play-services API stubs
+2026-08-31T11:12:36.6436915Z [OK] RuntimeDiagnosticStore Kotlin compiles against SharedPreferences/JSON stubs
+2026-08-31T11:12:43.5549793Z [OK] child-first policy / coroutine proxy / suspend marker / redacted failure evidence
+2026-08-31T11:12:54.6749839Z [OK] Nearby v3 protocol + NativeEventStore fence + manual crypto Kotlin compile against API stubs
+2026-08-31T11:12:54.6823079Z ##[group]Run flutter pub get
+2026-08-31T11:12:54.6823322Z [36;1mflutter pub get[0m
+2026-08-31T11:12:54.6856334Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:12:54.6856543Z env:
+2026-08-31T11:12:54.6856792Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:12:54.6857173Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:12:54.6857542Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-08-31T11:12:54.6857831Z   PUB_CACHE: /home/runner/.pub-cache
+2026-08-31T11:12:54.6858540Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-08-31T11:12:54.6859195Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-08-31T11:12:54.6859468Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-08-31T11:12:54.6859809Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-08-31T11:12:54.6860272Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-08-31T11:12:54.6860633Z ##[endgroup]
+2026-08-31T11:12:57.8806874Z Resolving dependencies...
+2026-08-31T11:12:58.1141017Z Downloading packages...
+2026-08-31T11:13:00.1413198Z   archive 4.0.9 (4.2.0 available)
+2026-08-31T11:13:00.1413580Z   clock 1.1.2 (1.1.3 available)
+2026-08-31T11:13:00.1413888Z   code_assets 1.2.1 (2.0.0 available)
+2026-08-31T11:13:00.1415216Z + cross_file 0.3.5+5
+2026-08-31T11:13:00.1415524Z + file_selector_linux 0.9.4+1
+2026-08-31T11:13:00.1415834Z + file_selector_macos 0.9.5+1
+2026-08-31T11:13:00.1416135Z + file_selector_platform_interface 2.7.0
+2026-08-31T11:13:00.1416468Z + file_selector_windows 0.9.3+6
+2026-08-31T11:13:00.1416788Z + flutter_localizations 0.0.0 from sdk flutter
+2026-08-31T11:13:00.1417445Z + flutter_plugin_android_lifecycle 2.0.35
+2026-08-31T11:13:00.1417828Z   flutter_secure_storage 10.3.1 (11.0.0 available)
+2026-08-31T11:13:00.1418418Z   flutter_secure_storage_darwin 0.3.2 (0.4.0 available)
+2026-08-31T11:13:00.1418823Z   hooks 2.0.2 (2.2.0 available)
+2026-08-31T11:13:00.1419126Z + image_picker 1.2.3
+2026-08-31T11:13:00.1419391Z + image_picker_android 0.8.13+21
+2026-08-31T11:13:00.1419700Z + image_picker_for_web 3.1.1
+2026-08-31T11:13:00.1420011Z + image_picker_ios 0.8.13+7
+2026-08-31T11:13:00.1420297Z + image_picker_linux 0.2.2
+2026-08-31T11:13:00.1420595Z + image_picker_macos 0.2.2+1
+2026-08-31T11:13:00.1420919Z + image_picker_platform_interface 2.11.1
+2026-08-31T11:13:00.1421280Z + image_picker_windows 0.2.2
+2026-08-31T11:13:00.1421590Z + intl 0.20.2 (0.20.3 available)
+2026-08-31T11:13:00.1421902Z   matcher 0.12.19 (0.12.20 available)
+2026-08-31T11:13:00.1422283Z   material_color_utilities 0.13.0 (0.13.1 available)
+2026-08-31T11:13:00.1422689Z   meta 1.18.0 (1.19.0 available)
+2026-08-31T11:13:00.1422985Z + mime 2.1.0
+2026-08-31T11:13:00.1423247Z   objective_c 9.5.0 (9.6.0 available)
+2026-08-31T11:13:00.1423588Z   pub_semver 2.2.0 (2.2.1 available)
+2026-08-31T11:13:00.1423958Z   record_use 0.6.0 (1.1.1 available)
+2026-08-31T11:13:00.1424293Z   stack_trace 1.12.1 (1.12.2 available)
+2026-08-31T11:13:00.1424645Z   synchronized 3.4.1+1 (3.4.1+2 available)
+2026-08-31T11:13:00.1424995Z   test_api 0.7.11 (0.7.13 available)
+2026-08-31T11:13:00.1425321Z   vector_math 2.2.0 (2.4.2 available)
+2026-08-31T11:13:00.1425656Z   vm_service 15.2.0 (15.3.0 available)
+2026-08-31T11:13:00.1425982Z   yaml 3.1.3 (3.1.4 available)
+2026-08-31T11:13:00.1426432Z Changed 17 dependencies!
+2026-08-31T11:13:00.1426881Z 19 packages have newer versions incompatible with dependency constraints.
+2026-08-31T11:13:00.1427392Z Try `flutter pub outdated` for more information.
+2026-08-31T11:13:00.3626688Z ##[group]Run ./gradlew :app:testDebugUnitTest \
+2026-08-31T11:13:00.3627013Z [36;1m./gradlew :app:testDebugUnitTest \[0m
+2026-08-31T11:13:00.3627309Z [36;1m  --tests 'com.aicompanion.localfirst.pet.*Test' \[0m
+2026-08-31T11:13:00.3627693Z [36;1m  --tests 'com.aicompanion.localfirst.OverlayDialogueFormatterTest' \[0m
+2026-08-31T11:13:00.3628345Z [36;1m  --tests 'com.aicompanion.localfirst.MultipartBackupArchiveTest'[0m
+2026-08-31T11:13:00.3661391Z shell: /usr/bin/bash -e {0}
+2026-08-31T11:13:00.3661601Z env:
+2026-08-31T11:13:00.3661849Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:13:00.3662243Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-08-31T11:13:00.3662619Z   FLUTTER_ROOT: /opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter
+2026-08-31T11:13:00.3662921Z   PUB_CACHE: /home/runner/.pub-cache
+2026-08-31T11:13:00.3663399Z   AI_COMPANION_KEYSTORE_PATH: /home/runner/work/_temp/ai-companion-signing/AI-Companion-Private-Test-Signing-v1.p12
+2026-08-31T11:13:00.3664177Z   AI_COMPANION_KEYSTORE_PASSWORD: ***
+2026-08-31T11:13:00.3664455Z   AI_COMPANION_KEY_ALIAS: ai-companion-private-test-v1
+2026-08-31T11:13:00.3664830Z   AI_COMPANION_KEY_PASSWORD: ***
+2026-08-31T11:13:00.3665185Z   AI_COMPANION_SIGNER_SHA256: 30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2026-08-31T11:13:00.3665548Z ##[endgroup]
+2026-08-31T11:13:00.4549301Z Downloading https://services.gradle.org/distributions/gradle-8.12-all.zip
+2026-08-31T11:13:02.3726366Z ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+2026-08-31T11:13:02.3756064Z Unzipping /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12-all.zip to /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb
+2026-08-31T11:13:04.6383062Z Set executable permissions for: /home/runner/.gradle/wrapper/dists/gradle-8.12-all/ejduaidbjup3bmmkhw3rie4zb/gradle-8.12/bin/gradle
+2026-08-31T11:13:05.0075767Z 
+2026-08-31T11:13:05.0099394Z Welcome to Gradle 8.12!
+2026-08-31T11:13:05.0099663Z 
+2026-08-31T11:13:05.0099856Z Here are the highlights of this release:
+2026-08-31T11:13:05.0100376Z  - Enhanced error and warning reporting with the Problems API
+2026-08-31T11:13:05.0100881Z  - File-system watching support on Alpine Linux
+2026-08-31T11:13:05.0101301Z  - Build and test Swift 6 libraries and apps
+2026-08-31T11:13:05.0101550Z 
+2026-08-31T11:13:05.0101809Z For more details see https://docs.gradle.org/8.12/release-notes.html
+2026-08-31T11:13:05.0102181Z 
+2026-08-31T11:13:05.1052930Z Starting a Gradle Daemon (subsequent builds will be faster)
+2026-08-31T11:13:32.5059448Z 
+2026-08-31T11:13:32.5076592Z > Configure project :gradle
+2026-08-31T11:13:32.5100642Z WARNING: Unsupported Kotlin plugin version.
+2026-08-31T11:13:32.5101875Z The `embedded-kotlin` and `kotlin-dsl` plugins rely on features of Kotlin `2.0.21` that might work differently than in the requested version `2.2.20`.
+2026-08-31T11:13:36.3051353Z 
+2026-08-31T11:13:36.3069362Z > Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-08-31T11:13:47.8059179Z > Task :gradle:pluginDescriptors
+2026-08-31T11:13:47.8059678Z > Task :gradle:processResources
+2026-08-31T11:14:00.5058707Z 
+2026-08-31T11:14:00.5079112Z > Task :gradle:compileKotlin
+2026-08-31T11:14:00.5080307Z w: Language version 1.8 is deprecated and its support will be removed in a future version of Kotlin
+2026-08-31T11:14:00.5081756Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:13:37 'ApkVariant' is deprecated. Deprecated in Java
+2026-08-31T11:14:00.5083845Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:662:69 'ApkVariant' is deprecated. Deprecated in Java
+2026-08-31T11:14:00.5085595Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPluginUtils.kt:12:37 'BaseVariantOutput' is deprecated. Deprecated in Java
+2026-08-31T11:14:00.5087691Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/plugins/PluginHandler.kt:168:70 Unchecked cast: NamedDomainObjectContainer<out BuildType> to NamedDomainObjectContainer<BuildType>
+2026-08-31T11:14:00.5090222Z w: file:///opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/packages/flutter_tools/gradle/src/main/kotlin/plugins/PluginHandler.kt:169:75 Unchecked cast: NamedDomainObjectContainer<out BuildType> to NamedDomainObjectContainer<BuildType>
+2026-08-31T11:14:00.5091570Z 
+2026-08-31T11:14:00.5091868Z > Task :gradle:compileJava NO-SOURCE
+2026-08-31T11:14:00.5092444Z > Task :gradle:compileGroovy NO-SOURCE
+2026-08-31T11:14:00.5092997Z > Task :gradle:classes
+2026-08-31T11:14:00.6049050Z > Task :gradle:jar
+2026-08-31T11:14:26.3063203Z 
+2026-08-31T11:14:26.3091719Z Warning: Flutter support for your project's Gradle version (8.12.0) will soon be dropped. Please upgrade your Gradle version to a version of at least 8.14.0 soon.
+2026-08-31T11:14:26.3092694Z > Configure project :app
+2026-08-31T11:14:26.3146928Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-08-31T11:14:26.3206743Z 
+2026-08-31T11:14:26.3229802Z Potential fix: Your project's gradle version is typically defined in the gradle wrapper file. By default, this can be found at /home/runner/work/ai-companion-build/ai-companion-build/app/android/gradle/wrapper/gradle-wrapper.properties. 
+2026-08-31T11:14:26.3279074Z For more information, see https://docs.gradle.org/current/userguide/gradle_wrapper.html.
+2026-08-31T11:14:26.3304929Z 
+2026-08-31T11:14:26.3339758Z Warning: Flutter support for your project's Android Gradle Plugin version (Android Gradle Plugin version 8.9.1) will soon be dropped. Please upgrade your Android Gradle Plugin version to a version of at least Android Gradle Plugin version 8.11.1 soon.
+2026-08-31T11:14:26.3368828Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-08-31T11:14:26.3369310Z 
+2026-08-31T11:14:26.3370354Z Potential fix: Your project's AGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of com.android.application. 
+2026-08-31T11:14:26.3373139Z If you don't see a plugins block, your project was likely created with an older template version. In this case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the following line in the dependencies block of the buildscript: "classpath 'com.android.tools.build:gradle:<version>'".
+2026-08-31T11:14:26.3428432Z 
+2026-08-31T11:14:26.3459347Z Warning: Flutter support for your project's Kotlin version (2.1.0) will soon be dropped. Please upgrade your Kotlin version to a version of at least 2.2.20 soon.
+2026-08-31T11:14:26.3488992Z Alternatively, use the flag "--android-skip-build-dependency-validation" to bypass this check.
+2026-08-31T11:14:26.3518363Z 
+2026-08-31T11:14:26.3549745Z Potential fix: Your project's KGP version is typically defined in the plugins block of the `settings.gradle` file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/settings.gradle), by a plugin with the id of org.jetbrains.kotlin.android. 
+2026-08-31T11:14:26.3579751Z If you don't see a plugins block, your project was likely created with an older template version, in which case it is most likely defined in the top-level build.gradle file (/home/runner/work/ai-companion-build/ai-companion-build/app/android/build.gradle) by the ext.kotlin_version property.
+2026-08-31T11:14:26.3608348Z 
+2026-08-31T11:14:57.1047737Z 
+2026-08-31T11:14:57.1050811Z > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-08-31T11:14:57.1051579Z > Task :app:preBuild UP-TO-DATE
+2026-08-31T11:14:57.1052099Z > Task :app:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.1052673Z > Task :flutter_plugin_android_lifecycle:preBuild UP-TO-DATE
+2026-08-31T11:14:57.1053364Z > Task :flutter_plugin_android_lifecycle:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2049168Z > Task :flutter_secure_storage:preBuild UP-TO-DATE
+2026-08-31T11:14:57.2062856Z > Task :flutter_secure_storage:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2063457Z > Task :flutter_plugin_android_lifecycle:writeDebugAarMetadata
+2026-08-31T11:14:57.2065372Z > Task :flutter_secure_storage:writeDebugAarMetadata
+2026-08-31T11:14:57.2065833Z > Task :image_picker_android:preBuild UP-TO-DATE
+2026-08-31T11:14:57.2066267Z > Task :image_picker_android:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2066670Z > Task :jni:preBuild UP-TO-DATE
+2026-08-31T11:14:57.2067005Z > Task :jni:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2067878Z > Task :image_picker_android:writeDebugAarMetadata
+2026-08-31T11:14:57.2068422Z > Task :jni_flutter:preBuild UP-TO-DATE
+2026-08-31T11:14:57.2068794Z > Task :jni_flutter:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2069164Z > Task :jni:writeDebugAarMetadata
+2026-08-31T11:14:57.2069514Z > Task :sqflite_android:preBuild UP-TO-DATE
+2026-08-31T11:14:57.2069904Z > Task :sqflite_android:preDebugBuild UP-TO-DATE
+2026-08-31T11:14:57.2070298Z > Task :jni_flutter:writeDebugAarMetadata
+2026-08-31T11:14:57.2070682Z > Task :sqflite_android:writeDebugAarMetadata
+2026-08-31T11:15:02.0059341Z > Task :app:cleanMergeDebugAssets UP-TO-DATE
+2026-08-31T11:15:02.0060206Z > Task :app:checkDebugAarMetadata
+2026-08-31T11:15:09.7055235Z lib/core/agent/agent_self_reader.dart:161:29: Error: The getter 'key' isn't defined for the type 'AgentToolRisk'.
+2026-08-31T11:15:09.7055794Z 
+2026-08-31T11:15:09.7055944Z > Task :app:compileFlutterBuildDebug
+2026-08-31T11:15:09.7057041Z  - 'AgentToolRisk' is from 'package:ai_companion_localfirst/core/agent/agent_tool.dart' ('lib/core/agent/agent_tool.dart').
+2026-08-31T11:15:09.7058205Z Try correcting the name to the name of an existing getter, or defining a getter or field named 'key'.
+2026-08-31T11:15:09.7059223Z           'risk=${tool.risk.key}] ${tool.title}：${tool.description}',
+2026-08-31T11:15:09.7059666Z                             ^^^
+2026-08-31T11:15:15.1048962Z Target kernel_snapshot_program failed: Exception
+2026-08-31T11:15:15.1049210Z 
+2026-08-31T11:15:15.1049376Z 
+2026-08-31T11:15:15.1049697Z > Task :app:compileFlutterBuildDebug FAILED
+2026-08-31T11:15:15.2047325Z 
+2026-08-31T11:15:15.2049108Z [Incubating] Problems report is available at: file:///home/runner/work/ai-companion-build/ai-companion-build/app/build/reports/problems/problems-report.html
+2026-08-31T11:15:15.2058765Z 
+2026-08-31T11:15:15.2059231Z FAILURE: Build failed with an exception.
+2026-08-31T11:15:15.2059542Z 
+2026-08-31T11:15:15.2059652Z * What went wrong:
+2026-08-31T11:15:15.2060053Z Execution failed for task ':app:compileFlutterBuildDebug'.
+2026-08-31T11:15:15.2060850Z > Process 'command '/opt/hostedtoolcache/flutter/stable-3.44.9-x64/flutter/bin/flutter'' finished with non-zero exit value 1
+2026-08-31T11:15:15.2061779Z 
+2026-08-31T11:15:15.2061869Z * Try:
+2026-08-31T11:15:15.2062162Z > Run with --stacktrace option to get the stack trace.
+2026-08-31T11:15:15.2062526Z > Run with --info or --debug option to get more log output.
+2026-08-31T11:15:15.2062945Z > Run with --scan to get full insights.
+2026-08-31T11:15:15.2063320Z > Get more help at https://help.gradle.org.
+2026-08-31T11:15:15.2063568Z 
+2026-08-31T11:15:15.2063672Z BUILD FAILED in 2m 14s
+2026-08-31T11:15:15.2063857Z 
+2026-08-31T11:15:15.2064179Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+2026-08-31T11:15:15.2064619Z 
+2026-08-31T11:15:15.2065123Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+2026-08-31T11:15:15.2065727Z 
+2026-08-31T11:15:15.2066218Z For more on this, please refer to https://docs.gradle.org/8.12/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+2026-08-31T11:15:15.2066784Z 13 actionable tasks: 12 executed, 1 up-to-date
+2026-08-31T11:15:15.6040423Z ##[error]Process completed with exit code 1.
+2026-08-31T11:15:15.6198327Z Post job cleanup.
+2026-08-31T11:15:15.6246934Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T11:15:15.6247880Z Post job cleanup.
+2026-08-31T11:15:15.7361187Z (node:4631) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-31T11:15:15.7361769Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-31T11:15:15.7548208Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-31T11:15:15.7549840Z Post job cleanup.
+2026-08-31T11:15:15.8353258Z [command]/usr/bin/git version
+2026-08-31T11:15:15.8395029Z git version 2.55.0
+2026-08-31T11:15:15.8429008Z Temporarily overriding HOME='/home/runner/work/_temp/821896af-259f-4a61-81a5-230732fec759' before making global git config changes
+2026-08-31T11:15:15.8431962Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-31T11:15:15.8434744Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-08-31T11:15:15.8481830Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-31T11:15:15.8527560Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-31T11:15:15.8777208Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-31T11:15:15.8803492Z http.https://github.com/.extraheader
+2026-08-31T11:15:15.8813185Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-08-31T11:15:15.8843728Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-31T11:15:15.9068640Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-31T11:15:15.9103166Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-31T11:15:15.9449786Z Cleaning up orphan processes
+2026-08-31T11:15:15.9708304Z Terminate orphan process: pid (4281) (java)
+2026-08-31T11:15:15.9741903Z Terminate orphan process: pid (4397) (java)
+2026-08-31T11:15:15.9750657Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e5c0a6115d149de2ef6b
