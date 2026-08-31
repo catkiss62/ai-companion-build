@@ -1,0 +1,7 @@
+status=success
+run_id=33399759476
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33399759476
+head_sha=58c244a4b08033f403776f1ec31bbece5557506d
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+101c983bd6ec09d306872d67d696ac5f6cd4508b6c16d2e894dfd65418b945e0  AI-Companion-v0.41.7-146-Forthright-Fiery-Personality-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4c4a1dd8929eeeb5e52c
