@@ -6,13 +6,13 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
-## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.4 初始性格种子替换与备份导出收口（IMPLEMENTED / LOCAL CONTRACTS PASSED / CI PENDING）
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.4 初始性格种子替换与备份导出收口（IMPLEMENTED / CI & APK PASSED / BACKUP EXPORT CLOSED / PERSONALITY TRUE DEVICE PENDING）
 
 > 用户已使用 v0.41.3+142 在 REDMI K80 Ultra 真机重新导出单个 `.aibackup` 文件，并把存档、同时间脱敏诊断及最终批准的规则 03 文本交给接班窗口。独立只读复核证明 v0.41.3 已消除旧版三个非法空目录 ZIP entry，标准 ZIP、state/manifest、附件和相册逐件 SHA 全部通过；用户同时确认规则 01 恢复原版，不再把初始性格种子声明为最高优先级，规则 03 则必须按最终附件原文替换，不改已经实机认可的“戏剧性人机味”、人格内容和对白含义。
 
 ### A. v0.41.3 真机备份最终证据与收口边界
 
-1. 真机文件 `AI_Companion_Backup_2026-08-31T03-03-22(1).aibackup` 为 9,175,578 bytes，整文件 SHA-256 `a81b30a4658fe6e9a14c3ddf881f721a2d555ad38a5543f19378f186ed61a526`。标准 Info-ZIP `unzip -t` 对全部 8 个实际文件报告 OK，没有目录占位 entry、坏 deflate、CRC 错误或未知根文件。
+1. 真机文件 `AI_Companion_Backup_2026-08-31T03-03-22(1).aibackup` 的压缩归档本体为 3,824,400 bytes，8 个实际 entry 的未压缩总量为 9,175,578 bytes，整文件 SHA-256 `a81b30a4658fe6e9a14c3ddf881f721a2d555ad38a5543f19378f186ed61a526`。标准 Info-ZIP `unzip -t` 对全部 8 个实际文件报告 OK，没有目录占位 entry、坏 deflate、CRC 错误或未知根文件。
 2. `manifest.json` 为 protocol 5、schema 40、backup、generation 0、`encryption=none`、`zip_layout=files_only`；`state.json` 为 6,201,781 bytes，实算 SHA-256 `f1aa37d847256367bdbe211244365bc1cf49f04418fec26eb357189f3e604770`，与 manifest 完全一致。
 3. 4 个聊天附件文件与 2 个可恢复相册缩略图均存在，逐文件 SHA 与 manifest 一致，`missing_attachment_files` / `missing_album_files` 均为空；224 条消息、45 条 Memory、66 条 Thought 及其余 40 表状态已经进入 state。v0.41.3 单文件普通备份的真机导出、通用 ZIP 兼容性和载荷完整性据此正式通过。
 4. 本次收口只提升“真机导出”状态；没有在用户唯一重要关系资料上执行完整覆盖恢复，因此跨安装 standby、同安装 Active、数据库/文件原子替换和失败回滚仍保持自动化通过、破坏性真机恢复延后。不得把导出通过写成恢复也已真机通过。
@@ -35,9 +35,16 @@
 1. `ruleContentV0353_03_personality_seed` 已与用户最终附件对应小节逐字一致，正文 SHA-256 为 `fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b`。Fresh install、设置页还原和 Prompt 继续从同一 `defaultRuleLayers` 真源读取；没有复制第二套运行正文，也没有修改规则 02、行为真实感、底色/姿态或特殊风格内容。
 2. 新增三条精确 SHA 迁移：用户批准但尚未补情绪头的规则 03 草稿、v0.41.3 真机存档中的规则 03 中间稿，以及同一存档里后来被用户否定的规则 01“种子最高优先级”强调。只有完整正文哈希精确命中才分别替换为最终规则 03或原版规则 01；任何其他一字符手改继续保留。
 3. 两条样本分别只含一次 `<emotion>调皮</emotion>` 与 `<emotion>疑惑</emotion>`；新增 Flutter 默认规则断言和 `validate_v0414_personality_seed_backup_closure.py`，同时固定最终正文哈希、人机味、关系描述、迁移哈希、规则 01 负断言、备份真机收口证据和 CI 身份。历史 v0.39.9 规则哈希门禁只对规则 03 增加本次最终哈希，其他规则继续锁定原值。
-4. 版本已递增为 `0.41.4+143`、schema 保持 40，workflow 切到 `agent/v0414-personality-seed-backup-closure`，测试产物名为 `AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK`。开工总账提交为 `d4c37f1f647f`，功能提交为 `fe241248d7f3`。
+4. 版本已递增为 `0.41.4+143`、schema 保持 40，workflow 切到 `agent/v0414-personality-seed-backup-closure`，测试产物名为 `AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK`。远端聚合功能提交为 `a67369e3e81e`，UTF-8 总账修复提交为 `0d25d5fff112`，全量 APK 重跑提交为 `32779ad60316`。
 5. v0.41.4 专项、v0.41.3～v0.40.8 存档链、v0.39.9 视角规则和 current schema 合同均通过；按正式 workflow 命令清单本地运行的 118 个 Python validators 中 110 个通过。其余 8 个仍只因本地未恢复 CI 专用的 417 文件桌宠包、LingChat/TTS/native 大型载荷或没有 `kotlinc` 而无法运行，没有本批功能断言失败。Python 语法、workflow YAML、最终规则正文 SHA 和 `git diff --check` 均通过；本地环境没有 Dart/Flutter，Flutter analyze/tests、Kotlin/Gradle 与 Release APK 留给 Actions 完整环境。
-6. 首次推送尝试被当前窗口的权限审查拒绝，理由是需要用户在本窗口重新明确授权把本批源码与历史推送到公开 GitHub 目标；没有使用连接器、API 或其他路径绕过。当前源码、开工/功能/实现证据提交均安全保留在本地分支，等待授权后原样推送并继续 Actions，不能在此之前声称远端分支、CI 或 APK 已生成。
+6. 用户已在当前窗口明确授权把本批源码分支推送到公开仓库、运行 Actions 并生成测试 APK，同时锁定不合并 `main`、不发布正式 Release。命令行环境没有 GitHub HTTPS 凭据，因此使用已授权 GitHub 写接口创建同名分支；首次聚合提交中只有约 755 KB 的总账文件因中转输出截断成为无效 UTF-8，首轮 run `33355709470` 在历史 validator 读取总账时失败。随后以远端原总账加本批新增章节重建完整文件，blob SHA `a100638f9af9fb4cef4440aa676ba4efd7513862` 与本地精确一致；文档修复 run `33355972646` 成功但按路径策略跳过完整构建，因此没有被误记为 APK 证据。
+
+### E. GitHub Actions、APK 与交付证据
+
+1. 真正的全量 Actions run `33356687381`（run number 636）在 head `32779ad60316e5d17720712abb8cb2197a1b3fcc` 上于 2026-08-31 04:19:37Z 启动、04:29:17Z 完成并成功。源码/历史 validators、Kotlin 桌宠与悬浮窗测试、Flutter analyze、Flutter tests、Release APK 构建、稳定签名、Native/TTS/桌宠/LingChat/Tarot 完整载荷、checksum、Artifact 与 Draft Release 上传全部通过；`report-ci-failure` 正常 skipped。
+2. 测试 APK `AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK.apk` 为 325,141,430 bytes，独立从 Actions Artifact 解包后实算 SHA-256 `dec5dbe212a9d497a759b76c716695f0e2e9e6cb575073516e1afea64ef732df`，与 CI 生成的 checksum 完全一致。签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有同签名测试版。
+3. Actions Artifact ID `9745507913`，名称 `AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK`，ZIP 为 318,844,462 bytes，digest `sha256:0aafcafb75ec582276d8f3eb0b26f1682b2cb1e5c7b8b047e2ede4016b4362d9`，保留到 2026-09-14 04:28:51Z。Draft Release URL 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b881c826ad3b57c4eca0`；它保持 draft，未发布正式 Release。
+4. `main` 未合并、未修改。v0.41.3 单文件备份的真机导出、标准 ZIP 兼容性和载荷完整性现已正式收口；破坏性真机恢复仍延后。v0.41.4 的 Rule 03 安装与自动迁移已通过源码、单测和构建链，但长期“活人感”、情绪变化与关系风格仍须用户覆盖安装后以自然对话实机观察，不能由 CI 冒充真机人格验收。
 
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.3 单文件备份 ZIP 兼容性加固（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE EXPORT PENDING）
 
