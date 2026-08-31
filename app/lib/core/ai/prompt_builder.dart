@@ -213,6 +213,12 @@ ANSWERED_HISTORY_ONLY = true
         'role': 'system',
         'content': visibleChineseGenerationReminder(proactive: true),
       });
+      if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
+        messages.add({
+          'role': 'system',
+          'content': layerBundle.personalityExecutionAnchor,
+        });
+      }
     } else {
       final history = PromptHistoryPolicy.userTurnHistory(recent);
       if (history.isEmpty) {
@@ -220,6 +226,12 @@ ANSWERED_HISTORY_ONLY = true
           'role': 'system',
           'content': visibleChineseGenerationReminder(),
         });
+        if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
+          messages.add({
+            'role': 'system',
+            'content': layerBundle.personalityExecutionAnchor,
+          });
+        }
       } else {
         // Keep the real current role=user message last while placing the short
         // per-turn reminder immediately before it. This is the API-native
@@ -230,6 +242,12 @@ ANSWERED_HISTORY_ONLY = true
           'role': 'system',
           'content': visibleChineseGenerationReminder(),
         });
+        if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
+          messages.add({
+            'role': 'system',
+            'content': layerBundle.personalityExecutionAnchor,
+          });
+        }
         messages.add(history.last);
       }
     }

@@ -9,22 +9,41 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: ActiveTrialCapsule(
-            labels: ['清冷内敛 × 平等恋人', '史莱姆'],
+            labels: ['清冷内敛', '史莱姆'],
           ),
         ),
       ),
     );
 
-    expect(find.text('清冷内敛 × 平等恋人 · 史莱姆'), findsOneWidget);
+    expect(find.text('清冷内敛 · 史莱姆'), findsOneWidget);
     final capsuleContainer = find
         .ancestor(
-          of: find.text('清冷内敛 × 平等恋人 · 史莱姆'),
+          of: find.text('清冷内敛 · 史莱姆'),
           matching: find.byType(Container),
         )
         .first;
     final shape = tester.widget<Container>(capsuleContainer).decoration
         as ShapeDecoration;
     expect(shape.shape, isA<StadiumBorder>());
+  });
+
+  test('active trial labels include ordinary and special trials only', () {
+    expect(
+      activeTrialCapsuleLabels(personalityBaseKey: 'forthright'),
+      ['直爽泼辣'],
+    );
+    expect(
+      activeTrialCapsuleLabels(
+        personalityBaseKey: 'neutral',
+        specialStyleKey: 'yandere',
+      ),
+      ['自然状态', '病娇'],
+    );
+    expect(activeTrialCapsuleLabels(), isEmpty);
+    expect(
+      activeTrialCapsuleLabels(personalityBaseKey: 'unknown'),
+      isEmpty,
+    );
   });
 
   testWidgets('empty trial capsule takes no visual space', (tester) async {

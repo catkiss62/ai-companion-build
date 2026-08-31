@@ -39,6 +39,8 @@ import '../models/proactive_frequency.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import '../rules/rule_layer_content_v0353.dart';
+import '../rules/rule_layer_content_v0417.dart';
+import '../rules/rule_layer_content_v0418.dart';
 import '../rules/rule_layer_defaults.dart';
 import '../relationship/relationship_age.dart';
 import '../personality/personality_catalog.dart';
@@ -2397,6 +2399,20 @@ class AppDatabase {
         whereArgs: [entry.key, entry.value],
       );
     }
+    // v0.41.8 strengthens only the untouched v0.41.7 Forthright & Fiery
+    // template. Any user edit, however small, continues to win.
+    await db.update(
+      'rule_layers',
+      {
+        'content': ruleContentV0418_07_base_forthright,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: const [
+        '07_base_forthright',
+        ruleContentV0417_07_base_forthright,
+      ],
+    );
     for (final key in retiredSpecialStyleKeysV0400) {
       final previous = <String>{
         if (legacyRuleLayerContentsV0352[key] != null)
@@ -10648,10 +10664,33 @@ class AppDatabase {
   Future<Map<String, Object?>> personalityTrialDiagnostics() async {
     final profile = await activePersonalityTrial();
     final special = await activeSpecialStyleTrial();
+    final longTermBase = await getSetting('personality_base_key') ?? 'neutral';
+    final effectiveBase = PersonalityCatalog.base(
+      profile?.baseKey ?? longTermBase,
+    ).key;
+    final templateRows = effectiveBase == 'neutral'
+        ? const <Map<String, Object?>>[]
+        : await (await database).query(
+            'rule_layers',
+            columns: const ['key'],
+            where: 'key = ? AND load_policy = ? AND length(trim(content)) > 0',
+            whereArgs: [
+              PersonalityCatalog.basePromptKey(effectiveBase),
+              'template',
+            ],
+            limit: 1,
+          );
+    final anchorPresent =
+        PersonalityCatalog.executionAnchor(effectiveBase).trim().isNotEmpty;
     return {
       'profileActive': profile != null,
       'profileBaseKey': profile?.baseKey ?? '',
       'profilePostureKey': profile?.postureKey ?? '',
+      'effectiveBaseKey': effectiveBase,
+      'effectiveBaseFromTrial': profile != null,
+      'effectiveBaseTemplatePresent':
+          effectiveBase == 'neutral' || templateRows.isNotEmpty,
+      'effectiveBaseExecutionAnchorPresent': anchorPresent,
       'profileEffectiveTurns': profile?.effectiveTurns ?? 0,
       'profileInteractionWindows': profile?.interactionWindows ?? 0,
       'profileRemainingMinutes': profile == null
@@ -10663,6 +10702,8 @@ class AppDatabase {
           ? 0
           : special.remaining().inMinutes.clamp(0, 10000000),
       'promptBodiesIncluded': false,
+      'templateBodiesIncluded': false,
+      'executionAnchorBodyIncluded': false,
     };
   }
 

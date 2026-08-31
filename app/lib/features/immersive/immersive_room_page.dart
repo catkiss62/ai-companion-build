@@ -891,18 +891,19 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                       child: _conversationPanel(room),
                     ),
                   ),
-                  if (room != null && room.specialStyleKey.isNotEmpty)
+                  if (activeTrialCapsuleLabels(
+                    personalityBaseKey: _personalityTrial?.baseKey ?? '',
+                    specialStyleKey: room?.specialStyleKey ?? '',
+                  ).isNotEmpty)
                     Positioned(
                       top: 8,
                       right: 12,
                       child: ActiveTrialCapsule(
-                        labels: [
-                          if (room != null &&
-                              PersonalityCatalog.isKnownSpecial(
-                                room.specialStyleKey,
-                              ))
-                            PersonalityCatalog.special(room.specialStyleKey).label,
-                        ],
+                        labels: activeTrialCapsuleLabels(
+                          personalityBaseKey:
+                              _personalityTrial?.baseKey ?? '',
+                          specialStyleKey: room?.specialStyleKey ?? '',
+                        ),
                       ),
                     ),
                 ],

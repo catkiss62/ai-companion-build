@@ -92,8 +92,10 @@ for token in (
 ):
     assert token in phone, token
 
-assert "if (_specialTrial != null)" in chat
-assert "if (room != null && room.specialStyleKey.isNotEmpty)" in immersive
+assert "activeTrialCapsuleLabels(" in chat
+assert "_personalityTrial?.baseKey ?? ''" in chat
+assert "activeTrialCapsuleLabels(" in immersive
+assert "_personalityTrial?.baseKey ?? ''" in immersive
 assert "fontWeight: FontWeight.normal" in capsule
 assert "'自然状态'," in personality
 assert "自然状态（不加底色）" not in personality

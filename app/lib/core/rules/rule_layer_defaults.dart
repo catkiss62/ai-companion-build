@@ -1,6 +1,7 @@
 import 'rule_layer_content_v0353.dart';
 import 'rule_layer_content_v0400.dart';
 import 'rule_layer_content_v0417.dart';
+import 'rule_layer_content_v0418.dart';
 import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
@@ -818,7 +819,7 @@ final defaultRuleLayers = <RuleLayerDefault>[
     '07_base_forthright',
     '性格底色 · 直爽泼辣',
     'template',
-    ruleContentV0417_07_base_forthright,
+    ruleContentV0418_07_base_forthright,
     locked: true,
   ),
   ..._currentSpecialStyleDefaultsV0400,

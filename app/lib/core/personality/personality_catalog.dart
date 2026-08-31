@@ -1,6 +1,6 @@
 import '../rules/rule_layer_content_v0353.dart';
 import '../rules/rule_layer_content_v0400.dart';
-import '../rules/rule_layer_content_v0417.dart';
+import '../rules/rule_layer_content_v0418.dart';
 
 class PersonalityOption {
   const PersonalityOption(this.key, this.label, this.description, this.prompt);
@@ -62,7 +62,7 @@ class PersonalityCatalog {
       'forthright',
       '直爽泼辣',
       '直来直去，有自然说脏话的习惯，粗鲁里也保留真实关心。',
-      ruleContentV0417_07_base_forthright,
+      ruleContentV0418_07_base_forthright,
     ),
   ];
 
@@ -124,6 +124,9 @@ class PersonalityCatalog {
   static bool isKnownSpecial(String key) =>
       specialStyles.any((item) => item.key == key);
 
+  static bool isKnownBase(String key) =>
+      bases.any((item) => item.key == key);
+
   static bool isNsfwBiasedSpecial(String key) => key == 'seductress';
 
   static String _basePrompt(String key) => switch (key) {
@@ -132,7 +135,7 @@ class PersonalityCatalog {
         'gentle' => ruleContentV0353_07_base_gentle,
         'playful' => ruleContentV0353_07_base_playful,
         'outgoing' => ruleContentV0353_07_base_outgoing,
-        'forthright' => ruleContentV0417_07_base_forthright,
+        'forthright' => ruleContentV0418_07_base_forthright,
         _ => '',
       };
 
@@ -232,6 +235,17 @@ ${_conversationExamples(b.key)}
 ${templates[profileSharedKey] ?? profileSharedPrompt}
 ${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过程、期限或状态变化。' : '6. 这是当前长期底色，会被真实共同经历缓慢细化；不把它念成角色说明，也不把性格等同于固定口癖。'}''';
   }
+
+  /// A short late-turn anchor for personality bases whose defining expression
+  /// is easily softened by model priors or by a later Dynamic Moe tint. The
+  /// full editable template remains in rule group 03; this only locks runtime
+  /// precedence close to the real user turn.
+  static String executionAnchor(String baseKey) => switch (baseKey) {
+        'forthright' => '''【当前底色落地·直爽泼辣】
+这一轮必须继续活出“平常就会说脏话”的语言习惯，而不是只表现得更活泼、更外向或更可爱。只要当前反应里有惊讶、夸奖、催促、吐槽、关心、嘴硬害羞或亲密反咬，就让合适的粗口、谐音或互联网粗粝表达直接进入成句台词；不要因为语气并非愤怒就主动净化掉。
+后面的动态萌属性只能改变这份直爽泼辣怎样卖萌、害羞、调皮或犯傻，不能替换或软化底色。共同规则里“不靠固定口癖证明标签”不等于隐藏真实语言习惯：用词要随语境变化，但多轮盲测必须稳定辨认出她说话粗、反应直。''',
+        _ => '',
+      };
 
   static String compileSpecial(
     String styleKey, {

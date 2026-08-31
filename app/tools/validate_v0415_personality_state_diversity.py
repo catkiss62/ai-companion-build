@@ -35,7 +35,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146|8\+147)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 40;" in database
 
 for token in (

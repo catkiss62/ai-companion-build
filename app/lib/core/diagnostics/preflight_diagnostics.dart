@@ -138,6 +138,8 @@ class PreflightDiagnosticsService {
         'moePromptBodiesIncluded': false,
         'moeStyleDirectivesIncluded': false,
         'moeAxisOrRecipeNamesIncluded': false,
+        'personalityTemplateBodiesIncluded': false,
+        'personalityExecutionAnchorBodyIncluded': false,
         'moeValuesOrThresholdsIncluded': false,
         'conversationInitiativePromptBodiesIncluded': false,
         'conversationInitiativeMessageBodiesIncluded': false,

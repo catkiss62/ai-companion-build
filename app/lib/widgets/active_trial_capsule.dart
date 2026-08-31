@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../core/personality/personality_catalog.dart';
+
+List<String> activeTrialCapsuleLabels({
+  String personalityBaseKey = '',
+  String specialStyleKey = '',
+}) => [
+      if (PersonalityCatalog.isKnownBase(personalityBaseKey))
+        PersonalityCatalog.base(personalityBaseKey).label,
+      if (PersonalityCatalog.isKnownSpecial(specialStyleKey))
+        PersonalityCatalog.special(specialStyleKey).label,
+    ];
+
 class ActiveTrialCapsule extends StatelessWidget {
   const ActiveTrialCapsule({
     super.key,

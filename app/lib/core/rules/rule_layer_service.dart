@@ -11,6 +11,10 @@ class RuleLayerBundle {
     required this.intimacyActive,
     required this.referenceTriggered,
     this.specialStylePrompt = '',
+    this.personalityBaseKey = 'neutral',
+    this.personalityTrialActive = false,
+    this.personalityTemplatePresent = false,
+    this.personalityExecutionAnchor = '',
     this.templates = const {},
   });
 
@@ -18,6 +22,10 @@ class RuleLayerBundle {
   final bool intimacyActive;
   final bool referenceTriggered;
   final String specialStylePrompt;
+  final String personalityBaseKey;
+  final bool personalityTrialActive;
+  final bool personalityTemplatePresent;
+  final String personalityExecutionAnchor;
   final Map<String, String> templates;
 
   String formatForPrompt() {
@@ -84,6 +92,10 @@ class RuleLayerService {
         await db.getSetting('personality_base_key') ?? 'neutral';
     final longTermPosture =
         await db.getSetting('personality_posture_key') ?? 'equal';
+    final effectiveBaseKey = profileTrial?.baseKey ?? longTermBase;
+    final effectiveBase = PersonalityCatalog.base(effectiveBaseKey).key;
+    final personalityTemplateKey =
+        PersonalityCatalog.basePromptKey(effectiveBase);
     final selected = <RuleLayer>[];
     for (final layer in all) {
       if (!layer.enabled && !layer.locked) continue;
@@ -97,7 +109,7 @@ class RuleLayerService {
       if (include) {
         selected.add(layer);
         if (layer.key == '03_personality_seed') {
-          final baseKey = profileTrial?.baseKey ?? longTermBase;
+          final baseKey = effectiveBase;
           final postureKey = profileTrial?.postureKey ?? longTermPosture;
           selected.add(RuleLayer(
             key: '03_personality_expression',
@@ -130,6 +142,12 @@ class RuleLayerService {
               intimacyActive: intimacy,
               templates: templates,
             ),
+      personalityBaseKey: effectiveBase,
+      personalityTrialActive: profileTrial != null,
+      personalityTemplatePresent: effectiveBase == 'neutral' ||
+          (templates[personalityTemplateKey]?.trim().isNotEmpty ?? false),
+      personalityExecutionAnchor:
+          PersonalityCatalog.executionAnchor(effectiveBase),
       templates: templates,
     );
   }
