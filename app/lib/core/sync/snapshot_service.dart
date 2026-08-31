@@ -972,6 +972,25 @@ class SnapshotService {
         tables[table] = const <Object?>[];
       }
     }
+    const personalityLearningTables = <String>[
+      'personality_learning_candidates',
+      'personality_learning_evidence',
+    ];
+    final schemaVersion = (backup['schema_version'] as num?)?.toInt() ?? 0;
+    if (schemaVersion >= 42) {
+      for (final table in personalityLearningTables) {
+        if (tables[table] is! List) {
+          throw FormatException('schema 42 状态包缺少人格学习表：$table');
+        }
+      }
+    } else {
+      // Schema 1-41 never promised the observation-only learning domain.
+      // Import it as empty so an older complete archive cannot inherit rows
+      // that already exist on the target device.
+      for (final table in personalityLearningTables) {
+        tables[table] = const <Object?>[];
+      }
+    }
     backup['tables'] = tables;
   }
 

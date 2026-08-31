@@ -26,7 +26,7 @@ snapshot = read("lib/core/sync/snapshot_service.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 41;" in database
 assert "if (oldVersion < 41)" in database
 assert "await _createV41Tables(db);" in database

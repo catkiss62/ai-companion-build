@@ -12,6 +12,7 @@ import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/proactive_feedback.dart';
 import '../models/post_turn_job.dart';
+import '../models/personality_learning.dart';
 import '../personality/personality_catalog.dart';
 import '../storage/secure_config.dart';
 import '../self/ai_self_reflection_engine.dart';
@@ -220,6 +221,33 @@ class MemoryExtractor {
       final specialStyleContext = style.key.isEmpty
           ? '无。本轮不是特殊风格试穿生成。'
           : 'trial_id=$specialStyleTrialId | style_key=${style.key} | 名称=${style.label}';
+      final profileTrial = await db.personalityTrialAt(user.createdAt);
+      final learningContext = _personalityLearningContext(
+        profileTrialId: profileTrial?.id ?? '',
+        profileBaseKey: profileTrial?.baseKey ?? '',
+        profilePostureKey: profileTrial?.postureKey ?? '',
+        specialStyleTrialId: specialStyleTrialId,
+        specialStyleKey: style.key,
+      );
+      final learningCandidates = (await db
+              .personalityLearningCandidatesForExtraction(limit: 40))
+          .where((candidate) =>
+              candidate.contextKey == learningContext.contextKey)
+          .take(16)
+          .toList(growable: false);
+      final learningCandidateContext = learningCandidates.isEmpty
+          ? '当前作用域没有既有学习候选。'
+          : learningCandidates.map((candidate) {
+              return '- id=${candidate.id} | scope=${candidate.scope.key} | '
+                  'subject_key=${candidate.subjectKey} | status=${candidate.status.key} | '
+                  '${candidate.proposition}';
+            }).join('\n');
+      final learningContextDescription = learningContext.isTrial
+          ? 'kind=${learningContext.kind} | context_key=${learningContext.contextKey} | '
+              'trial_id=${learningContext.trialId} | trial_key=${learningContext.trialKey} | '
+              '只允许 scope=trial_preference'
+          : 'kind=ordinary | context_key=ordinary | '
+              '只允许 scope=user_preference 或 relationship_permission';
       final memoryCandidates = await db.memoryCandidatesForExtraction(
         '${user.promptContent}\n${assistant.content}',
         limit: 12,
@@ -297,6 +325,15 @@ $editableMemoryPolicy
    - outcome 只能是 engaged / acknowledged / deferred / dodged / refused / redirected / none。engaged 表示用户真实接住并继续；acknowledged 表示简单但明确地接住；deferred 表示明确晚点再回应；dodged 表示语义上明显回避这个需要；refused 表示明确拒绝；redirected 表示自然转去别的话题但没有负面拒绝；拿不准就 none。
    - resolution 范围 0~1，只表示 AI 原需要被满足的程度。短句、单字、消息字数和回复长度绝不能作为冷淡、敷衍、回避、拒绝或满足程度的证据；“嗯”“好”“抱抱”等很短的回复也可能明确接住，长回复也可能完全转向。只按真实语义判断。
    - 如果上一条是系统主动消息，本轮由 proactive_followup 处理，ordinary_desire_response 必须 had_ai_bid=false/outcome=none，禁止重复满足。
+18. learning_signals 是“人格学习观察层”，只收集证据，绝不生成回复指令、AI 当前性格或行动要求：
+   - 证据只能来自【刚发生的对话】里用户这一条真实原话。AI 回复只可帮助理解语境，绝不能作为证据；用户沉默、没有反对、短回复、回复长度、AI 对自己的描述也都不是证据。
+   - evidence_quote 必须逐字摘自本轮用户原话，不能转述或引用 AI 的话；proposition 才是对该证据的短句概括。
+   - ordinary 作用域只允许 user_preference（用户明确喜欢/不喜欢的互动表达）或 relationship_permission（用户明确允许、拒绝或修正的关系边界）。
+   - 试穿作用域只允许 trial_preference，表示用户对当前试穿体验的反馈；不得把试穿表现写成自然人格、ai_self 或普通关系许可。
+   - polarity=support 表示支持候选。新候选 target_id 留空，并给稳定、低写法耦合的 subject_key；同一命题再次出现时必须复用已有 target_id。
+   - polarity=contradict 只用于用户明确否定、修正既有候选，必须填写【既有学习候选】中的 target_id；拿不准就不要输出。
+   - evidence_kind 只能是 explicit_preference / explicit_correction / direct_feedback / boundary / revealed_choice。revealed_choice 只适用于用户真实做出明确选择，不能从没反对、继续聊天或语气猜测。
+   - 单轮最多三条。不要创建“AI 应当永远怎样说话”的规则，不要学习客服腔、模型礼貌惯性，也不要把当前 Desire/Moe 数值解释成用户偏好。
 
 允许的 memory kind：user_profile / shared_experience / ai_self / preference。
 允许的 drive：attachment / curiosity / reflection / duty / social / libido / stress / fatigue。
@@ -311,6 +348,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
   "session_update":{"action":"none","kind":"roleplay","title":"","premise":"","boundaries":[],"continuity_note":""},
   "proactive_followup":{"outcome":"none","resolution":0.0,"timing_fit":0.0,"topic_fit":0.0,"followup_after_hours":0},
   "ordinary_desire_response":{"had_ai_bid":false,"drive":"attachment","action":"reach_out","outcome":"none","resolution":0.0},
+  "learning_signals":[{"target_id":"","scope":"user_preference","subject_key":"user.preference.communication.less_formal","proposition":"用户偏好更少客气、更自然直接的交流","polarity":"support","evidence_kind":"explicit_preference","evidence_quote":"你也不用跟我说话真的客气","confidence":0.94}],
   "desire_pulses":{"curiosity":0.01,"reflection":0.01}
 }
 没有对应内容时使用空数组/空对象。不要输出 JSON 以外的文字。
@@ -333,6 +371,12 @@ $memoryCandidateContext
 
 【生成时特殊风格来源】
 $specialStyleContext
+
+【人格学习观察作用域】
+$learningContextDescription
+
+【既有人格学习候选】
+$learningCandidateContext
 
 【刚发生的对话】
 用户：${user.promptContent}
@@ -382,6 +426,16 @@ AI：${assistant.content}
         await _guardPostTurnJob(job);
         await _applySessionUpdate(result['session_update'], user.id);
         await _guardPostTurnJob(job);
+        if ((await db.getSetting('personality_learning_enabled')) != '0') {
+          await _applyPersonalityLearningSignals(
+            result['learning_signals'],
+            user: user,
+            assistant: assistant,
+            context: learningContext,
+            existingCandidates: learningCandidates,
+          );
+          await _guardPostTurnJob(job);
+        }
         await _applyProactiveFollowup(
           proactiveFeedback,
           result['proactive_followup'],
@@ -445,6 +499,85 @@ AI：${assistant.content}
     final matches = (await db.listRuleLayers())
         .where((layer) => layer.key == '04_memory_rules');
     return matches.isEmpty ? '未配置额外记忆规则。' : matches.first.content.trim();
+  }
+
+  PersonalityLearningContext _personalityLearningContext({
+    required String profileTrialId,
+    required String profileBaseKey,
+    required String profilePostureKey,
+    required String specialStyleTrialId,
+    required String specialStyleKey,
+  }) {
+    final hasProfile = profileTrialId.isNotEmpty;
+    final hasSpecial = specialStyleTrialId.isNotEmpty &&
+        PersonalityCatalog.isKnownSpecial(specialStyleKey);
+    if (!hasProfile && !hasSpecial) {
+      return const PersonalityLearningContext.ordinary();
+    }
+    final keys = <String>[
+      if (hasProfile) 'profile:$profileBaseKey:$profilePostureKey',
+      if (hasSpecial) 'special:$specialStyleKey',
+    ];
+    final ids = <String>[
+      if (hasProfile) profileTrialId,
+      if (hasSpecial) specialStyleTrialId,
+    ];
+    return PersonalityLearningContext(
+      kind: hasProfile && hasSpecial
+          ? 'combined_trial'
+          : hasProfile
+              ? 'personality_trial'
+              : 'special_style_trial',
+      contextKey: keys.join('|'),
+      trialId: ids.join('|'),
+      trialKey: keys.join('|'),
+    );
+  }
+
+  Future<void> _applyPersonalityLearningSignals(
+    Object? rawSignals, {
+    required ChatMessage user,
+    required ChatMessage assistant,
+    required PersonalityLearningContext context,
+    required List<PersonalityLearningCandidate> existingCandidates,
+  }) async {
+    if (rawSignals is! List) return;
+    final existingById = <String, PersonalityLearningCandidate>{
+      for (final candidate in existingCandidates) candidate.id: candidate,
+    };
+    var rejected = 0;
+    for (final raw in rawSignals.take(3)) {
+      final proposal = PersonalityLearningProposal.parse(
+        raw: raw,
+        userText: user.promptContent,
+        context: context,
+        existingById: existingById,
+      );
+      if (proposal == null) {
+        rejected += 1;
+        continue;
+      }
+      await db.applyPersonalityLearningProposal(
+        proposal: proposal,
+        context: context,
+        sourceMessageId: user.id,
+        assistantMessageId: assistant.id,
+        observedAt: user.createdAt,
+      );
+    }
+    if (rejected <= 0) return;
+    final previous = int.tryParse(
+          await db.getSetting('personality_learning_rejected_count') ?? '',
+        ) ??
+        0;
+    await db.setSetting(
+      'personality_learning_rejected_count',
+      '${previous + rejected}',
+    );
+    await db.setSetting(
+      'personality_learning_last_rejected_at',
+      user.createdAt.millisecondsSinceEpoch.toString(),
+    );
   }
 
   Future<String> _buildProactiveContext(ProactiveFeedback? feedback) async {

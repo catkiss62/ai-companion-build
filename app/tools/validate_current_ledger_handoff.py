@@ -102,12 +102,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.8\+147\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.9\+148\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )
     require(
-        "static const int schemaVersion = 41;" in database,
+        "static const int schemaVersion = 42;" in database,
         "database schema no longer matches the current development baseline",
     )
 

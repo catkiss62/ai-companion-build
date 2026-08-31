@@ -145,6 +145,10 @@ class PreflightDiagnosticsService {
         'conversationInitiativeMessageBodiesIncluded': false,
         'conversationInitiativeThoughtBodiesIncluded': false,
         'conversationInitiativeModelJsonIncluded': false,
+        'personalityLearningCandidateBodiesIncluded': false,
+        'personalityLearningEvidenceBodiesIncluded': false,
+        'personalityLearningSubjectKeysIncluded': false,
+        'personalityLearningModelProposalIncluded': false,
       },
     };
 
@@ -179,6 +183,8 @@ class PreflightDiagnosticsService {
       final proactivePolicy =
           await db.proactivePolicyDiagnosticStats(now: now);
       final personalityTrials = await db.personalityTrialDiagnostics();
+      final personalityLearning =
+          await db.personalityLearningDiagnosticStats();
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
       final moePlan = const MoeDynamicsPolicy().expressionPlan(moeState);
@@ -352,6 +358,7 @@ class PreflightDiagnosticsService {
         'imageVision': visionDiagnostics,
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
+        'personalityLearning': personalityLearning,
         'dynamicMoe': {
           'd2': {
             'enabled': moeState.enabled,

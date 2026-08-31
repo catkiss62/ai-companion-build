@@ -21,7 +21,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148)\s*$", pubspec, re.M)
 
 export = transfer.split("Future<void> _backupExport()", 1)[1].split(
     "Future<void> _backupImport()", 1

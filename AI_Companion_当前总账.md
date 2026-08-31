@@ -25,7 +25,7 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v0418-personality-trial-strength-hotfix`；从 v0.41.7 已通过 CI/APK 且已真机暴露普通试穿显示/强度问题的基线开始 |
+| 当前开发分支 | `agent/v0419-personality-learning-observation`；从 v0.41.8 已通过 CI/APK、且已真机确认静态“直爽泼辣”强度失败的基线开始 Phase 0+1 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | 远端 CI head `b4c1e613f4ea770902ca05a392df4c1842a170bc`；tree `90577f1581d1bec11c49947d7068eea5f75bf158` 与本地触发提交精确一致；核心功能 head `99e3fb4df5780484422ad8ec2496f6beacf57f4a` |
 | App / 数据库 | 当前 `0.41.8+147` / schema 41；Snapshot/备份 protocol 5 不变 |
@@ -34,7 +34,7 @@
 | APK SHA-256 | `34fc89145df10376e51c39bad968f93c3789dc304183d72e8b8bb49a5d5358b3` |
 | Artifact / Release | Artifact ID `9764826372`；Draft Release `untagged-3100bfd0c5710092715c`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.8 胶囊代码与 CI/APK 已通过；新存档确认“直爽泼辣”在 13 个有效回复 / 2 个互动窗口内仍未形成自然粗口。人格方向已从继续堆静态模板改为“固定核心 + 被动证据学习 + 可撤销成长习惯 + 独立试穿层”，开源调研与第一阶段边界已落账、运行实现尚未开始；联网存图同时存在历史错图绑定和修复后无可执行保存闭环 |
+| 当前总状态 | v0.41.8 胶囊代码与 CI/APK 已通过；静态“直爽泼辣”强度真机失败。人格 Phase 0+1 已正式开工：先完成规则/Prompt 分类合同，再实现只观察、不影响回复的用户偏好证据候选、反证、成熟度、备份和脱敏诊断；目标 `0.41.9+148 / schema 42`。联网存图缺陷继续保留 P0，但本批不混入 |
 
 ### 3. 当前模块状态总表
 
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · 设计冻结 / 待分阶段实现 | 人格学习与成长主框架 | v0.41.8 “直爽泼辣”强度真机失败后，已锁定“固定核心 + 被动证据学习 + 可撤销成长习惯 + AI 明知的试穿娱乐层”。先做 Phase 0 规则分类/数据合同与回放样本，再做 Phase 1 偏好证据链；不得把用户一句偏好直接焊成 AI 人格，也不得放松反客服硬禁令 |
+| P0 · IN PROGRESS | 人格学习与成长主框架 Phase 0+1 | 目标 `0.41.9+148 / schema 42`：规则/Prompt 分类与回放合同 + 只观察的偏好证据、反证、成熟度、备份和脱敏诊断。学习结果不进入聊天 Prompt、不改 Desire/Moe、不生成 AI 习惯；完成后生成第一个观察型 APK |
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
@@ -257,6 +257,20 @@
     - 已落账的 [Ombre-Brain](https://github.com/Yinglianchun/Ombre-Brain)、[Graphiti](https://github.com/getzep/graphiti)、[Mem0](https://github.com/mem0ai/mem0) 与 [Letta](https://github.com/letta-ai/letta-code) 继续保留；前者借分层/预算/冷却，后三者借 provenance、有效期/取代、用户/会话/Agent 分层和持久身份，不整套引入服务端框架。
 13. 分阶段实施顺序冻结为：Phase 0 先逐条审计规则 01/02/03 与当前 Prompt 装配，把内容标成 `immutable_core / hard_style_ban / relationship_fact / expression_protocol / trial_script / growth_seed`，建立旧行为回放样本；Phase 1 实现用户偏好证据候选、反证、成熟度与只读诊断，不立即改 AI 表达；Phase 2 在 Memory Phase 1 的 topic/subject 轻连接上接入关系偏好召回，并仅以小幅 bias 影响回复；Phase 3 才实现 AI 自身习惯候选、版本/回滚、激活预算与试穿蒸馏；Phase 4 再考虑低频主动澄清和娱乐测试。每一阶段独立 schema/备份迁移、validator、Flutter tests、CI/APK 与真机 A/B，上一阶段证据不闭合不得宣称“会成长”。
 14. 本节是研究与设计冻结，未修改运行代码、规则正文、试穿转正数据、Memory schema、Desire/Moe 或联网工具；版本仍为 `0.41.8+147`、schema 41、Snapshot protocol 5。正式开工必须先更新本入口状态，并以 Phase 0 的 Prompt 分类清单和回放合同为第一批，不在同批修联网图片事务。
+
+### 15. 2026-09-01 · v0.41.9 人格学习观察层 Phase 0+1 开工（IN PROGRESS / APK AUTHORIZED）
+
+1. 用户确认按三个真机卡点实施，不为 Phase 0～4 每个内部步骤单独出包，也不把全部成长链一次性焊完后才验收。第一批连续完成 Phase 0+1，结束时生成一个观察型 APK；Phase 2 第一次影响表达、Phase 3 第一次形成 AI 自身习惯时再分别生成后续 APK。
+2. 用户明确授权：本批及后续 AI Companion APK 代码批完成后，可以直接推送到公开仓库 `catkiss62/ai-companion-build` 并运行 GitHub Actions、创建 Artifact 与 Draft Release，不必每次重新申请。该授权不包括合并 `main` 或发布正式 Release；仍使用独立开发分支、固定测试签名和草稿交付流程。
+3. 本批分支 `agent/v0419-personality-learning-observation`，目标版本 `0.41.9+148`、SQLite schema 42；Snapshot protocol 5 不变。旧 schema 41 备份缺少新学习表时必须兼容为空，完整备份/恢复和 Active Brain 原子切换语义不得改变。
+4. Phase 0 只建立当前事实合同：逐项把规则和 Prompt 来源标为 `immutable_core / hard_style_ban / relationship_fact / expression_protocol / trial_script / growth_seed`，并建立回放断言。规则 01/02/03 用户编辑正文不在本批改写；反客服、反 AI 八股、工具真值、身份、关系事实、外观和动作/对白协议继续是硬边界。
+5. Phase 1 新增独立人格学习候选与证据存储，不复用长期记忆正文冒充学习状态。只允许 `user_preference / relationship_permission / trial_preference` 三种 scope；来源必须绑定真实用户消息，AI 回复只能作为“用户在评价什么”的上下文，不能产生证据。不得把沉默、未反对、短回复或模型自述当作用户偏好。
+6. 每条候选保存稳定 subject/proposition、状态、置信度、支持/反证次数与时间；每条证据保存来源用户消息、证据类型、支持或反证、短证据文本、普通/试穿语境和 trial 来源。状态按 `candidate → forming → established / contradicted / retired` 由本地确定性策略演化；模型只能提案，不能直接决定成熟或改人格。
+7. 试穿证据必须带 trial 上下文，并与自然关系学习隔离。它可以证明“用户喜欢这次体验中的某个特征”，但本批不得生成 AI Self、AI habit、永久角色设定或转正修改。问卷、主动澄清、成长习惯、试穿蒸馏和夜间整理均不在本批。
+8. 最关键的不影响合同：学习候选不进入普通/主动/沉浸聊天 Prompt，不进入 Agent 自读结果，不修改长期记忆召回、Desire、Thought、Moe、关系同化、试穿模板或当前台词。第一包只验证提取是否准确、是否能被反证、是否可备份恢复和是否不泄露诊断正文。
+9. 脱敏诊断只输出 enabled、各状态/scope/evidence 类型计数、最近写入时间、是否出现普通/试穿来源和错误布尔值；不得输出 subject、proposition、证据文本、消息正文、trial 文本或模型 JSON。备份属于用户持有的完整关系资料，可携带新表正文并继续受现有单文件状态包完整性保护。
+10. 自动验收至少覆盖：用户明确偏好形成 forming 候选；相同真实证据重放幂等；第二条独立支持可成熟；反证可降级/contradict；AI 单方面台词和沉默不落证据；特殊试穿来源被隔离；非法 scope/subject/证据 quote 被手机拒绝；旧 schema 41 导入为空学习历史；新表完整导出/导入；诊断零正文；现有 Prompt 生成字节不消费学习表。
+11. 完成后集中运行当前/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、稳定签名和大型载荷校验，回填本节提交、Actions、APK 文件名/大小/SHA、Artifact/Draft Release 与真机边界。第一包真机只需自然聊几轮、给出一条明确偏好和一条限定/相反反馈，再导出脱敏诊断；正确表现是后台证据变化而台词没有因学习层突然改风格。
 
 ## 历史工作记录（原文保留，按需检索）
 

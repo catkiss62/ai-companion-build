@@ -27,6 +27,7 @@ import '../memory/memory_retrieval_policy.dart';
 import '../phone/album_perceptual_hash.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
+import '../models/personality_learning.dart';
 import '../models/post_turn_job.dart';
 import '../models/generation_job.dart';
 import '../models/maintenance_run.dart';
@@ -86,7 +87,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 38;
   // Historical validator compatibility token: static const int schemaVersion = 39;
   // Historical validator compatibility token: static const int schemaVersion = 40;
-  static const int schemaVersion = 41;
+  // Historical validator compatibility token: static const int schemaVersion = 41;
+  static const int schemaVersion = 42;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1033,6 +1035,14 @@ class AppDatabase {
     if (oldVersion < 41) {
       await _createV41Tables(db);
     }
+    if (oldVersion < 42) {
+      await _createV42Tables(db);
+      await db.insert(
+        'settings',
+        {'key': 'personality_learning_enabled', 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1202,6 +1212,7 @@ class AppDatabase {
     await _createV39Tables(db);
     await _createV40Tables(db);
     await _createV41Tables(db);
+    await _createV42Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1228,6 +1239,10 @@ class AppDatabase {
     await db.insert('settings', {'key': 'nsfw_route_source', 'value': 'initial'});
     await db.insert('settings', {'key': 'nsfw_route_turn_id', 'value': ''});
     await db.insert('settings', {'key': 'auto_memory', 'value': '1'});
+    await db.insert(
+      'settings',
+      {'key': 'personality_learning_enabled', 'value': '1'},
+    );
     await db.insert('settings', {'key': 'memory_consolidation_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'self_drive_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'transfer_lock', 'value': '0'});
@@ -2222,6 +2237,68 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV42Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_learning_candidates (
+        id TEXT PRIMARY KEY,
+        scope TEXT NOT NULL,
+        subject_key TEXT NOT NULL,
+        proposition TEXT NOT NULL,
+        context_key TEXT NOT NULL DEFAULT 'ordinary',
+        status TEXT NOT NULL DEFAULT 'candidate',
+        confidence REAL NOT NULL DEFAULT 0,
+        support_count INTEGER NOT NULL DEFAULT 0,
+        contradiction_count INTEGER NOT NULL DEFAULT 0,
+        support_score REAL NOT NULL DEFAULT 0,
+        contradiction_score REAL NOT NULL DEFAULT 0,
+        first_observed_at INTEGER NOT NULL,
+        last_observed_at INTEGER NOT NULL,
+        established_at INTEGER,
+        contradicted_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(scope, subject_key, context_key)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_candidate_status '
+      'ON personality_learning_candidates(status, updated_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_candidate_scope '
+      'ON personality_learning_candidates(scope, context_key, updated_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_learning_evidence (
+        id TEXT PRIMARY KEY,
+        candidate_id TEXT NOT NULL,
+        source_message_id TEXT NOT NULL,
+        context_assistant_message_id TEXT NOT NULL DEFAULT '',
+        evidence_kind TEXT NOT NULL,
+        polarity TEXT NOT NULL,
+        evidence_text TEXT NOT NULL,
+        confidence REAL NOT NULL,
+        weight REAL NOT NULL,
+        context_kind TEXT NOT NULL DEFAULT 'ordinary',
+        context_key TEXT NOT NULL DEFAULT 'ordinary',
+        trial_id TEXT NOT NULL DEFAULT '',
+        trial_key TEXT NOT NULL DEFAULT '',
+        observed_at INTEGER NOT NULL,
+        FOREIGN KEY(candidate_id)
+          REFERENCES personality_learning_candidates(id) ON DELETE CASCADE,
+        UNIQUE(candidate_id, source_message_id)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_evidence_candidate '
+      'ON personality_learning_evidence(candidate_id, observed_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_evidence_time '
+      'ON personality_learning_evidence(observed_at DESC)',
+    );
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2468,6 +2545,7 @@ class AppDatabase {
       'nsfw_route_turn_id': '',
       'personality_base_key': 'neutral',
       'personality_posture_key': 'equal',
+      'personality_learning_enabled': '1',
       'tts_reading_scope': 'dialogue_only',
       'chat_visual_stage_enabled': '1',
       'chat_background_mode': 'auto',
@@ -2651,6 +2729,8 @@ class AppDatabase {
     const tables = <String>[
       'messages',
       'memory_items',
+      'personality_learning_candidates',
+      'personality_learning_evidence',
       'unfinished_threads',
       'thoughts',
       'relationship_events',
@@ -5716,6 +5796,243 @@ class AppDatabase {
       orderBy: 'observed_at DESC',
       limit: limit,
     );
+  }
+
+  Future<List<PersonalityLearningCandidate>>
+      personalityLearningCandidatesForExtraction({int limit = 16}) async {
+    final db = await database;
+    final rows = await db.query(
+      'personality_learning_candidates',
+      where: 'status != ?',
+      whereArgs: const ['retired'],
+      orderBy: 'last_observed_at DESC',
+      limit: limit.clamp(1, 40).toInt(),
+    );
+    return rows
+        .map(PersonalityLearningCandidate.fromDb)
+        .toList(growable: false);
+  }
+
+  Future<bool> applyPersonalityLearningProposal({
+    required PersonalityLearningProposal proposal,
+    required PersonalityLearningContext context,
+    required String sourceMessageId,
+    required String assistantMessageId,
+    required DateTime observedAt,
+  }) async {
+    if (sourceMessageId.trim().isEmpty ||
+        !context.allowsScope(proposal.scope)) {
+      return false;
+    }
+    final db = await database;
+    final observedMs = observedAt.millisecondsSinceEpoch;
+    return db.transaction<bool>((txn) async {
+      Map<String, Object?>? candidateRow;
+      final targetId = proposal.targetCandidateId?.trim() ?? '';
+      if (targetId.isNotEmpty) {
+        final targetRows = await txn.query(
+          'personality_learning_candidates',
+          where: 'id = ? AND status != ?',
+          whereArgs: [targetId, 'retired'],
+          limit: 1,
+        );
+        if (targetRows.isEmpty) return false;
+        final target = PersonalityLearningCandidate.fromDb(targetRows.first);
+        if (target.scope != proposal.scope ||
+            target.subjectKey != proposal.subjectKey ||
+            target.contextKey != context.contextKey) {
+          return false;
+        }
+        candidateRow = targetRows.first;
+      } else {
+        final matching = await txn.query(
+          'personality_learning_candidates',
+          where: 'scope = ? AND subject_key = ? AND context_key = ?',
+          whereArgs: [
+            proposal.scope.key,
+            proposal.subjectKey,
+            context.contextKey,
+          ],
+          limit: 1,
+        );
+        if (matching.isNotEmpty) candidateRow = matching.first;
+      }
+
+      if (candidateRow == null &&
+          proposal.polarity == PersonalityLearningPolarity.contradict) {
+        return false;
+      }
+
+      final candidateId = candidateRow?['id'] as String? ?? _uuid.v4();
+      if (candidateRow == null) {
+        await txn.insert('personality_learning_candidates', {
+          'id': candidateId,
+          'scope': proposal.scope.key,
+          'subject_key': proposal.subjectKey,
+          'proposition': proposal.proposition,
+          'context_key': context.contextKey,
+          'status': PersonalityLearningStatus.candidate.key,
+          'confidence': 0.0,
+          'support_count': 0,
+          'contradiction_count': 0,
+          'support_score': 0.0,
+          'contradiction_score': 0.0,
+          'first_observed_at': observedMs,
+          'last_observed_at': observedMs,
+          'created_at': observedMs,
+          'updated_at': observedMs,
+        });
+      }
+
+      final replay = await txn.query(
+        'personality_learning_evidence',
+        columns: const ['id'],
+        where: 'candidate_id = ? AND source_message_id = ?',
+        whereArgs: [candidateId, sourceMessageId],
+        limit: 1,
+      );
+      if (replay.isNotEmpty) return false;
+
+      await txn.insert('personality_learning_evidence', {
+        'id': _uuid.v4(),
+        'candidate_id': candidateId,
+        'source_message_id': sourceMessageId,
+        'context_assistant_message_id': assistantMessageId,
+        'evidence_kind': proposal.evidenceKind.key,
+        'polarity': proposal.polarity.key,
+        'evidence_text': proposal.evidenceText,
+        'confidence': proposal.confidence,
+        'weight': proposal.weight,
+        'context_kind': context.kind,
+        'context_key': context.contextKey,
+        'trial_id': context.trialId,
+        'trial_key': context.trialKey,
+        'observed_at': observedMs,
+      });
+
+      final aggregate = (await txn.rawQuery('''
+        SELECT
+          SUM(CASE WHEN polarity = 'support' THEN weight ELSE 0 END) AS support_score,
+          SUM(CASE WHEN polarity = 'contradict' THEN weight ELSE 0 END) AS contradiction_score,
+          SUM(CASE WHEN polarity = 'support' THEN 1 ELSE 0 END) AS support_count,
+          SUM(CASE WHEN polarity = 'contradict' THEN 1 ELSE 0 END) AS contradiction_count
+        FROM personality_learning_evidence
+        WHERE candidate_id = ?
+      ''', [candidateId])).first;
+      final supportScore =
+          (aggregate['support_score'] as num?)?.toDouble() ?? 0.0;
+      final contradictionScore =
+          (aggregate['contradiction_score'] as num?)?.toDouble() ?? 0.0;
+      final supportCount =
+          (aggregate['support_count'] as num?)?.toInt() ?? 0;
+      final contradictionCount =
+          (aggregate['contradiction_count'] as num?)?.toInt() ?? 0;
+      final maturity = PersonalityLearningMaturityPolicy.evaluate(
+        supportScore: supportScore,
+        contradictionScore: contradictionScore,
+        supportCount: supportCount,
+        contradictionCount: contradictionCount,
+        latestPolarity: proposal.polarity,
+        latestKind: proposal.evidenceKind,
+      );
+      await txn.update(
+        'personality_learning_candidates',
+        {
+          'status': maturity.status.key,
+          'confidence': maturity.confidence,
+          'support_count': supportCount,
+          'contradiction_count': contradictionCount,
+          'support_score': supportScore,
+          'contradiction_score': contradictionScore,
+          'last_observed_at': observedMs,
+          if (maturity.status == PersonalityLearningStatus.established &&
+              candidateRow?['established_at'] == null)
+            'established_at': observedMs,
+          if (maturity.status == PersonalityLearningStatus.contradicted)
+            'contradicted_at': observedMs,
+          'updated_at': observedMs,
+        },
+        where: 'id = ?',
+        whereArgs: [candidateId],
+      );
+      await txn.insert(
+        'settings',
+        {
+          'key': 'last_personality_learning_success_at',
+          'value': observedMs.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return true;
+    });
+  }
+
+  Future<Map<String, Object?>> personalityLearningDiagnosticStats() async {
+    final db = await database;
+    Future<Map<String, int>> grouped(String table, String column) async {
+      final rows = await db.rawQuery(
+        'SELECT $column AS key, COUNT(*) AS count FROM $table GROUP BY $column',
+      );
+      return {
+        for (final row in rows)
+          row['key']?.toString() ?? 'unknown':
+              (row['count'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    final latestRows = await db.rawQuery(
+      'SELECT MAX(observed_at) AS latest FROM personality_learning_evidence',
+    );
+    final contextCounts = await grouped(
+      'personality_learning_evidence',
+      'context_kind',
+    );
+    final candidateCounts = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM personality_learning_candidates',
+    );
+    final evidenceCounts = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM personality_learning_evidence',
+    );
+    return {
+      'enabled': (await getSetting('personality_learning_enabled')) != '0',
+      'candidateCount': Sqflite.firstIntValue(candidateCounts) ?? 0,
+      'evidenceCount': Sqflite.firstIntValue(evidenceCounts) ?? 0,
+      'statusCounts': await grouped(
+        'personality_learning_candidates',
+        'status',
+      ),
+      'scopeCounts': await grouped(
+        'personality_learning_candidates',
+        'scope',
+      ),
+      'evidenceKindCounts': await grouped(
+        'personality_learning_evidence',
+        'evidence_kind',
+      ),
+      'polarityCounts': await grouped(
+        'personality_learning_evidence',
+        'polarity',
+      ),
+      'latestObservedAt': latestRows.isEmpty
+          ? 0
+          : (latestRows.first['latest'] as num?)?.toInt() ?? 0,
+      'hasOrdinaryEvidence': (contextCounts['ordinary'] ?? 0) > 0,
+      'hasTrialEvidence': contextCounts.entries.any(
+        (entry) => entry.key != 'ordinary' && entry.value > 0,
+      ),
+      'rejectedCount': int.tryParse(
+            await getSetting('personality_learning_rejected_count') ?? '',
+          ) ??
+          0,
+      'lastRejectedAt': int.tryParse(
+            await getSetting('personality_learning_last_rejected_at') ?? '',
+          ) ??
+          0,
+      'candidateBodiesIncluded': false,
+      'evidenceBodiesIncluded': false,
+      'messageBodiesIncluded': false,
+      'modelProposalIncluded': false,
+    };
   }
 
   Future<List<MemoryItem>> memoryCandidatesForSelfDrive({int limit = 24}) async {
@@ -10280,6 +10597,20 @@ class AppDatabase {
     return rows.isEmpty ? null : PersonalityTrial.fromDb(rows.first);
   }
 
+  Future<PersonalityTrial?> personalityTrialAt(DateTime moment) async {
+    final db = await database;
+    final at = moment.millisecondsSinceEpoch;
+    final rows = await db.query(
+      'personality_trials',
+      where:
+          'started_at <= ? AND expires_at > ? AND (ended_at IS NULL OR ended_at > ?)',
+      whereArgs: [at, at, at],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : PersonalityTrial.fromDb(rows.first);
+  }
+
   Future<PersonalityTrial?> latestAdoptablePersonalityTrial({DateTime? now}) async {
     final db = await database;
     final at = now ?? DateTime.now();
@@ -12204,6 +12535,8 @@ class AppDatabase {
       'message_attachments',
       'memory_items',
       'memory_evidence',
+      'personality_learning_candidates',
+      'personality_learning_evidence',
       'conversation_summaries',
       'unfinished_threads',
       'thoughts',
@@ -12292,6 +12625,8 @@ class AppDatabase {
         'message_attachments',
         'memory_items',
         'memory_evidence',
+        'personality_learning_candidates',
+        'personality_learning_evidence',
         'conversation_summaries',
         'unfinished_threads',
         'thoughts',

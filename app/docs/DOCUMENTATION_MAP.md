@@ -36,6 +36,7 @@
 - `PERSONALITY_TRIAL_SYSTEM_v1.md`：性格试穿。
 - `PERSONALITY_INNER_VOICE_v2.md`：长期人格内心声。
 - `PROMPT_WORKBENCH_v1.md`：提示词工作台。
+- `PERSONALITY_LEARNING_GROWTH_PHASE1.md`：人格学习/成长 Phase 0 分类、Phase 1 只观察证据合同与第一真机卡点。
 - `NSFW_CONTEXT_ROUTER_v1.md`：独立上下文路由与安全边界。
 - `EMOTION_ENGINE_EXPANSION_EVAL_v1.md`：情绪引擎扩建/停止判据。
 
