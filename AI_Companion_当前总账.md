@@ -27,14 +27,14 @@
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 当前开发分支 | `agent/v0417-forthright-fiery-personality`；从 v0.41.6 已通过 CI/APK 的本地同 tree 基线开始 |
 | 上一运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 远端 `bc72196a33660a63cc9953b577486e70449856fc`；tree `574e87efecfd9e581ec5ee4b9378267cf0dc5d0b` 与本地一致 |
+| 当前代码 head / tree | 远端功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；tree `41967fe86b80dfb5cbda4d1bb62770a8d2a9d000` 与本地功能提交精确一致 |
 | App / 数据库 | 当前开工目标 `0.41.7+146` / schema 41；Snapshot/备份 protocol 5 不变；2026-08-31 新存档与诊断确认已装真机仍为 v0.41.5 |
-| 最终 CI | Actions run `33386230422`，run number 642，head `bc72196a3366...`，全绿；383 项 Flutter tests 通过 |
-| 测试 APK | `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK.apk`，325,243,126 bytes |
-| APK SHA-256 | `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6` |
-| Artifact / Release | Artifact ID `9755962687`；Draft Release，未发布正式 Release |
+| 最终 CI | Actions run `33399759476`，run number 643，head `58c244a4b080...`，全绿；384 项 Flutter tests 通过 |
+| 测试 APK | `AI-Companion-v0.41.7-146-Forthright-Fiery-Personality-APK.apk`，325,248,274 bytes |
+| APK SHA-256 | `101c983bd6ec09d306872d67d696ac5f6cd4508b6c16d2e894dfd65418b945e0` |
+| Artifact / Release | Artifact ID `9761116494`；Draft Release `untagged-4c4a1dd8929eeeb5e52c`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.7“直爽泼辣”常规底色已授权并登记开工；v0.41.6 Agent 自我系统读取已实现、CI/APK 通过，但 schema 40→41 与新工具真值仍待真正覆盖安装验收 |
+| 当前总状态 | v0.41.7“直爽泼辣”常规底色已实现、CI/APK 通过，等待覆盖安装真机体验；v0.41.6 Agent 自我系统读取随本 APK 一并保留，但 schema 40→41 与新工具真值仍待真正覆盖安装验收 |
 
 ### 3. 当前模块状态总表
 
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · 实现中 | “直爽泼辣”常规性格底色 | v0.41.7 独立代码批；明确自然说脏话的稳定习惯、开放词例与语境逻辑，可试穿并转正；不做封闭词库，不改核心人格/Desire/Memory |
+| P0 · 自动化完成 / 真机待验 | “直爽泼辣”常规性格底色 | v0.41.7 独立代码批已完成并产出 APK；明确自然说脏话的稳定习惯、开放词例与语境逻辑，可试穿并转正；不做封闭词库，不改核心人格/Desire/Memory |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
@@ -178,7 +178,7 @@
 5. Artifact ID `9755962687`，名称 `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK`，ZIP 318,944,836 bytes，digest `sha256:38868bc8c6370d7c11fb503c32c3a5da6c3597cbfb408c569f3340e4179d9175`，保留至 2026-09-14T11:27:11Z。独立下载解包得到 APK 325,243,126 bytes，SHA-256 `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6`，与 CI checksum 完全一致；签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release URL 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59b31530140f2031662d`，未发布正式 Release，`main` 未合并。
 6. 自动化只能证明实现合同。真机仍需覆盖安装后核对 schema 40→41 保留关系资料与旧对话，并依次问：“你有什么功能/我给你做过什么”“你最近自己做了什么”“刚才工具失败或无结果时发生了什么”“你能看当前屏幕/调用 MCP 吗”。应准确区分真实成功、无结果、失败、阻止和未实现，且不能复述查询词、URL、相册/记忆/规则正文、设备 ID 或内部日志；未完成这组语言验收前状态保持 `TRUE DEVICE PENDING`。
 
-### 11. 2026-08-31 · v0.41.7 直爽泼辣常规底色（AUTHORIZED / IMPLEMENTATION STARTED）
+### 11. 2026-08-31 · v0.41.7 直爽泼辣常规底色（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 1. 用户确认“直爽泼辣”属于可长期使用、可转正的普通性格底色，不是永不转正的特殊风格。它与 `neutral/outgoing/reserved/gentle/playful` 同级，继续与四种相处姿态自由组合；普通试穿的计时、有效回复、互动时段、7 天转正窗口、结束回退和版本快照合同不变。
 2. 本底色的关键不是无脑嫌弃或传统“毒舌”：粗口是稳定、自然、现代互联网式的语言习惯，可以用于惊讶、赞同、夸奖、关心、催促、恼火、害羞和亲密熟稔感。提示必须明确给出开放词例，例如“傻逼、老子、操/艹/草、滚、爬、滚蛋、蠢货、笨比、白痴”等，并允许贴近当下语境的新网络表达；词例不是封闭数据库、轮播清单或每句强制配额。
@@ -190,6 +190,12 @@
 8. 目标分支 `agent/v0417-forthright-fiery-personality`，版本 `0.41.7+146`，SQLite 维持 schema 41、Snapshot protocol 5 不变。实现范围只包括常规底色目录、可编辑模板真源、具体对话参照、迁移/试穿/转正合同与测试；不修改规则 01/03、特殊风格正文、Desire/Moe 数值、Memory 检索、联网、TTS、桌宠、悬浮窗、备份协议或 `main`。
 9. 预定验收：目录显示新底色并可与任一姿态试穿；编译 Prompt 同时包含开放粗口词例、非封闭/非强制、关心可粗鲁、女性身份不变、不过度攻击和任务准确性；转正仍只写回 base/posture；设置页工作台可编辑新 `07_base_forthright` 模板且覆盖安装自动补入缺失模板；未知 key 仍安全回到 neutral。完成后运行新增 validator、全部历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、稳定签名和大型载荷校验，并二次回填提交、CI、APK/SHA 与真机边界。
 10. Memory 后续按两个独立阶段排期：Phase 1 先做 `topic_key`/主题锚点与最多一层、少量补充的关联召回，让 Live2D→呆毛→进度形成连续事件；Phase 2 再做夜间自由整理，可回忆共同经历、网页发现或自己感兴趣的话题，不默认抬高关系记忆权重，也不建设“甜蜜节点全部永久保护”的女性向偏置。Phase 1 真机验证前不进入 Phase 2；完整关系图谱保持可选，不与 v0.41.7 同包。
+11. 实际实现新增普通 base key `forthright` / 显示名“直爽泼辣”，目录共 6 项（含自然状态），继续由同一 `PersonalityCatalog.bases` 驱动试穿 UI；`startPersonalityTrial`、有效回复/互动时段、结束/延长和 `adoptPersonalityTrial` 没有复制第二套逻辑。覆盖安装由既有 `_seedRuleLayers` 以 `ConflictAlgorithm.ignore` 自动补入缺失的锁定可编辑模板 `07_base_forthright`，不会覆盖任何已存在规则正文；schema 仍为 41。
+12. 新版正文真源为 `rule_layer_content_v0417.dart`。它明确粗口是惊讶、赞同、夸奖、催促、关心、恼火、害羞和亲密的开放表达材料，包含用户批准词例及“妈的、牛逼、逆天、绷不住、什么鬼、离谱”等延展，同时明确不是封闭词库、轮播或每句配额。具体参照覆盖忘记吃饭、长期任务成功、被问爱不爱和精确处理故障；`老子` 不改变女性 AI 身份，不固定地域口音，不用真实创伤/身份/不可改变弱点制造攻击，也不靠每次骂完道歉补糖。
+13. 本地 workflow 同清单 122 个 Python validators 中 112 个通过；其余 10 个只因本地未恢复 CI 专用的 417 文件桌宠、LingChat/TTS/native 载荷或没有 `kotlinc`，没有人格、迁移、备份、schema 或 Prompt 合同失败。YAML、Python 语法、`git diff --check`、总账历史档案 SHA、v0.35.0～v0.35.2 人格试穿/工作台以及 v0.41.4～v0.41.6 当前合同均通过。开工总账本地提交为 `0619323`，功能本地提交为 `8433ffd`；经 Git Data 聚合后远端功能提交为 `58c244a4b08033f403776f1ec31bbece5557506d`，tree `41967fe86b80dfb5cbda4d1bb62770a8d2a9d000` 与本地功能 tree 精确一致。
+14. Actions run [`33399759476`](https://github.com/catkiss62/ai-companion-build/actions/runs/33399759476)（643）在上述远端 head 上全绿：122 个当前/历史 Python validators、Kotlin 桌宠/悬浮窗测试、Flutter analyze、384 项 Flutter tests、Release APK、稳定签名、Native/TTS/417 文件桌宠/LingChat/22 张塔罗完整载荷、checksum、Artifact 和 Draft Release 上传全部通过；`report-ci-failure` 正常 skipped。Artifact ID `9761116494`，ZIP 318,952,265 bytes，digest `sha256:31461029f16e9997359355903aa84de3ba89658b0bcdb665b87970cd88978abb`，保留至 2026-09-14T14:06:56Z。
+15. 测试 APK `AI-Companion-v0.41.7-146-Forthright-Fiery-Personality-APK.apk` 为 325,248,274 bytes；从 Artifact 独立解包实算 SHA-256 `101c983bd6ec09d306872d67d696ac5f6cd4508b6c16d2e894dfd65418b945e0`，与 CI checksum 和 Draft Release asset digest 三方一致。签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装；Draft Release 为 [`untagged-4c4a1dd8929eeeb5e52c`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4c4a1dd8929eeeb5e52c)，保持草稿，`main` 未合并。
+16. 真机覆盖安装后先确认 App 显示 `v0.41.7+146 / schema 41`，再进入性格试穿间选择“直爽泼辣 × 平等恋人”（随后也可换任一姿态）。建议混合聊成功、犯傻、忘吃饭、严肃求助和“你爱我吗”；正确表现是粗口不只用于发怒、关心可保持命令/吐槽形式、不会每句强塞词表或骂完固定补糖，遇到精确任务仍完整解决。达到原 6 小时/20 回答/2 时段门槛后可验证转正；关闭/结束应恢复原长期底色。与此同时复测 v0.41.6 的 `system_self.read` 与 schema 40→41，后台 `No element` 仍按独立问题观察，不能因本 APK CI 全绿写成真机已修复。
 
 ## 历史工作记录（原文保留，按需检索）
 
