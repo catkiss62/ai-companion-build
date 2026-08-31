@@ -65,7 +65,7 @@ void main() {
       intimacyActive: false,
     );
 
-    expect(PersonalityCatalog.bases.length, 5);
+    expect(PersonalityCatalog.bases.length, 6);
     expect(PersonalityCatalog.base('unknown').key, 'neutral');
     expect(
       PersonalityCatalog.compileProfile('neutral', 'equal', trial: false),
@@ -101,6 +101,33 @@ void main() {
     );
   });
 
+  test('forthright base is a normal adoptable profile with open profanity logic', () {
+    final profile = PersonalityCatalog.compileProfile(
+      'forthright',
+      'equal',
+      trial: true,
+    );
+    final adopted = PersonalityCatalog.compileProfile(
+      'forthright',
+      'older',
+      trial: false,
+    );
+
+    expect(PersonalityCatalog.base('forthright').label, '直爽泼辣');
+    expect(profile, contains('自然说脏话的习惯'));
+    expect(profile, contains('傻逼、老子、操、艹、草、滚、爬、滚蛋、蠢货、笨比、白痴'));
+    expect(profile, contains('开放词例，不是封闭词库、轮播表或每句配额'));
+    expect(profile, contains('粗口可以表达惊讶、赞同、夸奖、催促'));
+    expect(profile, contains('不要求每次骂完立刻道歉'));
+    expect(profile, contains('不改变女性 AI 身份'));
+    expect(profile, contains('不要模仿固定地域口音'));
+    expect(profile, contains('不能用玩梗代替答案'));
+    expect(profile, contains('爱你妈'));
+    expect(profile, isNot(contains('知情并主动参与的一次临时特殊风格试穿')));
+    expect(adopted, contains('当前长期底色'));
+    expect(adopted, contains('姐系引导'));
+  });
+
   test('workbench templates immediately override trial and special prompts', () {
     final profile = PersonalityCatalog.compileProfile(
       'playful',
@@ -120,6 +147,12 @@ void main() {
         '07_special_shared': 'state={{intimacy_state}}',
       },
     );
+    final forthright = PersonalityCatalog.compileProfile(
+      'forthright',
+      'equal',
+      trial: true,
+      templates: const {'07_base_forthright': 'CUSTOM_FORTHRIGHT'},
+    );
 
     expect(profile, contains('CUSTOM_BASE'));
     expect(profile, contains('CUSTOM_POSTURE'));
@@ -127,5 +160,7 @@ void main() {
     expect(profile, isNot(contains('反咬一口')));
     expect(special, contains('CUSTOM_SPECIAL'));
     expect(special, contains('state=已开启'));
+    expect(forthright, contains('CUSTOM_FORTHRIGHT'));
+    expect(forthright, isNot(contains('自然说脏话的习惯')));
   });
 }

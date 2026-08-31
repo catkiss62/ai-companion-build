@@ -25,6 +25,7 @@ void main() {
       '07_base_reserved',
       '07_base_gentle',
       '07_base_playful',
+      '07_base_forthright',
       '07_posture_equal',
       '07_posture_younger',
       '07_posture_older',
@@ -54,6 +55,8 @@ void main() {
     expect(byKey['03_personality_seed']!.locked, isFalse);
     expect(byKey['03_appearance_identity']!.locked, isTrue);
     expect(byKey['07_base_playful']!.loadPolicy, 'template');
+    expect(byKey['07_base_forthright']!.loadPolicy, 'template');
+    expect(byKey['07_base_forthright']!.content, contains('自然说脏话的习惯'));
     expect(byKey['08_visible_inner_voice']!.locked, isTrue);
   });
 
@@ -95,6 +98,7 @@ void main() {
           '07_posture_older',
           '07_posture_impish',
           '07_profile_shared',
+          '07_base_forthright',
           '07_special_yandere',
           '07_special_seductress',
           '07_special_highness',

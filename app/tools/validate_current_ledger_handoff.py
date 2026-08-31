@@ -68,6 +68,7 @@ def main() -> None:
 
     required_facts = (
         "agent/v0416-agent-self-facts",
+        "agent/v0417-forthright-fiery-personality",
         "agent/v0415-ledger-handoff-index",
         "agent/v0415-personality-state-diversity",
         "494796ef02e369f98e6896bc5acea7185e3c35dd",
@@ -100,7 +101,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.6\+145\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.7\+146\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )

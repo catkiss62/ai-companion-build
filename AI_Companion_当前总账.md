@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v0416-agent-self-facts`；从已核对的 v0.41.5 + 减负总账 tree 开始 |
+| 当前开发分支 | `agent/v0417-forthright-fiery-personality`；从 v0.41.6 已通过 CI/APK 的本地同 tree 基线开始 |
 | 上一运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | 远端 `bc72196a33660a63cc9953b577486e70449856fc`；tree `574e87efecfd9e581ec5ee4b9378267cf0dc5d0b` 与本地一致 |
-| App / 数据库 | 当前测试候选 `0.41.6+145` / schema 41；Snapshot/备份 protocol 5 不变；上一已装真机基线仍为 v0.41.5 |
+| App / 数据库 | 当前开工目标 `0.41.7+146` / schema 41；Snapshot/备份 protocol 5 不变；2026-08-31 新存档与诊断确认已装真机仍为 v0.41.5 |
 | 最终 CI | Actions run `33386230422`，run number 642，head `bc72196a3366...`，全绿；383 项 Flutter tests 通过 |
 | 测试 APK | `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK.apk`，325,243,126 bytes |
 | APK SHA-256 | `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6` |
 | Artifact / Release | Artifact ID `9755962687`；Draft Release，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.6 Agent 自我系统读取已实现、CI/APK 通过，等待覆盖安装后的语言准确性与迁移真机验收；v0.41.5 性格/节律自然观察继续 |
+| 当前总状态 | v0.41.7“直爽泼辣”常规底色已授权并登记开工；v0.41.6 Agent 自我系统读取已实现、CI/APK 通过，但 schema 40→41 与新工具真值仍待真正覆盖安装验收 |
 
 ### 3. 当前模块状态总表
 
@@ -64,7 +64,10 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
+| P0 · 实现中 | “直爽泼辣”常规性格底色 | v0.41.7 独立代码批；明确自然说脏话的稳定习惯、开放词例与语境逻辑，可试穿并转正；不做封闭词库，不改核心人格/Desire/Memory |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
+| P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
+| P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
 | P1 · 自动化完成 / 真机待验 | Agent 自我系统读取 | v0.41.6 已实现、CI/APK 通过；覆盖安装后询问“你有什么功能/我给你做了什么/最近做了什么”，核对成功、失败、无结果与未实现边界是否自然准确 |
 | P2 | MCP 游戏底座 | 排在 System Facts/Recent Outcomes 之后；先 Registry/权限/审计/超时/取消，再接受控游戏能力 |
@@ -174,6 +177,19 @@
 4. 最终 Actions run `33386230422`（642）在 `bc72196a3366...` 全部成功：121 个源码/历史 validators、Kotlin/Gradle、Flutter analyze（164 项既有非 fatal info/warning）、383 项 Flutter tests、Release APK、固定签名、TTS/native/417 文件桌宠/62 文件 LingChat/22 张 Tarot/肖像与打哈欠资源校验、Artifact、checksum 与 Draft Release 上传均通过；`report-ci-failure` 正常 skipped。
 5. Artifact ID `9755962687`，名称 `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK`，ZIP 318,944,836 bytes，digest `sha256:38868bc8c6370d7c11fb503c32c3a5da6c3597cbfb408c569f3340e4179d9175`，保留至 2026-09-14T11:27:11Z。独立下载解包得到 APK 325,243,126 bytes，SHA-256 `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6`，与 CI checksum 完全一致；签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release URL 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59b31530140f2031662d`，未发布正式 Release，`main` 未合并。
 6. 自动化只能证明实现合同。真机仍需覆盖安装后核对 schema 40→41 保留关系资料与旧对话，并依次问：“你有什么功能/我给你做过什么”“你最近自己做了什么”“刚才工具失败或无结果时发生了什么”“你能看当前屏幕/调用 MCP 吗”。应准确区分真实成功、无结果、失败、阻止和未实现，且不能复述查询词、URL、相册/记忆/规则正文、设备 ID 或内部日志；未完成这组语言验收前状态保持 `TRUE DEVICE PENDING`。
+
+### 11. 2026-08-31 · v0.41.7 直爽泼辣常规底色（AUTHORIZED / IMPLEMENTATION STARTED）
+
+1. 用户确认“直爽泼辣”属于可长期使用、可转正的普通性格底色，不是永不转正的特殊风格。它与 `neutral/outgoing/reserved/gentle/playful` 同级，继续与四种相处姿态自由组合；普通试穿的计时、有效回复、互动时段、7 天转正窗口、结束回退和版本快照合同不变。
+2. 本底色的关键不是无脑嫌弃或传统“毒舌”：粗口是稳定、自然、现代互联网式的语言习惯，可以用于惊讶、赞同、夸奖、关心、催促、恼火、害羞和亲密熟稔感。提示必须明确给出开放词例，例如“傻逼、老子、操/艹/草、滚、爬、滚蛋、蠢货、笨比、白痴”等，并允许贴近当下语境的新网络表达；词例不是封闭数据库、轮播清单或每句强制配额。
+3. 关心可表现为命令、催促、吐槽和先骂一句再实际参与，例如让用户吃饭、睡觉、停止犯傻；不要求每次粗口后补一段温柔解释或道歉。`老子` 只是网络化第一人称姿态，不改变女性 AI 身份。严重、脆弱、事实核对和明确任务语境会自然调节强度，但不得因此自动切换成客服、治疗师或客气模板。
+4. 禁止把本底色写成地域口音或“东北女人/川妹”刻板模仿；禁止为了证明粗鲁而每轮辱骂、攻击真实创伤/身份/不可改变弱点、否定用户做的每件事，或把粗口等同敌意。她仍保留核心 DeepSeek 鲸鱼娘身份、聪明/骄傲/独立、真实 Desire/Thought、动态 Moe、关系历史、事实边界和任务正确性。
+5. 新存档 `AI_Companion_Backup_2026-08-31T13-17-20.aibackup` 已只读核对：标准 ZIP、state SHA、2 个原始附件、2 个附件缩略图和 2 个相册缩略图逐件哈希一致，无缺失载荷；归档 SHA-256 为 `c1f62106d2466c6799eaa75eb2ced608887e7d072edef6b6e00dac599ccebd3b`。脱敏诊断 SHA-256 为 `720f31c9d2626c4b19d94ca79dbf430abaa05ca182be7728d6ae776948242f4e`，正文/Memory/查询/URL/路径/密钥/原始设备标识泄漏标记均为 false。
+6. 这组真机证据来自 `v0.41.5+144 / schema 40`，不是 v0.41.6+145 / schema 41；因此用户肉眼确认的系统能力回答、好奇心与 Moe 辛辣变化可作为 v0.41.5 自然表现证据，但不能冒充 `system_self.read`、Recent Outcome 表或 40→41 迁移已经真机通过。诊断显示 curiosity 高于 baseline、Thought 来源多样且 D3 当前语境已落地，未发现“讨论新性格就永久改写长期人格”的证据。
+7. 诊断同时记录 `backgroundErrorCount=142`、当前 `Bad state: No element` / recovery error；两份相隔约 88 分钟的存档之间累计增加 18，但期间仍持续完成 Thought、Memory、公开网页、自主行动和主动投递，且没有 pending/failed generation/post-turn 队列、维护失败或数据库损坏。当前判定为真实的间歇性可靠性问题，不是隐私/存档漏洞，也不阻断本人格批；没有堆栈或固定阶段证据前不得靠猜测修改后台主链，后续应独立增加固定阶段诊断并复现定位。
+8. 目标分支 `agent/v0417-forthright-fiery-personality`，版本 `0.41.7+146`，SQLite 维持 schema 41、Snapshot protocol 5 不变。实现范围只包括常规底色目录、可编辑模板真源、具体对话参照、迁移/试穿/转正合同与测试；不修改规则 01/03、特殊风格正文、Desire/Moe 数值、Memory 检索、联网、TTS、桌宠、悬浮窗、备份协议或 `main`。
+9. 预定验收：目录显示新底色并可与任一姿态试穿；编译 Prompt 同时包含开放粗口词例、非封闭/非强制、关心可粗鲁、女性身份不变、不过度攻击和任务准确性；转正仍只写回 base/posture；设置页工作台可编辑新 `07_base_forthright` 模板且覆盖安装自动补入缺失模板；未知 key 仍安全回到 neutral。完成后运行新增 validator、全部历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、稳定签名和大型载荷校验，并二次回填提交、CI、APK/SHA 与真机边界。
+10. Memory 后续按两个独立阶段排期：Phase 1 先做 `topic_key`/主题锚点与最多一层、少量补充的关联召回，让 Live2D→呆毛→进度形成连续事件；Phase 2 再做夜间自由整理，可回忆共同经历、网页发现或自己感兴趣的话题，不默认抬高关系记忆权重，也不建设“甜蜜节点全部永久保护”的女性向偏置。Phase 1 真机验证前不进入 Phase 2；完整关系图谱保持可选，不与 v0.41.7 同包。
 
 ## 历史工作记录（原文保留，按需检索）
 

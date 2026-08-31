@@ -38,7 +38,7 @@ const _groupSpecs = <String, _RuleLayerGroupSpec>{
   '03': _RuleLayerGroupSpec(
     '03',
     '03 · 性格底色',
-    '长期性格种子、四个底色、四个相处姿态、八个特殊风格与共同约束。',
+    '长期性格种子、五个可编辑底色、四个相处姿态、八个特殊风格与共同约束。',
   ),
   '04': _RuleLayerGroupSpec(
     '04',
