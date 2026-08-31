@@ -27,14 +27,14 @@
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 当前开发分支 | `agent/v0416-agent-self-facts`；从已核对的 v0.41.5 + 减负总账 tree 开始 |
 | 上一运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 本次文档父提交 | `a6daa7df9572d9164b1cf67433f366de52126134`（只回填 v0.41.5 CI/APK 证据） |
-| App / 数据库 | 当前已交付 `0.41.5+144` / schema 40；本批目标 `0.41.6+145` / schema 41；Snapshot/备份 protocol 5 不变 |
-| 最终 CI | Actions run `33367689222`，run number 639，head `494796ef02e3...`，全绿；376 项 Flutter tests 通过 |
-| 测试 APK | `AI-Companion-v0.41.5-144-Personality-State-Diversity-APK.apk`，325,201,598 bytes |
-| APK SHA-256 | `0d0bcbd7fc5c3ab58436508d0c27bb5369ba62675afe6af095e15248f39286c6` |
-| Artifact / Release | Artifact ID `9749136965`；Draft Release，未发布正式 Release |
+| 当前代码 head / tree | 远端 `bc72196a33660a63cc9953b577486e70449856fc`；tree `574e87efecfd9e581ec5ee4b9378267cf0dc5d0b` 与本地一致 |
+| App / 数据库 | 当前测试候选 `0.41.6+145` / schema 41；Snapshot/备份 protocol 5 不变；上一已装真机基线仍为 v0.41.5 |
+| 最终 CI | Actions run `33386230422`，run number 642，head `bc72196a3366...`，全绿；383 项 Flutter tests 通过 |
+| 测试 APK | `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK.apk`，325,243,126 bytes |
+| APK SHA-256 | `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6` |
+| Artifact / Release | Artifact ID `9755962687`；Draft Release，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.5 源码、CI、APK 已完成且真机自然观察继续；v0.41.6 Agent 自我系统读取已授权开工，尚未完成实现/CI/APK |
+| 当前总状态 | v0.41.6 Agent 自我系统读取已实现、CI/APK 通过，等待覆盖安装后的语言准确性与迁移真机验收；v0.41.5 性格/节律自然观察继续 |
 
 ### 3. 当前模块状态总表
 
@@ -44,8 +44,8 @@
 | 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.4 规则 03 最终文本与精确迁移已实现、CI/APK 通过 | 长期人格体验仍待自然真机观察；规则 01/03 与两条 `<emotion>` 样本不可被顺手改写 |
 | Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
-| Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现并有自动化/部分历史真机证据 | `System Facts / Recent Outcomes` 的 Agent 自我系统读取进入 v0.41.6 实现；完成前仍不得宣称可用 |
-| Agent Tool 主循环 | 用户轮次只读工具已实现：公开网页、规则、记忆、相册、设备上下文；有界两阶段执行 | 屏幕、视频、修改提案、真实提醒、MCP 只登记能力目录，不等于可执行 |
+| Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
+| Agent Tool 主循环 | 用户轮次六个只读工具已实现：公开网页、规则、记忆、相册、设备上下文、自身系统事实；有界两阶段执行 | 屏幕、视频、修改提案、真实提醒、MCP 只登记能力目录，不等于可执行 |
 | 公开网页发现、候选、分享 | 已实现；v0.38.7 网页分享真机通过，后续 Provider/多样性改动有 CI/APK | 后续自然触发和 Provider 长期健康仍按诊断观察；网页内容始终是不可信数据 |
 | 模拟手机、浏览器、私人相册 | 底座、搜索/详情、识图保存强绑定、回想已实现；模拟手机 v0.38.9 功能性真机通过 | 后续相册自然保存/检索体验仍有真机观察项；不把 App 标签当图像内容 |
 | 沉浸房间 / NSFW | v0.39.x 已实现并持续回归 | 成人关系方向、Reality Identity、Session 隔离不可被通用安全模板或女性向材料覆盖 |
@@ -66,7 +66,7 @@
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
-| P1 · 进行中 | Agent 自我系统读取 | v0.41.6 开工：建立只读、可审计、按需进 Prompt 的 `System Facts / Recent Outcomes`，让她能准确说清已做功能和真实工具结果；不得暴露密钥、原始日志、内部路径 |
+| P1 · 自动化完成 / 真机待验 | Agent 自我系统读取 | v0.41.6 已实现、CI/APK 通过；覆盖安装后询问“你有什么功能/我给你做了什么/最近做了什么”，核对成功、失败、无结果与未实现边界是否自然准确 |
 | P2 | MCP 游戏底座 | 排在 System Facts/Recent Outcomes 之后；先 Registry/权限/审计/超时/取消，再接受控游戏能力 |
 | P2 | 手机主存储 / 平板伴随端 | 依照 `PHONE_PRIMARY_TABLET_COMPANION_ARCHITECTURE_v1.md` 独立分批，不能扩张成双端完整数据库同步 |
 | 后置 | HyperOS 文件选择器悬浮恢复、完整换肤、产品化发布 | 明确冻结/后置；除非用户重新排期或新证据改变判断，不得抢占真人感、稳定性与自主性主线 |
@@ -131,7 +131,7 @@
 4. 本地通过新交接 validator、`git diff --check`、Python 语法、v0.34.4/v0.34.5/v0.35.0/v0.35.1 与 v0.41.3～v0.41.5 历史合同。v0.39.5 TTS validator 只因本地未恢复 CI 专用 `legacy_tts` 大型载荷而停在文件存在检查，与本批文档或运行逻辑无关。
 5. App 聊天偶发多余 `「` 已登记为可修但非阻断显示问题；为保持纯文档批边界，本批没有顺手改运行代码。若后续处理，应独立升版、补 display-only 归一化测试并运行完整 CI/APK，不能把本次文档验证当作该问题已修复。
 
-### 10. 2026-08-31 · v0.41.6 Agent 自我系统事实与近期 Outcome（AUTHORIZED / PRE-IMPLEMENTATION LEDGER）
+### 10. 2026-08-31 · v0.41.6 Agent 自我系统事实与近期 Outcome（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 #### A. 开工事实与目标
 
@@ -156,6 +156,24 @@
 2. 数据库/备份测试与 validator 覆盖 schema 41 创建/升级、新表只含允许列、terminal 结果单次落库、历史裁剪、Snapshot 导出/导入、旧包缺表兼容、原始 device ID/参数/正文不进入 Prompt。
 3. 完成后运行 v0.41.6 专项、v0.41.5～v0.40.8 与 current wrappers、全部可运行历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、固定签名与完整大载荷校验；回填真实提交、Actions、APK/SHA 和真机步骤。自动化通过不能代替真机询问“你有什么功能/最近做了什么”的语言准确性。
 4. 用户已有持续 GitHub 构建授权；完成后推送同名公开源码分支并运行 Actions、生成测试 APK，不合并 `main`、不发布正式 Release。
+
+#### D. 实际实现与隐私收口
+
+1. Registry 新增唯一真实只读工具 `system_self.read`，只允许用户轮次调用，支持 `facts / outcomes / all`；本地快路由覆盖“我给你做了什么能力”“你最近做了什么”等明确问法，DeepSeek native tool schema 同步登记。普通陪伴与未来 MCP 元讨论不误触发，单轮最多两工具、Registry read-only Gate 与两阶段 Prompt 回灌保持不变。
+2. 新增 `AgentSelfReader`：代码内事实目录给出 build/schema/Active Brain、主要已实现能力和全部 Tool Registry 真值；屏幕、视频、提案、提醒、MCP 均按 `not_implemented` 输出。Prompt 明确这些是用户和项目提供的 App 能力，禁止声称由角色自己编写，也禁止补写未提供的行动内容。
+3. SQLite 升至 schema 41，新增 `agent_tool_outcomes`。它只保存 terminal tool metadata，不接受 query、arguments、URL、result body、Prompt、聊天/规则正文或 reasoning；原始 Provider failure 只归类为固定 `execution_failed/blocked/redacted_error`，不保存返回文本。保留上限为最近 200 行与 90 天，时间与 tool/time 索引齐全。
+4. 每次用户工具完成后以 durable generation job ID + tool ID + call index 幂等落库；生成重试只替换同一事件，不重复制造历史，审计写失败也不会把真实工具结果变成用户回答失败。`system_self.read` 在读完后才记录自身，因此当前读取不会冒充先前行动。
+5. Recent Outcomes 合并用户工具表与既有 `autonomous_action_runs`，只读最近 14 天、合并后最多 8 条，按结束时间倒序。模型只看到 tool/origin/status/outcome/count/分钟时间和“本机/其他设备”；不展示 raw device ID，其他设备具体 label 也不进入 Prompt。导入备份中的异常字段经过单行/长度/结构字符清洗，不能转化为系统指令。
+6. 新表进入完整 `exportAll/importAll` 与脱敏 preflight 计数；旧 schema 1～40、protocol 1～5 包缺少该表时按空列表兼容，因此 Snapshot protocol 继续为 5。诊断不含参数、结果正文、URL 或 device ID；规则 01/03、Desire/Moe/Emotion、TTS、桌宠、相册、屏幕与 MCP 执行能力均未改。
+
+#### E. 测试、CI、APK 与交付边界
+
+1. 新增 facts/outcomes 纯格式单测，覆盖 executable / `not_implemented` 区分、原始设备 ID/意外 query/URL/reasoning/其他设备 label 不泄露、合并排序、最多 8 条与空历史不编造；扩展 Planner/Registry 测试覆盖 facts/outcomes scope、普通闲聊和未来 MCP 元讨论不误触发、native call 映射。新增 `validate_v0416_agent_self_facts.py` 固定版本、schema/migration、允许列、隐私、幂等、备份兼容、workflow 与总账合同。
+2. 本地 113 个可运行 Python validators 全部通过；另 8 个只因本地未恢复 CI 专用的 417 文件桌宠、LingChat/TTS/native 大载荷或没有 `kotlinc` 无法运行，与此前版本一致。总账历史档案 SHA-256 仍为 `7f44e0f6...94628`，105 个二级标题、413 个三级标题未改；workflow YAML、Python 语法与 `git diff --check` 通过。
+3. 本地功能提交为 `f0dff34`，Actions 触发提交为 `5610a26`，显式 import 修复为 `a7726fe`；远端对应聚合 head 依次为 `adb98b812fe0`、`bb583ddc2310`、`bc72196a33660a63cc9953b577486e70449856fc`，最终 tree `574e87efecfd9e581ec5ee4b9378267cf0dc5d0b` 与本地逐字节一致。run 640 被同分支并发策略取消；run `33385683667`（641）在 debug 编译发现 `AgentToolRisk.key` extension 未显式 import，修复后不再复现，不能视为当前残留失败。
+4. 最终 Actions run `33386230422`（642）在 `bc72196a3366...` 全部成功：121 个源码/历史 validators、Kotlin/Gradle、Flutter analyze（164 项既有非 fatal info/warning）、383 项 Flutter tests、Release APK、固定签名、TTS/native/417 文件桌宠/62 文件 LingChat/22 张 Tarot/肖像与打哈欠资源校验、Artifact、checksum 与 Draft Release 上传均通过；`report-ci-failure` 正常 skipped。
+5. Artifact ID `9755962687`，名称 `AI-Companion-v0.41.6-145-Agent-Self-Facts-APK`，ZIP 318,944,836 bytes，digest `sha256:38868bc8c6370d7c11fb503c32c3a5da6c3597cbfb408c569f3340e4179d9175`，保留至 2026-09-14T11:27:11Z。独立下载解包得到 APK 325,243,126 bytes，SHA-256 `e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6`，与 CI checksum 完全一致；签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release URL 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59b31530140f2031662d`，未发布正式 Release，`main` 未合并。
+6. 自动化只能证明实现合同。真机仍需覆盖安装后核对 schema 40→41 保留关系资料与旧对话，并依次问：“你有什么功能/我给你做过什么”“你最近自己做了什么”“刚才工具失败或无结果时发生了什么”“你能看当前屏幕/调用 MCP 吗”。应准确区分真实成功、无结果、失败、阻止和未实现，且不能复述查询词、URL、相册/记忆/规则正文、设备 ID 或内部日志；未完成这组语言验收前状态保持 `TRUE DEVICE PENDING`。
 
 ## 历史工作记录（原文保留，按需检索）
 
