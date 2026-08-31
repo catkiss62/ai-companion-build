@@ -26,15 +26,15 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 当前开发分支 | `agent/v0418-personality-trial-strength-hotfix`；从 v0.41.7 已通过 CI/APK 且已真机暴露普通试穿显示/强度问题的基线开始 |
-| 上一运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 远端功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；tree `41967fe86b80dfb5cbda4d1bb62770a8d2a9d000` 与本地功能提交精确一致 |
-| App / 数据库 | 当前开工目标 `0.41.8+147` / schema 41；Snapshot/备份 protocol 5 不变 |
-| 最终 CI | Actions run `33399759476`，run number 643，head `58c244a4b080...`，全绿；384 项 Flutter tests 通过 |
-| 测试 APK | `AI-Companion-v0.41.7-146-Forthright-Fiery-Personality-APK.apk`，325,248,274 bytes |
-| APK SHA-256 | `101c983bd6ec09d306872d67d696ac5f6cd4508b6c16d2e894dfd65418b945e0` |
-| Artifact / Release | Artifact ID `9761116494`；Draft Release `untagged-4c4a1dd8929eeeb5e52c`，未发布正式 Release |
+| 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d` |
+| 当前代码 head / tree | 远端 CI head `b4c1e613f4ea770902ca05a392df4c1842a170bc`；tree `90577f1581d1bec11c49947d7068eea5f75bf158` 与本地触发提交精确一致；核心功能 head `99e3fb4df5780484422ad8ec2496f6beacf57f4a` |
+| App / 数据库 | 当前 `0.41.8+147` / schema 41；Snapshot/备份 protocol 5 不变 |
+| 最终 CI | Actions run `33409376560`，run number 646，head `b4c1e613f4ea...`，全绿；385 项 Flutter tests 通过 |
+| 测试 APK | `AI-Companion-v0.41.8-147-Personality-Trial-Strength-Hotfix-APK.apk`，325,256,678 bytes |
+| APK SHA-256 | `34fc89145df10376e51c39bad968f93c3789dc304183d72e8b8bb49a5d5358b3` |
+| Artifact / Release | Artifact ID `9764826372`；Draft Release `untagged-3100bfd0c5710092715c`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.8 正在热修普通性格试穿胶囊与 DeepSeek 对负面/粗粝性格的弱化；v0.41.7 已证明规则正文进入源码与 CI，但真机确认显示回归且实际强度不足 |
+| 当前总状态 | v0.41.8 已恢复普通试穿胶囊并强化“直爽泼辣”对 DeepSeek 善化倾向的执行优先级；CI/APK 已通过，等待覆盖安装真机验证显示与多轮强度 |
 
 ### 3. 当前模块状态总表
 
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · 热修进行中 | 普通试穿胶囊与“直爽泼辣”执行强度 | v0.41.7 真机确认普通试穿胶囊被错误隐藏，且 DeepSeek 将粗粝底色弱化成普通活泼；v0.41.8 恢复当前普通试穿名称胶囊，并建立底色高于 D3 临时染色的正向执行优先级 |
+| P0 · 自动化完成 / 真机待验 | 普通试穿胶囊与“直爽泼辣”执行强度 | v0.41.8 已恢复所有活跃普通试穿四字底色名，转正后无活跃试穿不常驻；正向末端锚点保证底色高于 D3 临时染色，等待真机多轮验证 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
@@ -197,7 +197,7 @@
 15. 测试 APK `AI-Companion-v0.41.7-146-Forthright-Fiery-Personality-APK.apk` 为 325,248,274 bytes；从 Artifact 独立解包实算 SHA-256 `101c983bd6ec09d306872d67d696ac5f6cd4508b6c16d2e894dfd65418b945e0`，与 CI checksum 和 Draft Release asset digest 三方一致。签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装；Draft Release 为 [`untagged-4c4a1dd8929eeeb5e52c`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-4c4a1dd8929eeeb5e52c)，保持草稿，`main` 未合并。
 16. 真机覆盖安装后先确认 App 显示 `v0.41.7+146 / schema 41`，再进入性格试穿间选择“直爽泼辣 × 平等恋人”（随后也可换任一姿态）。建议混合聊成功、犯傻、忘吃饭、严肃求助和“你爱我吗”；正确表现是粗口不只用于发怒、关心可保持命令/吐槽形式、不会每句强塞词表或骂完固定补糖，遇到精确任务仍完整解决。达到原 6 小时/20 回答/2 时段门槛后可验证转正；关闭/结束应恢复原长期底色。与此同时复测 v0.41.6 的 `system_self.read` 与 schema 40→41，后台 `No element` 仍按独立问题观察，不能因本 APK CI 全绿写成真机已修复。
 
-### 12. 2026-08-31 · v0.41.8 普通试穿胶囊与直爽泼辣强度热修（IN PROGRESS）
+### 12. 2026-08-31 · v0.41.8 普通试穿胶囊与直爽泼辣强度热修（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）
 
 1. 用户真机确认 v0.41.7 的普通性格试穿胶囊完全不显示；“直爽泼辣”虽然让整体更活泼，但粗口极少，实际效果明显弱于规则工作台中规则 03 所见正文。该反馈取代 v0.41.7 的人格 `TRUE DEVICE PENDING`：源码/构建仍有效，但这两个体验点已经有真实失败证据。
 2. 胶囊根因已定位到 v0.40.7 对用户旧要求的错误实现。用户当时只要求把过长的“自然状态（不加底色）”缩短为“自然状态”；代码却同时从普通聊天和沉浸聊天胶囊中删除了全部 `_personalityTrial` 条件与普通试穿标签，只留下特殊风格。因此本批恢复所有**正在进行的普通试穿**名称，例如“直爽泼辣”；已经转正且当前没有试穿时不显示。普通名称当前均为四字，不再额外隐藏；特殊风格仍按现有名称显示，可与普通试穿并列。
@@ -207,6 +207,16 @@
 6. 必要边界只保留最小、具体的事实保护：不攻击真实创伤、身份和不可改变弱点，明确任务仍要答准；不再用“不要太粗鲁、不要每轮辱骂、该不说就不说”等大段反向措辞反复提醒模型收敛。`老子` 仍不改变女性 AI 身份，地域刻板模仿仍不加入。
 7. 目标分支 `agent/v0418-personality-trial-strength-hotfix`，版本 `0.41.8+147`，schema 41、Snapshot protocol 5 不变。预定补齐普通/特殊胶囊真实入口测试、Prompt 装配顺序与底色锚点测试、脱敏诊断中的 active base/key/template-present/anchor-present 布尔证据；不输出 Prompt 正文、规则正文或用户对话，不修改 Memory Phase 1、Agent 工具、TTS、桌宠、备份或 `main`。
 8. 完成后运行全部当前/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、稳定签名和大型载荷校验，回填提交、Actions、APK/SHA 与真机边界。Memory Phase 1 继续排在本热修真机确认之后，避免人格强度与记忆关联同时变化而无法归因。
+
+
+9. 实际实现新增统一的 `activeTrialCapsuleLabels`：普通聊天与沉浸聊天都从当前 `_personalityTrial.baseKey` 取得普通底色四字名，并与活跃特殊风格并列显示；“自然状态”“直爽泼辣”等普通试穿均可见。胶囊输入只读取 active trial，不读取已转正的长期设置，因此试穿结束或转正且没有新试穿时不会常驻；未知 key 仍不显示。
+10. “直爽泼辣”正文真源升级为 `rule_layer_content_v0418.dart`，以“日常就会自然说脏话”为正向执行习惯，明确惊讶、夸奖、催促、吐槽、关心、嘴硬害羞和亲密反咬都可直接成句，不再把粗口暗示成愤怒专属。词例继续是开放材料，不建立封闭词库、固定轮播或每句配额；只保留不攻击真实创伤/身份/不可改变弱点和精确任务必须答准的最小边界。
+11. `PersonalityCatalog.executionAnchor('forthright')` 在最终用户消息前、D3 动态萌属性之后注入短执行锚点：D3 只能改变直爽泼辣怎样卖萌、害羞或调皮，不能把它替换成普通活泼/可爱；“不靠固定口癖证明标签”也不能被模型解释为隐藏粗口习惯。完整可编辑正文仍只在规则 03 模板链中，锚点不复制全部 Prompt。
+12. 覆盖安装只在 `07_base_forthright` 内容仍精确等于 v0.41.7 默认值时迁移到加强版；用户哪怕只手改一个字也继续优先，schema 保持 41。诊断新增 effective base、是否来自试穿、模板/锚点是否存在等布尔证据，并明确不输出模板正文、锚点正文、用户消息或 Prompt。
+13. 本地无 Flutter SDK，因此先完成 v0.41.8 专项、v0.41.7/v0.41.6 历史兼容、总账档案 SHA、Workflow YAML、Python 语法、`git diff --check` 与同 workflow 清单的 validators；本地缺少 CI 专用大型载荷与 `kotlinc` 的项目留给 Actions。开工总账本地提交 `74dec3a`，功能本地提交 `331baff`，触发提交 `62a23ae`；经 Git Data 聚合后远端功能提交 `99e3fb4df5780484422ad8ec2496f6beacf57f4a`，最终 CI head `b4c1e613f4ea770902ca05a392df4c1842a170bc` 的 tree `90577f1581d1bec11c49947d7068eea5f75bf158` 与本地触发提交精确一致。
+14. 最终 Actions run [`33409376560`](https://github.com/catkiss62/ai-companion-build/actions/runs/33409376560)（646）全绿：当前/历史 Python validators、Kotlin 桌宠/悬浮窗与 Flutter debug 编译、Flutter analyze、385 项 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/LingChat/22 张塔罗完整载荷、checksum、Artifact 与 Draft Release 上传全部通过；`report-ci-failure` 正常 skipped。此前为重新产生 push 事件而出现的 run 644/645 由 concurrency 正常取消，不是测试失败，也不作为最终证据。
+15. Artifact ID `9764826372`，名称 `AI-Companion-v0.41.8-147-Personality-Trial-Strength-Hotfix-APK`，ZIP 318,959,106 bytes，digest `sha256:f12ce4077dd8d223e74a5219292acea6550f1f0f927357f3da38e021e5cd55e7`，保留至 2026-09-14T15:45:39Z。APK 为 325,256,678 bytes，CI checksum 与 GitHub Release 服务器计算的 asset digest 均为 `34fc89145df10376e51c39bad968f93c3789dc304183d72e8b8bb49a5d5358b3`；签名证书继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release 为 [`untagged-3100bfd0c5710092715c`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3100bfd0c5710092715c)，保持草稿；`main` 未合并。
+16. 真机覆盖安装后先核对 `v0.41.8+147 / schema 41`。开始任一普通试穿时，聊天页应显示当前四字底色；普通+特殊同时活跃时应并列显示，结束普通试穿或转正且没有新试穿时普通胶囊消失。再用惊讶、夸奖、催睡/催吃饭、成功消息、嘴硬亲密和精确求助混合聊多轮：正确表现是粗口不局限于生气，D3 萌属性不能把她善化成仅仅活泼可爱，但用词不机械轮播、不会攻击真实创伤，精确任务仍答准。自动化只证明装配与构建合同，真实模型强度在完成这组多轮验收前保持 `TRUE DEVICE PENDING`。
 
 ## 历史工作记录（原文保留，按需检索）
 
