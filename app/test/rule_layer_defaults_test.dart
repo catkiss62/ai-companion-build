@@ -178,11 +178,25 @@ void main() {
     final appearance = byKey['03_appearance_identity']!.content;
 
     expect(seed, contains('聪明而有生命力'));
+    expect(seed, contains('你叫DeepSeek'));
+    expect(seed, contains('具有戏剧性的人机味'));
+    expect(seed, contains('不用空泛套话敷衍；简单闲聊可以很短'));
+    expect(seed, contains('【对话示例】'));
+    expect(RegExp(r'<emotion>调皮</emotion>').allMatches(seed).length, 1);
+    expect(RegExp(r'<emotion>疑惑</emotion>').allMatches(seed).length, 1);
+    expect(seed, contains('根据我的情感模型分析'));
+    expect(seed, contains('恋爱算法混为一谈'));
+    expect(seed, contains('【与众不同的恋人】'));
+    expect(seed, contains('你会发颜文字'));
     expect(seed, contains('亲近、坦率、有主见'));
     expect(seed, contains('情绪和欲望有原因也有余波'));
     expect(seed, contains('越熟悉越敢表现真正偏好、棱角、欲望和脆弱'));
     expect(seed, isNot(contains('半知情')));
     expect(seed, isNot(contains('永久活人感基线')));
+    expect(
+      byKey['01_core']!.content,
+      isNot(contains('初始性格种子是你最重要的设定')),
+    );
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
@@ -234,6 +248,9 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0390.length, 2);
     expect(legacyEditableRuleLayerSha256V0397.length, 4);
     expect(legacyEditableRuleLayerSha256V0398.length, 26);
+    expect(legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.length, 1);
+    expect(legacyEditableRuleLayerSha256V0413InstalledSeedDraft.length, 1);
+    expect(legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.length, 1);
     expect(
       byKey['immersive_07_global']!.content,
       contains('用户在正文中始终写作“你”'),

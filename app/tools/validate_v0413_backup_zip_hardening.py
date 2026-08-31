@@ -27,7 +27,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.3\+142\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:3\+142|4\+143)\s*$", pubspec, re.M)
 
 export = snapshot.split(
     "Future<SnapshotBundle> _exportBundle", 1
@@ -110,11 +110,11 @@ for token in (
     assert token in ledger, token
 
 for token in (
-    "Build AI Companion v0.41.3+142 APK (Backup ZIP Hardening)",
-    "agent/v0413-backup-zip-hardening",
-    "AI-Companion-v0.41.3-142-Backup-ZIP-Hardening-APK",
+    "Build AI Companion v0.41.4+143 APK (Personality Seed Backup Closure)",
+    "agent/v0414-personality-seed-backup-closure",
+    "AI-Companion-v0.41.4-143-Personality-Seed-Backup-Closure-APK",
     "python3 tools/validate_v0413_backup_zip_hardening.py",
-    ".ci/v0413-monitor.txt",
+    ".ci/v0414-monitor.txt",
 ):
     assert token in workflow, token
 

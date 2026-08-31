@@ -48,8 +48,9 @@ publish_to: 'none'
 # Historical build identity: v0.40.9 nondestructive encrypted backup
 # Historical validator compatibility token: version: 0.40.9+138
 # Historical validator compatibility token: version: 0.41.0+139
-# Current build identity: v0.41.3 portable backup ZIP hardening
-version: 0.41.3+142
+# Historical validator compatibility token: version: 0.41.3+142
+# Current build identity: v0.41.4 personality seed and backup export closure
+version: 0.41.4+143
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

@@ -260,6 +260,28 @@ const legacyEditableRuleLayerSha256V0398 = <String, String>{
       '88dfc6c0055b0cda50f459706f67bfc2e7c4e59054e337dc98fb9cfd114faffd',
 };
 
+/// Exact prompt bodies explicitly superseded by the user's 2026-08-31
+/// v0.41.4 approval. These are deliberately separate maps because two known
+/// Rule 03 drafts share the same key. Hash-only matching upgrades those exact
+/// approved drafts while preserving every unrelated manual edit byte-for-byte.
+const legacyEditableRuleLayerSha256V0413ApprovedSeedDraft = <String, String>{
+  '03_personality_seed':
+      'cdd7d918c51801cb3c1ad37348ff832d42c8d72bcc9769da2813872ed1965fb8',
+};
+
+const legacyEditableRuleLayerSha256V0413InstalledSeedDraft = <String, String>{
+  '03_personality_seed':
+      'f6e44ad58e39337b45badc78a9bc73a73388baa784922aac8a996dfcebdf0fdc',
+};
+
+/// The same approval restores Rule 01 when and only when it is the exact
+/// temporary "personality seed is highest priority" body found in the user's
+/// v0.41.3 backup. Other Rule 01 edits remain untouched.
+const legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis = <String, String>{
+  '01_core':
+      'fa7a8711c673f9f85825d5709e10dec2feb7d1a974e27c47dbe3387a0b71ffb6',
+};
+
 /// Exact editable immersive defaults shipped in v0.39.0. The v0.39.1
 /// cleanup upgrades only untouched copies, so a user's room-protocol edits
 /// are never replaced by the bundled Rule 07 revision.
