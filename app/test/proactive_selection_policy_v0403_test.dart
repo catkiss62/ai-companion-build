@@ -233,11 +233,13 @@ void main() {
       id: 'memory-near',
       drive: DriveKey.reflection,
       source: 'self_drive/memory',
+      bornAt: now,
     );
     final awareness = thought(
       id: 'awareness-near',
       drive: DriveKey.curiosity,
       source: 'perception/awareness',
+      bornAt: now,
     );
     ProactiveSelectionResult pick(double unit) =>
         ProactiveSelectionPolicy.select(

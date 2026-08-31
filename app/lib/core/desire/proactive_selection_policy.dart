@@ -217,7 +217,11 @@ class ProactiveSelectionPolicy {
     final repetitionOnly = score(repetition: true, waiting: false).first;
     final waitingOnly = score(repetition: false, waiting: true).first;
     final scored = score(repetition: true, waiting: true);
-    final top = scored.first;
+    final rawRestWinner = rawWinner.drive == DriveKey.fatigue ||
+        rawWinner.wantAction == 'rest';
+    final top = rawRestWinner
+        ? scored.firstWhere((value) => identical(value.original, rawWinner))
+        : scored.first;
     final samplePool = top.adjusted.drive == DriveKey.fatigue ||
             top.adjusted.wantAction == 'rest'
         ? <_ScoredIntent>[top]
