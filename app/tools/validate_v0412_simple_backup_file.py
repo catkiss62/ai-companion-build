@@ -21,7 +21,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.2\+141\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142)\s*$", pubspec, re.M)
 
 export = transfer.split("Future<void> _backupExport()", 1)[1].split(
     "Future<void> _backupImport()", 1
@@ -32,9 +32,12 @@ for token in (
     "metadata.isBackup",
     "android.savePlainBackup(",
     "saved['verified'] != true",
-    "备份文件已保存并自动检查通过",
 ):
     assert token in export, token
+assert (
+    "备份文件已保存并自动检查通过" in export
+    or "兼容性与完整性自动检查通过" in export
+)
 assert "saveMultipartBackup" not in export
 
 for token in (

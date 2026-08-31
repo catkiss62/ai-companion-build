@@ -317,6 +317,7 @@ class SnapshotService {
         'missing_album_files': missingAlbumFiles,
         'album_bytes': albumBytes,
         'encryption': archiveKind.manifestEncryption,
+        'zip_layout': 'files_only',
       };
       await manifestFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(manifest),
@@ -328,11 +329,22 @@ class SnapshotService {
         encoder.create(zipPath);
         await encoder.addFile(stateFile);
         await encoder.addFile(manifestFile);
-        if (await attachmentExportDirectory.exists()) {
-          await encoder.addDirectory(attachmentExportDirectory);
+        final sortedAttachmentPaths = attachmentFiles.keys.toList()..sort();
+        for (final relative in sortedAttachmentPaths) {
+          final file = File(
+            p.joinAll([
+              attachmentExportDirectory.path,
+              ...relative.split('/'),
+            ]),
+          );
+          await encoder.addFile(file, 'attachments/$relative');
         }
-        if (await albumExportDirectory.exists()) {
-          await encoder.addDirectory(albumExportDirectory);
+        final sortedAlbumPaths = albumFiles.keys.toList()..sort();
+        for (final relative in sortedAlbumPaths) {
+          final file = File(
+            p.joinAll([albumExportDirectory.path, ...relative.split('/')]),
+          );
+          await encoder.addFile(file, 'album/$relative');
         }
         await encoder.close();
       } catch (_) {
@@ -672,14 +684,39 @@ class SnapshotService {
       const maxManifestBytes = 1024 * 1024;
       const maxBundledFileBytes = 8 * 1024 * 1024 * 1024;
       const maxExpandedBytes = 9 * 1024 * 1024 * 1024;
+      const maxArchiveEntries = 200000;
       final seen = <String>{};
       var stateSize = 0;
       var manifestSize = 0;
       var attachmentSize = 0;
       var albumSize = 0;
       var totalExpanded = 0;
+      final directoryEntries = <String>[];
+      const legacyDirectoryEntries = <String>{
+        'attachments/',
+        'attachments/originals/',
+        'attachments/thumbnails/',
+        'album/',
+        'album/thumbnails/',
+      };
       for (final entry in archive.files) {
-        final name = entry.name.replaceAll('\\', '/');
+        final name = entry.name;
+        if (entry.isSymbolicLink) {
+          throw FormatException('状态包不能包含符号链接：$name');
+        }
+        if (!entry.isFile && !entry.isDirectory) {
+          throw FormatException('状态包包含不受支持的条目类型：$name');
+        }
+        if (name.contains('\\')) {
+          throw FormatException('状态包路径不能包含反斜杠：$name');
+        }
+        final isDirectoryEntry = entry.isDirectory || name.endsWith('/');
+        if (isDirectoryEntry) {
+          if (!legacyDirectoryEntries.contains(name)) {
+            throw FormatException('状态包包含不受支持的目录：$name');
+          }
+          directoryEntries.add(name);
+        }
         final isAttachment = name.startsWith('attachments/');
         final isAlbum = name.startsWith('album/');
         if (name != 'state.json' &&
@@ -688,12 +725,12 @@ class SnapshotService {
             !isAlbum) {
           throw FormatException('状态包含意外文件：$name');
         }
-        if (isAttachment && !name.endsWith('/')) {
+        if (isAttachment && !isDirectoryEntry) {
           MessageAttachmentStorage.requireSafeRelativePath(
             name.substring('attachments/'.length),
           );
         }
-        if (isAlbum && !name.endsWith('/')) {
+        if (isAlbum && !isDirectoryEntry) {
           CompanionAlbumStorage.requireSafeRelativePath(
             name.substring('album/'.length),
           );
@@ -701,13 +738,16 @@ class SnapshotService {
         if (!seen.add(name)) {
           throw FormatException('状态包包含重复文件：$name');
         }
+        if (seen.length > maxArchiveEntries) {
+          throw const FormatException('状态包文件数量异常过多');
+        }
         final size = entry.size;
         if (size < 0) throw const FormatException('状态包文件大小异常');
         totalExpanded += size;
         if (name == 'state.json') stateSize = size;
         if (name == 'manifest.json') manifestSize = size;
-        if (isAttachment && !name.endsWith('/')) attachmentSize += size;
-        if (isAlbum && !name.endsWith('/')) albumSize += size;
+        if (isAttachment && !isDirectoryEntry) attachmentSize += size;
+        if (isAlbum && !isDirectoryEntry) albumSize += size;
       }
       if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
         throw const FormatException('状态包必须包含 state.json 与 manifest.json');
@@ -741,6 +781,13 @@ class SnapshotService {
       final manifest = Map<String, dynamic>.from(manifestRaw);
       if (manifest['format'] != 'ai-companion-snapshot-zip') {
         throw const FormatException('状态包格式不正确');
+      }
+      final zipLayout = manifest['zip_layout']?.toString() ?? '';
+      if (zipLayout.isNotEmpty && zipLayout != 'files_only') {
+        throw FormatException('状态包 ZIP 布局不受支持：$zipLayout');
+      }
+      if (zipLayout == 'files_only' && directoryEntries.isNotEmpty) {
+        throw const FormatException('files-only 状态包不能包含目录条目');
       }
       final manifestVersion = (manifest['schema_version'] as num?)?.toInt();
       if (manifestVersion == null ||

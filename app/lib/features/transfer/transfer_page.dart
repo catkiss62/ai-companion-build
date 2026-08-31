@@ -881,12 +881,12 @@ class _TransferPageState extends State<TransferPage> {
         _append('已取消保存备份，本机数据没有改变，仍可继续使用。');
         return;
       }
-      if (saved['verified'] != true) {
+      if (saved['verified'] != true || saved['zipVerified'] != true) {
         throw const FormatException('保存后的备份文件没有通过自动核对。');
       }
       final bytes = (saved['bytes'] as num?)?.toInt() ?? 0;
       _append(
-        '备份文件已保存并自动检查通过（'
+        '备份文件已保存，兼容性与完整性自动检查通过（'
         '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB）。'
         '以后恢复时直接选择这个 .aibackup 文件即可；本机仍可继续正常使用。',
       );

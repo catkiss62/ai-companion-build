@@ -537,15 +537,19 @@ class SystemBridge(
                                 require(source.length() in 1..MAX_PLAIN_BACKUP_BYTES) {
                                     "plain_backup_source_size_invalid"
                                 }
-                                val sourceDigest = digestStream(
-                                    source.inputStream(),
-                                    MAX_PLAIN_BACKUP_BYTES,
-                                )
-                                activity.contentResolver.openOutputStream(uri, "w").use { output ->
-                                    requireNotNull(output) { "plain_backup_output_open_failed" }
-                                    source.inputStream().use { input ->
-                                        input.copyTo(output, 64 * 1024)
-                                    }
+                                val portable = PortableBackupZipVerifier.verify(source)
+                                val output = requireNotNull(
+                                    activity.contentResolver.openOutputStream(uri, "w"),
+                                ) { "plain_backup_output_open_failed" }
+                                val sourceDigest = try {
+                                    copyWithDigest(
+                                        input = source.inputStream(),
+                                        output = output,
+                                        maxBytes = MAX_PLAIN_BACKUP_BYTES,
+                                    )
+                                } catch (error: Throwable) {
+                                    runCatching { output.close() }
+                                    throw error
                                 }
                                 val savedDigest = activity.contentResolver.openInputStream(uri).use { input ->
                                     digestStream(
@@ -562,6 +566,9 @@ class SystemBridge(
                                     "sha256" to sourceDigest.second,
                                     "uri" to uri.toString(),
                                     "verified" to true,
+                                    "zipVerified" to true,
+                                    "zipEntryCount" to portable.entryCount,
+                                    "zipExpandedBytes" to portable.expandedBytes,
                                 )
                             } catch (error: Throwable) {
                                 runCatching {

@@ -6,6 +6,45 @@
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
+## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.3 单文件备份 ZIP 兼容性加固（IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING）
+
+> 用户在 v0.41.2 真机成功导出一个 `.aibackup` 文件并上传只读检查。内部 state、清单、附件和相册文件均完整，但标准 `unzip -t` 对三个空目录占位项报告 `invalid compressed data to inflate`。App 自己的 Snapshot 解码器跳过目录内容，Native 写后检查又只核对整文件大小与 SHA，因此错误地显示“自动检查通过”。用户明确要求先真正修好存档系统并增加检查，再继续 Agent 自我读取等后续任务。
+
+### A. 真机证据与根因
+
+1. 真机文件 `AI_Companion_Backup_2026-08-30T20-45-49(1).aibackup` 为 4,347,811 bytes，整文件 SHA-256 `0f8c800b3a61dd7ebea4be349a7f0206ae0d2a5a269b2bf2753fb78263817dce`。`state.json` 实际 10,663,854 bytes，SHA 与 manifest 一致；protocol 5、schema 40、backup、generation 0、`encryption=none` 均正确。
+2. 40 张导出表齐全，其中 195 条消息、43 条 Memory、61 条 Thought、2 条聊天附件记录、20 条相册候选；4 个聊天附件文件和 2 个可恢复相册缩略图的路径、逐文件 SHA、总字节数与数据库引用全部一致。没有缺件、重复路径或目录穿越，真实资料载荷可以保留作应急副本。
+3. 11 个 ZIP entry 中 8 个实际文件均可完整解压；仅 `attachments/originals/`、`attachments/thumbnails/`、`album/thumbnails/` 三个目录 entry 被写成 deflate method、compressed size 0 且没有合法空 deflate stream，标准 Info-ZIP 因而报错。根因是 `archive 4.0.9` 的 `ZipFileEncoder.addDirectory()` 会为递归发现的子目录调用 `ArchiveFile.directory()`；当前 Snapshot 导出恰好走了该路径。
+4. `_readValidatedBundle()` 使用同一 `archive` 解码器并按文件清单校验实际载荷，但不会读取目录 entry 的压缩内容；v0.41.2 Native 写后检查只证明目标 URI 与源 ZIP 字节完全一致，不能证明源 ZIP 能被独立标准实现完整读取。因此这是“内部数据完整、通用 ZIP 外壳不规范、自动检查声明过宽”的确定缺陷，不把它归因于用户操作。
+
+### B. 本批锁定范围
+
+1. 目标版本 `0.41.3+142`、SQLite schema 保持 40，分支 `agent/v0413-backup-zip-hardening`。Snapshot protocol 暂不升级；新 manifest 增加向后兼容的 files-only 布局声明，旧 protocol 5 备份缺少该字段时仍按历史兼容路径恢复。
+2. Snapshot 导出不再调用 `addDirectory()`，而是严格按已经生成并哈希过的附件/相册 manifest 清单排序，逐个以安全 `attachments/...`、`album/...` entry 名写入实际文件；空目录和任何未声明文件都不进入 ZIP。新包只允许 `state.json`、`manifest.json` 与两类已声明实际文件。
+3. Flutter 内部预检继续验证 state、数据库域、附件/相册路径与 SHA；对带新 files-only 布局声明的包额外拒绝目录 entry。旧 v0.41.2 真机包仍允许由 App 恢复，以免一个已经确认核心载荷完整的历史应急副本被新版本人为封死。
+4. 默认“保存备份”在写入系统文件选择器目标前，Native 使用独立于 Dart `archive` 的 Java ZIP 实现逐 entry 解压读取并自行核对 CRC、路径、重复名、文件数量、展开大小、两个根文件和允许目录；出现目录 entry、坏 deflate、坏 CRC、未知根文件、危险路径或缺少根文件时必须拒绝保存并尽力删除目标。随后流式复制时同时计算源 SHA，保存后重新读取目标并核对大小/SHA，避免重复一次无意义的源文件全量扫描。
+5. 恢复仍选择单个 `.aibackup` 文件并在覆盖前完成现有全量校验；不要求用户现在执行破坏性恢复。旧 v0.41.0/v0.41.1 文件夹入口、旧 v0.41.2 单文件读取兼容、同安装当前主设备/异安装先待机、文件原子切换和数据库失败回滚均不得回归。
+6. 新增 Kotlin 与 Dart/源码合同回归，覆盖标准 files-only ZIP、目录 entry 拒绝、危险/未知/缺失 entry 拒绝、CRC 篡改拒绝、清单排序写入、新布局声明和旧包兼容。完成后运行当前及历史 validators、Flutter analyze/tests、Kotlin/Gradle 和 Release 构建；公开 GitHub 推送与 Actions 仍按本批授权边界单独确认。
+
+### C. 实际实现与额外加固
+
+1. Snapshot manifest 新增向后兼容的 `zip_layout=files_only`。导出器已完全移除 `ZipFileEncoder.addDirectory()`：聊天附件和相册文件分别从已哈希的 manifest map 取 key、排序、重新解析为受控本机路径，再用显式 `attachments/$relative` / `album/$relative` entry 名逐文件写入。没有图片时不会创建空目录，有图片时也不写任何目录占位项；state 和 manifest 仍是前两个实际文件。
+2. `_readValidatedBundle()` 对新 files-only 包要求零目录 entry；旧包没有 `zip_layout` 时继续兼容当前真机文件中的三个历史目录。兼容并非继续放开任意目录：现在只接受 `attachments/`、附件 original/thumbnail 和 album thumbnail 五个固定旧目录名，同时拒绝反斜杠、符号链接、未知 entry 类型、未知目录、重复名和超过 200,000 个 entry，堵住旧目录跳过文件路径校验的穿越/资源消耗边界。
+3. 新增纯 JVM `PortableBackupZipVerifier`。它不依赖 Dart `archive`，使用 `java.util.zip.ZipFile` 打开即将保存的 App 缓存源包；要求只有 `state.json`、`manifest.json`、`attachments/...`、`album/...` 实际文件，零目录、零危险路径、零重复名，entry 数量不超过 200,000、state 不超过 480 MiB、manifest 不超过 1 MiB、ZIP 不超过 8 GiB、总展开量不超过 9 GiB。每个 entry 都完整流式解压，自行重新计算未压缩字节数和 CRC32，坏 deflate、截断、CRC 或中央目录大小欺骗都会失败。
+4. Native 保存链先执行上述独立 ZIP/CRC 检查，再用原有 64 KiB 流复制同时计算源文件 SHA-256，省去 v0.41.2 单独扫描一次源文件；目标 URI 关闭后重新打开并计算实际大小/SHA，必须与源端完全一致。只有 Java ZIP 读取和写后 byte identity 同时通过才返回 `zipVerified=true + verified=true`；Flutter 同时要求两个布尔值才显示“兼容性与完整性自动检查通过”，任一失败仍尽力删除目标并保持本机数据/当前主设备不变。
+5. 新增 `PortableBackupZipVerifierTest`，覆盖 files-only 正常包、即使编码本身合法也拒绝目录 entry、危险路径/未知根文件/缺 state、stored entry 内容篡改与 CRC 拒绝；新增 v0.41.3 源码合同固定清单排序、无 `addDirectory()`、files-only manifest/读取规则、Native 双校验、UI 双门禁和 CI 身份。v0.40.8～v0.41.2 与 current somatic wrapper 仅扩展版本前向兼容，不放宽历史功能断言。
+
+### D. 本地验证边界
+
+1. v0.41.3 专项、v0.41.2、v0.41.1、v0.41.0、v0.40.9、v0.40.8 和 current somatic validators 全部通过；按 CI 工作目录枚举的 118 个 Python validators 中 110 个通过。其余 8 个只因当前工作区未恢复 CI 专用的 417 文件桌宠包、LingChat/TTS/native 大型载荷或没有 `kotlinc` 而无法运行，没有出现功能断言失败。
+2. workflow YAML 可解析，当前 job/分支/版本/Artifact/Draft Release/成功与失败 monitor 均已切到 v0.41.3；Python 语法、`git diff --check` 通过。当前容器没有 Dart/Flutter；Gradle wrapper 尝试下载官方 Gradle 8.12 时因网络不可达停止，因此 Kotlin 编译、JVM 单测、Flutter analyze/tests、Release APK、签名与完整载荷必须由 GitHub Actions 给出正式证据，尚不能标记 CI 通过。
+3. 当前只完成本地分支实现，尚未公开推送、触发 Actions 或生成 APK；`main` 未修改。用户现有 v0.41.2 文件内容层完整，可保留为应急副本，但新标准包真机复核前不把它升级为“通用 ZIP 完全通过”。
+
+### E. 预定真机验收
+
+1. 覆盖安装新 APK 后点击一次“保存备份”；仍只得到一个 `.aibackup` 文件，成功提示必须建立在 Snapshot 内部全量预检、Java 标准 ZIP/CRC 全量读取、目标写后大小与 SHA 四层结果之上。
+2. 将新文件上传给接班窗口，使用独立标准 ZIP 工具、manifest/state/file SHA 与数据库引用再次只读复核；完全通过后才把单文件存档系统标记为真机导出完成。恢复测试继续延后，不拿唯一重要资料做破坏性验收。
+
 ## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. 2026-08-31 · v0.41.2 单文件普通备份与自动校验（IMPLEMENTED / CI & APK PASSED / SIMPLE FILE TRUE DEVICE PENDING）
 
 > 用户安装 v0.41.1 后成功创建第二份无口令备份，但“选择父目录 → App 再创建 `.aibackup` 子目录 → 检查时重新选该子目录”的产品流程和术语使非技术用户无法判断是否保存成功；用户把“检查完整备份”理解为再次导出，看到没有新文件后合理地认为失败，并明确要求不要把私人自用备份设计得复杂。本批把默认日常流程改为一个可见文件，不再要求用户理解文件夹、manifest 或分卷。
