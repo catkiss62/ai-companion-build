@@ -67,12 +67,13 @@ def main() -> None:
         require(section in current, f"missing current handoff section: {section}")
 
     required_facts = (
+        "agent/v0416-agent-self-facts",
         "agent/v0415-ledger-handoff-index",
         "agent/v0415-personality-state-diversity",
         "494796ef02e369f98e6896bc5acea7185e3c35dd",
         "a6daa7df9572d9164b1cf67433f366de52126134",
         "0.41.5+144",
-        "schemaVersion=40",
+        "schema 40",
         "33367689222",
         "0d0bcbd7fc5c3ab58436508d0c27bb5369ba62675afe6af095e15248f39286c6",
         "NOT_IMPLEMENTED",
@@ -98,13 +99,13 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.5\+144\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.6\+145\s*$", pubspec, re.MULTILINE)
         is not None,
-        "pubspec version no longer matches the handoff baseline",
+        "pubspec version no longer matches the current development baseline",
     )
     require(
-        "static const int schemaVersion = 40;" in database,
-        "database schema no longer matches the handoff baseline",
+        "static const int schemaVersion = 41;" in database,
+        "database schema no longer matches the current development baseline",
     )
 
     print("current ledger handoff index: OK")

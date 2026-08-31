@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前交接分支 | `agent/v0415-ledger-handoff-index`；只在 v0.41.5 基线上优化文档，不含运行代码 |
-| 运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
+| 当前开发分支 | `agent/v0416-agent-self-facts`；从已核对的 v0.41.5 + 减负总账 tree 开始 |
+| 上一运行代码基线 | `agent/v0415-personality-state-diversity`，功能 head `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 本次文档父提交 | `a6daa7df9572d9164b1cf67433f366de52126134`（只回填 v0.41.5 CI/APK 证据） |
-| App / 数据库 | `0.41.5+144`；SQLite `schemaVersion=40`；Snapshot/备份 protocol 5 |
+| App / 数据库 | 当前已交付 `0.41.5+144` / schema 40；本批目标 `0.41.6+145` / schema 41；Snapshot/备份 protocol 5 不变 |
 | 最终 CI | Actions run `33367689222`，run number 639，head `494796ef02e3...`，全绿；376 项 Flutter tests 通过 |
 | 测试 APK | `AI-Companion-v0.41.5-144-Personality-State-Diversity-APK.apk`，325,201,598 bytes |
 | APK SHA-256 | `0d0bcbd7fc5c3ab58436508d0c27bb5369ba62675afe6af095e15248f39286c6` |
 | Artifact / Release | Artifact ID `9749136965`；Draft Release，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.5 源码、CI、APK 已完成；性格状态多样性、夜间节律和长期自然度仍 `TRUE DEVICE PENDING` |
+| 当前总状态 | v0.41.5 源码、CI、APK 已完成且真机自然观察继续；v0.41.6 Agent 自我系统读取已授权开工，尚未完成实现/CI/APK |
 
 ### 3. 当前模块状态总表
 
@@ -44,7 +44,7 @@
 | 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.4 规则 03 最终文本与精确迁移已实现、CI/APK 通过 | 长期人格体验仍待自然真机观察；规则 01/03 与两条 `<emotion>` 样本不可被顺手改写 |
 | Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
-| Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现并有自动化/部分历史真机证据 | 修改时必须回读对应专项文档与迁移；`System Facts / Recent Outcomes` 的 Agent 自我系统读取仍未落地 |
+| Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现并有自动化/部分历史真机证据 | `System Facts / Recent Outcomes` 的 Agent 自我系统读取进入 v0.41.6 实现；完成前仍不得宣称可用 |
 | Agent Tool 主循环 | 用户轮次只读工具已实现：公开网页、规则、记忆、相册、设备上下文；有界两阶段执行 | 屏幕、视频、修改提案、真实提醒、MCP 只登记能力目录，不等于可执行 |
 | 公开网页发现、候选、分享 | 已实现；v0.38.7 网页分享真机通过，后续 Provider/多样性改动有 CI/APK | 后续自然触发和 Provider 长期健康仍按诊断观察；网页内容始终是不可信数据 |
 | 模拟手机、浏览器、私人相册 | 底座、搜索/详情、识图保存强绑定、回想已实现；模拟手机 v0.38.9 功能性真机通过 | 后续相册自然保存/检索体验仍有真机观察项；不把 App 标签当图像内容 |
@@ -66,12 +66,12 @@
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
-| P1 | Agent 自我系统读取 | 建立只读、可审计、按需进 Prompt 的 `System Facts / Recent Outcomes`，让她能准确说清已做功能和真实工具结果；不得暴露密钥、原始日志、内部路径 |
+| P1 · 进行中 | Agent 自我系统读取 | v0.41.6 开工：建立只读、可审计、按需进 Prompt 的 `System Facts / Recent Outcomes`，让她能准确说清已做功能和真实工具结果；不得暴露密钥、原始日志、内部路径 |
 | P2 | MCP 游戏底座 | 排在 System Facts/Recent Outcomes 之后；先 Registry/权限/审计/超时/取消，再接受控游戏能力 |
 | P2 | 手机主存储 / 平板伴随端 | 依照 `PHONE_PRIMARY_TABLET_COMPANION_ARCHITECTURE_v1.md` 独立分批，不能扩张成双端完整数据库同步 |
 | 后置 | HyperOS 文件选择器悬浮恢复、完整换肤、产品化发布 | 明确冻结/后置；除非用户重新排期或新证据改变判断，不得抢占真人感、稳定性与自主性主线 |
 
-> v0.40.9 曾把 Agent 自我系统读取列为下一项，v0.41.5 又再次明确屏幕“看一次”为后续项；两者都仍有效，但尚无用户在 v0.41.5 完成后重新给出唯一先后顺序。默认先完成 v0.41.5 真机观察；进入下一代码批前只需让用户在这两项中确认先做哪一项，不应把旧章节的顺序擅自当成新决定。
+> 2026-08-31 用户要求按总账继续下一任务，并把具体方案交由工程侧判断；本轮据其长期重视 MCP 游戏与 Agent 自我认知的方向，选择先做 Agent 自我系统读取。屏幕“看一次”仍保留为下一独立代码批；v0.41.5 真机自然观察并行继续，不阻塞本批。
 
 ### 5. 永久不可变边界与高频踩坑
 
@@ -130,6 +130,32 @@
 3. 原第 9 行起的 4,312 行历史正文按字节逐一核对，SHA-256 保持 `7f44e0f6ac43ca62726d8547fc1cc7a46353f9b2c8e3e498b0f4027d30794628`；105 个二级章节和 413 个三级章节全部保留。`validate_current_ledger_handoff.py` 会同时核对档案哈希、章节数、当前版本/schema/提交/CI/APK 事实和七个历史范围。
 4. 本地通过新交接 validator、`git diff --check`、Python 语法、v0.34.4/v0.34.5/v0.35.0/v0.35.1 与 v0.41.3～v0.41.5 历史合同。v0.39.5 TTS validator 只因本地未恢复 CI 专用 `legacy_tts` 大型载荷而停在文件存在检查，与本批文档或运行逻辑无关。
 5. App 聊天偶发多余 `「` 已登记为可修但非阻断显示问题；为保持纯文档批边界，本批没有顺手改运行代码。若后续处理，应独立升版、补 display-only 归一化测试并运行完整 CI/APK，不能把本次文档验证当作该问题已修复。
+
+### 10. 2026-08-31 · v0.41.6 Agent 自我系统事实与近期 Outcome（AUTHORIZED / PRE-IMPLEMENTATION LEDGER）
+
+#### A. 开工事实与目标
+
+1. 用户在完成总账减负后要求继续下一任务，并把具体方案交由工程侧判断。根据此前明确要求“她应能在聊天里准确回答我给她做过什么功能、最近真实做了什么，并为以后 MCP 游戏说明真实行动做准备”，本批选择 Agent 自我系统读取；v0.41.5 性格/节律真机观察可同时继续。
+2. 当前用户轮次已有五个真实只读工具：公开网页、规则、记忆、相册、设备上下文；`AgentToolRunner` 只在 settings 保存最后一次工具 ID/status/count/error 与累计计数，没有可供她按时间回看的一组历史 Outcome。自主网页行动则已有 `autonomous_action_runs`，保存 tool/status/gate/outcome/count/time/device 等无正文元数据。
+3. 当前不存在 `System Facts / Recent Outcomes` Prompt 层，也没有可执行的“读取自身系统”工具；仅凭 Registry、诊断或总账存在这些信息，模型不会自动准确知道。MCP、屏幕、视频、提案和真实提醒仍为不可执行占位，不能在本批被错误宣传为已具备。
+
+#### B. 锁定实现范围
+
+1. 目标版本 `0.41.6+145`、SQLite `schemaVersion=41`，分支 `agent/v0416-agent-self-facts`；Snapshot protocol 5 与单 Active Brain/备份恢复语义不变。
+2. 新增一个真实、只读、用户轮次可调用的 `system_self.read`，支持 `facts / outcomes / all` 有界 scope。用户明确问“你有什么功能、我给你做了什么、你最近自己做了什么、上次工具/MCP 做了什么”时走本地快路由；其他相关问题可由 DeepSeek native tool call 选择。普通聊天不常驻注入，避免把系统说明塞满每一轮 Prompt。
+3. `System Facts` 使用代码内单一、可测试的能力目录，明确区分：已实现并可执行、已实现但仅用户轮次/仅自主、架构或状态能力、规划占位/未实现。当前 build/schema/Active Brain 状态、主要真实能力和关键限制可进入结果；不得读取总账全文、密钥、API endpoint、原始日志、数据库路径、聊天/规则正文或内部 Prompt。
+4. 新增有界 `agent_tool_outcomes` 元数据表，只记录用户轮次真实工具的 terminal outcome：tool ID、origin、status、reason tag、outcome kind、结果数量、粗粒度 error code、开始/结束时间、来源设备 ID/label；绝不保存工具参数、搜索词、URL、网页/相册/记忆/规则正文或模型 reasoning。保留最近有限条目并有时间索引，避免无限增长。
+5. `Recent Outcomes` 将新的用户轮次工具元数据与既有 `autonomous_action_runs` 合并成最近时间序列；对模型只显示本机/其他设备标签、工具中文能力、成功/无结果/失败/阻止、结果数量与本地时间，不显示原始 device ID、dedupe key、Thought ID、搜索参数、provider payload 或关系正文。
+6. `system_self.read` 自身在完成读取后才登记 terminal outcome，因此本次结果不会把“正在读取自己”误当成此前已经发生的行动；后续再次读取时可以看到上一轮读取记录。失败和无结果必须诚实进入 Prompt，只有真实成功 Outcome 后才能说自己做过。
+7. 新表加入完整状态包导出/恢复，但旧 schema 1～40 / protocol 1～5 包缺表时按空历史兼容，不改变 v0.41.4 已真机通过的单文件 ZIP 外壳、附件/相册校验或恢复原子性。跨设备带来的 Outcome 保留来源设备元数据，但模型不接触原始标识。
+8. 本批不实现 MCP Client/游戏、屏幕截图、视频理解、记忆/人设/规则写入提案、真实提醒、系统设置修改或自动把 System Facts 常驻 Memory；也不修改规则 01/03、Desire/Moe/Emotion、主动额度、TTS、桌宠、相册、普通/沉浸聊天表现。
+
+#### C. 预定验收
+
+1. 单测覆盖：显式事实/近期行动问题能路由，元讨论与普通陪伴不误触发；Registry 仅新增 read-only executable；facts 不把不可执行占位写成能力；outcomes 按时间合并、严格限量、时间/设备可读、无内容字段。
+2. 数据库/备份测试与 validator 覆盖 schema 41 创建/升级、新表只含允许列、terminal 结果单次落库、历史裁剪、Snapshot 导出/导入、旧包缺表兼容、原始 device ID/参数/正文不进入 Prompt。
+3. 完成后运行 v0.41.6 专项、v0.41.5～v0.40.8 与 current wrappers、全部可运行历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、固定签名与完整大载荷校验；回填真实提交、Actions、APK/SHA 和真机步骤。自动化通过不能代替真机询问“你有什么功能/最近做了什么”的语言准确性。
+4. 用户已有持续 GitHub 构建授权；完成后推送同名公开源码分支并运行 Actions、生成测试 APK，不合并 `main`、不发布正式 Release。
 
 ## 历史工作记录（原文保留，按需检索）
 

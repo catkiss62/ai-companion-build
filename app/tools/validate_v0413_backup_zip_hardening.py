@@ -27,7 +27,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.(?:3\+142|4\+143|5\+144)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:3\+142|4\+143|5\+144|6\+145)\s*$", pubspec, re.M)
 
 export = snapshot.split(
     "Future<SnapshotBundle> _exportBundle", 1

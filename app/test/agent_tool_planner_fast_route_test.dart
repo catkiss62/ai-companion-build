@@ -43,6 +43,23 @@ void main() {
     expect(AgentToolPlanner.routeLocally('别上网搜索，这只是举例'), isNull);
   });
 
+  test('explicit self-system questions choose the narrowest local scope', () {
+    final facts = AgentToolPlanner.routeLocally('我给你做了哪些能力？');
+    expect(facts, isNotNull);
+    expect(facts!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(facts.calls.single.arguments['scope'], 'facts');
+
+    final outcomes = AgentToolPlanner.routeLocally('你最近自己做了什么？');
+    expect(outcomes, isNotNull);
+    expect(outcomes!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(outcomes.calls.single.arguments['scope'], 'outcomes');
+  });
+
+  test('future capability discussion does not falsely execute system self', () {
+    expect(AgentToolPlanner.routeLocally('以后有 MCP 之后再说吧'), isNull);
+    expect(AgentToolPlanner.routeLocally('今天想和你普通聊聊天'), isNull);
+  });
+
   test('native function call maps back into the gated local registry', () {
     final plan = AgentToolPlanner.fromNativeToolCalls(const [
       DeepSeekToolCall(
@@ -63,6 +80,11 @@ void main() {
           .map((item) => (item['function'] as Map)['name']),
       contains('album_search'),
     );
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      contains('system_self_read'),
+    );
   });
 
   test('native album function maps back into the read-only registry', () {
@@ -75,5 +97,17 @@ void main() {
     ]);
     expect(plan.calls.single.toolId, AgentToolRegistry.albumSearch.id);
     expect(plan.calls.single.arguments['query'], '蓝发鲸鱼尾的图片');
+  });
+
+  test('native system-self function keeps its validated scope', () {
+    final plan = AgentToolPlanner.fromNativeToolCalls(const [
+      DeepSeekToolCall(
+        id: 'call-self',
+        name: 'system_self_read',
+        arguments: '{"scope":"outcomes"}',
+      ),
+    ]);
+    expect(plan.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(plan.calls.single.arguments['scope'], 'outcomes');
   });
 }

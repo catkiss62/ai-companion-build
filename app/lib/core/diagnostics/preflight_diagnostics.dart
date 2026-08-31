@@ -124,6 +124,7 @@ class PreflightDiagnosticsService {
         'runtimeErrorTextIncluded': false,
         'agentToolArgumentsIncluded': false,
         'agentToolResultBodiesIncluded': false,
+        'agentToolOutcomeDeviceIdsIncluded': false,
         'albumSearchQueryIncluded': false,
         'albumSearchTitlesOrSummariesIncluded': false,
         'albumSearchImageBytesOrPathsIncluded': false,
@@ -168,6 +169,7 @@ class PreflightDiagnosticsService {
           await db.localLeaseDiagnostic('chat_turn_lease');
       final autonomousActions =
           await db.autonomousActionDiagnosticStats(now: now);
+      final agentToolOutcomes = await db.agentToolOutcomeDiagnosticStats();
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
       final companionAlbum = await db.companionAlbumDiagnosticStats();
@@ -492,6 +494,7 @@ class PreflightDiagnosticsService {
           'countsAgainstAutonomousBudget': false,
           'argumentsIncluded': false,
           'resultBodiesIncluded': false,
+          'recentOutcomes': agentToolOutcomes,
           'albumSearch': {
             'requestCount': int.tryParse(
                   await db.getSetting('album_search_tool_request_count') ?? '',

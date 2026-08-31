@@ -249,6 +249,7 @@ class DurableGenerationRunner {
           localPlan,
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
+          eventScopeId: job.id,
         );
       }
       final generationSpecialStyle = await db.activeSpecialStyleTrial();
@@ -448,6 +449,7 @@ class DurableGenerationRunner {
           nativePlan,
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
+          eventScopeId: job.id,
         );
         cancellationToken?.throwIfCancelled();
 

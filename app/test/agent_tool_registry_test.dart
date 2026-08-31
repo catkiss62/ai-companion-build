@@ -14,6 +14,7 @@ void main() {
         'memory.search',
         'album.search',
         'device_context.read',
+        'system_self.read',
       ]),
     );
     expect(tools.every((tool) => tool.risk == AgentToolRisk.readOnly), isTrue);
@@ -32,6 +33,16 @@ void main() {
       expect(tool.executable, isFalse, reason: id);
       expect(tool.userTurnAvailable, isFalse, reason: id);
     }
+  });
+
+  test('system self read is bounded read-only while placeholders stay false', () {
+    final self = AgentToolRegistry.systemSelfRead;
+    expect(self.executable, isTrue);
+    expect(self.userTurnAvailable, isTrue);
+    expect(self.autonomousAvailable, isFalse);
+    expect(self.risk, AgentToolRisk.readOnly);
+    expect(AgentToolRegistry.screenObservation.executable, isFalse);
+    expect(AgentToolRegistry.videoUnderstanding.executable, isFalse);
   });
 
   test('autonomous web uses the same registry definition', () {

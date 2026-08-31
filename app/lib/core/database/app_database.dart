@@ -83,7 +83,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 37;
   // Historical validator compatibility token: static const int schemaVersion = 38;
   // Historical validator compatibility token: static const int schemaVersion = 39;
-  static const int schemaVersion = 40;
+  // Historical validator compatibility token: static const int schemaVersion = 40;
+  static const int schemaVersion = 41;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1027,7 +1028,9 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
-
+    if (oldVersion < 41) {
+      await _createV41Tables(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1196,6 +1199,7 @@ class AppDatabase {
     await _createV36Tables(db);
     await _createV39Tables(db);
     await _createV40Tables(db);
+    await _createV41Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1594,7 +1598,6 @@ class AppDatabase {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_summary_range_unique ON conversation_summaries(from_at, to_at)',
     );
   }
-
 
   Future<void> _createV13Tables(Database db) async {
     await db.execute(
@@ -2187,6 +2190,33 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_proactive_policy_lane_time '
       'ON proactive_policy_events(lane, created_at DESC)',
+    );
+  }
+
+  Future<void> _createV41Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS agent_tool_outcomes (
+        id TEXT PRIMARY KEY,
+        tool_id TEXT NOT NULL,
+        origin TEXT NOT NULL,
+        status TEXT NOT NULL,
+        reason_tag TEXT NOT NULL DEFAULT '',
+        outcome_kind TEXT NOT NULL DEFAULT '',
+        result_count INTEGER NOT NULL DEFAULT 0,
+        error_code TEXT NOT NULL DEFAULT '',
+        started_at INTEGER NOT NULL,
+        finished_at INTEGER NOT NULL,
+        source_device_id TEXT NOT NULL DEFAULT '',
+        source_device_label TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_agent_tool_outcomes_time '
+      'ON agent_tool_outcomes(finished_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_agent_tool_outcomes_tool_time '
+      'ON agent_tool_outcomes(tool_id, finished_at DESC)',
     );
   }
 
@@ -8159,6 +8189,185 @@ class AppDatabase {
     };
   }
 
+  /// Stores only bounded metadata for a completed user-turn tool call.
+  /// Arguments, queries, URLs, result bodies, prompts and reasoning are never
+  /// accepted by this API, so future System Facts reads cannot expose them.
+  Future<void> recordAgentToolOutcome({
+    required String eventId,
+    required String toolId,
+    required String origin,
+    required String status,
+    required String reasonTag,
+    required String outcomeKind,
+    required int resultCount,
+    required String errorCode,
+    required DateTime startedAt,
+    required DateTime finishedAt,
+    required String sourceDeviceId,
+    required String sourceDeviceLabel,
+  }) async {
+    const terminalStatuses = <String>{
+      'succeeded',
+      'no_result',
+      'failed',
+      'blocked',
+    };
+    if (!terminalStatuses.contains(status)) {
+      throw ArgumentError.value(status, 'status', 'terminal status required');
+    }
+    if (origin != 'user_turn') {
+      throw ArgumentError.value(origin, 'origin', 'unsupported origin');
+    }
+    const safeErrorCodes = <String>{
+      '',
+      'blocked',
+      'execution_failed',
+    };
+    String bounded(String value, int limit) {
+      final normalized = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim();
+      return normalized.length <= limit
+          ? normalized
+          : normalized.substring(0, limit).trimRight();
+    }
+
+    final db = await database;
+    final finishedMs = finishedAt.millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'agent_tool_outcomes',
+        {
+          'id': bounded(eventId, 180).isEmpty
+              ? _uuid.v4()
+              : bounded(eventId, 180),
+          'tool_id': bounded(toolId, 80),
+          'origin': origin,
+          'status': status,
+          'reason_tag': bounded(reasonTag, 40),
+          'outcome_kind': bounded(outcomeKind, 40),
+          'result_count': resultCount.clamp(0, 1000),
+          'error_code':
+              safeErrorCodes.contains(errorCode) ? errorCode : 'redacted_error',
+          'started_at': startedAt.millisecondsSinceEpoch,
+          'finished_at': finishedMs,
+          'source_device_id': bounded(sourceDeviceId, 120),
+          'source_device_label': bounded(sourceDeviceLabel, 80),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.delete(
+        'agent_tool_outcomes',
+        where: 'finished_at < ?',
+        whereArgs: [
+          finishedAt
+              .subtract(const Duration(days: 90))
+              .millisecondsSinceEpoch,
+        ],
+      );
+      await txn.rawDelete('''
+        DELETE FROM agent_tool_outcomes
+        WHERE id NOT IN (
+          SELECT id FROM agent_tool_outcomes
+          ORDER BY finished_at DESC
+          LIMIT 200
+        )
+      ''');
+    });
+  }
+
+  Future<List<Map<String, Object?>>> recentAgentToolOutcomes({
+    int limit = 8,
+    DateTime? since,
+  }) async {
+    final db = await database;
+    return db.query(
+      'agent_tool_outcomes',
+      columns: const [
+        'tool_id',
+        'origin',
+        'status',
+        'reason_tag',
+        'outcome_kind',
+        'result_count',
+        'error_code',
+        'started_at',
+        'finished_at',
+        'source_device_id',
+        'source_device_label',
+      ],
+      where: since == null ? null : 'finished_at >= ?',
+      whereArgs: since == null ? null : [since.millisecondsSinceEpoch],
+      orderBy: 'finished_at DESC',
+      limit: limit.clamp(1, 20).toInt(),
+    );
+  }
+
+  Future<List<Map<String, Object?>>> recentAutonomousActionOutcomes({
+    int limit = 8,
+    DateTime? since,
+  }) async {
+    final db = await database;
+    final clauses = <String>[
+      "status NOT IN ('requested','running')",
+      if (since != null) 'COALESCE(finished_at, requested_at) >= ?',
+    ];
+    return db.query(
+      'autonomous_action_runs',
+      columns: const [
+        'tool_kind',
+        'status',
+        'gate_reason',
+        'outcome_kind',
+        'result_count',
+        'requested_at',
+        'finished_at',
+        'device_id',
+      ],
+      where: clauses.join(' AND '),
+      whereArgs: since == null ? null : [since.millisecondsSinceEpoch],
+      orderBy: 'COALESCE(finished_at, requested_at) DESC',
+      limit: limit.clamp(1, 20).toInt(),
+    );
+  }
+
+  Future<Map<String, Object?>> agentToolOutcomeDiagnosticStats() async {
+    final db = await database;
+    final counts = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM agent_tool_outcomes
+      GROUP BY status
+    ''');
+    final latest = await db.query(
+      'agent_tool_outcomes',
+      columns: const [
+        'tool_id',
+        'origin',
+        'status',
+        'outcome_kind',
+        'result_count',
+        'finished_at',
+      ],
+      orderBy: 'finished_at DESC',
+      limit: 1,
+    );
+    return <String, Object?>{
+      'retainedCount': Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM agent_tool_outcomes'),
+          ) ??
+          0,
+      'byStatus': <String, int>{
+        for (final row in counts)
+          row['status'] as String: (row['count'] as num?)?.toInt() ?? 0,
+      },
+      'latest': latest.isEmpty ? null : latest.single,
+      'retentionDays': 90,
+      'retentionRows': 200,
+      'argumentsIncluded': false,
+      'resultBodiesIncluded': false,
+      'urlsIncluded': false,
+      'deviceIdsIncluded': false,
+    };
+  }
+
   Future<Map<String, Object?>> autonomousActionDiagnosticStats({
     DateTime? now,
   }) async {
@@ -11854,6 +12063,7 @@ class AppDatabase {
         [DateTime.now().millisecondsSinceEpoch],
       ),
       'autonomous_action_runs': await count('autonomous_action_runs'),
+      'agent_tool_outcomes': await count('agent_tool_outcomes'),
       'active_autonomous_actions': await count(
         'autonomous_action_runs',
         "status IN ('requested','running')",
@@ -11962,6 +12172,7 @@ class AppDatabase {
       'awareness_observations',
       'daily_continuity',
       'proactive_history',
+      'agent_tool_outcomes',
       'autonomous_action_runs',
       'public_web_candidates',
       'companion_browser_visits',
@@ -12048,6 +12259,7 @@ class AppDatabase {
         'awareness_observations',
         'daily_continuity',
         'proactive_history',
+        'agent_tool_outcomes',
         'autonomous_action_runs',
         'public_web_candidates',
         'companion_browser_visits',

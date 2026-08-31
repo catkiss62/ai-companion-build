@@ -8,6 +8,7 @@ import '../phone/companion_album_search_policy.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
+import 'agent_self_reader.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
@@ -28,22 +29,34 @@ class AgentToolRunner {
     AgentToolPlan plan, {
     AgentToolActivityCallback? onActivity,
     GenerationCancellationToken? cancellationToken,
+    String eventScopeId = '',
   }) async {
     final results = <AgentToolResult>[];
-    for (final call in plan.calls.take(2)) {
+    final calls = plan.calls.take(2).toList(growable: false);
+    for (var callIndex = 0; callIndex < calls.length; callIndex++) {
+      final call = calls[callIndex];
+      final startedAt = DateTime.now();
       cancellationToken?.throwIfCancelled();
       final definition = AgentToolRegistry.byId(call.toolId);
       if (definition == null ||
           !definition.executable ||
           !definition.userTurnAvailable ||
           definition.risk != AgentToolRisk.readOnly) {
-        results.add(AgentToolResult(
+        final result = AgentToolResult(
           toolId: call.toolId,
           status: AgentToolStatus.blocked,
           displayText: '工具未获准执行',
           promptData: '该工具没有执行；不得声称已经获得结果。',
           errorCode: 'registry_blocked',
-        ));
+        );
+        results.add(result);
+        await _recordTerminalOutcome(
+          call: call,
+          callIndex: callIndex,
+          eventScopeId: eventScopeId,
+          result: result,
+          startedAt: startedAt,
+        );
         continue;
       }
       onActivity?.call(AgentToolActivity(
@@ -65,6 +78,13 @@ class AgentToolRunner {
           resultCount: result.resultCount,
           errorCode: result.errorCode,
           reasonTag: call.reasonTag,
+        );
+        await _recordTerminalOutcome(
+          call: call,
+          callIndex: callIndex,
+          eventScopeId: eventScopeId,
+          result: result,
+          startedAt: startedAt,
         );
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
@@ -88,6 +108,13 @@ class AgentToolRunner {
           status: result.status,
           errorCode: code,
           reasonTag: call.reasonTag,
+        );
+        await _recordTerminalOutcome(
+          call: call,
+          callIndex: callIndex,
+          eventScopeId: eventScopeId,
+          result: result,
+          startedAt: startedAt,
         );
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
@@ -119,7 +146,26 @@ class AgentToolRunner {
     if (call.toolId == AgentToolRegistry.deviceContextRead.id) {
       return _readDeviceContext();
     }
+    if (call.toolId == AgentToolRegistry.systemSelfRead.id) {
+      return _readSystemSelf(call.arguments['scope'] ?? 'all');
+    }
     throw StateError('unimplemented_registered_tool');
+  }
+
+  Future<AgentToolResult> _readSystemSelf(String rawScope) async {
+    final scope = AgentSelfReadScopeKey.fromArgument(rawScope);
+    final result = await AgentSelfReader(db: db, android: android).read(scope);
+    return AgentToolResult(
+      toolId: AgentToolRegistry.systemSelfRead.id,
+      status: AgentToolStatus.succeeded,
+      displayText: scope == AgentSelfReadScope.outcomes
+          ? '已读取 ${result.outcomeCount} 条近期真实结果'
+          : scope == AgentSelfReadScope.facts
+              ? '已读取当前系统能力'
+              : '已读取当前能力与 ${result.outcomeCount} 条近期结果',
+      promptData: result.promptData,
+      resultCount: result.resultCount,
+    );
   }
 
   Future<AgentToolResult> _searchWeb(
@@ -463,6 +509,58 @@ ${lines.join('\n')}
       '${prefix}_last_at',
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
+  }
+
+  Future<void> _recordTerminalOutcome({
+    required AgentToolCall call,
+    required int callIndex,
+    required String eventScopeId,
+    required AgentToolResult result,
+    required DateTime startedAt,
+  }) async {
+    if (result.status == AgentToolStatus.requested ||
+        result.status == AgentToolStatus.running) {
+      return;
+    }
+    final finishedAt = DateTime.now();
+    try {
+      final deviceId = await db.ensureDeviceId();
+      var deviceLabel = 'Android device';
+      try {
+        deviceLabel = await android.deviceLabel();
+      } catch (_) {}
+      final stableScope = eventScopeId.trim();
+      await db.recordAgentToolOutcome(
+        eventId: stableScope.isEmpty
+            ? ''
+            : 'user_turn:$stableScope:${call.toolId}:$callIndex',
+        toolId: call.toolId,
+        origin: AgentToolOrigin.userTurn.key,
+        status: result.status.key,
+        reasonTag: call.reasonTag,
+        outcomeKind: switch (result.status) {
+          AgentToolStatus.succeeded => 'result_available',
+          AgentToolStatus.noResult => 'no_useful_result',
+          AgentToolStatus.failed => 'execution_failed',
+          AgentToolStatus.blocked => 'blocked',
+          _ => 'none',
+        },
+        resultCount: result.resultCount,
+        errorCode: switch (result.status) {
+          AgentToolStatus.failed => 'execution_failed',
+          AgentToolStatus.blocked => 'blocked',
+          _ => '',
+        },
+        startedAt: startedAt,
+        finishedAt: finishedAt,
+        sourceDeviceId: deviceId,
+        sourceDeviceLabel: deviceLabel,
+      );
+    } catch (_) {
+      // Audit metadata must never turn a real read-only tool result into a
+      // failed user answer. The next diagnostics report can expose a missing
+      // event count without storing tool arguments or result bodies.
+    }
   }
 
   static const callIdPublicWeb = 'public_web.search';

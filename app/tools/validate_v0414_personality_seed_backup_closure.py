@@ -28,7 +28,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145)\s*$", pubspec, re.M)
 
 match = re.search(
     r"const ruleContentV0353_03_personality_seed = r'''(.*?)''';",
