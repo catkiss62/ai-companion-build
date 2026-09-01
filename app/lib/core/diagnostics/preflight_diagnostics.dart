@@ -150,6 +150,9 @@ class PreflightDiagnosticsService {
         'personalityLearningSubjectKeysIncluded': false,
         'personalityLearningModelProposalIncluded': false,
         'personalityLearningSemanticReviewBodiesIncluded': false,
+        'selfExperienceSourceBodiesIncluded': false,
+        'selfExperienceThoughtBodiesIncluded': false,
+        'desireEventThoughtOrMessageBodiesIncluded': false,
       },
     };
 
@@ -186,6 +189,9 @@ class PreflightDiagnosticsService {
       final personalityTrials = await db.personalityTrialDiagnostics();
       final personalityLearning =
           await db.personalityLearningDiagnosticStats();
+      final selfExperience =
+          await db.selfExperienceDiagnosticStats(now: now);
+      final desireEvents = await db.desireEventDiagnosticStats(now: now);
       final moeRepository = SqliteMoeRepository(() => db.database);
       final moeState = await moeRepository.loadState();
       final moePlan = const MoeDynamicsPolicy().expressionPlan(moeState);
@@ -360,6 +366,8 @@ class PreflightDiagnosticsService {
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
         'personalityLearning': personalityLearning,
+        'selfExperience': selfExperience,
+        'desireEvents': desireEvents,
         'dynamicMoe': {
           'd2': {
             'enabled': moeState.enabled,
@@ -559,6 +567,21 @@ class PreflightDiagnosticsService {
               : double.parse(desireSnapshot.lastIntentScore!.toStringAsFixed(4)),
           'lastSatisfiedAction': desireSnapshot.lastSatisfiedAction ?? '',
           'lastSatisfiedAt': desireSnapshot.lastSatisfiedAt?.millisecondsSinceEpoch ?? 0,
+          'screenOffContactWindow': {
+            'policy': 'one_pulse_per_screen_off_session_v1',
+            'minimumOffMinutes': 90,
+            'lastReason':
+                await db.getSetting('screen_off_contact_last_reason') ?? 'never',
+            'lastNightScale': double.tryParse(
+                  await db.getSetting('screen_off_contact_last_scale') ?? '',
+                ) ??
+                0.0,
+            'lastPulseAt': int.tryParse(
+                  await db.getSetting('screen_off_contact_last_pulse_at') ?? '',
+                ) ??
+                0,
+            'treatsScreenOffAsUserFree': false,
+          },
           'fatigueGateActive':
               currentFatigue >= DesireCorePolicy.fatigueRestGate,
           'fatiguePolicyMode': 'circadian_competition_v0406',

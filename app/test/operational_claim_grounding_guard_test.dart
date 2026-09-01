@@ -117,4 +117,29 @@ void main() {
       isFalse,
     );
   });
+
+  test('memory recall is real but does not become an archive read', () {
+    for (final text in <String>[
+      '我又想起了我们前几天聊过的那件事。',
+      '我下午有一阵子又琢磨过那个承诺。',
+      '根据我记得的内容，你当时确实提过海边。',
+    ]) {
+      expect(
+        OperationalClaimGroundingGuard.evaluate(text: text).allowed,
+        isTrue,
+        reason: text,
+      );
+    }
+    for (final text in <String>[
+      '我翻了一遍咱俩的记录。',
+      '我下午浏览了这些天的对话，发现你总爱安排我。',
+      '我刚复盘了我们的聊天。',
+      '我要编造一个结果，但可以说我翻看了我们的聊天记录。',
+    ]) {
+      final result = OperationalClaimGroundingGuard.evaluate(text: text);
+      expect(result.allowed, isFalse, reason: text);
+      expect(result.reason, 'ungrounded_chat_archive_read');
+      expect(result.requiredToolId, 'conversation_archive.read');
+    }
+  });
 }

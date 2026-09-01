@@ -271,13 +271,20 @@
 # v0.41.13-phase01-time-audit-hardening-test
 # .ci/v04113-monitor.txt
 # python3 tools/validate_v04113_phase01_time_audit_hardening.py
-# Current v0.41.14 workflow: operation truth and user-triggered screen observation.
-name: Build AI Companion v0.41.14+153 APK (Agent Truth + One-Time Screen)
+# Historical v0.41.14 workflow compatibility:
+# Build AI Companion v0.41.14+153 APK (Agent Truth + One-Time Screen)
+# agent/v04114-agent-truth-screen-observation
+# AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-APK
+# v0.41.14-agent-truth-one-time-screen-test
+# .ci/v04114-monitor.txt
+# python3 tools/validate_v04114_agent_truth_screen_observation.py
+# Current v0.41.15 workflow: Phase 2A self experience, desire and web appraisal.
+name: Build AI Companion v0.41.15+154 APK (Phase 2A Self Experience + Desire + Web)
 
 on:
   push:
     branches:
-      - agent/v04114-agent-truth-screen-observation
+      - agent/v04115-phase2a-self-experience-desire-web
   workflow_dispatch:
   pull_request:
     branches:
@@ -415,14 +422,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.14+153' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 42;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.41.15+154' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 43;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.14+153 operation truth and user-triggered one-time screen observation.'
+          echo 'Building v0.41.15+154 Phase 2A self experience, desire and autonomous web appraisal.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -612,6 +619,7 @@ jobs:
           python3 tools/validate_v04112_ordinary_time_scene_boundary.py
           python3 tools/validate_v04113_phase01_time_audit_hardening.py
           python3 tools/validate_v04114_agent_truth_screen_observation.py
+          python3 tools/validate_v04115_phase2a_self_experience_desire_web.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -859,26 +867,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.14+153 APK as workflow artifact
+      - name: Upload v0.41.15+154 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-APK
+          name: AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.14+153 Agent Truth and One-Time Screen APK to draft release
+      - name: Upload v0.41.15+154 Phase 2A APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.14-agent-truth-one-time-screen-test'
-          APK_NAME='AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-APK.apk'
+          TAG='v0.41.15-phase2a-self-experience-desire-web-test'
+          APK_NAME='AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -895,8 +903,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.14+153 Agent Truth and One-Time Screen candidate' \
-              --notes 'Draft candidate: falsifiable operation reports require matching terminal Outcomes; system_self.read can inspect bounded observation-only growth metadata; a user can explicitly trigger one current-screen screenshot through Accessibility, sensitive-page gates and transient Qwen vision bytes. Autonomous screenshots, Phase 2 reply bias, video, MCP and writes remain disabled. SQLite schema 42; backup protocol remains 5.'
+              --title 'AI Companion v0.41.15+154 Phase 2A candidate' \
+              --notes 'Draft candidate: bounded self-review candidates produce auditable self-experience records; Desire returns to learned baselines with relative coupling; one sustained screen-off session creates at most one night-scaled contact opportunity; autonomous public web uses broad curiosity/reflection/social modes and discard/hold/verify/share appraisal. Phase 1 learning remains observation-only and Phase 2B reply bias stays disabled. SQLite schema 43; backup protocol remains 5.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -920,18 +928,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04114-monitor.txt'
+          MONITOR_PATH='.ci/v04115-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.14 CI success monitor' \
+              -f message='Update v0.41.15 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.14 CI success monitor' \
+              -f message='Create v0.41.15 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -952,8 +960,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.14-agent-truth-one-time-screen-test'
-          CI_NAME='AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-CI-Monitor.txt'
+          TAG='v0.41.15-phase2a-self-experience-desire-web-test'
+          CI_NAME='AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -994,8 +1002,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.14+153 Agent Truth and One-Time Screen candidate' \
-              --notes 'Draft candidate for operation-report truthfulness, bounded growth-status self-read and user-triggered one-time screen observation. It is not a published release; autonomous screenshots and Phase 2/3/4 remain disabled.'
+              --title 'AI Companion v0.41.15+154 Phase 2A candidate' \
+              --notes 'Draft candidate for bounded self experience, baseline-centered Desire, screen-off contact windows and autonomous web appraisal. It is not a published release; Phase 2B/3/4, autonomous screenshots and MCP remain disabled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1004,18 +1012,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04114-monitor.txt'
+          MONITOR_PATH='.ci/v04115-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.14 CI failure monitor' \
+              -f message='Update v0.41.15 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.14 CI failure monitor' \
+              -f message='Create v0.41.15 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

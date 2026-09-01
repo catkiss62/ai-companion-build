@@ -9,6 +9,7 @@ class CurrentDeviceContextCapture {
     required this.deviceState,
     required this.usage,
     required this.recentSignals,
+    required this.deviceStateEvents,
     required this.interpretation,
   });
 
@@ -16,6 +17,7 @@ class CurrentDeviceContextCapture {
   final DevicePerceptionState deviceState;
   final List<UsageEventInfo> usage;
   final List<Map<String, Object?>> recentSignals;
+  final List<Map<String, Object?>> deviceStateEvents;
   final PerceptionInterpretation interpretation;
 }
 
@@ -205,6 +207,7 @@ class CurrentDeviceContextRefresher {
         deviceState: deviceState,
         usage: usage,
         recentSignals: recentSignals,
+        deviceStateEvents: deviceStateEvents,
         interpretation: interpretation,
       );
     } catch (error) {

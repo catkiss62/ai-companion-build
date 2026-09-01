@@ -991,6 +991,24 @@ class SnapshotService {
         tables[table] = const <Object?>[];
       }
     }
+    const selfExperienceTables = <String>[
+      'self_review_candidates',
+      'self_experiences',
+      'desire_events',
+    ];
+    if (schemaVersion >= 43) {
+      for (final table in selfExperienceTables) {
+        if (tables[table] is! List) {
+          throw FormatException('schema 43 状态包缺少自我体验表：$table');
+        }
+      }
+    } else {
+      // Schema 1-42 predates Phase 2A. Explicit empty lists prevent a restore
+      // on an existing installation from retaining unrelated local evidence.
+      for (final table in selfExperienceTables) {
+        tables[table] = const <Object?>[];
+      }
+    }
     backup['tables'] = tables;
   }
 

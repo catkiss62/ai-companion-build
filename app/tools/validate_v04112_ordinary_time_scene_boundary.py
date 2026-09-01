@@ -25,7 +25,10 @@ workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
 assert any(
     version in pubspec
-    for version in ("version: 0.41.12+151", "version: 0.41.13+152", "version: 0.41.14+153")
+    for version in (
+        "version: 0.41.12+151", "version: 0.41.13+152",
+        "version: 0.41.14+153", "version: 0.41.15+154",
+    )
 )
 assert "static const int schemaVersion = 42;" in database
 

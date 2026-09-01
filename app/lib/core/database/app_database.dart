@@ -28,6 +28,7 @@ import '../phone/album_perceptual_hash.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
 import '../models/personality_learning.dart';
+import '../models/self_experience.dart';
 import '../models/post_turn_job.dart';
 import '../models/generation_job.dart';
 import '../models/maintenance_run.dart';
@@ -88,7 +89,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 39;
   // Historical validator compatibility token: static const int schemaVersion = 40;
   // Historical validator compatibility token: static const int schemaVersion = 41;
-  static const int schemaVersion = 42;
+  // Historical validator compatibility token: static const int schemaVersion = 42;
+  static const int schemaVersion = 43;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1043,6 +1045,21 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    if (oldVersion < 43) {
+      await _createV43Tables(db);
+      for (final entry in const <String, String>{
+        'screen_off_contact_pulsed_session': '',
+        'screen_off_contact_last_reason': 'never',
+        'screen_off_contact_last_scale': '0',
+        'screen_off_contact_last_pulse_at': '0',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1213,6 +1230,7 @@ class AppDatabase {
     await _createV40Tables(db);
     await _createV41Tables(db);
     await _createV42Tables(db);
+    await _createV43Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1316,6 +1334,10 @@ class AppDatabase {
     await db.insert('settings', {'key': 'last_public_web_discovery_success_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_public_web_discovery_outcome', 'value': 'never'});
     await db.insert('settings', {'key': 'last_public_web_discovery_error', 'value': ''});
+    await db.insert('settings', {'key': 'screen_off_contact_pulsed_session', 'value': ''});
+    await db.insert('settings', {'key': 'screen_off_contact_last_reason', 'value': 'never'});
+    await db.insert('settings', {'key': 'screen_off_contact_last_scale', 'value': '0'});
+    await db.insert('settings', {'key': 'screen_off_contact_last_pulse_at', 'value': '0'});
   }
 
   Future<void> _createV2Tables(Database db) async {
@@ -2299,6 +2321,75 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV43Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS self_review_candidates (
+        id TEXT PRIMARY KEY,
+        dedupe_key TEXT NOT NULL UNIQUE,
+        source_kind TEXT NOT NULL,
+        source_ref TEXT NOT NULL DEFAULT '',
+        source_hash TEXT NOT NULL,
+        topic_key TEXT NOT NULL DEFAULT '',
+        drive_key TEXT NOT NULL DEFAULT 'reflection',
+        importance REAL NOT NULL DEFAULT 0.5,
+        status TEXT NOT NULL DEFAULT 'pending',
+        selected_at INTEGER,
+        completed_at INTEGER,
+        expires_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_self_review_pending '
+      'ON self_review_candidates(status, importance DESC, updated_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS self_experiences (
+        id TEXT PRIMARY KEY,
+        candidate_id TEXT NOT NULL,
+        source_kind TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        topic_key TEXT NOT NULL DEFAULT '',
+        drive_key TEXT NOT NULL DEFAULT 'reflection',
+        appraisal TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        thought_id TEXT,
+        started_at INTEGER NOT NULL,
+        finished_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        shared_at INTEGER,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        FOREIGN KEY(candidate_id)
+          REFERENCES self_review_candidates(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_self_experience_time '
+      'ON self_experiences(finished_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_self_experience_topic '
+      'ON self_experiences(topic_key, finished_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS desire_events (
+        id TEXT PRIMARY KEY,
+        event_kind TEXT NOT NULL,
+        drive_key TEXT NOT NULL,
+        source_key TEXT NOT NULL,
+        delta REAL NOT NULL,
+        value_after REAL NOT NULL,
+        baseline_after REAL NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_desire_events_time '
+      'ON desire_events(created_at DESC)',
+    );
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2731,6 +2822,8 @@ class AppDatabase {
       'memory_items',
       'personality_learning_candidates',
       'personality_learning_evidence',
+      'self_review_candidates',
+      'self_experiences',
       'unfinished_threads',
       'thoughts',
       'relationship_events',
@@ -6095,6 +6188,263 @@ class AppDatabase {
     return rows.map(MemoryItem.fromDb).toList();
   }
 
+  Future<MemoryItem?> memoryById(String id) async {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return null;
+    final db = await database;
+    final rows = await db.query(
+      'memory_items',
+      where: 'id = ?',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : MemoryItem.fromDb(rows.first);
+  }
+
+  Future<void> upsertSelfReviewCandidate({
+    required String sourceKind,
+    required String sourceRef,
+    required String sourceHash,
+    required String topicKey,
+    required String driveKey,
+    required double importance,
+    DateTime? now,
+    Duration ttl = const Duration(days: 30),
+  }) async {
+    final kind = sourceKind.trim().toLowerCase();
+    final ref = sourceRef.trim();
+    final fingerprint = sourceHash.trim().toLowerCase();
+    if (kind.isEmpty || ref.isEmpty || fingerprint.isEmpty) return;
+    final instant = now ?? DateTime.now();
+    final nowMs = instant.millisecondsSinceEpoch;
+    final dedupeKey = sha256
+        .convert(utf8.encode('$kind|$ref|$fingerprint'))
+        .toString();
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'self_review_candidates',
+        where: "status = 'pending' AND expires_at <= ?",
+        whereArgs: [nowMs],
+      );
+      final rows = await txn.query(
+        'self_review_candidates',
+        columns: const ['id', 'status'],
+        where: 'dedupe_key = ?',
+        whereArgs: [dedupeKey],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        await txn.insert('self_review_candidates', {
+          'id': _uuid.v4(),
+          'dedupe_key': dedupeKey,
+          'source_kind': kind,
+          'source_ref': ref,
+          'source_hash': fingerprint,
+          'topic_key': topicKey.trim().toLowerCase(),
+          'drive_key': driveKey.trim().toLowerCase(),
+          'importance': importance.clamp(0.0, 1.0),
+          'status': 'pending',
+          'expires_at': instant.add(ttl).millisecondsSinceEpoch,
+          'created_at': nowMs,
+          'updated_at': nowMs,
+        });
+        return;
+      }
+      if (rows.first['status'] == 'pending') {
+        await txn.update(
+          'self_review_candidates',
+          {
+            'topic_key': topicKey.trim().toLowerCase(),
+            'drive_key': driveKey.trim().toLowerCase(),
+            'importance': importance.clamp(0.0, 1.0),
+            'expires_at': instant.add(ttl).millisecondsSinceEpoch,
+            'updated_at': nowMs,
+          },
+          where: 'dedupe_key = ?',
+          whereArgs: [dedupeKey],
+        );
+      }
+    });
+  }
+
+  Future<List<SelfReviewCandidate>> pendingSelfReviewCandidates({
+    DateTime? now,
+    int limit = 32,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final db = await database;
+    return db.transaction((txn) async {
+      final nowMs = instant.millisecondsSinceEpoch;
+      // Experiences and their candidate envelopes are bounded evidence, not
+      // an append-only biography. Delete the child rows first so this remains
+      // correct even if a device has SQLite foreign-key enforcement disabled.
+      await txn.delete(
+        'self_experiences',
+        where: 'expires_at <= ?',
+        whereArgs: [nowMs],
+      );
+      await txn.delete(
+        'self_review_candidates',
+        where: "status != 'pending' AND status != 'selected' AND expires_at <= ?",
+        whereArgs: [nowMs],
+      );
+      await txn.delete(
+        'self_review_candidates',
+        where: "status = 'pending' AND expires_at <= ?",
+        whereArgs: [nowMs],
+      );
+      final staleBefore = instant
+          .subtract(const Duration(minutes: 10))
+          .millisecondsSinceEpoch;
+      await txn.update(
+        'self_review_candidates',
+        {
+          'status': 'pending',
+          'selected_at': null,
+          'updated_at': nowMs,
+        },
+        where:
+            "status = 'selected' AND COALESCE(selected_at, 0) <= ? AND expires_at > ?",
+        whereArgs: [staleBefore, nowMs],
+      );
+      final rows = await txn.query(
+        'self_review_candidates',
+        where: "status = 'pending' AND expires_at > ?",
+        whereArgs: [nowMs],
+        orderBy: 'importance DESC, updated_at DESC',
+        limit: limit.clamp(1, 200).toInt(),
+      );
+      return rows.map(SelfReviewCandidate.fromDb).toList(growable: false);
+    });
+  }
+
+  Future<bool> claimSelfReviewCandidate(
+    String id, {
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final db = await database;
+    final count = await db.update(
+      'self_review_candidates',
+      {
+        'status': 'selected',
+        'selected_at': instant.millisecondsSinceEpoch,
+        'updated_at': instant.millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status = 'pending' AND expires_at > ?",
+      whereArgs: [id, instant.millisecondsSinceEpoch],
+    );
+    return count == 1;
+  }
+
+  Future<void> finishSelfReviewCandidate({
+    required SelfReviewCandidate candidate,
+    required String status,
+    required String appraisal,
+    String? thoughtId,
+    DateTime? now,
+  }) async {
+    const allowedStatuses = <String>{'completed', 'discarded', 'failed'};
+    if (!allowedStatuses.contains(status)) {
+      throw ArgumentError.value(status, 'status', 'unsupported review status');
+    }
+    final instant = now ?? DateTime.now();
+    final finishedMs = instant.millisecondsSinceEpoch;
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'self_review_candidates',
+        columns: const ['selected_at'],
+        where: "id = ? AND status = 'selected'",
+        whereArgs: [candidate.id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+      final selectedMs =
+          (rows.first['selected_at'] as num?)?.toInt() ?? finishedMs;
+      final changed = await txn.update(
+        'self_review_candidates',
+        {
+          'status': status,
+          'completed_at': finishedMs,
+          'expires_at': instant
+              .add(const Duration(days: 90))
+              .millisecondsSinceEpoch,
+          'updated_at': finishedMs,
+        },
+        where: "id = ? AND status = 'selected'",
+        whereArgs: [candidate.id],
+      );
+      if (changed != 1) return;
+      await txn.insert('self_experiences', {
+        'id': _uuid.v4(),
+        'candidate_id': candidate.id,
+        'source_kind': candidate.sourceKind,
+        'source_hash': candidate.sourceHash,
+        'topic_key': candidate.topicKey,
+        'drive_key': candidate.driveKey,
+        'appraisal': appraisal.trim().toLowerCase(),
+        'status': status,
+        'thought_id': thoughtId,
+        'started_at': selectedMs,
+        'finished_at': finishedMs,
+        'expires_at': instant.add(const Duration(days: 90)).millisecondsSinceEpoch,
+        'metadata_json': '{}',
+      });
+      await txn.delete(
+        'self_experiences',
+        where: 'expires_at <= ?',
+        whereArgs: [finishedMs],
+      );
+    });
+  }
+
+  Future<Map<String, Object?>> selfExperienceDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final since =
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+    final db = await database;
+    final candidateRows = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM self_review_candidates
+      GROUP BY status
+    ''');
+    final experienceRows = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM self_experiences
+      WHERE finished_at >= ?
+      GROUP BY status
+    ''', [since]);
+    final latest = await db.query(
+      'self_experiences',
+      columns: const [
+        'source_kind',
+        'drive_key',
+        'appraisal',
+        'status',
+        'finished_at',
+      ],
+      orderBy: 'finished_at DESC',
+      limit: 8,
+    );
+    Map<String, int> counts(List<Map<String, Object?>> rows) => {
+          for (final row in rows)
+            row['status']?.toString() ?? 'unknown':
+                (row['count'] as num?)?.toInt() ?? 0,
+        };
+    return <String, Object?>{
+      'candidateStatusCounts': counts(candidateRows),
+      'experience24hStatusCounts': counts(experienceRows),
+      'latest': latest,
+      'sourceBodiesIncluded': false,
+      'sourceRefsIncluded': false,
+      'thoughtBodiesIncluded': false,
+    };
+  }
+
   Future<List<MemoryItem>> listMemories({
     String? kind,
     String status = 'active',
@@ -7005,6 +7355,105 @@ class AppDatabase {
     return DesireSnapshot.decode(rows.first['json'] as String);
   }
 
+  Future<void> recordDesireEvents({
+    required String eventKind,
+    required String source,
+    required Map<DriveKey, double> deltas,
+    required DesireSnapshot snapshot,
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final db = await database;
+    await db.transaction((txn) async {
+      await _recordDesireEventsTxn(
+        txn,
+        eventKind: eventKind,
+        source: source,
+        deltas: deltas,
+        snapshot: snapshot,
+        instant: instant,
+      );
+    });
+  }
+
+  Map<DriveKey, double> _desireDeltas(
+    DesireSnapshot before,
+    DesireSnapshot after,
+  ) =>
+      {
+        for (final drive in DriveKey.values)
+          drive: (after.drives[drive] ?? 0.0) -
+              (before.drives[drive] ?? 0.0),
+      };
+
+  Future<void> _recordDesireEventsTxn(
+    DatabaseExecutor txn, {
+    required String eventKind,
+    required String source,
+    required Map<DriveKey, double> deltas,
+    required DesireSnapshot snapshot,
+    required DateTime instant,
+  }) async {
+    final meaningful = deltas.entries
+        .where((entry) => entry.value.abs() >= 0.000001)
+        .toList(growable: false);
+    for (final entry in meaningful) {
+      await txn.insert('desire_events', {
+        'id': _uuid.v4(),
+        'event_kind': eventKind.trim().toLowerCase(),
+        'drive_key': entry.key.name,
+        'source_key': source.trim().toLowerCase(),
+        'delta': entry.value,
+        'value_after': snapshot.drives[entry.key] ?? 0.0,
+        'baseline_after': snapshot.baselines[entry.key] ?? 0.0,
+        'created_at': instant.millisecondsSinceEpoch,
+      });
+    }
+    await txn.delete(
+      'desire_events',
+      where: 'created_at < ?',
+      whereArgs: [
+        instant.subtract(const Duration(days: 14)).millisecondsSinceEpoch,
+      ],
+    );
+  }
+
+  Future<Map<String, Object?>> desireEventDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final since =
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+    final db = await database;
+    final byDrive = await db.rawQuery('''
+      SELECT drive_key,
+             COUNT(*) AS event_count,
+             COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS rise,
+             COALESCE(SUM(CASE WHEN delta < 0 THEN delta ELSE 0 END), 0) AS fall,
+             MIN(value_after) AS minimum,
+             MAX(value_after) AS maximum
+      FROM desire_events
+      WHERE created_at >= ?
+      GROUP BY drive_key
+    ''', [since]);
+    final bySource = await db.rawQuery('''
+      SELECT source_key, drive_key, COUNT(*) AS event_count,
+             COALESCE(SUM(delta), 0) AS net_delta
+      FROM desire_events
+      WHERE created_at >= ?
+      GROUP BY source_key, drive_key
+      ORDER BY event_count DESC
+      LIMIT 40
+    ''', [since]);
+    return <String, Object?>{
+      'windowHours': 24,
+      'byDrive': byDrive,
+      'bySource': bySource,
+      'thoughtOrMessageBodiesIncluded': false,
+      'sourceDetailIncluded': false,
+    };
+  }
+
   /// Records a Desire-sourced tool request without storing Thought bodies,
   /// search text, screen contents, URLs, account data, or provider payloads.
   Future<bool> recordAutonomousActionRequest({
@@ -7291,6 +7740,16 @@ class AppDatabase {
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        await _recordDesireEventsTxn(
+          txn,
+          eventKind: 'satisfaction',
+          source:
+              'tool:${row['tool_kind'] as String? ?? 'unknown'}:'
+              '${row['intent_action'] as String? ?? 'unknown'}',
+          deltas: _desireDeltas(current, next),
+          snapshot: next,
+          instant: instant,
+        );
       }
       return true;
     });
@@ -7400,7 +7859,12 @@ class AppDatabase {
             'intent_action': candidate.intentAction,
             'interest_key': candidate.interestKey,
             'safety_state': candidate.safetyState,
-            'lifecycle_state': 'unread',
+            'lifecycle_state': switch (candidate.appraisalState) {
+              'share_candidate' => 'unread',
+              'verify' => 'verify_pending',
+              'hold' => 'held',
+              _ => 'reviewed',
+            },
             'action_run_id': id,
             'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
             'expires_at': candidate.expiresAt.millisecondsSinceEpoch,
@@ -7481,6 +7945,14 @@ class AppDatabase {
             'updated_at': instant.millisecondsSinceEpoch,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        await _recordDesireEventsTxn(
+          txn,
+          eventKind: 'satisfaction',
+          source: 'tool:public_web:discover_interest',
+          deltas: _desireDeltas(current, next),
+          snapshot: next,
+          instant: instant,
         );
       }
 
@@ -9036,6 +9508,16 @@ class AppDatabase {
       'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
       'expiredCount': expired,
       'byLifecycle': byLifecycle,
+      'appraisal': {
+        'lastSearchMode':
+            await getSetting('public_web_last_search_mode') ?? 'never',
+        'lastCounts':
+            await getSetting('public_web_last_appraisal_counts') ?? '',
+        'heldCount': byLifecycle['held'] ?? 0,
+        'verifyPendingCount': byLifecycle['verify_pending'] ?? 0,
+        'shareCandidateCount': byLifecycle['unread'] ?? 0,
+        'queryOrContentIncluded': false,
+      },
       'last': lastRows.isEmpty
           ? null
           : {
@@ -9130,6 +9612,20 @@ class AppDatabase {
         'rawErrorIncluded': false,
       },
     };
+  }
+
+  Future<List<String>> recentPublicWebInterestKeys({int limit = 24}) async {
+    final db = await database;
+    final rows = await db.query(
+      'public_web_candidates',
+      columns: const ['interest_key'],
+      orderBy: 'discovered_at DESC',
+      limit: limit.clamp(1, 100).toInt(),
+    );
+    return rows
+        .map((row) => row['interest_key'] as String? ?? '')
+        .where((key) => key.isNotEmpty)
+        .toList(growable: false);
   }
 
   AutonomousActionRun _autonomousActionRunFromDb(
@@ -9531,14 +10027,23 @@ class AppDatabase {
             .clamp(0.0, 1.0)
             .toDouble();
       }
+      final nextSnapshot = snapshot.copyWith(drives: drives);
       await txn.insert(
         'desire_state',
         {
           'id': 1,
-          'json': snapshot.copyWith(drives: drives).encode(),
+          'json': nextSnapshot.encode(),
           'updated_at': nowMs,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _recordDesireEventsTxn(
+        txn,
+        eventKind: 'experience',
+        source: 'deferred_followup',
+        deltas: _desireDeltas(snapshot, nextSnapshot),
+        snapshot: nextSnapshot,
+        instant: now,
       );
 
       final normalizedTopic = topicKey.trim().toLowerCase();
@@ -10212,6 +10717,14 @@ class AppDatabase {
         'desire_state',
         {'id': 1, 'json': nextSnapshot.encode(), 'updated_at': nowMs},
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _recordDesireEventsTxn(
+        txn,
+        eventKind: 'experience',
+        source: 'relationship/${currentEvent.kind}',
+        deltas: _desireDeltas(snapshot, nextSnapshot),
+        snapshot: nextSnapshot,
+        instant: now,
       );
 
       final topicKey = (currentEvent.metadata['topic_key'] as String? ?? '')
@@ -11650,23 +12163,29 @@ class AppDatabase {
         );
       }
       final now = instant.millisecondsSinceEpoch;
+      final nextSnapshot = snapshot.copyWith(
+        drives: drives,
+        baselines: baselines,
+        refractoryUntil: refractory,
+        lastSatisfiedAction: applySatisfaction ? satisfiedAction : null,
+        lastSatisfiedAt: applySatisfaction ? instant : null,
+      );
       await txn.insert(
         'desire_state',
         {
           'id': 1,
-          'json': snapshot
-              .copyWith(
-                drives: drives,
-                baselines: baselines,
-                refractoryUntil: refractory,
-                lastSatisfiedAction:
-                    applySatisfaction ? satisfiedAction : null,
-                lastSatisfiedAt: applySatisfaction ? instant : null,
-              )
-              .encode(),
+          'json': nextSnapshot.encode(),
           'updated_at': now,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _recordDesireEventsTxn(
+        txn,
+        eventKind: applySatisfaction ? 'post_turn_and_satisfaction' : 'post_turn',
+        source: 'post_turn_model',
+        deltas: _desireDeltas(snapshot, nextSnapshot),
+        snapshot: nextSnapshot,
+        instant: instant,
       );
       final changed = await txn.update(
         'post_turn_jobs',
@@ -12515,6 +13034,9 @@ class AppDatabase {
       'summaries': await count('conversation_summaries'),
       'threads': await count('unfinished_threads', 'status = ?', ['active']),
       'thoughts': await count('thoughts'),
+      'self_review_candidates': await count('self_review_candidates'),
+      'self_experiences': await count('self_experiences'),
+      'desire_events': await count('desire_events'),
       'perceptions': await count('perception_snapshots'),
       'awareness_observations': await count('awareness_observations'),
       'daily_continuity': await count('daily_continuity'),
@@ -12652,6 +13174,9 @@ class AppDatabase {
       'memory_evidence',
       'personality_learning_candidates',
       'personality_learning_evidence',
+      'self_review_candidates',
+      'self_experiences',
+      'desire_events',
       'conversation_summaries',
       'unfinished_threads',
       'thoughts',
@@ -12742,6 +13267,9 @@ class AppDatabase {
         'memory_evidence',
         'personality_learning_candidates',
         'personality_learning_evidence',
+        'self_review_candidates',
+        'self_experiences',
+        'desire_events',
         'conversation_summaries',
         'unfinished_threads',
         'thoughts',

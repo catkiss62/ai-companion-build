@@ -434,4 +434,64 @@ void main() {
     expect(snapshot.drives[DriveKey.reflection]!, greaterThan(0.38));
     expect(snapshot.drives[DriveKey.social]!, greaterThan(0.30));
   });
+
+  test('an event-free snapshot rests at its learned baselines', () {
+    final now = DateTime(2026, 9, 2, 12);
+    final baselines = {
+      ...DesireSnapshot.defaultBaselines(),
+      DriveKey.attachment: 0.46,
+      DriveKey.curiosity: 0.42,
+      DriveKey.social: 0.27,
+    };
+    final advanced = DesireCorePolicy.advance(
+      snapshot: DesireSnapshot(
+        drives: Map<DriveKey, double>.from(baselines),
+        baselines: baselines,
+        lastTickAt: now.subtract(const Duration(minutes: 12)),
+      ),
+      now: now,
+    );
+
+    for (final drive in DriveKey.values) {
+      expect(advanced.drives[drive], closeTo(advanced.baselines[drive]!, 1e-9));
+    }
+  });
+
+  test('healthy curiosity above its own baseline supports reflection and social', () {
+    final now = DateTime(2026, 9, 2, 12);
+    final baselines = {
+      ...DesireSnapshot.defaultBaselines(),
+      DriveKey.curiosity: 0.42,
+      DriveKey.reflection: 0.31,
+      DriveKey.social: 0.26,
+    };
+    final atBaseline = DesireCorePolicy.advance(
+      snapshot: DesireSnapshot(
+        drives: Map<DriveKey, double>.from(baselines),
+        baselines: baselines,
+        lastTickAt: now.subtract(const Duration(minutes: 12)),
+      ),
+      now: now,
+    );
+    final curious = DesireCorePolicy.advance(
+      snapshot: DesireSnapshot(
+        drives: {
+          ...baselines,
+          DriveKey.curiosity: 0.50,
+        },
+        baselines: baselines,
+        lastTickAt: now.subtract(const Duration(minutes: 12)),
+      ),
+      now: now,
+    );
+
+    expect(
+      curious.drives[DriveKey.reflection]!,
+      greaterThan(atBaseline.drives[DriveKey.reflection]!),
+    );
+    expect(
+      curious.drives[DriveKey.social]!,
+      greaterThan(atBaseline.drives[DriveKey.social]!),
+    );
+  });
 }

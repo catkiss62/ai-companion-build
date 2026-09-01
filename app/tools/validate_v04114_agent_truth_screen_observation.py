@@ -45,9 +45,13 @@ doc_map = read(APP / "docs/DOCUMENTATION_MAP.md")
 ledger = read(ROOT / "AI_Companion_当前总账.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
-assert "version: 0.41.14+153" in pubspec
+assert any(version in pubspec for version in (
+    "version: 0.41.14+153", "version: 0.41.15+154"
+))
 assert "static const int schemaVersion = 42;" in database
-assert "buildLabel = 'v0.41.14+153'" in self_reader
+assert any(label in self_reader for label in (
+    "buildLabel = 'v0.41.14+153'", "buildLabel = 'v0.41.15+154'"
+))
 
 screen_block = registry.split("static const screenObservation =", 1)[1].split(
     ");", 1

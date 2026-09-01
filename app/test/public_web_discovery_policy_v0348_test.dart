@@ -84,6 +84,36 @@ void main() {
       expect(first.query, isNot(contains('private')));
       expect(first.query, isNot(contains('Thought')));
       expect(first.interestKey, startsWith('curiosity:'));
+      expect(first.searchMode, 'curiosity_explore');
+      expect(first.domain, isNotEmpty);
+    });
+
+    test('reflection and social use separate search modes', () {
+      final reflection = PublicWebDiscoveryPolicy.topicFor(
+        intent: intent(drive: DriveKey.reflection),
+        now: DateTime.utc(2026, 8, 18, 3),
+      );
+      final social = PublicWebDiscoveryPolicy.topicFor(
+        intent: intent(drive: DriveKey.social),
+        now: DateTime.utc(2026, 8, 18, 3),
+      );
+      expect(reflection.searchMode, 'reflection_understand');
+      expect(social.searchMode, 'social_material');
+      expect(reflection.domain, isNot(social.domain));
+    });
+
+    test('recent exact interests are skipped while the taxonomy has options', () {
+      final first = PublicWebDiscoveryPolicy.topicFor(
+        intent: intent(),
+        now: DateTime.utc(2026, 8, 18, 3),
+      );
+      final next = PublicWebDiscoveryPolicy.topicFor(
+        intent: intent(),
+        now: DateTime.utc(2026, 8, 18, 3),
+        recentInterestKeys: [first.interestKey],
+      );
+      expect(next.interestKey, isNot(first.interestKey));
+      expect(next.searchMode, first.searchMode);
     });
 
     test('dedupe changes only at a six-hour UTC boundary', () {

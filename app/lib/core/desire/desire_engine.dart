@@ -44,7 +44,8 @@ class DesireEngine {
       await _tickThoughts(instant);
     }
     final thoughts = await db.activeThoughts(limit: 24);
-    return db.mutateDesire((snapshot) {
+    final deltas = <DriveKey, double>{};
+    final next = await db.mutateDesire((snapshot) {
       final advanced = DesireCorePolicy.advance(
         snapshot: snapshot,
         now: instant,
@@ -52,6 +53,10 @@ class DesireEngine {
         userBusy: userBusy,
       );
       final drives = Map<DriveKey, double>.from(advanced.drives);
+      for (final drive in DriveKey.values) {
+        deltas[drive] =
+            (drives[drive] ?? 0.0) - (snapshot.drives[drive] ?? 0.0);
+      }
       final intent = _pickIntent(
         snapshot.copyWith(
           drives: drives,
@@ -75,6 +80,14 @@ class DesireEngine {
         clearIntent: intent == null,
       );
     });
+    await db.recordDesireEvents(
+      eventKind: 'advance',
+      source: pulses.isEmpty ? 'heartbeat' : 'heartbeat_with_pulse',
+      deltas: deltas,
+      snapshot: next,
+      now: instant,
+    );
+    return next;
   }
 
   /// Apply a real experience (conversation, remembered promise, perception)
@@ -83,9 +96,11 @@ class DesireEngine {
   Future<void> applyExperience(
     Map<DriveKey, double> pulses, {
     double baselineLearning = 0.018,
+    String source = 'experience',
   }) async {
     if (pulses.isEmpty) return;
-    await db.mutateDesire((snapshot) {
+    final actualDeltas = <DriveKey, double>{};
+    final next = await db.mutateDesire((snapshot) {
       final drives = Map<DriveKey, double>.from(snapshot.drives);
       final baselines = Map<DriveKey, double>.from(snapshot.baselines);
       final anchors = DesireSnapshot.defaultBaselines();
@@ -96,6 +111,8 @@ class DesireEngine {
         drives[drive] = ((drives[drive] ?? anchors[drive]!) + delta)
             .clamp(0.0, 1.0)
             .toDouble();
+        actualDeltas[drive] =
+            (drives[drive] ?? 0.0) - (snapshot.drives[drive] ?? 0.0);
         final anchor = anchors[drive]!;
         final currentBase = baselines[drive] ?? anchor;
         final target = (currentBase + delta * baselineLearning)
@@ -105,6 +122,12 @@ class DesireEngine {
       }
       return snapshot.copyWith(drives: drives, baselines: baselines);
     });
+    await db.recordDesireEvents(
+      eventKind: 'experience',
+      source: source,
+      deltas: actualDeltas,
+      snapshot: next,
+    );
   }
 
   Future<void> pulse(
@@ -114,7 +137,11 @@ class DesireEngine {
     double thoughtStrength = 0.28,
     String thoughtSource = 'internal',
   }) async {
-    await applyExperience({drive: delta}, baselineLearning: 0.006);
+    await applyExperience(
+      {drive: delta},
+      baselineLearning: 0.006,
+      source: thoughtSource,
+    );
     if (thought != null && thought.trim().isNotEmpty) {
       await feedThought(
         text: thought,
@@ -132,13 +159,15 @@ class DesireEngine {
     final now = DateTime.now();
     final refractoryUntil =
         now.add(Duration(minutes: 22 + _random.nextInt(35)));
-    await db.mutateDesire((snapshot) {
+    final deltas = <DriveKey, double>{};
+    final next = await db.mutateDesire((snapshot) {
       final drives = Map<DriveKey, double>.from(snapshot.drives);
       final baseline = snapshot.baselines[drive] ?? 0.2;
       final value = drives[drive] ?? baseline;
       drives[drive] = (baseline + (value - baseline) * factor)
           .clamp(0.0, 1.0)
           .toDouble();
+      deltas[drive] = (drives[drive] ?? 0.0) - value;
       final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
         ..[drive] = refractoryUntil;
       return snapshot.copyWith(
@@ -148,6 +177,13 @@ class DesireEngine {
         lastSatisfiedAt: now,
       );
     });
+    await db.recordDesireEvents(
+      eventKind: 'satisfaction',
+      source: 'user_reply',
+      deltas: deltas,
+      snapshot: next,
+      now: now,
+    );
   }
 
   Future<double> satisfyIntent(
@@ -160,7 +196,8 @@ class DesireEngine {
     final refractoryUntil =
         instant.add(Duration(minutes: 22 + _random.nextInt(35)));
     var fatigueCost = 0.0;
-    await db.mutateDesire((snapshot) {
+    final deltas = <DriveKey, double>{};
+    final next = await db.mutateDesire((snapshot) {
       final fatigueBefore = snapshot.drives[DriveKey.fatigue] ?? 0.0;
       final drives = DesireCorePolicy.satisfiedDrives(
         snapshot: snapshot,
@@ -173,6 +210,10 @@ class DesireEngine {
         0.0,
         (drives[DriveKey.fatigue] ?? fatigueBefore) - fatigueBefore,
       );
+      for (final drive in DriveKey.values) {
+        deltas[drive] =
+            (drives[drive] ?? 0.0) - (snapshot.drives[drive] ?? 0.0);
+      }
       final refractory = Map<DriveKey, DateTime>.from(snapshot.refractoryUntil)
         ..[intent.drive] = refractoryUntil;
       return snapshot.copyWith(
@@ -185,10 +226,17 @@ class DesireEngine {
             : snapshot.lastWildcardAt,
       );
     });
+    await db.recordDesireEvents(
+      eventKind: 'satisfaction',
+      source: intent.wantAction,
+      deltas: deltas,
+      snapshot: next,
+      now: instant,
+    );
     return fatigueCost;
   }
 
-  Future<void> feedThought({
+  Future<String?> feedThought({
     required String text,
     required DriveKey drive,
     double incomingStrength = 0.25,
@@ -197,13 +245,13 @@ class DesireEngine {
     DateTime? now,
   }) async {
     final normalized = text.trim();
-    if (normalized.isEmpty) return;
+    if (normalized.isEmpty) return null;
     // Self-reflection can be retried by another FlutterEngine after a stale
     // lease. A stable run source means the first committed reflection thought
     // wins even if the model wording differs on the retry.
-    if (source.startsWith('self_reflection_run:') &&
-        await db.thoughtBySource(source) != null) {
-      return;
+    if (source.startsWith('self_reflection_run:')) {
+      final existing = await db.thoughtBySource(source);
+      if (existing != null) return existing.id;
     }
     final thoughts = await db.lifecycleThoughts(limit: 120);
     final normalizedTopic = topicKey.trim().toLowerCase();
@@ -228,8 +276,9 @@ class DesireEngine {
 
     final instant = now ?? DateTime.now();
     if (match == null) {
+      final id = _uuid.v4();
       await db.upsertThought(
-        id: _uuid.v4(),
+        id: id,
         text: normalized,
         drive: drive,
         kind: 'flit',
@@ -241,7 +290,7 @@ class DesireEngine {
         lastFedAt: instant,
         topicKey: normalizedTopic,
       );
-      return;
+      return id;
     }
 
     final decision = ThoughtFeedPolicy.merge(
@@ -275,6 +324,7 @@ class DesireEngine {
       // self-drive/perception signals must not silently override a dismissal.
       snoozedUntil: source == 'conversation' ? null : match.snoozedUntil,
     );
+    return match.id;
   }
 
   DesireIntent? previewIntent(

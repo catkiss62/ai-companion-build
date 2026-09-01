@@ -16,6 +16,7 @@ class PublicWebCandidateDraft {
     this.imageUrl = '',
     this.imageDomain = '',
     this.imageDescription = '',
+    this.appraisalState = 'share_candidate',
   });
 
   final String fingerprint;
@@ -34,6 +35,28 @@ class PublicWebCandidateDraft {
   final String imageUrl;
   final String imageDomain;
   final String imageDescription;
+  final String appraisalState;
+
+  PublicWebCandidateDraft copyWith({String? appraisalState}) =>
+      PublicWebCandidateDraft(
+        fingerprint: fingerprint,
+        title: title,
+        summary: summary,
+        url: url,
+        sourceDomain: sourceDomain,
+        provider: provider,
+        language: language,
+        driveKey: driveKey,
+        intentAction: intentAction,
+        interestKey: interestKey,
+        discoveredAt: discoveredAt,
+        expiresAt: expiresAt,
+        safetyState: safetyState,
+        imageUrl: imageUrl,
+        imageDomain: imageDomain,
+        imageDescription: imageDescription,
+        appraisalState: appraisalState ?? this.appraisalState,
+      );
 }
 
 class PublicWebContextItem {

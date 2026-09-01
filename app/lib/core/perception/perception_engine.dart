@@ -8,6 +8,7 @@ import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
 import 'current_device_context_refresher.dart';
 import 'perception_interpreter.dart';
+import 'screen_off_contact_policy.dart';
 
 /// Captures Android signals and routes them through a bounded local
 /// interpretation layer before anything reaches ordinary relationship context.
@@ -91,6 +92,8 @@ class PerceptionEngine {
       newNotificationCount: newNotificationCount,
       newAccessibilityCount: newAccessibilityCount,
       screenInteractive: deviceState.screenInteractive,
+      screenOffAt: _lastScreenOffAt(context.deviceStateEvents),
+      now: now,
     );
 
     final summary = interpretation.observations
@@ -149,6 +152,8 @@ class PerceptionEngine {
     required int newNotificationCount,
     required int newAccessibilityCount,
     required bool screenInteractive,
+    required DateTime? screenOffAt,
+    required DateTime now,
   }) async {
     // A transfer may begin after capture persistence but before inner-state
     // integration. Re-check here so the old device cannot grow Thought/Desire
@@ -158,7 +163,6 @@ class PerceptionEngine {
     final activityKey = interpretation.dominantActivityKey;
     final activityLabel = interpretation.dominantActivityLabel;
     if (interpretation.dominantActivityMinutes >= 35) {
-      final now = DateTime.now();
       final lastLongMillis = int.tryParse(
         await db.getSetting('last_long_usage_thought_at') ?? '',
       );
@@ -205,10 +209,49 @@ class PerceptionEngine {
       });
     }
 
-    // Busy is deliberately not a negative attachment pulse. It only informs
-    // the outbound gate later; she may still think of/contact the user.
-    if (interpretation.busyScore < 0.35) {
-      await desire.applyExperience({DriveKey.social: 0.006});
+    // Screen-on inactivity cannot reliably prove that the user is free: a
+    // movie, reading session or paused foreground app may all look quiet. A
+    // sustained screen-off session is instead treated as one bounded contact
+    // opportunity, never as an availability fact and never once per heartbeat.
+    if (!screenInteractive) {
+      final current = await db.loadDesire();
+      final decision = ScreenOffContactPolicy.evaluate(
+        now: now,
+        screenOffAt: screenOffAt,
+        lastPulsedSessionKey:
+            await db.getSetting('screen_off_contact_pulsed_session') ?? '',
+        currentFatigue: current.drives[DriveKey.fatigue] ?? 0,
+      );
+      await db.setSetting('screen_off_contact_last_reason', decision.reason);
+      await db.setSetting(
+        'screen_off_contact_last_scale',
+        decision.nightScale.toStringAsFixed(4),
+      );
+      if (decision.eligible) {
+        await desire.applyExperience(
+          {DriveKey.social: decision.socialPulse},
+          baselineLearning: 0,
+          source: 'screen_off_contact_window',
+        );
+        if (decision.thoughtStrength >= 0.08) {
+          await desire.feedThought(
+            text: '已经隔了一阵子没有互动，我有一点想找你聊聊；但这不代表你现在一定有空。',
+            drive: DriveKey.social,
+            incomingStrength: decision.thoughtStrength,
+            source: 'perception/screen_off_contact_window',
+            topicKey: 'contact:screen_off',
+            now: now,
+          );
+        }
+        await db.setSetting(
+          'screen_off_contact_pulsed_session',
+          decision.sessionKey,
+        );
+        await db.setSetting(
+          'screen_off_contact_last_pulse_at',
+          now.millisecondsSinceEpoch.toString(),
+        );
+      }
     }
 
     // Repeated phone activity is allowed to accumulate into a small, decaying
@@ -225,5 +268,17 @@ class PerceptionEngine {
       hasCurrentActivity:
           interpretation.observations.any((observation) => observation.kind == 'current_activity'),
     );
+  }
+
+  DateTime? _lastScreenOffAt(List<Map<String, Object?>> events) {
+    DateTime? latest;
+    for (final row in events) {
+      if ((row['event_type'] as String? ?? '') != 'screen_off') continue;
+      final millis = (row['occurred_at'] as num?)?.toInt();
+      if (millis == null) continue;
+      final at = DateTime.fromMillisecondsSinceEpoch(millis);
+      if (latest == null || at.isAfter(latest)) latest = at;
+    }
+    return latest;
   }
 }

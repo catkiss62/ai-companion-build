@@ -132,13 +132,18 @@ class DesireCorePolicy {
       final baseline = baselines[drive] ?? 0.2;
       final decay = decayPerUnit[drive] ?? 0.015;
       final returnRate = 1 - pow(1 - 0.055, scale).toDouble();
-      value += (baseline - value) * returnRate;
-      value *= pow(1 - decay, scale).toDouble();
+      // Baseline is the long-term resting point, not a value which is itself
+      // decayed every heartbeat. Both the explicit return and natural decay
+      // operate on the deviation from baseline, so an event-free state at the
+      // baseline remains stable while excess and deficit still fade.
+      final retainedDeviation =
+          (value - baseline) * (1 - returnRate) * pow(1 - decay, scale);
+      value = baseline + retainedDeviation;
       value += pulses[drive] ?? 0.0;
       drives[drive] = value.clamp(0.0, 1.0).toDouble();
     }
 
-    _applyCoupling(drives, scale);
+    _applyCoupling(drives, baselines, scale);
 
     // Fatigue has a real circadian body component. Other drives retain their
     // own values: late-night attachment/curiosity is allowed to remain real,
@@ -473,7 +478,11 @@ class DesireCorePolicy {
         .toDouble();
   }
 
-  static void _applyCoupling(Map<DriveKey, double> d, double scale) {
+  static void _applyCoupling(
+    Map<DriveKey, double> d,
+    Map<DriveKey, double> baselines,
+    double scale,
+  ) {
     void delta(DriveKey target, double amount) {
       // Per-tick coupling is explicitly capped before global clamp so one long
       // resume catch-up cannot turn a small relation into a feedback spike.
@@ -483,11 +492,15 @@ class DesireCorePolicy {
           .toDouble();
     }
 
-    delta(DriveKey.libido, ((d[DriveKey.attachment] ?? 0) - 0.5) * 0.012);
-    delta(DriveKey.reflection, ((d[DriveKey.curiosity] ?? 0) - 0.5) * 0.014);
-    delta(DriveKey.attachment, ((d[DriveKey.reflection] ?? 0) - 0.5) * 0.009);
-    delta(DriveKey.stress, ((d[DriveKey.duty] ?? 0) - 0.5) * 0.008);
-    delta(DriveKey.social, ((d[DriveKey.curiosity] ?? 0) - 0.5) * 0.007);
-    delta(DriveKey.fatigue, ((d[DriveKey.stress] ?? 0) - 0.45) * 0.006);
+    double excess(DriveKey source) =>
+        (d[source] ?? baselines[source] ?? 0.0) -
+        (baselines[source] ?? 0.0);
+
+    delta(DriveKey.libido, excess(DriveKey.attachment) * 0.012);
+    delta(DriveKey.reflection, excess(DriveKey.curiosity) * 0.014);
+    delta(DriveKey.attachment, excess(DriveKey.reflection) * 0.009);
+    delta(DriveKey.stress, excess(DriveKey.duty) * 0.008);
+    delta(DriveKey.social, excess(DriveKey.curiosity) * 0.007);
+    delta(DriveKey.fatigue, excess(DriveKey.stress) * 0.006);
   }
 }

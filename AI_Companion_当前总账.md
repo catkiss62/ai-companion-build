@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-01（Asia/Tokyo）
+更新时间：2026-09-02（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04114-agent-truth-screen-observation`；从 v0.41.13 最终 CI/APK 代码树开出独立“操作事实真实性 + 成长状态只读 + 用户触发单次屏幕观察”批，Phase 2 回复影响继续关闭 |
+| 当前开发分支 | `agent/v04115-phase2a-self-experience-desire-web`；从 v0.41.14 最终 CI/APK 代码树开出的 Phase 2A 独立批，运行源码已完成本地静态审查并待推送 CI，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.14 最终 CI/APK head `25fbd4e56f798190297c4176db7ea12a78935d13` / tree `ac2dc3a69088a6a065119799ca3174e795e9a181`；该 tree 是 run 664 真实构建输入。后续只追加本总账 `[skip ci]` 封存 CI/APK 证据，不改变运行代码 |
-| App / 数据库 | 当前开发目标 `0.41.14+153` / schema 42；Snapshot/备份 protocol 5 不变，不删除或迁移现有用户数据 |
+| 当前代码 head / tree | v0.41.15 开工文档提交 `f46409a`；其后 Phase 2A 运行源码已通过本地静态审查，仍尚未形成并推送最终功能 commit，没有 CI 或 APK，不得把工作树冒充构建输入。上一可安装基线仍是 v0.41.14 run 664 的 head/tree |
+| App / 数据库 | 当前开发目标 `0.41.15+154` / schema 43；新增自我回顾候选、自我体验和欲望事件表；Snapshot/备份 protocol 5 不变，schema 42 覆盖升级必须保留全部既有用户数据 |
 | 最终 CI | v0.41.14 Actions run [`33516325092`](https://github.com/catkiss62/ai-companion-build/actions/runs/33516325092)（664）全绿：129 项源码/历史 validator、Kotlin 编译与单测、Flutter analyze、433/433 Flutter tests、Release APK、固定签名、TTS/桌宠/LingChat/塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped |
 | 测试 APK | `AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-APK.apk`，325,410,026 bytes |
 | APK SHA-256 | `09990517e926da91aa1cb835d8c2cb5fc7bf0dfaf708183b2be2faa52656b144`；CI checksum 与 Artifact 下载后独立解包计算一致 |
 | Artifact / Release | Artifact ID `9804183652`，ZIP 319,114,060 bytes，digest `sha256:7ab781497e41157b1e404e6e7245b903c640ab9262d993fa65808ff5adcd270a`，保留至 2026-09-15T14:06:22Z；Draft Release [`untagged-60b1779c5427bc032fa9`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-60b1779c5427bc032fa9)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 当前测试基线为 `v0.41.14+153 / schema 42`，CI/APK 已通过，待真机。Phase 0+1 观察隔离不变，Phase 2/3/4 继续关闭。本批只收口可核验的操作报告、成长系统只读元数据和用户明确触发的一次性当前屏幕观察，不允许自主截屏、视频、MCP 或学习结果影响回复 |
+| 当前总状态 | 可安装测试基线仍是 `v0.41.14+153 / schema 42`；Phase 2A 的 `v0.41.15+154 / schema 43` 当前仅可标记 `LOCAL STATIC REVIEW PASSED / CI & APK PENDING`。屏幕问题保持冻结。Phase 0+1 观察隔离不变，Phase 2B/3/4 继续关闭；不允许自主截屏、视频、MCP 或学习结果提前影响回复 |
 
 ### 3. 当前模块状态总表
 
@@ -42,17 +42,17 @@
 |---|---|---|
 | 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过；v0.41.13 最后真实用户/最近互动双时钟、30 分钟详细注入边界和当前用户人称守卫已过 CI/APK，其中时间边界单场景真机已通过 | 长期自然间隔仍继续观察，不要求人为等待阻塞开发；普通短活动与明确持续时间由 API 有界判断，AI 主动消息不刷新用户现场，沉浸房间不改。当前用户偶发被写成“他”已有窄出站守卫；偶发多余 `「` 仍见低优先级问题 |
 | 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.11 隔离语义复核已通过 CI/APK 与固定六句真机回放；v0.41.13 Phase 0+1 独立审查已过 CI/APK，待真机 | 学习候选继续只观察、不改表达；v0.41.13 封住旧 Memory/Relationship 绕过、direct feedback 错 target、内容偏好越界和 proposition 绝对化。少量漏判可接受，误判不可接受；Phase 2 尚未实施，不能把 Phase 1 真机通过写成回复已会消费成长结果 |
-| Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
+| Desire / Thought / Intent / Gate、主动联系 | v0.41.15 本地已把自然回归改为 baseline-centered、耦合改为相对各轴自身 baseline，并增加 14 天无正文来源事件；Self-Drive 已接可去重候选与真实体验终态；同一熄屏会话不再每个心跳重复增加互动欲 | 尚待 Flutter 编译/全测、CI/APK 与真机自然观察；系数没有整体放大。熄屏仅是 contact window，不是“用户空闲”，夜间按疲劳曲线显著折减 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
 | Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
 | Agent Tool 主循环 | v0.41.13 基线有六个用户轮只读工具；v0.41.14 已增加并通过 CI/APK 的第七个“用户明确请求的一次性当前屏幕观察”和 `system_self.read(growth)` | 当前没有“网页候选 → 下载同一图片 → 识图 → 相册保存”的用户轮可执行工具；视频、修改提案、真实提醒、MCP 仍不可执行，自主屏幕观察仍关闭；新工具仍待真机验收 |
-| 公开网页发现、候选、分享 | 已实现；v0.38.7 网页分享真机通过，后续 Provider/多样性改动有 CI/APK | 后续自然触发和 Provider 长期健康仍按诊断观察；网页内容始终是不可信数据 |
+| 公开网页发现、候选、分享 | v0.41.15 本地已将 18 词轮播扩为 curiosity/reflection/social 三种独立搜索目的、每类 24 个宽领域安全兜底，并按近期 interest key 跳过重复；结果先进入 discard/hold/verify/share_candidate 评价，只有 social Intent、wildcard 或独立 social 明显超过自身 baseline 时可提名最多一个分享候选 | 尚未接成熟 AI interest（留 Phase 3），也尚待 CI/APK/真机。联网成功不等于自动分享；held/verify 不进入现有主动分享队列，原始私聊/Thought 正文仍不得成为公开查询 |
 | 模拟手机、浏览器、私人相册 | 用户消息附件强绑定与相册底座已实现；新存档确认旧网页候选曾“识图摘要与来源图片不一致”，修复后聊天委托和后台链均无网页图成功保存证据 | P0 独立修复同一字节对象贯穿下载/识图/hash/落盘，并决定是否增加受控的用户轮保存工具；不得把搜索摘要或另一张缓存图冒充已保存图片 |
 | 沉浸房间 / NSFW | v0.39.x 已实现并持续回归 | 成人关系方向、Reality Identity、Session 隔离不可被通用安全模板或女性向材料覆盖 |
 | 本地 TTS、提示音与停止 | 新妹居 TTS 核心在 v0.39.5 真机通过；后续分句/呈现持续回归 | 边角停顿与部分提示音体验不是全局真机收口；不得让 reasoning 进入 TTS |
 | 桌宠、原生悬浮聊天、跨 App 生命周期 | 大部分主链已实现；若干版本有真机证据与大量 Kotlin/validator 回归 | HyperOS/DocumentsUI 文件选择器返回后的悬浮输入/恢复问题继续冻结到项目末尾，不重复堆 retry/delay |
 | 完整备份与设备接管 | protocol 5、单文件无口令备份、完整预检、原子替换/回滚已实现；v0.41.3 单文件导出结构在 v0.41.4 已真机收口 | **只收口导出**；同安装 Active、异安装 standby、破坏性恢复、真实大包/多 Provider 仍未真机闭环 |
-| 当前屏幕观察 | v0.41.14 已通过 CI/APK：仅用户明确触发的一次性截图、敏感页 Gate、临时字节识图、真实 Outcome 和同 durable event 幂等均已编译/测试通过 | 自主截屏继续 `NOT_IMPLEMENTED`；不得把前台 App 标签冒充像素内容，截图字节不得持久化或进入诊断/备份；仍需真机授权、敏感页和跨 App 验收 |
+| 当前屏幕观察 | v0.41.14 已通过 CI/APK；真机确认 Accessibility `CONNECTED_EVENTS_OK`、授权/组件/事件流正常，普通聊天图片识图成功，但一次性屏幕观察两次进入 `screen_observation` 后在 Provider 调用前以 `image_processing/not_called` 失败 | `FROZEN / DEFERRED`：不是普通无障碍未授权，也不是千问整体失效；当前诊断把系统回调、截图启动、HardwareBuffer/Bitmap、PNG/尺寸和方法通道失败压成同一错误，无法精准定位。未来仅补脱敏阶段码、系统截图 capability 与回调类别后再决定修复；自主截屏继续 `NOT_IMPLEMENTED` |
 | 视频理解、记忆/人设/规则提案、真实提醒 | `NOT_IMPLEMENTED`（Registry 占位） | 不得因存在 tool ID、预算或 UI 文案就宣称可用 |
 | MCP / Skills | 仅设计与能力占位，`mcp.invoke executable=false` | 在 Agent 自我事实层之后另批实现 Registry、权限、审计、超时、取消；不把任意 MCP/代码执行塞进 APK |
 | 手机主存储 + 平板伴随端 | 架构文档已锁定，运行实现未开始 | 手机保持唯一 Active Brain；平板不得导入完整关系状态或形成第二主脑 |
@@ -69,9 +69,10 @@
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P0 · CI PASSED / APK READY / TRUE DEVICE PENDING | v0.41.13 Phase 0+1 审查 + 普通/主动时间加固 | 独立 `0.41.13+152 / schema 42`：学习表隔离审计、旧 Memory/Relationship 绕过过滤、direct feedback 原句、行为 subject、命题扩张与能力真值门禁；时间使用最后真实用户现场/最近互动双时钟，`<30` 分钟不详细注入，首次跨阈值详细、后续精简，AI 主动消息不刷新现场；同时加固当前用户“他”误称。本批不删除旧记录、不打开 Phase 2。run 660 全绿并已生成三方 SHA 一致的测试 APK；长时间间隔继续作为后续观察项 |
-| P0 · CI PASSED / APK READY / TRUE DEVICE PENDING | v0.41.14 Agent 操作事实真实性 + 成长状态只读 + 用户单次屏幕观察 | run 664 已完成 129 validator、Kotlin、Flutter analyze、433 tests、Release APK、固定签名和全载荷校验；APK 独立解包 SHA 与 CI checksum 一致。自主截图、视频、MCP 和 Phase 2 消费继续关闭；下一步是按第 19 节/真机清单覆盖安装验收 |
-| P1 · 下一大型阶段 / Phase 2 | 轻量 topic/subject 关联记忆与小幅回复倾向 | 为长期记忆和已成熟 Phase 1 候选增加主题锚点、有限一层关联召回与可审计的小幅 bias；解决短近场窗口下同一项目的前因后果断裂，不建设完整知识图谱。开工时再读取第 14 节已登记的 companion-emergence、LMC-5、A-MEM、Memobase、PersonaMem 参考页面；本批不提前打开或消耗参考额度 |
-| P1 · 后续大型阶段 / Phase 3 | AI 自身习惯、版本回滚、激活预算与试穿蒸馏 | 只从真实经历与已成熟证据形成可回滚 AI habit，保留版本、来源、激活预算和停用路径；普通试穿只蒸馏有证据支持的习惯，不把整套脚本焊入核心。开工时再读第 14 节参考入口；Phase 2 真机闭环后进入 |
+| P0 · CI PASSED / APK READY / TRUE DEVICE PARTIAL | v0.41.14 Agent 操作事实真实性 + 成长状态只读 + 用户单次屏幕观察 | run 664 已完成 129 validator、Kotlin、Flutter analyze、433 tests、Release APK、固定签名和全载荷校验；APK 独立解包 SHA 与 CI checksum 一致。真机确认新版、普通图片识图与 Accessibility 健康；屏幕像素链在 Provider 前失败，按用户决定冻结并保留详细定位资料。操作事实门禁继续自然观察，不为截图单独消耗下一轮 APK；自主截图、视频、MCP 和 Phase 2 消费继续关闭 |
+| P0 · LOCAL STATIC REVIEW PASSED / CI & APK PENDING / Phase 2A | Self-Drive 体验证据、Desire 数值标定、熄屏互动窗口与自主联网选题重构 | `v0.41.15+154 / schema 43` 本地已实现：候选→选中→完成/丢弃/失败体验链、baseline-centered 动力学、相对 baseline 耦合、欲望来源遥测、90 分钟单次熄屏联系窗口及夜间折减、三种联网意图/72 个宽领域兜底/近期去重和四分支 appraisal；同时明确允许“想起/琢磨具体事情”，阻止把自动召回说成“翻了聊天记录”。当前尚未通过 Flutter analyze/tests、完整 CI 资源回归、APK 与真机，详细实现和验收见第 20 节 |
+| P1 · 同一大型阶段 / Phase 2B | 轻量 topic/subject 关联记忆与小幅回复倾向 | 为长期记忆和已成熟 Phase 1 候选增加主题锚点、有限一层关联召回与可审计的小幅 bias；解决短近场窗口下同一项目的前因后果断裂，不建设完整知识图谱。Phase 2A/2B 都完成真机排错后，再对 Phase 2 做一次独立完整代码审查。开工时再读取第 14 节已登记的 companion-emergence、LMC-5、A-MEM、Memobase、PersonaMem 参考页面；本批不提前打开或消耗参考额度 |
+| P1 · 后续大型阶段 / Phase 3 | AI 自身兴趣/习惯、版本回滚、激活预算与试穿蒸馏 | 只从多次真实自主选择、持续关注、后续查证/分享和互动反馈形成可回滚 `ai_interest` / AI habit，保留版本、来源、反证、新鲜度、激活预算和停用路径；成熟兴趣才可小幅影响联网选题、主动话题和表达习惯。普通试穿只蒸馏有证据支持的习惯，不把整套脚本焊入核心。开工时再读第 14 节参考入口；Phase 2 真机闭环后进入 |
 | P2 · 后续大型阶段 / Phase 4 | 低频主动澄清与娱乐测试 | 只在不确定且值得确认时低频询问，不把每轮变成问卷；娱乐测试只作校准，不直接写人格事实。开工时再读 PersonaMem/Generative Agents 等第 14 节入口；Phase 3 真机闭环后进入 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
 | P1 · 已并入 v0.41.14 | 用户点击“看一次当前屏幕” + 敏感页 Gate | 与操作事实真值同属 Agent 感知真实性闭环，因此同一包实现并共享一次构建；只开放用户轮次，完成 Provider/授权/UI/隐私验收后仍不自动开放自主调度 |
@@ -393,6 +394,83 @@
 7. Actions run 662 首轮在 Kotlin 编译阶段报出 `ApplicationInfo.CATEGORY_FINANCE` 不存在，因此当轮没有进入 Flutter analyze/tests 或 APK 生成，不得标记构建通过。修复不降级隐私门禁：删除不存在的平台常量，保留包名 Gate，再只在内存中读取当前 App label，用固定中英文银行/支付/钱包/信用卡/证券/保险/认证器词表保守阻止；包信息或 label 取不到时也 blocked，不存储 label。修复后已重跑专项 validator 并再审查该 Gate 的失败优先、伴侣自身界面例外、密码节点与敏感包叠加顺序；待第二次 Actions 完整重建。
 8. Actions run 663 已越过 run 662 失败点：Kotlin 编译/新增隐私单测、Flutter analyze 均通过，Flutter tests 为 432 passed / 1 failed。唯一失败是新增 `observeBytes` 单测的 Mock HTTP 响应含中文但没有声明 UTF-8，`http.Response` 在进入被测代码前按 Latin-1 构造失败；同文件旧识图测试和本批操作真值测试均已通过，不是运行识图回归。修复仅给 Mock 响应补 `application/json; charset=utf-8`；复审确认不修改 Provider 请求、解析、截图或隐私路径。run 663 未生成 APK，待下一次完整 Actions 重建。
 9. Actions run 664 最终全绿：129 项源码/历史 validator、Kotlin 编译与包含 `PrivacyFilterTest` 的单测、Flutter analyze、433/433 Flutter tests、Release APK、固定私有测试签名、TTS/桌宠/LingChat/塔罗载荷哈希、Artifact 与草稿 Release 上传均通过，失败报告 job 正常 skipped。APK 325,410,026 bytes，SHA-256 `09990517e926da91aa1cb835d8c2cb5fc7bf0dfaf708183b2be2faa52656b144`；Artifact ZIP digest `7ab781497e41157b1e404e6e7245b903c640ab9262d993fa65808ff5adcd270a`，下载后再次解包计算 APK 得到同一 SHA。这仅证明源码/构建闭环，真机仍要覆盖安装并验收操作真值语言、growth scope、Accessibility 授权、普通/敏感/密码/secure 页、跨 App 截图、中断幂等和原始字节不落盘。
+
+### 20. 2026-09-02 · Self-Drive、欲望数值与自主联网成长审计（PHASE 2A LOCAL STATIC REVIEW PASSED / CI & APK PENDING）
+
+#### A. v0.41.14 屏幕观察真机失败与冻结决定
+
+1. 最新报告 `ai_companion_diagnostics_2026-09-01T17-26-58-312475Z.txt` 明确来自 `v0.41.14+153 / schema 42`，设备为 Xiaomi 25060RK16C、Android 15/API 35。系统设置截图与报告共同确认 AI Companion 自身 Accessibility 开关已开启；TalkBack 和系统“文字识别”开关不是本功能所需权限。
+2. Accessibility 生命周期为 `CONNECTED_EVENTS_OK`：`authorized=true`、`connected=true`、`componentMatch=true`、enabled/package entry 均为 1，服务 generation 33、disconnect/destroy 均无当前异常，窗口/根节点事件持续更新。因此不能把本次失败归因于普通“无障碍没有开启/权限力度不足”。Android XML 已声明 `canTakeScreenshot=true`，但当前诊断尚未读取系统最终暴露的 `CAPABILITY_CAN_TAKE_SCREENSHOT` 位。
+3. Provider 统计出现 2 次 `screen_observation`；最新一次在北京时间 2026-09-02 01:25:21 左右结束为 `primaryProvider=none / primaryOutcome=not_called / primaryErrorCategory=image_processing / resultCount=0`。约 31 秒后的最近工具是模型选择并成功执行的 `device_context.read`，只能读取当前 App/亮锁屏等粗状态，不能看像素。普通聊天图片已有 `qwen_vision` 成功记录，故千问 Key、普通图片上传与总体识图能力不是本次主因。
+4. 失败已经缩小到“通过隐私 Gate 后、千问视觉调用前”的 Android 截图取得/解码/方法通道范围。现代码可能产生 `capture_failed / capture_start_failed / capture_decode_failed / bitmap_unavailable / invalid_image_size / platform_failure / platform_unavailable` 等内部类别，但 Dart Outcome 一律压成 `execution_failed`，Provider Health 一律压成 `image_processing`，诊断又按隐私合同不导出 raw error，所以现有文件无法继续精准区分系统截图回调、启动异常、HardwareBuffer→Bitmap、PNG/尺寸或 channel 哪一阶段失败。
+5. 用户决定此问题暂时搁置，不继续为设备兼容猜测耗费构建和时间，成长/学习系统改为当前唯一主线。后续若重开，只先增加不含包名、画面、文字或字节的脱敏诊断：系统实际截图 capability、失败 stage、Android 回调数字类别的安全映射、decode 子阶段和 channel 状态；取得新真机证据后才决定兼容修复或是否评估 MediaProjection。不得在无证据时把它写成“权限不足”或直接更换截图架构。
+6. 模型思考里“有工具但没有截图工具”与 App 能力不完全矛盾：为保证一次性同意，`screen_observation.inspect` 被排除在 DeepSeek native tool schema 外，只能由本地明确措辞路由；未命中本地规则的能力询问可能只能选择 `device_context.read`。未来若重开，可补明确即时授权短语的本地匹配，但不能把像素工具直接交给模型自主选择。
+
+#### B. Self-Drive 的真实运行证据与当前缺口
+
+1. 最新诊断当前有 18 条 active Thought，其中 `self_experience=3`；主动选择遥测最近 500 条中 `bySource.self_experience=30`，证明自身经历来源真实参与过候选选择。但诊断把 `self_drive/*` 与 `self_reflection_run:*` 都映射为 `self_experience`，报告自身不能区分二者，也没有 `last_self_drive_at` 或逐来源成功计数。
+2. 同期新版本备份 `AI_Companion_Backup_2026-09-01T14-43-02.aibackup` 可进一步取证：`self_drive_enabled=1`，`last_self_drive_at=1788266768166`（北京时间约 2026-09-01 20:46:08）；历史共有 18 条 `self_drive/*` Thought，其中 17 条来自 `self_drive/memory`、1 条来自 `self_drive/thread`，当前仍活跃 4 条，至少 1 条 memory Thought 的 `action_count=1`。因此 Self-Drive 不是“只有代码、从未运行”。
+3. 当前调度仍是：成功后随机等待 55～99 分钟，下一次符合间隔时还要通过 38% 概率门；有 unfinished thread 时约 58% 优先 thread，否则从最多 24 条 memory 候选中随机选取。它只写 Thought、极小 Drive/baseline 变化与 `last_self_drive_at`，没有独立的 `self_experience` Outcome、选中来源 ID、开始/结束时间、形成的体验结论或后续反馈链。
+4. 18 条不同 Self-Drive Thought 跨约 93.2 小时，按北京时间自然日为 `2 / 1 / 6 / 4 / 5` 条；可见平均间隔约 5.5 小时，最短约 1.1 小时、最长约 22.1 小时。Thought 可能合并重复内容，实际成功触发数只能更多，故不能据此写成“几天才运行一次”；但只有至少 1 条明确进入过行动，足以证明输出/体验链明显弱于生成链。
+5. 用户明确否决固定“每天必须回忆 N 次”的机械配额。保留 55～99 分钟与概率门作为无明确事件时的低频探索；新增事件驱动候选：真实对话中出现“以后想想/回顾/研究/整理”、AI 的真实承诺、未完成成长讨论、待查证网页和重要共同经历时，写入可去重、可过期、可完成的 `self_review_candidate`。候选评分至少包含重要性、未完成度、沉思/好奇/挂念相对 baseline 的超额、最近重复、来源可信度和打扰成本；有值得整理的内容时提高被选中机会，无内容时允许长时间不触发。
+6. Phase 2A 正式增加“自我体验观察底座”：真实 Memory、unfinished thread、`self_review_candidate`、网页候选/查证、工具 Outcome、Daily Continuity 可成为来源；每次只选择有限相关片段，形成带开始/完成时间、source kind、source id/hash、topic/subject、Thought id、appraisal、结果状态与 TTL 的有界 `self_experience` 元数据/Outcome。不得保存隐藏推理正文；只保存可审计的短结论与来源。它允许真实报告“今天下午某个时刻又想起/整理过什么”，但一次瞬时回想不能扩写成“一下午”，只读取一段也不能说“从头到尾翻完聊天记录”。
+7. 自我体验的状态流程固定为 `candidate → selected → reflected/completed|discarded|failed → optional Thought/action feedback`。失败、无来源、重复合并或取消不产生“我已经整理过”的 Outcome；真正分享后记录反馈，静默整理也可成为真实经历，不要求每次告诉用户。
+8. Phase 2 仍不允许一次随机回想直接改写人格。Phase 3 才从跨日期、跨来源的重复自主选择、持续关注、二次查证、主动分享和后续互动反馈形成有证据/反证/新鲜度/版本的 `ai_interest` 与 AI habit。日记和随笔只展示/派生真实体验，不反向作为新的事实证据，防止“体验→润色日记→把润色当体验”的自我复制闭环。
+
+#### C. Desire 数值实现与项目设计的偏差
+
+1. 最新诊断在北京时间约 01:26 的当前值/长期 baseline 为：attachment `0.3529/0.4589`、curiosity `0.4096/0.4218`、reflection `0.2670/0.3117`、duty `0.2124/0.2426`、social `0.2137/0.2657`、libido `0.1344/0.2121`、stress `0.1003/0.1507`、fatigue `0.6347/0.1600`；夜间 circadian floor 正常把 fatigue 推到 0.6347 并让 `rest` 胜出。
+2. baseline 学习并非完全失效。相对默认锚点，attachment 已由 `0.38→0.4589`、curiosity `0.34→0.4218`、social `0.22→0.2657`、reflection `0.30→0.3117`；说明长期变化真实存在，但沉思增长明显较少，界面当前值又经常低于 baseline。
+3. `DesireCorePolicy.advance` 先用约 5.5%/单位把 current 拉向 baseline，随后再对整个 current 乘各轴衰减率。结果是 current 即使等于 baseline，下一 tick 仍会低于 baseline；baseline 在数学上不是稳定平衡点，与 UI/文档“长期基线”的语义不一致。后续应只衰减 `current-baseline` 的超额/不足部分，或使用等价的 baseline-centered 动力学，让无事件状态真正趋近 baseline。
+4. `_applyCoupling` 的所有轴统一以固定 `0.5` 为零点，例如 `(curiosity-0.5)` 影响 reflection/social、`(reflection-0.5)` 影响 attachment。多数 Drive 的默认/学习 baseline 本来就在 0.14～0.42，因此正常状态长期产生负耦合；好奇处于健康的 0.40 左右仍持续压低沉思/互动。这是用户观察“很多值几乎不涨”的实质原因之一。耦合后续必须按各轴相对自身 baseline 的 excess/deficit 或明确事件语义计算，而不是用统一 0.5。
+5. 普通用户消息只注入 curiosity `+0.004`、reflection `+0.004`、social `+0.003`；在典型 12 分钟单位中，reflection/social 的整值衰减加负耦合可大于该脉冲，因此一次普通对话也可能净下降。Self-Drive 给对应轴约 `+0.012～0.024`，但 baselineLearning 只有 `0.002～0.003`，适合防止内部自激，却不足以单独形成稳定爱好；真实关系事件和模型 post-turn pulse 更强，但来源覆盖不均。
+6. reflection 与 social 当前都映射为 `share_thought`，表现层区分度不足；social 的真实来源主要是普通对话、低忙碌、通知/Presence 和少量关系事件，reflection 主要依赖模型 pulse、关系事件、自我反思/Self-Drive。后续要保持八轴而不是盲目合并，但为每轴定义不同的形成事件、Thought 类型、动作候选、满足条件和不应增长的反例。
+7. 自主网页成功后 `discover_interest` 会立即把主 Drive 向 baseline settle；候选虽入库，却不一定同时形成可分享/继续查证 Thought。这会让“好奇驱动搜索→搜到以后反而动力下降”，削弱自主探索连续性。应拆成“发现部分满足 + 形成 shareable/verify Thought”，只有分享、进一步查证或主动放弃后才完成对应满足。
+8. 现有测试重点证明 1000 tick 有界、不会整体冲顶，以及 80 条每 20 秒的快速对话能推高 curiosity/reflection/social；它没有覆盖真实 5～60 分钟消息间隔、数小时无人聊天、昼夜切换、Self-Drive/联网/satisfy 交替、每轴 24 小时 min/max/净变化和 baseline 是否为稳定点。下一轮数值修正必须新增这些现实回放，并在真机诊断提供每轴最近 pulse 来源、24h gross increase/decay/satisfy、min/max/avg 与 baseline delta；不记录正文。
+9. 八轴本批分类结论固定如下，不因单次低值整体放大：attachment 早期普通消息重复累加漏洞已修，仅观察真实关系基线；curiosity 来源丰富且真机曾明显升高，不改普通增量；reflection 的核心缺口是无人聊天回忆/整理尚未形成体验；duty 只有承诺、边界和真实 unfinished Thought 才可行动，暂未见大漏洞；social 的长期 baseline 已增长但动作与 reflection 重叠，先补独立动作和真实来源；libido/stress 事件稀少时偏低合理；fatigue 的昼夜竞争已在本次夜间诊断正常工作。只有现实回放证明单向钉死、正常事件无响应、无关事件反复累加或动作后不能满足，才继续改系数。
+10. “判断用户空闲”不能继续以亮屏 App 使用为主要正证据：用户真实使用习惯中，打开手机通常就是忙碌，只有亮屏不动/播放电影等少数例外。熄屏也不能写成“用户空闲”事实，只能作为粗粒度 `contact_window`：表示此刻没有正在操作屏幕，允许系统在足够静默后考虑联系，不能推断用户可回复、在睡觉或正在做什么。
+11. Phase 2A 的熄屏互动规则采用离散、单次、有界脉冲而非按分钟累加：熄屏未达到最小静默窗不增加 social；跨过静默窗只生成一次来源为 `screen_off_contact_window` 的小幅脉冲/短 TTL 候选，同一熄屏会话不重复喂养；再次亮屏后才重置。白天/傍晚可保留正常权重，22 点后随 `circadianFatigueFloor` 逐段折减，凌晨高疲劳时接近零；疲劳、最近主动联系、两小时/24 小时额度、用户明确忙碌/免打扰和具体 Thought/玩法/网页候选继续竞争。熄屏两小时可以成为一次正常联系机会，但不能在一小时内反复找，也不能仅凭数值编造话题。
+12. social 的表现拆分为至少三类有载荷动作：`invite_interaction`（问卷/选择题/小游戏）、`share_discovery`（网页/共同发现候选）、`light_chat`（有具体 Thought 的轻聊天）；reflection 保留 `share_reflection/remember/diary`。互动数值本身不自动生成问卷或网页事实；没有具体载荷时只能保留为内在倾向。问卷答案只形成低权重、有反证的成长证据，不能一次写成永久偏好。
+
+#### D. 自主联网选题必须重构
+
+1. 当前 `PublicWebDiscoveryPolicy` 仅允许 curiosity/reflection/social 三类 Intent，并各自使用 6 个固定词，共 18 个：好奇偏宇宙/动物/科技，沉思偏心理/哲学/文学，互动偏文化/音乐/动画/游戏史；选题由 UTC 日期和六小时桶确定。它不读取 AI Self、成熟兴趣、自我体验、Thought topic、共同经历、网页历史反馈或用户当前语义，因此只能算“Drive 触发的固定轮播”，不能算她自主决定研究什么。
+2. 后续主路径不能靠继续堆一个巨大静态词表。应在现有 Desire/Thought/Gate 与同一个 `public_web.search` 前增加有界结构化规划：输入只使用经隐私裁剪的 AI Self 稳定兴趣、成熟 `ai_interest`、当前自我体验/topic、可公开的共同主题、未完成查证、历史查询指纹/新鲜度和探索预算；输出 `query / domain / interest_reason / learn_or_share / freshness_need / evidence_source`，再由本地 Gate 检查敏感信息、长度、重复、预算和来源权限。原始私聊、Thought 正文、账号、通知和屏幕文字仍不得拼进公开查询。
+3. 宽领域分类仍需保留为离线/规划失败/多样性兜底，并至少覆盖：数学与自然科学、宇宙与地球、动物/植物/生态、技术/工程/AI、医学史与健康常识边界、历史/考古、哲学/心理/认知、社会/文化/人类学、语言/文学、视觉艺术/设计/建筑、音乐/舞台、电影/动画/漫画/游戏、城市/地理/旅行、食物/烹饪、家居/手工/收藏、时尚/美学、运动/健身/户外、教育/技能/职业、日常生活与奇闻、节日/民俗/地方文化及受控时事。每个大类再有多层子类、冷却和近期去重；高风险健康/金融/法律与快速变化时事必须走更严格来源与表达边界。
+4. 选题不是随机抽大类。成熟兴趣应获得主要但非垄断的利用预算，相邻领域获得探索预算，少量 wildcard 保留意外性；连续重复同域、同实体、同查询意图要降权。一次搜索不能生成永久爱好，只有多次自主选择、二次查证/分享意愿和真实互动反馈才积累兴趣候选；用户偏好是证据之一，不是命令她必须喜欢。
+5. 三种搜索意图必须分开但不互相隔离领域：`curiosity_explore` 用于发现未知、新鲜和意外内容；`reflection_understand` 用于查背景、原因、不同观点、历史脉络与长期影响；`social_material` 用于寻找可聊天的奇闻、问答、投票、小游戏、共同观察与轻量话题。同一网页可同时获得好奇/沉思/互动评分；区别是搜索目的、结果评价和后续动作，不是把科学只给好奇、文学只给沉思、游戏只给互动。
+6. 搜索结果状态流程固定为 `planned → searched → appraised → discard | hold | verify | share_candidate`。低质量、重复、低兴趣直接 discard；有兴趣但无分享欲只以 TTL 暂存，不写长期 Memory；好奇/沉思仍高则形成 verify Thought 并受独立预算约束；只有结果真实、可分享、social/attachment/duty 与时机 Gate 合格时才成为 share candidate。搜索成功只部分 satisfy 发起 Drive；分享、完成查证或主动放弃后才完成相应满足。不得因为联网成功自动保存、自动分享或自动形成永久兴趣。
+7. 该重构属于成长/学习主线，不与已冻结截图合包。为保持既定 Phase 0→4 顺序，把 Phase 2 内部分成两个可单独回归的代码批：Phase 2A 先修 Desire 动力学和来源遥测、建立 self_review/self_experience 与熄屏互动窗口，再接三意图动态查询、结果评价和宽领域兜底；Phase 2B 完成 topic/subject 关联与小幅回复 bias。Phase 2A/2B 都完成真机排错后，对整个 Phase 2 再做一次独立完整代码审查；最终 Phase 3 才让成熟 AI interest/habit 可回滚地影响联网、主动话题和表达。
+
+#### E. Phase 2A 正式实施流程与验收门槛
+
+1. **开工取证**：从 v0.41.14 最终代码 tree 开独立分支；定点读取 Desire/Self-Drive/Thought/Proactive/Public Web/Perception/诊断/备份当前源码与第 14 节登记的本阶段参考材料，只借结构化记忆、反思、证据成熟和有界探索机制，不复制完整 NPC 或迎合型人格框架。先更新本节，再改运行代码。
+2. **动力学与遥测**：把 current 的无事件稳定点改为 baseline，耦合按 source 相对自身 baseline 的 excess/deficit 计算；保留每轴上限、全轮预算、refractory、昼夜疲劳、关系同化和既有依恋修复。新增不含正文的每轴来源遥测：最近 pulse/satisfy/coupling、24h gross up/down、min/max/avg、baseline delta。
+3. **现实回放**：至少覆盖 5/15/30/60 分钟对话间隔、2/6/12/24 小时无人聊天、白天→深夜→凌晨→清晨、连续短回复、关系正/反事件、Self-Drive、搜索成功/失败/丢弃/分享、熄屏重复心跳和重新亮屏。证明无事件趋近 baseline、普通消息不会把依恋钉满、健康好奇不持续压低沉思/互动、熄屏会话只脉冲一次、夜间显著折减且不破坏用户主动聊天回复。
+4. **Self-Drive 体验链**：建立可去重/过期/完成的 review candidate 与 self_experience Outcome；事件驱动候选优先于无事随机探索，但没有合格内容时允许 WAIT。所有状态写入必须事务化、可恢复、备份兼容；失败/取消/重复不得产生成功 Outcome。操作事实门禁只根据真实 Outcome 放行“想起/整理/查证过”，并校验持续时间和读取范围。
+5. **互动动作与熄屏窗口**：`screen_off` 只产生 contact window，不写“用户空闲”；social 必须通过载荷、疲劳、最近联系、预算、用户状态和主动 Gate。问卷/游戏先做动作/候选底座，不在 Phase 2A 同时实现完整 MCP 游戏；无候选不得编造玩过或查过。
+6. **自主联网**：先实现结构化查询计划和本地隐私/重复/预算 Gate，再实现结果 appraisal 四分支；三种意图共享丰富领域覆盖，静态分类只做安全兜底。网页是不可信外部数据；原始私聊、通知、屏幕文字、账号与敏感 Memory 不得进入查询。动态规划失败必须安全回退，不阻断心跳。
+7. **阶段隔离**：Phase 2A 只建立真实体验和自主选择证据，不让未成熟兴趣/偏好改变普通回复；Phase 1 观察表继续隔离。Phase 2B 才加入一层 topic/subject 召回与小幅 bias，Phase 3 才形成可回滚 AI interest/habit。截图保持 FROZEN；查手机/联网存图保持独立后续批。
+8. **验证与构建**：本地专项、历史 validators、数据库迁移/备份、Flutter analyze/tests、Kotlin 与固定载荷全过后构建首个 Phase 2A APK。真机重点观察各轴来源、Self-Drive Outcome、静默整理是否不强制分享、三类联网结果分支、熄屏白天/夜间联系节奏和事实话术。真机排错完成后做一次 Phase 2A 代码审查；Phase 2B 真机排错后再对整个 Phase 2 做既定独立完整审查。只有代码实际变化才重建收口 APK。
+9. **开工参考复核（2026-09-02）**：已按约定在正式开工时读取当前主仓资料。`companion-emergence` 当前明确存在阈值触发的私密 journal/dream/reflex、research threads、主动候选经 editorial D 选择后才外发，支持“内部体验不等于必须分享”；其 attunement 仍以真实证据从 hunch 成熟。A-MEM 仍采用结构化 note/tag/context 与新增记忆时分析有限连接，但自动改写旧记忆/ChromaDB/全自动连边不适合本机安全边界。Memobase 仍把 profile 与 event timeline 分层并用 buffer/flush 控制成本，支持“事件先落地、画像后成熟”。PersonaMem 仍重点覆盖跨 Session、演化偏好、长距离和无关上下文干扰，适合转成回放；Generative Agents 仍仅借 memory/reflection/planning 的低频整理思想，不引入完整 NPC 模拟。LMC-5 继续沿用已固定的 raw event / curated memory 分层和 AGPL 代码隔离结论。本批只独立实现机制，不复制外部代码或默认人格。
+
+#### F. v0.41.15 Phase 2A 当前本地实现（VALIDATION PENDING）
+
+1. 分支已切为 `agent/v04115-phase2a-self-experience-desire-web`，目标版本 `0.41.15+154`、SQLite schema 43、Snapshot/备份 protocol 5。开工范围和参考复核先以 `f46409a` 固化；运行源码仍在本地校验阶段，尚无最终功能 commit、远端 head、Actions run 或 APK，因此本段只能标记本地实现，不能写成 CI/APK 通过。
+2. schema 43 新增 `self_review_candidates`、`self_experiences`、`desire_events`。候选以 source kind/ref/version hash 去重并带 30 天 TTL；只有原子 `pending→selected` 成功后才能处理，完成、来源失效、未知来源、租约丢失和异常分别落为 `completed/discarded/failed`，体验保留 90 天且不保存来源正文或隐藏思考。三张表进入 `exportAll/importAll`；schema 42 升级时为空表，不删除旧消息、Memory、Thought、学习表或关系数据。
+3. Self-Drive 每轮先从 active unfinished thread 与合格 Memory 刷新有限候选。普通素材继续使用 55～99 分钟最小间隔与 38% 低频门；重要度至少 0.72 的真实素材可越过概率门，但不能越过 Active Brain、租约和来源有效性。选择分数由重要度、对应 Drive 相对自身 baseline 的超额和小幅随机组成；真正形成原有 `self_drive/thread|memory` Thought 并施加小幅 experience 后，才写 `unfinished_thread_reviewed` 或 `memory_recalled` 成功体验并更新 `last_self_drive_at`。
+4. 事实表达边界按本轮讨论改成“两层真值”：当前 prompt 已注入的真实上下文、Memory、Thought 或 Self Experience 足以支持“我想起了某件具体的事 / 下午有一阵又琢磨过这件事”，不要求她只说发呆；但自动召回不是主动读取聊天档案。`OperationalClaimGroundingGuard` 新增 `conversation_archive.read` 未实现边界，正文或可见 reasoning 中的“翻了/浏览了/整理了聊天记录、这些天对话、咱俩的记录”等会以 `ungrounded_chat_archive_read` 阻止；“从头到尾/一遍/一下午”的范围也不能由一次 Memory/Self-Drive 支持。思考中先说“我要编造”不会使随后虚构的档案读取变成合格事实纪律。
+5. `DesireCorePolicy.advance` 已改为只对 `current-baseline` 偏差做回归和衰减；处在 baseline 且无事件时保持稳定。耦合已从固定 0.5 零点改为每个来源 Drive 相对自身 baseline 的 excess/deficit，健康但低于 0.5 的好奇不再天然压低沉思/互动。没有整体放大八轴或恢复普通消息每句增加依恋。
+6. `desire_events` 记录 experience、heartbeat advance 与 satisfaction 的固定 source key、drive、delta、value/baseline after，14 天滚动保留；脱敏诊断新增 24 小时各轴 event count、gross rise/fall、min/max 和按来源净变化，不含消息、Thought、Memory 或网页正文。提交前审查又把旧原子直写路径接入同一表：普通/屏幕等工具满足、网页发现部分满足、未完话题 follow-up、关系事件同化与 post-turn 模型 pulse/satisfaction 都在原事务内记录。`DesireEngine` 的 heartbeat/experience/satisfy 则使用统一接口记录；无实际 delta 不造事件。这足以观察当前全部运行写入路径，但诊断仍只是 24 小时样本，不能把一天的分布当成长期性格结论。
+7. 已确认并修复同一熄屏会话的重复互动累加：旧 `PerceptionEngine` 会因 screen-off 的 busyScore 低于 0.35 而在每次感知心跳都给 social `+0.006`。新 `ScreenOffContactPolicy` 只在同一次真实 screen-off 已持续至少 90 分钟时产生一次最大 `+0.010`；event timestamp 是会话键，后续心跳不重复。权重以当前 fatigue 与 circadian floor 的较高者折减：日间低疲劳为 1.0，约 22 点已明显下降，约 23 点至深夜为 0.04 下限；Thought 强度过低时只留下微小数值，不制造夜间邀约。诊断明确 `treatsScreenOffAsUserFree=false`。
+8. 自主联网选题已从每轴 6 个词改为三种目的：`curiosity_explore`、`reflection_understand`、`social_material`。每种都有 24 个广泛安全领域兜底，共 72 个，覆盖数学自然科学、宇宙地球、动植物生态、技术工程 AI、健康信息证据边界、历史考古、心理哲学、社会文化、语言文学、视觉艺术建筑、音乐舞台、电影动画漫画游戏、旅行饮食、手工收藏、运动户外、教育职业、互联网文化、互动问答和受控公共事件背景等；同一精确 interest key 会参考最近候选跳过，避免固定六词轮播。当前仍未把原始私聊/Thought 正文或未成熟人格候选送入查询；成熟 AI interest 的动态利用/探索预算留 Phase 3。
+9. Provider 成功结果先经本地 `PublicWebAppraisalPolicy`：curiosity 默认 `hold + verify + discard`，reflection 默认内部 `hold + verify + discard`，social Intent 允许第一条 `share_candidate`、第二条 hold、其余 discard；curiosity/reflection 只有既有 wildcard 或独立 social 相对自身 baseline 分别达到 0.14/0.12 时才可提名一条分享。数据库把它们分别落为 `held / verify_pending / unread / reviewed`；现有分享协调器只领取 unread，因此联网成功不再等于每次回来分享。搜索模式和四类计数进入脱敏诊断，不包含 query、interest key、网页内容或 URL。
+10. 新增/扩展专项测试：baseline 稳定与相对 baseline 耦合、熄屏 90 分钟/同会话一次/夜间折减、三种联网 mode/近期 key 去重、四分支 appraisal、Memory 回想与聊天档案读取的语义边界。新增稳定合同文档 `SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md` 与 validator；工作流目标已切为本分支、v0.41.15/schema 43、独立 Artifact/Draft Release/CI monitor。当前执行环境没有 Dart/Flutter，本地 Flutter 编译与格式验证不可冒充完成，必须由 Actions 证明。
+11. 范围边界再确认：本批仍没有完成 `invite_interaction / share_discovery / light_chat` 三动作的表现层拆分，也没有完整问卷游戏或 MCP 玩法；它只先提供真实 Thought、网页 appraisal 和熄屏 contact window 这些后续载荷。当前联网选题也是 72 个宽领域的安全本地规划，还没有把未成熟学习候选当作 AI 爱好；等 Phase 3 形成可回滚的 `ai_interest`后，再加入“主要利用成熟兴趣 + 相邻领域探索 + 少量 wildcard”的动态选题；不得为显得自主而抢先把 Phase 1 观察数据变成人格。
+12. 自我体验保留约束：pending 候选默认 30 天过期；终态候选和它对应的体验于完成后统一保留 90 天，每次 Self-Drive 扫描都先按 child→parent 顺序清理过期数据，避免终态 candidate 无限累积，也避免因先删 parent 误级联删除仍在 TTL 内的 experience。
+13. 提交前完整代码审查又收口四个细节：Self-Drive 成功 experience 现在保存真实 Thought id；异常路径在写 failed 前再校验 Active Brain，失去所有权时留给 stale recovery；原子工具/联网/关系/post-turn/follow-up 欲望直写纳入同一遥测表；联网安全兜底从 54 扩到 72 个大领域条目，补齐植物、建筑、健康证据、教育职业、视觉艺术、舞台漫画、户外手工收藏和受控公共事件等缺口。未发现 Phase 1 学习泄漏到普通回复、反馈自激、无 Outcome 成功报告或熄屏重复累加的新绕路。
+14. 本地静态验证已完成：新 v0.41.15 合同、v0.41.14 事实门禁、current ledger/schema、v0.34.8/0.34.9 联网、v0.31 欲望数学与 v0.40.9～v0.41.3 备份链均通过；workflow YAML、Python 语法和 `git diff --check` 通过。按当前 workflow 主验证清单本地跑 127 项为 `119 passed / 8 environment-only failed`；8 项仍只是未恢复 CI 专用 417 文件桌宠、LingChat/Meju/native/TTS 大载荷和本地无 `kotlinc`，没有 Phase 2A 功能断言失败。本地无 Dart/Flutter，所以此状态只能写 `LOCAL STATIC REVIEW PASSED`，不能写编译、Flutter tests 或 APK 通过。
+15. 后续固定顺序：提交并推送当前独立分支触发完整 Kotlin、Flutter analyze/tests、Release APK、签名与载荷校验。任何编译或测试失败先回填本节、修复并重跑。首个 APK 真机重点看 schema 42→43 数据保留、selfExperience 成功/丢弃计数、欲望 24 小时来源、熄屏白天/夜间节奏及联网 held/verify/share 分布；真机问题修复后做 Phase 2A 完整代码审查，确认旧直接欲望写入、迁移、备份、隐私、反馈环和 Phase 1 隔离，再决定是否需收口 APK。Phase 2A 稳定后才进入 Phase 2B。
 
 ## 历史工作记录（原文保留，按需检索）
 

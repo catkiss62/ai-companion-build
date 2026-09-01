@@ -11,6 +11,7 @@ import '../storage/secure_config.dart';
 import 'autonomous_action_coordinator.dart';
 import 'layered_public_web_provider.dart';
 import 'public_web_discovery_policy.dart';
+import 'public_web_appraisal_policy.dart';
 import 'wikimedia_public_web_provider.dart';
 
 /// First scheduled autonomous tool provider.
@@ -68,6 +69,7 @@ class PublicWebDiscoveryEngine {
     final topic = PublicWebDiscoveryPolicy.topicFor(
       intent: sourceIntent,
       now: instant,
+      recentInterestKeys: await db.recentPublicWebInterestKeys(),
     );
     final provider = _providerOverride ?? await _configuredProvider();
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
@@ -182,10 +184,46 @@ class PublicWebDiscoveryEngine {
       );
     }
 
+    final appraised = PublicWebAppraisalPolicy.appraise(
+      candidates: result.candidates,
+      sourceIntent: sourceIntent,
+      socialExcess: (snapshot.drives[DriveKey.social] ?? 0.0) -
+          (snapshot.baselines[DriveKey.social] ?? 0.0),
+    );
+    final kept = appraised
+        .where(
+          (candidate) =>
+              candidate.appraisalState != PublicWebAppraisalPolicy.discard,
+        )
+        .toList(growable: false);
+    await db.setSetting(
+      'public_web_last_search_mode',
+      topic.searchMode,
+    );
+    await db.setSetting(
+      'public_web_last_appraisal_counts',
+      _appraisalCounts(appraised),
+    );
+    if (kept.isEmpty) {
+      final completed = await coordinator.completeWithoutSatisfaction(
+        run: run,
+        runToken: runToken,
+        status: AutonomousActionStatus.noResult,
+        outcome: AutonomousOutcomeKind.noUsefulResult,
+        now: DateTime.now(),
+      );
+      if (completed) {
+        await _recordRuntime(at: instant, outcome: 'appraised_discard');
+      }
+      return PublicWebDiscoveryDecision(
+        state: completed ? 'appraised_discard' : 'ownership_lost',
+      );
+    }
+
     final stored = await coordinator.completePublicWebSuccess(
       run: run,
       runToken: runToken,
-      candidates: result.candidates,
+      candidates: kept,
       now: DateTime.now(),
     );
     if (stored > 0) {
@@ -219,6 +257,16 @@ class PublicWebDiscoveryEngine {
     return const PublicWebDiscoveryDecision(
       state: 'duplicate_or_ownership_lost',
     );
+  }
+
+  String _appraisalCounts(List<PublicWebCandidateDraft> candidates) {
+    final counts = <String, int>{};
+    for (final candidate in candidates) {
+      counts[candidate.appraisalState] =
+          (counts[candidate.appraisalState] ?? 0) + 1;
+    }
+    final keys = counts.keys.toList()..sort();
+    return keys.map((key) => '$key:${counts[key]}').join(',');
   }
 
   Future<PublicWebProvider> _configuredProvider() async {

@@ -24,8 +24,8 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.(?:1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153)\s*$", pubspec, re.M)
-simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153)\s*$", pubspec, re.M) is not None
+assert re.search(r"^version:\s*0\.41\.(?:1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154)\s*$", pubspec, re.M)
+simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154)\s*$", pubspec, re.M) is not None
 assert "static const int schemaVersion = 40;" in database
 
 for token in (
@@ -71,7 +71,9 @@ screen_tokens = (
         "'userTurnAvailable': true",
         "'oneTimeProviderAvailable': true",
     )
-    if "version: 0.41.14+153" in pubspec
+    if any(version in pubspec for version in (
+        "version: 0.41.14+153", "version: 0.41.15+154"
+    ))
     else (
         "'phase': 'public_web_scheduled_screen_foundation_only'",
         "'implementationStatus': 'not_implemented'",
@@ -90,7 +92,9 @@ assert "!registered.executable || !registered.autonomousAvailable" in coordinato
 assert "backup.acceptsSourceGeneration(0), isTrue" in archive_test
 assert "takeover.acceptsSourceGeneration(0), isFalse" in archive_test
 assert "SnapshotArchiveKind.backup.manifestEncryption, 'none'" in archive_test
-if "version: 0.41.14+153" in pubspec:
+if any(version in pubspec for version in (
+    "version: 0.41.14+153", "version: 0.41.15+154"
+)):
     assert "expect(screen.executable, isTrue)" in registry_test
     assert "expect(screen.autonomousAvailable, isFalse)" in registry_test
 else:

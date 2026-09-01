@@ -65,6 +65,7 @@ def main() -> None:
         "### 16. 2026-09-01 · v0.41.10 人格学习证据归因热修",
         "### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固",
         "### 19. 2026-09-01 · v0.41.14 Agent 操作事实真实性与用户单次屏幕观察",
+        "### 20. 2026-09-02 · Self-Drive、欲望数值与自主联网成长审计",
     )
     for section in required_sections:
         require(section in current, f"missing current handoff section: {section}")
@@ -105,12 +106,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.14\+153\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.15\+154\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )
     require(
-        "static const int schemaVersion = 42;" in database,
+        "static const int schemaVersion = 43;" in database,
         "database schema no longer matches the current development baseline",
     )
 
