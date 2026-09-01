@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04111-personality-learning-semantic-verifier`；从 v0.41.10 已挡住上下文附和误绑、但真机仍漏掉自然同义复述的 Phase 1 观察层基线继续热修 |
+| 当前开发分支 | `agent/v04112-ordinary-time-scene-boundary`；从已真机通过的 v0.41.11 Phase 1 基线开出独立时间边界批，不夹带 Phase 2 回复影响 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.11 最终远端 CI head `ebcdf549870085d7493783207b32cd19cd161766`；本地功能 head `1c1d66bdb3eb2f27b1606caea1e58e0b508447b3`；共同 tree `4278a9ab922c2749918d1d10c748312fb32f382c`，文件树精确一致 |
-| App / 数据库 | 当前开发目标 `0.41.11+150` / schema 42；Snapshot/备份 protocol 5 不变 |
+| App / 数据库 | 当前开发目标 `0.41.12+151` / schema 42；Snapshot/备份 protocol 5 不变 |
 | 最终 CI | Actions run `33473742258`，run number 656，head `ebcdf5498700...`，全绿；403 项 Flutter tests 通过 |
 | 测试 APK | `AI-Companion-v0.41.11-150-Personality-Learning-Semantic-Verifier-APK.apk`，325,329,226 bytes |
 | APK SHA-256 | `2144cdace6c92a4e18c53d658994014c7f0fdeb483db559ab4d4e47f3063b341` |
 | Artifact / Release | Artifact ID `9787635034`；Draft Release `untagged-0a7da45408457db2d586`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | `v0.41.11+150 / schema 42` 精确优先热修已由固定六句回放和最终备份真机闭合：自然同义支持正确归并、短附和与“慢慢来”未写证据、独立偏好与限定纠正未跨候选误绑；Phase 1 仍只观察、不进入回复，Phase 2 继续关闭且尚未实施。新增下一批普通短对话时间现场过期任务：每轮时钟没有冻结，但普通历史缺少时间标记且 120 分钟门槛会漏掉约两小时间隔，需独立修复；沉浸房间连续性保持不变。联网存图缺陷继续保留 P0 |
+| 当前总状态 | v0.41.11 Phase 1 真机闭合继续作为基线；`v0.41.12+151 / schema 42` 普通聊天时间与临时现场边界已实施并通过本地合同（IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING）。手机计算上一段结束时间、当前时间、间隔与跨日；45–119 分钟只把短寿命现场降为 unknown，120 分钟以上/跨日更强，不伪造活动已结束，当前用户原话可覆盖；话题/关系/长期记忆继续，沉浸房间 Session 不套用。Phase 2/3/4 仍分别保持独立 APK 与真机验收，本批不提前开启 |
 
 ### 3. 当前模块状态总表
 
@@ -68,7 +68,7 @@
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
-| P1 · 下一批可修 | 普通短对话临时现场过期 | 真机发现约 13:00 说“要吃饭了”、15:00 再聊时仍像同一现场。时钟每轮会刷新；根因是普通历史无时间标记、`currentTurnHasLongGap` 固定 `>=120` 分钟且只给泛化核验提示。下一批仅对普通聊天注入结构化时间边界：短时活动在明显间隔后降为 unknown、用户明确“还在吃”可覆盖；保留话题/关系连续性，沉浸房间 Session 不套用。测试覆盖短间隔继续、约两小时过期、跨日和显式仍在 |
+| P1 · IMPLEMENTED / LOCAL PASSED / CI PENDING | 普通短对话临时现场过期 | 独立 `v0.41.12+151` 已实施：普通 user turn 注入上一段结束时间、当前轮次时间与预计算 gap band；`<45` 分钟为 `same_scene`，45–119 为 `transient_recheck`，`>=120` 为 `long_gap`，跨日为 `cross_day`。短寿命状态降为 unknown 但不伪造已结束，当前原话可覆盖；主动联系不伪造当前 user turn，沉浸房间仍走独立 Builder/Session。工作流同款 127 项中 119 通过，8 项仅缺 CI 恢复载荷/`kotlinc`；待 Actions 真实 Flutter analyze/tests/APK |
 | P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
@@ -329,6 +329,9 @@
 19. 最终诊断精确命中预期：`candidate=2 / evidence=4 / established=1 / contradicted=1 / explicit_preference=3 / explicit_correction=1 / support=3 / contradict=1 / semantic review requested=1 / support=1`。备份进一步确认首候选 proposition 为“随着熟悉度增加越来越不客气，脏话可逐渐说出口”，其两条 support 分别是首句与自然同义复述；第二候选 proposition 为“工作讨论时先给结论再解释”，support 与限定纠正只挂在第二候选。没有重复候选、跨主题误绑或节奏附和污染。v0.41.11 人格学习 Phase 1 因此标记 `TRUE DEVICE PASSED`；学习结果仍未进入回复，Phase 2 不能自动视为完成。
 20. 用户另报普通聊天时间连续性新边界：约 13:00 说“要吃饭了”，15:00 再找 AI 时仍延续吃饭现场；沉浸房间允许延续，普通短对话不应默认持续。源码只读核对确认 `PromptBuilder` 每轮重新读取 `DateTime.now()`，并注入当前日期、时间、UTC offset、星期、daypart、距上一轮 gap；因此不是冻结时钟。实际缺口有三层：`PromptHistoryPolicy.userTurnHistory` 只传 role/content、没有历史时间标记；`currentTurnHasLongGap` 固定 `>=120` 分钟，13:01 的 AI 回复到15:00用户新消息可能只有119分钟而漏门；命中后也只说“旧状态需重新核验”，没有把吃饭/洗澡/出门等短寿命现场明确降为 unknown。
 21. 下一批时间修复边界锁定为普通聊天专用的结构化 scene-gap，不删除历史、不伪造活动已经结束：在当前 role=user 前用 system 时间边界提供上一段结束时间、当前时间与间隔；明显间隔后只把短寿命“正在做”状态降为未知，长期话题、关系、记忆继续保留，用户明确说“还在吃/刚才一直在做”时以当前原话覆盖。沉浸房间依赖显式 Session 连续性，不套用普通 scene expiry。自动测试至少覆盖 13:00→13:15 可自然继续、13:00→15:00 不默认仍在吃、跨日强边界、当前用户明确仍在时继续，以及不得把 unknown 写成“已经吃完”的虚构事实。
+22. `v0.41.12+151 / schema 42 / Snapshot protocol 5` 于分支 `agent/v04112-ordinary-time-scene-boundary` 开工。手机负责时间算术，API 只负责根据当前原话与语境判断；不把每条普通历史都包装时间戳，避免 token/注意力噪声和不必要的精确行程暴露。本批仅修普通短对话时间语义，Phase 2 继续关闭；Phase 2 回复影响、Phase 3 AI 习惯和 Phase 4 低频澄清/娱乐测试仍按既定顺序各自独立出 APK 真机验收，不因时间修复改变之前记录的开源参考、证据流水线或硬边界。
+23. 本地实施完成：`GroundingSnapshot` 增加 `currentTurnRequiresTransientRecheck` 与可诊断 `currentTurnGapBand`，保留原 `>=120` long-gap 语义并新增 45 分钟短寿命现场重判门槛，因此 13:01 的 AI 回复到 15:00 新 user turn 即使只有 119 分钟也不再漏门。`PromptBuilder` 仅在普通 user turn 注入上一段/当前时间和手机预计算分类，明确约束“不默认仍在进行、不伪造已经结束、当前 REAL_USER_MESSAGE 可覆盖 unknown、长期话题/关系/记忆不失效”。普通历史未逐条标时，主动联系不冒充新 user turn，`ImmersivePromptBuilder` 无该合同。新增 Dart 用例与 Python 专项 validator；工作流同款 127 项为 119 通过、8 项只因本地未恢复 417 文件桌宠、LingChat、Meju TTS/native 或缺 `kotlinc`，与前版基线一致；新专项、历史 v0.41.x、schema、总账档案 SHA/heading、YAML 与 `git diff --check` 均通过。CI/Flutter 编译与真机结论尚未产生，不得越级标记。
+24. 构建前依用户要求再次对照当前开源主仓 README：`companion-emergence` 仍将 attunement 定义为随真实用户证据累积从 hunch 成熟，且只在有真实原话根据时外显；LMC-5 当前明确区分 raw events 证据和会影响行为的 curated memories，并锁定“模型可提案，本地代码掌握脱敏、importance gate、write decision 和 relation safety”；其状态仍为 Alpha，v0.3.0 起 AGPL-3.0-or-later，因此本项目只借机制不复制代码。A-MEM 仍只借原子记忆/有限连接，Memobase 仍只借 profile 与 event timeline 分层，PersonaMem 仍作偏好演化/长距离干扰回放源，Generative Agents 仍只借低频反思而不照搬 NPC 模拟。本批时间 gap 是回复现场真值边界，不写偏好证据、不产生 growth seed、不消费 Phase 1 结果，与 Phase 2→3→4 路线正交；因此开源复核结论为无需返工，可进入独立 CI/APK 构建。
 
 ## 历史工作记录（原文保留，按需检索）
 
