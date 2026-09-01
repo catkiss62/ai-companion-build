@@ -83,6 +83,7 @@ for token in (
     "PersonalityLearningRejectionReason.contextOnlyReply",
     "an explicit first-person pacing preference remains learnable",
     "pacing elsewhere in the turn does not hide a separate preference",
+    "a non-pacing reply still cannot borrow an unrelated target",
 ):
     assert token in tests, token
 

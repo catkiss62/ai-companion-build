@@ -298,6 +298,7 @@
 13. 对照审计发现并补齐三处本地门禁。其一，纯“慢慢来/不急/时间还长”现在无论模型给旧 target、旧 subject 或全新“关系节奏” subject 都拒绝；明确第一人称节奏偏好仍可学习。其二，候选先在 SQLite 按当前 context 过滤，手机裁决保留 40 条同语境候选，API 只展示最近 16 条，避免多次试穿把普通候选挤出校验集合。其三，数据库不再把 targetless proposal 因 subject 碰撞静默合并进旧候选；旧候选复用必须由解析器明确返回 target，防止持久化层绕过语义门禁。候选从 `contradicted` 恢复时清除旧状态时间，但反证证据不删除。
 14. 新增/扩展确定性回归：相同地点不同活动不归并；真机同向原话仍归并；真机节奏附和的旧 target、旧 subject、新 subject 和“可以，慢慢来”均拒绝；“我更喜欢关系慢慢来……”仍可形成新提案；专项 validator 同时锁定 context-local 查询、16/40 分层和数据库禁止无 target 碰撞合并。Phase 2、Prompt 消费、Desire/Moe/AI Self、试穿转正和联网存图仍完全关闭或未触碰。
 15. 节奏附和门禁最终按每条 `evidence_quote` 而非整条用户消息判断，避免同一长消息前半句说“慢慢来”、后半句另有“我希望你更任性”等明确偏好时被整轮误杀；新增组合回放锁定该边界。外部参考复核后的全量本地验证仍为 125 个 Python validator 中 117 个通过，8 个仅因本地未恢复 417 文件桌宠、LingChat effects、TTS/native 载荷或缺少 `kotlinc`，与原环境边界一致；专项、历史人格合同、总账索引/档案哈希、Python 语法与 `git diff --check` 均通过。
+16. 第二轮完整 CI run `33466970309`（652）以远端提交 `9eb833e...` / tree `d26e814...` 运行：完整载荷、125 项源码回归、Kotlin 与 Flutter analyze 全过；Flutter tests 为 397 通过、1 失败。失败不是运行逻辑泄漏，而是旧真机节奏用例仍期待泛化 `ungrounded_target`，新前置门禁正确返回更精确的 `context_only_reply`。测试已改为按新分类断言，并另增“海边拍照错误指向少客气候选”的非节奏回放继续锁定 `ungrounded_target`；run 652 不作为最终 APK 证据，须新 run 全绿后封存。
 
 ## 历史工作记录（原文保留，按需检索）
 

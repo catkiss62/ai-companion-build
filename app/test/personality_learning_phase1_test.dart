@@ -191,7 +191,7 @@ void main() {
     expect(parsed.proposal, isNull);
     expect(
       parsed.rejectionReason,
-      PersonalityLearningRejectionReason.ungroundedTarget,
+      PersonalityLearningRejectionReason.contextOnlyReply,
     );
 
     final withoutTarget = Map<String, Object?>.from(raw)
@@ -206,7 +206,7 @@ void main() {
     expect(reparsed.proposal, isNull);
     expect(
       reparsed.rejectionReason,
-      PersonalityLearningRejectionReason.ungroundedTarget,
+      PersonalityLearningRejectionReason.contextOnlyReply,
     );
 
     final asNewPacingPreference = Map<String, Object?>.from(raw)
@@ -237,6 +237,32 @@ void main() {
     expect(
       genericPermissionParsed.rejectionReason,
       PersonalityLearningRejectionReason.contextOnlyReply,
+    );
+  });
+
+  test('a non-pacing reply still cannot borrow an unrelated target', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiar_informal',
+      proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
+    );
+    final raw = support(
+      subjectKey: 'user.preference.activity.beach_photography',
+      quote: '我喜欢在海边拍照',
+    )
+      ..['target_id'] = existing.id
+      ..['proposition'] = '用户喜欢在海边拍照';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '我喜欢在海边拍照',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.proposal, isNull);
+    expect(
+      parsed.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
     );
   });
 
