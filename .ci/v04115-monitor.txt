@@ -1,0 +1,7 @@
+status=success
+run_id=33551625346
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33551625346
+head_sha=47b29f0a1ff1c638a363b0a3803ef4caf5712521
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+bccdc1890bf3eae073b2c397c0e72e67a7b01ad19ad2014f8beaebe1dfd27fc3  AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7e420debed538ea67c62
