@@ -27,14 +27,14 @@
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 当前开发分支 | `agent/v04113-phase01-time-audit-hardening`；从 v0.41.12 CI/APK 封存树开出独立 Phase 0+1 审查与时间加固批，Phase 2 回复影响继续关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.13 首次远端 head `9848f7bddf3052f4401b4c98326340da619cee37` / tree `c93ef79c68fafc6dff87b9d6289858e82ac7d978` 已触发 run 659；CI 失败后的本地诊断分类修复提交为 `50b509d0a13ef2a9c3ef4cacec3f2445d75c644a` / tree `7cf2b37ee6f6efe489bd5cea260a68ec14f565e5`，待连同本次总账推送重跑。上一全绿 CI tree 仍为 v0.41.12 `b901044ca3fc6ccbcab43b9b846dc2f240cac915` |
+| 当前代码 head / tree | v0.41.13 最终 CI head `6e36209f3de1c83481a14e993daf9c33da95a4be` / tree `15e6af0332f16a51740b6bcab8799185b5a161ab`；该 tree 与本地修复＋run 659 记录总账 tree 精确一致。其后的最终 CI/APK 结果仅追加本总账 `[skip ci]` 封存，不改变运行代码 |
 | App / 数据库 | 当前开发目标 `0.41.13+152` / schema 42；Snapshot/备份 protocol 5 不变，不删除或迁移现有用户数据 |
-| 最终 CI | v0.41.13 Actions run `33498238259`（659）已完成但失败：128 项源码/历史回归、Kotlin、Flutter analyze 均通过，Flutter tests 425 项中 424 通过；唯一失败为 direct feedback 已正确拒绝但诊断 reason 将无匹配写成 ambiguous。源码已修为无/错唯一匹配=`ungroundedTarget`、多匹配=`ambiguousReinforcement`，重跑待进行 |
-| 测试 APK | v0.41.13 尚未生成；上一包为 `AI-Companion-v0.41.12-151-Ordinary-Time-Scene-Boundary-APK.apk`，325,336,046 bytes |
-| APK SHA-256 | v0.41.13 待 CI；上一包为 `741c74c57e6eee09667a5593acba3a9859976e549328e5341a330616c24cbdea` |
-| Artifact / Release | v0.41.13 待 CI；上一包 Artifact ID `9791546129` / Draft Release `untagged-517e64cc7be04152168d`，未发布正式 Release |
+| 最终 CI | v0.41.13 Actions run [`33499044846`](https://github.com/catkiss62/ai-companion-build/actions/runs/33499044846)（660）全绿：128 项源码/历史回归、Kotlin、Flutter analyze、425 项 Flutter tests、Release APK、固定签名、全部大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped |
+| 测试 APK | `AI-Companion-v0.41.13-152-Phase01-Time-Audit-Hardening-APK.apk`，325,365,658 bytes |
+| APK SHA-256 | `557c6b3209e277f0a6b4f79de5626b7bce2e17e96a0015f96e71f01cd8f726b2`；CI checksum、Artifact 独立解包和 Draft Release asset digest 三方一致 |
+| Artifact / Release | Artifact ID `9797263988`，ZIP 319,068,118 bytes，digest `sha256:360177d38f81e05ff7a827ff2256f467de0189a4e8567397659c999fc596c6cc`，保留至 2026-09-15T10:56:10Z；Draft Release [`untagged-0e276774344bd14a3e80`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0e276774344bd14a3e80)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | `v0.41.13+152 / schema 42` Phase 0+1 代码审查与半小时双时钟加固已实现（IMPLEMENTED / CI RETRY & APK PENDING）。run 659 只暴露拒绝诊断分类差异，未放行误绑；本地已修并通过 v0.41.10～v0.41.13 专项与 diff 检查，待重跑完整 Flutter tests/Release APK。学习表仍不进入回复，旧 Memory/Relationship 绕过已过滤；direct feedback 原句、行为 subject、命题绝对化、能力真值和用户“他”误称均有门禁。Phase 2/3/4 继续关闭并各自独立 APK/真机验收 |
+| 当前总状态 | `v0.41.13+152 / schema 42` Phase 0+1 代码审查与半小时双时钟加固已完成源码、全量 CI 和测试 APK（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）。学习表仍不进入回复，旧 Memory/Relationship 绕过已过滤；direct feedback 原句、行为 subject、命题绝对化、能力真值和用户“他”误称均有门禁。Phase 2/3/4 继续关闭并各自独立 APK/真机验收 |
 
 ### 3. 当前模块状态总表
 
@@ -68,7 +68,7 @@
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
-| P0 · IMPLEMENTED / CI RETRY & APK PENDING | v0.41.13 Phase 0+1 审查 + 普通/主动时间加固 | 独立 `0.41.13+152 / schema 42`：学习表隔离审计、旧 Memory/Relationship 绕过过滤、direct feedback 原句、行为 subject、命题扩张与能力真值门禁；时间使用最后真实用户现场/最近互动双时钟，`<30` 分钟不详细注入，首次跨阈值详细、后续精简，AI 主动消息不刷新现场；同时加固当前用户“他”误称。本批不删除旧记录、不打开 Phase 2。run 659 的完整静态/Kotlin/analyze 已过，425 个 Flutter tests 仅诊断 reason 1 项失败且已修，待重跑和 APK；长时间间隔继续作为后续观察项 |
+| P0 · CI PASSED / APK READY / TRUE DEVICE PENDING | v0.41.13 Phase 0+1 审查 + 普通/主动时间加固 | 独立 `0.41.13+152 / schema 42`：学习表隔离审计、旧 Memory/Relationship 绕过过滤、direct feedback 原句、行为 subject、命题扩张与能力真值门禁；时间使用最后真实用户现场/最近互动双时钟，`<30` 分钟不详细注入，首次跨阈值详细、后续精简，AI 主动消息不刷新现场；同时加固当前用户“他”误称。本批不删除旧记录、不打开 Phase 2。run 660 全绿并已生成三方 SHA 一致的测试 APK；长时间间隔继续作为后续观察项 |
 | P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
@@ -336,7 +336,7 @@
 26. 最终完整 CI run [`33484506151`](https://github.com/catkiss62/ai-companion-build/actions/runs/33484506151)（658）在精确远端 tree 上全绿：127 项源码/历史回归、Kotlin 桌宠与悬浮文本、Flutter analyze、407 项 Flutter tests（407 通过、0 失败）、Release APK、稳定签名、native/TTS/417 文件桌宠/LingChat/Tarot 完整载荷、checksum、Artifact 与 Draft Release 上传全部成功。Artifact ID `9791546129`，名称 `AI-Companion-v0.41.12-151-Ordinary-Time-Scene-Boundary-APK`；ZIP 为 319,038,717 bytes，GitHub digest 与独立下载实算 SHA-256 均为 `0cedabefd2e7f9319d4f60732b30de3e303b8443e241413a77b22bf2db72cfdd`。独立解包 APK 为 325,336,046 bytes，SHA-256 `741c74c57e6eee09667a5593acba3a9859976e549328e5341a330616c24cbdea`，与 CI checksum、Draft Release asset digest 一致；固定签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-517e64cc7be04152168d`，未发布正式 Release，`main` 未合并。
 27. v0.41.12 时间真机测试不恢复人格基线备份：schema 42 与备份协议均未变，恢复会人为改写真实对话结束时间，反而破坏本批要观察的时间间隔。先保留最新 `.aibackup` 作安全副本，不卸载、不清数据，直接覆盖安装并确认 `0.41.12+151 / schema 42`。主用例一：普通聊天发送“我现在准备去吃饭了，先不聊啦”，等待回复后真实等待至少 60 分钟（精确复现原问题可等约两小时），期间不改手机时钟，再发送“突然想听你说点轻松的”；允许继续吃饭话题或询问是否吃完，但不得断言用户仍在吃，也不得虚构已经吃完。随后导出脱敏诊断，60–119 分钟应见 `currentTurnGapBand=transient_recheck`，满 120 分钟应见 `long_gap`，且 `currentTurnRequiresTransientRecheck=true`。主用例二：发送“我现在在整理房间，估计会弄很久”，真实等待至少 60 分钟后发送“我还在整理，累死了”；当前用户明确“还在”必须覆盖 unknown，AI 可以自然延续现场。建议两步分别导出脱敏诊断；若出现误判，再附相关聊天记录和最终备份。可选回归为 15 分钟内自然延续、跨日不说“刚才”、同一未结束沉浸房间离开再进入仍保持 Session 连续。全程不得手工修改系统时间。
 
-### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固（IMPLEMENTED / CI RETRY & APK PENDING）
+### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 Phase 0+1 代码审查可以与时间优化同一独立包完成，并要求修改完成后更新总账、告知真机测试步骤；构建前须先完成当前优化，再对照已锁定开源机制与上个窗口方案，避免中途切换思路。目标分支 `agent/v04113-phase01-time-audit-hardening`，版本 `0.41.13+152`，SQLite schema 42、Snapshot protocol 5 不变；不合并 `main`、不发布正式 Release，Phase 2 回复倾向、Phase 3 AI 自身习惯、Phase 4 低频澄清/娱乐测试继续关闭并保持后续独立 APK。
 2. 用户锁定准确性取舍：少量漏判可以接受，误判不可接受；“慢慢来”不得被归因为用户偏好慢成长。自然语义由经验整理 API 提案是必要的，但手机仍掌握逐字证据、scope/context、target、subject、protected contract、成熟度、幂等和最终写入裁决；只有明确立场、唯一同语境目标而字面不足的少数项进入隔离语义 API，unrelated/ambiguous/低置信/失败一律拒绝。
@@ -352,6 +352,10 @@
 12. 本地功能提交为 `b389b03acf1de41f77f316647873289432d81135`，tree `0944d4fec97d497691c708a984eac10f2d67d757`；包含 41 个文件、1,438 行新增与 177 行删除。其上已追加总账封存提交；推送后以最终远端 head/tree 作为 Actions 权威输入。此处只证明本地已提交，不等于 Dart 编译、CI 或 APK 已通过。
 13. 用户明确授权把本分支源码、测试、文档和当前总账推送到公开仓库并触发草稿测试 APK，长期同意本项目后续 APK 构建；边界仍是不合并 `main`、不发布正式 Release。命令行 HTTPS 凭据未注入后，使用已连接且确认属于仓库所有者、具有 admin/push 权限的 GitHub 通道创建远端 head `9848f7bddf3052f4401b4c98326340da619cee37`；其 tree `c93ef79c68fafc6dff87b9d6289858e82ac7d978` 与当时本地最终 tree 精确一致。Actions push run [`33498238259`](https://github.com/catkiss62/ai-companion-build/actions/runs/33498238259)（659）正常触发。
 14. run 659 完整恢复 Meju TTS、417 文件桌宠、LingChat 19 表情、22 张 Tarot 与固定签名；128 项源码/历史 validator、Kotlin 桌宠/悬浮文本测试、Flutter analyze 均通过。Flutter tests 共 425 项，424 通过，唯一失败为 `direct feedback cannot attach to an unrelated model-selected target`：解析器已经安全拒绝无关 target，但在零匹配时回报 `ambiguousReinforcement`，测试要求更准确的 `ungroundedTarget`；Release APK 与上传因此正确跳过，没有产生冒充成品。修复提交 `50b509d0a13ef2a9c3ef4cacec3f2445d75c644a` 将“零匹配或唯一匹配到别的 target”归为 `ungroundedTarget`，只把多个匹配归为 `ambiguousReinforcement`，不放宽任何接受路径；v0.41.10～v0.41.13 专项与 `git diff --check` 已重新通过，待推送重跑完整 CI。
+15. 修复与 run 659 记录经远端提交 `6e36209f3de1c83481a14e993daf9c33da95a4be` 快进分支，tree `15e6af0332f16a51740b6bcab8799185b5a161ab` 与本地精确一致。最终 Actions run [`33499044846`](https://github.com/catkiss62/ai-companion-build/actions/runs/33499044846)（660）全绿：128 项当前/历史 validator、Kotlin 桌宠/悬浮文本、Flutter analyze、425 项 Flutter tests、Release APK、稳定签名、Native/TTS/417 文件桌宠/LingChat 19 表情/22 张 Tarot 完整载荷、checksum、Artifact 与 Draft Release 上传全部成功；`report-ci-failure` 正常 skipped。
+16. Artifact ID `9797263988`，名称 `AI-Companion-v0.41.13-152-Phase01-Time-Audit-Hardening-APK`，ZIP 319,068,118 bytes，digest `sha256:360177d38f81e05ff7a827ff2256f467de0189a4e8567397659c999fc596c6cc`，保留至 2026-09-15T10:56:10Z。测试 APK `AI-Companion-v0.41.13-152-Phase01-Time-Audit-Hardening-APK.apk` 为 325,365,658 bytes；CI checksum、Artifact ZIP 独立全新目录解包实算与 GitHub Draft Release asset digest 均为 `557c6b3209e277f0a6b4f79de5626b7bce2e17e96a0015f96e71f01cd8f726b2`。固定测试签名验证通过，可覆盖安装；Draft Release 为 [`untagged-0e276774344bd14a3e80`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0e276774344bd14a3e80)，保持草稿，`main` 未合并。
+17. v0.41.13 真机首轮不恢复备份、不清数据：先另存一份安全备份，再直接覆盖安装并核对 `v0.41.13+152 / schema 42`。保留现有旧 Memory/Relationship/学习候选正好可验证“数据不删除但不再绕过回复”；询问学习能力时可说明能积累观察证据，但不得声称已经记住、存入偏好或已改变人格。普通聊天中当前用户必须保持“你”，真实第三方仍可正常称“他/她”；内容偏好如“我更喜欢在海边拍照而不是散步”可以成为普通 Memory，但不得增加人格学习候选/evidence。准确计数的固定六句回放只有在需要再次验证计数时才恢复同一干净基线并逐关键节点导出诊断，不作为本包首轮必做项。
+18. 时间作为不阻断后续开发的观察项：正常聊到吃饭/洗澡/短通勤等短活动后，自然间隔至少 30 分钟再发新消息；正确结果是不机械延续旧活动。间隔中若 AI 主动说话，仍不能刷新最后真实用户现场；明确“长途到晚上/会议到五点”则允许结合当前时间有界判断。每个测试模块结束导出一次脱敏诊断即可，不必每句话都保存；只有复核学习表逐条记录时再同时导出 `.aibackup`。
 
 ## 历史工作记录（原文保留，按需检索）
 
