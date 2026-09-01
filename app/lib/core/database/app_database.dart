@@ -5993,6 +5993,17 @@ class AppDatabase {
     final evidenceCounts = await db.rawQuery(
       'SELECT COUNT(*) AS count FROM personality_learning_evidence',
     );
+    final rejectionReasonCounts = <String, int>{};
+    for (final reason in PersonalityLearningRejectionReason.values) {
+      final count = int.tryParse(
+            await getSetting(
+                  'personality_learning_rejected_${reason.key}_count',
+                ) ??
+                '',
+          ) ??
+          0;
+      if (count > 0) rejectionReasonCounts[reason.key] = count;
+    }
     return {
       'enabled': (await getSetting('personality_learning_enabled')) != '0',
       'candidateCount': Sqflite.firstIntValue(candidateCounts) ?? 0,
@@ -6028,6 +6039,7 @@ class AppDatabase {
             await getSetting('personality_learning_last_rejected_at') ?? '',
           ) ??
           0,
+      'rejectionReasonCounts': rejectionReasonCounts,
       'candidateBodiesIncluded': false,
       'evidenceBodiesIncluded': false,
       'messageBodiesIncluded': false,

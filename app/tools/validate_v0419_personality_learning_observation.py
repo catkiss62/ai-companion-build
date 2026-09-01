@@ -32,9 +32,9 @@ phase_doc = read("docs/PERSONALITY_LEARNING_GROWTH_PHASE1.md")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.9\+148\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:9\+148|10\+149)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 42;" in database
-assert "buildLabel = 'v0.41.9+148'" in agent_self
+assert "buildLabel = 'v0.41.10+149'" in agent_self
 assert "if (oldVersion < 42)" in database
 assert "_createV42Tables" in database
 
@@ -131,11 +131,11 @@ for token in (
     assert token in phase_doc, token
 
 for token in (
-    "Build AI Companion v0.41.9+148 APK (Personality Learning Observation)",
-    "agent/v0419-personality-learning-observation",
-    "AI-Companion-v0.41.9-148-Personality-Learning-Observation-APK",
-    "v0.41.9-personality-learning-observation-test",
-    ".ci/v0419-monitor.txt",
+    "Build AI Companion v0.41.10+149 APK (Personality Learning Grounding Hotfix)",
+    "agent/v04110-personality-learning-grounding-hotfix",
+    "AI-Companion-v0.41.10-149-Personality-Learning-Grounding-Hotfix-APK",
+    "v0.41.10-personality-learning-grounding-hotfix-test",
+    ".ci/v04110-monitor.txt",
     "python3 tools/validate_v0419_personality_learning_observation.py",
 ):
     assert token in workflow, token

@@ -83,6 +83,23 @@ enum PersonalityLearningStatus {
   }
 }
 
+enum PersonalityLearningRejectionReason {
+  invalidPayload('invalid_payload'),
+  invalidPolarityOrKind('invalid_polarity_or_kind'),
+  invalidQuote('invalid_quote'),
+  invalidTarget('invalid_target'),
+  ungroundedTarget('ungrounded_target'),
+  contradictionWithoutTarget('contradiction_without_target'),
+  invalidScope('invalid_scope'),
+  invalidSubject('invalid_subject'),
+  invalidProposition('invalid_proposition'),
+  ambiguousReinforcement('ambiguous_reinforcement');
+
+  const PersonalityLearningRejectionReason(this.key);
+
+  final String key;
+}
+
 class PersonalityLearningContext {
   const PersonalityLearningContext({
     required this.kind,
@@ -197,8 +214,28 @@ class PersonalityLearningProposal {
     required String userText,
     required PersonalityLearningContext context,
     required Map<String, PersonalityLearningCandidate> existingById,
+  }) =>
+      parseDetailed(
+        raw: raw,
+        userText: userText,
+        context: context,
+        existingById: existingById,
+      ).proposal;
+
+  static PersonalityLearningParseResult parseDetailed({
+    required Object? raw,
+    required String userText,
+    required PersonalityLearningContext context,
+    required Map<String, PersonalityLearningCandidate> existingById,
   }) {
-    if (raw is! Map) return null;
+    PersonalityLearningParseResult reject(
+      PersonalityLearningRejectionReason reason,
+    ) =>
+        PersonalityLearningParseResult.rejected(reason);
+
+    if (raw is! Map) {
+      return reject(PersonalityLearningRejectionReason.invalidPayload);
+    }
     final item = raw.cast<String, dynamic>();
     final polarity = PersonalityLearningPolarity.parse(
       item['polarity'] as String?,
@@ -206,7 +243,11 @@ class PersonalityLearningProposal {
     final evidenceKind = PersonalityLearningEvidenceKind.parse(
       item['evidence_kind'] as String?,
     );
-    if (polarity == null || evidenceKind == null) return null;
+    if (polarity == null || evidenceKind == null) {
+      return reject(
+        PersonalityLearningRejectionReason.invalidPolarityOrKind,
+      );
+    }
 
     final quote = _singleLine(item['evidence_quote'] as String? ?? '');
     final normalizedUser = _singleLine(userText);
@@ -214,7 +255,7 @@ class PersonalityLearningProposal {
         quote.length > 180 ||
         normalizedUser.isEmpty ||
         !normalizedUser.contains(quote)) {
-      return null;
+      return reject(PersonalityLearningRejectionReason.invalidQuote);
     }
 
     final targetId = (item['target_id'] as String? ?? '').trim();
@@ -224,41 +265,268 @@ class PersonalityLearningProposal {
           target.status == PersonalityLearningStatus.retired ||
           target.contextKey != context.contextKey ||
           !context.allowsScope(target.scope)) {
-        return null;
+        return reject(PersonalityLearningRejectionReason.invalidTarget);
       }
-      return PersonalityLearningProposal(
+      if (!_isGroundedToTarget(
+        normalizedUser: normalizedUser,
+        evidenceKind: evidenceKind,
+        target: target,
+        explicitTarget: true,
+      )) {
+        return reject(PersonalityLearningRejectionReason.ungroundedTarget);
+      }
+      return PersonalityLearningParseResult.accepted(
+        _proposalForTarget(
+          target: target,
+          polarity: polarity,
+          evidenceKind: evidenceKind,
+          quote: quote,
+          confidence: item['confidence'],
+        ),
+      );
+    }
+
+    // A contradiction without a grounded target is ambiguous: the phone does
+    // not let the model invent a proposition merely to refute it.
+    if (polarity == PersonalityLearningPolarity.contradict) {
+      return reject(
+        PersonalityLearningRejectionReason.contradictionWithoutTarget,
+      );
+    }
+    final scope = PersonalityLearningScope.parse(item['scope'] as String?);
+    if (scope == null || !context.allowsScope(scope)) {
+      return reject(PersonalityLearningRejectionReason.invalidScope);
+    }
+    final subjectKey = (item['subject_key'] as String? ?? '')
+        .trim()
+        .toLowerCase();
+
+    final reinforcement = _findGroundedReinforcementTarget(
+      normalizedUser: normalizedUser,
+      evidenceKind: evidenceKind,
+      scope: scope,
+      proposedSubjectKey: subjectKey,
+      context: context,
+      existingById: existingById,
+    );
+    if (reinforcement.target != null) {
+      return PersonalityLearningParseResult.accepted(
+        _proposalForTarget(
+          target: reinforcement.target!,
+          polarity: polarity,
+          evidenceKind: evidenceKind,
+          quote: quote,
+          confidence: item['confidence'],
+        ),
+      );
+    }
+    if (reinforcement.ambiguous) {
+      return reject(
+        PersonalityLearningRejectionReason.ambiguousReinforcement,
+      );
+    }
+    final collidesWithUngroundedTarget = existingById.values.any(
+      (candidate) =>
+          candidate.status != PersonalityLearningStatus.retired &&
+          candidate.scope == scope &&
+          candidate.contextKey == context.contextKey &&
+          candidate.subjectKey == subjectKey,
+    );
+    if (collidesWithUngroundedTarget) {
+      return reject(PersonalityLearningRejectionReason.ungroundedTarget);
+    }
+    if (!_validSubject(scope, subjectKey)) {
+      return reject(PersonalityLearningRejectionReason.invalidSubject);
+    }
+    final proposition = _singleLine(item['proposition'] as String? ?? '');
+    if (proposition.length < 4 || proposition.length > 240) {
+      return reject(PersonalityLearningRejectionReason.invalidProposition);
+    }
+    return PersonalityLearningParseResult.accepted(
+      PersonalityLearningProposal(
+        scope: scope,
+        subjectKey: subjectKey,
+        proposition: proposition,
+        polarity: polarity,
+        evidenceKind: evidenceKind,
+        evidenceText: quote,
+        confidence: _calibratedConfidence(item['confidence'], evidenceKind),
+      ),
+    );
+  }
+
+  static PersonalityLearningProposal _proposalForTarget({
+    required PersonalityLearningCandidate target,
+    required PersonalityLearningPolarity polarity,
+    required PersonalityLearningEvidenceKind evidenceKind,
+    required String quote,
+    required Object? confidence,
+  }) =>
+      PersonalityLearningProposal(
         scope: target.scope,
         subjectKey: target.subjectKey,
         proposition: target.proposition,
         polarity: polarity,
         evidenceKind: evidenceKind,
         evidenceText: quote,
-        confidence: _calibratedConfidence(item['confidence'], evidenceKind),
+        confidence: _calibratedConfidence(confidence, evidenceKind),
         targetCandidateId: target.id,
       );
-    }
 
-    // A contradiction without a grounded target is ambiguous: the phone does
-    // not let the model invent a proposition merely to refute it.
-    if (polarity == PersonalityLearningPolarity.contradict) return null;
-    final scope = PersonalityLearningScope.parse(item['scope'] as String?);
-    if (scope == null || !context.allowsScope(scope)) return null;
-    final subjectKey = (item['subject_key'] as String? ?? '')
-        .trim()
-        .toLowerCase();
-    if (!_validSubject(scope, subjectKey)) return null;
-    final proposition = _singleLine(item['proposition'] as String? ?? '');
-    if (proposition.length < 4 || proposition.length > 240) return null;
-    return PersonalityLearningProposal(
-      scope: scope,
-      subjectKey: subjectKey,
-      proposition: proposition,
-      polarity: polarity,
-      evidenceKind: evidenceKind,
-      evidenceText: quote,
-      confidence: _calibratedConfidence(item['confidence'], evidenceKind),
-    );
+  static _PersonalityLearningTargetMatch _findGroundedReinforcementTarget({
+    required String normalizedUser,
+    required PersonalityLearningEvidenceKind evidenceKind,
+    required PersonalityLearningScope scope,
+    required String proposedSubjectKey,
+    required PersonalityLearningContext context,
+    required Map<String, PersonalityLearningCandidate> existingById,
+  }) {
+    // Direct feedback is intentionally allowed to use the previous AI turn to
+    // locate an expression, so it must keep an explicit model-selected target.
+    if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
+      return const _PersonalityLearningTargetMatch();
+    }
+    final grounded = existingById.values.where((candidate) {
+      final subjectMatches = candidate.subjectKey == proposedSubjectKey;
+      final overlap = _distinctiveBigramOverlap(
+        normalizedUser,
+        candidate.proposition,
+      );
+      return candidate.status != PersonalityLearningStatus.retired &&
+          candidate.scope == scope &&
+          candidate.contextKey == context.contextKey &&
+          (subjectMatches || overlap >= 3) &&
+          _isGroundedToTarget(
+            normalizedUser: normalizedUser,
+            evidenceKind: evidenceKind,
+            target: candidate,
+            explicitTarget: false,
+          );
+    }).toList(growable: false);
+    final exact = grounded
+        .where((candidate) => candidate.subjectKey == proposedSubjectKey)
+        .toList(growable: false);
+    if (exact.length == 1) {
+      return _PersonalityLearningTargetMatch(target: exact.single);
+    }
+    if (exact.length > 1 || grounded.length > 1) {
+      return const _PersonalityLearningTargetMatch(ambiguous: true);
+    }
+    return grounded.length == 1
+        ? _PersonalityLearningTargetMatch(target: grounded.single)
+        : const _PersonalityLearningTargetMatch();
   }
+
+  static bool _isGroundedToTarget({
+    required String normalizedUser,
+    required PersonalityLearningEvidenceKind evidenceKind,
+    required PersonalityLearningCandidate target,
+    required bool explicitTarget,
+  }) {
+    if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
+      return explicitTarget &&
+          _containsAny(normalizedUser, const <String>[
+            '你刚才',
+            '刚才那句',
+            '你那句',
+            '这种说法',
+            '这样说',
+            '这个反应',
+            '这种感觉',
+          ]) &&
+          _containsAny(normalizedUser, const <String>[
+            '喜欢',
+            '不喜欢',
+            '有意思',
+            '好玩',
+            '不错',
+            '自然',
+            '别扭',
+            '舒服',
+            '不舒服',
+            '可以',
+            '不可以',
+            '别',
+            '不要',
+          ]);
+    }
+    final overlap = _distinctiveBigramOverlap(
+      normalizedUser,
+      target.proposition,
+    );
+    final requiredOverlap =
+        evidenceKind == PersonalityLearningEvidenceKind.explicitCorrection ||
+                evidenceKind == PersonalityLearningEvidenceKind.boundary
+            ? 1
+            : 2;
+    if (overlap < requiredOverlap) return false;
+    return _containsAny(normalizedUser, const <String>[
+      '我喜欢',
+      '我更喜欢',
+      '我真的喜欢',
+      '我不喜欢',
+      '我讨厌',
+      '我希望',
+      '我想要',
+      '我不想',
+      '我宁愿',
+      '我接受',
+      '我不接受',
+      '对，就是',
+      '对的',
+      '没错',
+      '确实',
+      '这种',
+      '应该',
+      '不应该',
+      '可以',
+      '不可以',
+      '别把',
+      '不要',
+    ]);
+  }
+
+  static int _distinctiveBigramOverlap(String left, String right) {
+    final leftBigrams = _cjkBigrams(left)..removeAll(_genericBigrams);
+    final rightBigrams = _cjkBigrams(right)..removeAll(_genericBigrams);
+    return leftBigrams.intersection(rightBigrams).length;
+  }
+
+  static Set<String> _cjkBigrams(String input) {
+    final output = <String>{};
+    for (final match in RegExp(r'[\u3400-\u9fff]{2,}').allMatches(input)) {
+      final run = match.group(0)!;
+      for (var index = 0; index < run.length - 1; index += 1) {
+        output.add(run.substring(index, index + 2));
+      }
+    }
+    return output;
+  }
+
+  static bool _containsAny(String input, List<String> cues) =>
+      cues.any(input.contains);
+
+  static const Set<String> _genericBigrams = <String>{
+    '用户',
+    '偏好',
+    '喜欢',
+    '不喜',
+    '关系',
+    '表达',
+    '交流',
+    '方式',
+    '自然',
+    '这种',
+    '觉得',
+    '真的',
+    '可以',
+    '不要',
+    '就是',
+    '不是',
+    '更加',
+    '已经',
+    '还是',
+  };
 
   static String _singleLine(String raw) =>
       raw.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -280,6 +548,24 @@ class PersonalityLearningProposal {
       r'^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){2,7}$',
     ).hasMatch(subjectKey);
   }
+}
+
+class PersonalityLearningParseResult {
+  const PersonalityLearningParseResult.accepted(this.proposal)
+      : rejectionReason = null;
+
+  const PersonalityLearningParseResult.rejected(this.rejectionReason)
+      : proposal = null;
+
+  final PersonalityLearningProposal? proposal;
+  final PersonalityLearningRejectionReason? rejectionReason;
+}
+
+class _PersonalityLearningTargetMatch {
+  const _PersonalityLearningTargetMatch({this.target, this.ambiguous = false});
+
+  final PersonalityLearningCandidate? target;
+  final bool ambiguous;
 }
 
 class PersonalityLearningMaturityResult {

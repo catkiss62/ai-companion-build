@@ -27,7 +27,7 @@ tests = read("test/personality_trial_test.dart") + read(
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*(?:0\.41\.7\+146|0\.41\.8\+147|0\.41\.9\+148)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.41\.7\+146|0\.41\.8\+147|0\.41\.9\+148|0\.41\.10\+149)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 41;" in database
 
 for token in (

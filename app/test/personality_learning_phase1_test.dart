@@ -11,19 +11,24 @@ void main() {
   );
 
   PersonalityLearningCandidate candidate({
+    String id = 'candidate-1',
     String contextKey = 'ordinary',
     PersonalityLearningScope scope =
         PersonalityLearningScope.userPreference,
+    String? subjectKey,
+    String? proposition,
   }) {
     return PersonalityLearningCandidate(
-      id: 'candidate-1',
+      id: id,
       scope: scope,
-      subjectKey: scope == PersonalityLearningScope.trialPreference
-          ? 'trial.preference.forthright.swearing'
-          : 'user.preference.communication.less_formal',
-      proposition: scope == PersonalityLearningScope.trialPreference
-          ? '用户喜欢当前试穿更自然地说脏话'
-          : '用户偏好更少客气、更自然直接的交流',
+      subjectKey: subjectKey ??
+          (scope == PersonalityLearningScope.trialPreference
+              ? 'trial.preference.forthright.swearing'
+              : 'user.preference.communication.less_formal'),
+      proposition: proposition ??
+          (scope == PersonalityLearningScope.trialPreference
+              ? '用户喜欢当前试穿更自然地说脏话'
+              : '用户偏好更少客气、更自然直接的交流'),
       contextKey: contextKey,
       status: PersonalityLearningStatus.forming,
       confidence: 0.72,
@@ -117,6 +122,109 @@ void main() {
       latestKind: proposal.evidenceKind,
     );
     expect(maturity.status, PersonalityLearningStatus.contradicted);
+  });
+
+  test('true-device same-direction support rejoins one grounded candidate', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiar_informal',
+      proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
+    );
+    final userText =
+        '那不会的，我真的喜欢这种真正自然而然的关系，而不是刻意的甜蜜，这种越熟说话越不客气的感觉很好。';
+    final raw = support(
+      subjectKey: 'user.preference.relationship.natural_closeness',
+      quote: userText,
+    )..['proposition'] = '用户喜欢熟悉以后自然放松、不必维持客套';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.rejectionReason, isNull);
+    expect(parsed.proposal?.targetCandidateId, existing.id);
+    expect(parsed.proposal?.subjectKey, existing.subjectKey);
+  });
+
+  test('related but distinct preference does not collapse into one candidate', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.activity.beach_walking',
+      proposition: '用户喜欢在海边散步。',
+    );
+    final raw = support(
+      subjectKey: 'user.preference.activity.beach_photography',
+      quote: '我喜欢在海边拍照',
+    )..['proposition'] = '用户喜欢在海边拍照。';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '我喜欢在海边拍照',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.rejectionReason, isNull);
+    expect(parsed.proposal?.targetCandidateId, isNull);
+    expect(
+      parsed.proposal?.subjectKey,
+      'user.preference.activity.beach_photography',
+    );
+  });
+
+  test('true-device pacing reply cannot borrow the AI context target', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiar_informal',
+      proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
+    );
+    final raw = support(quote: '慢慢来最好，我们时间还长着，不急')
+      ..['target_id'] = existing.id;
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '慢慢来最好，我们时间还长着，不急',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.proposal, isNull);
+    expect(
+      parsed.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
+    );
+
+    final withoutTarget = Map<String, Object?>.from(raw)
+      ..['target_id'] = ''
+      ..['subject_key'] = existing.subjectKey;
+    final reparsed = PersonalityLearningProposal.parseDetailed(
+      raw: withoutTarget,
+      userText: '慢慢来最好，我们时间还长着，不急',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+    expect(reparsed.proposal, isNull);
+    expect(
+      reparsed.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
+    );
+  });
+
+  test('explicit direct feedback keeps a model-selected target', () {
+    final existing = candidate();
+    final raw = support(quote: '你刚才那句滚去睡觉挺有意思的')
+      ..['target_id'] = existing.id
+      ..['evidence_kind'] = 'direct_feedback';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '你刚才那句滚去睡觉挺有意思的',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.rejectionReason, isNull);
+    expect(parsed.proposal?.targetCandidateId, existing.id);
   });
 
   test('two independent supporting observations can become established', () {

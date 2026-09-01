@@ -332,6 +332,8 @@ $editableMemoryPolicy
    - 试穿作用域只允许 trial_preference，表示用户对当前试穿体验的反馈；不得把试穿表现写成自然人格、ai_self 或普通关系许可。
    - polarity=support 表示支持候选。新候选 target_id 留空，并给稳定、低写法耦合的 subject_key；同一命题再次出现时必须复用已有 target_id。
    - polarity=contradict 只用于用户明确否定、修正既有候选，必须填写【既有学习候选】中的 target_id；拿不准就不要输出。
+   - 指向既有候选时，当前用户原话本身必须明确谈到或评价该候选的具体表达特征。只是在回应 AI 的成长节奏、情绪或关系保证，例如“慢慢来”“不急”“时间还长”，不能因为上一条 AI 顺便扩写了某个偏好就挂到该候选。
+   - 同向支持即使换了说法，也应优先复用已有 target_id；手机会在当前原话与目标命题有明确、唯一的本地语义落点时做保守归并，但不会用 AI 上一轮替用户补全含义。
    - evidence_kind 只能是 explicit_preference / explicit_correction / direct_feedback / boundary / revealed_choice。revealed_choice 只适用于用户真实做出明确选择，不能从没反对、继续聊天或语气猜测。
    - 单轮最多三条。不要创建“AI 应当永远怎样说话”的规则，不要学习客服腔、模型礼貌惯性，也不要把当前 Desire/Moe 数值解释成用户偏好。
 
@@ -546,15 +548,20 @@ AI：${assistant.content}
       for (final candidate in existingCandidates) candidate.id: candidate,
     };
     var rejected = 0;
+    final rejectionReasons = <PersonalityLearningRejectionReason, int>{};
     for (final raw in rawSignals.take(3)) {
-      final proposal = PersonalityLearningProposal.parse(
+      final parsed = PersonalityLearningProposal.parseDetailed(
         raw: raw,
         userText: user.promptContent,
         context: context,
         existingById: existingById,
       );
+      final proposal = parsed.proposal;
       if (proposal == null) {
         rejected += 1;
+        final reason = parsed.rejectionReason ??
+            PersonalityLearningRejectionReason.invalidPayload;
+        rejectionReasons[reason] = (rejectionReasons[reason] ?? 0) + 1;
         continue;
       }
       await db.applyPersonalityLearningProposal(
@@ -578,6 +585,11 @@ AI：${assistant.content}
       'personality_learning_last_rejected_at',
       user.createdAt.millisecondsSinceEpoch.toString(),
     );
+    for (final entry in rejectionReasons.entries) {
+      final key = 'personality_learning_rejected_${entry.key.key}_count';
+      final previousReason = int.tryParse(await db.getSetting(key) ?? '') ?? 0;
+      await db.setSetting(key, '${previousReason + entry.value}');
+    }
   }
 
   Future<String> _buildProactiveContext(ProactiveFeedback? feedback) async {

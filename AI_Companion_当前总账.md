@@ -25,7 +25,7 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v0419-personality-learning-observation`；从 v0.41.8 已通过 CI/APK、且已真机确认静态“直爽泼辣”强度失败的基线开始 Phase 0+1 |
+| 当前开发分支 | `agent/v04110-personality-learning-grounding-hotfix`；从 v0.41.9 已通过 CI/APK、但真机确认支持归并与上下文归因错误的观察层基线开始热修 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | 远端 CI head `ef67b5b544849d842b17e0805e2b0eb5b7e12ce9`；tree `0aa778486e9888b3a5779de4b196dd1ffcb53e33` 与本地触发提交精确一致；核心 Phase 0+1 功能提交为本地 `a9d7acb49766...` / 远端 `36d933d92182...` |
 | App / 数据库 | 当前 `0.41.9+148` / schema 42；Snapshot/备份 protocol 5 不变 |
@@ -34,14 +34,14 @@
 | APK SHA-256 | `35ce0338af8bbe1742a34d27db91c5fceb4bd74834eeeadf6037c6dc11e43324` |
 | Artifact / Release | Artifact ID `9778103747`；Draft Release `untagged-bea3998f921f56995b8b`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.9 人格 Phase 0+1 已实现并通过完整 CI/APK：规则分类合同、只观察的偏好/关系许可/试穿证据、反证、成熟度、备份和脱敏诊断已落地；学习候选不会改变当前回复，仍待真机导出诊断验收。联网存图缺陷继续保留 P0，未混入本批 |
+| 当前总状态 | v0.41.9 人格 Phase 0+1 已实现并通过完整 CI/APK，但 2026-09-01 真机备份确认两处 Phase 1 归因错误：真实同向支持被拒绝，回应成长节奏的“慢慢来”被误挂为旧偏好支持；反向纠正与不影响回复合同正常。已开 `v0.41.10+149 / schema 42` 本地裁决热修，Phase 2 继续关闭。联网存图缺陷继续保留 P0，未混入本批 |
 
 ### 3. 当前模块状态总表
 
 | 模块 | 当前状态 | 还需什么 / 不得误判 |
 |---|---|---|
 | 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过 | 后续版本未对所有视觉边角做一次总体验收；偶发多余 `「` 见低优先级问题 |
-| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.9 Phase 0+1 已把规则分类和观察证据层落地 | 当前学习层只观察、不改表达；不再继续堆词库/场景/每轮强制。身份、关系事实、工具真值、排版与反客服仍是硬边界；Phase 2 须等真机证据闭合后才可给成熟偏好小幅 bias |
+| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.9 Phase 0+1 已落地但真机发现支持归并与上下文误绑 | v0.41.10 只修手机本地证据裁决；学习层继续只观察、不改表达。不再继续堆词库/场景/每轮强制。身份、关系事实、工具真值、排版与反客服仍是硬边界；Phase 2 须等热修真机证据闭合后才可给成熟偏好小幅 bias |
 | Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
 | Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · CI/APK PASSED / TRUE DEVICE PENDING | 人格学习与成长主框架 Phase 0+1 | `0.41.9+148 / schema 42` 已实现规则/Prompt 分类与只观察的偏好证据、反证、成熟度、备份和脱敏诊断；run 649 与观察型 APK 已完成。真机只验证抓取/反证/备份/不影响台词，未闭合前不得进入 Phase 2 或宣称她已经会成长 |
+| P0 · TRUE DEVICE FAILED / HOTFIX IN PROGRESS | 人格学习与成长主框架 Phase 0+1 | `0.41.9+148 / schema 42` 真机已证明反证、备份和不影响台词正常，但真实同向支持被拒绝，且“慢慢来”被旧 AI 语境误挂为支持。目标 `0.41.10+149 / schema 42`：手机本地完成同命题归并与逐条目标相关性校验；未闭合前不得进入 Phase 2 或宣称她已经会成长 |
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
@@ -280,6 +280,19 @@
 18. 本地最终触发提交 `83d26c9ba210...`、远端最终 CI head `ef67b5b544849d842b17e0805e2b0eb5b7e12ce9`，共同 tree `0aa778486e9888b3a5779de4b196dd1ffcb53e33`。Artifact ID `9778103747`，ZIP 319,001,117 bytes、digest `757ee8d1535d7138040b5c99d674adc5276bc70745746835c84e8dac319b345f`，保留至 2026-09-14T22:26:07Z。
 19. 独立下载 Artifact 后得到 APK 325,297,082 bytes，SHA-256 `35ce0338af8bbe1742a34d27db91c5fceb4bd74834eeeadf6037c6dc11e43324`，与 CI checksum 一致；固定签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bea3998f921f56995b8b`；`main` 未合并，正式 Release 未发布。
 20. 真机验收只做观察：覆盖安装后在普通状态明确说一条偏好，再用限定或相反反馈纠正；另在一次普通性格试穿中明确评价试穿特征，随后导出脱敏诊断与完整备份。正确结果是 candidate/evidence/rejected 计数和普通/试穿布尔值合理变化、备份含新表，而她的当前台词不因这些候选突然改变。若抓错、未抓、无法反证或表达被影响，停在 Phase 1 修复；不得直接进入 Phase 2。联网识图/相册保存仍是独立 P0 真机失败任务，本批没有修复或掩盖。
+
+### 16. 2026-09-01 · v0.41.10 人格学习证据归因热修（TRUE DEVICE FAILURE RECORDED / HOTFIX IN PROGRESS）
+
+1. 用户按 v0.41.9 卡点完成普通状态同向支持与反向纠正测试，并提交 `ai_companion_diagnostics_2026-09-01T01-27-12-178455Z.txt`、`ai_companion_diagnostics_2026-09-01T01-42-33-841229Z.txt` 及同时间完整备份 `AI_Companion_Backup_2026-09-01T01-42-28.aibackup`。本轮只读取证，不恢复、不改用户唯一关系资料。
+2. 第一份诊断为 `candidateCount=1 / evidenceCount=2 / support=2 / established=1 / rejectedCount=1`；第二份在明确反向纠正后为 `candidateCount=1 / evidenceCount=3 / support=2 / contradict=1 / explicit_correction=1 / contradicted=1`。反证、同候选状态重算、备份载荷与“学习结果不影响台词”均符合 Phase 1；没有新增生成、异步 Worker 或数据库错误。
+3. 完整备份闭合了两处真实失败。用户首条“越熟悉越不客套、可用对骂表达亲近”被正确建成候选；随后更强的同向确认“真正自然而然的关系……越熟说话越不客气”在 `lastRejectedAt` 对应轮次被拒绝。下一条“慢慢来最好，我们时间还长着，不急”只是在回应 AI 上一轮所说的成长节奏，却被错误登记为该候选第二条 `explicit_preference/support`，使候选误升 `established`。最终“我改一下刚才的说法……”被正确登记为 `explicit_correction/contradict`。
+4. 当前源码根因是手机解析器只验证 `evidence_quote` 来自当前用户原话：模型只要提供已有 `target_id`，手机不会再次核对原话与目标命题是否相关；反过来，同向支持若没有正确复用 `target_id`，则必须重新满足完整 scope/subject/proposition 结构，手机没有对同一现有命题做确定性归并。于是 AI 语境可诱导无关附和误绑，而字段轻微漂移又会让真实支持直接被拒绝。
+5. 热修分支 `agent/v04110-personality-learning-grounding-hotfix`，目标版本 `0.41.10+149`、schema 42 与 Snapshot protocol 5 不变。修复放在手机本地裁决层：已有目标的支持/反证必须由当前用户原话对目标命题形成自包含的语义落点，单纯“好、慢慢来、不急”等节奏或情绪附和不能靠上一条 AI 扩写成为证据；强同向复述在目标唯一且本地相关性充分时可归并到现有候选，不因模型漏填/漂移 `target_id` 被丢弃。
+6. 必须保留允许的 `direct_feedback`：用户明确说“你刚才那句……挺有意思/我不喜欢”时，AI 上一轮只可帮助定位被评价表达，当前用户原话仍必须含明确评价与可定位指代。普通闲聊、沉默、继续聊天、AI 自述和泛化附和继续不能成为证据；试穿隔离、幂等、反证目标、隐私、备份与成熟度合同不变。
+7. 本批严格停在 Phase 1，不把候选读入普通/主动/沉浸 Prompt，不修改 Desire、Thought、Moe、Memory、AI Self、试穿转正、联网存图或相册。完成后补真实三轮回放测试、拒绝原因的脱敏计数、专项 validator、全部当前/历史 validators、Flutter analyze/tests、Kotlin/Gradle、Release APK、固定签名和完整大载荷校验；再回填提交、Actions、APK/SHA 与精确真机测试话术。用户已授权完成后推送公开独立分支并构建测试 APK，但不合并 `main`、不发布正式 Release。
+8. 本地实现已完成：`PersonalityLearningProposal.parseDetailed` 为每条拒绝给出固定枚举原因；显式 `target_id` 必须由当前用户原话中的特征重叠与明确偏好/纠正/边界信号自证，`direct_feedback` 另要求“你刚才/刚才那句”等可定位指代和正负评价；模型漏填 target 时，只在同 scope/context、当前原话充分相关且目标唯一时归并。相近但不同的偏好继续新建，不能只因 subject 或两个泛化词相似而误合并。
+9. 新增四组纯策略回归，覆盖 v0.41.9 真机原话的同向复述归并、相近但不同偏好不折叠、“慢慢来最好，我们时间还长着，不急”无论携带旧 target 或复用旧 subject 都被拒绝、明确评价上一条 AI 表达的 `direct_feedback` 继续允许。脱敏诊断新增 `rejectionReasonCounts`，只输出固定原因与计数，不输出候选、证据、用户消息或模型 JSON；schema 42 与 Snapshot protocol 5 均不变化。
+10. 推送前本地验证：工作流列出的 125 个 Python validator 中 117 个通过；其余 8 个只停在本地克隆未恢复的 417 文件桌宠包、LingChat effects、TTS/native 载荷或缺少 `kotlinc`，与既有本地环境边界一致。v0.41.10 专项 validator、总账档案 SHA/105 个二级与 413 个三级标题、schema/current 合同、Python 语法、workflow YAML 和 `git diff --check` 均通过；Flutter analyze/tests、Kotlin/Gradle、完整大载荷与 APK 必须由 Actions 环境继续闭合。
 
 ## 历史工作记录（原文保留，按需检索）
 
