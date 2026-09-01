@@ -37,6 +37,7 @@ for token in (
     "PersonalityLearningEvidenceKind.revealedChoice",
 ):
     assert token in models, token
+assert "const PersonalityLearningParseResult.reviewRequired" not in models
 
 for token in (
     "人格学习证据的隔离语义复核器",

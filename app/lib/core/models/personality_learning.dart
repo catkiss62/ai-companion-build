@@ -712,7 +712,7 @@ class PersonalityLearningParseResult {
       : proposal = null,
         semanticReview = null;
 
-  const PersonalityLearningParseResult.reviewRequired({
+  PersonalityLearningParseResult.reviewRequired({
     required PersonalityLearningCandidate target,
     required PersonalityLearningPolarity proposedPolarity,
     required PersonalityLearningEvidenceKind evidenceKind,
