@@ -57,7 +57,7 @@ class AgentSelfReader {
   final AppDatabase db;
   final AndroidBridge android;
 
-  static const buildLabel = 'v0.41.12+151';
+  static const buildLabel = 'v0.41.13+152';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -101,6 +101,12 @@ class AgentSelfReader {
       title: '系统事实与近期 Outcome',
       status: 'implemented',
       detail: '只有在当前问题需要时，才能只读查看这份能力事实和无正文的近期工具结果；不会常驻塞入每轮 Prompt。',
+    ),
+    AgentSystemFact(
+      id: 'personality_learning_phase1',
+      title: '人格学习观察层',
+      status: 'implemented_observation_only',
+      detail: '能够从真实用户原话中整理偏好/关系许可候选并记录支持、反证和成熟度；当前候选不进入回复、AI Self、Desire、Moe 或长期习惯，行为影响与 AI 自身习惯阶段尚未开启。',
     ),
   ];
 

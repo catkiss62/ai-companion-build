@@ -1,4 +1,5 @@
 import 'package:ai_companion_localfirst/core/ai/prompt_builder.dart';
+import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -38,5 +39,23 @@ void main() {
     );
     expect(reminder, contains('只输出 WAIT'));
     expect(reminder, isNot(contains('用户刚刚')));
+  });
+
+  test('learning capability truth appears only for relevant conversation', () {
+    final relevant = PromptBuilder.personalityLearningCapabilityContract(
+      latestUserText: '我已经给你做好学习和成长系统了',
+      recent: const <ChatMessage>[],
+      mode: PromptGenerationMode.userTurn,
+    );
+    expect(relevant, contains('OBSERVATION ONLY'));
+    expect(relevant, contains('Phase 2/3 尚未开启'));
+    expect(relevant, contains('不得说“我已经学会了'));
+
+    final ordinary = PromptBuilder.personalityLearningCapabilityContract(
+      latestUserText: '今天晚饭吃什么？',
+      recent: const <ChatMessage>[],
+      mode: PromptGenerationMode.userTurn,
+    );
+    expect(ordinary, isEmpty);
   });
 }

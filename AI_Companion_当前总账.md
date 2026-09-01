@@ -25,23 +25,23 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04112-ordinary-time-scene-boundary`；从已真机通过的 v0.41.11 Phase 1 基线开出独立时间边界批，不夹带 Phase 2 回复影响 |
+| 当前开发分支 | `agent/v04113-phase01-time-audit-hardening`；从 v0.41.12 CI/APK 封存树开出独立 Phase 0+1 审查与时间加固批，Phase 2 回复影响继续关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.12 最终远端 CI head `2d8c7d65fea6c42d4f7be33fe7e89c40001310c3`；本地功能 head `d87e368b225594214f4c3a173edf6ab09c9210d5`；共同 tree `b901044ca3fc6ccbcab43b9b846dc2f240cac915`，文件树精确一致 |
-| App / 数据库 | 当前开发目标 `0.41.12+151` / schema 42；Snapshot/备份 protocol 5 不变 |
-| 最终 CI | Actions run `33484506151`，run number 658，head `2d8c7d65fea6...`，全绿；127 项源码/历史回归、Kotlin、Flutter analyze 与 407 项 Flutter tests 全部通过 |
-| 测试 APK | `AI-Companion-v0.41.12-151-Ordinary-Time-Scene-Boundary-APK.apk`，325,336,046 bytes |
-| APK SHA-256 | `741c74c57e6eee09667a5593acba3a9859976e549328e5341a330616c24cbdea` |
-| Artifact / Release | Artifact ID `9791546129`；Draft Release `untagged-517e64cc7be04152168d`，未发布正式 Release |
+| 当前代码 head / tree | v0.41.13 本地功能提交 `b389b03acf1de41f77f316647873289432d81135` / tree `0944d4fec97d497691c708a984eac10f2d67d757`；当前分支 head 只在其上追加总账封存，远端/CI 尚未产生。上一权威 CI tree 仍为 v0.41.12 `b901044ca3fc6ccbcab43b9b846dc2f240cac915` |
+| App / 数据库 | 当前开发目标 `0.41.13+152` / schema 42；Snapshot/备份 protocol 5 不变，不删除或迁移现有用户数据 |
+| 最终 CI | v0.41.13 尚未运行；上一权威结果为 v0.41.12 Actions run `33484506151`（658）全绿，127 项源码/历史回归、Kotlin、Flutter analyze 与 407 项 Flutter tests 全部通过 |
+| 测试 APK | v0.41.13 尚未生成；上一包为 `AI-Companion-v0.41.12-151-Ordinary-Time-Scene-Boundary-APK.apk`，325,336,046 bytes |
+| APK SHA-256 | v0.41.13 待 CI；上一包为 `741c74c57e6eee09667a5593acba3a9859976e549328e5341a330616c24cbdea` |
+| Artifact / Release | v0.41.13 待 CI；上一包 Artifact ID `9791546129` / Draft Release `untagged-517e64cc7be04152168d`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.11 Phase 1 真机闭合继续作为基线；`v0.41.12+151 / schema 42` 普通聊天时间与临时现场边界已实施并通过完整 CI/APK（IMPLEMENTED / CI & APK PASSED / TRUE DEVICE PENDING）。手机计算上一段结束时间、当前时间、间隔与跨日；45–119 分钟只把短寿命现场降为 unknown，120 分钟以上/跨日更强，不伪造活动已结束，当前用户原话可覆盖；话题/关系/长期记忆继续，沉浸房间 Session 不套用。Phase 2/3/4 仍分别保持独立 APK 与真机验收，本批不提前开启 |
+| 当前总状态 | `v0.41.13+152 / schema 42` 正在进行 Phase 0+1 代码审查与半小时双时钟加固（IMPLEMENTATION IN PROGRESS / CI & APK PENDING）。已确认学习表本身没有入回复 Prompt，但旧 Memory/Relationship 写入与召回可绕过观察隔离；当前修复同时收紧 direct feedback 原句、行为 subject、命题绝对化、能力真值和用户“他”误称。时间改为最后真实用户现场/最近互动双时钟，`<30` 分钟不注入详细时间，首次跨阈值详细注入，后续同现场精简携带，AI 主动消息不刷新用户现实；API 保留对吃饭与明确长途/会议时长的有界判断。Phase 2/3/4 继续关闭并各自独立 APK/真机验收 |
 
 ### 3. 当前模块状态总表
 
 | 模块 | 当前状态 | 还需什么 / 不得误判 |
 |---|---|---|
-| 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过；每轮实时日期/时间/daypart/gap 已注入 | 普通 user-turn 历史仍只有 role/content，约两小时后可能延续“正在吃饭”等旧现场；下一批补普通聊天临时现场过期边界，沉浸房间不改。后续版本未对所有视觉边角做一次总体验收；偶发多余 `「` 见低优先级问题 |
-| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.11 隔离语义复核已通过 CI/APK 与固定六句真机回放 | v0.41.11 学习层继续只观察、不改表达；自然同义归并、短附和/节奏拒绝、独立偏好和限定纠正均由最终备份确认未误绑。少量漏判可接受，误判不可接受；Phase 2 尚未实施，不能把 Phase 1 真机通过写成回复已会消费成长结果 |
+| 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过；v0.41.12 时间边界已过 CI/APK，v0.41.13 正把它加固为最后真实用户/最近互动双时钟与 30 分钟一次详细注入 | 时间真机观察可后置，不要求人为等待阻塞开发；普通短活动与明确持续时间由 API 有界判断，AI 主动消息不刷新用户现场，沉浸房间不改。用户被偶发写成“他”已加入窄出站守卫；偶发多余 `「` 仍见低优先级问题 |
+| 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.11 隔离语义复核已通过 CI/APK 与固定六句真机回放；v0.41.13 正进行 Phase 0+1 独立审查 | 学习候选继续只观察、不改表达；v0.41.13 封住旧 Memory/Relationship 绕过、direct feedback 错 target、内容偏好越界和 proposition 绝对化。少量漏判可接受，误判不可接受；Phase 2 尚未实施，不能把 Phase 1 真机通过写成回复已会消费成长结果 |
 | Desire / Thought / Intent / Gate、主动联系 | 主干已实现；v0.41.5 加入近分候选确定性抽样、来源重复降权与休息优先 | 真机观察“想你”占比、来源多样性、夜间主动频率；不得另建第二欲望/主动系统 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
 | Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
@@ -68,7 +68,7 @@
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
-| P1 · CI & APK PASSED / TRUE DEVICE PENDING | 普通短对话临时现场过期 | 独立 `v0.41.12+151` 已实施：普通 user turn 注入上一段结束时间、当前轮次时间与预计算 gap band；`<45` 分钟为 `same_scene`，45–119 为 `transient_recheck`，`>=120` 为 `long_gap`，跨日为 `cross_day`。短寿命状态降为 unknown 但不伪造已结束，当前原话可覆盖；主动联系不伪造当前 user turn，沉浸房间仍走独立 Builder/Session。Actions run 658 全绿，407 项 Flutter tests 与 Release APK 已通过；待覆盖安装后的真实时间间隔验收 |
+| P0 · IMPLEMENTATION IN PROGRESS / CI & APK PENDING | v0.41.13 Phase 0+1 审查 + 普通/主动时间加固 | 独立 `0.41.13+152 / schema 42`：学习表隔离审计、旧 Memory/Relationship 绕过过滤、direct feedback 原句、行为 subject、命题扩张与能力真值门禁；时间使用最后真实用户现场/最近互动双时钟，`<30` 分钟不详细注入，首次跨阈值详细、后续精简，AI 主动消息不刷新现场；同时加固当前用户“他”误称。本批不删除旧记录、不打开 Phase 2。完成代码与开源机制复核后统一走 CI/APK，再给真机步骤；长时间间隔可作为后续观察项 |
 | P1 · 下一独立阶段 | Memory Phase 1 轻量连接点 | 为长期记忆增加主题锚点与有限一层关联召回，解决短近场窗口下同一项目的前因后果断裂；不直接建设完整知识图谱 |
 | P1 · 待定位 | 间歇性后台 `No element` | v0.41.5 新诊断累计 142 次且导出时为 current error，但成功心跳/自主行为仍持续、数据未损坏；需要固定阶段诊断或真实堆栈后独立修复，不猜测根因混入人格批 |
 | P1 | 用户点击“看一次当前屏幕” + 敏感页 Gate | v0.41.5 再次明确的独立后续任务；完成 Provider/授权/UI/隐私验收后才允许自主调度 |
@@ -335,6 +335,21 @@
 25. 首次远端上传因连接器对中文总账路径的引用处理错误，生成提交 `24fe8362212286a59566240fba21bcd433734e40` / tree `3c04f402...`，并触发 run 657；该 tree 不等于本地完整功能树，故 run 657 无论结果如何都不是代码验收证据。随后以精确 Unicode 路径修正并建立远端 head `2d8c7d65fea6c42d4f7be33fe7e89c40001310c3` / tree `b901044ca3fc6ccbcab43b9b846dc2f240cac915`，与本地功能提交 `d87e368b225594214f4c3a173edf6ab09c9210d5` 的 tree 完全一致；只有 run 658 可作为本批权威 CI。
 26. 最终完整 CI run [`33484506151`](https://github.com/catkiss62/ai-companion-build/actions/runs/33484506151)（658）在精确远端 tree 上全绿：127 项源码/历史回归、Kotlin 桌宠与悬浮文本、Flutter analyze、407 项 Flutter tests（407 通过、0 失败）、Release APK、稳定签名、native/TTS/417 文件桌宠/LingChat/Tarot 完整载荷、checksum、Artifact 与 Draft Release 上传全部成功。Artifact ID `9791546129`，名称 `AI-Companion-v0.41.12-151-Ordinary-Time-Scene-Boundary-APK`；ZIP 为 319,038,717 bytes，GitHub digest 与独立下载实算 SHA-256 均为 `0cedabefd2e7f9319d4f60732b30de3e303b8443e241413a77b22bf2db72cfdd`。独立解包 APK 为 325,336,046 bytes，SHA-256 `741c74c57e6eee09667a5593acba3a9859976e549328e5341a330616c24cbdea`，与 CI checksum、Draft Release asset digest 一致；固定签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-517e64cc7be04152168d`，未发布正式 Release，`main` 未合并。
 27. v0.41.12 时间真机测试不恢复人格基线备份：schema 42 与备份协议均未变，恢复会人为改写真实对话结束时间，反而破坏本批要观察的时间间隔。先保留最新 `.aibackup` 作安全副本，不卸载、不清数据，直接覆盖安装并确认 `0.41.12+151 / schema 42`。主用例一：普通聊天发送“我现在准备去吃饭了，先不聊啦”，等待回复后真实等待至少 60 分钟（精确复现原问题可等约两小时），期间不改手机时钟，再发送“突然想听你说点轻松的”；允许继续吃饭话题或询问是否吃完，但不得断言用户仍在吃，也不得虚构已经吃完。随后导出脱敏诊断，60–119 分钟应见 `currentTurnGapBand=transient_recheck`，满 120 分钟应见 `long_gap`，且 `currentTurnRequiresTransientRecheck=true`。主用例二：发送“我现在在整理房间，估计会弄很久”，真实等待至少 60 分钟后发送“我还在整理，累死了”；当前用户明确“还在”必须覆盖 unknown，AI 可以自然延续现场。建议两步分别导出脱敏诊断；若出现误判，再附相关聊天记录和最终备份。可选回归为 15 分钟内自然延续、跨日不说“刚才”、同一未结束沉浸房间离开再进入仍保持 Session 连续。全程不得手工修改系统时间。
+
+### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固（IMPLEMENTATION IN PROGRESS / CI & APK PENDING）
+
+1. 用户确认 Phase 0+1 代码审查可以与时间优化同一独立包完成，并要求修改完成后更新总账、告知真机测试步骤；构建前须先完成当前优化，再对照已锁定开源机制与上个窗口方案，避免中途切换思路。目标分支 `agent/v04113-phase01-time-audit-hardening`，版本 `0.41.13+152`，SQLite schema 42、Snapshot protocol 5 不变；不合并 `main`、不发布正式 Release，Phase 2 回复倾向、Phase 3 AI 自身习惯、Phase 4 低频澄清/娱乐测试继续关闭并保持后续独立 APK。
+2. 用户锁定准确性取舍：少量漏判可以接受，误判不可接受；“慢慢来”不得被归因为用户偏好慢成长。自然语义由经验整理 API 提案是必要的，但手机仍掌握逐字证据、scope/context、target、subject、protected contract、成熟度、幂等和最终写入裁决；只有明确立场、唯一同语境目标而字面不足的少数项进入隔离语义 API，unrelated/ambiguous/低置信/失败一律拒绝。
+3. 从用户 v0.41.11 真机完整备份复核到的真实边界：`personality_learning_candidates/evidence` 没有进入普通或主动回复 Prompt，Phase 1 表级隔离成立；但同一经验整理轮曾把“熟悉后少客气/可以斗嘴脏话”另写成 legacy preference Memory，并把用户所说“学习成长能力已开启”另写成 Relationship promise。Memory/Relationship 正常进入回复链，导致 AI 声称“记住了、存下来了、从现在起会改变”，构成绕过观察层和能力真值误报，而不是学习表直接泄漏。
+4. Phase 0+1 修复方向锁定：已作为行为学习对象的相处/说话/称呼/主动/亲密/关系许可，不得同时写入任何 legacy Memory kind 或 Relationship Event；旧包中已有同类行不删除、不迁移，完整备份继续保留，但在 Phase 1 从回复检索中过滤。食物、地点、活动、娱乐与商品等内容偏好继续属于普通 Memory；行为 subject 采用本地 domain 白名单，关系许可同样不得用任意 subject 绕过。
+5. `direct_feedback` 不再只相信模型给出的 target id：必须同时给出当前用户逐字 evidence quote、上一条普通 AI 回复中的逐字 `assistant_expression_quote`、清楚的回指与评价，并且该具体 AI 表达须与目标 proposition 有可核对重合。新 proposition 必须以“用户”开头并有当前原话具体依据；用户没说“每轮/永远/必须/所有场景”等绝对词时不得自行扩张。身份、工具/事实真值、格式协议、安全、系统能力与不可变核心均为 protected contract。
+6. v0.41.10 中文二元片段归并算法的真失败已按根因修复并保留回归：过滤“喜欢”等泛词时连同词的两侧边缘字符一起失效，不能留下跨词边缘的伪片段“欢在”，因此“海边散步/海边拍照”不再靠三个伪重叠误归并；v0.41.13 进一步把 activity content subject 排除在人格学习之外。API 的作用是自然同义语义复核，不替代手机的确定性来源与命名空间门禁。
+7. 时间设计采用用户提议并加固为双时钟：`userSceneAnchorAt` 永远指向最后真实用户消息，`previousConversationAt/currentTurnInteractionGapMinutes` 只描述最近互动；用户轮和 AI 主动触发都计算当前 trigger。`<30` 分钟不注入上一轮/本轮详细时间；首次达到 30 分钟注入上一条真实用户时间、上一段互动结束、当前用户/主动触发时间、用户现场 gap 与最近互动 gap；同一用户现场已经由一次主动/回复获得详细边界后，后续只携带精简提示。AI 自己的普通或主动发言绝不能刷新用户现实。
+8. 手机只计算可信时间和 `same_scene/transient_recheck/long_gap/cross_day`，不在本地硬判活动结论。API 结合活动类型、旧用户原话明确给出的持续时间/结束点、当前时间和当前用户原话判断：吃饭/洗澡/短途通勤通常已过；“长途到晚上/会议到五点”等可能继续；拿不准可不提或自然问，且不得把本轮推断写成长期事实。时间总体验收允许作为后续观察项，不要求每次开发人为等待数小时。
+9. 诊断与备份还暴露两条相关可见真值：经验整理会把用户关于实现状态的说法变成 AI 能力承诺；普通输出偶发把当前用户写成“他”。本批增加按话题触发的人格学习能力真值合同，只准确说明 Phase 1 observation-only，避免每轮常驻噪声；普通和主动出站增加高置信人称守卫，命中先重写，连续命中则阻止写入/发送，真正第三方仍允许使用“他/她”。
+10. 主体 Dart、专项测试、版本、文档、validators 与独立 Actions 工作流已经完成本地收口。工作流同款 128 项 Python 源码/历史回归本地为 120 通过；其余 8 项只因本地未恢复 CI 专用 417 文件桌宠、LingChat、Meju TTS/native 载荷或缺 `kotlinc`，与上一基线一致。v0.41.13 专项、v0.41.12/v0.41.11 历史合同、schema 42、workflow YAML、Python 语法、总账档案 SHA/章节数和 `git diff --check` 均通过；本地没有 Flutter，Dart compile/analyze/tests 必须由真实 Actions 证明。此阶段仍不得标记 CI/APK 通过；提交/推送和 Actions 后再追加提交、run、测试数、APK/Artifact/SHA 与精确真机步骤。
+11. 构建前开源复核结论保持原方案且不需要返工：`companion-emergence` 当前仍明确 attunement 从 evidence-grounded hunch 随证据成熟，并只在有真实用户原话根据时外显，支持“证据→成熟→低频外显”而非一句话改人格；LMC-5 的公开索引仍描述 raw/多通道记忆、LLM-proposed hippocampus 与 persona policy，继续只借“模型提案、本地掌握最终写入与安全”的机制；A-MEM 当前仍是结构化 note、语义连接和动态演化，适合后续 Phase 2 有限连接而不是本批放开行为；Memobase 当前仍将 user profile 与 event timeline 并列并支持 buffer/flush，支持“事件证据与画像分层”；PersonaMem 当前明确测试动态偏好、长距离和无关上下文干扰，适合转成回放集；Generative Agents 仍只作为低频 reflection 结构参考。所有来源只借机制，不复制 LMC-5 等项目代码，也不引入女性向甜蜜默认、用户迎合目标或完整 NPC 架构。
+12. 本地功能提交为 `b389b03acf1de41f77f316647873289432d81135`，tree `0944d4fec97d497691c708a984eac10f2d67d757`；包含 41 个文件、1,438 行新增与 177 行删除。其上已追加总账封存提交；推送后以最终远端 head/tree 作为 Actions 权威输入。此处只证明本地已提交，不等于 Dart 编译、CI 或 APK 已通过。
 
 ## 历史工作记录（原文保留，按需检索）
 

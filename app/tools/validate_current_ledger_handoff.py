@@ -63,6 +63,7 @@ def main() -> None:
         "### 8. 历史档案覆盖说明",
         "### 9. 2026-08-31 · 总账减负交接层",
         "### 16. 2026-09-01 · v0.41.10 人格学习证据归因热修",
+        "### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固",
     )
     for section in required_sections:
         require(section in current, f"missing current handoff section: {section}")
@@ -103,7 +104,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.12\+151\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.13\+152\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )

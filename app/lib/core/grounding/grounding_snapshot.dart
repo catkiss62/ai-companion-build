@@ -27,7 +27,7 @@ extension GroundingDaypartLabel on GroundingDaypart {
 }
 
 class GroundingSnapshot {
-  static const transientSceneRecheckMinutes = 45;
+  static const transientSceneRecheckMinutes = 30;
   static const longGapMinutes = 120;
 
   const GroundingSnapshot({
@@ -48,8 +48,16 @@ class GroundingSnapshot {
     required this.minutesSinceLastUser,
     required this.minutesSinceLastAssistant,
     this.previousConversationAt,
+    this.previousRealUserAt,
+    this.currentTriggerAt,
     this.currentTurnGapMinutes,
+    this.currentTurnInteractionGapMinutes,
     this.currentTurnCrossedCalendarDays = 0,
+    this.userSceneAnchorAt,
+    this.userSceneAnchorMessageId = '',
+    this.userSceneGapMinutes,
+    this.userSceneCrossedCalendarDays = 0,
+    this.hasProactiveBoundaryAfterSceneAnchor = false,
   });
 
   final DateTime nowLocal;
@@ -69,8 +77,16 @@ class GroundingSnapshot {
   final int? minutesSinceLastUser;
   final int? minutesSinceLastAssistant;
   final DateTime? previousConversationAt;
+  final DateTime? previousRealUserAt;
+  final DateTime? currentTriggerAt;
   final int? currentTurnGapMinutes;
+  final int? currentTurnInteractionGapMinutes;
   final int currentTurnCrossedCalendarDays;
+  final DateTime? userSceneAnchorAt;
+  final String userSceneAnchorMessageId;
+  final int? userSceneGapMinutes;
+  final int userSceneCrossedCalendarDays;
+  final bool hasProactiveBoundaryAfterSceneAnchor;
 
   bool get currentTurnCrossedDay => currentTurnCrossedCalendarDays > 0;
   bool get currentTurnRequiresTransientRecheck =>
@@ -87,6 +103,29 @@ class GroundingSnapshot {
     if (currentTurnHasLongGap) return 'long_gap';
     if (currentTurnRequiresTransientRecheck) return 'transient_recheck';
     return 'same_scene';
+  }
+
+  bool get userSceneCrossedDay => userSceneCrossedCalendarDays > 0;
+  bool get userSceneRequiresTransientRecheck =>
+      userSceneCrossedDay ||
+      (userSceneGapMinutes != null &&
+          userSceneGapMinutes! >= transientSceneRecheckMinutes);
+  bool get userSceneHasLongGap =>
+      userSceneGapMinutes != null && userSceneGapMinutes! >= longGapMinutes;
+
+  String get userSceneGapBand {
+    if (userSceneGapMinutes == null) return 'none';
+    if (userSceneCrossedDay) return 'cross_day';
+    if (userSceneHasLongGap) return 'long_gap';
+    if (userSceneRequiresTransientRecheck) return 'transient_recheck';
+    return 'same_scene';
+  }
+
+  String get timeBoundaryPromptMode {
+    if (!userSceneRequiresTransientRecheck) return 'none';
+    return hasProactiveBoundaryAfterSceneAnchor
+        ? 'carry_forward'
+        : 'detailed';
   }
 
   bool get hasConversation => lastUserMessageId != null || lastAssistantMessageId != null;
@@ -132,13 +171,25 @@ class GroundingSnapshot {
         'minutesSinceLastAssistant': minutesSinceLastAssistant,
         'hasPreviousConversationBeforeCurrentTurn':
             previousConversationAt != null,
+        'hasPreviousRealUserBeforeCurrentTurn': previousRealUserAt != null,
         'currentTurnGapMinutes': currentTurnGapMinutes,
+        'currentTurnInteractionGapMinutes': currentTurnInteractionGapMinutes,
         'currentTurnCrossedCalendarDays': currentTurnCrossedCalendarDays,
         'currentTurnCrossedDay': currentTurnCrossedDay,
         'currentTurnGapBand': currentTurnGapBand,
         'currentTurnRequiresTransientRecheck':
             currentTurnRequiresTransientRecheck,
         'currentTurnHasLongGap': currentTurnHasLongGap,
+        'hasUserSceneAnchor': userSceneAnchorAt != null,
+        'userSceneGapMinutes': userSceneGapMinutes,
+        'userSceneCrossedCalendarDays': userSceneCrossedCalendarDays,
+        'userSceneGapBand': userSceneGapBand,
+        'userSceneRequiresTransientRecheck':
+            userSceneRequiresTransientRecheck,
+        'userSceneHasLongGap': userSceneHasLongGap,
+        'hasProactiveBoundaryAfterSceneAnchor':
+            hasProactiveBoundaryAfterSceneAnchor,
+        'timeBoundaryPromptMode': timeBoundaryPromptMode,
       };
 
   static GroundingDaypart daypartFor(DateTime value) {
@@ -161,17 +212,14 @@ class OrdinaryChatSceneBoundaryPolicy {
   const OrdinaryChatSceneBoundaryPolicy._();
 
   static String promptContract(GroundingSnapshot grounding) {
-    if (grounding.currentTurnGapMinutes == null) return '';
-    if (!grounding.currentTurnRequiresTransientRecheck) {
-      return '''
-普通聊天临时现场边界：当前是短间隔，可以把上一段中的短时活动视为可能继续；当前 REAL_USER_MESSAGE 有更新或纠正时始终以它为准，不要机械复述时间戳。''';
-    }
+    if (!grounding.userSceneRequiresTransientRecheck) return '';
     return '''
 普通聊天临时现场边界：
-- 上一段聊天中的“正在吃饭/洗澡/通勤/出门/开会/准备睡”等短寿命活动，此刻一律视为 unknown；不得默认它仍在继续，也不得反向虚构“已经做完”。
-- 当前 REAL_USER_MESSAGE 若明确说“还在/刚做完/一直在”，以当前原话覆盖 unknown；不能仅凭旧 ASSISTANT_HISTORY 覆盖。
+- 上一条真实用户消息中的短期现场已经经过至少半小时，不能机械延续。结合活动类型、上一条 REAL_USER_HISTORY 明确给出的持续时间/结束点、当前时段与当前真实用户原话自行判断。
+- “吃饭/洗澡/短途通勤”等通常已不再是当前现场；“长途出行到晚上/会议到五点”等有明确持续时间的活动可以合理继续。偶发不确定时宁可不提或自然询问，不把推断写成确定事实。
+- 当前 REAL_USER_MESSAGE 若明确说“还在/刚做完/一直在”，始终以当前原话为准；不能仅凭旧 ASSISTANT_HISTORY 或 AI 自己的主动消息刷新用户现实现场。
 - 话题、关系、长期事实与记忆不因这个间隔失效；可以继续话题，但不能把继续话题写成继续旧的物理活动。
-- 除非用户正在讨论时间，不要机械复述时间戳或解释这条规则。''';
+- 除非用户正在讨论时间，不要机械复述时间戳、间隔数字或解释这条规则；对活动是否结束的推断只用于本轮自然表达，不写成长期事实。''';
   }
 }
 
@@ -182,6 +230,7 @@ class ConversationGroundingPolicy {
     required DateTime now,
     required List<ChatMessage> recent,
     Set<String> answeredUserMessageIds = const <String>{},
+    String proactiveBoundaryInjectedUserMessageId = '',
   }) {
     final localNow = now.toLocal();
     ChatMessage? lastUser;
@@ -232,9 +281,28 @@ class ConversationGroundingPolicy {
       return localNow.difference(at).inMinutes;
     }
 
+    int crossedCalendarDays(DateTime? start, DateTime? end) {
+      if (start == null || end == null) return 0;
+      final startLocal = start.toLocal();
+      final endLocal = end.toLocal();
+      final startDay = DateTime(
+        startLocal.year,
+        startLocal.month,
+        startLocal.day,
+      );
+      final endDay = DateTime(endLocal.year, endLocal.month, endLocal.day);
+      return endDay.difference(startDay).inDays.clamp(0, 36500).toInt();
+    }
+
+    int? elapsedMinutes(DateTime? start, DateTime? end) {
+      if (start == null || end == null) return null;
+      final gap = end.difference(start);
+      return gap.isNegative ? 0 : gap.inMinutes;
+    }
+
     ChatMessage? previousConversation;
-    int? currentTurnGapMinutes;
-    var currentTurnCrossedCalendarDays = 0;
+    ChatMessage? previousRealUser;
+    int? currentTurnInteractionGapMinutes;
     if (lastUser != null && userAfterAssistant) {
       for (final message in recent) {
         if (!message.createdAt.isBefore(lastUser.createdAt)) continue;
@@ -242,28 +310,56 @@ class ConversationGroundingPolicy {
             message.createdAt.isAfter(previousConversation.createdAt)) {
           previousConversation = message;
         }
+        if (message.isUser &&
+            (previousRealUser == null ||
+                message.createdAt.isAfter(previousRealUser.createdAt))) {
+          previousRealUser = message;
+        }
       }
-      if (previousConversation != null) {
-        final gap = lastUser.createdAt.difference(
-          previousConversation.createdAt,
+      currentTurnInteractionGapMinutes = elapsedMinutes(
+        previousConversation?.createdAt,
+        lastUser.createdAt,
+      );
+    }
+
+    final currentTriggerAt = userAfterAssistant ? lastUser?.createdAt : localNow;
+    final userSceneAnchor = userAfterAssistant
+        ? (previousRealUser ?? previousConversation)
+        : lastUser;
+    final userSceneAnchorAt = userSceneAnchor?.createdAt;
+    final userSceneGapMinutes = elapsedMinutes(
+      userSceneAnchorAt,
+      currentTriggerAt,
+    );
+    final userSceneCrossedCalendarDays = crossedCalendarDays(
+      userSceneAnchorAt,
+      currentTriggerAt,
+    );
+    var hasProactiveBoundaryAfterSceneAnchor = !userAfterAssistant &&
+        userSceneAnchor != null &&
+        proactiveBoundaryInjectedUserMessageId == userSceneAnchor.id;
+    if (userSceneAnchorAt != null && currentTriggerAt != null) {
+      for (final message in recent) {
+        if (!message.isAssistant || !message.isProactive) continue;
+        if (!message.createdAt.isAfter(userSceneAnchorAt) ||
+            message.createdAt.isAfter(currentTriggerAt)) {
+          continue;
+        }
+        final boundaryAge = elapsedMinutes(
+          userSceneAnchorAt,
+          message.createdAt,
         );
-        currentTurnGapMinutes = gap.isNegative ? 0 : gap.inMinutes;
-        final previousLocal = previousConversation.createdAt.toLocal();
-        final currentLocal = lastUser.createdAt.toLocal();
-        final previousDay = DateTime(
-          previousLocal.year,
-          previousLocal.month,
-          previousLocal.day,
-        );
-        final currentDay = DateTime(
-          currentLocal.year,
-          currentLocal.month,
-          currentLocal.day,
-        );
-        currentTurnCrossedCalendarDays =
-            currentDay.difference(previousDay).inDays.clamp(0, 36500).toInt();
+        if (boundaryAge != null &&
+            boundaryAge >= GroundingSnapshot.transientSceneRecheckMinutes) {
+          hasProactiveBoundaryAfterSceneAnchor = true;
+          break;
+        }
       }
     }
+    final currentTurnGapMinutes =
+        userAfterAssistant ? userSceneGapMinutes : null;
+    final currentTurnCrossedCalendarDays =
+        userAfterAssistant ? userSceneCrossedCalendarDays : 0;
 
     return GroundingSnapshot(
       nowLocal: localNow,
@@ -283,8 +379,17 @@ class ConversationGroundingPolicy {
       minutesSinceLastUser: ageMinutes(lastUser?.createdAt),
       minutesSinceLastAssistant: ageMinutes(lastAssistant?.createdAt),
       previousConversationAt: previousConversation?.createdAt,
+      previousRealUserAt: previousRealUser?.createdAt,
+      currentTriggerAt: currentTriggerAt,
       currentTurnGapMinutes: currentTurnGapMinutes,
+      currentTurnInteractionGapMinutes: currentTurnInteractionGapMinutes,
       currentTurnCrossedCalendarDays: currentTurnCrossedCalendarDays,
+      userSceneAnchorAt: userSceneAnchorAt,
+      userSceneAnchorMessageId: userSceneAnchor?.id ?? '',
+      userSceneGapMinutes: userSceneGapMinutes,
+      userSceneCrossedCalendarDays: userSceneCrossedCalendarDays,
+      hasProactiveBoundaryAfterSceneAnchor:
+          hasProactiveBoundaryAfterSceneAnchor,
     );
   }
 }

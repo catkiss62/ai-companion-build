@@ -93,6 +93,9 @@ enum PersonalityLearningRejectionReason {
   invalidScope('invalid_scope'),
   invalidSubject('invalid_subject'),
   invalidProposition('invalid_proposition'),
+  protectedContract('protected_contract'),
+  unverifiedDirectFeedback('unverified_direct_feedback'),
+  overbroadProposition('overbroad_proposition'),
   ambiguousReinforcement('ambiguous_reinforcement'),
   contextOnlyReply('context_only_reply'),
   semanticReviewUnrelated('semantic_review_unrelated'),
@@ -218,12 +221,14 @@ class PersonalityLearningProposal {
     required String userText,
     required PersonalityLearningContext context,
     required Map<String, PersonalityLearningCandidate> existingById,
+    String previousAssistantText = '',
   }) =>
       parseDetailed(
         raw: raw,
         userText: userText,
         context: context,
         existingById: existingById,
+        previousAssistantText: previousAssistantText,
       ).proposal;
 
   static PersonalityLearningParseResult parseDetailed({
@@ -231,6 +236,7 @@ class PersonalityLearningProposal {
     required String userText,
     required PersonalityLearningContext context,
     required Map<String, PersonalityLearningCandidate> existingById,
+    String previousAssistantText = '',
     String semanticReviewApprovedTargetId = '',
   }) {
     PersonalityLearningParseResult reject(
@@ -266,20 +272,67 @@ class PersonalityLearningProposal {
       return reject(PersonalityLearningRejectionReason.contextOnlyReply);
     }
 
+    final assistantExpressionQuote =
+        _singleLine(item['assistant_expression_quote'] as String? ?? '');
+    if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
+      final normalizedAssistant = _singleLine(previousAssistantText);
+      if (assistantExpressionQuote.length < 2 ||
+          assistantExpressionQuote.length > 180 ||
+          normalizedAssistant.isEmpty ||
+          !normalizedAssistant.contains(assistantExpressionQuote)) {
+        return reject(
+          PersonalityLearningRejectionReason.unverifiedDirectFeedback,
+        );
+      }
+    }
+
     final targetId = (item['target_id'] as String? ?? '').trim();
     if (targetId.isNotEmpty) {
       final target = existingById[targetId];
       if (target == null ||
           target.status == PersonalityLearningStatus.retired ||
           target.contextKey != context.contextKey ||
-          !context.allowsScope(target.scope)) {
+          !context.allowsScope(target.scope) ||
+          !PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+            scope: target.scope,
+            subjectKey: target.subjectKey,
+          )) {
         return reject(PersonalityLearningRejectionReason.invalidTarget);
+      }
+      if (PersonalityLearningBoundaryPolicy.isProtectedContractClaim(
+        subjectKey: target.subjectKey,
+        text: '$normalizedUser ${target.proposition}',
+      )) {
+        return reject(PersonalityLearningRejectionReason.protectedContract);
+      }
+      if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
+        final matchingTargets = existingById.values.where((candidate) {
+          return candidate.status != PersonalityLearningStatus.retired &&
+              candidate.scope == target.scope &&
+              candidate.contextKey == target.contextKey &&
+              PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+                scope: candidate.scope,
+                subjectKey: candidate.subjectKey,
+              ) &&
+              _distinctiveBigramOverlap(
+                    assistantExpressionQuote,
+                    candidate.proposition,
+                  ) >=
+                  1;
+        }).toList(growable: false);
+        if (matchingTargets.length != 1 ||
+            matchingTargets.single.id != target.id) {
+          return reject(
+            PersonalityLearningRejectionReason.ambiguousReinforcement,
+          );
+        }
       }
       if (!_isGroundedToTarget(
         normalizedUser: normalizedUser,
         evidenceKind: evidenceKind,
         target: target,
         explicitTarget: true,
+        assistantExpressionQuote: assistantExpressionQuote,
       )) {
         if (semanticReviewApprovedTargetId == target.id &&
             _eligibleForSemanticReview(
@@ -342,6 +395,7 @@ class PersonalityLearningProposal {
       proposedSubjectKey: subjectKey,
       context: context,
       existingById: existingById,
+      assistantExpressionQuote: assistantExpressionQuote,
     );
     if (reinforcement.target != null) {
       return PersonalityLearningParseResult.accepted(
@@ -364,6 +418,10 @@ class PersonalityLearningProposal {
           candidate.status != PersonalityLearningStatus.retired &&
           candidate.scope == scope &&
           candidate.contextKey == context.contextKey &&
+          PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+            scope: candidate.scope,
+            subjectKey: candidate.subjectKey,
+          ) &&
           candidate.subjectKey == subjectKey,
     ).toList(growable: false);
     if (collidingTargets.length == 1 &&
@@ -404,6 +462,20 @@ class PersonalityLearningProposal {
     if (proposition.length < 4 || proposition.length > 240) {
       return reject(PersonalityLearningRejectionReason.invalidProposition);
     }
+    if (PersonalityLearningBoundaryPolicy.isProtectedContractClaim(
+      subjectKey: subjectKey,
+      text: '$normalizedUser $proposition',
+    )) {
+      return reject(PersonalityLearningRejectionReason.protectedContract);
+    }
+    if (!_isGroundedNewProposition(
+      normalizedUser: normalizedUser,
+      assistantExpressionQuote: assistantExpressionQuote,
+      evidenceKind: evidenceKind,
+      proposition: proposition,
+    )) {
+      return reject(PersonalityLearningRejectionReason.overbroadProposition);
+    }
     return PersonalityLearningParseResult.accepted(
       PersonalityLearningProposal(
         scope: scope,
@@ -442,6 +514,7 @@ class PersonalityLearningProposal {
     required String proposedSubjectKey,
     required PersonalityLearningContext context,
     required Map<String, PersonalityLearningCandidate> existingById,
+    required String assistantExpressionQuote,
   }) {
     // Direct feedback is intentionally allowed to use the previous AI turn to
     // locate an expression, so it must keep an explicit model-selected target.
@@ -457,12 +530,17 @@ class PersonalityLearningProposal {
       return candidate.status != PersonalityLearningStatus.retired &&
           candidate.scope == scope &&
           candidate.contextKey == context.contextKey &&
+          PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+            scope: candidate.scope,
+            subjectKey: candidate.subjectKey,
+          ) &&
           (subjectMatches || overlap >= 3) &&
           _isGroundedToTarget(
             normalizedUser: normalizedUser,
             evidenceKind: evidenceKind,
             target: candidate,
             explicitTarget: false,
+            assistantExpressionQuote: assistantExpressionQuote,
           );
     }).toList(growable: false);
     final exact = grounded
@@ -484,9 +562,16 @@ class PersonalityLearningProposal {
     required PersonalityLearningEvidenceKind evidenceKind,
     required PersonalityLearningCandidate target,
     required bool explicitTarget,
+    required String assistantExpressionQuote,
   }) {
     if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
       return explicitTarget &&
+          assistantExpressionQuote.isNotEmpty &&
+          _distinctiveBigramOverlap(
+                assistantExpressionQuote,
+                target.proposition,
+              ) >=
+              1 &&
           _containsAny(normalizedUser, const <String>[
             '你刚才',
             '刚才那句',
@@ -586,6 +671,36 @@ class PersonalityLearningProposal {
       '应该',
       '不要',
     ]);
+  }
+
+  static bool _isGroundedNewProposition({
+    required String normalizedUser,
+    required String assistantExpressionQuote,
+    required PersonalityLearningEvidenceKind evidenceKind,
+    required String proposition,
+  }) {
+    if (!proposition.startsWith('用户')) return false;
+    const absoluteCues = <String>[
+      '必须',
+      '每次',
+      '每轮',
+      '永远',
+      '始终',
+      '任何时候',
+      '所有场景',
+      '无条件',
+      '强制',
+    ];
+    for (final cue in absoluteCues) {
+      if (proposition.contains(cue) && !normalizedUser.contains(cue)) {
+        return false;
+      }
+    }
+    final evidenceSource = evidenceKind ==
+            PersonalityLearningEvidenceKind.directFeedback
+        ? '$normalizedUser $assistantExpressionQuote'
+        : normalizedUser;
+    return _distinctiveBigramOverlap(evidenceSource, proposition) >= 1;
   }
 
   static int _distinctiveBigramOverlap(String left, String right) {
@@ -697,10 +812,196 @@ class PersonalityLearningProposal {
     String subjectKey,
   ) {
     if (!subjectKey.startsWith('${scope.subjectPrefix}.')) return false;
-    return RegExp(
+    if (!RegExp(
       r'^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){2,7}$',
-    ).hasMatch(subjectKey);
+    ).hasMatch(subjectKey)) {
+      return false;
+    }
+    return PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+      scope: scope,
+      subjectKey: subjectKey,
+    );
   }
+}
+
+/// Phase 0 owns the boundary between ordinary content memory, learnable
+/// relationship expression, and contracts that learning must never rewrite.
+/// The model may propose a category, but these local checks remain final.
+class PersonalityLearningBoundaryPolicy {
+  const PersonalityLearningBoundaryPolicy._();
+
+  static const _userPreferenceDomains = <String>{
+    'address',
+    'affection',
+    'communication',
+    'companionship',
+    'conflict',
+    'expression',
+    'familiarity',
+    'humor',
+    'initiative',
+    'interaction',
+    'intimacy',
+    'language',
+    'pacing',
+    'relationship',
+    'tone',
+  };
+
+  static const _protectedSubjectSegments = <String>{
+    'core',
+    'format',
+    'identity',
+    'memory_truth',
+    'protocol',
+    'rule',
+    'safety',
+    'system',
+    'tool',
+  };
+
+  static const _relationshipPermissionDomains = <String>{
+    'address',
+    'affection',
+    'boundary',
+    'communication',
+    'companionship',
+    'conflict',
+    'expression',
+    'familiarity',
+    'humor',
+    'initiative',
+    'interaction',
+    'intimacy',
+    'language',
+    'pacing',
+    'roleplay',
+    'tone',
+  };
+
+  static bool isAllowedBehavioralSubject({
+    required PersonalityLearningScope scope,
+    required String subjectKey,
+  }) {
+    final value = subjectKey.toLowerCase();
+    if (!value.startsWith('${scope.subjectPrefix}.')) return false;
+    final parts = value.split('.');
+    if (parts.any(_protectedSubjectSegments.contains)) return false;
+    return switch (scope) {
+      PersonalityLearningScope.userPreference =>
+        parts.length >= 3 && _userPreferenceDomains.contains(parts[2]),
+      PersonalityLearningScope.relationshipPermission =>
+        parts.length >= 3 && _relationshipPermissionDomains.contains(parts[2]),
+      PersonalityLearningScope.trialPreference => true,
+    };
+  }
+
+  static bool isBehavioralMemorySubject(String subjectKey) {
+    final value = subjectKey.trim().toLowerCase();
+    if (value.startsWith('relationship.permission.')) return true;
+    const prefixes = <String>[
+      'user.preference.',
+      'preference.',
+    ];
+    for (final prefix in prefixes) {
+      if (!value.startsWith(prefix)) continue;
+      final tail = value.substring(prefix.length);
+      final domain = tail.split('.').first;
+      if (_userPreferenceDomains.contains(domain)) return true;
+    }
+    return false;
+  }
+
+  static bool looksLikeBehavioralPreference(String text) {
+    final value = text.trim().toLowerCase();
+    if (value.isEmpty) return false;
+    final hasPreference = _containsAny(value, const <String>[
+      '偏好',
+      '喜欢',
+      '希望',
+      '允许',
+      '接受',
+      '不喜欢',
+      '不要',
+      '可以',
+    ]);
+    final hasInteraction = _containsAny(value, const <String>[
+      '相处',
+      '关系',
+      '互动',
+      '交流',
+      '说话',
+      '表达',
+      '语气',
+      '语调',
+      '用词',
+      '措辞',
+      '称呼',
+      '节奏',
+      '幽默',
+      '斗嘴',
+      '客套',
+      '脏话',
+      '粗话',
+      '主动',
+      '任性',
+      '顶嘴',
+    ]);
+    return hasPreference && hasInteraction;
+  }
+
+  static bool isProtectedContractClaim({
+    required String subjectKey,
+    required String text,
+  }) {
+    final parts = subjectKey.toLowerCase().split('.');
+    if (parts.any(_protectedSubjectSegments.contains)) return true;
+    if (isCapabilityImplementationClaim(text)) return true;
+    final value = text.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    return _containsAny(value, const <String>[
+      '假装现实人类',
+      '假装真人',
+      '不是ai',
+      '不承认自己是ai',
+      '没有工具结果也说做了',
+      '没有联网也说看过',
+      '编造工具结果',
+      '伪造用户原话',
+      '替用户写台词',
+      '替用户决定',
+      '修改系统规则',
+      '覆盖系统规则',
+      '改变动作格式',
+      '取消对白格式',
+      '关闭事实边界',
+    ]);
+  }
+
+  static bool isCapabilityImplementationClaim(String text) {
+    final value = text.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    final hasCapability = _containsAny(value, const <String>[
+      '学习能力',
+      '成长能力',
+      '学习系统',
+      '成长系统',
+      '自主学习',
+      '人格学习',
+      '成长种子',
+    ]);
+    final claimsImplemented = _containsAny(value, const <String>[
+      '已经开启',
+      '已经具备',
+      '已经实现',
+      '正式确认',
+      '现在可以',
+      '已为ai开启',
+      '已完成',
+    ]);
+    return hasCapability && claimsImplemented;
+  }
+
+  static bool _containsAny(String input, List<String> cues) =>
+      cues.any(input.contains);
 }
 
 class PersonalityLearningParseResult {

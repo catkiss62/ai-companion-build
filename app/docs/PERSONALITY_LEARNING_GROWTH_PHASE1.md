@@ -1,6 +1,6 @@
 # 人格学习与成长 · Phase 0/1 当前合同
 
-状态：Phase 0 规则分类已冻结；Phase 1 观察层在 `v0.41.10` 挡住上下文附和误绑，但真机仍发现自然同义复述被本地字面门禁漏判，`v0.41.11` 正在进行精确优先的隔离语义复核热修。本文不提前承诺 Phase 2/3 行为。
+状态：Phase 0 规则分类已冻结；Phase 1 观察层在 `v0.41.11` 完成固定真机序列，并保持“少量漏判可接受、误判不可接受”。`v0.41.13` 在不打开 Phase 2 的前提下审计并封住旧 Memory/Relationship 绕过、direct feedback 目标漂移、内容偏好越界和命题绝对化。本文不提前承诺 Phase 2/3 行为。
 
 ## 1. 固定核心与可成长区域
 
@@ -101,3 +101,18 @@ v0.41.9 真机备份证明“证据来自用户原话”仍不足以保证“证
 7. 脱敏诊断只公开 requested/support/contradict/unrelated/ambiguous/unavailable 计数、最近时间与固定 outcome；不得公开当前用户原话、quote、target id/subject/proposition、模型 JSON 或复核 Prompt。
 
 本补充仍只写 `personality_learning_candidates/evidence`。`growth_seed` 是未来 Phase 3 对成熟、可回滚 AI habit 的来源分类，不是每轮 API 可以直接写入的永久人格库；Phase 2/3 继续关闭。
+
+## 9. v0.41.13 Phase 0+1 审计加固合同
+
+本轮从真实 v0.41.11 备份反查到：学习表本身没有进入回复 Prompt，但同一轮经验整理 API 可以把互动表达偏好再写成旧 `preference` Memory 或 Relationship Event；它们会被正常记忆/关系 Prompt 读取，等价于绕过 Phase 1 的观察隔离。用户对“学习能力已经开启”的说法也曾被整理成关系 promise，使回复错误声称“已经存下、从现在开始改变”。
+
+因此增加以下确定性边界：
+
+1. 已作为人格学习对象的相处、称呼、交流、主动、亲密或关系许可，不得同时写入任何 legacy Memory kind 或 Relationship Event；旧备份中的同类条目保留原数据与可恢复性，但在 Phase 1 期间从回复召回中过滤，不做破坏性迁移或删除。
+2. 食物、地点、活动、娱乐、商品等内容偏好继续进入普通 Memory，不得用 `user_preference` 或 `relationship_permission` 混进人格学习。scope 合法还不够，subject domain 也必须进入本地行为白名单。
+3. `direct_feedback` 必须同时具有：当前用户逐字 evidence quote、上一条普通 AI 回复中的逐字 `assistant_expression_quote`、清楚的“刚才那句/这样说”指代、明确正负评价，以及被引表达和目标 proposition 的具体重合。模型只给 target id 不再足够。
+4. 新 proposition 必须以“用户”开头、与用户原话存在具体中文片段依据；若用户没说“每轮/永远/必须/所有场景”等绝对词，模型不得自行扩写成永久强制规则。
+5. 身份、事实/工具真值、系统能力、格式协议、安全和不可变核心继续是 protected contract；用户说“已经实现/开启某能力”不能由经验整理器升级为 System Fact、AI Self、关系事实或学习命题。
+6. 隔离语义 API 仍只处理手机已确认“明确立场 + 唯一同语境候选 + 字面不足”的少数项。它不替代逐字 quote、scope、subject、protected contract、direct feedback 原句和命题扩张校验；失败、低置信或歧义继续拒绝。
+
+这一加固不修改成熟度权重、schema 42、Snapshot protocol 5，也不删除用户现有数据。Phase 2 仍关闭；等本包真机证明无绕过与无误归并后，才另包接入有界回复倾向。

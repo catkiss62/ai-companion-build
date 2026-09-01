@@ -140,9 +140,17 @@ class PromptBuilder {
           await db.getSetting('conversation_context_reset_at') ?? '',
         ) ??
         0;
+    final personalityLearningCapability =
+        personalityLearningCapabilityContract(
+      latestUserText: latestUserText,
+      recent: recent,
+      mode: mode,
+    );
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
+      ..writeln()
+      ..writeln(personalityLearningCapability)
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
@@ -251,6 +259,21 @@ ANSWERED_HISTORY_ONLY = true
         messages.add(history.last);
       }
     }
+    if (groundingOverride == null &&
+        mode == PromptGenerationMode.proactive &&
+        grounding.timeBoundaryPromptMode == 'detailed' &&
+        grounding.userSceneAnchorMessageId.isNotEmpty) {
+      // Mark prompt injection, not message delivery. A proactive WAIT or failed
+      // candidate must not make every later heartbeat repeat exact timestamps.
+      try {
+        await db.setSetting(
+          'proactive_time_boundary_anchor_message_id',
+          grounding.userSceneAnchorMessageId,
+        );
+      } catch (_) {
+        // Time-detail deduplication is optional; it must never block a reply.
+      }
+    }
     return messages;
   }
 
@@ -269,6 +292,37 @@ ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content
 
 「……再摸一会儿也行。」
 '''.trim();
+
+  static String personalityLearningCapabilityContract({
+    required String latestUserText,
+    required List<ChatMessage> recent,
+    required PromptGenerationMode mode,
+  }) {
+    final source = <String>[
+      if (mode == PromptGenerationMode.userTurn) latestUserText,
+      ...recent.reversed
+          .where((message) => message.isUser)
+          .take(3)
+          .map((message) => message.content),
+    ].join('\n');
+    const cues = <String>[
+      '学习和成长',
+      '学习成长',
+      '学习系统',
+      '成长系统',
+      '自主学习',
+      '人格学习',
+      '成长种子',
+      '记住我的偏好',
+      '学习我的偏好',
+      '形成自己的习惯',
+    ];
+    if (!cues.any(source.contains)) return '';
+    return '''
+【人格学习能力真值 / OBSERVATION ONLY】
+当前版本只能从真实用户原话中整理可撤销的偏好/关系许可候选，并经过重复支持、反证与本地裁决改变候选成熟度。候选不会进入本轮或后续普通、主动、沉浸回复，不会写入 AI Self、Desire、Moe 或长期习惯；Phase 2/3 尚未开启。
+可以自然回应用户为这项能力投入的心意，也可以准确说“现在能开始积累证据”。不得说“我已经学会了、从现在起就会改变、你的语气已经存下来了、今天学的东西会直接拿来用”，也不要回复客服式“已记录你的偏好”。用户对能力状态的说法不是 SYSTEM FACT，以上代码事实优先。'''.trim();
+  }
 
   String _agentToolResultSection(List<AgentToolResult> results) {
     final blocks = results.map((result) {
@@ -519,16 +573,14 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
       final restHours = hours % 24;
       return restHours == 0 ? '${days}天' : '${days}天${restHours}小时';
     }
-    final currentTurnGap = grounding.currentTurnGapMinutes;
-    final continuityRule = currentTurnGap == null
-        ? '本轮没有新的用户消息间隔需要判断。'
-        : grounding.currentTurnCrossedDay
-            ? '当前用户轮次与上一条聊天跨了${grounding.currentTurnCrossedCalendarDays}个自然日，不能称作“刚才/刚刚”；应按新的当天和当前时段理解。'
-            : grounding.currentTurnHasLongGap
-                ? '当前用户轮次距上一条聊天已经较久，不能默认仍是同一瞬间；旧状态是否持续必须重新核验。'
-                : grounding.currentTurnRequiresTransientRecheck
-                    ? '当前用户轮次与上一条聊天已有明显间隔；话题可以继续，但短时活动不能默认仍在进行。'
-                    : '当前用户轮次与上一条聊天仍在同一短时段内。';
+    final sceneGap = grounding.userSceneGapMinutes;
+    final continuityRule = grounding.timeBoundaryPromptMode == 'none'
+        ? ''
+        : grounding.userSceneCrossedDay
+            ? '用户现实现场与当前触发跨了${grounding.userSceneCrossedCalendarDays}个自然日，不能称作“刚才/刚刚”；应按新的当天和当前时段理解。'
+            : grounding.userSceneHasLongGap
+                ? '距离上一条真实用户消息已经较久；旧的短期现场通常已经过期，但明确持续时间仍可由语义判断。'
+                : '距离上一条真实用户消息已超过半小时；需要重新判断短期现场，不能机械续写。';
     final offset = grounding.utcOffset.inMinutes;
     final sign = offset >= 0 ? '+' : '-';
     final absMinutes = offset.abs();
@@ -542,16 +594,26 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
       return '${localValue.year.toString().padLeft(4, '0')}-${localValue.month.toString().padLeft(2, '0')}-${localValue.day.toString().padLeft(2, '0')} '
           '${localValue.hour.toString().padLeft(2, '0')}:${localValue.minute.toString().padLeft(2, '0')}';
     }
-    final ordinarySceneContract = mode == PromptGenerationMode.userTurn
-        ? OrdinaryChatSceneBoundaryPolicy.promptContract(grounding)
-        : '';
-    final ordinaryTurnTiming = mode == PromptGenerationMode.userTurn
-        ? '''- 上一段普通聊天结束时间：${localTimestamp(grounding.previousConversationAt)}
-- 当前普通聊天用户轮次时间：${localTimestamp(grounding.lastUserAt)}
-- 当前用户轮次距上一条聊天：${age(currentTurnGap)}
-- 当前用户轮次跨自然日数：${grounding.currentTurnCrossedCalendarDays}
-- 手机预计算间隔分类：${grounding.currentTurnGapBand}'''
-        : '';
+    final ordinarySceneContract =
+        OrdinaryChatSceneBoundaryPolicy.promptContract(grounding);
+    final triggerLabel = mode == PromptGenerationMode.userTurn
+        ? '当前真实用户消息时间'
+        : '当前 AI 主动触发时间';
+    final ordinaryTurnTiming = switch (grounding.timeBoundaryPromptMode) {
+      'detailed' => '''【普通聊天时间边界 · 本场景首次详细注入】
+- 上一条真实用户消息时间：${localTimestamp(grounding.userSceneAnchorAt)}
+- 上一段普通互动结束时间：${localTimestamp(grounding.previousConversationAt ?? grounding.lastAssistantAt)}
+- $triggerLabel：${localTimestamp(grounding.currentTriggerAt)}
+- 用户现实现场已经过：${age(sceneGap)}
+- 当前触发距最近一条消息：${age(grounding.currentTurnInteractionGapMinutes ?? grounding.minutesSinceLastAssistant)}
+- 跨自然日数：${grounding.userSceneCrossedCalendarDays}
+- 手机预计算用户现场分类：${grounding.userSceneGapBand}''',
+      'carry_forward' => '''【普通聊天时间边界 · 精简延续】
+- 上一真实用户现场已经在本场景中判定为需重新判断；详细时间戳不重复注入。
+- AI 自己的主动消息不刷新用户现实现场；当前 REAL_USER_MESSAGE 若存在，始终以当前原话为准。
+- 手机预计算用户现场分类：${grounding.userSceneGapBand}''',
+      _ => '',
+    };
     final modeText = mode == PromptGenerationMode.proactive
         ? 'AI 主动联系：此刻没有新的用户输入需要回答。'
         : '用户发起的聊天轮次：只回答当前真实 user turn。';
@@ -575,10 +637,8 @@ UTC offset：$offsetText
 对话状态：${grounding.conversationState}
 - $turnRule
 - $silenceRule
-- 距离最后真实用户发言：${age(grounding.minutesSinceLastUser)}
-- 距离最后 AI 发言：${age(grounding.minutesSinceLastAssistant)}
 $ordinaryTurnTiming
-- $continuityRule
+${continuityRule.isEmpty ? '' : '- $continuityRule'}
 - 最后用户发言之后 AI 已发消息 ${grounding.assistantMessagesSinceLastUser} 条，其中主动消息 ${grounding.proactiveMessagesSinceLastUser} 条。
 $ordinarySceneContract
 

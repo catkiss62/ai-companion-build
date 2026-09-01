@@ -22,7 +22,14 @@ docs = read(APP / "docs/PERSONALITY_LEARNING_GROWTH_PHASE1.md")
 ledger = read(ROOT / "AI_Companion_当前总账.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
-assert "version: 0.41.11+150" in pubspec
+assert any(
+    version in pubspec
+    for version in (
+        "version: 0.41.11+150",
+        "version: 0.41.12+151",
+        "version: 0.41.13+152",
+    )
+)
 assert "static const int schemaVersion = 42;" in database
 
 for token in (

@@ -42,7 +42,8 @@
 
 ### 普通聊天时间语义
 
-- `ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md`：普通聊天上一段/当前时间、手机预计算 gap band、短寿命现场 unknown 合同与沉浸 Session 隔离。
+- `ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md`：普通聊天真实用户现场/最近互动双时钟、手机预计算 gap band、短寿命活动重判与沉浸 Session 隔离。
+- `PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md`：Phase 0+1 旧 Memory/Relationship 绕过审计、direct feedback/命题边界、半小时双时钟一次详细注入、主动消息不刷新用户现实与人称出站守卫。
 
 ### 身体与感知
 

@@ -9,6 +9,7 @@ import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
+import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -513,6 +514,13 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       final recentAssistantTexts = previous
           .where((message) => message.isAssistant)
           .map((message) => message.content);
+      final userPerspectiveContext = <String>[
+        user.promptContent,
+        ...previous.reversed
+            .where((message) => message.isUser)
+            .take(3)
+            .map((message) => message.promptContent),
+      ].join('\n');
       var envelope = EmotionEnvelope.parse(generated.content);
       var finalContent = envelope.visibleText;
       if (streamedToolPreamble.isNotEmpty) {
@@ -523,21 +531,31 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         recentAssistantTexts: recentAssistantTexts,
         currentUserText: user.content,
       );
-      if (!serviceGuard.allowed) {
-        await ServiceTemplateGuardTelemetry.note(
-          db,
-          result: serviceGuard,
-          mode: 'user_turn',
-          action: 'rewrite',
-        );
+      var perspectiveGuard = UserPerspectiveGuard.evaluate(
+        finalContent,
+        currentUserText: userPerspectiveContext,
+      );
+      if (!serviceGuard.allowed || !perspectiveGuard.allowed) {
+        if (!serviceGuard.allowed) {
+          await ServiceTemplateGuardTelemetry.note(
+            db,
+            result: serviceGuard,
+            mode: 'user_turn',
+            action: 'rewrite',
+          );
+        }
+        final correctionReason = !perspectiveGuard.allowed
+            ? perspectiveGuard.reason
+            : '${serviceGuard.reason} / ${serviceGuard.family}';
         final correctionMessages = <Map<String, Object?>>[
           ...finalRequestMessages,
           {
             'role': 'system',
             'content': '''
 【NATURAL OUTPUT CORRECTION · ONE RETRY】
-上一份正文命中了重复的服务模板语义：${serviceGuard.reason} / ${serviceGuard.family}。
+上一份正文违反了当前出站约束：$correctionReason。
 完全丢弃“一直在、不走、不催、你忙你的、等你忙完、无条件顺从”这类承诺—退场—等待收尾。不要换成近义套话，也不要表演随机叛逆。
+当前对话对象始终用“你”称呼和描写；只有真正的第三方人物才可以用“他/她”，不得把当前用户写成“他”。
 重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
 ${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
@@ -576,6 +594,15 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
               '模型连续返回服务模板，已阻止写入',
             );
           }
+        }
+        perspectiveGuard = UserPerspectiveGuard.evaluate(
+          finalContent,
+          currentUserText: userPerspectiveContext,
+        );
+        if (!perspectiveGuard.allowed) {
+          throw const FormatException(
+            '模型连续使用第三人称指代当前用户，已阻止写入',
+          );
         }
       }
       if (finalContent.trim().isEmpty) {

@@ -33,6 +33,11 @@ class GroundingEngine {
       now: instant,
       recent: recent,
       answeredUserMessageIds: answered,
+      proactiveBoundaryInjectedUserMessageId:
+          await db.getSetting(
+                'proactive_time_boundary_anchor_message_id',
+              ) ??
+              '',
     );
   }
 }

@@ -29,7 +29,7 @@ for token in (
     assert token in grounding, token
 for token in (
     "不能称作“刚才/刚刚”",
-    "不能默认仍是同一瞬间",
+    "距离上一条真实用户消息",
     "【反服务模板 / NATURAL RELATIONSHIP OUTPUT】",
 ):
     assert token in prompt, token

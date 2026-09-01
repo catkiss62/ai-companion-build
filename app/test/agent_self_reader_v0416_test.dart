@@ -10,7 +10,7 @@ void main() {
       currentDeviceLabel: 'REDMI K80 Ultra',
     );
 
-    expect(result.promptData, contains('build=v0.41.12+151 schema=42'));
+    expect(result.promptData, contains('build=v0.41.13+152 schema=42'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(
       result.promptData,

@@ -26,7 +26,7 @@ snapshot = read("lib/core/sync/snapshot_service.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 41;" in database
 assert "if (oldVersion < 41)" in database
 assert "await _createV41Tables(db);" in database
@@ -118,7 +118,7 @@ for token in (
 assert durable.count("eventScopeId: job.id") == 2
 
 for token in (
-    "buildLabel = 'v0.41.12+151'",
+    "buildLabel = 'v0.41.13+152'",
     "Duration(days: 14)",
     ".take(8)",
     "'not_implemented'",

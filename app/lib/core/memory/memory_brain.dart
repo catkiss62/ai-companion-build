@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../models/memory_item.dart';
+import '../models/personality_learning.dart';
 import 'memory_context.dart';
 import 'memory_retrieval_policy.dart';
 
@@ -17,11 +18,13 @@ class MemoryBrain {
     DateTime? summaryBefore,
     String retrievalMode = 'userTurn',
   }) async {
-    final admitted = await db.relevantMemories(
+    final admitted = (await db.relevantMemories(
       query,
       limit: relevantLimit,
       retrievalMode: retrievalMode,
-    );
+    ))
+        .where(_allowedDuringPersonalityLearningObservation)
+        .toList(growable: false);
 
     // These headings remain useful to the model, but unlike the old policy
     // they are partitions of one bounded relevant set—not 15 unconditional
@@ -44,8 +47,12 @@ class MemoryBrain {
         .where((item) => !stableIds.contains(item.id))
         .toList(growable: false);
 
-    final inferences = await db.relevantMemoryInferences(query, limit: 2);
-    final history = await db.relevantHistoricalMemories(query, limit: 2);
+    final inferences = (await db.relevantMemoryInferences(query, limit: 2))
+        .where(_allowedDuringPersonalityLearningObservation)
+        .toList(growable: false);
+    final history = (await db.relevantHistoricalMemories(query, limit: 2))
+        .where(_allowedDuringPersonalityLearningObservation)
+        .toList(growable: false);
 
     final allSummaries = await db.recentConversationSummaries(limit: 8);
     final summaries = allSummaries
@@ -75,6 +82,17 @@ class MemoryBrain {
       threads: threads,
     );
   }
+
+  bool _allowedDuringPersonalityLearningObservation(MemoryItem item) =>
+      !PersonalityLearningBoundaryPolicy.isBehavioralMemorySubject(
+        item.subjectKey,
+      ) &&
+      !PersonalityLearningBoundaryPolicy.looksLikeBehavioralPreference(
+        item.content,
+      ) &&
+      !PersonalityLearningBoundaryPolicy.isCapabilityImplementationClaim(
+        item.content,
+      );
 
   String formatForPrompt(MemoryContext context) {
     final out = StringBuffer();
