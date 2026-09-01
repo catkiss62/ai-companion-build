@@ -435,7 +435,7 @@ void main() {
     expect(snapshot.drives[DriveKey.social]!, greaterThan(0.30));
   });
 
-  test('an event-free snapshot rests at its learned baselines', () {
+  test('an event-free snapshot tracks its slowly drifting baselines', () {
     final now = DateTime(2026, 9, 2, 12);
     final baselines = {
       ...DesireSnapshot.defaultBaselines(),
@@ -452,8 +452,20 @@ void main() {
       now: now,
     );
 
+    final anchors = DesireSnapshot.defaultBaselines();
     for (final drive in DriveKey.values) {
-      expect(advanced.drives[drive], closeTo(advanced.baselines[drive]!, 1e-9));
+      // Learned baselines themselves very slowly return toward their original
+      // anchors. A drive which started at the old baseline therefore trails
+      // the newly projected baseline by a few millionths for this tick; that
+      // is intentional and must not be mistaken for the old whole-value decay.
+      expect(
+        (advanced.drives[drive]! - advanced.baselines[drive]!).abs(),
+        lessThan(0.00001),
+      );
+      expect(
+        (advanced.baselines[drive]! - anchors[drive]!).abs(),
+        lessThanOrEqualTo((baselines[drive]! - anchors[drive]!).abs()),
+      );
     }
   });
 
