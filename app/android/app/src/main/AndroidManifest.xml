@@ -102,7 +102,7 @@
         <service
             android:name=".AccessibilityBridgeService"
             android:exported="false"
-            android:label="AI Companion 轻视觉"
+            android:label="AI Companion 轻视觉 / 单次看屏幕"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

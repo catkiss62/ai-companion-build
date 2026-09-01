@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
@@ -59,6 +60,28 @@ class DevicePerceptionState {
       accessibilityConnected: b('accessibilityConnected'),
     );
   }
+}
+
+class OneTimeScreenCapture {
+  const OneTimeScreenCapture({
+    required this.status,
+    required this.errorCode,
+    this.pngBytes,
+  });
+
+  final String status;
+  final String errorCode;
+  final Uint8List? pngBytes;
+
+  bool get succeeded =>
+      status == 'succeeded' && (pngBytes?.isNotEmpty ?? false);
+
+  factory OneTimeScreenCapture.fromMap(Map<Object?, Object?> map) =>
+      OneTimeScreenCapture(
+        status: map['status'] as String? ?? 'failed',
+        errorCode: map['errorCode'] as String? ?? 'capture_failed',
+        pngBytes: map['pngBytes'] as Uint8List?,
+      );
 }
 
 class CapabilityStatus {
@@ -573,6 +596,25 @@ class AndroidBridge {
     if (raw == null) return null;
     final value = UsageEventInfo.fromMap(raw);
     return value.packageName.isEmpty ? null : value;
+  }
+
+  Future<OneTimeScreenCapture> captureCurrentScreenOnce() async {
+    try {
+      final raw = await _channel.invokeMapMethod<Object?, Object?>(
+        'captureCurrentScreenOnce',
+      );
+      return OneTimeScreenCapture.fromMap(raw ?? const {});
+    } on PlatformException catch (error) {
+      return OneTimeScreenCapture(
+        status: 'failed',
+        errorCode: error.code.isEmpty ? 'platform_failure' : error.code,
+      );
+    } on MissingPluginException {
+      return const OneTimeScreenCapture(
+        status: 'failed',
+        errorCode: 'platform_unavailable',
+      );
+    }
   }
 
   Future<void> startNearbyReceive() =>

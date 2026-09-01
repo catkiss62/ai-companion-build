@@ -24,6 +24,17 @@ void main() {
     expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);
   });
 
+  test('one-time screen pixels are distinct from coarse device context', () {
+    final screen = AgentToolPlanner.routeLocally(
+      '请看一下我此刻的当前屏幕，只说真实画面。',
+    );
+    expect(screen, isNotNull);
+    expect(screen!.calls.single.toolId, AgentToolRegistry.screenObservation.id);
+
+    final device = AgentToolPlanner.routeLocally('看看我现在打开的是哪个 App');
+    expect(device!.calls.single.toolId, AgentToolRegistry.deviceContextRead.id);
+  });
+
   test('explicit saved-album recall is local and never becomes web search', () {
     final plan = AgentToolPlanner.routeLocally(
       '你记不记得之前你存的一张你自己的图片？',
@@ -53,6 +64,11 @@ void main() {
     expect(outcomes, isNotNull);
     expect(outcomes!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
     expect(outcomes.calls.single.arguments['scope'], 'outcomes');
+
+    final growth = AgentToolPlanner.routeLocally('查看你的人格学习成长系统状态');
+    expect(growth, isNotNull);
+    expect(growth!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(growth.calls.single.arguments['scope'], 'growth');
   });
 
   test('future capability discussion does not falsely execute system self', () {
@@ -84,6 +100,12 @@ void main() {
       AgentToolPlanner.nativeToolDefinitions
           .map((item) => (item['function'] as Map)['name']),
       contains('system_self_read'),
+    );
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      isNot(contains('screen_observation_inspect')),
+      reason: 'model tool selection is not screenshot consent',
     );
   });
 

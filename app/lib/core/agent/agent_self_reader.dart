@@ -3,12 +3,13 @@ import '../platform/android_bridge.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
-enum AgentSelfReadScope { facts, outcomes, all }
+enum AgentSelfReadScope { facts, outcomes, growth, all }
 
 extension AgentSelfReadScopeKey on AgentSelfReadScope {
   String get key => switch (this) {
         AgentSelfReadScope.facts => 'facts',
         AgentSelfReadScope.outcomes => 'outcomes',
+        AgentSelfReadScope.growth => 'growth',
         AgentSelfReadScope.all => 'all',
       };
 
@@ -16,6 +17,8 @@ extension AgentSelfReadScopeKey on AgentSelfReadScope {
         value.trim().toLowerCase()) {
         'facts' || 'fact' || 'capabilities' => AgentSelfReadScope.facts,
         'outcomes' || 'outcome' || 'recent' => AgentSelfReadScope.outcomes,
+        'growth' || 'learning' || 'personality_learning' =>
+          AgentSelfReadScope.growth,
         _ => AgentSelfReadScope.all,
       };
 }
@@ -25,13 +28,15 @@ class AgentSelfReadResult {
     required this.promptData,
     required this.factCount,
     required this.outcomeCount,
+    this.growthCount = 0,
   });
 
   final String promptData;
   final int factCount;
   final int outcomeCount;
+  final int growthCount;
 
-  int get resultCount => factCount + outcomeCount;
+  int get resultCount => factCount + outcomeCount + growthCount;
 }
 
 class AgentSystemFact {
@@ -57,7 +62,7 @@ class AgentSelfReader {
   final AppDatabase db;
   final AndroidBridge android;
 
-  static const buildLabel = 'v0.41.13+152';
+  static const buildLabel = 'v0.41.14+153';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -100,7 +105,13 @@ class AgentSelfReader {
       id: 'system_self_context',
       title: '系统事实与近期 Outcome',
       status: 'implemented',
-      detail: '只有在当前问题需要时，才能只读查看这份能力事实和无正文的近期工具结果；不会常驻塞入每轮 Prompt。',
+      detail: '只有在当前问题需要时，才能只读查看这份能力事实、无正文的近期工具结果和人格学习观察层元数据；不会常驻塞入每轮 Prompt。',
+    ),
+    AgentSystemFact(
+      id: 'one_time_screen_observation',
+      title: '用户单次当前屏幕观察',
+      status: 'implemented_user_turn_only',
+      detail: '用户明确请求时可经敏感页 Gate 截取一张当前屏幕交给视觉模型；截图不保存。自主截屏与 Desire 调度尚未实现。',
     ),
     AgentSystemFact(
       id: 'personality_learning_phase1',
@@ -122,12 +133,18 @@ class AgentSelfReader {
     } catch (_) {}
     final activeBrain = (await db.getSetting('active_brain')) != '0';
     final since = instant.subtract(const Duration(days: 14));
-    final userRows = scope == AgentSelfReadScope.facts
+    final includesOutcomes =
+        scope == AgentSelfReadScope.outcomes || scope == AgentSelfReadScope.all;
+    final userRows = !includesOutcomes
         ? const <Map<String, Object?>>[]
         : await db.recentAgentToolOutcomes(limit: 12, since: since);
-    final autonomousRows = scope == AgentSelfReadScope.facts
+    final autonomousRows = !includesOutcomes
         ? const <Map<String, Object?>>[]
         : await db.recentAutonomousActionOutcomes(limit: 12, since: since);
+    final growthStats = scope == AgentSelfReadScope.growth ||
+            scope == AgentSelfReadScope.all
+        ? await db.personalityLearningDiagnosticStats()
+        : const <String, Object?>{};
     return composePromptData(
       scope: scope,
       activeBrain: activeBrain,
@@ -135,6 +152,7 @@ class AgentSelfReader {
       currentDeviceLabel: currentDeviceLabel,
       userRows: userRows,
       autonomousRows: autonomousRows,
+      growthStats: growthStats,
     );
   }
 
@@ -147,9 +165,10 @@ class AgentSelfReader {
     required String currentDeviceLabel,
     List<Map<String, Object?>> userRows = const <Map<String, Object?>>[],
     List<Map<String, Object?>> autonomousRows = const <Map<String, Object?>>[],
+    Map<String, Object?> growthStats = const <String, Object?>{},
   }) {
     final factLines = <String>[];
-    if (scope != AgentSelfReadScope.outcomes) {
+    if (scope == AgentSelfReadScope.facts || scope == AgentSelfReadScope.all) {
       factLines.add(
         '[SYSTEM_RUNTIME build=$buildLabel schema=${AppDatabase.schemaVersion} '
         'brain=${activeBrain ? 'active' : 'standby'} device=${_field(currentDeviceLabel, 80)}]',
@@ -171,7 +190,8 @@ class AgentSelfReader {
     }
 
     final outcomeLines = <String>[];
-    if (scope != AgentSelfReadScope.facts) {
+    if (scope == AgentSelfReadScope.outcomes ||
+        scope == AgentSelfReadScope.all) {
       final outcomes = <AgentRecentOutcome>[
         ...userRows.map(AgentRecentOutcome.fromUserToolRow),
         ...autonomousRows.map(AgentRecentOutcome.fromAutonomousRow),
@@ -195,26 +215,54 @@ class AgentSelfReader {
       }
     }
 
+    final growthLines = <String>[];
+    if (scope == AgentSelfReadScope.growth || scope == AgentSelfReadScope.all) {
+      final statusCounts = _safeCountMap(growthStats['statusCounts']);
+      final latestObservedAt =
+          (growthStats['latestObservedAt'] as num?)?.toInt() ?? 0;
+      growthLines.add(
+        '[GROWTH_RUNTIME phase=observation_only enabled=${growthStats['enabled'] == true}] '
+        '候选与证据只用于观察，不进入回复、AI Self、Desire、Moe 或长期习惯。',
+      );
+      growthLines.add(
+        '[GROWTH_COUNTS candidates=${_safeCount(growthStats['candidateCount'])} '
+        'evidence=${_safeCount(growthStats['evidenceCount'])} '
+        'forming=${statusCounts['forming'] ?? 0} '
+        'established=${statusCounts['established'] ?? 0} '
+        'contradicted=${statusCounts['contradicted'] ?? 0} '
+        'retired=${statusCounts['retired'] ?? 0}]',
+      );
+      growthLines.add(
+        '[GROWTH_LATEST observed_at=${latestObservedAt <= 0 ? 'none' : _localMinute(DateTime.fromMillisecondsSinceEpoch(latestObservedAt))}]',
+      );
+    }
+
     final sections = <String>[
       if (factLines.isNotEmpty) '''
 【SYSTEM FACTS / 当前系统事实】
 这些是 App 代码提供的当前能力元数据。可以据此说明“用户和项目为你做了哪些能力”，但不得声称这些功能是你自己编写的，也不得把未实现工具说成可用。
 ${factLines.join('\n')}
 '''.trim(),
-      if (scope != AgentSelfReadScope.facts) '''
+      if (outcomeLines.isNotEmpty || scope == AgentSelfReadScope.outcomes) '''
 【RECENT OUTCOMES / 近期真实工具结果】
 这些只证明对应工具曾以所列状态结束，不包含当时的搜索词、网页、相册、记忆、规则正文或模型思考。不得补写未提供的具体内容；失败、阻止和无结果必须照实表达。
 ${outcomeLines.isEmpty ? '最近 14 天没有可读取的 terminal tool Outcome。' : outcomeLines.join('\n')}
 '''.trim(),
+      if (growthLines.isNotEmpty) '''
+【PERSONALITY LEARNING STATUS / 人格学习与成长状态】
+这些是本次从本地学习表真实读取的有界元数据，只能据此说明当前 observation-only 阶段、计数、成熟度分布和最近观察时间。结果没有读取任何候选命题、subject、证据原句、用户/AI 消息或模型提案；不得补写“学到了什么”，也不得把一次读取夸大成持续数小时的查看。
+${growthLines.join('\n')}
+'''.trim(),
       '''
 【系统自读边界】
-本结果没有读取密钥、API endpoint、原始日志、数据库路径、聊天正文、规则正文、工具参数、URL、Provider payload 或隐藏 reasoning。当前屏幕、视频、修改提案、真实提醒与 MCP 若标记 not_implemented，就只能说尚未实现。
+本结果没有读取密钥、API endpoint、原始日志、数据库路径、聊天正文、规则正文、学习候选/证据正文、工具参数、URL、Provider payload 或隐藏 reasoning。自主屏幕观察、视频、修改提案、真实提醒与 MCP 若标记 not_implemented，就只能说尚未实现。
 '''.trim(),
     ];
     return AgentSelfReadResult(
       promptData: sections.join('\n\n'),
       factCount: factLines.length,
       outcomeCount: outcomeLines.length,
+      growthCount: growthLines.length,
     );
   }
 
@@ -240,6 +288,17 @@ ${outcomeLines.isEmpty ? '最近 14 天没有可读取的 terminal tool Outcome�
 
   static String _bounded(String value, int limit) =>
       value.length <= limit ? value : value.substring(0, limit).trimRight();
+
+  static int _safeCount(Object? value) =>
+      ((value as num?)?.toInt() ?? 0).clamp(0, 1000000).toInt();
+
+  static Map<String, int> _safeCountMap(Object? value) {
+    if (value is! Map) return const <String, int>{};
+    return <String, int>{
+      for (final entry in value.entries)
+        _field(entry.key.toString(), 40): _safeCount(entry.value),
+    };
+  }
 }
 
 class AgentRecentOutcome {

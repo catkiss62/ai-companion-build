@@ -19,6 +19,7 @@ import '../emotion/emotion_contract.dart';
 import '../grounding/grounding_engine.dart';
 import '../grounding/proactive_grounding_guard.dart';
 import '../grounding/service_template_guard.dart';
+import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
@@ -842,18 +843,24 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
       candidate.content,
       currentUserText: userPerspectiveContext,
     );
+    var operationGuard = OperationalClaimGroundingGuard.evaluate(
+      text: '${candidate.content}\n${candidate.reasoning}',
+    );
 
     if (!textGuard.allowed ||
         !reasoningGuard.allowed ||
         !serviceGuard.allowed ||
-        !perspectiveGuard.allowed) {
+        !perspectiveGuard.allowed ||
+        !operationGuard.allowed) {
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
           : !textGuard.allowed
               ? textGuard.reason
-              : !perspectiveGuard.allowed
-                  ? perspectiveGuard.reason
-                  : serviceGuard.reason;
+              : !operationGuard.allowed
+                  ? operationGuard.reason
+                  : !perspectiveGuard.allowed
+                      ? perspectiveGuard.reason
+                      : serviceGuard.reason;
       if (!serviceGuard.allowed) {
         await ServiceTemplateGuardTelemetry.note(
           db,
@@ -874,6 +881,7 @@ CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，�
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
 推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容；也不能用“一直在、不走、不催、你忙你的、等你回来”一类待命客服模板主动找话。
 当前对话对象始终用“你”称呼和描写；只有真正的第三方人物才可以用“他/她”，不得把当前用户写成“他”。
+主动候选没有新的用户轮工具结果。不得声称自己刚刚读取过成长/系统、看过当前屏幕、调用过 MCP、保存/修改过数据或设置过提醒，也不得编造“一下午/半天/几小时”的操作历史；真实公开网页发现只能按本轮 Grounding 提供的 Outcome 表达。
 重选时仍保持当前性格的内在反应与表达过滤；说具体内容、真实发现或自己的念头，没有值得说的就输出 WAIT。
 ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
 '''.trim(),
@@ -937,6 +945,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         candidate.content,
         currentUserText: userPerspectiveContext,
       );
+      operationGuard = OperationalClaimGroundingGuard.evaluate(
+        text: '${candidate.content}\n${candidate.reasoning}',
+      );
     }
 
     if (!textGuard.allowed) {
@@ -976,6 +987,13 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         reasonTag: 'user_perspective_guard',
       );
       return blockGrounding(perspectiveGuard.reason);
+    }
+    if (!operationGuard.allowed) {
+      await noteGeneration(
+        'guard_blocked',
+        reasonTag: 'operational_claim_guard',
+      );
+      return blockGrounding(operationGuard.reason);
     }
 
     final text = candidate.content;

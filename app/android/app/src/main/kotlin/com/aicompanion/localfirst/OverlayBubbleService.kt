@@ -807,6 +807,7 @@ class OverlayBubbleService : Service() {
             },
             LinearLayout.LayoutParams(0, dp(46), 1f).apply { gravity = Gravity.CENTER_VERTICAL },
         )
+        bar.addView(smallButton("看屏幕") { requestScreenObservationFromOverlay() })
         bar.addView(smallButton("打开") { openFullApp(openChat = true) })
         bar.addView(smallButton("×") { collapseChatOverlay("user_close") })
         return bar
@@ -1164,6 +1165,20 @@ class OverlayBubbleService : Service() {
                 }
             },
         )
+    }
+
+    private fun requestScreenObservationFromOverlay() {
+        if (chatSending || overlayCancelling) return
+        chatInput?.setText("请看一次我此刻的当前屏幕，只按真实截图告诉我看到了什么。")
+        sendFromOverlay()
+        if (chatSending) {
+            // Reveal the underlying app before Accessibility takes the one
+            // authorized screenshot. Generation continues in the background;
+            // the normal companion notification announces the finished reply.
+            mainHandler.post {
+                collapseChatOverlay("one_time_screen_observation")
+            }
+        }
     }
 
     private fun cancelGenerationFromOverlay() {

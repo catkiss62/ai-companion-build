@@ -64,11 +64,11 @@ class AgentToolRegistry {
   static const screenObservation = AgentToolDefinition(
     id: 'screen_observation.inspect',
     title: '查看当前屏幕',
-    description: '受敏感页 Gate 与独立预算保护的当前屏幕观察。',
+    description: '仅在用户本轮明确请求时，经敏感页 Gate 截取一次当前屏幕并临时识图；不保存截图。',
     risk: AgentToolRisk.readOnly,
-    executable: false,
-    userTurnAvailable: false,
-    autonomousAvailable: true,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
   );
   static const videoUnderstanding = AgentToolDefinition(
     id: 'video_understanding.inspect',

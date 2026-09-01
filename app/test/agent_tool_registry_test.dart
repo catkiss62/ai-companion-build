@@ -15,6 +15,7 @@ void main() {
         'album.search',
         'device_context.read',
         'system_self.read',
+        'screen_observation.inspect',
       ]),
     );
     expect(tools.every((tool) => tool.risk == AgentToolRisk.readOnly), isTrue);
@@ -35,13 +36,15 @@ void main() {
     }
   });
 
-  test('system self read is bounded read-only while placeholders stay false', () {
+  test('system self and user-triggered screen are bounded read-only', () {
     final self = AgentToolRegistry.systemSelfRead;
     expect(self.executable, isTrue);
     expect(self.userTurnAvailable, isTrue);
     expect(self.autonomousAvailable, isFalse);
     expect(self.risk, AgentToolRisk.readOnly);
-    expect(AgentToolRegistry.screenObservation.executable, isFalse);
+    expect(AgentToolRegistry.screenObservation.executable, isTrue);
+    expect(AgentToolRegistry.screenObservation.userTurnAvailable, isTrue);
+    expect(AgentToolRegistry.screenObservation.autonomousAvailable, isFalse);
     expect(AgentToolRegistry.videoUnderstanding.executable, isFalse);
   });
 
@@ -54,7 +57,8 @@ void main() {
       AutonomousToolKind.screenObservation,
     );
     expect(screen.id, 'screen_observation.inspect');
-    expect(screen.executable, isFalse);
-    expect(screen.userTurnAvailable, isFalse);
+    expect(screen.executable, isTrue);
+    expect(screen.userTurnAvailable, isTrue);
+    expect(screen.autonomousAvailable, isFalse);
   });
 }

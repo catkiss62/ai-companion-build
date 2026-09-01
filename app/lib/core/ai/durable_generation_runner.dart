@@ -9,6 +9,7 @@ import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
+import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_message.dart';
@@ -535,7 +536,13 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         finalContent,
         currentUserText: userPerspectiveContext,
       );
-      if (!serviceGuard.allowed || !perspectiveGuard.allowed) {
+      var operationGuard = OperationalClaimGroundingGuard.evaluate(
+        text: '$finalContent\n${generated.reasoning}',
+        currentToolResults: agentToolResults,
+      );
+      if (!serviceGuard.allowed ||
+          !perspectiveGuard.allowed ||
+          !operationGuard.allowed) {
         if (!serviceGuard.allowed) {
           await ServiceTemplateGuardTelemetry.note(
             db,
@@ -544,9 +551,11 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
             action: 'rewrite',
           );
         }
-        final correctionReason = !perspectiveGuard.allowed
-            ? perspectiveGuard.reason
-            : '${serviceGuard.reason} / ${serviceGuard.family}';
+        final correctionReason = !operationGuard.allowed
+            ? operationGuard.reason
+            : !perspectiveGuard.allowed
+                ? perspectiveGuard.reason
+                : '${serviceGuard.reason} / ${serviceGuard.family}';
         final correctionMessages = <Map<String, Object?>>[
           ...finalRequestMessages,
           {
@@ -556,6 +565,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 上一份正文违反了当前出站约束：$correctionReason。
 完全丢弃“一直在、不走、不催、你忙你的、等你忙完、无条件顺从”这类承诺—退场—等待收尾。不要换成近义套话，也不要表演随机叛逆。
 当前对话对象始终用“你”称呼和描写；只有真正的第三方人物才可以用“他/她”，不得把当前用户写成“他”。
+所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
 ${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
@@ -602,6 +612,15 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         if (!perspectiveGuard.allowed) {
           throw const FormatException(
             '模型连续使用第三人称指代当前用户，已阻止写入',
+          );
+        }
+        operationGuard = OperationalClaimGroundingGuard.evaluate(
+          text: '$finalContent\n${generated.reasoning}',
+          currentToolResults: agentToolResults,
+        );
+        if (!operationGuard.allowed) {
+          throw const FormatException(
+            '模型连续虚报无真实 Outcome 的操作事实，已阻止写入',
           );
         }
       }

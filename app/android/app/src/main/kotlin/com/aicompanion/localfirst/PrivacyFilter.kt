@@ -1,5 +1,9 @@
 package com.aicompanion.localfirst
 
+import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.os.Build
+
 /**
  * Conservative local-first filter. It is intentionally applied before any text is
  * stored as a perception event. A user-editable package allow/deny list is still planned; this hard block is the fail-safe baseline.
@@ -8,7 +12,19 @@ object PrivacyFilter {
     private val blockedFragments = listOf(
         "bank", "banking", "wallet", "payment", "paypay", "alipay",
         "password", "passwd", "authenticator", "otp", "sms", "mms",
-        "messaging", "keychain", "keystore",
+        "messaging", "credential", "keychain", "keystore",
+    )
+    private val blockedScreenPackages = setOf(
+        "com.tencent.mm",
+        "com.tencent.mobileqq",
+        "com.whatsapp",
+        "org.telegram.messenger",
+        "org.thoughtcrime.securesms",
+        "com.google.android.gm",
+        "com.openai.chatgpt",
+        "com.microsoft.office.outlook",
+        "com.xiaomi.account",
+        "com.google.android.apps.authenticator2",
     )
 
     fun allowPackage(packageName: String?): Boolean {
@@ -16,6 +32,46 @@ object PrivacyFilter {
         val p = packageName.lowercase()
         if (p == "com.aicompanion.localfirst") return false
         return blockedFragments.none { p.contains(it) }
+    }
+
+    fun allowScreenObservationPackage(
+        packageName: String?,
+        companionPackageName: String,
+    ): Boolean {
+        if (packageName.isNullOrBlank()) return false
+        val normalized = packageName.lowercase()
+        if (normalized == companionPackageName.lowercase()) return true
+        if (normalized in blockedScreenPackages) return false
+        val systemSensitive = listOf(
+            "systemui",
+            "permissioncontroller",
+            "packageinstaller",
+            "documentsui",
+            "settings",
+            "keyguard",
+        )
+        if (systemSensitive.any(normalized::contains)) return false
+        return blockedFragments.none(normalized::contains)
+    }
+
+    fun allowScreenObservationPackage(
+        context: Context,
+        packageName: String?,
+        companionPackageName: String,
+    ): Boolean {
+        if (!allowScreenObservationPackage(packageName, companionPackageName)) {
+            return false
+        }
+        if (
+            packageName.equals(companionPackageName, ignoreCase = true) ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+        ) {
+            return true
+        }
+        val category = runCatching {
+            context.packageManager.getApplicationInfo(packageName.orEmpty(), 0).category
+        }.getOrNull() ?: return false
+        return category != ApplicationInfo.CATEGORY_FINANCE
     }
 
     fun sanitize(text: CharSequence?, max: Int = 500): String {

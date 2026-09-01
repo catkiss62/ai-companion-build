@@ -287,6 +287,13 @@ class SystemBridge(
                         ?.asUsageEvent()
                     Handler(Looper.getMainLooper()).post { result.success(resolved) }
                 }.start()
+                "captureCurrentScreenOnce" -> {
+                    AccessibilityBridgeService.captureOnce { payload ->
+                        Handler(Looper.getMainLooper()).post {
+                            result.success(payload)
+                        }
+                    }
+                }
                 "startNearbyReceive" -> {
                     nearby.startAdvertising()
                     result.success(null)

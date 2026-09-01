@@ -26,7 +26,7 @@ snapshot = read("lib/core/sync/snapshot_service.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 41;" in database
 assert "if (oldVersion < 41)" in database
 assert "await _createV41Tables(db);" in database
@@ -89,7 +89,6 @@ for token in (
 ):
     assert token in registry, token
 for placeholder in (
-    "screenObservation",
     "videoUnderstanding",
     "memoryProposal",
     "reminderSchedule",
@@ -97,13 +96,24 @@ for placeholder in (
 ):
     block = registry.split(f"static const {placeholder} =", 1)[1].split(");", 1)[0]
     assert "executable: false" in block, placeholder
+screen_block = registry.split("static const screenObservation =", 1)[1].split(
+    ");", 1
+)[0]
+if "version: 0.41.14+153" in pubspec:
+    assert "executable: true" in screen_block
+    assert "userTurnAvailable: true" in screen_block
+    assert "autonomousAvailable: false" in screen_block
+else:
+    assert "executable: false" in screen_block
 
 for token in (
     "explicitRecentOutcomes",
     "explicitSystemFacts",
     "'system_self.read': 'system_self_read'",
     "'system_self_read': 'system_self.read'",
-    "['facts', 'outcomes', 'all']",
+    "<String>['facts', 'outcomes', 'growth', 'all']"
+    if "version: 0.41.14+153" in pubspec
+    else "['facts', 'outcomes', 'all']",
 ):
     assert token in planner, token
 
@@ -111,14 +121,18 @@ for token in (
     "AgentSelfReader(db: db, android: android).read(scope)",
     "eventScopeId",
     "recordAgentToolOutcome",
-    "user_turn:$stableScope:${call.toolId}:$callIndex",
+    "_eventId("
+    if "version: 0.41.14+153" in pubspec
+    else "user_turn:$stableScope:${call.toolId}:$callIndex",
     "AgentToolStatus.failed => 'execution_failed'",
 ):
     assert token in runner, token
 assert durable.count("eventScopeId: job.id") == 2
 
 for token in (
-    "buildLabel = 'v0.41.13+152'",
+    "buildLabel = 'v0.41.14+153'"
+    if "version: 0.41.14+153" in pubspec
+    else "buildLabel = 'v0.41.13+152'",
     "Duration(days: 14)",
     ".take(8)",
     "'not_implemented'",

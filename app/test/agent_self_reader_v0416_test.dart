@@ -10,11 +10,11 @@ void main() {
       currentDeviceLabel: 'REDMI K80 Ultra',
     );
 
-    expect(result.promptData, contains('build=v0.41.13+152 schema=42'));
+    expect(result.promptData, contains('build=v0.41.14+153 schema=42'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(
       result.promptData,
-      contains('id=screen_observation.inspect status=not_implemented'),
+      contains('id=screen_observation.inspect status=executable'),
     );
     expect(result.promptData, contains('id=mcp.invoke status=not_implemented'));
     expect(result.promptData, contains('不得声称这些功能是你自己编写的'));
@@ -87,5 +87,42 @@ void main() {
     expect(result.outcomeCount, 0);
     expect(result.promptData, contains('没有可读取的 terminal tool Outcome'));
     expect(result.promptData, contains('不得补写未提供的具体内容'));
+  });
+
+  test('growth scope exposes only bounded observation metadata', () {
+    final result = AgentSelfReader.composePromptData(
+      scope: AgentSelfReadScope.growth,
+      activeBrain: true,
+      currentDeviceId: 'device',
+      currentDeviceLabel: 'Phone',
+      growthStats: <String, Object?>{
+        'enabled': true,
+        'candidateCount': 2,
+        'evidenceCount': 4,
+        'statusCounts': <String, int>{
+          'established': 1,
+          'contradicted': 1,
+        },
+        'latestObservedAt':
+            DateTime(2026, 9, 1, 7, 20).millisecondsSinceEpoch,
+        // Unexpected bodies must never be formatted.
+        'subject': 'PRIVATE SUBJECT',
+        'proposition': 'PRIVATE PROPOSITION',
+        'evidenceQuote': 'PRIVATE USER QUOTE',
+      },
+    );
+    expect(result.factCount, 0);
+    expect(result.outcomeCount, 0);
+    expect(result.growthCount, 3);
+    expect(result.promptData, contains('phase=observation_only'));
+    expect(result.promptData, contains('candidates=2 evidence=4'));
+    expect(result.promptData, contains('established=1'));
+    for (final secret in <String>[
+      'PRIVATE SUBJECT',
+      'PRIVATE PROPOSITION',
+      'PRIVATE USER QUOTE',
+    ]) {
+      expect(result.promptData, isNot(contains(secret)));
+    }
   });
 }

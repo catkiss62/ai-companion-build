@@ -15,6 +15,10 @@ void main() {
     expect(redacted, isNot(raw));
     expect(ProviderHealth.safeErrorCategory('secret text'), 'other');
     expect(ProviderHealth.safeProvider('untrusted-provider-name'), 'none');
+    expect(
+      ProviderHealth.safeContext('screen_observation'),
+      'screen_observation',
+    );
   });
 
   test('search diagnostics distinguish primary failure and fallback success', () {

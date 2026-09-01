@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
@@ -58,6 +59,33 @@ class QwenVisionClient {
       throw const FileSystemException('识图用缩略图不存在');
     }
     final bytes = await imageFile.readAsBytes();
+    return observeBytes(
+      apiKey: apiKey,
+      endpoint: endpoint,
+      model: model,
+      imageBytes: bytes,
+      caption: caption,
+      assessForAlbum: assessForAlbum,
+      albumPreferenceHint: albumPreferenceHint,
+    );
+  }
+
+  Future<QwenVisionObservation> observeBytes({
+    required String apiKey,
+    required String endpoint,
+    required String model,
+    required Uint8List imageBytes,
+    String caption = '',
+    bool assessForAlbum = false,
+    String albumPreferenceHint = '',
+  }) async {
+    if (apiKey.trim().isEmpty) {
+      throw const QwenVisionException(
+        0,
+        '请先在设置中填写千问视觉 API Key。',
+      );
+    }
+    final bytes = imageBytes;
     if (bytes.isEmpty) throw const FormatException('识图用图片为空');
     final inputContentSha256 = sha256.convert(bytes).toString();
 

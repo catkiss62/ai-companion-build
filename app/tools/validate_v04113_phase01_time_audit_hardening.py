@@ -33,9 +33,15 @@ doc_map = read(APP / "docs/DOCUMENTATION_MAP.md")
 ledger = read(ROOT / "AI_Companion_当前总账.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
-assert "version: 0.41.13+152" in pubspec
+assert any(version in pubspec for version in (
+    "version: 0.41.13+152",
+    "version: 0.41.14+153",
+))
 assert "static const int schemaVersion = 42;" in database
-assert "buildLabel = 'v0.41.13+152'" in agent_self
+assert any(label in agent_self for label in (
+    "buildLabel = 'v0.41.13+152'",
+    "buildLabel = 'v0.41.14+153'",
+))
 assert "implemented_observation_only" in agent_self
 
 for token in (

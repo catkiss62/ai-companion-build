@@ -186,6 +186,7 @@ class PromptBuilder {
       {'role': 'system', 'content': context.toString().trim()},
       if (agentToolResults.isNotEmpty)
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
+      {'role': 'system', 'content': _operationalTruthContract()},
       {'role': 'system', 'content': _serviceTemplateContract()},
       if (moeExpressionSection.isNotEmpty)
         {'role': 'system', 'content': moeExpressionSection},
@@ -478,6 +479,14 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 这不是逐字禁词：如果当前对话正在引用、批评或讨论这些话，可以正常提到；真实语境也允许表达体谅。禁止的是脱离具体内容、反复复用的承诺—退场—等待模板。
 优先留下当下具体反应、自己的判断/情绪/需求、真正想继续的内容，或自然结束。不要为了显得独立而随机顶嘴，也不要把旧套话替换成固定叛逆套话。
 最终正文会经过语义族重复检测；命中时可能被重写或取消。
+'''.trim();
+
+  String _operationalTruthContract() => '''
+【操作事实真实性 / TERMINAL OUTCOME REQUIRED】
+主观感受、想象、梦境、比喻和“我一直在想某件事”可以自然表达；但可被设备事实核验的当前操作报告必须严格来自本轮真实 AGENT_TOOL_RESULT。RECENT_OUTCOME 只能按它提供的工具、状态与时间元数据回顾历史，不能补写内容、参数或持续耗时。
+凡是声称自己看过/查过/读取过系统、观察过当前屏幕、调用过 MCP、保存或修改了数据、设置了真实提醒，都必须有能力与状态匹配的 terminal success。failed / no_result / blocked 只能照实说失败、无结果或被阻止；前台 App 名称不等于看见屏幕。
+一次有界工具读取只能说“刚刚读取/查看了这一次”，绝不能扩写成“看了一下午、研究了半天、花了几小时”。没有 Outcome 时改为诚实的主观表述，或直接说明尚未执行；不要用角色扮演补齐操作历史。
+最终正文会经过操作事实守卫；无真实证据的操作报告会被重写或取消。
 '''.trim();
 
   String _visibleInnerVoiceContract(

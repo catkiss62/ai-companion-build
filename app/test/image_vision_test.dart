@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ai_companion_localfirst/core/ai/qwen_vision_client.dart';
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
@@ -94,6 +95,51 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  test(
+    'one-time screen bytes can be observed without creating an image file',
+    () async {
+      late Map<String, dynamic> requestBody;
+      final client = QwenVisionClient(
+        client: MockClient((request) async {
+          requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'model': 'qwen3-vl-plus',
+              'choices': [
+                {
+                  'message': {
+                    'content': jsonEncode({'summary': '屏幕上显示聊天界面。'}),
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      try {
+        final result = await client.observeBytes(
+          apiKey: 'test-key',
+          endpoint: QwenVisionClient.defaultEndpoint,
+          model: QwenVisionClient.defaultModel,
+          imageBytes: Uint8List.fromList(const [137, 80, 78, 71]),
+          caption: '一次性当前屏幕',
+        );
+        final messages = requestBody['messages'] as List<dynamic>;
+        final content =
+            (messages[1] as Map<String, dynamic>)['content'] as List<dynamic>;
+        expect(
+          ((content.first as Map<String, dynamic>)['image_url']
+              as Map<String, dynamic>)['url'],
+          startsWith('data:image/png;base64,'),
+        );
+        expect(result.summary, '屏幕上显示聊天界面。');
+      } finally {
+        client.close();
+      }
+    },
+  );
 
   test('album assessment sends exactly one candidate image', () async {
     late Map<String, dynamic> requestBody;

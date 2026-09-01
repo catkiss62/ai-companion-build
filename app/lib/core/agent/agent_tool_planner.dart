@@ -41,8 +41,13 @@ class AgentToolPlanner {
       r'((记得|回想|找|查|搜索|看看).{0,14}(相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,10}(图片|照片|图像|一张|那张)?)|'
       r'((相册|保存过|保存的|存过|存的|收藏过|收藏的).{0,14}(图片|照片|图像).{0,10}(记得|回想|找|查|看看)?)',
     ).hasMatch(text);
+    final explicitScreen = RegExp(
+      r'((看一下|看一眼|看一次|看看|查看|观察|识别|截取).{0,10}(当前|现在|此刻)?.{0,8}(屏幕|屏幕内容|屏幕画面|当前画面))|'
+      r'((当前|现在|此刻).{0,6}(屏幕|画面).{0,10}(有什么|是什么|写了什么|看得到|看见))',
+      caseSensitive: false,
+    ).hasMatch(text);
     final explicitDevice = RegExp(
-      r'(看看|查看|识别|查).{0,8}(当前|现在)?.{0,8}(手机|屏幕|app|应用|软件|前台)|'
+      r'(看看|查看|识别|查).{0,8}(当前|现在)?.{0,8}(手机状态|app|应用|软件|前台)|'
       r'我现在.{0,8}(打开|使用|看).{0,8}(什么|哪个)',
       caseSensitive: false,
     ).hasMatch(text);
@@ -58,7 +63,13 @@ class AgentToolPlanner {
       r'(你.{0,6}(能不能|可以).{0,6}(看|读|查).{0,6}(自己|自身).{0,6}(系统|能力|功能))',
       caseSensitive: false,
     ).hasMatch(text);
-    final explicitSystemSelf = explicitRecentOutcomes || explicitSystemFacts;
+    final explicitGrowthStatus = RegExp(
+      r'((看|读|查|检查).{0,10}(人格学习|人格成长|学习成长|学习系统|成长系统).{0,8}(状态|进度|候选|证据|成熟度|现在)?)|'
+      r'((人格学习|人格成长|学习成长|学习系统|成长系统).{0,10}(状态|进度|候选|证据|成熟度).{0,8}(什么|如何|怎样|多少)?)',
+      caseSensitive: false,
+    ).hasMatch(text);
+    final explicitSystemSelf =
+        explicitRecentOutcomes || explicitSystemFacts || explicitGrowthStatus;
 
     final webCommand = RegExp(
       r'(^|[，。！？；])\s*'
@@ -79,6 +90,7 @@ class AgentToolPlanner {
                 (!explicitRules &&
                     !explicitMemory &&
                     !explicitAlbum &&
+                    !explicitScreen &&
                     !explicitDevice &&
                     !explicitSystemSelf)));
 
@@ -106,6 +118,9 @@ class AgentToolPlanner {
         {'query': _bounded(text, 160)},
       );
     }
+    if (explicitScreen) {
+      add(AgentToolRegistry.screenObservation.id, const {});
+    }
     if (explicitDevice) {
       add(AgentToolRegistry.deviceContextRead.id, const {});
     }
@@ -113,9 +128,17 @@ class AgentToolPlanner {
       add(
         AgentToolRegistry.systemSelfRead.id,
         {
-          'scope': explicitRecentOutcomes && !explicitSystemFacts
+          'scope': explicitRecentOutcomes &&
+                  !explicitSystemFacts &&
+                  !explicitGrowthStatus
               ? 'outcomes'
-              : explicitSystemFacts && !explicitRecentOutcomes
+              : explicitGrowthStatus &&
+                      !explicitRecentOutcomes &&
+                      !explicitSystemFacts
+                  ? 'growth'
+              : explicitSystemFacts &&
+                      !explicitRecentOutcomes &&
+                      !explicitGrowthStatus
                   ? 'facts'
                   : 'all',
         },
@@ -128,6 +151,7 @@ class AgentToolPlanner {
   /// only schema input tokens; it does not create a second planner API call.
   static List<Map<String, Object?>> get nativeToolDefinitions =>
       AgentToolRegistry.userTurnExecutable
+          .where((tool) => tool.id != AgentToolRegistry.screenObservation.id)
           .map(_nativeDefinition)
           .toList(growable: false);
 
@@ -138,6 +162,9 @@ class AgentToolPlanner {
       if (calls.length >= 2) break;
       final toolId = _toolIdByNativeName[native.name];
       if (toolId == null) continue;
+      // Pixel capture requires an unmistakable local user command. A model
+      // function selection is never treated as consent.
+      if (toolId == AgentToolRegistry.screenObservation.id) continue;
       final definition = AgentToolRegistry.byId(toolId);
       if (definition == null ||
           !definition.executable ||
@@ -201,9 +228,12 @@ class AgentToolPlanner {
     } else if (tool.id == AgentToolRegistry.systemSelfRead.id) {
       properties['scope'] = const <String, Object?>{
         'type': 'string',
-        'enum': <String>['facts', 'outcomes', 'all'],
-        'description': 'facts=当前能力，outcomes=近期真实工具结果，all=两者都读。',
+        'enum': <String>['facts', 'outcomes', 'growth', 'all'],
+        'description': 'facts=当前能力，outcomes=近期真实工具结果，growth=人格学习观察层的无正文状态元数据，all=全部读取。',
       };
+    } else if (tool.id == AgentToolRegistry.screenObservation.id) {
+      // A screen observation has no model-provided argument. The current user
+      // turn itself is the one-time authorization and native privacy Gate.
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -218,8 +248,11 @@ class AgentToolPlanner {
       'device_context.read' =>
         '仅在用户要你查看当前手机/App 状态，或当前回答明确依赖实时设备状态时调用；不得猜测屏幕内容。',
       'system_self.read' =>
-        '仅在用户询问你当前真实能力、用户为你实现过什么、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
+        '仅在用户询问你当前真实能力、用户为你实现过什么、人格学习/成长观察层状态、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
         '普通闲聊不调用；本工具不能读取聊天/规则正文、密钥、日志或未实现能力。',
+      'screen_observation.inspect' =>
+        '仅在用户当前这句话明确要求看一次此刻屏幕像素内容时调用。讨论截图/屏幕能力、询问前台 App 名称、否定/假设或普通闲聊不调用。'
+        '每次调用只截一张，经锁屏、密码、敏感包与系统安全窗口 Gate；截图不保存，也绝不自主调用。',
       _ => '',
     };
     return <String, Object?>{
@@ -267,6 +300,7 @@ class AgentToolPlanner {
     'album.search': 'album_search',
     'device_context.read': 'device_context_read',
     'system_self.read': 'system_self_read',
+    'screen_observation.inspect': 'screen_observation_inspect',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -275,6 +309,7 @@ class AgentToolPlanner {
     'album_search': 'album.search',
     'device_context_read': 'device_context.read',
     'system_self_read': 'system_self.read',
+    'screen_observation_inspect': 'screen_observation.inspect',
   };
 
   static String _bounded(String value, int limit) =>

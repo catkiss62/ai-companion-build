@@ -796,9 +796,9 @@ class PreflightDiagnosticsService {
       ));
       checks.add(const PreflightCheck(
         id: 'screen_observation',
-        title: '当前屏幕视觉观察',
+        title: '当前屏幕视觉观察（用户单次）',
         level: 'info',
-        summary: '尚未接入截图 Provider 与 Desire 调度器；当前只有工具底座和未来 Gate，0 次不是低概率未命中。',
+        summary: '用户可在悬浮聊天明确点“看屏幕”触发一张受敏感页 Gate 保护的临时截图；截图不保存。自主 Desire 截图调度仍未实现，0 次不是低概率未命中。',
       ));
       final publicWebRuntime =
           _asMap(publicWebCandidates['runtime']);

@@ -8682,6 +8682,69 @@ class AppDatabase {
     );
   }
 
+  Future<bool> agentToolOutcomeEventExists(String eventId) async {
+    final normalized = eventId.trim();
+    if (normalized.isEmpty) return false;
+    final db = await database;
+    final rows = await db.query(
+      'agent_tool_outcomes',
+      columns: const ['id'],
+      where: 'id = ?',
+      whereArgs: [normalized],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Atomically claims a one-shot user-turn event before any pixels are read.
+  /// A concurrent recovery using the same durable event id receives false and
+  /// therefore cannot take a second screenshot.
+  Future<bool> reserveOneTimeAgentToolOutcome({
+    required String eventId,
+    required String toolId,
+    required String reasonTag,
+    required DateTime startedAt,
+    required String sourceDeviceId,
+  }) async {
+    String bounded(String value, int limit) {
+      final normalized = value.replaceAll(RegExp(r'[\r\n\t]+'), ' ').trim();
+      return normalized.length <= limit
+          ? normalized
+          : normalized.substring(0, limit).trimRight();
+    }
+
+    final normalizedEventId = bounded(eventId, 180);
+    if (normalizedEventId.isEmpty) {
+      throw ArgumentError.value(eventId, 'eventId', 'stable event id required');
+    }
+    final db = await database;
+    return db.transaction((txn) async {
+      await txn.insert(
+        'agent_tool_outcomes',
+        {
+          'id': normalizedEventId,
+          'tool_id': bounded(toolId, 80),
+          'origin': 'user_turn',
+          'status': 'blocked',
+          'reason_tag': bounded(reasonTag, 40),
+          'outcome_kind': 'one_time_reserved',
+          'result_count': 0,
+          'error_code': 'blocked',
+          'started_at': startedAt.millisecondsSinceEpoch,
+          'finished_at': startedAt.millisecondsSinceEpoch,
+          'source_device_id': bounded(sourceDeviceId, 120),
+          'source_device_label': '',
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final changed = Sqflite.firstIntValue(
+            await txn.rawQuery('SELECT changes()'),
+          ) ??
+          0;
+      return changed == 1;
+    });
+  }
+
   Future<List<Map<String, Object?>>> recentAutonomousActionOutcomes({
     int limit = 8,
     DateTime? since,
@@ -8857,7 +8920,7 @@ class AppDatabase {
       };
     }
     return {
-      'phase': 'public_web_scheduled_screen_foundation_only',
+      'phase': 'public_web_scheduled_user_screen_once',
       'byStatus': byStatus,
       'byTool': byTool,
       'last': last,
@@ -8871,8 +8934,12 @@ class AppDatabase {
         },
         'screenObservation': {
           'configured': false,
-          'implementationStatus': 'not_implemented',
+          'implementationStatus': 'user_turn_only',
+          'userTurnAvailable': true,
+          'oneTimeProviderAvailable': true,
           'schedulerAvailable': false,
+          // These two fields describe autonomous Desire execution only. The
+          // separately gated user-turn provider above is real and executable.
           'providerAvailable': false,
           'futureWindowMinutes': 60,
           'futureLimit': 6,

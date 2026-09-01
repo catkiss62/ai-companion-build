@@ -46,6 +46,7 @@ class ProviderHealth {
     'chat_image',
     'album_discovery',
     'user_image_album',
+    'screen_observation',
   };
   static const providers = <String>{
     'none',

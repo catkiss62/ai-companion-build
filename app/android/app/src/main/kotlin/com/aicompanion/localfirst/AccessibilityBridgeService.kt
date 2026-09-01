@@ -2,15 +2,24 @@ package com.aicompanion.localfirst
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.app.KeyguardManager
+import android.graphics.Bitmap
+import android.os.Build
 import android.os.PowerManager
+import android.view.Display
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import java.io.ByteArrayOutputStream
+import java.util.ArrayDeque
+import java.util.concurrent.atomic.AtomicBoolean
 
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        activeService = this
         CompanionRuntimeState.markAccessibilityConnected(this)
         NativeEventStore.addDeviceEvent(
             this,
@@ -193,6 +202,7 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        if (activeService === this) activeService = null
         CompanionRuntimeState.markAccessibilityDisconnected(this, "unbound")
         NativeEventStore.addDeviceEvent(
             this,
@@ -205,10 +215,150 @@ class AccessibilityBridgeService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (activeService === this) activeService = null
         if (CompanionRuntimeState.accessibilityConnected) {
             CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
         }
         CompanionRuntimeState.noteAccessibilityDestroyed(this)
         super.onDestroy()
+    }
+
+    private fun containsPasswordField(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        var visited = 0
+        while (queue.isNotEmpty() && visited < 500) {
+            val node = queue.removeFirst()
+            visited += 1
+            if (node.isPassword) return true
+            for (index in 0 until node.childCount) {
+                runCatching { node.getChild(index) }.getOrNull()?.let(queue::add)
+            }
+        }
+        return false
+    }
+
+    private fun captureGate(): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return "android_api_unsupported"
+        val power = getSystemService(PowerManager::class.java)
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (!power.isInteractive || keyguard.isDeviceLocked) return "device_locked"
+        val root = runCatching { rootInActiveWindow }.getOrNull()
+            ?: return "foreground_unknown"
+        val rootPackage = root.packageName?.toString().orEmpty()
+        val trackedExternal =
+            CompanionRuntimeState.foregroundWindowSnapshot()?.packageName.orEmpty()
+        val packageName = when {
+            rootPackage == this.packageName && !CompanionRuntimeState.isAppVisible() ->
+                trackedExternal
+            rootPackage.isNotBlank() -> rootPackage
+            else -> trackedExternal
+        }
+        if (packageName.isBlank()) return "foreground_unknown"
+        if (!PrivacyFilter.allowScreenObservationPackage(this, packageName, this.packageName)) {
+            return "sensitive_surface"
+        }
+        if (containsPasswordField(root)) return "password_surface"
+        return null
+    }
+
+    private fun captureCurrentScreenOnce(callback: (Map<String, Any>) -> Unit) {
+        val gate = captureGate()
+        if (gate != null) {
+            callback(mapOf("status" to "blocked", "errorCode" to gate))
+            return
+        }
+        if (!captureInFlight.compareAndSet(false, true)) {
+            callback(mapOf("status" to "blocked", "errorCode" to "capture_in_flight"))
+            return
+        }
+        try {
+            takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                mainExecutor,
+                object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        val payload = decodeScreenshot(screenshot)
+                        captureInFlight.set(false)
+                        callback(payload)
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        captureInFlight.set(false)
+                        // Secure-window is API 34 / value 6. Keep the numeric
+                        // comparison behind the SDK gate so this source still
+                        // compiles and runs with the Android 11 screenshot API.
+                        val secureWindow = Build.VERSION.SDK_INT >= 34 && errorCode == 6
+                        callback(
+                            mapOf(
+                                "status" to if (secureWindow) "blocked" else "failed",
+                                "errorCode" to if (secureWindow) {
+                                    "secure_window"
+                                } else {
+                                    "capture_failed"
+                                },
+                            ),
+                        )
+                    }
+                },
+            )
+        } catch (_: Throwable) {
+            captureInFlight.set(false)
+            callback(mapOf("status" to "failed", "errorCode" to "capture_start_failed"))
+        }
+    }
+
+    private fun decodeScreenshot(screenshot: ScreenshotResult): Map<String, Any> {
+        return try {
+            val hardware = screenshot.hardwareBuffer
+            val wrapped = Bitmap.wrapHardwareBuffer(hardware, screenshot.colorSpace)
+            val bitmap = try {
+                wrapped?.copy(Bitmap.Config.ARGB_8888, false)
+            } finally {
+                wrapped?.recycle()
+                hardware.close()
+            }
+            if (bitmap == null) {
+                return mapOf("status" to "failed", "errorCode" to "bitmap_unavailable")
+            }
+            val bytes = try {
+                ByteArrayOutputStream().use { output ->
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                        ByteArray(0)
+                    } else {
+                        output.toByteArray()
+                    }
+                }
+            } finally {
+                bitmap.recycle()
+            }
+            if (bytes.isEmpty() || bytes.size > 16 * 1024 * 1024) {
+                mapOf("status" to "failed", "errorCode" to "invalid_image_size")
+            } else {
+                mapOf(
+                    "status" to "succeeded",
+                    "errorCode" to "",
+                    "pngBytes" to bytes,
+                )
+            }
+        } catch (_: Throwable) {
+            mapOf("status" to "failed", "errorCode" to "capture_decode_failed")
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var activeService: AccessibilityBridgeService? = null
+        private val captureInFlight = AtomicBoolean(false)
+
+        fun captureOnce(callback: (Map<String, Any>) -> Unit) {
+            val service = activeService
+            if (service == null) {
+                callback(mapOf("status" to "blocked", "errorCode" to "accessibility_not_connected"))
+                return
+            }
+            service.captureCurrentScreenOnce(callback)
+        }
     }
 }
