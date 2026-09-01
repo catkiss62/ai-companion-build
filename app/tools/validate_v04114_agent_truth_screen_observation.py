@@ -25,6 +25,7 @@ guard = read(APP / "lib/core/grounding/operational_claim_grounding_guard.dart")
 android_bridge = read(APP / "lib/core/platform/android_bridge.dart")
 vision = read(APP / "lib/core/ai/qwen_vision_client.dart")
 provider_health = read(APP / "lib/core/diagnostics/provider_health.dart")
+provider_health_test = read(APP / "test/provider_health_v0402_test.dart")
 accessibility = read(
     APP
     / "android/app/src/main/kotlin/com/aicompanion/localfirst/AccessibilityBridgeService.kt"
@@ -116,6 +117,7 @@ for token in (
 ):
     assert token in runner or token in android_bridge or token in vision or token in database, token
 assert "'screen_observation'" in provider_health
+assert "ProviderHealth.safeContext('screen_observation')" in provider_health_test
 
 for token in (
     "Build.VERSION.SDK_INT < Build.VERSION_CODES.R",
