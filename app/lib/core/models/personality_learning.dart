@@ -93,7 +93,8 @@ enum PersonalityLearningRejectionReason {
   invalidScope('invalid_scope'),
   invalidSubject('invalid_subject'),
   invalidProposition('invalid_proposition'),
-  ambiguousReinforcement('ambiguous_reinforcement');
+  ambiguousReinforcement('ambiguous_reinforcement'),
+  contextOnlyReply('context_only_reply');
 
   const PersonalityLearningRejectionReason(this.key);
 
@@ -256,6 +257,9 @@ class PersonalityLearningProposal {
         normalizedUser.isEmpty ||
         !normalizedUser.contains(quote)) {
       return reject(PersonalityLearningRejectionReason.invalidQuote);
+    }
+    if (_isContextOnlyPacingReply(quote)) {
+      return reject(PersonalityLearningRejectionReason.contextOnlyReply);
     }
 
     final targetId = (item['target_id'] as String? ?? '').trim();
@@ -487,16 +491,34 @@ class PersonalityLearningProposal {
   }
 
   static int _distinctiveBigramOverlap(String left, String right) {
-    final leftBigrams = _cjkBigrams(left)..removeAll(_genericBigrams);
-    final rightBigrams = _cjkBigrams(right)..removeAll(_genericBigrams);
+    final leftBigrams = _distinctiveCjkBigrams(left);
+    final rightBigrams = _distinctiveCjkBigrams(right);
     return leftBigrams.intersection(rightBigrams).length;
   }
 
-  static Set<String> _cjkBigrams(String input) {
+  static Set<String> _distinctiveCjkBigrams(String input) {
     final output = <String>{};
     for (final match in RegExp(r'[\u3400-\u9fff]{2,}').allMatches(input)) {
       final run = match.group(0)!;
+      final genericCharacters = List<bool>.filled(run.length, false);
+      for (final phrase in _genericBigrams) {
+        var start = run.indexOf(phrase);
+        while (start >= 0) {
+          for (var index = start;
+              index < start + phrase.length;
+              index += 1) {
+            genericCharacters[index] = true;
+          }
+          start = run.indexOf(phrase, start + 1);
+        }
+      }
       for (var index = 0; index < run.length - 1; index += 1) {
+        // Do not let the edges of a generic phrase manufacture specificity.
+        // For example, removing only `喜欢` still leaves `欢在`, which would
+        // falsely help merge "海边散步" with "海边拍照".
+        if (genericCharacters[index] || genericCharacters[index + 1]) {
+          continue;
+        }
         output.add(run.substring(index, index + 2));
       }
     }
@@ -505,6 +527,39 @@ class PersonalityLearningProposal {
 
   static bool _containsAny(String input, List<String> cues) =>
       cues.any(input.contains);
+
+  static bool _isContextOnlyPacingReply(String input) {
+    final hasPacingLanguage = _containsAny(input, const <String>[
+      '慢慢来',
+      '慢慢就好',
+      '不用着急',
+      '不着急',
+      '不急',
+      '时间还长',
+      '以后再说',
+    ]);
+    if (!hasPacingLanguage) return false;
+    return !_containsAny(input, const <String>[
+      '我喜欢',
+      '我更喜欢',
+      '我真的喜欢',
+      '我不喜欢',
+      '我讨厌',
+      '我希望',
+      '我想要',
+      '我不想',
+      '我宁愿',
+      '我接受',
+      '我不接受',
+      '我改一下',
+      '我不是说',
+      '我的意思',
+      '你刚才',
+      '刚才那句',
+      '这种说法',
+      '这样说',
+    ]);
+  }
 
   static const Set<String> _genericBigrams = <String>{
     '用户',

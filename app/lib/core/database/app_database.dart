@@ -5799,14 +5799,17 @@ class AppDatabase {
   }
 
   Future<List<PersonalityLearningCandidate>>
-      personalityLearningCandidatesForExtraction({int limit = 16}) async {
+      personalityLearningCandidatesForExtraction({
+    required String contextKey,
+    int limit = 16,
+  }) async {
     final db = await database;
     final rows = await db.query(
       'personality_learning_candidates',
-      where: 'status != ?',
-      whereArgs: const ['retired'],
+      where: 'status != ? AND context_key = ?',
+      whereArgs: ['retired', contextKey],
       orderBy: 'last_observed_at DESC',
-      limit: limit.clamp(1, 40).toInt(),
+      limit: limit.clamp(1, 200).toInt(),
     );
     return rows
         .map(PersonalityLearningCandidate.fromDb)
@@ -5847,6 +5850,7 @@ class AppDatabase {
       } else {
         final matching = await txn.query(
           'personality_learning_candidates',
+          columns: const ['id'],
           where: 'scope = ? AND subject_key = ? AND context_key = ?',
           whereArgs: [
             proposal.scope.key,
@@ -5855,7 +5859,10 @@ class AppDatabase {
           ],
           limit: 1,
         );
-        if (matching.isNotEmpty) candidateRow = matching.first;
+        // Reusing an existing candidate must already have passed the parser's
+        // target-grounding gate. Never let a subject-key collision silently
+        // merge an ungrounded model proposal at the persistence layer.
+        if (matching.isNotEmpty) return false;
       }
 
       if (candidateRow == null &&
@@ -5948,8 +5955,10 @@ class AppDatabase {
           if (maturity.status == PersonalityLearningStatus.established &&
               candidateRow?['established_at'] == null)
             'established_at': observedMs,
-          if (maturity.status == PersonalityLearningStatus.contradicted)
-            'contradicted_at': observedMs,
+          'contradicted_at':
+              maturity.status == PersonalityLearningStatus.contradicted
+                  ? observedMs
+                  : null,
           'updated_at': observedMs,
         },
         where: 'id = ?',

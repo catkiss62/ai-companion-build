@@ -208,6 +208,73 @@ void main() {
       reparsed.rejectionReason,
       PersonalityLearningRejectionReason.ungroundedTarget,
     );
+
+    final asNewPacingPreference = Map<String, Object?>.from(raw)
+      ..['target_id'] = ''
+      ..['subject_key'] = 'user.preference.relationship.pacing'
+      ..['proposition'] = '用户偏好让关系慢慢成长，不急于发生变化';
+    final newSubjectParsed = PersonalityLearningProposal.parseDetailed(
+      raw: asNewPacingPreference,
+      userText: '慢慢来最好，我们时间还长着，不急',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+    expect(newSubjectParsed.proposal, isNull);
+    expect(
+      newSubjectParsed.rejectionReason,
+      PersonalityLearningRejectionReason.contextOnlyReply,
+    );
+
+    final genericPermission = Map<String, Object?>.from(asNewPacingPreference)
+      ..['evidence_quote'] = '可以，慢慢来';
+    final genericPermissionParsed = PersonalityLearningProposal.parseDetailed(
+      raw: genericPermission,
+      userText: '可以，慢慢来',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+    expect(genericPermissionParsed.proposal, isNull);
+    expect(
+      genericPermissionParsed.rejectionReason,
+      PersonalityLearningRejectionReason.contextOnlyReply,
+    );
+  });
+
+  test('an explicit first-person pacing preference remains learnable', () {
+    final raw = support(
+      subjectKey: 'user.preference.relationship.pacing',
+      quote: '我更喜欢关系慢慢来，不要一下子改变太多',
+    )..['proposition'] = '用户偏好关系逐步变化，不要突然改变太多';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '我更喜欢关系慢慢来，不要一下子改变太多',
+      context: ordinary,
+      existingById: const {},
+    );
+
+    expect(parsed.rejectionReason, isNull);
+    expect(parsed.proposal?.subjectKey, 'user.preference.relationship.pacing');
+  });
+
+  test('pacing elsewhere in the turn does not hide a separate preference', () {
+    final raw = support(
+      subjectKey: 'user.preference.communication.playful_stubbornness',
+      quote: '我希望你偶尔更任性一点',
+    )..['proposition'] = '用户喜欢 AI 偶尔更任性地表达自己';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '慢慢来就好；另外，我希望你偶尔更任性一点。',
+      context: ordinary,
+      existingById: const {},
+    );
+
+    expect(parsed.rejectionReason, isNull);
+    expect(
+      parsed.proposal?.subjectKey,
+      'user.preference.communication.playful_stubbornness',
+    );
   });
 
   test('explicit direct feedback keeps a model-selected target', () {

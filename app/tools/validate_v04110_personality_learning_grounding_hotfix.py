@@ -38,10 +38,12 @@ for token in (
     "PersonalityLearningRejectionReason",
     "ungroundedTarget('ungrounded_target')",
     "ambiguousReinforcement('ambiguous_reinforcement')",
+    "contextOnlyReply('context_only_reply')",
     "parseDetailed",
     "_findGroundedReinforcementTarget",
     "_isGroundedToTarget",
     "_distinctiveBigramOverlap",
+    "_isContextOnlyPacingReply",
     "Direct feedback is intentionally allowed",
     "explicitTarget",
 ):
@@ -52,8 +54,17 @@ for token in (
     "不能因为上一条 AI 顺便扩写了某个偏好就挂到该候选",
     "PersonalityLearningProposal.parseDetailed",
     "personality_learning_rejected_${entry.key.key}_count",
+    "contextKey: learningContext.contextKey",
+    "learningCandidates.take(16)",
 ):
     assert token in extractor, token
+
+for token in (
+    "where: 'status != ? AND context_key = ?'",
+    "if (matching.isNotEmpty) return false",
+    "maturity.status == PersonalityLearningStatus.contradicted",
+):
+    assert token in database, token
 
 for token in (
     "rejectionReasonCounts",
@@ -69,6 +80,9 @@ for token in (
     "true-device pacing reply cannot borrow the AI context target",
     "explicit direct feedback keeps a model-selected target",
     "PersonalityLearningRejectionReason.ungroundedTarget",
+    "PersonalityLearningRejectionReason.contextOnlyReply",
+    "an explicit first-person pacing preference remains learnable",
+    "pacing elsewhere in the turn does not hide a separate preference",
 ):
     assert token in tests, token
 

@@ -229,15 +229,14 @@ class MemoryExtractor {
         specialStyleTrialId: specialStyleTrialId,
         specialStyleKey: style.key,
       );
-      final learningCandidates = (await db
-              .personalityLearningCandidatesForExtraction(limit: 40))
-          .where((candidate) =>
-              candidate.contextKey == learningContext.contextKey)
-          .take(16)
-          .toList(growable: false);
+      final learningCandidates =
+          await db.personalityLearningCandidatesForExtraction(
+        contextKey: learningContext.contextKey,
+        limit: 40,
+      );
       final learningCandidateContext = learningCandidates.isEmpty
           ? '当前作用域没有既有学习候选。'
-          : learningCandidates.map((candidate) {
+          : learningCandidates.take(16).map((candidate) {
               return '- id=${candidate.id} | scope=${candidate.scope.key} | '
                   'subject_key=${candidate.subjectKey} | status=${candidate.status.key} | '
                   '${candidate.proposition}';
