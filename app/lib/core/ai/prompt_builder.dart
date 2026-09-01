@@ -526,7 +526,9 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
             ? '当前用户轮次与上一条聊天跨了${grounding.currentTurnCrossedCalendarDays}个自然日，不能称作“刚才/刚刚”；应按新的当天和当前时段理解。'
             : grounding.currentTurnHasLongGap
                 ? '当前用户轮次距上一条聊天已经较久，不能默认仍是同一瞬间；旧状态是否持续必须重新核验。'
-                : '当前用户轮次与上一条聊天仍在同一短时段内。';
+                : grounding.currentTurnRequiresTransientRecheck
+                    ? '当前用户轮次与上一条聊天已有明显间隔；话题可以继续，但短时活动不能默认仍在进行。'
+                    : '当前用户轮次与上一条聊天仍在同一短时段内。';
     final offset = grounding.utcOffset.inMinutes;
     final sign = offset >= 0 ? '+' : '-';
     final absMinutes = offset.abs();
@@ -534,6 +536,22 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
     final local = grounding.nowLocal;
     final date = '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
     final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    String localTimestamp(DateTime? value) {
+      if (value == null) return '无';
+      final localValue = value.toLocal();
+      return '${localValue.year.toString().padLeft(4, '0')}-${localValue.month.toString().padLeft(2, '0')}-${localValue.day.toString().padLeft(2, '0')} '
+          '${localValue.hour.toString().padLeft(2, '0')}:${localValue.minute.toString().padLeft(2, '0')}';
+    }
+    final ordinarySceneContract = mode == PromptGenerationMode.userTurn
+        ? OrdinaryChatSceneBoundaryPolicy.promptContract(grounding)
+        : '';
+    final ordinaryTurnTiming = mode == PromptGenerationMode.userTurn
+        ? '''- 上一段普通聊天结束时间：${localTimestamp(grounding.previousConversationAt)}
+- 当前普通聊天用户轮次时间：${localTimestamp(grounding.lastUserAt)}
+- 当前用户轮次距上一条聊天：${age(currentTurnGap)}
+- 当前用户轮次跨自然日数：${grounding.currentTurnCrossedCalendarDays}
+- 手机预计算间隔分类：${grounding.currentTurnGapBand}'''
+        : '';
     final modeText = mode == PromptGenerationMode.proactive
         ? 'AI 主动联系：此刻没有新的用户输入需要回答。'
         : '用户发起的聊天轮次：只回答当前真实 user turn。';
@@ -559,10 +577,10 @@ UTC offset：$offsetText
 - $silenceRule
 - 距离最后真实用户发言：${age(grounding.minutesSinceLastUser)}
 - 距离最后 AI 发言：${age(grounding.minutesSinceLastAssistant)}
-- 当前用户轮次距上一条聊天：${age(currentTurnGap)}
-- 当前用户轮次跨自然日数：${grounding.currentTurnCrossedCalendarDays}
+$ordinaryTurnTiming
 - $continuityRule
 - 最后用户发言之后 AI 已发消息 ${grounding.assistantMessagesSinceLastUser} 条，其中主动消息 ${grounding.proactiveMessagesSinceLastUser} 条。
+$ordinarySceneContract
 
 事实来源规则：
 - REAL_USER_MESSAGE：只有 role=user 聊天消息可引用成“你说过”。

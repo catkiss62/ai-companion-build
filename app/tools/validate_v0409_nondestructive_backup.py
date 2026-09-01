@@ -23,7 +23,7 @@ cleaner = read("android/app/src/main/kotlin/com/aicompanion/localfirst/SnapshotC
 dart_cleaner = read("lib/core/sync/snapshot_cache_janitor.dart")
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*(?:0\.40\.9\+138|0\.41\.(?:0\+139|1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150))\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*(?:0\.40\.9\+138|0\.41\.(?:0\+139|1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151))\s*$", pubspec, re.M)
 
 for token in (
     "enum SnapshotArchiveKind",

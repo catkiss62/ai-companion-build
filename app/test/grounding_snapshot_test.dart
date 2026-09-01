@@ -161,9 +161,105 @@ void main() {
     expect(snapshot.currentTurnGapMinutes, 15 * 60);
     expect(snapshot.currentTurnCrossedCalendarDays, 1);
     expect(snapshot.currentTurnCrossedDay, isTrue);
+    expect(snapshot.currentTurnRequiresTransientRecheck, isTrue);
+    expect(snapshot.currentTurnGapBand, 'cross_day');
     expect(snapshot.currentTurnHasLongGap, isTrue);
     expect(snapshot.previousConversationAt, previous);
     expect(snapshot.toRedactedJson()['currentTurnCrossedDay'], isTrue);
+  });
+
+  test('15-minute user turn keeps the ordinary short scene available', () {
+    final start = DateTime(2026, 9, 1, 13, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: start.add(const Duration(minutes: 15)),
+      recent: [
+        message(id: 'u1', role: 'user', at: start),
+        message(
+          id: 'a1',
+          role: 'assistant',
+          at: start.add(const Duration(minutes: 1)),
+        ),
+        message(
+          id: 'u2',
+          role: 'user',
+          at: start.add(const Duration(minutes: 15)),
+        ),
+      ],
+      answeredUserMessageIds: const {'u1'},
+    );
+
+    expect(snapshot.currentTurnGapMinutes, 14);
+    expect(snapshot.currentTurnRequiresTransientRecheck, isFalse);
+    expect(snapshot.currentTurnHasLongGap, isFalse);
+    expect(snapshot.currentTurnGapBand, 'same_scene');
+  });
+
+  test('13:01 to 15:00 rechecks transient activity despite 119-minute gap', () {
+    final start = DateTime(2026, 9, 1, 13, 0);
+    final current = DateTime(2026, 9, 1, 15, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: current,
+      recent: [
+        message(id: 'u1', role: 'user', at: start),
+        message(
+          id: 'a1',
+          role: 'assistant',
+          at: start.add(const Duration(minutes: 1)),
+        ),
+        message(id: 'u2', role: 'user', at: current),
+      ],
+      answeredUserMessageIds: const {'u1'},
+    );
+
+    expect(snapshot.previousConversationAt, DateTime(2026, 9, 1, 13, 1));
+    expect(snapshot.currentTurnGapMinutes, 119);
+    expect(snapshot.currentTurnRequiresTransientRecheck, isTrue);
+    expect(snapshot.currentTurnHasLongGap, isFalse);
+    expect(snapshot.currentTurnGapBand, 'transient_recheck');
+    expect(
+      snapshot.toRedactedJson()['currentTurnRequiresTransientRecheck'],
+      isTrue,
+    );
+    final contract = OrdinaryChatSceneBoundaryPolicy.promptContract(snapshot);
+    expect(contract, contains('此刻一律视为 unknown'));
+    expect(contract, contains('也不得反向虚构“已经做完”'));
+  });
+
+  test('current explicit still-active text is allowed to override unknown', () {
+    final current = DateTime(2026, 9, 1, 15, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: current,
+      recent: [
+        message(
+          id: 'a1',
+          role: 'assistant',
+          at: current.subtract(const Duration(minutes: 90)),
+        ),
+        message(id: 'u1', role: 'user', at: current),
+      ],
+    );
+
+    final contract = OrdinaryChatSceneBoundaryPolicy.promptContract(snapshot);
+    expect(contract, contains('还在/刚做完/一直在'));
+    expect(contract, contains('以当前原话覆盖 unknown'));
+    expect(contract, contains('话题、关系、长期事实与记忆'));
+  });
+
+  test('120-minute boundary is both long and transient recheck', () {
+    final previous = DateTime(2026, 9, 1, 13, 0);
+    final current = DateTime(2026, 9, 1, 15, 0);
+    final snapshot = ConversationGroundingPolicy.build(
+      now: current,
+      recent: [
+        message(id: 'a1', role: 'assistant', at: previous),
+        message(id: 'u1', role: 'user', at: current),
+      ],
+    );
+
+    expect(snapshot.currentTurnGapMinutes, 120);
+    expect(snapshot.currentTurnRequiresTransientRecheck, isTrue);
+    expect(snapshot.currentTurnHasLongGap, isTrue);
+    expect(snapshot.currentTurnGapBand, 'long_gap');
   });
 
   test('20:47 is explicitly evening instead of model-guessed time', () {

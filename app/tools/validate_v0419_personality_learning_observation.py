@@ -32,9 +32,9 @@ phase_doc = read("docs/PERSONALITY_LEARNING_GROWTH_PHASE1.md")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:9\+148|10\+149|11\+150)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:9\+148|10\+149|11\+150|12\+151)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 42;" in database
-assert "buildLabel = 'v0.41.11+150'" in agent_self
+assert "buildLabel = 'v0.41.12+151'" in agent_self
 assert "if (oldVersion < 42)" in database
 assert "_createV42Tables" in database
 

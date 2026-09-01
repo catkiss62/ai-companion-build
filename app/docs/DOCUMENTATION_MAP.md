@@ -40,6 +40,10 @@
 - `NSFW_CONTEXT_ROUTER_v1.md`：独立上下文路由与安全边界。
 - `EMOTION_ENGINE_EXPANSION_EVAL_v1.md`：情绪引擎扩建/停止判据。
 
+### 普通聊天时间语义
+
+- `ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md`：普通聊天上一段/当前时间、手机预计算 gap band、短寿命现场 unknown 合同与沉浸 Session 隔离。
+
 ### 身体与感知
 
 - `DUAL_CHANNEL_SENSE_v1.md`

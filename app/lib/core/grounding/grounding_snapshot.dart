@@ -27,6 +27,9 @@ extension GroundingDaypartLabel on GroundingDaypart {
 }
 
 class GroundingSnapshot {
+  static const transientSceneRecheckMinutes = 45;
+  static const longGapMinutes = 120;
+
   const GroundingSnapshot({
     required this.nowLocal,
     required this.utcOffset,
@@ -70,8 +73,21 @@ class GroundingSnapshot {
   final int currentTurnCrossedCalendarDays;
 
   bool get currentTurnCrossedDay => currentTurnCrossedCalendarDays > 0;
+  bool get currentTurnRequiresTransientRecheck =>
+      currentTurnCrossedDay ||
+      (currentTurnGapMinutes != null &&
+          currentTurnGapMinutes! >= transientSceneRecheckMinutes);
   bool get currentTurnHasLongGap =>
-      currentTurnGapMinutes != null && currentTurnGapMinutes! >= 120;
+      currentTurnGapMinutes != null &&
+      currentTurnGapMinutes! >= longGapMinutes;
+
+  String get currentTurnGapBand {
+    if (currentTurnGapMinutes == null) return 'none';
+    if (currentTurnCrossedDay) return 'cross_day';
+    if (currentTurnHasLongGap) return 'long_gap';
+    if (currentTurnRequiresTransientRecheck) return 'transient_recheck';
+    return 'same_scene';
+  }
 
   bool get hasConversation => lastUserMessageId != null || lastAssistantMessageId != null;
 
@@ -119,6 +135,9 @@ class GroundingSnapshot {
         'currentTurnGapMinutes': currentTurnGapMinutes,
         'currentTurnCrossedCalendarDays': currentTurnCrossedCalendarDays,
         'currentTurnCrossedDay': currentTurnCrossedDay,
+        'currentTurnGapBand': currentTurnGapBand,
+        'currentTurnRequiresTransientRecheck':
+            currentTurnRequiresTransientRecheck,
         'currentTurnHasLongGap': currentTurnHasLongGap,
       };
 
@@ -136,6 +155,24 @@ class GroundingSnapshot {
 
   static String _timeOnly(DateTime value) =>
       '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+}
+
+class OrdinaryChatSceneBoundaryPolicy {
+  const OrdinaryChatSceneBoundaryPolicy._();
+
+  static String promptContract(GroundingSnapshot grounding) {
+    if (grounding.currentTurnGapMinutes == null) return '';
+    if (!grounding.currentTurnRequiresTransientRecheck) {
+      return '''
+普通聊天临时现场边界：当前是短间隔，可以把上一段中的短时活动视为可能继续；当前 REAL_USER_MESSAGE 有更新或纠正时始终以它为准，不要机械复述时间戳。''';
+    }
+    return '''
+普通聊天临时现场边界：
+- 上一段聊天中的“正在吃饭/洗澡/通勤/出门/开会/准备睡”等短寿命活动，此刻一律视为 unknown；不得默认它仍在继续，也不得反向虚构“已经做完”。
+- 当前 REAL_USER_MESSAGE 若明确说“还在/刚做完/一直在”，以当前原话覆盖 unknown；不能仅凭旧 ASSISTANT_HISTORY 覆盖。
+- 话题、关系、长期事实与记忆不因这个间隔失效；可以继续话题，但不能把继续话题写成继续旧的物理活动。
+- 除非用户正在讨论时间，不要机械复述时间戳或解释这条规则。''';
+  }
 }
 
 class ConversationGroundingPolicy {
