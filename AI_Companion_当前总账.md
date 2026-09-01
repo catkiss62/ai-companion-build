@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04115-phase2a-self-experience-desire-web`；从 v0.41.14 最终 CI/APK 代码树开出的 Phase 2A 独立批，远端首轮构建输入已固化，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
+| 当前开发分支 | `agent/v04115-phase2a-self-experience-desire-web`；从 v0.41.14 最终 CI/APK 代码树开出的 Phase 2A 独立批，已完成 CI/APK 并待真机，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 首轮远端 CI 输入 commit `c270deb554694b7de1c25ae57d09071f320c4f0e`、tree `4541f6b964e17e30f67ceb93ab0310d7482b3913`，与本地功能提交 `e60e582` 的 tree 完全一致；run 665 的 Flutter test 仅发现新增数学测试期望错误，运行代码尚未因此改动。下一提交将包含测试修正与本段证据 |
+| 当前代码 head / tree | 最终 APK 构建输入 commit `47b29f0a1ff1c638a363b0a3803ef4caf5712521`、tree `82c4633abc3056e845cb4d122601b50e0aa09b65`；它只在首轮功能 tree 上修正新增测试期望并补 run 665 证据，没有改变运行系数。其后仅允许以 `[skip ci]` 总账封存提交前进文档，不得把文档 head 冒充 APK 输入 |
 | App / 数据库 | 当前开发目标 `0.41.15+154` / schema 43；新增自我回顾候选、自我体验和欲望事件表；Snapshot/备份 protocol 5 不变，schema 42 覆盖升级必须保留全部既有用户数据 |
-| 最终 CI | v0.41.14 Actions run [`33516325092`](https://github.com/catkiss62/ai-companion-build/actions/runs/33516325092)（664）全绿：129 项源码/历史 validator、Kotlin 编译与单测、Flutter analyze、433/433 Flutter tests、Release APK、固定签名、TTS/桌宠/LingChat/塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped |
-| 测试 APK | `AI-Companion-v0.41.14-153-Agent-Truth-One-Time-Screen-APK.apk`，325,410,026 bytes |
-| APK SHA-256 | `09990517e926da91aa1cb835d8c2cb5fc7bf0dfaf708183b2be2faa52656b144`；CI checksum 与 Artifact 下载后独立解包计算一致 |
-| Artifact / Release | Artifact ID `9804183652`，ZIP 319,114,060 bytes，digest `sha256:7ab781497e41157b1e404e6e7245b903c640ab9262d993fa65808ff5adcd270a`，保留至 2026-09-15T14:06:22Z；Draft Release [`untagged-60b1779c5427bc032fa9`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-60b1779c5427bc032fa9)，未发布正式 Release |
+| 最终 CI | v0.41.15 Actions run [`33551625346`](https://github.com/catkiss62/ai-companion-build/actions/runs/33551625346)（666）全绿：127 项源码/历史 validator、Kotlin 编译与单测、Flutter analyze、444/444 Flutter tests、Release APK、固定签名、TTS/417 文件桌宠/LingChat/塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped |
+| 测试 APK | `AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-APK.apk`，325,483,602 bytes |
+| APK SHA-256 | `bccdc1890bf3eae073b2c397c0e72e67a7b01ad19ad2014f8beaebe1dfd27fc3`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包计算三方一致 |
+| Artifact / Release | Artifact ID `9818028147`，ZIP 319,185,462 bytes，digest `sha256:a0c00719369e61e71da6305df2942f9adf17a314debd71ad892c6cd0d0a4477a`，保留至 2026-09-15T19:58:42Z；Draft Release [`untagged-7e420debed538ea67c62`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7e420debed538ea67c62)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 可安装测试基线仍是 `v0.41.14+153 / schema 42`；Phase 2A 的 `v0.41.15+154 / schema 43` 当前为 `FIRST CI TEST-FIX IN PROGRESS / APK PENDING`：run 665 已过 127 项源码/历史回归、Kotlin 与 Flutter analyze，Flutter 为 443 passed / 1 个新增期望失败。屏幕问题保持冻结。Phase 0+1 观察隔离不变，Phase 2B/3/4 继续关闭；不允许自主截屏、视频、MCP 或学习结果提前影响回复 |
+| 当前总状态 | 当前可安装测试基线为 `v0.41.15+154 / schema 43`，状态 `CI PASSED / APK READY / TRUE DEVICE PENDING`。首轮 run 665 的单个新增测试期望错误已由 run 666 全量闭合，不是运行逻辑失败。屏幕问题保持冻结。Phase 0+1 观察隔离不变，Phase 2B/3/4 继续关闭；不允许自主截屏、视频、MCP 或学习结果提前影响回复 |
 
 ### 3. 当前模块状态总表
 
@@ -42,11 +42,11 @@
 |---|---|---|
 | 普通聊天、流式、动作/对白分段、19 Emotion 展示 | 已实现并持续回归；v0.38.16 动作分段热修曾真机通过；v0.41.13 最后真实用户/最近互动双时钟、30 分钟详细注入边界和当前用户人称守卫已过 CI/APK，其中时间边界单场景真机已通过 | 长期自然间隔仍继续观察，不要求人为等待阻塞开发；普通短活动与明确持续时间由 API 有界判断，AI 主动消息不刷新用户现场，沉浸房间不改。当前用户偶发被写成“他”已有窄出站守卫；偶发多余 `「` 仍见低优先级问题 |
 | 初始性格、七层规则、称谓/视角、普通与沉浸表达 | v0.41.8 胶囊恢复已自动化通过；“直爽泼辣”末端强锚点真机仍无自然粗口；v0.41.11 隔离语义复核已通过 CI/APK 与固定六句真机回放；v0.41.13 Phase 0+1 独立审查已过 CI/APK，待真机 | 学习候选继续只观察、不改表达；v0.41.13 封住旧 Memory/Relationship 绕过、direct feedback 错 target、内容偏好越界和 proposition 绝对化。少量漏判可接受，误判不可接受；Phase 2 尚未实施，不能把 Phase 1 真机通过写成回复已会消费成长结果 |
-| Desire / Thought / Intent / Gate、主动联系 | v0.41.15 本地已把自然回归改为 baseline-centered、耦合改为相对各轴自身 baseline，并增加 14 天无正文来源事件；Self-Drive 已接可去重候选与真实体验终态；同一熄屏会话不再每个心跳重复增加互动欲 | 尚待 Flutter 编译/全测、CI/APK 与真机自然观察；系数没有整体放大。熄屏仅是 contact window，不是“用户空闲”，夜间按疲劳曲线显著折减 |
+| Desire / Thought / Intent / Gate、主动联系 | v0.41.15 已把自然回归改为 baseline-centered、耦合改为相对各轴自身 baseline，并增加 14 天无正文来源事件；Self-Drive 已接可去重候选与真实体验终态；同一熄屏会话不再每个心跳重复增加互动欲；CI/APK 已通过 | 尚待真机自然观察；系数没有整体放大。熄屏仅是 contact window，不是“用户空闲”，夜间按疲劳曲线显著折减 |
 | Dynamic Moe、Emotion Episode、互动互惠、夜间疲劳 | v0.41.5 修复投影衰减、余韵、短回复误罚和重复 `rest_need`；CI/APK 通过 | 仍需真机自然度与长期状态观察；不能用单次诊断宣称稳定 |
 | Memory、关系同化、连续性、Somatic 双通道、AI Self 基础 | 多轮已实现；v0.41.6 新增按需 `System Facts / Recent Outcomes`，CI/APK 通过 | Agent 自读真实语言效果与 schema 40→41 迁移仍待真机；不能把代码事实说成“她自己编写” |
 | Agent Tool 主循环 | v0.41.13 基线有六个用户轮只读工具；v0.41.14 已增加并通过 CI/APK 的第七个“用户明确请求的一次性当前屏幕观察”和 `system_self.read(growth)` | 当前没有“网页候选 → 下载同一图片 → 识图 → 相册保存”的用户轮可执行工具；视频、修改提案、真实提醒、MCP 仍不可执行，自主屏幕观察仍关闭；新工具仍待真机验收 |
-| 公开网页发现、候选、分享 | v0.41.15 本地已将 18 词轮播扩为 curiosity/reflection/social 三种独立搜索目的、每类 24 个宽领域安全兜底，并按近期 interest key 跳过重复；结果先进入 discard/hold/verify/share_candidate 评价，只有 social Intent、wildcard 或独立 social 明显超过自身 baseline 时可提名最多一个分享候选 | 尚未接成熟 AI interest（留 Phase 3），也尚待 CI/APK/真机。联网成功不等于自动分享；held/verify 不进入现有主动分享队列，原始私聊/Thought 正文仍不得成为公开查询 |
+| 公开网页发现、候选、分享 | v0.41.15 已将 18 词轮播扩为 curiosity/reflection/social 三种独立搜索目的、每类 24 个宽领域安全兜底，并按近期 interest key 跳过重复；结果先进入 discard/hold/verify/share_candidate 评价，只有 social Intent、wildcard 或独立 social 明显超过自身 baseline 时可提名最多一个分享候选；CI/APK 已通过 | 尚未接成熟 AI interest（留 Phase 3），并待真机观察。联网成功不等于自动分享；held/verify 不进入现有主动分享队列，原始私聊/Thought 正文仍不得成为公开查询 |
 | 模拟手机、浏览器、私人相册 | 用户消息附件强绑定与相册底座已实现；新存档确认旧网页候选曾“识图摘要与来源图片不一致”，修复后聊天委托和后台链均无网页图成功保存证据 | P0 独立修复同一字节对象贯穿下载/识图/hash/落盘，并决定是否增加受控的用户轮保存工具；不得把搜索摘要或另一张缓存图冒充已保存图片 |
 | 沉浸房间 / NSFW | v0.39.x 已实现并持续回归 | 成人关系方向、Reality Identity、Session 隔离不可被通用安全模板或女性向材料覆盖 |
 | 本地 TTS、提示音与停止 | 新妹居 TTS 核心在 v0.39.5 真机通过；后续分句/呈现持续回归 | 边角停顿与部分提示音体验不是全局真机收口；不得让 reasoning 进入 TTS |
@@ -70,7 +70,7 @@
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
 | P0 · CI PASSED / APK READY / TRUE DEVICE PENDING | v0.41.13 Phase 0+1 审查 + 普通/主动时间加固 | 独立 `0.41.13+152 / schema 42`：学习表隔离审计、旧 Memory/Relationship 绕过过滤、direct feedback 原句、行为 subject、命题扩张与能力真值门禁；时间使用最后真实用户现场/最近互动双时钟，`<30` 分钟不详细注入，首次跨阈值详细、后续精简，AI 主动消息不刷新现场；同时加固当前用户“他”误称。本批不删除旧记录、不打开 Phase 2。run 660 全绿并已生成三方 SHA 一致的测试 APK；长时间间隔继续作为后续观察项 |
 | P0 · CI PASSED / APK READY / TRUE DEVICE PARTIAL | v0.41.14 Agent 操作事实真实性 + 成长状态只读 + 用户单次屏幕观察 | run 664 已完成 129 validator、Kotlin、Flutter analyze、433 tests、Release APK、固定签名和全载荷校验；APK 独立解包 SHA 与 CI checksum 一致。真机确认新版、普通图片识图与 Accessibility 健康；屏幕像素链在 Provider 前失败，按用户决定冻结并保留详细定位资料。操作事实门禁继续自然观察，不为截图单独消耗下一轮 APK；自主截图、视频、MCP 和 Phase 2 消费继续关闭 |
-| P0 · FIRST CI TEST-FIX IN PROGRESS / APK PENDING / Phase 2A | Self-Drive 体验证据、Desire 数值标定、熄屏互动窗口与自主联网选题重构 | `v0.41.15+154 / schema 43` 已推送首轮构建：候选→选中→完成/丢弃/失败体验链、baseline-centered 动力学、相对 baseline 耦合、欲望来源遥测、90 分钟单次熄屏联系窗口及夜间折减、三种联网意图/72 个宽领域兜底/近期去重和四分支 appraisal；同时明确允许“想起/琢磨具体事情”，阻止把自动召回说成“翻了聊天记录”。run 665 的源码回归、Kotlin、Flutter analyze 已过，443/444 Flutter tests 通过；唯一失败为新增 baseline 测试忽略 baseline 自身四个月半衰期回锚造成的百万分之几偏差，运行实现未失败。修正期望后须完整重建，详细证据见第 20 节 |
+| P0 · CI PASSED / APK READY / TRUE DEVICE PENDING / Phase 2A | Self-Drive 体验证据、Desire 数值标定、熄屏互动窗口与自主联网选题重构 | `v0.41.15+154 / schema 43` 已生成测试 APK：候选→选中→完成/丢弃/失败体验链、baseline-centered 动力学、相对 baseline 耦合、欲望来源遥测、90 分钟单次熄屏联系窗口及夜间折减、三种联网意图/72 个宽领域兜底/近期去重和四分支 appraisal；同时明确允许“想起/琢磨具体事情”，阻止把自动召回说成“翻了聊天记录”。run 665 找到单个新增数学测试期望错误；修正后 run 666 的 127 项源码回归、Kotlin、Flutter analyze、444 tests、Release APK、签名/载荷/checksum 与上传全过。真机重点见第 20 节，Phase 2B 仍未开启 |
 | P1 · 同一大型阶段 / Phase 2B | 轻量 topic/subject 关联记忆与小幅回复倾向 | 为长期记忆和已成熟 Phase 1 候选增加主题锚点、有限一层关联召回与可审计的小幅 bias；解决短近场窗口下同一项目的前因后果断裂，不建设完整知识图谱。Phase 2A/2B 都完成真机排错后，再对 Phase 2 做一次独立完整代码审查。开工时再读取第 14 节已登记的 companion-emergence、LMC-5、A-MEM、Memobase、PersonaMem 参考页面；本批不提前打开或消耗参考额度 |
 | P1 · 后续大型阶段 / Phase 3 | AI 自身兴趣/习惯、版本回滚、激活预算与试穿蒸馏 | 只从多次真实自主选择、持续关注、后续查证/分享和互动反馈形成可回滚 `ai_interest` / AI habit，保留版本、来源、反证、新鲜度、激活预算和停用路径；成熟兴趣才可小幅影响联网选题、主动话题和表达习惯。普通试穿只蒸馏有证据支持的习惯，不把整套脚本焊入核心。开工时再读第 14 节参考入口；Phase 2 真机闭环后进入 |
 | P2 · 后续大型阶段 / Phase 4 | 低频主动澄清与娱乐测试 | 只在不确定且值得确认时低频询问，不把每轮变成问卷；娱乐测试只作校准，不直接写人格事实。开工时再读 PersonaMem/Generative Agents 等第 14 节入口；Phase 3 真机闭环后进入 |
@@ -395,7 +395,7 @@
 8. Actions run 663 已越过 run 662 失败点：Kotlin 编译/新增隐私单测、Flutter analyze 均通过，Flutter tests 为 432 passed / 1 failed。唯一失败是新增 `observeBytes` 单测的 Mock HTTP 响应含中文但没有声明 UTF-8，`http.Response` 在进入被测代码前按 Latin-1 构造失败；同文件旧识图测试和本批操作真值测试均已通过，不是运行识图回归。修复仅给 Mock 响应补 `application/json; charset=utf-8`；复审确认不修改 Provider 请求、解析、截图或隐私路径。run 663 未生成 APK，待下一次完整 Actions 重建。
 9. Actions run 664 最终全绿：129 项源码/历史 validator、Kotlin 编译与包含 `PrivacyFilterTest` 的单测、Flutter analyze、433/433 Flutter tests、Release APK、固定私有测试签名、TTS/桌宠/LingChat/塔罗载荷哈希、Artifact 与草稿 Release 上传均通过，失败报告 job 正常 skipped。APK 325,410,026 bytes，SHA-256 `09990517e926da91aa1cb835d8c2cb5fc7bf0dfaf708183b2be2faa52656b144`；Artifact ZIP digest `7ab781497e41157b1e404e6e7245b903c640ab9262d993fa65808ff5adcd270a`，下载后再次解包计算 APK 得到同一 SHA。这仅证明源码/构建闭环，真机仍要覆盖安装并验收操作真值语言、growth scope、Accessibility 授权、普通/敏感/密码/secure 页、跨 App 截图、中断幂等和原始字节不落盘。
 
-### 20. 2026-09-02 · Self-Drive、欲望数值与自主联网成长审计（PHASE 2A FIRST CI TEST-FIX IN PROGRESS / APK PENDING）
+### 20. 2026-09-02 · Self-Drive、欲望数值与自主联网成长审计（PHASE 2A CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 #### A. v0.41.14 屏幕观察真机失败与冻结决定
 
@@ -454,7 +454,7 @@
 8. **验证与构建**：本地专项、历史 validators、数据库迁移/备份、Flutter analyze/tests、Kotlin 与固定载荷全过后构建首个 Phase 2A APK。真机重点观察各轴来源、Self-Drive Outcome、静默整理是否不强制分享、三类联网结果分支、熄屏白天/夜间联系节奏和事实话术。真机排错完成后做一次 Phase 2A 代码审查；Phase 2B 真机排错后再对整个 Phase 2 做既定独立完整审查。只有代码实际变化才重建收口 APK。
 9. **开工参考复核（2026-09-02）**：已按约定在正式开工时读取当前主仓资料。`companion-emergence` 当前明确存在阈值触发的私密 journal/dream/reflex、research threads、主动候选经 editorial D 选择后才外发，支持“内部体验不等于必须分享”；其 attunement 仍以真实证据从 hunch 成熟。A-MEM 仍采用结构化 note/tag/context 与新增记忆时分析有限连接，但自动改写旧记忆/ChromaDB/全自动连边不适合本机安全边界。Memobase 仍把 profile 与 event timeline 分层并用 buffer/flush 控制成本，支持“事件先落地、画像后成熟”。PersonaMem 仍重点覆盖跨 Session、演化偏好、长距离和无关上下文干扰，适合转成回放；Generative Agents 仍仅借 memory/reflection/planning 的低频整理思想，不引入完整 NPC 模拟。LMC-5 继续沿用已固定的 raw event / curated memory 分层和 AGPL 代码隔离结论。本批只独立实现机制，不复制外部代码或默认人格。
 
-#### F. v0.41.15 Phase 2A 当前实现与首轮 CI（TEST-FIX IN PROGRESS）
+#### F. v0.41.15 Phase 2A 实现、CI 与 APK（TRUE DEVICE PENDING）
 
 1. 分支为 `agent/v04115-phase2a-self-experience-desire-web`，目标版本 `0.41.15+154`、SQLite schema 43、Snapshot/备份 protocol 5。开工范围和参考复核先以本地 `f46409a` 固化；首轮远端构建输入 commit 为 `c270deb554694b7de1c25ae57d09071f320c4f0e`、tree 为 `4541f6b964e17e30f67ceb93ab0310d7482b3913`，与本地功能提交 `e60e582` tree 完全一致。当前仍无 APK，不能标记 CI/APK 通过。
 2. schema 43 新增 `self_review_candidates`、`self_experiences`、`desire_events`。候选以 source kind/ref/version hash 去重并带 30 天 TTL；只有原子 `pending→selected` 成功后才能处理，完成、来源失效、未知来源、租约丢失和异常分别落为 `completed/discarded/failed`，体验保留 90 天且不保存来源正文或隐藏思考。三张表进入 `exportAll/importAll`；schema 42 升级时为空表，不删除旧消息、Memory、Thought、学习表或关系数据。
@@ -472,6 +472,7 @@
 14. 本地静态验证已完成：新 v0.41.15 合同、v0.41.14 事实门禁、current ledger/schema、v0.34.8/0.34.9 联网、v0.31 欲望数学与 v0.40.9～v0.41.3 备份链均通过；workflow YAML、Python 语法和 `git diff --check` 通过。按当前 workflow 主验证清单本地跑 127 项为 `119 passed / 8 environment-only failed`；8 项仍只是未恢复 CI 专用 417 文件桌宠、LingChat/Meju/native/TTS 大载荷和本地无 `kotlinc`，没有 Phase 2A 功能断言失败。本地无 Dart/Flutter，所以此状态只能写 `LOCAL STATIC REVIEW PASSED`，不能写编译、Flutter tests 或 APK 通过。
 15. 后续固定顺序：提交并推送当前独立分支触发完整 Kotlin、Flutter analyze/tests、Release APK、签名与载荷校验。任何编译或测试失败先回填本节、修复并重跑。首个 APK 真机重点看 schema 42→43 数据保留、selfExperience 成功/丢弃计数、欲望 24 小时来源、熄屏白天/夜间节奏及联网 held/verify/share 分布；真机问题修复后做 Phase 2A 完整代码审查，确认旧直接欲望写入、迁移、备份、隐私、反馈环和 Phase 1 隔离，再决定是否需收口 APK。Phase 2A 稳定后才进入 Phase 2B。
 16. 首轮 Actions run [`33550559895`](https://github.com/catkiss62/ai-companion-build/actions/runs/33550559895)（665）已真实执行：127 项源码/历史回归、Kotlin 桌宠/悬浮层测试与 Flutter analyze 通过；Flutter tests 为 `443 passed / 1 failed`，因此 Release APK、签名/载荷/checksum/Artifact/Draft Release 步骤正确跳过。唯一失败在新增 `an event-free snapshot rests at its learned baselines`：测试要求 drive 与本 tick 更新后的 baseline 在 `1e-9` 内完全相等，却忽略学习 baseline 自身会按约四个月半衰期向默认 anchor 缓慢回归；drive 从旧 baseline 追随新 baseline 会自然滞后约 `3.6e-6`，并可能产生同量级相对-baseline 耦合。修复只把合同改为“所有 drive 与新 baseline 差值小于 `1e-5`，且 baseline 到 anchor 的距离不增加”，没有放宽有界性、修改运行系数或掩盖功能失败；必须重新跑完整 CI 后才能生成 APK。
+17. 修正构建输入为 `47b29f0a1ff1c638a363b0a3803ef4caf5712521` / tree `82c4633abc3056e845cb4d122601b50e0aa09b65`。Actions run [`33551625346`](https://github.com/catkiss62/ai-companion-build/actions/runs/33551625346)（666）全绿：127 项源码/历史回归、Kotlin、Flutter analyze、`444/444` Flutter tests、Release APK、固定 signer `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`、原生库、417 文件桌宠、Meju TTS、LingChat 19 表情与 22 张塔罗载荷、checksum、Artifact 和 Draft Release 全部通过；failure report job 正常 skipped。APK `AI-Companion-v0.41.15-154-Phase2A-Self-Experience-Desire-Web-APK.apk` 为 `325,483,602` bytes，SHA-256 `bccdc1890bf3eae073b2c397c0e72e67a7b01ad19ad2014f8beaebe1dfd27fc3`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包复算三方一致。Artifact ID `9818028147`、ZIP `319,185,462` bytes、digest `sha256:a0c00719369e61e71da6305df2942f9adf17a314debd71ad892c6cd0d0a4477a`、保留至 `2026-09-15T19:58:42Z`；Draft Release 为 [`untagged-7e420debed538ea67c62`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7e420debed538ea67c62)。没有合并 `main`，没有发布正式 Release；当前只能标记 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ## 历史工作记录（原文保留，按需检索）
 
