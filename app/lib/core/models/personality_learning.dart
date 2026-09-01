@@ -320,8 +320,14 @@ class PersonalityLearningProposal {
                   ) >=
                   1;
         }).toList(growable: false);
-        if (matchingTargets.length != 1 ||
-            matchingTargets.single.id != target.id) {
+        if (matchingTargets.isEmpty ||
+            (matchingTargets.length == 1 &&
+                matchingTargets.single.id != target.id)) {
+          return reject(
+            PersonalityLearningRejectionReason.ungroundedTarget,
+          );
+        }
+        if (matchingTargets.length > 1) {
           return reject(
             PersonalityLearningRejectionReason.ambiguousReinforcement,
           );
