@@ -149,6 +149,7 @@ class PreflightDiagnosticsService {
         'personalityLearningEvidenceBodiesIncluded': false,
         'personalityLearningSubjectKeysIncluded': false,
         'personalityLearningModelProposalIncluded': false,
+        'personalityLearningSemanticReviewBodiesIncluded': false,
       },
     };
 

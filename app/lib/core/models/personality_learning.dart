@@ -94,7 +94,10 @@ enum PersonalityLearningRejectionReason {
   invalidSubject('invalid_subject'),
   invalidProposition('invalid_proposition'),
   ambiguousReinforcement('ambiguous_reinforcement'),
-  contextOnlyReply('context_only_reply');
+  contextOnlyReply('context_only_reply'),
+  semanticReviewUnrelated('semantic_review_unrelated'),
+  semanticReviewAmbiguous('semantic_review_ambiguous'),
+  semanticReviewUnavailable('semantic_review_unavailable');
 
   const PersonalityLearningRejectionReason(this.key);
 
@@ -228,6 +231,7 @@ class PersonalityLearningProposal {
     required String userText,
     required PersonalityLearningContext context,
     required Map<String, PersonalityLearningCandidate> existingById,
+    String semanticReviewApprovedTargetId = '',
   }) {
     PersonalityLearningParseResult reject(
       PersonalityLearningRejectionReason reason,
@@ -277,6 +281,32 @@ class PersonalityLearningProposal {
         target: target,
         explicitTarget: true,
       )) {
+        if (semanticReviewApprovedTargetId == target.id &&
+            _eligibleForSemanticReview(
+              normalizedUser: normalizedUser,
+              evidenceKind: evidenceKind,
+            )) {
+          return PersonalityLearningParseResult.accepted(
+            _proposalForTarget(
+              target: target,
+              polarity: polarity,
+              evidenceKind: evidenceKind,
+              quote: quote,
+              confidence: item['confidence'],
+            ),
+          );
+        }
+        if (_eligibleForSemanticReview(
+          normalizedUser: normalizedUser,
+          evidenceKind: evidenceKind,
+        )) {
+          return PersonalityLearningParseResult.reviewRequired(
+            target: target,
+            proposedPolarity: polarity,
+            evidenceKind: evidenceKind,
+            evidenceQuote: quote,
+          );
+        }
         return reject(PersonalityLearningRejectionReason.ungroundedTarget);
       }
       return PersonalityLearningParseResult.accepted(
@@ -329,14 +359,42 @@ class PersonalityLearningProposal {
         PersonalityLearningRejectionReason.ambiguousReinforcement,
       );
     }
-    final collidesWithUngroundedTarget = existingById.values.any(
+    final collidingTargets = existingById.values.where(
       (candidate) =>
           candidate.status != PersonalityLearningStatus.retired &&
           candidate.scope == scope &&
           candidate.contextKey == context.contextKey &&
           candidate.subjectKey == subjectKey,
-    );
-    if (collidesWithUngroundedTarget) {
+    ).toList(growable: false);
+    if (collidingTargets.length == 1 &&
+        semanticReviewApprovedTargetId == collidingTargets.single.id &&
+        _eligibleForSemanticReview(
+          normalizedUser: normalizedUser,
+          evidenceKind: evidenceKind,
+        )) {
+      return PersonalityLearningParseResult.accepted(
+        _proposalForTarget(
+          target: collidingTargets.single,
+          polarity: polarity,
+          evidenceKind: evidenceKind,
+          quote: quote,
+          confidence: item['confidence'],
+        ),
+      );
+    }
+    if (collidingTargets.length == 1 &&
+        _eligibleForSemanticReview(
+          normalizedUser: normalizedUser,
+          evidenceKind: evidenceKind,
+        )) {
+      return PersonalityLearningParseResult.reviewRequired(
+        target: collidingTargets.single,
+        proposedPolarity: polarity,
+        evidenceKind: evidenceKind,
+        evidenceQuote: quote,
+      );
+    }
+    if (collidingTargets.isNotEmpty) {
       return reject(PersonalityLearningRejectionReason.ungroundedTarget);
     }
     if (!_validSubject(scope, subjectKey)) {
@@ -490,6 +548,46 @@ class PersonalityLearningProposal {
     ]);
   }
 
+  static bool _eligibleForSemanticReview({
+    required String normalizedUser,
+    required PersonalityLearningEvidenceKind evidenceKind,
+  }) {
+    if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback ||
+        evidenceKind == PersonalityLearningEvidenceKind.revealedChoice ||
+        normalizedUser.length < 12 ||
+        normalizedUser.length > 360 ||
+        _isContextOnlyPacingReply(normalizedUser)) {
+      return false;
+    }
+    return _containsAny(normalizedUser, const <String>[
+      '我喜欢',
+      '我更喜欢',
+      '我真的喜欢',
+      '我不喜欢',
+      '我讨厌',
+      '我希望',
+      '我想要',
+      '我不想',
+      '我宁愿',
+      '我接受',
+      '我不接受',
+      '我的偏好',
+      '我觉得',
+      '我认为',
+      '对我来说',
+      '这种感觉',
+      '才更好',
+      '更适合',
+      '我改一下',
+      '我修正',
+      '只限',
+      '只在',
+      '不应该',
+      '应该',
+      '不要',
+    ]);
+  }
+
   static int _distinctiveBigramOverlap(String left, String right) {
     final leftBigrams = _distinctiveCjkBigrams(left);
     final rightBigrams = _distinctiveCjkBigrams(right);
@@ -607,13 +705,46 @@ class PersonalityLearningProposal {
 
 class PersonalityLearningParseResult {
   const PersonalityLearningParseResult.accepted(this.proposal)
-      : rejectionReason = null;
+      : rejectionReason = null,
+        semanticReview = null;
 
   const PersonalityLearningParseResult.rejected(this.rejectionReason)
-      : proposal = null;
+      : proposal = null,
+        semanticReview = null;
+
+  const PersonalityLearningParseResult.reviewRequired({
+    required PersonalityLearningCandidate target,
+    required PersonalityLearningPolarity proposedPolarity,
+    required PersonalityLearningEvidenceKind evidenceKind,
+    required String evidenceQuote,
+  })  : proposal = null,
+        rejectionReason = PersonalityLearningRejectionReason.ungroundedTarget,
+        semanticReview = PersonalityLearningSemanticReviewRequest(
+          target: target,
+          proposedPolarity: proposedPolarity,
+          evidenceKind: evidenceKind,
+          evidenceQuote: evidenceQuote,
+        );
 
   final PersonalityLearningProposal? proposal;
   final PersonalityLearningRejectionReason? rejectionReason;
+  final PersonalityLearningSemanticReviewRequest? semanticReview;
+
+  bool get needsSemanticReview => semanticReview != null;
+}
+
+class PersonalityLearningSemanticReviewRequest {
+  const PersonalityLearningSemanticReviewRequest({
+    required this.target,
+    required this.proposedPolarity,
+    required this.evidenceKind,
+    required this.evidenceQuote,
+  });
+
+  final PersonalityLearningCandidate target;
+  final PersonalityLearningPolarity proposedPolarity;
+  final PersonalityLearningEvidenceKind evidenceKind;
+  final String evidenceQuote;
 }
 
 class _PersonalityLearningTargetMatch {

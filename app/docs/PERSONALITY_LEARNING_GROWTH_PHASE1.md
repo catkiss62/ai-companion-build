@@ -1,6 +1,6 @@
 # 人格学习与成长 · Phase 0/1 当前合同
 
-状态：Phase 0 规则分类已冻结；Phase 1 观察层在 `v0.41.9` 通过 CI/APK，但真机发现同向支持归并和上下文误绑，`v0.41.10` 正在热修。本文不提前承诺 Phase 2/3 行为。
+状态：Phase 0 规则分类已冻结；Phase 1 观察层在 `v0.41.10` 挡住上下文附和误绑，但真机仍发现自然同义复述被本地字面门禁漏判，`v0.41.11` 正在进行精确优先的隔离语义复核热修。本文不提前承诺 Phase 2/3 行为。
 
 ## 1. 固定核心与可成长区域
 
@@ -85,3 +85,19 @@ v0.41.9 真机备份证明“证据来自用户原话”仍不足以保证“证
 `direct_feedback` 是唯一允许借上一条 AI 定位被评价表达的类型，但当前用户原话仍必须同时包含清楚指代和正/负评价；“你说得对”“慢慢来”之类泛化接话不足以落证据。拒绝原因只以固定枚举计数进入脱敏诊断，不输出候选、证据、用户消息或模型 proposal 正文。
 
 本补充不改变成熟度权重、schema 42、Snapshot protocol 5、试穿隔离或 Phase 1 观察态；学习表仍不得进入普通、主动或沉浸回复，也不得写入 AI Self、Desire、Moe 或长期习惯。
+
+## 8. v0.41.11 隔离语义复核补充合同
+
+真机证明同一个偏好可以在自然聊天中从“越熟悉越不客气、可以说脏话”改写为“偶尔斗嘴、互相对骂、骨子里关心”。这类语义相同但中文字面二元片段不足的明确复述，不得继续被本地字符串算法直接否决；但提高召回率不能重新开放“慢慢来”借 AI 上下文误绑的路线。
+
+裁决分工固定为：
+
+1. 手机继续确定性检查 evidence quote 必须逐字来自当前用户原话、scope/context、target、试穿隔离、无目标反证、幂等和数据库安全。
+2. 纯节奏回应、短附和、direct feedback 缺少明确指代、revealed choice 弱推断、无稳定立场和跨作用域提案不能进入语义复核；少量漏判可以接受，误判不可接受。
+3. 已有充分本地特征重叠的提案继续直接裁决，不增加 API；只有明确表达偏好/边界、指向唯一同语境候选、但字面不足的项进入隔离复核。
+4. 隔离复核只接收当前用户整句、逐字 quote、目标候选 proposition/scope/subject、提案 polarity/evidence kind；不得接收上一条或当前 AI 回复、长期记忆、其他候选、Desire/Moe 或聊天历史。
+5. 复核只返回 `support / contradict / unrelated / ambiguous`；置信度低于 0.86 一律按 ambiguous，结果与提案 polarity 不一致、unrelated、ambiguous、超时或失败均拒绝。
+6. 复核结果写回 durable post-turn proposal，后台重放必须复用同一个 target/relation/confidence，不能重复调用后得到不同裁决。
+7. 脱敏诊断只公开 requested/support/contradict/unrelated/ambiguous/unavailable 计数、最近时间与固定 outcome；不得公开当前用户原话、quote、target id/subject/proposition、模型 JSON 或复核 Prompt。
+
+本补充仍只写 `personality_learning_candidates/evidence`。`growth_seed` 是未来 Phase 3 对成熟、可回滚 AI habit 的来源分类，不是每轮 API 可以直接写入的永久人格库；Phase 2/3 继续关闭。

@@ -31,8 +31,8 @@ desire_test = read("test/desire_core_policy_v031_test.dart")
 architecture = read("docs/PHONE_PRIMARY_TABLET_COMPANION_ARCHITECTURE_v1.md")
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:0\+139|1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149)\s*$", pubspec, re.M)
-simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149)\s*$", pubspec, re.M) is not None
+assert re.search(r"^version:\s*0\.41\.(?:0\+139|1\+140|2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150)\s*$", pubspec, re.M)
+simple_file_backup = re.search(r"^version:\s*0\.41\.(?:2\+141|3\+142|4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150)\s*$", pubspec, re.M) is not None
 
 if simple_file_backup:
     for token in (

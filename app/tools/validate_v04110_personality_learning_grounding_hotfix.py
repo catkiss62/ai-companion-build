@@ -30,9 +30,9 @@ workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8"
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
 
-assert re.search(r"^version:\s*0\.41\.10\+149\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.11\+150\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 42;" in database
-assert "buildLabel = 'v0.41.10+149'" in agent_self
+assert "buildLabel = 'v0.41.11+150'" in agent_self
 
 for token in (
     "PersonalityLearningRejectionReason",
@@ -83,7 +83,7 @@ for token in (
     "PersonalityLearningRejectionReason.contextOnlyReply",
     "an explicit first-person pacing preference remains learnable",
     "pacing elsewhere in the turn does not hide a separate preference",
-    "a non-pacing reply still cannot borrow an unrelated target",
+    "an explicit unrelated preference cannot pass without semantic review",
 ):
     assert token in tests, token
 

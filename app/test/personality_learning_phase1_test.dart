@@ -148,6 +148,77 @@ void main() {
     expect(parsed.proposal?.subjectKey, existing.subjectKey);
   });
 
+  test('natural synonym support requests isolated semantic review', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.familiarity.informal',
+      proposition: '用户偏好熟悉后更随意的互动，包括说脏话',
+    );
+    final userText =
+        '当然，我只是在和你说我的偏好，那种情侣之间总是我爱你你爱我的对话，我觉得反而挺普通的，偶尔斗嘴，经常互相对骂，但是骨子里其实又是在关心，这种感觉才更好，对吧';
+    final raw = support(
+      subjectKey: existing.subjectKey,
+      quote: userText,
+    )
+      ..['target_id'] = existing.id
+      ..['proposition'] = '用户偏好情侣熟悉后以斗嘴和对骂表达关心';
+
+    final firstPass = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(firstPass.proposal, isNull);
+    expect(firstPass.needsSemanticReview, isTrue);
+    expect(firstPass.semanticReview?.target.id, existing.id);
+    expect(
+      firstPass.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
+    );
+
+    final approved = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+      semanticReviewApprovedTargetId: existing.id,
+    );
+    expect(approved.rejectionReason, isNull);
+    expect(approved.proposal?.targetCandidateId, existing.id);
+  });
+
+  test('same-subject target omission can only rejoin after semantic review', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.familiarity.informal',
+      proposition: '用户偏好熟悉后更随意的互动，包括说脏话',
+    );
+    final userText =
+        '我觉得偶尔斗嘴、经常互相对骂，但是骨子里又在关心，这种感觉才更好';
+    final raw = support(
+      subjectKey: existing.subjectKey,
+      quote: userText,
+    )..['proposition'] = '用户偏好用斗嘴和互相对骂表达隐藏的关心';
+
+    final firstPass = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+    expect(firstPass.needsSemanticReview, isTrue);
+    expect(firstPass.semanticReview?.target.id, existing.id);
+
+    final approved = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+      semanticReviewApprovedTargetId: existing.id,
+    );
+    expect(approved.proposal?.targetCandidateId, existing.id);
+  });
+
   test('related but distinct preference does not collapse into one candidate', () {
     final existing = candidate(
       subjectKey: 'user.preference.activity.beach_walking',
@@ -240,7 +311,7 @@ void main() {
     );
   });
 
-  test('a non-pacing reply still cannot borrow an unrelated target', () {
+  test('an explicit unrelated preference cannot pass without semantic review', () {
     final existing = candidate(
       subjectKey: 'user.preference.communication.familiar_informal',
       proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
@@ -260,6 +331,31 @@ void main() {
     );
 
     expect(parsed.proposal, isNull);
+    expect(parsed.needsSemanticReview, isTrue);
+    expect(parsed.semanticReview?.target.id, existing.id);
+    expect(
+      parsed.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
+    );
+  });
+
+  test('short agreement never reaches isolated semantic review', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.familiarity.informal',
+      proposition: '用户偏好熟悉后更随意的互动，包括说脏话',
+    );
+    final raw = support(quote: '嗯嗯，没错！嘿嘿')
+      ..['target_id'] = existing.id;
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '嗯嗯，没错！嘿嘿',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.proposal, isNull);
+    expect(parsed.needsSemanticReview, isFalse);
     expect(
       parsed.rejectionReason,
       PersonalityLearningRejectionReason.ungroundedTarget,

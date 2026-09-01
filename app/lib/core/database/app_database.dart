@@ -6013,6 +6013,21 @@ class AppDatabase {
           0;
       if (count > 0) rejectionReasonCounts[reason.key] = count;
     }
+    final semanticReviewCounts = <String, int>{};
+    for (final outcome in const <String>[
+      'requested',
+      'support',
+      'contradict',
+      'unrelated',
+      'ambiguous',
+      'unavailable',
+    ]) {
+      final settingKey = outcome == 'requested'
+          ? 'personality_learning_semantic_review_requested_count'
+          : 'personality_learning_semantic_review_${outcome}_count';
+      final count = int.tryParse(await getSetting(settingKey) ?? '') ?? 0;
+      if (count > 0) semanticReviewCounts[outcome] = count;
+    }
     return {
       'enabled': (await getSetting('personality_learning_enabled')) != '0',
       'candidateCount': Sqflite.firstIntValue(candidateCounts) ?? 0,
@@ -6049,10 +6064,22 @@ class AppDatabase {
           ) ??
           0,
       'rejectionReasonCounts': rejectionReasonCounts,
+      'semanticReviewCounts': semanticReviewCounts,
+      'lastSemanticReviewAt': int.tryParse(
+            await getSetting(
+                  'personality_learning_semantic_review_last_at',
+                ) ??
+                '',
+          ) ??
+          0,
+      'lastSemanticReviewOutcome':
+          await getSetting('personality_learning_semantic_review_last_outcome') ??
+              '',
       'candidateBodiesIncluded': false,
       'evidenceBodiesIncluded': false,
       'messageBodiesIncluded': false,
       'modelProposalIncluded': false,
+      'semanticReviewBodiesIncluded': false,
     };
   }
 

@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04110-personality-learning-grounding-hotfix`；从 v0.41.9 已通过 CI/APK、但真机确认支持归并与上下文归因错误的观察层基线开始热修 |
+| 当前开发分支 | `agent/v04111-personality-learning-semantic-verifier`；从 v0.41.10 已挡住上下文附和误绑、但真机仍漏掉自然同义复述的 Phase 1 观察层基线继续热修 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.10 最终远端 CI head `7d51541f6faf07b372e8539f3f3edbf947fab96a`；本地功能 head `5f5b4e7...`；共同 tree `09911226b4a871efef39b870eff9fdfd0977cb0f`，文件树精确一致 |
-| App / 数据库 | 当前 `0.41.10+149` / schema 42；Snapshot/备份 protocol 5 不变 |
+| App / 数据库 | 当前开发目标 `0.41.11+150` / schema 42；Snapshot/备份 protocol 5 不变 |
 | 最终 CI | Actions run `33467573384`，run number 653，head `7d51541f6faf...`，全绿；399 项 Flutter tests 通过 |
 | 测试 APK | `AI-Companion-v0.41.10-149-Personality-Learning-Grounding-Hotfix-APK.apk`，325,308,234 bytes |
 | APK SHA-256 | `bb66e7f9b569f339a6d6b52cd6b483b8fc20d0090f36008e022ab450ee1e40fe` |
 | Artifact / Release | Artifact ID `9785586311`；Draft Release `untagged-3a19b26659f31f67d14f`，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | `v0.41.10+149 / schema 42` 已修复 v0.41.9 真机确认的同向支持漏归并与上下文附和误绑，完成外部参考复核、全量 CI 与测试 APK，现为 `APK READY / TRUE DEVICE PENDING`。人格学习仍停在 Phase 1 观察态，不进入回复，Phase 2 继续关闭；联网存图缺陷继续保留 P0，未混入本批 |
+| 当前总状态 | `v0.41.10+149 / schema 42` 真机部分通过：纯节奏附和未再写入、独立偏好与限定纠正正常，但“说脏话”与“斗嘴/对骂/骨子里关心”这类自然同义复述仍被本地二字片段门禁误拒为 `ungrounded_target`。已开 `v0.41.11+150 / schema 42` 精确优先热修；人格学习仍停在 Phase 1 观察态，不进入回复，Phase 2 继续关闭；联网存图缺陷继续保留 P0，未混入本批 |
 
 ### 3. 当前模块状态总表
 
@@ -64,7 +64,7 @@
 |---|---|---|
 | P0 | v0.41.5 自然真机观察 | 覆盖安装后观察主动来源/Moe 中性轮次/短回复/连续未满足互动/夜间休息；使用一段时间后导出新脱敏诊断再调阈值 |
 | P0 | 保护当前唯一关系资料 | 不卸载、不清数据；在已有安全副本和用户明确选择前，不用破坏性恢复做常规验收 |
-| P0 · APK READY / TRUE DEVICE PENDING | 人格学习与成长主框架 Phase 0+1 | `0.41.10+149 / schema 42` 已完成同命题归并、逐条目标相关性、纯节奏附和门禁、持久化防绕过与反证恢复修复，并通过完整 CI/APK；须覆盖安装并用原关系资料回放同向支持、节奏附和、相近新偏好与纠正，闭合前不得进入 Phase 2 或宣称她已经会成长 |
+| P0 · TRUE DEVICE PARTIAL PASS / HOTFIX IN PROGRESS | 人格学习与成长主框架 Phase 0+1 | `0.41.10+149 / schema 42` 已证明节奏附和不再误写、独立候选与纠正正常，但自然同义复述仍因字面重叠不足被误拒。目标 `0.41.11+150 / schema 42`：硬门禁继续本地确定性拒绝，只把明确但字面不足的歧义关系交给不含 AI 上下文的隔离语义复核；误判优先于漏判，闭合前不得进入 Phase 2 |
 | P0 · 胶囊待验 / 强度真机失败 | 普通试穿胶囊与人格成长方向 | v0.41.8 活跃普通试穿胶囊代码继续待肉眼确认；加强版“直爽泼辣”在真实 13 回复 / 2 时段中仍无自然粗口。试穿保留且让 AI 明知自己正在体验；转正后只蒸馏经证据支持的习惯，不把整套角色脚本永久焊入核心 |
 | P0 · 真机失败 / 待修 | 联网识图与相册保存闭环 | 已出现网页来源与识图摘要属于不同图片的真实记录；绑定修复后，聊天明确委托只调用 `public_web.search`，没有保存工具，后台也无新的 `public_web saved`。先修同图事务与可执行路由，再验收描述/缩略图/hash 三方一致 |
 | P1 | 普通备份恢复真机闭环 | 自动化已过，真实同安装 Active、异安装 standby、异常回滚仍待；属于破坏性测试，可继续延后 |
@@ -304,6 +304,15 @@
 19. 独立下载并解包得到 APK 325,308,234 bytes，SHA-256 `bb66e7f9b569f339a6d6b52cd6b483b8fc20d0090f36008e022ab450ee1e40fe`，与 CI checksum 一致；固定签名为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。Draft Release 为 `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a19b26659f31f67d14f`。
 20. 设计稳定性结论：现有结构是“一次 DeepSeek Flash JSON 语义提案 + 手机逐字 quote、scope、context、target 与成熟度最终裁决”，不是仅靠本地字符串提取，也不是让 API 直接写人格。它与 `companion-emergence` 的 detector/grounding/local crystallisation 和 LMC-5 的 raw-event/curated-memory 分层方向一致；无需为本批再增加第二次 API 辅助提取，否则只会增加延迟、成本，并可能重复模型受上一轮 AI 语境诱导的错误。当前门禁优先降低误学，残余风险是部分隐晦表达被保守漏记；在 Phase 1 观察态这是正确取舍，必须等真机统计后再判断阈值，不能凭 CI 宣称长期稳定。
 21. 精确真机验收：不得卸载或清数据，直接覆盖安装本 APK以保留 v0.41.9 的原候选与反证历史。普通聊天中依次发送：①“我再确认一次，我喜欢的是熟了以后说话更自然、更不客套，可以互相调侃，但不是每个场景都故意对骂。”；等待 AI 回复后，②“慢慢来最好，我们时间还长着，不急。”；再发送独立偏好 ③“还有一件不同的事：认真讨论项目故障时，我更喜欢你先给结论，再解释原因。”；等待 AI 回复后用 ④“不过上一条只限定在讨论故障时，平时聊天不用总是先给结论。”做限定纠正。期间台词不应因学习候选突然改变。完成后导出脱敏诊断与完整 `.aibackup`：①应归并原候选而非新建重复；②应计入 `context_only_reply` 拒绝且不增加证据/候选；③应形成独立候选而不并入“不客套”；④应定位该独立候选并留下纠正/反证。若任一不符，继续停在 Phase 1，禁止进入回复消费。
+
+### 17. 2026-09-01 · v0.41.11 人格学习隔离语义复核（TRUE DEVICE FAILURE RECORDED / HOTFIX IN PROGRESS）
+
+1. 用户提交 v0.41.10 标准五句回放诊断 `ai_companion_diagnostics_2026-09-01T04-23-48-445537Z.txt`，以及恢复备份后自然聊天的诊断 `ai_companion_diagnostics_2026-09-01T04-29-45-456723Z.txt` 和完整备份 `AI_Companion_Backup_2026-09-01T04-29-55.aibackup`。只读取证，不恢复、不改用户唯一关系资料。
+2. 标准回放最终为 `candidate=2 / evidence=3 / support=2 / contradict=1 / explicit_correction=1 / rejected=1(ungrounded_target)`；按固定顺序可闭合：首偏好写入、自然同向复述被拒、纯“慢慢来”没有成为证据、独立故障沟通偏好写入、限定纠正作用于第二候选。没有 `context_only_reply` 并不代表节奏门禁失败：当整合 API 本身不输出 learning signal 时，手机没有待拒提案；最终“不写证据”才是安全合同。
+3. 自然聊天备份给出决定性复现：用户首句“希望越熟悉越不客气，脏话也可以逐渐说出口”正确建立 `user.preference.familiarity.informal` 候选；下一句明确说明“偶尔斗嘴，经常互相对骂，但是骨子里其实又是在关心，这种感觉才更好”却被拒为 `ungrounded_target`；末尾“嗯嗯，没错！嘿嘿”同样被拒，但该短附和拒绝正确。最终 `candidate=1 / evidence=1 / forming=1 / rejected=2(ungrounded_target)`，证明 v0.41.10 仍把本地中文字面重叠当作语义最终否决。
+4. 用户明确锁定准确性优先级：少量漏判可以接受，误判不可接受。v0.41.11 不取消手机权威、不放开全部 API 提案：逐字用户 quote、scope/context、target 存在、试穿隔离、短附和、纯节奏回应、无目标反证、幂等与数据库安全继续确定性拒绝；只有当前用户原话包含明确偏好/边界、已指向唯一同语境候选、但字面重叠不足的少数歧义项，才进入隔离语义复核。
+5. 隔离复核只接收当前用户整句、逐字 `evidence_quote`、目标候选 proposition/scope/subject 与提案 polarity，不接收上一条或当前 AI 回复、长期记忆、Desire/Moe、候选列表其他项或聊天历史；只允许返回 `support / contradict / unrelated / ambiguous`。结果必须与提案 polarity 一致才可写入；`unrelated/ambiguous`、复核失败或超时一律保守拒绝。复核结果随 durable post-turn proposal 封存，后台重放不得重复调用或改变裁决。
+6. 目标版本 `0.41.11+150`，schema 42 与 Snapshot protocol 5 不变，分支 `agent/v04111-personality-learning-semantic-verifier`。Phase 1 继续只观察，不读入普通/主动/沉浸 Prompt，不写 AI Self、growth seed、试穿转正、Desire、Moe 或 Memory；聊天中模型因用户说“成长能力做好了”而宣称“我能感觉到/我会自己长”另记为能力真实性措辞边界，不把它冒充学习表泄漏。
 
 ## 历史工作记录（原文保留，按需检索）
 
