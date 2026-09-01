@@ -389,7 +389,8 @@
 3. 完成实现与首轮错误修复后做一次本批完整代码审查，核对操作真值、隐私、Android 生命周期、工具重试幂等、Phase 1 隔离、迁移/备份、普通/主动双出站路径和遗留任务总表；本批虽不是 Phase 2 大型阶段，也按 Agent 感知高风险标准审查。
 4. 构建授权已由用户长期授予。计划只构建一次候选 APK；若真机发现错误，先完成修复和全代码审查，再仅在代码实际变化时构建收口 APK。推送独立公开分支并触发草稿测试 APK，不发布正式 Release、不合并 `main`。`main` 保持旧稳定集成检查点，后续是否晋升必须另有用户明确授权。
 5. 下一步仍是 Phase 2 轻量 topic/subject 关联与小幅 bias；开始 Phase 2 时才打开第 14 节列出的外部参考页面。查手机/联网存图/心情/日记/随笔放在另一后续合包，减少 APK 次数但与 Phase 2 分离。Phase 2 与 Phase 3 各自真机排错后必须再完成一次全代码审查；Phase 0+1 已由 v0.41.13 审查完成。
-6. 本地实现后完整复审已完成：核对了普通/主动双出站路径、成长表只读隔离、屏幕明确同意与自主 false、Android 11+/Accessibility 生命周期、锁屏/前台未知/密码/敏感包/金融类别/secure window、HardwareBuffer/Bitmap 释放、方法通道字节、视觉 Prompt Injection、同 durable event 原子 `INSERT OR IGNORE` 保留位、schema/backup 不变、Phase 2/3/4 关闭和遗留任务。审查中已修正“先关 HardwareBuffer 再拷贝 Bitmap”、secure-window API 34 常量兼容、截图启动异常锁释放、原子幂等与旧失败 Release 备注等问题。本地 workflow 选中 129 个 validator：121 通过，8 个与上版相同，仅因桌宠 417 文件、LingChat、Meju TTS/native 载荷和 `kotlinc` 由 CI 恢复而本地不存在；当前容器也无 Flutter/Dart/Gradle，因此编译、Kotlin 单测、Flutter analyze/tests 和 APK 必须由 Actions 完成，不预先写成 CI 通过。
+6. 本地实现后完整复审已完成：核对了普通/主动双出站路径、成长表只读隔离、屏幕明确同意与自主 false、Android 11+/Accessibility 生命周期、锁屏/前台未知/密码/敏感包/金融 App 标签/secure window、HardwareBuffer/Bitmap 释放、方法通道字节、视觉 Prompt Injection、同 durable event 原子 `INSERT OR IGNORE` 保留位、schema/backup 不变、Phase 2/3/4 关闭和遗留任务。审查中已修正“先关 HardwareBuffer 再拷贝 Bitmap”、secure-window API 34 常量兼容、截图启动异常锁释放、原子幂等与旧失败 Release 备注等问题。本地 workflow 选中 129 个 validator：121 通过，8 个与上版相同，仅因桌宠 417 文件、LingChat、Meju TTS/native 载荷和 `kotlinc` 由 CI 恢复而本地不存在；当前容器也无 Flutter/Dart/Gradle，因此编译、Kotlin 单测、Flutter analyze/tests 和 APK 必须由 Actions 完成，不预先写成 CI 通过。
+7. Actions run 662 首轮在 Kotlin 编译阶段报出 `ApplicationInfo.CATEGORY_FINANCE` 不存在，因此当轮没有进入 Flutter analyze/tests 或 APK 生成，不得标记构建通过。修复不降级隐私门禁：删除不存在的平台常量，保留包名 Gate，再只在内存中读取当前 App label，用固定中英文银行/支付/钱包/信用卡/证券/保险/认证器词表保守阻止；包信息或 label 取不到时也 blocked，不存储 label。修复后已重跑专项 validator 并再审查该 Gate 的失败优先、伴侣自身界面例外、密码节点与敏感包叠加顺序；待第二次 Actions 完整重建。
 
 ## 历史工作记录（原文保留，按需检索）
 

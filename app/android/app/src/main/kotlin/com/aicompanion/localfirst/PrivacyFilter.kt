@@ -1,8 +1,6 @@
 package com.aicompanion.localfirst
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
-import android.os.Build
 
 /**
  * Conservative local-first filter. It is intentionally applied before any text is
@@ -25,6 +23,21 @@ object PrivacyFilter {
         "com.microsoft.office.outlook",
         "com.xiaomi.account",
         "com.google.android.apps.authenticator2",
+    )
+    private val blockedScreenLabels = listOf(
+        "bank",
+        "finance",
+        "wallet",
+        "payment",
+        "credit card",
+        "authenticator",
+        "银行",
+        "支付",
+        "钱包",
+        "信用卡",
+        "证券",
+        "保险",
+        "认证器",
     )
 
     fun allowPackage(packageName: String?): Boolean {
@@ -62,16 +75,14 @@ object PrivacyFilter {
         if (!allowScreenObservationPackage(packageName, companionPackageName)) {
             return false
         }
-        if (
-            packageName.equals(companionPackageName, ignoreCase = true) ||
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-        ) {
+        if (packageName.equals(companionPackageName, ignoreCase = true)) {
             return true
         }
-        val category = runCatching {
-            context.packageManager.getApplicationInfo(packageName.orEmpty(), 0).category
+        val appLabel = runCatching {
+            val info = context.packageManager.getApplicationInfo(packageName.orEmpty(), 0)
+            context.packageManager.getApplicationLabel(info).toString().lowercase()
         }.getOrNull() ?: return false
-        return category != ApplicationInfo.CATEGORY_FINANCE
+        return blockedScreenLabels.none(appLabel::contains)
     }
 
     fun sanitize(text: CharSequence?, max: Int = 500): String {

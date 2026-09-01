@@ -138,7 +138,8 @@ for token in (
     '"permissioncontroller"',
     '"documentsui"',
     '"settings"',
-    "ApplicationInfo.CATEGORY_FINANCE",
+    "blockedScreenLabels",
+    "getApplicationLabel",
 ):
     assert token in privacy, token
 assert '"captureCurrentScreenOnce"' in system_bridge
