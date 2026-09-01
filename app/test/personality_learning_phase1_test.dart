@@ -318,6 +318,34 @@ void main() {
     );
     final raw = support(
       subjectKey: 'user.preference.activity.beach_photography',
+      quote: '我的偏好是平时出去玩的时候在海边拍照',
+    )
+      ..['target_id'] = existing.id
+      ..['proposition'] = '用户喜欢在海边拍照';
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: '我的偏好是平时出去玩的时候在海边拍照',
+      context: ordinary,
+      existingById: {existing.id: existing},
+    );
+
+    expect(parsed.proposal, isNull);
+    expect(parsed.needsSemanticReview, isTrue);
+    expect(parsed.semanticReview?.target.id, existing.id);
+    expect(
+      parsed.rejectionReason,
+      PersonalityLearningRejectionReason.ungroundedTarget,
+    );
+  });
+
+  test('short explicit unrelated preference is rejected before API review', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiar_informal',
+      proposition: '用户偏好越熟悉越自然的交流方式，用调侃或不客气表达亲近。',
+    );
+    final raw = support(
+      subjectKey: 'user.preference.activity.beach_photography',
       quote: '我喜欢在海边拍照',
     )
       ..['target_id'] = existing.id
@@ -331,8 +359,7 @@ void main() {
     );
 
     expect(parsed.proposal, isNull);
-    expect(parsed.needsSemanticReview, isTrue);
-    expect(parsed.semanticReview?.target.id, existing.id);
+    expect(parsed.needsSemanticReview, isFalse);
     expect(
       parsed.rejectionReason,
       PersonalityLearningRejectionReason.ungroundedTarget,
