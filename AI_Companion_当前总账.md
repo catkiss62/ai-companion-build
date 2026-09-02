@@ -630,6 +630,7 @@
 5. 总设置的主动联系、聊天画面、语音与情绪、文字演出直接打开侧栏同一 Page class，而不是复制 UI。语音页已吸收旧总设置中的自动朗读、流式朗读、主动 TTS、语速、音量、替换 JSON、资源校验、初始化和测试播放；普通标量即时写入，替换 JSON 有独立保存。主动页补回节奏学习、声音试听和无聊天/记忆的系统弹窗测试。
 6. 自检页只作分层导航：快速自检与脱敏报告是日常入口；综合验收明确可能初始化 TTS；运行维护明确可能安排通知、调用模型或产生主动消息；内在状态开发工具明确会推进 Thought、Desire、Self-Drive、AI Self 等真实状态。原执行函数没有复制或换语义。
 7. 本地代码审查确认未修改 `core/desire`、`core/autonomy`、`core/perception`、PromptBuilder、DurableGenerationRunner 或数据库 schema；`chat_dialogue_color` 枚举与 setting key 未变。Workflow YAML、Python 语法、专项 validator、当前总账索引、v0.41.17 前向合同和 `git diff --check` 通过；按 workflow 命令表运行得到 126 项合同通过、8 项环境缺口，其中仅为本地未恢复的 LingChat/TTS/native 大载荷、重复执行的桌宠恢复脚本和缺少 `kotlinc`，没有剩余源码合同失败。本地无 Flutter/Dart/Kotlin 编译器，因此编译、widget tests 和 APK 继续由 Actions 证明。
+8. 首次远端提交 `688a83bf20011949b0eb8430d147a442556333d3` / tree `bc877981f413c70eaaee397dd9344fbef2faae46` 触发 Actions run 673。载荷恢复和干净源码基线通过，源码回归在历史 `validate_tts_v025.py` 停止：它仍只从已退役的单体 `settings_page.dart` 查找旧 TTS 状态文案，而真实 TTS 控件已经迁入侧栏/总设置共用的 `chat_quick_settings_pages.dart`。修复只把该历史合同的读取目标和断言文案迁到现行页面，不改 TTS 运行功能；随后必须重新执行完整链路，run 673 不得记作功能失败或通过证据。
 
 ## 历史工作记录（原文保留，按需检索）
 

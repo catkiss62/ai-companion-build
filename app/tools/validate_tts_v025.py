@@ -82,7 +82,10 @@ def check_wiring() -> None:
     service = (ROOT / 'lib/core/tts/tts_service.dart').read_text()
     queue = (ROOT / 'lib/core/tts/tts_playback_queue.dart').read_text()
     chat = (ROOT / 'lib/features/chat/chat_controller.dart').read_text()
-    settings = (ROOT / 'lib/features/settings/settings_page.dart').read_text()
+    # v0.41.18 moved the shared TTS controls out of the historical monolithic
+    # settings page.  Keep validating the real control surface instead of
+    # pinning the contract to the retired file location/copy.
+    settings = (ROOT / 'lib/features/chat/chat_quick_settings_pages.dart').read_text()
 
     expected = {
         'golden': ['GOLDEN_APK_SHA256', 'TOTAL_ARTIFACTS = 32', 'b72ebc8544de'],
@@ -94,7 +97,7 @@ def check_wiring() -> None:
         'service': ['implements TtsQueueService', 'Future<TtsStatus> verifyArtifacts()', 'generatePrepared', 'playPrepared', 'Future<void> _recordError'],
         'queue': ['final TtsQueueService service', 'waitUntilIdle()', 'generation-ahead', 'interSentenceGap = const Duration(milliseconds: 200)'],
         'chat': ['if (delta.reasoning.isNotEmpty)', 'if (delta.content.isNotEmpty)', 'ttsPlayback.addDelta(delta.content)'],
-        'settings': ['正在核对新版妹居本地 TTS 资源', "label: const Text('校验 TTS')"],
+        'settings': ['正在校验本地 TTS 资源', "label: const Text('校验资源')"],
     }
     values = dict(golden=golden, verifier=verifier, legacy=legacy, engine=engine, bridge=bridge,
                   provider=provider, service=service, queue=queue, chat=chat, settings=settings)
