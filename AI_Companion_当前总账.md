@@ -595,6 +595,7 @@
 2. Actions 必须证明 Kotlin bridge/Overlay 编译、Flutter analyze、全部 Flutter tests、Release APK、签名及所有大型载荷。只有产生真实 run 后才回填提交、测试数量、Artifact、Draft Release、APK 大小和 SHA-256；当前禁止预填。
 3. 真机覆盖安装后依次验收：普通与沉浸 AI/用户正文、输入文字、主动状态、三个 DeepSeek 为白；文字演出切换浅紫/浅黄/浅粉后三种聊天同步且重开仍保留；THINKING 三处方向和展开正确；心情七日横向展开且节点可点；购物车 6 件 emoji 不再机械全相同；侧栏天数与记忆页一致。自动化通过不能冒充 `TRUE DEVICE PASSED`。
 4. 提交前路径审查确认没有改动 `core/desire`、`core/autonomy`、`core/perception`、Self-Drive、PromptBuilder、人格学习或数据库 schema；关系天数只读既有 `relationshipAge()`。历史聊天/Overlay validators 已改为同时接受旧固定浅黄和新动态颜色函数，但仍强制保留浅黄 RGB、动作/对白范围及原生行距；历史 reasoning validator 同时接受旧中文标题和新 THINKING，不删除停止生成/流式 reasoning 合同。
+5. 远端精确功能 tree `16780c3206b9946012c6bdba72d09c5572290ec2` 与本地提交 tree 完全一致；远端提交 `f7b826c85ef53f3faf69db5d2ca58c32e5122331` 触发 Actions run [`33585392300`](https://github.com/catkiss62/ai-companion-build/actions/runs/33585392300)（671）。该轮 132 项源码/历史合同、Kotlin/Overlay 编译与单测、Flutter analyze 均通过；Flutter tests 为 `449 passed / 2 failed`，APK 正确跳过。两个失败均是测试夹具：心情 widget 用全局 `find.byType(CustomPaint)` 命中 Material 自带的多个画布而抛 `Too many elements`，改为只查 `MoodChart` 后代；Agent Self 旧测试仍硬编码 `v0.41.16+155`，改为当前 `v0.41.17+156`。实际心情布局测试此前尚未走到宽度断言，Agent Self 实际输出已经正确显示新版本；本次只修测试定位和版本期望，不改运行功能，必须重新完整 CI。
 
 ## 历史工作记录（原文保留，按需检索）
 

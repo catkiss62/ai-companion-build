@@ -99,6 +99,11 @@ void main() {
       ),
     );
 
-    expect(tester.getSize(find.byType(CustomPaint)).width, 360);
+    final chartPaint = find.descendant(
+      of: find.byType(MoodChart),
+      matching: find.byType(CustomPaint),
+    );
+    expect(chartPaint, findsOneWidget);
+    expect(tester.getSize(chartPaint).width, 360);
   });
 }
