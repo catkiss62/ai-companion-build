@@ -28,7 +28,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('🧠 思考'));
+    await tester.tap(find.text('THINKING'));
     await tester.pumpAndSettle();
 
     expect(find.text('翻译'), findsOneWidget);
@@ -66,6 +66,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('翻译'), findsNothing);
+    expect(find.text('THINKING'), findsNWidgets(2));
   });
 }
 

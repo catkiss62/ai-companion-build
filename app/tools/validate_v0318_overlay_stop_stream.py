@@ -55,10 +55,13 @@ for token in [
     'STREAMING_MESSAGE_ID = "overlay:streaming"',
     'map["reasoning"] as? String',
     'map["content"] as? String',
-    'if (live) "🧠 思考中" else "🧠 思考"',
     'private fun stopSpeech()',
 ]:
     assert token in overlay, token
+assert any(token in overlay for token in (
+    'if (live) "🧠 思考中" else "🧠 思考"',
+    'if (reasoningExpanded) "▾  THINKING" else "▸  THINKING"',
+))
 
 # The nearby stop action must stay generation-aware instead of disabling the
 # only reachable button. Speech controls may evolve independently.

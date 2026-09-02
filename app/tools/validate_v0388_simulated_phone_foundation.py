@@ -22,7 +22,7 @@ assert any(
     for token in (
         "version: 0.38.8+107",
         "version: 0.38.9+108",
-        "version: 0.41.16+155",
+        "version: 0.41.17+156",
     )
 )
 assert "app == SimulatedPhoneAppKind.tarot || phoneEnabled" in policy

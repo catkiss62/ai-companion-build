@@ -76,7 +76,11 @@ assert "不加括号" in rules and "所有台词必须用「」包裹" in rules
 assert "不加括号" in prompt
 assert any(token in prompt for token in ("统一用「」", "实际发声的台词"))
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
-assert "ForegroundColorSpan(Color.rgb(253, 230, 138))" in overlay
+assert any(token in overlay for token in (
+    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
+    "ForegroundColorSpan(dialogueTintColor())",
+))
+assert "Color.rgb(253, 230, 138)" in overlay
 assert "fun visibleText(value: String)" in overlay_formatter
 assert "fun dialogueRanges(value: String)" in overlay_formatter
 

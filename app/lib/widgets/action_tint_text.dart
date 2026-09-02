@@ -1,7 +1,48 @@
 import 'package:flutter/material.dart';
 
-/// Matches the dialogue gold used by index.html's novel renderer.
+const chatDialoguePurple = Color(0xFFD2C3EB);
 const chatDialogueGold = Color(0xFFFDE68A);
+const chatDialoguePink = Color(0xFFF1B7C5);
+
+enum ChatDialogueColorOption {
+  purple('purple', '浅紫', chatDialoguePurple),
+  gold('gold', '浅黄', chatDialogueGold),
+  pink('pink', '浅粉', chatDialoguePink);
+
+  const ChatDialogueColorOption(this.key, this.label, this.color);
+
+  static const settingKey = 'chat_dialogue_color';
+
+  final String key;
+  final String label;
+  final Color color;
+
+  static ChatDialogueColorOption fromSetting(String? value) =>
+      ChatDialogueColorOption.values.firstWhere(
+        (option) => option.key == value,
+        orElse: () => ChatDialogueColorOption.purple,
+      );
+}
+
+class ChatDialogueColorScope extends InheritedWidget {
+  const ChatDialogueColorScope({
+    required this.option,
+    required super.child,
+    super.key,
+  });
+
+  final ChatDialogueColorOption option;
+
+  static ChatDialogueColorOption of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<ChatDialogueColorScope>()
+          ?.option ??
+      ChatDialogueColorOption.purple;
+
+  @override
+  bool updateShouldNotify(ChatDialogueColorScope oldWidget) =>
+      option != oldWidget.option;
+}
 
 class ActionTextSegment {
   const ActionTextSegment(this.text, {required this.isAction});
@@ -191,13 +232,15 @@ class ActionTintText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = DefaultTextStyle.of(context).style.merge(style);
+    final base = DefaultTextStyle.of(context).style.merge(style).copyWith(
+          color: Colors.white,
+        );
     final action = base.copyWith(
       fontStyle: FontStyle.italic,
       fontWeight: FontWeight.normal,
     );
     final dialogue = base.copyWith(
-      color: chatDialogueGold,
+      color: ChatDialogueColorScope.of(context).color,
       fontStyle: FontStyle.normal,
       fontWeight: FontWeight.normal,
     );
@@ -228,10 +271,13 @@ class NovelTintText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = DefaultTextStyle.of(context).style.merge(style).copyWith(
+          color: Colors.white,
           fontStyle: FontStyle.normal,
           fontWeight: FontWeight.normal,
         );
-    final dialogue = base.copyWith(color: chatDialogueGold);
+    final dialogue = base.copyWith(
+      color: ChatDialogueColorScope.of(context).color,
+    );
     return SelectableText.rich(
       TextSpan(
         children: [

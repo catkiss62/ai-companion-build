@@ -498,6 +498,7 @@ class SimulatedPhoneRepository {
             'token_price': item.tokenPrice,
             'category': item.category,
             'generation_mode': mode,
+            if (item.emoji.isNotEmpty) 'emoji': item.emoji,
           },
         ),
       );

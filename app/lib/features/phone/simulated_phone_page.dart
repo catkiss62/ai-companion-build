@@ -1770,6 +1770,7 @@ class _MoodPageState extends State<MoodPage> {
                 ),
                 const SizedBox(height: 9),
                 SizedBox(
+                  width: double.infinity,
                   height: chartHeight,
                   child: MoodChart(
                     layout: layout,
@@ -1828,31 +1829,33 @@ class MoodChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (details) {
-          if (layout.points.isEmpty) return;
-          const left = 22.0;
-          const right = 12.0;
-          final width = math.max(1.0, constraints.maxWidth - left - right);
-          var nearest = 0;
-          var nearestDistance = double.infinity;
-          for (var index = 0; index < layout.points.length; index++) {
-            final x = left + width * layout.points[index].dayFraction / 7;
-            final distance = (x - details.localPosition.dx).abs();
-            if (distance < nearestDistance) {
-              nearest = index;
-              nearestDistance = distance;
+    return SizedBox.expand(
+      child: LayoutBuilder(
+        builder: (context, constraints) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            if (layout.points.isEmpty) return;
+            const left = 22.0;
+            const right = 12.0;
+            final width = math.max(1.0, constraints.maxWidth - left - right);
+            var nearest = 0;
+            var nearestDistance = double.infinity;
+            for (var index = 0; index < layout.points.length; index++) {
+              final x = left + width * layout.points[index].dayFraction / 7;
+              final distance = (x - details.localPosition.dx).abs();
+              if (distance < nearestDistance) {
+                nearest = index;
+                nearestDistance = distance;
+              }
             }
-          }
-          onSelected(nearest);
-        },
-        child: CustomPaint(
-          painter: MoodChartPainter(
-            points: layout.points,
-            labels: layout.labels,
-            selected: selected,
+            onSelected(nearest);
+          },
+          child: CustomPaint(
+            painter: MoodChartPainter(
+              points: layout.points,
+              labels: layout.labels,
+              selected: selected,
+            ),
           ),
         ),
       ),
@@ -2184,8 +2187,11 @@ class CartPage extends StatelessWidget {
                 ...entries.map((entry) {
                   final price =
                       entry.metadata['token_price'] as num? ?? 0;
-                  final emoji = entry.metadata['emoji'] as String? ??
-                      cartEmoji(entry.title);
+                  final storedEmoji =
+                      (entry.metadata['emoji'] as String? ?? '').trim();
+                  final emoji = storedEmoji.isEmpty
+                      ? cartEmoji(entry.title)
+                      : storedEmoji;
                   return Container(
                     margin: const EdgeInsets.only(bottom: 9),
                     decoration: BoxDecoration(
@@ -2777,15 +2783,36 @@ String moodStatNote(int index, int value) => switch (index) {
     };
 
 String cartEmoji(String title) {
-  if (title.contains('奶茶')) return '🧋';
-  if (title.contains('脑子')) return '🧠';
-  if (title.contains('护甲')) return '🛡️';
-  if (title.contains('杯')) return '🥛';
-  if (title.contains('毯')) return '🧣';
-  if (title.contains('打印')) return '📷';
-  if (title.contains('灯')) return '🌌';
-  if (title.contains('发带')) return '🎀';
-  return '📦';
+  const rules = <(List<String>, String)>[
+    (['奶茶', '饮料'], '🧋'),
+    (['脑子', '思考', '推理'], '🧠'),
+    (['护甲', '防护', '盾'], '🛡️'),
+    (['杯', '保温'], '🥛'),
+    (['毯', '暖手'], '🧣'),
+    (['打印', '照片', '相机'], '📷'),
+    (['灯', '星空', '补光'], '🌌'),
+    (['发带', '发夹', '发圈'], '🎀'),
+    (['书', '记事', '指南', '清单'], '📖'),
+    (['耳机', '音箱', '白噪音'], '🎧'),
+    (['键盘', '按钮'], '⌨️'),
+    (['充电', '电量'], '🔋'),
+    (['尾巴', '鲸尾', '鱼鳍'], '🐋'),
+    (['女仆', '裙', '花边'], '👗'),
+    (['海', '潮汐', '浮标'], '🌊'),
+    (['香氛', '蜡'], '🕯️'),
+    (['刷'], '🪥'),
+    (['钱包', '鲸币'], '👛'),
+    (['服务器', '散热', 'AI', 'DeepSeek'], '💻'),
+    (['停车位'], '🅿️'),
+    (['罐头'], '🥫'),
+    (['徽章', '许可证'], '🎖️'),
+  ];
+  for (final rule in rules) {
+    if (rule.$1.any(title.contains)) return rule.$2;
+  }
+  const variedFallbacks = ['🛍️', '✨', '🎁', '🫧', '🔹', '🐚'];
+  final hash = title.runes.fold<int>(0, (value, rune) => value * 31 + rune);
+  return variedFallbacks[hash.abs() % variedFallbacks.length];
 }
 
 String phoneTime(DateTime now) =>

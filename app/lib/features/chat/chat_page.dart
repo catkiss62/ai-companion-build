@@ -17,6 +17,7 @@ import '../../core/models/proactive_intent.dart';
 import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_notification_settings.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/relationship/relationship_age.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
@@ -56,6 +57,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   double _emotionSoundVolume = 0.15;
   bool _showEmotionLabel = true;
   bool _typewriterEnabled = true;
+  ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
+  RelationshipAge? _relationshipAge;
   bool _ttsEnabled = false;
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
@@ -257,6 +260,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         (await db.getSetting('show_emotion_label')) != '0';
     _typewriterEnabled =
         (await db.getSetting('chat_typewriter_enabled')) != '0';
+    _dialogueColor = ChatDialogueColorOption.fromSetting(
+      await db.getSetting(ChatDialogueColorOption.settingKey),
+    );
+    _relationshipAge = await db.relationshipAge();
+    await _android.setOverlayDialogueColor(_dialogueColor.key);
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
     _notificationSound = ProactiveNotificationSound.fromSetting(
       await db.getSetting('proactive_notification_sound'),
@@ -820,8 +828,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             },
           );
 
-    return Column(
-      children: [
+    return ChatDialogueColorScope(
+      option: _dialogueColor,
+      child: Column(
+        children: [
         _topBar(context),
         Expanded(
           child: LayoutBuilder(
@@ -964,7 +974,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             },
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1019,6 +1030,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 Text(
                                   'DeepSeek',
                                   style: TextStyle(
+                                    color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -1034,6 +1046,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      if (_relationshipAge != null) ...[
+                        _RelationshipDaysCard(age: _relationshipAge!),
+                        const SizedBox(height: 8),
+                      ],
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.phone_iphone_rounded),
@@ -1443,6 +1459,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             Text(
                               'DeepSeek',
                               style: TextStyle(
+                                color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1458,6 +1475,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ],
                   ),
                   const SizedBox(height: 14),
+                  if (_relationshipAge != null) ...[
+                    _RelationshipDaysCard(age: _relationshipAge!),
+                    const SizedBox(height: 8),
+                  ],
                   _QuickPanelTile(
                     icon: Icons.phone_iphone_rounded,
                     title: '查手机',
@@ -1559,7 +1580,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   _QuickPanelTile(
                     icon: Icons.text_fields_rounded,
                     title: '文字演出',
-                    subtitle: '逐段打字开关与速度。',
+                    subtitle: '逐段打字、速度与对白颜色。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
                       await Navigator.of(pageContext).push(
@@ -1653,7 +1674,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         const SizedBox(width: 9),
                         const Text(
                           'DeepSeek',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         if (_showEmotionLabel &&
                             _currentEmotionLabel.isNotEmpty) ...[
@@ -1742,6 +1766,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 controller: input,
                 minLines: 1,
                 maxLines: 5,
+                style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   hintText: '和她说点什么…',
@@ -1931,7 +1956,7 @@ class _MessageBubble extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               '她 · ${ProactiveIntentKind.fromKey(message.proactiveIntent).zhLabel}',
-              style: const TextStyle(fontSize: 11),
+              style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
         for (final attachment in message.attachments)
@@ -1965,7 +1990,7 @@ class _MessageBubble extends StatelessWidget {
           else
             SelectableText(
               message.content,
-              style: const TextStyle(height: 1.45),
+              style: const TextStyle(color: Colors.white, height: 1.45),
             ),
         ],
         const SizedBox(height: 4),
@@ -2228,7 +2253,10 @@ class _AssistantTranscriptSurface extends StatelessWidget {
             ),
           ),
         ),
-        child: child,
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: Colors.white),
+          child: child,
+        ),
       );
 }
 
@@ -2553,7 +2581,7 @@ class _AgentActivityLineState extends State<_AgentActivityLine>
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    const color = Colors.white;
     return FadeTransition(
       opacity: _pulse,
       child: Padding(
@@ -2618,6 +2646,60 @@ class _SpeechActionButton extends StatelessWidget {
           : playing
               ? '停止播放'
               : '朗读这条回复',
+    );
+  }
+}
+
+class _RelationshipDaysCard extends StatelessWidget {
+  const _RelationshipDaysCard({required this.age});
+
+  final RelationshipAge age;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = age.startedAt.toLocal();
+    final date = '${start.year.toString().padLeft(4, '0')}.'
+        '${start.month.toString().padLeft(2, '0')}.'
+        '${start.day.toString().padLeft(2, '0')}';
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            primary.withValues(alpha: 0.20),
+            primary.withValues(alpha: 0.07),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: primary.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.favorite_rounded, color: primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '认识第 ${age.dayNumber} 天',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '从 $date 开始记录',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

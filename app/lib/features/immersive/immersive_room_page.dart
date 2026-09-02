@@ -316,6 +316,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   final scroll = ScrollController();
   bool _visualStageEnabled = true;
   bool _visualSettingsLoaded = false;
+  ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
@@ -407,6 +408,9 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             0.62)
         .clamp(0.42, 0.94)
         .toDouble();
+    final dialogueColor = ChatDialogueColorOption.fromSetting(
+      await db.getSetting(ChatDialogueColorOption.settingKey),
+    );
     final backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
     final portraitSet = chatPortraitSetFromKey(
@@ -459,6 +463,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
       _visualStageEnabled = visualStageEnabled;
       _panelOpacity = panelOpacity;
       _panelFraction = panelFraction;
+      _dialogueColor = dialogueColor;
       _backgroundMode = backgroundMode;
       _portraitSet = portraitSet;
       _portraitScale = scale;
@@ -773,9 +778,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   @override
   Widget build(BuildContext context) {
     final room = controller.room;
-    return WillPopScope(
-      onWillPop: _leave,
-      child: Scaffold(
+    return ChatDialogueColorScope(
+      option: _dialogueColor,
+      child: WillPopScope(
+        onWillPop: _leave,
+        child: Scaffold(
         appBar: AppBar(
           title: Text(
             room?.title ?? '沉浸房间',
@@ -972,6 +979,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                   );
                 },
               ),
+        ),
       ),
     );
   }
@@ -989,6 +997,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                   enabled: !controller.ending,
                   minLines: 1,
                   maxLines: 6,
+                  style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
                     hintText: '继续这个房间…',
                     border: OutlineInputBorder(),
@@ -1039,7 +1048,7 @@ class _ImmersiveMessageView extends StatelessWidget {
           children: [
             SelectableText(
               message.content,
-              style: const TextStyle(height: 1.45),
+              style: const TextStyle(color: Colors.white, height: 1.45),
             ),
             const SizedBox(height: 4),
             Align(
@@ -1124,7 +1133,10 @@ class _ImmersiveStreamingView extends StatelessWidget {
             else if (reasoning.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(10),
-                child: Text('她正在进入这个场景…'),
+                child: Text(
+                  '她正在进入这个场景…',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
           ],
         ),

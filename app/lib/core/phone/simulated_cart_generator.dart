@@ -8,12 +8,14 @@ class SimulatedCartItem {
     required this.description,
     required this.tokenPrice,
     required this.category,
+    this.emoji = '',
   });
 
   final String title;
   final String description;
   final int tokenPrice;
   final String category;
+  final String emoji;
 }
 
 abstract interface class SimulatedCartGenerator {
@@ -64,8 +66,9 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
             'role': 'user',
             'content': '生成恰好 6 件全新的购物车商品。正常实用商品和搞怪脑洞商品都至少 2 件、最多 4 件；'
                 '标题不要重复，搞怪项可以使用鲸鱼尾巴、海洋、女仆、DeepSeek、AI、程序或数字生活梗，正常项也要像真的会想买。'
-                '每件价格是 1 到 99 的整数“鲸币”。只返回 JSON：'
-                '{"items":[{"title":"不超过24字","description":"不超过80字的一句理由","token_price":12,"category":"normal或playful"}]}。'
+                '每件价格是 1 到 99 的整数“鲸币”。给每件商品选择一个与标题有关的单个 emoji，'
+                '不要全部使用同一个包裹图标。只返回 JSON：'
+                '{"items":[{"title":"不超过24字","description":"不超过80字的一句理由","token_price":12,"category":"normal或playful","emoji":"🐋"}]}。'
                 '生成日期=${_localDay(now)}；创意 nonce=${now.millisecondsSinceEpoch % 1000003}；'
                 '近期已经出现、必须避开的标题=${recentTitles.take(36).join('｜')}。',
           },
@@ -90,6 +93,7 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
       final description = _clean(raw['description'], 80);
       final price = (raw['token_price'] as num?)?.round();
       final category = raw['category']?.toString().trim().toLowerCase() ?? '';
+      final emoji = _cleanEmoji(raw['emoji']);
       if (title.isEmpty || description.isEmpty || price == null) {
         throw const FormatException('商品字段不完整');
       }
@@ -109,6 +113,7 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
           description: description,
           tokenPrice: price,
           category: category,
+          emoji: emoji,
         ),
       );
     }
@@ -129,6 +134,15 @@ class DeepSeekSimulatedCartGenerator implements SimulatedCartGenerator {
         '';
     if (value.length <= maxLength) return value;
     return value.substring(0, maxLength).trim();
+  }
+
+  static String _cleanEmoji(Object? raw) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isEmpty || value.length > 8 ||
+        RegExp(r'[A-Za-z0-9\u4E00-\u9FFF]').hasMatch(value)) {
+      return '';
+    }
+    return value;
   }
 
   static String _localDay(DateTime value) {

@@ -87,7 +87,11 @@ overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
-assert "ForegroundColorSpan(Color.rgb(253, 230, 138))" in overlay
+assert any(token in overlay for token in (
+    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
+    "ForegroundColorSpan(dialogueTintColor())",
+))
+assert "Color.rgb(253, 230, 138)" in overlay
 assert "setLineSpacing(0f, 1.45f)" in overlay
 
 for asset in (

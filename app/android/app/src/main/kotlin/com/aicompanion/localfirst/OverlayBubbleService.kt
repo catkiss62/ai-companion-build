@@ -391,6 +391,10 @@ class OverlayBubbleService : Service() {
                 petOverlayWindow?.resize(size)
                 return START_STICKY
             }
+            ACTION_SET_DIALOGUE_COLOR -> {
+                chatAdapter?.notifyDataSetChanged()
+                return START_STICKY
+            }
             ACTION_RECONCILE -> {
                 val reconcileReason = intent.getStringExtra(EXTRA_REASON) ?: "service_reconcile"
                 if (reconcileReason == "visible_activity_reconcile" &&
@@ -2777,7 +2781,10 @@ class OverlayBubbleService : Service() {
             }
             if (message.role == "assistant" && message.reasoning.isNotBlank()) {
                 val live = message.id == STREAMING_MESSAGE_ID
-                bubble.addView(smallInlineAction(if (live) "🧠 思考中" else "🧠 思考") {
+                val reasoningExpanded = live || expandedReasoning.contains(message.id)
+                bubble.addView(smallInlineAction(
+                    if (reasoningExpanded) "▾  THINKING" else "▸  THINKING",
+                ) {
                     if (!live) {
                         if (!expandedReasoning.add(message.id)) expandedReasoning.remove(message.id)
                         notifyDataSetChanged()
@@ -2959,13 +2966,22 @@ class OverlayBubbleService : Service() {
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
                 result.setSpan(
-                    ForegroundColorSpan(Color.rgb(253, 230, 138)),
+                    ForegroundColorSpan(dialogueTintColor()),
                     range.first,
                     range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             }
             return result
+        }
+
+        private fun dialogueTintColor(): Int = when (
+            getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_DIALOGUE_COLOR, "purple")
+        ) {
+            "gold" -> Color.rgb(253, 230, 138)
+            "pink" -> Color.rgb(241, 183, 197)
+            else -> Color.rgb(210, 195, 235)
         }
 
         private fun smallInlineAction(label: String, onClick: () -> Unit): TextView =
@@ -3026,7 +3042,7 @@ class OverlayBubbleService : Service() {
     private fun proactiveIntentLabel(intent: String): String = when (intent) {
         "gentle_ping" -> "轻轻找你"
         "miss_you" -> "想你"
-        "followup" -> "续上次的话"
+        "followup" -> "想起刚才的话"
         "share_thought" -> "分享念头"
         "curiosity" -> "好奇"
         "social_share" -> "随手分享"
@@ -3092,6 +3108,8 @@ class OverlayBubbleService : Service() {
         const val ACTION_NOTIFICATION_REPLY = "com.aicompanion.localfirst.NOTIFICATION_REPLY"
         const val ACTION_SET_ENTRY_MODE = "com.aicompanion.localfirst.SET_ENTRY_MODE"
         const val ACTION_SET_PET_SIZE = "com.aicompanion.localfirst.SET_PET_SIZE"
+        const val ACTION_SET_DIALOGUE_COLOR =
+            "com.aicompanion.localfirst.SET_DIALOGUE_COLOR"
         private const val ACTION_SYSTEM_COVER_ENTER =
             "com.aicompanion.localfirst.SYSTEM_COVER_ENTER"
         private const val ACTION_SYSTEM_COVER_EXIT =
@@ -3120,6 +3138,7 @@ class OverlayBubbleService : Service() {
         const val PREFS = "overlay_state"
         const val KEY_UNREAD = "unread"
         const val KEY_ENTRY_MODE = "entry_mode"
+        const val KEY_DIALOGUE_COLOR = "dialogue_color"
         const val ENTRY_MODE_BUBBLE = "bubble"
         const val ENTRY_MODE_PET = "pet"
         private const val KEY_X = "bubble_x"
@@ -3193,6 +3212,25 @@ class OverlayBubbleService : Service() {
                         .putExtra(EXTRA_REASON, "system_page"),
                 )
             }
+        }
+
+        fun setDialogueColor(context: Context, color: String) {
+            val normalized = normalizeDialogueColor(color)
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(KEY_DIALOGUE_COLOR, normalized)
+                .apply()
+            if (!running) return
+            runCatching {
+                context.startService(
+                    Intent(context, OverlayBubbleService::class.java)
+                        .setAction(ACTION_SET_DIALOGUE_COLOR),
+                )
+            }
+        }
+
+        private fun normalizeDialogueColor(value: String?): String = when (value) {
+            "gold", "pink" -> value
+            else -> "purple"
         }
 
         private fun normalizeEntryMode(value: String?): String =

@@ -396,7 +396,7 @@ object CompanionNotification {
 
     private fun intentLabel(intentKind: String): String = when (intentKind) {
         "miss_you" -> "想你"
-        "followup" -> "续上次的话"
+        "followup" -> "想起刚才的话"
         "share_thought" -> "分享念头"
         "curiosity" -> "好奇"
         "social_share" -> "随手分享"

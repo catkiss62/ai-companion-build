@@ -11,6 +11,7 @@ import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_text_processor.dart';
+import '../../widgets/action_tint_text.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
   const CompanionStateOverviewPage({super.key});
@@ -537,6 +538,7 @@ class _TextPerformanceSettingsPageState
   final _db = AppDatabase.instance;
   bool _enabled = true;
   int _milliseconds = 48;
+  ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   bool _loading = true;
 
   @override
@@ -553,6 +555,9 @@ class _TextPerformanceSettingsPageState
             48)
         .clamp(20, 120)
         .toInt();
+    _dialogueColor = ChatDialogueColorOption.fromSetting(
+      await _db.getSetting(ChatDialogueColorOption.settingKey),
+    );
     if (mounted) setState(() => _loading = false);
   }
 
@@ -594,6 +599,40 @@ class _TextPerformanceSettingsPageState
                       ),
                     ),
                   ],
+                  const Divider(height: 30),
+                  Text(
+                    '对白「」颜色',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '同一个选项控制普通聊天、沉浸房间和悬浮聊天。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<ChatDialogueColorOption>(
+                    segments: [
+                      for (final option in ChatDialogueColorOption.values)
+                        ButtonSegment(
+                          value: option,
+                          label: Text(
+                            option.label,
+                            style: TextStyle(color: option.color),
+                          ),
+                        ),
+                    ],
+                    selected: {_dialogueColor},
+                    onSelectionChanged: (selection) async {
+                      final value = selection.first;
+                      setState(() => _dialogueColor = value);
+                      await _db.setSetting(
+                        ChatDialogueColorOption.settingKey,
+                        value.key,
+                      );
+                      await AndroidBridge.instance
+                          .setOverlayDialogueColor(value.key);
+                    },
+                  ),
                 ],
               ),
       );

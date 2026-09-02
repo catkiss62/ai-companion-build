@@ -58,9 +58,13 @@ assert 'acknowledgeMessages(this, "overlay_chat_opened")' in overlay
 for token in (
     "OverlayDialogueFormatter.visibleText(value)",
     "OverlayDialogueFormatter.dialogueRanges(visible)",
-    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
 ):
     assert token in overlay, token
+assert any(token in overlay for token in (
+    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
+    "ForegroundColorSpan(dialogueTintColor())",
+))
+assert "Color.rgb(253, 230, 138)" in overlay
 assert "Color.rgb(216, 177, 255)" not in overlay
 
 controller = read("lib/features/chat/chat_controller.dart")

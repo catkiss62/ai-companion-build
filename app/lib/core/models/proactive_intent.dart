@@ -1,7 +1,7 @@
 enum ProactiveIntentKind {
   gentlePing('gentle_ping', '轻轻找你', '她来找你', '她给你留了条消息'),
   missYou('miss_you', '想你', '她有点想你', '她有点想你，点开看看'),
-  followup('followup', '续上次的话', '她想起你们没聊完的事', '她想继续上次的话题'),
+  followup('followup', '想起刚才的话', '她想起你们没聊完的事', '她想继续上次的话题'),
   shareThought('share_thought', '分享念头', '她忽然想到一件事', '她有个念头想告诉你'),
   curiosity('curiosity', '好奇', '她想问你一件事', '她有点好奇'),
   socialShare('social_share', '随手分享', '她想和你说点什么', '她给你留了条消息'),

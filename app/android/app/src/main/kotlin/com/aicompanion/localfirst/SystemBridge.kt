@@ -162,6 +162,13 @@ class SystemBridge(
                     )
                     result.success(null)
                 }
+                "setOverlayDialogueColor" -> {
+                    OverlayBubbleService.setDialogueColor(
+                        activity,
+                        call.argument<String>("color") ?: "purple",
+                    )
+                    result.success(null)
+                }
                 "suspendOverlayForStandby" -> {
                     OverlayBubbleService.stopForStandby(activity)
                     result.success(null)

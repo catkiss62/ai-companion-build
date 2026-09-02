@@ -419,6 +419,19 @@ class AndroidBridge {
   Future<void> setPetOverlaySize(String size) =>
       _channel.invokeMethod<void>('setPetOverlaySize', {'size': size});
 
+  Future<void> setOverlayDialogueColor(String color) async {
+    try {
+      await _channel.invokeMethod<void>(
+        'setOverlayDialogueColor',
+        {'color': color},
+      );
+    } on PlatformException {
+      // Overlay color sync is presentation-only and must not block chat.
+    } on MissingPluginException {
+      // Widget tests and non-Android targets have no native overlay channel.
+    }
+  }
+
   Future<void> suspendOverlayForStandby() =>
       _channel.invokeMethod<void>('suspendOverlayForStandby');
 

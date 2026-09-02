@@ -27,6 +27,7 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
   String? _translationError;
   bool _translating = false;
   int _loadEpoch = 0;
+  late bool _expanded;
 
   ReasoningTranslationService get _service =>
       widget.translationService ?? ReasoningTranslationService.instance;
@@ -40,6 +41,7 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
   @override
   void initState() {
     super.initState();
+    _expanded = widget.streaming;
     _loadCachedTranslation();
   }
 
@@ -54,6 +56,9 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
       _translationError = null;
       _translating = false;
       _loadCachedTranslation();
+    }
+    if (!oldWidget.streaming && widget.streaming && !_expanded) {
+      _expanded = true;
     }
   }
 
@@ -115,7 +120,27 @@ class _ReasoningPanelState extends State<ReasoningPanel> {
       child: ExpansionTile(
         dense: true,
         initiallyExpanded: widget.streaming,
-        title: Text(widget.streaming ? '🧠 正在思考' : '🧠 思考'),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 10),
+        leading: AnimatedRotation(
+          turns: _expanded ? 0.25 : 0,
+          duration: const Duration(milliseconds: 150),
+          child: const Icon(
+            Icons.arrow_right_rounded,
+            size: 15,
+            color: purple,
+          ),
+        ),
+        title: const Text(
+          'THINKING',
+          style: TextStyle(
+            color: purple,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 3.0,
+          ),
+        ),
+        trailing: const SizedBox.shrink(),
+        onExpansionChanged: (value) => setState(() => _expanded = value),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         children: [
           Align(

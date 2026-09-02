@@ -29,9 +29,9 @@ doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 workflow = read(".github/workflows/build-apk.yml")
 
-assert "version: 0.41.16+155" in pubspec
+assert "version: 0.41.17+156" in pubspec
 assert "static const int schemaVersion = 43;" in database
-assert "buildLabel = 'v0.41.16+155'" in self_reader
+assert "buildLabel = 'v0.41.17+156'" in self_reader
 assert "immersive_panel_fraction" in database
 
 for token in (
@@ -120,11 +120,12 @@ for token in (
     assert token in docs + doc_map + ledger, token
 
 for token in (
-    "Build AI Companion v0.41.16+155 APK (Phone + UI Integration)",
-    "agent/v04116-foundation-ui-phone-integration",
-    "AI-Companion-v0.41.16-155-Phone-UI-Integration-APK",
-    "v0.41.16-phone-ui-integration-test",
+    "Build AI Companion v0.41.17+156 APK (Chat UI + Mood Hotfix)",
+    "agent/v04117-chat-ui-mood-hotfix",
+    "AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK",
+    "v0.41.17-chat-ui-mood-hotfix-test",
     "validate_v04116_foundation_ui_phone_integration.py",
+    "validate_v04117_chat_ui_mood_hotfix.py",
 ):
     assert token in workflow, token
 

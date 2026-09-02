@@ -50,7 +50,11 @@ assert "...legacyEditableRuleLayerSha256V03814.entries" in database
 # The native floating chat has the same typography and spacing contract.
 assert "StyleSpan(Typeface.ITALIC)" in overlay
 assert "StyleSpan(Typeface.NORMAL)" in overlay
-assert "ForegroundColorSpan(Color.rgb(253, 230, 138))" in overlay
+assert any(token in overlay for token in (
+    "ForegroundColorSpan(Color.rgb(253, 230, 138))",
+    "ForegroundColorSpan(dialogueTintColor())",
+))
+assert "Color.rgb(253, 230, 138)" in overlay
 assert "OverlayDialogueFormatter.actionRanges(visible)" in overlay
 assert "fun actionRanges(value: String)" in overlay_formatter
 assert 'Regex("([^\\\\n])\\\\n(?=「)")' in overlay_formatter

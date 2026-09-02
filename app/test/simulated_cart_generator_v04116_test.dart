@@ -9,6 +9,7 @@ void main() {
             'description': '夜里也能喝到暖水。',
             'token_price': 18,
             'category': 'normal',
+            'emoji': '🥛',
           },
           {
             'title': '鲸尾金属书签',
@@ -48,9 +49,18 @@ void main() {
 
     expect(items, hasLength(6));
     expect(items.where((item) => item.category == 'normal'), hasLength(3));
+    expect(items.first.emoji, '🥛');
     expect(items.where((item) => item.category == 'playful'), hasLength(3));
     expect(items.every((item) => item.tokenPrice >= 1), isTrue);
     expect(items.every((item) => item.tokenPrice <= 99), isTrue);
+  });
+
+  test('drops invalid text pretending to be an emoji', () {
+    final payload = validPayload();
+    final items = (payload['items']! as List).cast<Map<String, Object?>>();
+    items.first['emoji'] = 'package';
+
+    expect(DeepSeekSimulatedCartGenerator.parse(payload).first.emoji, isEmpty);
   });
 
   test('rejects duplicate titles and one-sided carts', () {

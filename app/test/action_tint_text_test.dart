@@ -102,7 +102,7 @@ void main() {
     expect(segments.single.isDialogue, isTrue);
   });
 
-  testWidgets('actions stay italic and corner dialogue uses novel gold',
+  testWidgets('actions stay white italic and dialogue defaults to purple',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -115,9 +115,39 @@ void main() {
     final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
     final children = selectable.textSpan!.children!.cast<TextSpan>();
     expect(children.first.style!.fontStyle, FontStyle.italic);
+    expect(children.first.style!.color, Colors.white);
     expect(children.last.style!.fontStyle, FontStyle.normal);
-    expect(children.last.style!.color, chatDialogueGold);
+    expect(children.last.style!.color, chatDialoguePurple);
+    expect(chatDialoguePurple, const Color(0xFFD2C3EB));
     expect(chatDialogueGold, const Color(0xFFFDE68A));
+    expect(chatDialoguePink, const Color(0xFFF1B7C5));
+  });
+
+  testWidgets('one dialogue color scope controls normal and immersive text',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatDialogueColorScope(
+            option: ChatDialogueColorOption.pink,
+            child: Column(
+              children: [
+                ActionTintText(text: '动作\n\n「普通。」'),
+                NovelTintText(text: '叙述。\n\n“沉浸。”'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widgetList<SelectableText>(find.byType(SelectableText));
+    for (final selectable in text) {
+      final dialogue = selectable.textSpan!.children!
+          .cast<TextSpan>()
+          .where((span) => span.style?.color == chatDialoguePink);
+      expect(dialogue, isNotEmpty);
+    }
   });
 
   testWidgets('immersive prose stays upright and preserves parentheses',
@@ -134,7 +164,8 @@ void main() {
     expect(children.map((item) => item.text).join(),
         '她停了一下（没有转身）。\n\n「继续。」');
     expect(children.first.style!.fontStyle, FontStyle.normal);
-    expect(children.last.style!.color, chatDialogueGold);
+    expect(children.first.style!.color, Colors.white);
+    expect(children.last.style!.color, chatDialoguePurple);
   });
 
 }
