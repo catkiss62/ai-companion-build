@@ -28,6 +28,7 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
+| 持续提交授权 | 2026-09-02 用户明确“以后一直允许提交”：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，不再逐批重复询问是否允许推送。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04118-settings-information-architecture`；从 v0.41.17 最终运行树开出的插队任务 2“总设置重新分类”。Phase 2A 运行策略保持不变，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.18 最终 APK 输入为远端 `68c6e73810a673261e7ad29949a06de2a72c5000` / tree `8b5ccb5b735fa80bb20b45b05a0bf30b4e413392`；首个功能提交 `688a83bf20011949b0eb8430d147a442556333d3` / tree `bc877981f413c70eaaee397dd9344fbef2faae46`，随后只迁移历史 TTS 验证器并补总账 |
@@ -685,9 +686,14 @@
 
 #### C. 修改后验证与边界
 
-1. 修改后总账为 5,007 行、984,414 bytes；真正默认接班区缩为 67 行、12,112 bytes。新增内容不是删除：体积略增来自任务包和本节证据，旧近期记录与历史档案仍可定点搜索。
-2. `python3 app/tools/validate_current_ledger_handoff.py` 通过，报告 `compact handoff bytes: 12112`；原历史 SHA-256 仍为 `7f44e0f6ac43ca62726d8547fc1cc7a46353f9b2c8e3e498b0f4027d30794628`，二/三级章节仍为 105/413。Python 语法编译与 `git diff --check` 通过。
+1. 加入持续提交授权后的总账为 5,013 行、985,571 bytes；真正默认接班区为 68 行、12,514 bytes。新增内容不是删除：体积略增来自任务包、本节证据和授权边界，旧近期记录与历史档案仍可定点搜索。
+2. `python3 app/tools/validate_current_ledger_handoff.py` 通过，报告 `compact handoff bytes: 12514`；原历史 SHA-256 仍为 `7f44e0f6ac43ca62726d8547fc1cc7a46353f9b2c8e3e498b0f4027d30794628`，二/三级章节仍为 105/413。Python 语法编译与 `git diff --check` 通过。
 3. 当前运行任务和真机状态不因本批改变：仍是 v0.41.18 `CI PASSED / APK READY / TRUE DEVICE PENDING`。本批不需要 APK 或真机测试；下一次对接应只读顶部 12 KB、仓库基线和 v0.41.18 当前任务直接证据，即可继续真机验收。
+
+#### D. 后续持续提交授权
+
+1. 2026-09-02 用户在明确授权同步本批文档后追加“以后一直保持允许提交”。从此，人机恋项目范围内，任务相关源码和文档可直接推送到 `catkiss62/ai-companion-build` 当前或后续已经明确的开发分支，不再每批重复请求“是否允许提交/推送”。
+2. 该持续授权只覆盖正常任务提交，不自动扩大为合并 `main`、正式发布 Release、删除分支/存档/数据、修改仓库权限、创建长期凭据或公开任何密钥与隐私内容；上述动作仍需按各自风险单独确认。每次实际提交仍必须遵守修改前后双层总账、范围隔离、真实测试和完成度分级。
 
 ## 历史工作记录（原文保留，按需检索）
 
