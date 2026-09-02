@@ -563,8 +563,9 @@
 1. 新增 `PHONE_UI_INTEGRATION_v0.41.16.md`、`validate_v04116_foundation_ui_phone_integration.py`、心情布局测试与购物车解析测试；历史 validators 只扩展当前版本白名单，不改变其旧功能断言。工作流目标改为本分支、独立 Artifact/Draft Release/monitor，并继续完整 Kotlin、Flutter analyze/tests、签名和全部大型载荷校验。
 2. 本地执行环境没有 Dart/Flutter；任何静态 validator 成功只能写 `LOCAL STATIC REVIEW PASSED`，不能冒充编译或 APK。最终功能提交、Actions run、测试总数、APK 大小、SHA-256、Artifact 和 Draft Release 必须在 CI 完成后回填本节。
 3. 真机验收：覆盖安装后确认 `0.41.16+155 / schema 43` 和旧数据；心情横轴始终 7 个自然日且同日点不串日；购物车为 6 件并用诊断/setting 区分 DeepSeek 或 fallback；塔罗每张首次可见旋转一次、切回不重播；普通与沉浸面板高度互不影响；侧栏各设置仍写同一配置并立即生效；反复打开状态页前后 Desire/Moe 不因查看而变化。新的诊断计数属于 v0.41.16，不能与 v0.41.15 连续时长拼接。
-4. 本地专项 validator、current ledger/schema、v0.41.15 Phase 2A 合同、Python 全量语法、workflow YAML 与 `git diff --check` 已通过。按 workflow 的 131 项 Python 清单执行为 `122 passed / 9 environment-only failed`：9 项均因 scratch 没有 CI 恢复的 417 文件桌宠、LingChat/Meju/TTS/native 大载荷或本地 `kotlinc`；最初另有 8 项历史静态合同仍要求旧心情高度、全屏沉浸、旧 Tarot 构造或误把新分类页类名当直接 `SettingsPage()`，已改为同时核验旧合同与 v0.41.16 的明确替代合同并全部通过。
+4. 本地专项 validator、current ledger/schema、v0.41.15 Phase 2A 合同、Python 全量语法、workflow YAML 与 `git diff --check` 已通过。按 workflow 的 131 项 Python 清单修正后执行为 `123 passed / 8 environment-only failed`：8 项均因 scratch 没有 CI 恢复的 417 文件桌宠、LingChat/Meju/TTS/native 大载荷或本地 `kotlinc`；最初另有 8 项历史静态合同仍要求旧心情高度、全屏沉浸、旧 Tarot 构造或误把新分类页类名当直接 `SettingsPage()`，已改为同时核验旧合同与 v0.41.16 的明确替代合同并全部通过。
 5. 提交前审查又收口两个实际风险：升级当天若保留 v0.41.15 的 4 件购物车，现在会因数量不是 6 立即重建，不必等到第二天；DeepSeek 购物车外层增加 18 秒超时，超时即关闭 client 并落离线兜底，避免打开手机页面被底层 120 秒请求长期卡住。路径审查再次确认没有修改 Phase 2A 的 Desire/Self-Drive/联网 appraisal/perception 代码；完整 Dart/Flutter 编译、格式与 widget tests 仍必须由 Actions 证明。
+6. 远端首次精确树 run [`33577324214`](https://github.com/catkiss62/ai-companion-build/actions/runs/33577324214)（668）完成签名及全部大型载荷恢复，131 项源码链执行到第 116 项左右时在 `validate_current_schema24_b.py` 失败，Flutter 依赖/编译/tests/APK 正确跳过。根因是该包装器动态扩展冻结的 v0.32.0 版本正则时只列到 `0.41.15+154`；功能 validator、v0.41.15、v0.41.16 及此前全部合同均已通过，不是运行源码失败。已只把 `0.41.16+155` 加入当前包装器白名单并重跑本地合同；必须重新全量 CI 后才能产出 APK。
 
 ## 历史工作记录（原文保留，按需检索）
 
