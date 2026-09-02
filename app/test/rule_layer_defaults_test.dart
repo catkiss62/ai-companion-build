@@ -225,7 +225,8 @@ void main() {
     expect(daily, contains('可见思考写“我此刻正在想什么”'));
     expect(daily, contains('不把每轮加工成温柔、成熟、积极、面面俱到的关系总结'));
     expect(daily, contains('不必先切换状态'));
-    expect(daily, contains('不加括号并默认省略主语'));
+    expect(daily, contains('不使用“我/她/角色名”作动作主语'));
+    expect(daily, contains('动作留在「」外且不加括号'));
     expect(daily, contains('不使用“我/她/角色名”作动作主语'));
     expect(daily, contains('普通短回合可以完全不写动作'));
     expect(daily, contains('需要非语言承载时'));

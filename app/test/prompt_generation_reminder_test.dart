@@ -18,7 +18,10 @@ void main() {
     expect(reminder, contains('普通短回合允许零动作'));
     expect(reminder, contains('情绪、态度、犹豫、欲望或趋近/退避'));
     expect(reminder, isNot(contains('顿了顿，又小小声补了一句。')));
-    expect(reminder, contains('「……再摸一会儿也行。」'));
+    expect(reminder, contains('结构示意（只说明格式，不是措辞模板）'));
+    expect(reminder, contains('[确有必要时的动作段]'));
+    expect(reminder, contains('「实际说出口的台词。」'));
+    expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
     expect(reminder, contains('可见思考提及用户时也使用“你”'));
     expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));
     expect(reminder, isNot(contains('允许纯对白')));

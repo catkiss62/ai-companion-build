@@ -104,7 +104,6 @@ def main() -> None:
         "schema 44",
         "33593632877",
         "44d04780c39d0c7b226db3ee09105fa47e442c2918016579cf39de7ffc56740f",
-        "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "v0.41.18 仍是当前真机运行基线",
         "只覆盖安装，不卸载、不清数据",
         "#D4BBFC",
@@ -115,6 +114,15 @@ def main() -> None:
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
+    current_statuses = (
+        "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
+        "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
+        "CI PASSED / APK READY / TRUE DEVICE PENDING",
+    )
+    require(
+        any(status in current for status in current_statuses),
+        "missing recognized v0.41.19 handoff status",
+    )
 
     required_ledger_facts = (
         "agent/v0416-agent-self-facts",
