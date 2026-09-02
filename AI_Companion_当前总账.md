@@ -31,22 +31,22 @@
 | 持续提交授权 | 2026-09-02 用户明确“以后一直允许提交”：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，不再逐批重复询问是否允许推送。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04121-phase2a5-system-responsibility-ablation`；从 v0.41.20 最终远端 head `7ba9ee4fbeb4f04e315d8ce102ce0842bef62296` 开出，执行 Phase 2A.5 真机阻断后的“决策权审计、固定样本消融与终态真值”窄稳定化。Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭；不从 `main` 或本地旧 v0.41.18 分支回退开发 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | Phase 2A.5 修改前方案提交为本地 `7e7c242`，本地功能提交 `c251c5c` / tree `39504a9ee0ab7d07358ed89b4a7f24ecf869a8b4`；公开分支的 APK 输入 head 为 `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5` / tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。两棵 tree 的唯一差异是工作流触发注释，不改变运行代码；远端中间提交 `8741632` / `837f815` 已由最终 head 覆盖 |
+| 当前代码 head / tree | Phase 2A.5 责任消融修改前方案为本地 `dc70238`，本地最终功能/测试修复提交 `e4f95fc`；公开分支 APK 输入 head 为 `635f7886210e1011085ab2e97b9434237fe176c9` / tree `f60f3fb7d8b3e8e99bf18bc2a165bd680957bc63`，与本地 tree 逐字一致。此前远端 `a8534df`、`7a07517`、`cfa6698` 均已由最终 head 覆盖 |
 | App / 数据库 | 当前真机基线 `0.41.20+159` / schema 44；本批目标候选 `0.41.21+160`，优先不升 schema，复用 Thought lifecycle、最多 12 条脱敏 Move 绑定与 Snapshot protocol 5。现有 schema 44 存档应可直接覆盖升级，不需手工修改 |
-| 最终 CI | v0.41.20+159 Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294)（685）全绿：源码/历史 validator、Kotlin 桌宠与悬浮层测试、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped。此前 run 683/684 因同一并发组被最终触发提交覆盖，不是生产失败 |
-| 测试 APK | `AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk`，325,682,746 bytes |
-| APK SHA-256 | `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包计算三者一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9852045064`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294/artifacts/9852045064)，ZIP 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`，保留至 2026-09-16T14:45:48Z；Draft Release [`untagged-638513472d220b716589`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-638513472d220b716589)，未发布正式 Release |
+| 最终 CI | v0.41.21+160 Actions run [`33661963195`](https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195)（689）全绿：136 项源码/历史 validator、Kotlin、Flutter analyze、477/477 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。首轮 run 688 的 475/477 失败已按真实窄缺口修复并由本轮覆盖 |
+| 测试 APK | `AI-Companion-v0.41.21-160-Phase2A5-Responsibility-Ablation-APK.apk`，325,704,026 bytes |
+| APK SHA-256 | `33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
+| Artifact / Release | [Artifact ID `9859440285`](https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195/artifacts/9859440285)，ZIP 319,406,185 bytes，digest `sha256:f1f4eccc9aed6ae8c9334fd2fe3bf34a67014e1877dad8913349cd9e9d3806e9`，保留至 2026-09-16T17:45:28Z；Draft Release [`untagged-90d4ff9bb793c97b22d5`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90d4ff9bb793c97b22d5)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.21 已完成本地实现与固定夹具消融：生成前计划不再直接冒充终态行为，只有最终正文真实表达并匹配来源 Thought 才能 `acted`/绑定 bid；已取消自主网页卡片对普通 Prompt 的无条件注入。首轮 Run 688 已通过源码/历史回归、Kotlin 与 Flutter analyze，477 项 tests 为 475 通过、2 失败，正在修常见“什么”问句识别缺口与旧 build label 断言；当前为 `CI FIX IN PROGRESS / TRUE DEVICE PENDING`，Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.21 已完成责任消融、终态真值和网页白名单实现并通过完整 CI/APK：生成前计划不再冒充终态行为，只有最终正文真实表达并匹配来源 Thought 才能 `acted`/绑定 bid；已删除自主网页卡片对普通 Prompt 的无条件注入。当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，等待覆盖安装后的自然样本复核；Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.21 全量 CI、APK 与覆盖安装后的 Phase 2A/2A.5 自然样本复核；Phase 2B 暂不开始。** 本地责任消融已完成，只在 CI 暴露真实编译/回归缺陷时窄修；不改写可见思考链，不混入完整自主联网重构 |
+| 当前下一步 | **覆盖安装 v0.41.21，并做 Phase 2A/2A.5 自然样本复核；Phase 2B 暂不开始。** 自动化、APK 与独立校验均已收口，除非真机证据暴露窄缺陷，不再修改运行代码；不改写可见思考链，不混入完整自主联网重构 |
 | 目标 | 把“生成前意图”和“最终真实行为”严格分开：只有最终正文实际表达且语义匹配的 ask/self-share/Thought bid 才能写 `acted`、消费 Thought 或在下一轮获得 satisfaction。通过有固定夹具的消融确认 Thought、Move、欲望、人格/Moe、表达提醒与网页上下文各自唯一职责，在不损失活人感、成长和学习性能的前提下做减法 |
-| 已完成证据 | v0.41.20 真机证据与 Phase 1/2A 状态不变；v0.41.21 新增 7 个无私人正文固定夹具，证明“获准但未问”不 acted、无关追问阻止结算、匹配追问可 acted、调侃反问不算采访、无关网页不注入、选中网页精确注入、显式用户联网排除旧自主卡片。工作流 136 个 Python validator 本地 128 通过，8 个仅缺 CI 恢复的大型资产或 Kotlin 编译器；专项与总账校验、Python 语法、YAML 解析、`git diff --check` 通过 |
+| 已完成证据 | v0.41.20 真机证据与 Phase 1/2A 状态不变；v0.41.21 新增无私人正文固定夹具，证明“获准但未问”不 acted、无关追问阻止结算、匹配追问可 acted、调侃反问不算采访、无关网页不注入、选中网页精确注入、显式用户联网排除旧自主卡片。最终 Run 689 已通过 136 项 validators、Kotlin、Flutter analyze、477/477 tests、Release APK、签名与全部大载荷，APK 也已独立复算 |
 | 已确认阻断 | 两个旧 awareness Thought 与当前调侃正文不匹配，却被标为 `acted` 并获得 `engaged` satisfaction，证明 v0.41.20 以生成前 Move 冒充终态事实。`PromptBuilder` 还在每轮普通/主动 Prompt 无条件读取最多 3 条 active public-web candidate，仅靠文字要求“相关才使用”，存在跨话题污染。四轮均出现耳鳍和尾巴，但无“顿了顿/轻轻”；当前视为角色身体语言观察项，不按词频粗暴压制 |
 | 保护与排除 | 不修改 reasoning 风格或隐藏“AI 正在学习人类情绪”的反差；不让 reasoning、自述或世界书正文成为 Desire 证据；不提交聊天/Thought/Memory/问题正文、设备 ID、Key 或附件。真机仍只覆盖安装，不卸载、不清数据。保持 Phase 2B bias 关闭；不混入 MCP、联网存图、自主截图、提醒、总设置、沉浸重写或多气泡连发 |
 | 设计门 | 完整稳定合同继续见 `app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md` 新增的责任消融章节。生成前 Move 是约束语言的意图，不是已发生事实；成功落库前须基于最终正文得到受控、无正文的 expressed-action 结论。计划与正文不匹配时不得标 Thought `acted`、不得绑定 bid、不得应用 satisfaction，并须以脱敏 mismatch reason 进入诊断 |
@@ -57,7 +57,7 @@
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
-| A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 685、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
+| A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 689、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
 | C · Phase 2B 主线代码阶段 | Phase 2A 无阻断、2A.5 动作消费者稳定并经用户继续 | 实现轻量 topic/subject 关联记忆与可审计的小幅回复倾向；详细设计与参考入口见第 14、20、26、28 节。不得让用户偏好直接创建 Drive/Thought，也不得建设完整知识图谱 |
@@ -809,7 +809,7 @@
 3. 公开分支最终 APK 输入 head 为 `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5` / tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294)（685）完整成功：源码/历史 validator、Kotlin、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 上传全过；失败报告 job 正常 skipped。run 683/684 只因同一分支连续触发与 `cancel-in-progress` 被最终 run 覆盖，不是代码失败。
 4. APK `AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk` 为 325,682,746 bytes；CI checksum、Draft Release asset digest 与 Artifact 独立下载解包实算 SHA-256 均为 `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`。Artifact `9852045064` 的 ZIP 为 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`；Draft Release 为 `untagged-638513472d220b716589`，未发布正式 Release。下一窗口默认先读顶部任务包、稳定方案、本节与最新真机诊断；当前下一步是覆盖安装并自然聊天，重点观察追问来源、回答是否被消费、话题跳转、服务型安慰回潮、普通口语、动作复读与造梗密度。
 
-### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化（CI FIX IN PROGRESS / TRUE DEVICE PENDING）
+### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 #### A. 最新真机证据与根因边界
 
@@ -854,6 +854,9 @@
 2. 工作流列出的 136 个 Python validators 本地为 128 通过；剩余 8 个只因为本地没有 Actions 前置恢复的 417 文件桌宠、LingChat effects、Meju/TTS/native 大载荷或 `kotlinc`。专项 v0.41.20/v0.41.21、current ledger、Python 语法、workflow YAML、`git diff --check` 均通过。本地没有 Dart/Flutter SDK，Flutter analyze、全量 tests、Kotlin 和 Release APK 必须由 GitHub Actions 裁决。
 3. 版本升到 `0.41.21+160`，SQLite 保持 schema 44、Snapshot protocol 5；现有 `0.41.20+159` 存档可直接覆盖安装，不清数据、不手工修改。自动化通过仍不能代替自然聊天验收，重点观察真实追问是否匹配自身 Thought、未问是否不再 acted/satisfied、调侃反问、话题跳转、服务型安慰回潮、动作/口语与造梗密度。
 4. 首轮远端 head `cfa6698f95ced26077a1b980b6d9bc47dd669f73` / tree `de39d3228dca076cf10ea200e3e3e5c068524c83` 的 Actions Run [`33660825993`](https://github.com/catkiss62/ai-companion-build/actions/runs/33660825993)（688）通过 clean baseline、全部大型资源恢复、136 项源码/历史 validator、Kotlin 和 Flutter analyze；477 项 Flutter tests 为 475 通过、2 失败，APK 因此未构建。一个失败是真实窄守卫漏识别“你今天想吃什么？”中的常见 `什么` 信息请求，必须扩充信息词同时保护“凭什么/什么鬼”等反问；另一个只是 `agent_self_reader_v0416_test.dart` 仍固定要求 v0.41.20 build label。修复不得放宽 Thought 语义匹配或改生产身份事实。
+5. 窄修只补充 `什么/哪里/哪个/多久/多长` 等常见信息请求，并显式保护 `凭什么/什么鬼/关我什么/谁让` 等反问调侃；同时把一条旧测试的 build label 前移到 v0.41.21，未改变 Thought 匹配、人格事实或其它生产合同。最终公开 APK 输入 head `635f7886210e1011085ab2e97b9434237fe176c9` / tree `f60f3fb7d8b3e8e99bf18bc2a165bd680957bc63` 与本地 tree 完全一致。
+6. 最终 Actions Run [`33661963195`](https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195)（689）完整成功：136 项源码/历史 validator、Kotlin、Flutter analyze、477/477 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 上传全过。APK `AI-Companion-v0.41.21-160-Phase2A5-Responsibility-Ablation-APK.apk` 为 325,704,026 bytes；独立下载 Artifact 解包实算 SHA-256 `33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c`，与 CI checksum 一致。
+7. Artifact [`9859440285`](https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195/artifacts/9859440285) 名称 `AI-Companion-v0.41.21-160-Phase2A5-Responsibility-Ablation-APK`，ZIP 319,406,185 bytes，digest `sha256:f1f4eccc9aed6ae8c9334fd2fe3bf34a67014e1877dad8913349cd9e9d3806e9`；Draft Release [`untagged-90d4ff9bb793c97b22d5`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90d4ff9bb793c97b22d5) 保持 draft。自动化与 APK 已收口，但自然追问/跳题/Thought 结算仍须覆盖安装后复核，不能提前写 `TRUE DEVICE PASSED` 或打开 Phase 2B。
 
 ## 历史工作记录（原文保留，按需检索）
 
