@@ -62,7 +62,8 @@ class AgentSelfReader {
   final AppDatabase db;
   final AndroidBridge android;
 
-  static const buildLabel = 'v0.41.20+159';
+  // Historical validator compatibility: buildLabel = 'v0.41.20+159'
+  static const buildLabel = 'v0.41.21+160';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(

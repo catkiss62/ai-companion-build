@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
+import '../desire/conversation_outcome_verifier.dart';
 
 class CommittedConversationPlan {
   const CommittedConversationPlan({
     required this.assistantMessageId,
     required this.primary,
     required this.topicMove,
+    required this.plannedSpeechAct,
     required this.speechAct,
     required this.drive,
     required this.action,
@@ -15,11 +17,15 @@ class CommittedConversationPlan {
     required this.curiosityGateReason,
     required this.hasThought,
     required this.sourceProvenance,
+    required this.hadAiBid,
+    required this.sourceThoughtExpressed,
+    required this.expressionMatchReason,
   });
 
   final String assistantMessageId;
   final String primary;
   final String topicMove;
+  final String plannedSpeechAct;
   final String speechAct;
   final String drive;
   final String action;
@@ -27,15 +33,9 @@ class CommittedConversationPlan {
   final String curiosityGateReason;
   final bool hasThought;
   final String sourceProvenance;
-
-  bool get hadAiBid => const {
-        'self_share',
-        'tease',
-        'ask',
-        'seek_attention',
-        'invite',
-        'show_need',
-      }.contains(speechAct);
+  final bool hadAiBid;
+  final bool sourceThoughtExpressed;
+  final String expressionMatchReason;
 }
 
 class ConversationInitiativeTelemetry {
@@ -53,6 +53,14 @@ class ConversationInitiativeTelemetry {
     'dodged',
     'refused',
     'redirected',
+  };
+  static const _expressionReasons = <String>{
+    'expressed_match',
+    'no_expressed_bid',
+    'planned_bid_not_expressed',
+    'source_thought_not_expressed',
+    'ask_source_mismatch',
+    'legacy_plan_only',
   };
 
   static Future<void> recordPlan(
@@ -113,6 +121,7 @@ class ConversationInitiativeTelemetry {
     AppDatabase db, {
     required String assistantMessageId,
     required ConversationInitiativePlan plan,
+    required ConversationExpressionVerification verification,
   }) async {
     try {
       final previous = _decodeCommittedPlans(
@@ -126,13 +135,17 @@ class ConversationInitiativeTelemetry {
           'assistant_message_id': assistantMessageId,
           'primary': plan.primary.key,
           'topic_move': plan.topicMove.key,
-          'speech_act': plan.speechAct.key,
+          'planned_speech_act': plan.speechAct.key,
+          'speech_act': verification.expressedSpeechAct,
           'drive': plan.drive.name,
           'action': _safeAction(plan.action),
           'ask_authorized': plan.askAuthorized,
           'curiosity_gate_reason': plan.curiosityGateReason,
           'has_thought': plan.hasThought,
           'source_provenance': plan.sourceProvenance,
+          'expressed_had_ai_bid': verification.hadAiBid,
+          'source_thought_expressed': verification.sourceThoughtExpressed,
+          'expression_match_reason': verification.reason,
         },
       ];
       await db.setSetting(
@@ -142,9 +155,45 @@ class ConversationInitiativeTelemetry {
           'updated_at': DateTime.now().millisecondsSinceEpoch,
         }),
       );
+      await _recordExpressionVerification(db, verification);
     } catch (_) {
       // A committed chat message remains valid even if diagnostics cannot bind.
     }
+  }
+
+  static Future<void> _recordExpressionVerification(
+    AppDatabase db,
+    ConversationExpressionVerification verification,
+  ) async {
+    final state = _sanitize(_decode(await db.getSetting(settingKey)));
+    final reasonCounts = Map<String, int>.from(
+      state['expressionReasonCounts']! as Map<String, int>,
+    );
+    final speechCounts = Map<String, int>.from(
+      state['expressedSpeechActCounts']! as Map<String, int>,
+    );
+    final reason = _safeExpressionReason(verification.reason);
+    final speechAct = _safeSpeechAct(verification.expressedSpeechAct);
+    reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+    speechCounts[speechAct] = (speechCounts[speechAct] ?? 0) + 1;
+    state
+      ..['expressionReasonCounts'] = reasonCounts
+      ..['expressedSpeechActCounts'] = speechCounts
+      ..['committedPlanCount'] =
+          ((state['committedPlanCount'] as int?) ?? 0) + 1
+      ..['expressionMismatchCount'] =
+          ((state['expressionMismatchCount'] as int?) ?? 0) +
+              (verification.reason == 'expressed_match' ||
+                      verification.reason == 'no_expressed_bid'
+                  ? 0
+                  : 1)
+      ..['lastExpressedSpeechAct'] = speechAct
+      ..['lastExpressionMatchReason'] = reason
+      ..['lastSourceThoughtExpressed'] =
+          verification.sourceThoughtExpressed
+      ..['lastExpressionVerifiedAt'] =
+          DateTime.now().millisecondsSinceEpoch;
+    await db.setSetting(settingKey, jsonEncode(state));
   }
 
   static Future<CommittedConversationPlan?> planForAssistant(
@@ -165,11 +214,21 @@ class ConversationInitiativeTelemetry {
       final drive = _safeDrive(item['drive']?.toString() ?? '');
       final action = _safeAction(item['action']?.toString() ?? '');
       if (drive == 'none' || action == 'unknown') return null;
+      final plannedSpeechAct = _safeSpeechAct(
+        item['planned_speech_act']?.toString() ??
+            item['speech_act']?.toString() ??
+            '',
+      );
+      final expressedSpeechAct = _safeSpeechAct(
+        item['speech_act']?.toString() ?? '',
+      );
+      final hasExpressionTruth = item.containsKey('expressed_had_ai_bid');
       return CommittedConversationPlan(
         assistantMessageId: assistantMessageId,
         primary: item['primary']?.toString() ?? 'unknown',
         topicMove: item['topic_move']?.toString() ?? 'stay',
-        speechAct: item['speech_act']?.toString() ?? 'react',
+        plannedSpeechAct: plannedSpeechAct,
+        speechAct: expressedSpeechAct,
         drive: drive,
         action: action,
         askAuthorized: item['ask_authorized'] == true,
@@ -178,6 +237,14 @@ class ConversationInitiativeTelemetry {
         hasThought: item['has_thought'] == true,
         sourceProvenance:
             item['source_provenance']?.toString() ?? 'internal',
+        hadAiBid: hasExpressionTruth && item['expressed_had_ai_bid'] == true,
+        sourceThoughtExpressed:
+            hasExpressionTruth && item['source_thought_expressed'] == true,
+        expressionMatchReason: hasExpressionTruth
+            ? _safeExpressionReason(
+                item['expression_match_reason']?.toString() ?? '',
+              )
+            : 'legacy_plan_only',
       );
     } catch (_) {
       return null;
@@ -307,6 +374,24 @@ class ConversationInitiativeTelemetry {
                 .toInt()
             : 0,
     };
+    final expressedSpeechRaw = raw['expressedSpeechActCounts'];
+    final expressedSpeechActs = <String, int>{
+      for (final item in ConversationSpeechAct.values)
+        item.key: expressedSpeechRaw is Map
+            ? ((expressedSpeechRaw[item.key] as num?)?.toInt() ?? 0)
+                .clamp(0, 1000000000)
+                .toInt()
+            : 0,
+    };
+    final expressionReasonRaw = raw['expressionReasonCounts'];
+    final expressionReasonCounts = <String, int>{
+      for (final reason in _expressionReasons)
+        reason: expressionReasonRaw is Map
+            ? ((expressionReasonRaw[reason] as num?)?.toInt() ?? 0)
+                .clamp(0, 1000000000)
+                .toInt()
+            : 0,
+    };
     const curiosityGateReasons = <String>{
       'no_source',
       'no_specific_gap',
@@ -333,6 +418,8 @@ class ConversationInitiativeTelemetry {
       'planCounts': plans,
       'topicMoveCounts': topicMoves,
       'speechActCounts': speechActs,
+      'expressedSpeechActCounts': expressedSpeechActs,
+      'expressionReasonCounts': expressionReasonCounts,
       'curiosityGateCounts': gateCounts,
       'askAuthorizedCount': _safeCount(raw['askAuthorizedCount']),
       'askBlockedCount': _safeCount(raw['askBlockedCount']),
@@ -370,6 +457,18 @@ class ConversationInitiativeTelemetry {
       'lastHadAiBid': raw['lastHadAiBid'] == true,
       'lastSatisfactionApplied': raw['lastSatisfactionApplied'] == true,
       'lastOutcomeAt': _safeTime(raw['lastOutcomeAt']),
+      'committedPlanCount': _safeCount(raw['committedPlanCount']),
+      'expressionMismatchCount': _safeCount(raw['expressionMismatchCount']),
+      'lastExpressedSpeechAct': _safeSpeechAct(
+        raw['lastExpressedSpeechAct']?.toString() ?? '',
+      ),
+      'lastExpressionMatchReason': _safeExpressionReason(
+        raw['lastExpressionMatchReason']?.toString() ?? '',
+      ),
+      'lastSourceThoughtExpressed':
+          raw['lastSourceThoughtExpressed'] == true,
+      'lastExpressionVerifiedAt':
+          _safeTime(raw['lastExpressionVerifiedAt']),
       'resetCount': ((raw['resetCount'] as num?)?.toInt() ?? 0)
           .clamp(0, 1000000000)
           .toInt(),
@@ -413,6 +512,16 @@ class ConversationInitiativeTelemetry {
       }.contains(value)
           ? value
           : 'unknown';
+
+  static String _safeSpeechAct(String value) {
+    for (final speechAct in ConversationSpeechAct.values) {
+      if (speechAct.key == value) return value;
+    }
+    return ConversationSpeechAct.react.key;
+  }
+
+  static String _safeExpressionReason(String value) =>
+      _expressionReasons.contains(value) ? value : 'no_expressed_bid';
 
   static int _safeTime(Object? value) =>
       ((value as num?)?.toInt() ?? 0).clamp(0, 4102444800000).toInt();

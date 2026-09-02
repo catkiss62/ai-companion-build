@@ -646,6 +646,7 @@ class ProactiveEngine {
       mode: PromptGenerationMode.proactive,
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
+      selectedPublicWebCandidateId: webShareCandidateId,
     );
     // The editable 08_proactive_turn template now owns these former inline
     // contracts: 当前“内在反应 + 表达过滤”仍完整生效；正文停在最有性格的自然落点。

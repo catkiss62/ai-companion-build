@@ -8803,6 +8803,62 @@ class AppDatabase {
     });
   }
 
+  /// Reads only the exact public-web candidates selected by the current
+  /// Thought/intent. Unlike [activePublicWebContext], this does not promote an
+  /// unread search result to reviewed merely because an unrelated chat prompt
+  /// was built.
+  Future<List<PublicWebContextItem>> publicWebContextByIds({
+    required Iterable<String> candidateIds,
+    DateTime? now,
+  }) async {
+    final orderedIds = candidateIds
+        .map((id) => id.trim().toLowerCase())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .take(3)
+        .toList(growable: false);
+    if (orderedIds.isEmpty) return const [];
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final placeholders = List.filled(orderedIds.length, '?').join(',');
+    final rows = await db.query(
+      'public_web_candidates',
+      columns: const [
+        'id',
+        'title',
+        'summary',
+        'url',
+        'source_domain',
+        'provider',
+        'discovered_at',
+        'safety_state',
+      ],
+      where:
+          "id IN ($placeholders) AND expires_at > ? AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging')",
+      whereArgs: [...orderedIds, instant.millisecondsSinceEpoch],
+    );
+    final byId = <String, Map<String, Object?>>{
+      for (final row in rows) (row['id'] as String).toLowerCase(): row,
+    };
+    return orderedIds
+        .map((id) => byId[id])
+        .whereType<Map<String, Object?>>()
+        .map((row) => PublicWebContextItem(
+              id: row['id'] as String,
+              title: row['title'] as String? ?? '',
+              summary: row['summary'] as String? ?? '',
+              url: row['url'] as String? ?? '',
+              sourceDomain: row['source_domain'] as String? ?? '',
+              provider: row['provider'] as String? ?? '',
+              discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+                (row['discovered_at'] as num?)?.toInt() ?? 0,
+              ),
+              safetyState:
+                  row['safety_state'] as String? ?? 'untrusted_public',
+            ))
+        .toList(growable: false);
+  }
+
   /// Read-only projection of successful public-web Outcomes for the private
   /// browser. It never marks a candidate reviewed and never creates AI state.
   Future<List<CompanionBrowserVisit>> companionBrowserVisits({

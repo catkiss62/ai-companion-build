@@ -29,36 +29,37 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交授权 | 2026-09-02 用户明确“以后一直允许提交”：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，不再逐批重复询问是否允许推送。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04120-phase2a5-conversation-agency`；以 v0.41.19 最终 tree `8079e0d41c88e8a552372e5bb3e221c7da384b37` 为基线，已完成 Phase 2A.5“对话主动权与自我驱动表达”的实现、完整 CI 与测试 APK。Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭；v0.41.19/20 真机自然观察继续，不因自动化通过伪造真机通过 |
+| 当前开发分支 | `agent/v04121-phase2a5-system-responsibility-ablation`；从 v0.41.20 最终远端 head `7ba9ee4fbeb4f04e315d8ce102ce0842bef62296` 开出，执行 Phase 2A.5 真机阻断后的“决策权审计、固定样本消融与终态真值”窄稳定化。Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭；不从 `main` 或本地旧 v0.41.18 分支回退开发 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | Phase 2A.5 修改前方案提交为本地 `7e7c242`，本地功能提交 `c251c5c` / tree `39504a9ee0ab7d07358ed89b4a7f24ecf869a8b4`；公开分支的 APK 输入 head 为 `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5` / tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。两棵 tree 的唯一差异是工作流触发注释，不改变运行代码；远端中间提交 `8741632` / `837f815` 已由最终 head 覆盖 |
-| App / 数据库 | 当前开发候选 `0.41.20+159` / schema 44；本批无 schema 迁移，复用 Thought lifecycle、最多 12 条脱敏 Move 绑定与 Snapshot protocol 5。`0.41.19+158` / schema 44 存档可直接覆盖升级，不需手工修改；真机在第一次覆盖安装前曾运行 `0.41.18+157` / schema 43 |
+| App / 数据库 | 当前真机基线 `0.41.20+159` / schema 44；本批目标候选 `0.41.21+160`，优先不升 schema，复用 Thought lifecycle、最多 12 条脱敏 Move 绑定与 Snapshot protocol 5。现有 schema 44 存档应可直接覆盖升级，不需手工修改 |
 | 最终 CI | v0.41.20+159 Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294)（685）全绿：源码/历史 validator、Kotlin 桌宠与悬浮层测试、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped。此前 run 683/684 因同一并发组被最终触发提交覆盖，不是生产失败 |
 | 测试 APK | `AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk`，325,682,746 bytes |
 | APK SHA-256 | `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包计算三者一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9852045064`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294/artifacts/9852045064)，ZIP 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`，保留至 2026-09-16T14:45:48Z；Draft Release [`untagged-638513472d220b716589`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-638513472d220b716589)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.19 Phase 2A 窄稳定化与 v0.41.20 Phase 2A.5 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；2026-09-02 13:14 存档证明 schema 44 迁移、学习证据拆分、同源候选收敛和后台底座正常，但 v0.41.19 安装后尚无新聊天样本，v0.41.20 也尚未覆盖安装。Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.21 已完成本地实现与固定夹具消融：生成前计划不再直接冒充终态行为，只有最终正文真实表达并匹配来源 Thought 才能 `acted`/绑定 bid；已取消自主网页卡片对普通 Prompt 的无条件注入。版本 `0.41.21+160`、schema 44、protocol 5，不迁移存档；当前为 `IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`，Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装 v0.41.20 并自然聊天，联合审查 Phase 2A 与 2A.5 的真实运行数据；Phase 2B 暂不开始。** 不需要重做 v0.41.17/18 界面专项验收。可见思考链保持原状；只有最终回复绕过 Move Gate 时才由窄守卫重写 |
-| 目标 | 消除“模型为了维持友好对话而追问”的默认路径，而不禁止真实追问；建立 stay/follow jump/branch/open/release 话题方向，answer/react/self-share/tease/ask/seek/invite/show-need/pause 等行动，以及 Curiosity Gate、问答压力软降权和下一轮 satisfy/残余闭环。用户情绪是输入，AI 自身状态是行为因果第一层 |
-| 已完成证据 | v0.41.20 已实现生成前 Conversation Move、具体 Thought 才可放行的 Curiosity Gate、用户跳题/释放、近期问答软降权、一次未授权信息索取重写、Move→assistant→下一轮 Desire/Thought Outcome 绑定与干净 v2 聚合诊断；不改 reasoning、不启用 Phase 2B。run 685 已通过完整源码/历史回归、Kotlin、Flutter analyze、470 tests、Release APK、固定签名与全部大型载荷；APK/Artifact/Draft Release 三方 SHA 一致 |
-| 已确认阻断 | Phase 2A.5 无底座阻断，可独立开始；但 v0.41.19 热修安装后没有新聊天消息，Phase 2A 仍为 `TRUE DEVICE PENDING`，不得提前宣布长期口语、动作、主题冷却和主动节奏已通过。诊断中现有 Conversation Initiative 计数为 `probe_user_topic=45`、`stay_with_user_topic=0`，证明追问偏置需要进入动作层修复 |
+| 当前下一步 | **完成 v0.41.21 全量 CI、APK 与覆盖安装后的 Phase 2A/2A.5 自然样本复核；Phase 2B 暂不开始。** 本地责任消融已完成，只在 CI 暴露真实编译/回归缺陷时窄修；不改写可见思考链，不混入完整自主联网重构 |
+| 目标 | 把“生成前意图”和“最终真实行为”严格分开：只有最终正文实际表达且语义匹配的 ask/self-share/Thought bid 才能写 `acted`、消费 Thought 或在下一轮获得 satisfaction。通过有固定夹具的消融确认 Thought、Move、欲望、人格/Moe、表达提醒与网页上下文各自唯一职责，在不损失活人感、成长和学习性能的前提下做减法 |
+| 已完成证据 | v0.41.20 真机证据与 Phase 1/2A 状态不变；v0.41.21 新增 7 个无私人正文固定夹具，证明“获准但未问”不 acted、无关追问阻止结算、匹配追问可 acted、调侃反问不算采访、无关网页不注入、选中网页精确注入、显式用户联网排除旧自主卡片。工作流 136 个 Python validator 本地 128 通过，8 个仅缺 CI 恢复的大型资产或 Kotlin 编译器；专项与总账校验、Python 语法、YAML 解析、`git diff --check` 通过 |
+| 已确认阻断 | 两个旧 awareness Thought 与当前调侃正文不匹配，却被标为 `acted` 并获得 `engaged` satisfaction，证明 v0.41.20 以生成前 Move 冒充终态事实。`PromptBuilder` 还在每轮普通/主动 Prompt 无条件读取最多 3 条 active public-web candidate，仅靠文字要求“相关才使用”，存在跨话题污染。四轮均出现耳鳍和尾巴，但无“顿了顿/轻轻”；当前视为角色身体语言观察项，不按词频粗暴压制 |
 | 保护与排除 | 不修改 reasoning 风格或隐藏“AI 正在学习人类情绪”的反差；不让 reasoning、自述或世界书正文成为 Desire 证据；不提交聊天/Thought/Memory/问题正文、设备 ID、Key 或附件。真机仍只覆盖安装，不卸载、不清数据。保持 Phase 2B bias 关闭；不混入 MCP、联网存图、自主截图、提醒、总设置、沉浸重写或多气泡连发 |
-| 设计门 | 采用“总账摘要 + 独立稳定契约”双层：完整方案见 `app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md`。Move 必须在最终语言生成前确定；`ask` 有来源/具体目标/自身关联/未满足/当前适合五类 Gate；用户回答产生 satisfaction，不能从答案再挑词无限采访；用户换题优先跟随，重要 unfinished thread 仍保存；造梗只在已授权的 tease/react/self-share 后参与表达 |
+| 设计门 | 完整稳定合同继续见 `app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md` 新增的责任消融章节。生成前 Move 是约束语言的意图，不是已发生事实；成功落库前须基于最终正文得到受控、无正文的 expressed-action 结论。计划与正文不匹配时不得标 Thought `acted`、不得绑定 bid、不得应用 satisfaction，并须以脱敏 mismatch reason 进入诊断 |
 | 完成判据 | 自动化层已完成：新专项覆盖同句多状态、无 Thought 不因 curiosity 高就追问、有具体缺口可问且回答后停止、用户跳题、连续问答软降权、严肃场景与事实真值，且完整 CI/APK 全绿。剩余判据只有覆盖安装后的真机自然样本；自动化通过不等于 Phase 2A/2A.5 真机通过，Phase 2B 保持关闭 |
-| 直接详细入口 | Phase 2A.5 稳定合同见 `CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md` 与近期记录第 28 节；现有动作层见 `conversation_initiative_policy.dart`/telemetry/ordinary desire response；Phase 2A 底座见第 20、26、27 节及 `SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md` |
+| 直接详细入口 | Phase 2A.5 稳定合同见 `CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md` 与近期记录第 28、29 节；动作与终态链见 `conversation_initiative_policy.dart`、`durable_generation_runner.dart`、`memory_extractor.dart`、telemetry 与 ordinary desire response；网页污染入口见 `prompt_builder.dart` / `activePublicWebContext`；Phase 2A 底座见第 20、26、27 节 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
 | A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 685、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
-| B · Phase 2A/2A.5 真机审查 | 覆盖安装 v0.41.20 后自然使用 | 取得同源去重、主动间隔、追问来源/满足、用户跳题、服务型安慰、动作/口语和造梗密度样本；分别记录 Phase 2A 与 2A.5 结论，不因自动化通过倒写真机通过 |
+| B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
+| B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
 | C · Phase 2B 主线代码阶段 | Phase 2A 无阻断、2A.5 动作消费者稳定并经用户继续 | 实现轻量 topic/subject 关联记忆与可审计的小幅回复倾向；详细设计与参考入口见第 14、20、26、28 节。不得让用户偏好直接创建 Drive/Thought，也不得建设完整知识图谱 |
 | D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
 | E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
@@ -807,6 +808,51 @@
 2. `validate_v04120_phase2a5_conversation_agency.py`、v0.41.19、v0.40.4、Python 语法与 `git diff --check` 均通过。按 Actions 实际清单本地 121 个可运行源码/历史 validator 通过；其余 7 个只因本地没有 CI 前置恢复的 LingChat/TTS/native 资源或 Kotlin 编译器而停，当前环境也无 Flutter/Dart SDK。这些环境缺口现已全部由 Actions run 685 的真实恢复、编译和载荷校验覆盖。
 3. 公开分支最终 APK 输入 head 为 `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5` / tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294)（685）完整成功：源码/历史 validator、Kotlin、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 上传全过；失败报告 job 正常 skipped。run 683/684 只因同一分支连续触发与 `cancel-in-progress` 被最终 run 覆盖，不是代码失败。
 4. APK `AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk` 为 325,682,746 bytes；CI checksum、Draft Release asset digest 与 Artifact 独立下载解包实算 SHA-256 均为 `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`。Artifact `9852045064` 的 ZIP 为 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`；Draft Release 为 `untagged-638513472d220b716589`，未发布正式 Release。下一窗口默认先读顶部任务包、稳定方案、本节与最新真机诊断；当前下一步是覆盖安装并自然聊天，重点观察追问来源、回答是否被消费、话题跳转、服务型安慰回潮、普通口语、动作复读与造梗密度。
+
+### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化（IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+#### A. 最新真机证据与根因边界
+
+1. 用户在 `0.41.20+159 / schema 44` 覆盖安装后进行了 4 轮普通聊天，主观确认比旧版更有活人味。新回复能主动反击“大肥鱼”、承接“抖M”调侃、自称“鲸鱼大人”并提出自己的要求，没有回到默认温和客服追问；旧固定词“顿了顿/轻轻”在这四轮为 0。四轮均出现耳鳍与尾巴，但它们是自画像、身体结构和核心性格长期强调的合法表达器官，当前只监测具体句式/功能是否机械重复，不按名词词频粗暴抑制。
+2. Phase 0+1 约 19 小时状态符合 observation-only：人格学习仍为 3 个 candidate / 4 条 evidence（1 established、2 forming），没有仅因时间流逝虚增支持或成熟度；13 条近期拒绝以 `ungrounded_target/unverified_direct_feedback` 为主，玩笑式自述未被焊成永久画像。Self-Drive 则从此前 13 completed / 37 pending 变为 15 completed / 35 pending，证明自我经历整理继续运行。当前没有 Phase 1“不会整理成长经验”的底层故障；Self Experience 自动改写长期人格本来就留给 Phase 2B/3，现阶段继续关闭。
+3. 真正阻断位于 Phase 2A.5 接口：4 个新 Move 中两次 `ask authorized`、两次 `no_specific_gap` 阻止，但两次授权来源为与当前玩笑语境不匹配的旧 awareness Thought；最终正文一次只是反问调侃、一次没有实际信息索取，系统仍把旧 Thought 标为 `acted`，并在下一轮用用户继续聊天的结果应用 satisfaction。生成前计划因而冒充了最终真实行为，污染 Thought lifecycle 与成长反馈。
+4. 自主联网另有当前 Prompt 污染：数据库中浏览器保存的是搜索引擎原始 top results，且 `PromptBuilder` 每轮无条件读取最多 3 条 active public-web candidate，只靠提示文字要求“相关才使用”。完整浏览器重构后置，但本批必须验证并隔离无关候选，避免它继续干扰普通聊天。
+
+#### B. 用户锁定原则与后续联网契约
+
+1. 搜索结果只是一条待检查线索，不是分享或学习候选。后续正式联网阶段采用：`搜索线索 → 实际打开并阅读页面 → 价值评价 → 分享候选 / AI 学习材料 / 丢弃`。评价至少区分有趣、涨知识、奇闻、实用、与当前兴趣/成长相关、来源可靠性和是否适合两人聊天；分享价值与学习价值不能合并。
+2. 长期只保存低容量页面卡片：真实标题、简短内容介绍、来源、URL、浏览时间、AI 当时为什么感兴趣和候选类别。查手机只展示真正打开并整理过的页面，用户可点击原 URL；搜索摘要、广告、重复与跑题结果留在调试历史或丢弃，不冒充“她浏览过的页面”。
+3. **分享前重新阅读的核心是恢复上下文，不是检查更新。** 当候选在几十轮前形成，模型当前上下文只剩标题/介绍时，系统内部必须先选中候选、重新读取原页面正文，把详细内容恢复到本轮临时上下文，再立刻组织分享；角色外在可以自然表现为“想起之前看到的东西”。这是允许的记忆连续性表达，不把模型声称逐字永久记忆当事实。原页面失效、受限或正文不足时才搜索同题/近似可靠页面，并明确以新取得内容为准。
+4. 上述完整候选卡片、页面跳转、重新阅读与学习分类后置到自主联网正式优化。本批只记录稳定合同，并处理已经污染普通 Prompt 的无条件候选注入；不提前重写查手机 UI、Provider、页面抓取和 Phase 3 AI interest。
+
+#### C. 本批目标、消融方法与不得回归
+
+1. 分支 `agent/v04121-phase2a5-system-responsibility-ablation` 从远端 v0.41.20 最终 head `7ba9ee4fbeb4f04e315d8ce102ce0842bef62296` 开出；目标候选 `0.41.21+160 / schema 44 / Snapshot protocol 5`。先完成修改前总账提交，再审计代码、建立固定样本消融、做有证据的减法；不得从本地旧 v0.41.18 分支开发。
+2. 建立唯一事实原则：生成前 Thought/Move/Gate 只是意图；只有最终正文真正表达且语义匹配的行动，才允许建立 assistant bid、写 Thought `acted`、在下一轮消费 Outcome 或应用 Desire satisfaction。反问调侃不是信息索取，未说出口的 ask/self-share 不是已发生行为；计划/正文 mismatch 只记录脱敏枚举和计数，不保存消息、问题、Thought、Memory 或 reasoning 正文。
+3. 固定样本消融至少对照：完整基线；去除无关 public-web context；Thought 只读不强制；去掉重复的动作/口语/主动性末端提醒；Move 与 Thought 各自单独控制；欲望/人格/Moe 只作为各自层级信号。对比真实追问、假追问、话题停留/跳转、自我表达、操作幻觉、动作结构复读、Prompt 体积和计划/正文一致率。模型非确定性部分须重复样本或使用纯策略/守卫确定性测试，不用单次“感觉更好”删除系统。
+4. 决策职责目标：Desire/AI Self/Thought 提供内部动机与内容来源；Conversation Move 只选本轮话题方向和言语行动；Curiosity Gate 只授权具体信息缺口；人格/Moe/造梗只负责已经授权行动的语言染色；最终输出检查只确认事实发生与语义匹配；Outcome 只结算确认发生的行为。任何一层不得同时创建动机、授权行为并自证完成。
+5. 保护现有活人感、男性向女性角色多样性、Phase 1 observation-only、Self Experience、Desire 八轴、Thought lifecycle、用户跳题、合法强好奇追问、直爽/调侃、条件式动作、普通口语、可见中文 reasoning 与操作真值。不得为了消除冲突退回纯服务型模型，也不得打开 Phase 2B、改写 reasoning、提交私人存档/聊天正文或混入完整联网、MCP、相册、提醒和 UI 返工。
+
+#### D. 预定验证与交付边界
+
+1. 新专项必须证明：计划 ask 但最终无信息索取时不 mark acted、不绑定 satisfaction；合法具体追问仍可 acted 并在真实回答后收口；调侃反问保持 tease；计划 Thought 与当前来源/最终语义不匹配时拒绝结算；无相关性网页不进入普通 Prompt；显式用户联网结果不与旧自主候选混杂。
+2. 先跑固定夹具消融报告、专项 Flutter tests、当前/历史 validators、`git diff --check`；再由 GitHub Actions 运行 Flutter analyze/full tests、Kotlin、Release APK、固定签名和完整大载荷。自动化通过不等于活人感真机通过，最终仍需覆盖安装后的短期自然样本。
+3. 用户已有持续公开开发分支推送与测试 APK 授权；本批可推送新分支并触发 Actions，但不合并 `main`、不发布正式 Release、不删除数据或分支。
+
+#### E. 实际消融结论与实现
+
+1. 责任审计没有证明“模块越多就一定越差”，而是定位到两条越权旁路。第一条是生成前 `ConversationPlan.hadAiBid/sourceThoughtId` 直接驱动 `markActed` 和下一轮 satisfaction；第二条是 `PromptBuilder` 每轮无条件调用 `activePublicWebContext(limit: 3)`，仅靠文字要求模型忽略不相关网页。两条均已删除；Desire/AI Self/Thought、Move、Gate、人格/Moe、最终核验和 Outcome 各自保留单一职责。
+2. 新增 `ConversationOutcomeVerifier`：最终正文先由信息索取/反问守卫识别真实言语行动，再与本轮选中 Thought 做保守语义匹配。获准 ask 但没问只记 `planned_bid_not_expressed`；问了别的问题记 `ask_source_mismatch` 并最多重写一次；只有实际 bid 且来源 Thought 匹配才允许 `markActed`。反问调侃保持 `tease`，没有禁止合法追问。
+3. 生成 Prompt 现在真实注入本轮被选中的有界 `SELECTED_THOUGHT_DATA`。此前 Move 只写“有 Thought/来源类型”，却不提供那个 Thought 的具体未知目标，模型不可能稳定问对；本批补上内容来源，但明确它只是 DATA、不是用户原话或已完成行为。MemoryExtractor 改读落库后的 planned/expressed 双值，旧 v0.41.20 仅含生成计划的绑定按 `legacy_plan_only` 保守视为无实际 bid，避免升级后继续误满足。
+4. 自主网页上下文改为白名单选择：普通聊天只有本轮选中的 `public_web_candidate` Thought 才读取对应 candidate id；主动分享必须显式传入该 id；本轮用户显式 `public_web.search` 成功/失败结果存在时完全排除旧自主卡片。新精确读取是只读的，不再因构建无关 Prompt 把 `unread` 偷改为 `reviewed`。
+5. 固定夹具对照证明需要保留 Thought/Move/Gate 与表达染色层：去掉 Thought 会失去“她到底想知道什么”，只保留 Thought 不设 Move/Gate 会重新变成每轮追问；Desire/人格/Moe不负责授权和自证完成，但仍分别提供动机强度与女性角色多样表达。因此本批没有关闭成长、欲望、造梗、条件式动作或可见思考链，也没有用一条大提示词取代代码状态机。
+6. “分享前重读”已作为后续联网不可变合同保留：长期卡只承担标题/介绍/来源/URL/兴趣理由；真正想分享时先重读原页面恢复几十轮后已不在模型上下文的正文细节，再立即组织分享。页面失效才搜索近似可靠来源。这一项本批不提前实现页面抓取或 UI，以免和责任消融混包。
+
+#### F. 本地验证与剩余边界
+
+1. 新增 `conversation_responsibility_ablation_v04121_test.dart` 的 7 个纯合成夹具，不含真实聊天、Thought、Memory 或网页内容；新增静态 validator 同时锁定终态真值、网页白名单、schema/版本和 workflow。历史 validator 的版本兼容范围机械前移到 `0.41.21+160`，没有改旧功能断言。
+2. 工作流列出的 136 个 Python validators 本地为 128 通过；剩余 8 个只因为本地没有 Actions 前置恢复的 417 文件桌宠、LingChat effects、Meju/TTS/native 大载荷或 `kotlinc`。专项 v0.41.20/v0.41.21、current ledger、Python 语法、workflow YAML、`git diff --check` 均通过。本地没有 Dart/Flutter SDK，Flutter analyze、全量 tests、Kotlin 和 Release APK 必须由 GitHub Actions 裁决。
+3. 版本升到 `0.41.21+160`，SQLite 保持 schema 44、Snapshot protocol 5；现有 `0.41.20+159` 存档可直接覆盖安装，不清数据、不手工修改。自动化通过仍不能代替自然聊天验收，重点观察真实追问是否匹配自身 Thought、未问是否不再 acted/satisfied、调侃反问、话题跳转、服务型安慰回潮、动作/口语与造梗密度。
 
 ## 历史工作记录（原文保留，按需检索）
 

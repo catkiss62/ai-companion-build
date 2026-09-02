@@ -5,11 +5,16 @@ class InformationSeekingQuestionGuardResult {
     required this.allowed,
     required this.reason,
     required this.matchCount,
+    required this.rhetoricalCount,
   });
 
   final bool allowed;
   final String reason;
   final int matchCount;
+  final int rhetoricalCount;
+
+  bool get hasInformationRequest => matchCount > 0;
+  bool get hasRhetoricalQuestion => rhetoricalCount > 0;
 }
 
 /// A deliberately narrow final-output guard for questions which clearly ask
@@ -42,24 +47,36 @@ class InformationSeekingQuestionGuard {
     required String text,
     required bool askAuthorized,
   }) {
-    if (askAuthorized || text.trim().isEmpty) {
+    if (text.trim().isEmpty) {
       return const InformationSeekingQuestionGuardResult(
         allowed: true,
-        reason: 'authorized_or_empty',
+        reason: 'empty',
         matchCount: 0,
+        rhetoricalCount: 0,
       );
     }
     var matches = 0;
+    var rhetorical = 0;
     for (final segment in _segments(text)) {
-      if (_rhetoricalMarkers.any(segment.contains)) continue;
+      if (_rhetoricalMarkers.any(segment.contains)) {
+        if (segment.contains('?') || segment.contains('？')) rhetorical += 1;
+        continue;
+      }
       if (_informationPatterns.any((pattern) => pattern.hasMatch(segment))) {
         matches += 1;
       }
     }
     return InformationSeekingQuestionGuardResult(
-      allowed: matches == 0,
-      reason: matches == 0 ? 'no_information_request' : 'unauthorized_information_request',
+      allowed: askAuthorized || matches == 0,
+      reason: matches == 0
+          ? rhetorical > 0
+              ? 'rhetorical_only'
+              : 'no_information_request'
+          : askAuthorized
+              ? 'authorized_information_request'
+              : 'unauthorized_information_request',
       matchCount: matches,
+      rhetoricalCount: rhetorical,
     );
   }
 

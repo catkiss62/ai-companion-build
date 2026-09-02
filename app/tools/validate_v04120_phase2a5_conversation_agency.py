@@ -31,9 +31,15 @@ plan = read("app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.20\+159\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
-assert "buildLabel = 'v0.41.20+159'" in self_reader
+assert any(
+    token in self_reader
+    for token in (
+        "buildLabel = 'v0.41.20+159'",
+        "buildLabel = 'v0.41.21+160'",
+    )
+)
 
 for token in (
     "ConversationTopicMove",
@@ -98,7 +104,10 @@ for token in (
     "authoritativeAction",
 ):
     assert token in extractor + outcome, token
-assert "手机生成前的权威 Move" in extractor
+assert any(
+    token in extractor
+    for token in ("手机生成前的权威 Move", "手机落库后的终态行为核验")
+)
 for token in (
     "thoughtByOutboundMessageId",
     "last_outbound_message_id = ?",
@@ -114,9 +123,12 @@ for token in (
 for token in (
     "unauthorized_information_request",
     "_rhetoricalMarkers",
-    "askAuthorized || text.trim().isEmpty",
 ):
     assert token in guard, token
+assert any(
+    token in guard
+    for token in ("askAuthorized || text.trim().isEmpty", "askAuthorized || matches == 0")
+)
 assert "text.contains('?')" not in guard
 assert "informationQuestionGuardMatchedTextIncluded': false" in diagnostics
 assert "'informationQuestionGuard':" in diagnostics

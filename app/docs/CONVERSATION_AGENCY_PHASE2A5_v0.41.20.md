@@ -141,3 +141,16 @@ Phase 2A.5 让普通用户轮回复正式消费现有 `Desire → Thought → AI
 - APK：`AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk`，325,682,746 bytes，SHA-256 `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`。
 - Artifact `9852045064`：ZIP 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`；Draft Release 为 `untagged-638513472d220b716589`，未发布正式 Release。
 - 当前仍需覆盖安装后的自然聊天样本；自动化通过不代表 Phase 2A.5 真机通过，也不开放 Phase 2B。
+
+## 12. 真机阻断后的责任消融与终态真值合同
+
+v0.41.20 的首批四轮真机样本证明语言表面已更主动、口语且非客服化，同时证明生成前计划不能直接作为行为事实：旧 awareness Thought 曾授权 ask，但最终正文只表达调侃或要求，没有实际索取对应信息；系统仍将 Thought 标为 `acted` 并在下一轮应用 satisfaction。
+
+后续稳定化遵守以下不变量：
+
+1. Thought/Move/Gate 是生成前意图；最终正文才是发生事实。只有正文实际表达且与来源 Thought/具体信息缺口语义匹配，才允许建立 bid、标记 `acted` 和消费下一轮 Outcome。
+2. 反问、吐槽、玩笑和语气性问号归入 `tease/react`，不因标点或生成前 ask 计划冒充信息索取；未说出口的计划保持未执行。
+3. Outcome 必须同时匹配 assistant message、实际表达的 action 与来源 Thought。用户继续聊天不能自动满足一个未表达的旧 Thought。
+4. 责任消融使用固定的人工等价夹具和纯策略测试，不将私人存档或聊天正文提交仓库。逐层对照 Thought、Move、Desire、人格/Moe、末端表达提醒与 public-web context，只有关闭后无能力损失或能消除冲突的层才删除/降级。
+5. public-web 搜索结果不是候选。完整联网后续采用“搜索线索→实际阅读→价值评价→分享候选/学习材料/丢弃”；长期卡片只保存低容量标题/介绍/来源/URL/兴趣理由。分享旧候选前必须重新读取原页面以恢复当前详细上下文，页面失效时才重新搜索近似来源。
+6. 完整联网重构后置；当前只阻止与本轮话题/选中 Thought 无关的自主网页候选无条件进入普通 Prompt。用户显式联网的本轮结果保持最高事实优先级。

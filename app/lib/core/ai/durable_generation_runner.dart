@@ -5,6 +5,7 @@ import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
+import '../desire/conversation_outcome_verifier.dart';
 import '../desire/thought_lifecycle_engine.dart';
 import '../diagnostics/conversation_initiative_telemetry.dart';
 import '../diagnostics/visible_reasoning_language_telemetry.dart';
@@ -20,6 +21,7 @@ import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
+import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
@@ -228,6 +230,16 @@ class DurableGenerationRunner {
         latestUserText: user.content,
         now: user.createdAt,
       );
+      CompanionThought? sourceConversationThought;
+      final sourceThoughtId = conversationPlan.sourceThoughtId;
+      if (sourceThoughtId != null) {
+        for (final thought in thoughts) {
+          if (thought.id == sourceThoughtId) {
+            sourceConversationThought = thought;
+            break;
+          }
+        }
+      }
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -556,10 +568,16 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         text: finalContent,
         askAuthorized: conversationPlan.askAuthorized,
       );
+      var expressionVerification = ConversationOutcomeVerifier.verify(
+        finalText: finalContent,
+        plan: conversationPlan,
+        sourceThought: sourceConversationThought,
+      );
       if (!serviceGuard.allowed ||
           !perspectiveGuard.allowed ||
           !operationGuard.allowed ||
-          !questionGuard.allowed) {
+          !questionGuard.allowed ||
+          !expressionVerification.allowed) {
         if (!serviceGuard.allowed) {
           await ServiceTemplateGuardTelemetry.note(
             db,
@@ -575,13 +593,18 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
             action: 'rewrite',
           );
         }
-        final correctionReason = !questionGuard.allowed
-            ? '${questionGuard.reason} / ask_not_authorized'
-            : !operationGuard.allowed
-            ? operationGuard.reason
-            : !perspectiveGuard.allowed
-                ? perspectiveGuard.reason
-                : '${serviceGuard.reason} / ${serviceGuard.family}';
+        final String correctionReason;
+        if (!questionGuard.allowed) {
+          correctionReason = '${questionGuard.reason} / ask_not_authorized';
+        } else if (!expressionVerification.allowed) {
+          correctionReason = expressionVerification.reason;
+        } else if (!operationGuard.allowed) {
+          correctionReason = operationGuard.reason;
+        } else if (!perspectiveGuard.allowed) {
+          correctionReason = perspectiveGuard.reason;
+        } else {
+          correctionReason = '${serviceGuard.reason} / ${serviceGuard.family}';
+        }
         final correctionMessages = <Map<String, Object?>>[
           ...finalRequestMessages,
           {
@@ -594,6 +617,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
 本轮 Conversation Move 没有授权索取新信息时，不得用“怎么了、发生什么、能和我说说吗、你觉得呢”等问题维持对话；可以直接表达自己的反应、判断、调侃、分享或自然收住。反问和不索取答案的玩笑不受影响。
+本轮即使获准追问，也只能表达 SELECTED_THOUGHT_DATA 中那个具体未知目标；不得临时换问另一个问题来冒充 Thought 已经执行。不想问或当前不适合问，可以不问并自然回应，但系统不会把未表达的计划记成完成。
 重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
 ${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
@@ -665,6 +689,16 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
             '模型连续返回未获内部动机授权的信息索取问题，已阻止写入',
           );
         }
+        expressionVerification = ConversationOutcomeVerifier.verify(
+          finalText: finalContent,
+          plan: conversationPlan,
+          sourceThought: sourceConversationThought,
+        );
+        if (!expressionVerification.allowed) {
+          throw const FormatException(
+            '模型连续返回与获授权 Thought 不匹配的信息索取问题，已阻止写入',
+          );
+        }
       }
       if (finalContent.trim().isEmpty) {
         throw const FormatException('模板重写后正文为空');
@@ -731,8 +765,9 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         db,
         assistantMessageId: assistant.id,
         plan: conversationPlan,
+        verification: expressionVerification,
       );
-      if (conversationPlan.hadAiBid &&
+      if (expressionVerification.shouldMarkThoughtActed &&
           conversationPlan.sourceThoughtId != null) {
         try {
           final sourceThought = await db.thoughtById(
