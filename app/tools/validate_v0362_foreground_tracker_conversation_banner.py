@@ -69,7 +69,14 @@ assert "Color.rgb(216, 177, 255)" not in overlay
 
 controller = read("lib/features/chat/chat_controller.dart")
 bridge = read("lib/core/platform/android_bridge.dart")
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 assert "acknowledgeCompanionNotifications" in controller
 assert "openCompanionNotificationSettings" in bridge
 assert "打开该频道的浮动通知设置" in settings

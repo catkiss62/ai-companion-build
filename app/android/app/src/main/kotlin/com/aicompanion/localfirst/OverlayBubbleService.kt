@@ -2981,14 +2981,14 @@ class OverlayBubbleService : Service() {
         ) {
             "gold" -> Color.rgb(253, 230, 138)
             "pink" -> Color.rgb(241, 183, 197)
-            else -> Color.rgb(210, 195, 235)
+            else -> Color.rgb(212, 187, 252)
         }
 
         private fun smallInlineAction(label: String, onClick: () -> Unit): TextView =
             TextView(this@OverlayBubbleService).apply {
                 text = label
                 textSize = 13f
-                setTextColor(Color.rgb(210, 195, 235))
+                setTextColor(Color.rgb(212, 187, 252))
                 gravity = Gravity.CENTER_VERTICAL
                 background = rounded(Color.rgb(44, 41, 50), 9f)
                 setPadding(dp(10), 0, dp(10), 0)
@@ -3010,7 +3010,7 @@ class OverlayBubbleService : Service() {
         ): TextView = TextView(this@OverlayBubbleService).apply {
             gravity = Gravity.CENTER
             textSize = if (phase == "synthesizing") 20f else 15f
-            setTextColor(Color.rgb(210, 195, 235))
+            setTextColor(Color.rgb(212, 187, 252))
             setPadding(dp(9), dp(4), dp(9), dp(2))
             minWidth = dp(34)
             minHeight = dp(30)
@@ -3042,7 +3042,7 @@ class OverlayBubbleService : Service() {
     private fun proactiveIntentLabel(intent: String): String = when (intent) {
         "gentle_ping" -> "轻轻找你"
         "miss_you" -> "想你"
-        "followup" -> "想起刚才的话"
+        "followup" -> "想起之前的话"
         "share_thought" -> "分享念头"
         "curiosity" -> "好奇"
         "social_share" -> "随手分享"

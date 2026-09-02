@@ -10,7 +10,14 @@ INITIATIVE = (
 OUTCOME = (ROOT / "lib/core/desire/ordinary_desire_response.dart").read_text()
 EXTRACTOR = (ROOT / "lib/core/ai/memory_extractor.dart").read_text()
 DB = (ROOT / "lib/core/database/app_database.dart").read_text()
-SETTINGS = (ROOT / "lib/features/settings/settings_page.dart").read_text()
+SETTINGS = "\n".join(
+    (ROOT / path).read_text()
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 PROACTIVE = (ROOT / "lib/core/desire/proactive_engine.dart").read_text()
 REPORT = (ROOT / "lib/core/diagnostics/preflight_diagnostics.dart").read_text()
 TELEMETRY = (

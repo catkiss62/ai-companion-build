@@ -6,7 +6,14 @@ db = (root / "lib/core/database/app_database.dart").read_text()
 controller = (root / "lib/features/chat/chat_controller.dart").read_text()
 message = (root / "lib/core/models/chat_message.dart").read_text()
 vision = (root / "lib/core/ai/qwen_vision_client.dart").read_text()
-settings = (root / "lib/features/settings/settings_page.dart").read_text()
+settings = "\n".join(
+    (root / path).read_text()
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 workflow = (root.parent / ".github/workflows/build-apk.yml").read_text()
 
 checks = {

@@ -27,7 +27,7 @@ assert any(
     version in pubspec
     for version in (
         "version: 0.41.12+151", "version: 0.41.13+152",
-        "version: 0.41.14+153", "version: 0.41.17+156",
+        "version: 0.41.14+153", "version: 0.41.18+157",
     )
 )
 assert "static const int schemaVersion = 42;" in database

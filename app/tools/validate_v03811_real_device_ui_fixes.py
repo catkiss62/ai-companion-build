@@ -42,7 +42,7 @@ assert "child: const Text('✅'" in page
 
 # The v0.38.12 follow-up intentionally restores a readable plot height after
 # real-device feedback showed the compact v0.38.11 strip was too short.
-if "version: 0.41.17+156" in pubspec:
+if "version: 0.41.18+157" in pubspec:
     assert "MoodChartLayout.build" in page
     assert "const chartHeight = 224.0" in page
 else:
@@ -56,7 +56,7 @@ assert "top: false" in scaffold
 assert "tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page or (
     "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page
 )
-if "version: 0.41.17+156" in pubspec:
+if "version: 0.41.18+157" in pubspec:
     assert "entry: widget.self" in page and "entry: widget.user" in page
 else:
     assert "TarotReading(entry: self, label: '鲸鱼运势')" in page

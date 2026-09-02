@@ -22,7 +22,7 @@ workflow = read("../.github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (
     "version: 0.38.16+115",
-    "version: 0.41.17+156",
+    "version: 0.41.18+157",
 ))
 assert "- assets/tarot/rws_major/" in pubspec
 assert "class LockScreen" in page

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const chatDialoguePurple = Color(0xFFD2C3EB);
+const chatDialoguePurple = Color(0xFFD4BBFC);
 const chatDialogueGold = Color(0xFFFDE68A);
 const chatDialoguePink = Color(0xFFF1B7C5);
 

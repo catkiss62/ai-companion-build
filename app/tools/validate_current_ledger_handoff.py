@@ -106,7 +106,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.17\+156\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.18\+157\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )

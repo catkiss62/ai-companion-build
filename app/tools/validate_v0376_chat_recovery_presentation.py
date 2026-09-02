@@ -17,7 +17,14 @@ database = read("lib/core/database/app_database.dart")
 runner = read("lib/core/ai/durable_generation_runner.dart")
 controller = read("lib/features/chat/chat_controller.dart")
 chat = read("lib/features/chat/chat_page.dart")
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 commands = read("lib/core/platform/background_chat_command_server.dart")
 tint = read("lib/widgets/action_tint_text.dart")
 diagnostics = read("lib/core/diagnostics/preflight_diagnostics.dart")
@@ -63,7 +70,10 @@ assert "pushNamed('/settings')" in chat
 assert "const SettingsPage()" not in chat
 assert "ttsStatus!" not in settings
 assert "Text(status!" not in settings
-assert "final currentTtsStatus = ttsStatus;" in settings
+assert (
+    "final currentTtsStatus = ttsStatus;" in settings
+    or "final currentTtsStatus = _ttsStatus;" in settings
+)
 
 assert "_presentRecentMessages" in commands
 assert "chat_last_presented_assistant_id" in commands

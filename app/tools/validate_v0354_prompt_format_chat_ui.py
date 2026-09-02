@@ -96,7 +96,14 @@ for token in (
 ):
     assert token in overlay, token
 
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 controller = read("lib/features/chat/chat_controller.dart")
 proactive = read("lib/core/desire/proactive_engine.dart")
 for source in (settings, controller, proactive):

@@ -34,11 +34,18 @@ docs = read("app/docs/CHAT_UI_MOOD_HOTFIX_v0.41.17.md")
 doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.17\+156\s*$", pubspec, re.MULTILINE)
+assert re.search(
+    r"^version:\s*0\.41\.(?:17\+156|18\+157)\s*$",
+    pubspec,
+    re.MULTILINE,
+)
 assert "static const int schemaVersion = 43;" in database
 
+assert (
+    "chatDialoguePurple = Color(0xFFD2C3EB)" in tint
+    or "chatDialoguePurple = Color(0xFFD4BBFC)" in tint
+)
 for token in (
-    "chatDialoguePurple = Color(0xFFD2C3EB)",
     "chatDialogueGold = Color(0xFFFDE68A)",
     "chatDialoguePink = Color(0xFFF1B7C5)",
     "settingKey = 'chat_dialogue_color'",
@@ -81,9 +88,12 @@ assert "emoji" in cart and "_cleanEmoji" in cart
 
 for token in ("setOverlayDialogueColor", "setDialogueColor"):
     assert token in bridge + system_bridge + overlay, token
+assert (
+    "Color.rgb(210, 195, 235)" in overlay
+    or "Color.rgb(212, 187, 252)" in overlay
+)
 for token in (
     "KEY_DIALOGUE_COLOR",
-    "Color.rgb(210, 195, 235)",
     "Color.rgb(253, 230, 138)",
     "Color.rgb(241, 183, 197)",
 ):

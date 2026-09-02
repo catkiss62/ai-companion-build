@@ -16,7 +16,14 @@ engine = text("lib/core/autonomy/public_web_discovery_engine.dart")
 database = text("lib/core/database/app_database.dart")
 prompt = text("lib/core/ai/prompt_builder.dart")
 secure = text("lib/core/storage/secure_config.dart")
-settings = text("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    text(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 tests = text("test/layered_public_web_provider_v0349_test.dart")
 
 assert "version: 0.34.9+74" in pubspec

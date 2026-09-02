@@ -18,7 +18,14 @@ policy = read("lib/core/autonomy/public_web_share_policy.dart")
 coordinator = read("lib/core/autonomy/public_web_share_coordinator.dart")
 database = read("lib/core/database/app_database.dart")
 system_page = read("lib/features/system/system_page.dart")
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 reference = read("lib/core/reference/reference_library.dart")
 rules = read("lib/core/rules/rule_layer_defaults.dart")
 reference_doc = read("docs/REFERENCE_LIBRARY.md")
@@ -79,7 +86,8 @@ for text, label in (
     if "旧 index" in text or "旧 Index" in text or "旧index" in text:
         raise SystemExit(f"legacy index wording remains in {label}")
 
-require(settings, "title: const Text('参考资料')", "reference UI title")
+require(settings, "reference_library_enabled", "reference setting key")
+require(settings, "参考资料", "reference UI title")
 require(
     reference,
     "用户导入的人设/设定参考资料",

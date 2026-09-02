@@ -48,6 +48,7 @@
 - `SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md`：Phase 2A 自我回顾候选/体验 Outcome、baseline-centered 欲望动力学、熄屏联系窗口、三类自主联网与四分支结果评价合同。
 - `PHONE_UI_INTEGRATION_v0.41.16.md`：Phase 2A 观察兼容的查手机/快捷侧栏/沉浸布局整合合同；明确购物车隐私、只读状态页及总设置第二步边界。
 - `CHAT_UI_MOOD_HOTFIX_v0.41.17.md`：v0.41.16 真机呈现热修；固定聊天白字、三处对白颜色联动、THINKING 折叠头、心情图宽度、购物车 emoji 与侧栏关系天数单一数据源。
+- `SETTINGS_INFORMATION_ARCHITECTURE_v0.41.18.md`：总设置六域、侧栏单一真源、分小节保存、高风险动作隔离、自检副作用分层，以及同包对白紫色/主动回想文案合同。
 
 ### 身体与感知
 

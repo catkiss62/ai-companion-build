@@ -97,7 +97,14 @@ for token in (
 ):
     assert token in prompt, token
 
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 assert "模型思考模式" not in settings
 assert "chat_thinking_enabled" not in settings
 assert "thinking: true" in settings

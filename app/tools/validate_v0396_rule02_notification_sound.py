@@ -71,7 +71,14 @@ system_bridge = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBridge.kt"
 )
 flutter_bridge = read("lib/core/platform/android_bridge.dart")
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 sound_settings = read("lib/core/models/proactive_notification_settings.dart")
 
 for token in (

@@ -285,13 +285,20 @@
 # v0.41.15-phase2a-self-experience-desire-web-test
 # .ci/v04115-monitor.txt
 # python3 tools/validate_v04115_phase2a_self_experience_desire_web.py
-# Current v0.41.17 workflow: observation-compatible chat UI and mood hotfix.
-name: Build AI Companion v0.41.17+156 APK (Chat UI + Mood Hotfix)
+# Historical v0.41.17 workflow compatibility:
+# Build AI Companion v0.41.17+156 APK (Chat UI + Mood Hotfix)
+# agent/v04117-chat-ui-mood-hotfix
+# AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK
+# v0.41.17-chat-ui-mood-hotfix-test
+# .ci/v04117-monitor.txt
+# python3 tools/validate_v04117_chat_ui_mood_hotfix.py
+# Current v0.41.18 workflow: settings information architecture and save isolation.
+name: Build AI Companion v0.41.18+157 APK (Settings Information Architecture)
 
 on:
   push:
     branches:
-      - agent/v04117-chat-ui-mood-hotfix
+      - agent/v04118-settings-information-architecture
   workflow_dispatch:
   pull_request:
     branches:
@@ -429,14 +436,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.17+156' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.18+157' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 43;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.17+156 observation-compatible chat UI and mood hotfix.'
+          echo 'Building v0.41.18+157 settings information architecture and save isolation.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -629,6 +636,7 @@ jobs:
           python3 tools/validate_v04115_phase2a_self_experience_desire_web.py
           python3 tools/validate_v04116_foundation_ui_phone_integration.py
           python3 tools/validate_v04117_chat_ui_mood_hotfix.py
+          python3 tools/validate_v04118_settings_information_architecture.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -876,26 +884,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.17+156 APK as workflow artifact
+      - name: Upload v0.41.18+157 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK
+          name: AI-Companion-v0.41.18-157-Settings-Information-Architecture-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.17+156 Chat UI + Mood APK to draft release
+      - name: Upload v0.41.18+157 Settings Information Architecture APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.17-chat-ui-mood-hotfix-test'
-          APK_NAME='AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK.apk'
+          TAG='v0.41.18-settings-information-architecture-test'
+          APK_NAME='AI-Companion-v0.41.18-157-Settings-Information-Architecture-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.18-157-Settings-Information-Architecture-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -912,8 +920,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.17+156 Chat UI + Mood candidate' \
-              --notes 'Draft hotfix candidate: restores white chat transcript, input and DeepSeek labels; adds a shared purple/yellow/pink quoted-dialogue setting for normal, immersive and overlay chat; replaces reasoning headers with compact THINKING disclosure; repairs seven-day mood chart sizing; preserves varied cart emoji; and shows relationship age above the phone entry. Phase 2A runtime logic is unchanged; Phase 2B/3/4 remain disabled. SQLite schema 43; backup protocol remains 5.'
+              --title 'AI Companion v0.41.18+157 Settings Information Architecture candidate' \
+              --notes 'Draft settings candidate: splits all settings into six responsibility domains; isolates per-section saves; shares proactive, visual, voice/emotion and text controls with the avatar drawer; separates quick checks, deep acceptance and state-changing developer actions; updates shared dialogue purple to #D4BBFC; and labels follow-up recall as 想起之前的话. Phase 2A runtime logic is unchanged; Phase 2B/3/4 remain disabled. SQLite schema 43; backup protocol remains 5.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -937,18 +945,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04117-monitor.txt'
+          MONITOR_PATH='.ci/v04118-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.17 CI success monitor' \
+              -f message='Update v0.41.18 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.17 CI success monitor' \
+              -f message='Create v0.41.18 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -969,8 +977,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.17-chat-ui-mood-hotfix-test'
-          CI_NAME='AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-CI-Monitor.txt'
+          TAG='v0.41.18-settings-information-architecture-test'
+          CI_NAME='AI-Companion-v0.41.18-157-Settings-Information-Architecture-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1011,8 +1019,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.17+156 Chat UI + Mood candidate' \
-              --notes 'Draft candidate for observation-compatible chat UI and mood hotfix. It is not a published release; Phase 2A runtime logic remains unchanged and Phase 2B/3/4, autonomous screenshots and MCP remain disabled.'
+              --title 'AI Companion v0.41.18+157 Settings Information Architecture candidate' \
+              --notes 'Draft candidate for settings information architecture and isolated save semantics. It is not a published release; Phase 2A runtime logic remains unchanged and Phase 2B/3/4, autonomous screenshots and MCP remain disabled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1021,18 +1029,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04117-monitor.txt'
+          MONITOR_PATH='.ci/v04118-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.17 CI failure monitor' \
+              -f message='Update v0.41.18 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.17 CI failure monitor' \
+              -f message='Create v0.41.18 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

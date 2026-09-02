@@ -6,6 +6,10 @@ import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/models/proactive_intent.dart';
 
 void main() {
+  test('follow-up presentation allows older recalled topics', () {
+    expect(ProactiveIntentKind.followup.zhLabel, '想起之前的话');
+  });
+
   test('attachment intent becomes miss-you presentation', () {
     const intent = DesireIntent(
       drive: DriveKey.attachment,

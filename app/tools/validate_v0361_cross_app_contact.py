@@ -62,7 +62,14 @@ assert "ProactivePopupMode.fromSetting" in proactive
 assert "effectiveNotificationDelivery" in proactive
 assert "soundKey: notificationSound.key" in proactive
 
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 for token in (
     "ProactivePopupMode.alwaysPopup",
     "试听当前声音",

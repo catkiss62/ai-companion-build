@@ -10,6 +10,8 @@ import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/tts/tts_policy.dart';
+import '../../core/tts/tts_provider.dart';
+import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/action_tint_text.dart';
 
@@ -113,6 +115,8 @@ class _ProactiveContactSettingsPageState
       ProactiveNotificationPrivacy.smart;
   ProactiveNotificationSound _sound = ProactiveNotificationSound.chime;
   ProactiveTtsPolicy _tts = ProactiveTtsPolicy.silent;
+  bool _adaptation = true;
+  String? _status;
   bool _loading = true;
 
   @override
@@ -137,10 +141,46 @@ class _ProactiveContactSettingsPageState
     _tts = ProactiveTtsPolicy.fromSetting(
       await _db.getSetting('proactive_tts_policy'),
     );
+    _adaptation =
+        (await _db.getSetting('proactive_adaptation_enabled')) != '0';
     if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _set(String key, String value) => _db.setSetting(key, value);
+
+  Future<void> _previewSound() async {
+    setState(() => _status = '正在试听当前提示音…');
+    try {
+      final result = await AndroidBridge.instance
+          .previewCompanionNotificationSound(soundKey: _sound.key);
+      if (!mounted) return;
+      setState(() {
+        _status = _sound == ProactiveNotificationSound.silent
+            ? '当前选择为静音。'
+            : result['played'] == true
+                ? '提示音试听完成；这一步不经过系统通知频道。'
+                : '提示音试听失败：${result['reason'] ?? '无法启动音频'}';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _status = '提示音试听失败：$error');
+    }
+  }
+
+  Future<void> _testNotification() async {
+    setState(() => _status = '正在发送一条不写聊天和记忆的测试通知…');
+    try {
+      final result = await AndroidBridge.instance
+          .testCompanionNotification(soundKey: _sound.key);
+      if (!mounted) return;
+      setState(() {
+        _status = result['posted'] == true
+            ? '测试通知已交给 Android。'
+            : '测试通知未显示：${result['reason'] ?? '请检查通知权限'}';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _status = '测试通知失败：$error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -150,6 +190,22 @@ class _ProactiveContactSettingsPageState
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                 children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('主动联系节奏学习'),
+                    subtitle: const Text(
+                      '只在本地学习更合适的时段、活动情境和话题反馈。',
+                    ),
+                    value: _adaptation,
+                    onChanged: (value) async {
+                      setState(() => _adaptation = value);
+                      await _set(
+                        'proactive_adaptation_enabled',
+                        value ? '1' : '0',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
                   DropdownButtonFormField<ProactiveFrequencyMode>(
                     value: _frequency,
                     decoration: const InputDecoration(
@@ -257,16 +313,36 @@ class _ProactiveContactSettingsPageState
                       await _set('proactive_tts_policy', value.settingValue);
                     },
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _previewSound,
+                        icon: const Icon(Icons.volume_up_outlined),
+                        label: const Text('试听当前声音'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _testNotification,
+                        icon: const Icon(Icons.notifications_active_outlined),
+                        label: const Text('测试系统弹窗'),
+                      ),
+                    ],
+                  ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.notifications_outlined),
-                    title: const Text('打开系统通知管理'),
+                    title: const Text('打开该频道的浮动通知设置'),
                     subtitle: const Text('声音与横幅还需要系统通知频道允许。'),
                     trailing: const Icon(Icons.open_in_new_rounded),
                     onTap: () => AndroidBridge.instance
                         .openCompanionNotificationSettings(soundKey: _sound.key),
                   ),
+                  if (_status != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_status!),
+                  ],
                 ],
               ),
       );
@@ -411,11 +487,21 @@ class VoiceEmotionSettingsPage extends StatefulWidget {
 class _VoiceEmotionSettingsPageState
     extends State<VoiceEmotionSettingsPage> {
   final _db = AppDatabase.instance;
+  final _tts = TtsService();
+  final _replacementController = TextEditingController();
   bool _ttsEnabled = false;
+  bool _autoTts = false;
+  bool _streamingTts = false;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
+  ProactiveTtsPolicy _proactivePolicy = ProactiveTtsPolicy.silent;
+  double _ttsSpeed = 1.0;
+  double _ttsVolume = 1.0;
   bool _showEmotion = true;
   bool _emotionSound = false;
   double _emotionVolume = 0.15;
+  TtsStatus? _ttsStatus;
+  bool _ttsBusy = false;
+  String? _status;
   bool _loading = true;
 
   @override
@@ -426,9 +512,24 @@ class _VoiceEmotionSettingsPageState
 
   Future<void> _load() async {
     _ttsEnabled = (await _db.getSetting('tts_enabled')) == '1';
+    _autoTts = (await _db.getSetting('auto_tts')) == '1';
+    _streamingTts =
+        (await _db.getSetting('tts_streaming_enabled')) == '1';
     _scope = TtsReadingScope.fromSetting(
       await _db.getSetting('tts_reading_scope'),
     );
+    _proactivePolicy = ProactiveTtsPolicy.fromSetting(
+      await _db.getSetting('proactive_tts_policy'),
+    );
+    _ttsSpeed = (double.tryParse(await _db.getSetting('tts_speed') ?? '') ?? 1.0)
+        .clamp(0.5, 2.0)
+        .toDouble();
+    _ttsVolume =
+        (double.tryParse(await _db.getSetting('tts_volume') ?? '') ?? 1.0)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    _replacementController.text =
+        await _db.getSetting('tts_replacements_json') ?? '{"Yuki":"有希"}';
     _showEmotion = (await _db.getSetting('show_emotion_label')) != '0';
     _emotionSound = (await _db.getSetting('emotion_sound_enabled')) == '1';
     _emotionVolume = (double.tryParse(
@@ -437,11 +538,52 @@ class _VoiceEmotionSettingsPageState
             0.15)
         .clamp(0.0, 1.0)
         .toDouble();
+    try {
+      _ttsStatus = await _tts.status();
+    } catch (_) {
+      _ttsStatus = null;
+    }
     if (mounted) setState(() => _loading = false);
   }
 
+  Future<void> _runTtsAction(
+    String pending,
+    Future<String> Function() action,
+  ) async {
+    if (_ttsBusy) return;
+    setState(() {
+      _ttsBusy = true;
+      _status = pending;
+    });
+    try {
+      final result = await action();
+      _ttsStatus = await _tts.status();
+      if (mounted) setState(() => _status = result);
+    } catch (error) {
+      if (mounted) setState(() => _status = 'TTS 操作失败：$error');
+    } finally {
+      if (mounted) setState(() => _ttsBusy = false);
+    }
+  }
+
+  Future<void> _saveReplacement() async {
+    await _db.setSetting(
+      'tts_replacements_json',
+      _replacementController.text.trim(),
+    );
+    if (mounted) setState(() => _status = 'TTS 文字替换已保存。');
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
+  void dispose() {
+    _replacementController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentTtsStatus = _ttsStatus;
+    return Scaffold(
         appBar: AppBar(title: const Text('语音与情绪')),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -462,7 +604,7 @@ class _VoiceEmotionSettingsPageState
                     DropdownButtonFormField<TtsReadingScope>(
                       value: _scope,
                       decoration: const InputDecoration(
-                        labelText: 'TTS 朗读内容',
+                        labelText: '朗读范围',
                         border: OutlineInputBorder(),
                       ),
                       items: TtsReadingScope.values
@@ -477,6 +619,164 @@ class _VoiceEmotionSettingsPageState
                         await _db.setSetting('tts_reading_scope', value.key);
                       },
                     ),
+                  if (_ttsEnabled) ...[
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('AI 回复后自动朗读'),
+                      subtitle: const Text('只朗读最终正文，不朗读 THINKING。'),
+                      value: _autoTts,
+                      onChanged: (value) async {
+                        setState(() => _autoTts = value);
+                        await _db.setSetting('auto_tts', value ? '1' : '0');
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('流式分句朗读'),
+                      subtitle: const Text('每完成一句就进入本地 TTS 队列。'),
+                      value: _streamingTts,
+                      onChanged: _autoTts
+                          ? (value) async {
+                              setState(() => _streamingTts = value);
+                              await _db.setSetting(
+                                'tts_streaming_enabled',
+                                value ? '1' : '0',
+                              );
+                            }
+                          : null,
+                    ),
+                    DropdownButtonFormField<ProactiveTtsPolicy>(
+                      value: _proactivePolicy,
+                      decoration: const InputDecoration(
+                        labelText: '主动消息语音策略',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: ProactiveTtsPolicy.values
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value.label),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) async {
+                        if (value == null) return;
+                        setState(() => _proactivePolicy = value);
+                        await _db.setSetting(
+                          'proactive_tts_policy',
+                          value.settingValue,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    Text('语速 ${_ttsSpeed.toStringAsFixed(2)}×'),
+                    Slider(
+                      min: 0.5,
+                      max: 2.0,
+                      divisions: 30,
+                      value: _ttsSpeed,
+                      onChanged: (value) => setState(() => _ttsSpeed = value),
+                      onChangeEnd: (value) => _db.setSetting(
+                        'tts_speed',
+                        value.toStringAsFixed(2),
+                      ),
+                    ),
+                    Text('TTS 音量 ${(_ttsVolume * 100).round()}%'),
+                    Slider(
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 20,
+                      value: _ttsVolume,
+                      onChanged: (value) => setState(() => _ttsVolume = value),
+                      onChangeEnd: (value) => _db.setSetting(
+                        'tts_volume',
+                        value.toStringAsFixed(2),
+                      ),
+                    ),
+                    TextField(
+                      controller: _replacementController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'TTS 文字替换 JSON',
+                        helperText: '只改变朗读文本，不改聊天正文。',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _saveReplacement,
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('保存文字替换'),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      currentTtsStatus == null
+                          ? '尚未读取本地 TTS 状态。'
+                          : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '资源可用' : '资源未就绪'}\n${currentTtsStatus.detail}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _ttsBusy
+                              ? null
+                              : () => _runTtsAction(
+                                    '正在校验本地 TTS 资源…',
+                                    () async {
+                                      final next = await _tts.verifyArtifacts();
+                                      return next.integrityVerified
+                                          ? 'TTS 资源校验通过（${next.artifactCount} 项）。'
+                                          : 'TTS 资源校验失败：${next.detail}';
+                                    },
+                                  ),
+                          icon: const Icon(Icons.info_outline),
+                          label: const Text('校验资源'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _ttsBusy
+                              ? null
+                              : () => _runTtsAction(
+                                    '正在初始化本地 TTS；首次可能复制模型…',
+                                    () async {
+                                      final next = await _tts.initialize();
+                                      return next.initialized
+                                          ? '本地 TTS 初始化完成。'
+                                          : 'TTS 初始化失败：${next.detail}';
+                                    },
+                                  ),
+                          icon: const Icon(Icons.memory),
+                          label: const Text('初始化模型'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _ttsBusy
+                              ? null
+                              : () => _runTtsAction(
+                                    '正在生成并播放本地测试语音…',
+                                    () async {
+                                      final ok = await _tts.preview(
+                                        '这是本地语音测试。以后我会直接在你的设备上说话。',
+                                      );
+                                      return ok ? '测试语音播放完成。' : '测试语音播放失败。';
+                                    },
+                                  ),
+                          icon: const Icon(Icons.volume_up_outlined),
+                          label: const Text('测试朗读'),
+                        ),
+                      ],
+                    ),
+                    if (_status != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_status!),
+                    ],
+                    const Divider(height: 28),
+                  ],
                   const SizedBox(height: 10),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -523,6 +823,7 @@ class _VoiceEmotionSettingsPageState
                 ],
               ),
       );
+  }
 }
 
 class TextPerformanceSettingsPage extends StatefulWidget {

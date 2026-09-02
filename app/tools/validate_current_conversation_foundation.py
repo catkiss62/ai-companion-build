@@ -71,7 +71,14 @@ assert "segments: ChatSegmentCodec.parseAssistantText(text)" in proactive
 assert proactive.count("commitProactiveMessageIfCurrent(") == 1
 
 tts = read("lib/core/tts/tts_text_processor.dart")
-settings = read("lib/features/settings/settings_page.dart")
+settings = "\n".join(
+    read(path)
+    for path in (
+        "lib/features/settings/settings_page.dart",
+        "lib/features/settings/settings_category_pages.dart",
+        "lib/features/chat/chat_quick_settings_pages.dart",
+    )
+)
 for token in (
     "dialogueOnly('dialogue_only'",
     "fullText('full_text'",

@@ -118,7 +118,7 @@ void main() {
     expect(children.first.style!.color, Colors.white);
     expect(children.last.style!.fontStyle, FontStyle.normal);
     expect(children.last.style!.color, chatDialoguePurple);
-    expect(chatDialoguePurple, const Color(0xFFD2C3EB));
+    expect(chatDialoguePurple, const Color(0xFFD4BBFC));
     expect(chatDialogueGold, const Color(0xFFFDE68A));
     expect(chatDialoguePink, const Color(0xFFF1B7C5));
   });

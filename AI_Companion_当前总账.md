@@ -25,16 +25,16 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 当前开发分支 | `agent/v04117-chat-ui-mood-hotfix`；从 v0.41.16 最终运行树开出的真机呈现热修。Phase 2A 运行策略保持不变，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
+| 当前开发分支 | `agent/v04118-settings-information-architecture`；从 v0.41.17 最终运行树开出的插队任务 2“总设置重新分类”。Phase 2A 运行策略保持不变，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.17 最终 APK 输入为远端 `7c187297f8eeeb185cbeaebccfc761da2351cc06` / tree `84bc4c7c99e0041d4d00e19a22c250bd30849eb4`；本地功能提交 `04ae0ed` 与远端 tree 精确一致。后续总账封存为 `[skip ci]` 纯文档提交，不改变 APK 输入 |
-| App / 数据库 | 当前开发目标 `0.41.17+156` / schema 43；本批不新增表、不迁移 schema，沿用 v0.41.15 自我回顾候选、自我体验和欲望事件表；Snapshot/备份 protocol 5 不变 |
+| 当前代码 head / tree | v0.41.17 最终 APK 输入仍为远端 `7c187297f8eeeb185cbeaebccfc761da2351cc06` / tree `84bc4c7c99e0041d4d00e19a22c250bd30849eb4`；v0.41.18 已完成本地实现与审查，功能提交/tree、CI 与 APK 尚待产生，不得预填 |
+| App / 数据库 | 当前开发目标 `0.41.18+157` / schema 43；本批只重组设置入口、保存职责和少量呈现文案，不新增表、不迁移 schema；Snapshot/备份 protocol 5 不变 |
 | 最终 CI | v0.41.17 Actions run [`33586033230`](https://github.com/catkiss62/ai-companion-build/actions/runs/33586033230)（672）全绿：132 项源码/历史 validator、Kotlin/Overlay 编译与单测、Flutter analyze、451/451 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped |
 | 测试 APK | `AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK.apk`，325,582,942 bytes |
 | APK SHA-256 | `4e24df16c4d731b184a199f36d55da207e1126de2b83b27ef4e12ab5bfcc0237`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包计算三方一致 |
 | Artifact / Release | [Artifact ID `9830317066`](https://github.com/catkiss62/ai-companion-build/actions/runs/33586033230/artifacts/9830317066)，ZIP 319,286,755 bytes，digest `sha256:ae44a69b97a5ce747d8a7fd70d52e940a080eedca1623453fd57ba56fe337676`，保留至 2026-09-16T03:20:59Z；Draft Release [`untagged-d5012c4c043c65e09ef1`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d5012c4c043c65e09ef1)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.17 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：已针对 v0.41.16 真机发现的聊天文字层级、心情图零宽、购物车 emoji、THINKING 外观和侧栏认识天数完成热修。屏幕问题保持冻结，Phase 2A 运行策略和 Phase 0+1 隔离不变，Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.17 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；v0.41.18 设置分类正在实施，尚无 CI/APK，不得预填。屏幕问题保持冻结，Phase 2A 运行策略和 Phase 0+1 隔离不变，Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前模块状态总表
 
@@ -57,7 +57,7 @@
 | MCP / Skills | 仅设计与能力占位，`mcp.invoke executable=false` | 在 Agent 自我事实层之后另批实现 Registry、权限、审计、超时、取消；不把任意 MCP/代码执行塞进 APK |
 | 手机主存储 + 平板伴随端 | 架构文档已锁定，运行实现未开始 | 手机保持唯一 Active Brain；平板不得导入完整关系状态或形成第二主脑 |
 | UI 信息架构、快捷侧栏与文字层级 | v0.41.17 已在“查手机”上方增加复用 `relationshipAge()` 的认识天数卡，修复 DeepSeek/输入/正文白字，并完成对白三色单一 setting 的普通/沉浸/悬浮联动；CI/APK 已通过 | 热修 `TRUE DEVICE PENDING`；总设置主页面六域重构没有混入本批，明确留第二步先审计保存语义 |
-| 总设置、自检与开发入口 | 当前 `SettingsPage` 为单页且一次保存多域设置；预检、API、Agnes、TTS、通知、跨 App 等自检散落在普通入口中 | 信息架构需要整理，但拆页涉及共享保存语义，列为中等风险后续批。保留自检能力，按“日常快速预检 / 配置连接测试 / TTS 资源与播放 / 开发验收”分层；深度预检、五分钟跨 App、网页闭环、桌宠预览等移入高级诊断，不让普通用户误以为日常必须点击 |
+| 总设置、自检与开发入口 | v0.41.18 已在本地把 `SettingsPage` 改为六域入口，移除跨域总保存；API 配置按小节保存，侧栏分类页直接复用；诊断入口标明只读检查、初始化、行为验收和真实状态推进的区别 | `LOCAL REVIEW PASSED / CI PENDING`；Kotlin/Flutter 编译与真机导航/保存仍须 Actions 和 APK 验证。五分钟联系、网页分享、恢复/重试及内在状态按钮没有被包装成无副作用日常设置 |
 
 ### 4. 当前任务总表（按事实而非旧章节中的“下一步”排序）
 
@@ -75,7 +75,8 @@
 | P1 · 同一大型阶段 / Phase 2B | 轻量 topic/subject 关联记忆与小幅回复倾向 | 为长期记忆和已成熟 Phase 1 候选增加主题锚点、有限一层关联召回与可审计的小幅 bias；解决短近场窗口下同一项目的前因后果断裂，不建设完整知识图谱。Phase 2A/2B 都完成真机排错后，再对 Phase 2 做一次独立完整代码审查。开工时再读取第 14 节已登记的 companion-emergence、LMC-5、A-MEM、Memobase、PersonaMem 参考页面；本批不提前打开或消耗参考额度 |
 | P1 · CI PASSED / APK READY / TRUE DEVICE PENDING / v0.41.16 | 第一步整合：心情、购物车、塔罗、沉浸拖动、文字层级、快捷侧栏与只读状态 | `0.41.16+155 / schema 43` 已完成：心情 7 自然日、6 件有界 API 购物车/近期去重/36 项兜底、塔罗单次 3D 入场、沉浸独立拖动高度、暗色语义文字层级、侧栏分类入口和只读 8 欲望＋9 萌属性。run 670 的 131 validators、Kotlin、Flutter analyze、448 tests、APK、签名和全载荷均通过；没有修改 Phase 2A 运行策略、日记/随笔、联网存图或屏幕观察，仍须按第 22 节完成真机验收 |
 | P0 · CI PASSED / APK READY / TRUE DEVICE PENDING / v0.41.17 | v0.41.16 真机呈现热修 | 已恢复普通/沉浸聊天正文、输入、主动状态与 DeepSeek 白字；在文字演出增加默认浅紫及浅黄/浅粉对白色并联动普通、沉浸、悬浮；统一 THINKING 折叠头；修心情图零宽；购物车保存 API emoji 并多样兜底；侧栏在查手机上方复用 `relationshipAge()` 显示认识天数。run 672 的 132 validators、Kotlin/Overlay、Flutter analyze、451 tests、APK、签名与全载荷全绿；只修呈现，不改 Phase 2A 或 schema。完整流程见第 23 节 |
-| P1 · 第二步 / DESIGNED / NOT STARTED | 总设置分类与自检分层 | 与第一步严格分开。到任务开始时先审计当前字段、一次性 `_save()`、即时设置和各自检副作用，再决定共享设置模型与页面结构；暂定“模型与账号、记忆与成长、主动与感知、语音与表达、设备与数据、诊断与开发”六域。自检不删除，只把快速预检前置，专项/可能产生副作用的验收移入高级诊断 |
+| P1 · IMPLEMENTED LOCALLY / REVIEW PASSED / CI PENDING / v0.41.18 | 插队任务 2：总设置重新分类 | “全部设置”已改为模型与联网、记忆与成长、主动联系与感知、语音与聊天呈现、设备与数据、诊断与开发六域；简单标量即时保存，API/Endpoint/多行配置只保存所属小节，高风险动作隔离；侧栏和总设置继续共享既有 setting key。并入默认浅紫 `#D4BBFC` 与主动状态“想起之前的话”。本地当前/历史合同 126 项通过，8 项仅缺 CI 大载荷或 `kotlinc`；不改 Phase 2A、schema、屏幕或悬浮生命周期。详细流程见第 24 节 |
+| P1 · SUPERSEDED BY v0.41.18 | 总设置分类与自检分层（原设计占位） | 原“第二步 / DESIGNED / NOT STARTED”已由上方 v0.41.18 正式实施项接管；保留此行只防止旧窗口按原状态重复开工，不再是独立待办 |
 | P2 · 原生风险 / FROZEN | 系统导航键收起悬浮聊天、间歇卡死与截图像素链 | 当前证据不能把卡死归因于悬浮球/桌宠，也不能把截图失败归因于权限不足。等待 Phase 2A 和 UI 插队批之后，先补脱敏阶段心跳/超时/前台切换/截图 stage 码，再决定修复；不得扩大按键权限或重复增加恢复 retry/delay。详细证据见第 21 节 |
 | P1 · 后续大型阶段 / Phase 3 | AI 自身兴趣/习惯、版本回滚、激活预算与试穿蒸馏 | 只从多次真实自主选择、持续关注、后续查证/分享和互动反馈形成可回滚 `ai_interest` / AI habit，保留版本、来源、反证、新鲜度、激活预算和停用路径；成熟兴趣才可小幅影响联网选题、主动话题和表达习惯。普通试穿只蒸馏有证据支持的习惯，不把整套脚本焊入核心。开工时再读第 14 节参考入口；Phase 2 真机闭环后进入 |
 | P2 · 后续大型阶段 / Phase 4 | 低频主动澄清与娱乐测试 | 只在不确定且值得确认时低频询问，不把每轮变成问卷；娱乐测试只作校准，不直接写人格事实。开工时再读 PersonaMem/Generative Agents 等第 14 节入口；Phase 3 真机闭环后进入 |
@@ -599,6 +600,36 @@
 6. 仅含上述测试定位/期望修正的远端提交 `7c187297f8eeeb185cbeaebccfc761da2351cc06` / tree `84bc4c7c99e0041d4d00e19a22c250bd30849eb4` 触发最终 Actions run [`33586033230`](https://github.com/catkiss62/ai-companion-build/actions/runs/33586033230)（672）。该轮 132 项源码/历史 validator、Kotlin/Overlay 编译与单测、Flutter analyze、451/451 Flutter tests、Release APK、稳定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张 Tarot 全部载荷、checksum、Artifact 与 Draft Release 上传全部成功；失败报告 job 正常 skipped。它覆盖 run 671 的测试夹具失败，不存在残留源码或编译失败。
 7. 测试 APK `AI-Companion-v0.41.17-156-Chat-UI-Mood-Hotfix-APK.apk` 为 325,582,942 bytes，SHA-256 `4e24df16c4d731b184a199f36d55da207e1126de2b83b27ef4e12ab5bfcc0237`。Artifact ID [`9830317066`](https://github.com/catkiss62/ai-companion-build/actions/runs/33586033230/artifacts/9830317066)，ZIP 319,286,755 bytes，digest `sha256:ae44a69b97a5ce747d8a7fd70d52e940a080eedca1623453fd57ba56fe337676`，保留至 2026-09-16T03:20:59Z；独立下载解包后的 APK 大小/SHA 与 CI checksum、Draft Release asset digest 三方一致。固定测试签名保持 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release 为 [`untagged-d5012c4c043c65e09ef1`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d5012c4c043c65e09ef1)，保持草稿；`main` 未合并，正式 Release 未发布。
 8. 当前结论停在 `CI PASSED / APK READY / TRUE DEVICE PENDING`。覆盖安装后按第 3 点肉眼验收即可；这次热修不能替代 v0.41.15 Phase 2A 的长期自然诊断，也不重开一次性看屏幕、悬浮导航键或卡死问题。
+
+### 24. 2026-09-02 · v0.41.18 总设置信息架构与保存语义（IMPLEMENTING / CI PENDING / TRUE DEVICE PENDING）
+
+#### A. 用户决定与任务地位
+
+1. 本批是此前明确登记的“插队任务 2”，不是 Phase 2B，也不替代 Phase 0～4 大任务顺序。用户确认可把对白浅紫微调并入同一个 APK，避免为简单颜色单独构建；随后增加同级小文案任务，把主动 follow-up 的“想起刚才的话”改为“想起之前的话”，因为真实回想可能来自数天前。
+2. 目标版本 `0.41.18+157 / schema 43`，分支 `agent/v04118-settings-information-architecture`。不新增 setting key 的同义副本，不迁移数据库，不改变备份 protocol；不修改 Desire、Self-Drive、联网选择、成长候选、Phase 2A 阈值、Phase 2B bias、屏幕观察或悬浮生命周期。
+3. 对白颜色继续保存枚举 `chat_dialogue_color=purple|yellow|pink`；只把 `purple` 的运行映射从 `#D2C3EB` 改为 `#D4BBFC`，普通/沉浸/原生悬浮三处同步，因此旧安装无需迁移且现有“紫色”选择自动得到新色。
+
+#### B. 六域信息架构与单一真源
+
+1. “全部设置”首页只显示六个干净入口：**模型与联网**（DeepSeek、千问视觉、Tavily、Agnes 与公开网页发现）；**记忆与成长**（记忆抽取/整理/淡化、Reference、规则路由、Thought、Self-Drive、AI Self、关系连续性与 Session）；**主动联系与感知**（主动频率/学习、弹窗、隐私、提示音、主动 TTS、环境感知）；**语音与聊天呈现**（本地 TTS、情绪、聊天画面、文字演出）；**设备与数据**（Active Brain、新上下文、接管、权限/悬浮和备份入口）；**诊断与开发**（快速自检、诊断导出、深度验收、运行维护与开发入口）。
+2. 侧栏现有“主动联系、聊天画面、语音与情绪、文字演出”继续保留；总设置不得复制另一套 setting key 或枚举。两处复用同一 Repository/字段组件，打开页面时从数据库读取最新值，修改后写回同一真源。
+3. 保存语义按风险拆开：普通 bool/enum 立即保存，slider 在停止拖动时保存；DeepSeek/视觉/Tavily/Agnes 的 Key、Endpoint、模型名、额外来源以及 TTS 替换 JSON 只保存所属小节，绝不再由一枚总“保存”把二十多项旧快照整体写回。Endpoint 继续先校验再写 Key；`Active Brain`、开始新上下文、清除诊断、回复重试/放弃等操作不进入任何普通保存。
+
+#### C. 自检分层与副作用标识
+
+1. DeepSeek/Agnes 等连接测试留在对应服务配置旁，明确会真实联网并消耗少量额度但不写聊天/记忆；提示音试听、系统弹窗和 TTS 测试属于预览，不叫“全局自检”。
+2. **快速自检**是日常唯一主入口，读取权限、后台、Active Brain、Nearby、存储和 TTS 状态；**深度自检/综合验收**进入高级页，可能校验/初始化 TTS；**行为验收**必须注明五分钟联系会安排通知、网页分享闭环会调用模型且可能产生真实主动消息；**运行维护/开发动作**包括恢复检查、重试或放弃回复、心跳、Self-Drive、AI Self、记忆淡化与 Thought 推进，不得伪装成无副作用自检。
+3. 清除 Native 历史和改变 Active Brain 继续有确认或明确风险说明；设备接管、权限与悬浮、备份保持各自现有真源页面，总设置只提供有意义的入口，不复制复杂执行逻辑。
+
+#### D. 实施、回归与交付门
+
+1. 先建立共享设置读写/可复用表单组件，再把旧 1130 行单页拆为六域；所有旧 setting key、SecureConfig 存储位置、Android notification/Overlay bridge、TTS Service 和路由保持兼容。页面从侧栏或总设置往返时必须重新读取真实值，不能用旧 State 覆盖另一入口的新设置。
+2. 专项测试至少覆盖：六域入口完整；每个页面只写自己的 keys；侧栏与总设置双向同步；Active Brain 不被普通保存；API endpoint 失败不半保存 Key；`purple=#D4BBFC` 三端一致；Dart/通知/Overlay follow-up 均为“想起之前的话”；历史备份与 schema 43 不变。
+3. 完成后运行当前/历史 validators、Kotlin/Overlay、Flutter analyze/tests、Release APK、固定签名与全部大型载荷，并进行路径级独立代码审查。只有真实 Actions 全绿后才回填 commit/tree、测试数、APK/SHA、Artifact 与 Draft Release；自动化通过仍不能代替六域导航、即时保存和三端颜色的真机肉眼验收。
+4. 实际实现已将原 1130 行 `SettingsPage` 收缩为只含六域入口的首页；每个域拥有独立 State。模型页把 DeepSeek、视觉、Tavily/额外来源和 Agnes 分为四个小节；Endpoint 在 Key 写入前校验。记忆成长页和环境感知开关即时保存；设备页的 Active Brain 与新上下文继续单独确认，设备接管/备份和权限/悬浮只链接现有真源。
+5. 总设置的主动联系、聊天画面、语音与情绪、文字演出直接打开侧栏同一 Page class，而不是复制 UI。语音页已吸收旧总设置中的自动朗读、流式朗读、主动 TTS、语速、音量、替换 JSON、资源校验、初始化和测试播放；普通标量即时写入，替换 JSON 有独立保存。主动页补回节奏学习、声音试听和无聊天/记忆的系统弹窗测试。
+6. 自检页只作分层导航：快速自检与脱敏报告是日常入口；综合验收明确可能初始化 TTS；运行维护明确可能安排通知、调用模型或产生主动消息；内在状态开发工具明确会推进 Thought、Desire、Self-Drive、AI Self 等真实状态。原执行函数没有复制或换语义。
+7. 本地代码审查确认未修改 `core/desire`、`core/autonomy`、`core/perception`、PromptBuilder、DurableGenerationRunner 或数据库 schema；`chat_dialogue_color` 枚举与 setting key 未变。Workflow YAML、Python 语法、专项 validator、当前总账索引、v0.41.17 前向合同和 `git diff --check` 通过；按 workflow 命令表运行得到 126 项合同通过、8 项环境缺口，其中仅为本地未恢复的 LingChat/TTS/native 大载荷、重复执行的桌宠恢复脚本和缺少 `kotlinc`，没有剩余源码合同失败。本地无 Flutter/Dart/Kotlin 编译器，因此编译、widget tests 和 APK 继续由 Actions 证明。
 
 ## 历史工作记录（原文保留，按需检索）
 
