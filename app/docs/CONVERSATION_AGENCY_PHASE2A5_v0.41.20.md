@@ -1,6 +1,6 @@
 # Phase 2A.5：对话主动权与自我驱动表达
 
-状态：`IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`
+状态：`CI PASSED / APK READY / TRUE DEVICE PENDING`
 
 目标版本：`v0.41.20+159`
 
@@ -132,3 +132,12 @@ Phase 2A.5 让普通用户轮回复正式消费现有 `Desire → Thought → AI
 - schema 44 / protocol 5 不迁移、备份导入、generation recovery、主动联系、Memory、Desire satisfy、Thought lifecycle、Moe、动作/对白格式和服务模板守卫全部回归。
 
 完成状态仍分为 `IMPLEMENTED`、`CI PASSED / APK READY` 与 `TRUE DEVICE PASSED`。CI 不能替代自然聊天样本；真机至少检查追问来源、话题跳转、同义追问停止、服务型安慰回潮、动作复读和造梗密度。
+
+## 11. 自动化构建证据
+
+- 公开分支：`agent/v04120-phase2a5-conversation-agency`。
+- APK 输入：commit `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5`，tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。
+- GitHub Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294) 全绿：源码/历史回归、Kotlin、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、完整大型载荷、checksum、Artifact 与 Draft Release 均通过。
+- APK：`AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk`，325,682,746 bytes，SHA-256 `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`。
+- Artifact `9852045064`：ZIP 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`；Draft Release 为 `untagged-638513472d220b716589`，未发布正式 Release。
+- 当前仍需覆盖安装后的自然聊天样本；自动化通过不代表 Phase 2A.5 真机通过，也不开放 Phase 2B。
