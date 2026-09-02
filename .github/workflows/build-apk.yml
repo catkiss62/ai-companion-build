@@ -297,7 +297,7 @@
 # agent/v04119-phase2a-runtime-stabilization
 # AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-APK
 # validate_v04119_phase2a_runtime_stabilization.py
-# Current v0.41.20 workflow: Phase 2A.5 conversation agency.
+# Current v0.41.20 workflow: Phase 2A.5 conversation agency; full-validation trigger v1.
 name: Build AI Companion v0.41.20+159 APK (Phase 2A.5 Conversation Agency)
 
 on:
