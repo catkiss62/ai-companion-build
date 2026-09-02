@@ -686,9 +686,11 @@
 
 #### C. 修改后验证与边界
 
-1. 加入持续提交授权后的总账为 5,013 行、985,571 bytes；真正默认接班区为 68 行、12,514 bytes。新增内容不是删除：体积略增来自任务包、本节证据和授权边界，旧近期记录与历史档案仍可定点搜索。
+1. 最终封口后的总账为 5,015 行、986,679 bytes；真正默认接班区为 68 行、12,514 bytes。新增内容不是删除：体积略增来自任务包、本节证据、授权边界和远端同步证据，旧近期记录与历史档案仍可定点搜索。
 2. `python3 app/tools/validate_current_ledger_handoff.py` 通过，报告 `compact handoff bytes: 12514`；原历史 SHA-256 仍为 `7f44e0f6ac43ca62726d8547fc1cc7a46353f9b2c8e3e498b0f4027d30794628`，二/三级章节仍为 105/413。Python 语法编译与 `git diff --check` 通过。
 3. 当前运行任务和真机状态不因本批改变：仍是 v0.41.18 `CI PASSED / APK READY / TRUE DEVICE PENDING`。本批不需要 APK 或真机测试；下一次对接应只读顶部 12 KB、仓库基线和 v0.41.18 当前任务直接证据，即可继续真机验收。
+4. 本地原始单提交为 `ab0e906`，但当前执行环境没有 GitHub CLI/HTTPS Git 凭据；经用户明确授权后，使用已登录的仓库所有者网页会话把同一 tree 分为四个连续远端提交：总账 `126ddf1`、文档地图 `d8de1a3`、交接 validator `d06d2db`、持续授权回填 `5a424d7`。最终远端 tree `d0f87ded58ba9702c756bf4350bdd0f9d5add71c` 与本地完整 tree 逐字一致，本地分支已安全对齐远端，没有遗留差异。
+5. 网页自动生成标题导致中间两次 push 未保留预定 `[skip ci]`：run 675 仅文档检查并成功；run 676 在 validator 提交后运行 3 分 59 秒，随后被更新的总账提交取消；最终 Actions run [`33612262608`](https://github.com/catkiss62/ai-companion-build/actions/runs/33612262608)（677）40 秒成功，`detect-change-scope` 明确报告 documentation-only，`build-apk` 与 `report-ci-failure` 均 skipped、Artifacts 为空。该过程没有生成或替换 v0.41.18 APK；validator 的正确性仍由本地 Python 编译、完整运行、历史哈希和 `git diff --check` 证明。
 
 #### D. 后续持续提交授权
 
