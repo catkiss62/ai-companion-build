@@ -302,7 +302,7 @@
 # agent/v04120-phase2a5-conversation-agency
 # AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK
 # validate_v04120_phase2a5_conversation_agency.py
-# Current v0.41.21 workflow: responsibility ablation; full-validation trigger v1.
+# Current v0.41.21 workflow: responsibility ablation; full-validation trigger v2.
 name: Build AI Companion v0.41.21+160 APK (Phase 2A.5 Responsibility Ablation)
 
 on:
