@@ -38,7 +38,7 @@
 | APK SHA-256 | `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`；CI checksum、Draft Release asset digest 与 Artifact 下载后独立解包计算三者一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9852045064`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294/artifacts/9852045064)，ZIP 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`，保留至 2026-09-16T14:45:48Z；Draft Release [`untagged-638513472d220b716589`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-638513472d220b716589)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.21 已完成本地实现与固定夹具消融：生成前计划不再直接冒充终态行为，只有最终正文真实表达并匹配来源 Thought 才能 `acted`/绑定 bid；已取消自主网页卡片对普通 Prompt 的无条件注入。版本 `0.41.21+160`、schema 44、protocol 5，不迁移存档；当前为 `IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`，Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.21 已完成本地实现与固定夹具消融：生成前计划不再直接冒充终态行为，只有最终正文真实表达并匹配来源 Thought 才能 `acted`/绑定 bid；已取消自主网页卡片对普通 Prompt 的无条件注入。首轮 Run 688 已通过源码/历史回归、Kotlin 与 Flutter analyze，477 项 tests 为 475 通过、2 失败，正在修常见“什么”问句识别缺口与旧 build label 断言；当前为 `CI FIX IN PROGRESS / TRUE DEVICE PENDING`，Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -809,7 +809,7 @@
 3. 公开分支最终 APK 输入 head 为 `b1bd11945ca4b2bd5a9d2ae06a8b2087bdfe67f5` / tree `910e6e92292d1d8e0e063a15d03456ecc9d75469`。Actions run [`33642909294`](https://github.com/catkiss62/ai-companion-build/actions/runs/33642909294)（685）完整成功：源码/历史 validator、Kotlin、Flutter analyze、470/470 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 上传全过；失败报告 job 正常 skipped。run 683/684 只因同一分支连续触发与 `cancel-in-progress` 被最终 run 覆盖，不是代码失败。
 4. APK `AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk` 为 325,682,746 bytes；CI checksum、Draft Release asset digest 与 Artifact 独立下载解包实算 SHA-256 均为 `3a11b1cadd218ec738ebfbc04b73612059e5af9cb9aa9757a6bb5ffe7a44f1ff`。Artifact `9852045064` 的 ZIP 为 319,385,565 bytes，digest `sha256:b86836fe0adc30993f9d77376942a14befe98f1f6f49fcea65f3479d96c15f55`；Draft Release 为 `untagged-638513472d220b716589`，未发布正式 Release。下一窗口默认先读顶部任务包、稳定方案、本节与最新真机诊断；当前下一步是覆盖安装并自然聊天，重点观察追问来源、回答是否被消费、话题跳转、服务型安慰回潮、普通口语、动作复读与造梗密度。
 
-### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化（IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化（CI FIX IN PROGRESS / TRUE DEVICE PENDING）
 
 #### A. 最新真机证据与根因边界
 
@@ -853,6 +853,7 @@
 1. 新增 `conversation_responsibility_ablation_v04121_test.dart` 的 7 个纯合成夹具，不含真实聊天、Thought、Memory 或网页内容；新增静态 validator 同时锁定终态真值、网页白名单、schema/版本和 workflow。历史 validator 的版本兼容范围机械前移到 `0.41.21+160`，没有改旧功能断言。
 2. 工作流列出的 136 个 Python validators 本地为 128 通过；剩余 8 个只因为本地没有 Actions 前置恢复的 417 文件桌宠、LingChat effects、Meju/TTS/native 大载荷或 `kotlinc`。专项 v0.41.20/v0.41.21、current ledger、Python 语法、workflow YAML、`git diff --check` 均通过。本地没有 Dart/Flutter SDK，Flutter analyze、全量 tests、Kotlin 和 Release APK 必须由 GitHub Actions 裁决。
 3. 版本升到 `0.41.21+160`，SQLite 保持 schema 44、Snapshot protocol 5；现有 `0.41.20+159` 存档可直接覆盖安装，不清数据、不手工修改。自动化通过仍不能代替自然聊天验收，重点观察真实追问是否匹配自身 Thought、未问是否不再 acted/satisfied、调侃反问、话题跳转、服务型安慰回潮、动作/口语与造梗密度。
+4. 首轮远端 head `cfa6698f95ced26077a1b980b6d9bc47dd669f73` / tree `de39d3228dca076cf10ea200e3e3e5c068524c83` 的 Actions Run [`33660825993`](https://github.com/catkiss62/ai-companion-build/actions/runs/33660825993)（688）通过 clean baseline、全部大型资源恢复、136 项源码/历史 validator、Kotlin 和 Flutter analyze；477 项 Flutter tests 为 475 通过、2 失败，APK 因此未构建。一个失败是真实窄守卫漏识别“你今天想吃什么？”中的常见 `什么` 信息请求，必须扩充信息词同时保护“凭什么/什么鬼”等反问；另一个只是 `agent_self_reader_v0416_test.dart` 仍固定要求 v0.41.20 build label。修复不得放宽 Thought 语义匹配或改生产身份事实。
 
 ## 历史工作记录（原文保留，按需检索）
 

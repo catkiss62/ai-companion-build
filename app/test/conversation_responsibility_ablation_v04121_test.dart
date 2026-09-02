@@ -115,6 +115,10 @@ void main() {
         text: '「难道你还想赖账？」',
         askAuthorized: false,
       );
+      final colloquialGuard = InformationSeekingQuestionGuard.evaluate(
+        text: '「凭什么？关我什么事？」',
+        askAuthorized: false,
+      );
       final verification = ConversationOutcomeVerifier.verify(
         finalText: '「难道你还想赖账？」',
         plan: _plan(
@@ -126,6 +130,8 @@ void main() {
 
       expect(guard.hasInformationRequest, isFalse);
       expect(guard.hasRhetoricalQuestion, isTrue);
+      expect(colloquialGuard.hasInformationRequest, isFalse);
+      expect(colloquialGuard.hasRhetoricalQuestion, isTrue);
       expect(verification.expressedSpeechAct, 'tease');
       expect(verification.hadAiBid, isTrue);
     });
