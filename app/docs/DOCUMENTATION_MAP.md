@@ -46,6 +46,7 @@
 - `PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md`：Phase 0+1 旧 Memory/Relationship 绕过审计、direct feedback/命题边界、半小时双时钟一次详细注入、主动消息不刷新用户现实与人称出站守卫。
 - `AGENT_OPERATION_TRUTH_SCREEN_OBSERVATION_v0.41.14.md`：可核验操作必须有匹配 terminal Outcome、成长系统 observation-only 元数据只读，以及用户明确触发的一张当前屏幕截图、敏感页 Gate 与临时字节隐私合同。
 - `SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md`：Phase 2A 自我回顾候选/体验 Outcome、baseline-centered 欲望动力学、熄屏联系窗口、三类自主联网与四分支结果评价合同。
+- `PHONE_UI_INTEGRATION_v0.41.16.md`：Phase 2A 观察兼容的查手机/快捷侧栏/沉浸布局整合合同；明确购物车隐私、只读状态页及总设置第二步边界。
 
 ### 身体与感知
 

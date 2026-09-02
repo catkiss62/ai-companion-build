@@ -36,7 +36,10 @@ assert "static const int schemaVersion = 33;" in database
 # fixed, and the mood chart retains enough vertical range for a seven-day line.
 assert "const SizedBox(height: 34)" in page
 assert "mainAxisSpacing: 10" in page
-assert "? 184.0" in page and "? 204.0" in page and ": 224.0" in page
+if "version: 0.41.16+155" in pubspec:
+    assert "MoodChartLayout.build" in page and "const chartHeight = 224.0" in page
+else:
+    assert "? 184.0" in page and "? 204.0" in page and ": 224.0" in page
 
 # Cart list and expansion deliberately show the same reason again.
 assert "entry.metadata['list_summary']" not in page

@@ -31,9 +31,9 @@ doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 workflow = read(".github/workflows/build-apk.yml")
 
-assert "version: 0.41.15+154" in pubspec
+assert "version: 0.41.16+155" in pubspec
 assert "static const int schemaVersion = 43;" in database
-assert "buildLabel = 'v0.41.15+154'" in read(
+assert "buildLabel = 'v0.41.16+155'" in read(
     "app/lib/core/agent/agent_self_reader.dart"
 )
 

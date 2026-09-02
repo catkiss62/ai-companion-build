@@ -20,7 +20,10 @@ attribution = read("assets/tarot/rws_major/ATTRIBUTION.md")
 pubspec = read("pubspec.yaml")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.38.16+115" in pubspec
+assert any(version in pubspec for version in (
+    "version: 0.38.16+115",
+    "version: 0.41.16+155",
+))
 assert "- assets/tarot/rws_major/" in pubspec
 assert "class LockScreen" in page
 assert "上滑解锁" in page
@@ -64,6 +67,7 @@ assert any(
     for tabs in (
         "tabs: [Tab(text: '我'), Tab(text: '他')]",
         "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]",
+        "tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]",
     )
 )
 assert "rws_major:71825eed74683305b139a669b23ca5dc12f76857" in repository

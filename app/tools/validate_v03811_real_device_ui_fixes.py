@@ -42,16 +42,25 @@ assert "child: const Text('✅'" in page
 
 # The v0.38.12 follow-up intentionally restores a readable plot height after
 # real-device feedback showed the compact v0.38.11 strip was too short.
-assert "final chartHeight = history.length <= 1" in page
-assert "? 184.0" in page and "? 204.0" in page and ": 224.0" in page
+if "version: 0.41.16+155" in pubspec:
+    assert "MoodChartLayout.build" in page
+    assert "const chartHeight = 224.0" in page
+else:
+    assert "final chartHeight = history.length <= 1" in page
+    assert "? 184.0" in page and "? 204.0" in page and ": 224.0" in page
 scaffold_start = page.index("class PhoneAppScaffold")
 scaffold = page[scaffold_start:]
 assert "body: SafeArea(" in scaffold
 assert "top: false" in scaffold
 
-assert "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page
-assert "TarotReading(entry: self, label: '鲸鱼运势')" in page
-assert "TarotReading(entry: user, label: '为他占卜')" in page
+assert "tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page or (
+    "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page
+)
+if "version: 0.41.16+155" in pubspec:
+    assert "entry: widget.self" in page and "entry: widget.user" in page
+else:
+    assert "TarotReading(entry: self, label: '鲸鱼运势')" in page
+    assert "TarotReading(entry: user, label: '为他占卜')" in page
 
 assert "entry.metadata['list_summary'] is String" not in repository
 assert "'list_summary': item.$4" not in repository

@@ -317,6 +317,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   bool _visualStageEnabled = true;
   bool _visualSettingsLoaded = false;
   double _panelOpacity = 0.75;
+  double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
   double _portraitScale = ChatPortraitTransform.defaults.scale;
   Offset _portraitOffset = ChatPortraitTransform.defaults.offset;
@@ -400,6 +401,12 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             0.75)
         .clamp(0.45, 0.95)
         .toDouble();
+    final panelFraction = (double.tryParse(
+              await db.getSetting('immersive_panel_fraction') ?? '',
+            ) ??
+            0.62)
+        .clamp(0.42, 0.94)
+        .toDouble();
     final backgroundMode =
         await db.getSetting('chat_background_mode') ?? 'auto';
     final portraitSet = chatPortraitSetFromKey(
@@ -451,6 +458,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     setState(() {
       _visualStageEnabled = visualStageEnabled;
       _panelOpacity = panelOpacity;
+      _panelFraction = panelFraction;
       _backgroundMode = backgroundMode;
       _portraitSet = portraitSet;
       _portraitScale = scale;
@@ -844,69 +852,125 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
         ),
         body: controller.loading || !_visualSettingsLoaded
             ? const Center(child: CircularProgressIndicator())
-            : Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (_visualStageEnabled) ...[
-                    Image.asset(
-                      _useNightBackground
-                          ? 'assets/lingchat/background/night.webp'
-                          : 'assets/lingchat/background/day.webp',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                    ),
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: ChatPortraitStage(
-                          emotion: ChatVisualResolver.resolveEmotionKey(
-                            'affection',
-                          ),
-                          portraitSet: _portraitSet,
-                          transform: ChatPortraitTransform(
-                            scale: _portraitScale,
-                            offset: _portraitOffset,
-                          ),
-                          showEffect: false,
-                          animate: false,
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final fraction =
+                      _visualStageEnabled ? _panelFraction : 1.0;
+                  final panelHeight = constraints.maxHeight * fraction;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (_visualStageEnabled) ...[
+                        Image.asset(
+                          _useNightBackground
+                              ? 'assets/lingchat/background/night.webp'
+                              : 'assets/lingchat/background/day.webp',
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
                         ),
-                      ),
-                    ),
-                  ],
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface.withValues(
-                              alpha:
-                                  _visualStageEnabled ? _panelOpacity : 1.0,
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ChatPortraitStage(
+                              emotion: ChatVisualResolver.resolveEmotionKey(
+                                'affection',
+                              ),
+                              portraitSet: _portraitSet,
+                              transform: ChatPortraitTransform(
+                                scale: _portraitScale,
+                                offset: _portraitOffset,
+                              ),
+                              showEffect: false,
+                              animate: false,
                             ),
-                        border: Border(
-                          top: BorderSide(
+                          ),
+                        ),
+                      ],
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: panelHeight,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
                             color: Theme.of(context)
                                 .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.75),
+                                .surface
+                                .withValues(
+                                  alpha: _visualStageEnabled
+                                      ? _panelOpacity
+                                      : 1.0,
+                                ),
+                            border: Border(
+                              top: BorderSide(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ),
+                          child: _conversationPanel(room),
+                        ),
+                      ),
+                      if (_visualStageEnabled)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: panelHeight - 13,
+                          child: Center(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onVerticalDragUpdate: (details) {
+                                final next = (_panelFraction -
+                                        details.delta.dy /
+                                            constraints.maxHeight)
+                                    .clamp(0.42, 0.94)
+                                    .toDouble();
+                                setState(() => _panelFraction = next);
+                              },
+                              onVerticalDragEnd: (_) =>
+                                  AppDatabase.instance.setSetting(
+                                'immersive_panel_fraction',
+                                _panelFraction.toStringAsFixed(3),
+                              ),
+                              child: Container(
+                                width: 84,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Icon(
+                                  Icons.drag_handle_rounded,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      child: _conversationPanel(room),
-                    ),
-                  ),
-                  if (activeTrialCapsuleLabels(
-                    personalityBaseKey: _personalityTrial?.baseKey ?? '',
-                    specialStyleKey: room?.specialStyleKey ?? '',
-                  ).isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      right: 12,
-                      child: ActiveTrialCapsule(
-                        labels: activeTrialCapsuleLabels(
-                          personalityBaseKey:
-                              _personalityTrial?.baseKey ?? '',
-                          specialStyleKey: room?.specialStyleKey ?? '',
+                      if (activeTrialCapsuleLabels(
+                        personalityBaseKey: _personalityTrial?.baseKey ?? '',
+                        specialStyleKey: room?.specialStyleKey ?? '',
+                      ).isNotEmpty)
+                        Positioned(
+                          top: 8,
+                          right: 12,
+                          child: ActiveTrialCapsule(
+                            labels: activeTrialCapsuleLabels(
+                              personalityBaseKey:
+                                  _personalityTrial?.baseKey ?? '',
+                              specialStyleKey:
+                                  room?.specialStyleKey ?? '',
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  );
+                },
               ),
       ),
     );

@@ -813,6 +813,7 @@ class AppDatabase {
         'chat_background_mode': 'auto',
         'chat_panel_opacity': '0.72',
         'chat_panel_fraction': '0.62',
+        'immersive_panel_fraction': '0.62',
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '56',
         'emotion_sound_enabled': '0',
@@ -1291,6 +1292,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'chat_background_mode', 'value': 'auto'});
     await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.75'});
     await db.insert('settings', {'key': 'chat_panel_fraction', 'value': '0.62'});
+    await db.insert('settings', {'key': 'immersive_panel_fraction', 'value': '0.62'});
     await db.insert('settings', {'key': 'chat_typewriter_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_typewriter_ms', 'value': '48'});
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
@@ -2642,6 +2644,7 @@ class AppDatabase {
       'chat_background_mode': 'auto',
       'chat_panel_opacity': '0.75',
       'chat_panel_fraction': '0.62',
+      'immersive_panel_fraction': '0.62',
       'chat_typewriter_enabled': '1',
       'chat_typewriter_ms': '48',
       'emotion_sound_enabled': '0',
@@ -13570,6 +13573,7 @@ class AppDatabase {
         'chat_background_mode': 'auto',
         'chat_panel_opacity': '0.75',
         'chat_panel_fraction': '0.62',
+        'immersive_panel_fraction': '0.62',
         'chat_typewriter_enabled': '1',
         'chat_typewriter_ms': '48',
         'emotion_sound_enabled': '0',

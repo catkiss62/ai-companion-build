@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/presentation/app_theme.dart';
+
 import 'app.dart';
 import 'background_main.dart' as background_runtime;
 import 'core/database/app_database.dart';
@@ -138,11 +140,7 @@ class _StartupRecoveryRootState extends State<_StartupRecoveryRoot> {
       ],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFFB082FF),
-        useMaterial3: true,
-      ),
+      darkTheme: CompanionAppTheme.dark(),
       home: Scaffold(
         body: SafeArea(
           child: Center(

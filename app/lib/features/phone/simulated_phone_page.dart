@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/phone/mood_chart_layout.dart';
 import '../../core/phone/simulated_phone_repository.dart';
 import '../../core/models/companion_album.dart';
 import '../../core/platform/android_bridge.dart';
@@ -1669,10 +1670,21 @@ class _MoodPageState extends State<MoodPage> {
       ('🫧', '好奇心', metaInt(latest, 'curiosity', 50), green),
       ('🔋', '精神余量', metaInt(latest, 'reserve', 50), purple),
     ];
-    final history = widget.entries.take(7).toList().reversed.toList();
-    final values = history
-        .map((entry) => metaInt(entry, 'score', 50).toDouble())
-        .toList();
+    final layout = MoodChartLayout.build(
+      now: DateTime.now(),
+      samples: [
+        for (var index = 0; index < widget.entries.length; index++)
+          MoodChartSample(
+            sourceIndex: index,
+            localDay: widget.entries[index].localDay,
+            createdAt: widget.entries[index].createdAt,
+            value: metaInt(widget.entries[index], 'score', 50).toDouble(),
+          ),
+      ],
+    );
+    final history = layout.points
+        .map((point) => widget.entries[point.sample.sourceIndex])
+        .toList(growable: false);
     final selectedEntry =
         selected == null || selected! >= history.length
             ? null
@@ -1680,11 +1692,7 @@ class _MoodPageState extends State<MoodPage> {
     // Reserve a readable seven-day plot even when only today's point exists.
     // New samples can then form a visibly undulating line instead of being
     // squeezed into a short strip while the rest of the screen stays empty.
-    final chartHeight = history.length <= 1
-        ? 184.0
-        : history.length <= 3
-            ? 204.0
-            : 224.0;
+    const chartHeight = 224.0;
     return PhoneAppScaffold(
       emoji: '💗',
       title: '心情',
@@ -1764,8 +1772,7 @@ class _MoodPageState extends State<MoodPage> {
                 SizedBox(
                   height: chartHeight,
                   child: MoodChart(
-                    entries: history,
-                    values: values,
+                    layout: layout,
                     selected: selected,
                     onSelected: (value) =>
                         setState(() => selected = value),
@@ -1810,38 +1817,41 @@ class _MoodPageState extends State<MoodPage> {
 
 class MoodChart extends StatelessWidget {
   const MoodChart({
-    required this.entries,
-    required this.values,
+    required this.layout,
     required this.selected,
     required this.onSelected,
     super.key,
   });
-  final List<SimulatedPhoneEntry> entries;
-  final List<double> values;
+  final MoodChartWindowLayout layout;
   final int? selected;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    if (values.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (details) {
-          final usable = math.max(1.0, constraints.maxWidth - 36);
-          final fraction =
-              ((details.localPosition.dx - 22) / usable).clamp(0.0, 1.0);
-          final index = values.length == 1
-              ? 0
-              : (fraction * (values.length - 1)).round();
-          onSelected(index.clamp(0, values.length - 1).toInt());
+          if (layout.points.isEmpty) return;
+          const left = 22.0;
+          const right = 12.0;
+          final width = math.max(1.0, constraints.maxWidth - left - right);
+          var nearest = 0;
+          var nearestDistance = double.infinity;
+          for (var index = 0; index < layout.points.length; index++) {
+            final x = left + width * layout.points[index].dayFraction / 7;
+            final distance = (x - details.localPosition.dx).abs();
+            if (distance < nearestDistance) {
+              nearest = index;
+              nearestDistance = distance;
+            }
+          }
+          onSelected(nearest);
         },
         child: CustomPaint(
           painter: MoodChartPainter(
-            values: values,
-            labels: entries
-                .map((entry) => entry.localDay.substring(5))
-                .toList(),
+            points: layout.points,
+            labels: layout.labels,
             selected: selected,
           ),
         ),
@@ -1852,11 +1862,11 @@ class MoodChart extends StatelessWidget {
 
 class MoodChartPainter extends CustomPainter {
   const MoodChartPainter({
-    required this.values,
+    required this.points,
     required this.labels,
     this.selected,
   });
-  final List<double> values;
+  final List<MoodChartPointLayout> points;
   final List<String> labels;
   final int? selected;
 
@@ -1869,10 +1879,9 @@ class MoodChartPainter extends CustomPainter {
     final width = size.width - left - right;
     final height = size.height - top - bottom;
     Offset point(int index) {
-      final x = values.length == 1
-          ? left + width / 2
-          : left + width * index / (values.length - 1);
-      final normalized = ((values[index] - 10) / 90).clamp(0.0, 1.0);
+      final x = left + width * points[index].dayFraction / 7;
+      final normalized =
+          ((points[index].sample.value - 10) / 90).clamp(0.0, 1.0);
       return Offset(x, top + height * (1 - normalized));
     }
 
@@ -1883,35 +1892,37 @@ class MoodChartPainter extends CustomPainter {
       final y = top + height * i / 3;
       canvas.drawLine(Offset(left, y), Offset(size.width - right, y), grid);
     }
-    final path = Path()..moveTo(point(0).dx, point(0).dy);
-    for (var i = 1; i < values.length; i++) {
-      path.lineTo(point(i).dx, point(i).dy);
+    if (points.isNotEmpty) {
+      final path = Path()..moveTo(point(0).dx, point(0).dy);
+      for (var i = 1; i < points.length; i++) {
+        path.lineTo(point(i).dx, point(i).dy);
+      }
+      final fill = Path.from(path)
+        ..lineTo(point(points.length - 1).dx, top + height)
+        ..lineTo(point(0).dx, top + height)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              pink.withValues(alpha: 0.46),
+              pink.withValues(alpha: 0.02),
+            ],
+          ).createShader(Rect.fromLTWH(0, top, size.width, height)),
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = pink.withValues(alpha: 0.95)
+          ..strokeWidth = 2.2
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round,
+      );
     }
-    final fill = Path.from(path)
-      ..lineTo(point(values.length - 1).dx, top + height)
-      ..lineTo(point(0).dx, top + height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            pink.withValues(alpha: 0.46),
-            pink.withValues(alpha: 0.02),
-          ],
-        ).createShader(Rect.fromLTWH(0, top, size.width, height)),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = pink.withValues(alpha: 0.95)
-        ..strokeWidth = 2.2
-        ..style = PaintingStyle.stroke
-        ..strokeJoin = StrokeJoin.round,
-    );
-    for (var i = 0; i < values.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       final p = point(i);
       canvas.drawCircle(
         p,
@@ -1926,6 +1937,8 @@ class MoodChartPainter extends CustomPainter {
           ..strokeWidth = 1.4
           ..style = PaintingStyle.stroke,
       );
+    }
+    for (var i = 0; i < labels.length; i++) {
       final label = TextPainter(
         text: TextSpan(
           text: labels[i],
@@ -1933,14 +1946,32 @@ class MoodChartPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      label.paint(canvas, Offset(p.dx - label.width / 2, size.height - 15));
+      final x = left + width * (i + 0.5) / 7;
+      label.paint(canvas, Offset(x - label.width / 2, size.height - 15));
     }
   }
 
   @override
-  bool shouldRepaint(covariant MoodChartPainter oldDelegate) =>
-      oldDelegate.selected != selected ||
-      oldDelegate.values.toString() != values.toString();
+  bool shouldRepaint(covariant MoodChartPainter oldDelegate) {
+    if (oldDelegate.selected != selected ||
+        oldDelegate.labels.length != labels.length ||
+        oldDelegate.points.length != points.length) {
+      return true;
+    }
+    for (var index = 0; index < labels.length; index++) {
+      if (oldDelegate.labels[index] != labels[index]) return true;
+    }
+    for (var index = 0; index < points.length; index++) {
+      final before = oldDelegate.points[index];
+      final after = points[index];
+      if (before.dayFraction != after.dayFraction ||
+          before.sample.value != after.sample.value ||
+          before.sample.sourceIndex != after.sample.sourceIndex) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 class WishPage extends StatelessWidget {
@@ -2240,41 +2271,132 @@ class CartPage extends StatelessWidget {
   }
 }
 
-class TarotPage extends StatelessWidget {
+class TarotPage extends StatefulWidget {
   const TarotPage({required this.self, required this.user, super.key});
   final SimulatedPhoneEntry? self;
   final SimulatedPhoneEntry? user;
 
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-        length: 2,
-        child: PhoneAppScaffold(
+  State<TarotPage> createState() => _TarotPageState();
+}
+
+class _TarotPageState extends State<TarotPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(length: 2, vsync: this)
+    ..addListener(_onTabChanged);
+  int _activeIndex = 0;
+
+  void _onTabChanged() {
+    final next = _tabController.index;
+    if (!_tabController.indexIsChanging && next != _activeIndex) {
+      setState(() => _activeIndex = next);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_onTabChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PhoneAppScaffold(
           emoji: '🔮',
           title: '塔罗牌',
-          bottom: const TabBar(
+          bottom: TabBar(
+            controller: _tabController,
             indicatorColor: pink,
             labelColor: text1,
             unselectedLabelColor: text3,
-            tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')],
+            tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')],
           ),
           child: TabBarView(
+            controller: _tabController,
             children: [
-              TarotReading(entry: self, label: '鲸鱼运势'),
-              TarotReading(entry: user, label: '为他占卜'),
+              TarotReading(
+                entry: widget.self,
+                label: '鲸鱼运势',
+                active: _activeIndex == 0,
+              ),
+              TarotReading(
+                entry: widget.user,
+                label: '为他占卜',
+                active: _activeIndex == 1,
+              ),
             ],
           ),
-        ),
       );
 }
 
-class TarotReading extends StatelessWidget {
-  const TarotReading({required this.entry, required this.label, super.key});
+class TarotReading extends StatefulWidget {
+  const TarotReading({
+    required this.entry,
+    required this.label,
+    required this.active,
+    super.key,
+  });
   final SimulatedPhoneEntry? entry;
   final String label;
+  final bool active;
+
+  @override
+  State<TarotReading> createState() => _TarotReadingState();
+}
+
+class _TarotReadingState extends State<TarotReading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1050),
+  );
+  late final Animation<double> _rotation = Tween<double>(
+    begin: 0,
+    end: math.pi * 2,
+  ).animate(
+    CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+  );
+  bool _played = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startIfVisible());
+  }
+
+  @override
+  void didUpdateWidget(covariant TarotReading oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entry?.id != widget.entry?.id) {
+      _played = false;
+      _controller.reset();
+    }
+    if (!oldWidget.active && widget.active) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startIfVisible());
+    }
+  }
+
+  void _startIfVisible() {
+    if (!mounted || _played || !widget.active || widget.entry == null) return;
+    _played = true;
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      _controller.value = 1;
+    } else {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final value = entry;
+    final value = widget.entry;
     if (value == null) {
       return const HonestEmpty(
         emoji: '🃏',
@@ -2302,14 +2424,22 @@ class TarotReading extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
       children: [
         Text(
-          label,
+          widget.label,
           textAlign: TextAlign.center,
           style: const TextStyle(color: text2),
         ),
         const SizedBox(height: 14),
         Center(
-          child: Transform.rotate(
-            angle: reversed ? math.pi : 0,
+          child: AnimatedBuilder(
+            animation: _rotation,
+            builder: (context, child) => Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.0012)
+                ..rotateY(_rotation.value)
+                ..rotateZ(reversed ? math.pi : 0),
+              child: child,
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.asset(
@@ -2321,8 +2451,7 @@ class TarotReading extends StatelessWidget {
                   height: 350,
                   alignment: Alignment.center,
                   color: Colors.white.withValues(alpha: 0.06),
-                  child:
-                      const Text('🃏', style: TextStyle(fontSize: 68)),
+                  child: const Text('🃏', style: TextStyle(fontSize: 68)),
                 ),
               ),
             ),

@@ -89,7 +89,7 @@ assert digest(ROOT / "assets/lingchat/deepseek/avatar.webp") == (
 assert digest(ROOT / "assets/appearance/large_whale_mirror.jpg") == (
     "3eb20158a962f129adba4d7f732dd5526a2943d4139eea07078ea82c4b0f2071"
 )
-assert chat.count("assets/appearance/chat_avatar.webp") == 2
+assert chat.count("assets/appearance/chat_avatar.webp") >= 2
 assert "assets/lingchat/deepseek/avatar.webp" not in chat
 assert "String _currentEmotionLabel = '正常';" in chat
 

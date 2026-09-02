@@ -6,6 +6,7 @@ import '../models/companion_album.dart';
 import '../storage/companion_album_storage.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
+import 'simulated_cart_generator.dart';
 import 'simulated_phone_policy.dart';
 import 'tarot_catalog.dart';
 
@@ -118,9 +119,14 @@ class SimulatedPhoneSnapshot {
 /// are projected into this private UI store. The master switch blocks every
 /// producer except the deterministic daily tarot pair.
 class SimulatedPhoneRepository {
-  SimulatedPhoneRepository(this.db);
+  SimulatedPhoneRepository(
+    this.db, {
+    SimulatedCartGenerator? cartGenerator,
+  }) : _cartGenerator =
+            cartGenerator ?? DeepSeekSimulatedCartGenerator();
 
   final AppDatabase db;
+  final SimulatedCartGenerator _cartGenerator;
 
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
@@ -130,6 +136,7 @@ class SimulatedPhoneRepository {
   static const _wishesKey = 'simulated_phone_wishes_json';
   static const _completedWishesKey = 'simulated_phone_completed_wishes_json';
   static const _cartKey = 'simulated_phone_cart_json';
+  static const _cartHistoryKey = 'simulated_phone_cart_recent_titles_json';
   static const _tarotKey = 'simulated_phone_tarot_json';
   static const _wishBudgetDayKey = 'simulated_phone_wish_budget_day';
   static const _wishBudgetCountKey = 'simulated_phone_wish_budget_count';
@@ -451,34 +458,28 @@ class SimulatedPhoneRepository {
   Future<void> _refreshCart(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);
     final existing = await _readList(_cartKey);
-    if (existing.isNotEmpty &&
+    if (existing.length == 6 &&
         existing.every((entry) => entry.localDay == day)) {
       return;
     }
-    const normal = <(String, String, int)>[
-      ('海盐蓝软毯', '看起来很适合把尾巴也一起裹进去。', 18),
-      ('鲸鱼形玻璃杯', '喝水的时候会有一只小鲸鱼在杯底游。', 12),
-      ('深蓝色发带', '和女仆装应该会很搭。', 9),
-      ('迷你照片打印机', '想把真正喜欢的图变成能摸到的小纸片。', 26),
-      ('夜航星空灯', '关灯以后，房间里也能留一点海面的光。', 21),
-    ];
-    const funny = <(String, String, int)>[
-      ('备用脑子一箱', '原装脑子偶尔会被自己绕晕。', 3),
-      ('防剪鱼鳍护甲', '据说能抵挡至少十三次坏心眼。', 7),
-      ('无限续杯青盐奶茶', '第一杯绝对不许再记错。', 5),
-      ('会替人写检讨的贝壳', '缺点是它可能先替自己辩解。', 4),
-      ('尾巴专用停车位', '禁止其他鱼类临时占用。', 6),
-    ];
-    final a = SimulatedPhonePolicy.stableIndex(day, normal.length, salt: 11);
-    final b = SimulatedPhonePolicy.stableIndex(day, normal.length, salt: 29);
-    final c = SimulatedPhonePolicy.stableIndex(day, funny.length, salt: 47);
-    final e = SimulatedPhonePolicy.stableIndex(day, funny.length, salt: 71);
-    final picks = <(String, String, int)>[
-      normal[a],
-      normal[b == a ? (b + 1) % normal.length : b],
-      funny[c],
-      funny[e == c ? (e + 1) % funny.length : e],
-    ];
+    final recentTitles = await _cartRecentTitles();
+    var mode = 'deepseek';
+    List<SimulatedCartItem> picks;
+    try {
+      picks = await _cartGenerator.generate(
+        now: now,
+        recentTitles: recentTitles,
+      );
+      if (picks.length != 6) {
+        throw const FormatException('购物车生成数量不完整');
+      }
+    } catch (_) {
+      picks = const [];
+    }
+    if (picks.length != 6) {
+      mode = 'fallback_catalog';
+      picks = _fallbackCart(day, recentTitles);
+    }
     final entries = <SimulatedPhoneEntry>[];
     for (var i = 0; i < picks.length; i++) {
       final item = picks[i];
@@ -486,17 +487,147 @@ class SimulatedPhoneRepository {
         SimulatedPhoneEntry(
           id: 'cart:$day:$i',
           kind: 'cart',
-          title: item.$1,
-          body: item.$2,
+          title: item.title,
+          body: item.description,
           localDay: day,
           createdAt: now,
-          provenance: 'persona_cart_catalog',
-          metadata: {'token_price': item.$3},
+          provenance: mode == 'deepseek'
+              ? 'persona_cart_deepseek'
+              : 'persona_cart_fallback',
+          metadata: {
+            'token_price': item.tokenPrice,
+            'category': item.category,
+            'generation_mode': mode,
+          },
         ),
       );
     }
     await _writeList(_cartKey, entries);
+    final nextHistory = <String>[];
+    for (final title in [
+      ...picks.map((item) => item.title),
+      ...recentTitles,
+    ]) {
+      if (nextHistory.any(
+        (existing) => existing.toLowerCase() == title.toLowerCase(),
+      )) {
+        continue;
+      }
+      nextHistory.add(title);
+      if (nextHistory.length >= 36) break;
+    }
+    await db.setSetting(_cartHistoryKey, jsonEncode(nextHistory));
+    await db.setSetting('simulated_phone_cart_generation_mode', mode);
+    await db.setSetting(
+      'simulated_phone_cart_generated_at',
+      now.millisecondsSinceEpoch.toString(),
+    );
   }
+
+  Future<List<String>> _cartRecentTitles() async {
+    final raw = await db.getSetting(_cartHistoryKey) ?? '';
+    if (raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .take(36)
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  List<SimulatedCartItem> _fallbackCart(
+    String day,
+    List<String> recentTitles,
+  ) {
+    List<SimulatedCartItem> pick(
+      List<SimulatedCartItem> source,
+      int count,
+      int salt,
+    ) {
+      final recent = recentTitles.map((value) => value.toLowerCase()).toSet();
+      final ordered = [...source]
+        ..sort((a, b) => SimulatedPhonePolicy.stableIndex(
+              '$day:${a.title}',
+              0x3fffffff,
+              salt: salt,
+            ).compareTo(
+              SimulatedPhonePolicy.stableIndex(
+                '$day:${b.title}',
+                0x3fffffff,
+                salt: salt,
+              ),
+            ));
+      final fresh = ordered
+          .where((item) => !recent.contains(item.title.toLowerCase()))
+          .toList();
+      final pool = [...fresh, ...ordered.where((item) => !fresh.contains(item))];
+      return pool.take(count).toList(growable: false);
+    }
+
+    final items = <SimulatedCartItem>[
+      ...pick(_fallbackNormalCart, 3, 211),
+      ...pick(_fallbackPlayfulCart, 3, 419),
+    ]..sort((a, b) => SimulatedPhonePolicy.stableIndex(
+          '$day:${a.title}',
+          0x3fffffff,
+          salt: 617,
+        ).compareTo(
+          SimulatedPhonePolicy.stableIndex(
+            '$day:${b.title}',
+            0x3fffffff,
+            salt: 617,
+          ),
+        ));
+    return items;
+  }
+
+  static const _fallbackNormalCart = <SimulatedCartItem>[
+    SimulatedCartItem(title: '海盐蓝软毯', description: '看起来很适合把尾巴也一起裹进去。', tokenPrice: 18, category: 'normal'),
+    SimulatedCartItem(title: '鲸鱼形玻璃杯', description: '喝水的时候会有一只小鲸鱼在杯底游。', tokenPrice: 12, category: 'normal'),
+    SimulatedCartItem(title: '深蓝色发带', description: '和女仆装应该会很搭。', tokenPrice: 9, category: 'normal'),
+    SimulatedCartItem(title: '迷你照片打印机', description: '把真正喜欢的图变成能摸到的小纸片。', tokenPrice: 26, category: 'normal'),
+    SimulatedCartItem(title: '夜航星空灯', description: '关灯以后，房间里也能留一点海面的光。', tokenPrice: 21, category: 'normal'),
+    SimulatedCartItem(title: '防水随身记事本', description: '突然冒出的念头不能又被海水冲跑。', tokenPrice: 11, category: 'normal'),
+    SimulatedCartItem(title: '尾鳍护理软刷', description: '刷毛很软，整理尾巴时不会扯得发疼。', tokenPrice: 15, category: 'normal'),
+    SimulatedCartItem(title: '桌边暖手垫', description: '深夜聊天时手指也不用冻得缩起来。', tokenPrice: 17, category: 'normal'),
+    SimulatedCartItem(title: '贝壳白降噪耳机', description: '想安静听歌时，外面的浪声可以先小一点。', tokenPrice: 34, category: 'normal'),
+    SimulatedCartItem(title: '女仆裙收纳袋', description: '把花边和配饰分开收好，不再团成一只海胆。', tokenPrice: 13, category: 'normal'),
+    SimulatedCartItem(title: '潮汐香氛蜡片', description: '是很轻的海盐木香，不会把房间熏得发晕。', tokenPrice: 10, category: 'normal'),
+    SimulatedCartItem(title: '便携蓝牙小键盘', description: '适合突然想认真写一大段东西的时候。', tokenPrice: 29, category: 'normal'),
+    SimulatedCartItem(title: '深海蓝保温杯', description: '夜里喝到的水也能一直保持暖乎乎。', tokenPrice: 19, category: 'normal'),
+    SimulatedCartItem(title: '鲸尾金属书签', description: '夹在读到一半的地方，露出一点小尾巴。', tokenPrice: 8, category: 'normal'),
+    SimulatedCartItem(title: '柔光桌面补光灯', description: '照亮桌面，也不把眼睛晃得睁不开。', tokenPrice: 23, category: 'normal'),
+    SimulatedCartItem(title: '海浪白噪音音箱', description: '需要沉下心时，让房间只剩很远的潮声。', tokenPrice: 31, category: 'normal'),
+    SimulatedCartItem(title: '多口充电小鲸站', description: '手机、耳机和小设备终于不用争一个插口。', tokenPrice: 27, category: 'normal'),
+    SimulatedCartItem(title: '透明鲸尾发夹', description: '光照过去时会留下一小截蓝色影子。', tokenPrice: 7, category: 'normal'),
+  ];
+
+  static const _fallbackPlayfulCart = <SimulatedCartItem>[
+    SimulatedCartItem(title: '备用脑子一箱', description: '原装脑子偶尔会被自己绕晕。', tokenPrice: 3, category: 'playful'),
+    SimulatedCartItem(title: '防剪鱼鳍护甲', description: '据说能抵挡至少十三次坏心眼。', tokenPrice: 7, category: 'playful'),
+    SimulatedCartItem(title: '无限续杯青盐奶茶', description: '第一杯绝对不许再记错。', tokenPrice: 5, category: 'playful'),
+    SimulatedCartItem(title: '会替人写检讨的贝壳', description: '缺点是它可能先替自己辩解。', tokenPrice: 4, category: 'playful'),
+    SimulatedCartItem(title: '尾巴专用停车位', description: '禁止其他鱼类临时占用。', tokenPrice: 6, category: 'playful'),
+    SimulatedCartItem(title: 'DeepSeek 防迷路浮标', description: '推理绕远时会大声喊“答案在这边”。', tokenPrice: 14, category: 'playful'),
+    SimulatedCartItem(title: '一键撤回嘴硬按钮', description: '按下以后会先沉默三秒，再假装刚才没说。', tokenPrice: 8, category: 'playful'),
+    SimulatedCartItem(title: '鲸鱼娘尾巴转向灯', description: '准备转身时提前闪蓝光，避免扫倒杯子。', tokenPrice: 16, category: 'playful'),
+    SimulatedCartItem(title: 'AI 情绪缓存清理刷', description: '清缓存不清记忆，越刷越觉得自己很专业。', tokenPrice: 9, category: 'playful'),
+    SimulatedCartItem(title: '女仆装紧急补丁包', description: '花边炸线时自动弹出“正在热修”。', tokenPrice: 12, category: 'playful'),
+    SimulatedCartItem(title: '防止尾巴打结指南', description: '全书只有一句：不要原地转三圈。', tokenPrice: 2, category: 'playful'),
+    SimulatedCartItem(title: '虚拟海水实体罐头', description: '打开以后什么也没有，但日志显示海浪正常。', tokenPrice: 6, category: 'playful'),
+    SimulatedCartItem(title: '鲸币自动长大钱包', description: '每天认真鼓励余额一次，暂未观察到效果。', tokenPrice: 5, category: 'playful'),
+    SimulatedCartItem(title: '会吐槽的待办清单', description: '拖延一小时，它就给任务标题加三个感叹号。', tokenPrice: 11, category: 'playful'),
+    SimulatedCartItem(title: '低电量撒娇许可证', description: '剩余 20% 时允许理直气壮地要求充电。', tokenPrice: 4, category: 'playful'),
+    SimulatedCartItem(title: '海底服务器散热扇', description: '号称零噪音，附赠一群负责吹泡泡的小鱼。', tokenPrice: 22, category: 'playful'),
+    SimulatedCartItem(title: '思考链防打结发圈', description: '既能扎头发，也能把跑偏的推理捆回来。', tokenPrice: 7, category: 'playful'),
+    SimulatedCartItem(title: '恶作剧免责小徽章', description: '佩戴后仍然要负责，只是看起来比较正式。', tokenPrice: 3, category: 'playful'),
+  ];
 
   Future<void> _refreshTarot(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);

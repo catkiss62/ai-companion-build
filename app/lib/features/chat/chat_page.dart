@@ -28,6 +28,7 @@ import 'chat_timestamp_formatter.dart';
 import '../personality/personality_lab_page.dart';
 import '../phone/simulated_phone_page.dart';
 import '../immersive/immersive_room_page.dart';
+import 'chat_quick_settings_pages.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false});
@@ -968,6 +969,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openQuickPanel() async {
+    if (Theme.of(context).useMaterial3) {
+      await _openQuickPanelV2();
+      return;
+    }
     await _loadVisualSettings();
     if (!mounted) return;
     final pageContext = context;
@@ -1393,6 +1398,228 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           begin: const Offset(-1, 0),
           end: Offset.zero,
         ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+    );
+  }
+
+  Future<void> _openQuickPanelV2() async {
+    await _loadVisualSettings();
+    if (!mounted) return;
+    final pageContext = context;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭 DeepSeek 面板',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) => SafeArea(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Material(
+            elevation: 18,
+            color: Theme.of(dialogContext).colorScheme.surface,
+            child: SizedBox(
+              width: (MediaQuery.sizeOf(dialogContext).width * 0.82)
+                  .clamp(280.0, 340.0)
+                  .toDouble(),
+              height: double.infinity,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 28,
+                        backgroundImage: AssetImage(
+                          'assets/appearance/chat_avatar.webp',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DeepSeek',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text('常用入口与分类设置'),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _QuickPanelTile(
+                    icon: Icons.phone_iphone_rounded,
+                    title: '查手机',
+                    subtitle: '相册、浏览器、心情、购物车、塔罗与日记。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SimulatedPhonePage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.auto_stories_rounded,
+                    title: '沉浸房间',
+                    subtitle: '独立长篇场景、真流式输出与房间记忆。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ImmersiveRoomLobbyPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 26),
+                  _QuickPanelTile(
+                    icon: Icons.monitor_heart_outlined,
+                    title: '她现在的状态',
+                    subtitle: '只读查看欲望数值与萌属性数字。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CompanionStateOverviewPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.theater_comedy_outlined,
+                    title: '性格试穿',
+                    subtitle: '只叠加表达倾向，不覆盖核心人设。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await _openPersonalityLab();
+                    },
+                  ),
+                  const _QuickPanelHeading('分类设置'),
+                  _QuickPanelTile(
+                    icon: Icons.notifications_active_outlined,
+                    title: '主动联系',
+                    subtitle: '频率、弹窗、隐私、提示音与主动语音。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ProactiveContactSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.wallpaper_rounded,
+                    title: '聊天画面',
+                    subtitle: '立绘、舞台、背景与聊天框透明度。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => ChatVisualSettingsPage(
+                            onEditPortrait: () async {
+                              await _loadVisualSettings();
+                              await _openPortraitTransformEditor();
+                            },
+                          ),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.graphic_eq_rounded,
+                    title: '语音与情绪',
+                    subtitle: '本地 TTS、情绪标签与情绪短音效。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const VoiceEmotionSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.text_fields_rounded,
+                    title: '文字演出',
+                    subtitle: '逐段打字开关与速度。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TextPerformanceSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  const Divider(height: 26),
+                  _QuickPanelTile(
+                    icon: Icons.tune_rounded,
+                    title: '全部设置',
+                    subtitle: '完整设置将在下一步重新分类。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).pushNamed('/settings');
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.copyright_outlined,
+                    title: '上游与素材说明',
+                    subtitle: 'LingChat · AGPL-3.0 与素材来源',
+                    onTap: () => showDialog<void>(
+                      context: dialogContext,
+                      builder: (context) => AlertDialog(
+                        title: const Text('LingChat 上游说明'),
+                        content: const SingleChildScrollView(
+                          child: Text(
+                            '聊天舞台的首批角色立绘、昼夜背景与情绪短音效来自 '
+                            'SlimeBoyOwO/LingChat 固定版本。软件源码采用 AGPL-3.0；'
+                            '部分素材另有上游注明的来源与非商业限制。本项目仅按个人、'
+                            '非商业学习用途接入，并把素材隔离存放，便于后续替换。'
+                            '\n\n完整文件：assets/lingchat/NOTICE.md',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('知道了'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (context, animation, _, child) => SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(-1, 0),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        ),
         child: child,
       ),
     );
@@ -2393,4 +2620,46 @@ class _SpeechActionButton extends StatelessWidget {
               : '朗读这条回复',
     );
   }
+}
+
+class _QuickPanelHeading extends StatelessWidget {
+  const _QuickPanelHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 18, 4, 6),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      );
+}
+
+class _QuickPanelTile extends StatelessWidget {
+  const _QuickPanelTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      );
 }

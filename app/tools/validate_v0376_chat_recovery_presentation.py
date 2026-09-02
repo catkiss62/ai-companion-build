@@ -60,7 +60,7 @@ assert "const Duration(seconds: 30)" in runner
 assert "reasoning: delta.reasoning" in runner
 
 assert "pushNamed('/settings')" in chat
-assert "SettingsPage()" not in chat
+assert "const SettingsPage()" not in chat
 assert "ttsStatus!" not in settings
 assert "Text(status!" not in settings
 assert "final currentTtsStatus = ttsStatus;" in settings

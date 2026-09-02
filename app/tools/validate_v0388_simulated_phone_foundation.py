@@ -19,7 +19,11 @@ pubspec = read("pubspec.yaml")
 
 assert any(
     token in pubspec
-    for token in ("version: 0.38.8+107", "version: 0.38.9+108")
+    for token in (
+        "version: 0.38.8+107",
+        "version: 0.38.9+108",
+        "version: 0.41.16+155",
+    )
 )
 assert "app == SimulatedPhoneAppKind.tarot || phoneEnabled" in policy
 assert "if (!await db.brainWorkAllowed()) return;" in repository
@@ -36,6 +40,7 @@ assert any(
     for tabs in (
         "tabs: [Tab(text: '我'), Tab(text: '他')]",
         "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]",
+        "tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]",
     )
 )
 assert "关闭更新不会删除历史 · 塔罗牌仍会每天更新" in page

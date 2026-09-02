@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/platform/android_bridge.dart';
+import 'core/presentation/app_theme.dart';
 import 'features/chat/chat_page.dart';
 import 'features/home/companion_home_page.dart';
 import 'features/inner/inner_page.dart';
@@ -30,11 +31,7 @@ class AiCompanionApp extends StatelessWidget {
       ],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFFB082FF),
-        useMaterial3: true,
-      ),
+      darkTheme: CompanionAppTheme.dark(),
       routes: {
         '/transfer': (_) => const _SecondaryScaffold(
               title: '手机 / 平板接管',

@@ -74,7 +74,11 @@ for token in (
 ):
     assert token in page, token
 assert "chat_panel_fraction" not in page
-assert "_panelFraction" not in page
-assert "height: panelHeight" not in page
+if "immersive_panel_fraction" in page:
+    assert "_panelFraction" in page
+    assert "height: panelHeight" in page
+else:
+    assert "_panelFraction" not in page
+    assert "height: panelHeight" not in page
 
 print("v0.39.2 immersive fullscreen/NSFW/stream contracts passed")
