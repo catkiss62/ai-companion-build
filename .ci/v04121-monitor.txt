@@ -1,0 +1,7 @@
+status=success
+run_id=33661963195
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195
+head_sha=635f7886210e1011085ab2e97b9434237fe176c9
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c  AI-Companion-v0.41.21-160-Phase2A5-Responsibility-Ablation-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90d4ff9bb793c97b22d5
