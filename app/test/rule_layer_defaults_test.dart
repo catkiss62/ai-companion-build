@@ -231,8 +231,8 @@ void main() {
     expect(daily, contains('普通短回合可以完全不写动作'));
     expect(daily, contains('需要非语言承载时'));
     expect(daily, isNot(contains('每轮对话至少要出现一次')));
-    expect(daily, contains('所有台词必须用「」包裹'));
-    expect(daily, contains('动作禁止写进「」内'));
+    expect(daily, contains('说出口的话独占一行并统一写在「」内'));
+    expect(daily, contains('动作留在「」外且不加括号'));
     expect(daily, contains('【最终正文中的现实恋人称呼】'));
     expect(daily, isNot(contains('允许纯对白')));
     expect(daily, contains('省略主语的动作默认只描述自己'));
