@@ -566,6 +566,7 @@
 4. 本地专项 validator、current ledger/schema、v0.41.15 Phase 2A 合同、Python 全量语法、workflow YAML 与 `git diff --check` 已通过。按 workflow 的 131 项 Python 清单修正后执行为 `123 passed / 8 environment-only failed`：8 项均因 scratch 没有 CI 恢复的 417 文件桌宠、LingChat/Meju/TTS/native 大载荷或本地 `kotlinc`；最初另有 8 项历史静态合同仍要求旧心情高度、全屏沉浸、旧 Tarot 构造或误把新分类页类名当直接 `SettingsPage()`，已改为同时核验旧合同与 v0.41.16 的明确替代合同并全部通过。
 5. 提交前审查又收口两个实际风险：升级当天若保留 v0.41.15 的 4 件购物车，现在会因数量不是 6 立即重建，不必等到第二天；DeepSeek 购物车外层增加 18 秒超时，超时即关闭 client 并落离线兜底，避免打开手机页面被底层 120 秒请求长期卡住。路径审查再次确认没有修改 Phase 2A 的 Desire/Self-Drive/联网 appraisal/perception 代码；完整 Dart/Flutter 编译、格式与 widget tests 仍必须由 Actions 证明。
 6. 远端首次精确树 run [`33577324214`](https://github.com/catkiss62/ai-companion-build/actions/runs/33577324214)（668）完成签名及全部大型载荷恢复，131 项源码链执行到第 116 项左右时在 `validate_current_schema24_b.py` 失败，Flutter 依赖/编译/tests/APK 正确跳过。根因是该包装器动态扩展冻结的 v0.32.0 版本正则时只列到 `0.41.15+154`；功能 validator、v0.41.15、v0.41.16 及此前全部合同均已通过，不是运行源码失败。已只把 `0.41.16+155` 加入当前包装器白名单并重跑本地合同；必须重新全量 CI 后才能产出 APK。
+7. Actions run [`33577574950`](https://github.com/catkiss62/ai-companion-build/actions/runs/33577574950)（669）越过上轮失败点，131 项源码/历史合同、依赖解析及 Kotlin 桌宠/Overlay 单测通过；Flutter analyze 随后只在两个新增测试报错：import 使用了不存在的 `package:ai_companion/...`，而本项目 pubspec 包名一直是 `ai_companion_localfirst`。其余新增运行源码没有 analyze error；Flutter tests/APK 正确跳过。已把两行测试 import 改为真实包名，未改功能实现，仍需重新全量 CI。
 
 ## 历史工作记录（原文保留，按需检索）
 

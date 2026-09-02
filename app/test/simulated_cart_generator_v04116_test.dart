@@ -1,4 +1,4 @@
-import 'package:ai_companion/core/phone/simulated_cart_generator.dart';
+import 'package:ai_companion_localfirst/core/phone/simulated_cart_generator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,4 +1,4 @@
-import 'package:ai_companion/core/phone/mood_chart_layout.dart';
+import 'package:ai_companion_localfirst/core/phone/mood_chart_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
