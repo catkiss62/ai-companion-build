@@ -1,0 +1,7 @@
+status=success
+run_id=33626310590
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33626310590
+head_sha=a91b64d05633845bd179e90e0322bd07e136e9c5
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+5c9fcf9af0cdc2e354ac2e1385bf0ac23b5907c5382089b9eb035dd30643938e  AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f01af71ad7c2c1a5ba55
