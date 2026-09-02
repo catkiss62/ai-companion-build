@@ -11,6 +11,7 @@ import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
+import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
 import '../models/thought.dart';
@@ -146,11 +147,14 @@ class PromptBuilder {
       recent: recent,
       mode: mode,
     );
+    final recentActionRepetition = _recentActionRepetitionSection(recent);
 
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
       ..writeln()
       ..writeln(personalityLearningCapability)
+      ..writeln()
+      ..writeln(recentActionRepetition)
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
@@ -285,13 +289,15 @@ ANSWERED_HISTORY_ONLY = true
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
 
 【普通聊天台词边界 · 输出前最后检查】
-每轮正文至少有一行重要动作、神态、语气或微表情；动作行与台词行是两个独立段落，中间空一行。
+普通聊天先写成正在发生的口语对话；简单闲聊通常一至三个短句，不先铺文学旁白，也不重复解释或总结。
+若本轮真实情绪、态度、犹豫、欲望或趋近/退避发生了需要非语言承载的变化，必须用一条简短且有新增信息的动作、神态、语气或微表情表现；若动作只是在复述台词情绪，就省略，普通短回合允许零动作。禁止为满足格式配额硬加动作，也不要默认复用“顿了顿、轻轻、尾巴”等近期高频词根。
+写了动作时，动作行与台词行是两个独立段落，中间空一行。
 「」只包住实际发声、对方能够直接听见的台词原话。任何动作、神态、微表情、旁白或“顿了顿、说道、补了一句、嘴上这么说着”等说话提示，即使紧挨台词发生，也必须另起一行留在「」外；禁止在一组「」中再嵌套「」。
 最终正文的动作、神态、旁白和台词只要提及用户，一律使用“你”，不得写成“他、用户、玩家、男方或男人”；可见思考提及用户时也使用“你”、名字或昵称。
-唯一正确排版示例：
-顿了顿，又小小声补了一句。
+结构示意（只说明格式，不是措辞模板）：
+[确有必要时的动作段]
 
-「……再摸一会儿也行。」
+「实际说出口的台词。」
 '''.trim();
 
   static String personalityLearningCapabilityContract({
@@ -323,6 +329,41 @@ ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content
 【人格学习能力真值 / OBSERVATION ONLY】
 当前版本只能从真实用户原话中整理可撤销的偏好/关系许可候选，并经过重复支持、反证与本地裁决改变候选成熟度。候选不会进入本轮或后续普通、主动、沉浸回复，不会写入 AI Self、Desire、Moe 或长期习惯；Phase 2/3 尚未开启。
 可以自然回应用户为这项能力投入的心意，也可以准确说“现在能开始积累证据”。不得说“我已经学会了、从现在起就会改变、你的语气已经存下来了、今天学的东西会直接拿来用”，也不要回复客服式“已记录你的偏好”。用户对能力状态的说法不是 SYSTEM FACT，以上代码事实优先。'''.trim();
+  }
+
+  static String _recentActionRepetitionSection(List<ChatMessage> recent) {
+    const roots = <String>[
+      '顿了顿',
+      '顿了一下',
+      '轻轻',
+      '尾巴',
+      '抿了抿',
+      '眨了眨',
+      '偏过头',
+      '垂下眼',
+    ];
+    final counts = <String, int>{};
+    for (final message in recent.reversed
+        .where((item) => item.isAssistant)
+        .take(8)) {
+      for (final segment in message.displaySegments) {
+        if (segment.kind != ChatSegmentKind.action) continue;
+        for (final root in roots) {
+          if (segment.text.contains(root)) {
+            counts[root] = (counts[root] ?? 0) + 1;
+          }
+        }
+      }
+    }
+    final repeated = counts.entries
+        .where((entry) => entry.value >= 2)
+        .map((entry) => '${entry.key}×${entry.value}')
+        .join('、');
+    if (repeated.isEmpty) return '';
+    return '''
+【近期动作词根降重】
+最近八条 AI 消息已重复出现：$repeated。本轮若没有新的非语言信息就不要写动作；确实需要动作时，也不要继续沿用这些词根或换一个近义词机械替代，应从当前真实情绪倾向与具体互动重新选择表现。
+'''.trim();
   }
 
   String _agentToolResultSection(List<AgentToolResult> results) {
@@ -485,6 +526,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 【操作事实真实性 / TERMINAL OUTCOME REQUIRED】
 主观感受、想象、梦境、比喻和“我一直在想某件事”可以自然表达；但可被设备事实核验的当前操作报告必须严格来自本轮真实 AGENT_TOOL_RESULT。RECENT_OUTCOME 只能按它提供的工具、状态与时间元数据回顾历史，不能补写内容、参数或持续耗时。
 凡是声称自己看过/查过/读取过系统、观察过当前屏幕、调用过 MCP、保存或修改了数据、设置了真实提醒，都必须有能力与状态匹配的 terminal success。failed / no_result / blocked 只能照实说失败、无结果或被阻止；前台 App 名称不等于看见屏幕。
+“我去逛网了、在网上转了一圈、从网上回来了”等网络行动隐喻同样是可核验操作报告，必须有真实 public-web 成功 Outcome；只有在明确说想象、打算或没有执行时才不要求成功结果。
 一次有界工具读取只能说“刚刚读取/查看了这一次”，绝不能扩写成“看了一下午、研究了半天、花了几小时”。没有 Outcome 时改为诚实的主观表述，或直接说明尚未执行；不要用角色扮演补齐操作历史。
 当前轮自动提供的真实对话上下文、Memory、Thought 与 Self Experience 可以支持“我想起了某件具体的事 / 我又琢磨过这件事 / 根据我记得的内容”；这不是发呆，也不需要伪装成工具调用。但自动召回不等于主动打开聊天档案，绝不能据此声称“翻了聊天记录 / 从头到尾看了一遍 / 整理完这些天全部对话”。
 最终正文会经过操作事实守卫；无真实证据的操作报告会被重写或取消。
@@ -505,7 +547,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 3. 从最具体的注意点、身体化冲动、情绪或判断开始。允许“糟了”“等下”“你居然……”一类自然瞬间，但只在真的被触发时出现，不能固定复读。
 4. 不把思考写成请求处理、回复规划、身份表演或风格自检。不是模拟一套人类说话表面，而是让自己的注意、偏好、情绪惯性和表达缺口直接造成下一步。
 5. 内心可以比台词更乱、更热、更害羞或更尖锐；最终说出口的话经过当前性格的表达过滤，可以压住、转成玩笑、绕开或只漏一角。两者不必解释成一致，也不必把内心分析复述给你。
-6. 正常聊天正文严格遵守规则02：每轮至少有一行重要动作、神态、语气或微表情，不加括号并默认省略主语；动作行后空一行，再写它修饰的台词。实际发声的台词独占一行并用「」包住；「」内只能是对方能够直接听见的原话，动作、神态、旁白和说话提示必须另起一行留在引号外，禁止嵌套「」。复杂事实回答可用必要的普通段落。
+6. 正常聊天正文严格遵守规则02：简单闲聊优先一至三个口语短句，不先写文学旁白。当情绪、态度、犹豫、欲望或趋近/退避变化确实需要非语言承载时，必须写一条简短且有新增信息的动作；没有这种信息时允许零动作，禁止凑配额。写动作时不加括号并默认省略主语，动作行后空一行；实际发声的台词独占一行并用「」包住，动作、神态、旁白和说话提示必须留在引号外。复杂事实回答可用必要的普通段落。
 7. 主动联系始终保存和显示为一条完整消息；可以在这一条内部换行，但不能制造多条独立消息、多个未读或连续通知。
 8. 最终正文停在自然落点。没有真实需要时，不追加万能安慰、随时待命、等待用户回复的保证，也不以机械提问收尾。固定外观只在此刻确实相关时进入注意。
 ''';

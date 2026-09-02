@@ -23,6 +23,21 @@ void main() {
       expect(ProactiveFrequencyMode.natural.twoHourLimit, 3);
       expect(ProactiveFrequencyMode.frequent.dayLimit, 24);
       expect(ProactiveFrequencyMode.frequent.twoHourLimit, 4);
+      expect(ProactiveFrequencyMode.quiet.minimumGap.inMinutes, 30);
+      expect(ProactiveFrequencyMode.natural.minimumGap.inMinutes, 15);
+      expect(ProactiveFrequencyMode.frequent.minimumGap.inMinutes, 8);
+      expect(
+        ProactiveFrequencyMode.natural.allowsGap(
+          const Duration(seconds: 93),
+        ),
+        isFalse,
+      );
+      expect(
+        ProactiveFrequencyMode.natural.allowsGap(
+          const Duration(minutes: 15),
+        ),
+        isTrue,
+      );
     });
 
     test('parses persisted profile keys without resetting history', () {

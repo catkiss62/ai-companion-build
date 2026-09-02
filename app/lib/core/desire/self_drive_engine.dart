@@ -8,6 +8,26 @@ import '../models/desire_state.dart';
 import '../models/self_experience.dart';
 import 'desire_engine.dart';
 
+abstract final class SelfReviewSourceFingerprint {
+  static String thread({
+    required String id,
+    required String topicKey,
+    required String title,
+    required String detail,
+    required String status,
+  }) =>
+      sha256
+          .convert(utf8.encode('$id|$topicKey|$title|$detail|$status'))
+          .toString();
+
+  static String memory({
+    required String id,
+    required int factVersion,
+    required String content,
+  }) =>
+      sha256.convert(utf8.encode('$id|$factVersion|$content')).toString();
+}
+
 /// Generates low-cost local self-initiated thoughts without calling an LLM.
 /// The wording is intentionally simple data; natural language generation only
 /// happens later if a thought actually reaches an outbound/chat context.
@@ -99,12 +119,13 @@ class SelfDriveEngine {
   Future<void> _refreshCandidates(DateTime now) async {
     final threads = await db.activeUnfinishedThreads(limit: 12);
     for (final thread in threads) {
-      final hash = sha256
-          .convert(utf8.encode(
-            '${thread.id}|${thread.updatedAt.millisecondsSinceEpoch}|'
-            '${thread.title}|${thread.detail}',
-          ))
-          .toString();
+      final hash = SelfReviewSourceFingerprint.thread(
+        id: thread.id,
+        topicKey: thread.topicKey,
+        title: thread.title,
+        detail: thread.detail,
+        status: thread.status,
+      );
       await db.upsertSelfReviewCandidate(
         sourceKind: 'unfinished_thread',
         sourceRef: thread.id,
@@ -121,12 +142,11 @@ class SelfDriveEngine {
     final memories = await db.memoryCandidatesForSelfDrive(limit: 32);
     for (final memory in memories) {
       final drive = _driveForMemoryKind(memory.kind);
-      final hash = sha256
-          .convert(utf8.encode(
-            '${memory.id}|${memory.factVersion}|'
-            '${memory.updatedAt.millisecondsSinceEpoch}',
-          ))
-          .toString();
+      final hash = SelfReviewSourceFingerprint.memory(
+        id: memory.id,
+        factVersion: memory.factVersion,
+        content: memory.content,
+      );
       await db.upsertSelfReviewCandidate(
         sourceKind: 'memory',
         sourceRef: memory.id,

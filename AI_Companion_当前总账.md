@@ -29,27 +29,27 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交授权 | 2026-09-02 用户明确“以后一直允许提交”：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，不再逐批重复询问是否允许推送。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04118-settings-information-architecture`；从 v0.41.17 最终运行树开出的插队任务 2“总设置重新分类”。Phase 2A 运行策略保持不变，Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
+| 当前开发分支 | `agent/v04119-phase2a-runtime-stabilization`；从已完成自然数据审查的 v0.41.18 树开出，专门修复 Phase 2A 证据链、主动节奏与普通表达复读。Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.18 最终 APK 输入为远端 `68c6e73810a673261e7ad29949a06de2a72c5000` / tree `8b5ccb5b735fa80bb20b45b05a0bf30b4e413392`；首个功能提交 `688a83bf20011949b0eb8430d147a442556333d3` / tree `bc877981f413c70eaaee397dd9344fbef2faae46`，随后只迁移历史 TTS 验证器并补总账 |
-| App / 数据库 | 当前开发目标 `0.41.18+157` / schema 43；本批只重组设置入口、保存职责和少量呈现文案，不新增表、不迁移 schema；Snapshot/备份 protocol 5 不变 |
+| App / 数据库 | 当前运行基线 `0.41.18+157` / schema 43；本批开发目标 `0.41.19+158` / schema 44。schema 44 用于同源 Self-Drive pending 唯一性和人格学习证据拆分审计；Snapshot/备份 protocol 5 不变，并必须兼容 schema 43 覆盖升级与导入 |
 | 最终 CI | v0.41.18 Actions run [`33593632877`](https://github.com/catkiss62/ai-companion-build/actions/runs/33593632877)（674）全绿：133 项源码/历史 validator、Kotlin/Overlay 编译与单测、Flutter analyze、453/453 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/27 项 Meju/62 项 LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped。run 673 仅暴露并修复已退役设置文件路径的历史 TTS 验证器，不是运行功能失败 |
 | 测试 APK | `AI-Companion-v0.41.18-157-Settings-Information-Architecture-APK.apk`，325,606,950 bytes |
 | APK SHA-256 | `44d04780c39d0c7b226db3ee09105fa47e442c2918016579cf39de7ffc56740f`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9832845947`](https://github.com/catkiss62/ai-companion-build/actions/runs/33593632877/artifacts/9832845947)，ZIP 319,309,880 bytes，digest `sha256:0e097895c670340cad5307cc5585d38b3b2505a8e30a7f65280b7d5343d9d2a1`，保留至 2026-09-16T05:21:09Z；Draft Release [`untagged-1de95d0db9134235091a`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1de95d0db9134235091a)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.18 运行代码仍为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；`#D4BBFC` 与“想起之前的话”等 v0.41.17/18 界面项不再作为主线专项真机门，发现问题再报。用户已发现总设置分类不合理，但明确延后到 Phase 0～4 完成后处理。最新约 10 小时自然数据证明 Phase 2A 链路真实运行，同时暴露 Self-Drive 去重、主动反馈/节奏、学习候选语义归并和表达复读缺陷；Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.19 Phase 2A 窄稳定化源码已完成并通过本地静态/历史合同校验，状态为 `LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。v0.41.18 仍是当前真机运行基线；其 `#D4BBFC` 与“想起之前的话”等 v0.41.17/18 界面项不再作为主线专项真机门，总设置分类返工仍延后到 Phase 0～4 完成后。Phase 1 学习消费与 Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **先完成 Phase 2A 自然数据审查结论，再按用户确认的边界做一批窄稳定化修复；Phase 2B 暂不开始。** v0.41.17/18 专项真机验收已由用户取消为进入门，总设置分类返工排到 Phase 0～4 之后 |
+| 当前下一步 | **提交并运行 v0.41.19 GitHub Actions；CI 通过后覆盖安装，自然观察 Phase 2A 稳定性，Phase 2B 暂不开始。** 动作/神态已实现为“真实情绪、态度、犹豫、欲望或趋近/退避变化需要非语言承载时必须出现；无新增信息的普通短回合可为零”，并带近期动作词根降重，不是随机可选或每轮硬配额 |
 | 目标 | 先恢复证据链可靠性：同一 Self-Drive 来源不因 `updated_at` 变化无限生成候选；明确“老在念叨/别再说”能负向归因并冷却主题；主动消息有最小间隔且不误报 2/10 分钟；不同学习命题不能合并；短回复允许不写动作并抑制“顿了顿/尾巴/轻轻”复读 |
-| 已完成证据 | `0.41.18+157 / schema 43` 仍是当前运行基线，run 674 与 453/453 tests 不变。新备份为 protocol 5/schema 43/generation 18；诊断无当前生成阻断、无当前后台错误，Self Experience 10 条完成、18 次自主联网成功、八轴有真实来源变化、13 条主动消息送达，证明 Phase 2A 不是未运行 |
+| 已完成证据 | `0.41.18+157 / schema 43` 仍是当前运行基线，run 674 与 453/453 tests 不变。新备份为 protocol 5/schema 43/generation 18；诊断无当前生成阻断、无当前后台错误，Self Experience 10 条完成、18 次自主联网成功、八轴有真实来源变化、13 条主动消息送达。v0.41.19 已完成稳定 source fingerprint/单 active source、主动最小间隔、重复抱怨本地负反馈、三类学习证据拆分审计、口语化底层合同、情绪驱动动作降重和联网隐喻真值守卫；本地关键/历史 validators 与 `git diff --check` 通过 |
 | 已确认阻断 | 49 个 review candidate 中 39 pending；同一 active unfinished thread 产生 7 个 pending，部分 Memory 同源完成 4 次。46 条近期 AI 回复中尾巴 46/46、“顿了顿”43/46、“轻轻”38/46。四条不同偏好证据被并入一个 candidate；两条主动消息只隔约 93 秒；用户抱怨复读仍被反馈层判为 `engaged/topic_fit=+1` 或 `+0.5`；一次无成功联网 Outcome 的主动话术称“出去逛/我回来了” |
 | 保护与排除 | 只读使用本轮备份/诊断，不提交或公开聊天正文、用户数据、设备 ID、Key 或附件。保持 Phase 1 回复消费与 Phase 2B bias 关闭；不重开屏幕观察、联网存图、MCP、视频、提醒、悬浮风险或总设置返工。现有关系资料仍只覆盖安装，不卸载、不清数据，不用破坏性恢复 |
-| 修复设计门 | 先把问题拆成：① review source/version 稳定去重与既有 pending 收敛；②主动主题负反馈、主题冷却和最小发送间隔；③学习 candidate 的命题同一性/语义复核防串线及既有污染数据的保守修复；④动作格式从每轮硬配额改成按需，并删除每轮末端“顿了顿”示例锚；⑤联网/外出操作话术必须有真实 Outcome。用户先讨论确认，不在本轮直接改运行代码 |
+| 修复设计门 | 已通过：① review source/version 稳定去重与既有 pending 收敛；②主动主题负反馈、主题冷却和按频率档位的最小发送间隔；③学习 candidate 必须是同一原子命题，既有“熟悉后不客套 / 自主意愿许可 / 口语化少解释”证据保留来源并可审计拆分；④普通聊天以口语对话为底层，简单聊天默认 1～3 个短句，不叙事化铺陈；动作改为“有情绪信息时必须表现、无新增信息时省略”，删除末端固定“顿了顿”锚；⑤联网/外出操作话术必须有真实 Outcome |
 | 完成判据 | 窄修复后专项回放覆盖上述五类缺陷，当前/历史 validators、Flutter analyze/tests、Kotlin、Release APK 与载荷全过；新真机自然样本中无同源 pending 增殖、无分钟级主动连发、负反馈能停止主题、学习证据不串候选，才可完成 Phase 2A 审查并进入 Phase 2B |
 | 直接详细入口 | 本轮证据与源码根因见近期记录第 26 节；原 Phase 2A 设计/实现见第 20 节及 `SELF_EXPERIENCE_DESIRE_WEB_PHASE2A_v0.41.15.md`；人格学习边界见第 14～18 节、`PERSONALITY_LEARNING_GROWTH_PHASE1.md` 与 `PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md` |
 
@@ -57,8 +57,8 @@
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
-| A · 当前讨论结束 | 用户确认第 26 节判断与修复边界 | 建立 Phase 2A 窄稳定化代码批；先更新双层总账，再只读第 20/26 节及直接源码/tests。Phase 1 消费与 Phase 2B bias 继续关闭 |
-| B · Phase 2A 修复完成 | 自动回放、CI/APK 和新自然数据证明五类缺陷收口 | 完成 Phase 2A 独立代码审查；不得只凭旧 10 小时样本或单元测试宣称长期稳定 |
+| A · 当前稳定化开发 | 用户已确认第 26/27 节边界 | 在 `agent/v04119-phase2a-runtime-stabilization` 实现、回放并构建；Phase 1 消费与 Phase 2B bias 继续关闭 |
+| B · Phase 2A 修复完成 | 自动回放与 CI/APK 证明静态和确定性缺陷收口 | 覆盖安装后以自然使用取得同源去重、主动间隔、重复抱怨和表达多样性的短样本，再完成 Phase 2A 独立代码审查；不得只凭旧 10 小时样本或单元测试宣称长期稳定 |
 | C · Phase 2B 主线代码阶段 | Phase 2A 无阻断并经用户继续 | 实现轻量 topic/subject 关联记忆与可审计的小幅回复倾向；详细设计与参考入口见第 14、20、26 节。不得直接建设完整知识图谱，也不得消费被错误合并的学习证据 |
 | D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
 | E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
@@ -732,6 +732,38 @@
 3. 主动层增加按 frequency mode 的最小发送间隔，并把 `assistantMessagesSinceLastUser/proactiveMessagesSinceLastUser`、最后主动 gap 作为硬 Gate；小于 30 分钟的主动轮也注入精确 elapsed minutes。重复抱怨须本地保守映射为 topic negative/cooldown 候选，模型仍可判断强度，但不能仅因用户回复较长就写 `engaged` 正反馈。
 4. 学习层必须先验证“新证据是否蕴含旧 proposition”，subject 相同或语义复核说 related 都不能自动复用旧 candidate；应允许“熟悉后不客套”“更口语化/少解释”“AI 有自己的意愿”成为三个原子命题。既有污染数据需设计可审计、可回滚的保守拆分/隔离流程，不静默删除用户证据。
 5. 同一包可并入动作配额降级和联网隐喻真值守卫，因为两者是用户本轮直接报告、根因窄且有明确回放；不得顺便重做总设置、联网存图、屏幕、MCP、视频、提醒或 Phase 2B。用户先讨论确认本节判断，之后再按双层总账建立正式修改前记录和独立代码审查/CI/APK。
+
+### 27. 2026-09-02 · v0.41.19 Phase 2A 运行稳定化（DESIGNED / PRE-CHANGE LEDGER / IMPLEMENTATION IN PROGRESS）
+
+#### A. 用户决定与版本边界
+
+1. 用户确认稳定化包值得做，并进一步锁定两条普通表达原则：口语化应作为普通聊天底层能力，不必等待人格学习成熟；动作与神态不是随机可选装饰，而是在真实情绪、态度、犹豫、欲望或趋近/退避变化需要非语言承载时应当出现。普通事实、短确认或没有新增非语言信息的回合可以零动作；不得恢复“每轮至少一次”配额，也不得用同义词轮换掩盖固定模板。
+2. 本批分支 `agent/v04119-phase2a-runtime-stabilization`，目标 `0.41.19+158 / schema 44 / snapshot protocol 5`。schema 44 只服务两项持久化不变量：同一 `source_kind + source_ref` 最多一个 pending/selected Self-Drive envelope；人格学习旧证据拆分保留可查询的 from/to/reason 审计。必须支持 schema 43 原位覆盖升级及 schema 43 备份导入，不修改关系内容、消息正文或 completed Self Experience 历史。
+3. 本批不打开人格学习候选对回复的消费，不实现 Phase 2B bias；“口语化”直接作为普通聊天固定表达合同，“喜欢更口语化/少解释”的用户证据仍保留为独立成长候选，供未来 Phase 2B 调整强度与个人差异，二者职责不冲突。不得删除用户原始 evidence 或把当前一句反馈直接焊成不可逆人格。
+
+#### B. 锁定实现范围
+
+1. **Self-Drive**：thread fingerprint 只随 title/detail/status/topic 等语义内容变化，Memory fingerprint 只随 `fact_version/content` 变化，recall、retention 或普通 `updated_at` 不得制造新候选。数据库 upsert 以逻辑来源收敛 pending/selected，schema 43 已有重复 pending 在升级时保留最新一条、其余标为 discarded；completed/failed/discarded 历史和 Self Experience 不删除。
+2. **主动节奏与反馈**：frequency mode 增加明确最小发送间隔，debug 强制测试除外；生成上下文提供真实分钟级 elapsed 值并禁止夸大。识别“老在念叨 / 一直说这个 / 翻来覆去 / 复读”等明确重复抱怨时，本地策略不得接受模型给出的正 topic fit，而应按 dismissed/redirected 负向落账、结束或冷却同 topic Thought/thread。
+3. **人格学习命题隔离**：抽取与二次语义复核都要求“同一原子偏好/许可”，只相邻、相容或同属 communication 不得合并。schema 44 对已确认的三类证据做窄迁移：前两条熟悉/斗嘴/粗口证据留在原候选；“口语化/少解释”进入独立 communication candidate；“AI 有自己的想法、可按疲劳/好奇/依恋行动”进入独立 relationship-permission candidate。每次 reassignment 写审计记录并重算聚合，不按消息 ID 硬编码、不删除 evidence。
+4. **普通表达**：规则 02、Visible Inner Voice、每轮最终提醒使用同一条件式合同。简单聊天优先直接台词、通常 1～3 个短句，不先写文学旁白再总结；认真任务和复杂情绪可以自然变长。若内部情绪/态度变化确实需要动作表现，则使用一条简短、有具体信息的动作，并优先避开近期已高频词根；若动作只是复述台词情绪，则省略。动作/对白分段和 `「」` 真正台词边界继续保留。
+5. **操作真值**：把明确“逛网/在网上逛了一圈/从网上回来”等网络操作隐喻归入需要成功 public-web Outcome 的可核验操作声明；纯想象或否定/引用仍允许。无成功 Outcome 时先重写为主观想法，重试仍不合格则阻止发送。
+
+#### C. 不得回归与预定验证
+
+1. 保持 Active Brain/transfer fence、Desire 八轴、Self Experience terminal Outcome、24h 公网预算、主动 WAIT、普通/沉浸上下文隔离、操作真值现有系统/屏幕/存储守卫、Phase 1 observation-only、备份原子性和 schema 1～43 导入兼容。
+2. 新增确定性测试覆盖：同源时间戳变化不新增候选、实质版本变化更新同一 pending；升级收敛重复 pending；三类学习证据拆分且审计/聚合正确；相邻命题不能被 semantic approval 强并；93 秒主动连发被 minimum-gap Gate 阻止；重复抱怨覆盖模型正判并关闭主题；动作合同无硬配额且保留情绪驱动要求；无 Outcome 的网络归来话术被阻止。
+3. 修改后先跑格式、专项 tests、当前/历史 validator、Flutter analyze 与全量 tests；本地环境缺失的 Android/Kotlin/大载荷只记录真实缺口。推送后以 GitHub Actions 的 Kotlin、Flutter、Release APK、签名、载荷和 checksum 作为构建证据。CI 通过仍不等于真机自然表达通过；覆盖安装后只需自然观察，不恢复 v0.41.17/18 UI 专项门。
+
+#### D. 修改后实现、真实存档回放与本地证据
+
+1. v0.41.19 源码实现已完成。Self-Drive 的 thread fingerprint 改由 `id/topic/title/detail/status` 形成，Memory fingerprint 改由 `id/fact_version/content` 形成；数据库对同一 `source_kind + source_ref` 增加 pending/selected 部分唯一索引，运行时复用同一个 pending，升级时保留 selected 优先、否则保留最新 pending，其余只标记 discarded。completed candidate 与 10 条现有 Self Experience 历史不删除。
+2. 主动联系的 quiet/natural/frequent 最小间隔分别为 30/15/8 分钟，debug 强制测试除外；Prompt 注入程序计算的用户 gap 和主动 gap，并明确禁止把 2 分钟说成睡醒、10 分钟说成半小时。即使模型没有返回 `proactive_followup` JSON，只要真实用户回复明确命中“翻来覆去/复读机/一直念叨”等重复抱怨，本地仍强制落为 `dismissed + topic_fit=-0.95`，随后沿既有 Thought/thread 终态链停止该主题。
+3. 人格学习抽取与语义复核新增原子命题隔离。schema 44 新增 `personality_learning_evidence_revisions` 审计表；真实 schema 43 备份回放确认旧 Rule02 hash 精确等于官方 v0.41.18 默认，可在覆盖升级时安全更新而不碰用户手改规则。当前四条学习 evidence 的预期迁移为：两条熟悉/斗嘴/粗口留在原 established candidate；口语化/少解释与自主意愿/状态驱动各进入一个独立 candidate，原 evidence 不删除，产生两条 from/to/reason revision 并重算三个候选聚合。因此不需要手工修改 `.aibackup`，也不删除“口语化”成长候选；底层口语化立即生效，候选只留给未来 Phase 2B 做个体强度与长期一致性。
+4. Rule02、最终输出提醒与 Visible Inner Voice fallback 已统一：简单闲聊优先 1～3 个口语短句，不先铺文学旁白；真实情绪/态度/犹豫/欲望/趋近退避需要非语言承载时必须写有新增信息的动作，否则普通短回合可零动作。动作/对白分段和 `「」` 边界保留；最近八条 assistant action segment 会统计“顿了顿、顿了一下、轻轻、尾巴”等词根，重复两次即注入降重约束。真实备份全量统计为 236 条 assistant 消息中“顿了顿”命中 144 条、“轻轻”178 条、“尾巴”219 条，证明本修复针对真实高频复读而非主观猜测。
+5. 操作真值守卫现把“逛网/在网上转了一圈/从网上回来”当成需要真实 public-web 成功 Outcome 的声明；明确否定、想象或未来打算仍允许。主动分享只有存在本轮 share-ready 公网候选时可许可该说法，普通 Agent Tool 成功也可按 `public_web.discover` 识别；重试仍无证据则阻止落库。
+6. 新增/更新确定性测试覆盖 source fingerprint、三类学习证据隔离、重复抱怨词法、三档 minimum gap、动作条件式合同、联网隐喻真假与版本/schema。`validate_v04119_phase2a_runtime_stabilization.py`、当前接班 validator、v0.39.6/39.7/39.9 规则历史合同、v0.41.10/41.11 学习合同、v0.41.15 Phase 2A 与 v0.41.18 设置合同均通过，`git diff --check` 通过。按 Actions 实际清单本地 126 个 Python validator 通过；剩余 8 个只因本地未恢复 CI 专用 TTS/桌宠/LingChat 大载荷或没有 Kotlin 编译器而无法运行。当前环境也没有 Flutter/Dart SDK，故 analyze、Flutter tests、Kotlin、APK、签名与载荷仍必须等待 GitHub Actions，不能提前写成通过。
+7. 本地完成不等于 Phase 2A 通过。CI 全绿后覆盖安装不会要求 v0.41.17/18 UI 专项验收，但仍需自然观察：同源 pending 不再增长、主动不再分钟级连发、重复抱怨能停止话题、普通聊天更口语且动作在需要时出现/不需要时不凑数。取得这些新样本并完成 Phase 2A 独立审查前，Phase 2B 继续关闭；下一入口仍为顶部后续任务导航 B，若有阻断先窄修，无阻断且用户继续才进入 C。
 
 ## 历史工作记录（原文保留，按需检索）
 

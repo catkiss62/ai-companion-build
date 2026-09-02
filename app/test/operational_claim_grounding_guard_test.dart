@@ -142,4 +142,37 @@ void main() {
       expect(result.requiredToolId, 'conversation_archive.read');
     }
   });
+
+  test('public-web journey metaphors require a successful web outcome', () {
+    for (final text in <String>[
+      '我出去逛网的时候看到个有意思的东西。',
+      '我在网上转了一圈，现在回来了。',
+      '我从网上回来了，给你带了个发现。',
+    ]) {
+      final blocked = OperationalClaimGroundingGuard.evaluate(text: text);
+      expect(blocked.allowed, isFalse, reason: text);
+      expect(blocked.reason, 'ungrounded_public_web_journey');
+      expect(blocked.requiredToolId, 'public_web.discover');
+      expect(
+        OperationalClaimGroundingGuard.evaluate(
+          text: text,
+          publicWebOutcomeAvailable: true,
+        ).allowed,
+        isTrue,
+        reason: text,
+      );
+    }
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我没有真的出去逛网，只是忽然想到了这件事。',
+      ).allowed,
+      isTrue,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我正想出去逛网看看，但还没有真的去。',
+      ).allowed,
+      isTrue,
+    );
+  });
 }

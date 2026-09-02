@@ -41,6 +41,11 @@ class OperationalClaimGroundingGuard {
   static final RegExp _chatArchiveObject = RegExp(
     r'(聊天记录|对话记录|聊天历史|对话历史|咱俩的记录|我们的记录|咱俩的聊天|我们的聊天|以前的聊天|这些天的对话)',
   );
+  static final RegExp _publicWebJourney = RegExp(
+    r'(逛网|逛了.{0,4}(网页|网站)|出去逛.{0,3}(网|网页|网站)|'
+    r'在网上.{0,8}(逛|转了一圈|找了找|看了一圈)|'
+    r'从(网上|网页|网站).{0,6}(回来|回来了))',
+  );
   static final RegExp _unsupportedCompletion = RegExp(
     r'((已经|刚刚|刚才|成功|确实|真的).{0,12}'
     r'(调用|执行|连接).{0,8}MCP)|'
@@ -54,19 +59,36 @@ class OperationalClaimGroundingGuard {
     caseSensitive: false,
   );
   static final RegExp _metaOrNegated = RegExp(
-    r'(没(有)?|并没|并未|没有真的|不曾|不能|不该|不会|别|不要|禁止|如果|假如|声称|假装|虚报|误以为|所谓|那句|这句话|你说我|用户说我|用户.{0,4}(问|询问|提问|要求|提到)|用户指出|用户质疑|问题里|纠正|我说过)',
+    r'(没(有)?|并没|并未|没有真的|不曾|不能|不该|不会|别|不要|禁止|'
+    r'想去|想要去|正想|打算|准备|想象|幻想|以后|下次|如果|假如|'
+    r'声称|假装|虚报|误以为|所谓|那句|这句话|你说我|用户说我|'
+    r'用户.{0,4}(问|询问|提问|要求|提到)|用户指出|用户质疑|问题里|纠正|我说过)',
   );
 
   static OperationalClaimGroundingResult evaluate({
     required String text,
     Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
+    bool publicWebOutcomeAvailable = false,
   }) {
     final successfulResults = currentToolResults
         .where((result) => result.status == AgentToolStatus.succeeded)
         .toList(growable: false);
+    final hasPublicWebOutcome = publicWebOutcomeAvailable ||
+        successfulResults.any(
+          (result) => result.toolId == 'public_web.discover',
+        );
     final sentences = _sentences(text);
     for (final sentence in sentences) {
       if (_metaOrNegated.hasMatch(sentence)) continue;
+
+      if (_publicWebJourney.hasMatch(sentence) &&
+          !hasPublicWebOutcome) {
+        return const OperationalClaimGroundingResult(
+          allowed: false,
+          reason: 'ungrounded_public_web_journey',
+          requiredToolId: 'public_web.discover',
+        );
+      }
 
       final readClaim = _completedRead.hasMatch(sentence);
       final growthClaim = readClaim && _growthObject.hasMatch(sentence);

@@ -106,23 +106,18 @@ assert hashlib.sha256(daily.encode()).hexdigest() in {
     "8dc45274cb261a29ef86356ffd1553609aabbd7fe3534249a11115504cf88465",
     "e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11",
     "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
+    "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
 }
-for token in (
-    "每轮对话至少要出现一次",
-    "所有台词必须用「」包裹",
-    "动作禁止写进「」内",
-):
+for token in ("说出口的话独占一行", "动作留在「」外"):
     assert token in daily, token
 assert "允许纯对白" not in daily
 
 prompt = read("lib/core/ai/prompt_builder.dart")
-for token in (
-    "【普通聊天台词边界 · 输出前最后检查】",
-    "每轮正文至少有一行重要动作、神态、语气或微表情",
-    "顿了顿，又小小声补了一句。",
-    "「……再摸一会儿也行。」",
-):
+for token in ("【普通聊天台词边界 · 输出前最后检查】", "实际说出口的台词"):
     assert token in prompt, token
+assert ("每轮正文至少有一行重要动作、神态、语气或微表情" in prompt) != (
+    "普通短回合允许零动作" in prompt
+)
 assert "允许纯对白" not in prompt
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")

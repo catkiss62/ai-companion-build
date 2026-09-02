@@ -29,9 +29,15 @@ doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 workflow = read(".github/workflows/build-apk.yml")
 
-assert "version: 0.41.18+157" in pubspec
-assert "static const int schemaVersion = 43;" in database
-assert "buildLabel = 'v0.41.18+157'" in self_reader
+assert any(version in pubspec for version in (
+    "version: 0.41.18+157", "version: 0.41.19+158"
+))
+assert any(schema in database for schema in (
+    "static const int schemaVersion = 43;", "static const int schemaVersion = 44;"
+))
+assert any(label in self_reader for label in (
+    "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'"
+))
 assert "immersive_panel_fraction" in database
 
 for token in (

@@ -90,7 +90,7 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 40;
   // Historical validator compatibility token: static const int schemaVersion = 41;
   // Historical validator compatibility token: static const int schemaVersion = 42;
-  static const int schemaVersion = 43;
+  static const int schemaVersion = 44;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1061,6 +1061,16 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 44) {
+      await _createV44Tables(db, createActiveSourceIndex: false);
+      await _stabilizeV44Data(db);
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_self_review_active_source '
+        "ON self_review_candidates(source_kind, source_ref) "
+        "WHERE status IN ('pending', 'selected')",
+      );
+      await _seedRuleLayers(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1232,6 +1242,7 @@ class AppDatabase {
     await _createV41Tables(db);
     await _createV42Tables(db);
     await _createV43Tables(db);
+    await _createV44Tables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -2392,6 +2403,234 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV44Tables(
+    Database db, {
+    bool createActiveSourceIndex = true,
+  }) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS personality_learning_evidence_revisions (
+        id TEXT PRIMARY KEY,
+        evidence_id TEXT NOT NULL,
+        from_candidate_id TEXT NOT NULL,
+        to_candidate_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(evidence_id, from_candidate_id, to_candidate_id, reason),
+        FOREIGN KEY(evidence_id)
+          REFERENCES personality_learning_evidence(id) ON DELETE CASCADE,
+        FOREIGN KEY(from_candidate_id)
+          REFERENCES personality_learning_candidates(id) ON DELETE CASCADE,
+        FOREIGN KEY(to_candidate_id)
+          REFERENCES personality_learning_candidates(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_revision_time '
+      'ON personality_learning_evidence_revisions(created_at DESC)',
+    );
+    if (createActiveSourceIndex) {
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_self_review_active_source '
+        "ON self_review_candidates(source_kind, source_ref) "
+        "WHERE status IN ('pending', 'selected')",
+      );
+    }
+  }
+
+  Future<void> _stabilizeV44Data(DatabaseExecutor txn) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+    // One logical source may have accumulated many active envelopes because
+    // v43 included maintenance timestamps in its source hash. Prefer an
+    // in-flight selection, otherwise the newest pending row, and retire only
+    // the duplicate envelopes. Completed experience history remains intact.
+    final active = await txn.query(
+      'self_review_candidates',
+      where: "status IN ('pending', 'selected')",
+      orderBy: "source_kind, source_ref, CASE status WHEN 'selected' THEN 0 ELSE 1 END, updated_at DESC",
+    );
+    final keptSources = <String>{};
+    for (final row in active) {
+      final sourceKey = '${row['source_kind']}|${row['source_ref']}';
+      if (keptSources.add(sourceKey)) continue;
+      await txn.update(
+        'self_review_candidates',
+        {
+          'status': 'discarded',
+          'completed_at': row['completed_at'] ?? nowMs,
+          'updated_at': nowMs,
+        },
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+    }
+
+    final evidenceRows = await txn.rawQuery('''
+      SELECT e.*, c.scope AS candidate_scope,
+             c.subject_key AS candidate_subject,
+             c.context_key AS candidate_context
+      FROM personality_learning_evidence e
+      JOIN personality_learning_candidates c ON c.id = e.candidate_id
+    ''');
+    final affectedCandidates = <String>{};
+    for (final evidence in evidenceRows) {
+      final target = PersonalityLearningEvidenceRepairPolicy.v44Target(
+        evidenceText: evidence['evidence_text'] as String? ?? '',
+        candidateScope: evidence['candidate_scope'] as String? ?? '',
+        candidateSubject: evidence['candidate_subject'] as String? ?? '',
+      );
+      if (target == null) continue;
+      final fromId = evidence['candidate_id'] as String? ?? '';
+      final evidenceId = evidence['id'] as String? ?? '';
+      final sourceMessageId = evidence['source_message_id'] as String? ?? '';
+      final contextKey = evidence['candidate_context'] as String? ?? 'ordinary';
+      if (fromId.isEmpty || evidenceId.isEmpty) continue;
+
+      final existingTarget = await txn.query(
+        'personality_learning_candidates',
+        where: 'scope = ? AND subject_key = ? AND context_key = ?',
+        whereArgs: [target.scope, target.subjectKey, contextKey],
+        limit: 1,
+      );
+      final targetId = existingTarget.isEmpty
+          ? _uuid.v4()
+          : existingTarget.first['id'] as String;
+      if (targetId == fromId) continue;
+      if (existingTarget.isEmpty) {
+        final observedAt =
+            (evidence['observed_at'] as num?)?.toInt() ?? nowMs;
+        await txn.insert('personality_learning_candidates', {
+          'id': targetId,
+          'scope': target.scope,
+          'subject_key': target.subjectKey,
+          'proposition': target.proposition,
+          'context_key': contextKey,
+          'status': PersonalityLearningStatus.candidate.key,
+          'confidence': 0.0,
+          'support_count': 0,
+          'contradiction_count': 0,
+          'support_score': 0.0,
+          'contradiction_score': 0.0,
+          'first_observed_at': observedAt,
+          'last_observed_at': observedAt,
+          'created_at': observedAt,
+          'updated_at': observedAt,
+        });
+      }
+      final collision = await txn.query(
+        'personality_learning_evidence',
+        columns: const ['id'],
+        where: 'candidate_id = ? AND source_message_id = ?',
+        whereArgs: [targetId, sourceMessageId],
+        limit: 1,
+      );
+      if (collision.isNotEmpty) continue;
+      await txn.update(
+        'personality_learning_evidence',
+        {'candidate_id': targetId},
+        where: 'id = ? AND candidate_id = ?',
+        whereArgs: [evidenceId, fromId],
+      );
+      await txn.insert(
+        'personality_learning_evidence_revisions',
+        {
+          'id': _uuid.v4(),
+          'evidence_id': evidenceId,
+          'from_candidate_id': fromId,
+          'to_candidate_id': targetId,
+          'reason': target.reason,
+          'created_at': nowMs,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      affectedCandidates
+        ..add(fromId)
+        ..add(targetId);
+    }
+    for (final candidateId in affectedCandidates) {
+      await _recomputePersonalityLearningCandidate(txn, candidateId, nowMs);
+    }
+  }
+
+  Future<void> _recomputePersonalityLearningCandidate(
+    DatabaseExecutor txn,
+    String candidateId,
+    int nowMs,
+  ) async {
+    final rows = await txn.query(
+      'personality_learning_evidence',
+      where: 'candidate_id = ?',
+      whereArgs: [candidateId],
+      orderBy: 'observed_at DESC',
+    );
+    if (rows.isEmpty) {
+      await txn.update(
+        'personality_learning_candidates',
+        {'status': 'retired', 'updated_at': nowMs},
+        where: 'id = ?',
+        whereArgs: [candidateId],
+      );
+      return;
+    }
+    var supportScore = 0.0;
+    var contradictionScore = 0.0;
+    var supportCount = 0;
+    var contradictionCount = 0;
+    for (final row in rows) {
+      final weight = (row['weight'] as num?)?.toDouble() ?? 0.0;
+      if (row['polarity'] == 'contradict') {
+        contradictionScore += weight;
+        contradictionCount += 1;
+      } else {
+        supportScore += weight;
+        supportCount += 1;
+      }
+    }
+    final latest = rows.first;
+    final maturity = PersonalityLearningMaturityPolicy.evaluate(
+      supportScore: supportScore,
+      contradictionScore: contradictionScore,
+      supportCount: supportCount,
+      contradictionCount: contradictionCount,
+      latestPolarity:
+          PersonalityLearningPolarity.parse(latest['polarity'] as String?) ??
+              PersonalityLearningPolarity.support,
+      latestKind: PersonalityLearningEvidenceKind.parse(
+            latest['evidence_kind'] as String?,
+          ) ??
+          PersonalityLearningEvidenceKind.explicitPreference,
+    );
+    final firstObserved = rows
+        .map((row) => (row['observed_at'] as num?)?.toInt() ?? nowMs)
+        .reduce(min);
+    final lastObserved =
+        (latest['observed_at'] as num?)?.toInt() ?? nowMs;
+    await txn.update(
+      'personality_learning_candidates',
+      {
+        'status': maturity.status.key,
+        'confidence': maturity.confidence,
+        'support_count': supportCount,
+        'contradiction_count': contradictionCount,
+        'support_score': supportScore,
+        'contradiction_score': contradictionScore,
+        'first_observed_at': firstObserved,
+        'last_observed_at': lastObserved,
+        'established_at': maturity.status ==
+                PersonalityLearningStatus.established
+            ? lastObserved
+            : null,
+        'contradicted_at': maturity.status ==
+                PersonalityLearningStatus.contradicted
+            ? lastObserved
+            : null,
+        'updated_at': nowMs,
+      },
+      where: 'id = ?',
+      whereArgs: [candidateId],
+    );
+  }
+
 
   Future<void> _createV31Tables(Database db) async {
     await db.execute('''
@@ -2510,6 +2749,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0396.entries,
       ...legacyEditableRuleLayerSha256V0397.entries,
       ...legacyEditableRuleLayerSha256V0398.entries,
+      ...legacyEditableRuleLayerSha256V0418.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -2825,6 +3065,7 @@ class AppDatabase {
       'memory_items',
       'personality_learning_candidates',
       'personality_learning_evidence',
+      'personality_learning_evidence_revisions',
       'self_review_candidates',
       'self_experiences',
       'unfinished_threads',
@@ -6098,6 +6339,9 @@ class AppDatabase {
     final evidenceCounts = await db.rawQuery(
       'SELECT COUNT(*) AS count FROM personality_learning_evidence',
     );
+    final revisionCounts = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM personality_learning_evidence_revisions',
+    );
     final rejectionReasonCounts = <String, int>{};
     for (final reason in PersonalityLearningRejectionReason.values) {
       final count = int.tryParse(
@@ -6128,6 +6372,7 @@ class AppDatabase {
       'enabled': (await getSetting('personality_learning_enabled')) != '0',
       'candidateCount': Sqflite.firstIntValue(candidateCounts) ?? 0,
       'evidenceCount': Sqflite.firstIntValue(evidenceCounts) ?? 0,
+      'evidenceRevisionCount': Sqflite.firstIntValue(revisionCounts) ?? 0,
       'statusCounts': await grouped(
         'personality_learning_candidates',
         'status',
@@ -6237,7 +6482,36 @@ class AppDatabase {
         whereArgs: [dedupeKey],
         limit: 1,
       );
-      if (rows.isEmpty) {
+      if (rows.isNotEmpty) {
+        if (rows.first['status'] == 'pending') {
+          await txn.update(
+            'self_review_candidates',
+            {
+              'topic_key': topicKey.trim().toLowerCase(),
+              'drive_key': driveKey.trim().toLowerCase(),
+              'importance': importance.clamp(0.0, 1.0),
+              'expires_at': instant.add(ttl).millisecondsSinceEpoch,
+              'updated_at': nowMs,
+            },
+            where: 'dedupe_key = ?',
+            whereArgs: [dedupeKey],
+          );
+        }
+        // A completed envelope with the same semantic fingerprint proves this
+        // exact source version was already reviewed. Never reopen it merely
+        // because its maintenance timestamp changed.
+        return;
+      }
+
+      final activeSource = await txn.query(
+        'self_review_candidates',
+        columns: const ['id', 'status'],
+        where: "source_kind = ? AND source_ref = ? AND status IN ('pending', 'selected')",
+        whereArgs: [kind, ref],
+        orderBy: "CASE status WHEN 'selected' THEN 0 ELSE 1 END, updated_at DESC",
+        limit: 1,
+      );
+      if (activeSource.isEmpty) {
         await txn.insert('self_review_candidates', {
           'id': _uuid.v4(),
           'dedupe_key': dedupeKey,
@@ -6254,18 +6528,20 @@ class AppDatabase {
         });
         return;
       }
-      if (rows.first['status'] == 'pending') {
+      if (activeSource.first['status'] == 'pending') {
         await txn.update(
           'self_review_candidates',
           {
+            'dedupe_key': dedupeKey,
+            'source_hash': fingerprint,
             'topic_key': topicKey.trim().toLowerCase(),
             'drive_key': driveKey.trim().toLowerCase(),
             'importance': importance.clamp(0.0, 1.0),
             'expires_at': instant.add(ttl).millisecondsSinceEpoch,
             'updated_at': nowMs,
           },
-          where: 'dedupe_key = ?',
-          whereArgs: [dedupeKey],
+          where: 'id = ?',
+          whereArgs: [activeSource.first['id']],
         );
       }
     });
@@ -6433,6 +6709,15 @@ class AppDatabase {
       orderBy: 'finished_at DESC',
       limit: 8,
     );
+    final duplicateRows = await db.rawQuery('''
+      SELECT COUNT(*) AS count FROM (
+        SELECT source_kind, source_ref
+        FROM self_review_candidates
+        WHERE status IN ('pending', 'selected')
+        GROUP BY source_kind, source_ref
+        HAVING COUNT(*) > 1
+      )
+    ''');
     Map<String, int> counts(List<Map<String, Object?>> rows) => {
           for (final row in rows)
             row['status']?.toString() ?? 'unknown':
@@ -6442,6 +6727,8 @@ class AppDatabase {
       'candidateStatusCounts': counts(candidateRows),
       'experience24hStatusCounts': counts(experienceRows),
       'latest': latest,
+      'activeSourceDuplicateCount':
+          Sqflite.firstIntValue(duplicateRows) ?? 0,
       'sourceBodiesIncluded': false,
       'sourceRefsIncluded': false,
       'thoughtBodiesIncluded': false,
@@ -12640,6 +12927,18 @@ class AppDatabase {
     return Sqflite.firstIntValue(rows) ?? 0;
   }
 
+  Future<DateTime?> lastSentProactiveAt() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT MAX(created_at) AS latest FROM proactive_history WHERE decision = ?',
+      const ['sent'],
+    );
+    final millis = rows.isEmpty
+        ? null
+        : (rows.first['latest'] as num?)?.toInt();
+    return millis == null ? null : DateTime.fromMillisecondsSinceEpoch(millis);
+  }
+
   Future<String?> getSetting(String key) async {
     final db = await database;
     final rows = await db.query(
@@ -13177,6 +13476,7 @@ class AppDatabase {
       'memory_evidence',
       'personality_learning_candidates',
       'personality_learning_evidence',
+      'personality_learning_evidence_revisions',
       'self_review_candidates',
       'self_experiences',
       'desire_events',
@@ -13260,7 +13560,11 @@ class AppDatabase {
     if (version == null || version < 1 || version > schemaVersion) {
       throw FormatException('不支持的状态包版本 $version');
     }
-    final rawTables = (backup['tables'] as Map).cast<String, dynamic>();
+    final rawTables = Map<String, dynamic>.from(backup['tables'] as Map);
+    if (version < 44) {
+      rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
+      _normalizeV44SelfReviewImport(rawTables);
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -13270,6 +13574,7 @@ class AppDatabase {
         'memory_evidence',
         'personality_learning_candidates',
         'personality_learning_evidence',
+        'personality_learning_evidence_revisions',
         'self_review_candidates',
         'self_experiences',
         'desire_events',
@@ -13665,6 +13970,7 @@ class AppDatabase {
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
       }
+      await _stabilizeV44Data(txn);
     });
     await _seedRuleLayers(await database);
     await ensureDeviceId();
@@ -13676,6 +13982,38 @@ class AppDatabase {
     return normalized.length <= limit
         ? normalized
         : normalized.substring(0, limit).trimRight();
+  }
+
+  static void _normalizeV44SelfReviewImport(
+    Map<String, dynamic> tables,
+  ) {
+    final rawRows = tables['self_review_candidates'];
+    if (rawRows is! List) return;
+    final rows = rawRows
+        .whereType<Map>()
+        .map((raw) => Map<String, Object?>.from(raw))
+        .toList(growable: false);
+    rows.sort((left, right) {
+      final source = '${left['source_kind']}|${left['source_ref']}'
+          .compareTo('${right['source_kind']}|${right['source_ref']}');
+      if (source != 0) return source;
+      final leftSelected = left['status'] == 'selected' ? 1 : 0;
+      final rightSelected = right['status'] == 'selected' ? 1 : 0;
+      if (leftSelected != rightSelected) return rightSelected - leftSelected;
+      final leftUpdated = (left['updated_at'] as num?)?.toInt() ?? 0;
+      final rightUpdated = (right['updated_at'] as num?)?.toInt() ?? 0;
+      return rightUpdated.compareTo(leftUpdated);
+    });
+    final kept = <String>{};
+    for (final row in rows) {
+      if (row['status'] != 'pending' && row['status'] != 'selected') continue;
+      final source = '${row['source_kind']}|${row['source_ref']}';
+      if (kept.add(source)) continue;
+      final updated = (row['updated_at'] as num?)?.toInt() ?? 0;
+      row['status'] = 'discarded';
+      row['completed_at'] ??= updated;
+    }
+    tables['self_review_candidates'] = rows;
   }
 
   Future<void> close() async {

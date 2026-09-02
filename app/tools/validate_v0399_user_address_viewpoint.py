@@ -69,6 +69,11 @@ for key, digest in expected.items():
             digest,
             "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b",
         }, key
+    elif key == "02_daily":
+        assert actual in {
+            digest,
+            "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
+        }, key
     else:
         assert actual == digest, key
 

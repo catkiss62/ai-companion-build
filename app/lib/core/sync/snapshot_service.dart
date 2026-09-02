@@ -991,6 +991,17 @@ class SnapshotService {
         tables[table] = const <Object?>[];
       }
     }
+    const personalityLearningRevisionTable =
+        'personality_learning_evidence_revisions';
+    if (schemaVersion >= 44) {
+      if (tables[personalityLearningRevisionTable] is! List) {
+        throw FormatException(
+          'schema 44 状态包缺少人格学习审计表：$personalityLearningRevisionTable',
+        );
+      }
+    } else {
+      tables[personalityLearningRevisionTable] = const <Object?>[];
+    }
     const selfExperienceTables = <String>[
       'self_review_candidates',
       'self_experiences',

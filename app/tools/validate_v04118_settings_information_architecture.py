@@ -32,9 +32,18 @@ docs = read("app/docs/SETTINGS_INFORMATION_ARCHITECTURE_v0.41.18.md")
 doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.18\+157\s*$", pubspec, re.MULTILINE)
-assert "buildLabel = 'v0.41.18+157'" in self_reader
-assert "static const int schemaVersion = 43;" in database
+assert re.search(r"^version:\s*0\.41\.(?:18\+157|19\+158)\s*$", pubspec, re.MULTILINE)
+assert any(
+    value in self_reader
+    for value in ("buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'")
+)
+assert any(
+    value in database
+    for value in (
+        "static const int schemaVersion = 43;",
+        "static const int schemaVersion = 44;",
+    )
+)
 
 for title in (
     "模型与联网",
@@ -103,13 +112,13 @@ for token in (
 ):
     assert token in docs + doc_map + ledger, token
 
-for token in (
-    "Build AI Companion v0.41.18+157 APK (Settings Information Architecture)",
-    "agent/v04118-settings-information-architecture",
-    "AI-Companion-v0.41.18-157-Settings-Information-Architecture-APK",
-    "v0.41.18-settings-information-architecture-test",
-    "validate_v04118_settings_information_architecture.py",
-):
-    assert token in workflow, token
+assert "validate_v04118_settings_information_architecture.py" in workflow
+assert any(
+    token in workflow
+    for token in (
+        "Build AI Companion v0.41.18+157 APK (Settings Information Architecture)",
+        "Build AI Companion v0.41.19+158 APK (Phase 2A Stabilization)",
+    )
+)
 
 print("v0.41.18 settings information architecture validation passed")

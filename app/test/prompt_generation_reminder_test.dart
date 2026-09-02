@@ -15,7 +15,9 @@ void main() {
     expect(reminder, contains('普通聊天台词边界 · 输出前最后检查'));
     expect(reminder, contains('「」只包住实际发声'));
     expect(reminder, contains('必须另起一行留在「」外'));
-    expect(reminder, contains('顿了顿，又小小声补了一句。'));
+    expect(reminder, contains('普通短回合允许零动作'));
+    expect(reminder, contains('情绪、态度、犹豫、欲望或趋近/退避'));
+    expect(reminder, isNot(contains('顿了顿，又小小声补了一句。')));
     expect(reminder, contains('「……再摸一会儿也行。」'));
     expect(reminder, contains('可见思考提及用户时也使用“你”'));
     expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));

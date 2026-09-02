@@ -305,6 +305,50 @@ class PersonalityLearningProposal {
       )) {
         return reject(PersonalityLearningRejectionReason.protectedContract);
       }
+      if (polarity == PersonalityLearningPolarity.support &&
+          PersonalityLearningAtomicityPolicy.clearlyDifferentDimension(
+            evidenceText: normalizedUser,
+            targetProposition: target.proposition,
+          )) {
+        final separated = PersonalityLearningEvidenceRepairPolicy.v44Target(
+          evidenceText: normalizedUser,
+          candidateScope: target.scope.key,
+          candidateSubject: target.subjectKey,
+        );
+        final separatedScope =
+            PersonalityLearningScope.parse(separated?.scope);
+        if (separated != null &&
+            separatedScope != null &&
+            context.allowsScope(separatedScope) &&
+            PersonalityLearningBoundaryPolicy.isAllowedBehavioralSubject(
+              scope: separatedScope,
+              subjectKey: separated.subjectKey,
+            )) {
+          return PersonalityLearningParseResult.accepted(
+            PersonalityLearningProposal(
+              scope: separatedScope,
+              subjectKey: separated.subjectKey,
+              proposition: separated.proposition,
+              polarity: polarity,
+              evidenceKind: evidenceKind,
+              evidenceText: quote,
+              confidence: _calibratedConfidence(
+                item['confidence'],
+                evidenceKind,
+              ),
+            ),
+          );
+        }
+        final targetless = Map<String, dynamic>.from(item)
+          ..['target_id'] = '';
+        return parseDetailed(
+          raw: targetless,
+          userText: userText,
+          context: context,
+          existingById: existingById,
+          previousAssistantText: previousAssistantText,
+        );
+      }
       if (evidenceKind == PersonalityLearningEvidenceKind.directFeedback) {
         final matchingTargets = existingById.values.where((candidate) {
           return candidate.status != PersonalityLearningStatus.retired &&
@@ -827,6 +871,105 @@ class PersonalityLearningProposal {
       scope: scope,
       subjectKey: subjectKey,
     );
+  }
+}
+
+/// Rejects high-confidence cross-axis merges before semantic review can
+/// approve them merely because both statements concern communication.
+abstract final class PersonalityLearningAtomicityPolicy {
+  static bool clearlyDifferentDimension({
+    required String evidenceText,
+    required String targetProposition,
+  }) {
+    final evidence = evidenceText.replaceAll(RegExp(r'\s+'), '');
+    final target = targetProposition.replaceAll(RegExp(r'\s+'), '');
+    for (final dimension in _dimensions) {
+      if (_containsAny(evidence, dimension.cues) &&
+          !_containsAny(target, dimension.cues)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static const _dimensions = <({String key, List<String> cues})>[
+    (
+      key: 'colloquial_concise',
+      cues: <String>['口语化', '少解释', '不用解释', '不必解释', '像聊天'],
+    ),
+    (
+      key: 'self_directed_agency',
+      cues: <String>[
+        '自己的想法',
+        '自己的意愿',
+        '你应该任性',
+        '你不愿意',
+        '你累了',
+        '好奇心起来',
+      ],
+    ),
+  ];
+
+  static bool _containsAny(String text, List<String> cues) =>
+      cues.any(text.contains);
+}
+
+class PersonalityLearningRepairTarget {
+  const PersonalityLearningRepairTarget({
+    required this.scope,
+    required this.subjectKey,
+    required this.proposition,
+    required this.reason,
+  });
+
+  final String scope;
+  final String subjectKey;
+  final String proposition;
+  final String reason;
+}
+
+/// Narrow, deterministic v44 repair for the two dimensions observed inside a
+/// broad familiarity candidate. It classifies by meaning-bearing phrases and
+/// never by private message IDs, so the source evidence remains portable.
+abstract final class PersonalityLearningEvidenceRepairPolicy {
+  static PersonalityLearningRepairTarget? v44Target({
+    required String evidenceText,
+    required String candidateScope,
+    required String candidateSubject,
+  }) {
+    final text = evidenceText.replaceAll(RegExp(r'\s+'), '');
+    final fromBroadCommunication = candidateScope == 'user_preference' &&
+        (candidateSubject.contains('familiar') ||
+            candidateSubject.contains('communication') ||
+            candidateSubject.contains('relationship'));
+    if (!fromBroadCommunication) return null;
+    if (text.contains('口语化') ||
+        text.contains('少解释') ||
+        RegExp(r'不用.{0,4}解释.{0,4}清楚').hasMatch(text) ||
+        text.contains('更像聊天')) {
+      return const PersonalityLearningRepairTarget(
+        scope: 'user_preference',
+        subjectKey: 'user.preference.communication.colloquial_concise',
+        proposition: '用户偏好更口语化、更像聊天且不过度解释的交流方式。',
+        reason: 'v44_split_colloquial_concise_from_broad_familiarity',
+      );
+    }
+    final selfDirected = text.contains('自己的想法') ||
+        text.contains('有自己的意愿') ||
+        text.contains('你应该任性');
+    final stateDriven = text.contains('你累了') ||
+        text.contains('好奇心起来') ||
+        text.contains('依恋高了') ||
+        text.contains('你不愿意');
+    if (selfDirected && stateDriven) {
+      return const PersonalityLearningRepairTarget(
+        scope: 'relationship_permission',
+        subjectKey: 'relationship.permission.initiative.self_directed',
+        proposition: '用户允许 AI 按自己的意愿、疲劳、好奇与关系情绪自主决定怎样回应。',
+        reason: 'v44_split_self_directed_permission_from_familiarity',
+      );
+    }
+    return null;
   }
 }
 

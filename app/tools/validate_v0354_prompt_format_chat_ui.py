@@ -53,8 +53,8 @@ assert parsed["05_intimacy_rendering"].index(intimacy_action_heading) < parsed[
     "05_intimacy_rendering"
 ].index("【连续性与余韵】")
 assert "不加括号" in parsed["02_daily"] and "不加括号" in parsed["05_intimacy_rendering"]
-assert "所有台词必须用「」包裹" in parsed["02_daily"]
-assert "动作禁止写进「」内" in parsed["02_daily"]
+assert "说出口的话独占一行并统一写在「」内" in parsed["02_daily"]
+assert "动作留在「」外" in parsed["02_daily"]
 assert "说出口的话独占一行并统一写在「」内" in parsed["05_intimacy_rendering"]
 assert "动作禁止写进「」内" in parsed["05_intimacy_rendering"]
 

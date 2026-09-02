@@ -46,11 +46,11 @@ ledger = read(ROOT / "AI_Companion_当前总账.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (
-    "version: 0.41.14+153", "version: 0.41.18+157"
+    "version: 0.41.14+153", "version: 0.41.18+157", "version: 0.41.19+158"
 ))
 assert "static const int schemaVersion = 42;" in database
 assert any(label in self_reader for label in (
-    "buildLabel = 'v0.41.14+153'", "buildLabel = 'v0.41.18+157'"
+    "buildLabel = 'v0.41.14+153'", "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'"
 ))
 
 screen_block = registry.split("static const screenObservation =", 1)[1].split(

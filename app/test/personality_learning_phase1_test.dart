@@ -188,6 +188,52 @@ void main() {
     expect(approved.proposal?.targetCandidateId, existing.id);
   });
 
+  test('colloquial preference cannot reinforce a familiarity candidate', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiarity',
+      proposition: '用户希望熟悉后更不客套、可以斗嘴甚至说脏话。',
+    );
+    final userText = '我希望你说话更口语化些，不用每件事都解释清楚';
+    final raw = support(quote: userText)..['target_id'] = existing.id;
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+      semanticReviewApprovedTargetId: existing.id,
+    );
+
+    expect(parsed.proposal?.targetCandidateId, isNull);
+    expect(
+      parsed.proposal?.subjectKey,
+      'user.preference.communication.colloquial_concise',
+    );
+  });
+
+  test('self-directed permission cannot reinforce a familiarity candidate', () {
+    final existing = candidate(
+      subjectKey: 'user.preference.communication.familiarity',
+      proposition: '用户希望熟悉后更不客套、可以斗嘴甚至说脏话。',
+    );
+    const userText = '你应该有自己的想法；你累了就可以不回，别只照着我说的做';
+    final raw = support(quote: userText)..['target_id'] = existing.id;
+
+    final parsed = PersonalityLearningProposal.parseDetailed(
+      raw: raw,
+      userText: userText,
+      context: ordinary,
+      existingById: {existing.id: existing},
+      semanticReviewApprovedTargetId: existing.id,
+    );
+
+    expect(parsed.proposal?.targetCandidateId, isNull);
+    expect(
+      parsed.proposal?.subjectKey,
+      'relationship.permission.initiative.self_directed',
+    );
+  });
+
   test('same-subject target omission can only rejoin after semantic review', () {
     final existing = candidate(
       subjectKey: 'user.preference.familiarity.informal',

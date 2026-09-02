@@ -12,10 +12,18 @@ enum ProactiveFrequencyMode {
       };
 
   String get description => switch (this) {
-        ProactiveFrequencyMode.quiet => '过去24小时最多8次，2小时最多2次',
-        ProactiveFrequencyMode.natural => '过去24小时最多16次，2小时最多3次',
-        ProactiveFrequencyMode.frequent => '过去24小时最多24次，2小时最多4次',
+        ProactiveFrequencyMode.quiet => '至少间隔30分钟；过去24小时最多8次，2小时最多2次',
+        ProactiveFrequencyMode.natural => '至少间隔15分钟；过去24小时最多16次，2小时最多3次',
+        ProactiveFrequencyMode.frequent => '至少间隔8分钟；过去24小时最多24次，2小时最多4次',
       };
+
+  Duration get minimumGap => switch (this) {
+        ProactiveFrequencyMode.quiet => const Duration(minutes: 30),
+        ProactiveFrequencyMode.natural => const Duration(minutes: 15),
+        ProactiveFrequencyMode.frequent => const Duration(minutes: 8),
+      };
+
+  bool allowsGap(Duration elapsed) => !elapsed.isNegative && elapsed >= minimumGap;
 
   int get dayLimit => switch (this) {
         ProactiveFrequencyMode.quiet => 8,

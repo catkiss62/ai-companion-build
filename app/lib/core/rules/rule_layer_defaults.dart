@@ -206,6 +206,13 @@ const legacyEditableRuleLayerSha256V0397 = <String, String>{
       '5916af04bb0f01ebd640218792844116ff997047712340a21107d6d97b22b643',
 };
 
+/// Exact editable action-format defaults shipped through v0.41.18. v0.41.19
+/// replaces only untouched copies with the emotion-driven, non-quota rule.
+const legacyEditableRuleLayerSha256V0418 = <String, String>{
+  '02_daily':
+      '71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091',
+};
+
 /// Exact editable defaults shipped by v0.39.8. v0.39.9 changes only the
 /// user-reference vocabulary and the contradictory immersive viewpoint cues.
 /// Byte-exact stock copies migrate; every user-edited body remains untouched.

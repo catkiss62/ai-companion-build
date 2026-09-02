@@ -30,12 +30,13 @@ workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8"
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
 
-assert re.search(r"^version:\s*0\.41\.(?:11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 42;" in database
 assert any(label in agent_self for label in (
     "buildLabel = 'v0.41.13+152'",
     "buildLabel = 'v0.41.14+153'",
     "buildLabel = 'v0.41.18+157'",
+    "buildLabel = 'v0.41.19+158'",
 ))
 
 for token in (

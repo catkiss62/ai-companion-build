@@ -35,11 +35,14 @@ doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:17\+156|18\+157)\s*$",
+    r"^version:\s*0\.41\.(?:17\+156|18\+157|19\+158)\s*$",
     pubspec,
     re.MULTILINE,
 )
-assert "static const int schemaVersion = 43;" in database
+assert any(schema in database for schema in (
+    "static const int schemaVersion = 43;",
+    "static const int schemaVersion = 44;",
+))
 
 assert (
     "chatDialoguePurple = Color(0xFFD2C3EB)" in tint

@@ -503,12 +503,29 @@ class ProactiveEngine {
     final lastUser = await db.lastUserMessageAt();
     final idleMinutes = lastUser == null
         ? 180
-        : max(0, DateTime.now().difference(lastUser).inMinutes);
+        : max(0, evaluationStartedAt.difference(lastUser).inMinutes);
     final sentToday = await db.proactiveCountSince(const Duration(hours: 24));
     final sentLastTwoHours = await db.proactiveCountSince(const Duration(hours: 2));
     final frequencyMode = ProactiveFrequencyMode.fromSetting(
       await db.getSetting(ProactiveFrequencyPolicy.settingKey),
     );
+    final lastProactiveSentAt = await db.lastSentProactiveAt();
+    final proactiveGap = lastProactiveSentAt == null
+        ? null
+        : evaluationStartedAt.difference(lastProactiveSentAt);
+    if (!forceForDebug &&
+        proactiveGap != null &&
+        !frequencyMode.allowsGap(proactiveGap)) {
+      await db.addProactiveHistory(
+        triggerReason: '${intent.drive.name}:${intent.reason}',
+        decision: 'minimum_gap',
+      );
+      await noteGeneration('gate_blocked', reasonTag: 'minimum_gap');
+      return ProactiveDecision(
+        sent: false,
+        reason: '距离上一条主动消息不足 ${frequencyMode.minimumGap.inMinutes} 分钟',
+      );
+    }
     if (!forceForDebug && sentToday >= frequencyMode.dayLimit) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -678,6 +695,7 @@ $sourceAgnosticShareContract
 $selectedThoughtData
 ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动主题已连续出现 ${selection.rawRepeatDepth} 次，本轮已经在本地选择阶段降权；若当前最终意图不是该主题，不要擅自绕回重复的亲密联系。' : ''}
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
+真实时间间隔：距离最近用户消息约 $idleMinutes 分钟；距离上一条主动消息${proactiveGap == null ? '没有可用记录' : '约 ${max(0, proactiveGap.inMinutes)} 分钟'}。这是程序计算的事实：不得把 2 分钟说成睡醒、把 10 分钟说成半小时，也不得用文学夸张改写短时间间隔。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
 严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
@@ -845,6 +863,7 @@ ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
     );
     var operationGuard = OperationalClaimGroundingGuard.evaluate(
       text: '${candidate.content}\n${candidate.reasoning}',
+      publicWebOutcomeAvailable: webShareCandidateId != null,
     );
 
     if (!textGuard.allowed ||
@@ -947,6 +966,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       );
       operationGuard = OperationalClaimGroundingGuard.evaluate(
         text: '${candidate.content}\n${candidate.reasoning}',
+        publicWebOutcomeAvailable: webShareCandidateId != null,
       );
     }
 
