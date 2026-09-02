@@ -4,11 +4,15 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
+import '../desire/conversation_initiative_policy.dart';
+import '../desire/thought_lifecycle_engine.dart';
+import '../diagnostics/conversation_initiative_telemetry.dart';
 import '../diagnostics/visible_reasoning_language_telemetry.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../emotion/emotion_contract.dart';
 import '../grounding/service_template_guard.dart';
+import '../grounding/information_seeking_question_guard.dart';
 import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
@@ -217,6 +221,13 @@ class DurableGenerationRunner {
         now: user.createdAt,
       );
       final thoughts = await db.activeThoughts(limit: 18);
+      final conversationPlan = ConversationInitiativePolicy.select(
+        snapshot: desire,
+        thoughts: thoughts,
+        recent: recent,
+        latestUserText: user.content,
+        now: user.createdAt,
+      );
       final nsfwRoute = await nsfwRouter.decide(
         apiKey: apiKey,
         endpoint: endpoint,
@@ -266,6 +277,7 @@ class DurableGenerationRunner {
         nsfwReferenceActive: nsfwRoute.referenceActive,
         agentToolResults: agentToolResults,
         specialStyleKeyOverride: generationSpecialStyleKey,
+        conversationInitiativeOverride: conversationPlan,
       );
       Future<({
         String reasoning,
@@ -540,9 +552,14 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         text: '$finalContent\n${generated.reasoning}',
         currentToolResults: agentToolResults,
       );
+      var questionGuard = InformationSeekingQuestionGuard.evaluate(
+        text: finalContent,
+        askAuthorized: conversationPlan.askAuthorized,
+      );
       if (!serviceGuard.allowed ||
           !perspectiveGuard.allowed ||
-          !operationGuard.allowed) {
+          !operationGuard.allowed ||
+          !questionGuard.allowed) {
         if (!serviceGuard.allowed) {
           await ServiceTemplateGuardTelemetry.note(
             db,
@@ -551,7 +568,16 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
             action: 'rewrite',
           );
         }
-        final correctionReason = !operationGuard.allowed
+        if (!questionGuard.allowed) {
+          await InformationSeekingQuestionGuardTelemetry.note(
+            db,
+            result: questionGuard,
+            action: 'rewrite',
+          );
+        }
+        final correctionReason = !questionGuard.allowed
+            ? '${questionGuard.reason} / ask_not_authorized'
+            : !operationGuard.allowed
             ? operationGuard.reason
             : !perspectiveGuard.allowed
                 ? perspectiveGuard.reason
@@ -567,6 +593,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 当前对话对象始终用“你”称呼和描写；只有真正的第三方人物才可以用“他/她”，不得把当前用户写成“他”。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
+本轮 Conversation Move 没有授权索取新信息时，不得用“怎么了、发生什么、能和我说说吗、你觉得呢”等问题维持对话；可以直接表达自己的反应、判断、调侃、分享或自然收住。反问和不索取答案的玩笑不受影响。
 重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
 ${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
@@ -622,6 +649,20 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         if (!operationGuard.allowed) {
           throw const FormatException(
             '模型连续虚报无真实 Outcome 的操作事实，已阻止写入',
+          );
+        }
+        questionGuard = InformationSeekingQuestionGuard.evaluate(
+          text: finalContent,
+          askAuthorized: conversationPlan.askAuthorized,
+        );
+        if (!questionGuard.allowed) {
+          await InformationSeekingQuestionGuardTelemetry.note(
+            db,
+            result: questionGuard,
+            action: 'block',
+          );
+          throw const FormatException(
+            '模型连续返回未获内部动机授权的信息索取问题，已阻止写入',
           );
         }
       }
@@ -684,6 +725,29 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           runToken: job.runToken,
         );
         return const GenerationRunResult(status: 'suspended');
+      }
+
+      await ConversationInitiativeTelemetry.recordCommittedPlan(
+        db,
+        assistantMessageId: assistant.id,
+        plan: conversationPlan,
+      );
+      if (conversationPlan.hadAiBid &&
+          conversationPlan.sourceThoughtId != null) {
+        try {
+          final sourceThought = await db.thoughtById(
+            conversationPlan.sourceThoughtId!,
+          );
+          if (sourceThought != null) {
+            await ThoughtLifecycleEngine(db: db).markActed(
+              thought: sourceThought,
+              messageId: assistant.id,
+            );
+          }
+        } catch (_) {
+          // The assistant turn is already durable. Thought lifecycle recovery
+          // may be retried later and must not invalidate the visible reply.
+        }
       }
 
       unawaited(MoeShadowCoordinator(db).observeCompletedTurn(assistant));

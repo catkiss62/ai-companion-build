@@ -1,6 +1,7 @@
 import 'package:ai_companion_localfirst/core/desire/conversation_initiative_policy.dart';
 import 'package:ai_companion_localfirst/core/desire/ordinary_desire_response.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
+import 'package:ai_companion_localfirst/core/models/thought.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 DesireSnapshot snapshotWith(DriveKey drive, double value) => DesireSnapshot(
@@ -24,13 +25,14 @@ void main() {
       plan.alternatives,
       contains(ConversationInitiativeMode.stayWithUserTopic),
     );
+    expect(plan.askAuthorized, isFalse);
     expect(
       plan.alternatives,
-      contains(ConversationInitiativeMode.probeUserTopic),
+      isNot(contains(ConversationInitiativeMode.probeUserTopic)),
     );
   });
 
-  test('curiosity can keep probing while social can open her own topic', () {
+  test('bare curiosity cannot manufacture a probe without a thought', () {
     final curious = ConversationInitiativePolicy.select(
       snapshot: snapshotWith(DriveKey.curiosity, 0.94),
       thoughts: const [],
@@ -40,8 +42,33 @@ void main() {
       thoughts: const [],
     );
 
-    expect(curious.primary, ConversationInitiativeMode.probeUserTopic);
-    expect(social.primary, ConversationInitiativeMode.openOwnTopic);
+    expect(curious.primary, ConversationInitiativeMode.stayWithUserTopic);
+    expect(curious.curiosityGateReason, 'no_source');
+    expect(social.primary, ConversationInitiativeMode.stayWithUserTopic);
+  });
+
+  test('specific curiosity thought authorizes one grounded probe', () {
+    final now = DateTime(2026, 9, 2, 21);
+    final plan = ConversationInitiativePolicy.select(
+      snapshot: snapshotWith(DriveKey.curiosity, 0.94),
+      thoughts: [
+        CompanionThought(
+          id: 'curious-1',
+          text: '我确实想知道他为什么突然这么烦。',
+          driveKey: 'curiosity',
+          kind: 'flit',
+          strength: 0.82,
+          bornAt: now,
+          updatedAt: now,
+          source: 'conversation_turn:user-1',
+        ),
+      ],
+      now: now,
+    );
+
+    expect(plan.primary, ConversationInitiativeMode.probeUserTopic);
+    expect(plan.askAuthorized, isTrue);
+    expect(plan.curiosityGateReason, 'authorized');
   });
 
   test('fatigue exposes her own need instead of manufacturing caretaking', () {
@@ -124,5 +151,38 @@ void main() {
     )!;
     expect(invalid.hadAiBid, isFalse);
     expect(invalid.satisfiedDrive, isNull);
+  });
+
+  test('committed move overrides model attempt to invent or erase a bid', () {
+    final authoritative = OrdinaryDesireResponseOutcome.parse(
+      hasPreviousOrdinaryAssistant: true,
+      authoritativeHadAiBid: true,
+      authoritativeDrive: 'curiosity',
+      authoritativeAction: 'check_in',
+      raw: const {
+        'had_ai_bid': false,
+        'drive': 'attachment',
+        'action': 'reach_out',
+        'outcome': 'engaged',
+        'resolution': 0.7,
+      },
+    )!;
+    final blocked = OrdinaryDesireResponseOutcome.parse(
+      hasPreviousOrdinaryAssistant: true,
+      authoritativeHadAiBid: false,
+      raw: const {
+        'had_ai_bid': true,
+        'drive': 'curiosity',
+        'action': 'check_in',
+        'outcome': 'engaged',
+        'resolution': 1.0,
+      },
+    )!;
+
+    expect(authoritative.drive, DriveKey.curiosity);
+    expect(authoritative.action, 'check_in');
+    expect(authoritative.satisfactionIntensity, greaterThan(0));
+    expect(blocked.hadAiBid, isFalse);
+    expect(blocked.satisfiedDrive, isNull);
   });
 }

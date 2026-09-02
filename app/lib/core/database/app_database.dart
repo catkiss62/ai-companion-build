@@ -7045,6 +7045,20 @@ class AppDatabase {
     return rows.isEmpty ? null : CompanionThought.fromDb(rows.first);
   }
 
+  Future<CompanionThought?> thoughtByOutboundMessageId(String messageId) async {
+    final normalized = messageId.trim();
+    if (normalized.isEmpty) return null;
+    final db = await database;
+    final rows = await db.query(
+      'thoughts',
+      where: 'last_outbound_message_id = ?',
+      whereArgs: [normalized],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : CompanionThought.fromDb(rows.first);
+  }
+
   Future<List<CompanionThought>> lifecycleThoughts({int limit = 80}) async {
     final db = await database;
     final rows = await db.query('thoughts', orderBy: 'updated_at DESC', limit: limit);

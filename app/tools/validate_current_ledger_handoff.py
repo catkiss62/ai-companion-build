@@ -92,6 +92,7 @@ def main() -> None:
         "### 25. 2026-09-02 · 当前任务包与后续导航二次减负",
         "### 26. 2026-09-02 · 约 10 小时自然数据的 Phase 2A 审查",
         "### 27. 2026-09-02 · v0.41.19 Phase 2A 运行稳定化",
+        "### 28. 2026-09-02 · Phase 2A.5 对话主动权与自我驱动表达",
     )
     for section in required_detailed_sections:
         require(section in ledger[handoff_end:], f"missing detailed ledger section: {section}")
@@ -99,28 +100,33 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04119-phase2a-runtime-stabilization",
+        "agent/v04120-phase2a5-conversation-agency",
+        "0.41.20+159",
         "0.41.19+158",
         "schema 44",
         "33626310590",
         "5c9fcf9af0cdc2e354ac2e1385bf0ac23b5907c5382089b9eb035dd30643938e",
-        "真机在覆盖安装前仍运行 `0.41.18+157` / schema 43",
+        "真机在第一次覆盖安装前曾运行 `0.41.18+157` / schema 43",
         "只覆盖安装，不卸载、不清数据",
         "不需要重做 v0.41.17/18 界面专项验收",
         "Phase 2A",
         "Phase 2B",
+        "CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md",
+        "probe_user_topic=45",
+        "stay_with_user_topic=0",
         "联网图片同一不可变字节事务",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
     current_statuses = (
+        "IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI PASSED / APK READY / TRUE DEVICE PENDING",
     )
     require(
         any(status in current for status in current_statuses),
-        "missing recognized v0.41.19 handoff status",
+        "missing recognized current handoff status",
     )
 
     required_ledger_facts = (
@@ -165,7 +171,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.19\+158\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.20\+159\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline",
     )

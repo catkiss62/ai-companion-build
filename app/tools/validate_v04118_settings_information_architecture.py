@@ -32,10 +32,10 @@ docs = read("app/docs/SETTINGS_INFORMATION_ARCHITECTURE_v0.41.18.md")
 doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.(?:18\+157|19\+158)\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:18\+157|19\+158|20\+159)\s*$", pubspec, re.MULTILINE)
 assert any(
     value in self_reader
-    for value in ("buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'")
+    for value in ("buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'", "buildLabel = 'v0.41.20+159'")
 )
 assert any(
     value in database
@@ -118,6 +118,7 @@ assert any(
     for token in (
         "Build AI Companion v0.41.18+157 APK (Settings Information Architecture)",
         "Build AI Companion v0.41.19+158 APK (Phase 2A Stabilization)",
+        "Build AI Companion v0.41.20+159 APK (Phase 2A.5 Conversation Agency)",
     )
 )
 

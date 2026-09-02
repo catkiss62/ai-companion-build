@@ -292,13 +292,18 @@
 # v0.41.17-chat-ui-mood-hotfix-test
 # .ci/v04117-monitor.txt
 # python3 tools/validate_v04117_chat_ui_mood_hotfix.py
-# Current v0.41.19 workflow: Phase 2A runtime stabilization.
-name: Build AI Companion v0.41.19+158 APK (Phase 2A Stabilization)
+# Historical v0.41.19 workflow compatibility:
+# Build AI Companion v0.41.19+158 APK (Phase 2A Stabilization)
+# agent/v04119-phase2a-runtime-stabilization
+# AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-APK
+# validate_v04119_phase2a_runtime_stabilization.py
+# Current v0.41.20 workflow: Phase 2A.5 conversation agency.
+name: Build AI Companion v0.41.20+159 APK (Phase 2A.5 Conversation Agency)
 
 on:
   push:
     branches:
-      - agent/v04119-phase2a-runtime-stabilization
+      - agent/v04120-phase2a5-conversation-agency
   workflow_dispatch:
   pull_request:
     branches:
@@ -436,14 +441,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.19+158' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.20+159' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 44;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.19+158 Phase 2A runtime stabilization.'
+          echo 'Building v0.41.20+159 Phase 2A.5 conversation agency.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -638,6 +643,7 @@ jobs:
           python3 tools/validate_v04117_chat_ui_mood_hotfix.py
           python3 tools/validate_v04118_settings_information_architecture.py
           python3 tools/validate_v04119_phase2a_runtime_stabilization.py
+          python3 tools/validate_v04120_phase2a5_conversation_agency.py
           python3 tools/validate_v0322_overlay_time_diagnostics.py
           python3 tools/validate_v0321_ai_to_self.py
           python3 tools/validate_current_schema24_b.py
@@ -885,26 +891,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.19+158 APK as workflow artifact
+      - name: Upload v0.41.20+159 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-APK
+          name: AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.19+158 Phase 2A Stabilization APK to draft release
+      - name: Upload v0.41.20+159 Phase 2A.5 Conversation Agency APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.19-phase2a-runtime-stabilization-test'
-          APK_NAME='AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-APK.apk'
+          TAG='v0.41.20-phase2a5-conversation-agency-test'
+          APK_NAME='AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -921,8 +927,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.19+158 Phase 2A Stabilization candidate' \
-              --notes 'Draft Phase 2A stabilization candidate: stable Self-Drive source identity, minimum proactive intervals, deterministic repetition-complaint feedback, atomic learning evidence repair, emotion-driven non-quota actions, colloquial ordinary chat, and public-web operation truth. Phase 2B/3/4 remain disabled. SQLite schema 44; backup protocol remains 5.'
+              --title 'AI Companion v0.41.20+159 Phase 2A.5 Conversation Agency candidate' \
+              --notes 'Draft Phase 2A.5 candidate: Desire/Thought-grounded Conversation Moves, curiosity authorization, topic jump/release, non-service-first relational reactions, committed Move outcome binding, and narrow unauthorized information-request correction. Visible reasoning remains unchanged. Phase 2B/3/4 remain disabled. SQLite schema 44; backup protocol remains 5.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -946,18 +952,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04119-monitor.txt'
+          MONITOR_PATH='.ci/v04120-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.19 CI success monitor' \
+              -f message='Update v0.41.20 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.19 CI success monitor' \
+              -f message='Create v0.41.20 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -978,8 +984,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.19-phase2a-runtime-stabilization-test'
-          CI_NAME='AI-Companion-v0.41.19-158-Phase2A-Runtime-Stabilization-CI-Monitor.txt'
+          TAG='v0.41.20-phase2a5-conversation-agency-test'
+          CI_NAME='AI-Companion-v0.41.20-159-Phase2A5-Conversation-Agency-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1020,8 +1026,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.19+158 Phase 2A Stabilization candidate' \
-              --notes 'Draft candidate for Phase 2A runtime stabilization. It is not a published release; Phase 2B/3/4, autonomous screenshots and MCP remain disabled.'
+              --title 'AI Companion v0.41.20+159 Phase 2A.5 Conversation Agency candidate' \
+              --notes 'Draft candidate for Phase 2A.5 conversation agency. It is not a published release; visible reasoning is unchanged and Phase 2B/3/4, autonomous screenshots and MCP remain disabled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1030,18 +1036,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04119-monitor.txt'
+          MONITOR_PATH='.ci/v04120-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.19 CI failure monitor' \
+              -f message='Update v0.41.20 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.19 CI failure monitor' \
+              -f message='Create v0.41.20 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

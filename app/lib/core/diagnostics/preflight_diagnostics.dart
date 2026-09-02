@@ -145,6 +145,7 @@ class PreflightDiagnosticsService {
         'conversationInitiativeMessageBodiesIncluded': false,
         'conversationInitiativeThoughtBodiesIncluded': false,
         'conversationInitiativeModelJsonIncluded': false,
+        'informationQuestionGuardMatchedTextIncluded': false,
         'personalityLearningCandidateBodiesIncluded': false,
         'personalityLearningEvidenceBodiesIncluded': false,
         'personalityLearningSubjectKeysIncluded': false,
@@ -474,6 +475,28 @@ class PreflightDiagnosticsService {
               await db.getSetting('service_template_guard_last_reason') ?? '',
           'lastFamily':
               await db.getSetting('service_template_guard_last_family') ?? '',
+          'matchedTextIncluded': false,
+          'chatContentIncluded': false,
+        },
+        'informationQuestionGuard': {
+          'matchCount': int.tryParse(
+                await db.getSetting('information_question_guard_match_count') ?? '',
+              ) ??
+              0,
+          'rewriteCount': int.tryParse(
+                await db.getSetting('information_question_guard_rewrite_count') ?? '',
+              ) ??
+              0,
+          'blockCount': int.tryParse(
+                await db.getSetting('information_question_guard_block_count') ?? '',
+              ) ??
+              0,
+          'lastAt': int.tryParse(
+                await db.getSetting('information_question_guard_last_at') ?? '',
+              ) ??
+              0,
+          'lastReason':
+              await db.getSetting('information_question_guard_last_reason') ?? '',
           'matchedTextIncluded': false,
           'chatContentIncluded': false,
         },

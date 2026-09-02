@@ -68,6 +68,7 @@ class PromptBuilder {
     bool? nsfwReferenceActive,
     List<AgentToolResult> agentToolResults = const [],
     String? specialStyleKeyOverride,
+    ConversationInitiativePlan? conversationInitiativeOverride,
   }) async {
     final instant = now ?? DateTime.now();
     final query = (retrievalQuery ?? latestUserText).trim();
@@ -124,11 +125,14 @@ class PromptBuilder {
               : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}',
         );
     final conversationInitiative = mode == PromptGenerationMode.userTurn
-        ? ConversationInitiativePolicy.select(
-            snapshot: desire,
-            thoughts: thoughts,
-            now: instant,
-          )
+        ? conversationInitiativeOverride ??
+            ConversationInitiativePolicy.select(
+              snapshot: desire,
+              thoughts: thoughts,
+              recent: recent,
+              latestUserText: latestUserText,
+              now: instant,
+            )
         : null;
     if (conversationInitiative != null) {
       await ConversationInitiativeTelemetry.recordPlan(

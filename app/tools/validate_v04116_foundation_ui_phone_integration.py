@@ -30,13 +30,13 @@ ledger = read("AI_Companion_当前总账.md")
 workflow = read(".github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (
-    "version: 0.41.18+157", "version: 0.41.19+158"
+    "version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159"
 ))
 assert any(schema in database for schema in (
     "static const int schemaVersion = 43;", "static const int schemaVersion = 44;"
 ))
 assert any(label in self_reader for label in (
-    "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'"
+    "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'", "buildLabel = 'v0.41.20+159'"
 ))
 assert "immersive_panel_fraction" in database
 

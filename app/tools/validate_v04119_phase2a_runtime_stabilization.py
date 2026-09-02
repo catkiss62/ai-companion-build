@@ -30,7 +30,7 @@ snapshot = read("app/lib/core/sync/snapshot_service.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.19\+158\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
 for token in (
     "_createV44Tables",

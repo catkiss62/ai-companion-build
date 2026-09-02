@@ -3,10 +3,48 @@ import 'dart:convert';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
 
+class CommittedConversationPlan {
+  const CommittedConversationPlan({
+    required this.assistantMessageId,
+    required this.primary,
+    required this.topicMove,
+    required this.speechAct,
+    required this.drive,
+    required this.action,
+    required this.askAuthorized,
+    required this.curiosityGateReason,
+    required this.hasThought,
+    required this.sourceProvenance,
+  });
+
+  final String assistantMessageId;
+  final String primary;
+  final String topicMove;
+  final String speechAct;
+  final String drive;
+  final String action;
+  final bool askAuthorized;
+  final String curiosityGateReason;
+  final bool hasThought;
+  final String sourceProvenance;
+
+  bool get hadAiBid => const {
+        'self_share',
+        'tease',
+        'ask',
+        'seek_attention',
+        'invite',
+        'show_need',
+      }.contains(speechAct);
+}
+
 class ConversationInitiativeTelemetry {
   const ConversationInitiativeTelemetry._();
 
-  static const settingKey = 'conversation_initiative_telemetry_v1';
+  // v2 starts a clean post-Phase-2A.5 observation window. The v1 aggregate
+  // remains untouched in old backups so historical probe bias stays auditable.
+  static const settingKey = 'conversation_initiative_telemetry_v2';
+  static const committedPlanKey = 'conversation_initiative_committed_plan_v2';
   static const _outcomes = <String>{
     'none',
     'engaged',
@@ -27,16 +65,122 @@ class ConversationInitiativeTelemetry {
       final counts = Map<String, int>.from(
         state['planCounts']! as Map<String, int>,
       );
+      final topicCounts = Map<String, int>.from(
+        state['topicMoveCounts']! as Map<String, int>,
+      );
+      final speechCounts = Map<String, int>.from(
+        state['speechActCounts']! as Map<String, int>,
+      );
+      final gateCounts = Map<String, int>.from(
+        state['curiosityGateCounts']! as Map<String, int>,
+      );
       counts[plan.primary.key] = (counts[plan.primary.key] ?? 0) + 1;
+      topicCounts[plan.topicMove.key] =
+          (topicCounts[plan.topicMove.key] ?? 0) + 1;
+      speechCounts[plan.speechAct.key] =
+          (speechCounts[plan.speechAct.key] ?? 0) + 1;
+      gateCounts[plan.curiosityGateReason] =
+          (gateCounts[plan.curiosityGateReason] ?? 0) + 1;
       state
         ..['planCounts'] = counts
+        ..['topicMoveCounts'] = topicCounts
+        ..['speechActCounts'] = speechCounts
+        ..['curiosityGateCounts'] = gateCounts
+        ..['askAuthorizedCount'] =
+            ((state['askAuthorizedCount'] as int?) ?? 0) +
+                (plan.askAuthorized ? 1 : 0)
+        ..['askBlockedCount'] =
+            ((state['askBlockedCount'] as int?) ?? 0) +
+                (plan.askAuthorized ? 0 : 1)
         ..['lastPlan'] = plan.primary.key
+        ..['lastTopicMove'] = plan.topicMove.key
+        ..['lastSpeechAct'] = plan.speechAct.key
+        ..['lastAskAuthorized'] = plan.askAuthorized
+        ..['lastCuriosityGateReason'] = plan.curiosityGateReason
+        ..['lastQuestionPressureBand'] = plan.questionPressureBand
+        ..['lastHasThought'] = plan.hasThought
+        ..['lastSourceProvenance'] = plan.sourceProvenance
         ..['lastDrive'] = plan.drive.name
         ..['lastAction'] = _safeAction(plan.action)
         ..['lastPlanAt'] = (now ?? DateTime.now()).millisecondsSinceEpoch;
       await db.setSetting(settingKey, jsonEncode(state));
     } catch (_) {
       // Diagnostics must never block prompt construction.
+    }
+  }
+
+  static Future<void> recordCommittedPlan(
+    AppDatabase db, {
+    required String assistantMessageId,
+    required ConversationInitiativePlan plan,
+  }) async {
+    try {
+      final previous = _decodeCommittedPlans(
+        await db.getSetting(committedPlanKey),
+      );
+      final plans = <Map<String, Object?>>[
+        ...previous.where(
+          (item) => item['assistant_message_id'] != assistantMessageId,
+        ),
+        {
+          'assistant_message_id': assistantMessageId,
+          'primary': plan.primary.key,
+          'topic_move': plan.topicMove.key,
+          'speech_act': plan.speechAct.key,
+          'drive': plan.drive.name,
+          'action': _safeAction(plan.action),
+          'ask_authorized': plan.askAuthorized,
+          'curiosity_gate_reason': plan.curiosityGateReason,
+          'has_thought': plan.hasThought,
+          'source_provenance': plan.sourceProvenance,
+        },
+      ];
+      await db.setSetting(
+        committedPlanKey,
+        jsonEncode({
+          'plans': plans.reversed.take(12).toList().reversed.toList(),
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        }),
+      );
+    } catch (_) {
+      // A committed chat message remains valid even if diagnostics cannot bind.
+    }
+  }
+
+  static Future<CommittedConversationPlan?> planForAssistant(
+    AppDatabase db,
+    String assistantMessageId,
+  ) async {
+    try {
+      final raw = await db.getSetting(committedPlanKey);
+      if (raw == null || raw.trim().isEmpty) return null;
+      Map<String, Object?>? item;
+      for (final candidate in _decodeCommittedPlans(raw)) {
+        if (candidate['assistant_message_id'] == assistantMessageId) {
+          item = candidate;
+          break;
+        }
+      }
+      if (item == null) return null;
+      final drive = _safeDrive(item['drive']?.toString() ?? '');
+      final action = _safeAction(item['action']?.toString() ?? '');
+      if (drive == 'none' || action == 'unknown') return null;
+      return CommittedConversationPlan(
+        assistantMessageId: assistantMessageId,
+        primary: item['primary']?.toString() ?? 'unknown',
+        topicMove: item['topic_move']?.toString() ?? 'stay',
+        speechAct: item['speech_act']?.toString() ?? 'react',
+        drive: drive,
+        action: action,
+        askAuthorized: item['ask_authorized'] == true,
+        curiosityGateReason:
+            item['curiosity_gate_reason']?.toString() ?? 'unknown',
+        hasThought: item['has_thought'] == true,
+        sourceProvenance:
+            item['source_provenance']?.toString() ?? 'internal',
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -100,6 +244,32 @@ class ConversationInitiativeTelemetry {
     }
   }
 
+  static List<Map<String, Object?>> _decodeCommittedPlans(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const [];
+      final map = decoded.cast<String, dynamic>();
+      final plans = map['plans'];
+      if (plans is List) {
+        return plans
+            .whereType<Map>()
+            .map(
+              (item) => item.map(
+                (key, value) => MapEntry(key.toString(), value),
+              ),
+            )
+            .toList(growable: false);
+      }
+      // v2 was first shipped as one safe, redacted object. Keep reading that
+      // shape so an interrupted development install remains compatible.
+      if (map['assistant_message_id'] is String) {
+        return [map.cast<String, Object?>()];
+      }
+    } catch (_) {}
+    return const [];
+  }
+
   static Map<String, Object?> _sanitize(Map<String, Object?> raw) {
     final planRaw = raw['planCounts'];
     final outcomeRaw = raw['outcomeCounts'];
@@ -119,12 +289,78 @@ class ConversationInitiativeTelemetry {
                 .toInt()
             : 0,
     };
+    final topicRaw = raw['topicMoveCounts'];
+    final topicMoves = <String, int>{
+      for (final item in ConversationTopicMove.values)
+        item.key: topicRaw is Map
+            ? ((topicRaw[item.key] as num?)?.toInt() ?? 0)
+                .clamp(0, 1000000000)
+                .toInt()
+            : 0,
+    };
+    final speechRaw = raw['speechActCounts'];
+    final speechActs = <String, int>{
+      for (final item in ConversationSpeechAct.values)
+        item.key: speechRaw is Map
+            ? ((speechRaw[item.key] as num?)?.toInt() ?? 0)
+                .clamp(0, 1000000000)
+                .toInt()
+            : 0,
+    };
+    const curiosityGateReasons = <String>{
+      'no_source',
+      'no_specific_gap',
+      'no_self_relevance',
+      'already_known',
+      'recently_asked',
+      'user_redirected',
+      'topic_exhausted',
+      'question_pressure',
+      'fatigue',
+      'boundary',
+      'authorized',
+    };
+    final gateRaw = raw['curiosityGateCounts'];
+    final gateCounts = <String, int>{
+      for (final reason in curiosityGateReasons)
+        reason: gateRaw is Map
+            ? ((gateRaw[reason] as num?)?.toInt() ?? 0)
+                .clamp(0, 1000000000)
+                .toInt()
+            : 0,
+    };
     return <String, Object?>{
       'planCounts': plans,
+      'topicMoveCounts': topicMoves,
+      'speechActCounts': speechActs,
+      'curiosityGateCounts': gateCounts,
+      'askAuthorizedCount': _safeCount(raw['askAuthorizedCount']),
+      'askBlockedCount': _safeCount(raw['askBlockedCount']),
       'outcomeCounts': outcomes,
       'lastPlan': plans.containsKey(raw['lastPlan'])
           ? raw['lastPlan'].toString()
           : 'never',
+      'lastTopicMove': topicMoves.containsKey(raw['lastTopicMove'])
+          ? raw['lastTopicMove'].toString()
+          : 'stay',
+      'lastSpeechAct': speechActs.containsKey(raw['lastSpeechAct'])
+          ? raw['lastSpeechAct'].toString()
+          : 'react',
+      'lastAskAuthorized': raw['lastAskAuthorized'] == true,
+      'lastCuriosityGateReason': gateCounts.containsKey(
+        raw['lastCuriosityGateReason'],
+      )
+          ? raw['lastCuriosityGateReason'].toString()
+          : 'no_source',
+      'lastQuestionPressureBand': const {'none', 'soft', 'high'}.contains(
+        raw['lastQuestionPressureBand'],
+      )
+          ? raw['lastQuestionPressureBand'].toString()
+          : 'none',
+      'lastHasThought': raw['lastHasThought'] == true,
+      'lastSourceProvenance': _safeSourceProvenance(
+        raw['lastSourceProvenance']?.toString() ?? '',
+      ),
       'lastDrive': _safeDrive(raw['lastDrive']?.toString() ?? ''),
       'lastAction': _safeAction(raw['lastAction']?.toString() ?? ''),
       'lastPlanAt': _safeTime(raw['lastPlanAt']),
@@ -180,6 +416,22 @@ class ConversationInitiativeTelemetry {
 
   static int _safeTime(Object? value) =>
       ((value as num?)?.toInt() ?? 0).clamp(0, 4102444800000).toInt();
+
+  static int _safeCount(Object? value) =>
+      ((value as num?)?.toInt() ?? 0).clamp(0, 1000000000).toInt();
+
+  static String _safeSourceProvenance(String value) => const {
+        'user_message',
+        'awareness',
+        'memory',
+        'self_experience',
+        'inference',
+        'public_web_candidate',
+        'internal',
+        'drive_state',
+      }.contains(value)
+          ? value
+          : 'internal';
 
   static Map<String, Object?> _empty() =>
       _sanitize(const <String, Object?>{});

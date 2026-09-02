@@ -215,9 +215,22 @@ class MemoryExtractor {
       final previousAssistant = proactiveFeedback == null
           ? await _previousOrdinaryAssistant(user.createdAt)
           : null;
+      final previousConversationPlan = previousAssistant == null
+          ? null
+          : await ConversationInitiativeTelemetry.planForAssistant(
+              db,
+              previousAssistant.id,
+            );
+      final previousConversationThought = previousAssistant == null
+          ? null
+          : await db.thoughtByOutboundMessageId(previousAssistant.id);
       final ordinaryDesireContext = previousAssistant == null
           ? '无。本轮没有边界内可供判断的上一条普通 AI 回复。'
-          : '上一条普通 AI 回复（仅用于判断它是否表达了自己的需要）：\n${previousAssistant.content}';
+          : '''
+上一条普通 AI 回复（仅用于判断它是否表达了自己的需要）：
+${previousAssistant.content}
+手机生成前的权威 Move：${previousConversationPlan == null ? '无可用记录，按正文保守判断' : 'speech_act=${previousConversationPlan.speechAct} | topic_move=${previousConversationPlan.topicMove} | drive=${previousConversationPlan.drive} | action=${previousConversationPlan.action} | ask_authorized=${previousConversationPlan.askAuthorized} | had_ai_bid=${previousConversationPlan.hadAiBid}'}
+'''.trim();
       final style = PersonalityCatalog.special(specialStyleKey);
       final specialStyleContext = style.key.isEmpty
           ? '无。本轮不是特殊风格试穿生成。'
@@ -321,6 +334,7 @@ $editableMemoryPolicy
    当 outcome=deferred 时可额外给 followup_after_hours：用户明确说“晚点/今晚/明天”等时，估计一次自然再跟进的等待时间，范围 6~72 小时；不确定或不适合再跟进则填 0。系统最多只会自动再跟进一次，它不是提醒器。
 16. 如果【生成时特殊风格来源】不是“无”，这轮是双方知情参与的临时试穿体验：真实共同经历、用户明确偏好和关系变化仍可整理；临时身体结构、机械机制、特殊能力、语言规则与风格人格不得写成 ai_self、current_fact 或当前现实。不要仅因试穿设定本身生成 thought、thread 或关系变化。系统会对共同经历加来源标记，不要自行删除该语义。
 17. 如果【上一条普通 AI 回复】不是“无”，判断 ordinary_desire_response。它只处理上一条 AI 是否真的表达了自己的需要、好奇、观点、自主分享、共同活动邀请、亲密靠近或希望用户回应：
+   - 若上下文提供“手机生成前的权威 Move”，had_ai_bid、drive 与 action 必须服从该记录；它来自生成前的 Desire/Thought 行动选择，不能被模型事后改写。ask_authorized=false 时，即使正文有普通反问也不能虚构成 curiosity bid；ask_authorized=true 仍要按用户是否实际回答来判断 outcome/resolution。
    - had_ai_bid=false：上一条只是回答、安慰、说明事实、礼貌收尾或泛泛提问，没有 AI 自己想得到的东西；outcome=none。
    - had_ai_bid=true 时，drive 只能是 attachment / curiosity / reflection / duty / social / libido / stress / fatigue；action 只能是 reach_out / continue_thread / share_thought / check_in / tease_or_intimacy / comfort_or_ground / discover_interest / remember_shared_experience / wildcard_share / rest / wait。
    - outcome 只能是 engaged / acknowledged / deferred / dodged / refused / redirected / none。engaged 表示用户真实接住并继续；acknowledged 表示简单但明确地接住；deferred 表示明确晚点再回应；dodged 表示语义上明显回避这个需要；refused 表示明确拒绝；redirected 表示自然转去别的话题但没有负面拒绝；拿不准就 none。
@@ -412,6 +426,9 @@ AI：${assistant.content}
       final ordinaryDesireOutcome = OrdinaryDesireResponseOutcome.parse(
         hasPreviousOrdinaryAssistant: previousAssistant != null,
         raw: result['ordinary_desire_response'],
+        authoritativeHadAiBid: previousConversationPlan?.hadAiBid,
+        authoritativeDrive: previousConversationPlan?.drive,
+        authoritativeAction: previousConversationPlan?.action,
       );
       await _guardPostTurnJob(job);
       if (memoryEnabled) {
@@ -475,6 +492,11 @@ AI：${assistant.content}
         );
         if (!applied) throw const _PostTurnOwnershipLost();
       }
+      await _applyOrdinaryThoughtOutcome(
+        thoughtId: previousConversationThought?.id,
+        outcome: ordinaryDesireOutcome,
+        responseMessageId: user.id,
+      );
       await ConversationInitiativeTelemetry.recordOutcome(
         db,
         outcome: ordinaryDesireOutcome?.outcome ?? 'none',
@@ -830,6 +852,28 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         reasonSource: 'conversation_outcome',
       ),
       intensity: outcome.satisfactionIntensity,
+    );
+  }
+
+  Future<void> _applyOrdinaryThoughtOutcome({
+    required String? thoughtId,
+    required OrdinaryDesireResponseOutcome? outcome,
+    required String responseMessageId,
+  }) async {
+    if (thoughtId == null || thoughtId.isEmpty || outcome == null) return;
+    final lifecycleOutcome = switch (outcome.outcome) {
+      'engaged' => 'engaged',
+      'acknowledged' => 'acknowledged',
+      'deferred' => 'deferred',
+      'refused' => 'dismissed',
+      'dodged' || 'redirected' => 'redirected',
+      _ => 'acknowledged',
+    };
+    await thoughtLifecycle.applyResponseOutcome(
+      thoughtId: thoughtId,
+      outcome: lifecycleOutcome,
+      resolution: outcome.resolution,
+      responseMessageId: responseMessageId,
     );
   }
 

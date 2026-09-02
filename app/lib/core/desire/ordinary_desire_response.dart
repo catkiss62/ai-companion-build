@@ -23,10 +23,13 @@ class OrdinaryDesireResponseOutcome {
   static OrdinaryDesireResponseOutcome? parse({
     required bool hasPreviousOrdinaryAssistant,
     required Object? raw,
+    bool? authoritativeHadAiBid,
+    String? authoritativeDrive,
+    String? authoritativeAction,
   }) {
     if (!hasPreviousOrdinaryAssistant || raw is! Map) return null;
     final item = raw.cast<String, dynamic>();
-    final hadAiBid = item['had_ai_bid'] == true;
+    final hadAiBid = authoritativeHadAiBid ?? (item['had_ai_bid'] == true);
     const outcomes = {
       'engaged',
       'acknowledged',
@@ -40,13 +43,16 @@ class OrdinaryDesireResponseOutcome {
     final outcome = hadAiBid && outcomes.contains(proposedOutcome)
         ? proposedOutcome
         : 'none';
-    final drive = hadAiBid ? _drive(item['drive'] as String?) : null;
+    final drive = hadAiBid
+        ? _drive(authoritativeDrive ?? (item['drive'] as String?))
+        : null;
     if (drive == null) return none;
 
     final resolution = ((item['resolution'] as num?)?.toDouble() ?? 0)
         .clamp(0.0, 1.0)
         .toDouble();
-    final proposedAction = item['action'] as String? ?? '';
+    final proposedAction =
+        authoritativeAction ?? (item['action'] as String?) ?? '';
     const actions = {
       'reach_out',
       'continue_thread',
