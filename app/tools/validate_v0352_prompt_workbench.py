@@ -75,7 +75,14 @@ for token in (
     "templates: templates",
 ):
     assert token in service, token
-if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+if any(
+    version in pubspec
+    for version in (
+        "version: 0.41.26+165",
+        "version: 0.41.27+166",
+        "version: 0.41.28+167",
+    )
+):
     # v0.41.26 keeps the editable workbench catalog, but turns its profiles
     # into default-off world-book presets instead of hard-injecting a trial.
     database = read("lib/core/database/app_database.dart")

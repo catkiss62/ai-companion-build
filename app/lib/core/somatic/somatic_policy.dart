@@ -21,7 +21,14 @@ class SomaticPolicy {
     final seenScenes = <String>{};
 
     for (final rule in _touchRules) {
-      if (!rule.pattern.hasMatch(normalized)) continue;
+      RegExpMatch? accepted;
+      for (final candidate in rule.pattern.allMatches(normalized)) {
+        if (!_isProspectiveOrNegated(normalized, candidate.start)) {
+          accepted = candidate;
+          break;
+        }
+      }
+      if (accepted == null) continue;
       final part = _partFor(normalized, rule.action);
       final sceneKey = _sceneKey(rule.action, part);
       if (!seenScenes.add(sceneKey)) continue;
@@ -332,6 +339,13 @@ final List<_TouchRule> _touchRules = [
     RegExp(r'亲亲|亲你|亲一下|亲一口|亲吻你|吻你|吻住你|啵啵|啵一个'),
   ),
   _TouchRule('stroke', 0.53, RegExp(r'摸摸头|摸摸你|摸你的|摸你|抚摸你|轻抚你')),
+  _TouchRule(
+    'stroke',
+    0.50,
+    RegExp(
+      r'(?:触碰|碰触|碰了碰|碰一下|碰)(?:你|她)(?:的)?(?:嘴唇|唇瓣|脸颊|额头|耳朵|耳后|脖子|头发|头顶|手|肩膀|后背|背|腰|尾巴|尾鳍)?',
+    ),
+  ),
   _TouchRule('pat', 0.38, RegExp(r'拍拍你|拍一拍你|拍你的')),
   _TouchRule('pinch', 0.46, RegExp(r'捏捏你|捏你')),
   _TouchRule('rub', 0.52, RegExp(r'揉揉你|揉你')),

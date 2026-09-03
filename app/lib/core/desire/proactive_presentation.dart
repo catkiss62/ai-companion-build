@@ -60,6 +60,17 @@ class ProactivePresentationPolicy {
     return ProactiveDeliveryStyle.normal;
   }
 
+  /// New-topic lanes do not use the answered chat transcript as writing
+  /// material. Relationship memory and the selected Thought remain available,
+  /// while old dialogue cannot silently turn every lane into a callback.
+  static bool startsFreshTopic(ProactiveIntentKind kind) => switch (kind) {
+        ProactiveIntentKind.shareThought ||
+        ProactiveIntentKind.curiosity ||
+        ProactiveIntentKind.socialShare =>
+          true,
+        _ => false,
+      };
+
   static String promptHint(
     ProactiveIntentKind kind,
     ProactiveDeliveryStyle delivery,

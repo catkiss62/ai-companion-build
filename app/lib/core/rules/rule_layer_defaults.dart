@@ -4,6 +4,7 @@ import 'rule_layer_content_v0417.dart';
 import 'rule_layer_content_v0418.dart';
 import 'rule_layer_content_v04125.dart';
 import 'rule_layer_content_v04127.dart';
+import 'rule_layer_content_v04128.dart';
 import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
@@ -261,6 +262,19 @@ const legacyEditableRuleLayerSha256V04126ReviewedNsfw = <String, String>{
 const legacyEditableRuleLayerSha256V04126VisibleInnerVoice = <String, String>{
   '08_visible_inner_voice':
       '6175357eb4d77dcde605f33d3bf0b5d1bf92e323ccda5b7ac88ad8ffad7bcff7',
+};
+
+/// Exact reviewed runtime bodies shipped by v0.41.27. The v0.41.28 cleanup
+/// upgrades only these known copies; later manual edits continue to win.
+const legacyEditableRuleLayerSha256V04127ImmersiveCleanup = <String, String>{
+  '04_intimacy_core':
+      '742087a60af71739da0bbcba447fa71d8cc41317a80ff474a180b8f212746a89',
+  '05_intimacy_rendering':
+      '4dd50c30d34ca3b97b4c8cf48bbe35eb414af63d5a59da5e404f0eedc3b0f558',
+  'immersive_07_global':
+      '9774fef010dcd99adc991cbdc23bb13c4113c89c39db6df1d113001a79a5865a',
+  'immersive_07_nsfw_source':
+      'ddbf908410fafe7ca6cb2eac6288f533b4f2eda972fcf19b399ee0f6e201d5da',
 };
 
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
@@ -901,10 +915,10 @@ final defaultRuleLayers = <RuleLayerDefault>[
       }.contains(layer.key)
           ? ''
           : <String, String>{
-                '04_intimacy_core': buildIntimacyCoreV04127(
+                '04_intimacy_core': buildIntimacyCoreV04128(
                   ruleContentV0353_04_intimacy_core,
                 ),
-                '05_intimacy_rendering': buildIntimacyRenderingV04127(
+                '05_intimacy_rendering': buildIntimacyRenderingV04128(
                   ruleContentV0353_05_intimacy_rendering,
                 ),
                 '08_visible_inner_voice':

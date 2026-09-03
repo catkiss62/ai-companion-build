@@ -72,6 +72,29 @@ class ImmersiveNsfwRouter {
       );
     }
 
+    // Explicit climax language is a state transition, not a style guess. Do
+    // not let the small routing model blur "nearing" into "released" or
+    // return none for a clear user instruction.
+    final explicitEvent = deterministicClimaxEvent(
+      latestUserText,
+      nsfwContext: manual == 'on' || room.nsfwActive,
+    );
+    final unresolvedNear = explicitEvent == ImmersiveClimaxEvent.none &&
+        (manual == 'on' || room.nsfwActive) &&
+        hasUnresolvedUserNear(recent);
+    final deterministicEvent = unresolvedNear
+        ? ImmersiveClimaxEvent.hold
+        : explicitEvent;
+    if (deterministicEvent != ImmersiveClimaxEvent.none) {
+      return ImmersiveNsfwDecision(
+        active: true,
+        source: manual == 'on'
+            ? 'manual_on_${deterministicEvent.key}'
+            : 'deterministic_${deterministicEvent.key}',
+        climaxEvent: deterministicEvent,
+      );
+    }
+
     final transcript = recent
         .where((message) => message.content.trim().isNotEmpty)
         .toList(growable: false)
@@ -161,8 +184,19 @@ $latestUserText''',
   }
 
   static ImmersiveClimaxEvent fallbackClimaxEvent(String text) {
+    return deterministicClimaxEvent(text, nsfwContext: true);
+  }
+
+  static ImmersiveClimaxEvent deterministicClimaxEvent(
+    String text, {
+    required bool nsfwContext,
+  }) {
     final normalized = text.replaceAll(RegExp(r'\s+'), '');
-    if (RegExp(r'(忍住|等一下|先别|不要|别高潮|别射)').hasMatch(normalized)) {
+    final explicitHold =
+        RegExp(r'(憋住|别高潮|不要高潮|别射|不要射)').hasMatch(normalized) ||
+            (normalized.contains('忍住') && !normalized.contains('忍不住'));
+    if (explicitHold ||
+        (nsfwContext && RegExp(r'(等一下|先别)').hasMatch(normalized))) {
       return ImmersiveClimaxEvent.hold;
     }
     if (RegExp(r'(快射|要射了|快要射|快不行了|快忍不住)').hasMatch(normalized)) {
@@ -175,5 +209,21 @@ $latestUserText''',
       return ImmersiveClimaxEvent.aiRelease;
     }
     return ImmersiveClimaxEvent.none;
+  }
+
+  static bool hasUnresolvedUserNear(List<ImmersiveMessage> recent) {
+    for (final message in recent.reversed.take(12)) {
+      if (!message.isUser) continue;
+      final event = deterministicClimaxEvent(
+        message.content,
+        nsfwContext: true,
+      );
+      if (event == ImmersiveClimaxEvent.userRelease) return false;
+      if (event == ImmersiveClimaxEvent.userNear ||
+          event == ImmersiveClimaxEvent.hold) {
+        return true;
+      }
+    }
+    return false;
   }
 }

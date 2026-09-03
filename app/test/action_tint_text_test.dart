@@ -134,7 +134,7 @@ void main() {
     expect(span.style!.color, chatDialoguePurple);
   });
 
-  testWidgets('plain immersive text uses the same dialogue fallback',
+  testWidgets('plain immersive text is narration from the first chunk',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: NovelTintText(text: '回来啦。'))),
@@ -142,7 +142,36 @@ void main() {
     final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
     final span = selectable.textSpan!.children!.single as TextSpan;
     expect(span.style!.fontStyle, FontStyle.normal);
-    expect(span.style!.color, chatDialoguePurple);
+    expect(span.style!.color, Colors.white);
+  });
+
+  testWidgets('streaming action marker is hidden and white immediately',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ActionTintText(text: '（抬起眼，尾巴晃了一下')),
+      ),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final span = selectable.textSpan!.children!.single as TextSpan;
+    expect(span.text, '抬起眼，尾巴晃了一下');
+    expect(span.style!.fontStyle, FontStyle.italic);
+    expect(span.style!.color, Colors.white);
+  });
+
+  testWidgets('quoted term inside narration does not change paragraph color',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: NovelTintText(text: '她想起你刚才说的“兄弟”，转身看了过来。'),
+        ),
+      ),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final spans = selectable.textSpan!.children!.cast<TextSpan>();
+    expect(spans, hasLength(1));
+    expect(spans.single.style!.color, Colors.white);
   });
 
   testWidgets('one dialogue color scope controls normal and immersive text',

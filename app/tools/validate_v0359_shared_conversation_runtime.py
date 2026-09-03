@@ -30,7 +30,14 @@ assert "class GenerationInterruption" in model
 runner = read("lib/core/ai/durable_generation_runner.dart")
 catch_start = runner.index("} catch (e) {")
 catch_block = runner[catch_start: runner.index("} finally {", catch_start)]
-if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+if any(
+    version in pubspec
+    for version in (
+        "version: 0.41.26+165",
+        "version: 0.41.27+166",
+        "version: 0.41.28+167",
+    )
+):
     # Automatic failures now preserve the durable user turn. The legacy
     # interrupted schema remains readable, but only explicit Stop withdraws.
     recovery = read("lib/core/ai/durable_generation_recovery.dart")

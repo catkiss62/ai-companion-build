@@ -2,6 +2,9 @@ package com.aicompanion.localfirst
 
 /** Pure text shaping shared by the native overlay and JVM contract tests. */
 object OverlayDialogueFormatter {
+    fun sourceStartsWithAction(value: String): Boolean =
+        Regex("(?m)(^|\\n)\\s*[（(]").containsMatchIn(value)
+
     fun visibleText(value: String): String {
         val closed = Regex("（([^（）\\n]*)）|\\(([^()\\n]*)\\)").replace(value) { match ->
             match.groups[1]?.value ?: match.groups[2]?.value.orEmpty()
@@ -12,7 +15,10 @@ object OverlayDialogueFormatter {
         return Regex("([^\\n])\\n(?=「)").replace(withoutOpening, "$1\n\n")
     }
 
-    fun dialogueRanges(value: String): List<IntRange> {
+    fun dialogueRanges(
+        value: String,
+        sourceStartsWithAction: Boolean = false,
+    ): List<IntRange> {
         val result = mutableListOf<IntRange>()
         var index = 0
         while (index < value.length) {
@@ -46,12 +52,25 @@ object OverlayDialogueFormatter {
         }
         // Plain assistant text is dialogue. Without this fallback the overlay
         // rendered every no-action response as white italic action text.
-        return if (result.isEmpty() && value.isNotEmpty()) listOf(value.indices) else result
+        return if (result.isEmpty() && value.isNotEmpty() && !sourceStartsWithAction) {
+            listOf(value.indices)
+        } else {
+            result
+        }
     }
 
-    fun actionRanges(value: String): List<IntRange> {
-        val dialogue = dialogueRanges(value)
-        if (dialogue.isEmpty()) return emptyList()
+    fun actionRanges(
+        value: String,
+        sourceStartsWithAction: Boolean = false,
+    ): List<IntRange> {
+        val dialogue = dialogueRanges(value, sourceStartsWithAction)
+        if (dialogue.isEmpty()) {
+            return if (sourceStartsWithAction && value.isNotEmpty()) {
+                listOf(value.indices)
+            } else {
+                emptyList()
+            }
+        }
         val result = mutableListOf<IntRange>()
         var cursor = 0
         dialogue.forEach { range ->

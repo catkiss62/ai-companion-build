@@ -110,71 +110,23 @@ List<DialogueTextSegment> splitDialogueText(String text) {
   return segments;
 }
 
-/// Novel prose accepts the quote pairs commonly emitted by long-form models.
-/// Normal chat intentionally keeps using [splitDialogueText], whose contract
-/// only treats Chinese corner quotes as spoken dialogue.
+/// Splits immersive prose by paragraph role rather than treating every quoted
+/// phrase as dialogue. A spoken paragraph starts with a dialogue quote; quotes
+/// embedded later in narration inherit narration styling. This also gives the
+/// streaming renderer a stable answer from the first visible character.
 List<DialogueTextSegment> splitNovelDialogueText(String text) {
   if (text.isEmpty) return const [];
-  const openers = <String, String>{
-    '「': '」',
-    '“': '”',
-    '"': '"',
-  };
   final segments = <DialogueTextSegment>[];
-  var cursor = 0;
-  var index = 0;
-  while (index < text.length) {
-    final opener = text[index];
-    final outerCloser = openers[opener];
-    if (outerCloser == null) {
-      index++;
-      continue;
-    }
-
-    final start = index;
-    final expectedClosers = <String>[outerCloser];
-    index++;
-    var crossedNewline = false;
-    while (index < text.length && expectedClosers.isNotEmpty) {
-      final character = text[index];
-      if (character == '\n') {
-        crossedNewline = true;
-        break;
-      }
-      // Check the current closer first because ASCII double quotes use the
-      // same character for both sides.
-      if (character == expectedClosers.last) {
-        expectedClosers.removeLast();
-        index++;
-        continue;
-      }
-      final nestedCloser = openers[character];
-      if (nestedCloser != null) expectedClosers.add(nestedCloser);
-      index++;
-    }
-
-    final reachedEnd = index == text.length;
-    if (expectedClosers.isNotEmpty && (!reachedEnd || crossedNewline)) {
-      index = start + 1;
-      continue;
-    }
-    final end = index;
-    if (start > cursor) {
-      segments.add(DialogueTextSegment(
-        text.substring(cursor, start),
-        isDialogue: false,
-      ));
-    }
+  final lines = text.split('\n');
+  for (var index = 0; index < lines.length; index++) {
+    final line = lines[index];
+    final visible = index == lines.length - 1 ? line : '$line\n';
+    final trimmed = line.trimLeft();
     segments.add(DialogueTextSegment(
-      text.substring(start, end),
-      isDialogue: true,
-    ));
-    cursor = end;
-  }
-  if (cursor < text.length) {
-    segments.add(DialogueTextSegment(
-      text.substring(cursor),
-      isDialogue: false,
+      visible,
+      isDialogue: trimmed.startsWith('“') ||
+          trimmed.startsWith('「') ||
+          trimmed.startsWith('"'),
     ));
   }
   return segments;
@@ -244,6 +196,8 @@ class ActionTintText extends StatelessWidget {
       fontStyle: FontStyle.normal,
       fontWeight: FontWeight.normal,
     );
+    final sourceStartsWithAction = RegExp(r'(^|\n)\s*[（(]', multiLine: true)
+        .hasMatch(text);
     final visibleText = stripActionDelimitersForDisplay(text);
     final segments = splitDialogueText(visibleText);
     final hasExplicitDialogue = segments.any((segment) => segment.isDialogue);
@@ -255,9 +209,11 @@ class ActionTintText extends StatelessWidget {
               text: segment.text,
               // A fully unquoted assistant reply is ordinary dialogue, not
               // one giant action. This is also the native-overlay contract.
-              style: !hasExplicitDialogue || segment.isDialogue
+              style: segment.isDialogue
                   ? dialogue
-                  : action,
+                  : hasExplicitDialogue || sourceStartsWithAction
+                      ? action
+                      : dialogue,
             ),
         ],
       ),
@@ -285,16 +241,13 @@ class NovelTintText extends StatelessWidget {
       color: ChatDialogueColorScope.of(context).color,
     );
     final segments = splitNovelDialogueText(text);
-    final hasExplicitDialogue = segments.any((segment) => segment.isDialogue);
     return SelectableText.rich(
       TextSpan(
         children: [
           for (final segment in segments)
             TextSpan(
               text: segment.text,
-              style: !hasExplicitDialogue || segment.isDialogue
-                  ? dialogue
-                  : base,
+              style: segment.isDialogue ? dialogue : base,
             ),
         ],
       ),

@@ -6,6 +6,31 @@ import 'package:ai_companion_localfirst/core/models/desire_state.dart';
 import 'package:ai_companion_localfirst/core/models/proactive_intent.dart';
 
 void main() {
+  test('new-topic lanes do not write from answered chat history', () {
+    expect(
+      ProactivePresentationPolicy.startsFreshTopic(
+        ProactiveIntentKind.shareThought,
+      ),
+      isTrue,
+    );
+    expect(
+      ProactivePresentationPolicy.startsFreshTopic(
+        ProactiveIntentKind.curiosity,
+      ),
+      isTrue,
+    );
+    expect(
+      ProactivePresentationPolicy.startsFreshTopic(
+        ProactiveIntentKind.socialShare,
+      ),
+      isTrue,
+    );
+    expect(
+      ProactivePresentationPolicy.startsFreshTopic(ProactiveIntentKind.followup),
+      isFalse,
+    );
+  });
+
   test('follow-up presentation allows older recalled topics', () {
     expect(ProactiveIntentKind.followup.zhLabel, '想起之前的话');
   });

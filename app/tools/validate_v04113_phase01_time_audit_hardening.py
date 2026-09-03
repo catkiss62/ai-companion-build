@@ -112,7 +112,14 @@ for token in (
 
 for source in (durable, proactive):
     assert "UserPerspectiveGuard.evaluate" in source
-if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+if any(
+    version in pubspec
+    for version in (
+        "version: 0.41.26+165",
+        "version: 0.41.27+166",
+        "version: 0.41.28+167",
+    )
+):
     # The detector remains, but a speech slip is observation-only and may not
     # erase or suppress an otherwise valid model turn.
     assert "output_ablation_last_pronoun_slip_at" in durable

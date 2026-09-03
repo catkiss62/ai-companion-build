@@ -2828,6 +2828,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.entries,
       ...legacyEditableRuleLayerSha256V04126ReviewedNsfw.entries,
       ...legacyEditableRuleLayerSha256V04126VisibleInnerVoice.entries,
+      ...legacyEditableRuleLayerSha256V04127ImmersiveCleanup.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -2932,6 +2933,7 @@ class AppDatabase {
     for (final legacy in const <String>[
       legacyImmersiveDefaultRoomNovelRulesV0397,
       legacyImmersiveDefaultRoomNovelRulesV04126,
+      legacyImmersiveDefaultRoomNovelRulesV04127,
     ]) {
       await db.update(
         'immersive_rooms',
@@ -3160,6 +3162,67 @@ class AppDatabase {
         ],
       );
       await setSetting('worldbook_daily_bundle_v04127_applied', '1');
+    }
+    final dailyRenderingMigration =
+        await getSetting('worldbook_daily_rendering_v04128_applied');
+    if (dailyRenderingMigration != '1') {
+      const reviewedDailyWorldBookSha256 =
+          'dcc56ad0a68b0b872a321af0ffcdc6bdd65135bae6d74143233a664d513f94fc';
+      final rows = await db.query(
+        'reference_documents',
+        columns: const ['id', 'raw_content'],
+        where: 'id = ? AND builtin = 1',
+        whereArgs: const ['builtin.worldbook.daily_conversation'],
+      );
+      for (final row in rows) {
+        final raw = row['raw_content'] as String? ?? '';
+        if (sha256.convert(utf8.encode(raw)).toString() !=
+            reviewedDailyWorldBookSha256) {
+          continue;
+        }
+        await db.update(
+          'reference_documents',
+          {
+            'raw_content': worldBookDailyConversationV04128,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+      await setSetting('worldbook_daily_rendering_v04128_applied', '1');
+    }
+    final humorWorldBookCleanup =
+        await getSetting('worldbook_humor_cleanup_v04128_applied');
+    if (humorWorldBookCleanup != '1') {
+      const reviewedChaosEngineSha256 =
+          'a2954d02b1c30059021955498a82baa1b7baff00139cae9e3cb20a84cd1c3249';
+      final rows = await db.query(
+        'reference_documents',
+        columns: const ['id', 'raw_content'],
+        where: 'builtin = 0 AND entry_type = ? AND name = ?',
+        whereArgs: const ['behavior', '造梗能力'],
+      );
+      for (final row in rows) {
+        final raw = row['raw_content'] as String? ?? '';
+        if (sha256.convert(utf8.encode(raw)).toString() !=
+            reviewedChaosEngineSha256) {
+          continue;
+        }
+        await db.update(
+          'reference_documents',
+          {
+            'raw_content': worldBookOptimizedHumorV04128,
+            // Daily banter remains available, while identity-hijack examples
+            // can no longer leak into long-form immersive reasoning.
+            'scope': 'chat|proactive',
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+      await setSetting('worldbook_humor_cleanup_v04128_applied', '1');
     }
     final emotionVolumeMigration =
         await getSetting('emotion_sound_volume_default_v0381_applied');

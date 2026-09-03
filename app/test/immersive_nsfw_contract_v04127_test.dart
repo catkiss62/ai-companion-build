@@ -1,4 +1,7 @@
 import 'package:ai_companion_localfirst/core/immersive/immersive_nsfw_router.dart';
+import 'package:ai_companion_localfirst/core/immersive/immersive_prompt_builder.dart';
+import 'package:ai_companion_localfirst/core/models/immersive_room.dart';
+import 'package:ai_companion_localfirst/core/reference/world_book_presets.dart';
 import 'package:ai_companion_localfirst/core/rules/intimacy_prompt_sections.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_content_immersive.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_defaults.dart';
@@ -48,6 +51,57 @@ void main() {
       ImmersiveNsfwRouter.fallbackClimaxEvent('你先高潮吧'),
       ImmersiveClimaxEvent.aiRelease,
     );
+    expect(
+      ImmersiveNsfwRouter.fallbackClimaxEvent('我快忍不住了'),
+      ImmersiveClimaxEvent.userNear,
+    );
+  });
+
+  test('generic waiting only becomes a climax hold inside an active scene', () {
+    expect(
+      ImmersiveNsfwRouter.deterministicClimaxEvent(
+        '等一下，我看看门外是谁',
+        nsfwContext: false,
+      ),
+      ImmersiveClimaxEvent.none,
+    );
+    expect(
+      ImmersiveNsfwRouter.deterministicClimaxEvent(
+        '等一下',
+        nsfwContext: true,
+      ),
+      ImmersiveClimaxEvent.hold,
+    );
+  });
+
+  test('an unresolved user-near event survives an ordinary continuation', () {
+    final recent = <ImmersiveMessage>[
+      ImmersiveMessage(
+        id: 'near',
+        roomId: 'room',
+        role: 'user',
+        content: '我快射了',
+        reasoningContent: '',
+        createdAt: DateTime(2026, 9, 3),
+      ),
+      ImmersiveMessage(
+        id: 'assistant',
+        roomId: 'room',
+        role: 'assistant',
+        content: '她仍停在临界。',
+        reasoningContent: '',
+        createdAt: DateTime(2026, 9, 3),
+      ),
+      ImmersiveMessage(
+        id: 'continue',
+        roomId: 'room',
+        role: 'user',
+        content: '继续',
+        reasoningContent: '',
+        createdAt: DateTime(2026, 9, 3),
+      ),
+    ];
+    expect(ImmersiveNsfwRouter.hasUnresolvedUserNear(recent), isTrue);
   });
 
   test('rendering rule installs the cross-turn climax flow', () {
@@ -59,6 +113,8 @@ void main() {
     expect(rendering, contains('只是宣言，不是已发生的射精'));
     expect(rendering, contains('此时仍必须再次同步到达'));
     expect(rendering, isNot(contains('没有固定阶段表、固定字数、固定高潮口令或同步流程')));
+    expect(rendering, contains('自然停顿与后续衔接'));
+    expect(rendering, isNot(contains('下一轮就直接解用户扣子')));
   });
 
   test('immersive source restores sections without overriding control', () {
@@ -69,6 +125,30 @@ void main() {
     expect(source, contains('05 NSFW 状态机对本轮能否进阶拥有唯一裁决权'));
     expect(source, contains('只有当前现场已明确建立初次、疼痛或出血事实'));
     expect(source, isNot(contains('以玩家视角为主')));
+    expect(source, isNot(contains('每个阶段至少500字')));
+  });
+
+  test('immersive paragraphs and humor identity boundary are explicit', () {
+    expect(immersiveRuleGlobal, contains('中文弯引号“”'));
+    expect(immersiveRuleGlobal, contains('每段对白独占一个自然段'));
+    expect(worldBookOptimizedHumorV04128, contains('一轮最多一个主要笑点'));
+    expect(worldBookOptimizedHumorV04128, contains('禁止用性别错位'));
+    expect(worldBookOptimizedHumorV04128, isNot(contains('我是一个男孩子')));
+  });
+
+  test('clean continuation starts a new paragraph but fragments do not', () {
+    expect(
+      ImmersivePromptBuilder.continuationBoundary('她停了下来。', 'stop'),
+      '\n\n',
+    );
+    expect(
+      ImmersivePromptBuilder.continuationBoundary('她仍然', 'stop'),
+      isEmpty,
+    );
+    expect(
+      ImmersivePromptBuilder.continuationBoundary('她停了下来。', 'length'),
+      isEmpty,
+    );
   });
 
   test('climax directives preserve gender and one-turn transitions', () {

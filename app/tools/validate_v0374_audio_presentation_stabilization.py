@@ -90,7 +90,10 @@ assert "OverlayDialogueFormatter.dialogueRanges(visible)" in overlay
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
 
 prompt = read("lib/core/ai/prompt_builder.dart")
-if "version: 0.41.27+166" in read("pubspec.yaml"):
+if any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.27+166", "version: 0.41.28+167")
+):
     assert "没打算给任何人看的当下心声" in prompt
 else:
     assert "reasoning_content 使用自然简体中文，写成第一人称正在发生的内心" in prompt

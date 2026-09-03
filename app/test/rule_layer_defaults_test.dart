@@ -244,6 +244,7 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.length, 3);
     expect(legacyEditableRuleLayerSha256V04126ReviewedNsfw.length, 5);
     expect(legacyEditableRuleLayerSha256V04126VisibleInnerVoice.length, 1);
+    expect(legacyEditableRuleLayerSha256V04127ImmersiveCleanup.length, 4);
     final visibleInner = byKey['08_visible_inner_voice']!.content;
     expect(visibleInner, contains('没打算给任何人看的当下心声'));
     expect(visibleInner, contains('片段、跳念、突然联想、改口或没想完'));
@@ -254,6 +255,7 @@ void main() {
     };
     final dailyPreset = worldBookById['builtin.worldbook.daily_conversation']!;
     expect(dailyPreset.content, contains('通常加入一段简短的自身动作'));
+    expect(dailyPreset.content, contains('生成源用全角括号（动作）标记'));
     expect(dailyPreset.content, contains('【幽默】'));
     expect(dailyPreset.manualActive, isTrue);
     expect(worldBookSystemPresets, hasLength(1));

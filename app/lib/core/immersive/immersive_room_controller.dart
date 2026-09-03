@@ -7,6 +7,7 @@ import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
+import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
 import '../tts/tts_service.dart';
@@ -26,6 +27,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     repository = ImmersiveRoomRepository(this.db);
     promptBuilder = ImmersivePromptBuilder(this.db);
     nsfwRouter = ImmersiveNsfwRouter(this.client);
+    somaticEngine = SomaticEngine(this.db);
     ttsService = TtsService(db: this.db);
     ttsPlayback = TtsPlaybackQueue(
       service: ttsService,
@@ -43,6 +45,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   late final ImmersiveRoomRepository repository;
   late final ImmersivePromptBuilder promptBuilder;
   late final ImmersiveNsfwRouter nsfwRouter;
+  late final SomaticEngine somaticEngine;
   late final TtsService ttsService;
   late final TtsPlaybackQueue ttsPlayback;
 
@@ -119,6 +122,14 @@ class ImmersiveRoomController extends ChangeNotifier {
       role: 'user',
       content: text,
     );
+    // Immersive turns share the same internal body channel as ordinary chat.
+    // The room remains fictional, but a user-authored touch must not vanish
+    // merely because this surface uses a different generation controller.
+    await somaticEngine.captureUserTurn(
+      turnId: user.id,
+      text: text,
+      now: user.createdAt,
+    );
     messages = [...messages, user];
     sending = true;
     nsfwRouting = true;
@@ -182,6 +193,10 @@ class ImmersiveRoomController extends ChangeNotifier {
       final minimum = fastForward ? 400 : 1000;
       if (_visibleCharacterCount(streamingContent) < minimum &&
           (finishReason.isEmpty || finishReason == 'stop' || finishReason == 'length')) {
+        streamingContent += ImmersivePromptBuilder.continuationBoundary(
+          streamingContent,
+          finishReason,
+        );
         await _streamRequest(
           apiKey: apiKey,
           endpoint: endpoint,

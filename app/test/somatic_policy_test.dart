@@ -40,6 +40,29 @@ void main() {
     expect(face.narrative, contains('脸颊'));
   });
 
+  test('ordinary touch wording reaches the shared body channel', () {
+    final events = SomaticPolicy.detectDailyTouch(
+      turnId: 'touch-face',
+      text: '我碰一下她的脸颊',
+      now: now,
+    );
+
+    expect(events, hasLength(1));
+    expect(events.single.action, 'stroke');
+    expect(events.single.part, 'face');
+  });
+
+  test('negated ordinary touch does not invent sensation', () {
+    expect(
+      SomaticPolicy.detectDailyTouch(
+        turnId: 'no-touch',
+        text: '我不会碰她的耳朵',
+        now: now,
+      ),
+      isEmpty,
+    );
+  });
+
   test('non-contact wording and reverse direction do not invent sensation', () {
     expect(
       SomaticPolicy.detectDailyTouch(

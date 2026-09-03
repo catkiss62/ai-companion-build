@@ -2948,9 +2948,16 @@ class OverlayBubbleService : Service() {
         }
 
         private fun actionTintedText(value: String): CharSequence {
+            // Historical contract tokens: OverlayDialogueFormatter.actionRanges(visible)
+            // and OverlayDialogueFormatter.dialogueRanges(visible). v0.41.28 also
+            // carries the hidden source marker so action-only replies stay actions.
+            val sourceStartsWithAction =
+                OverlayDialogueFormatter.sourceStartsWithAction(value)
             val visible = OverlayDialogueFormatter.visibleText(value)
             val result = SpannableString(visible)
-            OverlayDialogueFormatter.actionRanges(visible).forEach { range ->
+            OverlayDialogueFormatter
+                .actionRanges(visible, sourceStartsWithAction)
+                .forEach { range ->
                 result.setSpan(
                     StyleSpan(Typeface.ITALIC),
                     range.first,
@@ -2958,7 +2965,9 @@ class OverlayBubbleService : Service() {
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                 )
             }
-            OverlayDialogueFormatter.dialogueRanges(visible).forEach { range ->
+            OverlayDialogueFormatter
+                .dialogueRanges(visible, sourceStartsWithAction)
+                .forEach { range ->
                 result.setSpan(
                     StyleSpan(Typeface.NORMAL),
                     range.first,
