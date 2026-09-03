@@ -224,7 +224,9 @@ void main() {
     expect(core, contains('空间状态账本'));
     expect(core, contains('最小变化方案'));
     expect(rendering, contains('自然接入'));
-    expect(rendering, contains('成人互动没有固定阶段表'));
+    expect(rendering, contains('成人互动不依赖魔法口令或每轮固定字数'));
+    expect(rendering, contains('高潮与用户射精必须服从本层的跨轮状态流程'));
+    expect(rendering, isNot(contains('没有固定阶段表、固定字数、固定高潮口令或同步流程')));
     expect(rendering, contains('更换姿势或动作时写出必要过渡'));
     expect(reference, contains('姿态名只是索引'));
     expect(reference, contains('人物必须明确为成年人'));
