@@ -49,7 +49,9 @@ assert (
     "<emotion>情绪</emotion>" in catalog + prompt
     or "<emotion>标签</emotion>" in catalog + prompt
 )
-if "version: 0.41.23+162" in read("pubspec.yaml"):
+if any(version in read("pubspec.yaml") for version in (
+    "version: 0.41.23+162", "version: 0.41.24+163"
+)):
     assert "独立动作神态实验规则" in rules
     assert "当前动作神态消融实验已启用" in prompt
 elif "version: 0.41.22+161" in read("pubspec.yaml"):

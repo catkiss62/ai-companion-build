@@ -9,6 +9,11 @@ void main() {
     expect(reminder, contains('自然简体中文'));
     expect(reminder, contains('reasoning_content 必须非空'));
     expect(reminder, contains('客户端不会编造补写'));
+    expect(reminder, contains('【可见思考语态 · reasoning_content】'));
+    expect(reminder, contains('直接以“我”的即时内心起笔'));
+    expect(reminder, contains('不要用“用户说/问/想要、这是某种场景”'));
+    expect(reminder, contains('不列候选台词，不排练正文'));
+    expect(reminder, contains('直接想问题本身，不写答题策略或生成日志'));
     expect(reminder, contains('<emotion>标签</emotion>'));
     expect(reminder, contains('没有清晰情绪色彩时用“正常”'));
     expect(reminder, contains('“平静”只用于明确安静'));

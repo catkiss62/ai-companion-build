@@ -26,7 +26,7 @@ snapshot = read("lib/core/sync/snapshot_service.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
 agent_truth_or_newer = any(version in pubspec for version in (
     "version: 0.41.14+153", "version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161"
 ))
@@ -133,7 +133,9 @@ for token in (
 assert durable.count("eventScopeId: job.id") == 2
 
 for token in (
-    "buildLabel = 'v0.41.23+162'"
+    "buildLabel = 'v0.41.24+163'"
+    if "version: 0.41.24+163" in pubspec
+    else "buildLabel = 'v0.41.23+162'"
     if "version: 0.41.23+162" in pubspec
     else "buildLabel = 'v0.41.22+161'"
     if "version: 0.41.22+161" in pubspec

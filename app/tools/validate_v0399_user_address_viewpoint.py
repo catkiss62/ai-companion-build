@@ -16,9 +16,10 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or "version: 0.41.23+162" in pubspec
+assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or any(version in pubspec for version in ("version: 0.41.23+162", "version: 0.41.24+163"))
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
-lifelike_ablation = "version: 0.41.23+162" in pubspec
+visible_inner_monologue = "version: 0.41.24+163" in pubspec
+lifelike_ablation = "version: 0.41.23+162" in pubspec or visible_inner_monologue
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 
@@ -91,9 +92,17 @@ lifelike_expected = {
     "08_visible_inner_voice": "b65a4804b86cd7eeb26bab74c7271653c61b20a15861858d38643701739e2f7c",
     "03_personality_seed": "bf24ed81b4f3b0ec68fab4d660f5aa59e116748754530b89db8e64c2dac71f17",
 }
+visible_inner_expected = {
+    **lifelike_expected,
+    "02_daily": "e025e551a4328bdf49e27aeb9c2ffef131587dfd02203b6aadd289662af6a6da",
+    "03_behavior": "4733c5551bda1f341d4838258d908e1825528a39c7ebd7539accc74edd49e4ec",
+    "08_visible_inner_voice": "b56a851710a02934a094e471c9856193472c2047be6ab84efb26be7d79cda7b6",
+}
 for key, digest in expected.items():
     actual = sha256(parsed[key].encode()).hexdigest()
-    if lifelike_ablation and key in lifelike_expected:
+    if visible_inner_monologue and key in visible_inner_expected:
+        assert actual == visible_inner_expected[key], key
+    elif lifelike_ablation and key in lifelike_expected:
         assert actual == lifelike_expected[key], key
     elif aggressive_dialogue and key in aggressive_expected:
         assert actual == aggressive_expected[key], key
@@ -153,6 +162,7 @@ for source in (prompt, personality, somatic, extractor):
 assert (
     "可见思考提及用户时也使用“你”、名字或昵称" in prompt
     or "提及用户时使用“你”、名字或已有昵称" in prompt
+    or "最终正文与可见思考提及现实恋人时使用“你”、名字或昵称" in prompt
 )
 assert '"text":"你刚才主动回来继续和我聊了"' in extractor
 

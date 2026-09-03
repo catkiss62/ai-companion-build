@@ -233,7 +233,8 @@ void main() {
     final reference = byKey['06_intimacy_reference']!.content;
 
     expect(daily, contains('严肃情绪、复杂分析、技术任务'));
-    expect(daily, contains('可见思考写“我此刻正在想什么”'));
+    expect(daily, contains('可见思考直接写第一人称的即时心声'));
+    expect(daily, contains('不先站到旁观位置复述“用户说了什么”'));
     expect(daily, contains('不把负面态度自动翻译成可爱'));
     expect(daily, contains('不必先切换状态'));
     expect(daily, contains('【直接反馈与认识边界】'));
@@ -247,6 +248,7 @@ void main() {
     expect(behavior, contains('不按“必须有刺”统一放行'));
     expect(behavior, contains('温柔只是可能出现的一种情绪'));
     expect(behavior, contains('选择、欲望与摩擦'));
+    expect(behavior, contains('没有“触发点—身体感—情绪—冲动—判断—行动”的规定顺序'));
     expect(core, contains('本层是连续性工具，不是许可开关'));
     expect(core, contains('空间状态账本'));
     expect(core, contains('最小变化方案'));
@@ -266,6 +268,13 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.length, 1);
     expect(legacyEditableRuleLayerSha256V04121AggressiveDialogue.length, 17);
     expect(legacyEditableRuleLayerSha256V04122LifelikeRevision.length, 5);
+    expect(legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.length, 3);
+    final visibleInner = byKey['08_visible_inner_voice']!.content;
+    expect(visibleInner, contains('reasoning_content 是正在发生的第一人称内心'));
+    expect(visibleInner, contains('不要先写“用户说了/用户想要/这是某种场景”'));
+    expect(visibleInner, contains('不列候选台词，不排练即将发送的正文'));
+    expect(visibleInner, contains('技术、事实与复杂任务仍可认真推演'));
+    expect(visibleInner, contains('不汇报 Desire、Thought、Intent、Gate'));
     final experiment = byKey['09_action_expression_experiment']!.content;
     expect(experiment, contains('零或一段短动作'));
     expect(experiment, contains('不强制每轮出现'));

@@ -42,7 +42,7 @@ assert "child: const Text('✅'" in page
 
 # The v0.38.12 follow-up intentionally restores a readable plot height after
 # real-device feedback showed the compact v0.38.11 strip was too short.
-if any(version in pubspec for version in ("version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161", "version: 0.41.23+162")):
+if any(version in pubspec for version in ("version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161", "version: 0.41.23+162", "version: 0.41.24+163")):
     assert "MoodChartLayout.build" in page
     assert "const chartHeight = 224.0" in page
 else:
@@ -56,7 +56,7 @@ assert "top: false" in scaffold
 assert "tabs: const [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page or (
     "tabs: [Tab(text: '鲸鱼运势'), Tab(text: '为他占卜')]" in page
 )
-if any(version in pubspec for version in ("version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161", "version: 0.41.23+162")):
+if any(version in pubspec for version in ("version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161", "version: 0.41.23+162", "version: 0.41.24+163")):
     assert "entry: widget.self" in page and "entry: widget.user" in page
 else:
     assert "TarotReading(entry: self, label: '鲸鱼运势')" in page

@@ -30,7 +30,7 @@ snapshot = read("app/lib/core/sync/snapshot_service.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
 for token in (
     "_createV44Tables",
@@ -87,7 +87,9 @@ for token in (
     assert token in learning + database, token
 assert "同一原子偏好或许可" in extractor
 
-if "version: 0.41.23+162" in pubspec:
+if any(version in pubspec for version in (
+    "version: 0.41.23+162", "version: 0.41.24+163"
+)):
     for token in (
         "当前动作神态消融实验已启用",
         "当前动作神态消融实验未启用或内容为空",

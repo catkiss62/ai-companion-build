@@ -30,7 +30,9 @@ assert "static const int schemaVersion = 35;" in database
 # v0.39.4 supersedes the duplicated v0.39.3 code-owned person reminder. The
 # complete subjectless format lives in editable Rule 02; internal Rule 08 only
 # delegates to it and keeps visible-thought/body perspective distinct.
-if "version: 0.41.23+162" in read("pubspec.yaml"):
+if any(version in read("pubspec.yaml") for version in (
+    "version: 0.41.23+162", "version: 0.41.24+163"
+)):
     for token in (
         "独立动作神态实验规则",
         "实验层清空或停用时只写对白",

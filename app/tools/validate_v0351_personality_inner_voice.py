@@ -50,14 +50,14 @@ for token in (
     "用户是成年男性，是你的男朋友",
     "_visibleInnerVoiceContract(",
     "【可见思考与最终表达】",
-    "不是工作记录",
+    "不是解释稿",
     "_innerResidueSection",
     "情绪余波（由已持久化的 Desire/Thought 状态得出",
     "不能补写事实原因",
-    "默认称自己为“我”",
+    "第一人称内心",
 ):
     assert token in prompt, token
-assert "内心可以比台词更乱" in prompt or "内心出现的混乱、欲望" in prompt
+assert "内心与正文不必逐句对应" in prompt
 for forbidden in ("我需要回应用户", "保持角色一致", "现在扮演"):
     assert forbidden not in prompt, forbidden
 assert prompt.index("_visibleInnerVoiceContract(") < prompt.index(

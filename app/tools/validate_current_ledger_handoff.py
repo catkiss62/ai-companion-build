@@ -104,13 +104,14 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04123-lifelike-ablation-dawn-gate",
+        "agent/v04124-visible-inner-monologue",
+        "0.41.24+163",
         "0.41.23+162",
         "schema 44",
         "33716309185",
         "bec312b40b75d98e65d1c965d5067255dd094d0aa1f7a80fed13a9988249fd22",
         "580bab1f0feaf82631c36d7044c38c3f500b242a",
-        "现有 schema 44 存档可直接覆盖升级",
+        "现有 schema 44 存档须可直接覆盖升级",
         "Phase 2A",
         "Phase 2B",
         "终态真值",
@@ -178,7 +179,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

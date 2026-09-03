@@ -2752,6 +2752,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V0418.entries,
       ...legacyEditableRuleLayerSha256V04121AggressiveDialogue.entries,
       ...legacyEditableRuleLayerSha256V04122LifelikeRevision.entries,
+      ...legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,

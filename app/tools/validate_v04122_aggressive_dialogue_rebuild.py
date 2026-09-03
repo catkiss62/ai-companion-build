@@ -31,7 +31,10 @@ tests = read("app/test/dialogue_expression_plan_test.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-if "version: 0.41.23+162" in pubspec:
+if any(version in pubspec for version in (
+    "version: 0.41.23+162",
+    "version: 0.41.24+163",
+)):
     assert "validate_v04122_aggressive_dialogue_rebuild.py" in workflow
     assert "v0.41.22" in ledger
     print("v0.41.22 historical dialogue contract superseded by v0.41.23")

@@ -39,8 +39,11 @@ assert hashlib.sha256(daily.encode("utf-8")).hexdigest() in {
     "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
     "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
     "a9178148ecf10bd017df69ee2a90ce83195a617964f25742c85ed0fb035f11f2",
+    "e025e551a4328bdf49e27aeb9c2ffef131587dfd02203b6aadd289662af6a6da",
 }
-if "version: 0.41.23+162" in pubspec:
+if any(version in pubspec for version in (
+    "version: 0.41.23+162", "version: 0.41.24+163"
+)):
     assert "独立动作神态实验规则" in daily
     assert "普通聊天与沉浸分流" in daily
 elif "version: 0.41.22+161" in pubspec:

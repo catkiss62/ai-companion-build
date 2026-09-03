@@ -26,7 +26,9 @@ overlay_formatter = read(
 )
 pubspec = read("pubspec.yaml")
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
-lifelike_ablation = "version: 0.41.23+162" in pubspec
+lifelike_ablation = any(version in pubspec for version in (
+    "version: 0.41.23+162", "version: 0.41.24+163"
+))
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 

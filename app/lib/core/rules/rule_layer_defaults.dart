@@ -251,6 +251,18 @@ const legacyEditableRuleLayerSha256V04122LifelikeRevision = <String, String>{
       'b8f7e4be43ae389609222ff3832af9e49e617d0ad129099df21464001693ffcd',
 };
 
+/// Exact v0.41.23 stock bodies whose visible-reasoning voice is refined in
+/// v0.41.24. Unknown/manual edits remain byte-for-byte untouched.
+const legacyEditableRuleLayerSha256V04123VisibleInnerMonologue =
+    <String, String>{
+  '02_daily':
+      'a9178148ecf10bd017df69ee2a90ce83195a617964f25742c85ed0fb035f11f2',
+  '03_behavior':
+      'f3d99a47ee1c2642bf5967f12da55bd71b905e5a8fdf837169ac616f187f4230',
+  '08_visible_inner_voice':
+      'b65a4804b86cd7eeb26bab74c7271653c61b20a15861858d38643701739e2f7c',
+};
+
 /// Exact editable defaults shipped by v0.39.8. v0.39.9 changes only the
 /// user-reference vocabulary and the contradictory immersive viewpoint cues.
 /// Byte-exact stock copies migrate; every user-edited body remains untouched.

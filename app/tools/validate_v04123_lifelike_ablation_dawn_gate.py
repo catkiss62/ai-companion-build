@@ -37,9 +37,19 @@ prompt_test = read("app/test/prompt_generation_reminder_test.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.23\+162\s*$", pubspec, re.MULTILINE)
+current_v04124 = bool(
+    re.search(r"^version:\s*0\.41\.24\+163\s*$", pubspec, re.MULTILINE)
+)
+assert current_v04124 or re.search(
+    r"^version:\s*(?:0\.41\.23\+162|0\.41\.24\+163)\s*$",
+    pubspec,
+    re.MULTILINE,
+)
 assert "static const int schemaVersion = 44;" in database
-assert "buildLabel = 'v0.41.23+162'" in self_reader
+assert (
+    "buildLabel = 'v0.41.24+163'" if current_v04124
+    else "buildLabel = 'v0.41.23+162'"
+) in self_reader
 
 for token in (
     "DialogueResponseMode.feedback",
@@ -145,22 +155,35 @@ for token in (
 ):
     assert token in rules_test, token
 
-for token in (
-    "Build AI Companion v0.41.23+162 APK (Lifelike Ablation Dawn Gate)",
-    "agent/v04123-lifelike-ablation-dawn-gate",
-    "AI-Companion-v0.41.23-162-Lifelike-Ablation-Dawn-Gate-APK",
-    "validate_v04123_lifelike_ablation_dawn_gate.py",
-    ".ci/v04123-monitor.txt",
-):
+workflow_tokens = (
+    (
+        "Build AI Companion v0.41.24+163 APK (Visible Inner Monologue)",
+        "agent/v04124-visible-inner-monologue",
+        "AI-Companion-v0.41.24-163-Visible-Inner-Monologue-APK",
+        "validate_v04124_visible_inner_monologue.py",
+        ".ci/v04124-monitor.txt",
+    )
+    if current_v04124
+    else (
+        "Build AI Companion v0.41.23+162 APK (Lifelike Ablation Dawn Gate)",
+        "agent/v04123-lifelike-ablation-dawn-gate",
+        "AI-Companion-v0.41.23-162-Lifelike-Ablation-Dawn-Gate-APK",
+        "validate_v04123_lifelike_ablation_dawn_gate.py",
+        ".ci/v04123-monitor.txt",
+    )
+)
+for token in workflow_tokens:
     assert token in workflow, token
 
-for token in (
+ledger_tokens = [
     "v0.41.23",
-    "不设“深夜至 9 点最多一条”硬上限",
     "活人感消融",
     "schema 44",
     "Phase 2B/3/4 继续关闭",
-):
+]
+if not current_v04124:
+    ledger_tokens.append("不设“深夜至 9 点最多一条”硬上限")
+for token in ledger_tokens:
     assert token in ledger, token
 
 print("v0.41.23 lifelike ablation and dawn Gate validation passed")
