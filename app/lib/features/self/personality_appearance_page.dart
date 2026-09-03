@@ -104,7 +104,7 @@ class _PersonalityAppearancePageState
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '这是与世界书分开的实验动态层，默认关闭。九轴状态关闭表达后仍可旁路观察，不改变记忆、事实、学习候选、工具或主动联系资格。',
+                  '这是与世界书分开的实验动态层，新版本默认开启并使用“明显”。九轴状态只给出当轮表达倾向；关闭后仍可旁路观察，不改变记忆、事实、学习候选、工具或主动联系资格。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),

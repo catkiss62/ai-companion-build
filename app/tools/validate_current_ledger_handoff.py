@@ -104,9 +104,9 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04129-proactive-rendering-rule-editor-emotion",
-        "0.41.29+168",
-        "v0.41.28",
+        "agent/v04130-presentation-ablation-upload-diagnostics",
+        "0.41.30+169",
+        "v0.41.29",
         "schema 45",
         "33784649835",
         "d9dbf7068eb803c11bbf31edcb0462f64534bbad8ee090bc52c0e1873e2650ba",
@@ -114,13 +114,14 @@ def main() -> None:
         "Phase 2A",
         "Phase 2B",
         "终态真值",
-        "空规则小节",
-        "情绪特效",
+        "空 legacy 小节",
+        "不为“正常”情绪添加声音",
         "联网图片同一不可变字节事务",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
     current_statuses = (
+        "IMPLEMENTATION IN PROGRESS",
         "IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
         "IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING",
         "IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING",
@@ -180,7 +181,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.29\+168\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.30\+169\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

@@ -34,8 +34,17 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert "version: 0.41.29+168" in pubspec
-assert "buildLabel = 'v0.41.29+168'" in self_reader
+assert any(
+    version in pubspec
+    for version in ("version: 0.41.29+168", "version: 0.41.30+169")
+)
+assert any(
+    version in self_reader
+    for version in (
+        "buildLabel = 'v0.41.29+168'",
+        "buildLabel = 'v0.41.30+169'",
+    )
+)
 assert "static const int schemaVersion = 45" in database
 
 for token in (
@@ -83,13 +92,13 @@ for token in (
 ):
     assert token in overlay, token
 
-for token in (
-    "Build AI Companion v0.41.29+168 APK (Proactive Rendering + Rule Editor + Emotion)",
-    "agent/v04129-proactive-rendering-rule-editor-emotion",
-    "AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-APK",
-    "validate_v04129_proactive_rendering_rule_editor_emotion.py",
-    ".ci/v04129-monitor.txt",
-):
-    assert token in workflow, token
+assert "validate_v04129_proactive_rendering_rule_editor_emotion.py" in workflow
+assert any(
+    branch in workflow
+    for branch in (
+        "agent/v04129-proactive-rendering-rule-editor-emotion",
+        "agent/v04130-presentation-ablation-upload-diagnostics",
+    )
+)
 
 print("v0.41.29 proactive/rendering/editor/emotion validation passed")

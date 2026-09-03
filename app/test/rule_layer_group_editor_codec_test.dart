@@ -71,4 +71,46 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('editor hides only known migrated placeholders that are empty', () {
+    final emptyPlaceholder = _layer('02_daily', '');
+    final userFilledPlaceholder = _layer('03_behavior', '用户恢复的正文');
+    final unrelatedEmpty = _layer('custom_rule', '');
+    final substantive = _layer('08_proactive_turn', '主动正文');
+    final group = RuleLayerGroup(
+      key: '02',
+      title: '日常',
+      description: '',
+      layers: [
+        emptyPlaceholder,
+        userFilledPlaceholder,
+        unrelatedEmpty,
+        substantive,
+      ],
+    );
+
+    final editable = editableRuleLayerGroup(group);
+    expect(editable.layers.map((item) => item.key), [
+      '03_behavior',
+      'custom_rule',
+      '08_proactive_turn',
+    ]);
+    expect(hiddenMigratedRuleLayerPlaceholderCount(group), 1);
+    expect(group.layers, hasLength(4));
+  });
+
+  test('full export composition retains hidden stable placeholder markers', () {
+    final group = RuleLayerGroup(
+      key: '01',
+      title: '身份',
+      description: '',
+      layers: [_layer('01_relationship', ''), _layer('01_core', '身份正文')],
+    );
+
+    final exported = composeEditableRuleLayerGroup(group);
+    final edited = composeEditableRuleLayerGroup(editableRuleLayerGroup(group));
+    expect(exported, contains('01_relationship'));
+    expect(edited, isNot(contains('01_relationship')));
+    expect(exported, contains('01_core'));
+  });
 }

@@ -34,4 +34,36 @@ void main() {
       isFalse,
     );
   });
+
+  test('durable answer waits for post-turn work before typewriter starts', () {
+    expect(
+      GenerationPresentationPolicy.typewriterPlaybackReady(
+        animateRequested: true,
+        generationActive: true,
+      ),
+      isFalse,
+    );
+    expect(
+      GenerationPresentationPolicy.typewriterPlaybackReady(
+        animateRequested: true,
+        generationActive: false,
+      ),
+      isTrue,
+    );
+  });
+
+  test('presentation cursor is not consumed before typewriter finishes', () {
+    expect(
+      GenerationPresentationPolicy.markPresentedOnDiscovery(
+        typewriterEnabled: true,
+      ),
+      isFalse,
+    );
+    expect(
+      GenerationPresentationPolicy.markPresentedOnDiscovery(
+        typewriterEnabled: false,
+      ),
+      isTrue,
+    );
+  });
 }

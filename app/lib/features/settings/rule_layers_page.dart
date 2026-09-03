@@ -56,7 +56,13 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
 
   Future<void> _editGroup(RuleLayerGroup group) async {
     final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => _PromptGroupEditorPage(group: group)),
+      MaterialPageRoute(
+        builder: (_) => _PromptGroupEditorPage(
+          group: editableRuleLayerGroup(group),
+          hiddenPlaceholderCount:
+              hiddenMigratedRuleLayerPlaceholderCount(group),
+        ),
+      ),
     );
     if (changed == true) await _load();
   }
@@ -308,7 +314,9 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     final modified = group.layers.any(
       (layer) => _defaults[layer.key] != layer.content,
     );
-    final preview = group.layers
+    final editorGroup = editableRuleLayerGroup(group);
+    final hiddenCount = hiddenMigratedRuleLayerPlaceholderCount(group);
+    final preview = editorGroup.layers
         .map((layer) => layer.content.replaceAll('\n', ' ').trim())
         .firstWhere((content) => content.isNotEmpty, orElse: () => '（暂无正文）');
     return Card(
@@ -325,7 +333,9 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
           ],
         ),
         subtitle: Text(
-          '${group.description}\n$preview',
+          '${group.description}\n'
+          '${hiddenCount > 0 ? '已隐藏 $hiddenCount 个迁移到世界书的空占位；底层 key 与导出仍保留。\n' : ''}'
+          '$preview',
           maxLines: 4,
           overflow: TextOverflow.ellipsis,
         ),
@@ -367,9 +377,13 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
 }
 
 class _PromptGroupEditorPage extends StatefulWidget {
-  const _PromptGroupEditorPage({required this.group});
+  const _PromptGroupEditorPage({
+    required this.group,
+    required this.hiddenPlaceholderCount,
+  });
 
   final RuleLayerGroup group;
+  final int hiddenPlaceholderCount;
 
   @override
   State<_PromptGroupEditorPage> createState() =>
@@ -442,11 +456,12 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   child: Text(
-                    '这是一个完整规则框。正文可以任意调整；请保留每个【小节开始】和【小节结束】标记，否则 App 无法把性格试穿等内容放回正确位置。',
+                    '这是一个完整规则框。正文可以任意调整；请保留每个【小节开始】和【小节结束】标记，否则 App 无法把内容放回正确位置。'
+                    '${widget.hiddenPlaceholderCount > 0 ? '\n\n${widget.hiddenPlaceholderCount} 个已迁移到世界书且正文为空的旧占位已从编辑区隐藏；保存不会删除、重排或改写这些底层 key。' : ''}',
                   ),
                 ),
               ),

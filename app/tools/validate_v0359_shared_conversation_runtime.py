@@ -37,6 +37,7 @@ if any(
         "version: 0.41.27+166",
         "version: 0.41.28+167",
         "version: 0.41.29+168",
+        "version: 0.41.30+169",
     )
 ):
     # Automatic failures now preserve the durable user turn. The legacy

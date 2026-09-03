@@ -24,6 +24,35 @@ class _RuleLayerGroupSpec {
   final String description;
 }
 
+/// Stable rows whose prompt bodies were deliberately migrated into World Book
+/// documents. They remain in SQLite and exports for backup compatibility, but
+/// an empty row no longer needs to occupy space in the seven-rule editor.
+const migratedEmptyRuleLayerPlaceholderKeys = <String>{
+  '01_relationship',
+  '02_daily',
+  '03_behavior',
+  '03_personality_seed',
+  '09_action_expression_experiment',
+};
+
+bool isHiddenMigratedRuleLayerPlaceholder(RuleLayer layer) =>
+    migratedEmptyRuleLayerPlaceholderKeys.contains(layer.key) &&
+    layer.content.trim().isEmpty;
+
+RuleLayerGroup editableRuleLayerGroup(RuleLayerGroup group) => RuleLayerGroup(
+      key: group.key,
+      title: group.title,
+      description: group.description,
+      layers: List<RuleLayer>.unmodifiable(
+        group.layers.where(
+          (layer) => !isHiddenMigratedRuleLayerPlaceholder(layer),
+        ),
+      ),
+    );
+
+int hiddenMigratedRuleLayerPlaceholderCount(RuleLayerGroup group) =>
+    group.layers.where(isHiddenMigratedRuleLayerPlaceholder).length;
+
 const _groupSpecs = <String, _RuleLayerGroupSpec>{
   '01': _RuleLayerGroupSpec(
     '01',
