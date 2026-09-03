@@ -1,0 +1,7 @@
+status=success
+run_id=33805050824
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33805050824
+head_sha=e55dcddd9fe1be4bdbd2c0e53bc0e78a1b60e03e
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+d59964809ee75d3546b2d4f113dbc404a05554372abbf5fbdad5131085591a89  AI-Companion-v0.41.31-170-Phase2A5-Verifier-ANR-Diagnostics-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c83b183730eb6cad4c23
