@@ -76,27 +76,27 @@ void main() {
     expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
   });
 
-  test('immersive prose only uses paragraph-leading corner quotes for dialogue', () {
+  test('immersive prose uses paragraph-leading curly quotes for dialogue', () {
     const source =
         '叙述。\n\n“你回来了。”\n\n她想起你说的“兄弟”。\n\n「普通聊天格式」';
     final segments = splitNovelDialogueText(source);
     expect(segments.map((item) => item.text).join(), source);
     expect(
       segments.where((item) => item.isDialogue).map((item) => item.text),
-      ['「普通聊天格式」'],
+      ['“你回来了。”\n'],
     );
   });
 
   test('immersive prose keeps quoted terms inside one dialogue paragraph', () {
-    const source = '「正被你那句“在干嘛呢”拽回来呢。」';
+    const source = '“正被你那句「在干嘛呢」拽回来呢。”';
     final segments = splitNovelDialogueText(source);
     expect(segments, hasLength(1));
     expect(segments.single.text, source);
     expect(segments.single.isDialogue, isTrue);
   });
 
-  test('immersive corner quote remains tinted while streaming', () {
-    const source = '「还没说完';
+  test('immersive curly quote remains tinted while streaming', () {
+    const source = '“还没说完';
     final segments = splitNovelDialogueText(source);
     expect(segments, hasLength(1));
     expect(segments.single.text, source);

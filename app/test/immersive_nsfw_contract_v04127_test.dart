@@ -129,8 +129,7 @@ void main() {
   });
 
   test('immersive paragraphs and humor identity boundary are explicit', () {
-    expect(immersiveRuleGlobal, contains('中文直角引号「」'));
-    expect(immersiveRuleGlobal, contains('中文弯引号“”只是引用内容'));
+    expect(immersiveRuleGlobal, contains('中文弯引号“”'));
     expect(immersiveRuleGlobal, contains('引号只是叙述的一部分'));
     expect(immersiveRuleGlobal, contains('每段对白独占一个自然段'));
     expect(worldBookOptimizedHumorV04128, contains('一轮最多一个主要笑点'));
