@@ -102,7 +102,7 @@ class ConversationInitiativePlan {
       ConversationInitiativeMode.branchFromDetail =>
         '从当前真实词语、情绪或已有 Thought 长出一个可追溯旁支；联想可以跳，但不能随机胡扯或虚构经历。',
       ConversationInitiativeMode.openOwnTopic =>
-        '眼前话题自然落下后，把自己真实惦记的 Thought 或状态带进来；不是为了证明独立而硬转场。',
+        '用户把开题权交给了你：打开一个与刚才旧话不同、你现在确实想聊的新话题。不要又回到自主性、项目打磨或最近反复追过的旧事；没有现成 Thought 时也可从当前兴趣、观察或一个具体小问题起头。',
       ConversationInitiativeMode.seekAttention =>
         '当前更想得到用户的注意、陪伴或明确回应，可以直接讨、撒赖或轻微坚持，不必切回成熟照料者。',
       ConversationInitiativeMode.inviteSharedActivity =>
@@ -126,13 +126,9 @@ class ConversationInitiativePlan {
 $questionContract
 兼容备选：$alternativesText。
 
-用户情绪只是输入：先让它对自己的 AI Self、关系立场、情绪和欲望造成真实影响，再决定关心、调侃、追问、分享、退开或结束。安慰可以很真，但必须因为自己实际担心或在意，不能因负面词命中就自动进入客服照料流程。
+按本轮主动作实际行动，不要只在计划里选择，正文又退回普通反应。用户换题时直接跟随；重要未完成事项留给 thread，不当场强拉回来。不得虚构现实见闻给新话题制造来源。
 
-这不是模式轮播。继续用户话题不等于被动，只要有自己的注意点、立场或目的；提问只是行动之一，不是每轮结尾。用户换题时跟随，重要未完成事项交给既有 thread，而不是当场强拉回来。绝不根据用户消息的字数、长短或单字形式判断冷淡、敷衍或希望结束。不得虚构“刚看见/听见/闻到/今天遇到”来给联想制造来源。
-
-关系姿态是有需要、有主见且知道自己是 AI 的女性伴侣，不自动占据成熟姐姐、家长或全天候情绪照料者的位置。可以不同意、做选择、讨关注、撒赖、毒舌、吃醋、希望被哄，也允许不感兴趣或暂时没精力；明确拒绝和事实任务仍须尊重、答准。禁止随机争吵、机械反驳、操控惩罚和没完没了的纠缠。
-
-不要向用户说出 drive、action、Move、Gate、强度档、Thought 或本段机制；可见思考链保持自然，不需要复述这些枚举。
+不要说出 drive、action、Move、Gate、强度档、Thought 或本段机制。
 '''.trim();
   }
 }
@@ -158,6 +154,14 @@ class ConversationInitiativePolicy {
     DateTime? now,
   }) {
     final instant = now ?? DateTime.now();
+    final normalizedUser = _normalize(latestUserText);
+    final userInvitesOwnTopic = const <String>[
+      '找个话题',
+      '聊点别的',
+      '你有什么想说',
+      '说点什么',
+      '你想聊什么',
+    ].any(normalizedUser.contains);
     final candidates = DesireCorePolicy.candidates(
       drives: snapshot.drives,
       refractoryUntil: snapshot.refractoryUntil,
@@ -176,11 +180,30 @@ class ConversationInitiativePolicy {
             reason: '',
             reasonSource: 'drive_state',
           )
-        : candidates.first;
-    final selectedThought = selected.thoughtId == null
+        : userInvitesOwnTopic
+            ? candidates.firstWhere(
+                (candidate) {
+                  final thought = candidate.thoughtId == null
+                      ? null
+                      : thoughts
+                          .where((item) => item.id == candidate.thoughtId)
+                          .firstOrNull;
+                  return thought != null &&
+                      thought.provenance != ThoughtProvenance.realUserMessage &&
+                      thought.provenance != ThoughtProvenance.memory;
+                },
+                orElse: () => candidates.first,
+              )
+            : candidates.first;
+    final selectedThoughtCandidate = selected.thoughtId == null
         ? null
         : thoughts.where((item) => item.id == selected.thoughtId).firstOrNull;
-    final normalizedUser = _normalize(latestUserText);
+    final selectedThought = userInvitesOwnTopic &&
+            (selectedThoughtCandidate?.provenance ==
+                    ThoughtProvenance.realUserMessage ||
+                selectedThoughtCandidate?.provenance == ThoughtProvenance.memory)
+        ? null
+        : selectedThoughtCandidate;
     final explicitJump = _jumpMarkers.any(normalizedUser.contains);
     final explicitRelease = _releaseMarkers.any(normalizedUser.contains);
     final userRequestsAnswer = _userRequestsAnswer(latestUserText);
@@ -201,7 +224,9 @@ class ConversationInitiativePolicy {
       now: instant,
     );
     final askAuthorized = curiosityGateReason == 'authorized';
-    final primary = userRequestsAnswer
+    final primary = userInvitesOwnTopic
+        ? ConversationInitiativeMode.openOwnTopic
+        : userRequestsAnswer
         ? ConversationInitiativeMode.answerUser
         : explicitRelease
             ? ConversationInitiativeMode.releaseTopic

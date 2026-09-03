@@ -143,6 +143,27 @@ class OperationalClaimGroundingGuard {
     return const OperationalClaimGroundingResult(allowed: true);
   }
 
+  /// Drops only sentences that make an unsupported externally-verifiable
+  /// claim. It is deliberately a last-resort salvage path: a style mistake,
+  /// pronoun slip or unwanted question must never erase an otherwise valid
+  /// turn.
+  static String removeUnsupportedSentences({
+    required String text,
+    Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
+    bool publicWebOutcomeAvailable = false,
+  }) {
+    return _sentences(text)
+        .where(
+          (sentence) => evaluate(
+            text: sentence,
+            currentToolResults: currentToolResults,
+            publicWebOutcomeAvailable: publicWebOutcomeAvailable,
+          ).allowed,
+        )
+        .join('\n')
+        .trim();
+  }
+
   static List<String> _sentences(String value) => value
       .replaceAll(RegExp(r'<emotion>.*?</emotion>', caseSensitive: false), ' ')
       .split(RegExp(r'(?<=[。！？!?；;，,\n])'))

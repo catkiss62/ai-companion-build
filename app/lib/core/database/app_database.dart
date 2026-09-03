@@ -25,6 +25,7 @@ import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
 import '../memory/memory_retrieval_policy.dart';
 import '../phone/album_perceptual_hash.dart';
+import '../reference/world_book_presets.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
 import '../models/personality_learning.dart';
@@ -43,6 +44,7 @@ import '../rules/rule_layer_content_immersive.dart';
 import '../rules/rule_layer_content_v0353.dart';
 import '../rules/rule_layer_content_v0417.dart';
 import '../rules/rule_layer_content_v0418.dart';
+import '../rules/rule_layer_content_v04125.dart';
 import '../rules/rule_layer_defaults.dart';
 import '../relationship/relationship_age.dart';
 import '../personality/personality_catalog.dart';
@@ -90,7 +92,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 40;
   // Historical validator compatibility token: static const int schemaVersion = 41;
   // Historical validator compatibility token: static const int schemaVersion = 42;
-  static const int schemaVersion = 44;
+  // Historical validator compatibility token: static const int schemaVersion = 44;
+  static const int schemaVersion = 45;
 
   Database? _db;
   Future<Database>? _opening;
@@ -806,8 +809,8 @@ class AppDatabase {
         );
       }
       for (final entry in const <String, String>{
-        'personality_base_key': 'neutral',
-        'personality_posture_key': 'equal',
+        'personality_base_key': 'none',
+        'personality_posture_key': 'none',
         'tts_reading_scope': 'dialogue_only',
         'chat_visual_stage_enabled': '1',
         'chat_background_mode': 'auto',
@@ -1071,6 +1074,9 @@ class AppDatabase {
       );
       await _seedRuleLayers(db);
     }
+    if (oldVersion < 45) {
+      await _createV45WorldBookColumns(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1243,6 +1249,7 @@ class AppDatabase {
     await _createV42Tables(db);
     await _createV43Tables(db);
     await _createV44Tables(db);
+    await _createV45WorldBookColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1309,8 +1316,8 @@ class AppDatabase {
     await db.insert('settings', {'key': 'emotion_sound_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'emotion_sound_volume', 'value': '0.15'});
     await db.insert('settings', {'key': 'show_emotion_label', 'value': '1'});
-    await db.insert('settings', {'key': 'personality_base_key', 'value': 'neutral'});
-    await db.insert('settings', {'key': 'personality_posture_key', 'value': 'equal'});
+    await db.insert('settings', {'key': 'personality_base_key', 'value': 'none'});
+    await db.insert('settings', {'key': 'personality_posture_key', 'value': 'none'});
     await db.insert('settings', {'key': 'relationship_continuity_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'session_tracking_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'memory_fading_enabled', 'value': '1'});
@@ -1502,6 +1509,40 @@ class AppDatabase {
         updated_at INTEGER NOT NULL
       )
     ''');
+  }
+
+  Future<void> _createV45WorldBookColumns(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(reference_documents)');
+    final names = columns.map((row) => row['name'] as String).toSet();
+    Future<void> add(String name, String definition) async {
+      if (!names.contains(name)) {
+        await db.execute(
+          'ALTER TABLE reference_documents ADD COLUMN $definition',
+        );
+      }
+    }
+
+    await add('entry_type', "entry_type TEXT NOT NULL DEFAULT 'knowledge'");
+    await add(
+      'activation_mode',
+      "activation_mode TEXT NOT NULL DEFAULT 'keyword'",
+    );
+    await add('priority', 'priority INTEGER NOT NULL DEFAULT 500');
+    await add(
+      'activation_probability',
+      'activation_probability INTEGER NOT NULL DEFAULT 100',
+    );
+    await add('scope', "scope TEXT NOT NULL DEFAULT 'all'");
+    await add('manual_active', 'manual_active INTEGER NOT NULL DEFAULT 0');
+    await add(
+      'exclusive_group',
+      "exclusive_group TEXT NOT NULL DEFAULT ''",
+    );
+    await add('builtin', 'builtin INTEGER NOT NULL DEFAULT 0');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_worldbook_behavior_active '
+      'ON reference_documents(entry_type, enabled, manual_active, priority DESC)',
+    );
   }
 
   Future<void> _createV8Tables(Database db) async {
@@ -2713,6 +2754,38 @@ class AppDatabase {
       // application-overwritten. Manual edits survive every seed pass; a
       // user can explicitly restore the current bundled default from the UI.
     }
+    final migrationRows = await db.query(
+      'settings',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: const ['minimal_rule_architecture_v04125_applied'],
+      limit: 1,
+    );
+    if (migrationRows.isEmpty || migrationRows.first['value'] != '1') {
+      // v0.41.25 is an intentional architecture reset requested after an A/B
+      // test: identity stays thin; v0.41.26 subsequently moves optional
+      // personality and expression behavior into explicit world-book modules.
+      // Intimacy rules 04/05/06 and all special-style templates are untouched.
+      for (final entry in ruleContentsV04125.entries) {
+        await db.update(
+          'rule_layers',
+          {'content': entry.value, 'updated_at': now},
+          where: 'key = ?',
+          whereArgs: [entry.key],
+        );
+      }
+      await db.update(
+        'rule_layers',
+        {'content': ruleContentV04125_09_action, 'updated_at': now},
+        where: 'key = ?',
+        whereArgs: const ['09_action_expression_experiment'],
+      );
+      await db.insert(
+        'settings',
+        {'key': 'minimal_rule_architecture_v04125_applied', 'value': '1'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
     final currentPersonality = defaultRuleLayers
         .firstWhere((layer) => layer.key == '03_personality_seed');
     await db.update(
@@ -2753,6 +2826,8 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04121AggressiveDialogue.entries,
       ...legacyEditableRuleLayerSha256V04122LifelikeRevision.entries,
       ...legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.entries,
+      ...legacyEditableRuleLayerSha256V04126ReviewedNsfw.entries,
+      ...legacyEditableRuleLayerSha256V04126VisibleInnerVoice.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -2854,20 +2929,138 @@ class AppDatabase {
   }
 
   Future<void> _migrateUntouchedImmersiveRoomNovelRules(Database db) async {
-    await db.update(
-      'immersive_rooms',
-      {
-        'novel_rules': immersiveDefaultRoomNovelRules,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'novel_rules = ?',
-      whereArgs: const [legacyImmersiveDefaultRoomNovelRulesV0397],
-    );
+    for (final legacy in const <String>[
+      legacyImmersiveDefaultRoomNovelRulesV0397,
+      legacyImmersiveDefaultRoomNovelRulesV04126,
+    ]) {
+      await db.update(
+        'immersive_rooms',
+        {
+          'novel_rules': immersiveDefaultRoomNovelRules,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'novel_rules = ?',
+        whereArgs: [legacy],
+      );
+    }
+  }
+
+  Future<void> _seedWorldBookPresets(Database db) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    Future<void> insert({
+      required String id,
+      required String name,
+      required String content,
+      List<String> aliases = const <String>[],
+      int priority = 500,
+      int probability = 100,
+      bool manualActive = false,
+      String activationMode = 'manual',
+      String exclusiveGroup = '',
+      String scope = 'all',
+    }) async {
+      if (content.trim().isEmpty) return;
+      await db.insert(
+        'reference_documents',
+        {
+          'id': id,
+          'name': name,
+          'kind': 'behavior',
+          'aliases': aliases.join('|'),
+          'raw_content': content.trim(),
+          'enabled': 1,
+          'entry_type': 'behavior',
+          'activation_mode': activationMode,
+          'priority': priority.clamp(0, 1000),
+          'activation_probability': probability.clamp(0, 100),
+          'scope': scope,
+          'manual_active': manualActive ? 1 : 0,
+          'exclusive_group': exclusiveGroup,
+          'builtin': 1,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+
+    for (final preset in worldBookSystemPresets) {
+      await insert(
+        id: preset.id,
+        name: preset.name,
+        content: preset.content,
+        aliases: preset.aliases,
+        priority: preset.priority,
+        probability: preset.probability,
+        manualActive: preset.manualActive,
+        activationMode: preset.activationMode,
+        exclusiveGroup: preset.exclusiveGroup,
+        scope: preset.scope,
+      );
+    }
+
+    final templates = await _promptTemplateContents(db);
+    for (final option in PersonalityCatalog.bases) {
+      final content = PersonalityCatalog.compileProfile(
+        option.key,
+        PersonalityCatalog.noneKey,
+        trial: true,
+        templates: templates,
+      )
+          .replaceFirst(RegExp(r'^# 当前试穿：[^\n]*\n'), '')
+          .replaceAll('只按上述因果自然反应', '按上述因果自然反应');
+      await insert(
+        id: 'builtin.worldbook.personality.${option.key}',
+        name: '性格 · ${option.label}',
+        content: content,
+        aliases: [option.label, option.key],
+        priority: 540,
+        exclusiveGroup: 'personality_base',
+      );
+    }
+    for (final option in PersonalityCatalog.postures) {
+      final content = PersonalityCatalog.compileProfile(
+        PersonalityCatalog.noneKey,
+        option.key,
+        trial: true,
+        templates: templates,
+      )
+          .replaceFirst(RegExp(r'^# 当前试穿：[^\n]*\n'), '')
+          .replaceAll('只按上述因果自然反应', '按上述因果自然反应');
+      await insert(
+        id: 'builtin.worldbook.posture.${option.key}',
+        name: '相处 · ${option.label}',
+        content: content,
+        aliases: [option.label, option.key],
+        priority: 530,
+        exclusiveGroup: 'relationship_posture',
+      );
+    }
+    for (final option in PersonalityCatalog.specialStyles) {
+      final content = PersonalityCatalog.compileSpecial(
+        option.key,
+        intimacyActive: false,
+        templates: templates,
+      )
+          .replaceFirst('# 当前特殊表达：${option.label}\n', '')
+          .replaceAll('临时特殊风格试穿', '当前启用的特殊风格模块')
+          .replaceAll('试穿中的', '模块中的')
+          .replaceAll('试穿期间', '模块启用期间');
+      await insert(
+        id: 'builtin.worldbook.special.${option.key}',
+        name: '特殊 · ${option.label}',
+        content: content,
+        aliases: [option.label, option.key],
+        priority: 620,
+        exclusiveGroup: 'special_style',
+      );
+    }
   }
 
   Future<void> ensureReady() async {
     final db = await database;
     await _migrateUntouchedImmersiveRoomNovelRules(db);
+    await _seedWorldBookPresets(db);
     await db.delete(
       'settings',
       where: 'key IN (?, ?)',
@@ -2879,8 +3072,8 @@ class AppDatabase {
       'nsfw_manual_override': '',
       'nsfw_route_source': 'initial',
       'nsfw_route_turn_id': '',
-      'personality_base_key': 'neutral',
-      'personality_posture_key': 'equal',
+      'personality_base_key': 'none',
+      'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
       'tts_reading_scope': 'dialogue_only',
       'chat_visual_stage_enabled': '1',
@@ -2899,6 +3092,74 @@ class AppDatabase {
         {'key': entry.key, 'value': entry.value},
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+    }
+    final minimalPersonaMigration =
+        await getSetting('minimal_persona_default_v04125_applied');
+    if (minimalPersonaMigration != '1') {
+      await setSetting('personality_base_key', 'none');
+      await setSetting('personality_posture_key', 'none');
+      // Dynamic Moe is another personality prompt layer. Keep its state and
+      // UI intact, but default this minimal-persona build to no injection.
+      await setSetting('moe_expression_enabled', '0');
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.update(
+        'personality_trials',
+        {'status': 'ended', 'ended_at': now, 'updated_at': now},
+        where: "status = 'active' AND base_key = ? AND posture_key = ?",
+        whereArgs: const ['neutral', 'equal'],
+      );
+      await db.update(
+        'personality_profile_versions',
+        {'active': 0, 'retired_at': now},
+        where: 'active = 1',
+      );
+      await setSetting('minimal_persona_default_v04125_applied', '1');
+    }
+    final worldBookMigration =
+        await getSetting('worldbook_runtime_v04126_applied');
+    if (worldBookMigration != '1') {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.update(
+        'personality_trials',
+        {'status': 'ended', 'ended_at': now, 'updated_at': now},
+        where: "status = 'active'",
+      );
+      await db.update(
+        'special_style_trials',
+        {'status': 'ended', 'ended_at': now, 'updated_at': now},
+        where: "status = 'active'",
+      );
+      await db.update(
+        'rule_layers',
+        {'content': '', 'updated_at': now},
+        where: 'key IN (?, ?, ?, ?)',
+        whereArgs: const [
+          '02_daily',
+          '03_behavior',
+          '03_personality_seed',
+          '09_action_expression_experiment',
+        ],
+      );
+      await setSetting('personality_base_key', 'none');
+      await setSetting('personality_posture_key', 'none');
+      await setSetting('moe_expression_enabled', '0');
+      await setSetting('worldbook_runtime_v04126_applied', '1');
+    }
+    final dailyWorldBookBundleMigration =
+        await getSetting('worldbook_daily_bundle_v04127_applied');
+    if (dailyWorldBookBundleMigration != '1') {
+      await db.delete(
+        'reference_documents',
+        where: 'builtin = 1 AND id IN (?, ?, ?, ?, ?)',
+        whereArgs: const [
+          'builtin.worldbook.action_expression',
+          'builtin.worldbook.anti_template',
+          'builtin.worldbook.no_mind_reading',
+          'builtin.worldbook.crisp_colloquial',
+          'builtin.worldbook.humor_experiment',
+        ],
+      );
+      await setSetting('worldbook_daily_bundle_v04127_applied', '1');
     }
     final emotionVolumeMigration =
         await getSetting('emotion_sound_volume_default_v0381_applied');
@@ -3084,7 +3345,14 @@ class AppDatabase {
       'companion_album_candidates',
     ];
     for (final table in tables) {
-      final rows = await db.rawQuery('SELECT 1 FROM $table LIMIT 1');
+      // Built-in world-book presets are application defaults, not user state.
+      // They are seeded on first startup and must not make a fresh standby
+      // device look non-pristine before lineage adoption.
+      final rows = table == 'reference_documents'
+          ? await db.rawQuery(
+              'SELECT 1 FROM reference_documents WHERE builtin = 0 LIMIT 1',
+            )
+          : await db.rawQuery('SELECT 1 FROM $table LIMIT 1');
       if (rows.isNotEmpty) return false;
     }
     return true;
@@ -11342,6 +11610,14 @@ class AppDatabase {
     required String rawContent,
     List<String> aliases = const [],
     bool enabled = true,
+    String entryType = 'knowledge',
+    String activationMode = 'keyword',
+    int priority = 500,
+    int activationProbability = 100,
+    String scope = 'all',
+    bool manualActive = false,
+    String exclusiveGroup = '',
+    bool builtin = false,
   }) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -11361,6 +11637,14 @@ class AppDatabase {
           'aliases': normalizedAliases,
           'raw_content': rawContent.trim(),
           'enabled': enabled ? 1 : 0,
+          'entry_type': entryType,
+          'activation_mode': activationMode,
+          'priority': priority.clamp(0, 1000),
+          'activation_probability': activationProbability.clamp(0, 100),
+          'scope': scope,
+          'manual_active': manualActive ? 1 : 0,
+          'exclusive_group': exclusiveGroup,
+          'builtin': builtin ? 1 : 0,
           'updated_at': now,
         },
         where: 'id = ?',
@@ -11377,6 +11661,14 @@ class AppDatabase {
       'aliases': normalizedAliases,
       'raw_content': rawContent.trim(),
       'enabled': enabled ? 1 : 0,
+      'entry_type': entryType,
+      'activation_mode': activationMode,
+      'priority': priority.clamp(0, 1000),
+      'activation_probability': activationProbability.clamp(0, 100),
+      'scope': scope,
+      'manual_active': manualActive ? 1 : 0,
+      'exclusive_group': exclusiveGroup,
+      'builtin': builtin ? 1 : 0,
       'created_at': now,
       'updated_at': now,
     });
@@ -11390,6 +11682,14 @@ class AppDatabase {
     required String rawContent,
     List<String> aliases = const [],
     bool enabled = true,
+    String entryType = 'knowledge',
+    String activationMode = 'keyword',
+    int priority = 500,
+    int activationProbability = 100,
+    String scope = 'all',
+    bool manualActive = false,
+    String exclusiveGroup = '',
+    bool builtin = false,
     required List<Map<String, Object?>> chunks,
   }) async {
     final db = await database;
@@ -11413,6 +11713,14 @@ class AppDatabase {
             'aliases': normalizedAliases,
             'raw_content': rawContent.trim(),
             'enabled': enabled ? 1 : 0,
+            'entry_type': entryType,
+            'activation_mode': activationMode,
+            'priority': priority.clamp(0, 1000),
+            'activation_probability': activationProbability.clamp(0, 100),
+            'scope': scope,
+            'manual_active': manualActive ? 1 : 0,
+            'exclusive_group': exclusiveGroup,
+            'builtin': builtin ? 1 : 0,
             'updated_at': now,
           },
           where: 'id = ?',
@@ -11427,6 +11735,14 @@ class AppDatabase {
           'aliases': normalizedAliases,
           'raw_content': rawContent.trim(),
           'enabled': enabled ? 1 : 0,
+          'entry_type': entryType,
+          'activation_mode': activationMode,
+          'priority': priority.clamp(0, 1000),
+          'activation_probability': activationProbability.clamp(0, 100),
+          'scope': scope,
+          'manual_active': manualActive ? 1 : 0,
+          'exclusive_group': exclusiveGroup,
+          'builtin': builtin ? 1 : 0,
           'created_at': now,
           'updated_at': now,
         });
@@ -11437,7 +11753,9 @@ class AppDatabase {
         where: 'document_id = ?',
         whereArgs: [documentId],
       );
-      for (final chunk in chunks) {
+      for (final chunk in entryType == 'knowledge'
+          ? chunks
+          : const <Map<String, Object?>>[]) {
         final content = (chunk['content'] as String? ?? '').trim();
         if (content.isEmpty) continue;
         await txn.insert('reference_items', {
@@ -11471,8 +11789,28 @@ class AppDatabase {
 
   Future<List<ReferenceDocument>> listReferenceDocuments({int limit = 100}) async {
     final db = await database;
-    final rows = await db.query('reference_documents', orderBy: 'enabled DESC, updated_at DESC', limit: limit);
+    final rows = await db.query(
+      'reference_documents',
+      orderBy: 'entry_type DESC, enabled DESC, priority DESC, updated_at DESC',
+      limit: limit,
+    );
     return rows.map(ReferenceDocument.fromDb).toList();
+  }
+
+  Future<List<ReferenceDocument>> worldBookBehaviorDocuments({
+    bool manualOnly = false,
+    int limit = 100,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'reference_documents',
+      where: manualOnly
+          ? "entry_type = 'behavior' AND activation_mode = 'manual'"
+          : "entry_type = 'behavior'",
+      orderBy: 'priority DESC, updated_at DESC',
+      limit: limit,
+    );
+    return rows.map(ReferenceDocument.fromDb).toList(growable: false);
   }
 
   Future<List<ReferenceItem>> referenceItemsForDocument(String documentId) async {
@@ -11539,6 +11877,40 @@ class AppDatabase {
         'reference_items',
         {'enabled': enabled ? 1 : 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
         where: 'document_id = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
+  Future<void> setWorldBookManualActive(String id, bool active) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'reference_documents',
+        columns: const ['entry_type', 'activation_mode', 'exclusive_group'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty || rows.first['entry_type'] != 'behavior') return;
+      final group = rows.first['exclusive_group'] as String? ?? '';
+      if (active && group.isNotEmpty) {
+        await txn.update(
+          'reference_documents',
+          {'manual_active': 0, 'updated_at': now},
+          where: "entry_type = 'behavior' AND exclusive_group = ? AND id <> ?",
+          whereArgs: [group, id],
+        );
+      }
+      await txn.update(
+        'reference_documents',
+        {
+          'manual_active': active ? 1 : 0,
+          'enabled': 1,
+          'updated_at': now,
+        },
+        where: 'id = ?',
         whereArgs: [id],
       );
     });
@@ -11673,12 +12045,12 @@ class AppDatabase {
       final currentBase = await _settingFrom(
         txn,
         'personality_base_key',
-        fallback: 'neutral',
+        fallback: 'none',
       );
       final currentPosture = await _settingFrom(
         txn,
         'personality_posture_key',
-        fallback: 'equal',
+        fallback: 'none',
       );
       final previous = PersonalityCatalog.compileProfile(
         currentBase,
@@ -11799,12 +12171,12 @@ class AppDatabase {
       final previousBase = await _settingFrom(
         txn,
         'personality_base_key',
-        fallback: 'neutral',
+        fallback: 'none',
       );
       final previousPosture = await _settingFrom(
         txn,
         'personality_posture_key',
-        fallback: 'equal',
+        fallback: 'none',
       );
       final previous = PersonalityCatalog.compileProfile(
         previousBase,
@@ -11868,8 +12240,8 @@ class AppDatabase {
 
   Future<({String baseKey, String postureKey})> longTermPersonality() async {
     return (
-      baseKey: await getSetting('personality_base_key') ?? 'neutral',
-      postureKey: await getSetting('personality_posture_key') ?? 'equal',
+      baseKey: await getSetting('personality_base_key') ?? 'none',
+      postureKey: await getSetting('personality_posture_key') ?? 'none',
     );
   }
 
@@ -11884,12 +12256,12 @@ class AppDatabase {
       );
       await txn.insert(
         'settings',
-        {'key': 'personality_base_key', 'value': 'neutral'},
+        {'key': 'personality_base_key', 'value': 'none'},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
       await txn.insert(
         'settings',
-        {'key': 'personality_posture_key', 'value': 'equal'},
+        {'key': 'personality_posture_key', 'value': 'none'},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
       await txn.update(
@@ -11897,20 +12269,6 @@ class AppDatabase {
         {'active': 0, 'retired_at': now},
         where: 'active = 1',
       );
-      await txn.insert('personality_profile_versions', {
-        'id': _uuid.v4(),
-        'base_key': 'neutral',
-        'posture_key': 'equal',
-        'content': PersonalityCatalog.compileProfile(
-          'neutral',
-          'equal',
-          trial: false,
-        ),
-        'source': 'restore_natural',
-        'active': 1,
-        'created_at': now,
-        'activated_at': now,
-      });
     });
   }
 
@@ -11986,11 +12344,11 @@ class AppDatabase {
   Future<Map<String, Object?>> personalityTrialDiagnostics() async {
     final profile = await activePersonalityTrial();
     final special = await activeSpecialStyleTrial();
-    final longTermBase = await getSetting('personality_base_key') ?? 'neutral';
+    final longTermBase = await getSetting('personality_base_key') ?? 'none';
     final effectiveBase = PersonalityCatalog.base(
       profile?.baseKey ?? longTermBase,
     ).key;
-    final templateRows = effectiveBase == 'neutral'
+    final templateRows = effectiveBase == 'none'
         ? const <Map<String, Object?>>[]
         : await (await database).query(
             'rule_layers',
@@ -12011,7 +12369,7 @@ class AppDatabase {
       'effectiveBaseKey': effectiveBase,
       'effectiveBaseFromTrial': profile != null,
       'effectiveBaseTemplatePresent':
-          effectiveBase == 'neutral' || templateRows.isNotEmpty,
+          effectiveBase == 'none' || templateRows.isNotEmpty,
       'effectiveBaseExecutionAnchorPresent': anchorPresent,
       'profileEffectiveTurns': profile?.effectiveTurns ?? 0,
       'profileInteractionWindows': profile?.interactionWindows ?? 0,
@@ -13945,8 +14303,8 @@ class AppDatabase {
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
         'tts_reading_scope': 'dialogue_only',
-        'personality_base_key': 'neutral',
-        'personality_posture_key': 'equal',
+        'personality_base_key': 'none',
+        'personality_posture_key': 'none',
         'chat_visual_stage_enabled': '1',
         'chat_background_mode': 'auto',
         'chat_panel_opacity': '0.75',

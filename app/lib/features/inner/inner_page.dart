@@ -28,7 +28,6 @@ import '../memory/memory_page.dart';
 import '../relationship/relationship_page.dart';
 import '../reference/reference_library_page.dart';
 import '../settings/rule_layers_page.dart';
-import '../personality/personality_lab_page.dart';
 import '../self/personality_appearance_page.dart';
 
 class InnerPage extends StatefulWidget {
@@ -560,12 +559,12 @@ class _InnerPageState extends State<InnerPage> {
         FilledButton.tonalIcon(
           onPressed: () async {
             await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PersonalityLabPage()),
+              MaterialPageRoute(builder: (_) => const ReferenceLibraryPage()),
             );
             await _refresh();
           },
-          icon: const Icon(Icons.checkroom_outlined),
-          label: const Text('性格试穿间'),
+          icon: const Icon(Icons.auto_stories_outlined),
+          label: const Text('世界书模块'),
         ),
         const SizedBox(height: 8),
         Row(

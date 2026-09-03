@@ -44,12 +44,14 @@ object OverlayDialogueFormatter {
                 result += start until index
             }
         }
-        return result
+        // Plain assistant text is dialogue. Without this fallback the overlay
+        // rendered every no-action response as white italic action text.
+        return if (result.isEmpty() && value.isNotEmpty()) listOf(value.indices) else result
     }
 
     fun actionRanges(value: String): List<IntRange> {
         val dialogue = dialogueRanges(value)
-        if (dialogue.isEmpty()) return if (value.isEmpty()) emptyList() else listOf(value.indices)
+        if (dialogue.isEmpty()) return emptyList()
         val result = mutableListOf<IntRange>()
         var cursor = 0
         dialogue.forEach { range ->

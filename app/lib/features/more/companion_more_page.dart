@@ -13,7 +13,7 @@ class CompanionMorePage extends StatelessWidget {
         route: '/companion',
         icon: Icons.face_retouching_natural_rounded,
         title: '她',
-        subtitle: '人格、外观、性格试穿与她自己的状态',
+        subtitle: '身份、外观、世界书与她自己的状态',
       ),
       (
         route: '/relationship',

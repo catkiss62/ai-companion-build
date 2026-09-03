@@ -127,15 +127,33 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
     }
   }
 
+  Future<void> _setManualActive(bool active) async {
+    final current = document;
+    if (current == null || busy) return;
+    setState(() => busy = true);
+    try {
+      await db.setWorldBookManualActive(current.id, active);
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('模块状态更新失败，请稍后再试。')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _delete() async {
     final current = document;
     if (current == null || busy) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除这份资料？'),
+        title: const Text('删除这个条目？'),
         content: Text(
-          '“${current.name}”的完整原文和对应检索片段都会从本机删除。这个操作不能在应用内撤销。',
+          '“${current.name}”会从本机删除。这个操作不能在应用内撤销。',
         ),
         actions: [
           TextButton(
@@ -169,7 +187,7 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
     final current = document;
     return Scaffold(
         appBar: AppBar(
-          title: Text(current?.name ?? '参考资料'),
+          title: Text(current?.name ?? '世界书条目'),
           actions: [
             if (current != null)
               IconButton(
@@ -182,7 +200,7 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
         body: loading
             ? const Center(child: CircularProgressIndicator())
             : current == null
-                ? const Center(child: Text('这份资料已经不存在。'))
+                ? const Center(child: Text('这个条目已经不存在。'))
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
                     children: [
@@ -197,7 +215,9 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      _kindLabel(current.kind),
+                                      current.isBehavior
+                                          ? '行为模块'
+                                          : _kindLabel(current.kind),
                                       style: Theme.of(context).textTheme.titleMedium,
                                     ),
                                   ),
@@ -208,9 +228,13 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                                 ],
                               ),
                               Text(
-                                current.enabled
-                                    ? '已启用：相关话题出现时，这份资料可以被检索。'
-                                    : '已停用：完整原文仍保留，但不会进入聊天检索。',
+                                current.isBehavior
+                                    ? (current.enabled
+                                        ? '可用 · ${_activationLabel(current.activationMode)} · 优先级 ${current.priority} · 概率 ${current.activationProbability}% · ${_scopeLabel(current.scope)}'
+                                        : '已停用：模块配置仍保留，但不会注入聊天。')
+                                    : (current.enabled
+                                        ? '已启用：相关话题出现时，这份资料可以被检索。'
+                                        : '已停用：完整原文仍保留，但不会进入聊天检索。'),
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
                               ),
                               if (current.aliases.isNotEmpty) ...[
@@ -219,7 +243,9 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                               ],
                               const SizedBox(height: 8),
                               Text(
-                                '原文 ${current.rawContent.length} 字符 · 检索片段 ${chunks.length} 个',
+                                current.isBehavior
+                                    ? '提示词 ${current.rawContent.length} 字符 · 不参与学习和记忆写入'
+                                    : '原文 ${current.rawContent.length} 字符 · 检索片段 ${chunks.length} 个',
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
@@ -228,17 +254,33 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                           ),
                         ),
                       ),
+                      if (current.isBehavior &&
+                          current.activationMode == 'manual') ...[
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                          title: const Text('当前激活'),
+                          subtitle: Text(current.exclusiveGroup.isEmpty
+                              ? '聊天框快捷面板使用同一开关。'
+                              : '与同组性格/姿态模块互斥。'),
+                          value: current.manualActive,
+                          onChanged: busy ? null : _setManualActive,
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       _SectionCard(
-                        title: '完整原文',
-                        subtitle: '这是本机保存的原始资料，不会因为重新分块而改变。',
+                        title: current.isBehavior ? '行为提示词' : '完整原文',
+                        subtitle: current.isBehavior
+                            ? '可直接修改；只影响激活轮次的表达。'
+                            : '这是本机保存的原始资料，不会因为重新分块而改变。',
                         child: SelectableText(
                           current.rawContent,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Card(
+                      if (!current.isBehavior) ...[
+                        const SizedBox(height: 12),
+                        Card(
                         margin: EdgeInsets.zero,
                         child: ExpansionTile(
                           initiallyExpanded: false,
@@ -280,24 +322,26 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                               }),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        onPressed: busy ? null : _rechunk,
-                        icon: const Icon(Icons.auto_fix_high_outlined),
-                        label: const Text('重新分块'),
-                      ),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          onPressed: busy ? null : _rechunk,
+                          icon: const Icon(Icons.auto_fix_high_outlined),
+                          label: const Text('重新分块'),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: busy ? null : _edit,
                         icon: const Icon(Icons.edit_outlined),
-                        label: const Text('编辑完整资料'),
+                        label: Text(current.isBehavior ? '编辑行为模块' : '编辑完整资料'),
                       ),
                       const SizedBox(height: 18),
-                      TextButton.icon(
+                      if (!current.builtin)
+                        TextButton.icon(
                         onPressed: busy ? null : _delete,
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('删除这份资料'),
+                        label: const Text('删除这个条目'),
                         style: TextButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.error,
                         ),
@@ -350,4 +394,18 @@ String _kindLabel(String kind) => switch (kind) {
       'intimacy' => '亲密参考',
       'world' => '背景 / 世界资料',
       _ => '其他参考',
+    };
+
+String _activationLabel(String mode) => switch (mode) {
+      'always' => '常驻注入',
+      'manual' => '手动开关',
+      _ => '关键词触发',
+    };
+
+String _scopeLabel(String scope) => switch (scope) {
+      'chat' => '普通聊天',
+      'chat|proactive' => '普通与主动',
+      'proactive' => '主动联系',
+      'immersive' => '沉浸房间',
+      _ => '所有聊天',
     };

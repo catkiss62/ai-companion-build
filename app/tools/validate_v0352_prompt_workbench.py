@@ -73,10 +73,18 @@ service = read("lib/core/rules/rule_layer_service.dart")
 for token in (
     "item.loadPolicy == 'template'",
     "templates: templates",
-    "PersonalityCatalog.compileProfile(",
-    "PersonalityCatalog.compileSpecial(",
 ):
     assert token in service, token
+if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+    # v0.41.26 keeps the editable workbench catalog, but turns its profiles
+    # into default-off world-book presets instead of hard-injecting a trial.
+    database = read("lib/core/database/app_database.dart")
+    assert "PersonalityCatalog.compileProfile(" in database
+    assert "PersonalityCatalog.compileSpecial(" in database
+    assert "_seedWorldBookPresets" in database
+else:
+    assert "PersonalityCatalog.compileProfile(" in service
+    assert "PersonalityCatalog.compileSpecial(" in service
 
 catalog = read("lib/core/personality/personality_catalog.dart")
 for token in (

@@ -15,13 +15,12 @@ class PersonalityLabPage extends StatefulWidget {
 
 class _PersonalityLabPageState extends State<PersonalityLabPage> {
   final db = AppDatabase.instance;
-  String baseKey = PersonalityCatalog.bases.first.key;
-  String postureKey = PersonalityCatalog.postures.first.key;
+  String baseKey = PersonalityCatalog.noneKey;
+  String postureKey = PersonalityCatalog.noneKey;
   String specialKey = PersonalityCatalog.specialStyles.first.key;
   Duration profileDuration = const Duration(days: 1);
   Duration specialDuration = const Duration(hours: 1);
   PersonalityTrial? profile;
-  PersonalityTrial? adoptable;
   SpecialStyleTrial? special;
   Timer? timer;
   bool busy = false;
@@ -45,19 +44,16 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
   Future<void> _refresh() async {
     final nextProfile = await db.activePersonalityTrial();
     final nextSpecial = await db.activeSpecialStyleTrial();
-    final nextAdoptable = await db.latestAdoptablePersonalityTrial();
-    final longTerm = await db.longTermPersonality();
     if (!mounted) return;
     setState(() {
       profile = nextProfile;
       special = nextSpecial;
-      adoptable = nextAdoptable;
       if (nextProfile != null) {
         baseKey = nextProfile.baseKey;
         postureKey = nextProfile.postureKey;
       } else {
-        baseKey = longTerm.baseKey;
-        postureKey = longTerm.postureKey;
+        baseKey = PersonalityCatalog.noneKey;
+        postureKey = PersonalityCatalog.noneKey;
       }
       if (nextSpecial != null) specialKey = nextSpecial.styleKey;
     });
@@ -92,17 +88,13 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
   Widget build(BuildContext context) {
     final p = profile;
     final s = special;
-    final candidate = p ?? adoptable;
-    final elapsedReady = candidate != null &&
-        DateTime.now().difference(candidate.startedAt) >= const Duration(hours: 6);
-    final canAdopt = candidate?.isAdoptableAt() ?? false;
     return Scaffold(
       appBar: AppBar(title: const Text('性格试穿间')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            '活人感规则始终生效。这里改变的是表达底色，不会新建记忆世界线，也不会抹掉她知道自己是 AI 这件事。',
+            '默认不穿任何性格与相处姿态。这里的选项只用于试穿，不会新建记忆世界线，也不会抹掉她知道自己是 AI 这件事。',
           ),
           const SizedBox(height: 18),
           Text('性格底色', style: Theme.of(context).textTheme.titleLarge),
@@ -114,19 +106,12 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
                 subtitle: Text(item.description),
                 onChanged: busy ? null : (value) => setState(() => baseKey = value!),
               )),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: busy
-                  ? null
-                  : () => _run(
-                        db.restoreNaturalPersonality,
-                        '已恢复自然状态：取消当前试穿，不额外套用性格底色。',
-                      ),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('恢复自然状态'),
+          if (baseKey == PersonalityCatalog.noneKey)
+            const ListTile(
+              leading: Icon(Icons.checkroom_outlined),
+              title: Text('当前不穿性格底色'),
+              dense: true,
             ),
-          ),
           const SizedBox(height: 8),
           Text('相处姿态', style: Theme.of(context).textTheme.titleLarge),
           ...PersonalityCatalog.postures.map((item) => RadioListTile<String>(
@@ -136,6 +121,25 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
                 subtitle: Text(item.description),
                 onChanged: busy ? null : (value) => setState(() => postureKey = value!),
               )),
+          if (postureKey == PersonalityCatalog.noneKey)
+            const ListTile(
+              leading: Icon(Icons.checkroom_outlined),
+              title: Text('当前不穿相处姿态（“平等恋人”不再默认选择）'),
+              dense: true,
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: busy
+                  ? null
+                  : () => _run(
+                        db.restoreNaturalPersonality,
+                        '已脱下性格与相处姿态。',
+                      ),
+              icon: const Icon(Icons.layers_clear_outlined),
+              label: const Text('全部不穿'),
+            ),
+          ),
           const SizedBox(height: 8),
           _durationPicker(
             label: '试穿时长',
@@ -149,7 +153,9 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
             onChanged: (value) => setState(() => profileDuration = value),
           ),
           FilledButton.icon(
-            onPressed: busy
+            onPressed: busy ||
+                    (baseKey == PersonalityCatalog.noneKey &&
+                        postureKey == PersonalityCatalog.noneKey)
                 ? null
                 : () => _run(
                       () async {
@@ -173,11 +179,15 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${PersonalityCatalog.base(p.baseKey).label} × ${PersonalityCatalog.posture(p.postureKey).label}',
+                      [
+                        if (p.baseKey != PersonalityCatalog.noneKey)
+                          PersonalityCatalog.base(p.baseKey).label,
+                        if (p.postureKey != PersonalityCatalog.noneKey)
+                          PersonalityCatalog.posture(p.postureKey).label,
+                      ].join(' × '),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text('剩余 ${_remaining(p.remaining())}'),
-                    Text('有效回复 ${p.effectiveTurns}/20 · 相隔互动 ${p.interactionWindows}/2 · 体验时间 ${elapsedReady ? '已满6小时' : '未满6小时'}'),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -203,21 +213,9 @@ class _PersonalityLabPageState extends State<PersonalityLabPage> {
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          FilledButton.tonalIcon(
-            onPressed: !canAdopt || busy
-                ? null
-                : () => _run(() async {
-                      await db.adoptPersonalityTrial(candidate!.id);
-                    }, '已设为长期性格；旧性格保留了回退快照。'),
-            icon: const Icon(Icons.favorite_outline),
-            label: Text(canAdopt
-                ? '设为长期性格'
-                : '转正条件：6小时 · 20次有效回复 · 2个相隔互动时段'),
-          ),
           const Divider(height: 36),
           Text('特殊风格（只试穿，不转正）', style: Theme.of(context).textTheme.titleLarge),
-          const Text('特殊层会叠加在当前长期/试穿性格上。开启期间的回复不计入普通性格转正进度。'),
+          const Text('特殊层会叠加在当前性格与相处试穿上；没有普通试穿时，就只穿这一层。'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: specialKey,

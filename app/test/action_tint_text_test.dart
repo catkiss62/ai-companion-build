@@ -123,6 +123,28 @@ void main() {
     expect(chatDialoguePink, const Color(0xFFF1B7C5));
   });
 
+  testWidgets('plain assistant text is upright tinted dialogue in normal chat',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ActionTintText(text: '回来啦。'))),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final span = selectable.textSpan!.children!.single as TextSpan;
+    expect(span.style!.fontStyle, FontStyle.normal);
+    expect(span.style!.color, chatDialoguePurple);
+  });
+
+  testWidgets('plain immersive text uses the same dialogue fallback',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: NovelTintText(text: '回来啦。'))),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final span = selectable.textSpan!.children!.single as TextSpan;
+    expect(span.style!.fontStyle, FontStyle.normal);
+    expect(span.style!.color, chatDialoguePurple);
+  });
+
   testWidgets('one dialogue color scope controls normal and immersive text',
       (tester) async {
     await tester.pumpWidget(

@@ -12,6 +12,7 @@ CompanionThought thought({
   required String source,
   double strength = 0.65,
   DateTime? bornAt,
+  String topicKey = '',
 }) {
   final at = bornAt ?? DateTime.utc(2026, 8, 28, 8);
   return CompanionThought(
@@ -24,6 +25,7 @@ CompanionThought thought({
     updatedAt: at,
     lastFedAt: at,
     source: source,
+    topicKey: topicKey,
   );
 }
 
@@ -83,9 +85,37 @@ void main() {
     expect(result, isNotNull);
     expect(result!.intent.thoughtId, reflection.id);
     expect(result.sourceType, 'memory');
-    expect(result.intentKind, 'share_thought');
+    expect(result.intentKind, 'followup');
     expect(result.repetitionChangedWinner, isTrue);
     expect(result.changedRawWinner, isTrue);
+  });
+
+  test('repeated topic key is downranked even when its label changes', () {
+    final repeated = thought(
+      id: 'repeated-topic',
+      drive: DriveKey.reflection,
+      source: 'internal',
+      topicKey: 'old.loop',
+    );
+    final fresh = thought(
+      id: 'fresh-topic',
+      drive: DriveKey.curiosity,
+      source: 'internal',
+      topicKey: 'new.topic',
+    );
+    final result = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(drive: DriveKey.reflection, score: 0.75, action: 'share_thought', thought: repeated),
+        intent(drive: DriveKey.curiosity, score: 0.68, action: 'ask_user', thought: fresh),
+      ],
+      thoughtsById: {repeated.id: repeated, fresh.id: fresh},
+      recentIntentKinds: const ['curiosity'],
+      recentTopicKeys: const ['old.loop', 'old.loop'],
+      now: now,
+    );
+
+    expect(result, isNotNull);
+    expect(result!.intent.thoughtId, fresh.id);
   });
 
   test('repetition is friction rather than a ban when no alternative exists', () {

@@ -159,6 +159,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         history: historyBeforeTurn,
         latestUserText: text,
         nsfwActive: route.active,
+        nsfwTurnDirective: route.turnDirective,
       );
       final profile = DeepSeekModelProfile.fromApiName(
         await db.getSetting('model'),

@@ -79,10 +79,10 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
     final visible = _visibleDocuments.toList(growable: false);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('参考资料'),
+        title: const Text('世界书'),
         actions: [
           IconButton(
-            tooltip: '新增资料',
+            tooltip: '新增条目',
             onPressed: _createDocument,
             icon: const Icon(Icons.add_rounded),
           ),
@@ -91,7 +91,7 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createDocument,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('新增资料'),
+        label: const Text('新增条目'),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -110,7 +110,7 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '这里保存的是她可以按需查阅的背景资料，不是她本人的角色卡。完整原文始终留在本机；聊天时只会检索与当前话题相关的少量片段。',
+                        '知识资料按话题检索；行为模块可常驻、关键词触发或手动开关。行为模块只改变当轮表达，不会被吸收到长期记忆、AI Self、学习候选或成长状态。',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
                       ),
                     ),
@@ -144,7 +144,7 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
               children: [
                 Expanded(
                   child: Text(
-                    '资料 ${documents.length} 份 · 检索片段 ${chunks.length} 个',
+                    '条目 ${documents.length} 个 · 知识片段 ${chunks.length} 个',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -175,7 +175,11 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
                     onOpen: () => _openDocument(doc),
                     onEnabledChanged: (enabled) async {
                       try {
-                        await db.setReferenceDocumentEnabled(doc.id, enabled);
+                        if (doc.isBehavior && doc.activationMode == 'manual') {
+                          await db.setWorldBookManualActive(doc.id, enabled);
+                        } else {
+                          await db.setReferenceDocumentEnabled(doc.id, enabled);
+                        }
                         await _load();
                       } catch (_) {
                         if (!mounted) return;
@@ -224,7 +228,12 @@ class _ReferenceDocumentCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Icon(_kindIcon(document.kind), size: 21),
+                child: Icon(
+                  document.isBehavior
+                      ? Icons.tune_rounded
+                      : _kindIcon(document.kind),
+                  size: 21,
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -239,9 +248,12 @@ class _ReferenceDocumentCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
-                        if (!document.enabled)
+                        if (!document.enabled ||
+                            (document.isBehavior &&
+                                document.activationMode == 'manual' &&
+                                !document.manualActive))
                           Text(
-                            '已停用',
+                            document.enabled ? '未激活' : '已停用',
                             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
@@ -250,7 +262,9 @@ class _ReferenceDocumentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_kindLabel(document.kind)} · $chunkCount 个片段 · 原文 ${document.rawContent.length} 字符',
+                      document.isBehavior
+                          ? '${_activationLabel(document.activationMode)} · 优先级 ${document.priority} · ${document.activationProbability}% · ${_scopeLabel(document.scope)}'
+                          : '${_kindLabel(document.kind)} · $chunkCount 个片段 · 原文 ${document.rawContent.length} 字符',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 3),
@@ -266,7 +280,9 @@ class _ReferenceDocumentCard extends StatelessWidget {
                 ),
               ),
               Switch(
-                value: document.enabled,
+                value: document.isBehavior && document.activationMode == 'manual'
+                    ? document.manualActive
+                    : document.enabled,
                 onChanged: onEnabledChanged,
               ),
               const Padding(
@@ -294,10 +310,10 @@ class _EmptyLibrary extends StatelessWidget {
           children: [
             const Icon(Icons.library_add_outlined, size: 34),
             const SizedBox(height: 10),
-            Text('还没有参考资料', style: Theme.of(context).textTheme.titleMedium),
+            Text('还没有世界书条目', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 5),
             Text(
-              '可以把人物完整资料、世界设定或其他背景信息整份粘贴进来。程序会保留原文并自动生成检索片段。',
+              '可以加入按需检索的背景资料，也可以创建随时开关的动作、幽默或表达模块。',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
             ),
@@ -320,4 +336,18 @@ IconData _kindIcon(String kind) => switch (kind) {
       'intimacy' => Icons.favorite_border_rounded,
       'world' => Icons.public_rounded,
       _ => Icons.notes_rounded,
+    };
+
+String _activationLabel(String mode) => switch (mode) {
+      'always' => '常驻',
+      'manual' => '手动',
+      _ => '关键词',
+    };
+
+String _scopeLabel(String scope) => switch (scope) {
+      'chat' => '普通聊天',
+      'chat|proactive' => '普通与主动',
+      'proactive' => '主动联系',
+      'immersive' => '沉浸房间',
+      _ => '全部场景',
     };

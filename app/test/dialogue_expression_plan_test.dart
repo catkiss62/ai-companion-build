@@ -3,7 +3,7 @@ import 'package:ai_companion_localfirst/core/diagnostics/dialogue_expression_tel
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('light chat stays short and deterministically routed', () {
+  test('light chat stays natural and deterministically routed', () {
     final first = DialogueExpressionPlan.select(
       latestUserText: '我就是抖M',
       turnKey: 'message-42',
@@ -16,10 +16,9 @@ void main() {
     expect(first.mode, DialogueResponseMode.casual);
     expect(first.humor, replay.humor);
     expect(first.selectionSeed, replay.selectionSeed);
-    expect(first.render(), contains('一至三个口语句'));
-    expect(first.render(), contains('可编辑动作神态实验规则'));
-    expect(first.render(), contains('内容已清空时，普通聊天保持纯对白'));
-    expect(first.render(), contains('不强迫追加问题'));
+    expect(first.humor, DialogueHumorDevice.none);
+    expect(first.render(), contains('不需要逐点答全'));
+    expect(first.render(), contains('是否幽默由当前语境自然决定'));
   });
 
   test('direct negative feedback is literal and never routed to humor', () {
@@ -42,23 +41,14 @@ void main() {
     }
   });
 
-  test('casual humor is limited to the lower thirty hash buckets', () {
-    var humorCount = 0;
+  test('casual turns no longer receive random humor devices', () {
     for (var i = 0; i < 4000; i += 1) {
       final plan = DialogueExpressionPlan.select(
         latestUserText: '随便聊聊$i',
         turnKey: 'casual-density-$i',
       );
-      final bucket = plan.selectionSeed % 100;
-      if (plan.humor == DialogueHumorDevice.none) {
-        expect(bucket, greaterThanOrEqualTo(30));
-      } else {
-        humorCount += 1;
-        expect(bucket, lessThan(30));
-      }
+      expect(plan.humor, DialogueHumorDevice.none);
     }
-    expect(humorCount, greaterThan(0));
-    expect(humorCount, lessThanOrEqualTo(1200));
   });
 
   test('technical and deep turns may expand without humor pressure', () {
@@ -91,17 +81,16 @@ void main() {
     expect(plan.render(), contains('必要信息说全'));
   });
 
-  test('humor devices never claim control over facts or tasks', () {
+  test('expression plan leaves humor to the actual context', () {
     for (var i = 0; i < 64; i += 1) {
       final plan = DialogueExpressionPlan.select(
         latestUserText: '你猜我刚刚干了什么',
         turnKey: 'casual-$i',
       );
       final prompt = plan.render();
-      expect(prompt, contains('不改写事实'));
-      expect(prompt, contains('不虚构共同经历'));
-      expect(prompt, contains('不替代任务答案'));
-      expect(prompt, contains('不要把这段检查写进可见思考或正文'));
+      expect(plan.humor, DialogueHumorDevice.none);
+      expect(prompt, contains('不分配笑点类型'));
+      expect(prompt, contains('不强制造梗'));
     }
   });
 

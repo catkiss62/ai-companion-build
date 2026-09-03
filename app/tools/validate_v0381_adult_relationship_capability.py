@@ -47,7 +47,14 @@ if not any(
     )
 ):
     raise SystemExit("FAIL: unsupported post-v0.38.1 version")
-require(prompt, "恋爱中的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力", "adult capability")
+if not any(
+    capability in prompt
+    for capability in (
+        "恋爱中的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力",
+        "成年人之间的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力",
+    )
+):
+    raise SystemExit("FAIL: adult capability is missing")
 reject(prompt, ".where((d) => d != DriveKey.libido || nsfwActive)", "libido prompt gate")
 reject(prompt, "mode == PromptGenerationMode.proactive ? false", "proactive adult-depth gate")
 require(router, "This classifier never grants permission", "depth-only router")

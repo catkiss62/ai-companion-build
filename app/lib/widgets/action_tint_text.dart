@@ -245,13 +245,19 @@ class ActionTintText extends StatelessWidget {
       fontWeight: FontWeight.normal,
     );
     final visibleText = stripActionDelimitersForDisplay(text);
+    final segments = splitDialogueText(visibleText);
+    final hasExplicitDialogue = segments.any((segment) => segment.isDialogue);
     return SelectableText.rich(
       TextSpan(
         children: [
-          for (final segment in splitDialogueText(visibleText))
+          for (final segment in segments)
             TextSpan(
               text: segment.text,
-              style: segment.isDialogue ? dialogue : action,
+              // A fully unquoted assistant reply is ordinary dialogue, not
+              // one giant action. This is also the native-overlay contract.
+              style: !hasExplicitDialogue || segment.isDialogue
+                  ? dialogue
+                  : action,
             ),
         ],
       ),
@@ -278,13 +284,17 @@ class NovelTintText extends StatelessWidget {
     final dialogue = base.copyWith(
       color: ChatDialogueColorScope.of(context).color,
     );
+    final segments = splitNovelDialogueText(text);
+    final hasExplicitDialogue = segments.any((segment) => segment.isDialogue);
     return SelectableText.rich(
       TextSpan(
         children: [
-          for (final segment in splitNovelDialogueText(text))
+          for (final segment in segments)
             TextSpan(
               text: segment.text,
-              style: segment.isDialogue ? dialogue : base,
+              style: !hasExplicitDialogue || segment.isDialogue
+                  ? dialogue
+                  : base,
             ),
         ],
       ),

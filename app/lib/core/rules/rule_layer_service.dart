@@ -4,6 +4,7 @@ import '../models/reference_item.dart';
 import '../models/rule_layer.dart';
 import '../personality/personality_catalog.dart';
 import 'rule_layer_grouping.dart';
+import 'intimacy_prompt_sections.dart';
 
 class RuleLayerBundle {
   const RuleLayerBundle({
@@ -11,7 +12,7 @@ class RuleLayerBundle {
     required this.intimacyActive,
     required this.referenceTriggered,
     this.specialStylePrompt = '',
-    this.personalityBaseKey = 'neutral',
+    this.personalityBaseKey = PersonalityCatalog.noneKey,
     this.personalityTrialActive = false,
     this.personalityTemplatePresent = false,
     this.personalityExecutionAnchor = '',
@@ -28,15 +29,26 @@ class RuleLayerBundle {
   final String personalityExecutionAnchor;
   final Map<String, String> templates;
 
+  String get intimacyPreflight {
+    for (final layer in layers) {
+      if (layer.key != '04_intimacy_core') continue;
+      return IntimacyPromptSections.parse(layer.content).latePrompt();
+    }
+    return '';
+  }
+
   String formatForPrompt() {
     if (layers.isEmpty) return '';
     final buffer = StringBuffer('【当前行为规则层】\n');
     for (final group in groupRuleLayers(layers)) {
       buffer.writeln('\n## ${group.title}');
       for (final layer in group.layers) {
+        final content = layer.key == '04_intimacy_core'
+            ? IntimacyPromptSections.parse(layer.content).body
+            : layer.content.trim();
         buffer
           ..writeln('\n### ${ruleLayerSectionTitle(layer)}')
-          ..writeln(layer.content.trim());
+          ..writeln(content);
       }
     }
     if (specialStylePrompt.trim().isNotEmpty) {
@@ -82,20 +94,11 @@ class RuleLayerService {
     final referenceTriggered = intimacy &&
         (nsfwReferenceActive ??
             ((await db.getSetting('nsfw_reference_active')) == '1'));
-    final profileTrial = await db.activePersonalityTrial();
     final specialTrial = specialStyleKeyOverride == null
         ? await db.activeSpecialStyleTrial()
         : null;
     final specialStyleKey =
         specialStyleKeyOverride ?? specialTrial?.styleKey ?? '';
-    final longTermBase =
-        await db.getSetting('personality_base_key') ?? 'neutral';
-    final longTermPosture =
-        await db.getSetting('personality_posture_key') ?? 'equal';
-    final effectiveBaseKey = profileTrial?.baseKey ?? longTermBase;
-    final effectiveBase = PersonalityCatalog.base(effectiveBaseKey).key;
-    final personalityTemplateKey =
-        PersonalityCatalog.basePromptKey(effectiveBase);
     final selected = <RuleLayer>[];
     for (final layer in all) {
       if (!layer.enabled && !layer.locked) continue;
@@ -103,31 +106,15 @@ class RuleLayerService {
         'always' => true,
         'daily' => true,
         'intimacy' => intimacy,
-        'reference_intimacy' => referenceTriggered,
+        // The bundled 05+06 rules are one complete NSFW pipeline. The
+        // secondary reference switch still controls imported retrieval data,
+        // but must never strand the built-in rendering reference.
+        'reference_intimacy' => intimacy &&
+            (layer.key == '06_intimacy_reference' || referenceTriggered),
         _ => false,
       };
-      if (include) {
+      if (include && layer.content.trim().isNotEmpty) {
         selected.add(layer);
-        if (layer.key == '03_personality_seed') {
-          final baseKey = effectiveBase;
-          final postureKey = profileTrial?.postureKey ?? longTermPosture;
-          selected.add(RuleLayer(
-            key: '03_personality_expression',
-            title: profileTrial == null
-                ? 'Current Personality Expression'
-                : 'Current Personality Trial',
-            content: PersonalityCatalog.compileProfile(
-              baseKey,
-              postureKey,
-              trial: profileTrial != null,
-              templates: templates,
-            ),
-            loadPolicy: 'always',
-            enabled: true,
-            locked: true,
-            updatedAt: profileTrial?.startedAt ?? DateTime.now(),
-          ));
-        }
       }
     }
     return RuleLayerBundle(
@@ -142,12 +129,10 @@ class RuleLayerService {
               intimacyActive: intimacy,
               templates: templates,
             ),
-      personalityBaseKey: effectiveBase,
-      personalityTrialActive: profileTrial != null,
-      personalityTemplatePresent: effectiveBase == 'neutral' ||
-          (templates[personalityTemplateKey]?.trim().isNotEmpty ?? false),
-      personalityExecutionAnchor:
-          PersonalityCatalog.executionAnchor(effectiveBase),
+      personalityBaseKey: PersonalityCatalog.noneKey,
+      personalityTrialActive: false,
+      personalityTemplatePresent: true,
+      personalityExecutionAnchor: '',
       templates: templates,
     );
   }

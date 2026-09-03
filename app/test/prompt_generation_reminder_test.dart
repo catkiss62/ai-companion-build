@@ -5,31 +5,21 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('per-turn reminder locks Chinese and separates normal from calm', () {
     final reminder = PromptBuilder.visibleChineseGenerationReminder();
-    expect(reminder, contains('绝对语言约束'));
     expect(reminder, contains('自然简体中文'));
-    expect(reminder, contains('reasoning_content 必须非空'));
-    expect(reminder, contains('客户端不会编造补写'));
-    expect(reminder, contains('【可见思考语态 · reasoning_content】'));
-    expect(reminder, contains('直接以“我”的即时内心起笔'));
-    expect(reminder, contains('不要用“用户说/问/想要、这是某种场景”'));
-    expect(reminder, contains('不列候选台词，不排练正文'));
-    expect(reminder, contains('直接想问题本身，不写答题策略或生成日志'));
+    expect(reminder, contains('没打算说出口的心里话'));
+    expect(reminder, contains('允许片段、跳念、改口或没想完'));
+    expect(reminder, contains('所以我应该怎样回复'));
     expect(reminder, contains('<emotion>标签</emotion>'));
     expect(reminder, contains('没有清晰情绪色彩时用“正常”'));
     expect(reminder, contains('“平静”只用于明确安静'));
-    expect(reminder, contains('普通聊天台词边界 · 输出前最后检查'));
-    expect(reminder, contains('普通聊天最终正文只写真正说出口的话'));
-    expect(reminder, contains('不写动作、神态、语气说明、镜头、环境或旁白'));
-    expect(reminder, contains('一至三个口语句'));
-    expect(reminder, contains('毒舌、冷淡、调皮、腹黑和不耐烦不准自动改写成可爱'));
-    expect(reminder, contains('许可—安抚—承诺链'));
+    expect(reminder, isNot(contains('普通聊天只写真正说出口的话')));
+    expect(reminder, isNot(contains('不要机械复述、逐点覆盖、总结升华')));
     expect(reminder, isNot(contains('顿了顿，又小小声补了一句。')));
     expect(reminder, isNot(contains('结构示意')));
     expect(reminder, isNot(contains('[确有必要时的动作段]')));
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
-    expect(reminder, contains('最终正文与可见思考提及现实恋人时使用“你”'));
-    expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));
-    expect(reminder, contains('只写真正说出口的话'));
+    expect(reminder, contains('最终正文提及对方时优先使用“你”'));
+    expect(reminder, contains('偶发口误不会被系统强制中断'));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
     expect(reminder, isNot(contains('禁止用“我”“她”')));
     expect(reminder, isNot(contains('只用第二人称“你”')));
@@ -59,11 +49,11 @@ void main() {
       ordinaryActionExperimentActive: false,
     );
 
-    expect(enabled, contains('当前动作神态消融实验已启用'));
-    expect(enabled, contains('允许零或一段'));
-    expect(enabled, contains('不写动作—对白—动作夹心'));
-    expect(disabled, contains('当前动作神态消融实验未启用或内容为空'));
-    expect(disabled, contains('不写动作、神态、语气说明、镜头、环境或旁白'));
+    expect(enabled, contains('当前世界书启用了动作神态'));
+    expect(enabled, contains('写一个简短的自身动作/神态'));
+    expect(enabled, contains('对白使用「」'));
+    expect(disabled, isNot(contains('动作神态')));
+    expect(disabled, contains('偶发口误不会被系统强制中断'));
   });
 
   test('learning capability truth appears only for relevant conversation', () {

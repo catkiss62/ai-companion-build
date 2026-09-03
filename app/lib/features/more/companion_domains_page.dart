@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../memory/memory_page.dart';
-import '../personality/personality_lab_page.dart';
 import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
 import '../self/personality_appearance_page.dart';
@@ -16,15 +15,15 @@ class CompanionDomainPage extends StatelessWidget {
         entries: [
           _DomainEntry(
             icon: Icons.face_retouching_natural_rounded,
-            title: '人格与外观',
-            subtitle: '初始性格、可编辑底色和固定外观认知',
+            title: '外观与动态状态',
+            subtitle: '固定外观真源与默认关闭的 Moe 实验层',
             onTap: () => _push(context, const PersonalityAppearancePage()),
           ),
           _DomainEntry(
-            icon: Icons.checkroom_outlined,
-            title: '性格试穿',
-            subtitle: '体验临时风格，符合条件后再决定是否长期保留',
-            onTap: () => _push(context, const PersonalityLabPage()),
+            icon: Icons.auto_stories_outlined,
+            title: '世界书',
+            subtitle: '可编辑、可开关的性格、动作、幽默与表达模块',
+            onTap: () => _push(context, const ReferenceLibraryPage()),
           ),
         ],
       );
@@ -51,7 +50,7 @@ class RelationshipDomainPage extends StatelessWidget {
           ),
           _DomainEntry(
             icon: Icons.menu_book_outlined,
-            title: '参考资料',
+            title: '世界书与参考资料',
             subtitle: '人物、世界与按需查阅的背景资料',
             onTap: () => _push(context, const ReferenceLibraryPage()),
           ),

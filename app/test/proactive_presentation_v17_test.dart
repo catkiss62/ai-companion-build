@@ -21,6 +21,21 @@ void main() {
     expect(kind, ProactiveIntentKind.missYou);
   });
 
+  test('history-backed curiosity is honestly classified as follow-up', () {
+    const intent = DesireIntent(
+      drive: DriveKey.curiosity,
+      score: 0.8,
+      reason: '旧对话里的问题',
+      wantAction: 'ask_user',
+      reasonSource: 'real_user_message:old',
+    );
+    final kind = ProactivePresentationPolicy.classify(
+      intent: intent,
+      sourceType: 'user_history',
+    );
+    expect(kind, ProactiveIntentKind.followup);
+  });
+
   test('busy context becomes quiet delivery without muting contact', () {
     final delivery = ProactivePresentationPolicy.delivery(
       kind: ProactiveIntentKind.missYou,

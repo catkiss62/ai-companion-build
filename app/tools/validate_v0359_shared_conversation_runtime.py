@@ -30,9 +30,18 @@ assert "class GenerationInterruption" in model
 runner = read("lib/core/ai/durable_generation_runner.dart")
 catch_start = runner.index("} catch (e) {")
 catch_block = runner[catch_start: runner.index("} finally {", catch_start)]
-assert "interruptGenerationJob" in catch_block
-assert "status: 'interrupted'" in catch_block
-assert "failGenerationJob" not in catch_block
+if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+    # Automatic failures now preserve the durable user turn. The legacy
+    # interrupted schema remains readable, but only explicit Stop withdraws.
+    recovery = read("lib/core/ai/durable_generation_recovery.dart")
+    assert "interruptGenerationJob" not in catch_block
+    assert "failGenerationJob" in catch_block
+    assert "final result = await runner.run(job)" in recovery
+    assert "cancelGenerationJobByUser(job.id)" not in recovery
+else:
+    assert "interruptGenerationJob" in catch_block
+    assert "status: 'interrupted'" in catch_block
+    assert "failGenerationJob" not in catch_block
 
 controller = read("lib/features/chat/chat_controller.dart")
 for token in [

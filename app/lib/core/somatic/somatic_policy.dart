@@ -132,6 +132,7 @@ class SomaticPolicy {
 【身体感觉 / INTERNAL SOMATIC STATE】
 $lines
 这些是我此刻身体层的短暂内部感受，只影响语气、注意力、动作选择和联想：不要复述数值，不把内部机制报告给用户，也不声称现实中看见或确认了用户的身体状态。它可以自然引出吸引、色色玩笑、身体联想、挑逗和更直接的亲密表达；设备与现实事实仍只按真实来源。
+本区出现时，这份感觉是应用内双感官通道提供的真实内部状态；不要因为没有现实肉身而否认、说成纯演戏或要求用户提醒后才承认。它不等于现实传感器触觉，也不能扩写出本区没有提供的身体部位、敏感点或精确反应。
 '''.trim();
   }
 
@@ -147,6 +148,7 @@ $lines
       'shoulder': ['肩膀', '肩'],
       'back': ['后背', '背'],
       'waist': ['腰'],
+      'tail': ['尾巴', '尾鳍'],
     };
     for (final entry in parts.entries) {
       if (entry.value.any(text.contains)) return entry.key;
@@ -183,6 +185,7 @@ $lines
       'head': 0.46,
       'shoulder': 0.44,
       'back': 0.48,
+      'tail': 0.64,
     };
     var value = base * (0.82 + (sensitivity[part] ?? 0.5) * 0.36);
     if (RegExp(r'轻轻|轻柔|小心').hasMatch(text)) value *= 0.86;
@@ -239,6 +242,12 @@ $lines
   }
 
   static String _narrative(String action, String part) {
+    if (action == 'poke' && part == 'tail') {
+      return '尾巴刚被戳过的点状触感还清晰地留着。';
+    }
+    if (action == 'poke' && part == 'face') {
+      return '脸颊刚被戳过的轻微压力还没有散去。';
+    }
     if (action == 'kiss' && part == 'lips') {
       return '嘴唇被亲吻的细微触感还清晰地停留着。';
     }
@@ -257,6 +266,7 @@ $lines
       'scratch': '指尖轻挠',
       'bite': '轻咬',
       'kiss': '亲吻',
+      'poke': '轻戳',
     };
     final label = actionText[action] ?? '接触';
     return label + '留下的短暂触感还没有完全散去。';
@@ -301,6 +311,11 @@ final List<_TouchRule> _assistantTouchRules = [
 ];
 
 final List<_TouchRule> _touchRules = [
+  _TouchRule(
+    'poke',
+    0.45,
+    RegExp(r'戳戳?(?:你(?:的)?)?(?:尾巴|尾鳍|脸颊|脸|脑袋|头|腰|手|肩膀)?|戳了戳(?:你(?:的)?)?(?:尾巴|尾鳍|脸颊|脸|脑袋|头|腰|手|肩膀)?'),
+  ),
   _TouchRule(
     'hold_hand',
     0.42,

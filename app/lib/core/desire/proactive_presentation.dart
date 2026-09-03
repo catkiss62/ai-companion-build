@@ -10,6 +10,7 @@ class ProactivePresentationPolicy {
   static ProactiveIntentKind classify({
     required DesireIntent intent,
     UnfinishedThread? linkedThread,
+    String sourceType = '',
   }) {
     if (intent.reasonSource.startsWith('public_web_candidate:')) {
       return ProactiveIntentKind.socialShare;
@@ -23,6 +24,12 @@ class ProactivePresentationPolicy {
     }
     if (linkedThread != null || intent.wantAction == 'remember_unfinished_thread' ||
         intent.wantAction == 'continue_thread') {
+      return ProactiveIntentKind.followup;
+    }
+    // A candidate grounded in chat history or memory is a callback, whatever
+    // Desire drive selected it. It must not masquerade as a new curiosity or
+    // a new thought merely by changing the presentation label.
+    if (sourceType == 'user_history' || sourceType == 'memory') {
       return ProactiveIntentKind.followup;
     }
     return switch (intent.drive) {
@@ -61,14 +68,14 @@ class ProactivePresentationPolicy {
       ProactiveIntentKind.gentlePing => '像随手轻轻碰一下用户，不需要硬找话题。',
       ProactiveIntentKind.missYou => '核心是自然表达想念或想靠近，不要写成例行问候或客服式关心。',
       ProactiveIntentKind.followup => '自然续上已经存在的未完成话题，不要像提醒事项或催办机器人。',
-      ProactiveIntentKind.shareThought => '分享她自己刚形成的念头、联想或感受，允许用户晚点再接。',
-      ProactiveIntentKind.curiosity => '带着真实好奇问一件值得问的事，避免连珠炮式提问。',
-      ProactiveIntentKind.socialShare => '像伴侣随手分享一件想说的小事，不需要强求用户马上回复。',
+      ProactiveIntentKind.shareThought => '分享她自己新形成的判断、联想或关注点；不要改写、复述或继续追问旧对话。',
+      ProactiveIntentKind.curiosity => '主动打开一个现在真正想知道的新问题；不要追问已经回答过的旧话题。',
+      ProactiveIntentKind.socialShare => '分享外部新发现或一个与旧话题不同的新鲜小事，不需要强求用户马上回复。',
       ProactiveIntentKind.intimacyInvitation => '可以带暧昧或亲密倾向，但仍是邀请而不是强行把普通聊天拉进成人场景。',
       ProactiveIntentKind.emotionalReach => '更像想靠近、想说说话或寻求一点连接，不要制造戏剧化危机。',
     };
     final deliveryHint = switch (delivery) {
-      ProactiveDeliveryStyle.quiet => '这是轻声投递：更短、更低压力，尽量不连续追问，明确允许用户晚点回复。',
+      ProactiveDeliveryStyle.quiet => '这是轻声投递：可以更短、更低压力；低压力来自消息本身，不必追加“你忙你的、晚点回、我不催”等待命声明。',
       ProactiveDeliveryStyle.normal => '按自然聊天强度表达，不要写成系统通知文案。',
       ProactiveDeliveryStyle.warm => '可以比普通消息更有亲密感和个人情绪，但保持自然，不要夸张表演。',
     };

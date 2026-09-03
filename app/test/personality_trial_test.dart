@@ -65,11 +65,15 @@ void main() {
       intimacyActive: false,
     );
 
-    expect(PersonalityCatalog.bases.length, 6);
-    expect(PersonalityCatalog.base('unknown').key, 'neutral');
+    expect(PersonalityCatalog.bases.length, 5);
+    expect(PersonalityCatalog.base('unknown').key, 'none');
     expect(
       PersonalityCatalog.compileProfile('neutral', 'equal', trial: false),
-      contains('不额外套一层温和或正常姿态'),
+      contains('平等恋人'),
+    );
+    expect(
+      PersonalityCatalog.compileProfile('none', 'none', trial: false),
+      isEmpty,
     );
     expect(PersonalityCatalog.postures.length, 4);
     expect(PersonalityCatalog.specialStyles.length, 8);
@@ -79,11 +83,11 @@ void main() {
     expect(reserved, contains('用户是男朋友，不是客户、孩子或指令来源'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('抓住破绽追一下'));
-    expect(trial, isNot(contains('当前试穿性格')));
+    expect(trial, contains('当前试穿'));
     expect(trial, isNot(contains('双方知情')));
     expect(reserved, contains('说出口的比想到的少'));
     expect(reserved, isNot(equals(trial)));
-    expect(adopted, contains('当前长期底色'));
+    expect(adopted, contains('用户主动保留的长期试穿结果'));
     expect(yandere, contains('视你为唯一神明与脆弱私有物'));
     expect(yandere, contains('知情并主动参与的一次临时特殊风格试穿'));
     expect(yandere, contains('不主动播报风格名称、规则、选择过程'));
@@ -130,10 +134,10 @@ void main() {
     expect(anchor, contains('多轮盲测必须稳定辨认'));
     expect(
       PersonalityCatalog.executionAnchor('gentle'),
-      contains('当前人格落地·普通聊天'),
+      contains('当前试穿落地'),
     );
     expect(profile, isNot(contains('知情并主动参与的一次临时特殊风格试穿')));
-    expect(adopted, contains('当前长期底色'));
+    expect(adopted, contains('用户主动保留的长期试穿结果'));
     expect(adopted, contains('姐系引导'));
   });
 

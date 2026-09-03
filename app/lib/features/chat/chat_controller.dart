@@ -902,11 +902,18 @@ class ChatController extends ChangeNotifier {
       await _stopTurnAudio();
       final jobId = _activeGenerationJobId;
       if (durableTurnCreated && jobId != null) {
-        await db.cancelGenerationJobByUser(jobId);
+        // Once the user turn is durable, an incidental enrichment, lease or
+        // transport exception must not masquerade as the user's Stop action.
+        // Keep the message and hand the same job to recovery.
+        await db.deferGenerationJob(
+          jobId,
+          delay: const Duration(seconds: 3),
+          reason: 'current_process_exception',
+        );
         messages = await db.recentMessages(limit: 120);
         generationInterruptions =
             await db.recentGenerationInterruptions(limit: 20);
-        error = null;
+        error = '这一轮没有被删除，已经转入自动恢复。';
       } else {
         error = e.toString();
       }
@@ -1088,7 +1095,10 @@ class ChatController extends ChangeNotifier {
       return;
     }
     if (!await db.brainWorkAllowed()) {
-      await db.cancelGenerationJobByUser(job.id);
+      await db.suspendGenerationJob(
+        job.id,
+        reason: 'active_brain_unavailable',
+      );
       if (leaseAlreadyHeld) await db.releaseLocalLease('chat_turn_lease');
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
@@ -1105,11 +1115,14 @@ class ChatController extends ChangeNotifier {
       );
     }
     if (!ownsLease) {
-      await db.cancelGenerationJobByUser(job.id);
+      await db.suspendGenerationJob(
+        job.id,
+        reason: 'chat_turn_lease_busy',
+      );
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
-      error = '图片识别已经完成，但另一处聊天窗口占用了回复通道；本轮已安全停止，可以重新发送图片。';
+      error = '图片识别已经完成；另一处聊天窗口暂时占用回复通道，本轮会自动继续。';
       _safeNotify();
       return;
     }
@@ -1152,11 +1165,15 @@ class ChatController extends ChangeNotifier {
       error = null;
     } catch (_) {
       await _stopTurnAudio();
-      await db.cancelGenerationJobByUser(job.id);
+      await db.deferGenerationJob(
+        job.id,
+        delay: const Duration(seconds: 3),
+        reason: 'trusted_process_exception',
+      );
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
-      error = null;
+      error = '这一轮没有被删除，已经转入自动恢复。';
     } finally {
       sending = false;
       nsfwRouting = false;
@@ -1323,7 +1340,9 @@ class ChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _recoveryScheduleEpoch++;
-    _activeGenerationCancellation?.cancel();
+    // Closing/rebuilding a chat surface is lifecycle, not the user's Stop
+    // action. Closing the provider client below will hand an unfinished
+    // durable turn to retry without withdrawing the user's message.
     unawaited(ttsPlayback.stop());
     unawaited(emotionSounds.stop());
     unawaited(

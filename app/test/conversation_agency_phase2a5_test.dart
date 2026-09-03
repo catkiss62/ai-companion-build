@@ -94,6 +94,19 @@ void main() {
     expect(plan.curiosityGateReason, 'user_redirected');
   });
 
+  test('handing over topic choice opens a new own topic, not old user history', () {
+    final plan = ConversationInitiativePolicy.select(
+      snapshot: _snapshot(DriveKey.reflection, 0.92),
+      thoughts: [_thought(drive: 'reflection')],
+      latestUserText: '找个话题聊聊呗，你有什么想说的吗？',
+    );
+
+    expect(plan.primary, ConversationInitiativeMode.openOwnTopic);
+    expect(plan.topicMove, ConversationTopicMove.openOwnTopic);
+    expect(plan.speechAct, ConversationSpeechAct.selfShare);
+    expect(plan.sourceThoughtId, isNull);
+  });
+
   test('recent interview rhythm softly blocks a non-urgent curiosity probe', () {
     final recent = [
       _message('a1', 'assistant', '「发生什么事了？」', 1),
@@ -178,9 +191,9 @@ void main() {
     );
     final prompt = plan.promptSection();
 
-    expect(prompt, contains('可见思考链保持自然'));
+    expect(prompt, contains('按本轮主动作实际行动'));
     expect(prompt, contains('追问授权=无'));
-    expect(prompt, contains('用户情绪只是输入'));
+    expect(prompt, contains('用户换题时直接跟随'));
     expect(prompt, isNot(contains('隐藏思考链')));
   });
 }

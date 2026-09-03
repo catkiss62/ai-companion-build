@@ -551,20 +551,22 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       if (streamedToolPreamble.isNotEmpty) {
         finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
       }
-      var serviceGuard = ServiceTemplateGuard.evaluate(
+      final serviceGuard = ServiceTemplateGuard.evaluate(
         text: finalContent,
         recentAssistantTexts: recentAssistantTexts,
         currentUserText: user.content,
       );
-      var perspectiveGuard = UserPerspectiveGuard.evaluate(
+      final perspectiveGuard = UserPerspectiveGuard.evaluate(
         finalContent,
         currentUserText: userPerspectiveContext,
       );
       var operationGuard = OperationalClaimGroundingGuard.evaluate(
-        text: '$finalContent\n${generated.reasoning}',
+        // Visible reasoning is inner deliberation, not an outward factual
+        // claim. Only the message the user will actually receive is guarded.
+        text: finalContent,
         currentToolResults: agentToolResults,
       );
-      var questionGuard = InformationSeekingQuestionGuard.evaluate(
+      final questionGuard = InformationSeekingQuestionGuard.evaluate(
         text: finalContent,
         askAuthorized: conversationPlan.askAuthorized,
       );
@@ -573,52 +575,46 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         plan: conversationPlan,
         sourceThought: sourceConversationThought,
       );
-      if (!serviceGuard.allowed ||
-          !perspectiveGuard.allowed ||
-          !operationGuard.allowed ||
-          !questionGuard.allowed ||
-          !expressionVerification.allowed) {
-        if (!serviceGuard.allowed) {
-          await ServiceTemplateGuardTelemetry.note(
-            db,
-            result: serviceGuard,
-            mode: 'user_turn',
-            action: 'rewrite',
-          );
-        }
-        if (!questionGuard.allowed) {
-          await InformationSeekingQuestionGuardTelemetry.note(
-            db,
-            result: questionGuard,
-            action: 'rewrite',
-          );
-        }
-        final String correctionReason;
-        if (!questionGuard.allowed) {
-          correctionReason = '${questionGuard.reason} / ask_not_authorized';
-        } else if (!expressionVerification.allowed) {
-          correctionReason = expressionVerification.reason;
-        } else if (!operationGuard.allowed) {
-          correctionReason = operationGuard.reason;
-        } else if (!perspectiveGuard.allowed) {
-          correctionReason = perspectiveGuard.reason;
-        } else {
-          correctionReason = '${serviceGuard.reason} / ${serviceGuard.family}';
-        }
+      // v0.41.26 ablation: style-quality detectors remain observable but no
+      // longer rewrite or block ordinary speech. DeepSeek may make a pronoun
+      // slip, ask an unplanned question or use a disliked template; those are
+      // quality signals, not grounds for deleting the user's entire turn.
+      if (!serviceGuard.allowed) {
+        await ServiceTemplateGuardTelemetry.note(
+          db,
+          result: serviceGuard,
+          mode: 'user_turn',
+          action: 'observe',
+        );
+      }
+      if (!questionGuard.allowed) {
+        await InformationSeekingQuestionGuardTelemetry.note(
+          db,
+          result: questionGuard,
+          action: 'observe',
+        );
+      }
+      if (!perspectiveGuard.allowed) {
+        await db.setSetting(
+          'output_ablation_last_pronoun_slip_at',
+          DateTime.now().millisecondsSinceEpoch.toString(),
+        );
+      }
+
+      // Falsely claiming a completed real operation is the one remaining
+      // correction class. Correct it once, then salvage by removing only the
+      // unsupported sentence instead of interrupting the whole conversation.
+      if (!operationGuard.allowed) {
         final correctionMessages = <Map<String, Object?>>[
           ...finalRequestMessages,
           {
             'role': 'system',
             'content': '''
-【NATURAL OUTPUT CORRECTION · ONE RETRY】
-上一份正文违反了当前出站约束：$correctionReason。
-完全丢弃“一直在、不走、不催、你忙你的、等你忙完、无条件顺从”这类承诺—退场—等待收尾。不要换成近义套话，也不要表演随机叛逆。
-当前对话对象始终用“你”称呼和描写；只有真正的第三方人物才可以用“他/她”，不得把当前用户写成“他”。
+【事实声明修正 · ONE RETRY】
+上一份正文包含没有真实工具结果支持的可核验操作声明：${operationGuard.reason}。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
-本轮 Conversation Move 没有授权索取新信息时，不得用“怎么了、发生什么、能和我说说吗、你觉得呢”等问题维持对话；可以直接表达自己的反应、判断、调侃、分享或自然收住。反问和不索取答案的玩笑不受影响。
-本轮即使获准追问，也只能表达 SELECTED_THOUGHT_DATA 中那个具体未知目标；不得临时换问另一个问题来冒充 Thought 已经执行。不想问或当前不适合问，可以不问并自然回应，但系统不会把未表达的计划记成完成。
-重新回应当前真实用户消息：保留具体反应、自己的判断/情绪/需求和真正有内容的部分，在自然落点结束。
+只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
 ${PromptBuilder.visibleChineseGenerationReminder()}
 '''.trim(),
           },
@@ -630,78 +626,28 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         cancellationToken?.throwIfCancelled();
         envelope = EmotionEnvelope.parse(generated.content);
         finalContent = envelope.visibleText;
-        serviceGuard = ServiceTemplateGuard.evaluate(
-          text: finalContent,
-          recentAssistantTexts: recentAssistantTexts,
-          currentUserText: user.content,
-        );
-        if (!serviceGuard.allowed) {
-          final stripped =
-              ServiceTemplateGuard.removeTemplateSentences(finalContent);
-          final strippedGuard = ServiceTemplateGuard.evaluate(
-            text: stripped,
-            recentAssistantTexts: recentAssistantTexts,
-            currentUserText: user.content,
-          );
-          if (stripped.isNotEmpty && strippedGuard.allowed) {
-            finalContent = stripped;
-          } else {
-            await ServiceTemplateGuardTelemetry.note(
-              db,
-              result: serviceGuard,
-              mode: 'user_turn',
-              action: 'block',
-            );
-            throw const FormatException(
-              '模型连续返回服务模板，已阻止写入',
-            );
-          }
-        }
-        perspectiveGuard = UserPerspectiveGuard.evaluate(
-          finalContent,
-          currentUserText: userPerspectiveContext,
-        );
-        if (!perspectiveGuard.allowed) {
-          throw const FormatException(
-            '模型连续使用第三人称指代当前用户，已阻止写入',
-          );
-        }
         operationGuard = OperationalClaimGroundingGuard.evaluate(
-          text: '$finalContent\n${generated.reasoning}',
+          text: finalContent,
           currentToolResults: agentToolResults,
         );
         if (!operationGuard.allowed) {
-          throw const FormatException(
-            '模型连续虚报无真实 Outcome 的操作事实，已阻止写入',
+          final salvaged =
+              OperationalClaimGroundingGuard.removeUnsupportedSentences(
+            text: finalContent,
+            currentToolResults: agentToolResults,
           );
-        }
-        questionGuard = InformationSeekingQuestionGuard.evaluate(
-          text: finalContent,
-          askAuthorized: conversationPlan.askAuthorized,
-        );
-        if (!questionGuard.allowed) {
-          await InformationSeekingQuestionGuardTelemetry.note(
-            db,
-            result: questionGuard,
-            action: 'block',
-          );
-          throw const FormatException(
-            '模型连续返回未获内部动机授权的信息索取问题，已阻止写入',
-          );
+          finalContent = salvaged.isNotEmpty
+              ? salvaged
+              : '「那件事我还没有真的执行，刚才说岔了。」';
         }
         expressionVerification = ConversationOutcomeVerifier.verify(
           finalText: finalContent,
           plan: conversationPlan,
           sourceThought: sourceConversationThought,
         );
-        if (!expressionVerification.allowed) {
-          throw const FormatException(
-            '模型连续返回与获授权 Thought 不匹配的信息索取问题，已阻止写入',
-          );
-        }
       }
       if (finalContent.trim().isEmpty) {
-        throw const FormatException('模板重写后正文为空');
+        throw const FormatException('模型修正后正文为空');
       }
 
       final companionEmotion = await emotionClassifier.resolve(
@@ -803,17 +749,19 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       );
       return GenerationRunResult(status: 'suspended', error: e);
     } catch (e) {
-      final interrupted = await db.interruptGenerationJob(
+      final failed = await db.failGenerationJob(
         job.id,
         runToken: job.runToken,
-        reason: _compactError(e),
+        error: _compactError(e),
+        recoverable: _recoverable(e),
       );
-      if (!interrupted) {
+      if (failed == null) {
         return GenerationRunResult(status: 'suspended', error: e);
       }
       return GenerationRunResult(
-        status: 'interrupted',
+        status: failed.status,
         error: e,
+        retryAt: failed.nextRetryAt,
       );
     } finally {
       await _clearToolRuntime();
@@ -853,7 +801,9 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           error.statusCode == 429 ||
           error.statusCode >= 500;
     }
-    if (error is FormatException) return false;
+    // Empty bodies and malformed/bogus tool calls are provider-output faults,
+    // not a user Stop. Retry the same durable turn instead of leaving a hole.
+    if (error is FormatException) return true;
     if (error is StateError) return false;
     return true;
   }

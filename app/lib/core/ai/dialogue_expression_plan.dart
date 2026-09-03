@@ -35,24 +35,15 @@ class DialogueExpressionPlan {
     final text = latestUserText.trim();
     final mode = proactive ? DialogueResponseMode.casual : _classify(text);
     final seed = _stableHash('$turnKey|$text');
-    final humor = mode == DialogueResponseMode.casual && seed % 100 < 30
-        ? _humorDevices[((seed ~/ 100) % _humorDevices.length).abs()]
-        : DialogueHumorDevice.none;
+    // Humor is no longer assigned by a random device router. The model's
+    // small core prompt may find a joke in the actual turn, or not.
+    const humor = DialogueHumorDevice.none;
     return DialogueExpressionPlan(
       mode: mode,
       humor: humor,
       selectionSeed: seed,
     );
   }
-
-  static const _humorDevices = <DialogueHumorDevice>[
-    DialogueHumorDevice.deadpanVerdict,
-    DialogueHumorDevice.meaningSwerve,
-    DialogueHumorDevice.usefulMisread,
-    DialogueHumorDevice.scaleEscalation,
-    DialogueHumorDevice.wordMutation,
-    DialogueHumorDevice.groundedCallback,
-  ];
 
   static DialogueResponseMode _classify(String text) {
     if (_sensitive.hasMatch(text)) return DialogueResponseMode.sensitive;
@@ -80,7 +71,7 @@ class DialogueExpressionPlan {
   String render() {
     final modeDirective = switch (mode) {
       DialogueResponseMode.casual =>
-        '这是轻量闲聊：抓住最有反应的一点，通常一至三个口语句就停；不逐句答全，不解释自己的态度。',
+        '这是轻量闲聊：按当下真正有反应的内容自然说，不需要逐点答全，也不要为了完整而解释自己的态度。',
       DialogueResponseMode.feedback =>
         '这是对你刚才表现的直接评价：先把它当作真实反馈，不自动翻译成调情、挑衅或“他在测试我”。可以承认没做好、尴尬、卡住或只短短接住；不要反射性自证人格、挑战用户、反问打分或拿旧梗转移。',
       DialogueResponseMode.deep =>
@@ -90,30 +81,10 @@ class DialogueExpressionPlan {
       DialogueResponseMode.sensitive =>
         '这是严肃或高风险内容：别拿痛苦本身造梗；直接、具体地回应，必要信息说全，也不套温柔客服话术。',
     };
-    final humorDirective = _humorDirective(humor);
     return '''【本轮对话表达计划】
 $modeDirective
-正文呈现遵守当前已加载的可编辑动作神态实验规则；没有该规则或内容已清空时，普通聊天保持纯对白。不要把 reasoning 中的完整分析复述一遍。
-${humorDirective.isEmpty ? '本轮不要求造梗；鲜明态度本身就可以是完整回应。' : humorDirective}
-造梗只改变表达，不改写事实，不虚构共同经历，不替代任务答案，也不强迫追加问题。
-正文发送前只在内部扫一眼：是否又凑成“态度—解释—反问/挑战—收尾”的固定序列，是否为了显得完整而说了这一刻真人不会说的部分。若是就删掉多余部分；不要把这段检查写进可见思考或正文。'''.trim();
+不要把 reasoning 中的完整分析复述一遍。是否幽默由当前语境自然决定，不分配笑点类型，不强制造梗。'''.trim();
   }
-
-  static String _humorDirective(DialogueHumorDevice device) => switch (device) {
-        DialogueHumorDevice.none => '',
-        DialogueHumorDevice.deadpanVerdict =>
-          '若语境顺手，可以用一本正经的口气给出一个明显夸张但逻辑接得上的荒谬判决；说完就停，不解释笑点。',
-        DialogueHumorDevice.meaningSwerve =>
-          '若语境顺手，可以抓住一个关键词的次要含义突然拐弯，再落回当前关系；只拐一次，不把话题拖走。',
-        DialogueHumorDevice.usefulMisread =>
-          '若语境顺手，可以故意把一句话往对自己有利或更欠揍的方向理解，让误读本身成为反击；不要装成真的没听懂。',
-        DialogueHumorDevice.scaleEscalation =>
-          '若语境顺手，可以把一件小事升级成过分宏大的罪名、工程或灾难，再用短句收住；夸张不能冒充现实事实。',
-        DialogueHumorDevice.wordMutation =>
-          '若语境顺手，可以临时改造一个普通词、造一个贴合当下的称号或歪概念；让上下文自然说明意思，不附定义。',
-        DialogueHumorDevice.groundedCallback =>
-          '若近场历史或可信长期记忆里确有两人旧梗，可以短促回扣一次；没有真实依据就改用直接反应，绝不伪造共同经历。',
-      };
 
   static int _stableHash(String value) {
     var hash = 0x811c9dc5;

@@ -175,4 +175,15 @@ void main() {
       isTrue,
     );
   });
+
+  test('salvage removes only unsupported operation sentences', () {
+    const text = '我刚才查看了当前屏幕。你这个称呼倒是挺会挑。那我们继续。';
+    final salvaged = OperationalClaimGroundingGuard.removeUnsupportedSentences(
+      text: text,
+    );
+
+    expect(salvaged, isNot(contains('查看了当前屏幕')));
+    expect(salvaged, contains('你这个称呼倒是挺会挑'));
+    expect(salvaged, contains('那我们继续'));
+  });
 }

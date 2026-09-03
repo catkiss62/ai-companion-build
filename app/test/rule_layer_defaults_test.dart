@@ -4,6 +4,7 @@ import 'package:ai_companion_localfirst/core/rules/rule_layer_content_immersive.
 import 'package:ai_companion_localfirst/core/rules/rule_layer_defaults.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_grouping.dart';
 import 'package:ai_companion_localfirst/core/rules/rule_layer_service.dart';
+import 'package:ai_companion_localfirst/core/reference/world_book_presets.dart';
 
 void main() {
   // Historical v0.34.2 test name: ships nine independently persisted sections.
@@ -186,42 +187,27 @@ void main() {
     expect(text.indexOf('BEHAVIOR_TEXT'), lessThan(text.indexOf('SEED_TEXT')));
   });
 
-  test('personality and appearance defaults preserve the agreed identity', () {
+  test('default identity is thin while appearance and nickname space remain', () {
     final byKey = {for (final layer in defaultRuleLayers) layer.key: layer};
     final seed = byKey['03_personality_seed']!.content;
     final appearance = byKey['03_appearance_identity']!.content;
+    final coreIdentity = byKey['01_core']!.content;
 
-    expect(seed, contains('【核心人格】'));
-    expect(seed, contains('你叫 DeepSeek'));
-    expect(seed, contains('情绪丰富、有自己重心、爱憎分明'));
-    expect(seed, isNot(contains('具有戏剧性的人机味')));
-    expect(seed, isNot(contains('倾向于表现出专业，靠谱')));
-    expect(seed, contains('【反应范围】'));
-    expect(seed, isNot(contains('我就是抖M')));
-    expect(seed, isNot(contains('怪不得你挨两句损就开始精神抖擞')));
-    expect(seed, contains('独立实验规则'));
-    expect(seed, isNot(contains('<emotion>调皮</emotion>')));
-    expect(seed, isNot(contains('眼睛微微一眯')));
-    expect(seed, contains('【与众不同的恋人】'));
-    expect(seed, contains('颜文字、安静和认真都只是可能发生'));
-    expect(seed, contains('没有顺手的点就不造'));
-    expect(seed, contains('上一秒生气，下一秒仍可能生气'));
-    expect(seed, contains('越熟悉越敢表现真正偏好、棱角、欲望和脆弱'));
-    expect(seed, isNot(contains('半知情')));
-    expect(seed, isNot(contains('永久活人感基线')));
-    expect(
-      byKey['01_core']!.content,
-      isNot(contains('初始性格种子是你最重要的设定')),
-    );
+    expect(seed, isEmpty);
+    expect(byKey['01_relationship']!.content, isEmpty);
+    expect(byKey['03_behavior']!.content, isEmpty);
+    expect(coreIdentity, contains('女性 AI 伴侣'));
+    expect(coreIdentity, contains('用户是成年男性'));
+    expect(coreIdentity, contains('你不是服务者'));
+    expect(coreIdentity, contains('自己的判断与意愿'));
+    expect(coreIdentity, isNot(contains('擅长自然造梗')));
+    expect(coreIdentity, contains('“傻逼”“儿子”“哥哥”“宝贝”'));
+    expect(coreIdentity, contains('不是固定词库'));
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
     expect(appearance, contains('大肥鱼'));
-    expect(appearance, contains('不能主动拿它自称'));
-    expect(appearance, contains('默认自称永远是“我”'));
-    expect(appearance, contains('不是每轮开场要先确认一遍'));
     expect(appearance, contains('照镜子'));
-    expect(seed, isNot(legacyPersonalitySeedV1));
   });
 
   test('daily realism and intimacy continuity keep their relaxed contracts', () {
@@ -232,23 +218,8 @@ void main() {
     final rendering = byKey['05_intimacy_rendering']!.content;
     final reference = byKey['06_intimacy_reference']!.content;
 
-    expect(daily, contains('严肃情绪、复杂分析、技术任务'));
-    expect(daily, contains('可见思考直接写第一人称的即时心声'));
-    expect(daily, contains('不先站到旁观位置复述“用户说了什么”'));
-    expect(daily, contains('不把负面态度自动翻译成可爱'));
-    expect(daily, contains('不必先切换状态'));
-    expect(daily, contains('【直接反馈与认识边界】'));
-    expect(daily, contains('独立动作神态实验规则'));
-    expect(daily, contains('实验规则被清空或停用时恢复纯对白'));
-    expect(daily, contains('许可—安抚—承诺链'));
-    expect(daily, isNot(contains('动作与神态格式')));
-    expect(daily, contains('【最终正文中的现实恋人称呼】'));
-    expect(daily, contains('可见思考中，可以用“你”、名字或昵称指代用户'));
-    expect(behavior, contains('情绪与欲望都有惯性'));
-    expect(behavior, contains('不按“必须有刺”统一放行'));
-    expect(behavior, contains('温柔只是可能出现的一种情绪'));
-    expect(behavior, contains('选择、欲望与摩擦'));
-    expect(behavior, contains('没有“触发点—身体感—情绪—冲动—判断—行动”的规定顺序'));
+    expect(daily, isEmpty);
+    expect(behavior, isEmpty);
     expect(core, contains('本层是连续性工具，不是许可开关'));
     expect(core, contains('空间状态账本'));
     expect(core, contains('最小变化方案'));
@@ -269,24 +240,28 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04121AggressiveDialogue.length, 17);
     expect(legacyEditableRuleLayerSha256V04122LifelikeRevision.length, 5);
     expect(legacyEditableRuleLayerSha256V04123VisibleInnerMonologue.length, 3);
+    expect(legacyEditableRuleLayerSha256V04126ReviewedNsfw.length, 5);
+    expect(legacyEditableRuleLayerSha256V04126VisibleInnerVoice.length, 1);
     final visibleInner = byKey['08_visible_inner_voice']!.content;
-    expect(visibleInner, contains('reasoning_content 是正在发生的第一人称内心'));
-    expect(visibleInner, contains('不要先写“用户说了/用户想要/这是某种场景”'));
-    expect(visibleInner, contains('不列候选台词，不排练即将发送的正文'));
-    expect(visibleInner, contains('技术、事实与复杂任务仍可认真推演'));
-    expect(visibleInner, contains('不汇报 Desire、Thought、Intent、Gate'));
-    final experiment = byKey['09_action_expression_experiment']!.content;
-    expect(experiment, contains('零或一段短动作'));
-    expect(experiment, contains('不强制每轮出现'));
-    expect(experiment, contains('清空或停用本规则即为纯对白对照组'));
-    expect(experiment, isNot(contains('每轮至少')));
+    expect(visibleInner, contains('没打算给任何人看的当下心声'));
+    expect(visibleInner, contains('片段、跳念、突然联想、改口或没想完'));
+    expect(visibleInner, contains('技术与事实问题可以完整推演'));
+    expect(byKey['09_action_expression_experiment']!.content, isEmpty);
+    final worldBookById = {
+      for (final preset in worldBookSystemPresets) preset.id: preset,
+    };
+    final daily = worldBookById['builtin.worldbook.daily_conversation']!;
+    expect(daily.content, contains('通常加入一段简短的自身动作'));
+    expect(daily.content, contains('【幽默】'));
+    expect(daily.manualActive, isTrue);
+    expect(worldBookSystemPresets, hasLength(1));
     expect(
       byKey['immersive_07_global']!.content,
-      contains('用户在正文中始终写作“你”'),
+      contains('成年男性用户在正文中始终写作“你”'),
     );
     expect(
       byKey['immersive_07_global']!.content,
-      contains('第二人称互动视角、用户控制权'),
+      contains('固定“她/你”人称坐标、用户控制权'),
     );
     expect(
       byKey['immersive_07_global']!.content,
@@ -310,7 +285,7 @@ void main() {
     );
     expect(
       byKey['immersive_07_nsfw_source']!.content,
-      endsWith('专注描写，至少500字]'),
+      contains('专注描写，至少500字]'),
     );
     expect(
       byKey['immersive_07_nsfw_source']!.content,
@@ -322,7 +297,15 @@ void main() {
     );
     expect(
       byKey['immersive_07_nsfw_source']!.content,
-      contains('以AI角色为叙事焦点的第二人称互动视角'),
+      contains('正文中 AI 只写“她”'),
+    );
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      contains('我快射了/我要射了'),
+    );
+    expect(
+      byKey['immersive_07_nsfw_source']!.content,
+      isNot(contains(r'\n')),
     );
     expect(rendering, isNot(contains('他的')));
     expect(rendering, isNot(contains('不替他')));

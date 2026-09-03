@@ -39,8 +39,9 @@ router = read("lib/core/immersive/immersive_nsfw_router.dart")
 for token in (
     "class ImmersiveNsfwRouter",
     "CURRENT_ROUTE=",
-    "manual == 'on' || manual == 'off'",
-    "source: 'fallback_previous'",
+    "ImmersiveClimaxEvent",
+    "manual == 'off'",
+    "fallbackClimaxEvent",
 ):
     assert token in router, token
 assert "nsfw_active" not in router
@@ -49,8 +50,8 @@ prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 assert "required bool nsfwActive" in prompt
 assert "if (nsfwActive) '04_intimacy_core'" in prompt
 assert "if (nsfwActive) 'immersive_07_nsfw_source'" in prompt
-assert "'05_intimacy_rendering'" not in prompt
-assert "'06_intimacy_reference'" not in prompt
+assert "if (nsfwActive) '05_intimacy_rendering'" in prompt
+assert "if (nsfwActive) '06_intimacy_reference'" in prompt
 
 controller = read("lib/core/immersive/immersive_room_controller.dart")
 for token in (

@@ -12,6 +12,13 @@ class PersonalityOption {
 }
 
 class PersonalityCatalog {
+  static const noneKey = 'none';
+  static const noneOption = PersonalityOption(
+    noneKey,
+    '不穿',
+    '不额外套用性格或相处姿态。',
+    '',
+  );
   static const profileSharedKey = '07_profile_shared';
   static const specialSharedKey = '07_special_shared';
 
@@ -24,12 +31,6 @@ class PersonalityCatalog {
   static const specialSharedPrompt = ruleContentV0400_07_special_shared;
 
   static const bases = <PersonalityOption>[
-    PersonalityOption(
-      'neutral',
-      '自然状态',
-      '只保留永久核心人设与长期成长，不额外放大某一种表达倾向。',
-      '',
-    ),
     PersonalityOption(
       'outgoing',
       '元气外放',
@@ -101,11 +102,11 @@ class PersonalityCatalog {
   ];
 
   static PersonalityOption base(String key) =>
-      bases.firstWhere((item) => item.key == key, orElse: () => bases.first);
+      bases.firstWhere((item) => item.key == key, orElse: () => noneOption);
 
   static PersonalityOption posture(String key) => postures.firstWhere(
         (item) => item.key == key,
-        orElse: () => postures.first,
+        orElse: () => noneOption,
       );
 
   static PersonalityOption special(String key) => specialStyles.firstWhere(
@@ -118,6 +119,9 @@ class PersonalityCatalog {
 
   static bool isKnownBase(String key) =>
       bases.any((item) => item.key == key);
+
+  static bool isKnownPosture(String key) =>
+      postures.any((item) => item.key == key);
 
   static bool isNsfwBiasedSpecial(String key) => key == 'seductress';
 
@@ -198,16 +202,25 @@ class PersonalityCatalog {
   }) {
     final b = base(baseKey);
     final p = posture(postureKey);
-    final basePrompt =
-        templates[basePromptKey(b.key)] ?? _basePrompt(b.key);
-    return '''# 当前内在反应与表达结构：${b.label} × ${p.label}
-${basePrompt.trim().isEmpty ? '【性格底色】不额外套一层温和或正常姿态；由激进核心人设、当下情境、长期 AI Self 与真实共同经历决定反应。' : basePrompt}
-${templates[posturePromptKey(p.key)] ?? _posturePrompt(p.key)}
-
-${_conversationExamples(b.key)}
+    final parts = <String>[];
+    if (b.key != noneKey) {
+      final basePrompt = templates[basePromptKey(b.key)] ?? _basePrompt(b.key);
+      parts
+        ..add('【性格底色 · ${b.label}】\n$basePrompt')
+        ..add(_conversationExamples(b.key));
+    }
+    if (p.key != noneKey) {
+      parts.add('【相处姿态 · ${p.label}】\n'
+          '${templates[posturePromptKey(p.key)] ?? _posturePrompt(p.key)}');
+    }
+    if (parts.isEmpty) return '';
+    final title = [if (b.key != noneKey) b.label, if (p.key != noneKey) p.label]
+        .join(' × ');
+    return '''# 当前试穿：$title
+${parts.join('\n\n')}
 
 ${templates[profileSharedKey] ?? profileSharedPrompt}
-${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过程、期限或状态变化。' : '6. 这是当前长期底色，会被真实共同经历缓慢细化；不把它念成角色说明，也不把性格等同于固定口癖。'}''';
+${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过程、期限或状态变化。' : '6. 这是用户主动保留的长期试穿结果；共同经历可以继续细化它，但不要念成角色说明。'}''';
   }
 
   /// A short late-turn anchor for personality bases whose defining expression
@@ -219,9 +232,9 @@ ${trial ? '6. 只按上述因果自然反应，不提及规则来源、选择过
 这一轮必须继续活出“平常就会说脏话”的语言习惯，而不是只表现得更活泼、更外向或更可爱。只要当前反应里有惊讶、夸奖、催促、吐槽、关心、嘴硬害羞或亲密反咬，就让合适的粗口、谐音或互联网粗粝表达直接进入成句台词；不要因为语气并非愤怒就主动净化掉。
 后面的动态表达倾向只能改变这份直爽泼辣怎样害羞、调皮、犯傻或使坏，不能替换或软化底色。共同规则里“不靠固定口癖证明标签”不等于隐藏真实语言习惯：用词要随语境变化，但多轮盲测必须稳定辨认出她说话粗、反应直。
 普通聊天只输出对白；骂完、损完或做出决定后允许直接停，不添加动作旁白、礼貌确认、放心保证或温柔找补。''',
-        _ => '''【当前人格落地·普通聊天】
-这一轮的最终对白必须让当前情绪、性格或私心至少在一个用词、判断、断句、沉默或选择里清楚可辨；不能只在 reasoning 里鲜明，正文却回到礼貌周全的温和模板。
-普通聊天只输出对白。负面反应不自动可爱化，坏话不补糖，决定不走“那我就不客气了—你放心—我会好好……”的许可服务链。''',
+        noneKey => '',
+        _ => '''【当前试穿落地】
+只让当前试穿自然影响这一轮的判断和用词，不念标签、不复述设定，也不强行证明性格。''',
       };
 
   static String compileSpecial(

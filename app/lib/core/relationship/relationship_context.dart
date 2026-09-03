@@ -26,7 +26,7 @@ class RelationshipContext {
 
     final session = activeSession;
     if (session == null) {
-      buffer.writeln('当前没有临时互动 Session；保持现实层“你就是 AI 女友”。');
+      buffer.writeln('当前没有临时互动 Session；保持现实层“你是女性 AI 伴侣”。');
     } else {
       buffer.writeln('当前存在临时 Session：');
       buffer.writeln('- 类型：${session.kind}');

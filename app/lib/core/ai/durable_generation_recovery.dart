@@ -11,10 +11,12 @@ class DurableGenerationRecovery {
   final AppDatabase db;
   final DurableGenerationRunner runner;
 
-  /// Finalize at most one abandoned generation. A process interruption has
-  /// the same semantics as the user's Stop button: withdraw the incomplete
-  /// turn and release its durable lock. Recovery must never resend an LLM
-  /// request behind the user's back.
+  /// Resume at most one due generation job.
+  ///
+  /// Only an explicit Stop action may withdraw the user's message. Transport
+  /// failures, process death and an expired writer lease keep the durable turn
+  /// and start a fresh provider request for that same turn when recovery is
+  /// due. The final database commit is still fenced by the job run token.
   Future<bool> recoverOne() async {
     if (!await db.brainWorkAllowed()) return false;
     final acquired = await db.tryAcquireLocalLease(
@@ -27,9 +29,19 @@ class DurableGenerationRecovery {
         runningStaleAfter: Duration.zero,
       );
       if (job == null) return false;
-      await db.cancelGenerationJobByUser(job.id);
-      await db.setSetting('last_generation_recovery_error', '');
-      return true;
+      final result = await runner.run(job);
+      if (result.completed) {
+        await db.setSetting('last_generation_recovery_error', '');
+        return true;
+      }
+      if (result.error != null) {
+        final raw = result.error.toString();
+        await db.setSetting(
+          'last_generation_recovery_error',
+          raw.length <= 320 ? raw : raw.substring(0, 320),
+        );
+      }
+      return false;
     } finally {
       await db.releaseLocalLease('chat_turn_lease');
     }

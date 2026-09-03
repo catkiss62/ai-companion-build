@@ -90,8 +90,11 @@ assert "OverlayDialogueFormatter.dialogueRanges(visible)" in overlay
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
 
 prompt = read("lib/core/ai/prompt_builder.dart")
-assert "语言要求只约束可见呈现" in prompt
-assert "不规定固定推理步骤" in prompt
+if "version: 0.41.27+166" in read("pubspec.yaml"):
+    assert "没打算给任何人看的当下心声" in prompt
+else:
+    assert "reasoning_content 使用自然简体中文，写成第一人称正在发生的内心" in prompt
+assert "技术、事实与复杂任务直接推演证据、代码、因果和不确定处" in prompt
 
 workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"

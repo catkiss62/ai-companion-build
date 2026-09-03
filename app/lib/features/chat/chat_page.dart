@@ -7,10 +7,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
-import '../../core/models/personality_trial.dart';
-import '../../core/personality/personality_catalog.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/message_attachment.dart';
+import '../../core/models/reference_document.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/models/proactive_intent.dart';
@@ -22,11 +21,10 @@ import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_text_processor.dart';
 import '../../widgets/reasoning_panel.dart';
 import '../../widgets/action_tint_text.dart';
-import '../../widgets/active_trial_capsule.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import 'chat_controller.dart';
 import 'chat_timestamp_formatter.dart';
-import '../personality/personality_lab_page.dart';
+import '../reference/reference_library_page.dart';
 import '../phone/simulated_phone_page.dart';
 import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
@@ -47,9 +45,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
   Timer? _externalSyncTimer;
-  Timer? _personalityTimer;
-  PersonalityTrial? _personalityTrial;
-  SpecialStyleTrial? _specialTrial;
   bool _appResumed = true;
   bool _pickingImage = false;
   bool _visualStageEnabled = true;
@@ -101,10 +96,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _initializingMessages = false;
     _onChanged();
     _scrollToLatest();
-    await _refreshPersonalityTrials();
-    _personalityTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      unawaited(_refreshPersonalityTrials());
-    });
     await _recoverLostImage();
     if (!mounted) return;
     _externalSyncTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
@@ -460,14 +451,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       unawaited(controller.acknowledgeOverlayUnread());
       unawaited(controller.syncExternalMessages());
     }
-    if (_appResumed) unawaited(_refreshPersonalityTrials());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _externalSyncTimer?.cancel();
-    _personalityTimer?.cancel();
     controller.removeListener(_onChanged);
     controller.dispose();
     input.dispose();
@@ -475,21 +464,76 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Future<void> _refreshPersonalityTrials() async {
-    final profile = await AppDatabase.instance.activePersonalityTrial();
-    final special = await AppDatabase.instance.activeSpecialStyleTrial();
-    if (!mounted) return;
-    setState(() {
-      _personalityTrial = profile;
-      _specialTrial = special;
-    });
+  Future<void> _openWorldBookLibrary() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ReferenceLibraryPage()),
+    );
   }
 
-  Future<void> _openPersonalityLab() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PersonalityLabPage()),
+  Future<void> _openWorldBookQuickPanel() async {
+    List<ReferenceDocument> modules =
+        await AppDatabase.instance.worldBookBehaviorDocuments(
+      manualOnly: true,
+      limit: 100,
     );
-    await _refreshPersonalityTrials();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.68,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.auto_stories_outlined),
+                  title: const Text('世界书模块'),
+                  subtitle: const Text('这里只显示“手动开关”模块；设置立即作用于下一轮。'),
+                  trailing: IconButton(
+                    tooltip: '管理全部世界书',
+                    icon: const Icon(Icons.tune_rounded),
+                    onPressed: () async {
+                      Navigator.pop(sheetContext);
+                      await _openWorldBookLibrary();
+                    },
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: modules.isEmpty
+                      ? const Center(child: Text('还没有手动开关模块。'))
+                      : ListView.builder(
+                          itemCount: modules.length,
+                          itemBuilder: (context, index) {
+                            final module = modules[index];
+                            return SwitchListTile(
+                              value: module.enabled && module.manualActive,
+                              title: Text(module.name),
+                              subtitle: Text(
+                                '优先级 ${module.priority} · ${module.activationProbability}% · ${_worldBookScopeLabel(module.scope)}',
+                              ),
+                              onChanged: (active) async {
+                                await AppDatabase.instance
+                                    .setWorldBookManualActive(module.id, active);
+                                modules = await AppDatabase.instance
+                                    .worldBookBehaviorDocuments(
+                                  manualOnly: true,
+                                  limit: 100,
+                                );
+                                if (sheetContext.mounted) setSheetState(() {});
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _send() async {
@@ -953,22 +997,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                  if (activeTrialCapsuleLabels(
-                    personalityBaseKey: _personalityTrial?.baseKey ?? '',
-                    specialStyleKey: _specialTrial?.styleKey ?? '',
-                  ).isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      right: 12,
-                      child: ActiveTrialCapsule(
-                        onTap: _openPersonalityLab,
-                        labels: activeTrialCapsuleLabels(
-                          personalityBaseKey:
-                              _personalityTrial?.baseKey ?? '',
-                          specialStyleKey: _specialTrial?.styleKey ?? '',
-                        ),
-                      ),
-                    ),
                 ],
               );
             },
@@ -1345,12 +1373,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       const Divider(height: 28),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.theater_comedy_outlined),
-                        title: const Text('性格试穿'),
-                        subtitle: const Text('只叠加表达倾向，不覆盖核心人设。'),
+                        leading: const Icon(Icons.auto_stories_outlined),
+                        title: const Text('世界书'),
+                        subtitle: const Text('开关或编辑动作、幽默与表达模块。'),
                         onTap: () async {
                           Navigator.pop(dialogContext);
-                          await _openPersonalityLab();
+                          await _openWorldBookLibrary();
                         },
                       ),
                       ListTile(
@@ -1520,12 +1548,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     },
                   ),
                   _QuickPanelTile(
-                    icon: Icons.theater_comedy_outlined,
-                    title: '性格试穿',
-                    subtitle: '只叠加表达倾向，不覆盖核心人设。',
+                    icon: Icons.auto_stories_outlined,
+                    title: '世界书',
+                    subtitle: '随时开关动作、幽默、性格与表达模块。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
-                      await _openPersonalityLab();
+                      await _openWorldBookLibrary();
                     },
                   ),
                   const _QuickPanelHeading('分类设置'),
@@ -1760,7 +1788,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     )
                   : const Icon(Icons.add_photo_alternate_outlined),
             ),
-            const SizedBox(width: 4),
+            IconButton(
+              onPressed: controller.generationActive || controller.analyzingImage
+                  ? null
+                  : _openWorldBookQuickPanel,
+              tooltip: '世界书模块',
+              icon: const Icon(Icons.auto_stories_outlined),
+            ),
             Expanded(
               child: TextField(
                 controller: input,
@@ -1795,6 +1829,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 }
+
+String _worldBookScopeLabel(String scope) => switch (scope) {
+      'chat' => '普通聊天',
+      'chat|proactive' => '普通与主动',
+      'proactive' => '主动联系',
+      'immersive' => '沉浸房间',
+      _ => '全部场景',
+    };
 
 
 class _DateSeparator extends StatelessWidget {

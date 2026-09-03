@@ -19,6 +19,27 @@ void main() {
     expect(events.single.intensity, inInclusiveRange(0.16, 0.94));
   });
 
+  test('parenthetical pokes reach face and whale tail channels', () {
+    final tail = SomaticPolicy.detectDailyTouch(
+      turnId: 'poke-tail',
+      text: '（戳戳尾巴）',
+      now: now,
+    ).single;
+    final face = SomaticPolicy.detectDailyTouch(
+      turnId: 'poke-face',
+      text: '(戳戳脸)',
+      now: now,
+    ).single;
+
+    expect(tail.direction, SomaticDirection.userToAi);
+    expect(tail.part, 'tail');
+    expect(tail.sceneKey, 'touch__poke__low_sens');
+    expect(tail.narrative, contains('尾巴'));
+    expect(face.part, 'face');
+    expect(face.sceneKey, 'touch__poke__mid_sens');
+    expect(face.narrative, contains('脸颊'));
+  });
+
   test('non-contact wording and reverse direction do not invent sensation', () {
     expect(
       SomaticPolicy.detectDailyTouch(
@@ -127,6 +148,8 @@ void main() {
     expect(prompt, contains('被拥抱包围'));
     expect(prompt, isNot(contains('0.72')));
     expect(prompt, contains('不要复述数值'));
+    expect(prompt, contains('应用内双感官通道提供的真实内部状态'));
+    expect(prompt, contains('不要因为没有现实肉身而否认'));
 
     final faded = SomaticPolicy.formatPrompt(
       [aggregate],

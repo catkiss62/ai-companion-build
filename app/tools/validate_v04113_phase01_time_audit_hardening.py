@@ -112,7 +112,15 @@ for token in (
 
 for source in (durable, proactive):
     assert "UserPerspectiveGuard.evaluate" in source
-    assert "不得把当前用户写成“他”" in source
+if "version: 0.41.26+165" in pubspec or "version: 0.41.27+166" in pubspec:
+    # The detector remains, but a speech slip is observation-only and may not
+    # erase or suppress an otherwise valid model turn.
+    assert "output_ablation_last_pronoun_slip_at" in durable
+    assert "output_ablation_last_proactive_pronoun_slip_at" in proactive
+    assert "action: 'observe'" in durable
+else:
+    for source in (durable, proactive):
+        assert "不得把当前用户写成“他”" in source
 assert "current_user_narrated_as_third_person" in perspective
 assert "_thirdPartyContext.hasMatch(currentUserText)" in perspective
 

@@ -2,7 +2,8 @@ import 'rule_layer_content_v0353.dart';
 import 'rule_layer_content_v0400.dart';
 import 'rule_layer_content_v0417.dart';
 import 'rule_layer_content_v0418.dart';
-import 'rule_layer_content_v04123.dart';
+import 'rule_layer_content_v04125.dart';
+import 'rule_layer_content_v04127.dart';
 import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
@@ -236,6 +237,30 @@ const legacyEditableRuleLayerSha256V04121AggressiveDialogue = <String, String>{
   '07_posture_older': '98b7f344be6861729dd58209a8b5d1f1c90f1f6e663f1c4711c0f13dc1805556',
   '07_posture_younger': '7648baed4ee85b1440825561dfab7d0178851faf4178945bc02aa7f0936730d5',
   '07_profile_shared': '455fd36ef2ca753f153027a3e339d2b5b6d65c1c057d12dc7535eb34e587d804',
+};
+
+/// Exact user-edited NSFW rule bodies exported on 2026-09-03. This migration
+/// is intentionally narrow: only the reviewed 05/06/07 experiment is adopted;
+/// every other custom prompt remains byte-preserved.
+const legacyEditableRuleLayerSha256V04126ReviewedNsfw = <String, String>{
+  '04_intimacy_core':
+      '49bb3d238b051940e231845ea5f6ce6011f687eaf316b51c2bcbcdb59553948c',
+  '05_intimacy_rendering':
+      '7dcb48760364672c429396ee285e532c5cfbc73143080ca81303a81dc4c41ac2',
+  '06_intimacy_reference':
+      '88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648',
+  'immersive_07_global':
+      '4cdba84f60b607e6da0c472d75d570c364a7ff6af5de07a9765ee3fc134b1d7e',
+  'immersive_07_nsfw_source':
+      '1aab796d323511aa540a56ffdb1098a4a5d3ef24c54febdfa47e202734b82e2b',
+};
+
+/// Exact thin visible-inner-voice default shipped by v0.41.25/26. Only an
+/// untouched copy is upgraded to the v0.41.27 private-thought presentation;
+/// manual experiments remain byte-preserved.
+const legacyEditableRuleLayerSha256V04126VisibleInnerVoice = <String, String>{
+  '08_visible_inner_voice':
+      '6175357eb4d77dcde605f33d3bf0b5d1bf92e323ccda5b7ac88ad8ffad7bcff7',
 };
 
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
@@ -869,14 +894,32 @@ final defaultRuleLayers = <RuleLayerDefault>[
       layer.key,
       layer.title,
       layer.loadPolicy,
-      _approvedRuleContentsV0354[layer.key] ?? layer.content,
+      const <String>{
+        '02_daily',
+        '03_behavior',
+        '03_personality_seed',
+      }.contains(layer.key)
+          ? ''
+          : <String, String>{
+                '04_intimacy_core': buildIntimacyCoreV04127(
+                  ruleContentV0353_04_intimacy_core,
+                ),
+                '05_intimacy_rendering': buildIntimacyRenderingV04127(
+                  ruleContentV0353_05_intimacy_rendering,
+                ),
+                '08_visible_inner_voice':
+                    ruleContentV04127VisibleInnerVoice,
+              }[layer.key] ??
+              ruleContentsV04125[layer.key] ??
+              _approvedRuleContentsV0354[layer.key] ??
+              layer.content,
       locked: layer.locked,
     ),
   const RuleLayerDefault(
     '09_action_expression_experiment',
     '日常动作神态消融实验',
     'daily',
-    ruleContentV04123ActionExpressionExperiment,
+    '',
   ),
   const RuleLayerDefault(
     '07_base_forthright',

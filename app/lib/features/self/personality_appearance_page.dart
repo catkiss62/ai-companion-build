@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/moe/domain/moe_models.dart';
 import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
-import '../../core/rules/rule_layer_defaults.dart';
+import '../reference/reference_library_page.dart';
 
 class PersonalityAppearancePage extends StatefulWidget {
   const PersonalityAppearancePage({super.key});
@@ -15,16 +15,13 @@ class PersonalityAppearancePage extends StatefulWidget {
 
 class _PersonalityAppearancePageState
     extends State<PersonalityAppearancePage> {
-  static const _personalityKey = '03_personality_seed';
   static const _appearanceAsset =
       'assets/appearance/large_whale_mirror.jpg';
 
   final db = AppDatabase.instance;
   late final SqliteMoeRepository _moeRepository =
       SqliteMoeRepository(() => db.database);
-  final controller = TextEditingController();
   bool loading = true;
-  bool saving = false;
   bool _moeExpressionEnabled = true;
   MoeExpressionMode _moeExpressionMode = MoeExpressionMode.obvious;
   String? status;
@@ -36,16 +33,9 @@ class _PersonalityAppearancePageState
   }
 
   Future<void> _load() async {
-    final layers = await db.listRuleLayers();
     final moeExpressionEnabled =
         (await db.getSetting('moe_expression_enabled')) != '0';
     final moeExpressionMode = await _moeRepository.loadExpressionMode();
-    final personality = layers.where((layer) => layer.key == _personalityKey);
-    if (personality.isNotEmpty) {
-      controller.text = personality.first.content;
-    } else {
-      controller.text = _defaultPersonality;
-    }
     if (mounted) {
       setState(() {
         loading = false;
@@ -54,57 +44,6 @@ class _PersonalityAppearancePageState
         status = null;
       });
     }
-  }
-
-  String get _defaultPersonality => defaultRuleLayers
-      .firstWhere((layer) => layer.key == _personalityKey)
-      .content;
-
-  Future<void> _save() async {
-    final content = controller.text.trim();
-    if (content.isEmpty) {
-      setState(
-        () => status = '性格内容不能为空；如果暂时不想使用，可以在高级规则页关闭这一层。',
-      );
-      return;
-    }
-    setState(() {
-      saving = true;
-      status = null;
-    });
-    await db.updateRuleLayer(_personalityKey, content: content);
-    if (mounted) {
-      setState(() {
-        saving = false;
-        status = '性格种子已保存；不会覆盖她后来形成的真实 AI Self。';
-      });
-    }
-  }
-
-  Future<void> _restore() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('还原默认性格？'),
-        content: const Text(
-          '这会覆盖输入框中的自定义性格，恢复 APK 当前版本的默认内容；长期记忆、关系经历、Desire 和已经形成的 AI Self 不会被删除。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认还原'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await db.resetRuleLayer(_personalityKey);
-    controller.text = _defaultPersonality;
-    if (mounted) setState(() => status = '已还原为当前版本的默认性格。');
   }
 
   Future<void> _setMoeExpressionEnabled(bool value) async {
@@ -130,56 +69,28 @@ class _PersonalityAppearancePageState
   }
 
   @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('性格与外观')),
+      appBar: AppBar(title: const Text('外观与动态状态')),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                Text(
-                  '初始性格',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '这是她的成长起点，不是不可改变的角色卡。共同经历可以逐渐改变表达方式，但不会把独立性培养成服从。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  minLines: 16,
-                  maxLines: 28,
-                  decoration: const InputDecoration(
-                    labelText: '可编辑性格种子',
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.auto_stories_outlined),
+                    title: const Text('表达与性格模块'),
+                    subtitle: const Text(
+                      '默认不注入性格种子。动作、幽默、相处姿态和特殊风格都在世界书中独立开关和编辑。',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ReferenceLibraryPage(),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: saving ? null : _save,
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(saving ? '保存中…' : '保存性格'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: saving ? null : _restore,
-                      icon: const Icon(Icons.restart_alt),
-                      label: const Text('还原默认性格'),
-                    ),
-                  ],
                 ),
                 if (status != null)
                   Padding(
@@ -193,7 +104,7 @@ class _PersonalityAppearancePageState
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '九轴状态只给当下表达增加一点反差和习惯，不改变记忆、事实、长期人格、工具或主动联系资格。关闭后数值仍可在“她的内心”中旁路观察。',
+                  '这是与世界书分开的实验动态层，默认关闭。九轴状态关闭表达后仍可旁路观察，不改变记忆、事实、学习候选、工具或主动联系资格。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),

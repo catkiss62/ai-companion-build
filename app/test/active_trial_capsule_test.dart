@@ -37,7 +37,7 @@ void main() {
         personalityBaseKey: 'neutral',
         specialStyleKey: 'yandere',
       ),
-      ['自然状态', '病娇'],
+      ['病娇'],
     );
     expect(activeTrialCapsuleLabels(), isEmpty);
     expect(

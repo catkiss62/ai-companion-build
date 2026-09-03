@@ -84,8 +84,8 @@ prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 assert "history.skip(room.summarizedMessageCount)" in prompt
 assert "characterBudget = 22000" in prompt
 assert "'02_daily'" not in prompt
-assert "'05_intimacy_rendering'" not in prompt
-assert "'06_intimacy_reference'" not in prompt
+assert "if (nsfwActive) '05_intimacy_rendering'" in prompt
+assert "if (nsfwActive) '06_intimacy_reference'" in prompt
 assert "'immersive_07_global'" in prompt
 
 memory_policy = read("lib/core/immersive/immersive_shared_memory_policy.dart")

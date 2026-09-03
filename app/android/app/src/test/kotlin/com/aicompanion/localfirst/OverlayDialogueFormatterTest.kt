@@ -5,6 +5,13 @@ import org.junit.Test
 
 class OverlayDialogueFormatterTest {
     @Test
+    fun `plain reply is dialogue instead of a full italic action`() {
+        val value = "回来啦。"
+        assertEquals(listOf(value.indices), OverlayDialogueFormatter.dialogueRanges(value))
+        assertEquals(emptyList<IntRange>(), OverlayDialogueFormatter.actionRanges(value))
+    }
+
+    @Test
     fun `legacy action delimiters are hidden without changing dialogue`() {
         val visible = OverlayDialogueFormatter.visibleText(
             "（耳鳍轻轻抖了一下）\n「才没有一直等你。」\n(尾巴晃了晃)",

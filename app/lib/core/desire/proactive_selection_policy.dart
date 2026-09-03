@@ -89,6 +89,7 @@ class ProactiveSelectionPolicy {
     required Map<String, CompanionThought> thoughtsById,
     required List<String> recentIntentKinds,
     List<String> recentSourceTypes = const [],
+    List<String> recentTopicKeys = const [],
     required DateTime now,
     Map<String, DateTime> readySinceByThoughtId = const {},
     double samplingUnit = 0.0,
@@ -100,6 +101,11 @@ class ProactiveSelectionPolicy {
         .take(8)
         .toList(growable: false);
     final recentSources = recentSourceTypes
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .take(8)
+        .toList(growable: false);
+    final recentTopics = recentTopicKeys
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .take(8)
@@ -121,10 +127,15 @@ class ProactiveSelectionPolicy {
         );
         final intentKind = ProactivePresentationPolicy.classify(
           intent: candidate,
+          sourceType: sourceType,
         ).key;
         final repeatDepth = _repeatDepth(recent, intentKind);
         final sourceRepeatDepth = _repeatDepth(recentSources, sourceType);
-        final repetitionPenalty = repetition
+        final topicKey = thought?.topicKey.trim() ?? '';
+        final topicRepeatDepth = topicKey.isEmpty
+            ? 0
+            : _repeatDepth(recentTopics, topicKey);
+        final intentPenalty = repetition
             ? switch (repeatDepth) {
                 0 => 0.0,
                 1 => 0.10,
@@ -132,6 +143,15 @@ class ProactiveSelectionPolicy {
                 _ => 0.26,
               }
             : 0.0;
+        final topicPenalty = repetition
+            ? switch (topicRepeatDepth) {
+                0 => 0.0,
+                1 => 0.08,
+                2 => 0.16,
+                _ => 0.24,
+              }
+            : 0.0;
+        final repetitionPenalty = intentPenalty + topicPenalty;
         final sourceRepetitionPenalty = repetition
             ? switch (sourceRepeatDepth) {
                 0 => 0.0,
