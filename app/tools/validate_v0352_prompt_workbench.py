@@ -25,8 +25,6 @@ for relative in ("lib/app.dart", "lib/main.dart"):
 page = read("lib/features/settings/rule_layers_page.dart")
 for token in (
     "七大规则",
-    "_composeGroup",
-    "_parseGroup",
     "ai_companion_prompt_pack",
     "Clipboard.setData",
     "Clipboard.getData",
@@ -36,6 +34,15 @@ for token in (
     "ClampingScrollPhysics",
 ):
     assert token in page, token
+codec = read("lib/core/rules/rule_layer_group_editor_codec.dart")
+assert (
+    "_composeGroup" in page and "_parseGroup" in page
+) or (
+    "composeEditableRuleLayerGroup" in page
+    and "parseEditableRuleLayerGroup" in page
+    and "composeEditableRuleLayerGroup" in codec
+    and "parseEditableRuleLayerGroup" in codec
+)
 assert "和她讨论" not in page
 assert "revised_content" not in page
 assert "contextMenuBuilder:" not in page
@@ -81,6 +88,7 @@ if any(
         "version: 0.41.26+165",
         "version: 0.41.27+166",
         "version: 0.41.28+167",
+        "version: 0.41.29+168",
     )
 ):
     # v0.41.26 keeps the editable workbench catalog, but turns its profiles

@@ -38,7 +38,20 @@ void main() {
       proactive: true,
     );
     expect(reminder, contains('只输出 WAIT'));
+    expect(reminder, contains('最终正文只允许真正说出口的「对白」'));
+    expect(reminder, contains('不要输出无括号旁白、私下心声或裸露自然语言'));
     expect(reminder, isNot(contains('用户刚刚')));
+  });
+
+  test('proactive action reminder permits only marked action and dialogue', () {
+    final reminder = PromptBuilder.visibleChineseGenerationReminder(
+      proactive: true,
+      ordinaryActionExperimentActive: true,
+    );
+    expect(reminder, contains('最终正文只允许两种可见段'));
+    expect(reminder, contains('必须独占一行并写成（动作）'));
+    expect(reminder, contains('必须独占一行并写成「对白」'));
+    expect(reminder, contains('且至少有一段对白'));
   });
 
   test('action-expression reminder has removable A/B branches', () {
@@ -51,7 +64,7 @@ void main() {
 
     expect(enabled, contains('当前世界书启用了动作神态'));
     expect(enabled, contains('写一个简短的自身动作/神态'));
-    expect(enabled, contains('对白使用「」'));
+    expect(enabled, contains('对白独占一行并使用「」'));
     expect(disabled, isNot(contains('动作神态')));
     expect(disabled, contains('偶发口误不会被系统强制中断'));
   });

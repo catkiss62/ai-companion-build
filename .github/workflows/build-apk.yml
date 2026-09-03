@@ -307,13 +307,13 @@
 # agent/v04121-phase2a5-system-responsibility-ablation
 # AI-Companion-v0.41.21-160-Phase2A5-Responsibility-Ablation-APK
 # .ci/v04121-monitor.txt
-# Current v0.41.28 workflow: deterministic immersive identity/climax routing, live rendering and paragraph boundaries.
-name: Build AI Companion v0.41.28+167 APK (Immersive Identity Rendering)
+# Current v0.41.29 workflow: proactive formatting, stored action semantics, editable empty placeholders and emotion feedback.
+name: Build AI Companion v0.41.29+168 APK (Proactive Rendering + Rule Editor + Emotion)
 
 on:
   push:
     branches:
-      - agent/v04128-immersive-identity-rendering
+      - agent/v04129-proactive-rendering-rule-editor-emotion
   workflow_dispatch:
   pull_request:
     branches:
@@ -451,14 +451,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.28+167' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.29+168' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 45;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.28+167 immersive identity/rendering runtime.'
+          echo 'Building v0.41.29+168 proactive rendering, rule editor and emotion runtime.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -551,6 +551,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/validate_v04128_immersive_identity_rendering.py
+          python3 tools/validate_v04129_proactive_rendering_rule_editor_emotion.py
           python3 tools/validate_v0331_desktop_pet_source_parity.py
           python3 tools/validate_v0332_desktop_pet_overlay_d2.py
           python3 tools/validate_v0338_pet_semantic_autonomy.py
@@ -822,26 +823,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.28+167 APK as workflow artifact
+      - name: Upload v0.41.29+168 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.28-167-Immersive-Identity-Rendering-APK
+          name: AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.28+167 Immersive Identity Rendering APK to draft release
+      - name: Upload v0.41.29+168 Proactive Rendering, Rule Editor and Emotion APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.28-immersive-identity-rendering-test'
-          APK_NAME='AI-Companion-v0.41.28-167-Immersive-Identity-Rendering-APK.apk'
+          TAG='v0.41.29-proactive-rendering-rule-editor-emotion-test'
+          APK_NAME='AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.28-167-Immersive-Identity-Rendering-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -858,7 +859,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.28+167 Immersive Identity Rendering candidate' \
+              --title 'AI Companion v0.41.29+168 Proactive Rendering, Rule Editor and Emotion candidate' \
               --notes 'Draft true-device candidate preserving the thin default persona while hardening female-AI immersive reasoning, deterministic cross-turn climax semantics, shared somatic input, optimized daily humor isolation, live action/narration tinting and natural immersive paragraph boundaries. SQLite schema 45; backup protocol remains 5.'
           else
             gh release edit "${TAG}" \
@@ -883,18 +884,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04128-monitor.txt'
+          MONITOR_PATH='.ci/v04129-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.28 CI success monitor' \
+              -f message='Update v0.41.29 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.28 CI success monitor' \
+              -f message='Create v0.41.29 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -915,8 +916,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.28-immersive-identity-rendering-test'
-          CI_NAME='AI-Companion-v0.41.28-167-Immersive-Identity-Rendering-CI-Monitor.txt'
+          TAG='v0.41.29-proactive-rendering-rule-editor-emotion-test'
+          CI_NAME='AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -957,7 +958,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.28+167 Immersive Identity Rendering candidate' \
+              --title 'AI Companion v0.41.29+168 Proactive Rendering, Rule Editor and Emotion candidate' \
               --notes 'Draft true-device candidate for grouped editable daily world-book behavior, output-guard ablation, private-thought-style visible reasoning, unified dialogue rendering, distinct proactive topic lanes, restored somatic poke input and immersive NSFW loading/viewpoint/state repair. It is not a published release; Phase 2B/3/4 remain disabled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -967,18 +968,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04128-monitor.txt'
+          MONITOR_PATH='.ci/v04129-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.28 CI failure monitor' \
+              -f message='Update v0.41.29 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.28 CI failure monitor' \
+              -f message='Create v0.41.29 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

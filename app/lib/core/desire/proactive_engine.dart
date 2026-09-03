@@ -36,7 +36,9 @@ import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_policy.dart';
+import '../tts/emotion_sound_service.dart';
 import '../tts/tts_service.dart';
+import '../presentation/chat_visuals.dart';
 import 'deferred_followup_engine.dart';
 import 'desire_core_policy.dart';
 import 'desire_engine.dart';
@@ -105,9 +107,11 @@ class ProactiveEngine {
     required this.android,
     SecureConfig? secureConfig,
     TtsService? ttsService,
+    EmotionSoundService? emotionSoundService,
     Random? random,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _ttsOverride = ttsService,
+        _emotionSoundOverride = emotionSoundService,
         _random = random ?? Random();
 
   final AppDatabase db;
@@ -116,10 +120,13 @@ class ProactiveEngine {
   final AndroidBridge android;
   final SecureConfig secureConfig;
   final TtsService? _ttsOverride;
+  final EmotionSoundService? _emotionSoundOverride;
   final Random _random;
   final Uuid _uuid = Uuid();
 
   late final TtsService tts = _ttsOverride ?? TtsService(db: db);
+  late final EmotionSoundService emotionSounds =
+      _emotionSoundOverride ?? EmotionSoundService(db: db);
 
   late final SelfDriveEngine selfDrive = SelfDriveEngine(
     db: db,
@@ -1211,7 +1218,14 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       // Do not block the proactive heartbeat on local model generation/playback.
       // Background FlutterEngine owns a NativeTtsBridge only for this explicit
       // user-selected policy.
-      unawaited(tts.speak(text, manual: true).then((ok) async {
+      final visual = ChatVisualResolver.resolveEmotionKey(message.emotionKey);
+      final emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
+      unawaited(tts.speak(
+        text,
+        manual: true,
+        leadIn: emotionLeadIn,
+        ownerId: message.id,
+      ).then((ok) async {
         if (ok) {
           await db.setSetting('last_proactive_spoken_message_id', message.id);
         }

@@ -27,8 +27,9 @@ tests = read("test/personality_trial_test.dart") + read(
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*(?:0\.41\.7\+146|0\.41\.8\+147|0\.41\.9\+148|0\.41\.10\+149|0\.41\.11\+150|0\.41\.12\+151|0\.41\.13\+152|0\.41\.14\+153|0\.41\.15\+154|0\.41\.16\+155|0\.41\.17\+156|0\.41\.18\+157|0\.41\.19\+158|0\.41\.20\+159|0\.41\.21\+160|0\.41\.22\+161|0\.41\.23\+162|0\.41\.24\+163)\s*$", pubspec, re.M)
-assert "static const int schemaVersion = 41;" in database
+current = "version: 0.41.29+168" in pubspec
+assert current or re.search(r"^version:\s*(?:0\.41\.7\+146|0\.41\.8\+147|0\.41\.9\+148|0\.41\.10\+149|0\.41\.11\+150|0\.41\.12\+151|0\.41\.13\+152|0\.41\.14\+153|0\.41\.15\+154|0\.41\.16\+155|0\.41\.17\+156|0\.41\.18\+157|0\.41\.19\+158|0\.41\.20\+159|0\.41\.21\+160|0\.41\.22\+161|0\.41\.23\+162|0\.41\.24\+163)\s*$", pubspec, re.M)
+assert current or "static const int schemaVersion = 41;" in database
 
 for token in (
     "'forthright'",

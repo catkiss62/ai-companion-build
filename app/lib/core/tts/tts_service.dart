@@ -102,10 +102,22 @@ class TtsService implements TtsQueueService {
 
   /// One-shot convenience used by proactive speech. It deliberately routes
   /// through the same A2 scheduler as chat, never through the old serial path.
-  Future<bool> speak(String visibleText, {bool manual = false}) async {
+  Future<bool> speak(
+    String visibleText, {
+    bool manual = false,
+    Future<void>? leadIn,
+    TtsEmotionCue? emotion,
+    String? ownerId,
+  }) async {
     final queue = TtsPlaybackQueue(service: this);
     try {
-      await queue.playText(visibleText, manual: manual);
+      await queue.playText(
+        visibleText,
+        manual: manual,
+        leadIn: leadIn,
+        emotion: emotion,
+        ownerId: ownerId,
+      );
       await queue.waitUntilIdle();
       return true;
     } catch (e) {

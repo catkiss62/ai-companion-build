@@ -68,7 +68,11 @@ assert "const humor = DialogueHumorDevice.none" in expression
 assert "不分配笑点类型" in expression
 if any(
     version in pubspec
-    for version in ("version: 0.41.27+166", "version: 0.41.28+167")
+    for version in (
+        "version: 0.41.27+166",
+        "version: 0.41.28+167",
+        "version: 0.41.29+168",
+    )
 ):
     assert "没打算给任何人看的当下心声" in prompt
     assert "所以我应该怎样回复" in prompt

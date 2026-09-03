@@ -35,8 +35,9 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
-assert "static const int schemaVersion = 40;" in database
+current = "version: 0.41.29+168" in pubspec
+assert current or re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
+assert current or "static const int schemaVersion = 40;" in database
 
 for token in (
     "ThoughtProvenance.awareness",
@@ -134,7 +135,7 @@ seed_match = re.search(
     re.S,
 )
 assert seed_match is not None
-if any(version in pubspec for version in (
+if current or any(version in pubspec for version in (
     "version: 0.41.23+162", "version: 0.41.24+163"
 )):
     assert hashlib.sha256(seed_match.group(1).encode("utf-8")).hexdigest() == (

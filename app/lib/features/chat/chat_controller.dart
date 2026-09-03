@@ -1328,11 +1328,14 @@ class ChatController extends ChangeNotifier {
     final lastSpoken = await db.getSetting('last_proactive_spoken_message_id');
     if (lastSpoken == latest.id) return;
     await db.setSetting('last_proactive_spoken_message_id', latest.id);
+    final visual = ChatVisualResolver.resolveEmotionKey(latest.emotionKey);
+    final emotionLeadIn = emotionSounds.play(visual).then<void>((_) {});
     await ttsPlayback.playText(
       latest.content,
       manual: true,
       ownerId: latest.id,
       emotion: _ttsEmotionCue(latest),
+      leadIn: emotionLeadIn,
     );
   }
 

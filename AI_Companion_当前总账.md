@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04128-immersive-identity-rendering`；承接已通过 CI 的 v0.41.27，按最新真机备份修复沉浸女性身份、高潮确定性路由、双感官、三窗口流式渲染、沉浸分段与主动新话题；薄默认人格、性格光谱及 NSFW 文笔方向保持不变 |
+| 当前开发分支 | `agent/v04129-proactive-rendering-rule-editor-emotion`；承接已提交但尚未 CI 的 v0.41.28，按最新主动消息截图修复主动对白格式、完成态动作段着色、空规则小节编辑阻断与情绪动画尺寸；同时只读核对主动规则/世界书注入和情绪音效链路 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.28 修改前基线 head `8e6a01f`，当前工作树正在实现本任务；最终提交、tree 与远端构建 head 待本轮本地检查和 Actions 完成后回填 |
-| App / 数据库 | 当前开发目标 `0.41.28+167` / schema 45 / Snapshot protocol 5；不新增表。04/05/07 与房间默认规则只按 v0.41.27 精确 hash 保守迁移；用户后来改过的内容不覆盖。备份中精确命中的自建“造梗能力”仅优化正文并限制到普通/主动范围，保留开关、概率和优先级 |
+| 当前代码 head / tree | v0.41.28 已提交 head `4e91516`；v0.41.29 从该 head 新建分支并开始实现本任务，最终提交、tree 与远端构建 head 待本轮本地检查和 Actions 完成后回填 |
+| App / 数据库 | 当前开发目标 `0.41.29+168` / schema 45 / Snapshot protocol 5；不新增表。04/05/07、房间默认规则及用户手改规则继续保守保留；本批只加强主动最终格式，不重写用户性格光谱或改变 NSFW 文笔方向 |
 | 最终 CI | v0.41.27+166 Actions run [`33769651915`](https://github.com/catkiss62/ai-companion-build/actions/runs/33769651915)（703）全绿：完整源码/历史 validators、Kotlin 悬浮窗渲染测试、Flutter analyze、509/509 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。run 700～702 依次暴露并修复测试变量重名、主动重复主题等待奖励与两条相互矛盾的 NSFW 文案契约；未跳过或降低任何门禁 |
 | 测试 APK | `AI-Companion-v0.41.27-166-Unified-Lifelike-NSFW-Runtime-APK.apk`，325,721,546 bytes |
 | APK SHA-256 | `becec6d7282439221adeead746096620129d0410abe0c453df7c462fb0f180ad`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9899603690`](https://github.com/catkiss62/ai-companion-build/actions/runs/33769651915/artifacts/9899603690)，ZIP 319,423,498 bytes，digest `sha256:62f140b5bef464587b63d49014ad4022a402083cb1f355b1cb7e64575ae9abb5`，保留至 2026-09-17T15:09:35Z；Draft Release [`untagged-7e2c9dc48212e63d30e5`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7e2c9dc48212e63d30e5)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.27 已 `CI PASSED / APK READY`，真机证明薄默认人格成功，但暴露沉浸 reasoning 男性化、高潮语义未执行、双感官未接沉浸、流式翻色、段落挤压与主动新通道仍复读。v0.41.28 当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。Phase 2A.5 仍未收尾，Phase 1 仍只产候选，不能宣称已吸收性格 |
+| 当前总状态 | v0.41.27 已 `CI PASSED / APK READY`；v0.41.28 已提交并为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。最新主动截图又确认两条窄回归：主动口语未包 `「」` 会变白斜体，完成态 action segment 丢源标记会变成对白色。v0.41.29 当前为 `IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`。Phase 2A.5 仍未收尾，Phase 1 仍只产候选，不能宣称已吸收性格 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.28 自动化与 APK：验证沉浸 reasoning 始终为女性 AI、高潮跨轮语义、沉浸双感官、主聊天/悬浮窗/沉浸房首帧渲染、自然分段，以及主动分享/好奇不再读取已回答旧对话。** |
-| 目标 | 在 v0.41.26 的薄人格与运行时修复上，恢复沉浸房遗漏的 05/06，保留 07 沉浸独有；固定成年女性 AI/成年男性用户的人称视角；把“AI 临界—用户选择—用户濒临—等待明确释放—同步高潮”做成自然语言可识别的跨轮状态，不改现有 NSFW 文笔方向与重要器官词自检。日常动作、反八股、幽默等按一类一个世界书模块，不拆成大量微条目；可见 reasoning 只做一项薄改动：像角色没打算说出口的即时心声，不写工作日志 |
-| 当前证据 | 最新 15:47 备份与 16:00 诊断：薄默认人格真机显著改善；生成任务累计 263 completed、7 cancelled、5 interrupted，v0.41.27 安装后的新任务均 completed，旧口误硬中断不能误报为当前仍发生。Phase 2A.5 为 80 plans / 60 mismatch，`react=72`、`open_own_topic=0`、`release=0`；人格学习 4 candidates / 5 evidence，仍无吸收。Somatic `user_to_ai=0`，沉浸控制器确实未接通。自建造梗世界书含男性身份夺舍与格式破坏示例，是沉浸 reasoning 漂移的直接冲突源之一 |
-| 保护与排除 | 不降低成人正文露骨程度，不删除“肉棒”及局部器官锚定、自检、声音动作与色情参考模块；不把 NSFW 世界书作为本轮前置依赖。Snapshot protocol 5 不变；世界书不写回 AI Self/学习候选/成长；清晨 Gate 不加硬次数上限。普通聊天仍不得因口误、人称、提问或格式撤回整轮 |
-| 实现边界 | schema 45 不再升级。普通聊天 NSFW 继续使用 04/05/06；沉浸 NSFW 使用 04/05/06 + 07。05 的自检保留在可编辑规则中但运行时抽出到末端静默注入；06 色情参考只修正明显的身份、视角、首次疼痛/出血强制与旧魔法口令冲突。路由只给出本轮语义状态，不代写正文 |
-| 完成判据 | Actions 通过 v0.41.28 静态合同、schema 45、Kotlin、Flutter analyze/全量 tests、Release APK、固定签名和完整载荷。真机须覆盖：普通动作首字符即白斜体、纯对白不斜体；沉浸旁白首字符即白色、弯引号对白独段着色、引用词不误着色；reasoning 始终女性“我”；“我快射了”后只积累，明确释放才同步高潮；触碰立即进入沉浸身体感觉；正文保持 5～9 个自然段；分享念头/好奇出现独立新题，followup 才回旧话 |
-| 直接详细入口 | 本文件末尾“v0.41.28 沉浸身份、高潮路由、首帧渲染与自然分段”；代码入口为 `rule_layer_content_v04128.dart`、`ImmersiveNsfwRouter`、`ImmersivePromptBuilder`、`SomaticEngine`、`ActionTintText`、`OverlayDialogueFormatter`、`ProactivePresentationPolicy` 与世界书精确迁移 |
+| 当前下一步 | **完成 v0.41.29：修复主动首条对白格式与完成态动作段着色，允许已迁空的规则小节保持为空，将情绪特效尺寸精确放大到 2 倍；核对主动规则/世界书注入与非正常情绪音效链路后运行自动化并创建 APK。** |
+| 目标 | 主动最终正文只能由可选的 `（自身动作）` 与必需的 `「对白」` 组成，避免口语落成白斜体；持久化 action segment 在 UI 重建时恢复隐藏式动作标记，使动作始终白斜体而 `“”` 只继承所在段；空占位小节可保存、实体规则仍防止误清空；情绪特效锚点 size 从 0.25 改为 0.50，音效只审计不凭“正常”样本误判回归 |
+| 当前证据 | 两张 00:35/00:41 真机截图：主动首条自然语言未包 `「」`，被动作渲染器正确按白斜体处理；下一轮存储的 action segment 单独交给 `ActionTintText` 后因缺少括号源标记回退成对白色。源码核对确认主动与正常对话共用 `RuleLayerService`，always/daily 层、scope=all/proactive 世界书和 08 主动模板均会加载；空 02/03 占位层按设计跳过。截图情绪为“正常”，该映射本来没有 soundAsset，备份音量又为 15%，不能据此证明音效失效 |
+| 保护与排除 | 不改薄默认人格、用户性格光谱、NSFW 文笔与身份/高潮路由；`“”` 本身绝不触发着色，在动作段继承白斜体、在对白段继承对白色；不为“正常”情绪强加提示音，不擅自抬高用户 15% 音量；schema 45 / Snapshot protocol 5 不变 |
+| 实现边界 | 不重做聊天解析器：只在 `ChatVisualChunk.displayText` 为 action segment 恢复会被 UI 隐藏的 `（）`；主动末端提醒增加唯一合法可见结构。规则编辑只允许默认即为空或当前本来为空的小节继续为空，非空实体小节仍禁止误删；情绪只改 overlay effect 尺寸，不改立绘缩放、动画幅度、TTS 顺序或音效资产 |
+| 完成判据 | 自动化覆盖主动 reminder 的动作/对白唯一结构、action chunk 恢复标记、`“”` 继承语义、空占位可保存且实体规则不可清空、两套立绘 effect anchor 均为 0.50；现有 v0.41.28 validators、Flutter analyze/全量 tests、Kotlin、Release APK、签名与完整载荷均通过。真机再确认主动首条对白着色、动作白斜体、非正常情绪先提示音后 TTS、特效视觉尺寸 2 倍 |
+| 直接详细入口 | 本文件末尾“v0.41.29 主动格式、动作分段、空规则小节与情绪反馈”；代码入口为 `PromptBuilder.visibleChineseGenerationReminder`、`ChatVisualChunk`、`ActionTintText`、`RuleLayersPage`、`ChatPortraitSet.effectAnchor`、`ChatVisualResolver` 与 `EmotionSoundService` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -65,6 +65,14 @@
 | F · v0.41.27 薄人设 + NSFW 统一运行时（CURRENT） | 最新真机薄提示词 A/B、渲染、主动、双感官、可见思考与沉浸成人流程缺陷已定位 | 完成 CI/APK 后把可见内心化与当前任务包一起验收；若真机自然度通过，再决定 Phase 2B 是否开始，不以本包替代学习吸收阶段 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
+
+### v0.41.29 主动格式、动作分段、空规则小节与情绪反馈（2026-09-03，IN PROGRESS）
+
+1. 用户新增两张主动消息真机截图并要求继续实现：主动首条口语没有 `「」`、误呈白斜体；下一轮动作/神态被呈为对白色；同时核对主动世界书及 01/02/03 装载、修复空规则小节导致整组无法保存、检查情绪音效并将情绪动画直接放大 2 倍。
+2. 修改前已确认两个渲染问题不是同一根因：第一张是模型把说出口内容写成无标记自然语言，第二张是 `segments_json` 的 action 在完成态重建为独立纯文本后丢失源括号，触发纯文本默认对白回退。预定修复分别位于主动末端格式锁与 `ChatVisualChunk.displayText`，不得把 `“”` 升格为着色语法。
+3. 主动 Prompt 与正常对话共用 `RuleLayerService.resolve`：always/daily 的非空规则、scope=all/proactive 的世界书与主动专用 08 模板均加载；已迁入世界书而为空的 02/03 legacy 小节按设计跳过。预定只加强末端可见结构，不复制第二套规则注入。
+4. 情绪链路修改前证据：截图均为“正常”，其 `soundAsset` 设计为 null；非正常 19 情绪仍映射独立 WAV，`EmotionSoundService` 与 Android `MediaPlayer` 桥存在，用户备份开关开启但音量仅 0.15。先保留正常静音与个人音量，只把 effect anchor `size` 从 0.25 改为 0.50；非正常提示音是否真实可闻仍须真机。
+5. 不得回归：v0.41.28 的沉浸身份、高潮状态、双感官、自然分段、首帧动作/对白语义与造梗范围；薄默认人格、性格光谱和 NSFW 文笔方向不变。预定验证包括专项 Dart tests、当前/历史 Python validators、`git diff --check`、Flutter analyze/tests、Kotlin 与 Release APK；本地无 Flutter SDK 时必须如实写为未运行并交由 Actions。
 
 ## 近期详细记录与全局索引（按需检索）
 

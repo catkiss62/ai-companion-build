@@ -14,7 +14,7 @@ void main() {
     expect(chunks.first.emotion.key, 'playful');
     expect(
       chunks.first.displayText,
-      '轻轻把耳鳍压低\n\n「才没有一直等你。」',
+      '（轻轻把耳鳍压低）\n\n「才没有一直等你。」',
     );
   });
 
@@ -51,7 +51,7 @@ void main() {
     expect(segments[1].kind, ChatSegmentKind.dialogue);
     expect(
       ChatVisualResolver.chunks(segments).single.displayText,
-      source,
+      '（她把耳鳍往后压了压，尾尖停在半空。）\n\n「你是不是故意的？」',
     );
   });
 
@@ -73,7 +73,7 @@ void main() {
     );
     expect(
       ChatVisualResolver.chunks(segments).last.displayText,
-      '话是这么说，手却没缩回去。',
+      '（话是这么说，手却没缩回去。）',
     );
   });
 
@@ -114,7 +114,10 @@ void main() {
     expect(segments, hasLength(2));
     expect(segments[0].kind, ChatSegmentKind.action);
     expect(segments[1].kind, ChatSegmentKind.dialogue);
-    expect(ChatVisualResolver.chunks(segments).single.displayText, source);
+    expect(
+      ChatVisualResolver.chunks(segments).single.displayText,
+      '（她把耳鳍往后压了压，尾尖停在半空。）\n\n「你是不是故意的？」',
+    );
   });
 
   test('stored standalone trailing action self-heals from mixed source', () {
@@ -128,7 +131,7 @@ void main() {
     expect(segments.last.kind, ChatSegmentKind.action);
     expect(
       ChatVisualResolver.chunks(segments).last.displayText,
-      '话音落下，尾巴才慢慢松开。',
+      '（话音落下，尾巴才慢慢松开。）',
     );
   });
 
@@ -189,7 +192,8 @@ void main() {
     expect(assets.every((asset) => asset.endsWith('.webp')), isTrue);
     expect(ChatPortraitSet.smallWhale.effectAnchor.left, .25);
     expect(ChatPortraitSet.smallWhale.effectAnchor.top, 0);
-    expect(ChatPortraitSet.smallWhale.effectAnchor.size, .25);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.size, .50);
+    expect(ChatPortraitSet.largeWhale.effectAnchor.size, .50);
     final normal = ChatVisualResolver.resolveEmotionKey('normal');
     final calm = ChatVisualResolver.resolveEmotionKey('calm');
     expect(normal.key, 'normal');

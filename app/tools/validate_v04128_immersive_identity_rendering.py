@@ -36,8 +36,17 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert "version: 0.41.28+167" in pubspec
-assert "buildLabel = 'v0.41.28+167'" in self_reader
+assert any(
+    version in pubspec
+    for version in ("version: 0.41.28+167", "version: 0.41.29+168")
+)
+assert any(
+    version in self_reader
+    for version in (
+        "buildLabel = 'v0.41.28+167'",
+        "buildLabel = 'v0.41.29+168'",
+    )
+)
 assert "static const int schemaVersion = 45" in database
 
 for token in (
@@ -102,13 +111,13 @@ for token in (
 ):
     assert token in (proactive + proactive_presentation), token
 
-for token in (
-    "Build AI Companion v0.41.28+167 APK (Immersive Identity Rendering)",
-    "agent/v04128-immersive-identity-rendering",
-    "AI-Companion-v0.41.28-167-Immersive-Identity-Rendering-APK",
-    "validate_v04128_immersive_identity_rendering.py",
-    ".ci/v04128-monitor.txt",
-):
-    assert token in workflow, token
+assert "validate_v04128_immersive_identity_rendering.py" in workflow
+assert any(
+    branch in workflow
+    for branch in (
+        "agent/v04128-immersive-identity-rendering",
+        "agent/v04129-proactive-rendering-rule-editor-emotion",
+    )
+)
 
 print("v0.41.28 immersive identity/rendering validation passed")

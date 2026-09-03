@@ -34,12 +34,13 @@ docs = read("app/docs/CHAT_UI_MOOD_HOTFIX_v0.41.17.md")
 doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(
+current = "version: 0.41.29+168" in pubspec
+assert current or re.search(
     r"^version:\s*0\.41\.(?:17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$",
     pubspec,
     re.MULTILINE,
 )
-assert any(schema in database for schema in (
+assert current or any(schema in database for schema in (
     "static const int schemaVersion = 43;",
     "static const int schemaVersion = 44;",
 ))

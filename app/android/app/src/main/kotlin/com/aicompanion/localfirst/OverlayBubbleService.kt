@@ -116,6 +116,7 @@ class OverlayBubbleService : Service() {
     private var backgroundEngine: FlutterEngine? = null
     private var backgroundSystemBridge: BackgroundSystemBridge? = null
     private var backgroundTtsBridge: NativeTtsBridge? = null
+    private var backgroundEmotionSoundBridge: EmotionSoundBridge? = null
     private var backgroundCommands: MethodChannel? = null
     private var pendingBrainWakeReason: String? = null
     private var brainWakeAttempt = 0
@@ -523,6 +524,8 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
+        backgroundEmotionSoundBridge?.dispose()
+        backgroundEmotionSoundBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         backgroundEngine?.destroy()
@@ -2262,6 +2265,8 @@ class OverlayBubbleService : Service() {
             engine = createdEngine
             backgroundSystemBridge = BackgroundSystemBridge(applicationContext, createdEngine)
             backgroundTtsBridge = NativeTtsBridge(applicationContext, createdEngine)
+            backgroundEmotionSoundBridge =
+                EmotionSoundBridge(applicationContext, createdEngine)
             val commandChannel = MethodChannel(
                 createdEngine.dartExecutor.binaryMessenger,
                 BACKGROUND_COMMAND_CHANNEL,
@@ -2322,6 +2327,8 @@ class OverlayBubbleService : Service() {
             backgroundCommands = null
             backgroundTtsBridge?.dispose()
             backgroundTtsBridge = null
+            backgroundEmotionSoundBridge?.dispose()
+            backgroundEmotionSoundBridge = null
             backgroundSystemBridge?.dispose()
             backgroundSystemBridge = null
             runCatching { engine?.destroy() }
@@ -2360,6 +2367,8 @@ class OverlayBubbleService : Service() {
         backgroundCommands = null
         backgroundTtsBridge?.dispose()
         backgroundTtsBridge = null
+        backgroundEmotionSoundBridge?.dispose()
+        backgroundEmotionSoundBridge = null
         backgroundSystemBridge?.dispose()
         backgroundSystemBridge = null
         runCatching { expectedEngine.destroy() }

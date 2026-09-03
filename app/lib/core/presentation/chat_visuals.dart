@@ -38,14 +38,14 @@ extension ChatPortraitSetMetadata on ChatPortraitSet {
         ChatPortraitSet.smallWhale => const ChatEffectAnchor(
             left: .25,
             top: 0,
-            size: .25,
+            size: .50,
           ),
         // The second set uses the same 1152x2048 aligned canvas, but keeps its
         // own anchor contract so future art revisions remain isolated.
         ChatPortraitSet.largeWhale => const ChatEffectAnchor(
             left: .25,
             top: 0,
-            size: .25,
+            size: .50,
           ),
       };
 }
@@ -106,7 +106,11 @@ class ChatVisualChunk {
         if (segment.kind == ChatSegmentKind.dialogue) {
           return '「${segment.text}」';
         }
-        return segment.text;
+        // Persisted segments no longer carry their source parentheses. Restore
+        // the semantic marker before handing this chunk to ActionTintText; the
+        // widget hides the marker again, but can now keep a standalone action
+        // white/italic instead of falling back to dialogue styling.
+        return '（${segment.text}）';
       }).join('\n\n');
 }
 

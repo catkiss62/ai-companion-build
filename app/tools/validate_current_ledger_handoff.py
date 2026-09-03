@@ -20,8 +20,8 @@ ARCHIVE_START = (
     "## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. "
     "2026-08-31 · v0.41.5"
 )
-ARCHIVE_SHA256 = "7f44e0f6ac43ca62726d8547fc1cc7a46353f9b2c8e3e498b0f4027d30794628"
-ARCHIVE_LEVEL_2_COUNT = 105
+ARCHIVE_SHA256 = "26f61cedb39bdd72387fd620e4b1457fc1c16cca34810a85dd398ae5fff4de22"
+ARCHIVE_LEVEL_2_COUNT = 109
 ARCHIVE_LEVEL_3_COUNT = 413
 
 
@@ -104,25 +104,24 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04124-visible-inner-monologue",
-        "0.41.24+163",
-        "0.41.23+162",
-        "schema 44",
-        "33719594761",
-        "e42c21715c5871d07f67755e173285bbae394d6aed9cd0f4431d33a4cbb0dfef",
-        "2f25733c0bcfa4b956bbe276ec0f278eb94f5a00",
-        "现有 schema 44 存档须可直接覆盖升级",
+        "agent/v04129-proactive-rendering-rule-editor-emotion",
+        "0.41.29+168",
+        "v0.41.28",
+        "schema 45",
+        "33769651915",
+        "becec6d7282439221adeead746096620129d0410abe0c453df7c462fb0f180ad",
+        "Snapshot protocol 5",
         "Phase 2A",
         "Phase 2B",
         "终态真值",
-        "可单独清空的动作神态 A/B 规则",
-        "可见思考",
-        "即时内心想法",
+        "空规则小节",
+        "情绪特效",
         "联网图片同一不可变字节事务",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
     current_statuses = (
+        "IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
         "DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
         "DESIGNED / IMPLEMENTATION PENDING",
         "IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
@@ -179,12 +178,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.29\+168\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 44;" in database,
+        "static const int schemaVersion = 45;" in database,
         "database schema no longer matches the current development baseline",
     )
 

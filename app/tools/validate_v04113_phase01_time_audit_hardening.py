@@ -118,6 +118,7 @@ if any(
         "version: 0.41.26+165",
         "version: 0.41.27+166",
         "version: 0.41.28+167",
+        "version: 0.41.29+168",
     )
 ):
     # The detector remains, but a speech slip is observation-only and may not

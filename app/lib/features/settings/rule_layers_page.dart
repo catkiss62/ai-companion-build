@@ -7,34 +7,8 @@ import '../../core/database/app_database.dart';
 import '../../core/models/rule_layer.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/rules/rule_layer_defaults.dart';
+import '../../core/rules/rule_layer_group_editor_codec.dart';
 import '../../core/rules/rule_layer_grouping.dart';
-
-String _startMarker(RuleLayer layer) =>
-    '【小节开始｜${layer.key}｜${ruleLayerSectionTitle(layer)}】';
-String _endMarker(RuleLayer layer) => '【小节结束｜${layer.key}】';
-
-String _composeGroup(RuleLayerGroup group) => group.layers
-    .map(
-      (layer) => '${_startMarker(layer)}\n${layer.content.trim()}\n${_endMarker(layer)}',
-    )
-    .join('\n\n');
-
-Map<String, String> _parseGroup(RuleLayerGroup group, String text) {
-  final parsed = <String, String>{};
-  for (final layer in group.layers) {
-    final start = _startMarker(layer);
-    final end = _endMarker(layer);
-    final startAt = text.indexOf(start);
-    final endAt = text.indexOf(end, startAt < 0 ? 0 : startAt + start.length);
-    if (startAt < 0 || endAt < 0 || endAt <= startAt) {
-      throw FormatException('缺少 ${layer.key} 的开始或结束标记');
-    }
-    final content = text.substring(startAt + start.length, endAt).trim();
-    if (content.isEmpty) throw FormatException('${layer.key} 正文不能为空');
-    parsed[layer.key] = content;
-  }
-  return parsed;
-}
 
 class RuleLayersPage extends StatefulWidget {
   const RuleLayersPage({super.key});
@@ -53,6 +27,11 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
   Map<String, String> get _defaults => <String, String>{
         for (final item in defaultRuleLayers) item.key: item.content,
       };
+
+  Set<String> get _defaultEmptyKeys => defaultRuleLayers
+      .where((item) => item.content.trim().isEmpty)
+      .map((item) => item.key)
+      .toSet();
 
   @override
   void initState() {
@@ -92,7 +71,7 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
           .map((group) => <String, Object?>{
                 'key': group.key,
                 'title': group.title,
-                'content': _composeGroup(group),
+                'content': composeEditableRuleLayerGroup(group),
               })
           .toList(growable: false),
     };
@@ -178,7 +157,13 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
         final content = raw['content'];
         final group = currentGroups[key];
         if (group == null || content is! String) continue;
-        updates.addAll(_parseGroup(group, content));
+        updates.addAll(
+          parseEditableRuleLayerGroup(
+            group,
+            content,
+            defaultEmptyKeys: _defaultEmptyKeys,
+          ),
+        );
       }
       if (updates.isEmpty) throw const FormatException('没有可导入的七大规则');
       final changed = updates.entries.where((entry) {
@@ -238,7 +223,9 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
       if (normalized.isEmpty) return true;
       return group.title.toLowerCase().contains(normalized) ||
           group.description.toLowerCase().contains(normalized) ||
-          _composeGroup(group).toLowerCase().contains(normalized);
+          composeEditableRuleLayerGroup(group)
+              .toLowerCase()
+              .contains(normalized);
     }).toList(growable: false);
     return Scaffold(
       appBar: AppBar(
@@ -321,7 +308,9 @@ class _RuleLayersPageState extends State<RuleLayersPage> {
     final modified = group.layers.any(
       (layer) => _defaults[layer.key] != layer.content,
     );
-    final preview = group.layers.first.content.replaceAll('\n', ' ').trim();
+    final preview = group.layers
+        .map((layer) => layer.content.replaceAll('\n', ' ').trim())
+        .firstWhere((content) => content.isNotEmpty, orElse: () => '（暂无正文）');
     return Card(
       child: ListTile(
         onTap: () => _editGroup(group),
@@ -396,7 +385,9 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
   @override
   void initState() {
     super.initState();
-    controller = TextEditingController(text: _composeGroup(widget.group));
+    controller = TextEditingController(
+      text: composeEditableRuleLayerGroup(widget.group),
+    );
   }
 
   @override
@@ -408,7 +399,15 @@ class _PromptGroupEditorPageState extends State<_PromptGroupEditorPage> {
 
   Future<void> _save() async {
     try {
-      final parsed = _parseGroup(widget.group, controller.text);
+      final defaultEmptyKeys = defaultRuleLayers
+          .where((item) => item.content.trim().isEmpty)
+          .map((item) => item.key)
+          .toSet();
+      final parsed = parseEditableRuleLayerGroup(
+        widget.group,
+        controller.text,
+        defaultEmptyKeys: defaultEmptyKeys,
+      );
       setState(() => saving = true);
       for (final entry in parsed.entries) {
         await db.updateRuleLayer(entry.key, content: entry.value);

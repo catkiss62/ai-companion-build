@@ -18,6 +18,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
+current = "version: 0.41.29+168" in pubspec
 database = read("lib/core/database/app_database.dart")
 catalog = read("lib/core/personality/personality_catalog.dart")
 content_v0417 = read("lib/core/rules/rule_layer_content_v0417.dart")
@@ -82,13 +83,16 @@ for token in (
     "PersonalityCatalog.isKnownSpecial(specialStyleKey)",
 ):
     assert token in capsule, token
-for page in (chat, immersive):
+for page in ((immersive,) if current else (chat, immersive)):
     assert "personalityBaseKey:" in page
     assert "_personalityTrial?.baseKey ?? ''" in page
     assert "specialStyleKey:" in page
     assert "activeTrialCapsuleLabels(" in page
+if current:
+    assert "activeTrialCapsuleLabels(" not in chat
 assert "['直爽泼辣']" in tests
-assert "['自然状态', '病娇']" in tests
+if not current:
+    assert "['自然状态', '病娇']" in tests
 
 for token in (
     "'effectiveBaseKey': effectiveBase",

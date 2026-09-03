@@ -28,7 +28,8 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
+current = "version: 0.41.29+168" in pubspec
+assert current or re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
 
 match = re.search(
     r"const ruleContentV0353_03_personality_seed = r'''(.*?)''';",
@@ -37,7 +38,7 @@ match = re.search(
 )
 assert match is not None
 seed = match.group(1)
-if any(version in pubspec for version in (
+if current or any(version in pubspec for version in (
     "version: 0.41.23+162", "version: 0.41.24+163"
 )):
     assert "情绪丰富、有自己重心、爱憎分明" in seed

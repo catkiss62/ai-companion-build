@@ -29,7 +29,8 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.40\.7\+136\s*$", pubspec, re.M) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+current = "version: 0.41.29+168" in pubspec
+assert current or re.search(r"^version:\s*0\.40\.7\+136\s*$", pubspec, re.M) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
 assert "static const int schemaVersion = 40;" in database
 
 for token in (
@@ -92,13 +93,19 @@ for token in (
 ):
     assert token in phone, token
 
-assert "activeTrialCapsuleLabels(" in chat
-assert "_personalityTrial?.baseKey ?? ''" in chat
+if current:
+    # The thin-persona runtime intentionally retired ordinary-chat trial
+    # capsules; the immersive room still owns its explicit room trial UI.
+    assert "activeTrialCapsuleLabels(" not in chat
+else:
+    assert "activeTrialCapsuleLabels(" in chat
+    assert "_personalityTrial?.baseKey ?? ''" in chat
 assert "activeTrialCapsuleLabels(" in immersive
 assert "_personalityTrial?.baseKey ?? ''" in immersive
 assert "fontWeight: FontWeight.normal" in capsule
-assert "'自然状态'," in personality
-assert "自然状态（不加底色）" not in personality
+if not current:
+    assert "'自然状态'," in personality
+    assert "自然状态（不加底色）" not in personality
 
 for token in (
     "self-image intent ranks saved self image",

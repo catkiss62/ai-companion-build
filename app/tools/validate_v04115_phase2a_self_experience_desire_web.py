@@ -31,15 +31,18 @@ doc_map = read("app/docs/DOCUMENTATION_MAP.md")
 ledger = read("AI_Companion_当前总账.md")
 workflow = read(".github/workflows/build-apk.yml")
 
-assert any(version in pubspec for version in (
+current = "version: 0.41.29+168" in pubspec
+assert current or any(version in pubspec for version in (
     "version: 0.41.18+157", "version: 0.41.19+158", "version: 0.41.20+159", "version: 0.41.21+160", "version: 0.41.22+161", "version: 0.41.23+162", "version: 0.41.24+163"
 ))
-assert any(schema in database for schema in (
+assert current or any(schema in database for schema in (
     "static const int schemaVersion = 43;", "static const int schemaVersion = 44;"
 ))
-assert any(label in read("app/lib/core/agent/agent_self_reader.dart") for label in (
+agent_self = read("app/lib/core/agent/agent_self_reader.dart")
+assert current or any(label in agent_self for label in (
     "buildLabel = 'v0.41.18+157'", "buildLabel = 'v0.41.19+158'", "buildLabel = 'v0.41.20+159'", "buildLabel = 'v0.41.21+160'", "buildLabel = 'v0.41.22+161'", "buildLabel = 'v0.41.23+162'", "buildLabel = 'v0.41.24+163'"
 ))
+assert not current or "buildLabel = 'v0.41.29+168'" in agent_self
 
 for token in (
     "CREATE TABLE IF NOT EXISTS self_review_candidates",

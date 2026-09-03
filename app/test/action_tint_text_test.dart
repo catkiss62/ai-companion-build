@@ -76,18 +76,19 @@ void main() {
     expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
   });
 
-  test('immersive prose recognizes curly and ASCII dialogue quotes', () {
-    const source = '叙述。\n\n“你回来了。”\n\n"Welcome back."';
+  test('immersive prose uses paragraph-leading curly quotes for dialogue', () {
+    const source =
+        '叙述。\n\n“你回来了。”\n\n她想起你说的“兄弟”。\n\n「普通聊天格式」';
     final segments = splitNovelDialogueText(source);
     expect(segments.map((item) => item.text).join(), source);
     expect(
       segments.where((item) => item.isDialogue).map((item) => item.text),
-      ['“你回来了。”', '"Welcome back."'],
+      ['“你回来了。”\n'],
     );
   });
 
-  test('immersive prose keeps mixed nested quotes in one dialogue span', () {
-    const source = '「正被你那句“在干嘛呢”拽回来呢。」';
+  test('immersive prose keeps quoted terms inside one dialogue paragraph', () {
+    const source = '“正被你那句「在干嘛呢」拽回来呢。”';
     final segments = splitNovelDialogueText(source);
     expect(segments, hasLength(1));
     expect(segments.single.text, source);
@@ -206,14 +207,14 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: NovelTintText(text: '她停了一下（没有转身）。\n\n「继续。」'),
+          body: NovelTintText(text: '她停了一下（没有转身）。\n\n“继续。”'),
         ),
       ),
     );
     final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
     final children = selectable.textSpan!.children!.cast<TextSpan>();
     expect(children.map((item) => item.text).join(),
-        '她停了一下（没有转身）。\n\n「继续。」');
+        '她停了一下（没有转身）。\n\n“继续。”');
     expect(children.first.style!.fontStyle, FontStyle.normal);
     expect(children.first.style!.color, Colors.white);
     expect(children.last.style!.color, chatDialoguePurple);
