@@ -24,7 +24,7 @@ void main() {
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
     expect(reminder, contains('最终正文与可见思考提及现实恋人时使用“你”'));
     expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));
-    expect(reminder, contains('只输出对白'));
+    expect(reminder, contains('只写真正说出口的话'));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
     expect(reminder, isNot(contains('禁止用“我”“她”')));
     expect(reminder, isNot(contains('只用第二人称“你”')));

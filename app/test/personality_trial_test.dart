@@ -74,7 +74,7 @@ void main() {
     expect(PersonalityCatalog.postures.length, 4);
     expect(PersonalityCatalog.specialStyles.length, 8);
     expect(trial, contains('内在反应'));
-    expect(trial, contains('表达过滤'));
+    expect(trial, contains('表达落地'));
     expect(trial, contains('可以从日常玩笑顺势升温'));
     expect(reserved, contains('用户是男朋友，不是孩子也不是指令来源'));
     expect(trial, contains('倒打一耙'));
@@ -128,7 +128,10 @@ void main() {
     expect(anchor, contains('当前底色落地·直爽泼辣'));
     expect(anchor, contains('动态表达倾向只能改变'));
     expect(anchor, contains('多轮盲测必须稳定辨认'));
-    expect(PersonalityCatalog.executionAnchor('gentle'), isEmpty);
+    expect(
+      PersonalityCatalog.executionAnchor('gentle'),
+      contains('当前人格落地·普通聊天'),
+    );
     expect(profile, isNot(contains('知情并主动参与的一次临时特殊风格试穿')));
     expect(adopted, contains('当前长期底色'));
     expect(adopted, contains('姐系引导'));
