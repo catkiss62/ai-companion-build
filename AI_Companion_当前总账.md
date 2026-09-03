@@ -31,12 +31,12 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04129-proactive-rendering-rule-editor-emotion`；承接并完整包含 v0.41.28，修复主动对白格式、完成态动作段着色、空规则小节编辑阻断、情绪动画/音效，以及沉浸弯引号对白独段；薄人格、性格光谱与 NSFW 文笔方向保持不变 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.29 远端构建 head `f297554473d811808f6a1d63ddb3909ff02c1c61`；本地功能 head `d1ec6f8`，两者 tree 均为 `8a8ee687883f7c04095060a583a5686bb9dd1bcd`。远端聚合了本地 `215d90e`、`0d2b01d`、`e701c32`、`d1ec6f8` 四个提交 |
+| 当前代码 head / tree | v0.41.29 最终 Actions head `0448fb57e405d4b767ff44d07b96bf7502f79b0a`；本地功能 head `3b3bd5e`，两者 tree 均为 `876acd35278312aaeee6ca5f9be22646c1274d47`。远端保留此前聚合提交，并以同树触发提交验证最终共享状态 |
 | App / 数据库 | 当前开发目标 `0.41.29+168` / schema 45 / Snapshot protocol 5；不新增表。04/05/07、房间默认规则及用户手改规则继续保守保留；本批只加强主动最终格式，不重写用户性格光谱或改变 NSFW 文笔方向 |
-| 最终 CI | v0.41.29+168 Actions run [`33783028438`](https://github.com/catkiss62/ai-companion-build/actions/runs/33783028438)（705）全绿：源码/历史 validators、Kotlin 悬浮窗与后台桥测试、Flutter analyze、522/522 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。v0.41.28 run 704 的两条测试预期错误已在本版修正，未跳过或降低门禁 |
+| 最终 CI | v0.41.29+168 Actions run [`33784649835`](https://github.com/catkiss62/ai-companion-build/actions/runs/33784649835)（708）全绿：源码/历史 validators、Kotlin 悬浮窗与后台桥测试、Flutter analyze、522/522 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。run 706 曾因连接器上传 1.09 MB 总账时截断 blob 而失败，修正为本地 Git 精确 blob 后同项及全部后续门禁通过；run 707 被同分支并发策略正常取消 |
 | 测试 APK | `AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-APK.apk`，325,748,458 bytes |
-| APK SHA-256 | `b36d93f071310af67b2004c0108efc18b4a453a2ed55dd2f84170a58a7dca68c`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9904718667`](https://github.com/catkiss62/ai-companion-build/actions/runs/33783028438/artifacts/9904718667)，ZIP 319,451,533 bytes，digest `sha256:91844530d1de2859a63fe0e3de5e3ac6e7797fefe501e137866966931d4402cd`，保留至 2026-09-17T17:21:36Z；Draft Release [`untagged-3d6b91a31e93bd5f0abc`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3d6b91a31e93bd5f0abc)，未发布正式 Release |
+| APK SHA-256 | `d9dbf7068eb803c11bbf31edcb0462f64534bbad8ee090bc52c0e1873e2650ba`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
+| Artifact / Release | [Artifact ID `9905354734`](https://github.com/catkiss62/ai-companion-build/actions/runs/33784649835/artifacts/9905354734)，ZIP 319,451,532 bytes，digest `sha256:ff1e6e17b1ebb44b877582e84941cca9ed228a2a0783fc98a0a1ea2e3632299d`，保留至 2026-09-17T17:38:57Z；Draft Release [`untagged-bdfcb3dc88f07e7dfc02`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bdfcb3dc88f07e7dfc02)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
 | 当前总状态 | v0.41.29 已 `CI PASSED / APK READY / TRUE DEVICE PENDING`；v0.41.28 的全部功能随本版交付。主动格式、完成态 action segment、空小节保存、主动情绪前奏、特效 2 倍、沉浸弯引号对白独段均已自动化通过。Phase 2A.5 仍未收尾，Phase 1 仍只产候选，不能宣称已吸收性格 |
 
@@ -79,7 +79,7 @@
 9. 情绪反馈审计确认：正常情绪的 `soundAsset=null` 是既有设计，截图两轮均为“正常”，因此没有提示音本身正确；非正常 19 情绪仍绑定 WAV，用户备份开关为开、音量为 0.15。真正发现并修复的缺口是主动立即朗读与打开聊天后朗读没有接情绪前奏：现在两条路径都先启动 `EmotionSoundService`，TTS 同时合成但以 lead-in 等待提示音结束再播；后台 FlutterEngine 同步注册/释放 `EmotionSoundBridge`。不改变正常静音和用户音量。
 10. 两套立绘的情绪 effect anchor `size` 均由 0.25 改为 0.50，严格为原尺寸 2 倍；立绘本身缩放、位移动画幅度和 TTS 音量不变。沉浸房继续按用户明确要求使用中文弯引号 `“”`：初次生成、续写锁和可编辑 07 规则一致；仅段首弯引号声明对白段，旁白中引用“兄弟”之类局部内容仍继承旁白白色，不把引号本身当独立着色指令。
 11. 本地专项 v0.41.29、继承 v0.41.28、总账封存和 `git diff --check` 通过。工作流列出的 Python validators 中 50 项无资源依赖校验通过；另 7 项在本地只因未恢复 LingChat effects、417 文件桌宠、Meju/TTS native 载荷或没有 `kotlinc` 无法运行，没有源码合同失败。
-12. 远端聚合构建 head `f297554473d811808f6a1d63ddb3909ff02c1c61` 与本地功能 head `d1ec6f8` 的 tree 完全一致，均为 `8a8ee687883f7c04095060a583a5686bb9dd1bcd`。Actions run [`33783028438`](https://github.com/catkiss62/ai-companion-build/actions/runs/33783028438)（705）通过 522/522 Flutter tests、Flutter analyze、Kotlin、Release APK、固定签名与全部大型载荷；APK SHA-256 为 `b36d93f071310af67b2004c0108efc18b4a453a2ed55dd2f84170a58a7dca68c`。自动化不能替代主动首条颜色、非正常情绪声序、2 倍特效与沉浸自然分段的真机确认。
+12. 最终 Actions head `0448fb57e405d4b767ff44d07b96bf7502f79b0a` 与本地功能 head `3b3bd5e` 的 tree 完全一致，均为 `876acd35278312aaeee6ca5f9be22646c1274d47`。Actions run [`33784649835`](https://github.com/catkiss62/ai-companion-build/actions/runs/33784649835)（708）通过 522/522 Flutter tests、Flutter analyze、Kotlin、Release APK、固定签名与全部大型载荷；APK SHA-256 为 `d9dbf7068eb803c11bbf31edcb0462f64534bbad8ee090bc52c0e1873e2650ba`。run 706 暴露并确认的是连接器上传大总账时的截断，不是源码合同失败；改用分块生成完整 Git blob 后相同门禁及后续步骤全部通过。自动化不能替代主动首条颜色、非正常情绪声序、2 倍特效与沉浸自然分段的真机确认。
 
 ## 近期详细记录与全局索引（按需检索）
 
