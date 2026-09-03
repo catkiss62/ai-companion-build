@@ -135,6 +135,9 @@ class ProactiveSelectionPolicy {
         final topicRepeatDepth = topicKey.isEmpty
             ? 0
             : _repeatDepth(recentTopics, topicKey);
+        final repeatedNewestTopicDepth = recentTopics.isEmpty
+            ? 0
+            : _repeatDepth(recentTopics, recentTopics.first);
         final intentPenalty = repetition
             ? switch (repeatDepth) {
                 0 => 0.0,
@@ -160,7 +163,7 @@ class ProactiveSelectionPolicy {
                 _ => 0.12,
               }
             : 0.0;
-        final waitingData = waiting
+        final rawWaitingData = waiting
             ? _waitingBoost(
                 candidate: candidate,
                 thought: thought,
@@ -170,6 +173,11 @@ class ProactiveSelectionPolicy {
                     : readySinceByThoughtId[candidate.thoughtId!],
               )
             : const (value: 0.0, bucket: 'none');
+        // Age must not turn an already repeated old topic back into the
+        // strongest candidate. It may still win when it is the only option.
+        final waitingData = topicRepeatDepth > 0
+            ? const (value: 0.0, bucket: 'none')
+            : rawWaitingData;
         final repeatedNewestDepth = recent.isEmpty
             ? 0
             : _repeatDepth(recent, recent.first);
@@ -179,7 +187,10 @@ class ProactiveSelectionPolicy {
         final diversityBoost = repetition &&
                 ((repeatedNewestDepth >= 2 && intentKind != recent.first) ||
                     (repeatedSourceDepth >= 2 &&
-                        sourceType != recentSources.first))
+                        sourceType != recentSources.first) ||
+                    (repeatedNewestTopicDepth >= 2 &&
+                        topicKey.isNotEmpty &&
+                        topicKey != recentTopics.first))
             ? 0.04
             : 0.0;
         final adjustedScore = (candidate.score -
