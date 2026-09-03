@@ -43,21 +43,22 @@ void main() {
   });
 
   test('casual humor is limited to the lower thirty hash buckets', () {
-    final seenBuckets = <int>{};
+    var humorCount = 0;
     for (var i = 0; i < 4000; i += 1) {
       final plan = DialogueExpressionPlan.select(
         latestUserText: '随便聊聊$i',
         turnKey: 'casual-density-$i',
       );
       final bucket = plan.selectionSeed % 100;
-      seenBuckets.add(bucket);
       if (plan.humor == DialogueHumorDevice.none) {
         expect(bucket, greaterThanOrEqualTo(30));
       } else {
+        humorCount += 1;
         expect(bucket, lessThan(30));
       }
     }
-    expect(seenBuckets.length, 100);
+    expect(humorCount, greaterThan(0));
+    expect(humorCount, lessThanOrEqualTo(1200));
   });
 
   test('technical and deep turns may expand without humor pressure', () {

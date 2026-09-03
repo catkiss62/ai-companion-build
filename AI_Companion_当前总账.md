@@ -38,7 +38,7 @@
 | APK SHA-256 | `2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9875019014`](https://github.com/catkiss62/ai-companion-build/actions/runs/33704731930/artifacts/9875019014)，ZIP 319,428,086 bytes，digest `sha256:b26f40b6dd9fdd875404965bddb5c8c16e7f18f45f1bce12fa824eb4008bb002`，保留至 2026-09-17T01:52:19Z；Draft Release [`untagged-d148810141fe41fcee93`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d148810141fe41fcee93)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.22 自动化与 APK 已通过，但最新真机存档证明其“活人感/反馈响应”和清晨频率目标没有实现，状态应视为被 v0.41.23 窄修取代，不能把旧源码合同当真机效果。v0.41.23 当前为 `IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`：运行代码、保守迁移、动作神态 A/B 层和专项测试已落地；本地环境无 Flutter、CI 大型载荷与 `kotlinc`，完整 analyze/tests/Android/APK 等远端验证；Phase 1 学习消费及 Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.22 自动化与 APK 已通过，但最新真机存档证明其“活人感/反馈响应”和清晨频率目标没有实现，状态应视为被 v0.41.23 窄修取代，不能把旧源码合同当真机效果。v0.41.23 当前为 `IMPLEMENTED / CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 696 已通过源码/历史 validators、Kotlin 与 Flutter analyze，Flutter tests 暴露一条直接反馈措辞未覆盖、一个错误的哈希桶遍历假设和一处旧版本逐字断言；均属窄测试合同修复，Release APK 尚未生成。Phase 1 学习消费及 Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -893,7 +893,7 @@
 6. 最终 APK 输入 head `528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb` / tree `52635b18d5598a68acb0536ccd93f49344d66f2c` 与本地 `2a25ede` tree 精确一致。Actions run [`33704731930`](https://github.com/catkiss62/ai-companion-build/actions/runs/33704731930)（695）完整成功：全部源码/历史 validators、Kotlin、Flutter analyze、482/482 Flutter tests、Release APK、固定签名以及 Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和 Draft Release 上传全过。
 7. APK `AI-Companion-v0.41.22-161-Aggressive-Dialogue-Rebuild.apk` 为 325,725,214 bytes；从 Artifact 独立下载解包后实算 SHA-256 为 `2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1`，与 CI checksum 一致。Artifact `9875019014` 的 ZIP 为 319,428,086 bytes、digest `sha256:b26f40b6dd9fdd875404965bddb5c8c16e7f18f45f1bce12fa824eb4008bb002`；Draft Release 为 `untagged-d148810141fe41fcee93`。自动化只证明合同与构建完整，真实“活人感”仍须真机同题复测。
 
-### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修（DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING）
+### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修（IMPLEMENTED / CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING）
 
 #### A. v0.41.22 真机否证与提示词比较结论
 
@@ -925,6 +925,7 @@
 6. `ProactiveOutcomeFitPolicy` 在写入和读取两侧共同归一化：`deferred` 的 timing 最高固定为 -0.60，topic 只保留 -0.15～0.15；三小时以上的 engaged/acknowledged 不再得到正时机分，六小时以上最高为 -0.35。读取侧也重算旧行，因此用户存档中已经存在的 `deferred +0.5` 不会在覆盖安装后继续污染画像，无需破坏性改库。
 7. 新增直接反馈/30 桶、动作实验开关分支、规则分组与迁移表、清晨边界/强动机通路、deferred/3 小时 35 分延迟归一化等 Flutter 单测，并新增 `validate_v04123_lifelike_ablation_dawn_gate.py`。所有受当前版本与 Prompt 变更影响的历史 validator 已按“v0.41.22 历史合同 / v0.41.23 当前合同”分支更新；本地工作流清单中除 417 文件桌宠、LingChat、TTS/native 大载荷和 `kotlinc` 缺失导致的 8 个预期环境阻断外，其余 validator 全部通过，Python 语法与 `git diff --check` 通过。Flutter analyze/tests、Kotlin、Release APK、固定签名与完整载荷仍必须由 Actions 验证，不能在此阶段写成 CI 或真机通过。
 8. 用户在本批实施中新增“让思考链以内心想法方式呈现，尝试提高活人感”的要求。依用户明确顺序，本批只登记而未提前改写可见思考风格；v0.41.23 CI/APK 完成后再定点读取现有规则和真实 reasoning，独立评估，避免与这次动作神态 A/B、直接反馈和清晨 Gate 的效果混在一起。
+9. 远端首轮提交 `461011a77720896bddad2a5c41445053ddb9f992` 的 Tree SHA 为 `e70f273a4d558cab1e6e4bf22af2e2dfc125c3c6`，与本地逐字一致；Actions run [`33715692424`](https://github.com/catkiss62/ai-companion-build/actions/runs/33715692424)（696）已通过 clean baseline、完整源码/历史 validators、Kotlin 和 Flutter analyze，在 Flutter tests 以 488 通过、3 失败退出。失败分别是：“你又开始反问了”未被 feedback 正则覆盖；测试错误要求顺序 FNV 样本遍历全部 100 个余数（实际 50 个），而生产路由仍正确限制为 `seed % 100 < 30`；`agent_self_reader_v0416_test.dart` 仍逐字期待 v0.41.22 build label。修复扩展实际反馈措辞、改为验证每个样本的桶规则及 4000 轮幽默总数不超过 30%，并更新版本断言；不改变 Gate、迁移或动作实验设计。
 
 ## 历史工作记录（原文保留，按需检索）
 
