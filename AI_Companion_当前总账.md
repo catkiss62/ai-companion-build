@@ -31,20 +31,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04127-unified-lifelike-nsfw-runtime`；承接本地 v0.41.26 世界书/输出消融提交 `04eff00`，当前补齐沉浸房 05/06/07 装载、人称视角与跨轮高潮状态，同时把日常世界书按类别合并；Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.27 本地功能提交 `592e063`，父提交为 v0.41.26 `04eff00fffb5f3d785d0d147330c50f9cad14ba0`；最近已由 Actions 证明并产出 APK 的基线仍是 v0.41.24 公开分支 head `2f25733c0bcfa4b956bbe276ec0f278eb94f5a00` / tree `deb0fb7169d1a20c386122f2beed618b0db80b57`。v0.41.26/27 尚未推送前不得误写成 CI 已验证 |
+| 当前代码 head / tree | v0.41.27 本地 head `d23273aa482edf3895ab0c64d3f4fd49ce5329d1`（包含功能提交 `592e063`、v0.41.26 `04eff00` 与三次 CI 窄修），远端等价 head `246abf28defa42449fddb32c53562ac3d5b7159c`；两者 tree 均为 `3ccb0ea00eaf6edb83b151ce858c96353fe8aef8`。远端 SHA 不同仅因 GitHub 连接器在远端等价 v0.41.24 父提交上重建提交链，最终文件树完全一致 |
 | App / 数据库 | 当前开发目标 `0.41.27+166` / schema 45 / Snapshot protocol 5；现有 schema 44 存档可直接覆盖升级。schema 45 世界书结构不再变更；04/05/06 的用户编辑只在内容仍等于已知旧默认或 2026-09-03 备份版本时保守迁移，用户后来再改过的文本不覆盖 |
-| 最终 CI | v0.41.24+163 Actions run [`33719594761`](https://github.com/catkiss62/ai-companion-build/actions/runs/33719594761)（699）全绿：完整源码/历史 validators、Kotlin、Flutter analyze、491/491 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。首轮 run 698 的唯一旧 build-label 测试合同已窄修；未发现可见思考、迁移或 v0.41.23 Gate/动作实验生产逻辑失败 |
-| 测试 APK | `AI-Companion-v0.41.24-163-Visible-Inner-Monologue.apk`，325,739,082 bytes |
-| APK SHA-256 | `e42c21715c5871d07f67755e173285bbae394d6aed9cd0f4431d33a4cbb0dfef`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9879995201`](https://github.com/catkiss62/ai-companion-build/actions/runs/33719594761/artifacts/9879995201)，ZIP 319,441,865 bytes，digest `sha256:9db2c9026dc63d77e80704085f0f54842775482e2a13adbc58bec13f01085711`，保留至 2026-09-17T05:47:38Z；Draft Release [`untagged-e953ce78bfc9d70c71ee`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e953ce78bfc9d70c71ee)，未发布正式 Release |
+| 最终 CI | v0.41.27+166 Actions run [`33769651915`](https://github.com/catkiss62/ai-companion-build/actions/runs/33769651915)（703）全绿：完整源码/历史 validators、Kotlin 悬浮窗渲染测试、Flutter analyze、509/509 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。run 700～702 依次暴露并修复测试变量重名、主动重复主题等待奖励与两条相互矛盾的 NSFW 文案契约；未跳过或降低任何门禁 |
+| 测试 APK | `AI-Companion-v0.41.27-166-Unified-Lifelike-NSFW-Runtime-APK.apk`，325,721,546 bytes |
+| APK SHA-256 | `becec6d7282439221adeead746096620129d0410abe0c453df7c462fb0f180ad`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
+| Artifact / Release | [Artifact ID `9899603690`](https://github.com/catkiss62/ai-companion-build/actions/runs/33769651915/artifacts/9899603690)，ZIP 319,423,498 bytes，digest `sha256:62f140b5bef464587b63d49014ad4022a402083cb1f355b1cb7e64575ae9abb5`，保留至 2026-09-17T15:09:35Z；Draft Release [`untagged-7e2c9dc48212e63d30e5`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-7e2c9dc48212e63d30e5)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.27 为 `IMPLEMENTED / LOCAL STATIC PARTIAL / CI PENDING / APK PENDING / TRUE DEVICE PENDING`：v0.41.26 的薄提示词、世界书、三聊天面渲染、主动话题分流、Somatic 与输出守卫消融均保留；沉浸房现补载完整 05/06/07、固定女性 AI/男性用户坐标，并以本轮语义状态约束高潮流程。工作流同源 56 个 validator 本地 49 通过，7 个仅因容器未恢复大型载荷或缺 `kotlinc`；Flutter/Dart 仍须 Actions 证明。Phase 2A.5 仍未收尾，Phase 1 仍只产候选，不能宣称已吸收性格 |
+| 当前总状态 | v0.41.27 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：薄默认身份、分组世界书、三聊天面统一渲染、过度中断消融、主动新话题分流、清晨 Gate、Somatic、可见内心、沉浸 04/05/06/07 完整装载、固定女性 AI/男性用户坐标与跨轮高潮语义状态均已通过自动化；真实自然度、人称稳定性与成人流程仍须同一存档真机验证。Phase 2A.5 仍未收尾，Phase 1 仍只产候选，不能宣称已吸收性格 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.27 本地审查、提交并按持续授权推送触发 APK；CI 通过后，用同一存档做世界书/输出守卫、可见内心及沉浸 NSFW 流程真机测试。** |
+| 当前下一步 | **安装 v0.41.27 测试 APK，用同一存档做世界书/输出守卫、可见内心、主动开题、三聊天面渲染、双感官及沉浸 NSFW 流程真机测试；导出备份与诊断后再判断 Phase 2A.5 是否收尾。** |
 | 目标 | 在 v0.41.26 的薄人格与运行时修复上，恢复沉浸房遗漏的 05/06，保留 07 沉浸独有；固定成年女性 AI/成年男性用户的人称视角；把“AI 临界—用户选择—用户濒临—等待明确释放—同步高潮”做成自然语言可识别的跨轮状态，不改现有 NSFW 文笔方向与重要器官词自检。日常动作、反八股、幽默等按一类一个世界书模块，不拆成大量微条目；可见 reasoning 只做一项薄改动：像角色没打算说出口的即时心声，不写工作日志 |
 | 当前证据 | 2026-09-03 备份共 227 个生成任务：217 completed、7 cancelled_by_user、3 interrupted。三次真实中断分别为一次网络断流、一次第三人称口误硬阻止、一次虚假操作事实硬阻止；旧实现清空 partial 与用户消息，所以无法恢复错误正文。另有 `serviceTemplateGuard rewrite=28`、Somatic `user_to_ai=0`、Phase 2A.5 34 plans / 27 mismatch / 31 react / 0 open topic。用户真机手工删减 01～03 后自然度明确提高 |
 | 保护与排除 | 不降低成人正文露骨程度，不删除“肉棒”及局部器官锚定、自检、声音动作与色情参考模块；不把 NSFW 世界书作为本轮前置依赖。Snapshot protocol 5 不变；世界书不写回 AI Self/学习候选/成长；清晨 Gate 不加硬次数上限。普通聊天仍不得因口误、人称、提问或格式撤回整轮 |
@@ -5304,7 +5304,7 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 11. Phase 02/Phase 2A.5 不能写成收尾成功。当前最新真机遥测仍是 34 个计划、27 个正文表达失配、31 个 react、0 个 open-own-topic、0 个 release；v0.41.25/26 虽已修明确交出话题权与主动来源，但尚无新 APK 真机证据。Phase 1 仍是候选观察层，没有自动吸收；Phase 2B/3/4 未开启。
 12. 目标版本 `0.41.26+165`，schema 45、Snapshot protocol 5。当前分支 `agent/v04126-worldbook-output-ablation-runtime`；本地专项、YAML、Python 语法和 `git diff --check` 已通过，工作流同源验证器为 49 通过、7 项仅因本地未恢复 417 文件桌宠、LingChat、Meju TTS/native 载荷或缺 `kotlinc` 停止，没有剩余源码合同失败。容器无 Flutter/Dart，尚未运行格式化、analyze、全量 Flutter/Kotlin、Release APK、固定签名与载荷验证。提交推送前必须先取得精确 commit/branch 批准；CI 通过后仍只标 `CI PASSED / APK READY`，真机消融结果另记。
 
-## 2026-09-03 · v0.41.27 沉浸 NSFW 完整装载、视角与跨轮状态（IMPLEMENTED / LOCAL STATIC PARTIAL / CI PENDING）
+## 2026-09-03 · v0.41.27 沉浸 NSFW 完整装载、视角与跨轮状态（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 最新真机指出沉浸成人场景会偶发把正文从“她抱着你”漂移成“我抱着他”，可见 reasoning 甚至把女性 AI 当作男性；高潮又会把“我快射了”直接写成已射精，缺少临界积累、玩家确认和爆发。用户明确要求保留 05/06/07 现有露骨文笔、器官词自检、声音动作与色情参考，不做方向重写，只修系统矛盾、装载、身份视角和流程。
 2. 代码取证确认：规则 UI 的 05 对应 `04_intimacy_core`，UI 06 对应 `05_intimacy_rendering + 06_intimacy_reference`，UI 07 对应沉浸全局/色情来源；旧 `ImmersivePromptBuilder` 只装载 04 和 07，完全漏掉 UI 06。这是规则写得再强也无法执行的直接生产缺陷。现在沉浸 NSFW 固定装载 04/05/06/07；普通聊天仍装载 04/05/06，07 继续沉浸独有。
@@ -5318,3 +5318,4 @@ Emotion Episode 保存：core affect（valence / arousal / dominance）、可选
 10. 目标版本 `0.41.27+166`，schema 45、Snapshot protocol 5。功能提交为 `592e063`，父提交为 v0.41.26 `04eff00`。新增 Flutter 合同测试与 `validate_v04127_unified_lifelike_nsfw_runtime.py`；工作流同源 56 个 Python validator 本地为 49 通过，7 个失败均对应未恢复的 417 文件桌宠、LingChat、Meju TTS/native 载荷或缺少 `kotlinc`，没有剩余源码合同失败。当前容器仍无 Dart/Flutter，格式化、analyze、全量 tests、Kotlin、Release APK、签名、完整载荷与 checksum 必须由 Actions 证明；真机项不得提前标通过。
 11. Phase 02 状态不因本包改变：Phase 2A.5 最新证据仍是 34 个计划、27 个正文失配、31 个 react、0 个自主开题、0 个 release；Phase 1 学习仍只产生候选，没有吸收消费。v0.41.26/27 修复提供了下一轮真机消融条件，但不能宣称 Phase 02 已收尾。
 12. 按用户指定顺序，在本包主体代码完成后才处理“让可见思考像角色内心想法呈现”。审计证明 v0.41.24/25 虽已有第一人称和禁止回复计划的字样，但仍偏抽象；本版只做薄改动，把可见 reasoning 定义为“没打算给任何人看的当下心声”，允许片段、跳念、突然联想、改口和没想完，并直接禁止“用户说了什么，所以我应该怎样回复”的工作日志。认真讨论、技术与事实仍可完整推演问题本身。该改动只调整应用请求并展示的 Provider `reasoning_content`，不要求、伪造或声称暴露模型隐藏推理；旧默认用精确 hash 迁移，用户手改版本不覆盖。
+13. 2026-09-03 最终 Actions run [`33769651915`](https://github.com/catkiss62/ai-companion-build/actions/runs/33769651915)（703）通过全部门禁：509/509 Flutter tests、Flutter analyze、Kotlin 悬浮窗/文字渲染测试、Release APK、固定签名、27 个 Meju TTS 载荷、417 文件桌宠源包、62 文件 LingChat 呈现包、22 张塔罗图及 checksum。远端构建 head `246abf28defa42449fddb32c53562ac3d5b7159c` 与本地 `d23273aa482edf3895ab0c64d3f4fd49ce5329d1` 的 tree 均为 `3ccb0ea00eaf6edb83b151ce858c96353fe8aef8`。APK SHA-256 为 `becec6d7282439221adeead746096620129d0410abe0c453df7c462fb0f180ad`；Artifact `9899603690` 与 Draft Release `untagged-7e2c9dc48212e63d30e5` 已就绪。run 700～702 的失败均已由窄修复解决，最终未跳过测试。自动化不能替代真机：Phase 2A.5、活人感、主动开题、人称视角与高潮流程仍为 `TRUE DEVICE PENDING`。
