@@ -49,11 +49,11 @@ for token in (
 
 assert "return '（${segment.text}）';" in presentation
 assert presentation.count("size: .50") == 2
-assert "isDialogue: trimmed.startsWith('“')" in rendering
-assert "trimmed.startsWith('「')" not in rendering
-for token in ("中文弯引号“”", "5至9个自然段"):
+assert "isDialogue: trimmed.startsWith('「')" in rendering
+assert "trimmed.startsWith('“')" not in rendering
+for token in ("中文直角引号「」", "5至9个自然段"):
     assert token in (immersive_prompt + immersive_rules), token
-assert "引号只是叙述的一部分" in immersive_rules
+assert "中文弯引号“”只是引用内容" in immersive_rules
 
 for token in (
     "composeEditableRuleLayerGroup",

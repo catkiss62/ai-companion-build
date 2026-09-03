@@ -87,7 +87,7 @@ for token in (
 assert "priority 也只排序表达模块" in reference
 
 for token in (
-    "中文弯引号“”",
+    "中文直角引号「」",
     "每段对白独占一个自然段",
     "5至9个自然段",
     "continuationBoundary",
@@ -97,7 +97,7 @@ for token in (
 for token in (
     "sourceStartsWithAction",
     "splitNovelDialogueText",
-    "trimmed.startsWith('“')",
+    "trimmed.startsWith('「')",
 ):
     assert token in rendering, token
 assert "生成源必须把动作独占一行并写成（动作）" in prompt
