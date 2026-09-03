@@ -27,6 +27,7 @@ immersive = read("app/lib/core/immersive/immersive_prompt_builder.dart")
 client = read("app/lib/core/ai/deepseek_client.dart")
 prompt_test = read("app/test/prompt_generation_reminder_test.dart")
 rules_test = read("app/test/rule_layer_defaults_test.dart")
+self_test = read("app/test/agent_self_reader_v0416_test.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
@@ -91,6 +92,7 @@ for token in (
     "不汇报 Desire、Thought、Intent、Gate",
 ):
     assert token in rules_test, token
+assert "build=v0.41.24+163 schema=44" in self_test
 
 for token in (
     "Build AI Companion v0.41.24+163 APK (Visible Inner Monologue)",
