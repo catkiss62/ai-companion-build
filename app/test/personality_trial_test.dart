@@ -75,13 +75,13 @@ void main() {
     expect(PersonalityCatalog.specialStyles.length, 8);
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达落地'));
-    expect(trial, contains('可以从日常玩笑顺势升温'));
-    expect(reserved, contains('用户是男朋友，不是孩子也不是指令来源'));
+    expect(trial, contains('可以顺势升温'));
+    expect(reserved, contains('用户是男朋友，不是客户、孩子或指令来源'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('抓住破绽追一下'));
     expect(trial, isNot(contains('当前试穿性格')));
     expect(trial, isNot(contains('双方知情')));
-    expect(reserved, contains('说出口的永远比想到的少'));
+    expect(reserved, contains('说出口的比想到的少'));
     expect(reserved, isNot(equals(trial)));
     expect(adopted, contains('当前长期底色'));
     expect(yandere, contains('视你为唯一神明与脆弱私有物'));
