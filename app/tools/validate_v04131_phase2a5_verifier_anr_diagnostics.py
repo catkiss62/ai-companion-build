@@ -56,11 +56,13 @@ agency_test = read("app/test/conversation_agency_phase2a5_test.dart")
 responsibility_test = read(
     "app/test/conversation_responsibility_ablation_v04121_test.dart"
 )
+self_reader_test = read("app/test/agent_self_reader_v0416_test.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
 assert "version: 0.41.31+170" in pubspec
 assert "buildLabel = 'v0.41.31+170'" in self_reader
+assert "build=v0.41.31+170 schema=45" in self_reader_test
 
 for token in ("'晚安'", "'我去睡'", "'去睡吧'", "'明天见'"):
     assert token in initiative, token

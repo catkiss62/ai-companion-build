@@ -38,7 +38,7 @@
 | APK SHA-256 | `038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9910137218`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332/artifacts/9910137218)，ZIP 319,517,624 bytes，digest `sha256:34872a50a424a805f0349ae6ee61e09ae7e476a5969836207711fc3dcfb60fb8`，保留至 2026-09-17T19:48:10Z；Draft Release [`untagged-e815d33581115d1757a4`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e815d33581115d1757a4)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.30 为 `IMPLEMENTED / CI PASSED / APK READY`；用户已真机确认长 reasoning 打字机和动作首帧。20:19 新诊断确认一次 importance 100 前台 ANR，距新进程启动约 0.97 秒；附件流水 `not_called`、无阻塞生成、无内存 trim、无悬浮恢复循环。两份诊断 7 分钟内无障碍总事件 +2,286、允许事件 +1,504，旧实现每事件写 SharedPreferences、允许事件还在服务主线程同步开库插入，是明确性能风险但不能据此宣称唯一根因。用户又确认互道晚安后主动 curiosity 仍问“这么晚还不睡”，与连续困意场景矛盾；新话题通道此前确实刻意移除了回答完的聊天历史。v0.41.31 为 `IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`。Phase 2B 尚未实现，Phase 1 仍只产候选 |
+| 当前总状态 | v0.41.30 为 `IMPLEMENTED / CI PASSED / APK READY`；用户已真机确认长 reasoning 打字机和动作首帧。20:19 新诊断确认一次 importance 100 前台 ANR，距新进程启动约 0.97 秒；附件流水 `not_called`、无阻塞生成、无内存 trim、无悬浮恢复循环。两份诊断 7 分钟内无障碍总事件 +2,286、允许事件 +1,504，旧实现每事件写 SharedPreferences、允许事件还在服务主线程同步开库插入，是明确性能风险但不能据此宣称唯一根因。用户又确认互道晚安后主动 curiosity 仍问“这么晚还不睡”，与连续困意场景矛盾；新话题通道此前确实刻意移除了回答完的聊天历史。v0.41.31 首轮 Actions #712 已通过源码 validators、Kotlin 与 Flutter analyze，只因 `agent_self_reader_v0416_test` 仍硬编码 v0.41.30 build label 而在 Flutter tests 停止，运行实现未失败；正在修测试版本期望并重跑。Phase 2B 尚未实现，Phase 1 仍只产候选 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -82,6 +82,7 @@
 8. 用户再次澄清“上传后容易卡”指手机正在向 GPT 等外部 App 上传文件时，AI Companion 会更容易卡掉—连回循环；不是 AI Companion 内部附件选择器的同义词。20:10→20:19 两份诊断间 Accessibility 总事件从 4,080,826 增至 4,083,112（+2,286），允许事件从 1,263,469 增至 1,264,973（+1,504），ANR 后最后事件仍为 `TYPE_WINDOW_CONTENT_CHANGED`。源码发现旧 `onAccessibilityEvent` 每事件读取 root 并写 SharedPreferences，允许事件还在 AccessibilityService 主线程同步打开 SQLite、插入 `device_events`、关闭；外部文件选择、上传进度、页面重连都可能放大这条高频路径。这是明确可修的主线程 I/O 风险，但不能据此宣称本次 ANR 唯一由它造成。
 9. v0.41.31 对无障碍路径采用保守减压：root 状态最多约 1.5 秒探测一次（窗口切换仍即时）；普通内容事件最短 1.5 秒落一条、同签名 5 秒去重，窗口切换保留独立 400ms 通道；真正的 `device_events` SQLite 写入转到单线程有界队列，累计计数改为每 2 秒合并写 SharedPreferences。诊断增加本进程 scheduled/coalesced 数以及 `anrContext`，同时并列呈现进程重启、生成、附件、悬浮恢复、系统 cover、后台失败、memory trim、无障碍流和脱敏主线程分类，不把时间相关写成因果。
 10. 目标版本 `0.41.31+170`，schema 45、Snapshot protocol 5 不变；目标分支 `agent/v04131-phase2a5-verifier-closure-ui-cleanup`。修改前本地基线 `b5c41a2` / tree `081c7061`。完成判据为新增真实样本级 verifier/planner/主动场景测试、轻视觉说明缺席测试、无障碍限流与离主线程合同、脱敏 ANR trace/多维摘要合同、全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与完整载荷门禁通过；自动化通过后仍需短真机复核，Phase 2B 不提前开启。
+11. 首轮公开 Actions run #712 在源码 validators、Kotlin（含新 ANR/Accessibility 测试）和 Flutter analyze 全绿后，于 Flutter tests 暴露唯一陈旧测试：`agent_self_reader_v0416_test` 仍要求 `build=v0.41.30+169`，实际系统事实已正确输出 `v0.41.31+170`。这是版本升级断言维护遗漏，不是运行时实现故障；将断言更新为当前版本后必须重新执行整套流水，不能只重跑失败测试冒充完整通过。
 
 ### v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融（2026-09-03，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
