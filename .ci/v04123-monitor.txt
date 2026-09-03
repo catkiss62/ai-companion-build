@@ -1,0 +1,7 @@
+status=success
+run_id=33716309185
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33716309185
+head_sha=580bab1f0feaf82631c36d7044c38c3f500b242a
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+bec312b40b75d98e65d1c965d5067255dd094d0aa1f7a80fed13a9988249fd22  AI-Companion-v0.41.23-162-Lifelike-Ablation-Dawn-Gate-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d16732b98754693387ed
