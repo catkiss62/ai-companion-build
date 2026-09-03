@@ -2,6 +2,7 @@ import 'rule_layer_content_v0353.dart';
 import 'rule_layer_content_v0400.dart';
 import 'rule_layer_content_v0417.dart';
 import 'rule_layer_content_v0418.dart';
+import 'rule_layer_content_v04123.dart';
 import 'rule_layer_content_immersive.dart';
 
 class RuleLayerDefault {
@@ -235,6 +236,19 @@ const legacyEditableRuleLayerSha256V04121AggressiveDialogue = <String, String>{
   '07_posture_older': '98b7f344be6861729dd58209a8b5d1f1c90f1f6e663f1c4711c0f13dc1805556',
   '07_posture_younger': '7648baed4ee85b1440825561dfab7d0178851faf4178945bc02aa7f0936730d5',
   '07_profile_shared': '455fd36ef2ca753f153027a3e339d2b5b6d65c1c057d12dc7535eb34e587d804',
+};
+
+/// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
+/// revision. Hash-only matching upgrades the known experiment while preserving
+/// every manually edited prompt, including the user's A/B copies.
+const legacyEditableRuleLayerSha256V04122LifelikeRevision = <String, String>{
+  '01_core': '5dbba7c766fc1be5b0d333d3c82ff884383b335045b7b06729215189d0c294fc',
+  '02_daily': '3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2',
+  '03_behavior': 'b8e53626eb0f53b97311c745adb0a27592521e37b9d2dc28695ae84b250bbe6f',
+  '03_personality_seed':
+      '6fa9b009375b26461ed9f014d5f8367c30cd7e9543f26bce167b0b35c313eb91',
+  '08_visible_inner_voice':
+      'b8f7e4be43ae389609222ff3832af9e49e617d0ad129099df21464001693ffcd',
 };
 
 /// Exact editable defaults shipped by v0.39.8. v0.39.9 changes only the
@@ -846,6 +860,12 @@ final defaultRuleLayers = <RuleLayerDefault>[
       _approvedRuleContentsV0354[layer.key] ?? layer.content,
       locked: layer.locked,
     ),
+  const RuleLayerDefault(
+    '09_action_expression_experiment',
+    '日常动作神态消融实验',
+    'daily',
+    ruleContentV04123ActionExpressionExperiment,
+  ),
   const RuleLayerDefault(
     '07_base_forthright',
     '性格底色 · 直爽泼辣',

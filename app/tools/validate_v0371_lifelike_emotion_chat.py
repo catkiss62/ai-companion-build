@@ -49,7 +49,10 @@ assert (
     "<emotion>情绪</emotion>" in catalog + prompt
     or "<emotion>标签</emotion>" in catalog + prompt
 )
-if "version: 0.41.22+161" in read("pubspec.yaml"):
+if "version: 0.41.23+162" in read("pubspec.yaml"):
+    assert "独立动作神态实验规则" in rules
+    assert "当前动作神态消融实验已启用" in prompt
+elif "version: 0.41.22+161" in read("pubspec.yaml"):
     assert "普通聊天正文禁止动作、神态、语气说明" in rules
     assert "普通聊天最终正文只写真正说出口的话" in prompt
 else:

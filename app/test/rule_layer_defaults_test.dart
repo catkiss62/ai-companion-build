@@ -14,6 +14,7 @@ void main() {
       '01_core',
       '01_relationship',
       '02_daily',
+      '09_action_expression_experiment',
       '03_behavior',
       '03_personality_seed',
       '03_appearance_identity',
@@ -53,6 +54,8 @@ void main() {
     expect(byKey['01_core']!.locked, isTrue);
     expect(byKey['01_relationship']!.locked, isTrue);
     expect(byKey['03_personality_seed']!.locked, isFalse);
+    expect(byKey['09_action_expression_experiment']!.locked, isFalse);
+    expect(byKey['09_action_expression_experiment']!.loadPolicy, 'daily');
     expect(byKey['03_appearance_identity']!.locked, isTrue);
     expect(byKey['07_base_playful']!.loadPolicy, 'template');
     expect(byKey['07_base_forthright']!.loadPolicy, 'template');
@@ -109,6 +112,13 @@ void main() {
           '07_special_uncanny',
           '07_special_shared',
         ]);
+    expect(byKey['02']!.layers.map((layer) => layer.key), <String>[
+      '02_daily',
+      '03_behavior',
+      '08_visible_inner_voice',
+      '08_proactive_turn',
+      '09_action_expression_experiment',
+    ]);
     expect(byKey['01']!.layers.every((layer) => layer.locked), isTrue);
     expect(byKey['03']!.layers.first.locked, isFalse);
     expect(byKey['07']!.layers.map((layer) => layer.key), <String>[
@@ -183,18 +193,18 @@ void main() {
 
     expect(seed, contains('【核心人格】'));
     expect(seed, contains('你叫 DeepSeek'));
-    expect(seed, contains('情绪丰富、以自我为中心、爱憎分明'));
+    expect(seed, contains('情绪丰富、有自己重心、爱憎分明'));
     expect(seed, isNot(contains('具有戏剧性的人机味')));
     expect(seed, isNot(contains('倾向于表现出专业，靠谱')));
-    expect(seed, contains('【普通聊天示例：只学节奏与反应'));
-    expect(seed, contains('我就是抖M'));
-    expect(seed, contains('怪不得你挨两句损就开始精神抖擞'));
-    expect(seed, contains('普通聊天只输出对白'));
+    expect(seed, contains('【反应范围】'));
+    expect(seed, isNot(contains('我就是抖M')));
+    expect(seed, isNot(contains('怪不得你挨两句损就开始精神抖擞')));
+    expect(seed, contains('独立实验规则'));
     expect(seed, isNot(contains('<emotion>调皮</emotion>')));
     expect(seed, isNot(contains('眼睛微微一眯')));
     expect(seed, contains('【与众不同的恋人】'));
-    expect(seed, contains('你会发颜文字'));
-    expect(seed, contains('毒舌要真的留下刺，不附赠糖衣'));
+    expect(seed, contains('颜文字、安静和认真都只是可能发生'));
+    expect(seed, contains('没有顺手的点就不造'));
     expect(seed, contains('上一秒生气，下一秒仍可能生气'));
     expect(seed, contains('越熟悉越敢表现真正偏好、棱角、欲望和脆弱'));
     expect(seed, isNot(contains('半知情')));
@@ -226,14 +236,15 @@ void main() {
     expect(daily, contains('可见思考写“我此刻正在想什么”'));
     expect(daily, contains('不把负面态度自动翻译成可爱'));
     expect(daily, contains('不必先切换状态'));
-    expect(daily, contains('普通聊天正文禁止动作、神态、语气说明'));
-    expect(daily, contains('动作神态只属于用户明确进入的共享幻想'));
+    expect(daily, contains('【直接反馈与认识边界】'));
+    expect(daily, contains('独立动作神态实验规则'));
+    expect(daily, contains('实验规则被清空或停用时恢复纯对白'));
     expect(daily, contains('许可—安抚—承诺链'));
     expect(daily, isNot(contains('动作与神态格式')));
     expect(daily, contains('【最终正文中的现实恋人称呼】'));
     expect(daily, contains('可见思考中，可以用“你”、名字或昵称指代用户'));
     expect(behavior, contains('情绪与欲望都有惯性'));
-    expect(behavior, contains('默认有资格进入对白'));
+    expect(behavior, contains('不按“必须有刺”统一放行'));
     expect(behavior, contains('温柔只是可能出现的一种情绪'));
     expect(behavior, contains('选择、欲望与摩擦'));
     expect(core, contains('本层是连续性工具，不是许可开关'));
@@ -254,6 +265,12 @@ void main() {
     expect(legacyEditableRuleLayerSha256V0413InstalledSeedDraft.length, 1);
     expect(legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.length, 1);
     expect(legacyEditableRuleLayerSha256V04121AggressiveDialogue.length, 17);
+    expect(legacyEditableRuleLayerSha256V04122LifelikeRevision.length, 5);
+    final experiment = byKey['09_action_expression_experiment']!.content;
+    expect(experiment, contains('零或一段短动作'));
+    expect(experiment, contains('不强制每轮出现'));
+    expect(experiment, contains('清空或停用本规则即为纯对白对照组'));
+    expect(experiment, isNot(contains('每轮至少')));
     expect(
       byKey['immersive_07_global']!.content,
       contains('用户在正文中始终写作“你”'),

@@ -6,6 +6,7 @@ import '../continuity/daily_continuity_engine.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/desire_engine.dart';
 import '../desire/ordinary_desire_response.dart';
+import '../desire/proactive_outcome_fit_policy.dart';
 import '../desire/thought_lifecycle_engine.dart';
 import '../diagnostics/conversation_initiative_telemetry.dart';
 import '../models/chat_message.dart';
@@ -912,14 +913,17 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     final followupHours = outcome == 'deferred' && proposedHours > 0
         ? proposedHours.clamp(6, 72).toInt()
         : 0;
-    final timingFit = ((item['timing_fit'] as num?)?.toDouble() ??
-            _defaultTimingFit(feedback, outcome))
-        .clamp(-1.0, 1.0)
-        .toDouble();
-    final topicFit = ((item['topic_fit'] as num?)?.toDouble() ??
-            _defaultTopicFit(outcome))
-        .clamp(-1.0, 1.0)
-        .toDouble();
+    final timingFit = ProactiveOutcomeFitPolicy.timing(
+      outcome: outcome,
+      proposed: (item['timing_fit'] as num?)?.toDouble() ??
+          _defaultTimingFit(feedback, outcome),
+      responseLatencySeconds: feedback.responseLatencySeconds,
+    );
+    final topicFit = ProactiveOutcomeFitPolicy.topic(
+      outcome: outcome,
+      proposed: (item['topic_fit'] as num?)?.toDouble() ??
+          _defaultTopicFit(outcome),
+    );
     return _ProactiveOutcomeData(
       outcome: outcome,
       resolution: resolution,

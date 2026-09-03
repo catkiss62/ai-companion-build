@@ -16,8 +16,9 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec
+assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or "version: 0.41.23+162" in pubspec
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
+lifelike_ablation = "version: 0.41.23+162" in pubspec
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 
@@ -82,9 +83,19 @@ aggressive_expected = {
     "07_posture_younger": "0ced15e9a7ed8e641087cb62465bf57af2e70075ab8bf8b781f35a229359bec6",
     "07_profile_shared": "b13ab369b0ee2a55c317499f5878e25281a30c3295bce2129b04090e31912601",
 }
+lifelike_expected = {
+    **aggressive_expected,
+    "01_core": "08b05a2ca10aaec6c806d468189cc874359b6c93c0c557cc3ae3e89b7dff863c",
+    "02_daily": "a9178148ecf10bd017df69ee2a90ce83195a617964f25742c85ed0fb035f11f2",
+    "03_behavior": "f3d99a47ee1c2642bf5967f12da55bd71b905e5a8fdf837169ac616f187f4230",
+    "08_visible_inner_voice": "b65a4804b86cd7eeb26bab74c7271653c61b20a15861858d38643701739e2f7c",
+    "03_personality_seed": "bf24ed81b4f3b0ec68fab4d660f5aa59e116748754530b89db8e64c2dac71f17",
+}
 for key, digest in expected.items():
     actual = sha256(parsed[key].encode()).hexdigest()
-    if aggressive_dialogue and key in aggressive_expected:
+    if lifelike_ablation and key in lifelike_expected:
+        assert actual == lifelike_expected[key], key
+    elif aggressive_dialogue and key in aggressive_expected:
         assert actual == aggressive_expected[key], key
     elif key == "03_personality_seed":
         assert actual in {
@@ -104,7 +115,7 @@ for key, digest in expected.items():
 active_rules = "\n".join(parsed.values())
 active_rules = active_rules.replace("其他", "").replace("他人", "")
 active_rules = active_rules.replace("他、用户、玩家、男朋友、男人、男方", "")
-if aggressive_dialogue:
+if aggressive_dialogue or lifelike_ablation:
     active_rules = active_rules.replace("让他安心", "")
 assert "他" not in active_rules
 assert "玩家" not in active_rules

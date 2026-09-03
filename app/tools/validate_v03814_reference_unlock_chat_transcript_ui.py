@@ -26,6 +26,7 @@ overlay_formatter = read(
 )
 pubspec = read("pubspec.yaml")
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
+lifelike_ablation = "version: 0.41.23+162" in pubspec
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
@@ -74,7 +75,10 @@ assert "return segment.text;" in visuals
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "stripActionDelimitersForDisplay" in text
 assert "不加括号" in rules and "所有台词必须用「」包裹" in rules
-if aggressive_dialogue:
+if lifelike_ablation:
+    assert "当前动作神态消融实验已启用" in prompt
+    assert "当前动作神态消融实验未启用或内容为空" in prompt
+elif aggressive_dialogue:
     assert "普通聊天最终正文只写真正说出口的话" in prompt
     assert "不写动作、神态、语气说明、镜头、环境或旁白" in prompt
 else:

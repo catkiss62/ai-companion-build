@@ -3,6 +3,7 @@ import 'dart:math';
 import '../database/app_database.dart';
 import '../models/chat_message.dart';
 import '../models/proactive_feedback.dart';
+import 'proactive_outcome_fit_policy.dart';
 import 'thought_lifecycle_engine.dart';
 
 class ProactiveRhythmContext {
@@ -18,7 +19,8 @@ class ProactiveRhythmContext {
 
   static String hourBucketFor(DateTime instant) {
     final hour = instant.hour;
-    if (hour < 6) return 'late_night';
+    if (hour < 5) return 'late_night';
+    if (hour < 9) return 'dawn';
     if (hour < 12) return 'morning';
     if (hour < 18) return 'afternoon';
     return 'evening';
@@ -357,8 +359,7 @@ class ProactiveRhythmEngine {
   }
 
   double? _timingFit(ProactiveFeedback row) {
-    if (row.timingFit != null) return row.timingFit!.clamp(-1.0, 1.0).toDouble();
-    return switch (row.outcome) {
+    final proposed = row.timingFit ?? switch (row.outcome) {
       'deferred' => -0.75,
       'engaged' || 'resolved' =>
         (row.responseLatencySeconds ?? 999999) <= 2 * 3600 ? 0.55 : 0.35,
@@ -368,11 +369,16 @@ class ProactiveRhythmEngine {
       'dismissed' || 'redirected' => 0.0,
       _ => null,
     };
+    if (proposed == null) return null;
+    return ProactiveOutcomeFitPolicy.timing(
+      outcome: row.outcome,
+      proposed: proposed,
+      responseLatencySeconds: row.responseLatencySeconds,
+    );
   }
 
   double? _topicFit(ProactiveFeedback row) {
-    if (row.topicFit != null) return row.topicFit!.clamp(-1.0, 1.0).toDouble();
-    return switch (row.outcome) {
+    final proposed = row.topicFit ?? switch (row.outcome) {
       'engaged' || 'resolved' => 0.55,
       'acknowledged' => 0.20,
       'deferred' => 0.05,
@@ -382,6 +388,11 @@ class ProactiveRhythmEngine {
       'no_response' => 0.0,
       _ => null,
     };
+    if (proposed == null) return null;
+    return ProactiveOutcomeFitPolicy.topic(
+      outcome: row.outcome,
+      proposed: proposed,
+    );
   }
 
   String _bucket(int seconds) {

@@ -27,6 +27,7 @@ overlay_formatter = read(
 )
 pubspec = read("pubspec.yaml")
 aggressive_dialogue = "version: 0.41.22+161" in pubspec
+lifelike_ablation = "version: 0.41.23+162" in pubspec
 workflow = read("../.github/workflows/build-apk.yml")
 
 assert "version: 0.38.16+115" in pubspec
@@ -42,7 +43,10 @@ assert "RegExp(r'([^\\n])\\n(?=「)')" in text
 assert ".join('\\n\\n')" in visuals
 assert "assistantStreamingTranscriptBlocks" in visuals
 assert "assistantStreamingTranscriptBlocks(content)" in chat
-if aggressive_dialogue:
+if lifelike_ablation:
+    assert "当前动作神态消融实验已启用" in prompt
+    assert "零或一段真正增加潜台词的短动作" in prompt
+elif aggressive_dialogue:
     assert "普通聊天最终正文只写真正说出口的话" in prompt
     assert "普通聊天最终正文只写真正说出口的话" in prompt
 else:

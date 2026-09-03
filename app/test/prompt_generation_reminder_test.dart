@@ -46,6 +46,21 @@ void main() {
     expect(reminder, isNot(contains('用户刚刚')));
   });
 
+  test('action-expression reminder has removable A/B branches', () {
+    final enabled = PromptBuilder.visibleChineseGenerationReminder(
+      ordinaryActionExperimentActive: true,
+    );
+    final disabled = PromptBuilder.visibleChineseGenerationReminder(
+      ordinaryActionExperimentActive: false,
+    );
+
+    expect(enabled, contains('当前动作神态消融实验已启用'));
+    expect(enabled, contains('允许零或一段'));
+    expect(enabled, contains('不写动作—对白—动作夹心'));
+    expect(disabled, contains('当前动作神态消融实验未启用或内容为空'));
+    expect(disabled, contains('不写动作、神态、语气说明、镜头、环境或旁白'));
+  });
+
   test('learning capability truth appears only for relevant conversation', () {
     final relevant = PromptBuilder.personalityLearningCapabilityContract(
       latestUserText: '我已经给你做好学习和成长系统了',

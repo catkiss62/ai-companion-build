@@ -36,9 +36,12 @@ void main() {
     expect(feedback.topicFit, closeTo(0.1, 0.0001));
   });
 
-  test('v16 daypart buckets stay coarse and deterministic', () {
+  test('dawn is isolated from late night and normal morning learning', () {
     expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 2)), 'late_night');
-    expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 8)), 'morning');
+    expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 4, 59)), 'late_night');
+    expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 5)), 'dawn');
+    expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 8, 59)), 'dawn');
+    expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 9)), 'morning');
     expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 14)), 'afternoon');
     expect(ProactiveRhythmContext.hourBucketFor(DateTime(2026, 8, 11, 21)), 'evening');
   });

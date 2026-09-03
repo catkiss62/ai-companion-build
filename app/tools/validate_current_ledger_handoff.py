@@ -95,6 +95,7 @@ def main() -> None:
         "### 28. 2026-09-02 · Phase 2A.5 对话主动权与自我驱动表达",
         "### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化",
         "### 30. 2026-09-03 · 激进核心底色、纯对白与造梗表达重构",
+        "### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修",
     )
     for section in required_detailed_sections:
         require(section in ledger[handoff_end:], f"missing detailed ledger section: {section}")
@@ -102,19 +103,19 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04122-aggressive-dialogue-rebuild",
-        "0.41.21+160",
+        "agent/v04123-lifelike-ablation-dawn-gate",
         "0.41.22+161",
+        "0.41.23+162",
         "schema 44",
-        "33661963195",
-        "33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c",
-        "635f7886210e1011085ab2e97b9434237fe176c9",
+        "33704731930",
+        "2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1",
+        "528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb",
         "现有 schema 44 存档须可直接覆盖升级",
         "Phase 2A",
         "Phase 2B",
-        "CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md",
         "终态真值",
-        "普通设备聊天硬性禁止动作",
+        "可单独清空的动作神态 A/B 规则",
+        "不设“深夜至 9 点最多一条”硬上限",
         "联网图片同一不可变字节事务",
     )
     for fact in required_current_facts:
@@ -123,6 +124,7 @@ def main() -> None:
         "DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
         "DESIGNED / IMPLEMENTATION PENDING",
         "IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
+        "IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI FIX IN PROGRESS / TRUE DEVICE PENDING",
@@ -175,7 +177,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160|22\+161)\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.(?:20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

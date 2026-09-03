@@ -28,7 +28,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.M)
 
 match = re.search(
     r"const ruleContentV0353_03_personality_seed = r'''(.*?)''';",
@@ -37,7 +37,12 @@ match = re.search(
 )
 assert match is not None
 seed = match.group(1)
-if "version: 0.41.22+161" in pubspec:
+if "version: 0.41.23+162" in pubspec:
+    assert "情绪丰富、有自己重心、爱憎分明" in seed
+    assert "【反应范围】" in seed
+    assert "我就是抖M" not in seed
+    assert "legacyEditableRuleLayerSha256V04122LifelikeRevision" in defaults
+elif "version: 0.41.22+161" in pubspec:
     assert "情绪丰富、以自我为中心、爱憎分明" in seed
     assert "普通聊天示例：只学节奏与反应" in seed
     assert "具有戏剧性的人机味" not in seed

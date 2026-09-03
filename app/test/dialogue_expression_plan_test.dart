@@ -3,7 +3,7 @@ import 'package:ai_companion_localfirst/core/diagnostics/dialogue_expression_tel
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('light chat stays short, spoken-only and deterministically routed', () {
+  test('light chat stays short and deterministically routed', () {
     final first = DialogueExpressionPlan.select(
       latestUserText: '我就是抖M',
       turnKey: 'message-42',
@@ -17,9 +17,47 @@ void main() {
     expect(first.humor, replay.humor);
     expect(first.selectionSeed, replay.selectionSeed);
     expect(first.render(), contains('一至三个口语句'));
-    expect(first.render(), contains('只输出说出口的话'));
-    expect(first.render(), contains('不输出动作、神态、语气说明、镜头或旁白'));
+    expect(first.render(), contains('可编辑动作神态实验规则'));
+    expect(first.render(), contains('内容已清空时，普通聊天保持纯对白'));
     expect(first.render(), contains('不强迫追加问题'));
+  });
+
+  test('direct negative feedback is literal and never routed to humor', () {
+    const samples = <String>[
+      '没看到哪里造梗',
+      '好弱智',
+      '很无聊，你真没有幽默感？',
+      '确实没笑',
+      '你又开始反问了',
+    ];
+    for (var i = 0; i < samples.length; i += 1) {
+      final plan = DialogueExpressionPlan.select(
+        latestUserText: samples[i],
+        turnKey: 'feedback-$i',
+      );
+      expect(plan.mode, DialogueResponseMode.feedback);
+      expect(plan.humor, DialogueHumorDevice.none);
+      expect(plan.render(), contains('真实反馈'));
+      expect(plan.render(), contains('不要反射性自证人格'));
+    }
+  });
+
+  test('casual humor is limited to the lower thirty hash buckets', () {
+    final seenBuckets = <int>{};
+    for (var i = 0; i < 4000; i += 1) {
+      final plan = DialogueExpressionPlan.select(
+        latestUserText: '随便聊聊$i',
+        turnKey: 'casual-density-$i',
+      );
+      final bucket = plan.selectionSeed % 100;
+      seenBuckets.add(bucket);
+      if (plan.humor == DialogueHumorDevice.none) {
+        expect(bucket, greaterThanOrEqualTo(30));
+      } else {
+        expect(bucket, lessThan(30));
+      }
+    }
+    expect(seenBuckets.length, 100);
   });
 
   test('technical and deep turns may expand without humor pressure', () {
@@ -62,6 +100,7 @@ void main() {
       expect(prompt, contains('不改写事实'));
       expect(prompt, contains('不虚构共同经历'));
       expect(prompt, contains('不替代任务答案'));
+      expect(prompt, contains('不要把这段检查写进可见思考或正文'));
     }
   });
 

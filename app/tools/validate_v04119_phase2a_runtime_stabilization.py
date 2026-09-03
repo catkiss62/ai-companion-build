@@ -30,7 +30,7 @@ snapshot = read("app/lib/core/sync/snapshot_service.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160|22\+161)\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160|22\+161|23\+162)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
 for token in (
     "_createV44Tables",
@@ -87,7 +87,15 @@ for token in (
     assert token in learning + database, token
 assert "同一原子偏好或许可" in extractor
 
-if "version: 0.41.22+161" in pubspec:
+if "version: 0.41.23+162" in pubspec:
+    for token in (
+        "当前动作神态消融实验已启用",
+        "当前动作神态消融实验未启用或内容为空",
+        "一至三个口语句",
+        "DialogueExpressionPlan.select",
+    ):
+        assert token in prompt + daily_rule, token
+elif "version: 0.41.22+161" in pubspec:
     for token in (
         "普通聊天最终正文只写真正说出口的话",
         "普通聊天正文禁止动作、神态、语气说明",

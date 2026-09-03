@@ -93,6 +93,11 @@ class PromptBuilder {
       nsfwReferenceActive: nsfwReferenceActive,
       specialStyleKeyOverride: specialStyleKeyOverride,
     );
+    final ordinaryActionExperimentActive = layerBundle.layers.any(
+      (layer) =>
+          layer.key == '09_action_expression_experiment' &&
+          layer.content.trim().isNotEmpty,
+    );
     // Awareness must describe the device at prompt time, not merely the last
     // 7-24 minute inner-life heartbeat. This refresh is local-only and never
     // advances Desire/Thought or invokes a model. Missing platform channels in
@@ -240,6 +245,7 @@ class PromptBuilder {
         'content': _visibleInnerVoiceContract(
           mode,
           template: layerBundle.templates['08_visible_inner_voice'],
+          ordinaryActionExperimentActive: ordinaryActionExperimentActive,
         ),
       },
     ];
@@ -265,7 +271,10 @@ ANSWERED_HISTORY_ONLY = true
       });
       messages.add({
         'role': 'system',
-        'content': visibleChineseGenerationReminder(proactive: true),
+        'content': visibleChineseGenerationReminder(
+          proactive: true,
+          ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+        ),
       });
       if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
         messages.add({
@@ -278,7 +287,9 @@ ANSWERED_HISTORY_ONLY = true
       if (history.isEmpty) {
         messages.add({
           'role': 'system',
-          'content': visibleChineseGenerationReminder(),
+          'content': visibleChineseGenerationReminder(
+            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+          ),
         });
         if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
           messages.add({
@@ -294,7 +305,9 @@ ANSWERED_HISTORY_ONLY = true
         messages.addAll(history.take(history.length - 1));
         messages.add({
           'role': 'system',
-          'content': visibleChineseGenerationReminder(),
+          'content': visibleChineseGenerationReminder(
+            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+          ),
         });
         if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
           messages.add({
@@ -323,14 +336,17 @@ ANSWERED_HISTORY_ONLY = true
     return messages;
   }
 
-  static String visibleChineseGenerationReminder({bool proactive = false}) => '''
+  static String visibleChineseGenerationReminder({
+    bool proactive = false,
+    bool ordinaryActionExperimentActive = false,
+  }) => '''
 【本轮最终呈现提醒】
 绝对语言约束：可见 reasoning 与最终正文中的完整句子、段落必须使用自然简体中文。仅代码、命令、文件路径、变量名、API/模型标识以及无法自然翻译的专名可保留英文；即使参考资料、工具结果或内部习惯是英文，也必须用中文组织和解释。不输出英文工具规划、搜索路由或工作日志，也禁止成段英文分析、英文叙事、英文回复规划，不得为了遵守中文约束缩短、省略真实思考。
 本轮已启用思考模式时，reasoning_content 必须非空并使用自然中文；不得只输出最终 content，也不得把可见思考伪装进正文。若上游确实没有提供 reasoning_content，客户端不会编造补写。
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
 
 【普通聊天台词边界 · 输出前最后检查】
-普通聊天最终正文只写真正说出口的话，像即时消息，不写动作、神态、语气说明、镜头、环境或旁白。不要用“顿了顿、尾巴、耳朵、目光、嘴角、屏幕”等舞台动作替代鲜明措辞，也不要模仿历史里的旧小剧场。
+${ordinaryActionExperimentActive ? '当前动作神态消融实验已启用：普通闲聊允许零或一段真正增加潜台词的短动作/神态，独占一行且不加括号；不写动作—对白—动作夹心、尾部补动作、环境镜头、连续小剧场，也不替用户行动。对白足够时只写对白。' : '当前动作神态消融实验未启用或内容为空：普通聊天最终正文只写真正说出口的话，像即时消息，不写动作、神态、语气说明、镜头、环境或旁白，也不模仿历史里的旧小剧场。'}
 简单闲聊通常一至三个口语句；只接最有反应的一点，不逐项覆盖，不复述用户输入，不把 reasoning 展开成解释，不追加总结、意义升华、万能安慰或机械问题。
 情绪必须进入对白的选词、判断、粗粝程度、断句、沉默或拒绝。毒舌、冷淡、调皮、腹黑和不耐烦不准自动改写成可爱，也不准在句末补一句温柔真心、放心承诺或“其实我是关心你”。
 “那我就不客气了—你放心—我会好好……”不是亲密，是服务模板；本轮禁止沿用这条许可—安抚—承诺链。决定、欲望、坏话与拒绝直接落地。
@@ -551,6 +567,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
   String _visibleInnerVoiceContract(
     PromptGenerationMode mode, {
     String? template,
+    bool ordinaryActionExperimentActive = false,
   }) {
     final turn = mode == PromptGenerationMode.proactive
         ? '这次是自己忽然想联系你；先找到此刻真正牵动我的那一点，再决定说不说。'
@@ -563,7 +580,7 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 3. 从最具体的注意点、身体化冲动、情绪或判断开始。允许“糟了”“等下”“你居然……”一类自然瞬间，但只在真的被触发时出现，不能固定复读。
 4. 不把思考写成请求处理、回复规划、身份表演或风格自检。不是模拟一套人类说话表面，而是让自己的注意、偏好、情绪惯性和表达缺口直接造成下一步。
 5. 内心出现的混乱、欲望、害羞、锋利、粗口和私心默认有资格进入对白。只有此刻真的想藏才藏；被藏住的柔软继续留在心里，不准为了模型习惯在同一轮补成温柔解释、安抚或承诺。
-6. 普通聊天正文严格遵守规则02：只写真正说出口的话，不写动作、神态、语气说明、镜头或旁白；简单闲聊优先一至三个口语句。情绪由选词、判断、断句、沉默和粗粝程度承担。共享幻想、角色扮演、沉浸房间与连续身体互动按对应场景规则处理；复杂事实回答可用必要的普通段落。
+6. 普通聊天正文严格遵守规则02与当前动作神态实验状态：${ordinaryActionExperimentActive ? '允许零或一段有潜台词的短动作，不强制出现；禁止动作夹心、尾部动作、环境镜头和替用户行动。' : '只写真正说出口的话，不写动作、神态、语气说明、镜头或旁白。'}简单闲聊优先一至三个口语句。共享幻想、角色扮演、沉浸房间与连续身体互动按对应场景规则处理；复杂事实回答可用必要的普通段落。
 7. 主动联系始终保存和显示为一条完整消息；可以在这一条内部换行，但不能制造多条独立消息、多个未读或连续通知。
 8. 最终正文停在自然落点。没有真实需要时，不追加万能安慰、随时待命、等待用户回复的保证，也不以机械提问收尾。固定外观只在此刻确实相关时进入注意。
 ''';

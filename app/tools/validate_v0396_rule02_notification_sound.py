@@ -38,8 +38,12 @@ assert hashlib.sha256(daily.encode("utf-8")).hexdigest() in {
     "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
     "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
     "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
+    "a9178148ecf10bd017df69ee2a90ce83195a617964f25742c85ed0fb035f11f2",
 }
-if "version: 0.41.22+161" in pubspec:
+if "version: 0.41.23+162" in pubspec:
+    assert "独立动作神态实验规则" in daily
+    assert "普通聊天与沉浸分流" in daily
+elif "version: 0.41.22+161" in pubspec:
     assert "普通聊天正文禁止动作、神态、语气说明" in daily
     assert "普通聊天与沉浸分流" in daily
 else:

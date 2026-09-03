@@ -40,6 +40,7 @@ import '../tts/tts_service.dart';
 import 'deferred_followup_engine.dart';
 import 'desire_core_policy.dart';
 import 'desire_engine.dart';
+import 'proactive_dawn_gate_policy.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
 import 'proactive_selection_policy.dart';
@@ -569,7 +570,13 @@ class ProactiveEngine {
     // user's preference that she may still leave a low-pressure message while
     // he is gaming/chatting/working.
     final busyMultiplier = userBusy ? 0.72 : 1.0;
-    final idleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
+    final rawIdleBoost = (idleMinutes / 240).clamp(0.0, 0.24).toDouble();
+    final dawnAdjustment = ProactiveDawnGatePolicy.adjust(
+      now: evaluationStartedAt,
+      activityContext: rhythmContext.activityContext,
+      rawIdleBoost: rawIdleBoost,
+    );
+    final idleBoost = dawnAdjustment.idleBoost;
     final frequencyPenalty = min(0.30, sentToday * 0.055 + sentLastTwoHours * 0.035);
     final presenceMomentum = await presence.currentMomentum(now: evaluationStartedAt);
     // v0.31: phone activity already enters Desire through Presence ->
@@ -589,14 +596,18 @@ class ProactiveEngine {
     // threshold gets a small recovery relief so a history of missed messages
     // can never train her into permanent silence. Explicit spam ceilings above
     // still prevent repeated bursts.
-    final longIdleRelief = idleMinutes >= 12 * 60
-        ? 0.045
-        : idleMinutes >= 6 * 60
-            ? 0.025
-            : 0.0;
-    final threshold =
-        (baseThreshold + rhythmProfile.thresholdAdjustment - longIdleRelief)
-            .clamp(0.52, 0.76)
+    final longIdleRelief = dawnAdjustment.suppressLongIdleRelief
+        ? 0.0
+        : idleMinutes >= 12 * 60
+            ? 0.045
+            : idleMinutes >= 6 * 60
+                ? 0.025
+                : 0.0;
+    final threshold = (baseThreshold +
+            rhythmProfile.thresholdAdjustment +
+            dawnAdjustment.thresholdPenalty -
+            longIdleRelief)
+            .clamp(0.52, 0.86)
             .toDouble();
 
     await db.setSetting(
@@ -604,7 +615,11 @@ class ProactiveEngine {
       jsonEncode({
         'intent': double.parse(intent.score.toStringAsFixed(3)),
         'busyMultiplier': double.parse(busyMultiplier.toStringAsFixed(3)),
+        'rawIdleBoost': double.parse(rawIdleBoost.toStringAsFixed(3)),
         'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),
+        'dawnScreenOff': dawnAdjustment.active,
+        'dawnThresholdPenalty':
+            double.parse(dawnAdjustment.thresholdPenalty.toStringAsFixed(3)),
         'presenceMomentum': double.parse(presenceMomentum.toStringAsFixed(3)),
         'presenceBoost': double.parse(presenceBoost.toStringAsFixed(3)),
         'presenceAppliedToDesire': true,

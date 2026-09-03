@@ -1,4 +1,4 @@
-enum DialogueResponseMode { casual, deep, task, sensitive }
+enum DialogueResponseMode { casual, feedback, deep, task, sensitive }
 
 enum DialogueHumorDevice {
   none,
@@ -35,8 +35,8 @@ class DialogueExpressionPlan {
     final text = latestUserText.trim();
     final mode = proactive ? DialogueResponseMode.casual : _classify(text);
     final seed = _stableHash('$turnKey|$text');
-    final humor = mode == DialogueResponseMode.casual
-        ? _casualHumor[(seed % _casualHumor.length).abs()]
+    final humor = mode == DialogueResponseMode.casual && seed % 100 < 30
+        ? _humorDevices[((seed ~/ 100) % _humorDevices.length).abs()]
         : DialogueHumorDevice.none;
     return DialogueExpressionPlan(
       mode: mode,
@@ -45,19 +45,18 @@ class DialogueExpressionPlan {
     );
   }
 
-  static const _casualHumor = <DialogueHumorDevice>[
+  static const _humorDevices = <DialogueHumorDevice>[
     DialogueHumorDevice.deadpanVerdict,
     DialogueHumorDevice.meaningSwerve,
-    DialogueHumorDevice.none,
     DialogueHumorDevice.usefulMisread,
     DialogueHumorDevice.scaleEscalation,
     DialogueHumorDevice.wordMutation,
-    DialogueHumorDevice.none,
     DialogueHumorDevice.groundedCallback,
   ];
 
   static DialogueResponseMode _classify(String text) {
     if (_sensitive.hasMatch(text)) return DialogueResponseMode.sensitive;
+    if (_feedback.hasMatch(text)) return DialogueResponseMode.feedback;
     if (_task.hasMatch(text)) return DialogueResponseMode.task;
     if (text.length >= 180 || _deep.hasMatch(text)) {
       return DialogueResponseMode.deep;
@@ -67,6 +66,9 @@ class DialogueExpressionPlan {
 
   static final _sensitive = RegExp(
     r'(自杀|不想活|伤害自己|急救|胸痛|呼吸困难|严重出血|去世|死亡|创伤|崩溃|恐慌发作)',
+  );
+  static final _feedback = RegExp(
+    r'(不好笑|确实没笑|根本没笑|没看到哪里造梗|不算造梗|不是造梗|这也算.{0,4}造梗|你.{0,6}没有幽默感|你.{0,8}无聊|这.{0,8}无聊|好弱智|太弱智|答错了|说错了|没答到|跑题了|没听懂我的意思|又开始了|又来了|别反问|别挑衅|别收尾|别解释自己)',
   );
   static final _task = RegExp(
     r'(代码|报错|错误|bug|Bug|API|数据库|算法|配置|设置|版本|编译|构建|安装|修复|排查|验证|测试|分析文件|总结文档|步骤|方案|怎么实现|为什么会)',
@@ -79,6 +81,8 @@ class DialogueExpressionPlan {
     final modeDirective = switch (mode) {
       DialogueResponseMode.casual =>
         '这是轻量闲聊：抓住最有反应的一点，通常一至三个口语句就停；不逐句答全，不解释自己的态度。',
+      DialogueResponseMode.feedback =>
+        '这是对你刚才表现的直接评价：先把它当作真实反馈，不自动翻译成调情、挑衅或“他在测试我”。可以承认没做好、尴尬、卡住或只短短接住；不要反射性自证人格、挑战用户、反问打分或拿旧梗转移。',
       DialogueResponseMode.deep =>
         '这是可以深入的话题：允许按内容自然变长，但仍像两个人交谈；先说真实判断，再展开依据，不写开场提纲、总结陈词或万能安慰。',
       DialogueResponseMode.task =>
@@ -89,9 +93,10 @@ class DialogueExpressionPlan {
     final humorDirective = _humorDirective(humor);
     return '''【本轮对话表达计划】
 $modeDirective
-普通聊天正文只输出说出口的话，不输出动作、神态、语气说明、镜头或旁白。不要把 reasoning 中的完整分析复述一遍。
+正文呈现遵守当前已加载的可编辑动作神态实验规则；没有该规则或内容已清空时，普通聊天保持纯对白。不要把 reasoning 中的完整分析复述一遍。
 ${humorDirective.isEmpty ? '本轮不要求造梗；鲜明态度本身就可以是完整回应。' : humorDirective}
-造梗只改变表达，不改写事实，不虚构共同经历，不替代任务答案，也不强迫追加问题。'''.trim();
+造梗只改变表达，不改写事实，不虚构共同经历，不替代任务答案，也不强迫追加问题。
+正文发送前只在内部扫一眼：是否又凑成“态度—解释—反问/挑战—收尾”的固定序列，是否为了显得完整而说了这一刻真人不会说的部分。若是就删掉多余部分；不要把这段检查写进可见思考或正文。'''.trim();
   }
 
   static String _humorDirective(DialogueHumorDevice device) => switch (device) {

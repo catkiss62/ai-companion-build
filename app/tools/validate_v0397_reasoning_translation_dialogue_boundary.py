@@ -15,7 +15,7 @@ def read(relative: str) -> str:
 
 
 pubspec = read("pubspec.yaml")
-assert re.search(r"^version:\s*(?:0\.39\.(?:7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or "version: 0.41.22+161" in pubspec
+assert re.search(r"^version:\s*(?:0\.39\.(?:7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or any(version in pubspec for version in ("version: 0.41.22+161", "version: 0.41.23+162"))
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 for token in (
@@ -109,8 +109,12 @@ assert hashlib.sha256(daily.encode()).hexdigest() in {
     "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
     "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
     "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
+    "a9178148ecf10bd017df69ee2a90ce83195a617964f25742c85ed0fb035f11f2",
 }
-if "version: 0.41.22+161" in pubspec:
+if "version: 0.41.23+162" in pubspec:
+    assert "独立动作神态实验规则" in daily
+    assert "普通聊天与沉浸分流" in daily
+elif "version: 0.41.22+161" in pubspec:
     assert "普通聊天正文禁止动作、神态、语气说明" in daily
     assert "普通聊天与沉浸分流" in daily
 else:
@@ -120,7 +124,10 @@ else:
 
 prompt = read("lib/core/ai/prompt_builder.dart")
 assert "【普通聊天台词边界 · 输出前最后检查】" in prompt
-if "version: 0.41.22+161" in pubspec:
+if "version: 0.41.23+162" in pubspec:
+    assert "当前动作神态消融实验已启用" in prompt
+    assert "当前动作神态消融实验未启用或内容为空" in prompt
+elif "version: 0.41.22+161" in pubspec:
     assert "普通聊天最终正文只写真正说出口的话" in prompt
     assert "不写动作、神态、语气说明、镜头、环境或旁白" in prompt
 else:
