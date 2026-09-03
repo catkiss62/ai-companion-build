@@ -61,10 +61,13 @@ assert "ruleContentV0418_07_base_forthright" in defaults
 for token in (
     "static String executionAnchor(String baseKey)",
     "当前底色落地·直爽泼辣",
-    "动态萌属性只能改变",
     "多轮盲测必须稳定辨认",
 ):
     assert token in catalog + tests, token
+assert (
+    "动态萌属性只能改变" in catalog + tests
+    or "动态表达倾向只能改变" in catalog + tests
+)
 assert "personalityExecutionAnchor" in service
 assert builder.count("layerBundle.personalityExecutionAnchor.isNotEmpty") == 3
 assert builder.count("'content': layerBundle.personalityExecutionAnchor") == 3

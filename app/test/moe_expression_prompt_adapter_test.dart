@@ -36,8 +36,10 @@ void main() {
     expect(plan.primary, isNotNull);
     expect(plan.secondary, isNotNull);
     expect(plan.styleDirectives, hasLength(2));
-    expect(prompt, contains('本轮动态表达染色'));
+    expect(prompt, contains('本轮动态表达倾向'));
     expect(prompt, contains('清楚可感'));
+    expect(prompt, contains('不能只存在于 reasoning'));
+    expect(prompt, contains('负面倾向不自动可爱化'));
   });
 
   test('D3 never exposes recipe labels, axes, values or control abilities', () {
@@ -75,7 +77,7 @@ void main() {
     final manga = MoeExpressionPromptPresentation.render(
       policy.expressionPlan(activeState(MoeExpressionMode.manga)),
     );
-    expect(natural, contains('轻微染色'));
+    expect(natural, contains('至少一个用词、判断、断句或选择'));
     expect(obvious, contains('清楚可感'));
     expect(manga, contains('放大反差'));
   });

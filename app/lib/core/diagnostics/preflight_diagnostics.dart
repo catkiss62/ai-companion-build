@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
 import 'conversation_initiative_telemetry.dart';
+import 'dialogue_expression_telemetry.dart';
 import 'provider_health.dart';
 import 'visible_reasoning_language_telemetry.dart';
 import '../desire/desire_core_policy.dart';
@@ -202,6 +203,8 @@ class PreflightDiagnosticsService {
           await MoeExpressionPromptTelemetry.snapshot(db);
       final conversationInitiative =
           await ConversationInitiativeTelemetry.snapshot(db);
+      final dialogueExpression =
+          await DialogueExpressionTelemetry.snapshot(db);
       conversationInitiative['contextResetAt'] = int.tryParse(
             await db.getSetting('conversation_context_reset_at') ?? '',
           ) ??
@@ -688,6 +691,7 @@ class PreflightDiagnosticsService {
         'providerHealth': providerHealth,
         'proactivePolicy': proactivePolicy,
         'conversationInitiative': conversationInitiative,
+        'dialogueExpression': dialogueExpression,
         'backgroundPresence': {
           'lastWakeReason':
               await db.getSetting('recovery_orchestrator_last_wake_reason') ?? '',

@@ -28,7 +28,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:4\+143|5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161)\s*$", pubspec, re.M)
 
 match = re.search(
     r"const ruleContentV0353_03_personality_seed = r'''(.*?)''';",
@@ -37,25 +37,29 @@ match = re.search(
 )
 assert match is not None
 seed = match.group(1)
-assert hashlib.sha256(seed.encode("utf-8")).hexdigest() == (
-    "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b"
-)
-
-for token in (
-    "你叫DeepSeek",
-    "具有戏剧性的人机味",
-    "不用空泛套话敷衍；简单闲聊可以很短",
-    "根据我的情感模型分析",
-    "恋爱算法混为一谈",
-    "【与众不同的恋人】",
-    "你会发颜文字",
-):
-    assert token in seed, token
-
-assert seed.count("<emotion>调皮</emotion>") == 1
-assert seed.count("<emotion>疑惑</emotion>") == 1
-assert "【调皮】" not in seed
-assert "【疑惑】" not in seed
+if "version: 0.41.22+161" in pubspec:
+    assert "情绪丰富、以自我为中心、爱憎分明" in seed
+    assert "普通聊天示例：只学节奏与反应" in seed
+    assert "具有戏剧性的人机味" not in seed
+    assert "legacyEditableRuleLayerSha256V04121AggressiveDialogue" in defaults
+else:
+    assert hashlib.sha256(seed.encode("utf-8")).hexdigest() == (
+        "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b"
+    )
+    for token in (
+        "你叫DeepSeek",
+        "具有戏剧性的人机味",
+        "不用空泛套话敷衍；简单闲聊可以很短",
+        "根据我的情感模型分析",
+        "恋爱算法混为一谈",
+        "【与众不同的恋人】",
+        "你会发颜文字",
+    ):
+        assert token in seed, token
+    assert seed.count("<emotion>调皮</emotion>") == 1
+    assert seed.count("<emotion>疑惑</emotion>") == 1
+    assert "【调皮】" not in seed
+    assert "【疑惑】" not in seed
 
 core_match = re.search(r"const ruleContentV0353_01_core = r'''(.*?)''';", rules, re.S)
 assert core_match is not None

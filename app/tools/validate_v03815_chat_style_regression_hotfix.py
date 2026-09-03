@@ -26,6 +26,7 @@ overlay_formatter = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayDialogueFormatter.kt"
 )
 pubspec = read("pubspec.yaml")
+aggressive_dialogue = "version: 0.41.22+161" in pubspec
 workflow = read("../.github/workflows/build-apk.yml")
 
 assert "version: 0.38.16+115" in pubspec
@@ -41,9 +42,13 @@ assert "RegExp(r'([^\\n])\\n(?=「)')" in text
 assert ".join('\\n\\n')" in visuals
 assert "assistantStreamingTranscriptBlocks" in visuals
 assert "assistantStreamingTranscriptBlocks(content)" in chat
-assert "动作行后空一行" in prompt
-assert rules.count("动作行后空一行") >= 2
-assert "动作行后空一行，再写它修饰的对白" in rules
+if aggressive_dialogue:
+    assert "普通聊天最终正文只写真正说出口的话" in prompt
+    assert "普通聊天最终正文只写真正说出口的话" in prompt
+else:
+    assert "动作行后空一行" in prompt
+    assert rules.count("动作行后空一行") >= 2
+    assert "动作行后空一行，再写它修饰的对白" in rules
 assert "legacyEditableRuleLayerSha256V03814" in rule_defaults
 assert "...legacyEditableRuleLayerSha256V03814.entries" in database
 

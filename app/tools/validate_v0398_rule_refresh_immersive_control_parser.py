@@ -70,7 +70,10 @@ for token in (
     assert token in database, token
 
 prompt = read("lib/core/ai/prompt_builder.dart")
-assert "最终正文的动作、神态、旁白和台词只要提及用户，一律使用“你”" in prompt
+assert (
+    "最终正文的动作、神态、旁白和台词只要提及用户，一律使用“你”" in prompt
+    or "最终正文与可见思考提及现实恋人时使用“你”、名字或昵称" in prompt
+)
 
 immersive_prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 for token in (

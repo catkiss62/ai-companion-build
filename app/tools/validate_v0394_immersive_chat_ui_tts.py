@@ -27,14 +27,22 @@ assert "static const int schemaVersion = 35;" in read(
 )
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
-for token in (
-    "不加括号并默认省略主语",
-    "不使用“我/她/角色名”作动作主语",
-    "省略主语的动作默认只描述自己",
-    "不替用户编写动作、台词、内心或没有真实提供的反应",
-    "严格遵守规则02【动作与神态格式】和【最终正文中的现实恋人称呼】",
-):
-    assert token in rules, token
+if "version: 0.41.22+161" in read("pubspec.yaml"):
+    for token in (
+        "普通聊天正文禁止动作、神态、语气说明",
+        "普通聊天与沉浸分流",
+        "普通聊天最终正文严格遵守规则02",
+    ):
+        assert token in rules, token
+else:
+    for token in (
+        "不加括号并默认省略主语",
+        "不使用“我/她/角色名”作动作主语",
+        "省略主语的动作默认只描述自己",
+        "不替用户编写动作、台词、内心或没有真实提供的反应",
+        "严格遵守规则02【动作与神态格式】和【最终正文中的现实恋人称呼】",
+    ):
+        assert token in rules, token
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
 database = read("lib/core/database/app_database.dart")

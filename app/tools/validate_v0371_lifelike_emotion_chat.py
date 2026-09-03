@@ -49,15 +49,19 @@ assert (
     "<emotion>情绪</emotion>" in catalog + prompt
     or "<emotion>标签</emotion>" in catalog + prompt
 )
-assert "不加括号" in rules
-assert "动作留在「」外" in rules
-assert (
-    "每轮正文至少有一行重要动作、神态、语气或微表情" in prompt
-    or (
-        "需要非语言承载的变化" in prompt
-        and "普通短回合允许零动作" in prompt
+if "version: 0.41.22+161" in read("pubspec.yaml"):
+    assert "普通聊天正文禁止动作、神态、语气说明" in rules
+    assert "普通聊天最终正文只写真正说出口的话" in prompt
+else:
+    assert "不加括号" in rules
+    assert "动作留在「」外" in rules
+    assert (
+        "每轮正文至少有一行重要动作、神态、语气或微表情" in prompt
+        or (
+            "需要非语言承载的变化" in prompt
+            and "普通短回合允许零动作" in prompt
+        )
     )
-)
 
 chat = read("lib/features/chat/chat_page.dart")
 action = read("lib/widgets/action_tint_text.dart")

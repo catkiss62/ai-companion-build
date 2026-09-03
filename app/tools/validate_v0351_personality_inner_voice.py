@@ -23,16 +23,16 @@ catalog = read("lib/core/personality/personality_catalog.dart") + read(
 )
 for token in (
     "【内在反应】",
-    "【表达过滤】",
-    "用户是平等的男朋友",
-    "十成波澜收成两三成",
-    "反咬一口",
     "抓住破绽追一下",
     "日常、调情与露骨亲密属于同一人格",
     "日常不需要经常描述长相",
     "不解释选了什么性格",
 ):
     assert token in catalog, token
+assert "【表达过滤】" in catalog or "【表达落地】" in catalog
+assert "用户是平等的男朋友" in catalog or "用户是男朋友，不是客户" in catalog
+assert "十成波澜收成两三成" in catalog or "说出口的比想到的少" in catalog
+assert "反咬一口" in catalog or "反咬、设套" in catalog
 for forbidden in ("当前试穿性格", "双方知情的临时试穿"):
     assert forbidden not in catalog, forbidden
 
@@ -51,13 +51,13 @@ for token in (
     "_visibleInnerVoiceContract(",
     "【可见思考与最终表达】",
     "不是工作记录",
-    "内心可以比台词更乱",
     "_innerResidueSection",
     "情绪余波（由已持久化的 Desire/Thought 状态得出",
     "不能补写事实原因",
     "默认称自己为“我”",
 ):
     assert token in prompt, token
+assert "内心可以比台词更乱" in prompt or "内心出现的混乱、欲望" in prompt
 for forbidden in ("我需要回应用户", "保持角色一致", "现在扮演"):
     assert forbidden not in prompt, forbidden
 assert prompt.index("_visibleInnerVoiceContract(") < prompt.index(

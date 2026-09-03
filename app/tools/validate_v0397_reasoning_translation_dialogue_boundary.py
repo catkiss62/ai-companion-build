@@ -14,7 +14,8 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*(?:0\.39\.(?:7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", read("pubspec.yaml"), re.M) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+pubspec = read("pubspec.yaml")
+assert re.search(r"^version:\s*(?:0\.39\.(?:7\+125|8\+126|9\+127)|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec or "version: 0.41.22+161" in pubspec
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 for token in (
@@ -107,18 +108,27 @@ assert hashlib.sha256(daily.encode()).hexdigest() in {
     "e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11",
     "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
     "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
+    "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
 }
-for token in ("说出口的话独占一行", "动作留在「」外"):
-    assert token in daily, token
-assert "允许纯对白" not in daily
+if "version: 0.41.22+161" in pubspec:
+    assert "普通聊天正文禁止动作、神态、语气说明" in daily
+    assert "普通聊天与沉浸分流" in daily
+else:
+    for token in ("说出口的话独占一行", "动作留在「」外"):
+        assert token in daily, token
+    assert "允许纯对白" not in daily
 
 prompt = read("lib/core/ai/prompt_builder.dart")
-for token in ("【普通聊天台词边界 · 输出前最后检查】", "实际说出口的台词"):
-    assert token in prompt, token
-assert ("每轮正文至少有一行重要动作、神态、语气或微表情" in prompt) != (
-    "普通短回合允许零动作" in prompt
-)
-assert "允许纯对白" not in prompt
+assert "【普通聊天台词边界 · 输出前最后检查】" in prompt
+if "version: 0.41.22+161" in pubspec:
+    assert "普通聊天最终正文只写真正说出口的话" in prompt
+    assert "不写动作、神态、语气说明、镜头、环境或旁白" in prompt
+else:
+    assert "实际说出口的台词" in prompt
+    assert ("每轮正文至少有一行重要动作、神态、语气或微表情" in prompt) != (
+        "普通短回合允许零动作" in prompt
+    )
+    assert "允许纯对白" not in prompt
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
 assert "legacyEditableRuleLayerSha256V0396" in defaults

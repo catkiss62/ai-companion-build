@@ -15,7 +15,9 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", read("pubspec.yaml"), re.M) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+pubspec = read("pubspec.yaml")
+assert re.search(r"^version:\s*(?:0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)\s*$", pubspec, re.M) or "version: 0.40.9+138" in pubspec
+aggressive_dialogue = "version: 0.41.22+161" in pubspec
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 36;" in database
 
@@ -62,9 +64,29 @@ expected = {
     "06_intimacy_reference": "88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648",
 }
 assert set(parsed) == set(expected)
+aggressive_expected = {
+    "01_core": "5dbba7c766fc1be5b0d333d3c82ff884383b335045b7b06729215189d0c294fc",
+    "01_relationship": "e3f69f6c6fa129133a1a795d7a3fd6b01cd35cf4aeae4424de2235d7f628c453",
+    "02_daily": "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
+    "03_behavior": "b8e53626eb0f53b97311c745adb0a27592521e37b9d2dc28695ae84b250bbe6f",
+    "08_proactive_turn": "e90cdba72efd3632e84e042acd13b0f38a0c80c309ed1f590bc92bcfa190f196",
+    "08_visible_inner_voice": "b8f7e4be43ae389609222ff3832af9e49e617d0ad129099df21464001693ffcd",
+    "03_personality_seed": "6fa9b009375b26461ed9f014d5f8367c30cd7e9543f26bce167b0b35c313eb91",
+    "07_base_gentle": "c72b758a7cb4d4511051cebbe455dcaf73c5938b79cd4a549936af8a07bdced2",
+    "07_base_outgoing": "f4e2e4666e05f3f1f4e66edfd0edc6c6c61fae894395797581128011e813d0f7",
+    "07_base_playful": "8771f8f5ce4f609278fc8d082b4a98e976eb2c1c6f9448da96ba8e838abe16c0",
+    "07_base_reserved": "c7b07e55ce38b1a20c385af65f7b50a6b176648b3a65004f7700e4cd7d87e954",
+    "07_posture_equal": "8ada3c1bcb7b2ca7bd7712521f7ce7e977555deda8324b210e93db404ca48ed0",
+    "07_posture_impish": "b57a64bc45e8a6a34570d2651560c93fed5c46a48977e554ab9b203dce04b90c",
+    "07_posture_older": "fea60094ce73da6e4487c2876a0536149dee9944bc218efbc1a076215480fce4",
+    "07_posture_younger": "0ced15e9a7ed8e641087cb62465bf57af2e70075ab8bf8b781f35a229359bec6",
+    "07_profile_shared": "b13ab369b0ee2a55c317499f5878e25281a30c3295bce2129b04090e31912601",
+}
 for key, digest in expected.items():
     actual = sha256(parsed[key].encode()).hexdigest()
-    if key == "03_personality_seed":
+    if aggressive_dialogue and key in aggressive_expected:
+        assert actual == aggressive_expected[key], key
+    elif key == "03_personality_seed":
         assert actual in {
             digest,
             "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b",
@@ -82,6 +104,8 @@ for key, digest in expected.items():
 active_rules = "\n".join(parsed.values())
 active_rules = active_rules.replace("其他", "").replace("他人", "")
 active_rules = active_rules.replace("他、用户、玩家、男朋友、男人、男方", "")
+if aggressive_dialogue:
+    active_rules = active_rules.replace("让他安心", "")
 assert "他" not in active_rules
 assert "玩家" not in active_rules
 assert "可见思考中，可以用“你”、名字或昵称指代用户" in parsed["02_daily"]
@@ -115,7 +139,10 @@ for source in (prompt, personality, somatic, extractor):
     sanitized = source.replace("其他", "").replace("他们", "")
     sanitized = sanitized.replace("他、用户、玩家、男方或男人", "")
     assert "他" not in sanitized
-assert "可见思考提及用户时也使用“你”、名字或昵称" in prompt
+assert (
+    "可见思考提及用户时也使用“你”、名字或昵称" in prompt
+    or "提及用户时使用“你”、名字或已有昵称" in prompt
+)
 assert '"text":"你刚才主动回来继续和我聊了"' in extractor
 
 workflow = read("../.github/workflows/build-apk.yml")

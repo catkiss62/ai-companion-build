@@ -35,7 +35,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 ledger = (ROOT.parent / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160)\s*$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:5\+144|6\+145|7\+146|8\+147|9\+148|10\+149|11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161)\s*$", pubspec, re.M)
 assert "static const int schemaVersion = 40;" in database
 
 for token in (
@@ -134,9 +134,17 @@ seed_match = re.search(
     re.S,
 )
 assert seed_match is not None
-assert hashlib.sha256(seed_match.group(1).encode("utf-8")).hexdigest() == (
-    "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b"
-)
+if "version: 0.41.22+161" in pubspec:
+    assert hashlib.sha256(seed_match.group(1).encode("utf-8")).hexdigest() == (
+        "6fa9b009375b26461ed9f014d5f8367c30cd7e9543f26bce167b0b35c313eb91"
+    )
+    assert "legacyEditableRuleLayerSha256V04121AggressiveDialogue" in read(
+        "lib/core/rules/rule_layer_defaults.dart"
+    )
+else:
+    assert hashlib.sha256(seed_match.group(1).encode("utf-8")).hexdigest() == (
+        "fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b"
+    )
 
 for test_file in (
     "test/thought_feed_policy_v0415_test.dart",

@@ -177,11 +177,11 @@ class MoeExpressionPromptPresentation {
     if (plan.neutral || plan.styleDirectives.isEmpty) return '';
     final intensity = switch (plan.expressionMode) {
       MoeExpressionMode.natural =>
-        '轻微染色即可，优先保留自然口语；不必每句都体现。',
+        '保留自然口语，但本轮主要倾向必须在至少一个用词、判断、断句或选择中留下可辨痕迹。',
       MoeExpressionMode.obvious =>
-        '让这种反应在本轮语气、停顿、动作或表达缺口中清楚可感，但不要机制化。',
+        '让这种反应在本轮对白的用词、判断、节奏或表达缺口中清楚可感；不能只存在于 reasoning 或情绪标签。',
       MoeExpressionMode.manga =>
-        '可以放大反差、节奏和动作感，但不能添加不存在的事实或把一句话写成属性展示。',
+        '可以明显放大反差、节奏与语言冲击，但仍只写自然对白，不能添加不存在的事实或把一句话写成属性展示。',
     };
     final directives = plan.styleDirectives
         .take(2)
@@ -189,10 +189,11 @@ class MoeExpressionPromptPresentation {
         .map((value) => '- $value')
         .join('\n');
     return '''
-【本轮动态表达染色】
+【本轮动态表达倾向】
 $intensity
 $directives
-这只是“怎么自然表达”的临时建议：不要说出任何属性、配方、档位、数值、阈值或系统机制；不要据此改变事实、记忆、关系身份、工具选择、主动联系资格或情绪标签。
+负面倾向不自动可爱化，锋利之后不追加温柔解释；主要倾向若只写在内心而没有改变最终对白，视为没有执行。
+这只是本轮怎样表达的临时建议：不要说出任何属性、配方、档位、数值、阈值或系统机制；不要据此改变事实、记忆、关系身份、工具选择、主动联系资格或情绪标签。
 '''.trim();
   }
 

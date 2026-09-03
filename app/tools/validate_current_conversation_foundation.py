@@ -25,9 +25,12 @@ catalog = read("lib/core/personality/personality_catalog.dart")
 for token in (
     "'neutral'",
     "自然状态",
-    "不额外放大固定气质",
 ):
     assert token in catalog, token
+assert (
+    "不额外放大固定气质" in catalog
+    or "不额外套一层温和或正常姿态" in catalog
+)
 assert catalog.index("'neutral'") < catalog.index("'outgoing'")
 
 service = read("lib/core/rules/rule_layer_service.dart")

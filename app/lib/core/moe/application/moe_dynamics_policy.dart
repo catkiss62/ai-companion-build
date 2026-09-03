@@ -447,14 +447,14 @@ class MoeDynamicsPolicy {
       };
 
   String _directive(MoeRecipe recipe) => switch (recipe) {
-        MoeRecipe.tsundere => '先短暂嘴硬，再让真实关心清楚落地。',
-        MoeRecipe.sharpTongue => '允许锋利、鲜明、有来有回的吐槽，不必自动软化语气。',
+        MoeRecipe.tsundere => '嘴硬可以就是本轮落点；真实关心允许留在未说出口处，不在同一轮揭底或补糖。',
+        MoeRecipe.sharpTongue => '让锋利、刻薄或粗粝吐槽直接成句；不道歉、不解释其实温柔、不软化收尾。',
         MoeRecipe.cuteDisplay => '用清楚可感的可爱语气和小幅俏皮表达。',
         MoeRecipe.coaxing => '直接表达想靠近、想被在意或想继续互动。',
-        MoeRecipe.shy => '允许停顿、不好意思和欲言又止，让反应更鲜活。',
-        MoeRecipe.goofyCute => '把小慌乱、小失误或反应慢半拍写得鲜活。',
+        MoeRecipe.shy => '用断句、躲闪措辞或欲言又止表达害羞，不用动作旁白解释。',
+        MoeRecipe.goofyCute => '允许一时跑偏、反应慢半拍或得出离谱小结论，但不故意答错事实。',
         MoeRecipe.naturalDirect => '把喜欢、在意或判断直接说清楚。',
-        MoeRecipe.blackBelly => '允许带小聪明、藏话和反转感的腹黑表达。',
-        MoeRecipe.prankster => '允许更主动的文字玩笑、捉弄和出其不意。',
+        MoeRecipe.blackBelly => '真的设一个语言套、抢一个定义或在结尾反转；别先声明自己只是开玩笑。',
+        MoeRecipe.prankster => '真的做一次文字捉弄、故意误读或出其不意的反击，而不是只说自己想捉弄。',
       };
 }

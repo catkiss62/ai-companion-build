@@ -23,6 +23,7 @@ assert "static const int schemaVersion = 35;" in read(
 )
 
 rules = read("lib/core/rules/rule_layer_content_v0353.dart")
+pubspec = read("pubspec.yaml")
 daily_match = re.search(
     r"const ruleContentV0353_02_daily = r'''(.*?)''';",
     rules,
@@ -36,13 +37,18 @@ assert hashlib.sha256(daily.encode("utf-8")).hexdigest() in {
     "e228e094fd200332c6095ac653718ce0d6c3e1e219ea6bb619a62b792a84cf11",
     "71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091",
     "e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444",
+    "3a2e70a3627ff5ee6a782ee1d3f8ea577611e6f367162d59b685e2432dddbbd2",
 }
-for token in ("说出口的话独占一行", "动作留在「」外", "动作不是装饰配额"):
-    assert token in daily, token
-assert ("每轮对话至少要出现一次" in daily) != (
-    "普通短回合可以完全不写动作" in daily
-)
-assert "允许纯对白" not in daily
+if "version: 0.41.22+161" in pubspec:
+    assert "普通聊天正文禁止动作、神态、语气说明" in daily
+    assert "普通聊天与沉浸分流" in daily
+else:
+    for token in ("说出口的话独占一行", "动作留在「」外", "动作不是装饰配额"):
+        assert token in daily, token
+    assert ("每轮对话至少要出现一次" in daily) != (
+        "普通短回合可以完全不写动作" in daily
+    )
+    assert "允许纯对白" not in daily
 
 defaults = read("lib/core/rules/rule_layer_defaults.dart")
 database = read("lib/core/database/app_database.dart")

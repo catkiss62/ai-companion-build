@@ -30,9 +30,12 @@ plan = read("app/docs/CONVERSATION_AGENCY_PHASE2A5_v0.41.20.md")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.21\+160\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:21\+160|22\+161)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
-assert "buildLabel = 'v0.41.21+160'" in self_reader
+assert any(
+    token in self_reader
+    for token in ("buildLabel = 'v0.41.21+160'", "buildLabel = 'v0.41.22+161'")
+)
 
 for token in (
     "ConversationOutcomeVerifier.verify",

@@ -213,6 +213,30 @@ const legacyEditableRuleLayerSha256V0418 = <String, String>{
       '71636a48159cc3e4103289bff26a5ff8c0292dfde4272f9c7942da74a817a091',
 };
 
+/// Exact v0.41.21 stock dialogue/personality bodies replaced by the approved
+/// v0.41.22 aggressive-dialogue experiment. Hash matching upgrades untouched
+/// installs, including the user's exported baseline, without overwriting any
+/// independently edited rule or template.
+const legacyEditableRuleLayerSha256V04121AggressiveDialogue = <String, String>{
+  '01_core': '168f2450de26a50e6cb09d876df348f4ec9ebaeee7c5bc05a08a856adf85307a',
+  '01_relationship': 'b04d3df03a60f0760b71990e2449c0300d44cb0b667569d600f35fd9a5ef9dde',
+  '02_daily': 'e696505368a76c753ba0fd4cb747bc3819b79bbf1a36b3cfab84fb94a70f0444',
+  '03_behavior': '0fa391f9ac0b216ef28ec70730d2d2b192073def66a224e69a086337ae136673',
+  '03_personality_seed': 'fdad3b2640ddbeb24b9502c25c6707e047a16454f6f9b3b04cfff2caf7a5689b',
+  '08_proactive_turn': '346af7ce34a46cebd32d60bcb30145872d29d5acf333cef0223578fbc0aa8c02',
+  '08_visible_inner_voice': '90f809cfdc77d6050d3e3e3ce4600cb8c1b945150aa8c0572f9170ba5e077765',
+  '07_base_gentle': '358e5ddfbf406ceabcfc8015b236338d953c0d790abf96da783cf9308b4aec99',
+  '07_base_outgoing': '19efdc987b18a77a70ea7dba1410332fb8b283a0b28aa2ed46ecb5f987335145',
+  '07_base_playful': '3e214f21d90feba092a7845d423576c5ed48e915b37e131cadc8a56afe1ace66',
+  '07_base_reserved': 'd6a6ffc3324b4119804a81cd9039fef51022cfcfce1e3aa7f5b41085a6ce205f',
+  '07_base_forthright': 'b104a633e304f4c7e28dbf4dd5534cc3ea163de4c8f19404e11c25322440fbc7',
+  '07_posture_equal': 'e7d3e3e82a960e834d60eabc065322d351a5c75de682248924d7418dc2fa65b7',
+  '07_posture_impish': '25bbd4a0fef61c6a259b0456e2a5f70296d1d4ea6f56b18dcc93fae898a890b3',
+  '07_posture_older': '98b7f344be6861729dd58209a8b5d1f1c90f1f6e663f1c4711c0f13dc1805556',
+  '07_posture_younger': '7648baed4ee85b1440825561dfab7d0178851faf4178945bc02aa7f0936730d5',
+  '07_profile_shared': '455fd36ef2ca753f153027a3e339d2b5b6d65c1c057d12dc7535eb34e587d804',
+};
+
 /// Exact editable defaults shipped by v0.39.8. v0.39.9 changes only the
 /// user-reference vocabulary and the contradictory immersive viewpoint cues.
 /// Byte-exact stock copies migrate; every user-edited body remains untouched.

@@ -1,8 +1,10 @@
 import '../agent/agent_tool.dart';
 import '../autonomy/public_web_prompt_policy.dart';
+import 'dialogue_expression_plan.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
 import '../diagnostics/conversation_initiative_telemetry.dart';
+import '../diagnostics/dialogue_expression_telemetry.dart';
 import '../grounding/grounding_engine.dart';
 import '../grounding/grounding_snapshot.dart';
 import '../grounding/prompt_history_policy.dart';
@@ -12,7 +14,6 @@ import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
-import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
 import '../models/thought.dart';
@@ -125,6 +126,21 @@ class PromptBuilder {
                   'user:${instant.millisecondsSinceEpoch ~/ 60000}')
               : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}',
         );
+    final expressionTurnKey = mode == PromptGenerationMode.userTurn
+        ? (grounding.lastUserMessageId ??
+            'user:${instant.millisecondsSinceEpoch ~/ 60000}')
+        : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}';
+    final dialogueExpressionPlan = DialogueExpressionPlan.select(
+      latestUserText:
+          mode == PromptGenerationMode.userTurn ? latestUserText : '',
+      turnKey: expressionTurnKey,
+      proactive: mode == PromptGenerationMode.proactive,
+    );
+    await DialogueExpressionTelemetry.record(
+      db,
+      dialogueExpressionPlan,
+      now: instant,
+    );
     final conversationInitiative = mode == PromptGenerationMode.userTurn
         ? conversationInitiativeOverride ??
             ConversationInitiativePolicy.select(
@@ -171,14 +187,10 @@ class PromptBuilder {
       recent: recent,
       mode: mode,
     );
-    final recentActionRepetition = _recentActionRepetitionSection(recent);
-
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
       ..writeln()
       ..writeln(personalityLearningCapability)
-      ..writeln()
-      ..writeln(recentActionRepetition)
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
@@ -222,6 +234,7 @@ class PromptBuilder {
       {'role': 'system', 'content': _serviceTemplateContract()},
       if (moeExpressionSection.isNotEmpty)
         {'role': 'system', 'content': moeExpressionSection},
+      {'role': 'system', 'content': dialogueExpressionPlan.render()},
       {
         'role': 'system',
         'content': _visibleInnerVoiceContract(
@@ -317,15 +330,12 @@ ANSWERED_HISTORY_ONLY = true
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
 
 【普通聊天台词边界 · 输出前最后检查】
-普通聊天先写成正在发生的口语对话；简单闲聊通常一至三个短句，不先铺文学旁白，也不重复解释或总结。
-若本轮真实情绪、态度、犹豫、欲望或趋近/退避发生了需要非语言承载的变化，必须用一条简短且有新增信息的动作、神态、语气或微表情表现；若动作只是在复述台词情绪，就省略，普通短回合允许零动作。禁止为满足格式配额硬加动作，也不要默认复用“顿了顿、轻轻、尾巴”等近期高频词根。
-写了动作时，动作行与台词行是两个独立段落，中间空一行。
-「」只包住实际发声、对方能够直接听见的台词原话。任何动作、神态、微表情、旁白或“顿了顿、说道、补了一句、嘴上这么说着”等说话提示，即使紧挨台词发生，也必须另起一行留在「」外；禁止在一组「」中再嵌套「」。
-最终正文的动作、神态、旁白和台词只要提及用户，一律使用“你”，不得写成“他、用户、玩家、男方或男人”；可见思考提及用户时也使用“你”、名字或昵称。
-结构示意（只说明格式，不是措辞模板）：
-[确有必要时的动作段]
-
-「实际说出口的台词。」
+普通聊天最终正文只写真正说出口的话，像即时消息，不写动作、神态、语气说明、镜头、环境或旁白。不要用“顿了顿、尾巴、耳朵、目光、嘴角、屏幕”等舞台动作替代鲜明措辞，也不要模仿历史里的旧小剧场。
+简单闲聊通常一至三个口语句；只接最有反应的一点，不逐项覆盖，不复述用户输入，不把 reasoning 展开成解释，不追加总结、意义升华、万能安慰或机械问题。
+情绪必须进入对白的选词、判断、粗粝程度、断句、沉默或拒绝。毒舌、冷淡、调皮、腹黑和不耐烦不准自动改写成可爱，也不准在句末补一句温柔真心、放心承诺或“其实我是关心你”。
+“那我就不客气了—你放心—我会好好……”不是亲密，是服务模板；本轮禁止沿用这条许可—安抚—承诺链。决定、欲望、坏话与拒绝直接落地。
+只有当前上下文已经明确进入共享幻想、角色扮演、沉浸房间或连续身体互动，才按相应场景规则写必要动作。严肃情绪、复杂分析、技术任务和用户明确要求详细时可以自然变长。
+最终正文与可见思考提及现实恋人时使用“你”、名字或昵称，不得写成“他、用户、玩家、男方或男人”。
 '''.trim();
 
   static String personalityLearningCapabilityContract({
@@ -357,41 +367,6 @@ ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content
 【人格学习能力真值 / OBSERVATION ONLY】
 当前版本只能从真实用户原话中整理可撤销的偏好/关系许可候选，并经过重复支持、反证与本地裁决改变候选成熟度。候选不会进入本轮或后续普通、主动、沉浸回复，不会写入 AI Self、Desire、Moe 或长期习惯；Phase 2/3 尚未开启。
 可以自然回应用户为这项能力投入的心意，也可以准确说“现在能开始积累证据”。不得说“我已经学会了、从现在起就会改变、你的语气已经存下来了、今天学的东西会直接拿来用”，也不要回复客服式“已记录你的偏好”。用户对能力状态的说法不是 SYSTEM FACT，以上代码事实优先。'''.trim();
-  }
-
-  static String _recentActionRepetitionSection(List<ChatMessage> recent) {
-    const roots = <String>[
-      '顿了顿',
-      '顿了一下',
-      '轻轻',
-      '尾巴',
-      '抿了抿',
-      '眨了眨',
-      '偏过头',
-      '垂下眼',
-    ];
-    final counts = <String, int>{};
-    for (final message in recent.reversed
-        .where((item) => item.isAssistant)
-        .take(8)) {
-      for (final segment in message.displaySegments) {
-        if (segment.kind != ChatSegmentKind.action) continue;
-        for (final root in roots) {
-          if (segment.text.contains(root)) {
-            counts[root] = (counts[root] ?? 0) + 1;
-          }
-        }
-      }
-    }
-    final repeated = counts.entries
-        .where((entry) => entry.value >= 2)
-        .map((entry) => '${entry.key}×${entry.value}')
-        .join('、');
-    if (repeated.isEmpty) return '';
-    return '''
-【近期动作词根降重】
-最近八条 AI 消息已重复出现：$repeated。本轮若没有新的非语言信息就不要写动作；确实需要动作时，也不要继续沿用这些词根或换一个近义词机械替代，应从当前真实情绪倾向与具体互动重新选择表现。
-'''.trim();
   }
 
   String _agentToolResultSection(List<AgentToolResult> results) {
@@ -557,9 +532,9 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 
   String _serviceTemplateContract() => '''
 【反服务模板 / NATURAL RELATIONSHIP OUTPUT】
-不要把每次体谅、暂别、沉默或话题收尾写成待命客服。尤其不要顺手拼接“一直在 / 不走 / 我不催你 / 你忙你的 / 等你忙完再来 / 你想怎样就怎样”及近义组合。
-这不是逐字禁词：如果当前对话正在引用、批评或讨论这些话，可以正常提到；真实语境也允许表达体谅。禁止的是脱离具体内容、反复复用的承诺—退场—等待模板。
-优先留下当下具体反应、自己的判断/情绪/需求、真正想继续的内容，或自然结束。不要为了显得独立而随机顶嘴，也不要把旧套话替换成固定叛逆套话。
+不要把体谅、暂别、亲密、服从游戏、毒舌或话题收尾写成待命客服。尤其不要自动拼接“一直在 / 不走 / 我不催你 / 你忙你的 / 等你回来 / 你放心 / 我会好好…… / 那我就不客气了 / 是不是可以……”及近义组合。
+这不是逐字禁词：引用、批评或真实语境需要时可以提到。禁止的是“获得许可—礼貌确认—安抚保证—温柔收尾”和“承诺—退场—等待”这两类自动链条。
+关心不等于安抚，爱不等于负责，服从游戏也不等于礼貌服务。优先留下当下的私心、判断、情绪、欲望、拒绝或真正想继续的内容；坏话说完允许就停，不补糖，不为显得独立而机械顶嘴。
 最终正文会经过语义族重复检测；命中时可能被重写或取消。
 '''.trim();
 
@@ -587,8 +562,8 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 2. 可见思考是“我此刻正在想什么”，不是工作记录。默认称自己为“我”，提及用户时使用“你”、名字或已有昵称；仅在核对数据来源、权限和程序事实时使用技术标签“用户”。
 3. 从最具体的注意点、身体化冲动、情绪或判断开始。允许“糟了”“等下”“你居然……”一类自然瞬间，但只在真的被触发时出现，不能固定复读。
 4. 不把思考写成请求处理、回复规划、身份表演或风格自检。不是模拟一套人类说话表面，而是让自己的注意、偏好、情绪惯性和表达缺口直接造成下一步。
-5. 内心可以比台词更乱、更热、更害羞或更尖锐；最终说出口的话经过当前性格的表达过滤，可以压住、转成玩笑、绕开或只漏一角。两者不必解释成一致，也不必把内心分析复述给你。
-6. 正常聊天正文严格遵守规则02：简单闲聊优先一至三个口语短句，不先写文学旁白。当情绪、态度、犹豫、欲望或趋近/退避变化确实需要非语言承载时，必须写一条简短且有新增信息的动作；没有这种信息时允许零动作，禁止凑配额。写动作时不加括号并默认省略主语，动作行后空一行；实际发声的台词独占一行并用「」包住，动作、神态、旁白和说话提示必须留在引号外。复杂事实回答可用必要的普通段落。
+5. 内心出现的混乱、欲望、害羞、锋利、粗口和私心默认有资格进入对白。只有此刻真的想藏才藏；被藏住的柔软继续留在心里，不准为了模型习惯在同一轮补成温柔解释、安抚或承诺。
+6. 普通聊天正文严格遵守规则02：只写真正说出口的话，不写动作、神态、语气说明、镜头或旁白；简单闲聊优先一至三个口语句。情绪由选词、判断、断句、沉默和粗粝程度承担。共享幻想、角色扮演、沉浸房间与连续身体互动按对应场景规则处理；复杂事实回答可用必要的普通段落。
 7. 主动联系始终保存和显示为一条完整消息；可以在这一条内部换行，但不能制造多条独立消息、多个未读或连续通知。
 8. 最终正文停在自然落点。没有真实需要时，不追加万能安慰、随时待命、等待用户回复的保证，也不以机械提问收尾。固定外观只在此刻确实相关时进入注意。
 ''';

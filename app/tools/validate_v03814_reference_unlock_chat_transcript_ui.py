@@ -25,6 +25,7 @@ overlay_formatter = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayDialogueFormatter.kt"
 )
 pubspec = read("pubspec.yaml")
+aggressive_dialogue = "version: 0.41.22+161" in pubspec
 database = read("lib/core/database/app_database.dart")
 workflow = read("../.github/workflows/build-apk.yml")
 
@@ -73,8 +74,12 @@ assert "return segment.text;" in visuals
 assert "const chatDialogueGold = Color(0xFFFDE68A);" in text
 assert "stripActionDelimitersForDisplay" in text
 assert "不加括号" in rules and "所有台词必须用「」包裹" in rules
-assert "不加括号" in prompt
-assert any(token in prompt for token in ("统一用「」", "实际发声的台词"))
+if aggressive_dialogue:
+    assert "普通聊天最终正文只写真正说出口的话" in prompt
+    assert "不写动作、神态、语气说明、镜头、环境或旁白" in prompt
+else:
+    assert "不加括号" in prompt
+    assert any(token in prompt for token in ("统一用「」", "实际发声的台词"))
 assert "OverlayDialogueFormatter.visibleText(value)" in overlay
 assert any(token in overlay for token in (
     "ForegroundColorSpan(Color.rgb(253, 230, 138))",

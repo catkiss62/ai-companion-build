@@ -12,7 +12,8 @@ def read(relative: str) -> str:
     return value
 
 
-assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112|0\.38\.14\+113|0\.38\.15\+114|0\.38\.16\+115|0\.38\.18\+117|0\.39\.0\+118|0\.39\.1\+119|0\.39\.2\+120|0\.39\.3\+121|0\.39\.4\+122|0\.39\.5\+123|0\.39\.6\+124|0\.39\.7\+125|0\.39\.8\+126|0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)$", read("pubspec.yaml"), re.MULTILINE) or "version: 0.40.9+138" in (Path(__file__).resolve().parents[1] / "pubspec.yaml").read_text()
+pubspec = read("pubspec.yaml")
+assert re.search(r"^version: (?:0\.35\.(?:4\+79|5\+80|6\+81|7\+82|8\+83|9\+84)|0\.36\.(?:0\+85|1\+86|2\+87|3\+88)|0\.37\.0\+89|0\.37\.1\+90|0\.37\.2\+91|0\.37\.3\+92|0\.37\.4\+93|0\.37\.5\+94|0\.37\.6\+95|0\.37\.7\+96|0\.37\.8\+97|0\.37\.9\+98|0\.38\.0\+99|0\.38\.1\+100|0\.38\.2\+101|0\.38\.3\+102|0\.38\.4\+103|0\.38\.5\+104|0\.38\.6\+105|0\.38\.7\+106|0\.38\.8\+107|0\.38\.9\+108|0\.38\.10\+109|0\.38\.11\+110|0\.38\.12\+111|0\.38\.13\+112|0\.38\.14\+113|0\.38\.15\+114|0\.38\.16\+115|0\.38\.18\+117|0\.39\.0\+118|0\.39\.1\+119|0\.39\.2\+120|0\.39\.3\+121|0\.39\.4\+122|0\.39\.5\+123|0\.39\.6\+124|0\.39\.7\+125|0\.39\.8\+126|0\.39\.9\+127|0\.40\.0\+128|0\.40\.1\+129|0\.40\.2\+130|0\.40\.3\+(?:131|132)|0\.40\.4\+133|0\.40\.5\+134|0\.40\.6\+135|0\.40\.7\+136)$", pubspec, re.MULTILINE) or "version: 0.40.9+138" in pubspec or "version: 0.41.22+161" in pubspec
 assert "static const int schemaVersion = 26;" in read(
     "lib/core/database/app_database.dart"
 )
@@ -40,11 +41,15 @@ for key, expected in changed_hashes.items():
         assert f"'{key}': '{expected}'" in defaults, (key, actual)
 
 action_heading = "【动作与神态格式】"
+pure_dialogue_heading = "【普通聊天与沉浸分流】"
 intimacy_action_heading = "【对白、动作与心理】"
-assert parsed["02_daily"].count(action_heading) == 1
-assert parsed["02_daily"].index("【成年恋爱与自然升温】") < parsed["02_daily"].index(
-    action_heading
-)
+if "version: 0.41.22+161" in pubspec:
+    assert parsed["02_daily"].count(action_heading) == 0
+    assert parsed["02_daily"].count(pure_dialogue_heading) == 1
+    assert "普通聊天正文禁止动作、神态、语气说明" in parsed["02_daily"]
+else:
+    assert parsed["02_daily"].count(action_heading) == 1
+    assert parsed["02_daily"].index("【成年恋爱与自然升温】") < parsed["02_daily"].index(action_heading)
 assert parsed["05_intimacy_rendering"].count(intimacy_action_heading) == 1
 assert parsed["05_intimacy_rendering"].index("【节奏而非流程】") < parsed[
     "05_intimacy_rendering"
@@ -52,9 +57,11 @@ assert parsed["05_intimacy_rendering"].index("【节奏而非流程】") < parse
 assert parsed["05_intimacy_rendering"].index(intimacy_action_heading) < parsed[
     "05_intimacy_rendering"
 ].index("【连续性与余韵】")
-assert "不加括号" in parsed["02_daily"] and "不加括号" in parsed["05_intimacy_rendering"]
-assert "说出口的话独占一行并统一写在「」内" in parsed["02_daily"]
-assert "动作留在「」外" in parsed["02_daily"]
+assert "不加括号" in parsed["05_intimacy_rendering"]
+if "version: 0.41.22+161" not in pubspec:
+    assert "不加括号" in parsed["02_daily"]
+    assert "说出口的话独占一行并统一写在「」内" in parsed["02_daily"]
+    assert "动作留在「」外" in parsed["02_daily"]
 assert "说出口的话独占一行并统一写在「」内" in parsed["05_intimacy_rendering"]
 assert "动作禁止写进「」内" in parsed["05_intimacy_rendering"]
 

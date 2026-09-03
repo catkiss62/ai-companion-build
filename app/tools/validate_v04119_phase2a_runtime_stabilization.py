@@ -30,7 +30,7 @@ snapshot = read("app/lib/core/sync/snapshot_service.dart")
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160)\s*$", pubspec, re.MULTILINE)
+assert re.search(r"^version:\s*0\.41\.(?:19\+158|20\+159|21\+160|22\+161)\s*$", pubspec, re.MULTILINE)
 assert "static const int schemaVersion = 44;" in database
 for token in (
     "_createV44Tables",
@@ -87,13 +87,22 @@ for token in (
     assert token in learning + database, token
 assert "同一原子偏好或许可" in extractor
 
-for token in (
-    "普通短回合允许零动作",
-    "需要非语言承载",
-    "一至三个口语短句",
-    "【近期动作词根降重】",
-):
-    assert token in prompt + daily_rule, token
+if "version: 0.41.22+161" in pubspec:
+    for token in (
+        "普通聊天最终正文只写真正说出口的话",
+        "普通聊天正文禁止动作、神态、语气说明",
+        "一至三个口语句",
+        "DialogueExpressionPlan.select",
+    ):
+        assert token in prompt + daily_rule, token
+else:
+    for token in (
+        "普通短回合允许零动作",
+        "需要非语言承载",
+        "一至三个口语短句",
+        "【近期动作词根降重】",
+    ):
+        assert token in prompt + daily_rule, token
 for retired in (
     "每轮正文至少有一行重要动作、神态、语气或微表情",
     "顿了顿，又小小声补了一句。",
