@@ -28,29 +28,29 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
-| 持续提交授权 | 2026-09-02 用户明确“以后一直允许提交”：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，不再逐批重复询问是否允许推送。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
+| 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04123-lifelike-ablation-dawn-gate`；从 v0.41.22 已通过 CI/APK 的开发线开出。根据 v0.41.22 真机存档，不再把“源码存在规则”误写为效果已实现：本批修正直接反馈被误判为斗嘴、造梗密度过高与清晨熄屏主动消息连发，并加入可单独清空的动作神态 A/B 规则。Phase 1 学习消费与 Phase 2B 回复 bias 仍关闭；不从 `main` 或旧分支回退开发 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.22 APK 输入为公开分支 head `528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb` / tree `52635b18d5598a68acb0536ccd93f49344d66f2c`；本地等价功能/测试提交为 `2a25ede`，tree 逐字一致。直接前任 v0.41.21 APK 输入 head 为 `635f7886210e1011085ab2e97b9434237fe176c9`，成功 run `33661963195`，APK SHA-256 为 `33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c`；此前 v0.41.22 远端 head `a718fab`、`9ecaef9`、`4c4148e`、`e30be1b` 已被最终输入覆盖 |
-| App / 数据库 | 当前实施目标 `0.41.23+162` / schema 44 / Snapshot protocol 5；现有 schema 44 存档须可直接覆盖升级。默认规则正文只按精确 SHA 保守迁移；字节不匹配的未知用户手改内容不覆盖。新增动作神态实验规则采用新的稳定 key，不改 schema |
-| 最终 CI | v0.41.22+161 Actions run [`33704731930`](https://github.com/catkiss62/ai-companion-build/actions/runs/33704731930)（695）全绿：完整源码/历史 validators、Kotlin、Flutter analyze、482/482 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。前三次运行依次暴露旧 workflow 版本门禁和人格测试逐字旧措辞，均以窄修覆盖；未发现生产逻辑失败 |
-| 测试 APK | `AI-Companion-v0.41.22-161-Aggressive-Dialogue-Rebuild.apk`，325,725,214 bytes |
-| APK SHA-256 | `2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9875019014`](https://github.com/catkiss62/ai-companion-build/actions/runs/33704731930/artifacts/9875019014)，ZIP 319,428,086 bytes，digest `sha256:b26f40b6dd9fdd875404965bddb5c8c16e7f18f45f1bce12fa824eb4008bb002`，保留至 2026-09-17T01:52:19Z；Draft Release [`untagged-d148810141fe41fcee93`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d148810141fe41fcee93)，未发布正式 Release |
+| 当前代码 head / tree | v0.41.23 最终 APK 输入为公开分支 head `580bab1f0feaf82631c36d7044c38c3f500b242a` / tree `b36a8693e97ca9c47a868378be84518789e48161`，与本地修复提交 `60782d7` tree 逐字一致。首轮输入 `461011a` / tree `e70f273` 只暴露三处测试合同缺口，已由最终 head 覆盖。直接前任 v0.41.22 APK 输入 head 为 `528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb` |
+| App / 数据库 | 当前测试候选 `0.41.23+162` / schema 44 / Snapshot protocol 5；现有 schema 44 存档可直接覆盖升级。默认规则正文只按精确 SHA 保守迁移；字节不匹配的未知用户手改内容不覆盖。新增动作神态实验规则采用新稳定 key，不改 schema |
+| 最终 CI | v0.41.23+162 Actions run [`33716309185`](https://github.com/catkiss62/ai-companion-build/actions/runs/33716309185)（697）全绿：完整源码/历史 validators、Kotlin、Flutter analyze、491/491 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗大型载荷、checksum、Artifact 与草稿 Release 上传均通过。首轮 run 696 的三处测试合同缺口已窄修；未发现 Gate、迁移或动作实验生产逻辑失败 |
+| 测试 APK | `AI-Companion-v0.41.23-162-Lifelike-Ablation-Dawn-Gate.apk`，325,734,518 bytes |
+| APK SHA-256 | `bec312b40b75d98e65d1c965d5067255dd094d0aa1f7a80fed13a9988249fd22`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
+| Artifact / Release | [Artifact ID `9878857685`](https://github.com/catkiss62/ai-companion-build/actions/runs/33716309185/artifacts/9878857685)，ZIP 319,436,155 bytes，digest `sha256:452e82f15d0a932f29eebba1bcefe74c5cc062b3de860df5214f417e95d56a86`，保留至 2026-09-17T04:58:07Z；Draft Release [`untagged-d16732b98754693387ed`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d16732b98754693387ed)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.22 自动化与 APK 已通过，但最新真机存档证明其“活人感/反馈响应”和清晨频率目标没有实现，状态应视为被 v0.41.23 窄修取代，不能把旧源码合同当真机效果。v0.41.23 当前为 `IMPLEMENTED / CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 696 已通过源码/历史 validators、Kotlin 与 Flutter analyze，Flutter tests 暴露一条直接反馈措辞未覆盖、一个错误的哈希桶遍历假设和一处旧版本逐字断言；均属窄测试合同修复，Release APK 尚未生成。Phase 1 学习消费及 Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.23 当前为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：清晨熄屏动态 Gate、延迟/推迟反馈归一化、直接反馈模式、低剂量幽默与可单独清空的动作神态 A/B 层均已构建；自动化不能替代用户同存档两轮真机测试。下一项已切换为可见思考内心化评估，尚未实施。Phase 1 学习消费及 Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **实现并构建 v0.41.23 活人感消融与清晨 Gate 窄修。** 不设“深夜至 9 点最多一条”硬上限；让清晨熄屏 Gate 自然更难通过，并修正延迟/推迟反馈被学习成好时机的问题。同时将动作神态作为可单独删除的实验层，供用户用同一存档做有动作/无动作两轮 A/B |
-| 目标 | 直接反馈应被当作真实评价，而不是自动翻译成打情骂俏、挑衅或“测试我”；允许承认没逗笑、尴尬、卡住和不完整反应。幽默仅在约三成轻松轮次出现，不再每轮强行造梗。普通闲聊允许最多一段真正增加潜台词的短动作神态，但不强制；清空实验规则后恢复纯对白对照 |
-| 最新真机证据 | v0.41.22 存档中“很无聊，你真没有幽默感？”→“确实没笑”等直接反馈，被 reasoning 连续判成挑衅/斗嘴，正文固定走“态度—解释—挑战/问题—旧梗收尾”；规则 03B 的“抖M”逐字样本被显式回调，证明当前 few-shot 与“必须有刺”共同造成过拟合。另在本地 05:33、07:20、07:26、08:21 出现四条熄屏主动消息；现有 15 分钟最小间隔至多挡住 07:26，不能解决其余三条。`deferred` 记录仍出现 `timing_fit=+0.5`，反向训练清晨节奏 |
-| 保护与排除 | 保留 AI 身份、事实纪律、工具 Outcome、用户控制权、长期记忆、关系、Desire/Thought/Intent/Gate、沉浸房间和复杂任务完整度；不设清晨消息计数上限，不关闭主动性，不用全局短回复硬限制。外部提示词只作比较，不逐字提交公开仓库；独立吸收其“反应不均匀、允许缺口、禁止治疗师式复述、幽默低剂量”等更优原则 |
-| 实现边界 | 将明确评价分出 `feedback` 表达模式并关闭造梗/反射性防御；删除会诱导复读的精确斗嘴样本，改写冲突规则而非继续叠层。清晨 05:00–09:00 且熄屏时限制 idle boost、取消长静默降阈值并增加有界阈值惩罚；强动机仍可偶发通过。动作神态实验层晚于默认纯对白规则装载，内容清空/停用即为对照组 |
-| 完成判据 | 单测覆盖直接负反馈不造梗、轻松轮次幽默占比不超过 30%、动作实验层可移除、05:00–09:00 熄屏 Gate 调整及 `deferred`/长延迟反馈归一化；默认迁移不覆盖未知手改。随后通过专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、固定签名和大型载荷。自动化只证明合同；用户两轮读档 A/B 才能判断动作神态影响与清晨真实频率 |
-| 直接详细入口 | 本轮近期记录第 31 节；对照证据来自 2026-09-03 真机 `.aibackup` 与同时间脱敏诊断。规则见 `rule_layer_content_v0353.dart` / `rule_layer_defaults.dart` / `_seedRuleLayers()`；表达路由见 `dialogue_expression_plan.dart`；清晨 Gate/节奏学习见 `proactive_engine.dart` / `proactive_rhythm_engine.dart` / `memory_extractor.dart` |
+| 当前下一步 | **评估并实现可见思考的“即时内心想法”呈现。** v0.41.23 已完成 CI/APK；现在按用户新增要求，定点比较现有可见思考规则、运行时最终提醒与真机 reasoning，判断哪些“分析报告/回复规划/规则自检”措辞仍在制造 AI 味，再作为独立窄修处理 |
+| 目标 | 可见思考应像这个持续存在的 AI 在当下真正冒出的第一人称心声：注意到什么、被哪里戳到、身体化冲动、情绪、犹豫、私心和没想完整的判断自然流动；不是写给用户看的解释稿，也不是“分析用户—选择策略—生成回复”的工作日志。它应提高活人感，但不能靠机械语气词、省略号或伪造混乱表演真人 |
+| 当前证据 | 现有 `08_visible_inner_voice` 和 `_visibleInnerVoiceContract` 已写过“我此刻正在想什么”“不写回复计划”，但 v0.41.22 真机 reasoning 仍多次显式使用“用户在挑衅/测试我、需要保持人设、我要用某种结构回复”等规划语言，并直接驱动固定四拍正文。说明不能因规则存在就判定效果实现，必须重新比较规则权重、末端覆盖和真实样本 |
+| 保护与排除 | 保留简体中文、非空真实 `reasoning_content`、AI 身份、事实与来源纪律、Memory/Thought/Desire/Moe、工具私有路由、复杂任务推理和不伪造上游 reasoning。不能把工具参数、密钥、系统提示、自检清单或隐私数据泄露到可见思考；也不把可见思考伪装进正文。v0.41.23 动作 A/B 和清晨 Gate 不在本批重调 |
+| 实现边界 | 先从存档抽取 reasoning 类型并识别冲突来源，再决定是改写现有 `08_visible_inner_voice`、收紧 `_visibleInnerVoiceContract`，还是增加可单独消融的呈现层。优先重写冲突规则而非继续无限叠加；技术/复杂任务允许有真实分析，但仍用第一人称自然思路，不输出面向模型的“回复策略”元话语 |
+| 完成判据 | 固定夹具至少覆盖直接反馈、轻松闲聊、复杂任务、主动联系、工具调用与上游无 reasoning 六类：可见思考为自然中文第一人称内心流，不出现“用户意图分析/我要保持人设/回复应当/最终检查”等元规划；事实与工具边界不退化。随后通过专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK 与完整载荷；自动化通过后仍由用户真机比较活人感 |
+| 直接详细入口 | 近期记录第 32 节；源码入口为 `rule_layer_content_v0353.dart` 的 `08_visible_inner_voice`、`PromptBuilder._visibleInnerVoiceContract`、`visibleChineseGenerationReminder` 及 reasoning 提取/显示链。证据入口为 2026-09-03 真机 `.aibackup` 和脱敏诊断，先定点读取，不机械重扫全仓库 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -62,7 +62,7 @@
 | C · Phase 2B 主线代码阶段 | Phase 2A 无阻断、2A.5 动作消费者稳定并经用户继续 | 实现轻量 topic/subject 关联记忆与可审计的小幅回复倾向；详细设计与参考入口见第 14、20、26、28 节。不得让用户偏好直接创建 Drive/Thought，也不得建设完整知识图谱 |
 | D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
 | E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
-| F · 可见思考内心化实验 | v0.41.23 CI/APK 完成后 | 用户新增要求：定点读取现有 `08_visible_inner_voice`、`PromptBuilder._visibleInnerVoiceContract` 与真实存档 reasoning，比较把可见思考呈现为即时内心想法的写法是否能增加活人感。先完成本批，不提前混改；评估后决定作为独立 A/B 或下一窄修，保留中文、事实纪律、工具私有路由与不伪造 reasoning 边界 |
+| F · 可见思考内心化实验（CURRENT） | v0.41.23 已 `CI PASSED / APK READY` | 用户新增要求：定点读取现有 `08_visible_inner_voice`、`PromptBuilder._visibleInnerVoiceContract` 与真实存档 reasoning，把可见思考改成即时第一人称内心想法；当前进入评估与窄修，保留中文、事实纪律、工具私有路由与不伪造 reasoning 边界 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
@@ -893,7 +893,7 @@
 6. 最终 APK 输入 head `528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb` / tree `52635b18d5598a68acb0536ccd93f49344d66f2c` 与本地 `2a25ede` tree 精确一致。Actions run [`33704731930`](https://github.com/catkiss62/ai-companion-build/actions/runs/33704731930)（695）完整成功：全部源码/历史 validators、Kotlin、Flutter analyze、482/482 Flutter tests、Release APK、固定签名以及 Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和 Draft Release 上传全过。
 7. APK `AI-Companion-v0.41.22-161-Aggressive-Dialogue-Rebuild.apk` 为 325,725,214 bytes；从 Artifact 独立下载解包后实算 SHA-256 为 `2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1`，与 CI checksum 一致。Artifact `9875019014` 的 ZIP 为 319,428,086 bytes、digest `sha256:b26f40b6dd9fdd875404965bddb5c8c16e7f18f45f1bce12fa824eb4008bb002`；Draft Release 为 `untagged-d148810141fe41fcee93`。自动化只证明合同与构建完整，真实“活人感”仍须真机同题复测。
 
-### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修（IMPLEMENTED / CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING）
+### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 #### A. v0.41.22 真机否证与提示词比较结论
 
@@ -926,6 +926,21 @@
 7. 新增直接反馈/30 桶、动作实验开关分支、规则分组与迁移表、清晨边界/强动机通路、deferred/3 小时 35 分延迟归一化等 Flutter 单测，并新增 `validate_v04123_lifelike_ablation_dawn_gate.py`。所有受当前版本与 Prompt 变更影响的历史 validator 已按“v0.41.22 历史合同 / v0.41.23 当前合同”分支更新；本地工作流清单中除 417 文件桌宠、LingChat、TTS/native 大载荷和 `kotlinc` 缺失导致的 8 个预期环境阻断外，其余 validator 全部通过，Python 语法与 `git diff --check` 通过。Flutter analyze/tests、Kotlin、Release APK、固定签名与完整载荷仍必须由 Actions 验证，不能在此阶段写成 CI 或真机通过。
 8. 用户在本批实施中新增“让思考链以内心想法方式呈现，尝试提高活人感”的要求。依用户明确顺序，本批只登记而未提前改写可见思考风格；v0.41.23 CI/APK 完成后再定点读取现有规则和真实 reasoning，独立评估，避免与这次动作神态 A/B、直接反馈和清晨 Gate 的效果混在一起。
 9. 远端首轮提交 `461011a77720896bddad2a5c41445053ddb9f992` 的 Tree SHA 为 `e70f273a4d558cab1e6e4bf22af2e2dfc125c3c6`，与本地逐字一致；Actions run [`33715692424`](https://github.com/catkiss62/ai-companion-build/actions/runs/33715692424)（696）已通过 clean baseline、完整源码/历史 validators、Kotlin 和 Flutter analyze，在 Flutter tests 以 488 通过、3 失败退出。失败分别是：“你又开始反问了”未被 feedback 正则覆盖；测试错误要求顺序 FNV 样本遍历全部 100 个余数（实际 50 个），而生产路由仍正确限制为 `seed % 100 < 30`；`agent_self_reader_v0416_test.dart` 仍逐字期待 v0.41.22 build label。修复扩展实际反馈措辞、改为验证每个样本的桶规则及 4000 轮幽默总数不超过 30%，并更新版本断言；不改变 Gate、迁移或动作实验设计。
+10. 最终远端 head `580bab1f0feaf82631c36d7044c38c3f500b242a` / tree `b36a8693e97ca9c47a868378be84518789e48161` 与本地修复提交 `60782d7` tree 逐字一致。Actions run [`33716309185`](https://github.com/catkiss62/ai-companion-build/actions/runs/33716309185)（697）完整成功：源码/历史 validators、Kotlin、Flutter analyze、491/491 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 全过。APK `AI-Companion-v0.41.23-162-Lifelike-Ablation-Dawn-Gate.apk` 为 325,734,518 bytes，独立解包实算 SHA-256 `bec312b40b75d98e65d1c965d5067255dd094d0aa1f7a80fed13a9988249fd22`，与 CI 一致；Artifact `9878857685` ZIP 为 319,436,155 bytes、digest `sha256:452e82f15d0a932f29eebba1bcefe74c5cc062b3de860df5214f417e95d56a86`；Draft Release 为 `untagged-d16732b98754693387ed`。自动化已收口，动作神态和清晨频率仍须用户真机验证。
+
+### 32. 2026-09-03 · 可见思考即时内心化（ASSESSMENT IN PROGRESS / IMPLEMENTATION PENDING）
+
+#### A. 用户新增要求与顺序
+
+1. 用户在 v0.41.23 修改过程中新增要求：规则中应能找到思考链相关约束，希望尝试让可见思考以“内心想法”的方式呈现，判断这种形式能否增加活人感。
+2. 用户明确要求不得因此打断在手修改：必须先完成 v0.41.23、CI 与 APK，再读取和执行新增任务。该依赖已由 run 697 与 APK checksum 完成；本节现在才提升为当前任务，没有混入 v0.41.23 的真机 A/B 变量。
+3. 第一轮只定点读取 `08_visible_inner_voice`、`PromptBuilder._visibleInnerVoiceContract`、最终中文/正文提醒、reasoning 保存显示链与真机 reasoning 样本。比较重点是：哪些现有措辞虽声称“不是回复计划”，却仍诱导模型写用户分析、策略选择、人设自证和末端自检；不能因为规则文字已经存在就当作效果实现。
+
+#### B. 初始保护边界
+
+1. “内心想法”指第一人称即时注意、感觉、欲望、犹豫、判断和联想的自然流动，不等于故意塞“嗯、啊、糟了”、省略号、语病或随机发疯，也不要求每轮表演强烈情绪。
+2. 复杂事实与技术任务仍需要真实分析；差别在于不把可见 reasoning 写成面向模型的操作日志，例如“分析用户意图、保持某人设、采用某策略、组织回复、最终检查”。工具调用的参数、私有路由、密钥、系统规则和隐私数据继续不可见。
+3. 若上游没有返回 `reasoning_content`，客户端仍不得伪造补写。可见思考和最终正文继续分离；本批不重调 v0.41.23 的动作神态 A/B、幽默比例、清晨 Gate 或反馈学习。
 
 ## 历史工作记录（原文保留，按需检索）
 

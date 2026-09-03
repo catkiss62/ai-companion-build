@@ -96,6 +96,7 @@ def main() -> None:
         "### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化",
         "### 30. 2026-09-03 · 激进核心底色、纯对白与造梗表达重构",
         "### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修",
+        "### 32. 2026-09-03 · 可见思考即时内心化",
     )
     for section in required_detailed_sections:
         require(section in ledger[handoff_end:], f"missing detailed ledger section: {section}")
@@ -104,18 +105,18 @@ def main() -> None:
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
         "agent/v04123-lifelike-ablation-dawn-gate",
-        "0.41.22+161",
         "0.41.23+162",
         "schema 44",
-        "33704731930",
-        "2b5d5c4c5a59e9d6ec030ea4cd5ea7663679c054aadaddaddc6ca4d414e147c1",
-        "528e3cdd7f3bb3775dbe4dbb6fe0a66508cf3cdb",
-        "现有 schema 44 存档须可直接覆盖升级",
+        "33716309185",
+        "bec312b40b75d98e65d1c965d5067255dd094d0aa1f7a80fed13a9988249fd22",
+        "580bab1f0feaf82631c36d7044c38c3f500b242a",
+        "现有 schema 44 存档可直接覆盖升级",
         "Phase 2A",
         "Phase 2B",
         "终态真值",
         "可单独清空的动作神态 A/B 规则",
-        "不设“深夜至 9 点最多一条”硬上限",
+        "可见思考",
+        "即时内心想法",
         "联网图片同一不可变字节事务",
     )
     for fact in required_current_facts:
