@@ -31,20 +31,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04130-presentation-ablation-upload-diagnostics`；从 v0.41.29 最终功能树继续，当前实现呈现/设置小修、上传与 ANR 可定位加固，以及 Phase 2A.5 提示词责任消融遥测；不在证据出来前重写主动权规则，不开启 Phase 2B |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.30 已完成本地源码实现，尚未提交或推送；修改前基线为 v0.41.29 最终本地 head `01ef9cf`。v0.41.29 Actions head `0448fb57e405d4b767ff44d07b96bf7502f79b0a` 与功能 tree `876acd35278312aaeee6ca5f9be22646c1274d47` 继续作为继承证据 |
+| 当前代码 head / tree | v0.41.30 本地功能 head `1ab52c533c7ffd0ce9159048e3d76e09e27a016f`；公开分支 Actions 功能 head `8836048b0c5b74dee915d4021f454ceb7aa58baf`，两者 tree 均为 `e363b0f1bf7bc1d38323af71eacac1f79307f611`。修改前基线为 v0.41.29 最终本地 head `01ef9cf` |
 | App / 数据库 | 当前开发目标 `0.41.30+169` / schema 45 / Snapshot protocol 5；不新增表。保留 04/05/07、房间默认规则、用户性格光谱、造梗规则及全部用户手改内容；空 legacy 小节只在 UI 隐藏，不删除或重排底层稳定 key |
-| 最终 CI | v0.41.29+168 Actions run [`33784649835`](https://github.com/catkiss62/ai-companion-build/actions/runs/33784649835)（708）全绿：源码/历史 validators、Kotlin 悬浮窗与后台桥测试、Flutter analyze、522/522 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。run 706 曾因连接器上传 1.09 MB 总账时截断 blob 而失败，修正为本地 Git 精确 blob 后同项及全部后续门禁通过；run 707 被同分支并发策略正常取消 |
-| 测试 APK | `AI-Companion-v0.41.29-168-Proactive-Rendering-Rule-Editor-Emotion-APK.apk`，325,748,458 bytes |
-| APK SHA-256 | `d9dbf7068eb803c11bbf31edcb0462f64534bbad8ee090bc52c0e1873e2650ba`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9905354734`](https://github.com/catkiss62/ai-companion-build/actions/runs/33784649835/artifacts/9905354734)，ZIP 319,451,532 bytes，digest `sha256:ff1e6e17b1ebb44b877582e84941cca9ed228a2a0783fc98a0a1ea2e3632299d`，保留至 2026-09-17T17:38:57Z；Draft Release [`untagged-bdfcb3dc88f07e7dfc02`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bdfcb3dc88f07e7dfc02)，未发布正式 Release |
+| 最终 CI | v0.41.30+169 Actions run [`33797466332`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332)（711）全绿：源码/历史 validators、Kotlin 悬浮窗与后台桥测试、Flutter analyze、533/533 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。run 709 因连接器首次上传大文件时截断而零 job 失败；精确 Git blob/tree 修复后 run 710 暴露附件 ANR 关联三元表达式的 Dart 语法歧义，改为显式空判断后由 run 711 全量通过 |
+| 测试 APK | `AI-Companion-v0.41.30-169-Presentation-Ablation-Upload-Diagnostics-APK.apk`，325,815,586 bytes |
+| APK SHA-256 | `038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
+| Artifact / Release | [Artifact ID `9910137218`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332/artifacts/9910137218)，ZIP 319,517,624 bytes，digest `sha256:34872a50a424a805f0349ae6ee61e09ae7e476a5969836207711fc3dcfb60fb8`，保留至 2026-09-17T19:48:10Z；Draft Release [`untagged-e815d33581115d1757a4`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e815d33581115d1757a4)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.29 已 `CI PASSED / APK READY`；用户已真机确认动作/神态首帧着色与疲劳表达修复。v0.41.30 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。最新 v0.41.29 诊断仍有 89 个 committed plan / 68 个 expression mismatch，Phase 2A.5 未收尾；Phase 2B 尚未实现，Phase 1 仍只产候选 |
+| 当前总状态 | v0.41.30 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；用户此前已真机确认动作/神态首帧着色与疲劳表达修复。最新 v0.41.29 诊断仍有 89 个 committed plan / 68 个 expression mismatch；本版已补责任归因遥测但仍需新诊断才能收口 Phase 2A.5。Phase 2B 尚未实现，Phase 1 仍只产候选 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **实现 v0.41.30 第一个联合观察 APK：长 reasoning 后可靠本地打字机、隐藏已迁移空规则占位、动态萌属性默认开启且保持“明显”、图片选择/处理与悬浮恢复的脱敏阶段遥测，以及 Phase 2A.5 生成前后责任消融遥测。** |
+| 当前下一步 | **安装 v0.41.30 联合观察 APK：复测长 reasoning 后逐字播放与空规则占位隐藏；自然聊天后导出诊断，结合上传一次成功/失败或卡顿样本，判断 Phase 2A.5 失配责任与附件 ANR 时间邻接。** |
 | 目标 | 先把用户已证实的呈现缺口和 ANR 定位能力补齐，再通过同一 APK 的自然聊天样本判断主动权失配发生于规划、Prompt 层竞争、原始生成、格式/守卫处理还是终态验证；不得用新的强提示词掩盖 68/89 失配 |
 | 当前证据 | v0.41.29 备份中 `chat_typewriter_enabled=1`、速度 48ms；一轮 1735 字 reasoning / 189 字正文 / 6 个分段仍被用户观察为瞬时完整出现。两份诊断间 conversation plan 从 85→89、mismatch 从 65→68。第二份诊断记录 2026-09-03 18:13:49 前台 ANR，进程一秒后重启，并标记单个系统选择器 cover session 中 5 次 self-heal；现有报告不含 ANR trace，不能把因果强行归到图片或人格系统 |
 | 保护与排除 | 不删除、重排或重新编号 rule layer 稳定 key；不修改用户性格光谱/造梗正文；不改变已真机通过的动作首帧和疲劳；不为“正常”情绪添加声音；不提前打开 Phase 2B，不让消融变体接触身份、事实、用户控制权、隐私和 NSFW 边界 |
@@ -70,7 +70,7 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融（2026-09-03，IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融（2026-09-03，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认以三个主要真机检查点推进：第一个联合观察 APK 合并呈现/设置小修、上传 ANR 可定位加固和 Phase 2A.5 消融遥测；第二个 APK 根据消融证据修主动权并处理已定位上传瓶颈；第三个 APK 实现 Phase 2B topic/subject、成熟候选安全消费与空闲/夜间整理。四个责任范围不等于四个 APK。
 2. 用户明确判断主动权 68/89 失配可能来自限制过多、互相牵制甚至锁死，因此本包不得继续追加“更强执行”规则。消融先区分：规划器选择不足、Prompt 表达层竞争、原始生成未执行、格式/守卫改变、终态验证误判。固定保留女性 AI 身份、事实来源、用户控制权、隐私、工具真值和成人边界。
@@ -78,14 +78,16 @@
 4. 第二份 v0.41.29 诊断把一次真实前台 ANR 定位到 2026-09-03 18:13:49，前一份报告仍是正常 package update 退出。当前附件链允许 25MB，存在整图读入、1000px PNG 编码、原图复制、缩略图 hash/Base64 与系统 picker cover 恢复；但现有脱敏诊断不含调用栈，先补无正文/无路径的阶段耗时与失败类别，不猜修唯一根因。
 5. 空规则小节采用非破坏处理：当前空行仍承担稳定 key、旧备份、迁移和分组位置，直接删除后 `_seedRuleLayers` 还会重新补回。v0.41.30 只让编辑器隐藏已迁移且为空的占位，不删除、不重新排序数据库行；真实非空规则继续可编辑且防止误清空。
 6. Dynamic Moe 纠正为“模式默认明显、总开关此前由极薄人设迁移关闭”。用户要求下次默认开启以便观察差异；实现必须尊重一次性迁移和用户后续手动关闭，诊断继续区分没有候选的 neutral 与真实 applied。性格光谱保持独立且正文不改，本包只取得是否与 Moe 同轮存在的脱敏责任证据。
-7. 目标版本 `0.41.30+169`，schema 45、Snapshot protocol 5 不变；目标分支 `agent/v04130-presentation-ablation-upload-diagnostics`。修改前基线 `01ef9cf`，尚未产生运行提交、CI 或 APK。
+7. 目标版本 `0.41.30+169`，schema 45、Snapshot protocol 5 不变；目标分支 `agent/v04130-presentation-ablation-upload-diagnostics`。修改前基线 `01ef9cf`；最终本地功能 head `1ab52c53`，公开 Actions 功能 head `8836048b`，两者 tree 同为 `e363b0f1bf7bc1d38323af71eacac1f79307f611`。
 8. 已修正文逐字演出的真正生命周期：助手消息虽已 durable commit，但 controller 仍在做终态遥测、Thought/Moe/Memory 后处理时，正文只排队而不启动；等 `generationActive=false` 才从首字开始。`chat_last_presented_assistant_id` 不再在发现数据库消息时提前写入，只在动画完成或用户关闭打字机时消费。已有非空游标后发生中断，重新打开 App 时普通回复和主动回复都可恢复一次；无游标的升级安装不会重播任意历史。
 9. 已实现空小结的非破坏隐藏：仅 `01_relationship`、`02_daily`、`03_behavior`、`03_personality_seed`、`09_action_expression_experiment` 五个已知迁移占位在“当前正文为空”时从组合编辑器和卡片预览隐藏；只要用户重新填入正文就继续显示。底层 SQLite 行、顺序、stable key、整组恢复和 JSON 导入导出均不删除、不重排；保存可见同组只更新实际出现的小节。
 10. 已加入一次性 Dynamic Moe 默认迁移：首次运行 v0.41.30 把表达总开关设为开启并把模式设为 `obvious`，随后写入 `moe_expression_default_v04130_applied=1`；用户之后手动关闭不会被启动流程再次覆盖。设置说明同步改为“新版本默认开启并使用明显”，九轴、候选、记忆与主动资格仍不因开关改变。
 11. 已新增 `attachment_pipeline_telemetry_v1`：picker、overlay guard、prepare、commit、vision 分别记录 started/completed/cancelled/failed/busy、粗粒度耗时桶、文件大小桶、像素桶、来源类型与固定错误类别。报告明确不含文件路径、图片字节、caption、视觉 summary、provider 正文或原始异常；ANR 只输出“两分钟内是否存在前置附件阶段”和时间差桶，`causalityEstablished=false`。本包没有凭一次旧 ANR 直接重写图片编解码链。
 12. 已新增 `conversation_initiative_ablation_v1` 责任观测：每轮保留计划 mode/speech act、原始模型可见正文的 verifier 分类、事实修正后的最终分类、operation retry/salvage 变化、Prompt 责任层布尔形状和长度桶，并按层累计 present/absent × match/mismatch。它不保存 Prompt、消息、Thought、模型 JSON、文档名以外正文或 ID，也不移除身份、安全、事实、隐私、用户控制权、世界书和 NSFW 边界。当前 `DialogueExpressionPlan` 实际只选择并计数、未加入生成 messages；遥测会如实记录 absent，后续不能把它误判成竞争层。
 13. v0.41.30 新增 11 个专项 Dart 断言，覆盖 post-turn 未结束时打字机不得启动/消费游标、空占位精确过滤及完整导出保留、Moe 一次性默认、上传桶与 ANR 非因果输出、Prompt 形状不含正文及 raw/final 责任归因。新增版本专项 validator，并把仍在工作流中的历史 validator 延展到 0.41.30；总账轻量区维持 20 KB 以下且冻结历史 hash 不变。
-14. 本地没有 Flutter/Dart SDK、完整 LingChat effects、417 文件桌宠、Meju/TTS native 载荷和 `kotlinc`。因此只完成 `git diff --check`、Python 语法、v0.41.30/v0.41.29/v0.41.28/总账/音频呈现等源码合同；58 个工作流 Python 入口中源码与 SQL 类 51 项可运行通过或按脚本安全 skip，7 项仅因上述大型载荷/编译器缺失无法本地执行。Flutter analyze/tests、Kotlin、Release APK、签名和载荷完整性必须由 Actions 给最终自动化结论。
+14. 本地没有 Flutter/Dart SDK、完整 LingChat effects、417 文件桌宠、Meju/TTS native 载荷和 `kotlinc`。因此先完成 `git diff --check`、Python 语法、v0.41.30/v0.41.29/v0.41.28/总账/音频呈现等源码合同；58 个工作流 Python 入口中源码与 SQL 类 51 项可运行通过或按脚本安全 skip，7 项仅因上述大型载荷/编译器缺失无法本地执行。远端 run 710 随后真实编译发现附件 ANR 关联映射中的可空索引三元语法歧义，已改为显式 `possible && preceding != null` 并在版本 validator 固化。
+15. Actions run [`33797466332`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332)（711）在 `8836048b` 全绿：源码/历史 validators、Kotlin、Flutter analyze、`533/533` Flutter tests、Release APK、固定 signer、原生库、417 文件桌宠、Meju TTS、LingChat 19 表情、头像立绘与 22 张塔罗载荷、checksum、Artifact 和 Draft Release 全部通过。APK `AI-Companion-v0.41.30-169-Presentation-Ablation-Upload-Diagnostics-APK.apk` 为 `325,815,586` bytes，SHA-256 `038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83`；Artifact ID `9910137218`，ZIP `319,517,624` bytes，digest `sha256:34872a50a424a805f0349ae6ee61e09ae7e476a5969836207711fc3dcfb60fb8`。Draft Release 为 [`untagged-e815d33581115d1757a4`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e815d33581115d1757a4)；未合并 `main`，未发布正式 Release。
+16. 自动化只证明实现与构建合同，不能替代真机。覆盖安装后需复测一次长 reasoning 正文是否从首字逐字播放、空 legacy 小节是否只在编辑器隐藏、Moe 是否一次性默认开启＋明显且允许手动关闭；自然聊天与至少一次图片选择/处理后导出新诊断，用责任层 present/absent × raw/final match/mismatch 和附件阶段时间桶决定第二个修复 APK。取得这些证据前 Phase 2A.5 不得写成真机收口，Phase 2B 继续不提前开启。
 
 ### v0.41.29 主动格式、动作分段、空规则小节与情绪反馈（2026-09-03，CI PASSED / APK READY / TRUE DEVICE PENDING）
 
