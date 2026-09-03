@@ -82,6 +82,7 @@ for token in (
     "durationBucket",
     "byteBucket",
     "pixelBucket",
+    "possible && preceding != null",
     "rawErrorsIncluded': false",
     "causalityEstablished': false",
 ):

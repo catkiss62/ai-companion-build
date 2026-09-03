@@ -189,8 +189,12 @@ class AttachmentPipelineTelemetry {
     return <String, Object?>{
       'historicalExitWasAnr': isAnr,
       'possibleRecentAttachmentStage': possible,
-      'precedingStage': possible ? preceding?['stage'] ?? '' : '',
-      'precedingOutcome': possible ? preceding?['outcome'] ?? '' : '',
+      'precedingStage': possible && preceding != null
+          ? preceding['stage'] ?? ''
+          : '',
+      'precedingOutcome': possible && preceding != null
+          ? preceding['outcome'] ?? ''
+          : '',
       'deltaBucket': possible
           ? durationBucket(Duration(milliseconds: delta))
           : 'unavailable',
