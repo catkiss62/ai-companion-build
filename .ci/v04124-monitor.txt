@@ -1,0 +1,7 @@
+status=success
+run_id=33719594761
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33719594761
+head_sha=2f25733c0bcfa4b956bbe276ec0f278eb94f5a00
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+e42c21715c5871d07f67755e173285bbae394d6aed9cd0f4431d33a4cbb0dfef  AI-Companion-v0.41.24-163-Visible-Inner-Monologue-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e953ce78bfc9d70c71ee
