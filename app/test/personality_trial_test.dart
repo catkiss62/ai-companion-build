@@ -69,7 +69,7 @@ void main() {
     expect(PersonalityCatalog.base('unknown').key, 'neutral');
     expect(
       PersonalityCatalog.compileProfile('neutral', 'equal', trial: false),
-      contains('不额外放大固定气质'),
+      contains('不额外套一层温和或正常姿态'),
     );
     expect(PersonalityCatalog.postures.length, 4);
     expect(PersonalityCatalog.specialStyles.length, 8);
@@ -126,7 +126,7 @@ void main() {
     expect(profile, contains('被善化成仅仅更活泼'));
     final anchor = PersonalityCatalog.executionAnchor('forthright');
     expect(anchor, contains('当前底色落地·直爽泼辣'));
-    expect(anchor, contains('动态萌属性只能改变'));
+    expect(anchor, contains('动态表达倾向只能改变'));
     expect(anchor, contains('多轮盲测必须稳定辨认'));
     expect(PersonalityCatalog.executionAnchor('gentle'), isEmpty);
     expect(profile, isNot(contains('知情并主动参与的一次临时特殊风格试穿')));

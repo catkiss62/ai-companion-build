@@ -22,7 +22,7 @@ void main() {
     expect(reminder, isNot(contains('结构示意')));
     expect(reminder, isNot(contains('[确有必要时的动作段]')));
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
-    expect(reminder, contains('可见思考提及用户时也使用“你”'));
+    expect(reminder, contains('最终正文与可见思考提及现实恋人时使用“你”'));
     expect(reminder, contains('不得写成“他、用户、玩家、男方或男人”'));
     expect(reminder, contains('只输出对白'));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
