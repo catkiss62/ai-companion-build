@@ -250,10 +250,10 @@ void main() {
     final worldBookById = {
       for (final preset in worldBookSystemPresets) preset.id: preset,
     };
-    final daily = worldBookById['builtin.worldbook.daily_conversation']!;
-    expect(daily.content, contains('通常加入一段简短的自身动作'));
-    expect(daily.content, contains('【幽默】'));
-    expect(daily.manualActive, isTrue);
+    final dailyPreset = worldBookById['builtin.worldbook.daily_conversation']!;
+    expect(dailyPreset.content, contains('通常加入一段简短的自身动作'));
+    expect(dailyPreset.content, contains('【幽默】'));
+    expect(dailyPreset.manualActive, isTrue);
     expect(worldBookSystemPresets, hasLength(1));
     expect(
       byKey['immersive_07_global']!.content,
