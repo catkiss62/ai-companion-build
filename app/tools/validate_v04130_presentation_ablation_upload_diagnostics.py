@@ -33,9 +33,18 @@ moe_default = read("app/lib/core/integration/moe_expression_default_policy.dart"
 workflow = read(".github/workflows/build-apk.yml")
 ledger = read("AI_Companion_当前总账.md")
 
-assert "version: 0.41.30+169" in pubspec
+assert any(
+    version in pubspec
+    for version in ("version: 0.41.30+169", "version: 0.41.31+170")
+)
 assert "static const int schemaVersion = 45;" in database
-assert "buildLabel = 'v0.41.30+169'" in self_reader
+assert any(
+    version in self_reader
+    for version in (
+        "buildLabel = 'v0.41.30+169'",
+        "buildLabel = 'v0.41.31+170'",
+    )
+)
 
 for token in (
     "typewriterPlaybackReady",

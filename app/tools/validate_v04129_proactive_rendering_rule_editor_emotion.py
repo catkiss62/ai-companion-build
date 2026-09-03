@@ -36,13 +36,18 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 
 assert any(
     version in pubspec
-    for version in ("version: 0.41.29+168", "version: 0.41.30+169")
+    for version in (
+        "version: 0.41.29+168",
+        "version: 0.41.30+169",
+        "version: 0.41.31+170",
+    )
 )
 assert any(
     version in self_reader
     for version in (
         "buildLabel = 'v0.41.29+168'",
         "buildLabel = 'v0.41.30+169'",
+        "buildLabel = 'v0.41.31+170'",
     )
 )
 assert "static const int schemaVersion = 45" in database

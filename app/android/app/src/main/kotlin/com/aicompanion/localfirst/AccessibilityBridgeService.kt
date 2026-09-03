@@ -6,6 +6,7 @@ import android.app.KeyguardManager
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -13,9 +14,23 @@ import android.view.accessibility.AccessibilityWindowInfo
 import java.io.ByteArrayOutputStream
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class AccessibilityBridgeService : AccessibilityService() {
     private var systemCoverActive = false
+    private var lastRootProbeElapsedMs = Long.MIN_VALUE
+    private val eventLoadShedder = AccessibilityEventLoadShedder()
+    private val eventWriter = ThreadPoolExecutor(
+        1,
+        1,
+        0L,
+        TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(32),
+        { runnable -> Thread(runnable, "accessibility-event-writer") },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -34,24 +49,29 @@ class AccessibilityBridgeService : AccessibilityService() {
         val e = event ?: return
         val sourcePackage = e.packageName?.toString().orEmpty()
         val allowedPackage = PrivacyFilter.allowPackage(sourcePackage)
+        val elapsedNow = SystemClock.elapsedRealtime()
+        val windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+        val shouldProbeRoot = windowChanged ||
+            lastRootProbeElapsedMs == Long.MIN_VALUE ||
+            elapsedNow - lastRootProbeElapsedMs >= 1_500L
+        val hasReadableRoot = shouldProbeRoot &&
+            runCatching { rootInActiveWindow != null }.getOrDefault(false)
+        if (shouldProbeRoot) lastRootProbeElapsedMs = elapsedNow
         CompanionRuntimeState.noteAccessibilityEvent(
             context = this,
             eventType = AccessibilityEvent.eventTypeToString(e.eventType),
             sourcePackage = sourcePackage,
             allowedPackage = allowedPackage,
-            windowChanged = e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED,
-            hasReadableRoot = runCatching { rootInActiveWindow != null }.getOrDefault(false),
+            windowChanged = windowChanged,
+            hasReadableRoot = hasReadableRoot,
         )
         val power = getSystemService(PowerManager::class.java)
         if (!power.isInteractive) {
             CurrentAppResolver.clearTrackedApp(this, "screen_off_accessibility")
         } else if (CurrentAppResolver.isLauncherPackage(sourcePackage)) {
             CurrentAppResolver.clearTrackedApp(this, "launcher_window")
-        } else if (
-            e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-            e.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
-        ) {
+        } else if (windowChanged) {
             refreshForegroundWindowTracker(sourcePackage)
         }
 
@@ -92,14 +112,33 @@ class AccessibilityBridgeService : AccessibilityService() {
         val sanitized = PrivacyFilter.sanitize(content)
         if (sanitized.isBlank() && e.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
 
-        NativeEventStore.addDeviceEvent(
-            this,
-            source = "accessibility",
-            eventType = AccessibilityEvent.eventTypeToString(e.eventType),
-            appPackage = sourcePackage,
-            summary = sanitized.ifBlank { "窗口发生变化" },
-            metadata = mapOf("class" to e.className?.toString()),
+        val eventType = AccessibilityEvent.eventTypeToString(e.eventType)
+        val summary = sanitized.ifBlank { "窗口发生变化" }
+        val signature = 31 * (31 * eventType.hashCode() + sourcePackage.hashCode()) +
+            summary.hashCode()
+        val persistEvent = eventLoadShedder.shouldPersist(
+            nowElapsedMs = elapsedNow,
+            signature = signature,
+            windowChanged = windowChanged,
         )
+        CompanionRuntimeState.noteAccessibilityDeviceEvent(persistEvent)
+        if (persistEvent) {
+            val safeClass = e.className?.toString()
+            runCatching {
+                eventWriter.execute {
+                    NativeEventStore.addDeviceEvent(
+                        this,
+                        source = "accessibility",
+                        eventType = eventType,
+                        appPackage = sourcePackage,
+                        summary = summary,
+                        metadata = mapOf("class" to safeClass),
+                    )
+                }
+            }.onFailure {
+                CompanionRuntimeState.noteAccessibilityDeviceEvent(false)
+            }
+        }
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             // Window changes are a useful coarse sign that the user's context
             // changed, but the wake reason deliberately contains no package or
@@ -220,6 +259,7 @@ class AccessibilityBridgeService : AccessibilityService() {
             CompanionRuntimeState.markAccessibilityDisconnected(this, "destroyed")
         }
         CompanionRuntimeState.noteAccessibilityDestroyed(this)
+        eventWriter.shutdownNow()
         super.onDestroy()
     }
 

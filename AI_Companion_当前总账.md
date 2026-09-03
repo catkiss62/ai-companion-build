@@ -29,27 +29,27 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04130-presentation-ablation-upload-diagnostics`；从 v0.41.29 最终功能树继续，当前实现呈现/设置小修、上传与 ANR 可定位加固，以及 Phase 2A.5 提示词责任消融遥测；不在证据出来前重写主动权规则，不开启 Phase 2B |
+| 当前开发分支 | `agent/v04131-phase2a5-verifier-closure-ui-cleanup`；从 v0.41.30 最终功能树继续，修新备份直接证明的 Phase 2A.5 验证器假阴性、普通轮明确收尾、主动轮互道晚安后的短时场景连续性与轻视觉说明行；同时削减无障碍高频事件的主线程 I/O，并为前台 ANR 增加脱敏 trace 与多维相关性摘要。不猜唯一根因，不开启 Phase 2B |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.30 本地功能 head `1ab52c533c7ffd0ce9159048e3d76e09e27a016f`；公开分支 Actions 功能 head `8836048b0c5b74dee915d4021f454ceb7aa58baf`，两者 tree 均为 `e363b0f1bf7bc1d38323af71eacac1f79307f611`。修改前基线为 v0.41.29 最终本地 head `01ef9cf` |
-| App / 数据库 | 当前开发目标 `0.41.30+169` / schema 45 / Snapshot protocol 5；不新增表。保留 04/05/07、房间默认规则、用户性格光谱、造梗规则及全部用户手改内容；空 legacy 小节只在 UI 隐藏，不删除或重排底层稳定 key |
+| 当前代码 head / tree | v0.41.31 修改前基线为 v0.41.30 本地总账 head `b5c41a20602a4152fcab1ac23a8ec729d8e8cfb4` / tree `081c70616fd3b71f8e1bbdde9ba05ae651a64a87`；公开 v0.41.30 Actions 功能 head `8836048b0c5b74dee915d4021f454ceb7aa58baf` / tree `e363b0f1bf7bc1d38323af71eacac1f79307f611` 继续作为构建基线 |
+| App / 数据库 | 当前开发目标 `0.41.31+170` / schema 45 / Snapshot protocol 5；不新增表。保留 04/05/07、房间默认规则、用户性格光谱、造梗规则及全部用户手改内容；空 legacy 小节继续只在 UI 隐藏 |
 | 最终 CI | v0.41.30+169 Actions run [`33797466332`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332)（711）全绿：源码/历史 validators、Kotlin 悬浮窗与后台桥测试、Flutter analyze、533/533 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。run 709 因连接器首次上传大文件时截断而零 job 失败；精确 Git blob/tree 修复后 run 710 暴露附件 ANR 关联三元表达式的 Dart 语法歧义，改为显式空判断后由 run 711 全量通过 |
 | 测试 APK | `AI-Companion-v0.41.30-169-Presentation-Ablation-Upload-Diagnostics-APK.apk`，325,815,586 bytes |
 | APK SHA-256 | `038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9910137218`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332/artifacts/9910137218)，ZIP 319,517,624 bytes，digest `sha256:34872a50a424a805f0349ae6ee61e09ae7e476a5969836207711fc3dcfb60fb8`，保留至 2026-09-17T19:48:10Z；Draft Release [`untagged-e815d33581115d1757a4`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e815d33581115d1757a4)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.30 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；用户此前已真机确认动作/神态首帧着色与疲劳表达修复。最新 v0.41.29 诊断仍有 89 个 committed plan / 68 个 expression mismatch；本版已补责任归因遥测但仍需新诊断才能收口 Phase 2A.5。Phase 2B 尚未实现，Phase 1 仍只产候选 |
+| 当前总状态 | v0.41.30 为 `IMPLEMENTED / CI PASSED / APK READY`；用户已真机确认长 reasoning 打字机和动作首帧。20:19 新诊断确认一次 importance 100 前台 ANR，距新进程启动约 0.97 秒；附件流水 `not_called`、无阻塞生成、无内存 trim、无悬浮恢复循环。两份诊断 7 分钟内无障碍总事件 +2,286、允许事件 +1,504，旧实现每事件写 SharedPreferences、允许事件还在服务主线程同步开库插入，是明确性能风险但不能据此宣称唯一根因。用户又确认互道晚安后主动 curiosity 仍问“这么晚还不睡”，与连续困意场景矛盾；新话题通道此前确实刻意移除了回答完的聊天历史。v0.41.31 为 `IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING`。Phase 2B 尚未实现，Phase 1 仍只产候选 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **安装 v0.41.30 联合观察 APK：复测长 reasoning 后逐字播放与空规则占位隐藏；自然聊天后导出诊断，结合上传一次成功/失败或卡顿样本，判断 Phase 2A.5 失配责任与附件 ANR 时间邻接。** |
+| 当前下一步 | **完成 v0.41.31 联合窄修：修正 `show_need` 假阴性与普通轮明确收尾；为主动联系增加互道晚安后的 90 分钟场景闭环，过期或出现后续真实用户轮次后自动释放，不让旧上下文永久锁死新话题；删除轻视觉重复说明；把无障碍高频内容事件限流/去重并把 SQLite 写移出服务主线程；同时输出脱敏 ANR trace 与多维状态摘要。** |
 | 目标 | 先把用户已证实的呈现缺口和 ANR 定位能力补齐，再通过同一 APK 的自然聊天样本判断主动权失配发生于规划、Prompt 层竞争、原始生成、格式/守卫处理还是终态验证；不得用新的强提示词掩盖 68/89 失配 |
-| 当前证据 | v0.41.29 备份中 `chat_typewriter_enabled=1`、速度 48ms；一轮 1735 字 reasoning / 189 字正文 / 6 个分段仍被用户观察为瞬时完整出现。两份诊断间 conversation plan 从 85→89、mismatch 从 65→68。第二份诊断记录 2026-09-03 18:13:49 前台 ANR，进程一秒后重启，并标记单个系统选择器 cover session 中 5 次 self-heal；现有报告不含 ANR trace，不能把因果强行归到图片或人格系统 |
+| 当前证据 | v0.41.30 新备份的 5 轮普通聊天证明三次 `show_own_need` 为验证器假阴性，末轮“去睡/晚安”却被旧 curiosity Thought 规划成追问；用户随后又观察到互道晚安后 AI 主动问“这么晚还不睡”，证实主动场景闭环缺失。20:19 报告记录前台 ANR 并在约 0.97 秒后重启；同报告无附件调用、生成阻塞、内存 trim 或悬浮恢复循环。无障碍最后事件为 `TYPE_WINDOW_CONTENT_CHANGED`，且短时间内有大量事件进入旧同步落库路径；这是可修风险，最终归因仍需下次脱敏主线程 trace |
 | 保护与排除 | 不删除、重排或重新编号 rule layer 稳定 key；不修改用户性格光谱/造梗正文；不改变已真机通过的动作首帧和疲劳；不为“正常”情绪添加声音；不提前打开 Phase 2B，不让消融变体接触身份、事实、用户控制权、隐私和 NSFW 边界 |
 | 实现边界 | 空 legacy 小节只从组合编辑文本与预览隐藏，底层数据/备份继续保留。萌属性新默认改为开启＋明显，但遥测必须区分 `disabled/neutral/applied`。上传链只记录阶段、耗时桶、尺寸桶、成功/失败类别和选择器恢复状态，不记录路径、图片字节、标题、识图正文或原始异常。Phase 2A.5 本包先记录各 Prompt 责任层是否存在及原始/终态表达分类，不在自然证据前删除层 |
-| 完成判据 | 新专项测试覆盖：长 reasoning 提交时打字机不会因后置处理或页面同步提前消费；隐藏空占位不改变底层 key/导入导出；新默认 Moe 开启且 existing explicit setting 不被反复覆盖；上传遥测完全脱敏并可区分 picker/prepare/vision/recovery；消融遥测能区分 plan/raw/final/verifier。全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与载荷门禁通过后再交付真机观察 |
+| 完成判据 | 新专项测试覆盖：身体/边界式自身需求、普通晚安收尾、主动互道晚安短时阻断及 90 分钟后释放；无障碍普通内容事件限流、重复抑制、关键窗口事件保留，SQLite 不在服务主线程执行；ANR 报告仅输出本应用符号/粗分类和附件、生成、悬浮、内存、后台、无障碍等多维状态且不输出正文/路径/原始 trace。全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与载荷门禁通过后再交付真机观察 |
 | 直接详细入口 | 本节下方“v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融”；代码入口为 `ChatPage`/`_AssistantSegmentSequence`、`RuleLayersPage`/group codec、`MessageAttachmentStorage`/图片选择守卫、`ConversationInitiativeTelemetry`、`DurableGenerationRunner`、`PreflightDiagnostics` 与 Dynamic Moe 默认迁移 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -69,6 +69,19 @@
 ## 近期详细记录与全局索引（按需检索）
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
+
+### v0.41.31 Phase 2A.5 验证器与收尾边界窄修（2026-09-03，DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING）
+
+1. v0.41.30 真机确认长 reasoning 后逐字播放已修好。20:10 首份诊断中附件流水为 `not_called`、历史退出为 `package_updated`；但用户随后报告突然卡死，20:19 新诊断明确记录 importance 100 前台 `historicalExitReason=anr`，ANR 后约 0.97 秒新进程启动，导出时进程年龄约 10 秒。两份诊断都没有附件阶段调用；ANR 时也无阻塞/失败生成、无 memory trim、无后台大脑失败、无悬浮 cover 恢复循环。故可以排除本次发生在 v0.41.30 附件链或生成队列，但现有报告主动丢弃 trace，不能再定位主线程栈。
+2. 新备份包含 v0.41.30 后 5 轮真实普通聊天。责任遥测表面为 4/5 `raw_generation_or_prompt` mismatch，但正文交叉复核显示三个 `show_own_need` 回复实际表达了困意、被吵醒、想睡/休息及不想被折腾；固定词验证器只认“我需要/我想要/我好累”等极窄短语，形成可复现假阴性。扩大识别不得仅为这几句硬编码，限定为自身身体/情绪状态和明确边界短语；有 source Thought 时仍必须通过原有语义匹配才能标记 acted。
+3. 最后一轮用户明确说“现在去睡，晚安”，planner 仍被旧 awareness curiosity Thought 牵引为 `probe_user_topic`；模型最终没有追问而正确收住。新增有界对话收尾词并让其复用 `release_topic / pause_or_close`，优先级继续低于真实用户问题、高于旧 Thought；不把普通“睡了吗”等问句误判为收尾。
+4. Prompt 责任形状证明 identity、rule bundle、日常世界书、性格光谱、造梗世界书和 conversation plan 均真实注入；Dynamic Moe 配置也为 enabled + obvious，只因当时 recipe 全部 inactive 而 neutral。现有 5 轮没有单层缺席对照，不能据此删除用户已确认有效的光谱或造梗，也不能把 8–16K 总长度相关性写成因果。本批不做破坏性 Prompt 消融。
+5. 用户要求删除系统页 Accessibility 轻视觉卡片下方整排“只有你在悬浮聊天点看屏幕……”说明。只移除该重复 UI 注释，不删除悬浮聊天“看屏幕”能力、隐私 Gate、工具注册、诊断能力事实或操作真实性约束。
+6. ANR 本批只补可定位能力：Android R+ 仅在最新历史退出为 ANR 时有界读取 `ApplicationExitInfo.traceInputStream`，只保留是否可读、主线程状态、最多若干个公开本应用 class/method 符号和 `app/flutter/android/io/lock/native/unknown` 粗分类；不得输出原始行、参数、路径、线程全集、消息/规则/图片内容或 trace 原文。当前这次已发生的 ANR 无法倒推出缺失 trace，下一次报告才可能给根因证据。
+7. 用户补充真机事实：AI 在 reasoning 和正文中连续犯困，双方已经明确晚安，随后主动联系却问“这么晚还不睡在干嘛”。源码确认并非所有主动轮都无上下文：followup 等通道会带历史；但 `shareThought / curiosity / socialShare` 为防止旧话题吞掉新话题，刻意把 ANSWERED CHAT HISTORY 整段移除，因此 curiosity lane 缺少刚结束的睡眠场景约束。修法不是恢复全部历史或永久封锁主动，而是在本地出站 Gate 增加 90 分钟互道晚安闭环：只识别最新真实 user→assistant 双方休息收尾；窗口过期或用户后来重新发言即释放，新 Thought/新话题仍能正常产生。该 Gate 记录 reason/时间但不记录正文。
+8. 用户再次澄清“上传后容易卡”指手机正在向 GPT 等外部 App 上传文件时，AI Companion 会更容易卡掉—连回循环；不是 AI Companion 内部附件选择器的同义词。20:10→20:19 两份诊断间 Accessibility 总事件从 4,080,826 增至 4,083,112（+2,286），允许事件从 1,263,469 增至 1,264,973（+1,504），ANR 后最后事件仍为 `TYPE_WINDOW_CONTENT_CHANGED`。源码发现旧 `onAccessibilityEvent` 每事件读取 root 并写 SharedPreferences，允许事件还在 AccessibilityService 主线程同步打开 SQLite、插入 `device_events`、关闭；外部文件选择、上传进度、页面重连都可能放大这条高频路径。这是明确可修的主线程 I/O 风险，但不能据此宣称本次 ANR 唯一由它造成。
+9. v0.41.31 对无障碍路径采用保守减压：root 状态最多约 1.5 秒探测一次（窗口切换仍即时）；普通内容事件最短 1.5 秒落一条、同签名 5 秒去重，窗口切换保留独立 400ms 通道；真正的 `device_events` SQLite 写入转到单线程有界队列，累计计数改为每 2 秒合并写 SharedPreferences。诊断增加本进程 scheduled/coalesced 数以及 `anrContext`，同时并列呈现进程重启、生成、附件、悬浮恢复、系统 cover、后台失败、memory trim、无障碍流和脱敏主线程分类，不把时间相关写成因果。
+10. 目标版本 `0.41.31+170`，schema 45、Snapshot protocol 5 不变；目标分支 `agent/v04131-phase2a5-verifier-closure-ui-cleanup`。修改前本地基线 `b5c41a2` / tree `081c7061`。完成判据为新增真实样本级 verifier/planner/主动场景测试、轻视觉说明缺席测试、无障碍限流与离主线程合同、脱敏 ANR trace/多维摘要合同、全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与完整载荷门禁通过；自动化通过后仍需短真机复核，Phase 2B 不提前开启。
 
 ### v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融（2026-09-03，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 

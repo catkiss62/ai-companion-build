@@ -61,6 +61,16 @@ object CompanionRuntimeState {
         "accessibility_last_status_probe"
 
     private val visibleActivities = AtomicInteger(0)
+    private val accessibilityPendingEventCount = AtomicInteger(0)
+    private val accessibilityPendingAllowedEventCount = AtomicInteger(0)
+    private val accessibilityDeviceEventScheduledProcessCount = AtomicInteger(0)
+    private val accessibilityDeviceEventCoalescedProcessCount = AtomicInteger(0)
+    @Volatile private var accessibilityLastTelemetryFlushElapsedMs: Long = Long.MIN_VALUE
+    @Volatile private var accessibilityProcessLastEventAt: Long = 0L
+    @Volatile private var accessibilityProcessLastEventType: String = ""
+    @Volatile private var accessibilityProcessLastEventPackage: String = ""
+    @Volatile private var accessibilityProcessLastWindowEventAt: Long = 0L
+    @Volatile private var accessibilityProcessLastRootAt: Long = 0L
     private val processStartedElapsedMs = SystemClock.elapsedRealtime()
     private val processStartedWallMs = System.currentTimeMillis()
     // Shared by every FlutterEngine in this Android process, but regenerated
@@ -255,6 +265,7 @@ object CompanionRuntimeState {
     }
 
     fun runtimeInfo(context: Context): Map<String, Any> {
+        flushAccessibilityEventTelemetry(context, force = true)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val foregroundAgeMs = foregroundWindowObservedAt
             .takeIf { it > 0L }
@@ -290,6 +301,10 @@ object CompanionRuntimeState {
             "accessibilityEventCount" to prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0),
             "accessibilityAllowedEventCount" to
                 prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0),
+            "accessibilityDeviceEventScheduledProcessCount" to
+                accessibilityDeviceEventScheduledProcessCount.get(),
+            "accessibilityDeviceEventCoalescedProcessCount" to
+                accessibilityDeviceEventCoalescedProcessCount.get(),
             "accessibilityLastEventAt" to prefs.getLong(KEY_ACCESSIBILITY_LAST_EVENT, 0L),
             "accessibilityLastEventType" to
                 (prefs.getString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, "") ?: ""),
@@ -458,6 +473,7 @@ object CompanionRuntimeState {
             .apply()
     }
 
+    @Synchronized
     fun noteAccessibilityEvent(
         context: Context,
         eventType: String,
@@ -466,28 +482,60 @@ object CompanionRuntimeState {
         windowChanged: Boolean,
         hasReadableRoot: Boolean,
     ) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
+        accessibilityPendingEventCount.incrementAndGet()
+        if (allowedPackage) accessibilityPendingAllowedEventCount.incrementAndGet()
+        accessibilityProcessLastEventAt = now
+        accessibilityProcessLastEventType = eventType.take(80)
+        accessibilityProcessLastEventPackage = sourcePackage
+        if (windowChanged) accessibilityProcessLastWindowEventAt = now
+        if (hasReadableRoot) accessibilityProcessLastRootAt = now
+        flushAccessibilityEventTelemetry(context, force = false)
+    }
+
+    fun noteAccessibilityDeviceEvent(scheduled: Boolean) {
+        if (scheduled) {
+            accessibilityDeviceEventScheduledProcessCount.incrementAndGet()
+        } else {
+            accessibilityDeviceEventCoalescedProcessCount.incrementAndGet()
+        }
+    }
+
+    @Synchronized
+    private fun flushAccessibilityEventTelemetry(context: Context, force: Boolean) {
+        val elapsed = SystemClock.elapsedRealtime()
+        if (!force && accessibilityLastTelemetryFlushElapsedMs != Long.MIN_VALUE &&
+            elapsed - accessibilityLastTelemetryFlushElapsedMs < 2_000L
+        ) {
+            return
+        }
+        val pending = accessibilityPendingEventCount.getAndSet(0)
+        val allowedPending = accessibilityPendingAllowedEventCount.getAndSet(0)
+        if (pending <= 0) return
+        accessibilityLastTelemetryFlushElapsedMs = elapsed
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit()
-            .putLong(KEY_ACCESSIBILITY_LAST_EVENT, now)
-            .putString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, eventType.take(80))
+            .putLong(KEY_ACCESSIBILITY_LAST_EVENT, accessibilityProcessLastEventAt)
+            .putString(KEY_ACCESSIBILITY_LAST_EVENT_TYPE, accessibilityProcessLastEventType)
             .putString(
                 KEY_ACCESSIBILITY_LAST_EVENT_PACKAGE_HASH,
-                shortHash(sourcePackage),
+                shortHash(accessibilityProcessLastEventPackage),
             )
             .putInt(
                 KEY_ACCESSIBILITY_EVENT_COUNT,
-                prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0) + 1,
+                prefs.getInt(KEY_ACCESSIBILITY_EVENT_COUNT, 0) + pending,
+            )
+            .putInt(
+                KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT,
+                prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0) + allowedPending,
             )
             .apply {
-                if (allowedPackage) {
-                    putInt(
-                        KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT,
-                        prefs.getInt(KEY_ACCESSIBILITY_ALLOWED_EVENT_COUNT, 0) + 1,
-                    )
+                if (accessibilityProcessLastWindowEventAt > 0L) {
+                    putLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, accessibilityProcessLastWindowEventAt)
                 }
-                if (windowChanged) putLong(KEY_ACCESSIBILITY_LAST_WINDOW_EVENT, now)
-                if (hasReadableRoot) putLong(KEY_ACCESSIBILITY_LAST_ROOT, now)
+                if (accessibilityProcessLastRootAt > 0L) {
+                    putLong(KEY_ACCESSIBILITY_LAST_ROOT, accessibilityProcessLastRootAt)
+                }
             }
             .apply()
     }

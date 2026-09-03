@@ -97,6 +97,7 @@ if any(
         "version: 0.41.28+167",
         "version: 0.41.29+168",
         "version: 0.41.30+169",
+        "version: 0.41.31+170",
     )
 ):
     assert "没打算给任何人看的当下心声" in prompt

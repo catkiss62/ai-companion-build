@@ -126,6 +126,7 @@ class PreflightDiagnosticsService {
         'proactivePolicyAppIdentityIncluded': false,
         'proactivePolicyThoughtOrMessageTextIncluded': false,
         'proactivePolicyExternalContentIncluded': false,
+        'proactiveSceneContentIncluded': false,
         'circadianFatigueThoughtOrMessageTextIncluded': false,
         'circadianFatigueUserScheduleTextIncluded': false,
         'runtimeErrorTextIncluded': false,
@@ -140,6 +141,7 @@ class PreflightDiagnosticsService {
         'overlayRawPackageIncluded': false,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
+        'historicalAnrRawTraceIncluded': false,
         'reasoningLanguageTextIncluded': false,
         'reasoningLanguageMatchedWordsIncluded': false,
         'moePromptBodiesIncluded': false,
@@ -701,6 +703,9 @@ class PreflightDiagnosticsService {
         'companionAlbum': companionAlbum,
         'providerHealth': providerHealth,
         'proactivePolicy': proactivePolicy,
+        'proactiveSceneContinuity': _safeJsonObject(
+          await db.getSetting('proactive_scene_continuity_last_v1') ?? '',
+        ),
         'conversationInitiative': conversationInitiative,
         'conversationInitiativeAblation': conversationInitiativeAblation,
         'dialogueExpression': dialogueExpression,
@@ -998,6 +1003,25 @@ class PreflightDiagnosticsService {
             capabilities['historicalExitImportance'] ?? 0,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
+        'historicalAnrTraceAvailable':
+            capabilities['historicalAnrTraceAvailable'] == true,
+        'historicalAnrSanitizedSummaryVersion':
+            capabilities['historicalAnrSanitizedSummaryVersion'] ?? 1,
+        'historicalAnrMainThreadSeen':
+            capabilities['historicalAnrMainThreadSeen'] == true,
+        'historicalAnrMainThreadState':
+            capabilities['historicalAnrMainThreadState'] ?? 'unknown',
+        'historicalAnrAppFrameCount':
+            capabilities['historicalAnrAppFrameCount'] ?? 0,
+        'historicalAnrAppTopFrames':
+            capabilities['historicalAnrAppTopFrames'] ?? const <String>[],
+        'historicalAnrFrameCategories':
+            capabilities['historicalAnrFrameCategories'] ?? const <String>[],
+        'historicalAnrTraceSizeBucket':
+            capabilities['historicalAnrTraceSizeBucket'] ?? 'unavailable',
+        'historicalAnrTraceTruncated':
+            capabilities['historicalAnrTraceTruncated'] == true,
+        'historicalAnrRawTraceIncluded': false,
         'batteryOptimizationIgnored':
             androidInfo['batteryOptimizationIgnored'] == true,
         'backgroundRestricted': androidInfo['backgroundRestricted'] == true,
@@ -1011,6 +1035,65 @@ class PreflightDiagnosticsService {
         historicalExitReason:
             capabilities['historicalExitReason']?.toString() ?? '',
       );
+      final historicalExitAt =
+          (capabilities['historicalExitAt'] as num?)?.toInt() ?? 0;
+      final processStartedAt =
+          (capabilities['processStartedAt'] as num?)?.toInt() ?? 0;
+      final restartDeltaMs = historicalExitAt > 0 &&
+              processStartedAt >= historicalExitAt
+          ? processStartedAt - historicalExitAt
+          : -1;
+      final databaseReport = _asMap(report['database']);
+      final attachmentCorrelation = _asMap(report['attachmentAnrCorrelation']);
+      final blockingGenerationStatus =
+          databaseReport['blockingGenerationStatus']?.toString() ?? 'unavailable';
+      final backgroundBrainFailureAt =
+          (capabilities['backgroundBrainFailureAt'] as num?)?.toInt() ?? 0;
+      final lastTrimMemoryAt =
+          (capabilities['lastTrimMemoryAt'] as num?)?.toInt() ?? 0;
+      final accessibilityLastEventAtForAnr =
+          (capabilities['accessibilityLastEventAt'] as num?)?.toInt() ?? 0;
+      report['anrContext'] = {
+        'historicalExitWasAnr':
+            capabilities['historicalExitReason']?.toString() == 'anr',
+        'restartDeltaBucket': restartDeltaMs < 0
+            ? 'unavailable'
+            : restartDeltaMs <= 2 * 1000
+                ? 'within_2s'
+                : restartDeltaMs <= 30 * 1000
+                    ? 'within_30s'
+                    : 'over_30s',
+        'generationBlockingAtExport': blockingGenerationStatus != 'none' &&
+            blockingGenerationStatus != 'unavailable',
+        'generationFailureAtExport':
+            databaseReport['failedGenerationNeedsAttention'] == true,
+        'attachmentStageNearExit':
+            attachmentCorrelation['possibleRecentAttachmentStage'] == true,
+        'overlayRecoveryAtExport': recoveryInProgress,
+        'overlayRecoveryLoopAtExport': possibleRecoveryLoop,
+        'systemCoverAtExport': systemCoverActive,
+        'backgroundBrainFailureSinceProcessStart':
+            backgroundBrainFailureAt >= processStartedAt && processStartedAt > 0,
+        'memoryTrimSinceProcessStart':
+            lastTrimMemoryAt >= processStartedAt && processStartedAt > 0,
+        'accessibilityEventStreamActiveAtExport':
+            accessibilityLastEventAtForAnr > 0 &&
+                now.millisecondsSinceEpoch - accessibilityLastEventAtForAnr <=
+                    const Duration(seconds: 30).inMilliseconds,
+        'accessibilityDeviceEventScheduledProcessCount':
+            capabilities['accessibilityDeviceEventScheduledProcessCount'] ?? 0,
+        'accessibilityDeviceEventCoalescedProcessCount':
+            capabilities['accessibilityDeviceEventCoalescedProcessCount'] ?? 0,
+        'sanitizedMainThreadTraceAvailable':
+            capabilities['historicalAnrTraceAvailable'] == true,
+        'sanitizedFrameCategories':
+            capabilities['historicalAnrFrameCategories'] ?? const <String>[],
+        'attribution': capabilities['historicalAnrTraceAvailable'] == true
+            ? 'sanitized_trace_available'
+            : 'unattributed_multi_signal_snapshot',
+        'causalityEstablished': false,
+        'rawTraceOrContentIncluded': false,
+      };
 
       _addPermissionCheck(checks, 'overlay', '悬浮窗权限', capabilities['overlay'] == true);
       _addPermissionCheck(checks, 'usage', '使用情况访问', capabilities['usage'] == true);
@@ -1098,6 +1181,12 @@ class PreflightDiagnosticsService {
         'eventCount': accessibilityEventCount,
         'allowedEventCount':
             capabilities['accessibilityAllowedEventCount'] ?? 0,
+        'deviceEventScheduledProcessCount':
+            capabilities['accessibilityDeviceEventScheduledProcessCount'] ?? 0,
+        'deviceEventCoalescedProcessCount':
+            capabilities['accessibilityDeviceEventCoalescedProcessCount'] ?? 0,
+        'deviceEventWritesRunOffMainThread': true,
+        'runtimeTelemetryWriteCoalescingMs': 2000,
         'lastEventAt': accessibilityLastEventAt,
         'lastEventType': capabilities['accessibilityLastEventType'] ?? '',
         'lastEventPackageHash':

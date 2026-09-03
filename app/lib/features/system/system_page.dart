@@ -588,12 +588,6 @@ class _SystemPageState extends State<SystemPage> with WidgetsBindingObserver {
           enabled: s?.accessibility ?? false,
           onTap: android.openAccessibilitySettings,
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            '只有你在悬浮聊天点“看屏幕”或明确提出同等请求时，才会截取一张当前屏幕；敏感页会阻止，截图不会保存。',
-          ),
-        ),
         _PermissionTile(
           title: '通知访问',
           enabled: s?.notificationListener ?? false,

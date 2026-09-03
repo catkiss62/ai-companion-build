@@ -45,6 +45,7 @@ import 'desire_engine.dart';
 import 'proactive_dawn_gate_policy.dart';
 import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
+import 'proactive_scene_continuity_policy.dart';
 import 'proactive_selection_policy.dart';
 import 'self_drive_engine.dart';
 import 'thought_consolidation_engine.dart';
@@ -285,6 +286,31 @@ class ProactiveEngine {
         return const ProactiveDecision(
           sent: false,
           reason: '当前疲劳已进入安静休息区间，不触发普通主动消息',
+        );
+      }
+      final recentScene = await db.recentMessagesForPrompt(limit: 8);
+      final sceneContinuity = ProactiveSceneContinuityPolicy.evaluate(
+        recent: recentScene,
+        now: evaluationStartedAt,
+      );
+      await db.setSetting(
+        'proactive_scene_continuity_last_v1',
+        jsonEncode({
+          'hold': sceneContinuity.hold,
+          'reason': sceneContinuity.reason,
+          'closedAt': sceneContinuity.closedAt?.millisecondsSinceEpoch ?? 0,
+          'evaluatedAt': evaluationStartedAt.millisecondsSinceEpoch,
+          'contentIncluded': false,
+        }),
+      );
+      if (!forceForDebug && sceneContinuity.hold) {
+        await db.addProactiveHistory(
+          triggerReason: 'scene_continuity:${sceneContinuity.reason}',
+          decision: 'scene_rest_hold',
+        );
+        return const ProactiveDecision(
+          sent: false,
+          reason: '刚刚已经互道晚安并结束场景，短时间内保持休息连续性',
         );
       }
       final thoughts = (await db.activeThoughts(limit: 40)).toList();

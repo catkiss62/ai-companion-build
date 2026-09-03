@@ -160,6 +160,30 @@ void main() {
     expect(plan.askAuthorized, isFalse);
   });
 
+  test('an explicit goodnight closes before an older curiosity Thought', () {
+    final plan = ConversationInitiativePolicy.select(
+      snapshot: _snapshot(DriveKey.curiosity, 0.95),
+      thoughts: [_thought()],
+      latestUserText: '你也困了，那去睡吧，我现在去睡，晚安。',
+    );
+
+    expect(plan.primary, ConversationInitiativeMode.releaseTopic);
+    expect(plan.speechAct, ConversationSpeechAct.pauseOrClose);
+    expect(plan.askAuthorized, isFalse);
+    expect(plan.curiosityGateReason, 'boundary');
+  });
+
+  test('asking whether she slept is still a real user question', () {
+    final plan = ConversationInitiativePolicy.select(
+      snapshot: _snapshot(DriveKey.curiosity, 0.95),
+      thoughts: [_thought()],
+      latestUserText: '你是不是已经睡了？',
+    );
+
+    expect(plan.primary, ConversationInitiativeMode.answerUser);
+    expect(plan.speechAct, ConversationSpeechAct.answer);
+  });
+
   test('unauthorized guard catches support-agent information requests', () {
     final result = InformationSeekingQuestionGuard.evaluate(
       text: '「发生什么事了？能和我说说吗？」',

@@ -135,6 +135,37 @@ void main() {
       expect(verification.expressedSpeechAct, 'tease');
       expect(verification.hadAiBid, isTrue);
     });
+
+    test('embodied fatigue counts as expressing an own need', () {
+      final verification = ConversationOutcomeVerifier.verify(
+        finalText: '（打了个哈欠，困得睁不开眼。）\n「这次让我睡，我明天再找你。」',
+        plan: _plan(
+          ConversationSpeechAct.showNeed,
+          hasThought: false,
+          thoughtId: null,
+        ),
+      );
+
+      expect(verification.plannedActExpressed, isTrue);
+      expect(verification.expressedSpeechAct, 'show_need');
+      expect(verification.hadAiBid, isTrue);
+      expect(verification.reason, 'expressed_match');
+      expect(verification.shouldMarkThoughtActed, isFalse);
+    });
+
+    test('a direct rest boundary counts without a magic template phrase', () {
+      final verification = ConversationOutcomeVerifier.verify(
+        finalText: '「别再折腾我了，我现在只想休息。」',
+        plan: _plan(
+          ConversationSpeechAct.showNeed,
+          hasThought: false,
+          thoughtId: null,
+        ),
+      );
+
+      expect(verification.plannedActExpressed, isTrue);
+      expect(verification.reason, 'expressed_match');
+    });
   });
 
   group('public web prompt ablation', () {

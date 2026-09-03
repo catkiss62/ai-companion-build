@@ -42,6 +42,7 @@ assert any(
         "version: 0.41.28+167",
         "version: 0.41.29+168",
         "version: 0.41.30+169",
+        "version: 0.41.31+170",
     )
 )
 assert any(
@@ -50,6 +51,7 @@ assert any(
         "buildLabel = 'v0.41.28+167'",
         "buildLabel = 'v0.41.29+168'",
         "buildLabel = 'v0.41.30+169'",
+        "buildLabel = 'v0.41.31+170'",
     )
 )
 assert "static const int schemaVersion = 45" in database
