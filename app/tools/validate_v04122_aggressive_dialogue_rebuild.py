@@ -134,6 +134,7 @@ assert "当前人格落地·普通聊天" in personality
 
 for token in (
     "Build AI Companion v0.41.22+161 APK (Aggressive Dialogue Rebuild)",
+    "grep -Fqx 'version: 0.41.22+161' app/pubspec.yaml",
     "agent/v04122-aggressive-dialogue-rebuild",
     "AI-Companion-v0.41.22-161-Aggressive-Dialogue-Rebuild-APK",
     "validate_v04122_aggressive_dialogue_rebuild.py",

@@ -38,7 +38,7 @@
 | APK SHA-256 | `33c830969755e715f55e0a13e9dff286d2c6f42e0704ada7bfd054f8d3b5be8c`；CI checksum 与 Artifact 下载后独立解包计算一致，固定测试签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9859440285`](https://github.com/catkiss62/ai-companion-build/actions/runs/33661963195/artifacts/9859440285)，ZIP 319,406,185 bytes，digest `sha256:f1f4eccc9aed6ae8c9334fd2fe3bf34a67014e1877dad8913349cd9e9d3806e9`，保留至 2026-09-16T17:45:28Z；Draft Release [`untagged-90d4ff9bb793c97b22d5`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-90d4ff9bb793c97b22d5)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.21 终态责任修复经新真机证据证明能识别“计划未表达”，但表层对话实现失败：最近 12 条平均约 208 字/5.25 段，动作旁白持续复读，最近 7 个终态审计回合仅 1 次计划/表达匹配；直爽试穿 13 个有效回合也未稳定出现粗口。用户明确放弃当前正向人格写法并批准直接重构；v0.41.22 已完成激进核心底色、普通聊天纯对白、独立表达路由、项目自有 few-shot、Moe/人格末端落地和精确 SHA 保守迁移，当前为 `IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；Phase 2B/3/4 继续关闭 |
+| 当前总状态 | v0.41.21 终态责任修复经新真机证据证明能识别“计划未表达”，但表层对话实现失败：最近 12 条平均约 208 字/5.25 段，动作旁白持续复读，最近 7 个终态审计回合仅 1 次计划/表达匹配；直爽试穿 13 个有效回合也未稳定出现粗口。v0.41.22 激进核心底色、普通聊天纯对白、独立表达路由、项目自有 few-shot、Moe/人格末端落地和精确 SHA 保守迁移已实现；首轮 CI run `33701955605` 仅因 clean-baseline 残留旧版本精确检查而在验证前退出，正在窄修，当前为 `CI FIX IN PROGRESS / TRUE DEVICE PENDING`；Phase 2B/3/4 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -887,6 +887,7 @@
 1. 新增 `dialogue_expression_plan_test.dart` 覆盖闲聊纯对白、稳定选择、深聊/技术可展开、严肃场景无造梗压力、事实/共同经历不被改写和无正文诊断；更新 Prompt、Moe、人格、默认规则与 build label 回归。
 2. 工作流列出的 137 个 Python validators 本地为 124 通过；剩余 13 个只因当前稀疏工作区没有 Actions 前置恢复的桌宠、头像立绘、LingChat、塔罗、Meju/TTS/native 大型载荷或 `kotlinc`；没有本批代码断言失败。专项/current ledger/Python 语法/`git diff --check` 均通过。
 3. 本地没有 Dart/Flutter SDK，Flutter analyze/full tests、Kotlin/Gradle、Release APK、固定签名与 Native/TTS/417 文件桌宠/LingChat/头像立绘/塔罗大型载荷必须由 GitHub Actions 裁决。自动化通过仍不能写成“活人感真机通过”。
+4. 首轮远程 head `a718fab796cc022380dc0588eb63b71dd47ac28f` / tree `d73832401d0a249554ff363bc8c71f7d19d3b377` 与本地功能 tree 精确一致。Actions run [`33701955605`](https://github.com/catkiss62/ai-companion-build/actions/runs/33701955605) 在 clean source baseline 发现工作流仍精确 `grep 0.41.21+160`，因实际 pubspec 已是 `0.41.22+161` 而在 validators/Flutter 之前退出。这是构建脚手架漏改，不是运行码断言失败；窄修将该行前移到新版本并把精确检查加入 v0.41.22 专项 validator。
 
 ## 历史工作记录（原文保留，按需检索）
 
