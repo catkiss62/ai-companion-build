@@ -313,6 +313,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   late final ImmersiveRoomController controller =
       ImmersiveRoomController(roomId: widget.roomId);
   final input = TextEditingController();
+  final inputFocus = FocusNode();
   final scroll = ScrollController();
   bool _visualStageEnabled = true;
   bool _visualSettingsLoaded = false;
@@ -349,6 +350,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     _trialTimer?.cancel();
     controller.dispose();
     input.dispose();
+    inputFocus.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -685,41 +687,54 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               child: ListView.builder(
                 controller: scroll,
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
-                itemCount: controller.messages.length +
+                itemCount: controller.timelineItems.length +
                     (controller.showStreamingDraft ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index < controller.messages.length) {
-                    final message = controller.messages[index];
+                  final timeline = controller.timelineItems;
+                  if (index < timeline.length) {
+                    final item = timeline[index];
                     final previous = index == 0
                         ? null
-                        : controller.messages[index - 1];
+                        : timeline[index - 1];
                     return Column(
                       children: [
                         if (ChatTimestampFormatter.shouldShowDateSeparator(
-                          message.createdAt,
+                          item.createdAt,
                           previous?.createdAt,
                         ))
                           _ImmersiveDateSeparator(
-                            createdAt: message.createdAt,
+                            createdAt: item.createdAt,
                           ),
-                        _ImmersiveMessageView(
-                          key: ValueKey(message.id),
-                          message: message,
-                          bubbleOpacity:
-                              _visualStageEnabled ? _panelOpacity : 1.0,
-                          ttsPhase:
-                              controller.ttsPhaseForMessage(message.id),
-                          onSpeechAction: message.isAssistant
-                              ? () {
-                                  if (controller.ttsPhaseForMessage(message.id) ==
-                                      TtsPlaybackPhase.playing) {
-                                    controller.stopSpeech();
-                                  } else {
-                                    controller.speakMessage(message);
+                        if (item.isInterruption)
+                          _ImmersiveInterruptedTurn(
+                            content: item.interruption!.userContent,
+                            onReedit: () {
+                              input.text = item.interruption!.userContent;
+                              input.selection = TextSelection.collapsed(
+                                offset: input.text.length,
+                              );
+                              inputFocus.requestFocus();
+                            },
+                          )
+                        else
+                          _ImmersiveMessageView(
+                            key: ValueKey(item.message!.id),
+                            message: item.message!,
+                            bubbleOpacity:
+                                _visualStageEnabled ? _panelOpacity : 1.0,
+                            ttsPhase:
+                                controller.ttsPhaseForMessage(item.message!.id),
+                            onSpeechAction: item.message!.isAssistant
+                                ? () {
+                                    if (controller.ttsPhaseForMessage(item.message!.id) ==
+                                        TtsPlaybackPhase.playing) {
+                                      controller.stopSpeech();
+                                    } else {
+                                      controller.speakMessage(item.message!);
+                                    }
                                   }
-                                }
-                              : null,
-                        ),
+                                : null,
+                          ),
                       ],
                     );
                   }
@@ -994,6 +1009,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               Expanded(
                 child: TextField(
                   controller: input,
+                  focusNode: inputFocus,
                   enabled: !controller.ending,
                   minLines: 1,
                   maxLines: 6,
@@ -1020,6 +1036,58 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             ],
           ),
         ),
+      );
+}
+
+class _ImmersiveInterruptedTurn extends StatelessWidget {
+  const _ImmersiveInterruptedTurn({
+    required this.content,
+    required this.onReedit,
+  });
+
+  final String content;
+  final VoidCallback onReedit;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: _ImmersiveUserBubbleSurface(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              opacity: 1,
+              child: SelectableText(
+                content,
+                style: const TextStyle(color: Colors.white, height: 1.45),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '已停止生成',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: onReedit,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  ),
+                  child: const Text('重新编辑'),
+                ),
+              ],
+            ),
+          ),
+        ],
       );
 }
 

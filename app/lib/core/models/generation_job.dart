@@ -91,9 +91,58 @@ class GenerationInterruption {
     required this.jobId,
     required this.createdAt,
     required this.reason,
+    this.userContent = '',
   });
 
   final String jobId;
   final DateTime createdAt;
   final String reason;
+  final String userContent;
+
+  bool get hasDisplayOnlyUserContent => userContent.trim().isNotEmpty;
+
+  String get notice => reason == 'cancelled_by_user'
+      ? '已停止生成'
+      : '这一轮对话已中断';
+}
+
+/// User-authored text retained only so it can be copied or re-edited after a
+/// cancelled turn. Rows of this type are deliberately stored outside every
+/// effective conversation table.
+class InterruptedTurnDisplay {
+  const InterruptedTurnDisplay({
+    required this.id,
+    required this.surface,
+    required this.contextId,
+    required this.sourceJobId,
+    required this.sourceMessageId,
+    required this.userContent,
+    required this.createdAt,
+    required this.interruptedAt,
+  });
+
+  final String id;
+  final String surface;
+  final String contextId;
+  final String sourceJobId;
+  final String sourceMessageId;
+  final String userContent;
+  final DateTime createdAt;
+  final DateTime interruptedAt;
+
+  factory InterruptedTurnDisplay.fromDb(Map<String, Object?> row) =>
+      InterruptedTurnDisplay(
+        id: row['id'] as String,
+        surface: row['surface'] as String? ?? '',
+        contextId: row['context_id'] as String? ?? '',
+        sourceJobId: row['source_job_id'] as String? ?? '',
+        sourceMessageId: row['source_message_id'] as String? ?? '',
+        userContent: row['user_content'] as String? ?? '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['created_at'] as num).toInt(),
+        ),
+        interruptedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['interrupted_at'] as num).toInt(),
+        ),
+      );
 }

@@ -129,6 +129,44 @@ void main() {
     expect(AgentToolPlanner.routeLocally('今天想和你普通聊聊天'), isNull);
   });
 
+  test('system command prefix always routes to truthful self inspection', () {
+    final facts = AgentToolPlanner.routeLocally('【检查系统】你查一下自己的功能');
+    expect(facts, isNotNull);
+    expect(facts!.calls.single.toolId, AgentToolRegistry.systemSelfRead.id);
+    expect(facts.calls.single.arguments['scope'], 'facts');
+    expect(facts.calls.single.reasonTag, 'explicit_system_command');
+
+    final outcomes = AgentToolPlanner.routeLocally('【检查系统】最近工具调用结果');
+    expect(outcomes!.calls.single.arguments['scope'], 'outcomes');
+
+    final growth = AgentToolPlanner.routeLocally('【检查系统】人格学习候选状态');
+    expect(growth!.calls.single.arguments['scope'], 'growth');
+
+    final blank = AgentToolPlanner.routeLocally('【检查系统】');
+    expect(blank!.calls.single.arguments['scope'], 'all');
+    expect(
+      AgentToolPlanner.routeLocally('我们讨论一下【检查系统】这个格式'),
+      isNull,
+    );
+  });
+
+  test('natural system inspection phrases remain compatible', () {
+    for (final text in const [
+      '检查你的功能',
+      '检查你已经有的系统',
+      '检查你真实系统',
+      '你检查一下你能查看的功能',
+    ]) {
+      final plan = AgentToolPlanner.routeLocally(text);
+      expect(plan, isNotNull, reason: text);
+      expect(
+        plan!.calls.single.toolId,
+        AgentToolRegistry.systemSelfRead.id,
+        reason: text,
+      );
+    }
+  });
+
   test('native function call maps back into the gated local registry', () {
     final plan = AgentToolPlanner.fromNativeToolCalls(const [
       DeepSeekToolCall(

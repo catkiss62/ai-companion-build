@@ -43,6 +43,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ChatController controller = ChatController();
   final TextEditingController input = TextEditingController();
+  final FocusNode inputFocus = FocusNode();
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
@@ -471,6 +472,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     controller.removeListener(_onChanged);
     controller.dispose();
     input.dispose();
+    inputFocus.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -926,7 +928,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   children: [
                     if (showDate) _DateSeparator(createdAt: item.createdAt),
                     if (item.isInterruption)
-                      const _InterruptionMarker()
+                      _InterruptionMarker(
+                        content: item.interruption!.userContent,
+                        notice: item.interruption!.notice,
+                        onReedit: item.interruption!.hasDisplayOnlyUserContent
+                            ? () {
+                                input.text = item.interruption!.userContent;
+                                input.selection = TextSelection.collapsed(
+                                  offset: input.text.length,
+                                );
+                                inputFocus.requestFocus();
+                              }
+                            : null,
+                      )
                     else
                       _MessageBubble(
                         key: ValueKey(item.message!.id),
@@ -1934,6 +1948,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             Expanded(
               child: TextField(
                 controller: input,
+                focusNode: inputFocus,
                 minLines: 1,
                 maxLines: 5,
                 style: const TextStyle(color: Colors.white),
@@ -2006,20 +2021,62 @@ class _DateSeparator extends StatelessWidget {
 }
 
 class _InterruptionMarker extends StatelessWidget {
-  const _InterruptionMarker();
+  const _InterruptionMarker({
+    required this.content,
+    required this.notice,
+    this.onReedit,
+  });
+
+  final String content;
+  final String notice;
+  final VoidCallback? onReedit;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Center(
-        child: Text(
-          '这一轮对话已中断',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (content.trim().isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 520),
+              margin: const EdgeInsets.only(left: 44, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
               ),
+              child: SelectableText(content),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 7),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                notice,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              if (onReedit != null) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: onReedit,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  ),
+                  child: const Text('重新编辑'),
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

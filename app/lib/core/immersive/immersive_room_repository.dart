@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
+import '../models/generation_job.dart';
 import '../personality/personality_catalog.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import 'immersive_shared_memory_policy.dart';
@@ -190,6 +191,11 @@ class ImmersiveRoomRepository {
         whereArgs: [id],
       );
       await txn.delete(
+        'interrupted_turn_displays',
+        where: 'surface = ? AND context_id = ?',
+        whereArgs: ['immersive', id],
+      );
+      await txn.delete(
         'immersive_rooms',
         where: 'id = ?',
         whereArgs: [id],
@@ -263,6 +269,21 @@ class ImmersiveRoomRepository {
     );
     return rows.map(ImmersiveMessage.fromDb).toList(growable: false);
   }
+
+  Future<List<InterruptedTurnDisplay>> interruptionsForRoom(
+    String roomId,
+  ) => db.interruptedTurnDisplays(
+        surface: 'immersive',
+        contextId: roomId,
+      );
+
+  Future<InterruptedTurnDisplay?> interruptUserMessageForDisplay({
+    required String roomId,
+    required String messageId,
+  }) => db.interruptImmersiveUserMessageForDisplay(
+        roomId: roomId,
+        messageId: messageId,
+      );
 
   Future<ImmersiveMessage> addMessage({
     required String roomId,

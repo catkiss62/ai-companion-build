@@ -67,7 +67,8 @@ class AgentSelfReader {
   // Historical Phase 1 contracts: implemented_observation_only;
   // [GROWTH_RUNTIME phase=observation_only]
   // Historical validator compatibility: buildLabel = 'v0.41.33+172'
-  static const buildLabel = 'v0.41.34+173';
+  // Historical validator compatibility: buildLabel = 'v0.41.34+173'
+  static const buildLabel = 'v0.41.35+174';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -276,6 +277,7 @@ ${growthLines.join('\n')}
 '''.trim(),
       '''
 【系统自读边界】
+system_self.read 是本轮真实执行的本地只读接口，不是根据上下文猜测；不得声称该接口不存在，也不得把它降格为角色扮演设定。只能根据上面实际返回的条目回答：没有列出的能力说“本次结果无法确认”，标记 not_implemented 的能力说“尚未实现”，失败、阻止或零结果必须照实表达。
 本结果没有读取密钥、API endpoint、原始日志、数据库路径、聊天正文、规则正文、学习候选/证据正文、工具参数、URL、Provider payload 或隐藏 reasoning。自主屏幕观察、视频、修改提案、真实提醒与 MCP 若标记 not_implemented，就只能说尚未实现。
 '''.trim(),
     ];

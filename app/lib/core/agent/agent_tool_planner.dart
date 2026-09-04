@@ -16,7 +16,42 @@ class AgentToolPlanner {
 
   static AgentToolPlan? routeLocally(String latestUserText) {
     final text = latestUserText.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (text.isEmpty || _looksLikeMetaToolTalk(text)) return null;
+    if (text.isEmpty) return null;
+
+    // A deliberately explicit escape hatch for deterministic self-inspection.
+    // Only a prefix on the latest user turn qualifies; quoted/mid-sentence
+    // mentions remain ordinary conversation.
+    const systemCommand = '【检查系统】';
+    if (text.startsWith(systemCommand)) {
+      final request = text.substring(systemCommand.length).trim();
+      final wantsOutcomes = RegExp(
+        r'(最近|刚才|上次|结果|记录|调用|行动|执行|工具|联网|搜索|mcp)',
+        caseSensitive: false,
+      ).hasMatch(request);
+      final wantsGrowth = RegExp(
+        r'(人格|学习|成长|候选|证据|成熟度)',
+        caseSensitive: false,
+      ).hasMatch(request);
+      final wantsFacts = RegExp(
+        r'(系统|功能|能力|状态|实现|支持|边界|可以|能否|有没有)',
+        caseSensitive: false,
+      ).hasMatch(request);
+      final scope = wantsOutcomes && !wantsGrowth && !wantsFacts
+          ? 'outcomes'
+          : wantsGrowth && !wantsOutcomes && !wantsFacts
+              ? 'growth'
+              : wantsFacts && !wantsOutcomes && !wantsGrowth
+                  ? 'facts'
+                  : 'all';
+      return AgentToolPlan(calls: [
+        AgentToolCall(
+          toolId: AgentToolRegistry.systemSelfRead.id,
+          arguments: {'scope': scope},
+          reasonTag: 'explicit_system_command',
+        ),
+      ]);
+    }
+    if (_looksLikeMetaToolTalk(text)) return null;
 
     final calls = <AgentToolCall>[];
 
@@ -60,6 +95,7 @@ class AgentToolPlanner {
       r'(我.{0,8}(给|帮).{0,8}你.{0,12}(做了|加了|实现了).{0,8}(什么|哪些).{0,6}(功能|能力)?)|'
       r'(你.{0,10}(有什么功能|有哪些功能|会什么|能做什么|系统能力|真实能力))|'
       r'((看|读|查|检查).{0,8}(你自己|自身).{0,8}(系统|能力|功能|状态))|'
+      r'((查|查询|查看|检查).{0,5}(你|你的).{0,8}(已经有的|已有的|真实的|真实|当前的|当前|能查看的)?.{0,6}(系统|能力|功能|状态))|'
       r'(你.{0,6}(能不能|可以).{0,6}(看|读|查).{0,6}(自己|自身).{0,6}(系统|能力|功能))',
       caseSensitive: false,
     ).hasMatch(text);

@@ -25,11 +25,13 @@ void main() {
       jobId: job.id,
       createdAt: now,
       reason: 'generation_interrupted',
+      userContent: '只用于显示和重新编辑',
     );
 
     expect(job.isTerminal, isTrue);
     expect(job.isBlocking, isFalse);
     expect(marker.jobId, job.id);
+    expect(marker.hasDisplayOnlyUserContent, isTrue);
 
     final database =
         File('lib/core/database/app_database.dart').readAsStringSync();
@@ -58,6 +60,9 @@ void main() {
     expect(controller, contains('bool get generationActive'));
     expect(controller, contains('recentGenerationInterruptions'));
     expect(server, contains("'role': 'system_notice'"));
+    expect(server, contains("'interrupted_user'"));
+    expect(overlay, contains('message.role == "interrupted_user"'));
+    expect(overlay, contains('text = "重新编辑"'));
     expect(server, contains("'attachments': attachments"));
     expect(overlay, contains('setComposerGenerationState(sending = sharedSending)'));
     expect(overlay, contains('formatDateSeparator(message.createdAt)'));

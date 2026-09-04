@@ -98,7 +98,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 44;
   // Historical validator compatibility token: static const int schemaVersion = 45;
   // Historical validator compatibility token: static const int schemaVersion = 46;
-  static const int schemaVersion = 47;
+  // Historical validator compatibility token: static const int schemaVersion = 47;
+  static const int schemaVersion = 48;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1088,6 +1089,9 @@ class AppDatabase {
     if (oldVersion < 47) {
       await _createV47MemoryGroundingColumns(db);
     }
+    if (oldVersion < 48) {
+      await _createV48InterruptedTurnDisplays(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1269,6 +1273,7 @@ class AppDatabase {
     await _createV45WorldBookColumns(db);
     await _createV46LearningAssociationColumns(db);
     await _createV47MemoryGroundingColumns(db);
+    await _createV48InterruptedTurnDisplays(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -2779,6 +2784,33 @@ class AppDatabase {
         );
       }
     }
+  }
+
+  Future<void> _createV48InterruptedTurnDisplays(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS interrupted_turn_displays (
+        id TEXT PRIMARY KEY,
+        surface TEXT NOT NULL,
+        context_id TEXT NOT NULL DEFAULT '',
+        source_job_id TEXT NOT NULL DEFAULT '',
+        source_message_id TEXT NOT NULL DEFAULT '',
+        user_content TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        interrupted_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_interrupted_turn_display_timeline '
+      'ON interrupted_turn_displays(surface, context_id, created_at DESC)',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_interrupted_turn_display_job '
+      "ON interrupted_turn_displays(source_job_id) WHERE source_job_id != ''",
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_interrupted_turn_display_message '
+      "ON interrupted_turn_displays(source_message_id) WHERE source_message_id != ''",
+    );
   }
 
   Future<void> _createV29Tables(Database db) async {
@@ -5126,6 +5158,29 @@ class AppDatabase {
       // Idempotently clean a prior partial cancellation as well. Completed
       // jobs can never reach this branch, preserving completion-vs-stop order.
       if (userMessageId.isNotEmpty) {
+        final userRows = await txn.query(
+          'messages',
+          columns: const ['content', 'created_at'],
+          where: 'id = ? AND role = ?',
+          whereArgs: [userMessageId, 'user'],
+          limit: 1,
+        );
+        if (userRows.isNotEmpty) {
+          await txn.insert(
+            'interrupted_turn_displays',
+            {
+              'id': _uuid.v4(),
+              'surface': 'ordinary',
+              'context_id': '',
+              'source_job_id': id,
+              'source_message_id': userMessageId,
+              'user_content': userRows.first['content'] as String? ?? '',
+              'created_at': userRows.first['created_at'] as int? ?? now,
+              'interrupted_at': now,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
         await txn.delete(
           'post_turn_jobs',
           where: 'user_message_id = ?',
@@ -5211,26 +5266,123 @@ class AppDatabase {
     DateTime? before,
   }) async {
     final db = await database;
-    final rows = await db.query(
-      'generation_jobs',
-      columns: ['id', 'completed_at', 'updated_at', 'resume_reason'],
-      where: before == null
-          ? "status IN ('cancelled_by_user','interrupted')"
-          : "status IN ('cancelled_by_user','interrupted') AND COALESCE(completed_at, updated_at) < ?",
-      whereArgs: before == null
-          ? const <Object?>[]
-          : <Object?>[before.millisecondsSinceEpoch],
-      orderBy: 'COALESCE(completed_at, updated_at) DESC',
-      limit: limit.clamp(1, 100),
+    final beforeClause = before == null
+        ? ''
+        : 'AND COALESCE(d.created_at, g.completed_at, g.updated_at) < ?';
+    final rows = await db.rawQuery(
+      '''
+      SELECT g.id,
+             g.completed_at,
+             g.updated_at,
+             g.resume_reason,
+             d.user_content,
+             d.created_at AS display_created_at
+      FROM generation_jobs g
+      LEFT JOIN interrupted_turn_displays d
+        ON d.source_job_id = g.id AND d.surface = 'ordinary'
+      WHERE g.status IN ('cancelled_by_user','interrupted') $beforeClause
+      ORDER BY COALESCE(d.created_at, g.completed_at, g.updated_at) DESC
+      LIMIT ?
+      ''',
+      <Object?>[
+        if (before != null) before.millisecondsSinceEpoch,
+        limit.clamp(1, 100),
+      ],
     );
     return rows.reversed.map((row) {
-      final at = (row['completed_at'] ?? row['updated_at']) as int;
+      final at = (row['display_created_at'] ??
+          row['completed_at'] ??
+          row['updated_at']) as int;
       return GenerationInterruption(
         jobId: row['id'] as String,
         createdAt: DateTime.fromMillisecondsSinceEpoch(at),
         reason: row['resume_reason'] as String? ?? '',
+        userContent: row['user_content'] as String? ?? '',
       );
     }).toList(growable: false);
+  }
+
+  Future<List<InterruptedTurnDisplay>> interruptedTurnDisplays({
+    required String surface,
+    String contextId = '',
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'interrupted_turn_displays',
+      where: 'surface = ? AND context_id = ?',
+      whereArgs: [surface, contextId],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map(InterruptedTurnDisplay.fromDb).toList(growable: false);
+  }
+
+  Future<InterruptedTurnDisplay?> interruptImmersiveUserMessageForDisplay({
+    required String roomId,
+    required String messageId,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return db.transaction<InterruptedTurnDisplay?>((txn) async {
+      final rows = await txn.query(
+        'immersive_messages',
+        where: 'id = ? AND room_id = ? AND role = ?',
+        whereArgs: [messageId, roomId, 'user'],
+        limit: 1,
+      );
+      if (rows.isEmpty) {
+        final existing = await txn.query(
+          'interrupted_turn_displays',
+          where: 'source_message_id = ? AND surface = ?',
+          whereArgs: [messageId, 'immersive'],
+          limit: 1,
+        );
+        return existing.isEmpty
+            ? null
+            : InterruptedTurnDisplay.fromDb(existing.first);
+      }
+      final row = rows.first;
+      final display = InterruptedTurnDisplay(
+        id: _uuid.v4(),
+        surface: 'immersive',
+        contextId: roomId,
+        sourceJobId: '',
+        sourceMessageId: messageId,
+        userContent: row['content'] as String? ?? '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          row['created_at'] as int? ?? now,
+        ),
+        interruptedAt: DateTime.fromMillisecondsSinceEpoch(now),
+      );
+      await txn.insert(
+        'interrupted_turn_displays',
+        {
+          'id': display.id,
+          'surface': display.surface,
+          'context_id': display.contextId,
+          'source_job_id': display.sourceJobId,
+          'source_message_id': display.sourceMessageId,
+          'user_content': display.userContent,
+          'created_at': display.createdAt.millisecondsSinceEpoch,
+          'interrupted_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      await txn.delete(
+        'somatic_events',
+        where: 'turn_id = ?',
+        whereArgs: [messageId],
+      );
+      await txn.delete(
+        'immersive_messages',
+        where: 'id = ? AND room_id = ? AND role = ?',
+        whereArgs: [messageId, roomId, 'user'],
+      );
+      await _rebuildSomaticAggregates(
+        txn,
+        DateTime.fromMillisecondsSinceEpoch(now),
+      );
+      return display;
+    });
   }
 
   /// Cheap cross-engine fence check used while a streaming request is active.
@@ -14218,6 +14370,7 @@ class AppDatabase {
       'pending_post_turn_jobs': await count('post_turn_jobs', "status IN ('pending','running','retry_wait','failed')"),
       'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
+      'interrupted_turn_displays': await count('interrupted_turn_displays'),
       'somatic_events': await count('somatic_events'),
       'active_emotion_episodes': await count(
         'emotion_episodes',
@@ -14375,6 +14528,7 @@ class AppDatabase {
       'proactive_feedback',
       'post_turn_jobs',
       'generation_jobs',
+      'interrupted_turn_displays',
       'somatic_events',
       'somatic_aggregates',
       'emotion_episodes',
@@ -14431,6 +14585,9 @@ class AppDatabase {
       rawTables['personality_learning_evidence_revisions'] = const <Object?>[];
       _normalizeV44SelfReviewImport(rawTables);
     }
+    if (version < 48) {
+      rawTables['interrupted_turn_displays'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -14472,6 +14629,7 @@ class AppDatabase {
         'proactive_feedback',
         'post_turn_jobs',
         'generation_jobs',
+        'interrupted_turn_displays',
         'somatic_events',
         'somatic_aggregates',
         'emotion_episodes',

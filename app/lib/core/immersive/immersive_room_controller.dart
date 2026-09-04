@@ -7,6 +7,7 @@ import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
+import '../models/generation_job.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
@@ -51,6 +52,7 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   ImmersiveRoom? room;
   List<ImmersiveMessage> messages = const [];
+  List<InterruptedTurnDisplay> interruptions = const [];
   bool loading = true;
   bool sending = false;
   bool ending = false;
@@ -67,6 +69,16 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   bool get showStreamingDraft => sending && _streamingDraftVisible;
 
+  List<ImmersiveTimelineItem> get timelineItems {
+    final items = <ImmersiveTimelineItem>[
+      for (final message in messages) ImmersiveTimelineItem.message(message),
+      for (final interruption in interruptions)
+        ImmersiveTimelineItem.interruption(interruption),
+    ];
+    items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return items;
+  }
+
   TtsPlaybackPhase ttsPhaseForMessage(String messageId) {
     if (ttsState.ownerId != messageId) return TtsPlaybackPhase.idle;
     return ttsState.phase;
@@ -78,6 +90,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       error = '这个房间不存在或已经无法读取。';
     } else {
       messages = await repository.messagesForRoom(roomId);
+      interruptions = await repository.interruptionsForRoom(roomId);
       if (!room!.isEnded) {
         await repository.activateRoom(roomId);
         room = await repository.inheritActiveSpecialStyleIfNeeded(roomId);
@@ -90,6 +103,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<void> reloadRoom() async {
     room = await repository.roomById(roomId);
     messages = await repository.messagesForRoom(roomId);
+    interruptions = await repository.interruptionsForRoom(roomId);
     _safeNotify();
   }
 
@@ -239,8 +253,12 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: profile,
       ));
     } on GenerationCancelledByUserException {
-      await _commitVisiblePartial();
-      committed = true;
+      await repository.interruptUserMessageForDisplay(
+        roomId: roomId,
+        messageId: user.id,
+      );
+      messages = await repository.messagesForRoom(roomId);
+      interruptions = await repository.interruptionsForRoom(roomId);
       error = null;
     } catch (exception) {
       if (!committed) await _commitVisiblePartial();
@@ -365,6 +383,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     await repository.deleteRoom(roomId);
     room = null;
     messages = const [];
+    interruptions = const [];
     _safeNotify();
     return true;
   }
@@ -562,4 +581,32 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
     client.close();
     super.dispose();
   }
+}
+
+class ImmersiveTimelineItem {
+  const ImmersiveTimelineItem._({
+    required this.createdAt,
+    this.message,
+    this.interruption,
+  });
+
+  factory ImmersiveTimelineItem.message(ImmersiveMessage message) =>
+      ImmersiveTimelineItem._(
+        createdAt: message.createdAt,
+        message: message,
+      );
+
+  factory ImmersiveTimelineItem.interruption(
+    InterruptedTurnDisplay interruption,
+  ) =>
+      ImmersiveTimelineItem._(
+        createdAt: interruption.createdAt,
+        interruption: interruption,
+      );
+
+  final DateTime createdAt;
+  final ImmersiveMessage? message;
+  final InterruptedTurnDisplay? interruption;
+
+  bool get isInterruption => interruption != null;
 }

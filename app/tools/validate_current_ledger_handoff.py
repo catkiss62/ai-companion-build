@@ -104,22 +104,20 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04134-memory-grounding-agent-foundation",
-        "0.41.34+173",
-        "schema 47",
+        "agent/v04135-interrupted-turn-system-command",
+        "0.41.35+174",
+        "schema47→48",
         "Snapshot protocol 5",
-        "Phase 2A",
         "Phase 2B",
-        "表达计划",
-        "能力与人格",
-        "角色表达自然化",
-        "情绪特效",
-        "正向图片策展",
-        "TRUE DEVICE PASSED / CLOSED",
         "App 内 Agent 能力桥",
         "CHAT_LIGHT",
         "Skills",
         "MCP",
+        "【检查系统】",
+        "中断回合",
+        "已停止生成",
+        "Token 命中/缓存优化",
+        "Phase 3",
         "Harness",
         "Memory 2C",
         "行动者—关系—对象—归属",
@@ -191,12 +189,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.34\+173\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.35\+174\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 47;" in database,
+        "static const int schemaVersion = 48;" in database,
         "database schema no longer matches the current development baseline",
     )
 

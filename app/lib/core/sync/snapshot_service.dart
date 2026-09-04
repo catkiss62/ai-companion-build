@@ -977,6 +977,14 @@ class SnapshotService {
       'personality_learning_evidence',
     ];
     final schemaVersion = (backup['schema_version'] as num?)?.toInt() ?? 0;
+    const interruptedTurnTable = 'interrupted_turn_displays';
+    if (schemaVersion >= 48) {
+      if (tables[interruptedTurnTable] is! List) {
+        throw const FormatException('schema 48 状态包缺少中断回合显示表');
+      }
+    } else {
+      tables[interruptedTurnTable] = const <Object?>[];
+    }
     if (schemaVersion >= 42) {
       for (final table in personalityLearningTables) {
         if (tables[table] is! List) {

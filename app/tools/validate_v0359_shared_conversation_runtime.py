@@ -26,6 +26,7 @@ for token in [
 model = read("lib/core/models/generation_job.dart")
 assert "status == 'interrupted'" in model
 assert "class GenerationInterruption" in model
+assert "已停止生成" in model
 
 runner = read("lib/core/ai/durable_generation_runner.dart")
 catch_start = runner.index("} catch (e) {")
@@ -70,15 +71,16 @@ for token in [
     "Duration(milliseconds: 400)",
     "controller.timelineItems",
     "controller.generationActive",
-    "const _InterruptionMarker()",
-    "这一轮对话已中断",
+    "_InterruptionMarker(",
+    "重新编辑",
 ]:
     assert token in page, token
 
 server = read("lib/core/platform/background_chat_command_server.dart")
 for token in [
     "Future<List<Map<String, Object?>>> _timelineRows",
-    "'role': 'system_notice'",
+    "'system_notice'",
+    "'interrupted_user'",
     "'attachments': attachments",
     "thumbnail.path",
 ]:

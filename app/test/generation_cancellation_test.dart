@@ -29,7 +29,26 @@ void main() {
     expect(method, contains("status IN ('pending','running','retry_wait')"));
     expect(method, contains("where: 'id = ? AND role = ?'"));
     expect(method, contains("whereArgs: [userMessageId, 'user']"));
+    expect(method, contains("'interrupted_turn_displays'"));
+    expect(method, contains("'surface': 'ordinary'"));
     expect(method, contains("if (!cancelled) return false"));
+  });
+
+  test('interrupted display text stays outside every effective message table', () {
+    final database =
+        File('lib/core/database/app_database.dart').readAsStringSync();
+    final controller = File(
+      'lib/core/immersive/immersive_room_controller.dart',
+    ).readAsStringSync();
+    final prompt = File(
+      'lib/core/immersive/immersive_prompt_builder.dart',
+    ).readAsStringSync();
+
+    expect(database, contains('CREATE TABLE IF NOT EXISTS interrupted_turn_displays'));
+    expect(database, contains('interruptImmersiveUserMessageForDisplay'));
+    expect(controller, contains('interruptUserMessageForDisplay'));
+    expect(controller, isNot(contains('on GenerationCancelledByUserException {\n      await _commitVisiblePartial')));
+    expect(prompt, isNot(contains('interrupted_turn_displays')));
   });
 
   test('automatic recovery resumes instead of withdrawing the user turn', () {

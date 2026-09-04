@@ -2716,7 +2716,7 @@ class OverlayBubbleService : Service() {
             val outer = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = when (message.role) {
-                    "user" -> Gravity.END
+                    "user", "interrupted_user" -> Gravity.END
                     "system_notice" -> Gravity.CENTER_HORIZONTAL
                     else -> Gravity.START
                 }
@@ -2745,15 +2745,16 @@ class OverlayBubbleService : Service() {
                 })
                 return outer
             }
+            val isUser = message.role == "user" || message.role == "interrupted_user"
             val bubble = LinearLayout(this@OverlayBubbleService).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(11), dp(8), dp(11), dp(8))
                 background = messageBubbleBackground(
-                    if (message.role == "user") Color.rgb(83, 62, 115) else Color.rgb(53, 51, 60),
-                    user = message.role == "user",
+                    if (isUser) Color.rgb(83, 62, 115) else Color.rgb(53, 51, 60),
+                    user = isUser,
                 )
             }
-            val label = if (message.role == "user") {
+            val label = if (isUser) {
                 "你"
             } else if (message.proactive) {
                 "她 · ${proactiveIntentLabel(message.proactiveIntent)}"
@@ -2879,6 +2880,41 @@ class OverlayBubbleService : Service() {
                     actions.addView(speechAction(message.id, speechPhase, streaming))
                 }
                 bubble.addView(actions)
+            }
+            if (message.role == "interrupted_user") {
+                val interruptedActions = LinearLayout(this@OverlayBubbleService).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(5), 0, 0)
+                }
+                interruptedActions.addView(TextView(this@OverlayBubbleService).apply {
+                    text = "已停止生成"
+                    textSize = 11f
+                    setTextColor(Color.rgb(176, 169, 188))
+                })
+                interruptedActions.addView(TextView(this@OverlayBubbleService).apply {
+                    text = "重新编辑"
+                    textSize = 11f
+                    setTextColor(Color.rgb(190, 150, 255))
+                    paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+                    setPadding(dp(10), 0, dp(4), 0)
+                    setOnClickListener {
+                        chatInput?.setText(message.content)
+                        chatInput?.setSelection(message.content.length)
+                        enterChatInputMode()
+                    }
+                })
+                outer.addView(
+                    bubble,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        width = (overlayChatWidth(screenBounds().first) * 0.88f).toInt()
+                    },
+                )
+                outer.addView(interruptedActions)
+                return outer
             }
             outer.addView(
                 bubble,

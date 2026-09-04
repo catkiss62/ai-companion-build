@@ -342,8 +342,12 @@ class BackgroundChatCommandServer {
             !marker.createdAt.isBefore(messages.first.createdAt))
         <String, Object?>{
           'id': 'generation-interruption:${marker.jobId}',
-          'role': 'system_notice',
-          'content': '这一轮对话已中断',
+          'role': marker.hasDisplayOnlyUserContent
+              ? 'interrupted_user'
+              : 'system_notice',
+          'content': marker.hasDisplayOnlyUserContent
+              ? marker.userContent
+              : marker.notice,
           'reasoning_content': '',
           'created_at': marker.createdAt.millisecondsSinceEpoch,
           'is_proactive': 0,
