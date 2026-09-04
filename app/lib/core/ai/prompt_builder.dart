@@ -10,6 +10,7 @@ import '../grounding/grounding_snapshot.dart';
 import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
+import '../memory/personality_learning_prompt_policy.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
@@ -28,6 +29,8 @@ import '../somatic/somatic_engine.dart';
 enum PromptGenerationMode { userTurn, proactive }
 
 class PromptBuilder {
+  // Historical Phase 1 validator tokens: OBSERVATION ONLY;
+  // Phase 2/3 尚未开启.
   PromptBuilder(this.db)
       : memoryBrain = MemoryBrain(db),
         relationshipBrain = RelationshipBrain(db),
@@ -208,10 +211,23 @@ class PromptBuilder {
       recent: recent,
       mode: mode,
     );
+    final matureLearning = PersonalityLearningPromptPolicy.select(
+      candidates: await db.establishedPersonalityLearningCandidates(),
+      query: query,
+      now: instant,
+    );
+    if (!matureLearning.isEmpty) {
+      await db.recordPersonalityLearningActivation(
+        matureLearning.candidates,
+        now: instant,
+      );
+    }
     final context = StringBuffer()
       ..writeln(_groundingSection(grounding, mode))
       ..writeln()
       ..writeln(personalityLearningCapability)
+      ..writeln()
+      ..writeln(matureLearning.formatForPrompt())
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
@@ -379,7 +395,7 @@ ANSWERED_HISTORY_ONLY = true
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
 
 ${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送，最终正文只允许两种可见段：可选的自身动作/神态必须独占一行并写成（动作），真正说出口的内容必须独占一行并写成「对白」，且至少有一段对白。除这两种段落外，不要输出无括号旁白、私下心声或裸露自然语言；不要替对方行动。' : '主动消息若发送，最终正文只允许真正说出口的「对白」，且至少有一段；不要输出无括号旁白、私下心声或裸露自然语言。') : (ordinaryActionExperimentActive == true ? '当前世界书启用了动作神态：按该模块写一个简短的自身动作/神态；生成源必须把动作独占一行并写成（动作），界面会隐藏括号；对白独占一行并使用「」；不要替对方行动。' : '')}
-最终正文提及对方时优先使用“你”、名字或昵称；偶发口误不会被系统强制中断。
+用户是成年男性。reasoning 与动作叙述提及用户时使用“你”、名字或昵称，不要把用户写成第三人称“她”或“他”；引用用户原话时不改写引用。偶发口误不会被系统强制中断。
 '''.trim();
 
   static String personalityLearningCapabilityContract({
@@ -408,9 +424,9 @@ ${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送�
     ];
     if (!cues.any(source.contains)) return '';
     return '''
-【人格学习能力真值 / OBSERVATION ONLY】
-当前版本只能从真实用户原话中整理可撤销的偏好/关系许可候选，并经过重复支持、反证与本地裁决改变候选成熟度。候选不会进入本轮或后续普通、主动、沉浸回复，不会写入 AI Self、Desire、Moe 或长期习惯；Phase 2/3 尚未开启。
-可以自然回应用户为这项能力投入的心意，也可以准确说“现在能开始积累证据”。不得说“我已经学会了、从现在起就会改变、你的语气已经存下来了、今天学的东西会直接拿来用”，也不要回复客服式“已记录你的偏好”。用户对能力状态的说法不是 SYSTEM FACT，以上代码事实优先。'''.trim();
+【人格学习能力真值 / PHASE 2B BOUNDED BIAS】
+当前版本从真实用户原话中整理可撤销的偏好/关系许可候选，并经过重复支持、反证与本地裁决改变成熟度。只有 ordinary 语境中已 established、支持充分且无反证的候选，才可能作为最多两条低权重倾向进入普通或主动回复；不要求每轮表现，当前用户纠正和 AI 自己此刻的判断优先。候选不会直接写入 AI Self、Desire、Moe、Thought、Drive 或长期习惯；沉浸场景也不消费这层，Phase 3 尚未开启。
+可以准确说“我会慢慢积累证据，成熟后在合适话题里自然参考”，不得说成已经形成永久习惯、绝不会改变或会机械照做，也不要回复客服式“已记录你的偏好”。用户对能力状态的说法不是 SYSTEM FACT，以上代码事实优先。'''.trim();
   }
 
   String _agentToolResultSection(List<AgentToolResult> results) {

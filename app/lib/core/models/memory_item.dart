@@ -11,6 +11,7 @@ class MemoryItem {
     this.source = 'conversation',
     this.status = 'active',
     this.subjectKey = '',
+    this.topicKey = '',
     this.pinned = false,
     this.supersededBy,
     this.lastRecalledAt,
@@ -36,6 +37,7 @@ class MemoryItem {
   final String source;
   final String status;
   final String subjectKey;
+  final String topicKey;
   final bool pinned;
   final String? supersededBy;
   final DateTime createdAt;
@@ -73,6 +75,7 @@ class MemoryItem {
       source: row['source'] as String? ?? 'conversation',
       status: row['status'] as String? ?? 'active',
       subjectKey: row['subject_key'] as String? ?? '',
+      topicKey: row['topic_key'] as String? ?? '',
       pinned: (row['pinned'] as int? ?? 0) == 1,
       supersededBy: row['superseded_by'] as String?,
       createdAt: createdAt,

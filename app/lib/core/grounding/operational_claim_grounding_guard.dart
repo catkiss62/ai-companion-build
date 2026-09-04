@@ -118,7 +118,9 @@ class OperationalClaimGroundingGuard {
           if (result.toolId != requiredTool) return false;
           if (growthClaim) {
             return result.promptData.contains('PERSONALITY LEARNING STATUS') &&
-                result.promptData.contains('phase=observation_only');
+                (result.promptData.contains('phase=observation_only') ||
+                    result.promptData
+                        .contains('phase=phase2b_bounded_bias'));
           }
           return true;
         });

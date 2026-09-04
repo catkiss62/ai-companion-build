@@ -310,7 +310,7 @@ $editableMemoryPolicy
    - current_fact：用户直接说明、明确更新，或已经有足够证据支持的当前事实/当前偏好/稳定 AI Self。
    - inference：只是推测、可能、暂时观察到但不能确认的倾向。inference 永远不能覆盖 current_fact。
    - shared_experience：双方真实发生过、值得长期保留的共同经历；kind=shared_experience 时必须用这个 semantic。
-9. memory 的 subject_key 用于同一事实的版本链。只有能够稳定命名的事实才填写，例如 user.sleep_schedule / user.device_evening / preference.address / ai.self.communication_style；不确定就留空。
+9. memory 的 subject_key 用于同一事实的版本链。只有能够稳定命名的事实才填写，例如 user.sleep_schedule / user.device_evening / preference.address / ai.self.communication_style；不确定就留空。topic_key 是可选的一层关联主题，只能沿用 subject_key 的前两到三段稳定层级，不能从正文临时造词；不确定就留空。
 10. 结合【相关既有长期记忆】给每条 memory 选择 action：
    - reinforce：同一已经确认层级的事实/偏好/经历只是再次得到证据或换了一种说法；必须填 target_id，系统会增加证据次数而不是创建重复记忆。若旧条目是 inference、这次已经得到明确确认，应使用 current_fact + replace/append，让系统结束旧推断，而不是 reinforce 推断。
    - replace：同一 subject_key 的“当前事实”明确发生变化；填 target_id 和同一个 subject_key。旧版本会保留为历史，不会删除。
@@ -364,7 +364,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 
 必须输出严格 JSON，例如：
 {
-  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","content":"用户通常晚上会换到安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
+  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","content":"用户通常晚上会换到安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
   "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
@@ -1080,6 +1080,9 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
       final subjectKey = hasSpecialStyle && kind == 'shared_experience'
           ? ''
           : item['subject_key'] as String? ?? '';
+      final topicKey = hasSpecialStyle && kind == 'shared_experience'
+          ? ''
+          : item['topic_key'] as String? ?? '';
       if (PersonalityLearningBoundaryPolicy.isBehavioralMemorySubject(
             subjectKey,
           ) ||
@@ -1116,6 +1119,7 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         tags: tags,
         source: 'conversation_turn:$sourceMessageId${hasSpecialStyle ? '|special_style:${style.key}|trial:$specialStyleTrialId' : ''}',
         subjectKey: subjectKey,
+        topicKey: topicKey,
         semanticType: semantic,
         evidenceMode: action,
         targetMemoryId: targetId == null || targetId.isEmpty ? null : targetId,

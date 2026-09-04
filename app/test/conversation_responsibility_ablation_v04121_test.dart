@@ -166,6 +166,21 @@ void main() {
       expect(verification.plannedActExpressed, isTrue);
       expect(verification.reason, 'expressed_match');
     });
+
+    test('inviting the user to come chat is a real attention bid', () {
+      final verification = ConversationOutcomeVerifier.verify(
+        finalText: '「摸鱼的时候记得来找我，我陪你聊两句。」',
+        plan: _plan(
+          ConversationSpeechAct.seekAttention,
+          hasThought: false,
+          thoughtId: null,
+        ),
+      );
+
+      expect(verification.plannedActExpressed, isTrue);
+      expect(verification.expressedSpeechAct, 'seek_attention');
+      expect(verification.reason, 'expressed_match');
+    });
   });
 
   group('public web prompt ablation', () {

@@ -138,6 +138,7 @@ class PersonalityLearningCandidate {
     required this.id,
     required this.scope,
     required this.subjectKey,
+    this.topicKey = '',
     required this.proposition,
     required this.contextKey,
     required this.status,
@@ -148,11 +149,14 @@ class PersonalityLearningCandidate {
     required this.contradictionScore,
     required this.firstObservedAt,
     required this.lastObservedAt,
+    this.activationCount = 0,
+    this.lastActivatedAt,
   });
 
   final String id;
   final PersonalityLearningScope scope;
   final String subjectKey;
+  final String topicKey;
   final String proposition;
   final String contextKey;
   final PersonalityLearningStatus status;
@@ -163,6 +167,8 @@ class PersonalityLearningCandidate {
   final double contradictionScore;
   final DateTime firstObservedAt;
   final DateTime lastObservedAt;
+  final int activationCount;
+  final DateTime? lastActivatedAt;
 
   factory PersonalityLearningCandidate.fromDb(Map<String, Object?> row) {
     final scope = PersonalityLearningScope.parse(row['scope'] as String?);
@@ -173,6 +179,7 @@ class PersonalityLearningCandidate {
       id: row['id'] as String,
       scope: scope,
       subjectKey: row['subject_key'] as String? ?? '',
+      topicKey: row['topic_key'] as String? ?? '',
       proposition: row['proposition'] as String? ?? '',
       contextKey: row['context_key'] as String? ?? 'ordinary',
       status: PersonalityLearningStatus.parse(row['status'] as String?),
@@ -189,6 +196,12 @@ class PersonalityLearningCandidate {
       lastObservedAt: DateTime.fromMillisecondsSinceEpoch(
         (row['last_observed_at'] as num?)?.toInt() ?? 0,
       ),
+      activationCount: (row['activation_count'] as num?)?.toInt() ?? 0,
+      lastActivatedAt: row['last_activated_at'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              (row['last_activated_at'] as num).toInt(),
+            ),
     );
   }
 }

@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-03（Asia/Tokyo）
+更新时间：2026-09-04（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04131-phase2a5-verifier-closure-ui-cleanup`；从 v0.41.30 最终功能树继续，修新备份直接证明的 Phase 2A.5 验证器假阴性、普通轮明确收尾、主动轮互道晚安后的短时场景连续性与轻视觉说明行；同时削减无障碍高频事件的主线程 I/O，并为前台 ANR 增加脱敏 trace 与多维相关性摘要。不猜唯一根因，不开启 Phase 2B |
+| 当前开发分支 | `agent/v04132-phase2b-learning-association`；从 v0.41.31 最终公开 head `3a91931248503def11e28157ad32de56802f6dd7` 建立单一 Phase 2B 实现包。范围锁定为一层 topic/subject 关联、成熟学习候选的低权重可审计消费、空闲/夜间本地整理，以及新样本直接证明的男性用户第三人称口误和 `seek_attention` 验证器窄修；另保守追加“造梗/玩梗”字面别名。不修改性格光谱或造梗正文，不扩猜卡死根因 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.31 公开功能 head `e55dcddd9fe1be4bdbd2c0e53bc0e78a1b60e03e` / tree `2930ffaacc2a522745dd087c457226d67bedd05b`；本地等价功能提交 `dd6e5bb91eda12a73726e2351622cd5e97291e01` 指向同一 tree。修改前 v0.41.30 总账 tree 为 `081c70616fd3b71f8e1bbdde9ba05ae651a64a87` |
-| App / 数据库 | 当前开发目标 `0.41.31+170` / schema 45 / Snapshot protocol 5；不新增表。保留 04/05/07、房间默认规则、用户性格光谱、造梗规则及全部用户手改内容；空 legacy 小节继续只在 UI 隐藏 |
+| App / 数据库 | 当前开发目标 `0.41.32+171` / schema 46 / Snapshot protocol 5；计划为现有 Memory 与人格学习候选补 `topic_key`/消费审计字段，不建设完整知识图谱。保留 04/05/07、房间默认规则、用户性格光谱、造梗正文及全部用户手改内容；空 legacy 小节继续只在 UI 隐藏 |
 | 最终 CI | v0.41.31+170 Actions run [`33805050824`](https://github.com/catkiss62/ai-companion-build/actions/runs/33805050824)（713）全绿：全部源码/历史 validators、Kotlin（含 ANR trace 脱敏与 Accessibility 限流测试）、Flutter analyze、540/540 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。首轮 run [`33804108163`](https://github.com/catkiss62/ai-companion-build/actions/runs/33804108163)（712）仅因旧 `agent_self_reader_v0416_test` 硬编码 v0.41.30 label 失败；更新测试期望后完整重跑通过 |
 | 测试 APK | `AI-Companion-v0.41.31-170-Phase2A5-Verifier-ANR-Diagnostics-APK.apk`，325,832,422 bytes |
 | APK SHA-256 | `d59964809ee75d3546b2d4f113dbc404a05554372abbf5fbdad5131085591a89`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9912949593`](https://github.com/catkiss62/ai-companion-build/actions/runs/33805050824/artifacts/9912949593)，ZIP 319,535,198 bytes，digest `sha256:477dcc5876f1f55e580cf84dffa8b462c9f9ac8ab38d598ae352c6d666faaea9`，保留至 2026-09-17T21:06:03Z；Draft Release [`untagged-c83b183730eb6cad4c23`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-c83b183730eb6cad4c23)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.31 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`。已修 Phase 2A.5 三类 verifier 假阴性、普通晚安收尾、主动互道晚安后 90 分钟场景闭环、轻视觉重复说明、无障碍高频主线程 I/O 风险，并新增脱敏 ANR trace/多维诊断；540 tests 与完整 APK 门禁全绿。自动化不能证明 ANR 已根治，也不能替代主动新话题与晚安连续性的真机观察。Phase 2A.5 若本 APK 无阻断即可收口；完整 Phase 2 仍不能收口，因为 Phase 2B topic/subject、成熟候选安全消费与小幅 bias/整理尚未实现，Phase 1 当前仍只产候选 |
+| 当前总状态 | v0.41.31 保持 `IMPLEMENTED / CI PASSED / APK READY`，新真机样本给出晚安闭环、上下文/世界书装载、文件选择器悬浮恢复和无新 ANR 的正证据；卡死仍为 `PENDING` 观察，不能写成根治。v0.41.32 Phase 2B 当前为 `IMPLEMENTED / LOCAL VALIDATED / CI PENDING`：schema 46、topic 一层关联、成熟候选低权重消费、本地整理、脱敏审计及三项窄修已完成；只有 Actions 全门禁与 APK 尚未执行，完整 Phase 2 的真机自然度仍不得提前写通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装 v0.41.31 做短真机收口：确认互道晚安后 90 分钟内不会被普通 curiosity 主动叫醒，之后仍能自然开启新题；继续日常聊天观察 `show_need/release`；复现或自然遇到外部 App 上传/频繁刷新场景时观察是否仍有卡掉—连回循环。若再卡死，重启后立即导出新诊断，读取脱敏主线程类别与多维关联；无阻断则正式关闭 Phase 2A.5，并另立 Phase 2B 实现包。** |
-| 目标 | 先把用户已证实的呈现缺口和 ANR 定位能力补齐，再通过同一 APK 的自然聊天样本判断主动权失配发生于规划、Prompt 层竞争、原始生成、格式/守卫处理还是终态验证；不得用新的强提示词掩盖 68/89 失配 |
-| 当前证据 | v0.41.30 新备份的 5 轮普通聊天证明三次 `show_own_need` 为验证器假阴性，末轮“去睡/晚安”却被旧 curiosity Thought 规划成追问；用户随后又观察到互道晚安后 AI 主动问“这么晚还不睡”，证实主动场景闭环缺失。20:19 报告记录前台 ANR 并在约 0.97 秒后重启；同报告无附件调用、生成阻塞、内存 trim 或悬浮恢复循环。无障碍最后事件为 `TYPE_WINDOW_CONTENT_CHANGED`，且短时间内有大量事件进入旧同步落库路径；这是可修风险，最终归因仍需下次脱敏主线程 trace |
-| 保护与排除 | 不删除、重排或重新编号 rule layer 稳定 key；不修改用户性格光谱/造梗正文；不改变已真机通过的动作首帧和疲劳；不为“正常”情绪添加声音；不提前打开 Phase 2B，不让消融变体接触身份、事实、用户控制权、隐私和 NSFW 边界 |
-| 实现边界 | 空 legacy 小节只从组合编辑文本与预览隐藏，底层数据/备份继续保留。萌属性新默认改为开启＋明显，但遥测必须区分 `disabled/neutral/applied`。上传链只记录阶段、耗时桶、尺寸桶、成功/失败类别和选择器恢复状态，不记录路径、图片字节、标题、识图正文或原始异常。Phase 2A.5 本包先记录各 Prompt 责任层是否存在及原始/终态表达分类，不在自然证据前删除层 |
-| 完成判据 | 新专项测试覆盖：身体/边界式自身需求、普通晚安收尾、主动互道晚安短时阻断及 90 分钟后释放；无障碍普通内容事件限流、重复抑制、关键窗口事件保留，SQLite 不在服务主线程执行；ANR 报告仅输出本应用符号/粗分类和附件、生成、悬浮、内存、后台、无障碍等多维状态且不输出正文/路径/原始 trace。全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与载荷门禁通过后再交付真机观察 |
-| 直接详细入口 | 本节下方“v0.41.30 呈现、上传诊断与 Phase 2A.5 责任消融”；代码入口为 `ChatPage`/`_AssistantSegmentSequence`、`RuleLayersPage`/group codec、`MessageAttachmentStorage`/图片选择守卫、`ConversationInitiativeTelemetry`、`DurableGenerationRunner`、`PreflightDiagnostics` 与 Dynamic Moe 默认迁移 |
+| 当前下一步 | **在一个 v0.41.32 包中完成 Phase 2B：为长期 Memory 与人格学习建立保守 `topic_key`，只允许直接话题种子展开一层、最多补少量相关事实；只消费普通语境下已 `established` 且无反证的成熟候选，以低权重倾向进入普通/主动 Prompt，并记录无正文激活审计；空闲或夜间本地整理旧 subject/topic。并入“造梗/玩梗”别名、男性用户第三人称口误保护与 `seek_attention` verifier 窄修。全部完成后只构建一次 APK。** |
+| 目标 | 让已经真实成熟的学习证据开始产生小而可撤销、可诊断的个体差异，同时补上项目/人物前因后果的一层关联；不把用户偏好变成强制人格，不从 AI 回复或沉默学习，不让成长候选创建 Drive/Thought，不提前形成 Phase 3 AI habit |
+| 当前证据 | 2026-09-04 新备份/诊断为 v0.41.31+170、schema 45：4 个候选中 1 established、2 forming、1 candidate，5 条 evidence 均有真实来源；Prompt 源码仍明确 `OBSERVATION ONLY` 且不读取成熟候选。Self Experience 已 29 completed、最近 24h 10 completed，证明空闲整理底座存活。最近 8 个责任样本中性格光谱与造梗世界书均存在；新版本主动早安距双方晚安约 4 小时 45 分、90 分钟内无打扰。当前进程约 22 分 52 秒，历史退出为 `package_updated`、非 ANR，只有 Nearby stopped info，无生成/后台/数据库错误；这是正样本而非根治证明 |
+| 保护与排除 | 不删除、重排或重新编号 rule layer 稳定 key；不修改用户性格光谱/造梗正文；不改变已真机通过的动作首帧、长 reasoning 后逐字播放和疲劳；不为“正常”情绪添加声音；不让学习候选覆盖身份、事实、用户控制权、隐私、NSFW 或格式，也不从候选直接创建 Drive/Thought/AI habit。卡死与悬浮只继续观察已有诊断，不在无新失败栈时扩大猜修 |
+| 实现边界 | schema 46 只为现有 Memory/学习候选与检索审计补字段；Snapshot protocol 5 不变，schema 45 恢复时补安全默认。关联只从当前直接命中 seed 扩一层、最多 3 条，不从模糊文字自动建图。消费只读 established 普通候选；当前用户纠正、身份/事实/隐私/NSFW/格式、AI 自身 Desire 与判断优先。整理只在本地、空闲或夜间有界运行，不调用模型、不改证据原话 |
+| 完成判据 | 专项测试覆盖 schema 45→46、旧包恢复、topic 归一化/一层上限/无直接种子不扩展、候选成熟/反证/作用域门、低权重 Prompt 与激活审计零正文、空闲/夜间整理 Gate、别名只对精确旧值追加、用户男性不写成“她”、真实 `seek_attention` 表达识别。全部历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与完整载荷门禁通过后只交付一个 APK；完整 Phase 2 仍需真机 A/B 后才能写 `TRUE DEVICE PASSED` |
+| 直接详细入口 | 本节下方“v0.41.32 Phase 2B 学习消费与一层关联”；代码入口为 `MemoryItem`/`MemoryBrain`/`MemoryRetrievalPolicy`、`MemoryExtractor`、`PersonalityLearning*`、`PromptBuilder`、`ConversationOutcomeVerifier`、`PreflightDiagnostics`、`SnapshotService` 与 `AppDatabase` schema/migration |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -59,16 +59,37 @@
 | A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 689、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
-| C · Phase 2B 主线代码阶段 | Phase 2A 无阻断、2A.5 动作消费者稳定并经用户继续 | 实现轻量 topic/subject 关联记忆与可审计的小幅回复倾向；详细设计与参考入口见第 14、20、26、28 节。不得让用户偏好直接创建 Drive/Thought，也不得建设完整知识图谱 |
+| C · Phase 2B 主线代码阶段（CURRENT） | v0.41.31 新真机样本无 Phase 2A 阻断，且用户明确继续并要求合成一个 APK | 当前分支实现轻量 topic/subject 一层关联、成熟候选安全消费、空闲/夜间整理和脱敏审计；详细设计与参考入口见第 14、20、26、28 节。不得让用户偏好直接创建 Drive/Thought，也不得建设完整知识图谱 |
 | D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
 | E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
-| F · v0.41.27 薄人设 + NSFW 统一运行时（CURRENT） | 最新真机薄提示词 A/B、渲染、主动、双感官、可见思考与沉浸成人流程缺陷已定位 | 完成 CI/APK 后把可见内心化与当前任务包一起验收；若真机自然度通过，再决定 Phase 2B 是否开始，不以本包替代学习吸收阶段 |
+| F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
+
+### v0.41.32 Phase 2B 学习消费与一层关联（2026-09-04，IMPLEMENTED / LOCAL VALIDATED / CI PENDING）
+
+1. 修改前只读取用户新发的 `AI_Companion_Backup_2026-09-04T01-15-46.aibackup` 与 `ai_companion_diagnostics_2026-09-04T01-15-50-493390Z(1).txt`，二者均来自 v0.41.31+170 / schema 45；备份 protocol 5、generation 37，manifest 与全部附件 hash 完整。原始备份、消息正文和脱敏诊断不得提交仓库。
+2. 本次运行约 22 分 52 秒，没有 generation blocking/failure、后台脑失败、memory trim 或数据库错误；历史退出原因是 `package_updated` 而非 ANR。Accessibility 减压遥测真实运行，外部文件选择期间悬浮球按预期暂时 detach 并在约 2.9 秒内恢复。该样本只能把“卡死/悬浮球掉线”记为继续观察，不能宣称 v0.41.31 已根治，也不足以再猜一个新根因。
+3. 最近主动早安距双方晚安约 4 小时 45 分，90 分钟内没有错误打扰；其 reasoning 与正文正确承接洗澡、熬夜、工作和睡眠上下文，并输出动作加 `「」` 对白，证明晚安 Gate、followup 上下文和主动格式链本次有正样本。它不是独立开新话题样本，因此 `open_own_topic` 继续待自然验证。
+4. 最近 8 个 Prompt 责任样本均装载 rule bundle、性格光谱和造梗世界书；01/03 的非空层被加载，已迁移而为空的 01/02/03 legacy 行按设计省略。性格光谱正文为用户创建且仍只存在数据库中，代码只提供通用世界书装载/诊断识别；造梗能力也是用户文档，但当前安全正文受 v0.41.28 精确 hash 迁移保护。本包不改两者正文，只把别名精确旧值 `造梗|玩梗` 迁移为 `造梗|玩梗|造梗/玩梗`，不覆盖其他用户手改别名。
+5. 人格学习现有 4 个候选、5 条真实用户 evidence：1 established、2 forming、1 candidate；已成熟项是“熟悉后可少客套、斗嘴甚至说脏话”的关系许可。源码仍明确标注 `OBSERVATION ONLY`，候选不会进入普通、主动、沉浸 Prompt。Self Experience 有 29 completed、26 pending，最近 24 小时完成 10 条，说明空闲整理底座存活，但它不会整理或消费人格学习候选。这是 Phase 2 尚未收口的明确缺口。
+6. v0.41.31 最近三个普通用户轮的 planner 都选择 `seek_attention`，最终 verifier 都给出 `react / planned_bid_not_expressed`。至少第一条正文“摸鱼的时候记得来找我……陪你聊”是真实 attention bid，只是固定词表漏认“来找我”；其余仍可能是模型选择不执行计划。本包只扩充可泛化的窄语义标记并保留真实 mismatch，不删除规则/世界书层，也不把所有友善回应伪报成主动权落实。
+7. 同一批新样本还出现女性 AI 在 reasoning/action 中把成年男性用户写成“她”的明确视角口误。本包只加强生成合同：叙述用户动作时优先第二人称或名字，禁止用第三人称“他/她”替代用户；不对引用、世界书或用户原文做粗暴字符串后处理。
+8. Phase 2B 实现边界锁定为 schema 46、Snapshot protocol 5：为现有 Memory、人格学习候选和检索审计增加保守 topic/消费字段；只有当前查询已经直接命中的 seed 才能按同一 topic 展开一层，最多补 3 条，无 seed 不扩展。只让 ordinary/proactive 语境中的 established、足够支持且无反证候选以低权重倾向进入 Prompt，当前用户纠正、身份/事实/隐私/NSFW/格式、AI 自身 Desire 与判断始终优先；候选不得直接创建 Drive、Thought 或 AI habit。
+9. 空闲/夜间整理限定为本地、有界、可租约任务，只补全/归一化稳定 topic 和成熟候选索引，不调用模型、不改 evidence 原话、不自动晋级候选。激活与整理诊断只记录数量、门状态和粗时间，不记录候选正文、消息、文档内容或稳定标识。
+10. 完成前必须覆盖 schema 45→46、旧备份恢复、topic 一层上限与无 seed 门、成熟度/反证/作用域、低权重 Prompt、无正文激活审计、空闲/夜间 Gate、精确别名迁移、男性用户指代和 `seek_attention` 识别；运行全部可用历史 validator、Flutter analyze/tests、Kotlin、Release APK、签名与载荷门禁。修改后再次回填本总账，最终只推送一次并触发一个 APK 构建。
+11. 已实现 schema 46，Snapshot protocol 继续为 5。`memory_items` 新增 `topic_key`；人格学习候选新增 `topic_key / activation_count / last_activated_at`；检索审计新增直接 topic seed、关联候选和关联选中计数。新装、45→46 升级和 schema 45 备份恢复三条路径都补安全默认与索引，旧包不会因缺列失败。
+12. Topic 只能来自合法的稳定 subject 层级或与 subject 前两段同根的显式 key，不从记忆正文、消息或模型自由文本猜图。运行检索先完成原有直接 lexical seed 与 cooldown，只有直接选中项存在非空 topic 才从同 topic 补一层，排除直接/冷却项、最多 3 条且不突破本轮 memory limit；无直接 seed 必为零扩展。
+13. 已把 established ordinary 候选接入普通/主动共用的 `PromptBuilder`：必须 confidence≥0.82、至少两条支持、contradiction 为零且 scope 仅限用户偏好/关系许可；直接话题优先，只有沟通/关系成熟项可在 6 小时冷却后作为单条 ambient tie-breaker，最终最多两条。Prompt 明确它不是命令、事实、固定台词或每轮任务，用户当前纠正、身份/事实/隐私/成人/格式边界及 AI 自己的 Desire/判断优先；不会创建 AI Self、Moe、Thought、Drive 或 habit。每次真实注入只累计候选计数/时间，诊断不含正文和 ID。
+14. 新增本地 Phase 2B 整理器：仅在凌晨 0～6 点或最后用户消息已空闲至少 90 分钟、且距上次运行至少 6 小时时取得独立短租约；每次最多扫描 320 条记忆和 160 个候选，仅补空 topic，不调用模型、不改 evidence 原话、不改变成熟度。聊天启动维护与主动本地 heartbeat 共用该任务，失败不阻塞聊天/主动生成。
+15. 已并入三个新样本窄修：生成提醒明确用户为成年男性，reasoning/action 使用“你”、名字或昵称，不用第三人称“她/他”替代用户且不改写引用；Outcome verifier 新增可泛化的“来找我/找我聊” attention bid，仍保留模型真正未执行计划的 mismatch；只把非内置行为文档 `造梗能力` 的精确旧别名 `造梗|玩梗` 更新为 `造梗|玩梗|造梗/玩梗`，正文及其他用户别名完全不动，恢复旧包后也执行同一精确迁移。
+16. Agent Self 的成长事实同步升级为 `phase2b_bounded_bias`，只暴露候选/证据/成熟度/激活数量；操作真实性守卫同时认可旧 observation-only 与新 Phase 2B 真值，避免真实自读被误拦截。能力说明明确 Phase 3 尚未开启，不能自称形成永久习惯。
+17. 新增纯策略专项测试覆盖 topic 归一化、无直接 seed 不扩展、同 topic 最多三条、成熟/反证/trial 门、最多两条、夜间/90 分钟 Gate，以及真实“来找我” attention bid；既有 Prompt/Agent Self 测试已改为新阶段并保留历史 validator token。新增 v0.41.32 静态 validator，工作流版本/分支/Artifact/Draft Release/monitor 已更新。
+18. 本地 `git diff --check`、workflow YAML 解析、Python compileall、新 v0.41.32 与 v0.41.31/30/14/13 专项及全部可运行历史 validators 通过。仅 7 项因本地缺少 LingChat effects、417 文件桌宠、Meju/TTS native 载荷或 `kotlinc` 不能执行，与上一版边界一致；本地也没有 Flutter/Dart SDK。必须由一次 Actions 完整恢复后运行 Flutter analyze/tests、Kotlin、Release APK、签名与载荷门，当前不得写 `CI PASSED / APK READY`。
 
 ### v0.41.31 Phase 2A.5 验证器与收尾边界窄修（2026-09-03，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
@@ -102,7 +123,7 @@
 13. v0.41.30 新增 11 个专项 Dart 断言，覆盖 post-turn 未结束时打字机不得启动/消费游标、空占位精确过滤及完整导出保留、Moe 一次性默认、上传桶与 ANR 非因果输出、Prompt 形状不含正文及 raw/final 责任归因。新增版本专项 validator，并把仍在工作流中的历史 validator 延展到 0.41.30；总账轻量区维持 20 KB 以下且冻结历史 hash 不变。
 14. 本地没有 Flutter/Dart SDK、完整 LingChat effects、417 文件桌宠、Meju/TTS native 载荷和 `kotlinc`。因此先完成 `git diff --check`、Python 语法、v0.41.30/v0.41.29/v0.41.28/总账/音频呈现等源码合同；58 个工作流 Python 入口中源码与 SQL 类 51 项可运行通过或按脚本安全 skip，7 项仅因上述大型载荷/编译器缺失无法本地执行。远端 run 710 随后真实编译发现附件 ANR 关联映射中的可空索引三元语法歧义，已改为显式 `possible && preceding != null` 并在版本 validator 固化。
 15. Actions run [`33797466332`](https://github.com/catkiss62/ai-companion-build/actions/runs/33797466332)（711）在 `8836048b` 全绿：源码/历史 validators、Kotlin、Flutter analyze、`533/533` Flutter tests、Release APK、固定 signer、原生库、417 文件桌宠、Meju TTS、LingChat 19 表情、头像立绘与 22 张塔罗载荷、checksum、Artifact 和 Draft Release 全部通过。APK `AI-Companion-v0.41.30-169-Presentation-Ablation-Upload-Diagnostics-APK.apk` 为 `325,815,586` bytes，SHA-256 `038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83`；Artifact ID `9910137218`，ZIP `319,517,624` bytes，digest `sha256:34872a50a424a805f0349ae6ee61e09ae7e476a5969836207711fc3dcfb60fb8`。Draft Release 为 [`untagged-e815d33581115d1757a4`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e815d33581115d1757a4)；未合并 `main`，未发布正式 Release。
-16. 自动化只证明实现与构建合同，不能替代真机。覆盖安装后需复测一次长 reasoning 正文是否从首字逐字播放、空 legacy 小节是否只在编辑器隐藏、Moe 是否一次性默认开启＋明显且允许手动关闭；自然聊天与至少一次图片选择/处理后导出新诊断，用责任层 present/absent × raw/final match/mismatch 和附件阶段时间桶决定第二个修复 APK。取得这些证据前 Phase 2A.5 不得写成真机收口，Phase 2B 继续不提前开启。
+16. 自动化只证明实现与构建合同，不能替代真机。覆盖安装后需复测一次长 reasoning 正文是否从首字逐字播放、空 legacy 小节是否只在编辑器隐藏、Moe 是否一次性默认开启＋明显且允许手动关闭；自然聊天与至少一次图片选择/处理后导出新诊断，用责任层 present/absent × raw/final match/mismatch 和附件阶段时间桶决定第二个修复 APK。该版本取得这些证据前 Phase 2A.5 不得写成真机收口，且其实现边界是“不提前打开 Phase 2B”；该历史边界现已由用户确认后的 v0.41.32 主线取代。
 
 ### v0.41.29 主动格式、动作分段、空规则小节与情绪反馈（2026-09-03，CI PASSED / APK READY / TRUE DEVICE PENDING）
 

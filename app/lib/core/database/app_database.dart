@@ -24,6 +24,7 @@ import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
 import '../memory/memory_retrieval_policy.dart';
+import '../memory/topic_association_policy.dart';
 import '../integration/moe_expression_default_policy.dart';
 import '../phone/album_perceptual_hash.dart';
 import '../reference/world_book_presets.dart';
@@ -94,7 +95,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 41;
   // Historical validator compatibility token: static const int schemaVersion = 42;
   // Historical validator compatibility token: static const int schemaVersion = 44;
-  static const int schemaVersion = 45;
+  // Historical validator compatibility token: static const int schemaVersion = 45;
+  static const int schemaVersion = 46;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1078,6 +1080,9 @@ class AppDatabase {
     if (oldVersion < 45) {
       await _createV45WorldBookColumns(db);
     }
+    if (oldVersion < 46) {
+      await _createV46LearningAssociationColumns(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1118,6 +1123,7 @@ class AppDatabase {
         source TEXT NOT NULL DEFAULT 'conversation',
         status TEXT NOT NULL DEFAULT 'active',
         subject_key TEXT NOT NULL DEFAULT '',
+        topic_key TEXT NOT NULL DEFAULT '',
         pinned INTEGER NOT NULL DEFAULT 0,
         superseded_by TEXT,
         created_at INTEGER NOT NULL,
@@ -1251,6 +1257,7 @@ class AppDatabase {
     await _createV43Tables(db);
     await _createV44Tables(db);
     await _createV45WorldBookColumns(db);
+    await _createV46LearningAssociationColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -2320,6 +2327,7 @@ class AppDatabase {
         id TEXT PRIMARY KEY,
         scope TEXT NOT NULL,
         subject_key TEXT NOT NULL,
+        topic_key TEXT NOT NULL DEFAULT '',
         proposition TEXT NOT NULL,
         context_key TEXT NOT NULL DEFAULT 'ordinary',
         status TEXT NOT NULL DEFAULT 'candidate',
@@ -2334,6 +2342,8 @@ class AppDatabase {
         contradicted_at INTEGER,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        activation_count INTEGER NOT NULL DEFAULT 0,
+        last_activated_at INTEGER,
         UNIQUE(scope, subject_key, context_key)
       )
     ''');
@@ -2545,6 +2555,7 @@ class AppDatabase {
           'id': targetId,
           'scope': target.scope,
           'subject_key': target.subjectKey,
+          'topic_key': TopicAssociationPolicy.fromSubject(target.subjectKey),
           'proposition': target.proposition,
           'context_key': contextKey,
           'status': PersonalityLearningStatus.candidate.key,
@@ -2687,12 +2698,55 @@ class AppDatabase {
         blocked_cooldown_count INTEGER NOT NULL,
         selected_count INTEGER NOT NULL,
         pinned_selected_count INTEGER NOT NULL,
-        shared_selected_count INTEGER NOT NULL
+        shared_selected_count INTEGER NOT NULL,
+        topic_seed_count INTEGER NOT NULL DEFAULT 0,
+        associated_candidate_count INTEGER NOT NULL DEFAULT 0,
+        associated_selected_count INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_memory_retrieval_audit_time '
       'ON memory_retrieval_audit(created_at DESC)',
+    );
+  }
+
+  Future<void> _createV46LearningAssociationColumns(Database db) async {
+    Future<void> addMissing(
+      String table,
+      Map<String, String> definitions,
+    ) async {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final entry in definitions.entries) {
+        if (!columns.contains(entry.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
+      }
+    }
+
+    await addMissing('memory_items', const {
+      'topic_key': "TEXT NOT NULL DEFAULT ''",
+    });
+    await addMissing('personality_learning_candidates', const {
+      'topic_key': "TEXT NOT NULL DEFAULT ''",
+      'activation_count': 'INTEGER NOT NULL DEFAULT 0',
+      'last_activated_at': 'INTEGER',
+    });
+    await addMissing('memory_retrieval_audit', const {
+      'topic_seed_count': 'INTEGER NOT NULL DEFAULT 0',
+      'associated_candidate_count': 'INTEGER NOT NULL DEFAULT 0',
+      'associated_selected_count': 'INTEGER NOT NULL DEFAULT 0',
+    });
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_topic '
+      "ON memory_items(topic_key, status, updated_at DESC) WHERE topic_key != ''",
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_personality_learning_topic '
+      "ON personality_learning_candidates(topic_key, status, updated_at DESC) WHERE topic_key != ''",
     );
   }
 
@@ -3225,6 +3279,17 @@ class AppDatabase {
       }
       await setSetting('worldbook_humor_cleanup_v04128_applied', '1');
     }
+    // Exact-value migration only: preserve every custom alias edit while also
+    // accepting the user's literal slash spelling in the reviewed default.
+    await db.update(
+      'reference_documents',
+      {
+        'aliases': '造梗|玩梗|造梗/玩梗',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'builtin = 0 AND entry_type = ? AND name = ? AND aliases = ?',
+      whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
+    );
     final moeExpressionDefaultMigration =
         await getSetting(MoeExpressionDefaultPolicy.markerKey);
     if (MoeExpressionDefaultPolicy.shouldApply(
@@ -5921,6 +5986,7 @@ class AppDatabase {
     List<String> tags = const [],
     String source = 'conversation',
     String subjectKey = '',
+    String topicKey = '',
     bool pinned = false,
     String semanticType = 'current_fact',
     String evidenceMode = 'auto',
@@ -5929,6 +5995,10 @@ class AppDatabase {
     final normalized = content.trim();
     if (normalized.isEmpty) return;
     final normalizedSubject = subjectKey.trim().toLowerCase();
+    final normalizedTopic = TopicAssociationPolicy.resolve(
+      explicit: topicKey,
+      subjectKey: normalizedSubject,
+    );
     const semanticTypes = {'current_fact', 'inference', 'shared_experience'};
     const evidenceModes = {'auto', 'append', 'reinforce', 'replace'};
     var semantic = semanticTypes.contains(semanticType) ? semanticType : 'current_fact';
@@ -5998,6 +6068,8 @@ class AppDatabase {
             'tags': mergedTags,
             if (existing.subjectKey.isEmpty && normalizedSubject.isNotEmpty)
               'subject_key': normalizedSubject,
+            if (existing.topicKey.isEmpty && normalizedTopic.isNotEmpty)
+              'topic_key': normalizedTopic,
             if (pinned) 'pinned': 1,
             'evidence_count': existing.evidenceCount + 1,
             'last_evidence_at': now,
@@ -6131,6 +6203,7 @@ class AppDatabase {
         'source': source,
         'status': 'active',
         'subject_key': normalizedSubject,
+        'topic_key': normalizedTopic,
         'pinned': pinned ? 1 : 0,
         'superseded_by': null,
         'created_at': now,
@@ -6206,6 +6279,7 @@ class AppDatabase {
     var blockedNoDirect = 0;
     var blockedCooldown = 0;
     final scored = <({MemoryItem item, double score})>[];
+    final directlyConsideredIds = <String>{};
     for (final row in rows) {
       final item = MemoryItem.fromDb(row);
       final decision = MemoryRetrievalPolicy.evaluate(
@@ -6218,6 +6292,7 @@ class AppDatabase {
         continue;
       }
       directCount += 1;
+      directlyConsideredIds.add(item.id);
       if (decision.cooldownBlocked) {
         blockedCooldown += 1;
         continue;
@@ -6225,8 +6300,26 @@ class AppDatabase {
       scored.add((item: item, score: decision.score));
     }
     scored.sort((left, right) => right.score.compareTo(left.score));
-    final selected =
+    final directSelected =
         scored.take(limit).map((entry) => entry.item).toList(growable: false);
+    final seedTopics = directSelected
+        .map((item) => item.topicKey)
+        .where((topic) => topic.isNotEmpty)
+        .toSet();
+    final associationPool = rows
+        .map(MemoryItem.fromDb)
+        .where((item) => !directlyConsideredIds.contains(item.id))
+        .toList(growable: false);
+    final associatedSelected = TopicAssociationPolicy.selectAssociated(
+      directSeeds: directSelected,
+      candidates: associationPool,
+      limit: min(3, max(0, limit - directSelected.length)),
+      blocked: (item) => _memoryAssociationCooldownBlocked(item, instant),
+    );
+    final selected = <MemoryItem>[
+      ...directSelected,
+      ...associatedSelected,
+    ];
 
     await db.transaction((txn) async {
       for (final item in selected) {
@@ -6261,6 +6354,13 @@ class AppDatabase {
             selected.where((item) => item.pinned).length,
         'shared_selected_count':
             selected.where((item) => item.isSharedExperience).length,
+        'topic_seed_count': seedTopics.length,
+        'associated_candidate_count': seedTopics.isEmpty
+            ? 0
+            : associationPool
+                .where((item) => seedTopics.contains(item.topicKey))
+                .length,
+        'associated_selected_count': associatedSelected.length,
       });
       await txn.delete(
         'memory_retrieval_audit',
@@ -6273,6 +6373,17 @@ class AppDatabase {
       );
     });
     return selected;
+  }
+
+  bool _memoryAssociationCooldownBlocked(MemoryItem item, DateTime now) {
+    final lastUse = item.lastRecalledAt == null
+        ? item.lastExpressedAt
+        : item.lastExpressedAt == null ||
+                item.lastRecalledAt!.isAfter(item.lastExpressedAt!)
+            ? item.lastRecalledAt
+            : item.lastExpressedAt;
+    return lastUse != null &&
+        now.difference(lastUse) < MemoryRetrievalPolicy.cooldownFor(item);
   }
 
   Future<void> markRecentlyInjectedMemoriesExpressed(
@@ -6332,7 +6443,10 @@ class AppDatabase {
              COALESCE(SUM(direct_count), 0) AS direct,
              COALESCE(SUM(blocked_no_direct_count), 0) AS blocked_no_direct,
              COALESCE(SUM(blocked_cooldown_count), 0) AS blocked_cooldown,
-             COALESCE(SUM(selected_count), 0) AS selected
+             COALESCE(SUM(selected_count), 0) AS selected,
+             COALESCE(SUM(topic_seed_count), 0) AS topic_seeds,
+             COALESCE(SUM(associated_candidate_count), 0) AS associated_candidates,
+             COALESCE(SUM(associated_selected_count), 0) AS associated_selected
       FROM memory_retrieval_audit
       WHERE created_at >= ?
     ''', [since]);
@@ -6349,6 +6463,9 @@ class AppDatabase {
         'selected_count',
         'pinned_selected_count',
         'shared_selected_count',
+        'topic_seed_count',
+        'associated_candidate_count',
+        'associated_selected_count',
       ],
       orderBy: 'created_at DESC',
       limit: 6,
@@ -6362,6 +6479,11 @@ class AppDatabase {
       'blockedNoDirect': (row['blocked_no_direct'] as num?)?.toInt() ?? 0,
       'blockedCooldown': (row['blocked_cooldown'] as num?)?.toInt() ?? 0,
       'selected': (row['selected'] as num?)?.toInt() ?? 0,
+      'topicSeeds': (row['topic_seeds'] as num?)?.toInt() ?? 0,
+      'associatedCandidates':
+          (row['associated_candidates'] as num?)?.toInt() ?? 0,
+      'associatedSelected':
+          (row['associated_selected'] as num?)?.toInt() ?? 0,
       'latest': latest,
       'queryTextIncluded': false,
       'memoryBodiesIncluded': false,
@@ -6512,6 +6634,114 @@ class AppDatabase {
         .toList(growable: false);
   }
 
+  Future<List<PersonalityLearningCandidate>>
+      establishedPersonalityLearningCandidates({int limit = 24}) async {
+    if ((await getSetting('personality_learning_enabled')) == '0') {
+      return const <PersonalityLearningCandidate>[];
+    }
+    final db = await database;
+    final rows = await db.query(
+      'personality_learning_candidates',
+      where: 'status = ? AND context_key = ? AND contradiction_count = 0',
+      whereArgs: const ['established', 'ordinary'],
+      orderBy: 'confidence DESC, support_count DESC, updated_at DESC',
+      limit: limit.clamp(1, 100).toInt(),
+    );
+    return rows
+        .map(PersonalityLearningCandidate.fromDb)
+        .toList(growable: false);
+  }
+
+  Future<void> recordPersonalityLearningActivation(
+    List<PersonalityLearningCandidate> candidates, {
+    DateTime? now,
+  }) async {
+    if (candidates.isEmpty) return;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    await db.transaction((txn) async {
+      for (final candidate in candidates.take(2)) {
+        await txn.rawUpdate(
+          'UPDATE personality_learning_candidates '
+          'SET activation_count = activation_count + 1, '
+          'last_activated_at = ?, updated_at = updated_at WHERE id = ?',
+          [instant.millisecondsSinceEpoch, candidate.id],
+        );
+      }
+      final previousRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['personality_learning_phase2b_activation_count'],
+        limit: 1,
+      );
+      final previous = previousRows.isEmpty
+          ? 0
+          : int.tryParse(previousRows.first['value']?.toString() ?? '') ?? 0;
+      await txn.insert(
+        'settings',
+        {
+          'key': 'personality_learning_phase2b_activation_count',
+          'value': (previous + candidates.take(2).length).toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await txn.insert(
+        'settings',
+        {
+          'key': 'personality_learning_phase2b_last_activation_at',
+          'value': instant.millisecondsSinceEpoch.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<({int memories, int candidates})> backfillPhase2BTopicKeys() async {
+    final db = await database;
+    var memoryUpdates = 0;
+    var candidateUpdates = 0;
+    await db.transaction((txn) async {
+      final memories = await txn.query(
+        'memory_items',
+        columns: const ['id', 'subject_key'],
+        where: "topic_key = '' AND subject_key != ''",
+        limit: 320,
+      );
+      for (final row in memories) {
+        final topic = TopicAssociationPolicy.fromSubject(
+          row['subject_key']?.toString(),
+        );
+        if (topic.isEmpty) continue;
+        memoryUpdates += await txn.update(
+          'memory_items',
+          {'topic_key': topic},
+          where: 'id = ? AND topic_key = ?',
+          whereArgs: [row['id'], ''],
+        );
+      }
+      final candidates = await txn.query(
+        'personality_learning_candidates',
+        columns: const ['id', 'subject_key'],
+        where: "topic_key = '' AND subject_key != ''",
+        limit: 160,
+      );
+      for (final row in candidates) {
+        final topic = TopicAssociationPolicy.fromSubject(
+          row['subject_key']?.toString(),
+        );
+        if (topic.isEmpty) continue;
+        candidateUpdates += await txn.update(
+          'personality_learning_candidates',
+          {'topic_key': topic},
+          where: 'id = ? AND topic_key = ?',
+          whereArgs: [row['id'], ''],
+        );
+      }
+    });
+    return (memories: memoryUpdates, candidates: candidateUpdates);
+  }
+
   Future<bool> applyPersonalityLearningProposal({
     required PersonalityLearningProposal proposal,
     required PersonalityLearningContext context,
@@ -6572,6 +6802,7 @@ class AppDatabase {
           'id': candidateId,
           'scope': proposal.scope.key,
           'subject_key': proposal.subjectKey,
+          'topic_key': TopicAssociationPolicy.fromSubject(proposal.subjectKey),
           'proposition': proposal.proposition,
           'context_key': context.contextKey,
           'status': PersonalityLearningStatus.candidate.key,
@@ -6701,6 +6932,12 @@ class AppDatabase {
     final revisionCounts = await db.rawQuery(
       'SELECT COUNT(*) AS count FROM personality_learning_evidence_revisions',
     );
+    final activationRows = await db.rawQuery('''
+      SELECT COALESCE(SUM(activation_count), 0) AS activations,
+             COUNT(CASE WHEN last_activated_at IS NOT NULL THEN 1 END) AS activated_candidates,
+             MAX(last_activated_at) AS latest_activation
+      FROM personality_learning_candidates
+    ''');
     final rejectionReasonCounts = <String, int>{};
     for (final reason in PersonalityLearningRejectionReason.values) {
       final count = int.tryParse(
@@ -6732,6 +6969,26 @@ class AppDatabase {
       'candidateCount': Sqflite.firstIntValue(candidateCounts) ?? 0,
       'evidenceCount': Sqflite.firstIntValue(evidenceCounts) ?? 0,
       'evidenceRevisionCount': Sqflite.firstIntValue(revisionCounts) ?? 0,
+      'phase2b': {
+        'mode': 'bounded_bias',
+        'activationCount': activationRows.isEmpty
+            ? 0
+            : (activationRows.first['activations'] as num?)?.toInt() ?? 0,
+        'activatedCandidateCount': activationRows.isEmpty
+            ? 0
+            : (activationRows.first['activated_candidates'] as num?)?.toInt() ?? 0,
+        'latestActivationAt': activationRows.isEmpty
+            ? 0
+            : (activationRows.first['latest_activation'] as num?)?.toInt() ?? 0,
+        'lastConsolidationAt': int.tryParse(
+              await getSetting('phase2b_consolidation_last_at') ?? '',
+            ) ??
+            0,
+        'lastConsolidationOutcome':
+            await getSetting('phase2b_consolidation_last_outcome') ?? 'never',
+        'candidateBodiesIncluded': false,
+        'candidateIdsIncluded': false,
+      },
       'statusCounts': await grouped(
         'personality_learning_candidates',
         'status',
@@ -14179,6 +14436,20 @@ class AppDatabase {
               'fact_version': 1,
             });
           }
+          if (table == 'memory_items' && version < 46) {
+            row['topic_key'] = TopicAssociationPolicy.fromSubject(
+              row['subject_key']?.toString(),
+            );
+          }
+          if (table == 'personality_learning_candidates' && version < 46) {
+            row.addAll({
+              'topic_key': TopicAssociationPolicy.fromSubject(
+                row['subject_key']?.toString(),
+              ),
+              'activation_count': 0,
+              'last_activated_at': null,
+            });
+          }
           if (table == 'relationship_events' && version < 6) {
             row['internalized_at'] = row['created_at'];
           }
@@ -14490,6 +14761,15 @@ class AppDatabase {
         );
       }
       await _stabilizeV44Data(txn);
+      await txn.update(
+        'reference_documents',
+        {
+          'aliases': '造梗|玩梗|造梗/玩梗',
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'builtin = 0 AND entry_type = ? AND name = ? AND aliases = ?',
+        whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
+      );
     });
     await _seedRuleLayers(await database);
     await ensureDeviceId();

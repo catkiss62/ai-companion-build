@@ -18,7 +18,8 @@ void main() {
     expect(reminder, isNot(contains('结构示意')));
     expect(reminder, isNot(contains('[确有必要时的动作段]')));
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
-    expect(reminder, contains('最终正文提及对方时优先使用“你”'));
+    expect(reminder, contains('用户是成年男性'));
+    expect(reminder, contains('不要把用户写成第三人称“她”或“他”'));
     expect(reminder, contains('偶发口误不会被系统强制中断'));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
     expect(reminder, isNot(contains('禁止用“我”“她”')));
@@ -75,9 +76,9 @@ void main() {
       recent: const <ChatMessage>[],
       mode: PromptGenerationMode.userTurn,
     );
-    expect(relevant, contains('OBSERVATION ONLY'));
-    expect(relevant, contains('Phase 2/3 尚未开启'));
-    expect(relevant, contains('不得说“我已经学会了'));
+    expect(relevant, contains('PHASE 2B BOUNDED BIAS'));
+    expect(relevant, contains('最多两条低权重倾向'));
+    expect(relevant, contains('Phase 3 尚未开启'));
 
     final ordinary = PromptBuilder.personalityLearningCapabilityContract(
       latestUserText: '今天晚饭吃什么？',

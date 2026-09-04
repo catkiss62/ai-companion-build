@@ -1,6 +1,8 @@
 import 'package:ai_companion_localfirst/core/agent/agent_self_reader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+// Historical validator compatibility: build=v0.41.31+170 schema=45
+
 void main() {
   test('facts distinguish executable capabilities from future placeholders', () {
     final result = AgentSelfReader.composePromptData(
@@ -10,7 +12,7 @@ void main() {
       currentDeviceLabel: 'REDMI K80 Ultra',
     );
 
-    expect(result.promptData, contains('build=v0.41.31+170 schema=45'));
+    expect(result.promptData, contains('build=v0.41.32+171 schema=46'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(
       result.promptData,
@@ -89,7 +91,7 @@ void main() {
     expect(result.promptData, contains('不得补写未提供的具体内容'));
   });
 
-  test('growth scope exposes only bounded observation metadata', () {
+  test('growth scope exposes only bounded Phase 2B metadata', () {
     final result = AgentSelfReader.composePromptData(
       scope: AgentSelfReadScope.growth,
       activeBrain: true,
@@ -105,6 +107,7 @@ void main() {
         },
         'latestObservedAt':
             DateTime(2026, 9, 1, 7, 20).millisecondsSinceEpoch,
+        'phase2b': <String, Object?>{'activationCount': 3},
         // Unexpected bodies must never be formatted.
         'subject': 'PRIVATE SUBJECT',
         'proposition': 'PRIVATE PROPOSITION',
@@ -114,7 +117,8 @@ void main() {
     expect(result.factCount, 0);
     expect(result.outcomeCount, 0);
     expect(result.growthCount, 3);
-    expect(result.promptData, contains('phase=observation_only'));
+    expect(result.promptData, contains('phase=phase2b_bounded_bias'));
+    expect(result.promptData, contains('activations=3'));
     expect(result.promptData, contains('candidates=2 evidence=4'));
     expect(result.promptData, contains('established=1'));
     for (final secret in <String>[

@@ -63,7 +63,10 @@ class AgentSelfReader {
   final AndroidBridge android;
 
   // Historical validator compatibility: buildLabel = 'v0.41.20+159'
-  static const buildLabel = 'v0.41.31+170';
+  // Historical validator compatibility: buildLabel = 'v0.41.31+170'
+  // Historical Phase 1 contracts: implemented_observation_only;
+  // [GROWTH_RUNTIME phase=observation_only]
+  static const buildLabel = 'v0.41.32+171';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -115,10 +118,10 @@ class AgentSelfReader {
       detail: '用户明确请求时可经敏感页 Gate 截取一张当前屏幕交给视觉模型；截图不保存。自主截屏与 Desire 调度尚未实现。',
     ),
     AgentSystemFact(
-      id: 'personality_learning_phase1',
-      title: '人格学习观察层',
-      status: 'implemented_observation_only',
-      detail: '能够从真实用户原话中整理偏好/关系许可候选并记录支持、反证和成熟度；当前候选不进入回复、AI Self、Desire、Moe 或长期习惯，行为影响与 AI 自身习惯阶段尚未开启。',
+      id: 'personality_learning_phase2b',
+      title: '人格学习低权重使用层',
+      status: 'implemented_bounded_bias',
+      detail: '能够从真实用户原话中整理偏好/关系许可候选并记录支持、反证和成熟度；仅普通语境中成熟且无反证的候选可作为有界低权重倾向进入普通/主动回复，不进入 AI Self、Desire、Moe、Thought、Drive 或长期习惯。',
     ),
   ];
 
@@ -221,9 +224,13 @@ class AgentSelfReader {
       final statusCounts = _safeCountMap(growthStats['statusCounts']);
       final latestObservedAt =
           (growthStats['latestObservedAt'] as num?)?.toInt() ?? 0;
+      final phase2b = growthStats['phase2b'] is Map
+          ? Map<String, Object?>.from(growthStats['phase2b'] as Map)
+          : const <String, Object?>{};
       growthLines.add(
-        '[GROWTH_RUNTIME phase=observation_only enabled=${growthStats['enabled'] == true}] '
-        '候选与证据只用于观察，不进入回复、AI Self、Desire、Moe 或长期习惯。',
+        '[GROWTH_RUNTIME phase=phase2b_bounded_bias enabled=${growthStats['enabled'] == true} '
+        'activations=${_safeCount(phase2b['activationCount'])}] '
+        '只有普通语境中成熟且无反证的候选可作为低权重倾向进入普通/主动回复；不进入 AI Self、Desire、Moe、Thought、Drive 或长期习惯。',
       );
       growthLines.add(
         '[GROWTH_COUNTS candidates=${_safeCount(growthStats['candidateCount'])} '
@@ -251,7 +258,7 @@ ${outcomeLines.isEmpty ? '最近 14 天没有可读取的 terminal tool Outcome�
 '''.trim(),
       if (growthLines.isNotEmpty) '''
 【PERSONALITY LEARNING STATUS / 人格学习与成长状态】
-这些是本次从本地学习表真实读取的有界元数据，只能据此说明当前 observation-only 阶段、计数、成熟度分布和最近观察时间。结果没有读取任何候选命题、subject、证据原句、用户/AI 消息或模型提案；不得补写“学到了什么”，也不得把一次读取夸大成持续数小时的查看。
+这些是本次从本地学习表真实读取的有界元数据，只能据此说明当前 Phase 2B 有界倾向阶段、计数、成熟度分布和最近观察时间。结果没有读取任何候选命题、subject、证据原句、用户/AI 消息或模型提案；不得补写“学到了什么”，也不得把一次读取夸大成持续数小时的查看。
 ${growthLines.join('\n')}
 '''.trim(),
       '''

@@ -62,6 +62,8 @@ class ConversationOutcomeVerifier {
     '别走',
     '不许跑',
     '给我回来',
+    '来找我',
+    '找我聊',
   };
   static const _inviteMarkers = <String>{
     '一起',

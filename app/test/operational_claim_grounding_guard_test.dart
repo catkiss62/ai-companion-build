@@ -7,7 +7,7 @@ const _selfReadSuccess = AgentToolResult(
   status: AgentToolStatus.succeeded,
   displayText: '已读取成长状态',
   promptData:
-      '【PERSONALITY LEARNING STATUS】\n[GROWTH_RUNTIME phase=observation_only]',
+      '【PERSONALITY LEARNING STATUS】\n[GROWTH_RUNTIME phase=phase2b_bounded_bias]',
 );
 
 const _factsOnlySuccess = AgentToolResult(
@@ -51,7 +51,7 @@ void main() {
     );
     expect(
       OperationalClaimGroundingGuard.evaluate(
-        text: '我刚才读取了成长状态，目前仍是观察层。',
+        text: '我刚才读取了成长状态，目前是有界倾向层。',
         currentToolResults: const [_selfReadSuccess],
       ).allowed,
       isTrue,

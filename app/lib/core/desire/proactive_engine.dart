@@ -31,6 +31,7 @@ import '../models/thought.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
+import '../memory/phase2b_consolidation_engine.dart';
 import '../maintenance/long_running_maintenance_engine.dart';
 import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
@@ -148,6 +149,8 @@ class ProactiveEngine {
   late final RelationshipAssimilator relationshipAssimilator =
       RelationshipAssimilator(db: db);
   late final MemoryMaintenanceEngine memoryMaintenance = MemoryMaintenanceEngine(db);
+  late final Phase2BConsolidationEngine phase2bConsolidation =
+      Phase2BConsolidationEngine(db);
   late final ThoughtLifecycleEngine thoughtLifecycle = ThoughtLifecycleEngine(db: db, random: _random);
   late final ThoughtConsolidationEngine thoughtConsolidation = ThoughtConsolidationEngine(db);
   late final ProactiveRhythmEngine rhythm = ProactiveRhythmEngine(db: db, lifecycle: thoughtLifecycle);
@@ -195,6 +198,7 @@ class ProactiveEngine {
   }) async {
     await relationshipAssimilator.assimilatePending();
     await memoryMaintenance.maybeRun();
+    await phase2bConsolidation.maybeRun();
     await longMaintenance.maybeRun();
     await deferredFollowup.seedDue();
     await selfDrive.maybeGenerate();

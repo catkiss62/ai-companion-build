@@ -26,6 +26,7 @@ import '../../core/emotion/emotion_contract.dart';
 import '../../core/maintenance/long_running_maintenance_engine.dart';
 import '../../core/integration/moe_shadow_coordinator.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
+import '../../core/memory/phase2b_consolidation_engine.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/models/generation_job.dart';
@@ -93,6 +94,7 @@ class ChatController extends ChangeNotifier {
     relationshipAssimilator =
         RelationshipAssimilator(db: this.db);
     memoryMaintenance = MemoryMaintenanceEngine(this.db);
+    phase2bConsolidation = Phase2BConsolidationEngine(this.db);
     longMaintenance = LongRunningMaintenanceEngine(this.db);
     memoryExtractor = MemoryExtractor(
       db: this.db,
@@ -121,6 +123,7 @@ class ChatController extends ChangeNotifier {
   late final PerceptionEngine perceptionEngine;
   late final RelationshipAssimilator relationshipAssimilator;
   late final MemoryMaintenanceEngine memoryMaintenance;
+  late final Phase2BConsolidationEngine phase2bConsolidation;
   late final LongRunningMaintenanceEngine longMaintenance;
   final Uuid _uuid = Uuid();
 
@@ -284,6 +287,7 @@ class ChatController extends ChangeNotifier {
       () async => thoughtConsolidation.maybeRun(),
       () async => relationshipAssimilator.assimilatePending(),
       () async => memoryMaintenance.maybeRun(),
+      () async => phase2bConsolidation.maybeRun(),
       () async => longMaintenance.maybeRun(),
       () async => memoryExtractor.drainPendingSafely(),
     ];
