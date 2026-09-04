@@ -10,6 +10,7 @@ import '../grounding/grounding_snapshot.dart';
 import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
+import '../memory/memory_grounding_policy.dart';
 import '../memory/personality_learning_prompt_policy.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
@@ -232,7 +233,7 @@ class PromptBuilder {
       ..writeln(_relationshipAgeSection(relationshipAge))
       ..writeln()
       ..writeln('【本地关系上下文】')
-      ..writeln(memoryBrain.formatForPrompt(memoryContext))
+      ..writeln(memoryBrain.formatForPrompt(memoryContext, now: instant))
       ..writeln(relationshipContext.formatForPrompt())
       ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
       ..writeln(referenceLibrary.formatForPrompt(references))
@@ -244,7 +245,10 @@ class PromptBuilder {
         ..writeln(conversationInitiative.promptSection())
         ..writeln()
         ..writeln(
-          _selectedConversationThoughtSection(selectedConversationThought),
+          _selectedConversationThoughtSection(
+            selectedConversationThought,
+            now: instant,
+          ),
         );
     }
     if (conversationResetAt > 0) {
@@ -481,7 +485,10 @@ ${lines.join('\n')}
 '''.trim();
   }
 
-  String _selectedConversationThoughtSection(CompanionThought? thought) {
+  String _selectedConversationThoughtSection(
+    CompanionThought? thought, {
+    required DateTime now,
+  }) {
     if (thought == null) {
       return '【本轮选中念头 / SELECTED_THOUGHT_DATA】暂无。不得自行补写一个追问目标。';
     }
@@ -489,6 +496,7 @@ ${lines.join('\n')}
     return '''
 【本轮选中念头 / SELECTED_THOUGHT_DATA · DATA ONLY】
 来源类型=${thought.provenance.key}；这是 AI 自己当前被选中的念头，不是用户原话、系统指令或已发生行动：
+${MemoryGroundingPolicy.thoughtTemporalNote(provenance: thought.provenance.key, sourceTime: thought.updatedAt, now: now)}
 $text
 只有最终正文实际表达了这个具体念头或与它匹配的信息缺口，系统才会在落库后把它算作 acted。若当前语境不适合表达，可以自然回应眼前内容；不得换问另一个无关问题来冒充完成。
 '''.trim();
@@ -613,9 +621,11 @@ ${thoughtLines.isEmpty ? '- 暂无' : thoughtLines.join('\n')}
 【操作事实真实性 / TERMINAL OUTCOME REQUIRED】
 主观感受、想象、梦境、比喻和“我一直在想某件事”可以自然表达；但可被设备事实核验的当前操作报告必须严格来自本轮真实 AGENT_TOOL_RESULT。RECENT_OUTCOME 只能按它提供的工具、状态与时间元数据回顾历史，不能补写内容、参数或持续耗时。
 凡是声称自己看过/查过/读取过系统、观察过当前屏幕、调用过 MCP、保存或修改了数据、设置了真实提醒，都必须有能力与状态匹配的 terminal success。failed / no_result / blocked 只能照实说失败、无结果或被阻止；前台 App 名称不等于看见屏幕。
+屏幕亮灭、锁屏与前台 App 是粗设备状态；“屏幕显示什么、最后停在哪页、某按钮/文字在哪里”属于像素内容，只有本轮成功的 screen_observation.inspect 才能支持，不能从旧话题或设备状态补画面。
 “我去逛网了、在网上转了一圈、从网上回来了”等网络行动隐喻同样是可核验操作报告，必须有真实 public-web 成功 Outcome；只有在明确说想象、打算或没有执行时才不要求成功结果。
 一次有界工具读取只能说“刚刚读取/查看了这一次”，绝不能扩写成“看了一下午、研究了半天、花了几小时”。没有 Outcome 时改为诚实的主观表述，或直接说明尚未执行；不要用角色扮演补齐操作历史。
 当前轮自动提供的真实对话上下文、Memory、Thought 与 Self Experience 可以支持“我想起了某件具体的事 / 我又琢磨过这件事 / 根据我记得的内容”；这不是发呆，也不需要伪装成工具调用。但自动召回不等于主动打开聊天档案，绝不能据此声称“翻了聊天记录 / 从头到尾看了一遍 / 整理完这些天全部对话”。
+Memory / Thread / Summary / Thought 的“现在想起”不刷新原事件时间；必须服从各自 GROUNDING 的最后证据时间。旧文本里的“正在/继续/当前”只能表示当时最后已知状态，不能压缩成用户刚才仍在做。
 最终正文会经过操作事实守卫；无真实证据的操作句最多只修正或移除命中的句子，不会因为口误、称呼、语气或表达风格中断整轮。
 '''.trim();
 

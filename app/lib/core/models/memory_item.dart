@@ -21,6 +21,11 @@ class MemoryItem {
     this.retentionScore = 1.0,
     this.retentionCheckedAt,
     this.semanticType = 'current_fact',
+    this.actorKey = 'unknown',
+    this.relationKey = '',
+    this.objectKey = '',
+    this.ownerKey = 'unknown',
+    this.temporalScope = 'unknown',
     this.evidenceCount = 1,
     DateTime? firstObservedAt,
     DateTime? lastEvidenceAt,
@@ -49,6 +54,11 @@ class MemoryItem {
   final double retentionScore;
   final DateTime? retentionCheckedAt;
   final String semanticType;
+  final String actorKey;
+  final String relationKey;
+  final String objectKey;
+  final String ownerKey;
+  final String temporalScope;
   final int evidenceCount;
   final DateTime firstObservedAt;
   final DateTime lastEvidenceAt;
@@ -98,6 +108,11 @@ class MemoryItem {
           ((row['kind'] as String?) == 'shared_experience'
               ? 'shared_experience'
               : 'current_fact'),
+      actorKey: row['actor_key'] as String? ?? 'unknown',
+      relationKey: row['relation_key'] as String? ?? '',
+      objectKey: row['object_key'] as String? ?? '',
+      ownerKey: row['owner_key'] as String? ?? 'unknown',
+      temporalScope: row['temporal_scope'] as String? ?? 'unknown',
       evidenceCount: row['evidence_count'] as int? ?? 1,
       firstObservedAt: row['first_observed_at'] == null
           ? createdAt

@@ -66,7 +66,8 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.31+170'
   // Historical Phase 1 contracts: implemented_observation_only;
   // [GROWTH_RUNTIME phase=observation_only]
-  static const buildLabel = 'v0.41.33+172';
+  // Historical validator compatibility: buildLabel = 'v0.41.33+172'
+  static const buildLabel = 'v0.41.34+173';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -110,6 +111,18 @@ class AgentSelfReader {
       title: '系统事实与近期 Outcome',
       status: 'implemented',
       detail: '只有在当前问题需要时，才能只读查看这份能力事实、无正文的近期工具结果和人格学习观察层元数据；不会常驻塞入每轮 Prompt。',
+    ),
+    AgentSystemFact(
+      id: 'agent_foundation_v04134',
+      title: '按需 Agent 与查手机读取',
+      status: 'implemented_bounded',
+      detail: '普通陪伴轮不注入工具；明确任务只展开相关能力。可只读搜索/读取查手机，并在用户明确命令时保存当前附件或执行有界联网找图—识图—同图保存。',
+    ),
+    AgentSystemFact(
+      id: 'memory_grounding_v04134',
+      title: '记忆实体与时态绑定',
+      status: 'implemented_bounded',
+      detail: '长期记忆保留行动者、对象、归属和时态；旧进行中进度按最后证据时间呈现，不能冒充刚才或当前状态。',
     ),
     AgentSystemFact(
       id: 'one_time_screen_observation',

@@ -31,6 +31,7 @@ import '../models/thought.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
+import '../memory/memory_grounding_policy.dart';
 import '../memory/phase2b_consolidation_engine.dart';
 import '../maintenance/long_running_maintenance_engine.dart';
 import '../platform/android_bridge.dart';
@@ -497,6 +498,16 @@ class ProactiveEngine {
     final intentThought = intent.thoughtId == null
         ? null
         : await db.thoughtById(intent.thoughtId!);
+    DateTime? intentMemoryEvidenceAt;
+    if (intentThought?.provenance == ThoughtProvenance.memory) {
+      const prefix = 'self_drive/memory:';
+      if (intentThought!.source.startsWith(prefix)) {
+        final sourceMemory = await db.memoryById(
+          intentThought.source.substring(prefix.length),
+        );
+        intentMemoryEvidenceAt = sourceMemory?.lastEvidenceAt;
+      }
+    }
     final selectedSourceType = selection?.sourceType ??
         ProactiveSelectionPolicy.sourceTypeFor(
           thought: intentThought,
@@ -728,6 +739,11 @@ class ProactiveEngine {
 【SELECTED_THOUGHT_DATA · DATA ONLY】
 ${jsonEncode({
             'source_type': selectedSourceType,
+            'temporal_grounding': MemoryGroundingPolicy.thoughtTemporalNote(
+              provenance: intentThought.provenance.key,
+              sourceTime: intentThought.updatedAt,
+              now: evaluationStartedAt,
+            ),
             'thought': intentThought.text.length <= 500
                 ? intentThought.text
                 : intentThought.text.substring(0, 500),
@@ -932,6 +948,12 @@ ${ProactivePresentationPolicy.startsFreshTopic(intentKind) ? '本类型属于新
       text: candidate.content,
       publicWebOutcomeAvailable: webShareCandidateId != null,
     );
+    var memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
+      text: '${candidate.reasoning}\n${candidate.content}',
+      sourceIsMemory: intentThought?.provenance == ThoughtProvenance.memory,
+      lastEvidenceAt: intentMemoryEvidenceAt,
+      now: evaluationStartedAt,
+    );
 
     // Style detectors are observation-only in the output ablation. They may
     // inform later tuning, but must not silently suppress a proactive message.
@@ -952,12 +974,15 @@ ${ProactivePresentationPolicy.startsFreshTopic(intentKind) ? '本类型属于新
 
     if (!textGuard.allowed ||
         !reasoningGuard.allowed ||
+        !memoryTemporalGuard.allowed ||
         !operationGuard.allowed) {
       final retryReason = !reasoningGuard.allowed
           ? reasoningGuard.reason
           : !textGuard.allowed
               ? textGuard.reason
-              : operationGuard.reason;
+              : !memoryTemporalGuard.allowed
+                  ? memoryTemporalGuard.reason
+                  : operationGuard.reason;
       await noteGroundingRetry(retryReason);
       final retryContext = <Map<String, Object?>>[
         ...context,
@@ -969,6 +994,7 @@ ${ProactivePresentationPolicy.startsFreshTopic(intentKind) ? '本类型属于新
 CURRENT_USER_TURN = NONE。最后一条真实用户消息已经回答完毕，用户之后没有新的发言。
 请完全丢弃上一份候选的推理方向，从当前 Desire / Thought / Awareness / 已完成历史重新选择“我现在主动想说什么”。
 推理和正文都不能虚构用户刚刚说了、回复了或发来了任何内容。
+如果来源是长期记忆，想起发生在现在不等于旧事件发生在刚才；必须服从 MEMORY/THOUGHT_GROUNDING 的最后证据时间，旧的“正在/继续”只能写成当时最后已知状态，当前未知。
 主动候选没有新的用户轮工具结果。不得声称自己刚刚读取过成长/系统、看过当前屏幕、调用过 MCP、保存/修改过数据或设置过提醒，也不得编造“一下午/半天/几小时”的操作历史；真实公开网页发现只能按本轮 Grounding 提供的 Outcome 表达。
 只修正事实前提，不为了整齐、礼貌或所谓正确文风改写她的口气；没有值得说的就输出 WAIT。
 ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
@@ -1051,6 +1077,12 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         text: candidate.content,
         publicWebOutcomeAvailable: webShareCandidateId != null,
       );
+      memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
+        text: '${candidate.reasoning}\n${candidate.content}',
+        sourceIsMemory: intentThought?.provenance == ThoughtProvenance.memory,
+        lastEvidenceAt: intentMemoryEvidenceAt,
+        now: evaluationStartedAt,
+      );
     }
 
     if (!textGuard.allowed) {
@@ -1060,6 +1092,10 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     if (!reasoningGuard.allowed) {
       await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
       return blockGrounding(reasoningGuard.reason);
+    }
+    if (!memoryTemporalGuard.allowed) {
+      await noteGeneration('guard_blocked', reasonTag: 'grounding_guard');
+      return blockGrounding(memoryTemporalGuard.reason);
     }
     if (!operationGuard.allowed) {
       final salvaged = OperationalClaimGroundingGuard.removeUnsupportedSentences(

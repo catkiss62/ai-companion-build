@@ -24,6 +24,13 @@ const _screenSuccess = AgentToolResult(
   promptData: 'bounded visual summary',
 );
 
+const _attachmentSaveSuccess = AgentToolResult(
+  toolId: 'attachment.save',
+  status: AgentToolStatus.succeeded,
+  displayText: '已保存',
+  promptData: 'TERMINAL SUCCESS',
+);
+
 void main() {
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
@@ -79,6 +86,26 @@ void main() {
       ).allowed,
       isTrue,
     );
+    final fabricatedPage = OperationalClaimGroundingGuard.evaluate(
+      text: '屏幕上最后停在那堆呆毛的调试页上。',
+    );
+    expect(fabricatedPage.allowed, isFalse);
+    expect(fabricatedPage.reason, 'ungrounded_screen_observation');
+    expect(fabricatedPage.requiredToolId, 'screen_observation.inspect');
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '屏幕上显示着 Live2D 调试页面。',
+        currentToolResults: const [_screenSuccess],
+      ).allowed,
+      isTrue,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '手机屏幕亮着，但我不知道里面显示什么。',
+      ).allowed,
+      isTrue,
+      reason: 'coarse power state is not a pixel-content claim',
+    );
   });
 
   test('denial and correction of an old false report remain speakable', () {
@@ -88,6 +115,7 @@ void main() {
       '如果我声称已经调用 MCP，那就是编造。',
       '我刚才一直在想这件事，但没有读取系统。',
       '用户问我是不是看了一下午成长系统，需要按真实结果回答。',
+      '如果屏幕显示调试页，也不能在没有截图时当成事实。',
     ]) {
       expect(
         OperationalClaimGroundingGuard.evaluate(text: text).allowed,
@@ -115,6 +143,13 @@ void main() {
         text: '我调用 MCP 成功了。',
       ).allowed,
       isFalse,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我已经把这张图片保存进相册了。',
+        currentToolResults: const [_attachmentSaveSuccess],
+      ).allowed,
+      isTrue,
     );
   });
 

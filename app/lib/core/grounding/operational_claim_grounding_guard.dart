@@ -38,6 +38,11 @@ class OperationalClaimGroundingGuard {
   static final RegExp _screenObject = RegExp(
     r'(当前屏幕|现在的屏幕|手机屏幕|屏幕画面|屏幕内容|当前画面|截图)',
   );
+  static final RegExp _screenContentClaim = RegExp(
+    r'((当前|现在的|手机)?屏幕(上|里|中|画面|内容)?[^，,。！？!?\n]{0,16}'
+    r'(显示|写着|停在|停留在|打开着|开着|出现|看得到|有.{0,8}(按钮|文字|图片|页面|界面|调试页)))|'
+    r'(当前画面.{0,12}(是|显示|停在|出现)))',
+  );
   static final RegExp _chatArchiveObject = RegExp(
     r'(聊天记录|对话记录|聊天历史|对话历史|咱俩的记录|我们的记录|咱俩的聊天|我们的聊天|以前的聊天|这些天的对话)',
   );
@@ -75,7 +80,8 @@ class OperationalClaimGroundingGuard {
         .toList(growable: false);
     final hasPublicWebOutcome = publicWebOutcomeAvailable ||
         successfulResults.any(
-          (result) => result.toolId == 'public_web.discover',
+          (result) => result.toolId == 'public_web.discover' ||
+              result.toolId == 'image.find_and_save',
         );
     final sentences = _sentences(text);
     for (final sentence in sentences) {
@@ -94,6 +100,7 @@ class OperationalClaimGroundingGuard {
       final growthClaim = readClaim && _growthObject.hasMatch(sentence);
       final systemClaim = readClaim && _systemObject.hasMatch(sentence);
       final screenClaim = readClaim && _screenObject.hasMatch(sentence);
+      final screenContentClaim = _screenContentClaim.hasMatch(sentence);
       final chatArchiveClaim =
           readClaim && _chatArchiveObject.hasMatch(sentence);
       if (chatArchiveClaim) {
@@ -103,8 +110,8 @@ class OperationalClaimGroundingGuard {
           requiredToolId: 'conversation_archive.read',
         );
       }
-      if (growthClaim || systemClaim || screenClaim) {
-        final requiredTool = screenClaim
+      if (growthClaim || systemClaim || screenClaim || screenContentClaim) {
+        final requiredTool = screenClaim || screenContentClaim
             ? 'screen_observation.inspect'
             : 'system_self.read';
         if (_duration.hasMatch(sentence)) {
@@ -127,7 +134,7 @@ class OperationalClaimGroundingGuard {
         if (!matchingSuccess) {
           return OperationalClaimGroundingResult(
             allowed: false,
-            reason: screenClaim
+            reason: screenClaim || screenContentClaim
                 ? 'ungrounded_screen_observation'
                 : 'ungrounded_system_read',
             requiredToolId: requiredTool,
@@ -136,6 +143,13 @@ class OperationalClaimGroundingGuard {
       }
 
       if (_unsupportedCompletion.hasMatch(sentence)) {
+        final supportedAlbumSave = RegExp(r'(保存|存进|写入|收进).{0,12}(相册|收藏)')
+                .hasMatch(sentence) &&
+            successfulResults.any(
+              (result) => result.toolId == 'attachment.save' ||
+                  result.toolId == 'image.find_and_save',
+            );
+        if (supportedAlbumSave) continue;
         return const OperationalClaimGroundingResult(
           allowed: false,
           reason: 'ungrounded_unimplemented_operation',

@@ -2,6 +2,7 @@ import '../database/app_database.dart';
 import '../models/memory_item.dart';
 import '../models/personality_learning.dart';
 import 'memory_context.dart';
+import 'memory_grounding_policy.dart';
 import 'memory_retrieval_policy.dart';
 
 /// Local-first layered retrieval. Long-term memory is admitted only when the
@@ -94,14 +95,17 @@ class MemoryBrain {
         item.content,
       );
 
-  String formatForPrompt(MemoryContext context) {
+  String formatForPrompt(MemoryContext context, {DateTime? now}) {
+    final instant = now ?? DateTime.now();
     final out = StringBuffer();
 
     void memories(String title, List<MemoryItem> items) {
       if (items.isEmpty) return;
       out.writeln('$title：');
       for (final item in items) {
-        out.writeln('- ${item.content}');
+        out.writeln(
+          '- ${MemoryGroundingPolicy.formatForPrompt(item, now: instant)}',
+        );
       }
     }
 
@@ -121,14 +125,20 @@ class MemoryBrain {
     if (context.threads.isNotEmpty) {
       out.writeln('与当前话题直接相关的未结束事项：');
       for (final thread in context.threads) {
-        out.writeln('- ${thread.title}：${thread.detail}');
+        out.writeln(
+          '- ${MemoryGroundingPolicy.threadTemporalNote(thread.updatedAt, now: instant)} '
+          '${thread.title}：${thread.detail}',
+        );
       }
     }
 
     if (context.summaries.isNotEmpty) {
       out.writeln('与当前话题直接相关的较早阶段摘要：');
       for (final summary in context.summaries.reversed) {
-        out.writeln('- ${summary.summary}');
+        out.writeln(
+          '- ${MemoryGroundingPolicy.summaryTemporalNote(summary.fromAt, summary.toAt, now: instant)} '
+          '${summary.summary}',
+        );
       }
     }
 

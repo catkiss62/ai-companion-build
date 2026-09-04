@@ -70,6 +70,21 @@ class AgentToolPlanner {
     ).hasMatch(text);
     final explicitSystemSelf =
         explicitRecentOutcomes || explicitSystemFacts || explicitGrowthStatus;
+    final phoneSection = _phoneSection(text);
+    final explicitPhone = RegExp(
+      r'((查|搜|找|看|读|打开).{0,12}(你的|自己|查)?手机.{0,12}(日记|随笔|心情|愿望|购物车|塔罗|浏览器|相册|内容))|'
+      r'((日记|随笔|心情|愿望|购物车|塔罗).{0,12}(查手机|你的手机|自己手机))',
+    ).hasMatch(text);
+    final phoneSearchRequested = explicitPhone &&
+        RegExp(r'(查|搜|找|检索)').hasMatch(text);
+    final explicitAttachmentSave = RegExp(
+      r'(保存|存下|存进|收藏|收进).{0,10}(这张|这个|图片|照片|附件|相册)|'
+      r'(这张|这个|图片|照片|附件).{0,10}(保存|存下|存进|收藏|收进)',
+    ).hasMatch(text);
+    final explicitWebImageSave = RegExp(r'(上网|联网|网页|网站|搜索|找|搜)')
+            .hasMatch(text) &&
+        RegExp(r'(图|图片|插画|立绘|风景|照片)').hasMatch(text) &&
+        RegExp(r'(保存|存下|存进|收藏|收进)').hasMatch(text);
 
     final webCommand = RegExp(
       r'(^|[，。！？；])\s*'
@@ -94,7 +109,7 @@ class AgentToolPlanner {
                     !explicitDevice &&
                     !explicitSystemSelf)));
 
-    if (explicitWeb) {
+    if (explicitWeb && !explicitWebImageSave) {
       add(
         AgentToolRegistry.publicWebSearch.id,
         {'query': _bounded(_webQuery(text), 80)},
@@ -112,7 +127,7 @@ class AgentToolPlanner {
         {'query': _bounded(text, 120)},
       );
     }
-    if (explicitAlbum) {
+    if (explicitAlbum && !explicitPhone) {
       add(
         AgentToolRegistry.albumSearch.id,
         {'query': _bounded(text, 160)},
@@ -144,6 +159,26 @@ class AgentToolPlanner {
         },
       );
     }
+    if (explicitPhone) {
+      add(
+        phoneSearchRequested
+            ? AgentToolRegistry.phoneSearch.id
+            : AgentToolRegistry.phoneRead.id,
+        {
+          'section': phoneSection,
+          'query': _bounded(text, 160),
+        },
+      );
+    }
+    if (explicitAttachmentSave && !explicitWebImageSave) {
+      add(AgentToolRegistry.attachmentSave.id, const {});
+    }
+    if (explicitWebImageSave) {
+      add(
+        AgentToolRegistry.imageFindAndSave.id,
+        {'query': _bounded(_webQuery(text), 80)},
+      );
+    }
     return calls.isEmpty ? null : AgentToolPlan(calls: calls);
   }
 
@@ -154,6 +189,22 @@ class AgentToolPlanner {
           .where((tool) => tool.id != AgentToolRegistry.screenObservation.id)
           .map(_nativeDefinition)
           .toList(growable: false);
+
+  /// CHAT_LIGHT returns no tool schema. Task-like turns receive only the small
+  /// capability subset relevant to their wording, so companionship does not
+  /// inherit planning/reporting pressure from a permanent toolbox prompt.
+  static List<Map<String, Object?>> nativeToolDefinitionsFor(String text) {
+    final toolIds = _routeToolIds(text);
+    if (toolIds.isEmpty) return const <Map<String, Object?>>[];
+    return AgentToolRegistry.userTurnExecutable
+          .where(
+            (tool) =>
+                tool.id != AgentToolRegistry.screenObservation.id &&
+                toolIds.contains(tool.id),
+          )
+          .map(_nativeDefinition)
+          .toList(growable: false);
+  }
 
   static AgentToolPlan fromNativeToolCalls(List<DeepSeekToolCall> nativeCalls) {
     final calls = <AgentToolCall>[];
@@ -231,6 +282,22 @@ class AgentToolPlanner {
         'enum': <String>['facts', 'outcomes', 'growth', 'all'],
         'description': 'facts=当前能力，outcomes=近期真实工具结果，growth=人格学习观察层的无正文状态元数据，all=全部读取。',
       };
+    } else if (tool.id == AgentToolRegistry.phoneSearch.id) {
+      properties['query'] = const <String, Object?>{
+        'type': 'string',
+        'description': '要在查手机已有内容中寻找的关键词；不填写时列出所选栏目最近内容。',
+      };
+      properties['section'] = _phoneSectionProperty;
+    } else if (tool.id == AgentToolRegistry.phoneRead.id) {
+      properties['handle'] = const <String, Object?>{
+        'type': 'string',
+        'description': 'phone.search 返回的精确条目句柄；没有句柄时可改用 section 和 query。',
+      };
+      properties['section'] = _phoneSectionProperty;
+      properties['query'] = const <String, Object?>{
+        'type': 'string',
+        'description': '没有句柄时用于选取最近匹配条目的关键词。',
+      };
     } else if (tool.id == AgentToolRegistry.screenObservation.id) {
       // A screen observation has no model-provided argument. The current user
       // turn itself is the one-time authorization and native privacy Gate.
@@ -250,6 +317,10 @@ class AgentToolPlanner {
       'system_self.read' =>
         '仅在用户询问你当前真实能力、用户为你实现过什么、人格学习/成长观察层状态、近期真实工具/自主行动结果或 MCP 行动历史时调用。'
         '普通闲聊不调用；本工具不能读取聊天/规则正文、密钥、日志或未实现能力。',
+      'phone.search' =>
+        '仅在用户要求你查看自己 App 内“查手机”的内容，或回答明确依赖这些内容时调用。只读现有投影，不刷新、不生成、不标记已读。',
+      'phone.read' =>
+        '仅在用户要求读取一条日记、塔罗、心情、随笔、愿望、购物车、浏览器或相册内容时调用。无精确句柄可用栏目和关键词读取最近匹配项。',
       'screen_observation.inspect' =>
         '仅在用户当前这句话明确要求看一次此刻屏幕像素内容时调用。讨论截图/屏幕能力、询问前台 App 名称、否定/假设或普通闲聊不调用。'
         '每次调用只截一张，经锁屏、密码、敏感包与系统安全窗口 Gate；截图不保存，也绝不自主调用。',
@@ -300,6 +371,8 @@ class AgentToolPlanner {
     'album.search': 'album_search',
     'device_context.read': 'device_context_read',
     'system_self.read': 'system_self_read',
+    'phone.search': 'phone_search',
+    'phone.read': 'phone_read',
     'screen_observation.inspect': 'screen_observation_inspect',
   };
   static const _toolIdByNativeName = <String, String>{
@@ -309,9 +382,76 @@ class AgentToolPlanner {
     'album_search': 'album.search',
     'device_context_read': 'device_context.read',
     'system_self_read': 'system_self.read',
+    'phone_search': 'phone.search',
+    'phone_read': 'phone.read',
     'screen_observation_inspect': 'screen_observation.inspect',
   };
 
   static String _bounded(String value, int limit) =>
       value.length <= limit ? value : value.substring(0, limit);
+
+  static const Map<String, Object?> _phoneSectionProperty = <String, Object?>{
+    'type': 'string',
+    'enum': <String>[
+      'all',
+      'diary',
+      'note',
+      'mood',
+      'wish',
+      'cart',
+      'tarot',
+      'album',
+      'browser',
+    ],
+    'description': '查手机栏目；all 表示全部。',
+  };
+
+  static String _phoneSection(String text) {
+    if (text.contains('日记')) return 'diary';
+    if (text.contains('随笔') || text.contains('便签')) return 'note';
+    if (text.contains('心情')) return 'mood';
+    if (text.contains('愿望')) return 'wish';
+    if (text.contains('购物车')) return 'cart';
+    if (text.contains('塔罗')) return 'tarot';
+    if (text.contains('相册')) return 'album';
+    if (text.contains('浏览器') || text.contains('网页')) return 'browser';
+    return 'all';
+  }
+
+  static Set<String> _routeToolIds(String rawText) {
+    final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+    if (text.isEmpty) return const <String>{};
+    final result = <String>{};
+    if (RegExp(r'(最新|新闻|价格|天气|汇率|上网|联网|网页|网站|搜索|查资料)')
+        .hasMatch(text)) {
+      result.add(AgentToolRegistry.publicWebSearch.id);
+    }
+    if (RegExp(r'(规则|人设|提示词)').hasMatch(text)) {
+      result.add(AgentToolRegistry.rulesRead.id);
+    }
+    if (RegExp(r'(记忆|以前聊过|之前说过|还记得)').hasMatch(text)) {
+      result.add(AgentToolRegistry.memorySearch.id);
+    }
+    if (RegExp(r'(相册|收藏过|保存过|存过的图)').hasMatch(text)) {
+      result.add(AgentToolRegistry.albumSearch.id);
+    }
+    if (RegExp(r'(手机状态|前台应用|前台app|当前app|锁屏)').hasMatch(text)) {
+      result.add(AgentToolRegistry.deviceContextRead.id);
+    }
+    if (RegExp(r'(你的功能|你的能力|自身系统|人格学习|成长状态|工具结果|行动结果)')
+        .hasMatch(text)) {
+      result.add(AgentToolRegistry.systemSelfRead.id);
+    }
+    if (RegExp(
+      r'((查|搜|找|看|读|打开|念|告诉我).{0,16}'
+      r'(查手机|日记|随笔|心情|愿望|购物车|塔罗|浏览器))|'
+      r'((日记|随笔|心情|愿望|购物车|塔罗|浏览器).{0,16}'
+      r'(内容|记录|写了|有什么|是哪|是什么|给我看|念))',
+    ).hasMatch(text)) {
+      result
+        ..add(AgentToolRegistry.phoneSearch.id)
+        ..add(AgentToolRegistry.phoneRead.id);
+    }
+    return result.take(3).toSet();
+  }
 }

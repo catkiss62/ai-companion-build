@@ -44,6 +44,33 @@ class CompanionAlbumDiscoveryEngine {
   static const _fishManifest =
       'https://fisharchive.pages.dev/stickers/manifest.json';
 
+  /// User-command adapter for the same canonical download → Qwen vision →
+  /// byte-bound album chain used by autonomous discovery. Explicit save skips
+  /// only the curator veto; safety, provider, duplicate and storage failures
+  /// remain authoritative.
+  Future<String> saveUserRequestedWebImage({
+    required String sourceId,
+    required String sourceUrl,
+    required String sourceDomain,
+    required String title,
+    required String visionContext,
+    DateTime? now,
+  }) async {
+    final apiKey = await config.readVisionApiKey();
+    if (apiKey == null || apiKey.trim().isEmpty) return 'vision_unconfigured';
+    return _process(
+      sourceKind: 'user_requested_web',
+      sourceId: sourceId,
+      sourceUrl: sourceUrl,
+      sourceDomain: sourceDomain,
+      title: title,
+      visionContext: visionContext,
+      apiKey: apiKey,
+      now: (now ?? DateTime.now()).toLocal(),
+      forceSave: true,
+    );
+  }
+
   Future<String> runOneIfDue({DateTime? now}) async {
     final instant = (now ?? DateTime.now()).toLocal();
     if ((await db.getSetting('simulated_phone_enabled')) == '0') {
@@ -109,6 +136,7 @@ class CompanionAlbumDiscoveryEngine {
     required String visionContext,
     required String apiKey,
     required DateTime now,
+    bool forceSave = false,
   }) async {
     final started = DateTime.now();
     if (sourceId.isEmpty || !_safePublicHttps(Uri.tryParse(sourceUrl))) {
@@ -188,7 +216,8 @@ class CompanionAlbumDiscoveryEngine {
 
       String contentSha = '';
       String perceptualHash = '';
-      if (observation.albumSave) {
+      final shouldSave = observation.albumSave || forceSave;
+      if (shouldSave) {
         stage = 'local_write';
         final stored = await albumStorage.saveThumbnail(
           id: candidateId,
@@ -205,10 +234,12 @@ class CompanionAlbumDiscoveryEngine {
       stage = 'local_write';
       final completed = await db.completeCompanionAlbumCandidate(
         id: candidateId,
-        save: observation.albumSave,
+        save: shouldSave,
         visionSummary: observation.summary,
         visionModel: observation.model,
-        aiReason: observation.albumReason,
+        aiReason: forceSave
+            ? '用户明确要求保存这张联网图片；视觉评价仅用于描述和索引。'
+            : observation.albumReason,
         category: observation.albumCategory,
         thumbnailPath: savedPath,
         contentSha256: contentSha,
@@ -229,13 +260,13 @@ class CompanionAlbumDiscoveryEngine {
         primaryProvider: 'local_album',
         primaryOutcome: outcome,
         finalProvider:
-            observation.albumSave && completed ? 'local_album' : 'none',
+            shouldSave && completed ? 'local_album' : 'none',
         finalOutcome: outcome,
-        resultCount: observation.albumSave && completed ? 1 : 0,
+        resultCount: shouldSave && completed ? 1 : 0,
         latencyBucket:
             ProviderHealth.latencyBucket(DateTime.now().difference(started)),
       ));
-      return observation.albumSave && completed ? 'saved' : 'rejected';
+      return shouldSave && completed ? 'saved' : 'rejected';
     } catch (error) {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());

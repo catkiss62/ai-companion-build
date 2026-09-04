@@ -104,12 +104,9 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04133-competence-curation-emotion",
-        "0.41.33+172",
-        "v0.41.32",
-        "schema 46",
-        "33828228213",
-        "2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf",
+        "agent/v04134-memory-grounding-agent-foundation",
+        "0.41.34+173",
+        "schema 47",
         "Snapshot protocol 5",
         "Phase 2A",
         "Phase 2B",
@@ -118,6 +115,15 @@ def main() -> None:
         "角色表达自然化",
         "情绪特效",
         "正向图片策展",
+        "TRUE DEVICE PASSED / CLOSED",
+        "App 内 Agent 能力桥",
+        "CHAT_LIGHT",
+        "Skills",
+        "MCP",
+        "Harness",
+        "Memory 2C",
+        "行动者—关系—对象—归属",
+        "screen_observation.inspect",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
@@ -134,6 +140,9 @@ def main() -> None:
         "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI PASSED / APK READY / TRUE DEVICE PENDING",
+        "TRUE DEVICE PASSED / CLOSED",
+        "DESIGN CURRENT",
+        "IN PROGRESS",
     )
     require(
         any(status in current for status in current_statuses),
@@ -182,12 +191,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.33\+172\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.34\+173\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 46;" in database,
+        "static const int schemaVersion = 47;" in database,
         "database schema no longer matches the current development baseline",
     )
 

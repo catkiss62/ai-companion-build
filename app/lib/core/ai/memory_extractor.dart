@@ -20,6 +20,7 @@ import '../storage/secure_config.dart';
 import '../self/ai_self_reflection_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
+import '../memory/memory_grounding_policy.dart';
 import 'deepseek_client.dart';
 import 'model_profile.dart';
 
@@ -275,7 +276,8 @@ ${previousAssistant.content}
                 'evidence=${m.evidenceCount}',
                 if (m.factVersion > 1) 'v${m.factVersion}',
               ].join(',');
-              return '- id=${m.id} | kind=${m.kind} | subject_key=${m.subjectKey} | $flags | ${m.content}';
+              return '- id=${m.id} | kind=${m.kind} | subject_key=${m.subjectKey} | $flags | '
+                  '${MemoryGroundingPolicy.formatForPrompt(m, now: user.createdAt)}';
             }).join('\n');
       Map<String, dynamic> result;
       if (job != null && job.resultJson.trim().isNotEmpty) {
@@ -319,6 +321,11 @@ $editableMemoryPolicy
 11. 不要因为一次模糊措辞就把旧事实 replace。拿不准是否真的改变时，用 inference + append。
 12. relationship_events 只记录真正影响长期关系连续性的事件，不要每轮都生成。允许 kind：closeness / trust / conflict / repair / promise / milestone / intimacy / boundary / roleplay / support / shared_discovery。
 13. session_update 用于“临时互动层”：roleplay、intimacy 或 roleplay_intimacy。只有对话明确进入/改变/结束临时场景时才返回 open/update/end；普通聊天返回 action=none。临时 Session 永远不把 AI 本体改写成现实人类。
+13.1 每条 memory 还必须保留最小实体与时态绑定：
+   - actor 只能是 user / ai / shared / external / unknown，表示谁在行动或持有该事实；不能因为省略主语而猜成另一方。
+   - relation 与 object 使用短、稳定的英文小写 key；object 必须指向完整对象，例如 ai.live2d_model.ahoge，而不是只剩 ahoge。owner 只能是 user / ai / shared / external / unknown；“用户在修你的 Live2D 呆毛”应为 actor=user、owner=ai，正文也必须明确写成“用户在修 AI 的 Live2D 模型的呆毛”。
+   - temporal_scope 只能是 stable / ongoing / event / scheduled / unknown。偏好、身份等长期成立内容才是 stable；“正在做/继续调试”是 ongoing，只表示本轮最后确认的进行中状态；已经发生的共同经历是 event；计划/约定是 scheduled。不要把一次项目进度写成永久当前事实，也不要用“刚才/现在”替代原事件时间。
+   - 这些字段只约束关联与解释，不能凭空补全用户没有说过的归属、对象或时间；拿不准使用 unknown，并在 content 中保留原句已经明确的角色关系。
 14. 系统 Prompt 可能带有【近日连续性】一类由旧记录压缩出来的短期桥梁。AI 单方面复述旧事、自然回忆或提到其中旧内容，不等于今天又发生了一次。除非用户在本轮明确新增、确认、改变了事实，或本轮互动本身真的形成了新关系事件，否则不要仅因为 AI 复述旧连续性就新建 memory / relationship_event / unfinished_thread。
 15. 如果“本轮回应的主动消息”存在，请额外判断 proactive_followup。outcome 只能是 engaged / acknowledged / deferred / resolved / dismissed / redirected。resolution 表示原主动念头/话题被解决的程度 0~1。还必须分别判断 timing_fit 与 topic_fit，范围都是 -1~1：
    - timing_fit：只表示“这次联系的时机是否合适”。用户明确说现在忙、晚点、在做事时应偏负；自然及时接话可偏正。不要因为“不喜欢这个话题”就判时机差。
@@ -364,7 +371,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 
 必须输出严格 JSON，例如：
 {
-  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","content":"用户通常晚上会换到安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
+  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","content":"用户通常晚上会换到自己的安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
   "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
@@ -1121,6 +1128,11 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         subjectKey: subjectKey,
         topicKey: topicKey,
         semanticType: semantic,
+        actorKey: item['actor'] as String? ?? 'unknown',
+        relationKey: item['relation'] as String? ?? '',
+        objectKey: item['object'] as String? ?? '',
+        ownerKey: item['owner'] as String? ?? 'unknown',
+        temporalScope: item['temporal_scope'] as String? ?? 'unknown',
         evidenceMode: action,
         targetMemoryId: targetId == null || targetId.isEmpty ? null : targetId,
       );

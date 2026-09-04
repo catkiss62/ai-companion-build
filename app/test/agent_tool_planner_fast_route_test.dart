@@ -7,6 +7,46 @@ void main() {
   test('ordinary companionship turns have no local tool command', () {
     expect(AgentToolPlanner.routeLocally('今天有点累，抱抱我'), isNull);
     expect(AgentToolPlanner.routeLocally('随便和我聊点什么'), isNull);
+    expect(
+      AgentToolPlanner.nativeToolDefinitionsFor('今天有点累，抱抱我'),
+      isEmpty,
+      reason: 'CHAT_LIGHT must not carry a permanent toolbox schema',
+    );
+    expect(
+      AgentToolPlanner.nativeToolDefinitionsFor('今天抽到的塔罗牌有点怪'),
+      isEmpty,
+      reason: 'mentioning phone content is still ordinary chat without a read intent',
+    );
+    expect(
+      AgentToolPlanner.nativeToolDefinitionsFor('我想和你聊聊日记这件事'),
+      isEmpty,
+      reason: 'a topic mention must not turn into a phone-read task',
+    );
+  });
+
+  test('route-aware native schemas expose only relevant capability groups', () {
+    final webNames = AgentToolPlanner.nativeToolDefinitionsFor('今天有什么最新新闻')
+        .map((item) => (item['function'] as Map)['name'])
+        .toList();
+    expect(webNames, ['public_web_search']);
+
+    final phoneNames = AgentToolPlanner.nativeToolDefinitionsFor('看看你的塔罗记录')
+        .map((item) => (item['function'] as Map)['name'])
+        .toList();
+    expect(phoneNames, containsAll(['phone_search', 'phone_read']));
+    expect(phoneNames, isNot(contains('public_web_search')));
+  });
+
+  test('explicit phone content request uses a side-effect-free phone read', () {
+    final plan = AgentToolPlanner.routeLocally('看看你手机里的日记');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.phoneRead.id);
+    expect(plan.calls.single.arguments['section'], 'diary');
+
+    final search = AgentToolPlanner.routeLocally('查一下你手机塔罗里有没有月亮');
+    expect(search, isNotNull);
+    expect(search!.calls.single.toolId, AgentToolRegistry.phoneSearch.id);
+    expect(search.calls.single.arguments['section'], 'tarot');
   });
 
   test('explicit web request is routed locally without a second model call', () {
@@ -14,6 +54,19 @@ void main() {
     expect(plan, isNotNull);
     expect(plan!.calls.single.toolId, AgentToolRegistry.publicWebSearch.id);
     expect(plan.calls.single.arguments['query'], contains('REDMI K80 Ultra'));
+  });
+
+  test('explicit web image save uses one bounded workflow tool', () {
+    final plan = AgentToolPlanner.routeLocally('帮我上网找一张唯美黄昏风景图并保存到相册');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.imageFindAndSave.id);
+    expect(plan.calls.single.arguments['query'], contains('黄昏'));
+  });
+
+  test('explicit current attachment save is distinct from web image search', () {
+    final plan = AgentToolPlanner.routeLocally('把这张图片保存进你的相册');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.attachmentSave.id);
   });
 
   test('explicit rules and device reads become real bounded calls', () {
@@ -100,6 +153,11 @@ void main() {
       AgentToolPlanner.nativeToolDefinitions
           .map((item) => (item['function'] as Map)['name']),
       contains('system_self_read'),
+    );
+    expect(
+      AgentToolPlanner.nativeToolDefinitions
+          .map((item) => (item['function'] as Map)['name']),
+      containsAll(['phone_search', 'phone_read']),
     );
     expect(
       AgentToolPlanner.nativeToolDefinitions

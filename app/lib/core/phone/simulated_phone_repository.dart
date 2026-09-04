@@ -189,6 +189,40 @@ class SimulatedPhoneRepository {
     );
   }
 
+  /// Pure Agent/diagnostic read. Unlike [load], this never refreshes generated
+  /// projections, marks anything read, prunes album files, or writes settings.
+  Future<SimulatedPhoneSnapshot> readOnlySnapshot() async {
+    final tarot = await _readList(_tarotKey);
+    final notes = await _readList(_notesKey);
+    final notesSeenAt = int.tryParse(
+          await db.getSetting('simulated_phone_notes_seen_at') ?? '',
+        ) ??
+        0;
+    final albumItems = await db.companionAlbumItems();
+    return SimulatedPhoneSnapshot(
+      enabled: await isEnabled(),
+      diary: await _readList(_diaryKey),
+      notes: notes,
+      moods: await _readList(_moodKey),
+      wishes: await _readList(_wishesKey),
+      completedWishes: await _readList(_completedWishesKey),
+      cart: await _readList(_cartKey),
+      tarotSelf: _firstWhereOrNull(tarot, (entry) => entry.state == 'self'),
+      tarotUser: _firstWhereOrNull(tarot, (entry) => entry.state == 'user'),
+      albumItems: albumItems,
+      browserVisits: await db.companionBrowserVisits(),
+      albumUnread: await db.companionAlbumUnreadCount(),
+      notesUnread: notesSeenAt <= 0
+          ? 0
+          : notes
+              .where(
+                (entry) =>
+                    entry.createdAt.millisecondsSinceEpoch > notesSeenAt,
+              )
+              .length,
+    );
+  }
+
   Future<void> markNotesRead() async {
     await db.setSetting(
       'simulated_phone_notes_seen_at',

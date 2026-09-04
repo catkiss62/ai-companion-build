@@ -52,6 +52,39 @@ void main() {
 
 
   reasoningGuardTests();
+  memoryTemporalGuardTests();
+}
+
+void memoryTemporalGuardTests() {
+  test('old memory cannot be rewritten as something happening just now', () {
+    final result = ProactiveMemoryTemporalGuard.evaluate(
+      text: '刚才还在调试呆毛动画什么的。',
+      sourceIsMemory: true,
+      lastEvidenceAt: DateTime.utc(2026, 8, 31, 2),
+      now: DateTime.utc(2026, 9, 4, 17),
+    );
+    expect(result.allowed, isFalse);
+    expect(result.reason, 'stale_memory_as_recent_activity');
+  });
+
+  test('remembering an old event now remains naturally speakable', () {
+    final result = ProactiveMemoryTemporalGuard.evaluate(
+      text: '刚才忽然想起你前几天调呆毛的事。',
+      sourceIsMemory: true,
+      lastEvidenceAt: DateTime.utc(2026, 8, 31, 2),
+      now: DateTime.utc(2026, 9, 4, 17),
+    );
+    expect(result.allowed, isTrue);
+  });
+
+  test('non-memory thoughts do not receive the memory time restriction', () {
+    final result = ProactiveMemoryTemporalGuard.evaluate(
+      text: '刚才还在想要不要逗你一下。',
+      sourceIsMemory: false,
+      now: DateTime.utc(2026, 9, 4, 17),
+    );
+    expect(result.allowed, isTrue);
+  });
 }
 
 void reasoningGuardTests() {

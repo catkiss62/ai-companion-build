@@ -276,6 +276,7 @@ class DurableGenerationRunner {
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
+          userMessageId: user.id,
         );
       }
       final generationSpecialStyle = await db.activeSpecialStyleTrial();
@@ -457,7 +458,7 @@ class DurableGenerationRunner {
         // then performs its established local typewriter playback exactly once.
         emitDeltas: false,
         tools: localPlan == null
-            ? AgentToolPlanner.nativeToolDefinitions
+            ? AgentToolPlanner.nativeToolDefinitionsFor(user.content)
             : const <Map<String, Object?>>[],
       );
       cancellationToken?.throwIfCancelled();
@@ -477,6 +478,7 @@ class DurableGenerationRunner {
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
+          userMessageId: user.id,
         );
         cancellationToken?.throwIfCancelled();
 

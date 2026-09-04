@@ -61,6 +61,42 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const phoneSearch = AgentToolDefinition(
+    id: 'phone.search',
+    title: '搜索自己的手机',
+    description: '只读搜索查手机中的日记、随笔、心情、愿望、购物车、塔罗、浏览器和相册，不触发刷新或已读。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const phoneRead = AgentToolDefinition(
+    id: 'phone.read',
+    title: '读取自己的手机内容',
+    description: '按栏目、条目句柄或关键词只读取得一条查手机内容，不生成新内容、不标记已读。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const attachmentSave = AgentToolDefinition(
+    id: 'attachment.save',
+    title: '保存用户当前图片',
+    description: '仅在用户本轮明确要求时，确认同一条图片附件已由唯一相册写入链保存；不猜测成功。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const imageFindAndSave = AgentToolDefinition(
+    id: 'image.find_and_save',
+    title: '联网找图并保存',
+    description: '仅按用户本轮明确命令，搜索带图片的公开候选、识别同一图片并把同一缩略图保存到私有相册。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const screenObservation = AgentToolDefinition(
     id: 'screen_observation.inspect',
     title: '查看当前屏幕',
@@ -132,6 +168,10 @@ class AgentToolRegistry {
     albumSearch,
     deviceContextRead,
     systemSelfRead,
+    phoneSearch,
+    phoneRead,
+    attachmentSave,
+    imageFindAndSave,
     screenObservation,
     videoUnderstanding,
     memoryProposal,

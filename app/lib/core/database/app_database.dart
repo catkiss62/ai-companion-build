@@ -24,6 +24,7 @@ import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
 import '../memory/memory_retrieval_policy.dart';
+import '../memory/memory_grounding_policy.dart';
 import '../memory/topic_association_policy.dart';
 import '../integration/moe_expression_default_policy.dart';
 import '../phone/album_perceptual_hash.dart';
@@ -96,7 +97,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 42;
   // Historical validator compatibility token: static const int schemaVersion = 44;
   // Historical validator compatibility token: static const int schemaVersion = 45;
-  static const int schemaVersion = 46;
+  // Historical validator compatibility token: static const int schemaVersion = 46;
+  static const int schemaVersion = 47;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1083,6 +1085,9 @@ class AppDatabase {
     if (oldVersion < 46) {
       await _createV46LearningAssociationColumns(db);
     }
+    if (oldVersion < 47) {
+      await _createV47MemoryGroundingColumns(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1138,7 +1143,12 @@ class AppDatabase {
         evidence_count INTEGER NOT NULL DEFAULT 1,
         first_observed_at INTEGER,
         last_evidence_at INTEGER,
-        fact_version INTEGER NOT NULL DEFAULT 1
+        fact_version INTEGER NOT NULL DEFAULT 1,
+        actor_key TEXT NOT NULL DEFAULT 'unknown',
+        relation_key TEXT NOT NULL DEFAULT '',
+        object_key TEXT NOT NULL DEFAULT '',
+        owner_key TEXT NOT NULL DEFAULT 'unknown',
+        temporal_scope TEXT NOT NULL DEFAULT 'unknown'
       )
     ''');
     await db.execute(
@@ -1258,6 +1268,7 @@ class AppDatabase {
     await _createV44Tables(db);
     await _createV45WorldBookColumns(db);
     await _createV46LearningAssociationColumns(db);
+    await _createV47MemoryGroundingColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -2748,6 +2759,26 @@ class AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_personality_learning_topic '
       "ON personality_learning_candidates(topic_key, status, updated_at DESC) WHERE topic_key != ''",
     );
+  }
+
+  Future<void> _createV47MemoryGroundingColumns(Database db) async {
+    final columns = (await db.rawQuery('PRAGMA table_info(memory_items)'))
+        .map((row) => row['name']?.toString() ?? '')
+        .toSet();
+    const definitions = <String, String>{
+      'actor_key': "TEXT NOT NULL DEFAULT 'unknown'",
+      'relation_key': "TEXT NOT NULL DEFAULT ''",
+      'object_key': "TEXT NOT NULL DEFAULT ''",
+      'owner_key': "TEXT NOT NULL DEFAULT 'unknown'",
+      'temporal_scope': "TEXT NOT NULL DEFAULT 'unknown'",
+    };
+    for (final entry in definitions.entries) {
+      if (!columns.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE memory_items ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
   }
 
   Future<void> _createV29Tables(Database db) async {
@@ -4361,6 +4392,17 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'message_attachments',
+      orderBy: 'created_at ASC, id ASC',
+    );
+    return rows.map(MessageAttachment.fromDb).toList(growable: false);
+  }
+
+  Future<List<MessageAttachment>> messageAttachmentsFor(String messageId) async {
+    final db = await database;
+    final rows = await db.query(
+      'message_attachments',
+      where: 'message_id = ?',
+      whereArgs: [messageId],
       orderBy: 'created_at ASC, id ASC',
     );
     return rows.map(MessageAttachment.fromDb).toList(growable: false);
@@ -5989,6 +6031,11 @@ class AppDatabase {
     String topicKey = '',
     bool pinned = false,
     String semanticType = 'current_fact',
+    String actorKey = 'unknown',
+    String relationKey = '',
+    String objectKey = '',
+    String ownerKey = 'unknown',
+    String temporalScope = 'unknown',
     String evidenceMode = 'auto',
     String? targetMemoryId,
   }) async {
@@ -5999,6 +6046,18 @@ class AppDatabase {
       explicit: topicKey,
       subjectKey: normalizedSubject,
     );
+    final normalizedActor = MemoryGroundingPolicy.normalizeActor(actorKey);
+    final normalizedRelation = MemoryGroundingPolicy.normalizeEntityKey(
+      relationKey,
+      fallback: '',
+    );
+    final normalizedObject = MemoryGroundingPolicy.normalizeEntityKey(
+      objectKey,
+      fallback: '',
+    );
+    final normalizedOwner = MemoryGroundingPolicy.normalizeOwner(ownerKey);
+    final normalizedTemporal =
+        MemoryGroundingPolicy.normalizeTemporalScope(temporalScope);
     const semanticTypes = {'current_fact', 'inference', 'shared_experience'};
     const evidenceModes = {'auto', 'append', 'reinforce', 'replace'};
     var semantic = semanticTypes.contains(semanticType) ? semanticType : 'current_fact';
@@ -6070,6 +6129,17 @@ class AppDatabase {
               'subject_key': normalizedSubject,
             if (existing.topicKey.isEmpty && normalizedTopic.isNotEmpty)
               'topic_key': normalizedTopic,
+            if (existing.actorKey == 'unknown' && normalizedActor != 'unknown')
+              'actor_key': normalizedActor,
+            if (existing.relationKey.isEmpty && normalizedRelation.isNotEmpty)
+              'relation_key': normalizedRelation,
+            if (existing.objectKey.isEmpty && normalizedObject.isNotEmpty)
+              'object_key': normalizedObject,
+            if (existing.ownerKey == 'unknown' && normalizedOwner != 'unknown')
+              'owner_key': normalizedOwner,
+            if (existing.temporalScope == 'unknown' &&
+                normalizedTemporal != 'unknown')
+              'temporal_scope': normalizedTemporal,
             if (pinned) 'pinned': 1,
             'evidence_count': existing.evidenceCount + 1,
             'last_evidence_at': now,
@@ -6215,6 +6285,11 @@ class AppDatabase {
         'retention_score': 1.0,
         'retention_checked_at': now,
         'semantic_type': semantic,
+        'actor_key': normalizedActor,
+        'relation_key': normalizedRelation,
+        'object_key': normalizedObject,
+        'owner_key': normalizedOwner,
+        'temporal_scope': normalizedTemporal,
         'evidence_count': 1,
         'first_observed_at': now,
         'last_evidence_at': now,
@@ -9550,6 +9625,20 @@ class AppDatabase {
       limit: 1,
     );
     return rows.isNotEmpty;
+  }
+
+  Future<CompanionAlbumItem?> companionAlbumItemForSource(
+    String sourceKind,
+    String sourceId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      'companion_album_candidates',
+      where: 'source_kind = ? AND source_id = ?',
+      whereArgs: [sourceKind, sourceId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : CompanionAlbumItem.fromDb(rows.first);
   }
 
   Future<bool> beginCompanionAlbumCandidate({
@@ -14441,6 +14530,15 @@ class AppDatabase {
             row['topic_key'] = TopicAssociationPolicy.fromSubject(
               row['subject_key']?.toString(),
             );
+          }
+          if (table == 'memory_items' && version < 47) {
+            row.addAll(const {
+              'actor_key': 'unknown',
+              'relation_key': '',
+              'object_key': '',
+              'owner_key': 'unknown',
+              'temporal_scope': 'unknown',
+            });
           }
           if (table == 'personality_learning_candidates' && version < 46) {
             row.addAll({

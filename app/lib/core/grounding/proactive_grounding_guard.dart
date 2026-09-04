@@ -166,3 +166,51 @@ class ProactiveReasoningGroundingGuard {
       .replaceAll('"', '')
       .replaceAll("'", '');
 }
+
+/// Prevents a recalled long-term memory from being compressed into a fresh
+/// activity claim. Remembering something now does not update when it happened.
+class ProactiveMemoryTemporalGuard {
+  const ProactiveMemoryTemporalGuard._();
+
+  static final RegExp _recentOngoingClaim = RegExp(
+    r'(刚才|刚刚|方才|刚才还|刚刚还).{0,12}'
+    r'(正在|还在|在.{0,10}(调试|制作|开发|修|做|看|玩|工作|聊天))',
+  );
+  static final RegExp _recallFraming = RegExp(
+    r'(刚才|刚刚|方才).{0,8}(想起|想到|记起|回忆起)',
+  );
+
+  static ProactiveGroundingGuardResult evaluate({
+    required String text,
+    required bool sourceIsMemory,
+    DateTime? lastEvidenceAt,
+    DateTime? now,
+  }) {
+    if (!sourceIsMemory || text.trim().isEmpty) {
+      return const ProactiveGroundingGuardResult(
+        allowed: true,
+        reason: 'not_memory_temporal_claim',
+      );
+    }
+    final instant = now ?? DateTime.now();
+    final sourceIsFresh = lastEvidenceAt != null &&
+        !instant.isBefore(lastEvidenceAt) &&
+        instant.difference(lastEvidenceAt) <= const Duration(hours: 2);
+    if (sourceIsFresh || _recallFraming.hasMatch(text)) {
+      return const ProactiveGroundingGuardResult(
+        allowed: true,
+        reason: 'memory_time_explicit_or_fresh',
+      );
+    }
+    if (_recentOngoingClaim.hasMatch(text)) {
+      return const ProactiveGroundingGuardResult(
+        allowed: false,
+        reason: 'stale_memory_as_recent_activity',
+      );
+    }
+    return const ProactiveGroundingGuardResult(
+      allowed: true,
+      reason: 'memory_time_grounded',
+    );
+  }
+}

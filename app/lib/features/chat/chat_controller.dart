@@ -795,7 +795,12 @@ class ChatController extends ChangeNotifier {
     String path = '';
     String contentSha = '';
     String perceptualHash = '';
-    if (observation.albumSave) {
+    final explicitlyRequested = RegExp(
+      r'(保存|存下|存进|收藏|收进).{0,10}(这张|这个|图片|照片|相册)|'
+      r'(这张|这个|图片|照片).{0,10}(保存|存下|存进|收藏|收进)',
+    ).hasMatch(message.content);
+    final shouldSave = observation.albumSave || explicitlyRequested;
+    if (shouldSave) {
       final stored = await CompanionAlbumStorage().saveThumbnail(
         id: candidateId,
         source: thumbnail,
@@ -807,10 +812,12 @@ class ChatController extends ChangeNotifier {
     }
     final completed = await db.completeCompanionAlbumCandidate(
       id: candidateId,
-      save: observation.albumSave,
-      visionSummary: observation.albumSave ? observation.summary : '',
+      save: shouldSave,
+      visionSummary: shouldSave ? observation.summary : '',
       visionModel: observation.model,
-      aiReason: observation.albumReason,
+      aiReason: explicitlyRequested
+          ? '用户在本轮明确要求保存这张图片；视觉摘要仅用于相册索引。'
+          : observation.albumReason,
       category: observation.albumCategory,
       thumbnailPath: path,
       contentSha256: contentSha,
@@ -830,9 +837,9 @@ class ChatController extends ChangeNotifier {
       context: 'user_image_album',
       primaryProvider: 'local_album',
       primaryOutcome: outcome,
-      finalProvider: completed && observation.albumSave ? 'local_album' : 'none',
+      finalProvider: completed && shouldSave ? 'local_album' : 'none',
       finalOutcome: outcome,
-      resultCount: completed && observation.albumSave ? 1 : 0,
+      resultCount: completed && shouldSave ? 1 : 0,
       latencyBucket:
           ProviderHealth.latencyBucket(DateTime.now().difference(started)),
     ));

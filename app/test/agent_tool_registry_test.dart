@@ -15,6 +15,8 @@ void main() {
         'album.search',
         'device_context.read',
         'system_self.read',
+        'phone.search',
+        'phone.read',
         'screen_observation.inspect',
       ]),
     );
@@ -33,6 +35,19 @@ void main() {
       final tool = AgentToolRegistry.byId(id)!;
       expect(tool.executable, isFalse, reason: id);
       expect(tool.userTurnAvailable, isFalse, reason: id);
+    }
+  });
+
+  test('album writes are executable only as explicit proposal-risk workflows', () {
+    for (final tool in <AgentToolDefinition>[
+      AgentToolRegistry.attachmentSave,
+      AgentToolRegistry.imageFindAndSave,
+    ]) {
+      expect(tool.executable, isTrue);
+      expect(tool.userTurnAvailable, isTrue);
+      expect(tool.autonomousAvailable, isFalse);
+      expect(tool.risk, AgentToolRisk.proposal);
+      expect(AgentToolRegistry.userTurnExecutable, isNot(contains(tool)));
     }
   });
 

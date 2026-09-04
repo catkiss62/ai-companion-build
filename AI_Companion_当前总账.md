@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04133-competence-curation-emotion`；从 v0.41.32 最终公开基线建立。当前插队包只处理新备份已证明的对话表达计划漏注入、能力与人格优先级、挑战/质量纠偏路由，以及此前尚未发布的情绪特效方形尺寸定位和正向图片收藏策展；不修改用户新建的“角色表达自然化”、性格光谱或造梗正文，不扩猜卡死根因 |
+| 当前开发分支 | `agent/v04134-memory-grounding-agent-foundation`；从 v0.41.33 最终公开基线建立。当前包先修复最新备份证明的记忆主体/归属/时态完整性与无屏幕证据陈述，再继续已冻结的 App 内 Agent 基座；两部分完成后只构建一个测试 APK |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.33 公开功能 head `9d0a11706b3b2452372005fc76276780340a3fb6`，与本地功能提交 `ceb40430cdc19f0be1811e9329714eeedab930e0` 具有完全相同的 tree `b43e6f98193e250175913aa69797983b7690b28a`；公开 pre-CI tip `01dfa7ea3e03d0b3c9b279a3f1636c8aafcce904` / tree `0d6b91654d08c701bea2c4bf8f6804b0d2f3f3b2` 已由 run 715 全门禁验证。后续只允许 `[skip ci]` 补记最终证据，不再触发第二个 APK |
-| App / 数据库 | 当前开发目标 `0.41.33+172` / schema 46 / Snapshot protocol 5；不新增数据库迁移。保留 Phase 2B、04/05/07、房间默认规则、用户“角色表达自然化”/性格光谱/造梗正文及全部用户手改内容；只在运行 Prompt、图片策展和情绪特效布局层做有界修改 |
+| 当前代码 head / tree | v0.41.34 本地功能提交 `2c3195c8016088aa3187e7483a7693bc46cd2094` / tree `90ac0f982b1d23c59a649b143f1cfa2e12abb67d` 已通过本地静态合同、历史回归与提交前审查；下一步仅追加本条 pre-CI 证据提交并一次性推送，尚未触发 CI。上一公开可运行基线仍为 v0.41.33 功能 head `9d0a11706b3b2452372005fc76276780340a3fb6`、run 715 全门禁通过的 pre-CI tip `01dfa7ea3e03d0b3c9b279a3f1636c8aafcce904` |
+| App / 数据库 | 当前目标 `0.41.34+173` / schema 47 / Snapshot protocol 5；schema 47 只为 Memory 增加有界 actor / relation / object / owner / temporal scope，支持 schema 46 覆盖升级与备份导入，不改写或删除用户既有记忆正文、关系资料、世界书及手改规则 |
 | 最终 CI | v0.41.33+172 Actions run [`33883980296`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296)（715）一次全绿：全部源码/历史 validators、Kotlin、Flutter analyze、553/553 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.33-172-Competence-Curation-Emotion-APK.apk`，325,873,086 bytes |
 | APK SHA-256 | `dcb98b25a0cc68ec208dbb000dc59387d98edb7f106973d9a7d93bb1ff5f029d`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9941442832`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296/artifacts/9941442832)，ZIP 319,577,717 bytes，digest `sha256:67e97a736b6d4d0e06b924c6e0a53139a6bd71734ea92f5c03f91d2f0373eb77`，保留至 2026-09-18T14:39:18Z；Draft Release [`untagged-715dab35cece05d4bdd0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-715dab35cece05d4bdd0)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 插队包为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：表达计划注入、能力硬下限、挑战/纠偏、正向图片策展与方形情绪特效均已由 run 715 验证；用户世界书未改。v0.41.32 Phase 2B 的 [run `33828228213`](https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213) 与 APK SHA-256 `2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf` 自动化证据继续有效并包含在本 APK 中。下一步只做合并真机观察，未取得设备证据前不得写 `TRUE DEVICE PASSED` |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`：表达计划、能力与人格解耦、角色表达自然化共存、情绪特效与正向图片策展的真机结论不变。v0.41.34 Memory 2C 与 App 内 Agent 基座现为 `IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；尚未构建 APK |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装 v0.41.33 后做合并真机观察：继续保留并测试用户“角色表达自然化”世界书，比较普通闲聊的活人感；用“出一道难一点、别总代入自己”的挑战及随后“太简单/换个思路”纠偏核对能力是否真正提升；分别切换大肥鱼与小小鲸确认 2 倍情绪特效回到头部左上；混合观察二次元立绘、氛围风景、功能性商业图与性感但可识别图片的收藏选择。自然使用后导出备份与脱敏诊断，并与 Phase 2B activation/association/consolidation 一并收口。** |
-| 目标 | 保留极薄核心带来的活人感：完整能力只作为不可降低的硬下限，不先生成中性助手答案再套人设皮；人格继续决定注意、主观态度、取舍、说多少与怎样表达。图片判断从类别过滤改为完成度、氛围美感、构图聚焦、非模板化程度及已知弱偏好的综合收藏价值 |
-| 当前证据 | v0.41.32 备份已把“低智”定位为 Prompt 路由与注意分配问题，而非模型算力关闭；v0.41.33 已把每轮表达计划真实注入并新增 challenge/feedback 路由和能力硬下限。run 715 一次通过 553/553 tests、analyze、Kotlin、Release、签名与完整载荷，APK/Artifact SHA 独立一致。自动化只能证明合同与构建正确；“角色表达自然化”的活人感、挑战实际质量、两套立绘视觉位置、相册策展宽度和 Phase 2B 自然度仍须真机验证 |
-| 保护与排除 | 不把“小鲸鱼”降为标准助手答案的语言皮套；不引入全局逐项自检、服务型完整回答或固定答题结构；不删除、重排或重新编号 rule layer 稳定 key；不修改用户“角色表达自然化”、性格光谱、造梗正文或其当前开关。不改变 Phase 2B 数据与 schema，不修改 NSFW（继续观察），不改变动作首帧、长 reasoning 后逐字播放、疲劳、桌宠/悬浮和已通过的格式链 |
-| 实现边界 | 表达计划须靠近当前真实 user turn 注入，并由末端中文/角色/格式锁收口；普通闲聊仍允许短、直白、不完整，任务/事实/挑战/质量纠偏才启用能力优先。情绪特效保持现有 `.50` 放大倍率和两套立绘各自 anchor，只把高度改为与舞台宽度同源的方形边长。图片 Prompt 只正向定义收藏价值和虚构角色置信度；成人标志可保留作元数据，但不得成为本地 save veto |
-| 完成判据 | 真机普通闲聊保持自然、不过度助手化；挑战/质量反馈能实质改变难度和思路，且诊断责任形状中 `dialogueExpressionPlan=true`；大肥鱼与小小鲸的情绪动画均为 2 倍且位于头部左上；相册判断表现为正向审美策展而非类别过滤，虚构角色不强行认错；Phase 2B activation/association/consolidation 计数合理。若没有明确失败证据则把 v0.41.33 与 Phase 2 收口，进入 Phase 3 规划；NSFW 继续观察，不单独阻塞收口 |
-| 直接详细入口 | 本节下方“v0.41.33 能力—人格解耦、视觉策展与情绪特效收口”；代码入口为 `DialogueExpressionPlan`、`PromptBuilder`、`QwenVisionClient`、`ChatPortraitStage`、相关 tests/validator、workflow 与版本文件 |
+| 当前下一步 | **完成 v0.41.34 Memory 2C 与 App 内 Agent 基座的本地验证、代码审查和总账回填，然后提交并一次性推送当前公开测试分支，运行 GitHub Actions 并生成一个 v0.41.34 测试 APK。** Memory 2C 已实现行动者—关系—对象—归属与事件时态；Agent 已实现普通闲聊零 schema、按请求展开相关只读能力、纯只读 `phone.search / phone.read`、用户明确指令下的当前附件保存和联网找图保存。无同轮 `screen_observation.inspect` 成功 Outcome 时仍禁止屏幕内容断言。CI 未通过前不得写成 APK READY，Phase 3 仍关闭 |
+| 目标 | AI 不需要写代码，但能准确发现自己此刻可用的能力、选择相关工具、执行多步行动、读取真实结果并以小鲸鱼自己的方式回答。Tool 负责原子执行，Skill 负责组合策略，MCP 负责外部能力接入，Agent 负责选择与串联；人格/情感影响注意、主动意愿和表达，不改变权限与执行真值 |
+| 当前证据 | 最新 v0.41.33+172 诊断：Phase 2B `activationCount=7`、1 个成熟候选被真实激活、整理为 completed；`dialogueExpressionPlan=true` 已在新版样本持续出现，feedback/challenge 各 1 次。Agent 现有 21 次用户轮请求、17 次成功、0 次失败，最近 `system_self.read` 成功返回 23 项；但最大每轮 2 次、仅有七个只读工具，没有图片发现/识图/保存原子工具，因此她能查到“功能存在”却不能完成“替我上网存图”。这是真实能力缺口，不是人格或 Prompt 再强调即可解决 |
+| 保护与排除 | 不把普通陪伴轮变成计划书、检查清单、能力声明或工作汇报；不把全部工具 schema 常驻每轮 Prompt；不让人格层伪造执行成功，也不让工具层重写人格。第一批不开放任意代码/终端、密钥、原始日志、数据库、无界文件系统或未审计社区插件；不照搬外部项目。图片写入只在用户明确指令下执行，策展 veto 可被明确保存命令覆盖，但网络、视觉、重复、存储和权限失败不得伪装成功 |
+| 实现边界 | 增加轻量请求路由：`CHAT_LIGHT` 默认零工具；明确任务才只展开相关能力子集。多步执行必须有总步数/时间/费用预算、超时、取消、去重/无进展终止、权限 Gate、结构化中间句柄和持久化 Outcome。既有确定性任务链保留为可靠 workflow/tool，同一底层服务只保留一个实现；旧关键词路由可作快路或保护门，但不得继续成为唯一入口 |
+| 完成判据 | Memory 先覆盖“用户在做 AI 的 Live2D 呆毛”不丢行动者/归属、跨日旧进度不写成刚才或现在、无截图不能声称屏幕停在哪页，并回放 schema 46 备份。Agent 设计列清第一批原子工具、参数/结果句柄、风险级别、可见 UI、失败语义和旧链复用关系；查手机读取不得触发刷新、生成内容、已读标记或成长写入。普通聊天 A/B 不增加工具注入、延迟或助手腔。实现后至少验证“上网找并保存一张指定类型图片”“保存用户当前附件”“按需搜索/读取日记与塔罗”“询问功能与最近行动”“无结果/拒绝/取消不虚报成功”，再构建一个合并测试 APK。Phase 3 必须在该包真机闭环后另批实现 |
+| 直接详细入口 | 本节下方“2026-09-04 真机收口、外部项目审计与 Agent 能力桥设计”；当前代码入口为 `AgentToolRegistry`、`AgentToolPlanner`、`AgentToolRunner`、`AgentSelfReader`、联网发现/视觉/相册服务与 `OperationalClaimGroundingGuard` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -59,10 +59,13 @@
 | A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 689、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
-| C · Phase 2B 真机与 Phase 2 收口（CURRENT） | v0.41.32 run 714 全绿且 APK 已独立校验 | 覆盖安装后观察成熟候选低权重表达与一层关联自然度，并从脱敏诊断核对 activation/association/consolidation；若无阻断则明确关闭 Phase 2，再进入 Phase 3。不得仅凭 CI 倒写真机通过 |
-| C0 · v0.41.33 真机收口（CURRENT） | run 715 全绿且 APK 已独立校验 | 覆盖安装后检查活人感与能力是否同时保留、challenge/feedback 是否实质生效、两套立绘情绪特效位置和图片正向策展；随后与 Phase 2B 一并导出诊断收口 |
-| D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
-| E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
+| C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
+| C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
+| C1 · App 内 Agent 能力桥（IMPLEMENTED / CI PENDING） | Phase 2 与 v0.41.33 已收口；Memory 2C 与首批 Tool/路由已通过本地静态验证 | 完成 CI 后构建一个 v0.41.34 APK；真机验收普通闲聊零工具、手机只读、当前附件保存、联网找图保存、失败不虚报，再决定是否进入 Phase 3 |
+| D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
+| D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
+| D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
+| E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载，不与陪伴核心焊死。娱乐谜题仅作后续小优化，“锁思考”只留最终备选；记忆星图已有其他参考，本路线暂不研究、不借外部项目定型 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
@@ -71,7 +74,53 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### v0.41.33 能力—人格解耦、视觉策展与情绪特效收口（2026-09-04，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
+### 2026-09-04 Memory 2C 前置完整性 + Agent 基座（IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户在 Agent 基座开工前补充此前“记忆关联”的原始目标：不仅要同主题召回，还必须防止压缩时丢失行动者、对象和归属。例如“用户正在修 AI 的 Live2D 模型的呆毛”不能退化成“做 Live2D 呆毛”，更不能反转成用户自己的身体部件。审计确认 schema 46 的 Phase 2B 只实现 `topic_key` 直接种子与最多三条同主题一跳扩展；`subject_key` 只做事实版本链，没有实体角色、所有权或事件有效期。因此该目标此前只完成了一部分，不能写成已完成。
+2. 只读核验用户上传的 `2026-09-04T17:40:23` 备份：ZIP protocol 5 / schema 46 / generation 41，manifest 与 state SHA-256 一致；附件不提交仓库。错误主动消息称“屏幕上最后停在那堆呆毛的调试页”，其 reasoning 又称“刚才还在调试呆毛动画”。相关呆毛进度最后证据约早 398,702 秒（约 4.61 天）；数据库仍有 active 的“用户在继续制作 Live2D”“用户正在开发 Live2D”Memory/Thread，Prompt 注入未携带证据年龄或当前有效性，Self-Drive 还会把旧 Memory 重新生成当前 Thought。故根因是旧进行时被永久当作 current fact，再由模型压缩为“刚才”，不是用户真的在本轮提供了新进度。
+3. 同一消息的“屏幕停在调试页”没有任何截图或 `screen_observation.inspect` 成功 Outcome。现有操作真值守卫只拦截“看了/观察了 + 当前屏幕”等完成式动词，没有覆盖“屏幕上显示/停在某页”这种像素内容断言；Awareness 的亮屏/灭屏与前台 App 粗状态也不能证明页面内容。这是独立的可复现守卫漏口。
+4. 修复边界冻结为 **Memory 2C bounded grounding**，不做无界知识图谱、不删除或批量改写旧记忆正文：新 Memory 提案保存受限的 actor / relation / object / owner 与 temporal scope；提取器必须把短期项目进度写成“某次确认的进行中状态”，保留“用户在做 AI 的对象”等显式角色。旧 schema 46 条目使用保守本地推断；注入 Prompt 时使用 `last_evidence_at` 给出绝对日期/年龄，并把进行时标为“最后已知状态，当前未知”，禁止改写为现在、刚才或刚刚。
+5. Thread 与来自 Memory 的 Thought 也必须携带来源时态边界。未结束只表示仍值得以后承接，不证明项目此刻仍在进行；“重新想起一条旧记忆”发生在现在，不会把记忆里的事件时间刷新到现在。新鲜用户本轮原话仍可作为当前事实，不受旧记忆降格影响。
+6. 最终操作真值守卫增加窄的屏幕像素/页面断言检测：没有本轮成功截图识别时，禁止声称屏幕显示什么、停在哪一页、某按钮/文字位于屏幕何处；允许由设备上下文支持的屏幕亮灭、解锁/交互等粗状态，也不误伤“如果屏幕显示”“我没看见屏幕”等否定、假设和元讨论。
+7. 该缺口会直接影响 Agent 的 `memory.search / phone.read` 自查，也会污染 Phase 3 的主动来源，故先修再扩工具。它与 Agent 基座合并在 v0.41.34 一个 APK 中，但测试、代码审查和总账证据分节记录；不得借机重开已收口的 Phase 2B bias、修改用户世界书、抹掉旧共同经历，或把所有历史事实一律判失效；本批也不删除、重排或重新编号 rule layer 稳定 key。
+8. 已将版本目标定为 `0.41.34+173 / schema 47 / Snapshot protocol 5`。`memory_items` 新增 `actor_key / relation_key / object_key / owner_key / temporal_scope` 五个保守字段；新装、46→47 覆盖升级和 schema 46 备份导入均补默认值。旧正文、事实版本、topic、关系资料、世界书、消息和附件不迁移、不重写、不删除。
+9. 新增 `MemoryGroundingPolicy` 作为统一注入边界：新提取要求受限 actor/owner/temporal 枚举和完整 object；旧记忆仅作保守本地推断。Memory、Thread、Summary 与来自 Memory 的 Thought 均携带最后证据绝对时间/年龄；过期 ongoing 只表示 `last_known_ongoing / current_status=unknown`，并明确“现在想起”不刷新原事件时间。
+10. 主动消息增加来源 Memory 时间守卫：超过两小时的旧进行中证据若被写成“刚才/刚刚还在做”则阻止并重试，但“刚才忽然想起前几天……”等回想发生时间不被误伤。操作真值守卫同时覆盖“屏幕上显示/停在某页”这类无完成式动词的像素断言；只有同轮 `screen_observation.inspect` 成功可支持，屏幕亮灭等粗设备状态仍允许。
+11. Agent 路由已改为按用户请求展开能力：`CHAT_LIGHT` 返回零 tool schema；功能自读、记忆、相册、手机、网页或屏幕任务只注入最多三个相关只读组。没有让每轮普通陪伴先写计划、汇报步骤或重复能力声明，也没有改变核心人格、Emotion、Desire、世界书或普通回答表达合同。
+12. Registry/Planner/Runner 新增 `phone.search`、`phone.read`、`attachment.save`、`image.find_and_save`。手机查询使用独立纯读取快照，覆盖日记、便签、心情、愿望、购物车、塔罗、相册和浏览器；不触发 refresh、内容生成、已读标记、缓存维护、Thought、Memory、Emotion 或成长写入。
+13. 两条图片任务复用现有 canonical 视觉与相册链：用户在当前图片消息中明确“保存/收藏”时，Qwen 仍生成摘要与索引，但可跳过自主策展 veto；网络、视觉提供方、重复、存储和权限错误继续如实失败。用户明确要求“上网找一张……并保存”时，高层 workflow 执行搜索→候选下载→同一字节视觉识别→内容哈希绑定→相册写入，只在真实 `saved` Outcome 后报告终态成功；两者均不会作为模型或自主行为的无条件写权限开放。
+14. 已新增/扩展专项测试，覆盖 Memory 角色归属与旧进行时、Thread/Summary 时间边界、真实错误句的屏幕守卫、旧记忆主动消息拦截与合法回想反例、普通闲聊零 schema、相关路由、手机工具和两种显式图片保存。新增 v0.41.34 静态 validator，并更新版本/当前总账与历史 Agent 自读兼容 validator。
+15. 在运行实现刚写入本地时只标记为待验证；当时仍须执行全部可用静态/历史 validators、workflow YAML 与 Python 语法检查、变更审查并提交。此环境没有 Flutter/Dart SDK，最终编译、Flutter analyze/tests、Release APK、签名与完整载荷必须由 GitHub Actions 证明，不能提前写 `CI PASSED / APK READY`。
+16. 提交前本地验证已完成：workflow YAML、Python compileall、`git diff --check`、v0.41.34 专项、当前总账、v0.41.33/32/30/16 及工作流中其余可运行历史合同均通过；工作流 64 项 Python 命令为 `57 passed / 7 environment-only unavailable`。七项只缺 CI 才恢复的 417 文件桌宠、LingChat、Meju/TTS native 载荷或本地 `kotlinc`，没有本批功能断言失败；本地仍无 Flutter/Dart，故编译和 Flutter tests 必须由 Actions 证明。
+17. 提交前审查额外修正两处：手机只读搜索先剥离“看看你手机里的日记/塔罗”等命令与栏目词，空语义查询返回该栏目最近内容，不再拿整句命令误搜；联网找图保存的复用引擎在成功、失败或取消后统一关闭视觉与下载客户端。普通提及“今天抽到的塔罗牌”“聊聊日记”不会因此注入 phone tool schema。
+18. v0.41.34 本地功能提交为 `2c3195c8016088aa3187e7483a7693bc46cd2094`，tree 为 `90ac0f982b1d23c59a649b143f1cfa2e12abb67d`，共 31 个任务相关文件；不含用户备份、诊断、聊天正文、图片、密钥或 API 配置。下一步只追加本条 pre-CI 证据提交，再一次性推送当前公开测试分支并等待 Actions 完整编译、测试和 APK 结果。
+
+### 2026-09-04 真机收口、外部项目审计与 Agent 能力桥设计（DOCS ONLY / RUNTIME UNCHANGED / DESIGN CURRENT）
+
+1. 用户确认 v0.41.33 本轮修复均已正常，最新对话没有再次出现对白遗漏 `「」` 后被渲染成白色斜体。备份与脱敏诊断显示新版责任样本中的 `dialogueExpressionPlan=true`，路由有 `feedback=1 / challenge=1`，纠偏后题目难度和思路真实改变；因此不把先前单次格式漏出猜成系统性渲染 Bug，不增加全局字符串后处理，保留观察即可。
+2. Phase 2B 最新诊断为 `bounded_bias`，累计 activation 7 次、1 个 established 候选被激活，最近 consolidation 为 completed；用户未报告人格覆盖、助手腔或关系事实污染。结合此前 schema/备份/CI 证据，Phase 2 与 v0.41.33 于本次收口。NSFW、新题新鲜度、偶发格式和模型自身发挥继续是观察项，不阻塞收口、不单独出 APK。
+3. 当前 Agent Registry 只有七个用户轮只读工具：公开网页搜索、规则/记忆/相册检索、设备上下文、自身系统读取和一次性屏幕观察；执行器每轮最多两次。最新样本中用户要求“上网找风景并保存”时，模型真实调用 `system_self.read` 并得知功能存在，却没有可执行的图片发现/视觉评价/相册保存工具，最终不能完成动作。这证明缺口位于能力注册和编排层，而非再写一句 Prompt 或再加一个角色命令。
+4. Agent 能力桥采用四类职责：**Tool** 是可审计原子动作，**Skill** 是如何组合工具的策略，**MCP** 是外部工具提供协议，**Agent loop** 负责按当前请求选择、串联和根据 Outcome 继续或停止。人格/Emotion/Desire 可以影响关注什么、是否主动发起以及最后怎样表达；Tool Gate、授权和真实 Outcome 独立决定能否执行及是否成功，禁止“情绪很强所以绕过权限”。
+5. “上网存图”不再为每种说法写巨型专用链，而是由可组合原子能力完成：`image.search` 返回候选句柄，`image.inspect` 对同一候选执行视觉描述/收藏价值判断，`album.save` 以该句柄保存同一不可变字节并返回真实 album outcome；用户附件则由 `attachment.inspect / album.save` 复用相同视觉与保存服务。用户明确命令保存时，可跳过自主策展 veto，但仍保留内容提供方失败、权限、重复和存储错误的真实结果。
+6. 旧任务链不会自动冲突。自主联网/策展继续由 Desire → Thought → Intent → Gate 驱动；用户轮 Agent 通过 adapter 调用相同的搜索、下载、视觉和相册服务；确定性高价值链可整体注册为高层 workflow 工具。每种副作用只能有一个 canonical 实现和一个 Outcome 账本，旧关键词路由只作为低延迟快路/安全门，不能与模型编排各写一套保存逻辑或竞争执行。
+7. 活人感的主要风险不是“拥有工具”，而是所有工具定义、工作计划、自检和能力声明常驻每轮 Prompt。第一批必须增加 route-aware selection：`CHAT_LIGHT` 零工具、零计划汇报；明确行动、能力询问或任务延续才展开相关少量 schema。执行过程默认内部且有界，最终由同一人格直接说结果；除非用户询问，不逐步汇报检查清单。当前“普通轮无本地计划时仍附带全部原生只读 schema”的行为必须先改掉，不能在其上直接叠加几十个工具。
+8. 多步 Agent 不是无限自主。每个任务需有步数/时间/费用预算、风险分级、超时与取消、句柄化中间结果、无进展/重复调用终止、请求级授权、成功/无结果/失败/阻止的结构化 Outcome，以及已有 `OperationalClaimGroundingGuard` 的终态真值约束。第一批禁止任意终端/代码、密钥、原始日志、数据库、无界文件系统和未审计社区插件。
+9. 冷门谜题适合以后成为 Skill 而不是又一条硬编码聊天链，但它只是娱乐向小优化，不进入 Agent 基础批，也不影响基础能力验收。以后若重开，可在用户明确说“刁钻、冷门、不要大众题、上网找”或连续反馈太简单时组合网页搜索/页面读取/历史去重；普通随口玩题仍不必联网。
+10. 自主“锁住思考”只登记为最终备选任务 `DESIGNED / EXPERIMENTAL / LAST-PRIORITY`，不进入 Agent、Phase 3/4 或近期体验包。当前 reasoning 是边生成边显示，正文末尾标签不能追溯隐藏已经流出的内容；若未来重开，应由生成前 Gate 决定并在 sealed 时只显示短动画，同时区分 UI 演出与真正不持久化 reasoning 的隐私语义。
+11. 只读审计外部参考 [`yuxinbeiyi/Lianxin-AI`](https://github.com/yuxinbeiyi/Lianxin-AI) 当前公开 head `6ef81871dfad849c4d7d09a88ee2de0750c55dbc`，MIT、Windows/Python/PyQt/LiteLLM。它不是 README 空壳：有真实的请求模式路由、能力目录、Tool/Skill/MCP 注册、ReAct 循环、请求级授权、工具结果回灌、循环熔断、记忆来源/冲突/淘汰、连续情感状态、主动行为冷却和多个 UI 模块。值得吸收的是机制与合同，不是复制其大文件实现。
+12. 外部项目可借鉴：轻聊天零工具、任务按能力只展开相关 schema、明确任务强制首个真实工具、歧义任务先请求能力、内置/Skill/MCP 共用 Capability Catalog、同轮安全并行、授权/审计/结果归因、无进展/搜索疲劳熔断；记忆层可参考 evidence/provenance/conflict/supersession 与 working-memory TTL，Emotion 可参考 guardedness/rupture/repair，主动调度可参考“每 tick 只选一种行为”和分行为冷却。这些均需翻译进本项目已有 Desire/Thought/Memory/Outcome 架构。
+13. 明确不照搬：公开仓库 `.gitignore` 排除了 `tests/`，仓库实际没有测试文件，但 workflow 仍运行 unittest discover，因此“CI 通过”不能证明功能测试；“自我认知” Skill 依赖的 docs/index 和主题文档未随公开仓库提交；Skill 的 `tools.py` 可被动态 import/exec 并直接加入全局执行器，对不可信插件权限过宽；MCP 客户端虽能 stdio initialize/list/call，却有外部命令启动、阻塞读取、stderr/超时/重连与权限声明未充分强制的问题；核心 `agent.py` / `tools.py` 体量过大且大量依赖正则/静态映射。任何以后采用的具体代码都必须重新审计并遵守 MIT 署名，而当前不复制代码。
+14. 功能对比结论：本项目现有本地数据库、Memory 证据、Phase 2B 关联、Desire/Thought/Intent/Gate 与小鲸鱼专属情感人格主线不应被替换。时间胶囊可启发共同日记/树洞与记忆链接；成就和自习室属于低优先级独立体验。记忆星图因用户已有其他参考而从本次借鉴路线排除，避免影响既有思路。外部项目的 MCP/Skills 管理页与统一能力目录最值得作为后续 UI/协议参考，但完整插件市场、代码 Harness 继续后置并保持可安装/可卸载，不能焊进陪伴核心。
+15. 本节只更新设计与排期，没有修改 Dart/Kotlin、schema、Prompt、规则、世界书、测试、版本或 APK。下一步先产出 Agent 能力桥 v1 的原子工具/参数/结果/风险/权限/旧链复用清单，经范围冻结后才建立新版本分支；优先级为 App 内 Agent 核心高于完整 Harness，完整 Skills/MCP/代码 Harness 后置插件化。
+16. 结合 Phase 3 再审查后的排期结论是“接口一起设计，运行实现和真机 APK 分开”。Agent 是 Phase 3 的可信行动与 Outcome 前置条件；若同包打开，无法区分主动来源变化究竟来自工具供给、兴趣学习还是表达层，也可能让半成品工具结果被错误蒸馏为长期 AI 兴趣。先单独验收 Agent，再由 Phase 3 消费其稳定 Outcome，保留原定“Phase 3 第一次形成 AI 自身习惯时必须独立出包”的高风险检查点。
+17. Agent 基础批增加查手机只读能力：建议用 `phone.search` 做跨区检索、`phone.read(section, ref, limit)` 读取指定条目，覆盖日记、随笔/便签、心情、愿望、购物车、当日两张塔罗、浏览器记录和相册。它读取的是 App 已存在的展示内容和 provenance，不把整份手机快照常驻 Prompt；只有用户询问或当前明确任务需要时调用。
+18. 查手机 Agent 读取不能直接复用带副作用的 UI `SimulatedPhoneRepository.load()`：即使 `refresh=false`，当前实现仍会维护相册并可能初始化便签已读时间。应增加纯查询 reader，保证不刷新日记/心情/随笔/购物车、不生成当日塔罗、不改变未读状态、不删除缓存，也不创建 Thought、Memory、Emotion 或成长证据。Agent 可以“看见并回答”，但读取本身不等于她重新经历了一遍。
+19. 日记胶囊不另建新功能。现有日记本质是从真实 daily continuity 派生的展示记录，可以保留给用户和 Agent 阅读；其润色正文、随笔、心情、随机塔罗与生成购物车都属于 `derived_projection`，不得反向作为学习/成长事实。若内容需要影响成长，只能追溯到底层真实 Memory、Thought、自主 Tool Outcome 或用户反馈，避免“经历 → 写日记 → 把日记再次当经历”的自我复制。
+20. 当前主动系统已有意图/来源/topic 重复降权、近分候选抽样、频率 Gate 和分享来源统一；仍显得围着用户转的主要原因在候选供给侧：SelfDrive 目前主要回顾未完话题和 Memory，Memory 又大量与用户/关系相关；成熟 `ai_interest` 尚未存在，公开网页候选的后续查证、保存、分享闭环也未完成。选择器不能从不存在的自主候选中选出“自己的事情”，因此 Phase 3 应补来源闭环，而不是继续降低 attachment 或强行规定必须聊外部话题。
+21. Phase 3 拆为三步：3A 建立只接受跨日期真实自主选择/工具 Outcome 的兴趣证据、反证、新鲜度和版本；3B 让成熟候选补给联网、保存、分享与统一主动行为竞争，每 heartbeat 最多一个外部动作并分行为冷却；3C 才以有界预算影响选题和少量表达习惯，提供停用/回滚并完成独立代码审查。日记/随笔/塔罗可作为 Agent 回答时的只读上下文，但不进入 3A 证据池。
+22. 本次再审查仍为文档与排期更新，未修改运行代码、数据库、Prompt、规则、世界书、测试、版本或 APK。下一开发包保持 Agent 基础；Phase 3 设计可同时冻结接口，但代码必须等 Agent 真机 Outcome 稳定后另批开启。
+
+### v0.41.33 能力—人格解耦、视觉策展与情绪特效收口（2026-09-04，TRUE DEVICE PASSED / CLOSED）
 
 1. 用户明确授权本窗口后续任务相关 APK 构建；本包从 v0.41.32 最终公开基线单独建分支，不合并 `main`、不发布正式 Release。原始备份、聊天正文、附件与 API 配置不得提交。
 2. 修改前只读核验 `AI_Companion_Backup_2026-09-04T13-10-46.aibackup`、对应脱敏诊断及稍后的 `AI_Companion_Backup_2026-09-04T13-42-16.aibackup`。前者证明低智样本不是关闭 thinking：聊天模型为 Flash、effort high、thinking true、任务正常完成且普通聊天未设本地 max token；真正失败是长 reasoning 将注意力用于角色表演，并把明显谜底误判为有难度。
@@ -93,7 +142,7 @@
 18. 命令行环境没有 GitHub HTTPS 凭据，按用户本窗口公开推送授权改用已连接的 GitHub 写接口。为避免中途触发构建，先创建 blobs/trees/commits，最后一步才创建分支；首次读取约 1.12 MB 总账时发现中转输出截断，因此只留下未引用对象，没有创建分支或触发失败 run。随后以 300,000-byte 对齐分块重建完整 blob，公开功能提交 `9d0a11706b3b2452372005fc76276780340a3fb6` 与本地功能提交共享 tree `b43e6f98193e250175913aa69797983b7690b28a`；公开 pre-CI tip `01dfa7ea3e03d0b3c9b279a3f1636c8aafcce904` / tree `0d6b91654d08c701bea2c4bf8f6804b0d2f3f3b2` 精确匹配本地，因此同名分支只创建一次、只触发一个 APK run。
 19. Actions run [`33883980296`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296)（715）一次全绿：源码与全部历史 validators、Kotlin 桌宠/悬浮测试、Flutter analyze、553/553 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和 Draft Release 上传全部通过；没有重跑或跳过关键测试。
 20. Artifact [`9941442832`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296/artifacts/9941442832) 名称为 `AI-Companion-v0.41.33-172-Competence-Curation-Emotion-APK`，ZIP 319,577,717 bytes，GitHub digest `sha256:67e97a736b6d4d0e06b924c6e0a53139a6bd71734ea92f5c03f91d2f0373eb77`，保留至 2026-09-18T14:39:18Z。独立下载解包的 APK 为 325,873,086 bytes，SHA-256 `dcb98b25a0cc68ec208dbb000dc59387d98edb7f106973d9a7d93bb1ff5f029d`，与 CI checksum 一致；签名证书 SHA-256 保持 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release 为 [`untagged-715dab35cece05d4bdd0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-715dab35cece05d4bdd0)，未发布正式 Release，`main` 未合并。
-21. 当前只剩真机收口：继续测试用户世界书的自然表达；用难题与即时质量纠偏检查能力/人格是否同步成立；分别切换大肥鱼和小小鲸看 2 倍情绪特效的头部左上位置；用不同审美与商业/性感样本观察相册策展；自然使用后导出备份和脱敏诊断，确认 `dialogueExpressionPlan=true` 并同时核对 Phase 2B activation/association/consolidation。NSFW 标记为观察项，不单独构建或阻塞本包。
+21. 2026-09-04 用户确认本轮修复均已正常，最新对白没有再出现缺少 `「」` 的错误渲染；备份/诊断确认新版 `dialogueExpressionPlan=true`、feedback/challenge 各有命中，Phase 2B activation 7 次且 consolidation completed。结合情绪特效位置、策展和自然表达的真机反馈，本包与 Phase 2 正式收口为 `TRUE DEVICE PASSED / CLOSED`。NSFW、新题新鲜度与偶发格式只保留观察，不再单独构建。
 
 ### v0.41.32 Phase 2B 学习消费与一层关联（2026-09-04，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 
 import '../database/app_database.dart';
+import '../memory/memory_grounding_policy.dart';
 import '../models/desire_state.dart';
 import '../models/self_experience.dart';
 import 'desire_engine.dart';
@@ -234,11 +235,11 @@ class SelfDriveEngine {
       }
       final drive = _parseDrive(candidate.driveKey);
       final thoughtId = await desire.feedThought(
-        text: '我自己又想起了一条长期记忆：${memory.content}',
+        text: MemoryGroundingPolicy.recalledThoughtText(memory, now: now),
         drive: drive,
         incomingStrength:
             (0.16 + memory.importance * 0.20).clamp(0.16, 0.40).toDouble(),
-        source: 'self_drive/memory',
+        source: 'self_drive/memory:${memory.id}',
         topicKey: candidate.topicKey,
         now: now,
       );
