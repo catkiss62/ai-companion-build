@@ -1,0 +1,7 @@
+status=success
+run_id=33907419371
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371
+head_sha=938e31e27cccb18d9897f157270de85e5e0c9578
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+24cbd347ae4dc2ab13ada820a8ac56860fd7c85ed3c6920e0f8a7478485550e9  AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a31fd90ffde260da4e0
