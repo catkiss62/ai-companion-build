@@ -59,7 +59,7 @@ void main() {
 
     expect(controller, contains('bool get generationActive'));
     expect(controller, contains('recentGenerationInterruptions'));
-    expect(server, contains("'role': 'system_notice'"));
+    expect(server, contains("'system_notice'"));
     expect(server, contains("'interrupted_user'"));
     expect(overlay, contains('message.role == "interrupted_user"'));
     expect(overlay, contains('text = "重新编辑"'));

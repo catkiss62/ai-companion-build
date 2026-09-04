@@ -31,22 +31,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04135-interrupted-turn-system-command`；从 v0.41.34+173 CI 全绿与最新真机备份基线建立。当前包统一普通聊天、悬浮聊天与沉浸房间的停止语义，并增加 `【检查系统】` 确定性只读入口；不混入 Phase 3 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.35 本地功能提交 `32e515179410591fe450ff412c78feb16f5e59b5` / tree `c169018d967507dd66c5d3c0345c70bfce3b6e8b`；58/58 个本地可运行静态 validator 通过，另 7 个只缺 CI 恢复的桌宠/LingChat/TTS 原生载荷或本机 `kotlinc`。Flutter analyze/tests、Kotlin 与 APK 待 Actions；v0.41.34 远端全绿基线仍为 `938e31e27cccb18d9897f157270de85e5e0c9578` |
+| 当前代码 head / tree | v0.41.35 初始公开提交 `a6368e370f1c90830d6ab03b695307dddaf0ddd0` 的 tree `69427088eb2023eb74470684d2c4cfc2bfda35ed` 与当时本地 HEAD 精确一致；run 718 暴露三项测试后，本地窄修提交 `f9002fba25383232e50fa99a11c806409059c58a` / tree `0752c30616cfe36c7be3b65a4a7253943bdf65d1`，尚未推送 |
 | App / 数据库 | 当前开发目标 `0.41.35+174` / schema 48 / Snapshot protocol 5；schema47→48 仅新增不进入 Prompt/Memory 的中断回合显示记录，保留用户原文供复制/重新编辑，并支持 schema 47 覆盖升级与备份导入；不得改变 v0.41.34 Memory 2C（行动者—关系—对象—归属）字段或删除既有内容 |
 | 最终 CI | v0.41.34+173 Actions run [`33907419371`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371)（717）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、565/565 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK.apk`，325,946,342 bytes |
 | APK SHA-256 | `24cbd347ae4dc2ab13ada820a8ac56860fd7c85ed3c6920e0f8a7478485550e9`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
 | Artifact / Release | [Artifact ID `9950405126`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371/artifacts/9950405126)，ZIP 319,647,238 bytes，digest `sha256:0815cfe655d18ecf96653e9f97063c62c71e27e34c3baaa75d51b868f8bd91dd`，保留至 2026-09-18T18:55:39Z；Draft Release [`untagged-3a31fd90ffde260da4e0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a31fd90ffde260da4e0)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`：三入口停止显示隔离、重新编辑、沉浸 partial 丢弃、schema 48 备份迁移与 `【检查系统】` 确定性入口均已落地；Phase 3 继续关闭 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 718 的源码验证、Kotlin 和 Flutter analyze 通过；Flutter tests 为 565 passed / 3 failed，均已定位并本地窄修，APK 未构建；Phase 3 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **提交本次实现证据、一次性推送 `agent/v04135-interrupted-turn-system-command` 并由 Actions 构建测试 APK。** CI 全绿后由用户真机验证普通聊天、沉浸房间、悬浮聊天停止；确认用户原文仍可复制/重新编辑，但下一轮不读取，被截断的 reasoning/正文不再出现。再验证 `【检查系统】` 与四种自然说法都真实调用，询问不存在能力时不猜测。Phase 3 不混入本包 |
+| 当前下一步 | **提交并推送 run 718 的窄修，复跑 Actions 并生成测试 APK。** 修复只让人格学习/成长请求优先使用 growth scope，并更新一个仍锁定旧 `role: system_notice` 字面量的历史测试；不改 Stop、数据层、人格或工具权限。复跑全绿后再由用户真机验证三入口停止、重新编辑、上下文隔离与 `【检查系统】` 真值 |
 | 目标 | Stop 只撤销“这轮对模型和学习有效”的事实，不撤销用户屏幕上可复制的文字；三个聊天入口语义一致。系统自查既有一个稳定显式入口，也兼容自然表达，并只根据真实脱敏接口返回回答 |
-| 当前证据 | 功能提交 `32e5151` 已新增 schema 48 `interrupted_turn_displays`；普通 Stop 在同一事务先复制显示原文再删除有效 `messages`，沉浸 Stop 把用户轮移出 `immersive_messages` 且不调用 partial commit，悬浮桥使用 `interrupted_user` 投影。安全词前缀由本地 planner 强制 `system_self.read`；self-reader 明示未列出即无法确认、not_implemented 即尚未实现。58 个可运行静态 validator 全绿，7 个载荷/编译器依赖项待 CI |
+| 当前证据 | run [`33920931415`](https://github.com/catkiss62/ai-companion-build/actions/runs/33920931415)（718）证明全部源码 validator、Kotlin 与 Flutter analyze 已过；565 tests passed / 3 failed。两项 scope 失败同源：词“状态”同时命中 facts，导致明确人格学习请求返回 all 而非 growth；第三项是旧共享时间线测试仍要求固定源码字面量 `'role': 'system_notice'`，运行实现已合法改为条件投影。`f9002fb` 已让 growth 在不含 Outcome 请求时优先，并把历史测试改为同时接受 `system_notice/interrupted_user` 新合同 |
 | 保护与排除 | 显示记录不得被 Prompt、Memory、人格学习、关系、Thought、Desire、摘要、现场账或主动候选读取；重新编辑只回填输入框，不自动发送或恢复旧 job。完成提交若先于 Stop，不能删掉已完成对话。普通闲聊保持 CHAT_LIGHT，不增加常驻工具、计划汇报或人格覆盖。不增加含糊的 `【调用工具】` 总入口 |
 | 实现边界 | `【检查系统】` 只匹配最新用户消息开头；中间引用只是讨论。后缀明确指向功能、Outcome 或成长时用窄 scope，空白/混合时读 all。自然路由扩展到“检查你的功能 / 检查你已经有的系统 / 检查你真实系统 / 你检查一下你能查看的功能”。备份完整携带显示记录；脱敏诊断仅计数，不含原文 |
 | 完成判据 | Actions 源码 validator、Kotlin、Flutter analyze/tests、Release APK、固定签名和载荷全绿；普通/沉浸/悬浮分别在 thinking 与已有半截正文时停止，均只留下原用户气泡、灰字“已停止生成”和可用“重新编辑”，下一轮无法从上下文或记忆复述该唯一测试串；`【检查系统】` 必定出现真实调用结果，查询未实现或未列出能力不虚报。真机结果回填后才能决定 C2 收口与 Phase 3 开启 |
@@ -62,7 +62,7 @@
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
-| C2 · v0.41.35 中断回合与系统入口（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING） | 功能提交 `32e5151`，58 个可运行 validator 全绿；Flutter/Kotlin/APK 待 Actions | 推送后先收 CI；真机按当前完成判据验证三入口 Stop、重新编辑、上下文隔离、确定性系统自读和无能力时如实回答，再决定收口 |
+| C2 · v0.41.35 中断回合与系统入口（CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING） | run 718：源码/Kotlin/analyze 通过，565 passed / 3 failed；本地窄修 `f9002fb` 待推送 | 复跑 Actions；只有全绿并产出 APK 后才进入三入口 Stop、重新编辑、上下文隔离、确定性系统自读和无能力时如实回答的真机验收 |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -92,6 +92,9 @@
 13. 未加入 `【调用工具】`，未修改核心人格、世界书、Emotion、Desire、Memory 2C、33 条普通历史上限、沉浸 22,000 字预算或 Phase 3。版本为 `0.41.35+174 / schema 48 / protocol 5`。新增 v0.41.35 validator，并扩展系统路由、self-reader、取消与共享时间线测试；历史 v0.35.9/current-ledger validator 只按新合同更新，不删除原有保护。
 14. 本地功能提交为 `32e515179410591fe450ff412c78feb16f5e59b5`，tree `c169018d967507dd66c5d3c0345c70bfce3b6e8b`，不含用户备份、脱敏诊断、聊天正文、附件、密钥或 API 配置。工作流列出的 65 个 Python validator 中 58 个可运行项全部通过；其余 7 个仅缺 CI 恢复的 417 文件桌宠、LingChat effects、Meju/TTS native 载荷或本机 `kotlinc`，没有任务相关断言失败。`git diff --check` 与 Python compileall 通过；本机无 Flutter/Dart SDK，故 Flutter analyze/tests、Kotlin、Release APK、签名与完整载荷仍为 CI PENDING。
 15. 下一步只提交本条本地实现证据，然后依据用户长期公开推送/APK 授权一次性创建并推送 `agent/v04135-interrupted-turn-system-command`，让 Actions 运行。CI 通过前不得写 APK READY；真机停止隔离、重新编辑和系统自读结果返回前不得写 TRUE DEVICE PASSED，也不得提前开启 Phase 3。
+16. 公开推送前先通过 GitHub Git Data API 创建 21 个 blobs/tree/commit；首次大文件分块读取因 `dd` 未加 `iflag=fullblock` 只取得管道短读，tree 安全门检测到远端 `bf2b71d…` 与本地不一致并在创建分支前终止，故没有触发错误构建。随后只重建 7 个受影响大文件并逐块校验长度，最终远端 tree `69427088eb2023eb74470684d2c4cfc2bfda35ed` 与本地 HEAD 精确相同；公开提交 `a6368e370f1c90830d6ab03b695307dddaf0ddd0` 后才创建分支，只触发 run 718。未上传备份、诊断、附件、聊天正文或密钥。
+17. Actions run [`33920931415`](https://github.com/catkiss62/ai-companion-build/actions/runs/33920931415)（718）通过分支检测、载荷恢复、65 个源码/历史 validator、Kotlin 桌宠/悬浮测试与 Flutter analyze；Flutter tests 为 `565 passed / 3 failed`，APK/签名/载荷按门禁未运行。两个 scope 断言失败同源：`人格学习…状态` 同时命中 growth 与通用 facts 的“状态”，现有“必须只有 growth 命中”条件退回 all；第三个失败只是历史共享时间线测试仍查固定 `'role': 'system_notice'`，而新实现按是否有显示原文改为 `interrupted_user/system_notice` 二选一。失败报告上传 job 另因 Draft Release 诊断路径失败，但不影响失败根因读取。
+18. 本地窄修提交 `f9002fba25383232e50fa99a11c806409059c58a`：明确 growth 且不询问近期 Outcome 时优先 growth，即使句子含通用“状态”；混合 growth+Outcome 仍为 all。历史测试改为验证 `system_notice` 与 `interrupted_user` 新双角色合同，不回退运行实现。v0.41.35/v0.41.34/current-ledger validator 与 `git diff --check` 已重新通过；下一步追加本条证据后 fast-forward 同一分支并运行一次完整复跑。
 
 ### 2026-09-04 Memory 2C 前置完整性 + Agent 基座（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

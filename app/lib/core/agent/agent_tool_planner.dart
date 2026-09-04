@@ -36,10 +36,10 @@ class AgentToolPlanner {
         r'(系统|功能|能力|状态|实现|支持|边界|可以|能否|有没有)',
         caseSensitive: false,
       ).hasMatch(request);
-      final scope = wantsOutcomes && !wantsGrowth && !wantsFacts
-          ? 'outcomes'
-          : wantsGrowth && !wantsOutcomes && !wantsFacts
-              ? 'growth'
+      final scope = wantsGrowth && !wantsOutcomes
+          ? 'growth'
+          : wantsOutcomes && !wantsGrowth && !wantsFacts
+              ? 'outcomes'
               : wantsFacts && !wantsOutcomes && !wantsGrowth
                   ? 'facts'
                   : 'all';
@@ -184,14 +184,12 @@ class AgentToolPlanner {
       add(
         AgentToolRegistry.systemSelfRead.id,
         {
-          'scope': explicitRecentOutcomes &&
-                  !explicitSystemFacts &&
-                  !explicitGrowthStatus
-              ? 'outcomes'
-              : explicitGrowthStatus &&
-                      !explicitRecentOutcomes &&
-                      !explicitSystemFacts
-                  ? 'growth'
+          'scope': explicitGrowthStatus && !explicitRecentOutcomes
+              ? 'growth'
+              : explicitRecentOutcomes &&
+                      !explicitSystemFacts &&
+                      !explicitGrowthStatus
+                  ? 'outcomes'
               : explicitSystemFacts &&
                       !explicitRecentOutcomes &&
                       !explicitGrowthStatus
