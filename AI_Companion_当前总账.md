@@ -31,7 +31,7 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04132-phase2b-learning-association`；从 v0.41.31 最终公开 head `3a91931248503def11e28157ad32de56802f6dd7` 建立单一 Phase 2B 实现包。范围锁定为一层 topic/subject 关联、成熟学习候选的低权重可审计消费、空闲/夜间本地整理，以及新样本直接证明的男性用户第三人称口误和 `seek_attention` 验证器窄修；另保守追加“造梗/玩梗”字面别名。不修改性格光谱或造梗正文，不扩猜卡死根因 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.31 公开功能 head `e55dcddd9fe1be4bdbd2c0e53bc0e78a1b60e03e` / tree `2930ffaacc2a522745dd087c457226d67bedd05b`；本地等价功能提交 `dd6e5bb91eda12a73726e2351622cd5e97291e01` 指向同一 tree。修改前 v0.41.30 总账 tree 为 `081c70616fd3b71f8e1bbdde9ba05ae651a64a87` |
+| 当前代码 head / tree | v0.41.32 本地功能 head `2344ad3585ee50d166916c6bcb86a251503b7910` / tree `b12e38d770f540beea50f3745362573667b9e7fd`，待本次单次推送与 Actions；其基线 v0.41.31 公开功能 head 为 `e55dcddd9fe1be4bdbd2c0e53bc0e78a1b60e03e` / tree `2930ffaacc2a522745dd087c457226d67bedd05b` |
 | App / 数据库 | 当前开发目标 `0.41.32+171` / schema 46 / Snapshot protocol 5；计划为现有 Memory 与人格学习候选补 `topic_key`/消费审计字段，不建设完整知识图谱。保留 04/05/07、房间默认规则、用户性格光谱、造梗正文及全部用户手改内容；空 legacy 小节继续只在 UI 隐藏 |
 | 最终 CI | v0.41.31+170 Actions run [`33805050824`](https://github.com/catkiss62/ai-companion-build/actions/runs/33805050824)（713）全绿：全部源码/历史 validators、Kotlin（含 ANR trace 脱敏与 Accessibility 限流测试）、Flutter analyze、540/540 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过。首轮 run [`33804108163`](https://github.com/catkiss62/ai-companion-build/actions/runs/33804108163)（712）仅因旧 `agent_self_reader_v0416_test` 硬编码 v0.41.30 label 失败；更新测试期望后完整重跑通过 |
 | 测试 APK | `AI-Companion-v0.41.31-170-Phase2A5-Verifier-ANR-Diagnostics-APK.apk`，325,832,422 bytes |
@@ -90,6 +90,7 @@
 16. Agent Self 的成长事实同步升级为 `phase2b_bounded_bias`，只暴露候选/证据/成熟度/激活数量；操作真实性守卫同时认可旧 observation-only 与新 Phase 2B 真值，避免真实自读被误拦截。能力说明明确 Phase 3 尚未开启，不能自称形成永久习惯。
 17. 新增纯策略专项测试覆盖 topic 归一化、无直接 seed 不扩展、同 topic 最多三条、成熟/反证/trial 门、最多两条、夜间/90 分钟 Gate，以及真实“来找我” attention bid；既有 Prompt/Agent Self 测试已改为新阶段并保留历史 validator token。新增 v0.41.32 静态 validator，工作流版本/分支/Artifact/Draft Release/monitor 已更新。
 18. 本地 `git diff --check`、workflow YAML 解析、Python compileall、新 v0.41.32 与 v0.41.31/30/14/13 专项及全部可运行历史 validators 通过。仅 7 项因本地缺少 LingChat effects、417 文件桌宠、Meju/TTS native 载荷或 `kotlinc` 不能执行，与上一版边界一致；本地也没有 Flutter/Dart SDK。必须由一次 Actions 完整恢复后运行 Flutter analyze/tests、Kotlin、Release APK、签名与载荷门，当前不得写 `CI PASSED / APK READY`。
+19. v0.41.32 本地功能提交为 `2344ad3585ee50d166916c6bcb86a251503b7910`，tree `b12e38d770f540beea50f3745362573667b9e7fd`；提交内容不含用户备份、脱敏诊断、截图或消息正文。下一步只追加本条总账证据并把两个本地提交一次性推送到公开开发分支，由一个 Actions run 验证。
 
 ### v0.41.31 Phase 2A.5 验证器与收尾边界窄修（2026-09-03，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
