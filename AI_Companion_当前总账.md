@@ -31,22 +31,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04135-interrupted-turn-system-command`；从 v0.41.34+173 CI 全绿与最新真机备份基线建立。当前包统一普通聊天、悬浮聊天与沉浸房间的停止语义，并增加 `【检查系统】` 确定性只读入口；不混入 Phase 3 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.35 初始公开提交 `a6368e370f1c90830d6ab03b695307dddaf0ddd0` 的 tree `69427088eb2023eb74470684d2c4cfc2bfda35ed` 与当时本地 HEAD 精确一致；run 718 暴露三项测试后，本地窄修提交 `f9002fba25383232e50fa99a11c806409059c58a` / tree `0752c30616cfe36c7be3b65a4a7253943bdf65d1`，尚未推送 |
+| 当前代码 head / tree | v0.41.35 运行代码公开提交 `48406720c86192a52c563e295466e739173105b6` / tree `6333aa4fe196fc435dc73cb5017df6597bbea757`，与本地运行代码树精确一致；它包含 run 718 暴露的三项测试合同窄修，未扩大 Stop、数据层、人格或工具权限 |
 | App / 数据库 | 当前开发目标 `0.41.35+174` / schema 48 / Snapshot protocol 5；schema47→48 仅新增不进入 Prompt/Memory 的中断回合显示记录，保留用户原文供复制/重新编辑，并支持 schema 47 覆盖升级与备份导入；不得改变 v0.41.34 Memory 2C（行动者—关系—对象—归属）字段或删除既有内容 |
-| 最终 CI | v0.41.34+173 Actions run [`33907419371`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371)（717）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、565/565 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
-| 测试 APK | `AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK.apk`，325,946,342 bytes |
-| APK SHA-256 | `24cbd347ae4dc2ab13ada820a8ac56860fd7c85ed3c6920e0f8a7478485550e9`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
-| Artifact / Release | [Artifact ID `9950405126`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371/artifacts/9950405126)，ZIP 319,647,238 bytes，digest `sha256:0815cfe655d18ecf96653e9f97063c62c71e27e34c3baaa75d51b868f8bd91dd`，保留至 2026-09-18T18:55:39Z；Draft Release [`untagged-3a31fd90ffde260da4e0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a31fd90ffde260da4e0)，未发布正式 Release |
+| 最终 CI | v0.41.35+174 Actions run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 测试 APK | `AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK.apk`，325,965,466 bytes |
+| APK SHA-256 | `bff8b381991f4012e2f937bd69d502a1927cd0b416a75fcbc7d59fea86b72c69`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
+| Artifact / Release | [Artifact ID `9955569600`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729/artifacts/9955569600)，ZIP 319,665,950 bytes，digest `sha256:798e536509e89945488a90662e7a964cb1dbba4a9d543101868f1c8e4d77b43e`，保留至 2026-09-18T21:45:03Z；Draft Release [`untagged-b4e4d9d140d8fbcec80d`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b4e4d9d140d8fbcec80d)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 718 的源码验证、Kotlin 和 Flutter analyze 通过；Flutter tests 为 565 passed / 3 failed，均已定位并本地窄修，APK 未构建；Phase 3 继续关闭 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；run 719 已证明全部自动化、Release APK、签名和完整载荷通过，下一步只做真机三入口 Stop 隔离与 `【检查系统】` 真值验收；Phase 3 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **提交并推送 run 718 的窄修，复跑 Actions 并生成测试 APK。** 修复只让人格学习/成长请求优先使用 growth scope，并更新一个仍锁定旧 `role: system_notice` 字面量的历史测试；不改 Stop、数据层、人格或工具权限。复跑全绿后再由用户真机验证三入口停止、重新编辑、上下文隔离与 `【检查系统】` 真值 |
+| 当前下一步 | **安装 v0.41.35+174 并做真机验收。** 普通聊天与沉浸房间为必测，悬浮聊天为低优先级补测：停止后只显示原用户气泡、灰字“已停止生成”和“重新编辑”，未完成 AI 内容消失且中断用户轮不进入后续上下文/记忆；再验证 `【检查系统】` 确定性调用、自然短句兼容与未实现能力如实回答 |
 | 目标 | Stop 只撤销“这轮对模型和学习有效”的事实，不撤销用户屏幕上可复制的文字；三个聊天入口语义一致。系统自查既有一个稳定显式入口，也兼容自然表达，并只根据真实脱敏接口返回回答 |
-| 当前证据 | run [`33920931415`](https://github.com/catkiss62/ai-companion-build/actions/runs/33920931415)（718）证明全部源码 validator、Kotlin 与 Flutter analyze 已过；565 tests passed / 3 failed。两项 scope 失败同源：词“状态”同时命中 facts，导致明确人格学习请求返回 all 而非 growth；第三项是旧共享时间线测试仍要求固定源码字面量 `'role': 'system_notice'`，运行实现已合法改为条件投影。`f9002fb` 已让 growth 在不含 Outcome 请求时优先，并把历史测试改为同时接受 `system_notice/interrupted_user` 新合同 |
+| 当前证据 | run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）在公开运行提交 `4840672` 上全绿：65 个源码/历史 validator、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名和全部大载荷通过。Artifact 与独立解包 APK 的 ZIP/APK SHA 均已复算；自动化不能代替真机的输入法聚焦、可复制显示和下一轮模型隔离验证 |
 | 保护与排除 | 显示记录不得被 Prompt、Memory、人格学习、关系、Thought、Desire、摘要、现场账或主动候选读取；重新编辑只回填输入框，不自动发送或恢复旧 job。完成提交若先于 Stop，不能删掉已完成对话。普通闲聊保持 CHAT_LIGHT，不增加常驻工具、计划汇报或人格覆盖。不增加含糊的 `【调用工具】` 总入口 |
 | 实现边界 | `【检查系统】` 只匹配最新用户消息开头；中间引用只是讨论。后缀明确指向功能、Outcome 或成长时用窄 scope，空白/混合时读 all。自然路由扩展到“检查你的功能 / 检查你已经有的系统 / 检查你真实系统 / 你检查一下你能查看的功能”。备份完整携带显示记录；脱敏诊断仅计数，不含原文 |
 | 完成判据 | Actions 源码 validator、Kotlin、Flutter analyze/tests、Release APK、固定签名和载荷全绿；普通/沉浸/悬浮分别在 thinking 与已有半截正文时停止，均只留下原用户气泡、灰字“已停止生成”和可用“重新编辑”，下一轮无法从上下文或记忆复述该唯一测试串；`【检查系统】` 必定出现真实调用结果，查询未实现或未列出能力不虚报。真机结果回填后才能决定 C2 收口与 Phase 3 开启 |
@@ -62,7 +62,7 @@
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
-| C2 · v0.41.35 中断回合与系统入口（CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING） | run 718：源码/Kotlin/analyze 通过，565 passed / 3 failed；本地窄修 `f9002fb` 待推送 | 复跑 Actions；只有全绿并产出 APK 后才进入三入口 Stop、重新编辑、上下文隔离、确定性系统自读和无能力时如实回答的真机验收 |
+| C2 · v0.41.35 中断回合与系统入口（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 719、568/568 Flutter tests、签名/载荷、Artifact、独立 APK SHA 全绿 | 真机验证三入口 Stop、重新编辑、上下文隔离、确定性系统自读和无能力时如实回答；普通与沉浸为必测，悬浮可低优先级补测 |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -75,7 +75,7 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### 2026-09-05 v0.41.35 中断回合显示层 + `【检查系统】` 确定性入口（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-05 v0.41.35 中断回合显示层 + `【检查系统】` 确定性入口（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认无需增加新聊天窗口：普通聊天模型只读取最近 33 条旧消息与当前用户轮，悬浮聊天复用同一生成链；沉浸房间使用约 22,000 字近期原文预算、rolling summary 与 scene ledger。普通 UI 默认显示 120 条、部分同步临时 160 条；悬浮初始 8 条且每次加载更早 24 条；沉浸显示房间全部原文。无限聊天不会无限读取全部历史。现有“开始新上下文”继续作为设置中的应急边界，不提升为常用聊天按钮。
 2. 用户把 Token 命中/缓存优化登记为所有核心能力完成后的最终任务。当前不因优化修改 33 条历史上限；未来必须先增加不含正文的 Prompt 字符/估算 token、被裁历史数量和缓存命中基线，再评估静态系统层稳定顺序、前缀缓存和历史预算。不得为了命中率压薄人格、丢失 Memory grounding、降低世界书语义或把旧上下文重新无限注入。
@@ -95,6 +95,9 @@
 16. 公开推送前先通过 GitHub Git Data API 创建 21 个 blobs/tree/commit；首次大文件分块读取因 `dd` 未加 `iflag=fullblock` 只取得管道短读，tree 安全门检测到远端 `bf2b71d…` 与本地不一致并在创建分支前终止，故没有触发错误构建。随后只重建 7 个受影响大文件并逐块校验长度，最终远端 tree `69427088eb2023eb74470684d2c4cfc2bfda35ed` 与本地 HEAD 精确相同；公开提交 `a6368e370f1c90830d6ab03b695307dddaf0ddd0` 后才创建分支，只触发 run 718。未上传备份、诊断、附件、聊天正文或密钥。
 17. Actions run [`33920931415`](https://github.com/catkiss62/ai-companion-build/actions/runs/33920931415)（718）通过分支检测、载荷恢复、65 个源码/历史 validator、Kotlin 桌宠/悬浮测试与 Flutter analyze；Flutter tests 为 `565 passed / 3 failed`，APK/签名/载荷按门禁未运行。两个 scope 断言失败同源：`人格学习…状态` 同时命中 growth 与通用 facts 的“状态”，现有“必须只有 growth 命中”条件退回 all；第三个失败只是历史共享时间线测试仍查固定 `'role': 'system_notice'`，而新实现按是否有显示原文改为 `interrupted_user/system_notice` 二选一。失败报告上传 job 另因 Draft Release 诊断路径失败，但不影响失败根因读取。
 18. 本地窄修提交 `f9002fba25383232e50fa99a11c806409059c58a`：明确 growth 且不询问近期 Outcome 时优先 growth，即使句子含通用“状态”；混合 growth+Outcome 仍为 all。历史测试改为验证 `system_notice` 与 `interrupted_user` 新双角色合同，不回退运行实现。v0.41.35/v0.41.34/current-ledger validator 与 `git diff --check` 已重新通过；下一步追加本条证据后 fast-forward 同一分支并运行一次完整复跑。
+19. 窄修经 Git Data fast-forward 为公开运行提交 `48406720c86192a52c563e295466e739173105b6`，tree `6333aa4fe196fc435dc73cb5017df6597bbea757` 与本地运行代码树精确一致。Actions run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）全绿：65 个源码/历史 validator、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与 Draft Release 上传全部成功；失败报告 job 正常 skipped。
+20. Artifact ID `9955569600`，ZIP 319,665,950 bytes，digest `sha256:798e536509e89945488a90662e7a964cb1dbba4a9d543101868f1c8e4d77b43e`，保留至 2026-09-18T21:45:03Z。独立下载解包 APK 为 325,965,466 bytes，SHA-256 `bff8b381991f4012e2f937bd69d502a1927cd0b416a75fcbc7d59fea86b72c69`，与 CI checksum 及 GitHub asset digest 一致；Draft Release 为 [`untagged-b4e4d9d140d8fbcec80d`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b4e4d9d140d8fbcec80d)，保持草稿，`main` 未合并。
+21. 当前只剩真机验收：普通聊天与沉浸房间分别在 thinking/已有半截正文时停止，应仅留下原用户气泡、灰字“已停止生成”和“重新编辑”，未完成 AI 内容消失；重新编辑只回填、不自动发送。随后在未重发测试串前追问模型，确认该中断轮不在上下文/记忆中。悬浮聊天同合同但低优先级。`【检查系统】检查你有哪些真实功能` 必须产生本地自读；询问未实现的 MCP 必须如实回答未实现。自动化通过不得写成 TRUE DEVICE PASSED。
 
 ### 2026-09-04 Memory 2C 前置完整性 + Agent 基座（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
