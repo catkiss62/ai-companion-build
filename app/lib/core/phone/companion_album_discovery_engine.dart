@@ -70,6 +70,11 @@ class CompanionAlbumDiscoveryEngine {
         sourceUrl: web['image_url']?.toString() ?? '',
         sourceDomain: web['image_domain']?.toString() ?? '',
         title: web['title']?.toString() ?? '网页发现',
+        visionContext: _boundedVisionContext(
+          title: web['title']?.toString() ?? '',
+          summary: web['summary']?.toString() ?? '',
+          imageDescription: web['image_description']?.toString() ?? '',
+        ),
         apiKey: apiKey,
         now: instant,
       );
@@ -89,6 +94,7 @@ class CompanionAlbumDiscoveryEngine {
       sourceUrl: fish.previewUrl,
       sourceDomain: 'fisharchive.pages.dev',
       title: fish.title,
+      visionContext: _boundedVisionContext(title: fish.title),
       apiKey: apiKey,
       now: instant,
     );
@@ -100,6 +106,7 @@ class CompanionAlbumDiscoveryEngine {
     required String sourceUrl,
     required String sourceDomain,
     required String title,
+    required String visionContext,
     required String apiKey,
     required DateTime now,
   }) async {
@@ -157,6 +164,7 @@ class CompanionAlbumDiscoveryEngine {
         endpoint: await config.readVisionEndpoint(),
         model: await config.readVisionModel(),
         imageFile: draft.thumbnailFile,
+        caption: visionContext,
         assessForAlbum: true,
         albumPreferenceHint: await db.companionAlbumPreferenceHint(),
       );
@@ -213,9 +221,8 @@ class CompanionAlbumDiscoveryEngine {
       if (!completed && savedPath.isNotEmpty) {
         await albumStorage.deleteThumbnail(savedPath);
       }
-      final outcome = observation.albumAdultContent
-          ? 'adult_rejected'
-          : await db.companionAlbumCandidateOutcomeCategory(candidateId);
+      final outcome =
+          await db.companionAlbumCandidateOutcomeCategory(candidateId);
       await db.recordProviderHealthEvent(ProviderHealthEvent(
         lane: 'album',
         context: 'album_discovery',
@@ -271,6 +278,21 @@ class CompanionAlbumDiscoveryEngine {
       }
       if (draft != null) await attachmentStorage.discardDraft(draft);
     }
+  }
+
+  static String _boundedVisionContext({
+    required String title,
+    String summary = '',
+    String imageDescription = '',
+  }) {
+    final parts = <String>[
+      if (title.trim().isNotEmpty) '标题：${title.trim()}',
+      if (summary.trim().isNotEmpty) '页面摘要：${summary.trim()}',
+      if (imageDescription.trim().isNotEmpty)
+        '图片说明：${imageDescription.trim()}',
+    ];
+    final normalized = parts.join('\n').replaceAll(RegExp(r'[\r\t]+'), ' ');
+    return normalized.length <= 600 ? normalized : normalized.substring(0, 600);
   }
 
   Future<File> _downloadPreview(String value, String id) async {

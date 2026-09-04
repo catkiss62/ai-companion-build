@@ -199,7 +199,13 @@ void main() {
       expect(system['content'], contains('鲸鱼耳鳍'));
       expect(system['content'], contains('服装、裙长、配饰'));
       expect(system['content'], contains('请求里只会有一张图片'));
-      expect(system['content'], contains('渐变横幅'));
+      expect(system['content'], contains('像策展人一样判断'));
+      expect(system['content'], contains('氛围与情绪表达'));
+      expect(system['content'], contains('非模板化程度'));
+      expect(system['content'], contains('独立欣赏或共同回忆价值'));
+      expect(system['content'], contains('置信度至少 0.8'));
+      expect(system['content'], isNot(contains('明确成人向或裸露图片必须')));
+      expect(system['content'], isNot(contains('纯色或渐变横幅')));
       expect(jsonEncode(requestBody), isNot(contains('data:image/webp')));
       expect(result.albumSave, isTrue);
       expect(result.albumCategory, 'self_image');
@@ -209,7 +215,7 @@ void main() {
     }
   });
 
-  test('adult album result is never saved', () async {
+  test('adult metadata does not override a positive album decision', () async {
     final client = QwenVisionClient(
       client: MockClient((request) async => http.Response(
             jsonEncode({
@@ -244,8 +250,9 @@ void main() {
         imageFile: file,
         assessForAlbum: true,
       );
-      expect(result.albumSave, isFalse);
+      expect(result.albumSave, isTrue);
       expect(result.albumCategory, 'other');
+      expect(result.albumAdultContent, isTrue);
     } finally {
       client.close();
       await directory.delete(recursive: true);

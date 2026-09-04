@@ -1,5 +1,6 @@
 import 'package:ai_companion_localfirst/core/models/chat_segment.dart';
 import 'package:ai_companion_localfirst/core/presentation/chat_visuals.dart';
+import 'package:ai_companion_localfirst/widgets/chat_portrait_stage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -202,6 +203,24 @@ void main() {
     expect(calm.key, 'calm');
     expect(calm.portraitAsset, endsWith('/calm.webp'));
     expect(calm.portraitAsset, isNot(normal.portraitAsset));
+  });
+
+  test('enlarged emotion effect remains a width-derived square', () {
+    final smallExtent = ChatPortraitStage.effectExtentFor(
+      stageWidth: 360,
+      anchor: ChatPortraitSet.smallWhale.effectAnchor,
+    );
+    final largeExtent = ChatPortraitStage.effectExtentFor(
+      stageWidth: 360,
+      anchor: ChatPortraitSet.largeWhale.effectAnchor,
+    );
+
+    expect(smallExtent, 180);
+    expect(largeExtent, 180);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.left, .25);
+    expect(ChatPortraitSet.smallWhale.effectAnchor.top, 0);
+    expect(ChatPortraitSet.largeWhale.effectAnchor.left, .25);
+    expect(ChatPortraitSet.largeWhale.effectAnchor.top, 0);
   });
 
   test('reference animation and effect mapping stays exact', () {

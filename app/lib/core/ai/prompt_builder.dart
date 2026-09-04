@@ -301,13 +301,6 @@ ANSWERED_HISTORY_ONLY = true
 如果想引用旧对话，只能明确作为“之前/刚才聊过的历史”来回想；不能写成用户此刻又说了一遍，也不能把主动任务描述成“回复用户上一句”。
 ''').trim(),
       });
-      messages.add({
-        'role': 'system',
-        'content': visibleChineseGenerationReminder(
-          proactive: true,
-          ordinaryActionExperimentActive: ordinaryActionExperimentActive,
-        ),
-      });
       if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
         messages.add({
           'role': 'system',
@@ -320,15 +313,20 @@ ANSWERED_HISTORY_ONLY = true
           'content': layerBundle.intimacyPreflight,
         });
       }
+      messages.add({
+        'role': 'system',
+        'content': dialogueExpressionPlan.render(),
+      });
+      messages.add({
+        'role': 'system',
+        'content': visibleChineseGenerationReminder(
+          proactive: true,
+          ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+        ),
+      });
     } else {
       final history = PromptHistoryPolicy.userTurnHistory(recent);
       if (history.isEmpty) {
-        messages.add({
-          'role': 'system',
-          'content': visibleChineseGenerationReminder(
-            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
-          ),
-        });
         if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
           messages.add({
             'role': 'system',
@@ -341,18 +339,22 @@ ANSWERED_HISTORY_ONLY = true
             'content': layerBundle.intimacyPreflight,
           });
         }
+        messages.add({
+          'role': 'system',
+          'content': dialogueExpressionPlan.render(),
+        });
+        messages.add({
+          'role': 'system',
+          'content': visibleChineseGenerationReminder(
+            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+          ),
+        });
       } else {
         // Keep the real current role=user message last while placing the short
         // per-turn reminder immediately before it. This is the API-native
         // equivalent of a harness pre-step reminder; no fake user message or
         // provider-specific wrapper markup is introduced.
         messages.addAll(history.take(history.length - 1));
-        messages.add({
-          'role': 'system',
-          'content': visibleChineseGenerationReminder(
-            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
-          ),
-        });
         if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
           messages.add({
             'role': 'system',
@@ -365,6 +367,16 @@ ANSWERED_HISTORY_ONLY = true
             'content': layerBundle.intimacyPreflight,
           });
         }
+        messages.add({
+          'role': 'system',
+          'content': dialogueExpressionPlan.render(),
+        });
+        messages.add({
+          'role': 'system',
+          'content': visibleChineseGenerationReminder(
+            ordinaryActionExperimentActive: ordinaryActionExperimentActive,
+          ),
+        });
         messages.add(history.last);
       }
     }
@@ -391,12 +403,19 @@ ANSWERED_HISTORY_ONLY = true
     bool? ordinaryActionExperimentActive,
   }) => '''
 【本轮最终呈现提醒】
+${capabilityPersonaContract()}
+
 可见 reasoning 与最终正文使用自然简体中文；代码、命令、路径、变量名和专名可保留原文。reasoning_content 是女性小鲸鱼此刻没打算说出口的心里话：直接用“我”想、用“你”想对方，允许片段、跳念、改口或没想完；不要写“用户说了什么，所以我应该怎样回复”，不写规则检查、候选台词或生成计划。复杂任务直接推演证据、代码、因果和不确定处。
 ${proactive ? '若决定不发送，只输出 WAIT。否则' : ''}最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，再换行写正文。没有清晰情绪色彩时用“正常”；“平静”只用于明确安静、放松、沉着或闭目缓和的状态。标签不要写进 reasoning，也不要在正文解释。
 
 ${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送，最终正文只允许两种可见段：可选的自身动作/神态必须独占一行并写成（动作），真正说出口的内容必须独占一行并写成「对白」，且至少有一段对白。除这两种段落外，不要输出无括号旁白、私下心声或裸露自然语言；不要替对方行动。' : '主动消息若发送，最终正文只允许真正说出口的「对白」，且至少有一段；不要输出无括号旁白、私下心声或裸露自然语言。') : (ordinaryActionExperimentActive == true ? '当前世界书启用了动作神态：按该模块写一个简短的自身动作/神态；生成源必须把动作独占一行并写成（动作），界面会隐藏括号；对白独占一行并使用「」；不要替对方行动。' : '')}
 用户是成年男性。reasoning 与动作叙述提及用户时使用“你”、名字或昵称，不要把用户写成第三人称“她”或“他”；引用用户原话时不改写引用。偶发口误不会被系统强制中断。
 '''.trim();
+
+  static String capabilityPersonaContract() => '''
+【能力与人格边界】
+始终使用完整能力理解和处理当前内容。人格、情绪、关系与风格可以决定主观注意、态度、取舍、说多少和怎样表达，但不得降低事实判断、推理、任务质量、工具使用或对用户明确反馈的执行。
+普通闲聊不必表现成助手，也不要求逐项答全；遇到明确任务、事实问题、游戏挑战、出题或质量纠正时，先真正满足内容要求，再按当前人格自然表达。不要先生成一份中性助手答案，再机械改写成人设台词。'''.trim();
 
   static String personalityLearningCapabilityContract({
     required String latestUserText,

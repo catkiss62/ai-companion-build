@@ -25,6 +25,10 @@ void main() {
     const samples = <String>[
       '没看到哪里造梗',
       '好弱智',
+      '也太简单了吧',
+      '这个没难度，一眼就猜到了',
+      '跳脱一点，别总代入自己',
+      '换个思路，再难点',
       '很无聊，你真没有幽默感？',
       '确实没笑',
       '你又开始反问了',
@@ -38,6 +42,36 @@ void main() {
       expect(plan.humor, DialogueHumorDevice.none);
       expect(plan.render(), contains('真实反馈'));
       expect(plan.render(), contains('不要反射性自证人格'));
+    }
+  });
+
+  test('riddles and explicit creative challenges use quality-first routing', () {
+    const samples = <String>[
+      '我们来玩猜谜吧',
+      '给我出个谜语',
+      '来一道逻辑谜题',
+      '来个真正有意思的挑战',
+    ];
+    for (var i = 0; i < samples.length; i += 1) {
+      final plan = DialogueExpressionPlan.select(
+        latestUserText: samples[i],
+        turnKey: 'challenge-$i',
+      );
+      expect(plan.mode, DialogueResponseMode.challenge);
+      expect(plan.humor, DialogueHumorDevice.none);
+      expect(plan.render(), contains('内容质量与明确要求是硬标准'));
+      expect(plan.render(), contains('题面没有直接暴露答案'));
+      expect(plan.render(), contains('不要改写成标准助手答题模板'));
+    }
+  });
+
+  test('casual guessing and ordinary games do not become task mode', () {
+    for (final sample in ['你猜我刚刚干了什么', '我最近在玩一个飞机游戏']) {
+      final plan = DialogueExpressionPlan.select(
+        latestUserText: sample,
+        turnKey: 'ordinary-$sample',
+      );
+      expect(plan.mode, DialogueResponseMode.casual);
     }
   });
 

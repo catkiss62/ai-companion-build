@@ -104,19 +104,20 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04130-presentation-ablation-upload-diagnostics",
-        "0.41.30+169",
-        "v0.41.29",
-        "schema 45",
-        "33797466332",
-        "038bfc46142fd204a8bade61c092dd6fe7f9f5e874f35db5c9646576b4323d83",
+        "agent/v04133-competence-curation-emotion",
+        "0.41.33+172",
+        "v0.41.32",
+        "schema 46",
+        "33828228213",
+        "2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf",
         "Snapshot protocol 5",
         "Phase 2A",
         "Phase 2B",
-        "终态真值",
-        "空 legacy 小节",
-        "不为“正常”情绪添加声音",
-        "联网图片同一不可变字节事务",
+        "表达计划",
+        "能力与人格",
+        "角色表达自然化",
+        "情绪特效",
+        "正向图片策展",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
@@ -181,12 +182,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.30\+169\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.33\+172\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 45;" in database,
+        "static const int schemaVersion = 46;" in database,
         "database schema no longer matches the current development baseline",
     )
 

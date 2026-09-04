@@ -823,9 +823,8 @@ class ChatController extends ChangeNotifier {
     if (!completed && path.isNotEmpty) {
       await CompanionAlbumStorage().deleteThumbnail(path);
     }
-    final outcome = observation.albumAdultContent
-        ? 'adult_rejected'
-        : await db.companionAlbumCandidateOutcomeCategory(candidateId);
+    final outcome =
+        await db.companionAlbumCandidateOutcomeCategory(candidateId);
     await db.recordProviderHealthEvent(ProviderHealthEvent(
       lane: 'album',
       context: 'user_image_album',

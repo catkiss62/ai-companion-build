@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04132-phase2b-learning-association`；从 v0.41.31 最终公开 head `3a91931248503def11e28157ad32de56802f6dd7` 建立单一 Phase 2B 实现包。范围锁定为一层 topic/subject 关联、成熟学习候选的低权重可审计消费、空闲/夜间本地整理，以及新样本直接证明的男性用户第三人称口误和 `seek_attention` 验证器窄修；另保守追加“造梗/玩梗”字面别名。不修改性格光谱或造梗正文，不扩猜卡死根因 |
+| 当前开发分支 | `agent/v04133-competence-curation-emotion`；从 v0.41.32 最终公开基线建立。当前插队包只处理新备份已证明的对话表达计划漏注入、能力与人格优先级、挑战/质量纠偏路由，以及此前尚未发布的情绪特效方形尺寸定位和正向图片收藏策展；不修改用户新建的“角色表达自然化”、性格光谱或造梗正文，不扩猜卡死根因 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.32 公开功能 head `f9278cbc381af749f9eca72ab2cc00e683934a7c`，与本地功能 head `2344ad3585ee50d166916c6bcb86a251503b7910` 具有相同 tree `b12e38d770f540beea50f3745362573667b9e7fd`；公开 pre-CI 文档 tip `0db8043743c4e4641f913b15fd96f2694e44f9b3` / tree `041bea5662dd29396c1edf33b340d74c764b4fb2`。运行代码已由 Actions 全门禁验证，后续只允许 `[skip ci]` 补记最终证据，不再触发第二个 APK |
-| App / 数据库 | 当前开发目标 `0.41.32+171` / schema 46 / Snapshot protocol 5；计划为现有 Memory 与人格学习候选补 `topic_key`/消费审计字段，不建设完整知识图谱。保留 04/05/07、房间默认规则、用户性格光谱、造梗正文及全部用户手改内容；空 legacy 小节继续只在 UI 隐藏 |
+| App / 数据库 | 当前开发目标 `0.41.33+172` / schema 46 / Snapshot protocol 5；不新增数据库迁移。保留 Phase 2B、04/05/07、房间默认规则、用户“角色表达自然化”/性格光谱/造梗正文及全部用户手改内容；只在运行 Prompt、图片策展和情绪特效布局层做有界修改 |
 | 最终 CI | v0.41.32+171 Actions run [`33828228213`](https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213)（714）一次全绿：全部源码/历史 validators、Kotlin、Flutter analyze、549/549 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.32-171-Phase2B-Learning-Association-APK.apk`，325,861,014 bytes |
 | APK SHA-256 | `2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9920926274`](https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213/artifacts/9920926274)，ZIP 319,565,024 bytes，digest `sha256:782859cf7b0d7cd09e1b2eaf9b794c45c5a5d49b9392db6870dc61a56928ea30`，保留至 2026-09-18T02:16:01Z；Draft Release [`untagged-53ac42518ef9343cdf41`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-53ac42518ef9343cdf41)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.32 Phase 2B 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`：schema 46、topic 一层关联、成熟候选低权重消费、本地整理、脱敏审计及三项窄修已完成并由单次 Actions 全门禁验证。Phase 2 的代码闭环已具备；完整 Phase 2 仍须用该 APK 核对自然表达、关联召回与审计计数后才能写 `TRUE DEVICE PASSED`。卡死/悬浮仍为 `PENDING` 观察，不能写成根治 |
+| 当前总状态 | v0.41.32 Phase 2B 保持 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；v0.41.33 插队包为 `IMPLEMENTATION IN PROGRESS`。2026-09-04 新备份已排除聊天关闭 thinking 或本地限制 max tokens，并证明表达计划只统计未注入、挑战和纠偏被误当闲聊。用户已授权本窗口任务相关提交与 APK 构建；CI/APK 尚未开始，禁止提前写成通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装 v0.41.32，完成 Phase 2B 与完整 Phase 2 的真机收口：普通/主动聊天中观察成熟关系许可是否偶尔自然生效且不每轮复读；导出备份与脱敏诊断，核对候选 activation、topic association 和 consolidation 计数；复核男性用户不再被写成“她”、真实“来找我/找我聊”不再误报未执行。卡死、悬浮恢复和 `open_own_topic` 继续独立观察，不在无失败证据时猜修。** |
-| 目标 | 让已经真实成熟的学习证据开始产生小而可撤销、可诊断的个体差异，同时补上项目/人物前因后果的一层关联；不把用户偏好变成强制人格，不从 AI 回复或沉默学习，不让成长候选创建 Drive/Thought，不提前形成 Phase 3 AI habit |
-| 当前证据 | 2026-09-04 新备份/诊断为 v0.41.31+170、schema 45：4 个候选中 1 established、2 forming、1 candidate，5 条 evidence 均有真实来源；Prompt 源码仍明确 `OBSERVATION ONLY` 且不读取成熟候选。Self Experience 已 29 completed、最近 24h 10 completed，证明空闲整理底座存活。最近 8 个责任样本中性格光谱与造梗世界书均存在；新版本主动早安距双方晚安约 4 小时 45 分、90 分钟内无打扰。当前进程约 22 分 52 秒，历史退出为 `package_updated`、非 ANR，只有 Nearby stopped info，无生成/后台/数据库错误；这是正样本而非根治证明 |
-| 保护与排除 | 不删除、重排或重新编号 rule layer 稳定 key；不修改用户性格光谱/造梗正文；不改变已真机通过的动作首帧、长 reasoning 后逐字播放和疲劳；不为“正常”情绪添加声音；不让学习候选覆盖身份、事实、用户控制权、隐私、NSFW 或格式，也不从候选直接创建 Drive/Thought/AI habit。卡死与悬浮只继续观察已有诊断，不在无新失败栈时扩大猜修 |
-| 实现边界 | schema 46 只为现有 Memory/学习候选与检索审计补字段；Snapshot protocol 5 不变，schema 45 恢复时补安全默认。关联只从当前直接命中 seed 扩一层、最多 3 条，不从模糊文字自动建图。消费只读 established 普通候选；当前用户纠正、身份/事实/隐私/NSFW/格式、AI 自身 Desire 与判断优先。整理只在本地、空闲或夜间有界运行，不调用模型、不改证据原话 |
-| 完成判据 | 自动化已完成：schema 45→46、旧包恢复、topic 一层门、候选消费、整理 Gate、别名迁移、男性用户指代和 `seek_attention` 专项均通过，run 714 全绿且 APK 独立 SHA 复算一致。真机收口需确认 activation/association/consolidation 确有合理变化、表达自然且不复读、无新身份口误；若只有审计数不合理再做窄修，否则 Phase 2 可明确收口并进入 Phase 3 规划 |
-| 直接详细入口 | 本节下方“v0.41.32 Phase 2B 学习消费与一层关联”；代码入口为 `MemoryItem`/`MemoryBrain`/`MemoryRetrievalPolicy`、`MemoryExtractor`、`PersonalityLearning*`、`PromptBuilder`、`ConversationOutcomeVerifier`、`PreflightDiagnostics`、`SnapshotService` 与 `AppDatabase` schema/migration |
+| 当前下一步 | **完成 v0.41.33 能力—人格解耦与视觉插队包：把已计算的表达计划真实放入 Prompt；让挑战/出题和直接质量纠偏优先满足内容要求，但不把普通闲聊改成 Agent/客服答题；修复情绪特效放大后因非方形布局下沉到腰部；将用户发图与自主网页图片统一为正向审美策展，不按 App 图标、Logo、水印、AI 生成、留白、文字或性感类别封杀。完成后一次性构建 APK。** |
+| 目标 | 保留极薄核心带来的活人感：完整能力只作为不可降低的硬下限，不先生成中性助手答案再套人设皮；人格继续决定注意、主观态度、取舍、说多少与怎样表达。图片判断从类别过滤改为完成度、氛围美感、构图聚焦、非模板化程度及已知弱偏好的综合收藏价值 |
+| 当前证据 | v0.41.32 新备份显示普通聊天使用 `deepseek-v4-flash / high / thinking=true`，源码普通聊天不下发本地 `max_tokens` 限制；猜谜轮次存在长 reasoning，却把主要注意分配给角色语气、输赢、动作与亲密表演。`DialogueExpressionPlan.select()` 每轮执行并写遥测，但 `PromptBuilder` 没有加入 `dialogueExpressionPlan.render()`，责任遥测连续显示 `dialogueExpressionPlan=false`；“太弱智”虽计为 feedback，模型仍收不到纠偏计划，“太简单/难一点/别总代入自己”也未被现有分类覆盖。新建“角色表达自然化”世界书方向正确且用户体感变自然，但 7017 字符、always/1000/all，当前只继续真机观察，不由代码覆盖 |
+| 保护与排除 | 不把“小鲸鱼”降为标准助手答案的语言皮套；不引入全局逐项自检、服务型完整回答或固定答题结构；不删除、重排或重新编号 rule layer 稳定 key；不修改用户“角色表达自然化”、性格光谱、造梗正文或其当前开关。不改变 Phase 2B 数据与 schema，不修改 NSFW（继续观察），不改变动作首帧、长 reasoning 后逐字播放、疲劳、桌宠/悬浮和已通过的格式链 |
+| 实现边界 | 表达计划须靠近当前真实 user turn 注入，并由末端中文/角色/格式锁收口；普通闲聊仍允许短、直白、不完整，任务/事实/挑战/质量纠偏才启用能力优先。情绪特效保持现有 `.50` 放大倍率和两套立绘各自 anchor，只把高度改为与舞台宽度同源的方形边长。图片 Prompt 只正向定义收藏价值和虚构角色置信度；成人标志可保留作元数据，但不得成为本地 save veto |
+| 完成判据 | 新增/更新测试必须证明：反馈与挑战分类、自然闲聊不被任务化、表达计划实际进入责任形状、能力底线不要求中性答案、最终中文/用户第二人称锁晚于人格与 NSFW anchor；情绪特效为宽高相等的舞台宽度方形且 anchor/倍率不漂移；识图允许成人标志仍保存、正向美学语义和虚构角色置信度存在、没有类别黑名单。随后运行全部可用 validators、Flutter analyze/tests、Kotlin/Release/签名/载荷 Actions 门禁，并独立校验 APK SHA；自动化通过仍不等于真机通过 |
+| 直接详细入口 | 本节下方“v0.41.33 能力—人格解耦、视觉策展与情绪特效收口”；代码入口为 `DialogueExpressionPlan`、`PromptBuilder`、`QwenVisionClient`、`ChatPortraitStage`、相关 tests/validator、workflow 与版本文件 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -60,6 +60,7 @@
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
 | C · Phase 2B 真机与 Phase 2 收口（CURRENT） | v0.41.32 run 714 全绿且 APK 已独立校验 | 覆盖安装后观察成熟候选低权重表达与一层关联自然度，并从脱敏诊断核对 activation/association/consolidation；若无阻断则明确关闭 Phase 2，再进入 Phase 3。不得仅凭 CI 倒写真机通过 |
+| C0 · v0.41.33 插队收口（CURRENT） | 新备份证明能力/人格路由缺口，且用户授权合并构建 | 完成能力硬下限、真实模式注入、挑战/纠偏、情绪特效方形定位和正向图片策展后构建一次 APK；“角色表达自然化”只继续用户侧测试。安装后再与 Phase 2B 一并导出诊断收口 |
 | D · Phase 3 / Phase 4 | Phase 2B 真机排错与 Phase 2 完整审查完成 | Phase 3 实现 AI 自身兴趣/习惯、版本回滚与激活预算；Phase 4 再做低频澄清/娱乐测试。每阶段仍独立验收 |
 | E · 延后项目 | Phase 0～4 完成，或用户重新明确插队 | 再处理总设置分类不合理；联网图片同一不可变字节事务、日记/随笔、MCP、视频、提醒、屏幕与悬浮风险仍按各自入口独立进入，不与 Phase 2 修复混包 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
@@ -69,6 +70,18 @@
 ## 近期详细记录与全局索引（按需检索）
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
+
+### v0.41.33 能力—人格解耦、视觉策展与情绪特效收口（2026-09-04，IMPLEMENTATION IN PROGRESS）
+
+1. 用户明确授权本窗口后续任务相关 APK 构建；本包从 v0.41.32 最终公开基线单独建分支，不合并 `main`、不发布正式 Release。原始备份、聊天正文、附件与 API 配置不得提交。
+2. 修改前只读核验 `AI_Companion_Backup_2026-09-04T13-10-46.aibackup`、对应脱敏诊断及稍后的 `AI_Companion_Backup_2026-09-04T13-42-16.aibackup`。前者证明低智样本不是关闭 thinking：聊天模型为 Flash、effort high、thinking true、任务正常完成且普通聊天未设本地 max token；真正失败是长 reasoning 将注意力用于角色表演，并把明显谜底误判为有难度。
+3. 明确源码缺陷：`PromptBuilder` 调用了 `DialogueExpressionPlan.select()` 并记录遥测，却从未把 `.render()` 加入消息列表；因此责任形状连续为 false。分类器只把“太弱智”覆盖为 feedback，未覆盖“太简单、难一点、跳脱一点、别总代入自己”，猜谜/挑战也继续落入 casual。这是本轮必须修复的实证缺口。
+4. 能力与人格采用“能力是硬下限、人格决定主观注意/态度/取舍/表达”的同一生成结构；禁止改成“先生成标准 Agent 答案，再套小鲸鱼口吻”的两阶段皮套。普通闲聊仍可简单、短句、没梗或没漂亮结论；只有任务、事实、挑战和明确质量纠偏先满足内容验收。
+5. 用户新建“角色表达自然化”行为世界书共 7017 字符，always/priority 1000/scope all；它对 ordinary speech、trait de-performance、one-off joke/nickname lifecycle、anti-overpackaging 和 stopping callbacks 的约束直接针对当前人机味，用户初步体感也变自然。其方向可继续测试，但尚无充分真机样本；本包不修改或复制其正文，避免把重复的反表演约束再次塞入核心。
+6. 情绪特效回归来自把 `.25` 放大为 `.50` 后仍用舞台高度计算 effect 高度：非方形大盒会让 `BoxFit.contain` 将真实图像垂直居中，下沉到立绘腰侧。修复只让 width/height 共用 `stageWidth * anchor.size` 的方形边长，保留 `.50`、`left=.25/top=0`、两套立绘独立 anchor 与跟随用户 transform 的现有结构。
+7. 图片收藏不以 App 图标、Logo、水印、AI 生成、留白、文字或性感内容作为类别封杀，也不在 Prompt 中逐项列举这些类别。正向判断收藏级画面：主体与构图、完成度、光影色彩与氛围、艺术/情绪表达、非模板化程度、独立欣赏或共同记忆价值、用户弱偏好；商业级完成度不自动等于值得收藏。虚构角色只有高置信特征匹配才报具体名字，否则描述可见特征；真实人物仍不猜身份。
+8. NSFW 本轮只保留观察，不因图片收藏调整而改写聊天/沉浸 NSFW 路由。成人/性感标志可作为相册元数据，不再由客户端强制覆写 `save=false`；上游视觉模型自身无法识别的内容仍会按提供方行为失败，程序不绕过。
+9. 修改后须回填真实文件、测试、commit、CI run、Artifact/Release、APK 大小与 SHA；任何尚未发生的步骤不得提前标绿。
 
 ### v0.41.32 Phase 2B 学习消费与一层关联（2026-09-04，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 

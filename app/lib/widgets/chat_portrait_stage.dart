@@ -44,6 +44,15 @@ class ChatPortraitStage extends StatefulWidget {
   final bool showEffect;
   final bool animate;
 
+  /// Emotion assets are square. Deriving both axes from the stage width keeps
+  /// BoxFit.contain from vertically centering a small image inside a tall box
+  /// after the effect was enlarged to 2x.
+  static double effectExtentFor({
+    required double stageWidth,
+    required ChatEffectAnchor anchor,
+  }) =>
+      stageWidth * anchor.size;
+
   @override
   State<ChatPortraitStage> createState() => _ChatPortraitStageState();
 }
@@ -222,6 +231,10 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
         final dx = widget.transform.offset.dx * constraints.maxWidth;
         final dy = widget.transform.offset.dy * constraints.maxHeight;
         final anchor = widget.portraitSet.effectAnchor;
+        final effectExtent = ChatPortraitStage.effectExtentFor(
+          stageWidth: constraints.maxWidth,
+          anchor: anchor,
+        );
         return ClipRect(
           child: Stack(
             fit: StackFit.expand,
@@ -262,8 +275,8 @@ class _ChatPortraitStageState extends State<ChatPortraitStage>
                           Positioned(
                             top: constraints.maxHeight * anchor.top,
                             left: constraints.maxWidth * anchor.left,
-                            width: constraints.maxWidth * anchor.size,
-                            height: constraints.maxHeight * anchor.size,
+                            width: effectExtent,
+                            height: effectExtent,
                             child: IgnorePointer(
                               child: AnimatedOpacity(
                                 opacity: _effectVisible ? 1 : 0,

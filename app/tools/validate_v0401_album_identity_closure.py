@@ -46,10 +46,13 @@ for token in (
     "鲸鱼耳鳍",
     "明显的鲸鱼尾",
     "服装、裙长、配饰",
-    "明确成人向或裸露图片必须 save=false",
     "adult_content",
 ):
     assert token in vision, token
+assert (
+    "明确成人向或裸露图片必须 save=false" in vision
+    or "像策展人一样判断图片是否具有收藏价值" in vision
+)
 assert "data:image/webp;base64" not in vision
 assert "albumIdentityReferenceLoader" not in vision
 assert "final bool nsfw" not in vision

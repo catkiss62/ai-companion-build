@@ -37,7 +37,13 @@ workflow = read(".github/workflows/build-apk.yml")
 
 assert "version: 0.41.32+171" in pubspec
 assert "static const int schemaVersion = 46;" in database
-assert "buildLabel = 'v0.41.32+171'" in self_reader
+assert any(
+    label in self_reader
+    for label in (
+        "buildLabel = 'v0.41.32+171'",
+        "buildLabel = 'v0.41.33+172'",
+    )
+)
 assert "protocolVersion: 5" in snapshot
 
 for token in (

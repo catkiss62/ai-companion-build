@@ -66,7 +66,7 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.31+170'
   // Historical Phase 1 contracts: implemented_observation_only;
   // [GROWTH_RUNTIME phase=observation_only]
-  static const buildLabel = 'v0.41.32+171';
+  static const buildLabel = 'v0.41.33+172';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(

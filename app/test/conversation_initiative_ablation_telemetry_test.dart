@@ -6,7 +6,7 @@ void main() {
     final shape = PromptResponsibilityShape.fromMessages(const [
       {
         'role': 'system',
-        'content': '你是女性 AI 伴侣。\n【本轮动态表达倾向】\n【本轮最终呈现提醒】',
+        'content': '你是女性 AI 伴侣。\n【本轮动态表达倾向】\n【本轮对话表达计划】\n【本轮最终呈现提醒】',
       },
       {'role': 'user', 'content': 'private user body'},
     ]);
@@ -14,6 +14,7 @@ void main() {
     final layers = json['layers']! as Map<String, bool>;
     expect(layers['identity'], isTrue);
     expect(layers['dynamicMoe'], isTrue);
+    expect(layers['dialogueExpressionPlan'], isTrue);
     expect(layers['finalReminder'], isTrue);
     expect(json['promptBodiesIncluded'], isFalse);
     expect(json.toString(), isNot(contains('private user body')));

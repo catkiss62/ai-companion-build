@@ -6,6 +6,10 @@ void main() {
   test('per-turn reminder locks Chinese and separates normal from calm', () {
     final reminder = PromptBuilder.visibleChineseGenerationReminder();
     expect(reminder, contains('自然简体中文'));
+    expect(reminder, contains('【能力与人格边界】'));
+    expect(reminder, contains('不得降低事实判断、推理、任务质量'));
+    expect(reminder, contains('普通闲聊不必表现成助手'));
+    expect(reminder, contains('不要先生成一份中性助手答案'));
     expect(reminder, contains('没打算说出口的心里话'));
     expect(reminder, contains('允许片段、跳念、改口或没想完'));
     expect(reminder, contains('所以我应该怎样回复'));
@@ -25,6 +29,16 @@ void main() {
     expect(reminder, isNot(contains('禁止用“我”“她”')));
     expect(reminder, isNot(contains('只用第二人称“你”')));
     expect(reminder, isNot(contains('<system-reminder>')));
+  });
+
+  test('competence is a floor while personality still chooses expression', () {
+    final contract = PromptBuilder.capabilityPersonaContract();
+    expect(contract, contains('人格、情绪、关系与风格可以决定'));
+    expect(contract, contains('主观注意、态度、取舍、说多少和怎样表达'));
+    expect(contract, contains('先真正满足内容要求'));
+    expect(contract, isNot(contains('先做 DeepSeek')));
+    expect(contract, isNot(contains('先做 Agent')));
+    expect(contract, isNot(contains('逐项检查')));
   });
 
   test('runtime identity does not prime third-person user narration', () {

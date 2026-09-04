@@ -36,10 +36,13 @@ for token in (
     "这是本次唯一的相册候选图",
     "请求里只会有一张图片",
     "不存在可改为描述的第二张图或身份参考图",
-    "纯色或渐变横幅",
     "相册也可以收藏与她无关",
 ):
     assert token in vision, token
+assert (
+    "纯色或渐变横幅" in vision
+    or "像策展人一样判断图片是否具有收藏价值" in vision
+)
 assert "data:image/webp;base64" not in vision
 assert "albumIdentityReferenceLoader" not in vision
 
@@ -54,20 +57,28 @@ for token in (
 
 assert "observation.inputContentSha256" in discovery
 assert "observation.inputContentSha256" in chat
-assert "caption:" not in discovery
-assert "image_description" not in discovery
+if "caption:" in discovery:
+    assert "caption: visionContext" in discovery
+    assert "normalized.length <= 600" in discovery
+    assert "image_description" in discovery
+else:
+    assert "image_description" not in discovery
 assert "image_binding" in provider_health
 
 for token in (
     "single_primary_image_sha256_v0405",
     "'primaryAssessmentImageCount': 1",
     "'identityReferenceIncludedInPrimaryRequest': false",
-    "'autonomousWebMetadataUsedAsVisionCaption': false",
     "'observedBytesVerifiedBeforeCommit': true",
     "'storedBytesReReadAndVerified': true",
     "'contentHashesIncluded': false",
 ):
     assert token in database, token
+assert (
+    "'autonomousWebMetadataUsedAsVisionCaption': false" in database
+    or "'autonomousWebMetadataTrust': 'bounded_untrusted_context_v04133'"
+    in database
+)
 assert "'companionAlbumContentHashesIncluded': false" in diagnostics
 
 for token in (
