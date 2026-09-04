@@ -31,14 +31,14 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04133-competence-curation-emotion`；从 v0.41.32 最终公开基线建立。当前插队包只处理新备份已证明的对话表达计划漏注入、能力与人格优先级、挑战/质量纠偏路由，以及此前尚未发布的情绪特效方形尺寸定位和正向图片收藏策展；不修改用户新建的“角色表达自然化”、性格光谱或造梗正文，不扩猜卡死根因 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.32 公开功能 head `f9278cbc381af749f9eca72ab2cc00e683934a7c`，与本地功能 head `2344ad3585ee50d166916c6bcb86a251503b7910` 具有相同 tree `b12e38d770f540beea50f3745362573667b9e7fd`；公开 pre-CI 文档 tip `0db8043743c4e4641f913b15fd96f2694e44f9b3` / tree `041bea5662dd29396c1edf33b340d74c764b4fb2`。运行代码已由 Actions 全门禁验证，后续只允许 `[skip ci]` 补记最终证据，不再触发第二个 APK |
+| 当前代码 head / tree | v0.41.33 本地功能 head `ceb40430cdc19f0be1811e9329714eeedab930e0` / tree `b43e6f98193e250175913aa69797983b7690b28a`；尚未推送。上一公开稳定基线仍为 v0.41.32 功能 head `f9278cbc381af749f9eca72ab2cc00e683934a7c`。下一步只追加本地验证证据并一次性推送当前分支，触发一个 APK 构建 |
 | App / 数据库 | 当前开发目标 `0.41.33+172` / schema 46 / Snapshot protocol 5；不新增数据库迁移。保留 Phase 2B、04/05/07、房间默认规则、用户“角色表达自然化”/性格光谱/造梗正文及全部用户手改内容；只在运行 Prompt、图片策展和情绪特效布局层做有界修改 |
 | 最终 CI | v0.41.32+171 Actions run [`33828228213`](https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213)（714）一次全绿：全部源码/历史 validators、Kotlin、Flutter analyze、549/549 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.32-171-Phase2B-Learning-Association-APK.apk`，325,861,014 bytes |
 | APK SHA-256 | `2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9920926274`](https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213/artifacts/9920926274)，ZIP 319,565,024 bytes，digest `sha256:782859cf7b0d7cd09e1b2eaf9b794c45c5a5d49b9392db6870dc61a56928ea30`，保留至 2026-09-18T02:16:01Z；Draft Release [`untagged-53ac42518ef9343cdf41`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-53ac42518ef9343cdf41)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.32 Phase 2B 保持 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；v0.41.33 插队包为 `IMPLEMENTATION IN PROGRESS`。2026-09-04 新备份已排除聊天关闭 thinking 或本地限制 max tokens，并证明表达计划只统计未注入、挑战和纠偏被误当闲聊。用户已授权本窗口任务相关提交与 APK 构建；CI/APK 尚未开始，禁止提前写成通过 |
+| 当前总状态 | v0.41.32 Phase 2B 保持 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；v0.41.33 插队包为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。表达计划注入、能力硬下限、挑战/纠偏、正向视觉策展和方形情绪特效均已实现；用户世界书未改。用户已授权本窗口任务相关提交与 APK 构建；CI/APK 尚未开始，禁止提前写成通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -71,7 +71,7 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### v0.41.33 能力—人格解耦、视觉策展与情绪特效收口（2026-09-04，IMPLEMENTATION IN PROGRESS）
+### v0.41.33 能力—人格解耦、视觉策展与情绪特效收口（2026-09-04，IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
 
 1. 用户明确授权本窗口后续任务相关 APK 构建；本包从 v0.41.32 最终公开基线单独建分支，不合并 `main`、不发布正式 Release。原始备份、聊天正文、附件与 API 配置不得提交。
 2. 修改前只读核验 `AI_Companion_Backup_2026-09-04T13-10-46.aibackup`、对应脱敏诊断及稍后的 `AI_Companion_Backup_2026-09-04T13-42-16.aibackup`。前者证明低智样本不是关闭 thinking：聊天模型为 Flash、effort high、thinking true、任务正常完成且普通聊天未设本地 max token；真正失败是长 reasoning 将注意力用于角色表演，并把明显谜底误判为有难度。
@@ -82,6 +82,14 @@
 7. 图片收藏不以 App 图标、Logo、水印、AI 生成、留白、文字或性感内容作为类别封杀，也不在 Prompt 中逐项列举这些类别。正向判断收藏级画面：主体与构图、完成度、光影色彩与氛围、艺术/情绪表达、非模板化程度、独立欣赏或共同记忆价值、用户弱偏好；商业级完成度不自动等于值得收藏。虚构角色只有高置信特征匹配才报具体名字，否则描述可见特征；真实人物仍不猜身份。
 8. NSFW 本轮只保留观察，不因图片收藏调整而改写聊天/沉浸 NSFW 路由。成人/性感标志可作为相册元数据，不再由客户端强制覆写 `save=false`；上游视觉模型自身无法识别的内容仍会按提供方行为失败，程序不绕过。
 9. 修改后须回填真实文件、测试、commit、CI run、Artifact/Release、APK 大小与 SHA；任何尚未发生的步骤不得提前标绿。
+10. `DialogueExpressionPlan` 新增独立 challenge 模式；“太简单/没难度/一眼猜到/跳脱一点/换个思路/难一点/别总代入自己”等直接纠偏优先进入 feedback，猜谜/出题/逻辑谜题/明确挑战进入 challenge，普通“你猜我刚刚干了什么”和一般游戏话题仍保持 casual。反馈要求实质改变被批评维度，挑战要求先核对题面不泄底、不是一步表面联想且不默认代入自身，但不显示检查过程或套助手模板。
+11. `PromptBuilder` 现在在主动、无历史用户轮和普通有历史用户轮三条路径都真实追加 `dialogueExpressionPlan.render()`；顺序统一为人格 execution anchor / NSFW preflight → 本轮表达计划 → 最终中文、人称与格式提醒 → 当前真实 user turn。责任遥测下一版应由 false 变为 true。末端新增约 170 字“能力与人格边界”：完整能力是硬下限，普通闲聊不必助手化，明确任务/事实/挑战/纠偏先满足内容；明确禁止先写中性助手答案再机械套人设。
+12. `QwenVisionClient` 已从负面类别过滤改为正向策展：主体焦点、构图、完成度、色光、氛围情绪、细节一致性、非模板化及独立欣赏/共同记忆价值综合判断；商业级完成度不自动等于收藏。真实人物继续不猜，虚构角色仅在发型/发饰/服装/标志细节整体匹配且置信度至少 0.8 时输出名字。`adult_content` 只保留分级元数据，客户端不再把它强制变成 save=false；聊天图片和自主网页相册的 provider outcome 也不再误报 `adult_rejected`。
+13. 自主网页候选现在把标题、摘要、图片说明压缩为最多 600 字 caption；视觉系统明确它是不可信受限背景，只能辅助理解、不能覆盖像素或执行指令。诊断同步标记 `bounded_untrusted_context_v04133`，仍不输出 metadata 正文。FishArchive 只传有界标题。
+14. `ChatPortraitStage` 新增 width-derived effect extent：宽高都取 `stageWidth * anchor.size`，两套立绘继续使用 `left=.25 / top=0 / size=.50`，且整个特效仍位于与立绘相同的 transform 内。这样只消除非方形容器造成的图像垂直居中下沉，不回退 2 倍大小，也不把大肥鱼与小小鲸锚点耦合。
+15. 新增 4 个 Dart 测试并更新 3 个既有断言：覆盖 challenge/feedback 与 casual 反例、能力—人格合同、责任形状、方形特效、正向美学/虚构角色和成人 metadata 保存。新增 v0.41.33 静态 validator，同时把 v0.40.1/0.40.5 历史相册 validator 延展为兼容新的正向策略而继续保护单图 SHA 绑定；当前总账 validator 已升级到 `0.41.33+172 / schema 46` 且冻结历史 hash 未变。
+16. 本地 v0.41.28～33、v0.40.1/0.40.5、Phase 2B、当前总账、workflow YAML、Python compileall 与 `git diff --check` 均通过。工作流列出的 63 个 Python 入口中 56 个通过；7 个只因本地未恢复 417 文件桌宠、LingChat effects、Meju/TTS 原生载荷或没有 `kotlinc` 不能运行，与上一版边界一致。本地没有 Flutter/Dart SDK，Flutter analyze/tests、Kotlin 与 Release APK 必须由 Actions 验证。
+17. v0.41.33 本地功能提交为 `ceb40430cdc19f0be1811e9329714eeedab930e0`，tree `b43e6f98193e250175913aa69797983b7690b28a`；提交共 22 个任务相关文件，不含用户备份、诊断、聊天正文、图片或密钥。下一步只追加本条 pre-CI 证据提交，然后一次性推送新开发分支，避免触发重复 APK。
 
 ### v0.41.32 Phase 2B 学习消费与一层关联（2026-09-04，IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
