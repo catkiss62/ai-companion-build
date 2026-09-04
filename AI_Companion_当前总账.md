@@ -31,20 +31,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04134-memory-grounding-agent-foundation`；从 v0.41.33 最终公开基线建立。当前包先修复最新备份证明的记忆主体/归属/时态完整性与无屏幕证据陈述，再继续已冻结的 App 内 Agent 基座；两部分完成后只构建一个测试 APK |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.34 首次公开提交 `bf85dab203307aa7dc50cdb175c3f2a5d07a6581` 的 tree `5ed4f4dc5702a31585eecf3e9b27695267f5f4bd` 与本地 pre-CI HEAD 完全一致。run 716 在 Flutter tests 暴露两处窄问题，当前本地正在修复屏幕断言 RegExp 括号与 phone/web-save 本地路由重复调用，修复提交尚未推送 |
+| 当前代码 head / tree | v0.41.34 首次公开提交 `bf85dab203307aa7dc50cdb175c3f2a5d07a6581` 经 run 716 暴露并修正 RegExp 与重复路由后，远端运行代码提交为 `938e31e27cccb18d9897f157270de85e5e0c9578`，tree `179470cb11c3d66f4a0191f44995aab79025b7f7` 与本地修复 HEAD tree 完全一致；本次仅再追加 `[skip ci]` 总账证据提交，不改变运行代码 |
 | App / 数据库 | 当前目标 `0.41.34+173` / schema 47 / Snapshot protocol 5；schema 47 只为 Memory 增加有界 actor / relation / object / owner / temporal scope，支持 schema 46 覆盖升级与备份导入，不改写或删除用户既有记忆正文、关系资料、世界书及手改规则 |
-| 最终 CI | v0.41.33+172 Actions run [`33883980296`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296)（715）一次全绿：全部源码/历史 validators、Kotlin、Flutter analyze、553/553 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
-| 测试 APK | `AI-Companion-v0.41.33-172-Competence-Curation-Emotion-APK.apk`，325,873,086 bytes |
-| APK SHA-256 | `dcb98b25a0cc68ec208dbb000dc59387d98edb7f106973d9a7d93bb1ff5f029d`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
-| Artifact / Release | [Artifact ID `9941442832`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296/artifacts/9941442832)，ZIP 319,577,717 bytes，digest `sha256:67e97a736b6d4d0e06b924c6e0a53139a6bd71734ea92f5c03f91d2f0373eb77`，保留至 2026-09-18T14:39:18Z；Draft Release [`untagged-715dab35cece05d4bdd0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-715dab35cece05d4bdd0)，未发布正式 Release |
+| 最终 CI | v0.41.34+173 Actions run [`33907419371`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371)（717）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、565/565 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 测试 APK | `AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK.apk`，325,946,342 bytes |
+| APK SHA-256 | `24cbd347ae4dc2ab13ada820a8ac56860fd7c85ed3c6920e0f8a7478485550e9`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
+| Artifact / Release | [Artifact ID `9950405126`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371/artifacts/9950405126)，ZIP 319,647,238 bytes，digest `sha256:0815cfe655d18ecf96653e9f97063c62c71e27e34c3baaa75d51b868f8bd91dd`，保留至 2026-09-18T18:55:39Z；Draft Release [`untagged-3a31fd90ffde260da4e0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a31fd90ffde260da4e0)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`：表达计划、能力与人格解耦、角色表达自然化共存、情绪特效与正向图片策展的真机结论不变。v0.41.34 Memory 2C 与 App 内 Agent 基座现为 `CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 716 的源码回归、Kotlin 与 Flutter analyze 已通过，但 Flutter tests 为 `555 passed / 10 failed`，APK 未构建；十项均由同一个无效 RegExp 初始化和两条重复路由断言造成，已完成本地窄修，等待复跑 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`：表达计划、能力与人格、角色表达自然化、情绪特效和正向图片策展的既有真机结论不变。v0.41.34 Memory 2C 与 App 内 Agent 基座现为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 717 已证明全部自动化、编译、签名与载荷完整性；尚不能替代覆盖安装后的真实模型路由、手机只读、附件保存、联网找图保存、旧记忆时态和失败真值验收。Phase 3 继续关闭，待本包真机闭环后再开 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.34 Memory 2C 与 App 内 Agent 基座的本地验证、代码审查和总账回填，然后提交并一次性推送当前公开测试分支，运行 GitHub Actions 并生成一个 v0.41.34 测试 APK。** Memory 2C 已实现行动者—关系—对象—归属与事件时态；Agent 已实现普通闲聊零 schema、按请求展开相关只读能力、纯只读 `phone.search / phone.read`、用户明确指令下的当前附件保存和联网找图保存。无同轮 `screen_observation.inspect` 成功 Outcome 时仍禁止屏幕内容断言。CI 未通过前不得写成 APK READY，Phase 3 仍关闭 |
+| 当前下一步 | **覆盖安装 v0.41.34+173，完成 Memory 2C 与 App 内 Agent 基座的合并真机验收。** Memory 2C 已实现行动者—关系—对象—归属与事件时态。先确认版本/schema，再分别测试普通闲聊零工具感、手机日记/塔罗只读、保存当前附件、联网找指定图片并保存、失败/无结果不虚报，以及旧 Live2D 呆毛记忆只能作为有日期的旧进度而不能写成“刚才/仍在做”；无同轮 `screen_observation.inspect` 成功 Outcome 时不得声称屏幕停在哪一页。导出新的存档与脱敏诊断后再判断窄修或收口；Phase 3 在本包真机闭环前仍关闭 |
 | 目标 | AI 不需要写代码，但能准确发现自己此刻可用的能力、选择相关工具、执行多步行动、读取真实结果并以小鲸鱼自己的方式回答。Tool 负责原子执行，Skill 负责组合策略，MCP 负责外部能力接入，Agent 负责选择与串联；人格/情感影响注意、主动意愿和表达，不改变权限与执行真值 |
 | 当前证据 | 最新 v0.41.33+172 诊断：Phase 2B `activationCount=7`、1 个成熟候选被真实激活、整理为 completed；`dialogueExpressionPlan=true` 已在新版样本持续出现，feedback/challenge 各 1 次。Agent 现有 21 次用户轮请求、17 次成功、0 次失败，最近 `system_self.read` 成功返回 23 项；但最大每轮 2 次、仅有七个只读工具，没有图片发现/识图/保存原子工具，因此她能查到“功能存在”却不能完成“替我上网存图”。这是真实能力缺口，不是人格或 Prompt 再强调即可解决 |
 | 保护与排除 | 不把普通陪伴轮变成计划书、检查清单、能力声明或工作汇报；不把全部工具 schema 常驻每轮 Prompt；不让人格层伪造执行成功，也不让工具层重写人格。第一批不开放任意代码/终端、密钥、原始日志、数据库、无界文件系统或未审计社区插件；不照搬外部项目。图片写入只在用户明确指令下执行，策展 veto 可被明确保存命令覆盖，但网络、视觉、重复、存储和权限失败不得伪装成功 |
@@ -61,7 +61,7 @@
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
-| C1 · App 内 Agent 能力桥（IMPLEMENTED / CI PENDING） | Phase 2 与 v0.41.33 已收口；Memory 2C 与首批 Tool/路由已通过本地静态验证 | 完成 CI 后构建一个 v0.41.34 APK；真机验收普通闲聊零工具、手机只读、当前附件保存、联网找图保存、失败不虚报，再决定是否进入 Phase 3 |
+| C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 717、565/565 Flutter tests、签名/载荷/checksum、Artifact 与 Draft Release 均通过 | 覆盖安装 v0.41.34；真机验收普通闲聊零工具、手机只读、当前附件保存、联网找图保存、Memory 时态与失败不虚报，取得新存档/诊断后再决定窄修、收口或进入 Phase 3 |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -74,7 +74,7 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### 2026-09-04 Memory 2C 前置完整性 + Agent 基座（IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-04 Memory 2C 前置完整性 + Agent 基座（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户在 Agent 基座开工前补充此前“记忆关联”的原始目标：不仅要同主题召回，还必须防止压缩时丢失行动者、对象和归属。例如“用户正在修 AI 的 Live2D 模型的呆毛”不能退化成“做 Live2D 呆毛”，更不能反转成用户自己的身体部件。审计确认 schema 46 的 Phase 2B 只实现 `topic_key` 直接种子与最多三条同主题一跳扩展；`subject_key` 只做事实版本链，没有实体角色、所有权或事件有效期。因此该目标此前只完成了一部分，不能写成已完成。
 2. 只读核验用户上传的 `2026-09-04T17:40:23` 备份：ZIP protocol 5 / schema 46 / generation 41，manifest 与 state SHA-256 一致；附件不提交仓库。错误主动消息称“屏幕上最后停在那堆呆毛的调试页”，其 reasoning 又称“刚才还在调试呆毛动画”。相关呆毛进度最后证据约早 398,702 秒（约 4.61 天）；数据库仍有 active 的“用户在继续制作 Live2D”“用户正在开发 Live2D”Memory/Thread，Prompt 注入未携带证据年龄或当前有效性，Self-Drive 还会把旧 Memory 重新生成当前 Thought。故根因是旧进行时被永久当作 current fact，再由模型压缩为“刚才”，不是用户真的在本轮提供了新进度。
@@ -97,6 +97,10 @@
 19. 命令行 GitHub HTTPS 未配置凭据，按用户对 v0.41.34 的明确公开推送授权改用已连接的仓库写接口。远端以 v0.41.33 最终 tip `8e3671bb58a65991900ee3c41b481a7998d48566` / tree `335eec88693ff4236bb9eacddc6eb4f45ad0caaa` 为父级；31 个文件 blob 组成的远端 tree `5ed4f4dc5702a31585eecf3e9b27695267f5f4bd` 与本地 pre-CI HEAD tree 完全相同，公开提交为 `bf85dab203307aa7dc50cdb175c3f2a5d07a6581`，随后才创建分支，未把备份或私有内容上传。
 20. Actions run [`33906495839`](https://github.com/catkiss62/ai-companion-build/actions/runs/33906495839)（716）通过分支检测、载荷恢复、全部源码/历史 validators、Kotlin tests、Flutter analyze 与依赖解析；Flutter tests 为 `555 passed / 10 failed`，因此 Release APK、签名、载荷与上传均按门禁跳过。八项失败同源于 `_screenContentClaim` RegExp 多一个右括号导致运行时 `FormatException: Unmatched ')'`；另外两项是明确 phone 请求被同时误识别为普通网页搜索、联网找图保存又同时误识别为相册回想，导致 plan 出现两个调用。两处均是首轮测试真实发现的代码问题，不是环境波动，不重跑掩盖。
 21. 本地窄修已完成：屏幕断言 RegExp 改为单一平衡外层并回放“呆毛调试页/真实截图/粗屏幕状态”三类样本；普通网页判定排除 phone 与 attachment 保存请求，相册回想判定排除 attachment/web-image 保存 workflow，保证相关测试各只得到一个调用。v0.41.34 专项、当前总账、v0.41.33 历史合同和 `git diff --check` 已再次通过；下一步提交并更新同一远端分支，触发 run 717 完整复跑。
+22. 修复在本地提交 `927c850d7aca4e973e1103365de50483d035b6f5`，tree `179470cb11c3d66f4a0191f44995aab79025b7f7`；通过已授权的仓库写接口生成等价远端提交 `938e31e27cccb18d9897f157270de85e5e0c9578`，远端 tree 与本地完全一致，随后以 fast-forward 更新同一公开分支并触发 run 717。修复只改守卫 RegExp、planner 的互斥路由和本节总账，不含备份、诊断、图片、消息正文、密钥或配置。
+23. Actions run [`33907419371`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371)（717）完整成功：分支检测、私有 CI 载荷恢复、全部源码/历史 validators、Kotlin 桌宠与悬浮文本测试、Flutter analyze、`565 tests passed`、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和 Draft Release 上传全部通过；失败报告 job 按预期 skipped。run 716 的十项失败均已由新增/既有测试证明修复，没有以重跑掩盖。
+24. Artifact [`9950405126`](https://github.com/catkiss62/ai-companion-build/actions/runs/33907419371/artifacts/9950405126) 名称为 `AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK`，ZIP 319,647,238 bytes，GitHub digest `sha256:0815cfe655d18ecf96653e9f97063c62c71e27e34c3baaa75d51b868f8bd91dd`，保留至 2026-09-18T18:55:39Z。独立下载解包的 APK 为 325,946,342 bytes，SHA-256 `24cbd347ae4dc2ab13ada820a8ac56860fd7c85ed3c6920e0f8a7478485550e9`，与 CI checksum 和 Draft Release asset digest 完全一致；固定测试签名仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装。Draft Release 为 [`untagged-3a31fd90ffde260da4e0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3a31fd90ffde260da4e0)，未发布正式 Release，`main` 未合并。
+25. 当前已按冻结范围生成一个 v0.41.34 测试 APK，状态严格提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。下一步只做合并真机验收：确认 `0.41.34+173 / schema 47`；普通闲聊不出现工具/计划助手腔；“看看你手机里的日记/塔罗”只读真实内容；当前附件明确保存与联网找指定图片保存均得到真实相册 Outcome；无结果、拒绝、取消或识图失败不得报成功；几天前的 Live2D 呆毛进度不得再称“刚才/现在仍在做”，无成功屏幕观察不得声称当前页面。取得新备份与脱敏诊断后再收口或窄修，Phase 3 不提前开启。
 
 ### 2026-09-04 真机收口、外部项目审计与 Agent 能力桥设计（DOCS ONLY / RUNTIME UNCHANGED / DESIGN CURRENT）
 
