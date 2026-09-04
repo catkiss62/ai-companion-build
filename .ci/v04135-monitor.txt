@@ -1,0 +1,7 @@
+status=success
+run_id=33921748729
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729
+head_sha=48406720c86192a52c563e295466e739173105b6
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+bff8b381991f4012e2f937bd69d502a1927cd0b416a75fcbc7d59fea86b72c69  AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b4e4d9d140d8fbcec80d
