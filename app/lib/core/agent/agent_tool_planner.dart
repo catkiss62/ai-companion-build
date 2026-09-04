@@ -107,7 +107,9 @@ class AgentToolPlanner {
                     !explicitAlbum &&
                     !explicitScreen &&
                     !explicitDevice &&
-                    !explicitSystemSelf)));
+                    !explicitSystemSelf &&
+                    !explicitPhone &&
+                    !explicitAttachmentSave)));
 
     if (explicitWeb && !explicitWebImageSave) {
       add(
@@ -127,7 +129,10 @@ class AgentToolPlanner {
         {'query': _bounded(text, 120)},
       );
     }
-    if (explicitAlbum && !explicitPhone) {
+    if (explicitAlbum &&
+        !explicitPhone &&
+        !explicitAttachmentSave &&
+        !explicitWebImageSave) {
       add(
         AgentToolRegistry.albumSearch.id,
         {'query': _bounded(text, 160)},

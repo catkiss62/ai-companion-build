@@ -31,14 +31,14 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04134-memory-grounding-agent-foundation`；从 v0.41.33 最终公开基线建立。当前包先修复最新备份证明的记忆主体/归属/时态完整性与无屏幕证据陈述，再继续已冻结的 App 内 Agent 基座；两部分完成后只构建一个测试 APK |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.34 本地功能提交 `2c3195c8016088aa3187e7483a7693bc46cd2094` / tree `90ac0f982b1d23c59a649b143f1cfa2e12abb67d` 已通过本地静态合同、历史回归与提交前审查；下一步仅追加本条 pre-CI 证据提交并一次性推送，尚未触发 CI。上一公开可运行基线仍为 v0.41.33 功能 head `9d0a11706b3b2452372005fc76276780340a3fb6`、run 715 全门禁通过的 pre-CI tip `01dfa7ea3e03d0b3c9b279a3f1636c8aafcce904` |
+| 当前代码 head / tree | v0.41.34 首次公开提交 `bf85dab203307aa7dc50cdb175c3f2a5d07a6581` 的 tree `5ed4f4dc5702a31585eecf3e9b27695267f5f4bd` 与本地 pre-CI HEAD 完全一致。run 716 在 Flutter tests 暴露两处窄问题，当前本地正在修复屏幕断言 RegExp 括号与 phone/web-save 本地路由重复调用，修复提交尚未推送 |
 | App / 数据库 | 当前目标 `0.41.34+173` / schema 47 / Snapshot protocol 5；schema 47 只为 Memory 增加有界 actor / relation / object / owner / temporal scope，支持 schema 46 覆盖升级与备份导入，不改写或删除用户既有记忆正文、关系资料、世界书及手改规则 |
 | 最终 CI | v0.41.33+172 Actions run [`33883980296`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296)（715）一次全绿：全部源码/历史 validators、Kotlin、Flutter analyze、553/553 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.33-172-Competence-Curation-Emotion-APK.apk`，325,873,086 bytes |
 | APK SHA-256 | `dcb98b25a0cc68ec208dbb000dc59387d98edb7f106973d9a7d93bb1ff5f029d`；固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48` |
 | Artifact / Release | [Artifact ID `9941442832`](https://github.com/catkiss62/ai-companion-build/actions/runs/33883980296/artifacts/9941442832)，ZIP 319,577,717 bytes，digest `sha256:67e97a736b6d4d0e06b924c6e0a53139a6bd71734ea92f5c03f91d2f0373eb77`，保留至 2026-09-18T14:39:18Z；Draft Release [`untagged-715dab35cece05d4bdd0`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-715dab35cece05d4bdd0)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`：表达计划、能力与人格解耦、角色表达自然化共存、情绪特效与正向图片策展的真机结论不变。v0.41.34 Memory 2C 与 App 内 Agent 基座现为 `IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；尚未构建 APK |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`：表达计划、能力与人格解耦、角色表达自然化共存、情绪特效与正向图片策展的真机结论不变。v0.41.34 Memory 2C 与 App 内 Agent 基座现为 `CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING`：run 716 的源码回归、Kotlin 与 Flutter analyze 已通过，但 Flutter tests 为 `555 passed / 10 failed`，APK 未构建；十项均由同一个无效 RegExp 初始化和两条重复路由断言造成，已完成本地窄修，等待复跑 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -94,6 +94,9 @@
 16. 提交前本地验证已完成：workflow YAML、Python compileall、`git diff --check`、v0.41.34 专项、当前总账、v0.41.33/32/30/16 及工作流中其余可运行历史合同均通过；工作流 64 项 Python 命令为 `57 passed / 7 environment-only unavailable`。七项只缺 CI 才恢复的 417 文件桌宠、LingChat、Meju/TTS native 载荷或本地 `kotlinc`，没有本批功能断言失败；本地仍无 Flutter/Dart，故编译和 Flutter tests 必须由 Actions 证明。
 17. 提交前审查额外修正两处：手机只读搜索先剥离“看看你手机里的日记/塔罗”等命令与栏目词，空语义查询返回该栏目最近内容，不再拿整句命令误搜；联网找图保存的复用引擎在成功、失败或取消后统一关闭视觉与下载客户端。普通提及“今天抽到的塔罗牌”“聊聊日记”不会因此注入 phone tool schema。
 18. v0.41.34 本地功能提交为 `2c3195c8016088aa3187e7483a7693bc46cd2094`，tree 为 `90ac0f982b1d23c59a649b143f1cfa2e12abb67d`，共 31 个任务相关文件；不含用户备份、诊断、聊天正文、图片、密钥或 API 配置。下一步只追加本条 pre-CI 证据提交，再一次性推送当前公开测试分支并等待 Actions 完整编译、测试和 APK 结果。
+19. 命令行 GitHub HTTPS 未配置凭据，按用户对 v0.41.34 的明确公开推送授权改用已连接的仓库写接口。远端以 v0.41.33 最终 tip `8e3671bb58a65991900ee3c41b481a7998d48566` / tree `335eec88693ff4236bb9eacddc6eb4f45ad0caaa` 为父级；31 个文件 blob 组成的远端 tree `5ed4f4dc5702a31585eecf3e9b27695267f5f4bd` 与本地 pre-CI HEAD tree 完全相同，公开提交为 `bf85dab203307aa7dc50cdb175c3f2a5d07a6581`，随后才创建分支，未把备份或私有内容上传。
+20. Actions run [`33906495839`](https://github.com/catkiss62/ai-companion-build/actions/runs/33906495839)（716）通过分支检测、载荷恢复、全部源码/历史 validators、Kotlin tests、Flutter analyze 与依赖解析；Flutter tests 为 `555 passed / 10 failed`，因此 Release APK、签名、载荷与上传均按门禁跳过。八项失败同源于 `_screenContentClaim` RegExp 多一个右括号导致运行时 `FormatException: Unmatched ')'`；另外两项是明确 phone 请求被同时误识别为普通网页搜索、联网找图保存又同时误识别为相册回想，导致 plan 出现两个调用。两处均是首轮测试真实发现的代码问题，不是环境波动，不重跑掩盖。
+21. 本地窄修已完成：屏幕断言 RegExp 改为单一平衡外层并回放“呆毛调试页/真实截图/粗屏幕状态”三类样本；普通网页判定排除 phone 与 attachment 保存请求，相册回想判定排除 attachment/web-image 保存 workflow，保证相关测试各只得到一个调用。v0.41.34 专项、当前总账、v0.41.33 历史合同和 `git diff --check` 已再次通过；下一步提交并更新同一远端分支，触发 run 717 完整复跑。
 
 ### 2026-09-04 真机收口、外部项目审计与 Agent 能力桥设计（DOCS ONLY / RUNTIME UNCHANGED / DESIGN CURRENT）
 
