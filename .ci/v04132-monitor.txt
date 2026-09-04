@@ -1,0 +1,7 @@
+status=success
+run_id=33828228213
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33828228213
+head_sha=0db8043743c4e4641f913b15fd96f2694e44f9b3
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+2dffcf299f5a8969d3fc45415e445c67bbbaaffb6649bbdf128bfc4009d667bf  AI-Companion-v0.41.32-171-Phase2B-Learning-Association-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-53ac42518ef9343cdf41
