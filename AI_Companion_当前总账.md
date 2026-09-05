@@ -31,25 +31,25 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04138-worldbook-2d-roleplay-provenance`；从已公开的 v0.41.37 干净基线建立，不携带本地附件审查提交。当前包实现 WorldBook 2D 三分类、来源快照、角色扮演 Session 隔离、自主 AI Self 证据门与窄 `<em>` 情绪兼容；不混入 Phase 3、相册多标签或自主发图 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 本地功能提交 `faebe20`；父级为已公开 v0.41.37 ledger tip `5e86e71`。当前尚未推送，故不得写成远端 CI 输入。功能提交只含通用源码、测试、规格和工作流，不含用户备份、诊断、附件、消息正文或密钥 |
+| 当前代码 head / tree | v0.41.38 公开 CI 输入提交 `11e89f89c6ea1a76cc1f5a3a2864e01ceefacd3b` / tree `39e3e34ce7d47ccbd0b2eccb8c810402f397345d`，与本地最终运行树完全一致。公开提交只含通用源码、测试、规格、工作流和无隐私账本，不含用户备份、诊断、附件、消息正文或密钥 |
 | App / 数据库 | 当前开发目标 `0.41.38+177` / schema 50 / Snapshot protocol 5。schema 50 为 assistant message、post-turn job 与 InteractionSession 增加有界 worldbook 来源；schema 49 覆盖升级/导入不猜测历史来源，不修改原 `.aibackup`、Memory/evidence/message 正文或 ID |
-| 最终 CI | v0.41.37+176 Actions run [`33964701789`](https://github.com/catkiss62/ai-companion-build/actions/runs/33964701789)（723）全绿：68 个源码/历史 validators、Kotlin、Flutter analyze、581/581 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
-| 测试 APK | `AI-Companion-v0.41.37-176-Memory-Lifecycle-Recall-Value-APK.apk`，326,011,954 bytes |
-| APK SHA-256 | `cfbe228cba354921f372b2ac9996f90f6dec3d33a2e33d9fc1f1471b8819c5a5`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
-| Artifact / Release | [Artifact ID `9969158590`](https://github.com/catkiss62/ai-companion-build/actions/runs/33964701789/artifacts/9969158590)，ZIP 319,714,444 bytes，digest `sha256:0d734a0ab2736f0ae27c02f3a5431f0f0ae0b3d8071e707ef6e06247593dde76`，保留至 2026-09-19T12:06:06Z；Draft Release [`untagged-817cede97bb3258bd4f7`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-817cede97bb3258bd4f7)，未发布正式 Release |
+| 最终 CI | v0.41.38+177 Actions run [`33973917503`](https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503)（724）全绿：源码/历史 validators、Kotlin、Flutter analyze、591/591 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 测试 APK | `AI-Companion-v0.41.38-177-WorldBook-2D-Roleplay-Provenance-APK.apk`，326,067,118 bytes |
+| APK SHA-256 | `ad24935a68e1d11dcb4bf30764dec6cc69027002b801c4bab9cf58149a6c3fa9`，与 CI checksum 和 GitHub Release asset digest 一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
+| Artifact / Release | [Artifact ID `9971893782`](https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503/artifacts/9971893782)，ZIP 319,771,213 bytes，digest `sha256:8023421fbfbe412832062035d61b8f8c5e9106f5d32ff6df2a94f065587c7aae`，保留至 2026-09-19T15:20:00Z；Draft Release [`untagged-ce6e4316234957a4bcd3`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce6e4316234957a4bcd3)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 的覆盖迁移、完成/未完成/延期与历史回忆已有真机正样本，精确取消、自然主动回忆和工作话题占比转观察，状态为 `TRUE DEVICE PARTIAL / CLOSED`。WorldBook 2D 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；Phase 3 尚未开始 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 的覆盖迁移、完成/未完成/延期与历史回忆已有真机正样本，精确取消、自然主动回忆和工作话题占比转观察，状态为 `TRUE DEVICE PARTIAL / CLOSED`。WorldBook 2D 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 尚未开始 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.38 WorldBook 2D 的公开 CI 与 APK。** 推送干净分支，等待 Flutter analyze、全部测试、release APK、签名与载荷校验；自动化通过后再给出覆盖安装测试方向，不提前写真机通过 |
+| 当前下一步 | **覆盖安装并真机验收 v0.41.38 WorldBook 2D。** 先确认版本/schema 和旧数据保留，再分别测试知识资料、行为模块、角色扮演 Session 与 `<em>` 情绪兼容；取得新存档/诊断后核对 provenance 与普通成长隔离，不提前写真机通过 |
 | 目标 | 世界书稳定分为知识资料、行为模块、角色扮演。配置本身不成为成长事件；行为模块可引导真实表达，AI 只有在多个非扮演回复、独立时段且更强时跨日期重复后，才可形成可逆自主倾向。角色扮演可续玩但不能写入普通 Memory、Thought、Thread、Relationship、Moe 或 AI Self |
-| 当前证据 | v0.41.37 运行基线没有每轮 worldbook 文档 ID/版本来源；旧规则 03 特殊风格与世界书同名模块仍是两条运行链。v0.41.38 本地已增加原子 Prompt+来源结果、schema 50 来源列、角色卡 Session/局部剧情尾部、跨角色历史过滤、知识资料记忆证据门和 AI Self 多事件门；新旧静态合同及 workflow YAML 已通过，本地无 Flutter SDK，CI 尚未运行 |
+| 当前证据 | v0.41.37 没有每轮 worldbook 文档 ID/版本来源，且旧规则 03 特殊风格与世界书同名模块仍是两条运行链。v0.41.38 已增加原子 Prompt+来源结果、schema 50 来源列、角色卡 Session/局部剧情尾部、跨角色历史过滤、知识资料记忆证据门和 AI Self 多事件门；run 724 已通过 validators、Kotlin、Flutter analyze、591 tests、release APK、签名和完整载荷，尚无真机数据库证据 |
 | 保护与排除 | 不修改或提交用户原 `.aibackup`、诊断、人物提示词原文、聊天正文或密钥；不批量猜测旧消息来源。性格光谱继续作为自由行为模块。规则 03 空占位和 legacy special-style 表/字段/key 保留兼容但不再作为普通聊天运行真源。相册多标签、`album.send`、Phase 3 兴趣和完整用户风格模仿不进入本包 |
 | 实现边界 | knowledge 只作资料，使用其回答不能证明 AI Self，普通 Memory 还需本轮用户逐字证据；behavior 来源随真实 assistant message 落库，但启停/正文无证据权重；roleplay 显式手动启停并绑定来源 Session，同卡可恢复 6000 字符局部尾部、换卡隔离，post-turn 在普通记忆强化前硬退出。`<em>平静</em>` 只在开头、闭合且标签合法时兼容为情绪；既有正文兜底分类器保留 |
-| 完成判据 | CI 必须通过 v0.41.38 validator、历史 validators、Dart analyze、全部 Flutter/Kotlin tests、release APK、固定签名和完整载荷；schema 49→50/导入不破坏旧行。真机随后至少验证三分类、角色卡开始/结束/同卡恢复/换卡不串、扮演不污染普通成长、行为模块单次不转正、知识人物资料不冒充真实人格、`<em>` 不再显示且情绪仍为 calm |
+| 完成判据 | 自动化已通过。真机至少验证 schema 49→50 覆盖后旧行保留、三分类、角色卡开始/结束/同卡恢复/换卡不串、扮演不污染普通成长、行为模块单次不转正、知识人物资料不冒充真实人格、`<em>` 不再显示且情绪仍为 calm；只有新存档/诊断能证明来源列和隔离计数真实运行 |
 | 直接详细入口 | 本节下方“2026-09-05 WorldBook 2D 来源、角色扮演与自主成长”；规格为 `app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；代码入口为 `PromptBuilder/WorldBookTurnContext/WorldBookHistoryPolicy`、`MemoryExtractor`、`AiSelfEvidencePolicy`、`ReferenceLibrary` 与 schema 50 迁移 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -64,7 +64,7 @@
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
 | C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
-| C4 · WorldBook 2D 来源与角色扮演（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING） | schema 50、本地通用代码与固定样本已提交；尚无远端 CI/APK | 先完成当前分支 CI 和 APK，再做三分类、角色 Session 隔离/恢复、知识来源门、行为自主证据与 `<em>` 的真机验收；未过 CI 不进入 Phase 3A |
+| C4 · WorldBook 2D 来源与角色扮演（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 724、591 tests、签名与完整载荷全绿；schema 50 测试 APK 已上传 | 下一步做三分类、角色 Session 隔离/恢复、知识来源门、行为自主证据与 `<em>` 的真机验收；取得存档/诊断后再收口，未过真机不进入 Phase 3A |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -94,6 +94,9 @@
 13. 本地可运行验证已通过：workflow YAML、Python compileall、`git diff --check`、v0.41.38 专项和 v0.41.37 Memory 2D 合同正常；工作流其余源代码 validators 正常，缺少的桌宠/LingChat/Meju/TTS/native/kotlinc 项属于 CI 才恢复的载荷/工具。当前环境没有 Flutter/Dart SDK，不能提前宣称 analyze、Flutter tests 或 APK 成功。
 14. 为避免公开附件审查细节，新分支直接从已公开 v0.41.37 ledger tip `5e86e71` 建立，只 cherry-pick 通用功能提交；未携带此前本地只读审查提交。功能提交为 `faebe20`，不含备份、诊断、聊天正文、人物原稿、图片、密钥或 API 配置。
 15. 下一步提交本节账本，推送 `agent/v04138-worldbook-2d-roleplay-provenance` 并等待完整 Actions。只有 CI 全绿、APK/签名/载荷与哈希完成后，才进入覆盖安装真机测试；Phase 3A、相册多标签、自主发图和完整用户对话风格趋同继续关闭。
+16. 公开远端通过 Git Data 方式建立两笔等价提交：功能提交 `add076f0069e373f195d1f872d8c2406303dd145` 的 tree `f647e9b175091e37359282971b5fca84f02716ab` 与本地功能树一致；账本提交 `11e89f89c6ea1a76cc1f5a3a2864e01ceefacd3b` 的最终 tree `39e3e34ce7d47ccbd0b2eccb8c810402f397345d` 与本地运行树一致。随后才创建公开分支，未上传附件审查提交或用户内容。
+17. Actions run [`33973917503`](https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503)（724）完整成功：变更范围、全部源码/历史 validators、Kotlin、Flutter analyze、591 tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和 Draft Release 均通过；失败报告 job 正常 skipped。
+18. Artifact `9971893782` 的 ZIP 为 319,771,213 bytes、digest `sha256:8023421fbfbe412832062035d61b8f8c5e9106f5d32ff6df2a94f065587c7aae`。APK 为 326,067,118 bytes，GitHub Release asset digest 与 CI checksum 均为 `ad24935a68e1d11dcb4bf30764dec6cc69027002b801c4bab9cf58149a6c3fa9`；固定签名未变。Draft Release 为 `untagged-ce6e4316234957a4bcd3`，保持草稿，`main` 未合并。当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ### 2026-09-05 Memory 2D 事件生命周期与回忆价值（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
