@@ -65,6 +65,9 @@ void main() {
               ],
             }),
             200,
+            headers: const <String, String>{
+              'content-type': 'application/json; charset=utf-8',
+            },
           )),
     );
     final result = await DeepSeekPublicWebAppraiser(
