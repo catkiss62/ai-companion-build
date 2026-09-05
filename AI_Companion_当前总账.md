@@ -538,9 +538,6 @@
 11. 首轮完整 CI run `33464860787`（651）恢复全部固定载荷并通过 Source/regression validation、Kotlin 桌宠/悬浮文本测试与 Flutter analyze；Flutter tests 为 395 通过、1 失败，因新“相近但不同偏好不折叠”回归暴露二元片段算法仍把泛化词 `喜欢` 边缘的 `欢在` 计入相似度，导致“海边散步/海边拍照”误归并，Release APK 因而没有构建。手机裁决已改为同时排除泛化词本体及其相邻边界片段；真实同向样例仍由“越熟/不客气”等具体特征归并。该 run 只作为失败路线证据，不得当作 APK 或最终通过证据；修复须重新跑完整 CI 后再封存。
 12. 构建前按用户要求重新对照设计来源。人格学习主参考不是 Crescent Grove，而是 [companion-emergence](https://github.com/hanamorix/companion-emergence) 的 `attunement` 与 [LMC-5](https://github.com/wuxuyun0606-collab/lmc-5) 的证据/记忆生命周期；A-MEM、Memobase、PersonaMem 仍分别只作有限关系候选、事件/画像分层和偏好演化回放参考。固定检查 `companion-emergence@61dfadaf...` 的 `schemas.py / detector.py / prompts.py / store.py / crystallise.py` 及对抗语料：其核心同样是 LLM 提案、逐字 quote/turn grounding、本地成熟、反证恢复、首次成熟事件和 adversarial gate；LMC-5 继续强调 raw event 不直接成为 curated memory、重整理应在安全写路径之外。当前“DeepSeek Flash 一次整合提案 + 手机最终裁决 + Phase 1 不影响回复”方向与参考一致，不增加第二次 API 调用。
 13. 对照审计发现并补齐三处本地门禁。其一，纯“慢慢来/不急/时间还长”现在无论模型给旧 target、旧 subject 或全新“关系节奏” subject 都拒绝；明确第一人称节奏偏好仍可学习。其二，候选先在 SQLite 按当前 context 过滤，手机裁决保留 40 条同语境候选，API 只展示最近 16 条，避免多次试穿把普通候选挤出校验集合。其三，数据库不再把 targetless proposal 因 subject 碰撞静默合并进旧候选；旧候选复用必须由解析器明确返回 target，防止持久化层绕过语义门禁。候选从 `contradicted` 恢复时清除旧状态时间，但反证证据不删除。
-Warning: truncated output (original token count: 19553)
-Total output lines: 180
-
 14. 新增/扩展确定性回归：相同地点不同活动不归并；真机同向原话仍归并；真机节奏附和的旧 target、旧 subject、新 subject 和“可以，慢慢来”均拒绝；“我更喜欢关系慢慢来……”仍可形成新提案；专项 validator 同时锁定 context-local 查询、16/40 分层和数据库禁止无 target 碰撞合并。Phase 2、Prompt 消费、Desire/Moe/AI Self、试穿转正和联网存图仍完全关闭或未触碰。
 15. 节奏附和门禁最终按每条 `evidence_quote` 而非整条用户消息判断，避免同一长消息前半句说“慢慢来”、后半句另有“我希望你更任性”等明确偏好时被整轮误杀；新增组合回放锁定该边界。外部参考复核后的全量本地验证仍为 125 个 Python validator 中 117 个通过，8 个仅因本地未恢复 417 文件桌宠、LingChat effects、TTS/native 载荷或缺少 `kotlinc`，与原环境边界一致；专项、历史人格合同、总账索引/档案哈希、Python 语法与 `git diff --check` 均通过。
 16. 第二轮完整 CI run `33466970309`（652）以远端提交 `9eb833e...` / tree `d26e814...` 运行：完整载荷、125 项源码回归、Kotlin 与 Flutter analyze 全过；Flutter tests 为 397 通过、1 失败。失败不是运行逻辑泄漏，而是旧真机节奏用例仍期待泛化 `ungrounded_target`，新前置门禁正确返回更精确的 `context_only_reply`。测试已改为按新分类断言，并另增“海边拍照错误指向少客气候选”的非节奏回放继续锁定 `ungrounded_target`；run 652 不作为最终 APK 证据，须新 run 全绿后封存。
@@ -608,7 +605,27 @@ Total output lines: 180
 
 1. 用户报告她在普通聊天里声称自己“看了一下午”人格学习/成长系统，但当时没有真实执行 `system_self.read`、没有读取学习表状态，也没有任何可以支持“一下午”持续操作的 terminal Outcome。这不是可保留的主观想象，而是可被设备事实证伪的操作报告；若允许存在，会让 System Facts、Agent 工具、未来 MCP、提醒、屏幕与保存结果全部失去可信度。
 2. 允许保留的是非事实性的内在想象、角色扮演、梦境、比喻和“我在想这件事”式主观体验；凡是声称“看了/查了/读取了/搜索了/保存了/调用了/设置好了”、具体耗时或看到屏幕内容，则必须由匹配工具的真实 terminal Outcome 支持。失败、无结果和 Gate 阻止只能按对应状态反馈；一次瞬时读取永远不能支持“一下午/半天/几小时”的持续报告。
-3. 本修复不与 Phase 2 合包。Phase 2 会让 topic/subject 与成熟偏好第一次影响回复；若同时修改操作事实门禁和屏幕感知，真机语言变化无法区分来源，工具 Outcome 还可能被误当作偏好消费证据。为减少构…1553 tokens truncated…存中读取当前 App label，用固定中英文银行/支付/钱包/信用卡/证券/保险/认证器词表保守阻止；包信息或 label 取不到时也 blocked，不存储 label。修复后已重跑专项 validator 并再审查该 Gate 的失败优先、伴侣自身界面例外、密码节点与敏感包叠加顺序；待第二次 Actions 完整重建。
+3. 本修复不与 Phase 2 合包。Phase 2 会让 topic/subject 与成熟偏好第一次影响回复；若同时修改操作事实门禁和屏幕感知，真机语言变化无法区分来源，工具 Outcome 还可能被误当作偏好消费证据。为减少构建次数，本批把同一 Agent 真值域内的三项合成一个 APK：操作事实出站门禁、成长系统真实只读元数据、用户明确触发的一次性当前屏幕观察。
+4. 本批不新增第二套成长系统、不让人格候选进入普通/主动/沉浸 Prompt，不生成 AI habit，不修改成熟度、不写 Desire/Moe/AI Self，也不实现自主截图、视频、MCP、提醒或写入提案。`screen_observation.inspect` 只允许 user turn；Registry 必须继续把 `autonomousAvailable=false` 作为能力真值。
+
+#### B. 锁定实现与隐私边界
+
+1. 目标分支 `agent/v04114-agent-truth-screen-observation`，目标版本 `0.41.14+153`；SQLite 保持 schema 42、Snapshot protocol 5，不迁移或删除现有聊天、关系、Memory、AI Self、学习候选/evidence、附件或相册。
+2. 普通与主动消息共用高置信 `OperationalClaimGroundingGuard`：仅检查可核验操作族，不把普通“想/觉得/梦到”当操作。命中后丢弃候选并重写一次；再次命中则阻止持久化/主动发送。成长/系统读取只接受本轮成功 `system_self.read`，屏幕内容只接受本轮成功 `screen_observation.inspect`；MCP、提醒、修改、保存等未实现能力无成功结果时不得报告完成。引用、否认或纠正旧虚报可正常表达。
+3. `system_self.read` 增加 `growth` scope；只输出 Phase=`observation_only`、开关、candidate/evidence 总数、各 maturity 状态计数和最近观察时间，不输出 subject、proposition、evidence quote、用户/AI 原话、candidate ID 或拒绝正文。`all` 可包含该元数据；读取完成后照旧登记无参数/无正文 Outcome。
+4. `screen_observation.inspect` 通过 Android Accessibility `takeScreenshot` 在 Android 11+ 仅响应用户当前轮明确请求；读取当前前台包的敏感 Gate、锁屏/密码/安全窗口与服务连接状态，任何不确定或敏感状态优先 blocked/no_result。截图 PNG 字节只在 Android→Dart→已配置的千问视觉当前内存调用链中存在，不创建临时文件，不写附件、相册、Memory、数据库、诊断、备份或原始日志；模型只得到有界视觉摘要和真实状态。
+5. 当前完整 App 聊天触发时看到的可能是 AI Companion 自己的界面；跨 App 实用路径是用户在目标 App 上通过已授权悬浮聊天明确发送“看一次当前屏幕”。两者都必须照实际截图反馈，不能把 Accessibility 的 App 标签冒充屏幕像素。未配置视觉 Key、Android < 11、服务未连接、锁屏、敏感包、系统安全窗口或截图 API 失败均不得伪造观察。
+6. 诊断只增加固定状态/计数/错误类别，不含截图、视觉摘要、前台包名、窗口文字、临时路径、Provider payload 或 hash。成功/无结果/失败/阻止继续落在既有 `agent_tool_outcomes`，不升 schema；截图结果不进入完整状态包。
+
+#### C. 验收、审查与后续构建策略
+
+1. 自动测试至少覆盖：“看了一下午成长系统”无 Outcome 被拒；真实本轮 growth read 可说刚刚读取但仍不能夸大持续时间；否认/纠正旧虚报不误拦；屏幕成功必须来自匹配工具，device App 标签不能解锁；主动候选无证据的系统/屏幕操作报告被取消；成长元数据无正文泄漏；Registry/Planner 仅开放用户单次屏幕并保持 autonomous false。
+2. Android/Kotlin 测试与 validator 覆盖 API 30 Gate、Accessibility 未连接/锁屏/敏感包/密码窗口/secure screenshot、单请求与回调收口、字节不持久化；Dart 覆盖视觉未配置、成功、失败、取消、临时文件删除、terminal Outcome 语义。旧 v0.41.1/v0.41.5/v0.41.6 validators 中“自主截图未实现”的合同保留，但把“所有屏幕观察均未实现”的过时断言更新为“仅用户轮已实现”。
+3. 完成实现与首轮错误修复后做一次本批完整代码审查，核对操作真值、隐私、Android 生命周期、工具重试幂等、Phase 1 隔离、迁移/备份、普通/主动双出站路径和遗留任务总表；本批虽不是 Phase 2 大型阶段，也按 Agent 感知高风险标准审查。
+4. 构建授权已由用户长期授予。计划只构建一次候选 APK；若真机发现错误，先完成修复和全代码审查，再仅在代码实际变化时构建收口 APK。推送独立公开分支并触发草稿测试 APK，不发布正式 Release、不合并 `main`。`main` 保持旧稳定集成检查点，后续是否晋升必须另有用户明确授权。
+5. 下一步仍是 Phase 2 轻量 topic/subject 关联与小幅 bias；开始 Phase 2 时才打开第 14 节列出的外部参考页面。查手机/联网存图/心情/日记/随笔放在另一后续合包，减少 APK 次数但与 Phase 2 分离。Phase 2 与 Phase 3 各自真机排错后必须再完成一次全代码审查；Phase 0+1 已由 v0.41.13 审查完成。
+6. 本地实现后完整复审已完成：核对了普通/主动双出站路径、成长表只读隔离、屏幕明确同意与自主 false、Android 11+/Accessibility 生命周期、锁屏/前台未知/密码/敏感包/金融 App 标签/secure window、HardwareBuffer/Bitmap 释放、方法通道字节、视觉 Prompt Injection、同 durable event 原子 `INSERT OR IGNORE` 保留位、schema/backup 不变、Phase 2/3/4 关闭和遗留任务。审查中已修正“先关 HardwareBuffer 再拷贝 Bitmap”、secure-window API 34 常量兼容、截图启动异常锁释放、原子幂等与旧失败 Release 备注等问题。本地 workflow 选中 129 个 validator：121 通过，8 个与上版相同，仅因桌宠 417 文件、LingChat、Meju TTS/native 载荷和 `kotlinc` 由 CI 恢复而本地不存在；当前容器也无 Flutter/Dart/Gradle，因此编译、Kotlin 单测、Flutter analyze/tests 和 APK 必须由 Actions 完成，不预先写成 CI 通过。
+7. Actions run 662 首轮在 Kotlin 编译阶段报出 `ApplicationInfo.CATEGORY_FINANCE` 不存在，因此当轮没有进入 Flutter analyze/tests 或 APK 生成，不得标记构建通过。修复不降级隐私门禁：删除不存在的平台常量，保留包名 Gate，再只在内存中读取当前 App label，用固定中英文银行/支付/钱包/信用卡/证券/保险/认证器词表保守阻止；包信息或 label 取不到时也 blocked，不存储 label。修复后已重跑专项 validator 并再审查该 Gate 的失败优先、伴侣自身界面例外、密码节点与敏感包叠加顺序；待第二次 Actions 完整重建。
 8. Actions run 663 已越过 run 662 失败点：Kotlin 编译/新增隐私单测、Flutter analyze 均通过，Flutter tests 为 432 passed / 1 failed。唯一失败是新增 `observeBytes` 单测的 Mock HTTP 响应含中文但没有声明 UTF-8，`http.Response` 在进入被测代码前按 Latin-1 构造失败；同文件旧识图测试和本批操作真值测试均已通过，不是运行识图回归。修复仅给 Mock 响应补 `application/json; charset=utf-8`；复审确认不修改 Provider 请求、解析、截图或隐私路径。run 663 未生成 APK，待下一次完整 Actions 重建。
 9. Actions run 664 最终全绿：129 项源码/历史 validator、Kotlin 编译与包含 `PrivacyFilterTest` 的单测、Flutter analyze、433/433 Flutter tests、Release APK、固定私有测试签名、TTS/桌宠/LingChat/塔罗载荷哈希、Artifact 与草稿 Release 上传均通过，失败报告 job 正常 skipped。APK 325,410,026 bytes，SHA-256 `09990517e926da91aa1cb835d8c2cb5fc7bf0dfaf708183b2be2faa52656b144`；Artifact ZIP digest `7ab781497e41157b1e404e6e7245b903c640ab9262d993fa65808ff5adcd270a`，下载后再次解包计算 APK 得到同一 SHA。这仅证明源码/构建闭环，真机仍要覆盖安装并验收操作真值语言、growth scope、Accessibility 授权、普通/敏感/密码/secure 页、跨 App 截图、中断幂等和原始字节不落盘。
 
