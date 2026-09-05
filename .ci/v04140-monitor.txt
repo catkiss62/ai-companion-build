@@ -1,0 +1,7 @@
+status=success
+run_id=33991881678
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678
+head_sha=31c3e883f044b5b2a6a5789e4ab82975ec7155d9
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0  AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-da96fa944e8ea738d2a8
