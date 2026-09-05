@@ -31,22 +31,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从与本地 `d6874fb` 同树的公开 v0.41.38 tip `605248d` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | 修改前公开 head `de605c626786a1802123c13e0fa7e50ac94724b2` / tree `0c3cc843aa3fdd344660510f67b17c7bb2e849f0`；v0.41.40 正在同分支实现，尚未提交。公开提交不得含用户备份、诊断、附件、消息正文或密钥 |
-| App / 数据库 | 当前真机为 `0.41.39+178 / schema 51 / Snapshot protocol 5`；目标为 `0.41.40+179 / schema 52 / protocol 5`。schema 52 只增加浏览来源、相册原图和标签字段，并让各表达轴回到既有基线；不改 Memory、消息、关系、世界书或原备份 |
-| 最终 CI | 最近完成仍为 v0.41.39 run [`33983940949`](https://github.com/catkiss62/ai-companion-build/actions/runs/33983940949)（729）全绿、598/598 tests；v0.41.40 为 `IMPLEMENTATION IN PROGRESS / CI PENDING` |
-| 测试 APK | `AI-Companion-v0.41.39-178-Public-Web-Reading-Knowledge-APK.apk`，326,193,174 bytes |
-| APK SHA-256 | `3fed73fa1284c0b682ae513e3c3b38760c171a3704891a68dc6c04729193a2f7`，与 CI checksum、Artifact 独立解包实算和 GitHub Release asset digest 一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
-| Artifact / Release | [Artifact ID `9974722576`](https://github.com/catkiss62/ai-companion-build/actions/runs/33983940949/artifacts/9974722576)，ZIP 319,894,874 bytes，digest `sha256:53bb014a978e43ac1aded54656176d804bc94b9fc75e12fcc855c9fab531ee6c`，保留至 2026-09-19T18:34:16Z；Draft Release [`untagged-bde9dcceec176b8839d7`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bde9dcceec176b8839d7)，未发布正式 Release |
+| 当前代码 head / tree | v0.41.40 最终远端 CI head `31c3e883f044b5b2a6a5789e4ab82975ec7155d9` / tree `93160ee5216bce232a96e0efb7627466a52728d3`；本地等价 head `80da3f1` 的 tree 完全一致。公开提交不含用户备份、诊断、附件、消息正文或密钥 |
+| App / 数据库 | 待装测试版为 `0.41.40+179 / schema 52 / Snapshot protocol 5`。schema 52 只增加浏览来源、相册原图和标签字段，并让各表达轴回到既有基线；不改 Memory、消息、关系、世界书或原备份 |
+| 最终 CI | v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732）全绿：专项/历史 validators、Kotlin、Flutter analyze、603/603 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 测试 APK | `AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk`，326,251,290 bytes |
+| APK SHA-256 | `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0`，与 CI checksum、Artifact 独立全新下载解包实算和 GitHub Draft Release asset digest 一致。固定测试签名证书保持不变，可覆盖安装既有测试版 |
+| Artifact / Release | [Artifact ID `9977034135`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678/artifacts/9977034135)，ZIP 319,954,245 bytes，digest `sha256:c6be5ec42c9471b4a387c6781b0f0d1bee6dcc307e14d4359c74b311fec0eed2`，保留至 2026-09-19T21:14:39Z；Draft Release [`untagged-da96fa944e8ea738d2a8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-da96fa944e8ea738d2a8)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户真机确认 v0.41.39 大部分测试通过，唯一明确失败是用户要求查询鲸鱼交流后未写入查手机浏览器；动态表达命名/平衡与相册原图/多标签为新增需求。v0.41.40 正在窄修；Phase 3 成熟 `ai_interest` 仍未开启 |
+| 当前总状态 | v0.41.40 明确联网入浏览器、动态表达平衡与相册原图/多标签包为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.40、推送同一公开分支并构建 APK。** 随后真机验证明确联网查询入浏览器、动态表达不再单轴累积、旧用户图片恢复原图、多标签、缩放拖动和系统相册保存 |
+| 当前下一步 | **覆盖安装并真机验收 v0.41.40。** 验证明确联网查询入浏览器、动态表达不再单轴累积、旧用户图片恢复原图、多标签、缩放拖动和系统相册保存；取得新备份/诊断后再决定收口或窄修 |
 | 目标 | 明确用户联网与自主联网共用完整阅读/语义判断，但以 `origin=user_turn` 独立写浏览历史，不消耗自主预算；“萌属性”全部显示为“动态表达倾向”，轴名/数值不注入聊天模型；相册保留原图与预览图双份，Qwen 仍只看预览图 |
-| 当前证据 | 用户确认 v0.41.39 其余主要测试通过；源码已实现 schema 52、浏览写入、动态表达 policy v2、原图恢复/快照、多标签与 MediaStore 导出，正在补测试与 CI |
+| 当前证据 | run 732 已通过全部 validators、Kotlin、Flutter analyze、603 tests、Release APK、固定签名与完整资源载荷；自动化证明代码、迁移合同与打包成立，真实 API、旧附件恢复和 Android 系统相册写入仍需真机证据 |
 | 保护与排除 | 不修改或提交用户附件；联网测试图由用户恢复存档去除，不做替换按钮；不开放 `album.send` 或成熟 Phase 3 兴趣；不向模型暴露动态表达具体轴名/数值；不重写旧聊天正文 |
 | 实现边界 | policy v2 迁移只把当前动态轴回归用户 baseline 并清空 recipe 派生态，保留 baseline、事件、开关和其他域；旧 `user_message` 相册条目从仍存在的聊天附件精确补原图，无法核验的联网旧图不伪造原图 |
 | 完成判据 | 专项/历史 validator、Flutter analyze/tests、Kotlin、Release APK、固定签名和载荷全绿；真机再核对 browser、相册原图/导出/标签及动态表达长期分布 |
@@ -82,7 +82,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTATION IN PROGRESS / CI PENDING）
+### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户报告 v0.41.39 大部分真机测试通过，唯一明确失败为“让她联网查询鲸鱼如何交流”得到回答但没有写入查手机浏览器；同时要求把可见“萌属性”改名“动态表达倾向”、修复天然直率长期偏高，并让相册保存/查看/导出原图、支持多标签与二次元/风景/表情包分类。
 2. 用户最终决定：联网找到的那张测试图无需恢复原图，用户会恢复到没有该图的存档；只为过去由用户发送且聊天附件仍存在的相册条目自动补原图。不增加临时图片替换按钮，不更改旧聊天正文。
@@ -91,7 +91,10 @@
 5. 动态表达 policy v2 移除 normal/calm 与技术 serious 的直率脉冲，Desire 改按真实经过时间趋近有界目标，事件脉冲接近饱和时递减，natural/goofy 增加互斥轴约束，turn plan 严格尊重 cooldown；具体轴名和数值仍只在用户 UI，不进入聊天模型。
 6. 相册采用原图+1000px 预览双层保存：用户发图原始字节精确复制；旧 `user_message` 条目从 message attachment 自动恢复；Qwen 只看预览。标签为回忆/形象插画/二次元/风景/表情包/其他，可多选并参与 Agent 相册检索；类别本身不提高保存资格。
 7. Album UI 点击进入 `InteractiveViewer`，支持 0.8～8 倍缩放与放大拖动；长按或按钮通过 Android MediaStore 保存到 Pictures/AI Companion。删除、软删除清理、NSFW 退役、缓存清理和 Snapshot 清单同时处理原图与预览。
-8. 修改尚未提交；本地环境无 Flutter/Dart SDK，已新增 v0.41.40 source validator 与 Moe/相册回归测试，需由 Actions 完成 analyze/test/Kotlin/Release APK 和完整载荷验证后再回填提交、run、Artifact、APK 与哈希。
+8. 初始功能本地提交 `ae27aec`，通过 Git Data 推到远端等价提交 `7e821c7cca5828a968de26ff2306a9e0f7711fc0`，共同 tree `3ea5642a334acf47cd29a1c179a1ba6bab8d1045`。run 731 的 validators、Kotlin 与 analyze 成功，但 601 tests 通过、2 个 Moe 测试失败；根因是新饱和保护把测试夹具中的“单次明确强事件”也截断为 16，无法跨过配方进入阈值，因此冷却链也没有被建立。
+9. 修复只把强脉冲上限调整为 22：实际适配器中的日常最大脉冲仍为 16，不改变普通消息；明确强事件可跨一次阈值，后续仍随离开 baseline 的距离递减。最终本地 head `80da3f1` 与远端 CI head `31c3e883f044b5b2a6a5789e4ab82975ec7155d9` 的 tree 均为 `93160ee5216bce232a96e0efb7627466a52728d3`。
+10. Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732）完整成功：validators、Kotlin、Flutter analyze、603/603 tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 和草稿 Release 全部通过；失败报告 job 正常 skipped。
+11. Artifact [`9977034135`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678/artifacts/9977034135) ZIP 为 319,954,245 bytes、digest `sha256:c6be5ec42c9471b4a387c6781b0f0d1bee6dcc307e14d4359c74b311fec0eed2`。从全新下载且 `unzip -t` 无错误的 ZIP 解包，APK 为 326,251,290 bytes，SHA-256 `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0`，与 CI checksum 和 Draft Release asset digest 一致；Draft Release 为 [`untagged-da96fa944e8ea738d2a8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-da96fa944e8ea738d2a8)，保持草稿，`main` 未合并。
 
 ### 2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
