@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04137-memory-lifecycle-recall-value`；从 v0.41.36+175 run 720 全绿与用户三项人工真机通过建立。当前包实现 Memory 2D 事件生命周期、旧备份整理、明确完成收口和按用途分层读取；不混入 Phase 3、相册多标签或自主发图 |
+| 当前开发分支 | `agent/v04138-worldbook-2d-roleplay-provenance`；从已公开的 v0.41.37 干净基线建立，不携带本地附件审查提交。当前包实现 WorldBook 2D 三分类、来源快照、角色扮演 Session 隔离、自主 AI Self 证据门与窄 `<em>` 情绪兼容；不混入 Phase 3、相册多标签或自主发图 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.37 公开 CI 输入提交 `51a8490c60d80cd4d2ea7f30ffd58eb1d487e322` / tree `6593a83f7f5a19bc4a8ffdbb066d57a608329c7c`；本地等价 tree 完全一致。公开提交只含 Memory 2D、schema 49、测试/文档/工作流，不含用户备份、诊断、附件、消息正文或密钥 |
-| App / 数据库 | 当前开发目标 `0.41.37+176` / schema 49 / Snapshot protocol 5。schema 49 只为既有 Memory/Thread 增加有界生命周期、注意状态、回忆用途与完成来源字段；旧 schema 48 覆盖升级或导入后自动非破坏整理，不修改原 `.aibackup`、不批量重写记忆正文 |
+| 当前代码 head / tree | 本地功能提交 `faebe20`；父级为已公开 v0.41.37 ledger tip `5e86e71`。当前尚未推送，故不得写成远端 CI 输入。功能提交只含通用源码、测试、规格和工作流，不含用户备份、诊断、附件、消息正文或密钥 |
+| App / 数据库 | 当前开发目标 `0.41.38+177` / schema 50 / Snapshot protocol 5。schema 50 为 assistant message、post-turn job 与 InteractionSession 增加有界 worldbook 来源；schema 49 覆盖升级/导入不猜测历史来源，不修改原 `.aibackup`、Memory/evidence/message 正文或 ID |
 | 最终 CI | v0.41.37+176 Actions run [`33964701789`](https://github.com/catkiss62/ai-companion-build/actions/runs/33964701789)（723）全绿：68 个源码/历史 validators、Kotlin、Flutter analyze、581/581 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.37-176-Memory-Lifecycle-Recall-Value-APK.apk`，326,011,954 bytes |
 | APK SHA-256 | `cfbe228cba354921f372b2ac9996f90f6dec3d33a2e33d9fc1f1471b8819c5a5`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
 | Artifact / Release | [Artifact ID `9969158590`](https://github.com/catkiss62/ai-companion-build/actions/runs/33964701789/artifacts/9969158590)，ZIP 319,714,444 bytes，digest `sha256:0d734a0ab2736f0ae27c02f3a5431f0f0ae0b3d8071e707ef6e06247593dde76`，保留至 2026-09-19T12:06:06Z；Draft Release [`untagged-817cede97bb3258bd4f7`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-817cede97bb3258bd4f7)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 的 Agent 基础仍为 `TRUE DEVICE PARTIAL`，其未测工具边界继续保留。v0.41.36 run 720 已由用户在覆盖安装后人工确认沉浸 `【检查系统】`、沉浸中断灰显和悬浮中断灰显均正常，现为 `TRUE DEVICE PASSED / CLOSED`。Memory 2D 已为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；run 723 自动化与独立 APK 哈希已收口，但旧备份迁移、明确完成收尾和自然回忆/不催办仍须真机证明，Phase 3 尚未开始 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 的覆盖迁移、完成/未完成/延期与历史回忆已有真机正样本，精确取消、自然主动回忆和工作话题占比转观察，状态为 `TRUE DEVICE PARTIAL / CLOSED`。WorldBook 2D 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；Phase 3 尚未开始 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **真机验收 Memory 2D · 事件生命周期与回忆价值。** 覆盖安装 v0.41.37 后确认旧 schema 48 数据自动迁移；用明确完成、未完成、延期和取消四类真实回复验证 Thread/Thought 收口，再观察完成的 Live2D 是否能作为共同回忆出现而不再被当作当前待办催促 |
-| 目标 | 把事实状态、注意状态和表达/回忆用途分开：工作内容不一律排除，有意义的 Live2D 制作可在完成后成为共同回忆；普通进度、过期 ongoing 与已关闭事项不能继续作为主动催办来源。用户报告完成足以结束社交待办，但不能升级成已经由工具验证的 SYSTEM FACT |
-| 当前证据 | 用户上传的 v0.41.35 schema 48 备份完整，137 条 Memory 中 112 active；“自主性实验”旧进行中 Memory、完成确认 Memory与 active Thread 同时存在。18:11 主动消息前相应 Thread 已被 Self Review，topic Thought `fed_count=24/action_count=7`；用户回复“已经做好了，你忘了吗”后 proactive outcome 仍被错误记为 `deferred`，Thread 继续 active。最近 proactive Memory 查询还出现 80 条候选中 79 条 direct，证明当前主动查询与生命周期选择过宽 |
-| 保护与排除 | 不修改用户原 `.aibackup`，不删除或批量改写旧 Memory/evidence/message；不把“用户说做完”冒充 App 能力已验证；不因用户换话题、沉默或短回复擅自完成事项。相册多标签、`album.send`、记忆星图 UI、Phase 3 兴趣与完整知识图谱不进入本包。普通 user-turn 相关记忆仍可读取，不能为防复读破坏事实连续性 |
-| 实现边界 | schema 49 为 Memory 增加有界 `fact_state / attention_state / recall_policy / spontaneous_salience / lifecycle_source / lifecycle_updated_at`，为 Thread 补齐真实 `resolved_at / resolution_reason`；迁移只依据现有语义、时态、证据和明确回复。主动回忆只消费 `reminiscence/identity` 且有意义的候选；任务跟进只走 active Thread；相关问答仍走 contextual。检索注入不再提高 retention，只有真实新证据/整合可强化 |
-| 完成判据 | 固定样本必须覆盖：明确“已经做好了”覆盖错误 deferred 并关闭原 Thread；“以后再弄”仅延期；沉默/换题不完成；旧 ongoing 无新证据只降为当前未知/不主动催；完成 Live2D 可保留为历史回忆；schema 48 覆盖升级和导入均保留正文/证据/ID 并自动补新字段；同 topic Thought 与 pending Self Review 收口；普通相关检索不回归，proactive 不再把大多数 active Memory 当直接候选。CI、APK 与真机状态继续严格分开 |
-| 直接详细入口 | 本节下方“2026-09-05 Memory 2D 事件生命周期与回忆价值”；代码入口为 `MemoryExtractor._parseProactiveOutcome/_applyProactiveFollowup`、`AppDatabase` schema/导入/Thread Outcome、`SelfDriveEngine`、`MemoryRetrievalPolicy`、`MemoryBrain` 与 `PromptBuilder` |
+| 当前下一步 | **完成 v0.41.38 WorldBook 2D 的公开 CI 与 APK。** 推送干净分支，等待 Flutter analyze、全部测试、release APK、签名与载荷校验；自动化通过后再给出覆盖安装测试方向，不提前写真机通过 |
+| 目标 | 世界书稳定分为知识资料、行为模块、角色扮演。配置本身不成为成长事件；行为模块可引导真实表达，AI 只有在多个非扮演回复、独立时段且更强时跨日期重复后，才可形成可逆自主倾向。角色扮演可续玩但不能写入普通 Memory、Thought、Thread、Relationship、Moe 或 AI Self |
+| 当前证据 | v0.41.37 运行基线没有每轮 worldbook 文档 ID/版本来源；旧规则 03 特殊风格与世界书同名模块仍是两条运行链。v0.41.38 本地已增加原子 Prompt+来源结果、schema 50 来源列、角色卡 Session/局部剧情尾部、跨角色历史过滤、知识资料记忆证据门和 AI Self 多事件门；新旧静态合同及 workflow YAML 已通过，本地无 Flutter SDK，CI 尚未运行 |
+| 保护与排除 | 不修改或提交用户原 `.aibackup`、诊断、人物提示词原文、聊天正文或密钥；不批量猜测旧消息来源。性格光谱继续作为自由行为模块。规则 03 空占位和 legacy special-style 表/字段/key 保留兼容但不再作为普通聊天运行真源。相册多标签、`album.send`、Phase 3 兴趣和完整用户风格模仿不进入本包 |
+| 实现边界 | knowledge 只作资料，使用其回答不能证明 AI Self，普通 Memory 还需本轮用户逐字证据；behavior 来源随真实 assistant message 落库，但启停/正文无证据权重；roleplay 显式手动启停并绑定来源 Session，同卡可恢复 6000 字符局部尾部、换卡隔离，post-turn 在普通记忆强化前硬退出。`<em>平静</em>` 只在开头、闭合且标签合法时兼容为情绪；既有正文兜底分类器保留 |
+| 完成判据 | CI 必须通过 v0.41.38 validator、历史 validators、Dart analyze、全部 Flutter/Kotlin tests、release APK、固定签名和完整载荷；schema 49→50/导入不破坏旧行。真机随后至少验证三分类、角色卡开始/结束/同卡恢复/换卡不串、扮演不污染普通成长、行为模块单次不转正、知识人物资料不冒充真实人格、`<em>` 不再显示且情绪仍为 calm |
+| 直接详细入口 | 本节下方“2026-09-05 WorldBook 2D 来源、角色扮演与自主成长”；规格为 `app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；代码入口为 `PromptBuilder/WorldBookTurnContext/WorldBookHistoryPolicy`、`MemoryExtractor`、`AiSelfEvidencePolicy`、`ReferenceLibrary` 与 schema 50 迁移 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -62,8 +62,9 @@
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
-| C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸命令边界与沉浸/悬浮灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
-| C3 · Memory 2D 事件生命周期与回忆价值（CI PASSED / APK READY / TRUE DEVICE PENDING） | v0.41.35 真机备份证明完成事实、active Thread、被反复喂养 Thought 与错误 deferred outcome 同时存在；v0.41.37 run 723 与独立 APK 校验已通过 | schema 49、旧包整理、明确完成收口、主动/相关读取分层与固定策略样本已落地；下一步只做覆盖安装与真机语言/生命周期验收，取得新备份和诊断后再决定收口或窄修，之后才开启 Phase 3A |
+| C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
+| C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
+| C4 · WorldBook 2D 来源与角色扮演（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING） | schema 50、本地通用代码与固定样本已提交；尚无远端 CI/APK | 先完成当前分支 CI 和 APK，再做三分类、角色 Session 隔离/恢复、知识来源门、行为自主证据与 `<em>` 的真机验收；未过 CI 不进入 Phase 3A |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -75,6 +76,24 @@
 ## 近期详细记录与全局索引（按需检索）
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
+
+### 2026-09-05 WorldBook 2D 来源、角色扮演与自主成长（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户确认性格光谱继续作为自由行为模块，不要求每轮调用；人物资料与角色扮演分开：前者用于讨论/检索“这个角色是谁”，后者用于显式开始“现在扮演谁”。旧人物提示词原文应保留，不复制进普通长期记忆。
+2. 用户进一步确认行为模块不能被完全隔绝于成长：模块作为 LLM 的尝试种子，启停、名称和正文不是证据；真实非扮演回复若跨多个独立事件持续表现，可以缓慢形成 AI 自己的可逆倾向，不强制每次都等待用户夸奖。明确用户反馈仍负责强校正。
+3. 世界书顶层冻结为 `knowledge / behavior / roleplay` 三类。内置 `builtin.worldbook.special.*` 保留稳定 ID 和完整正文，schema 49→50 非破坏迁移为 roleplay；普通性格/相处姿态和性格光谱仍是 behavior，不批量猜测自定义文档用途。
+4. schema 50 为 `messages/post_turn_jobs` 增加 `worldbook_context_json`，为 `interaction_sessions` 增加来源文档 ID/版本。Prompt 消息与 provenance 由同一 `PromptBuildResult` 原子返回，避免生成和落库之间重新查询造成来源漂移；旧消息来源留空，不事后猜测。
+5. knowledge 来源也随检索落库。使用人物资料的 assistant 回复不能成为 AI Self 证据；若经验整合器想从同一轮写普通 Memory，必须给出本轮真实用户原话的逐字证据，防止把角色传记或世界观写成用户/AI 亲身事实。
+6. behavior 来源允许参与生成，但单次回复不能转正。`AiSelfEvidencePolicy` 要求至少三条真实已落库、非 roleplay、非 knowledge-grounded 的 assistant message，并跨至少两个两小时时段才可形成 inference；至少四条且跨两个本地日期才允许 current fact。模型必须逐条引用真实 message ID，本地再裁决。
+7. roleplay 为手动开关且同一时刻最多一张角色卡。开启时创建来源绑定 Session；关闭/切换结束活动状态；重新开启同一角色卡复用原 Session 和最多 6000 字符的局部剧情尾部。新角色 Prompt 会排除旧角色 assistant 及其配对 user turn，主动 roleplay 消息不会误删前一条普通用户证据。
+8. roleplay assistant 落库后，post-turn 在普通记忆“表达次数”强化之前硬退出，因此不会生成/强化普通 Memory、Thought、Thread、Relationship、人格学习或 Desire pulse；Moe shadow 与 AI Self reflection 同样拒绝该来源。局部剧情只写来源 Session，不进入普通回忆候选。
+9. 规则 03 的空占位继续隐藏保留。legacy `special_style_trials`、post-turn 字段、稳定 template key 与旧沉浸房间字段不删除，保证旧备份可读；升级时仍 active 的旧特殊试穿只迁移一次到匹配 worldbook roleplay 并结束旧运行状态。普通聊天 `RuleLayerService` 不再读取 legacy active trial，世界书成为唯一新运行真源。
+10. 沉浸房间维持自己的房间剧情和旧固定风格兼容，不直接叠加普通聊天当前 worldbook roleplay，以免出现双角色和未标记的记忆写入。
+11. `<em>平静</em>` 被确认是模型把专用 emotion 标签误写成 HTML `em` 的窄变体；既有正文兜底分类器已成功得到 `calm`，故保留。新兼容只消费消息开头、完整闭合且内容属于合法情绪标签的 `<em>`；正文中普通 `<em>重点</em>` 或中间位置强调不被清洗。
+12. 本地新增 `WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`、来源模型、历史过滤、自主证据策略与固定 Flutter 样本；新增 v0.41.38 静态 validator，并把版本更新为 `0.41.38+177 / schema 50 / Snapshot protocol 5`。
+13. 本地可运行验证已通过：workflow YAML、Python compileall、`git diff --check`、v0.41.38 专项和 v0.41.37 Memory 2D 合同正常；工作流其余源代码 validators 正常，缺少的桌宠/LingChat/Meju/TTS/native/kotlinc 项属于 CI 才恢复的载荷/工具。当前环境没有 Flutter/Dart SDK，不能提前宣称 analyze、Flutter tests 或 APK 成功。
+14. 为避免公开附件审查细节，新分支直接从已公开 v0.41.37 ledger tip `5e86e71` 建立，只 cherry-pick 通用功能提交；未携带此前本地只读审查提交。功能提交为 `faebe20`，不含备份、诊断、聊天正文、人物原稿、图片、密钥或 API 配置。
+15. 下一步提交本节账本，推送 `agent/v04138-worldbook-2d-roleplay-provenance` 并等待完整 Actions。只有 CI 全绿、APK/签名/载荷与哈希完成后，才进入覆盖安装真机测试；Phase 3A、相册多标签、自主发图和完整用户对话风格趋同继续关闭。
 
 ### 2026-09-05 Memory 2D 事件生命周期与回忆价值（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
