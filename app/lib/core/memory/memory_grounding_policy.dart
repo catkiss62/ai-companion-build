@@ -117,16 +117,34 @@ class MemoryGroundingPolicy {
       if (owner != 'unknown') 'owner=$owner',
     ].join('; ');
 
-    final temporal = switch (scope) {
-      'ongoing' =>
-        'last_known_ongoing; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 禁止改写成“现在/刚才仍在做”',
-      'scheduled' =>
-        'last_known_plan; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 计划不等于已经执行',
-      'event' => 'historical_event; ${_evidenceAge(item.lastEvidenceAt, instant)}',
-      'stable' => 'stable_fact; last_confirmed=${_date(item.lastEvidenceAt)}',
-      _ => 'time_unknown; ${_evidenceAge(item.lastEvidenceAt, instant)}; 不得猜测当前状态',
+    final lifecycle = switch (item.factState) {
+      'completed' =>
+        'fact_state=completed; 已完成，只能作为历史或共同经历，不得继续当作待办',
+      'cancelled' =>
+        'fact_state=cancelled; 已取消，不得继续追问或描述为已完成',
+      'stable' => 'fact_state=stable',
+      'ongoing' => 'fact_state=last_known_ongoing; current_status=unknown',
+      _ => 'fact_state=unknown',
     };
-    return '[MEMORY_GROUNDING $entity; temporal=$temporal] ${item.content}';
+    final temporal = switch ((item.factState, scope)) {
+      ('completed', _) =>
+        'historical_completed; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+      ('cancelled', _) =>
+        'historical_cancelled; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+      (_, 'ongoing') =>
+        'last_known_ongoing; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 禁止改写成“现在/刚才仍在做”',
+      (_, 'scheduled') =>
+        'last_known_plan; ${_evidenceAge(item.lastEvidenceAt, instant)}; current_status=unknown; 计划不等于已经执行',
+      (_, 'event') =>
+        'historical_event; ${_evidenceAge(item.lastEvidenceAt, instant)}',
+      (_, 'stable') =>
+        'stable_fact; last_confirmed=${_date(item.lastEvidenceAt)}',
+      _ =>
+        'time_unknown; ${_evidenceAge(item.lastEvidenceAt, instant)}; 不得猜测当前状态',
+    };
+    return '[MEMORY_GROUNDING $entity; lifecycle=$lifecycle; '
+        'attention=${item.attentionState}; recall=${item.recallPolicy}; '
+        'temporal=$temporal] ${item.content}';
   }
 
   static String threadTemporalNote(DateTime updatedAt, {DateTime? now}) =>

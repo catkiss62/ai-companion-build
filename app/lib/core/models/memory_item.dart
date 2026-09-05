@@ -26,6 +26,12 @@ class MemoryItem {
     this.objectKey = '',
     this.ownerKey = 'unknown',
     this.temporalScope = 'unknown',
+    this.factState = 'unknown',
+    this.attentionState = 'snoozed',
+    this.recallPolicy = 'contextual',
+    this.spontaneousSalience = 0.0,
+    this.lifecycleSource = 'legacy_unclassified',
+    this.lifecycleUpdatedAt,
     this.evidenceCount = 1,
     DateTime? firstObservedAt,
     DateTime? lastEvidenceAt,
@@ -59,6 +65,12 @@ class MemoryItem {
   final String objectKey;
   final String ownerKey;
   final String temporalScope;
+  final String factState;
+  final String attentionState;
+  final String recallPolicy;
+  final double spontaneousSalience;
+  final String lifecycleSource;
+  final DateTime? lifecycleUpdatedAt;
   final int evidenceCount;
   final DateTime firstObservedAt;
   final DateTime lastEvidenceAt;
@@ -113,6 +125,18 @@ class MemoryItem {
       objectKey: row['object_key'] as String? ?? '',
       ownerKey: row['owner_key'] as String? ?? 'unknown',
       temporalScope: row['temporal_scope'] as String? ?? 'unknown',
+      factState: row['fact_state'] as String? ?? 'unknown',
+      attentionState: row['attention_state'] as String? ?? 'snoozed',
+      recallPolicy: row['recall_policy'] as String? ?? 'contextual',
+      spontaneousSalience:
+          (row['spontaneous_salience'] as num?)?.toDouble() ?? 0.0,
+      lifecycleSource:
+          row['lifecycle_source'] as String? ?? 'legacy_unclassified',
+      lifecycleUpdatedAt: row['lifecycle_updated_at'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              row['lifecycle_updated_at'] as int,
+            ),
       evidenceCount: row['evidence_count'] as int? ?? 1,
       firstObservedAt: row['first_observed_at'] == null
           ? createdAt

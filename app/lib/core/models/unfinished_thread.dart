@@ -15,6 +15,8 @@ class UnfinishedThread {
     this.lastFollowupAt,
     this.retiredAt,
     this.retireReason = '',
+    this.resolvedAt,
+    this.resolutionReason = '',
   });
 
   final String id;
@@ -32,6 +34,8 @@ class UnfinishedThread {
   final DateTime? lastFollowupAt;
   final DateTime? retiredAt;
   final String retireReason;
+  final DateTime? resolvedAt;
+  final String resolutionReason;
 
   bool get isActive => status == 'active';
   bool get followupScheduled => followupDueAt != null && isActive;
@@ -58,6 +62,8 @@ class UnfinishedThread {
       lastFollowupAt: time(row['last_followup_at']),
       retiredAt: time(row['retired_at']),
       retireReason: row['retire_reason'] as String? ?? '',
+      resolvedAt: time(row['resolved_at']),
+      resolutionReason: row['resolution_reason'] as String? ?? '',
     );
   }
 }

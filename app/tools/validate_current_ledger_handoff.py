@@ -104,23 +104,23 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04136-immersive-boundary-stop-style",
-        "0.41.36+175",
-        "schema 48",
+        "agent/v04137-memory-lifecycle-recall-value",
+        "0.41.37+176",
+        "schema 49",
         "Snapshot protocol 5",
         "Phase 2B",
         "App 内 Agent 能力桥",
-        "CHAT_LIGHT",
+        "Memory 2D",
+        "fact_state / attention_state / recall_policy",
+        "spontaneous_salience",
+        "reminiscence/identity",
         "Skills",
         "MCP",
         "【检查系统】",
-        "中断回合",
-        "已停止生成",
+        "中断灰显",
         "Token 命中/缓存优化",
         "Phase 3",
         "Harness",
-        "Memory 2C",
-        "行动者—关系—对象—归属",
         "screen_observation.inspect",
     )
     for fact in required_current_facts:
@@ -134,6 +134,7 @@ def main() -> None:
         "DESIGNED / IMPLEMENTATION PENDING",
         "IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
+        "IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING",
         "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
         "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI FIX IN PROGRESS / TRUE DEVICE PENDING",
@@ -191,12 +192,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.36\+175\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.37\+176\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 48;" in database,
+        "static const int schemaVersion = 49;" in database,
         "database schema no longer matches the current development baseline",
     )
 

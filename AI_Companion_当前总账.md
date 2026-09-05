@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04136-immersive-boundary-stop-style`；从 v0.41.35+174 run 719 全绿与 2026-09-05 真机备份/诊断建立。当前包只收口沉浸玩法的 `【检查系统】` 边界，并让沉浸/悬浮中断用户原文使用与普通聊天一致的灰色；不混入 Phase 3 |
+| 当前开发分支 | `agent/v04137-memory-lifecycle-recall-value`；从 v0.41.36+175 run 720 全绿与用户三项人工真机通过建立。当前包实现 Memory 2D 事件生命周期、旧备份整理、明确完成收口和按用途分层读取；不混入 Phase 3、相册多标签或自主发图 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.35 最终公开提交仍为 `816d96fa5332ff88b87c2a791288329d1785126d`。v0.41.36 本地功能提交 `52d353a269a76ee1e5a824dde5315c798ce844dc` / tree `f2cc24dd51ce220d88962790f0e61c52983e294c` 已完成，尚未公开推送；只含沉浸保留命令边界、两处灰色样式、版本/测试/工作流，不含用户附件或隐私数据 |
-| App / 数据库 | 当前收口目标 `0.41.36+175` / schema 48 / Snapshot protocol 5；不做数据库迁移。沿用不进入 Prompt/Memory 的中断回合显示记录及 v0.41.34 Memory 2C（行动者—关系—对象—归属），不删除或重写既有内容 |
-| 最终 CI | v0.41.35+174 Actions run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
-| 测试 APK | `AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK.apk`，325,965,466 bytes |
-| APK SHA-256 | `bff8b381991f4012e2f937bd69d502a1927cd0b416a75fcbc7d59fea86b72c69`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
-| Artifact / Release | [Artifact ID `9955569600`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729/artifacts/9955569600)，ZIP 319,665,950 bytes，digest `sha256:798e536509e89945488a90662e7a964cb1dbba4a9d543101868f1c8e4d77b43e`，保留至 2026-09-18T21:45:03Z；Draft Release [`untagged-b4e4d9d140d8fbcec80d`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b4e4d9d140d8fbcec80d)，未发布正式 Release |
+| 当前代码 head / tree | v0.41.37 本地功能提交 `57b6f403ca2e1bd55b95f07cb6d152b44a16c619` / tree `06562c960f38a349d0e4f0fd76516a8a4f6d3ffa`；公开推送、Actions 与 APK 尚未发生。提交只含 Memory 2D、schema 49、测试/文档/工作流，不含用户备份、诊断、附件、消息正文或密钥 |
+| App / 数据库 | 当前开发目标 `0.41.37+176` / schema 49 / Snapshot protocol 5。schema 49 只为既有 Memory/Thread 增加有界生命周期、注意状态、回忆用途与完成来源字段；旧 schema 48 覆盖升级或导入后自动非破坏整理，不修改原 `.aibackup`、不批量重写记忆正文 |
+| 最终 CI | v0.41.36+175 Actions run [`33956486242`](https://github.com/catkiss62/ai-companion-build/actions/runs/33956486242)（720）全绿：66 个源码/历史 validators、Kotlin、Flutter analyze、569/569 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 测试 APK | `AI-Companion-v0.41.36-175-Immersive-Boundary-Stop-Style-APK.apk`，325,967,354 bytes |
+| APK SHA-256 | `1b6b991c392d7fab856b496576bd185add83f141433ecc289166184ea6a98f68`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
+| Artifact / Release | [Artifact ID `9966668822`](https://github.com/catkiss62/ai-companion-build/actions/runs/33956486242/artifacts/9966668822)，ZIP 319,669,241 bytes，digest `sha256:3a4acfc895f693b661a47350471181bad2a2c322825b996f55e8fd58951dab1e`，保留至 2026-09-19T09:03:58Z；Draft Release [`untagged-6bcc74ae341e5f3e0db8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6bcc74ae341e5f3e0db8)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`：普通 Stop/重新编辑/数据隔离和普通 `【检查系统】` 有备份证据，用户另确认沉浸与悬浮 Stop 功能正确。v0.41.36 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`，Phase 3 继续关闭 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 的 Agent 基础仍为 `TRUE DEVICE PARTIAL`，其未测工具边界继续保留。v0.41.36 run 720 已由用户在覆盖安装后人工确认沉浸 `【检查系统】`、沉浸中断灰显和悬浮中断灰显均正常，现为 `TRUE DEVICE PASSED / CLOSED`；该视觉/交互结论无备份诊断证据，不伪称自动化取证。Memory 2D 已为 `IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING`；Flutter analyze/tests、APK 和真机仍未发生，Phase 3 尚未开始 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **推送 v0.41.36 独立收口分支并运行完整 Actions/APK。** CI 全绿后，真机只需确认沉浸 `【检查系统】` 被本地灰色提示拦截且不生成剧情，以及沉浸/悬浮中断原文为灰色；通过后关闭 C2 并开启 Phase 3A |
-| 目标 | Stop 只撤销“这轮对模型和学习有效”的事实，不撤销用户屏幕上可复制的文字；三个聊天入口语义一致。系统自查既有一个稳定显式入口，也兼容自然表达，并只根据真实脱敏接口返回回答 |
-| 当前证据 | 2026-09-05 真机备份证明普通 Stop 隔离与系统自读；用户补测确认沉浸/悬浮 Stop 功能正确，仅中断原文颜色有误。v0.41.36 已在 `ImmersiveRoomController.send` 最前置边界拦截精确前缀，Flutter 以中性提示显示且不持久化；沉浸改为继承普通 `bodyMedium`，Kotlin overlay 仅对 `interrupted_user` 使用 RGB 169/165/179。新增前缀正反例单测和静态合同；工作流 66 个 Python validator 中 59 个本地通过，7 个仅缺 CI 恢复的桌宠/LingChat/TTS/native 或本地 kotlinc，`git diff --check`、compileall、YAML 通过 |
-| 保护与排除 | 显示记录不得被 Prompt、Memory、人格学习、关系、Thought、Desire、摘要、现场账或主动候选读取；重新编辑只回填输入框，不自动发送或恢复旧 job。完成提交若先于 Stop，不能删掉已完成对话。普通闲聊保持 CHAT_LIGHT，不增加常驻工具、计划汇报或人格覆盖。不增加含糊的 `【调用工具】` 总入口 |
-| 实现边界 | `【检查系统】` 只匹配最新用户消息开头；中间引用只是讨论。后缀明确指向功能、Outcome 或成长时用窄 scope，空白/混合时读 all。自然路由扩展到“检查你的功能 / 检查你已经有的系统 / 检查你真实系统 / 你检查一下你能查看的功能”。备份完整携带显示记录；脱敏诊断仅计数，不含原文 |
-| 完成判据 | Actions 源码 validator、Kotlin、Flutter analyze/tests、Release APK、固定签名和载荷全绿；普通/沉浸/悬浮分别在 thinking 与已有半截正文时停止，均只留下原用户气泡、灰字“已停止生成”和可用“重新编辑”，下一轮无法从上下文或记忆复述该唯一测试串；`【检查系统】` 必定出现真实调用结果，查询未实现或未列出能力不虚报。真机结果回填后才能决定 C2 收口与 Phase 3 开启 |
-| 直接详细入口 | 本节下方“2026-09-05 v0.41.35 中断回合显示层 + `【检查系统】` 确定性入口”；代码入口为 `AppDatabase.cancelGenerationJobByUser`、`interruptImmersiveUserMessageForDisplay`、`ImmersiveRoomController`、`BackgroundChatCommandServer`、`OverlayBubbleService`、`AgentToolPlanner` 与 `AgentSelfReader` |
+| 当前下一步 | **实现 Memory 2D · 事件生命周期与回忆价值。** 先冻结 schema 48→49/旧备份导入的非破坏迁移和真实复现样本，再让用户明确完成的同主题事项原子关闭 Thread、平息 Thought、作废待处理 Self Review，并把完成项目保留为历史/共同回忆而非继续催办 |
+| 目标 | 把事实状态、注意状态和表达/回忆用途分开：工作内容不一律排除，有意义的 Live2D 制作可在完成后成为共同回忆；普通进度、过期 ongoing 与已关闭事项不能继续作为主动催办来源。用户报告完成足以结束社交待办，但不能升级成已经由工具验证的 SYSTEM FACT |
+| 当前证据 | 用户上传的 v0.41.35 schema 48 备份完整，137 条 Memory 中 112 active；“自主性实验”旧进行中 Memory、完成确认 Memory与 active Thread 同时存在。18:11 主动消息前相应 Thread 已被 Self Review，topic Thought `fed_count=24/action_count=7`；用户回复“已经做好了，你忘了吗”后 proactive outcome 仍被错误记为 `deferred`，Thread 继续 active。最近 proactive Memory 查询还出现 80 条候选中 79 条 direct，证明当前主动查询与生命周期选择过宽 |
+| 保护与排除 | 不修改用户原 `.aibackup`，不删除或批量改写旧 Memory/evidence/message；不把“用户说做完”冒充 App 能力已验证；不因用户换话题、沉默或短回复擅自完成事项。相册多标签、`album.send`、记忆星图 UI、Phase 3 兴趣与完整知识图谱不进入本包。普通 user-turn 相关记忆仍可读取，不能为防复读破坏事实连续性 |
+| 实现边界 | schema 49 为 Memory 增加有界 `fact_state / attention_state / recall_policy / spontaneous_salience / lifecycle_source / lifecycle_updated_at`，为 Thread 补齐真实 `resolved_at / resolution_reason`；迁移只依据现有语义、时态、证据和明确回复。主动回忆只消费 `reminiscence/identity` 且有意义的候选；任务跟进只走 active Thread；相关问答仍走 contextual。检索注入不再提高 retention，只有真实新证据/整合可强化 |
+| 完成判据 | 固定样本必须覆盖：明确“已经做好了”覆盖错误 deferred 并关闭原 Thread；“以后再弄”仅延期；沉默/换题不完成；旧 ongoing 无新证据只降为当前未知/不主动催；完成 Live2D 可保留为历史回忆；schema 48 覆盖升级和导入均保留正文/证据/ID 并自动补新字段；同 topic Thought 与 pending Self Review 收口；普通相关检索不回归，proactive 不再把大多数 active Memory 当直接候选。CI、APK 与真机状态继续严格分开 |
+| 直接详细入口 | 本节下方“2026-09-05 Memory 2D 事件生命周期与回忆价值”；代码入口为 `MemoryExtractor._parseProactiveOutcome/_applyProactiveFollowup`、`AppDatabase` schema/导入/Thread Outcome、`SelfDriveEngine`、`MemoryRetrievalPolicy`、`MemoryBrain` 与 `PromptBuilder` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -62,7 +62,8 @@
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
-| C2 · v0.41.35/36 中断回合与玩法边界（v0.41.35 TRUE DEVICE PARTIAL / v0.41.36 LOCAL STATIC PASSED） | run 719 全绿；普通 Stop/自读有备份证据，用户确认沉浸与悬浮 Stop 正常；v0.41.36 本地实现/合同通过 | 推送并构建 v0.41.36；收口 APK 快验沉浸命令提示和两入口灰显后关闭 C2并开启 Phase 3A |
+| C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸命令边界与沉浸/悬浮灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
+| C3 · Memory 2D 事件生命周期与回忆价值（IMPLEMENTED / CI PENDING） | v0.41.35 真机备份证明完成事实、active Thread、被反复喂养 Thought 与错误 deferred outcome 同时存在；v0.41.36 已收口 | schema 49、旧包整理、明确完成收口、主动/相关读取分层与固定策略样本已落地；先完成 Actions/独立 APK，再由真机证明不再催已完成事项，之后才开启 Phase 3A |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -75,7 +76,27 @@
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 
-### 2026-09-05 v0.41.36 沉浸玩法边界 + 中断灰显收口（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-05 Memory 2D 事件生命周期与回忆价值（IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING）
+
+1. 用户确认覆盖安装 v0.41.36 后，沉浸 `【检查系统】` 边界、沉浸中断用户原文灰显和原生悬浮中断用户原文灰显均人工真机正常。该结论足以把 C2 标为 `TRUE DEVICE PASSED / CLOSED`；因为用户没有为这组三项另导出备份/诊断，证据类型严格写为人工视觉/交互确认，不虚构数据库取证。
+2. 用户上传的 `AI_Companion_Backup_2026-09-05T10-14-42(2).aibackup` 为 v0.41.35+174、schema 48、protocol 5、generation 48；ZIP 完整，manifest `state_sha256=b19d1968...c8b92b` 与独立解压复算一致，附件和相册文件无缺失。对应脱敏诊断 Active Brain 正常、无失败 generation/post-turn job。附件只作本地取证，不提交仓库。
+3. 真实错误链不是模型单独忘记：topic `user.optimizing_ai.autonomy_experiment` 同时存在旧 active current fact“正在逐步修改”、新 event/inference“用户再次确认已改好”和 active Thread“自主性实验持续试行”。该 Thread 在 15:01 被 Self Review，关联 attachment Thought 累计 `fed_count=24 / action_count=7`，18:11 又发送“明天那个自主性实验”；用户明确回复“已经做好了，你忘了吗”后，proactive feedback 仍错误落成 `deferred / resolution=0.3`，Thread 未关闭。完成事实、注意状态和表达预算没有共同权威，导致旧任务继续供给 Thought/主动候选。
+4. 当前主动记忆还有独立选择失真：错误消息前一次 proactive retrieval 在 80 条候选中把 79 条判为 direct，40 条只靠 cooldown 阻止，最终仍选 8 条；当前 `SelfDriveEngine` 又仅以 `importance*0.78 + driveExcess*0.36 + noise` 排序所有 active current/shared Memory，没有“能否自发回忆、是否已经收尾、是否像催办、有没有自身/关系/兴趣意义”判断。召回还把 `retention_score` 增加 0.015，形成“想起→更难淡化”的自强化。
+5. 用户锁定目标不是屏蔽工作：普通项目进度通常只在相关时读取；真正完成、有形象/情绪/共同投入意义的 Live2D、呆毛等工作可以转为完结回忆。事实状态、注意状态和回忆用途必须分开。用户报告完成足以关闭双方之间的未完事项，但只证明 `user_reported_completion`，不得升级成 Tool/Outcome 已验证的 SYSTEM FACT。
+6. 迁移规则冻结为 schema 48→49 非破坏补充：不修改原 `.aibackup`，不删除/批量重写 Memory/evidence/message/ID；为 Memory 增加有界 `fact_state / attention_state / recall_policy / spontaneous_salience / lifecycle_source / lifecycle_updated_at`，为 Thread 补齐 `resolved_at / resolution_reason`。旧 shared experience 可成为 completed/reminiscence；旧 stable preference/profile 保持 contextual；旧 ongoing/scheduled 没有新证据时不再作为当前进行中或主动催办；不确定项保持 unknown/context_only。
+7. 同样的整理必须覆盖两条入口：覆盖安装由数据库 upgrade 执行；导入旧 schema 48 备份时，在原数据完整写入后执行相同 stabilizer。若 proactive feedback 指向具体 active Thread，真实用户回复包含明确完成而不含否定/未完成语义，本地保守裁决必须覆盖模型错误 deferred：原子关闭 Thread、记录 resolution source/time、平息同 topic Thought、作废该 Thread/topic 的 pending/selected Self Review，并把旧 ongoing Memory 的注意状态关闭。延期只 snooze/保留 active，换题、沉默、短回复不得完成。
+8. 读取分层冻结为三条通道：普通 user-turn/沉浸相关问答可读取 contextual 事实；未完成事项只从 active Thread 跟进；主动回忆只从 `reminiscence/identity` 且达到有界意义阈值的 Memory 生成。Memory 注入只更新 recalled cursor/count，不再提高 retention；真实新 evidence、明确 reinforce/replace 或受约束 reflection 才能强化保留。相册多标签、`album.send`、星图 UI、完整图谱和 Phase 3 不进入本包。
+9. 固定验收样本：A“已经做好了，你忘了吗”直接回应绑定 Thread 的主动消息，即使模型提案 deferred 也必须 resolved；B“还没做完/以后再弄”不得完成；C 普通换话题或没回应不得完成；D schema 48 旧包导入后保留正文/证据/ID并自动补字段；E 完成 topic 的 Thought 不再可驱动 Intent，Self Review active envelope 被丢弃；F 旧 ongoing 只作为历史最后已知状态，不能生成“明天继续/现在还在做”；G 完成且有意义的共同经历仍可进入 reminiscence；H 普通当前话题相关 Memory 检索和历史版本链不回归。
+10. 目标分支 `agent/v04137-memory-lifecycle-recall-value`，目标版本 `0.41.37+176 / schema 49 / protocol 5`。修改前基线为 v0.41.36 本地 docs tip `20948cf`；不得混入相册 UI、主动发图、兴趣学习、NSFW、人格/世界书、Desire 数值、主动频率或中断显示。实现、测试、CI、APK 与真机状态后续逐项回填，当前不得提前标为完成。
+11. 运行实现已完成：schema 49 在 `memory_items` 增加事实、注意、召回用途、主动显著度与推导来源/时间，在 `unfinished_threads` 补齐此前写入路径已经使用但表结构缺失的 `resolved_at`，并新增 `resolution_reason`。新装、48→49 覆盖升级和 schema 48 备份导入都有明确入口；导入只补派生列并在事务内重放旧证据，不修改原备份、Memory/evidence/message 正文或 ID。
+12. 旧包 stabilizer 只检查“主动反馈已绑定具体 active Thread 且存在真实 user response”的强证据。“已经做好了，你忘了吗”会覆盖旧 `deferred`，把 Thread 设为 resolved、完成同 topic ongoing/scheduled Memory、平息 Thought、丢弃 pending/selected Self Review；“不做了”走 cancelled/dismissed；否定完成、完成问句、延期、换题和沉默都不会被当作完成。旧 ongoing 若没有 active Thread 且 14 天没有新证据，降为 `unknown/snoozed/contextual`，只保留最后已知历史。
+13. 新对话路径增加同一套手机本地裁决，模型给出的 lifecycle 只是建议：明确完成/取消优先于模型标签；`followup` 必须有 active Thread；`reminiscence/identity` 必须通过本地意义门。普通工作/数据库维护即使 importance 很高也保持 contextual 且主动显著度为 0；完成且有共同意义的 Live2D/呆毛经历可成为 reminiscence；AI Self 与明确爱好可进入 identity。Prompt 同步给当前明确完成/取消/延期一个窄状态合同，但“用户说功能做完”仍不得伪称系统侧已验证。
+14. `relevantMemories` 仅在 proactive 模式预筛 closed + `reminiscence/identity` + salience≥0.68；普通 user-turn 与沉浸相关读取仍保留原语义检索。`memoryCandidatesForSelfDrive` 使用同一主动门，未完任务继续只由 active Thread 供给。记忆注入仍更新 recalled time/count，但已删除 `retention_score + 0.015`，真实 conversation evidence/reinforce 才能增强保留。Grounding 会显式呈现 completed/cancelled/last-known 状态，避免完成事项仍按 ongoing 描述。
+15. 新增 `MEMORY_2D_LIFECYCLE_V04137.md` 冻结迁移与八类验收表，新增 Dart policy 测试覆盖明确完成、否定、疑问、延期、取消、共同回忆、工作排除、用户爱好、无 Thread followup 降级和陈旧 ongoing；诊断新增不含正文/topic key 的 lifecycle 状态计数。新增 v0.41.37 静态 validator，并纳入独立分支工作流；版本为 `0.41.37+176 / schema 49 / protocol 5`。
+16. 本地工作流同清单 68 个 Python validator 中 `61 passed / 7 environment-only unavailable`；七项只缺 CI 才恢复的 417 文件桌宠、LingChat effects、Meju/TTS native 载荷或本机 `kotlinc`，没有 Memory 2D 或历史源码断言失败。v0.41.34～37 专项 validator、当前总账 validator、Python compile、workflow YAML 与 `git diff --check` 已通过。本机无 Flutter/Dart SDK，因此 Dart 格式、Flutter analyze/tests、Kotlin、Release APK、签名与完整载荷仍严格为 `CI PENDING`，不得写成 APK READY 或 TRUE DEVICE PASSED。
+17. 本地功能提交为 `57b6f403ca2e1bd55b95f07cb6d152b44a16c619` / tree `06562c960f38a349d0e4f0fd76516a8a4f6d3ffa`，共 17 个任务相关文件；不含用户 `.aibackup`、脱敏诊断、附件、消息正文、图片或密钥。下一步只追加本条 pre-CI 证据提交，然后一次性推送目标分支，避免中途触发重复 APK；Actions 通过前继续保持 `CI PENDING`。
+
+### 2026-09-05 v0.41.36 沉浸玩法边界 + 中断灰显收口（CI PASSED / APK READY / TRUE DEVICE PASSED / CLOSED）
 
 1. 只读核验用户上传的 `AI_Companion_Backup_2026-09-05T08-26-52.aibackup` 与脱敏诊断：ZIP protocol 5 / schema 48 / generation 46，state SHA-256 `fc748abd7c7fcd5c1a78e85230b17028c976597330b4e0e3f28a0349277002cf` 与 manifest 一致，压缩数据、附件与相册缩略图无缺失。附件只作本地取证，不提交仓库。
 2. 两次普通 Stop 的 display 记录都指向 `cancelled_by_user` job；原 source user/assistant ID 已从正式 messages 删除，partial content/reasoning 为空，且没有对应 Memory、Thread、Thought 或人格学习证据。两次均在约 2～3 秒后以新 message ID 重发相同文本，结合用户确认，可判普通显示/重新编辑/隔离链通过。普通 `【检查系统】` 产生真实 `system_self.read` Outcome，reason tag 为 `explicit_system_command`、result count 29，正文也如实说明 MCP 未实现。
@@ -85,7 +106,10 @@
 6. 运行实现完成：`ImmersiveRoomController.send` 在 API key、lease、`repository.addMessage`、Somatic、NSFW 与模型之前调用 `isReservedSystemInspectionCommand`；只对 trim-left 后以精确 `【检查系统】` 开头的输入设置 `请在普通聊天中检查系统`，随后立即返回。提示使用独立中性 UI，可关闭或在下一次正常发送时清除；它不获得 message ID，因此数据库、房间原文、摘要、现场账、共享记忆和普通上下文均无写入路径。消息中段引用和没有前缀的自然“检查”保留为剧情。
 7. `_ImmersiveInterruptedTurn` 不再写死白字，改为继承普通聊天同源的 `bodyMedium` 灰色；原生 `OverlayBubbleService` 只在 role 为 `interrupted_user` 时把正文设为 `Color.rgb(169, 165, 179)`，其余正常用户/助手正文仍为 `231,224,236`。气泡、停止提示、重新编辑按钮、对齐和数据投影不变。
 8. 版本为 `0.41.36+175 / schema 48 / protocol 5`。新增 Flutter 前缀正反例测试与 v0.41.36 静态 validator，更新 self-reader build label、当前总账 validator和独立分支 workflow；保留 v0.41.35 历史兼容 token。工作流列出的 66 个 Python validator 本地为 `59 passed / 7 environment-only unavailable`，七项仅缺 CI 恢复的 417 文件桌宠、LingChat effects、Meju/TTS native 载荷或 `kotlinc`；新旧专项、当前总账、Python compileall、workflow YAML 与 `git diff --check` 均通过。本地无 Flutter/Dart SDK，Flutter analyze/tests、Kotlin、Release APK、签名和完整载荷继续由 Actions 证明。
-9. 本地功能提交为 `52d353a269a76ee1e5a824dde5315c798ce844dc` / tree `f2cc24dd51ce220d88962790f0e61c52983e294c`；下一步只提交本条实现证据，再依据持续公开推送/APK 授权创建并推送 `agent/v04136-immersive-boundary-stop-style`，不合并 `main`、不发布正式 Release。
+9. 本地功能提交为 `52d353a269a76ee1e5a824dde5315c798ce844dc` / tree `f2cc24dd51ce220d88962790f0e61c52983e294c`，本地 CI 输入最终 tree 为 `f49df75b614ff329cc436e75ca6d1e521bddf409`。Git Data 逐文件上传后先核对远端 tree 完全相同，才创建公开分支 `agent/v04136-immersive-boundary-stop-style`；远端运行代码提交为 `34871209a8894b228b905b8bffdd243c195e92ad`，未合并 `main`、未发布正式 Release。
+10. Actions run [`33956486242`](https://github.com/catkiss62/ai-companion-build/actions/runs/33956486242)（720）全绿：66 个源码/历史 validator、Kotlin、Flutter analyze、569/569 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 均通过；没有把本地缺 SDK/大载荷误写成验证失败。
+11. Artifact `9966668822` 的 ZIP 为 319,669,241 bytes、digest `sha256:3a4acfc895f693b661a47350471181bad2a2c322825b996f55e8fd58951dab1e`；APK 为 325,967,354 bytes，独立下载复算、CI checksum 与 asset digest 均为 `1b6b991c392d7fab856b496576bd185add83f141433ecc289166184ea6a98f68`。Draft Release 为 [`untagged-6bcc74ae341e5f3e0db8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6bcc74ae341e5f3e0db8)。当前只需真机确认：沉浸精确前缀只给本地提示且重进房间无剧情痕迹；沉浸/悬浮中断原文均为灰色且停止/重新编辑不回归。通过后关闭 C2 并开启 Phase 3A。
+12. 用户随后覆盖安装并人工确认三项均正常：沉浸精确 `【检查系统】` 边界没有进入玩法正文，沉浸中断用户原文为灰色，悬浮中断用户原文也为灰色。该组三项未另导出备份或脱敏诊断，证据类型如实限定为人工视觉/交互确认；结合 run 720 自动化结果，本包现为 `TRUE DEVICE PASSED / CLOSED`，除非出现新复现不再修改。
 
 ### 2026-09-05 v0.41.35 中断回合显示层 + `【检查系统】` 确定性入口（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

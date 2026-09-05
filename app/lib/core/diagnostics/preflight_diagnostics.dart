@@ -185,6 +185,8 @@ class PreflightDiagnosticsService {
           await VisibleReasoningLanguageTelemetry.snapshot(db);
       final memoryRetrievalDiagnostics =
           await db.memoryRetrievalDiagnosticStats(now: now);
+      final memoryLifecycleDiagnostics =
+          await db.memoryLifecycleDiagnosticStats();
       final visionDiagnostics = await db.attachmentVisionDiagnosticStats();
       attachmentPipeline = await AttachmentPipelineTelemetry.snapshot(db);
       final chatTurnLease =
@@ -378,6 +380,7 @@ class PreflightDiagnosticsService {
         'emotionObservability': emotionDiagnostics,
         'visibleReasoningLanguage': reasoningLanguageDiagnostics,
         'memoryRetrieval': memoryRetrievalDiagnostics,
+        'memoryLifecycle': memoryLifecycleDiagnostics,
         'imageVision': visionDiagnostics,
         'attachmentPipeline': attachmentPipeline,
         'somaticObservability': somaticDiagnostics,

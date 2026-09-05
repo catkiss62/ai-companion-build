@@ -23,6 +23,7 @@ import '../models/conversation_summary.dart';
 import '../models/desire_state.dart';
 import '../models/daily_continuity.dart';
 import '../models/memory_item.dart';
+import '../memory/memory_lifecycle_policy.dart';
 import '../memory/memory_retrieval_policy.dart';
 import '../memory/memory_grounding_policy.dart';
 import '../memory/topic_association_policy.dart';
@@ -99,7 +100,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 45;
   // Historical validator compatibility token: static const int schemaVersion = 46;
   // Historical validator compatibility token: static const int schemaVersion = 47;
-  static const int schemaVersion = 48;
+  // Historical validator compatibility token: static const int schemaVersion = 48;
+  static const int schemaVersion = 49;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1092,6 +1094,10 @@ class AppDatabase {
     if (oldVersion < 48) {
       await _createV48InterruptedTurnDisplays(db);
     }
+    if (oldVersion < 49) {
+      await _createV49MemoryLifecycleColumns(db);
+      await _stabilizeV49MemoryLifecycle(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1152,7 +1158,13 @@ class AppDatabase {
         relation_key TEXT NOT NULL DEFAULT '',
         object_key TEXT NOT NULL DEFAULT '',
         owner_key TEXT NOT NULL DEFAULT 'unknown',
-        temporal_scope TEXT NOT NULL DEFAULT 'unknown'
+        temporal_scope TEXT NOT NULL DEFAULT 'unknown',
+        fact_state TEXT NOT NULL DEFAULT 'unknown',
+        attention_state TEXT NOT NULL DEFAULT 'snoozed',
+        recall_policy TEXT NOT NULL DEFAULT 'contextual',
+        spontaneous_salience REAL NOT NULL DEFAULT 0,
+        lifecycle_source TEXT NOT NULL DEFAULT 'legacy_unclassified',
+        lifecycle_updated_at INTEGER
       )
     ''');
     await db.execute(
@@ -1274,6 +1286,7 @@ class AppDatabase {
     await _createV46LearningAssociationColumns(db);
     await _createV47MemoryGroundingColumns(db);
     await _createV48InterruptedTurnDisplays(db);
+    await _createV49MemoryLifecycleColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1417,6 +1430,8 @@ class AppDatabase {
         last_followup_at INTEGER,
         retired_at INTEGER,
         retire_reason TEXT NOT NULL DEFAULT '',
+        resolved_at INTEGER,
+        resolution_reason TEXT NOT NULL DEFAULT '',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -2811,6 +2826,182 @@ class AppDatabase {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_interrupted_turn_display_message '
       "ON interrupted_turn_displays(source_message_id) WHERE source_message_id != ''",
     );
+  }
+
+  Future<void> _createV49MemoryLifecycleColumns(Database db) async {
+    Future<void> addMissing(
+      String table,
+      Map<String, String> definitions,
+    ) async {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final entry in definitions.entries) {
+        if (!columns.contains(entry.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
+      }
+    }
+
+    await addMissing('memory_items', const {
+      'fact_state': "TEXT NOT NULL DEFAULT 'unknown'",
+      'attention_state': "TEXT NOT NULL DEFAULT 'snoozed'",
+      'recall_policy': "TEXT NOT NULL DEFAULT 'contextual'",
+      'spontaneous_salience': 'REAL NOT NULL DEFAULT 0',
+      'lifecycle_source': "TEXT NOT NULL DEFAULT 'legacy_unclassified'",
+      'lifecycle_updated_at': 'INTEGER',
+    });
+    await addMissing('unfinished_threads', const {
+      'resolved_at': 'INTEGER',
+      'resolution_reason': "TEXT NOT NULL DEFAULT ''",
+    });
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_memory_spontaneous_recall '
+      'ON memory_items(status, attention_state, recall_policy, '
+      'spontaneous_salience DESC)',
+    );
+  }
+
+  /// Replays only durable evidence already present in a v48 state package.
+  /// Raw memories/messages are preserved; v49 adds a derived lifecycle view.
+  Future<void> _stabilizeV49MemoryLifecycle(DatabaseExecutor txn) async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+    // A direct user response to the exact proactive thread is stronger than
+    // an old model-written "deferred" label. This repairs the known v48 case
+    // without using broad lexical topic matching.
+    final replies = await txn.rawQuery('''
+      SELECT f.id AS feedback_id, f.thread_id, f.topic_key,
+             f.user_response_message_id, m.content AS user_content,
+             m.created_at AS response_at
+      FROM proactive_feedback f
+      JOIN messages m ON m.id = f.user_response_message_id AND m.role = 'user'
+      JOIN unfinished_threads t ON t.id = f.thread_id AND t.status = 'active'
+      WHERE f.thread_id IS NOT NULL AND f.thread_id != ''
+    ''');
+    for (final row in replies) {
+      final content = row['user_content'] as String? ?? '';
+      final isCompleted = MemoryLifecyclePolicy.isExplicitCompletion(content);
+      final isCancelled = MemoryLifecyclePolicy.isExplicitCancellation(content);
+      if (!isCompleted && !isCancelled) continue;
+      final threadId = row['thread_id'] as String? ?? '';
+      final topicKey = (row['topic_key'] as String? ?? '').trim().toLowerCase();
+      final responseId = row['user_response_message_id'] as String? ?? '';
+      final responseAt = (row['response_at'] as num?)?.toInt() ?? nowMs;
+      final status = isCompleted ? 'resolved' : 'dismissed';
+      final reason = isCompleted
+          ? 'explicit_user_completion_v49_replay'
+          : 'explicit_user_cancellation_v49_replay';
+      await txn.update(
+        'unfinished_threads',
+        {
+          'status': status,
+          'resolved_at': responseAt,
+          'resolution_reason': reason,
+          'proactive_outcome_message_id': responseId,
+          'followup_due_at': null,
+          'followup_seeded_at': null,
+          'followup_run_token': '',
+          'followup_claimed_at': null,
+          'updated_at': responseAt,
+        },
+        where: 'id = ? AND status = ?',
+        whereArgs: [threadId, 'active'],
+      );
+      await txn.update(
+        'proactive_feedback',
+        {
+          'outcome': status,
+          'outcome_score': isCompleted ? 0.95 : 0.15,
+          'topic_fit': isCompleted ? 0.55 : -0.80,
+          'processed_at': responseAt,
+        },
+        where: 'id = ?',
+        whereArgs: [row['feedback_id']],
+      );
+      if (topicKey.isNotEmpty) {
+        await txn.update(
+          'thoughts',
+          {
+            'lifecycle_state': 'dormant',
+            'strength': 0.08,
+            'residual_strength': 0.08,
+            'last_satisfied_at': responseAt,
+            'last_outbound_message_id': null,
+            'snoozed_until': null,
+            'updated_at': responseAt,
+          },
+          where: 'topic_key = ? AND lifecycle_state != ?',
+          whereArgs: [topicKey, 'dormant'],
+        );
+      }
+      await txn.update(
+        'self_review_candidates',
+        {
+          'status': 'discarded',
+          'completed_at': responseAt,
+          'updated_at': responseAt,
+        },
+        where: "status IN ('pending','selected') AND "
+            "((source_kind = 'unfinished_thread' AND source_ref = ?) "
+            "OR (? != '' AND topic_key = ?))",
+        whereArgs: [threadId, topicKey, topicKey],
+      );
+      if (topicKey.isNotEmpty) {
+        await txn.update(
+          'memory_items',
+          {
+            'fact_state': isCompleted ? 'completed' : 'cancelled',
+            'attention_state': 'closed',
+            'recall_policy': 'contextual',
+            'spontaneous_salience': 0.0,
+            'lifecycle_source': reason,
+            'lifecycle_updated_at': responseAt,
+          },
+          where: "status = 'active' AND topic_key = ? AND "
+              "(temporal_scope IN ('ongoing','scheduled') "
+              "OR fact_state = 'ongoing')",
+          whereArgs: [topicKey],
+        );
+      }
+    }
+
+    final activeThreads = await txn.query(
+      'unfinished_threads',
+      columns: const ['topic_key'],
+      where: "status = 'active' AND topic_key != ''",
+    );
+    final activeTopics = activeThreads
+        .map((row) => (row['topic_key'] as String? ?? '').trim().toLowerCase())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    final memories = await txn.query(
+      'memory_items',
+      where: "lifecycle_source = 'legacy_unclassified'",
+    );
+    for (final row in memories) {
+      final item = MemoryItem.fromDb(row);
+      final profile = MemoryLifecyclePolicy.forLegacy(
+        item,
+        hasActiveThread: activeTopics.contains(item.topicKey),
+        now: DateTime.fromMillisecondsSinceEpoch(nowMs),
+      );
+      await txn.update(
+        'memory_items',
+        {
+          'fact_state': profile.factState,
+          'attention_state': profile.attentionState,
+          'recall_policy': profile.recallPolicy,
+          'spontaneous_salience': profile.spontaneousSalience,
+          'lifecycle_source': profile.source,
+          'lifecycle_updated_at': nowMs,
+        },
+        where: 'id = ?',
+        whereArgs: [item.id],
+      );
+    }
   }
 
   Future<void> _createV29Tables(Database db) async {
@@ -6188,6 +6379,10 @@ class AppDatabase {
     String objectKey = '',
     String ownerKey = 'unknown',
     String temporalScope = 'unknown',
+    String? factState,
+    String? attentionState,
+    String? recallPolicy,
+    double? spontaneousSalience,
     String evidenceMode = 'auto',
     String? targetMemoryId,
   }) async {
@@ -6232,6 +6427,40 @@ class AppDatabase {
     }
 
     await db.transaction((txn) async {
+      Future<MemoryLifecycleProfile> lifecycleFor({
+        required String lifecycleKind,
+        required String lifecycleSemantic,
+        required String lifecycleTemporal,
+        required String lifecycleContent,
+        required double lifecycleImportance,
+        String source = 'local_v49_write',
+      }) async {
+        var hasActiveThread = false;
+        if (normalizedTopic.isNotEmpty) {
+          final threadRows = await txn.query(
+            'unfinished_threads',
+            columns: const ['id'],
+            where: 'topic_key = ? AND status = ?',
+            whereArgs: [normalizedTopic, 'active'],
+            limit: 1,
+          );
+          hasActiveThread = threadRows.isNotEmpty;
+        }
+        return MemoryLifecyclePolicy.derive(
+          kind: lifecycleKind,
+          semanticType: lifecycleSemantic,
+          temporalScope: lifecycleTemporal,
+          content: lifecycleContent,
+          importance: lifecycleImportance,
+          proposedFactState: factState,
+          proposedAttentionState: attentionState,
+          proposedRecallPolicy: recallPolicy,
+          proposedSpontaneousSalience: spontaneousSalience,
+          hasActiveThread: hasActiveThread,
+          source: source,
+        );
+      }
+
       Future<bool> recordEvidence({
         required String memoryId,
         required String evidenceText,
@@ -6268,6 +6497,24 @@ class AppDatabase {
         );
         if (!isNewEvidence) return;
         final mergedTags = <String>{...existing.tags, ...tags}.take(12).join('|');
+        final hasLifecycleEvidence = factState != null ||
+            attentionState != null ||
+            recallPolicy != null ||
+            spontaneousSalience != null ||
+            MemoryLifecyclePolicy.isExplicitCompletion(normalized) ||
+            MemoryLifecyclePolicy.isExplicitCancellation(normalized);
+        final lifecycle = hasLifecycleEvidence
+            ? await lifecycleFor(
+                lifecycleKind: existing.kind,
+                lifecycleSemantic: existing.semanticType,
+                lifecycleTemporal: normalizedTemporal == 'unknown'
+                    ? existing.temporalScope
+                    : normalizedTemporal,
+                lifecycleContent: normalized,
+                lifecycleImportance: importance,
+                source: 'conversation_evidence_v49',
+              )
+            : null;
         await txn.update(
           'memory_items',
           {
@@ -6297,6 +6544,13 @@ class AppDatabase {
             'last_evidence_at': now,
             'retention_score': (existing.retentionScore + 0.10).clamp(0.0, 1.0),
             'retention_checked_at': now,
+            if (lifecycle != null) 'fact_state': lifecycle.factState,
+            if (lifecycle != null) 'attention_state': lifecycle.attentionState,
+            if (lifecycle != null) 'recall_policy': lifecycle.recallPolicy,
+            if (lifecycle != null)
+              'spontaneous_salience': lifecycle.spontaneousSalience,
+            if (lifecycle != null) 'lifecycle_source': lifecycle.source,
+            if (lifecycle != null) 'lifecycle_updated_at': now,
             'updated_at': now,
           },
           where: 'id = ?',
@@ -6404,6 +6658,11 @@ class AppDatabase {
               {
                 'status': 'superseded',
                 'superseded_by': id,
+                'attention_state': 'closed',
+                'recall_policy': 'contextual',
+                'spontaneous_salience': 0.0,
+                'lifecycle_source': 'superseded_v49',
+                'lifecycle_updated_at': now,
                 'updated_at': now,
               },
               where: 'id = ?',
@@ -6415,6 +6674,13 @@ class AppDatabase {
 
       // Inference and shared-experience rows intentionally coexist. They can be
       // reinforced later, but never automatically replace a current fact.
+      final lifecycle = await lifecycleFor(
+        lifecycleKind: kind,
+        lifecycleSemantic: semantic,
+        lifecycleTemporal: normalizedTemporal,
+        lifecycleContent: normalized,
+        lifecycleImportance: importance,
+      );
       await txn.insert('memory_items', {
         'id': id,
         'kind': kind,
@@ -6442,6 +6708,12 @@ class AppDatabase {
         'object_key': normalizedObject,
         'owner_key': normalizedOwner,
         'temporal_scope': normalizedTemporal,
+        'fact_state': lifecycle.factState,
+        'attention_state': lifecycle.attentionState,
+        'recall_policy': lifecycle.recallPolicy,
+        'spontaneous_salience': lifecycle.spontaneousSalience,
+        'lifecycle_source': lifecycle.source,
+        'lifecycle_updated_at': now,
         'evidence_count': 1,
         'first_observed_at': now,
         'last_evidence_at': now,
@@ -6493,11 +6765,19 @@ class AppDatabase {
     DateTime? now,
   }) async {
     final db = await database;
+    final proactive = retrievalMode == 'proactive';
     final rows = await db.query(
       'memory_items',
-      where: "status = ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: const ['active'],
-      orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
+      where: proactive
+          ? "status = ? AND semantic_type IN ('current_fact','shared_experience') "
+              "AND attention_state = 'closed' "
+              "AND recall_policy IN ('reminiscence','identity') "
+              'AND spontaneous_salience >= ?'
+          : "status = ? AND semantic_type IN ('current_fact','shared_experience')",
+      whereArgs: proactive ? const ['active', 0.68] : const ['active'],
+      orderBy: proactive
+          ? 'spontaneous_salience DESC, importance DESC, updated_at DESC'
+          : 'importance DESC, retention_score DESC, updated_at DESC',
       limit: 180,
     );
     final instant = now ?? DateTime.now();
@@ -6557,8 +6837,8 @@ class AppDatabase {
             // is not advanced for rejected candidates.
             'last_recalled_at': instant.millisecondsSinceEpoch,
             'recall_count': item.recallCount + 1,
-            'retention_score':
-                (item.retentionScore + 0.015).clamp(0.0, 1.0),
+            // Retrieval is observation, not new evidence. Reinforcement only
+            // happens when a real conversation turn adds durable evidence.
             'retention_checked_at': instant.millisecondsSinceEpoch,
           },
           where: 'id = ?',
@@ -7267,16 +7547,70 @@ class AppDatabase {
     };
   }
 
+  Future<Map<String, Object?>> memoryLifecycleDiagnosticStats() async {
+    final db = await database;
+    Future<Map<String, int>> grouped(String column) async {
+      final rows = await db.rawQuery('''
+        SELECT $column AS value, COUNT(*) AS count
+        FROM memory_items
+        WHERE status = 'active'
+        GROUP BY $column
+      ''');
+      return {
+        for (final row in rows)
+          (row['value'] as String? ?? 'unknown'):
+              (row['count'] as num?)?.toInt() ?? 0,
+      };
+    }
+
+    final spontaneous = await db.rawQuery('''
+      SELECT COUNT(*) AS count
+      FROM memory_items
+      WHERE status = 'active'
+        AND attention_state = 'closed'
+        AND recall_policy IN ('reminiscence','identity')
+        AND spontaneous_salience >= 0.68
+    ''');
+    final threadRows = await db.rawQuery('''
+      SELECT status, COUNT(*) AS count
+      FROM unfinished_threads
+      GROUP BY status
+    ''');
+    return {
+      'contractVersion': 1,
+      'factStateCounts': await grouped('fact_state'),
+      'attentionStateCounts': await grouped('attention_state'),
+      'recallPolicyCounts': await grouped('recall_policy'),
+      'spontaneousEligibleCount':
+          (spontaneous.first['count'] as num?)?.toInt() ?? 0,
+      'threadStatusCounts': {
+        for (final row in threadRows)
+          (row['status'] as String? ?? 'unknown'):
+              (row['count'] as num?)?.toInt() ?? 0,
+      },
+      'memoryBodiesIncluded': false,
+      'topicKeysIncluded': false,
+    };
+  }
+
   Future<List<MemoryItem>> memoryCandidatesForSelfDrive({int limit = 24}) async {
     final db = await database;
     final rows = await db.query(
       'memory_items',
-      where: "status = ? AND retention_score >= ? AND semantic_type IN ('current_fact','shared_experience')",
-      whereArgs: ['active', 0.18],
-      orderBy: 'importance DESC, retention_score DESC, updated_at DESC',
+      where: "status = ? AND retention_score >= ? "
+          "AND semantic_type IN ('current_fact','shared_experience') "
+          "AND attention_state = 'closed' "
+          "AND recall_policy IN ('reminiscence','identity') "
+          'AND spontaneous_salience >= ?',
+      whereArgs: ['active', 0.18, 0.68],
+      orderBy: 'spontaneous_salience DESC, importance DESC, '
+          'retention_score DESC, updated_at DESC',
       limit: limit,
     );
-    return rows.map(MemoryItem.fromDb).toList();
+    return rows
+        .map(MemoryItem.fromDb)
+        .where(MemoryLifecyclePolicy.eligibleForSpontaneousRecall)
+        .toList(growable: false);
   }
 
   Future<MemoryItem?> memoryById(String id) async {
@@ -8100,6 +8434,7 @@ class AppDatabase {
           values.addAll({
             'status': 'resolved',
             'resolved_at': now,
+            'resolution_reason': 'explicit_user_completion_v49',
             'followup_due_at': null,
             'followup_seeded_at': null,
             'followup_run_token': '',
@@ -8110,6 +8445,7 @@ class AppDatabase {
           values.addAll({
             'status': 'dismissed',
             'resolved_at': now,
+            'resolution_reason': 'explicit_user_dismissal_v49',
             'followup_due_at': null,
             'followup_seeded_at': null,
             'followup_run_token': '',
@@ -8142,6 +8478,53 @@ class AppDatabase {
         where: 'id = ? AND proactive_outcome_message_id IS NOT ?',
         whereArgs: [threadId, responseMessageId],
       );
+      if (changed == 1 && (outcome == 'resolved' || outcome == 'dismissed')) {
+        final topicKey = (row['topic_key'] as String? ?? '').trim().toLowerCase();
+        final factState = outcome == 'resolved' ? 'completed' : 'cancelled';
+        if (topicKey.isNotEmpty) {
+          await txn.update(
+            'thoughts',
+            {
+              'lifecycle_state': 'dormant',
+              'strength': 0.08,
+              'residual_strength': 0.08,
+              'last_satisfied_at': now,
+              'last_outbound_message_id': null,
+              'snoozed_until': null,
+              'updated_at': now,
+            },
+            where: 'topic_key = ?',
+            whereArgs: [topicKey],
+          );
+          await txn.update(
+            'memory_items',
+            {
+              'fact_state': factState,
+              'attention_state': 'closed',
+              'recall_policy': 'contextual',
+              'spontaneous_salience': 0.0,
+              'lifecycle_source': 'proactive_outcome_v49',
+              'lifecycle_updated_at': now,
+            },
+            where: "status = 'active' AND topic_key = ? AND "
+                "(fact_state = 'ongoing' OR "
+                "temporal_scope IN ('ongoing','scheduled'))",
+            whereArgs: [topicKey],
+          );
+        }
+        await txn.update(
+          'self_review_candidates',
+          {
+            'status': 'discarded',
+            'completed_at': now,
+            'updated_at': now,
+          },
+          where: "status IN ('pending','selected') AND "
+              "((source_kind = 'unfinished_thread' AND source_ref = ?) "
+              "OR (? != '' AND topic_key = ?))",
+          whereArgs: [threadId, topicKey, topicKey],
+        );
+      }
       return changed == 1;
     });
   }
@@ -11053,6 +11436,8 @@ class AppDatabase {
       'last_followup_at': null,
       'retired_at': null,
       'retire_reason': '',
+      'resolved_at': null,
+      'resolution_reason': '',
       'created_at': now,
       'updated_at': now,
     });
@@ -11062,6 +11447,7 @@ class AppDatabase {
     final normalized = title.trim();
     if (normalized.isEmpty) return;
     final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
     await db.update(
       'unfinished_threads',
       {
@@ -11070,7 +11456,9 @@ class AppDatabase {
         'followup_seeded_at': null,
         'followup_run_token': '',
         'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
+        'resolved_at': now,
+        'resolution_reason': 'extractor_resolve_v49',
+        'updated_at': now,
       },
       where: 'title = ? AND status = ?',
       whereArgs: [normalized, 'active'],
@@ -11081,6 +11469,7 @@ class AppDatabase {
     final normalized = id.trim();
     if (normalized.isEmpty) return;
     final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
     await db.update(
       'unfinished_threads',
       {
@@ -11089,7 +11478,9 @@ class AppDatabase {
         'followup_seeded_at': null,
         'followup_run_token': '',
         'followup_claimed_at': null,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
+        'resolved_at': now,
+        'resolution_reason': 'explicit_resolve_v49',
+        'updated_at': now,
       },
       where: 'id = ? AND status = ?',
       whereArgs: [normalized, 'active'],
@@ -14698,6 +15089,16 @@ class AppDatabase {
               'temporal_scope': 'unknown',
             });
           }
+          if (table == 'memory_items' && version < 49) {
+            row.addAll(const {
+              'fact_state': 'unknown',
+              'attention_state': 'snoozed',
+              'recall_policy': 'contextual',
+              'spontaneous_salience': 0.0,
+              'lifecycle_source': 'legacy_unclassified',
+              'lifecycle_updated_at': null,
+            });
+          }
           if (table == 'personality_learning_candidates' && version < 46) {
             row.addAll({
               'topic_key': TopicAssociationPolicy.fromSubject(
@@ -14764,6 +15165,10 @@ class AppDatabase {
             row['followup_run_token'] = '';
             row['followup_claimed_at'] = null;
             row['proactive_outcome_message_id'] = null;
+          }
+          if (table == 'unfinished_threads' && version < 49) {
+            row['resolved_at'] = null;
+            row['resolution_reason'] = '';
           }
           if (table == 'post_turn_jobs' && version < 12) {
             row.addAll({
@@ -15018,6 +15423,9 @@ class AppDatabase {
         );
       }
       await _stabilizeV44Data(txn);
+      if (version < 49) {
+        await _stabilizeV49MemoryLifecycle(txn);
+      }
       await txn.update(
         'reference_documents',
         {

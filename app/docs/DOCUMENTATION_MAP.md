@@ -42,6 +42,7 @@
 
 ### 普通聊天时间语义
 
+- `MEMORY_2D_LIFECYCLE_V04137.md`：v49 事实/注意/召回分层、schema 48 旧存档证据回放，以及 Memory 2D 冻结验收样本。
 - `ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md`：普通聊天真实用户现场/最近互动双时钟、手机预计算 gap band、短寿命活动重判与沉浸 Session 隔离。
 - `PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md`：Phase 0+1 旧 Memory/Relationship 绕过审计、direct feedback/命题边界、半小时双时钟一次详细注入、主动消息不刷新用户现实与人称出站守卫。
 - `AGENT_OPERATION_TRUTH_SCREEN_OBSERVATION_v0.41.14.md`：可核验操作必须有匹配 terminal Outcome、成长系统 observation-only 元数据只读，以及用户明确触发的一张当前屏幕截图、敏感页 Gate 与临时字节隐私合同。

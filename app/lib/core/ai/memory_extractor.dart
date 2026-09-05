@@ -21,6 +21,7 @@ import '../self/ai_self_reflection_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
 import '../memory/memory_grounding_policy.dart';
+import '../memory/memory_lifecycle_policy.dart';
 import 'deepseek_client.dart';
 import 'model_profile.dart';
 
@@ -272,6 +273,9 @@ ${previousAssistant.content}
           : memoryCandidates.map((m) {
               final flags = <String>[
                 m.semanticType,
+                'fact=${m.factState}',
+                'attention=${m.attentionState}',
+                'recall=${m.recallPolicy}',
                 if (m.pinned) 'PINNED',
                 'evidence=${m.evidenceCount}',
                 if (m.factVersion > 1) 'v${m.factVersion}',
@@ -326,6 +330,12 @@ $editableMemoryPolicy
    - relation 与 object 使用短、稳定的英文小写 key；object 必须指向完整对象，例如 ai.live2d_model.ahoge，而不是只剩 ahoge。owner 只能是 user / ai / shared / external / unknown；“用户在修你的 Live2D 呆毛”应为 actor=user、owner=ai，正文也必须明确写成“用户在修 AI 的 Live2D 模型的呆毛”。
    - temporal_scope 只能是 stable / ongoing / event / scheduled / unknown。偏好、身份等长期成立内容才是 stable；“正在做/继续调试”是 ongoing，只表示本轮最后确认的进行中状态；已经发生的共同经历是 event；计划/约定是 scheduled。不要把一次项目进度写成永久当前事实，也不要用“刚才/现在”替代原事件时间。
    - 这些字段只约束关联与解释，不能凭空补全用户没有说过的归属、对象或时间；拿不准使用 unknown，并在 content 中保留原句已经明确的角色关系。
+13.2 每条 memory 还要给出生命周期建议，但手机本地规则拥有最终决定权：
+   - fact_state：stable / ongoing / completed / cancelled / unknown，表示事实本身处于什么阶段。
+   - attention_state：active / snoozed / closed，表示现在是否值得继续追问；已完成、取消的事项必须 closed。
+   - recall_policy：contextual / reminiscence / identity / followup。普通工作进度默认 contextual；只有当前确实存在的未完成线程才可 followup；真正有情感、共同经历或身份意义的内容才可 reminiscence / identity。
+   - spontaneous_salience：0~1，表示适不适合由 AI 自己想起并主动提到，不等于重要性。普通工作、维护和系统优化通常应接近 0；大事、感动或愤怒的经历、双方爱好、值得纪念的共同经历才可较高。
+   - 已完成的 Live2D、呆毛等共同制作经历可以作为历史被自然回忆，但不能继续冒充待办或催收。
 14. 系统 Prompt 可能带有【近日连续性】一类由旧记录压缩出来的短期桥梁。AI 单方面复述旧事、自然回忆或提到其中旧内容，不等于今天又发生了一次。除非用户在本轮明确新增、确认、改变了事实，或本轮互动本身真的形成了新关系事件，否则不要仅因为 AI 复述旧连续性就新建 memory / relationship_event / unfinished_thread。
 15. 如果“本轮回应的主动消息”存在，请额外判断 proactive_followup。outcome 只能是 engaged / acknowledged / deferred / resolved / dismissed / redirected。resolution 表示原主动念头/话题被解决的程度 0~1。还必须分别判断 timing_fit 与 topic_fit，范围都是 -1~1：
    - timing_fit：只表示“这次联系的时机是否合适”。用户明确说现在忙、晚点、在做事时应偏负；自然及时接话可偏正。不要因为“不喜欢这个话题”就判时机差。
@@ -371,7 +381,7 @@ thread action：open / update / resolve / dismiss。update/resolve/dismiss 已�
 
 必须输出严格 JSON，例如：
 {
-  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","content":"用户通常晚上会换到自己的安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
+  "memories":[{"kind":"user_profile","semantic":"current_fact","action":"replace","target_id":"已有记忆ID或空字符串","subject_key":"user.device_evening","topic_key":"user.device_evening","actor":"user","relation":"uses","object":"user.device.android_tablet","owner":"user","temporal_scope":"stable","fact_state":"stable","attention_state":"closed","recall_policy":"contextual","spontaneous_salience":0.0,"content":"用户通常晚上会换到自己的安卓平板继续聊天","importance":0.72,"confidence":0.93,"tags":["设备","习惯"]}],
   "thoughts":[{"drive":"attachment","topic_key":"user.return_tonight","text":"你刚才主动回来继续和我聊了","strength":0.28}],
   "threads":[{"action":"open","thread_id":"","topic_key":"user.return_tonight","title":"等用户今晚回来","detail":"用户说晚些时候会回来继续聊","importance":0.66}],
   "relationship_events":[{"kind":"promise","topic_key":"user.return_tonight","summary":"用户说晚些时候会回来继续聊天","intensity":0.55,"valence":0.35}],
@@ -891,6 +901,26 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
     String userText = '',
   }) {
     if (feedback == null) return null;
+    if (MemoryLifecyclePolicy.isExplicitCompletion(userText)) {
+      final repetition =
+          ProactiveTopicFeedbackPolicy.isRepetitionComplaint(userText);
+      return _ProactiveOutcomeData(
+        outcome: 'resolved',
+        resolution: 0.95,
+        followupAfterHours: 0,
+        timingFit: 0.0,
+        topicFit: repetition ? -0.65 : 0.55,
+      );
+    }
+    if (MemoryLifecyclePolicy.isExplicitCancellation(userText)) {
+      return const _ProactiveOutcomeData(
+        outcome: 'dismissed',
+        resolution: 0.15,
+        followupAfterHours: 0,
+        timingFit: 0.0,
+        topicFit: -0.80,
+      );
+    }
     if (ProactiveTopicFeedbackPolicy.isRepetitionComplaint(userText)) {
       return const _ProactiveOutcomeData(
         outcome: 'dismissed',
@@ -898,6 +928,15 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         followupAfterHours: 0,
         timingFit: 0.0,
         topicFit: -0.95,
+      );
+    }
+    if (MemoryLifecyclePolicy.isExplicitDeferral(userText)) {
+      return const _ProactiveOutcomeData(
+        outcome: 'deferred',
+        resolution: 0.20,
+        followupAfterHours: 0,
+        timingFit: -0.55,
+        topicFit: 0.0,
       );
     }
     if (raw is! Map) return null;
@@ -1133,6 +1172,11 @@ AI 主动消息：${outbound?.content ?? '(消息正文不可用)'}
         objectKey: item['object'] as String? ?? '',
         ownerKey: item['owner'] as String? ?? 'unknown',
         temporalScope: item['temporal_scope'] as String? ?? 'unknown',
+        factState: item['fact_state'] as String?,
+        attentionState: item['attention_state'] as String?,
+        recallPolicy: item['recall_policy'] as String?,
+        spontaneousSalience:
+            (item['spontaneous_salience'] as num?)?.toDouble(),
         evidenceMode: action,
         targetMemoryId: targetId == null || targetId.isEmpty ? null : targetId,
       );

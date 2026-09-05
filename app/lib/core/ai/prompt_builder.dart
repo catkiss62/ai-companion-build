@@ -11,6 +11,7 @@ import '../grounding/prompt_history_policy.dart';
 import '../continuity/daily_continuity_presentation.dart';
 import '../memory/memory_brain.dart';
 import '../memory/memory_grounding_policy.dart';
+import '../memory/memory_lifecycle_policy.dart';
 import '../memory/personality_learning_prompt_policy.dart';
 import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
@@ -330,6 +331,8 @@ ANSWERED_HISTORY_ONLY = true
       });
     } else {
       final history = PromptHistoryPolicy.userTurnHistory(recent);
+      final lifecycleTurnContract =
+          _memoryLifecycleTurnContract(latestUserText);
       if (history.isEmpty) {
         if (layerBundle.personalityExecutionAnchor.isNotEmpty) {
           messages.add({
@@ -347,6 +350,9 @@ ANSWERED_HISTORY_ONLY = true
           'role': 'system',
           'content': dialogueExpressionPlan.render(),
         });
+        if (lifecycleTurnContract.isNotEmpty) {
+          messages.add({'role': 'system', 'content': lifecycleTurnContract});
+        }
         messages.add({
           'role': 'system',
           'content': visibleChineseGenerationReminder(
@@ -375,6 +381,9 @@ ANSWERED_HISTORY_ONLY = true
           'role': 'system',
           'content': dialogueExpressionPlan.render(),
         });
+        if (lifecycleTurnContract.isNotEmpty) {
+          messages.add({'role': 'system', 'content': lifecycleTurnContract});
+        }
         messages.add({
           'role': 'system',
           'content': visibleChineseGenerationReminder(
@@ -400,6 +409,28 @@ ANSWERED_HISTORY_ONLY = true
       }
     }
     return messages;
+  }
+
+  static String _memoryLifecycleTurnContract(String text) {
+    if (MemoryLifecyclePolicy.isExplicitCompletion(text)) {
+      return '''
+【本轮事项状态】
+用户正在明确报告上一语境中的事项已经完成。把它作为“用户当前提供的完成信息”来回应，不要继续称为正在做、尚未完成或需要催促。若内容涉及 App、模型或工具能力，这仍不是系统侧独立核验，不能扩大成你已验证该能力可用。
+'''.trim();
+    }
+    if (MemoryLifecyclePolicy.isExplicitCancellation(text)) {
+      return '''
+【本轮事项状态】
+用户正在明确取消上一语境中的事项。不要继续把它当作待办追问，也不要擅自改写成已经完成。
+'''.trim();
+    }
+    if (MemoryLifecyclePolicy.isExplicitDeferral(text)) {
+      return '''
+【本轮事项状态】
+用户只是把上一语境中的事项推迟，并未报告完成。承认暂时搁置，不要立即再次催问，也不要擅自宣布已经完成或取消。
+'''.trim();
+    }
+    return '';
   }
 
   static String visibleChineseGenerationReminder({
