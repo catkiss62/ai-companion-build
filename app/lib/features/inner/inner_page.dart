@@ -401,7 +401,7 @@ class _InnerPageState extends State<InnerPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '萌属性数值 · D2 数值引擎',
+              '动态表达倾向',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 2),

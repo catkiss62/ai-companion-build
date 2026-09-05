@@ -78,6 +78,26 @@ void main() {
     expect(matches.first.item.id, 'newer');
     expect(matches.every((item) => item.confidence == 'ambiguous_recent'), isTrue);
   });
+
+  test('multi-tags make landscape and anime independently searchable', () {
+    final matches = CompanionAlbumSearchPolicy.rank(
+      query: '找一下相册里的二次元风景',
+      items: [
+        albumItem(
+          id: 'anime-landscape',
+          title: '黄昏小镇',
+          tags: const ['anime', 'landscape'],
+        ),
+        albumItem(
+          id: 'plain-anime',
+          title: '人物立绘',
+          tags: const ['anime'],
+        ),
+      ],
+    );
+
+    expect(matches.first.item.id, 'anime-landscape');
+  });
 }
 
 CompanionAlbumItem albumItem({
@@ -85,6 +105,7 @@ CompanionAlbumItem albumItem({
   String title = '',
   String summary = '',
   String category = 'other',
+  List<String>? tags,
   String lifecycle = CompanionAlbumItem.saved,
   bool nsfw = false,
   DateTime? savedAt,
@@ -99,6 +120,7 @@ CompanionAlbumItem albumItem({
       summary: summary,
       reason: '喜欢这张图',
       category: category,
+      tags: tags ?? <String>[category],
       nsfw: nsfw,
       thumbnailPath: '$id.jpg',
       contentSha256: 'hash-$id',

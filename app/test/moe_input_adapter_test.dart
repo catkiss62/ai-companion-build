@@ -7,13 +7,17 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final now = DateTime.utc(2026, 8, 25, 1);
 
-  ChatMessage assistant(String content) => ChatMessage(
-        id: 'assistant-1',
+  ChatMessage assistant(
+    String content, {
+    String id = 'assistant-1',
+    String emotionKey = 'playful',
+  }) => ChatMessage(
+        id: id,
         role: 'assistant',
         content: content,
         createdAt: now,
-        emotionKey: 'playful',
-        emotionLabel: '调皮',
+        emotionKey: emotionKey,
+        emotionLabel: emotionKey,
       );
 
   test('adapter uses committed metadata without reading message content', () {
@@ -50,5 +54,23 @@ void main() {
     expect(stage(4), 'familiarizing');
     expect(stage(15), 'established');
     expect(stage(61), 'long_term');
+  });
+
+  test('normal calm and technical serious do not ratchet directness', () {
+    const adapter = MoeInputAdapter();
+    final desire = DesireSnapshot();
+    for (final emotion in const ['normal', 'calm', 'serious']) {
+      final input = adapter.fromCompletedTurn(
+        assistant: assistant(
+          '正文不作为动态表达证据',
+          id: 'assistant-$emotion',
+          emotionKey: emotion,
+        ),
+        desire: desire,
+        relationshipDay: 20,
+      );
+      expect(input.event!.axisPulses, isEmpty, reason: emotion);
+      expect(input.event!.contextTags, isEmpty, reason: emotion);
+    }
   });
 }

@@ -15,7 +15,7 @@ class CompanionAlbumSearchMatch {
 /// Local-only fuzzy ranking for the companion's saved album.
 ///
 /// This policy never reads image bytes and never mutates album lifecycle. It
-/// ranks the already persisted title, vision summary, save reason, category,
+/// ranks the already persisted title, vision summary, save reason, tags,
 /// source domain and save time. A generic request intentionally returns a few
 /// recent candidates with low confidence so the model can ask which one the
 /// user means instead of inventing a unique match.
@@ -32,25 +32,36 @@ class CompanionAlbumSearchPolicy {
       r'(你自己|自己的|自拍|自画像|形象|鲸鱼娘)',
     ).hasMatch(normalized);
     final wantsMemory = RegExp(r'(回忆|纪念|我们俩|我们一起)').hasMatch(normalized);
+    final wantsAnime = RegExp(r'(二次元|动漫|动画|漫画)').hasMatch(normalized);
+    final wantsLandscape = RegExp(r'(风景|景色|自然|城市景观)').hasMatch(normalized);
+    final wantsSticker = RegExp(r'(表情包|反应图|梗图)').hasMatch(normalized);
     final wantsOther = RegExp(r'(其他|别的类别)').hasMatch(normalized);
     final semantic = _semanticQuery(normalized);
     final terms = _terms(semantic);
-    final hasCategoryIntent = wantsSelfImage || wantsMemory || wantsOther;
+    final hasCategoryIntent = wantsSelfImage ||
+        wantsMemory ||
+        wantsAnime ||
+        wantsLandscape ||
+        wantsSticker ||
+        wantsOther;
 
     final ranked = <CompanionAlbumSearchMatch>[];
     for (final item in items) {
       if (item.nsfw || item.lifecycle != CompanionAlbumItem.saved) continue;
 
       var score = 0.0;
-      if (wantsSelfImage && item.category == 'self_image') score += 7;
-      if (wantsMemory && item.category == 'memory') score += 7;
-      if (wantsOther && item.category == 'other') score += 5;
+      if (wantsSelfImage && item.tags.contains('self_image')) score += 7;
+      if (wantsMemory && item.tags.contains('memory')) score += 7;
+      if (wantsAnime && item.tags.contains('anime')) score += 7;
+      if (wantsLandscape && item.tags.contains('landscape')) score += 7;
+      if (wantsSticker && item.tags.contains('sticker')) score += 7;
+      if (wantsOther && item.tags.contains('other')) score += 5;
 
       score += _fieldScore(semantic, terms, item.title, 7.0);
       score += _fieldScore(semantic, terms, item.summary, 5.0);
       score += _fieldScore(semantic, terms, item.reason, 3.5);
       score += _fieldScore(semantic, terms, item.sourceDomain, 1.5);
-      score += _fieldScore(semantic, terms, item.category, 1.0);
+      score += _fieldScore(semantic, terms, item.tags.join(' '), 1.0);
 
       if (score > 0) {
         ranked.add(CompanionAlbumSearchMatch(

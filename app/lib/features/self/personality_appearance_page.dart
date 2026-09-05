@@ -52,8 +52,8 @@ class _PersonalityAppearancePageState
       setState(() {
         _moeExpressionEnabled = value;
         status = value
-            ? '动态萌属性已开始影响表达；内部数值和属性名称不会写进对话。'
-            : '动态萌属性数值仍会旁路更新，但不再影响对话表达。';
+            ? '动态表达倾向已开始影响表达；内部数值和属性名称不会写进对话。'
+            : '动态表达倾向仍会旁路更新，但不再影响对话表达。';
       });
     }
   }
@@ -63,7 +63,7 @@ class _PersonalityAppearancePageState
     if (mounted) {
       setState(() {
         _moeExpressionMode = mode;
-        status = '萌属性表现强度已切换为“${mode.label}”。';
+        status = '表现强度已切换为“${mode.label}”。';
       });
     }
   }
@@ -99,7 +99,7 @@ class _PersonalityAppearancePageState
                   ),
                 const Divider(height: 36),
                 Text(
-                  '动态萌属性',
+                  '动态表达倾向',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 6),
@@ -112,7 +112,7 @@ class _PersonalityAppearancePageState
                   child: Column(
                     children: [
                       SwitchListTile.adaptive(
-                        title: const Text('让萌属性影响对话表达'),
+                        title: const Text('让动态表达倾向影响对话表达'),
                         subtitle: const Text('只传递具体表达建议，不会让她报出属性或数值'),
                         value: _moeExpressionEnabled,
                         onChanged: _setMoeExpressionEnabled,

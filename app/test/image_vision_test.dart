@@ -158,6 +158,7 @@ void main() {
                     'album': {
                       'save': true,
                       'category': 'self_image',
+                      'tags': ['self_image', 'anime'],
                       'reason': '核心身份组合一致。',
                       'adult_content': false,
                       'aesthetic_tags': ['蓝色系', '鲸鱼尾'],
@@ -209,6 +210,7 @@ void main() {
       expect(jsonEncode(requestBody), isNot(contains('data:image/webp')));
       expect(result.albumSave, isTrue);
       expect(result.albumCategory, 'self_image');
+      expect(result.albumTags, ['self_image', 'anime']);
     } finally {
       client.close();
       await directory.delete(recursive: true);

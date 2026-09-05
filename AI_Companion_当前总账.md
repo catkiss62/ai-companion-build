@@ -31,36 +31,35 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从与本地 `d6874fb` 同树的公开 v0.41.38 tip `605248d` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.39 最终 CI 输入提交 `7d5e32ef8210e633e5384c025529e1e8720262f7` / tree `ca211cf9713eaecf4b2973f493742c9389ce313d`；公开提交不含用户备份、诊断、附件、消息正文或密钥 |
-| App / 数据库 | 当前真机基线 `0.41.38+177` / schema 50 / Snapshot protocol 5；待装测试版为 `0.41.39+178 / schema 51 / protocol 5`，已完成 CI/APK。schema 51 只为公开网页读取、双摘要、价值评价、知识候选、浏览生命周期和用户删除增加派生字段/表；旧网页摘要标为 legacy 未复核，不改原 `.aibackup`、Memory/evidence/message 正文或 ID |
-| 最终 CI | v0.41.39+178 Actions run [`33983940949`](https://github.com/catkiss62/ai-companion-build/actions/runs/33983940949)（729）全绿：60 项源码/历史 validators、Kotlin、Flutter analyze、598/598 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
+| 当前代码 head / tree | 修改前公开 head `de605c626786a1802123c13e0fa7e50ac94724b2` / tree `0c3cc843aa3fdd344660510f67b17c7bb2e849f0`；v0.41.40 正在同分支实现，尚未提交。公开提交不得含用户备份、诊断、附件、消息正文或密钥 |
+| App / 数据库 | 当前真机为 `0.41.39+178 / schema 51 / Snapshot protocol 5`；目标为 `0.41.40+179 / schema 52 / protocol 5`。schema 52 只增加浏览来源、相册原图和标签字段，并让各表达轴回到既有基线；不改 Memory、消息、关系、世界书或原备份 |
+| 最终 CI | 最近完成仍为 v0.41.39 run [`33983940949`](https://github.com/catkiss62/ai-companion-build/actions/runs/33983940949)（729）全绿、598/598 tests；v0.41.40 为 `IMPLEMENTATION IN PROGRESS / CI PENDING` |
 | 测试 APK | `AI-Companion-v0.41.39-178-Public-Web-Reading-Knowledge-APK.apk`，326,193,174 bytes |
 | APK SHA-256 | `3fed73fa1284c0b682ae513e3c3b38760c171a3704891a68dc6c04729193a2f7`，与 CI checksum、Artifact 独立解包实算和 GitHub Release asset digest 一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
 | Artifact / Release | [Artifact ID `9974722576`](https://github.com/catkiss62/ai-companion-build/actions/runs/33983940949/artifacts/9974722576)，ZIP 319,894,874 bytes，digest `sha256:53bb014a978e43ac1aded54656176d804bc94b9fc75e12fcc855c9fab531ee6c`，保留至 2026-09-19T18:34:16Z；Draft Release [`untagged-bde9dcceec176b8839d7`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bde9dcceec176b8839d7)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 为 `TRUE DEVICE PARTIAL / CLOSED`。v0.41.39 公开网页完整阅读、来源型知识、浏览删除、角色身份与图片语义窄修为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
+| 当前总状态 | 用户真机确认 v0.41.39 大部分测试通过，唯一明确失败是用户要求查询鲸鱼交流后未写入查手机浏览器；动态表达命名/平衡与相册原图/多标签为新增需求。v0.41.40 正在窄修；Phase 3 成熟 `ai_interest` 仍未开启 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装并真机验收 v0.41.39 公开网页完整阅读与价值路由包。** 先确认 `0.41.39+178 / schema 51` 与旧数据保留，再测试网页搜索—读取—整理—评价、浏览器时间/来源/删除、史莱姆角色身份、二次元图片像素匹配和相册保存时间；取得新备份/诊断后再收口 |
-| 目标 | 每次真实浏览由 Tavily Search 找网址、Tavily Extract 读取清洗正文、Agnes 生成用户可读概要与模型关键点，DeepSeek 独立判断语义有效性、个人兴趣、来源型学习与分享价值。浏览记录证明她查过什么；知识候选保存有来源的知识；分享候选决定是否想告诉用户；跨日兴趣证据接口留给 Phase 3A，不让单页直接成为永久兴趣 |
-| 当前证据 | run 729 已通过 60 项源码/历史 validators、Kotlin、Flutter analyze、598 tests、Release APK、固定签名与完整载荷；APK/ZIP 三方哈希一致。自动化已证明代码、迁移合同与打包可运行，但 Tavily/Agnes/DeepSeek/千问真实 API 联动、旧存档 schema 50→51 数据迁移和角色/浏览 UI 仍需真机证据 |
-| 保护与排除 | 不修改或提交用户原 `.aibackup`、诊断、人物提示词原文、聊天正文或密钥；不批量猜测旧消息来源。性格光谱继续作为自由行为模块。规则 03 空占位和 legacy special-style 表/字段/key 保留兼容但不再作为普通聊天运行真源。相册多标签、`album.send`、Phase 3 兴趣和完整用户风格模仿不进入本包 |
-| 实现边界 | knowledge 只作资料，使用其回答不能证明 AI Self，普通 Memory 还需本轮用户逐字证据；behavior 来源随真实 assistant message 落库，但启停/正文无证据权重；roleplay 显式手动启停并绑定来源 Session，同卡可恢复 6000 字符局部尾部、换卡隔离，post-turn 在普通记忆强化前硬退出。`<em>平静</em>` 只在开头、闭合且标签合法时兼容为情绪；既有正文兜底分类器保留 |
-| 完成判据 | 自动化已通过。真机至少验证 schema 50→51 覆盖后旧浏览/候选保留且 legacy 不参与学习/分享；真实查询能显示搜索词、概要、来源与读取时间；无价值但可读页面可留历史，错误项可删除并停止派生使用；史莱姆场景身份生效且退出恢复鲸鱼；二次元存图拒绝 Logo/无关图并显示保存时间。只有新存档/诊断能证明各阶段 Outcome 与生命周期真实运行 |
-| 直接详细入口 | 本节下方“2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修”；规格为 `app/docs/PUBLIC_WEB_READING_KNOWLEDGE_V04139.md`；代码入口为 `LayeredPublicWebProvider/PublicWebDiscoveryEngine/PublicWebShareCoordinator`、`AgentToolRunner/Planner`、`AppDatabase` schema 51、模拟手机 Browser、`QwenVisionClient` 与 `PromptBuilder` roleplay anchor |
+| 当前下一步 | **完成 v0.41.40、推送同一公开分支并构建 APK。** 随后真机验证明确联网查询入浏览器、动态表达不再单轴累积、旧用户图片恢复原图、多标签、缩放拖动和系统相册保存 |
+| 目标 | 明确用户联网与自主联网共用完整阅读/语义判断，但以 `origin=user_turn` 独立写浏览历史，不消耗自主预算；“萌属性”全部显示为“动态表达倾向”，轴名/数值不注入聊天模型；相册保留原图与预览图双份，Qwen 仍只看预览图 |
+| 当前证据 | 用户确认 v0.41.39 其余主要测试通过；源码已实现 schema 52、浏览写入、动态表达 policy v2、原图恢复/快照、多标签与 MediaStore 导出，正在补测试与 CI |
+| 保护与排除 | 不修改或提交用户附件；联网测试图由用户恢复存档去除，不做替换按钮；不开放 `album.send` 或成熟 Phase 3 兴趣；不向模型暴露动态表达具体轴名/数值；不重写旧聊天正文 |
+| 实现边界 | policy v2 迁移只把当前动态轴回归用户 baseline 并清空 recipe 派生态，保留 baseline、事件、开关和其他域；旧 `user_message` 相册条目从仍存在的聊天附件精确补原图，无法核验的联网旧图不伪造原图 |
+| 完成判据 | 专项/历史 validator、Flutter analyze/tests、Kotlin、Release APK、固定签名和载荷全绿；真机再核对 browser、相册原图/导出/标签及动态表达长期分布 |
+| 直接详细入口 | 下方“2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修”；代码入口 `AgentToolRunner/AppDatabase`、`MoeDynamicsPolicy`、`CompanionAlbumStorage/SimulatedPhoneRepository/AlbumPage` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
-| v0.41.39 字段 | 冻结内容 |
+| v0.41.40 字段 | 冻结内容 |
 |---|---|
-| 当前证据 | 现状是 Tavily basic 片段→Agnes 180 字压缩→候选/浏览器，未读原网页、无 DeepSeek 价值判断；首图缺少请求—像素 Gate，浏览条目无撤销联动；角色 Prompt 同时禁止场景身份覆盖，史莱姆卡因此执行失败 |
-| 保护与排除 | 不提交用户 `.aibackup`、诊断、聊天正文、网页正文缓存、人物原稿或密钥；Agnes 只收公开网页正文与公开元数据，不收 Memory、AI Self、关系、手机私密内容。Tavily 继续主搜索、Wikimedia 继续无结果回退；千问继续主视觉。普通无价值但真实可读的网页仍可留浏览历史，只有 mismatch/garbled/unreadable/unsafe 自动撤销。用户删除须同步停用候选/知识/Thought，并保留短期指纹防止立即重收。`album.send`、成熟兴趣消费、完整用户风格模仿、MCP/Harness 不进入本包 |
-| 实现边界 | Search、Extract、Agnes、DeepSeek 各有独立真实 Outcome；只有 Extract 成功且整理有效才算真实浏览。知识是可复核的来源型候选，不修改模型权重、不进入普通 Memory/AI Self。旧片段记录升级为 `legacy_unverified` 并退出学习/分享，允许用户删除或以后重新读取。自主搜索预算从固定 4 次改为默认 6、好奇且去重有效时最多 8 个 Tavily credit/24h；用户明确搜索与分享前 Extract 使用独立预算。roleplay 只在当前场景覆盖身份/身体/性格，永久底色与成长隔离不变 |
-| 完成判据 | schema 50→51 覆盖与旧备份导入保留旧行/ID并正确标 legacy；Search→Extract→Agnes→DeepSeek 成功/失败/无价值路径有测试；浏览、知识、分享状态不串；用户删除事务撤销所有派生使用且可从 UI 完成；无价值但合法浏览仍保留；旧错误摘要不再注入。史莱姆卡在场景内能回答“我是史莱姆”且退出恢复鲸鱼；“存一张二次元图”等自然命令能路由并在视觉不匹配时拒绝；相册展示创建/保存时间。全部专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与载荷通过后才写 `APK READY` |
-| 直接详细入口 | 本节下方“2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修”；规格为 `app/docs/PUBLIC_WEB_READING_KNOWLEDGE_V04139.md`；代码入口为 `LayeredPublicWebProvider/PublicWebDiscoveryEngine/PublicWebShareCoordinator`、`AgentToolRunner/Planner`、`AppDatabase` schema 51、模拟手机 Browser、`QwenVisionClient`、`PromptBuilder` roleplay anchor |
+| 当前证据 | v0.41.39 真机主要链通过，仅用户明确搜索未进入浏览历史；动态表达长期样本出现天然直率偏高；相册只保留预览图且分类单选 |
+| 保护与排除 | 不把相册标签变成强收藏偏好；类别平等，只描述图像。原图只存本机/备份，视觉模型继续读去元数据预览。动态表达数值只给用户 UI，LLM 仅收自然语言呈现指令 |
+| 实现边界 | 明确搜索只保存 verified 且语义为 valid/history_only 的最多三项；mismatch/乱码/不安全项不写。动态驱动按经过时间趋近目标而非每消息叠加，普通/平静/技术 serious 不产生直率脉冲，饱和递减并严格冷却 |
+| 完成判据 | schema 51→52 保留旧数据；旧用户发图可从附件自动补原图；原图备份校验、缩放/拖动/导出、多标签检索与删除双文件均有自动化和真机证据 |
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
@@ -82,6 +81,17 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTATION IN PROGRESS / CI PENDING）
+
+1. 用户报告 v0.41.39 大部分真机测试通过，唯一明确失败为“让她联网查询鲸鱼如何交流”得到回答但没有写入查手机浏览器；同时要求把可见“萌属性”改名“动态表达倾向”、修复天然直率长期偏高，并让相册保存/查看/导出原图、支持多标签与二次元/风景/表情包分类。
+2. 用户最终决定：联网找到的那张测试图无需恢复原图，用户会恢复到没有该图的存档；只为过去由用户发送且聊天附件仍存在的相册条目自动补原图。不增加临时图片替换按钮，不更改旧聊天正文。
+3. 目标版本冻结为 `0.41.40+179 / schema 52 / Snapshot protocol 5`，继续使用公开分支 `agent/v04139-web-reading-learning-roleplay-image`。schema 52 新增 browser `origin`、album original 元数据和 `user_tags_json`；升级只重置动态表达 current/recipe 派生态至既有 baseline，保留 baseline、事件、开关、Memory、消息、关系和世界书。
+4. 明确用户搜索继续执行 Tavily Search→Extract→Agnes 整理→DeepSeek 语义/价值判断；只有 verified 且 `valid/history_only` 的最多三项以 `origin=user_turn` 写模拟手机浏览历史，不建立自主 action run、不消耗自主预算，错误语义不写入。
+5. 动态表达 policy v2 移除 normal/calm 与技术 serious 的直率脉冲，Desire 改按真实经过时间趋近有界目标，事件脉冲接近饱和时递减，natural/goofy 增加互斥轴约束，turn plan 严格尊重 cooldown；具体轴名和数值仍只在用户 UI，不进入聊天模型。
+6. 相册采用原图+1000px 预览双层保存：用户发图原始字节精确复制；旧 `user_message` 条目从 message attachment 自动恢复；Qwen 只看预览。标签为回忆/形象插画/二次元/风景/表情包/其他，可多选并参与 Agent 相册检索；类别本身不提高保存资格。
+7. Album UI 点击进入 `InteractiveViewer`，支持 0.8～8 倍缩放与放大拖动；长按或按钮通过 Android MediaStore 保存到 Pictures/AI Companion。删除、软删除清理、NSFW 退役、缓存清理和 Snapshot 清单同时处理原图与预览。
+8. 修改尚未提交；本地环境无 Flutter/Dart SDK，已新增 v0.41.40 source validator 与 Moe/相册回归测试，需由 Actions 完成 analyze/test/Kotlin/Release APK 和完整载荷验证后再回填提交、run、Artifact、APK 与哈希。
 
 ### 2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 

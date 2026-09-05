@@ -86,9 +86,12 @@ class MoeInputAdapter {
         tags.addAll(const {'concern', 'care_exposed'});
         break;
       case 'serious':
+        // Serious is frequently a technical/accuracy label. It is not
+        // evidence that her everyday expression became more blunt or sly.
+        break;
       case 'confident':
-        add(MoeAxis.unfilteredDirectness, 12);
-        add(MoeAxis.strategicSubtext, 8);
+        add(MoeAxis.unfilteredDirectness, 8);
+        add(MoeAxis.strategicSubtext, 4);
         tags.add('honest_disclosure');
         break;
       case 'helpless':
@@ -98,8 +101,7 @@ class MoeInputAdapter {
         break;
       case 'normal':
       case 'calm':
-        add(MoeAxis.unfilteredDirectness, 2);
-        tags.add('honest_disclosure');
+        // Neutral output is absence of a style event, not proof of directness.
         break;
     }
 
@@ -107,15 +109,11 @@ class MoeInputAdapter {
     final social = _drive(desire, DriveKey.social);
     final libido = _drive(desire, DriveKey.libido);
     final stress = _drive(desire, DriveKey.stress);
-    add(MoeAxis.closenessBid, (attachment - .5) * 6 + (libido - .5) * 3);
-    add(MoeAxis.playfulImpulse, (social - .5) * 5);
-    add(MoeAxis.defensiveMask, (stress - .5) * 4);
-
     // Trial identity contributes only a small numeric modifier; its free-form
     // content is intentionally never read by this adapter.
     if (personalityTrial != null) {
-      add(MoeAxis.unfilteredDirectness, 2);
-      add(MoeAxis.strategicSubtext, 2);
+      add(MoeAxis.unfilteredDirectness, 1.5);
+      add(MoeAxis.strategicSubtext, 1.5);
     }
     if (specialStyleTrial != null) add(MoeAxis.playfulImpulse, 2);
 

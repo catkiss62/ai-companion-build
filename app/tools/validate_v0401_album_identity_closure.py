@@ -35,7 +35,7 @@ for token in (
     "setCompanionAlbumCategory",
     "retireLegacyNsfwAlbumItems",
     "AlbumPerceptualHash.isNearDuplicate",
-    "const {'memory', 'self_image', 'other'}",
+    "companionAlbumTagKeys.contains(category)",
     "category_source': 'user'",
 ):
     assert token in database, token
@@ -65,7 +65,7 @@ assert "maintainAlbum" in repository
 assert "retireLegacyNsfwAlbumItems" in repository
 assert "setAlbumCategory" in repository
 assert "打开图片来源" in page
-assert "分类（可手动纠正）" in page
+assert "分类（可手动纠正）" in page or "标签（可多选）" in page
 assert "includeNsfw" not in page + repository
 assert "label: 'NSFW'" not in page
 assert "albumCategoryLabel(String value)" in page

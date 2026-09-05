@@ -69,6 +69,14 @@ void main() {
       final storedFile = await storage.fileFor(stored.relativePath);
       expect(await storedFile.readAsBytes(), await source.readAsBytes());
       expect(stored.contentSha256, observation.inputContentSha256);
+      final original = await storage.saveOriginal(
+        id: 'ordinary-other',
+        source: source,
+        extension: '.png',
+      );
+      final originalFile = await storage.fileFor(original.relativePath);
+      expect(await originalFile.readAsBytes(), await source.readAsBytes());
+      expect(original.byteSize, await source.length());
     } finally {
       vision.close();
       await directory.delete(recursive: true);
@@ -141,5 +149,20 @@ void main() {
     const error = AlbumImageBindingException('source_changed');
     expect(error.toString(), 'album_image_binding_mismatch:source_changed');
     expect(ProviderHealth.errorCategory(error), 'image_binding');
+  });
+
+  test('album path guard accepts only originals and thumbnails', () {
+    expect(
+      CompanionAlbumStorage.requireSafeRelativePath('originals/item.jpg'),
+      'originals/item.jpg',
+    );
+    expect(
+      () => CompanionAlbumStorage.requireSafeRelativePath('../item.jpg'),
+      throwsFormatException,
+    );
+    expect(
+      () => CompanionAlbumStorage.requireSafeRelativePath('random/item.jpg'),
+      throwsFormatException,
+    );
   });
 }

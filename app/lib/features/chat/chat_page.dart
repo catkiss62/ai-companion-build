@@ -1687,7 +1687,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   _QuickPanelTile(
                     icon: Icons.monitor_heart_outlined,
                     title: '她现在的状态',
-                    subtitle: '只读查看欲望数值与萌属性数字。',
+                    subtitle: '只读查看欲望数值与动态表达倾向。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
                       await Navigator.of(pageContext).push(

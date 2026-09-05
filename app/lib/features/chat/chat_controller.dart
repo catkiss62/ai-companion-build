@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../core/agent/agent_tool.dart';
@@ -793,7 +794,10 @@ class ChatController extends ChangeNotifier {
     );
     if (!begun) return;
     String path = '';
+    String originalPath = '';
     String contentSha = '';
+    String originalSha = '';
+    int originalByteSize = 0;
     String perceptualHash = '';
     final explicitlyRequested = RegExp(
       r'(保存|存下|存进|收藏|收进).{0,10}(这张|这个|图片|照片|相册)|'
@@ -808,6 +812,16 @@ class ChatController extends ChangeNotifier {
       );
       path = stored.relativePath;
       contentSha = stored.contentSha256;
+      final originalFile =
+          await attachmentStorage.fileFor(attachment.originalPath);
+      final original = await CompanionAlbumStorage().saveOriginal(
+        id: candidateId,
+        source: originalFile,
+        extension: p.extension(attachment.originalPath),
+      );
+      originalPath = original.relativePath;
+      originalSha = original.contentSha256;
+      originalByteSize = original.byteSize;
       perceptualHash = await AlbumPerceptualHash.fromFile(thumbnail);
     }
     final completed = await db.completeCompanionAlbumCandidate(
@@ -819,7 +833,12 @@ class ChatController extends ChangeNotifier {
           ? '用户在本轮明确要求保存这张图片；视觉摘要仅用于相册索引。'
           : observation.albumReason,
       category: observation.albumCategory,
+      tags: observation.albumTags,
       thumbnailPath: path,
+      originalPath: originalPath,
+      originalContentSha256: originalSha,
+      originalMimeType: attachment.mimeType,
+      originalByteSize: originalByteSize,
       contentSha256: contentSha,
       perceptualHash: perceptualHash,
       visualFingerprint: observation.aestheticTags.join('|'),
@@ -829,6 +848,9 @@ class ChatController extends ChangeNotifier {
     );
     if (!completed && path.isNotEmpty) {
       await CompanionAlbumStorage().deleteThumbnail(path);
+    }
+    if (!completed && originalPath.isNotEmpty) {
+      await CompanionAlbumStorage().deleteFile(originalPath);
     }
     final outcome =
         await db.companionAlbumCandidateOutcomeCategory(candidateId);

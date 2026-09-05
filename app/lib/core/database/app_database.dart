@@ -103,7 +103,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 48;
   // Historical validator compatibility token: static const int schemaVersion = 49;
   // Historical validator compatibility token: static const int schemaVersion = 50;
-  static const int schemaVersion = 51;
+  // Historical validator compatibility token: static const int schemaVersion = 51;
+  static const int schemaVersion = 52;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1108,6 +1109,10 @@ class AppDatabase {
       await _createV51PublicWebReadingColumns(db);
       await _stabilizeV51PublicWebReading(db);
     }
+    if (oldVersion < 52) {
+      await _createV52ExpressionAlbumBrowserColumns(db);
+      await _stabilizeV52ExpressionAlbumBrowser(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1299,6 +1304,7 @@ class AppDatabase {
     await _createV49MemoryLifecycleColumns(db);
     await _createV50WorldBookProvenanceColumns(db);
     await _createV51PublicWebReadingColumns(db);
+    await _createV52ExpressionAlbumBrowserColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1407,6 +1413,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'screen_off_contact_last_reason', 'value': 'never'});
     await db.insert('settings', {'key': 'screen_off_contact_last_scale', 'value': '0'});
     await db.insert('settings', {'key': 'screen_off_contact_last_pulse_at', 'value': '0'});
+    await _stabilizeV52ExpressionAlbumBrowser(db);
   }
 
   Future<void> _createV2Tables(Database db) async {
@@ -3095,6 +3102,68 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_browser_lifecycle_time '
       'ON companion_browser_visits(lifecycle_state, discovered_at DESC)',
+    );
+  }
+
+  Future<void> _createV52ExpressionAlbumBrowserColumns(Database db) async {
+    Future<void> addMissing(
+      String table,
+      Map<String, String> definitions,
+    ) async {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final entry in definitions.entries) {
+        if (!columns.contains(entry.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
+      }
+    }
+
+    await addMissing('companion_browser_visits', const <String, String>{
+      'origin': "TEXT NOT NULL DEFAULT 'autonomous'",
+    });
+    await addMissing('companion_album_candidates', const <String, String>{
+      'original_path': "TEXT NOT NULL DEFAULT ''",
+      'original_content_sha256': "TEXT NOT NULL DEFAULT ''",
+      'original_mime_type': "TEXT NOT NULL DEFAULT ''",
+      'original_byte_size': 'INTEGER NOT NULL DEFAULT 0',
+      'original_status': "TEXT NOT NULL DEFAULT 'missing'",
+      'user_tags_json': "TEXT NOT NULL DEFAULT '[]'",
+    });
+  }
+
+  Future<void> _stabilizeV52ExpressionAlbumBrowser(
+    DatabaseExecutor txn,
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await txn.rawUpdate('''
+      UPDATE companion_album_candidates
+      SET user_tags_json = CASE category
+        WHEN 'memory' THEN '["memory"]'
+        WHEN 'self_image' THEN '["self_image","anime"]'
+        ELSE '["other"]'
+      END
+      WHERE user_tags_json IS NULL OR user_tags_json = '' OR user_tags_json = '[]'
+    ''');
+    // v1 accumulated per-message feedback into transient values. The v2
+    // policy changes those semantics, so only derived currents/recipes reset;
+    // user baselines, mode, event history and every other domain are retained.
+    await txn.rawUpdate(
+      'UPDATE moe_axis_state SET current_value = baseline, policy_version = 2, updated_at = ?',
+      <Object?>[now],
+    );
+    await txn.rawUpdate(
+      'UPDATE moe_recipe_state SET strength = 0, active = 0, entered_at = NULL, '
+      'exited_at = NULL, cooldown_until = NULL, updated_at = ?',
+      <Object?>[now],
+    );
+    await txn.update(
+      'moe_config',
+      <String, Object?>{'policy_version': 2, 'updated_at': now},
+      where: 'id = 1',
     );
   }
 
@@ -10584,12 +10653,18 @@ class AppDatabase {
              v.semantic_state, v.key_points_json, v.topic_tags_json, v.read_at,
              v.search_query
       FROM companion_browser_visits v
-      JOIN autonomous_action_runs a ON a.id = v.action_run_id
+      LEFT JOIN autonomous_action_runs a ON a.id = v.action_run_id
       WHERE v.discovered_at >= ?
         AND v.lifecycle_state = 'visible'
-        AND a.status = 'succeeded'
-        AND a.outcome_kind = 'candidate_stored'
-        AND a.reason_source NOT LIKE 'diagnostic_%'
+        AND (
+          v.origin = 'user_turn'
+          OR (
+            v.origin = 'autonomous'
+            AND a.status = 'succeeded'
+            AND a.outcome_kind = 'candidate_stored'
+            AND a.reason_source NOT LIKE 'diagnostic_%'
+          )
+        )
         AND v.provider NOT LIKE 'diagnostic%'
       ORDER BY v.discovered_at DESC, v.id DESC
       LIMIT 180
@@ -10610,6 +10685,73 @@ class AppDatabase {
       result.add(CompanionBrowserVisit.fromDb(row));
     }
     return result;
+  }
+
+  /// Persists only verified, semantically accepted results from an explicit
+  /// user-turn web tool. These rows are browser history, not autonomous runs:
+  /// they consume no Desire budget and cannot become proactive candidates.
+  Future<int> recordUserTurnBrowserVisits({
+    required String eventId,
+    required List<PublicWebCandidateDraft> candidates,
+    DateTime? now,
+  }) async {
+    if (candidates.isEmpty) return 0;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final phoneRows = await db.query(
+      'settings',
+      columns: const <String>['value'],
+      where: 'key = ?',
+      whereArgs: const <Object?>['simulated_phone_enabled'],
+      limit: 1,
+    );
+    if (phoneRows.isNotEmpty && phoneRows.first['value'] == '0') return 0;
+    final stableEvent = eventId.trim().isEmpty ? _uuid.v4() : eventId.trim();
+    return db.transaction<int>((txn) async {
+      var stored = 0;
+      for (final candidate in candidates.take(3)) {
+        final uri = Uri.tryParse(candidate.url);
+        if (!candidate.isVerifiedRead ||
+            !const <String>{'valid', 'history_only'}
+                .contains(candidate.semanticState) ||
+            candidate.title.trim().isEmpty ||
+            candidate.sourceDomain.trim().isEmpty ||
+            uri == null ||
+            uri.scheme != 'https' ||
+            uri.host != candidate.sourceDomain) {
+          continue;
+        }
+        final digest = sha256
+            .convert(utf8.encode('$stableEvent|${candidate.fingerprint}'))
+            .toString();
+        final id = 'userweb_${digest.substring(0, 40)}';
+        final inserted = await txn.insert(
+          'companion_browser_visits',
+          <String, Object?>{
+            'id': id,
+            'title': _bounded(candidate.title.trim(), 240),
+            'summary': _bounded(candidate.summary.trim(), 1800),
+            'url': candidate.url,
+            'source_domain': candidate.sourceDomain,
+            'provider': candidate.provider,
+            'discovered_at': candidate.discoveredAt.millisecondsSinceEpoch,
+            'action_run_id': _bounded(stableEvent, 180),
+            'created_at': instant.millisecondsSinceEpoch,
+            'read_state': candidate.readState,
+            'semantic_state': candidate.semanticState,
+            'key_points_json': jsonEncode(candidate.keyPoints),
+            'topic_tags_json': jsonEncode(candidate.topicTags),
+            'read_at': candidate.readAt?.millisecondsSinceEpoch,
+            'search_query': _bounded(candidate.searchQuery, 160),
+            'lifecycle_state': 'visible',
+            'origin': 'user_turn',
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+        if (inserted != 0) stored++;
+      }
+      return stored;
+    });
   }
 
   Future<bool> deleteCompanionBrowserVisit(
@@ -10816,6 +10958,11 @@ class AppDatabase {
     required int width,
     required int height,
     required DateTime recognizedAt,
+    List<String> tags = const <String>[],
+    String originalPath = '',
+    String originalContentSha256 = '',
+    String originalMimeType = '',
+    int originalByteSize = 0,
   }) async {
     final db = await database;
     return db.transaction<bool>((txn) async {
@@ -10887,9 +11034,12 @@ class AppDatabase {
         }
       }
       final normalizedCategory =
-          const {'memory', 'self_image', 'other'}.contains(category)
+          companionAlbumTagKeys.contains(category)
               ? category
               : 'other';
+      final normalizedTags = normalizeAlbumTags(
+        tags.isEmpty ? <String>[normalizedCategory] : tags,
+      );
       final changed = await txn.update(
         'companion_album_candidates',
         {
@@ -10897,10 +11047,16 @@ class AppDatabase {
           'vision_summary': _bounded(visionSummary, 1800),
           'vision_model': _bounded(visionModel, 120),
           'ai_reason': _bounded(aiReason, 360),
-          'category': normalizedCategory,
+          'category': normalizedTags.first,
+          'user_tags_json': jsonEncode(normalizedTags),
           'category_source': 'ai',
           'nsfw': 0,
           'thumbnail_path': save ? thumbnailPath : '',
+          'original_path': save ? originalPath : '',
+          'original_content_sha256': save ? originalContentSha256 : '',
+          'original_mime_type': save ? originalMimeType : '',
+          'original_byte_size': save ? originalByteSize.clamp(0, 26214400) : 0,
+          'original_status': save && originalPath.isNotEmpty ? 'stored' : 'missing',
           'content_sha256': save ? contentSha256 : '',
           'visual_fingerprint': _bounded(visualFingerprint, 600),
           'perceptual_hash': save ? perceptualHash : '',
@@ -11019,8 +11175,7 @@ class AppDatabase {
     String id, {
     required String category,
   }) async {
-    const allowed = {'memory', 'self_image', 'other'};
-    if (!allowed.contains(category)) {
+    if (!companionAlbumTagKeys.contains(category)) {
       throw ArgumentError.value(category, 'category');
     }
     final db = await database;
@@ -11028,6 +11183,7 @@ class AppDatabase {
       'companion_album_candidates',
       {
         'category': category,
+        'user_tags_json': jsonEncode(<String>[category]),
         'category_source': 'user',
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
@@ -11037,17 +11193,61 @@ class AppDatabase {
     );
   }
 
-  Future<String> deleteCompanionAlbumItem(String id) async {
+  Future<void> setCompanionAlbumTags(
+    String id, {
+    required Iterable<String> tags,
+  }) async {
+    final normalized = normalizeAlbumTags(tags);
+    final primary = normalized.first;
     final db = await database;
-    return db.transaction<String>((txn) async {
+    await db.update(
+      'companion_album_candidates',
+      <String, Object?>{
+        'category': primary,
+        'user_tags_json': jsonEncode(normalized),
+        'category_source': 'user',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where:
+          "id = ? AND nsfw = 0 AND lifecycle_state IN ('saved','soft_deleted')",
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  Future<void> attachCompanionAlbumOriginal(
+    String id, {
+    required String originalPath,
+    required String contentSha256,
+    required String mimeType,
+    required int byteSize,
+  }) async {
+    final db = await database;
+    await db.update(
+      'companion_album_candidates',
+      <String, Object?>{
+        'original_path': originalPath,
+        'original_content_sha256': contentSha256,
+        'original_mime_type': _bounded(mimeType, 80),
+        'original_byte_size': byteSize.clamp(0, 26214400),
+        'original_status': 'stored',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND lifecycle_state IN ('saved','soft_deleted')",
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  Future<List<String>> deleteCompanionAlbumItem(String id) async {
+    final db = await database;
+    return db.transaction<List<String>>((txn) async {
       final rows = await txn.query(
         'companion_album_candidates',
-        columns: const ['thumbnail_path'],
+        columns: const ['thumbnail_path', 'original_path'],
         where: 'id = ?',
         whereArgs: [id],
         limit: 1,
       );
-      if (rows.isEmpty) return '';
+      if (rows.isEmpty) return const <String>[];
       await txn.update(
         'companion_album_candidates',
         {
@@ -11059,7 +11259,10 @@ class AppDatabase {
         where: 'id = ?',
         whereArgs: [id],
       );
-      return rows.first['thumbnail_path'] as String? ?? '';
+      return <String>[
+        rows.first['thumbnail_path'] as String? ?? '',
+        rows.first['original_path'] as String? ?? '',
+      ].where((value) => value.isNotEmpty).toList(growable: false);
     });
   }
 
@@ -11069,7 +11272,7 @@ class AppDatabase {
     return db.transaction<List<String>>((txn) async {
       final rows = await txn.query(
         'companion_album_candidates',
-        columns: const ['id', 'thumbnail_path'],
+        columns: const ['id', 'thumbnail_path', 'original_path'],
         where: "lifecycle_state = 'soft_deleted' AND delete_after IS NOT NULL AND delete_after <= ?",
         whereArgs: [at],
       );
@@ -11081,7 +11284,10 @@ class AppDatabase {
         [at, ...ids],
       );
       return rows
-          .map((row) => row['thumbnail_path'] as String? ?? '')
+          .expand((row) => <String>[
+                row['thumbnail_path'] as String? ?? '',
+                row['original_path'] as String? ?? '',
+              ])
           .where((value) => value.isNotEmpty)
           .toList(growable: false);
     });
@@ -11093,7 +11299,7 @@ class AppDatabase {
     return db.transaction<List<String>>((txn) async {
       final rows = await txn.query(
         'companion_album_candidates',
-        columns: const ['thumbnail_path'],
+        columns: const ['thumbnail_path', 'original_path'],
         where: "nsfw = 1 AND thumbnail_path != ''",
       );
       await txn.update(
@@ -11101,6 +11307,11 @@ class AppDatabase {
         {
           'lifecycle_state': 'deleted',
           'thumbnail_path': '',
+          'original_path': '',
+          'original_content_sha256': '',
+          'original_mime_type': '',
+          'original_byte_size': 0,
+          'original_status': 'missing',
           'content_sha256': '',
           'perceptual_hash': '',
           'delete_after': null,
@@ -11110,7 +11321,10 @@ class AppDatabase {
         where: 'nsfw = 1',
       );
       return rows
-          .map((row) => row['thumbnail_path']?.toString() ?? '')
+          .expand((row) => <String>[
+                row['thumbnail_path']?.toString() ?? '',
+                row['original_path']?.toString() ?? '',
+              ])
           .where((path) => path.isNotEmpty)
           .toList(growable: false);
     });
@@ -11215,6 +11429,21 @@ class AppDatabase {
           [bindingCutoff, 'image_binding'],
         )) ??
         0;
+    final storedOriginals = Sqflite.firstIntValue(await db.rawQuery(
+          "SELECT COUNT(*) FROM companion_album_candidates WHERE nsfw = 0 AND lifecycle_state IN ('saved','soft_deleted') AND original_status = 'stored' AND original_path != ''",
+        )) ??
+        0;
+    final recoverableUserOriginalsMissing =
+        Sqflite.firstIntValue(await db.rawQuery('''
+          SELECT COUNT(*)
+          FROM companion_album_candidates c
+          JOIN message_attachments a ON a.id = c.source_id
+          WHERE c.source_kind = 'user_message'
+            AND c.nsfw = 0
+            AND c.lifecycle_state IN ('saved','soft_deleted')
+            AND (c.original_status != 'stored' OR c.original_path = '')
+        ''')) ??
+        0;
     return {
       'byState': byState,
       'outcomeClassification': {
@@ -11226,6 +11455,17 @@ class AppDatabase {
       'preferenceFeedbackRows': (await db.rawQuery(
         "SELECT COUNT(*) FROM companion_album_candidates WHERE nsfw = 0 AND user_feedback IN ('like','dislike')",
       )).first.values.first,
+      'originalStorage': {
+        'storedVisibleCount': storedOriginals,
+        'recoverableUserMessageMissingCount': recoverableUserOriginalsMissing,
+        'exactBytesIncludedInDiagnostics': false,
+        'pathsIncludedInDiagnostics': false,
+      },
+      'tagging': {
+        'mode': 'bounded_multiselect_v04140',
+        'allowedCount': companionAlbumTagKeys.length,
+        'tagValuesIncludedInDiagnostics': false,
+      },
       'imageBinding': {
         'mode': 'single_primary_image_sha256_v0405',
         'primaryAssessmentImageCount': 1,
@@ -11696,6 +11936,12 @@ class AppDatabase {
             .split(RegExp(r'[\r\n]+'))
             .where((line) => line.trim().isNotEmpty)
             .length;
+    final browserOrigins = await db.rawQuery('''
+      SELECT origin, COUNT(*) AS count
+      FROM companion_browser_visits
+      WHERE lifecycle_state = 'visible'
+      GROUP BY origin
+    ''');
     return {
       'enabled': (await getSetting('public_web_discovery_enabled')) != '0',
       'provider': lastRows.isEmpty
@@ -11708,6 +11954,14 @@ class AppDatabase {
       'activeCount': byLifecycle.values.fold<int>(0, (a, b) => a + b),
       'expiredCount': expired,
       'byLifecycle': byLifecycle,
+      'browserHistory': {
+        'byOrigin': <String, int>{
+          for (final row in browserOrigins)
+            row['origin']?.toString() ?? 'unknown':
+                (row['count'] as num?)?.toInt() ?? 0,
+        },
+        'queryOrContentIncluded': false,
+      },
       'appraisal': {
         'lastSearchMode':
             await getSetting('public_web_last_search_mode') ?? 'never',
@@ -16335,6 +16589,9 @@ class AppDatabase {
       }
       if (version < 51) {
         await _stabilizeV51PublicWebReading(txn);
+      }
+      if (version < 52) {
+        await _stabilizeV52ExpressionAlbumBrowser(txn);
       }
       await txn.update(
         'reference_documents',

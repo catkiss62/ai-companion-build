@@ -3,7 +3,7 @@
 /// This file intentionally imports no Desire, relationship, prompt, emotion,
 /// TTS, tool, or proactive-action implementation.
 const int moeContractVersion = 1;
-const int moePolicyVersion = 1;
+const int moePolicyVersion = 2;
 
 double clampMoeValue(num value) => value.toDouble().clamp(0.0, 100.0).toDouble();
 
@@ -375,7 +375,7 @@ class MoeExpressionPlan {
         secondary: null,
         visibleStrengths: const {},
         styleDirectives: const [],
-        safetyDirectives: const ['萌属性保持只读呈现，不调用工具或改写其他系统。'],
+        safetyDirectives: const ['动态表达倾向保持只读呈现，不调用工具或改写其他系统。'],
         neutral: true,
       );
 

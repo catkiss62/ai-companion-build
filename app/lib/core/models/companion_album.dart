@@ -11,8 +11,14 @@ class CompanionAlbumItem {
     required this.summary,
     required this.reason,
     required this.category,
+    this.tags = const <String>['other'],
     required this.nsfw,
     required this.thumbnailPath,
+    this.originalPath = '',
+    this.originalContentSha256 = '',
+    this.originalMimeType = '',
+    this.originalByteSize = 0,
+    this.originalStatus = 'missing',
     required this.contentSha256,
     required this.visualFingerprint,
     required this.perceptualHash,
@@ -46,8 +52,14 @@ class CompanionAlbumItem {
   final String summary;
   final String reason;
   final String category;
+  final List<String> tags;
   final bool nsfw;
   final String thumbnailPath;
+  final String originalPath;
+  final String originalContentSha256;
+  final String originalMimeType;
+  final int originalByteSize;
+  final String originalStatus;
   final String contentSha256;
   final String visualFingerprint;
   final String perceptualHash;
@@ -65,6 +77,7 @@ class CompanionAlbumItem {
 
   bool get isVisible => lifecycle == saved || lifecycle == softDeleted;
   bool get isPendingDelete => lifecycle == softDeleted;
+  bool get hasOriginal => originalStatus == 'stored' && originalPath.isNotEmpty;
 
   factory CompanionAlbumItem.fromDb(Map<String, Object?> row) {
     DateTime? date(String key) {
@@ -84,8 +97,18 @@ class CompanionAlbumItem {
       summary: row['vision_summary'] as String? ?? '',
       reason: row['ai_reason'] as String? ?? '',
       category: row['category'] as String? ?? 'other',
+      tags: _decodeAlbumTags(
+        row['user_tags_json'],
+        fallback: row['category'] as String? ?? 'other',
+      ),
       nsfw: row['nsfw'] == 1,
       thumbnailPath: row['thumbnail_path'] as String? ?? '',
+      originalPath: row['original_path'] as String? ?? '',
+      originalContentSha256:
+          row['original_content_sha256'] as String? ?? '',
+      originalMimeType: row['original_mime_type'] as String? ?? '',
+      originalByteSize: (row['original_byte_size'] as num?)?.toInt() ?? 0,
+      originalStatus: row['original_status'] as String? ?? 'missing',
       contentSha256: row['content_sha256'] as String? ?? '',
       visualFingerprint: row['visual_fingerprint'] as String? ?? '',
       perceptualHash: row['perceptual_hash'] as String? ?? '',
@@ -102,6 +125,38 @@ class CompanionAlbumItem {
       unread: row['unread'] == 1,
     );
   }
+
+  static List<String> _decodeAlbumTags(Object? raw, {required String fallback}) {
+    try {
+      final decoded = jsonDecode(raw?.toString() ?? '[]');
+      if (decoded is List) {
+        final normalized = normalizeAlbumTags(
+          decoded.map((value) => value.toString()),
+        );
+        if (normalized.isNotEmpty) return normalized;
+      }
+    } catch (_) {}
+    return normalizeAlbumTags(<String>[fallback]);
+  }
+}
+
+const Set<String> companionAlbumTagKeys = <String>{
+  'memory',
+  'self_image',
+  'anime',
+  'landscape',
+  'sticker',
+  'other',
+};
+
+List<String> normalizeAlbumTags(Iterable<String> values) {
+  final tags = <String>{
+    for (final value in values)
+      if (companionAlbumTagKeys.contains(value.trim())) value.trim(),
+  };
+  if (tags.length > 1) tags.remove('other');
+  if (tags.isEmpty) tags.add('other');
+  return companionAlbumTagKeys.where(tags.contains).toList(growable: false);
 }
 
 class CompanionBrowserVisit {

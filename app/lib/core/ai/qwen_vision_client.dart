@@ -12,6 +12,7 @@ class QwenVisionObservation {
     required this.inputContentSha256,
     this.albumSave = false,
     this.albumCategory = 'other',
+    this.albumTags = const <String>['other'],
     this.albumReason = '',
     this.aestheticTags = const [],
     this.albumConfidence = 0,
@@ -27,6 +28,7 @@ class QwenVisionObservation {
   final String inputContentSha256;
   final bool albumSave;
   final String albumCategory;
+  final List<String> albumTags;
   final String albumReason;
   final List<String> aestheticTags;
   final double albumConfidence;
@@ -175,6 +177,13 @@ class QwenVisionClient {
         album['nsfw'] == true ||
         rawCategory == 'nsfw';
     final category = _albumCategory(rawCategory);
+    final rawAlbumTags = album['tags'];
+    final proposedAlbumTags = rawAlbumTags is List
+        ? rawAlbumTags.map((value) => value.toString()).toList()
+        : const <String>[];
+    final albumTags = _albumTags(
+      proposedAlbumTags.isEmpty ? <String>[category] : proposedAlbumTags,
+    );
     final reason = album['reason']?.toString().trim() ?? '';
     final rawTags = album['aesthetic_tags'];
     final tags = rawTags is List
@@ -201,6 +210,7 @@ class QwenVisionClient {
       inputContentSha256: inputContentSha256,
       albumSave: assessForAlbum && album['save'] == true,
       albumCategory: category,
+      albumTags: albumTags,
       albumReason: reason.length > 360 ? reason.substring(0, 360) : reason,
       aestheticTags: tags,
       albumConfidence:
@@ -239,8 +249,23 @@ class QwenVisionClient {
   void close() => _client.close();
 
   static String _albumCategory(String value) {
-    const allowed = {'memory', 'self_image', 'other'};
+    const allowed = {
+      'memory', 'self_image', 'anime', 'landscape', 'sticker', 'other',
+    };
     return allowed.contains(value) ? value : 'other';
+  }
+
+  static List<String> _albumTags(Iterable<String> values) {
+    const allowed = <String>{
+      'memory', 'self_image', 'anime', 'landscape', 'sticker', 'other',
+    };
+    final result = <String>{
+      for (final value in values)
+        if (allowed.contains(value.trim())) value.trim(),
+    };
+    if (result.length > 1) result.remove('other');
+    if (result.isEmpty) result.add('other');
+    return allowed.where(result.contains).toList(growable: false);
   }
 
   static String _systemPrompt({
@@ -280,12 +305,15 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
 二次元立绘、赛璐璐、厚涂、游戏 CG、风景与其他风格都按实际画面评价；“可爱”“高清”“色彩鲜艳”或商业级完成度本身都不是充分理由。只有能指出具体的美感、氛围、艺术表达、角色关联、趣味或回忆价值时才倾向 save=true；普通功能性图片即使制作规范，也不自动等于收藏级画面。
 构图可以简洁，但视觉意图应当成立；复杂画面也应有清晰焦点。无法从像素确认的价值不要由附带文字补造。reason 必须简洁说明决定所依据的具体视觉证据，而不是复述类别标签。
 这只是相册候选判断，不得改变聊天回复、人格、记忆或关系结论。
+标签可以多选：
 “self_image”表示与她的人格形象有关的插画/形象图，并不强行称为自拍；
 “memory”表示用户发来的、有共同回忆或明显交流价值的图片；
-“other”表示其他值得收藏的普通图片。
+“anime”表示普通二次元/动漫风格图片；“landscape”表示自然或城市风景；
+“sticker”表示表情包、反应图或梗图；“other”只在没有任何更具体标签时使用。
+分类只描述图片是什么，不能因为属于某个标签就直接决定收藏。她自己的形象只是平等候选之一，风景、普通二次元、表情包和其他有独立价值的画面不得因与身份无关而被压低。
 adult_content 只作内容分级元数据，不替代上述收藏价值判断；aesthetic_tags 可以如实使用与画风、氛围、题材和视觉表现有关的词。
 必须只输出 JSON：
-{"summary":"...","request_match":{"matches":true,"confidence":0.0,"reason":"像素是否满足找图目标的理由"},"album":{"save":true,"category":"memory|self_image|other","reason":"...","adult_content":false,"aesthetic_tags":["..."],"confidence":0.0}}
+{"summary":"...","request_match":{"matches":true,"confidence":0.0,"reason":"像素是否满足找图目标的理由"},"album":{"save":true,"category":"memory|self_image|anime|landscape|sticker|other","tags":["memory|self_image|anime|landscape|sticker|other"],"reason":"...","adult_content":false,"aesthetic_tags":["..."],"confidence":0.0}}
 $requestContract
 用户审美反馈只作为弱偏好，不把点赞/点踩解释成用户对她说的话。
 审美提示：''' +

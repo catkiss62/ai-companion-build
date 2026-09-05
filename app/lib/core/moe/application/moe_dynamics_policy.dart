@@ -37,13 +37,28 @@ class MoeDynamicsPolicy {
       final retention = math.exp(-_returnRate(axis) * elapsedHours);
       next[axis] = clampMoeValue(baseline + (current - baseline) * retention);
     }
+    _relaxTowardDriveTargets(
+      next,
+      previous.baselines,
+      input.normalizedSignals,
+      elapsedHours,
+    );
 
     final event = input.event;
     if (event != null && !event.occurredAt.isAfter(now.add(const Duration(minutes: 5)))) {
+      final appliedPulses = <MoeAxis, double>{};
       for (final entry in event.axisPulses.entries) {
-        next[entry.key] = clampMoeValue((next[entry.key] ?? 0) + entry.value);
+        final baseline = previous.baselines[entry.key] ?? entry.key.defaultBaseline;
+        final current = next[entry.key] ?? baseline;
+        final effective = _diminishedPulse(
+          baseline: baseline,
+          current: current,
+          pulse: entry.value,
+        );
+        appliedPulses[entry.key] = effective;
+        next[entry.key] = clampMoeValue(current + effective);
       }
-      _applyBoundedCoupling(next, event.axisPulses);
+      _applyBoundedCoupling(next, appliedPulses);
     }
 
     final tags = event?.contextTags ?? const <String>{};
@@ -100,7 +115,7 @@ class MoeDynamicsPolicy {
       },
       styleDirectives: selected.map(_directive).toList(growable: false),
       safetyDirectives: const [
-        '萌属性只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
+        '动态表达倾向只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
         '没有对应情境信号时保持自然，不机械报出属性名称。',
       ],
     );
@@ -166,6 +181,7 @@ class MoeDynamicsPolicy {
     double selectionUnit = 0.0,
     double neutralUnit = 1.0,
     double intensityUnit = 0.5,
+    DateTime? now,
   }) {
     if (!state.enabled) {
       return MoeExpressionPlan.neutral(expressionMode: state.expressionMode);
@@ -176,11 +192,15 @@ class MoeDynamicsPolicy {
       bool contextReady,
       double weight,
     })>[];
+    final instant = now ?? DateTime.now();
     for (final recipe in MoeRecipe.values) {
       final status = state.recipes[recipe] ?? const MoeRecipeStatus();
-      final contextReady = _contextTags(recipe).any(contextTags.contains);
+      final cooling = status.cooldownUntil?.isAfter(instant) ?? false;
+      final contextReady = _contextTags(recipe).any(contextTags.contains) &&
+          _recipeAxesCompatible(recipe, state.current);
       final scored = _score(recipe, state.current);
       final afterglowReady = allowAfterglow && status.active;
+      if (cooling && !status.active) continue;
       if (!(contextReady && scored >= entryThreshold - 8.0) &&
           !afterglowReady) {
         continue;
@@ -224,7 +244,7 @@ class MoeDynamicsPolicy {
         secondary: null,
         visibleStrengths: const {},
         styleDirectives: const [],
-        safetyDirectives: const ['萌属性保持只读呈现，不调用工具或改写其他系统。'],
+        safetyDirectives: const ['动态表达倾向保持只读呈现，不调用工具或改写其他系统。'],
         neutral: true,
         selectionSeed: selectionSeed,
         candidateCount: eligible.length,
@@ -280,7 +300,7 @@ class MoeDynamicsPolicy {
       },
       styleDirectives: chosen.map(_directive).toList(growable: false),
       safetyDirectives: const [
-        '萌属性只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
+        '动态表达倾向只读取已提交的状态，不写入 Desire、关系、情绪或规则系统。',
         '没有对应情境信号时保持自然，不机械报出属性名称。',
       ],
       selectionSeed: selectionSeed,
@@ -316,13 +336,13 @@ class MoeDynamicsPolicy {
     if (RegExp(r'(怎么了|没事吧|累不累|困了吗|早点休息|担心你|照顾好)').hasMatch(text)) {
       tags.addAll(const {'concern', 'care_exposed', 'seeking_care'});
     }
-    if (RegExp(r'(不对|不同意|才不是|胡说|别闹|讨厌你|闭嘴)').hasMatch(text)) {
+    if (RegExp(r'(才不是|胡说八道|讨厌你|闭嘴|你又来|少来这套)').hasMatch(text)) {
       tags.addAll(const {'assertive_response', 'real_flaw'});
     }
     if (RegExp(r'(什么情况|为什么|怎么会|没懂|不明白)').hasMatch(text)) {
       tags.addAll(const {'confusion', 'surprise'});
     }
-    if (RegExp(r'(其实|我觉得|我想告诉你|认真说|说真的)').hasMatch(text)) {
+    if (RegExp(r'(我想告诉你|认真说|说真的|有件重要的事)').hasMatch(text)) {
       tags.add('honest_disclosure');
     }
     return tags;
@@ -333,6 +353,43 @@ class MoeDynamicsPolicy {
         MoeAxis.defensiveMask || MoeAxis.strategicSubtext => 0.32,
         _ => 0.42,
       };
+
+  void _relaxTowardDriveTargets(
+    Map<MoeAxis, double> values,
+    Map<MoeAxis, double> baselines,
+    Map<String, double> signals,
+    double elapsedHours,
+  ) {
+    if (elapsedHours <= 0 || signals.isEmpty) return;
+    final alpha = 1 - math.exp(-0.70 * elapsedHours);
+    double signal(String key) => (signals[key] ?? .5).clamp(0.0, 1.0);
+    final offsets = <MoeAxis, double>{
+      MoeAxis.closenessBid:
+          (signal('attachment') - .5) * 10 + (signal('libido') - .5) * 4,
+      MoeAxis.playfulImpulse: (signal('social') - .5) * 8,
+      MoeAxis.defensiveMask: (signal('stress') - .5) * 7,
+    };
+    for (final entry in offsets.entries) {
+      final baseline = baselines[entry.key] ?? entry.key.defaultBaseline;
+      final target = clampMoeValue(baseline + entry.value);
+      final current = values[entry.key] ?? baseline;
+      values[entry.key] = clampMoeValue(current + (target - current) * alpha);
+    }
+  }
+
+  double _diminishedPulse({
+    required double baseline,
+    required double current,
+    required double pulse,
+  }) {
+    if (pulse == 0) return 0;
+    final sameDirectionDistance = pulse > 0
+        ? math.max(0.0, current - baseline)
+        : math.max(0.0, baseline - current);
+    final saturation = (sameDirectionDistance / 55.0).clamp(0.0, 1.0);
+    final factor = (1.0 - saturation * .78).clamp(.22, 1.0);
+    return (pulse * factor).clamp(-16.0, 16.0).toDouble();
+  }
 
   void _applyBoundedCoupling(
     Map<MoeAxis, double> values,
@@ -358,7 +415,8 @@ class MoeDynamicsPolicy {
     final result = <MoeRecipe, MoeRecipeStatus>{};
     for (final recipe in MoeRecipe.values) {
       final old = previous.recipes[recipe] ?? const MoeRecipeStatus();
-      final contextReady = _contextTags(recipe).any(tags.contains);
+      final contextReady = _contextTags(recipe).any(tags.contains) &&
+          _recipeAxesCompatible(recipe, axes);
       final raw = _score(recipe, axes);
       // A named trope is not treated as factual without a matching context.
       final grounded = contextReady ? raw : math.min(raw, entryThreshold - 7.0);
@@ -407,15 +465,29 @@ class MoeDynamicsPolicy {
       MoeRecipe.shy =>
         axis(MoeAxis.bashfulInhibition) * .62 + axis(MoeAxis.flusteredBumble) * .25 + axis(MoeAxis.closenessBid) * .13,
       MoeRecipe.goofyCute =>
-        axis(MoeAxis.flusteredBumble) * .60 + axis(MoeAxis.playfulImpulse) * .25 + axis(MoeAxis.cuteDisplay) * .15,
+        axis(MoeAxis.flusteredBumble) * .52 + axis(MoeAxis.playfulImpulse) * .23 + axis(MoeAxis.cuteDisplay) * .15 + (100 - axis(MoeAxis.strategicSubtext)) * .10,
       MoeRecipe.naturalDirect =>
-        axis(MoeAxis.unfilteredDirectness) * .68 + axis(MoeAxis.closenessBid) * .17 + axis(MoeAxis.cuteDisplay) * .15,
+        axis(MoeAxis.unfilteredDirectness) * .56 + axis(MoeAxis.closenessBid) * .14 + axis(MoeAxis.cuteDisplay) * .10 + (100 - axis(MoeAxis.defensiveMask)) * .10 + (100 - axis(MoeAxis.strategicSubtext)) * .10,
       MoeRecipe.blackBelly =>
         axis(MoeAxis.strategicSubtext) * .55 + axis(MoeAxis.playfulImpulse) * .27 + axis(MoeAxis.unfilteredDirectness) * .18,
       MoeRecipe.prankster =>
         axis(MoeAxis.playfulImpulse) * .55 + axis(MoeAxis.strategicSubtext) * .27 + axis(MoeAxis.verbalSpice) * .18,
     };
     return clampMoeValue(score);
+  }
+
+  bool _recipeAxesCompatible(
+    MoeRecipe recipe,
+    Map<MoeAxis, double> values,
+  ) {
+    double axis(MoeAxis key) => values[key] ?? key.defaultBaseline;
+    return switch (recipe) {
+      MoeRecipe.naturalDirect =>
+        axis(MoeAxis.defensiveMask) <= 62 &&
+            axis(MoeAxis.strategicSubtext) <= 58,
+      MoeRecipe.goofyCute => axis(MoeAxis.strategicSubtext) <= 62,
+      _ => true,
+    };
   }
 
   Set<String> _contextTags(MoeRecipe recipe) => switch (recipe) {

@@ -187,6 +187,10 @@ void main() {
       MoeDynamicsPolicy.contextTagsForUserText('今天普通地吃了饭'),
       isEmpty,
     );
+    expect(
+      MoeDynamicsPolicy.contextTagsForUserText('我觉得这个方案其实可以'),
+      isEmpty,
+    );
   });
 
   test('hysteresis exit creates cooldown and prevents immediate re-entry', () {
@@ -225,6 +229,77 @@ void main() {
       now: retryAt,
     );
     expect(retry.recipes[MoeRecipe.tsundere]!.active, isFalse);
+
+    final plan = policy.expressionPlanForTurn(
+      exited,
+      contextTags: const {'care_exposed'},
+      allowAfterglow: false,
+      neutralUnit: 1,
+      now: retryAt,
+    );
+    expect(plan.primary, isNot(MoeRecipe.tsundere));
+  });
+
+  test('drive influence follows elapsed time instead of message count', () {
+    const policy = MoeDynamicsPolicy();
+    final initial = MoeStateSnapshot.initial(now: start);
+    final signals = <String, double>{
+      'attachment': 1,
+      'social': 1,
+      'libido': .5,
+      'stress': .5,
+    };
+    final oneStepAt = start.add(const Duration(hours: 1));
+    final oneStep = policy.advance(
+      previous: initial,
+      input: MoeInputSnapshot(capturedAt: oneStepAt, normalizedSignals: signals),
+      now: oneStepAt,
+    );
+    var manySteps = initial;
+    for (var minute = 1; minute <= 60; minute++) {
+      final at = start.add(Duration(minutes: minute));
+      manySteps = policy.advance(
+        previous: manySteps,
+        input: MoeInputSnapshot(capturedAt: at, normalizedSignals: signals),
+        now: at,
+      );
+    }
+    expect(
+      manySteps.current[MoeAxis.closenessBid],
+      closeTo(oneStep.current[MoeAxis.closenessBid]!, .35),
+    );
+    expect(
+      manySteps.current[MoeAxis.playfulImpulse],
+      closeTo(oneStep.current[MoeAxis.playfulImpulse]!, .35),
+    );
+  });
+
+  test('repeated pulses diminish near saturation', () {
+    const policy = MoeDynamicsPolicy();
+    var state = MoeStateSnapshot.initial(now: start);
+    final gains = <double>[];
+    for (var index = 0; index < 8; index++) {
+      final at = start.add(Duration(minutes: index));
+      final before = state.current[MoeAxis.unfilteredDirectness]!;
+      state = policy.advance(
+        previous: state,
+        input: MoeInputSnapshot(
+          capturedAt: at,
+          event: MoeObservedEvent(
+            idempotencyKey: 'repeat-$index',
+            sourceType: 'test_fixture',
+            causeTag: 'confident',
+            occurredAt: at,
+            axisPulses: const {MoeAxis.unfilteredDirectness: 12},
+            contextTags: const {'honest_disclosure'},
+          ),
+        ),
+        now: at,
+      );
+      gains.add(state.current[MoeAxis.unfilteredDirectness]! - before);
+    }
+    expect(gains.last, lessThan(gains.first));
+    expect(state.current[MoeAxis.unfilteredDirectness], lessThan(100));
   });
 
   test('one thousand ticks stay bounded', () {

@@ -398,6 +398,28 @@ class AndroidBridge {
     }
   }
 
+  Future<bool> saveImageToGallery({
+    required String sourcePath,
+    required String suggestedName,
+    required String mimeType,
+  }) async {
+    try {
+      final raw = await _channel.invokeMapMethod<Object?, Object?>(
+        'saveImageToGallery',
+        <String, Object?>{
+          'sourcePath': sourcePath,
+          'suggestedName': suggestedName,
+          'mimeType': mimeType,
+        },
+      );
+      return raw?['saved'] == true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   Future<bool> consumeOpenChatLaunch() async {
     try {
       return await _channel.invokeMethod<bool>('consumeOpenChatLaunch') ??

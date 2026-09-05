@@ -16,8 +16,19 @@ class StoredAlbumThumbnail {
   final String contentSha256;
 }
 
-/// Owns only bounded, EXIF-free thumbnails selected for the private album.
-/// Chat originals and browser cache are deliberately outside this directory.
+class StoredAlbumOriginal {
+  const StoredAlbumOriginal({
+    required this.relativePath,
+    required this.contentSha256,
+    required this.byteSize,
+  });
+
+  final String relativePath;
+  final String contentSha256;
+  final int byteSize;
+}
+
+/// Owns exact local originals plus bounded, EXIF-free display/vision previews.
 class CompanionAlbumStorage {
   static const String rootFolderName = 'companion_album';
 
@@ -70,6 +81,43 @@ class CompanionAlbumStorage {
     }
   }
 
+  Future<StoredAlbumOriginal> saveOriginal({
+    required String id,
+    required File source,
+    required String extension,
+  }) async {
+    if (!await source.exists()) {
+      throw const FileSystemException('相册原图不存在');
+    }
+    final byteSize = await source.length();
+    if (byteSize <= 0) throw const FormatException('相册原图为空');
+    if (byteSize > 25 * 1024 * 1024) {
+      throw const FormatException('相册原图超过 25 MB');
+    }
+    final safeId = id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
+    if (safeId.isEmpty) throw const FormatException('相册图片 ID 无效');
+    final safeExtension = _safeExtension(extension);
+    final relative = p.posix.join('originals', '$safeId$safeExtension');
+    final root = await rootDirectory;
+    final target = File(p.join(root.path, 'originals', '$safeId$safeExtension'));
+    await target.parent.create(recursive: true);
+    final temporary = File('${target.path}.saving');
+    try {
+      await source.copy(temporary.path);
+      if (await target.exists()) await target.delete();
+      await temporary.rename(target.path);
+      return StoredAlbumOriginal(
+        relativePath: relative,
+        contentSha256: await contentSha256(target),
+        byteSize: await target.length(),
+      );
+    } catch (_) {
+      if (await temporary.exists()) await temporary.delete();
+      if (await target.exists()) await target.delete();
+      rethrow;
+    }
+  }
+
   Future<void> requireContentSha256(
     File source,
     String expectedContentSha256,
@@ -111,11 +159,14 @@ class CompanionAlbumStorage {
     );
   }
 
-  Future<void> deleteThumbnail(String relativePath) async {
+  Future<void> deleteFile(String relativePath) async {
     if (relativePath.trim().isEmpty) return;
     final file = await fileFor(relativePath);
     if (await file.exists()) await file.delete();
   }
+
+
+  Future<void> deleteThumbnail(String relativePath) => deleteFile(relativePath);
 
   Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
     final referenced = referencedPaths
@@ -123,15 +174,17 @@ class CompanionAlbumStorage {
         .map(requireSafeRelativePath)
         .toSet();
     final root = await rootDirectory;
-    final directory = Directory(p.join(root.path, 'thumbnails'));
-    if (!await directory.exists()) return 0;
     var removed = 0;
-    await for (final entity in directory.list(followLinks: false)) {
-      if (entity is! File || entity.path.endsWith('.saving')) continue;
-      final relative = p.posix.join('thumbnails', p.basename(entity.path));
-      if (!referenced.contains(relative)) {
-        await entity.delete();
-        removed++;
+    for (final folder in const <String>['originals', 'thumbnails']) {
+      final directory = Directory(p.join(root.path, folder));
+      if (!await directory.exists()) continue;
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! File || entity.path.endsWith('.saving')) continue;
+        final relative = p.posix.join(folder, p.basename(entity.path));
+        if (!referenced.contains(relative)) {
+          await entity.delete();
+          removed++;
+        }
       }
     }
     return removed;
@@ -139,13 +192,23 @@ class CompanionAlbumStorage {
 
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');
-    if (!normalized.startsWith('thumbnails/') ||
+    if (!(normalized.startsWith('thumbnails/') ||
+            normalized.startsWith('originals/')) ||
         normalized == 'thumbnails/' ||
+        normalized == 'originals/' ||
         normalized.contains('..') ||
         p.posix.normalize(normalized) != normalized) {
-      throw FormatException('不安全的相册缩略图路径：$value');
+      throw FormatException('不安全的相册图片路径：$value');
     }
     return normalized;
+  }
+
+  static String _safeExtension(String value) {
+    final normalized = value.trim().toLowerCase();
+    const allowed = <String>{
+      '.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif',
+    };
+    return allowed.contains(normalized) ? normalized : '.jpg';
   }
 }
 

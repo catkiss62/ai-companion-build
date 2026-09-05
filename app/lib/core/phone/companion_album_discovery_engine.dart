@@ -17,8 +17,8 @@ import '../storage/secure_config.dart';
 import 'simulated_phone_policy.dart';
 
 /// Processes at most one bounded public image candidate per recovery cycle.
-/// It never stores a remote original: only the existing <=1000 px PNG preview
-/// reaches Qwen and, if selected, the private album.
+/// Qwen sees only the bounded preview. A selected candidate additionally keeps
+/// the exact downloaded bytes as the local album original.
 class CompanionAlbumDiscoveryEngine {
   CompanionAlbumDiscoveryEngine({
     required this.db,
@@ -176,6 +176,7 @@ class CompanionAlbumDiscoveryEngine {
     PreparedImageAttachment? draft;
     File? downloaded;
     String savedPath = '';
+    String savedOriginalPath = '';
     var stage = 'download';
     var visionRecorded = false;
     try {
@@ -219,6 +220,8 @@ class CompanionAlbumDiscoveryEngine {
       visionRecorded = true;
 
       String contentSha = '';
+      String originalSha = '';
+      int originalByteSize = 0;
       String perceptualHash = '';
       final requestMatches = requestedSubject.trim().isEmpty ||
           (observation.requestMatch &&
@@ -233,6 +236,14 @@ class CompanionAlbumDiscoveryEngine {
         );
         savedPath = stored.relativePath;
         contentSha = stored.contentSha256;
+        final original = await albumStorage.saveOriginal(
+          id: candidateId,
+          source: draft.originalFile,
+          extension: draft.originalExtension,
+        );
+        savedOriginalPath = original.relativePath;
+        originalSha = original.contentSha256;
+        originalByteSize = original.byteSize;
         stage = 'image_processing';
         perceptualHash = await AlbumPerceptualHash.fromFile(
           draft.thumbnailFile,
@@ -250,7 +261,12 @@ class CompanionAlbumDiscoveryEngine {
                 : '视觉像素与用户找图目标不符：${observation.requestMismatchReason}'
             : observation.albumReason,
         category: observation.albumCategory,
+        tags: observation.albumTags,
         thumbnailPath: savedPath,
+        originalPath: savedOriginalPath,
+        originalContentSha256: originalSha,
+        originalMimeType: draft.mimeType,
+        originalByteSize: originalByteSize,
         contentSha256: contentSha,
         perceptualHash: perceptualHash,
         visualFingerprint: observation.aestheticTags.join('|'),
@@ -260,6 +276,9 @@ class CompanionAlbumDiscoveryEngine {
       );
       if (!completed && savedPath.isNotEmpty) {
         await albumStorage.deleteThumbnail(savedPath);
+      }
+      if (!completed && savedOriginalPath.isNotEmpty) {
+        await albumStorage.deleteFile(savedOriginalPath);
       }
       final outcome =
           await db.companionAlbumCandidateOutcomeCategory(candidateId);
@@ -279,6 +298,9 @@ class CompanionAlbumDiscoveryEngine {
       return shouldSave && completed ? 'saved' : 'rejected';
     } catch (error) {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
+      if (savedOriginalPath.isNotEmpty) {
+        await albumStorage.deleteFile(savedOriginalPath);
+      }
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
       final category = stage == 'download'
           ? 'download'
@@ -345,8 +367,8 @@ class CompanionAlbumDiscoveryEngine {
     }
     final type = response.headers['content-type']?.toLowerCase() ?? '';
     if (!type.startsWith('image/')) throw const FormatException('网页候选不是图片');
-    if (response.bodyBytes.isEmpty || response.bodyBytes.length > 4 * 1024 * 1024) {
-      throw const FormatException('网页候选图片为空或超过 4 MB');
+    if (response.bodyBytes.isEmpty || response.bodyBytes.length > 25 * 1024 * 1024) {
+      throw const FormatException('网页候选图片为空或超过 25 MB');
     }
     final temp = await getTemporaryDirectory();
     final extension = type.contains('png')

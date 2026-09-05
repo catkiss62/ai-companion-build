@@ -1,9 +1,13 @@
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import '../database/app_database.dart';
 import '../models/desire_state.dart';
 import '../models/companion_album.dart';
+import '../models/message_attachment.dart';
 import '../storage/companion_album_storage.dart';
+import '../storage/message_attachment_storage.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
 import 'simulated_cart_generator.dart';
@@ -249,21 +253,28 @@ class SimulatedPhoneRepository {
   Future<void> setAlbumCategory(String id, String category) =>
       db.setCompanionAlbumCategory(id, category: category);
 
+  Future<void> setAlbumTags(String id, Iterable<String> tags) =>
+      db.setCompanionAlbumTags(id, tags: tags);
+
   Future<void> deleteAlbumItem(String id) async {
-    final path = await db.deleteCompanionAlbumItem(id);
-    if (path.isNotEmpty) {
-      await CompanionAlbumStorage().deleteThumbnail(path);
+    final paths = await db.deleteCompanionAlbumItem(id);
+    for (final path in paths) {
+      await CompanionAlbumStorage().deleteFile(path);
     }
   }
 
   Future<int> clearAlbumCache() async {
     final items = await db.companionAlbumItems(limit: 500);
     return CompanionAlbumStorage().pruneUnreferencedFiles(
-      items.map((item) => item.thumbnailPath),
+      items.expand((item) => <String>[
+            item.thumbnailPath,
+            if (item.originalPath.isNotEmpty) item.originalPath,
+          ]),
     );
   }
 
   Future<int> maintainAlbum({DateTime? now}) async {
+    await _recoverUserMessageAlbumOriginals();
     final duePaths = await db.purgeDueCompanionAlbumDeletes(now: now);
     final retiredNsfwPaths = await db.retireLegacyNsfwAlbumItems();
     final storage = CompanionAlbumStorage();
@@ -271,11 +282,43 @@ class SimulatedPhoneRepository {
     for (final path in [...duePaths, ...retiredNsfwPaths]) {
       if (path.isEmpty) continue;
       try {
-        await storage.deleteThumbnail(path);
+        await storage.deleteFile(path);
         removed += 1;
       } catch (_) {}
     }
     return removed;
+  }
+
+  Future<void> _recoverUserMessageAlbumOriginals() async {
+    final items = await db.companionAlbumItems(limit: 500);
+    final attachments = <String, MessageAttachment>{
+      for (final attachment in await db.allMessageAttachments())
+        attachment.id: attachment,
+    };
+    final storage = CompanionAlbumStorage();
+    final attachmentStorage = MessageAttachmentStorage();
+    for (final item in items) {
+      if (item.hasOriginal || item.sourceKind != 'user_message') continue;
+      final attachment = attachments[item.sourceId];
+      if (attachment == null) continue;
+      try {
+        final source = await attachmentStorage.fileFor(attachment.originalPath);
+        final stored = await storage.saveOriginal(
+          id: item.id,
+          source: source,
+          extension: p.extension(attachment.originalPath),
+        );
+        await db.attachCompanionAlbumOriginal(
+          item.id,
+          originalPath: stored.relativePath,
+          contentSha256: stored.contentSha256,
+          mimeType: attachment.mimeType,
+          byteSize: stored.byteSize,
+        );
+      } catch (_) {
+        // Legacy recovery is best-effort; the thumbnail remains usable.
+      }
+    }
   }
 
   Future<void> refreshIfDue({DateTime? now}) async {

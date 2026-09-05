@@ -8,6 +8,7 @@ import android.app.KeyguardManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -19,7 +20,9 @@ import android.os.PowerManager
 import android.os.Process
 import android.os.Handler
 import android.os.Looper
+import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import com.aicompanion.localfirst.pet.PetPreviewActivity
@@ -110,6 +113,12 @@ class SystemBridge(
                         }
                     }
                 }
+                "saveImageToGallery" -> saveImageToGallery(
+                    sourcePath = call.argument<String>("sourcePath") ?: "",
+                    suggestedName = call.argument<String>("suggestedName") ?: "AI_Companion_Image",
+                    mimeType = call.argument<String>("mimeType") ?: "image/jpeg",
+                    result = result,
+                )
                 "openOverlaySettings" -> {
                     activity.startActivity(
                         Intent(
@@ -389,6 +398,82 @@ class SystemBridge(
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun saveImageToGallery(
+        sourcePath: String,
+        suggestedName: String,
+        mimeType: String,
+        result: MethodChannel.Result,
+    ) {
+        val source = File(sourcePath)
+        if (!source.exists() || !source.isFile || source.length() <= 0L) {
+            result.error("image_source_missing", "Album original is missing", null)
+            return
+        }
+        val safeMime = if (mimeType.startsWith("image/")) mimeType else "image/jpeg"
+        val extension = when (safeMime.lowercase()) {
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "image/gif" -> ".gif"
+            "image/bmp" -> ".bmp"
+            "image/heic", "image/heif" -> ".heic"
+            else -> ".jpg"
+        }
+        val stem = suggestedName
+            .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
+            .removeSuffix(extension)
+            .take(80)
+            .ifBlank { "AI_Companion_Image" }
+        val displayName = "${stem}_${System.currentTimeMillis()}$extension"
+        Thread {
+            var inserted: Uri? = null
+            runCatching {
+                val resolver = activity.contentResolver
+                val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                } else {
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                }
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+                    put(MediaStore.Images.Media.MIME_TYPE, safeMime)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(
+                            MediaStore.Images.Media.RELATIVE_PATH,
+                            "${Environment.DIRECTORY_PICTURES}/AI Companion",
+                        )
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                }
+                inserted = requireNotNull(resolver.insert(collection, values)) {
+                    "mediastore_insert_failed"
+                }
+                requireNotNull(resolver.openOutputStream(inserted!!, "w")).use { output ->
+                    source.inputStream().use { input -> input.copyTo(output) }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    resolver.update(
+                        inserted!!,
+                        ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+                        null,
+                        null,
+                    )
+                }
+                mapOf("saved" to true, "uri" to inserted.toString())
+            }.onSuccess { payload ->
+                activity.runOnUiThread { result.success(payload) }
+            }.onFailure { error ->
+                inserted?.let { runCatching { activity.contentResolver.delete(it, null, null) } }
+                activity.runOnUiThread {
+                    result.error(
+                        "image_gallery_save_failed",
+                        error.message ?: error.javaClass.simpleName,
+                        null,
+                    )
+                }
+            }
+        }.start()
     }
 
     fun notifyOpenChatLaunch(intent: Intent?) {

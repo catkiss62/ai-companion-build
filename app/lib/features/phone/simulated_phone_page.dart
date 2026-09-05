@@ -934,7 +934,7 @@ class _AlbumPageState extends State<AlbumPage> {
 
   List<CompanionAlbumItem> get visible => category == 'all'
       ? entries
-      : entries.where((item) => item.category == category).toList();
+      : entries.where((item) => item.tags.contains(category)).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -949,7 +949,7 @@ class _AlbumPageState extends State<AlbumPage> {
             final removed = await widget.repository.clearAlbumCache();
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('已清理 ${removed} 个未引用缩略图')),
+              SnackBar(content: Text('已清理 $removed 个未引用图片文件')),
             );
           },
           icon: const Icon(Icons.cleaning_services_outlined, size: 20),
@@ -973,21 +973,12 @@ class _AlbumPageState extends State<AlbumPage> {
                         active: category == 'all',
                         onTap: () => setState(() => category = 'all'),
                       ),
-                      _AlbumFilter(
-                        label: '回忆',
-                        active: category == 'memory',
-                        onTap: () => setState(() => category = 'memory'),
-                      ),
-                      _AlbumFilter(
-                        label: '形象插画',
-                        active: category == 'self_image',
-                        onTap: () => setState(() => category = 'self_image'),
-                      ),
-                      _AlbumFilter(
-                        label: '其他',
-                        active: category == 'other',
-                        onTap: () => setState(() => category = 'other'),
-                      ),
+                      for (final value in companionAlbumTagKeys)
+                        _AlbumFilter(
+                          label: albumCategoryLabel(value),
+                          active: category == value,
+                          onTap: () => setState(() => category = value),
+                        ),
                     ],
                   ),
                 ),
@@ -1004,7 +995,7 @@ class _AlbumPageState extends State<AlbumPage> {
                     ),
                     const Spacer(),
                     const Text(
-                      '仅本地缩略图',
+                      '原图仅存本机',
                       style: TextStyle(color: text3, fontSize: 11),
                     ),
                   ],
@@ -1167,18 +1158,118 @@ class AlbumDetailPage extends StatefulWidget {
 class _AlbumDetailPageState extends State<AlbumDetailPage> {
   late String feedback = widget.item.feedback;
   late String comment = widget.item.comment;
-  late String category = widget.item.category;
+  late Set<String> tags = widget.item.tags.toSet();
   bool busy = false;
 
-  Future<void> setCategory(String value) async {
-    if (busy || value == category) return;
+  Future<void> toggleTag(String value) async {
+    if (busy || !companionAlbumTagKeys.contains(value)) return;
+    final next = tags.toSet();
+    if (value == 'other') {
+      if (!next.contains('other')) {
+        next
+          ..clear()
+          ..add('other');
+      }
+    } else if (!next.add(value)) {
+      next.remove(value);
+    }
+    next.remove('other');
+    if (next.isEmpty) next.add('other');
+    if (next.length == tags.length && next.containsAll(tags)) return;
     setState(() => busy = true);
     try {
-      await widget.repository.setAlbumCategory(widget.item.id, value);
-      if (mounted) setState(() => category = value);
+      await widget.repository.setAlbumTags(widget.item.id, next);
+      if (mounted) setState(() => tags = next);
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  Future<File?> _bestImageFile() async {
+    final path = widget.item.hasOriginal
+        ? widget.item.originalPath
+        : widget.item.thumbnailPath;
+    if (path.isEmpty) return null;
+    try {
+      final file = await CompanionAlbumStorage().fileFor(path);
+      return await file.exists() ? file : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> openImageViewer() async {
+    final file = await _bestImageFile();
+    if (!mounted) return;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('本地图片文件已经不存在')),
+      );
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: Text(
+              widget.item.title.isEmpty ? '查看图片' : widget.item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            actions: [
+              if (widget.item.hasOriginal)
+                IconButton(
+                  tooltip: '保存到手机相册',
+                  onPressed: saveOriginalToGallery,
+                  icon: const Icon(Icons.download_outlined),
+                ),
+            ],
+          ),
+          body: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 8,
+            boundaryMargin: const EdgeInsets.all(96),
+            clipBehavior: Clip.none,
+            child: Center(child: Image.file(file, fit: BoxFit.contain)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> saveOriginalToGallery() async {
+    if (!widget.item.hasOriginal) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('这张旧图没有可导出的原图文件')),
+      );
+      return;
+    }
+    final file = await _bestImageFile();
+    if (!mounted) return;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('原图文件已经不存在')),
+      );
+      return;
+    }
+    final saved = await AndroidBridge.instance.saveImageToGallery(
+      sourcePath: file.path,
+      suggestedName:
+          widget.item.title.isEmpty ? 'AI_Companion_Image' : widget.item.title,
+      mimeType: widget.item.originalMimeType,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved ? '已保存到手机相册的 AI Companion 文件夹' : '保存失败，请确认系统相册可用',
+        ),
+      ),
+    );
   }
 
   Future<void> openSource() async {
@@ -1252,7 +1343,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('删除这张收藏？'),
-            content: const Text('这会立即删除本地相册缩略图；不会删除原聊天消息。'),
+            content: const Text('这会立即删除本地相册中的原图和缩略图；不会删除原聊天消息。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -1278,18 +1369,30 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
           children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: FutureBuilder<File>(
-                  future: CompanionAlbumStorage()
-                      .fileFor(widget.item.thumbnailPath),
-                  builder: (context, snapshot) => snapshot.hasData
-                      ? Image.file(snapshot.data!, fit: BoxFit.contain)
-                      : const _MissingAlbumImage(),
+            GestureDetector(
+              onTap: openImageViewer,
+              onLongPress:
+                  widget.item.hasOriginal ? saveOriginalToGallery : null,
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: FutureBuilder<File?>(
+                    future: _bestImageFile(),
+                    builder: (context, snapshot) => snapshot.data != null
+                        ? Image.file(snapshot.data!, fit: BoxFit.contain)
+                        : const _MissingAlbumImage(),
+                  ),
                 ),
               ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              widget.item.hasOriginal
+                  ? '点击查看原图并缩放 · 长按保存到手机相册'
+                  : '点击可查看现有预览图 · 当前没有可导出的原图',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: text3, fontSize: 11),
             ),
             const SizedBox(height: 15),
             Text(
@@ -1306,7 +1409,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             const SizedBox(height: 12),
             Text(
               '来源：${widget.item.sourceDomain.isEmpty ? '你发来的图片' : widget.item.sourceDomain}'
-              ' · ${albumCategoryLabel(category)}',
+              ' · ${tags.map(albumCategoryLabel).join('、')}',
               style: const TextStyle(color: text3, fontSize: 11),
             ),
             const SizedBox(height: 5),
@@ -1327,25 +1430,35 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             ],
             const SizedBox(height: 12),
             const Text(
-              '分类（可手动纠正）',
+              '标签（可多选）',
               style: TextStyle(color: text2, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const ['memory', 'self_image', 'other']
+              children: companionAlbumTagKeys
                   .map(
-                    (value) => ChoiceChip(
+                    (value) => FilterChip(
                       label: Text(albumCategoryLabel(value)),
-                      selected: category == value,
-                      onSelected: busy ? null : (_) => setCategory(value),
+                      selected: tags.contains(value),
+                      onSelected: busy ? null : (_) => toggleTag(value),
                       selectedColor: purple.withValues(alpha: 0.28),
-                      showCheckmark: false,
                     ),
                   )
                   .toList(),
             ),
+            if (widget.item.hasOriginal) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : saveOriginalToGallery,
+                  icon: const Icon(Icons.download_outlined, size: 17),
+                  label: const Text('保存原图到手机相册'),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             Wrap(
               spacing: 8,
@@ -2946,6 +3059,9 @@ String phoneDateTime(DateTime value) =>
 String albumCategoryLabel(String value) => switch (value) {
       'memory' => '回忆',
       'self_image' => '形象插画',
+      'anime' => '二次元',
+      'landscape' => '风景',
+      'sticker' => '表情包',
       _ => '其他',
     };
 

@@ -87,6 +87,7 @@ class MoeExpressionPromptAdapter {
         selectionUnit: random.nextDouble(),
         neutralUnit: random.nextDouble(),
         intensityUnit: random.nextDouble(),
+        now: instant,
       );
       final section = MoeExpressionPromptPresentation.render(plan);
       final selectedKey = plan.primary?.key ?? '';

@@ -92,3 +92,13 @@ Album list/detail views show the persisted creation/save time using the device-l
 ## Explicit exclusions
 
 No `album.send`, mature-interest activation, complete user-style imitation, MCP management, code Harness, raw page archive, private-content summarization or main-branch merge is part of v0.41.39.
+
+## v0.41.40 explicit-search addendum
+
+An explicit user-turn `public_web.search` now follows the same Search → Extract
+→ Agnes → DeepSeek semantic-validation boundary before answering. Up to three
+verified `valid` or `history_only` results are also recorded as simulated-phone
+browser history with `origin=user_turn`. These records prove what was read for
+the user's request; they do not create an autonomous action run, consume an
+autonomous Desire budget, or become Phase 3 interest evidence. Mismatch,
+garbled, unreadable and unsafe results are not recorded as successful visits.

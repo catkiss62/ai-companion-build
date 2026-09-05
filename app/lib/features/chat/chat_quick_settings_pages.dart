@@ -76,7 +76,7 @@ class _CompanionStateOverviewPageState
                   }),
                   const SizedBox(height: 22),
                   const _SectionIntro(
-                    title: '萌属性数字',
+                    title: '动态表达倾向',
                     body: '显示 D2 的九项当前值与长期基线；不包含候选、内部诊断或强制动作。',
                   ),
                   ...MoeAxis.values.map((axis) {

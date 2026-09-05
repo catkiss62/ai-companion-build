@@ -697,6 +697,7 @@ class SnapshotService {
         'attachments/originals/',
         'attachments/thumbnails/',
         'album/',
+        'album/originals/',
         'album/thumbnails/',
       };
       for (final entry in archive.files) {
@@ -1203,11 +1204,13 @@ class SnapshotService {
       if (raw is! Map) throw const FormatException('私人相册数据库记录无效');
       final lifecycle = raw['lifecycle_state']?.toString() ?? '';
       final nsfw = (raw['nsfw'] as num?)?.toInt() ?? 0;
-      final value = raw['thumbnail_path']?.toString() ?? '';
-      if ((lifecycle == 'saved' || lifecycle == 'soft_deleted') &&
-          nsfw == 0 &&
-          value.isNotEmpty) {
-        result.add(CompanionAlbumStorage.requireSafeRelativePath(value));
+      if ((lifecycle == 'saved' || lifecycle == 'soft_deleted') && nsfw == 0) {
+        for (final key in const <String>['thumbnail_path', 'original_path']) {
+          final value = raw[key]?.toString() ?? '';
+          if (value.isNotEmpty) {
+            result.add(CompanionAlbumStorage.requireSafeRelativePath(value));
+          }
+        }
       }
     }
     return result;
