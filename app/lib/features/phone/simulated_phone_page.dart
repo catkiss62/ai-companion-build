@@ -18,6 +18,7 @@ const text2 = Color(0xFF999AA8);
 const text3 = Color(0xFF626472);
 const purple = Color(0xFFA78BFA);
 const blue = Color(0xFF60A5FA);
+const cyan = Color(0xFF22D3EE);
 const green = Color(0xFF34D399);
 const red = Color(0xFFF87171);
 const orange = Color(0xFFFB923C);
