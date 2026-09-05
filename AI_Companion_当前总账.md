@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-04（Asia/Tokyo）
+更新时间：2026-09-05（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -29,24 +29,24 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04135-interrupted-turn-system-command`；从 v0.41.34+173 CI 全绿与最新真机备份基线建立。当前包统一普通聊天、悬浮聊天与沉浸房间的停止语义，并增加 `【检查系统】` 确定性只读入口；不混入 Phase 3 |
+| 当前开发分支 | `agent/v04136-immersive-boundary-stop-style`；从 v0.41.35+174 run 719 全绿与 2026-09-05 真机备份/诊断建立。当前包只收口沉浸玩法的 `【检查系统】` 边界，并让沉浸/悬浮中断用户原文使用与普通聊天一致的灰色；不混入 Phase 3 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.35 运行代码公开提交 `48406720c86192a52c563e295466e739173105b6` / tree `6333aa4fe196fc435dc73cb5017df6597bbea757`，与本地运行代码树精确一致；它包含 run 718 暴露的三项测试合同窄修，未扩大 Stop、数据层、人格或工具权限 |
-| App / 数据库 | 当前开发目标 `0.41.35+174` / schema 48 / Snapshot protocol 5；schema47→48 仅新增不进入 Prompt/Memory 的中断回合显示记录，保留用户原文供复制/重新编辑，并支持 schema 47 覆盖升级与备份导入；不得改变 v0.41.34 Memory 2C（行动者—关系—对象—归属）字段或删除既有内容 |
+| 当前代码 head / tree | v0.41.35 最终公开提交仍为 `816d96fa5332ff88b87c2a791288329d1785126d`。v0.41.36 本地功能提交 `52d353a269a76ee1e5a824dde5315c798ce844dc` / tree `f2cc24dd51ce220d88962790f0e61c52983e294c` 已完成，尚未公开推送；只含沉浸保留命令边界、两处灰色样式、版本/测试/工作流，不含用户附件或隐私数据 |
+| App / 数据库 | 当前收口目标 `0.41.36+175` / schema 48 / Snapshot protocol 5；不做数据库迁移。沿用不进入 Prompt/Memory 的中断回合显示记录及 v0.41.34 Memory 2C（行动者—关系—对象—归属），不删除或重写既有内容 |
 | 最终 CI | v0.41.35+174 Actions run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）全绿：全部源码/历史 validators、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK.apk`，325,965,466 bytes |
 | APK SHA-256 | `bff8b381991f4012e2f937bd69d502a1927cd0b416a75fcbc7d59fea86b72c69`；独立下载复算、CI checksum 与 GitHub asset digest 三方一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
 | Artifact / Release | [Artifact ID `9955569600`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729/artifacts/9955569600)，ZIP 319,665,950 bytes，digest `sha256:798e536509e89945488a90662e7a964cb1dbba4a9d543101868f1c8e4d77b43e`，保留至 2026-09-18T21:45:03Z；Draft Release [`untagged-b4e4d9d140d8fbcec80d`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b4e4d9d140d8fbcec80d)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；run 719 已证明全部自动化、Release APK、签名和完整载荷通过，下一步只做真机三入口 Stop 隔离与 `【检查系统】` 真值验收；Phase 3 继续关闭 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。v0.41.35 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`：普通 Stop/重新编辑/数据隔离和普通 `【检查系统】` 有备份证据，用户另确认沉浸与悬浮 Stop 功能正确。v0.41.36 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`，Phase 3 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **安装 v0.41.35+174 并做真机验收。** 普通聊天与沉浸房间为必测，悬浮聊天为低优先级补测：停止后只显示原用户气泡、灰字“已停止生成”和“重新编辑”，未完成 AI 内容消失且中断用户轮不进入后续上下文/记忆；再验证 `【检查系统】` 确定性调用、自然短句兼容与未实现能力如实回答 |
+| 当前下一步 | **推送 v0.41.36 独立收口分支并运行完整 Actions/APK。** CI 全绿后，真机只需确认沉浸 `【检查系统】` 被本地灰色提示拦截且不生成剧情，以及沉浸/悬浮中断原文为灰色；通过后关闭 C2 并开启 Phase 3A |
 | 目标 | Stop 只撤销“这轮对模型和学习有效”的事实，不撤销用户屏幕上可复制的文字；三个聊天入口语义一致。系统自查既有一个稳定显式入口，也兼容自然表达，并只根据真实脱敏接口返回回答 |
-| 当前证据 | run [`33921748729`](https://github.com/catkiss62/ai-companion-build/actions/runs/33921748729)（719）在公开运行提交 `4840672` 上全绿：65 个源码/历史 validator、Kotlin、Flutter analyze、568/568 Flutter tests、Release APK、固定签名和全部大载荷通过。Artifact 与独立解包 APK 的 ZIP/APK SHA 均已复算；自动化不能代替真机的输入法聚焦、可复制显示和下一轮模型隔离验证 |
+| 当前证据 | 2026-09-05 真机备份证明普通 Stop 隔离与系统自读；用户补测确认沉浸/悬浮 Stop 功能正确，仅中断原文颜色有误。v0.41.36 已在 `ImmersiveRoomController.send` 最前置边界拦截精确前缀，Flutter 以中性提示显示且不持久化；沉浸改为继承普通 `bodyMedium`，Kotlin overlay 仅对 `interrupted_user` 使用 RGB 169/165/179。新增前缀正反例单测和静态合同；工作流 66 个 Python validator 中 59 个本地通过，7 个仅缺 CI 恢复的桌宠/LingChat/TTS/native 或本地 kotlinc，`git diff --check`、compileall、YAML 通过 |
 | 保护与排除 | 显示记录不得被 Prompt、Memory、人格学习、关系、Thought、Desire、摘要、现场账或主动候选读取；重新编辑只回填输入框，不自动发送或恢复旧 job。完成提交若先于 Stop，不能删掉已完成对话。普通闲聊保持 CHAT_LIGHT，不增加常驻工具、计划汇报或人格覆盖。不增加含糊的 `【调用工具】` 总入口 |
 | 实现边界 | `【检查系统】` 只匹配最新用户消息开头；中间引用只是讨论。后缀明确指向功能、Outcome 或成长时用窄 scope，空白/混合时读 all。自然路由扩展到“检查你的功能 / 检查你已经有的系统 / 检查你真实系统 / 你检查一下你能查看的功能”。备份完整携带显示记录；脱敏诊断仅计数，不含原文 |
 | 完成判据 | Actions 源码 validator、Kotlin、Flutter analyze/tests、Release APK、固定签名和载荷全绿；普通/沉浸/悬浮分别在 thinking 与已有半截正文时停止，均只留下原用户气泡、灰字“已停止生成”和可用“重新编辑”，下一轮无法从上下文或记忆复述该唯一测试串；`【检查系统】` 必定出现真实调用结果，查询未实现或未列出能力不虚报。真机结果回填后才能决定 C2 收口与 Phase 3 开启 |
@@ -62,7 +62,7 @@
 | C · Phase 2B 真机与 Phase 2 收口（CLOSED） | v0.41.32 run 714、v0.41.33 run 715 与最新真机备份/诊断 | 有界 bias、关联、activation/consolidation 与自然表达已有正样本，用户确认本轮修复正常；2026-09-04 收口。新鲜度、NSFW 和偶发格式只观察，有明确复现再窄修 |
 | C0 · v0.41.33 真机收口（CLOSED） | run 715 全绿且用户完成真实使用 | 能力/人格、challenge/feedback、情绪特效位置与图片策展已通过；对白缺少 `「」` 本批未复现，暂不改渲染或做字符串补丁 |
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
-| C2 · v0.41.35 中断回合与系统入口（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 719、568/568 Flutter tests、签名/载荷、Artifact、独立 APK SHA 全绿 | 真机验证三入口 Stop、重新编辑、上下文隔离、确定性系统自读和无能力时如实回答；普通与沉浸为必测，悬浮可低优先级补测 |
+| C2 · v0.41.35/36 中断回合与玩法边界（v0.41.35 TRUE DEVICE PARTIAL / v0.41.36 LOCAL STATIC PASSED） | run 719 全绿；普通 Stop/自读有备份证据，用户确认沉浸与悬浮 Stop 正常；v0.41.36 本地实现/合同通过 | 推送并构建 v0.41.36；收口 APK 快验沉浸命令提示和两入口灰显后关闭 C2并开启 Phase 3A |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -74,6 +74,18 @@
 ## 近期详细记录与全局索引（按需检索）
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
+
+### 2026-09-05 v0.41.36 沉浸玩法边界 + 中断灰显收口（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 只读核验用户上传的 `AI_Companion_Backup_2026-09-05T08-26-52.aibackup` 与脱敏诊断：ZIP protocol 5 / schema 48 / generation 46，state SHA-256 `fc748abd7c7fcd5c1a78e85230b17028c976597330b4e0e3f28a0349277002cf` 与 manifest 一致，压缩数据、附件与相册缩略图无缺失。附件只作本地取证，不提交仓库。
+2. 两次普通 Stop 的 display 记录都指向 `cancelled_by_user` job；原 source user/assistant ID 已从正式 messages 删除，partial content/reasoning 为空，且没有对应 Memory、Thread、Thought 或人格学习证据。两次均在约 2～3 秒后以新 message ID 重发相同文本，结合用户确认，可判普通显示/重新编辑/隔离链通过。普通 `【检查系统】` 产生真实 `system_self.read` Outcome，reason tag 为 `explicit_system_command`、result count 29，正文也如实说明 MCP 未实现。
+3. 沉浸房间中的同前缀没有任何 Agent Tool Outcome，现有 `ImmersiveRoomController.send` 直接把它写入 `immersive_messages` 后进入 NSFW/router/prompt/model，最终小说正文凭空盘点并错误声称自主成长改动未落地。用户确认沉浸是一种独立玩法：不应接入通用 Agent 工具。v0.41.36 只在持久化用户轮、获取 API key、lease、NSFW 和模型调用之前识别 trim 后开头的精确 `【检查系统】`，显示“请在普通聊天中检查系统”；命令与提示均不写入房间原文、rolling summary、scene ledger、共享记忆或普通上下文。自然语言“检查……”仍可作为剧情，不做宽拦截。
+4. 用户随后补测沉浸与原生悬浮 Stop，确认停止、保留原文与重新编辑功能无误；悬浮显示记录不进入 Flutter 备份属于既有投影边界，不再以缺少备份行误判失败。两处唯一真机缺陷是中断用户原文仍为白色：沉浸组件显式写死 `Colors.white`，原生悬浮统一写死 `231,224,236`；普通中断原文继承 App `bodyMedium` 的 `0xFFA9A5B3`。本批只把两处 interrupted-user 正文改为同一灰色，不改变正常用户气泡、停止提示或重新编辑颜色。
+5. 版本目标 `0.41.36+175`，schema 48 / protocol 5 不变，不新增表。不得修改核心人格、世界书、Desire、Thought、Memory 2C、Agent Registry/权限、沉浸小说规则、NSFW、普通消息颜色、33 条上下文或 Phase 3。需补 Flutter controller/widget 合同、Kotlin 颜色合同和 v0.41.36 validator；全部当前/历史 validators、Flutter analyze/tests、Kotlin、Release APK、固定签名与大载荷通过后交付独立收口 APK。
+6. 运行实现完成：`ImmersiveRoomController.send` 在 API key、lease、`repository.addMessage`、Somatic、NSFW 与模型之前调用 `isReservedSystemInspectionCommand`；只对 trim-left 后以精确 `【检查系统】` 开头的输入设置 `请在普通聊天中检查系统`，随后立即返回。提示使用独立中性 UI，可关闭或在下一次正常发送时清除；它不获得 message ID，因此数据库、房间原文、摘要、现场账、共享记忆和普通上下文均无写入路径。消息中段引用和没有前缀的自然“检查”保留为剧情。
+7. `_ImmersiveInterruptedTurn` 不再写死白字，改为继承普通聊天同源的 `bodyMedium` 灰色；原生 `OverlayBubbleService` 只在 role 为 `interrupted_user` 时把正文设为 `Color.rgb(169, 165, 179)`，其余正常用户/助手正文仍为 `231,224,236`。气泡、停止提示、重新编辑按钮、对齐和数据投影不变。
+8. 版本为 `0.41.36+175 / schema 48 / protocol 5`。新增 Flutter 前缀正反例测试与 v0.41.36 静态 validator，更新 self-reader build label、当前总账 validator和独立分支 workflow；保留 v0.41.35 历史兼容 token。工作流列出的 66 个 Python validator 本地为 `59 passed / 7 environment-only unavailable`，七项仅缺 CI 恢复的 417 文件桌宠、LingChat effects、Meju/TTS native 载荷或 `kotlinc`；新旧专项、当前总账、Python compileall、workflow YAML 与 `git diff --check` 均通过。本地无 Flutter/Dart SDK，Flutter analyze/tests、Kotlin、Release APK、签名和完整载荷继续由 Actions 证明。
+9. 本地功能提交为 `52d353a269a76ee1e5a824dde5315c798ce844dc` / tree `f2cc24dd51ce220d88962790f0e61c52983e294c`；下一步只提交本条实现证据，再依据持续公开推送/APK 授权创建并推送 `agent/v04136-immersive-boundary-stop-style`，不合并 `main`、不发布正式 Release。
 
 ### 2026-09-05 v0.41.35 中断回合显示层 + `【检查系统】` 确定性入口（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

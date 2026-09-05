@@ -330,13 +330,17 @@
 # agent/v04134-memory-grounding-agent-foundation
 # Build AI Companion v0.41.34+173 APK
 # AI-Companion-v0.41.34-173-Memory-Grounding-Agent-Foundation-APK
-# Current v0.41.35 workflow: interrupted-turn display isolation and deterministic system inspection.
-name: Build AI Companion v0.41.35+174 APK (Interrupted Turn + System Command)
+# Historical v0.41.35 workflow: interrupted-turn display isolation and deterministic system inspection.
+# agent/v04135-interrupted-turn-system-command
+# Build AI Companion v0.41.35+174 APK
+# AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK
+# Current v0.41.36 workflow: immersive play boundary and interrupted-user gray style.
+name: Build AI Companion v0.41.36+175 APK (Immersive Boundary + Stop Style)
 
 on:
   push:
     branches:
-      - agent/v04135-interrupted-turn-system-command
+      - agent/v04136-immersive-boundary-stop-style
   workflow_dispatch:
   pull_request:
     branches:
@@ -474,14 +478,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.35+174' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.36+175' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 48;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.35+174 interrupted-turn isolation and deterministic system inspection runtime.'
+          echo 'Building v0.41.36+175 immersive play boundary and interrupted-user gray style closeout runtime.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -581,6 +585,7 @@ jobs:
           python3 tools/validate_v04133_competence_curation_emotion.py
           python3 tools/validate_v04134_memory_grounding_agent_foundation.py
           python3 tools/validate_v04135_interrupted_turn_system_command.py
+          python3 tools/validate_v04136_immersive_boundary_stop_style.py
           python3 tools/validate_v0401_album_identity_closure.py
           python3 tools/validate_v0405_album_image_binding.py
           python3 tools/validate_v0331_desktop_pet_source_parity.py
@@ -856,26 +861,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.35+174 APK as workflow artifact
+      - name: Upload v0.41.36+175 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK
+          name: AI-Companion-v0.41.36-175-Immersive-Boundary-Stop-Style-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.35+174 Interrupted Turn and System Command APK to draft release
+      - name: Upload v0.41.36+175 Immersive Boundary and Stop Style APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.35-interrupted-turn-system-command-test'
-          APK_NAME='AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-APK.apk'
+          TAG='v0.41.36-immersive-boundary-stop-style-test'
+          APK_NAME='AI-Companion-v0.41.36-175-Immersive-Boundary-Stop-Style-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.36-175-Immersive-Boundary-Stop-Style-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -892,8 +897,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.35+174 Interrupted Turn and System Command candidate' \
-              --notes 'Draft true-device candidate: Stop preserves user text in a display-only table while excluding it and all partial assistant output from context, memory and learning; ordinary chat, immersive rooms and native overlay expose re-edit; 【检查系统】 deterministically invokes the truthful bounded local self-reader. User world books remain untouched; schema 48 imports schema 47 backups; protocol 5 is unchanged.'
+              --title 'AI Companion v0.41.36+175 Immersive Boundary and Stop Style candidate' \
+              --notes 'Draft closeout candidate: immersive rooms treat 【检查系统】 as an out-of-play reserved command and direct the user to ordinary chat without model, transcript, summary or memory writes; interrupted user text in immersive and native overlay uses the same gray as ordinary chat. Stop isolation, Agent permissions, user world books and schema 48 remain unchanged; protocol 5 is unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -917,18 +922,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04135-monitor.txt'
+          MONITOR_PATH='.ci/v04136-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.35 CI success monitor' \
+              -f message='Update v0.41.36 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.35 CI success monitor' \
+              -f message='Create v0.41.36 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -949,8 +954,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.35-interrupted-turn-system-command-test'
-          CI_NAME='AI-Companion-v0.41.35-174-Interrupted-Turn-System-Command-CI-Monitor.txt'
+          TAG='v0.41.36-immersive-boundary-stop-style-test'
+          CI_NAME='AI-Companion-v0.41.36-175-Immersive-Boundary-Stop-Style-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -991,8 +996,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.35+174 Interrupted Turn and System Command candidate' \
-              --notes 'Draft diagnostic candidate for display-only interrupted turns and deterministic bounded system inspection. It is not a published release; user world books remain untouched.'
+              --title 'AI Companion v0.41.36+175 Immersive Boundary and Stop Style candidate' \
+              --notes 'Draft diagnostic candidate for immersive play boundary and interrupted-user gray presentation. It is not a published release; user world books remain untouched.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1001,18 +1006,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04135-monitor.txt'
+          MONITOR_PATH='.ci/v04136-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.35 CI failure monitor' \
+              -f message='Update v0.41.36 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.35 CI failure monitor' \
+              -f message='Create v0.41.36 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

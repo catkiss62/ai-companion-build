@@ -104,9 +104,9 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04135-interrupted-turn-system-command",
-        "0.41.35+174",
-        "schema47→48",
+        "agent/v04136-immersive-boundary-stop-style",
+        "0.41.36+175",
+        "schema 48",
         "Snapshot protocol 5",
         "Phase 2B",
         "App 内 Agent 能力桥",
@@ -138,6 +138,8 @@ def main() -> None:
         "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI FIX IN PROGRESS / TRUE DEVICE PENDING",
         "CI PASSED / APK READY / TRUE DEVICE PENDING",
+        "TRUE DEVICE PARTIAL",
+        "DESIGNED / IMPLEMENTING",
         "TRUE DEVICE PASSED / CLOSED",
         "DESIGN CURRENT",
         "IN PROGRESS",
@@ -189,7 +191,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.35\+174\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.36\+175\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

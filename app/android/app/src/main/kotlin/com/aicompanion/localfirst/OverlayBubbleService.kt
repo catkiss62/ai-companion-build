@@ -2861,7 +2861,13 @@ class OverlayBubbleService : Service() {
                         message.content
                     }
                     textSize = 14f
-                    setTextColor(Color.rgb(231, 224, 236))
+                    setTextColor(
+                        if (message.role == "interrupted_user") {
+                            Color.rgb(169, 165, 179)
+                        } else {
+                            Color.rgb(231, 224, 236)
+                        },
+                    )
                     setLineSpacing(0f, 1.45f)
                     typeface = Typeface.DEFAULT
                     setPadding(0, dp(3), 0, 0)

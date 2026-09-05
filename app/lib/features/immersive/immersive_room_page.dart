@@ -674,6 +674,38 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                 ),
               ],
             ),
+          if (controller.notice != null)
+            Container(
+              width: double.infinity,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 17,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      controller.notice!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭提示',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: controller.dismissNotice,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
           if (room?.isEnded == true)
             Container(
               width: double.infinity,
@@ -1059,7 +1091,9 @@ class _ImmersiveInterruptedTurn extends StatelessWidget {
               opacity: 1,
               child: SelectableText(
                 content,
-                style: const TextStyle(color: Colors.white, height: 1.45),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.45,
+                    ),
               ),
             ),
           ),

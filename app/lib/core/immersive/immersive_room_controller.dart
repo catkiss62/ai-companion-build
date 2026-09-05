@@ -61,6 +61,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   String streamingContent = '';
   TtsQueueState ttsState = TtsQueueState.idle;
   String? error;
+  String? notice;
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
   String _allStreamingReasoning = '';
@@ -113,6 +114,13 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (text.isEmpty || sending || currentRoom == null || currentRoom.isEnded) {
       return;
     }
+    if (isReservedSystemInspectionCommand(text)) {
+      error = null;
+      notice = '请在普通聊天中检查系统';
+      _safeNotify();
+      return;
+    }
+    notice = null;
     final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) {
       error = '请先到“更多”→“AI 与陪伴设置”填写 DeepSeek API Key。';
@@ -331,6 +339,15 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<void> stop() async {
     _cancellation?.cancel();
   }
+
+  void dismissNotice() {
+    notice = null;
+    _safeNotify();
+  }
+
+  @visibleForTesting
+  static bool isReservedSystemInspectionCommand(String rawText) =>
+      rawText.trimLeft().startsWith('【检查系统】');
 
   Future<void> speakMessage(ImmersiveMessage message) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
