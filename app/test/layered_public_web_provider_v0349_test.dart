@@ -151,4 +151,85 @@ https://example.com/b
     final messages = capturedBody?['messages'] as List;
     expect(messages.last['content'], contains('不可信的公开网页'));
   });
+
+  test('search URL is extracted and the complete body is summarized', () async {
+    final calls = <String>[];
+    String agnesPrompt = '';
+    final client = MockClient((request) async {
+      calls.add(request.url.path);
+      if (request.url.host == 'api.tavily.com' &&
+          request.url.path == '/search') {
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'results': <Object?>[
+              <String, Object?>{
+                'title': '海洋研究',
+                'url': 'https://science.example/ocean',
+                'content': '这只是搜索片段',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.host == 'api.tavily.com' &&
+          request.url.path == '/extract') {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['urls'], <String>['https://science.example/ocean']);
+        expect(body.containsKey('query'), isFalse);
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'results': <Object?>[
+              <String, Object?>{
+                'url': 'https://science.example/ocean',
+                'raw_content': '正文开头。${List<String>.filled(40, '完整研究材料。').join()}正文结尾。',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List;
+      agnesPrompt = (messages.last as Map)['content'] as String;
+      return http.Response(
+        jsonEncode(<String, Object?>{
+          'choices': <Object?>[
+            <String, Object?>{
+              'message': <String, Object?>{
+                'content': jsonEncode(<String, Object?>{
+                  'reader_summary': '这是基于实际正文整理的海洋研究概要。',
+                  'key_points': <String>['要点一'],
+                  'uncertainties': <String>['样本有限'],
+                  'topic_tags': <String>['海洋', '研究'],
+                }),
+              },
+            },
+          ],
+        }),
+        200,
+      );
+    });
+    final result = await LayeredPublicWebProvider(
+      tavilyApiKey: 'tavily-test',
+      agnesApiKey: 'agnes-test',
+      client: client,
+    ).discover(
+      query: '近期海洋研究',
+      driveKey: 'curiosity',
+      intentAction: 'discover_interest',
+      interestKey: 'curiosity:ocean',
+      now: now,
+    );
+
+    expect(calls, containsAllInOrder(<String>['/search', '/extract']));
+    expect(agnesPrompt, contains('正文开头'));
+    expect(agnesPrompt, contains('正文结尾'));
+    expect(result.extractionSucceeded, isTrue);
+    expect(result.compactionSucceeded, isTrue);
+    expect(result.candidates.single.readState, 'verified');
+    expect(result.candidates.single.summary, contains('实际正文'));
+    expect(result.candidates.single.keyPoints, <String>['要点一']);
+    expect(result.candidates.single.searchQuery, '近期海洋研究');
+  });
 }

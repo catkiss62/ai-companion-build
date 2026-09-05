@@ -117,10 +117,19 @@ class AgentToolPlanner {
       r'(保存|存下|存进|收藏|收进).{0,10}(这张|这个|图片|照片|附件|相册)|'
       r'(这张|这个|图片|照片|附件).{0,10}(保存|存下|存进|收藏|收进)',
     ).hasMatch(text);
-    final explicitWebImageSave = RegExp(r'(上网|联网|网页|网站|搜索|找|搜)')
-            .hasMatch(text) &&
-        RegExp(r'(图|图片|插画|立绘|风景|照片)').hasMatch(text) &&
-        RegExp(r'(保存|存下|存进|收藏|收进)').hasMatch(text);
+    final refersToCurrentAttachment = RegExp(
+      r'(这张|这个|刚发|附件|我发的|上面那张|当前图片)',
+    ).hasMatch(text);
+    final asksForGeneratedImageSubject = RegExp(
+      r'(二次元|动漫|动画|插画|立绘|风景|景色|壁纸|照片|可爱).{0,8}(图|图片|插画|立绘|照片)?|'
+      r'(图|图片|插画|立绘|风景|照片).{0,8}(二次元|动漫|可爱|风景|壁纸)?',
+    ).hasMatch(text);
+    final explicitWebImageSave =
+        (RegExp(r'(上网|联网|网页|网站|搜索|找|搜)').hasMatch(text) ||
+                (!refersToCurrentAttachment && asksForGeneratedImageSubject)) &&
+            RegExp(r'(保存|存下|存进|收藏|收进|存一张|存个|存张)')
+                .hasMatch(text) &&
+            asksForGeneratedImageSubject;
 
     final webCommand = RegExp(
       r'(^|[，。！？；])\s*'
@@ -215,7 +224,7 @@ class AgentToolPlanner {
     if (explicitWebImageSave) {
       add(
         AgentToolRegistry.imageFindAndSave.id,
-        {'query': _bounded(_webQuery(text), 80)},
+        {'query': _bounded(_imageQuery(text), 80)},
       );
     }
     return calls.isEmpty ? null : AgentToolPlan(calls: calls);
@@ -401,6 +410,22 @@ class AgentToolPlanner {
         )
         .trim();
     return stripped.isEmpty ? text : stripped;
+  }
+
+  static String _imageQuery(String text) {
+    final searched = _webQuery(text);
+    final stripped = searched
+        .replaceAll(
+          RegExp(
+            r'^(?:请|麻烦|能不能|可以|你|帮我|替我|给我|去|想要){0,5}',
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r'(保存|存下|存进|收藏|收进|存一张|存个|存张)'), ' ')
+        .replaceAll(RegExp(r'(到|进)?(?:你|自己)?的?相册'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return stripped.isEmpty ? searched : stripped;
   }
 
   static const _nativeNameByToolId = <String, String>{

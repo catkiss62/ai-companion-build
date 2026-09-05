@@ -755,7 +755,11 @@ List<PhoneAppItem> buildApps(
       title: '浏览器',
       emoji: '🌐',
       colors: const [Color(0xFF062D5D), Color(0xFF3B82F6)],
-      page: BrowserPage(entries: snapshot?.browserVisits ?? const []),
+      onClosed: refreshAfterClose,
+      page: BrowserPage(
+        entries: snapshot?.browserVisits ?? const [],
+        repository: repository,
+      ),
     ),
     PhoneAppItem(
       title: '随笔',
@@ -1304,6 +1308,11 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
               ' · ${albumCategoryLabel(category)}',
               style: const TextStyle(color: text3, fontSize: 11),
             ),
+            const SizedBox(height: 5),
+            Text(
+              '保存时间：${phoneDateTime(widget.item.savedAt ?? widget.item.createdAt)}',
+              style: const TextStyle(color: text3, fontSize: 11),
+            ),
             if (widget.item.sourceUrl.startsWith('https://')) ...[
               const SizedBox(height: 8),
               Align(
@@ -1406,9 +1415,56 @@ class _FeedbackButton extends StatelessWidget {
       );
 }
 
-class BrowserPage extends StatelessWidget {
-  const BrowserPage({required this.entries, super.key});
+class BrowserPage extends StatefulWidget {
+  const BrowserPage({
+    required this.entries,
+    required this.repository,
+    super.key,
+  });
   final List<CompanionBrowserVisit> entries;
+  final SimulatedPhoneRepository repository;
+
+  @override
+  State<BrowserPage> createState() => _BrowserPageState();
+}
+
+class _BrowserPageState extends State<BrowserPage> {
+  late List<CompanionBrowserVisit> entries;
+
+  @override
+  void initState() {
+    super.initState();
+    entries = <CompanionBrowserVisit>[...widget.entries];
+  }
+
+  Future<void> deleteEntry(CompanionBrowserVisit entry) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('删除这条浏览记录？'),
+            content: const Text(
+              '这会同时停用它的分享候选和来源型知识；不会删除原网页。',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    final deleted = await widget.repository.deleteBrowserVisit(entry.id);
+    if (!mounted) return;
+    if (deleted) {
+      setState(() => entries.removeWhere((item) => item.id == entry.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) => PhoneAppScaffold(
@@ -1468,10 +1524,14 @@ class BrowserPage extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: text3,
-                                    size: 21,
+                                  IconButton(
+                                    tooltip: '删除浏览记录',
+                                    onPressed: () => deleteEntry(entry),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: text3,
+                                      size: 19,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1489,6 +1549,25 @@ class BrowserPage extends StatelessWidget {
                                 style: const TextStyle(
                                     color: text3, fontSize: 10.5),
                               ),
+                              if (entry.searchQuery.isNotEmpty) ...<Widget>[
+                                const SizedBox(height: 6),
+                                Text(
+                                  '搜索：${entry.searchQuery}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: cyan,
+                                    fontSize: 10.5,
+                                  ),
+                                ),
+                              ],
+                              if (entry.isLegacyUnverified) ...<Widget>[
+                                const SizedBox(height: 6),
+                                const Text(
+                                  '旧版搜索片段 · 未重新读取原网页',
+                                  style: TextStyle(color: orange, fontSize: 10.5),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1538,6 +1617,20 @@ class BrowserDetailPage extends StatelessWidget {
                 ' · ${phoneDateTime(entry.discoveredAt)}',
                 style: const TextStyle(color: text3, fontSize: 11.5),
               ),
+              if (entry.searchQuery.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                SelectableText(
+                  '搜索：${entry.searchQuery}',
+                  style: const TextStyle(color: cyan, fontSize: 12),
+                ),
+              ],
+              if (entry.readAt != null) ...<Widget>[
+                const SizedBox(height: 7),
+                Text(
+                  '原网页读取时间：${phoneDateTime(entry.readAt!)}',
+                  style: const TextStyle(color: text3, fontSize: 11.5),
+                ),
+              ],
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
@@ -1558,6 +1651,30 @@ class BrowserDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
+              if (entry.isLegacyUnverified) ...<Widget>[
+                const SizedBox(height: 12),
+                const Text(
+                  '这条来自旧版搜索片段，尚未重新读取原网页，因此不会用于学习或主动分享。',
+                  style: TextStyle(color: orange, height: 1.5),
+                ),
+              ],
+              if (entry.keyPoints.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 16),
+                const Text(
+                  '她整理的要点',
+                  style: TextStyle(color: text2, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 7),
+                ...entry.keyPoints.map(
+                  (point) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '• $point',
+                      style: const TextStyle(color: text2, height: 1.45),
+                    ),
+                  ),
+                ),
+              ],
               if (entry.url.startsWith('https://')) ...[
                 const SizedBox(height: 14),
                 Align(

@@ -29,23 +29,23 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04138-worldbook-2d-roleplay-provenance`；从已公开的 v0.41.37 干净基线建立，不携带本地附件审查提交。当前包实现 WorldBook 2D 三分类、来源快照、角色扮演 Session 隔离、自主 AI Self 证据门与窄 `<em>` 情绪兼容；不混入 Phase 3、相册多标签或自主发图 |
+| 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从 v0.41.38 最终干净 tip `d6874fb` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.38 公开 CI 输入提交 `11e89f89c6ea1a76cc1f5a3a2864e01ceefacd3b` / tree `39e3e34ce7d47ccbd0b2eccb8c810402f397345d`，与本地最终运行树完全一致。公开提交只含通用源码、测试、规格、工作流和无隐私账本，不含用户备份、诊断、附件、消息正文或密钥 |
-| App / 数据库 | 当前开发目标 `0.41.38+177` / schema 50 / Snapshot protocol 5。schema 50 为 assistant message、post-turn job 与 InteractionSession 增加有界 worldbook 来源；schema 49 覆盖升级/导入不猜测历史来源，不修改原 `.aibackup`、Memory/evidence/message 正文或 ID |
+| App / 数据库 | 当前真机基线 `0.41.38+177` / schema 50 / Snapshot protocol 5；本地已实现 `0.41.39+178 / schema 51 / protocol 5`，等待 CI/APK。schema 51 只为公开网页读取、双摘要、价值评价、知识候选、浏览生命周期和用户删除增加派生字段/表；旧网页摘要标为 legacy 未复核，不改原 `.aibackup`、Memory/evidence/message 正文或 ID |
 | 最终 CI | v0.41.38+177 Actions run [`33973917503`](https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503)（724）全绿：源码/历史 validators、Kotlin、Flutter analyze、591/591 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
 | 测试 APK | `AI-Companion-v0.41.38-177-WorldBook-2D-Roleplay-Provenance-APK.apk`，326,067,118 bytes |
 | APK SHA-256 | `ad24935a68e1d11dcb4bf30764dec6cc69027002b801c4bab9cf58149a6c3fa9`，与 CI checksum 和 GitHub Release asset digest 一致。固定测试签名证书 SHA-256 为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版 |
 | Artifact / Release | [Artifact ID `9971893782`](https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503/artifacts/9971893782)，ZIP 319,771,213 bytes，digest `sha256:8023421fbfbe412832062035d61b8f8c5e9106f5d32ff6df2a94f065587c7aae`，保留至 2026-09-19T15:20:00Z；Draft Release [`untagged-ce6e4316234957a4bcd3`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce6e4316234957a4bcd3)，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 的覆盖迁移、完成/未完成/延期与历史回忆已有真机正样本，精确取消、自然主动回忆和工作话题占比转观察，状态为 `TRUE DEVICE PARTIAL / CLOSED`。WorldBook 2D 为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 尚未开始 |
+| 当前总状态 | v0.41.33 与 Phase 2 仍为 `TRUE DEVICE PASSED / CLOSED`。v0.41.34/35 Agent 基础仍为 `TRUE DEVICE PARTIAL`。v0.41.36 沉浸与中断显示已由用户人工确认并关闭。Memory 2D 为 `TRUE DEVICE PARTIAL / CLOSED`。v0.41.38 真机已证明 roleplay Session/来源隔离有效，但史莱姆身份执行被“不得覆盖身份/身体”的冲突提示压住，故 WorldBook 2D 为 `TRUE DEVICE PARTIAL`；窄修并入 v0.41.39。Phase 3 成熟 `ai_interest` 仍未开启 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装并真机验收 v0.41.38 WorldBook 2D。** 先确认版本/schema 和旧数据保留，再分别测试知识资料、行为模块、角色扮演 Session 与 `<em>` 情绪兼容；取得新存档/诊断后核对 provenance 与普通成长隔离，不提前写真机通过 |
-| 目标 | 世界书稳定分为知识资料、行为模块、角色扮演。配置本身不成为成长事件；行为模块可引导真实表达，AI 只有在多个非扮演回复、独立时段且更强时跨日期重复后，才可形成可逆自主倾向。角色扮演可续玩但不能写入普通 Memory、Thought、Thread、Relationship、Moe 或 AI Self |
+| 当前下一步 | **提交并构建 v0.41.39 公开网页完整阅读与价值路由包。** 本地实现与源码审查已完成；下一步推送当前开发分支，由 Actions 执行完整载荷恢复、Kotlin、Flutter analyze/tests、Release APK、固定签名和 checksum，再回填 CI/APK 证据 |
+| 目标 | 每次真实浏览由 Tavily Search 找网址、Tavily Extract 读取清洗正文、Agnes 生成用户可读概要与模型关键点，DeepSeek 独立判断语义有效性、个人兴趣、来源型学习与分享价值。浏览记录证明她查过什么；知识候选保存有来源的知识；分享候选决定是否想告诉用户；跨日兴趣证据接口留给 Phase 3A，不让单页直接成为永久兴趣 |
 | 当前证据 | v0.41.37 没有每轮 worldbook 文档 ID/版本来源，且旧规则 03 特殊风格与世界书同名模块仍是两条运行链。v0.41.38 已增加原子 Prompt+来源结果、schema 50 来源列、角色卡 Session/局部剧情尾部、跨角色历史过滤、知识资料记忆证据门和 AI Self 多事件门；run 724 已通过 validators、Kotlin、Flutter analyze、591 tests、release APK、签名和完整载荷，尚无真机数据库证据 |
 | 保护与排除 | 不修改或提交用户原 `.aibackup`、诊断、人物提示词原文、聊天正文或密钥；不批量猜测旧消息来源。性格光谱继续作为自由行为模块。规则 03 空占位和 legacy special-style 表/字段/key 保留兼容但不再作为普通聊天运行真源。相册多标签、`album.send`、Phase 3 兴趣和完整用户风格模仿不进入本包 |
 | 实现边界 | knowledge 只作资料，使用其回答不能证明 AI Self，普通 Memory 还需本轮用户逐字证据；behavior 来源随真实 assistant message 落库，但启停/正文无证据权重；roleplay 显式手动启停并绑定来源 Session，同卡可恢复 6000 字符局部尾部、换卡隔离，post-turn 在普通记忆强化前硬退出。`<em>平静</em>` 只在开头、闭合且标签合法时兼容为情绪；既有正文兜底分类器保留 |
@@ -53,6 +53,14 @@
 | 直接详细入口 | 本节下方“2026-09-05 WorldBook 2D 来源、角色扮演与自主成长”；规格为 `app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；代码入口为 `PromptBuilder/WorldBookTurnContext/WorldBookHistoryPolicy`、`MemoryExtractor`、`AiSelfEvidencePolicy`、`ReferenceLibrary` 与 schema 50 迁移 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
+
+| v0.41.39 字段 | 冻结内容 |
+|---|---|
+| 当前证据 | 现状是 Tavily basic 片段→Agnes 180 字压缩→候选/浏览器，未读原网页、无 DeepSeek 价值判断；首图缺少请求—像素 Gate，浏览条目无撤销联动；角色 Prompt 同时禁止场景身份覆盖，史莱姆卡因此执行失败 |
+| 保护与排除 | 不提交用户 `.aibackup`、诊断、聊天正文、网页正文缓存、人物原稿或密钥；Agnes 只收公开网页正文与公开元数据，不收 Memory、AI Self、关系、手机私密内容。Tavily 继续主搜索、Wikimedia 继续无结果回退；千问继续主视觉。普通无价值但真实可读的网页仍可留浏览历史，只有 mismatch/garbled/unreadable/unsafe 自动撤销。用户删除须同步停用候选/知识/Thought，并保留短期指纹防止立即重收。`album.send`、成熟兴趣消费、完整用户风格模仿、MCP/Harness 不进入本包 |
+| 实现边界 | Search、Extract、Agnes、DeepSeek 各有独立真实 Outcome；只有 Extract 成功且整理有效才算真实浏览。知识是可复核的来源型候选，不修改模型权重、不进入普通 Memory/AI Self。旧片段记录升级为 `legacy_unverified` 并退出学习/分享，允许用户删除或以后重新读取。自主搜索预算从固定 4 次改为默认 6、好奇且去重有效时最多 8 个 Tavily credit/24h；用户明确搜索与分享前 Extract 使用独立预算。roleplay 只在当前场景覆盖身份/身体/性格，永久底色与成长隔离不变 |
+| 完成判据 | schema 50→51 覆盖与旧备份导入保留旧行/ID并正确标 legacy；Search→Extract→Agnes→DeepSeek 成功/失败/无价值路径有测试；浏览、知识、分享状态不串；用户删除事务撤销所有派生使用且可从 UI 完成；无价值但合法浏览仍保留；旧错误摘要不再注入。史莱姆卡在场景内能回答“我是史莱姆”且退出恢复鲸鱼；“存一张二次元图”等自然命令能路由并在视觉不匹配时拒绝；相册展示创建/保存时间。全部专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、签名与载荷通过后才写 `APK READY` |
+| 直接详细入口 | 本节下方“2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修”；规格为 `app/docs/PUBLIC_WEB_READING_KNOWLEDGE_V04139.md`；代码入口为 `LayeredPublicWebProvider/PublicWebDiscoveryEngine/PublicWebShareCoordinator`、`AgentToolRunner/Planner`、`AppDatabase` schema 51、模拟手机 Browser、`QwenVisionClient`、`PromptBuilder` roleplay anchor |
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
@@ -74,6 +82,28 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-05 v0.41.39 公开网页完整阅读、知识/浏览生命周期与窄热修（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户已确认进入下一步，并授权认真读取项目、必要时查询官方资料、修改、推送和构建 APK。本条为修改前冻结；写入时运行源码仍是 v0.41.38+177 / schema 50，没有把计划冒充为已实现。
+2. 公开网页链冻结为四个可审计阶段：Tavily Search 发现 URL；Tavily Extract 读取 URL 的清洗正文；Agnes 只基于公开正文产出“用户可读概要 + 模型关键点/不确定项/主题标签”；DeepSeek 再决定语义是否有效、是否有个人兴趣、是否值得形成来源型知识、是否值得分享以及如何自然谈起。
+3. 不预置网址，也不新增 API：Search 结果动态提供 URL，Extract 复用 Tavily key；Agnes 复用现有 OpenAI-compatible key；DeepSeek 复用主模型配置；图片仍由千问视觉读取。Tavily/Wikimedia 搜索回退关系不改。
+4. “真实浏览”必须有 Extract 成功证据和有效整理结果；搜索片段本身只能叫发现线索。浏览记录用于让用户与 AI 看见她查过什么；知识用于之后按来源检索；分享是一次可撤销的表达意图；三者不能用同一 lifecycle 互相冒充。
+5. 合法、可读但无趣或不值得学习/分享的网页仍是真实浏览，应该保留；只有与查询明显不符、乱码、无法读取或不安全的结果自动拒绝。DeepSeek 的“无价值”不得伪装成网络失败。
+6. schema 50→51 必须非破坏升级：旧 snippet-only 候选/浏览记录保留 ID 和可见性，但标记 `legacy_unverified`，退出后续学习与分享注入；允许用户手动删除或未来重新读取。删除必须事务性撤销候选、知识和未执行 Thought，同时保留最小指纹墓碑，防止短期内原样重收。
+7. 搜索预算不做无脑放大：自主发现默认最多 6 个 Tavily credit/24h，在连续得到有效、去重且有好奇驱动的结果时最多 8；用户明确搜索和分享前重新 Extract 使用独立预算。每轮/每 heartbeat 仍受既有 Gate 与一个外部动作限制。
+8. 来源型知识不是模型权重训练，也不进入普通 Memory、AI Self、关系或人格成长。网页主题标签只提供 Phase 3A 可消费的跨日证据接口；本包不把一次浏览直接转成熟 `ai_interest`，也不提前改主动来源竞争器。
+9. roleplay 窄修只解决 Prompt 冲突：永久 AI 身份与成长底色不变，但显式扮演 Session 内角色身份、身体、物种和性格完整接管当前场景；退出后恢复普通鲸鱼身份。v0.41.38 的来源绑定、局部剧情恢复和成长硬隔离全部保留。
+10. 图片窄修覆盖自然“存一张二次元图”等命令路由、Tavily 图片候选选择以及请求—像素语义验证；千问即使能描述图片，也必须明确判定像素是否满足保存请求，Logo/网页标识等不匹配内容不得进相册。相册前端补充真实创建/保存时间。
+11. 已实现 `v0.41.39+178 / schema 51 / Snapshot protocol 5`，分支为 `agent/v04139-web-reading-learning-roleplay-image`。schema 51 非破坏新增读取/语义/结构化摘要/分值/删除/搜索词字段及 `public_web_knowledge`；旧候选和浏览记录稳定标成 `legacy_unverified`，不改旧 ID 与正文。
+12. `LayeredPublicWebProvider` 现在以 Tavily Search 找 URL，再用同一 Tavily key 调用 Extract；依据 Tavily 官方文档，Extract 故意不传 `query`，避免只返回重排短片段。完整清洗正文只在内存按 28,000 字符分段交给 Agnes，最终只落库概要、要点、不确定性、标签、正文哈希与读取时间，不保存网页正文。
+13. DeepSeek 新增独立候选评价器，分别返回 `semantic/interest/learning/share`；可读但低价值项进入浏览历史，mismatch/garbled/unreadable/unsafe 不落浏览/知识/分享。DeepSeek 缺失或格式失败时保守降为 history-only 并清零价值分，不伪造成功。
+14. 浏览、知识和分享已分层：浏览前端及 Agent 查手机都能看到搜索词、摘要、原网页、发现/读取时间；有效且达到学习门的来源型知识只在当前问题局部相关时进入 Prompt，不写 Memory/AI Self/人格。用户从浏览器删除会事务撤销候选、知识和未执行 Thought，但保留候选指纹至既有 TTL。
+15. 分享候选在创建 Thought 前重新 Extract→Agnes→DeepSeek；复读失败、语义变化或分享分不足会转 declined，不发送旧摘要。Search/Extract/Agnes/DeepSeek 均保留独立 ProviderHealth 终态；自主运行预算为 24 小时默认 6 次，有至少 3 条近期去重有效阅读且好奇强度足够时上限 8，查手机每天最多展示 8 条。
+16. 图片链把自然“存一张二次元图”等表达路由到 Tavily 图片搜索；图片请求不额外全文读取网页或调用 Agnes。千问按实际缩略图像素返回请求匹配与置信度，纯站点标识/占位图/无关图在保存前拒绝；全部候选不符时明确返回 `request_mismatch`。相册详情显示持久化保存时间。
+17. roleplay 增加靠近最终生成位置的 Session 执行锚点：当前虚构场景中的身份、物种、身体、能力、性格和语言由活动角色卡接管，不再被永久鲸鱼身份否认；永久 AI Self、普通 Memory、关系与成长隔离及 Session 退出恢复规则维持 v0.41.38 真源。
+18. 本地独立代码审查已覆盖 Provider 顺序/数据最小化、schema 迁移与备份表序、浏览删除事务、知识检索相关性、分享前刷新、角色 Prompt 优先级、请求—像素绑定及工作流版本。审查中修复了 Extract 误带 `query`、浏览历史仍限 3 条、搜索词未投影、图片请求误跑全文 Agnes、分享刷新缺少分阶段诊断、保守回退残留旧分值等问题。
+19. 本地 `git diff --check`、v0.41.33～39 专项、当前总账、v0.40.1/05、v0.33.2/38、v0.34.0/49、v0.35.2/58/59、v0.36.0～03、v0.37.4/76、v0.38.1/88、v0.39.0/2、v0.40.2、v0.41.11～14 及数据库历史模拟均通过。当前容器无 Flutter/Dart/kotlinc，且仓库不常驻大型桌宠/LingChat/Meju/TTS/native 载荷；因此 analyze/tests/Kotlin/载荷/APK 仍严格记为 CI PENDING。
 
 > **轻量接班默认在此停止。** 以下保留当前和最近版本过程、全局模块状态、完整任务池、踩坑、模块导航以及 v0.41.6～v0.41.18 的详细过程。只有当前任务包指向、发生冲突、需要修改旧功能或用户明确要求审计时才定点读取；这里仍属于唯一总账，不是第二份入口。
 

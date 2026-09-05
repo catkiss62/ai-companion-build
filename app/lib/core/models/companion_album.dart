@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class CompanionAlbumItem {
   const CompanionAlbumItem({
     required this.id,
@@ -112,6 +114,12 @@ class CompanionBrowserVisit {
     required this.provider,
     required this.discoveredAt,
     required this.actionRunId,
+    this.readState = 'legacy_unverified',
+    this.semanticState = 'legacy_unverified',
+    this.keyPoints = const <String>[],
+    this.topicTags = const <String>[],
+    this.readAt,
+    this.searchQuery = '',
   });
 
   final String id;
@@ -122,9 +130,29 @@ class CompanionBrowserVisit {
   final String provider;
   final DateTime discoveredAt;
   final String actionRunId;
+  final String readState;
+  final String semanticState;
+  final List<String> keyPoints;
+  final List<String> topicTags;
+  final DateTime? readAt;
+  final String searchQuery;
 
-  factory CompanionBrowserVisit.fromDb(Map<String, Object?> row) =>
-      CompanionBrowserVisit(
+  bool get isLegacyUnverified => readState == 'legacy_unverified';
+
+  factory CompanionBrowserVisit.fromDb(Map<String, Object?> row) {
+    List<String> decodeStrings(Object? raw) {
+      try {
+        final value = jsonDecode(raw?.toString() ?? '[]');
+        return value is List
+            ? value.map((item) => item.toString()).toList(growable: false)
+            : const <String>[];
+      } catch (_) {
+        return const <String>[];
+      }
+    }
+
+    final rawReadAt = (row['read_at'] as num?)?.toInt();
+    return CompanionBrowserVisit(
         id: row['id'] as String? ?? '',
         title: row['title'] as String? ?? '',
         summary: row['summary'] as String? ?? '',
@@ -135,5 +163,15 @@ class CompanionBrowserVisit {
           (row['discovered_at'] as num?)?.toInt() ?? 0,
         ),
         actionRunId: row['action_run_id'] as String? ?? '',
+        readState: row['read_state'] as String? ?? 'legacy_unverified',
+        semanticState:
+            row['semantic_state'] as String? ?? 'legacy_unverified',
+        keyPoints: decodeStrings(row['key_points_json']),
+        topicTags: decodeStrings(row['topic_tags_json']),
+        readAt: rawReadAt == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(rawReadAt),
+        searchQuery: row['search_query'] as String? ?? '',
       );
+  }
 }

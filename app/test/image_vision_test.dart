@@ -258,4 +258,58 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  test('user image request is checked against pixels, not page metadata',
+      () async {
+    late Map<String, dynamic> requestBody;
+    final client = QwenVisionClient(
+      client: MockClient((request) async {
+        requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'choices': <Object?>[
+              <String, Object?>{
+                'message': <String, Object?>{
+                  'content': jsonEncode(<String, Object?>{
+                    'summary': '画面只有新闻网站标识。',
+                    'request_match': <String, Object?>{
+                      'matches': false,
+                      'confidence': 0.98,
+                      'reason': '像素中没有二次元人物或插画。',
+                    },
+                    'album': <String, Object?>{
+                      'save': true,
+                      'category': 'other',
+                    },
+                  }),
+                },
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+    final directory = await Directory.systemTemp.createTemp('match-vision-');
+    final file = File('${directory.path}/thumbnail.png');
+    await file.writeAsBytes(const <int>[137, 80, 78, 71]);
+    try {
+      final result = await client.observe(
+        apiKey: 'test-key',
+        endpoint: QwenVisionClient.defaultEndpoint,
+        model: QwenVisionClient.defaultModel,
+        imageFile: file,
+        assessForAlbum: true,
+        requestedSubject: '二次元人物插画',
+      );
+      final messages = requestBody['messages'] as List<dynamic>;
+      expect((messages.first as Map)['content'], contains('只按图片实际像素'));
+      expect(result.requestMatch, isFalse);
+      expect(result.requestMatchConfidence, 0.98);
+      expect(result.requestMismatchReason, contains('没有二次元'));
+    } finally {
+      client.close();
+      await directory.delete(recursive: true);
+    }
+  });
 }

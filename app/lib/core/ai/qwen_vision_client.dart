@@ -16,6 +16,9 @@ class QwenVisionObservation {
     this.aestheticTags = const [],
     this.albumConfidence = 0,
     this.albumAdultContent = false,
+    this.requestMatch = true,
+    this.requestMatchConfidence = 1,
+    this.requestMismatchReason = '',
   });
 
   final String summary;
@@ -28,6 +31,9 @@ class QwenVisionObservation {
   final List<String> aestheticTags;
   final double albumConfidence;
   final bool albumAdultContent;
+  final bool requestMatch;
+  final double requestMatchConfidence;
+  final String requestMismatchReason;
 }
 
 class QwenVisionClient {
@@ -48,6 +54,7 @@ class QwenVisionClient {
     String caption = '',
     bool assessForAlbum = false,
     String albumPreferenceHint = '',
+    String requestedSubject = '',
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const QwenVisionException(
@@ -67,6 +74,7 @@ class QwenVisionClient {
       caption: caption,
       assessForAlbum: assessForAlbum,
       albumPreferenceHint: albumPreferenceHint,
+      requestedSubject: requestedSubject,
     );
   }
 
@@ -78,6 +86,7 @@ class QwenVisionClient {
     String caption = '',
     bool assessForAlbum = false,
     String albumPreferenceHint = '',
+    String requestedSubject = '',
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const QwenVisionException(
@@ -121,6 +130,7 @@ class QwenVisionClient {
                 'content': _systemPrompt(
                   assessForAlbum: assessForAlbum,
                   albumPreferenceHint: albumPreferenceHint,
+                  requestedSubject: requestedSubject,
                 ),
               },
               {
@@ -174,6 +184,15 @@ class QwenVisionClient {
             .take(12)
             .toList(growable: false)
         : const <String>[];
+    final request = parsed['request_match'] is Map
+        ? Map<String, dynamic>.from(parsed['request_match'] as Map)
+        : const <String, dynamic>{};
+    final requestRequired = requestedSubject.trim().isNotEmpty;
+    final requestConfidence =
+        ((request['confidence'] as num?)?.toDouble() ?? 0)
+            .clamp(0, 1)
+            .toDouble();
+    final mismatchReason = request['reason']?.toString().trim() ?? '';
     return QwenVisionObservation(
       summary: summary.length > 1800 ? summary.substring(0, 1800) : summary,
       model: responseModel == null || responseModel.isEmpty
@@ -187,6 +206,11 @@ class QwenVisionClient {
       albumConfidence:
           ((album['confidence'] as num?)?.toDouble() ?? 0).clamp(0, 1).toDouble(),
       albumAdultContent: assessForAlbum && adultContent,
+      requestMatch: !requestRequired || request['matches'] == true,
+      requestMatchConfidence: requestRequired ? requestConfidence : 1,
+      requestMismatchReason: mismatchReason.length > 360
+          ? mismatchReason.substring(0, 360)
+          : mismatchReason,
     );
   }
 
@@ -222,6 +246,7 @@ class QwenVisionClient {
   static String _systemPrompt({
     required bool assessForAlbum,
     required String albumPreferenceHint,
+    required String requestedSubject,
   }) {
     final base = '''
 你是图像观察模块，只把可见内容转成中性、简洁的中文观察。
@@ -239,6 +264,11 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
     final preference = albumPreferenceHint.trim().isEmpty
         ? '暂无用户审美反馈；按画面完成度、主体清晰度、趣味性和角色相关性谨慎选择。'
         : albumPreferenceHint.trim();
+    final requestContract = requestedSubject.trim().isEmpty
+        ? ''
+        : '''
+这是一次用户明确找图请求，目标是：“${requestedSubject.trim()}”。必须只按图片实际像素额外判断是否满足这个目标；网页标题、摘要、站点名称和图片说明不能代替像素证据。纯站点标识、占位图、无关封面或主体/风格明显不符时 matches=false。只有 matches=true 且 confidence>=0.72 才允许保存。
+''';
     return base +
         '''
 另外，以独立相册整理模块的身份判断这张受控缩略图是否值得她收藏。
@@ -255,7 +285,8 @@ summary 应描述主体、动作、场景、明显物品、画面风格，以及
 “other”表示其他值得收藏的普通图片。
 adult_content 只作内容分级元数据，不替代上述收藏价值判断；aesthetic_tags 可以如实使用与画风、氛围、题材和视觉表现有关的词。
 必须只输出 JSON：
-{"summary":"...","album":{"save":true,"category":"memory|self_image|other","reason":"...","adult_content":false,"aesthetic_tags":["..."],"confidence":0.0}}
+{"summary":"...","request_match":{"matches":true,"confidence":0.0,"reason":"像素是否满足找图目标的理由"},"album":{"save":true,"category":"memory|self_image|other","reason":"...","adult_content":false,"aesthetic_tags":["..."],"confidence":0.0}}
+$requestContract
 用户审美反馈只作为弱偏好，不把点赞/点踩解释成用户对她说的话。
 审美提示：''' +
         preference;

@@ -17,6 +17,18 @@ class PublicWebCandidateDraft {
     this.imageDomain = '',
     this.imageDescription = '',
     this.appraisalState = 'share_candidate',
+    this.readState = 'snippet_only',
+    this.semanticState = 'unappraised',
+    this.keyPoints = const <String>[],
+    this.uncertainties = const <String>[],
+    this.topicTags = const <String>[],
+    this.interestScore = 0,
+    this.learningScore = 0,
+    this.shareScore = 0,
+    this.appraisalReason = '',
+    this.contentSha256 = '',
+    this.readAt,
+    this.searchQuery = '',
   });
 
   final String fingerprint;
@@ -36,15 +48,45 @@ class PublicWebCandidateDraft {
   final String imageDomain;
   final String imageDescription;
   final String appraisalState;
+  final String readState;
+  final String semanticState;
+  final List<String> keyPoints;
+  final List<String> uncertainties;
+  final List<String> topicTags;
+  final double interestScore;
+  final double learningScore;
+  final double shareScore;
+  final String appraisalReason;
+  final String contentSha256;
+  final DateTime? readAt;
+  final String searchQuery;
 
-  PublicWebCandidateDraft copyWith({String? appraisalState}) =>
+  bool get isVerifiedRead => readState == 'verified';
+
+  PublicWebCandidateDraft copyWith({
+    String? summary,
+    String? provider,
+    String? appraisalState,
+    String? readState,
+    String? semanticState,
+    List<String>? keyPoints,
+    List<String>? uncertainties,
+    List<String>? topicTags,
+    double? interestScore,
+    double? learningScore,
+    double? shareScore,
+    String? appraisalReason,
+    String? contentSha256,
+    DateTime? readAt,
+    String? searchQuery,
+  }) =>
       PublicWebCandidateDraft(
         fingerprint: fingerprint,
         title: title,
-        summary: summary,
+        summary: summary ?? this.summary,
         url: url,
         sourceDomain: sourceDomain,
-        provider: provider,
+        provider: provider ?? this.provider,
         language: language,
         driveKey: driveKey,
         intentAction: intentAction,
@@ -56,6 +98,18 @@ class PublicWebCandidateDraft {
         imageDomain: imageDomain,
         imageDescription: imageDescription,
         appraisalState: appraisalState ?? this.appraisalState,
+        readState: readState ?? this.readState,
+        semanticState: semanticState ?? this.semanticState,
+        keyPoints: keyPoints ?? this.keyPoints,
+        uncertainties: uncertainties ?? this.uncertainties,
+        topicTags: topicTags ?? this.topicTags,
+        interestScore: interestScore ?? this.interestScore,
+        learningScore: learningScore ?? this.learningScore,
+        shareScore: shareScore ?? this.shareScore,
+        appraisalReason: appraisalReason ?? this.appraisalReason,
+        contentSha256: contentSha256 ?? this.contentSha256,
+        readAt: readAt ?? this.readAt,
+        searchQuery: searchQuery ?? this.searchQuery,
       );
 }
 
@@ -100,6 +154,11 @@ class PublicWebProviderResult {
     this.fallbackAttempted = false,
     this.fallbackSucceeded = false,
     this.fallbackFailureReason = '',
+    this.extractionAttempted = false,
+    this.extractionSucceeded = false,
+    this.extractionInputCount = 0,
+    this.extractionOutputCount = 0,
+    this.extractionFailureReason = '',
   });
 
   final List<PublicWebCandidateDraft> candidates;
@@ -119,6 +178,11 @@ class PublicWebProviderResult {
   final bool fallbackAttempted;
   final bool fallbackSucceeded;
   final String fallbackFailureReason;
+  final bool extractionAttempted;
+  final bool extractionSucceeded;
+  final int extractionInputCount;
+  final int extractionOutputCount;
+  final String extractionFailureReason;
 
   bool get succeeded => failureReason.isEmpty;
 }

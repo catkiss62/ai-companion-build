@@ -39,10 +39,19 @@ class ProviderHealthEvent {
 class ProviderHealth {
   const ProviderHealth._();
 
-  static const lanes = <String>{'search', 'compaction', 'vision', 'album'};
+  static const lanes = <String>{
+    'search',
+    'extraction',
+    'compaction',
+    'appraisal',
+    'vision',
+    'album',
+  };
   static const contexts = <String>{
     'autonomous',
     'user_turn',
+    'user_turn_image_save',
+    'share_refresh',
     'chat_image',
     'album_discovery',
     'user_image_album',
@@ -53,6 +62,7 @@ class ProviderHealth {
     'tavily',
     'wikimedia',
     'agnes',
+    'deepseek',
     'qwen_vision',
     'local_album',
   };
@@ -273,6 +283,33 @@ class ProviderHealth {
       finalProvider: result.compactionSucceeded ? 'agnes' : 'none',
       finalOutcome: outcome,
       resultCount: result.compactionOutputCount,
+      latencyBucket: latencyBucket(elapsed),
+    );
+  }
+
+  static ProviderHealthEvent webExtractionEvent({
+    required PublicWebProviderResult result,
+    required String context,
+    required Duration elapsed,
+  }) {
+    final outcome = !result.extractionAttempted
+        ? result.extractionFailureReason == 'tavily_extract_not_configured'
+            ? 'not_configured'
+            : 'not_called'
+        : result.extractionSucceeded
+            ? 'success'
+            : result.extractionFailureReason.contains('empty')
+                ? 'no_result'
+                : 'failed';
+    return ProviderHealthEvent(
+      lane: 'extraction',
+      context: context,
+      primaryProvider: 'tavily',
+      primaryOutcome: outcome,
+      primaryErrorCategory: errorCategory(result.extractionFailureReason),
+      finalProvider: result.extractionSucceeded ? 'tavily' : 'none',
+      finalOutcome: outcome,
+      resultCount: result.extractionOutputCount,
       latencyBucket: latencyBucket(elapsed),
     );
   }

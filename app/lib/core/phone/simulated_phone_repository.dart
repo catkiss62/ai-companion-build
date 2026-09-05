@@ -232,6 +232,9 @@ class SimulatedPhoneRepository {
 
   Future<void> markAlbumRead() => db.markCompanionAlbumRead();
 
+  Future<bool> deleteBrowserVisit(String id) =>
+      db.deleteCompanionBrowserVisit(id);
+
   Future<void> setAlbumFeedback(
     String id, {
     required String feedback,

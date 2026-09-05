@@ -63,6 +63,8 @@
 
 - `AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`
 - `PUBLIC_WEB_DISCOVERY_v0.34.8.md`
+- `PUBLIC_WEB_READING_KNOWLEDGE_V04139.md`：Search/Extract/Agnes/DeepSeek 四阶段真值、浏览/知识/分享生命周期、旧片段隔离、清理、预算与分享前复核。
+- `WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`：世界书三分类、来源快照、角色扮演 Session 与普通成长隔离。
 
 ### UI 与仓库入口
 

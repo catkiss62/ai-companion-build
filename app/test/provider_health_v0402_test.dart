@@ -93,4 +93,25 @@ void main() {
       'not_configured',
     );
   });
+
+  test('extraction has a distinct truthful terminal outcome', () {
+    const result = PublicWebProviderResult(
+      candidates: <PublicWebCandidateDraft>[],
+      provider: 'tavily_layered',
+      extractionAttempted: true,
+      extractionSucceeded: false,
+      extractionInputCount: 2,
+      extractionOutputCount: 0,
+      extractionFailureReason: 'tavily_extract_timeout',
+    );
+    final event = ProviderHealth.webExtractionEvent(
+      result: result,
+      context: 'autonomous',
+      elapsed: const Duration(seconds: 20),
+    );
+    expect(event.lane, 'extraction');
+    expect(event.primaryProvider, 'tavily');
+    expect(event.finalOutcome, 'failed');
+    expect(event.primaryErrorCategory, 'timeout');
+  });
 }

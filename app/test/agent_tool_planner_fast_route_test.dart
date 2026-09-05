@@ -63,6 +63,14 @@ void main() {
     expect(plan.calls.single.arguments['query'], contains('黄昏'));
   });
 
+  test('natural image save wording does not require a web keyword', () {
+    final plan = AgentToolPlanner.routeLocally('帮我存一张二次元的图');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.imageFindAndSave.id);
+    expect(plan.calls.single.arguments['query'], contains('二次元'));
+    expect(plan.calls.single.arguments['query'], isNot(contains('存一张')));
+  });
+
   test('explicit current attachment save is distinct from web image search', () {
     final plan = AgentToolPlanner.routeLocally('把这张图片保存进你的相册');
     expect(plan, isNotNull);

@@ -102,7 +102,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 47;
   // Historical validator compatibility token: static const int schemaVersion = 48;
   // Historical validator compatibility token: static const int schemaVersion = 49;
-  static const int schemaVersion = 50;
+  // Historical validator compatibility token: static const int schemaVersion = 50;
+  static const int schemaVersion = 51;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1103,6 +1104,10 @@ class AppDatabase {
       await _createV50WorldBookProvenanceColumns(db);
       await _stabilizeV50WorldBook(db);
     }
+    if (oldVersion < 51) {
+      await _createV51PublicWebReadingColumns(db);
+      await _stabilizeV51PublicWebReading(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1293,6 +1298,7 @@ class AppDatabase {
     await _createV48InterruptedTurnDisplays(db);
     await _createV49MemoryLifecycleColumns(db);
     await _createV50WorldBookProvenanceColumns(db);
+    await _createV51PublicWebReadingColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3019,6 +3025,98 @@ class AppDatabase {
     }
   }
 
+  Future<void> _createV51PublicWebReadingColumns(Database db) async {
+    Future<void> addMissing(
+      String table,
+      Map<String, String> definitions,
+    ) async {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final entry in definitions.entries) {
+        if (!columns.contains(entry.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
+      }
+    }
+
+    await addMissing('public_web_candidates', const <String, String>{
+      'read_state': "TEXT NOT NULL DEFAULT 'legacy_unverified'",
+      'semantic_state': "TEXT NOT NULL DEFAULT 'legacy_unverified'",
+      'key_points_json': "TEXT NOT NULL DEFAULT '[]'",
+      'uncertainties_json': "TEXT NOT NULL DEFAULT '[]'",
+      'topic_tags_json': "TEXT NOT NULL DEFAULT '[]'",
+      'interest_score': 'REAL NOT NULL DEFAULT 0',
+      'learning_score': 'REAL NOT NULL DEFAULT 0',
+      'share_score': 'REAL NOT NULL DEFAULT 0',
+      'appraisal_reason': "TEXT NOT NULL DEFAULT ''",
+      'content_sha256': "TEXT NOT NULL DEFAULT ''",
+      'read_at': 'INTEGER',
+      'deleted_at': 'INTEGER',
+      'delete_reason': "TEXT NOT NULL DEFAULT ''",
+      'search_query': "TEXT NOT NULL DEFAULT ''",
+    });
+    await addMissing('companion_browser_visits', const <String, String>{
+      'read_state': "TEXT NOT NULL DEFAULT 'legacy_unverified'",
+      'semantic_state': "TEXT NOT NULL DEFAULT 'legacy_unverified'",
+      'key_points_json': "TEXT NOT NULL DEFAULT '[]'",
+      'topic_tags_json': "TEXT NOT NULL DEFAULT '[]'",
+      'read_at': 'INTEGER',
+      'lifecycle_state': "TEXT NOT NULL DEFAULT 'visible'",
+      'deleted_at': 'INTEGER',
+      'delete_reason': "TEXT NOT NULL DEFAULT ''",
+      'search_query': "TEXT NOT NULL DEFAULT ''",
+    });
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS public_web_knowledge (
+        candidate_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        key_points_json TEXT NOT NULL DEFAULT '[]',
+        topic_tags_json TEXT NOT NULL DEFAULT '[]',
+        url TEXT NOT NULL,
+        source_domain TEXT NOT NULL,
+        content_sha256 TEXT NOT NULL,
+        learning_score REAL NOT NULL DEFAULT 0,
+        lifecycle_state TEXT NOT NULL DEFAULT 'active',
+        read_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        revoked_at INTEGER,
+        revoke_reason TEXT NOT NULL DEFAULT '',
+        FOREIGN KEY(candidate_id) REFERENCES public_web_candidates(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_public_web_knowledge_active '
+      'ON public_web_knowledge(lifecycle_state, read_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_browser_lifecycle_time '
+      'ON companion_browser_visits(lifecycle_state, discovered_at DESC)',
+    );
+  }
+
+  Future<void> _stabilizeV51PublicWebReading(DatabaseExecutor txn) async {
+    await txn.update(
+      'public_web_candidates',
+      <String, Object?>{
+        'read_state': 'legacy_unverified',
+        'semantic_state': 'legacy_unverified',
+      },
+      where: "read_state IS NULL OR read_state = '' OR read_state = 'snippet_only'",
+    );
+    await txn.update(
+      'companion_browser_visits',
+      <String, Object?>{
+        'read_state': 'legacy_unverified',
+        'semantic_state': 'legacy_unverified',
+      },
+      where: "read_state IS NULL OR read_state = ''",
+    );
+  }
+
   /// Replays only durable evidence already present in a v48 state package.
   /// Raw memories/messages are preserved; v49 adds a derived lifecycle view.
   Future<void> _stabilizeV49MemoryLifecycle(DatabaseExecutor txn) async {
@@ -3905,6 +4003,7 @@ class AppDatabase {
       'daily_continuity',
       'autonomous_action_runs',
       'public_web_candidates',
+      'public_web_knowledge',
       'companion_browser_visits',
       'companion_album_candidates',
     ];
@@ -9563,12 +9662,24 @@ class AppDatabase {
             'image_url': candidate.imageUrl,
             'image_domain': candidate.imageDomain,
             'image_description': candidate.imageDescription,
+            'read_state': candidate.readState,
+            'semantic_state': candidate.semanticState,
+            'key_points_json': jsonEncode(candidate.keyPoints),
+            'uncertainties_json': jsonEncode(candidate.uncertainties),
+            'topic_tags_json': jsonEncode(candidate.topicTags),
+            'interest_score': candidate.interestScore,
+            'learning_score': candidate.learningScore,
+            'share_score': candidate.shareScore,
+            'appraisal_reason': candidate.appraisalReason,
+            'content_sha256': candidate.contentSha256,
+            'read_at': candidate.readAt?.millisecondsSinceEpoch,
+            'search_query': candidate.searchQuery,
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
         if (inserted != 0) {
           stored++;
-          if (phoneEnabled && !diagnosticRun && browserUsed < 3) {
+          if (phoneEnabled && !diagnosticRun && browserUsed < 8) {
             await txn.insert(
               'companion_browser_visits',
               {
@@ -9582,10 +9693,41 @@ class AppDatabase {
                     candidate.discoveredAt.millisecondsSinceEpoch,
                 'action_run_id': id,
                 'created_at': instant.millisecondsSinceEpoch,
+                'read_state': candidate.readState,
+                'semantic_state': candidate.semanticState,
+                'key_points_json': jsonEncode(candidate.keyPoints),
+                'topic_tags_json': jsonEncode(candidate.topicTags),
+                'read_at': candidate.readAt?.millisecondsSinceEpoch,
+                'search_query': candidate.searchQuery,
+                'lifecycle_state': 'visible',
               },
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
             browserUsed++;
+          }
+          if (candidate.isVerifiedRead &&
+              candidate.semanticState == 'valid' &&
+              candidate.learningScore >= 0.62 &&
+              candidate.contentSha256.length == 64 &&
+              candidate.readAt != null) {
+            await txn.insert(
+              'public_web_knowledge',
+              <String, Object?>{
+                'candidate_id': candidateId,
+                'title': candidate.title,
+                'summary': candidate.summary,
+                'key_points_json': jsonEncode(candidate.keyPoints),
+                'topic_tags_json': jsonEncode(candidate.topicTags),
+                'url': candidate.url,
+                'source_domain': candidate.sourceDomain,
+                'content_sha256': candidate.contentSha256,
+                'learning_score': candidate.learningScore,
+                'lifecycle_state': 'active',
+                'read_at': candidate.readAt!.millisecondsSinceEpoch,
+                'created_at': instant.millisecondsSinceEpoch,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
           }
         }
       }
@@ -9696,7 +9838,7 @@ class AppDatabase {
         'lifecycle_state',
         'discovered_at',
       ],
-      where: "lifecycle_state = 'share_ready' AND expires_at > ?",
+      where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
       whereArgs: [instant.millisecondsSinceEpoch],
       orderBy: 'last_viewed_at ASC, discovered_at ASC',
       limit: 1,
@@ -9882,7 +10024,7 @@ class AppDatabase {
       final ready = await txn.query(
         'public_web_candidates',
         columns: const ['id'],
-        where: "lifecycle_state = 'share_ready' AND expires_at > ?",
+        where: "lifecycle_state = 'share_ready' AND read_state = 'verified' AND semantic_state = 'valid' AND expires_at > ?",
         whereArgs: [instant.millisecondsSinceEpoch],
         limit: 1,
       );
@@ -9897,7 +10039,7 @@ class AppDatabase {
           'discovered_at',
           'action_run_id',
         ],
-        where: "lifecycle_state = 'unread' AND expires_at > ?",
+        where: "lifecycle_state = 'unread' AND read_state = 'verified' AND semantic_state = 'valid' AND share_score >= 0.68 AND expires_at > ?",
         whereArgs: [instant.millisecondsSinceEpoch],
         orderBy: 'discovered_at DESC',
         limit: 1,
@@ -9934,6 +10076,171 @@ class AppDatabase {
           row['discovered_at'] as int? ?? instant.millisecondsSinceEpoch,
         ),
       );
+    });
+  }
+
+  Future<PublicWebCandidateDraft?> publicWebCandidateForRefresh(
+    String candidateId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      'public_web_candidates',
+      where: 'id = ?',
+      whereArgs: <Object?>[candidateId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.single;
+    List<String> strings(String key) {
+      try {
+        final value = jsonDecode(row[key]?.toString() ?? '[]');
+        return value is List
+            ? value.map((item) => item.toString()).toList(growable: false)
+            : const <String>[];
+      } catch (_) {
+        return const <String>[];
+      }
+    }
+
+    DateTime time(String key) => DateTime.fromMillisecondsSinceEpoch(
+          (row[key] as num?)?.toInt() ?? 0,
+        );
+    return PublicWebCandidateDraft(
+      fingerprint: row['fingerprint'] as String? ?? '',
+      title: row['title'] as String? ?? '',
+      summary: row['summary'] as String? ?? '',
+      url: row['url'] as String? ?? '',
+      sourceDomain: row['source_domain'] as String? ?? '',
+      provider: row['provider'] as String? ?? '',
+      language: row['language'] as String? ?? 'zh',
+      driveKey: row['drive_key'] as String? ?? 'curiosity',
+      intentAction: row['intent_action'] as String? ?? '',
+      interestKey: row['interest_key'] as String? ?? '',
+      discoveredAt: time('discovered_at'),
+      expiresAt: time('expires_at'),
+      safetyState: row['safety_state'] as String? ?? 'untrusted_public',
+      imageUrl: row['image_url'] as String? ?? '',
+      imageDomain: row['image_domain'] as String? ?? '',
+      imageDescription: row['image_description'] as String? ?? '',
+      appraisalState: row['lifecycle_state'] as String? ?? 'reviewed',
+      readState: row['read_state'] as String? ?? 'legacy_unverified',
+      semanticState:
+          row['semantic_state'] as String? ?? 'legacy_unverified',
+      keyPoints: strings('key_points_json'),
+      uncertainties: strings('uncertainties_json'),
+      topicTags: strings('topic_tags_json'),
+      interestScore: (row['interest_score'] as num?)?.toDouble() ?? 0,
+      learningScore: (row['learning_score'] as num?)?.toDouble() ?? 0,
+      shareScore: (row['share_score'] as num?)?.toDouble() ?? 0,
+      appraisalReason: row['appraisal_reason'] as String? ?? '',
+      contentSha256: row['content_sha256'] as String? ?? '',
+      readAt: row['read_at'] == null ? null : time('read_at'),
+      searchQuery: row['search_query'] as String? ?? '',
+    );
+  }
+
+  Future<bool> completePublicWebShareRefresh(
+    String candidateId,
+    PublicWebCandidateDraft refreshed, {
+    required bool eligible,
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      final updated = await txn.update(
+        'public_web_candidates',
+        <String, Object?>{
+          'title': refreshed.title,
+          'summary': refreshed.summary,
+          'provider': refreshed.provider,
+          'read_state': refreshed.readState,
+          'semantic_state': refreshed.semanticState,
+          'key_points_json': jsonEncode(refreshed.keyPoints),
+          'uncertainties_json': jsonEncode(refreshed.uncertainties),
+          'topic_tags_json': jsonEncode(refreshed.topicTags),
+          'interest_score': refreshed.interestScore,
+          'learning_score': refreshed.learningScore,
+          'share_score': refreshed.shareScore,
+          'appraisal_reason': refreshed.appraisalReason,
+          'content_sha256': refreshed.contentSha256,
+          'read_at': refreshed.readAt?.millisecondsSinceEpoch,
+          'search_query': refreshed.searchQuery,
+          if (!eligible) 'lifecycle_state': 'declined',
+          'last_viewed_at': instant.millisecondsSinceEpoch,
+        },
+        where: "id = ? AND lifecycle_state = 'share_staging'",
+        whereArgs: <Object?>[candidateId],
+      );
+      if (updated != 1) return false;
+      await txn.update(
+        'companion_browser_visits',
+        <String, Object?>{
+          'title': refreshed.title,
+          'summary': refreshed.summary,
+          'provider': refreshed.provider,
+          'read_state': refreshed.readState,
+          'semantic_state': refreshed.semanticState,
+          'key_points_json': jsonEncode(refreshed.keyPoints),
+          'topic_tags_json': jsonEncode(refreshed.topicTags),
+          'read_at': refreshed.readAt?.millisecondsSinceEpoch,
+          'search_query': refreshed.searchQuery,
+        },
+        where: "id = ? AND lifecycle_state = 'visible'",
+        whereArgs: <Object?>[candidateId],
+      );
+      final knowledgeEligible = refreshed.isVerifiedRead &&
+          refreshed.semanticState == 'valid' &&
+          refreshed.learningScore >= 0.62 &&
+          refreshed.contentSha256.length == 64 &&
+          refreshed.readAt != null;
+      if (knowledgeEligible) {
+        await txn.insert(
+          'public_web_knowledge',
+          <String, Object?>{
+            'candidate_id': candidateId,
+            'title': refreshed.title,
+            'summary': refreshed.summary,
+            'key_points_json': jsonEncode(refreshed.keyPoints),
+            'topic_tags_json': jsonEncode(refreshed.topicTags),
+            'url': refreshed.url,
+            'source_domain': refreshed.sourceDomain,
+            'content_sha256': refreshed.contentSha256,
+            'learning_score': refreshed.learningScore,
+            'lifecycle_state': 'active',
+            'read_at': refreshed.readAt!.millisecondsSinceEpoch,
+            'created_at': instant.millisecondsSinceEpoch,
+            'revoked_at': null,
+            'revoke_reason': '',
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else {
+        await txn.update(
+          'public_web_knowledge',
+          <String, Object?>{
+            'lifecycle_state': 'revoked',
+            'revoked_at': instant.millisecondsSinceEpoch,
+            'revoke_reason': 'share_refresh_not_learning_eligible',
+          },
+          where: 'candidate_id = ?',
+          whereArgs: <Object?>[candidateId],
+        );
+      }
+      if (!eligible) {
+        await txn.update(
+          'thoughts',
+          <String, Object?>{
+            'lifecycle_state': 'dormant',
+            'updated_at': instant.millisecondsSinceEpoch,
+          },
+          where: 'topic_key = ?',
+          whereArgs: <Object?>[
+            'public_web_candidate:${candidateId.toLowerCase()}',
+          ],
+        );
+      }
+      return true;
     });
   }
 
@@ -10110,6 +10417,19 @@ class AppDatabase {
             instant.add(const Duration(days: 1)).millisecondsSinceEpoch,
         'last_viewed_at': null,
         'view_count': 0,
+        'read_state': 'verified',
+        'semantic_state': 'valid',
+        'key_points_json': jsonEncode(
+          const <String>['座头鲸歌声具有结构并会随群体逐渐变化'],
+        ),
+        'uncertainties_json': '[]',
+        'topic_tags_json': jsonEncode(const <String>['座头鲸', '动物行为']),
+        'interest_score': 0.8,
+        'learning_score': 0.7,
+        'share_score': 0.9,
+        'appraisal_reason': '诊断夹具',
+        'content_sha256': fingerprint,
+        'read_at': instant.millisecondsSinceEpoch,
       });
       await _setSettingInTransaction(
         txn,
@@ -10152,7 +10472,7 @@ class AppDatabase {
           'safety_state',
         ],
         where:
-            "expires_at > ? AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging')",
+            "expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
         whereArgs: [instant.millisecondsSinceEpoch],
         orderBy:
             "CASE WHEN lifecycle_state = 'share_ready' THEN 0 WHEN lifecycle_state = 'unread' THEN 1 ELSE 2 END, discovered_at DESC",
@@ -10222,7 +10542,7 @@ class AppDatabase {
         'safety_state',
       ],
       where:
-          "id IN ($placeholders) AND expires_at > ? AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging')",
+          "id IN ($placeholders) AND expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
       whereArgs: [...orderedIds, instant.millisecondsSinceEpoch],
     );
     final byId = <String, Map<String, Object?>>{
@@ -10251,7 +10571,7 @@ class AppDatabase {
   /// browser. It never marks a candidate reviewed and never creates AI state.
   Future<List<CompanionBrowserVisit>> companionBrowserVisits({
     int days = 14,
-    int maxPerDay = 3,
+    int maxPerDay = 8,
   }) async {
     final db = await database;
     final cutoff = DateTime.now()
@@ -10260,10 +10580,13 @@ class AppDatabase {
     final rows = await db.rawQuery(
       '''
       SELECT v.id, v.title, v.summary, v.url, v.source_domain, v.provider,
-             v.discovered_at, v.action_run_id
+             v.discovered_at, v.action_run_id, v.read_state,
+             v.semantic_state, v.key_points_json, v.topic_tags_json, v.read_at,
+             v.search_query
       FROM companion_browser_visits v
       JOIN autonomous_action_runs a ON a.id = v.action_run_id
       WHERE v.discovered_at >= ?
+        AND v.lifecycle_state = 'visible'
         AND a.status = 'succeeded'
         AND a.outcome_kind = 'candidate_stored'
         AND a.reason_source NOT LIKE 'diagnostic_%'
@@ -10282,11 +10605,123 @@ class AppDatabase {
       final day =
           '${at.year.toString().padLeft(4, '0')}-${at.month.toString().padLeft(2, '0')}-${at.day.toString().padLeft(2, '0')}';
       final count = counts[day] ?? 0;
-      if (count >= maxPerDay.clamp(1, 3).toInt()) continue;
+      if (count >= maxPerDay.clamp(1, 8).toInt()) continue;
       counts[day] = count + 1;
       result.add(CompanionBrowserVisit.fromDb(row));
     }
     return result;
+  }
+
+  Future<bool> deleteCompanionBrowserVisit(
+    String id, {
+    DateTime? now,
+  }) async {
+    final candidateId = id.trim();
+    if (candidateId.isEmpty) return false;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      final changed = await txn.update(
+        'companion_browser_visits',
+        <String, Object?>{
+          'lifecycle_state': 'user_deleted',
+          'deleted_at': instant.millisecondsSinceEpoch,
+          'delete_reason': 'user_deleted',
+        },
+        where: "id = ? AND lifecycle_state = 'visible'",
+        whereArgs: <Object?>[candidateId],
+      );
+      if (changed != 1) return false;
+      await txn.update(
+        'public_web_candidates',
+        <String, Object?>{
+          'lifecycle_state': 'user_deleted',
+          'deleted_at': instant.millisecondsSinceEpoch,
+          'delete_reason': 'user_deleted',
+          'last_viewed_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[candidateId],
+      );
+      await txn.update(
+        'public_web_knowledge',
+        <String, Object?>{
+          'lifecycle_state': 'revoked',
+          'revoked_at': instant.millisecondsSinceEpoch,
+          'revoke_reason': 'user_deleted',
+        },
+        where: 'candidate_id = ?',
+        whereArgs: <Object?>[candidateId],
+      );
+      await txn.update(
+        'thoughts',
+        <String, Object?>{
+          'lifecycle_state': 'dormant',
+          'updated_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'topic_key = ? AND last_acted_at IS NULL AND lifecycle_state != ?',
+        whereArgs: <Object?>[
+          'public_web_candidate:${candidateId.toLowerCase()}',
+          'dormant',
+        ],
+      );
+      return true;
+    });
+  }
+
+  Future<List<PublicWebContextItem>> activePublicWebKnowledgeContext({
+    required String query,
+    int limit = 2,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'public_web_knowledge',
+      where: "lifecycle_state = 'active'",
+      orderBy: 'read_at DESC',
+      limit: 30,
+    );
+    final normalized = query.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    final terms = <String>{};
+    if (normalized.length >= 2) {
+      for (var index = 0; index < normalized.length - 1; index++) {
+        terms.add(normalized.substring(index, index + 2));
+        if (terms.length >= 24) break;
+      }
+    }
+    if (terms.isEmpty && normalized.isNotEmpty) terms.add(normalized);
+    final minimumMatches = normalized.length <= 3 ? 1 : 2;
+    final scored = rows.map((row) {
+      final haystack = '${row['title']} ${row['summary']} '
+              '${row['key_points_json']} ${row['topic_tags_json']}'
+          .toLowerCase();
+      final score = terms.where(haystack.contains).length;
+      return MapEntry<int, Map<String, Object?>>(score, row);
+    }).where((entry) => entry.key >= minimumMatches).toList()
+      ..sort((left, right) {
+        final score = right.key.compareTo(left.key);
+        if (score != 0) return score;
+        return ((right.value['read_at'] as num?)?.toInt() ?? 0).compareTo(
+          (left.value['read_at'] as num?)?.toInt() ?? 0,
+        );
+      });
+    return scored
+        .take(limit.clamp(1, 3).toInt())
+        .map((entry) {
+          final row = entry.value;
+          return PublicWebContextItem(
+            id: row['candidate_id'] as String? ?? '',
+            title: row['title'] as String? ?? '',
+            summary: row['summary'] as String? ?? '',
+            url: row['url'] as String? ?? '',
+            sourceDomain: row['source_domain'] as String? ?? '',
+            provider: 'verified_knowledge',
+            discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+              (row['read_at'] as num?)?.toInt() ?? 0,
+            ),
+            safetyState: 'untrusted_public',
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<Map<String, Object?>?> nextCompanionAlbumWebSource() async {
@@ -10299,6 +10734,8 @@ class AppDatabase {
       LEFT JOIN companion_album_candidates c
         ON c.source_kind = 'public_web' AND c.source_id = p.id
       WHERE p.image_url != ''
+        AND p.read_state = 'verified'
+        AND p.semantic_state = 'valid'
         AND c.id IS NULL
         AND a.status = 'succeeded'
         AND a.outcome_kind = 'candidate_stored'
@@ -11389,6 +11826,28 @@ class AppDatabase {
         .map((row) => row['interest_key'] as String? ?? '')
         .where((key) => key.isNotEmpty)
         .toList(growable: false);
+  }
+
+  Future<int> recentVerifiedPublicWebCount({
+    Duration window = const Duration(hours: 72),
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final cutoff = (now ?? DateTime.now())
+        .subtract(window)
+        .millisecondsSinceEpoch;
+    return Sqflite.firstIntValue(await db.rawQuery(
+          '''
+          SELECT COUNT(DISTINCT fingerprint)
+          FROM public_web_candidates
+          WHERE discovered_at >= ?
+            AND read_state = 'verified'
+            AND semantic_state = 'valid'
+            AND lifecycle_state != 'user_deleted'
+          ''',
+          <Object?>[cutoff],
+        )) ??
+        0;
   }
 
   AutonomousActionRun _autonomousActionRunFromDb(
@@ -15229,6 +15688,7 @@ class AppDatabase {
         "status IN ('requested','running')",
       ),
       'public_web_candidates': await count('public_web_candidates'),
+      'public_web_knowledge': await count('public_web_knowledge'),
       'active_public_web_candidates': await count(
         'public_web_candidates',
         'expires_at > ?',
@@ -15341,6 +15801,7 @@ class AppDatabase {
       'agent_tool_outcomes',
       'autonomous_action_runs',
       'public_web_candidates',
+      'public_web_knowledge',
       'companion_browser_visits',
       'companion_album_candidates',
       'relationship_events',
@@ -15418,6 +15879,9 @@ class AppDatabase {
     if (version < 48) {
       rawTables['interrupted_turn_displays'] = const <Object?>[];
     }
+    if (version < 51) {
+      rawTables['public_web_knowledge'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -15442,6 +15906,7 @@ class AppDatabase {
         'agent_tool_outcomes',
         'autonomous_action_runs',
         'public_web_candidates',
+        'public_web_knowledge',
         'companion_browser_visits',
         'companion_album_candidates',
         'relationship_events',
@@ -15867,6 +16332,9 @@ class AppDatabase {
       }
       if (version < 50) {
         await _stabilizeV50WorldBook(txn);
+      }
+      if (version < 51) {
+        await _stabilizeV51PublicWebReading(txn);
       }
       await txn.update(
         'reference_documents',

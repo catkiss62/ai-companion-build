@@ -130,7 +130,8 @@ void main() {
     });
 
     test('hard budget and retention constants remain bounded', () {
-      expect(PublicWebDiscoveryPolicy.dailyLimit, 4);
+      expect(PublicWebDiscoveryPolicy.defaultDailyLimit, 6);
+      expect(PublicWebDiscoveryPolicy.adaptiveDailyLimit, 8);
       expect(PublicWebDiscoveryPolicy.budgetWindow, const Duration(hours: 24));
       expect(PublicWebDiscoveryPolicy.candidateTtl, const Duration(days: 14));
       expect(PublicWebDiscoveryPolicy.candidateCap, 240);

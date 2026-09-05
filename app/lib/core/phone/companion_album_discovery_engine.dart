@@ -54,6 +54,7 @@ class CompanionAlbumDiscoveryEngine {
     required String sourceDomain,
     required String title,
     required String visionContext,
+    required String requestedSubject,
     DateTime? now,
   }) async {
     final apiKey = await config.readVisionApiKey();
@@ -68,6 +69,7 @@ class CompanionAlbumDiscoveryEngine {
       apiKey: apiKey,
       now: (now ?? DateTime.now()).toLocal(),
       forceSave: true,
+      requestedSubject: requestedSubject,
     );
   }
 
@@ -137,6 +139,7 @@ class CompanionAlbumDiscoveryEngine {
     required String apiKey,
     required DateTime now,
     bool forceSave = false,
+    String requestedSubject = '',
   }) async {
     final started = DateTime.now();
     if (sourceId.isEmpty || !_safePublicHttps(Uri.tryParse(sourceUrl))) {
@@ -195,6 +198,7 @@ class CompanionAlbumDiscoveryEngine {
         caption: visionContext,
         assessForAlbum: true,
         albumPreferenceHint: await db.companionAlbumPreferenceHint(),
+        requestedSubject: requestedSubject,
       );
       stage = 'image_binding';
       await albumStorage.requireContentSha256(
@@ -216,7 +220,10 @@ class CompanionAlbumDiscoveryEngine {
 
       String contentSha = '';
       String perceptualHash = '';
-      final shouldSave = observation.albumSave || forceSave;
+      final requestMatches = requestedSubject.trim().isEmpty ||
+          (observation.requestMatch &&
+              observation.requestMatchConfidence >= 0.72);
+      final shouldSave = requestMatches && (observation.albumSave || forceSave);
       if (shouldSave) {
         stage = 'local_write';
         final stored = await albumStorage.saveThumbnail(
@@ -238,7 +245,9 @@ class CompanionAlbumDiscoveryEngine {
         visionSummary: observation.summary,
         visionModel: observation.model,
         aiReason: forceSave
-            ? '用户明确要求保存这张联网图片；视觉评价仅用于描述和索引。'
+            ? requestMatches
+                ? '用户明确要求保存，且视觉像素与找图目标相符。'
+                : '视觉像素与用户找图目标不符：${observation.requestMismatchReason}'
             : observation.albumReason,
         category: observation.albumCategory,
         thumbnailPath: savedPath,
@@ -266,6 +275,7 @@ class CompanionAlbumDiscoveryEngine {
         latencyBucket:
             ProviderHealth.latencyBucket(DateTime.now().difference(started)),
       ));
+      if (!requestMatches) return 'request_mismatch';
       return shouldSave && completed ? 'saved' : 'rejected';
     } catch (error) {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);

@@ -12,6 +12,7 @@ import 'autonomous_action_coordinator.dart';
 import 'layered_public_web_provider.dart';
 import 'public_web_discovery_policy.dart';
 import 'public_web_appraisal_policy.dart';
+import 'public_web_deepseek_appraiser.dart';
 import 'wikimedia_public_web_provider.dart';
 
 /// First scheduled autonomous tool provider.
@@ -27,14 +28,17 @@ class PublicWebDiscoveryEngine {
     required this.android,
     SecureConfig? secureConfig,
     PublicWebProvider? provider,
+    PublicWebCandidateAppraiser? appraiser,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
-        _providerOverride = provider;
+        _providerOverride = provider,
+        _appraiserOverride = appraiser;
 
   final AppDatabase db;
   final DesireEngine desire;
   final AndroidBridge android;
   final SecureConfig secureConfig;
   final PublicWebProvider? _providerOverride;
+  final PublicWebCandidateAppraiser? _appraiserOverride;
   final Uuid _uuid = Uuid();
 
   late final AutonomousActionCoordinator coordinator =
@@ -73,6 +77,12 @@ class PublicWebDiscoveryEngine {
     );
     final provider = _providerOverride ?? await _configuredProvider();
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
+    final recentVerified = await db.recentVerifiedPublicWebCount(
+      now: instant,
+    );
+    final budgetLimit = sourceIntent.score >= 0.72 && recentVerified >= 3
+        ? PublicWebDiscoveryPolicy.adaptiveDailyLimit
+        : PublicWebDiscoveryPolicy.defaultDailyLimit;
     var screenInteractive = true;
     var deviceLocked = false;
     try {
@@ -92,7 +102,7 @@ class PublicWebDiscoveryEngine {
       screenInteractive: screenInteractive,
       deviceLocked: deviceLocked,
       sensitiveSurface: false,
-      budgetLimit: PublicWebDiscoveryPolicy.dailyLimit,
+      budgetLimit: budgetLimit,
       budgetWindow: PublicWebDiscoveryPolicy.budgetWindow,
       now: instant,
     );
@@ -148,6 +158,11 @@ class PublicWebDiscoveryEngine {
       context: 'autonomous',
       elapsed: providerElapsed,
     ));
+    await db.recordProviderHealthEvent(ProviderHealth.webExtractionEvent(
+      result: result,
+      context: 'autonomous',
+      elapsed: providerElapsed,
+    ));
     await _recordCompactionTelemetry(result, instant);
     if (!result.succeeded) {
       final completed = await coordinator.completeWithoutSatisfaction(
@@ -184,12 +199,56 @@ class PublicWebDiscoveryEngine {
       );
     }
 
-    final appraised = PublicWebAppraisalPolicy.appraise(
+    final appraiser = _appraiserOverride ??
+        DeepSeekPublicWebAppraiser(
+          apiKey: await secureConfig.readApiKey() ?? '',
+          endpoint: await secureConfig.readEndpoint(),
+        );
+    final appraisalStarted = DateTime.now();
+    final appraised = await appraiser.appraise(
+      query: topic.query,
       candidates: result.candidates,
       sourceIntent: sourceIntent,
       socialExcess: (snapshot.drives[DriveKey.social] ?? 0.0) -
           (snapshot.baselines[DriveKey.social] ?? 0.0),
     );
+    final appraisalCalled = result.candidates.any(
+      (candidate) => candidate.isVerifiedRead,
+    );
+    final appraisalFailed = appraisalCalled && appraised.any(
+      (candidate) => candidate.appraisalReason == 'deepseek_failure' ||
+          candidate.appraisalReason == 'deepseek_not_configured' ||
+          candidate.appraisalReason == 'invalid_items' ||
+          candidate.appraisalReason == 'empty_items',
+    );
+    await db.recordProviderHealthEvent(ProviderHealthEvent(
+      lane: 'appraisal',
+      context: 'autonomous',
+      primaryProvider: 'deepseek',
+      primaryOutcome: !appraisalCalled
+          ? 'not_called'
+          : appraisalFailed
+              ? 'failed'
+              : 'success',
+      primaryErrorCategory: appraisalFailed ? 'invalid_response' : 'none',
+      finalProvider:
+          appraisalCalled && !appraisalFailed ? 'deepseek' : 'none',
+      finalOutcome: !appraisalCalled
+          ? 'not_called'
+          : appraisalFailed
+              ? 'failed'
+              : 'success',
+      resultCount: !appraisalCalled
+          ? 0
+          : appraised
+              .where((candidate) =>
+                  candidate.appraisalState != PublicWebAppraisalPolicy.discard)
+              .length,
+      latencyBucket: ProviderHealth.latencyBucket(
+        DateTime.now().difference(appraisalStarted),
+      ),
+      createdAt: instant,
+    ));
     final kept = appraised
         .where(
           (candidate) =>

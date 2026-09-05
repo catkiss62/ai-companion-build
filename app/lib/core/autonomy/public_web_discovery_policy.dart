@@ -27,7 +27,8 @@ class _PublicWebTopicSeed {
 class PublicWebDiscoveryPolicy {
   const PublicWebDiscoveryPolicy._();
 
-  static const dailyLimit = 4;
+  static const defaultDailyLimit = 6;
+  static const adaptiveDailyLimit = 8;
   static const budgetWindow = Duration(hours: 24);
   static const candidateTtl = Duration(days: 14);
   static const candidateCap = 240;

@@ -70,7 +70,8 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.34+173'
   // Historical validator compatibility: buildLabel = 'v0.41.36+175'
   // Historical validator compatibility: buildLabel = 'v0.41.37+176'
-  static const buildLabel = 'v0.41.38+177';
+  // Historical validator compatibility: buildLabel = 'v0.41.38+177'
+  static const buildLabel = 'v0.41.39+178';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -95,13 +96,13 @@ class AgentSelfReader {
       id: 'proactive_web',
       title: '主动联系与公开网页',
       status: 'implemented',
-      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页发现可自主执行并把真实 Outcome 留在本地。',
+      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页先搜索网址，再读取完整清洗正文、整理概要并由主模型分别判断语义、兴趣、学习与分享价值。分享前会重新读取来源。',
     ),
     AgentSystemFact(
       id: 'phone_album',
       title: '模拟手机与私人相册',
       status: 'implemented',
-      detail: '支持本地浏览器历史、相册保存/检索与模拟手机页面；相册检索读取保存时摘要，不会假装重新看见原图。',
+      detail: '支持带原网页与读取时间的本地浏览记录、用户删除及来源型知识撤销，也支持相册保存/检索与模拟手机页面；相册检索读取保存时摘要，不会假装重新看见原图。',
     ),
     AgentSystemFact(
       id: 'backup_transfer',

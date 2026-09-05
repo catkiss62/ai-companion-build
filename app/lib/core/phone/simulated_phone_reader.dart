@@ -113,7 +113,13 @@ class SimulatedPhoneReader {
         handle: 'phone:browser:${item.id}',
         section: 'browser',
         title: item.title,
-        body: item.summary,
+        body: <String>[
+          if (item.searchQuery.isNotEmpty) '搜索：${item.searchQuery}',
+          item.summary,
+          if (item.readAt != null)
+            '原网页读取时间：${item.readAt!.toLocal().toIso8601String()}',
+          if (item.isLegacyUnverified) '旧版搜索片段，未重新读取原网页。',
+        ].where((value) => value.trim().isNotEmpty).join('\n'),
         createdAt: item.discoveredAt,
         source: '${item.domain} ${item.url}'.trim(),
       ));

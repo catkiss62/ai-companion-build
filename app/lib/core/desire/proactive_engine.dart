@@ -168,7 +168,12 @@ class ProactiveEngine {
         secureConfig: secureConfig,
       );
   late final PublicWebShareCoordinator publicWebSharing =
-      PublicWebShareCoordinator(db: db, desire: desireEngine);
+      PublicWebShareCoordinator(
+        db: db,
+        desire: desireEngine,
+        secureConfig: secureConfig,
+        refreshBeforeShare: true,
+      );
 
   /// Advances local inner-life and maintenance state without sending an
   /// outbound message. Used while a durable user reply is waiting for recovery.
