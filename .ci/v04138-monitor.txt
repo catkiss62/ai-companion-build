@@ -1,0 +1,7 @@
+status=success
+run_id=33973917503
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/33973917503
+head_sha=11e89f89c6ea1a76cc1f5a3a2864e01ceefacd3b
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+ad24935a68e1d11dcb4bf30764dec6cc69027002b801c4bab9cf58149a6c3fa9  AI-Companion-v0.41.38-177-WorldBook-2D-Roleplay-Provenance-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ce6e4316234957a4bcd3
