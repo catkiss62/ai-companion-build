@@ -88,16 +88,21 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
       await db.saveReferenceDocumentWithChunks(
         id: widget.document?.id,
         name: name,
-        kind: kind,
+        kind: entryType == 'roleplay' ? 'roleplay' : kind,
         rawContent: raw,
         aliases: aliases,
         enabled: widget.document?.enabled ?? true,
         entryType: entryType,
-        activationMode: entryType == 'behavior' ? activationMode : 'keyword',
+        activationMode: entryType == 'knowledge'
+            ? 'keyword'
+            : entryType == 'roleplay'
+                ? 'manual'
+                : activationMode,
         priority: priority.round(),
         activationProbability: probability.round(),
         scope: entryType == 'behavior' ? scope : 'all',
-        manualActive: entryType == 'behavior' && activationMode == 'manual'
+        manualActive: entryType != 'knowledge' &&
+                (entryType == 'roleplay' || activationMode == 'manual')
             ? widget.document?.manualActive ?? false
             : false,
         exclusiveGroup: widget.document?.exclusiveGroup ?? '',
@@ -123,9 +128,13 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           Text(
-            entryType == 'behavior'
-                ? '行为模块会按激活方式直接影响表达，但不会写入长期记忆、AI Self、学习候选或成长状态。'
-                : '知识资料保留完整原文，并自动生成用于按需检索的片段。它不会自动变成她的人格。',
+            switch (entryType) {
+              'behavior' =>
+                '行为模块会影响当轮表达；模块本身不是成长证据，真实的跨场景行为仍可经过证据门形成可逆倾向。',
+              'roleplay' =>
+                '角色扮演是显式启停的临时娱乐场景，拥有独立 Session，不会写入普通人格、记忆或成长。',
+              _ => '知识资料保留完整原文，并自动生成用于按需检索的片段。它不会自动变成她的人格。',
+            },
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   height: 1.45,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -141,6 +150,7 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
             items: const [
               DropdownMenuItem(value: 'knowledge', child: Text('知识资料 · 按话题检索')),
               DropdownMenuItem(value: 'behavior', child: Text('行为模块 · 控制表达')),
+              DropdownMenuItem(value: 'roleplay', child: Text('角色扮演 · 临时场景')),
             ],
             onChanged: saving
                 ? null
@@ -149,6 +159,10 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
                       if (entryType == 'behavior' && activationMode == 'keyword') {
                         activationMode = 'manual';
                       }
+                      if (entryType == 'roleplay') {
+                        activationMode = 'manual';
+                        scope = 'all';
+                      }
                     }),
           ),
           const SizedBox(height: 10),
@@ -156,7 +170,11 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
             controller: nameController,
             decoration: InputDecoration(
               labelText: '条目名称',
-              hintText: entryType == 'behavior' ? '例如：动作与神态' : '例如：Yuki',
+              hintText: entryType == 'behavior'
+                  ? '例如：动作与神态'
+                  : entryType == 'roleplay'
+                      ? '例如：史莱姆角色扮演'
+                      : '例如：Yuki',
               border: OutlineInputBorder(),
             ),
           ),
@@ -164,8 +182,14 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
           TextField(
             controller: aliasesController,
             decoration: InputDecoration(
-              labelText: entryType == 'behavior' ? '关键词 / 别名（可选）' : '别名 / 检索词（可选）',
-              hintText: entryType == 'behavior' ? '例如：幽默，玩笑，造梗' : '例如：有希，Yuki',
+              labelText: entryType == 'knowledge'
+                  ? '别名 / 检索词（可选）'
+                  : '关键词 / 别名（可选）',
+              hintText: entryType == 'behavior'
+                  ? '例如：幽默，玩笑，造梗'
+                  : entryType == 'roleplay'
+                      ? '例如：史莱姆，特殊扮演'
+                      : '例如：有希，Yuki',
               helperText: '多个词可用逗号或换行分开。',
               border: OutlineInputBorder(),
             ),
@@ -187,7 +211,7 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
               onChanged: saving ? null : (value) => setState(() => kind = value ?? kind),
             ),
             const SizedBox(height: 10),
-          ] else ...[
+          ] else if (entryType == 'behavior') ...[
             DropdownButtonFormField<String>(
               value: activationMode,
               decoration: const InputDecoration(
@@ -236,13 +260,27 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
               label: '${probability.round()}%',
               onChanged: saving ? null : (value) => setState(() => probability = value),
             ),
+          ] else ...[
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  '角色扮演固定使用手动开关。同一时间只会激活一张角色卡；开启另一张会结束上一场。',
+                ),
+              ),
+            ),
           ],
           TextField(
             controller: rawController,
             minLines: 12,
             maxLines: 28,
             decoration: InputDecoration(
-              labelText: entryType == 'behavior' ? '行为提示词' : '完整资料原文',
+              labelText: entryType == 'behavior'
+                  ? '行为提示词'
+                  : entryType == 'roleplay'
+                      ? '角色卡 / 扮演提示词'
+                      : '完整资料原文',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),
@@ -266,9 +304,11 @@ class _ReferenceDocumentEditorPageState extends State<ReferenceDocumentEditorPag
                 : const Icon(Icons.save_outlined),
             label: Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(entryType == 'behavior'
-                  ? (editing ? '保存行为模块' : '创建行为模块')
-                  : (editing ? '保存修改并重新分块' : '保存资料并生成检索片段')),
+              child: Text(switch (entryType) {
+                'behavior' => editing ? '保存行为模块' : '创建行为模块',
+                'roleplay' => editing ? '保存角色卡' : '创建角色扮演',
+                _ => editing ? '保存修改并重新分块' : '保存资料并生成检索片段',
+              }),
             ),
           ),
         ],

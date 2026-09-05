@@ -12,6 +12,8 @@ class InteractionSession {
     this.boundaries = const [],
     this.continuityNote = '',
     this.sourceMessageId,
+    this.sourceReferenceDocumentId = '',
+    this.sourceReferenceDocumentVersion = 0,
     this.endedAt,
   });
 
@@ -23,6 +25,8 @@ class InteractionSession {
   final List<String> boundaries;
   final String continuityNote;
   final String? sourceMessageId;
+  final String sourceReferenceDocumentId;
+  final int sourceReferenceDocumentVersion;
   final DateTime startedAt;
   final DateTime updatedAt;
   final DateTime? endedAt;
@@ -48,6 +52,10 @@ class InteractionSession {
       boundaries: boundaries,
       continuityNote: row['continuity_note'] as String? ?? '',
       sourceMessageId: row['source_message_id'] as String?,
+      sourceReferenceDocumentId:
+          row['source_reference_document_id'] as String? ?? '',
+      sourceReferenceDocumentVersion:
+          (row['source_reference_document_version'] as num?)?.toInt() ?? 0,
       startedAt: DateTime.fromMillisecondsSinceEpoch(row['started_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
       endedAt: row['ended_at'] == null

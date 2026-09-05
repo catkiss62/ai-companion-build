@@ -711,7 +711,7 @@ class ProactiveEngine {
         ? const <ChatMessage>[]
         : recent;
     final prompt = PromptBuilder(db);
-    final context = await prompt.buildChatMessages(
+    final promptBuild = await prompt.buildChatPrompt(
       latestUserText: '',
       retrievalQuery: intent.reason,
       recent: promptHistory,
@@ -722,6 +722,7 @@ class ProactiveEngine {
       groundingOverride: proactiveGrounding,
       selectedPublicWebCandidateId: webShareCandidateId,
     );
+    final context = promptBuild.messages.toList(growable: true);
     // The editable 08_proactive_turn template now owns these former inline
     // contracts: 当前“内在反应 + 表达过滤”仍完整生效；正文停在最有性格的自然落点。
     final webShareContract = webShareCandidateId == null
@@ -1143,6 +1144,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       emotionConfidence: companionEmotion.confidence,
       emotionTop3Json: companionEmotion.top3Json,
       emotionSource: companionEmotion.source,
+      worldBookContextJson: promptBuild.worldBookContext.encode(),
     );
     final commitBlock = await db.commitProactiveMessageIfCurrent(
       message: message,

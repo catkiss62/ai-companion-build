@@ -23,6 +23,7 @@ class ChatMessage {
     this.emotionConfidence = 0,
     this.emotionTop3Json = '',
     this.emotionSource = '',
+    this.worldBookContextJson = '',
   });
 
   final String id;
@@ -44,6 +45,8 @@ class ChatMessage {
   final double emotionConfidence;
   final String emotionTop3Json;
   final String emotionSource;
+  /// Machine-only provenance. It is never rendered or injected as self-story.
+  final String worldBookContextJson;
 
   CompanionEmotion get companionEmotion => emotionKey.isEmpty
       ? CompanionEmotion.calm
@@ -99,6 +102,7 @@ class ChatMessage {
     double? emotionConfidence,
     String? emotionTop3Json,
     String? emotionSource,
+    String? worldBookContextJson,
   }) {
     return ChatMessage(
       id: id,
@@ -120,6 +124,8 @@ class ChatMessage {
       emotionConfidence: emotionConfidence ?? this.emotionConfidence,
       emotionTop3Json: emotionTop3Json ?? this.emotionTop3Json,
       emotionSource: emotionSource ?? this.emotionSource,
+      worldBookContextJson:
+          worldBookContextJson ?? this.worldBookContextJson,
     );
   }
 
@@ -142,6 +148,7 @@ class ChatMessage {
         'emotion_confidence': emotionConfidence,
         'emotion_top3_json': emotionTop3Json,
         'emotion_source': emotionSource,
+        'worldbook_context_json': worldBookContextJson,
       };
 
   Map<String, Object?> toJson() => {
@@ -164,6 +171,7 @@ class ChatMessage {
         'emotion_confidence': emotionConfidence,
         'emotion_top3_json': emotionTop3Json,
         'emotion_source': emotionSource,
+        'worldbook_context_json': worldBookContextJson,
       };
 
   factory ChatMessage.fromDb(
@@ -193,6 +201,7 @@ class ChatMessage {
       emotionConfidence: (row['emotion_confidence'] as num?)?.toDouble() ?? 0,
       emotionTop3Json: row['emotion_top3_json'] as String? ?? '',
       emotionSource: row['emotion_source'] as String? ?? '',
+      worldBookContextJson: row['worldbook_context_json'] as String? ?? '',
     );
   }
 }

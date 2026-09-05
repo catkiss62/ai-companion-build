@@ -101,7 +101,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 46;
   // Historical validator compatibility token: static const int schemaVersion = 47;
   // Historical validator compatibility token: static const int schemaVersion = 48;
-  static const int schemaVersion = 49;
+  // Historical validator compatibility token: static const int schemaVersion = 49;
+  static const int schemaVersion = 50;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1098,6 +1099,10 @@ class AppDatabase {
       await _createV49MemoryLifecycleColumns(db);
       await _stabilizeV49MemoryLifecycle(db);
     }
+    if (oldVersion < 50) {
+      await _createV50WorldBookProvenanceColumns(db);
+      await _stabilizeV50WorldBook(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1287,6 +1292,7 @@ class AppDatabase {
     await _createV47MemoryGroundingColumns(db);
     await _createV48InterruptedTurnDisplays(db);
     await _createV49MemoryLifecycleColumns(db);
+    await _createV50WorldBookProvenanceColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -2864,6 +2870,155 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV50WorldBookProvenanceColumns(Database db) async {
+    Future<void> addMissing(
+      String table,
+      Map<String, String> definitions,
+    ) async {
+      final columns = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name']?.toString() ?? '')
+          .toSet();
+      for (final entry in definitions.entries) {
+        if (!columns.contains(entry.key)) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
+      }
+    }
+
+    await addMissing('messages', const {
+      'worldbook_context_json': "TEXT NOT NULL DEFAULT ''",
+    });
+    await addMissing('post_turn_jobs', const {
+      'worldbook_context_json': "TEXT NOT NULL DEFAULT ''",
+    });
+    await addMissing('interaction_sessions', const {
+      'source_reference_document_id': "TEXT NOT NULL DEFAULT ''",
+      'source_reference_document_version': 'INTEGER NOT NULL DEFAULT 0',
+    });
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sessions_reference_source '
+      'ON interaction_sessions(source_reference_document_id, status, updated_at DESC)',
+    );
+  }
+
+  Future<void> _stabilizeV50WorldBook(DatabaseExecutor txn) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final legacyTrials = await txn.query(
+      'special_style_trials',
+      columns: const ['style_key'],
+      where: "status = 'active' AND expires_at > ?",
+      whereArgs: [now],
+      orderBy: 'started_at DESC',
+      limit: 1,
+    );
+    await txn.update(
+      'reference_documents',
+      {
+        'kind': 'roleplay',
+        'entry_type': 'roleplay',
+        'activation_mode': 'manual',
+        'scope': 'all',
+        'exclusive_group': 'worldbook_roleplay',
+        'updated_at': now,
+      },
+      where: "builtin = 1 AND id LIKE 'builtin.worldbook.special.%'",
+    );
+
+    // A still-running pre-v50 trial is transferred to the matching roleplay
+    // card once. The legacy row is retained as ended compatibility history;
+    // it is never a second ordinary-chat injection source.
+    if (legacyTrials.isNotEmpty) {
+      final styleKey = legacyTrials.first['style_key'] as String? ?? '';
+      final targetId = 'builtin.worldbook.special.$styleKey';
+      final target = await txn.query(
+        'reference_documents',
+        columns: const ['id'],
+        where: "id = ? AND entry_type = 'roleplay'",
+        whereArgs: [targetId],
+        limit: 1,
+      );
+      if (target.isNotEmpty) {
+        await txn.update(
+          'reference_documents',
+          {'manual_active': 0, 'updated_at': now},
+          where: "entry_type = 'roleplay' AND manual_active = 1",
+        );
+        await txn.update(
+          'reference_documents',
+          {'manual_active': 1, 'updated_at': now},
+          where: 'id = ?',
+          whereArgs: [targetId],
+        );
+      }
+    }
+    await txn.update(
+      'special_style_trials',
+      {'status': 'ended', 'ended_at': now, 'updated_at': now},
+      where: "status = 'active'",
+    );
+
+    final active = await txn.query(
+      'reference_documents',
+      columns: const ['id'],
+      where: "entry_type = 'roleplay' AND manual_active = 1",
+      orderBy: 'priority DESC, updated_at DESC',
+    );
+    if (active.length > 1) {
+      final keep = active.first['id'] as String;
+      await txn.update(
+        'reference_documents',
+        {'manual_active': 0, 'updated_at': now},
+        where: "entry_type = 'roleplay' AND manual_active = 1 AND id <> ?",
+        whereArgs: [keep],
+      );
+    }
+    if (active.isNotEmpty) {
+      final keep = active.first['id'] as String;
+      final document = await txn.query(
+        'reference_documents',
+        columns: const ['name', 'updated_at'],
+        where: 'id = ?',
+        whereArgs: [keep],
+        limit: 1,
+      );
+      final session = await txn.query(
+        'interaction_sessions',
+        columns: const ['id'],
+        where: "status = 'active' AND source_reference_document_id = ?",
+        whereArgs: [keep],
+        limit: 1,
+      );
+      if (document.isNotEmpty && session.isEmpty) {
+        await txn.update(
+          'interaction_sessions',
+          {'status': 'ended', 'updated_at': now, 'ended_at': now},
+          where: "status = 'active' AND kind IN ('roleplay','roleplay_intimacy')",
+        );
+        await txn.insert('interaction_sessions', {
+          'id': _uuid.v4(),
+          'kind': 'roleplay',
+          'title': document.first['name'] as String? ?? '临时角色扮演',
+          'status': 'active',
+          'premise': '由旧世界书状态非破坏迁移的临时角色扮演。',
+          'boundaries_json': jsonEncode(const <String>[
+            '临时娱乐场景，不改变 AI 本体身份或真实成长',
+            '角色内事实只用于本场连续性',
+          ]),
+          'continuity_note': '',
+          'source_message_id': null,
+          'source_reference_document_id': keep,
+          'source_reference_document_version':
+              (document.first['updated_at'] as num?)?.toInt() ?? now,
+          'started_at': now,
+          'updated_at': now,
+          'ended_at': null,
+        });
+      }
+    }
+  }
+
   /// Replays only durable evidence already present in a v48 state package.
   /// Raw memories/messages are preserved; v49 adds a derived lifecycle view.
   Future<void> _stabilizeV49MemoryLifecycle(DatabaseExecutor txn) async {
@@ -3262,6 +3417,7 @@ class AppDatabase {
       required String id,
       required String name,
       required String content,
+      String entryType = 'behavior',
       List<String> aliases = const <String>[],
       int priority = 500,
       int probability = 100,
@@ -3276,11 +3432,11 @@ class AppDatabase {
         {
           'id': id,
           'name': name,
-          'kind': 'behavior',
+          'kind': entryType == 'roleplay' ? 'roleplay' : 'behavior',
           'aliases': aliases.join('|'),
           'raw_content': content.trim(),
           'enabled': 1,
-          'entry_type': 'behavior',
+          'entry_type': entryType,
           'activation_mode': activationMode,
           'priority': priority.clamp(0, 1000),
           'activation_probability': probability.clamp(0, 100),
@@ -3361,9 +3517,10 @@ class AppDatabase {
         id: 'builtin.worldbook.special.${option.key}',
         name: '特殊 · ${option.label}',
         content: content,
+        entryType: 'roleplay',
         aliases: [option.label, option.key],
         priority: 620,
-        exclusiveGroup: 'special_style',
+        exclusiveGroup: 'worldbook_roleplay',
       );
     }
   }
@@ -6280,6 +6437,11 @@ class AppDatabase {
         {'status': 'ended', 'updated_at': nowMs, 'ended_at': nowMs},
         where: 'status = ?',
         whereArgs: const ['active'],
+      );
+      await txn.update(
+        'reference_documents',
+        {'manual_active': 0, 'updated_at': nowMs},
+        where: "entry_type = 'roleplay' AND manual_active = 1",
       );
       for (final entry in const <String, String>{
         'agent_tool_runtime_phase': 'idle',
@@ -12750,6 +12912,85 @@ class AppDatabase {
           'updated_at': now,
         });
       }
+      if (entryType == 'roleplay' && enabled && manualActive) {
+        await txn.update(
+          'reference_documents',
+          {'manual_active': 0, 'updated_at': now},
+          where: "entry_type = 'roleplay' AND id <> ?",
+          whereArgs: [documentId],
+        );
+        await txn.update(
+          'interaction_sessions',
+          {'status': 'ended', 'updated_at': now, 'ended_at': now},
+          where:
+              "status = 'active' AND kind IN ('roleplay','roleplay_intimacy') "
+              'AND source_reference_document_id <> ?',
+          whereArgs: [documentId],
+        );
+        final updatedSession = await txn.update(
+          'interaction_sessions',
+          {
+            'title': normalizedName,
+            'source_reference_document_version': now,
+            'updated_at': now,
+          },
+          where:
+              "status = 'active' AND source_reference_document_id = ?",
+          whereArgs: [documentId],
+        );
+        if (updatedSession == 0) {
+          final reusable = await txn.query(
+            'interaction_sessions',
+            columns: const ['id'],
+            where: 'source_reference_document_id = ?',
+            whereArgs: [documentId],
+            orderBy: 'updated_at DESC',
+            limit: 1,
+          );
+          if (reusable.isNotEmpty) {
+            await txn.update(
+              'interaction_sessions',
+              {
+                'kind': 'roleplay',
+                'title': normalizedName,
+                'status': 'active',
+                'source_reference_document_version': now,
+                'updated_at': now,
+                'ended_at': null,
+              },
+              where: 'id = ?',
+              whereArgs: [reusable.first['id']],
+            );
+          } else {
+            await txn.insert('interaction_sessions', {
+              'id': _uuid.v4(),
+              'kind': 'roleplay',
+              'title': normalizedName,
+              'status': 'active',
+              'premise': '当前由用户明确开启的世界书角色扮演。',
+              'boundaries_json': jsonEncode(const <String>[
+                '临时娱乐场景，不改变 AI 本体身份或真实成长',
+                '角色内事实只用于本场连续性',
+              ]),
+              'continuity_note': '',
+              'source_message_id': null,
+              'source_reference_document_id': documentId,
+              'source_reference_document_version': now,
+              'started_at': now,
+              'updated_at': now,
+              'ended_at': null,
+            });
+          }
+        }
+      } else {
+        await txn.update(
+          'interaction_sessions',
+          {'status': 'ended', 'updated_at': now, 'ended_at': now},
+          where:
+              "status = 'active' AND source_reference_document_id = ?",
+          whereArgs: [documentId],
+        );
+      }
       return documentId;
     });
   }
@@ -12763,6 +13004,33 @@ class AppDatabase {
       limit: 1,
     );
     return rows.isEmpty ? null : ReferenceDocument.fromDb(rows.first);
+  }
+
+  Future<List<ReferenceDocument>> referenceDocumentsByIds(
+    Iterable<String> ids,
+  ) async {
+    final unique = ids
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .take(24)
+        .toList(growable: false);
+    if (unique.isEmpty) return const <ReferenceDocument>[];
+    final db = await database;
+    final placeholders = List.filled(unique.length, '?').join(',');
+    final rows = await db.query(
+      'reference_documents',
+      where: 'id IN ($placeholders)',
+      whereArgs: unique,
+    );
+    final byId = <String, ReferenceDocument>{
+      for (final row in rows)
+        (row['id'] as String): ReferenceDocument.fromDb(row),
+    };
+    return unique
+        .map((id) => byId[id])
+        .whereType<ReferenceDocument>()
+        .toList(growable: false);
   }
 
   Future<List<ReferenceDocument>> listReferenceDocuments({int limit = 100}) async {
@@ -12786,6 +13054,19 @@ class AppDatabase {
           ? "entry_type = 'behavior' AND activation_mode = 'manual'"
           : "entry_type = 'behavior'",
       orderBy: 'priority DESC, updated_at DESC',
+      limit: limit,
+    );
+    return rows.map(ReferenceDocument.fromDb).toList(growable: false);
+  }
+
+  Future<List<ReferenceDocument>> worldBookRoleplayDocuments({
+    int limit = 20,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'reference_documents',
+      where: "entry_type = 'roleplay'",
+      orderBy: 'manual_active DESC, priority DESC, updated_at DESC',
       limit: limit,
     );
     return rows.map(ReferenceDocument.fromDb).toList(growable: false);
@@ -12847,7 +13128,11 @@ class AppDatabase {
     await db.transaction((txn) async {
       await txn.update(
         'reference_documents',
-        {'enabled': enabled ? 1 : 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+        {
+          'enabled': enabled ? 1 : 0,
+          if (!enabled) 'manual_active': 0,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -12857,6 +13142,15 @@ class AppDatabase {
         where: 'document_id = ?',
         whereArgs: [id],
       );
+      if (!enabled) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await txn.update(
+          'interaction_sessions',
+          {'status': 'ended', 'updated_at': now, 'ended_at': now},
+          where: "status = 'active' AND source_reference_document_id = ?",
+          whereArgs: [id],
+        );
+      }
     });
   }
 
@@ -12866,19 +13160,33 @@ class AppDatabase {
     await db.transaction((txn) async {
       final rows = await txn.query(
         'reference_documents',
-        columns: const ['entry_type', 'activation_mode', 'exclusive_group'],
+        columns: const [
+          'entry_type',
+          'activation_mode',
+          'exclusive_group',
+          'name',
+        ],
         where: 'id = ?',
         whereArgs: [id],
         limit: 1,
       );
-      if (rows.isEmpty || rows.first['entry_type'] != 'behavior') return;
+      if (rows.isEmpty) return;
+      final entryType = rows.first['entry_type'] as String? ?? 'knowledge';
+      if (entryType != 'behavior' && entryType != 'roleplay') return;
       final group = rows.first['exclusive_group'] as String? ?? '';
-      if (active && group.isNotEmpty) {
+      if (active && entryType == 'roleplay') {
         await txn.update(
           'reference_documents',
           {'manual_active': 0, 'updated_at': now},
-          where: "entry_type = 'behavior' AND exclusive_group = ? AND id <> ?",
-          whereArgs: [group, id],
+          where: "entry_type = 'roleplay' AND id <> ?",
+          whereArgs: [id],
+        );
+      } else if (active && group.isNotEmpty) {
+        await txn.update(
+          'reference_documents',
+          {'manual_active': 0, 'updated_at': now},
+          where: 'entry_type = ? AND exclusive_group = ? AND id <> ?',
+          whereArgs: [entryType, group, id],
         );
       }
       await txn.update(
@@ -12891,12 +13199,79 @@ class AppDatabase {
         where: 'id = ?',
         whereArgs: [id],
       );
+      if (entryType != 'roleplay') return;
+
+      if (!active) {
+        await txn.update(
+          'interaction_sessions',
+          {'status': 'ended', 'updated_at': now, 'ended_at': now},
+          where: "status = 'active' AND source_reference_document_id = ?",
+          whereArgs: [id],
+        );
+        return;
+      }
+
+      await txn.update(
+        'interaction_sessions',
+        {'status': 'ended', 'updated_at': now, 'ended_at': now},
+        where: "status = 'active' AND kind IN ('roleplay','roleplay_intimacy')",
+      );
+      final name = rows.first['name'] as String? ?? '临时角色扮演';
+      final reusable = await txn.query(
+        'interaction_sessions',
+        columns: const ['id'],
+        where: 'source_reference_document_id = ?',
+        whereArgs: [id],
+        orderBy: 'updated_at DESC',
+        limit: 1,
+      );
+      if (reusable.isNotEmpty) {
+        await txn.update(
+          'interaction_sessions',
+          {
+            'kind': 'roleplay',
+            'title': name.trim().isEmpty ? '临时角色扮演' : name.trim(),
+            'status': 'active',
+            'source_reference_document_version': now,
+            'updated_at': now,
+            'ended_at': null,
+          },
+          where: 'id = ?',
+          whereArgs: [reusable.first['id']],
+        );
+      } else {
+        await txn.insert('interaction_sessions', {
+          'id': _uuid.v4(),
+          'kind': 'roleplay',
+          'title': name.trim().isEmpty ? '临时角色扮演' : name.trim(),
+          'status': 'active',
+          'premise': '当前由用户明确开启的世界书角色扮演。',
+          'boundaries_json': jsonEncode(const <String>[
+            '临时娱乐场景，不改变 AI 本体身份或真实成长',
+            '角色内事实只用于本场连续性',
+          ]),
+          'continuity_note': '',
+          'source_message_id': null,
+          'source_reference_document_id': id,
+          'source_reference_document_version': now,
+          'started_at': now,
+          'updated_at': now,
+          'ended_at': null,
+        });
+      }
     });
   }
 
   Future<void> deleteReferenceDocument(String id) async {
     final db = await database;
     await db.transaction((txn) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await txn.update(
+        'interaction_sessions',
+        {'status': 'ended', 'updated_at': now, 'ended_at': now},
+        where: "status = 'active' AND source_reference_document_id = ?",
+        whereArgs: [id],
+      );
       await txn.delete('reference_items', where: 'document_id = ?', whereArgs: [id]);
       await txn.delete('reference_documents', where: 'id = ?', whereArgs: [id]);
     });
@@ -13565,6 +13940,7 @@ class AppDatabase {
     required String assistantMessageId,
     String specialStyleTrialId = '',
     String specialStyleKey = '',
+    String worldBookContextJson = '',
   }) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -13586,6 +13962,7 @@ class AppDatabase {
         'desire_applied_at': null,
         'special_style_trial_id': specialStyleTrialId,
         'special_style_key': specialStyleKey,
+        'worldbook_context_json': worldBookContextJson,
         'created_at': now,
         'updated_at': now,
       },
@@ -14196,6 +14573,52 @@ class AppDatabase {
     return rows.map(InteractionSession.fromDb).toList();
   }
 
+  Future<void> appendWorldBookRoleplayContinuity({
+    required String sessionId,
+    required String userText,
+    required String assistantText,
+  }) async {
+    final normalizedId = sessionId.trim();
+    if (normalizedId.isEmpty) return;
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'interaction_sessions',
+        columns: const ['continuity_note'],
+        where:
+            "id = ? AND status = 'active' AND source_reference_document_id != ''",
+        whereArgs: [normalizedId],
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+      String bounded(String value, int limit) {
+        final normalized = value.trim();
+        return normalized.length <= limit
+            ? normalized
+            : normalized.substring(0, limit).trimRight();
+      }
+
+      final prior = rows.first['continuity_note'] as String? ?? '';
+      final addition = [
+        '用户：${bounded(userText, 900)}',
+        'AI：${bounded(assistantText, 1400)}',
+      ].join('\n');
+      final combined = prior.trim().isEmpty
+          ? addition
+          : '${prior.trim()}\n$addition';
+      final continuity = combined.length <= 6000
+          ? combined
+          : combined.substring(combined.length - 6000).trimLeft();
+      await txn.update(
+        'interaction_sessions',
+        {'continuity_note': continuity, 'updated_at': now},
+        where: 'id = ?',
+        whereArgs: [normalizedId],
+      );
+    });
+  }
+
   Future<void> applyInteractionSessionUpdate({
     required String action,
     String kind = 'roleplay',
@@ -14755,6 +15178,22 @@ class AppDatabase {
       'active_sessions': await count('interaction_sessions', 'status = ?', ['active']),
       'references': await count('reference_items', 'enabled = 1'),
       'reference_documents': await count('reference_documents', 'enabled = 1'),
+      'worldbook_behavior_documents': await count(
+        'reference_documents',
+        "enabled = 1 AND entry_type = 'behavior'",
+      ),
+      'worldbook_roleplay_documents': await count(
+        'reference_documents',
+        "enabled = 1 AND entry_type = 'roleplay'",
+      ),
+      'active_worldbook_roleplays': await count(
+        'reference_documents',
+        "enabled = 1 AND entry_type = 'roleplay' AND manual_active = 1",
+      ),
+      'worldbook_provenance_messages': await count(
+        'messages',
+        "worldbook_context_json != ''",
+      ),
       'thought_lifecycle_events': await count('thought_lifecycle_events'),
       'proactive_feedback': await count('proactive_feedback'),
       'retired_threads': await count('unfinished_threads', 'status = ?', ['retired']),
@@ -15425,6 +15864,9 @@ class AppDatabase {
       await _stabilizeV44Data(txn);
       if (version < 49) {
         await _stabilizeV49MemoryLifecycle(txn);
+      }
+      if (version < 50) {
+        await _stabilizeV50WorldBook(txn);
       }
       await txn.update(
         'reference_documents',

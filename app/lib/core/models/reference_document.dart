@@ -24,8 +24,8 @@ class ReferenceDocument {
   final String rawContent;
   final List<String> aliases;
   final bool enabled;
-  /// `knowledge` stays bounded/on-demand data; `behavior` is an explicit
-  /// world-book instruction module that may affect expression only.
+  /// `knowledge` stays bounded/on-demand data; `behavior` is an expression
+  /// seed; `roleplay` is an explicitly activated temporary identity/session.
   final String entryType;
   final String activationMode;
   final int priority;
@@ -38,7 +38,15 @@ class ReferenceDocument {
   final DateTime updatedAt;
 
   bool get isBehavior => entryType == 'behavior';
-  bool get isKnowledge => !isBehavior;
+  bool get isRoleplay => entryType == 'roleplay';
+  bool get isKnowledge => entryType == 'knowledge';
+
+  static String _normalizedEntryType(Object? value) {
+    final type = value?.toString() ?? 'knowledge';
+    return const {'knowledge', 'behavior', 'roleplay'}.contains(type)
+        ? type
+        : 'knowledge';
+  }
 
   factory ReferenceDocument.fromDb(Map<String, Object?> row) {
     final rawAliases = row['aliases'] as String? ?? '';
@@ -51,7 +59,7 @@ class ReferenceDocument {
           ? const []
           : rawAliases.split('|').where((e) => e.trim().isNotEmpty).toList(),
       enabled: (row['enabled'] as int? ?? 1) == 1,
-      entryType: row['entry_type'] as String? ?? 'knowledge',
+      entryType: _normalizedEntryType(row['entry_type']),
       activationMode: row['activation_mode'] as String? ?? 'keyword',
       priority:
           ((row['priority'] as num?)?.toInt() ?? 500).clamp(0, 1000).toInt(),

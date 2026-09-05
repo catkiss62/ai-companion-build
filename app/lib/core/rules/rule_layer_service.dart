@@ -94,11 +94,6 @@ class RuleLayerService {
     final referenceTriggered = intimacy &&
         (nsfwReferenceActive ??
             ((await db.getSetting('nsfw_reference_active')) == '1'));
-    final specialTrial = specialStyleKeyOverride == null
-        ? await db.activeSpecialStyleTrial()
-        : null;
-    final specialStyleKey =
-        specialStyleKeyOverride ?? specialTrial?.styleKey ?? '';
     final selected = <RuleLayer>[];
     for (final layer in all) {
       if (!layer.enabled && !layer.locked) continue;
@@ -121,14 +116,10 @@ class RuleLayerService {
       layers: selected,
       intimacyActive: intimacy,
       referenceTriggered: referenceTriggered,
-      specialStylePrompt: specialStyleKey.isEmpty ||
-              !PersonalityCatalog.isKnownSpecial(specialStyleKey)
-          ? ''
-          : PersonalityCatalog.compileSpecial(
-              specialStyleKey,
-              intimacyActive: intimacy,
-              templates: templates,
-            ),
+      // Legacy special-style keys/tables remain readable for old backups and
+      // immersive-room continuity, but ordinary chat has one runtime truth:
+      // an explicitly active world-book roleplay document.
+      specialStylePrompt: '',
       personalityBaseKey: PersonalityCatalog.noneKey,
       personalityTrialActive: false,
       personalityTemplatePresent: true,

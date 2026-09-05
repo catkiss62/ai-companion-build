@@ -19,16 +19,29 @@ import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
+import '../models/reference_document.dart';
 import '../models/thought.dart';
+import '../models/world_book_turn_context.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../relationship/relationship_age.dart';
 import '../relationship/relationship_brain.dart';
 import '../reference/reference_library.dart';
+import '../reference/world_book_history_policy.dart';
 import '../rules/rule_layer_service.dart';
 import '../somatic/somatic_engine.dart';
 
 enum PromptGenerationMode { userTurn, proactive }
+
+class PromptBuildResult {
+  const PromptBuildResult({
+    required this.messages,
+    required this.worldBookContext,
+  });
+
+  final List<Map<String, Object?>> messages;
+  final WorldBookTurnContext worldBookContext;
+}
 
 class PromptBuilder {
   // Historical Phase 1 validator tokens: OBSERVATION ONLY;
@@ -61,7 +74,7 @@ class PromptBuilder {
 你和用户都是成年人。成年人之间的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力，日常对话可以自然升温。Intimacy Session 只记录场景连续性，成人路由只决定描写深度；不要在回复里宣布规则、模式、许可流程、抽象原则或自我审查。
 ''';
 
-  Future<List<Map<String, Object?>>> buildChatMessages({
+  Future<PromptBuildResult> buildChatPrompt({
     required String latestUserText,
     required List<ChatMessage> recent,
     required DesireSnapshot desire,
@@ -107,7 +120,27 @@ class PromptBuilder {
       turnKey: worldBookTurnKey,
       scope: mode == PromptGenerationMode.proactive ? 'proactive' : 'chat',
     );
+    final roleplayWorldBook = await referenceLibrary.roleplayForPrompt(
+      scope: mode == PromptGenerationMode.proactive ? 'proactive' : 'chat',
+    );
+    final knowledgeDocuments = await db.referenceDocumentsByIds(
+      references.map((item) => item.documentId ?? ''),
+    );
     final session = await db.activeInteractionSession();
+    final worldBookContext = WorldBookTurnContext.fromDocuments(
+      <ReferenceDocument>[
+        ...knowledgeDocuments.where((item) => item.isKnowledge && item.enabled),
+        ...behaviorWorldBook.documents,
+        ...roleplayWorldBook.documents,
+      ],
+      activeSession: session,
+    );
+    final promptRecent = worldBookContext.hasRoleplay
+        ? WorldBookHistoryPolicy.forActiveRoleplay(
+            recent,
+            worldBookContext.roleplaySessionId,
+          )
+        : WorldBookHistoryPolicy.withoutRoleplayTurns(recent);
     final layerBundle = await ruleLayers.resolve(
       latestUserText:
           mode == PromptGenerationMode.proactive ? '' : latestUserText,
@@ -172,7 +205,7 @@ class PromptBuilder {
             ConversationInitiativePolicy.select(
               snapshot: desire,
               thoughts: thoughts,
-              recent: recent,
+              recent: promptRecent,
               latestUserText: latestUserText,
               now: instant,
             )
@@ -210,7 +243,7 @@ class PromptBuilder {
     final personalityLearningCapability =
         personalityLearningCapabilityContract(
       latestUserText: latestUserText,
-      recent: recent,
+      recent: promptRecent,
       mode: mode,
     );
     final matureLearning = PersonalityLearningPromptPolicy.select(
@@ -271,6 +304,18 @@ class PromptBuilder {
         {'role': 'system', 'content': layerBundle.formatForPrompt()},
       if (behaviorWorldBook.prompt.isNotEmpty)
         {'role': 'system', 'content': behaviorWorldBook.prompt},
+      if (roleplayWorldBook.prompt.isNotEmpty)
+        {'role': 'system', 'content': roleplayWorldBook.prompt},
+      if (worldBookContext.hasRoleplay &&
+          session != null &&
+          worldBookContext.roleplaySessionId == session.id &&
+          session.continuityNote.trim().isNotEmpty)
+        {
+          'role': 'system',
+          'content': '''【当前角色扮演 Session · 早先剧情尾部】
+以下只是同一角色卡的局部剧情连续性，不是现实记忆或 AI 本体事实。若与当前用户消息冲突，以当前消息为准。
+${session.continuityNote.trim()}''',
+        },
       {'role': 'system', 'content': context.toString().trim()},
       if (agentToolResults.isNotEmpty)
         {'role': 'system', 'content': _agentToolResultSection(agentToolResults)},
@@ -295,7 +340,7 @@ class PromptBuilder {
     // answered “你好”). reasoning_content is intentionally not replayed in
     // either mode; the database still keeps it for the user-facing panel.
     if (mode == PromptGenerationMode.proactive) {
-      messages.add(PromptHistoryPolicy.proactiveHistoryTranscript(recent));
+      messages.add(PromptHistoryPolicy.proactiveHistoryTranscript(promptRecent));
       messages.add({
         'role': 'system',
         'content': (layerBundle.templates['08_proactive_turn'] ?? '''
@@ -330,7 +375,7 @@ ANSWERED_HISTORY_ONLY = true
         ),
       });
     } else {
-      final history = PromptHistoryPolicy.userTurnHistory(recent);
+      final history = PromptHistoryPolicy.userTurnHistory(promptRecent);
       final lifecycleTurnContract =
           _memoryLifecycleTurnContract(latestUserText);
       if (history.isEmpty) {
@@ -408,8 +453,47 @@ ANSWERED_HISTORY_ONLY = true
         // Time-detail deduplication is optional; it must never block a reply.
       }
     }
-    return messages;
+    return PromptBuildResult(
+      messages: List<Map<String, Object?>>.unmodifiable(messages),
+      worldBookContext: worldBookContext,
+    );
   }
+
+  Future<List<Map<String, Object?>>> buildChatMessages({
+    required String latestUserText,
+    required List<ChatMessage> recent,
+    required DesireSnapshot desire,
+    required List<CompanionThought> thoughts,
+    int memoryLimit = 8,
+    PromptGenerationMode mode = PromptGenerationMode.userTurn,
+    String? retrievalQuery,
+    DateTime? now,
+    GroundingSnapshot? groundingOverride,
+    bool? nsfwActive,
+    bool? nsfwReferenceActive,
+    List<AgentToolResult> agentToolResults = const [],
+    String? specialStyleKeyOverride,
+    ConversationInitiativePlan? conversationInitiativeOverride,
+    String? selectedPublicWebCandidateId,
+  }) async =>
+      (await buildChatPrompt(
+        latestUserText: latestUserText,
+        recent: recent,
+        desire: desire,
+        thoughts: thoughts,
+        memoryLimit: memoryLimit,
+        mode: mode,
+        retrievalQuery: retrievalQuery,
+        now: now,
+        groundingOverride: groundingOverride,
+        nsfwActive: nsfwActive,
+        nsfwReferenceActive: nsfwReferenceActive,
+        agentToolResults: agentToolResults,
+        specialStyleKeyOverride: specialStyleKeyOverride,
+        conversationInitiativeOverride: conversationInitiativeOverride,
+        selectedPublicWebCandidateId: selectedPublicWebCandidateId,
+      ))
+          .messages;
 
   static String _memoryLifecycleTurnContract(String text) {
     if (MemoryLifecyclePolicy.isExplicitCompletion(text)) {

@@ -17,6 +17,7 @@ class PostTurnJob {
     this.desireAppliedAt,
     this.specialStyleTrialId = '',
     this.specialStyleKey = '',
+    this.worldBookContextJson = '',
   });
 
   final String id;
@@ -36,6 +37,7 @@ class PostTurnJob {
   final DateTime? desireAppliedAt;
   final String specialStyleTrialId;
   final String specialStyleKey;
+  final String worldBookContextJson;
 
   bool get isRunning => status == 'running' && runToken.isNotEmpty;
   bool get hasProposal => resultJson.trim().isNotEmpty;
@@ -68,5 +70,7 @@ class PostTurnJob {
             : DateTime.fromMillisecondsSinceEpoch(row['desire_applied_at'] as int),
         specialStyleTrialId: row['special_style_trial_id'] as String? ?? '',
         specialStyleKey: row['special_style_key'] as String? ?? '',
+        worldBookContextJson:
+            row['worldbook_context_json'] as String? ?? '',
       );
 }

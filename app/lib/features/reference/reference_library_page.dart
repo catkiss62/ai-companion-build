@@ -110,7 +110,7 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '知识资料按话题检索；行为模块可常驻、关键词触发或手动开关。行为模块只改变当轮表达，不会被吸收到长期记忆、AI Self、学习候选或成长状态。',
+                        '知识资料按话题检索；行为模块引导表达，但只有真实的跨场景行为才可能经过证据门缓慢成长；角色扮演是显式启停、独立记忆边界的临时娱乐 Session。',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
                       ),
                     ),
@@ -175,7 +175,8 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
                     onOpen: () => _openDocument(doc),
                     onEnabledChanged: (enabled) async {
                       try {
-                        if (doc.isBehavior && doc.activationMode == 'manual') {
+                        if ((doc.isBehavior || doc.isRoleplay) &&
+                            doc.activationMode == 'manual') {
                           await db.setWorldBookManualActive(doc.id, enabled);
                         } else {
                           await db.setReferenceDocumentEnabled(doc.id, enabled);
@@ -231,6 +232,8 @@ class _ReferenceDocumentCard extends StatelessWidget {
                 child: Icon(
                   document.isBehavior
                       ? Icons.tune_rounded
+                      : document.isRoleplay
+                          ? Icons.theater_comedy_outlined
                       : _kindIcon(document.kind),
                   size: 21,
                 ),
@@ -249,7 +252,7 @@ class _ReferenceDocumentCard extends StatelessWidget {
                           ),
                         ),
                         if (!document.enabled ||
-                            (document.isBehavior &&
+                            ((document.isBehavior || document.isRoleplay) &&
                                 document.activationMode == 'manual' &&
                                 !document.manualActive))
                           Text(
@@ -262,8 +265,8 @@ class _ReferenceDocumentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      document.isBehavior
-                          ? '${_activationLabel(document.activationMode)} · 优先级 ${document.priority} · ${document.activationProbability}% · ${_scopeLabel(document.scope)}'
+                      document.isBehavior || document.isRoleplay
+                          ? '${document.isRoleplay ? "角色扮演" : "行为模块"} · ${_activationLabel(document.activationMode)} · 优先级 ${document.priority} · ${document.activationProbability}% · ${_scopeLabel(document.scope)}'
                           : '${_kindLabel(document.kind)} · $chunkCount 个片段 · 原文 ${document.rawContent.length} 字符',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -280,7 +283,8 @@ class _ReferenceDocumentCard extends StatelessWidget {
                 ),
               ),
               Switch(
-                value: document.isBehavior && document.activationMode == 'manual'
+                value: (document.isBehavior || document.isRoleplay) &&
+                        document.activationMode == 'manual'
                     ? document.manualActive
                     : document.enabled,
                 onChanged: onEnabledChanged,

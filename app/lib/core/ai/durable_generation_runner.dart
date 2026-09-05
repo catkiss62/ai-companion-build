@@ -279,10 +279,12 @@ class DurableGenerationRunner {
           userMessageId: user.id,
         );
       }
-      final generationSpecialStyle = await db.activeSpecialStyleTrial();
-      generationSpecialStyleTrialId = generationSpecialStyle?.id ?? '';
-      generationSpecialStyleKey = generationSpecialStyle?.styleKey ?? '';
-      final baseRequestMessages = await PromptBuilder(db).buildChatMessages(
+      // Legacy special-style snapshots stay in the schema only for backup
+      // compatibility. New ordinary-chat roleplay provenance comes from the
+      // prompt's world-book context.
+      generationSpecialStyleTrialId = '';
+      generationSpecialStyleKey = '';
+      final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
         desire: desire,
@@ -293,6 +295,7 @@ class DurableGenerationRunner {
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
       );
+      final baseRequestMessages = promptBuild.messages;
       Future<({
         String reasoning,
         String content,
@@ -693,6 +696,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         emotionConfidence: companionEmotion.confidence,
         emotionTop3Json: companionEmotion.top3Json,
         emotionSource: companionEmotion.source,
+        worldBookContextJson: promptBuild.worldBookContext.encode(),
       );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.

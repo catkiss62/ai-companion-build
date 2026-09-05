@@ -250,6 +250,10 @@ class EmotionEnvelope {
     r'^\s*(?:[\[【(（]\s*)?(?:emotion|情绪)\s*[:：=]\s*([^\]】)）\r\n]{1,80}?)(?:\s*[\]】)）])?\s*(?:\r?\n|$)',
     caseSensitive: false,
   );
+  static final RegExp _recoverableEmFirstLine = RegExp(
+    r'^\s*<\s*em\s*>\s*([^<\r\n]{1,80}?)\s*<\s*/\s*em\s*>\s*',
+    caseSensitive: false,
+  );
   static final RegExp _malformedFirstLine = RegExp(
     r'^\s*<\s*emotion\b[^\r\n]*(?:\r?\n|$)',
     caseSensitive: false,
@@ -280,6 +284,19 @@ class EmotionEnvelope {
             ? EmotionEnvelopeStatus.empty
             : EmotionEnvelopeStatus.invalid,
       );
+    }
+
+    final emMatch = _recoverableEmFirstLine.firstMatch(raw);
+    if (emMatch != null) {
+      final candidate = EmotionCatalog.normalizeTag(emMatch.group(1) ?? '');
+      if (EmotionCatalog.isCanonicalLabel(candidate)) {
+        return EmotionEnvelopeData(
+          rawTag: candidate,
+          visibleText: _stripReservedMarkup(raw).trim(),
+          found: true,
+          status: EmotionEnvelopeStatus.recovered,
+        );
+      }
     }
 
     for (final pattern in [
@@ -322,7 +339,7 @@ class EmotionEnvelope {
   static String streamingVisible(String raw) => _stripReservedMarkup(raw);
 
   static String _stripReservedMarkup(String raw) {
-    var value = raw.replaceAll(_complete, '');
+    var value = _stripRecoverableEm(raw).replaceAll(_complete, '');
     value = value.replaceFirst(_recoverableXmlFirstLine, '');
     value = value.replaceFirst(_recoverableNamedFirstLine, '');
     value = value.replaceFirst(_malformedFirstLine, '');
@@ -351,7 +368,27 @@ class EmotionEnvelope {
       }
     }
     if (_isPartialNamedPrefix(value)) return '';
+    if (_isPartialEmPrefix(value)) return '';
     return value;
+  }
+
+  static String _stripRecoverableEm(String raw) {
+    final match = _recoverableEmFirstLine.firstMatch(raw);
+    if (match == null) return raw;
+    final candidate = EmotionCatalog.normalizeTag(match.group(1) ?? '');
+    if (!EmotionCatalog.isCanonicalLabel(candidate)) return raw;
+    return raw.replaceRange(match.start, match.end, '');
+  }
+
+  static bool _isPartialEmPrefix(String value) {
+    final trimmed = value.trimLeft();
+    if (trimmed.isEmpty || trimmed.contains('\n') || trimmed.contains('\r')) {
+      return false;
+    }
+    final compact = trimmed.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    if ('<em>'.startsWith(compact)) return true;
+    if (!compact.startsWith('<em>')) return false;
+    return !compact.contains('</em>');
   }
 
   static bool _isPartialNamedPrefix(String value) {

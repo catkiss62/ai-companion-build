@@ -3,7 +3,10 @@ import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
 import '../models/desire_state.dart';
+import '../models/world_book_turn_context.dart';
+import '../reference/world_book_history_policy.dart';
 import '../storage/secure_config.dart';
+import 'ai_self_evidence_policy.dart';
 
 /// Low-frequency self-consolidation pass.
 ///
@@ -60,18 +63,33 @@ class AiSelfReflectionEngine {
           ? '未配置额外记忆规则。'
           : memoryPolicy.first.content.trim();
 
-      final recent = await db.recentMessages(limit: 20);
+      final activeSession = await db.activeInteractionSession();
+      if (activeSession?.sourceReferenceDocumentId.isNotEmpty == true) {
+        return false;
+      }
+      final eligibleHistory = WorldBookHistoryPolicy.withoutRoleplayTurns(
+        await db.recentMessages(limit: 60),
+      );
+      final recent = eligibleHistory.length <= 32
+          ? eligibleHistory
+          : eligibleHistory.sublist(eligibleHistory.length - 32);
       final existingSelf = await db.memoriesByKind('ai_self', limit: 8);
       final existingSelfInferences = await db.memoryInferencesByKind('ai_self', limit: 4);
       final existingSelfCandidates = [...existingSelf, ...existingSelfInferences];
       final shared = await db.memoriesByKind('shared_experience', limit: 8);
       final preferences = await db.memoriesByKind('preference', limit: 8);
       final thoughts = await db.activeThoughts(limit: 8);
-      final activeSession = await db.activeInteractionSession();
-
       final transcript = recent.map((m) {
         final who = m.isUser ? '用户' : 'AI';
-        return '$who：${m.content}';
+        final worldBook = WorldBookTurnContext.decode(m.worldBookContextJson);
+        final behaviorIds = worldBook.behaviorSources
+            .map((item) => item.documentId)
+            .join(',');
+        final evidence = m.isAssistant
+            ? 'message_id=${m.id} | time=${m.createdAt.toIso8601String()} | '
+                'behavior_sources=${behaviorIds.isEmpty ? "none" : behaviorIds}'
+            : 'real_user_message';
+        return '$who [$evidence]：${m.content}';
       }).join('\n');
       final result = await client.jsonCompletion(
         apiKey: apiKey,
@@ -94,11 +112,12 @@ $editableMemoryPolicy
 2. 不要声称拥有现实肉体、生理或人类经历。
 3. 不要把用户偏好误写成 AI 自我。
 4. 当前如果存在 roleplay/intimacy Session，其中为场景服务的言行不能直接沉淀成永久 AI Self；只有跨场景仍成立的真实互动倾向才可以。
-5. 一次最多输出 2 条；如果证据不足，输出空数组。
+5. 一次最多输出 2 条；如果证据不足，输出空数组。每条必须给 evidence_message_ids，列出至少 3 条真正表现该倾向的 AI message_id；不得引用用户消息、角色扮演消息或不存在的 ID。
 6. 每条 confidence 0~1，importance 0~1；subject_key 只有能稳定命名时才填，例如 ai.self.communication_style。
 7. 对照【已有 AI Self】：如果只是同一已确认认识再次得到证据，用 action=reinforce 并填 target_id；如果旧条目仍是 inference 而现在已经确认，或同一 subject_key 的稳定自我认识明确改变，用 action=replace；全新认识用 append。不要替换 PINNED。证据不足或仍只是推测时 semantic=inference，否则 semantic=current_fact。
-8. 输出严格 JSON：
-{"self_observations":[{"semantic":"current_fact","action":"reinforce","target_id":"已有ID或空字符串","subject_key":"ai.self.communication_style","content":"...","confidence":0.8,"importance":0.65,"tags":["交流方式"]}],"reflection_thought":"可选的一句短念头"}
+8. 行为模块只是尝试来源，不是证据结论。可以观察它影响下真实发生的表达，但必须引用跨时间的实际 AI 回复；不得因为 behavior_sources 中出现某个 ID 就宣称它已经成为性格。
+9. 输出严格 JSON：
+{"self_observations":[{"semantic":"current_fact","action":"reinforce","target_id":"已有ID或空字符串","subject_key":"ai.self.communication_style","content":"...","confidence":0.8,"importance":0.65,"tags":["交流方式"],"evidence_message_ids":["真实AI消息ID1","真实AI消息ID2","真实AI消息ID3"]}],"reflection_thought":"可选的一句短念头"}
 不要输出 JSON 以外的文字。
   '''.trim(),
           },
@@ -148,6 +167,18 @@ $transcript
           if (content == null || content.isEmpty) continue;
           final confidence = (map['confidence'] as num?)?.toDouble() ?? 0.72;
           if (confidence < 0.58) continue;
+          final evidenceIds = (map['evidence_message_ids'] as List?)
+                  ?.whereType<String>()
+                  .map((item) => item.trim())
+                  .where((item) => item.isNotEmpty)
+                  .take(12)
+                  .toList(growable: false) ??
+              const <String>[];
+          final evidenceVerdict = AiSelfEvidencePolicy.evaluate(
+            evidenceMessageIds: evidenceIds,
+            availableMessages: recent,
+          );
+          if (!evidenceVerdict.allowed) continue;
           final tags = (map['tags'] as List?)
                   ?.whereType<String>()
                   .map((e) => e.trim())
@@ -167,20 +198,30 @@ $transcript
           final proposedSemantic = map['semantic'] as String? ?? 'current_fact';
           final proposedAction = map['action'] as String? ?? 'append';
           final targetId = (map['target_id'] as String?)?.trim();
+          final semantic = evidenceVerdict.canPromote &&
+                  proposedSemantic == 'current_fact'
+              ? 'current_fact'
+              : 'inference';
+          final action = !evidenceVerdict.canPromote &&
+                  proposedAction == 'replace'
+              ? 'append'
+              : proposedAction;
           await db.insertMemory(
             kind: 'ai_self',
             content: content,
             importance: ((map['importance'] as num?)?.toDouble() ?? 0.58)
                 .clamp(0.35, 0.88)
                 .toDouble(),
-            confidence: confidence.clamp(0.58, 0.96).toDouble(),
-            tags: tags,
-            source: sourceSlot,
+            confidence: confidence
+                .clamp(0.58, evidenceVerdict.canPromote ? 0.96 : 0.78)
+                .toDouble(),
+            tags: <String>{...tags, '自主倾向'}.take(8).toList(),
+            source: '$sourceSlot|ai_self_tendency',
             subjectKey: map['subject_key'] as String? ?? '',
-            semanticType: semantics.contains(proposedSemantic)
-                ? proposedSemantic
-                : 'current_fact',
-            evidenceMode: actions.contains(proposedAction) ? proposedAction : 'append',
+            semanticType: semantics.contains(semantic)
+                ? semantic
+                : 'inference',
+            evidenceMode: actions.contains(action) ? action : 'append',
             targetMemoryId: targetId == null || targetId.isEmpty ? null : targetId,
           );
           inserted = true;

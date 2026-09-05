@@ -74,6 +74,40 @@ void main() {
     }
   });
 
+  test('leading em alias recovers only a legal emotion label', () async {
+    const service = EmotionClassifierService();
+    final parsed = EmotionEnvelope.parse(
+      '<em>平静</em>「在忙什么呢。」',
+    );
+    expect(parsed.found, isTrue);
+    expect(parsed.status, EmotionEnvelopeStatus.recovered);
+    expect(parsed.rawTag, '平静');
+    expect(parsed.visibleText, '「在忙什么呢。」');
+    expect(
+      EmotionEnvelope.streamingVisible('<em>平静</em>「在忙什么呢。」'),
+      '「在忙什么呢。」',
+    );
+    final result = await service.resolve(
+      rawTag: parsed.rawTag,
+      visibleText: parsed.visibleText,
+      envelopeStatus: parsed.status,
+    );
+    expect(result.key, 'calm');
+    expect(result.source, EmotionSource.llmRecovered);
+    expect(result.confidence, 0.92);
+  });
+
+  test('ordinary em emphasis is not globally consumed as emotion metadata', () {
+    for (final raw in const [
+      '<em>重点</em>「正文还在。」',
+      '「这里有 <em>平静</em> 这个词。」',
+    ]) {
+      final parsed = EmotionEnvelope.parse(raw);
+      expect(parsed.status, EmotionEnvelopeStatus.missing);
+      expect(parsed.visibleText, raw);
+    }
+  });
+
   test('ordinary visible emotion wording is never mistaken for metadata', () {
     final parsed = EmotionEnvelope.parse('「我今天的情绪：高兴。」\n「正文还在。」');
     expect(parsed.status, EmotionEnvelopeStatus.missing);

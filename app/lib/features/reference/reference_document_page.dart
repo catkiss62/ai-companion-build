@@ -217,6 +217,8 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                                     child: Text(
                                       current.isBehavior
                                           ? '行为模块'
+                                          : current.isRoleplay
+                                              ? '角色扮演'
                                           : _kindLabel(current.kind),
                                       style: Theme.of(context).textTheme.titleMedium,
                                     ),
@@ -228,10 +230,10 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                                 ],
                               ),
                               Text(
-                                current.isBehavior
+                                current.isBehavior || current.isRoleplay
                                     ? (current.enabled
-                                        ? '可用 · ${_activationLabel(current.activationMode)} · 优先级 ${current.priority} · 概率 ${current.activationProbability}% · ${_scopeLabel(current.scope)}'
-                                        : '已停用：模块配置仍保留，但不会注入聊天。')
+                                        ? '${current.isRoleplay ? "临时 Session" : "可用"} · ${_activationLabel(current.activationMode)} · 优先级 ${current.priority} · 概率 ${current.activationProbability}% · ${_scopeLabel(current.scope)}'
+                                        : '已停用：配置仍保留，但不会注入聊天。')
                                     : (current.enabled
                                         ? '已启用：相关话题出现时，这份资料可以被检索。'
                                         : '已停用：完整原文仍保留，但不会进入聊天检索。'),
@@ -243,8 +245,8 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                               ],
                               const SizedBox(height: 8),
                               Text(
-                                current.isBehavior
-                                    ? '提示词 ${current.rawContent.length} 字符 · 不参与学习和记忆写入'
+                                current.isBehavior || current.isRoleplay
+                                    ? '提示词 ${current.rawContent.length} 字符 · ${current.isRoleplay ? "独立角色扮演边界" : "模块启停本身不计成长证据"}'
                                     : '原文 ${current.rawContent.length} 字符 · 检索片段 ${chunks.length} 个',
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -254,31 +256,39 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                           ),
                         ),
                       ),
-                      if (current.isBehavior &&
+                      if ((current.isBehavior || current.isRoleplay) &&
                           current.activationMode == 'manual') ...[
                         const SizedBox(height: 10),
                         SwitchListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-                          title: const Text('当前激活'),
-                          subtitle: Text(current.exclusiveGroup.isEmpty
-                              ? '聊天框快捷面板使用同一开关。'
-                              : '与同组性格/姿态模块互斥。'),
+                          title: Text(current.isRoleplay ? '开始这场扮演' : '当前激活'),
+                          subtitle: Text(current.isRoleplay
+                              ? '开启后建立临时 Session；关闭不会改变或删除真实人格。'
+                              : current.exclusiveGroup.isEmpty
+                                  ? '聊天框快捷面板使用同一开关。'
+                                  : '与同组性格/姿态模块互斥。'),
                           value: current.manualActive,
                           onChanged: busy ? null : _setManualActive,
                         ),
                       ],
                       const SizedBox(height: 12),
                       _SectionCard(
-                        title: current.isBehavior ? '行为提示词' : '完整原文',
-                        subtitle: current.isBehavior
-                            ? '可直接修改；只影响激活轮次的表达。'
+                        title: current.isBehavior
+                            ? '行为提示词'
+                            : current.isRoleplay
+                                ? '角色卡 / 扮演提示词'
+                                : '完整原文',
+                        subtitle: current.isBehavior || current.isRoleplay
+                            ? (current.isRoleplay
+                                ? '只在当前角色扮演 Session 内生效。'
+                                : '可直接修改；模块本身不会成为她能意识到的成长事件。')
                             : '这是本机保存的原始资料，不会因为重新分块而改变。',
                         child: SelectableText(
                           current.rawContent,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
                         ),
                       ),
-                      if (!current.isBehavior) ...[
+                      if (current.isKnowledge) ...[
                         const SizedBox(height: 12),
                         Card(
                         margin: EdgeInsets.zero,
@@ -334,7 +344,11 @@ class _ReferenceDocumentPageState extends State<ReferenceDocumentPage> {
                       OutlinedButton.icon(
                         onPressed: busy ? null : _edit,
                         icon: const Icon(Icons.edit_outlined),
-                        label: Text(current.isBehavior ? '编辑行为模块' : '编辑完整资料'),
+                        label: Text(current.isBehavior
+                            ? '编辑行为模块'
+                            : current.isRoleplay
+                                ? '编辑角色卡'
+                                : '编辑完整资料'),
                       ),
                       const SizedBox(height: 18),
                       if (!current.builtin)
