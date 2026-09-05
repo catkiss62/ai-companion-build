@@ -170,6 +170,9 @@ https://example.com/b
             ],
           }),
           200,
+          headers: const <String, String>{
+            'content-type': 'application/json; charset=utf-8',
+          },
         );
       }
       if (request.url.host == 'api.tavily.com' &&
@@ -187,6 +190,9 @@ https://example.com/b
             ],
           }),
           200,
+          headers: const <String, String>{
+            'content-type': 'application/json; charset=utf-8',
+          },
         );
       }
       final body = jsonDecode(request.body) as Map<String, dynamic>;
@@ -208,6 +214,9 @@ https://example.com/b
           ],
         }),
         200,
+        headers: const <String, String>{
+          'content-type': 'application/json; charset=utf-8',
+        },
       );
     });
     final result = await LayeredPublicWebProvider(
