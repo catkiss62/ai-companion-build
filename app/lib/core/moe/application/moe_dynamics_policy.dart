@@ -388,7 +388,11 @@ class MoeDynamicsPolicy {
         : math.max(0.0, baseline - current);
     final saturation = (sameDirectionDistance / 55.0).clamp(0.0, 1.0);
     final factor = (1.0 - saturation * .78).clamp(.22, 1.0);
-    return (pulse * factor).clamp(-16.0, 16.0).toDouble();
+    // Keep ordinary adapter pulses unchanged, while still allowing an
+    // explicitly strong, grounded event to cross a recipe threshold once.
+    // Repeated events continue to diminish as the axis moves away from its
+    // baseline, so this does not restore the former turn-by-turn ratchet.
+    return (pulse * factor).clamp(-22.0, 22.0).toDouble();
   }
 
   void _applyBoundedCoupling(
