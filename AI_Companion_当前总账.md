@@ -31,20 +31,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04142-phase3a-interest-evidence`；从已公开的 Phase 2 收口总账提交 `65e7b953994e01147561778b7b481fe29e41853a` 建立。只实现 Phase 3A 兴趣证据观察层，不与 3B 主动来源平衡或 3C 习惯消费混包 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | Phase 3A v0.41.42 本地功能提交 `dcfaf46280c78ec7b1008426c15e16b83911b077` / tree `3b630641ac3374999ce54b1cba667b74d2df43ba`；上一运行代码 head 仍为 v0.41.41 `d3f38d8cb58bcaa5172109ce2fbbec0b4682f6a9` / tree `a3637abd3cc3f9c55d87468bf804e60f26d08117`。下一提交只回填 pre-CI 总账，不改运行代码 |
+| 当前代码 head / tree | v0.41.42 最终公开 CI head `e0b55117790a5d3d75ea821baafe4bc045bf251c` / tree `cbb1dec4fdba4387ac8c0672bd1cc0105d365739`；本地等价 head `6781788ad12e308c2852cb037920e006d2dfbe81` 同 tree。公开提交不含用户备份、诊断、聊天正文、图片、密钥或 API 配置；后续只回填总账，除非真机暴露窄缺陷 |
 | App / 数据库 | 目标测试版 `0.41.42+181 / schema 54 / Snapshot protocol 5`。schema 54 只新增 `ai_interest_candidates / evidence / versions` 三表并进入备份恢复；不改消息、Memory、关系、四个行为世界书、角色扮演、相册/浏览正文或用户手调设置 |
-| 最终 CI | v0.41.41 Actions run [`34005100430`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430)（739）全绿：专项/历史 validators、Kotlin/Debug 编译、Flutter analyze、607/607 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过；失败报告 job 正常 skipped | [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
-| 测试 APK | `AI-Companion-v0.41.41-180-Roleplay-Pronoun-Priority-APK.apk`，326,259,110 bytes；固定测试签名保持不变，可覆盖安装现有测试版 |
-| APK SHA-256 | `f678813e863ffc78df8354bc23bd95f90ffba73220d3037c66646f4d0a76db91`；与 CI checksum、Artifact 全新下载解包独立实算和 Draft Release asset digest 一致 |
-| Artifact / Release | [Artifact ID `9980807150`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430/artifacts/9980807150)，ZIP 319,960,470 bytes，digest `sha256:08f6fa867175445dd3698dd1bad532ffdbdf5c6f090bba6f11df36be399481e5`，保留至 2026-09-20T02:05:22Z；Draft Release [`untagged-6c8e4da2ec16fbd62c63`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c8e4da2ec16fbd62c63)，保持草稿、未发布正式 Release |
+| 最终 CI | v0.41.42 Actions run [`34031635650`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650) 全绿：专项/历史 validators、实际 schema 54 DDL/唯一簇/cascade、Kotlin/Debug 编译、Flutter analyze、613/613 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过；失败报告 job 正常 skipped |
+| 测试 APK | `AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK.apk`，326,302,038 bytes；固定测试签名保持不变，可覆盖安装现有测试版 |
+| APK SHA-256 | `c62286e31cd9d0f9d2fd8834111346f8453b2f845478239be8e3ff4d1707144d`；与 CI checksum、Artifact 全新下载解包独立实算和 Draft Release asset digest 一致 |
+| Artifact / Release | [Artifact ID `9988970477`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650/artifacts/9988970477)，ZIP 320,004,929 bytes，digest `sha256:e920efad1eabb607dbd1c3114cc854e441dd48ec9060d9fdaded1a8a9ca16929`，保留至 2026-09-20T12:07:28Z；Draft Release [`untagged-620c5a94880ef6f7f7b8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-620c5a94880ef6f7f7b8)，保持草稿、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 普通人格未报告回归，角色扮演保持 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`。Phase 2 主人格收口审查未发现 P0/P1；Phase 3A 已完成本地首轮实现与静态合同校验，当前为 `LOCAL IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 普通人格未报告回归，角色扮演保持 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`。Phase 2 主人格收口审查未发现 P0/P1；Phase 3A 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，3B 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **Phase 3A：AI 自身兴趣证据与来源闭环。** 本地实现已落下，下一步完成代码审查、提交推送与独立 CI/APK；不与 3B 主动来源竞争或 3C 习惯消费混包 |
+| 当前下一步 | **Phase 3A 真机门。** 覆盖安装 v0.41.42，确认 schema 54 无损升级、观察态三项消费开关均 false、诊断测试不造兴趣；随后等待真实自主网页 Outcome，跨本地日期前不得提前成熟。取得备份与脱敏诊断后再决定进入 3B |
 | 目标 | 只让跨日期、可核验的自主搜索/二次查证、收藏或分享选择、真实 Tool Outcome 与之后的用户反馈形成 `ai_interest` 候选；同一次行动的 Search→Extract→整理→评价只能算同一证据簇，不能用流水线步骤虚增支持数 |
 | 当前证据 | v0.41.41 真机备份为 schema 53 / protocol 5，state SHA 与 manifest 一致、原图无缺失；Phase 2B 有界 bias、动态表达回落、Memory/Thought/Desire/主动链均可读取。真机同时证明旧主动主题仍会交错重复：`presence:phone_activity` 31 次、存档功能 14 次、自主性实验 12 次，须留给 3B 处理 |
 | 保护与排除 | 不拆分、合并、删改或降级四个行为世界书；不借 Phase 3 改主人格、Desire 系数或用硬压 attachment 假装来源多样；角色扮演优化延期。日记、随笔、心情、随机塔罗、购物车生成、模型自述、单次用户命令及角色扮演内容不得进入兴趣证据 |
@@ -72,7 +72,7 @@
 | C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
 | C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 相册/浏览/动态表达已真机通过；v0.41.41 普通人格未见回归，但角色扮演持续性不理想 | 按用户最新决定暂停角色扮演优化，不提高优先级、不再改提示词，也不阻塞主人格与 Phase 3。以后单独重开时再以真机多轮样本处理角色切换和注意力 |
-| D1 · Phase 3A 兴趣证据与来源闭环（LOCAL IMPLEMENTED / CI PENDING） | schema 54 三表、真实自主网页/分享/用户反馈、撤证、版本/停用/回滚、备份与脱敏诊断已在本地实现 | 完成本地审查后独立推送并构建 APK；CI 通过后只验 3A 观察态。日记/心情/塔罗/购物车/模型自述、角色扮演与用户主动查询继续不得成为证据 |
+| D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过 | 只做 3A 覆盖升级、排除源和自然跨日证据验收；用户主动查询、诊断夹具、日记/心情/塔罗/购物车/模型自述与角色扮演不得造兴趣。真机备份/诊断闭环前不进入 3B |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
@@ -121,7 +121,7 @@
 13. 收口结论：排除用户已延期的角色扮演后，当前主人格、学习、动态表达、欲望、记忆与真实行动主链没有必须先热修的严重漏洞，可以进入 Phase 3。Phase 3 仍必须分为 3A/3B/3C 三个可归因 APK 门：3A 只建兴趣证据；3B 才接主动候选与来源竞争；3C 才让成熟兴趣有界影响选题和少量习惯。三者可以沿用同一开发分支，但不得一次性打开后只做一次真机测试。
 14. Phase 3A 当前冻结边界：同一 Search→Extract→Agnes→DeepSeek 流水线只能形成一个 event cluster；候选成熟必须跨本地日期且来自独立真实自主选择/查证/保存或分享 Outcome，并能接收用户后续正负反馈。日记、随笔、心情、塔罗、购物车、模型自述、角色扮演、单次用户命令和重复 heartbeat 不能成为证据；未成熟兴趣不进 Prompt、不改联网、不发主动消息。下一步先读当前 web/Outcome/备份/诊断数据模型，确定 schema 与测试矩阵后再写运行实现。
 
-### 2026-09-06 v0.41.42 Phase 3A AI 兴趣证据层（LOCAL IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-06 v0.41.42 Phase 3A AI 兴趣证据层（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户明确允许推送上一份 Phase 2 收口总账并继续 Phase 3A。收口总账已通过 Git Data fast-forward 到公开分支，远端提交 `65e7b953994e01147561778b7b481fe29e41853a`；随后从该公开事实建立 `agent/v04142-phase3a-interest-evidence`。本包不恢复已延期的角色扮演优化。
 2. 目标冻结为 `0.41.42+181 / schema 54 / Snapshot protocol 5`。新增 `ai_interest_candidates`、`ai_interest_evidence`、`ai_interest_versions`，分别保存聚合候选、唯一事件簇与不可变状态版本；三表进入 `exportAll/importAll` 和 record counts，schema 53 备份导入时显式补空表，不改旧数据。
@@ -133,6 +133,10 @@
 8. 观察态隔离通过代码路径强制：新 policy 没有 Prompt-facing API，`PromptBuilder`、自主选题 policy 与 proactive engine 均不导入它。Phase 3A 无论候选是否 established，都不会改变普通对话、主人格、联网主题或主动消息；3B/3C 仍关闭。
 9. 新增纯 policy 回归覆盖：单日多个 autonomous Outcome 不能成熟、跨本地日期独立自主 Outcome 才能成熟、用户正反馈不能补 autonomous day、明确反证可进入 contradicted、新鲜度衰减和来源 allowlist。结构 validator 同时检查 schema、唯一事件簇、四条真实接入/撤证路径、备份/诊断红线和 workflow 独立分支/Artifact。
 10. 本地功能提交为 `dcfaf46280c78ec7b1008426c15e16b83911b077` / tree `3b630641ac3374999ce54b1cba667b74d2df43ba`，共 14 个任务相关文件；不含用户备份、诊断、聊天正文、图片、密钥或 API 配置。本地环境无 Flutter/Dart SDK；已通过 v0.41.38～42 直接专项、当前接班 validator、Python 语法、workflow YAML 与 `git diff --check`。完整历史 validator 中依赖 CI 恢复的 TTS/桌宠/LingChat/Android 载荷在本地缺文件，属于已知环境缺口，不冒充通过。下一步追加本条 pre-CI 证据提交并推送，Actions 首次真实编译后修正任何 Dart/迁移回归；CI 全绿前保持 `CI PENDING`，真机证据前不得进入 3B。
+11. 公开推送采用 Git Data 等价树：Phase 3A 主实现公开 commit `6911db26e7c6553fd75d7f1db6b10a21e03e4b1d` 与本地 pre-CI tree `45d9c086baa79ec453e212929c0094efe89bbf08` 一致；随后修正 Draft Release 旧版说明/监控路径，并增加从 Dart 源码抽取 exact DDL 的 SQLite 执行测试、event_cluster UNIQUE 冲突和 candidate cascade 验证。最终公开 CI head `e0b55117790a5d3d75ea821baafe4bc045bf251c` 与本地 `6781788ad12e308c2852cb037920e006d2dfbe81` 共享最终 tree `cbb1dec4fdba4387ac8c0672bd1cc0105d365739`。
+12. 中途 run [`34031484527`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031484527) 因后续 validator 提交命中 workflow concurrency 而在 Gradle 初始化阶段正常 cancelled；没有 validator、Dart 或产品失败，不能记为回归。最终 Actions run [`34031635650`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650) 完整成功：所有专项/历史 validators、Kotlin/Flutter debug、Flutter analyze、613/613 tests、Release APK、固定签名和完整 Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact、草稿 Release 均通过；失败报告 job 正常 skipped。
+13. Artifact [`9988970477`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650/artifacts/9988970477) ZIP 为 320,004,929 bytes，GitHub digest 与全新下载复算均为 `sha256:e920efad1eabb607dbd1c3114cc854e441dd48ec9060d9fdaded1a8a9ca16929`，`unzip -t` 两个条目无错误。内部 APK 为 326,302,038 bytes；CI checksum、解包复算与草稿 Release 监控均为 `c62286e31cd9d0f9d2fd8834111346f8453b2f845478239be8e3ff4d1707144d`。Draft Release [`untagged-620c5a94880ef6f7f7b8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-620c5a94880ef6f7f7b8) 保持草稿，`main` 未合并，正式 Release 未发布。
+14. 当前严格提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。真机先覆盖安装并确认 `0.41.42+181 / schema 54`、旧聊天/Memory/世界书/相册/浏览保留、主人格无变化；导出一次脱敏诊断，确认 `aiInterestEvidence` 存在且三项 consumption flag 均 false。现有“测试网页分享闭环”是诊断夹具，运行前后 candidate/evidence 应保持不变。之后自然等待真实自主网页 Outcome：同一自然日重复不得成熟，跨本地日期的独立 autonomous Outcome 才可增加 cross-date/established；如用户删除对应浏览来源，revoked 应增加并重新聚合。取得新备份和诊断后再决定关闭 3A 或窄修，3B 继续关闭。
 
 ### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
