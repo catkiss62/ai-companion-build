@@ -31,9 +31,9 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从与本地 `d6874fb` 同树的公开 v0.41.38 tip `605248d` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.41 首次公开实现 head `937d04f589ed8f3e677fddb27def3b90ba8ae3a7` / tree `de07c0c628a47cbbbe8e49518ba61c4519864a1d`；run 734 被历史 v0.41.39 角色锚点静态词元检查安全截停，运行逻辑尚未进入 analyze/test/build。兼容措辞窄修待推送 |
+| 当前代码 head / tree | v0.41.41 兼容窄修 head `2701eba00844a17ba105794fa6e7105c2d9fa0be` / tree `70610574305d94f978b65eb7d16b64d94b36179a`；run 735 已通过 v0.41.39、v0.41.40 与 v0.41.41 专项 validator，随后被仍写死上一版本号的当前总账 validator 截停，analyze/test/build 未运行。接班验证器同步待推送 |
 | App / 数据库 | 目标测试版 `0.41.41+180 / schema 53 / Snapshot protocol 5`。schema 53 只迁移仍保持旧默认值的四项行为世界书优先级，并把仍为旧原文的运行时身份层升级为“同一小鲸鱼上的临时覆盖”；不改用户手调优先级、Memory、消息、关系、世界书正文、相册或浏览数据 |
-| 最终 CI | v0.41.41 run [`34003950124`](https://github.com/catkiss62/ai-companion-build/actions/runs/34003950124)（734）在历史 v0.41.39 validator 因缺少旧角色执行词元失败，后续 analyze/test/APK 未运行；兼容窄修与重跑待完成。上一完整通过仍为 v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
+| 最终 CI | v0.41.41 run 734 的旧角色词元兼容问题已修；run [`34004098740`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004098740)（735）通过至 v0.41.41 专项 validator，随后因当前总账验证器仍要求 0.41.40/schema 52 而失败；analyze/test/APK 尚未运行。同步验证器后重跑。上一完整通过仍为 v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
 | 测试 APK | v0.41.41 构建待完成；当前可下载上一版仍为 `AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk` |
 | APK SHA-256 | v0.41.41 待 CI 产出后独立复算；上一版 v0.41.40 为 `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0` |
 | Artifact / Release | v0.41.41 待 CI；不得发布正式 Release，`main` 不合并。上一 v0.41.40 Artifact/草稿 Release 证据保留在对应详细记录 |
@@ -96,6 +96,7 @@
 9. 沉浸房合同保持原样：reasoning 中 AI=我、用户=你；最终小说正文中 AI=她、用户=你。没有把普通聊天的第一人称提醒机械替换进沉浸房，也没有恢复旧“玩家”措辞。
 10. 目标版本为 `0.41.41+180 / schema 53 / Snapshot protocol 5`。新增角色 overlay 合同、历史去重、默认优先级迁移和静态 validator 回归测试；CI、APK、签名与真机状态在完整通过前保持 PENDING。
 11. 首次公开实现提交 `937d04f589ed8f3e677fddb27def3b90ba8ae3a7` / tree `de07c0c628a47cbbbe8e49518ba61c4519864a1d`。run [`34003950124`](https://github.com/catkiss62/ai-companion-build/actions/runs/34003950124)（734）在历史 v0.41.39 validator 因新 overlay 措辞移除了“场景中的‘我’就是该角色”精确词元而失败，发生于 validators 阶段，analyze/tests/APK 均未运行。处理方式只把该词元与“当前正在角色扮演”重述为与 overlay 一致的连续身份语义，不恢复旧“完整接管”冲突。
+12. 兼容窄修提交 `2701eba00844a17ba105794fa6e7105c2d9fa0be` / tree `70610574305d94f978b65eb7d16b64d94b36179a`。run [`34004098740`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004098740)（735）确认 v0.41.28～v0.41.41 全部专项 validator 通过，随后 `validate_current_ledger_handoff.py` 仍硬编码要求当前接班区含 0.41.40+179/schema 52 而失败；这证明失败属于接班验证器版本未同步，不是角色/人称实现。下一提交只把该验证器的当前事实更新为 0.41.41+180/schema 53 并再次重跑。
 
 ### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
