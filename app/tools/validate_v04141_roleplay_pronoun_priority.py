@@ -42,6 +42,12 @@ assert "AI角色在正文中始终写作“她”" in immersive
 assert "成年男性用户在正文中始终写作“你”" in immersive
 assert "固定“她/你”人称坐标" in immersive
 
-assert "Build AI Companion v0.41.41+180 APK" in workflow
-assert "AI-Companion-v0.41.41-180-Roleplay-Pronoun-Priority-APK" in workflow
+assert (
+    "Build AI Companion v0.41.41+180 APK" in workflow
+    or "Build AI Companion v0.41.42+181 APK" in workflow
+)
+assert (
+    "AI-Companion-v0.41.41-180-Roleplay-Pronoun-Priority-APK" in workflow
+    or "AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK" in workflow
+)
 print("v0.41.41 roleplay/pronoun/priority validation passed")

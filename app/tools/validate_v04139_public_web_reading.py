@@ -90,7 +90,7 @@ require(PHONE_READER, "item.readAt", "agent-visible browser read time")
 
 schema51 = DB[
     DB.index("Future<void> _createV51PublicWebReadingColumns"):
-    DB.index("Future<void> _stabilizeV51PublicWebReading")
+    DB.index("Future<void> _createV52ExpressionAlbumBrowserColumns")
 ]
 assert "raw_content" not in schema51, "raw webpage bodies must not be persisted"
 assert "page_body" not in schema51, "raw webpage bodies must not be persisted"

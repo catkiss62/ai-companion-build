@@ -114,6 +114,10 @@ class PreflightDiagnosticsService {
         'publicWebCandidateSummaryIncluded': false,
         'publicWebCandidateUrlIncluded': false,
         'publicWebQueryOrInterestKeyIncluded': false,
+        'aiInterestKeysIncluded': false,
+        'aiInterestLabelsOrDomainsIncluded': false,
+        'aiInterestEvidenceBodiesIncluded': false,
+        'aiInterestSourceRefsIncluded': false,
         'companionAlbumImageBytesIncluded': false,
         'companionAlbumPathsIncluded': false,
         'companionAlbumSourceUrlsIncluded': false,
@@ -196,6 +200,8 @@ class PreflightDiagnosticsService {
       final agentToolOutcomes = await db.agentToolOutcomeDiagnosticStats();
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
+      final aiInterestEvidence =
+          await db.aiInterestEvidenceDiagnosticStats(now: now);
       final companionAlbum = await db.companionAlbumDiagnosticStats();
       final providerHealth = await db.providerHealthDiagnosticStats(now: now);
       final proactivePolicy =
@@ -386,6 +392,7 @@ class PreflightDiagnosticsService {
         'somaticObservability': somaticDiagnostics,
         'personalityTrials': personalityTrials,
         'personalityLearning': personalityLearning,
+        'aiInterestEvidence': aiInterestEvidence,
         'selfExperience': selfExperience,
         'desireEvents': desireEvents,
         'dynamicMoe': {

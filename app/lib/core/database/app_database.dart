@@ -17,6 +17,7 @@ import '../platform/android_bridge.dart';
 import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
+import '../autonomy/ai_interest_evidence_policy.dart';
 import '../models/message_attachment.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
@@ -105,7 +106,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 50;
   // Historical validator compatibility token: static const int schemaVersion = 51;
   // Historical validator compatibility token: static const int schemaVersion = 52;
-  static const int schemaVersion = 53;
+  // Historical validator compatibility token: static const int schemaVersion = 53;
+  static const int schemaVersion = 54;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1117,6 +1119,9 @@ class AppDatabase {
     if (oldVersion < 53) {
       await _stabilizeV53RoleplayPronounPriority(db);
     }
+    if (oldVersion < 54) {
+      await _createV54AiInterestEvidenceTables(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1309,6 +1314,7 @@ class AppDatabase {
     await _createV50WorldBookProvenanceColumns(db);
     await _createV51PublicWebReadingColumns(db);
     await _createV52ExpressionAlbumBrowserColumns(db);
+    await _createV54AiInterestEvidenceTables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3139,6 +3145,83 @@ class AppDatabase {
     });
   }
 
+  Future<void> _createV54AiInterestEvidenceTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_interest_candidates (
+        id TEXT PRIMARY KEY,
+        interest_key TEXT NOT NULL UNIQUE,
+        label TEXT NOT NULL DEFAULT '',
+        source_domain TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'forming',
+        support_count INTEGER NOT NULL DEFAULT 0,
+        counter_count INTEGER NOT NULL DEFAULT 0,
+        autonomous_day_count INTEGER NOT NULL DEFAULT 0,
+        confidence REAL NOT NULL DEFAULT 0,
+        freshness REAL NOT NULL DEFAULT 0,
+        version INTEGER NOT NULL DEFAULT 1,
+        first_observed_at INTEGER NOT NULL,
+        last_evidence_at INTEGER,
+        established_at INTEGER,
+        deactivated_at INTEGER,
+        deactivate_reason TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_status_freshness '
+      'ON ai_interest_candidates(status, freshness DESC, updated_at DESC)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_interest_evidence (
+        id TEXT PRIMARY KEY,
+        candidate_id TEXT NOT NULL,
+        event_cluster_key TEXT NOT NULL UNIQUE,
+        source_kind TEXT NOT NULL,
+        source_ref TEXT NOT NULL,
+        polarity INTEGER NOT NULL,
+        weight REAL NOT NULL,
+        local_day TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        revoked_at INTEGER,
+        revoke_reason TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(candidate_id) REFERENCES ai_interest_candidates(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_evidence_candidate '
+      'ON ai_interest_evidence(candidate_id, active, occurred_at DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_evidence_source '
+      'ON ai_interest_evidence(source_ref, active)',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_interest_versions (
+        id TEXT PRIMARY KEY,
+        candidate_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        support_count INTEGER NOT NULL,
+        counter_count INTEGER NOT NULL,
+        autonomous_day_count INTEGER NOT NULL,
+        confidence REAL NOT NULL,
+        freshness REAL NOT NULL,
+        last_evidence_at INTEGER,
+        reason TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(candidate_id) REFERENCES ai_interest_candidates(id) ON DELETE CASCADE,
+        UNIQUE(candidate_id, version)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_versions_candidate '
+      'ON ai_interest_versions(candidate_id, version DESC)',
+    );
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -3727,6 +3810,7 @@ class AppDatabase {
 
   Future<void> ensureReady() async {
     final db = await database;
+    await _refreshAiInterestFreshness(db, DateTime.now());
     await _migrateUntouchedImmersiveRoomNovelRules(db);
     await _seedWorldBookPresets(db);
     await db.delete(
@@ -3937,6 +4021,40 @@ class AppDatabase {
       await setSetting('emotion_sound_volume_default_v0381_applied', '1');
     }
     await ensureDeviceId();
+  }
+
+  Future<void> _refreshAiInterestFreshness(
+    DatabaseExecutor db,
+    DateTime instant,
+  ) async {
+    const policy = AiInterestEvidencePolicy();
+    final rows = await db.query(
+      'ai_interest_candidates',
+      columns: const ['id', 'last_evidence_at', 'status', 'freshness'],
+    );
+    for (final row in rows) {
+      final status = row['status'] as String? ?? AiInterestStatus.forming.key;
+      final lastMillis = (row['last_evidence_at'] as num?)?.toInt();
+      final next = status == AiInterestStatus.inactive.key
+          ? 0.0
+          : policy.freshnessAt(
+              lastMillis == null
+                  ? null
+                  : DateTime.fromMillisecondsSinceEpoch(lastMillis),
+              instant,
+            );
+      final current = (row['freshness'] as num?)?.toDouble() ?? 0.0;
+      if ((current - next).abs() < 0.000001) continue;
+      await db.update(
+        'ai_interest_candidates',
+        <String, Object?>{
+          'freshness': next,
+          'updated_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[row['id']],
+      );
+    }
   }
 
   Future<String> ensureDeviceId() async {
@@ -9648,6 +9766,224 @@ class AppDatabase {
     });
   }
 
+  Future<bool> _recordAiInterestEvidenceTxn(
+    DatabaseExecutor txn, {
+    required String interestKey,
+    required String label,
+    required String sourceDomain,
+    required String eventClusterKey,
+    required String sourceKind,
+    required String sourceRef,
+    required int polarity,
+    required double weight,
+    required DateTime instant,
+  }) async {
+    const policy = AiInterestEvidencePolicy();
+    final key = policy.normalizeInterestKey(interestKey);
+    if (!policy.isValidInterestKey(key) ||
+        !policy.isEligibleSource(sourceKind) ||
+        polarity == 0 ||
+        eventClusterKey.trim().isEmpty ||
+        sourceRef.trim().isEmpty) {
+      return false;
+    }
+    final existing = await txn.query(
+      'ai_interest_candidates',
+      where: 'interest_key = ?',
+      whereArgs: <Object?>[key],
+      limit: 1,
+    );
+    String candidateId;
+    if (existing.isEmpty) {
+      if (!policy.canCreateCandidate(sourceKind, polarity)) return false;
+      candidateId = _uuid.v4();
+      await txn.insert(
+        'ai_interest_candidates',
+        <String, Object?>{
+          'id': candidateId,
+          'interest_key': key,
+          'label': label.trim().substring(0, min(120, label.trim().length)),
+          'source_domain': sourceDomain.trim().toLowerCase(),
+          'status': AiInterestStatus.forming.key,
+          'support_count': 0,
+          'counter_count': 0,
+          'autonomous_day_count': 0,
+          'confidence': 0.0,
+          'freshness': 0.0,
+          'version': 0,
+          'first_observed_at': instant.millisecondsSinceEpoch,
+          'last_evidence_at': null,
+          'established_at': null,
+          'deactivated_at': null,
+          'deactivate_reason': '',
+          'created_at': instant.millisecondsSinceEpoch,
+          'updated_at': instant.millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final claimed = await txn.query(
+        'ai_interest_candidates',
+        columns: const ['id'],
+        where: 'interest_key = ?',
+        whereArgs: <Object?>[key],
+        limit: 1,
+      );
+      if (claimed.isEmpty) return false;
+      candidateId = claimed.first['id'] as String;
+    } else {
+      candidateId = existing.first['id'] as String;
+    }
+
+    final inserted = await txn.insert(
+      'ai_interest_evidence',
+      <String, Object?>{
+        'id': _uuid.v4(),
+        'candidate_id': candidateId,
+        'event_cluster_key': eventClusterKey.trim(),
+        'source_kind': sourceKind,
+        'source_ref': sourceRef.trim(),
+        'polarity': polarity > 0 ? 1 : -1,
+        'weight': weight.clamp(0.05, 1.0).toDouble(),
+        'local_day': policy.localDayKey(instant),
+        'occurred_at': instant.millisecondsSinceEpoch,
+        'active': 1,
+        'revoked_at': null,
+        'revoke_reason': '',
+        'created_at': instant.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    if (inserted == 0) return false;
+    await _recalculateAiInterestTxn(
+      txn,
+      candidateId: candidateId,
+      reason: sourceKind,
+      instant: instant,
+    );
+    return true;
+  }
+
+  Future<void> _recalculateAiInterestTxn(
+    DatabaseExecutor txn, {
+    required String candidateId,
+    required String reason,
+    required DateTime instant,
+  }) async {
+    const policy = AiInterestEvidencePolicy();
+    final candidates = await txn.query(
+      'ai_interest_candidates',
+      where: 'id = ?',
+      whereArgs: <Object?>[candidateId],
+      limit: 1,
+    );
+    if (candidates.isEmpty) return;
+    final current = candidates.first;
+    final evidence = await txn.query(
+      'ai_interest_evidence',
+      where: 'candidate_id = ? AND active = 1',
+      whereArgs: <Object?>[candidateId],
+      orderBy: 'occurred_at ASC',
+    );
+    final aggregate = policy.aggregate(
+      evidence.map(
+        (row) => AiInterestEvidenceObservation(
+          sourceKind: row['source_kind'] as String? ?? '',
+          polarity: (row['polarity'] as num?)?.toInt() ?? 0,
+          weight: (row['weight'] as num?)?.toDouble() ?? 0,
+          localDay: row['local_day'] as String? ?? '',
+          occurredAt: DateTime.fromMillisecondsSinceEpoch(
+            (row['occurred_at'] as num?)?.toInt() ?? 0,
+          ),
+        ),
+      ),
+      now: instant,
+    );
+    final version = ((current['version'] as num?)?.toInt() ?? 0) + 1;
+    final wasEstablished = current['established_at'] as int?;
+    final status = aggregate.status.key;
+    final lastEvidenceAt = aggregate.lastEvidenceAt?.millisecondsSinceEpoch;
+    await txn.update(
+      'ai_interest_candidates',
+      <String, Object?>{
+        'status': status,
+        'support_count': aggregate.supportCount,
+        'counter_count': aggregate.counterCount,
+        'autonomous_day_count': aggregate.autonomousDayCount,
+        'confidence': aggregate.confidence,
+        'freshness': aggregate.freshness,
+        'version': version,
+        'last_evidence_at': lastEvidenceAt,
+        'established_at': status == AiInterestStatus.established.key
+            ? (wasEstablished ?? instant.millisecondsSinceEpoch)
+            : wasEstablished,
+        'deactivated_at': status == AiInterestStatus.inactive.key
+            ? instant.millisecondsSinceEpoch
+            : null,
+        'deactivate_reason': status == AiInterestStatus.inactive.key
+            ? reason
+            : '',
+        'updated_at': instant.millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: <Object?>[candidateId],
+    );
+    await txn.insert(
+      'ai_interest_versions',
+      <String, Object?>{
+        'id': _uuid.v4(),
+        'candidate_id': candidateId,
+        'version': version,
+        'status': status,
+        'support_count': aggregate.supportCount,
+        'counter_count': aggregate.counterCount,
+        'autonomous_day_count': aggregate.autonomousDayCount,
+        'confidence': aggregate.confidence,
+        'freshness': aggregate.freshness,
+        'last_evidence_at': lastEvidenceAt,
+        'reason': reason,
+        'created_at': instant.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+  }
+
+  Future<int> _revokeAiInterestEvidenceBySourceTxn(
+    DatabaseExecutor txn, {
+    required String sourceRef,
+    required String reason,
+    required DateTime instant,
+  }) async {
+    final rows = await txn.query(
+      'ai_interest_evidence',
+      columns: const ['candidate_id'],
+      where: 'source_ref = ? AND active = 1',
+      whereArgs: <Object?>[sourceRef],
+    );
+    if (rows.isEmpty) return 0;
+    final candidateIds = rows
+        .map((row) => row['candidate_id'] as String)
+        .toSet();
+    final changed = await txn.update(
+      'ai_interest_evidence',
+      <String, Object?>{
+        'active': 0,
+        'revoked_at': instant.millisecondsSinceEpoch,
+        'revoke_reason': reason,
+      },
+      where: 'source_ref = ? AND active = 1',
+      whereArgs: <Object?>[sourceRef],
+    );
+    for (final candidateId in candidateIds) {
+      await _recalculateAiInterestTxn(
+        txn,
+        candidateId: candidateId,
+        reason: 'source_revoked:$reason',
+        instant: instant,
+      );
+    }
+    return changed;
+  }
+
   /// Stores public candidates, commits the successful Outcome, and applies the
   /// small Desire satisfaction in one transaction. Duplicate-only results are
   /// a real no-result and never satisfy Desire.
@@ -9705,7 +10041,9 @@ class AppDatabase {
 
       await txn.delete(
         'public_web_candidates',
-        where: 'expires_at <= ?',
+        where: 'expires_at <= ? AND id NOT IN ('
+            'SELECT source_ref FROM ai_interest_evidence WHERE active = 1'
+            ')',
         whereArgs: [instant.millisecondsSinceEpoch],
       );
       var stored = 0;
@@ -9831,6 +10169,33 @@ class AppDatabase {
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
           }
+          if (!diagnosticRun &&
+              candidate.isVerifiedRead &&
+              candidate.semanticState == 'valid' &&
+              candidate.interestScore >=
+                  AiInterestEvidencePolicy.minimumDiscoveryInterest &&
+              candidate.contentSha256.length == 64 &&
+              candidate.readAt != null) {
+            final interestLabel = candidate.topicTags.isNotEmpty
+                ? candidate.topicTags.first
+                : candidate.sourceDomain;
+            await _recordAiInterestEvidenceTxn(
+              txn,
+              interestKey: candidate.interestKey,
+              label: interestLabel,
+              sourceDomain: candidate.sourceDomain,
+              eventClusterKey:
+                  'autonomous_web:$id:${candidate.interestKey.trim().toLowerCase()}',
+              sourceKind:
+                  AiInterestEvidenceSource.autonomousWebVerified.key,
+              sourceRef: candidateId,
+              polarity: 1,
+              weight: ((candidate.interestScore + candidate.learningScore) / 2)
+                  .clamp(0.55, 1.0)
+                  .toDouble(),
+              instant: instant,
+            );
+          }
         }
       }
 
@@ -9899,6 +10264,9 @@ class AppDatabase {
           ORDER BY discovered_at DESC
           LIMIT 240
         )
+          AND id NOT IN (
+            SELECT source_ref FROM ai_interest_evidence WHERE active = 1
+          )
       ''');
       return stored;
     });
@@ -10412,6 +10780,25 @@ class AppDatabase {
     final db = await database;
     final instant = now ?? DateTime.now();
     return db.transaction((txn) async {
+      final evidenceRows = outcome == 'shared'
+          ? await txn.rawQuery(
+              '''
+              SELECT candidate.interest_key,
+                     candidate.source_domain,
+                     candidate.interest_score,
+                     action.reason_source
+              FROM public_web_candidates candidate
+              JOIN autonomous_action_runs action
+                ON action.id = candidate.action_run_id
+              WHERE candidate.id = ?
+                AND candidate.lifecycle_state = 'share_ready'
+                AND candidate.read_state = 'verified'
+                AND candidate.semantic_state = 'valid'
+              LIMIT 1
+              ''',
+              <Object?>[candidateId],
+            )
+          : const <Map<String, Object?>>[];
       final updated = await txn.update(
         'public_web_candidates',
         {
@@ -10446,6 +10833,27 @@ class AppDatabase {
         instant.millisecondsSinceEpoch.toString(),
         instant,
       );
+      if (outcome == 'shared' && evidenceRows.isNotEmpty) {
+        final evidence = evidenceRows.first;
+        final diagnostic = (evidence['reason_source'] as String? ?? '')
+            .startsWith('diagnostic_');
+        if (!diagnostic) {
+          await _recordAiInterestEvidenceTxn(
+            txn,
+            interestKey: evidence['interest_key'] as String? ?? '',
+            label: evidence['source_domain'] as String? ?? '',
+            sourceDomain: evidence['source_domain'] as String? ?? '',
+            eventClusterKey: 'autonomous_share:$candidateId',
+            sourceKind: AiInterestEvidenceSource.autonomousShare.key,
+            sourceRef: candidateId,
+            polarity: 1,
+            weight: ((evidence['interest_score'] as num?)?.toDouble() ?? 0.7)
+                .clamp(0.7, 1.0)
+                .toDouble(),
+            instant: instant,
+          );
+        }
+      }
       return true;
     });
   }
@@ -10839,6 +11247,12 @@ class AppDatabase {
           'public_web_candidate:${candidateId.toLowerCase()}',
           'dormant',
         ],
+      );
+      await _revokeAiInterestEvidenceBySourceTxn(
+        txn,
+        sourceRef: candidateId,
+        reason: 'user_deleted',
+        instant: instant,
       );
       return true;
     });
@@ -14644,22 +15058,80 @@ class AppDatabase {
     required double outcomeScore,
     required double timingFit,
     required double topicFit,
+    DateTime? now,
   }) async {
     const allowed = {'engaged', 'acknowledged', 'deferred', 'resolved', 'dismissed', 'redirected', 'no_response'};
     final normalized = allowed.contains(outcome) ? outcome : 'acknowledged';
     final db = await database;
-    await db.update(
-      'proactive_feedback',
-      {
-        'outcome': normalized,
-        'outcome_score': outcomeScore.clamp(0.0, 1.0),
-        'timing_fit': timingFit.clamp(-1.0, 1.0).toDouble(),
-        'topic_fit': topicFit.clamp(-1.0, 1.0).toDouble(),
-        'processed_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final instant = now ?? DateTime.now();
+    await db.transaction((txn) async {
+      final feedbackRows = await txn.query(
+        'proactive_feedback',
+        columns: const ['id', 'topic_key'],
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+        limit: 1,
+      );
+      if (feedbackRows.isEmpty) return;
+      await txn.update(
+        'proactive_feedback',
+        {
+          'outcome': normalized,
+          'outcome_score': outcomeScore.clamp(0.0, 1.0),
+          'timing_fit': timingFit.clamp(-1.0, 1.0).toDouble(),
+          'topic_fit': topicFit.clamp(-1.0, 1.0).toDouble(),
+          'processed_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      final topicKey = feedbackRows.first['topic_key'] as String? ?? '';
+      const prefix = 'public_web_candidate:';
+      if (!topicKey.startsWith(prefix)) return;
+      final candidateId = topicKey.substring(prefix.length).trim();
+      if (candidateId.isEmpty) return;
+      final candidateRows = await txn.rawQuery(
+        '''
+        SELECT candidate.interest_key,
+               candidate.source_domain,
+               action.reason_source
+        FROM public_web_candidates candidate
+        JOIN autonomous_action_runs action
+          ON action.id = candidate.action_run_id
+        WHERE candidate.id = ?
+          AND candidate.lifecycle_state = 'shared'
+        LIMIT 1
+        ''',
+        <Object?>[candidateId],
+      );
+      if (candidateRows.isEmpty ||
+          (candidateRows.first['reason_source'] as String? ?? '')
+              .startsWith('diagnostic_')) {
+        return;
+      }
+      final positive = normalized == 'engaged' || normalized == 'resolved';
+      final negative = normalized == 'dismissed' || normalized == 'redirected';
+      if (!positive && !negative) return;
+      final candidate = candidateRows.first;
+      await _recordAiInterestEvidenceTxn(
+        txn,
+        interestKey: candidate['interest_key'] as String? ?? '',
+        label: candidate['source_domain'] as String? ?? '',
+        sourceDomain: candidate['source_domain'] as String? ?? '',
+        eventClusterKey: 'user_feedback:$id',
+        sourceKind: positive
+            ? AiInterestEvidenceSource.userFeedbackPositive.key
+            : AiInterestEvidenceSource.userFeedbackNegative.key,
+        sourceRef: candidateId,
+        polarity: positive ? 1 : -1,
+        weight: (positive
+                ? (0.55 + (topicFit.clamp(0.0, 1.0) * 0.35))
+                : (0.70 + ((-topicFit).clamp(0.0, 1.0) * 0.25)))
+            .toDouble(),
+        instant: instant,
+      );
+    });
   }
 
   Future<void> expireProactiveFeedback({required DateTime before}) async {
@@ -15976,6 +16448,9 @@ class AppDatabase {
       ),
       'public_web_candidates': await count('public_web_candidates'),
       'public_web_knowledge': await count('public_web_knowledge'),
+      'ai_interest_candidates': await count('ai_interest_candidates'),
+      'ai_interest_evidence': await count('ai_interest_evidence'),
+      'ai_interest_versions': await count('ai_interest_versions'),
       'active_public_web_candidates': await count(
         'public_web_candidates',
         'expires_at > ?',
@@ -16062,6 +16537,216 @@ class AppDatabase {
     };
   }
 
+  Future<bool> deactivateAiInterestCandidate(
+    String interestKey, {
+    String reason = 'manual_deactivation',
+    DateTime? now,
+  }) async {
+    const policy = AiInterestEvidencePolicy();
+    final key = policy.normalizeInterestKey(interestKey);
+    if (!policy.isValidInterestKey(key)) return false;
+    final instant = now ?? DateTime.now();
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final rows = await txn.query(
+        'ai_interest_candidates',
+        where: 'interest_key = ?',
+        whereArgs: <Object?>[key],
+        limit: 1,
+      );
+      if (rows.isEmpty) return false;
+      final row = rows.first;
+      final candidateId = row['id'] as String;
+      final version = ((row['version'] as num?)?.toInt() ?? 0) + 1;
+      final safeReason = reason.trim().isEmpty
+          ? 'manual_deactivation'
+          : reason.trim().substring(0, min(80, reason.trim().length));
+      await txn.update(
+        'ai_interest_candidates',
+        <String, Object?>{
+          'status': AiInterestStatus.inactive.key,
+          'version': version,
+          'freshness': 0.0,
+          'deactivated_at': instant.millisecondsSinceEpoch,
+          'deactivate_reason': safeReason,
+          'updated_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[candidateId],
+      );
+      await txn.insert('ai_interest_versions', <String, Object?>{
+        'id': _uuid.v4(),
+        'candidate_id': candidateId,
+        'version': version,
+        'status': AiInterestStatus.inactive.key,
+        'support_count': (row['support_count'] as num?)?.toInt() ?? 0,
+        'counter_count': (row['counter_count'] as num?)?.toInt() ?? 0,
+        'autonomous_day_count':
+            (row['autonomous_day_count'] as num?)?.toInt() ?? 0,
+        'confidence': (row['confidence'] as num?)?.toDouble() ?? 0.0,
+        'freshness': 0.0,
+        'last_evidence_at': row['last_evidence_at'],
+        'reason': safeReason,
+        'created_at': instant.millisecondsSinceEpoch,
+      });
+      return true;
+    });
+  }
+
+  Future<bool> rollbackAiInterestCandidate(
+    String interestKey,
+    int targetVersion, {
+    DateTime? now,
+  }) async {
+    const policy = AiInterestEvidencePolicy();
+    final key = policy.normalizeInterestKey(interestKey);
+    if (!policy.isValidInterestKey(key) || targetVersion < 1) return false;
+    final instant = now ?? DateTime.now();
+    final db = await database;
+    return db.transaction<bool>((txn) async {
+      final candidates = await txn.query(
+        'ai_interest_candidates',
+        where: 'interest_key = ?',
+        whereArgs: <Object?>[key],
+        limit: 1,
+      );
+      if (candidates.isEmpty) return false;
+      final current = candidates.first;
+      final candidateId = current['id'] as String;
+      final versions = await txn.query(
+        'ai_interest_versions',
+        where: 'candidate_id = ? AND version = ?',
+        whereArgs: <Object?>[candidateId, targetVersion],
+        limit: 1,
+      );
+      if (versions.isEmpty) return false;
+      final target = versions.first;
+      final nextVersion = ((current['version'] as num?)?.toInt() ?? 0) + 1;
+      final targetStatus =
+          target['status'] as String? ?? AiInterestStatus.forming.key;
+      await txn.update(
+        'ai_interest_candidates',
+        <String, Object?>{
+          'status': targetStatus,
+          'support_count': target['support_count'],
+          'counter_count': target['counter_count'],
+          'autonomous_day_count': target['autonomous_day_count'],
+          'confidence': target['confidence'],
+          'freshness': target['freshness'],
+          'version': nextVersion,
+          'last_evidence_at': target['last_evidence_at'],
+          'established_at': targetStatus == AiInterestStatus.established.key
+              ? (current['established_at'] ?? instant.millisecondsSinceEpoch)
+              : current['established_at'],
+          'deactivated_at': targetStatus == AiInterestStatus.inactive.key
+              ? instant.millisecondsSinceEpoch
+              : null,
+          'deactivate_reason': targetStatus == AiInterestStatus.inactive.key
+              ? 'rollback:$targetVersion'
+              : '',
+          'updated_at': instant.millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[candidateId],
+      );
+      await txn.insert('ai_interest_versions', <String, Object?>{
+        'id': _uuid.v4(),
+        'candidate_id': candidateId,
+        'version': nextVersion,
+        'status': targetStatus,
+        'support_count': target['support_count'],
+        'counter_count': target['counter_count'],
+        'autonomous_day_count': target['autonomous_day_count'],
+        'confidence': target['confidence'],
+        'freshness': target['freshness'],
+        'last_evidence_at': target['last_evidence_at'],
+        'reason': 'rollback:$targetVersion',
+        'created_at': instant.millisecondsSinceEpoch,
+      });
+      return true;
+    });
+  }
+
+  /// Redacted Phase 3A observability: no interest keys, labels, domains, URLs,
+  /// queries, evidence bodies, or source identifiers leave the database.
+  Future<Map<String, Object?>> aiInterestEvidenceDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final statusRows = await db.rawQuery(
+      'SELECT status, COUNT(*) AS total FROM ai_interest_candidates GROUP BY status',
+    );
+    final sourceRows = await db.rawQuery(
+      'SELECT source_kind, COUNT(*) AS total FROM ai_interest_evidence '
+      'WHERE active = 1 GROUP BY source_kind',
+    );
+    final totals = await db.rawQuery('''
+      SELECT COUNT(*) AS candidates,
+             SUM(CASE WHEN autonomous_day_count >= 2 THEN 1 ELSE 0 END) AS cross_date,
+             SUM(CASE WHEN status = 'established' THEN 1 ELSE 0 END) AS established,
+             SUM(CASE WHEN status = 'contradicted' THEN 1 ELSE 0 END) AS contradicted,
+             SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) AS inactive,
+             MAX(version) AS max_version
+      FROM ai_interest_candidates
+    ''');
+    final evidenceTotals = await db.rawQuery('''
+      SELECT COUNT(*) AS total,
+             SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) AS active,
+             SUM(CASE WHEN active = 0 THEN 1 ELSE 0 END) AS revoked
+      FROM ai_interest_evidence
+    ''');
+    final latestRows = await db.rawQuery(
+      'SELECT MAX(last_evidence_at) AS latest FROM ai_interest_candidates',
+    );
+    final latest = (latestRows.first['latest'] as num?)?.toInt() ?? 0;
+    final liveFreshness = latest == 0
+        ? 0.0
+        : const AiInterestEvidencePolicy().aggregate(
+            <AiInterestEvidenceObservation>[
+              AiInterestEvidenceObservation(
+                sourceKind:
+                    AiInterestEvidenceSource.autonomousWebVerified.key,
+                polarity: 1,
+                weight: 1,
+                localDay: 'diagnostic',
+                occurredAt: DateTime.fromMillisecondsSinceEpoch(latest),
+              ),
+            ],
+            now: instant,
+          ).freshness;
+    Map<String, int> counts(List<Map<String, Object?>> rows, String key) => {
+          for (final row in rows)
+            (row[key] as String? ?? 'unknown'):
+                (row['total'] as num?)?.toInt() ?? 0,
+        };
+    final total = totals.first;
+    final evidence = evidenceTotals.first;
+    return <String, Object?>{
+      'candidateCount': (total['candidates'] as num?)?.toInt() ?? 0,
+      'crossLocalDateCandidateCount':
+          (total['cross_date'] as num?)?.toInt() ?? 0,
+      'establishedCount': (total['established'] as num?)?.toInt() ?? 0,
+      'contradictedCount': (total['contradicted'] as num?)?.toInt() ?? 0,
+      'inactiveCount': (total['inactive'] as num?)?.toInt() ?? 0,
+      'maxVersion': (total['max_version'] as num?)?.toInt() ?? 0,
+      'statusCounts': counts(statusRows, 'status'),
+      'sourceCounts': counts(sourceRows, 'source_kind'),
+      'evidenceCount': (evidence['total'] as num?)?.toInt() ?? 0,
+      'activeEvidenceCount': (evidence['active'] as num?)?.toInt() ?? 0,
+      'revokedEvidenceCount': (evidence['revoked'] as num?)?.toInt() ?? 0,
+      'latestEvidenceAt': latest,
+      'latestEvidenceFreshness': liveFreshness,
+      'promptConsumptionEnabled': false,
+      'topicSelectionEnabled': false,
+      'proactiveConsumptionEnabled': false,
+      'interestKeysIncluded': false,
+      'labelsOrDomainsIncluded': false,
+      'sourceRefsIncluded': false,
+      'evidenceBodiesIncluded': false,
+    };
+  }
+
   Future<Map<String, Object?>> exportAll() async {
     final identity = await transferStateIdentity();
     final db = await database;
@@ -16089,6 +16774,9 @@ class AppDatabase {
       'autonomous_action_runs',
       'public_web_candidates',
       'public_web_knowledge',
+      'ai_interest_candidates',
+      'ai_interest_evidence',
+      'ai_interest_versions',
       'companion_browser_visits',
       'companion_album_candidates',
       'relationship_events',
@@ -16169,6 +16857,11 @@ class AppDatabase {
     if (version < 51) {
       rawTables['public_web_knowledge'] = const <Object?>[];
     }
+    if (version < 54) {
+      rawTables['ai_interest_candidates'] = const <Object?>[];
+      rawTables['ai_interest_evidence'] = const <Object?>[];
+      rawTables['ai_interest_versions'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -16194,6 +16887,9 @@ class AppDatabase {
         'autonomous_action_runs',
         'public_web_candidates',
         'public_web_knowledge',
+        'ai_interest_candidates',
+        'ai_interest_evidence',
+        'ai_interest_versions',
         'companion_browser_visits',
         'companion_album_candidates',
         'relationship_events',
