@@ -38,19 +38,19 @@
 | APK SHA-256 | `f678813e863ffc78df8354bc23bd95f90ffba73220d3037c66646f4d0a76db91`；与 CI checksum、Artifact 全新下载解包独立实算和 Draft Release asset digest 一致 |
 | Artifact / Release | [Artifact ID `9980807150`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430/artifacts/9980807150)，ZIP 319,960,470 bytes，digest `sha256:08f6fa867175445dd3698dd1bad532ffdbdf5c6f090bba6f11df36be399481e5`，保留至 2026-09-20T02:05:22Z；Draft Release [`untagged-6c8e4da2ec16fbd62c63`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c8e4da2ec16fbd62c63)，保持草稿、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 角色扮演覆盖、人称归属、短会话去重与四项行为优先级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
+| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 普通人格未报告回归，但角色扮演持续性真机效果不理想，按用户最新决定标为 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`，不再阻塞主线。2026-09-06 Phase 2 主人格收口审查未发现 P0/P1 阻塞项；Phase 3A `ai_interest` 证据层为当前下一开发包，尚未实现 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装 v0.41.41 并做窄真机验收。** 重点验证普通人格不降级、角色扮演仍是同一小鲸鱼上的临时覆盖、角色切换不串场，以及“我/你”和提议归属不再倒置 |
-| 目标 | 保留现有四个行为模块全文与 100% 注入；只重排冲突裁决顺序为角色表达自然化 1000、日常对话规则 950、性格光谱 850、造梗能力 650。角色卡只覆盖明确声明的维度，未声明部分继承本体 |
-| 当前证据 | run 739 已通过全部 validators、Kotlin/Debug 编译、Flutter analyze、607/607 tests、Release APK、固定签名与完整资源载荷；APK SHA 与 CI/Artifact/Draft Release 三方一致。自动化不等于真机语言表现，角色与人称仍需实际多轮对话 |
-| 保护与排除 | 不拆分、合并、删改四个行为世界书正文；不把角色扮演改成第二人格或普通人类；不改沉浸房既有“reasoning 我/你、正文 她/你”的第二人称合同；不重写旧聊天、旧存档或用户附件 |
-| 实现边界 | schema 53 只更新名称与旧默认优先级同时匹配的行，保留用户自定义值；运行时身份、角色卡包装和末端执行锚点统一为 overlay；短会话历史保留原 role，continuity 仅补更早内容，避免同一轮重复注入；人称提醒按 role 固定发言者归属 |
-| 完成判据 | 专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、固定签名和完整载荷全绿；真机分别检查普通聊天、痴女/高岭之花等风格卡、史莱姆形态卡、两个角色切换及“谁说过/谁提出”追问 |
-| 直接详细入口 | 下方“2026-09-06 v0.41.41 角色扮演覆盖、人称归属与世界书优先级窄修”；代码入口 `PromptBuilder`、`ReferenceLibrary`、`WorldBookHistoryPolicy`、`AppDatabase`、`world_book_presets.dart` |
+| 当前下一步 | **Phase 3A：AI 自身兴趣证据与来源闭环。** 先实现证据/反证/新鲜度/版本与停用边界，再单独构建 APK；不与 3B 主动来源竞争或 3C 习惯消费混包 |
+| 目标 | 只让跨日期、可核验的自主搜索/二次查证、收藏或分享选择、真实 Tool Outcome 与之后的用户反馈形成 `ai_interest` 候选；同一次行动的 Search→Extract→整理→评价只能算同一证据簇，不能用流水线步骤虚增支持数 |
+| 当前证据 | v0.41.41 真机备份为 schema 53 / protocol 5，state SHA 与 manifest 一致、原图无缺失；Phase 2B 有界 bias、动态表达回落、Memory/Thought/Desire/主动链均可读取。真机同时证明旧主动主题仍会交错重复：`presence:phone_activity` 31 次、存档功能 14 次、自主性实验 12 次，须留给 3B 处理 |
+| 保护与排除 | 不拆分、合并、删改或降级四个行为世界书；不借 Phase 3 改主人格、Desire 系数或用硬压 attachment 假装来源多样；角色扮演优化延期。日记、随笔、心情、随机塔罗、购物车生成、模型自述、单次用户命令及角色扮演内容不得进入兴趣证据 |
+| 实现边界 | 3A 只建立本地可审计候选、证据、反证、新鲜度、版本/停用与备份恢复；未成熟兴趣不进入 Prompt、不影响联网选题或主动消息。跨日必须按本地日期与独立事件簇计算，删除/失效来源可撤销支持，用户明确纠正应立即成为反证 |
+| 完成判据 | schema 覆盖升级/备份恢复无损；正向跨日样本能成熟，单日重复/同链多步/派生投影/角色扮演/用户单次命令均不能成熟；来源删除、语义冲突、新鲜度衰减、停用/回滚和脱敏诊断有测试。CI/APK 全绿后只做 3A 真机验收，再决定是否进入 3B |
+| 直接详细入口 | 下方“2026-09-06 Phase 2 主人格收口审查与 Phase 3 分包门”；代码入口先读 `public_web_candidates` / `public_web_knowledge` / `autonomous_action_runs` / `agent_tool_outcomes`、`ProactiveSelectionPolicy`、备份表序与诊断 contracts |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -71,8 +71,8 @@
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
 | C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
-| C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / v0.41.41 PENDING） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 新增的相册/浏览/动态表达也已由用户确认真机通过 | v0.41.41 只补角色卡 overlay、说话者归属、continuity 去重与四项行为优先级；CI 后需真机验证角色切换和“你我”归属，未通过前不把本窄修写成 CLOSED |
-| D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
+| C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 相册/浏览/动态表达已真机通过；v0.41.41 普通人格未见回归，但角色扮演持续性不理想 | 按用户最新决定暂停角色扮演优化，不提高优先级、不再改提示词，也不阻塞主人格与 Phase 3。以后单独重开时再以真机多轮样本处理角色切换和注意力 |
+| D1 · Phase 3A 兴趣证据与来源闭环（CURRENT / DESIGN FREEZE） | Agent Tool/Outcome、浏览/知识来源与备份链已有 CI/真机可信基础，Phase 2 主人格审查无 P0/P1 | 独立实现并独立 APK：只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
@@ -103,6 +103,23 @@
 16. 最终运行代码提交 `d3f38d8cb58bcaa5172109ce2fbbec0b4682f6a9` / tree `a3637abd3cc3f9c55d87468bf804e60f26d08117` 同步系统自读版本真值。Actions run [`34005100430`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430)（739）完整成功：全部 validators、Kotlin/Debug 编译、Flutter analyze、607/607 tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped。
 17. Artifact [`9980807150`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430/artifacts/9980807150) ZIP 为 319,960,470 bytes，digest `sha256:08f6fa867175445dd3698dd1bad532ffdbdf5c6f090bba6f11df36be399481e5`。全新下载后 `unzip -t` 无错误，内部 APK 为 326,259,110 bytes，独立 SHA-256 `f678813e863ffc78df8354bc23bd95f90ffba73220d3037c66646f4d0a76db91`，与 CI checksum 和 Draft Release asset digest 一致。Draft Release 为 [`untagged-6c8e4da2ec16fbd62c63`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c8e4da2ec16fbd62c63)，保持草稿，`main` 未合并。
 18. 当前边界为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。真机建议先用普通聊天确认人格和活人感无回归，再分别测试痴女/高岭之花风格卡、史莱姆形态卡、两个角色 Session 切换，以及追问“刚才是谁提出靠一会儿/谁说过这句话”。动态语言模型仍可能偶发口误，本包目标是减少提示冲突与重复上下文，不能宣称数学上完全消除。
+
+### 2026-09-06 Phase 2 主人格收口审查与 Phase 3 分包门（REVIEW PASSED / RUNTIME UNCHANGED / PHASE 3A NEXT）
+
+1. 用户真机反馈 v0.41.41 的角色扮演持续性仍不理想，随后明确决定暂停角色扮演优化，先保护已经表现良好的主人格并进入后续主线。因此 C4 保持 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`，不是伪装成通过，也不再作为 Phase 3 前置阻塞；本次审查排除角色卡效果，不提高角色扮演 priority，不改角色 Prompt。
+2. 只读核验本轮 v0.41.41 真机证据：备份为 schema 53 / Snapshot protocol 5，`state.json` 11,957,461 bytes，实算 SHA-256 `3aaa9f34e02c27439f77684cdf51fd2f45ceb8a7ef1f101aa23a25f77f9ca9a1` 与 manifest 完全一致；ZIP 全部 26 个条目可解压，7 组聊天附件原图/预览、5 组相册原图/预览均在清单内且 `missing_*=[]`。诊断显示数据库可开、Active Brain、后台通道、Accessibility、通知、公开网页与 TTS 主链通过，无失败 generation job 或活动中自主动作。
+3. 当前四个 active behavior 世界书正文合计 9,200 字符：日常对话规则 691、性格光谱 944、造梗能力 548、角色表达自然化 7,017；低于独立 behavior 16,000 字符预算，四项 probability 均为 100，因此没有“优先级降低导致不注入”或当前截断。30k/50k 只属于未来扩容选择，不是当前缺陷；本轮不扩大 Prompt，也不拆分、合并、删减或重写四项正文。
+4. `PromptBuilder` 的当前顺序为身份/规则→behavior 世界书→上下文与真实 Outcome→动态表达/可见内心→人格与能力末端锚点→当前真实用户消息。末端明确规定消息 speaker 只由 role 决定，reasoning 中 AI=我、用户=你；人格不得降低事实、推理、工具与明确任务质量。除已延期的角色扮演动态模型波动外，没有发现会系统性反转主人格或“你我”归属的第二条静态冲突源。
+5. Phase 2B 学习链继续 fail-closed：精确用户引文、assistant 目标引文、行为域 allowlist、受保护身份/工具/格式边界、反证和当前纠正优先级均在；只有 support>=2、confidence>=0.82、零反证的 established 普通候选可进入 Prompt，每轮最多 2 条。真机库 6 个候选中仅 1 个 established，其余 5 个不参与表达；一个略带模型推断色彩的“哥们儿称呼”命题仍停在 candidate，证明未成熟项不会越权。
+6. 动态表达旧“天然直率续杯”已真实修复：normal/calm 与技术 serious 不再产生直率脉冲，状态按时间回基线并有饱和递减、冷却、afterglow 预算和上下文互斥。真机 `unfiltered_directness=30`，不再是旧版 82.84；快照时配方均未激活。历史事件保留不等于继续累计，不需要改写旧存档。
+7. Desire/Thought/Memory/主动链未发现 P0/P1：脉冲与总预算有界，baseline 只慢漂移，普通消息不抬 attachment；duty 没有真实 Thought 不能凭数值虚构义务；fatigue 参与竞争并有昼夜下限；用户 turn 有 writer lease/抢占；Thought 有 acted/residual/dormant/snooze/resurface 上限；Memory 进行时、完成/取消/延期和直接检索均有时间与词面 Gate。真机 Desire 数值处于正常区间，没有单轴饱和。
+8. 审查确认一个应由 Phase 3B 处理的实证风险：`CompanionThought.canDriveIntentAt()` 只检查 active/fixation 与 snooze，没有最低强度；`DesireCorePolicy` 会把同 drive 最强 Thought 的正文/主题绑定到包含原始 drive base 的候选，因此很弱的旧 Thought 仍可能借较高欲望分数成为话题来源。当前备份存在 0.078～0.135 的旧项目 fixation/active Thought，最高 action_count=12；主动反馈 topic 中 `presence:phone_activity` 31 次、`user.optimizing_ai.function_storage` 14 次、`user.optimizing_ai.autonomy_experiment` 12 次。现有 topic/source 降权只惩罚最近连续相同，交错出现后会重新获得机会。3B 必须增加来源 readiness/最低有效强度、跨窗口 topic/行为冷却与交错重复测试，不能只增加新兴趣候选，更不能硬压 attachment。
+9. 另有一个非阻塞的普通轮合同不一致：`ConversationInitiativePolicy._userRequestsAnswer()` 目前要求问号加疑问词，故“帮我分析一下/检查系统/继续处理”这类无问号明确任务不会硬选 `answer_user`，可能与内部 `seek_attention/share_own_view` 计划冲突。更晚的能力—人格合同要求明确任务先完整完成，真机“【检查系统】你看看你自己所有系统有哪些”也实际完整执行；同时 84 轮消融中多数自驱动计划被模型保守落成 react，未见任务被抢走的真机失败。因此本轮不为理论一致性改主人格 Prompt；先登记一条未来窄回归，出现真实偏题再修分类器。
+10. 低风险代码观察：`MemoryRetrievalPolicy._compactPhrase` 的 raw RegExp 对 CJK 范围存在双反斜杠，可能让中文整句 fallback 不生效；主路径仍以中文二元 token 判定，现有 APK/下载等中文测试通过，真机未见无关记忆因此被召回，故不阻塞 Phase 3A。以后修改 Memory 检索时应补一个“无共同二元 token、只靠合法中文 phrase fallback”的定向测试再窄修。
+11. 诊断中的 Provider 24 小时失败主要是相册候选下载 9 次与搜索 timeout 2 次，fallback 均成功，当前 latest error 为 none；这是外部候选的正常失败分支，不是人格或数据库故障。`overlay_touch` 的重复恢复 warn 与 Nearby 未就绪属于独立设备体验/未来接管事项，本轮不借人格审查扩修。
+12. 本地环境没有 Flutter/Dart SDK，不能伪称重新运行 analyze/tests；run 739 已提供 607/607 Flutter tests、analyze、Kotlin、Release APK、签名与完整载荷证据。本次另外重跑 `validate_current_ledger_handoff.py` 与 v0.41.38/39/40/41 四个直接相关 validator，全部通过；审查未修改 Dart、Kotlin、schema、Prompt、规则、世界书或 APK。
+13. 收口结论：排除用户已延期的角色扮演后，当前主人格、学习、动态表达、欲望、记忆与真实行动主链没有必须先热修的严重漏洞，可以进入 Phase 3。Phase 3 仍必须分为 3A/3B/3C 三个可归因 APK 门：3A 只建兴趣证据；3B 才接主动候选与来源竞争；3C 才让成熟兴趣有界影响选题和少量习惯。三者可以沿用同一开发分支，但不得一次性打开后只做一次真机测试。
+14. Phase 3A 当前冻结边界：同一 Search→Extract→Agnes→DeepSeek 流水线只能形成一个 event cluster；候选成熟必须跨本地日期且来自独立真实自主选择/查证/保存或分享 Outcome，并能接收用户后续正负反馈。日记、随笔、心情、塔罗、购物车、模型自述、角色扮演、单次用户命令和重复 heartbeat 不能成为证据；未成熟兴趣不进 Prompt、不改联网、不发主动消息。下一步先读当前 web/Outcome/备份/诊断数据模型，确定 schema 与测试矩阵后再写运行实现。
 
 ### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
