@@ -917,7 +917,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.41.42+181 Phase 3A Interest Evidence candidate' \
-              --notes 'Draft candidate for schema 52. Explicit user web searches now persist verified semantic results into simulated-phone browser history. Dynamic Expression Tendencies use elapsed-time drive targets, neutral-event suppression, saturation and cooldown guards without exposing axis names or values to the chat model. The private album stores exact local originals beside bounded previews, recovers legacy user-message originals, supports multi-tags, zoom/pan and Android MediaStore export. Protocol 5 and mature Phase 3 interests remain unchanged.'
+              --notes 'Draft Phase 3A candidate for schema 54. It records evidence, counterevidence, cross-local-date maturity, freshness and version snapshots from verified autonomous web outcomes, real shares and explicit follow-up feedback. The layer remains observation-only: it does not enter prompts, select web topics or trigger proactive messages. Protocol 5, the four behavior world books, ordinary personality and deferred roleplay behavior remain unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -941,7 +941,7 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04141-monitor.txt'
+          MONITOR_PATH='.ci/v04142-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
@@ -1016,7 +1016,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.41.42+181 Phase 3A Interest Evidence candidate' \
-              --notes 'Draft diagnostic candidate for explicit-search browser persistence, dynamic-expression balancing and private-album original handling. It is not a published release; user-authored content, private images and webpage bodies are not included in CI assets.'
+              --notes 'Draft diagnostics for the schema 54 Phase 3A AI-interest evidence layer. It is not a published release; user-authored content, private images, webpage bodies, interest keys and source identifiers are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1025,7 +1025,7 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04141-monitor.txt'
+          MONITOR_PATH='.ci/v04142-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
