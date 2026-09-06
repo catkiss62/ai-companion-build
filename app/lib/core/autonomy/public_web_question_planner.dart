@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
 import '../models/desire_state.dart';
@@ -102,4 +104,3 @@ class DeepSeekPublicWebQuestionPlanner implements PublicWebQuestionPlanner {
   static PublicWebQuestionPlan fallback(PublicWebDiscoveryTopic topic) =>
       PublicWebQuestionPlan(query: topic.query, mode: 'taxonomy_fallback');
 }
-import 'dart:convert';

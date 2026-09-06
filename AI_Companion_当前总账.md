@@ -100,6 +100,7 @@
 13. 新 `ProactiveThoughtReadinessPolicy` 仅在自主选择前过滤。旧 Thought 仍可由普通聊天/Memory 正常召回，不改 `CompanionThought.canDriveIntentAt()` 或 Prompt；自主门按 provenance 使用 0.20～0.50 最低强度，public-web share Thought 的 0.62 保留，审查中 0.078～0.135 的旧项目 Thought 不能再借较高 drive 主动行动。
 14. 版本为 `0.41.43+182 / schema 55 / Snapshot protocol 5`，系统自读、workflow、Artifact/Draft Release 名称和当前接班 validator 已同步；新增专项文档 `PHASE3B_QUESTION_AUTONOMY_v0.41.43.md`、问题安全/fallback 测试、readiness/行为分类/行为冷却/交错 topic 测试和独立 SQLite UNIQUE DDL validator。`validate_v04143_phase3b_question_autonomy.py`、v0.41.42 Phase 3A validator、v0.41.41 人称/世界书 validator、当前总账 validator 与 `git diff --check` 本地通过。
 15. 当前证据边界：本地环境没有 Flutter/Dart SDK，尚不能声称格式化、analyze 或 Flutter tests 通过；CI 前状态严格保持 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。四个行为世界书、主人格、角色扮演、Memory、Desire 参数、主动频率、Phase 3A 兴趣消费开关与用户数据均未修改；3C 继续关闭。
+16. 首次公开实现由 Git Data 提交 `575312e0cf1e1884dd1f1c9c6ce3369360287c4b`，审查后将 discovery 冷却键由可能误用的来源 Thought topic 改成不含正文的公开 drive 类别，窄修远端提交 `bcedcfb0d4b60ddff1cfa5d2f59564ca62417eee`。Actions run [`34039668165`](https://github.com/catkiss62/ai-companion-build/actions/runs/34039668165)（747）通过资源恢复、全部源码/历史 validators 与依赖解析，在 Kotlin 测试触发的 Flutter debug 编译发现 `public_web_question_planner.dart` 的 `dart:convert` import 被补丁工具追加到文件末尾（line 105），因此 analyze/tests/APK 未运行。该失败是单一编译排版问题，不是自主行为语义、schema 或测试断言失败；修复只把 import 移到声明前并重跑 CI。
 
 
 ### 2026-09-06 v0.41.41 角色扮演覆盖、人称归属与世界书优先级窄修（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
