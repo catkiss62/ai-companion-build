@@ -82,7 +82,7 @@ const worldBookSystemPresets = <WorldBookPreset>[
     name: '日常对话规则',
     aliases: ['日常对话', '动作', '神态', '反八股', '口语', '幽默'],
     content: worldBookDailyConversationV04128,
-    priority: worldBookBehaviorPriorityPlanV04141['日常对话规则']!,
+    priority: 950,
     scope: 'chat|proactive',
     manualActive: true,
   ),
