@@ -26,6 +26,56 @@ class WorldBookHistoryPolicy {
         activeRoleplaySessionId: activeRoleplaySessionId.trim(),
       );
 
+  /// Keeps only continuity text that predates the raw roleplay turns already
+  /// retained in the prompt. The durable note remains a long-session fallback,
+  /// but short sessions no longer inject the same dialogue twice.
+  static String continuityBeforeRetainedTurns({
+    required String continuityNote,
+    required List<ChatMessage> retainedHistory,
+    required String activeRoleplaySessionId,
+  }) {
+    final note = continuityNote.trim();
+    final sessionId = activeRoleplaySessionId.trim();
+    if (note.isEmpty || sessionId.isEmpty || retainedHistory.isEmpty) {
+      return note;
+    }
+
+    String bounded(String value, int limit) {
+      final normalized = value.trim();
+      return normalized.length <= limit
+          ? normalized
+          : normalized.substring(0, limit).trimRight();
+    }
+
+    var cutAt = note.length;
+    for (var index = 0; index < retainedHistory.length; index += 1) {
+      final assistant = retainedHistory[index];
+      if (!assistant.isAssistant) continue;
+      final context = WorldBookTurnContext.decode(
+        assistant.worldBookContextJson,
+      );
+      if (context.roleplaySessionId != sessionId) continue;
+
+      ChatMessage? user;
+      for (var previous = index - 1; previous >= 0; previous -= 1) {
+        final candidate = retainedHistory[previous];
+        if (candidate.isAssistant) break;
+        if (candidate.isUser) {
+          user = candidate;
+          break;
+        }
+      }
+      if (user == null) continue;
+      final marker = [
+        '用户：${bounded(user.content, 900)}',
+        'AI：${bounded(assistant.content, 1400)}',
+      ].join('\n');
+      final position = note.indexOf(marker);
+      if (position >= 0 && position < cutAt) cutAt = position;
+    }
+    return note.substring(0, cutAt).trim();
+  }
+
   static List<ChatMessage> _filter(
     List<ChatMessage> messages, {
     required String? activeRoleplaySessionId,

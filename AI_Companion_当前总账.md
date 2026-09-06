@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-05（Asia/Tokyo）
+更新时间：2026-09-06（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -31,30 +31,30 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从与本地 `d6874fb` 同树的公开 v0.41.38 tip `605248d` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.40 最终远端 CI head `31c3e883f044b5b2a6a5789e4ab82975ec7155d9` / tree `93160ee5216bce232a96e0efb7627466a52728d3`；本地等价 head `80da3f1` 的 tree 完全一致。公开提交不含用户备份、诊断、附件、消息正文或密钥 |
-| App / 数据库 | 待装测试版为 `0.41.40+179 / schema 52 / Snapshot protocol 5`。schema 52 只增加浏览来源、相册原图和标签字段，并让各表达轴回到既有基线；不改 Memory、消息、关系、世界书或原备份 |
-| 最终 CI | v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732）全绿：专项/历史 validators、Kotlin、Flutter analyze、603/603 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过 |
-| 测试 APK | `AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk`，326,251,290 bytes |
-| APK SHA-256 | `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0`，与 CI checksum、Artifact 独立全新下载解包实算和 GitHub Draft Release asset digest 一致。固定测试签名证书保持不变，可覆盖安装既有测试版 |
-| Artifact / Release | [Artifact ID `9977034135`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678/artifacts/9977034135)，ZIP 319,954,245 bytes，digest `sha256:c6be5ec42c9471b4a387c6781b0f0d1bee6dcc307e14d4359c74b311fec0eed2`，保留至 2026-09-19T21:14:39Z；Draft Release [`untagged-da96fa944e8ea738d2a8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-da96fa944e8ea738d2a8)，未发布正式 Release |
+| 当前代码 head / tree | 修改前公开基线 `bbc6c678a30ec6cd0063ee6a1c94a8606e524243` / tree `5ee0e64902a3e170f36b4647f1000e59fb118f4f`；其中运行代码仍对应 v0.41.40 功能 head `31c3e883f044b5b2a6a5789e4ab82975ec7155d9`。v0.41.41 角色扮演覆盖、人称归属与优先级窄修已完成实现，提交与 CI 待执行 |
+| App / 数据库 | 目标测试版 `0.41.41+180 / schema 53 / Snapshot protocol 5`。schema 53 只迁移仍保持旧默认值的四项行为世界书优先级，并把仍为旧原文的运行时身份层升级为“同一小鲸鱼上的临时覆盖”；不改用户手调优先级、Memory、消息、关系、世界书正文、相册或浏览数据 |
+| 最终 CI | v0.41.41 为 `IMPLEMENTED / CI PENDING`；上一完整通过仍为 v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
+| 测试 APK | v0.41.41 构建待完成；当前可下载上一版仍为 `AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk` |
+| APK SHA-256 | v0.41.41 待 CI 产出后独立复算；上一版 v0.41.40 为 `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0` |
+| Artifact / Release | v0.41.41 待 CI；不得发布正式 Release，`main` 不合并。上一 v0.41.40 Artifact/草稿 Release 证据保留在对应详细记录 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.40 明确联网入浏览器、动态表达平衡与相册原图/多标签包为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
+| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 角色扮演覆盖、人称归属、短会话去重与四项行为优先级为 `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装并真机验收 v0.41.40。** 验证明确联网查询入浏览器、动态表达不再单轴累积、旧用户图片恢复原图、多标签、缩放拖动和系统相册保存；取得新备份/诊断后再决定收口或窄修 |
-| 目标 | 明确用户联网与自主联网共用完整阅读/语义判断，但以 `origin=user_turn` 独立写浏览历史，不消耗自主预算；“萌属性”全部显示为“动态表达倾向”，轴名/数值不注入聊天模型；相册保留原图与预览图双份，Qwen 仍只看预览图 |
-| 当前证据 | run 732 已通过全部 validators、Kotlin、Flutter analyze、603 tests、Release APK、固定签名与完整资源载荷；自动化证明代码、迁移合同与打包成立，真实 API、旧附件恢复和 Android 系统相册写入仍需真机证据 |
-| 保护与排除 | 不修改或提交用户附件；联网测试图由用户恢复存档去除，不做替换按钮；不开放 `album.send` 或成熟 Phase 3 兴趣；不向模型暴露动态表达具体轴名/数值；不重写旧聊天正文 |
-| 实现边界 | policy v2 迁移只把当前动态轴回归用户 baseline 并清空 recipe 派生态，保留 baseline、事件、开关和其他域；旧 `user_message` 相册条目从仍存在的聊天附件精确补原图，无法核验的联网旧图不伪造原图 |
-| 完成判据 | 专项/历史 validator、Flutter analyze/tests、Kotlin、Release APK、固定签名和载荷全绿；真机再核对 browser、相册原图/导出/标签及动态表达长期分布 |
-| 直接详细入口 | 下方“2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修”；代码入口 `AgentToolRunner/AppDatabase`、`MoeDynamicsPolicy`、`CompanionAlbumStorage/SimulatedPhoneRepository/AlbumPage` |
+| 当前下一步 | **推送并构建 v0.41.41，然后覆盖安装做窄真机验收。** 重点验证普通人格不降级、角色扮演仍是同一小鲸鱼上的临时覆盖、角色切换不串场，以及“我/你”和提议归属不再倒置 |
+| 目标 | 保留现有四个行为模块全文与 100% 注入；只重排冲突裁决顺序为角色表达自然化 1000、日常对话规则 950、性格光谱 850、造梗能力 650。角色卡只覆盖明确声明的维度，未声明部分继承本体 |
+| 当前证据 | 源码窄修与专项测试/validator 已写入，版本冻结为 0.41.41+180 / schema 53；尚未推送，CI/APK 与真机状态不得提前写成通过 |
+| 保护与排除 | 不拆分、合并、删改四个行为世界书正文；不把角色扮演改成第二人格或普通人类；不改沉浸房既有“reasoning 我/你、正文 她/你”的第二人称合同；不重写旧聊天、旧存档或用户附件 |
+| 实现边界 | schema 53 只更新名称与旧默认优先级同时匹配的行，保留用户自定义值；运行时身份、角色卡包装和末端执行锚点统一为 overlay；短会话历史保留原 role，continuity 仅补更早内容，避免同一轮重复注入；人称提醒按 role 固定发言者归属 |
+| 完成判据 | 专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、固定签名和完整载荷全绿；真机分别检查普通聊天、痴女/高岭之花等风格卡、史莱姆形态卡、两个角色切换及“谁说过/谁提出”追问 |
+| 直接详细入口 | 下方“2026-09-06 v0.41.41 角色扮演覆盖、人称归属与世界书优先级窄修”；代码入口 `PromptBuilder`、`ReferenceLibrary`、`WorldBookHistoryPolicy`、`AppDatabase`、`world_book_presets.dart` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
-| v0.41.40 字段 | 冻结内容 |
+| v0.41.41 字段 | 冻结内容 |
 |---|---|
 | 当前证据 | v0.41.39 真机主要链通过，仅用户明确搜索未进入浏览历史；动态表达长期样本出现天然直率偏高；相册只保留预览图且分类单选 |
 | 保护与排除 | 不把相册标签变成强收藏偏好；类别平等，只描述图像。原图只存本机/备份，视觉模型继续读去元数据预览。动态表达数值只给用户 UI，LLM 仅收自然语言呈现指令 |
@@ -71,7 +71,7 @@
 | C1 · App 内 Agent 能力桥（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | run 717 全绿；查手机与精确系统自读成功，自然自查路由失败已由备份证实 | 由 v0.41.35 修复确定性自查入口和事实连续性；附件保存、联网找图保存、`screen_observation.inspect`、Memory 时态与失败真值继续真机验收，不能提前收口 |
 | C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
-| C4 · WorldBook 2D 来源与角色扮演（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 724、591 tests、签名与完整载荷全绿；schema 50 测试 APK 已上传 | 下一步做三分类、角色 Session 隔离/恢复、知识来源门、行为自主证据与 `<em>` 的真机验收；取得存档/诊断后再收口，未过真机不进入 Phase 3A |
+| C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / v0.41.41 PENDING） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 新增的相册/浏览/动态表达也已由用户确认真机通过 | v0.41.41 只补角色卡 overlay、说话者归属、continuity 去重与四项行为优先级；CI 后需真机验证角色切换和“你我”归属，未通过前不把本窄修写成 CLOSED |
 | D1 · Phase 3A 兴趣证据与来源闭环 | Agent 基础 APK 真机证明 Tool/Outcome 可信 | 只从跨日期的自主搜索、查证、收藏/分享选择、真实工具 Outcome 和后续反馈建立 `ai_interest` 候选；日记/随笔/心情投影、随机塔罗、购物车生成、模型自述和单次用户命令不得成为成长证据 |
 | D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
@@ -81,6 +81,20 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+
+### 2026-09-06 v0.41.41 角色扮演覆盖、人称归属与世界书优先级窄修（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户确认 v0.41.40 的查手机相册原图、明确联网浏览记录和动态表达倾向真机测试成功，并要求进入下一步；当前问题聚焦为角色扮演注意力不稳定、“我/你”及提议归属偶发倒置，以及四个行为世界书优先级如何分配。
+2. 审计确认优先级只参与已激活文档的排序/冲突裁决，不是使用概率；四个行为世界书当前均为 manual active、probability 100，合计正文约 9.2k 字符，低于独立 behavior 16k 预算，因此降低某项 priority 不会降低其注入概率或截断正文。
+3. 用户冻结的最高保护项是普通人格效果：不拆分、合并、删除或大改“性格光谱、造梗能力、角色表达自然化、日常对话规则”；角色扮演是同一小鲸鱼本体上的临时覆盖。只写痴女、高岭之花等风格时只覆盖性格着色/语言习惯；明确史莱姆等形态时才临时覆盖形态与能力；角色卡未声明部分继续继承固定身份、关系、外观和既有人格。
+4. 四项冲突裁决顺序确定为：角色表达自然化 1000、日常对话规则 950、性格光谱 850、造梗能力 650。前两项负责自然表达与基础对话边界；性格光谱提供可变倾向；造梗是最应让位于严肃语境、事实、角色卡和自然表达的可选能力。四项仍 100% 注入。
+5. schema 52→53 采用保守迁移：只有 entry_type=behavior、名称匹配且 priority 仍等于 v0.41.40 旧默认值的行才更新；用户已经手动改过的数值不覆盖。角色表达自然化旧值与新值同为 1000，不做无意义写入。新装内置日常规则默认 950。
+6. 运行时身份层、角色卡包装和靠近当前用户消息的末端执行锚点统一为 overlay 合同，删除“临时角色扮演不能覆盖本体”与“完整接管身份”的互相冲突；不需要为每张角色卡单独适配，也不把角色内容伪装成用户原话。
+7. 对话历史继续按真实 API role 传入；新增短会话 continuity 去重：如果 continuity_note 尾部已经包含当前保留的 roleplay user/assistant 回合，只注入重叠前的更早摘要，避免同一句以“历史原消息 + 用户：/AI：连续记录”重复出现并争夺说话者归属。
+8. 靠近生成端的人称提醒明确规定 role=assistant 是“我以前说过”，role=user 是“你以前说过”；动作、愿望、提议与引用归属同样不得倒置。若我提出“你让我靠一会儿”、你只答应或追问，之后不能回忆成“你自己说要靠”。用户明确写“史莱姆尾巴”时不得擅自替换成“猫尾巴”再判定为用户口误。
+9. 沉浸房合同保持原样：reasoning 中 AI=我、用户=你；最终小说正文中 AI=她、用户=你。没有把普通聊天的第一人称提醒机械替换进沉浸房，也没有恢复旧“玩家”措辞。
+10. 目标版本为 `0.41.41+180 / schema 53 / Snapshot protocol 5`。新增角色 overlay 合同、历史去重、默认优先级迁移和静态 validator 回归测试；本条写入时尚未推送，CI、APK、签名与真机状态均保持 PENDING。
 
 ### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 

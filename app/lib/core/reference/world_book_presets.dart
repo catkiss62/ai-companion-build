@@ -62,13 +62,27 @@ const worldBookDailyConversationV04128 = '''【日常对话边界】
 【动作与神态】
 $ruleContentV04125_09_action''';
 
+const worldBookBehaviorPriorityPlanV04141 = <String, int>{
+  '角色表达自然化': 1000,
+  '日常对话规则': 950,
+  '性格光谱': 850,
+  '造梗能力': 650,
+};
+
+const legacyWorldBookBehaviorPrioritiesV04140 = <String, int>{
+  '角色表达自然化': 1000,
+  '日常对话规则': 720,
+  '性格光谱': 1000,
+  '造梗能力': 1000,
+};
+
 const worldBookSystemPresets = <WorldBookPreset>[
   WorldBookPreset(
     id: 'builtin.worldbook.daily_conversation',
     name: '日常对话规则',
     aliases: ['日常对话', '动作', '神态', '反八股', '口语', '幽默'],
     content: worldBookDailyConversationV04128,
-    priority: 720,
+    priority: worldBookBehaviorPriorityPlanV04141['日常对话规则']!,
     scope: 'chat|proactive',
     manualActive: true,
   ),

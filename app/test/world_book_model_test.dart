@@ -37,6 +37,13 @@ void main() {
     final daily = byId['builtin.worldbook.daily_conversation']!;
     expect(daily.manualActive, isTrue);
     expect(daily.probability, 100);
+    expect(daily.priority, 950);
+    expect(worldBookBehaviorPriorityPlanV04141, {
+      '角色表达自然化': 1000,
+      '日常对话规则': 950,
+      '性格光谱': 850,
+      '造梗能力': 650,
+    });
     expect(daily.content, contains('【日常对话边界】'));
     expect(daily.content, contains('【幽默】'));
     expect(daily.content, contains('不解释笑点'));

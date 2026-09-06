@@ -200,6 +200,18 @@ void main() {
     expect(coreIdentity, contains('用户是成年男性'));
     expect(coreIdentity, contains('你不是服务者'));
     expect(coreIdentity, contains('自己的判断与意愿'));
+    expect(
+      byKey['08_runtime_identity']!.content,
+      contains('角色卡只临时覆盖它明确声明'),
+    );
+    expect(
+      byKey['08_runtime_identity']!.content,
+      contains('未声明部分继续继承本体'),
+    );
+    expect(
+      byKey['08_runtime_identity']!.content,
+      isNot(contains('临时角色扮演不能覆盖 AI 本体身份')),
+    );
     expect(coreIdentity, isNot(contains('擅长自然造梗')));
     expect(coreIdentity, contains('“傻逼”“儿子”“哥哥”“宝贝”'));
     expect(coreIdentity, contains('不是固定词库'));

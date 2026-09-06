@@ -104,7 +104,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 49;
   // Historical validator compatibility token: static const int schemaVersion = 50;
   // Historical validator compatibility token: static const int schemaVersion = 51;
-  static const int schemaVersion = 52;
+  // Historical validator compatibility token: static const int schemaVersion = 52;
+  static const int schemaVersion = 53;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1112,6 +1113,9 @@ class AppDatabase {
     if (oldVersion < 52) {
       await _createV52ExpressionAlbumBrowserColumns(db);
       await _stabilizeV52ExpressionAlbumBrowser(db);
+    }
+    if (oldVersion < 53) {
+      await _stabilizeV53RoleplayPronounPriority(db);
     }
   }
 
@@ -3133,6 +3137,35 @@ class AppDatabase {
       'original_status': "TEXT NOT NULL DEFAULT 'missing'",
       'user_tags_json': "TEXT NOT NULL DEFAULT '[]'",
     });
+  }
+
+  Future<void> _stabilizeV53RoleplayPronounPriority(
+    DatabaseExecutor txn,
+  ) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await txn.update(
+      'rule_layers',
+      {
+        'content': ruleContentV04125_08_runtime_identity,
+        'updated_at': now,
+      },
+      where: 'key = ? AND content = ?',
+      whereArgs: const [
+        '08_runtime_identity',
+        legacyRuleContentV04125_08RuntimeIdentity,
+      ],
+    );
+
+    for (final entry in worldBookBehaviorPriorityPlanV04141.entries) {
+      final previous = legacyWorldBookBehaviorPrioritiesV04140[entry.key];
+      if (previous == null || previous == entry.value) continue;
+      await txn.update(
+        'reference_documents',
+        {'priority': entry.value, 'updated_at': now},
+        where: "entry_type = 'behavior' AND name = ? AND priority = ?",
+        whereArgs: [entry.key, previous],
+      );
+    }
   }
 
   Future<void> _stabilizeV52ExpressionAlbumBrowser(
@@ -16592,6 +16625,9 @@ class AppDatabase {
       }
       if (version < 52) {
         await _stabilizeV52ExpressionAlbumBrowser(txn);
+      }
+      if (version < 53) {
+        await _stabilizeV53RoleplayPronounPriority(txn);
       }
       await txn.update(
         'reference_documents',

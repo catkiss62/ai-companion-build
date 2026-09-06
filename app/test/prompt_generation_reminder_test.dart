@@ -24,6 +24,10 @@ void main() {
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
     expect(reminder, contains('用户是成年男性'));
     expect(reminder, contains('不要把用户写成第三人称“她”或“他”'));
+    expect(reminder, contains('消息的说话者只由消息 role 决定'));
+    expect(reminder, contains('role=assistant 的历史是“我以前说过的话”'));
+    expect(reminder, contains('不能反转说话者、动作发起者、愿望或提议的归属'));
+    expect(reminder, contains('不得把用户明确写出的名词擅自替换'));
     expect(reminder, contains('偶发口误不会被系统强制中断'));
     expect(reminder, isNot(contains('普通聊天正文的人称与可见 reasoning 分开')));
     expect(reminder, isNot(contains('禁止用“我”“她”')));
