@@ -1,253 +1,370 @@
 status=failure
 build_result=cancelled
-run_id=34031370449
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34031370449
-head_sha=6911db26e7c6553fd75d7f1db6b10a21e03e4b1d
+run_id=34031410772
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34031410772
+head_sha=ee1000a238cd558fcc710e3e1d6521fa86d3a99f
 
 === failed or cancelled job logs ===
 
---- job=build-apk conclusion=cancelled id=101481391559 ---
-﻿2026-09-06T11:50:19.7625610Z Current runner version: '2.337.0'
-2026-09-06T11:50:19.7651919Z ##[group]Runner Image Provisioner
-2026-09-06T11:50:19.7652864Z Hosted Compute Agent
-2026-09-06T11:50:19.7653491Z Version: 20260828.587
-2026-09-06T11:50:19.7654411Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
-2026-09-06T11:50:19.7655271Z Build Date: 2026-08-28T16:44:25Z
-2026-09-06T11:50:19.7656005Z Worker ID: {f7014bb3-e267-410b-8b95-db42cb98c334}
-2026-09-06T11:50:19.7656826Z Azure Region: westus
-2026-09-06T11:50:19.7657432Z ##[endgroup]
-2026-09-06T11:50:19.7659274Z ##[group]Operating System
-2026-09-06T11:50:19.7660037Z Ubuntu
-2026-09-06T11:50:19.7660580Z 24.04.4
-2026-09-06T11:50:19.7661087Z LTS
-2026-09-06T11:50:19.7661717Z ##[endgroup]
-2026-09-06T11:50:19.7662357Z ##[group]Runner Image
-2026-09-06T11:50:19.7663026Z Image: ubuntu-24.04
-2026-09-06T11:50:19.7663609Z Version: 20260831.293.1
-2026-09-06T11:50:19.7665577Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260831.293/images/ubuntu/Ubuntu2404-Readme.md
-2026-09-06T11:50:19.7667223Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260831.293
-2026-09-06T11:50:19.7668261Z ##[endgroup]
-2026-09-06T11:50:19.7669579Z ##[group]GITHUB_TOKEN Permissions
-2026-09-06T11:50:19.7671719Z Actions: read
-2026-09-06T11:50:19.7672446Z Contents: write
-2026-09-06T11:50:19.7673120Z Metadata: read
-2026-09-06T11:50:19.7673724Z ##[endgroup]
-2026-09-06T11:50:19.7676497Z Secret source: Actions
-2026-09-06T11:50:19.7677712Z Prepare workflow directory
-2026-09-06T11:50:19.8062112Z Prepare all required actions
-2026-09-06T11:50:19.8124833Z Getting action download info
-2026-09-06T11:50:20.1611722Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
-2026-09-06T11:50:20.2949852Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
-2026-09-06T11:50:20.7662344Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
-2026-09-06T11:50:21.0016169Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
-2026-09-06T11:50:21.2486562Z Getting action download info
-2026-09-06T11:50:21.3872520Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
-2026-09-06T11:50:21.6130156Z Complete job name: build-apk
-2026-09-06T11:50:21.7292192Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-2026-09-06T11:50:21.7303884Z ##[group]Run actions/checkout@v4
-2026-09-06T11:50:21.7305760Z with:
-2026-09-06T11:50:21.7306680Z   repository: catkiss62/ai-companion-build
-2026-09-06T11:50:21.7317230Z   token: ***
-2026-09-06T11:50:21.7318123Z   ssh-strict: true
-2026-09-06T11:50:21.7318993Z   ssh-user: git
-2026-09-06T11:50:21.7319900Z   persist-credentials: true
-2026-09-06T11:50:21.7320856Z   clean: true
-2026-09-06T11:50:21.7321747Z   sparse-checkout-cone-mode: true
-2026-09-06T11:50:21.7322823Z   fetch-depth: 1
-2026-09-06T11:50:21.7323715Z   fetch-tags: false
-2026-09-06T11:50:21.7325034Z   show-progress: true
-2026-09-06T11:50:21.7325947Z   lfs: false
-2026-09-06T11:50:21.7326816Z   submodules: false
-2026-09-06T11:50:21.7327706Z   set-safe-directory: true
-2026-09-06T11:50:21.7328737Z   allow-unsafe-pr-checkout: false
-2026-09-06T11:50:21.7330477Z ##[endgroup]
-2026-09-06T11:50:21.8439176Z Syncing repository: catkiss62/ai-companion-build
-2026-09-06T11:50:21.8443693Z ##[group]Getting Git version info
-2026-09-06T11:50:21.8446746Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-09-06T11:50:21.8450582Z [command]/usr/bin/git version
-2026-09-06T11:50:21.8566231Z git version 2.55.0
-2026-09-06T11:50:21.8636775Z ##[endgroup]
-2026-09-06T11:50:21.8646360Z Temporarily overriding HOME='/home/runner/work/_temp/814a594d-41de-44c8-a485-f7e539e914b8' before making global git config changes
-2026-09-06T11:50:21.8651551Z Adding repository directory to the temporary git global config as a safe directory
-2026-09-06T11:50:21.8656612Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-09-06T11:50:21.8702170Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
-2026-09-06T11:50:21.8707107Z ##[group]Initializing the repository
-2026-09-06T11:50:21.8712670Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
-2026-09-06T11:50:21.8903491Z hint: Using 'master' as the name for the initial branch. This default branch name
-2026-09-06T11:50:21.8907189Z hint: will change to "main" in Git 3.0. To configure the initial branch name
-2026-09-06T11:50:21.8913534Z hint: to use in all of your new repositories, which will suppress this warning,
-2026-09-06T11:50:21.8917153Z hint: call:
-2026-09-06T11:50:21.8918892Z hint:
-2026-09-06T11:50:21.8924498Z hint: 	git config --global init.defaultBranch <name>
-2026-09-06T11:50:21.8926963Z hint:
-2026-09-06T11:50:21.8929299Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
-2026-09-06T11:50:21.8932930Z hint: 'development'. The just-created branch can be renamed via this command:
-2026-09-06T11:50:21.8936316Z hint:
-2026-09-06T11:50:21.8938070Z hint: 	git branch -m <name>
-2026-09-06T11:50:21.8940063Z hint:
-2026-09-06T11:50:21.8942654Z hint: Disable this message with "git config set advice.defaultBranchName false"
-2026-09-06T11:50:21.8947252Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
-2026-09-06T11:50:21.8952763Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
-2026-09-06T11:50:21.8969715Z ##[endgroup]
-2026-09-06T11:50:21.8972365Z ##[group]Disabling automatic garbage collection
-2026-09-06T11:50:21.8974853Z [command]/usr/bin/git config --local gc.auto 0
-2026-09-06T11:50:21.9019407Z ##[endgroup]
-2026-09-06T11:50:21.9022373Z ##[group]Setting up auth
-2026-09-06T11:50:21.9024814Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-09-06T11:50:21.9056946Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-09-06T11:50:21.9474382Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-09-06T11:50:21.9515547Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-09-06T11:50:21.9745508Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-09-06T11:50:21.9783862Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-09-06T11:50:22.0020994Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
-2026-09-06T11:50:22.0063376Z ##[endgroup]
-2026-09-06T11:50:22.0065281Z ##[group]Fetching the repository
-2026-09-06T11:50:22.0075356Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +6911db26e7c6553fd75d7f1db6b10a21e03e4b1d:refs/remotes/origin/agent/v04142-phase3a-interest-evidence
-2026-09-06T11:50:26.7729014Z From https://github.com/catkiss62/ai-companion-build
-2026-09-06T11:50:26.7730741Z  * [new ref]         6911db26e7c6553fd75d7f1db6b10a21e03e4b1d -> origin/agent/v04142-phase3a-interest-evidence
-2026-09-06T11:50:26.7734654Z ##[endgroup]
-2026-09-06T11:50:26.7735723Z ##[group]Determining the checkout info
-2026-09-06T11:50:26.7737575Z ##[endgroup]
-2026-09-06T11:50:26.7743823Z [command]/usr/bin/git sparse-checkout disable
-2026-09-06T11:50:26.7799291Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
-2026-09-06T11:50:26.7832839Z ##[group]Checking out the ref
-2026-09-06T11:50:26.7840055Z [command]/usr/bin/git checkout --progress --force -B agent/v04142-phase3a-interest-evidence refs/remotes/origin/agent/v04142-phase3a-interest-evidence
-2026-09-06T11:50:26.9981671Z Switched to a new branch 'agent/v04142-phase3a-interest-evidence'
-2026-09-06T11:50:26.9987717Z branch 'agent/v04142-phase3a-interest-evidence' set up to track 'origin/agent/v04142-phase3a-interest-evidence'.
-2026-09-06T11:50:27.0018994Z ##[endgroup]
-2026-09-06T11:50:27.0076815Z [command]/usr/bin/git log -1 --format=%H
-2026-09-06T11:50:27.0105351Z 6911db26e7c6553fd75d7f1db6b10a21e03e4b1d
-2026-09-06T11:50:27.0340699Z ##[group]Run set -euo pipefail
-2026-09-06T11:50:27.0341140Z [36;1mset -euo pipefail[0m
-2026-09-06T11:50:27.0341539Z [36;1mPREVIOUS_TAG='v0.39.8-rule-refresh-immersive-control-parser'[0m
-2026-09-06T11:50:27.0342187Z [36;1mPREVIOUS_APK='AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk'[0m
-2026-09-06T11:50:27.0342754Z [36;1mmkdir -p .tts-payload/unpacked[0m
-2026-09-06T11:50:27.0343136Z [36;1mgh release download "${PREVIOUS_TAG}" \[0m
-2026-09-06T11:50:27.0343469Z [36;1m  --repo "${GITHUB_REPOSITORY}" \[0m
-2026-09-06T11:50:27.0343770Z [36;1m  --pattern "${PREVIOUS_APK}" \[0m
-2026-09-06T11:50:27.0344051Z [36;1m  --dir .tts-payload[0m
-2026-09-06T11:50:27.0344907Z [36;1mecho "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8  .tts-payload/${PREVIOUS_APK}" | sha256sum -c -[0m
-2026-09-06T11:50:27.0345545Z [36;1munzip -q ".tts-payload/${PREVIOUS_APK}" \[0m
-2026-09-06T11:50:27.0345861Z [36;1m  'assets/tts_models/*' \[0m
-2026-09-06T11:50:27.0346165Z [36;1m  'assets/legacy_tts/*' \[0m
-2026-09-06T11:50:27.0346430Z [36;1m  'lib/arm64-v8a/*' \[0m
-2026-09-06T11:50:27.0346697Z [36;1m  -d .tts-payload/unpacked[0m
-2026-09-06T11:50:27.0347012Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
-2026-09-06T11:50:27.0347415Z [36;1mmkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"[0m
-2026-09-06T11:50:27.0347849Z [36;1mcp -a .tts-payload/unpacked/assets/tts_models \[0m
-2026-09-06T11:50:27.0348174Z [36;1m  "${TTS_MAIN}/assets/"[0m
-2026-09-06T11:50:27.0348502Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/runtime \[0m
-2026-09-06T11:50:27.0348863Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
-2026-09-06T11:50:27.0349213Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/pinyin \[0m
-2026-09-06T11:50:27.0349573Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
-2026-09-06T11:50:27.0349911Z [36;1mcp -a .tts-payload/unpacked/lib/arm64-v8a \[0m
-2026-09-06T11:50:27.0350235Z [36;1m  "${TTS_MAIN}/jniLibs/"[0m
-2026-09-06T11:50:27.0390752Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-09-06T11:50:27.0391141Z env:
-2026-09-06T11:50:27.0394043Z   GH_TOKEN: ***
-2026-09-06T11:50:27.0394627Z ##[endgroup]
-2026-09-06T11:50:37.3286341Z .tts-payload/AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk: OK
-2026-09-06T11:50:38.7535058Z ##[group]Run set -euo pipefail
-2026-09-06T11:50:38.7535437Z [36;1mset -euo pipefail[0m
-2026-09-06T11:50:38.7535699Z [36;1mtest -f app/pubspec.yaml[0m
-2026-09-06T11:50:38.7536017Z [36;1mgrep -Fqx 'version: 0.41.42+181' app/pubspec.yaml[0m
-2026-09-06T11:50:38.7536526Z [36;1mgrep -Fqx '  static const int schemaVersion = 54;' app/lib/core/database/app_database.dart[0m
-2026-09-06T11:50:38.7536983Z [36;1mtest -d app/lib[0m
-2026-09-06T11:50:38.7537217Z [36;1mtest -d app/android[0m
-2026-09-06T11:50:38.7537460Z [36;1mtest -d app/test[0m
-2026-09-06T11:50:38.7537689Z [36;1mtest -d app/tools[0m
-2026-09-06T11:50:38.7538051Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
-2026-09-06T11:50:38.7538569Z [36;1mecho 'Building v0.41.42+181 Phase 3A AI-interest evidence runtime.'[0m
-2026-09-06T11:50:38.7574730Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
-2026-09-06T11:50:38.7575086Z ##[endgroup]
-2026-09-06T11:50:38.7655399Z Building v0.41.42+181 Phase 3A AI-interest evidence runtime.
-2026-09-06T11:50:38.7682739Z ##[group]Run python3 tools/restore_dafeiyu_asset_pack.py
-2026-09-06T11:50:38.7683158Z [36;1mpython3 tools/restore_dafeiyu_asset_pack.py[0m
-2026-09-06T11:50:38.7715588Z shell: /usr/bin/bash -e {0}
-2026-09-06T11:50:38.7715873Z ##[endgroup]
-2026-09-06T11:50:39.5006982Z Restored exact desktop-pet pack: 417 files, 111962623 bytes, tree caa4939627ee3a773566d4c793e355df5de98ad38698ddeb5b67519d03715582.
-2026-09-06T11:50:39.5125280Z ##[group]Run bash tools/fetch_lingchat_visual_assets.sh
-2026-09-06T11:50:39.5125954Z [36;1mbash tools/fetch_lingchat_visual_assets.sh[0m
-2026-09-06T11:50:39.5161580Z shell: /usr/bin/bash -e {0}
-2026-09-06T11:50:39.5161847Z ##[endgroup]
-2026-09-06T11:50:39.7095681Z 09ff689d1959fd8789aa9dccdd22c3f7d62fe4a7bbb52ce671c501e6551af75c  background/day.webp (reused)
-2026-09-06T11:50:39.8734540Z 0e91d1b708fc9eee554a653c10b16f317daa2589460ace54f9ca79762559c469  background/night.webp (reused)
-2026-09-06T11:50:40.0298335Z 68772d09789c9557509dad6ae64472fe0046b5cf35b91abffb5c3f03c2d0cb00  deepseek/avatar.webp (reused)
-2026-09-06T11:50:40.1990234Z daaf3734be59772fc21689827f3d7a6114bdeec2b9fffb78dd4247936c4ca54c  deepseek/normal.webp (reused)
-2026-09-06T11:50:40.3632039Z 18c175644877130ab4787ceed3c548feb9602a6dfae57c2c8cf854f9404df899  deepseek/calm.webp (reused)
-2026-09-06T11:50:40.5348214Z 40ef9602ba84f978cdcfb456e1880a772c6efd307ff14e8fee34eec6d11756bc  deepseek/happy.webp (reused)
-2026-09-06T11:50:40.6950225Z 81d8f7d903cc7c66d69e3fd8d98c90167a0334da5f82266fd5120e1c1c110c38  deepseek/excited.webp (reused)
-2026-09-06T11:50:40.8576250Z b48f0ebbeb80a97cb23fc04f2284228b299f3edc263a11c7d54513533f5f88c8  deepseek/playful.webp (reused)
-2026-09-06T11:50:41.0466718Z cade7bd2c3477949cb710237dcd06a7aa08a9bffe1f425015f3427c844d5a714  deepseek/confident.webp (reused)
-2026-09-06T11:50:41.2073289Z 55b701dde7a2e89eed13484e8a60843a133f09cdfd111054984025d45f7a92b6  deepseek/serious.webp (reused)
-2026-09-06T11:50:41.4308902Z b94abbe4504d9fcb91d451b52caa00a33343d24669221847cbd9faffbf861655  deepseek/confused.webp (reused)
-2026-09-06T11:50:41.5916289Z a5ca70ec1c52befaa29c672ee043e04685710fd68aa0ad65b2cda52abcc2192c  deepseek/helpless.webp (reused)
-2026-09-06T11:50:41.7561095Z b0a598803629346230526c7973adbb1045c1aab26ed9a4adf148495d610f518f  deepseek/worried.webp (reused)
-2026-09-06T11:50:41.9259793Z 44cdf843db10aae78382c5c0cf91e3cd0d0339c8e91613905c3c004aa88720d4  deepseek/surprised.webp (reused)
-2026-09-06T11:50:42.0936864Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/flustered.webp (reused)
-2026-09-06T11:50:42.2547003Z 5fb28d50153dfe8fa1c7b77700adfd9718ac68426a656e5568a141905cdd31c9  deepseek/shy.webp (reused)
-2026-09-06T11:50:42.4130429Z 26676559f88ad090642a058bd3e1908563d721f9d52e7e50afb2a19197ed2e6d  deepseek/affection.webp (reused)
-2026-09-06T11:50:42.5743411Z 68efc1645f4d8e44e3d672ce0c4202204665ee06504bb65ab5d393745db554c6  deepseek/angry.webp (reused)
-2026-09-06T11:50:42.7446267Z 6dc2298f89da2d25e6feb4083920fefaf49696e3f0dddd764e1a452b64e2992d  deepseek/sad.webp (reused)
-2026-09-06T11:50:42.9117732Z 627a8122b4c3c5bf72d5d4a0d045c9480617ca725468668a6303037240411459  deepseek/disgust.webp (reused)
-2026-09-06T11:50:43.0730257Z 9d8c1412b0dbc183cb8fa86f7dcebce2462cb9e097126e8fc78aac78165cfe35  deepseek/afraid.webp (reused)
-2026-09-06T11:50:43.2478105Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/tense.webp (reused)
-2026-09-06T11:50:43.4089102Z 025564c19730b427b949ca53efb411cf7dffc707febc45fb176669a3d43e3e62  deepseek/ashamed.webp (reused)
-2026-09-06T11:50:43.5703492Z 6216747962e017c04ba526b9327ccf0745d2cdb61727e275de956046191d4efa  audio/sad.wav (reused)
-2026-09-06T11:50:43.7373182Z 0918d0250935a86ca56f94dcb1ed6c8fc05fb79a142e77a72e881c8f361f2100  audio/sigh.wav (reused)
-2026-09-06T11:50:43.9024715Z 53d750da6ab227a3c51d8b35a816c79d90ce576810209ed474760203a481986c  audio/joy.wav (reused)
-2026-09-06T11:50:44.0615367Z 9c9d6aa4067f67126ded6aeba31abdcb184d6dfcd1dadfde4854afbf60e27c2c  audio/affection.wav (reused)
-2026-09-06T11:50:44.2158046Z 2369cbec1a2af3c0bfe47a673a3b02f3f553b1532216d5b218b8219f465eb3f6  audio/troubled.wav (reused)
-2026-09-06T11:50:44.3698049Z 0f4ea932304ef8b652f372327e5fd52cbf6ddbd06573b17904b304b87cfd20a3  audio/shy.wav (reused)
-2026-09-06T11:50:44.5416654Z 5230e98ceca267ed4897754310a79ceea7ae5489ae9a1f310f5f3cc93a94ff60  audio/noticed.wav (reused)
-2026-09-06T11:50:44.7016673Z fc23c45b9ed39d9f38a74be1801a38b7dcb6d0ef7116a0fdd3ea5ea69a1652bf  audio/awkward.wav (reused)
-2026-09-06T11:50:44.8681079Z 518b8d778f9fbc4846ea40c8963e782ea9d3e7fcf5e9bf831065d006f0e857a3  audio/thinking.wav (reused)
-2026-09-06T11:50:45.0340043Z 3e8e92133fc4b9308a021692f70e925dd7212854ab06c87fff25a1b19a5a3a70  audio/surprised.wav (reused)
-2026-09-06T11:50:45.1955981Z 5b405e7d8d2310890adfa9f43dbffb41f791f787d55a3ef72f407d44e06b4a05  audio/speechless.wav (reused)
-2026-09-06T11:50:45.3588321Z 179b281551d74fc9dd3764d76eb92ae41dc815781ada628fc16882846f6814ff  audio/angry.wav (reused)
-2026-09-06T11:50:45.5209440Z cabfa82d66ebfa7a0cfb2c4aaa116c829c0a4f36f6d39681149074324d834a87  audio/question.wav (reused)
-2026-09-06T11:50:45.6805283Z 20cbfa170f96dffefe0d6764efd0f88e81f297fccda300e091d13c85051debdc  audio/dialogue.wav (reused)
-2026-09-06T11:50:46.3516292Z c645e2061fcb73c619581a9490e127362b7f108bca462d761aa072a39d3e8cca  audio/achievement_common.wav
-2026-09-06T11:50:46.8915235Z 9a4becd5aa1f8f1ccef8400d194438c434ce390a3ffdf83c1eecdc13f83e1db3  audio/achievement_rare.wav
-2026-09-06T11:50:47.4693547Z 528f0adf829d4e86c27a5567d1de0c7e60c6117082b9aa5d71008e22fbb11cd7  audio/disgust.wav
-2026-09-06T11:50:48.0412311Z 83c0d4f48c3906d0a99eaf95c27baa1953a3e1c8e176e9a2030e4a3d1935483f  audio/pleasant.wav
-2026-09-06T11:50:48.6612107Z 49cebbe308f337c20b13f7c8be39a65d4133e171353eb5abbea38596aa525b59  audio/sweat.wav
-2026-09-06T11:50:49.2128250Z 465f70ac178925800982bde9891946535f230b2e008814852c618296ac894934  audio/chat.wav
-2026-09-06T11:50:49.7964784Z 1a0f218979febc952806005c663475a83426c8aeac72d0e9bc7d25ba14aeda76  audio/role_volume_test.wav
-2026-09-06T11:50:50.3751453Z 4451ad195177a15b28dd124634ee39b8d46d66312682276741a3a0f4622456e8  audio/transition.wav
-2026-09-06T11:50:50.9692298Z ae7d21d3933f05421d83ed1f1c43c7510d00611b79cd4eb3af16f6bb24239600  audio/shock.wav
-2026-09-06T11:50:51.7983663Z 50d8b6f737dce53690a74b9ef5209db98107230db817f23cc95fd1549d697502  effects/ai_thinking.webp
-2026-09-06T11:50:52.4377948Z 530fa1139cb6f3b404d911a3ac865521ec1d0fc6911211e9574f5b2450679512  effects/sigh.webp
-2026-09-06T11:50:53.3482653Z 51510de7869b04971683037c9d5c160d967c2001c84269539e60b8655c46e62a  effects/shy.webp
-2026-09-06T11:50:54.1785886Z 7fd82a579a3464b5fe699da0a985634f945b6c576de813f4433c9c53ea1000ca  effects/noticed.webp
-2026-09-06T11:50:55.0294842Z 1d49f8e22c1215a091ef2b6b77b444b536c5e8b64213d752b5243e727c99dfb1  effects/heart.webp
-2026-09-06T11:50:55.8237283Z 6ad4db5d1a54d64d52ca973cbe3d73b413f46943d99b7684f570b2ae840d6792  effects/surprised.webp
-2026-09-06T11:50:56.7869884Z ac504b9ba3af6052128331e13602b947759c45db928236041f1e78b65e8679b2  effects/flustered.webp
-2026-09-06T11:50:57.5017571Z 890696a67c4e71b888d0f1f0b4ab0aa280cc613e7c8df3f5d1a0da0131a4b657  effects/sweat.webp
-2026-09-06T11:50:58.0772206Z 78e4fdc8236bf739948678d1d36d88187c8295577d05a827f3aef0e2c1d2073d  effects/tears.webp
-2026-09-06T11:50:58.8581551Z 1f0a9ade1fecf3ddd73759824b357f49ea31c12c37ca66dedd9fe72ce8049a4c  effects/angry.webp
-2026-09-06T11:50:59.5802563Z c3ba07639516462f78f8d51b05d9a3fb78f42c2e6e9d658b94920b4805cfc235  effects/angry_alt.webp
-2026-09-06T11:51:00.4321209Z 672af36db82754aec819e516fae2f823687dd130582e5a0a9ed892d7fcbd6f76  effects/question.webp
-2026-09-06T11:51:01.1242713Z e4a6c91907a5adf489628151fa429cda91c75da1240d1c67f2c060088138b1ea  effects/nervous.webp
-2026-09-06T11:51:02.1430952Z 908f3e832591a37f750aebca77fe5f11df7b31e2497c2bce7b55d7e54b77544d  effects/dialogue.webp
-2026-09-06T11:51:03.8246183Z 9c9fb289cb0f5d0043669bc4fcf01df971e6b032eef32a49d4c274b067b42a9f  effects/embarrassed.webp
-2026-09-06T11:51:04.5510985Z 25ce7b06f43cd0e13af040d7cabb53884c58dcf8a51403a6f90e93d3985fb56f  effects/happy.webp
-2026-09-06T11:51:04.5629919Z ##[error]The operation was canceled.
-2026-09-06T11:51:04.5813316Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-2026-09-06T11:51:04.5815238Z Post job cleanup.
-2026-09-06T11:51:04.6754751Z [command]/usr/bin/git version
-2026-09-06T11:51:04.6814823Z git version 2.55.0
-2026-09-06T11:51:04.6838583Z Temporarily overriding HOME='/home/runner/work/_temp/30859000-e54e-4d16-93ec-b89197dd91c4' before making global git config changes
-2026-09-06T11:51:04.6839994Z Adding repository directory to the temporary git global config as a safe directory
-2026-09-06T11:51:04.6845310Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
-2026-09-06T11:51:04.6885968Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
-2026-09-06T11:51:04.6922171Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
-2026-09-06T11:51:04.7175208Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
-2026-09-06T11:51:04.7202375Z http.https://github.com/.extraheader
-2026-09-06T11:51:04.7215217Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
-2026-09-06T11:51:04.7255560Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
-2026-09-06T11:51:04.7515641Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
-2026-09-06T11:51:04.7553290Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
-2026-09-06T11:51:04.7953666Z Cleaning up orphan processes
-2026-09-06T11:51:04.8166643Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+--- job=build-apk conclusion=cancelled id=101481532919 ---
+﻿2026-09-06T11:52:02.8680737Z Current runner version: '2.337.0'
+2026-09-06T11:52:02.8710756Z ##[group]Runner Image Provisioner
+2026-09-06T11:52:02.8712079Z Hosted Compute Agent
+2026-09-06T11:52:02.8713000Z Version: 20260828.587
+2026-09-06T11:52:02.8714024Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-06T11:52:02.8714768Z Build Date: 2026-08-28T16:44:25Z
+2026-09-06T11:52:02.8715502Z Worker ID: {578fac72-1dcd-47bc-8693-03189b046c5f}
+2026-09-06T11:52:02.8716232Z Azure Region: eastus2
+2026-09-06T11:52:02.8716873Z ##[endgroup]
+2026-09-06T11:52:02.8718809Z ##[group]Operating System
+2026-09-06T11:52:02.8719464Z Ubuntu
+2026-09-06T11:52:02.8720067Z 24.04.4
+2026-09-06T11:52:02.8720596Z LTS
+2026-09-06T11:52:02.8721153Z ##[endgroup]
+2026-09-06T11:52:02.8721763Z ##[group]Runner Image
+2026-09-06T11:52:02.8722421Z Image: ubuntu-24.04
+2026-09-06T11:52:02.8723061Z Version: 20260831.293.1
+2026-09-06T11:52:02.8724455Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260831.293/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-06T11:52:02.8726104Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260831.293
+2026-09-06T11:52:02.8727098Z ##[endgroup]
+2026-09-06T11:52:02.8728843Z ##[group]GITHUB_TOKEN Permissions
+2026-09-06T11:52:02.8731308Z Actions: read
+2026-09-06T11:52:02.8731987Z Contents: write
+2026-09-06T11:52:02.8732659Z Metadata: read
+2026-09-06T11:52:02.8733195Z ##[endgroup]
+2026-09-06T11:52:02.8735416Z Secret source: Actions
+2026-09-06T11:52:02.8736894Z Prepare workflow directory
+2026-09-06T11:52:02.9095758Z Prepare all required actions
+2026-09-06T11:52:02.9145976Z Getting action download info
+2026-09-06T11:52:03.1888159Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-06T11:52:03.3224514Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-09-06T11:52:03.6005990Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-09-06T11:52:03.7122396Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-06T11:52:03.9366555Z Getting action download info
+2026-09-06T11:52:04.0279456Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-09-06T11:52:04.2866137Z Complete job name: build-apk
+2026-09-06T11:52:04.4113307Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-06T11:52:04.4125417Z ##[group]Run actions/checkout@v4
+2026-09-06T11:52:04.4126635Z with:
+2026-09-06T11:52:04.4127527Z   repository: catkiss62/ai-companion-build
+2026-09-06T11:52:04.4137705Z   token: ***
+2026-09-06T11:52:04.4138739Z   ssh-strict: true
+2026-09-06T11:52:04.4139529Z   ssh-user: git
+2026-09-06T11:52:04.4140354Z   persist-credentials: true
+2026-09-06T11:52:04.4141218Z   clean: true
+2026-09-06T11:52:04.4141996Z   sparse-checkout-cone-mode: true
+2026-09-06T11:52:04.4142935Z   fetch-depth: 1
+2026-09-06T11:52:04.4143692Z   fetch-tags: false
+2026-09-06T11:52:04.4144466Z   show-progress: true
+2026-09-06T11:52:04.4145267Z   lfs: false
+2026-09-06T11:52:04.4146053Z   submodules: false
+2026-09-06T11:52:04.4146857Z   set-safe-directory: true
+2026-09-06T11:52:04.4147767Z   allow-unsafe-pr-checkout: false
+2026-09-06T11:52:04.4149435Z ##[endgroup]
+2026-09-06T11:52:04.5284916Z Syncing repository: catkiss62/ai-companion-build
+2026-09-06T11:52:04.5288957Z ##[group]Getting Git version info
+2026-09-06T11:52:04.5290652Z Working directory is '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-09-06T11:52:04.5293142Z [command]/usr/bin/git version
+2026-09-06T11:52:04.5393336Z git version 2.55.0
+2026-09-06T11:52:04.5430449Z ##[endgroup]
+2026-09-06T11:52:04.5443475Z Temporarily overriding HOME='/home/runner/work/_temp/adf38705-f932-4453-95cc-e4dc1936283f' before making global git config changes
+2026-09-06T11:52:04.5446842Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-06T11:52:04.5451261Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-06T11:52:04.5508316Z Deleting the contents of '/home/runner/work/ai-companion-build/ai-companion-build'
+2026-09-06T11:52:04.5512960Z ##[group]Initializing the repository
+2026-09-06T11:52:04.5519924Z [command]/usr/bin/git init /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-06T11:52:04.5646737Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-06T11:52:04.5650574Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-06T11:52:04.5653717Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-06T11:52:04.5656567Z hint: call:
+2026-09-06T11:52:04.5657854Z hint:
+2026-09-06T11:52:04.5659864Z hint: 	git config --global init.defaultBranch <name>
+2026-09-06T11:52:04.5661832Z hint:
+2026-09-06T11:52:04.5663666Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-06T11:52:04.5666543Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-06T11:52:04.5669284Z hint:
+2026-09-06T11:52:04.5670655Z hint: 	git branch -m <name>
+2026-09-06T11:52:04.5671571Z hint:
+2026-09-06T11:52:04.5672804Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-06T11:52:04.5677897Z Initialized empty Git repository in /home/runner/work/ai-companion-build/ai-companion-build/.git/
+2026-09-06T11:52:04.5685750Z [command]/usr/bin/git remote add origin https://github.com/catkiss62/ai-companion-build
+2026-09-06T11:52:04.5733832Z ##[endgroup]
+2026-09-06T11:52:04.5736431Z ##[group]Disabling automatic garbage collection
+2026-09-06T11:52:04.5739101Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-06T11:52:04.5780971Z ##[endgroup]
+2026-09-06T11:52:04.5783487Z ##[group]Setting up auth
+2026-09-06T11:52:04.5789901Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-06T11:52:04.5846094Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-06T11:52:04.6245764Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-06T11:52:04.6291887Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-06T11:52:04.6537853Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-06T11:52:04.6581449Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-06T11:52:04.6831324Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-06T11:52:04.6878349Z ##[endgroup]
+2026-09-06T11:52:04.6881054Z ##[group]Fetching the repository
+2026-09-06T11:52:04.6893986Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +ee1000a238cd558fcc710e3e1d6521fa86d3a99f:refs/remotes/origin/agent/v04142-phase3a-interest-evidence
+2026-09-06T11:52:06.7278944Z From https://github.com/catkiss62/ai-companion-build
+2026-09-06T11:52:06.7281393Z  * [new ref]         ee1000a238cd558fcc710e3e1d6521fa86d3a99f -> origin/agent/v04142-phase3a-interest-evidence
+2026-09-06T11:52:06.7284343Z ##[endgroup]
+2026-09-06T11:52:06.7284854Z ##[group]Determining the checkout info
+2026-09-06T11:52:06.7285860Z ##[endgroup]
+2026-09-06T11:52:06.7292765Z [command]/usr/bin/git sparse-checkout disable
+2026-09-06T11:52:06.7347433Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-06T11:52:06.7381938Z ##[group]Checking out the ref
+2026-09-06T11:52:06.7387293Z [command]/usr/bin/git checkout --progress --force -B agent/v04142-phase3a-interest-evidence refs/remotes/origin/agent/v04142-phase3a-interest-evidence
+2026-09-06T11:52:06.9500526Z Switched to a new branch 'agent/v04142-phase3a-interest-evidence'
+2026-09-06T11:52:06.9521086Z branch 'agent/v04142-phase3a-interest-evidence' set up to track 'origin/agent/v04142-phase3a-interest-evidence'.
+2026-09-06T11:52:06.9527197Z ##[endgroup]
+2026-09-06T11:52:06.9579062Z [command]/usr/bin/git log -1 --format=%H
+2026-09-06T11:52:06.9609102Z ee1000a238cd558fcc710e3e1d6521fa86d3a99f
+2026-09-06T11:52:06.9839356Z ##[group]Run set -euo pipefail
+2026-09-06T11:52:06.9839851Z [36;1mset -euo pipefail[0m
+2026-09-06T11:52:06.9840257Z [36;1mPREVIOUS_TAG='v0.39.8-rule-refresh-immersive-control-parser'[0m
+2026-09-06T11:52:06.9840918Z [36;1mPREVIOUS_APK='AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk'[0m
+2026-09-06T11:52:06.9841502Z [36;1mmkdir -p .tts-payload/unpacked[0m
+2026-09-06T11:52:06.9841832Z [36;1mgh release download "${PREVIOUS_TAG}" \[0m
+2026-09-06T11:52:06.9842179Z [36;1m  --repo "${GITHUB_REPOSITORY}" \[0m
+2026-09-06T11:52:06.9842492Z [36;1m  --pattern "${PREVIOUS_APK}" \[0m
+2026-09-06T11:52:06.9842788Z [36;1m  --dir .tts-payload[0m
+2026-09-06T11:52:06.9843372Z [36;1mecho "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8  .tts-payload/${PREVIOUS_APK}" | sha256sum -c -[0m
+2026-09-06T11:52:06.9844021Z [36;1munzip -q ".tts-payload/${PREVIOUS_APK}" \[0m
+2026-09-06T11:52:06.9844354Z [36;1m  'assets/tts_models/*' \[0m
+2026-09-06T11:52:06.9844677Z [36;1m  'assets/legacy_tts/*' \[0m
+2026-09-06T11:52:06.9844951Z [36;1m  'lib/arm64-v8a/*' \[0m
+2026-09-06T11:52:06.9845225Z [36;1m  -d .tts-payload/unpacked[0m
+2026-09-06T11:52:06.9845545Z [36;1mTTS_MAIN='app/android/app/src/main'[0m
+2026-09-06T11:52:06.9845993Z [36;1mmkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"[0m
+2026-09-06T11:52:06.9846458Z [36;1mcp -a .tts-payload/unpacked/assets/tts_models \[0m
+2026-09-06T11:52:06.9846807Z [36;1m  "${TTS_MAIN}/assets/"[0m
+2026-09-06T11:52:06.9847144Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/runtime \[0m
+2026-09-06T11:52:06.9847518Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
+2026-09-06T11:52:06.9847877Z [36;1mcp -a .tts-payload/unpacked/assets/legacy_tts/pinyin \[0m
+2026-09-06T11:52:06.9848429Z [36;1m  "${TTS_MAIN}/assets/legacy_tts/"[0m
+2026-09-06T11:52:06.9848762Z [36;1mcp -a .tts-payload/unpacked/lib/arm64-v8a \[0m
+2026-09-06T11:52:06.9849088Z [36;1m  "${TTS_MAIN}/jniLibs/"[0m
+2026-09-06T11:52:06.9892204Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-06T11:52:06.9892594Z env:
+2026-09-06T11:52:06.9895312Z   GH_TOKEN: ***
+2026-09-06T11:52:06.9895543Z ##[endgroup]
+2026-09-06T11:52:11.2149767Z .tts-payload/AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk: OK
+2026-09-06T11:52:12.5071320Z ##[group]Run set -euo pipefail
+2026-09-06T11:52:12.5071675Z [36;1mset -euo pipefail[0m
+2026-09-06T11:52:12.5071941Z [36;1mtest -f app/pubspec.yaml[0m
+2026-09-06T11:52:12.5072275Z [36;1mgrep -Fqx 'version: 0.41.42+181' app/pubspec.yaml[0m
+2026-09-06T11:52:12.5072795Z [36;1mgrep -Fqx '  static const int schemaVersion = 54;' app/lib/core/database/app_database.dart[0m
+2026-09-06T11:52:12.5073277Z [36;1mtest -d app/lib[0m
+2026-09-06T11:52:12.5073521Z [36;1mtest -d app/android[0m
+2026-09-06T11:52:12.5073760Z [36;1mtest -d app/test[0m
+2026-09-06T11:52:12.5073995Z [36;1mtest -d app/tools[0m
+2026-09-06T11:52:12.5074370Z [36;1mtest ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx[0m
+2026-09-06T11:52:12.5074903Z [36;1mecho 'Building v0.41.42+181 Phase 3A AI-interest evidence runtime.'[0m
+2026-09-06T11:52:12.5111726Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-06T11:52:12.5112094Z ##[endgroup]
+2026-09-06T11:52:12.5196081Z Building v0.41.42+181 Phase 3A AI-interest evidence runtime.
+2026-09-06T11:52:12.5225390Z ##[group]Run python3 tools/restore_dafeiyu_asset_pack.py
+2026-09-06T11:52:12.5225833Z [36;1mpython3 tools/restore_dafeiyu_asset_pack.py[0m
+2026-09-06T11:52:12.5261397Z shell: /usr/bin/bash -e {0}
+2026-09-06T11:52:12.5261676Z ##[endgroup]
+2026-09-06T11:52:13.2369870Z Restored exact desktop-pet pack: 417 files, 111962623 bytes, tree caa4939627ee3a773566d4c793e355df5de98ad38698ddeb5b67519d03715582.
+2026-09-06T11:52:13.2477542Z ##[group]Run bash tools/fetch_lingchat_visual_assets.sh
+2026-09-06T11:52:13.2478244Z [36;1mbash tools/fetch_lingchat_visual_assets.sh[0m
+2026-09-06T11:52:13.2514353Z shell: /usr/bin/bash -e {0}
+2026-09-06T11:52:13.2514615Z ##[endgroup]
+2026-09-06T11:52:13.3592798Z 09ff689d1959fd8789aa9dccdd22c3f7d62fe4a7bbb52ce671c501e6551af75c  background/day.webp (reused)
+2026-09-06T11:52:13.4544598Z 0e91d1b708fc9eee554a653c10b16f317daa2589460ace54f9ca79762559c469  background/night.webp (reused)
+2026-09-06T11:52:13.5510852Z 68772d09789c9557509dad6ae64472fe0046b5cf35b91abffb5c3f03c2d0cb00  deepseek/avatar.webp (reused)
+2026-09-06T11:52:13.6750537Z daaf3734be59772fc21689827f3d7a6114bdeec2b9fffb78dd4247936c4ca54c  deepseek/normal.webp (reused)
+2026-09-06T11:52:13.7638508Z 18c175644877130ab4787ceed3c548feb9602a6dfae57c2c8cf854f9404df899  deepseek/calm.webp (reused)
+2026-09-06T11:52:13.8609308Z 40ef9602ba84f978cdcfb456e1880a772c6efd307ff14e8fee34eec6d11756bc  deepseek/happy.webp (reused)
+2026-09-06T11:52:13.9682783Z 81d8f7d903cc7c66d69e3fd8d98c90167a0334da5f82266fd5120e1c1c110c38  deepseek/excited.webp (reused)
+2026-09-06T11:52:14.0581576Z b48f0ebbeb80a97cb23fc04f2284228b299f3edc263a11c7d54513533f5f88c8  deepseek/playful.webp (reused)
+2026-09-06T11:52:14.1493188Z cade7bd2c3477949cb710237dcd06a7aa08a9bffe1f425015f3427c844d5a714  deepseek/confident.webp (reused)
+2026-09-06T11:52:14.2549780Z 55b701dde7a2e89eed13484e8a60843a133f09cdfd111054984025d45f7a92b6  deepseek/serious.webp (reused)
+2026-09-06T11:52:14.3490919Z b94abbe4504d9fcb91d451b52caa00a33343d24669221847cbd9faffbf861655  deepseek/confused.webp (reused)
+2026-09-06T11:52:14.4410641Z a5ca70ec1c52befaa29c672ee043e04685710fd68aa0ad65b2cda52abcc2192c  deepseek/helpless.webp (reused)
+2026-09-06T11:52:14.5348820Z b0a598803629346230526c7973adbb1045c1aab26ed9a4adf148495d610f518f  deepseek/worried.webp (reused)
+2026-09-06T11:52:14.6290008Z 44cdf843db10aae78382c5c0cf91e3cd0d0339c8e91613905c3c004aa88720d4  deepseek/surprised.webp (reused)
+2026-09-06T11:52:14.7112029Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/flustered.webp (reused)
+2026-09-06T11:52:14.8083649Z 5fb28d50153dfe8fa1c7b77700adfd9718ac68426a656e5568a141905cdd31c9  deepseek/shy.webp (reused)
+2026-09-06T11:52:14.8987769Z 26676559f88ad090642a058bd3e1908563d721f9d52e7e50afb2a19197ed2e6d  deepseek/affection.webp (reused)
+2026-09-06T11:52:14.9841129Z 68efc1645f4d8e44e3d672ce0c4202204665ee06504bb65ab5d393745db554c6  deepseek/angry.webp (reused)
+2026-09-06T11:52:15.0718248Z 6dc2298f89da2d25e6feb4083920fefaf49696e3f0dddd764e1a452b64e2992d  deepseek/sad.webp (reused)
+2026-09-06T11:52:15.1580018Z 627a8122b4c3c5bf72d5d4a0d045c9480617ca725468668a6303037240411459  deepseek/disgust.webp (reused)
+2026-09-06T11:52:15.2456779Z 9d8c1412b0dbc183cb8fa86f7dcebce2462cb9e097126e8fc78aac78165cfe35  deepseek/afraid.webp (reused)
+2026-09-06T11:52:15.3368979Z 37e24993b8c1ec69ef9af8d7510bc3b4aac6394153a457dea6f8ff4068d62426  deepseek/tense.webp (reused)
+2026-09-06T11:52:15.4292897Z 025564c19730b427b949ca53efb411cf7dffc707febc45fb176669a3d43e3e62  deepseek/ashamed.webp (reused)
+2026-09-06T11:52:15.5132908Z 6216747962e017c04ba526b9327ccf0745d2cdb61727e275de956046191d4efa  audio/sad.wav (reused)
+2026-09-06T11:52:15.6204976Z 0918d0250935a86ca56f94dcb1ed6c8fc05fb79a142e77a72e881c8f361f2100  audio/sigh.wav (reused)
+2026-09-06T11:52:15.7062355Z 53d750da6ab227a3c51d8b35a816c79d90ce576810209ed474760203a481986c  audio/joy.wav (reused)
+2026-09-06T11:52:15.7958730Z 9c9d6aa4067f67126ded6aeba31abdcb184d6dfcd1dadfde4854afbf60e27c2c  audio/affection.wav (reused)
+2026-09-06T11:52:15.8836949Z 2369cbec1a2af3c0bfe47a673a3b02f3f553b1532216d5b218b8219f465eb3f6  audio/troubled.wav (reused)
+2026-09-06T11:52:15.9691097Z 0f4ea932304ef8b652f372327e5fd52cbf6ddbd06573b17904b304b87cfd20a3  audio/shy.wav (reused)
+2026-09-06T11:52:16.0560291Z 5230e98ceca267ed4897754310a79ceea7ae5489ae9a1f310f5f3cc93a94ff60  audio/noticed.wav (reused)
+2026-09-06T11:52:16.1462129Z fc23c45b9ed39d9f38a74be1801a38b7dcb6d0ef7116a0fdd3ea5ea69a1652bf  audio/awkward.wav (reused)
+2026-09-06T11:52:16.2405005Z 518b8d778f9fbc4846ea40c8963e782ea9d3e7fcf5e9bf831065d006f0e857a3  audio/thinking.wav (reused)
+2026-09-06T11:52:16.3354794Z 3e8e92133fc4b9308a021692f70e925dd7212854ab06c87fff25a1b19a5a3a70  audio/surprised.wav (reused)
+2026-09-06T11:52:16.4224367Z 5b405e7d8d2310890adfa9f43dbffb41f791f787d55a3ef72f407d44e06b4a05  audio/speechless.wav (reused)
+2026-09-06T11:52:16.5095046Z 179b281551d74fc9dd3764d76eb92ae41dc815781ada628fc16882846f6814ff  audio/angry.wav (reused)
+2026-09-06T11:52:20.9081813Z cabfa82d66ebfa7a0cfb2c4aaa116c829c0a4f36f6d39681149074324d834a87  audio/question.wav (reused)
+2026-09-06T11:52:21.0005410Z 20cbfa170f96dffefe0d6764efd0f88e81f297fccda300e091d13c85051debdc  audio/dialogue.wav (reused)
+2026-09-06T11:52:21.4326184Z c645e2061fcb73c619581a9490e127362b7f108bca462d761aa072a39d3e8cca  audio/achievement_common.wav
+2026-09-06T11:52:21.8672442Z 9a4becd5aa1f8f1ccef8400d194438c434ce390a3ffdf83c1eecdc13f83e1db3  audio/achievement_rare.wav
+2026-09-06T11:52:22.1825019Z 528f0adf829d4e86c27a5567d1de0c7e60c6117082b9aa5d71008e22fbb11cd7  audio/disgust.wav
+2026-09-06T11:52:22.5272218Z 83c0d4f48c3906d0a99eaf95c27baa1953a3e1c8e176e9a2030e4a3d1935483f  audio/pleasant.wav
+2026-09-06T11:52:22.8505944Z 49cebbe308f337c20b13f7c8be39a65d4133e171353eb5abbea38596aa525b59  audio/sweat.wav
+2026-09-06T11:52:23.2106036Z 465f70ac178925800982bde9891946535f230b2e008814852c618296ac894934  audio/chat.wav
+2026-09-06T11:52:23.5868799Z 1a0f218979febc952806005c663475a83426c8aeac72d0e9bc7d25ba14aeda76  audio/role_volume_test.wav
+2026-09-06T11:52:24.0024812Z 4451ad195177a15b28dd124634ee39b8d46d66312682276741a3a0f4622456e8  audio/transition.wav
+2026-09-06T11:52:24.3253152Z ae7d21d3933f05421d83ed1f1c43c7510d00611b79cd4eb3af16f6bb24239600  audio/shock.wav
+2026-09-06T11:52:24.8283890Z 50d8b6f737dce53690a74b9ef5209db98107230db817f23cc95fd1549d697502  effects/ai_thinking.webp
+2026-09-06T11:52:25.2384853Z 530fa1139cb6f3b404d911a3ac865521ec1d0fc6911211e9574f5b2450679512  effects/sigh.webp
+2026-09-06T11:52:25.7386646Z 51510de7869b04971683037c9d5c160d967c2001c84269539e60b8655c46e62a  effects/shy.webp
+2026-09-06T11:52:26.1908987Z 7fd82a579a3464b5fe699da0a985634f945b6c576de813f4433c9c53ea1000ca  effects/noticed.webp
+2026-09-06T11:52:26.6969641Z 1d49f8e22c1215a091ef2b6b77b444b536c5e8b64213d752b5243e727c99dfb1  effects/heart.webp
+2026-09-06T11:52:27.1317378Z 6ad4db5d1a54d64d52ca973cbe3d73b413f46943d99b7684f570b2ae840d6792  effects/surprised.webp
+2026-09-06T11:52:27.6202925Z ac504b9ba3af6052128331e13602b947759c45db928236041f1e78b65e8679b2  effects/flustered.webp
+2026-09-06T11:52:28.0771101Z 890696a67c4e71b888d0f1f0b4ab0aa280cc613e7c8df3f5d1a0da0131a4b657  effects/sweat.webp
+2026-09-06T11:52:28.5081906Z 78e4fdc8236bf739948678d1d36d88187c8295577d05a827f3aef0e2c1d2073d  effects/tears.webp
+2026-09-06T11:52:28.9624789Z 1f0a9ade1fecf3ddd73759824b357f49ea31c12c37ca66dedd9fe72ce8049a4c  effects/angry.webp
+2026-09-06T11:52:29.3459138Z c3ba07639516462f78f8d51b05d9a3fb78f42c2e6e9d658b94920b4805cfc235  effects/angry_alt.webp
+2026-09-06T11:52:29.8205935Z 672af36db82754aec819e516fae2f823687dd130582e5a0a9ed892d7fcbd6f76  effects/question.webp
+2026-09-06T11:52:30.2099025Z e4a6c91907a5adf489628151fa429cda91c75da1240d1c67f2c060088138b1ea  effects/nervous.webp
+2026-09-06T11:52:30.6383895Z 908f3e832591a37f750aebca77fe5f11df7b31e2497c2bce7b55d7e54b77544d  effects/dialogue.webp
+2026-09-06T11:52:31.1865502Z 9c9fb289cb0f5d0043669bc4fcf01df971e6b032eef32a49d4c274b067b42a9f  effects/embarrassed.webp
+2026-09-06T11:52:31.5758478Z 25ce7b06f43cd0e13af040d7cabb53884c58dcf8a51403a6f90e93d3985fb56f  effects/happy.webp
+2026-09-06T11:52:31.5793958Z ##[group]Run bash tools/fetch_tarot_assets.sh
+2026-09-06T11:52:31.5794340Z [36;1mbash tools/fetch_tarot_assets.sh[0m
+2026-09-06T11:52:31.5830838Z shell: /usr/bin/bash -e {0}
+2026-09-06T11:52:31.5831107Z ##[endgroup]
+2026-09-06T11:52:32.0616060Z Pinned 22-card Rider-Waite-Smith Major Arcana JPG pack restored.
+2026-09-06T11:52:32.0744253Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-06T11:52:32.0746347Z ##[group]Run actions/setup-java@v4
+2026-09-06T11:52:32.0746626Z with:
+2026-09-06T11:52:32.0746833Z   distribution: temurin
+2026-09-06T11:52:32.0747075Z   java-version: 17
+2026-09-06T11:52:32.0747323Z   java-package: jdk
+2026-09-06T11:52:32.0747573Z   check-latest: false
+2026-09-06T11:52:32.0747829Z   server-id: github
+2026-09-06T11:52:32.0748369Z   server-username: GITHUB_ACTOR
+2026-09-06T11:52:32.0748659Z   server-password: GITHUB_TOKEN
+2026-09-06T11:52:32.0748927Z   overwrite-settings: true
+2026-09-06T11:52:32.0749172Z   job-status: success
+2026-09-06T11:52:32.0751789Z   token: ***
+2026-09-06T11:52:32.0752001Z ##[endgroup]
+2026-09-06T11:52:32.2516905Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-09-06T11:52:32.2525607Z ##[group]Installed distributions
+2026-09-06T11:52:32.2963092Z Resolved Java 17.0.20+1 from tool-cache
+2026-09-06T11:52:32.2963844Z Setting Java 17.0.20+1 as the default
+2026-09-06T11:52:32.2976025Z (node:3329) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-06T11:52:32.2976948Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-06T11:52:32.2980566Z Creating toolchains.xml for JDK version 17 from temurin
+2026-09-06T11:52:32.3062234Z Writing to /home/runner/.m2/toolchains.xml
+2026-09-06T11:52:32.3062714Z 
+2026-09-06T11:52:32.3062964Z Java configuration:
+2026-09-06T11:52:32.3063339Z   Distribution: temurin
+2026-09-06T11:52:32.3063746Z   Version: 17.0.20+1
+2026-09-06T11:52:32.3064291Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3064836Z 
+2026-09-06T11:52:32.3065523Z ##[endgroup]
+2026-09-06T11:52:32.3091343Z Creating settings.xml with server-id: github
+2026-09-06T11:52:32.3113272Z Writing to /home/runner/.m2/settings.xml
+2026-09-06T11:52:32.3485218Z ##[group]Run subosito/flutter-action@v2
+2026-09-06T11:52:32.3485553Z with:
+2026-09-06T11:52:32.3485764Z   channel: stable
+2026-09-06T11:52:32.3485992Z   flutter-version: 3.44.9
+2026-09-06T11:52:32.3486235Z   architecture: X64
+2026-09-06T11:52:32.3486449Z   cache: false
+2026-09-06T11:52:32.3486670Z   pub-cache-path: default
+2026-09-06T11:52:32.3486907Z   dry-run: false
+2026-09-06T11:52:32.3487188Z   git-source: https://github.com/flutter/flutter.git
+2026-09-06T11:52:32.3487531Z env:
+2026-09-06T11:52:32.3488186Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3489410Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3490109Z ##[endgroup]
+2026-09-06T11:52:32.3566038Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+2026-09-06T11:52:32.3577888Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-06T11:52:32.3580649Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+2026-09-06T11:52:32.3605751Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+2026-09-06T11:52:32.3606133Z [36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"[0m
+2026-09-06T11:52:32.3645504Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-06T11:52:32.3645864Z env:
+2026-09-06T11:52:32.3646192Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3646961Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3647354Z ##[endgroup]
+2026-09-06T11:52:32.3751472Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=16]
+2026-09-06T11:52:32.3754297Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+2026-09-06T11:52:32.3792692Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+2026-09-06T11:52:32.3809775Z [36;1m$GITHUB_ACTION_PATH/setup.sh -p \[0m
+2026-09-06T11:52:32.3810125Z [36;1m  -n '3.44.9' \[0m
+2026-09-06T11:52:32.3810375Z [36;1m  -f '' \[0m
+2026-09-06T11:52:32.3810606Z [36;1m  -a 'X64' \[0m
+2026-09-06T11:52:32.3810831Z [36;1m  -k '' \[0m
+2026-09-06T11:52:32.3811033Z [36;1m  -c '' \[0m
+2026-09-06T11:52:32.3811232Z [36;1m  -l '' \[0m
+2026-09-06T11:52:32.3811447Z [36;1m  -d 'default' \[0m
+2026-09-06T11:52:32.3811761Z [36;1m  -g 'https://github.com/flutter/flutter.git' \[0m
+2026-09-06T11:52:32.3812117Z [36;1m  stable[0m
+2026-09-06T11:52:32.3851053Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-06T11:52:32.3851413Z env:
+2026-09-06T11:52:32.3851741Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3852283Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.3852696Z ##[endgroup]
+2026-09-06T11:52:32.5763990Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=200]
+2026-09-06T11:52:32.5769420Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+2026-09-06T11:52:32.5774650Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-06T11:52:32.5776770Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+2026-09-06T11:52:32.5783603Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-09-06T11:52:32.5785613Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+2026-09-06T11:52:32.5819550Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+2026-09-06T11:52:32.5819922Z [36;1m$GITHUB_ACTION_PATH/setup.sh \[0m
+2026-09-06T11:52:32.5820206Z [36;1m  -n '3.44.9' \[0m
+2026-09-06T11:52:32.5820447Z [36;1m  -a 'x64' \[0m
+2026-09-06T11:52:32.5820756Z [36;1m  -c '/opt/hostedtoolcache/flutter/stable-3.44.9-x64' \[0m
+2026-09-06T11:52:32.5821355Z [36;1m  -d '/home/runner/.pub-cache' \[0m
+2026-09-06T11:52:32.5821643Z [36;1m  stable[0m
+2026-09-06T11:52:32.5858613Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-06T11:52:32.5858969Z env:
+2026-09-06T11:52:32.5859306Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.5859835Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+2026-09-06T11:52:32.5860249Z ##[endgroup]
+2026-09-06T11:52:32.7695168Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-09-06T11:52:32.7696233Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-09-06T11:52:32.7696747Z 
+2026-09-06T11:52:32.8843587Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-09-06T11:52:33.8841023Z   0 1475M    0  870k    0     0  7571k      0  0:03:19 --:--:--  0:03:19 7570k
+2026-09-06T11:52:34.8843006Z  12 1475M   12  191M    0     0   171M      0  0:00:08  0:00:01  0:00:07  171M
+2026-09-06T11:52:35.8840200Z  27 1475M   27  410M    0     0   193M      0  0:00:07  0:00:02  0:00:05  193M
+2026-09-06T11:52:36.8840401Z  42 1475M   42  625M    0     0   200M      0  0:00:07  0:00:03  0:00:04  200M
+2026-09-06T11:52:37.8842391Z  54 1475M   54  803M    0     0   195M      0  0:00:07  0:00:04  0:00:03  195M
+2026-09-06T11:52:38.8843305Z  66 1475M   66  986M    0     0   192M      0  0:00:07  0:00:05  0:00:02  197M
+2026-09-06T11:52:39.8845702Z  82 1475M   82 1211M    0     0   198M      0  0:00:07  0:00:06  0:00:01  203M
+2026-09-06T11:52:40.0339360Z  97 1475M   97 1441M    0     0   202M      0  0:00:07  0:00:07 --:--:--  206M
+2026-09-06T11:52:40.0340257Z 100 1475M  100 1475M    0     0   203M      0  0:00:07  0:00:07 --:--:--  204M
+2026-09-06T11:52:51.1070422Z ##[error]The operation was canceled.
+2026-09-06T11:52:51.1076425Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=cancelled;conclusion=cancelled;duration_ms=18528]
+2026-09-06T11:52:51.1374984Z Post job cleanup.
+2026-09-06T11:52:51.1455618Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-06T11:52:51.1457183Z Post job cleanup.
+2026-09-06T11:52:51.3218321Z (node:3544) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-06T11:52:51.3220134Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-06T11:52:51.3474815Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-06T11:52:51.3476100Z Post job cleanup.
+2026-09-06T11:52:51.4561724Z [command]/usr/bin/git version
+2026-09-06T11:52:51.4649258Z git version 2.55.0
+2026-09-06T11:52:51.4699551Z Temporarily overriding HOME='/home/runner/work/_temp/95fc2352-da1c-4944-bc43-e70f8274de76' before making global git config changes
+2026-09-06T11:52:51.4701390Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-06T11:52:51.4706161Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-companion-build/ai-companion-build
+2026-09-06T11:52:51.4760273Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-06T11:52:51.4810923Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-06T11:52:51.5191225Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-06T11:52:51.5268780Z http.https://github.com/.extraheader
+2026-09-06T11:52:51.5309528Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-06T11:52:51.5808507Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-06T11:52:51.6263044Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-06T11:52:51.6373961Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-06T11:52:51.6832262Z Cleaning up orphan processes
+2026-09-06T11:52:51.7124023Z Terminate orphan process: pid (3446) (setup.sh)
+2026-09-06T11:52:51.7154793Z Terminate orphan process: pid (3541) (tar)
+2026-09-06T11:52:51.7178278Z Terminate orphan process: pid (3542) (xz)
+2026-09-06T11:52:51.7186469Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
 release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8dd800978c342d53b1b8
