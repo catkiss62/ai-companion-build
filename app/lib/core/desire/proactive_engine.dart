@@ -8,6 +8,7 @@ import '../ai/deepseek_client.dart';
 import '../ai/model_profile.dart';
 import '../ai/prompt_builder.dart';
 import '../autonomy/public_web_discovery_engine.dart';
+import '../autonomy/public_web_discovery_policy.dart';
 import '../autonomy/public_web_share_coordinator.dart';
 import '../autonomy/public_web_share_policy.dart';
 import '../continuity/daily_continuity_engine.dart';
@@ -49,6 +50,7 @@ import 'proactive_presentation.dart';
 import 'proactive_rhythm_engine.dart';
 import 'proactive_scene_continuity_policy.dart';
 import 'proactive_selection_policy.dart';
+import 'proactive_thought_readiness_policy.dart';
 import 'self_drive_engine.dart';
 import 'thought_consolidation_engine.dart';
 import 'thought_lifecycle_engine.dart';
@@ -226,21 +228,7 @@ class ProactiveEngine {
         await db.latestPerceptionBusyScore();
     final busyScore = (recentBusyScore ?? 0.30).clamp(0.0, 1.0).toDouble();
     final userBusy = busyScore >= 0.58;
-    final advancedSnapshot = await desireEngine.tick(userBusy: userBusy);
-    try {
-      await publicWebDiscovery.maybeDiscover(snapshot: advancedSnapshot);
-    } catch (_) {
-      // Public discovery is optional enrichment. A provider/network fault must
-      // never stop Desire, maintenance, recovery, or proactive evaluation.
-    }
-    try {
-      await publicWebSharing.stageNextCandidate();
-    } catch (_) {
-      // A share Thought is optional enrichment and never blocks the heartbeat.
-    }
-    // Discovery may have atomically satisfied the selected drive. Reload so a
-    // proactive message in the same heartbeat cannot act on a stale snapshot.
-    final snapshot = await db.loadDesire();
+    final snapshot = await desireEngine.tick(userBusy: userBusy);
     return LocalCompanionHeartbeat(
       snapshot: snapshot,
       userBusy: userBusy,
@@ -323,7 +311,14 @@ class ProactiveEngine {
           reason: '刚刚已经互道晚安并结束场景，短时间内保持休息连续性',
         );
       }
-      final thoughts = (await db.activeThoughts(limit: 40)).toList();
+      final thoughts = (await db.activeThoughts(limit: 40))
+          .where(
+            (thought) => ProactiveThoughtReadinessPolicy.isReady(
+              thought,
+              evaluationStartedAt,
+            ),
+          )
+          .toList();
       // Session is retained only for notification privacy and scene continuity;
       // it no longer decides whether libido may form an intent.
       final activeSession = await db.activeInteractionSession();
@@ -353,6 +348,59 @@ class ProactiveEngine {
       final thoughtsById = <String, CompanionThought>{
         for (final thought in thoughts) thought.id: thought,
       };
+      final unifiedCandidates = previewCandidates.toList(growable: true);
+      DesireIntent? discoverySource;
+      for (final candidate in previewCandidates) {
+        final thought = candidate.thoughtId == null
+            ? null
+            : thoughtsById[candidate.thoughtId!];
+        if (ProactiveSelectionPolicy.sourceTypeFor(
+                  thought: thought,
+                  reasonSource: candidate.reasonSource,
+                ) !=
+                'public_web' &&
+            PublicWebDiscoveryPolicy.eligible(candidate)) {
+          discoverySource = candidate;
+          break;
+        }
+      }
+      if (discoverySource != null) {
+        unifiedCandidates.add(
+          DesireIntent(
+            drive: discoverySource.drive,
+            score: (discoverySource.score - 0.03)
+                .clamp(0.0, 1.0)
+                .toDouble(),
+            reason: '形成一个公开知识问题并自行查找资料',
+            wantAction: 'discover_interest',
+            thoughtId: discoverySource.thoughtId,
+            reasonSource: discoverySource.reasonSource,
+          ),
+        );
+      }
+      final pendingWebShare =
+          await db.nextPublicWebCandidateForSharing(now: evaluationStartedAt);
+      if (pendingWebShare != null) {
+        final drive = DriveKey.values.firstWhere(
+          (value) => value.name == pendingWebShare.driveKey,
+          orElse: () => DriveKey.curiosity,
+        );
+        final waitingHours = evaluationStartedAt
+            .difference(pendingWebShare.discoveredAt)
+            .inMinutes /
+            60.0;
+        unifiedCandidates.add(
+          DesireIntent(
+            drive: drive,
+            score: (0.64 + min(0.16, max(0.0, waitingHours) * 0.015))
+                .clamp(0.0, 0.80)
+                .toDouble(),
+            reason: '重新读取一条公开网页候选并决定是否分享',
+            wantAction: 'prepare_public_web_share',
+            reasonSource: 'public_web_pending:${pendingWebShare.id}',
+          ),
+        );
+      }
       final recentFeedback = (await db.recentProactiveFeedback(limit: 8))
           .where(
             (item) =>
@@ -374,14 +422,18 @@ class ProactiveEngine {
       final selectionSeed =
           evaluationStartedAt.millisecondsSinceEpoch & 0x7fffffff;
       final selectionUnit = Random(selectionSeed).nextDouble();
+      final recentBehaviors = await db.recentAutonomousBehaviors(
+        now: evaluationStartedAt,
+      );
       var selection = ProactiveSelectionPolicy.select(
-        candidates: previewCandidates,
+        candidates: unifiedCandidates,
         thoughtsById: thoughtsById,
         recentIntentKinds: recentIntentKinds,
         recentSourceTypes: recentSourceTypes,
         recentTopicKeys: recentTopicKeys,
         now: evaluationStartedAt,
         readySinceByThoughtId: readySinceByThoughtId,
+        recentBehaviors: recentBehaviors,
         samplingUnit: selectionUnit,
       );
       var intent = selection?.intent;
@@ -412,7 +464,119 @@ class ProactiveEngine {
       if (intent == null) {
         return const ProactiveDecision(sent: false, reason: '没有形成意图');
       }
+      if (!forceForDebug && intent.score < 0.52) {
+        return const ProactiveDecision(
+          sent: false,
+          reason: '候选仍在分来源、分行为或主题冷却中',
+        );
+      }
+      final selectedThought = intent.thoughtId == null
+          ? null
+          : thoughtsById[intent.thoughtId!];
+      final behaviorKind = selection?.behaviorKind ??
+          ProactiveSelectionPolicy.behaviorKindFor(intent);
+      final behaviorTopicKey = selectedThought?.topicKey ??
+          (intent.wantAction == 'discover_interest'
+              ? 'public_web_discovery:${intent.drive.name}'
+              : intent.reasonSource);
+      final autonomousBehaviorEventId = await db.claimAutonomousBehavior(
+        heartbeatKey:
+            '${evaluationStartedAt.microsecondsSinceEpoch}:$selectionSeed',
+        behaviorKind: behaviorKind,
+        sourceType: selection?.sourceType ?? 'internal',
+        intentKind: selection?.intentKind ?? intent.wantAction,
+        topicKey: behaviorTopicKey,
+        reasonTag: selection?.cooldownPenalty == 0
+            ? 'ordinary_selection'
+            : 'cooldown_rerank',
+        now: evaluationStartedAt,
+      );
+      if (autonomousBehaviorEventId == null) {
+        return const ProactiveDecision(
+          sent: false,
+          reason: '本轮自主行为名额已由另一个候选占用',
+        );
+      }
+      if (intent.wantAction == 'discover_interest') {
+        try {
+          final result = await publicWebDiscovery.maybeDiscover(
+            snapshot: snapshot,
+            sourceIntentOverride: intent,
+            now: evaluationStartedAt,
+          );
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: result.state == 'candidate_stored'
+                ? 'completed'
+                : result.state == 'blocked'
+                    ? 'blocked'
+                    : result.state.contains('failure')
+                        ? 'failed'
+                        : 'wait',
+            reasonTag: result.state,
+          );
+          return ProactiveDecision(
+            sent: false,
+            reason: '本轮选择了自主搜索：${result.state}',
+          );
+        } catch (_) {
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: 'failed',
+            reasonTag: 'discovery_exception',
+          );
+          return const ProactiveDecision(
+            sent: false,
+            reason: '本轮选择了自主搜索，但公开资料提供方暂时不可用',
+          );
+        }
+      }
+      if (intent.wantAction == 'prepare_public_web_share') {
+        final staged = await publicWebSharing.stageNextCandidate(
+          now: evaluationStartedAt,
+        );
+        if (!staged.ready || staged.thoughtId == null) {
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: staged.state == 'refresh_declined' ? 'wait' : 'failed',
+            reasonTag: staged.state,
+          );
+          return ProactiveDecision(
+            sent: false,
+            reason: '本轮重新核验网页候选：${staged.state}',
+          );
+        }
+        final stagedThought = await db.thoughtById(staged.thoughtId!);
+        if (stagedThought == null) {
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: 'failed',
+            reasonTag: 'staged_thought_missing',
+          );
+          return const ProactiveDecision(
+            sent: false,
+            reason: '网页候选已核验，但分享线索未能恢复',
+          );
+        }
+        if (!thoughts.any((thought) => thought.id == stagedThought.id)) {
+          thoughts.add(stagedThought);
+        }
+        thoughtsById[stagedThought.id] = stagedThought;
+        intent = DesireIntent(
+          drive: PublicWebSharePolicy.driveFromKey(stagedThought.driveKey),
+          score: max(intent.score, stagedThought.strength),
+          reason: stagedThought.text,
+          wantAction: 'share_thought',
+          thoughtId: stagedThought.id,
+          reasonSource: stagedThought.source,
+        );
+      }
       if (intent.drive == DriveKey.fatigue || intent.wantAction == 'rest') {
+        await db.finishAutonomousBehavior(
+          autonomousBehaviorEventId,
+          status: 'completed',
+          reasonTag: 'rest_selected',
+        );
         return const ProactiveDecision(sent: false, reason: '当前更需要休息，不触发主动消息');
       }
 
@@ -531,8 +695,8 @@ class ProactiveEngine {
     Future<void> noteGeneration(
       String outcome, {
       required String reasonTag,
-    }) =>
-        db.recordProactivePolicyEvent(
+    }) async {
+      await db.recordProactivePolicyEvent(
           ProactivePolicyEvent(
             lane: outcome == 'sent' ? 'delivery' : 'generation',
             sourceType: selectedSourceType,
@@ -543,6 +707,18 @@ class ProactiveEngine {
             adjustmentBucket: selection?.adjustmentBucket ?? 'none',
           ),
         );
+      await db.finishAutonomousBehavior(
+        autonomousBehaviorEventId,
+        status: outcome == 'sent'
+            ? 'completed'
+            : outcome.contains('wait')
+                ? 'wait'
+                : outcome == 'failed'
+                    ? 'failed'
+                    : 'blocked',
+        reasonTag: reasonTag,
+      );
+    }
 
     final proactiveGrounding = await GroundingEngine(db).capture(
       now: evaluationStartedAt,

@@ -345,14 +345,16 @@
 # Historical v0.41.39 workflow: complete public-web reading and lifecycle.
 # Historical v0.41.40 workflow: explicit browser history, dynamic expression balance and original album files.
 # Historical v0.41.41 workflow: roleplay overlay, speaker ownership and world-book priority stabilization.
-# Current v0.41.42 workflow: Phase 3A AI-interest evidence, counterevidence, freshness and rollback.
-name: Build AI Companion v0.41.42+181 APK (Phase 3A Interest Evidence)
+# Historical v0.41.42 workflow: Phase 3A AI-interest evidence, counterevidence, freshness and rollback.
+# Historical validator tokens: agent/v04142-phase3a-interest-evidence | Build AI Companion v0.41.42+181 APK | AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK
+# Current v0.41.43 workflow: Phase 3B question-driven autonomous behavior.
+name: Build AI Companion v0.41.43+182 APK (Phase 3B Question Autonomy)
 
 on:
   push:
     branches:
       - agent/v04139-web-reading-learning-roleplay-image
-      - agent/v04142-phase3a-interest-evidence
+      - agent/v04143-phase3b-question-autonomy
   workflow_dispatch:
   pull_request:
     branches:
@@ -490,14 +492,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.42+181' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 54;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.41.43+182' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 55;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.42+181 Phase 3A AI-interest evidence runtime.'
+          echo 'Building v0.41.43+182 Phase 3B question-autonomy runtime.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -604,6 +606,7 @@ jobs:
           python3 tools/validate_v04140_expression_album_browser.py
           python3 tools/validate_v04141_roleplay_pronoun_priority.py
           python3 tools/validate_v04142_ai_interest_evidence.py
+          python3 tools/validate_v04143_phase3b_question_autonomy.py
           python3 tools/validate_current_ledger_handoff.py
           python3 tools/validate_v0401_album_identity_closure.py
           python3 tools/validate_v0405_album_image_binding.py
@@ -880,26 +883,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.42+181 APK as workflow artifact
+      - name: Upload v0.41.43+182 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK
+          name: AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.42+181 Phase 3A Interest Evidence APK to draft release
+      - name: Upload v0.41.43+182 Phase 3B Question Autonomy APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.42-phase3a-interest-evidence-test'
-          APK_NAME='AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK.apk'
+          TAG='v0.41.43-phase3b-question-autonomy-test'
+          APK_NAME='AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -916,8 +919,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.42+181 Phase 3A Interest Evidence candidate' \
-              --notes 'Draft Phase 3A candidate for schema 54. It records evidence, counterevidence, cross-local-date maturity, freshness and version snapshots from verified autonomous web outcomes, real shares and explicit follow-up feedback. The layer remains observation-only: it does not enter prompts, select web topics or trigger proactive messages. Protocol 5, the four behavior world books, ordinary personality and deferred roleplay behavior remain unchanged.'
+              --title 'AI Companion v0.41.43+182 Phase 3B Question Autonomy candidate' \
+              --notes 'Draft Phase 3B candidate for schema 55. It lets a privacy-safe public topic become one concrete question, then makes discovery, reread/share, proactive messaging and rest compete for one heartbeat behavior slot with source, behavior and topic cooldowns. Protocol 5, the four behavior world books, ordinary personality and deferred roleplay behavior remain unchanged.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -941,18 +944,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04142-monitor.txt'
+          MONITOR_PATH='.ci/v04143-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.42 CI success monitor' \
+              -f message='Update v0.41.43 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.42 CI success monitor' \
+              -f message='Create v0.41.43 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -973,8 +976,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.42-phase3a-interest-evidence-test'
-          CI_NAME='AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-CI-Monitor.txt'
+          TAG='v0.41.43-phase3b-question-autonomy-test'
+          CI_NAME='AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1015,8 +1018,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.42+181 Phase 3A Interest Evidence candidate' \
-              --notes 'Draft diagnostics for the schema 54 Phase 3A AI-interest evidence layer. It is not a published release; user-authored content, private images, webpage bodies, interest keys and source identifiers are not included in CI assets.'
+              --title 'AI Companion v0.41.43+182 Phase 3B Question Autonomy candidate' \
+              --notes 'Draft diagnostics for schema 55 Phase 3B question-driven autonomous behavior. It is not a published release; generated questions, user-authored content, private images, webpage bodies, topic hashes and source identifiers are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1025,18 +1028,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04142-monitor.txt'
+          MONITOR_PATH='.ci/v04143-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.42 CI failure monitor' \
+              -f message='Update v0.41.43 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.42 CI failure monitor' \
+              -f message='Create v0.41.43 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

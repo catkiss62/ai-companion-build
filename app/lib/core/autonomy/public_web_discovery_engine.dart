@@ -13,14 +13,16 @@ import 'layered_public_web_provider.dart';
 import 'public_web_discovery_policy.dart';
 import 'public_web_appraisal_policy.dart';
 import 'public_web_deepseek_appraiser.dart';
+import 'public_web_question_planner.dart';
 import 'wikimedia_public_web_provider.dart';
 
 /// First scheduled autonomous tool provider.
 ///
 /// It runs only after the existing Desire heartbeat has produced a snapshot,
-/// uses fixed public-knowledge topics so no user/Thought text leaves the app,
-/// and stores untrusted results only in the candidate pool. It never sends a
-/// message; proactive delivery remains a separate Gate.
+/// uses fixed public-knowledge topics as a privacy boundary, may turn one into
+/// a concrete safe question without exposing user/Thought text, and stores
+/// untrusted results only in the candidate pool. It never sends a message;
+/// proactive delivery remains a separate Gate.
 class PublicWebDiscoveryEngine {
   PublicWebDiscoveryEngine({
     required this.db,
@@ -29,9 +31,11 @@ class PublicWebDiscoveryEngine {
     SecureConfig? secureConfig,
     PublicWebProvider? provider,
     PublicWebCandidateAppraiser? appraiser,
+    PublicWebQuestionPlanner? questionPlanner,
   })  : secureConfig = secureConfig ?? SecureConfig.instance,
         _providerOverride = provider,
-        _appraiserOverride = appraiser;
+        _appraiserOverride = appraiser,
+        _questionPlannerOverride = questionPlanner;
 
   final AppDatabase db;
   final DesireEngine desire;
@@ -39,6 +43,7 @@ class PublicWebDiscoveryEngine {
   final SecureConfig secureConfig;
   final PublicWebProvider? _providerOverride;
   final PublicWebCandidateAppraiser? _appraiserOverride;
+  final PublicWebQuestionPlanner? _questionPlannerOverride;
   final Uuid _uuid = Uuid();
 
   late final AutonomousActionCoordinator coordinator =
@@ -46,6 +51,7 @@ class PublicWebDiscoveryEngine {
 
   Future<PublicWebDiscoveryDecision> maybeDiscover({
     required DesireSnapshot snapshot,
+    DesireIntent? sourceIntentOverride,
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
@@ -59,12 +65,19 @@ class PublicWebDiscoveryEngine {
       now: instant,
       intimacyAllowed: false,
     );
-    DesireIntent? sourceIntent;
-    for (final intent in intents) {
-      if (PublicWebDiscoveryPolicy.eligible(intent)) {
-        sourceIntent = intent;
-        break;
+    DesireIntent? sourceIntent = sourceIntentOverride;
+    if (sourceIntent == null) {
+      for (final intent in intents) {
+        if (PublicWebDiscoveryPolicy.eligible(intent)) {
+          sourceIntent = intent;
+          break;
+        }
       }
+    }
+    if (sourceIntentOverride == null &&
+        sourceIntent != null &&
+        !PublicWebDiscoveryPolicy.eligible(sourceIntent)) {
+      sourceIntent = null;
     }
     if (sourceIntent == null) {
       return const PublicWebDiscoveryDecision(state: 'no_eligible_intent');
@@ -139,9 +152,20 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'claim_lost');
     }
 
+    final planner = _questionPlannerOverride ??
+        DeepSeekPublicWebQuestionPlanner(
+          apiKey: await secureConfig.readApiKey() ?? '',
+          endpoint: await secureConfig.readEndpoint(),
+        );
+    final questionPlan = await planner.plan(
+      topic: topic,
+      drive: sourceIntent.drive,
+    );
+    await db.setSetting('public_web_last_query_plan_mode', questionPlan.mode);
+
     final providerStarted = DateTime.now();
     final result = await provider.discover(
-      query: topic.query,
+      query: questionPlan.query,
       driveKey: run.driveKey,
       intentAction: run.intentAction,
       interestKey: topic.interestKey,
@@ -206,7 +230,7 @@ class PublicWebDiscoveryEngine {
         );
     final appraisalStarted = DateTime.now();
     final appraised = await appraiser.appraise(
-      query: topic.query,
+      query: questionPlan.query,
       candidates: result.candidates,
       sourceIntent: sourceIntent,
       socialExcess: (snapshot.drives[DriveKey.social] ?? 0.0) -

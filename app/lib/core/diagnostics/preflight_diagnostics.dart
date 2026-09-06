@@ -197,6 +197,8 @@ class PreflightDiagnosticsService {
           await db.localLeaseDiagnostic('chat_turn_lease');
       final autonomousActions =
           await db.autonomousActionDiagnosticStats(now: now);
+      final autonomousBehaviors =
+          await db.autonomousBehaviorDiagnosticStats(now: now);
       final agentToolOutcomes = await db.agentToolOutcomeDiagnosticStats();
       final publicWebCandidates =
           await db.publicWebCandidateDiagnosticStats(now: now);
@@ -709,6 +711,7 @@ class PreflightDiagnosticsService {
           },
         },
         'autonomousActions': autonomousActions,
+        'autonomousBehaviors': autonomousBehaviors,
         'publicWebCandidates': publicWebCandidates,
         'companionAlbum': companionAlbum,
         'providerHealth': providerHealth,

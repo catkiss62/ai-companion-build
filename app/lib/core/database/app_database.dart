@@ -107,7 +107,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 51;
   // Historical validator compatibility token: static const int schemaVersion = 52;
   // Historical validator compatibility token: static const int schemaVersion = 53;
-  static const int schemaVersion = 54;
+  // Historical validator compatibility token: static const int schemaVersion = 54;
+  static const int schemaVersion = 55;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1122,6 +1123,9 @@ class AppDatabase {
     if (oldVersion < 54) {
       await _createV54AiInterestEvidenceTables(db);
     }
+    if (oldVersion < 55) {
+      await _createV55AutonomousBehaviorTables(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1315,6 +1319,7 @@ class AppDatabase {
     await _createV51PublicWebReadingColumns(db);
     await _createV52ExpressionAlbumBrowserColumns(db);
     await _createV54AiInterestEvidenceTables(db);
+    await _createV55AutonomousBehaviorTables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3222,6 +3227,27 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV55AutonomousBehaviorTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS autonomous_behavior_events (
+        id TEXT PRIMARY KEY,
+        heartbeat_key TEXT NOT NULL UNIQUE,
+        behavior_kind TEXT NOT NULL,
+        source_type TEXT NOT NULL DEFAULT 'unknown',
+        intent_kind TEXT NOT NULL DEFAULT 'unknown',
+        topic_hash TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'selected',
+        reason_tag TEXT NOT NULL DEFAULT 'ordinary_selection',
+        started_at INTEGER NOT NULL,
+        finished_at INTEGER
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_autonomous_behavior_recent '
+      'ON autonomous_behavior_events(started_at DESC, behavior_kind, status)',
+    );
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -4592,6 +4618,160 @@ class AppDatabase {
         .map((row) => row['source_type']?.toString() ?? '')
         .where((value) => value.isNotEmpty)
         .toList(growable: false);
+  }
+
+  /// Claims the one external behavior slot for a heartbeat. The unique key is
+  /// a structural backstop in addition to the process-local proactive lease.
+  Future<String?> claimAutonomousBehavior({
+    required String heartbeatKey,
+    required String behaviorKind,
+    required String sourceType,
+    required String intentKind,
+    String topicKey = '',
+    String reasonTag = 'ordinary_selection',
+    DateTime? now,
+  }) async {
+    const behaviorKinds = {
+      'proactive_message',
+      'public_web_discovery',
+      'public_web_share',
+      'rest',
+    };
+    const statuses = {'selected'};
+    if (!behaviorKinds.contains(behaviorKind) || !statuses.contains('selected')) {
+      return null;
+    }
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final id = _uuid.v4();
+    final topicHash = topicKey.trim().isEmpty
+        ? ''
+        : sha256.convert(utf8.encode(topicKey.trim().toLowerCase())).toString();
+    try {
+      await db.insert('autonomous_behavior_events', <String, Object?>{
+        'id': id,
+        'heartbeat_key': sha256.convert(utf8.encode(heartbeatKey)).toString(),
+        'behavior_kind': behaviorKind,
+        'source_type': sourceType.trim().isEmpty ? 'unknown' : sourceType,
+        'intent_kind': intentKind.trim().isEmpty ? 'unknown' : intentKind,
+        'topic_hash': topicHash,
+        'status': 'selected',
+        'reason_tag': reasonTag,
+        'started_at': instant.millisecondsSinceEpoch,
+        'finished_at': null,
+      });
+      await db.delete(
+        'autonomous_behavior_events',
+        where: 'started_at < ?',
+        whereArgs: [
+          instant.subtract(const Duration(days: 30)).millisecondsSinceEpoch,
+        ],
+      );
+      await db.rawDelete('''
+        DELETE FROM autonomous_behavior_events
+        WHERE id NOT IN (
+          SELECT id FROM autonomous_behavior_events
+          ORDER BY started_at DESC LIMIT 1000
+        )
+      ''');
+      return id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> finishAutonomousBehavior(
+    String eventId, {
+    required String status,
+    required String reasonTag,
+    DateTime? now,
+  }) async {
+    const statuses = {'completed', 'wait', 'blocked', 'failed'};
+    if (!statuses.contains(status)) return;
+    final db = await database;
+    await db.update(
+      'autonomous_behavior_events',
+      <String, Object?>{
+        'status': status,
+        'reason_tag': reasonTag,
+        'finished_at': (now ?? DateTime.now()).millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: <Object?>[eventId],
+    );
+  }
+
+  Future<List<Map<String, Object?>>> recentAutonomousBehaviors({
+    DateTime? now,
+    int limit = 24,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.query(
+      'autonomous_behavior_events',
+      columns: const <String>[
+        'behavior_kind',
+        'source_type',
+        'intent_kind',
+        'topic_hash',
+        'status',
+        'started_at',
+      ],
+      where: 'started_at >= ?',
+      whereArgs: <Object?>[
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch,
+      ],
+      orderBy: 'started_at DESC',
+      limit: limit.clamp(1, 100).toInt(),
+    );
+  }
+
+  Future<Map<String, Object?>> autonomousBehaviorDiagnosticStats({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final cutoff =
+        instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
+    Future<Map<String, int>> grouped(String column) async {
+      if (!const {'behavior_kind', 'source_type', 'status'}.contains(column)) {
+        return const <String, int>{};
+      }
+      final rows = await db.rawQuery('''
+        SELECT $column AS value, COUNT(*) AS total
+        FROM autonomous_behavior_events WHERE started_at >= ?
+        GROUP BY $column
+      ''', <Object?>[cutoff]);
+      return <String, int>{
+        for (final row in rows)
+          row['value']?.toString() ?? 'unknown':
+              (row['total'] as num?)?.toInt() ?? 0,
+      };
+    }
+    final totals = await db.rawQuery('''
+      SELECT SUM(per_heartbeat) AS total, MAX(started_at) AS latest,
+             MAX(per_heartbeat) AS max_per_heartbeat
+      FROM (
+        SELECT heartbeat_key, COUNT(*) AS per_heartbeat,
+               MAX(started_at) AS started_at
+        FROM autonomous_behavior_events WHERE started_at >= ?
+        GROUP BY heartbeat_key
+      )
+    ''', <Object?>[cutoff]);
+    final row = totals.first;
+    return <String, Object?>{
+      'eventCount24h': (row['total'] as num?)?.toInt() ?? 0,
+      'latestAt': (row['latest'] as num?)?.toInt() ?? 0,
+      'maxSelectedPerHeartbeat':
+          (row['max_per_heartbeat'] as num?)?.toInt() ?? 0,
+      'behaviorCounts': await grouped('behavior_kind'),
+      'sourceCounts': await grouped('source_type'),
+      'statusCounts': await grouped('status'),
+      'heartbeatKeysIncluded': false,
+      'topicHashesIncluded': false,
+      'sourceIdsIncluded': false,
+      'questionBodiesIncluded': false,
+    };
   }
 
   Future<Map<String, Object?>> proactivePolicyDiagnosticStats({
@@ -10549,6 +10729,42 @@ class AppDatabase {
     });
   }
 
+  /// Read-only preview used by the unified heartbeat selector. Claiming and
+  /// rereading still happen only after this behavior wins the single slot.
+  Future<PublicWebShareCandidate?> nextPublicWebCandidateForSharing({
+    DateTime? now,
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final ready = await activeReadyPublicWebShareCandidate(now: instant);
+    if (ready != null) return null;
+    final rows = await db.query(
+      'public_web_candidates',
+      columns: const <String>[
+        'id',
+        'drive_key',
+        'lifecycle_state',
+        'discovered_at',
+      ],
+      where: "lifecycle_state = 'unread' AND read_state = 'verified' "
+          "AND semantic_state = 'valid' AND share_score >= 0.68 "
+          'AND expires_at > ?',
+      whereArgs: <Object?>[instant.millisecondsSinceEpoch],
+      orderBy: 'discovered_at DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    return PublicWebShareCandidate(
+      id: row['id'] as String,
+      driveKey: row['drive_key'] as String? ?? 'curiosity',
+      lifecycleState: row['lifecycle_state'] as String? ?? 'unread',
+      discoveredAt: DateTime.fromMillisecondsSinceEpoch(
+        row['discovered_at'] as int? ?? instant.millisecondsSinceEpoch,
+      ),
+    );
+  }
+
   Future<PublicWebCandidateDraft?> publicWebCandidateForRefresh(
     String candidateId,
   ) async {
@@ -12412,6 +12628,8 @@ class AppDatabase {
       'appraisal': {
         'lastSearchMode':
             await getSetting('public_web_last_search_mode') ?? 'never',
+        'lastQueryPlanMode':
+            await getSetting('public_web_last_query_plan_mode') ?? 'never',
         'lastCounts':
             await getSetting('public_web_last_appraisal_counts') ?? '',
         'heldCount': byLifecycle['held'] ?? 0,
@@ -16392,6 +16610,8 @@ class AppDatabase {
       'perceptions': await count('perception_snapshots'),
       'awareness_observations': await count('awareness_observations'),
       'daily_continuity': await count('daily_continuity'),
+      'autonomous_behavior_events':
+          await count('autonomous_behavior_events'),
       'relationship_events': await count('relationship_events'),
       'active_sessions': await count('interaction_sessions', 'status = ?', ['active']),
       'references': await count('reference_items', 'enabled = 1'),
@@ -16770,6 +16990,7 @@ class AppDatabase {
       'awareness_observations',
       'daily_continuity',
       'proactive_history',
+      'autonomous_behavior_events',
       'agent_tool_outcomes',
       'autonomous_action_runs',
       'public_web_candidates',
@@ -16862,6 +17083,9 @@ class AppDatabase {
       rawTables['ai_interest_evidence'] = const <Object?>[];
       rawTables['ai_interest_versions'] = const <Object?>[];
     }
+    if (version < 55) {
+      rawTables['autonomous_behavior_events'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -16883,6 +17107,7 @@ class AppDatabase {
         'awareness_observations',
         'daily_continuity',
         'proactive_history',
+        'autonomous_behavior_events',
         'agent_tool_outcomes',
         'autonomous_action_runs',
         'public_web_candidates',

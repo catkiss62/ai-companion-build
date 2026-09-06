@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import '../models/desire_state.dart';
 import '../models/thought.dart';
 import 'desire_engine.dart';
@@ -26,6 +30,8 @@ class ProactiveSelectionResult {
     required this.samplingUnit,
     required this.topAdjustedScore,
     required this.selectedAdjustedScore,
+    required this.behaviorKind,
+    required this.cooldownPenalty,
   });
 
   final DesireIntent intent;
@@ -49,6 +55,8 @@ class ProactiveSelectionResult {
   final double samplingUnit;
   final double topAdjustedScore;
   final double selectedAdjustedScore;
+  final String behaviorKind;
+  final double cooldownPenalty;
 }
 
 class _ScoredIntent {
@@ -63,6 +71,8 @@ class _ScoredIntent {
     required this.adjustmentBucket,
     required this.sourceRepeatDepth,
     required this.sourceRepetitionPenalty,
+    required this.behaviorKind,
+    required this.cooldownPenalty,
   });
 
   final DesireIntent original;
@@ -75,6 +85,8 @@ class _ScoredIntent {
   final String adjustmentBucket;
   final int sourceRepeatDepth;
   final double sourceRepetitionPenalty;
+  final String behaviorKind;
+  final double cooldownPenalty;
 }
 
 /// Re-ranks real Desire/Thought candidates without creating a second motive
@@ -92,6 +104,7 @@ class ProactiveSelectionPolicy {
     List<String> recentTopicKeys = const [],
     required DateTime now,
     Map<String, DateTime> readySinceByThoughtId = const {},
+    List<Map<String, Object?>> recentBehaviors = const [],
     double samplingUnit = 0.0,
   }) {
     if (candidates.isEmpty) return null;
@@ -129,6 +142,7 @@ class ProactiveSelectionPolicy {
           intent: candidate,
           sourceType: sourceType,
         ).key;
+        final behaviorKind = behaviorKindFor(candidate, sourceType: sourceType);
         final repeatDepth = _repeatDepth(recent, intentKind);
         final sourceRepeatDepth = _repeatDepth(recentSources, sourceType);
         final topicKey = thought?.topicKey.trim() ?? '';
@@ -138,6 +152,17 @@ class ProactiveSelectionPolicy {
         final repeatedNewestTopicDepth = recentTopics.isEmpty
             ? 0
             : _repeatDepth(recentTopics, recentTopics.first);
+        final cooldownPenalty = repetition
+            ? _behaviorCooldownPenalty(
+                candidate: candidate,
+                thought: thought,
+                behaviorKind: behaviorKind,
+                sourceType: sourceType,
+                intentKind: intentKind,
+                recent: recentBehaviors,
+                now: now,
+              )
+            : 0.0;
         final intentPenalty = repetition
             ? switch (repeatDepth) {
                 0 => 0.0,
@@ -196,6 +221,7 @@ class ProactiveSelectionPolicy {
         final adjustedScore = (candidate.score -
                 repetitionPenalty +
                 -sourceRepetitionPenalty +
+                -cooldownPenalty +
                 waitingData.value +
                 diversityBoost)
             .clamp(0.0, 1.0)
@@ -232,6 +258,8 @@ class ProactiveSelectionPolicy {
             adjustmentBucket: bucket,
             sourceRepeatDepth: sourceRepeatDepth,
             sourceRepetitionPenalty: sourceRepetitionPenalty,
+            behaviorKind: behaviorKind,
+            cooldownPenalty: cooldownPenalty,
           ),
         );
       }
@@ -253,7 +281,7 @@ class ProactiveSelectionPolicy {
     final top = rawRestWinner
         ? scored.firstWhere((value) => identical(value.original, rawWinner))
         : scored.first;
-    final samplePool = top.adjusted.drive == DriveKey.fatigue ||
+    var samplePool = top.adjusted.drive == DriveKey.fatigue ||
             top.adjusted.wantAction == 'rest'
         ? <_ScoredIntent>[top]
         : scored
@@ -266,6 +294,7 @@ class ProactiveSelectionPolicy {
             )
             .take(4)
             .toList(growable: false);
+    if (samplePool.isEmpty) samplePool = <_ScoredIntent>[top];
     final safeUnit = samplingUnit.clamp(0.0, 0.999999999).toDouble();
     final selected = _sampleNearTie(samplePool, safeUnit);
     final raw = scored.firstWhere(
@@ -301,7 +330,75 @@ class ProactiveSelectionPolicy {
       samplingUnit: safeUnit,
       topAdjustedScore: top.adjusted.score,
       selectedAdjustedScore: selected.adjusted.score,
+      behaviorKind: selected.behaviorKind,
+      cooldownPenalty: selected.cooldownPenalty,
     );
+  }
+
+  static String behaviorKindFor(
+    DesireIntent intent, {
+    String sourceType = '',
+  }) {
+    if (intent.wantAction == 'discover_interest') {
+      return 'public_web_discovery';
+    }
+    if (intent.wantAction == 'prepare_public_web_share' ||
+        sourceType == 'public_web') {
+      return 'public_web_share';
+    }
+    if (intent.drive == DriveKey.fatigue || intent.wantAction == 'rest') {
+      return 'rest';
+    }
+    return 'proactive_message';
+  }
+
+  static double _behaviorCooldownPenalty({
+    required DesireIntent candidate,
+    required CompanionThought? thought,
+    required String behaviorKind,
+    required String sourceType,
+    required String intentKind,
+    required List<Map<String, Object?>> recent,
+    required DateTime now,
+  }) {
+    if (behaviorKind == 'rest') return 0;
+    final topicKey = (thought?.topicKey ?? '').trim().toLowerCase();
+    final topicHash = topicKey.isEmpty
+        ? ''
+        : sha256.convert(utf8.encode(topicKey)).toString();
+    var penalty = 0.0;
+    for (final event in recent) {
+      final startedAt = DateTime.fromMillisecondsSinceEpoch(
+        (event['started_at'] as num?)?.toInt() ?? 0,
+      );
+      final age = now.difference(startedAt);
+      if (age.isNegative || age > const Duration(hours: 24)) continue;
+      final previousBehavior = event['behavior_kind']?.toString() ?? '';
+      if (previousBehavior == 'public_web_discovery' &&
+          behaviorKind == previousBehavior &&
+          age < const Duration(minutes: 90)) {
+        return 1.0;
+      }
+      if (previousBehavior == 'public_web_share' &&
+          behaviorKind == previousBehavior &&
+          age < const Duration(hours: 3)) {
+        return 1.0;
+      }
+      if (topicHash.isNotEmpty &&
+          event['topic_hash'] == topicHash &&
+          age < const Duration(hours: 6)) {
+        return 1.0;
+      }
+      if ((event['intent_kind']?.toString() ?? '') == intentKind &&
+          age < const Duration(minutes: 90)) {
+        penalty = penalty < 0.18 ? 0.18 : penalty;
+      }
+      if ((event['source_type']?.toString() ?? '') == sourceType &&
+          age < const Duration(minutes: 60)) {
+        penalty = penalty < 0.10 ? 0.10 : penalty;
+      }
+    }
+    return penalty;
   }
 
   static _ScoredIntent _sampleNearTie(
@@ -332,7 +429,10 @@ class ProactiveSelectionPolicy {
     required String reasonSource,
   }) {
     final source = (thought?.source ?? reasonSource).trim().toLowerCase();
-    if (source.startsWith('public_web_candidate:')) return 'public_web';
+    if (source.startsWith('public_web_candidate:') ||
+        source.startsWith('public_web_pending:')) {
+      return 'public_web';
+    }
     if (source.startsWith('mcp/') || source.startsWith('mcp:')) return 'mcp';
     if (source.startsWith('screen_observation') ||
         source.startsWith('screen/')) {

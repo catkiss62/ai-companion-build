@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04142-phase3a-interest-evidence`；从已公开的 Phase 2 收口总账提交 `65e7b953994e01147561778b7b481fe29e41853a` 建立。只实现 Phase 3A 兴趣证据观察层，不与 3B 主动来源平衡或 3C 习惯消费混包 |
+| 当前开发分支 | `agent/v04143-phase3b-question-autonomy`；从 Phase 3A 最终公开总账提交 `b2d581647945ab86954a7093f14dff35b1f4806b` 建立。只实现 Phase 3B 具体问题驱动的自主发现、来源 readiness 与统一主动行为竞争，不提前开放 3C 兴趣习惯消费 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.42 最终公开 CI head `e0b55117790a5d3d75ea821baafe4bc045bf251c` / tree `cbb1dec4fdba4387ac8c0672bd1cc0105d365739`；本地等价 head `6781788ad12e308c2852cb037920e006d2dfbe81` 同 tree。公开提交不含用户备份、诊断、聊天正文、图片、密钥或 API 配置；后续只回填总账，除非真机暴露窄缺陷 |
-| App / 数据库 | 目标测试版 `0.41.42+181 / schema 54 / Snapshot protocol 5`。schema 54 只新增 `ai_interest_candidates / evidence / versions` 三表并进入备份恢复；不改消息、Memory、关系、四个行为世界书、角色扮演、相册/浏览正文或用户手调设置 |
+| 当前代码 head / tree | Phase 3B 修改前基线为 Phase 3A 最终公开总账 head `b2d581647945ab86954a7093f14dff35b1f4806b`；开工总账提交为 `e75f291`。当前工作树已实现具体问题规划、统一自主行为选择、弱 Thought readiness、跨窗口冷却、schema 55 账本/备份/诊断及专项测试，完成静态 validator，尚待 Flutter CI 编译验证、正式提交与推送；公开提交不得含用户备份、诊断、聊天正文、图片、密钥或 API 配置 |
+| App / 数据库 | 当前实现目标已固定为 `0.41.43+182 / schema 55 / Snapshot protocol 5`。schema 55 新增脱敏 `autonomous_behavior_events`；schema 54 备份补空表导入。未改消息、Memory、关系、四个行为世界书、角色扮演、相册正文或用户手调设置 |
 | 最终 CI | v0.41.42 Actions run [`34031635650`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650) 全绿：专项/历史 validators、实际 schema 54 DDL/唯一簇/cascade、Kotlin/Debug 编译、Flutter analyze、613/613 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过；失败报告 job 正常 skipped |
 | 测试 APK | `AI-Companion-v0.41.42-181-Phase3A-Interest-Evidence-APK.apk`，326,302,038 bytes；固定测试签名保持不变，可覆盖安装现有测试版 |
 | APK SHA-256 | `c62286e31cd9d0f9d2fd8834111346f8453b2f845478239be8e3ff4d1707144d`；与 CI checksum、Artifact 全新下载解包独立实算和 Draft Release asset digest 一致 |
 | Artifact / Release | [Artifact ID `9988970477`](https://github.com/catkiss62/ai-companion-build/actions/runs/34031635650/artifacts/9988970477)，ZIP 320,004,929 bytes，digest `sha256:e920efad1eabb607dbd1c3114cc854e441dd48ec9060d9fdaded1a8a9ca16929`，保留至 2026-09-20T12:07:28Z；Draft Release [`untagged-620c5a94880ef6f7f7b8`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-620c5a94880ef6f7f7b8)，保持草稿、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 普通人格未报告回归，角色扮演保持 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`。Phase 2 主人格收口审查未发现 P0/P1；Phase 3A 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，3B 继续关闭 |
+| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 普通人格未报告回归，角色扮演保持 `TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED`。Phase 2 主人格收口审查未发现 P0/P1；Phase 3A 为 `CI PASSED / APK READY / TRUE DEVICE PASSED`，跨日期成熟只作纵向观察。Phase 3B 当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；本地无 Flutter SDK，不能提前宣称 analyze/tests 通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **Phase 3A 真机门。** 覆盖安装 v0.41.42，确认 schema 54 无损升级、观察态三项消费开关均 false、诊断测试不造兴趣；随后等待真实自主网页 Outcome，跨本地日期前不得提前成熟。取得备份与脱敏诊断后再决定进入 3B |
-| 目标 | 只让跨日期、可核验的自主搜索/二次查证、收藏或分享选择、真实 Tool Outcome 与之后的用户反馈形成 `ai_interest` 候选；同一次行动的 Search→Extract→整理→评价只能算同一证据簇，不能用流水线步骤虚增支持数 |
-| 当前证据 | v0.41.41 真机备份为 schema 53 / protocol 5，state SHA 与 manifest 一致、原图无缺失；Phase 2B 有界 bias、动态表达回落、Memory/Thought/Desire/主动链均可读取。真机同时证明旧主动主题仍会交错重复：`presence:phone_activity` 31 次、存档功能 14 次、自主性实验 12 次，须留给 3B 处理 |
-| 保护与排除 | 不拆分、合并、删改或降级四个行为世界书；不借 Phase 3 改主人格、Desire 系数或用硬压 attachment 假装来源多样；角色扮演优化延期。日记、随笔、心情、随机塔罗、购物车生成、模型自述、单次用户命令及角色扮演内容不得进入兴趣证据 |
-| 实现边界 | 3A 只建立本地可审计候选、证据、反证、新鲜度、版本/停用与备份恢复；未成熟兴趣不进入 Prompt、不影响联网选题或主动消息。跨日必须按本地日期与独立事件簇计算，删除/失效来源可撤销支持，用户明确纠正应立即成为反证 |
-| 完成判据 | schema 覆盖升级/备份恢复无损；正向跨日样本能成熟，单日重复/同链多步/派生投影/角色扮演/用户单次命令均不能成熟；来源删除、语义冲突、新鲜度衰减、停用/回滚和脱敏诊断有测试。CI/APK 全绿后只做 3A 真机验收，再决定是否进入 3B |
-| 直接详细入口 | 下方“2026-09-06 Phase 2 主人格收口审查与 Phase 3 分包门”；代码入口先读 `public_web_candidates` / `public_web_knowledge` / `autonomous_action_runs` / `agent_tool_outcomes`、`ProactiveSelectionPolicy`、备份表序与诊断 contracts |
+| 当前下一步 | **Phase 3B 具体问题驱动的自主行动与来源平衡。** 将固定大类检索降为兜底：先由当前 Desire 与安全公共主题形成一个具体疑问，再执行 Search → Extract → Agnes → DeepSeek 评价；同时让网页发现/再查证分享、关系联系、未完话题、自我反思、互动邀请和休息进入同一 heartbeat 竞争 |
+| 目标 | 她应像主动提出问题一样搜索，例如“鲸类会不会用固定叫声称呼彼此”，而不是长期只按“动物行为与认知研究”抽栏目报告。每个 heartbeat 最多选择一个外部行为；弱旧 Thought、刚执行过的来源/行为与交错重复 topic 不能借较高 Desire 反复胜出 |
+| 当前证据 | v0.41.42 真机于新进程启动后完成一次真实自主联网：`candidateCount=1`、`activeEvidenceCount=1`、来源 `autonomous_web_verified`、状态 `forming`、`establishedCount=0`，三项 3C 消费开关均 false，证明 3A 写入与单日不早熟。旧真机同时证明主动主题会交错重复：`presence:phone_activity` 31 次、存档功能 14 次、自主性实验 12 次 |
+| 保护与排除 | 不拆分、合并、删改或降级四个行为世界书；不改主人格、角色扮演、Desire 系数或主动总额度，不用硬压 attachment 假装来源多样。关系问题只能来自她真实的好奇/体验，不得把搜索规划成“怎样服务男朋友”。不得把用户聊天原句、姓名、设备正文、私密事实或角色扮演内容发送给公网搜索 |
+| 实现边界 | 具体问题规划只接收 drive、公共主题与内容不敏感的来源类型，输出经长度/隐私/指令/URL Gate 的单个问题；失败时退回现有公共题库。一次发现管线仍只算一个 3A 证据簇。3B 只补候选供给、readiness、统一竞争、分来源/行为/topic 冷却与脱敏诊断；成熟兴趣的利用/相邻探索/wildcard 权重留到 3C |
+| 完成判据 | 自动测试证明：问题规划失败可安全回退；搜索问题不含用户原句/隐私/服务导向；同 heartbeat 不会同时联网又发送另一条主动消息；分享仍先重读再判断；弱旧 Thought 被排除，强的新 Thought 可竞争；相同 topic 即使交错出现也进入跨窗口冷却；休息可公平胜出；诊断不导出问题、topic 或来源 ID。CI/APK 全绿后单独真机观察搜索形态与主动来源分布 |
+| 直接详细入口 | 下方“2026-09-06 Phase 3A 真机闭环与 Phase 3B 具体问题搜索开工”；代码入口为 `PublicWebDiscoveryPolicy/Engine`、`PublicWebShareCoordinator`、`ProactiveEngine`、`ProactiveSelectionPolicy`、`DesireCorePolicy`、`CompanionThought`、行为账本/诊断与相关数据库迁移 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -72,8 +72,8 @@
 | C2 · v0.41.35/36 中断回合与玩法边界（CLOSED） | run 720 全绿；普通 Stop/自读有备份证据；用户覆盖安装 v0.41.36 后人工确认沉浸 `【检查系统】` 命令边界与沉浸/悬浮中断灰显均正常 | `TRUE DEVICE PASSED / CLOSED`；人工视觉证据没有备份/诊断附件，如实保留证据类型。除非新复现，不再修改该链 |
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
 | C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 相册/浏览/动态表达已真机通过；v0.41.41 普通人格未见回归，但角色扮演持续性不理想 | 按用户最新决定暂停角色扮演优化，不提高优先级、不再改提示词，也不阻塞主人格与 Phase 3。以后单独重开时再以真机多轮样本处理角色切换和注意力 |
-| D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PENDING） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过 | 只做 3A 覆盖升级、排除源和自然跨日证据验收；用户主动查询、诊断夹具、日记/心情/塔罗/购物车/模型自述与角色扮演不得造兴趣。真机备份/诊断闭环前不进入 3B |
-| D2 · Phase 3B 主动来源平衡 | Phase 3A 候选、反证、新鲜度与版本合同通过 | 在现有主动选择器前补齐她自己的候选供给和完整 `发现 → 评价 → 再查证/保存 → 是否分享` 链；关系联系、未完话题、自我反思、发现分享、互动邀请、休息统一竞争，每次 heartbeat 最多一个外部行为，并有分来源/行为冷却。不得用硬压 attachment 掩盖候选缺失 |
+| D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PASSED） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过；v0.41.42 新进程后的真实自主联网写入 1 个 forming 候选与 1 个 active evidence，未提前成熟且三项消费开关关闭 | 核心真机门已解除；跨日期成熟、删除撤销与长期新鲜度继续随自然使用观察，不阻塞 3B，也不得倒写成已有真机样本 |
+| D2 · Phase 3B 主动来源平衡（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING） | Phase 3A 核心真机门通过；用户批准具体问题驱动的自主搜索，并明确排除“怎样服务男朋友”的服务导向 | v0.41.43 已实现安全具体问题 → 原搜索/读取/评价链，以及主动消息/发现/再查证分享/休息单行为竞争、弱 Thought readiness、来源/行为/topic 冷却和 schema 55 脱敏账本；等待 CI/analyze/tests/APK 后再做真机覆盖与自然自主联网观察，不提前开放 3C |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
@@ -81,6 +81,25 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+
+### 2026-09-06 Phase 3A 真机闭环与 Phase 3B 具体问题搜索开工（3A TRUE DEVICE PASSED / 3B IN PROGRESS）
+
+1. 用户先在 v0.41.42 安装后立即导出诊断：App `0.41.42+181`、schema 54，旧库 751 条自主行动与 74 条网页候选保留，`ai_interest_candidates/evidence/versions` 均为 0，三项消费开关 false；该报告证明覆盖迁移与不回填旧事件，但最近自主联网发生于新进程启动前，不能证明 3A 新写入钩子。
+2. 用户随后恢复一份仍有联网预算的白天存档。第二份诊断显示 v0.41.42 进程于 `2026-09-06T13:24:32Z` 启动，真实自主联网于 `13:35:44Z` 开始、`13:36:12Z` 完成，晚于升级进程；终态 `succeeded / candidate_stored`、2 个网页结果，3A 形成 1 个候选和 1 个 active evidence，来源仅 `autonomous_web_verified`，状态 `forming`、freshness 1.0、`crossLocalDateCandidateCount=0`、`establishedCount=0`，三项消费开关仍 false。由此 Phase 3A 核心真机写入门通过；跨日期成熟、删除撤销和长期衰减保留自然纵向观察。
+3. 用户批准进入 Phase 3B，并提出将自主联网从固定范围筛选改为“她先产生一个具体问题再搜索”，例如鲸类如何交流、人与人为何误解等。用户随后明确：先前“怎么讨男朋友开心”只是随口举例，不能把系统引向“怎样服务男朋友”；实现必须保护她自己的主体性，关系类疑问只是在真实好奇/体验下与世界知识、自我理解、玩法灵感公平竞争。
+4. 修改前审计确认当前底层已是 Tavily Search → 网页 Extract → Agnes 整理 → DeepSeek 价值评价，但 `PublicWebDiscoveryPolicy.topicFor()` 只从 curiosity/reflection/social 各 24 个固定公共主题中轮换，因而体验仍像栏目筛选。新设计在这个既有安全主题与公网 Provider 之间加入小型具体问题规划器；只给 drive、固定公共主题、domain 与非正文来源类别，不给用户消息、Thought 正文、姓名、设备/通知/屏幕内容或角色扮演。规划失败、越界、含 URL/指令或明显服务导向时退回现有题库，搜索正文与问题继续不进入诊断。
+5. 3B 同时处理收口审查发现的结构风险：现有 `CompanionThought.canDriveIntentAt()` 只看 lifecycle/snooze，无最低有效强度；主动选择器只惩罚最近连续重复，topic 交错后可恢复。将新增仅供自主行为的 provenance/readiness 门，不改变普通聊天人格；并用持久、脱敏的 heartbeat 行为账本统一网页发现、网页再查证分享、普通主动消息与休息竞争，唯一 heartbeat 只能认领一个外部行为。成功、WAIT、失败和冷却均有聚合诊断，topic 只存 hash，不保存正文或来源 ID。
+6. 固定保护项：四个行为世界书正文、优先级与 100% 注入不动；主人格、动态表达、角色扮演、NSFW、Memory/Phase 2B、Desire 数值/系数、主动频率设置和用户手调数据不动；不把成熟兴趣提前注入 Prompt，也不在 3B 开启 3C 的利用/相邻探索/wildcard 权重。分享仍必须重新读取并重新评价来源后才可立刻进入同一分享行为，模型可以 WAIT，真实提交才算 shared。
+7. 预定验证：问题规划 JSON/长度/隐私/URL/服务导向/fallback；Search→Extract→Agnes→评价真值不回退；同 heartbeat 单行为唯一性；网页发现与另一主动消息互斥；待分享候选可在被选中后完成重读并继续分享；弱旧 Thought 不得借高 drive 入选，强 Thought 保留；跨窗口 topic 即使夹杂其他主题仍冷却；rest 不被多样性重排；schema/备份/诊断隐私、全部历史 Flutter/Kotlin validators 与回放继续通过。完成本地验证和独立代码审查后才提交、推送并运行 v0.41.43 APK CI；自动化通过不等于真机通过。
+8. 实现采用 `DeepSeekPublicWebQuestionPlanner`：联网行为通过现有 Coordinator Gate 并认领 run 后，规划器只收到固定 `public_topic/public_domain/curiosity_mode/drive_category`；不导入 Thought、ChatMessage 或 Memory 模型，也不接收用户姓名、聊天、设备、相册、浏览、角色卡正文。输出必须是 8～80 字的单个问题；URL、多问句、系统/Prompt/执行指令、聊天或设备上下文，以及“服务/取悦/讨好/服从/迎合用户、主人、男朋友、女朋友或伴侣”均本地拒绝，退回原 `topic.query`。关系沟通与理解仍可成为真实好奇，不把关系本身封死。
+9. `PublicWebDiscoveryEngine` 继续使用原 Tavily Search → Extract → Agnes → DeepSeek appraiser，不改候选验证、预算、所有权、Desire satisfaction 或 Phase 3A 证据写入；只将通过本地 Gate 的具体问题同时交给 provider 与 appraiser。规划失败不使自主 run 悬空；诊断只记录 `generated_question/taxonomy_fallback` 模式，不导出问题正文。
+10. `_runLocalHeartbeat` 已改为纯本地维护、感知、连续性与 Desire tick，不再先后无条件调用 discovery 和 `stageNextCandidate`。`evaluate` 在一个候选集中加入 `discover_interest` 和 `prepare_public_web_share`：主动消息、网页发现、网页重读/评价后分享与 rest 只由一次 `ProactiveSelectionPolicy.select` 决定；选中发现后本轮直接返回，不会再生成无关主动消息；选中待分享后先重读/重评，只有仍为 valid/shareable 才在同一个已认领的“分享行为”内继续现有 Gate 与模型 WAIT/发送链。
+11. schema 55 新增 `autonomous_behavior_events`，`heartbeat_key` 为 UNIQUE；每轮选择前只认领一个 `proactive_message/public_web_discovery/public_web_share/rest`。表内只保存固定 behavior/source/intent/status/reason 类别、时间和不可逆 topic hash；30 天/1000 条双上限。新表进入 export/import、record counts，schema 54 导入时显式补空。脱敏诊断只报告近 24 小时行为/来源/状态计数、最近时间和 `maxSelectedPerHeartbeat`，明确不含 heartbeat key、topic hash、source ID 与 question body。
+12. 选择器读取最近 24 小时账本：发现行为 90 分钟、网页分享 3 小时硬冷却，同 topic 6 小时跨窗口硬冷却，不会因夹入其他话题而清零；相同 intent 90 分钟与相同 source 60 分钟为轻降权。现有主动频率、Gate、busy/fatigue、near-tie、Grounding、真实提交和用户抢占继续有效，不通过人为降低 attachment 或改 Desire 系数制造多样性。
+13. 新 `ProactiveThoughtReadinessPolicy` 仅在自主选择前过滤。旧 Thought 仍可由普通聊天/Memory 正常召回，不改 `CompanionThought.canDriveIntentAt()` 或 Prompt；自主门按 provenance 使用 0.20～0.50 最低强度，public-web share Thought 的 0.62 保留，审查中 0.078～0.135 的旧项目 Thought 不能再借较高 drive 主动行动。
+14. 版本为 `0.41.43+182 / schema 55 / Snapshot protocol 5`，系统自读、workflow、Artifact/Draft Release 名称和当前接班 validator 已同步；新增专项文档 `PHASE3B_QUESTION_AUTONOMY_v0.41.43.md`、问题安全/fallback 测试、readiness/行为分类/行为冷却/交错 topic 测试和独立 SQLite UNIQUE DDL validator。`validate_v04143_phase3b_question_autonomy.py`、v0.41.42 Phase 3A validator、v0.41.41 人称/世界书 validator、当前总账 validator 与 `git diff --check` 本地通过。
+15. 当前证据边界：本地环境没有 Flutter/Dart SDK，尚不能声称格式化、analyze 或 Flutter tests 通过；CI 前状态严格保持 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。四个行为世界书、主人格、角色扮演、Memory、Desire 参数、主动频率、Phase 3A 兴趣消费开关与用户数据均未修改；3C 继续关闭。
 
 
 ### 2026-09-06 v0.41.41 角色扮演覆盖、人称归属与世界书优先级窄修（IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING）
