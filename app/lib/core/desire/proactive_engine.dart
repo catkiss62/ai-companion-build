@@ -475,10 +475,9 @@ class ProactiveEngine {
           : thoughtsById[intent.thoughtId!];
       final behaviorKind = selection?.behaviorKind ??
           ProactiveSelectionPolicy.behaviorKindFor(intent);
-      final behaviorTopicKey = selectedThought?.topicKey ??
-          (intent.wantAction == 'discover_interest'
-              ? 'public_web_discovery:${intent.drive.name}'
-              : intent.reasonSource);
+      final behaviorTopicKey = intent.wantAction == 'discover_interest'
+          ? 'public_web_discovery:${intent.drive.name}'
+          : selectedThought?.topicKey ?? intent.reasonSource;
       final autonomousBehaviorEventId = await db.claimAutonomousBehavior(
         heartbeatKey:
             '${evaluationStartedAt.microsecondsSinceEpoch}:$selectionSeed',
