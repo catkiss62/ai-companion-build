@@ -31,22 +31,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04139-web-reading-learning-roleplay-image`；从与本地 `d6874fb` 同树的公开 v0.41.38 tip `605248d` 建立。目标包修复公开网页“搜索片段被当正文并过早压缩”的结构错误，建立 Tavily Search→Extract→Agnes 全文整理→DeepSeek 价值评价→浏览/知识/分享投影，同时窄修已由真机暴露的角色扮演执行冲突、联网图片语义匹配和相册时间呈现；不直接开启成熟 `ai_interest` 或自主相册发送 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.41 const 修复 head `670b37dac21f1105b8fe5ded151a253263b192af` / tree `21ce6ae818572b53bc81a929f177ce8c8dd267fa`；run 738 通过 validators、Kotlin/Debug 编译与 analyze，607 项 Flutter tests 中 606 通过，仅系统自读仍期待上一 build/schema 标签。版本真值同步待推送 |
+| 当前代码 head / tree | v0.41.41 最终运行代码 head `d3f38d8cb58bcaa5172109ce2fbbec0b4682f6a9` / tree `a3637abd3cc3f9c55d87468bf804e60f26d08117`；公开提交不含用户备份、诊断、附件、聊天正文或密钥。后续仅允许总账证据回填，不再改运行代码，除非真机暴露窄缺陷 |
 | App / 数据库 | 目标测试版 `0.41.41+180 / schema 53 / Snapshot protocol 5`。schema 53 只迁移仍保持旧默认值的四项行为世界书优先级，并把仍为旧原文的运行时身份层升级为“同一小鲸鱼上的临时覆盖”；不改用户手调优先级、Memory、消息、关系、世界书正文、相册或浏览数据 |
-| 最终 CI | v0.41.41 run [`34004697762`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004697762)（738）通过 validators、Kotlin/Debug 编译和 Flutter analyze；607 tests 中 606 通过，唯一失败为 `AgentSelfReader` 仍输出 v0.41.40 build label 而 schema 已为 53。同步为 v0.41.41+180/schema 53 后重跑，Release APK 尚未构建。上一完整通过仍为 v0.41.40 Actions run [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
-| 测试 APK | v0.41.41 构建待完成；当前可下载上一版仍为 `AI-Companion-v0.41.40-179-Browser-Expression-Album-Originals-APK.apk` |
-| APK SHA-256 | v0.41.41 待 CI 产出后独立复算；上一版 v0.41.40 为 `e83b8f97f3269a37abddcd90220929dba57e478617830276a60fe1d14d0e7fd0` |
-| Artifact / Release | v0.41.41 待 CI；不得发布正式 Release，`main` 不合并。上一 v0.41.40 Artifact/草稿 Release 证据保留在对应详细记录 |
+| 最终 CI | v0.41.41 Actions run [`34005100430`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430)（739）全绿：专项/历史 validators、Kotlin/Debug 编译、Flutter analyze、607/607 Flutter tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传全部通过；失败报告 job 正常 skipped | [`33991881678`](https://github.com/catkiss62/ai-companion-build/actions/runs/33991881678)（732），603/603 Flutter tests、Release APK、签名与资源载荷全绿 |
+| 测试 APK | `AI-Companion-v0.41.41-180-Roleplay-Pronoun-Priority-APK.apk`，326,259,110 bytes；固定测试签名保持不变，可覆盖安装现有测试版 |
+| APK SHA-256 | `f678813e863ffc78df8354bc23bd95f90ffba73220d3037c66646f4d0a76db91`；与 CI checksum、Artifact 全新下载解包独立实算和 Draft Release asset digest 一致 |
+| Artifact / Release | [Artifact ID `9980807150`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430/artifacts/9980807150)，ZIP 319,960,470 bytes，digest `sha256:08f6fa867175445dd3698dd1bad532ffdbdf5c6f090bba6f11df36be399481e5`，保留至 2026-09-20T02:05:22Z；Draft Release [`untagged-6c8e4da2ec16fbd62c63`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c8e4da2ec16fbd62c63)，保持草稿、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 角色扮演覆盖、人称归属、短会话去重与四项行为优先级为 `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
+| 当前总状态 | 用户已确认 v0.41.40 的查手机相册、明确联网浏览记录与动态表达倾向真机测试成功；v0.41.41 角色扮演覆盖、人称归属、短会话去重与四项行为优先级为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Phase 3 成熟 `ai_interest` 仍未开启 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **推送并构建 v0.41.41，然后覆盖安装做窄真机验收。** 重点验证普通人格不降级、角色扮演仍是同一小鲸鱼上的临时覆盖、角色切换不串场，以及“我/你”和提议归属不再倒置 |
+| 当前下一步 | **覆盖安装 v0.41.41 并做窄真机验收。** 重点验证普通人格不降级、角色扮演仍是同一小鲸鱼上的临时覆盖、角色切换不串场，以及“我/你”和提议归属不再倒置 |
 | 目标 | 保留现有四个行为模块全文与 100% 注入；只重排冲突裁决顺序为角色表达自然化 1000、日常对话规则 950、性格光谱 850、造梗能力 650。角色卡只覆盖明确声明的维度，未声明部分继承本体 |
-| 当前证据 | 源码窄修与专项测试/validator 已写入，版本冻结为 0.41.41+180 / schema 53；尚未推送，CI/APK 与真机状态不得提前写成通过 |
+| 当前证据 | run 739 已通过全部 validators、Kotlin/Debug 编译、Flutter analyze、607/607 tests、Release APK、固定签名与完整资源载荷；APK SHA 与 CI/Artifact/Draft Release 三方一致。自动化不等于真机语言表现，角色与人称仍需实际多轮对话 |
 | 保护与排除 | 不拆分、合并、删改四个行为世界书正文；不把角色扮演改成第二人格或普通人类；不改沉浸房既有“reasoning 我/你、正文 她/你”的第二人称合同；不重写旧聊天、旧存档或用户附件 |
 | 实现边界 | schema 53 只更新名称与旧默认优先级同时匹配的行，保留用户自定义值；运行时身份、角色卡包装和末端执行锚点统一为 overlay；短会话历史保留原 role，continuity 仅补更早内容，避免同一轮重复注入；人称提醒按 role 固定发言者归属 |
 | 完成判据 | 专项/历史 validators、Flutter analyze/tests、Kotlin、Release APK、固定签名和完整载荷全绿；真机分别检查普通聊天、痴女/高岭之花等风格卡、史莱姆形态卡、两个角色切换及“谁说过/谁提出”追问 |
@@ -99,7 +99,10 @@
 12. 兼容窄修提交 `2701eba00844a17ba105794fa6e7105c2d9fa0be` / tree `70610574305d94f978b65eb7d16b64d94b36179a`。run [`34004098740`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004098740)（735）确认 v0.41.28～v0.41.41 全部专项 validator 通过，随后 `validate_current_ledger_handoff.py` 仍硬编码要求当前接班区含 0.41.40+179/schema 52 而失败；这证明失败属于接班验证器版本未同步，不是角色/人称实现。
 13. 接班事实列表同步提交 `f3335c907d0704dfb4fe3aa69049b9c5392cb606` / tree `86c33b47718d84ed23c290c706e33c2f93e4883b`。run [`34004229492`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004229492)（736）再次通过全部 v0.41.28～v0.41.41 专项 validator，但同一验证器底部还有一组独立的 pubspec 0.41.40+179/schemaVersion 52 正则，因未同步而截停。
 14. 最后一组接班断言同步提交 `71f88854a05f7719b534edfaff5535332a97e22d` / tree `3e6c7c79df627b74a8831364a71fb5f6f65b04d1`。run [`34004403627`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004403627)（737）通过全部 validators，进入 Kotlin 测试触发的 Flutter debug 编译后在 `world_book_presets.dart` 报出 const 构造参数不能使用 const Map 下标取值；这不是优先级语义错误。修复仅将内置日常规则的 `priority` 从映射表达式改为等价字面量 950，迁移映射仍为单一升级真源。
-15. const-safe 修复提交 `670b37dac21f1105b8fe5ded151a253263b192af` / tree `21ce6ae818572b53bc81a929f177ce8c8dd267fa`。run [`34004697762`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004697762)（738）通过全部 validators、Kotlin/Flutter debug 编译和 Flutter analyze；607 项 Flutter tests 中 606 通过，唯一失败是 `AgentSelfReader` 仍以 v0.41.40+179 输出 build label，而 schema 已自动取到 53。下一提交将 build label 与测试更新为 v0.41.41+180/schema 53；角色、世界书、沉浸和数据逻辑不变。
+15. const-safe 修复提交 `670b37dac21f1105b8fe5ded151a253263b192af` / tree `21ce6ae818572b53bc81a929f177ce8c8dd267fa`。run [`34004697762`](https://github.com/catkiss62/ai-companion-build/actions/runs/34004697762)（738）通过全部 validators、Kotlin/Flutter debug 编译和 Flutter analyze；607 项 Flutter tests 中 606 通过，唯一失败是 `AgentSelfReader` 仍以 v0.41.40+179 输出 build label，而 schema 已自动取到 53。
+16. 最终运行代码提交 `d3f38d8cb58bcaa5172109ce2fbbec0b4682f6a9` / tree `a3637abd3cc3f9c55d87468bf804e60f26d08117` 同步系统自读版本真值。Actions run [`34005100430`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430)（739）完整成功：全部 validators、Kotlin/Debug 编译、Flutter analyze、607/607 tests、Release APK、固定签名、Native/TTS/417 文件桌宠/Meju/LingChat/头像立绘/22 张塔罗载荷、checksum、Artifact 与草稿 Release 上传均通过；失败报告 job 正常 skipped。
+17. Artifact [`9980807150`](https://github.com/catkiss62/ai-companion-build/actions/runs/34005100430/artifacts/9980807150) ZIP 为 319,960,470 bytes，digest `sha256:08f6fa867175445dd3698dd1bad532ffdbdf5c6f090bba6f11df36be399481e5`。全新下载后 `unzip -t` 无错误，内部 APK 为 326,259,110 bytes，独立 SHA-256 `f678813e863ffc78df8354bc23bd95f90ffba73220d3037c66646f4d0a76db91`，与 CI checksum 和 Draft Release asset digest 一致。Draft Release 为 [`untagged-6c8e4da2ec16fbd62c63`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-6c8e4da2ec16fbd62c63)，保持草稿，`main` 未合并。
+18. 当前边界为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。真机建议先用普通聊天确认人格和活人感无回归，再分别测试痴女/高岭之花风格卡、史莱姆形态卡、两个角色 Session 切换，以及追问“刚才是谁提出靠一会儿/谁说过这句话”。动态语言模型仍可能偶发口误，本包目标是减少提示冲突与重复上下文，不能宣称数学上完全消除。
 
 ### 2026-09-05 v0.41.40 明确联网、动态表达与相册原图窄修（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
