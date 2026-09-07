@@ -53,6 +53,26 @@ class AgentToolPlanner {
     }
     if (_looksLikeMetaToolTalk(text)) return null;
 
+    if (_isExplicitAlbumImageSend(text)) {
+      return AgentToolPlan(calls: [
+        AgentToolCall(
+          toolId: AgentToolRegistry.albumImageSend.id,
+          arguments: {'query': _bounded(_sendImageQuery(text), 120)},
+          reasonTag: 'explicit_request',
+        ),
+      ]);
+    }
+
+    if (_isExplicitWebImageSend(text)) {
+      return AgentToolPlan(calls: [
+        AgentToolCall(
+          toolId: AgentToolRegistry.webImageSend.id,
+          arguments: {'query': _bounded(_sendImageQuery(text), 80)},
+          reasonTag: 'explicit_request',
+        ),
+      ]);
+    }
+
     if (_isExplicitStickerSend(text)) {
       return AgentToolPlan(calls: [
         AgentToolCall(
@@ -462,6 +482,43 @@ class AgentToolPlanner {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     return stripped.isEmpty ? '自然回应' : stripped;
+  }
+
+  static bool _isExplicitAlbumImageSend(String text) {
+    if (RegExp(r'(别|不要|不用|不必|无需).{0,8}(发|发送|给我).{0,8}(图片|照片|图)')
+        .hasMatch(text)) return false;
+    if (RegExp(r'(保存|存下|存进|收藏|收进)').hasMatch(text)) return false;
+    if (RegExp(r'(会不会|能否|是否|支不支持|支持|功能|能力).{0,16}(相册|发图|发照片)')
+        .hasMatch(text)) return false;
+    final album = RegExp(r'(相册|保存过|存过|收藏过|你存的)').hasMatch(text);
+    final send = RegExp(
+      r'((发|发送|给我看|拿给我看|展示).{0,16}(图片|照片|图|那张|一张))|'
+      r'((图片|照片|图|那张|一张).{0,16}(发|发送|给我看|展示))',
+    ).hasMatch(text);
+    return album && send;
+  }
+
+  static bool _isExplicitWebImageSend(String text) {
+    if (RegExp(r'(别|不要|不用|不必|无需).{0,8}(发|发送|给我).{0,8}(图片|照片|图)')
+        .hasMatch(text)) return false;
+    if (RegExp(r'(保存|存下|存进|收藏|收进|相册)').hasMatch(text)) return false;
+    if (RegExp(r'(会不会|能否|是否|支不支持|支持|功能|能力).{0,16}(联网|上网|发图|发照片)')
+        .hasMatch(text)) return false;
+    final web = RegExp(r'(上网|联网|网页|网站|搜索|搜一下|找一下|帮我找|找张|搜张)')
+        .hasMatch(text);
+    final send = RegExp(
+      r'((发|发送|给我|找给我).{0,18}(图片|照片|图|一张|一张))|'
+      r'((图片|照片|图|一张|一张).{0,18}(发|发送|给我))',
+    ).hasMatch(text);
+    return web && send;
+  }
+
+  static String _sendImageQuery(String text) {
+    final stripped = text
+        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|替我|上网|联网|网页|网站|搜索|搜一下|找一下|发送|发|展示|拿给我看|给我看|相册里|相册中|相册|保存过|存过|收藏过|一张|一张|那张|图片|照片)'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return stripped.isEmpty ? text : stripped;
   }
 
   static const _nativeNameByToolId = <String, String>{

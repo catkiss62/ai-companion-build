@@ -43,7 +43,7 @@ design = read("docs/STICKER_AGENT_CONTINUATION_IDENTITY_v0.41.46.md")
 notice = read("docs/THIRD_PARTY_NOTICES.md")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.46\+185$", pubspec, re.M)
+assert "version: 0.41.46+185" in pubspec
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04146-sticker-agent-continuation-identity" in workflow
 assert "Build AI Companion v0.41.46+185 APK" in workflow

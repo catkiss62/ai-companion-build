@@ -7,7 +7,9 @@ import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
 import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
+import '../media/assistant_image_attachment_service.dart';
 import '../models/desire_state.dart';
+import '../models/message_attachment.dart';
 import '../models/public_web_candidate.dart';
 import '../phone/companion_album_search_policy.dart';
 import '../phone/companion_album_discovery_engine.dart';
@@ -52,7 +54,9 @@ class AgentToolRunner {
       final explicitUserWrite =
           (call.toolId == AgentToolRegistry.attachmentSave.id ||
                   call.toolId == AgentToolRegistry.imageFindAndSave.id ||
-                  call.toolId == AgentToolRegistry.stickerSend.id) &&
+                  call.toolId == AgentToolRegistry.stickerSend.id ||
+                  call.toolId == AgentToolRegistry.webImageSend.id ||
+                  call.toolId == AgentToolRegistry.albumImageSend.id) &&
               call.reasonTag == 'explicit_request' &&
               userMessageId.trim().isNotEmpty;
       if (definition == null ||
@@ -255,6 +259,19 @@ class AgentToolRunner {
         nsfwActive: nsfwActive,
       );
     }
+    if (call.toolId == AgentToolRegistry.webImageSend.id) {
+      return _sendWebImage(
+        call.arguments['query'] ?? '',
+        cancellationToken,
+        assistantMessageId: assistantMessageId,
+      );
+    }
+    if (call.toolId == AgentToolRegistry.albumImageSend.id) {
+      return _sendAlbumImage(
+        call.arguments['query'] ?? '',
+        assistantMessageId: assistantMessageId,
+      );
+    }
     if (call.toolId == AgentToolRegistry.screenObservation.id) {
       return _observeCurrentScreen(cancellationToken);
     }
@@ -304,6 +321,171 @@ class AgentToolRunner {
       mediaUsageKeys: <String>[selected.record.usageKey],
       terminalCommitPending: true,
     );
+  }
+
+  Future<AgentToolResult> _sendWebImage(
+    String query,
+    GenerationCancellationToken? cancellationToken, {
+    required String assistantMessageId,
+  }) async {
+    final normalized = query.trim();
+    if (assistantMessageId.trim().isEmpty ||
+        normalized.isEmpty ||
+        normalized.length > 80) {
+      return const AgentToolResult(
+        toolId: 'image.web_send',
+        status: AgentToolStatus.blocked,
+        displayText: '联网发图请求不完整',
+        promptData: '没有安全绑定当前回复的找图目标；本轮没有发送图片。',
+        errorCode: 'invalid_request',
+      );
+    }
+    final provider = LayeredPublicWebProvider(
+      tavilyApiKey: await secureConfig.readTavilyApiKey() ?? '',
+      agnesApiKey: await secureConfig.readAgnesApiKey() ?? '',
+      agnesEndpoint: await secureConfig.readAgnesEndpoint(),
+      agnesModel: await secureConfig.readAgnesModel(),
+      agnesEnabled: false,
+      pageReadingEnabled: false,
+      extraSources: await db.getSetting('public_web_extra_sources') ?? '',
+    );
+    final startedAt = DateTime.now();
+    final web = await provider.discover(
+      query: normalized,
+      driveKey: 'curiosity',
+      intentAction: 'user_requested_image_send',
+      interestKey: 'user_turn_image',
+      now: startedAt,
+    );
+    await db.recordProviderHealthEvent(ProviderHealth.webSearchEvent(
+      result: web,
+      context: 'user_turn_image_send',
+      elapsed: DateTime.now().difference(startedAt),
+    ));
+    cancellationToken?.throwIfCancelled();
+    if (!web.succeeded) {
+      return AgentToolResult(
+        toolId: AgentToolRegistry.webImageSend.id,
+        status: AgentToolStatus.failed,
+        displayText: '联网找图失败',
+        promptData: '公开搜索失败（${_bounded(web.failureReason, 100)}）；没有下载、识图或发送图片。',
+        errorCode: _bounded(web.failureReason, 100),
+      );
+    }
+    final candidates = web.candidates
+        .where((candidate) => candidate.imageUrl.trim().isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      return const AgentToolResult(
+        toolId: 'image.web_send',
+        status: AgentToolStatus.noResult,
+        displayText: '没有找到可用图片',
+        promptData: '公开搜索已执行，但没有带安全图片地址的候选；本轮没有发图。',
+      );
+    }
+    final service = AssistantImageAttachmentService(config: secureConfig);
+    try {
+      for (final candidate in candidates) {
+        cancellationToken?.throwIfCancelled();
+        try {
+          final prepared = await service.prepareWebCandidate(
+            candidate: candidate,
+            requestedSubject: normalized,
+            messageId: assistantMessageId,
+          );
+          if (prepared == null) continue;
+          return AgentToolResult(
+            toolId: AgentToolRegistry.webImageSend.id,
+            status: AgentToolStatus.succeeded,
+            displayText: '已找到并准备一张真实图片',
+            promptData: '''
+【WEB IMAGE ATTACHMENT · TERMINAL COMMIT PENDING】
+公开搜索、受限下载与像素核验已成功。title=${_oneLine(prepared.sourceTitle, 220)}，source=${_oneLine(candidate.sourceDomain, 120)}，图片内容=${_bounded(prepared.summary, 1000)}。
+附件只在本轮 assistant message 事务成功后才算发送；没有保存到她的相册，不得声称已收藏。
+'''.trim(),
+            resultCount: 1,
+            attachments: <MessageAttachment>[prepared.attachment],
+            terminalCommitPending: true,
+          );
+        } on VisionProviderNotConfigured {
+          return const AgentToolResult(
+            toolId: 'image.web_send',
+            status: AgentToolStatus.blocked,
+            displayText: '需要先配置千问视觉才能核验找到的图片',
+            promptData: '搜索可能已执行，但视觉 Provider 未配置；没有发送图片。',
+            errorCode: 'vision_unconfigured',
+          );
+        } catch (_) {
+          // A broken or unsafe candidate is skipped; only a successfully
+          // decoded and pixel-matched attachment may become the result.
+        }
+      }
+      return const AgentToolResult(
+        toolId: 'image.web_send',
+        status: AgentToolStatus.noResult,
+        displayText: '候选图片都不符合请求',
+        promptData: '候选经下载、解码与像素核验后没有合格图片；本轮没有发图，不能把网页标题冒充图片。',
+        errorCode: 'no_matching_candidate',
+      );
+    } finally {
+      service.close();
+    }
+  }
+
+  Future<AgentToolResult> _sendAlbumImage(
+    String query, {
+    required String assistantMessageId,
+  }) async {
+    final normalized = query.trim();
+    if (assistantMessageId.trim().isEmpty || normalized.isEmpty) {
+      return const AgentToolResult(
+        toolId: 'album.image_send',
+        status: AgentToolStatus.blocked,
+        displayText: '相册发图请求不完整',
+        promptData: '没有可安全绑定的图片语义目标或当前回复 ID；本轮没有发图。',
+        errorCode: 'invalid_request',
+      );
+    }
+    final matches = CompanionAlbumSearchPolicy.rank(
+      query: normalized,
+      items: await db.companionAlbumItems(limit: 300),
+      limit: 3,
+    );
+    final ambiguous = matches.isEmpty ||
+        matches.first.confidence == 'ambiguous_recent' ||
+        (matches.length > 1 && matches[0].score == matches[1].score);
+    if (ambiguous) {
+      return const AgentToolResult(
+        toolId: 'album.image_send',
+        status: AgentToolStatus.noResult,
+        displayText: '相册里没有唯一明确的匹配图片',
+        promptData: '已只读检索已存相册，但无法唯一确定用户指的图片；应请用户补充主体、类别或内容，不得猜测发图。',
+        errorCode: 'ambiguous_album_match',
+      );
+    }
+    final service = AssistantImageAttachmentService(config: secureConfig);
+    try {
+      final prepared = await service.prepareAlbumItem(
+        item: matches.first.item,
+        messageId: assistantMessageId,
+      );
+      return AgentToolResult(
+        toolId: AgentToolRegistry.albumImageSend.id,
+        status: AgentToolStatus.succeeded,
+        displayText: '已从相册准备真实图片',
+        promptData: '''
+【ALBUM IMAGE ATTACHMENT · TERMINAL COMMIT PENDING】
+已从本地 saved、非 NSFW 相册中匹配真实图片。title=${_oneLine(prepared.sourceTitle, 220)}，已存视觉摘要=${_bounded(prepared.summary, 1000)}。
+本轮没有重新联网识图，也没有修改相册或已读状态。附件只在 assistant message 事务成功后才算发送。
+'''.trim(),
+        resultCount: 1,
+        attachments: <MessageAttachment>[prepared.attachment],
+        terminalCommitPending: true,
+      );
+    } finally {
+      service.close();
+    }
   }
 
   /// Finalizes audit metadata only after a commit-pending media result became

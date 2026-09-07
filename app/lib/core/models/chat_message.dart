@@ -74,6 +74,12 @@ class ChatMessage {
     if (!hasAttachments) return content;
     final caption = content.trim();
     final observations = attachments.where((item) => item.isImage).map((item) {
+      if (isUser && item.source.startsWith('user_sticker:')) {
+        final meaning = item.visionSummary.trim();
+        return meaning.isEmpty
+            ? '[用户发送了一张表情包]'
+            : '[用户发送了一张表情包：$meaning]';
+      }
       if (isAssistant && item.source.startsWith('assistant_sticker:')) {
         final meaning = item.visionSummary.trim();
         return meaning.isEmpty

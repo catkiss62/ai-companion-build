@@ -16,6 +16,45 @@ class StickerPackMeta {
   final int count;
 }
 
+/// UI-only labels for imported sticker metadata. Stable pack ids and the
+/// on-disk ZIP/index stay untouched so re-import and replacement still work.
+class StickerDisplayLabels {
+  const StickerDisplayLabels._();
+
+  static String packName(StickerPackMeta pack) => switch (pack.id) {
+        'personal-001' => '表情包A',
+        'official-001' => '表情包B',
+        _ => pack.name,
+      };
+
+  static String tagName(String tag) {
+    final normalized = tag.trim().toLowerCase();
+    return switch (normalized) {
+      'angry' => '生气',
+      'happy' => '开心',
+      'sad' => '难过',
+      'shy' => '害羞',
+      'confused' => '困惑',
+      'daily' => '日常',
+      'surprised' => '惊讶',
+      'sleep' => '睡觉',
+      'meow' => '喵喵',
+      'morning' => '早上好',
+      'work' => '上班',
+      'like' => '喜欢',
+      'see' => '看看',
+      'reply' => '回复',
+      'sigh' => '叹气',
+      'baka' => '笨蛋',
+      'fool' => '傻瓜',
+      'givemoney' => '给钱',
+      'color' => '彩色',
+      'cpu' => 'CPU',
+      _ => tag.trim().isEmpty ? '其他' : tag.trim(),
+    };
+  }
+}
+
 class StickerRecord {
   const StickerRecord({
     required this.packId,

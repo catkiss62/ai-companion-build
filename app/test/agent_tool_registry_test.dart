@@ -43,6 +43,8 @@ void main() {
       AgentToolRegistry.attachmentSave,
       AgentToolRegistry.imageFindAndSave,
       AgentToolRegistry.stickerSend,
+      AgentToolRegistry.webImageSend,
+      AgentToolRegistry.albumImageSend,
     ]) {
       expect(tool.executable, isTrue);
       expect(tool.userTurnAvailable, isTrue);
@@ -51,6 +53,8 @@ void main() {
       expect(AgentToolRegistry.userTurnExecutable, isNot(contains(tool)));
     }
     expect(AgentToolRegistry.stickerSend.id, 'sticker.send');
+    expect(AgentToolRegistry.webImageSend.id, 'image.web_send');
+    expect(AgentToolRegistry.albumImageSend.id, 'album.image_send');
   });
 
   test('system self and user-triggered screen are bounded read-only', () {

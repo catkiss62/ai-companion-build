@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04146-sticker-agent-continuation-identity`；从 v0.41.45 最终文档 tree `45e2eb9f` 建立。范围限于明确指令的表情包 Agent 闭环、规则01称呼默认迁移和沉浸同轮续写边界；不改 Phase 3B 仲裁、Desire/Thought、主动频率或 3C/MCP |
+| 当前开发分支 | `agent/v04147-user-sticker-picker-image-send`；从 v0.41.46 最终总账 head `4e2c175a5dc7ed5cbb07d671342a8345532287c3` 建立。范围限于用户表情包选择/发送、普通联网图片发送与查手机相册图片发送的媒体闭环；不改 Phase 3B 仲裁、Desire/Thought、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.46 最终 CI head `8498c57ea28287b69f1cff3ca4e1adee2c106871` / tree `b8d88c207ceeb8c1237d541f67fab69ef843603e`；远端 tree 与本地最终 tree 精确一致。公开变更不含用户备份、诊断、聊天正文、三个图库 ZIP、68 张私人图片、密钥或 API 配置 |
-| App / 数据库 | 最新已构建基线为 `0.41.46+185 / schema 55 / Snapshot protocol 5`，不迁移数据库表。旧聊天、规则手改、图库、Memory、Thought、Desire 与 108 条既有行为账本必须保留 |
+| App / 数据库 | 最新已构建基线为 `0.41.46+185 / schema 55 / Snapshot protocol 5`；v0.41.47 目标为 `0.41.47+186`。优先复用现有附件字段与图库索引，若无需新列则保持 schema 55 / protocol 5；旧聊天、规则手改、图库、Memory、Thought、Desire 与 108 条既有行为账本必须保留 |
 | 最终 CI | v0.41.46 Actions run [`34147332627`](https://github.com/catkiss62/ai-companion-build/actions/runs/34147332627) 完整成功：源码/历史 validators、Kotlin、Flutter analyze、全部 Flutter tests、Release APK、固定签名与完整素材校验均通过 |
 | 测试 APK | `AI-Companion-v0.41.46-185-Sticker-Agent-Continuation-Identity-APK.apk`，326,466,734 bytes，`APK READY`；图库媒体不内置于 APK，安装后从本机 ZIP 导入 |
 | APK SHA-256 | `aef5d98801ab8d597843aa124710e12f180432ee7a1ae36436aa26d76a0dcf17`；CI checksum 与 Artifact 下载解包后独立复算一致，APK ZIP 容器测试无错误 |
 | Artifact / Release | Artifact [`10028380700`](https://github.com/catkiss62/ai-companion-build/actions/runs/34147332627/artifacts/10028380700)，ZIP 320,170,876 bytes，digest `sha256:22db545d95b56f89e081ac89b445242e1b6d30799c55fa3e3b0f76e7c36e7eb0`；Draft Release [`untagged-a00bb45c36960231840b`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a00bb45c36960231840b) 保持草稿 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`；v0.41.45 表情包表达层与 v0.41.46 表情 Agent/续写身份均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`；用户于 2026-09-08 以肉眼确认 v0.41.46 表情包 Agent、称呼与沉浸续写 smoke 成功，不要求重复提交备份或诊断，故 v0.41.46 为 `TRUE DEVICE PASSED`。v0.41.47 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.46 先做一次轻量真机 smoke；下一代码包再实施普通联网图与查手机相册图的明确指令 Agent。** 不把 QQ 群聊机制设成独立阶段，也不在本包继续扩功能 |
-| 目标 | 先确认“发个表情包”产生真实附件并能承接自己发了什么、规则01手改保留、短而完整的沉浸回复不再为凑字数续写；随后让 `web image` 与 `album image` 复用同一媒体五项永久合同 |
+| 当前下一步 | **实施 v0.41.47：让用户从已导入图库选择并发送表情包，同时补齐普通联网图片与查手机相册图片的明确指令 Agent。** 三条媒体链共用一个 APK，但保持独立提交与独立回归测试 |
+| 目标 | 左下角把现有“发送图片/世界书”两按钮收进一个圆形入口，向上展开小胶囊抽屉，依次提供表情包、发送图片、世界书；表情选择器按图库包大类与 tag 小类排版，小类中文显示，支持长按约 180dp 预览、单点暂存输入框、单选替换及右上角取消；用户发送后直接按索引语义让她认识，严禁进入千问识图。联网图与相册图则必须成为真实 assistant 附件，并满足五项媒体合同 |
 | 当前证据 | 真机 3B 证据不变：108 条账本无重复 heartbeat，discovery Provider 失败后以原始动机 `0.8398` 恢复并安静入库。私人 ZIP 为 68 张（30 GIF、38 JPEG），无路径穿越、空文件或精确重复；逐张首帧及全部 GIF 三帧复核后形成 44 general / 17 bold / 5 nsfw / 2 disabled，生成 34,785,978-byte dsh 兼容包，ZIP 测试、68 行 SQLite 索引、文件存在与源/副本字节哈希均通过 |
 | 保护与排除 | 明确不采用外部 QQ 项目的工具化潜水/唤醒，也不采用从用户消息长度、沉默或接话频率推断偏好的“语言适应”；短回复不得被解释为冷场或负反馈。表情包仍不改主人格、Desire/Thought、Moe 或自主行为竞争；规则01迁移只能替换未被用户编辑的旧默认值，必须保留用户已手改文本；NSFW 不改题材、欲望系统或正文自由度，只修 assistant 身份归属和 reasoning 持久化边界 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 表情包主参考 `https://github.com/yyh-001/dsh-meme`，图库参考 `https://github.com/yyh-001/dsh-meme-packs`；`https://github.com/nanbengxian-cyber/dafeiyu-qq-bot` 只取 Agent 自读/工具真实性思路，不设“QQ 项目接入”独立阶段。明确表情命令复用 v0.41.45 的 `sticker_packs/`、安全选择器和附件事务。沉浸首轮不再用 1000/1200～1600 等固定字数作为二次请求触发器；仅 `length` 截断或未闭合句子/对白才继续，续写只补完当前节拍，不新增阶段，并且其隐藏 reasoning 不落入可见/持久字段。优先级 1000 世界书不作为修法 |
-| 完成判据 | v0.41.46 自动门已全部通过；真机只需轻量验证明确表情指令、失败真值、重启后自我认知、相册零污染、称呼迁移与沉浸截断边界。普通联网图/相册图须另有 Agent 自读、真实附件、失败 Outcome、来源与第一人称历史后才算完成 |
+| 实现边界 | 大类以稳定 pack ID 读取已导入图库，不把不同图库扁平混合；显示层固定把 `personal-001` 显示为“表情包A”、`official-001` 显示为“表情包B”，不修改 ZIP、manifest、索引或路径，其他包继续显示 manifest 名称。小类保留底层英文 tag，仅 UI 翻译为生气、开心、难过、害羞、困惑、日常、惊讶、睡觉、喵喵、早上好、上班、喜欢、看看、回复、叹气、笨蛋、傻瓜、给钱、彩色、CPU，未知自定义 tag 原样显示。用户表情附件以 `user_sticker:` provenance 和已完成的 `sticker_index` 语义提交，跳过视觉 Provider、相册候选与重试入口；失败不落消息。联网图必须验证 URL/重定向/MIME/大小并保留网页来源，相册图只允许读取她已经保存的本机相册条目；两者均不允许模型指定路径 |
+| 完成判据 | 选择器的大类/小类、静图/GIF、长按松开预览、暂存/替换/取消、纯表情与“表情+文字”均有测试；用户表情历史写成“用户发送了一张表情包：索引描述”，无视觉调用、无相册污染。联网图/相册图分别具有 Agent registry/self-reader、受约束选择、真实附件事务、失败 Outcome、来源与发送后第一人称历史；停止/失效/事务失败不留假发送。全部专项/历史 validators、Flutter analyze/tests、Kotlin、APK、签名与资源校验通过后交付 |
 | 直接详细入口 | 下方“2026-09-08 媒体 Agent 永久合同、称呼规则与 NSFW 续写身份诊断”；表情包实现见“2026-09-07 v0.41.45 单聊表情包表达层”；3B 继续参照“2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工” |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -76,8 +76,8 @@
 | D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PASSED） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过；v0.41.42 新进程后的真实自主联网写入 1 个 forming 候选与 1 个 active evidence，未提前成熟且三项消费开关关闭 | 核心真机门已解除；跨日期成熟、删除撤销与长期新鲜度继续随自然使用观察，不阻塞 3B，也不得倒写成已有真机样本 |
 | D2 · Phase 3B 主动来源平衡（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | v0.41.44 真机已证明主动聊天正常、安静 discovery 完整入库、Provider 失败后恢复、单 heartbeat 无重复，且网页成功没有同轮再发消息 | 继续自然观察额度耗尽 capability defer 和新版 rest；这两项无样本，故不升为完整 `TRUE DEVICE PASSED`，3C/MCP 仍关闭 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
-| D4 · 单聊表情包表达层（CI PASSED / APK READY / TRUE DEVICE PENDING） | 单包与原子组合包导入、本地随机表达、附件事务、GIF、固定 180dp 宽度、明确指令 `sticker.send`、Agent 自读及发送后第一人称 caption 均已实现；默认频率为“自然” | v0.41.46 只需轻量 smoke，不硬等自然频率；无包/无匹配/事务失败不得幻觉成功。联网图/相册图在后续独立媒体版本复用同一永久合同 |
-| D5 · 普通图片 Agent 调用闭环（NEXT） | 表情包明确指令已完成；所有媒体能力必须同时有 Agent registry/self-reader、真实执行、附件事务、失败真值、来源与发送后自我认知 | 普通联网图/相册图另开下一版本；联网图增加 URL/MIME/大小/重定向/来源与下载失败边界，相册图增加权限、隐私和本机引用边界。自主发图以后再接统一仲裁 |
+| D4 · 单聊表情包表达层（TRUE DEVICE PASSED；用户发送 UI 为 v0.41.47 NEXT） | v0.41.46 的单包/组合包导入、本地随机表达、附件事务、GIF、固定 180dp、明确指令 `sticker.send`、Agent 自读与后续认知已由用户肉眼确认成功，无需重复备份/诊断 | v0.41.47 复用同一图库增加用户选择器与 `user_sticker:` 无视觉附件链；不得改变她现有的随机表达和 Agent 选图策略 |
+| D5 · 双向普通图片与用户表情媒体闭环（NEXT） | v0.41.46 真机门已通过；用户明确要求把用户表情选择与普通联网图/相册图 Agent 合并为下一 APK | 以三个独立实现/测试面共用 v0.41.47：用户表情 UI 与无视觉历史、联网图片真实发送、已有相册图片真实发送。自主媒体以后再接统一仲裁 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
@@ -86,7 +86,25 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-08 v0.41.46 媒体 Agent、称呼规则与沉浸续写身份（CI PASSED / APK READY / TRUE DEVICE PENDING）
+### 2026-09-08 v0.41.47 用户表情选择与普通图片 Agent（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户已在真机肉眼确认 v0.41.46 成功，明确表示本轮不需要备份或脱敏诊断。证据类型为用户人工 smoke；因此把 v0.41.46 提升为 `TRUE DEVICE PASSED`，但不伪造附件样本。
+2. 用户要求下一代码包继续普通联网图与查手机相册图的明确指令 Agent，并合入用户自己发送表情包的入口。当前普通聊天输入栏左侧确实有“发送图片”和“世界书模块”两个独立 `IconButton`；v0.41.47 将其替换为一个圆形入口，按用户参考图向上展开小胶囊抽屉，内部依次是表情包、发送图片、世界书。抽屉只承担入口，不把大型图库网格硬塞进胶囊。
+3. 当前图库数据天然存在两层：`StickerPackMeta` 是包/大类，`StickerRecord.tag` 是小类。选择器大类使用“全部 + 各已启用图库名称”，小类使用当前结果中真实存在的 tag；只翻译显示名，底层 tag、路径、caption、keywords 与她现有自动/Agent 选图逻辑不改。上游当前中文表固定为：angry 生气、happy 开心、sad 难过、shy 害羞、confused 困惑、daily 日常、surprised 惊讶、sleep 睡觉、meow 喵喵、morning 早上好、work 上班、like 喜欢、see 看看、reply 回复、sigh 叹气、baka 笨蛋、fool 傻瓜、givemoney 给钱、color 彩色、cpu CPU；未知自定义 tag 原样显示，避免错误翻译。
+4. 手机排版冻结为：底部 Sheet 顶部横向大类标签、下一行横向小类标签、下方自适应四列缩略图网格。长按用临时 overlay 显示与聊天表情一致的约 180dp 原图/GIF，松开、取消长按或页面失焦立即移除；单点不发送，只替换当前暂存项并关闭选择器。输入框最左侧显示更小缩略图，右上角 `×` 可取消；同时最多一个表情，选择新图原子替换旧选择。
+5. 发送时允许“纯表情”或“表情 + 输入文字”；附件在消息气泡中仍位于文字上方。用户表情不能走现有 `sendPreparedImage → _analyzeImageMessage` 路径，而应直接从安全图库文件准备附件，提交时写 `source=user_sticker:<packId>`、`vision_status=completed`、`vision_model=sticker_index`、`vision_summary=index caption`。历史必须注入“用户发送了一张表情包：…”；UI 不显示视觉等待/失败或重试，启动恢复也不得把它当未完成识图，相册候选不得接收它。
+6. 普通联网图和查手机相册图继续执行 P0 媒体五项合同。计划新增两个明确、user-turn-only 的 proposal 工具，分别只接受语义查询/相册条目句柄；工具在运行端选择真实来源并准备 assistant 附件，只有 assistant 消息原子提交成功后才记 terminal success 和发送历史。联网图增加 URL、重定向、MIME、大小、来源与下载失败边界；相册图只从现有 saved 本机条目读取，不允许模型提供路径，不把发送动作误记为新收藏。
+7. 本包不改表情自动频率、assistant `sticker.send` 选择策略、主人格、Desire/Thought、Phase 3B 仲裁、主动消息额度、图库导入格式、世界书行为、普通用户图片识图、相册六类标签、沉浸房间或 MCP。用户表情是普通聊天中的显式用户发送行为，不进入自主竞争。
+8. 用户追加要求不修改已导入 ZIP 的前提下改显示名称：“个人表情包 68 张”改为“表情包A”，“官方表情包1号”改为“表情包B”。当前 pack ID 已足够稳定，不需要再次上传 ZIP：显示层按 `personal-001` / `official-001` 覆盖别名，底层 manifest 名称、索引、路径和导入替换身份保持原样。别名同时用于表情设置页与聊天选择器；未知或以后新增 pack 不擅自改名。
+9. 运行实现已完成：`StickerDisplayLabels` 仅在 UI 层按稳定 ID 映射“表情包A/B”和中文 tag；设置页的导入结果、列表、删除确认与聊天选择器共用同一显示函数。ZIP、manifest、`index.db`、pack ID 和文件 path 均未改写，不需要用户重发 ZIP。
+10. `ChatPage` 已把图片/世界书两按钮收进单一圆形入口，通过可点击的 root overlay 向上展开三项胶囊。表情 Sheet 只读已启用包，两行 ChoiceChip 分别显示大类/小类及真实数量，四列展示静图/GIF；长按显示 180dp 临时预览，松开/取消移除，单点只替换输入框左侧唯一暂存缩略图，右上角可取消。
+11. `ChatController.sendText` 现在允许纯表情或表情+文字，并在创建用户回合前从安全包路径复制附件；`AppDatabase.createGenerationTurn` 将 user message、`user_sticker:` 附件与 generation job 置于同一事务。附件直接写 `completed / sticker_index / index caption`，因此无千问调用、无识图状态/重试 UI、无相册候选；下一轮历史为“用户发送了一张表情包：caption”。事务前失败清理文件并恢复输入框暂存。
+12. Agent registry 新增明确指令专用、proposal-risk、`autonomous=false` 的 `image.web_send` 与 `album.image_send`。前者搜索最多三个图片候选，每次限定 HTTPS、最多三次重定向、公网 host、JPEG/PNG/WebP/GIF 与 25MB 流式上限，再用去元数据缩略图做 Qwen 请求像素核验（match 且 confidence>=0.72）；发送不写入她的相册。后者通过本地语义排名只选 `saved / 非 NSFW` 条目，平分或无语义线索时返回需澄清；优先原图、否则使用同一已存缩略图，复用相册摘要而不重新识图。
+13. 两种 assistant 普通图都写真实 `assistant_web_image:<page URL>` / `assistant_album_image:<item id>` provenance，并以 `terminalCommitPending=true` 复用已有 assistant 消息+附件原子提交与失败清理；`OperationalClaimGroundingGuard` 新增普通图发送声称拦截，无本轮真实成功工具结果时不能文字冒充已发图。现有用户普通图识图、assistant 随机/Agent 表情、Desire/Thought/Phase 3B 均未改策略。
+14. 版本已设为 `0.41.47+186 / schema 55 / Snapshot protocol 5`，新增结构与语义回归测试、`validate_v04147_user_sticker_image_send.py` 及 v0.41.47 workflow/Artifact/Draft Release 身份。v0.41.43/45/46/47 专项 validator、当前总账 validator 和 `git diff --check` 已通过。尝试运行 202 个历史 validator 时，70 个通过，其余主要因本地 sparse checkout 未恢复二进制素材/Kotlin 工具链或老 validator 只允许旧版本；workflow 实际调用集中，v0.41.43/45 版本兼容已补齐，资源相关项将由 CI 先恢复精确素材后验证。当前环境无 Flutter/Dart SDK，不写成 analyze/tests/APK 已通过。
+
+
+### 2026-09-08 v0.41.46 媒体 Agent、称呼规则与沉浸续写身份（TRUE DEVICE PASSED）
 
 1. 用户发现 v0.41.45 遗漏明确指令的 Agent 能力：当前 `StickerExpressionService` 只在普通正文、情绪和 Conversation Move 已经生成后，以本地概率为现有回复附带表情；Agent registry/executor 没有 `sticker.send`。因此用户说“发个表情包”时，模型可能只用文字声称发送。此前“发送后知道自己发了什么”的附件历史合同是真实存在的，但它只覆盖随机成功发送后的下一轮认知，不能替代 Agent 可调用性。
 2. **永久媒体合同提升为 P0：只要产品声称她能发送某种媒体，就必须同时完成五件事——Agent 自读能看见能力与状态、模型能选择受约束工具、执行器提交真实附件、Outcome 如实区分成功/失败、后续第一人称历史包含媒体内容与来源。** UI 可导入、后台可随机附图或提示词写“可以发送”均不能单独算能力完成。此合同适用于表情包、联网图片、相册图片以及以后新增的音频/视频；失败、权限拒绝、无匹配、用户抢占和事务回滚不得留下“已发送”记忆。
@@ -110,7 +128,7 @@
 20. 第一条 workflow 标记提交 `4efd1163fda2532294d3ce51aee730b314256261` 启动完整构建后，被随后的常规 GitHub 文件提交按同分支 concurrency 自动取消；run [`34147036908`](https://github.com/catkiss62/ai-companion-build/actions/runs/34147036908) 已通过干净源码基线与首批资源恢复后取消，不是代码或测试失败。最终 CI head 为 `8498c57ea28287b69f1cff3ca4e1adee2c106871` / tree `b8d88c207ceeb8c1237d541f67fab69ef843603e`，与本地最终 tree 相同，运行实现相对已核验 tree 仅多一行 workflow 注释。
 21. Actions run [`34147332627`](https://github.com/catkiss62/ai-companion-build/actions/runs/34147332627) 在最终 head 完整成功：源码/历史 validators、Kotlin 桌宠与悬浮文本测试、Flutter analyze、全部 Flutter tests、Release APK、固定 signer `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`、原生库、417 文件桌宠、Meju TTS、LingChat 62 文件、22 张塔罗、checksum、Artifact 与 Draft Release 全部通过；失败报告 job 正常 skipped。
 22. Artifact [`10028380700`](https://github.com/catkiss62/ai-companion-build/actions/runs/34147332627/artifacts/10028380700) ZIP 为 320,170,876 bytes，GitHub digest 与独立下载复算均为 `sha256:22db545d95b56f89e081ac89b445242e1b6d30799c55fa3e3b0f76e7c36e7eb0`，`unzip -t` 无错误。内部 APK 为 326,466,734 bytes，独立 SHA-256 `aef5d98801ab8d597843aa124710e12f180432ee7a1ae36436aa26d76a0dcf17`，与 CI checksum 一致，APK ZIP 容器完整。Draft Release [`untagged-a00bb45c36960231840b`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-a00bb45c36960231840b) 保持草稿；`main` 未合并，正式 Release 未发布。
-23. 当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。本包不影响 Phase 3B 参数或主动频率；真机无需长等，只需轻量检查组合图库仍可用、明确“发个表情包”出现真实附件、后续知道自己发了什么、失败时不幻觉、相册不被图库污染、规则01用户手改保留，以及短而完整的沉浸输出不再为凑字数续写。下一代码包转向普通联网图/相册图的明确指令 Agent，自主媒体与 MCP 继续后置。
+23. 用户于 2026-09-08 完成人工 smoke，并明确确认肉眼检查成功、不需要重复提交备份或脱敏诊断。当前严格状态提升为 `TRUE DEVICE PASSED`；证据类型为用户人工确认，不伪造诊断字段。本包不影响 Phase 3B 参数或主动频率。下一代码包转向普通联网图/相册图明确指令 Agent与用户表情选择器，自主媒体与 MCP 继续后置。
 
 
 ### 2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据（TRUE DEVICE PARTIAL）

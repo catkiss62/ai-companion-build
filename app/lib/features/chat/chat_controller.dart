@@ -41,6 +41,8 @@ import '../../core/relationship/relationship_assimilator.dart';
 import '../../core/storage/secure_config.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/storage/companion_album_storage.dart';
+import '../../core/stickers/sticker_pack.dart';
+import '../../core/stickers/sticker_pack_storage.dart';
 import '../../core/tts/emotion_sound_service.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../core/tts/tts_policy.dart';
@@ -887,9 +889,18 @@ class ChatController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> sendText(String raw, {String? requestedMessageId}) async {
+  Future<bool> sendText(
+    String raw, {
+    String? requestedMessageId,
+    StickerPackMeta? userStickerPack,
+    StickerRecord? userSticker,
+  }) async {
     final text = raw.trim();
-    if (text.isEmpty || generationActive || analyzingImage) return;
+    final hasSticker = userStickerPack != null && userSticker != null;
+    if ((text.isEmpty && !hasSticker) || generationActive || analyzingImage) {
+      return false;
+    }
+    if ((userStickerPack == null) != (userSticker == null)) return false;
     error = null;
 
     final stableMessageId = requestedMessageId?.trim();
@@ -903,7 +914,7 @@ class ChatController extends ChangeNotifier {
         messages = await db.recentMessages(limit: 160);
         _safeNotify();
         unawaited(_scheduleGenerationRecovery());
-        return;
+        return true;
       }
     }
 
@@ -911,31 +922,31 @@ class ChatController extends ChangeNotifier {
     if ((await db.getSetting('transfer_lock')) == '1') {
       error = '她正在换到另一台设备，接管完成前先不能继续聊天。';
       _safeNotify();
-      return;
+      return false;
     }
     if ((await db.getSetting('active_brain')) == '0') {
       error = '她现在在另一台设备上。请先到“更多”→“手机 / 平板接管”把她接到这台设备，再继续聊天。';
       _safeNotify();
-      return;
+      return false;
     }
     final failedTurn = await db.failedGenerationNeedingAttention();
     if (failedTurn != null) {
       error = '上一轮回复需要你处理一下。请到“更多”→“权限与系统状态”→“长期运行诊断”选择重新尝试或放弃这一轮后再继续。';
       _safeNotify();
-      return;
+      return false;
     }
     final apiKey = await secureConfig.readApiKey();
     if (apiKey == null || apiKey.isEmpty) {
       error = '请先到“更多”→“AI 与陪伴设置”填写 DeepSeek API Key。';
       _safeNotify();
-      return;
+      return false;
     }
     final blocking = await db.blockingGenerationJob();
     if (blocking != null) {
       error = '刚才那轮回复还在恢复，请等她接回来后再发送新消息。';
       _safeNotify();
       unawaited(_scheduleGenerationRecovery());
-      return;
+      return false;
     }
 
     final chatLease = await db.tryAcquireLocalLease(
@@ -945,7 +956,7 @@ class ChatController extends ChangeNotifier {
     if (!chatLease) {
       error = '另一处聊天窗口正在发送消息，请等她这一轮回复完成后再试。';
       _safeNotify();
-      return;
+      return false;
     }
 
     sending = true;
@@ -962,6 +973,7 @@ class ChatController extends ChangeNotifier {
     _safeNotify();
 
     var durableTurnCreated = false;
+    MessageAttachment? preparedUserStickerAttachment;
 
     try {
       if ((await db.getSetting('transfer_lock')) == '1') {
@@ -973,14 +985,46 @@ class ChatController extends ChangeNotifier {
 
       cancellation.throwIfCancelled();
       await _refreshChatRoutingSettings();
-      final user = ChatMessage(
-        id: stableMessageId != null && stableMessageId.isNotEmpty
+      final userId = stableMessageId != null && stableMessageId.isNotEmpty
             ? stableMessageId
-            : _uuid.v4(),
+            : _uuid.v4();
+      if (hasSticker) {
+        final selectedPack = userStickerPack!;
+        final selectedRecord = userSticker!;
+        final stickerFile = await StickerPackStorage(db: db).fileFor(
+          selectedPack,
+          selectedRecord,
+        );
+        final draft = await attachmentStorage.prepareImage(
+          sourcePath: stickerFile.path,
+          source: 'user_sticker:${selectedRecord.packId}',
+          mimeType: switch (p.extension(selectedRecord.path).toLowerCase()) {
+            '.gif' => 'image/gif',
+            '.png' => 'image/png',
+            '.webp' => 'image/webp',
+            _ => 'image/jpeg',
+          },
+        );
+        final committed = await attachmentStorage.commitDraft(
+          draft,
+          messageId: userId,
+        );
+        preparedUserStickerAttachment = committed.copyWith(
+          visionStatus: MessageAttachment.visionCompletedStatus,
+          visionSummary: selectedRecord.caption,
+          visionModel: 'sticker_index',
+          visionUpdatedAt: DateTime.now(),
+        );
+      }
+      final user = ChatMessage(
+        id: userId,
         role: 'user',
         content: text,
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
+        attachments: preparedUserStickerAttachment == null
+            ? const <MessageAttachment>[]
+            : <MessageAttachment>[preparedUserStickerAttachment],
       );
       final job = await db.createGenerationTurn(
         user: user,
@@ -1029,6 +1073,13 @@ class ChatController extends ChangeNotifier {
       }
       error = null;
     } catch (e) {
+      if (!durableTurnCreated && preparedUserStickerAttachment != null) {
+        try {
+          await attachmentStorage.deleteAttachmentFiles(
+            preparedUserStickerAttachment,
+          );
+        } catch (_) {}
+      }
       await _stopTurnAudio();
       final jobId = _activeGenerationJobId;
       if (durableTurnCreated && jobId != null) {
@@ -1067,6 +1118,7 @@ class ChatController extends ChangeNotifier {
         unawaited(_scheduleGenerationRecovery());
       }
     }
+    return durableTurnCreated;
   }
 
   Future<void> _executeCurrentProcessGeneration({

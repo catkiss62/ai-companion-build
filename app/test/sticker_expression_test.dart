@@ -1,10 +1,35 @@
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
+import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('pack aliases and Chinese tag labels do not mutate stable ids', () {
+    const personal = StickerPackMeta(
+      id: 'personal-001',
+      name: '个人表情包 68 张',
+      description: '',
+      license: '',
+      rootPath: '/ignored',
+      count: 68,
+    );
+    const official = StickerPackMeta(
+      id: 'official-001',
+      name: '官方表情包1号',
+      description: '',
+      license: '',
+      rootPath: '/ignored',
+      count: 20,
+    );
+    expect(StickerDisplayLabels.packName(personal), '表情包A');
+    expect(StickerDisplayLabels.packName(official), '表情包B');
+    expect(personal.id, 'personal-001');
+    expect(StickerDisplayLabels.tagName('happy'), '开心');
+    expect(StickerDisplayLabels.tagName('custom_tag'), 'custom_tag');
+  });
+
   group('sticker expression mapping', () {
     test('maps existing companion emotion keys to six local moods', () {
       expect(StickerExpressionService.moodForEmotion('playful'), 'happy');
@@ -160,5 +185,36 @@ void main() {
     expect(message.promptContent, contains('[我发送了一张图片；图片内容：'));
     expect(message.promptContent, contains('一张蓝色调的二次元插画'));
     expect(message.promptContent, isNot(contains('用户发送了一张图片')));
+  });
+
+  test('user sticker uses indexed meaning and never becomes vision input', () {
+    final message = ChatMessage(
+      id: 'user-sticker-1',
+      role: 'user',
+      content: '晚安',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(3000),
+      attachments: [
+        MessageAttachment(
+          id: 'sticker-user-1',
+          messageId: 'user-sticker-1',
+          kind: MessageAttachment.imageKind,
+          originalPath: 'originals/sticker-user-1.gif',
+          thumbnailPath: 'thumbnails/sticker-user-1.png',
+          mimeType: 'image/gif',
+          byteSize: 123,
+          width: 120,
+          height: 120,
+          source: 'user_sticker:personal-001',
+          createdAt: DateTime.fromMillisecondsSinceEpoch(3000),
+          visionStatus: MessageAttachment.visionCompletedStatus,
+          visionSummary: '抱着枕头困困地说晚安',
+          visionModel: 'sticker_index',
+        ),
+      ],
+    );
+    expect(message.promptContent, contains('[用户发送了一张表情包：'));
+    expect(message.promptContent, contains('抱着枕头困困地说晚安'));
+    expect(message.promptContent, isNot(contains('视觉模型观察')));
+    expect(message.promptContent, contains('附言：晚安'));
   });
 }

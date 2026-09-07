@@ -13,6 +13,8 @@ import '../../core/models/message_attachment.dart';
 import '../../core/models/reference_document.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
+import '../../core/stickers/sticker_pack.dart';
+import '../../core/stickers/sticker_pack_storage.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_notification_settings.dart';
@@ -47,6 +49,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final ScrollController scroll = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   final AndroidBridge _android = AndroidBridge.instance;
+  late final StickerPackStorage _stickerStorage =
+      StickerPackStorage(db: AppDatabase.instance);
+  final LayerLink _composerToolsLink = LayerLink();
+  OverlayEntry? _composerToolsOverlay;
+  _SelectedUserSticker? _selectedUserSticker;
   Timer? _externalSyncTimer;
   bool _appResumed = true;
   bool _pickingImage = false;
@@ -469,6 +476,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _externalSyncTimer?.cancel();
+    _composerToolsOverlay?.remove();
+    _composerToolsOverlay = null;
     controller.removeListener(_onChanged);
     controller.dispose();
     input.dispose();
@@ -551,11 +560,111 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _send() async {
     final text = input.text;
-    if (text.trim().isEmpty || controller.analyzingImage) return;
+    final sticker = _selectedUserSticker;
+    if ((text.trim().isEmpty && sticker == null) || controller.analyzingImage) {
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     _followLatest = true;
     input.clear();
-    await controller.sendText(text);
+    if (mounted) setState(() => _selectedUserSticker = null);
+    final accepted = await controller.sendText(
+      text,
+      userStickerPack: sticker?.pack,
+      userSticker: sticker?.record,
+    );
+    if (!accepted && mounted) {
+      if (input.text.isEmpty) input.text = text;
+      setState(() => _selectedUserSticker ??= sticker);
+    }
+  }
+
+  void _closeComposerTools() {
+    _composerToolsOverlay?.remove();
+    _composerToolsOverlay = null;
+  }
+
+  void _toggleComposerTools() {
+    if (_composerToolsOverlay != null) {
+      _closeComposerTools();
+      return;
+    }
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _composerToolsOverlay = OverlayEntry(
+      builder: (overlayContext) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _closeComposerTools,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _composerToolsLink,
+            targetAnchor: Alignment.topLeft,
+            followerAnchor: Alignment.bottomLeft,
+            offset: const Offset(0, -8),
+            showWhenUnlinked: false,
+            child: Material(
+              elevation: 8,
+              color: Theme.of(overlayContext)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.98),
+              shape: const StadiumBorder(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: '表情包',
+                      onPressed: () {
+                        _closeComposerTools();
+                        unawaited(_openStickerPicker());
+                      },
+                      icon: const Icon(Icons.emoji_emotions_outlined),
+                    ),
+                    IconButton(
+                      tooltip: '发送图片',
+                      onPressed: () {
+                        _closeComposerTools();
+                        unawaited(_chooseImageSource());
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                    ),
+                    IconButton(
+                      tooltip: '世界书',
+                      onPressed: () {
+                        _closeComposerTools();
+                        unawaited(_openWorldBookQuickPanel());
+                      },
+                      icon: const Icon(Icons.auto_stories_outlined),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_composerToolsOverlay!);
+  }
+
+  Future<void> _openStickerPicker() async {
+    final selected = await showModalBottomSheet<_SelectedUserSticker>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _StickerPickerSheet(
+        storage: _stickerStorage,
+        nsfwActive: controller.nsfwActive,
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedUserSticker = selected);
+    inputFocus.requestFocus();
   }
 
   Future<void> _recoverLostImage() async {
@@ -1923,28 +2032,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            IconButton(
-              onPressed: controller.generationActive ||
-                      controller.savingImage ||
-                      controller.analyzingImage ||
-                      _pickingImage
-                  ? null
-                  : _chooseImageSource,
-              tooltip: '发送图片',
-              icon: _pickingImage || controller.savingImage
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add_photo_alternate_outlined),
+            CompositedTransformTarget(
+              link: _composerToolsLink,
+              child: IconButton.filledTonal(
+                onPressed: controller.generationActive ||
+                        controller.savingImage ||
+                        controller.analyzingImage ||
+                        _pickingImage
+                    ? null
+                    : _toggleComposerTools,
+                tooltip: '表情包、图片与世界书',
+                icon: _pickingImage || controller.savingImage
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        _composerToolsOverlay == null
+                            ? Icons.add_rounded
+                            : Icons.close_rounded,
+                      ),
+              ),
             ),
-            IconButton(
-              onPressed: controller.generationActive || controller.analyzingImage
-                  ? null
-                  : _openWorldBookQuickPanel,
-              tooltip: '世界书模块',
-              icon: const Icon(Icons.auto_stories_outlined),
-            ),
+            const SizedBox(width: 6),
             Expanded(
               child: TextField(
                 controller: input,
@@ -1953,10 +2063,64 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 maxLines: 5,
                 style: const TextStyle(color: Colors.white),
                 textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '和她说点什么…',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   isDense: true,
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 0,
+                    minHeight: 0,
+                  ),
+                  prefixIcon: _selectedUserSticker == null
+                      ? null
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 7, 4),
+                          child: SizedBox.square(
+                            dimension: 42,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned.fill(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.file(
+                                      _selectedUserSticker!.file,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.broken_image_outlined,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -7,
+                                  top: -7,
+                                  child: GestureDetector(
+                                    onTap: () => setState(
+                                      () => _selectedUserSticker = null,
+                                    ),
+                                    child: Container(
+                                      width: 19,
+                                      height: 19,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .error,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -1976,6 +2140,289 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SelectedUserSticker {
+  const _SelectedUserSticker({
+    required this.pack,
+    required this.record,
+    required this.file,
+  });
+
+  final StickerPackMeta pack;
+  final StickerRecord record;
+  final File file;
+}
+
+class _StickerPickerItem {
+  const _StickerPickerItem({
+    required this.pack,
+    required this.record,
+    required this.file,
+  });
+
+  final StickerPackMeta pack;
+  final StickerRecord record;
+  final File file;
+
+  _SelectedUserSticker get selection => _SelectedUserSticker(
+        pack: pack,
+        record: record,
+        file: file,
+      );
+}
+
+class _StickerPickerSheet extends StatefulWidget {
+  const _StickerPickerSheet({
+    required this.storage,
+    required this.nsfwActive,
+  });
+
+  final StickerPackStorage storage;
+  final bool nsfwActive;
+
+  @override
+  State<_StickerPickerSheet> createState() => _StickerPickerSheetState();
+}
+
+class _StickerPickerSheetState extends State<_StickerPickerSheet> {
+  List<StickerPackMeta> _packs = const <StickerPackMeta>[];
+  List<_StickerPickerItem> _items = const <_StickerPickerItem>[];
+  String? _packId;
+  String? _tag;
+  String? _error;
+  bool _loading = true;
+  OverlayEntry? _preview;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _hidePreview();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final enabledIds = await widget.storage.enabledPackIds();
+      final packs = (await widget.storage.scanPacks())
+          .where((pack) => enabledIds.contains(pack.id))
+          .toList(growable: false);
+      final items = <_StickerPickerItem>[];
+      for (final pack in packs) {
+        final records = await widget.storage.readRecords(pack);
+        for (final record in records) {
+          if (!record.enabled || record.toneScope == 'disabled') continue;
+          if (record.toneScope == 'nsfw' && !widget.nsfwActive) continue;
+          items.add(_StickerPickerItem(
+            pack: pack,
+            record: record,
+            file: await widget.storage.fileFor(pack, record),
+          ));
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _packs = packs;
+        _items = items;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '读取表情包失败：$error';
+      });
+    }
+  }
+
+  List<_StickerPickerItem> get _packItems => _packId == null
+      ? _items
+      : _items.where((item) => item.pack.id == _packId).toList(growable: false);
+
+  List<String> get _tags {
+    final tags = _packItems.map((item) => item.record.tag).toSet().toList()
+      ..sort((a, b) => StickerDisplayLabels.tagName(a)
+          .compareTo(StickerDisplayLabels.tagName(b)));
+    return tags;
+  }
+
+  List<_StickerPickerItem> get _visibleItems {
+    final packItems = _packItems;
+    final tag = _tag;
+    return tag == null
+        ? packItems
+        : packItems
+            .where((item) => item.record.tag == tag)
+            .toList(growable: false);
+  }
+
+  void _showPreview(_StickerPickerItem item) {
+    _hidePreview();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _preview = OverlayEntry(
+      builder: (context) => IgnorePointer(
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: 0.22),
+          child: Center(
+            child: Material(
+              elevation: 14,
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minWidth: 180,
+                  maxWidth: 180,
+                  maxHeight: 320,
+                ),
+                child: Image.file(
+                  item.file,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    width: 180,
+                    height: 180,
+                    child: Icon(Icons.broken_image_outlined),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_preview!);
+  }
+
+  void _hidePreview() {
+    _preview?.remove();
+    _preview = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(_error!, textAlign: TextAlign.center),
+                  ))
+                : _packs.isEmpty
+                    ? const Center(child: Text('还没有启用的表情包，请先到设置中导入并开启。'))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Text('选择表情包 · 长按预览，单击放入输入框'),
+                          ),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                ChoiceChip(
+                                  label: Text('全部大类 ${_items.length}'),
+                                  selected: _packId == null,
+                                  onSelected: (_) => setState(() {
+                                    _packId = null;
+                                    _tag = null;
+                                  }),
+                                ),
+                                for (final pack in _packs) ...[
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: Text(
+                                      '${StickerDisplayLabels.packName(pack)} ${_items.where((item) => item.pack.id == pack.id).length}',
+                                    ),
+                                    selected: _packId == pack.id,
+                                    onSelected: (_) => setState(() {
+                                      _packId = pack.id;
+                                      _tag = null;
+                                    }),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                ChoiceChip(
+                                  label: Text('全部小类 ${_packItems.length}'),
+                                  selected: _tag == null,
+                                  onSelected: (_) => setState(() => _tag = null),
+                                ),
+                                for (final tag in _tags) ...[
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: Text(
+                                      '${StickerDisplayLabels.tagName(tag)} ${_packItems.where((item) => item.record.tag == tag).length}',
+                                    ),
+                                    selected: _tag == tag,
+                                    onSelected: (_) => setState(() => _tag = tag),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 18),
+                          Expanded(
+                            child: GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: _visibleItems.length,
+                              itemBuilder: (context, index) {
+                                final item = _visibleItems[index];
+                                return GestureDetector(
+                                  onTap: () => Navigator.pop(
+                                    context,
+                                    item.selection,
+                                  ),
+                                  onLongPressStart: (_) => _showPreview(item),
+                                  onLongPressEnd: (_) => _hidePreview(),
+                                  onLongPressCancel: _hidePreview,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(5),
+                                      child: Image.file(
+                                        item.file,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(Icons.broken_image_outlined),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
       ),
     );
   }
@@ -2205,7 +2652,8 @@ class _MessageBubble extends StatelessWidget {
               onTap: () => onOpenAttachment(attachment),
             ),
             const SizedBox(height: 5),
-            if (message.isUser)
+            if (message.isUser &&
+                !attachment.source.startsWith('user_sticker:'))
               _VisionStatus(
                 attachment: attachment,
                 onRetry: onRetryVision,
@@ -2669,7 +3117,8 @@ class _AttachmentThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sticker = attachment.source.startsWith('assistant_sticker:');
+    final sticker = attachment.source.startsWith('assistant_sticker:') ||
+        attachment.source.startsWith('user_sticker:');
     final animatedSticker = attachment.mimeType == 'image/gif' && sticker;
     return FutureBuilder<File>(
       future: storage.fileFor(

@@ -106,6 +106,24 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const webImageSend = AgentToolDefinition(
+    id: 'image.web_send',
+    title: '联网寻找并发送图片',
+    description: '仅按用户本轮明确要求，搜索公开图片、下载同一候选并经像素核验后随当前回复发送；不保存到她的相册。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const albumImageSend = AgentToolDefinition(
+    id: 'album.image_send',
+    title: '发送已存相册图片',
+    description: '仅按用户本轮明确要求，从她已保存的本地相册中语义匹配一张真实图片随当前回复发送；不联网识图、不改相册。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const screenObservation = AgentToolDefinition(
     id: 'screen_observation.inspect',
     title: '查看当前屏幕',
@@ -182,6 +200,8 @@ class AgentToolRegistry {
     attachmentSave,
     imageFindAndSave,
     stickerSend,
+    webImageSend,
+    albumImageSend,
     screenObservation,
     videoUnderstanding,
     memoryProposal,

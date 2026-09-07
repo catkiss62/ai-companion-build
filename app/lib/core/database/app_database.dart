@@ -5792,6 +5792,9 @@ class AppDatabase {
     required String reasoningEffort,
     bool thinking = true,
   }) async {
+    if (user.attachments.any((item) => item.messageId != user.id)) {
+      throw StateError('user_attachment_message_mismatch');
+    }
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     final jobId = _uuid.v4();
@@ -5827,6 +5830,13 @@ class AppDatabase {
         user.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      for (final attachment in user.attachments) {
+        await txn.insert(
+          'message_attachments',
+          attachment.toDb(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
       await txn.insert('generation_jobs', {
         'id': jobId,
         'user_message_id': user.id,

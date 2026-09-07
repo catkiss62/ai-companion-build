@@ -38,6 +38,13 @@ const _stickerSendSuccess = AgentToolResult(
   promptData: 'STICKER ATTACHMENT',
 );
 
+const _webImageSendSuccess = AgentToolResult(
+  toolId: 'image.web_send',
+  status: AgentToolStatus.succeeded,
+  displayText: '已准备图片',
+  promptData: 'WEB IMAGE ATTACHMENT',
+);
+
 void main() {
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
@@ -177,6 +184,21 @@ void main() {
     expect(
       OperationalClaimGroundingGuard.evaluate(
         text: '我没有发表情包，因为没找到合适的。',
+      ).allowed,
+      isTrue,
+    );
+  });
+
+  test('ordinary image send claims require a real current media result', () {
+    final blocked = OperationalClaimGroundingGuard.evaluate(
+      text: '我给你发了一张海边照片。',
+    );
+    expect(blocked.allowed, isFalse);
+    expect(blocked.reason, 'ungrounded_image_send');
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我联网找到后给你发了一张海边照片。',
+        currentToolResults: const [_webImageSendSuccess],
       ).allowed,
       isTrue,
     );

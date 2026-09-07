@@ -63,6 +63,26 @@ void main() {
     expect(plan.calls.single.arguments['query'], contains('黄昏'));
   });
 
+  test('explicit web image send is distinct from saving to album', () {
+    final plan = AgentToolPlanner.routeLocally('帮我联网找一张海边日落照片发给我');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.webImageSend.id);
+    expect(plan.calls.single.arguments['query'], contains('海边日落'));
+    expect(plan.calls.single.arguments['query'], isNot(contains('发给我')));
+  });
+
+  test('explicit saved album image send stays local', () {
+    final plan = AgentToolPlanner.routeLocally('把你相册里那张海边照片发给我');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.albumImageSend.id);
+    expect(plan.calls.single.arguments['query'], contains('海边'));
+  });
+
+  test('image send negation and capability talk do not execute media', () {
+    expect(AgentToolPlanner.routeLocally('别联网找图发给我'), isNull);
+    expect(AgentToolPlanner.routeLocally('你会不会联网发图？'), isNull);
+  });
+
   test('natural image save wording does not require a web keyword', () {
     final plan = AgentToolPlanner.routeLocally('帮我存一张二次元的图');
     expect(plan, isNotNull);

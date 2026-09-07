@@ -65,8 +65,8 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
         if (result.packCount == 1) {
           final item = result.imports.single;
           status = item.replaced
-              ? '已替换 ${item.pack.name}（${result.stickerCount} 张）。'
-              : '已导入 ${item.pack.name}（${result.stickerCount} 张）。';
+              ? '已替换 ${StickerDisplayLabels.packName(item.pack)}（${result.stickerCount} 张）。'
+              : '已导入 ${StickerDisplayLabels.packName(item.pack)}（${result.stickerCount} 张）。';
         } else {
           status = '已导入 ${result.packCount} 个图库，共 ${result.stickerCount} 张；'
               '其中 ${result.replacedCount} 个为更新。';
@@ -93,7 +93,7 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('删除“${pack.name}”？'),
+            title: Text('删除“${StickerDisplayLabels.packName(pack)}”？'),
             content: const Text('只删除本机导入的图库；已发送到聊天里的表情仍保留。'),
             actions: [
               TextButton(
@@ -112,7 +112,9 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
     setState(() => _busy = true);
     try {
       await _storage.deletePack(pack.id);
-      if (mounted) setState(() => _status = '已删除 ${pack.name}。');
+      if (mounted) {
+        setState(() => _status = '已删除 ${StickerDisplayLabels.packName(pack)}。');
+      }
     } catch (error) {
       if (mounted) setState(() => _status = '删除失败：$error');
     } finally {
@@ -201,7 +203,7 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
                   for (final pack in _packs)
                     Card(
                       child: ListTile(
-                        title: Text(pack.name),
+                        title: Text(StickerDisplayLabels.packName(pack)),
                         subtitle: Text('${pack.count} 张 · ${pack.license}${pack.description.isEmpty ? '' : '\n${pack.description}'}'),
                         isThreeLine: pack.description.isNotEmpty,
                         leading: Switch(
