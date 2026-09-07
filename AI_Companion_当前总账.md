@@ -31,7 +31,7 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04146-sticker-agent-continuation-identity`；从 v0.41.45 最终文档 tree `45e2eb9f` 建立。范围限于明确指令的表情包 Agent 闭环、规则01称呼默认迁移和沉浸同轮续写边界；不改 Phase 3B 仲裁、Desire/Thought、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.45 公开运行代码提交 `bf9e991ed321ccc01237b7bc095b61ffe6407f37` / tree `64f7280af2c060d9870491e3d783e7ced5174f0f`；远端 tree 与本地最终 tree 精确一致。公开变更不含用户备份、诊断、聊天正文、三个图库 ZIP、68 张私人图片、密钥或 API 配置 |
+| 当前代码 head / tree | v0.41.46 公开 pre-CI head `a44bcb4610b443c01b8f211c8120307ac71996e2` / tree `579a0ca9ec4381c8172e19f2562721e89c94f2f5`；远端 tree 与本地最终 tree 精确一致。公开变更不含用户备份、诊断、聊天正文、三个图库 ZIP、68 张私人图片、密钥或 API 配置 |
 | App / 数据库 | 最新已构建基线为 `0.41.45+184 / schema 55 / Snapshot protocol 5`；v0.41.46 目标为 `0.41.46+185 / schema 55 / protocol 5`，不迁移数据库表。旧聊天、规则手改、图库、Memory、Thought、Desire 与 108 条既有行为账本必须保留 |
 | 最终 CI | v0.41.45 Actions run [`34137050756`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756)（754）完整成功：源码/历史 validators、Kotlin、Flutter analyze、`634/634` Flutter tests、Release APK、固定签名与完整素材校验均通过 |
 | 测试 APK | `AI-Companion-v0.41.45-184-Sticker-Expression-APK.apk`，326,444,838 bytes，`APK READY`；图库媒体不内置于 APK，安装后从本机 ZIP 导入 |
@@ -106,6 +106,7 @@
 16. 沉浸首轮已删除 1000/1200～1600 固定字符目标对二次请求的影响。`finish_reason=length` 一定修复；`stop` 只在句尾或弯引号明显未闭合时继续。续写 Prompt 明确不补字数、不新开姿势/阶段/高潮/场景，并再次固定女性 AI “我”与正文“她/你”。第二次 reasoning 仍由 Provider 内部生成，但不展示也不追加到持久 reasoning。未新增优先级 1000 世界书。
 17. Rule 01 默认已改为“从当下情绪、长期相处习惯与真实对话自然形成”，不列举高显著绰号，不为变化刻意轮换。迁移只匹配 v0.41.45 旧默认 SHA-256 `786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c`；用户已手改的文本哈希不同，因此不会被覆盖。
 18. 本地实现提交为 `9f39ada567d72edebc6594ac459431e75ef891ee` / tree `d7a1b8adb2ad3bda23f8fe44f9bf1eaa6ac946e9`，仅含 28 个任务相关源码、测试、validator、workflow 与文档文件；不含三个图库 ZIP、68 张私人图、诊断、备份、密钥或聊天内容。v0.41.28～46 直接结构回归、v0.41.43/44/45 历史合同、当前总账 validator、Python 语法、workflow YAML 和 `git diff --check` 本地通过。当前环境无 Flutter/Dart SDK，不冒充 analyze/tests/APK 通过；推送后由 Actions 执行首次真实类型检查与完整构建。
+19. 首次 Git Data 传输因 Base64 分块未使用完整块读取，远端临时提交 `3a825097963c0e29b93a7e2da7db651a64422ca4` 中总账与一个大型 Dart blob 被截断；Actions run [`34145955746`](https://github.com/catkiss62/ai-companion-build/actions/runs/34145955746) 因该临时树缺少 `schemaVersion = 55` 精确行而在 source-baseline 阶段失败，未进入 validator、Dart、analyze、tests 或 APK。这不是运行实现失败。随后逐 blob 以本地 Git blob SHA 为硬校验重传，公开提交链校正为冻结 `728579ef072dca52bde497e96ca8b5b8cf1a09ec`、实现 `11f7d8ed535d3cfc864119ea3d6fb1c96435bd62`、pre-CI 总账 `a44bcb4610b443c01b8f211c8120307ac71996e2`；最终远端 tree `579a0ca9ec4381c8172e19f2562721e89c94f2f5` 与本地最终 tree 完全一致。分支底层校正没有再次产生 push run，因此用本条正常总账提交触发最终完整构建；通过前状态仍为 `CI PENDING`。
 
 
 ### 2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据（TRUE DEVICE PARTIAL）
