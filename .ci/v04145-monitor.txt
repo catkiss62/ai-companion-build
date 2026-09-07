@@ -1,0 +1,7 @@
+status=success
+run_id=34137050756
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756
+head_sha=bf9e991ed321ccc01237b7bc095b61ffe6407f37
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+a822b64d5b7c0778f93fbc384fe53f786191b33035cb138ddb0b497294e8ccbe  AI-Companion-v0.41.45-184-Sticker-Expression-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5852d16bba5cf5965209
