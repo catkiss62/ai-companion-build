@@ -38,7 +38,7 @@
 | APK SHA-256 | `a822b64d5b7c0778f93fbc384fe53f786191b33035cb138ddb0b497294e8ccbe`；CI checksum、Draft Release asset digest、Artifact 下载解包后独立复算三方一致，APK ZIP 容器测试无错误 |
 | Artifact / Release | Artifact [`10024752703`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756/artifacts/10024752703)，ZIP 320,148,018 bytes，digest `sha256:1f7fb531de9ac669e9869a4e28ee073caa5f4cd375d44b401fc49f80ec5f2a20`；Draft Release [`untagged-5852d16bba5cf5965209`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5852d16bba5cf5965209) 保持草稿 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`；v0.41.45 表情包表达层为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。v0.41.46 已获用户开工决定，当前为 `IMPLEMENTATION STARTED / PRE-CODE LEDGER FROZEN`；3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`；v0.41.45 表情包表达层为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。v0.41.46 为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -86,7 +86,7 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-08 v0.41.46 媒体 Agent、称呼规则与沉浸续写身份（IMPLEMENTATION STARTED / PRE-CODE FROZEN）
+### 2026-09-08 v0.41.46 媒体 Agent、称呼规则与沉浸续写身份（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
 
 1. 用户发现 v0.41.45 遗漏明确指令的 Agent 能力：当前 `StickerExpressionService` 只在普通正文、情绪和 Conversation Move 已经生成后，以本地概率为现有回复附带表情；Agent registry/executor 没有 `sticker.send`。因此用户说“发个表情包”时，模型可能只用文字声称发送。此前“发送后知道自己发了什么”的附件历史合同是真实存在的，但它只覆盖随机成功发送后的下一轮认知，不能替代 Agent 可调用性。
 2. **永久媒体合同提升为 P0：只要产品声称她能发送某种媒体，就必须同时完成五件事——Agent 自读能看见能力与状态、模型能选择受约束工具、执行器提交真实附件、Outcome 如实区分成功/失败、后续第一人称历史包含媒体内容与来源。** UI 可导入、后台可随机附图或提示词写“可以发送”均不能单独算能力完成。此合同适用于表情包、联网图片、相册图片以及以后新增的音频/视频；失败、权限拒绝、无匹配、用户抢占和事务回滚不得留下“已发送”记忆。
@@ -101,6 +101,11 @@
 11. 建议 v0.41.46 以三个互不依赖的提交共用一次 APK：A）`sticker.send` + Agent 自读 + 真实附件 Outcome；B）规则01无枚举示例的默认文案与仅未编辑默认迁移；C）沉浸 continuation reasoning 持久化边界和身份末端锁。三项测试与 validator 分离，任一失败可独立回滚。普通联网图/相册图进入后续独立媒体版本；自主媒体再后置到统一“动机—能力—Outcome”仲裁。
 12. 用户批准开始任务，并进一步确认 DeepSeek V4 Flash 对固定字数不敏感，“为了补够字数而续写”本身不应继续作为机制目标。正式实现因此保留同一气泡内的截断恢复，但删除“低于固定字符数即二次调用”和续写补到 1000 字的合同：只有 Provider `length` 截断或句子/对白明显未闭合才继续；完整短回复直接接受。续写只收束当前节拍，不为了篇幅新增动作、姿势、高潮阶段、用户决定或场景跳转。`[动作加速]/[场景快进]` 不再被硬编码 1000 字续写反向拉长。
 13. v0.41.46 目标身份冻结为 `0.41.46+185 / schema 55 / protocol 5`，分支 `agent/v04146-sticker-agent-continuation-identity`。开工保护项：三个图库 ZIP、68 张私人图、备份、诊断、聊天/NSFW 正文、密钥和 Provider payload 不进入公开仓库；规则01只迁移旧默认哈希，用户当前手改必须保留；表情明确指令不加入自主 heartbeat；沉浸修复不改欲望系统、亲密阶段真值或用户控制权。
+14. 运行实现已完成：`sticker.send` 登记为 proposal-risk / user-turn-only / autonomous=false；只有明确发送指令走本地快路，能力询问与否定不触发。选择器只读已启用内部图库，遵守 recent/disabled/bold/NSFW 边界，并把 index caption 提供给当轮模型和后续第一人称历史。能力 self-reader 和 `OperationalClaimGroundingGuard` 均已识别 `sticker.send`，没有本轮成功结果时不允许正文声称已发送表情包。
+15. 表情附件新增 commit-pending 终态：文件可在生成前准备，但不在此时写 `succeeded` 工具账。只有 `completeGenerationJobIfCurrent` 把 assistant 正文和附件原子提交后，才写 terminal Outcome 和近期去重键；Stop、重试失败或写入权转移均清理未引用文件，不留“准备了等于发送了”的假 Outcome。
+16. 沉浸首轮已删除 1000/1200～1600 固定字符目标对二次请求的影响。`finish_reason=length` 一定修复；`stop` 只在句尾或弯引号明显未闭合时继续。续写 Prompt 明确不补字数、不新开姿势/阶段/高潮/场景，并再次固定女性 AI “我”与正文“她/你”。第二次 reasoning 仍由 Provider 内部生成，但不展示也不追加到持久 reasoning。未新增优先级 1000 世界书。
+17. Rule 01 默认已改为“从当下情绪、长期相处习惯与真实对话自然形成”，不列举高显著绰号，不为变化刻意轮换。迁移只匹配 v0.41.45 旧默认 SHA-256 `786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c`；用户已手改的文本哈希不同，因此不会被覆盖。
+18. 本地实现提交为 `9f39ada567d72edebc6594ac459431e75ef891ee` / tree `d7a1b8adb2ad3bda23f8fe44f9bf1eaa6ac946e9`，仅含 28 个任务相关源码、测试、validator、workflow 与文档文件；不含三个图库 ZIP、68 张私人图、诊断、备份、密钥或聊天内容。v0.41.28～46 直接结构回归、v0.41.43/44/45 历史合同、当前总账 validator、Python 语法、workflow YAML 和 `git diff --check` 本地通过。当前环境无 Flutter/Dart SDK，不冒充 analyze/tests/APK 通过；推送后由 Actions 执行首次真实类型检查与完整构建。
 
 
 ### 2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据（TRUE DEVICE PARTIAL）
