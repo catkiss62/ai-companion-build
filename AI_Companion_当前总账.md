@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04144-autonomy-arbitration-rework`；从 v0.41.43 公开 head `9370589bea57203c700eec2a5d706bc1db2ece92` 建立。只返工 Phase 3B 行为仲裁、能力可用性、显式暂缓与冷却语义，不提前开放 3C 或 MCP |
+| 当前开发分支 | `agent/v04145-sticker-expression`；从 v0.41.44 已回填真机证据的本地 head `ebf9923` 建立。只实现单聊表情包本地导入与已生成普通回复的表达配图，不改 Phase 3B 仲裁、Desire/Thought、主人格、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.44 运行代码公开提交 `c4a0725d84a0fa3f169744dda34add0d1c44a904` / tree `fa5506eae033cedd364ff25e7f493e54f1852ddd`，位于 `agent/v04144-autonomy-arbitration-rework`。旧真机失败数据只作为回归夹具，公开提交不含用户备份、诊断、聊天正文、图片、密钥或 API 配置 |
-| App / 数据库 | 当前源码为 `0.41.44+183 / schema 55 / Snapshot protocol 5`；当前真机仍是 `0.41.43+182`。没有数据库迁移或旧行清洗；读取侧忽略旧 blocked/rest 冷却，未改消息、Memory、关系、四个行为世界书、角色扮演或用户手调设置 |
+| 当前代码 head / tree | v0.41.45 本地运行代码提交 `b827e52d4c23ee12a0fb2a1db4b87c4d4a27cebd` / tree `eafe76053a11fa630b75a95691559ebc3381bb28`；包含首版 `6b99eec` 与组合包/尺寸/媒体自我认知加固，尚未推送，故不写成公开 head。v0.41.44 公开基线仍为 `c4a0725d84a0fa3f169744dda34add0d1c44a904`。公开变更不含用户备份、诊断、聊天正文、68 张私人图片、密钥或 API 配置 |
+| App / 数据库 | 当前真机仍为 `0.41.44+183 / schema 55 / Snapshot protocol 5`；v0.41.45 目标为 `0.41.45+184 / schema 55 / protocol 5`，不迁移数据库。旧数据与 108 条近 24h 行为账本存在；2026-09-07 12:05:51Z 自主联网真实成功，12:07:15Z 完成压缩、候选入库、公开知识与 3A 证据写入 |
 | 最终 CI | v0.41.44 Actions run [`34101282553`](https://github.com/catkiss62/ai-companion-build/actions/runs/34101282553)（751）完整成功：源码/历史 validators、Kotlin、Flutter analyze/tests、Release APK、固定签名与完整素材校验均通过 |
 | 测试 APK | `AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK.apk`，326,344,122 bytes，`APK READY`；v0.41.43 已由真机判定仲裁失败，不作为 3B 最终验收版 |
 | APK SHA-256 | `ded52ab81f482e51877efed2934b24ea69241c0e8f2e41477efe8379b4446d30`；CI checksum、独立解包复算与 Draft Release asset digest 一致 |
 | Artifact / Release | Artifact [`10010924185`](https://github.com/catkiss62/ai-companion-build/actions/runs/34101282553/artifacts/10010924185)，ZIP 320,045,845 bytes，digest `sha256:a7333970ecc1b3ca7c595f29d3de13b694c8bcc139d1050d8de2865455f9ed66`；独立 Draft Release [`untagged-12c03b917a15d332dd42`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-12c03b917a15d332dd42) 保持草稿 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.43 Phase 3B 为 `TRUE DEVICE FAILED / SUPERSEDED`。v0.41.44 已到 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；新 APK 自然真机观察前，3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`。表情包 v0.41.45 已完成单包/组合包本地导入、统一尺寸、普通回复配图及发送后媒体自我认知，状态为 `IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING`。当前环境仍要求新公开分支再次授权；3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **用户方便时覆盖安装 v0.41.44，并进行自然真机观察。** 不要求立刻长时间测试；先确认版本/schema 与旧数据保留，再让主动联系、联网、分享、休息和 wait 自然竞争，之后用脱敏诊断/备份判断分布与 Outcome 是否真实 |
-| 目标 | Desire / Thought / fatigue / rhythm 是唯一动机真源；工具开关、额度、Provider、MCP 会话只表达能力可用性。不可用意图保留为 defer，不吞槽、不满足、不把概率自动转给主动联系；允许连续联系，也允许持续联网、回顾或安静 |
-| 当前证据 | v0.41.43 真机账本 24 个胜者为 17 `rest/completed`、7 `proactive_message/blocked`、0 discovery/share。09:39 未发送消息的 topic hash 对应最强 Thought `presence:phone_activity`，旧选择器不筛 status 并跨行为扣 1.0；11:50 低分直接返回且无 Outcome。联网 used=6/remaining=0 不是本轮沉默直接原因，但暴露未来工具后置 Gate 风险 |
-| 保护与排除 | 不改主人格、世界书、角色扮演、Desire 基线/耦合、主动总额度或 3A/3C 兴趣门；不删除休息或取消全部 Gate。联网仍为 rolling 24h 的 6/8 上限，本批不加固定“每几小时一次”，夜间没有虚构额度消耗 |
-| 实现边界 | 不可用 discovery 替换为近同强度 wait 候选；只有 completed 的真实消息/discovery/share产生语义冷却，blocked/failed/wait/rest 不产生；消息/分享共享用户可见 topic 冷却，安静 discovery 只与自身共享；选择摩擦与投递 Gate 原始动机强度分离 |
-| 完成判据 | 自动化覆盖 capability defer、blocked/rest 不冷却、成功消息不硬封 discovery、成功同类仍冷却、原始分数 Gate、rest 竞争、低分/场景 wait、单 heartbeat 唯一性；完整历史 tests/analyze/APK 通过后仍保持 TRUE DEVICE PENDING |
-| 直接详细入口 | 下方“2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工”；专项合同 `app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md` |
+| 当前下一步 | **等待用户明确授权后推送 `agent/v04145-sticker-expression` 并运行 v0.41.45+184 完整 Actions/APK。** 私人图片、三个图库组合包、诊断与备份不进 GitHub；真机用外层 ZIP 根目录直接放置三个子 ZIP，一次导入后检查三个独立图库、相册零污染、静图/GIF、统一宽度和下一轮媒体自我认知 |
+| 目标 | 3B 继续遵守“动机—能力—Outcome”，不因看到一次联网就提前通过；表情包复用当前情绪、Conversation Move、Agent 发图与相册基础链，作为已选言语行动的表达媒介，而不是新的 Desire、人格、定时器或自主行为竞争者 |
+| 当前证据 | 真机 3B 证据不变：108 条账本无重复 heartbeat，discovery Provider 失败后以原始动机 `0.8398` 恢复并安静入库。私人 ZIP 为 68 张（30 GIF、38 JPEG），无路径穿越、空文件或精确重复；逐张首帧及全部 GIF 三帧复核后形成 44 general / 17 bold / 5 nsfw / 2 disabled，生成 34,785,978-byte dsh 兼容包，ZIP 测试、68 行 SQLite 索引、文件存在与源/副本字节哈希均通过 |
+| 保护与排除 | 明确不采用外部 QQ 项目的工具化潜水/唤醒，也不采用从用户消息长度、沉默或接话频率推断偏好的“语言适应”；短回复不得被解释为冷场或负反馈。表情包不改主人格、AI Self、Desire、Thought、Moe 真源或 3A/3C 兴趣；不因图片数量、文件名“万用”或旧角色名增加抽取概率 |
+| 实现边界 | 主参考为 `https://github.com/yyh-001/dsh-meme`，图库下载/索引参考为 `https://github.com/yyh-001/dsh-meme-packs`；`https://github.com/nanbengxian-cyber/dafeiyu-qq-bot` 只作群聊调研。单包保留 `index.db + manifest.json + memes/`；组合包根目录直接放三个或更多 pack ZIP，不套文件夹。所有图库只存内部 `sticker_packs/`，不进入查手机相册；只有实际发出的单张副本进入对应聊天附件。发送后历史必须知道“我发了图、图的内容与来源”，失败不得记成功 |
+| 完成判据 | 新增组合包一次导入的全量预检、重复 pack ID/坏子包失败测试，单包继续兼容；表情宽度一致且高度跟随原比例；下一轮 Prompt 明确包含 assistant 自己发送的 caption。Actions 仍须证明全部回归/构建；真机再验证三个图库一次导入、静图/GIF、重启保留、相册零污染、零识图额度及不改变自主消息频率 |
+| 直接详细入口 | 下方“2026-09-07 表情包参考调研、排除项与附件处理冻结”；3B 继续参照“2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工”及 `app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -73,14 +73,60 @@
 | C3 · Memory 2D 事件生命周期与回忆价值（TRUE DEVICE PARTIAL / CLOSED） | v0.41.37 run 723 与主要真机样本通过 | 保留 `fact_state / attention_state / recall_policy`、`spontaneous_salience` 与 `reminiscence/identity` 主动门；覆盖迁移、完成/未完成/延期和历史回忆已合格。精确取消、自然主动回忆与工作话题占比保留观察，有明确复现再窄修，不阻塞 WorldBook 2D |
 | C4 · WorldBook 2D 来源与角色扮演（TRUE DEVICE PARTIAL / ROLEPLAY DEFERRED） | v0.41.34 自动化与旧版真机存档证明三分类、来源与 Session 基础链真实有效；v0.41.40 相册/浏览/动态表达已真机通过；v0.41.41 普通人格未见回归，但角色扮演持续性不理想 | 按用户最新决定暂停角色扮演优化，不提高优先级、不再改提示词，也不阻塞主人格与 Phase 3。以后单独重开时再以真机多轮样本处理角色切换和注意力 |
 | D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PASSED） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过；v0.41.42 新进程后的真实自主联网写入 1 个 forming 候选与 1 个 active evidence，未提前成熟且三项消费开关关闭 | 核心真机门已解除；跨日期成熟、删除撤销与长期新鲜度继续随自然使用观察，不阻塞 3B，也不得倒写成已有真机样本 |
-| D2 · Phase 3B 主动来源平衡（CI PASSED / APK READY / TRUE DEVICE PENDING） | v0.41.43 真机证明 winner 后置 Gate、blocked 跨行为冷却、无 Outcome 沉默与多层抑制可组合成持续无动作；v0.41.44 run 751 已通过完整自动化并产出独立 APK | 用户方便时自然真机观察连续联系、持续联网/安静、额度耗尽 defer 与显式 wait；新 APK 真机通过前不开放 3C/MCP |
+| D2 · Phase 3B 主动来源平衡（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | v0.41.44 真机已证明主动聊天正常、安静 discovery 完整入库、Provider 失败后恢复、单 heartbeat 无重复，且网页成功没有同轮再发消息 | 继续自然观察额度耗尽 capability defer 和新版 rest；这两项无样本，故不升为完整 `TRUE DEVICE PASSED`，3C/MCP 仍关闭 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
+| D4 · 单聊表情包表达层（IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING） | 单包与原子组合包导入、本地选择、附件事务、GIF、固定 180dp 宽度及发送后第一人称 caption 已实现。schema 55 不变，公开仓库不含私人图片 | 用户明确授权后推送/CI；真机一次导入三图库并检查相册零污染、自我认知、静图/GIF、重启、零视觉调用和语气过滤。普通联网/相册发图登记为下一独立 Agent 附件任务 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+
+### 2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据（TRUE DEVICE PARTIAL）
+
+1. 用户人工确认主动聊天可见且正常，同轮提交 `ai_companion_diagnostics_2026-09-07T13-14-51-512378Z.txt` 与 `AI_Companion_Backup_2026-09-07T13-14-47.aibackup`。附件确认 App 为 `0.41.44+183 / schema 55`，备份 generation 85，无 pending post-turn job、active/failed generation job 或 active autonomous action；旧对话、Memory、Thought、网页候选和兴趣证据表均保留。
+2. 行为账本于 `2026-09-06T16:45:59Z` 至 `2026-09-07T13:14:21Z` 共 108 条，按 heartbeat key 分组无任何重复，真机继续满足“一轮最多一个仲裁 Outcome”。其中包含 5 次主动消息 `completed/delivered`；Gate WAIT、minimum gap 与 frequency ceiling 均有独立记录，不再表现为无 Outcome 沉默。
+3. 新 discovery 时间线为：10:25:39Z 以好奇动机 `0.7583` 开始后 `provider_failure`；10:27:18Z 与 10:39:38Z 两次被运行保护拦截；12:05:51Z 又由内部好奇动机 `0.8398` 获胜，本次 Gate `allowed`，12:07:15Z 结束为 `succeeded / candidate_stored`。因此失败没有被当成成功冷却或欲望已满足；后续真实动机仍可重新取得行动权。
+4. 成功运行使用 `generated_question / curiosity_explore`，Provider 为 Tavily + Extract + Agnes；3 个原始结果被压缩为 1 条经评估候选，来源为中文维基百科的计算机硬件史条目。候选 lifecycle 为 `unread`，同时写入 1 条 active `public_web_knowledge` 和 1 条权重 `0.9` 的 `autonomous_web_verified` Phase 3A 证据；新兴趣仍是 `forming / support 1 / autonomous day 1`，没有越级成熟。
+5. 本次 discovery 只安静学习和入库：候选 `view_count=0`，未绑定新分享 Thought，未在同 heartbeat 生成或投递主动消息。这是用户要求的“有一段时间只想安静上网看看”的首个新仲裁正样本，不应为了可见而强制转成对话。
+6. 诊断导出时按“当前意图 + rolling 24h”重算的公网预算显示 `limit=4 / used=5 / remaining=0`，但 12:05 实际获胜运行保存的当时边界为 `limit=8 / remaining=2`。这不是同一时点自相矛盾：自适应上限取决于当时动机分和近期 verified 数。本附件没有 `budget_exhausted → wait/defer` 的真机胜者，因此不得用诊断页的 remaining 0 倒写该分支已验收。
+7. 当前 Phase 3B 提升为 `TRUE DEVICE PARTIAL`：主动消息、安静 discovery、Provider 失败后恢复、Outcome 可观测性与单 heartbeat 唯一性已有真机证据；额度耗尽 capability defer 和新版 rest 尚无真机样本。它们可继续自然观察，但当前不开放 3C/MCP，也不为追求固定频率调高全局 Desire 或降低 Gate。
+8. 附件中近 24h 有 36 条 `delivery_gate → wait` 且高密度时可数分钟一次；它们不发消息、不调用生成模型、不进入成功冷却，未造成用户可见连发。这是可观测的内部重评估，当前不作为阻断缺陷；若后续真机出现明显耗电或大量无效日志，再单独加短退避，不恢复六小时成功冷却。
+
+
+### 2026-09-07 v0.41.45 单聊表情包表达层（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户明确取消工具化潜水/唤醒：不引入“连续多条先缓存、稍后一次性唤醒回复”的第二套消息时序，不承担其对流式、Stop、悬浮、通知、记忆提取和未读状态的额外交互风险。`nanbengxian-cyber/dafeiyu-qq-bot` 只保留为群聊 QQ Bot 能力调研参考：`https://github.com/nanbengxian-cyber/dafeiyu-qq-bot`。
+2. 用户同时否决基于短句抽样或隐式互动结果的语言适应。当前 Phase 2B 已能从用户明确偏好、纠正、边界与 direct feedback 形成可反证候选；用户本身常自然短回复，消息长度、沉默、未反对或继续聊天不得成为喜欢/不喜欢的证据。后续不新增按回复长度、玩笑命中率、追问接续率自动改写语言策略的系统，也不让互动优化把 AI 推向模仿用户或讨好留存。
+3. 表情包主参考改为 Harness 单聊插件 `dsh-meme`：`https://github.com/yyh-001/dsh-meme`；其图库目录与 Release 下载索引为 `https://github.com/yyh-001/dsh-meme-packs`。必须把这两个网址长期留在总账，避免后续只剩数字文件名而失去机制与元数据来源。
+4. 可取机制是“文件与语义解耦”：图片文件名可为数字/时间戳，`index.db` 以 `path / tag / file_name / caption / keywords / mtime / captioned_at` 保存语义；`manifest.json` 保存包级 id、名称、版本、来源与授权。正确 Release ZIP 必须整体导入 `index.db + manifest.json + memes/`；只复制数字图片会丢失对应，擅自改名会使既有 path 失效。
+5. 本项目不照搬 Harness 的 `[表情: 描述]` 前端文本替换。原生实现应让模型或本地选择器获得候选 ID、短 caption 与关键词，最终由现有图片消息/附件链发送真实文件；未知 ID、路径越界、文件缺失或最终未真实发送均不得记成功。模型不能凭空编写 caption 冒充图库图片。
+6. 表情包不是新的自主行为来源。当前情绪、Moe 和已选 Conversation Move 可决定 `react / tease / self_share` 是否适合用图实现；随后才在合法图库候选中选图。它不能自建 Desire/Thought/定时器，不能与 message/discovery/share/rest/wait 再抢一次 heartbeat，也不能因为加图把自主消息频率抬高。
+7. 候选选择冻结为两级而不是把所有图片扁平混抽：先按当前情绪/场景确定合法桶，再按启用图库与用户权重选来源，最后在该来源内部结合 caption/keywords、角色适用范围和近期使用冷却抽候选。图片总数、文件名长度、“万用”字样或某旧角色名不直接加权；68 张私人包与 92 张外部包不会仅因张数不同互相抢占概率。
+8. `dsh-meme` 的视觉入库思路可复用，但必须修正开放 tag 漂移：上游识图提示允许 `speechless`，现有六桶映射却未包含该 tag，可能形成“入库成功但正常抽样不可达”。本项目应使用固定本地枚举、未知 tag 映射/人工待确认和覆盖测试，视觉模型只提建议，不能创建不可达分类。
+9. 用户提交 `stickers.zip`，约 68 张且包含 GIF；旧文件名由用户手写，常混合画面描述、图片文字、使用场景和旧项目角色限制。例如“爽”应拆为短 caption/积极情绪/庆祝场景，“来啦”应拆为 daily/happy 与出现/报到场景，“只适合辣妹”必须成为内部角色适用限制，不能作为当前小鲸鱼人设或可见 Prompt。原始文件不要求人工改名，导入副本可使用内部数字/哈希 ID，同时保留 `original_name` 追溯。
+10. 识别流程优先利用原文件名进行零视觉文本解析，再在本地为 GIF 抽取代表帧并制作带编号联系表，批量核验画面；只有含义不明、名称与画面疑似不符或动图梗依赖后续帧的少数项单独复查。不得在 AI Companion 内逐张调用 68 次千问/DeepSeek 视觉额度；用户上传给本任务的附件也不得公开提交。
+11. 授权边界按代码与素材分开：`dsh-meme` 代码为 MIT，复用时保留版权与许可；`official-001` manifest 标记 `CC-BY-NC-SA-4.0`，若非商用分发仍须署名、许可证链接、修改说明并让修改后的图库维持相同许可；`dafeiyu-001` 只标 `personal`，不视为明确公开再分发许可。机制可以进入公开源码，来源不清或仅 personal 的图片不打进公开仓库/APK，优先做用户本地导入。
+12. 同轮收到的 v0.41.44 真机附件已完成只读核验；结论与时间线见上方“2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据”。状态为 `TRUE DEVICE PARTIAL`，不将尚无样本的 capability defer/rest 写成已通过。
+13. 执行顺序已完成前两步：先形成表情包冻结提交，再独立完成真机诊断/备份证据链并回填总账。当前只进入 `stickers.zip` 安全盘点、索引构建与运行实现决策；不要求用户重发已有附件。
+14. 私人附件安全盘点完成：共 68 张，30 GIF、38 JPEG；没有路径穿越、空文件、错误扩展或 SHA-256 精确重复。全部静图复核首帧，30 个 GIF 各抽取 3 个代表帧复核动作。旧文件名总体可辅助理解但不直接进入概率；一张 JPEG 在缩略图工具中出现尾部兼容 warning，原始包仍可读，本批不擅自改写图片字节，留真机解码验证。
+15. 人工语义索引结果为 44 `general`、17 `bold`、5 `nsfw`、2 `disabled`。自伤/上吊黑色幽默和“投喂群友”群聊便便梗默认禁用；成人暗示只在现有 NSFW route active 时可达；较强吐槽/攻击只在 tease/seek_attention/show_need 言语行动可达。原图保留 `original_name`，运行 path 改为 `memes/0001.gif` 等数字名，因此不会因“万能”“只适合辣妹”或旧角色名抢权重。
+16. 已生成不进入 Git 的私人 `AI-Companion-Personal-Stickers-68-v1.zip`：根为 `personal-001/`，含 `manifest.json + index.db + memes/`，68 行索引逐项对应。包大小 34,785,978 bytes，SHA-256 `3170822aa6cd058119847677be387824e81102adf1b7ac380454f57723d6cd45`；`unzip -t`、SQLite 字段/计数、索引文件存在与所有源图→数字副本逐文件字节哈希均通过。
+17. v0.41.45 新增 `StickerPackStorage`：从系统文件选择器导入 dsh 兼容 ZIP，限制压缩/展开/条目/单图大小，拒绝绝对路径、`..`、重复路径、链接/特殊条目、缺索引图和非图片扩展，并以 `PreparedDirectorySwap` 原子替换本机 `sticker_packs/<id>`。图库可单独启停/删除；当前明确不进入状态备份，设置页不作虚假承诺。
+18. `StickerExpressionService` 只在普通回复的正文、情绪和 Conversation Move 已决定之后运行；不加入 Desire/Thought/自主行为竞争，不改 heartbeat，不产生额外消息，也不调用 DeepSeek/千问识图。task/deep/feedback/sensitive、Agent 工具回合、长正文、URL/代码块、answer/ask/invite 言语行动均不配图；off/low/natural/frequent 的表达机会为 0/12/24/42%，仅作用于已有回复。
+19. 选择先均衡图库，再在当前六类情绪桶内按 caption/keywords 缩小候选并确定性抽样，最近 18 个 item 冷却；未知 tag 回退 daily，`speechless` 明确映射 sad。图片数量和自然语言文件名不参与来源权重。bold/nsfw/disabled 本地 fail-closed，不交给模型自由判断。
+20. 被选图片复制进现有 `chat_attachments`，附件与 assistant message 在 `completeGenerationJobIfCurrent` 同一事务提交；所有权变化/事务失败会清理已准备文件，使用历史写入失败不反向把已提交回复报错。assistant 历史按“我发送了一张表情包：caption”回灌，不误写成用户发图；GIF 气泡读 original 动画，assistant 不显示千问识别状态，因此不会消耗识图额度。
+21. 新增总设置“表情包”页、dsh 兼容导入/强度/图库开关/删除；新增 `sticker_expression_test.dart` 覆盖六类情绪、开放 tag/`speechless`、路径穿越和 assistant 第一人称历史；新增 `validate_v04145_sticker_expression.py` 冻结版本、隐私、无 Desire/自主/模型耦合、事务、GIF、上游署名和私图不进源码。专项 v0.41.41/43/44/45 validators 与 `git diff --check` 本地通过；本机无 Flutter/Dart SDK，analyze/tests/APK 不得提前标绿。
+22. 上游与许可已双重记入总账及 `app/docs/THIRD_PARTY_NOTICES.md`：机制主参考 `https://github.com/yyh-001/dsh-meme`（MIT，Copyright 2026 Selfloom contributors），包目录 `https://github.com/yyh-001/dsh-meme-packs`；群聊调研来源 `https://github.com/nanbengxian-cyber/dafeiyu-qq-bot`。公开源码不捆绑上游图库或私人 68 张素材；每张第三方图片的素材权利不因软件 MIT 自动改变。
+23. 目标身份为 `0.41.45+184 / schema 55 / Snapshot protocol 5`，新分支 `agent/v04145-sticker-expression`。本地运行代码提交为 `6b99eec22743bddbae9405d3f0dedc4b5d24ecd9` / tree `494b6b834ad1713832061239d1a468206a44d707`，总账随后提交 `ef4102d`。普通 `git push` 被当前执行环境的发布权限审查拒绝：它要求当前对话对这一新公开分支再次明确授权，不能仅依赖总账中的长期授权；未改走 Git Data 等接口绕过。当前严格状态为 `IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING`。用户确认后推送并运行完整 Actions；`main` 不合并，正式 Release 不发布。
+24. 用户在构建前决定用一个组合包完成三个图库的导入。目标外层 ZIP 不套目录，根位置直接放 `personal-001.zip / dafeiyu-001.zip / official-001.zip`；导入器应兼容任意合法文件名，以每个内包 manifest ID 为真值，允许 2～20 包。必须先验证全部子包、拒绝重复 ID/嵌套层级/额外文件/解压炸弹，再统一切换；不能导入两个后第三个失败留下半成功。单个原 dsh ZIP 继续兼容。
+25. 已核实现有存储边界正确：整套图库位于私有 `ApplicationSupport/sticker_packs`，不会写入查手机相册、相册索引或收藏候选；只有真正发送的一张会复制到该聊天消息的 `chat_attachments`，这是消息持久化而非相册入库。当前 UI 仅有 160～300dp 范围而非统一尺寸，本轮改为表情专用固定宽度、高度随原比例，普通照片展示不变。
+26. 用户补充“发送图片必须有自我认知”为永久合同。当前表情附件已持久保存 `source=assistant_sticker:<packId>`、`visionSummary=<短 caption>`、`visionModel=sticker_index`，下一轮 `ChatMessage.promptContent` 回灌“我发送了一张表情包：caption”，因此能承认自己发过什么并承接追问；选择发生在正文生成后，所以本轮正文不能提前声称某个尚未提交的精确图片。后续普通联网图/相册图也必须在真实附件提交后记录 assistant 所有权、来源 provenance 与可用视觉摘要；下载、权限、用户抢占或事务失败均不得写成已发送。
+27. “用户要求联网找图并发送、要求发送查手机相册图片”登记为 v0.41.46 独立 Agent 附件任务：先做明确用户指令的 `web image → verified local file → assistant attachment` 与 `album source → assistant attachment`，复用本轮事务/渲染/自我认知合同；自主发图以后再进入统一行为仲裁。它涉及工具结果携带文件、网页图片权限/安全、相册引用与失败 Outcome，不与 v0.41.45 表情包构建混包。
+28. 构建前扩展已完成并提交为 `b827e52d4c23ee12a0fb2a1db4b87c4d4a27cebd` / tree `eafe76053a11fa630b75a95691559ebc3381bb28`：`StickerPackStorage.importZip` 同时兼容单 pack 与根目录 2～20 个子 ZIP 的组合包；组合包拒绝目录、无关文件、重复 pack ID 和聚合解压上限超限，先预检/暂存全部子包后统一 activate，任一失败反向 rollback，导入后仍是可独立启停/删除的图库。表情专用气泡固定 180dp 宽度、高度按源比例受 320dp 上限约束，普通照片布局不变。
+29. 媒体自我认知回归同时加固：测试不仅检查下一轮含“我发送了一张表情包：caption”，还锁定 `source=assistant_sticker:<packId>`、`visionStatus=completed`、`visionModel=sticker_index`；另新增普通 assistant 图片第一人称历史夹具，作为 v0.41.46 的前置合同。只有真实附件事务成功才形成发送记忆，失败不写入。v0.41.45、当前总账、v0.41.44 与 v0.41.43 专项 validators 及 `git diff --check` 本地通过；完整全历史资源 validator 因当前工作区未恢复 LingChat 二进制资源而不能本地全跑，继续由 Actions 的资源恢复步骤证明，Flutter/Dart SDK 亦仅由 CI 验证。
 
 
 ### 2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）

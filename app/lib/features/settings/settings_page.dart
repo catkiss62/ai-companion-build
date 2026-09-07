@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'settings_category_pages.dart';
+import 'sticker_settings_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -31,6 +32,12 @@ class SettingsPage extends StatelessWidget {
         title: '语音与聊天呈现',
         subtitle: '本地 TTS、情绪、立绘、背景、透明度与文字演出',
         page: const PresentationSettingsPage(),
+      ),
+      _SettingsDomain(
+        icon: Icons.emoji_emotions_outlined,
+        title: '表情包',
+        subtitle: '本地图库导入、启用与单聊表达强度',
+        page: const StickerSettingsPage(),
       ),
       _SettingsDomain(
         icon: Icons.devices_other_outlined,

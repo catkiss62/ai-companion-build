@@ -2205,10 +2205,11 @@ class _MessageBubble extends StatelessWidget {
               onTap: () => onOpenAttachment(attachment),
             ),
             const SizedBox(height: 5),
-            _VisionStatus(
-              attachment: attachment,
-              onRetry: onRetryVision,
-            ),
+            if (message.isUser)
+              _VisionStatus(
+                attachment: attachment,
+                onRetry: onRetryVision,
+              ),
           ],
         if (message.content.trim().isNotEmpty) ...[
           if (message.hasAttachments) const SizedBox(height: 8),
@@ -2668,8 +2669,12 @@ class _AttachmentThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sticker = attachment.source.startsWith('assistant_sticker:');
+    final animatedSticker = attachment.mimeType == 'image/gif' && sticker;
     return FutureBuilder<File>(
-      future: storage.fileFor(attachment.thumbnailPath),
+      future: storage.fileFor(
+        animatedSticker ? attachment.originalPath : attachment.thumbnailPath,
+      ),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(
@@ -2684,11 +2689,17 @@ class _AttachmentThumbnail extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: 160,
-                maxWidth: 300,
-                maxHeight: 320,
-              ),
+              constraints: sticker
+                  ? const BoxConstraints(
+                      minWidth: 180,
+                      maxWidth: 180,
+                      maxHeight: 320,
+                    )
+                  : const BoxConstraints(
+                      minWidth: 160,
+                      maxWidth: 300,
+                      maxHeight: 320,
+                    ),
               child: Image.file(
                 snapshot.data!,
                 fit: BoxFit.contain,

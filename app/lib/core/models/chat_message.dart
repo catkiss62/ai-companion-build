@@ -74,6 +74,18 @@ class ChatMessage {
     if (!hasAttachments) return content;
     final caption = content.trim();
     final observations = attachments.where((item) => item.isImage).map((item) {
+      if (isAssistant && item.source.startsWith('assistant_sticker:')) {
+        final meaning = item.visionSummary.trim();
+        return meaning.isEmpty
+            ? '[我发送了一张表情包]'
+            : '[我发送了一张表情包：$meaning]';
+      }
+      if (isAssistant) {
+        if (item.visionCompleted) {
+          return '[我发送了一张图片；图片内容：${item.visionSummary.trim()}]';
+        }
+        return '[我发送了一张图片]';
+      }
       if (item.visionCompleted) {
         return '[用户发送了一张图片；视觉模型观察：${item.visionSummary.trim()}]';
       }
@@ -83,6 +95,7 @@ class ChatMessage {
       return '[用户发送了一张图片；视觉识别尚未完成]';
     }).toList(growable: false);
     final label = observations.join('\n');
+    if (isAssistant) return caption.isEmpty ? label : '$caption\n$label';
     return caption.isEmpty ? label : '$label\n附言：$caption';
   }
 

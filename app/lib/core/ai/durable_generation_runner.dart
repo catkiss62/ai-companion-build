@@ -24,9 +24,11 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
+import '../stickers/sticker_expression_service.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
 import 'deepseek_client.dart';
+import 'dialogue_expression_plan.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'nsfw_context_router.dart';
@@ -681,7 +683,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       // buffered and visible-content modes. Do not re-emit the full reasoning
       // here: that doubled the live panel height just before it collapsed.
 
-      final assistant = ChatMessage(
+      final baseAssistant = ChatMessage(
         id: job.assistantMessageId,
         role: 'assistant',
         content: finalContent,
@@ -698,6 +700,30 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         emotionSource: companionEmotion.source,
         worldBookContextJson: promptBuild.worldBookContext.encode(),
       );
+      SelectedStickerAttachment? selectedSticker;
+      if (agentToolResults.isEmpty) {
+        try {
+          selectedSticker = await StickerExpressionService(db: db)
+              .maybePrepareForOrdinaryReply(
+            messageId: baseAssistant.id,
+            text: baseAssistant.content,
+            emotionKey: baseAssistant.emotionKey,
+            conversationPlan: conversationPlan,
+            responseMode: DialogueExpressionPlan.select(
+              latestUserText: user.content,
+              turnKey: user.id,
+            ).mode,
+            nsfwActive: nsfwRoute.active,
+          );
+        } catch (_) {
+          // A local expression asset is optional and must never block the reply.
+        }
+      }
+      final assistant = selectedSticker == null
+          ? baseAssistant
+          : baseAssistant.copyWith(
+              attachments: [selectedSticker.attachment],
+            );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.
       final assistantSomaticEvents = somaticEngine.assistantCommitEvents(
@@ -705,19 +731,39 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         text: assistant.content,
         now: assistant.createdAt,
       );
-      final committed = await db.completeGenerationJobIfCurrent(
-        jobId: job.id,
-        runToken: job.runToken,
-        assistant: assistant,
-        somaticEvents: assistantSomaticEvents,
-      );
+      bool committed;
+      try {
+        committed = await db.completeGenerationJobIfCurrent(
+          jobId: job.id,
+          runToken: job.runToken,
+          assistant: assistant,
+          somaticEvents: assistantSomaticEvents,
+        );
+      } catch (_) {
+        if (selectedSticker != null) {
+          await StickerExpressionService(db: db).discard(selectedSticker);
+        }
+        rethrow;
+      }
       if (!committed) {
+        if (selectedSticker != null) {
+          await StickerExpressionService(db: db).discard(selectedSticker);
+        }
         await db.suspendGenerationJob(
           job.id,
           reason: 'ownership_changed_before_commit',
           runToken: job.runToken,
         );
         return const GenerationRunResult(status: 'suspended');
+      }
+      if (selectedSticker != null) {
+        try {
+          await StickerExpressionService(db: db).markUsed(selectedSticker.record);
+        } catch (_) {
+          // Usage history is only a repetition guard. The reply is already
+          // durably committed and must not be reported as failed if this
+          // optional local setting cannot be updated.
+        }
       }
 
       await ConversationInitiativeTelemetry.recordCommittedPlan(

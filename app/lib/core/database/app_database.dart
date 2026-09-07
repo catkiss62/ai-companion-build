@@ -6398,6 +6398,9 @@ class AppDatabase {
     required ChatMessage assistant,
     List<SomaticEvent> somaticEvents = const <SomaticEvent>[],
   }) async {
+    if (assistant.attachments.any((item) => item.messageId != assistant.id)) {
+      throw StateError('assistant_attachment_message_mismatch');
+    }
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     return db.transaction<bool>((txn) async {
@@ -6457,6 +6460,13 @@ class AppDatabase {
           assistant.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        for (final attachment in assistant.attachments) {
+          await txn.insert(
+            'message_attachments',
+            attachment.toDb(),
+            conflictAlgorithm: ConflictAlgorithm.abort,
+          );
+        }
       }
       final queueSetting = await txn.query(
         'settings',
@@ -6655,6 +6665,9 @@ class AppDatabase {
     required ChatMessage message,
     required DateTime evaluationStartedAt,
   }) async {
+    if (message.attachments.any((item) => item.messageId != message.id)) {
+      throw StateError('proactive_attachment_message_mismatch');
+    }
     final db = await database;
     return db.transaction<String?>((txn) async {
       final settingsRows = await txn.query(
@@ -6697,6 +6710,13 @@ class AppDatabase {
         message.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      for (final attachment in message.attachments) {
+        await txn.insert(
+          'message_attachments',
+          attachment.toDb(),
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
       return null;
     });
   }

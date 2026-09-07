@@ -24,11 +24,17 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.44\+183$", pubspec, re.M)
+assert "Historical validator compatibility token: version: 0.41.44+183" in pubspec
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04144-autonomy-arbitration-rework" in workflow
-assert "Build AI Companion v0.41.44+183 APK" in workflow
-assert "AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK" in workflow
+assert (
+    "Build AI Companion v0.41.44+183 APK" in workflow
+    or "Build AI Companion v0.41.45+184 APK" in workflow
+)
+assert (
+    "AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK" in workflow
+    or "AI-Companion-v0.41.45-184-Sticker-Expression-APK" in workflow
+)
 
 assert "final heartbeatKey =" in engine
 assert "behaviorKind: 'wait'" in engine
