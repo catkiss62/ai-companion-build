@@ -31,20 +31,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04145-sticker-expression`；从 v0.41.44 已回填真机证据的本地 head `ebf9923` 建立。只实现单聊表情包本地导入与已生成普通回复的表达配图，不改 Phase 3B 仲裁、Desire/Thought、主人格、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.45 本地运行代码提交 `b827e52d4c23ee12a0fb2a1db4b87c4d4a27cebd` / tree `eafe76053a11fa630b75a95691559ebc3381bb28`；包含首版 `6b99eec` 与组合包/尺寸/媒体自我认知加固，尚未推送，故不写成公开 head。v0.41.44 公开基线仍为 `c4a0725d84a0fa3f169744dda34add0d1c44a904`。公开变更不含用户备份、诊断、聊天正文、68 张私人图片、密钥或 API 配置 |
+| 当前代码 head / tree | v0.41.45 公开运行代码提交 `bf9e991ed321ccc01237b7bc095b61ffe6407f37` / tree `64f7280af2c060d9870491e3d783e7ced5174f0f`；远端 tree 与本地最终 tree 精确一致。公开变更不含用户备份、诊断、聊天正文、三个图库 ZIP、68 张私人图片、密钥或 API 配置 |
 | App / 数据库 | 当前真机仍为 `0.41.44+183 / schema 55 / Snapshot protocol 5`；v0.41.45 目标为 `0.41.45+184 / schema 55 / protocol 5`，不迁移数据库。旧数据与 108 条近 24h 行为账本存在；2026-09-07 12:05:51Z 自主联网真实成功，12:07:15Z 完成压缩、候选入库、公开知识与 3A 证据写入 |
-| 最终 CI | v0.41.44 Actions run [`34101282553`](https://github.com/catkiss62/ai-companion-build/actions/runs/34101282553)（751）完整成功：源码/历史 validators、Kotlin、Flutter analyze/tests、Release APK、固定签名与完整素材校验均通过 |
-| 测试 APK | `AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK.apk`，326,344,122 bytes，`APK READY`；v0.41.43 已由真机判定仲裁失败，不作为 3B 最终验收版 |
-| APK SHA-256 | `ded52ab81f482e51877efed2934b24ea69241c0e8f2e41477efe8379b4446d30`；CI checksum、独立解包复算与 Draft Release asset digest 一致 |
-| Artifact / Release | Artifact [`10010924185`](https://github.com/catkiss62/ai-companion-build/actions/runs/34101282553/artifacts/10010924185)，ZIP 320,045,845 bytes，digest `sha256:a7333970ecc1b3ca7c595f29d3de13b694c8bcc139d1050d8de2865455f9ed66`；独立 Draft Release [`untagged-12c03b917a15d332dd42`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-12c03b917a15d332dd42) 保持草稿 |
+| 最终 CI | v0.41.45 Actions run [`34137050756`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756)（754）完整成功：源码/历史 validators、Kotlin、Flutter analyze、`634/634` Flutter tests、Release APK、固定签名与完整素材校验均通过 |
+| 测试 APK | `AI-Companion-v0.41.45-184-Sticker-Expression-APK.apk`，326,444,838 bytes，`APK READY`；图库媒体不内置于 APK，安装后从本机 ZIP 导入 |
+| APK SHA-256 | `a822b64d5b7c0778f93fbc384fe53f786191b33035cb138ddb0b497294e8ccbe`；CI checksum、Draft Release asset digest、Artifact 下载解包后独立复算三方一致，APK ZIP 容器测试无错误 |
+| Artifact / Release | Artifact [`10024752703`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756/artifacts/10024752703)，ZIP 320,148,018 bytes，digest `sha256:1f7fb531de9ac669e9869a4e28ee073caa5f4cd375d44b401fc49f80ec5f2a20`；Draft Release [`untagged-5852d16bba5cf5965209`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5852d16bba5cf5965209) 保持草稿 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`。表情包 v0.41.45 已完成单包/组合包本地导入、统一尺寸、普通回复配图及发送后媒体自我认知，状态为 `IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING`。当前环境仍要求新公开分支再次授权；3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`。表情包 v0.41.45 已完成单包/组合包本地导入、统一尺寸、普通回复配图及发送后媒体自我认知，状态为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **等待用户明确授权后推送 `agent/v04145-sticker-expression` 并运行 v0.41.45+184 完整 Actions/APK。** 私人图片、三个图库组合包、诊断与备份不进 GitHub；真机用外层 ZIP 根目录直接放置三个子 ZIP，一次导入后检查三个独立图库、相册零污染、静图/GIF、统一宽度和下一轮媒体自我认知 |
+| 当前下一步 | **用户覆盖安装 v0.41.45+184 后，从总设置→表情包导入单包或外层三子 ZIP 组合包；先确认默认档位“自然”，再用普通短闲聊观察静图/GIF、三个独立图库、相册零污染、统一宽度和下一轮媒体自我认知。** 普通联网图/相册图发送继续留 v0.41.46，不与本轮真机验收混改 |
 | 目标 | 3B 继续遵守“动机—能力—Outcome”，不因看到一次联网就提前通过；表情包复用当前情绪、Conversation Move、Agent 发图与相册基础链，作为已选言语行动的表达媒介，而不是新的 Desire、人格、定时器或自主行为竞争者 |
 | 当前证据 | 真机 3B 证据不变：108 条账本无重复 heartbeat，discovery Provider 失败后以原始动机 `0.8398` 恢复并安静入库。私人 ZIP 为 68 张（30 GIF、38 JPEG），无路径穿越、空文件或精确重复；逐张首帧及全部 GIF 三帧复核后形成 44 general / 17 bold / 5 nsfw / 2 disabled，生成 34,785,978-byte dsh 兼容包，ZIP 测试、68 行 SQLite 索引、文件存在与源/副本字节哈希均通过 |
 | 保护与排除 | 明确不采用外部 QQ 项目的工具化潜水/唤醒，也不采用从用户消息长度、沉默或接话频率推断偏好的“语言适应”；短回复不得被解释为冷场或负反馈。表情包不改主人格、AI Self、Desire、Thought、Moe 真源或 3A/3C 兴趣；不因图片数量、文件名“万用”或旧角色名增加抽取概率 |
@@ -75,7 +75,7 @@
 | D1 · Phase 3A 兴趣证据与来源闭环（CI PASSED / APK READY / TRUE DEVICE PASSED） | run 34031635650、613/613 tests、Artifact/独立 APK SHA 与固定签名全部通过；v0.41.42 新进程后的真实自主联网写入 1 个 forming 候选与 1 个 active evidence，未提前成熟且三项消费开关关闭 | 核心真机门已解除；跨日期成熟、删除撤销与长期新鲜度继续随自然使用观察，不阻塞 3B，也不得倒写成已有真机样本 |
 | D2 · Phase 3B 主动来源平衡（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | v0.41.44 真机已证明主动聊天正常、安静 discovery 完整入库、Provider 失败后恢复、单 heartbeat 无重复，且网页成功没有同轮再发消息 | 继续自然观察额度耗尽 capability defer 和新版 rest；这两项无样本，故不升为完整 `TRUE DEVICE PASSED`，3C/MCP 仍关闭 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
-| D4 · 单聊表情包表达层（IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING） | 单包与原子组合包导入、本地选择、附件事务、GIF、固定 180dp 宽度及发送后第一人称 caption 已实现。schema 55 不变，公开仓库不含私人图片 | 用户明确授权后推送/CI；真机一次导入三图库并检查相册零污染、自我认知、静图/GIF、重启、零视觉调用和语气过滤。普通联网/相册发图登记为下一独立 Agent 附件任务 |
+| D4 · 单聊表情包表达层（CI PASSED / APK READY / TRUE DEVICE PENDING） | 单包与原子组合包导入、本地选择、附件事务、GIF、固定 180dp 宽度及发送后第一人称 caption 已实现；默认频率为“自然”。schema 55 不变，公开仓库不含私人图片 | 真机一次导入三图库并检查相册零污染、自我认知、静图/GIF、重启、零视觉调用和语气过滤。普通联网/相册发图登记为下一独立 Agent 附件任务 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
@@ -127,6 +127,10 @@
 27. “用户要求联网找图并发送、要求发送查手机相册图片”登记为 v0.41.46 独立 Agent 附件任务：先做明确用户指令的 `web image → verified local file → assistant attachment` 与 `album source → assistant attachment`，复用本轮事务/渲染/自我认知合同；自主发图以后再进入统一行为仲裁。它涉及工具结果携带文件、网页图片权限/安全、相册引用与失败 Outcome，不与 v0.41.45 表情包构建混包。
 28. 构建前扩展已完成并提交为 `b827e52d4c23ee12a0fb2a1db4b87c4d4a27cebd` / tree `eafe76053a11fa630b75a95691559ebc3381bb28`：`StickerPackStorage.importZip` 同时兼容单 pack 与根目录 2～20 个子 ZIP 的组合包；组合包拒绝目录、无关文件、重复 pack ID 和聚合解压上限超限，先预检/暂存全部子包后统一 activate，任一失败反向 rollback，导入后仍是可独立启停/删除的图库。表情专用气泡固定 180dp 宽度、高度按源比例受 320dp 上限约束，普通照片布局不变。
 29. 媒体自我认知回归同时加固：测试不仅检查下一轮含“我发送了一张表情包：caption”，还锁定 `source=assistant_sticker:<packId>`、`visionStatus=completed`、`visionModel=sticker_index`；另新增普通 assistant 图片第一人称历史夹具，作为 v0.41.46 的前置合同。只有真实附件事务成功才形成发送记忆，失败不写入。v0.41.45、当前总账、v0.41.44 与 v0.41.43 专项 validators 及 `git diff --check` 本地通过；完整全历史资源 validator 因当前工作区未恢复 LingChat 二进制资源而不能本地全跑，继续由 Actions 的资源恢复步骤证明，Flutter/Dart SDK 亦仅由 CI 验证。
+
+
+30. 用户明确授权后，23 个公开文本 blob 均按本地 Git blob SHA 上传并以 v0.41.44 远端最终 tree 为基底合成；远端 tree `64f7280af2c060d9870491e3d783e7ced5174f0f` 与本地最终 tree 完全一致，公开运行提交为 `bf9e991ed321ccc01237b7bc095b61ffe6407f37`。三个图库 ZIP、68 张私人图片、诊断和备份均未进入 Git。设置页初始值、缺省读取与无效值回退全部为 `natural`，故表情包默认频率已经是“自然”，无需后续补改。
+31. Actions run [`34137050756`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756)（754）在 `bf9e991e` 全绿：源码/历史 validators、Kotlin 桌宠/悬浮文本、Flutter analyze、`634/634` tests、release APK、固定 signer `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`、原生库、417 文件桌宠、Meju TTS、LingChat 62 文件与 22 张塔罗、checksum、Artifact 和 Draft Release 全部通过。APK 为 326,444,838 bytes，SHA-256 `a822b64d5b7c0778f93fbc384fe53f786191b33035cb138ddb0b497294e8ccbe`；Artifact ZIP 独立下载后 `unzip -t`、APK `unzip -t` 与复算哈希均通过，Artifact ID `10024752703`、320,148,018 bytes、digest `sha256:1f7fb531de9ac669e9869a4e28ee073caa5f4cd375d44b401fc49f80ec5f2a20`；Draft Release `untagged-5852d16bba5cf5965209` 保持草稿，`main` 未合并。
 
 
 ### 2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工（IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING）
