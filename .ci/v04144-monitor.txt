@@ -1,0 +1,7 @@
+status=success
+run_id=34101282553
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34101282553
+head_sha=c4a0725d84a0fa3f169744dda34add0d1c44a904
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+ded52ab81f482e51877efed2934b24ea69241c0e8f2e41477efe8379b4446d30  AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-12c03b917a15d332dd42
