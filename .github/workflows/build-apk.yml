@@ -354,6 +354,7 @@
 # Historical validator tokens: Build AI Companion v0.41.45+184 APK | AI-Companion-v0.41.45-184-Sticker-Expression-APK
 # Historical v0.41.46 workflow: agent/v04146-sticker-agent-continuation-identity | Build AI Companion v0.41.46+185 APK | AI-Companion-v0.41.46-185-Sticker-Agent-Continuation-Identity-APK
 # Current v0.41.47 workflow: user sticker picker and truthful ordinary-image sending.
+# Full-build dispatch marker: v0.41.47 attempt 1 after exact tree verification.
 # Full-build retry source tree: 579a0ca9ec4381c8172e19f2562721e89c94f2f5 (corrected after transport truncation; dispatch 1).
 name: Build AI Companion v0.41.47+186 APK (User Stickers + Image Send)
 
