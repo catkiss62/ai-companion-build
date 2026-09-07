@@ -277,6 +277,14 @@ const legacyEditableRuleLayerSha256V04127ImmersiveCleanup = <String, String>{
       'ddbf908410fafe7ca6cb2eac6288f533b4f2eda972fcf19b399ee0f6e201d5da',
 };
 
+/// Exact v0.41.45 Rule 01 stock body. v0.41.46 removes the tempting nickname
+/// examples only from untouched installs; any user-authored wording remains
+/// byte-for-byte authoritative.
+const legacyEditableRuleLayerSha256V04145NicknameExamples = <String, String>{
+  '01_core':
+      '786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c',
+};
+
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
 /// revision. Hash-only matching upgrades the known experiment while preserving
 /// every manually edited prompt, including the user's A/B copies.

@@ -63,6 +63,7 @@
 
 - `AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`：Desire 动机、能力可用性与最终 Outcome 三层仲裁；记录 v0.41.43 真机踩雷、显式 wait/defer、成功冷却语义及未来 MCP 接入约束。
 - `STICKER_EXPRESSION_v0.41.45.md`：单聊表情包表达层、dsh 兼容私有包格式、抽样/语气/NSFW 边界、事务提交与真机验收。
+- `STICKER_AGENT_CONTINUATION_IDENTITY_v0.41.46.md`：明确指令的 `sticker.send` 真实附件闭环、发送后自我认知、Rule 01 保守迁移与沉浸截断修复。
 - `THIRD_PARTY_NOTICES.md`：表情包机制及其他外部研究来源的上游地址、许可证和素材边界。
 - `AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`
 - `PUBLIC_WEB_DISCOVERY_v0.34.8.md`

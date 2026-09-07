@@ -26,7 +26,7 @@ design = read("docs/STICKER_EXPRESSION_v0.41.45.md")
 test = read("test/sticker_expression_test.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.45\+184$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:45\+184|46\+185)$", pubspec, re.M)
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04145-sticker-expression" in workflow
 assert "Build AI Companion v0.41.45+184 APK" in workflow

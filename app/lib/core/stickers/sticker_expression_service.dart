@@ -127,7 +127,87 @@ class StickerExpressionService {
     );
   }
 
+  Future<SelectedStickerAttachment?> prepareForExplicitAgentRequest({
+    required String messageId,
+    required String intent,
+    required bool nsfwActive,
+  }) async {
+    final enabledIds = await packStorage.enabledPackIds();
+    final packs = (await packStorage.scanPacks())
+        .where((pack) => enabledIds.contains(pack.id))
+        .toList(growable: false);
+    if (packs.isEmpty) return null;
+
+    final normalized = intent.trim();
+    final requestedMood = moodForExplicitRequest(normalized);
+    final allowBold = RegExp(r'(凶|骂|损|嘲讽|鄙视|欠揍|毒舌|攻击|生气|愤怒)')
+        .hasMatch(normalized);
+    final recent = await _recentUsageKeys();
+    final start = (_unit('$messageId|agent-pack') * packs.length).floor();
+    StickerPackMeta? selectedPack;
+    List<StickerRecord> selectedPool = const <StickerRecord>[];
+    for (var offset = 0; offset < packs.length; offset++) {
+      final pack = packs[(start + offset) % packs.length];
+      final records = await packStorage.readRecords(pack);
+      final pool = records.where((record) {
+        if (!record.enabled || recent.contains(record.usageKey)) return false;
+        if (record.toneScope == 'disabled') return false;
+        if (record.toneScope == 'nsfw' && !nsfwActive) return false;
+        if (record.toneScope == 'bold' && !allowBold) return false;
+        if (requestedMood != null && moodForTag(record.tag) != requestedMood) {
+          return false;
+        }
+        return true;
+      }).toList(growable: false);
+      if (pool.isNotEmpty) {
+        selectedPack = pack;
+        selectedPool = pool;
+        break;
+      }
+    }
+    if (selectedPack == null || selectedPool.isEmpty) return null;
+
+    selectedPool.sort((a, b) {
+      final scoreA = _textMatchScore(a, normalized);
+      final scoreB = _textMatchScore(b, normalized);
+      final byScore = scoreB.compareTo(scoreA);
+      return byScore != 0 ? byScore : a.path.compareTo(b.path);
+    });
+    final bestScore = _textMatchScore(selectedPool.first, normalized);
+    final finalists = bestScore > 0
+        ? selectedPool
+            .where((record) => _textMatchScore(record, normalized) == bestScore)
+            .take(8)
+            .toList(growable: false)
+        : selectedPool.take(12).toList(growable: false);
+    final index = (_unit('$messageId|agent-sticker') * finalists.length).floor();
+    final record = finalists[index.clamp(0, finalists.length - 1).toInt()];
+    final source = await packStorage.fileFor(selectedPack, record);
+    final draft = await attachmentStorage.prepareImage(
+      sourcePath: source.path,
+      source: 'assistant_sticker:${record.packId}',
+      mimeType: _mimeFor(record.path),
+    );
+    final committed = await attachmentStorage.commitDraft(
+      draft,
+      messageId: messageId,
+    );
+    return SelectedStickerAttachment(
+      record: record,
+      attachment: committed.copyWith(
+        visionStatus: MessageAttachment.visionCompletedStatus,
+        visionSummary: record.caption,
+        visionModel: 'sticker_index',
+        visionUpdatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   Future<void> markUsed(StickerRecord record, {DateTime? now}) async {
+    await markUsedKey(record.usageKey, now: now);
+  }
+
+  Future<void> markUsedKey(String usageKey, {DateTime? now}) async {
     final instant = now ?? DateTime.now();
     final raw = await db.getSetting(StickerPackStorage.usageHistorySetting) ?? '[]';
     final retained = <Map<String, Object?>>[];
@@ -139,13 +219,13 @@ class StickerExpressionService {
           final at = (item['at'] as num?)?.toInt() ?? 0;
           if (key.isNotEmpty &&
               instant.millisecondsSinceEpoch - at < const Duration(days: 14).inMilliseconds &&
-              key != record.usageKey) {
+              key != usageKey) {
             retained.add({'key': key, 'at': at});
           }
         }
       }
     } catch (_) {}
-    retained.insert(0, {'key': record.usageKey, 'at': instant.millisecondsSinceEpoch});
+    retained.insert(0, {'key': usageKey, 'at': instant.millisecondsSinceEpoch});
     await db.setSetting(
       StickerPackStorage.usageHistorySetting,
       jsonEncode(retained.take(80).toList(growable: false)),
@@ -208,6 +288,25 @@ class StickerExpressionService {
       return 'daily';
     }
     return 'daily';
+  }
+
+  static String? moodForExplicitRequest(String text) {
+    final value = text.trim();
+    if (RegExp(r'(开心|高兴|快乐|兴奋|庆祝|喜欢|爱|可爱|爽|好耶|来啦)')
+        .hasMatch(value)) {
+      return 'happy';
+    }
+    if (RegExp(r'(生气|愤怒|火大|气死|凶|骂|怒)').hasMatch(value)) {
+      return 'angry';
+    }
+    if (RegExp(r'(难过|伤心|哭|委屈|无语|叹气|失落)').hasMatch(value)) {
+      return 'sad';
+    }
+    if (RegExp(r'(害羞|脸红|羞|不好意思)').hasMatch(value)) return 'shy';
+    if (RegExp(r'(疑惑|困惑|震惊|惊讶|问号|看不懂)').hasMatch(value)) {
+      return 'confused';
+    }
+    return null;
   }
 
   static int _textMatchScore(StickerRecord record, String text) {

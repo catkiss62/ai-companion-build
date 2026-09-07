@@ -31,6 +31,13 @@ const _attachmentSaveSuccess = AgentToolResult(
   promptData: 'TERMINAL SUCCESS',
 );
 
+const _stickerSendSuccess = AgentToolResult(
+  toolId: 'sticker.send',
+  status: AgentToolStatus.succeeded,
+  displayText: '已准备真实表情包',
+  promptData: 'STICKER ATTACHMENT',
+);
+
 void main() {
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
@@ -148,6 +155,28 @@ void main() {
       OperationalClaimGroundingGuard.evaluate(
         text: '我已经把这张图片保存进相册了。',
         currentToolResults: const [_attachmentSaveSuccess],
+      ).allowed,
+      isTrue,
+    );
+  });
+
+  test('sticker send claims require the current real media result', () {
+    final blocked = OperationalClaimGroundingGuard.evaluate(
+      text: '我给你发了一张表情包。',
+    );
+    expect(blocked.allowed, isFalse);
+    expect(blocked.reason, 'ungrounded_sticker_send');
+    expect(blocked.requiredToolId, 'sticker.send');
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我给你发了一张表情包。',
+        currentToolResults: const [_stickerSendSuccess],
+      ).allowed,
+      isTrue,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我没有发表情包，因为没找到合适的。',
       ).allowed,
       isTrue,
     );

@@ -38,10 +38,11 @@ void main() {
     }
   });
 
-  test('album writes are executable only as explicit proposal-risk workflows', () {
+  test('media writes are executable only as explicit proposal-risk workflows', () {
     for (final tool in <AgentToolDefinition>[
       AgentToolRegistry.attachmentSave,
       AgentToolRegistry.imageFindAndSave,
+      AgentToolRegistry.stickerSend,
     ]) {
       expect(tool.executable, isTrue);
       expect(tool.userTurnAvailable, isTrue);
@@ -49,6 +50,7 @@ void main() {
       expect(tool.risk, AgentToolRisk.proposal);
       expect(AgentToolRegistry.userTurnExecutable, isNot(contains(tool)));
     }
+    expect(AgentToolRegistry.stickerSend.id, 'sticker.send');
   });
 
   test('system self and user-triggered screen are bounded read-only', () {

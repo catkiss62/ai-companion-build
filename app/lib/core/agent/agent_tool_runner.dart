@@ -15,6 +15,7 @@ import '../phone/simulated_phone_reader.dart';
 import '../perception/current_device_context_refresher.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
+import '../stickers/sticker_expression_service.dart';
 import 'agent_self_reader.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
@@ -38,6 +39,8 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken,
     String eventScopeId = '',
     String userMessageId = '',
+    String assistantMessageId = '',
+    bool nsfwActive = false,
   }) async {
     final results = <AgentToolResult>[];
     final calls = plan.calls.take(2).toList(growable: false);
@@ -48,7 +51,8 @@ class AgentToolRunner {
       final definition = AgentToolRegistry.byId(call.toolId);
       final explicitUserWrite =
           (call.toolId == AgentToolRegistry.attachmentSave.id ||
-                  call.toolId == AgentToolRegistry.imageFindAndSave.id) &&
+                  call.toolId == AgentToolRegistry.imageFindAndSave.id ||
+                  call.toolId == AgentToolRegistry.stickerSend.id) &&
               call.reasonTag == 'explicit_request' &&
               userMessageId.trim().isNotEmpty;
       if (definition == null ||
@@ -128,6 +132,8 @@ class AgentToolRunner {
           call,
           cancellationToken,
           userMessageId: userMessageId,
+          assistantMessageId: assistantMessageId,
+          nsfwActive: nsfwActive,
           userTurnEventId: eventScopeId.trim().isEmpty
               ? ''
               : _eventId(
@@ -144,13 +150,15 @@ class AgentToolRunner {
           errorCode: result.errorCode,
           reasonTag: call.reasonTag,
         );
-        await _recordTerminalOutcome(
-          call: call,
-          callIndex: callIndex,
-          eventScopeId: eventScopeId,
-          result: result,
-          startedAt: startedAt,
-        );
+        if (!result.terminalCommitPending) {
+          await _recordTerminalOutcome(
+            call: call,
+            callIndex: callIndex,
+            eventScopeId: eventScopeId,
+            result: result,
+            startedAt: startedAt,
+          );
+        }
         onActivity?.call(AgentToolActivity(
           toolId: call.toolId,
           status: result.status,
@@ -196,6 +204,8 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken, {
     String userMessageId = '',
     String userTurnEventId = '',
+    String assistantMessageId = '',
+    bool nsfwActive = false,
   }) async {
     cancellationToken?.throwIfCancelled();
     if (call.toolId == AgentToolRegistry.publicWebSearch.id) {
@@ -238,10 +248,87 @@ class AgentToolRunner {
         cancellationToken,
       );
     }
+    if (call.toolId == AgentToolRegistry.stickerSend.id) {
+      return _sendSticker(
+        call.arguments['intent'] ?? '',
+        assistantMessageId: assistantMessageId,
+        nsfwActive: nsfwActive,
+      );
+    }
     if (call.toolId == AgentToolRegistry.screenObservation.id) {
       return _observeCurrentScreen(cancellationToken);
     }
     throw StateError('unimplemented_registered_tool');
+  }
+
+  Future<AgentToolResult> _sendSticker(
+    String intent, {
+    required String assistantMessageId,
+    required bool nsfwActive,
+  }) async {
+    if (assistantMessageId.trim().isEmpty) {
+      return const AgentToolResult(
+        toolId: 'sticker.send',
+        status: AgentToolStatus.blocked,
+        displayText: '当前回复无法安全绑定表情包',
+        promptData: '没有可绑定的 assistant message ID；没有发送表情包，不得声称成功。',
+        errorCode: 'assistant_message_missing',
+      );
+    }
+    final selected = await StickerExpressionService(db: db)
+        .prepareForExplicitAgentRequest(
+      messageId: assistantMessageId,
+      intent: intent,
+      nsfwActive: nsfwActive,
+    );
+    if (selected == null) {
+      return const AgentToolResult(
+        toolId: 'sticker.send',
+        status: AgentToolStatus.noResult,
+        displayText: '没有找到可安全发送的表情包',
+        promptData: '已检查本地启用图库，但没有可安全发送的匹配候选；本轮没有表情附件，必须照实说，不能用文字假装已发送。',
+        errorCode: 'no_safe_candidate',
+      );
+    }
+    return AgentToolResult(
+      toolId: AgentToolRegistry.stickerSend.id,
+      status: AgentToolStatus.succeeded,
+      displayText: '已准备一张真实表情包随本轮发送',
+      promptData: '''
+【STICKER ATTACHMENT · TERMINAL COMMIT PENDING】
+已从本地启用图库选择并准备真实表情附件，caption=${_oneLine(selected.record.caption, 300)}。
+该附件只会与本轮 assistant message 在同一事务成功后出现；若事务失败，整条回复不会提交。可以自然承认这条回复带了一张表情包，但不得编造 caption 之外的画面、图库路径或相册保存结果。
+'''.trim(),
+      resultCount: 1,
+      attachments: [selected.attachment],
+      mediaUsageKeys: <String>[selected.record.usageKey],
+      terminalCommitPending: true,
+    );
+  }
+
+  /// Finalizes audit metadata only after a commit-pending media result became
+  /// part of the durable assistant message. Missing audit metadata is safer
+  /// than recording a prepared-but-never-sent attachment as succeeded.
+  Future<void> recordCommittedMediaOutcome({
+    required String eventScopeId,
+    required AgentToolResult result,
+    int callIndex = 0,
+  }) async {
+    if (!result.terminalCommitPending ||
+        result.status != AgentToolStatus.succeeded) {
+      return;
+    }
+    await _recordTerminalOutcome(
+      call: AgentToolCall(
+        toolId: result.toolId,
+        arguments: const <String, String>{},
+        reasonTag: 'explicit_request',
+      ),
+      callIndex: callIndex,
+      eventScopeId: eventScopeId,
+      result: result,
+      startedAt: DateTime.now(),
+    );
   }
 
   Future<AgentToolResult> _observeCurrentScreen(

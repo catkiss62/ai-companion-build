@@ -208,13 +208,14 @@ class ImmersiveRoomController extends ChangeNotifier {
         request: request,
         cancellation: cancellation,
         displayReasoning: true,
+        captureReasoning: true,
       );
       cancellation.throwIfCancelled();
 
-      final fastForward = text.contains('[动作加速]') || text.contains('[场景快进]');
-      final minimum = fastForward ? 400 : 1000;
-      if (_visibleCharacterCount(streamingContent) < minimum &&
-          (finishReason.isEmpty || finishReason == 'stop' || finishReason == 'length')) {
+      if (ImmersivePromptBuilder.shouldContinue(
+        streamingContent,
+        finishReason,
+      )) {
         streamingContent += ImmersivePromptBuilder.continuationBoundary(
           streamingContent,
           finishReason,
@@ -230,6 +231,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           ),
           cancellation: cancellation,
           displayReasoning: false,
+          captureReasoning: false,
         );
         cancellation.throwIfCancelled();
       }
@@ -294,6 +296,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     required List<Map<String, Object?>> request,
     required GenerationCancellationToken cancellation,
     required bool displayReasoning,
+    required bool captureReasoning,
   }) async {
     var finishReason = '';
     await for (final delta in client.streamChat(
@@ -308,7 +311,11 @@ class ImmersiveRoomController extends ChangeNotifier {
     )) {
       cancellation.throwIfCancelled();
       if (delta.reasoning.isNotEmpty) {
-        _allStreamingReasoning += delta.reasoning;
+        _allStreamingReasoning = mergePersistedReasoning(
+          _allStreamingReasoning,
+          delta.reasoning,
+          capture: captureReasoning,
+        );
         if (displayReasoning) streamingReasoning += delta.reasoning;
       }
       if (delta.content.isNotEmpty) {
@@ -348,6 +355,14 @@ class ImmersiveRoomController extends ChangeNotifier {
   @visibleForTesting
   static bool isReservedSystemInspectionCommand(String rawText) =>
       rawText.trimLeft().startsWith('【检查系统】');
+
+  @visibleForTesting
+  static String mergePersistedReasoning(
+    String current,
+    String delta, {
+    required bool capture,
+  }) =>
+      capture ? '$current$delta' : current;
 
   Future<void> speakMessage(ImmersiveMessage message) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
@@ -563,11 +578,6 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
         )
         .join('\n\n');
   }
-
-  static int _visibleCharacterCount(String value) =>
-      value.runes
-          .where((rune) => String.fromCharCode(rune).trim().isNotEmpty)
-          .length;
 
   void _scheduleStreamNotify() {
     if (_disposed || _streamNotifyTimer != null) return;

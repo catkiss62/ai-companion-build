@@ -77,6 +77,29 @@ void main() {
     expect(plan!.calls.single.toolId, AgentToolRegistry.attachmentSave.id);
   });
 
+  test('explicit sticker request takes the deterministic local Agent route', () {
+    final plain = AgentToolPlanner.routeLocally('发个表情包');
+    expect(plain, isNotNull);
+    expect(plain!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
+    expect(plain.calls.single.arguments['intent'], '自然回应');
+
+    final happy = AgentToolPlanner.routeLocally('给我发一张开心的表情包');
+    expect(happy, isNotNull);
+    expect(happy!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
+    expect(happy.calls.single.arguments['intent'], contains('开心'));
+  });
+
+  test('sticker capability talk and negation never send media', () {
+    for (final text in const <String>[
+      '你会不会发表情包？',
+      '你能发表情包吗？',
+      '你支持表情包功能吗？',
+      '别发表情包，这只是测试。',
+    ]) {
+      expect(AgentToolPlanner.routeLocally(text), isNull, reason: text);
+    }
+  });
+
   test('explicit rules and device reads become real bounded calls', () {
     final rules = AgentToolPlanner.routeLocally('去看看当前规则02');
     expect(rules!.calls.single.toolId, AgentToolRegistry.rulesRead.id);

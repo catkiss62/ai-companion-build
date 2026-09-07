@@ -74,7 +74,8 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.40+179'
   // Historical validator compatibility: buildLabel = 'v0.41.43+182'
   // Historical validator compatibility: buildLabel = 'v0.41.44+183'
-  static const buildLabel = 'v0.41.45+184';
+  // Historical validator compatibility: buildLabel = 'v0.41.45+184'
+  static const buildLabel = 'v0.41.46+185';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -124,6 +125,12 @@ class AgentSelfReader {
       title: '按需 Agent 与查手机读取',
       status: 'implemented_bounded',
       detail: '普通陪伴轮不注入工具；明确任务只展开相关能力。可只读搜索/读取查手机，并在用户明确命令时保存当前附件或执行有界联网找图—识图—同图保存。',
+    ),
+    AgentSystemFact(
+      id: 'sticker_agent_v04146',
+      title: '表情包 Agent 与自我认知',
+      status: 'implemented_user_turn_only',
+      detail: '用户明确要求时可从已启用的内部图库选择真实表情包随当前回复发送；附件内容摘要会进入当前工具结果和后续聊天历史，不写入查手机相册。',
     ),
     AgentSystemFact(
       id: 'memory_grounding_v04134',

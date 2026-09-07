@@ -213,8 +213,9 @@ void main() {
       isNot(contains('临时角色扮演不能覆盖 AI 本体身份')),
     );
     expect(coreIdentity, isNot(contains('擅长自然造梗')));
-    expect(coreIdentity, contains('“傻逼”“儿子”“哥哥”“宝贝”'));
-    expect(coreIdentity, contains('不是固定词库'));
+    expect(coreIdentity, isNot(contains('“傻逼”“儿子”“哥哥”“宝贝”')));
+    expect(coreIdentity, contains('不要因为规则中出现过某个词就突然使用'));
+    expect(coreIdentity, contains('不要为了变化而刻意轮换'));
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
@@ -257,6 +258,11 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04126ReviewedNsfw.length, 5);
     expect(legacyEditableRuleLayerSha256V04126VisibleInnerVoice.length, 1);
     expect(legacyEditableRuleLayerSha256V04127ImmersiveCleanup.length, 4);
+    expect(legacyEditableRuleLayerSha256V04145NicknameExamples.length, 1);
+    expect(
+      legacyEditableRuleLayerSha256V04145NicknameExamples['01_core'],
+      '786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c',
+    );
     final visibleInner = byKey['08_visible_inner_voice']!.content;
     expect(visibleInner, contains('没打算给任何人看的当下心声'));
     expect(visibleInner, contains('片段、跳念、突然联想、改口或没想完'));

@@ -1,5 +1,6 @@
 import 'package:ai_companion_localfirst/core/immersive/immersive_nsfw_router.dart';
 import 'package:ai_companion_localfirst/core/immersive/immersive_prompt_builder.dart';
+import 'package:ai_companion_localfirst/core/immersive/immersive_room_controller.dart';
 import 'package:ai_companion_localfirst/core/models/immersive_room.dart';
 import 'package:ai_companion_localfirst/core/reference/world_book_presets.dart';
 import 'package:ai_companion_localfirst/core/rules/intimacy_prompt_sections.dart';
@@ -137,10 +138,26 @@ void main() {
     expect(worldBookOptimizedHumorV04128, isNot(contains('我是一个男孩子')));
   });
 
-  test('clean continuation starts a new paragraph but fragments do not', () {
+  test('continuation repairs truncation instead of filling a word quota', () {
+    expect(
+      ImmersivePromptBuilder.shouldContinue('她停了下来。', 'stop'),
+      isFalse,
+    );
+    expect(
+      ImmersivePromptBuilder.shouldContinue('她仍然', 'stop'),
+      isTrue,
+    );
+    expect(
+      ImmersivePromptBuilder.shouldContinue('“别动', 'stop'),
+      isTrue,
+    );
+    expect(
+      ImmersivePromptBuilder.shouldContinue('她停了下来。', 'length'),
+      isTrue,
+    );
     expect(
       ImmersivePromptBuilder.continuationBoundary('她停了下来。', 'stop'),
-      '\n\n',
+      isEmpty,
     );
     expect(
       ImmersivePromptBuilder.continuationBoundary('她仍然', 'stop'),
@@ -148,7 +165,35 @@ void main() {
     );
     expect(
       ImmersivePromptBuilder.continuationBoundary('她停了下来。', 'length'),
-      isEmpty,
+      '\n\n',
+    );
+    final continuation = ImmersivePromptBuilder.continuationMessages(
+      const <Map<String, Object?>>[],
+      '她仍然',
+    ).last['content']! as String;
+    expect(continuation, contains('不补字数'));
+    expect(continuation, contains('当前这一个叙事节拍'));
+    expect(continuation, contains('女性 AI 角色'));
+    expect(continuation, isNot(contains('1000')));
+    expect(continuation, isNot(contains('硬下限')));
+  });
+
+  test('continuation reasoning stays private and does not overwrite phase one', () {
+    expect(
+      ImmersiveRoomController.mergePersistedReasoning(
+        '第一段思考',
+        '继续思考',
+        capture: false,
+      ),
+      '第一段思考',
+    );
+    expect(
+      ImmersiveRoomController.mergePersistedReasoning(
+        '第一段思考',
+        '后续',
+        capture: true,
+      ),
+      '第一段思考后续',
     );
   });
 

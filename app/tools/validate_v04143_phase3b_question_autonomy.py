@@ -22,7 +22,11 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184)$", pubspec, re.M)
+assert re.search(
+    r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184|46\+185)$",
+    pubspec,
+    re.M,
+)
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04143-phase3b-question-autonomy" in workflow
 assert (

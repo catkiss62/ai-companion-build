@@ -23,6 +23,13 @@ void main() {
       expect(StickerExpressionService.moodForTag('cpu'), 'daily');
       expect(StickerExpressionService.moodForTag('unknown'), 'daily');
     });
+
+    test('explicit Agent intent narrows mood without inventing one', () {
+      expect(StickerExpressionService.moodForExplicitRequest('来张开心的'), 'happy');
+      expect(StickerExpressionService.moodForExplicitRequest('发个生气的'), 'angry');
+      expect(StickerExpressionService.moodForExplicitRequest('来张害羞的'), 'shy');
+      expect(StickerExpressionService.moodForExplicitRequest('随便来一张'), isNull);
+    });
   });
 
   group('sticker pack path safety', () {

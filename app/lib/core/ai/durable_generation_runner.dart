@@ -22,6 +22,7 @@ import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
+import '../models/message_attachment.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
@@ -201,6 +202,9 @@ class DurableGenerationRunner {
     var lastFenceCheck = DateTime.fromMillisecondsSinceEpoch(0);
     var generationSpecialStyleTrialId = '';
     var generationSpecialStyleKey = '';
+    final preparedAgentAttachments = <MessageAttachment>[];
+    final preparedAgentMediaUsageKeys = <String>[];
+    var agentAttachmentsCommitted = false;
 
     try {
       final previous = await db.messagesBefore(
@@ -279,6 +283,14 @@ class DurableGenerationRunner {
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
           userMessageId: user.id,
+          assistantMessageId: job.assistantMessageId,
+          nsfwActive: nsfwRoute.active,
+        );
+        preparedAgentAttachments.addAll(
+          agentToolResults.expand((result) => result.attachments),
+        );
+        preparedAgentMediaUsageKeys.addAll(
+          agentToolResults.expand((result) => result.mediaUsageKeys),
         );
       }
       // Legacy special-style snapshots stay in the schema only for backup
@@ -484,6 +496,14 @@ class DurableGenerationRunner {
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
           userMessageId: user.id,
+          assistantMessageId: job.assistantMessageId,
+          nsfwActive: nsfwRoute.active,
+        );
+        preparedAgentAttachments.addAll(
+          agentToolResults.expand((result) => result.attachments),
+        );
+        preparedAgentMediaUsageKeys.addAll(
+          agentToolResults.expand((result) => result.mediaUsageKeys),
         );
         cancellationToken?.throwIfCancelled();
 
@@ -699,6 +719,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         emotionTop3Json: companionEmotion.top3Json,
         emotionSource: companionEmotion.source,
         worldBookContextJson: promptBuild.worldBookContext.encode(),
+        attachments: preparedAgentAttachments,
       );
       SelectedStickerAttachment? selectedSticker;
       if (agentToolResults.isEmpty) {
@@ -722,7 +743,10 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       final assistant = selectedSticker == null
           ? baseAssistant
           : baseAssistant.copyWith(
-              attachments: [selectedSticker.attachment],
+              attachments: [
+                ...baseAssistant.attachments,
+                selectedSticker.attachment,
+              ],
             );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.
@@ -756,6 +780,14 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         );
         return const GenerationRunResult(status: 'suspended');
       }
+      agentAttachmentsCommitted = true;
+      for (var index = 0; index < agentToolResults.length; index++) {
+        await agentToolRunner.recordCommittedMediaOutcome(
+          eventScopeId: job.id,
+          result: agentToolResults[index],
+          callIndex: index,
+        );
+      }
       if (selectedSticker != null) {
         try {
           await StickerExpressionService(db: db).markUsed(selectedSticker.record);
@@ -763,6 +795,14 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           // Usage history is only a repetition guard. The reply is already
           // durably committed and must not be reported as failed if this
           // optional local setting cannot be updated.
+        }
+      }
+      for (final usageKey in preparedAgentMediaUsageKeys.toSet()) {
+        try {
+          await StickerExpressionService(db: db).markUsedKey(usageKey);
+        } catch (_) {
+          // The attachment and reply already committed. Repetition history is
+          // optional and must not turn a visible success into a failure.
         }
       }
 
@@ -831,6 +871,18 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         retryAt: failed.nextRetryAt,
       );
     } finally {
+      if (!agentAttachmentsCommitted) {
+        for (final attachment in preparedAgentAttachments) {
+          try {
+            await StickerExpressionService(db: db)
+                .attachmentStorage
+                .deleteAttachmentFiles(attachment);
+          } catch (_) {
+            // Best-effort cleanup. The normal startup prune also removes any
+            // unreferenced files left by process death.
+          }
+        }
+      }
       await _clearToolRuntime();
     }
   }

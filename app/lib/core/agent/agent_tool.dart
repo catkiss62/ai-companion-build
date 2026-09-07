@@ -1,3 +1,5 @@
+import '../models/message_attachment.dart';
+
 enum AgentToolRisk { readOnly, proposal, privileged }
 
 extension AgentToolRiskKey on AgentToolRisk {
@@ -77,6 +79,9 @@ class AgentToolResult {
     required this.promptData,
     this.resultCount = 0,
     this.errorCode = '',
+    this.attachments = const <MessageAttachment>[],
+    this.mediaUsageKeys = const <String>[],
+    this.terminalCommitPending = false,
   });
 
   final String toolId;
@@ -85,6 +90,14 @@ class AgentToolResult {
   final String promptData;
   final int resultCount;
   final String errorCode;
+  /// Files prepared by a real media tool for the current assistant message.
+  /// They become visible only if the generation job commits atomically.
+  final List<MessageAttachment> attachments;
+  /// Opaque local repetition-guard keys recorded only after that commit wins.
+  final List<String> mediaUsageKeys;
+  /// A media operation whose terminal success exists only if the enclosing
+  /// assistant message and its attachment win the durable commit.
+  final bool terminalCommitPending;
 
   bool get succeeded => status == AgentToolStatus.succeeded;
 }

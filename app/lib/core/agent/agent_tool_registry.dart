@@ -97,6 +97,15 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const stickerSend = AgentToolDefinition(
+    id: 'sticker.send',
+    title: '发送本地表情包',
+    description: '仅按用户本轮明确要求，从已启用的内部表情图库选择真实图片并随当前回复发送；不会写入查手机相册。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const screenObservation = AgentToolDefinition(
     id: 'screen_observation.inspect',
     title: '查看当前屏幕',
@@ -172,6 +181,7 @@ class AgentToolRegistry {
     phoneRead,
     attachmentSave,
     imageFindAndSave,
+    stickerSend,
     screenObservation,
     videoUnderstanding,
     memoryProposal,

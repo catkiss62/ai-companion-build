@@ -12,7 +12,7 @@ void main() {
       currentDeviceLabel: 'REDMI K80 Ultra',
     );
 
-    expect(result.promptData, contains('build=v0.41.45+184 schema=55'));
+    expect(result.promptData, contains('build=v0.41.46+185 schema=55'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(
@@ -20,6 +20,8 @@ void main() {
       contains('id=screen_observation.inspect status=executable'),
     );
     expect(result.promptData, contains('id=mcp.invoke status=not_implemented'));
+    expect(result.promptData, contains('id=sticker.send status=executable'));
+    expect(result.promptData, contains('表情包 Agent 与自我认知'));
     expect(result.promptData, contains('不得声称这些功能是你自己编写的'));
     expect(result.promptData, isNot(contains('raw-device-id')));
     expect(result.outcomeCount, 0);

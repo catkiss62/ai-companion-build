@@ -64,6 +64,10 @@ class OperationalClaimGroundingGuard {
     r'|((我)?(保存|存进|写入|修改|更新).{0,12}(相册|记忆|规则|人设|系统).{0,8}(成功|完成|好了|了))',
     caseSensitive: false,
   );
+  static final RegExp _stickerSendClaim = RegExp(
+    r'((我)?(给你)?(发|发送|甩|丢|扔)(了|来|过去|给你)?.{0,10}(表情包|表情))|'
+    r'((表情包|表情).{0,8}(发|发送|甩|丢|扔).{0,6}(了|给你|过去))',
+  );
   static final RegExp _metaOrNegated = RegExp(
     r'(没(有)?|并没|并未|没有真的|不曾|不能|不该|不会|别|不要|禁止|'
     r'想去|想要去|正想|打算|准备|想象|幻想|以后|下次|如果|假如|'
@@ -94,6 +98,15 @@ class OperationalClaimGroundingGuard {
           allowed: false,
           reason: 'ungrounded_public_web_journey',
           requiredToolId: 'public_web.discover',
+        );
+      }
+
+      if (_stickerSendClaim.hasMatch(sentence) &&
+          !successfulResults.any((result) => result.toolId == 'sticker.send')) {
+        return const OperationalClaimGroundingResult(
+          allowed: false,
+          reason: 'ungrounded_sticker_send',
+          requiredToolId: 'sticker.send',
         );
       }
 

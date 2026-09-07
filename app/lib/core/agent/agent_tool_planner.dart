@@ -53,6 +53,16 @@ class AgentToolPlanner {
     }
     if (_looksLikeMetaToolTalk(text)) return null;
 
+    if (_isExplicitStickerSend(text)) {
+      return AgentToolPlan(calls: [
+        AgentToolCall(
+          toolId: AgentToolRegistry.stickerSend.id,
+          arguments: {'intent': _bounded(_stickerIntent(text), 120)},
+          reasonTag: 'explicit_request',
+        ),
+      ]);
+    }
+
     final calls = <AgentToolCall>[];
 
     void add(String toolId, Map<String, String> arguments) {
@@ -426,6 +436,32 @@ class AgentToolPlanner {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     return stripped.isEmpty ? searched : stripped;
+  }
+
+  static bool _isExplicitStickerSend(String text) {
+    if (RegExp(r'(别|不要|不用|不必|无需).{0,8}(发|来|给).{0,8}(表情包|表情)')
+        .hasMatch(text)) {
+      return false;
+    }
+    if (RegExp(
+      r'(会不会|会发|能否|是否|支不支持|支持|功能|能力).{0,12}(表情包|表情)|'
+      r'你?(会|能|可以).{0,6}(发|发送).{0,6}(表情包|表情).{0,3}(吗|嘛|么|？|\?)',
+    )
+        .hasMatch(text)) {
+      return false;
+    }
+    return RegExp(
+      r'((发|来|甩|丢|整)(给我)?(一)?(个|张)?[^，。！？!?]{0,8}(表情包|表情))|'
+      r'((给我|我要|想要)[^，。！？!?]{0,8}(个|张)?(表情包|表情))',
+    ).hasMatch(text);
+  }
+
+  static String _stickerIntent(String text) {
+    final stripped = text
+        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|发|来|甩|丢|整|一个|一张|个|张|表情包|表情)'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return stripped.isEmpty ? '自然回应' : stripped;
   }
 
   static const _nativeNameByToolId = <String, String>{
