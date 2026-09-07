@@ -29,28 +29,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04145-sticker-expression`；从 v0.41.44 已回填真机证据的本地 head `ebf9923` 建立。只实现单聊表情包本地导入与已生成普通回复的表达配图，不改 Phase 3B 仲裁、Desire/Thought、主人格、主动频率或 3C/MCP |
+| 当前开发分支 | `agent/v04146-sticker-agent-continuation-identity`；从 v0.41.45 最终文档 tree `45e2eb9f` 建立。范围限于明确指令的表情包 Agent 闭环、规则01称呼默认迁移和沉浸同轮续写边界；不改 Phase 3B 仲裁、Desire/Thought、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 当前代码 head / tree | v0.41.45 公开运行代码提交 `bf9e991ed321ccc01237b7bc095b61ffe6407f37` / tree `64f7280af2c060d9870491e3d783e7ced5174f0f`；远端 tree 与本地最终 tree 精确一致。公开变更不含用户备份、诊断、聊天正文、三个图库 ZIP、68 张私人图片、密钥或 API 配置 |
-| App / 数据库 | 当前真机仍为 `0.41.44+183 / schema 55 / Snapshot protocol 5`；v0.41.45 目标为 `0.41.45+184 / schema 55 / protocol 5`，不迁移数据库。旧数据与 108 条近 24h 行为账本存在；2026-09-07 12:05:51Z 自主联网真实成功，12:07:15Z 完成压缩、候选入库、公开知识与 3A 证据写入 |
+| App / 数据库 | 最新已构建基线为 `0.41.45+184 / schema 55 / Snapshot protocol 5`；v0.41.46 目标为 `0.41.46+185 / schema 55 / protocol 5`，不迁移数据库表。旧聊天、规则手改、图库、Memory、Thought、Desire 与 108 条既有行为账本必须保留 |
 | 最终 CI | v0.41.45 Actions run [`34137050756`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756)（754）完整成功：源码/历史 validators、Kotlin、Flutter analyze、`634/634` Flutter tests、Release APK、固定签名与完整素材校验均通过 |
 | 测试 APK | `AI-Companion-v0.41.45-184-Sticker-Expression-APK.apk`，326,444,838 bytes，`APK READY`；图库媒体不内置于 APK，安装后从本机 ZIP 导入 |
 | APK SHA-256 | `a822b64d5b7c0778f93fbc384fe53f786191b33035cb138ddb0b497294e8ccbe`；CI checksum、Draft Release asset digest、Artifact 下载解包后独立复算三方一致，APK ZIP 容器测试无错误 |
 | Artifact / Release | Artifact [`10024752703`](https://github.com/catkiss62/ai-companion-build/actions/runs/34137050756/artifacts/10024752703)，ZIP 320,148,018 bytes，digest `sha256:1f7fb531de9ac669e9869a4e28ee073caa5f4cd375d44b401fc49f80ec5f2a20`；Draft Release [`untagged-5852d16bba5cf5965209`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-5852d16bba5cf5965209) 保持草稿 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`。表情包 v0.41.45 已完成单包/组合包本地导入、统一尺寸、普通回复配图及发送后媒体自我认知，状态为 `IMPLEMENTED / CI PASSED / APK READY / TRUE DEVICE PENDING`；3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A 为 `TRUE DEVICE PASSED`；v0.41.44 Phase 3B 为 `TRUE DEVICE PARTIAL`；v0.41.45 表情包表达层为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。v0.41.46 已获用户开工决定，当前为 `IMPLEMENTATION STARTED / PRE-CODE LEDGER FROZEN`；3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.46 先补齐明确用户指令的表情包 Agent 调用闭环，同时窄修沉浸 NSFW 二次续写 reasoning 的身份归属，并清理规则01称呼默认文案。** 三项必须分提交、分测试但可共用一个 APK；普通联网图/相册图发送后移到下一独立媒体版本，不与 NSFW 热修混在同一实现包 |
+| 当前下一步 | **实施 v0.41.46：补齐明确用户指令的表情包 Agent 调用闭环；把沉浸同轮续写从“低于固定字数就补写”改为“只有明显截断才补完当前节拍”，同时隔离第二次隐藏 reasoning；清理规则01称呼默认文案。** 三项分实现与测试、共用一个 APK；普通联网图/相册图继续后移 |
 | 目标 | 让“发个表情包”进入真实 `Agent tool → 本地选择 → 附件事务 → Outcome → 下一轮自我认知`，不能再由模型用文字假装发送；续写隐藏 reasoning 不得污染最终可见/持久化思考链；称呼由关系和当下语境自然形成，不把规则示例当成跳跃词库 |
 | 当前证据 | 真机 3B 证据不变：108 条账本无重复 heartbeat，discovery Provider 失败后以原始动机 `0.8398` 恢复并安静入库。私人 ZIP 为 68 张（30 GIF、38 JPEG），无路径穿越、空文件或精确重复；逐张首帧及全部 GIF 三帧复核后形成 44 general / 17 bold / 5 nsfw / 2 disabled，生成 34,785,978-byte dsh 兼容包，ZIP 测试、68 行 SQLite 索引、文件存在与源/副本字节哈希均通过 |
 | 保护与排除 | 明确不采用外部 QQ 项目的工具化潜水/唤醒，也不采用从用户消息长度、沉默或接话频率推断偏好的“语言适应”；短回复不得被解释为冷场或负反馈。表情包仍不改主人格、Desire/Thought、Moe 或自主行为竞争；规则01迁移只能替换未被用户编辑的旧默认值，必须保留用户已手改文本；NSFW 不改题材、欲望系统或正文自由度，只修 assistant 身份归属和 reasoning 持久化边界 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 表情包主参考 `https://github.com/yyh-001/dsh-meme`，图库参考 `https://github.com/yyh-001/dsh-meme-packs`；`https://github.com/nanbengxian-cyber/dafeiyu-qq-bot` 只保留为群聊机制调研来源，不设“QQ 项目接入”独立阶段。v0.41.46 的明确表情命令复用 v0.41.45 内部 `sticker_packs/`、安全选择器和附件事务；沉浸二次续写的隐藏 reasoning 不再追加到最终可见/持久字段，并在续写末端再次锁定同一成年女性 AI 身份。优先级 1000 世界书不作为首选修法 |
-| 完成判据 | 明确要求发图时必须出现真实表情附件，工具结果与历史知道发了什么；无包/无匹配/失败均不能幻觉成功。续写测试锁定隐藏 reasoning 不落库、续写 Prompt 锁定女性第一人称；称呼默认文案无枚举示例且只迁移未编辑默认。v0.41.45 表情包只需方便时做一次导入、静图/GIF、相册零污染和下一轮承接的轻量 smoke，不阻塞 v0.41.46 开发，也不等待自然概率 |
+| 实现边界 | 表情包主参考 `https://github.com/yyh-001/dsh-meme`，图库参考 `https://github.com/yyh-001/dsh-meme-packs`；`https://github.com/nanbengxian-cyber/dafeiyu-qq-bot` 只取 Agent 自读/工具真实性思路，不设“QQ 项目接入”独立阶段。明确表情命令复用 v0.41.45 的 `sticker_packs/`、安全选择器和附件事务。沉浸首轮不再用 1000/1200～1600 等固定字数作为二次请求触发器；仅 `length` 截断或未闭合句子/对白才继续，续写只补完当前节拍，不新增阶段，并且其隐藏 reasoning 不落入可见/持久字段。优先级 1000 世界书不作为修法 |
+| 完成判据 | 明确要求发图时必须出现真实表情附件，工具结果与历史知道发了什么；无包/无匹配/失败均不能幻觉成功。短但自然完整的沉浸回复不得二次请求；真正截断可续完且不跳姿势/高潮/场景，第二次 reasoning 不落库，女性第一人称保持；称呼默认无枚举示例且只迁移未编辑旧默认。全部专项/历史 validators、Flutter analyze/tests、Kotlin、APK、签名与资源校验通过后交付 |
 | 直接详细入口 | 下方“2026-09-08 媒体 Agent 永久合同、称呼规则与 NSFW 续写身份诊断”；表情包实现见“2026-09-07 v0.41.45 单聊表情包表达层”；3B 继续参照“2026-09-07 v0.41.43 真机仲裁踩雷与 v0.41.44 返工” |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -86,7 +86,7 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-08 媒体 Agent 永久合同、称呼规则与 NSFW 续写身份诊断（DESIGNED / NO RUNTIME CHANGE）
+### 2026-09-08 v0.41.46 媒体 Agent、称呼规则与沉浸续写身份（IMPLEMENTATION STARTED / PRE-CODE FROZEN）
 
 1. 用户发现 v0.41.45 遗漏明确指令的 Agent 能力：当前 `StickerExpressionService` 只在普通正文、情绪和 Conversation Move 已经生成后，以本地概率为现有回复附带表情；Agent registry/executor 没有 `sticker.send`。因此用户说“发个表情包”时，模型可能只用文字声称发送。此前“发送后知道自己发了什么”的附件历史合同是真实存在的，但它只覆盖随机成功发送后的下一轮认知，不能替代 Agent 可调用性。
 2. **永久媒体合同提升为 P0：只要产品声称她能发送某种媒体，就必须同时完成五件事——Agent 自读能看见能力与状态、模型能选择受约束工具、执行器提交真实附件、Outcome 如实区分成功/失败、后续第一人称历史包含媒体内容与来源。** UI 可导入、后台可随机附图或提示词写“可以发送”均不能单独算能力完成。此合同适用于表情包、联网图片、相册图片以及以后新增的音频/视频；失败、权限拒绝、无匹配、用户抢占和事务回滚不得留下“已发送”记忆。
@@ -99,6 +99,8 @@
 9. v0.41.45 表情包无需硬等长时间真机测试才开始下一步：它不改人格、Desire/Thought 或主动仲裁，Actions 已全绿。用户方便时只需做一次组合包导入、静图/GIF、重启、相册零污染及发送后承接的 smoke；当前版本尚未实现 `sticker.send`，所以拿“发个表情包”测试它会预期暴露幻觉，不能把这一缺口归因于随机表达失败。
 10. `https://github.com/nanbengxian-cyber/dafeiyu-qq-bot` 不设为独立“QQ 接入阶段”。工具化潜水/唤醒与群聊式语言适应均已否决；其余机制仅作为资料来源，按能力归入本项目自己的 Agent、媒体、自我认知或记忆任务。表情包机制主参考仍为 `https://github.com/yyh-001/dsh-meme` 与 `https://github.com/yyh-001/dsh-meme-packs`。
 11. 建议 v0.41.46 以三个互不依赖的提交共用一次 APK：A）`sticker.send` + Agent 自读 + 真实附件 Outcome；B）规则01无枚举示例的默认文案与仅未编辑默认迁移；C）沉浸 continuation reasoning 持久化边界和身份末端锁。三项测试与 validator 分离，任一失败可独立回滚。普通联网图/相册图进入后续独立媒体版本；自主媒体再后置到统一“动机—能力—Outcome”仲裁。
+12. 用户批准开始任务，并进一步确认 DeepSeek V4 Flash 对固定字数不敏感，“为了补够字数而续写”本身不应继续作为机制目标。正式实现因此保留同一气泡内的截断恢复，但删除“低于固定字符数即二次调用”和续写补到 1000 字的合同：只有 Provider `length` 截断或句子/对白明显未闭合才继续；完整短回复直接接受。续写只收束当前节拍，不为了篇幅新增动作、姿势、高潮阶段、用户决定或场景跳转。`[动作加速]/[场景快进]` 不再被硬编码 1000 字续写反向拉长。
+13. v0.41.46 目标身份冻结为 `0.41.46+185 / schema 55 / protocol 5`，分支 `agent/v04146-sticker-agent-continuation-identity`。开工保护项：三个图库 ZIP、68 张私人图、备份、诊断、聊天/NSFW 正文、密钥和 Provider payload 不进入公开仓库；规则01只迁移旧默认哈希，用户当前手改必须保留；表情明确指令不加入自主 heartbeat；沉浸修复不改欲望系统、亲密阶段真值或用户控制权。
 
 
 ### 2026-09-07 v0.41.44 首轮真机仲裁与自主联网证据（TRUE DEVICE PARTIAL）
