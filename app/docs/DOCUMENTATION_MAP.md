@@ -61,6 +61,7 @@
 
 ### Agent 与联网
 
+- `AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`：Desire 动机、能力可用性与最终 Outcome 三层仲裁；记录 v0.41.43 真机踩雷、显式 wait/defer、成功冷却语义及未来 MCP 接入约束。
 - `AUTONOMOUS_ACTION_FOUNDATION_v0.34.7.md`
 - `PUBLIC_WEB_DISCOVERY_v0.34.8.md`
 - `PUBLIC_WEB_READING_KNOWLEDGE_V04139.md`：Search/Extract/Agnes/DeepSeek 四阶段真值、浏览/知识/分享生命周期、旧片段隔离、清理、预算与分享前复核；末尾含 v0.41.40 用户明确搜索入浏览历史补充合同。

@@ -104,8 +104,8 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04143-phase3b-question-autonomy",
-        "0.41.43+182",
+        "agent/v04144-autonomy-arbitration-rework",
+        "0.41.44+183",
         "schema 55",
         "Snapshot protocol 5",
         "Phase 2B",
@@ -192,7 +192,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.43\+182\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.44\+183\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

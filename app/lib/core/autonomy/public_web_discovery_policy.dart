@@ -35,6 +35,15 @@ class PublicWebDiscoveryPolicy {
   static const minimumIntentScore = 0.60;
   static const wildcardMinimumScore = 0.58;
 
+  static int budgetLimitFor({
+    required double intentScore,
+    required int recentVerifiedCount,
+  }) {
+    return intentScore >= 0.72 && recentVerifiedCount >= 3
+        ? adaptiveDailyLimit
+        : defaultDailyLimit;
+  }
+
   // This is a broad public-knowledge fallback taxonomy, not a personality
   // category cage. Mature Phase-2/3 interests may later add safe topics, while
   // these seeds prevent autonomous discovery from circling six nouns forever.

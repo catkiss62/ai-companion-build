@@ -30,6 +30,7 @@ class ProactiveSelectionResult {
     required this.samplingUnit,
     required this.topAdjustedScore,
     required this.selectedAdjustedScore,
+    required this.selectedOriginalScore,
     required this.behaviorKind,
     required this.cooldownPenalty,
   });
@@ -55,6 +56,7 @@ class ProactiveSelectionResult {
   final double samplingUnit;
   final double topAdjustedScore;
   final double selectedAdjustedScore;
+  final double selectedOriginalScore;
   final String behaviorKind;
   final double cooldownPenalty;
 }
@@ -330,6 +332,7 @@ class ProactiveSelectionPolicy {
       samplingUnit: safeUnit,
       topAdjustedScore: top.adjusted.score,
       selectedAdjustedScore: selected.adjusted.score,
+      selectedOriginalScore: selected.original.score,
       behaviorKind: selected.behaviorKind,
       cooldownPenalty: selected.cooldownPenalty,
     );
@@ -339,6 +342,9 @@ class ProactiveSelectionPolicy {
     DesireIntent intent, {
     String sourceType = '',
   }) {
+    if (intent.wantAction == 'wait') {
+      return 'wait';
+    }
     if (intent.wantAction == 'discover_interest') {
       return 'public_web_discovery';
     }
@@ -361,7 +367,7 @@ class ProactiveSelectionPolicy {
     required List<Map<String, Object?>> recent,
     required DateTime now,
   }) {
-    if (behaviorKind == 'rest') return 0;
+    if (behaviorKind == 'rest' || behaviorKind == 'wait') return 0;
     final topicKey = (thought?.topicKey ?? '').trim().toLowerCase();
     final topicHash = topicKey.isEmpty
         ? ''
@@ -374,6 +380,15 @@ class ProactiveSelectionPolicy {
       final age = now.difference(startedAt);
       if (age.isNegative || age > const Duration(hours: 24)) continue;
       final previousBehavior = event['behavior_kind']?.toString() ?? '';
+      final previousStatus = event['status']?.toString() ?? '';
+      // A cooldown is evidence that an action really happened, not that it was
+      // merely selected. Gate waits, unavailable tools, failures and rest must
+      // not pretend that a topic was already handled.
+      if (previousStatus != 'completed' ||
+          previousBehavior == 'rest' ||
+          previousBehavior == 'wait') {
+        continue;
+      }
       if (previousBehavior == 'public_web_discovery' &&
           behaviorKind == previousBehavior &&
           age < const Duration(minutes: 90)) {
@@ -386,6 +401,7 @@ class ProactiveSelectionPolicy {
       }
       if (topicHash.isNotEmpty &&
           event['topic_hash'] == topicHash &&
+          _sharesTopicCooldown(previousBehavior, behaviorKind) &&
           age < const Duration(hours: 6)) {
         return 1.0;
       }
@@ -399,6 +415,18 @@ class ProactiveSelectionPolicy {
       }
     }
     return penalty;
+  }
+
+  static bool _sharesTopicCooldown(String previous, String current) {
+    const userVisible = <String>{
+      'proactive_message',
+      'public_web_share',
+    };
+    if (previous == 'public_web_discovery' ||
+        current == 'public_web_discovery') {
+      return previous == current;
+    }
+    return userVisible.contains(previous) && userVisible.contains(current);
   }
 
   static _ScoredIntent _sampleNearTie(

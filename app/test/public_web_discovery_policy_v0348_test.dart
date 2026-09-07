@@ -136,5 +136,29 @@ void main() {
       expect(PublicWebDiscoveryPolicy.candidateTtl, const Duration(days: 14));
       expect(PublicWebDiscoveryPolicy.candidateCap, 240);
     });
+
+    test('adaptive budget depends on original motive and verified value', () {
+      expect(
+        PublicWebDiscoveryPolicy.budgetLimitFor(
+          intentScore: 0.71,
+          recentVerifiedCount: 3,
+        ),
+        PublicWebDiscoveryPolicy.defaultDailyLimit,
+      );
+      expect(
+        PublicWebDiscoveryPolicy.budgetLimitFor(
+          intentScore: 0.72,
+          recentVerifiedCount: 2,
+        ),
+        PublicWebDiscoveryPolicy.defaultDailyLimit,
+      );
+      expect(
+        PublicWebDiscoveryPolicy.budgetLimitFor(
+          intentScore: 0.72,
+          recentVerifiedCount: 3,
+        ),
+        PublicWebDiscoveryPolicy.adaptiveDailyLimit,
+      );
+    });
   });
 }

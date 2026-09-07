@@ -16,6 +16,23 @@ import 'public_web_deepseek_appraiser.dart';
 import 'public_web_question_planner.dart';
 import 'wikimedia_public_web_provider.dart';
 
+class PublicWebDiscoveryAvailability {
+  const PublicWebDiscoveryAvailability({
+    required this.available,
+    required this.reason,
+    required this.budgetLimit,
+    required this.budgetUsed,
+  });
+
+  final bool available;
+  final String reason;
+  final int budgetLimit;
+  final int budgetUsed;
+
+  int get budgetRemaining =>
+      (budgetLimit - budgetUsed).clamp(0, budgetLimit).toInt();
+}
+
 /// First scheduled autonomous tool provider.
 ///
 /// It runs only after the existing Desire heartbeat has produced a snapshot,
@@ -48,6 +65,47 @@ class PublicWebDiscoveryEngine {
 
   late final AutonomousActionCoordinator coordinator =
       AutonomousActionCoordinator(db);
+
+  /// Capability availability is separate from motivation. Callers may turn
+  /// an unavailable but still-strong intention into an explicit defer/wait
+  /// candidate instead of redistributing its probability to another action.
+  Future<PublicWebDiscoveryAvailability> availability({
+    required DesireIntent sourceIntent,
+    DateTime? now,
+  }) async {
+    final instant = now ?? DateTime.now();
+    final recentVerified = await db.recentVerifiedPublicWebCount(now: instant);
+    final budgetLimit = PublicWebDiscoveryPolicy.budgetLimitFor(
+      intentScore: sourceIntent.score,
+      recentVerifiedCount: recentVerified,
+    );
+    final budgetUsed = await db.autonomousToolUsageSince(
+      AutonomousToolKind.publicWeb,
+      instant.subtract(PublicWebDiscoveryPolicy.budgetWindow),
+    );
+    if ((await db.getSetting('public_web_discovery_enabled')) == '0') {
+      return PublicWebDiscoveryAvailability(
+        available: false,
+        reason: 'disabled',
+        budgetLimit: budgetLimit,
+        budgetUsed: budgetUsed,
+      );
+    }
+    if (budgetUsed >= budgetLimit) {
+      return PublicWebDiscoveryAvailability(
+        available: false,
+        reason: 'budget_exhausted',
+        budgetLimit: budgetLimit,
+        budgetUsed: budgetUsed,
+      );
+    }
+    return PublicWebDiscoveryAvailability(
+      available: true,
+      reason: 'available',
+      budgetLimit: budgetLimit,
+      budgetUsed: budgetUsed,
+    );
+  }
 
   Future<PublicWebDiscoveryDecision> maybeDiscover({
     required DesireSnapshot snapshot,
@@ -90,12 +148,11 @@ class PublicWebDiscoveryEngine {
     );
     final provider = _providerOverride ?? await _configuredProvider();
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
-    final recentVerified = await db.recentVerifiedPublicWebCount(
+    final capability = await availability(
+      sourceIntent: sourceIntent,
       now: instant,
     );
-    final budgetLimit = sourceIntent.score >= 0.72 && recentVerified >= 3
-        ? PublicWebDiscoveryPolicy.adaptiveDailyLimit
-        : PublicWebDiscoveryPolicy.defaultDailyLimit;
+    final budgetLimit = capability.budgetLimit;
     var screenInteractive = true;
     var deviceLocked = false;
     try {

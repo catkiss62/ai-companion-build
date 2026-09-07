@@ -12,7 +12,7 @@ void main() {
       currentDeviceLabel: 'REDMI K80 Ultra',
     );
 
-    expect(result.promptData, contains('build=v0.41.43+182 schema=55'));
+    expect(result.promptData, contains('build=v0.41.44+183 schema=55'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(

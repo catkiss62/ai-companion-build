@@ -4598,20 +4598,24 @@ class AppDatabase {
     }
   }
 
-  Future<List<String>> recentProactiveSelectionSourceTypes({
+  Future<List<String>> recentDeliveredProactiveSourceTypes({
     DateTime? now,
     int limit = 8,
   }) async {
     final db = await database;
     final instant = now ?? DateTime.now();
     final rows = await db.query(
-      'proactive_policy_events',
+      'autonomous_behavior_events',
       columns: const ['source_type'],
-      where: "lane = 'selection' AND outcome IN ('selected','selected_after_rerank') AND created_at >= ?",
+      // Diversity reflects autonomous actions that actually completed. A
+      // source that only won selection and then waited/failed was not consumed.
+      where: "status = 'completed' AND behavior_kind IN "
+          "('proactive_message','public_web_discovery','public_web_share') "
+          'AND started_at >= ?',
       whereArgs: [
         instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch,
       ],
-      orderBy: 'created_at DESC',
+      orderBy: 'started_at DESC',
       limit: limit.clamp(1, 24).toInt(),
     );
     return rows
@@ -4620,8 +4624,8 @@ class AppDatabase {
         .toList(growable: false);
   }
 
-  /// Claims the one external behavior slot for a heartbeat. The unique key is
-  /// a structural backstop in addition to the process-local proactive lease.
+  /// Claims the one autonomous decision slot for a heartbeat. The unique key
+  /// also covers explicit rest/wait outcomes, not only external actions.
   Future<String?> claimAutonomousBehavior({
     required String heartbeatKey,
     required String behaviorKind,
@@ -4636,9 +4640,9 @@ class AppDatabase {
       'public_web_discovery',
       'public_web_share',
       'rest',
+      'wait',
     };
-    const statuses = {'selected'};
-    if (!behaviorKinds.contains(behaviorKind) || !statuses.contains('selected')) {
+    if (!behaviorKinds.contains(behaviorKind)) {
       return null;
     }
     final db = await database;

@@ -254,6 +254,30 @@ class ProactiveEngine {
       return const ProactiveDecision(sent: false, reason: '主动心跳正在由另一引擎处理');
     }
     final evaluationStartedAt = DateTime.now();
+    final heartbeatKey = evaluationStartedAt.microsecondsSinceEpoch.toString();
+
+    Future<void> recordWait({
+      required String reasonTag,
+      String sourceType = 'internal',
+      String intentKind = 'none',
+      String topicKey = '',
+    }) async {
+      final eventId = await db.claimAutonomousBehavior(
+        heartbeatKey: heartbeatKey,
+        behaviorKind: 'wait',
+        sourceType: sourceType,
+        intentKind: intentKind,
+        topicKey: topicKey,
+        reasonTag: reasonTag,
+        now: evaluationStartedAt,
+      );
+      if (eventId == null) return;
+      await db.finishAutonomousBehavior(
+        eventId,
+        status: 'completed',
+        reasonTag: reasonTag,
+      );
+    }
 
     try {
       if (!await db.brainWorkAllowed()) {
@@ -273,6 +297,9 @@ class ProactiveEngine {
       final fatigue = snapshot.drives[DriveKey.fatigue] ?? 0.0;
       if (!forceForDebug &&
           fatigue >= DesireCorePolicy.fatigueProactiveQuietGate) {
+        // Keep the old threshold as diagnostic evidence only. Fatigue already
+        // contributes a scored rest candidate and an action penalty inside
+        // Desire, so returning here would bypass the shared competition.
         await db.setSetting(
           'circadian_fatigue_quiet_gate_last_at',
           evaluationStartedAt.millisecondsSinceEpoch.toString(),
@@ -280,10 +307,6 @@ class ProactiveEngine {
         await db.setSetting(
           'circadian_fatigue_quiet_gate_last_value',
           fatigue.toStringAsFixed(4),
-        );
-        return const ProactiveDecision(
-          sent: false,
-          reason: '当前疲劳已进入安静休息区间，不触发普通主动消息',
         );
       }
       final recentScene = await db.recentMessagesForPrompt(limit: 8);
@@ -305,6 +328,12 @@ class ProactiveEngine {
         await db.addProactiveHistory(
           triggerReason: 'scene_continuity:${sceneContinuity.reason}',
           decision: 'scene_rest_hold',
+        );
+        await recordWait(
+          reasonTag: 'scene_rest_hold',
+          sourceType: 'conversation',
+          intentKind: 'gentle_ping',
+          topicKey: 'scene_rest_hold',
         );
         return const ProactiveDecision(
           sent: false,
@@ -365,16 +394,33 @@ class ProactiveEngine {
         }
       }
       if (discoverySource != null) {
+        final discoveryScore = (discoverySource.score - 0.03)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        final routedDiscoveryIntent = DesireIntent(
+          drive: discoverySource.drive,
+          score: discoveryScore,
+          reason: '形成一个公开知识问题并自行查找资料',
+          wantAction: 'discover_interest',
+          thoughtId: discoverySource.thoughtId,
+          reasonSource: discoverySource.reasonSource,
+        );
+        final capability = await publicWebDiscovery.availability(
+          sourceIntent: routedDiscoveryIntent,
+          now: evaluationStartedAt,
+        );
         unifiedCandidates.add(
           DesireIntent(
             drive: discoverySource.drive,
-            score: (discoverySource.score - 0.03)
-                .clamp(0.0, 1.0)
-                .toDouble(),
-            reason: '形成一个公开知识问题并自行查找资料',
-            wantAction: 'discover_interest',
+            score: discoveryScore,
+            reason: capability.available
+                ? '形成一个公开知识问题并自行查找资料'
+                : '这个问题仍然想查，但公开资料能力暂时不可用，先把念头保留下来。',
+            wantAction: capability.available ? 'discover_interest' : 'wait',
             thoughtId: discoverySource.thoughtId,
-            reasonSource: discoverySource.reasonSource,
+            reasonSource: capability.available
+                ? discoverySource.reasonSource
+                : 'capability/public_web:${capability.reason}',
           ),
         );
       }
@@ -415,7 +461,7 @@ class ProactiveEngine {
           .map((item) => item.topicKey)
           .where((value) => value.trim().isNotEmpty)
           .toList(growable: false);
-      final recentSourceTypes = await db.recentProactiveSelectionSourceTypes(
+      final recentSourceTypes = await db.recentDeliveredProactiveSourceTypes(
         now: evaluationStartedAt,
         limit: 8,
       );
@@ -461,10 +507,107 @@ class ProactiveEngine {
           );
         }
       }
+      if (selection != null) {
+        await db.setSetting(
+          'proactive_last_selection_sampling_v1',
+          jsonEncode({
+            'seed': selectionSeed,
+            'roll': double.parse(selection.samplingUnit.toStringAsFixed(6)),
+            'candidateCount': selection.samplingCandidateCount,
+            'sampledNearTie': selection.sampledNearTie,
+            'sourceRepeatDepth': selection.sourceRepeatDepth,
+            'topScore': double.parse(
+              selection.topAdjustedScore.toStringAsFixed(4),
+            ),
+            'selectedScore': double.parse(
+              selection.selectedAdjustedScore.toStringAsFixed(4),
+            ),
+            'selectedOriginalScore': double.parse(
+              selection.selectedOriginalScore.toStringAsFixed(4),
+            ),
+            'behaviorKind': selection.behaviorKind,
+            'at': evaluationStartedAt.millisecondsSinceEpoch,
+          }),
+        );
+        if (selection.rawRepetitionPenalty > 0) {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'selection',
+              sourceType: selection.rawSourceType,
+              intentKind: selection.rawIntentKind,
+              outcome: 'repetition_downranked',
+              reasonTag: 'theme_repeat',
+              repeatDepth: selection.rawRepeatDepth,
+              adjustmentBucket: selection.rawRepeatDepth >= 3
+                  ? 'repeat_3_plus'
+                  : 'repeat_${selection.rawRepeatDepth}',
+              createdAt: evaluationStartedAt,
+            ),
+          );
+        }
+        if (selection.waitingBoost > 0) {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'selection',
+              sourceType: selection.sourceType,
+              intentKind: selection.intentKind,
+              outcome: 'waiting_share_promoted',
+              reasonTag: 'share_waiting',
+              repeatDepth: selection.repeatDepth,
+              adjustmentBucket: selection.adjustmentBucket,
+              createdAt: evaluationStartedAt,
+            ),
+          );
+        }
+        if (selection.samplingCandidateCount > 1) {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'selection',
+              sourceType: selection.sourceType,
+              intentKind: selection.intentKind,
+              outcome: 'near_tie_sampled',
+              reasonTag: 'bounded_sampling',
+              repeatDepth: selection.repeatDepth,
+              adjustmentBucket: selection.samplingCandidateCount >= 3
+                  ? 'sample_pool_3_plus'
+                  : 'sample_pool_2',
+              createdAt: evaluationStartedAt,
+            ),
+          );
+        }
+        await db.recordProactivePolicyEvent(
+          ProactivePolicyEvent(
+            lane: 'selection',
+            sourceType: selection.sourceType,
+            intentKind: selection.intentKind,
+            outcome: selection.changedRawWinner
+                ? 'selected_after_rerank'
+                : 'selected',
+            reasonTag: selection.repetitionChangedWinner
+                ? 'theme_repeat'
+                : selection.waitingChangedWinner
+                    ? 'share_waiting'
+                    : 'ordinary_selection',
+            repeatDepth: selection.repeatDepth,
+            adjustmentBucket: selection.adjustmentBucket,
+            createdAt: evaluationStartedAt,
+          ),
+        );
+      }
       if (intent == null) {
+        await recordWait(reasonTag: 'no_intent');
         return const ProactiveDecision(sent: false, reason: '没有形成意图');
       }
       if (!forceForDebug && intent.score < 0.52) {
+        final lowThought = intent.thoughtId == null
+            ? null
+            : thoughtsById[intent.thoughtId!];
+        await recordWait(
+          reasonTag: 'below_action_threshold',
+          sourceType: selection?.sourceType ?? 'internal',
+          intentKind: selection?.intentKind ?? intent.wantAction,
+          topicKey: lowThought?.topicKey ?? intent.reasonSource,
+        );
         return const ProactiveDecision(
           sent: false,
           reason: '候选仍在分来源、分行为或主题冷却中',
@@ -479,8 +622,7 @@ class ProactiveEngine {
           ? 'public_web_discovery:${intent.drive.name}'
           : selectedThought?.topicKey ?? intent.reasonSource;
       final autonomousBehaviorEventId = await db.claimAutonomousBehavior(
-        heartbeatKey:
-            '${evaluationStartedAt.microsecondsSinceEpoch}:$selectionSeed',
+        heartbeatKey: heartbeatKey,
         behaviorKind: behaviorKind,
         sourceType: selection?.sourceType ?? 'internal',
         intentKind: selection?.intentKind ?? intent.wantAction,
@@ -496,11 +638,34 @@ class ProactiveEngine {
           reason: '本轮自主行为名额已由另一个候选占用',
         );
       }
+      if (behaviorKind == 'wait' || intent.wantAction == 'wait') {
+        final reasonTag =
+            intent.reasonSource.startsWith('capability/public_web:')
+            ? intent.reasonSource.substring('capability/public_web:'.length)
+            : 'voluntary_wait';
+        await db.finishAutonomousBehavior(
+          autonomousBehaviorEventId,
+          status: 'completed',
+          reasonTag: 'deferred_$reasonTag',
+        );
+        return ProactiveDecision(
+          sent: false,
+          reason: '本轮保留了当前意图并主动暂缓：$reasonTag',
+        );
+      }
       if (intent.wantAction == 'discover_interest') {
         try {
+          final discoveryIntent = DesireIntent(
+            drive: intent.drive,
+            score: selection?.selectedOriginalScore ?? intent.score,
+            reason: intent.reason,
+            wantAction: intent.wantAction,
+            thoughtId: intent.thoughtId,
+            reasonSource: intent.reasonSource,
+          );
           final result = await publicWebDiscovery.maybeDiscover(
             snapshot: snapshot,
-            sourceIntentOverride: intent,
+            sourceIntentOverride: discoveryIntent,
             now: evaluationStartedAt,
           );
           await db.finishAutonomousBehavior(
@@ -579,90 +744,6 @@ class ProactiveEngine {
         return const ProactiveDecision(sent: false, reason: '当前更需要休息，不触发主动消息');
       }
 
-    if (selection != null) {
-      await db.setSetting(
-        'proactive_last_selection_sampling_v1',
-        jsonEncode({
-          'seed': selectionSeed,
-          'roll': double.parse(selection.samplingUnit.toStringAsFixed(6)),
-          'candidateCount': selection.samplingCandidateCount,
-          'sampledNearTie': selection.sampledNearTie,
-          'sourceRepeatDepth': selection.sourceRepeatDepth,
-          'topScore': double.parse(
-            selection.topAdjustedScore.toStringAsFixed(4),
-          ),
-          'selectedScore': double.parse(
-            selection.selectedAdjustedScore.toStringAsFixed(4),
-          ),
-          'at': evaluationStartedAt.millisecondsSinceEpoch,
-        }),
-      );
-      if (selection.rawRepetitionPenalty > 0) {
-        await db.recordProactivePolicyEvent(
-          ProactivePolicyEvent(
-            lane: 'selection',
-            sourceType: selection.rawSourceType,
-            intentKind: selection.rawIntentKind,
-            outcome: 'repetition_downranked',
-            reasonTag: 'theme_repeat',
-            repeatDepth: selection.rawRepeatDepth,
-            adjustmentBucket: selection.rawRepeatDepth >= 3
-                ? 'repeat_3_plus'
-                : 'repeat_${selection.rawRepeatDepth}',
-            createdAt: evaluationStartedAt,
-          ),
-        );
-      }
-      if (selection.waitingBoost > 0) {
-        await db.recordProactivePolicyEvent(
-          ProactivePolicyEvent(
-            lane: 'selection',
-            sourceType: selection.sourceType,
-            intentKind: selection.intentKind,
-            outcome: 'waiting_share_promoted',
-            reasonTag: 'share_waiting',
-            repeatDepth: selection.repeatDepth,
-            adjustmentBucket: selection.adjustmentBucket,
-            createdAt: evaluationStartedAt,
-          ),
-        );
-      }
-      if (selection.samplingCandidateCount > 1) {
-        await db.recordProactivePolicyEvent(
-          ProactivePolicyEvent(
-            lane: 'selection',
-            sourceType: selection.sourceType,
-            intentKind: selection.intentKind,
-            outcome: 'near_tie_sampled',
-            reasonTag: 'bounded_sampling',
-            repeatDepth: selection.repeatDepth,
-            adjustmentBucket: selection.samplingCandidateCount >= 3
-                ? 'sample_pool_3_plus'
-                : 'sample_pool_2',
-            createdAt: evaluationStartedAt,
-          ),
-        );
-      }
-      await db.recordProactivePolicyEvent(
-        ProactivePolicyEvent(
-          lane: 'selection',
-          sourceType: selection.sourceType,
-          intentKind: selection.intentKind,
-          outcome: selection.changedRawWinner
-              ? 'selected_after_rerank'
-              : 'selected',
-          reasonTag: selection.repetitionChangedWinner
-              ? 'theme_repeat'
-              : selection.waitingChangedWinner
-                  ? 'share_waiting'
-                  : 'ordinary_selection',
-          repeatDepth: selection.repeatDepth,
-          adjustmentBucket: selection.adjustmentBucket,
-          createdAt: evaluationStartedAt,
-        ),
-      );
-    }
-
     final intentThought = intent.thoughtId == null
         ? null
         : await db.thoughtById(intent.thoughtId!);
@@ -710,7 +791,7 @@ class ProactiveEngine {
         autonomousBehaviorEventId,
         status: outcome == 'sent'
             ? 'completed'
-            : outcome.contains('wait')
+            : outcome.contains('wait') || reasonTag == 'delivery_gate'
                 ? 'wait'
                 : outcome == 'failed'
                     ? 'failed'
@@ -820,7 +901,14 @@ class ProactiveEngine {
     // second time, avoiding double weighting of device activity.
     const presenceBoost = 0.0;
     final jitter = (_random.nextDouble() - 0.5) * 0.10;
-    final gateScore = (intent.score * busyMultiplier +
+    // Selection penalties decide which motive gets attention. The delivery
+    // Gate evaluates the original motive strength so cooldown/diversity is not
+    // charged a second time as if it weakened the underlying desire itself.
+    final deliveryIntentScore = max(
+      intent.score,
+      selection?.selectedOriginalScore ?? intent.score,
+    );
+    final gateScore = (deliveryIntentScore * busyMultiplier +
             idleBoost +
             presenceBoost -
             frequencyPenalty +
@@ -850,6 +938,8 @@ class ProactiveEngine {
       'presence_last_gate_breakdown',
       jsonEncode({
         'intent': double.parse(intent.score.toStringAsFixed(3)),
+        'deliveryIntent':
+            double.parse(deliveryIntentScore.toStringAsFixed(3)),
         'busyMultiplier': double.parse(busyMultiplier.toStringAsFixed(3)),
         'rawIdleBoost': double.parse(rawIdleBoost.toStringAsFixed(3)),
         'idleBoost': double.parse(idleBoost.toStringAsFixed(3)),

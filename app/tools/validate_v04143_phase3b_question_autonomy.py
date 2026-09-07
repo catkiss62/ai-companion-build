@@ -22,11 +22,17 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
     encoding="utf-8"
 )
 
-assert re.search(r"^version:\s*0\.41\.43\+182$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:43\+182|44\+183)$", pubspec, re.M)
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04143-phase3b-question-autonomy" in workflow
-assert "Build AI Companion v0.41.43+182 APK" in workflow
-assert "AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-APK" in workflow
+assert (
+    "Build AI Companion v0.41.43+182 APK" in workflow
+    or "Build AI Companion v0.41.44+183 APK" in workflow
+)
+assert (
+    "AI-Companion-v0.41.43-182-Phase3B-Question-Autonomy-APK" in workflow
+    or "AI-Companion-v0.41.44-183-Autonomy-Arbitration-Rework-APK" in workflow
+)
 
 # The question planner receives only taxonomy metadata and a drive category.
 for allowed in ("public_topic", "public_domain", "curiosity_mode", "drive_category"):
@@ -59,6 +65,7 @@ for behavior in (
     "public_web_discovery",
     "public_web_share",
     "rest",
+    "wait",
 ):
     assert behavior in selection
 assert "recentAutonomousBehaviors" in engine
