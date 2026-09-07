@@ -353,7 +353,7 @@
 # Historical v0.41.45 workflow: local sticker expression layer.
 # Historical validator tokens: Build AI Companion v0.41.45+184 APK | AI-Companion-v0.41.45-184-Sticker-Expression-APK
 # Current v0.41.46 workflow: sticker Agent, truncation-only continuation and identity stability.
-# Full-build retry source tree: 579a0ca9ec4381c8172e19f2562721e89c94f2f5 (corrected after transport truncation).
+# Full-build retry source tree: 579a0ca9ec4381c8172e19f2562721e89c94f2f5 (corrected after transport truncation; dispatch 1).
 name: Build AI Companion v0.41.46+185 APK (Sticker Agent + Continuation Identity)
 
 on:
