@@ -565,7 +565,7 @@ class AgentToolPlanner {
           ),
           ' ',
         )
-        .replaceAll(RegExp(r'的$'), ' ')
+        .replaceAll(RegExp(r'的\s*$'), ' ')
         .replaceAll(RegExp(r'(^|\s)的(?=\s|$)'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
