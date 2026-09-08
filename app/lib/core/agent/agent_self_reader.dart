@@ -76,7 +76,7 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.44+183'
   // Historical validator compatibility: buildLabel = 'v0.41.45+184'
   // Historical validator compatibility: buildLabel = 'v0.41.46+185'
-  static const buildLabel = 'v0.41.47+186';
+  static const buildLabel = 'v0.41.48+187';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -131,7 +131,7 @@ class AgentSelfReader {
       id: 'sticker_agent_v04146',
       title: '表情包 Agent 与自我认知',
       status: 'implemented_user_turn_only',
-      detail: '用户明确要求时可从已启用的内部图库选择真实表情包随当前回复发送；附件内容摘要会进入当前工具结果和后续聊天历史，不写入查手机相册。',
+      detail: '用户明确要求只回表情包或斗图时，可从已启用的内部图库只发送一张真实表情包、不附带对白；用户只发表情包也会进入斗图回应。普通短促情绪回合中，她也可自主让一张表情包承担整条回复。附件内容摘要会进入后续聊天历史，不写入查手机相册。',
     ),
     AgentSystemFact(
       id: 'memory_grounding_v04134',

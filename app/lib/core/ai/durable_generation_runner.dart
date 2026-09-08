@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../agent/agent_tool.dart';
 import '../agent/agent_tool_planner.dart';
+import '../agent/agent_tool_registry.dart';
 import '../agent/agent_tool_runner.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
@@ -284,7 +285,6 @@ class DurableGenerationRunner {
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
-          nsfwActive: nsfwRoute.active,
         );
         preparedAgentAttachments.addAll(
           agentToolResults.expand((result) => result.attachments),
@@ -486,7 +486,10 @@ class DurableGenerationRunner {
         streamedToolPreamble =
             EmotionEnvelope.parse(generated.content).visibleText.trim();
         final nativePlan =
-            AgentToolPlanner.fromNativeToolCalls(generated.toolCalls);
+            AgentToolPlanner.fromNativeToolCalls(
+          generated.toolCalls,
+          latestUserText: user.content,
+        );
         if (nativePlan.isEmpty) {
           throw const FormatException('模型返回了无法验证的工具调用');
         }
@@ -497,7 +500,6 @@ class DurableGenerationRunner {
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
-          nsfwActive: nsfwRoute.active,
         );
         preparedAgentAttachments.addAll(
           agentToolResults.expand((result) => result.attachments),
@@ -721,33 +723,61 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         worldBookContextJson: promptBuild.worldBookContext.encode(),
         attachments: preparedAgentAttachments,
       );
+      final userStickerAttachments = user.attachments
+          .where((item) => item.source.startsWith('user_sticker:'))
+          .toList(growable: false);
+      final stickerBattle = user.content.trim().isEmpty &&
+          userStickerAttachments.isNotEmpty;
       SelectedStickerAttachment? selectedSticker;
       if (agentToolResults.isEmpty) {
         try {
-          selectedSticker = await StickerExpressionService(db: db)
-              .maybePrepareForOrdinaryReply(
-            messageId: baseAssistant.id,
-            text: baseAssistant.content,
-            emotionKey: baseAssistant.emotionKey,
-            conversationPlan: conversationPlan,
-            responseMode: DialogueExpressionPlan.select(
-              latestUserText: user.content,
-              turnKey: user.id,
-            ).mode,
-            nsfwActive: nsfwRoute.active,
-          );
+          final stickerService = StickerExpressionService(db: db);
+          selectedSticker = stickerBattle
+              ? await stickerService.prepareForExplicitAgentRequest(
+                  messageId: baseAssistant.id,
+                  intent: userStickerAttachments.first.visionSummary.trim().isEmpty
+                      ? '自然斗图回应'
+                      : userStickerAttachments.first.visionSummary,
+                )
+              : await stickerService.maybePrepareForOrdinaryReply(
+                  messageId: baseAssistant.id,
+                  text: baseAssistant.content,
+                  emotionKey: baseAssistant.emotionKey,
+                  conversationPlan: conversationPlan,
+                  responseMode: DialogueExpressionPlan.select(
+                    latestUserText: user.content,
+                    turnKey: user.id,
+                  ).mode,
+                );
         } catch (_) {
           // A local expression asset is optional and must never block the reply.
         }
       }
-      final assistant = selectedSticker == null
-          ? baseAssistant
-          : baseAssistant.copyWith(
-              attachments: [
-                ...baseAssistant.attachments,
-                selectedSticker.attachment,
-              ],
-            );
+      final assistantAttachments = <MessageAttachment>[
+        ...baseAssistant.attachments,
+        if (selectedSticker != null) selectedSticker.attachment,
+      ];
+      final explicitStickerTool = agentToolResults.any(
+        (result) =>
+            result.toolId == AgentToolRegistry.stickerSend.id &&
+            result.status == AgentToolStatus.succeeded,
+      );
+      final hasAssistantSticker = assistantAttachments.any(
+        (item) => item.source.startsWith('assistant_sticker:'),
+      );
+      final stickerOnly = hasAssistantSticker &&
+          StickerExpressionService.shouldUseStickerOnly(
+            messageId: baseAssistant.id,
+            generatedText: baseAssistant.content,
+            speechAct: conversationPlan.speechAct,
+            stickerBattle: stickerBattle,
+            explicitStickerTool: explicitStickerTool,
+          );
+      final assistant = baseAssistant.copyWith(
+        content: stickerOnly ? '' : baseAssistant.content,
+        segments: stickerOnly ? const <ChatSegment>[] : baseAssistant.segments,
+        attachments: assistantAttachments,
+      );
       // Detection is pure; persistence happens only inside the winning
       // durable commit transaction below.
       final assistantSomaticEvents = somaticEngine.assistantCommitEvents(

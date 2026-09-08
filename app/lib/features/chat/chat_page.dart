@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
+import '../../core/models/chat_segment.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/models/message_attachment.dart';
@@ -659,7 +660,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       showDragHandle: true,
       builder: (context) => _StickerPickerSheet(
         storage: _stickerStorage,
-        nsfwActive: controller.nsfwActive,
       ),
     );
     if (selected == null || !mounted) return;
@@ -2178,11 +2178,9 @@ class _StickerPickerItem {
 class _StickerPickerSheet extends StatefulWidget {
   const _StickerPickerSheet({
     required this.storage,
-    required this.nsfwActive,
   });
 
   final StickerPackStorage storage;
-  final bool nsfwActive;
 
   @override
   State<_StickerPickerSheet> createState() => _StickerPickerSheetState();
@@ -2219,8 +2217,9 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
       for (final pack in packs) {
         final records = await widget.storage.readRecords(pack);
         for (final record in records) {
-          if (!record.enabled || record.toneScope == 'disabled') continue;
-          if (record.toneScope == 'nsfw' && !widget.nsfwActive) continue;
+          if (!StickerAgencyPolicy.isVisible(record)) {
+            continue;
+          }
           items.add(_StickerPickerItem(
             pack: pack,
             record: record,
@@ -2248,7 +2247,10 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
       : _items.where((item) => item.pack.id == _packId).toList(growable: false);
 
   List<String> get _tags {
-    final tags = _packItems.map((item) => item.record.tag).toSet().toList()
+    final tags = _packItems
+        .map((item) => StickerAgencyPolicy.categoryKey(item.record))
+        .toSet()
+        .toList()
       ..sort((a, b) => StickerDisplayLabels.tagName(a)
           .compareTo(StickerDisplayLabels.tagName(b)));
     return tags;
@@ -2260,7 +2262,9 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
     return tag == null
         ? packItems
         : packItems
-            .where((item) => item.record.tag == tag)
+            .where(
+              (item) => StickerAgencyPolicy.categoryKey(item.record) == tag,
+            )
             .toList(growable: false);
   }
 
@@ -2371,7 +2375,7 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
                                   const SizedBox(width: 8),
                                   ChoiceChip(
                                     label: Text(
-                                      '${StickerDisplayLabels.tagName(tag)} ${_packItems.where((item) => item.record.tag == tag).length}',
+                                      '${StickerDisplayLabels.tagName(tag)} ${_packItems.where((item) => StickerAgencyPolicy.categoryKey(item.record) == tag).length}',
                                     ),
                                     selected: _tag == tag,
                                     onSelected: (_) => setState(() => _tag = tag),
@@ -2599,6 +2603,9 @@ class _MessageBubble extends StatelessWidget {
         ? Theme.of(context).colorScheme.primaryContainer
         : Theme.of(context).colorScheme.surfaceContainerHigh;
     final segments = message.displaySegments;
+    final committedAssistantText = message.isAssistant && segments.isNotEmpty
+        ? ChatSegmentCodec.displayText(segments)
+        : message.content;
     if (message.isAssistant &&
         !message.isProactive &&
         !message.hasAttachments &&
@@ -2664,7 +2671,7 @@ class _MessageBubble extends StatelessWidget {
           if (message.isAssistant)
             if (message.isProactive && animateSegments)
               _SingleBubbleTypewriterText(
-                text: message.content,
+                text: committedAssistantText,
                 playbackReady: typewriterPlaybackReady,
                 millisecondsPerCharacter: typewriterMs,
                 onProgress: onAnimationProgress,
@@ -2672,7 +2679,7 @@ class _MessageBubble extends StatelessWidget {
               )
             else
               ActionTintText(
-                text: message.content,
+                text: committedAssistantText,
                 style: const TextStyle(height: 1.45),
               )
           else

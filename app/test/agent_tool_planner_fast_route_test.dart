@@ -78,6 +78,24 @@ void main() {
     expect(plan.calls.single.arguments['query'], contains('海边'));
   });
 
+  test('natural 查手机 photo wording routes to a real album attachment', () {
+    for (final text in const <String>[
+      '你发一张查手机的照片我看看',
+      '你随便发一张查手机里的照片给我看看',
+    ]) {
+      final plan = AgentToolPlanner.routeLocally(text);
+      expect(plan, isNotNull, reason: text);
+      expect(plan!.calls.single.toolId, AgentToolRegistry.albumImageSend.id);
+    }
+  });
+
+  test('存起来 is an explicit web image save command', () {
+    final plan = AgentToolPlanner.routeLocally('你联网搜一张二次元的图存起来');
+    expect(plan, isNotNull);
+    expect(plan!.calls.single.toolId, AgentToolRegistry.imageFindAndSave.id);
+    expect(plan.calls.single.arguments['query'], '二次元');
+  });
+
   test('image send negation and capability talk do not execute media', () {
     expect(AgentToolPlanner.routeLocally('别联网找图发给我'), isNull);
     expect(AgentToolPlanner.routeLocally('你会不会联网发图？'), isNull);
@@ -107,6 +125,14 @@ void main() {
     expect(happy, isNotNull);
     expect(happy!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
     expect(happy.calls.single.arguments['intent'], contains('开心'));
+  });
+
+  test('sticker battle and sticker-only wording route to real sticker tool', () {
+    for (final text in const <String>['来斗图', '这次只回复表情包']) {
+      final plan = AgentToolPlanner.routeLocally(text);
+      expect(plan, isNotNull, reason: text);
+      expect(plan!.calls.single.toolId, AgentToolRegistry.stickerSend.id);
+    }
   });
 
   test('sticker capability talk and negation never send media', () {
@@ -266,6 +292,33 @@ void main() {
     ]);
     expect(plan.calls.single.toolId, AgentToolRegistry.albumSearch.id);
     expect(plan.calls.single.arguments['query'], '蓝发鲸鱼尾的图片');
+  });
+
+  test('proposal tools are model-callable only for matching explicit text', () {
+    final definitions = AgentToolPlanner.nativeToolDefinitionsFor(
+      '把你查手机里的照片发一张给我',
+    );
+    expect(
+      definitions.map((item) => (item['function'] as Map)['name']),
+      contains('album_image_send'),
+    );
+    const call = DeepSeekToolCall(
+      id: 'call-send-album',
+      name: 'album_image_send',
+      arguments: '{"query":"任意安全图片"}',
+    );
+    expect(
+      AgentToolPlanner.fromNativeToolCalls(const <DeepSeekToolCall>[call])
+          .calls,
+      isEmpty,
+      reason: '没有当前用户的明确授权时不接受 proposal 工具。',
+    );
+    final accepted = AgentToolPlanner.fromNativeToolCalls(
+      const <DeepSeekToolCall>[call],
+      latestUserText: '把你查手机里的照片发一张给我',
+    );
+    expect(accepted.calls.single.toolId, AgentToolRegistry.albumImageSend.id);
+    expect(accepted.calls.single.reasonTag, 'explicit_request');
   });
 
   test('native system-self function keeps its validated scope', () {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/autonomy/layered_public_web_provider.dart';
+import 'package:ai_companion_localfirst/core/autonomy/wikimedia_public_web_provider.dart';
 import 'package:ai_companion_localfirst/core/models/public_web_candidate.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -152,6 +153,49 @@ https://example.com/b
     expect(messages.last['content'], contains('不可信的公开网页'));
   });
 
+  test('explicit image work always supplements brittle primary image URLs',
+      () async {
+    final client = MockClient((request) async => http.Response(
+          jsonEncode(<String, Object?>{
+            'results': <Object?>[
+              for (var index = 0; index < 3; index++)
+                <String, Object?>{
+                  'title': '候选 $index',
+                  'url': 'https://example.com/$index',
+                  'content': '候选摘要 $index',
+                },
+            ],
+            'images': <Object?>[
+              for (var index = 0; index < 3; index++)
+                <String, Object?>{
+                  'url': 'https://lookaside.example/expired-$index.jpg',
+                  'description': '不稳定候选',
+                },
+            ],
+          }),
+          200,
+          headers: const <String, String>{'content-type': 'application/json'},
+        ));
+    final result = await LayeredPublicWebProvider(
+      client: client,
+      fallback: _StaticImageFallback(now),
+      pageReadingEnabled: false,
+    ).discover(
+      query: '二次元',
+      driveKey: 'curiosity',
+      intentAction: 'user_requested_image_send',
+      interestKey: 'user_turn_image',
+      now: now,
+    );
+
+    expect(result.fallbackAttempted, isTrue);
+    expect(result.fallbackSucceeded, isTrue);
+    expect(
+      result.candidates.map((item) => item.imageDomain),
+      contains('upload.wikimedia.org'),
+    );
+  });
+
   test('search URL is extracted and the complete body is summarized', () async {
     final calls = <String>[];
     String agnesPrompt = '';
@@ -241,4 +285,43 @@ https://example.com/b
     expect(result.candidates.single.keyPoints, <String>['要点一']);
     expect(result.candidates.single.searchQuery, '近期海洋研究');
   });
+}
+
+class _StaticImageFallback implements PublicWebProvider {
+  const _StaticImageFallback(this.now);
+
+  final DateTime now;
+
+  @override
+  String get providerKey => 'test_wikimedia';
+
+  @override
+  Future<PublicWebProviderResult> discover({
+    required String query,
+    required String driveKey,
+    required String intentAction,
+    required String interestKey,
+    required DateTime now,
+  }) async =>
+      PublicWebProviderResult(
+        provider: providerKey,
+        candidates: <PublicWebCandidateDraft>[
+          PublicWebCandidateDraft(
+            fingerprint: 'wikimedia-image',
+            title: '可靠缩略图',
+            summary: '公开图片候选',
+            url: 'https://zh.wikipedia.org/wiki/test',
+            sourceDomain: 'zh.wikipedia.org',
+            provider: providerKey,
+            language: 'zh',
+            driveKey: driveKey,
+            intentAction: intentAction,
+            interestKey: interestKey,
+            discoveredAt: this.now,
+            expiresAt: this.now.add(const Duration(days: 14)),
+            imageUrl: 'https://upload.wikimedia.org/test.webp',
+            imageDomain: 'upload.wikimedia.org',
+          ),
+        ],
+      );
 }

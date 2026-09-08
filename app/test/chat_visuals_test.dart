@@ -4,6 +4,18 @@ import 'package:ai_companion_localfirst/widgets/chat_portrait_stage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('persisted semantic segments reconstruct authoritative chat styling', () {
+    const segments = <ChatSegment>[
+      ChatSegment(kind: ChatSegmentKind.dialogue, text: '一觉睡醒了没？'),
+      ChatSegment(kind: ChatSegmentKind.action, text: '尾巴尖轻轻晃了一下'),
+      ChatSegment(kind: ChatSegmentKind.dialogue, text: '早啊。'),
+    ];
+    expect(
+      ChatSegmentCodec.displayText(segments),
+      '「一觉睡醒了没？」\n\n（尾巴尖轻轻晃了一下）\n\n「早啊。」',
+    );
+  });
+
   test('action and following dialogue stay in one visual chunk', () {
     final chunks = ChatVisualResolver.chunks(const [
       ChatSegment(kind: ChatSegmentKind.action, text: '轻轻把耳鳍压低'),

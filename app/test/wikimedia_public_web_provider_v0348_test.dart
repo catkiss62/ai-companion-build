@@ -14,6 +14,9 @@ void main() {
           'title': '测试 $index',
           'excerpt': '一段 <span class="searchmatch">公开</span> 摘要 &amp; 资料',
           'description': '备用说明',
+          'thumbnail': {
+            'url': '//upload.wikimedia.org/wikipedia/commons/thumb/a/a0/example.webp',
+          },
         });
     final candidates = provider.parseResponse(
       jsonEncode({'pages': pages}),
@@ -27,6 +30,8 @@ void main() {
     expect(candidates.first.summary, '一段 公开 摘要 & 资料');
     expect(candidates.first.url, startsWith('https://zh.wikipedia.org/wiki/'));
     expect(candidates.first.sourceDomain, 'zh.wikipedia.org');
+    expect(candidates.first.imageUrl, startsWith('https://upload.wikimedia.org/'));
+    expect(candidates.first.imageDomain, 'upload.wikimedia.org');
     expect(candidates.first.provider, 'wikimedia_zh');
     expect(candidates.first.fingerprint, hasLength(64));
     expect(candidates.first.safetyState, 'untrusted_public');

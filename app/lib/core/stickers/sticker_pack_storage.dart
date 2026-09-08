@@ -43,7 +43,7 @@ class StickerPackStorage {
         // A broken local pack is ignored, never allowed to break chat startup.
       }
     }
-    packs.sort((a, b) => a.id.compareTo(b.id));
+    packs.sort(StickerDisplayLabels.comparePacks);
     return packs;
   }
 

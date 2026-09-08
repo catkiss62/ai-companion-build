@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
 import '../../core/models/reference_document.dart';
 import '../../core/models/reference_item.dart';
+import '../../core/reference/world_book_display_order.dart';
 import 'reference_document_editor_page.dart';
 import 'reference_document_page.dart';
 
@@ -76,7 +77,7 @@ class _ReferenceLibraryPageState extends State<ReferenceLibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visibleDocuments.toList(growable: false);
+    final visible = WorldBookDisplayOrder.arrange(_visibleDocuments);
     return Scaffold(
       appBar: AppBar(
         title: const Text('世界书'),

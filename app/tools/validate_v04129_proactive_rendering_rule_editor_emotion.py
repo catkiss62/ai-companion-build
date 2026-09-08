@@ -18,6 +18,7 @@ self_reader = read("lib/core/agent/agent_self_reader.dart")
 database = read("lib/core/database/app_database.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
 presentation = read("lib/core/presentation/chat_visuals.dart")
+segments = read("lib/core/models/chat_segment.dart")
 rendering = read("lib/widgets/action_tint_text.dart")
 immersive_prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 immersive_rules = read("lib/core/rules/rule_layer_content_immersive.dart")
@@ -61,7 +62,7 @@ for token in (
 ):
     assert token in prompt, token
 
-assert "return '（${segment.text}）';" in presentation
+assert "'（${segment.text}）'" in presentation + segments
 assert presentation.count("size: .50") == 2
 assert "isDialogue: trimmed.startsWith('“')" in rendering
 assert "trimmed.startsWith('「')" not in rendering

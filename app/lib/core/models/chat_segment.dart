@@ -31,6 +31,16 @@ class ChatSegment {
 class ChatSegmentCodec {
   const ChatSegmentCodec._();
 
+  /// Reconstructs the normal-chat presentation from the persisted semantic
+  /// segments. This is the authoritative rendering path for committed
+  /// messages: dialogue quotes are restored and actions retain their marker
+  /// until [ActionTintText] removes it for display.
+  static String displayText(Iterable<ChatSegment> segments) => segments
+      .map((segment) => segment.kind == ChatSegmentKind.dialogue
+          ? '「${segment.text}」'
+          : '（${segment.text}）')
+      .join('\n\n');
+
   static List<ChatSegment> parseAssistantText(String text) {
     final normalized = text.replaceAll('\r\n', '\n').trim();
     if (normalized.isEmpty) return const <ChatSegment>[];

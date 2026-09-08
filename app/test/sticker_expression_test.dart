@@ -1,5 +1,6 @@
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
+import 'package:ai_companion_localfirst/core/desire/conversation_initiative_policy.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_expression_service.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack.dart';
 import 'package:ai_companion_localfirst/core/stickers/sticker_pack_storage.dart';
@@ -25,9 +26,89 @@ void main() {
     );
     expect(StickerDisplayLabels.packName(personal), '表情包A');
     expect(StickerDisplayLabels.packName(official), '表情包B');
+    expect(StickerDisplayLabels.comparePacks(personal, official), lessThan(0));
+    expect(
+      [official, personal]..sort(StickerDisplayLabels.comparePacks),
+      [personal, official],
+    );
     expect(personal.id, 'personal-001');
     expect(StickerDisplayLabels.tagName('happy'), '开心');
     expect(StickerDisplayLabels.tagName('custom_tag'), 'custom_tag');
+  });
+
+  test('sticker agency exposes NSFW and dark humor but hides group-chat waste',
+      () {
+    const darkHumor = StickerRecord(
+      packId: 'personal-001',
+      path: 'memes/0068.jpg',
+      tag: 'daily',
+      caption: '上吊黑色幽默表情',
+      keywords: '上吊 黑色幽默',
+      toneScope: 'disabled',
+      intensity: 1,
+      enabled: false,
+    );
+    const groupChatWaste = StickerRecord(
+      packId: 'personal-001',
+      path: 'memes/0066.jpg',
+      tag: 'daily',
+      caption: '投喂群友便便',
+      keywords: '群聊 便便',
+      toneScope: 'disabled',
+      intensity: 1,
+      enabled: false,
+    );
+    const nsfw = StickerRecord(
+      packId: 'personal-001',
+      path: 'memes/0067.jpg',
+      tag: 'bold',
+      caption: '成人表情',
+      keywords: '成人',
+      toneScope: 'nsfw',
+      intensity: 2,
+      enabled: true,
+    );
+
+    expect(StickerAgencyPolicy.isVisible(darkHumor), isTrue);
+    expect(StickerAgencyPolicy.isAssistantSelectable(darkHumor), isTrue);
+    expect(StickerAgencyPolicy.isVisible(groupChatWaste), isFalse);
+    expect(
+      StickerAgencyPolicy.isAssistantSelectable(groupChatWaste),
+      isFalse,
+    );
+    expect(StickerAgencyPolicy.isVisible(nsfw), isTrue);
+    expect(StickerAgencyPolicy.isAssistantSelectable(nsfw), isTrue);
+    expect(StickerAgencyPolicy.categoryKey(nsfw), 'nsfw');
+    expect(StickerDisplayLabels.tagName('nsfw'), '涩涩');
+  });
+
+  test('real sticker actions may carry the whole reply without dialogue', () {
+    expect(
+      StickerExpressionService.shouldUseStickerOnly(
+        messageId: 'explicit',
+        generatedText: '「给你。」',
+        speechAct: ConversationSpeechAct.answer,
+        explicitStickerTool: true,
+      ),
+      isTrue,
+    );
+    expect(
+      StickerExpressionService.shouldUseStickerOnly(
+        messageId: 'battle',
+        generatedText: '「接招。」',
+        speechAct: ConversationSpeechAct.react,
+        stickerBattle: true,
+      ),
+      isTrue,
+    );
+    expect(
+      StickerExpressionService.shouldUseStickerOnly(
+        messageId: 'question',
+        generatedText: '「你具体想找哪一张？」',
+        speechAct: ConversationSpeechAct.ask,
+      ),
+      isFalse,
+    );
   });
 
   group('sticker expression mapping', () {
@@ -121,7 +202,7 @@ void main() {
     final message = ChatMessage(
       id: 'assistant-1',
       role: 'assistant',
-      content: '来啦。',
+      content: '',
       reasoningContent: '',
       model: 'test',
       createdAt: DateTime.fromMillisecondsSinceEpoch(1000),
@@ -145,8 +226,10 @@ void main() {
       ],
     );
 
-    expect(message.promptContent, contains('[我发送了一张表情包：'));
-    expect(message.promptContent, contains('蹦蹦跳跳地从角落赶来'));
+    expect(
+      message.promptContent,
+      '[我发送了一张表情包：蹦蹦跳跳地从角落赶来]',
+    );
     expect(message.promptContent, isNot(contains('用户发送了一张图片')));
     expect(message.attachments.single.source, 'assistant_sticker:personal-001');
     expect(

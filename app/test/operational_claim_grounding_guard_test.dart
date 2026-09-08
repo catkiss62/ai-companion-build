@@ -202,6 +202,16 @@ void main() {
       ).allowed,
       isTrue,
     );
+    for (final fabricated in <String>[
+      '（传了一张图：画面里是一只猫）',
+      '我把这张图拿给你看了。',
+    ]) {
+      expect(
+        OperationalClaimGroundingGuard.evaluate(text: fabricated).allowed,
+        isFalse,
+        reason: fabricated,
+      );
+    }
   });
 
   test('memory recall is real but does not become an archive read', () {

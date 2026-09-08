@@ -79,6 +79,28 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       searchQuery: normalized,
       now: now,
     );
+    var imageFallbackAttempted = false;
+    var imageFallbackSucceeded = false;
+    if (_requiresImageCandidates(intentAction)) {
+      imageFallbackAttempted = true;
+      final fallback = await _fallback.discover(
+        query: normalized,
+        driveKey: driveKey,
+        intentAction: intentAction,
+        interestKey: interestKey,
+        now: now,
+      );
+      final seen = drafts.map((item) => item.fingerprint).toSet();
+      final supplementalImages = fallback.candidates
+          .where((item) => item.imageUrl.trim().isNotEmpty)
+          .where((item) => seen.add(item.fingerprint))
+          .toList(growable: false);
+      imageFallbackSucceeded = supplementalImages.isNotEmpty;
+      drafts = <PublicWebCandidateDraft>[
+        ...drafts,
+        ...supplementalImages,
+      ];
+    }
     if (drafts.isEmpty) {
       final fallback = await _fallback.discover(
         query: normalized,
@@ -192,10 +214,14 @@ class LayeredPublicWebProvider implements PublicWebProvider {
     if (!pageReadingEnabled) {
       return PublicWebProviderResult(
         candidates: drafts,
-        provider: providerKey,
+        provider: imageFallbackSucceeded
+            ? '$providerKey+wikimedia'
+            : providerKey,
         primaryProvider: 'tavily',
         fallbackProvider: 'wikimedia',
-        fallbackEligible: false,
+        fallbackEligible: imageFallbackAttempted,
+        fallbackAttempted: imageFallbackAttempted,
+        fallbackSucceeded: imageFallbackSucceeded,
         compactionEnabled: false,
       );
     }
@@ -241,7 +267,9 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       candidates: drafts,
       provider: drafts.any((e) => e.provider.endsWith('+agnes'))
           ? 'tavily_layered+agnes'
-          : providerKey,
+          : imageFallbackSucceeded
+              ? '$providerKey+wikimedia'
+              : providerKey,
       compactionAttempted: compactionAttempted,
       compactionEnabled: agnesEnabled,
       compactionConfigured: agnesApiKey.trim().isNotEmpty,
@@ -252,7 +280,9 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       compactionFailureReason: compactionFailureReason,
       primaryProvider: 'tavily',
       fallbackProvider: 'wikimedia',
-      fallbackEligible: false,
+      fallbackEligible: imageFallbackAttempted,
+      fallbackAttempted: imageFallbackAttempted,
+      fallbackSucceeded: imageFallbackSucceeded,
       extractionAttempted: extraction.attempted,
       extractionSucceeded: extraction.contents.isNotEmpty,
       extractionInputCount: extraction.inputCount,
@@ -260,6 +290,10 @@ class LayeredPublicWebProvider implements PublicWebProvider {
       extractionFailureReason: extraction.failureReason,
     );
   }
+
+  static bool _requiresImageCandidates(String intentAction) =>
+      intentAction == 'user_requested_image_send' ||
+      intentAction == 'user_requested_image_save';
 
   Future<PublicWebCandidateDraft> rereadCandidate({
     required PublicWebCandidateDraft candidate,

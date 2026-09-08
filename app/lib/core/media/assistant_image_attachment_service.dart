@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../ai/qwen_vision_client.dart';
 import '../models/companion_album.dart';
@@ -11,6 +10,7 @@ import '../models/public_web_candidate.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../storage/secure_config.dart';
+import 'safe_public_image_downloader.dart';
 
 class PreparedAssistantImage {
   const PreparedAssistantImage({
@@ -146,111 +146,13 @@ class AssistantImageAttachmentService {
     }
   }
 
-  Future<_DownloadedImage> _download(String rawUrl) async {
-    var uri = Uri.tryParse(rawUrl);
-    if (!_safePublicHttps(uri)) throw const FormatException('unsafe_image_url');
-    for (var redirects = 0; redirects <= 3; redirects++) {
-      final request = http.Request('GET', uri!)
-        ..followRedirects = false
-        ..headers['Accept'] = 'image/jpeg,image/png,image/webp,image/gif';
-      final response = await _client.send(request).timeout(
-            const Duration(seconds: 24),
-          );
-      if (response.isRedirect) {
-        await response.stream.drain<void>();
-        final location = response.headers['location'];
-        if (location == null || redirects == 3) {
-          throw HttpException('image_redirect_rejected');
-        }
-        final redirected = uri.resolve(location);
-        if (!_safePublicHttps(redirected)) {
-          throw const FormatException('unsafe_image_redirect');
-        }
-        uri = redirected;
-        continue;
-      }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.stream.drain<void>();
-        throw HttpException('image_download_${response.statusCode}');
-      }
-      final mime = (response.headers['content-type'] ?? '')
-          .split(';')
-          .first
-          .trim()
-          .toLowerCase();
-      if (!const <String>{
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/gif',
-      }.contains(mime)) {
-        await response.stream.drain<void>();
-        throw const FormatException('unsupported_image_mime');
-      }
-      final declared = int.tryParse(response.headers['content-length'] ?? '');
-      if (declared != null &&
-          (declared <= 0 || declared > MessageAttachmentStorage.maxImageBytes)) {
-        await response.stream.drain<void>();
-        throw const FormatException('image_size_rejected');
-      }
-      final temp = await getTemporaryDirectory();
-      final extension = switch (mime) {
-        'image/png' => '.png',
-        'image/webp' => '.webp',
-        'image/gif' => '.gif',
-        _ => '.jpg',
-      };
-      final file = File(p.join(
-        temp.path,
-        'assistant_web_${DateTime.now().microsecondsSinceEpoch}$extension',
-      ));
-      final sink = file.openWrite();
-      var bytes = 0;
-      try {
-        await for (final chunk in response.stream) {
-          bytes += chunk.length;
-          if (bytes > MessageAttachmentStorage.maxImageBytes) {
-            throw const FormatException('image_size_rejected');
-          }
-          sink.add(chunk);
-        }
-        await sink.close();
-        if (bytes <= 0) throw const FormatException('empty_image');
-        return _DownloadedImage(file: file, mimeType: mime);
-      } catch (_) {
-        await sink.close();
-        if (await file.exists()) await file.delete();
-        rethrow;
-      }
-    }
-    throw HttpException('image_redirect_rejected');
-  }
-
-  static bool _safePublicHttps(Uri? uri) {
-    if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) return false;
-    final host = uri.host.toLowerCase();
-    if (host.isEmpty ||
-        host == 'localhost' ||
-        host.endsWith('.local') ||
-        host.endsWith('.internal')) return false;
-    final ip = InternetAddress.tryParse(host);
-    if (ip == null) return true;
-    if (ip.type == InternetAddressType.IPv4) {
-      final parts = host.split('.').map(int.parse).toList();
-      return !(parts[0] == 10 ||
-          parts[0] == 127 ||
-          (parts[0] == 169 && parts[1] == 254) ||
-          (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) ||
-          (parts[0] == 192 && parts[1] == 168));
-    }
-    return host != '::1' &&
-        !host.startsWith('fc') &&
-        !host.startsWith('fd') &&
-        !host.startsWith('fe8') &&
-        !host.startsWith('fe9') &&
-        !host.startsWith('fea') &&
-        !host.startsWith('feb');
-  }
+  Future<DownloadedPublicImage> _download(String rawUrl) =>
+      SafePublicImageDownloader.download(
+        client: _client,
+        rawUrl: rawUrl,
+        maxBytes: MessageAttachmentStorage.maxImageBytes,
+        filePrefix: 'assistant_web',
+      );
 
   static String _mimeFor(String path) => switch (p.extension(path).toLowerCase()) {
         '.gif' => 'image/gif',
@@ -270,11 +172,4 @@ class AssistantImageAttachmentService {
 
 class VisionProviderNotConfigured implements Exception {
   const VisionProviderNotConfigured();
-}
-
-class _DownloadedImage {
-  const _DownloadedImage({required this.file, required this.mimeType});
-
-  final File file;
-  final String mimeType;
 }

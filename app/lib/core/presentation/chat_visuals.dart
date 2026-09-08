@@ -102,16 +102,7 @@ class ChatVisualChunk {
   final ChatEmotionVisual emotion;
 
   String get plainText => segments.map((segment) => segment.text).join('\n');
-  String get displayText => segments.map((segment) {
-        if (segment.kind == ChatSegmentKind.dialogue) {
-          return '「${segment.text}」';
-        }
-        // Persisted segments no longer carry their source parentheses. Restore
-        // the semantic marker before handing this chunk to ActionTintText; the
-        // widget hides the marker again, but can now keep a standalone action
-        // white/italic instead of falling back to dialogue styling.
-        return '（${segment.text}）';
-      }).join('\n\n');
+  String get displayText => ChatSegmentCodec.displayText(segments);
 }
 
 /// Keeps an action block and its following corner-quoted dialogue together

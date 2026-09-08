@@ -157,7 +157,7 @@ class AgentToolPlanner {
     final explicitWebImageSave =
         (RegExp(r'(上网|联网|网页|网站|搜索|找|搜)').hasMatch(text) ||
                 (!refersToCurrentAttachment && asksForGeneratedImageSubject)) &&
-            RegExp(r'(保存|存下|存进|收藏|收进|存一张|存个|存张)')
+            RegExp(r'(保存|存下|存进|收藏|收进|存起来|存着|收起来|存一张|存个|存张)')
                 .hasMatch(text) &&
             asksForGeneratedImageSubject;
 
@@ -274,7 +274,7 @@ class AgentToolPlanner {
   static List<Map<String, Object?>> nativeToolDefinitionsFor(String text) {
     final toolIds = _routeToolIds(text);
     if (toolIds.isEmpty) return const <Map<String, Object?>>[];
-    return AgentToolRegistry.userTurnExecutable
+    return AgentToolRegistry.userTurnModelCallable
           .where(
             (tool) =>
                 tool.id != AgentToolRegistry.screenObservation.id &&
@@ -284,9 +284,13 @@ class AgentToolPlanner {
           .toList(growable: false);
   }
 
-  static AgentToolPlan fromNativeToolCalls(List<DeepSeekToolCall> nativeCalls) {
+  static AgentToolPlan fromNativeToolCalls(
+    List<DeepSeekToolCall> nativeCalls, {
+    String latestUserText = '',
+  }) {
     final calls = <AgentToolCall>[];
     final seen = <String>{};
+    final allowedForCurrentText = _routeToolIds(latestUserText);
     for (final native in nativeCalls) {
       if (calls.length >= 2) break;
       final toolId = _toolIdByNativeName[native.name];
@@ -298,7 +302,8 @@ class AgentToolPlanner {
       if (definition == null ||
           !definition.executable ||
           !definition.userTurnAvailable ||
-          definition.risk != AgentToolRisk.readOnly ||
+          (definition.risk != AgentToolRisk.readOnly &&
+              !allowedForCurrentText.contains(toolId)) ||
           !seen.add(toolId)) {
         continue;
       }
@@ -319,7 +324,9 @@ class AgentToolPlanner {
       calls.add(AgentToolCall(
         toolId: toolId,
         arguments: arguments,
-        reasonTag: 'model_selected',
+        reasonTag: definition.risk == AgentToolRisk.readOnly
+            ? 'model_selected'
+            : 'explicit_request',
       ));
     }
     return AgentToolPlan(calls: calls);
@@ -379,17 +386,39 @@ class AgentToolPlanner {
     } else if (tool.id == AgentToolRegistry.screenObservation.id) {
       // A screen observation has no model-provided argument. The current user
       // turn itself is the one-time authorization and native privacy Gate.
+    } else if (tool.id == AgentToolRegistry.attachmentSave.id) {
+      // The current user turn and its attachment are the only authority.
+    } else if (tool.id == AgentToolRegistry.imageFindAndSave.id ||
+        tool.id == AgentToolRegistry.webImageSend.id) {
+      properties['query'] = const <String, Object?>{
+        'type': 'string',
+        'description': '要查找的图片主体，只保留人物、风格、场景等语义关键词。',
+      };
+      required.add('query');
+    } else if (tool.id == AgentToolRegistry.albumImageSend.id) {
+      properties['query'] = const <String, Object?>{
+        'type': 'string',
+        'description': '要从已存相册发送的图片描述；用户说“随便”时填“任意安全图片”。',
+      };
+      required.add('query');
+    } else if (tool.id == AgentToolRegistry.stickerSend.id) {
+      properties['intent'] = const <String, Object?>{
+        'type': 'string',
+        'description': '用户想要的表情语义，例如开心、害羞或自然回应。',
+      };
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
         '仅在当前这句话真的要求上网/搜索，或答案明确依赖最新公开事实时调用。'
+        '用户明确要求联网发图或联网存图时应改用对应图片工具，不用本工具。'
         '不要因为用户引用、复述、评价“搜索/上网”这个词而调用；否定、假设、闲聊和常识回答不调用。',
       'rules.read' =>
         '仅在用户要你真实读取当前规则、人设或提示词时调用；讨论“规则”这个词本身不调用。',
       'memory.search' =>
         '仅在用户要你查找过去对话/本地记忆，或当前回答确实需要核对长期记忆时调用。',
       'album.search' =>
-        '仅在用户询问你已经保存到自己相册里的图片时调用。它只检索已存相册，不负责联网找图、识别新图或保存图片。',
+        '仅在用户询问你已经保存到自己相册里的图片时调用。用户要求把相册图片真实发出来时应改用 album.image_send。'
+        '它只检索已存相册，不负责联网找图、识别新图或保存图片。',
       'device_context.read' =>
         '仅在用户要你查看当前手机/App 状态，或当前回答明确依赖实时设备状态时调用；不得猜测屏幕内容。',
       'system_self.read' =>
@@ -402,6 +431,16 @@ class AgentToolPlanner {
       'screen_observation.inspect' =>
         '仅在用户当前这句话明确要求看一次此刻屏幕像素内容时调用。讨论截图/屏幕能力、询问前台 App 名称、否定/假设或普通闲聊不调用。'
         '每次调用只截一张，经锁屏、密码、敏感包与系统安全窗口 Gate；截图不保存，也绝不自主调用。',
+      'attachment.save' =>
+        '只在用户明确要求保存当前消息的图片附件时调用。',
+      'image.find_and_save' =>
+        '只在用户明确要求联网找图并保存到她的相册时调用。',
+      'image.web_send' =>
+        '只在用户明确要求联网找一张图并发给用户、且不要保存时调用。',
+      'album.image_send' =>
+        '只在用户明确要求发送她已存相册/查手机里的图片时调用；不联网。',
+      'sticker.send' =>
+        '只在用户明确要求她发表情包、只回表情包或斗图时调用；成功附件本身就是整条回复，不再附带对白。',
       _ => '',
     };
     return <String, Object?>{
@@ -443,19 +482,8 @@ class AgentToolPlanner {
   }
 
   static String _imageQuery(String text) {
-    final searched = _webQuery(text);
-    final stripped = searched
-        .replaceAll(
-          RegExp(
-            r'^(?:请|麻烦|能不能|可以|你|帮我|替我|给我|去|想要){0,5}',
-          ),
-          '',
-        )
-        .replaceAll(RegExp(r'(保存|存下|存进|收藏|收进|存一张|存个|存张)'), ' ')
-        .replaceAll(RegExp(r'(到|进)?(?:你|自己)?的?相册'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    return stripped.isEmpty ? searched : stripped;
+    final subject = _requestedImageSubject(text);
+    return subject == '任意安全图片' ? '自然风景' : subject;
   }
 
   static bool _isExplicitStickerSend(String text) {
@@ -470,15 +498,16 @@ class AgentToolPlanner {
         .hasMatch(text)) {
       return false;
     }
-    return RegExp(
-      r'((发|来|甩|丢|整)(给我)?(一)?(个|张)?[^，。！？!?]{0,8}(表情包|表情))|'
-      r'((给我|我要|想要)[^，。！？!?]{0,8}(个|张)?(表情包|表情))',
-    ).hasMatch(text);
+    return text.contains('斗图') ||
+        RegExp(
+          r'((发|来|甩|丢|整|回复|回)(给我)?(一)?(个|张)?[^，。！？!?]{0,8}(表情包|表情))|'
+          r'((给我|我要|想要)[^，。！？!?]{0,8}(个|张)?(表情包|表情))',
+        ).hasMatch(text);
   }
 
   static String _stickerIntent(String text) {
     final stripped = text
-        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|发|来|甩|丢|整|一个|一张|个|张|表情包|表情)'), ' ')
+        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|只|发|来|甩|丢|整|回复|回|斗图|一个|一张|个|张|表情包|表情)'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     return stripped.isEmpty ? '自然回应' : stripped;
@@ -490,7 +519,11 @@ class AgentToolPlanner {
     if (RegExp(r'(保存|存下|存进|收藏|收进)').hasMatch(text)) return false;
     if (RegExp(r'(会不会|能否|是否|支不支持|支持|功能|能力).{0,16}(相册|发图|发照片)')
         .hasMatch(text)) return false;
-    final album = RegExp(r'(相册|保存过|存过|收藏过|你存的)').hasMatch(text);
+    final album = RegExp(
+      r'(相册|保存过|存过|收藏过|你存的|'
+      r'查手机.{0,10}(照片|图片|图)|'
+      r'(照片|图片|图).{0,10}查手机)',
+    ).hasMatch(text);
     final send = RegExp(
       r'((发|发送|给我看|拿给我看|展示).{0,16}(图片|照片|图|那张|一张))|'
       r'((图片|照片|图|那张|一张).{0,16}(发|发送|给我看|展示))',
@@ -514,11 +547,29 @@ class AgentToolPlanner {
   }
 
   static String _sendImageQuery(String text) {
+    final subject = _requestedImageSubject(text);
+    if (subject != '任意安全图片') return subject;
+    return _isExplicitAlbumImageSend(text) ? subject : '自然风景';
+  }
+
+  static String _requestedImageSubject(String text) {
     final stripped = text
-        .replaceAll(RegExp(r'(请|麻烦|能不能|可以|你|帮我|给我|替我|上网|联网|网页|网站|搜索|搜一下|找一下|发送|发|展示|拿给我看|给我看|相册里|相册中|相册|保存过|存过|收藏过|一张|一张|那张|图片|照片)'), ' ')
+        .replaceAll(
+          RegExp(
+            r'(请|麻烦|能不能|可以|你|帮我|给我|替我|上网|联网|网页|网站|'
+            r'搜索|搜一下|搜一张|搜张|找一下|找一张|找张|发送|发给我|发我|发|'
+            r'展示|拿给我看|给我看|我看看|看看|查手机里|查手机的|查手机|'
+            r'相册里面|相册里的|相册里|相册中|相册|保存过|存过|收藏过|'
+            r'保存|存下|存进|收藏|收进|存起来|存着|收起来|'
+            r'随便|任意|都可以|都行|任选|一张|那张|这张|图片|照片|图像|图)',
+          ),
+          ' ',
+        )
+        .replaceAll(RegExp(r'的$'), ' ')
+        .replaceAll(RegExp(r'(^|\s)的(?=\s|$)'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    return stripped.isEmpty ? text : stripped;
+    return stripped.isEmpty ? '任意安全图片' : stripped;
   }
 
   static const _nativeNameByToolId = <String, String>{
@@ -531,6 +582,11 @@ class AgentToolPlanner {
     'phone.search': 'phone_search',
     'phone.read': 'phone_read',
     'screen_observation.inspect': 'screen_observation_inspect',
+    'attachment.save': 'attachment_save',
+    'image.find_and_save': 'image_find_and_save',
+    'sticker.send': 'sticker_send',
+    'image.web_send': 'image_web_send',
+    'album.image_send': 'album_image_send',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -542,6 +598,11 @@ class AgentToolPlanner {
     'phone_search': 'phone.search',
     'phone_read': 'phone.read',
     'screen_observation_inspect': 'screen_observation.inspect',
+    'attachment_save': 'attachment.save',
+    'image_find_and_save': 'image.find_and_save',
+    'sticker_send': 'sticker.send',
+    'image_web_send': 'image.web_send',
+    'album_image_send': 'album.image_send',
   };
 
   static String _bounded(String value, int limit) =>
@@ -579,6 +640,22 @@ class AgentToolPlanner {
     final text = rawText.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
     if (text.isEmpty) return const <String>{};
     final result = <String>{};
+    if (_isExplicitAlbumImageSend(text)) {
+      result.add(AgentToolRegistry.albumImageSend.id);
+    }
+    if (_isExplicitWebImageSend(text)) {
+      result.add(AgentToolRegistry.webImageSend.id);
+    }
+    if (_isExplicitStickerSend(text)) {
+      result.add(AgentToolRegistry.stickerSend.id);
+    }
+    final explicitImageSave =
+        RegExp(r'(上网|联网|网页|搜|找).{0,18}(图|照片).{0,18}(保存|存下|存进|存起来|收进|收藏)|'
+                r'(保存|存下|存进|存起来|收进|收藏).{0,18}(图|照片)')
+            .hasMatch(text);
+    if (explicitImageSave) {
+      result.add(AgentToolRegistry.imageFindAndSave.id);
+    }
     if (RegExp(r'(最新|新闻|价格|天气|汇率|上网|联网|网页|网站|搜索|查资料)')
         .hasMatch(text)) {
       result.add(AgentToolRegistry.publicWebSearch.id);

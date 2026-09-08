@@ -3,13 +3,12 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../ai/qwen_vision_client.dart';
 import '../database/app_database.dart';
 import '../diagnostics/provider_health.dart';
+import '../media/safe_public_image_downloader.dart';
 import 'album_perceptual_hash.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
@@ -180,13 +179,14 @@ class CompanionAlbumDiscoveryEngine {
     var stage = 'download';
     var visionRecorded = false;
     try {
-      downloaded = await _downloadPreview(sourceUrl, candidateId);
+      final download = await _downloadPreview(sourceUrl, candidateId);
+      downloaded = download.file;
       final downloadedFile = downloaded!;
       stage = 'image_processing';
       draft = await attachmentStorage.prepareImage(
         sourcePath: downloadedFile.path,
         source: sourceKind,
-        mimeType: 'image/${p.extension(downloaded.path).replaceFirst('.', '')}',
+        mimeType: download.mimeType,
       );
       if (await downloadedFile.exists()) await downloadedFile.delete();
       downloaded = null;
@@ -358,28 +358,13 @@ class CompanionAlbumDiscoveryEngine {
     return normalized.length <= 600 ? normalized : normalized.substring(0, 600);
   }
 
-  Future<File> _downloadPreview(String value, String id) async {
-    final response = await _client
-        .get(Uri.parse(value), headers: const {'Accept': 'image/*'})
-        .timeout(const Duration(seconds: 24));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('图片候选下载失败 ${response.statusCode}');
-    }
-    final type = response.headers['content-type']?.toLowerCase() ?? '';
-    if (!type.startsWith('image/')) throw const FormatException('网页候选不是图片');
-    if (response.bodyBytes.isEmpty || response.bodyBytes.length > 25 * 1024 * 1024) {
-      throw const FormatException('网页候选图片为空或超过 25 MB');
-    }
-    final temp = await getTemporaryDirectory();
-    final extension = type.contains('png')
-        ? '.png'
-        : type.contains('webp')
-            ? '.webp'
-            : '.jpg';
-    final file = File(p.join(temp.path, 'companion_album_$id$extension'));
-    await file.writeAsBytes(response.bodyBytes, flush: true);
-    return file;
-  }
+  Future<DownloadedPublicImage> _downloadPreview(String value, String id) =>
+      SafePublicImageDownloader.download(
+        client: _client,
+        rawUrl: value,
+        maxBytes: MessageAttachmentStorage.maxImageBytes,
+        filePrefix: 'companion_album_$id',
+      );
 
   Future<_FishCandidate?> _fishArchiveCandidate(String day) async {
     try {
@@ -412,14 +397,8 @@ class CompanionAlbumDiscoveryEngine {
     return null;
   }
 
-  static bool _safePublicHttps(Uri? uri) {
-    if (uri == null || uri.scheme != 'https' || !uri.hasAuthority) return false;
-    final host = uri.host.toLowerCase();
-    if (host.isEmpty || host == 'localhost' || host.endsWith('.local')) return false;
-    final ip = InternetAddress.tryParse(host);
-    if (ip == null) return true;
-    return !(ip.isLoopback || ip.isLinkLocal || ip.isMulticast);
-  }
+  static bool _safePublicHttps(Uri? uri) =>
+      SafePublicImageDownloader.safePublicHttps(uri);
 
   void close() {
     _client.close();

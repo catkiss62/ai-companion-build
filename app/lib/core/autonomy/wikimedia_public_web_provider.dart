@@ -107,6 +107,17 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
       final url = Uri.https('zh.wikipedia.org', '/wiki/$key').toString();
       final excerpt = _plain(raw['excerpt']?.toString() ?? '');
       final description = _plain(raw['description']?.toString() ?? '');
+      final thumbnail = raw['thumbnail'];
+      final rawThumbnail = thumbnail is Map
+          ? thumbnail['url']?.toString().trim() ?? ''
+          : '';
+      final normalizedThumbnail = rawThumbnail.startsWith('//')
+          ? 'https:$rawThumbnail'
+          : rawThumbnail;
+      final thumbnailUri = Uri.tryParse(normalizedThumbnail);
+      final imageUrl = _safePublicHttps(thumbnailUri)
+          ? thumbnailUri!.toString()
+          : '';
       final summary = _bounded(
         excerpt.isNotEmpty ? excerpt : description,
         800,
@@ -118,6 +129,9 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
         summary: summary,
         url: url,
         sourceDomain: 'zh.wikipedia.org',
+        imageUrl: imageUrl,
+        imageDomain: thumbnailUri?.host.toLowerCase() ?? '',
+        imageDescription: description,
         provider: providerKey,
         language: 'zh',
         driveKey: driveKey,
@@ -144,4 +158,11 @@ class WikimediaPublicWebProvider implements PublicWebProvider {
 
   static String _bounded(String value, int limit) =>
       value.length <= limit ? value : value.substring(0, limit).trimRight();
+
+  static bool _safePublicHttps(Uri? uri) =>
+      uri != null &&
+      uri.scheme == 'https' &&
+      uri.hasAuthority &&
+      (uri.host.toLowerCase() == 'wikimedia.org' ||
+          uri.host.toLowerCase().endsWith('.wikimedia.org'));
 }

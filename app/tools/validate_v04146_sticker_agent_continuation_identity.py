@@ -88,7 +88,7 @@ for token in (
     "source: 'assistant_sticker:",
     "visionSummary: record.caption",
     "visionModel: 'sticker_index'",
-    "toneScope == 'nsfw' && !nsfwActive",
+    "StickerAgencyPolicy.isAssistantSelectable",
     "toneScope == 'bold' && !allowBold",
 ):
     assert token in service

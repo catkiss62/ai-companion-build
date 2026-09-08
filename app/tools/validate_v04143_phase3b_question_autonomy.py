@@ -23,7 +23,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184|46\+185|47\+186)$",
+    r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184|46\+185|47\+186|48\+187)$",
     pubspec,
     re.M,
 )

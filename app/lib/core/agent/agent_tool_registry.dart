@@ -100,7 +100,7 @@ class AgentToolRegistry {
   static const stickerSend = AgentToolDefinition(
     id: 'sticker.send',
     title: '发送本地表情包',
-    description: '仅按用户本轮明确要求，从已启用的内部表情图库选择真实图片并随当前回复发送；不会写入查手机相册。',
+    description: '仅按用户本轮明确要求，从已启用的内部表情图库选择一张真实图片作为整条回复，不附带对白；不会写入查手机相册。',
     risk: AgentToolRisk.proposal,
     executable: true,
     userTurnAvailable: true,
@@ -223,6 +223,13 @@ class AgentToolRegistry {
           tool.executable &&
           tool.userTurnAvailable &&
           tool.risk == AgentToolRisk.readOnly)
+      .toList(growable: false);
+
+  /// Executable tools that may be described to the model for a narrowly
+  /// matched current request. Proposal-risk tools remain hidden from ordinary
+  /// chat and still require an explicit local intent check before execution.
+  static List<AgentToolDefinition> get userTurnModelCallable => all
+      .where((tool) => tool.executable && tool.userTurnAvailable)
       .toList(growable: false);
 
   static AgentToolDefinition definitionForAutonomous(

@@ -51,8 +51,10 @@ void main() {
       expect(tool.autonomousAvailable, isFalse);
       expect(tool.risk, AgentToolRisk.proposal);
       expect(AgentToolRegistry.userTurnExecutable, isNot(contains(tool)));
+      expect(AgentToolRegistry.userTurnModelCallable, contains(tool));
     }
     expect(AgentToolRegistry.stickerSend.id, 'sticker.send');
+    expect(AgentToolRegistry.stickerSend.description, contains('不附带对白'));
     expect(AgentToolRegistry.webImageSend.id, 'image.web_send');
     expect(AgentToolRegistry.albumImageSend.id, 'album.image_send');
   });

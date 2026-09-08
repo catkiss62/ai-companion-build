@@ -124,6 +124,24 @@ void main() {
     expect(chatDialoguePink, const Color(0xFFF1B7C5));
   });
 
+  testWidgets('proactive leading dialogue stays tinted before a later action',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ActionTintText(
+            text: '「一觉睡醒了没？」\n\n（尾巴尖轻轻晃了一下）\n\n「早啊。」',
+          ),
+        ),
+      ),
+    );
+    final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+    final spans = selectable.textSpan!.children!.cast<TextSpan>();
+    expect(spans.first.text, '「一觉睡醒了没？」');
+    expect(spans.first.style!.fontStyle, FontStyle.normal);
+    expect(spans.first.style!.color, chatDialoguePurple);
+  });
+
   testWidgets('plain assistant text is upright tinted dialogue in normal chat',
       (tester) async {
     await tester.pumpWidget(

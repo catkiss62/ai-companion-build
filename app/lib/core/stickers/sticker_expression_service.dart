@@ -40,7 +40,6 @@ class StickerExpressionService {
     required String emotionKey,
     required ConversationInitiativePlan conversationPlan,
     required DialogueResponseMode responseMode,
-    required bool nsfwActive,
   }) async {
     final mode = (await db.getSetting(StickerPackStorage.modeSetting) ?? 'natural')
         .trim()
@@ -77,10 +76,11 @@ class StickerExpressionService {
       final pack = packs[(start + offset) % packs.length];
       final records = await packStorage.readRecords(pack);
       final pool = records.where((record) {
-        if (!record.enabled || recent.contains(record.usageKey)) return false;
+        if (!StickerAgencyPolicy.isAssistantSelectable(record) ||
+            recent.contains(record.usageKey)) {
+          return false;
+        }
         if (moodForTag(record.tag) != mood) return false;
-        if (record.toneScope == 'disabled') return false;
-        if (record.toneScope == 'nsfw' && !nsfwActive) return false;
         if (record.toneScope == 'bold' && !_boldSpeechActs.contains(conversationPlan.speechAct)) {
           return false;
         }
@@ -130,7 +130,6 @@ class StickerExpressionService {
   Future<SelectedStickerAttachment?> prepareForExplicitAgentRequest({
     required String messageId,
     required String intent,
-    required bool nsfwActive,
   }) async {
     final enabledIds = await packStorage.enabledPackIds();
     final packs = (await packStorage.scanPacks())
@@ -150,9 +149,10 @@ class StickerExpressionService {
       final pack = packs[(start + offset) % packs.length];
       final records = await packStorage.readRecords(pack);
       final pool = records.where((record) {
-        if (!record.enabled || recent.contains(record.usageKey)) return false;
-        if (record.toneScope == 'disabled') return false;
-        if (record.toneScope == 'nsfw' && !nsfwActive) return false;
+        if (!StickerAgencyPolicy.isAssistantSelectable(record) ||
+            recent.contains(record.usageKey)) {
+          return false;
+        }
         if (record.toneScope == 'bold' && !allowBold) return false;
         if (requestedMood != null && moodForTag(record.tag) != requestedMood) {
           return false;
@@ -234,6 +234,39 @@ class StickerExpressionService {
 
   Future<void> discard(SelectedStickerAttachment selected) =>
       attachmentStorage.deleteAttachmentFiles(selected.attachment);
+
+  /// A real sticker can carry the whole conversational act. Explicit sticker
+  /// tools and sticker battles always stay sticker-only. Ordinary casual
+  /// expression gets a bounded deterministic chance, while questions, tasks
+  /// and substantive text keep their words.
+  static bool shouldUseStickerOnly({
+    required String messageId,
+    required String generatedText,
+    required ConversationSpeechAct speechAct,
+    bool stickerBattle = false,
+    bool explicitStickerTool = false,
+  }) {
+    if (stickerBattle || explicitStickerTool) return true;
+    final visible = generatedText.trim();
+    if (visible.isEmpty ||
+        visible.length > 42 ||
+        visible.contains('？') ||
+        visible.contains('?') ||
+        visible.contains('http://') ||
+        visible.contains('https://')) {
+      return false;
+    }
+    if (!const <ConversationSpeechAct>{
+      ConversationSpeechAct.react,
+      ConversationSpeechAct.tease,
+      ConversationSpeechAct.seekAttention,
+      ConversationSpeechAct.showNeed,
+      ConversationSpeechAct.pauseOrClose,
+    }.contains(speechAct)) {
+      return false;
+    }
+    return _unit('$messageId|sticker-only') < 0.30;
+  }
 
   Future<Set<String>> _recentUsageKeys() async {
     final raw = await db.getSetting(StickerPackStorage.usageHistorySetting) ?? '[]';

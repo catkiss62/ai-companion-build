@@ -24,6 +24,7 @@ registry = read("lib/core/agent/agent_tool_registry.dart")
 planner = read("lib/core/agent/agent_tool_planner.dart")
 runner = read("lib/core/agent/agent_tool_runner.dart")
 media = read("lib/core/media/assistant_image_attachment_service.dart")
+downloader = read("lib/core/media/safe_public_image_downloader.dart")
 durable = read("lib/core/ai/durable_generation_runner.dart")
 guard = read("lib/core/grounding/operational_claim_grounding_guard.dart")
 tests = "\n".join(
@@ -37,11 +38,15 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.47\+186$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:47\+186|48\+187)$", pubspec, re.M)
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04147-user-sticker-picker-image-send" in workflow
-assert "Build AI Companion v0.41.47+186 APK" in workflow
-assert "AI-Companion-v0.41.47-186-User-Sticker-Image-Send-APK" in workflow
+assert re.search(r"Build AI Companion v0\.41\.(?:47\+186|48\+187) APK", workflow)
+assert re.search(
+    r"AI-Companion-v0\.41\.(?:47-186-User-Sticker-Image-Send|"
+    r"48-187-Agent-Image-Reliability-Hotfix)-APK",
+    workflow,
+)
 
 # Imported bytes and stable ids stay unchanged; aliases exist only at render sites.
 for token in ("'personal-001' => '表情包A'", "'official-001' => '表情包B'", "tagName"):
@@ -86,6 +91,9 @@ for token in (
     "followRedirects = false",
     "unsafe_image_redirect",
     "MessageAttachmentStorage.maxImageBytes",
+):
+    assert token in media + downloader
+for token in (
     "observation.requestMatch",
     "observation.requestMatchConfidence < 0.72",
     "source: 'assistant_web_image:",

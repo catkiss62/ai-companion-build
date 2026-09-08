@@ -11625,6 +11625,18 @@ class AppDatabase {
     required DateTime createdAt,
   }) async {
     final db = await database;
+    if (sourceKind == 'user_requested_web') {
+      // A failed explicit request may be retried after a CDN or network issue.
+      // Saved/rejected identities remain durable; only byte-less expired rows
+      // are cleared so the unique source gate does not turn a transient error
+      // into a permanent inability to try the same candidate again.
+      await db.delete(
+        'companion_album_candidates',
+        where:
+            "source_kind = ? AND source_id = ? AND lifecycle_state = 'expired'",
+        whereArgs: [sourceKind, sourceId],
+      );
+    }
     final inserted = await db.insert(
       'companion_album_candidates',
       {

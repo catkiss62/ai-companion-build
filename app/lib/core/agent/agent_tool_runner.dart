@@ -8,6 +8,7 @@ import '../desire/desire_engine.dart';
 import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../media/assistant_image_attachment_service.dart';
+import '../models/companion_album.dart';
 import '../models/desire_state.dart';
 import '../models/message_attachment.dart';
 import '../models/public_web_candidate.dart';
@@ -42,7 +43,6 @@ class AgentToolRunner {
     String eventScopeId = '',
     String userMessageId = '',
     String assistantMessageId = '',
-    bool nsfwActive = false,
   }) async {
     final results = <AgentToolResult>[];
     final calls = plan.calls.take(2).toList(growable: false);
@@ -137,7 +137,6 @@ class AgentToolRunner {
           cancellationToken,
           userMessageId: userMessageId,
           assistantMessageId: assistantMessageId,
-          nsfwActive: nsfwActive,
           userTurnEventId: eventScopeId.trim().isEmpty
               ? ''
               : _eventId(
@@ -209,7 +208,6 @@ class AgentToolRunner {
     String userMessageId = '',
     String userTurnEventId = '',
     String assistantMessageId = '',
-    bool nsfwActive = false,
   }) async {
     cancellationToken?.throwIfCancelled();
     if (call.toolId == AgentToolRegistry.publicWebSearch.id) {
@@ -256,7 +254,6 @@ class AgentToolRunner {
       return _sendSticker(
         call.arguments['intent'] ?? '',
         assistantMessageId: assistantMessageId,
-        nsfwActive: nsfwActive,
       );
     }
     if (call.toolId == AgentToolRegistry.webImageSend.id) {
@@ -281,7 +278,6 @@ class AgentToolRunner {
   Future<AgentToolResult> _sendSticker(
     String intent, {
     required String assistantMessageId,
-    required bool nsfwActive,
   }) async {
     if (assistantMessageId.trim().isEmpty) {
       return const AgentToolResult(
@@ -294,10 +290,9 @@ class AgentToolRunner {
     }
     final selected = await StickerExpressionService(db: db)
         .prepareForExplicitAgentRequest(
-      messageId: assistantMessageId,
-      intent: intent,
-      nsfwActive: nsfwActive,
-    );
+          messageId: assistantMessageId,
+          intent: intent,
+        );
     if (selected == null) {
       return const AgentToolResult(
         toolId: 'sticker.send',
@@ -372,9 +367,8 @@ class AgentToolRunner {
         errorCode: _bounded(web.failureReason, 100),
       );
     }
-    final candidates = web.candidates
-        .where((candidate) => candidate.imageUrl.trim().isNotEmpty)
-        .take(3)
+    final candidates = _rankImageCandidates(web.candidates)
+        .take(6)
         .toList(growable: false);
     if (candidates.isEmpty) {
       return const AgentToolResult(
@@ -447,14 +441,29 @@ class AgentToolRunner {
         errorCode: 'invalid_request',
       );
     }
+    final albumItems = await db.companionAlbumItems(limit: 300);
+    final genericRequest = _isGenericAlbumImageRequest(normalized);
     final matches = CompanionAlbumSearchPolicy.rank(
       query: normalized,
-      items: await db.companionAlbumItems(limit: 300),
+      items: albumItems,
       limit: 3,
     );
-    final ambiguous = matches.isEmpty ||
-        matches.first.confidence == 'ambiguous_recent' ||
-        (matches.length > 1 && matches[0].score == matches[1].score);
+    CompanionAlbumItem? genericItem;
+    if (genericRequest) {
+      for (final item in albumItems) {
+        if (!item.nsfw && item.lifecycle == CompanionAlbumItem.saved) {
+          genericItem = item;
+          break;
+        }
+      }
+    }
+    final selected =
+        genericItem ?? (matches.isEmpty ? null : matches.first.item);
+    final ambiguous = selected == null ||
+        (!genericRequest &&
+            (matches.first.confidence == 'ambiguous_recent' ||
+                (matches.length > 1 &&
+                    matches[0].score == matches[1].score)));
     if (ambiguous) {
       return const AgentToolResult(
         toolId: 'album.image_send',
@@ -467,7 +476,7 @@ class AgentToolRunner {
     final service = AssistantImageAttachmentService(config: secureConfig);
     try {
       final prepared = await service.prepareAlbumItem(
-        item: matches.first.item,
+        item: selected!,
         messageId: assistantMessageId,
       );
       return AgentToolResult(
@@ -817,9 +826,8 @@ source=${_oneLine(item.source, 300)}
         errorCode: _bounded(web.failureReason, 100),
       );
     }
-    final candidates = web.candidates
-        .where((item) => item.imageUrl.trim().isNotEmpty)
-        .take(3)
+    final candidates = _rankImageCandidates(web.candidates)
+        .take(6)
         .toList(growable: false);
     if (candidates.isEmpty) {
       return const AgentToolResult(
@@ -894,6 +902,35 @@ Qwen 只读取去元数据后的有界缩略图；本地相册另外保留实际
       engine.close();
     }
   }
+
+  static Iterable<PublicWebCandidateDraft> _rankImageCandidates(
+    Iterable<PublicWebCandidateDraft> values,
+  ) {
+    final candidates = values
+        .where((item) => item.imageUrl.trim().isNotEmpty)
+        .toList(growable: false);
+    final ranked = candidates.toList()
+      ..sort((a, b) {
+        int score(PublicWebCandidateDraft item) {
+          final uri = Uri.tryParse(item.imageUrl);
+          final host = uri?.host.toLowerCase() ?? '';
+          final path = uri?.path.toLowerCase() ?? '';
+          var value = 0;
+          if (host == 'upload.wikimedia.org') value += 8;
+          if (RegExp(r'\.(?:jpe?g|png|webp|gif)$').hasMatch(path)) value += 4;
+          if (item.imageDescription.trim().isNotEmpty) value += 1;
+          if (host.startsWith('lookaside.')) value -= 8;
+          return value;
+        }
+
+        return score(b).compareTo(score(a));
+      });
+    return ranked;
+  }
+
+  static bool _isGenericAlbumImageRequest(String value) => RegExp(
+        r'(任意安全图片|随便|任意|任选|哪张都行|都可以|都行|来一张|发一张)',
+      ).hasMatch(value);
 
   Future<AgentToolResult> _searchWeb(
     String query,
