@@ -33,20 +33,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04152-diary-fresh-topic-balance`；处理日记、主动新题/网页分享和两项 v0.41.51 UI 反馈；不动 ZIP、schema、Agent v2、NSFW、3C 或 MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.51 远端构建 head `e956f33490259279eb3ef5f6e9730b8cab8b6ea3` / tree `2fb904ef6e67304d30c4b6a638f070eeeece7150`；运行实现本地首提交 `32773f9`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
-| App / 数据库 | 当前运行基线 `0.41.51+190 / schema 56 / Snapshot protocol 5`；下一目标 `0.41.52+191`，继续 schema 56、无迁移。旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留 |
-| 最终 CI | v0.41.51 run [`34242666306`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306) 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、全部 Flutter tests、Release APK、固定签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 测试 APK | `AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-APK.apk`，326,644,134 bytes |
-| APK SHA-256 | `95f041c0543b8459e3e55aabc496f2b9439d7d99a796670b67e5e2901f3dfe97`；Artifact ZIP 下载后流式读取 APK 独立复算与 CI checksum 一致 |
-| Artifact / Release | Artifact [`10063172257`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306/artifacts/10063172257)，ZIP 320,345,449 bytes / digest `f9190e64ffeb6b4c416de69a43ac5063771c22621bdf5259467cad6b6a356da8`；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cbf92ac7fd0a57b66cfb) 保持草稿，未合并 `main`、未发布正式 Release |
+| 当前代码 head / tree | v0.41.52 远端构建 head `417cd91868b7fd6b959dde5a4615106b8a16fca9` / tree `814183a17a480f197847cd44ab8f45ebc0faad6f`；本地等价 tree 提交 `6801674`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| App / 数据库 | 当前测试候选 `0.41.52+191 / schema 56 / Snapshot protocol 5`；无迁移。旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留 |
+| 最终 CI | v0.41.52 run [`34256547671`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671) 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、681 个 Flutter tests、Release APK、固定签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-APK.apk` |
+| APK SHA-256 | `2a5101bda73d28f4a3aa9ea73c2baa6b840074f5c14f2c3fbf7a43d562a88de8`；CI monitor 与同批 checksum 一致 |
+| Artifact / Release | Artifact [`10068557169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671/artifacts/10068557169)，ZIP 320,365,044 bytes / digest `99bb9e54abecc857e9c314735c44503d69f6b80103381d5638de50df3e0a489c`，保留至 2026-09-22；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b3d49beca7c656624dd) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `PUSHED / CI FIX IN PROGRESS` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **验证并构建 v0.41.52**：日记有界整理、主动新题/网页分享平衡、删除无效相册入口、长按只显示语义正文 |
+| 当前下一步 | **自然真机验收 v0.41.52**：UI 与下一篇新日记可快速确认；主动新题/网页分享需自然积累 6～8 次可见主动消息，不单独阻塞后续开发 |
 | 目标 | 日记不再反复输出同一几句，而是使用当日多个真实片段整理“发生了什么、仍在意什么、自己怎样理解”；主动消息的可见新鲜话题至少与旧事回访达到滚动一半一半，真实网页发现获得公平分享机会，但仍经过 Desire / Intent / Gate 和模型自主 WAIT |
 | 当前证据 | `0.41.51+190 / schema 56`：24h 内 171 proactive message、9 discovery、2 web share；83 个网页候选仅 1 个 share candidate。fresh lane 仍注入旧上下文；12/12 日记同尾句、10/12 同 care 模板 |
 | 保护与排除 | 日记仍是 `derived_projection`，不得反写 Memory、AI Self、人格学习、兴趣证据或 Desire；不重写既有 12 篇旧日记。新题平衡不建立第二人格/第二主动系统，不硬发每次搜索结果，不删除旧记忆能力，不绕过主动频率、忙碌、疲劳、Grounding、权限或事实 Gate；不新增表情上传，不动用户 ZIP、媒体 schema、NSFW 与 Agent v2 |
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / PUSHED / CI FIX IN PROGRESS）
+### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 v0.41.51 的表情长按能够看到完整语义，但不需要“完整语义：”前缀；新增“其他相册应用”仍检索不到小米相册。用户决定继续使用原系统相册/文件夹入口，并在下一版删除无效入口。七张运行时禁用、催睡图命中和无关回复误发没有获得逐项新结论，不倒写通过或失败。
 2. 新诊断文件为 153,050 bytes，SHA-256 为 `59c621bfbfc9d0f72d8b5b9092927a5d02503fa323954c755180eb9d161afff3`；新备份为 63,433,833 bytes，SHA-256 为 `79f02102bbd188d568fb039ad10f7c1d4ae5b18514d2b98f758c7ad4146a2a6c`。报告版本 `0.41.51+190` / schema 56；备份 protocol 5、generation 96，16,798,725-byte `state.json` 的 SHA-256 `919b2b4530c2fcb84f21a42041e57d0405e1a95afacc629d4fe357c1fb8db791` 与 manifest 一致，压缩包完整。附件只作本地取证，不提交仓库。
@@ -102,6 +102,7 @@
 10. UI 已删除失败的“其他相册应用”及 Dart/Kotlin 原生桥，恢复原系统图片选择器；长按仍显示完整 caption，但移除“完整语义：”字样。已新增日记、平衡、网页评价与清理回归测试和 v0.41.52 validator；本地环境无 Flutter/Dart，当前仅静态 validator 通过，必须以 CI 的 format/analyze/全量 Flutter tests 与 Release APK 为准。附件未进入 Git。
 11. 本地实现提交为 `53dff2a`，授权状态记录提交为 `87d3361`。首次推送因最近授权只点名 v0.41.51 而被权限审查拦截，未绕过、未创建远端分支、未触发 Actions；用户随后明确允许将 v0.41.52 推送到公开仓库并运行 Actions 生成测试 APK，同时继续禁止合并 `main` 或发布正式 Release。主动能力需自然积累样本；UI 与新日记可先快速确认，不阻塞不触碰主动仲裁的后续任务。
 12. 已通过 Git Data API 将与本地树一致的实现推送到远端分支 `agent/v04152-diary-fresh-topic-balance`，远端首个提交 `099074f264bd5369c4279c9aea5c8f35bf479dae`；Actions run `34254934077` 的源码校验、Kotlin 与 analyze 均通过，681 个 Flutter tests 中仅新增 fresh-balance 用例失败。根因是测试默认 `bornAt` 恰好早 24 小时，误触既有“等待已久想法”加权；产品策略没有回退。现将该用例两个候选的出生时间固定为 `now`，隔离验证新鲜来源补偿，随后重跑完整 CI。
+13. 最终远端 head `417cd91868b7fd6b959dde5a4615106b8a16fca9` / tree `814183a17a480f197847cd44ab8f45ebc0faad6f`；Actions run `34256547671` 全绿：全部 validators、Kotlin、Flutter analyze、681 个 Flutter tests、Release APK、固定签名、原生/417 文件桌宠载荷、22 张塔罗、checksum、Artifact 与 Draft Release 上传均成功。APK SHA-256 为 `2a5101bda73d28f4a3aa9ea73c2baa6b840074f5c14f2c3fbf7a43d562a88de8`；Artifact `10068557169`，ZIP 320,365,044 bytes、digest `99bb9e54abecc857e9c314735c44503d69f6b80103381d5638de50df3e0a489c`、保留至 2026-09-22；草稿 Release `untagged-2b3d49beca7c656624dd`。Git Data 更新过程中曾短暂产生一个以 blob 为 head 的无效 run `34256438596`，branch 随即恢复到上述有效 commit；它不是候选代码或构建证据。`main` 未合并，正式 Release 未发布。
 
 ### 2026-09-08 v0.41.50 真机通过与 v0.41.51 表情语义/厂商相册（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
