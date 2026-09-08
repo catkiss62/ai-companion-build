@@ -73,7 +73,8 @@ assert "selectedOriginalScore" in selection
 assert "final deliveryIntentScore = max(" in engine
 assert "'deliveryIntent':" in engine
 assert "status = 'completed' AND behavior_kind IN" in database
-assert "'proactive_message','public_web_discovery','public_web_share'" in database
+assert "('proactive_message','public_web_share')" in database
+assert "source that only won selection and then waited/failed was not consumed" in database
 
 for phrase in (
     "blocked message does not pretend the topic was handled",

@@ -33,6 +33,11 @@ class ProactiveSelectionResult {
     required this.selectedOriginalScore,
     required this.behaviorKind,
     required this.cooldownPenalty,
+    required this.recentFreshCount,
+    required this.recentVisibleCount,
+    required this.freshnessShortfall,
+    required this.freshnessBalanceBoost,
+    required this.oldContextPenalty,
   });
 
   final DesireIntent intent;
@@ -59,6 +64,11 @@ class ProactiveSelectionResult {
   final double selectedOriginalScore;
   final String behaviorKind;
   final double cooldownPenalty;
+  final int recentFreshCount;
+  final int recentVisibleCount;
+  final int freshnessShortfall;
+  final double freshnessBalanceBoost;
+  final double oldContextPenalty;
 }
 
 class _ScoredIntent {
@@ -75,6 +85,8 @@ class _ScoredIntent {
     required this.sourceRepetitionPenalty,
     required this.behaviorKind,
     required this.cooldownPenalty,
+    required this.freshnessBalanceBoost,
+    required this.oldContextPenalty,
   });
 
   final DesireIntent original;
@@ -89,6 +101,8 @@ class _ScoredIntent {
   final double sourceRepetitionPenalty;
   final String behaviorKind;
   final double cooldownPenalty;
+  final double freshnessBalanceBoost;
+  final double oldContextPenalty;
 }
 
 /// Re-ranks real Desire/Thought candidates without creating a second motive
@@ -125,6 +139,10 @@ class ProactiveSelectionPolicy {
         .where((value) => value.isNotEmpty)
         .take(8)
         .toList(growable: false);
+    final visibleFreshCount = recentSources.where(_isFreshSource).length;
+    final visibleFreshTarget = (recentSources.length / 2).ceil();
+    final visibleFreshShortfall =
+        (visibleFreshTarget - visibleFreshCount).clamp(0, 4).toInt();
     final rawWinner = candidates.first;
 
     List<_ScoredIntent> score({
@@ -220,12 +238,32 @@ class ProactiveSelectionPolicy {
                         topicKey != recentTopics.first))
             ? 0.04
             : 0.0;
+        final freshCandidate = _isFreshCandidate(
+          candidate,
+          sourceType: sourceType,
+        );
+        final freshnessBalanceBoost = repetition &&
+                visibleFreshShortfall > 0 &&
+                freshCandidate
+            ? (0.06 + visibleFreshShortfall * 0.04)
+                .clamp(0.0, 0.18)
+                .toDouble()
+            : 0.0;
+        final oldContextPenalty = repetition &&
+                visibleFreshShortfall > 0 &&
+                (sourceType == 'memory' || sourceType == 'user_history')
+            ? (visibleFreshShortfall * 0.03)
+                .clamp(0.0, 0.12)
+                .toDouble()
+            : 0.0;
         final adjustedScore = (candidate.score -
                 repetitionPenalty +
                 -sourceRepetitionPenalty +
                 -cooldownPenalty +
+                -oldContextPenalty +
                 waitingData.value +
-                diversityBoost)
+                diversityBoost +
+                freshnessBalanceBoost)
             .clamp(0.0, 1.0)
             .toDouble();
         final bucket = (repetitionPenalty > 0 ||
@@ -262,6 +300,8 @@ class ProactiveSelectionPolicy {
             sourceRepetitionPenalty: sourceRepetitionPenalty,
             behaviorKind: behaviorKind,
             cooldownPenalty: cooldownPenalty,
+            freshnessBalanceBoost: freshnessBalanceBoost,
+            oldContextPenalty: oldContextPenalty,
           ),
         );
       }
@@ -335,6 +375,11 @@ class ProactiveSelectionPolicy {
       selectedOriginalScore: selected.original.score,
       behaviorKind: selected.behaviorKind,
       cooldownPenalty: selected.cooldownPenalty,
+      recentFreshCount: visibleFreshCount,
+      recentVisibleCount: recentSources.length,
+      freshnessShortfall: visibleFreshShortfall,
+      freshnessBalanceBoost: selected.freshnessBalanceBoost,
+      oldContextPenalty: selected.oldContextPenalty,
     );
   }
 
@@ -479,6 +524,27 @@ class ProactiveSelectionPolicy {
           ? 'drive_state'
           : 'internal',
     };
+  }
+
+  static bool _isFreshSource(String sourceType) => const {
+        'public_web',
+        'awareness',
+        'self_experience',
+        'internal',
+        'inference',
+        'mcp',
+        'screen_observation',
+      }.contains(sourceType);
+
+  static bool _isFreshCandidate(
+    DesireIntent candidate, {
+    required String sourceType,
+  }) {
+    if (candidate.wantAction == 'discover_interest' ||
+        candidate.wantAction == 'prepare_public_web_share') {
+      return true;
+    }
+    return _isFreshSource(sourceType);
   }
 
   static int _repeatDepth(List<String> recent, String intentKind) {

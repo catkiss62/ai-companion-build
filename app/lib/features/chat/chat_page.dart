@@ -689,7 +689,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         controller.analyzingImage) {
       return;
     }
-    final source = await showModalBottomSheet<_ChatImageSource>(
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -700,25 +700,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('从相册选择'),
               subtitle: const Text('使用系统图片选择器'),
-              onTap: () => Navigator.pop(
-                context,
-                _ChatImageSource.systemGallery,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.collections_outlined),
-              title: const Text('其他相册应用'),
-              subtitle: const Text('尝试使用小米相册等应用'),
-              onTap: () => Navigator.pop(
-                context,
-                _ChatImageSource.externalGallery,
-              ),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('拍照'),
               subtitle: const Text('打开系统相机'),
-              onTap: () => Navigator.pop(context, _ChatImageSource.camera),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
           ],
         ),
@@ -726,11 +714,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     if (source == null || !mounted) return;
     setState(() => _pickingImage = true);
-    final sourceKey = switch (source) {
-      _ChatImageSource.camera => 'camera',
-      _ChatImageSource.externalGallery => 'external_gallery',
-      _ChatImageSource.systemGallery => 'gallery',
-    };
+    final sourceKey = source == ImageSource.camera ? 'camera' : 'gallery';
     final pickerStarted = DateTime.now();
     await AttachmentPipelineTelemetry.record(
       AppDatabase.instance,
@@ -750,28 +734,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         source: sourceKey,
         now: guardStarted,
       );
-      if (source != _ChatImageSource.externalGallery) {
-        await _android.beginSystemPickerOverlayGuard(
-          reason: sourceKey == 'camera'
-              ? 'flutter_image_picker_camera'
-              : 'flutter_image_picker_gallery',
-        );
-      }
+      await _android.beginSystemPickerOverlayGuard(
+        reason: sourceKey == 'camera'
+            ? 'flutter_image_picker_camera'
+            : 'flutter_image_picker_gallery',
+      );
       XFile? image;
       try {
-        if (source == _ChatImageSource.externalGallery) {
-          final selected = await _android.pickExternalGalleryImage();
-          image = selected == null
-              ? null
-              : XFile(selected.filePath, mimeType: selected.mimeType);
-        } else {
-          image = await _imagePicker.pickImage(
-            source: source == _ChatImageSource.camera
-                ? ImageSource.camera
-                : ImageSource.gallery,
-            requestFullMetadata: false,
-          );
-        }
+        image = await _imagePicker.pickImage(
+          source: source,
+          requestFullMetadata: false,
+        );
         await AttachmentPipelineTelemetry.record(
           AppDatabase.instance,
           stage: 'picker',
@@ -793,13 +766,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         rethrow;
       } finally {
         try {
-          if (source != _ChatImageSource.externalGallery) {
-            await _android.endSystemPickerOverlayGuard(
-              reason: sourceKey == 'camera'
-                  ? 'flutter_image_picker_camera_returned'
-                  : 'flutter_image_picker_gallery_returned',
-            );
-          }
+          await _android.endSystemPickerOverlayGuard(
+            reason: sourceKey == 'camera'
+                ? 'flutter_image_picker_camera_returned'
+                : 'flutter_image_picker_gallery_returned',
+          );
           await AttachmentPipelineTelemetry.record(
             AppDatabase.instance,
             stage: 'overlay_guard',
@@ -2178,8 +2149,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 }
 
-enum _ChatImageSource { systemGallery, externalGallery, camera }
-
 class _SelectedUserSticker {
   const _SelectedUserSticker({
     required this.pack,
@@ -2340,7 +2309,7 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '完整语义：${item.record.caption}',
+                        item.record.caption,
                         textAlign: TextAlign.left,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),

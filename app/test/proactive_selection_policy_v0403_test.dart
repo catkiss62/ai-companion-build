@@ -209,6 +209,93 @@ void main() {
     }
   });
 
+  test('fresh source is promoted when visible history is below half fresh', () {
+    final memory = thought(
+      id: 'old-memory-topic',
+      drive: DriveKey.reflection,
+      source: 'self_drive/memory',
+    );
+    final awareness = thought(
+      id: 'fresh-awareness-topic',
+      drive: DriveKey.curiosity,
+      source: 'perception/awareness',
+    );
+    final result = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(
+          drive: DriveKey.reflection,
+          score: 0.72,
+          action: 'share_thought',
+          thought: memory,
+        ),
+        intent(
+          drive: DriveKey.curiosity,
+          score: 0.64,
+          action: 'ask_user',
+          thought: awareness,
+        ),
+      ],
+      thoughtsById: {memory.id: memory, awareness.id: awareness},
+      recentIntentKinds: const [],
+      recentSourceTypes: const [
+        'user_history',
+        'memory',
+        'user_history',
+        'memory',
+      ],
+      now: now,
+    )!;
+
+    expect(result.intent.thoughtId, awareness.id);
+    expect(result.recentFreshCount, 0);
+    expect(result.recentVisibleCount, 4);
+    expect(result.freshnessShortfall, 2);
+    expect(result.freshnessBalanceBoost, closeTo(0.14, 0.0001));
+    expect(result.oldContextPenalty, 0);
+  });
+
+  test('balanced visible history does not force a weaker fresh source', () {
+    final memory = thought(
+      id: 'balanced-memory-topic',
+      drive: DriveKey.reflection,
+      source: 'self_drive/memory',
+    );
+    final awareness = thought(
+      id: 'balanced-awareness-topic',
+      drive: DriveKey.curiosity,
+      source: 'perception/awareness',
+    );
+    final result = ProactiveSelectionPolicy.select(
+      candidates: [
+        intent(
+          drive: DriveKey.reflection,
+          score: 0.72,
+          action: 'share_thought',
+          thought: memory,
+        ),
+        intent(
+          drive: DriveKey.curiosity,
+          score: 0.60,
+          action: 'ask_user',
+          thought: awareness,
+        ),
+      ],
+      thoughtsById: {memory.id: memory, awareness.id: awareness},
+      recentIntentKinds: const [],
+      recentSourceTypes: const [
+        'public_web',
+        'memory',
+        'awareness',
+        'user_history',
+      ],
+      now: now,
+    )!;
+
+    expect(result.intent.thoughtId, memory.id);
+    expect(result.freshnessShortfall, 0);
+    expect(result.freshnessBalanceBoost, 0);
+  });
+
   test('optional expansion preserves same-drive alternative Thoughts', () {
     final first = thought(
       id: 'first',
@@ -245,6 +332,10 @@ void main() {
     expect(ProactivePolicyTelemetry.safeSourceType('memory'), 'memory');
     expect(ProactivePolicyTelemetry.safeSourceType('Edge browser'), 'none');
     expect(ProactivePolicyTelemetry.safeOutcome('sent'), 'sent');
+    expect(
+      ProactivePolicyTelemetry.safeOutcome('fresh_source_promoted'),
+      'fresh_source_promoted',
+    );
     expect(ProactivePolicyTelemetry.safeOutcome('raw model text'), 'failed');
     expect(
       ProactivePolicyTelemetry.appSourceType(

@@ -17,9 +17,11 @@ import '../integration/moe_expression_prompt_adapter.dart';
 import '../models/awareness_observation.dart';
 import '../emotion/emotion_episode_engine.dart';
 import '../models/chat_message.dart';
+import '../models/daily_continuity.dart';
 import '../models/desire_state.dart';
 import '../models/public_web_candidate.dart';
 import '../models/reference_document.dart';
+import '../models/reference_item.dart';
 import '../models/thought.dart';
 import '../models/world_book_turn_context.dart';
 import '../perception/current_device_context_refresher.dart';
@@ -94,6 +96,7 @@ class PromptBuilder {
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
     String? selectedPublicWebCandidateId,
+    bool freshTopicSourceOnly = false,
   }) async {
     final instant = now ?? DateTime.now();
     final query = (retrievalQuery ?? latestUserText).trim();
@@ -111,14 +114,19 @@ class PromptBuilder {
             ? 'user:${instant.millisecondsSinceEpoch}'
             : latestUserMessageId)
         : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}';
-    final memoryContext = await memoryBrain.buildContext(
-      query,
-      relevantLimit: memoryLimit,
-      summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
-      retrievalMode: mode.name,
-    );
-    final relationshipContext = await relationshipBrain.buildContext();
-    final references = await referenceLibrary.retrieve(query, limit: 6);
+    final memoryContext = freshTopicSourceOnly
+        ? null
+        : await memoryBrain.buildContext(
+            query,
+            relevantLimit: memoryLimit,
+            summaryBefore: recent.isEmpty ? null : recent.first.createdAt,
+            retrievalMode: mode.name,
+          );
+    final relationshipContext =
+        freshTopicSourceOnly ? null : await relationshipBrain.buildContext();
+    final references = freshTopicSourceOnly
+        ? const <ReferenceItem>[]
+        : await referenceLibrary.retrieve(query, limit: 6);
     final behaviorWorldBook = await referenceLibrary.behaviorForPrompt(
       query: query,
       turnKey: worldBookTurnKey,
@@ -182,7 +190,9 @@ class PromptBuilder {
     final awareness = await db.activeAwarenessObservations(limit: 6, now: instant);
     final grounding = groundingOverride ?? await GroundingEngine(db).capture(now: instant);
     final relationshipAge = await db.relationshipAge(now: instant);
-    final dailyContinuity = await db.latestDailyContinuity(limit: 2);
+    final dailyContinuity = freshTopicSourceOnly
+        ? const <DailyContinuityRecord>[]
+        : await db.latestDailyContinuity(limit: 2);
     final somaticSection = await somaticEngine.buildPromptSection(now: instant);
     final emotionEpisodeSection =
         await emotionEpisodeEngine.buildPromptSection(now: instant);
@@ -252,7 +262,7 @@ class PromptBuilder {
       candidateIds: publicWebCandidateIds,
       now: instant,
     );
-    final publicKnowledge = worldBookContext.hasRoleplay
+    final publicKnowledge = freshTopicSourceOnly || worldBookContext.hasRoleplay
         ? const <PublicWebContextItem>[]
         : await db.activePublicWebKnowledgeContext(query: query);
     if (conversationInitiative != null) {
@@ -291,15 +301,24 @@ class PromptBuilder {
       ..writeln(matureLearning.formatForPrompt())
       ..writeln()
       ..writeln(_relationshipAgeSection(relationshipAge))
-      ..writeln()
-      ..writeln('【本地关系上下文】')
-      ..writeln(memoryBrain.formatForPrompt(memoryContext, now: instant))
-      ..writeln(relationshipContext.formatForPrompt())
-      ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
-      ..writeln(referenceLibrary.formatForPrompt(references))
+      ..writeln();
+    if (!freshTopicSourceOnly) {
+      context
+        ..writeln('【本地关系上下文】')
+        ..writeln(memoryBrain.formatForPrompt(memoryContext!, now: instant))
+        ..writeln(relationshipContext!.formatForPrompt())
+        ..writeln(DailyContinuityPresentation.formatForPrompt(dailyContinuity))
+        ..writeln(referenceLibrary.formatForPrompt(references))
+        ..writeln(_publicKnowledgeSection(publicKnowledge));
+    } else {
+      context.writeln(
+        '【新话题来源隔离】本轮不提供旧 Memory、关系事件、近日连续性、参考资料或既有公共知识正文；'
+        '只能使用当前选中来源与此刻真实内部/感知状态开题，没有具体新内容就保持安静。',
+      );
+    }
+    context
       ..writeln(_publicWebSection(publicWeb))
-      ..writeln(_publicKnowledgeSection(publicKnowledge))
-      ..writeln(_desireSection(desire, thoughts));
+      ..writeln(_desireSection(desire, freshTopicSourceOnly ? const [] : thoughts));
     if (conversationInitiative != null) {
       context
         ..writeln()
@@ -501,6 +520,7 @@ ANSWERED_HISTORY_ONLY = true
     String? specialStyleKeyOverride,
     ConversationInitiativePlan? conversationInitiativeOverride,
     String? selectedPublicWebCandidateId,
+    bool freshTopicSourceOnly = false,
   }) async =>
       (await buildChatPrompt(
         latestUserText: latestUserText,
@@ -518,6 +538,7 @@ ANSWERED_HISTORY_ONLY = true
         specialStyleKeyOverride: specialStyleKeyOverride,
         conversationInitiativeOverride: conversationInitiativeOverride,
         selectedPublicWebCandidateId: selectedPublicWebCandidateId,
+        freshTopicSourceOnly: freshTopicSourceOnly,
       ))
           .messages;
 

@@ -72,6 +72,7 @@ class ProactivePolicyTelemetry {
     'repetition_downranked',
     'waiting_share_promoted',
     'near_tie_sampled',
+    'fresh_source_promoted',
     'model_wait',
     'model_wait_declined',
     'guard_blocked',
@@ -90,6 +91,7 @@ class ProactivePolicyTelemetry {
     'share_waiting',
     'ordinary_selection',
     'bounded_sampling',
+    'freshness_balance',
     'grounding_guard',
     'service_template_guard',
     'writer_lease',
@@ -117,6 +119,9 @@ class ProactivePolicyTelemetry {
     'source_repeat_3_plus',
     'sample_pool_2',
     'sample_pool_3_plus',
+    'fresh_shortfall_1',
+    'fresh_shortfall_2',
+    'fresh_shortfall_3_plus',
   };
 
   static String safeLane(String value) =>

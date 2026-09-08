@@ -107,4 +107,34 @@ void main() {
     );
     expect(route, PublicWebAppraisalPolicy.hold);
   });
+
+  test('exceptionally shareable discovery does not wait for social excess', () {
+    final route = PublicWebAppraisalPolicy.routeModelScores(
+      sourceIntent: intent(DriveKey.curiosity),
+      socialExcess: 0,
+      semanticState: 'valid',
+      interestScore: 0.60,
+      learningScore: 0.52,
+      shareScore: 0.75,
+      resonanceScore: 0.32,
+      surpriseScore: 0.59,
+      selfRelevanceScore: 0.41,
+    );
+    expect(route, PublicWebAppraisalPolicy.shareCandidate);
+  });
+
+  test('middling discovery still needs social readiness before sharing', () {
+    final route = PublicWebAppraisalPolicy.routeModelScores(
+      sourceIntent: intent(DriveKey.curiosity),
+      socialExcess: 0,
+      semanticState: 'valid',
+      interestScore: 0.56,
+      learningScore: 0.40,
+      shareScore: 0.70,
+      resonanceScore: 0.31,
+      surpriseScore: 0.42,
+      selfRelevanceScore: 0.36,
+    );
+    expect(route, PublicWebAppraisalPolicy.hold);
+  });
 }

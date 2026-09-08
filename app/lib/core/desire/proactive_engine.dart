@@ -526,6 +526,15 @@ class ProactiveEngine {
               selection.selectedOriginalScore.toStringAsFixed(4),
             ),
             'behaviorKind': selection.behaviorKind,
+            'recentFreshCount': selection.recentFreshCount,
+            'recentVisibleCount': selection.recentVisibleCount,
+            'freshnessShortfall': selection.freshnessShortfall,
+            'freshnessBalanceBoost': double.parse(
+              selection.freshnessBalanceBoost.toStringAsFixed(4),
+            ),
+            'oldContextPenalty': double.parse(
+              selection.oldContextPenalty.toStringAsFixed(4),
+            ),
             'at': evaluationStartedAt.millisecondsSinceEpoch,
           }),
         );
@@ -559,6 +568,22 @@ class ProactiveEngine {
             ),
           );
         }
+        if (selection.freshnessBalanceBoost > 0) {
+          await db.recordProactivePolicyEvent(
+            ProactivePolicyEvent(
+              lane: 'selection',
+              sourceType: selection.sourceType,
+              intentKind: selection.intentKind,
+              outcome: 'fresh_source_promoted',
+              reasonTag: 'freshness_balance',
+              repeatDepth: selection.freshnessShortfall,
+              adjustmentBucket: selection.freshnessShortfall >= 3
+                  ? 'fresh_shortfall_3_plus'
+                  : 'fresh_shortfall_${selection.freshnessShortfall}',
+              createdAt: evaluationStartedAt,
+            ),
+          );
+        }
         if (selection.samplingCandidateCount > 1) {
           await db.recordProactivePolicyEvent(
             ProactivePolicyEvent(
@@ -587,7 +612,9 @@ class ProactiveEngine {
                 ? 'theme_repeat'
                 : selection.waitingChangedWinner
                     ? 'share_waiting'
-                    : 'ordinary_selection',
+                    : selection.freshnessBalanceBoost > 0
+                        ? 'freshness_balance'
+                        : 'ordinary_selection',
             repeatDepth: selection.repeatDepth,
             adjustmentBucket: selection.adjustmentBucket,
             createdAt: evaluationStartedAt,
@@ -977,7 +1004,9 @@ class ProactiveEngine {
     }
 
     final recent = await db.recentMessagesForPrompt(limit: 28);
-    final promptHistory = ProactivePresentationPolicy.startsFreshTopic(intentKind)
+    final startsFreshTopic =
+        ProactivePresentationPolicy.startsFreshTopic(intentKind);
+    final promptHistory = startsFreshTopic
         ? const <ChatMessage>[]
         : recent;
     final prompt = PromptBuilder(db);
@@ -991,6 +1020,7 @@ class ProactiveEngine {
       now: evaluationStartedAt,
       groundingOverride: proactiveGrounding,
       selectedPublicWebCandidateId: webShareCandidateId,
+      freshTopicSourceOnly: startsFreshTopic,
     );
     final context = promptBuild.messages.toList(growable: true);
     // The editable 08_proactive_turn template now owns these former inline
@@ -1048,7 +1078,7 @@ ${selection != null && selection.rawRepetitionPenalty > 0 ? '近期同类主动�
 过去主动消息样本：${rhythmProfile.sampleCount}；当前主题历史样本：${rhythmProfile.topicSampleCount}；同类主动意图样本：${rhythmProfile.intentSampleCount}。当前粗粒度时间段=${rhythmProfile.currentHourBucket}，活动情境=${rhythmProfile.currentActivityContext}。这些只作为轻量节奏参考，不要向用户提及统计。
 真实时间间隔：距离最近用户消息约 $idleMinutes 分钟；距离上一条主动消息${proactiveGap == null ? '没有可用记录' : '约 ${max(0, proactiveGap.inMinutes)} 分钟'}。这是程序计算的事实：不得把 2 分钟说成睡醒、把 10 分钟说成半小时，也不得用文学夸张改写短时间间隔。
 ${ProactivePresentationPolicy.promptHint(intentKind, deliveryStyle)}
-${ProactivePresentationPolicy.startsFreshTopic(intentKind) ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已从写作上下文移除。不要自行召回旧对话来填空，只使用本轮选中来源或此刻自己的新问题；没有具体内容就输出 WAIT。' : ''}
+${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已从写作上下文移除；旧 Memory、关系事件、近日连续性和既有知识正文也不注入。不要自行召回旧事填空，只使用本轮选中来源或此刻自己的新问题；没有具体内容就输出 WAIT。' : ''}
 严格服从前文可编辑的【CURRENT TURN CONTRACT】与 REALITY GROUNDING；结构化运行数据不是用户发言。
 '''.trim(),
     });

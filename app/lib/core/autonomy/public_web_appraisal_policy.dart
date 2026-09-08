@@ -33,7 +33,10 @@ class PublicWebAppraisalPolicy {
     final sociallyReady = sourceIntent.drive == DriveKey.social ||
         sourceIntent.wantAction == 'wildcard_share' ||
         socialExcess >= 0.10;
-    if (shareScore >= 0.68 && sociallyReady && subjectiveValue >= 0.48) {
+    final independentlyShareable =
+        shareScore >= 0.74 && subjectiveValue >= 0.58;
+    if ((shareScore >= 0.68 && sociallyReady && subjectiveValue >= 0.48) ||
+        independentlyShareable) {
       return shareCandidate;
     }
     if (learningScore >= 0.62) return knowledgeCandidate;

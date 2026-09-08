@@ -31,29 +31,29 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04151-sticker-semantics-gallery-interop`；从 v0.41.50 远端交接 head `18f4f583` 建立。范围限于表情运行时禁用与语义修正、普通回复零匹配保护、长按完整语义及“其他相册应用”入口；不改用户 ZIP、媒体 schema、Agent v2、人格、Desire/Thought、3C 或 MCP |
+| 当前开发分支 | `agent/v04152-diary-fresh-topic-balance`；处理日记、主动新题/网页分享和两项 v0.41.51 UI 反馈；不动 ZIP、schema、Agent v2、NSFW、3C 或 MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.51 当前从 `18f4f5833a325a6603424e6d6a1dd177d65e096c` 开发，运行实现尚待本轮提交与 CI 回填。公开变更不得包含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
-| App / 数据库 | 当前目标 `0.41.51+190 / schema 56 / Snapshot protocol 5`；本版不迁移数据库或 Snapshot。旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留，七张表情仅按稳定 pack/path 在运行时隐藏 |
-| 最终 CI | v0.41.50 run [`34222253798`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798)（#778）已完整成功且现经用户真机确认；v0.41.51 尚为本地实现，`CI PENDING / APK PENDING / TRUE DEVICE PENDING` |
-| 测试 APK | v0.41.51 尚未生成；上一基线 `AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK.apk` 为 326,637,890 bytes |
-| APK SHA-256 | v0.41.51 尚待 Actions 生成并独立复算；上一基线为 `50e88a28de01467b05bdf617059d784507964bf7a8b690f8d2006d98ed70c29f` |
-| Artifact / Release | v0.41.51 尚待 Actions；只生成测试 Artifact 与保持草稿的候选，不合并 `main`，不发布正式 Release。上一基线 Artifact 为 [`10054577342`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798/artifacts/10054577342) |
+| 当前代码 head / tree | v0.41.51 远端构建 head `e956f33490259279eb3ef5f6e9730b8cab8b6ea3` / tree `2fb904ef6e67304d30c4b6a638f070eeeece7150`；运行实现本地首提交 `32773f9`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| App / 数据库 | 当前运行基线 `0.41.51+190 / schema 56 / Snapshot protocol 5`；下一目标 `0.41.52+191`，继续 schema 56、无迁移。旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留 |
+| 最终 CI | v0.41.51 run [`34242666306`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306) 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、全部 Flutter tests、Release APK、固定签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-APK.apk`，326,644,134 bytes |
+| APK SHA-256 | `95f041c0543b8459e3e55aabc496f2b9439d7d99a796670b67e5e2901f3dfe97`；Artifact ZIP 下载后流式读取 APK 独立复算与 CI checksum 一致 |
+| Artifact / Release | Artifact [`10063172257`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306/artifacts/10063172257)，ZIP 320,345,449 bytes / digest `f9190e64ffeb6b4c416de69a43ac5063771c22621bdf5259467cad6b6a356da8`；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cbf92ac7fd0a57b66cfb) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 长期观察；v0.41.48/49 `TRUE DEVICE PASSED`；v0.41.50 Agent v2 经用户确认 `TRUE DEVICE PASSED`；v0.41.51 `IMPLEMENTED LOCALLY / CI PENDING` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **完成 v0.41.51 自动化、公开分支推送与测试 APK 构建**：先验证七张运行时禁用、`1739433751_1` 语义、零匹配不发送、长按完整 caption 和原生厂商相册 chooser；CI 全绿后再给用户做窄真机 smoke |
-| 目标 | 不改用户 ZIP 的前提下消除重复/不要的七张表情，阻断无关语境随机误发；让用户能在长按时看懂完整使用语义，并为小米相册等厂商应用提供独立选择入口 |
-| 当前证据 | 用户明确说明两个已点名文件分别与其他未点名图片重复，删除决定不变；用户确认 v0.41.50 Agent v2 真机能力明显增强且闲聊无回归。源码已完成本地首轮实现，Flutter/Kotlin 与 APK 尚待 Actions 验证 |
-| 保护与排除 | 不删除/改写 ZIP，不删除历史聊天附件，不新增表情上传，不让主动感知 Qwen 判定 NSFW，不猜测 DeepSeek 视觉模型名；保留 Agent v2、CHAT_LIGHT、权限/取消/事务/附件真值及 schema 56 |
+| 当前下一步 | **验证并构建 v0.41.52**：日记有界整理、主动新题/网页分享平衡、删除无效相册入口、长按只显示语义正文 |
+| 目标 | 日记不再反复输出同一几句，而是使用当日多个真实片段整理“发生了什么、仍在意什么、自己怎样理解”；主动消息的可见新鲜话题至少与旧事回访达到滚动一半一半，真实网页发现获得公平分享机会，但仍经过 Desire / Intent / Gate 和模型自主 WAIT |
+| 当前证据 | `0.41.51+190 / schema 56`：24h 内 171 proactive message、9 discovery、2 web share；83 个网页候选仅 1 个 share candidate。fresh lane 仍注入旧上下文；12/12 日记同尾句、10/12 同 care 模板 |
+| 保护与排除 | 日记仍是 `derived_projection`，不得反写 Memory、AI Self、人格学习、兴趣证据或 Desire；不重写既有 12 篇旧日记。新题平衡不建立第二人格/第二主动系统，不硬发每次搜索结果，不删除旧记忆能力，不绕过主动频率、忙碌、疲劳、Grounding、权限或事实 Gate；不新增表情上传，不动用户 ZIP、媒体 schema、NSFW 与 Agent v2 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 七张以 `official-001 + basename` 稳定拒绝；催睡图 caption/keywords 只做运行时覆盖；普通回复必须正语义命中。厂商相册用 `ACTION_PICK` chooser、无处理器回退 `ACTION_OPEN_DOCUMENT`，选中 URI 先限额复制到缓存再走现有图片链 |
-| 完成判据 | 自动化/CI 全绿并产出固定签名 APK；真机确认七张不可见、催睡图只在相关语境命中、长按显示完整语义、“其他相册应用”能出现可用入口或如实证明 ROM 未暴露处理器；系统选择器、相机与普通聊天不回归 |
-| 直接详细入口 | `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；表情基础合同仍见 `app/docs/STICKER_EXPRESSION_v0.41.45.md`，Agent v2 回归边界见 `app/docs/AGENT_V2_BOUNDED_LOOP_v0.41.50.md` |
+| 实现边界 | 新日记生成器只读取已 finalized 的前一日 DailyContinuity 中有界 shared moments / cares / carried threads / awareness 和最近日记用于去重；模型失败走事实型 fallback，输出过短、过长或与近期高度相似时拒绝模型稿。主动 fresh lane 只保留本轮选中 Thought/网页候选、当前 Desire/Emotion/Somatic/Awareness 与表达模块，排除旧 Memory/关系事件/近日连续性/知识资料正文；选择器对滚动可见来源不足一半的新鲜来源提供有界补偿 |
+| 完成判据 | 新增日记解析/相似度/失败 fallback、fresh context 隔离、滚动 50% 来源平衡、高价值网页候选路由及 UI 删除回归；format/analyze/全量 tests/validators/Release APK/固定签名与载荷全绿后只标 `CI PASSED / APK READY`。真机至少观察新生成一篇不含旧固定尾句的日记，并在自然主动消息中看到可追溯的新自身话题或真实网页分享；旧事仍可从 followup 通道出现 |
+| 直接详细入口 | 本文件“2026-09-08 v0.41.51 真机证据与 v0.41.52 日记/主动新题提前优化”；旧表情合同见 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`，Phase 3B/主观搜索见 `app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md` 与 `app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -88,7 +88,21 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-08 v0.41.50 真机通过与 v0.41.51 表情语义/厂商相册（TRUE DEVICE PASSED / IMPLEMENTED LOCALLY / CI PENDING）
+### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING）
+
+1. 用户确认 v0.41.51 的表情长按能够看到完整语义，但不需要“完整语义：”前缀；新增“其他相册应用”仍检索不到小米相册。用户决定继续使用原系统相册/文件夹入口，并在下一版删除无效入口。七张运行时禁用、催睡图命中和无关回复误发没有获得逐项新结论，不倒写通过或失败。
+2. 新诊断文件为 153,050 bytes，SHA-256 为 `59c621bfbfc9d0f72d8b5b9092927a5d02503fa323954c755180eb9d161afff3`；新备份为 63,433,833 bytes，SHA-256 为 `79f02102bbd188d568fb039ad10f7c1d4ae5b18514d2b98f758c7ad4146a2a6c`。报告版本 `0.41.51+190` / schema 56；备份 protocol 5、generation 96，16,798,725-byte `state.json` 的 SHA-256 `919b2b4530c2fcb84f21a42041e57d0405e1a95afacc629d4fe357c1fb8db791` 与 manifest 一致，压缩包完整。附件只作本地取证，不提交仓库。
+3. 日记重复是确定性代码问题：存档 12 篇日记全部追加同一固定结尾，10 篇在 cares 非空时使用同一“仍未放下”模板。当前实现只复制第一条 shared moment，对 cares 和 awareness 只看是否非空，完全忽略 carried threads，也没有模型整理、近期相似度检查或主题冷却。
+4. 总账旧合同要求日记读取前一日有界真实资料，写发生的事、心情变化与未说出口的感受；后续还登记为一次 API 整理、正文可略长。它始终只是 `derived_projection`，不得作为人格学习、兴趣成熟或长期事实的新证据。v0.38.8 最终只落了模板底座，本次按用户决定提前兑现内容优化。
+5. 主动内容问题也不是简单的“选择器总选 Memory”。诊断近 24h 有 287 个统一自主行为：171 次 proactive message、9 次 discovery、2 次 public web share、21 次 rest、84 次 wait；策略保留的 8 次 sent 来源为 awareness 4、drive_state 3、user_history 1。可是 fresh topic 通道虽然清空聊天历史，`PromptBuilder` 仍无条件注入 Memory、Relationship、最近两天 DailyContinuity、参考资料和公共知识；没有具体新 Thought 时，模型自然从旧内容填空。
+6. 自主网页 Provider 本身工作正常：近 24h search success 12、extraction success 11、compaction success 10、appraisal success 9。瓶颈是 83 个活动候选只有 1 个 `share_candidate`，分享状态为 `shared=0 / declined=1 / ready=0 / pending=false`。当前 appraisal 即使 share 分和主观价值合格，也仍要求 social drive、wildcard 或 social excess 至少 0.10；真机当时 social excess 约 0.091。
+7. v0.41.52 继续复用 Desire / Thought / Intent / Gate：fresh lane 改为 source-only Prompt，只保留本轮选中 Thought/网页候选及当前内部和感知状态；旧 Memory、关系事件和 DailyContinuity 留给 followup 等旧事通道。选择器按最近 8 个实际完成的可见主动来源，在新来源不足一半时提供有界补偿；网页评价增加高 share + 高主观价值的独立窄门，仍不代表自动发送。
+8. 日记改为读取 finalized DailyContinuity 的多个真实字段与最近 7 篇正文，由 DeepSeek Flash 生成受限 JSON；本地验证长度、空值、固定元话术与近期字符相似度，失败时使用只拼接真实来源的事实 fallback。旧 12 篇不迁移、不改写，生成结果不回灌任何学习或动机系统。
+9. 已实现 `0.41.52+191 / schema 56`：新增 `simulated_diary_generator.dart`，日记使用多个 finalized continuity 字段、DeepSeek Flash JSON、最近 7 篇 bigram 相似度门和事实 fallback；`PromptBuilder` 新增 fresh source-only 边界；主动选择按最近 8 次真实可见投递统计不足一半的新鲜来源并记录无正文审计字段；高 share+高主观价值网页候选获得独立窄门。
+10. UI 已删除失败的“其他相册应用”及 Dart/Kotlin 原生桥，恢复原系统图片选择器；长按仍显示完整 caption，但移除“完整语义：”字样。已新增日记、平衡、网页评价与清理回归测试和 v0.41.52 validator；本地环境无 Flutter/Dart，当前仅静态 validator 通过，必须以 CI 的 format/analyze/全量 Flutter tests 与 Release APK 为准。附件未进入 Git。
+11. 本地实现提交为 `53dff2a`，授权状态记录提交为 `87d3361`。首次推送因最近授权只点名 v0.41.51 而被权限审查拦截，未绕过、未创建远端分支、未触发 Actions；用户随后明确允许将 v0.41.52 推送到公开仓库并运行 Actions 生成测试 APK，同时继续禁止合并 `main` 或发布正式 Release。主动能力需自然积累样本；UI 与新日记可先快速确认，不阻塞不触碰主动仲裁的后续任务。
+
+### 2026-09-08 v0.41.50 真机通过与 v0.41.51 表情语义/厂商相册（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户完成 v0.41.50 Agent v2 真机测试并明确结论：Agent 能力得到大幅增强，普通闲聊不受影响，没有发现问题。按证据边界将 v0.41.50 提升为 `TRUE DEVICE PASSED`；不伪造未逐项提供的内部日志数量。
 2. 用户更正重复关系：`1739434144_1` 与 `1739434514_1` 并非彼此重复，而是分别与其他未点名表情重复；此前禁用结论不变。完整运行时拒绝表为 `1739434144_1`、`1739434514_1`、`1784600243_9401eed721`、`1784625719_a23e2ae6a2`、`1739434282_1`、`1739434473_1`、`file_5614628`；重复对照中保留 `file_5447071`。不删除或改写 ZIP/`index.db`，重导入后拒绝仍生效，已发送的历史附件不受影响。
@@ -98,7 +112,9 @@
 6. 厂商相册返回的 `content://` 不直接持久化：原生桥在后台复制到应用 cache，限制 25 MB、拒绝空内容并在失败时删除半成品，再复用现有图片预览/确认/附件/识图事务链。覆盖层 guard 在原生 picker 前后成对调用；取消、桥销毁与复制失败返回真实结果。
 7. 用户冻结以后新图片自动归一化边界：不让主动感知 Qwen 判定 NSFW；允许把无明显尺度但有成年暗示的图标为“成人玩笑”；必须加入且不保守弱化“强攻击”，因为产品目标是有熟人攻击性表达的拟人陪伴，而非心理安慰陪伴。旧数据整理与新图归一化分轨：旧数据小批可回滚，新图只在上传/导入 staging 做精确 hash、必要时感知 hash、视觉语义与正式提交。
 8. DeepSeek 备用识图预计可复用相同 API 配置，但用户只记得专用视觉模型近似 “V4 Flash + 英文后缀”。本版没有实现表情上传，因此不猜测 model id；到正式实现上传/备用视觉时必须查提供方当前官方模型目录并分别记录 Qwen 失败、DeepSeek 备用成功/失败 Outcome。
-9. 当前版本提升为 `0.41.51+190 / schema 56 / Snapshot protocol 5`，开发分支 `agent/v04151-sticker-semantics-gallery-interop`。专项合同为 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；本地环境无 Flutter/Dart SDK，完整格式、analyze、tests、Kotlin 与 APK 继续由 GitHub Actions 证明，当前不得提前写 CI 或真机通过。
+9. 当前版本提升为 `0.41.51+190 / schema 56 / Snapshot protocol 5`，开发分支 `agent/v04151-sticker-semantics-gallery-interop`。专项合同为 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；本地环境无 Flutter/Dart SDK，构建前专项/历史 validator 与总账结构本地通过，完整 analyze/tests/Kotlin/APK 由 Actions 证明。
+10. 公开分支首次创建触发 run `34240754671`，随后为了形成明确构建 head 的 Git ref 更新按 workflow 并发规则将其取消；第二次 run `34242013905` 又被标准 contents API push 接替。两次取消均发生于新 head 替换旧 head，不是源码失败。最终只以未被接替的 run [`34242666306`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306) 为准。
+11. run 34242666306 在远端 head `e956f33490259279eb3ef5f6e9730b8cab8b6ea3` / tree `2fb904ef6e67304d30c4b6a638f070eeeece7150` 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、全部 Flutter tests、Release APK、固定私有测试签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过。Artifact `10063172257` 为 320,345,449 bytes，ZIP digest `f9190e64ffeb6b4c416de69a43ac5063771c22621bdf5259467cad6b6a356da8`；其中 APK 326,644,134 bytes，下载后流式独立复算 SHA-256 为 `95f041c0543b8459e3e55aabc496f2b9439d7d99a796670b67e5e2901f3dfe97`，与 CI 一致。当前边界为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；Draft Release 只保留草稿，`main` 未合并、正式 Release 未发布。
 
 ### 2026-09-08 v0.41.49 真机通过与 v0.41.50 Agent v2（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PASSED）
 

@@ -39,7 +39,7 @@ tests = "\n".join(
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:47\+186|48\+187|49\+188|50\+189|51\+190)$",
+    r"^version:\s*0\.41\.(?:47\+186|48\+187|49\+188|50\+189|51\+190|52\+191)$",
     pubspec,
     re.M,
 )

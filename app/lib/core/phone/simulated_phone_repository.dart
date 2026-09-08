@@ -11,6 +11,7 @@ import '../storage/message_attachment_storage.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
 import 'simulated_cart_generator.dart';
+import 'simulated_diary_generator.dart';
 import 'simulated_phone_policy.dart';
 import 'tarot_catalog.dart';
 
@@ -126,11 +127,15 @@ class SimulatedPhoneRepository {
   SimulatedPhoneRepository(
     this.db, {
     SimulatedCartGenerator? cartGenerator,
-  }) : _cartGenerator =
-            cartGenerator ?? DeepSeekSimulatedCartGenerator();
+    SimulatedDiaryGenerator? diaryGenerator,
+  })  : _cartGenerator =
+            cartGenerator ?? DeepSeekSimulatedCartGenerator(),
+        _diaryGenerator =
+            diaryGenerator ?? DeepSeekSimulatedDiaryGenerator();
 
   final AppDatabase db;
   final SimulatedCartGenerator _cartGenerator;
+  final SimulatedDiaryGenerator _diaryGenerator;
 
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
@@ -370,29 +375,73 @@ class SimulatedPhoneRepository {
     );
     if (records.isEmpty) return;
     final record = records.first;
-    final pieces = <String>[];
-    if (record.sharedMoments.isNotEmpty) {
-      pieces.add(record.sharedMoments.first.summary.trim());
+    String clean(String value) => value.trim();
+    final material = SimulatedDiaryMaterial(
+      localDay: yesterday,
+      sharedMoments: record.sharedMoments
+          .map((item) => clean(item.summary))
+          .where((item) => item.isNotEmpty)
+          .take(3)
+          .toList(growable: false),
+      cares: record.cares
+          .map((item) => clean(item.text))
+          .where((item) => item.isNotEmpty)
+          .take(2)
+          .toList(growable: false),
+      carriedThreads: record.carriedThreads
+          .map(
+            (item) => [
+              clean(item.title),
+              clean(item.detail),
+            ].where((part) => part.isNotEmpty).join('：'),
+          )
+          .where((item) => item.isNotEmpty)
+          .take(2)
+          .toList(growable: false),
+      awareness: record.awarenessSummaries
+          .map(clean)
+          .where((item) => item.isNotEmpty)
+          .take(2)
+          .toList(growable: false),
+      messageCount: record.messageCount,
+      relationshipEventCount: record.relationshipEventCount,
+      quietDay: record.quietDay,
+    );
+    final recentBodies = entries
+        .map((entry) => entry.body.trim())
+        .where((body) => body.isNotEmpty)
+        .take(7)
+        .toList(growable: false);
+    SimulatedDiaryDraft? generated;
+    try {
+      generated = await _diaryGenerator.generate(
+        material: material,
+        recentBodies: recentBodies,
+      );
+    } catch (_) {
+      generated = null;
     }
-    if (record.cares.isNotEmpty) {
-      pieces.add('还有一件事，我到晚上也没有完全放下。');
-    }
-    if (record.awarenessSummaries.isNotEmpty) {
-      pieces.add('白天也看见了一点外面的动静，脑袋没有闲着。');
-    }
-    if (pieces.isEmpty) {
-      pieces.add(record.quietDay
-          ? '昨天很安静，没有发生什么非得记下来的大事。安静也算是一种完整。'
-          : '昨天留下了一些零零碎碎的痕迹，等以后回头看，也许会想起当时的感觉。');
-    }
+    final useGenerated = generated != null &&
+        SimulatedDiaryQuality.acceptable(
+          generated.body,
+          recentBodies: recentBodies,
+    );
+    final body = useGenerated
+        ? generated!.body
+        : SimulatedDiaryQuality.factualFallback(material);
     final next = SimulatedPhoneEntry(
       id: 'diary:$yesterday',
       kind: 'diary',
       title: '$yesterday · 日记',
-      body: '${pieces.join(' ')}\n\n不是流水账。只是把昨天真正留下来的东西，轻轻收在这里。',
+      body: body,
       localDay: yesterday,
       createdAt: now,
       provenance: 'daily_continuity:${record.id}',
+      metadata: {
+        'generation_mode': useGenerated ? 'deepseek' : 'factual_fallback',
+        'source_item_count': material.concreteItemCount,
+        if (useGenerated) 'focus_kind': generated!.focusKind,
+      },
     );
     await _writeList(_diaryKey, [next, ...entries].take(180).toList());
   }

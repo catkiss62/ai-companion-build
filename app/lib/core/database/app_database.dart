@@ -4667,7 +4667,7 @@ class AppDatabase {
       // Diversity reflects autonomous actions that actually completed. A
       // source that only won selection and then waited/failed was not consumed.
       where: "status = 'completed' AND behavior_kind IN "
-          "('proactive_message','public_web_discovery','public_web_share') "
+          "('proactive_message','public_web_share') "
           'AND started_at >= ?',
       whereArgs: [
         instant.subtract(const Duration(hours: 24)).millisecondsSinceEpoch,
