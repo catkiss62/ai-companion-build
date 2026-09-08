@@ -92,4 +92,19 @@ void main() {
       hasLength(1),
     );
   });
+
+  test('subjective value may keep a low-knowledge result', () {
+    final route = PublicWebAppraisalPolicy.routeModelScores(
+      sourceIntent: intent(DriveKey.reflection),
+      socialExcess: 0,
+      semanticState: 'valid',
+      interestScore: 0.31,
+      learningScore: 0.22,
+      shareScore: 0.40,
+      resonanceScore: 0.76,
+      surpriseScore: 0.68,
+      selfRelevanceScore: 0.71,
+    );
+    expect(route, PublicWebAppraisalPolicy.hold);
+  });
 }

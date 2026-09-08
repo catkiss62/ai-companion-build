@@ -38,13 +38,14 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:47\+186|48\+187)$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:47\+186|48\+187|49\+188)$", pubspec, re.M)
 assert "static const int schemaVersion = 55;" in database
 assert "agent/v04147-user-sticker-picker-image-send" in workflow
-assert re.search(r"Build AI Companion v0\.41\.(?:47\+186|48\+187) APK", workflow)
+assert re.search(r"Build AI Companion v0\.41\.(?:47\+186|48\+187|49\+188) APK", workflow)
 assert re.search(
     r"AI-Companion-v0\.41\.(?:47-186-User-Sticker-Image-Send|"
-    r"48-187-Agent-Image-Reliability-Hotfix)-APK",
+    r"48-187-Agent-Image-Reliability-Hotfix|"
+    r"49-188-Subjective-Search-Humor-Restoration)-APK",
     workflow,
 )
 

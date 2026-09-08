@@ -51,7 +51,7 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.48\+187$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:48\+187|49\+188)$", pubspec, re.M)
 assert "buildLabel = 'v0.41.48+187'" in self_reader
 assert "agent/v04148-agent-image-reliability-hotfix" in workflow
 assert "Build AI Companion v0.41.48+187 APK" in workflow

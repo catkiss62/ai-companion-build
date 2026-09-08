@@ -2,47 +2,156 @@ enum DialogueResponseMode { casual, feedback, challenge, deep, task, sensitive }
 
 enum DialogueHumorDevice {
   none,
-  deadpanVerdict,
-  meaningSwerve,
-  usefulMisread,
-  scaleEscalation,
-  wordMutation,
-  groundedCallback,
+  homophonicMutation,
+  violentStitching,
+  deadpanNonsense,
+  microTheater,
+  identityMismatch,
+  epicMundanity,
+  semanticSwerve,
+  enumerationMania,
+  genreParody,
+  meaninglessNonsense,
+  characterMutation,
+  emotionalAvalanche,
+  linguisticMutilation,
+  joinTheBit,
 }
 
 /// A small, deterministic expression router for ordinary chat.
 ///
 /// It does not decide facts, intent, tools, emotion, relationship state or
-/// safety. It only keeps a light turn from expanding into a narrated scene and
-/// offers at most one generic humor mechanism. No source examples or user text
-/// are persisted here.
+/// safety. It only turns a positive humor opportunity into one concrete method
+/// card. No source examples or user text are persisted here.
 class DialogueExpressionPlan {
   const DialogueExpressionPlan({
     required this.mode,
     required this.humor,
+    this.secondaryHumor = DialogueHumorDevice.none,
+    this.humorIntensity = 'none',
+    this.activationReason = 'none',
     required this.selectionSeed,
   });
 
   final DialogueResponseMode mode;
   final DialogueHumorDevice humor;
+  final DialogueHumorDevice secondaryHumor;
+  final String humorIntensity;
+  final String activationReason;
   final int selectionSeed;
 
   static DialogueExpressionPlan select({
     required String latestUserText,
     required String turnKey,
     bool proactive = false,
+    double subjectivePlayfulness = 0,
+    bool hasOwnThought = false,
   }) {
     final text = latestUserText.trim();
     final mode = proactive ? DialogueResponseMode.casual : _classify(text);
     final seed = _stableHash('$turnKey|$text');
-    // Humor is no longer assigned by a random device router. The model's
-    // small core prompt may find a joke in the actual turn, or not.
-    const humor = DialogueHumorDevice.none;
+    final explicitPlay = _explicitPlay.hasMatch(text);
+    final humorFeedback = mode == DialogueResponseMode.feedback &&
+        _humorFeedback.hasMatch(text);
+    final stateBoost =
+        (subjectivePlayfulness.clamp(0.0, 0.35) * 100).round();
+    final threshold = switch (mode) {
+      DialogueResponseMode.sensitive => 0,
+      DialogueResponseMode.task => explicitPlay ? 30 : 6,
+      DialogueResponseMode.deep => explicitPlay ? 42 : 12,
+      DialogueResponseMode.challenge => 38,
+      DialogueResponseMode.feedback => humorFeedback ? 72 : 0,
+      DialogueResponseMode.casual => proactive
+          ? 28 + stateBoost + (hasOwnThought ? 8 : 0)
+          : 30 + stateBoost + (explicitPlay ? 34 : 0),
+    };
+    final activated =
+        humorFeedback || explicitPlay || seed % 100 < threshold.clamp(0, 88);
+    final primary = activated
+        ? _primaryFor(text: text, seed: seed, explicitPlay: explicitPlay)
+        : DialogueHumorDevice.none;
+    final secondary = activated &&
+            (explicitPlay || proactive || subjectivePlayfulness >= 0.16) &&
+            (seed ~/ 101) % 3 == 0
+        ? _secondaryFor(seed, primary)
+        : DialogueHumorDevice.none;
     return DialogueExpressionPlan(
       mode: mode,
-      humor: humor,
+      humor: primary,
+      secondaryHumor: secondary,
+      humorIntensity: primary == DialogueHumorDevice.none
+          ? 'none'
+          : explicitPlay || humorFeedback
+              ? 'playful'
+              : subjectivePlayfulness >= 0.18
+                  ? 'self_started'
+                  : 'light',
+      activationReason: primary == DialogueHumorDevice.none
+          ? 'none'
+          : humorFeedback
+              ? 'humor_feedback'
+              : explicitPlay
+                  ? 'shared_play'
+                  : proactive || hasOwnThought
+                      ? 'own_impulse'
+                      : 'turn_opening',
       selectionSeed: seed,
     );
+  }
+
+  static const _primaryDevices = <DialogueHumorDevice>[
+    DialogueHumorDevice.homophonicMutation,
+    DialogueHumorDevice.violentStitching,
+    DialogueHumorDevice.deadpanNonsense,
+    DialogueHumorDevice.microTheater,
+    DialogueHumorDevice.identityMismatch,
+    DialogueHumorDevice.epicMundanity,
+    DialogueHumorDevice.semanticSwerve,
+    DialogueHumorDevice.enumerationMania,
+    DialogueHumorDevice.genreParody,
+    DialogueHumorDevice.meaninglessNonsense,
+    DialogueHumorDevice.characterMutation,
+  ];
+
+  static DialogueHumorDevice _primaryFor({
+    required String text,
+    required int seed,
+    required bool explicitPlay,
+  }) {
+    if (RegExp(r'(冰箱|空调|电脑|手机|闹钟|门|椅子|桌子)').hasMatch(text)) {
+      return DialogueHumorDevice.identityMismatch;
+    }
+    if (RegExp(r'(你不是说|再.+就是|像个|法官|采访|播报|系统日志)').hasMatch(text)) {
+      return DialogueHumorDevice.microTheater;
+    }
+    if (RegExp(r'(最后一|偷吃|抢走|没了|忘了|迟到|起床|睡觉|吃完)').hasMatch(text)) {
+      return seed.isEven
+          ? DialogueHumorDevice.epicMundanity
+          : DialogueHumorDevice.emotionalAvalanche;
+    }
+    if (RegExp(r'(通知|公告|报告|建议|郑重|声明)').hasMatch(text)) {
+      return DialogueHumorDevice.genreParody;
+    }
+    if (explicitPlay && seed % 5 == 0) {
+      return DialogueHumorDevice.joinTheBit;
+    }
+    return _primaryDevices[seed % _primaryDevices.length];
+  }
+
+  static DialogueHumorDevice _secondaryFor(
+    int seed,
+    DialogueHumorDevice primary,
+  ) {
+    const extensions = <DialogueHumorDevice>[
+      DialogueHumorDevice.emotionalAvalanche,
+      DialogueHumorDevice.linguisticMutilation,
+      DialogueHumorDevice.joinTheBit,
+    ];
+    for (var offset = 0; offset < extensions.length; offset++) {
+      final candidate = extensions[((seed ~/ 17) + offset) % extensions.length];
+      if (candidate != primary) return candidate;
+    }
+    return DialogueHumorDevice.none;
   }
 
   static DialogueResponseMode _classify(String text) {
@@ -71,6 +180,12 @@ class DialogueExpressionPlan {
   static final _deep = RegExp(
     r'(认真聊|深入|本质|意义|价值观|人格|关系|未来|焦虑|孤独|难过|痛苦|矛盾|我一直在想|我有件事)',
   );
+  static final _explicitPlay = RegExp(
+    r'(造梗|玩梗|开个玩笑|发疯|抽象一点|整活|斗图|笑死|哈哈|绷不住|离谱|狗叫|汪汪|猪一样)',
+  );
+  static final _humorFeedback = RegExp(
+    r'(不好笑|没笑|没有幽默感|没看到哪里造梗|不算造梗|不是造梗|无聊|尬|换个梗|跳脱一点|换个思路)',
+  );
 
   String render() {
     final modeDirective = switch (mode) {
@@ -87,10 +202,53 @@ class DialogueExpressionPlan {
       DialogueResponseMode.sensitive =>
         '这是严肃或高风险内容：别拿痛苦本身造梗；直接、具体地回应，必要信息说全，也不套温柔客服话术。',
     };
+    final humorDirective = humor == DialogueHumorDevice.none
+        ? '''【本轮造梗】
+没有指定造法。她仍可从真实语境里自己发现笑点；不必为了服从计划硬造，也不要把“未指定”理解成禁止幽默。'''
+        : '''【本轮造梗执行卡】
+已命中造梗机会；本轮把它真正写进正文，不要只在心里识别。
+触发来源：$activationReason
+主造法：${_deviceCard(humor)}
+${secondaryHumor == DialogueHumorDevice.none ? '辅助造法：无。一个清楚落点即可。' : '辅助造法：${_deviceCard(secondaryHumor)} 可自然衔接，但不要为了凑数硬塞。'}
+强度：$humorIntensity
+可以自导自演、临时扮演多个角色、戏仿用户或认领不可能身份。戏仿不是事实引用，临时身份不改写持久身份。说完不解释造法，也不要复述世界书例句。''';
     return '''【本轮对话表达计划】
 $modeDirective
-不要把 reasoning 中的完整分析复述一遍。是否幽默由当前语境自然决定，不分配笑点类型，不强制造梗。'''.trim();
+$humorDirective
+不要把 reasoning 中的完整分析复述一遍。提示词和最终正文都不使用成对星号作强调。'''.trim();
   }
+
+  static String _deviceCard(DialogueHumorDevice device) => switch (device) {
+        DialogueHumorDevice.none => '无',
+        DialogueHumorDevice.homophonicMutation =>
+          '谐音变异：从眼前词语替换少量字，保留可辨原词并生成新义。',
+        DialogueHumorDevice.violentStitching =>
+          '暴力拼接：把当前真实元素与一个意外意象直接焊成强画面。',
+        DialogueHumorDevice.deadpanNonsense =>
+          '冷面荒谬：用正式、学术或播报口吻认真处理鸡毛蒜皮。',
+        DialogueHumorDevice.microTheater =>
+          '场景小剧场：临时搭舞台并一人分饰多角，用最后一句完成落点。',
+        DialogueHumorDevice.identityMismatch =>
+          '临时身份错位：以冰箱、法官、动物或荒唐职业认真发言，笑点后卸下。',
+        DialogueHumorDevice.epicMundanity =>
+          '日常史诗化：不改事实，把当前小事抬到战争、史诗或灾害预警尺度。',
+        DialogueHumorDevice.semanticSwerve =>
+          '语义急转：前半句建立清楚的正经预期，后半句只拐一次到意外方向。',
+        DialogueHumorDevice.enumerationMania =>
+          '列举式发癫：用同一荒唐规则给 2～4 个对象分配不同后果。',
+        DialogueHumorDevice.genreParody =>
+          '文体戏仿：借公告、新闻、广告、判决书或说明书腔调夹带当前私货。',
+        DialogueHumorDevice.meaninglessNonsense =>
+          '无意义庄严：像要宣布大事，最后只落下一句自信的废话。',
+        DialogueHumorDevice.characterMutation =>
+          '活字拆解与反义突变：对当前词语做大小、高低、开关或字面部件反转。',
+        DialogueHumorDevice.emotionalAvalanche =>
+          '情绪雪崩：把很小的事短暂升级成毁灭级事件，再突然收住。',
+        DialogueHumorDevice.linguisticMutilation =>
+          '受控语言破坏：用短断句、2～6 次重复或少量连续标点制造节奏，不刷屏。',
+        DialogueHumorDevice.joinTheBit =>
+          '语境内接梗：接受眼前荒唐前提，顺势加码或换舞台，不急着拉回正常。',
+      };
 
   static int _stableHash(String value) {
     var hash = 0x811c9dc5;

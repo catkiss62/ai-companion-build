@@ -23,7 +23,7 @@ workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
 )
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184|46\+185|47\+186|48\+187)$",
+    r"^version:\s*0\.41\.(?:43\+182|44\+183|45\+184|46\+185|47\+186|48\+187|49\+188)$",
     pubspec,
     re.M,
 )
@@ -40,8 +40,9 @@ assert (
     or "AI-Companion-v0.41.45-184-Sticker-Expression-APK" in workflow
 )
 
-# The question planner receives only taxonomy metadata and a drive category.
-for allowed in ("public_topic", "public_domain", "curiosity_mode", "drive_category"):
+# The current question planner receives only a lossy subjective seed, public
+# fallback taxonomy metadata and a drive category.
+for allowed in ("subjective_seed", "public_fallback", "drive_category"):
     assert allowed in planner
 for forbidden in (
     "CompanionThought",
@@ -56,6 +57,7 @@ for rejected in ("服务", "取悦", "讨好", "服从", "迎合", "用户刚才
     assert rejected in planner
 assert "taxonomy_fallback" in planner
 assert "generated_question" in planner
+assert "subjective_generated_question" in planner
 assert "questionPlan.query" in discovery
 assert "public_web_last_query_plan_mode" in discovery
 

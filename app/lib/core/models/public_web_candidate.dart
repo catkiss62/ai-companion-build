@@ -25,6 +25,12 @@ class PublicWebCandidateDraft {
     this.interestScore = 0,
     this.learningScore = 0,
     this.shareScore = 0,
+    this.resonanceScore = 0,
+    this.surpriseScore = 0,
+    this.selfRelevanceScore = 0,
+    this.motiveKind = '',
+    this.whyCared = '',
+    this.subjectiveSeedHash = '',
     this.appraisalReason = '',
     this.contentSha256 = '',
     this.readAt,
@@ -56,6 +62,12 @@ class PublicWebCandidateDraft {
   final double interestScore;
   final double learningScore;
   final double shareScore;
+  final double resonanceScore;
+  final double surpriseScore;
+  final double selfRelevanceScore;
+  final String motiveKind;
+  final String whyCared;
+  final String subjectiveSeedHash;
   final String appraisalReason;
   final String contentSha256;
   final DateTime? readAt;
@@ -75,6 +87,12 @@ class PublicWebCandidateDraft {
     double? interestScore,
     double? learningScore,
     double? shareScore,
+    double? resonanceScore,
+    double? surpriseScore,
+    double? selfRelevanceScore,
+    String? motiveKind,
+    String? whyCared,
+    String? subjectiveSeedHash,
     String? appraisalReason,
     String? contentSha256,
     DateTime? readAt,
@@ -106,6 +124,12 @@ class PublicWebCandidateDraft {
         interestScore: interestScore ?? this.interestScore,
         learningScore: learningScore ?? this.learningScore,
         shareScore: shareScore ?? this.shareScore,
+        resonanceScore: resonanceScore ?? this.resonanceScore,
+        surpriseScore: surpriseScore ?? this.surpriseScore,
+        selfRelevanceScore: selfRelevanceScore ?? this.selfRelevanceScore,
+        motiveKind: motiveKind ?? this.motiveKind,
+        whyCared: whyCared ?? this.whyCared,
+        subjectiveSeedHash: subjectiveSeedHash ?? this.subjectiveSeedHash,
         appraisalReason: appraisalReason ?? this.appraisalReason,
         contentSha256: contentSha256 ?? this.contentSha256,
         readAt: readAt ?? this.readAt,
@@ -123,6 +147,8 @@ class PublicWebContextItem {
     required this.provider,
     required this.discoveredAt,
     required this.safetyState,
+    this.motiveKind = '',
+    this.whyCared = '',
   });
 
   final String id;
@@ -133,6 +159,8 @@ class PublicWebContextItem {
   final String provider;
   final DateTime discoveredAt;
   final String safetyState;
+  final String motiveKind;
+  final String whyCared;
 }
 
 class PublicWebProviderResult {

@@ -36,7 +36,7 @@ class SafePublicImageDownloader {
         ..followRedirects = false
         ..headers.addAll(const <String, String>{
           'Accept': 'image/webp,image/png,image/jpeg,image/gif,*/*;q=0.2',
-          'User-Agent': 'AICompanion/0.41.48 (private Android companion)',
+          'User-Agent': 'AICompanion/0.41.49 (private Android companion)',
         });
       final response = await client.send(request).timeout(
             const Duration(seconds: 24),

@@ -56,6 +56,11 @@ void main() {
                           'interest_score': 0.82,
                           'learning_score': 0.76,
                           'share_score': 0.88,
+                          'resonance_score': 0.72,
+                          'surprise_score': 0.91,
+                          'self_relevance_score': 0.69,
+                          'motive_kind': 'play_and_share',
+                          'why_cared': '这个细节有点怪，我看到时突然想拿去逗他。',
                           'reason': '与搜索目的相符且适合交流',
                         },
                       ],
@@ -83,6 +88,11 @@ void main() {
 
     expect(result.single.semanticState, 'valid');
     expect(result.single.learningScore, 0.76);
+    expect(result.single.resonanceScore, 0.72);
+    expect(result.single.surpriseScore, 0.91);
+    expect(result.single.selfRelevanceScore, 0.69);
+    expect(result.single.motiveKind, 'play_and_share');
+    expect(result.single.whyCared, contains('突然想拿去逗他'));
     expect(
       result.single.appraisalState,
       PublicWebAppraisalPolicy.shareCandidate,

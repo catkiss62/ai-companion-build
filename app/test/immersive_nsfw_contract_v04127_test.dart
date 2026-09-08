@@ -136,6 +136,14 @@ void main() {
     expect(worldBookOptimizedHumorV04128, contains('一轮最多一个主要笑点'));
     expect(worldBookOptimizedHumorV04128, contains('禁止用性别错位'));
     expect(worldBookOptimizedHumorV04128, isNot(contains('我是一个男孩子')));
+    expect(worldBookHumorV04149, contains('场景小剧场 / 抽象舞台'));
+    expect(worldBookHumorV04149, contains('临时身份错位'));
+    expect(worldBookHumorV04149, contains('从业二十年的资深冰箱'));
+    expect(worldBookHumorV04149, contains('受控语言破坏'));
+    expect(worldBookHumorV04149, contains('可以说粗口、荤话或黑色幽默'));
+    expect(worldBookHumorV04149, isNot(contains('**')));
+    expect(worldBookHumorV04149, isNot(contains('{{char}}')));
+    expect(worldBookHumorV04149, isNot(contains('{{user}}')));
   });
 
   test('continuation repairs truncation instead of filling a word quota', () {

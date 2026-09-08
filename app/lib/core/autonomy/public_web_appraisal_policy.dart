@@ -19,14 +19,25 @@ class PublicWebAppraisalPolicy {
     required double interestScore,
     required double learningScore,
     required double shareScore,
+    double resonanceScore = 0,
+    double surpriseScore = 0,
+    double selfRelevanceScore = 0,
   }) {
     if (semanticState == historyOnly) return historyOnly;
+    final subjectiveValue = <double>[
+      interestScore,
+      resonanceScore,
+      surpriseScore,
+      selfRelevanceScore,
+    ].reduce((a, b) => a > b ? a : b);
     final sociallyReady = sourceIntent.drive == DriveKey.social ||
         sourceIntent.wantAction == 'wildcard_share' ||
         socialExcess >= 0.10;
-    if (shareScore >= 0.68 && sociallyReady) return shareCandidate;
+    if (shareScore >= 0.68 && sociallyReady && subjectiveValue >= 0.48) {
+      return shareCandidate;
+    }
     if (learningScore >= 0.62) return knowledgeCandidate;
-    if (interestScore >= 0.55) return hold;
+    if (subjectiveValue >= 0.55) return hold;
     return historyOnly;
   }
 

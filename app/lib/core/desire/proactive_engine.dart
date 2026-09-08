@@ -400,7 +400,7 @@ class ProactiveEngine {
         final routedDiscoveryIntent = DesireIntent(
           drive: discoverySource.drive,
           score: discoveryScore,
-          reason: '形成一个公开知识问题并自行查找资料',
+          reason: '从自己此刻在意的东西形成一个可公开搜索的问题',
           wantAction: 'discover_interest',
           thoughtId: discoverySource.thoughtId,
           reasonSource: discoverySource.reasonSource,
@@ -414,7 +414,7 @@ class ProactiveEngine {
             drive: discoverySource.drive,
             score: discoveryScore,
             reason: capability.available
-                ? '形成一个公开知识问题并自行查找资料'
+                ? '从自己此刻在意的东西形成一个可公开搜索的问题'
                 : '这个问题仍然想查，但公开资料能力暂时不可用，先把念头保留下来。',
             wantAction: capability.available ? 'discover_interest' : 'wait',
             thoughtId: discoverySource.thoughtId,

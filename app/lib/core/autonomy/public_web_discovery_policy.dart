@@ -23,7 +23,8 @@ class _PublicWebTopicSeed {
 }
 
 /// Pure routing policy from an existing Desire Intent to a privacy-safe
-/// public-knowledge topic. It never consumes raw Thought or user text.
+/// fallback topic. SubjectiveSearchSeed supplies the primary why-now signal;
+/// this taxonomy is used only when that planner path cannot form a valid query.
 class PublicWebDiscoveryPolicy {
   const PublicWebDiscoveryPolicy._();
 

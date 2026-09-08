@@ -108,7 +108,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 52;
   // Historical validator compatibility token: static const int schemaVersion = 53;
   // Historical validator compatibility token: static const int schemaVersion = 54;
-  static const int schemaVersion = 55;
+  // Historical validator compatibility token: static const int schemaVersion = 55;
+  static const int schemaVersion = 56;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1126,6 +1127,9 @@ class AppDatabase {
     if (oldVersion < 55) {
       await _createV55AutonomousBehaviorTables(db);
     }
+    if (oldVersion < 56) {
+      await _createV56SubjectiveSearchColumns(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1320,6 +1324,7 @@ class AppDatabase {
     await _createV52ExpressionAlbumBrowserColumns(db);
     await _createV54AiInterestEvidenceTables(db);
     await _createV55AutonomousBehaviorTables(db);
+    await _createV56SubjectiveSearchColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3248,6 +3253,27 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV56SubjectiveSearchColumns(Database db) async {
+    final columns = (await db.rawQuery('PRAGMA table_info(public_web_candidates)'))
+        .map((row) => row['name']?.toString() ?? '')
+        .toSet();
+    const definitions = <String, String>{
+      'resonance_score': 'REAL NOT NULL DEFAULT 0',
+      'surprise_score': 'REAL NOT NULL DEFAULT 0',
+      'self_relevance_score': 'REAL NOT NULL DEFAULT 0',
+      'motive_kind': "TEXT NOT NULL DEFAULT ''",
+      'why_cared': "TEXT NOT NULL DEFAULT ''",
+      'subjective_seed_hash': "TEXT NOT NULL DEFAULT ''",
+    };
+    for (final entry in definitions.entries) {
+      if (!columns.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE public_web_candidates ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -4000,6 +4026,36 @@ class AppDatabase {
         );
       }
       await setSetting('worldbook_humor_cleanup_v04128_applied', '1');
+    }
+    final humorWorldBookRestore =
+        await getSetting('worldbook_humor_restore_v04149_applied');
+    if (humorWorldBookRestore != '1') {
+      const reviewedNarrowHumorSha256 =
+          '6824849b04965f021bbbc1856fb009c598ede4ce5dc442fe14f44d57b4789900';
+      final rows = await db.query(
+        'reference_documents',
+        columns: const ['id', 'raw_content'],
+        where: 'entry_type = ? AND name = ?',
+        whereArgs: const ['behavior', '造梗能力'],
+      );
+      for (final row in rows) {
+        final raw = row['raw_content'] as String? ?? '';
+        if (sha256.convert(utf8.encode(raw)).toString() !=
+            reviewedNarrowHumorSha256) {
+          continue;
+        }
+        await db.update(
+          'reference_documents',
+          {
+            'raw_content': worldBookHumorV04149,
+            'scope': 'chat|proactive',
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+      await setSetting('worldbook_humor_restore_v04149_applied', '1');
     }
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
@@ -10325,6 +10381,12 @@ class AppDatabase {
             'interest_score': candidate.interestScore,
             'learning_score': candidate.learningScore,
             'share_score': candidate.shareScore,
+            'resonance_score': candidate.resonanceScore,
+            'surprise_score': candidate.surpriseScore,
+            'self_relevance_score': candidate.selfRelevanceScore,
+            'motive_kind': candidate.motiveKind,
+            'why_cared': candidate.whyCared,
+            'subjective_seed_hash': candidate.subjectiveSeedHash,
             'appraisal_reason': candidate.appraisalReason,
             'content_sha256': candidate.contentSha256,
             'read_at': candidate.readAt?.millisecondsSinceEpoch,
@@ -10853,6 +10915,13 @@ class AppDatabase {
       interestScore: (row['interest_score'] as num?)?.toDouble() ?? 0,
       learningScore: (row['learning_score'] as num?)?.toDouble() ?? 0,
       shareScore: (row['share_score'] as num?)?.toDouble() ?? 0,
+      resonanceScore: (row['resonance_score'] as num?)?.toDouble() ?? 0,
+      surpriseScore: (row['surprise_score'] as num?)?.toDouble() ?? 0,
+      selfRelevanceScore:
+          (row['self_relevance_score'] as num?)?.toDouble() ?? 0,
+      motiveKind: row['motive_kind'] as String? ?? '',
+      whyCared: row['why_cared'] as String? ?? '',
+      subjectiveSeedHash: row['subjective_seed_hash'] as String? ?? '',
       appraisalReason: row['appraisal_reason'] as String? ?? '',
       contentSha256: row['content_sha256'] as String? ?? '',
       readAt: row['read_at'] == null ? null : time('read_at'),
@@ -10883,6 +10952,12 @@ class AppDatabase {
           'interest_score': refreshed.interestScore,
           'learning_score': refreshed.learningScore,
           'share_score': refreshed.shareScore,
+          'resonance_score': refreshed.resonanceScore,
+          'surprise_score': refreshed.surpriseScore,
+          'self_relevance_score': refreshed.selfRelevanceScore,
+          'motive_kind': refreshed.motiveKind,
+          'why_cared': refreshed.whyCared,
+          'subjective_seed_hash': refreshed.subjectiveSeedHash,
           'appraisal_reason': refreshed.appraisalReason,
           'content_sha256': refreshed.contentSha256,
           'read_at': refreshed.readAt?.millisecondsSinceEpoch,
@@ -11231,6 +11306,8 @@ class AppDatabase {
           'provider',
           'discovered_at',
           'safety_state',
+          'motive_kind',
+          'why_cared',
         ],
         where:
             "expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
@@ -11267,6 +11344,8 @@ class AppDatabase {
                 ),
                 safetyState:
                     row['safety_state'] as String? ?? 'untrusted_public',
+                motiveKind: row['motive_kind'] as String? ?? '',
+                whyCared: row['why_cared'] as String? ?? '',
               ))
           .toList(growable: false);
     });
@@ -11301,6 +11380,8 @@ class AppDatabase {
         'provider',
         'discovered_at',
         'safety_state',
+        'motive_kind',
+        'why_cared',
       ],
       where:
           "id IN ($placeholders) AND expires_at > ? AND read_state = 'verified' AND semantic_state IN ('valid','history_only') AND lifecycle_state NOT IN ('discarded','shared','declined','share_staging','user_deleted')",
@@ -11324,6 +11405,8 @@ class AppDatabase {
               ),
               safetyState:
                   row['safety_state'] as String? ?? 'untrusted_public',
+              motiveKind: row['motive_kind'] as String? ?? '',
+              whyCared: row['why_cared'] as String? ?? '',
             ))
         .toList(growable: false);
   }
@@ -12630,6 +12713,12 @@ class AppDatabase {
         'intent_action',
         'safety_state',
         'lifecycle_state',
+        'motive_kind',
+        'resonance_score',
+        'surprise_score',
+        'self_relevance_score',
+        'why_cared',
+        'subjective_seed_hash',
         'discovered_at',
         'expires_at',
         'view_count',
@@ -12677,6 +12766,11 @@ class AppDatabase {
             await getSetting('public_web_last_search_mode') ?? 'never',
         'lastQueryPlanMode':
             await getSetting('public_web_last_query_plan_mode') ?? 'never',
+        'lastSubjectiveMotive':
+            await getSetting('public_web_last_subjective_motive') ?? 'never',
+        'lastSubjectiveSeedHashPresent':
+            (await getSetting('public_web_last_subjective_seed_hash') ?? '')
+                .isNotEmpty,
         'lastCounts':
             await getSetting('public_web_last_appraisal_counts') ?? '',
         'heldCount': byLifecycle['held'] ?? 0,
@@ -12694,6 +12788,20 @@ class AppDatabase {
               'intentAction': lastRows.first['intent_action'] ?? '',
               'safetyState': lastRows.first['safety_state'] ?? '',
               'lifecycle': lastRows.first['lifecycle_state'] ?? '',
+              'motiveKind': lastRows.first['motive_kind'] ?? '',
+              'resonanceScore':
+                  (lastRows.first['resonance_score'] as num?)?.toDouble() ?? 0,
+              'surpriseScore':
+                  (lastRows.first['surprise_score'] as num?)?.toDouble() ?? 0,
+              'selfRelevanceScore':
+                  (lastRows.first['self_relevance_score'] as num?)
+                          ?.toDouble() ??
+                      0,
+              'whyCaredPresent':
+                  (lastRows.first['why_cared'] as String? ?? '').isNotEmpty,
+              'subjectiveSeedHashPresent':
+                  (lastRows.first['subjective_seed_hash'] as String? ?? '')
+                      .isNotEmpty,
               'discoveredAt': lastRows.first['discovered_at'] ?? 0,
               'expiresAt': lastRows.first['expires_at'] ?? 0,
               'viewCount': lastRows.first['view_count'] ?? 0,
@@ -12773,6 +12881,8 @@ class AppDatabase {
         'queryIncluded': false,
         'interestKeyIncluded': false,
         'thoughtBodyIncluded': false,
+        'whyCaredBodyIncluded': false,
+        'subjectiveSeedHashIncluded': false,
         'candidateIdIncluded': false,
         'outboundMessageIncluded': false,
         'rawErrorIncluded': false,

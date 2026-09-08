@@ -14,6 +14,7 @@ import 'public_web_discovery_policy.dart';
 import 'public_web_appraisal_policy.dart';
 import 'public_web_deepseek_appraiser.dart';
 import 'public_web_question_planner.dart';
+import 'subjective_search_seed.dart';
 import 'wikimedia_public_web_provider.dart';
 
 class PublicWebDiscoveryAvailability {
@@ -36,10 +37,9 @@ class PublicWebDiscoveryAvailability {
 /// First scheduled autonomous tool provider.
 ///
 /// It runs only after the existing Desire heartbeat has produced a snapshot,
-/// uses fixed public-knowledge topics as a privacy boundary, may turn one into
-/// a concrete safe question without exposing user/Thought text, and stores
-/// untrusted results only in the candidate pool. It never sends a message;
-/// proactive delivery remains a separate Gate.
+/// uses a lossy subjective seed plus a fixed public fallback without exposing
+/// user/Thought text, and stores untrusted results only in the candidate pool.
+/// It never sends a message; proactive delivery remains a separate Gate.
 class PublicWebDiscoveryEngine {
   PublicWebDiscoveryEngine({
     required this.db,
@@ -146,6 +146,14 @@ class PublicWebDiscoveryEngine {
       now: instant,
       recentInterestKeys: await db.recentPublicWebInterestKeys(),
     );
+    final subjectiveSeed = SubjectiveSearchSeedPolicy.build(
+      snapshot: snapshot,
+      intent: sourceIntent,
+      thoughts: thoughts,
+      emotions: await db.activeEmotionEpisodes(now: instant, limit: 4),
+      somatic: await db.activeSomaticAggregates(now: instant),
+      now: instant,
+    );
     final provider = _providerOverride ?? await _configuredProvider();
     final toolIntent = PublicWebDiscoveryPolicy.toToolIntent(sourceIntent);
     final capability = await availability(
@@ -167,7 +175,7 @@ class PublicWebDiscoveryEngine {
       intent: toolIntent,
       tool: AutonomousToolKind.publicWeb,
       dedupeMaterial:
-          '${provider.providerKey}|${topic.interestKey}|${PublicWebDiscoveryPolicy.dedupeWindow(instant)}',
+          '${provider.providerKey}|${topic.interestKey}|${subjectiveSeed.seedHash}|${PublicWebDiscoveryPolicy.dedupeWindow(instant)}',
       providerAvailable: true,
       screenInteractive: screenInteractive,
       deviceLocked: deviceLocked,
@@ -217,8 +225,17 @@ class PublicWebDiscoveryEngine {
     final questionPlan = await planner.plan(
       topic: topic,
       drive: sourceIntent.drive,
+      subjectiveSeed: subjectiveSeed,
     );
     await db.setSetting('public_web_last_query_plan_mode', questionPlan.mode);
+    await db.setSetting(
+      'public_web_last_subjective_motive',
+      subjectiveSeed.motiveKind,
+    );
+    await db.setSetting(
+      'public_web_last_subjective_seed_hash',
+      subjectiveSeed.seedHash,
+    );
 
     final providerStarted = DateTime.now();
     final result = await provider.discover(
@@ -286,12 +303,20 @@ class PublicWebDiscoveryEngine {
           endpoint: await secureConfig.readEndpoint(),
         );
     final appraisalStarted = DateTime.now();
+    final seededCandidates = result.candidates
+        .map((candidate) => candidate.copyWith(
+              motiveKind: subjectiveSeed.motiveKind,
+              whyCared: subjectiveSeed.whyNow,
+              subjectiveSeedHash: subjectiveSeed.seedHash,
+            ))
+        .toList(growable: false);
     final appraised = await appraiser.appraise(
       query: questionPlan.query,
-      candidates: result.candidates,
+      candidates: seededCandidates,
       sourceIntent: sourceIntent,
       socialExcess: (snapshot.drives[DriveKey.social] ?? 0.0) -
           (snapshot.baselines[DriveKey.social] ?? 0.0),
+      subjectiveSeed: subjectiveSeed,
     );
     final appraisalCalled = result.candidates.any(
       (candidate) => candidate.isVerifiedRead,
