@@ -214,11 +214,13 @@ void main() {
       id: 'old-memory-topic',
       drive: DriveKey.reflection,
       source: 'self_drive/memory',
+      bornAt: now,
     );
     final awareness = thought(
       id: 'fresh-awareness-topic',
       drive: DriveKey.curiosity,
       source: 'perception/awareness',
+      bornAt: now,
     );
     final result = ProactiveSelectionPolicy.select(
       candidates: [

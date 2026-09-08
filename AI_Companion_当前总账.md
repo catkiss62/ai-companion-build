@@ -40,7 +40,7 @@
 | APK SHA-256 | `95f041c0543b8459e3e55aabc496f2b9439d7d99a796670b67e5e2901f3dfe97`；Artifact ZIP 下载后流式读取 APK 独立复算与 CI checksum 一致 |
 | Artifact / Release | Artifact [`10063172257`](https://github.com/catkiss62/ai-companion-build/actions/runs/34242666306/artifacts/10063172257)，ZIP 320,345,449 bytes / digest `f9190e64ffeb6b4c416de69a43ac5063771c22621bdf5259467cad6b6a356da8`；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-cbf92ac7fd0a57b66cfb) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `PUSHED / CI FIX IN PROGRESS` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / IMPLEMENTED LOCALLY / PUSH BLOCKED / CI PENDING）
+### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / PUSHED / CI FIX IN PROGRESS）
 
 1. 用户确认 v0.41.51 的表情长按能够看到完整语义，但不需要“完整语义：”前缀；新增“其他相册应用”仍检索不到小米相册。用户决定继续使用原系统相册/文件夹入口，并在下一版删除无效入口。七张运行时禁用、催睡图命中和无关回复误发没有获得逐项新结论，不倒写通过或失败。
 2. 新诊断文件为 153,050 bytes，SHA-256 为 `59c621bfbfc9d0f72d8b5b9092927a5d02503fa323954c755180eb9d161afff3`；新备份为 63,433,833 bytes，SHA-256 为 `79f02102bbd188d568fb039ad10f7c1d4ae5b18514d2b98f758c7ad4146a2a6c`。报告版本 `0.41.51+190` / schema 56；备份 protocol 5、generation 96，16,798,725-byte `state.json` 的 SHA-256 `919b2b4530c2fcb84f21a42041e57d0405e1a95afacc629d4fe357c1fb8db791` 与 manifest 一致，压缩包完整。附件只作本地取证，不提交仓库。
@@ -101,6 +101,7 @@
 9. 已实现 `0.41.52+191 / schema 56`：新增 `simulated_diary_generator.dart`，日记使用多个 finalized continuity 字段、DeepSeek Flash JSON、最近 7 篇 bigram 相似度门和事实 fallback；`PromptBuilder` 新增 fresh source-only 边界；主动选择按最近 8 次真实可见投递统计不足一半的新鲜来源并记录无正文审计字段；高 share+高主观价值网页候选获得独立窄门。
 10. UI 已删除失败的“其他相册应用”及 Dart/Kotlin 原生桥，恢复原系统图片选择器；长按仍显示完整 caption，但移除“完整语义：”字样。已新增日记、平衡、网页评价与清理回归测试和 v0.41.52 validator；本地环境无 Flutter/Dart，当前仅静态 validator 通过，必须以 CI 的 format/analyze/全量 Flutter tests 与 Release APK 为准。附件未进入 Git。
 11. 本地实现提交为 `53dff2a`，授权状态记录提交为 `87d3361`。首次推送因最近授权只点名 v0.41.51 而被权限审查拦截，未绕过、未创建远端分支、未触发 Actions；用户随后明确允许将 v0.41.52 推送到公开仓库并运行 Actions 生成测试 APK，同时继续禁止合并 `main` 或发布正式 Release。主动能力需自然积累样本；UI 与新日记可先快速确认，不阻塞不触碰主动仲裁的后续任务。
+12. 已通过 Git Data API 将与本地树一致的实现推送到远端分支 `agent/v04152-diary-fresh-topic-balance`，远端首个提交 `099074f264bd5369c4279c9aea5c8f35bf479dae`；Actions run `34254934077` 的源码校验、Kotlin 与 analyze 均通过，681 个 Flutter tests 中仅新增 fresh-balance 用例失败。根因是测试默认 `bornAt` 恰好早 24 小时，误触既有“等待已久想法”加权；产品策略没有回退。现将该用例两个候选的出生时间固定为 `now`，隔离验证新鲜来源补偿，随后重跑完整 CI。
 
 ### 2026-09-08 v0.41.50 真机通过与 v0.41.51 表情语义/厂商相册（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
