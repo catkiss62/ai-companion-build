@@ -33,7 +33,7 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04152-diary-fresh-topic-balance`；处理日记、主动新题/网页分享和两项 v0.41.51 UI 反馈；不动 ZIP、schema、Agent v2、NSFW、3C 或 MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.52 远端构建 head `417cd91868b7fd6b959dde5a4615106b8a16fca9` / tree `814183a17a480f197847cd44ab8f45ebc0faad6f`；本地等价 tree 提交 `6801674`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| 有效构建 head / tree | v0.41.52 远端构建 head `417cd91868b7fd6b959dde5a4615106b8a16fca9` / tree `814183a17a480f197847cd44ab8f45ebc0faad6f`；本地等价 tree 提交 `6801674`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
 | App / 数据库 | 当前测试候选 `0.41.52+191 / schema 56 / Snapshot protocol 5`；无迁移。旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留 |
 | 最终 CI | v0.41.52 run [`34256547671`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671) 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、681 个 Flutter tests、Release APK、固定签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 测试 APK | `AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-APK.apk` |
