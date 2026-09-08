@@ -361,6 +361,7 @@
 # Historical v0.41.50 workflow: bounded multi-round Agent v2.
 # Historical validator tokens: Build AI Companion v0.41.50+189 APK | AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK | v0.41.50-agent-v2-bounded-loop-test
 # Current v0.41.51 workflow: sticker semantics and gallery interoperability.
+# Full-build dispatch marker: v0.41.51 attempt 2 after branch-create cancellation.
 # Exact source tree is recorded in the ledger after the implementation commit.
 name: Build AI Companion v0.41.51+190 APK (Sticker Semantics Gallery Interop)
 
