@@ -1,0 +1,7 @@
+status=success
+run_id=34222253798
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798
+head_sha=8c8dfcfd345d598f0f561d70038963a6189f4853
+signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
+50e88a28de01467b05bdf617059d784507964bf7a8b690f8d2006d98ed70c29f  AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-23bbc18b25469c8c9d59
