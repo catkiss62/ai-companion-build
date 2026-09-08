@@ -95,18 +95,19 @@ class StickerExpressionService {
     if (selectedPack == null || selectedPool.isEmpty) return null;
 
     selectedPool.sort((a, b) {
-      final scoreA = _textMatchScore(a, visible);
-      final scoreB = _textMatchScore(b, visible);
+      final scoreA = semanticMatchScore(a, visible);
+      final scoreB = semanticMatchScore(b, visible);
       final byScore = scoreB.compareTo(scoreA);
       return byScore != 0 ? byScore : a.path.compareTo(b.path);
     });
-    final bestScore = _textMatchScore(selectedPool.first, visible);
-    final finalists = bestScore > 0
-        ? selectedPool
-            .where((record) => _textMatchScore(record, visible) == bestScore)
-            .take(8)
-            .toList(growable: false)
-        : selectedPool.take(12).toList(growable: false);
+    final bestScore = semanticMatchScore(selectedPool.first, visible);
+    // An ordinary textual reply must provide positive semantic evidence. A
+    // random zero-score fallback can send a completely unrelated sticker.
+    if (bestScore <= 0) return null;
+    final finalists = selectedPool
+        .where((record) => semanticMatchScore(record, visible) == bestScore)
+        .take(8)
+        .toList(growable: false);
     final index = (_unit('$messageId|sticker') * finalists.length).floor();
     final record = finalists[index.clamp(0, finalists.length - 1).toInt()];
     final source = await packStorage.fileFor(selectedPack, record);
@@ -168,15 +169,15 @@ class StickerExpressionService {
     if (selectedPack == null || selectedPool.isEmpty) return null;
 
     selectedPool.sort((a, b) {
-      final scoreA = _textMatchScore(a, normalized);
-      final scoreB = _textMatchScore(b, normalized);
+      final scoreA = semanticMatchScore(a, normalized);
+      final scoreB = semanticMatchScore(b, normalized);
       final byScore = scoreB.compareTo(scoreA);
       return byScore != 0 ? byScore : a.path.compareTo(b.path);
     });
-    final bestScore = _textMatchScore(selectedPool.first, normalized);
+    final bestScore = semanticMatchScore(selectedPool.first, normalized);
     final finalists = bestScore > 0
         ? selectedPool
-            .where((record) => _textMatchScore(record, normalized) == bestScore)
+            .where((record) => semanticMatchScore(record, normalized) == bestScore)
             .take(8)
             .toList(growable: false)
         : selectedPool.take(12).toList(growable: false);
@@ -342,7 +343,7 @@ class StickerExpressionService {
     return null;
   }
 
-  static int _textMatchScore(StickerRecord record, String text) {
+  static int semanticMatchScore(StickerRecord record, String text) {
     final tokens = '${record.keywords} ${record.caption}'
         .split(RegExp(r'[\s,，/|]+'))
         .where((token) => token.length >= 2)

@@ -23,6 +23,7 @@ import android.os.Looper
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import com.aicompanion.localfirst.pet.PetPreviewActivity
@@ -58,6 +59,7 @@ class SystemBridge(
     private var promptDocumentResult: MethodChannel.Result? = null
     private var promptDocumentOperation: String? = null
     private var promptDocumentContent: String? = null
+    private var externalGalleryResult: MethodChannel.Result? = null
     private var directPickerGuardDepth = 0
 
     init {
@@ -119,6 +121,7 @@ class SystemBridge(
                     mimeType = call.argument<String>("mimeType") ?: "image/jpeg",
                     result = result,
                 )
+                "pickExternalGalleryImage" -> startExternalGalleryPicker(result)
                 "openOverlaySettings" -> {
                     activity.startActivity(
                         Intent(
@@ -497,6 +500,12 @@ class SystemBridge(
         reportSourcePath = null
         promptDocumentResult?.error("activity_disposed", "Activity was destroyed during prompt import/export", null)
         clearPromptDocumentState()
+        externalGalleryResult?.error(
+            "activity_disposed",
+            "Activity was destroyed during gallery selection",
+            null,
+        )
+        externalGalleryResult = null
         if (directPickerGuardDepth > 0) {
             directPickerGuardDepth = 1
             endDirectPickerOverlayGuard("system_bridge_disposed")
@@ -516,6 +525,32 @@ class SystemBridge(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_EXTERNAL_GALLERY_IMAGE) {
+            endDirectPickerOverlayGuard("external_gallery_picker_returned")
+            val result = externalGalleryResult ?: return
+            externalGalleryResult = null
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                result.success(null)
+                return
+            }
+            Thread {
+                runCatching { copyExternalGalleryImage(uri) }
+                    .onSuccess { payload ->
+                        activity.runOnUiThread { result.success(payload) }
+                    }
+                    .onFailure { error ->
+                        activity.runOnUiThread {
+                            result.error(
+                                "external_gallery_copy_failed",
+                                error.message ?: error.javaClass.simpleName,
+                                null,
+                            )
+                        }
+                    }
+            }.start()
+            return
+        }
         if (requestCode == REQUEST_PROMPT_SAVE || requestCode == REQUEST_PROMPT_OPEN) {
             endDirectPickerOverlayGuard(
                 if (requestCode == REQUEST_PROMPT_SAVE) {
@@ -1007,6 +1042,106 @@ class SystemBridge(
                 reportSourcePath = null
                 result.error("diagnostic_export_picker", error.javaClass.simpleName, null)
             }
+    }
+
+    private fun startExternalGalleryPicker(result: MethodChannel.Result) {
+        if (externalGalleryResult != null) {
+            result.error(
+                "external_gallery_busy",
+                "A gallery application picker is already open",
+                null,
+            )
+            return
+        }
+        val classicGalleryIntent = Intent(
+            Intent.ACTION_PICK,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        ).apply {
+            type = "image/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val target = if (
+            classicGalleryIntent.resolveActivity(activity.packageManager) != null
+        ) {
+            classicGalleryIntent
+        } else {
+            Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/*"
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+        externalGalleryResult = result
+        beginDirectPickerOverlayGuard("external_gallery_picker")
+        runCatching {
+            activity.startActivityForResult(
+                Intent.createChooser(target, "选择其他相册应用"),
+                REQUEST_EXTERNAL_GALLERY_IMAGE,
+            )
+        }.onFailure { error ->
+            endDirectPickerOverlayGuard("external_gallery_picker_launch_failed")
+            externalGalleryResult = null
+            result.error(
+                "external_gallery_launch_failed",
+                error.message ?: error.javaClass.simpleName,
+                null,
+            )
+        }
+    }
+
+    private fun copyExternalGalleryImage(uri: Uri): Map<String, Any> {
+        val resolver = activity.contentResolver
+        val mimeType = resolver.getType(uri)?.lowercase()?.takeIf {
+            it.startsWith("image/")
+        } ?: "image/jpeg"
+        val displayName = runCatching {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+        }.getOrNull().orEmpty()
+        val extensionFromName = displayName.substringAfterLast('.', "")
+            .lowercase()
+            .takeIf { it in setOf("jpg", "jpeg", "png", "webp", "gif") }
+        val extension = extensionFromName ?: when (mimeType) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/gif" -> "gif"
+            else -> "jpg"
+        }
+        val destination = File(
+            activity.cacheDir,
+            "ai_companion_external_gallery_${System.currentTimeMillis()}.$extension",
+        )
+        try {
+            requireNotNull(resolver.openInputStream(uri)) {
+                "external_gallery_input_open_failed"
+            }.use { input ->
+                FileOutputStream(destination).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_EXTERNAL_GALLERY_IMAGE_BYTES) {
+                            "external_gallery_image_too_large"
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                    output.flush()
+                    require(total > 0L) { "external_gallery_image_empty" }
+                }
+            }
+            return mapOf(
+                "filePath" to destination.absolutePath,
+                "mimeType" to mimeType,
+                "source" to "external_gallery",
+            )
+        } catch (error: Throwable) {
+            runCatching { destination.delete() }
+            throw error
+        }
     }
 
     private fun startPromptPackSave(
@@ -1641,6 +1776,8 @@ class SystemBridge(
         private const val REQUEST_PROMPT_OPEN = 4207
         private const val REQUEST_BACKUP_SAVE = 4208
         private const val REQUEST_BACKUP_OPEN = 4209
+        private const val REQUEST_EXTERNAL_GALLERY_IMAGE = 4212
+        private const val MAX_EXTERNAL_GALLERY_IMAGE_BYTES = 25L * 1024L * 1024L
         private const val REQUEST_PLAIN_BACKUP_SAVE = 4210
         private const val REQUEST_PLAIN_BACKUP_OPEN = 4211
         private const val MAX_PLAIN_BACKUP_BYTES = 8L * 1024L * 1024L * 1024L

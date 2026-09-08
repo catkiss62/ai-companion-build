@@ -3,6 +3,22 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
+class ExternalGalleryImage {
+  const ExternalGalleryImage({
+    required this.filePath,
+    required this.mimeType,
+  });
+
+  final String filePath;
+  final String mimeType;
+
+  factory ExternalGalleryImage.fromMap(Map<Object?, Object?> map) =>
+      ExternalGalleryImage(
+        filePath: map['filePath'] as String? ?? '',
+        mimeType: map['mimeType'] as String? ?? 'image/jpeg',
+      );
+}
+
 class UsageEventInfo {
   const UsageEventInfo({
     required this.packageName,
@@ -486,6 +502,21 @@ class AndroidBridge {
     } on MissingPluginException {
       return false;
     }
+  }
+
+  Future<ExternalGalleryImage?> pickExternalGalleryImage() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'pickExternalGalleryImage',
+    );
+    if (raw == null) return null;
+    final selected = ExternalGalleryImage.fromMap(raw);
+    if (selected.filePath.trim().isEmpty) {
+      throw PlatformException(
+        code: 'external_gallery_invalid_result',
+        message: '相册应用没有返回可读取的图片',
+      );
+    }
+    return selected;
   }
 
   Future<bool> wakeBackgroundBrain({String reason = 'full_app_wake'}) async =>

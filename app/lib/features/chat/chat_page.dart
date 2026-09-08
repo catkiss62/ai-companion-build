@@ -683,8 +683,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _chooseImageSource() async {
-    if (_pickingImage || controller.generationActive || controller.savingImage || controller.analyzingImage) return;
-    final source = await showModalBottomSheet<ImageSource>(
+    if (_pickingImage ||
+        controller.generationActive ||
+        controller.savingImage ||
+        controller.analyzingImage) {
+      return;
+    }
+    final source = await showModalBottomSheet<_ChatImageSource>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -695,13 +700,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('从相册选择'),
               subtitle: const Text('使用系统图片选择器'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
+              onTap: () => Navigator.pop(
+                context,
+                _ChatImageSource.systemGallery,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.collections_outlined),
+              title: const Text('其他相册应用'),
+              subtitle: const Text('尝试使用小米相册等应用'),
+              onTap: () => Navigator.pop(
+                context,
+                _ChatImageSource.externalGallery,
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: const Text('拍照'),
               subtitle: const Text('打开系统相机'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
+              onTap: () => Navigator.pop(context, _ChatImageSource.camera),
             ),
           ],
         ),
@@ -709,8 +726,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     if (source == null || !mounted) return;
     setState(() => _pickingImage = true);
-    final sourceKey =
-        source == ImageSource.camera ? 'camera' : 'gallery';
+    final sourceKey = switch (source) {
+      _ChatImageSource.camera => 'camera',
+      _ChatImageSource.externalGallery => 'external_gallery',
+      _ChatImageSource.systemGallery => 'gallery',
+    };
     final pickerStarted = DateTime.now();
     await AttachmentPipelineTelemetry.record(
       AppDatabase.instance,
@@ -730,17 +750,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         source: sourceKey,
         now: guardStarted,
       );
-      await _android.beginSystemPickerOverlayGuard(
-        reason: sourceKey == 'camera'
-            ? 'flutter_image_picker_camera'
-            : 'flutter_image_picker_gallery',
-      );
+      if (source != _ChatImageSource.externalGallery) {
+        await _android.beginSystemPickerOverlayGuard(
+          reason: sourceKey == 'camera'
+              ? 'flutter_image_picker_camera'
+              : 'flutter_image_picker_gallery',
+        );
+      }
       XFile? image;
       try {
-        image = await _imagePicker.pickImage(
-          source: source,
-          requestFullMetadata: false,
-        );
+        if (source == _ChatImageSource.externalGallery) {
+          final selected = await _android.pickExternalGalleryImage();
+          image = selected == null
+              ? null
+              : XFile(selected.filePath, mimeType: selected.mimeType);
+        } else {
+          image = await _imagePicker.pickImage(
+            source: source == _ChatImageSource.camera
+                ? ImageSource.camera
+                : ImageSource.gallery,
+            requestFullMetadata: false,
+          );
+        }
         await AttachmentPipelineTelemetry.record(
           AppDatabase.instance,
           stage: 'picker',
@@ -762,11 +793,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         rethrow;
       } finally {
         try {
-          await _android.endSystemPickerOverlayGuard(
-            reason: sourceKey == 'camera'
-                ? 'flutter_image_picker_camera_returned'
-                : 'flutter_image_picker_gallery_returned',
-          );
+          if (source != _ChatImageSource.externalGallery) {
+            await _android.endSystemPickerOverlayGuard(
+              reason: sourceKey == 'camera'
+                  ? 'flutter_image_picker_camera_returned'
+                  : 'flutter_image_picker_gallery_returned',
+            );
+          }
           await AttachmentPipelineTelemetry.record(
             AppDatabase.instance,
             stage: 'overlay_guard',
@@ -2145,6 +2178,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 }
 
+enum _ChatImageSource { systemGallery, externalGallery, camera }
+
 class _SelectedUserSticker {
   const _SelectedUserSticker({
     required this.pack,
@@ -2282,18 +2317,34 @@ class _StickerPickerSheetState extends State<_StickerPickerSheet> {
               borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minWidth: 180,
-                  maxWidth: 180,
-                  maxHeight: 320,
+                constraints: BoxConstraints(
+                  minWidth: 240,
+                  maxWidth: 300,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.72,
                 ),
-                child: Image.file(
-                  item.file,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox(
-                    width: 180,
-                    height: 180,
-                    child: Icon(Icons.broken_image_outlined),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Image.file(
+                          item.file,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                            width: 220,
+                            height: 220,
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '完整语义：${item.record.caption}',
+                        textAlign: TextAlign.left,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                   ),
                 ),
               ),

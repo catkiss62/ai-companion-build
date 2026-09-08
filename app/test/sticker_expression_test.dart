@@ -82,6 +82,99 @@ void main() {
     expect(StickerDisplayLabels.tagName('nsfw'), '涩涩');
   });
 
+  test('official duplicate denylist is stable and leaves the kept twin visible',
+      () {
+    const disabled = <String>[
+      '1739434144_1.jpg',
+      '1739434514_1.jpg',
+      '1784600243_9401eed721.jpg',
+      '1784625719_a23e2ae6a2.jpg',
+      '1739434282_1.jpg',
+      '1739434473_1.jpg',
+      'file_5614628.jpg',
+    ];
+    for (final name in disabled) {
+      final record = StickerRecord(
+        packId: 'official-001',
+        path: 'memes/$name',
+        tag: 'daily',
+        caption: '测试',
+        keywords: '测试',
+        toneScope: 'general',
+        intensity: 1,
+        enabled: true,
+      );
+      expect(StickerAgencyPolicy.isVisible(record), isFalse, reason: name);
+      expect(
+        StickerAgencyPolicy.isAssistantSelectable(record),
+        isFalse,
+        reason: name,
+      );
+    }
+
+    const keptTwin = StickerRecord(
+      packId: 'official-001',
+      path: 'memes/file_5447071.jpg',
+      tag: 'sigh',
+      caption: '绿发角色无奈叹气',
+      keywords: '无语 叹气',
+      toneScope: 'general',
+      intensity: 1,
+      enabled: true,
+    );
+    expect(StickerAgencyPolicy.isVisible(keptTwin), isTrue);
+    expect(StickerAgencyPolicy.isAssistantSelectable(keptTwin), isTrue);
+  });
+
+  test('ordinary matching requires actual semantic evidence', () {
+    const sleepSticker = StickerRecord(
+      packId: 'official-001',
+      path: 'memes/1739433751_1.jpg',
+      tag: 'sleep',
+      caption: '嘴上骂对方笨蛋、假装不关心，实际上是在傲娇地催对方早点睡觉。',
+      keywords: '睡觉 晚安 快睡 还不睡 熬夜 别熬夜 早点休息',
+      toneScope: 'general',
+      intensity: 1,
+      enabled: true,
+    );
+    expect(
+      StickerExpressionService.semanticMatchScore(
+        sleepSticker,
+        '那个涂指甲的手势算吗？',
+      ),
+      0,
+    );
+    expect(
+      StickerExpressionService.semanticMatchScore(
+        sleepSticker,
+        '别熬夜了，早点休息。',
+      ),
+      greaterThan(0),
+    );
+  });
+
+  test('sleep sticker uses conversational semantics instead of appearance tags',
+      () {
+    const imported = StickerRecord(
+      packId: 'official-001',
+      path: 'memes/1739433751_1.jpg',
+      tag: 'sleep',
+      caption: '动漫女孩傲娇嘴硬地催促对方赶紧睡觉，假装不是关心',
+      keywords: 'sleep 傲娇 动漫女孩 睡觉 嘴硬 笨蛋',
+      toneScope: 'general',
+      intensity: 1,
+      enabled: true,
+    );
+    final normalized = StickerAgencyPolicy.normalized(imported);
+    expect(
+      normalized.caption,
+      '嘴上骂对方笨蛋、假装不关心，实际上是在傲娇地催对方早点睡觉。',
+    );
+    expect(normalized.keywords, contains('晚安'));
+    expect(normalized.keywords, contains('别熬夜'));
+    expect(normalized.keywords, isNot(contains('动漫女孩')));
+  });
+
   test('real sticker actions may carry the whole reply without dialogue', () {
     expect(
       StickerExpressionService.shouldUseStickerOnly(

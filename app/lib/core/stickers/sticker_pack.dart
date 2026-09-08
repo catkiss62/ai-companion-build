@@ -99,12 +99,44 @@ class StickerRecord {
 class StickerAgencyPolicy {
   const StickerAgencyPolicy._();
 
-  static bool isVisible(StickerRecord record) => !_isGroupChatWaste(record);
+  static const _disabledOfficialBasenames = <String>{
+    '1739434144_1',
+    '1739434514_1',
+    '1784600243_9401eed721',
+    '1784625719_a23e2ae6a2',
+    '1739434282_1',
+    '1739434473_1',
+    'file_5614628',
+  };
+
+  static bool isVisible(StickerRecord record) =>
+      !_isExplicitlyDisabled(record) && !_isGroupChatWaste(record);
 
   static bool isAssistantSelectable(StickerRecord record) {
-    if (_isGroupChatWaste(record)) return false;
+    if (_isExplicitlyDisabled(record) || _isGroupChatWaste(record)) {
+      return false;
+    }
     if (record.toneScope == 'disabled') return _isDarkHumor(record);
     return record.enabled;
+  }
+
+  /// Applies small, auditable corrections without mutating the imported ZIP
+  /// or index. Re-importing a pack therefore preserves the local policy.
+  static StickerRecord normalized(StickerRecord record) {
+    if (record.packId == 'official-001' &&
+        _basenameWithoutExtension(record.path) == '1739433751_1') {
+      return StickerRecord(
+        packId: record.packId,
+        path: record.path,
+        tag: record.tag,
+        caption: '嘴上骂对方笨蛋、假装不关心，实际上是在傲娇地催对方早点睡觉。',
+        keywords: '睡觉 晚安 快睡 还不睡 熬夜 别熬夜 早点休息',
+        toneScope: record.toneScope,
+        intensity: record.intensity,
+        enabled: record.enabled,
+      );
+    }
+    return record;
   }
 
   static String categoryKey(StickerRecord record) =>
@@ -121,6 +153,18 @@ class StickerAgencyPolicy {
       RegExp(
         r'(上吊|吊死|轻生|自杀|自尽|绳子)',
       ).hasMatch(_semanticText(record));
+
+  static bool _isExplicitlyDisabled(StickerRecord record) =>
+      record.packId == 'official-001' &&
+      _disabledOfficialBasenames.contains(
+        _basenameWithoutExtension(record.path),
+      );
+
+  static String _basenameWithoutExtension(String path) {
+    final name = path.replaceAll('\\', '/').split('/').last;
+    final dot = name.lastIndexOf('.');
+    return dot <= 0 ? name : name.substring(0, dot);
+  }
 
   static String _semanticText(StickerRecord record) =>
       '${record.caption} ${record.keywords}'.toLowerCase();

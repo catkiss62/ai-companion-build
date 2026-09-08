@@ -31,29 +31,29 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04150-agent-v2-bounded-loop`；从 v0.41.49 已构建并经用户肉眼 smoke 未发现明显 Bug 的本地最终基线 `e957fc0` 建立。范围限于 Agent v2 有界多轮工具循环与终态核验；不改世界书正文、搜索主体性、造梗选择器、媒体 schema、3C 或 MCP |
+| 当前开发分支 | `agent/v04151-sticker-semantics-gallery-interop`；从 v0.41.50 远端交接 head `18f4f583` 建立。范围限于表情运行时禁用与语义修正、普通回复零匹配保护、长按完整语义及“其他相册应用”入口；不改用户 ZIP、媒体 schema、Agent v2、人格、Desire/Thought、3C 或 MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.50 远端构建 head `8c8dfcfd345d598f0f561d70038963a6189f4853` / tree `7c8bdfb100e501e46a8c5ca9785ea9857e2f9073`；运行实现对应本地提交 `05260ac0caa44ba63fbc79321c664b0f50a1e343`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
-| App / 数据库 | 当前目标 `0.41.50+189 / schema 56 / Snapshot protocol 5`；Agent v2 不迁移数据库或 Snapshot。schema 56 仍只为网页候选增加主观评分、动机与 seed hash，旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留 |
-| 最终 CI | v0.41.50 run [`34222253798`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798)（#778）完整成功：全部源码门、Kotlin、Flutter analyze、`671/671` tests、Release APK、固定签名及完整载荷均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 测试 APK | `AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK.apk`，326,637,890 bytes |
-| APK SHA-256 | `50e88a28de01467b05bdf617059d784507964bf7a8b690f8d2006d98ed70c29f`，Artifact 内流式读取、完整落盘独立复算与 CI checksum 一致 |
-| Artifact / Release | Artifact [`10054577342`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798/artifacts/10054577342)，ZIP digest `54e0938d1ad6bb204882262048b03805b61f895ccbc405c2c093c8564a4cf811`；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-23bbc18b25469c8c9d59) 上传成功并保持草稿，未发布正式 Release |
+| 当前代码 head / tree | v0.41.51 当前从 `18f4f5833a325a6603424e6d6a1dd177d65e096c` 开发，运行实现尚待本轮提交与 CI 回填。公开变更不得包含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| App / 数据库 | 当前目标 `0.41.51+190 / schema 56 / Snapshot protocol 5`；本版不迁移数据库或 Snapshot。旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留，七张表情仅按稳定 pack/path 在运行时隐藏 |
+| 最终 CI | v0.41.50 run [`34222253798`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798)（#778）已完整成功且现经用户真机确认；v0.41.51 尚为本地实现，`CI PENDING / APK PENDING / TRUE DEVICE PENDING` |
+| 测试 APK | v0.41.51 尚未生成；上一基线 `AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK.apk` 为 326,637,890 bytes |
+| APK SHA-256 | v0.41.51 尚待 Actions 生成并独立复算；上一基线为 `50e88a28de01467b05bdf617059d784507964bf7a8b690f8d2006d98ed70c29f` |
+| Artifact / Release | v0.41.51 尚待 Actions；只生成测试 Artifact 与保持草稿的候选，不合并 `main`，不发布正式 Release。上一基线 Artifact 为 [`10054577342`](https://github.com/catkiss62/ai-companion-build/actions/runs/34222253798/artifacts/10054577342) |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 长期观察；v0.41.48/49 `TRUE DEVICE PASSED`；v0.41.50 Agent v2 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 长期观察；v0.41.48/49 `TRUE DEVICE PASSED`；v0.41.50 Agent v2 经用户确认 `TRUE DEVICE PASSED`；v0.41.51 `IMPLEMENTED LOCALLY / CI PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装并真机 smoke v0.41.50（APK READY）**：重点做需要句柄续读、无结果换路、两种只读信息组合，以及一次明确媒体发送；确认只执行一次、附件不重复，普通闲聊仍不暴露工具计划 |
-| 目标 | 让她在查手机、规则/记忆/相册检索、公开搜索和明确授权的媒体任务中，能根据无结果、多个候选或中间句柄继续选择下一步，并在结束前以真实工具 Outcome 核验是否完成，而不是一次调用后靠文字猜测 |
-| 当前证据 | run 34222253798 已完成全部源码门、Kotlin、Flutter analyze、`671/671` tests、Release APK、固定签名与完整载荷；Artifact 和独立 APK SHA 已复算一致。世界书 4 个行为模块约 11,321 字，低于运行时 16,000 预算，不会因造梗扩写截断 |
-| 保护与排除 | 保留 CHAT_LIGHT 无 toolbox、按原用户文本选择最小工具集、写入/发送必须有明确意图、屏幕一次性 Gate、敏感页 Gate、取消、lease/run-token fence、附件原子提交与失败真值；不增加权限，不开放自主写入，不改世界书内容/概率、NSFW、追问 Gate、媒体存储 schema 或 MCP |
+| 当前下一步 | **完成 v0.41.51 自动化、公开分支推送与测试 APK 构建**：先验证七张运行时禁用、`1739433751_1` 语义、零匹配不发送、长按完整 caption 和原生厂商相册 chooser；CI 全绿后再给用户做窄真机 smoke |
+| 目标 | 不改用户 ZIP 的前提下消除重复/不要的七张表情，阻断无关语境随机误发；让用户能在长按时看懂完整使用语义，并为小米相册等厂商应用提供独立选择入口 |
+| 当前证据 | 用户明确说明两个已点名文件分别与其他未点名图片重复，删除决定不变；用户确认 v0.41.50 Agent v2 真机能力明显增强且闲聊无回归。源码已完成本地首轮实现，Flutter/Kotlin 与 APK 尚待 Actions 验证 |
+| 保护与排除 | 不删除/改写 ZIP，不删除历史聊天附件，不新增表情上传，不让主动感知 Qwen 判定 NSFW，不猜测 DeepSeek 视觉模型名；保留 Agent v2、CHAT_LIGHT、权限/取消/事务/附件真值及 schema 56 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 规划回合最多 3、真实调用总计最多 6；同一轮单次批量仍有小上限，跨轮使用全局 call offset 形成稳定唯一审计 ID。只把模型实际发出的、注册表允许且与原始用户意图匹配的调用送入 runner；每轮结果按 tool_call_id 原位回传，超限或无可接受调用时停止工具循环并要求最终中文如实收口 |
-| 完成判据 | 自动化已证明：普通聊天仍零 tools；多轮可达且严格止于 3 回合/6 调用；无结果/句柄结果可触发下一步；proposal 不因续轮绕过原始明确意图；屏幕不进入模型续轮；事件 ID 跨轮不碰撞；终态核验只承认本轮真实成功 Outcome；取消与事务附件提交不回归。当前只差真机复合任务，不提前声称 Agent v2 真机通过 |
-| 直接详细入口 | `app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md`；下方“2026-09-08 主体性与活人感约束审查”；Agent 与 D6 合同也在该文档，但不得混包 |
+| 实现边界 | 七张以 `official-001 + basename` 稳定拒绝；催睡图 caption/keywords 只做运行时覆盖；普通回复必须正语义命中。厂商相册用 `ACTION_PICK` chooser、无处理器回退 `ACTION_OPEN_DOCUMENT`，选中 URI 先限额复制到缓存再走现有图片链 |
+| 完成判据 | 自动化/CI 全绿并产出固定签名 APK；真机确认七张不可见、催睡图只在相关语境命中、长按显示完整语义、“其他相册应用”能出现可用入口或如实证明 ROM 未暴露处理器；系统选择器、相机与普通聊天不回归 |
+| 直接详细入口 | `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；表情基础合同仍见 `app/docs/STICKER_EXPRESSION_v0.41.45.md`，Agent v2 回归边界见 `app/docs/AGENT_V2_BOUNDED_LOOP_v0.41.50.md` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -88,7 +88,19 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-08 v0.41.49 真机通过与 v0.41.50 Agent v2（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PENDING）
+### 2026-09-08 v0.41.50 真机通过与 v0.41.51 表情语义/厂商相册（TRUE DEVICE PASSED / IMPLEMENTED LOCALLY / CI PENDING）
+
+1. 用户完成 v0.41.50 Agent v2 真机测试并明确结论：Agent 能力得到大幅增强，普通闲聊不受影响，没有发现问题。按证据边界将 v0.41.50 提升为 `TRUE DEVICE PASSED`；不伪造未逐项提供的内部日志数量。
+2. 用户更正重复关系：`1739434144_1` 与 `1739434514_1` 并非彼此重复，而是分别与其他未点名表情重复；此前禁用结论不变。完整运行时拒绝表为 `1739434144_1`、`1739434514_1`、`1784600243_9401eed721`、`1784625719_a23e2ae6a2`、`1739434282_1`、`1739434473_1`、`file_5614628`；重复对照中保留 `file_5447071`。不删除或改写 ZIP/`index.db`，重导入后拒绝仍生效，已发送的历史附件不受影响。
+3. 截图中误发 `1739433751_1` 的代码根因已定位：普通回复候选的最高语义分为 0 时，旧逻辑仍从前 12 张中按 message id 确定性抽取，因而手势讨论也可能得到催睡表情。本版把普通回复收紧为必须 `bestScore > 0`；显式 `sticker.send` 的无精确词 fallback 保留，因为那是用户明确要求发表情后的受控能力。
+4. `1739433751_1` 的用户可见完整语义运行时覆盖为“嘴上骂对方笨蛋、假装不关心，实际上是在傲娇地催对方早点睡觉。”；检索词改为睡觉、晚安、快睡、还不睡、熬夜、别熬夜、早点休息，移除外观与泛化的“动漫女孩”等词。长按预览从单图改为放大图下显示完整 caption，不把内部 keywords 堆给用户。
+5. 用户截图所见 Android Photo Picker 的“相册”是媒体集合页，不是已安装相册 App 列表；相机、屏幕截图、下载内容属于正常集合。保留系统选择器，同时新增“其他相册应用”：原生使用 `ACTION_PICK` + `MediaStore.Images` chooser 尝试列出小米相册等能处理图片选择的 App；设备无处理器时回退 `ACTION_OPEN_DOCUMENT`。厂商 App 是否出现最终取决于 ROM 是否注册可导出 Activity，真机前不能保证。
+6. 厂商相册返回的 `content://` 不直接持久化：原生桥在后台复制到应用 cache，限制 25 MB、拒绝空内容并在失败时删除半成品，再复用现有图片预览/确认/附件/识图事务链。覆盖层 guard 在原生 picker 前后成对调用；取消、桥销毁与复制失败返回真实结果。
+7. 用户冻结以后新图片自动归一化边界：不让主动感知 Qwen 判定 NSFW；允许把无明显尺度但有成年暗示的图标为“成人玩笑”；必须加入且不保守弱化“强攻击”，因为产品目标是有熟人攻击性表达的拟人陪伴，而非心理安慰陪伴。旧数据整理与新图归一化分轨：旧数据小批可回滚，新图只在上传/导入 staging 做精确 hash、必要时感知 hash、视觉语义与正式提交。
+8. DeepSeek 备用识图预计可复用相同 API 配置，但用户只记得专用视觉模型近似 “V4 Flash + 英文后缀”。本版没有实现表情上传，因此不猜测 model id；到正式实现上传/备用视觉时必须查提供方当前官方模型目录并分别记录 Qwen 失败、DeepSeek 备用成功/失败 Outcome。
+9. 当前版本提升为 `0.41.51+190 / schema 56 / Snapshot protocol 5`，开发分支 `agent/v04151-sticker-semantics-gallery-interop`。专项合同为 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；本地环境无 Flutter/Dart SDK，完整格式、analyze、tests、Kotlin 与 APK 继续由 GitHub Actions 证明，当前不得提前写 CI 或真机通过。
+
+### 2026-09-08 v0.41.49 真机通过与 v0.41.50 Agent v2（TRUE DEVICE PASSED / CI PASSED / APK READY / TRUE DEVICE PASSED）
 
 1. 用户完成 v0.41.49 自然真机使用，说明本次能直接观察的内容不多，但未发现明显 Bug，并明确允许开始下一步。按证据边界将 v0.41.49 提升为 `TRUE DEVICE PASSED`；不伪造专门搜索命中率或造梗密度统计，低频自然表现仍可后续观察。
 2. 下一独立包按已冻结排期进入 v0.41.50 Agent v2，不被 D6 插队。现有直接根因保持不变：provider 返回调用与 runner 均最多取 2 个，工具结果回传后只做一次不带 tools 的最终生成，因此真实能力止于单轮调用，不具备按 no-result、多个候选或中间句柄继续规划的闭环。

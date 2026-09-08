@@ -358,10 +358,11 @@
 # Historical validator tokens: Build AI Companion v0.41.48+187 APK | AI-Companion-v0.41.48-187-Agent-Image-Reliability-Hotfix-APK
 # Historical v0.41.49 workflow: subjective public search and humor restoration.
 # Historical validator tokens: Build AI Companion v0.41.49+188 APK | AI-Companion-v0.41.49-188-Subjective-Search-Humor-Restoration-APK
-# Current v0.41.50 workflow: bounded multi-round Agent v2.
-# Full-build dispatch marker: v0.41.50 attempt 1 after exact tree verification.
+# Historical v0.41.50 workflow: bounded multi-round Agent v2.
+# Historical validator tokens: Build AI Companion v0.41.50+189 APK | AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK | v0.41.50-agent-v2-bounded-loop-test
+# Current v0.41.51 workflow: sticker semantics and gallery interoperability.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.50+189 APK (Agent v2 Bounded Loop)
+name: Build AI Companion v0.41.51+190 APK (Sticker Semantics Gallery Interop)
 
 on:
   push:
@@ -375,6 +376,7 @@ on:
       - agent/v04148-agent-image-reliability-hotfix
       - agent/v04149-subjective-search-humor-restoration
       - agent/v04150-agent-v2-bounded-loop
+      - agent/v04151-sticker-semantics-gallery-interop
   workflow_dispatch:
   pull_request:
     branches:
@@ -512,14 +514,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.50+189' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.51+190' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 56;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.50+189 bounded Agent v2 loop.'
+          echo 'Building v0.41.51+190 sticker semantics and gallery interoperability.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -692,6 +694,7 @@ jobs:
           python3 tools/validate_runtime_diagnostic_store_kotlin_v27.py
           python3 tools/validate_v0285_coroutine_proxy_jvm.py
           python3 tools/validate_transfer_kotlin_v26.py
+          python3 tools/validate_v04151_sticker_semantics_gallery.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -910,26 +913,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.50+189 APK as workflow artifact
+      - name: Upload v0.41.51+190 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK
+          name: AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.50+189 APK to draft release
+      - name: Upload v0.41.51+190 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.50-agent-v2-bounded-loop-test'
-          APK_NAME='AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK.apk'
+          TAG='v0.41.51-sticker-semantics-gallery-interop-test'
+          APK_NAME='AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -946,8 +949,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.50+189 Agent v2 Bounded Loop candidate' \
-              --notes 'Draft schema-56 candidate. Upgrades task-like user turns to a bounded observe-act-verify loop with at most three planning rounds and six real calls, exact-repeat prevention, cross-round audit IDs and local terminal Outcome verification. CHAT_LIGHT, explicit write/send intent, one-time screen gates, cancellation, transaction fences and media atomicity remain unchanged. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.51+190 Sticker Semantics and Gallery Interop candidate' \
+              --notes 'Draft schema-56 test candidate. Disables seven redundant stickers at runtime, corrects one sleep-sticker semantic, prevents zero-match ordinary sticker sends, shows complete semantics on long press, and adds a classic Android gallery-app chooser. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -971,18 +974,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04150-monitor.txt'
+          MONITOR_PATH='.ci/v04151-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.50 CI success monitor' \
+              -f message='Update v0.41.51 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.50 CI success monitor' \
+              -f message='Create v0.41.51 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1003,8 +1006,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.50-agent-v2-bounded-loop-test'
-          CI_NAME='AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-CI-Monitor.txt'
+          TAG='v0.41.51-sticker-semantics-gallery-interop-test'
+          CI_NAME='AI-Companion-v0.41.51-190-Sticker-Semantics-Gallery-Interop-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1045,8 +1048,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.50+189 Agent v2 Bounded Loop candidate' \
-              --notes 'Draft failure diagnostics for the schema-56 bounded Agent v2 candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.51+190 Sticker Semantics and Gallery Interop candidate' \
+              --notes 'Draft failure diagnostics for the schema-56 sticker semantics and gallery interoperability candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1055,18 +1058,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04150-monitor.txt'
+          MONITOR_PATH='.ci/v04151-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.50 CI failure monitor' \
+              -f message='Update v0.41.51 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.50 CI failure monitor' \
+              -f message='Create v0.41.51 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi

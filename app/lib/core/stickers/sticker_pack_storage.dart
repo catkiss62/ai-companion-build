@@ -325,7 +325,7 @@ class StickerPackStorage {
         if (!const {'.jpg', '.jpeg', '.png', '.webp', '.gif'}.contains(extension)) {
           throw FormatException('不支持的表情格式：$path');
         }
-        result.add(StickerRecord(
+        result.add(StickerAgencyPolicy.normalized(StickerRecord(
           packId: pack.id,
           path: path,
           tag: (row['tag']?.toString() ?? '').trim().toLowerCase(),
@@ -335,7 +335,7 @@ class StickerPackStorage {
           intensity:
               ((row['intensity'] as num?)?.toInt() ?? 1).clamp(1, 3).toInt(),
           enabled: (row['enabled'] as num?)?.toInt() != 0,
-        ));
+        )));
       }
       return result;
     } finally {

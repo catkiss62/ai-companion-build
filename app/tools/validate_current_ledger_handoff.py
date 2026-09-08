@@ -104,8 +104,8 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04150-agent-v2-bounded-loop",
-        "0.41.50+189",
+        "agent/v04151-sticker-semantics-gallery-interop",
+        "0.41.51+190",
         "schema 56",
         "Snapshot protocol 5",
         "Phase 2B",
@@ -144,6 +144,7 @@ def main() -> None:
         "TRUE DEVICE PASSED / CLOSED",
         "DESIGN CURRENT",
         "IN PROGRESS",
+        "IMPLEMENTED LOCALLY / CI PENDING",
     )
     require(
         any(status in current for status in current_statuses),
@@ -192,7 +193,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.50\+189\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.51\+190\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
