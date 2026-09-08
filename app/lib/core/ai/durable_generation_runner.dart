@@ -4,6 +4,7 @@ import '../agent/agent_tool.dart';
 import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_registry.dart';
 import '../agent/agent_tool_runner.dart';
+import '../agent/agent_task_loop.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
 import '../desire/conversation_outcome_verifier.dart';
@@ -271,14 +272,20 @@ class DurableGenerationRunner {
         ));
       }
 
-      var agentToolResults = const <AgentToolResult>[];
+      final agentToolResults = <AgentToolResult>[];
+      final executedToolFingerprints = <String>{};
+      var agentPlanningRounds = 0;
+      var agentToolCalls = 0;
+      var agentLoopBudgetExhausted = false;
+      var agentLoopInvalidPlan = false;
       var announcedEmotionKey = '';
       var streamedToolPreamble = '';
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
       final localPlan = AgentToolPlanner.routeLocally(user.content);
       if (localPlan != null) {
-        agentToolResults = await agentToolRunner.runPlan(
+        agentPlanningRounds = 1;
+        final localResults = await agentToolRunner.runPlan(
           localPlan,
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
@@ -286,11 +293,18 @@ class DurableGenerationRunner {
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
         );
+        agentToolResults.addAll(localResults);
+        agentToolCalls += localResults.length;
+        executedToolFingerprints.addAll(
+          localPlan.calls
+              .take(localResults.length)
+              .map(AgentTaskLoopPolicy.callFingerprint),
+        );
         preparedAgentAttachments.addAll(
-          agentToolResults.expand((result) => result.attachments),
+          localResults.expand((result) => result.attachments),
         );
         preparedAgentMediaUsageKeys.addAll(
-          agentToolResults.expand((result) => result.mediaUsageKeys),
+          localResults.expand((result) => result.mediaUsageKeys),
         );
       }
       // Legacy special-style snapshots stay in the schema only for backup
@@ -467,61 +481,160 @@ class DurableGenerationRunner {
         );
       }
 
-      var finalRequestMessages = baseRequestMessages;
+      final taskToolDefinitions =
+          AgentToolPlanner.nativeToolDefinitionsFor(user.content);
+      final agentTaskAttempted =
+          localPlan != null || taskToolDefinitions.isNotEmpty;
+
+      List<Map<String, Object?>> finalizationMessages(
+        List<Map<String, Object?>> history,
+      ) {
+        final verification = AgentTaskLoopPolicy.verify(
+          agentToolResults,
+          budgetExhausted: agentLoopBudgetExhausted,
+          invalidPlan: agentLoopInvalidPlan,
+        );
+        return <Map<String, Object?>>[
+          ...history,
+          <String, Object?>{
+            'role': 'system',
+            'content': '''
+${verification.renderForFinalPrompt()}
+
+【工具结果后的中文表达约束】
+工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
+${PromptBuilder.visibleChineseGenerationReminder()}
+'''.trim(),
+          },
+        ];
+      }
+
+      List<DeepSeekToolCall> acceptedNativeCalls(
+        AgentToolPlan plan,
+        List<DeepSeekToolCall> requested,
+      ) {
+        final accepted = <DeepSeekToolCall>[];
+        final remaining = requested.toList();
+        for (final call in plan.calls) {
+          final nativeName = AgentToolPlanner.nativeNameForToolId(call.toolId);
+          final index = remaining.indexWhere(
+            (candidate) => candidate.name == nativeName,
+          );
+          if (index >= 0) accepted.add(remaining.removeAt(index));
+        }
+        return accepted;
+      }
+
+      final localPlanClosesLoop = localPlan != null &&
+          (AgentTaskLoopPolicy.containsProposal(localPlan) ||
+              AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
+      var toolsOpen = taskToolDefinitions.isNotEmpty &&
+          !localPlanClosesLoop &&
+          AgentTaskLoopPolicy.allowedCalls(
+                planningRounds: agentPlanningRounds,
+                toolCalls: agentToolCalls,
+              ) >
+              0;
+      var finalRequestMessages = toolsOpen
+          ? <Map<String, Object?>>[
+              ...baseRequestMessages,
+              <String, Object?>{
+                'role': 'system',
+                'content': AgentTaskLoopPolicy.planningInstruction(
+                  completedPlanningRounds: agentPlanningRounds,
+                  completedToolCalls: agentToolCalls,
+                ),
+              },
+            ]
+          : localPlan == null
+              ? baseRequestMessages
+              : finalizationMessages(baseRequestMessages);
+      if (toolsOpen) agentPlanningRounds++;
       var generated = await generate(
-        baseRequestMessages,
+        finalRequestMessages,
         // Ordinary chat keeps provider reasoning live, but holds the visible
         // body until every guard has approved one durable answer. The chat UI
         // then performs its established local typewriter playback exactly once.
         emitDeltas: false,
-        tools: localPlan == null
-            ? AgentToolPlanner.nativeToolDefinitionsFor(user.content)
+        tools: toolsOpen
+            ? taskToolDefinitions
             : const <Map<String, Object?>>[],
       );
       cancellationToken?.throwIfCancelled();
 
-      if (localPlan == null && generated.toolCalls.isNotEmpty) {
-        // A provider may legally emit a short preamble before its tool call.
-        // Keep it buffered and retain it in the single committed answer.
-        streamedToolPreamble =
-            EmotionEnvelope.parse(generated.content).visibleText.trim();
-        final nativePlan =
-            AgentToolPlanner.fromNativeToolCalls(
+      while (toolsOpen && generated.toolCalls.isNotEmpty) {
+        final callsAllowed = AgentTaskLoopPolicy.allowedCalls(
+          planningRounds: agentPlanningRounds - 1,
+          toolCalls: agentToolCalls,
+        );
+        if (callsAllowed <= 0) {
+          agentLoopBudgetExhausted = true;
+          toolsOpen = false;
+          finalRequestMessages = finalizationMessages(finalRequestMessages);
+          generated = await generate(finalRequestMessages, emitDeltas: false);
+          cancellationToken?.throwIfCancelled();
+          break;
+        }
+
+        // A provider may legally emit a short preamble before its first tool
+        // call. Preserve the established single preamble, but do not accumulate
+        // planning chatter from later rounds into the visible reply.
+        if (streamedToolPreamble.isEmpty) {
+          streamedToolPreamble =
+              EmotionEnvelope.parse(generated.content).visibleText.trim();
+        }
+        final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
+          maxCalls: callsAllowed,
+          excludedCallFingerprints: executedToolFingerprints,
         );
         if (nativePlan.isEmpty) {
-          throw const FormatException('模型返回了无法验证的工具调用');
+          agentLoopInvalidPlan = true;
+          toolsOpen = false;
+          finalRequestMessages = finalizationMessages(finalRequestMessages);
+          await _publishToolRuntime(
+            phase: 'thinking',
+            statusText: '正在核验工具结果…',
+            toolId: '',
+          );
+          generated = await generate(finalRequestMessages, emitDeltas: false);
+          cancellationToken?.throwIfCancelled();
+          break;
         }
-        agentToolResults = await agentToolRunner.runPlan(
+
+        final acceptedCalls = acceptedNativeCalls(
+          nativePlan,
+          generated.toolCalls,
+        );
+        if (acceptedCalls.length != nativePlan.calls.length) {
+          throw const FormatException('工具调用与本地执行计划无法对应');
+        }
+        final roundResults = await agentToolRunner.runPlan(
           nativePlan,
           onActivity: emitToolActivity,
           cancellationToken: cancellationToken,
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
+          callIndexOffset: agentToolCalls,
+          maxCalls: callsAllowed,
         );
-        preparedAgentAttachments.addAll(
-          agentToolResults.expand((result) => result.attachments),
-        );
-        preparedAgentMediaUsageKeys.addAll(
-          agentToolResults.expand((result) => result.mediaUsageKeys),
-        );
-        cancellationToken?.throwIfCancelled();
-
-        final acceptedCalls = <DeepSeekToolCall>[];
-        final remaining = generated.toolCalls.toList();
-        for (final call in nativePlan.calls) {
-          final nativeName =
-              AgentToolPlanner.nativeNameForToolId(call.toolId);
-          final index = remaining.indexWhere(
-            (candidate) => candidate.name == nativeName,
-          );
-          if (index >= 0) acceptedCalls.add(remaining.removeAt(index));
-        }
-        if (acceptedCalls.length != agentToolResults.length) {
+        if (roundResults.length != acceptedCalls.length) {
           throw const FormatException('工具调用与本地执行结果无法对应');
         }
+        agentToolResults.addAll(roundResults);
+        agentToolCalls += roundResults.length;
+        executedToolFingerprints.addAll(
+          nativePlan.calls.map(AgentTaskLoopPolicy.callFingerprint),
+        );
+        preparedAgentAttachments.addAll(
+          roundResults.expand((result) => result.attachments),
+        );
+        preparedAgentMediaUsageKeys.addAll(
+          roundResults.expand((result) => result.mediaUsageKeys),
+        );
+        cancellationToken?.throwIfCancelled();
 
         final assistantToolMessage = <String, Object?>{
           'role': 'assistant',
@@ -537,30 +650,68 @@ class DurableGenerationRunner {
             <String, Object?>{
               'role': 'tool',
               'tool_call_id': acceptedCalls[index].id,
-              'content': agentToolResults[index].promptData,
+              'content': roundResults[index].promptData,
             },
         ];
-        finalRequestMessages = <Map<String, Object?>>[
-          ...baseRequestMessages,
+        final history = <Map<String, Object?>>[
+          ...finalRequestMessages,
           assistantToolMessage,
           ...toolResultMessages,
+        ];
+        final proposalExecuted = AgentTaskLoopPolicy.containsProposal(
+          nativePlan,
+        );
+        final loopLimitReached =
+            agentPlanningRounds >= AgentTaskLoopPolicy.maxPlanningRounds ||
+                agentToolCalls >= AgentTaskLoopPolicy.maxToolCalls;
+        final shouldFinalize = proposalExecuted ||
+            AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
+            loopLimitReached;
+        if (shouldFinalize) {
+          if (loopLimitReached && !proposalExecuted) {
+            agentLoopBudgetExhausted = true;
+          }
+          toolsOpen = false;
+          finalRequestMessages = finalizationMessages(history);
+          await _publishToolRuntime(
+            phase: 'thinking',
+            statusText: '正在核验工具结果…',
+            toolId: '',
+          );
+          generated = await generate(finalRequestMessages, emitDeltas: false);
+          cancellationToken?.throwIfCancelled();
+          break;
+        }
+
+        finalRequestMessages = <Map<String, Object?>>[
+          ...history,
           <String, Object?>{
             'role': 'system',
-            'content': '''
-【工具结果后的中文表达约束】
-工具路由与搜索过程已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志或搜索步骤。
-${PromptBuilder.visibleChineseGenerationReminder()}
-'''.trim(),
+            'content': AgentTaskLoopPolicy.planningInstruction(
+              completedPlanningRounds: agentPlanningRounds,
+              completedToolCalls: agentToolCalls,
+            ),
           },
         ];
+        agentPlanningRounds++;
         await _publishToolRuntime(
           phase: 'thinking',
-          statusText: '正在整理工具结果…',
+          statusText: '正在根据结果核对下一步…',
           toolId: '',
         );
-        generated = await generate(finalRequestMessages, emitDeltas: false);
+        generated = await generate(
+          finalRequestMessages,
+          emitDeltas: false,
+          tools: taskToolDefinitions,
+        );
         cancellationToken?.throwIfCancelled();
       }
+
+      final agentTaskVerification = AgentTaskLoopPolicy.verify(
+        agentToolResults,
+        budgetExhausted: agentLoopBudgetExhausted,
+        invalidPlan: agentLoopInvalidPlan,
+      );
 
       if (generated.content.isEmpty) {
         throw const FormatException('模型没有返回可用正文');
@@ -818,6 +969,13 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           callIndex: index,
         );
       }
+      if (agentTaskAttempted) {
+        await _recordAgentLoopSummary(
+          planningRounds: agentPlanningRounds,
+          toolCalls: agentToolCalls,
+          verification: agentTaskVerification,
+        );
+      }
       if (selectedSticker != null) {
         try {
           await StickerExpressionService(db: db).markUsed(selectedSticker.record);
@@ -929,6 +1087,46 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       'agent_tool_runtime_updated_at',
       DateTime.now().millisecondsSinceEpoch.toString(),
     );
+  }
+
+  Future<void> _recordAgentLoopSummary({
+    required int planningRounds,
+    required int toolCalls,
+    required AgentTaskVerification verification,
+  }) async {
+    try {
+      final turnCount = int.tryParse(
+            await db.getSetting('agent_v2_turn_count') ?? '',
+          ) ??
+          0;
+      final multiRoundCount = int.tryParse(
+            await db.getSetting('agent_v2_multi_round_turn_count') ?? '',
+          ) ??
+          0;
+      await db.setSetting('agent_v2_turn_count', '${turnCount + 1}');
+      if (planningRounds > 1) {
+        await db.setSetting(
+          'agent_v2_multi_round_turn_count',
+          '${multiRoundCount + 1}',
+        );
+      }
+      await db.setSetting(
+        'agent_v2_last_planning_rounds',
+        '$planningRounds',
+      );
+      await db.setSetting('agent_v2_last_tool_calls', '$toolCalls');
+      await db.setSetting(
+        'agent_v2_last_verification',
+        verification.state.key,
+      );
+      await db.setSetting(
+        'agent_v2_last_at',
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    } catch (_) {
+      // A committed reply is authoritative. Missing summary telemetry must not
+      // turn it into a user-visible failure or persist task content elsewhere.
+    }
   }
 
   Future<void> _clearToolRuntime() async {

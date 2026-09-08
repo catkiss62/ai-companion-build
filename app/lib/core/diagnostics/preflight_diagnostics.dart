@@ -559,7 +559,32 @@ class PreflightDiagnosticsService {
                 await db.getSetting('agent_tool_user_turn_last_at') ?? '',
               ) ??
               0,
-          'maxCallsPerTurn': 2,
+          'loopMode': 'bounded_observe_act_verify_v2',
+          'maxPlanningRoundsPerTurn': 3,
+          'maxCallsPerPlanningRound': 2,
+          'maxCallsPerTurn': 6,
+          'v2TurnCount': int.tryParse(
+                await db.getSetting('agent_v2_turn_count') ?? '',
+              ) ??
+              0,
+          'v2MultiRoundTurnCount': int.tryParse(
+                await db.getSetting('agent_v2_multi_round_turn_count') ?? '',
+              ) ??
+              0,
+          'v2LastPlanningRounds': int.tryParse(
+                await db.getSetting('agent_v2_last_planning_rounds') ?? '',
+              ) ??
+              0,
+          'v2LastToolCalls': int.tryParse(
+                await db.getSetting('agent_v2_last_tool_calls') ?? '',
+              ) ??
+              0,
+          'v2LastVerification':
+              await db.getSetting('agent_v2_last_verification') ?? '',
+          'v2LastAt': int.tryParse(
+                await db.getSetting('agent_v2_last_at') ?? '',
+              ) ??
+              0,
           'countsAgainstAutonomousBudget': false,
           'argumentsIncluded': false,
           'resultBodiesIncluded': false,

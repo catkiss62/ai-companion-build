@@ -77,7 +77,8 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.45+184'
   // Historical validator compatibility: buildLabel = 'v0.41.46+185'
   // Historical validator compatibility: buildLabel = 'v0.41.48+187'
-  static const buildLabel = 'v0.41.49+188';
+  // Historical validator compatibility: buildLabel = 'v0.41.49+188'
+  static const buildLabel = 'v0.41.50+189';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -127,6 +128,12 @@ class AgentSelfReader {
       title: '按需 Agent 与查手机读取',
       status: 'implemented_bounded',
       detail: '普通陪伴轮不注入工具；明确任务只展开相关能力。可只读搜索/读取查手机，并在用户明确命令时保存当前附件或执行有界联网找图—识图—同图保存。',
+    ),
+    AgentSystemFact(
+      id: 'agent_v2_bounded_loop_v04150',
+      title: 'Agent v2 有界任务循环',
+      status: 'implemented_bounded',
+      detail: '相关任务可根据真实工具结果继续核对下一步，最多三个规划回合、六次调用；同一调用不会原样循环，结束时按成功、无结果、失败或阻止分别核验。写入和媒体发送仍要求用户本轮明确意图。',
     ),
     AgentSystemFact(
       id: 'sticker_agent_v04146',

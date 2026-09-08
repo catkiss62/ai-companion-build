@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
+import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
@@ -287,12 +288,17 @@ class AgentToolPlanner {
   static AgentToolPlan fromNativeToolCalls(
     List<DeepSeekToolCall> nativeCalls, {
     String latestUserText = '',
+    int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
+    Set<String> excludedCallFingerprints = const <String>{},
   }) {
     final calls = <AgentToolCall>[];
     final seen = <String>{};
     final allowedForCurrentText = _routeToolIds(latestUserText);
+    final boundedMaxCalls = maxCalls
+        .clamp(0, AgentTaskLoopPolicy.maxCallsPerRound)
+        .toInt();
     for (final native in nativeCalls) {
-      if (calls.length >= 2) break;
+      if (calls.length >= boundedMaxCalls) break;
       final toolId = _toolIdByNativeName[native.name];
       if (toolId == null) continue;
       // Pixel capture requires an unmistakable local user command. A model
@@ -304,7 +310,7 @@ class AgentToolPlanner {
           !definition.userTurnAvailable ||
           (definition.risk != AgentToolRisk.readOnly &&
               !allowedForCurrentText.contains(toolId)) ||
-          !seen.add(toolId)) {
+          seen.contains(toolId)) {
         continue;
       }
       final arguments = <String, String>{};
@@ -321,13 +327,20 @@ class AgentToolPlanner {
         // The executor will return a bounded no-result/blocked response when a
         // required argument is absent. Never repair malformed arguments by guess.
       }
-      calls.add(AgentToolCall(
+      final call = AgentToolCall(
         toolId: toolId,
         arguments: arguments,
         reasonTag: definition.risk == AgentToolRisk.readOnly
             ? 'model_selected'
             : 'explicit_request',
-      ));
+      );
+      if (excludedCallFingerprints.contains(
+        AgentTaskLoopPolicy.callFingerprint(call),
+      )) {
+        continue;
+      }
+      seen.add(toolId);
+      calls.add(call);
     }
     return AgentToolPlan(calls: calls);
   }
@@ -686,6 +699,6 @@ class AgentToolPlanner {
         ..add(AgentToolRegistry.phoneSearch.id)
         ..add(AgentToolRegistry.phoneRead.id);
     }
-    return result.take(3).toSet();
+    return result.take(AgentTaskLoopPolicy.maxToolCalls).toSet();
   }
 }

@@ -20,6 +20,7 @@ import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
 import '../stickers/sticker_expression_service.dart';
 import 'agent_self_reader.dart';
+import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
 
@@ -43,11 +44,17 @@ class AgentToolRunner {
     String eventScopeId = '',
     String userMessageId = '',
     String assistantMessageId = '',
+    int callIndexOffset = 0,
+    int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
   }) async {
     final results = <AgentToolResult>[];
-    final calls = plan.calls.take(2).toList(growable: false);
-    for (var callIndex = 0; callIndex < calls.length; callIndex++) {
-      final call = calls[callIndex];
+    final boundedMaxCalls = maxCalls
+        .clamp(0, AgentTaskLoopPolicy.maxCallsPerRound)
+        .toInt();
+    final calls = plan.calls.take(boundedMaxCalls).toList(growable: false);
+    for (var index = 0; index < calls.length; index++) {
+      final call = calls[index];
+      final callIndex = callIndexOffset + index;
       final startedAt = DateTime.now();
       cancellationToken?.throwIfCancelled();
       final definition = AgentToolRegistry.byId(call.toolId);

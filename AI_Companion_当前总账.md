@@ -31,28 +31,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04149-subjective-search-humor-restoration`；从 v0.41.48 真机通过基线 `7ec2e711d519bd3c23ab28f961b8d475c0c3b351` 建立。范围限于主观自主搜索与造梗恢复；不改自然化层、性格光谱、追问 Gate、Agent 工具循环、媒体 schema 或 3C/MCP |
+| 当前开发分支 | `agent/v04150-agent-v2-bounded-loop`；从 v0.41.49 已构建并经用户肉眼 smoke 未发现明显 Bug 的本地最终基线 `e957fc0` 建立。范围限于 Agent v2 有界多轮工具循环与终态核验；不改世界书正文、搜索主体性、造梗选择器、媒体 schema、3C 或 MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.49 本地实现提交 `631b9db8ac05b735db45fe2a256cf6eebcfc3180`；远端 CI head `31546035ae167aeccd965290d464bb1252e22024` 使用与本地最终状态一致的 tree `a35c29d9ffafd403f10f7651269b84b6276bfa94`，目标版本 `0.41.49+188`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
-| App / 数据库 | 当前目标 `0.41.49+188 / schema 56 / Snapshot protocol 5`；schema 56 只为网页候选增加主观评分、动机与 seed hash，旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留 |
+| 当前代码 head / tree | v0.41.50 本地实现 `05260ac0caa44ba63fbc79321c664b0f50a1e343` / tree `b9e8fb9fa409285d39f06906966657996e9fde32`；待推送 CI。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| App / 数据库 | 当前目标 `0.41.50+189 / schema 56 / Snapshot protocol 5`；Agent v2 不迁移数据库或 Snapshot。schema 56 仍只为网页候选增加主观评分、动机与 seed hash，旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留 |
 | 最终 CI | v0.41.49 run [`34207630496`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496) 完整成功：全部源码门、Kotlin、Flutter analyze、`663/663` tests、Release APK、固定签名及完整载荷均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 测试 APK | `AI-Companion-v0.41.49-188-Subjective-Search-Humor-Restoration-APK.apk`，326,608,286 bytes |
 | APK SHA-256 | `1a2d231d9c9c256cd19a677cc2699593b6b677edd78ec0aa6ac6b1930ad62431`，Artifact 解压独立复算与 CI checksum 一致 |
 | Artifact / Release | Artifact [`10048843613`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496/artifacts/10048843613)，ZIP digest `d343efb9f718eea9577cd433d69b1f1e809e53017fdf9a981fd32ff53f2af637`；同名 Draft Release 上传成功，保持草稿，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 转长期观察；v0.41.48 `TRUE DEVICE PASSED`。v0.41.49 主观搜索与造梗恢复为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；随后立即做 Agent v2 |
+| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 长期观察；v0.41.48/49 `TRUE DEVICE PASSED`；v0.41.50 Agent v2 `IMPLEMENTED / CI PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **覆盖安装并肉眼 smoke v0.41.49（APK READY）**：重点自然观察造梗是否真的出现且不机械、搜索是否会产生“她怎么会去查这个”的主观问题，并确认旧聊天/世界书/图库保留。无需专门备份或诊断；真机反馈后立刻进入 v0.41.50 Agent v2 |
-| 目标 | 让搜索从她当下的 Desire、情绪、身体感受与 Thought 长出；把被过度删减的造梗方法恢复到可执行程度，而不是只写“幽默一点”。自然化反八股文和性格光谱保持用户已验证状态 |
-| 当前证据 | 新版造梗正文 2,669 字，保留 11 种造法、3 个扩展、短剧/多角色/戏仿/临时身份；四个行为世界书合计约 11,321，低于 16,000 预算。表达选择器已从固定 `none` 改为确定性正向机会路由；自主搜索已接 subjective seed、三项主观评分与 `why_cared`。所有提示词 Dart 源已移除成对星号；CI/真机待证 |
-| 保护与排除 | 不改 7,017 字“角色表达自然化”、944 字“性格光谱”和现有追问 Gate；保留事实/隐私/事务/真实 Outcome、NSFW 真值。造梗允许自导自演、多角色短剧、戏仿用户和临时身份错位；只排除把戏仿冒充真实记忆、让临时身份污染持久身份、随机错字、屏幕级刷屏及会破坏解析的格式 |
+| 当前下一步 | **v0.41.50 Agent v2 有界循环（IMPLEMENTED / CI PENDING）**：最多 3 个规划回合、6 次真实调用的 `observe → act → verify`；Outcome 可交回续读，精确重复调用被拒绝，终态由本地真实结果核验 |
+| 目标 | 让她在查手机、规则/记忆/相册检索、公开搜索和明确授权的媒体任务中，能根据无结果、多个候选或中间句柄继续选择下一步，并在结束前以真实工具 Outcome 核验是否完成，而不是一次调用后靠文字猜测 |
+| 当前证据 | 新专项 validator、当前总账门与 73 个无 CI 素材依赖的回归门本地通过；8 个本地失败均缺 CI 先恢复的精确素材/工具链。世界书 4 个行为模块约 11,321 字，低于运行时 16,000 预算，不会因造梗扩写截断 |
+| 保护与排除 | 保留 CHAT_LIGHT 无 toolbox、按原用户文本选择最小工具集、写入/发送必须有明确意图、屏幕一次性 Gate、敏感页 Gate、取消、lease/run-token fence、附件原子提交与失败真值；不增加权限，不开放自主写入，不改世界书内容/概率、NSFW、追问 Gate、媒体存储 schema 或 MCP |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | seed 不含姓名、私聊原句、设备内容或角色卡，taxonomy 只兜底。恢复原文 11 种造法，以及情绪雪崩、受控语言破坏、语境内接梗；每轮选择 1 个主造法，可自然带 1 个辅助造法，玩梗轮密度允许到 15%～30%，严肃事实按上下文降档而非把整个能力永久关闭 |
-| 完成判据 | seed 可复现且脱敏，评价保存 `why_cared`；11 种造法与 3 个扩展可达，自导自演/多角色/临时身份错位可达，事实冒充/持久身份污染/解析级格式破坏不可达；自然化层、性格光谱、追问 Gate、事实/主动/事务均不回归。CI 全绿并交付 APK 后等待真机；随后 v0.41.50 进入 Agent v2，不被 D6 插队 |
+| 实现边界 | 规划回合最多 3、真实调用总计最多 6；同一轮单次批量仍有小上限，跨轮使用全局 call offset 形成稳定唯一审计 ID。只把模型实际发出的、注册表允许且与原始用户意图匹配的调用送入 runner；每轮结果按 tool_call_id 原位回传，超限或无可接受调用时停止工具循环并要求最终中文如实收口 |
+| 完成判据 | 自动化证明：普通聊天仍零 tools；多轮可达且严格止于 3 回合/6 调用；无结果/句柄结果可触发下一步；proposal 不因续轮绕过原始明确意图；屏幕不进入模型续轮；事件 ID 跨轮不碰撞；终态核验只承认本轮真实成功 Outcome；取消与事务附件提交不回归。CI 全绿、APK 交付后再做真机复合任务，不提前声称 Agent v2 真机通过 |
 | 直接详细入口 | `app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md`；下方“2026-09-08 主体性与活人感约束审查”；Agent 与 D6 合同也在该文档，但不得混包 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -87,6 +87,16 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-08 v0.41.49 真机通过与 v0.41.50 Agent v2（TRUE DEVICE PASSED / IMPLEMENTED / CI PENDING）
+
+1. 用户完成 v0.41.49 自然真机使用，说明本次能直接观察的内容不多，但未发现明显 Bug，并明确允许开始下一步。按证据边界将 v0.41.49 提升为 `TRUE DEVICE PASSED`；不伪造专门搜索命中率或造梗密度统计，低频自然表现仍可后续观察。
+2. 下一独立包按已冻结排期进入 v0.41.50 Agent v2，不被 D6 插队。现有直接根因保持不变：provider 返回调用与 runner 均最多取 2 个，工具结果回传后只做一次不带 tools 的最终生成，因此真实能力止于单轮调用，不具备按 no-result、多个候选或中间句柄继续规划的闭环。
+3. 实施合同锁定为：最多 3 个规划回合、累计最多 6 次真实调用；每轮只执行模型本轮实际选择且通过本地注册表/原用户意图检查的步骤，Outcome 按原 tool call ID 回传；结束前本地按真实结果判断目标是否已有支撑，不能用模型自称完成代替。达到预算、无合法调用或被阻止时停止调用并如实收口。
+4. 保护项：普通陪伴轮继续不携带 toolbox；任务轮只给按原始文本筛出的最小集合。只读工具可在该集合内续轮选择；图片保存/发送、表情发送等 proposal 工具始终要求原用户本轮明确意图。屏幕像素仍只能由确定性本地显式命令触发一次，绝不暴露给模型续轮；取消、敏感页 Gate、generation lease/run-token、附件事务提交和失败真值不变。
+5. 世界书顺手复核结果：v0.41.49 已记录的四个行为模块总正文约 11,321 字，其中造梗 2,669 字；当前 `ReferenceLibrary.behaviorForPrompt()` 的运行时正文预算实际为 16,000 字，因此四项全部启用时仍有约 4,679 字余量，不会因造梗扩写而截断。世界书编辑器/数据库允许保存完整原文，源码中没有发现用户印象里的 30,000 字保存限制；30,000 也不是当前行为模块运行时预算。本包不改该预算，避免借 Agent 版本扩大常驻提示词体积。
+6. 本次开工先更新总账，再改运行代码。目标版本 `0.41.50+189`，schema 与 Snapshot 暂保持 `56 / 5`；本包不改搜索主观 seed、世界书正文/概率、自然化、性格光谱、造梗执行卡、追问 Gate、NSFW、D6 媒体存储或 3C/MCP。
+7. 运行实现已提交为 `05260ac0caa44ba63fbc79321c664b0f50a1e343` / tree `b9e8fb9fa409285d39f06906966657996e9fde32`：增加有界续轮、全局 call offset、精确指纹去重、proposal/媒体成功即收口、终态核验与无正文遥测。新专项门、总账门及 73 个无恢复素材依赖的历史门本地通过；其余 8 项只因本地 sparse checkout 缺少 CI 会恢复的桌宠、TTS、LingChat、立绘/原生库或 Kotlin 工具链而失败。当前环境无 Flutter/Dart SDK，analyze、Flutter tests 与 APK 仍待 Actions，不提前声称通过。
 
 
 ### 2026-09-08 v0.41.49 主观搜索与造梗恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
