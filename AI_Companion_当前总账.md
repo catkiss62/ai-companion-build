@@ -33,20 +33,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04148-agent-image-reliability-hotfix`；从 v0.41.47 最终总账 head `1443a15630ef58915e40f651143ceec5f3df06f9` 建立。范围限于媒体 Agent 路由/下载/事实闭环、主动消息渲染、表情包与世界书显示排序；不改 Phase 3B 仲裁、Desire/Thought、主动频率或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.48 最终实现提交 `29bb6632c54d04ac11ff87e0c20d075b2b131ac9` / tree `ed235889019a180624d6e02c6519539e7bad3711`，目标版本 `0.41.48+187`；公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| 当前代码 head / tree | v0.41.48 本地最终实现 `f24bdc2a6982b0db2736e0f2997550ed8d43c65b` / tree `0ccb16a0be594a6f25f10441405ff0cad79422f8`；公开 CI head `7ac4d50c3d834d3b73be61a0b5baaebbba8c45ac` 使用同一源码树，目标版本 `0.41.48+187`；公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
 | App / 数据库 | 当前目标 `0.41.48+187 / schema 55 / Snapshot protocol 5`；无 schema/protocol 迁移，旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留 |
-| 最终 CI | v0.41.48 尚未推送构建；当前为 `IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`。上一完整基线仍是 v0.41.47 run [`34161664797`](https://github.com/catkiss62/ai-companion-build/actions/runs/34161664797) |
-| 测试 APK | v0.41.48 APK 尚待 Actions；预定名 `AI-Companion-v0.41.48-187-Agent-Image-Reliability-Hotfix-APK.apk` |
-| APK SHA-256 | v0.41.48 待 CI 生成后回填；不得沿用 v0.41.47 哈希 |
-| Artifact / Release | v0.41.48 待 CI 回填；只允许 Draft Release，不发布正式 Release |
+| 最终 CI | v0.41.48 run [`34186859452`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452) 完整成功：全部源码门、Kotlin、Flutter analyze、`657/657` tests、Release APK、固定签名及完整载荷均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.48-187-Agent-Image-Reliability-Hotfix-APK.apk`，326,556,814 bytes |
+| APK SHA-256 | `ec296caad58984c9b1ef92046fa783e5fdc9a1b2e24cc8fc849868dcd77ab666`，独立下载复算与 CI checksum 一致 |
+| Artifact / Release | Artifact [`10041026782`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452/artifacts/10041026782)；Draft Release [`untagged-08f0101754fc9cdcce54`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-08f0101754fc9cdcce54) 保持草稿，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B `TRUE DEVICE PARTIAL`；v0.41.46 已由用户肉眼确认。v0.41.47 真机暴露图片 Agent 与主动首句渲染缺陷；v0.41.48 为 `IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`，3C/MCP 继续关闭 |
+| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B `TRUE DEVICE PARTIAL`；v0.41.46 已由用户肉眼确认。v0.41.47 真机暴露图片 Agent 与主动首句渲染缺陷；v0.41.48 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，3C/MCP 继续关闭 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **构建并真机 smoke v0.41.48**：先完成 Actions、签名、APK 与独立哈希，再覆盖安装验证表情/世界书排序、主动首句对白颜色、联网发图、查手机相册发图和联网存图 |
+| 当前下一步 | **交付并真机 smoke v0.41.48**：覆盖安装后验证表情/世界书排序、主动首句对白颜色、斗图/纯表情终态、联网发图、查手机相册发图和联网存图；本轮按用户决定只需肉眼反馈，不要求备份或诊断 |
 | 目标 | 表情包A 固定排在 B 前；特殊风格排在性格与相处之后。主动首句 `「对白」` 按选择色直体显示。补回斗图与只发表情包能力。三条媒体指令必须得到真实附件或真实失败 Outcome，不得文字冒充执行 |
 | 当前证据 | 用户提供的 v0.41.47 备份与诊断证明：两句“查手机照片”未产生工具 Outcome，模型却写了传图动作；联网发图进入 `image.web_send` 但无结果；“存起来”误路由到普通网页搜索；多条 CDN/FishArchive 候选因响应 Content-Type 不标准被误判“不是图片”。主动消息 `segments_json` 已把首句标为 dialogue，故属于渲染绕过语义段，不是模型格式错误 |
 | 保护与排除 | 明确不采用外部 QQ 项目的工具化潜水/唤醒，也不采用从用户消息长度、沉默或接话频率推断偏好的“语言适应”；短回复不得被解释为冷场或负反馈。表情包仍不改主人格、Desire/Thought、Moe 或自主行为竞争；规则01迁移只能替换未被用户编辑的旧默认值，必须保留用户已手改文本；NSFW 不改题材、欲望系统或正文自由度，只修 assistant 身份归属和 reasoning 持久化边界 |
@@ -79,7 +79,7 @@
 | D2 · Phase 3B 主动来源平衡（CI PASSED / APK READY / TRUE DEVICE PARTIAL） | v0.41.44 真机已证明主动聊天正常、安静 discovery 完整入库、Provider 失败后恢复、单 heartbeat 无重复，且网页成功没有同轮再发消息 | 继续自然观察额度耗尽 capability defer 和新版 rest；这两项无样本，故不升为完整 `TRUE DEVICE PASSED`，3C/MCP 仍关闭 |
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | D4 · 单聊表情包表达层（TRUE DEVICE PASSED） | v0.41.46 的导入、随机表达、GIF、180dp、`sticker.send`、自读与认知已由用户肉眼确认，无需备份/诊断 | 保持现有策略；用户发送链由 D5 单独验收 |
-| D5 · 双向普通图片与用户表情媒体闭环（HOTFIX IN PROGRESS；CURRENT） | v0.41.47 真机证明用户表情链可用，但图片 Agent 路由/下载失败、主动首句渲染异常且参考项目的斗图/纯表情回复未完整接入；v0.41.48 已完成本地实现 | 先完成 v0.41.48 CI/APK，再按第 3 节 smoke；自主媒体以后接统一仲裁 |
+| D5 · 双向普通图片与用户表情媒体闭环（CI PASSED / APK READY / TRUE DEVICE PENDING；CURRENT） | v0.41.47 真机证明用户表情链可用，但图片 Agent 路由/下载失败、主动首句渲染异常且参考项目的斗图/纯表情回复未完整接入；v0.41.48 run 34186859452 与测试 APK 已完成 | 按第 3 节做肉眼 smoke；自主媒体以后接统一仲裁 |
 | E · 延后项目 | Agent 核心、Phase 3/4 完成，或用户重新明确插队 | 完整 Skills/MCP 管理、可插拔代码 Harness、时间胶囊/长日记、总设置、视频、提醒、屏幕与悬浮风险分别进入；Harness 保持插件化可卸载。娱乐谜题与“锁思考”均靠后；记忆星图暂不研究。**Token 命中/缓存优化放在全部核心能力完成后的最后性能阶段**：先记录脱敏 Prompt 字符/估算 token、历史裁剪与缓存命中基线，再做前缀稳定化、静态层缓存和命中率优化，不为省 token 改写人格、记忆真值或降低当前上下文质量 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
@@ -88,7 +88,7 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-08 v0.41.48 Agent 图片可靠性与渲染/排序热修（IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-08 v0.41.48 Agent 图片可靠性与渲染/排序热修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户补充要求表情包 A 固定排在 B 前、世界书“特殊风格”排在“性格”和“相处”之后，并报告主动消息首句对白被误画成白色斜体、联网发图、查手机相册发图与联网存图同时失败；同时明确指出当前 Agent 能力弱于 RikkaHub/Operit，要求先分析而非盲修。
 2. 对 v0.41.47 真机备份与脱敏诊断做只读取证。两句自然说法“你发一张查手机的照片我看看”“你随便发一张查手机里的照片给我看看”没有任何工具 Outcome，模型随后以“（传了一张图……）”文字冒充媒体动作；“你联网随便搜一张二次元的图发我看看”进入 `image.web_send` 但 `no_result`；“你联网搜一张二次元的图存起来”只进入 `public_web.search`；另一条任意图保存进入 `image.find_and_save` 后以 `no_saved_candidate` 失败。由此确认至少同时存在路由覆盖不足、图片候选/下载脆弱和结果真实性 Gate 漏词三类问题。
@@ -99,8 +99,12 @@
 7. 主动首句样本的原始正文为 `「一觉睡醒了没？」`，持久化 `segments_json` 也明确标记 dialogue，故不是模型漏写动作括号或对白引号，而是 proactive 单气泡路径绕过已持久化语义段、直接使用 raw content。新 `ChatSegmentCodec.displayText` 从语义段统一复原 `「对白」/（动作）`；主动逐字路径及 assistant fallback 均使用该权威文本，首句对白会按用户选择色直体显示，动作仍白色斜体。
 8. 表情包新增显示层稳定比较器：`personal-001`（A）→0、`official-001`（B）→1，其余按显示名/ID；不改变用户 ZIP、manifest、索引、tag 或任何媒体字节。用户复核确认导入包总数确为 68；界面 61 来自 44 general + 17 bold，另有 5 张 NSFW 与 2 张旧 disabled，均未删除。用户进一步冻结主体性原则：5 张成人项不依赖 NSFW 开关直接显示并以虚拟小类“涩涩”聚合，选择本身不强制改模式；上吊黑色幽默允许用户及她的自动/Agent 表达，只有不适用于单聊的群聊便便梗继续隐藏。因此选择器固定可见 67，不需重传 ZIP 或重新识图。世界书新增 UI-only 稳定分区，将 `builtin.worldbook.special.*` 插到最后一个 personality/posture 内置项之后，不改数据库 priority、激活或 Prompt 顺序。
 9. 构建前回查参考项目，确认当前 App 此前只具备“明确要求时真实附上一张表情包”和普通回复偶尔附图，缺少两条完整语义：用户只发表情时的纯表情斗图，以及她让表情包独立承担整条回复。现已补齐：用户纯表情附件触发真实本地表情回击；“斗图/只回复表情包”稳定路由到 `sticker.send`，工具成功时清空对白与动作段、只提交真实附件；普通短促 react/tease/seekAttention/showNeed/pauseOrClose 回合，在已经选中真实表情后有确定性低频机会只发表情。疑问、长正文、URL、正事与其他工具结果不会被吞掉。发送后历史仍以第一人称 caption 注入，不触发普通图片识图；她的系统自读同步声明这些能力，避免代码会做而自述不会。
-10. 目标版本 `0.41.48+187 / schema 55 / Snapshot protocol 5`。基础实现提交 `b72cc157ac4c371e74351b2890612ac410957a14`；主体性表情策略提交 `882643fe5c7d0ca80648571d282f58b9fbf4e118`；斗图与纯表情终态实现提交 `29bb6632c54d04ac11ff87e0c20d075b2b131ac9` / tree `ed235889019a180624d6e02c6519539e7bad3711`。新增/扩展路由、语义渲染、下载签名、Wikimedia 缩略图、排序、表情自主性、纯表情终态和事实 Guard 测试。workflow 的 v0.41.28～48 与当前总账 validator 均本地通过，构建期素材由 CI 恢复后继续。当前没有本地 Flutter SDK，因此 analyze、Flutter tests、Release APK、签名和完整载荷必须由 Actions 给出结论。
-11. 隐私边界不变：用户的 ZIP、备份、诊断、图片、caption、聊天正文、密钥和 Provider 配置均不提交、不进入 APK/Artifact/Release。当前仅为源实现完成，CI、APK、SHA 与真机结论待回填。
+10. 目标版本 `0.41.48+187 / schema 55 / Snapshot protocol 5`。基础实现提交 `b72cc157ac4c371e74351b2890612ac410957a14`；主体性表情策略提交 `882643fe5c7d0ca80648571d282f58b9fbf4e118`；斗图与纯表情终态实现提交 `29bb6632c54d04ac11ff87e0c20d075b2b131ac9` / tree `ed235889019a180624d6e02c6519539e7bad3711`；查询尾词窄修后的本地最终实现为 `f24bdc2a6982b0db2736e0f2997550ed8d43c65b` / tree `0ccb16a0be594a6f25f10441405ff0cad79422f8`。新增/扩展路由、语义渲染、下载签名、Wikimedia 缩略图、排序、表情自主性、纯表情终态和事实 Guard 测试。
+11. 隐私边界不变：用户的 ZIP、备份、诊断、图片、caption、聊天正文、密钥和 Provider 配置均不提交、不进入 APK/Artifact/Release。CI、APK 与独立 SHA 证据见下；真机仍待用户肉眼 smoke。
+12. 公开分支的首轮完整构建 run [`34186224682`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186224682) 已通过源码门、Kotlin、analyze 和 `656/657` 项 Flutter tests；唯一失败精确定位为保存查询尾词规范化只匹配紧邻结尾的“的”，没有覆盖“的”后存在空白的输入，测试期望 `二次元` 而实际得到 `二次元的`。实现把正则窄修为 `的\s*$`，没有扩大 Agent 权限或改动其他工具语义。
+13. 最终 CI head `7ac4d50c3d834d3b73be61a0b5baaebbba8c45ac` 的 run [`34186859452`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452) 完整成功：全部当前/历史源码 validators、Kotlin 桌宠与悬浮文本测试、Flutter analyze、`657/657` tests、Release APK、固定 signer、原生库、Meju TTS、417 文件桌宠载荷、LingChat/头像/立绘/22 张塔罗、checksum、Artifact 与 Draft Release 均通过；失败报告 job 正常 skipped。
+14. Artifact [`10041026782`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452/artifacts/10041026782) 名称为 `AI-Companion-v0.41.48-187-Agent-Image-Reliability-Hotfix-APK`，ZIP 为 320,257,301 bytes；GitHub digest 与独立下载复算均为 `sha256:309c24cf5522fa042a79f017f0479f4451b1e1e97b8dab7f3930fcca2701b2ca`，ZIP 两个条目完整。内部 APK 为 326,556,814 bytes，独立 SHA-256 `ec296caad58984c9b1ef92046fa783e5fdc9a1b2e24cc8fc849868dcd77ab666`，与 CI checksum 一致；签名证书 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版。
+15. Draft Release [`untagged-08f0101754fc9cdcce54`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-08f0101754fc9cdcce54) 保持草稿，正式 Release 未发布，`main` 未合并。当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；用户已明确本阶段只需肉眼 smoke，不要求再发送备份或诊断。
 
 
 ### 2026-09-08 v0.41.47 用户表情选择与普通图片 Agent（CI PASSED / APK READY / TRUE DEVICE PENDING）
