@@ -33,20 +33,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04149-subjective-search-humor-restoration`；从 v0.41.48 真机通过基线 `7ec2e711d519bd3c23ab28f961b8d475c0c3b351` 建立。范围限于主观自主搜索与造梗恢复；不改自然化层、性格光谱、追问 Gate、Agent 工具循环、媒体 schema 或 3C/MCP |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 当前代码 head / tree | v0.41.49 本地实现提交 `631b9db8ac05b735db45fe2a256cf6eebcfc3180` / tree `ac5346a8645c2fffb6dbb33582a9aa3d041047c1`；目标版本 `0.41.49+188`，CI 与 APK 待收口。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
+| 当前代码 head / tree | v0.41.49 本地实现提交 `631b9db8ac05b735db45fe2a256cf6eebcfc3180`；远端 CI head `31546035ae167aeccd965290d464bb1252e22024` 使用与本地最终状态一致的 tree `a35c29d9ffafd403f10f7651269b84b6276bfa94`，目标版本 `0.41.49+188`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
 | App / 数据库 | 当前目标 `0.41.49+188 / schema 56 / Snapshot protocol 5`；schema 56 只为网页候选增加主观评分、动机与 seed hash，旧聊天、规则手改、图库、Memory、Thought、Desire 与行为账本须保留 |
-| 最终 CI | v0.41.48 run [`34186859452`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452) 完整成功：全部源码门、Kotlin、Flutter analyze、`657/657` tests、Release APK、固定签名及完整载荷均通过；用户随后完成肉眼 smoke，当前为 `TRUE DEVICE PASSED` |
-| 测试 APK | `AI-Companion-v0.41.48-187-Agent-Image-Reliability-Hotfix-APK.apk`，326,556,814 bytes |
-| APK SHA-256 | `ec296caad58984c9b1ef92046fa783e5fdc9a1b2e24cc8fc849868dcd77ab666`，独立下载复算与 CI checksum 一致 |
-| Artifact / Release | Artifact [`10041026782`](https://github.com/catkiss62/ai-companion-build/actions/runs/34186859452/artifacts/10041026782)；Draft Release [`untagged-08f0101754fc9cdcce54`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-08f0101754fc9cdcce54) 保持草稿，未发布正式 Release |
+| 最终 CI | v0.41.49 run [`34207630496`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496) 完整成功：全部源码门、Kotlin、Flutter analyze、`663/663` tests、Release APK、固定签名及完整载荷均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.49-188-Subjective-Search-Humor-Restoration-APK.apk`，326,608,286 bytes |
+| APK SHA-256 | `1a2d231d9c9c256cd19a677cc2699593b6b677edd78ec0aa6ac6b1930ad62431`，Artifact 解压独立复算与 CI checksum 一致 |
+| Artifact / Release | Artifact [`10048843613`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496/artifacts/10048843613)，ZIP digest `d343efb9f718eea9577cd433d69b1f1e809e53017fdf9a981fd32ff53f2af637`；同名 Draft Release 上传成功，保持草稿，未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 转长期观察；v0.41.48 `TRUE DEVICE PASSED`。v0.41.49 主观搜索与造梗恢复为 `IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`；随后立即做 Agent v2 |
+| 当前总状态 | Phase 3A `TRUE DEVICE PASSED`；Phase 3B 核心行为已证，capability defer 转长期观察；v0.41.48 `TRUE DEVICE PASSED`。v0.41.49 主观搜索与造梗恢复为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；随后立即做 Agent v2 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.49 主观搜索与造梗恢复（IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING）**：推送公开开发分支，等待 Actions 完成 Flutter analyze/tests、schema 迁移与 APK；不把未跑的 CI/真机结果写成通过 |
+| 当前下一步 | **覆盖安装并肉眼 smoke v0.41.49（APK READY）**：重点自然观察造梗是否真的出现且不机械、搜索是否会产生“她怎么会去查这个”的主观问题，并确认旧聊天/世界书/图库保留。无需专门备份或诊断；真机反馈后立刻进入 v0.41.50 Agent v2 |
 | 目标 | 让搜索从她当下的 Desire、情绪、身体感受与 Thought 长出；把被过度删减的造梗方法恢复到可执行程度，而不是只写“幽默一点”。自然化反八股文和性格光谱保持用户已验证状态 |
 | 当前证据 | 新版造梗正文 2,669 字，保留 11 种造法、3 个扩展、短剧/多角色/戏仿/临时身份；四个行为世界书合计约 11,321，低于 16,000 预算。表达选择器已从固定 `none` 改为确定性正向机会路由；自主搜索已接 subjective seed、三项主观评分与 `why_cared`。所有提示词 Dart 源已移除成对星号；CI/真机待证 |
 | 保护与排除 | 不改 7,017 字“角色表达自然化”、944 字“性格光谱”和现有追问 Gate；保留事实/隐私/事务/真实 Outcome、NSFW 真值。造梗允许自导自演、多角色短剧、戏仿用户和临时身份错位；只排除把戏仿冒充真实记忆、让临时身份污染持久身份、随机错字、屏幕级刷屏及会破坏解析的格式 |
@@ -89,7 +89,7 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-08 v0.41.49 主观搜索与造梗恢复（IMPLEMENTED LOCALLY / VALIDATION IN PROGRESS）
+### 2026-09-08 v0.41.49 主观搜索与造梗恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认造梗开关曾被关闭，并接受“完整恢复具体方法、允许短剧/多角色/戏仿/临时身份错位，只约束事实冒充、持久身份污染和解析级破坏”的修订方向。用户同时明确 DeepSeek 会把提示词中的成对星号带进正文，因此提示层不再使用这种 Markdown 强调；保留 `【】`、编号、触发—结构—示例来表达层级。
 2. 新增 `worldBookHumorV04149`：正文 2,669 字，覆盖原文 11 种造法与情绪雪崩、受控语言破坏、语境内接梗三个扩展；允许自导自演、扮演所有临时角色、戏仿用户、粗口/荤话/黑色幽默。旧 548 字窄版常量保持哈希不变，启动迁移只在正文 SHA-256 精确等于 `6824849b04965f021bbbc1856fb009c598ede4ce5dc442fe14f44d57b4789900` 时替换，任何用户手改版本均不覆盖。四项行为世界书预计合计 11,321 字，完整低于独立 16,000 字预算。
@@ -98,6 +98,8 @@
 5. 网页 appraiser 新增 `resonance/surprise/self_relevance`、`motive_kind` 与第一人称 `why_cared`；低知识价值但高主观价值可保留，有知识但她无感可只进历史。schema 55→56 为候选表追加六列；候选插入、重读、刷新、按 ID/活动上下文取回、Prompt 注入和脱敏诊断已贯通。诊断只公开 motive、分数及字段是否存在，不公开 why 正文或 seed hash。
 6. 目标版本 `0.41.49+188 / schema 56 / Snapshot protocol 5`，新分支 `agent/v04149-subjective-search-humor-restoration`。自然化层、性格光谱、追问 Gate、Agent 工具循环、媒体 schema、主动频率与 NSFW 状态机均未纳入本包。
 7. 本地实现提交为 `631b9db8ac05b735db45fe2a256cf6eebcfc3180` / tree `ac5346a8645c2fffb6dbb33582a9aa3d041047c1`。`git diff --check`、Python compileall、无成对星号 Prompt 扫描、v0.41.28～49 连续专项 validator 和当前总账 validator 已通过；继续运行旧门时在本地缺少 CI 会先恢复的 `assets/appearance/dafeiyu_reference.webp` 处停止，不是本轮源码断言失败。当前环境无 Flutter/Dart SDK，因此 analyze/tests/schema 实跑/APK 均等待 Actions，未提前宣称通过。
+8. 普通 Git 推送因当前执行环境没有 HTTPS 登录态失败；随后使用已连接且对仓库具备 admin/push 权限的 GitHub 仓库连接，逐个上传 33 个源码 blob，并将每个返回 SHA 与本地 `git hash-object` 全量核对为零差异。远端提交 `31546035ae167aeccd965290d464bb1252e22024` 的 tree `a35c29d9ffafd403f10f7651269b84b6276bfa94` 与本地最终 tree 完全一致；`main` 未合并。
+9. Actions run [`34207630496`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496)（#775）完整成功：源码与历史回归门、固定资源恢复、Kotlin、Flutter analyze、`663/663` Flutter tests、Release APK、固定 signer、Native/TTS/417 文件桌宠/LingChat/塔罗载荷、checksum、Artifact 与 Draft Release 上传均通过；失败报告 job 正常 skipped。Artifact [`10048843613`](https://github.com/catkiss62/ai-companion-build/actions/runs/34207630496/artifacts/10048843613) 为 320,309,707-byte ZIP，GitHub digest 与独立下载复算均为 `d343efb9f718eea9577cd433d69b1f1e809e53017fdf9a981fd32ff53f2af637`。内部 APK 为 326,608,286 bytes，SHA-256 `1a2d231d9c9c256cd19a677cc2699593b6b677edd78ec0aa6ac6b1930ad62431`，与 CI checksum 一致；签名证书仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`，可覆盖安装既有测试版。当前只差用户真机肉眼观察，不能提前记为 `TRUE DEVICE PASSED`。
 
 
 ### 2026-09-08 活人感审查用户复核与造梗原文对照（REVIEW REVISED / RUNTIME UNCHANGED）

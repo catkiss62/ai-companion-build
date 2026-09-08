@@ -1,10 +1,10 @@
 # 主体性与活人感约束审查
 
-状态：`REVIEW COMPLETE / v0.41.49 IMPLEMENTED LOCALLY / CI PENDING`
+状态：`REVIEW COMPLETE / v0.41.49 CI PASSED / APK READY / TRUE DEVICE PENDING`
 
 基线：v0.41.49+188，schema 56，Snapshot protocol 5
 
-证据：当前源码、2026-09-08 05:31 真机备份与脱敏诊断。前半部分保留审查归因；v0.41.49 已按冻结合同完成本地运行时实现，但尚未经过 CI、APK 或真机验证，不把静态实现冒充模型 A/B 或真机结论。
+证据：当前源码、2026-09-08 05:31 真机备份与脱敏诊断，以及 v0.41.49 Actions run 34207630496。前半部分保留审查归因；v0.41.49 已按冻结合同实现并通过 CI/663 项测试、Release APK 与载荷验证，但尚未经过真机观察，不把自动化冒充模型自然表现或真机结论。
 
 ## 1. 结论
 
