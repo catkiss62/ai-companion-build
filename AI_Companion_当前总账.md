@@ -33,22 +33,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.54 远端构建 head `7a2fa00984d5ae15e86ced6b8b3a4b8733ab756d` / tree `21239ca8595bbcbd22e75c69b11c047a4afa2ffa`；本地等价 tree 提交 `c539c92`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
-| App / 数据库 | 已构建失败候选为 `0.41.54+193`；当前目标 `0.41.55+194 / schema 57 / Snapshot protocol 5`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | v0.41.54 run [`34316877695`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695)（799）完整成功：Genie/桌宠恢复、源码及历史 validator、Kotlin tests、Flutter analyze、694/694 Flutter tests、arm64 Release APK、固定签名、38 个 Genie/OpenJTalk 文件、417 文件桌宠与 22 张塔罗资源均通过；构建证据保持 `CI PASSED / APK READY`，但最新真机已证明播放链 `TRUE DEVICE FAILED` |
-| 测试 APK | `AI-Companion-v0.41.54-193-Genie-TTS-Hotfix-Settings-APK.apk`；533,616,067 bytes；仅含 `arm64-v8a` |
-| APK SHA-256 | `36f7a6ba94ab265cb52821470766a98bd087371113dbea3bb95fdda0631ec2f3`；CI checksum 与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10090659526`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695/artifacts/10090659526)，ZIP 526,808,936 bytes / digest `0317d85c5de8b9f2cc1acfec627ba9cb51648cecfab065ae8d0286c007270aed`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ed5eb2762460bf56f908) 保持草稿，未合并 `main`、未发布正式 Release |
+| 有效构建 head / tree | v0.41.55 远端构建 head `772a590491b3105ca7b1f8eb1729b7c1826f1b63` / tree `ad4a72038fa1042fa08a43b5142f4e6a217636c6`；本地等价 tree 提交 `9acb373`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
+| App / 数据库 | 当前已构建候选为 `0.41.55+194 / schema 57 / Snapshot protocol 5`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
+| 最终 CI | v0.41.55 run [`34338568893`](https://github.com/catkiss62/ai-companion-build/actions/runs/34338568893)（805）完整成功：全部源码/历史合同、AIDL/Kotlin、Flutter analyze、701/701 Flutter tests、arm64 Release、固定签名、38 个 Genie/OpenJTalk 文件、417 文件桌宠、62 文件 LingChat 与 22 张塔罗均通过；当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.55-194-Genie-Direct-Port-Lazy-Language-APK.apk`；533,617,807 bytes；仅含 `arm64-v8a` |
+| APK SHA-256 | `48f4638595272472b446bf80b81e5e5f640cad7f1f1e38f88fd3ccf873e0778a`；CI checksum、Draft 资产 digest 与独立下载复算一致 |
+| Artifact / Release | Artifact [`10099125507`](https://github.com/catkiss62/ai-companion-build/actions/runs/34338568893/artifacts/10099125507)，ZIP 526,810,443 bytes / digest `203aab8d0b3bfd2421119254e048bf72a335f1b00258ebf25a761aba8fd804ab`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bddfc9b7d7fb62ce7a11) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 远端第四提交 `a24464043b6d3d91e26a3a33bad368833c6ff994` / tree `015077be785a8225e094d53413efd045d7276839` 的 run [`34337137926`](https://github.com/catkiss62/ai-companion-build/actions/runs/34337137926)（804）已通过源码合同、AIDL/Kotlin、Flutter debug 编译与 analyze；Flutter tests 为 `693 passed / 8 failed`。其中懒翻译 3 个超时暴露 `_inFlight` cleanup 返回自身 Future 的真实死锁，另 5 个是旧队列测试仍假设逐句切分/去标点。死锁与测试夹具均已按固定 v0.6.4 语义窄修；状态为 `IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING` |
+| 当前总状态 | v0.41.54 播放链为 `TRUE DEVICE FAILED`；v0.41.55 已完成固定 v0.6.4 核心、独立 TTS 进程、JNI 显式解包、固定分段播放与按需单一外语，run 805 全绿并生成 APK。当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；只有真机连续播放中/英/日后才能判断 native 闪退是否解除 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **收口 v0.41.55 原样移植＋按需外语**：本地实现与专项静态合同已完成；下一步用 Actions 真编译 Kotlin/AIDL、Flutter analyze/tests 和 arm64 Release，再交付 APK 做中文→英文→日语及主进程存活真机检查 |
+| 当前下一步 | **真机验收 v0.41.55**：覆盖安装新 APK，先连续播放中文短句，再测英文与日语、生成中切换/停止、长段固定分段；随后对一条旧中文消息首次点日/EN验证只生成当前目标语，第二次命中缓存且不重新思考。若子进程仍失败，主 App 必须存活并可立即导出含跨进程 checkpoint 的诊断 |
 | 目标 | 伴侣主进程不再重编排 ONNX 生命周期，TTS 子进程即使 native abort 也不带崩 App；取消默认每轮 `zh/ja/en`，中文保持权威，`中/日/EN` 点哪个只生成并朗读当前一个目标语；“显示外语”继续只控制气泡投影 |
-| 当前证据 | v0.41.54 真机三语均未到播放。v0.41.55 run 804 已证明全部历史/专项 validator、资源恢复、签名、AIDL/Kotlin、Flutter debug 编译与 analyze 通过。失败只在 tests：`whenComplete` 表达式体把 `_inFlight.remove(key)` 返回的同一个 Future 交给完成链而自等待，已改为 void 代码块；队列旧预期已改为用超过 42 字目标的自然段验证并接受 v0.6.4 保留标点/短句打包语义 |
+| 当前证据 | v0.41.54 真机三语均未到播放。v0.41.55 run 805 已全绿：AIDL/Kotlin 与 Release 真实编译通过，701/701 Flutter tests 覆盖懒翻译去重/缓存/缺凭据、固定分段预生成/Stop/失败隔离等；APK 内 38 个 Genie/OpenJTalk 文件逐项 size/hash 精确、含 arm64 `libopenjtalk_native.so` 与 `libgenie_frontend.so`，不含用户 RoBERTa、Meju 或 19emo。CI 仍不能代替真机 ONNX 执行证据 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文。只迁 v0.6.4 固定分段、1 秒预填充与 CPU 8 线程；禁止真流式、三前端同时预热、并发推理或把私人模型提交公开仓库 |
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING）
+### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户以 v0.41.54 中文、英文、日语分流真机证据纠正排查方向，并明确质疑为何不直接移植已经正常的 Genie 项目。复核确认：伴侣虽复制核心类，却增加多个 FlutterEngine/NativeTtsBridge、共享单例、Dart 队列与双 Kotlin worker，并重写初始化/释放/播放生命周期，不能称为完整照搬已验证运行条件。
 2. 用户明确追加防误移植边界：Genie-TTS 项目后来为测试真流式又修改过一次，新增真流式测试板块不是移植对象。本包唯一源固定为本地已核对的 `5380a536f83aeaec540a9aaa7982149969c73e26`（v0.6.4）；只迁已真机验证的自然标点固定分段、首段固定 1 秒预填充和播放上一段时生成下一段，禁止读取或混入该提交之后的真流式代码。
@@ -106,6 +106,7 @@
 14. 上述窄修由远端提交 `92b5ccf35bc1f9c70b09fc3b72b49659aeb8c285` / tree `09e626d8af2ee1870adad5008dcf7ee20ac92315` 推送，run [`34335361587`](https://github.com/catkiss62/ai-companion-build/actions/runs/34335361587)（802）证明 v0.41.43～50、当前总账及一批后续历史合同均通过，随后在 `validate_v0374_audio_presentation_stabilization.py` 强制查找已删除的 `streamLeadIn = Completer<void>()` 处失败。该 token 属于回复生成中 provider-token 真流式，正是用户明确排除的后加测试板块；v0.41.55 仍用 `leadIn` 把情绪提示音与提交后的固定分段播放排序。v0.37.4 validator 现按版本验证新固定路径且禁止 controller 调 `beginStream`；预跑全工作流源码合同另发现 v0.31.9 仍要求 provisional `job.assistantMessageId` owner，已同样按 55 验证只用已提交 `result.assistant!.id`。其余本地失败仅为 CI 才恢复的桌宠/LingChat/签名载荷，未发现第三个源码合同缺口。
 15. 两项兼容窄修由远端提交 `9c83efe0a24646734175c6748ff14eafc046ce64` / tree `d657065285dfa292faad5008dcf7ee20ac92315` 推送。run [`34336092380`](https://github.com/catkiss62/ai-companion-build/actions/runs/34336092380)（803）确认完整 `Source and regression validation`、Flutter packages 与 `compileDebugAidl` 均通过，随后 `compileFlutterBuildDebug` 在 `durable_generation_runner.dart:948` 报 `ChatLanguage` / `ChatLanguageVariant` 不是类型。原因是移除三语生成 codec/import 时，sticker-only 分支仍需构造类型化空 variant map；窄修只恢复 `chat_language_variant.dart` domain model import，不恢复三语 prompt、解析或每轮外语生成。待第四轮真实编译。
 16. 类型 import 窄修由远端提交 `a24464043b6d3d91e26a3a33bad368833c6ff994` / tree `015077be785a8225e094d53413efd045d7276839` 推送。run [`34337137926`](https://github.com/catkiss62/ai-companion-build/actions/runs/34337137926)（804）通过全部源码合同、AIDL/Kotlin、Flutter debug 编译和 analyze，Flutter tests 得到 `693 passed / 8 failed`。三项 `MessageLanguageVariantService` 测试均超时，根因是 `.whenComplete(() => _inFlight.remove(key))` 的表达式体返回被移除的同一个 Future，使完成链等待自身；改成 void 代码块后只清理 map、不返回 Future。其余五项旧队列测试期待每个句号独立分段且去除标点，与固定 v0.6.4 的 42 字内自然短句打包、保留标点语义冲突；测试已改用足够长的自然句确保多段，并继续验证后段预生成、Stop 失效、单段失败隔离和 lead-in 顺序，不改变生产分段器。待第五轮。
+17. 最终运行代码由远端提交 `772a590491b3105ca7b1f8eb1729b7c1826f1b63` / tree `ad4a72038fa1042fa08a43b5142f4e6a217636c6` 推送，本地等价 tree 提交为 `9acb373`。Actions run [`34338568893`](https://github.com/catkiss62/ai-companion-build/actions/runs/34338568893)（805）完整成功：源码/历史合同、AIDL/Kotlin、Flutter analyze、701/701 Flutter tests、arm64 Release、固定签名 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`、38 个 Genie/OpenJTalk 文件、417 文件桌宠、62 文件 LingChat 与 22 张塔罗全部通过。APK `AI-Companion-v0.41.55-194-Genie-Direct-Port-Lazy-Language-APK.apk` 为 533,617,807 bytes，SHA-256 `48f4638595272472b446bf80b81e5e5f640cad7f1f1e38f88fd3ccf873e0778a`；Artifact `10099125507` 为 526,810,443 bytes / digest `203aab8d0b3bfd2421119254e048bf72a335f1b00258ebf25a761aba8fd804ab`，保留至 2026-09-23；Draft Release `385382818` 未发布，`main` 未合并。独立下载复算与 CI/Draft digest 一致，状态严格提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 
