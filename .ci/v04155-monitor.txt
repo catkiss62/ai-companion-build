@@ -1,7 +1,7 @@
 status=success
-run_id=34387040169
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34387040169
-head_sha=16173d8c1956961119cca651638dc3a4a41a478f
+run_id=34394555348
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34394555348
+head_sha=ee4c034e4cc2eaedcef849e63d66e0a47bcec944
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-c1f2ee17d946ee1af7943d9ea4b71539b5f4548e9efe54ef27122ba68b72bb78  AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fcd49a9314364ea22c07
+b7cf35c1350384f2fd465a8db2b5d8f87869d6062427df6d0788872e1085e9aa  AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-855890f16cfd659300c5
