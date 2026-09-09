@@ -33,14 +33,14 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.55 远端构建 head `772a590491b3105ca7b1f8eb1729b7c1826f1b63` / tree `ad4a72038fa1042fa08a43b5142f4e6a217636c6`；本地等价 tree 提交 `9acb373`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
+| 有效构建 head / tree | v0.41.55+195 远端构建 head `18b04f37a2d6720f39a0a6a23231288ee0eec363` / tree `63a392c9cc9e7d77a18d333bdb7441dde02f3773`；本地等价 tree 提交 `e6e08b2`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
 | App / 数据库 | 当前修复目标为 `0.41.55+195 / schema 57 / Snapshot protocol 5`；上一真机包为 `0.41.55+194`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | 上一 v0.41.55+194 run [`34338568893`](https://github.com/catkiss62/ai-companion-build/actions/runs/34338568893)（805）完整成功；+195 已实现旧运行资源强制完整重建、真实播放结果和退出资源量取证，当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING` |
-| 测试 APK | 上一包 `AI-Companion-v0.41.55-194-Genie-Direct-Port-Lazy-Language-APK.apk` 已真机证明主 App 不再随 TTS native abort 闪退，但无 WAV/无播放；+195 APK 待 Actions 生成 |
-| APK SHA-256 | `48f4638595272472b446bf80b81e5e5f640cad7f1f1e38f88fd3ccf873e0778a`；CI checksum、Draft 资产 digest 与独立下载复算一致 |
-| Artifact / Release | Artifact [`10099125507`](https://github.com/catkiss62/ai-companion-build/actions/runs/34338568893/artifacts/10099125507)，ZIP 526,810,443 bytes / digest `203aab8d0b3bfd2421119254e048bf72a335f1b00258ebf25a761aba8fd804ab`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-bddfc9b7d7fb62ce7a11) 保持草稿，未合并 `main`、未发布正式 Release |
+| 最终 CI | v0.41.55+195 run [`34345537802`](https://github.com/catkiss62/ai-companion-build/actions/runs/34345537802)（806）完整成功：源码合同、AIDL/Kotlin、Flutter analyze/全测试、arm64 Release、固定签名与全资源校验全绿；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.55-195-Genie-Direct-Port-Lazy-Language-APK.apk`，533,619,075 bytes；覆盖安装后首次 TTS 会重建可恢复的 Genie 版本目录，保留已导入 shared RoBERTa |
+| APK SHA-256 | `434375159a42b445e35fb71b261797ef95bfade791f350b3e805cc2166e023a6`；Draft 资产服务端 digest 已确认 |
+| Artifact / Release | Artifact [`10101935380`](https://github.com/catkiss62/ai-companion-build/actions/runs/34345537802/artifacts/10101935380)，ZIP 526,811,227 bytes / digest `46459774ea2c67e610d4ad3e60ef0324553220eb6a6e176325b4fd94d40f6c60`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59784afd924ab3e9fb29) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.55+194 真机证明私有 TTS 进程成功保护主 App，但 TTS 子进程仍确定性 native abort：中文停在 `prepare_frontend_zh`，英文停在 `infer_en`，从未到 `wav_ready/audio_playback`。+195 以旧版非空运行资源复用为首要根因，首次启动只重建可恢复的 Genie 版本目录并保留 shared RoBERTa；当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前总状态 | v0.41.55+194 真机证明私有 TTS 进程成功保护主 App，但 TTS 子进程仍确定性 native abort：中文停在 `prepare_frontend_zh`，英文停在 `infer_en`，从未到 `wav_ready/audio_playback`。+195 已对齐干净资源释放与独立 Genie 的单 Java worker 执行环境，并通过全量 CI；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -111,6 +111,8 @@
 19. +195 窄修保持 Genie v0.6.4 七个核心文件逐字 SHA 不变，首要修复独立测试 APK与升级伴侣的 filesDir 差异：旧 v0.41.53/54 已使用同一 `genie-benchmark/<manifest.version>`，而原版 copier 对任意非空旧文件直接跳过。新增伴侣侧 `GenieRuntimeAssetStore`，首次初始化只删除可从 APK 重建且 canonical parent 精确匹配的版本目录，保留 sibling `shared/` 中用户已校验 RoBERTa；完整复制声学与前端资源后才以 AtomicFile 写迁移完成标记，中途退出会下次从干净目录重试。测试朗读改为跟随当前 `tts_language` 的中/日/EN 文本，队列只有确实调用播放后才报告成功；checkpoint/`ApplicationExitInfo` 增加退出进程角色、PSS、RSS 与线程数。同包追加自定义模型可用的 `low` 思考强度，并校验其原样进入 `reasoning_effort` 请求字段；自定义模型改为禁用 Autofill 的普通文本框，避免被密码管理器误判。TTS 删除内置 `Yuki→有希`，默认改为 `token→拖肯` 与 `DeepSeek→地铺C咳`；仅精确等于旧默认的存档自动迁移，用户自定义表不覆盖，轻音继续由已验证的整词 phone ID 保证。版本提升为 `0.41.55+195`；专项静态合同与 `git diff --check` 已通过，本环境仍无 Flutter/Dart，真实格式、Kotlin/Flutter 编译、全测试和 APK 待 Actions。
 
 20. 继续对照已验收独立 Genie 运行环境发现：原 App 用 `Executors.newSingleThreadExecutor()` 在一条普通 Java worker 上持有和调用 ORT，而 +194 的 AIDL 方法直接在 Binder 线程池运行。+195 已将所有 Genie 引擎调用汇聚到专用 `Genie-TTS-worker`，Stop 仍可从 Binder 线程直接提升 cancellation generation；这与干净资源重建一起是实际运行对齐，不是单纯增加检测。
+
+21. 构建源码已由远端提交 `18b04f37a2d6720f39a0a6a23231288ee0eec363` / tree `63a392c9cc9e7d77a18d333bdb7441dde02f3773` 精确推送，本地等价 tree 提交为 `e6e08b2`。Actions run [`34345537802`](https://github.com/catkiss62/ai-companion-build/actions/runs/34345537802)（806）完整成功：源码/历史合同、AIDL/Kotlin、Flutter analyze/全测试、arm64 Release、固定签名、38 个 Genie/OpenJTalk 文件、417 个桌宠文件、LingChat 与塔罗全部通过。APK 为 533,619,075 bytes，SHA-256 `434375159a42b445e35fb71b261797ef95bfade791f350b3e805cc2166e023a6`；Artifact `10101935380` 为 526,811,227 bytes / digest `46459774ea2c67e610d4ad3e60ef0324553220eb6a6e176325b4fd94d40f6c60`，保留至 2026-09-23。Draft Release 仍未发布，`main` 未合并；状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 
