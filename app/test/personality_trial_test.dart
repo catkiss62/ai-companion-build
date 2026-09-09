@@ -40,7 +40,7 @@ void main() {
     expect(trial.isAdoptableAt(start.add(const Duration(days: 9))), isFalse);
   });
 
-  test('catalog keeps styles temporary and naturally adult-capable', () {
+  test('catalog keeps styles temporary and naturally intimacy-capable', () {
     final trial = PersonalityCatalog.compileProfile(
       'playful',
       'impish',
@@ -80,7 +80,7 @@ void main() {
     expect(trial, contains('内在反应'));
     expect(trial, contains('表达落地'));
     expect(trial, contains('可以顺势升温'));
-    expect(reserved, contains('用户是男朋友，不是客户、孩子或指令来源'));
+    expect(reserved, contains('用户是男朋友，不是客户或指令来源'));
     expect(trial, contains('倒打一耙'));
     expect(trial, contains('抓住破绽追一下'));
     expect(trial, contains('当前试穿'));

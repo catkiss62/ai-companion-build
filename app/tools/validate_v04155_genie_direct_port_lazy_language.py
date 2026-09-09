@@ -231,6 +231,11 @@ for token in (
 ):
     assert token in defaults, token
 assert "...legacyEditableRuleLayerSha256V04155UserDefaults.entries" in db
+assert "legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup" in defaults
+assert "...legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.entries" in db
+special_styles = read("lib/core/rules/rule_layer_content_v0400.dart")
+for token in ("孩子", "小女孩", "果冻般的少女"):
+    assert token not in special_styles, token
 world_book = read("lib/core/reference/world_book_presets.dart")
 assert "content: worldBookHumorV04155User" in world_book
 assert "probability: 50" in world_book

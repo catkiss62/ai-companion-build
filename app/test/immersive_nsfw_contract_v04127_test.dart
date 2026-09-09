@@ -18,7 +18,7 @@ void main() {
     expect(sections.body, isNot(contains('【输出前自查】')));
     expect(sections.preflight, contains('【输出前自查】'));
     expect(sections.preflight, contains('肉棒'));
-    expect(sections.preflight, contains('龟头/顶端/柱身/囊袋/根部'));
+    expect(sections.preflight, contains('叙述层·直白中性词'));
     expect(sections.preflight, contains('大量叠词'));
 
     final late = sections.latePrompt(

@@ -260,6 +260,12 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04127ImmersiveCleanup.length, 4);
     expect(legacyEditableRuleLayerSha256V04145NicknameExamples.length, 1);
     expect(legacyEditableRuleLayerSha256V04155UserDefaults.length, 8);
+    expect(legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.length, 3);
+    expect(
+      legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup[
+          '07_special_yandere'],
+      'dfba40df574f92796a10b94dd340850b9aa8b76c1b52c91ecf0eec5fa4ccc4bd',
+    );
     expect(
       legacyEditableRuleLayerSha256V04145NicknameExamples['01_core'],
       '786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c',
@@ -348,6 +354,7 @@ void main() {
       '年龄模糊',
       '孩子',
       '幼儿',
+      '小女孩',
       ' adult ',
       ' minor ',
     ]) {

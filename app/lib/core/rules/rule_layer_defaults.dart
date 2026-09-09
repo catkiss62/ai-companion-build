@@ -313,6 +313,19 @@ const legacyEditableRuleLayerSha256V04155UserDefaults = <String, String>{
       '79ca598c7252c59d7a6a0be4a6abf9be5fb2ae68de0906ba0149c3157fe59dc3',
 };
 
+/// Exact v0.40.0 special-style bodies before the v0.41.55 age-boundary
+/// cleanup. Hash-only matching updates untouched bundled copies while
+/// preserving every user edit.
+const legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup =
+    <String, String>{
+  '07_special_yandere':
+      'dfba40df574f92796a10b94dd340850b9aa8b76c1b52c91ecf0eec5fa4ccc4bd',
+  '07_special_highness':
+      'ce35f5bfc021b875fbcab28744fa7fee04d9acf622595e81492f5e453ca30bd9',
+  '07_special_slime':
+      'd64ec6b77ed562771bfd1cfa3c508b5a3179e716225892a5b35d78060b9e51c2',
+};
+
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
 /// revision. Hash-only matching upgrades the known experiment while preserving
 /// every manually edited prompt, including the user's A/B copies.
