@@ -33,6 +33,14 @@ def require(condition: bool, message: str) -> None:
 def main() -> None:
     ledger = LEDGER.read_text(encoding="utf-8")
     require(
+        ledger.startswith("# AI Companion · 当前总账\n"),
+        "ledger is not the expected UTF-8 Markdown document",
+    )
+    require(
+        "\x00" not in ledger and "\ufffd" not in ledger,
+        "ledger contains binary or replacement characters",
+    )
+    require(
         len(re.findall(rf"^{re.escape(HANDOFF_STOP_MARKER)}$", ledger, re.MULTILINE))
         == 1,
         "compact handoff stop heading contract changed",
