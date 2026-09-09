@@ -353,6 +353,22 @@ class AndroidBridge {
   Future<void> clearRuntimeDiagnostics() =>
       _channel.invokeMethod<void>('clearRuntimeDiagnostics');
 
+  Future<void> recordTtsClientFailure({
+    required String phase,
+    required String language,
+    required String code,
+  }) async {
+    try {
+      await _channel.invokeMethod<void>('recordTtsClientFailure', {
+        'phase': phase,
+        'language': language,
+        'code': code,
+      });
+    } catch (_) {
+      // Diagnostics are best-effort and must not replace the visible failure.
+    }
+  }
+
   Future<void> openOverlaySettings() =>
       _channel.invokeMethod<void>('openOverlaySettings');
 

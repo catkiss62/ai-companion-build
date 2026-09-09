@@ -66,16 +66,31 @@ class NativeTtsBridge(
                         engine.generate(text, language, voice, generation)
                     }
                 }
-                "playAudio" -> {
+                "beginAudioStream" -> {
+                    val generation = engine.generationToken()
+                    submit(playbackWorker, result, "tts_playback_begin_failed") {
+                        engine.beginAudioStream(generation)
+                        null
+                    }
+                }
+                "enqueueAudio" -> {
                     val audio = call.argument<ByteArray>("audioData") ?: byteArrayOf()
                     val generation = engine.generationToken()
-                    submit(playbackWorker, result, "tts_playback_failed") {
-                        engine.playAudio(audio, generation)
+                    submit(playbackWorker, result, "tts_playback_enqueue_failed") {
+                        engine.enqueueAudio(audio, generation)
+                        null
+                    }
+                }
+                "finishAudioStream" -> {
+                    val generation = engine.generationToken()
+                    submit(playbackWorker, result, "tts_playback_finish_failed") {
+                        engine.finishAudioStream(generation)
                         null
                     }
                 }
                 // Backwards-compatible one-shot path. Normal app speech uses
-                // generate + playAudio through the A2 scheduler above.
+                // generate + one continuous AudioTrack stream through the
+                // scheduler above.
                 "speak" -> {
                     val text = call.argument<String>("text").orEmpty()
                     submit(playbackWorker, result, "tts_speak_failed") {

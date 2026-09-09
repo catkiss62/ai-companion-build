@@ -85,8 +85,16 @@ class NativeTtsProvider implements TtsProvider {
       });
 
   @override
-  Future<void> playAudio(Uint8List wavBytes) =>
-      _channel.invokeMethod<void>('playAudio', {'audioData': wavBytes});
+  Future<void> beginAudioStream() =>
+      _channel.invokeMethod<void>('beginAudioStream');
+
+  @override
+  Future<void> enqueueAudio(Uint8List wavBytes) =>
+      _channel.invokeMethod<void>('enqueueAudio', {'audioData': wavBytes});
+
+  @override
+  Future<void> finishAudioStream() =>
+      _channel.invokeMethod<void>('finishAudioStream');
 
   @override
   Future<void> stop() => _channel.invokeMethod<void>('stop');

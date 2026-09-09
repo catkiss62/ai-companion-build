@@ -53,22 +53,23 @@ def main() -> int:
     print('[OK] A2 speech-only Yuki/bracket preprocessing preserved')
 
     queue = (ROOT / 'lib/core/tts/tts_playback_queue.dart').read_text(encoding='utf-8')
-    assert 'interSentenceGap = const Duration(milliseconds: 200)' in queue
     assert 'service.generatePrepared(' in queue
     assert 'text,\n          emotion: session.emotion,' in queue
-    assert 'service.playPrepared(audio)' in queue
     assert 'audio = await service.generatePrepared(' in queue  # inside independent async task, not playback chain
-    assert '_hasPlayableReady(session)' in queue
+    assert 'service.beginPlayback()' in queue
+    assert 'service.enqueuePlayback(audio)' in queue
+    assert 'service.finishPlayback()' in queue
+    assert 'interSentenceGap' not in queue
     assert '_tail = _tail.then' not in queue
     print('[OK] A2 generation-ahead queue replaces serial generate+play tail')
 
     bridge = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt').read_text(encoding='utf-8')
     engine = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt').read_text(encoding='utf-8')
-    for token in ['generationWorker', 'playbackWorker', '"generate"', '"playAudio"']:
+    for token in ['generationWorker', 'playbackWorker', '"generate"', '"beginAudioStream"', '"enqueueAudio"', '"finishAudioStream"']:
         assert token in bridge, token
     assert 'fun generate(text: String' in engine
-    assert 'fun playAudio(wav: ByteArray' in engine
-    assert 'allowing sentence N+1 to infer while sentence N is audible' in engine
+    assert 'fun beginAudioStream(' in engine
+    assert 'fun enqueueAudio(wav: ByteArray' in engine
     print('[OK] native inference and AudioTrack workers are separated with one serialized MNN generator')
 
     legacy = (ROOT / 'android/app/src/main/kotlin/com/aicompanion/localfirst/LegacyTtsRuntime.kt').read_text(encoding='utf-8')

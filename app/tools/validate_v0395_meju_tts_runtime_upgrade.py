@@ -147,12 +147,10 @@ queue = read("lib/core/tts/tts_playback_queue.dart")
 segmenter = read("lib/core/tts/tts_sentence_segmenter.dart")
 emotion = read("lib/core/tts/emotion_sound_service.dart")
 for token in (
-    "fun generate(text: String, generation: Long = generationToken()): ByteArray?",
-    "fun playAudio(wav: ByteArray",
+    "fun beginAudioStream(",
+    "fun enqueueAudio(wav: ByteArray",
+    "fun finishAudioStream(",
     "speechGeneration",
-    "speechLock",
-    "allowing sentence N+1 to infer while sentence N is audible",
-    "metadata = runtime.failureDiagnosticMetadata(t)",
 ):
     assert token in engine, token
 diagnostic_store = read(
@@ -164,9 +162,11 @@ assert 'call.argument<ByteArray>("audioData")' in bridge
 assert "appContext.assets.open(path).use { true }" in verifier
 assert "it.read() >= 0" not in verifier
 assert "invokeMethod<Uint8List>('generate'" in provider
-assert "Future<void> playAudio(Uint8List wavBytes)" in provider
+assert "Future<void> beginAudioStream()" in provider
+assert "Future<void> enqueueAudio(Uint8List wavBytes)" in provider
+assert "Future<void> finishAudioStream()" in provider
 assert "Map<int, Uint8List?>" in queue
-assert "generation-ahead" in queue and "service.playPrepared(audio)" in queue
+assert "generation-ahead" in queue and "service.enqueuePlayback(audio)" in queue
 assert "maxSafeChunkChars = 72" in segmenter and "_findSafetyBoundary" in segmenter
 assert "Future<void> play(String wavBase64)" in emotion
 

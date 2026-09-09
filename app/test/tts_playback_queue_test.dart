@@ -16,6 +16,8 @@ class _FakeQueueService implements TtsQueueService {
   final generatedLanguages = <ChatLanguage>[];
   final generatedVoices = <TtsVoiceMode>[];
   final played = <String>[];
+  int playbackBeginCount = 0;
+  int playbackFinishCount = 0;
   int stopCount = 0;
   Completer<void>? firstPlaybackGate;
   Completer<void>? firstGenerationGate;
@@ -59,11 +61,19 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
-  Future<void> playPrepared(Uint8List wavBytes) async {
+  Future<void> beginPlayback() async {
+    playbackBeginCount++;
+  }
+
+  @override
+  Future<void> enqueuePlayback(Uint8List wavBytes) async {
     played.add(utf8.decode(wavBytes));
-    if (played.length == 1 && firstPlaybackGate != null) {
-      await firstPlaybackGate!.future;
-    }
+  }
+
+  @override
+  Future<void> finishPlayback() async {
+    playbackFinishCount++;
+    if (firstPlaybackGate != null) await firstPlaybackGate!.future;
   }
 
   @override
@@ -79,8 +89,6 @@ void main() {
     final fake = _FakeQueueService()..firstPlaybackGate = Completer<void>();
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     const text = '第一句要有足够长度来验证播放时生成后续固定分段。'
@@ -92,12 +100,14 @@ void main() {
     await _turn();
     await _turn();
 
-    expect(fake.played, ['wav:${chunks.first}']);
+    expect(fake.played, chunks.map((chunk) => 'wav:$chunk').toList());
     expect(fake.generated, chunks);
 
     fake.firstPlaybackGate!.complete();
     await queue.waitUntilIdle();
     expect(fake.played, chunks.map((chunk) => 'wav:$chunk').toList());
+    expect(fake.playbackBeginCount, 1);
+    expect(fake.playbackFinishCount, 1);
     expect(queue.playedAny, isTrue);
   });
 
@@ -105,8 +115,6 @@ void main() {
     final fake = _FakeQueueService()..failFirstGeneration = true;
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.playText('这句合成失败。', manual: true);
@@ -120,8 +128,6 @@ void main() {
     final fake = _FakeQueueService()..firstPlaybackGate = Completer<void>();
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     const text = '第一句要有足够长度来验证停止后不能继续播放。'
@@ -130,13 +136,14 @@ void main() {
     expect(chunks, hasLength(2));
     await queue.playText(text, manual: true);
     await _turn();
-    expect(fake.played, ['wav:${chunks.first}']);
+    expect(fake.played, isNotEmpty);
+    final submittedBeforeStop = List<String>.of(fake.played);
 
     await queue.stop();
     fake.firstPlaybackGate!.complete();
     await _turn();
 
-    expect(fake.played, ['wav:${chunks.first}']);
+    expect(fake.played, submittedBeforeStop);
     expect(queue.state.running, isFalse);
     expect(fake.stopCount, greaterThanOrEqualTo(2));
   });
@@ -145,8 +152,6 @@ void main() {
     final fake = _FakeQueueService()..failFirstGeneration = true;
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     const text = '第一句要有足够长度并故意让本段语音生成失败。'
@@ -164,8 +169,6 @@ void main() {
     final fake = _FakeQueueService();
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.beginStream(manual: false);
@@ -183,8 +186,6 @@ void main() {
       ..prepareTransform = (text) => List<String>.filled(60, '鲸').join();
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.beginStream(manual: true);
@@ -204,8 +205,6 @@ void main() {
     final states = <TtsQueueState>[];
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
       onStateChanged: states.add,
     );
 
@@ -235,7 +234,6 @@ void main() {
   test('auto streaming announces synthesis before the first audio chunk', () async {
     final queue = TtsPlaybackQueue(
       service: _FakeQueueService(),
-      initialPrefill: Duration.zero,
     );
 
     await queue.beginStream(manual: false, ownerId: 'assistant-stream');
@@ -251,8 +249,6 @@ void main() {
     final fake = _FakeQueueService();
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.playText(
@@ -277,8 +273,6 @@ void main() {
     final fake = _FakeQueueService()..firstGenerationGate = generation;
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.playText(
@@ -298,8 +292,6 @@ void main() {
     final fake = _FakeQueueService()..resolvedVoice = TtsVoiceMode.cute;
     final queue = TtsPlaybackQueue(
       service: fake,
-      interSentenceGap: Duration.zero,
-      initialPrefill: Duration.zero,
     );
 
     await queue.playText(
@@ -320,7 +312,6 @@ void main() {
     final fake = _FakeQueueService()..voiceResolutionGate = gate;
     final queue = TtsPlaybackQueue(
       service: fake,
-      initialPrefill: Duration.zero,
     );
 
     final pending = queue.playText('这条旧请求不能复活。');

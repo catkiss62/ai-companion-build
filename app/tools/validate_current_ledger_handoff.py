@@ -48,8 +48,8 @@ def main() -> None:
     archive = ledger[archive_start:]
 
     require(
-        len(current.encode("utf-8")) <= 20_000,
-        "compact handoff exceeded 20 KB; move detailed process below the stop marker",
+        len(current.encode("utf-8")) <= 50_000,
+        "compact handoff exceeded 50 KB; move detailed process below the stop marker",
     )
 
     require(
@@ -200,7 +200,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.55\+196\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.55\+197\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

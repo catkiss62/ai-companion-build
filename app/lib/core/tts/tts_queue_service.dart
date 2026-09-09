@@ -26,8 +26,16 @@ abstract interface class TtsQueueService {
     TtsVoiceMode voice = TtsVoiceMode.daily,
   });
 
-  /// Play one already-generated WAV and complete only after AudioTrack drains.
-  Future<void> playPrepared(Uint8List wavBytes);
+  /// Open one native AudioTrack stream for the whole utterance. The native
+  /// player performs Genie's one-second PCM prefill on the first WAV.
+  Future<void> beginPlayback();
+
+  /// Append one generated WAV to the current native stream without waiting for
+  /// audible drain, allowing the serial inference worker to keep running ahead.
+  Future<void> enqueuePlayback(Uint8List wavBytes);
+
+  /// Seal the stream and complete only after all queued PCM has drained.
+  Future<void> finishPlayback();
 
   Future<void> stop();
 }

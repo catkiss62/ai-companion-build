@@ -34,10 +34,10 @@ for token in [
     "enum TtsPlaybackPhase { idle, synthesizing, playing }",
     "final TtsPlaybackPhase phase",
     "final String? ownerId",
-    "session.playing",
     "ownerId: session.ownerId",
 ]:
     assert token in queue, token
+assert "session.playbackActive" in queue
 
 controller = read("lib/features/chat/chat_controller.dart")
 for token in [
@@ -47,7 +47,7 @@ for token in [
     "messages = await db.recentMessages(limit: 120)",
 ]:
     assert token in controller, token
-if "version: 0.41.55+196" in pubspec:
+if any(version in pubspec for version in ("version: 0.41.55+196", "version: 0.41.55+197")):
     # Fixed-segment Genie playback starts only from the committed assistant
     # message; there is intentionally no provisional provider-stream owner.
     assert "ttsPlayback.playText(" in controller
@@ -65,6 +65,8 @@ for token in [
 ]:
     assert token in page, token
 assert "Icons.stop_circle_outlined" not in page
+assert "onPressed: onPressed" in page
+assert "停止生成语音" in page
 
 server = read("lib/core/platform/background_chat_command_server.dart")
 assert "case 'ttsSnapshot':" in server
@@ -82,6 +84,7 @@ for token in [
 ]:
     assert token in overlay, token
 assert 'smallButton("停语音")' not in overlay
+assert '"synthesizing" -> {' in overlay and 'setOnClickListener { stopSpeech() }' in overlay
 assert (ROOT / "android/app/src/main/res/drawable/ic_volume_up_outlined.xml").is_file()
 
 tests = read("test/tts_playback_queue_test.dart")

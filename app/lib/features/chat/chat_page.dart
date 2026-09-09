@@ -81,6 +81,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _followLatest = true;
   bool _programmaticScroll = false;
   bool _lastGenerationActive = false;
+  String _lastStreamingReasoning = '';
+  String _lastStreamingContent = '';
   final GlobalKey _timelineTailKey = GlobalKey();
   final GlobalKey _streamingBodyTailKey = GlobalKey();
   ProactiveNotificationSound _notificationSound =
@@ -188,6 +190,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final generationEnded =
         _lastGenerationActive && !controller.generationActive;
     _lastGenerationActive = controller.generationActive;
+    final streamChanged =
+        _lastStreamingReasoning != controller.streamingReasoning ||
+            _lastStreamingContent != controller.streamingContent;
+    _lastStreamingReasoning = controller.streamingReasoning;
+    _lastStreamingContent = controller.streamingContent;
     var discoveredAssistant = false;
     for (final message in controller.messages) {
       if (_knownMessageIds.add(message.id) && message.isAssistant) {
@@ -223,16 +230,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
     setState(() {});
-    if (_followLatest) {
+    if (GenerationPresentationPolicy.shouldFollowChatNotification(
+      followLatest: _followLatest,
+      generationActive: controller.generationActive,
+      generationEnded: generationEnded,
+      streamChanged: streamChanged,
+      discoveredAssistant: discoveredAssistant,
+    )) {
       if (controller.generationActive &&
           controller.streamingContent.trim().isNotEmpty) {
         // Follow the actual visible answer tail. A long reasoning panel above
         // it may change height dramatically while streaming/collapsing, so the
         // ListView's old max extent is not a stable anchor.
         _anchorStreamingBody();
-      } else if (generationEnded) {
+      } else if (generationEnded || discoveredAssistant) {
         _anchorTimelineTail();
-      } else {
+      } else if (controller.generationActive && streamChanged) {
         // Reasoning deltas arrive faster than a 180 ms animation can finish.
         // Jumping here prevents queued animations from lagging behind the
         // provider stream and later winning against the final collapse anchor.
@@ -1125,8 +1138,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             ? () {
                                 if (controller.ttsPhaseForMessage(
                                       item.message!.id,
-                                    ) ==
-                                    TtsPlaybackPhase.playing) {
+                                    ) !=
+                                    TtsPlaybackPhase.idle) {
                                   controller.stopSpeech();
                                 } else {
                                   _speakMessageSafely(
@@ -1339,8 +1352,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     'tts_language',
                     language.key,
                   );
-                  if (!mounted) return;
-                  await _speakMessageSafely(message, language: language);
                 },
               ),
             ),
@@ -3526,10 +3537,10 @@ class _LanguageSpeechButton extends StatelessWidget {
       ChatLanguage.english => '英语',
     };
     final description = preparing
-        ? '正在准备$languageName'
+        ? '正在准备$languageName语音；点击停止'
         : enabled
-            ? '播放$languageName语音'
-            : '这条消息没有$languageName版本';
+            ? '选择$languageName作为朗读语言'
+            : '没有可朗读的消息';
     return Tooltip(
       message: description,
       child: Semantics(
@@ -3666,7 +3677,7 @@ class _SpeechActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
       padding: EdgeInsets.zero,
       iconSize: 18,
-      onPressed: synthesizing ? null : onPressed,
+      onPressed: onPressed,
       icon: synthesizing
           ? const Text(
               '…',
@@ -3679,7 +3690,7 @@ class _SpeechActionButton extends StatelessWidget {
                 )
               : const Icon(Icons.volume_up_outlined),
       tooltip: synthesizing
-          ? '正在合成语音'
+          ? '停止生成语音'
           : playing
               ? '停止播放'
               : '朗读这条回复',

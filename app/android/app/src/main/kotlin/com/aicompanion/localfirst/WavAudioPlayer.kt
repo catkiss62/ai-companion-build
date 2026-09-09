@@ -2,127 +2,266 @@ package com.aicompanion.localfirst
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.math.max
+import kotlin.math.min
 
-/** Minimal PCM-WAV player used by the local TTS adapter. */
+/** One utterance = one AudioTrack, matching the verified Genie v0.6.4 player. */
 class WavAudioPlayer {
+    private sealed interface Command {
+        data class Audio(val bytes: ByteArray, val wav: WavInfo) : Command
+        data object Finish : Command
+        data object Cancel : Command
+    }
+
     private val lock = Any()
 
     @Volatile
-    private var track: AudioTrack? = null
-
-    @Volatile
-    private var stopped = false
+    private var stream: StreamSession? = null
 
     @Volatile
     private var volume = 1.0f
 
     fun setVolume(value: Float) {
         volume = value.coerceIn(0f, 1f)
-        synchronized(lock) {
-            runCatching { track?.setVolume(volume) }
+        stream?.setVolume(volume)
+    }
+
+    fun beginStream(onStarted: () -> Unit = {}) {
+        stop()
+        val next = StreamSession(volume, onStarted)
+        synchronized(lock) { stream = next }
+        next.start()
+    }
+
+    fun enqueueStream(wavBytes: ByteArray) {
+        val wav = parseWav(wavBytes)
+        val current = synchronized(lock) { stream }
+            ?: error("TTS audio stream has not started")
+        current.enqueue(wavBytes, wav)
+    }
+
+    /** Returns true only when AudioTrack actually started and drained. */
+    fun finishStream(): Boolean {
+        val current = synchronized(lock) { stream } ?: return false
+        return try {
+            current.finishAndWait()
+        } finally {
+            synchronized(lock) {
+                if (stream === current) stream = null
+            }
         }
     }
 
     fun play(wavBytes: ByteArray) {
-        val wav = parseWav(wavBytes)
-        stop()
-        stopped = false
-
-        val channelMask = when (wav.channels) {
-            1 -> AudioFormat.CHANNEL_OUT_MONO
-            2 -> AudioFormat.CHANNEL_OUT_STEREO
-            else -> error("Unsupported WAV channel count: ${wav.channels}")
-        }
-        val encoding = when (wav.bitsPerSample) {
-            16 -> AudioFormat.ENCODING_PCM_16BIT
-            8 -> AudioFormat.ENCODING_PCM_8BIT
-            else -> error("Unsupported WAV bit depth: ${wav.bitsPerSample}")
-        }
-        if (wav.audioFormat != 1) {
-            error("Unsupported WAV format ${wav.audioFormat}; PCM is required")
-        }
-
-        val minBuffer = AudioTrack.getMinBufferSize(wav.sampleRate, channelMask, encoding)
-        if (minBuffer <= 0) error("AudioTrack rejected WAV format")
-        val bufferSize = max(minBuffer, 16 * 1024)
-        val next = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(encoding)
-                    .setSampleRate(wav.sampleRate)
-                    .setChannelMask(channelMask)
-                    .build(),
-            )
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .setBufferSizeInBytes(bufferSize)
-            .build()
-
-        synchronized(lock) {
-            track = next
-            next.setVolume(volume)
-            next.play()
-        }
-
-        var offset = wav.dataOffset
-        val end = wav.dataOffset + wav.dataSize
-        while (!stopped && offset < end) {
-            val size = minOf(16 * 1024, end - offset)
-            val written = next.write(wavBytes, offset, size, AudioTrack.WRITE_BLOCKING)
-            if (written < 0) error("AudioTrack.write failed: $written")
-            offset += written
-        }
-
-        // MODE_STREAM write completion can precede the final audible frames.
-        val bytesPerFrame = wav.channels * (wav.bitsPerSample / 8)
-        val targetFrames = if (bytesPerFrame > 0) wav.dataSize / bytesPerFrame else 0
-        while (!stopped && next.playState == AudioTrack.PLAYSTATE_PLAYING &&
-            next.playbackHeadPosition < targetFrames
-        ) {
-            Thread.sleep(12)
-        }
-
-        synchronized(lock) {
-            if (track === next) track = null
-        }
-        runCatching { next.stop() }
-        next.release()
+        beginStream()
+        enqueueStream(wavBytes)
+        finishStream()
     }
 
-    fun pause() {
-        synchronized(lock) { runCatching { track?.pause() } }
-    }
+    fun pause() = stream?.pause()
 
-    fun resume() {
-        synchronized(lock) { runCatching { track?.play() } }
-    }
+    fun resume() = stream?.resume()
 
     fun stop() {
-        stopped = true
         val old = synchronized(lock) {
-            val value = track
-            track = null
+            val value = stream
+            stream = null
             value
         }
-        if (old != null) {
-            runCatching { old.pause() }
-            runCatching { old.flush() }
-            runCatching { old.stop() }
-            // play() owns release(). Releasing here while its blocking write
-            // loop still holds the same AudioTrack can cross into freed native
-            // state when a user interrupts or switches languages.
+        old?.cancel()
+    }
+
+    private inner class StreamSession(
+        initialVolume: Float,
+        private val onStarted: () -> Unit,
+    ) {
+        private val queue = LinkedBlockingQueue<Command>()
+        private val started = CountDownLatch(1)
+        private val completed = CountDownLatch(1)
+        private val thread = Thread(::runWriter, "Genie-TTS-stream-player").apply {
+            isDaemon = true
+        }
+
+        @Volatile private var cancelled = false
+        @Volatile private var failure: Throwable? = null
+        @Volatile private var track: AudioTrack? = null
+        @Volatile private var playbackStarted = false
+        @Volatile private var currentVolume = initialVolume
+        private var firstEnqueued = false
+
+        fun start() = thread.start()
+
+        fun setVolume(value: Float) {
+            currentVolume = value
+            runCatching { track?.setVolume(value) }
+        }
+
+        fun enqueue(bytes: ByteArray, wav: WavInfo) {
+            check(!cancelled) { "TTS audio stream has stopped" }
+            val isFirst = synchronized(this) {
+                (!firstEnqueued).also { firstEnqueued = true }
+            }
+            queue.put(Command.Audio(bytes, wav))
+            if (isFirst) {
+                started.await()
+                failure?.let { throw it }
+                check(playbackStarted) { "AudioTrack did not start" }
+            }
+        }
+
+        fun finishAndWait(): Boolean {
+            if (!cancelled) queue.put(Command.Finish)
+            completed.await()
+            failure?.let { throw it }
+            return playbackStarted && !cancelled
+        }
+
+        fun cancel() {
+            cancelled = true
+            queue.offer(Command.Cancel)
+            runCatching { track?.pause() }
+            runCatching { track?.flush() }
+            started.countDown()
+        }
+
+        fun pause() {
+            runCatching { track?.pause() }
+        }
+
+        fun resume() {
+            runCatching { track?.play() }
+        }
+
+        private fun runWriter() {
+            var localTrack: AudioTrack? = null
+            var format: WavInfo? = null
+            var framesWritten = 0L
+            try {
+                while (!cancelled) {
+                    when (val command = queue.take()) {
+                        Command.Cancel -> break
+                        Command.Finish -> break
+                        is Command.Audio -> {
+                            val wav = command.wav
+                            if (format == null) {
+                                format = wav
+                                val created = createTrack(wav)
+                                localTrack = created
+                                track = created
+                                created.setVolume(currentVolume)
+                            } else {
+                                check(checkNotNull(format).samePcmFormat(wav)) {
+                                    "TTS stream WAV format changed between segments"
+                                }
+                            }
+                            val writer = checkNotNull(localTrack)
+                            val bytesPerFrame = wav.bytesPerFrame
+                            var offset = wav.dataOffset
+                            if (!playbackStarted) {
+                                // Exact v0.6.4 policy: write up to one second of
+                                // PCM first, then start playback. This is buffer
+                                // prefill, not a one-second wall-clock delay.
+                                val prefillBytes = min(
+                                    wav.dataSize,
+                                    wav.sampleRate * bytesPerFrame,
+                                )
+                                offset += writeFully(
+                                    writer,
+                                    command.bytes,
+                                    offset,
+                                    prefillBytes,
+                                )
+                                if (cancelled) break
+                                writer.play()
+                                playbackStarted = true
+                                onStarted()
+                                started.countDown()
+                            }
+                            val remaining = wav.dataOffset + wav.dataSize - offset
+                            if (remaining > 0) {
+                                writeFully(writer, command.bytes, offset, remaining)
+                            }
+                            framesWritten += wav.dataSize / bytesPerFrame
+                        }
+                    }
+                }
+
+                val drainingTrack = localTrack
+                if (!cancelled && playbackStarted && drainingTrack != null) {
+                    while (!cancelled && playbackHeadFrames(drainingTrack) < framesWritten) {
+                        Thread.sleep(12L)
+                    }
+                    if (!cancelled) runCatching { drainingTrack.stop() }
+                }
+            } catch (error: Throwable) {
+                failure = error
+                started.countDown()
+            } finally {
+                runCatching { localTrack?.release() }
+                track = null
+                completed.countDown()
+            }
+        }
+
+        private fun createTrack(wav: WavInfo): AudioTrack {
+            val channelMask = when (wav.channels) {
+                1 -> AudioFormat.CHANNEL_OUT_MONO
+                2 -> AudioFormat.CHANNEL_OUT_STEREO
+                else -> error("Unsupported WAV channel count: ${wav.channels}")
+            }
+            val encoding = when (wav.bitsPerSample) {
+                16 -> AudioFormat.ENCODING_PCM_16BIT
+                8 -> AudioFormat.ENCODING_PCM_8BIT
+                else -> error("Unsupported WAV bit depth: ${wav.bitsPerSample}")
+            }
+            check(wav.audioFormat == 1) {
+                "Unsupported WAV format ${wav.audioFormat}; PCM is required"
+            }
+            val minBuffer = AudioTrack.getMinBufferSize(wav.sampleRate, channelMask, encoding)
+            check(minBuffer > 0) { "AudioTrack rejected WAV format" }
+            return AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(encoding)
+                        .setSampleRate(wav.sampleRate)
+                        .setChannelMask(channelMask)
+                        .build(),
+                )
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .setBufferSizeInBytes(max(minBuffer, wav.sampleRate * wav.bytesPerFrame * 2))
+                .build()
+        }
+
+        private fun writeFully(
+            target: AudioTrack,
+            bytes: ByteArray,
+            start: Int,
+            count: Int,
+        ): Int {
+            var offset = start
+            val end = start + count
+            while (!cancelled && offset < end) {
+                val written = target.write(bytes, offset, end - offset, AudioTrack.WRITE_BLOCKING)
+                check(written > 0) { "AudioTrack.write failed: $written" }
+                offset += written
+            }
+            return offset - start
         }
     }
+
+    private fun playbackHeadFrames(target: AudioTrack): Long =
+        target.playbackHeadPosition.toLong() and 0xffff_ffffL
 
     private fun parseWav(bytes: ByteArray): WavInfo {
         if (bytes.size < 44) error("WAV data is too short")
@@ -179,5 +318,14 @@ class WavAudioPlayer {
         val bitsPerSample: Int,
         val dataOffset: Int,
         val dataSize: Int,
-    )
+    ) {
+        val bytesPerFrame: Int
+            get() = channels * (bitsPerSample / 8)
+
+        fun samePcmFormat(other: WavInfo): Boolean =
+            audioFormat == other.audioFormat &&
+                channels == other.channels &&
+                sampleRate == other.sampleRate &&
+                bitsPerSample == other.bitsPerSample
+    }
 }

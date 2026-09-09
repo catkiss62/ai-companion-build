@@ -90,6 +90,22 @@ void main() {
     expect(gateway.calls, 0);
     expect(store.saves, 0);
   });
+
+  test('localized kind labels are repaired from authoritative source order', () {
+    final source = sourceMessage().segments;
+    final decoded = MessageLanguageVariantDecoder.decode(
+      <String, Object?>{
+        'segments': <Object?>[
+          <String, Object?>{'kind': '動作', 'text': 'そっと顔を上げる'},
+          <String, Object?>{'kind': '会話', 'text': 'ここにいるよ。'},
+        ],
+      },
+      source,
+    );
+
+    expect(decoded.map((item) => item.kind), source.map((item) => item.kind));
+    expect(decoded.last.text, 'ここにいるよ。');
+  });
 }
 
 class _MemoryVariantStore implements MessageLanguageVariantStore {

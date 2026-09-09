@@ -88,7 +88,8 @@ abstract class TtsProvider {
   Future<TtsStatus> importChineseRoberta(String path);
 
   /// Legacy one-shot compatibility path. Normal companion speech uses
-  /// generate()+playAudio() so inference can run ahead of playback like A2.
+  /// generate() plus one native AudioTrack stream so inference can run ahead
+  /// while later PCM is appended in FIFO order.
   Future<void> speak(String text);
   Future<Uint8List?> generate(
     String text, {
@@ -96,7 +97,9 @@ abstract class TtsProvider {
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
   });
-  Future<void> playAudio(Uint8List wavBytes);
+  Future<void> beginAudioStream();
+  Future<void> enqueueAudio(Uint8List wavBytes);
+  Future<void> finishAudioStream();
 
   Future<void> stop();
   Future<void> pause();

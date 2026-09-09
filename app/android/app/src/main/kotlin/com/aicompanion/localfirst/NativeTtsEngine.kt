@@ -29,12 +29,16 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun initialize(language: String = "zh"): Map<String, Any> {
         activeLanguage = normalizeLanguage(language)
-        return client.initialize(activeLanguage)
+        return client.initialize(activeLanguage).also {
+            recordUnreadyStatus(it, "initialize_failed", activeLanguage)
+        }
     }
 
     fun prepareLanguage(language: String): Map<String, Any> {
         activeLanguage = normalizeLanguage(language)
-        return client.prepareLanguage(activeLanguage)
+        return client.prepareLanguage(activeLanguage).also {
+            recordUnreadyStatus(it, "frontend_switch_failed", activeLanguage)
+        }
     }
 
     fun importChineseRoberta(path: String): Map<String, Any> = client.importChineseRoberta(path)
@@ -68,12 +72,29 @@ class NativeTtsEngine private constructor(context: Context) {
         if (text.isBlank() || generation != generationToken()) return null
         val nextLanguage = normalizeLanguage(language)
         activeLanguage = nextLanguage
-        val path = client.generateToFile(
-            text = text,
-            language = nextLanguage,
-            voice = normalizeVoice(voice),
-            speed = speed,
-        )
+        val path = try {
+            client.generateToFile(
+                text = text,
+                language = nextLanguage,
+                voice = normalizeVoice(voice),
+                speed = speed,
+            )
+        } catch (error: Throwable) {
+            val checkpoint = TtsProcessCheckpoint.read(appContext)
+            RuntimeDiagnosticStore.record(
+                appContext,
+                category = "tts",
+                phase = "generation_failed",
+                severity = "error",
+                code = error.javaClass.simpleName,
+                metadata = mapOf(
+                    "language" to nextLanguage,
+                    "stage" to checkpoint["stage"],
+                ),
+                durable = true,
+            )
+            throw error
+        }
         if (path.isBlank() || generation != generationToken()) {
             if (path.isNotBlank()) File(path).delete()
             return null
@@ -89,18 +110,33 @@ class NativeTtsEngine private constructor(context: Context) {
         }
     }
 
-    fun playAudio(wav: ByteArray, generation: Long = generationToken()) {
-        if (wav.isEmpty() || generation != generationToken()) return
-        if (SystemAudioPolicy.isSilentOrVibrate(appContext)) return
-        RuntimeDiagnosticStore.record(
-            appContext,
-            category = "tts",
-            phase = "audio_playback",
-            metadata = mapOf("stage" to "audio_playback"),
-            durable = true,
-        )
+    fun beginAudioStream(generation: Long = generationToken()) {
+        if (generation != generationToken()) return
+        if (SystemAudioPolicy.isSilentOrVibrate(appContext)) {
+            player.stop()
+            return
+        }
         player.setVolume(volume.toFloat())
-        player.play(wav)
+        player.beginStream {
+            RuntimeDiagnosticStore.record(
+                appContext,
+                category = "tts",
+                phase = "audio_playback",
+                metadata = mapOf("stage" to "audio_playback"),
+                durable = true,
+            )
+        }
+    }
+
+    fun enqueueAudio(wav: ByteArray, generation: Long = generationToken()) {
+        if (wav.isEmpty() || generation != generationToken()) return
+        player.enqueueStream(wav)
+    }
+
+    fun finishAudioStream(generation: Long = generationToken()) {
+        if (generation != generationToken()) return
+        val played = player.finishStream()
+        if (!played || generation != generationToken()) return
         RuntimeDiagnosticStore.record(
             appContext,
             category = "tts",
@@ -113,7 +149,9 @@ class NativeTtsEngine private constructor(context: Context) {
         stop()
         val generation = generationToken()
         val audio = generate(text, generation = generation) ?: return
-        playAudio(audio, generation)
+        beginAudioStream(generation)
+        enqueueAudio(audio, generation)
+        finishAudioStream(generation)
     }
 
     fun stop() {
@@ -148,6 +186,26 @@ class NativeTtsEngine private constructor(context: Context) {
         "processIsolation" to "private_process",
         "lastProcessCheckpoint" to TtsProcessCheckpoint.read(appContext),
     )
+
+    private fun recordUnreadyStatus(
+        status: Map<String, Any>,
+        phase: String,
+        language: String,
+    ) {
+        if (status["initialized"] == true) return
+        RuntimeDiagnosticStore.record(
+            appContext,
+            category = "tts",
+            phase = phase,
+            severity = "error",
+            code = "not_initialized",
+            metadata = mapOf(
+                "language" to language,
+                "stage" to status["diagnosticStage"],
+            ),
+            durable = true,
+        )
+    }
 
     private fun normalizeLanguage(value: String) =
         value.takeIf { it == "zh" || it == "ja" || it == "en" } ?: "zh"

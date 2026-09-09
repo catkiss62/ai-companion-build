@@ -92,6 +92,17 @@ class DeepSeekMessageLanguageVariantGateway
         },
       ],
     );
+    return MessageLanguageVariantDecoder.decode(result, source);
+  }
+}
+
+class MessageLanguageVariantDecoder {
+  const MessageLanguageVariantDecoder._();
+
+  static List<ChatSegment> decode(
+    Map<String, Object?> result,
+    List<ChatSegment> source,
+  ) {
     final raw = result['segments'];
     if (raw is! List || raw.length != source.length) {
       throw const MessageLanguageVariantException('外语版本段落数量不一致。');
@@ -99,14 +110,20 @@ class DeepSeekMessageLanguageVariantGateway
     final translated = <ChatSegment>[];
     for (var index = 0; index < raw.length; index++) {
       final item = raw[index];
-      if (item is! Map || item['kind']?.toString() != source[index].kind.key) {
+      if (item is! Map) {
         throw const MessageLanguageVariantException('外语版本段落结构不一致。');
       }
       final text = item['text']?.toString().trim() ?? '';
       if (text.isEmpty) {
         throw const MessageLanguageVariantException('外语版本包含空段落。');
       }
-      translated.add(ChatSegment(kind: source[index].kind, text: text));
+      // The source order is authoritative. Some models correctly translate
+      // the text but also localize the enum value (`dialogue` -> `会話`). Do
+      // not discard usable Japanese for that cosmetic JSON mistake; restore
+      // the immutable source kind by position instead.
+      translated.add(
+        ChatSegment(kind: source[index].kind, text: text),
+      );
     }
     return List<ChatSegment>.unmodifiable(translated);
   }

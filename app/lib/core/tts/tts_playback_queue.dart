@@ -35,17 +35,14 @@ class TtsQueueState {
   );
 }
 
-/// Meju A2-equivalent speech scheduler shared by normal and overlay chat.
+/// Genie v0.6.4-equivalent speech scheduler shared by normal and overlay chat.
 ///
 /// The important A2 behavior is generation-ahead:
 ///   1. split the utterance with A2 boundaries;
 ///   2. submit every sentence to native generation without awaiting playback;
-///   3. start playing as soon as sentence 1 is ready;
-///   4. let the native generation worker prepare later WAVs while AudioTrack is
-///      still playing the current sentence;
-///   5. when another WAV is already queued, keep the original ~200 ms gap.
-/// The first sentence also honors Genie's one-second generation prefill; the
-/// timer starts with the session, so slow synthesis does not add a second wait.
+///   3. open one AudioTrack stream as soon as sentence 1 is ready;
+///   4. let native prefill one second of first-segment PCM before AudioTrack.play;
+///   5. append later WAV PCM to that same track while inference keeps running.
 ///
 /// This deliberately does NOT serialize "generate + play" sentence-by-sentence.
 class TtsPlaybackQueue {
@@ -53,15 +50,11 @@ class TtsPlaybackQueue {
     required this.service,
     TtsSentenceSegmenter? segmenter,
     this.onStateChanged,
-    this.interSentenceGap = const Duration(milliseconds: 200),
-    this.initialPrefill = const Duration(seconds: 1),
   }) : segmenter = segmenter ?? TtsSentenceSegmenter();
 
   final TtsQueueService service;
   final TtsSentenceSegmenter segmenter;
   final void Function(TtsQueueState state)? onStateChanged;
-  final Duration interSentenceGap;
-  final Duration initialPrefill;
 
   int _generation = 0;
   _A2Session? _session;
@@ -77,7 +70,7 @@ class TtsPlaybackQueue {
       running: true,
       pending: pending,
       currentText: _current,
-      phase: session.playing && session.audiblePlaybackStarted
+      phase: session.playbackActive && session.audiblePlaybackStarted
           ? TtsPlaybackPhase.playing
           : TtsPlaybackPhase.synthesizing,
       ownerId: session.ownerId,
@@ -103,7 +96,6 @@ class TtsPlaybackQueue {
       leadIn: leadIn,
       language: language,
       voice: voice,
-      initialPrefill: initialPrefill,
     );
     _streaming = true;
     _manual = manual;
@@ -152,7 +144,6 @@ class TtsPlaybackQueue {
       leadIn: leadIn,
       language: language,
       voice: voice,
-      initialPrefill: initialPrefill,
     );
     _session = session;
     _streaming = false;
@@ -298,73 +289,91 @@ class TtsPlaybackQueue {
   void _markGenerated(_A2Session session, int index, Uint8List? audio) {
     if (!_isActive(session)) return;
     session.ready[index] = audio;
-    _pump(session);
+    session.signalReadyEntry();
+    _startPlaybackPump(session);
     _maybeComplete(session);
     _notify();
   }
 
-  void _pump(_A2Session session) {
-    if (!_isActive(session) || session.playing) return;
-
-    while (session.nextToPlay < session.total &&
-        session.ready.containsKey(session.nextToPlay)) {
-      final index = session.nextToPlay++;
-      final audio = session.ready.remove(index);
-      final text = session.textByIndex.remove(index) ?? '';
-      if (audio == null || audio.isEmpty) continue;
-
-      session.playing = true;
-      _current = text;
-      _notify();
-      unawaited(_playOne(session, audio));
+  void _startPlaybackPump(_A2Session session) {
+    if (!_isActive(session) || session.playbackActive) return;
+    if (!_hasReadyEntry(session) && !(session.closed && session.generating == 0)) {
       return;
     }
-    _maybeComplete(session);
+    session.playbackActive = true;
+    unawaited(_drainPlayback(session));
   }
 
-  Future<void> _playOne(_A2Session session, Uint8List audio) async {
-    try {
-      await session.waitForLeadIn();
-      if (!_isActive(session)) return;
-      session.audiblePlaybackStarted = true;
-      _notify();
-      await service.playPrepared(audio);
-      session.completedPlaybackCount++;
-    } catch (_) {
-      // A2 treats one sentence failure as local: later generated speech should
-      // still be allowed to continue.
-    }
-    if (!_isActive(session)) return;
-
-    session.playing = false;
-    session.audiblePlaybackStarted = false;
-    _current = '';
-    _notify();
-
-    // Original GenieTTSManager waits ~200 ms only when another generated item
-    // is already waiting in audioQueue at playback completion. If generation
-    // has not caught up yet, the next completed sentence starts immediately.
-    if (_hasPlayableReady(session)) {
-      await Future<void>.delayed(interSentenceGap);
-      if (!_isActive(session)) return;
-    }
-    _pump(session);
-  }
-
-  bool _hasPlayableReady(_A2Session session) {
+  bool _hasReadyEntry(_A2Session session) {
     var index = session.nextToPlay;
     while (index < session.total && session.ready.containsKey(index)) {
       final value = session.ready[index];
       if (value != null && value.isNotEmpty) return true;
-      index++;
+      if (value == null || value.isEmpty) {
+        index++;
+        continue;
+      }
     }
     return false;
+  }
+
+  Future<void> _drainPlayback(_A2Session session) async {
+    var streamStarted = false;
+    try {
+      while (_isActive(session)) {
+        while (_isActive(session) &&
+            session.nextToPlay < session.total &&
+            session.ready.containsKey(session.nextToPlay)) {
+          final index = session.nextToPlay++;
+          final audio = session.ready.remove(index);
+          final text = session.textByIndex.remove(index) ?? '';
+          if (audio == null || audio.isEmpty) continue;
+          if (!streamStarted) {
+            await session.waitForLeadIn();
+            if (!_isActive(session)) return;
+            await service.beginPlayback();
+            if (!_isActive(session)) return;
+            streamStarted = true;
+          }
+          _current = text;
+          _notify();
+          await service.enqueuePlayback(audio);
+          if (!session.audiblePlaybackStarted) {
+            session.audiblePlaybackStarted = true;
+            _notify();
+          }
+          session.completedPlaybackCount++;
+        }
+        if (!_isActive(session)) return;
+        final allSubmitted = session.closed &&
+            session.generating == 0 &&
+            session.nextToPlay >= session.total;
+        if (allSubmitted) {
+          if (streamStarted) await service.finishPlayback();
+          break;
+        }
+        await session.waitForReadyEntry();
+      }
+    } catch (_) {
+      // One failed native stream is optional and must not poison chat.
+      try {
+        await service.stop();
+      } catch (_) {}
+    } finally {
+      if (_isActive(session)) {
+        session.playbackActive = false;
+        session.audiblePlaybackStarted = false;
+        _current = '';
+        _notify();
+        _maybeComplete(session);
+      }
+    }
   }
 
   void _maybeComplete(_A2Session session) {
     if (!_isActive(session) || session.idle.isCompleted) return;
     final done = session.closed &&
-        !session.playing &&
+        !session.playbackActive &&
         session.generating == 0 &&
         session.nextToPlay >= session.total;
     if (!done) return;
@@ -388,9 +397,7 @@ class _A2Session {
     required this.leadIn,
     required this.language,
     required this.voice,
-    required Duration initialPrefill,
-  }) : _initialPrefill = initialPrefill,
-       _prefillClock = Stopwatch()..start();
+  });
 
   final int token;
   final bool manual;
@@ -399,8 +406,6 @@ class _A2Session {
   final Future<void>? leadIn;
   final ChatLanguage language;
   final TtsVoiceMode voice;
-  final Duration _initialPrefill;
-  final Stopwatch _prefillClock;
   final Completer<void> idle = Completer<void>();
   final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
@@ -409,20 +414,18 @@ class _A2Session {
   int total = 0;
   int nextToPlay = 0;
   int generating = 0;
-  bool playing = false;
+  bool playbackActive = false;
   bool audiblePlaybackStarted = false;
   int completedPlaybackCount = 0;
   bool closed = false;
   bool _leadInConsumed = false;
+  Completer<void> _readyEntry = Completer<void>();
 
   Future<void> waitForLeadIn() async {
     if (_leadInConsumed) return;
     _leadInConsumed = true;
     try {
-      final prefillRemaining = _initialPrefill - _prefillClock.elapsed;
       await Future.wait<void>(<Future<void>>[
-        if (prefillRemaining > Duration.zero)
-          Future<void>.delayed(prefillRemaining),
         if (leadIn != null) leadIn!,
       ]);
     } catch (_) {
@@ -435,4 +438,12 @@ class _A2Session {
     textByIndex[index] = text;
     return index;
   }
+
+  void signalReadyEntry() {
+    final signal = _readyEntry;
+    _readyEntry = Completer<void>();
+    if (!signal.isCompleted) signal.complete();
+  }
+
+  Future<void> waitForReadyEntry() => _readyEntry.future;
 }

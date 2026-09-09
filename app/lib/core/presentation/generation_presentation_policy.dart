@@ -32,4 +32,19 @@ class GenerationPresentationPolicy {
     required bool typewriterEnabled,
   }) =>
       !typewriterEnabled;
+
+  /// Controller listeners also carry TTS, language-cache, unread, and other
+  /// non-layout state. Those notifications may rebuild the chat, but only a
+  /// real timeline/stream transition is allowed to move the scroll position.
+  static bool shouldFollowChatNotification({
+    required bool followLatest,
+    required bool generationActive,
+    required bool generationEnded,
+    required bool streamChanged,
+    required bool discoveredAssistant,
+  }) =>
+      followLatest &&
+      (generationEnded ||
+          discoveredAssistant ||
+          (generationActive && streamChanged));
 }

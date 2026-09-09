@@ -94,6 +94,20 @@ class SystemBridge(
                     RuntimeDiagnosticStore.clear(activity)
                     result.success(null)
                 }
+                "recordTtsClientFailure" -> {
+                    RuntimeDiagnosticStore.record(
+                        activity,
+                        category = "tts",
+                        phase = call.argument<String>("phase").orEmpty().ifBlank { "client_failure" },
+                        severity = "error",
+                        code = call.argument<String>("code").orEmpty().ifBlank { "unknown" },
+                        metadata = mapOf(
+                            "language" to call.argument<String>("language").orEmpty(),
+                        ),
+                        durable = true,
+                    )
+                    result.success(null)
+                }
                 "openDesktopPetPreview" -> {
                     PetPreviewActivity.launch(activity)
                     result.success(null)

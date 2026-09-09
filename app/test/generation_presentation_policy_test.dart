@@ -66,4 +66,40 @@ void main() {
       isTrue,
     );
   });
+
+  test('TTS-only notifications never request a chat scroll', () {
+    expect(
+      GenerationPresentationPolicy.shouldFollowChatNotification(
+        followLatest: true,
+        generationActive: false,
+        generationEnded: false,
+        streamChanged: false,
+        discoveredAssistant: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('real stream and commit transitions still follow latest', () {
+    expect(
+      GenerationPresentationPolicy.shouldFollowChatNotification(
+        followLatest: true,
+        generationActive: true,
+        generationEnded: false,
+        streamChanged: true,
+        discoveredAssistant: false,
+      ),
+      isTrue,
+    );
+    expect(
+      GenerationPresentationPolicy.shouldFollowChatNotification(
+        followLatest: true,
+        generationActive: false,
+        generationEnded: false,
+        streamChanged: false,
+        discoveredAssistant: true,
+      ),
+      isTrue,
+    );
+  });
 }

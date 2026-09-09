@@ -758,8 +758,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                 controller.ttsPhaseForMessage(item.message!.id),
                             onSpeechAction: item.message!.isAssistant
                                 ? () {
-                                    if (controller.ttsPhaseForMessage(item.message!.id) ==
-                                        TtsPlaybackPhase.playing) {
+                                    if (controller.ttsPhaseForMessage(item.message!.id) !=
+                                        TtsPlaybackPhase.idle) {
                                       controller.stopSpeech();
                                     } else {
                                       controller.speakMessage(item.message!);
@@ -1369,14 +1369,14 @@ class _ImmersiveSpeechActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
       padding: EdgeInsets.zero,
       iconSize: 18,
-      onPressed: synthesizing ? null : onPressed,
+      onPressed: onPressed,
       icon: synthesizing
           ? const Text('…', style: TextStyle(fontSize: 20, height: 0.8))
           : playing
               ? const Text('■', style: TextStyle(fontSize: 15, height: 1))
               : const Icon(Icons.volume_up_outlined),
       tooltip: synthesizing
-          ? '正在合成语音'
+          ? '停止生成语音'
           : playing
               ? '停止播放'
               : '朗读这条回复',

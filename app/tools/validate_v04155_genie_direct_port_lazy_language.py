@@ -12,8 +12,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+196" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+196';" in read(
+assert "version: 0.41.55+197" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.55+197';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -54,6 +54,9 @@ aidl = read(
 )
 queue = read("lib/core/tts/tts_playback_queue.dart")
 fixed_segmenter = read("lib/core/tts/genie_fixed_text_segmenter.dart")
+player = read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/WavAudioPlayer.kt"
+)
 asset_store = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieRuntimeAssetStore.kt"
 )
@@ -73,6 +76,12 @@ assert "generateToFile" in aidl and "byte[]" not in aidl
 assert 'File(cacheDir, "genie-tts-ipc")' in service
 assert "output.readBytes()" in native and "output.delete()" in native
 assert "linkToDeath" in client and "child_process_exit" in client
+assert "recordUnreadyStatus" in native
+assert 'phase = "generation_failed"' in native
+assert "recordTtsClientFailure" in read("lib/core/platform/android_bridge.dart")
+assert '"recordTtsClientFailure" ->' in read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBridge.kt"
+)
 assert "TtsProcessCheckpoint" in service and "Debug.getPss()" in read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/TtsProcessCheckpoint.kt"
 )
@@ -94,8 +103,18 @@ assert "engine.prepareFrontendAssets(prepared, progress)" in asset_store
 assert 'File(context.filesDir, "genie-benchmark")' in asset_store
 assert '"genie-benchmark/shared/' in adapter
 assert "DeepSeek" in adapter and "地铺西咳" in adapter
-assert "initialPrefill = const Duration(seconds: 1)" in queue
-assert "service.generatePrepared(" in queue and "service.playPrepared(" in queue
+assert "service.generatePrepared(" in queue
+for token in ("service.beginPlayback()", "service.enqueuePlayback(audio)", "service.finishPlayback()"):
+    assert token in queue, token
+assert "interSentenceGap" not in queue
+for token in (
+    "fun beginStream(",
+    "fun enqueueStream(",
+    "fun finishStream()",
+    "wav.sampleRate * bytesPerFrame",
+    'Thread(::runWriter, "Genie-TTS-stream-player")',
+):
+    assert token in player, token
 assert "GenieFixedTextSegmenter.split(prepared, language)" in queue
 for token in ("targetChars: english ? 88 : 42", "maxChars: english ? 110 : 54"):
     assert token in fixed_segmenter, token
@@ -122,7 +141,8 @@ assert "multilingualGenerationReminder" not in prompt
 assert "thinking: false" in lazy
 assert "source_segments" in lazy
 assert "raw.length != source.length" in lazy
-assert "item['kind']?.toString() != source[index].kind.key" in lazy
+assert "MessageLanguageVariantDecoder.decode" in lazy
+assert "ChatSegment(kind: source[index].kind, text: text)" in lazy
 assert ".whenComplete(() {" in lazy
 assert ".whenComplete(() => _inFlight.remove(key))" not in lazy
 assert "upsertMessageLanguageVariant" in db
@@ -133,6 +153,11 @@ assert "ttsPlayback.beginStream" not in controller
 assert "tts_streaming_enabled" not in controller
 assert "languageVariantPreparing" in controller
 assert "latestAssistant.content.trim().isNotEmpty" in chat
+language_bar = chat[chat.index("Widget _chatLanguageBar"):chat.index("class _LanguageSpeechButton")]
+assert "await _speakMessageSafely" not in language_bar
+assert "选择$languageName作为朗读语言" in chat
+assert "shouldFollowChatNotification" in chat
+assert "停止生成语音" in chat
 assert "生成三语版本" not in chat and "生成三语版本" not in voice_settings
 assert "外语按需生成" in chat and "外语按需生成" in voice_settings
 assert "不使用真流式测试模式" in voice_settings
@@ -152,10 +177,10 @@ assert "whereArgs: const ['tts_replacements_json', '{\"Yuki\":\"有希\"}']" in 
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+196 APK",
+    "Build AI Companion v0.41.55+197 APK",
     "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-196-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token

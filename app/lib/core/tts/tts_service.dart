@@ -137,10 +137,16 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<void> playPrepared(Uint8List wavBytes) async {
+  Future<void> beginPlayback() => provider.beginAudioStream();
+
+  @override
+  Future<void> enqueuePlayback(Uint8List wavBytes) async {
     if (wavBytes.isEmpty) return;
-    await provider.playAudio(wavBytes);
+    await provider.enqueueAudio(wavBytes);
   }
+
+  @override
+  Future<void> finishPlayback() => provider.finishAudioStream();
 
   /// One-shot convenience used by proactive speech. It deliberately routes
   /// through the same A2 scheduler as chat, never through the old serial path.

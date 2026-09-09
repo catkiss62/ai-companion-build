@@ -1485,7 +1485,21 @@ class ChatController extends ChangeNotifier {
     await ttsPlayback.stop();
     var projected = message;
     if (language != ChatLanguage.chinese && !message.hasLanguage(language)) {
-      projected = await ensureLanguageVariant(message, language);
+      try {
+        projected = await ensureLanguageVariant(message, language);
+      } catch (error) {
+        final detail = 'language_variant_${language.key}: $error';
+        await db.setSetting(
+          'last_tts_error',
+          detail.length <= 320 ? detail : detail.substring(0, 320),
+        );
+        await android.recordTtsClientFailure(
+          phase: 'language_variant_failed',
+          language: language.key,
+          code: error.runtimeType.toString(),
+        );
+        rethrow;
+      }
     }
     final content = projected.contentFor(language).trim();
     if (content.isEmpty) return;

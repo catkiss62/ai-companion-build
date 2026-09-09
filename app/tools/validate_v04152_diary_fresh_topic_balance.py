@@ -17,7 +17,7 @@ assert any(
         "version: 0.41.52+191",
         "version: 0.41.53+192",
         "version: 0.41.54+193",
-        "version: 0.41.55+196",
+        "version: 0.41.55+197",
     )
 )
 assert any(

@@ -1419,7 +1419,10 @@ class OverlayBubbleService : Service() {
                     stopSpeech()
                     return
                 }
-                "synthesizing" -> return
+                "synthesizing" -> {
+                    stopSpeech()
+                    return
+                }
             }
         }
         applyTtsState("synthesizing", messageId)
@@ -3077,7 +3080,7 @@ class OverlayBubbleService : Service() {
             when (phase) {
                 "synthesizing" -> {
                     text = "…"
-                    isEnabled = false
+                    setOnClickListener { stopSpeech() }
                 }
                 "playing" -> {
                     text = "■"
