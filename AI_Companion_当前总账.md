@@ -33,20 +33,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.55+195 远端构建 head `18b04f37a2d6720f39a0a6a23231288ee0eec363` / tree `63a392c9cc9e7d77a18d333bdb7441dde02f3773`；本地等价 tree 提交 `e6e08b2`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
+| 有效构建 head / tree | v0.41.55+196 远端 head `ae5ce2c356096b1077de38bf9000150e2af7682b` / tree `b7b423aca29f533d31ffc414451cf904cdc45daf`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
 | App / 数据库 | 当前修复目标为 `0.41.55+196 / schema 57 / Snapshot protocol 5`；上一真机包为 `0.41.55+195`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | +195 run [`34345537802`](https://github.com/catkiss62/ai-companion-build/actions/runs/34345537802)（806）CI 成功但真机 TTS 失败；+196 run [`34360334594`](https://github.com/catkiss62/ai-companion-build/actions/runs/34360334594)（808）已过源码门、Kotlin/AIDL、Flutter 编译与 analyze，仅剩旧版本自读夹具导致 `703 passed / 1 failed`，未产 APK |
-| 测试 APK | `AI-Companion-v0.41.55-195-Genie-Direct-Port-Lazy-Language-APK.apk`，533,619,075 bytes；覆盖安装后首次 TTS 会重建可恢复的 Genie 版本目录，保留已导入 shared RoBERTa |
-| APK SHA-256 | `434375159a42b445e35fb71b261797ef95bfade791f350b3e805cc2166e023a6`；Draft 资产服务端 digest 已确认 |
-| Artifact / Release | Artifact [`10101935380`](https://github.com/catkiss62/ai-companion-build/actions/runs/34345537802/artifacts/10101935380)，ZIP 526,811,227 bytes / digest `46459774ea2c67e610d4ad3e60ef0324553220eb6a6e176325b4fd94d40f6c60`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-59784afd924ab3e9fb29) 保持草稿，未合并 `main`、未发布正式 Release |
+| 最终 CI | +196 run [`34363769443`](https://github.com/catkiss62/ai-companion-build/actions/runs/34363769443)（809）完整成功：源码门、Kotlin/AIDL、analyze、`704/704` Flutter tests、Release APK、签名、ORT 字节校验和资源实包均通过 |
+| 测试 APK | `AI-Companion-v0.41.55-196-Genie-Direct-Port-Lazy-Language-APK.apk`，537,138,344 bytes |
+| APK SHA-256 | `025686edd724d0f7dd0687f74b27656662b9d5f8bd0a206eeb027764f53e0925`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10109495335`](https://github.com/catkiss62/ai-companion-build/actions/runs/34363769443/artifacts/10109495335)，ZIP 530,282,275 bytes / digest `d352dccd7f1c6e16c5a070c87ec29edd046d69c05babbf826d8b36f38fbf35b4`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d60e5eda59ccce7b066c) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.55+195 真机证明私有 TTS 进程成功保护主 App，但中文仍停 `prepare_frontend_zh`、英文停 `infer_en`。+196 已实现 NDK/Release 对齐、ORT 库字节校验与脱敏 tombstone 读取；唯一过期自读测试夹具已在 `bd94c1a6` 修正，当前为 `IMPLEMENTED / LOCAL VALIDATED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前总状态 | +195 真机 TTS 失败；+196 已完成 NDK/Release 对齐、验证 Genie APK 的 ORT 原生库逐字节一致性与脱敏 tombstone 读取，为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **修正唯一过期的 +195 自读测试夹具，重跑并真机验收 v0.41.55+196**：不改 TTS 运行逻辑。Actions 必须确认伴侣 APK 的 `libonnxruntime.so` 与已验证 Genie APK 逐字节相等，并通过 native tombstone 脱敏解析测试。覆盖安装后先测英文短句，再测中文与日语；若仍失败，立即导出报告读取 abort 类别、崩溃线程/native 模块及退出前 PSS/RSS/线程数，不再继续猜 AudioTrack。按用户要求不把 500MB APK 下载到工作区，只核对 GitHub 端状态/大小/digest并发送 GitHub 下载页 |
+| 当前下一步 | **真机验收 v0.41.55+196**：覆盖安装后先连续测英文短句，再测中文、日语与切换。若仍无声，立即导出脱敏报告，核对 abort 类别、崩溃线程/native 模块及退出前 PSS/RSS/线程数；不再猜 AudioTrack。APK 仅提供 GitHub 下载页 |
 | 目标 | 伴侣主进程不再重编排 ONNX 生命周期，TTS 子进程即使 native abort 也不带崩 App；取消默认每轮 `zh/ja/en`，中文保持权威，`中/日/EN` 点哪个只生成并朗读当前一个目标语；“显示外语”继续只控制气泡投影 |
 | 当前证据 | +195 新报告 `2026-09-09T12:26:10Z` 仍记录 `native_crash/status 6/tts_child`：中文恒停 `prepare_frontend_zh`，英文在 `acoustic_models_ready` 后恒停 `infer_en`，无 `wav_ready/audio_playback`；PSS/RSS 为系统未提供的 0。由此排除旧缓存与 Binder 线程池假设。源码反向依赖确认旧 `LegacyTtsRuntime` 只有历史壳，无生产实例化；CI 已禁止旧 `tts_models/legacy_tts/libMNN/libbertvits2` 进入 APK |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
@@ -119,6 +119,8 @@
 23. +196 首轮推送提交 `50bd1a5a` 触发 run [`34359460259`](https://github.com/catkiss62/ai-companion-build/actions/runs/34359460259)（807），在源码门被六个历史 validator 尚未接受 `55+196` 阻断；只扩展版本白名单后提交 `4e4e9a73`。续跑 run [`34360334594`](https://github.com/catkiss62/ai-companion-build/actions/runs/34360334594)（808）已通过全部源码回归、Kotlin/AIDL、Flutter 编译与 analyze，Flutter tests 为 `703 passed / 1 failed`。唯一遗漏是 `app/test/agent_self_reader_v0416_test.dart` 仍硬编码期待 `build=v0.41.55+195 schema=57`，而生产自读已正确升为 `+196`；这是测试夹具过期，不是 TTS 逻辑、Kotlin 编译或 APK 打包失败。本轮只修正该一处期待并重跑完整 CI，不改生产逻辑。
 
 24. 唯一失败夹具已在提交 `bd94c1a6` 从 `build=v0.41.55+195 schema=57` 改为当前真实自读标识 `build=v0.41.55+196 schema=57`；全仓 Dart 扫描已无该过期期待。`git diff --check`、当前总账 validator 和 v0.41.55 专项 validator 均通过；轻量接班区仍低于 20 KB 硬上限。本地无 Flutter/Dart SDK，故该单测与完整 APK 仍必须由 Actions 复验，不提前声称 CI 成功。
+
+25. 通过 GitHub Git Data 写入的远端提交为 `ae5ce2c356096b1077de38bf9000150e2af7682b` / tree `b7b423aca29f533d31ffc414451cf904cdc45daf`，tree 与本地最终源码精确一致。Actions run [`34363769443`](https://github.com/catkiss62/ai-companion-build/actions/runs/34363769443)（809）完整成功：所有源码/历史合同、Kotlin/AIDL、Flutter analyze、`704/704` tests、arm64 Release、固定签名、Genie/OpenJTalk 实包、417 文件桌宠、LingChat 与塔罗均通过；伴侣 APK 中 `libonnxruntime.so` 已与真机验证的 Genie APK 逐字节相同。APK 537,138,344 bytes，SHA-256 `025686edd724d0f7dd0687f74b27656662b9d5f8bd0a206eeb027764f53e0925`；Artifact `10109495335` 为 530,282,275 bytes / digest `d352dccd7f1c6e16c5a070c87ec29edd046d69c05babbf826d8b36f38fbf35b4`。同一 Draft Release 已更新且保持未发布，`main` 未合并；严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。按用户要求未将 APK 下载到工作区。
 
 ### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 
