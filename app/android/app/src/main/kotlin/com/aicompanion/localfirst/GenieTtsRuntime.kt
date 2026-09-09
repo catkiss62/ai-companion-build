@@ -90,7 +90,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         releaseFrontend()
         when (language) {
             "zh" -> {
-                engine.prepareFrontendAssets(preparedRoot, progress)
+                GenieFrontendAdapter.prepareChineseAssets(engine, preparedRoot, progress)
                 check(engine.hasFrontendModel(preparedRoot)) {
                     "请先导入与 Genie v0.6.4 配套的 Chinese RoBERTa"
                 }
@@ -105,7 +105,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     fun importChineseRoberta(source: File, progress: (String) -> Unit = {}) {
         require(source.isFile && source.length() > 0L) { "所选 RoBERTa 文件无效" }
         val preparedRoot = root ?: engine.prepareAssets(progress).also { root = it }
-        engine.importFrontendModelFromFile(preparedRoot, source, progress)
+        GenieFrontendAdapter.importRoberta(engine, context.filesDir, source, progress)
         if (activeLanguage == "zh") {
             releaseFrontend()
             prepareLanguage("zh", progress)
@@ -128,7 +128,10 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             ?: error("Genie 音色资源缺失：$referenceId")
         onStage("prepare_frontend_$language")
         val prepared = when (language) {
-            "zh" -> checkNotNull(chinese).prepare(preparedRoot, text) {}
+            "zh" -> checkNotNull(chinese).prepare(
+                preparedRoot,
+                GenieFrontendAdapter.normalizeChineseText(text),
+            ) {}
             "en" -> checkNotNull(english).prepare(text, manifest.frontend.bertDim) {}
             "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
             else -> error("不支持的 TTS 语言：$language")

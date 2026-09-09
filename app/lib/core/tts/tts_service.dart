@@ -74,10 +74,24 @@ class TtsService implements TtsQueueService {
       if (!status.available) return null;
       if (!status.initialized) {
         final initialized = await initialize(language: language);
-        if (!initialized.initialized) return null;
+        if (!initialized.initialized) {
+          await _recordError(
+            initialized.detail.isEmpty
+                ? 'Genie TTS 前端初始化失败（${language.key}）'
+                : initialized.detail,
+          );
+          return null;
+        }
       } else {
         final prepared = await provider.prepareLanguage(language);
-        if (!prepared.initialized) return null;
+        if (!prepared.initialized) {
+          await _recordError(
+            prepared.detail.isEmpty
+                ? 'Genie TTS 前端切换失败（${language.key}）'
+                : prepared.detail,
+          );
+          return null;
+        }
         await _applyPlaybackSettings();
       }
       final replacements = processor.decodeReplacementJson(

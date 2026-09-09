@@ -86,7 +86,6 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
                 append("词组命中${phoneResult.phraseHits}次")
                 if (latin.spelledLetters > 0) append(" · 英文字母逐读${latin.spelledLetters}个")
                 if (latin.tokenHits > 0) append(" · token→拖肯 ${latin.tokenHits}次")
-                if (latin.deepSeekHits > 0) append(" · DeepSeek→地铺西咳 ${latin.deepSeekHits}次")
                 if (ignoredKana > 0) append(" · 已忽略日语假名${ignoredKana}个")
             },
         )
@@ -194,22 +193,7 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
         progress("首次加载手机端中文词典……")
         vocab = readSimpleMap(File(root, info.vocab)) { it.toLong() }
         charPhones = readPhoneMap(File(root, info.charPhones))
-        phrasePhones = readPhoneMap(File(root, info.phrasePhones)).toMutableMap().apply {
-            // Companion pronunciation overrides. Chinese-final ids are laid
-            // out tone 1..5, so 144=en5, 259=u5 and 134=e5. This keeps 肯、
-            // 铺、咳 unstressed exactly as requested instead of inheriting the
-            // standalone character readings ken3 / pu4 / ke2.
-            put("拖肯", listOf(longArrayOf(252L, 290L), longArrayOf(222L, 144L)))
-            put(
-                "地铺西咳",
-                listOf(
-                    longArrayOf(127L, 169L),
-                    longArrayOf(245L, 259L),
-                    longArrayOf(317L, 166L),
-                    longArrayOf(222L, 134L),
-                ),
-            )
-        }
+        phrasePhones = readPhoneMap(File(root, info.phrasePhones))
         punctuation = readPhoneMap(File(root, info.punctuationIds), singleGroup = true)
     }
 
@@ -289,7 +273,6 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
         val text: String,
         val spelledLetters: Int,
         val tokenHits: Int,
-        val deepSeekHits: Int,
     )
 
     private fun expandLatin(text: String): LatinExpansion {
@@ -305,7 +288,6 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
         var index = 0
         var spelledLetters = 0
         var tokenHits = 0
-        var deepSeekHits = 0
         while (index < text.length) {
             if (text[index] !in 'A'..'Z' && text[index] !in 'a'..'z') {
                 output.append(text[index++])
@@ -317,11 +299,6 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
             if (word.equals("token", ignoreCase = true)) {
                 output.append("拖肯")
                 tokenHits += 1
-            } else if (word.equals("deepseek", ignoreCase = true)) {
-                // 西 is the spoken letter C. The companion's private phrase
-                // dictionary remains the authority for the weak-tone phones.
-                output.append("地铺西咳")
-                deepSeekHits += 1
             } else {
                 word.forEachIndexed { letterIndex, letter ->
                     if (letterIndex > 0) output.append('，')
@@ -330,7 +307,7 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
                 spelledLetters += word.length
             }
         }
-        return LatinExpansion(output.toString(), spelledLetters, tokenHits, deepSeekHits)
+        return LatinExpansion(output.toString(), spelledLetters, tokenHits)
     }
 
     private fun isJapaneseKana(char: Char): Boolean =

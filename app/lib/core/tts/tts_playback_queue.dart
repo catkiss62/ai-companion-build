@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'tts_sentence_segmenter.dart';
+import 'genie_fixed_text_segmenter.dart';
 import 'tts_provider.dart';
 import 'tts_queue_service.dart';
 import '../models/chat_language_variant.dart';
@@ -175,7 +176,7 @@ class TtsPlaybackQueue {
     }
 
     final chunks = segment
-        ? <String>[...segmenter.add(prepared), ...segmenter.flush()]
+        ? GenieFixedTextSegmenter.split(prepared, language)
         : TtsAcousticSegmenter.split(prepared, language);
     for (final chunk in chunks) {
       _enqueuePrepared(session, chunk);

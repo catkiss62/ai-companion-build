@@ -108,6 +108,8 @@ def main() -> None:
         "0.41.53",
         "agent/v04154-genie-tts-hotfix-settings",
         "0.41.54",
+        "agent/v04155-genie-direct-port-lazy-language",
+        "0.41.55",
         "schema 57",
         "Snapshot protocol 5",
         "Phase 2B",
@@ -198,7 +200,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.54\+193\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.55\+194\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

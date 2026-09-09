@@ -67,7 +67,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   RelationshipAge? _relationshipAge;
   bool _ttsEnabled = false;
-  bool _multilingualRepliesEnabled = true;
   bool _showForeignReplies = false;
   ChatLanguage _selectedLanguage = ChatLanguage.chinese;
   double _panelOpacity = 0.75;
@@ -281,8 +280,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _relationshipAge = await db.relationshipAge();
     await _android.setOverlayDialogueColor(_dialogueColor.key);
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
-    _multilingualRepliesEnabled =
-        (await db.getSetting('multilingual_replies_enabled')) != '0';
     _showForeignReplies =
         (await db.getSetting('show_foreign_replies')) == '1';
     _selectedLanguage =
@@ -1132,13 +1129,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     TtsPlaybackPhase.playing) {
                                   controller.stopSpeech();
                                 } else {
-                                  controller.speakMessage(
+                                  _speakMessageSafely(
                                     item.message!,
-                                    language: item.message!.hasLanguage(
-                                              _selectedLanguage,
-                                            )
-                                        ? _selectedLanguage
-                                        : ChatLanguage.chinese,
+                                    language: _selectedLanguage,
                                   );
                                 }
                               }
@@ -1294,11 +1287,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _speakMessageSafely(
+    ChatMessage message, {
+    required ChatLanguage language,
+  }) async {
+    try {
+      await controller.speakMessage(message, language: language);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('语音准备失败：$error')),
+      );
+    }
+  }
+
   Widget _chatLanguageBar(ChatMessage? latestAssistant) {
-    final projectedLanguage = latestAssistant != null &&
-            latestAssistant.hasLanguage(_selectedLanguage)
-        ? _selectedLanguage
-        : ChatLanguage.chinese;
+    final projectedLanguage = _selectedLanguage;
     final phase = latestAssistant == null
         ? TtsPlaybackPhase.idle
         : controller.ttsPhaseForMessage(latestAssistant.id);
@@ -1317,12 +1321,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: _LanguageSpeechButton(
                 language: language,
                 selected: projectedLanguage == language,
-                enabled: latestAssistant?.hasLanguage(language) ?? false,
+                enabled: latestAssistant != null &&
+                    latestAssistant.content.trim().isNotEmpty,
                 preparing: projectedLanguage == language &&
-                    phase == TtsPlaybackPhase.synthesizing,
+                    (phase == TtsPlaybackPhase.synthesizing ||
+                        controller.languageVariantPreparing(
+                          latestAssistant?.id ?? '',
+                          language,
+                        )),
                 onPressed: () async {
                   final message = latestAssistant;
-                  if (message == null || !message.hasLanguage(language)) return;
+                  if (message == null) return;
                   await controller.stopSpeech();
                   if (!mounted) return;
                   setState(() => _selectedLanguage = language);
@@ -1331,7 +1340,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     language.key,
                   );
                   if (!mounted) return;
-                  await controller.speakMessage(message, language: language);
+                  await _speakMessageSafely(message, language: language);
                 },
               ),
             ),
@@ -1647,20 +1656,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             },
                           ),
                         ),
-                      SwitchListTile(
+                      const ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('生成三语版本'),
-                        subtitle: const Text(
-                          '开启后，新回复保存中文、日语和英语；关闭只生成中文。',
+                        title: Text('外语按需生成'),
+                        subtitle: Text(
+                          '回复只生成中文；首次点击“日”或“EN”时，关闭思考并只生成所选语言，之后复用缓存。',
                         ),
-                        value: _multilingualRepliesEnabled,
-                        onChanged: (value) async {
-                          setState(() => _multilingualRepliesEnabled = value);
-                          await update(
-                            'multilingual_replies_enabled',
-                            value ? '1' : '0',
-                          );
-                        },
                       ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,

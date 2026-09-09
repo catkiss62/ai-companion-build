@@ -21,7 +21,6 @@ import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_message.dart';
-import '../models/chat_language_variant.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
@@ -210,11 +209,11 @@ class DurableGenerationRunner {
     var agentAttachmentsCommitted = false;
 
     try {
-      final multilingualEnabled =
-          (await db.getSetting('multilingual_replies_enabled')) != '0';
-      final finalGenerationReminder = multilingualEnabled
-          ? PromptBuilder.multilingualGenerationReminder()
-          : PromptBuilder.visibleChineseGenerationReminder();
+      // The authoritative reply is always generated once in Chinese. Foreign
+      // projections are optional, thinking-off requests created only when the
+      // user selects that language for a committed message.
+      final finalGenerationReminder =
+          PromptBuilder.visibleChineseGenerationReminder();
       final previous = await db.messagesBefore(
         user.createdAt,
         limit: 33,
@@ -331,11 +330,10 @@ class DurableGenerationRunner {
       );
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
-        if (multilingualEnabled)
-          <String, Object?>{
-            'role': 'system',
-            'content': finalGenerationReminder,
-          },
+        <String, Object?>{
+          'role': 'system',
+          'content': finalGenerationReminder,
+        },
       ];
       Future<({
         String reasoning,
@@ -442,12 +440,7 @@ class DurableGenerationRunner {
             // visible bubble and streaming TTS. Providers that ignore the
             // contract still stream ordinary text without waiting for commit.
             final envelopeVisible = EmotionEnvelope.streamingVisible(content);
-            final visibleContent = multilingualEnabled
-                ? MultilingualReplyCodec.streamingChinese(
-                    envelopeVisible,
-                    messageId: job.assistantMessageId,
-                  )
-                : envelopeVisible;
+            final visibleContent = envelopeVisible;
             final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
@@ -598,7 +591,7 @@ $finalGenerationReminder
         // A provider may legally emit a short preamble before its first tool
         // call. Preserve the established single preamble, but do not accumulate
         // planning chatter from later rounds into the visible reply.
-        if (!multilingualEnabled && streamedToolPreamble.isEmpty) {
+        if (streamedToolPreamble.isEmpty) {
           streamedToolPreamble =
               EmotionEnvelope.parse(generated.content).visibleText.trim();
         }
@@ -746,49 +739,13 @@ $finalGenerationReminder
             .take(3)
             .map((message) => message.promptContent),
       ].join('\n');
-      MultilingualReply? multilingualReply;
       String visibleBody(EmotionEnvelopeData parsedEnvelope) {
-        if (!multilingualEnabled) return parsedEnvelope.visibleText;
-        final parsed = MultilingualReplyCodec.tryParse(
-          parsedEnvelope.visibleText,
-          messageId: job.assistantMessageId,
-        );
-        if (parsed == null) {
-          throw const FormatException('三语正文协议解析失败');
-        }
-        multilingualReply = parsed;
-        return parsed.chineseContent;
+        return parsedEnvelope.visibleText;
       }
 
       var envelope = EmotionEnvelope.parse(generated.content);
-      String finalContent;
-      try {
-        finalContent = visibleBody(envelope);
-      } on FormatException {
-        if (!multilingualEnabled) rethrow;
-        generated = await generate(
-          <Map<String, Object?>>[
-            ...finalRequestMessages,
-            <String, Object?>{
-              'role': 'assistant',
-              'content': generated.content,
-            },
-            <String, Object?>{
-              'role': 'system',
-              'content': '''
-【三语协议修复 · ONE RETRY】
-上一份最终正文没有形成可解析的三语 JSON。保持完全相同的事实、语义、动作—对白顺序、情绪和语气，只修复输出结构；不要增加或删减内容。
-$finalGenerationReminder
-'''.trim(),
-            },
-          ],
-          emitDeltas: false,
-        );
-        cancellationToken?.throwIfCancelled();
-        envelope = EmotionEnvelope.parse(generated.content);
-        finalContent = visibleBody(envelope);
-      }
-      if (!multilingualEnabled && streamedToolPreamble.isNotEmpty) {
+      String finalContent = visibleBody(envelope);
+      if (streamedToolPreamble.isNotEmpty) {
         finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
       }
       final promptResponsibilityShape =
@@ -885,7 +842,6 @@ $finalGenerationReminder
           finalContent = salvaged.isNotEmpty
               ? salvaged
               : '「那件事我还没有真的执行，刚才说岔了。」';
-          multilingualReply = null;
         }
         expressionVerification = ConversationOutcomeVerifier.verify(
           finalText: finalContent,
@@ -925,8 +881,7 @@ $finalGenerationReminder
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(finalContent),
-        languageVariants: multilingualReply?.foreignVariants ??
-            const <ChatLanguage, ChatLanguageVariant>{},
+        languageVariants: const {},
         emotionRawTag: companionEmotion.rawTag,
         emotionKey: companionEmotion.key,
         emotionLabel: companionEmotion.label,

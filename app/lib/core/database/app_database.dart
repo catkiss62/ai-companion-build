@@ -830,7 +830,7 @@ class AppDatabase {
         'personality_base_key': 'none',
         'personality_posture_key': 'none',
         'tts_reading_scope': 'dialogue_only',
-        'multilingual_replies_enabled': '1',
+        'multilingual_replies_enabled': '0',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',
@@ -1139,7 +1139,7 @@ class AppDatabase {
     if (oldVersion < 57) {
       await _createV57MessageLanguageVariants(db);
       for (final entry in const <String, String>{
-        'multilingual_replies_enabled': '1',
+        'multilingual_replies_enabled': '0',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',
@@ -1403,7 +1403,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
-    await db.insert('settings', {'key': 'multilingual_replies_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'multilingual_replies_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'show_foreign_replies', 'value': '0'});
     await db.insert('settings', {'key': 'tts_language', 'value': 'zh'});
     await db.insert('settings', {'key': 'tts_voice_mode', 'value': 'auto'});
@@ -3936,7 +3936,7 @@ class AppDatabase {
       'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
       'tts_reading_scope': 'dialogue_only',
-      'multilingual_replies_enabled': '1',
+      'multilingual_replies_enabled': '0',
       'show_foreign_replies': '0',
       'tts_language': 'zh',
       'tts_voice_mode': 'auto',
@@ -4555,6 +4555,37 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+  }
+
+  /// Adds one lazily generated foreign projection without rewriting the
+  /// authoritative Chinese message or rerunning its original generation.
+  Future<void> upsertMessageLanguageVariant(
+    ChatLanguageVariant variant,
+  ) async {
+    if (variant.language == ChatLanguage.chinese ||
+        variant.messageId.trim().isEmpty ||
+        variant.content.trim().isEmpty ||
+        variant.segments.isEmpty) {
+      throw StateError('invalid_message_language_variant');
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      final owner = await txn.query(
+        'messages',
+        columns: const ['role'],
+        where: 'id = ?',
+        whereArgs: [variant.messageId],
+        limit: 1,
+      );
+      if (owner.isEmpty || owner.first['role'] != 'assistant') {
+        throw StateError('language_variant_owner_missing');
+      }
+      await txn.insert(
+        'message_language_variants',
+        variant.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
   }
 
   Future<void> insertMessageWithAttachments(
@@ -17705,7 +17736,7 @@ class AppDatabase {
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
         'tts_reading_scope': 'dialogue_only',
-        'multilingual_replies_enabled': '1',
+        'multilingual_replies_enabled': '0',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',

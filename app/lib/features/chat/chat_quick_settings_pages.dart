@@ -494,8 +494,6 @@ class _VoiceEmotionSettingsPageState
   final _replacementController = TextEditingController();
   bool _ttsEnabled = false;
   bool _autoTts = false;
-  bool _streamingTts = false;
-  bool _multilingualRepliesEnabled = true;
   bool _showForeignReplies = false;
   TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
@@ -519,10 +517,6 @@ class _VoiceEmotionSettingsPageState
   Future<void> _load() async {
     _ttsEnabled = (await _db.getSetting('tts_enabled')) == '1';
     _autoTts = (await _db.getSetting('auto_tts')) == '1';
-    _streamingTts =
-        (await _db.getSetting('tts_streaming_enabled')) == '1';
-    _multilingualRepliesEnabled =
-        (await _db.getSetting('multilingual_replies_enabled')) != '0';
     _showForeignReplies =
         (await _db.getSetting('show_foreign_replies')) == '1';
     _voiceMode = TtsVoiceMode.fromSetting(
@@ -619,20 +613,12 @@ class _VoiceEmotionSettingsPageState
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
-                  SwitchListTile(
+                  const ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('生成三语版本'),
-                    subtitle: const Text(
-                      '开启后，新回复同时保存自然中文、日语和英语；关闭只生成中文。',
+                    title: Text('外语按需生成'),
+                    subtitle: Text(
+                      '每次回复只生成中文；首次选择“日”或“EN”时仅生成该语言，旧消息同样适用。',
                     ),
-                    value: _multilingualRepliesEnabled,
-                    onChanged: (value) async {
-                      setState(() => _multilingualRepliesEnabled = value);
-                      await _db.setSetting(
-                        'multilingual_replies_enabled',
-                        value ? '1' : '0',
-                      );
-                    },
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -712,24 +698,12 @@ class _VoiceEmotionSettingsPageState
                         await _db.setSetting('auto_tts', value ? '1' : '0');
                       },
                     ),
-                    SwitchListTile(
+                    const ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('流式分句朗读'),
+                      title: Text('固定分段预生成'),
                       subtitle: Text(
-                        _multilingualRepliesEnabled
-                            ? '三语回复需完整解析；提交后按当前语言从头播放。'
-                            : '每完成一句就进入本地 TTS 队列。',
+                        '按固定句段进入本地 TTS 队列，并在播放时生成下一段；不使用真流式测试模式。',
                       ),
-                      value: _streamingTts,
-                      onChanged: _autoTts
-                          ? (value) async {
-                              setState(() => _streamingTts = value);
-                              await _db.setSetting(
-                                'tts_streaming_enabled',
-                                value ? '1' : '0',
-                              );
-                            }
-                          : null,
                     ),
                     DropdownButtonFormField<ProactiveTtsPolicy>(
                       value: _proactivePolicy,

@@ -34,6 +34,7 @@
         android:name="${applicationName}"
         android:icon="@drawable/companion_launcher_icon"
         android:allowBackup="false"
+        android:extractNativeLibs="true"
         android:usesCleartextTraffic="false">
 
         <activity
@@ -68,6 +69,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled persistent AI companion overlay bubble" />
         </service>
+
+        <service
+            android:name=".GenieTtsIsolatedService"
+            android:exported="false"
+            android:process=":genie_tts"
+            android:stopWithTask="false" />
 
         <service
             android:name=".NotificationBridgeService"

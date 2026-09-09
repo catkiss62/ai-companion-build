@@ -81,6 +81,7 @@
 
 ### 本地 TTS
 
+- `GENIE_DIRECT_PORT_LAZY_LANGUAGE_v0.41.55.md`：固定 Genie v0.6.4 源提交、排除后来真流式测试板块、独立 TTS 进程崩溃隔离，以及旧中文消息按需生成并缓存单一目标外语的当前合同。
 - `GENIE_MULTILINGUAL_TTS_v0.41.53.md`：普通聊天三语同意图消息、中文权威投影、`中/日/EN` 文本语音联动、Genie 四音色、单前端按需加载、双层分段和旧妹居退出的当前实施合同。
 - `GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md`：v0.6.4 前端优先初始化、AudioTrack 打断安全、三语生成/显示/语音解耦，以及规则、世界书和自定义模型设置的本轮候选合同。
 - `TTS_RUNTIME_UPGRADE_v0.39.5.md`：当前妹居 TTS 资源、调用、分句与停止契约。

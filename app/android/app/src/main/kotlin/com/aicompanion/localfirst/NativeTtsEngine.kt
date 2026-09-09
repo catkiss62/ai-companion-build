@@ -3,107 +3,41 @@ package com.aicompanion.localfirst
 import android.content.Context
 import com.catkiss62.geniettsbenchmark.SystemAudioPolicy
 import java.io.File
-import java.util.concurrent.locks.ReentrantLock
 
-/** Process-scoped Genie-TTS v0.6.4 binding shared by all Flutter engines. */
+/** Process-scoped bridge to the isolated Genie v0.6.4 runtime plus main-process playback. */
 class NativeTtsEngine private constructor(context: Context) {
     private val appContext = context.applicationContext
-    private val runtime = GenieTtsRuntime(appContext)
+    private val client = IsolatedGenieTtsClient(appContext)
     private val player = WavAudioPlayer()
-    private val speechLock = ReentrantLock()
 
-    @Volatile private var initialized = false
     @Volatile private var activeLanguage = "zh"
     @Volatile private var speed = 1.0
     @Volatile private var volume = 1.0
-    @Volatile private var lastError = ""
     @Volatile private var speechGeneration = 0L
-    @Volatile private var verifiedArtifacts = 0
-    @Volatile private var diagnosticStage = "not_initialized"
 
-    fun status(): Map<String, Any> = mapOf(
-        "available" to runtime.artifactsPresent,
-        "initialized" to (initialized && runtime.isReady),
-        "engine" to "Genie-TTS v0.6.4 · ONNX Runtime (local)",
-        "integrity" to if (verifiedArtifacts > 0) "verified" else "unchecked",
-        "artifactCount" to verifiedArtifacts,
-        "goldenReference" to "genie-v0.6.4-private-runtime",
-        "diagnosticStage" to diagnosticStage,
-        "diagnosticTrace" to listOfNotNull(
-            "single_serial_worker",
-            if (initialized) "frontend_$activeLanguage" else null,
-            if (runtime.acousticModelsReady) "acoustic_models_ready" else null,
-        ),
-        "detail" to lastError.ifBlank { runtime.statusDetail() },
-    )
-
-    fun verifyArtifacts(): Map<String, Any> {
-        speechLock.lock()
-        try {
-            verifiedArtifacts = runtime.verifyPackagedArtifacts()
-            lastError = ""
-            return status()
-        } catch (error: Throwable) {
-            verifiedArtifacts = 0
-            lastError = error.message ?: error.javaClass.simpleName
-            return status().toMutableMap().apply { this["integrity"] = "failed" }
-        } finally {
-            speechLock.unlock()
+    fun status(): Map<String, Any> = try {
+        client.status().toMutableMap().apply {
+            this["processIsolation"] = "private_process"
+            val checkpoint = TtsProcessCheckpoint.read(appContext)
+            if (checkpoint.isNotEmpty()) this["lastProcessCheckpoint"] = checkpoint
         }
+    } catch (error: Throwable) {
+        failureStatus(error)
     }
 
+    fun verifyArtifacts(): Map<String, Any> = client.verifyArtifacts()
+
     fun initialize(language: String = "zh"): Map<String, Any> {
-        speechLock.lock()
-        try {
-            activeLanguage = normalizeLanguage(language)
-            markStage("initialize_frontend_$activeLanguage", durable = true)
-            initialized = runtime.initialize(activeLanguage)
-            markStage("frontend_ready_$activeLanguage")
-            lastError = ""
-            return status()
-        } catch (error: Throwable) {
-            initialized = runtime.isReady
-            lastError = error.message ?: error.javaClass.simpleName
-            return status()
-        } finally {
-            speechLock.unlock()
-        }
+        activeLanguage = normalizeLanguage(language)
+        return client.initialize(activeLanguage)
     }
 
     fun prepareLanguage(language: String): Map<String, Any> {
-        speechLock.lock()
-        try {
-            val next = normalizeLanguage(language)
-            if (!initialized) return initialize(next)
-            markStage("switch_frontend_$next", durable = true)
-            runtime.prepareLanguage(next)
-            activeLanguage = next
-            markStage("frontend_ready_$activeLanguage")
-            lastError = ""
-            return status()
-        } catch (error: Throwable) {
-            initialized = runtime.isReady
-            lastError = error.message ?: error.javaClass.simpleName
-            return status()
-        } finally {
-            speechLock.unlock()
-        }
+        activeLanguage = normalizeLanguage(language)
+        return client.prepareLanguage(activeLanguage)
     }
 
-    fun importChineseRoberta(path: String): Map<String, Any> {
-        speechLock.lock()
-        try {
-            runtime.importChineseRoberta(File(path))
-            lastError = ""
-            return status()
-        } catch (error: Throwable) {
-            initialized = runtime.isReady
-            lastError = error.message ?: error.javaClass.simpleName
-            throw error
-        } finally {
-            speechLock.unlock()
-        }
-    }
+    fun importChineseRoberta(path: String): Map<String, Any> = client.importChineseRoberta(path)
 
     fun diagnose(language: String = "zh"): Map<String, Any> {
         val normalized = normalizeLanguage(language)
@@ -131,63 +65,48 @@ class NativeTtsEngine private constructor(context: Context) {
         voice: String = "daily",
         generation: Long = generationToken(),
     ): ByteArray? {
-        if (text.isBlank()) return null
-        speechLock.lock()
-        try {
-            if (generation != generationToken()) return null
-            val nextLanguage = normalizeLanguage(language)
-            if (!initialized || !runtime.isReady || activeLanguage != nextLanguage) {
-                val next = initialize(nextLanguage)
-                if (next["initialized"] != true) {
-                    error(lastError.ifBlank { "Genie TTS initialization failed" })
-                }
+        if (text.isBlank() || generation != generationToken()) return null
+        val nextLanguage = normalizeLanguage(language)
+        activeLanguage = nextLanguage
+        val path = client.generateToFile(
+            text = text,
+            language = nextLanguage,
+            voice = normalizeVoice(voice),
+            speed = speed,
+        )
+        if (path.isBlank() || generation != generationToken()) {
+            if (path.isNotBlank()) File(path).delete()
+            return null
+        }
+        val output = File(path)
+        return try {
+            check(output.isFile) { "Genie TTS 子进程未返回音频文件" }
+            output.readBytes().also {
+                check(it.size >= 44) { "Genie TTS returned invalid WAV data" }
             }
-            if (generation != generationToken()) return null
-            val wav = runtime.generate(
-                text = text,
-                language = nextLanguage,
-                voice = normalizeVoice(voice),
-                speed = speed,
-                shouldCancel = { generation != generationToken() },
-                onStage = { stage ->
-                    markStage(
-                        stage,
-                        durable = stage == "load_acoustic_models" ||
-                            stage.startsWith("prepare_frontend_") ||
-                            stage.startsWith("infer_"),
-                    )
-                },
-            )
-            if (generation != generationToken()) return null
-            check(wav.size >= 44) { "Genie TTS returned invalid WAV data" }
-            markStage("wav_ready")
-            lastError = ""
-            return wav
-        } catch (error: Throwable) {
-            if (generation != generationToken()) return null
-            lastError = error.message ?: error.javaClass.simpleName
-            RuntimeDiagnosticStore.record(
-                appContext,
-                "tts",
-                "generate",
-                "error",
-                error.javaClass.simpleName,
-                detail = "",
-                metadata = mapOf("language" to activeLanguage),
-            )
-            throw error
         } finally {
-            speechLock.unlock()
+            output.delete()
         }
     }
 
     fun playAudio(wav: ByteArray, generation: Long = generationToken()) {
         if (wav.isEmpty() || generation != generationToken()) return
         if (SystemAudioPolicy.isSilentOrVibrate(appContext)) return
-        markStage("audio_playback", durable = true)
+        RuntimeDiagnosticStore.record(
+            appContext,
+            category = "tts",
+            phase = "audio_playback",
+            metadata = mapOf("stage" to "audio_playback"),
+            durable = true,
+        )
         player.setVolume(volume.toFloat())
         player.play(wav)
-        markStage("audio_complete")
+        RuntimeDiagnosticStore.record(
+            appContext,
+            category = "tts",
+            phase = "audio_complete",
+            metadata = mapOf("stage" to "audio_complete"),
+        )
     }
 
     fun speak(text: String) {
@@ -199,6 +118,7 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun stop() {
         synchronized(this) { speechGeneration += 1L }
+        client.stop()
         player.stop()
     }
 
@@ -212,15 +132,22 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun release() {
         stop()
-        speechLock.lock()
-        try {
-            runtime.close()
-            initialized = false
-            diagnosticStage = "not_initialized"
-        } finally {
-            speechLock.unlock()
-        }
+        client.releaseRuntime()
     }
+
+    private fun failureStatus(error: Throwable): Map<String, Any> = mapOf(
+        "available" to false,
+        "initialized" to false,
+        "engine" to "Genie-TTS v0.6.4 · isolated ONNX Runtime",
+        "integrity" to "unknown",
+        "artifactCount" to 0,
+        "goldenReference" to "5380a536f83aeaec540a9aaa7982149969c73e26",
+        "diagnosticStage" to "child_process_unavailable",
+        "diagnosticTrace" to listOf("private_process", "child_process_unavailable"),
+        "detail" to (error.message ?: error.javaClass.simpleName),
+        "processIsolation" to "private_process",
+        "lastProcessCheckpoint" to TtsProcessCheckpoint.read(appContext),
+    )
 
     private fun normalizeLanguage(value: String) =
         value.takeIf { it == "zh" || it == "ja" || it == "en" } ?: "zh"
@@ -228,17 +155,6 @@ class NativeTtsEngine private constructor(context: Context) {
     private fun normalizeVoice(value: String) =
         value.takeIf { it == "daily" || it == "gentle" || it == "lively" || it == "cute" }
             ?: "daily"
-
-    private fun markStage(stage: String, durable: Boolean = false) {
-        diagnosticStage = stage
-        RuntimeDiagnosticStore.record(
-            appContext,
-            category = "tts",
-            phase = stage,
-            metadata = mapOf("stage" to stage),
-            durable = durable,
-        )
-    }
 
     companion object {
         @Volatile private var instance: NativeTtsEngine? = null

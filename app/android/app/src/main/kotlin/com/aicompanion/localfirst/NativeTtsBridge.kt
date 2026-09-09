@@ -39,7 +39,9 @@ class NativeTtsBridge(
                 return@setMethodCallHandler
             }
             when (call.method) {
-                "status" -> result.success(engine.status())
+                "status" -> submit(generationWorker, result, "tts_status_failed") {
+                    engine.status()
+                }
                 "verifyArtifacts" -> submit(generationWorker, result, "tts_verify_failed") {
                     engine.verifyArtifacts()
                 }

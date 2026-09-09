@@ -31,28 +31,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04154-genie-tts-hotfix-settings`，从上一分支 `agent/v04153-genie-multilingual-tts` 的远端最终提交 `ba93f1a` 开出；修 Genie 闪退并补齐本轮设置，不含沉浸、19emo ONNX、3C/MCP 或未验收的 v0.7.0 真流式 |
+| 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | v0.41.54 远端构建 head `7a2fa00984d5ae15e86ced6b8b3a4b8733ab756d` / tree `21239ca8595bbcbd22e75c69b11c047a4afa2ffa`；本地等价 tree 提交 `c539c92`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
-| App / 数据库 | 当前已构建候选是 `0.41.54+193 / schema 57 / Snapshot protocol 5`。仅新增设置默认值和保守内容迁移，不升 schema；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留，Chinese RoBERTa 仍由用户在 App 内导入 |
-| 最终 CI | v0.41.54 run [`34316877695`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695)（799）完整成功：Genie/桌宠恢复、源码及历史 validator、Kotlin tests、Flutter analyze、694/694 Flutter tests、arm64 Release APK、固定签名、38 个 Genie/OpenJTalk 文件、417 文件桌宠与 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| App / 数据库 | 已构建失败候选为 `0.41.54+193`；当前目标 `0.41.55+194 / schema 57 / Snapshot protocol 5`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
+| 最终 CI | v0.41.54 run [`34316877695`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695)（799）完整成功：Genie/桌宠恢复、源码及历史 validator、Kotlin tests、Flutter analyze、694/694 Flutter tests、arm64 Release APK、固定签名、38 个 Genie/OpenJTalk 文件、417 文件桌宠与 22 张塔罗资源均通过；构建证据保持 `CI PASSED / APK READY`，但最新真机已证明播放链 `TRUE DEVICE FAILED` |
 | 测试 APK | `AI-Companion-v0.41.54-193-Genie-TTS-Hotfix-Settings-APK.apk`；533,616,067 bytes；仅含 `arm64-v8a` |
 | APK SHA-256 | `36f7a6ba94ab265cb52821470766a98bd087371113dbea3bb95fdda0631ec2f3`；CI checksum 与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10090659526`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695/artifacts/10090659526)，ZIP 526,808,936 bytes / digest `0317d85c5de8b9f2cc1acfec627ba9cb51648cecfab065ae8d0286c007270aed`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ed5eb2762460bf56f908) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.52 日历/UI 继续观察；v0.41.53 构建通过但 AI Companion 播放触发 native crash，故为 `TRUE DEVICE FAILED`；独立 Genie APK 同机三语正常。v0.41.54 已完成实现与完整 CI，状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 已在本地实现固定 v0.6.4 核心哈希、`:genie_tts` 私有进程、Binder death、JNI 显式解包、固定分段策略和按需单一外语，提交 `7fd5514`；现为 `IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING`。安全审查器要求用户再次明确授权把本批源码推送到 GitHub 新开发分支；不得绕过，也不得把本地静态通过写成已修复真机闪退 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **真机验收 v0.41.54**：覆盖安装后先用新回复点击中文播放，确认不再闪退；再分别测试中/日/EN、隐藏外语仍可听外语、中文对照不朗读、停止/切换、长段续播与热词弱读。若仍闪退，重启 App 后立即导出脱敏诊断，按最后持久阶段点定位 |
-| 目标 | “显示外语”关闭时仍可选日/英语音，气泡只显示中文翻译、TTS 只读隐藏外语；开启后才展示外语正文与中文对照。只用已验证 Genie v0.6.4 |
-| 当前证据 | run [`34316877695`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695)（799）全绿：此前重复 `dispose()` 的 Flutter 预编译点已通过，随后 Kotlin、analyze、694/694 Flutter tests、Release、固定签名及全部资源验证成功；APK/Artifact/Draft Release 与 SHA 已生成。自动化不能证明 native 闪退已消失，必须以用户真机点击播放为准；v0.41.53 旧诊断仍为 `native_crash/status=6` |
+| 当前下一步 | **收口 v0.41.55 原样移植＋按需外语**：本地实现与专项静态合同已完成；下一步用 Actions 真编译 Kotlin/AIDL、Flutter analyze/tests 和 arm64 Release，再交付 APK 做中文→英文→日语及主进程存活真机检查 |
+| 目标 | 伴侣主进程不再重编排 ONNX 生命周期，TTS 子进程即使 native abort 也不带崩 App；取消默认每轮 `zh/ja/en`，中文保持权威，`中/日/EN` 点哪个只生成并朗读当前一个目标语；“显示外语”继续只控制气泡投影 |
+| 当前证据 | run `34316877695` 全绿，但真机失败：中文停在 `prepare_frontend_zh`；英文完成前端与四模型加载后停在 `infer_en`；日语只到 `initialize_frontend_ja`，未到 ready，秒切但不播放。没有任何 `wav_ready/audio_playback`；PSS/tombstone 未保存，峰值内存仍非已证实根因 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 开启三语时使用一轮共享情绪/意图/动作—对白结构的机器协议，解析后标签不保存；中文写回原消息，日英写独立版本表。动作/对白是上层段，超长单段再按中文/日文目标 42、上限 54 字符，英文目标 88、上限 110 字符做自然标点子分段。Genie 共用声学会话，但中文 RoBERTa、英文 CMUdict、日语 OpenJTalk 只保留当前一个前端；切换先 Stop 再从头播放。固定热词 `token` 与 `DeepSeek` 只改 TTS 发音 |
-| 完成判据 | 自动化与 Actions 全绿并生成 APK；真机先证明不再闪退，再验中/日/EN、隐藏外语仍可听外语、中文对照不朗读、四音色、长段、静音/后台、内存及两项热词弱读 |
+| 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文。只迁 v0.6.4 固定分段、1 秒预填充与 CPU 8 线程；禁止真流式、三前端同时预热、并发推理或把私人模型提交公开仓库 |
+| 完成判据 | 不等待单独诊断包：修复与跨进程 checkpoint 同包交付。Actions 全绿并生成新 APK后，真机先确认中文短句连续多次、英文、日语与切换均不带崩主 App，再验按需外语缓存、四音色、固定长段、静音/后台、内存及两项热词弱读 |
 | 直接详细入口 | `app/docs/GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md` 与 `app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md`；现有队列见 `app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md`，Genie 来源为 `catkiss62/Genie-TTS-Android` 的已验证 v0.6.4；v0.7 真流式明确排除 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -88,7 +88,21 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE PENDING）
+### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户以 v0.41.54 中文、英文、日语分流真机证据纠正排查方向，并明确质疑为何不直接移植已经正常的 Genie 项目。复核确认：伴侣虽复制核心类，却增加多个 FlutterEngine/NativeTtsBridge、共享单例、Dart 队列与双 Kotlin worker，并重写初始化/释放/播放生命周期，不能称为完整照搬已验证运行条件。
+2. 用户明确追加防误移植边界：Genie-TTS 项目后来为测试真流式又修改过一次，新增真流式测试板块不是移植对象。本包唯一源固定为本地已核对的 `5380a536f83aeaec540a9aaa7982149969c73e26`（v0.6.4）；只迁已真机验证的自然标点固定分段、首段固定 1 秒预填充和播放上一段时生成下一段，禁止读取或混入该提交之后的真流式代码。
+3. 新分支 `agent/v04155-genie-direct-port-lazy-language`，目标 `0.41.55+194 / schema 57 / Snapshot protocol 5`。Genie 核心恢复为固定源原样，运行在不加载 Flutter/悬浮/后台大脑的私有 `:genie_tts` 进程；主进程使用窄 IPC 和私有临时 WAV 文件复用现有播放层。Binder death 必须转成真实失败并允许重建，不能带崩主 App。
+4. 三语合同改为中文权威＋按需一个目标语：取消默认每轮三语协议；“显示外语”只控制气泡投影，`中/日/EN` 控制朗读与按需目标语言。旧中文消息首次点日或 EN 时，只以已提交的中文分段做一次关闭思考的自然改写，段数/kind/事实/归属/操作真值必须一致，成功后写入现有 variant 表并永久复用；不重新读取历史、世界书、Memory、Thought 或工具箱。
+5. 专项合同为 `app/docs/GENIE_DIRECT_PORT_LAZY_LANGUAGE_v0.41.55.md`。本包不接沉浸房间、19emo ONNX、备选音色、3C/MCP，不更改 Memory/Desire/人格/世界书正文。
+6. 已将 `ChineseFrontend`、`EnglishFrontend`、`NativeJapaneseFrontend`、`GenieBenchmarkEngine`、`BenchmarkModels`、`GenieSymbolsV2` 与 `SystemAudioPolicy` 恢复/确认成固定提交逐字源码；专项 validator 固定七个 SHA-256。伴侣热词与本地 RoBERTa 文件导入移到 `GenieFrontendAdapter`，不再侵入金标准核心。
+7. 新增 AIDL `IGenieTtsIsolatedService`、私有 `:genie_tts` 服务、主进程 client 与跨进程 AtomicFile checkpoint。ORT/前端/模型由子进程单引擎、公平串行锁持有；WAV 只经同 UID 私有临时文件返回，主进程读取后删除，不跨 Binder 传大数组。子进程死亡记录最后 stage/PSS/RSS 并转成 TTS 错误，主 App 不应随 native abort 退出。
+8. Manifest 已显式 `android:extractNativeLibs="true"` 对齐独立 Genie，日语 JNI 装载失败不再只静默返回；`TtsService` 会把前端初始化/切换详情写入现有 TTS 错误诊断。新报告已确认中文停 `prepare_frontend_zh`、英文停 `infer_en`、日语停 `initialize_frontend_ja`，故本包直接修复运行边界，不再等待纯检测 APK。
+9. 普通生成链已彻底删除 `multilingualGenerationReminder()` 与 `<multilingual_reply>` 注入，只提交中文。新增 `MessageLanguageVariantService` 以 DeepSeek Flash、`thinking:false`、单一目标语和严格同段校验生成缓存；并发重复点击共享同一请求，旧消息与新回复都按 message id＋language 复用。UI 删除“生成三语版本”开关，缺变体的日/EN 按钮可直接生成后朗读。
+10. 固定播放不接 provider token 真流式：新增 v0.6.4 `ChineseTextSegmenter` 等价策略，中文/日语 42/54、英文 88/110，提交后一次分段并在播放期间预生成后段；UI 将旧“流式分句朗读”改成只读的“固定分段预生成”。专项、总账、durable SQLite、TTS 队列静态校验与 `git diff --check` 已通过；本环境无 Flutter/Dart/Kotlin SDK且 Gradle 8.12 下载被网络阻止，真实 AIDL/Kotlin/Flutter 编译待 Actions，不得标本地编译通过。
+11. 实现已提交为本地 `7fd5514`。尝试推送 `agent/v04155-genie-direct-port-lazy-language` 时，安全审查器以“用户未明确授权发布本批大规模源码到未验证 GitHub 目标”为由拒绝；不得绕过。需用户明确回复允许把当前提交推送到 `catkiss62/ai-companion-build` 的该开发分支，之后才能触发 Actions/APK。
+
+### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 
 1. 用户安装 v0.41.53 后点击播放即发生 App 闪退；同一真机上的 Genie 独立测试 APK 已确认中文、日语、英语正常，因此不能把问题归为用户模型文件或设备不支持。最新脱敏诊断记录 Android historical exit 为 `native_crash/status=6`，重启后的 TTS 快照为 `initialized=false / diagnosticStage=not_initialized`；报告不含 tombstone 原始栈，当前只能先按 AI Companion 集成路径逐阶段加固与取证，不能声称已定位到具体 native 函数。
 2. 当前分支 `agent/v04154-genie-tts-hotfix-settings` 从远端 v0.41.53 最终总账提交 `ba93f1a` 开出。上一窗口本地 `282e6ab` 与远端 `ba93f1a` 虽父历史不同，但 tree 都是 `f35ba485efb8098db629f0c1afcbdb751e6f62de`，文件 diff 为空；不存在总账内容分叉或源码丢失。
@@ -111,6 +125,12 @@
 19. 首次远端提交 `98458fbaf0306261f5e51cc53eadc9405a879998` / tree `a1e990f552c878f049ec65e0fb9b1b0478c1ec0f` 已推送，Actions run [`34315694058`](https://github.com/catkiss62/ai-companion-build/actions/runs/34315694058)（797）完成 Genie v0.6.4 私有载荷、417 文件桌宠、LingChat/塔罗、Flutter/Java、固定签名和全部前序源码合同后，在 `validate_runtime_diagnostic_store_kotlin_v27.py` 的旧 Android stub 编译处失败：stub 只声明 `Editor.apply()`，本版生产代码为跨 native crash 同步诊断首次调用真实 Android API `Editor.commit()`。这不是生产 Kotlin API 错误，也未进入 App Kotlin/Flutter 编译；窄修仅给历史 stub 补 `commit(): Boolean`，不改变运行时代码、设置、资源或诊断语义。
 20. stub 窄修已由远端提交 `756523ade407b2e86644ec9304c808b43613a4ef` / tree `eb257f0c4ffdc7cc66ed44d213ca1aeb257dcaa5` 推送。Actions run [`34316112062`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316112062)（798）确认该 validator 与全部前序源码合同通过，随后在 Kotlin 测试触发的 Flutter debug 预编译发现 `settings_category_pages.dart` 同一 State 在 line 267/512 重复声明 `dispose()`。这是自定义模型输入框加入 controller 时未把新增清理项合入原有尾部方法造成的单一 Dart 编译错误；现已保留包含 `_customDeepSeekModel.dispose()` 的第一处并删除重复尾部方法，不改设置语义、存档、TTS 或资源。v0.41.54 专项、总账 validator 与 `git diff --check` 已通过。
 21. 最终构建源码已由远端提交 `7a2fa00984d5ae15e86ced6b8b3a4b8733ab756d` / tree `21239ca8595bbcbd22e75c69b11c047a4afa2ffa` 精确推送；本地等价 tree 提交为 `c539c92`。Actions run [`34316877695`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695)（799）完整成功：上次失败的 Flutter debug 预编译与 Kotlin 测试已通过，随后 `flutter analyze`、694/694 Flutter tests、arm64 Release、固定签名 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`、38 个 Genie/OpenJTalk 文件精确大小/哈希、旧妹居缺席、417 文件桌宠及 22 张塔罗均通过。APK `AI-Companion-v0.41.54-193-Genie-TTS-Hotfix-Settings-APK.apk` 为 533,616,067 bytes，SHA-256 `36f7a6ba94ab265cb52821470766a98bd087371113dbea3bb95fdda0631ec2f3`，与 Draft 资产服务端 digest 一致。Artifact `10090659526` 为 526,808,936 bytes / digest `0317d85c5de8b9f2cc1acfec627ba9cb51648cecfab065ae8d0286c007270aed`，保留至 2026-09-23；Draft Release `385250899` 保持未发布，`main` 未合并。当前严格提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不能在用户真机点击播放前声称 native 闪退已修复。
+22. 用户随后完成真机复核并明确更正证据：v0.41.54 点击任一消息播放后过一会儿 100% 闪退，没有成功概率；点击全局“中”按钮也 100% 闪退。源码核对证明“中”按钮不是只切换前端：它执行 `stopSpeech → 保存 tts_language=zh → speakMessage`，因此两种操作都进入同一中文合成链，不能当成两个独立故障。v0.41.54 状态由 `TRUE DEVICE PENDING` 改为 `TRUE DEVICE FAILED`，CI/APK 证据仍保留。
+23. 最新脱敏诊断包含多轮进程重启，历史退出为 `native_crash/status=6`；每轮均可记录 `initialize_frontend_zh → frontend_ready_zh → prepare_frontend_zh`，但没有任何一轮到达 `load_acoustic_models`、`infer_zh`、`wav_ready` 或 `audio_playback`。`initialize` 在当前实现只准备资源并创建 `ChineseFrontend` 对象，真正的 RoBERTa session 创建/首次运行位于 `prepare()` 内；因此 AudioTrack 已排除，故障窗口收敛为字典/音素之后的 `env.createSession(...)` 或 `ortSession.run(...)`。报告没有崩溃前 PSS/RSS、native tombstone，且 `lastTrimMemoryLevel=0`；峰值 PSS 可以在固定内存余量不足时造成必现失败，但 PSS 是占用指标而非崩溃类型，现有 `SIGABRT` 不能单凭必现性证明 OOM，仍需 tombstone 区分 native 分配失败与 ORT 断言。
+24. 同轮发现 v0.41.54 三语合同与用户最新方向不符：数据库默认 `multilingual_replies_enabled=1`，`DurableGenerationRunner` 因此在每个普通回合追加 `multilingualGenerationReminder()`，强制最终一次生成 `zh/ja/en`。提示明确要求 reasoning 只用中文，但模型仍需规划三份最终表达，会增加输出 token、延迟、协议失败面与注意力负担。用户提出按 `中/日/EN` 所选语言分开生成，取消默认每轮三语；此项先记为 `DESIGN REVIEW`，运行代码未改，后续不得沿用“显示外语与语音完全解耦、默认永远生成三语”作为既定需求。
+25. 用户继续分别测试三个语言按钮并导出 `ai_companion_diagnostics_2026-09-09T08-20-10-435969Z.txt`。中文转圈约一至两秒后闪退，轨迹仍止于 `prepare_frontend_zh`。英文等待明显更久：多轮均记录 `prepare_frontend_en → frontend_ready_en → load_acoustic_models → acoustic_models_ready → infer_en`，但从未到 `wav_ready`，证明 CMUdict 与四个声学 session 均成功，进程死在 `runPrepared` 的输入张量/encoder/decoder/vocoder 粗阶段。日语反复只记录 `initialize_frontend_ja`，没有 `frontend_ready_ja`、prepare 或 infer；当前构造器除 `System.loadLibrary("openjtalk_native")` / `System.loadLibrary("genie_frontend")` 外无前置工作，因此高度指向可捕获的 JNI 装载失败。上层把 `initialized=false` 当静默不可用，故表现为秒切、不崩但无声；`hasTtsError=false` 不能证明初始化成功。
+26. 新证据排除“任何语言按钮/UI 队列统一崩溃”，并把问题分成两条：中/英的大型 ONNX session/run 在伴侣进程中 native 终止；日语是独立的 JNI 初始化失败。独立 Genie v0.6.4 与伴侣均固定 CPU 8 线程、ORT 1.22.0，算法核心仅差热词与文件导入；伴侣 manifest 未像独立 APK 明写 `android:extractNativeLibs="true"`，可作为日语的确定性对齐修复，但不能单独解释中/英 ORT 崩溃。下一包应合并实际隔离/修复与分阶段取证，不交付纯检测 APK。
+27. 用户追问按所选语言生成后，旧中文消息再切日语如何处理。推荐合同为按需生成并缓存：点击缺失的日语版本时，只把已提交的中文权威 action/dialogue 段交给关闭思考的语言改写调用，不重跑原对话 reasoning、Memory、世界书或 Agent；验证段数/kind/事实与操作 Outcome 不变后写入既有 `message_language_variants`，再同步切换文本并播放。以后命中缓存不再调用 LLM；英语同理。该建议仍为 `DESIGN REVIEW`，等待用户确认后再实现。
 
 ### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
