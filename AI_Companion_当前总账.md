@@ -34,14 +34,14 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.55+198 Actions head `531f85fd28678006159ec3ba1e4b8ef727482e2e` / 构建时完整总账 tree `583c27601b48d0330bf675ca0c19dd124259118a`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
+| 有效构建 head / tree | v0.41.55+198 最终 Actions head `c15c9d6ac5e1e30e57ef439ec080e2d07f87ab3e` / 构建时完整总账 tree `fa4b5d28f943260cc50ec47a7e5efd92200ca649`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
 | App / 数据库 | 当前本地修复目标为 `0.41.55+198 / schema 57 / Snapshot protocol 5`；当前真机包为 `0.41.55+197`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | +198 run [`34402366714`](https://github.com/catkiss62/ai-companion-build/actions/runs/34402366714)（816）完整成功：总账协调、私有资源恢复、源码门、Kotlin/AIDL、Flutter analyze、`709/709` Flutter tests、Release APK、固定签名与完整实包均通过 |
+| 最终 CI | +198 run [`34404388142`](https://github.com/catkiss62/ai-companion-build/actions/runs/34404388142)（817）完整成功：总账协调、私有资源恢复、源码门、Kotlin/AIDL、Flutter analyze、`709/709` Flutter tests、Release APK、固定签名与完整实包均通过 |
 | 测试 APK | `AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK.apk`，537,179,972 bytes |
-| APK SHA-256 | `63725362a3c29223261bb1fb0932bf999e2983dd9ae3f4f17e7b48ca2fe48c0f`；与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10124367252`](https://github.com/catkiss62/ai-companion-build/actions/runs/34402366714/artifacts/10124367252)，ZIP 530,322,823 bytes / digest `a7db720d6fe48adda2ef76aa24133e6421b397c4460d19bc0a788b76a82eda9f`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-125e8889db9780b7f9c4) 未发布，`main` 未合并 |
+| APK SHA-256 | `2d709918b919783e01c883c87361f05926a61d42a64eb2f8b2e0b5ed235b2e41`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10125147779`](https://github.com/catkiss62/ai-companion-build/actions/runs/34404388142/artifacts/10125147779)，ZIP 530,322,821 bytes / digest `cd138146051929064b80575b7dc958a9de29380ea76577275c06929da883ffef`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-269d791cf3eed8541cb8) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +197 为 `TRUE DEVICE PARTIAL`，仅日语失败；+198 已完成日语原生装载闭环、顶部语言选择、不变调变速和 200% 音量增益，run 816 全绿且 APK 已上传。当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；日语真机恢复与音高/增益体感仍必须由用户覆盖安装后确认 |
+| 当前总状态 | +197 为 `TRUE DEVICE PARTIAL`，仅日语失败；+198 已完成日语原生装载闭环、顶部语言选择、不变调变速和 200% 音量增益，最终 run 817 全绿且 APK 已上传。当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；日语真机恢复与音高/增益体感仍必须由用户覆盖安装后确认 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -98,7 +98,7 @@
 4. 语言选择已从聊天面板底部移至顶栏 `NSFW` 左侧，实际可见文字只为“语言 中 日 EN”；点击会停止旧语音并保存后续朗读语言，但不立即合成或播放。旧底部语音语言状态条已删除；外语消息内容自身的中文对照仍保留。
 5. 语速已删除会同步改变音高的 PCM 线性重采样，改为单一连续 `AudioTrack` 上的 `PlaybackParams(speed, pitch=1.0)`，保留原有一秒 PCM 预填充、后段预生成队列、中止和 drain 语义。TTS 音量范围扩展为 0–200%；100% 以下走 AudioTrack 音量，超出部分用同一 audio session 的 `LoudnessEnhancer` 施加最高约 +6.02 dB 增益并在播放结束时释放。
 6. 运行诊断新增脱敏 `diagnosticCode`，保留真实异常类型而不导出错误原文或路径，避免下次只看到笼统 `not_initialized`。版本为 `0.41.55+198`，schema 57 和 Snapshot protocol 5 不变；新增播放参数边界测试与专项静态合同。
-7. 首轮 run [`34401062408`](https://github.com/catkiss62/ai-companion-build/actions/runs/34401062408)（815）因 GitHub Git Data 接口把 1.38 MB UTF-8 总账截断在 393,216 bytes 而停在源码门，未进入编译，与 TTS 代码无关。随后恢复远端完整 ledger blob，用一次性有界脚本在 Actions 内应用小补丁并以 `[skip ci]` 回推；协调后 head `2dc63b180ad5e2fc79cb9eb8ab6a672fa02e65c1` / tree `583c27601b48d0330bf675ca0c19dd124259118a` 保持历史档案哈希不变。run 816 完整通过源码回归、Kotlin/AIDL、Flutter analyze、`709/709` tests、arm64 Release、固定签名、双 JNI 库来源 SHA 与全部私有载荷校验。APK 为 537,179,972 bytes，SHA-256 `63725362a3c29223261bb1fb0932bf999e2983dd9ae3f4f17e7b48ca2fe48c0f`；Artifact `10124367252` 与 Draft Release 已就绪。状态提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不得提前写成日语真机通过。
+7. 首轮 run [`34401062408`](https://github.com/catkiss62/ai-companion-build/actions/runs/34401062408)（815）因 GitHub Git Data 接口把 1.38 MB UTF-8 总账截断在 393,216 bytes 而停在源码门，未进入编译，与 TTS 代码无关。恢复完整 ledger blob 后，run 816 完整通过；CI 结果回填又触发了同源复验 run [`34404388142`](https://github.com/catkiss62/ai-companion-build/actions/runs/34404388142)（817），同样通过源码回归、Kotlin/AIDL、Flutter analyze、`709/709` tests、arm64 Release、固定签名、双 JNI 库来源 SHA 与全部私有载荷校验。最终 Draft APK 为 537,179,972 bytes，SHA-256 `2d709918b919783e01c883c87361f05926a61d42a64eb2f8b2e0b5ed235b2e41`；Artifact `10125147779` 与 Draft Release 已就绪。为避免再次重复构建，超大总账协调改为独立 5 分钟文档 job，仅在有界脚本存在时回推 `[skip ci]` 账本提交，不再启动 APK job。状态严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不得提前写成日语真机通过。
 
 ### 2026-09-09 v0.41.55+197 TTS 真机反馈、队列对照与交互窄修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
