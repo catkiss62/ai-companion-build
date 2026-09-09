@@ -1036,11 +1036,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
-    ChatMessage? latestAssistant;
     String? latestAssistantId;
     for (final message in controller.messages.reversed) {
       if (message.isAssistant) {
-        latestAssistant = message;
         latestAssistantId = message.id;
         break;
       }
@@ -1245,8 +1243,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
-                          if (latestAssistant != null)
-                            _chatLanguageBar(latestAssistant),
                           _composer(context),
                         ],
                       ),
@@ -1314,37 +1310,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  Widget _chatLanguageBar(ChatMessage? latestAssistant) {
-    final projectedLanguage = _selectedLanguage;
-    final phase = latestAssistant == null
-        ? TtsPlaybackPhase.idle
-        : controller.ttsPhaseForMessage(latestAssistant.id);
+  Widget _topLanguageSelector() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 3, 12, 5),
+      padding: const EdgeInsets.only(right: 6),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '语音语言',
+            '语言',
             style: Theme.of(context).textTheme.labelSmall,
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 4),
           for (final language in ChatLanguage.values)
             Padding(
-              padding: const EdgeInsets.only(right: 5),
+              padding: const EdgeInsets.only(right: 2),
               child: _LanguageSpeechButton(
                 language: language,
-                selected: projectedLanguage == language,
-                enabled: latestAssistant != null &&
-                    latestAssistant.content.trim().isNotEmpty,
-                preparing: projectedLanguage == language &&
-                    (phase == TtsPlaybackPhase.synthesizing ||
-                        controller.languageVariantPreparing(
-                          latestAssistant?.id ?? '',
-                          language,
-                        )),
+                selected: _selectedLanguage == language,
                 onPressed: () async {
-                  final message = latestAssistant;
-                  if (message == null) return;
                   await controller.stopSpeech();
                   if (!mounted) return;
                   setState(() => _selectedLanguage = language);
@@ -1355,26 +1338,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 },
               ),
             ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Text(
-              projectedLanguage == ChatLanguage.chinese
-                  ? '中文语音'
-                  : projectedLanguage == ChatLanguage.japanese
-                      ? _showForeignReplies
-                          ? '日语正文＋中文对照'
-                          : '日语语音 · 显示中文翻译'
-                      : _showForeignReplies
-                          ? 'English 正文＋中文对照'
-                          : 'English 语音 · 显示中文翻译',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.end,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
         ],
       ),
     );
@@ -2120,6 +2083,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ),
               ),
             ),
+            _topLanguageSelector(),
             Tooltip(
               message: controller.nsfwActive
                   ? '本轮成人规则已开启；点击后下一轮强制关闭'
@@ -3517,15 +3481,11 @@ class _LanguageSpeechButton extends StatelessWidget {
   const _LanguageSpeechButton({
     required this.language,
     required this.selected,
-    required this.enabled,
-    required this.preparing,
     required this.onPressed,
   });
 
   final ChatLanguage language;
   final bool selected;
-  final bool enabled;
-  final bool preparing;
   final VoidCallback onPressed;
 
   @override
@@ -3536,21 +3496,17 @@ class _LanguageSpeechButton extends StatelessWidget {
       ChatLanguage.japanese => '日语',
       ChatLanguage.english => '英语',
     };
-    final description = preparing
-        ? '正在准备$languageName语音；点击停止'
-        : enabled
-            ? '选择$languageName作为朗读语言'
-            : '没有可朗读的消息';
+    final description = '选择$languageName作为后续朗读语言';
     return Tooltip(
       message: description,
       child: Semantics(
         button: true,
         selected: selected,
-        enabled: enabled,
+        enabled: true,
         label: description,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
-          onTap: enabled ? onPressed : null,
+          onTap: onPressed,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             constraints: const BoxConstraints(minWidth: 28, minHeight: 24),
@@ -3567,26 +3523,15 @@ class _LanguageSpeechButton extends StatelessWidget {
                     : scheme.outlineVariant.withValues(alpha: 0.45),
               ),
             ),
-            child: preparing
-                ? SizedBox.square(
-                    dimension: 11,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.6,
-                      color: scheme.primary,
-                    ),
-                  )
-                : Text(
-                    language.label,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: !enabled
-                              ? scheme.onSurfaceVariant.withValues(alpha: 0.32)
-                              : selected
-                                  ? scheme.primary
-                                  : scheme.onSurfaceVariant,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
-                        ),
+            child: Text(
+              language.label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
+            ),
           ),
         ),
       ),

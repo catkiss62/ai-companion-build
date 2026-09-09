@@ -118,7 +118,6 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         text: String,
         language: String,
         voice: String,
-        speed: Double,
         shouldCancel: () -> Boolean,
         onStage: (String) -> Unit = {},
     ): ByteArray {
@@ -160,21 +159,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         )
         modelLoad = ModelLoadInfo(false, 0L)
         onStage("wav_encode")
-        val audio = resampleForSpeed(result.audio, speed)
-        return pcm16Wav(audio, manifest.sampleRate, voiceCase.playbackGainDb)
-    }
-
-    private fun resampleForSpeed(input: FloatArray, speed: Double): FloatArray {
-        val ratio = speed.coerceIn(0.5, 2.0)
-        if (ratio == 1.0 || input.size < 2) return input
-        val size = (input.size / ratio).roundToInt().coerceAtLeast(1)
-        return FloatArray(size) { index ->
-            val source = index * ratio
-            val left = source.toInt().coerceIn(0, input.lastIndex)
-            val right = (left + 1).coerceAtMost(input.lastIndex)
-            val fraction = (source - left).toFloat()
-            input[left] * (1f - fraction) + input[right] * fraction
-        }
+        return pcm16Wav(result.audio, manifest.sampleRate, voiceCase.playbackGainDb)
     }
 
     private fun pcm16Wav(audio: FloatArray, sampleRate: Int, gainDb: Double): ByteArray {

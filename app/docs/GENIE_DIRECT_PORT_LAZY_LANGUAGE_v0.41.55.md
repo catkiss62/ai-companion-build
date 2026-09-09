@@ -1,6 +1,6 @@
 # Genie v0.6.4 原样移植、崩溃隔离与按需外语 · v0.41.55
 
-状态：`v0.41.55+196 TRUE DEVICE PARTIAL / v0.41.55+197 IMPLEMENTED LOCALLY · CI PENDING`。当前目标：`0.41.55+197 / schema 57 / Snapshot protocol 5`。
+状态：`v0.41.55+197 CI PASSED · TRUE DEVICE PARTIAL / v0.41.55+198 IMPLEMENTED LOCALLY · CI PENDING`。当前目标：`0.41.55+198 / schema 57 / Snapshot protocol 5`。
 
 ## 唯一源基线
 
@@ -57,3 +57,11 @@
 - “造梗能力”使用备份正文，仅删除同一年龄措辞清理覆盖的一处身份错位示例，激活概率为 50；新安装直接 seed，旧安装仅更新仍等于已知打包默认的条目。
 - 当前会注入聊天 LLM 的默认规则、普通/主动提示、沉浸提示、亲密路由、记忆/人格学习和参考资料前言不再加入成年/未成年年龄门。历史常量仅保留用于精确识别旧默认，不是当前 Prompt 来源。
 - 沉浸房间弯引号来自代码末端锁与房间默认规则，优先级高于用户提示词。当前 final lock、截断续写锁、全局规则和新建房间默认全部统一为对白 `「」`；旧房间仅在规则仍精确等于历史默认时自动迁移。
+
+## +197 日语真机证据与 +198 窄修
+
+- +197 的新脱敏真机报告中，中文和英文均有完整 `audio_playback/audio_complete`；日语在进入 `initialize_frontend_ja`、`prepare_frontend_ja` 或 `infer_ja` 前即以 `not_initialized / operation_failed` 失败。调用边界将失败点锁定在 `NativeJapaneseFrontend` 构造时的 JNI 库装载，而非日语文本、分段、OpenJTalk 词典或声学推理。
+- +198 不再只复用已验证 APK 的 `libopenjtalk_native.so` 而在伴侣项目重编 `libgenie_frontend.so`；CI 从同一份 Genie v0.6.4 APK 同时提取两库，Release 跳过本地 JNI 重编，并在最终 APK 内按字节数与 SHA-256 反查。
+- 语言选择移至顶栏 `NSFW` 左侧，可见文字只为“语言 中 日 EN”；点击不触发朗读。聊天面板底部的语音语言说明已删除，但外语消息本身的中文对照仍保留。
+- 语速从会改变音高的 PCM 线性重采样改为 `AudioTrack.PlaybackParams`，固定 `pitch=1.0`、仅调整 `speed`。TTS 音量上限提高到 200%，超过 100% 的部分使用 AudioTrack 会话级 `LoudnessEnhancer`，最高约 +6.02 dB；音源已很响时可能触发系统限幅。
+- 服务状态增加不含错误原文的 `diagnosticCode`，下次失败可区分真实异常类型。+198 本地静态合同已通过；Flutter/Dart/Kotlin 编译、全回归、Release APK 和真机结果必须分别由 Actions 与用户实测确认。

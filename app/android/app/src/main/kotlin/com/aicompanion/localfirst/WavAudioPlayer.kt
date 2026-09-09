@@ -3,12 +3,16 @@ package com.aicompanion.localfirst
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.PlaybackParams
+import android.media.audiofx.LoudnessEnhancer
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.log10
+import kotlin.math.roundToInt
 
 /** One utterance = one AudioTrack, matching the verified Genie v0.6.4 player. */
 class WavAudioPlayer {
@@ -26,14 +30,22 @@ class WavAudioPlayer {
     @Volatile
     private var volume = 1.0f
 
+    @Volatile
+    private var speed = 1.0f
+
     fun setVolume(value: Float) {
-        volume = value.coerceIn(0f, 1f)
+        volume = value.coerceIn(0f, 2f)
         stream?.setVolume(volume)
+    }
+
+    fun setSpeed(value: Float) {
+        speed = value.coerceIn(0.5f, 2f)
+        stream?.setSpeed(speed)
     }
 
     fun beginStream(onStarted: () -> Unit = {}) {
         stop()
-        val next = StreamSession(volume, onStarted)
+        val next = StreamSession(volume, speed, onStarted)
         synchronized(lock) { stream = next }
         next.start()
     }
@@ -78,6 +90,7 @@ class WavAudioPlayer {
 
     private inner class StreamSession(
         initialVolume: Float,
+        initialSpeed: Float,
         private val onStarted: () -> Unit,
     ) {
         private val queue = LinkedBlockingQueue<Command>()
@@ -90,15 +103,23 @@ class WavAudioPlayer {
         @Volatile private var cancelled = false
         @Volatile private var failure: Throwable? = null
         @Volatile private var track: AudioTrack? = null
+        @Volatile private var enhancer: LoudnessEnhancer? = null
         @Volatile private var playbackStarted = false
         @Volatile private var currentVolume = initialVolume
+        @Volatile private var currentSpeed = initialSpeed
         private var firstEnqueued = false
 
         fun start() = thread.start()
 
         fun setVolume(value: Float) {
-            currentVolume = value
-            runCatching { track?.setVolume(value) }
+            currentVolume = value.coerceIn(0f, 2f)
+            val currentTrack = track ?: return
+            applyVolume(currentTrack, enhancer)
+        }
+
+        fun setSpeed(value: Float) {
+            currentSpeed = value.coerceIn(0.5f, 2f)
+            track?.let(::applySpeed)
         }
 
         fun enqueue(bytes: ByteArray, wav: WavInfo) {
@@ -153,7 +174,11 @@ class WavAudioPlayer {
                                 val created = createTrack(wav)
                                 localTrack = created
                                 track = created
-                                created.setVolume(currentVolume)
+                                enhancer = runCatching {
+                                    LoudnessEnhancer(created.audioSessionId)
+                                }.getOrNull()
+                                applySpeed(created)
+                                applyVolume(created, enhancer)
                             } else {
                                 check(checkNotNull(format).samePcmFormat(wav)) {
                                     "TTS stream WAV format changed between segments"
@@ -202,6 +227,8 @@ class WavAudioPlayer {
                 failure = error
                 started.countDown()
             } finally {
+                runCatching { enhancer?.release() }
+                enhancer = null
                 runCatching { localTrack?.release() }
                 track = null
                 completed.countDown()
@@ -241,6 +268,32 @@ class WavAudioPlayer {
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .setBufferSizeInBytes(max(minBuffer, wav.sampleRate * wav.bytesPerFrame * 2))
                 .build()
+        }
+
+        private fun applySpeed(target: AudioTrack) {
+            target.playbackParams = PlaybackParams()
+                .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT)
+                .setPitch(1.0f)
+                .setSpeed(currentSpeed)
+        }
+
+        private fun applyVolume(
+            target: AudioTrack,
+            loudnessEnhancer: LoudnessEnhancer?,
+        ) {
+            val requested = currentVolume.coerceIn(0f, 2f)
+            target.setVolume(requested.coerceAtMost(1f))
+            if (requested <= 1f) {
+                loudnessEnhancer?.enabled = false
+                return
+            }
+            checkNotNull(loudnessEnhancer) {
+                "Android LoudnessEnhancer is unavailable for TTS boost"
+            }
+            loudnessEnhancer.setTargetGain(
+                (2000.0 * log10(requested.toDouble())).roundToInt(),
+            )
+            loudnessEnhancer.enabled = true
         }
 
         private fun writeFully(

@@ -57,7 +57,11 @@ for token in (
     assert token in controller, token
 if any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.55+196", "version: 0.41.55+197")
+    for version in (
+        "version: 0.41.55+196",
+        "version: 0.41.55+197",
+        "version: 0.41.55+198",
+    )
 ):
     # v0.41.55 deliberately removed provider-token true streaming and now
     # starts fixed Genie segmentation only after the committed reply exists.

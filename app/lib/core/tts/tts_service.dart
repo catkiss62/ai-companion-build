@@ -4,6 +4,7 @@ import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
 import 'native_tts_provider.dart';
 import 'tts_playback_queue.dart';
+import 'tts_playback_tuning.dart';
 import 'tts_provider.dart';
 import 'tts_queue_service.dart';
 import 'tts_text_processor.dart';
@@ -54,8 +55,12 @@ class TtsService implements TtsQueueService {
       provider.importChineseRoberta(path);
 
   Future<void> _applyPlaybackSettings() async {
-    final speed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
-    final volume = double.tryParse(await db.getSetting('tts_volume') ?? '') ?? 1.0;
+    final speed = TtsPlaybackTuning.speedFromSetting(
+      await db.getSetting('tts_speed'),
+    );
+    final volume = TtsPlaybackTuning.volumeFromSetting(
+      await db.getSetting('tts_volume'),
+    );
     await provider.setSpeed(speed);
     await provider.setVolume(volume);
   }

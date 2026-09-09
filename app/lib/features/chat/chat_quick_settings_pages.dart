@@ -12,6 +12,7 @@ import '../../core/moe/domain/moe_models.dart';
 import '../../core/moe/infrastructure/sqlite_moe_repository.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/tts/tts_playback_tuning.dart';
 import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
@@ -529,13 +530,12 @@ class _VoiceEmotionSettingsPageState
     _proactivePolicy = ProactiveTtsPolicy.fromSetting(
       await _db.getSetting('proactive_tts_policy'),
     );
-    _ttsSpeed = (double.tryParse(await _db.getSetting('tts_speed') ?? '') ?? 1.0)
-        .clamp(0.5, 2.0)
-        .toDouble();
-    _ttsVolume =
-        (double.tryParse(await _db.getSetting('tts_volume') ?? '') ?? 1.0)
-            .clamp(0.0, 1.0)
-            .toDouble();
+    _ttsSpeed = TtsPlaybackTuning.speedFromSetting(
+      await _db.getSetting('tts_speed'),
+    );
+    _ttsVolume = TtsPlaybackTuning.volumeFromSetting(
+      await _db.getSetting('tts_volume'),
+    );
     _replacementController.text =
         await _db.getSetting('tts_replacements_json') ??
             '{"token":"拖肯","DeepSeek":"地铺C咳"}';
@@ -733,8 +733,8 @@ class _VoiceEmotionSettingsPageState
                     const SizedBox(height: 14),
                     Text('语速 ${_ttsSpeed.toStringAsFixed(2)}×'),
                     Slider(
-                      min: 0.5,
-                      max: 2.0,
+                      min: TtsPlaybackTuning.minSpeed,
+                      max: TtsPlaybackTuning.maxSpeed,
                       divisions: 30,
                       value: _ttsSpeed,
                       onChanged: (value) => setState(() => _ttsSpeed = value),
@@ -745,9 +745,9 @@ class _VoiceEmotionSettingsPageState
                     ),
                     Text('TTS 音量 ${(_ttsVolume * 100).round()}%'),
                     Slider(
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 20,
+                      min: TtsPlaybackTuning.minVolume,
+                      max: TtsPlaybackTuning.maxVolume,
+                      divisions: 40,
                       value: _ttsVolume,
                       onChanged: (value) => setState(() => _ttsVolume = value),
                       onChangeEnd: (value) => _db.setSetting(

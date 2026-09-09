@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+197" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+197';" in read(
+assert "version: 0.41.55+198" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.55+198';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -78,6 +78,7 @@ assert 'File(cacheDir, "genie-tts-ipc")' in service
 assert "output.readBytes()" in native and "output.delete()" in native
 assert "linkToDeath" in client and "child_process_exit" in client
 assert "recordUnreadyStatus" in native
+assert 'status["diagnosticCode"]' in native
 assert 'phase = "generation_failed"' in native
 assert "recordTtsClientFailure" in read("lib/core/platform/android_bridge.dart")
 assert '"recordTtsClientFailure" ->' in read(
@@ -114,8 +115,16 @@ for token in (
     "fun finishStream()",
     "wav.sampleRate * bytesPerFrame",
     'Thread(::runWriter, "Genie-TTS-stream-player")',
+    "PlaybackParams()",
+    ".setPitch(1.0f)",
+    ".setSpeed(currentSpeed)",
+    "LoudnessEnhancer(created.audioSessionId)",
+    "2000.0 * log10(requested.toDouble())",
 ):
     assert token in player, token
+assert "resampleForSpeed" not in runtime
+assert "pcm16Wav(result.audio" in runtime
+assert "volume = value.coerceIn(0.0, 2.0)" in native
 assert "GenieFixedTextSegmenter.split(prepared, language)" in queue
 for token in ("targetChars: english ? 88 : 42", "maxChars: english ? 110 : 54"):
     assert token in fixed_segmenter, token
@@ -128,6 +137,7 @@ db = read("lib/core/database/app_database.dart")
 controller = read("lib/features/chat/chat_controller.dart")
 chat = read("lib/features/chat/chat_page.dart")
 voice_settings = read("lib/features/chat/chat_quick_settings_pages.dart")
+tuning = read("lib/core/tts/tts_playback_tuning.dart")
 model = read("lib/core/ai/model_profile.dart")
 model_settings = read("lib/features/settings/settings_category_pages.dart")
 processor = read("lib/core/tts/tts_text_processor.dart")
@@ -153,15 +163,29 @@ assert "latestSpeechLanguage != ChatLanguage.chinese" in controller
 assert "ttsPlayback.beginStream" not in controller
 assert "tts_streaming_enabled" not in controller
 assert "languageVariantPreparing" in controller
-assert "latestAssistant.content.trim().isNotEmpty" in chat
-language_bar = chat[chat.index("Widget _chatLanguageBar"):chat.index("class _LanguageSpeechButton")]
-assert "await _speakMessageSafely" not in language_bar
-assert "选择$languageName作为朗读语言" in chat
+assert "Widget _chatLanguageBar" not in chat
+assert "Widget _topLanguageSelector" in chat
+top_bar = chat[chat.index("Widget _topBar"):chat.index("Widget _composer")]
+assert top_bar.index("_topLanguageSelector()") < top_bar.index("child: const Text('NSFW')")
+assert "选择$languageName作为后续朗读语言" in chat
+for stale in (
+    "中文语音",
+    "日语正文＋中文对照",
+    "日语语音 · 显示中文翻译",
+    "English 正文＋中文对照",
+    "English 语音 · 显示中文翻译",
+):
+    assert stale not in chat, stale
 assert "shouldFollowChatNotification" in chat
 assert "停止生成语音" in chat
 assert "生成三语版本" not in chat and "生成三语版本" not in voice_settings
 assert "外语按需生成" in chat and "外语按需生成" in voice_settings
 assert "不使用真流式测试模式" in voice_settings
+assert "static const double maxVolume = 2.0;" in tuning
+assert "static const double minSpeed = 0.5;" in tuning
+assert "static const double maxSpeed = 2.0;" in tuning
+assert "max: TtsPlaybackTuning.maxVolume" in voice_settings
+assert "max: TtsPlaybackTuning.maxSpeed" in voice_settings
 assert "low('low', 'Low')" in model
 for token in (
     "keyboardType: TextInputType.text",
@@ -284,15 +308,17 @@ assert not re.search(
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+197 APK",
+    "Build AI Companion v0.41.55+198 APK",
     "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token
 assert "genie-tts-private-runtime-v0.7" not in workflow
 assert "companion ONNX Runtime differs from verified Genie APK" in workflow
+assert workflow.count("lib/arm64-v8a/libgenie_frontend.so") >= 3
+assert "ORG_GRADLE_PROJECT_skipGenieNativeBuild" in workflow
 assert "libMNN.so" in workflow and "libbertvits2.so" in workflow
 assert "LegacyTtsRuntime" not in service
 assert "LegacyTtsRuntime" not in native

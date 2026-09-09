@@ -29,6 +29,7 @@ class GenieTtsIsolatedService : Service() {
     private var verifiedArtifacts = 0
     private var stage = "not_initialized"
     private var lastError = ""
+    private var lastErrorType = ""
     private var activeInputChars = 0
 
     override fun onCreate() {
@@ -87,7 +88,6 @@ class GenieTtsIsolatedService : Service() {
                     text = text,
                     language = next,
                     voice = normalizeVoice(voice),
-                    speed = speed,
                     shouldCancel = { requestGeneration != generation.get() },
                     onStage = { nextStage ->
                         markStage(
@@ -107,9 +107,11 @@ class GenieTtsIsolatedService : Service() {
                 output.outputStream().use { it.write(wav) }
                 markStage("wav_ready", durable = true)
                 lastError = ""
+                lastErrorType = ""
                 output.absolutePath
             } catch (error: Throwable) {
                 lastError = error.message ?: error.javaClass.simpleName
+                lastErrorType = error.javaClass.simpleName
                 markStage("generate_failed", error.javaClass.simpleName, durable = true)
                 throw error
             }
@@ -153,10 +155,12 @@ class GenieTtsIsolatedService : Service() {
         return try {
             block()
             lastError = ""
+            lastErrorType = ""
             statusJsonLocked()
         } catch (error: Throwable) {
             initialized = runtime.isReady
             lastError = error.message ?: error.javaClass.simpleName
+            lastErrorType = error.javaClass.simpleName
             markStage("operation_failed", error.javaClass.simpleName, durable = true)
             statusJsonLocked()
         }
@@ -170,6 +174,7 @@ class GenieTtsIsolatedService : Service() {
         .put("artifactCount", verifiedArtifacts)
         .put("goldenReference", "5380a536f83aeaec540a9aaa7982149969c73e26")
         .put("diagnosticStage", stage)
+        .put("diagnosticCode", lastErrorType)
         .put("diagnosticTrace", JSONArray(listOf("private_process", "single_serial_owner", stage)))
         .put("detail", lastError.ifBlank { runtime.statusDetail() })
         .toString()

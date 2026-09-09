@@ -116,6 +116,7 @@ class NativeTtsEngine private constructor(context: Context) {
             player.stop()
             return
         }
+        player.setSpeed(speed.toFloat())
         player.setVolume(volume.toFloat())
         player.beginStream {
             RuntimeDiagnosticStore.record(
@@ -162,9 +163,12 @@ class NativeTtsEngine private constructor(context: Context) {
 
     fun pause() = player.pause()
     fun resume() = player.resume()
-    fun setSpeed(value: Double) { speed = value.coerceIn(0.5, 2.0) }
+    fun setSpeed(value: Double) {
+        speed = value.coerceIn(0.5, 2.0)
+        player.setSpeed(speed.toFloat())
+    }
     fun setVolume(value: Double) {
-        volume = value.coerceIn(0.0, 1.0)
+        volume = value.coerceIn(0.0, 2.0)
         player.setVolume(volume.toFloat())
     }
 
@@ -198,7 +202,9 @@ class NativeTtsEngine private constructor(context: Context) {
             category = "tts",
             phase = phase,
             severity = "error",
-            code = "not_initialized",
+            code = status["diagnosticCode"]?.toString()?.ifBlank {
+                "not_initialized"
+            } ?: "not_initialized",
             metadata = mapOf(
                 "language" to language,
                 "stage" to status["diagnosticStage"],
