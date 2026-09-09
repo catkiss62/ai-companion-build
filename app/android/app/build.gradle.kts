@@ -39,7 +39,11 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            abiFilters += setOf("arm64-v8a")
+            // The Flutter Gradle plugin seeds its default ABI set before this
+            // block. Appending arm64 leaves armeabi-v7a/x86_64 active, which
+            // asks CMake to link OpenJTalk binaries that do not exist.
+            abiFilters.clear()
+            abiFilters += "arm64-v8a"
         }
         if (!skipGenieNativeBuild) {
             externalNativeBuild {

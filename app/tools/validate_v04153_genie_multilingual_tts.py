@@ -123,6 +123,8 @@ assert "ref07" not in catalog and "test_backup" not in catalog
 assert "RINGER_MODE_NORMAL" in audio_policy
 assert "USAGE_MEDIA" in audio_policy and "CONTENT_TYPE_SPEECH" in audio_policy
 assert 'onnxruntime-android:1.22.0' in gradle
+assert "abiFilters.clear()" in gradle
+assert 'abiFilters += "arm64-v8a"' in gradle
 assert (ROOT / "android/app/src/main/assets/frontend/english/cmudict.rep.gz").is_file()
 
 assert "Restore exact validated Genie TTS v0.6.4 runtime payload" in workflow

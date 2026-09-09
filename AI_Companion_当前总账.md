@@ -40,7 +40,7 @@
 | APK SHA-256 | `2a5101bda73d28f4a3aa9ea73c2baa6b840074f5c14f2c3fbf7a43d562a88de8`；CI monitor 与同批 checksum 一致 |
 | Artifact / Release | Artifact [`10068557169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671/artifacts/10068557169)，ZIP 320,365,044 bytes / digest `99bb9e54abecc857e9c314735c44503d69f6b80103381d5638de50df3e0a489c`，保留至 2026-09-22；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b3d49beca7c656624dd) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING`，其中新日记/UI 与日历可继续肉眼观察、主动样本不阻塞；v0.41.53 编译、analyze 与 691 项 Flutter tests 已通过，第三次 CI 当前为 `CI FAILED / ARM64 RELEASE FIX IN PROGRESS` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING`，其中新日记/UI 与日历可继续肉眼观察、主动样本不阻塞；v0.41.53 编译、analyze 与 691 项 Flutter tests 已通过，第四次 CI 当前为 `CI FAILED / ABI FILTER FIX IN PROGRESS` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（SOURCE PUSHED / CI FAILED / ARM64 RELEASE FIX IN PROGRESS）
+### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（SOURCE PUSHED / CI FAILED / ABI FILTER FIX IN PROGRESS）
 
 1. 用户确认 v0.41.52 的新日记/UI 可以继续作为容易分辨的真机观察项，不阻塞下一开发包；主动新题与网页分享仍自然积累，不为了开工 TTS 倒写真机通过。
 2. 用户最终要求把普通聊天语言和 TTS 合成唯一 `中/日/EN` 状态，而非文本、翻译、语音各设一个开关。“显示外语”关闭时只生成中文并强制中文前端；开启后每条新回复保存同一情绪、意图和动作/对白结构的三种自然表达。日语/英语视图保留较小中文对照，但 TTS 只读当前主语言；旧消息不补译，已有外语版本关闭时只隐藏不删除。
@@ -112,6 +112,7 @@
 20. 不含私有资源的最终源码已推送到 `agent/v04153-genie-multilingual-tts`；远端 head `6f6f84532763eefc7a6d15827db711c2f73b39b1` 的 tree `5542ee4f857daa22922a7f0752dae8cb03466463` 与本地实现 tree 精确一致。Actions run [`34302252478`](https://github.com/catkiss62/ai-companion-build/actions/runs/34302252478)（791）已通过 Draft Genie 资产下载与哈希、干净源码、417 文件桌宠、LingChat/塔罗、Flutter/Java、固定签名、源码与回归 validator、依赖解析；在 Kotlin/桌宠任务触发的首次 Flutter debug 编译中失败。唯一已定位错误是 `durable_generation_runner.dart` 将 `EmotionEnvelope.parse()` 返回的 `EmotionEnvelopeData` 误声明为 `EmotionEnvelope` 参数，导致 `visibleText` getter 与实参类型编译错误；不是 Genie 模型、OpenJTalk、桌宠 ZIP 或签名失败，且本次未生成 APK。当前执行一行类型窄修 `EmotionEnvelope → EmotionEnvelopeData`，并把精确签名加入 v0.41.53 validator 后重新构建。
 21. 上述类型窄修与同批总账以远端提交 `e576225969db9e0de485b2ce0585b98d1d891f78` / tree `8f29787f7fada00bcd44b35902d14a8ac801eb4a` 推送；tree 与本地提交 `ccf050a` 精确一致。Actions run [`34303060129`](https://github.com/catkiss62/ai-companion-build/actions/runs/34303060129)（792）已越过首次 Flutter/Kotlin 编译并通过 `Flutter analyze`，全量 Flutter tests 为 `689 passed / 2 failed`：一项证明 TTS 在移除行内动作块后把原本相邻的“保留正文”错误拼成“保留。正文”；另一项是系统自读仍期待旧 `v0.41.50+189 / schema 56`，实际已进入 schema 57。当前修复真实 TTS 拼接边界，并把 `AgentSelfReader.buildLabel` 与断言推进至 `v0.41.53+192 / schema 57`；不是 Genie/native/桌宠回归，本次仍未生成 APK。失败诊断 job 另因把整份日志 Base64 放入单个 `gh api` 参数而命中 `Argument list too long`，未上传诊断资产；原始 Actions 日志仍完整可读，不影响上述定位。
 22. 两项测试窄修及同批总账已推送为远端提交 `5da50fde9a8260c9196dc7d30f4e3b5328cbde0e` / tree `3c408bdd1f82bcf05a4cb715e0e021883c598a7d`，与本地提交 `5c8a5ef` 的 tree 精确一致。Actions run [`34303858469`](https://github.com/catkiss62/ai-companion-build/actions/runs/34303858469)（793）确认首次 Flutter/Kotlin 编译、`Flutter analyze` 及全量 `691/691` Flutter tests 全绿；Release APK 随后在 `:app:buildCMakeRelease[armeabi-v7a]` 失败，因为验证版 Genie 只提供真实 `arm64-v8a/libopenjtalk_native.so`，Flutter 默认 Release 目标仍额外请求 32 位 ABI。不得把 arm64 `.so` 复制或伪装成 32 位库；当前把 Release 命令明确限制为 `--target-platform android-arm64`，与 `defaultConfig.ndk.abiFilters = arm64-v8a` 及目标真机架构一致，再重新构建。run 793 未生成 APK，Genie 私有载荷、桌宠 ZIP、签名恢复和应用测试均不是本次失败源。
+23. arm64 命令修复与同批总账已推送为远端提交 `b8898e60e9a6c86d9f08a625463c79c58d493a0d` / tree `eee907d1a46fdb3482da1da2723c04ff338a1f92`，与本地提交 `d1187f0` 的 tree 精确一致。Actions run [`34304685912`](https://github.com/catkiss62/ai-companion-build/actions/runs/34304685912)（794）再次通过编译、analyze 和 `691/691` Flutter tests，但 Release 仍配置 `armeabi-v7a`。进一步定位不是 Flutter CLI 忽略 arm64，而是 `build.gradle.kts` 的 `abiFilters += setOf("arm64-v8a")` 只向 Flutter Gradle 插件预置的默认 ABI 集合追加 arm64，没有移除 32 位与 x86_64；因此 CMake 仍会为 32 位寻找不存在的 OpenJTalk。当前改为在 `defaultConfig.ndk` 中先 `abiFilters.clear()`、再只加入 `arm64-v8a`，并保留 CLI 的 `--target-platform android-arm64` 作为双层限定。run 794 未生成 APK，其余资源、签名、源码合同和应用测试保持通过。
 
 ### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
