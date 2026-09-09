@@ -69,14 +69,15 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
 
     fun initialize(language: String, progress: (String) -> Unit = {}): Boolean {
         require(language in SUPPORTED_LANGUAGES) { "不支持的 TTS 语言：$language" }
-        if (root == null) root = engine.prepareAssets(progress)
+        if (root == null) root = GenieRuntimeAssetStore.prepare(context, engine, progress)
         prepareLanguage(language, progress)
         return isReady
     }
 
     fun prepareLanguage(language: String, progress: (String) -> Unit = {}) {
         require(language in SUPPORTED_LANGUAGES) { "不支持的 TTS 语言：$language" }
-        val preparedRoot = root ?: engine.prepareAssets(progress).also { root = it }
+        val preparedRoot = root ?: GenieRuntimeAssetStore.prepare(context, engine, progress)
+            .also { root = it }
         if (activeLanguage == language && isReady) return
         // The verified v0.6.4 app never keeps another language frontend alive
         // while constructing the next one. Drop the acoustic sessions too so
@@ -104,7 +105,8 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
 
     fun importChineseRoberta(source: File, progress: (String) -> Unit = {}) {
         require(source.isFile && source.length() > 0L) { "所选 RoBERTa 文件无效" }
-        val preparedRoot = root ?: engine.prepareAssets(progress).also { root = it }
+        val preparedRoot = root ?: GenieRuntimeAssetStore.prepare(context, engine, progress)
+            .also { root = it }
         GenieFrontendAdapter.importRoberta(engine, context.filesDir, source, progress)
         if (activeLanguage == "zh") {
             releaseFrontend()

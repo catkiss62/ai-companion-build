@@ -12,8 +12,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+194" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+194';" in read(
+assert "version: 0.41.55+195" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.55+195';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -54,12 +54,18 @@ aidl = read(
 )
 queue = read("lib/core/tts/tts_playback_queue.dart")
 fixed_segmenter = read("lib/core/tts/genie_fixed_text_segmenter.dart")
+asset_store = read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieRuntimeAssetStore.kt"
+)
 
 assert 'android:process=":genie_tts"' in manifest
 assert 'android:extractNativeLibs="true"' in manifest
 assert "aidl = true" in gradle
 assert "GenieTtsRuntime(applicationContext)" in service
 assert "private val lock = ReentrantLock(true)" in service
+assert "Executors.newSingleThreadExecutor" in service
+assert 'Thread(runnable, "Genie-TTS-worker")' in service
+assert "worker.submit(Callable { lock.withLock(block) }).get()" in service
 assert "generateToFile" in aidl and "byte[]" not in aidl
 assert 'File(cacheDir, "genie-tts-ipc")' in service
 assert "output.readBytes()" in native and "output.delete()" in native
@@ -69,6 +75,13 @@ assert "TtsProcessCheckpoint" in service and "Debug.getPss()" in read(
 )
 assert "GenieFrontendAdapter.prepareChineseAssets" in runtime
 assert "GenieFrontendAdapter.importRoberta" in runtime
+assert "GenieRuntimeAssetStore.prepare" in runtime
+assert "build195-clean-runtime-v1" in asset_store
+assert "canonicalRoot.parentFile == canonicalBase" in asset_store
+assert "canonicalRoot.deleteRecursively()" in asset_store
+assert "engine.prepareFrontendAssets(prepared, progress)" in asset_store
+assert 'File(context.filesDir, "genie-benchmark")' in asset_store
+assert '"genie-benchmark/shared/' in adapter
 assert "DeepSeek" in adapter and "地铺西咳" in adapter
 assert "initialPrefill = const Duration(seconds: 1)" in queue
 assert "service.generatePrepared(" in queue and "service.playPrepared(" in queue
@@ -84,6 +97,9 @@ db = read("lib/core/database/app_database.dart")
 controller = read("lib/features/chat/chat_controller.dart")
 chat = read("lib/features/chat/chat_page.dart")
 voice_settings = read("lib/features/chat/chat_quick_settings_pages.dart")
+model = read("lib/core/ai/model_profile.dart")
+model_settings = read("lib/features/settings/settings_category_pages.dart")
+processor = read("lib/core/tts/tts_text_processor.dart")
 
 assert "MultilingualReplyCodec" not in runner
 assert "multilingual_replies_enabled" not in runner
@@ -109,13 +125,26 @@ assert "latestAssistant.content.trim().isNotEmpty" in chat
 assert "生成三语版本" not in chat and "生成三语版本" not in voice_settings
 assert "外语按需生成" in chat and "外语按需生成" in voice_settings
 assert "不使用真流式测试模式" in voice_settings
+assert "low('low', 'Low')" in model
+for token in (
+    "keyboardType: TextInputType.text",
+    "autofillHints: const <String>[]",
+    "obscureText: false",
+    "自定义模型名称（普通文本）",
+):
+    assert token in model_settings, token
+assert "ReasoningEffort.low" in read("test/deepseek_temperature_test.dart")
+assert "'地铺C咳'" in processor and "'拖肯'" in processor
+assert "\\bYuki\\b" not in processor
+assert "'{\"token\":\"拖肯\",\"DeepSeek\":\"地铺C咳\"}'" in db
+assert "whereArgs: const ['tts_replacements_json', '{\"Yuki\":\"有希\"}']" in db
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+194 APK",
+    "Build AI Companion v0.41.55+195 APK",
     "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-194-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.55-195-Genie-Direct-Port-Lazy-Language-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token

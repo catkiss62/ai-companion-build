@@ -41,6 +41,7 @@ class DeepSeekModelProfile {
 }
 
 enum ReasoningEffort {
+  low('low', 'Low'),
   high('high', 'High'),
   max('max', 'Max');
 

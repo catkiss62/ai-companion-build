@@ -69,6 +69,38 @@ void main() {
     expect(body?['reasoning_effort'], 'high');
     client.close();
   });
+
+  test('custom model sends low reasoning effort unchanged', () async {
+    Map<String, dynamic>? body;
+    final client = DeepSeekClient(
+      streamClientFactory: () => MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          'data: {"choices":[{"delta":{"reasoning_content":"h"},"finish_reason":"stop"}]}\n\n'
+          'data: [DONE]\n\n',
+          200,
+          headers: const {'content-type': 'text/event-stream'},
+        );
+      }),
+    );
+
+    await client
+        .streamChat(
+          apiKey: 'test',
+          model: DeepSeekModelProfile.fromApiName('deepseek-v4.1'),
+          effort: ReasoningEffort.low,
+          messages: const [
+            {'role': 'user', 'content': 'hello'},
+          ],
+          thinking: true,
+        )
+        .drain<void>();
+
+    expect(body?['model'], 'deepseek-v4.1');
+    expect(body?['reasoning_effort'], 'low');
+    client.close();
+  });
+
   test('streams native function-call fragments and sends tool schemas', () async {
     Map<String, dynamic>? body;
     final deltas = <DeepSeekDelta>[];

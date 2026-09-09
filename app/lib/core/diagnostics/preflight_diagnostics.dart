@@ -1039,6 +1039,10 @@ class PreflightDiagnosticsService {
         'historicalExitStatus': capabilities['historicalExitStatus'] ?? 0,
         'historicalExitImportance':
             capabilities['historicalExitImportance'] ?? 0,
+        'historicalExitProcessRole':
+            capabilities['historicalExitProcessRole'] ?? 'unknown',
+        'historicalExitPssKb': capabilities['historicalExitPssKb'] ?? 0,
+        'historicalExitRssKb': capabilities['historicalExitRssKb'] ?? 0,
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
         'historicalAnrTraceAvailable':

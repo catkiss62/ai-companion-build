@@ -31,6 +31,7 @@ object TtsProcessCheckpoint {
                 .put("inputChars", inputChars.coerceAtLeast(0))
                 .put("pssKb", Debug.getPss())
                 .put("rssKb", currentRssKb())
+                .put("threads", currentThreadCount())
                 .toString()
                 .toByteArray(Charsets.UTF_8)
             val atomic = AtomicFile(File(context.noBackupFilesDir, FILE_NAME))
@@ -59,6 +60,7 @@ object TtsProcessCheckpoint {
             "inputChars" to value.optInt("inputChars", 0),
             "pssKb" to value.optInt("pssKb", 0),
             "rssKb" to value.optInt("rssKb", 0),
+            "threads" to value.optInt("threads", 0),
         )
     }.getOrDefault(emptyMap())
 
@@ -67,6 +69,16 @@ object TtsProcessCheckpoint {
             lines.firstOrNull { it.startsWith("VmRSS:") }
                 ?.split(Regex("\\s+"))
                 ?.getOrNull(1)
+                ?.toIntOrNull()
+                ?: 0
+        }
+    }.getOrDefault(0)
+
+    private fun currentThreadCount(): Int = runCatching {
+        File("/proc/self/status").useLines { lines ->
+            lines.firstOrNull { it.startsWith("Threads:") }
+                ?.substringAfter(':')
+                ?.trim()
                 ?.toIntOrNull()
                 ?: 0
         }

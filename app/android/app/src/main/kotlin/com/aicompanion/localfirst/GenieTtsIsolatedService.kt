@@ -7,6 +7,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -14,6 +16,12 @@ import kotlin.concurrent.withLock
 /** Owns all Genie/ORT objects in the private :genie_tts process. */
 class GenieTtsIsolatedService : Service() {
     private lateinit var runtime: GenieTtsRuntime
+    // The verified standalone v0.6.4 app owns Genie from one ordinary Java
+    // worker. AIDL arrives on Binder-pool threads, so marshal every engine call
+    // onto the same execution shape instead of running ORT on Binder threads.
+    private val worker = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "Genie-TTS-worker")
+    }
     private val lock = ReentrantLock(true)
     private val generation = AtomicLong(0L)
     private var initialized = false
@@ -30,20 +38,20 @@ class GenieTtsIsolatedService : Service() {
     }
 
     private val binder = object : IGenieTtsIsolatedService.Stub() {
-        override fun statusJson(): String = lock.withLock { statusJsonLocked() }
+        override fun statusJson(): String = serialized { statusJsonLocked() }
 
-        override fun verifyArtifactsJson(): String = lock.withLock {
+        override fun verifyArtifactsJson(): String = serialized {
             guardedStatus {
                 verifiedArtifacts = runtime.verifyPackagedArtifacts()
                 markStage("artifacts_verified")
             }
         }
 
-        override fun initializeJson(language: String): String = lock.withLock {
+        override fun initializeJson(language: String): String = serialized {
             guardedStatus { initializeLocked(normalizeLanguage(language)) }
         }
 
-        override fun prepareLanguageJson(language: String): String = lock.withLock {
+        override fun prepareLanguageJson(language: String): String = serialized {
             guardedStatus {
                 val next = normalizeLanguage(language)
                 markStage("switch_frontend_$next", durable = true)
@@ -54,7 +62,7 @@ class GenieTtsIsolatedService : Service() {
             }
         }
 
-        override fun importChineseRobertaJson(path: String): String = lock.withLock {
+        override fun importChineseRobertaJson(path: String): String = serialized {
             guardedStatus {
                 runtime.importChineseRoberta(File(path))
                 markStage("roberta_imported")
@@ -66,8 +74,8 @@ class GenieTtsIsolatedService : Service() {
             language: String,
             voice: String,
             speed: Double,
-        ): String = lock.withLock {
-            if (text.isBlank()) return@withLock ""
+        ): String = serialized {
+            if (text.isBlank()) return@serialized ""
             activeInputChars = text.length
             val requestGeneration = generation.get()
             try {
@@ -90,7 +98,7 @@ class GenieTtsIsolatedService : Service() {
                         )
                     },
                 )
-                if (requestGeneration != generation.get()) return@withLock ""
+                if (requestGeneration != generation.get()) return@serialized ""
                 check(wav.size >= 44) { "Genie TTS returned invalid WAV data" }
                 val directory = File(cacheDir, "genie-tts-ipc").apply { mkdirs() }
                 directory.listFiles()?.filter { it.isFile && it.lastModified() < System.currentTimeMillis() - 3_600_000L }
@@ -112,14 +120,12 @@ class GenieTtsIsolatedService : Service() {
             markStage("generation_cancelled")
         }
 
-        override fun releaseRuntime() {
+        override fun releaseRuntime() = serialized {
             generation.incrementAndGet()
-            lock.withLock {
-                runtime.close()
-                runtime = GenieTtsRuntime(applicationContext)
-                initialized = false
-                stage = "not_initialized"
-            }
+            runtime.close()
+            runtime = GenieTtsRuntime(applicationContext)
+            initialized = false
+            stage = "not_initialized"
         }
     }
 
@@ -127,9 +133,13 @@ class GenieTtsIsolatedService : Service() {
 
     override fun onDestroy() {
         generation.incrementAndGet()
-        lock.withLock { runtime.close() }
+        runCatching { serialized { runtime.close() } }
+        worker.shutdownNow()
         super.onDestroy()
     }
+
+    private fun <T> serialized(block: () -> T): T =
+        worker.submit(Callable { lock.withLock(block) }).get()
 
     private fun initializeLocked(language: String) {
         activeLanguage = language

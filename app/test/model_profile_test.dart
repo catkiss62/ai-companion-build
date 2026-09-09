@@ -29,4 +29,10 @@ void main() {
     );
     expect(DeepSeekModelProfile.values, contains(DeepSeekModelProfile.custom));
   });
+
+  test('low reasoning effort is available for custom model APIs', () {
+    expect(ReasoningEffort.fromApiName('low'), ReasoningEffort.low);
+    expect(ReasoningEffort.low.apiName, 'low');
+    expect(ReasoningEffort.values, contains(ReasoningEffort.low));
+  });
 }

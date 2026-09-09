@@ -96,7 +96,15 @@ class IsolatedGenieTtsClient(private val context: Context) {
             phase = "child_process_exit",
             severity = "error",
             code = reason,
-            metadata = mapOf("stage" to checkpoint["stage"]),
+            metadata = mapOf(
+                "stage" to checkpoint["stage"],
+                "language" to checkpoint["language"],
+                "modelsReady" to checkpoint["modelsReady"],
+                "inputChars" to checkpoint["inputChars"],
+                "pssKb" to checkpoint["pssKb"],
+                "rssKb" to checkpoint["rssKb"],
+                "threads" to checkpoint["threads"],
+            ),
             durable = true,
         )
     }

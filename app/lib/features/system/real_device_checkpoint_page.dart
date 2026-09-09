@@ -18,7 +18,7 @@ class RealDeviceCheckpointPage extends StatefulWidget {
 
 class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
   static const _ttsProbeText =
-      '晚上好，我在这里。Yuki，今天也一起慢慢来。现在开始测试本地语音。';
+      '晚上好，我在这里。DeepSeek 会把 token 读成指定发音。现在开始测试本地语音。';
 
   final preflight = PreflightDiagnosticsService();
   final tts = TtsService();
@@ -122,7 +122,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
       if (!mounted) return;
       setState(() {
         note = ok
-            ? '测试语音已提交播放。请确认音色、Yuki→有希读音、首句等待和是否有爆音/断句异常。'
+            ? '测试语音已提交播放。请确认 token/DeepSeek 轻音、首句等待和是否有爆音/断句异常。'
             : '测试语音未能播放。请先运行深度自检，再导出脱敏诊断报告。';
       });
     } catch (e) {
@@ -228,7 +228,7 @@ class _RealDeviceCheckpointPageState extends State<RealDeviceCheckpointPage> {
         _StepCard(
           number: 4,
           title: '本地 TTS 真正发声',
-          detail: '固定测试句会经过和聊天完全相同的朗读预处理；重点听音色、首句等待、断句，以及 Yuki 是否读作“有希”。',
+          detail: '固定测试句会经过和聊天完全相同的朗读预处理；重点听音色、首句等待、断句，以及“拖肯”的肯、“地铺 C 咳”的铺/咳是否轻读。',
           status: '需要人工听感',
           actionLabel: '播放测试语音',
           secondaryLabel: '停止',

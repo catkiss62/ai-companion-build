@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/models/desire_state.dart';
+import '../../core/models/chat_language_variant.dart';
 import '../../core/models/proactive_frequency.dart';
 import '../../core/models/proactive_intent.dart';
 import '../../core/models/proactive_notification_settings.dart';
@@ -536,7 +537,8 @@ class _VoiceEmotionSettingsPageState
             .clamp(0.0, 1.0)
             .toDouble();
     _replacementController.text =
-        await _db.getSetting('tts_replacements_json') ?? '{"Yuki":"有希"}';
+        await _db.getSetting('tts_replacements_json') ??
+            '{"token":"拖肯","DeepSeek":"地铺C咳"}';
     _showEmotion = (await _db.getSetting('show_emotion_label')) != '0';
     _emotionSound = (await _db.getSetting('emotion_sound_enabled')) == '1';
     _emotionVolume = (double.tryParse(
@@ -829,10 +831,25 @@ class _VoiceEmotionSettingsPageState
                               : () => _runTtsAction(
                                     '正在生成并播放本地测试语音…',
                                     () async {
+                                      final language = ChatLanguage.tryParse(
+                                            await _db.getSetting('tts_language'),
+                                          ) ??
+                                          ChatLanguage.chinese;
+                                      final text = switch (language) {
+                                        ChatLanguage.english =>
+                                          'This is a local voice test. I am right here with you.',
+                                        ChatLanguage.japanese =>
+                                          'これはローカル音声のテストです。ここにいるよ。',
+                                        ChatLanguage.chinese =>
+                                          '这是本地语音测试。以后我会直接在你的设备上说话。',
+                                      };
                                       final ok = await _tts.preview(
-                                        '这是本地语音测试。以后我会直接在你的设备上说话。',
+                                        text,
+                                        language: language,
                                       );
-                                      return ok ? '测试语音播放完成。' : '测试语音播放失败。';
+                                      return ok
+                                          ? '${language.label}测试语音已提交播放。'
+                                          : '${language.label}测试语音生成失败；请导出诊断报告。';
                                     },
                                   ),
                           icon: const Icon(Icons.volume_up_outlined),

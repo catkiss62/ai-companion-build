@@ -47,7 +47,7 @@ for token in [
     "messages = await db.recentMessages(limit: 120)",
 ]:
     assert token in controller, token
-if "version: 0.41.55+194" in pubspec:
+if "version: 0.41.55+195" in pubspec:
     # Fixed-segment Genie playback starts only from the committed assistant
     # message; there is intentionally no provisional provider-stream owner.
     assert "ttsPlayback.playText(" in controller

@@ -55,7 +55,7 @@ for token in (
     "Future.wait<void>",
 ):
     assert token in controller, token
-if "version: 0.41.55+194" in read("pubspec.yaml"):
+if "version: 0.41.55+195" in read("pubspec.yaml"):
     # v0.41.55 deliberately removed provider-token true streaming and now
     # starts fixed Genie segmentation only after the committed reply exists.
     for token in (

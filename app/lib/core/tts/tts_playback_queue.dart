@@ -189,6 +189,8 @@ class TtsPlaybackQueue {
   /// failed independently, or been invalidated by stop()/a newer session.
   Future<void> waitUntilIdle() => _session?.idle.future ?? Future<void>.value();
 
+  bool get playedAny => (_session?.completedPlaybackCount ?? 0) > 0;
+
   Future<void> stop() async {
     await _invalidateAndStop();
   }
@@ -327,6 +329,7 @@ class TtsPlaybackQueue {
       session.audiblePlaybackStarted = true;
       _notify();
       await service.playPrepared(audio);
+      session.completedPlaybackCount++;
     } catch (_) {
       // A2 treats one sentence failure as local: later generated speech should
       // still be allowed to continue.
@@ -408,6 +411,7 @@ class _A2Session {
   int generating = 0;
   bool playing = false;
   bool audiblePlaybackStarted = false;
+  int completedPlaybackCount = 0;
   bool closed = false;
   bool _leadInConsumed = false;
 

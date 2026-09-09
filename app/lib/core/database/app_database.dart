@@ -218,7 +218,7 @@ class AppDatabase {
         'last_proactive_spoken_message_id': '',
         'tts_speed': '1.0',
         'tts_volume': '1.0',
-        'tts_replacements_json': '{"Yuki":"有希"}',
+        'tts_replacements_json': '{"token":"拖肯","DeepSeek":"地铺C咳"}',
         'relationship_continuity_enabled': '1',
         'session_tracking_enabled': '1',
       }.entries) {
@@ -1401,7 +1401,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'last_proactive_spoken_message_id', 'value': ''});
     await db.insert('settings', {'key': 'tts_speed', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
-    await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
+    await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"token\":\"拖肯\",\"DeepSeek\":\"地铺C咳\"}'});
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
     await db.insert('settings', {'key': 'multilingual_replies_enabled', 'value': '0'});
     await db.insert('settings', {'key': 'show_foreign_replies', 'value': '0'});
@@ -3957,6 +3957,14 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    // Update only the untouched legacy default. User-authored replacement
+    // dictionaries, including ones that still mention Yuki, always win.
+    await db.update(
+      'settings',
+      {'value': '{"token":"拖肯","DeepSeek":"地铺C咳"}'},
+      where: 'key = ? AND value = ?',
+      whereArgs: const ['tts_replacements_json', '{"Yuki":"有希"}'],
+    );
     final minimalPersonaMigration =
         await getSetting('minimal_persona_default_v04125_applied');
     if (minimalPersonaMigration != '1') {
@@ -17734,7 +17742,7 @@ class AppDatabase {
         'last_proactive_spoken_message_id': '',
         'tts_speed': '1.0',
         'tts_volume': '1.0',
-        'tts_replacements_json': '{"Yuki":"有希"}',
+        'tts_replacements_json': '{"token":"拖肯","DeepSeek":"地铺C咳"}',
         'tts_reading_scope': 'dialogue_only',
         'multilingual_replies_enabled': '0',
         'show_foreign_replies': '0',

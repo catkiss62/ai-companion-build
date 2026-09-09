@@ -6,6 +6,8 @@ import java.security.MessageDigest
 
 /** Companion-only I/O and pronunciation policy kept outside the pinned Genie core. */
 object GenieFrontendAdapter {
+    // The final syllable of 拖肯 and the second/fourth syllables of 地铺西咳
+    // use the verified Genie neutral-tone phone IDs.
     private val hotwordPhones = linkedMapOf(
         "拖肯" to "252,290|222,144",
         "地铺西咳" to "127,169|245,259|317,166|222,134",
@@ -27,7 +29,9 @@ object GenieFrontendAdapter {
     }
 
     fun normalizeChineseText(text: String): String =
-        text.replace(Regex("DeepSeek", RegexOption.IGNORE_CASE), "地铺西咳")
+        // The pinned frontend expands Latin C to 西 before matching the
+        // normalized 地铺西咳 phrase-phone override above.
+        text.replace(Regex("DeepSeek", RegexOption.IGNORE_CASE), "地铺C咳")
 
     fun importRoberta(
         engine: GenieBenchmarkEngine,

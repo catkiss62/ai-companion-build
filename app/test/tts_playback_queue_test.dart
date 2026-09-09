@@ -98,6 +98,22 @@ void main() {
     fake.firstPlaybackGate!.complete();
     await queue.waitUntilIdle();
     expect(fake.played, chunks.map((chunk) => 'wav:$chunk').toList());
+    expect(queue.playedAny, isTrue);
+  });
+
+  test('playedAny stays false when synthesis returns no audio', () async {
+    final fake = _FakeQueueService()..failFirstGeneration = true;
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
+    );
+
+    await queue.playText('这句合成失败。', manual: true);
+    await queue.waitUntilIdle();
+
+    expect(fake.played, isEmpty);
+    expect(queue.playedAny, isFalse);
   });
 
   test('stop invalidates generated/queued audio that has not played', () async {

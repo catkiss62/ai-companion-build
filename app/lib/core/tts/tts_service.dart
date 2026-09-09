@@ -150,6 +150,7 @@ class TtsService implements TtsQueueService {
     Future<void>? leadIn,
     TtsEmotionCue? emotion,
     String? ownerId,
+    ChatLanguage language = ChatLanguage.chinese,
   }) async {
     final queue = TtsPlaybackQueue(service: this);
     try {
@@ -159,16 +160,21 @@ class TtsService implements TtsQueueService {
         leadIn: leadIn,
         emotion: emotion,
         ownerId: ownerId,
+        language: language,
       );
       await queue.waitUntilIdle();
-      return true;
+      return queue.playedAny;
     } catch (e) {
       await _recordError(e.toString());
       return false;
     }
   }
 
-  Future<bool> preview(String visibleText) async => speak(visibleText, manual: true);
+  Future<bool> preview(
+    String visibleText, {
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async =>
+      speak(visibleText, manual: true, language: language);
 
   Future<void> _recordError(String value) async {
     final text = value.length <= 320 ? value : value.substring(0, 320);

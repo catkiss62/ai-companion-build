@@ -330,11 +330,16 @@ class _ModelNetworkSettingsPageState
                         const SizedBox(height: 12),
                         TextField(
                           controller: _customDeepSeekModel,
+                          keyboardType: TextInputType.text,
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.none,
+                          autofillHints: const <String>[],
+                          obscureText: false,
                           autocorrect: false,
                           enableSuggestions: false,
                           decoration: const InputDecoration(
-                            labelText: '自定义模型 ID',
-                            hintText: '例如：供应商提供的 model 字段',
+                            labelText: '自定义模型名称（普通文本）',
+                            hintText: '例如：deepseek-v4.1',
                             helperText: '将原样写入 Chat Completions 请求。',
                             border: OutlineInputBorder(),
                           ),

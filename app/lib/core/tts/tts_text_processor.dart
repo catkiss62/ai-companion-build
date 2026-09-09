@@ -44,13 +44,12 @@ class TtsTextProcessor {
       result = result.replaceAll(entry.key, entry.value);
     }
 
-    // Fixed Meju pronunciation compatibility. The original A2 processText()
-    // explicitly maps Yuki/yuki/YuKi to 有希; use a case-insensitive word match
-    // so the companion remains robust to model capitalization variants.
+    // Fixed Genie pronunciation compatibility. Phrase-phone overrides in the
+    // Android adapter preserve the requested neutral tones after these spoken-
+    // text-only aliases are applied.
     if (language == ChatLanguage.chinese) {
       result = result
-          .replaceAll(RegExp(r'\bYuki\b', caseSensitive: false), '有希')
-          .replaceAll(RegExp(r'\bDeepSeek\b', caseSensitive: false), '地铺 C 咳')
+          .replaceAll(RegExp(r'\bDeepSeek\b', caseSensitive: false), '地铺C咳')
           .replaceAll(RegExp(r'\btoken\b', caseSensitive: false), '拖肯');
     }
 

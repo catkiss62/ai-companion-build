@@ -1355,6 +1355,11 @@ class SystemBridge(
             "historicalExitAt" to info.timestamp,
             "historicalExitStatus" to info.status,
             "historicalExitImportance" to info.importance,
+            "historicalExitProcessRole" to if (
+                info.processName.endsWith(":genie_tts")
+            ) "tts_child" else "app_process",
+            "historicalExitPssKb" to info.pss,
+            "historicalExitRssKb" to info.rss,
             "historicalExitDescriptionIncluded" to false,
             "historicalExitTraceIncluded" to false,
         ) + traceSummary

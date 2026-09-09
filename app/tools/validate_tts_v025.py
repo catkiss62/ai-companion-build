@@ -106,8 +106,8 @@ def check_wiring() -> None:
             if token not in values[key]:
                 fail(f'v0.25 TTS wiring missing in {key}: {token}')
     db = (ROOT / 'lib/core/database/app_database.dart').read_text()
-    if "'tts_replacements_json': '{\"Yuki\":\"有希\"}'" not in db:
-        fail('Yuki -> 有希 default spoken-text replacement regressed')
+    if "'tts_replacements_json': '{\"token\":\"拖肯\",\"DeepSeek\":\"地铺C咳\"}'" not in db:
+        fail('Genie token/DeepSeek default spoken-text replacements regressed')
 
 
 def check_test_sources() -> None:

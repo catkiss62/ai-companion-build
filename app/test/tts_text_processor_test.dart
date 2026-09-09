@@ -12,16 +12,16 @@ void main() {
     expect(spoken, '有希 回来了。');
   });
 
-  test('A2 fixed Yuki pronunciation is case-insensitive', () {
+  test('Yuki is no longer changed by a fixed pronunciation rule', () {
     const processor = TtsTextProcessor();
-    expect(processor.process('YUKI yuki YuKi'), '有希 有希 有希');
+    expect(processor.process('YUKI yuki YuKi'), 'YUKI yuki YuKi');
   });
 
   test('Chinese Genie hotwords are case-insensitive and speech-only', () {
     const processor = TtsTextProcessor();
     expect(
       processor.process('DeepSeek 用了 TOKEN 和 token。'),
-      '地铺 C 咳 用了 拖肯 和 拖肯。',
+      '地铺C咳 用了 拖肯 和 拖肯。',
     );
     expect(
       processor.process(
