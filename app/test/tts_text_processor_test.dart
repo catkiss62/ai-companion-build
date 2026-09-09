@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_text_processor.dart';
+import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
 
 void main() {
   test('TTS substitutions do not require changing visible text', () {
@@ -14,6 +15,21 @@ void main() {
   test('A2 fixed Yuki pronunciation is case-insensitive', () {
     const processor = TtsTextProcessor();
     expect(processor.process('YUKI yuki YuKi'), '有希 有希 有希');
+  });
+
+  test('Chinese Genie hotwords are case-insensitive and speech-only', () {
+    const processor = TtsTextProcessor();
+    expect(
+      processor.process('DeepSeek 用了 TOKEN 和 token。'),
+      '地铺 C 咳 用了 拖肯 和 拖肯。',
+    );
+    expect(
+      processor.process(
+        'DeepSeek generated tokens.',
+        language: ChatLanguage.english,
+      ),
+      'DeepSeek generated tokens.',
+    );
   });
 
   test('A2 removable bracket blocks are speech-only', () {

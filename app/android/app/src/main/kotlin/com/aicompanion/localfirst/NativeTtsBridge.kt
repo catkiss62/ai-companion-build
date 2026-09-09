@@ -10,15 +10,15 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
-/** Flutter -> Kotlin boundary for the local Bert-VITS2/MNN engine. */
+/** Flutter -> Kotlin boundary for the local Genie-TTS ONNX engine. */
 class NativeTtsBridge(
     context: Context,
     flutterEngine: FlutterEngine,
 ) {
     private val engine = NativeTtsEngine.shared(context.applicationContext)
 
-    // Meju A2 submits all sentence generation requests immediately, but the
-    // legacy MNN engine itself must remain serialized. This FIFO worker gives us
+    // Dart submits all sentence generation requests immediately, but the
+    // shared Genie ONNX sessions must remain serialized. This FIFO worker gives us
     // the same generation-ahead behavior without overlapping unsafe inference.
     private val generationWorker = singleWorker("ai-companion-local-tts-generate")
 
@@ -44,16 +44,24 @@ class NativeTtsBridge(
                     engine.verifyArtifacts()
                 }
                 "initialize" -> submit(generationWorker, result, "tts_init_failed") {
-                    engine.initialize()
+                    engine.initialize(call.argument<String>("language").orEmpty())
+                }
+                "prepareLanguage" -> submit(generationWorker, result, "tts_frontend_failed") {
+                    engine.prepareLanguage(call.argument<String>("language").orEmpty())
                 }
                 "diagnose" -> submit(generationWorker, result, "tts_diagnose_failed") {
-                    engine.diagnose()
+                    engine.diagnose(call.argument<String>("language").orEmpty())
+                }
+                "importChineseRoberta" -> submit(generationWorker, result, "tts_import_failed") {
+                    engine.importChineseRoberta(call.argument<String>("path").orEmpty())
                 }
                 "generate" -> {
                     val text = call.argument<String>("text").orEmpty()
+                    val language = call.argument<String>("language").orEmpty()
+                    val voice = call.argument<String>("voice").orEmpty()
                     val generation = engine.generationToken()
                     submit(generationWorker, result, "tts_generate_failed") {
-                        engine.generate(text, generation)
+                        engine.generate(text, language, voice, generation)
                     }
                 }
                 "playAudio" -> {

@@ -21,6 +21,7 @@ import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
 import '../models/chat_message.dart';
+import '../models/chat_language_variant.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
@@ -209,6 +210,11 @@ class DurableGenerationRunner {
     var agentAttachmentsCommitted = false;
 
     try {
+      final multilingualEnabled =
+          (await db.getSetting('show_foreign_replies')) == '1';
+      final finalGenerationReminder = multilingualEnabled
+          ? PromptBuilder.multilingualGenerationReminder()
+          : PromptBuilder.visibleChineseGenerationReminder();
       final previous = await db.messagesBefore(
         user.createdAt,
         limit: 33,
@@ -323,7 +329,14 @@ class DurableGenerationRunner {
         specialStyleKeyOverride: generationSpecialStyleKey,
         conversationInitiativeOverride: conversationPlan,
       );
-      final baseRequestMessages = promptBuild.messages;
+      final baseRequestMessages = <Map<String, Object?>>[
+        ...promptBuild.messages,
+        if (multilingualEnabled)
+          <String, Object?>{
+            'role': 'system',
+            'content': finalGenerationReminder,
+          },
+      ];
       Future<({
         String reasoning,
         String content,
@@ -428,7 +441,13 @@ class DurableGenerationRunner {
             // Hold the leading machine-readable emotion envelope out of the
             // visible bubble and streaming TTS. Providers that ignore the
             // contract still stream ordinary text without waiting for commit.
-            final visibleContent = EmotionEnvelope.streamingVisible(content);
+            final envelopeVisible = EmotionEnvelope.streamingVisible(content);
+            final visibleContent = multilingualEnabled
+                ? MultilingualReplyCodec.streamingChinese(
+                    envelopeVisible,
+                    messageId: job.assistantMessageId,
+                  )
+                : envelopeVisible;
             final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
                 ? visibleContent.substring(emittedVisibleContent.length)
                 : visibleContent;
@@ -503,7 +522,7 @@ ${verification.renderForFinalPrompt()}
 
 【工具结果后的中文表达约束】
 工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
-${PromptBuilder.visibleChineseGenerationReminder()}
+$finalGenerationReminder
 '''.trim(),
           },
         ];
@@ -579,7 +598,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         // A provider may legally emit a short preamble before its first tool
         // call. Preserve the established single preamble, but do not accumulate
         // planning chatter from later rounds into the visible reply.
-        if (streamedToolPreamble.isEmpty) {
+        if (!multilingualEnabled && streamedToolPreamble.isEmpty) {
           streamedToolPreamble =
               EmotionEnvelope.parse(generated.content).visibleText.trim();
         }
@@ -727,9 +746,49 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
             .take(3)
             .map((message) => message.promptContent),
       ].join('\n');
+      MultilingualReply? multilingualReply;
+      String visibleBody(EmotionEnvelope parsedEnvelope) {
+        if (!multilingualEnabled) return parsedEnvelope.visibleText;
+        final parsed = MultilingualReplyCodec.tryParse(
+          parsedEnvelope.visibleText,
+          messageId: job.assistantMessageId,
+        );
+        if (parsed == null) {
+          throw const FormatException('三语正文协议解析失败');
+        }
+        multilingualReply = parsed;
+        return parsed.chineseContent;
+      }
+
       var envelope = EmotionEnvelope.parse(generated.content);
-      var finalContent = envelope.visibleText;
-      if (streamedToolPreamble.isNotEmpty) {
+      String finalContent;
+      try {
+        finalContent = visibleBody(envelope);
+      } on FormatException {
+        if (!multilingualEnabled) rethrow;
+        generated = await generate(
+          <Map<String, Object?>>[
+            ...finalRequestMessages,
+            <String, Object?>{
+              'role': 'assistant',
+              'content': generated.content,
+            },
+            <String, Object?>{
+              'role': 'system',
+              'content': '''
+【三语协议修复 · ONE RETRY】
+上一份最终正文没有形成可解析的三语 JSON。保持完全相同的事实、语义、动作—对白顺序、情绪和语气，只修复输出结构；不要增加或删减内容。
+$finalGenerationReminder
+'''.trim(),
+            },
+          ],
+          emitDeltas: false,
+        );
+        cancellationToken?.throwIfCancelled();
+        envelope = EmotionEnvelope.parse(generated.content);
+        finalContent = visibleBody(envelope);
+      }
+      if (!multilingualEnabled && streamedToolPreamble.isNotEmpty) {
         finalContent = '$streamedToolPreamble\n\n$finalContent'.trim();
       }
       final promptResponsibilityShape =
@@ -801,7 +860,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
 真实上下文、Memory、Thought 或 Self Experience 可以说成“想起/又琢磨过某件具体的事”，但不能包装成并未发生的“翻了聊天记录/从头到尾看了一遍”。
 只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
-${PromptBuilder.visibleChineseGenerationReminder()}
+$finalGenerationReminder
 '''.trim(),
           },
         ];
@@ -811,7 +870,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         );
         cancellationToken?.throwIfCancelled();
         envelope = EmotionEnvelope.parse(generated.content);
-        finalContent = envelope.visibleText;
+        finalContent = visibleBody(envelope);
         operationGuard = OperationalClaimGroundingGuard.evaluate(
           text: finalContent,
           currentToolResults: agentToolResults,
@@ -826,6 +885,7 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
           finalContent = salvaged.isNotEmpty
               ? salvaged
               : '「那件事我还没有真的执行，刚才说岔了。」';
+          multilingualReply = null;
         }
         expressionVerification = ConversationOutcomeVerifier.verify(
           finalText: finalContent,
@@ -865,6 +925,8 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
         createdAt: DateTime.now(),
         deviceId: await db.ensureDeviceId(),
         segments: ChatSegmentCodec.parseAssistantText(finalContent),
+        languageVariants: multilingualReply?.foreignVariants ??
+            const <ChatLanguage, ChatLanguageVariant>{},
         emotionRawTag: companionEmotion.rawTag,
         emotionKey: companionEmotion.key,
         emotionLabel: companionEmotion.label,
@@ -927,6 +989,9 @@ ${PromptBuilder.visibleChineseGenerationReminder()}
       final assistant = baseAssistant.copyWith(
         content: stickerOnly ? '' : baseAssistant.content,
         segments: stickerOnly ? const <ChatSegment>[] : baseAssistant.segments,
+        languageVariants: stickerOnly
+            ? const <ChatLanguage, ChatLanguageVariant>{}
+            : baseAssistant.languageVariants,
         attachments: assistantAttachments,
       );
       // Detection is pure; persistence happens only inside the winning

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../features/chat/chat_controller.dart';
 import '../ai/reasoning_translation_service.dart';
 import '../database/app_database.dart';
+import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
 import '../storage/message_attachment_storage.dart';
 import 'overlay_generation_snapshot.dart';
@@ -146,7 +147,18 @@ class BackgroundChatCommandServer {
         final message = await db.messageById(id);
         if (message != null && message.isAssistant) {
           final controller = await _ensureController();
-          await controller.speakMessage(message);
+          final showForeign =
+              (await db.getSetting('show_foreign_replies')) == '1';
+          final selected = showForeign
+              ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+                  ChatLanguage.chinese
+              : ChatLanguage.chinese;
+          await controller.speakMessage(
+            message,
+            language: message.hasLanguage(selected)
+                ? selected
+                : ChatLanguage.chinese,
+          );
         }
         return null;
       case 'stopSpeech':
@@ -298,6 +310,12 @@ class BackgroundChatCommandServer {
     List<ChatMessage> messages, {
     DateTime? before,
   }) async {
+    final showForeign =
+        (await db.getSetting('show_foreign_replies')) == '1';
+    final selectedLanguage = showForeign
+        ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese
+        : ChatLanguage.chinese;
     final translationSources = <String, String>{
       for (final message in messages)
         if (message.isAssistant &&
@@ -325,8 +343,16 @@ class BackgroundChatCommandServer {
           'height': attachment.height,
         });
       }
+      final displayLanguage = message.isAssistant &&
+              message.hasLanguage(selectedLanguage)
+          ? selectedLanguage
+          : ChatLanguage.chinese;
+      final projectedContent = displayLanguage == ChatLanguage.chinese
+          ? message.content
+          : '${message.contentFor(displayLanguage)}\n\n中文对照\n${message.content}';
       rows.add(<String, Object?>{
         ...message.toDb(),
+        'content': projectedContent,
         'reasoning_translation_offer':
             translationSources.containsKey(message.id),
         'reasoning_translation': translations[message.id] ?? '',

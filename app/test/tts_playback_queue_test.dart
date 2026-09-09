@@ -6,28 +6,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_playback_queue.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_provider.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_queue_service.dart';
+import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
+import 'package:ai_companion_localfirst/core/tts/tts_voice_profile.dart';
 
 class _FakeQueueService implements TtsQueueService {
   final prepared = <String>[];
   final generated = <String>[];
+  final generatedLanguages = <ChatLanguage>[];
+  final generatedVoices = <TtsVoiceMode>[];
   final played = <String>[];
   int stopCount = 0;
   Completer<void>? firstPlaybackGate;
   Completer<void>? firstGenerationGate;
   bool failFirstGeneration = false;
+  TtsVoiceMode resolvedVoice = TtsVoiceMode.daily;
+  Completer<TtsVoiceMode>? voiceResolutionGate;
+  String Function(String text)? prepareTransform;
 
   @override
-  Future<String?> prepareText(String visibleText, {bool manual = false}) async {
+  Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
+    final gate = voiceResolutionGate;
+    if (gate != null) return gate.future;
+    return resolvedVoice;
+  }
+
+  @override
+  Future<String?> prepareText(
+    String visibleText, {
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
     prepared.add(visibleText);
-    return visibleText;
+    return prepareTransform?.call(visibleText) ?? visibleText;
   }
 
   @override
   Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
+    ChatLanguage language = ChatLanguage.chinese,
+    TtsVoiceMode voice = TtsVoiceMode.daily,
   }) async {
     generated.add(spokenText);
+    generatedLanguages.add(language);
+    generatedVoices.add(voice);
     if (generated.length == 1 && firstGenerationGate != null) {
       await firstGenerationGate!.future;
     }
@@ -57,6 +79,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.playText('第一句。第二句。第三句。', manual: true);
@@ -76,6 +99,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.playText('第一句。第二句。', manual: true);
@@ -96,6 +120,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.playText('第一句。第二句。', manual: true);
@@ -110,6 +135,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.beginStream(manual: false);
@@ -122,6 +148,25 @@ void main() {
     expect(fake.played, ['wav:先说第一句', 'wav:再说第二句']);
   });
 
+  test('streaming text is capped again after speech replacement', () async {
+    final fake = _FakeQueueService()
+      ..prepareTransform = (text) => List<String>.filled(60, '鲸').join();
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
+    );
+
+    await queue.beginStream(manual: true);
+    queue.addDelta('短句。');
+    queue.endStream();
+    await queue.waitUntilIdle();
+
+    expect(fake.generated.length, greaterThan(1));
+    expect(fake.generated.every((chunk) => chunk.length <= 54), isTrue);
+    expect(fake.generated.join(), List<String>.filled(60, '鲸').join());
+  });
+
   test('reports synthesizing, playing, and idle for the owning message', () async {
     final fake = _FakeQueueService()
       ..firstGenerationGate = Completer<void>()
@@ -130,6 +175,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
       onStateChanged: states.add,
     );
 
@@ -157,7 +203,10 @@ void main() {
   });
 
   test('auto streaming announces synthesis before the first audio chunk', () async {
-    final queue = TtsPlaybackQueue(service: _FakeQueueService());
+    final queue = TtsPlaybackQueue(
+      service: _FakeQueueService(),
+      initialPrefill: Duration.zero,
+    );
 
     await queue.beginStream(manual: false, ownerId: 'assistant-stream');
 
@@ -173,6 +222,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.playText(
@@ -198,6 +248,7 @@ void main() {
     final queue = TtsPlaybackQueue(
       service: fake,
       interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
     );
 
     await queue.playText(
@@ -211,6 +262,45 @@ void main() {
     generation.complete();
     await queue.waitUntilIdle();
     expect(fake.played, ['wav:合成完成立即播放']);
+  });
+
+  test('language and resolved voice stay locked for the full session', () async {
+    final fake = _FakeQueueService()..resolvedVoice = TtsVoiceMode.cute;
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      interSentenceGap: Duration.zero,
+      initialPrefill: Duration.zero,
+    );
+
+    await queue.playText(
+      '最初の文。次の文。',
+      language: ChatLanguage.japanese,
+    );
+    await queue.waitUntilIdle();
+
+    expect(
+      fake.generatedLanguages,
+      everyElement(ChatLanguage.japanese),
+    );
+    expect(fake.generatedVoices, everyElement(TtsVoiceMode.cute));
+  });
+
+  test('stop during voice resolution prevents an old session from reviving', () async {
+    final gate = Completer<TtsVoiceMode>();
+    final fake = _FakeQueueService()..voiceResolutionGate = gate;
+    final queue = TtsPlaybackQueue(
+      service: fake,
+      initialPrefill: Duration.zero,
+    );
+
+    final pending = queue.playText('这条旧请求不能复活。');
+    await _turn();
+    await queue.stop();
+    gate.complete(TtsVoiceMode.daily);
+    await pending;
+
+    expect(fake.generated, isEmpty);
+    expect(queue.state, same(TtsQueueState.idle));
   });
 
 }

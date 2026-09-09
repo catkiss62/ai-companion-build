@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import '../emotion/emotion_contract.dart';
+import '../models/chat_language_variant.dart';
+import 'tts_voice_profile.dart';
 
 class TtsEmotionCue {
   const TtsEmotionCue({
@@ -76,13 +78,24 @@ class TtsStatus {
 abstract class TtsProvider {
   Future<TtsStatus> status();
   Future<TtsStatus> verifyArtifacts();
-  Future<TtsStatus> initialize();
-  Future<TtsStatus> diagnose();
+  Future<TtsStatus> initialize({
+    ChatLanguage language = ChatLanguage.chinese,
+  });
+  Future<TtsStatus> prepareLanguage(ChatLanguage language);
+  Future<TtsStatus> diagnose({
+    ChatLanguage language = ChatLanguage.chinese,
+  });
+  Future<TtsStatus> importChineseRoberta(String path);
 
   /// Legacy one-shot compatibility path. Normal companion speech uses
   /// generate()+playAudio() so inference can run ahead of playback like A2.
   Future<void> speak(String text);
-  Future<Uint8List?> generate(String text, {TtsEmotionCue? emotion});
+  Future<Uint8List?> generate(
+    String text, {
+    TtsEmotionCue? emotion,
+    ChatLanguage language = ChatLanguage.chinese,
+    TtsVoiceMode voice = TtsVoiceMode.daily,
+  });
   Future<void> playAudio(Uint8List wavBytes);
 
   Future<void> stop();

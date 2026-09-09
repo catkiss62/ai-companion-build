@@ -104,9 +104,9 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04152-diary-fresh-topic-balance",
-        "0.41.52+191",
-        "schema 56",
+        "agent/v04153-genie-multilingual-tts",
+        "0.41.53",
+        "schema 57",
         "Snapshot protocol 5",
         "Phase 2B",
         "App 内 Agent 能力桥",
@@ -122,6 +122,9 @@ def main() -> None:
         "Phase 3",
         "Harness",
         "screen_observation.inspect",
+        "Genie-TTS",
+        "显示外语",
+        "中/日/EN",
     )
     for fact in required_current_facts:
         require(fact in current, f"missing active-task handoff fact: {fact}")
@@ -193,12 +196,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.52\+191\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.53\+192\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 56;" in database,
+        "static const int schemaVersion = 57;" in database,
         "database schema no longer matches the current development baseline",
     )
 

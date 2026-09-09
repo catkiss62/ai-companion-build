@@ -1,6 +1,7 @@
 import '../emotion/emotion_contract.dart';
 import 'message_attachment.dart';
 import 'chat_segment.dart';
+import 'chat_language_variant.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -17,6 +18,7 @@ class ChatMessage {
     this.attachments = const <MessageAttachment>[],
     this.expectsReply = true,
     this.segments = const <ChatSegment>[],
+    this.languageVariants = const <ChatLanguage, ChatLanguageVariant>{},
     this.emotionRawTag = '',
     this.emotionKey = '',
     this.emotionLabel = '',
@@ -39,6 +41,7 @@ class ChatMessage {
   final List<MessageAttachment> attachments;
   final bool expectsReply;
   final List<ChatSegment> segments;
+  final Map<ChatLanguage, ChatLanguageVariant> languageVariants;
   final String emotionRawTag;
   final String emotionKey;
   final String emotionLabel;
@@ -64,6 +67,16 @@ class ChatMessage {
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
   bool get hasAttachments => attachments.isNotEmpty;
+  bool hasLanguage(ChatLanguage language) =>
+      language == ChatLanguage.chinese || languageVariants.containsKey(language);
+  List<ChatSegment> segmentsFor(ChatLanguage language) =>
+      language == ChatLanguage.chinese
+          ? displaySegments
+          : languageVariants[language]?.segments ?? const <ChatSegment>[];
+  String contentFor(ChatLanguage language) =>
+      language == ChatLanguage.chinese
+          ? content
+          : languageVariants[language]?.content ?? '';
   List<ChatSegment> get displaySegments => segments.isNotEmpty
       ? segments
       : isAssistant
@@ -115,6 +128,7 @@ class ChatMessage {
     List<MessageAttachment>? attachments,
     bool? expectsReply,
     List<ChatSegment>? segments,
+    Map<ChatLanguage, ChatLanguageVariant>? languageVariants,
     String? emotionRawTag,
     String? emotionKey,
     String? emotionLabel,
@@ -137,6 +151,7 @@ class ChatMessage {
       attachments: attachments ?? this.attachments,
       expectsReply: expectsReply ?? this.expectsReply,
       segments: segments ?? this.segments,
+      languageVariants: languageVariants ?? this.languageVariants,
       emotionRawTag: emotionRawTag ?? this.emotionRawTag,
       emotionKey: emotionKey ?? this.emotionKey,
       emotionLabel: emotionLabel ?? this.emotionLabel,
@@ -184,6 +199,15 @@ class ChatMessage {
         'attachments': attachments.map((item) => item.toJson()).toList(),
         'expects_reply': expectsReply,
         'segments': segments.map((item) => item.toJson()).toList(),
+        'language_variants': languageVariants.values
+            .map((item) => <String, Object?>{
+                  'language': item.language.key,
+                  'content': item.content,
+                  'segments': item.segments
+                      .map((segment) => segment.toJson())
+                      .toList(growable: false),
+                })
+            .toList(growable: false),
         'emotion_raw_tag': emotionRawTag,
         'emotion_key': emotionKey,
         'emotion_label': emotionLabel,
@@ -196,6 +220,8 @@ class ChatMessage {
   factory ChatMessage.fromDb(
     Map<String, Object?> row, {
     List<MessageAttachment> attachments = const <MessageAttachment>[],
+    Map<ChatLanguage, ChatLanguageVariant> languageVariants =
+        const <ChatLanguage, ChatLanguageVariant>{},
   }) {
     return ChatMessage(
       id: row['id'] as String,
@@ -214,6 +240,7 @@ class ChatMessage {
         row['segments_json'] as String?,
         fallbackText: (row['content'] as String?) ?? '',
       ),
+      languageVariants: languageVariants,
       emotionRawTag: row['emotion_raw_tag'] as String? ?? '',
       emotionKey: row['emotion_key'] as String? ?? '',
       emotionLabel: row['emotion_label'] as String? ?? '',

@@ -11,9 +11,16 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.52+191" in read("pubspec.yaml")
-assert "static const int schemaVersion = 56;" in read(
-    "lib/core/database/app_database.dart"
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.52+191", "version: 0.41.53+192")
+)
+assert any(
+    schema in read("lib/core/database/app_database.dart")
+    for schema in (
+        "static const int schemaVersion = 56;",
+        "static const int schemaVersion = 57;",
+    )
 )
 
 diary = read("lib/core/phone/simulated_diary_generator.dart")

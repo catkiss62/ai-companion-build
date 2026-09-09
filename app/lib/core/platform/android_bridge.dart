@@ -798,4 +798,7 @@ class AndroidBridge {
 
   Future<String?> openPromptPack() =>
       _channel.invokeMethod<String>('openPromptPack');
+
+  Future<String?> openTtsRoberta() =>
+      _channel.invokeMethod<String>('openTtsRoberta');
 }

@@ -18,7 +18,14 @@ def forbid(path: str, *tokens: str) -> None:
 
 
 pubspec = (ROOT / "pubspec.yaml").read_text(encoding="utf-8")
-assert "version: 0.41.51+190" in pubspec or "version: 0.41.52+191" in pubspec
+assert any(
+    version in pubspec
+    for version in (
+        "version: 0.41.51+190",
+        "version: 0.41.52+191",
+        "version: 0.41.53+192",
+    )
+)
 require(
     "lib/core/stickers/sticker_pack.dart",
     "file_5614628",

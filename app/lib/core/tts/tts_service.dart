@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
 import '../database/app_database.dart';
+import '../models/chat_language_variant.dart';
 import 'native_tts_provider.dart';
 import 'tts_playback_queue.dart';
 import 'tts_provider.dart';
 import 'tts_queue_service.dart';
 import 'tts_text_processor.dart';
+import 'tts_voice_profile.dart';
 
 class TtsService implements TtsQueueService {
   TtsService({
@@ -20,21 +22,36 @@ class TtsService implements TtsQueueService {
   final TtsProvider provider;
   final TtsTextProcessor processor;
 
+  @override
+  Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async =>
+      TtsVoiceProfilePolicy.resolve(
+        TtsVoiceMode.fromSetting(await db.getSetting('tts_voice_mode')),
+        emotionKey: emotion?.key ?? '',
+        confidence: emotion?.confidence ?? 0,
+      );
+
   Future<TtsStatus> status() => provider.status();
 
   Future<TtsStatus> verifyArtifacts() => provider.verifyArtifacts();
 
-  Future<TtsStatus> initialize() async {
-    final result = await provider.initialize();
+  Future<TtsStatus> initialize({
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final result = await provider.initialize(language: language);
     if (result.initialized) await _applyPlaybackSettings();
     return result;
   }
 
-  Future<TtsStatus> diagnose() async {
-    final result = await provider.diagnose();
+  Future<TtsStatus> diagnose({
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final result = await provider.diagnose(language: language);
     if (result.initialized) await _applyPlaybackSettings();
     return result;
   }
+
+  Future<TtsStatus> importChineseRoberta(String path) =>
+      provider.importChineseRoberta(path);
 
   Future<void> _applyPlaybackSettings() async {
     final speed = double.tryParse(await db.getSetting('tts_speed') ?? '') ?? 1.0;
@@ -44,7 +61,11 @@ class TtsService implements TtsQueueService {
   }
 
   @override
-  Future<String?> prepareText(String visibleText, {bool manual = false}) async {
+  Future<String?> prepareText(
+    String visibleText, {
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
     if ((await db.getSetting('tts_enabled')) == '0') return null;
     if (!manual && (await db.getSetting('auto_tts')) == '0') return null;
 
@@ -52,9 +73,11 @@ class TtsService implements TtsQueueService {
       final status = await provider.status();
       if (!status.available) return null;
       if (!status.initialized) {
-        final initialized = await initialize();
+        final initialized = await initialize(language: language);
         if (!initialized.initialized) return null;
       } else {
+        final prepared = await provider.prepareLanguage(language);
+        if (!prepared.initialized) return null;
         await _applyPlaybackSettings();
       }
       final replacements = processor.decodeReplacementJson(
@@ -62,6 +85,7 @@ class TtsService implements TtsQueueService {
       );
       final spoken = processor.process(
         visibleText,
+        language: language,
         replacements: replacements,
         scope: TtsReadingScope.fromSetting(
           await db.getSetting('tts_reading_scope'),
@@ -78,12 +102,16 @@ class TtsService implements TtsQueueService {
   Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
+    ChatLanguage language = ChatLanguage.chinese,
+    TtsVoiceMode voice = TtsVoiceMode.daily,
   }) async {
     if (spokenText.trim().isEmpty) return null;
     try {
       final audio = await provider.generate(
         spokenText.trim(),
         emotion: emotion,
+        language: language,
+        voice: voice,
       );
       if (audio == null || audio.isEmpty) return null;
       await _recordError('');

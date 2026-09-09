@@ -584,6 +584,20 @@ ${proactive ? (ordinaryActionExperimentActive == true ? '主动消息若发送�
 始终使用完整能力理解和处理当前内容。人格、情绪、关系与风格可以决定主观注意、态度、取舍、说多少和怎样表达，但不得降低事实判断、推理、任务质量、工具使用或对用户明确反馈的执行。
 普通闲聊不必表现成助手，也不要求逐项答全；遇到明确任务、事实问题、游戏挑战、出题或质量纠正时，先真正满足内容要求，再按当前人格自然表达。不要先生成一份中性助手答案，再机械改写成人设台词。'''.trim();
 
+  static String multilingualGenerationReminder() => '''
+【本轮三语最终正文协议 · 仅在最终答复时执行】
+reasoning_content 仍只使用自然简体中文。最终 content 第一行先输出且只输出一次 <emotion>标签</emotion>，随后只输出一个 <multilingual_reply>...</multilingual_reply> 块；块外不得有正文、Markdown 代码围栏或解释。
+
+块内必须是严格 JSON，形状为：
+{"segments":[{"kind":"action","zh":"中文动作","ja":"自然日语动作","en":"Natural English action"},{"kind":"dialogue","zh":"中文对白","ja":"自然日语对白","en":"Natural English dialogue"}]}
+
+- 先确定唯一的情绪、意图、事实和 action/dialogue 段序列，再分别写 zh/ja/en；三种语言的段数、顺序和 kind 必须完全一致。
+- 日英按各自语言习惯自然表达，不逐字硬译，但不得改变事实、操作是否发生、动作归属、称呼、问题或承诺。
+- zh 是唯一权威正文；每个 zh/ja/en 都必须是非空 JSON 字符串。字符串中的引号、反斜杠和换行必须合法转义。
+- 段内不要再添加「」、（）、【】或语言标签；界面会按 kind 恢复样式。不要把中文译文拼进 ja/en。
+- 如果最终只发送一段对白，就只输出一个 kind=dialogue 的三语段；不要为了格式凭空增加动作。
+'''.trim();
+
   static String personalityLearningCapabilityContract({
     required String latestUserText,
     required List<ChatMessage> recent,

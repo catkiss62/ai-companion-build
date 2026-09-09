@@ -58,6 +58,7 @@ class SystemBridge(
     private var promptDocumentResult: MethodChannel.Result? = null
     private var promptDocumentOperation: String? = null
     private var promptDocumentContent: String? = null
+    private var ttsModelDocumentResult: MethodChannel.Result? = null
     private var directPickerGuardDepth = 0
 
     init {
@@ -395,6 +396,7 @@ class SystemBridge(
                     result = result,
                 )
                 "openPromptPack" -> startPromptPackOpen(result)
+                "openTtsRoberta" -> startTtsRobertaOpen(result)
                 else -> result.notImplemented()
             }
         }
@@ -497,6 +499,8 @@ class SystemBridge(
         reportSourcePath = null
         promptDocumentResult?.error("activity_disposed", "Activity was destroyed during prompt import/export", null)
         clearPromptDocumentState()
+        ttsModelDocumentResult?.error("activity_disposed", "Activity was destroyed during TTS model import", null)
+        ttsModelDocumentResult = null
         if (directPickerGuardDepth > 0) {
             directPickerGuardDepth = 1
             endDirectPickerOverlayGuard("system_bridge_disposed")
@@ -516,6 +520,54 @@ class SystemBridge(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_TTS_ROBERTA_OPEN) {
+            endDirectPickerOverlayGuard("tts_roberta_picker_returned")
+            val result = ttsModelDocumentResult ?: return
+            ttsModelDocumentResult = null
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                result.success(null)
+                return
+            }
+            Thread {
+                val cached = File(
+                    activity.cacheDir,
+                    "genie_chinese_roberta_${System.currentTimeMillis()}.onnx",
+                )
+                runCatching {
+                    val input = requireNotNull(activity.contentResolver.openInputStream(uri))
+                    input.use { source ->
+                        FileOutputStream(cached).use { output ->
+                            val buffer = ByteArray(1024 * 1024)
+                            var copied = 0L
+                            while (true) {
+                                val count = source.read(buffer)
+                                if (count < 0) break
+                                copied += count
+                                require(copied <= MAX_TTS_MODEL_BYTES) {
+                                    "tts_roberta_size_invalid"
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                            require(copied > 0L) { "tts_roberta_size_invalid" }
+                        }
+                    }
+                    cached.absolutePath
+                }.onSuccess { path ->
+                    activity.runOnUiThread { result.success(path) }
+                }.onFailure { error ->
+                    runCatching { cached.delete() }
+                    activity.runOnUiThread {
+                        result.error(
+                            "tts_roberta_open_failed",
+                            error.message ?: error.javaClass.simpleName,
+                            null,
+                        )
+                    }
+                }
+            }.start()
+            return
+        }
         if (requestCode == REQUEST_PROMPT_SAVE || requestCode == REQUEST_PROMPT_OPEN) {
             endDirectPickerOverlayGuard(
                 if (requestCode == REQUEST_PROMPT_SAVE) {
@@ -1050,6 +1102,29 @@ class SystemBridge(
                 endDirectPickerOverlayGuard("prompt_pack_open_picker_launch_failed")
                 clearPromptDocumentState()
                 result.error("prompt_pack_picker", error.javaClass.simpleName, null)
+            }
+    }
+
+    private fun startTtsRobertaOpen(result: MethodChannel.Result) {
+        if (ttsModelDocumentResult != null) {
+            result.error("tts_roberta_picker_busy", "TTS model picker is already open", null)
+            return
+        }
+        ttsModelDocumentResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/octet-stream"
+            putExtra(
+                Intent.EXTRA_MIME_TYPES,
+                arrayOf("application/octet-stream", "application/x-onnx", "*/*"),
+            )
+        }
+        beginDirectPickerOverlayGuard("tts_roberta_picker")
+        runCatching { activity.startActivityForResult(intent, REQUEST_TTS_ROBERTA_OPEN) }
+            .onFailure { error ->
+                endDirectPickerOverlayGuard("tts_roberta_picker_launch_failed")
+                ttsModelDocumentResult = null
+                result.error("tts_roberta_picker", error.javaClass.simpleName, null)
             }
     }
 
@@ -1643,7 +1718,9 @@ class SystemBridge(
         private const val REQUEST_BACKUP_OPEN = 4209
         private const val REQUEST_PLAIN_BACKUP_SAVE = 4210
         private const val REQUEST_PLAIN_BACKUP_OPEN = 4211
+        private const val REQUEST_TTS_ROBERTA_OPEN = 4212
         private const val MAX_PLAIN_BACKUP_BYTES = 8L * 1024L * 1024L * 1024L
         private const val MAX_PROMPT_PACK_BYTES = 2 * 1024 * 1024
+        private const val MAX_TTS_MODEL_BYTES = 1024L * 1024L * 1024L
     }
 }

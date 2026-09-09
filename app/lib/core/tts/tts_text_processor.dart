@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../models/chat_segment.dart';
+import '../models/chat_language_variant.dart';
 
 enum TtsReadingScope {
   dialogueOnly('dialogue_only', '仅朗读对白（「」内）'),
@@ -19,6 +20,7 @@ class TtsTextProcessor {
 
   String process(
     String text, {
+    ChatLanguage language = ChatLanguage.chinese,
     Map<String, String> replacements = const {},
     TtsReadingScope scope = TtsReadingScope.dialogueOnly,
   }) {
@@ -28,9 +30,7 @@ class TtsTextProcessor {
         : segments;
     final spokenParts =
         selected.map((item) => item.text.trim()).where((item) => item.isNotEmpty);
-    var result = spokenParts.join(
-      scope == TtsReadingScope.dialogueOnly ? '' : '。',
-    );
+    var result = spokenParts.join('。');
 
     // User replacements are speech-only and never touch the visible chat body.
     for (final entry in replacements.entries) {
@@ -41,7 +41,12 @@ class TtsTextProcessor {
     // Fixed Meju pronunciation compatibility. The original A2 processText()
     // explicitly maps Yuki/yuki/YuKi to 有希; use a case-insensitive word match
     // so the companion remains robust to model capitalization variants.
-    result = result.replaceAll(RegExp(r'\bYuki\b', caseSensitive: false), '有希');
+    if (language == ChatLanguage.chinese) {
+      result = result
+          .replaceAll(RegExp(r'\bYuki\b', caseSensitive: false), '有希')
+          .replaceAll(RegExp(r'\bDeepSeek\b', caseSensitive: false), '地铺 C 咳')
+          .replaceAll(RegExp(r'\btoken\b', caseSensitive: false), '拖肯');
+    }
 
     // Technical/markup blocks stay speech-only. Legacy action parentheses have
     // already been decoded above, so full-text mode keeps their inner words.

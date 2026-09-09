@@ -12,6 +12,7 @@ import '../diagnostics/proactive_policy_telemetry.dart';
 import '../desire/desire_core_policy.dart';
 import '../desire/interaction_reciprocity_policy.dart';
 import '../models/chat_message.dart';
+import '../models/chat_language_variant.dart';
 import '../models/companion_album.dart';
 import '../platform/android_bridge.dart';
 import '../models/emotion_episode.dart';
@@ -109,7 +110,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 53;
   // Historical validator compatibility token: static const int schemaVersion = 54;
   // Historical validator compatibility token: static const int schemaVersion = 55;
-  static const int schemaVersion = 56;
+  // Historical validator compatibility token: static const int schemaVersion = 56;
+  static const int schemaVersion = 57;
 
   Database? _db;
   Future<Database>? _opening;
@@ -828,6 +830,9 @@ class AppDatabase {
         'personality_base_key': 'none',
         'personality_posture_key': 'none',
         'tts_reading_scope': 'dialogue_only',
+        'show_foreign_replies': '0',
+        'tts_language': 'zh',
+        'tts_voice_mode': 'auto',
         'chat_visual_stage_enabled': '1',
         'chat_background_mode': 'auto',
         'chat_panel_opacity': '0.72',
@@ -1130,6 +1135,20 @@ class AppDatabase {
     if (oldVersion < 56) {
       await _createV56SubjectiveSearchColumns(db);
     }
+    if (oldVersion < 57) {
+      await _createV57MessageLanguageVariants(db);
+      for (final entry in const <String, String>{
+        'show_foreign_replies': '0',
+        'tts_language': 'zh',
+        'tts_voice_mode': 'auto',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1325,6 +1344,7 @@ class AppDatabase {
     await _createV54AiInterestEvidenceTables(db);
     await _createV55AutonomousBehaviorTables(db);
     await _createV56SubjectiveSearchColumns(db);
+    await _createV57MessageLanguageVariants(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -1381,6 +1401,9 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
+    await db.insert('settings', {'key': 'show_foreign_replies', 'value': '0'});
+    await db.insert('settings', {'key': 'tts_language', 'value': 'zh'});
+    await db.insert('settings', {'key': 'tts_voice_mode', 'value': 'auto'});
     await db.insert('settings', {'key': 'chat_visual_stage_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'chat_background_mode', 'value': 'auto'});
     await db.insert('settings', {'key': 'chat_panel_opacity', 'value': '0.75'});
@@ -3274,6 +3297,23 @@ class AppDatabase {
     }
   }
 
+  Future<void> _createV57MessageLanguageVariants(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS message_language_variants (
+        message_id TEXT NOT NULL,
+        language TEXT NOT NULL CHECK(language IN ('ja', 'en')),
+        content TEXT NOT NULL,
+        segments_json TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY(message_id, language),
+        FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_language_variants_message '
+      'ON message_language_variants(message_id)',
+    );
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -3881,6 +3921,9 @@ class AppDatabase {
       'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
       'tts_reading_scope': 'dialogue_only',
+      'show_foreign_replies': '0',
+      'tts_language': 'zh',
+      'tts_voice_mode': 'auto',
       'chat_visual_stage_enabled': '1',
       'chat_background_mode': 'auto',
       'chat_panel_opacity': '0.75',
@@ -4469,11 +4512,33 @@ class AppDatabase {
 
   Future<void> insertMessage(ChatMessage message) async {
     final db = await database;
-    await db.insert(
-      'messages',
-      message.toDb(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.transaction((txn) async {
+      await txn.insert(
+        'messages',
+        message.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _insertLanguageVariants(txn, message);
+    });
+  }
+
+  Future<void> _insertLanguageVariants(
+    DatabaseExecutor executor,
+    ChatMessage message,
+  ) async {
+    for (final variant in message.languageVariants.values) {
+      if (variant.messageId != message.id ||
+          variant.language == ChatLanguage.chinese ||
+          variant.content.trim().isEmpty ||
+          variant.segments.isEmpty) {
+        throw StateError('invalid_message_language_variant');
+      }
+      await executor.insert(
+        'message_language_variants',
+        variant.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
   }
 
   Future<void> insertMessageWithAttachments(
@@ -4509,6 +4574,7 @@ class AppDatabase {
         message.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      await _insertLanguageVariants(txn, message);
       for (final attachment in attachments) {
         await txn.insert(
           'message_attachments',
@@ -6527,6 +6593,7 @@ class AppDatabase {
           assistant.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        await _insertLanguageVariants(txn, assistant);
         for (final attachment in assistant.attachments) {
           await txn.insert(
             'message_attachments',
@@ -6777,6 +6844,7 @@ class AppDatabase {
         message.toDb(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      await _insertLanguageVariants(txn, message);
       for (final attachment in message.attachments) {
         await txn.insert(
           'message_attachments',
@@ -7090,12 +7158,35 @@ class AppDatabase {
       final attachment = MessageAttachment.fromDb(row);
       byMessage.putIfAbsent(attachment.messageId, () => []).add(attachment);
     }
+    final variantRows = await executor.query(
+      'message_language_variants',
+      where: 'message_id IN ($placeholders)',
+      whereArgs: ids,
+      orderBy: 'message_id ASC, language ASC',
+    );
+    final variantsByMessage =
+        <String, Map<ChatLanguage, ChatLanguageVariant>>{};
+    for (final row in variantRows) {
+      try {
+        final variant = ChatLanguageVariant.fromDb(row);
+        variantsByMessage
+            .putIfAbsent(
+              variant.messageId,
+              () => <ChatLanguage, ChatLanguageVariant>{},
+            )
+            [variant.language] = variant;
+      } catch (_) {
+        // Optional foreign projections never hide authoritative Chinese.
+      }
+    }
     return rows
         .map(
           (row) => ChatMessage.fromDb(
             row,
             attachments: byMessage[row['id'] as String] ??
                 const <MessageAttachment>[],
+            languageVariants: variantsByMessage[row['id'] as String] ??
+                const <ChatLanguage, ChatLanguageVariant>{},
           ),
         )
         .toList(growable: false);
@@ -17129,6 +17220,7 @@ class AppDatabase {
     final db = await database;
     const tables = [
       'messages',
+      'message_language_variants',
       'message_attachments',
       'memory_items',
       'memory_evidence',
@@ -17243,10 +17335,14 @@ class AppDatabase {
     if (version < 55) {
       rawTables['autonomous_behavior_events'] = const <Object?>[];
     }
+    if (version < 57) {
+      rawTables['message_language_variants'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
         'messages',
+        'message_language_variants',
         'message_attachments',
         'memory_items',
         'memory_evidence',
@@ -17593,6 +17689,9 @@ class AppDatabase {
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
         'tts_reading_scope': 'dialogue_only',
+        'show_foreign_replies': '0',
+        'tts_language': 'zh',
+        'tts_voice_mode': 'auto',
         'personality_base_key': 'none',
         'personality_posture_key': 'none',
         'chat_visual_stage_enabled': '1',

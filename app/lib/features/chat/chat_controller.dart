@@ -29,6 +29,7 @@ import '../../core/integration/moe_shadow_coordinator.dart';
 import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/memory/phase2b_consolidation_engine.dart';
 import '../../core/models/chat_message.dart';
+import '../../core/models/chat_language_variant.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/models/generation_job.dart';
 import '../../core/models/desire_state.dart';
@@ -1150,7 +1151,19 @@ class ChatController extends ChangeNotifier {
 
     final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
     final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
-    streamTts = autoTts &&
+    final showForeignReplies =
+        (await db.getSetting('show_foreign_replies')) == '1';
+    final configuredSpeechLanguage = showForeignReplies
+        ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese
+        : ChatLanguage.chinese;
+    // A multilingual provider stream is a private tagged JSON envelope. Its
+    // selected projection is not trustworthy until the complete envelope has
+    // parsed, so never feed partial Chinese/JSON to a Japanese or English
+    // frontend. Multilingual auto speech starts from the selected projection
+    // immediately after the durable commit instead.
+    streamTts = !showForeignReplies &&
+        autoTts &&
         (await db.getSetting('tts_streaming_enabled')) != '0';
     if (streamTts) {
       streamLeadIn = Completer<void>();
@@ -1159,6 +1172,7 @@ class ChatController extends ChangeNotifier {
           manual: false,
           ownerId: job.assistantMessageId,
           leadIn: streamLeadIn!.future,
+          language: configuredSpeechLanguage,
         );
       } catch (_) {
         releaseStreamLeadIn();
@@ -1212,28 +1226,44 @@ class ChatController extends ChangeNotifier {
     );
 
     if (result.completed) {
+      // Generation format is locked at turn start, while the playback choice
+      // is read again at commit. If the user disabled foreign display or chose
+      // another language during a long generation, the obsolete choice must
+      // not start speaking afterward.
+      final foreignPlaybackEnabled =
+          (await db.getSetting('show_foreign_replies')) == '1';
+      final latestSpeechLanguage = foreignPlaybackEnabled
+          ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+              ChatLanguage.chinese
+          : ChatLanguage.chinese;
+      final speechLanguage = result.assistant!.hasLanguage(latestSpeechLanguage)
+          ? latestSpeechLanguage
+          : ChatLanguage.chinese;
+      final speechText = result.assistant!.contentFor(speechLanguage);
       messages = [...messages, result.assistant!];
       await _incrementOverlayUnread();
       _petGenerationActive = false;
       _safeNotify();
-      if (streamTts) {
+      if (streamTts && speechLanguage == configuredSpeechLanguage) {
         releaseStreamLeadIn();
         // Ordinary visible body deltas are buffered until commit. Preserve the
         // optional streaming-TTS setting by feeding the approved body once.
-        ttsPlayback.addDelta(result.assistant!.content);
+        ttsPlayback.addDelta(speechText);
         ttsPlayback.endStream();
       } else {
+        if (streamTts) await ttsPlayback.stop();
         final leadIn = emotionCueStarted
             ? emotionLeadIn
             : startEmotionCue(result.assistant!.emotionKey);
         if (autoTts) {
           unawaited(
             ttsPlayback.playText(
-              result.assistant!.content,
+              speechText,
               manual: false,
               ownerId: result.assistant!.id,
               emotion: _ttsEmotionCue(result.assistant!),
               leadIn: leadIn,
+              language: speechLanguage,
             ),
           );
         }
@@ -1480,13 +1510,21 @@ class ChatController extends ChangeNotifier {
     );
   }
 
-  Future<void> speakMessage(ChatMessage message) async {
-    if (!message.isAssistant || message.content.trim().isEmpty) return;
+  Future<void> speakMessage(
+    ChatMessage message, {
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    if (!message.isAssistant || !message.hasLanguage(language)) return;
+    final content = message.contentFor(language).trim();
+    if (content.isEmpty) return;
+    await ttsPlayback.stop();
+    await db.setSetting('tts_language', language.key);
     await ttsPlayback.playText(
-      message.content,
+      content,
       manual: true,
       ownerId: message.id,
       emotion: _ttsEmotionCue(message),
+      language: language,
     );
   }
 

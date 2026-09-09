@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
+import '../../core/models/chat_language_variant.dart';
 import '../../core/models/chat_segment.dart';
 import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
@@ -66,6 +67,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   RelationshipAge? _relationshipAge;
   bool _ttsEnabled = false;
+  bool _showForeignReplies = false;
+  ChatLanguage _selectedLanguage = ChatLanguage.chinese;
   double _panelOpacity = 0.75;
   double _panelFraction = 0.62;
   ChatPortraitSet _portraitSet = ChatPortraitSet.largeWhale;
@@ -277,6 +280,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _relationshipAge = await db.relationshipAge();
     await _android.setOverlayDialogueColor(_dialogueColor.key);
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
+    _showForeignReplies =
+        (await db.getSetting('show_foreign_replies')) == '1';
+    _selectedLanguage = _showForeignReplies
+        ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese
+        : ChatLanguage.chinese;
     _notificationSound = ProactiveNotificationSound.fromSetting(
       await db.getSetting('proactive_notification_sound'),
     );
@@ -1015,9 +1024,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
+    ChatMessage? latestAssistant;
     String? latestAssistantId;
     for (final message in controller.messages.reversed) {
       if (message.isAssistant) {
+        latestAssistant = message;
         latestAssistantId = message.id;
         break;
       }
@@ -1058,6 +1069,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       _MessageBubble(
                         key: ValueKey(item.message!.id),
                         message: item.message!,
+                        showForeignReplies: _showForeignReplies,
+                        selectedLanguage: _selectedLanguage,
                         bubbleOpacity:
                             _visualStageEnabled ? _panelOpacity : 1.0,
                         ttsPhase:
@@ -1117,7 +1130,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     TtsPlaybackPhase.playing) {
                                   controller.stopSpeech();
                                 } else {
-                                  controller.speakMessage(item.message!);
+                                  controller.speakMessage(
+                                    item.message!,
+                                    language: _showForeignReplies &&
+                                            item.message!.hasLanguage(
+                                              _selectedLanguage,
+                                            )
+                                        ? _selectedLanguage
+                                        : ChatLanguage.chinese,
+                                  );
                                 }
                               }
                             : null,
@@ -1217,6 +1238,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
+                          if (_showForeignReplies)
+                            _chatLanguageBar(latestAssistant),
                           _composer(context),
                         ],
                       ),
@@ -1265,6 +1288,63 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             },
           ),
         ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chatLanguageBar(ChatMessage? latestAssistant) {
+    final projectedLanguage = latestAssistant != null &&
+            latestAssistant.hasLanguage(_selectedLanguage)
+        ? _selectedLanguage
+        : ChatLanguage.chinese;
+    final phase = latestAssistant == null
+        ? TtsPlaybackPhase.idle
+        : controller.ttsPhaseForMessage(latestAssistant.id);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 3, 12, 5),
+      child: Row(
+        children: [
+          Text(
+            '正文与语音',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const SizedBox(width: 7),
+          for (final language in ChatLanguage.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 5),
+              child: _LanguageSpeechButton(
+                language: language,
+                selected: projectedLanguage == language,
+                enabled: latestAssistant?.hasLanguage(language) ?? false,
+                preparing: projectedLanguage == language &&
+                    phase == TtsPlaybackPhase.synthesizing,
+                onPressed: () async {
+                  final message = latestAssistant;
+                  if (message == null || !message.hasLanguage(language)) return;
+                  await controller.stopSpeech();
+                  if (!mounted) return;
+                  setState(() => _selectedLanguage = language);
+                  await AppDatabase.instance.setSetting(
+                    'tts_language',
+                    language.key,
+                  );
+                  if (!mounted) return;
+                  await controller.speakMessage(message, language: language);
+                },
+              ),
+            ),
+          const Spacer(),
+          Text(
+            projectedLanguage == ChatLanguage.chinese
+                ? '中文'
+                : projectedLanguage == ChatLanguage.japanese
+                    ? '日语＋中文对照'
+                    : 'English＋中文对照',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
         ],
       ),
     );
@@ -1557,6 +1637,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             },
                           ),
                         ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('显示外语'),
+                        subtitle: const Text(
+                          '只影响以后生成的回复；关闭不会删除已保存的日语和英语。',
+                        ),
+                        value: _showForeignReplies,
+                        onChanged: (value) async {
+                          await controller.stopSpeech();
+                          if (!mounted) return;
+                          setState(() {
+                            _showForeignReplies = value;
+                            if (!value) {
+                              _selectedLanguage = ChatLanguage.chinese;
+                            }
+                          });
+                          await update(
+                            'show_foreign_replies',
+                            value ? '1' : '0',
+                          );
+                          if (!value) {
+                            await update('tts_language', 'zh');
+                          }
+                        },
+                      ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('本地 TTS'),
@@ -2556,6 +2661,8 @@ class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     super.key,
     required this.message,
+    required this.showForeignReplies,
+    required this.selectedLanguage,
     required this.bubbleOpacity,
     required this.ttsPhase,
     required this.attachmentStorage,
@@ -2571,6 +2678,8 @@ class _MessageBubble extends StatelessWidget {
     this.onRetryVision,
   });
   final ChatMessage message;
+  final bool showForeignReplies;
+  final ChatLanguage selectedLanguage;
   final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
   final MessageAttachmentStorage attachmentStorage;
@@ -2616,17 +2725,24 @@ class _MessageBubble extends StatelessWidget {
         ],
       );
 
+  ChatLanguage get _displayLanguage => showForeignReplies &&
+          message.hasLanguage(selectedLanguage)
+      ? selectedLanguage
+      : ChatLanguage.chinese;
+
   @override
   Widget build(BuildContext context) {
     final user = message.isUser;
     final color = user
         ? Theme.of(context).colorScheme.primaryContainer
         : Theme.of(context).colorScheme.surfaceContainerHigh;
-    final segments = message.displaySegments;
+    final displayLanguage = _displayLanguage;
+    final segments = message.segmentsFor(displayLanguage);
     final committedAssistantText = message.isAssistant && segments.isNotEmpty
         ? ChatSegmentCodec.displayText(segments)
-        : message.content;
+        : message.contentFor(displayLanguage);
     if (message.isAssistant &&
+        displayLanguage == ChatLanguage.chinese &&
         !message.isProactive &&
         !message.hasAttachments &&
         segments.isNotEmpty) {
@@ -2697,10 +2813,16 @@ class _MessageBubble extends StatelessWidget {
                 onProgress: onAnimationProgress,
                 onFinished: onAnimationFinished,
               )
-            else
+            else if (displayLanguage == ChatLanguage.chinese)
               ActionTintText(
                 text: committedAssistantText,
                 style: const TextStyle(height: 1.45),
+              )
+            else
+              _ForeignMessageProjection(
+                language: displayLanguage,
+                foreignText: committedAssistantText,
+                chineseText: message.content,
               )
           else
             SelectableText(
@@ -3359,6 +3481,147 @@ class _AgentActivityLineState extends State<_AgentActivityLine>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LanguageSpeechButton extends StatelessWidget {
+  const _LanguageSpeechButton({
+    required this.language,
+    required this.selected,
+    required this.enabled,
+    required this.preparing,
+    required this.onPressed,
+  });
+
+  final ChatLanguage language;
+  final bool selected;
+  final bool enabled;
+  final bool preparing;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final languageName = switch (language) {
+      ChatLanguage.chinese => '中文',
+      ChatLanguage.japanese => '日语',
+      ChatLanguage.english => '英语',
+    };
+    return Tooltip(
+      message: preparing ? '正在准备$languageName' : '$languageName正文与语音',
+      child: Semantics(
+        button: true,
+        selected: selected,
+        enabled: enabled,
+        label: preparing ? '正在准备$languageName' : '$languageName正文与语音',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: enabled ? onPressed : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 24),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected
+                  ? scheme.primary.withValues(alpha: 0.18)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.72)
+                    : scheme.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
+            child: preparing
+                ? SizedBox.square(
+                    dimension: 11,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.6,
+                      color: scheme.primary,
+                    ),
+                  )
+                : Text(
+                    language.label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: !enabled
+                              ? scheme.onSurfaceVariant.withValues(alpha: 0.32)
+                              : selected
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ForeignMessageProjection extends StatelessWidget {
+  const _ForeignMessageProjection({
+    required this.language,
+    required this.foreignText,
+    required this.chineseText,
+  });
+
+  final ChatLanguage language;
+  final String foreignText;
+  final String chineseText;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            language == ChatLanguage.japanese ? '日本語' : 'ENGLISH',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.primary.withValues(alpha: 0.82),
+                  letterSpacing: 0.8,
+                ),
+          ),
+          const SizedBox(height: 5),
+          ActionTintText(
+            text: foreignText,
+            style: const TextStyle(height: 1.48),
+          ),
+          const SizedBox(height: 8),
+          Divider(
+            height: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.34),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '中文对照',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.62),
+                  fontSize: 9.5,
+                ),
+          ),
+          const SizedBox(height: 2),
+          ActionTintText(
+            text: chineseText,
+            style: TextStyle(
+              height: 1.38,
+              fontSize: 11.5,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.68),
+            ),
+          ),
+        ],
       ),
     );
   }

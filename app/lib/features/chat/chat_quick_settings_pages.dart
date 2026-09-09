@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
@@ -13,6 +15,7 @@ import '../../core/tts/tts_policy.dart';
 import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
 import '../../core/tts/tts_text_processor.dart';
+import '../../core/tts/tts_voice_profile.dart';
 import '../../widgets/action_tint_text.dart';
 
 class CompanionStateOverviewPage extends StatefulWidget {
@@ -492,6 +495,8 @@ class _VoiceEmotionSettingsPageState
   bool _ttsEnabled = false;
   bool _autoTts = false;
   bool _streamingTts = false;
+  bool _showForeignReplies = false;
+  TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
   ProactiveTtsPolicy _proactivePolicy = ProactiveTtsPolicy.silent;
   double _ttsSpeed = 1.0;
@@ -515,6 +520,11 @@ class _VoiceEmotionSettingsPageState
     _autoTts = (await _db.getSetting('auto_tts')) == '1';
     _streamingTts =
         (await _db.getSetting('tts_streaming_enabled')) == '1';
+    _showForeignReplies =
+        (await _db.getSetting('show_foreign_replies')) == '1';
+    _voiceMode = TtsVoiceMode.fromSetting(
+      await _db.getSetting('tts_voice_mode'),
+    );
     _scope = TtsReadingScope.fromSetting(
       await _db.getSetting('tts_reading_scope'),
     );
@@ -574,6 +584,22 @@ class _VoiceEmotionSettingsPageState
     if (mounted) setState(() => _status = 'TTS 文字替换已保存。');
   }
 
+  Future<String> _importChineseRoberta() async {
+    final path = await AndroidBridge.instance.openTtsRoberta();
+    if (path == null || path.isEmpty) return '已取消导入。';
+    final cached = File(path);
+    try {
+      final next = await _tts.importChineseRoberta(path);
+      return next.detail.isEmpty
+          ? 'Chinese RoBERTa 已校验并导入。'
+          : 'Chinese RoBERTa 已导入：${next.detail}';
+    } finally {
+      try {
+        await cached.delete();
+      } catch (_) {}
+    }
+  }
+
   @override
   void dispose() {
     _replacementController.dispose();
@@ -590,6 +616,24 @@ class _VoiceEmotionSettingsPageState
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('显示外语'),
+                    subtitle: const Text(
+                      '开启后，新回复同时保存自然中文、日语和英语；关闭不删除旧版本。',
+                    ),
+                    value: _showForeignReplies,
+                    onChanged: (value) async {
+                      await _tts.stop();
+                      if (!mounted) return;
+                      setState(() => _showForeignReplies = value);
+                      await _db.setSetting(
+                        'show_foreign_replies',
+                        value ? '1' : '0',
+                      );
+                      if (!value) await _db.setSetting('tts_language', 'zh');
+                    },
+                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('本地 TTS'),
@@ -621,6 +665,28 @@ class _VoiceEmotionSettingsPageState
                     ),
                   if (_ttsEnabled) ...[
                     const SizedBox(height: 8),
+                    DropdownButtonFormField<TtsVoiceMode>(
+                      value: _voiceMode,
+                      decoration: const InputDecoration(
+                        labelText: 'Genie 音色',
+                        helperText: '自动按本轮情绪选择；固定后整条回复只用该音色。',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: TtsVoiceMode.values
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value.label),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) async {
+                        if (value == null) return;
+                        setState(() => _voiceMode = value);
+                        await _db.setSetting('tts_voice_mode', value.key);
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('AI 回复后自动朗读'),
@@ -634,7 +700,11 @@ class _VoiceEmotionSettingsPageState
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('流式分句朗读'),
-                      subtitle: const Text('每完成一句就进入本地 TTS 队列。'),
+                      subtitle: Text(
+                        _showForeignReplies
+                            ? '三语回复需完整解析；提交后按当前语言从头播放。'
+                            : '每完成一句就进入本地 TTS 队列。',
+                      ),
                       value: _streamingTts,
                       onChanged: _autoTts
                           ? (value) async {
@@ -724,6 +794,16 @@ class _VoiceEmotionSettingsPageState
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        OutlinedButton.icon(
+                          onPressed: _ttsBusy
+                              ? null
+                              : () => _runTtsAction(
+                                    '正在校验并导入 Chinese RoBERTa…',
+                                    _importChineseRoberta,
+                                  ),
+                          icon: const Icon(Icons.file_open_outlined),
+                          label: const Text('导入中文 RoBERTa'),
+                        ),
                         OutlinedButton.icon(
                           onPressed: _ttsBusy
                               ? null

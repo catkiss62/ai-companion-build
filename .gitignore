@@ -1,8 +1,11 @@
-# The exact 135 MB Meju runtime payload is restored from the pinned public
-# parity-test Release during CI. Keep one authoritative binary copy instead of
-# duplicating it in this repository's Git object database.
+# Retired Meju files stay ignored as rollback-only payloads. The validated
+# Genie/OpenJTalk body is restored from a pinned private draft Release in CI;
+# Chinese RoBERTa remains a user-imported file and is never committed.
 /app/android/app/src/main/assets/legacy_tts/
 /app/android/app/src/main/assets/tts_models/
+/app/android/app/src/main/assets/benchmark/
+/app/android/app/src/main/assets/openjtalk/
+/app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so
 /app/android/app/src/main/jniLibs/arm64-v8a/libMNN.so
 /app/android/app/src/main/jniLibs/arm64-v8a/libMNN_Express.so
 /app/android/app/src/main/jniLibs/arm64-v8a/libbertvits2.so

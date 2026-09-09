@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 import 'tts_provider.dart';
+import '../models/chat_language_variant.dart';
+import 'tts_voice_profile.dart';
 
-/// Flutter-facing adapter for the local Meju Bert-VITS2/MNN engine.
-/// The Android side hides the compatibility runtime/JNI details from Flutter.
+/// Flutter-facing adapter for the local Genie-TTS v0.6.4 ONNX engine.
+/// The Android side owns the shared acoustic runtime and one selected frontend.
 class NativeTtsProvider implements TtsProvider {
   NativeTtsProvider._();
   static final NativeTtsProvider instance = NativeTtsProvider._();
@@ -25,14 +27,42 @@ class NativeTtsProvider implements TtsProvider {
   }
 
   @override
-  Future<TtsStatus> initialize() async {
-    final raw = await _channel.invokeMapMethod<Object?, Object?>('initialize');
+  Future<TtsStatus> initialize({
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'initialize',
+      {'language': language.key},
+    );
     return TtsStatus.fromMap(raw ?? const {});
   }
 
   @override
-  Future<TtsStatus> diagnose() async {
-    final raw = await _channel.invokeMapMethod<Object?, Object?>('diagnose');
+  Future<TtsStatus> prepareLanguage(ChatLanguage language) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'prepareLanguage',
+      {'language': language.key},
+    );
+    return TtsStatus.fromMap(raw ?? const {});
+  }
+
+  @override
+  Future<TtsStatus> diagnose({
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'diagnose',
+      {'language': language.key},
+    );
+    return TtsStatus.fromMap(raw ?? const {});
+  }
+
+  @override
+  Future<TtsStatus> importChineseRoberta(String path) async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'importChineseRoberta',
+      {'path': path},
+    );
     return TtsStatus.fromMap(raw ?? const {});
   }
 
@@ -41,9 +71,16 @@ class NativeTtsProvider implements TtsProvider {
       _channel.invokeMethod<void>('speak', {'text': text});
 
   @override
-  Future<Uint8List?> generate(String text, {TtsEmotionCue? emotion}) =>
+  Future<Uint8List?> generate(
+    String text, {
+    TtsEmotionCue? emotion,
+    ChatLanguage language = ChatLanguage.chinese,
+    TtsVoiceMode voice = TtsVoiceMode.daily,
+  }) =>
       _channel.invokeMethod<Uint8List>('generate', <String, Object?>{
         'text': text,
+        'language': language.key,
+        'voice': voice.key,
         if (emotion != null) ...emotion.toChannelMap(),
       });
 

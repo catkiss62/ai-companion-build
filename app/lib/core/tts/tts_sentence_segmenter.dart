@@ -5,7 +5,7 @@
 ///   。 ！ ？ ； . ! ? ;
 /// Normal sentences still do not split on commas, ideographic commas, newlines
 /// or ellipsis. The upgraded local engine rejects Chinese input above 300
-/// phones, so an exceptional punctuation-free run is capped at 72 characters,
+/// phones, so an exceptional punctuation-free run is capped by language,
 /// preferring a nearby comma/colon/space. Layout line breaks are normalized to
 /// ordinary spaces before boundary scanning. Delimiters themselves are not spoken.
 ///
@@ -14,8 +14,16 @@
 /// is inside one of those removable bracket pairs; TtsTextProcessor removes
 /// the bracketed block itself before generation.
 class TtsSentenceSegmenter {
-  static const int maxSafeChunkChars = 72;
-  static const int _preferredSplitFloor = 36;
+  static const int maxSafeChunkChars = 54;
+  static const int englishMaxSafeChunkChars = 110;
+
+  bool _english = false;
+
+  void configure({required bool english}) {
+    if (_english == english) return;
+    reset();
+    _english = english;
+  }
 
   String _buffer = '';
   String _fenceCarry = '';
@@ -178,8 +186,10 @@ class TtsSentenceSegmenter {
       c == '.' || c == '!' || c == '?' || c == ';';
 
   _Boundary? _findSafetyBoundary(String text) {
-    if (text.length <= maxSafeChunkChars) return null;
-    final hardCut = _avoidSplittingSurrogate(text, maxSafeChunkChars);
+    final maximum = _english ? englishMaxSafeChunkChars : maxSafeChunkChars;
+    final preferredSplitFloor = _english ? 55 : 33;
+    if (text.length <= maximum) return null;
+    final hardCut = _avoidSplittingSurrogate(text, maximum);
     final stack = <String>[];
     const pairs = <String, String>{
       '(': ')',
@@ -201,7 +211,9 @@ class TtsSentenceSegmenter {
         stack.removeLast();
         continue;
       }
-      if (stack.isEmpty && i >= _preferredSplitFloor && _isSafetyDelimiter(c)) {
+      if (stack.isEmpty &&
+          i >= preferredSplitFloor &&
+          _isSafetyDelimiter(c)) {
         preferred = i;
       }
     }

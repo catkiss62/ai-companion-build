@@ -8,6 +8,10 @@ val privateSigningStorePath = System.getenv("AI_COMPANION_KEYSTORE_PATH")
 val privateSigningStorePassword = System.getenv("AI_COMPANION_KEYSTORE_PASSWORD")
 val privateSigningKeyAlias = System.getenv("AI_COMPANION_KEY_ALIAS")
 val privateSigningKeyPassword = System.getenv("AI_COMPANION_KEY_PASSWORD")
+val skipGenieNativeBuild = providers.gradleProperty("skipGenieNativeBuild")
+    .map(String::toBoolean)
+    .orElse(false)
+    .get()
 val privateSigningAvailable =
     !privateSigningStorePath.isNullOrBlank() &&
         !privateSigningStorePassword.isNullOrBlank() &&
@@ -37,6 +41,13 @@ android {
         ndk {
             abiFilters += setOf("arm64-v8a")
         }
+        if (!skipGenieNativeBuild) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags += "-std=c++17"
+                }
+            }
+        }
     }
 
     signingConfigs {
@@ -62,22 +73,21 @@ android {
         }
     }
 
+    if (!skipGenieNativeBuild) {
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+    }
+
     packaging {
-        // The compatibility DexClassLoader resolves native libraries from the
-        // installed nativeLibraryDir. Legacy packaging guarantees real files
-        // exist there instead of relying only on APK-in-place loading.
+        // OpenJTalk is linked into the small JNI adapter as a real shared file.
+        // Legacy packaging keeps the pinned arm64 library extractable on every
+        // supported Android version.
         jniLibs {
             useLegacyPackaging = true
-            // Keep the user-validated Meju native payload byte-identical in
-            // release APKs. AGP otherwise strips libbertvits2.so, which changes
-            // its golden SHA-256 before installation.
-            keepDebugSymbols += setOf(
-                "**/libbertvits2.so",
-                "**/libMNN.so",
-                "**/libMNN_Express.so",
-                "**/libcppjieba.so",
-                "**/libcpptokenizer.so",
-            )
         }
     }
 }
@@ -88,6 +98,7 @@ flutter {
 
 dependencies {
     implementation("com.google.android.gms:play-services-nearby:19.3.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
 }

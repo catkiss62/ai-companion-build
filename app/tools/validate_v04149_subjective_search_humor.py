@@ -38,8 +38,8 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191)$", pubspec, re.M)
-assert "static const int schemaVersion = 56;" in database
+assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192)$", pubspec, re.M)
+assert re.search(r"static const int schemaVersion = (?:56|57);", database)
 assert "buildLabel = 'v0.41.49+188'" in self_reader
 assert "agent/v04149-subjective-search-humor-restoration" in workflow
 assert "Build AI Companion v0.41.49+188 APK" in workflow

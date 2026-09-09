@@ -4,6 +4,9 @@ import 'dart:typed_data';
 import 'tts_sentence_segmenter.dart';
 import 'tts_provider.dart';
 import 'tts_queue_service.dart';
+import '../models/chat_language_variant.dart';
+import 'tts_acoustic_segmenter.dart';
+import 'tts_voice_profile.dart';
 
 enum TtsPlaybackPhase { idle, synthesizing, playing }
 
@@ -40,6 +43,8 @@ class TtsQueueState {
 ///   4. let the native generation worker prepare later WAVs while AudioTrack is
 ///      still playing the current sentence;
 ///   5. when another WAV is already queued, keep the original ~200 ms gap.
+/// The first sentence also honors Genie's one-second generation prefill; the
+/// timer starts with the session, so slow synthesis does not add a second wait.
 ///
 /// This deliberately does NOT serialize "generate + play" sentence-by-sentence.
 class TtsPlaybackQueue {
@@ -48,12 +53,14 @@ class TtsPlaybackQueue {
     TtsSentenceSegmenter? segmenter,
     this.onStateChanged,
     this.interSentenceGap = const Duration(milliseconds: 200),
+    this.initialPrefill = const Duration(seconds: 1),
   }) : segmenter = segmenter ?? TtsSentenceSegmenter();
 
   final TtsQueueService service;
   final TtsSentenceSegmenter segmenter;
   final void Function(TtsQueueState state)? onStateChanged;
   final Duration interSentenceGap;
+  final Duration initialPrefill;
 
   int _generation = 0;
   _A2Session? _session;
@@ -69,7 +76,7 @@ class TtsPlaybackQueue {
       running: true,
       pending: pending,
       currentText: _current,
-      phase: session.playing
+      phase: session.playing && session.audiblePlaybackStarted
           ? TtsPlaybackPhase.playing
           : TtsPlaybackPhase.synthesizing,
       ownerId: session.ownerId,
@@ -81,8 +88,11 @@ class TtsPlaybackQueue {
     String? ownerId,
     TtsEmotionCue? emotion,
     Future<void>? leadIn,
+    ChatLanguage language = ChatLanguage.chinese,
   }) async {
-    await stop();
+    final stoppedAt = await _invalidateAndStop();
+    final voice = await service.resolveVoice(emotion);
+    if (_generation != stoppedAt) return;
     _generation++;
     _session = _A2Session(
       token: _generation,
@@ -90,10 +100,14 @@ class TtsPlaybackQueue {
       ownerId: ownerId,
       emotion: emotion,
       leadIn: leadIn,
+      language: language,
+      voice: voice,
+      initialPrefill: initialPrefill,
     );
     _streaming = true;
     _manual = manual;
     segmenter.reset();
+    segmenter.configure(english: language == ChatLanguage.english);
     _notify();
   }
 
@@ -123,8 +137,11 @@ class TtsPlaybackQueue {
     String? ownerId,
     TtsEmotionCue? emotion,
     Future<void>? leadIn,
+    ChatLanguage language = ChatLanguage.chinese,
   }) async {
-    await stop();
+    final stoppedAt = await _invalidateAndStop();
+    final voice = await service.resolveVoice(emotion);
+    if (_generation != stoppedAt) return;
     _generation++;
     final session = _A2Session(
       token: _generation,
@@ -132,16 +149,24 @@ class TtsPlaybackQueue {
       ownerId: ownerId,
       emotion: emotion,
       leadIn: leadIn,
+      language: language,
+      voice: voice,
+      initialPrefill: initialPrefill,
     );
     _session = session;
     _streaming = false;
     _manual = manual;
     segmenter.reset();
+    segmenter.configure(english: language == ChatLanguage.english);
     _notify();
 
     // Full-message playback follows A2's processText order: speech-only text
     // cleanup/replacements happen before sentence splitting.
-    final prepared = await service.prepareText(text, manual: manual);
+    final prepared = await service.prepareText(
+      text,
+      manual: manual,
+      language: language,
+    );
     if (!_isActive(session)) return;
     if (prepared == null || prepared.trim().isEmpty) {
       session.closed = true;
@@ -151,7 +176,7 @@ class TtsPlaybackQueue {
 
     final chunks = segment
         ? <String>[...segmenter.add(prepared), ...segmenter.flush()]
-        : <String>[prepared.trim()];
+        : TtsAcousticSegmenter.split(prepared, language);
     for (final chunk in chunks) {
       _enqueuePrepared(session, chunk);
     }
@@ -164,7 +189,12 @@ class TtsPlaybackQueue {
   Future<void> waitUntilIdle() => _session?.idle.future ?? Future<void>.value();
 
   Future<void> stop() async {
+    await _invalidateAndStop();
+  }
+
+  Future<int> _invalidateAndStop() async {
     _generation++;
+    final stoppedAt = _generation;
     _streaming = false;
     _manual = false;
     segmenter.reset();
@@ -178,6 +208,7 @@ class TtsPlaybackQueue {
     } catch (_) {
       // Voice is optional. A native shutdown error must not poison chat.
     }
+    return stoppedAt;
   }
 
   void _enqueueRaw(
@@ -196,7 +227,11 @@ class TtsPlaybackQueue {
       if (!_isActive(session)) return;
       String? prepared;
       try {
-        prepared = await service.prepareText(raw, manual: manual);
+        prepared = await service.prepareText(
+          raw,
+          manual: manual,
+          language: session.language,
+        );
       } catch (_) {
         prepared = null;
       }
@@ -205,8 +240,23 @@ class TtsPlaybackQueue {
         _markGenerated(session, index, null);
         return;
       }
-      session.textByIndex[index] = prepared.trim();
-      _launchGeneration(session, index, prepared.trim());
+      // Streaming boundaries are found before speech-only substitutions. A
+      // hotword or user replacement can expand substantially, so enforce the
+      // final Genie ceiling again after preparation without losing FIFO order.
+      final chunks = TtsAcousticSegmenter.split(prepared, session.language);
+      if (chunks.isEmpty) {
+        _markGenerated(session, index, null);
+        return;
+      }
+      final indexes = <int>[
+        index,
+        for (var i = 1; i < chunks.length; i++) session.reserve(chunks[i]),
+      ];
+      _notify();
+      for (var i = 0; i < chunks.length; i++) {
+        session.textByIndex[indexes[i]] = chunks[i];
+        _launchGeneration(session, indexes[i], chunks[i]);
+      }
     });
   }
 
@@ -228,6 +278,8 @@ class TtsPlaybackQueue {
         audio = await service.generatePrepared(
           text,
           emotion: session.emotion,
+          language: session.language,
+          voice: session.voice,
         );
       } catch (_) {
         audio = null;
@@ -271,6 +323,8 @@ class TtsPlaybackQueue {
     try {
       await session.waitForLeadIn();
       if (!_isActive(session)) return;
+      session.audiblePlaybackStarted = true;
+      _notify();
       await service.playPrepared(audio);
     } catch (_) {
       // A2 treats one sentence failure as local: later generated speech should
@@ -279,6 +333,7 @@ class TtsPlaybackQueue {
     if (!_isActive(session)) return;
 
     session.playing = false;
+    session.audiblePlaybackStarted = false;
     _current = '';
     _notify();
 
@@ -327,13 +382,21 @@ class _A2Session {
     required this.ownerId,
     required this.emotion,
     required this.leadIn,
-  });
+    required this.language,
+    required this.voice,
+    required Duration initialPrefill,
+  }) : _initialPrefill = initialPrefill,
+       _prefillClock = Stopwatch()..start();
 
   final int token;
   final bool manual;
   final String? ownerId;
   final TtsEmotionCue? emotion;
   final Future<void>? leadIn;
+  final ChatLanguage language;
+  final TtsVoiceMode voice;
+  final Duration _initialPrefill;
+  final Stopwatch _prefillClock;
   final Completer<void> idle = Completer<void>();
   final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
@@ -343,6 +406,7 @@ class _A2Session {
   int nextToPlay = 0;
   int generating = 0;
   bool playing = false;
+  bool audiblePlaybackStarted = false;
   bool closed = false;
   bool _leadInConsumed = false;
 
@@ -350,7 +414,12 @@ class _A2Session {
     if (_leadInConsumed) return;
     _leadInConsumed = true;
     try {
-      await leadIn;
+      final prefillRemaining = _initialPrefill - _prefillClock.elapsed;
+      await Future.wait<void>(<Future<void>>[
+        if (prefillRemaining > Duration.zero)
+          Future<void>.delayed(prefillRemaining),
+        if (leadIn != null) leadIn!,
+      ]);
     } catch (_) {
       // A decorative cue failure never blocks companion speech.
     }
