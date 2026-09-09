@@ -361,9 +361,9 @@
 # Historical v0.41.50 workflow: bounded multi-round Agent v2.
 # Historical validator tokens: Build AI Companion v0.41.50+189 APK | AI-Companion-v0.41.50-189-Agent-v2-Bounded-Loop-APK | v0.41.50-agent-v2-bounded-loop-test
 # Historical v0.41.51 workflow: sticker semantics and gallery interoperability.
-# Current v0.41.52 workflow: diary synthesis and fresh-topic balance.
+# Current v0.41.53 workflow: multilingual ordinary chat and Genie-TTS.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.52+191 APK (Diary Fresh Topic Balance)
+name: Build AI Companion v0.41.53+192 APK (Genie Multilingual TTS)
 
 on:
   push:
@@ -379,6 +379,7 @@ on:
       - agent/v04150-agent-v2-bounded-loop
       - agent/v04151-sticker-semantics-gallery-interop
       - agent/v04152-diary-fresh-topic-balance
+      - agent/v04153-genie-multilingual-tts
   workflow_dispatch:
   pull_request:
     branches:
@@ -481,49 +482,153 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore exact validated Meju TTS runtime payload
+      - name: Restore exact validated Genie TTS v0.6.4 runtime payload
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          PREVIOUS_TAG='v0.39.8-rule-refresh-immersive-control-parser'
-          PREVIOUS_APK='AI-Companion-v0.39.8-126-Rule-Refresh-Immersive-Control-Action-Parser-APK.apk'
-          mkdir -p .tts-payload/unpacked
-          gh release download "${PREVIOUS_TAG}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --pattern "${PREVIOUS_APK}" \
-            --dir .tts-payload
-          echo "97356942dbf50cc5bd5abb726e9679f3c28316be38bde029d449f8ce57d2e6b8  .tts-payload/${PREVIOUS_APK}" | sha256sum -c -
-          unzip -q ".tts-payload/${PREVIOUS_APK}" \
-            'assets/tts_models/*' \
-            'assets/legacy_tts/*' \
-            'lib/arm64-v8a/*' \
-            -d .tts-payload/unpacked
+          GENIE_TAG='genie-tts-private-runtime-v0.6.4'
+          GENIE_APK='Genie-TTS-v0.6.4-Verified.apk'
+          GENIE_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'
+          mkdir -p .genie-payload/unpacked
+          # GitHub's release-by-tag endpoint returns 404 for an unpublished
+          # draft, even though authenticated release-list calls can see it.
+          # Resolve the private draft by tag_name, then download each asset by
+          # its authenticated release-asset ID without publishing the model.
+          GENIE_RELEASE_ID="$(gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"${GENIE_TAG}\") | .id" | head -1)"
+          test -n "${GENIE_RELEASE_ID}"
+          for GENIE_ASSET in "${GENIE_APK}" "${GENIE_SHA}"; do
+            GENIE_ASSET_ID="$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \
+              --jq ".[] | select(.name == \"${GENIE_ASSET}\") | .id")"
+            test -n "${GENIE_ASSET_ID}"
+            gh api --method GET \
+              -H 'Accept: application/octet-stream' \
+              "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \
+              > ".genie-payload/${GENIE_ASSET}"
+          done
+          sed "s#  ${GENIE_APK}#  .genie-payload/${GENIE_APK}#" \
+            ".genie-payload/${GENIE_SHA}" | sha256sum -c -
+          unzip -q ".genie-payload/${GENIE_APK}" \
+            'assets/benchmark/*' \
+            'assets/openjtalk/*' \
+            'lib/arm64-v8a/libopenjtalk_native.so' \
+            -d .genie-payload/unpacked
+          python3 - <<'PY'
+          import json, pathlib
+
+          root = pathlib.Path('.genie-payload/unpacked/assets/benchmark')
+          path = root / 'manifest.json'
+          manifest = json.loads(path.read_text(encoding='utf-8'))
+          production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}
+          cases = [case for case in manifest['cases'] if case.get('id') in production_ids]
+          assert {case['id'] for case in cases} == production_ids
+          for case in cases:
+              case.pop('reference_audio', None)
+              case.pop('feature_tensors', None)
+          manifest['cases'] = cases
+          manifest['presets'] = []
+          manifest['feature_modes'] = []
+
+          def strings(value):
+              if isinstance(value, str):
+                  yield value
+              elif isinstance(value, dict):
+                  for item in value.values():
+                      yield from strings(item)
+              elif isinstance(value, list):
+                  for item in value:
+                      yield from strings(item)
+
+          referenced = set(strings({
+              key: value for key, value in manifest.items() if key != 'asset_files'
+          }))
+          external_roberta = manifest['frontend']['roberta']
+          for candidate in tuple(root.rglob('*')):
+              if not candidate.is_file() or candidate == path:
+                  continue
+              relative = candidate.relative_to(root).as_posix()
+              # The ONNX graphs use external-data .bin files which are not
+              # named in the per-case manifest fields. Every model file is a
+              # production dependency and must survive fixture curation.
+              if relative == external_roberta or (
+                  not relative.startswith('models/') and relative not in referenced
+              ):
+                  candidate.unlink()
+          for directory in sorted(
+              (candidate for candidate in root.rglob('*') if candidate.is_dir()),
+              key=lambda candidate: len(candidate.parts),
+              reverse=True,
+          ):
+              try:
+                  directory.rmdir()
+              except OSError:
+                  pass
+          manifest['asset_files'] = sorted(
+              candidate.relative_to(root).as_posix()
+              for candidate in root.rglob('*')
+              if candidate.is_file() and candidate != path
+          ) + ['manifest.json']
+          path.write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2),
+              encoding='utf-8',
+          )
+          assert not any(
+              token in candidate.as_posix().lower()
+              for candidate in root.rglob('*')
+              for token in ('ref07', 'test_backup')
+          )
+          print('Curated four production voices; removed benchmark-only fixtures and external RoBERTa.')
+          PY
           TTS_MAIN='app/android/app/src/main'
-          mkdir -p "${TTS_MAIN}/assets/legacy_tts" "${TTS_MAIN}/jniLibs"
-          cp -a .tts-payload/unpacked/assets/tts_models \
-            "${TTS_MAIN}/assets/"
-          cp -a .tts-payload/unpacked/assets/legacy_tts/runtime \
-            "${TTS_MAIN}/assets/legacy_tts/"
-          cp -a .tts-payload/unpacked/assets/legacy_tts/pinyin \
-            "${TTS_MAIN}/assets/legacy_tts/"
-          cp -a .tts-payload/unpacked/lib/arm64-v8a \
-            "${TTS_MAIN}/jniLibs/"
+          mkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"
+          cp -a .genie-payload/unpacked/assets/benchmark "${TTS_MAIN}/assets/"
+          cp -a .genie-payload/unpacked/assets/openjtalk "${TTS_MAIN}/assets/"
+          cp .genie-payload/unpacked/lib/arm64-v8a/libopenjtalk_native.so \
+            "${TTS_MAIN}/jniLibs/arm64-v8a/"
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('app/android/app/src/main')
+          files = [
+              path for base in (root / 'assets' / 'benchmark', root / 'assets' / 'openjtalk')
+              for path in base.rglob('*') if path.is_file()
+          ]
+          files.append(root / 'jniLibs/arm64-v8a/libopenjtalk_native.so')
+          manifest = {
+              str(path.relative_to(root)): {
+                  'size': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              }
+              for path in files
+          }
+          pathlib.Path('.genie-payload/extracted-manifest.json').write_text(
+              json.dumps(manifest, sort_keys=True), encoding='utf-8'
+          )
+          print(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')
+          PY
 
       - name: Verify clean source baseline
         shell: bash
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.52+191' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 56;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.41.53+192' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 57;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
-          echo 'Building v0.41.52+191 diary synthesis and fresh-topic balance.'
+          test -f app/android/app/src/main/assets/benchmark/manifest.json
+          test -f app/android/app/src/main/assets/benchmark/models/t2s_shared_fp32.bin
+          test -f app/android/app/src/main/assets/benchmark/models/vits_fp32.bin
+          test -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so
+          test ! -d app/android/app/src/main/assets/tts_models
+          test ! -d app/android/app/src/main/assets/legacy_tts
+          echo 'Building v0.41.53+192 multilingual ordinary chat and Genie-TTS.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -661,7 +766,6 @@ jobs:
           python3 tools/validate_v0388_simulated_phone_foundation.py
           python3 tools/validate_v0390_immersive_room.py
           python3 tools/validate_v0392_immersive_nsfw_stream.py
-          python3 tools/validate_v0395_meju_tts_runtime_upgrade.py
           python3 tools/validate_v0402_provider_diagnostics.py
           python3 tools/validate_v04111_personality_learning_semantic_verifier.py
           python3 tools/validate_v04112_ordinary_time_scene_boundary.py
@@ -676,11 +780,6 @@ jobs:
           python3 tools/validate_desire_v20_sql.py
           python3 tools/validate_current_schema24_c.py
           python3 tools/validate_v031_policy_math.py
-          python3 tools/validate_v0314_grounded_desire.py
-          python3 tools/validate_v029_a2_tts.py
-          python3 tools/validate_tts_v025.py
-          python3 tools/validate_tts_kotlin_v25.py
-          python3 tools/validate_tts_queue_v25.py
           python3 tools/validate_manual_crypto_v26.py
           python3 tools/validate_durable_generation_sql.py
           python3 tools/validate_recovery_orchestration_sql.py
@@ -698,6 +797,7 @@ jobs:
           python3 tools/validate_transfer_kotlin_v26.py
           python3 tools/validate_v04151_sticker_semantics_gallery.py
           python3 tools/validate_v04152_diary_fresh_topic_balance.py
+          python3 tools/validate_v04153_genie_multilingual_tts.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -742,7 +842,7 @@ jobs:
           test "${APK_SIGNER_SHA256}" = "${AI_COMPANION_SIGNER_SHA256}"
           echo "APK signing identity verified: ${APK_SIGNER_SHA256}"
 
-      - name: Verify release APK native and complete pet payloads
+      - name: Verify release APK Genie and complete pet payloads
         shell: bash
         run: |
           set -euo pipefail
@@ -750,29 +850,53 @@ jobs:
           import hashlib, json, pathlib, struct, sys, zipfile
           root = pathlib.Path('app')
           apk = root / 'build/app/outputs/flutter-apk/app-release.apk'
-          src = root / 'android/app/src/main/jniLibs/arm64-v8a'
-          libs = [
-              'libbertvits2.so', 'libMNN.so', 'libMNN_Express.so',
-              'libcppjieba.so', 'libcpptokenizer.so',
-          ]
-          tts_manifest = json.loads(
-              (root / 'docs/TTS_RUNTIME_MANIFEST_v0.39.5.json').read_text(encoding='utf-8')
+          payload = json.loads(
+              pathlib.Path('.genie-payload/extracted-manifest.json').read_text(encoding='utf-8')
           )
           with zipfile.ZipFile(apk) as z:
-              for name in libs:
-                  source = (src / name).read_bytes()
-                  packed = z.read('lib/arm64-v8a/' + name)
-                  if source != packed:
-                      print(f'ERROR: release packaging changed {name}', file=sys.stderr)
-                      sys.exit(1)
-                  print(name, len(source), hashlib.sha256(source).hexdigest())
-              for relative, expected in tts_manifest['assets'].items():
-                  packed = z.read('assets/' + relative)
+              for relative, expected in payload.items():
+                  packed_path = relative if relative.startswith('assets/') else 'lib/arm64-v8a/' + pathlib.Path(relative).name
+                  packed = z.read(packed_path)
                   actual = hashlib.sha256(packed).hexdigest()
                   if len(packed) != expected['size'] or actual != expected['sha256']:
-                      print(f'ERROR: release APK TTS asset mismatch: {relative}', file=sys.stderr)
+                      print(f'ERROR: release APK Genie payload mismatch: {relative}', file=sys.stderr)
                       sys.exit(1)
-              print('All 27 upgraded Meju TTS assets are size/hash exact in the APK.')
+              required_genie_libs = {
+                  'lib/arm64-v8a/libonnxruntime.so',
+                  'lib/arm64-v8a/libopenjtalk_native.so',
+                  'lib/arm64-v8a/libgenie_frontend.so',
+              }
+              missing = sorted(required_genie_libs.difference(z.namelist()))
+              if missing:
+                  print(f'ERROR: Genie native libraries missing: {missing}', file=sys.stderr)
+                  sys.exit(1)
+              if 'assets/frontend/english/cmudict.rep' not in z.namelist():
+                  print('ERROR: production CMUdict frontend asset is missing', file=sys.stderr)
+                  sys.exit(1)
+              packaged_roberta = [
+                  name for name in z.namelist()
+                  if 'roberta' in pathlib.Path(name).name.lower()
+                  and name.endswith(('.onnx', '.ort'))
+              ]
+              if packaged_roberta:
+                  print(f'ERROR: user-imported RoBERTa leaked into APK: {packaged_roberta}', file=sys.stderr)
+                  sys.exit(1)
+              forbidden_meju = [
+                  name for name in z.namelist()
+                  if name.startswith('assets/tts_models/')
+                  or name.startswith('assets/legacy_tts/')
+                  or pathlib.Path(name).name in {
+                      'libbertvits2.so', 'libMNN.so', 'libMNN_Express.so',
+                      'libcppjieba.so', 'libcpptokenizer.so',
+                  }
+              ]
+              if forbidden_meju:
+                  print(f'ERROR: retired Meju runtime leaked into APK: {forbidden_meju[:8]}', file=sys.stderr)
+                  sys.exit(1)
+              if any('ref07' in name or 'test_backup' in name for name in z.namelist()):
+                  print('ERROR: test-only backup voice leaked into APK', file=sys.stderr)
+                  sys.exit(1)
+              print(f'All {len(payload)} Genie/OpenJTalk payload files are size/hash exact; Meju is absent.')
               pet_entries = [
                   name for name in z.namelist()
                   if name.startswith('assets/pets/dafeiyu/source/assets/')
@@ -790,11 +914,7 @@ jobs:
               if forbidden_emotion_payloads:
                   print(f'ERROR: native 19emo payload unexpectedly present: {forbidden_emotion_payloads}', file=sys.stderr)
                   sys.exit(1)
-              ort = [name for name in z.namelist() if 'onnxruntime' in name.lower()]
-              if ort:
-                  print(f'ERROR: ONNX Runtime unexpectedly present in stability hotfix: {ort}', file=sys.stderr)
-                  sys.exit(1)
-              print('DeepSeek 19-label contract retained; crash-prone native ONNX runtime is absent.')
+              print('DeepSeek 19-label contract retained; Genie ONNX Runtime is present without 19emo.')
               lingchat_entries = [
                   name for name in z.namelist()
                   if name.startswith('assets/flutter_assets/assets/lingchat/')
@@ -878,7 +998,7 @@ jobs:
                   print('ERROR: appearance reference bytes changed', file=sys.stderr)
                   sys.exit(1)
               print('Approved three-tier yawn art and appearance reference are present in the APK.')
-          print('Upgraded Meju native libraries and APK byte identity verified.')
+          print('Pinned Genie TTS runtime payload and APK byte identity verified.')
           PY2
 
       - name: Verify bundled tarot JPG payload
@@ -916,26 +1036,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.52+191 APK as workflow artifact
+      - name: Upload v0.41.53+192 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-APK
+          name: AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.52+191 APK to draft release
+      - name: Upload v0.41.53+192 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.52-diary-fresh-topic-balance-test'
-          APK_NAME='AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-APK.apk'
+          TAG='v0.41.53-genie-multilingual-tts-test'
+          APK_NAME='AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -952,8 +1072,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.52+191 Diary and Fresh Topic Balance candidate' \
-              --notes 'Draft schema-56 test candidate. Synthesizes grounded daily diaries with repetition checks, isolates fresh proactive topics from old relationship context, balances recent visible sources toward half fresh, and gives exceptionally shareable web discoveries a bounded route. It also removes the failed external-gallery entry and the long-press semantic label. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.53+192 Genie Multilingual TTS candidate' \
+              --notes 'Draft schema-57 test candidate. Adds canonical-Chinese ordinary-chat replies with optional natural Japanese and English projections, language-locked playback, four Genie voice modes, one selected frontend at a time, and user-imported Chinese RoBERTa. The retired Meju runtime, 19emo ONNX, private packs, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -977,18 +1097,18 @@ jobs:
           done
           test "${upload_ok}" = '1'
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04152-monitor.txt'
+          MONITOR_PATH='.ci/v04153-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "app/${CI_NAME}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.52 CI success monitor' \
+              -f message='Update v0.41.53 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.52 CI success monitor' \
+              -f message='Create v0.41.53 CI success monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
@@ -1009,8 +1129,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.52-diary-fresh-topic-balance-test'
-          CI_NAME='AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-CI-Monitor.txt'
+          TAG='v0.41.53-genie-multilingual-tts-test'
+          CI_NAME='AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1051,8 +1171,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.52+191 Diary and Fresh Topic Balance candidate' \
-              --notes 'Draft failure diagnostics for the schema-56 diary synthesis and fresh-topic balance candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.53+192 Genie Multilingual TTS candidate' \
+              --notes 'Draft failure diagnostics for the schema-57 multilingual ordinary-chat and Genie TTS candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"
@@ -1061,18 +1181,18 @@ jobs:
             --clobber \
             --repo "${GITHUB_REPOSITORY}"
           MONITOR_BRANCH='ci-monitor-v0345'
-          MONITOR_PATH='.ci/v04152-monitor.txt'
+          MONITOR_PATH='.ci/v04153-monitor.txt'
           MONITOR_CONTENT="$(base64 -w0 "${REPORT}")"
           MONITOR_SHA="$(gh api "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}?ref=${MONITOR_BRANCH}" --jq '.sha' 2>/dev/null || true)"
           if test -n "${MONITOR_SHA}"; then
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Update v0.41.52 CI failure monitor' \
+              -f message='Update v0.41.53 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" \
               -f sha="${MONITOR_SHA}" >/dev/null
           else
             gh api --method PUT "/repos/${GITHUB_REPOSITORY}/contents/${MONITOR_PATH}" \
-              -f message='Create v0.41.52 CI failure monitor' \
+              -f message='Create v0.41.53 CI failure monitor' \
               -f content="${MONITOR_CONTENT}" \
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
