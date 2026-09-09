@@ -119,20 +119,25 @@ void main() {
   });
 
   test('immersive source restores sections without overriding control', () {
-    final source = immersiveNsfwSourceForPrompt(immersiveNsfwSource);
+    final source = defaultRuleLayers
+        .singleWhere((layer) => layer.key == 'immersive_07_nsfw_source')
+        .content;
 
     expect(source, isNot(contains(r'\n')));
     expect(source, contains('本参考的控制边界'));
     expect(source, contains('05 NSFW 状态机对本轮能否进阶拥有唯一裁决权'));
-    expect(source, contains('只有当前现场已明确建立初次、疼痛或出血事实'));
     expect(source, isNot(contains('以玩家视角为主')));
     expect(source, isNot(contains('每个阶段至少500字')));
   });
 
   test('immersive paragraphs and humor identity boundary are explicit', () {
-    expect(immersiveRuleGlobal, contains('中文弯引号“”'));
-    expect(immersiveRuleGlobal, contains('引号只是叙述的一部分'));
-    expect(immersiveRuleGlobal, contains('每段对白独占一个自然段'));
+    final global = defaultRuleLayers
+        .singleWhere((layer) => layer.key == 'immersive_07_global')
+        .content;
+    expect(global, contains('使用「」包裹'));
+    expect(global, isNot(contains('中文弯引号“”')));
+    expect(global, contains('引号只是叙述的一部分'));
+    expect(global, contains('每段对白独占一个自然段'));
     expect(worldBookOptimizedHumorV04128, contains('一轮最多一个主要笑点'));
     expect(worldBookOptimizedHumorV04128, contains('禁止用性别错位'));
     expect(worldBookOptimizedHumorV04128, isNot(contains('我是一个男孩子')));
@@ -144,6 +149,10 @@ void main() {
     expect(worldBookHumorV04149, isNot(contains('**')));
     expect(worldBookHumorV04149, isNot(contains('{{char}}')));
     expect(worldBookHumorV04149, isNot(contains('{{user}}')));
+    final humor = worldBookSystemPresets
+        .singleWhere((preset) => preset.id == 'builtin.worldbook.humor');
+    expect(humor.content, contains('NSFW时不要造梗和抽象'));
+    expect(humor.probability, 50);
   });
 
   test('continuation repairs truncation instead of filling a word quota', () {
@@ -157,6 +166,10 @@ void main() {
     );
     expect(
       ImmersivePromptBuilder.shouldContinue('“别动', 'stop'),
+      isTrue,
+    );
+    expect(
+      ImmersivePromptBuilder.shouldContinue('「别动', 'stop'),
       isTrue,
     );
     expect(

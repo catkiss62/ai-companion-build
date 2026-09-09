@@ -4,8 +4,7 @@ import 'rule_layer_content_v0417.dart';
 import 'rule_layer_content_v0418.dart';
 import 'rule_layer_content_v04125.dart';
 import 'rule_layer_content_v04127.dart';
-import 'rule_layer_content_v04128.dart';
-import 'rule_layer_content_immersive.dart';
+import 'rule_layer_content_v04155_user_defaults.dart';
 
 class RuleLayerDefault {
   const RuleLayerDefault(
@@ -290,6 +289,28 @@ const legacyEditableRuleLayerSha256V04145NicknameExamples = <String, String>{
 const legacyEditableRuleLayerSha256V04153Rule01 = <String, String>{
   '01_core':
       'c68c1520f04eedd4d37852a6c6cb8cc81a8491b2a2d1a44da0054581004107e4',
+};
+
+/// Exact rows from the user's 2026-09-09 backup. Only these byte-identical
+/// copies are upgraded to the new bundled defaults, so unrelated manual edits
+/// remain untouched.
+const legacyEditableRuleLayerSha256V04155UserDefaults = <String, String>{
+  '01_core':
+      '10e970d1e392329545ecf727139d4988d369486827a333593876e3955429cfc7',
+  '08_runtime_identity':
+      '5e68e0126632cd3b2fe9e9655097a8d7f5c7c03db7f4385388d10aa86ebf121c',
+  '07_posture_younger':
+      '0ced15e9a7ed8e641087cb62465bf57af2e70075ab8bf8b781f35a229359bec6',
+  '04_intimacy_core':
+      'c21590f9d0b4b475cb0d642406fd554d69c8d83e6c35337493d13f3770aa9815',
+  '05_intimacy_rendering':
+      '1bf9146ab375a4321faad5ab96500125345ddee53f87a523e28d653232a2fb13',
+  '06_intimacy_reference':
+      '88bd720f3e97769bdde8f01f4fb7c26cd334fd1368ed8ba6c62d9cb047c3d648',
+  'immersive_07_global':
+      'cee3a783c408965bc73049534ed568e4b345f54a841dc928734904905b85f8c5',
+  'immersive_07_nsfw_source':
+      '79ca598c7252c59d7a6a0be4a6abf9be5fb2ae68de0906ba0149c3157fe59dc3',
 };
 
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
@@ -930,12 +951,11 @@ final defaultRuleLayers = <RuleLayerDefault>[
       }.contains(layer.key)
           ? ''
           : <String, String>{
-                '04_intimacy_core': buildIntimacyCoreV04128(
-                  ruleContentV0353_04_intimacy_core,
-                ),
-                '05_intimacy_rendering': buildIntimacyRenderingV04128(
-                  ruleContentV0353_05_intimacy_rendering,
-                ),
+                '04_intimacy_core': ruleContentV04155_04IntimacyCore,
+                '05_intimacy_rendering':
+                    ruleContentV04155_05IntimacyRendering,
+                '06_intimacy_reference':
+                    ruleContentV04155_06IntimacyReference,
                 '08_visible_inner_voice':
                     ruleContentV04127VisibleInnerVoice,
               }[layer.key] ??
@@ -962,12 +982,12 @@ final defaultRuleLayers = <RuleLayerDefault>[
     'immersive_07_global',
     'Immersive Room Protocol',
     'immersive',
-    immersiveRuleGlobal,
+    ruleContentV04155_ImmersiveGlobal,
   ),
   RuleLayerDefault(
     'immersive_07_nsfw_source',
-    'Immersive Adult Reference',
+    'Immersive Intimacy Reference',
     'immersive_reference',
-    immersiveNsfwSourceForPrompt(immersiveNsfwSource),
+    ruleContentV04155_ImmersiveNsfwSource,
   ),
 ];

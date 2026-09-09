@@ -22,7 +22,7 @@ void main() {
     expect(reminder, isNot(contains('结构示意')));
     expect(reminder, isNot(contains('[确有必要时的动作段]')));
     expect(reminder, isNot(contains('「……再摸一会儿也行。」')));
-    expect(reminder, contains('用户是成年男性'));
+    expect(reminder, contains('用户是男性'));
     expect(reminder, contains('不要把用户写成第三人称“她”或“他”'));
     expect(reminder, contains('消息的说话者只由消息 role 决定'));
     expect(reminder, contains('role=assistant 的历史是“我以前说过的话”'));
@@ -45,11 +45,11 @@ void main() {
     expect(contract, isNot(contains('逐项检查')));
   });
 
-  test('runtime identity does not prime third-person user narration', () {
-    expect(PromptBuilder.identityPrompt, contains('用户是成年男性'));
-    expect(PromptBuilder.identityPrompt, contains('你和用户都是成年人'));
-    expect(PromptBuilder.identityPrompt, isNot(contains('他是成年男性')));
-    expect(PromptBuilder.identityPrompt, isNot(contains('你和他都是成年人')));
+  test('runtime identity avoids age gates and third-person narration', () {
+    expect(PromptBuilder.identityPrompt, contains('用户是男性'));
+    expect(PromptBuilder.identityPrompt, isNot(contains('成年人')));
+    expect(PromptBuilder.identityPrompt, isNot(contains('成年男性')));
+    expect(PromptBuilder.identityPrompt, isNot(contains('成年女性')));
   });
 
   test('proactive reminder preserves WAIT without inventing a user turn', () {

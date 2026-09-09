@@ -77,7 +77,7 @@ const _groupSpecs = <String, _RuleLayerGroupSpec>{
   '05': _RuleLayerGroupSpec(
     '05',
     '05 · NSFW 状态机',
-    '只在明确的成年人亲密 Session 中决定状态、空间、边界与退出。',
+    '只在明确的亲密 Session 中决定状态、空间、边界与退出。',
   ),
   '06': _RuleLayerGroupSpec(
     '06',
@@ -126,7 +126,7 @@ const _sectionTitles = <String, String>{
   '05_intimacy_rendering': '亲密表现规则',
   '06_intimacy_reference': '亲密参考资料',
   'immersive_07_global': '沉浸房间全局协议',
-  'immersive_07_nsfw_source': '成人小说参考原文',
+  'immersive_07_nsfw_source': '亲密小说参考原文',
 };
 
 String ruleLayerSectionTitle(RuleLayer layer) =>

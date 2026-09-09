@@ -32,6 +32,7 @@ import '../memory/topic_association_policy.dart';
 import '../integration/moe_expression_default_policy.dart';
 import '../phone/album_perceptual_hash.dart';
 import '../reference/world_book_presets.dart';
+import '../reference/world_book_content_v04155_user.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
 import '../models/personality_learning.dart';
@@ -3596,6 +3597,17 @@ class AppDatabase {
       // application-overwritten. Manual edits survive every seed pass; a
       // user can explicitly restore the current bundled default from the UI.
     }
+    // Stable layer titles are code-owned and are included in the system
+    // prompt. Remove the old age-category label even when the body was edited.
+    await db.update(
+      'rule_layers',
+      {
+        'title': 'Immersive Intimacy Reference',
+        'updated_at': now,
+      },
+      where: 'key = ?',
+      whereArgs: const ['immersive_07_nsfw_source'],
+    );
     final migrationRows = await db.query(
       'settings',
       columns: const ['value'],
@@ -3673,6 +3685,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04127ImmersiveCleanup.entries,
       ...legacyEditableRuleLayerSha256V04145NicknameExamples.entries,
       ...legacyEditableRuleLayerSha256V04153Rule01.entries,
+      ...legacyEditableRuleLayerSha256V04155UserDefaults.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -3778,6 +3791,7 @@ class AppDatabase {
       legacyImmersiveDefaultRoomNovelRulesV0397,
       legacyImmersiveDefaultRoomNovelRulesV04126,
       legacyImmersiveDefaultRoomNovelRulesV04127,
+      legacyImmersiveDefaultRoomNovelRulesV04155CurvedQuotes,
     ]) {
       await db.update(
         'immersive_rooms',
@@ -3885,6 +3899,27 @@ class AppDatabase {
       )
           .replaceFirst(RegExp(r'^# 当前试穿：[^\n]*\n'), '')
           .replaceAll('只按上述因果自然反应', '按上述因果自然反应');
+      if (option.key == 'younger') {
+        final existing = await db.query(
+          'reference_documents',
+          columns: const ['id', 'raw_content'],
+          where: 'id = ?',
+          whereArgs: const ['builtin.worldbook.posture.younger'],
+          limit: 1,
+        );
+        final existingRaw = existing.isEmpty
+            ? ''
+            : (existing.first['raw_content'] as String?) ?? '';
+        if (sha256.convert(utf8.encode(existingRaw)).toString() ==
+                'f953e939ab7f6f3d5dfdd0337246e52db6c7c89295ed55a4bd550a5111eca2e1') {
+          await db.update(
+            'reference_documents',
+            {'raw_content': content, 'updated_at': now},
+            where: 'id = ?',
+            whereArgs: const ['builtin.worldbook.posture.younger'],
+          );
+        }
+      }
       await insert(
         id: 'builtin.worldbook.posture.${option.key}',
         name: '相处 · ${option.label}',
@@ -4123,6 +4158,25 @@ class AppDatabase {
         );
       }
       await setSetting('worldbook_humor_restore_v04149_applied', '1');
+    }
+    final humorUserDefaultRefresh =
+        await getSetting('worldbook_humor_user_default_v04155_applied');
+    if (humorUserDefaultRefresh != '1') {
+      // Replace only the untouched bundled v0.41.49 body. The user's backup
+      // already contains the requested body/probability and every unrelated
+      // manual edit remains authoritative.
+      await db.update(
+        'reference_documents',
+        {
+          'raw_content': worldBookHumorV04155User,
+          'activation_probability': 50,
+          'scope': 'chat|proactive',
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'entry_type = ? AND name = ? AND raw_content = ?',
+        whereArgs: const ['behavior', '造梗能力', worldBookHumorV04149],
+      );
+      await setSetting('worldbook_humor_user_default_v04155_applied', '1');
     }
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.

@@ -3,6 +3,7 @@
 
 from hashlib import sha256
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -174,6 +175,107 @@ assert "'地铺C咳'" in processor and "'拖肯'" in processor
 assert "\\bYuki\\b" not in processor
 assert "'{\"token\":\"拖肯\",\"DeepSeek\":\"地铺C咳\"}'" in db
 assert "whereArgs: const ['tts_replacements_json', '{\"Yuki\":\"有希\"}']" in db
+
+# The user's exported 05/06/07 groups and humor module are byte-locked in
+# dedicated sources. The only differences from the backup rule rows are the
+# separately requested removal of age-boundary wording.
+user_rules = read("lib/core/rules/rule_layer_content_v04155_user_defaults.dart")
+user_humor = read("lib/core/reference/world_book_content_v04155_user.dart")
+
+
+def triple_const(source: str, name: str) -> str:
+    match = re.search(
+        rf"const\s+{re.escape(name)}\s*=\s*r?'''(.*?)''';",
+        source,
+        flags=re.S,
+    )
+    assert match is not None, name
+    return match.group(1)
+
+
+user_default_hashes = {
+    "ruleContentV04155_04IntimacyCore":
+        "547afce48773ffe8c159befeb8ecad17ecc4840d29fa25ddc482f9438ffc6d8c",
+    "ruleContentV04155_05IntimacyRendering":
+        "8f5e39c366a5c09aad0398e49ede103bfd1fb2e25d8894a0f64d6db4456d906a",
+    "ruleContentV04155_06IntimacyReference":
+        "844488e94b947cd8aaaad729ea6899a0550739c107e327f9ed7c739a69ba5e1f",
+    "ruleContentV04155_ImmersiveGlobal":
+        "6f215ca791794ca1337bed4c0bba8d3882f6402327e2640f15c85d64f86941ca",
+    "ruleContentV04155_ImmersiveNsfwSource":
+        "0b617fd358183798a2fc3a3eeb7ee2f4da7561fc90274e634ef158df482a78a1",
+}
+for name, expected in user_default_hashes.items():
+    body = triple_const(user_rules, name)
+    assert sha256(body.encode()).hexdigest() == expected, name
+    assert not re.search(
+        r"未成年|成年人|成年男性|成年女性|幼态身体|年龄模糊|孩子|幼儿|\badult\b|\bminor\b",
+        body,
+        flags=re.I,
+    ), name
+
+user_humor_body = triple_const(user_humor, "worldBookHumorV04155User")
+assert sha256(user_humor_body.encode()).hexdigest() == (
+    "829c17a037400319c9c5519b71803d9dba38e438f27b6a7fa17bad7500aa4bb5"
+)
+assert not re.search(r"未成年|成年人|成年男性|成年女性|男孩子|幼儿|年龄", user_humor_body)
+defaults = read("lib/core/rules/rule_layer_defaults.dart")
+for token in (
+    "ruleContentV04155_04IntimacyCore",
+    "ruleContentV04155_05IntimacyRendering",
+    "ruleContentV04155_06IntimacyReference",
+    "ruleContentV04155_ImmersiveGlobal",
+    "ruleContentV04155_ImmersiveNsfwSource",
+    "legacyEditableRuleLayerSha256V04155UserDefaults",
+    "Immersive Intimacy Reference",
+):
+    assert token in defaults, token
+assert "...legacyEditableRuleLayerSha256V04155UserDefaults.entries" in db
+world_book = read("lib/core/reference/world_book_presets.dart")
+assert "content: worldBookHumorV04155User" in world_book
+assert "probability: 50" in world_book
+assert "worldbook_humor_user_default_v04155_applied" in db
+posture_rules = read("lib/core/rules/rule_layer_content_v0353.dart")
+younger_posture = triple_const(posture_rules, "ruleContentV0353_07_posture_younger")
+assert not re.search(r"成年|未成年|孩子|幼儿|年龄", younger_posture)
+
+immersive_prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
+immersive_defaults = read("lib/core/rules/rule_layer_content_immersive.dart")
+for token in (
+    "对白统一用直角引号「」",
+    "AI角色对白使用直角引号「」",
+    "'「'.allMatches(trimmed).length",
+    "'」'.allMatches(trimmed).length",
+):
+    assert token in immersive_prompt, token
+assert "legacyImmersiveDefaultRoomNovelRulesV04155CurvedQuotes" in immersive_defaults
+assert "AI角色说出口的对白使用直角引号「」" in immersive_defaults
+assert "legacyImmersiveDefaultRoomNovelRulesV04155CurvedQuotes" in db
+
+# Scan every direct current prompt assembler. Versioned legacy bodies and
+# import classifiers are intentionally excluded because they are never sent to
+# the model; their old bytes remain available only for conservative migration.
+runtime_prompt_sources = "\n".join(
+    read(path)
+    for path in (
+        "lib/core/ai/prompt_builder.dart",
+        "lib/core/ai/nsfw_context_router.dart",
+        "lib/core/ai/memory_extractor.dart",
+        "lib/core/immersive/immersive_prompt_builder.dart",
+        "lib/core/immersive/immersive_nsfw_router.dart",
+        "lib/core/rules/intimacy_prompt_sections.dart",
+        "lib/core/reference/reference_library.dart",
+        "lib/core/reference/world_book_presets.dart",
+        "lib/core/memory/personality_learning_prompt_policy.dart",
+        "lib/core/desire/proactive_presentation.dart",
+    )
+)
+runtime_prompt_sources = runtime_prompt_sources.replace("改写成人设台词", "改写为人设台词")
+assert not re.search(
+    r"未成年|成年人|成年男性|成年女性|幼态身体|年龄模糊|成人(?!类|设)|\badult\b|\bminor\b",
+    runtime_prompt_sources,
+    flags=re.I,
+)
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (

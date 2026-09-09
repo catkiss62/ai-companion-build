@@ -197,7 +197,7 @@ void main() {
     expect(byKey['01_relationship']!.content, isEmpty);
     expect(byKey['03_behavior']!.content, isEmpty);
     expect(coreIdentity, contains('女性 AI 伴侣'));
-    expect(coreIdentity, contains('用户是成年男性'));
+    expect(coreIdentity, contains('用户是男性'));
     expect(coreIdentity, contains('你不是服务者'));
     expect(coreIdentity, contains('自己的判断与意愿'));
     expect(
@@ -242,7 +242,7 @@ void main() {
     expect(rendering, isNot(contains('没有固定阶段表、固定字数、固定高潮口令或同步流程')));
     expect(rendering, contains('更换姿势或动作时写出必要过渡'));
     expect(reference, contains('姿态名只是索引'));
-    expect(reference, contains('人物必须明确为成年人'));
+    expect(reference, isNot(contains('人物必须明确为成年人')));
     expect(legacyEditableRuleLayerSha256V0342.length, 5);
     expect(legacyEditableRuleLayerSha256V0350.length, 3);
     expect(legacyEditableRuleLayerSha256V0353.length, 4);
@@ -259,6 +259,7 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04126VisibleInnerVoice.length, 1);
     expect(legacyEditableRuleLayerSha256V04127ImmersiveCleanup.length, 4);
     expect(legacyEditableRuleLayerSha256V04145NicknameExamples.length, 1);
+    expect(legacyEditableRuleLayerSha256V04155UserDefaults.length, 8);
     expect(
       legacyEditableRuleLayerSha256V04145NicknameExamples['01_core'],
       '786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c',
@@ -279,11 +280,15 @@ void main() {
     expect(worldBookSystemPresets, hasLength(4));
     expect(
       byKey['immersive_07_global']!.content,
-      contains('成年男性用户在正文中始终写作“你”'),
+      contains('男性用户在正文中始终写作“你”'),
     );
     expect(
       byKey['immersive_07_global']!.content,
       contains('固定“她/你”人称坐标、用户控制权'),
+    );
+    expect(
+      byKey['immersive_07_global']!.content,
+      contains('使用「」包裹'),
     );
     expect(
       byKey['immersive_07_global']!.content,
@@ -331,6 +336,23 @@ void main() {
     );
     expect(rendering, isNot(contains('他的')));
     expect(rendering, isNot(contains('不替他')));
+    final injectedDefaults = defaultRuleLayers
+        .map((layer) => '${layer.title}\n${layer.content}')
+        .join('\n');
+    for (final token in <String>[
+      '未成年',
+      '成年人',
+      '成年男性',
+      '成年女性',
+      '幼态身体',
+      '年龄模糊',
+      '孩子',
+      '幼儿',
+      ' adult ',
+      ' minor ',
+    ]) {
+      expect(injectedDefaults.toLowerCase(), isNot(contains(token)));
+    }
   });
 
   test('novel word-count rules are not in the companion defaults', () {

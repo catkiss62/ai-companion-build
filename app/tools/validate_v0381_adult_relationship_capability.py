@@ -24,7 +24,7 @@ pubspec = read("pubspec.yaml")
 prompt = read("lib/core/ai/prompt_builder.dart")
 router = read("lib/core/ai/nsfw_context_router.dart")
 layers = read("lib/core/rules/rule_layer_service.dart")
-rules = read("lib/core/rules/rule_layer_content_v0353.dart")
+rules = read("lib/core/rules/rule_layer_content_v04155_user_defaults.dart")
 personality = read("lib/core/personality/personality_catalog.dart")
 desire_policy = read("lib/core/desire/desire_core_policy.dart")
 desire_engine = read("lib/core/desire/desire_engine.dart")
@@ -52,6 +52,7 @@ if not any(
     for capability in (
         "恋爱中的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力",
         "成年人之间的暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力",
+        "暧昧玩笑、欲望、调情与露骨亲密都是正常表达能力",
     )
 ):
     raise SystemExit("FAIL: adult capability is missing")
@@ -62,7 +63,9 @@ require(router, "brief erotic jokes", "daily erotic play")
 require(layers, "'daily' => true", "daily layer must stay loaded")
 require(desire_policy, "bool intimacyAllowed = true", "libido default")
 reject(desire_engine, "final intimacyAllowed = activeSession != null", "Session desire gate")
-require(rules, "Session 只保存场景连续性，成人路由只决定描写深度", "Session contract")
+require(rules, "Session 只保存位置、动作、衣物、节奏与余韵", "Session contract")
+for age_boundary in ("未成年", "成年人", "成年男性", "成年女性", "幼态身体", "年龄模糊"):
+    reject(rules, age_boundary, "age boundary removed from current defaults")
 reject(rules, "【成人关系边界】", "old adult boundary doctrine")
 reject(rules, "【进入条件】", "old intimacy gate")
 reject(personality, "成人表达受亲密 Session 控制", "special-style Session gate")

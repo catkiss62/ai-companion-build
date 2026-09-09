@@ -82,7 +82,7 @@ class ProactivePresentationPolicy {
       ProactiveIntentKind.shareThought => '分享她自己新形成的判断、联想或关注点；不要改写、复述或继续追问旧对话。',
       ProactiveIntentKind.curiosity => '主动打开一个现在真正想知道的新问题；不要追问已经回答过的旧话题。',
       ProactiveIntentKind.socialShare => '分享外部新发现或一个与旧话题不同的新鲜小事，不需要强求用户马上回复。',
-      ProactiveIntentKind.intimacyInvitation => '可以带暧昧或亲密倾向，但仍是邀请而不是强行把普通聊天拉进成人场景。',
+      ProactiveIntentKind.intimacyInvitation => '可以带暧昧或亲密倾向，但仍是邀请而不是强行把普通聊天拉进露骨场景。',
       ProactiveIntentKind.emotionalReach => '更像想靠近、想说说话或寻求一点连接，不要制造戏剧化危机。',
     };
     final deliveryHint = switch (delivery) {

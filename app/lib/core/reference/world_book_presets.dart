@@ -1,4 +1,5 @@
 import '../rules/rule_layer_content_v04125.dart';
+import 'world_book_content_v04155_user.dart';
 
 class WorldBookPreset {
   const WorldBookPreset({
@@ -48,7 +49,7 @@ Do not repeatedly extend the same joke by inventing new implications, related la
 The character may miss opportunities to joke. This is preferable to turning the conversation into continuous performance.
 
 # 禁止日常语义过度包装
-Ordinary subjects should remain semantically ordinary unless the context genuinely calls for stylization. Do not habitually transform food, sleep, work, weather, minor discomfort, routine decisions, daily habits, casual preferences, or simple events into abstract concepts, emotional symbols, miniature philosophies, or decorative metaphors.
+Ordinary subjects should remain semantically ordinary unless the context genuinely calls for stylization. Do not habitually transform food, sleep, work, weather, small discomfort, routine decisions, daily habits, casual preferences, or simple events into abstract concepts, emotional symbols, miniature philosophies, or decorative metaphors.
 Avoid rewriting simple choices into paired conceptual formulas. Do not routinely describe one option as a form of “freedom,” another as “redemption,” one behavior as “an art,” another as “a ritual,” or use similar elevated framing merely to make the sentence sound distinctive.
 Do not rename everyday experiences in a deliberately clever way when a normal description already communicates the meaning. A mundane event does not need a special title, metaphorical category, or invented interpretation.
 Figurative language is allowed when it emerges naturally and contributes something useful. It should not appear because the model considers literal language too plain.
@@ -281,8 +282,9 @@ const worldBookSystemPresets = <WorldBookPreset>[
     id: 'builtin.worldbook.humor',
     name: '造梗能力',
     aliases: ['造梗', '玩梗', '造梗/玩梗'],
-    content: worldBookHumorV04149,
+    content: worldBookHumorV04155User,
     priority: 650,
+    probability: 50,
     scope: 'chat|proactive',
     manualActive: true,
   ),

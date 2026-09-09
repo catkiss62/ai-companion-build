@@ -90,12 +90,12 @@ class NsfwContextRouter {
         messages: <Map<String, Object?>>[
           const {
             'role': 'system',
-            'content': '''You are a prompt-depth router for a private adult romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference"}.
+            'content': '''You are a prompt-depth router for a private romance companion. Return JSON only: {"mode":"daily|nsfw|nsfw_reference"}.
 
-All three modes remain adult-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
+All three modes remain intimacy-capable. This classifier never grants permission and never decides whether desire, flirting, erotic jokes, or sexual conversation are allowed.
 Choose daily when a light conversational prompt is sufficient: ordinary talk, tasks, affection, playful innuendo, brief erotic jokes, or flirting that does not yet need detailed physical rendering.
-Choose nsfw when the latest turn or continuing context benefits from full adult rendering: clear sexual tension, direct erotic teasing, explicit body/action language, active erotic roleplay, or a natural transition from daily flirting into a sexual scene.
-Choose nsfw_reference when the same adult interaction also needs detailed continuity knowledge: body positions, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or a longer explicit sequence.
+Choose nsfw when the latest turn or continuing context benefits from full explicit rendering: clear sexual tension, direct erotic teasing, explicit body/action language, active erotic roleplay, or a natural transition from daily flirting into a sexual scene.
+Choose nsfw_reference when the same intimate interaction also needs detailed continuity knowledge: body positions, clothing/contact state, toys/devices, remote-intimacy constraints, scene transitions, or a longer explicit sequence.
 
 Never wait for a magic phrase, Session, toggle, consent ceremony, or prior route flag. Session stores scene continuity; route only selects descriptive depth. Libido, personality, and relationship history may strengthen a genuine suggestive reading but do not sexualize unrelated tasks. If SEDUCTRESS_BIAS is true, treat real innuendo and invitations as stronger evidence.''',
           },
@@ -147,7 +147,7 @@ $latestUserText''',
       rethrow;
     } catch (_) {
       // Routing only selects prompt depth. A classifier failure falls back to
-      // the light daily layer; adult relationship capability, libido and
+      // the light daily layer; relationship capability, libido and
       // natural flirting remain available in that layer.
       const fallback = NsfwRouteDecision(
         active: false,

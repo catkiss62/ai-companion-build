@@ -69,6 +69,11 @@ void main() {
     );
     expect(byId['builtin.worldbook.humor']!.manualActive, isTrue);
     expect(byId['builtin.worldbook.humor']!.priority, 650);
+    expect(byId['builtin.worldbook.humor']!.probability, 50);
+    expect(
+      byId['builtin.worldbook.humor']!.content,
+      contains('NSFW时不要造梗和抽象'),
+    );
     expect(worldBookSystemPresets, hasLength(4));
   });
 

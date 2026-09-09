@@ -49,7 +49,7 @@ class ImmersiveNsfwDecision {
       };
 }
 
-/// Selects whether the room-specific adult novel source is needed this turn.
+/// Selects whether the room-specific intimacy source is needed this turn.
 /// This state is deliberately separate from ordinary chat's global NSFW route.
 class ImmersiveNsfwRouter {
   const ImmersiveNsfwRouter(this.client);
@@ -123,13 +123,13 @@ class ImmersiveNsfwRouter {
             'role': 'system',
             'content': '''你只负责判断沉浸小说本轮的规则深度和高潮语义事件。只返回 JSON：{"mode":"daily|nsfw","climax_event":"none|ai_release|user_near|user_release|hold"}。
 
-daily：普通剧情、日常互动、轻度暧昧、没有进入成人身体细节的场景。
-nsfw：正在发生或自然进入明确成人性场景、需要露骨身体/动作细节、姿势衣物接触连续性或长篇成人阶段推进。
+daily：普通剧情、日常互动、轻度暧昧、没有进入露骨身体细节的场景。
+nsfw：正在发生或自然进入明确性场景、需要露骨身体/动作细节、姿势衣物接触连续性或长篇亲密阶段推进。
 
 高潮事件：none=没有已确认的释放跳转；ai_release=上一轮女性AI已明确停在高潮临界，用户本轮让她先高潮，或只要求继续/加快/更激烈且未表示自己濒临；user_near=用户只表示“我快射了/我要射了”等濒临宣言，尚未射精；user_release=用户明确表达已经或现在立即射精；hold=用户要求忍住/等待，或在之前已濒临后只说继续积累。
 “快射/要射”绝对不是“已射”；否定、假设、引用和含糊表达均不判定为 user_release。若用户先前已进入 user_near，之后没有明确释放表达，则保持 hold。
 
-结合最近剧情保持连续性；不要因为单个含糊词误开启，也不要在成人场景仍连续进行时仅因本轮措辞简短就关闭。该判断只选择规则深度和语义事件，不生成小说正文。''',
+结合最近剧情保持连续性；不要因为单个含糊词误开启，也不要在亲密场景仍连续进行时仅因本轮措辞简短就关闭。该判断只选择规则深度和语义事件，不生成小说正文。''',
           },
           {
             'role': 'user',

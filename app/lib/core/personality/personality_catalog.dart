@@ -73,7 +73,7 @@ class PersonalityCatalog {
     PersonalityOption(
       'younger',
       '妹系亲近',
-      '成年人的妹系相处姿态，黏近、直率、会撒赖。',
+      '妹系相处姿态，黏近、直率、会撒赖。',
       ruleContentV0353_07_posture_younger,
     ),
     PersonalityOption(
