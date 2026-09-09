@@ -34,20 +34,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.55+197 远端 build head `ee4c034e4cc2eaedcef849e63d66e0a47bcec944` / tree `5b63e5d13ac6f1421e0985254e554a3306575b0c`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
+| 有效构建 head / tree | v0.41.55+198 Actions head `531f85fd28678006159ec3ba1e4b8ef727482e2e` / 构建时完整总账 tree `583c27601b48d0330bf675ca0c19dd124259118a`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
 | App / 数据库 | 当前本地修复目标为 `0.41.55+198 / schema 57 / Snapshot protocol 5`；当前真机包为 `0.41.55+197`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | +197 run [`34394555348`](https://github.com/catkiss62/ai-companion-build/actions/runs/34394555348)（814）完整成功：源码门、Kotlin/AIDL、analyze、`707/707` Flutter tests、Release APK、固定签名、Genie/桌宠/塔罗实包和摘要均通过 |
-| 测试 APK | `AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK.apk`，537,165,264 bytes |
-| APK SHA-256 | `b7cf35c1350384f2fd465a8db2b5d8f87869d6062427df6d0788872e1085e9aa`；与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10121438144`](https://github.com/catkiss62/ai-companion-build/actions/runs/34394555348/artifacts/10121438144)，ZIP 530,308,012 bytes / digest `4ecaedb9c7905d072935251cbe3b36316feff8b049800397c97fb73452bce38d`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-855890f16cfd659300c5) 未发布，`main` 未合并 |
+| 最终 CI | +198 run [`34402366714`](https://github.com/catkiss62/ai-companion-build/actions/runs/34402366714)（816）完整成功：总账协调、私有资源恢复、源码门、Kotlin/AIDL、Flutter analyze、`709/709` Flutter tests、Release APK、固定签名与完整实包均通过 |
+| 测试 APK | `AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK.apk`，537,179,972 bytes |
+| APK SHA-256 | `63725362a3c29223261bb1fb0932bf999e2983dd9ae3f4f17e7b48ca2fe48c0f`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10124367252`](https://github.com/catkiss62/ai-companion-build/actions/runs/34402366714/artifacts/10124367252)，ZIP 530,322,823 bytes / digest `a7db720d6fe48adda2ef76aa24133e6421b397c4460d19bc0a788b76a82eda9f`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-125e8889db9780b7f9c4) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +197 run 814 全绿且 APK 已上传；用户真机确认除日语外，其余 TTS 交互、连续播放、规则和沉浸修复均正常。新脱敏报告证明日语在进入 OpenJTalk 前即由隔离服务以 `not_initialized / operation_failed` 拒绝，未出现 `initialize_frontend_ja`、`prepare_frontend_ja` 或 `infer_ja`；+197 因此为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。+198 已完成本地实现：日语原生装载闭环、顶部语言选择、不变调变速和 200% 音量增益；当前为 `IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING` |
+| 当前总状态 | +197 为 `TRUE DEVICE PARTIAL`，仅日语失败；+198 已完成日语原生装载闭环、顶部语言选择、不变调变速和 200% 音量增益，run 816 全绿且 APK 已上传。当前严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；日语真机恢复与音高/增益体感仍必须由用户覆盖安装后确认 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.55+198 日语装载与播放调节窄修**：从已真机通过三语的 Genie v0.6.4 私有 APK 同时恢复字节一致的 `libopenjtalk_native.so` 与 `libgenie_frontend.so`，Release 构建跳过本地 JNI 重编译并校验两库 SHA，消除当前只复制底层库、重编 JNI 适配库的运行差异；语言选择移到顶部 NSFW 左侧并只显示“语言 中 日 EN”，删除聊天面板底部语音语言说明；语速改由 AudioTrack `PlaybackParams(speed, pitch=1)` 做不变调时间伸缩，移除 PCM 重采样；TTS 音量范围扩到 200%，超过 100% 用与 AudioTrack 会话绑定的 LoudnessEnhancer 增益 |
+| 当前下一步 | **v0.41.55+198 真机验收**：覆盖安装 Draft APK，首先选“日”后点喇叭验证首次与第二次日语；再确认顶栏只有“语言 中 日 EN”、点语言不会立即出声、底部语音说明已消失；最后对比 0.75×/1.0×/1.5× 音高是否保持，并渐进测试 100–200% 音量。如日语仍失败，导出新脱敏诊断，新版 `diagnosticCode` 应能给出具体异常类型 |
 | 目标 | 保留 +196 已真机成功的独立进程、单串行 Genie 推理与中英文出声；`中/日/EN` 只切换后续朗读语言，点喇叭或下一句自动朗读才出声。规则正文除用户另行要求删除的年龄边界外必须与备份逐字一致；造梗正文逐字一致且概率 50%；沉浸房间不再被内部最终提示强制成 `“”` |
 | 当前证据 | +196 新报告 `2026-09-09T15:00:03Z`：`available/initialized=true`，多次出现 `audio_playback/audio_complete`，与用户确认中英文出声一致；当前会话没有新的 `initialize_frontend_ja/prepare_frontend_ja`，故日语失败发生在原生前端之前。一次主动停止后子进程在 `generation_cancelled` 退出（约 2.52 GB PSS）但随后自动恢复并继续播放。源码确认 TTS 状态每次 `_safeNotify()` 都会落入 ChatPage 无条件 `_scrollToLatest()`；Genie 固定核心七文件仍与 `5380a53` 逐字一致，但伴侣播放层使用逐段 WAV/新 AudioTrack + 200ms gap，未与原版连续 AudioTrack 完全对齐 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。规则升级只替换精确匹配已知默认/本次备份哈希的内容，任何其他手工编辑继续优先；不提交备份、聊天、诊断或私有素材。19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端或并发 Genie 推理 |
@@ -90,14 +90,15 @@
 ## 近期详细记录与全局索引（按需检索）
 
 
-### 2026-09-10 v0.41.55+198 日语原生装载、不变调变速与顶部语言选择（IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-10 v0.41.55+198 日语原生装载、不变调变速与顶部语言选择（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户真机确认 +197 除日语外其他测试均正常，并要求下一包把语音语言移到顶部 `NSFW` 左侧，只保留“语言 中 日 EN”，删除聊天面板右下方“中文语音 / 日语或英语语音＋中文对照”说明；同时指出当前语速通过重采样导致慢速变厚、快速变尖，要求只变速不变音调，并把 TTS 音量滑杆上限提高到 100% 以上。
 2. 新脱敏报告 `2026-09-09T19:49:45Z` 来自 +197/schema 57，不含聊天、Memory、附件、密钥或原始错误文本。报告中中文/英文存在大量 `audio_playback/audio_complete`；日语首先出现 `frontend_switch_failed code=not_initialized stage=operation_failed language=ja`，随后多次 `initialize_failed` 同码，且始终没有 `initialize_frontend_ja`、`prepare_frontend_ja`、`infer_ja` 或对应子进程退出。由调用顺序可知失败发生在 `NativeJapaneseFrontend` 构造期的原生库装载，而非日语翻译、分段、词典释放、OpenJTalk 音素转换或声学推理。
 3. 本地实现已将工作流改为从同一份真机验证过的 Genie v0.6.4 APK 同时提取 `libopenjtalk_native.so` 和 `libgenie_frontend.so`，Release 以 `skipGenieNativeBuild=true` 停止重编译 JNI 桥，并在成品 APK 中按大小与 SHA-256 逐一反查。这是对 +197 唯一剩余原生字节差异的窄修，不改 Genie 七个锁定核心文件、词典或分段。
 4. 语言选择已从聊天面板底部移至顶栏 `NSFW` 左侧，实际可见文字只为“语言 中 日 EN”；点击会停止旧语音并保存后续朗读语言，但不立即合成或播放。旧底部语音语言状态条已删除；外语消息内容自身的中文对照仍保留。
 5. 语速已删除会同步改变音高的 PCM 线性重采样，改为单一连续 `AudioTrack` 上的 `PlaybackParams(speed, pitch=1.0)`，保留原有一秒 PCM 预填充、后段预生成队列、中止和 drain 语义。TTS 音量范围扩展为 0–200%；100% 以下走 AudioTrack 音量，超出部分用同一 audio session 的 `LoudnessEnhancer` 施加最高约 +6.02 dB 增益并在播放结束时释放。
-6. 运行诊断新增脱敏 `diagnosticCode`，保留真实异常类型而不导出错误原文或路径，避免下次只看到笼统 `not_initialized`。版本已升为 `0.41.55+198`，schema 57 和 Snapshot protocol 5 不变；新增播放参数边界测试与专项静态合同。本地环境无 Flutter/Dart SDK，Kotlin/Dart 真实编译、全量测试和 APK 仍须 Actions 证明，当前不得写成 CI 通过或真机通过。
+6. 运行诊断新增脱敏 `diagnosticCode`，保留真实异常类型而不导出错误原文或路径，避免下次只看到笼统 `not_initialized`。版本为 `0.41.55+198`，schema 57 和 Snapshot protocol 5 不变；新增播放参数边界测试与专项静态合同。
+7. 首轮 run [`34401062408`](https://github.com/catkiss62/ai-companion-build/actions/runs/34401062408)（815）因 GitHub Git Data 接口把 1.38 MB UTF-8 总账截断在 393,216 bytes 而停在源码门，未进入编译，与 TTS 代码无关。随后恢复远端完整 ledger blob，用一次性有界脚本在 Actions 内应用小补丁并以 `[skip ci]` 回推；协调后 head `2dc63b180ad5e2fc79cb9eb8ab6a672fa02e65c1` / tree `583c27601b48d0330bf675ca0c19dd124259118a` 保持历史档案哈希不变。run 816 完整通过源码回归、Kotlin/AIDL、Flutter analyze、`709/709` tests、arm64 Release、固定签名、双 JNI 库来源 SHA 与全部私有载荷校验。APK 为 537,179,972 bytes，SHA-256 `63725362a3c29223261bb1fb0932bf999e2983dd9ae3f4f17e7b48ca2fe48c0f`；Artifact `10124367252` 与 Draft Release 已就绪。状态提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不得提前写成日语真机通过。
 
 ### 2026-09-09 v0.41.55+197 TTS 真机反馈、队列对照与交互窄修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
