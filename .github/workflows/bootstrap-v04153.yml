@@ -1,0 +1,56 @@
+name: Bootstrap v0.41.53 source tree
+
+on:
+  push:
+    branches:
+      - agent/v04153-genie-multilingual-tts
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  apply-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply verified v0.41.53 patch and dispatch APK workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PATCH_ASSET_ID='551771661'
+          PATCH_SHA256='a16dad16096738ef85ae174d647c445b1d4c21d0ab21f9bcef1b0030adf17751'
+          EXPECTED_TREE='5542ee4f857daa22922a7f0752dae8cb03466463'
+          PATCH_FILE="${RUNNER_TEMP}/AI-Companion-v0.41.53-source.patch"
+
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "/repos/${GITHUB_REPOSITORY}/releases/assets/${PATCH_ASSET_ID}" \
+            > "${PATCH_FILE}"
+          echo "${PATCH_SHA256}  ${PATCH_FILE}" | sha256sum -c -
+
+          git apply --check --binary "${PATCH_FILE}"
+          git apply --index --binary "${PATCH_FILE}"
+          git rm .github/workflows/bootstrap-v04153.yml
+          test "$(git write-tree)" = "${EXPECTED_TREE}"
+          test -z "$(git ls-files \
+            'app/android/app/src/main/assets/benchmark/**' \
+            'app/android/app/src/main/assets/openjtalk/**' \
+            'app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so')"
+
+          python3 app/tools/validate_current_ledger_handoff.py
+          python3 app/tools/validate_v04153_genie_multilingual_tts.py
+          git diff --cached --check
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Implement v0.41.53 multilingual Genie TTS runtime'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          gh workflow run build-apk.yml --ref "${GITHUB_REF_NAME}"
