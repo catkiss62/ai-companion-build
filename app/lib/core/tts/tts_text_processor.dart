@@ -24,7 +24,13 @@ class TtsTextProcessor {
     Map<String, String> replacements = const {},
     TtsReadingScope scope = TtsReadingScope.dialogueOnly,
   }) {
-    final segments = ChatSegmentCodec.parseAssistantText(text);
+    // Strip inline action blocks before parsing dialogue-only speech. Parsing
+    // first would split `保留（动作）正文` into two dialogue segments and the
+    // segment join below would invent a sentence boundary: `保留。正文`.
+    final segmentSource = scope == TtsReadingScope.dialogueOnly
+        ? text.replaceAll(RegExp(r'（[^（）\n]*）|\([^()\n]*\)'), '')
+        : text;
+    final segments = ChatSegmentCodec.parseAssistantText(segmentSource);
     final selected = scope == TtsReadingScope.dialogueOnly
         ? segments.where((item) => item.kind == ChatSegmentKind.dialogue)
         : segments;

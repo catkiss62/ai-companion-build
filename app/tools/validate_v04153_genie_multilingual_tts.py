@@ -19,6 +19,7 @@ message = read("lib/core/models/chat_message.dart")
 variant = read("lib/core/models/chat_language_variant.dart")
 runner = read("lib/core/ai/durable_generation_runner.dart")
 prompt = read("lib/core/ai/prompt_builder.dart")
+self_reader = read("lib/core/agent/agent_self_reader.dart")
 chat = read("lib/features/chat/chat_page.dart")
 controller = read("lib/features/chat/chat_controller.dart")
 background = read("lib/core/platform/background_chat_command_server.dart")
@@ -37,6 +38,7 @@ workflow = read("../.github/workflows/build-apk.yml")
 
 assert "version: 0.41.53+192" in read("pubspec.yaml")
 assert "static const int schemaVersion = 57;" in db
+assert "static const buildLabel = 'v0.41.53+192';" in self_reader
 for token in (
     "CREATE TABLE IF NOT EXISTS message_language_variants",
     "PRIMARY KEY(message_id, language)",
