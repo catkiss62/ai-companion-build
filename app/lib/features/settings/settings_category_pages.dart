@@ -508,20 +508,6 @@ class _ModelNetworkSettingsPageState
               ),
       );
 
-  @override
-  void dispose() {
-    _deepSeekKey.dispose();
-    _deepSeekEndpoint.dispose();
-    _visionKey.dispose();
-    _visionEndpoint.dispose();
-    _visionModel.dispose();
-    _tavilyKey.dispose();
-    _extraSources.dispose();
-    _agnesKey.dispose();
-    _agnesEndpoint.dispose();
-    _agnesModel.dispose();
-    super.dispose();
-  }
 }
 
 class MemoryGrowthSettingsPage extends StatefulWidget {
