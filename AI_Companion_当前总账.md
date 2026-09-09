@@ -33,26 +33,26 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04153-genie-multilingual-tts`；从 v0.41.52 当前 HEAD 开出，接入普通聊天三语消息与 Genie-TTS v0.6.4，移除新 APK 内旧妹居运行负载；沉浸房间、19emo ONNX、3C 与 MCP 不进入本包 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.52 远端构建 head `417cd91868b7fd6b959dde5a4615106b8a16fca9` / tree `814183a17a480f197847cd44ab8f45ebc0faad6f`；本地等价 tree 提交 `6801674`。公开变更不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥或 API 配置 |
-| App / 数据库 | 当前已构建候选仍是 `0.41.52+191 / schema 56 / Snapshot protocol 5`；本地 v0.41.53 已推进至 `0.41.53+192 / schema 57`，新增有界三语消息版本迁移，Snapshot protocol 仍为 5；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留 |
-| 最终 CI | v0.41.52 run [`34256547671`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671) 完整成功：源码/历史 validator、Kotlin tests、Flutter analyze、681 个 Flutter tests、Release APK、固定签名、原生库/417 桌宠载荷和 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
-| 测试 APK | `AI-Companion-v0.41.52-191-Diary-Fresh-Topic-Balance-APK.apk` |
-| APK SHA-256 | `2a5101bda73d28f4a3aa9ea73c2baa6b840074f5c14f2c3fbf7a43d562a88de8`；CI monitor 与同批 checksum 一致 |
-| Artifact / Release | Artifact [`10068557169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671/artifacts/10068557169)，ZIP 320,365,044 bytes / digest `99bb9e54abecc857e9c314735c44503d69f6b80103381d5638de50df3e0a489c`，保留至 2026-09-22；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b3d49beca7c656624dd) 保持草稿，未合并 `main`、未发布正式 Release |
+| 有效构建 head / tree | v0.41.53 远端构建 head `fbee392cb6aac836f5a5c92e9e4bd488773cdbca` / tree `631cf5147f426049977c78e4fabbbb3570b8df2b`；本地等价 tree 提交 `8af8a62`。构建源码不含用户 ZIP、私人图片、备份、诊断、聊天正文、密钥、RoBERTa 或原始 Genie APK；私有 Genie 只在 CI 中从未发布 Draft 资产恢复并裁剪 |
+| App / 数据库 | 当前已构建候选是 `0.41.53+192 / schema 57 / Snapshot protocol 5`，新增有界三语消息版本迁移；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本须原样保留。APK 仅支持真实 `arm64-v8a` Genie 运行时；Chinese RoBERTa 仍由用户在 App 内导入 |
+| 最终 CI | v0.41.53 run [`34305445511`](https://github.com/catkiss62/ai-companion-build/actions/runs/34305445511)（795）完整成功：Genie/桌宠恢复、源码及历史 validator、Kotlin tests、Flutter analyze、691/691 Flutter tests、arm64 Release APK、固定签名、38 个 Genie/OpenJTalk 文件、417 文件桌宠与 22 张塔罗资源均通过；当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 测试 APK | `AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-APK.apk`；533,612,323 bytes；仅含 `arm64-v8a` |
+| APK SHA-256 | `de2b3d04f6cf105d1490d728961433f16929aad985e9db9e08337db80b4dff45`；CI checksum、Draft 资产 digest 与独立下载复算三方一致 |
+| Artifact / Release | Artifact [`10086723454`](https://github.com/catkiss62/ai-companion-build/actions/runs/34305445511/artifacts/10086723454)，ZIP 526,803,413 bytes / digest `91213d69ccddce456d4e0ca293bfccaa6b6058b3e2393791c5075568cf5a4427`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-0a2de3aa8fcfb865d192) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING`，其中新日记/UI 与日历可继续肉眼观察、主动样本不阻塞；v0.41.53 编译、analyze 与 691 项 Flutter tests 已通过，第四次 CI 当前为 `CI FAILED / ABI FILTER FIX IN PROGRESS` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 的新日记/UI 与日历继续肉眼观察；v0.41.53 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不得提前写成 TTS 真机通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.53 普通聊天三语 + Genie-TTS 接入**；v0.41.52 的新日记/UI 继续肉眼观察，主动新题/网页分享自然积累 6～8 条样本，不阻塞本包 |
-| 目标 | “显示外语”关闭时保持中文单语生成；开启时一轮产生同一意图的中/日/英自然表达。`中/日/EN` 是文本与 TTS 的唯一联动语言状态。移植 Genie v0.6.4 四个正式音色、自动情绪映射、单前端按需加载与双层声学分段，并从新 APK 移除旧妹居运行负载 |
-| 当前证据 | AI Companion 已有 `ChatSegment` 动作/对白结构、`TtsPlaybackQueue`、19 种 `CompanionEmotion/TtsEmotionCue` 与 Stop/预生成队列；Genie v0.6.4 三语和约 500 字长文本已真机验证。已从持久文件找回并复核 351,951,410-byte v0.6.4 APK，SHA-256 `567589eaaf960deee1d65cf9c00a7ede231e4037f7b12f87f3f33332ebab33bf`；它及 checksum 已作为 2 个资产保存到未发布 Draft Release `385168277`。用户确认 RoBERTa 继续自行导入，不进入 APK |
+| 当前下一步 | **安装 v0.41.53 基线 APK 并完成普通聊天三语 + Genie-TTS 真机验收**；v0.41.52 的新日记/UI 与日历继续作为易肉眼分辨的观察项，主动新题/网页分享自然积累，不阻塞 TTS 验收 |
+| 目标 | 覆盖安装后先确认旧数据库迁移与普通中文聊天无回归，再导入用户持有的 Chinese RoBERTa；验收“显示外语”、`中/日/EN` 文本—语音联动、四音色自动/固定模式、单前端切换、短句与超长单段续播、Stop/静音/后台恢复以及热词弱读 |
+| 当前证据 | run 795 已证明 arm64 Release APK、固定签名、691/691 tests、38 个 Genie/OpenJTalk 载荷、417 文件桌宠、塔罗与旧妹居排除全绿；独立下载 APK 为 533,612,323 bytes / SHA-256 `de2b3d04f6cf105d1490d728961433f16929aad985e9db9e08337db80b4dff45`，压缩包完整且仅有 `arm64-v8a`。这些只能证明构建，不证明 RoBERTa 导入、发音、性能或播放生命周期的真机效果 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 开启三语时使用一轮共享情绪/意图/动作—对白结构的机器协议，解析后标签不保存；中文写回原消息，日英写独立版本表。动作/对白是上层段，超长单段再按中文/日文目标 42、上限 54 字符，英文目标 88、上限 110 字符做自然标点子分段。Genie 共用声学会话，但中文 RoBERTa、英文 CMUdict、日语 OpenJTalk 只保留当前一个前端；切换先 Stop 再从头播放。固定热词 `token` 与 `DeepSeek` 只改 TTS 发音 |
-| 完成判据 | schema/备份迁移、三语协议解析/失败降级、权威中文隔离、语言联动 UI、四音色自动/固定模式、按需前端、Stop/切换、长单段二次切分、静音策略、旧妹居负载排除均有自动化；format/analyze/全量 tests/validators/Release APK/固定签名和实际 Genie 负载全绿后只标 `CI PASSED / APK READY`。真机再测短句、长对白、三语切换、后台恢复、峰值内存与热词弱读；v0.41.52 日历/UI 同期继续作为独立肉眼观察项 |
+| 完成判据 | 真机确认覆盖迁移、RoBERTa 导入、中文单语关闭外语、开启后三语同意图、日英中文对照不被朗读、语言切换先 Stop 再从头、四音色、短句/长单段续播、静音/振动、后台恢复和约 2.5 GB 峰值内存；分别听测 `token→拖肯` 的“肯”轻音及 `DeepSeek→地铺西咳` 的“铺/咳”轻音。v0.41.52 日历/UI 独立观察，不以 CI 代替肉眼结论 |
 | 直接详细入口 | `app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md`；现有队列见 `app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md`，Genie 来源为 `catkiss62/Genie-TTS-Android` 的 `agent/v001-genie-benchmark` / `AI_COMPANION_INTEGRATION_GUIDE.md`；v0.41.52 观察证据仍见下一节原记录 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（SOURCE PUSHED / CI FAILED / ABI FILTER FIX IN PROGRESS）
+### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 v0.41.52 的新日记/UI 可以继续作为容易分辨的真机观察项，不阻塞下一开发包；主动新题与网页分享仍自然积累，不为了开工 TTS 倒写真机通过。
 2. 用户最终要求把普通聊天语言和 TTS 合成唯一 `中/日/EN` 状态，而非文本、翻译、语音各设一个开关。“显示外语”关闭时只生成中文并强制中文前端；开启后每条新回复保存同一情绪、意图和动作/对白结构的三种自然表达。日语/英语视图保留较小中文对照，但 TTS 只读当前主语言；旧消息不补译，已有外语版本关闭时只隐藏不删除。
@@ -113,6 +113,9 @@
 21. 上述类型窄修与同批总账以远端提交 `e576225969db9e0de485b2ce0585b98d1d891f78` / tree `8f29787f7fada00bcd44b35902d14a8ac801eb4a` 推送；tree 与本地提交 `ccf050a` 精确一致。Actions run [`34303060129`](https://github.com/catkiss62/ai-companion-build/actions/runs/34303060129)（792）已越过首次 Flutter/Kotlin 编译并通过 `Flutter analyze`，全量 Flutter tests 为 `689 passed / 2 failed`：一项证明 TTS 在移除行内动作块后把原本相邻的“保留正文”错误拼成“保留。正文”；另一项是系统自读仍期待旧 `v0.41.50+189 / schema 56`，实际已进入 schema 57。当前修复真实 TTS 拼接边界，并把 `AgentSelfReader.buildLabel` 与断言推进至 `v0.41.53+192 / schema 57`；不是 Genie/native/桌宠回归，本次仍未生成 APK。失败诊断 job 另因把整份日志 Base64 放入单个 `gh api` 参数而命中 `Argument list too long`，未上传诊断资产；原始 Actions 日志仍完整可读，不影响上述定位。
 22. 两项测试窄修及同批总账已推送为远端提交 `5da50fde9a8260c9196dc7d30f4e3b5328cbde0e` / tree `3c408bdd1f82bcf05a4cb715e0e021883c598a7d`，与本地提交 `5c8a5ef` 的 tree 精确一致。Actions run [`34303858469`](https://github.com/catkiss62/ai-companion-build/actions/runs/34303858469)（793）确认首次 Flutter/Kotlin 编译、`Flutter analyze` 及全量 `691/691` Flutter tests 全绿；Release APK 随后在 `:app:buildCMakeRelease[armeabi-v7a]` 失败，因为验证版 Genie 只提供真实 `arm64-v8a/libopenjtalk_native.so`，Flutter 默认 Release 目标仍额外请求 32 位 ABI。不得把 arm64 `.so` 复制或伪装成 32 位库；当前把 Release 命令明确限制为 `--target-platform android-arm64`，与 `defaultConfig.ndk.abiFilters = arm64-v8a` 及目标真机架构一致，再重新构建。run 793 未生成 APK，Genie 私有载荷、桌宠 ZIP、签名恢复和应用测试均不是本次失败源。
 23. arm64 命令修复与同批总账已推送为远端提交 `b8898e60e9a6c86d9f08a625463c79c58d493a0d` / tree `eee907d1a46fdb3482da1da2723c04ff338a1f92`，与本地提交 `d1187f0` 的 tree 精确一致。Actions run [`34304685912`](https://github.com/catkiss62/ai-companion-build/actions/runs/34304685912)（794）再次通过编译、analyze 和 `691/691` Flutter tests，但 Release 仍配置 `armeabi-v7a`。进一步定位不是 Flutter CLI 忽略 arm64，而是 `build.gradle.kts` 的 `abiFilters += setOf("arm64-v8a")` 只向 Flutter Gradle 插件预置的默认 ABI 集合追加 arm64，没有移除 32 位与 x86_64；因此 CMake 仍会为 32 位寻找不存在的 OpenJTalk。当前改为在 `defaultConfig.ndk` 中先 `abiFilters.clear()`、再只加入 `arm64-v8a`，并保留 CLI 的 `--target-platform android-arm64` 作为双层限定。run 794 未生成 APK，其余资源、签名、源码合同和应用测试保持通过。
+24. ABI 集合修复与同批总账已推送为远端构建提交 `fbee392cb6aac836f5a5c92e9e4bd488773cdbca` / tree `631cf5147f426049977c78e4fabbbb3570b8df2b`，与本地提交 `8af8a62` 的 tree 精确一致。Actions run [`34305445511`](https://github.com/catkiss62/ai-companion-build/actions/runs/34305445511)（795）一次完整通过：私有 Genie 原包哈希与四音色裁剪、38 个 Genie/OpenJTalk 生产文件、417 文件桌宠重组、LingChat/塔罗、源码及历史 validator、Kotlin tests、Flutter analyze、`691/691` Flutter tests、arm64 Release APK、固定签名、APK 内实际资源哈希、Artifact 与 Draft Release 均成功；旧妹居、`ref07/test_backup` 和 RoBERTa 均未进入 APK。签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+25. 最终 APK `AI-Companion-v0.41.53-192-Genie-Multilingual-TTS-APK.apk` 为 533,612,323 bytes、SHA-256 `de2b3d04f6cf105d1490d728961433f16929aad985e9db9e08337db80b4dff45`。Artifact `10086723454` 的 ZIP 为 526,803,413 bytes / digest `91213d69ccddce456d4e0ca293bfccaa6b6058b3e2393791c5075568cf5a4427`，保留至 2026-09-23；独立下载复算 ZIP/APK SHA 均与 GitHub 服务端和 CI checksum 一致，APK ZIP 测试无错误且唯一 native ABI 为 `arm64-v8a`。成品与 checksum、501-byte CI monitor 已保存到未发布 Draft Release `385181688`，资产 ID `551865382/551865381/551865394`；`main` 未合并、正式 Release 未发布。
+26. 当前严格状态提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。真机先覆盖安装并确认 schema 57 与旧数据，再导入用户自己的 Chinese RoBERTa；依次验收显示外语关闭/开启、三语同意图与中文对照隔离、`中/日/EN` 切换时 Stop 后从头播放、四音色自动/固定、短句/超长单段串行续播、静音/振动、后台恢复、约 2.5 GB 峰值内存，以及 `token/DeepSeek` 的指定轻音。v0.41.52 日历和新日记/UI 同期只作为独立肉眼观察项，不因本次 CI 成功倒写真机通过。
 
 ### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
