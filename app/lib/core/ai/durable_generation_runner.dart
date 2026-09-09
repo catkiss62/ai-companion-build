@@ -747,7 +747,7 @@ $finalGenerationReminder
             .map((message) => message.promptContent),
       ].join('\n');
       MultilingualReply? multilingualReply;
-      String visibleBody(EmotionEnvelope parsedEnvelope) {
+      String visibleBody(EmotionEnvelopeData parsedEnvelope) {
         if (!multilingualEnabled) return parsedEnvelope.visibleText;
         final parsed = MultilingualReplyCodec.tryParse(
           parsedEnvelope.visibleText,

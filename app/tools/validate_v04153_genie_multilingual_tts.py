@@ -56,6 +56,7 @@ for token in (
     assert token in variant, token
 assert "languageVariants" in message and "contentFor(ChatLanguage language)" in message
 assert "show_foreign_replies" in runner
+assert "String visibleBody(EmotionEnvelopeData parsedEnvelope)" in runner
 assert "MultilingualReplyCodec.tryParse" in runner
 assert "MultilingualReplyCodec.streamingChinese" in runner
 assert "三语协议修复 · ONE RETRY" in runner

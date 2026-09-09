@@ -40,7 +40,7 @@
 | APK SHA-256 | `2a5101bda73d28f4a3aa9ea73c2baa6b840074f5c14f2c3fbf7a43d562a88de8`；CI monitor 与同批 checksum 一致 |
 | Artifact / Release | Artifact [`10068557169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34256547671/artifacts/10068557169)，ZIP 320,365,044 bytes / digest `99bb9e54abecc857e9c314735c44503d69f6b80103381d5638de50df3e0a489c`，保留至 2026-09-22；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-2b3d49beca7c656624dd) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING`，其中新日记/UI 与日历可继续肉眼观察、主动样本不阻塞；v0.41.53 `IMPLEMENTED LOCALLY / STATIC PASSED / PRIVATE PAYLOAD READY / PUSH AUTHORIZED / CI PENDING` |
+| 当前总状态 | v0.41.48～50 `TRUE DEVICE PASSED`；v0.41.51 `TRUE DEVICE PARTIAL`；v0.41.52 `CI PASSED / APK READY / TRUE DEVICE PENDING`，其中新日记/UI 与日历可继续肉眼观察、主动样本不阻塞；v0.41.53 源码已推送，首次 CI 已通过私有 Genie、桌宠、签名及静态恢复阶段，当前为 `CI FAILED / NARROW COMPILE FIX IN PROGRESS` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（IMPLEMENTED LOCALLY / STATIC PASSED / PRIVATE PAYLOAD READY / PUSH AUTHORIZED / CI PENDING）
+### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（SOURCE PUSHED / CI FAILED / NARROW COMPILE FIX IN PROGRESS）
 
 1. 用户确认 v0.41.52 的新日记/UI 可以继续作为容易分辨的真机观察项，不阻塞下一开发包；主动新题与网页分享仍自然积累，不为了开工 TTS 倒写真机通过。
 2. 用户最终要求把普通聊天语言和 TTS 合成唯一 `中/日/EN` 状态，而非文本、翻译、语音各设一个开关。“显示外语”关闭时只生成中文并强制中文前端；开启后每条新回复保存同一情绪、意图和动作/对白结构的三种自然表达。日语/英语视图保留较小中文对照，但 TTS 只读当前主语言；旧消息不补译，已有外语版本关闭时只隐藏不删除。
@@ -109,6 +109,7 @@
 17. 本地已通过 v0.41.53 静态/SQLite 合同、YAML 解析、`git diff --check` 和所有不依赖 CI 临时下载资源的既有 validator；校验器也已从“私有文件运行时不得存在”修成“不得被 Git 跟踪”，既阻止模型泄漏又允许 Actions 临时恢复。完整 Flutter analyze/tests、Kotlin、Release APK、固定签名和最终压缩包资源哈希仍只能由 Actions 证明，当前不得提前写成 CI 通过。主要提交链为 `a725ba4`（合同文档）、`63fe330`（三语与 Genie 主实现）、`63557c6`（本地实现检查点）、`2626bf2`（保留 external data）、`ff4fc17`（私有 Draft 资产下载）。
 18. 用户已明确确认上传上述私有 Draft 资源，并于本轮再次确认推送不含私有资源的 `agent/v04153-genie-multilingual-tts` 源码分支、运行 GitHub Actions、生成基线 APK；不合并 `main`、不发布正式 Release。当前动作顺序锁定为：先同步本总账两层并通过总账 validator，再推送源码；CI 成功后回填 run/head/tree、测试数、签名、APK/Artifact/草稿 Release 与 SHA，随后只标 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 19. `token→拖肯`、`DeepSeek→地铺西咳` 的大小写与前端隔离已有源码测试；“肯”及“铺/咳”的弱读必须在实际 `phrase_phones.tsv` 到位后核对音素并真机听测，当前不得误报通过。基线 APK 真机还必须观察：首次释放约 600 MB Genie/OpenJTalk 资源、中文 RoBERTa 导入、四音色、短句/超长单段、播放中切换语言、Stop、静音/振动、后台恢复和约 2.5 GB 峰值内存；v0.41.52 的日历/UI 作为独立、易肉眼分辨的观察项继续保留。
+20. 不含私有资源的最终源码已推送到 `agent/v04153-genie-multilingual-tts`；远端 head `6f6f84532763eefc7a6d15827db711c2f73b39b1` 的 tree `5542ee4f857daa22922a7f0752dae8cb03466463` 与本地实现 tree 精确一致。Actions run [`34302252478`](https://github.com/catkiss62/ai-companion-build/actions/runs/34302252478)（791）已通过 Draft Genie 资产下载与哈希、干净源码、417 文件桌宠、LingChat/塔罗、Flutter/Java、固定签名、源码与回归 validator、依赖解析；在 Kotlin/桌宠任务触发的首次 Flutter debug 编译中失败。唯一已定位错误是 `durable_generation_runner.dart` 将 `EmotionEnvelope.parse()` 返回的 `EmotionEnvelopeData` 误声明为 `EmotionEnvelope` 参数，导致 `visibleText` getter 与实参类型编译错误；不是 Genie 模型、OpenJTalk、桌宠 ZIP 或签名失败，且本次未生成 APK。当前执行一行类型窄修 `EmotionEnvelope → EmotionEnvelopeData`，并把精确签名加入 v0.41.53 validator 后重新构建。
 
 ### 2026-09-08 v0.41.51 真机证据与 v0.41.52 日记及主动新题（TRUE DEVICE PARTIAL / CI PASSED / APK READY / TRUE DEVICE PENDING）
 
