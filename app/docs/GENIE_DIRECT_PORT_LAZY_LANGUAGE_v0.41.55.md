@@ -1,6 +1,6 @@
 # Genie v0.6.4 原样移植、崩溃隔离与按需外语 · v0.41.55
 
-状态：`v0.41.55+197 CI PASSED · TRUE DEVICE PARTIAL / v0.41.55+198 IMPLEMENTED LOCALLY · CI PENDING`。当前目标：`0.41.55+198 / schema 57 / Snapshot protocol 5`。
+状态：`v0.41.55+197 TRUE DEVICE PARTIAL / v0.41.55+198 CI PASSED · APK READY · TRUE DEVICE PENDING`。当前目标：`0.41.55+198 / schema 57 / Snapshot protocol 5`。
 
 ## 唯一源基线
 
@@ -64,4 +64,4 @@
 - +198 不再只复用已验证 APK 的 `libopenjtalk_native.so` 而在伴侣项目重编 `libgenie_frontend.so`；CI 从同一份 Genie v0.6.4 APK 同时提取两库，Release 跳过本地 JNI 重编，并在最终 APK 内按字节数与 SHA-256 反查。
 - 语言选择移至顶栏 `NSFW` 左侧，可见文字只为“语言 中 日 EN”；点击不触发朗读。聊天面板底部的语音语言说明已删除，但外语消息本身的中文对照仍保留。
 - 语速从会改变音高的 PCM 线性重采样改为 `AudioTrack.PlaybackParams`，固定 `pitch=1.0`、仅调整 `speed`。TTS 音量上限提高到 200%，超过 100% 的部分使用 AudioTrack 会话级 `LoudnessEnhancer`，最高约 +6.02 dB；音源已很响时可能触发系统限幅。
-- 服务状态增加不含错误原文的 `diagnosticCode`，下次失败可区分真实异常类型。+198 本地静态合同已通过；Flutter/Dart/Kotlin 编译、全回归、Release APK 和真机结果必须分别由 Actions 与用户实测确认。
+- 服务状态增加不含错误原文的 `diagnosticCode`，下次失败可区分真实异常类型。Actions run 816 已通过源码回归、Kotlin/AIDL、Flutter analyze、`709/709` tests、Release APK、固定签名与双 JNI 库成品 SHA 校验；日语恢复与音高/增益体感仍须真机确认。
