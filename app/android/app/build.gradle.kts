@@ -21,7 +21,8 @@ val privateSigningAvailable =
 android {
     namespace = "com.aicompanion.localfirst"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Match the user-verified standalone Genie v0.6.4 toolchain exactly.
+    ndkVersion = "27.2.12479018"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -78,6 +79,10 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // The validated standalone Genie APK runs its ONNX Java/JNI bridge
+            // without R8/resource shrinking. Preserve that release shape here.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 

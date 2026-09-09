@@ -1343,13 +1343,19 @@ class SystemBridge(
             manager.getHistoricalProcessExitReasons(activity.packageName, 0, 5)
                 .firstOrNull()
         }.getOrNull() ?: return emptyMap()
-        val traceSummary = if (info.reason == ApplicationExitInfo.REASON_ANR) {
+        val anrTraceSummary = if (info.reason == ApplicationExitInfo.REASON_ANR) {
             HistoricalAnrTraceSanitizer.summarize(
                 runCatching { info.traceInputStream }.getOrNull(),
             )
-        } else {
-            HistoricalAnrTraceSanitizer.summarize(null)
-        }
+        } else HistoricalAnrTraceSanitizer.summarize(null)
+        val nativeTraceSummary = if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE
+        ) {
+            HistoricalNativeTombstoneSanitizer.summarize(
+                runCatching { info.traceInputStream }.getOrNull(),
+            )
+        } else HistoricalNativeTombstoneSanitizer.summarize(null)
         return mapOf(
             "historicalExitReason" to exitReasonKey(info.reason),
             "historicalExitAt" to info.timestamp,
@@ -1362,7 +1368,7 @@ class SystemBridge(
             "historicalExitRssKb" to info.rss,
             "historicalExitDescriptionIncluded" to false,
             "historicalExitTraceIncluded" to false,
-        ) + traceSummary
+        ) + anrTraceSummary + nativeTraceSummary
     }
 
     private fun exitReasonKey(reason: Int): String = when (reason) {

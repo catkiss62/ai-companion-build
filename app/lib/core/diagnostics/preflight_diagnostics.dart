@@ -146,6 +146,7 @@ class PreflightDiagnosticsService {
         'historicalExitDescriptionIncluded': false,
         'historicalExitTraceIncluded': false,
         'historicalAnrRawTraceIncluded': false,
+        'historicalNativeRawTraceIncluded': false,
         'reasoningLanguageTextIncluded': false,
         'reasoningLanguageMatchedWordsIncluded': false,
         'moePromptBodiesIncluded': false,
@@ -1064,6 +1065,36 @@ class PreflightDiagnosticsService {
         'historicalAnrTraceTruncated':
             capabilities['historicalAnrTraceTruncated'] == true,
         'historicalAnrRawTraceIncluded': false,
+        'historicalNativeTraceAvailable':
+            capabilities['historicalNativeTraceAvailable'] == true,
+        'historicalNativeSanitizedSummaryVersion':
+            capabilities['historicalNativeSanitizedSummaryVersion'] ?? 1,
+        'historicalNativeSignalNumber':
+            capabilities['historicalNativeSignalNumber'] ?? 0,
+        'historicalNativeSignalName':
+            capabilities['historicalNativeSignalName'] ?? 'unknown',
+        'historicalNativeSignalCode':
+            capabilities['historicalNativeSignalCode'] ?? 0,
+        'historicalNativeSignalCodeName':
+            capabilities['historicalNativeSignalCodeName'] ?? 'unknown',
+        'historicalNativeAbortMessagePresent':
+            capabilities['historicalNativeAbortMessagePresent'] == true,
+        'historicalNativeAbortCategory':
+            capabilities['historicalNativeAbortCategory'] ?? 'unavailable',
+        'historicalNativeCauseCategories':
+            capabilities['historicalNativeCauseCategories'] ?? const <String>[],
+        'historicalNativeCrashThreadCategory':
+            capabilities['historicalNativeCrashThreadCategory'] ?? 'unknown',
+        'historicalNativeBacktraceModules':
+            capabilities['historicalNativeBacktraceModules'] ?? const <String>[],
+        'historicalNativeBacktraceFrameCategories':
+            capabilities['historicalNativeBacktraceFrameCategories'] ??
+                const <String>[],
+        'historicalNativeTraceSizeBucket':
+            capabilities['historicalNativeTraceSizeBucket'] ?? 'unavailable',
+        'historicalNativeTraceTruncated':
+            capabilities['historicalNativeTraceTruncated'] == true,
+        'historicalNativeRawTraceIncluded': false,
         'batteryOptimizationIgnored':
             androidInfo['batteryOptimizationIgnored'] == true,
         'backgroundRestricted': androidInfo['backgroundRestricted'] == true,

@@ -45,8 +45,11 @@ object RuntimeDiagnosticStore {
             metadata.forEach { (key, value) ->
                 when (key) {
                     "generation", "sourceGeneration", "targetActivationGeneration",
-                    "payloadBytes", "totalBytes", "sdk", "count" -> if (value is Number) safeMetadata.put(key, value)
-                    "direction", "operation", "transport", "state" -> safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
+                    "payloadBytes", "totalBytes", "sdk", "count", "inputChars",
+                    "pssKb", "rssKb", "threads" -> if (value is Number) safeMetadata.put(key, value)
+                    "modelsReady" -> if (value is Boolean) safeMetadata.put(key, value)
+                    "direction", "operation", "transport", "state", "language" ->
+                        safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
                     "stage", "loaderPolicy", "failureType", "failureTarget" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
                     "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256" -> {

@@ -12,8 +12,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+195" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+195';" in read(
+assert "version: 0.41.55+196" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.55+196';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -61,6 +61,9 @@ asset_store = read(
 assert 'android:process=":genie_tts"' in manifest
 assert 'android:extractNativeLibs="true"' in manifest
 assert "aidl = true" in gradle
+assert 'ndkVersion = "27.2.12479018"' in gradle
+assert "isMinifyEnabled = false" in gradle
+assert "isShrinkResources = false" in gradle
 assert "GenieTtsRuntime(applicationContext)" in service
 assert "private val lock = ReentrantLock(true)" in service
 assert "Executors.newSingleThreadExecutor" in service
@@ -73,6 +76,14 @@ assert "linkToDeath" in client and "child_process_exit" in client
 assert "TtsProcessCheckpoint" in service and "Debug.getPss()" in read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/TtsProcessCheckpoint.kt"
 )
+assert "HistoricalNativeTombstoneSanitizer.summarize" in read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/SystemBridge.kt"
+)
+diagnostic_store = read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/RuntimeDiagnosticStore.kt"
+)
+for token in ('"pssKb"', '"rssKb"', '"threads"', '"modelsReady"', '"language"'):
+    assert token in diagnostic_store, token
 assert "GenieFrontendAdapter.prepareChineseAssets" in runtime
 assert "GenieFrontendAdapter.importRoberta" in runtime
 assert "GenieRuntimeAssetStore.prepare" in runtime
@@ -141,13 +152,17 @@ assert "whereArgs: const ['tts_replacements_json', '{\"Yuki\":\"有希\"}']" in 
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+195 APK",
+    "Build AI Companion v0.41.55+196 APK",
     "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-195-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.55-196-Genie-Direct-Port-Lazy-Language-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token
 assert "genie-tts-private-runtime-v0.7" not in workflow
+assert "companion ONNX Runtime differs from verified Genie APK" in workflow
+assert "libMNN.so" in workflow and "libbertvits2.so" in workflow
+assert "LegacyTtsRuntime" not in service
+assert "LegacyTtsRuntime" not in native
 
 print("v0.41.55 pinned Genie direct-port and lazy-language contracts passed")
