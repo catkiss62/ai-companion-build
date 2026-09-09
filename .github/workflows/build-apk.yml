@@ -403,6 +403,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  reconcile-ledger:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconcile oversized project ledger when requested
+        if: ${{ hashFiles('app/tools/reconcile_v04155_build198_ledger.py') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 app/tools/reconcile_v04155_build198_ledger.py
+          python3 app/tools/validate_current_ledger_handoff.py
+          rm app/tools/reconcile_v04155_build198_ledger.py
+          git config user.name 'catkiss62'
+          git config user.email 'aolu0610@gmail.com'
+          git add AI_Companion_当前总账.md app/tools/reconcile_v04155_build198_ledger.py
+          git commit -m 'docs: reconcile build 198 project ledger [skip ci]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
   detect-change-scope:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -458,6 +481,23 @@ jobs:
             exit 0
           fi
 
+          if grep -Fqx 'app/tools/reconcile_v04155_build198_ledger.py' "${changed_files}"; then
+            while IFS= read -r changed_path; do
+              case "${changed_path}" in
+                'app/tools/reconcile_v04155_build198_ledger.py'|'.github/workflows/build-apk.yml'|'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
+                  ;;
+                *)
+                  request_full_build "ledger_reconcile_with_project_change:${changed_path}"
+                  exit 0
+                  ;;
+              esac
+            done < "${changed_files}"
+            echo 'run-full-build=false' >> "${GITHUB_OUTPUT}"
+            echo 'reason=oversized_ledger_reconciliation' >> "${GITHUB_OUTPUT}"
+            echo 'Oversized-ledger bookkeeping only; the validated APK source is unchanged.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
           while IFS= read -r changed_path; do
             case "${changed_path}" in
               'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
@@ -485,20 +525,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Reconcile oversized build-198 project ledger once
-        if: ${{ hashFiles('app/tools/reconcile_v04155_build198_ledger.py') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 app/tools/reconcile_v04155_build198_ledger.py
-          python3 app/tools/validate_current_ledger_handoff.py
-          rm app/tools/reconcile_v04155_build198_ledger.py
-          git config user.name 'catkiss62'
-          git config user.email 'aolu0610@gmail.com'
-          git add AI_Companion_当前总账.md app/tools/reconcile_v04155_build198_ledger.py
-          git commit -m 'docs: reconcile build 198 project ledger [skip ci]'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Restore exact validated Genie TTS v0.6.4 runtime payload
         shell: bash
