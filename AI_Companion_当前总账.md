@@ -32,29 +32,29 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
+| 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | v0.41.55+196 远端 head `ae5ce2c356096b1077de38bf9000150e2af7682b` / tree `b7b423aca29f533d31ffc414451cf904cdc45daf`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
-| App / 数据库 | 当前本地修复目标为 `0.41.55+197 / schema 57 / Snapshot protocol 5`；上一真机包为 `0.41.55+196`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
-| 最终 CI | +196 run [`34363769443`](https://github.com/catkiss62/ai-companion-build/actions/runs/34363769443)（809）完整成功：源码门、Kotlin/AIDL、analyze、`704/704` Flutter tests、Release APK、签名、ORT 字节校验和资源实包均通过 |
-| 测试 APK | `AI-Companion-v0.41.55-196-Genie-Direct-Port-Lazy-Language-APK.apk`，537,138,344 bytes |
-| APK SHA-256 | `025686edd724d0f7dd0687f74b27656662b9d5f8bd0a206eeb027764f53e0925`；与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10109495335`](https://github.com/catkiss62/ai-companion-build/actions/runs/34363769443/artifacts/10109495335)，ZIP 530,282,275 bytes / digest `d352dccd7f1c6e16c5a070c87ec29edd046d69c05babbf826d8b36f38fbf35b4`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-d60e5eda59ccce7b066c) 未发布，`main` 未合并 |
+| 有效构建 head / tree | v0.41.55+197 远端构建 head `16173d8c1956961119cca651638dc3a4a41a478f` / tree `b1da886fffd068f436c8e43ba5ca5c28b9c47fe8`；不含用户附件、诊断、备份、密钥、RoBERTa 或原始 Genie APK，私有 Genie 只由 CI 从 Draft 资产恢复并裁剪 |
+| App / 数据库 | 当前测试包为 `0.41.55+197 / schema 57 / Snapshot protocol 5`；上一真机包为 `0.41.55+196`。不升 schema，复用外语版本表；旧聊天、规则手改、图库、Memory、Thought、Desire、网页候选与行为账本原样保留 |
+| 最终 CI | +197 run [`34387040169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34387040169)（812）完整成功：源码门、Kotlin/AIDL、Flutter analyze/tests、Release APK、固定签名、Genie 资源实包和 ORT 逐字节校验全部通过 |
+| 测试 APK | `AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK.apk`，537,145,596 bytes |
+| APK SHA-256 | `c1f2ee17d946ee1af7943d9ea4b71539b5f4548e9efe54ef27122ba68b72bb78`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10118535617`](https://github.com/catkiss62/ai-companion-build/actions/runs/34387040169/artifacts/10118535617)，ZIP 530,288,966 bytes / digest `32669db4f30f90634adf051d737758999e2f8e4330da4d861d3ad28ee680e2f1`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-fcd49a9314364ea22c07) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +195 真机 TTS 失败；+196 已完成 NDK/Release 对齐，且用户真机确认中文、英文可实际播放，为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。日语未出声、语言按钮误触发立即播放、TTS 状态通知拉到底部、合成中省略号不可取消及段间停顿仍待修 |
+| 当前总状态 | +195 真机 TTS 失败；+196 已完成 NDK/Release 对齐，且用户真机确认中文、英文可实际播放，为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`。+197 已完成 TTS 反馈窄修，并合入用户备份规则 05/06/07、造梗 50%、LLM 年龄边界清理与沉浸对白 `「」` 修复；run 812 全绿并生成 APK，严格为 `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.55+197 TTS 真机反馈窄修**：语言按钮只切换并持久化，不立即朗读；消息喇叭在 `synthesizing` 与 `playing` 均可取消；TTS-only 通知不得改变聊天滚动位置；补齐日语投影失败的可见/脱敏诊断并提高结构解析容错；对齐 Genie v0.6.4 单 AudioTrack 连续入队语义，消除人为 200ms 段间停顿。完成本地合同后推送当前分支并构建 APK |
-| 目标 | 保留 +196 已真机成功的独立进程、单串行 Genie 推理与中英文出声；只修交互、日语进入链和播放排队。`中/日/EN` 是后续朗读语言选择器，不是播放键；下一次自动朗读使用已选择语言，当前消息只有点喇叭才朗读 |
+| 当前下一步 | **覆盖安装并真机验收 v0.41.55+197**：先测消息扬声器和“测试声音”，再测中/日/EN 按钮只切换不自动播放、合成中省略号停止、长回复连续播放与滚动位置；若失败，记录界面显示的脱敏 phase/language/stage 并立即导出诊断。同步核对规则 05/06/07、造梗 50%、年龄边界清理和沉浸对白 `「」` |
+| 目标 | 保留 +196 已真机成功的独立进程、单串行 Genie 推理与中英文出声；`中/日/EN` 只切换后续朗读语言，点喇叭或下一句自动朗读才出声。规则正文除用户另行要求删除的年龄边界外必须与备份逐字一致；造梗正文逐字一致且概率 50%；沉浸房间不再被内部最终提示强制成 `“”` |
 | 当前证据 | +196 新报告 `2026-09-09T15:00:03Z`：`available/initialized=true`，多次出现 `audio_playback/audio_complete`，与用户确认中英文出声一致；当前会话没有新的 `initialize_frontend_ja/prepare_frontend_ja`，故日语失败发生在原生前端之前。一次主动停止后子进程在 `generation_cancelled` 退出（约 2.52 GB PSS）但随后自动恢复并继续播放。源码确认 TTS 状态每次 `_safeNotify()` 都会落入 ChatPage 无条件 `_scrollToLatest()`；Genie 固定核心七文件仍与 `5380a53` 逐字一致，但伴侣播放层使用逐段 WAV/新 AudioTrack + 200ms gap，未与原版连续 AudioTrack 完全对齐 |
-| 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
+| 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。规则升级只替换精确匹配已知默认/本次备份哈希的内容，任何其他手工编辑继续优先；不提交备份、聊天、诊断或私有素材。19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端或并发 Genie 推理 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文；`显示外语` 仍只控制气泡投影。保持 v0.6.4 固定分段、首段 1 秒 PCM 预填充、CPU 8 线程和串行推理；禁止三前端同时预热、并发 Genie 推理、恢复 provider-token 真流式或把私人模型提交公开仓库。GPU/NNAPI 只做代码与可行性结论，不与本稳定性窄修同包启用 |
-| 完成判据 | 本地静态合同、Dart 测试、Kotlin/AIDL/Flutter analyze 与 Release APK 由 Actions 全绿；真机再分别确认日语首次/二次播放、按钮只切换、点省略号立即停止、播放前后滚动位置不变、长回复段间无固定空洞、中英文不回归。自动化成功不得提前写成真机通过 |
-| 直接详细入口 | `app/docs/GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md` 与 `app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md`；现有队列见 `app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md`，Genie 来源为 `catkiss62/Genie-TTS-Android` 的已验证 v0.6.4；v0.7 真流式明确排除 |
+| 完成判据 | 本地静态合同、Dart 测试、Kotlin/AIDL/Flutter analyze 与 Release APK 由 Actions 全绿；真机再分别确认日语首次/二次播放、按钮只切换、点省略号立即停止、播放前后滚动位置不变、长回复段间无固定空洞、中英文不回归；并确认默认/升级后的规则、造梗 50%、DeepSeek 实际注入和沉浸 `「」`。自动化成功不得提前写成真机通过 |
+| 直接详细入口 | `app/docs/GENIE_DIRECT_PORT_LAZY_LANGUAGE_v0.41.55.md`；TTS 前序见 `app/docs/GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md` 与 `app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md`，现有队列见 `app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md`；Genie 来源固定为已验证 v0.6.4，v0.7 真流式明确排除 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -89,18 +89,27 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.55+197 TTS 真机反馈、队列对照与交互窄修（IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-09 v0.41.55+197 TTS 真机反馈、队列对照与交互窄修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 +196 终于能实际播放中文和英文，但日语无声；同时明确语言选择按钮不得点击即播、合成中省略号应可停止、朗读不得改变聊天滚动位置，并要求核对 Genie/MoeChat 的分段与生成排队以及 CPU/GPU 路径。
 2. 开工取证限定为新脱敏报告、直接相关源码/测试、固定 Genie `5380a53` 与用户指定的 MoeChat 仓库，不全量读取总账。+196 诊断把状态提升为 `TRUE DEVICE PARTIAL`，但没有可保留到导出时的新日语原生前端 checkpoint；因此现有报告不足以判断日语失败位于投影、OpenJTalk 还是声学推理。
 3. 固定 Genie 核心七文件与参考仓库 SHA 逐字一致。分段上，中文/日语目标 42、最大 54，英文目标 88、最大 110；后续段会立即提交给单串行 worker，并能在前段播放时继续生成，不会逐段重载语言前端。差异在播放：Genie v0.6.4 用一个 AudioTrack 连续写 PCM、首段先写最多 1 秒 PCM 再开播；伴侣当前逐段新建 AudioTrack，并在下一段已就绪时人为等待 200ms，属于可解释停顿的真实偏差。
 4. MoeChat 当前主线把 LLM 文本、TTS 请求、音频响应分成 asyncio 队列，完整句一出现便开始服务端 GPT-SoVITS，并可流式返回 raw 音频；这能降低从“LLM 尚未结束”到首音的延迟，但不是本地 Genie ONNX 的模型/线程优化。本轮只吸收尽早排队和明确取消的合同，不恢复已排除的 provider-token 真流式。
-5. 修改前保护：不改 schema、Memory/Desire/人格/世界书、中文历史真源、四音色映射或 Genie 固定核心；不把 GPU/NNAPI 实验与当前真机修复混包。预定验证包括语言选择/停止/滚动纯策略测试、日语投影容错测试、队列 FIFO 与连续播放合同、现有 v0.41.55 专项 validator、总账 validator、`git diff --check`，并由 Actions 完成真实 Flutter/Kotlin/Release 构建。
+5. TTS 开工时保护：不改 schema、Memory/Desire/人格、中文历史真源、四音色映射或 Genie 固定核心；不把 GPU/NNAPI 实验与当前真机修复混包。用户随后明确把规则 05/06/07、造梗默认、年龄边界清理和沉浸引号加入同一构建，故世界书/规则的上述原排除仅被这份精确清单取代，其余内容仍不扩改。预定验证包括语言选择/停止/滚动纯策略测试、日语投影容错、队列 FIFO/连续播放、默认值哈希、保守迁移、有效注入扫描、沉浸末端锁、v0.41.55 与总账 validator，并由 Actions 完成真实 Flutter/Kotlin/Release 构建。
 6. 本地实现版本提升为 `0.41.55+197`：`中/日/EN` 只停止旧语音、更新选择并持久化，不再调用 `_speakMessageSafely`；普通聊天、沉浸房间和悬浮聊天的 `synthesizing` 省略号均可触发停止，播放中方块语义不变。外语译文 JSON 仍要求段数/顺序一致，但最终 kind 强制取中文源段位置，避免模型把 `action/dialogue` 翻成本地化枚举后整条日语被拒绝；投影、前端切换和生成失败新增脱敏 phase/language/stage 诊断，仍不记录正文。
 7. ChatPage 新增通知跟随纯策略并记录上次 stream 内容；只有 stream 真变化、助手提交或 generation 结束才移动滚动位置。TTS phase、外语缓存、未读等 controller 通知只重建，不再调用 `_scrollToLatest()`。对应测试明确覆盖 TTS-only=false 与真实 stream/commit=true。
 8. 播放层删除 Dart 的墙钟 `initialPrefill` 和人为 `interSentenceGap=200ms`；`TtsPlaybackQueue` 继续一次提交全部固定分段给串行生成 worker，首段就绪即开启 native stream，后续按 index 连续 enqueue。`WavAudioPlayer` 恢复 Genie v0.6.4 的单生产者单 AudioTrack：首 WAV 先写最多一秒 PCM 后调用 `play()`，后续 WAV 校验同 PCM 格式后写入同一 track，`finish` 等真实 playback head drain；stop 可同时取消排队、阻塞写入和正在播放的 track。
 9. GPU 结论为不随 +197 启用。生产运行时明确固定 `EngineConfig(BackendMode.CPU, 8)`；固定 Genie 自身虽然保留 XNNPACK 与 NNAPI-VITS 测试后端，但 README 记录同一目标 Xiaomi 设备上 CPU 8 线程持续 RTF 约 1.35～1.47，XNNPACK 出现异常短音频、NNAPI 无收益。Android 通用 GPU 也不是 CUDA 开关，而是依赖模型/设备算子覆盖的 NNAPI 等 EP；若以后重测必须独立 benchmark、逐模型分配与 CPU 自动回退。
-10. 本地已通过：工作流 YAML 解析、修改脚本 Python 编译、总账 validator（轻量区 20,004 bytes，低于新 50 KB ceiling）、v0.41.55/TTS state/音频呈现及 v0.41.43～52 当前相关 validators、工作流全部源 validator（除本地缺 417 桌宠包、LingChat 资源和 `kotlinc` 的 3 项环境失败）与 `git diff --check`。本环境无 Flutter/Dart SDK，Gradle wrapper又因受限网络无法下载 Gradle 8.12，因此真实 Dart format/analyze/tests、Kotlin 编译和 APK 必须由 Actions 完成，当前不得写成 CI 通过或 APK ready。
+10. 本地通过工作流 YAML、Python 编译、总账、v0.41.55/TTS state/音频呈现及 v0.41.43～52 当前相关 validators 与 `git diff --check`；本地缺失的 Flutter/Kotlin/私有资源验证已由 run 812 完整补齐并通过，不再保留 `CI PENDING`。
+11. 用户上传的 `AI_Companion_Backup_2026-09-09T17-40-57.aibackup` 仅在本地解包读取 `state.json` 的目标字段，未读取或提交聊天、附件与其他私人数据。界面分组 05 对应 `04_intimacy_core`，06 对应 `05_intimacy_rendering` / `06_intimacy_reference`，07 对应 `immersive_07_global` / `immersive_07_nsfw_source`；五段备份正文分别按精确 SHA 锁定。新默认除删除用户另行指定的年龄边界措辞外逐字符等于备份，validator 固定修改后的五个 SHA；旧安装只在正文命中本次备份或历史默认白名单时迁移，其他手改不覆盖。
+12. “造梗能力”采用备份正文，除同一年龄措辞清理删除一处身份错位示例外无其他改写；清理后 SHA-256 为 `829c17a037400319c9c5519b71803d9dba38e438f27b6a7fa17bad7500aa4bb5`，激活概率改为 50，scope 保持 `chat|proactive`。新安装直接 seed；旧安装只把仍精确等于 v0.41.49 打包正文的条目升级，另有手改的条目不被覆盖。
+13. 年龄边界清理由运行注入链而非全仓盲改完成：当前默认规则、普通/主动 Prompt、沉浸 Prompt、亲密路由、Memory/Personality 学习、世界书/参考库注入前言和当前姿态模板不再注入“成年/未成年/年龄模糊”门；保留历史常量和精确哈希只用于识别旧默认，不参与当前 Prompt。导入分类器、视觉内容分级元数据及 UI 分类名不是发送给聊天 LLM 的年龄门，保持原行为。
+14. 沉浸房间强制 `“”` 的根因已定位为代码内部末端锁和房间新建默认，而非用户可编辑提示词：`ImmersivePromptBuilder` 的 final lock、截断续写锁、当前全局规则与 `immersiveDefaultRoomNovelRules` 现统一要求直角引号 `「」`。旧房间若仍精确等于任一历史默认（含本次旧弯引号版本）会保守迁移；手改房间规则继续保留。备份五段规则本身也已使用 `「」`。
+15. 新增/扩展测试覆盖默认规则有效集合无年龄边界、五段映射、八个备份旧哈希迁移、造梗正文/50%、沉浸 `「」` final lock 与旧弯引号房间迁移。备份对照脚本证明五段规则与造梗正文都只存在授权的年龄措辞删除，没有其他改写；v0.41.55 与更新后的 v0.38.1 静态合同、`git diff --check` 已通过。Actions run 812 随后证明真实类型检查、数据库/完整 Flutter 测试、Kotlin 和 Release APK 全部通过。
+16. +197 运行实现最终远端提交为 `15327876ef47fa28ba9988e4dce4dde24db0a387`。run 810 因 Git Data 上传大体积中文总账时 blob 被截断成非 UTF-8，在源码 validator 读文件处失败，尚未进入编译；本地完整 UTF-8 总账以 blob SHA `c03b5d15dcad98e313c9a13ccbf6c099f5e71137` 精确恢复，恢复后的远端 tree 与本地目标 tree 一致。新增总账 validator 会拒绝错误 Markdown 头、NUL 与 Unicode replacement character，防止静默复发。
+17. 最终构建 head `16173d8c1956961119cca651638dc3a4a41a478f` / tree `b1da886fffd068f436c8e43ba5ca5c28b9c47fe8` 的 Actions run [`34387040169`](https://github.com/catkiss62/ai-companion-build/actions/runs/34387040169)（812）完整成功：源码与历史合同、Kotlin/AIDL、新 native tombstone 测试、Flutter analyze/tests、arm64 Release、固定签名、Genie/桌宠/LingChat/塔罗实包和最终 `libonnxruntime.so` 与验证版 Genie APK 逐字节相等均通过。
+18. APK `AI-Companion-v0.41.55-197-Genie-Direct-Port-Lazy-Language-APK.apk` 为 537,145,596 bytes，Draft 资产服务端 SHA-256 `c1f2ee17d946ee1af7943d9ea4b71539b5f4548e9efe54ef27122ba68b72bb78`。Artifact [`10118535617`](https://github.com/catkiss62/ai-companion-build/actions/runs/34387040169/artifacts/10118535617) ZIP 为 530,288,966 bytes / digest `32669db4f30f90634adf051d737758999e2f8e4330da4d861d3ad28ee680e2f1`；同一未发布 Draft Release 已上传 APK、checksum 与 monitor，`main` 未合并，正式 Release 未发布。
+19. 当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。真机先确认消息扬声器与设置页测试声音；再验日语首次/二次播放、按钮只切换、合成中停止、长回复连续播放和滚动不跳。若失败，界面应直接显示脱敏 phase/language/stage；随后导出诊断，用 +196 起已接入的 tombstone/PSS/RSS/线程类别区分原生失败，不再从 AudioTrack 或物理 16 GB RAM做无证据猜测。
 
 ### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
 
