@@ -486,6 +486,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Reconcile oversized build-198 project ledger once
+        if: ${{ hashFiles('app/tools/reconcile_v04155_build198_ledger.py') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 app/tools/reconcile_v04155_build198_ledger.py
+          python3 app/tools/validate_current_ledger_handoff.py
+          rm app/tools/reconcile_v04155_build198_ledger.py
+          git config user.name 'catkiss62'
+          git config user.email 'aolu0610@gmail.com'
+          git add AI_Companion_当前总账.md app/tools/reconcile_v04155_build198_ledger.py
+          git commit -m 'docs: reconcile build 198 project ledger [skip ci]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - name: Restore exact validated Genie TTS v0.6.4 runtime payload
         shell: bash
         env:
