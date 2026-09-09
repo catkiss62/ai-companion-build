@@ -1151,18 +1151,17 @@ class ChatController extends ChangeNotifier {
 
     final ttsEnabled = (await db.getSetting('tts_enabled')) != '0';
     final autoTts = ttsEnabled && (await db.getSetting('auto_tts')) != '0';
-    final showForeignReplies =
-        (await db.getSetting('show_foreign_replies')) == '1';
-    final configuredSpeechLanguage = showForeignReplies
-        ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
-            ChatLanguage.chinese
-        : ChatLanguage.chinese;
+    final multilingualEnabled =
+        (await db.getSetting('multilingual_replies_enabled')) != '0';
+    final configuredSpeechLanguage =
+        ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese;
     // A multilingual provider stream is a private tagged JSON envelope. Its
     // selected projection is not trustworthy until the complete envelope has
     // parsed, so never feed partial Chinese/JSON to a Japanese or English
     // frontend. Multilingual auto speech starts from the selected projection
     // immediately after the durable commit instead.
-    streamTts = !showForeignReplies &&
+    streamTts = !multilingualEnabled &&
         autoTts &&
         (await db.getSetting('tts_streaming_enabled')) != '0';
     if (streamTts) {
@@ -1227,15 +1226,11 @@ class ChatController extends ChangeNotifier {
 
     if (result.completed) {
       // Generation format is locked at turn start, while the playback choice
-      // is read again at commit. If the user disabled foreign display or chose
-      // another language during a long generation, the obsolete choice must
-      // not start speaking afterward.
-      final foreignPlaybackEnabled =
-          (await db.getSetting('show_foreign_replies')) == '1';
-      final latestSpeechLanguage = foreignPlaybackEnabled
-          ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
-              ChatLanguage.chinese
-          : ChatLanguage.chinese;
+      // is read again at commit. Displaying foreign text is independent from
+      // which saved projection is spoken, so hiding it must never reset TTS.
+      final latestSpeechLanguage =
+          ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+              ChatLanguage.chinese;
       final speechLanguage = result.assistant!.hasLanguage(latestSpeechLanguage)
           ? latestSpeechLanguage
           : ChatLanguage.chinese;

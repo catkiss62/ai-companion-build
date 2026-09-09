@@ -211,7 +211,7 @@ class DurableGenerationRunner {
 
     try {
       final multilingualEnabled =
-          (await db.getSetting('show_foreign_replies')) == '1';
+          (await db.getSetting('multilingual_replies_enabled')) != '0';
       final finalGenerationReminder = multilingualEnabled
           ? PromptBuilder.multilingualGenerationReminder()
           : PromptBuilder.visibleChineseGenerationReminder();

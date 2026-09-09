@@ -19,6 +19,7 @@ class NativeTtsEngine private constructor(context: Context) {
     @Volatile private var lastError = ""
     @Volatile private var speechGeneration = 0L
     @Volatile private var verifiedArtifacts = 0
+    @Volatile private var diagnosticStage = "not_initialized"
 
     fun status(): Map<String, Any> = mapOf(
         "available" to runtime.artifactsPresent,
@@ -27,11 +28,11 @@ class NativeTtsEngine private constructor(context: Context) {
         "integrity" to if (verifiedArtifacts > 0) "verified" else "unchecked",
         "artifactCount" to verifiedArtifacts,
         "goldenReference" to "genie-v0.6.4-private-runtime",
-        "diagnosticStage" to if (initialized) "frontend_$activeLanguage" else "not_initialized",
+        "diagnosticStage" to diagnosticStage,
         "diagnosticTrace" to listOfNotNull(
             "single_serial_worker",
-            if (initialized) "acoustic_models_ready" else null,
             if (initialized) "frontend_$activeLanguage" else null,
+            if (runtime.acousticModelsReady) "acoustic_models_ready" else null,
         ),
         "detail" to lastError.ifBlank { runtime.statusDetail() },
     )
@@ -55,7 +56,9 @@ class NativeTtsEngine private constructor(context: Context) {
         speechLock.lock()
         try {
             activeLanguage = normalizeLanguage(language)
+            markStage("initialize_frontend_$activeLanguage", durable = true)
             initialized = runtime.initialize(activeLanguage)
+            markStage("frontend_ready_$activeLanguage")
             lastError = ""
             return status()
         } catch (error: Throwable) {
@@ -72,8 +75,10 @@ class NativeTtsEngine private constructor(context: Context) {
         try {
             val next = normalizeLanguage(language)
             if (!initialized) return initialize(next)
+            markStage("switch_frontend_$next", durable = true)
             runtime.prepareLanguage(next)
             activeLanguage = next
+            markStage("frontend_ready_$activeLanguage")
             lastError = ""
             return status()
         } catch (error: Throwable) {
@@ -144,9 +149,18 @@ class NativeTtsEngine private constructor(context: Context) {
                 voice = normalizeVoice(voice),
                 speed = speed,
                 shouldCancel = { generation != generationToken() },
+                onStage = { stage ->
+                    markStage(
+                        stage,
+                        durable = stage == "load_acoustic_models" ||
+                            stage.startsWith("prepare_frontend_") ||
+                            stage.startsWith("infer_"),
+                    )
+                },
             )
             if (generation != generationToken()) return null
             check(wav.size >= 44) { "Genie TTS returned invalid WAV data" }
+            markStage("wav_ready")
             lastError = ""
             return wav
         } catch (error: Throwable) {
@@ -170,8 +184,10 @@ class NativeTtsEngine private constructor(context: Context) {
     fun playAudio(wav: ByteArray, generation: Long = generationToken()) {
         if (wav.isEmpty() || generation != generationToken()) return
         if (SystemAudioPolicy.isSilentOrVibrate(appContext)) return
+        markStage("audio_playback", durable = true)
         player.setVolume(volume.toFloat())
         player.play(wav)
+        markStage("audio_complete")
     }
 
     fun speak(text: String) {
@@ -200,6 +216,7 @@ class NativeTtsEngine private constructor(context: Context) {
         try {
             runtime.close()
             initialized = false
+            diagnosticStage = "not_initialized"
         } finally {
             speechLock.unlock()
         }
@@ -211,6 +228,17 @@ class NativeTtsEngine private constructor(context: Context) {
     private fun normalizeVoice(value: String) =
         value.takeIf { it == "daily" || it == "gentle" || it == "lively" || it == "cute" }
             ?: "daily"
+
+    private fun markStage(stage: String, durable: Boolean = false) {
+        diagnosticStage = stage
+        RuntimeDiagnosticStore.record(
+            appContext,
+            category = "tts",
+            phase = stage,
+            metadata = mapOf("stage" to stage),
+            durable = durable,
+        )
+    }
 
     companion object {
         @Volatile private var instance: NativeTtsEngine? = null

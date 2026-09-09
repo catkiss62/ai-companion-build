@@ -118,7 +118,9 @@ class WavAudioPlayer {
             runCatching { old.pause() }
             runCatching { old.flush() }
             runCatching { old.stop() }
-            runCatching { old.release() }
+            // play() owns release(). Releasing here while its blocking write
+            // loop still holds the same AudioTrack can cross into freed native
+            // state when a user interrupts or switches languages.
         }
     }
 

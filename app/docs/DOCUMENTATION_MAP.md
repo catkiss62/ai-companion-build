@@ -82,6 +82,7 @@
 ### 本地 TTS
 
 - `GENIE_MULTILINGUAL_TTS_v0.41.53.md`：普通聊天三语同意图消息、中文权威投影、`中/日/EN` 文本语音联动、Genie 四音色、单前端按需加载、双层分段和旧妹居退出的当前实施合同。
+- `GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md`：v0.6.4 前端优先初始化、AudioTrack 打断安全、三语生成/显示/语音解耦，以及规则、世界书和自定义模型设置的本轮候选合同。
 - `TTS_RUNTIME_UPGRADE_v0.39.5.md`：当前妹居 TTS 资源、调用、分句与停止契约。
 - `TTS_RUNTIME_MANIFEST_v0.39.5.json`：当前 32 项打包资源的大小与 SHA-256 清单。
 

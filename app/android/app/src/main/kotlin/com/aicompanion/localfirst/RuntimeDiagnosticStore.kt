@@ -27,6 +27,7 @@ object RuntimeDiagnosticStore {
         code: String = "",
         detail: String = "",
         metadata: Map<String, Any?> = emptyMap(),
+        durable: Boolean = false,
     ) {
         runCatching {
             val now = System.currentTimeMillis()
@@ -64,7 +65,8 @@ object RuntimeDiagnosticStore {
                     .put("metadata", safeMetadata),
             )
             while (kept.length() > MAX_EVENTS) kept.remove(0)
-            prefs.edit().putString(KEY_EVENTS, kept.toString()).apply()
+            val editor = prefs.edit().putString(KEY_EVENTS, kept.toString())
+            if (durable) editor.commit() else editor.apply()
         }
     }
 

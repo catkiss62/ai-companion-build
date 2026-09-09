@@ -13,7 +13,11 @@ def read(path: str) -> str:
 
 assert any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.52+191", "version: 0.41.53+192")
+    for version in (
+        "version: 0.41.52+191",
+        "version: 0.41.53+192",
+        "version: 0.41.54+193",
+    )
 )
 assert any(
     schema in read("lib/core/database/app_database.dart")

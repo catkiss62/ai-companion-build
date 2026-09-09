@@ -194,7 +194,22 @@ class ChineseFrontend(private val engine: GenieBenchmarkEngine) : AutoCloseable 
         progress("首次加载手机端中文词典……")
         vocab = readSimpleMap(File(root, info.vocab)) { it.toLong() }
         charPhones = readPhoneMap(File(root, info.charPhones))
-        phrasePhones = readPhoneMap(File(root, info.phrasePhones))
+        phrasePhones = readPhoneMap(File(root, info.phrasePhones)).toMutableMap().apply {
+            // Companion pronunciation overrides. Chinese-final ids are laid
+            // out tone 1..5, so 144=en5, 259=u5 and 134=e5. This keeps 肯、
+            // 铺、咳 unstressed exactly as requested instead of inheriting the
+            // standalone character readings ken3 / pu4 / ke2.
+            put("拖肯", listOf(longArrayOf(252L, 290L), longArrayOf(222L, 144L)))
+            put(
+                "地铺西咳",
+                listOf(
+                    longArrayOf(127L, 169L),
+                    longArrayOf(245L, 259L),
+                    longArrayOf(317L, 166L),
+                    longArrayOf(222L, 134L),
+                ),
+            )
+        }
         punctuation = readPhoneMap(File(root, info.punctuationIds), singleGroup = true)
     }
 

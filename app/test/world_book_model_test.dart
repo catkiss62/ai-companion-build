@@ -33,7 +33,12 @@ void main() {
   test('system presets keep persona optional and experiments editable', () {
     final byId = {for (final preset in worldBookSystemPresets) preset.id: preset};
 
-    expect(byId.keys, contains('builtin.worldbook.daily_conversation'));
+    expect(byId.keys, containsAll(<String>{
+      'builtin.worldbook.natural_dialogue',
+      'builtin.worldbook.daily_conversation',
+      'builtin.worldbook.personality_spectrum',
+      'builtin.worldbook.humor',
+    }));
     final daily = byId['builtin.worldbook.daily_conversation']!;
     expect(daily.manualActive, isTrue);
     expect(daily.probability, 100);
@@ -48,7 +53,23 @@ void main() {
     expect(daily.content, contains('【幽默】'));
     expect(daily.content, contains('不解释笑点'));
     expect(daily.content, contains('【动作与神态】'));
-    expect(worldBookSystemPresets, hasLength(1));
+    expect(
+      byId['builtin.worldbook.natural_dialogue']!.content,
+      contains('# 自然对话总则'),
+    );
+    expect(byId['builtin.worldbook.natural_dialogue']!.priority, 1000);
+    expect(
+      byId['builtin.worldbook.personality_spectrum']!.content,
+      contains('性格光谱一句话印象'),
+    );
+    expect(byId['builtin.worldbook.personality_spectrum']!.priority, 850);
+    expect(
+      byId['builtin.worldbook.humor']!.content,
+      contains('【造梗与抽象表达】'),
+    );
+    expect(byId['builtin.worldbook.humor']!.manualActive, isTrue);
+    expect(byId['builtin.worldbook.humor']!.priority, 650);
+    expect(worldBookSystemPresets, hasLength(4));
   });
 
   test('roleplay is a first-class entry type, not a behavior module', () {

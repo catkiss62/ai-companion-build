@@ -67,6 +67,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ChatDialogueColorOption _dialogueColor = ChatDialogueColorOption.purple;
   RelationshipAge? _relationshipAge;
   bool _ttsEnabled = false;
+  bool _multilingualRepliesEnabled = true;
   bool _showForeignReplies = false;
   ChatLanguage _selectedLanguage = ChatLanguage.chinese;
   double _panelOpacity = 0.75;
@@ -280,12 +281,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _relationshipAge = await db.relationshipAge();
     await _android.setOverlayDialogueColor(_dialogueColor.key);
     _ttsEnabled = (await db.getSetting('tts_enabled')) == '1';
+    _multilingualRepliesEnabled =
+        (await db.getSetting('multilingual_replies_enabled')) != '0';
     _showForeignReplies =
         (await db.getSetting('show_foreign_replies')) == '1';
-    _selectedLanguage = _showForeignReplies
-        ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
-            ChatLanguage.chinese
-        : ChatLanguage.chinese;
+    _selectedLanguage =
+        ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese;
     _notificationSound = ProactiveNotificationSound.fromSetting(
       await db.getSetting('proactive_notification_sound'),
     );
@@ -1132,8 +1134,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 } else {
                                   controller.speakMessage(
                                     item.message!,
-                                    language: _showForeignReplies &&
-                                            item.message!.hasLanguage(
+                                    language: item.message!.hasLanguage(
                                               _selectedLanguage,
                                             )
                                         ? _selectedLanguage
@@ -1238,7 +1239,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
-                          if (_showForeignReplies)
+                          if (latestAssistant != null)
                             _chatLanguageBar(latestAssistant),
                           _composer(context),
                         ],
@@ -1306,7 +1307,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       child: Row(
         children: [
           Text(
-            '正文与语音',
+            '语音语言',
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(width: 7),
@@ -1334,16 +1335,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 },
               ),
             ),
-          const Spacer(),
-          Text(
-            projectedLanguage == ChatLanguage.chinese
-                ? '中文'
-                : projectedLanguage == ChatLanguage.japanese
-                    ? '日语＋中文对照'
-                    : 'English＋中文对照',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Text(
+              projectedLanguage == ChatLanguage.chinese
+                  ? '中文语音'
+                  : projectedLanguage == ChatLanguage.japanese
+                      ? _showForeignReplies
+                          ? '日语正文＋中文对照'
+                          : '日语语音 · 显示中文翻译'
+                      : _showForeignReplies
+                          ? 'English 正文＋中文对照'
+                          : 'English 语音 · 显示中文翻译',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -1639,27 +1649,32 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('显示外语'),
+                        title: const Text('生成三语版本'),
                         subtitle: const Text(
-                          '只影响以后生成的回复；关闭不会删除已保存的日语和英语。',
+                          '开启后，新回复保存中文、日语和英语；关闭只生成中文。',
+                        ),
+                        value: _multilingualRepliesEnabled,
+                        onChanged: (value) async {
+                          setState(() => _multilingualRepliesEnabled = value);
+                          await update(
+                            'multilingual_replies_enabled',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('显示外语正文'),
+                        subtitle: const Text(
+                          '只控制界面显示；关闭后仍可选择并播放已保存的日语或英语。',
                         ),
                         value: _showForeignReplies,
                         onChanged: (value) async {
-                          await controller.stopSpeech();
-                          if (!mounted) return;
-                          setState(() {
-                            _showForeignReplies = value;
-                            if (!value) {
-                              _selectedLanguage = ChatLanguage.chinese;
-                            }
-                          });
+                          setState(() => _showForeignReplies = value);
                           await update(
                             'show_foreign_replies',
                             value ? '1' : '0',
                           );
-                          if (!value) {
-                            await update('tts_language', 'zh');
-                          }
                         },
                       ),
                       SwitchListTile(
@@ -3509,13 +3524,18 @@ class _LanguageSpeechButton extends StatelessWidget {
       ChatLanguage.japanese => '日语',
       ChatLanguage.english => '英语',
     };
+    final description = preparing
+        ? '正在准备$languageName'
+        : enabled
+            ? '播放$languageName语音'
+            : '这条消息没有$languageName版本';
     return Tooltip(
-      message: preparing ? '正在准备$languageName' : '$languageName正文与语音',
+      message: description,
       child: Semantics(
         button: true,
         selected: selected,
         enabled: enabled,
-        label: preparing ? '正在准备$languageName' : '$languageName正文与语音',
+        label: description,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: enabled ? onPressed : null,

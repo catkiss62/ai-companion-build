@@ -115,8 +115,8 @@ assert "_visibleCharacterCount" not in immersive_controller
 # Exact legacy-hash migration preserves any manually edited Rule 01.
 assert "786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c" in defaults
 assert "legacyEditableRuleLayerSha256V04145NicknameExamples.entries" in database
-assert "不要因为规则中出现过某个词就突然使用" in rules
-assert "不要为了变化而刻意轮换" in rules
+assert "按当下情绪、关系熟悉度和已经形成的习惯" in rules
+assert "自由创造或选择称呼和绰号" in rules
 for forbidden in ("“傻逼”“儿子”“哥哥”“宝贝”", "固定词库或必选清单"):
     assert forbidden not in rules
 

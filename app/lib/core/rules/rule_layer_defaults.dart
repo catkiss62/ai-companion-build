@@ -285,6 +285,13 @@ const legacyEditableRuleLayerSha256V04145NicknameExamples = <String, String>{
       '786a961b94cd1c190955d4b89eaebf81ea9706b56de6b05a46ab2668e209572c',
 };
 
+/// Exact v0.41.53 Rule 01 body. Only the untouched bundled copy is migrated to
+/// the wording selected from the user's 2026-09-09 backup.
+const legacyEditableRuleLayerSha256V04153Rule01 = <String, String>{
+  '01_core':
+      'c68c1520f04eedd4d37852a6c6cb8cc81a8491b2a2d1a44da0054581004107e4',
+};
+
 /// Exact v0.41.22 stock bodies replaced by the v0.41.23 direct-feedback
 /// revision. Hash-only matching upgrades the known experiment while preserving
 /// every manually edited prompt, including the user's A/B copies.

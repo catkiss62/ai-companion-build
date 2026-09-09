@@ -495,6 +495,7 @@ class _VoiceEmotionSettingsPageState
   bool _ttsEnabled = false;
   bool _autoTts = false;
   bool _streamingTts = false;
+  bool _multilingualRepliesEnabled = true;
   bool _showForeignReplies = false;
   TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
@@ -520,6 +521,8 @@ class _VoiceEmotionSettingsPageState
     _autoTts = (await _db.getSetting('auto_tts')) == '1';
     _streamingTts =
         (await _db.getSetting('tts_streaming_enabled')) == '1';
+    _multilingualRepliesEnabled =
+        (await _db.getSetting('multilingual_replies_enabled')) != '0';
     _showForeignReplies =
         (await _db.getSetting('show_foreign_replies')) == '1';
     _voiceMode = TtsVoiceMode.fromSetting(
@@ -618,20 +621,32 @@ class _VoiceEmotionSettingsPageState
                 children: [
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('显示外语'),
+                    title: const Text('生成三语版本'),
                     subtitle: const Text(
-                      '开启后，新回复同时保存自然中文、日语和英语；关闭不删除旧版本。',
+                      '开启后，新回复同时保存自然中文、日语和英语；关闭只生成中文。',
+                    ),
+                    value: _multilingualRepliesEnabled,
+                    onChanged: (value) async {
+                      setState(() => _multilingualRepliesEnabled = value);
+                      await _db.setSetting(
+                        'multilingual_replies_enabled',
+                        value ? '1' : '0',
+                      );
+                    },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('显示外语正文'),
+                    subtitle: const Text(
+                      '只控制界面显示；关闭后仍可选择并播放已保存的日语或英语。',
                     ),
                     value: _showForeignReplies,
                     onChanged: (value) async {
-                      await _tts.stop();
-                      if (!mounted) return;
                       setState(() => _showForeignReplies = value);
                       await _db.setSetting(
                         'show_foreign_replies',
                         value ? '1' : '0',
                       );
-                      if (!value) await _db.setSetting('tts_language', 'zh');
                     },
                   ),
                   SwitchListTile(
@@ -701,7 +716,7 @@ class _VoiceEmotionSettingsPageState
                       contentPadding: EdgeInsets.zero,
                       title: const Text('流式分句朗读'),
                       subtitle: Text(
-                        _showForeignReplies
+                        _multilingualRepliesEnabled
                             ? '三语回复需完整解析；提交后按当前语言从头播放。'
                             : '每完成一句就进入本地 TTS 队列。',
                       ),

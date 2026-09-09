@@ -60,7 +60,8 @@ assert "writeln(somaticSection)" in prompt
 
 model = read("lib/core/ai/model_profile.dart")
 controller = read("lib/features/chat/chat_controller.dart")
-assert "orElse: () => DeepSeekModelProfile.flash" in model
+assert "if (normalized.isEmpty || normalized == custom.apiName) return flash;" in model
+assert "return DeepSeekModelProfile._(" in model
 assert "DeepSeekModelProfile model = DeepSeekModelProfile.flash" in controller
 
 tests = read("test/somatic_policy_test.dart")

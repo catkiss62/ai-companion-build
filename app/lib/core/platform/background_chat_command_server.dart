@@ -147,12 +147,9 @@ class BackgroundChatCommandServer {
         final message = await db.messageById(id);
         if (message != null && message.isAssistant) {
           final controller = await _ensureController();
-          final showForeign =
-              (await db.getSetting('show_foreign_replies')) == '1';
-          final selected = showForeign
-              ? ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
-                  ChatLanguage.chinese
-              : ChatLanguage.chinese;
+          final selected =
+              ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+                  ChatLanguage.chinese;
           await controller.speakMessage(
             message,
             language: message.hasLanguage(selected)

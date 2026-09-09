@@ -28,6 +28,7 @@ class _ModelNetworkSettingsPageState
   final _android = AndroidBridge.instance;
   final _deepSeekKey = TextEditingController();
   final _deepSeekEndpoint = TextEditingController();
+  final _customDeepSeekModel = TextEditingController();
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
@@ -68,7 +69,15 @@ class _ModelNetworkSettingsPageState
     _agnesKey.text = await _secure.readAgnesApiKey() ?? '';
     _agnesEndpoint.text = await _secure.readAgnesEndpoint();
     _agnesModel.text = await _secure.readAgnesModel();
-    _model = DeepSeekModelProfile.fromApiName(await _db.getSetting('model'));
+    final storedModel = DeepSeekModelProfile.fromApiName(
+      await _db.getSetting('model'),
+    );
+    if (storedModel.isCustom) {
+      _customDeepSeekModel.text = storedModel.apiName;
+      _model = DeepSeekModelProfile.custom;
+    } else {
+      _model = storedModel;
+    }
     _effort = ReasoningEffort.fromApiName(
       await _db.getSetting('reasoning_effort'),
     );
@@ -86,15 +95,29 @@ class _ModelNetworkSettingsPageState
         (uri.scheme == 'http' || uri.scheme == 'https');
   }
 
+  DeepSeekModelProfile? _effectiveDeepSeekModel() {
+    if (!_model.isCustom) return _model;
+    final custom = _customDeepSeekModel.text.trim();
+    if (custom.isEmpty || custom == DeepSeekModelProfile.custom.apiName) {
+      return null;
+    }
+    return DeepSeekModelProfile.fromApiName(custom);
+  }
+
   Future<void> _saveDeepSeek() async {
     if (!_validHttpEndpoint(_deepSeekEndpoint.text)) {
       setState(() => _status = 'DeepSeek 地址不是有效的 http(s) URL。');
       return;
     }
+    final effectiveModel = _effectiveDeepSeekModel();
+    if (effectiveModel == null) {
+      setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
+      return;
+    }
     try {
       await _secure.writeEndpoint(_deepSeekEndpoint.text);
       await _secure.writeApiKey(_deepSeekKey.text);
-      await _db.setSetting('model', _model.apiName);
+      await _db.setSetting('model', effectiveModel.apiName);
       await _db.setSetting('reasoning_effort', _effort.apiName);
       if (_deepSeekKey.text.trim().isNotEmpty) {
         await _db.wakeRetryableGenerationJobs();
@@ -159,6 +182,11 @@ class _ModelNetworkSettingsPageState
       setState(() => _status = '请先填写有效的 DeepSeek Key 与地址。');
       return;
     }
+    final effectiveModel = _effectiveDeepSeekModel();
+    if (effectiveModel == null) {
+      setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
+      return;
+    }
     setState(() {
       _testingDeepSeek = true;
       _status = '正在测试当前输入；不会写入聊天或记忆…';
@@ -170,7 +198,7 @@ class _ModelNetworkSettingsPageState
           .streamChat(
             apiKey: apiKey,
             endpoint: endpoint,
-            model: _model,
+            model: effectiveModel,
             effort: _effort,
             thinking: true,
             messages: const [
@@ -236,6 +264,22 @@ class _ModelNetworkSettingsPageState
   }
 
   @override
+  void dispose() {
+    _deepSeekKey.dispose();
+    _deepSeekEndpoint.dispose();
+    _customDeepSeekModel.dispose();
+    _visionKey.dispose();
+    _visionEndpoint.dispose();
+    _visionModel.dispose();
+    _tavilyKey.dispose();
+    _extraSources.dispose();
+    _agnesKey.dispose();
+    _agnesEndpoint.dispose();
+    _agnesModel.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('模型与联网')),
         body: _loading
@@ -282,6 +326,20 @@ class _ModelNetworkSettingsPageState
                         onChanged: (value) =>
                             setState(() => _model = value ?? _model),
                       ),
+                      if (_model.isCustom) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _customDeepSeekModel,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: const InputDecoration(
+                            labelText: '自定义模型 ID',
+                            hintText: '例如：供应商提供的 model 字段',
+                            helperText: '将原样写入 Chat Completions 请求。',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       DropdownButtonFormField<ReasoningEffort>(
                         value: _effort,

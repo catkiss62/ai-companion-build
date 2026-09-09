@@ -36,9 +36,18 @@ catalog = read("android/app/src/main/kotlin/com/catkiss62/geniettsbenchmark/Voic
 gradle = read("android/app/build.gradle.kts")
 workflow = read("../.github/workflows/build-apk.yml")
 
-assert "version: 0.41.53+192" in read("pubspec.yaml")
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.53+192", "version: 0.41.54+193")
+)
 assert "static const int schemaVersion = 57;" in db
-assert "static const buildLabel = 'v0.41.53+192';" in self_reader
+assert any(
+    label in self_reader
+    for label in (
+        "static const buildLabel = 'v0.41.53+192';",
+        "static const buildLabel = 'v0.41.54+193';",
+    )
+)
 for token in (
     "CREATE TABLE IF NOT EXISTS message_language_variants",
     "PRIMARY KEY(message_id, language)",
@@ -57,7 +66,7 @@ for token in (
 ):
     assert token in variant, token
 assert "languageVariants" in message and "contentFor(ChatLanguage language)" in message
-assert "show_foreign_replies" in runner
+assert "multilingual_replies_enabled" in runner
 assert "String visibleBody(EmotionEnvelopeData parsedEnvelope)" in runner
 assert "MultilingualReplyCodec.tryParse" in runner
 assert "MultilingualReplyCodec.streamingChinese" in runner
@@ -84,7 +93,7 @@ assert "service.resolveVoice(emotion)" in queue
 assert "initialPrefill = const Duration(seconds: 1)" in queue
 assert "if (_generation != stoppedAt) return;" in queue
 assert "TtsAcousticSegmenter.split(prepared, session.language)" in queue
-assert "streamTts = !showForeignReplies" in controller
+assert "streamTts = !multilingualEnabled" in controller
 assert "message.contentFor(displayLanguage)" in background
 assert "language: message.hasLanguage(selected)" in background
 assert "中文对照" in background

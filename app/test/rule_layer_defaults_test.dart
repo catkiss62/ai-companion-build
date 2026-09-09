@@ -214,8 +214,8 @@ void main() {
     );
     expect(coreIdentity, isNot(contains('擅长自然造梗')));
     expect(coreIdentity, isNot(contains('“傻逼”“儿子”“哥哥”“宝贝”')));
-    expect(coreIdentity, contains('不要因为规则中出现过某个词就突然使用'));
-    expect(coreIdentity, contains('不要为了变化而刻意轮换'));
+    expect(coreIdentity, contains('按当下情绪、关系熟悉度和已经形成的习惯'));
+    expect(coreIdentity, contains('自由创造或选择称呼和绰号'));
     expect(appearance, contains('女仆装'));
     expect(appearance, contains('鲸鱼尾巴'));
     expect(appearance, contains('耳鳍'));
@@ -276,7 +276,7 @@ void main() {
     expect(dailyPreset.content, contains('生成源用全角括号（动作）标记'));
     expect(dailyPreset.content, contains('【幽默】'));
     expect(dailyPreset.manualActive, isTrue);
-    expect(worldBookSystemPresets, hasLength(1));
+    expect(worldBookSystemPresets, hasLength(4));
     expect(
       byKey['immersive_07_global']!.content,
       contains('成年男性用户在正文中始终写作“你”'),

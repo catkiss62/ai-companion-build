@@ -36,12 +36,20 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         }.getOrDefault(false)
 
     val isReady: Boolean
-        get() = modelsReady && activeLanguage in SUPPORTED_LANGUAGES
+        get() = activeLanguage in SUPPORTED_LANGUAGES && when (activeLanguage) {
+            "zh" -> chinese != null
+            "en" -> english != null
+            "ja" -> japanese != null
+            else -> false
+        }
+
+    val acousticModelsReady: Boolean
+        get() = modelsReady
 
     fun statusDetail(): String = when {
         !artifactsPresent -> "Genie v0.6.4 TTS 本体尚未装入 APK"
-        !modelsReady -> "Genie 资源存在；声学模型尚未初始化"
-        activeLanguage.isEmpty() -> "Genie 声学模型已初始化；语言前端等待选择"
+        activeLanguage.isEmpty() -> "Genie 资源存在；语言前端等待选择"
+        !modelsReady -> "Genie 当前仅保留 $activeLanguage 前端；声学模型按需加载"
         else -> "Genie 声学模型已初始化；当前仅保留 $activeLanguage 前端"
     }
 
@@ -61,24 +69,25 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
 
     fun initialize(language: String, progress: (String) -> Unit = {}): Boolean {
         require(language in SUPPORTED_LANGUAGES) { "不支持的 TTS 语言：$language" }
-        val preparedRoot = root ?: engine.prepareAssets(progress).also { root = it }
-        if (!modelsReady) {
-            modelLoad = engine.loadModels(
-                preparedRoot,
-                EngineConfig(BackendMode.CPU, TARGET_THREADS),
-            )
-            modelsReady = true
-        }
+        if (root == null) root = engine.prepareAssets(progress)
         prepareLanguage(language, progress)
-        return true
+        return isReady
     }
 
     fun prepareLanguage(language: String, progress: (String) -> Unit = {}) {
         require(language in SUPPORTED_LANGUAGES) { "不支持的 TTS 语言：$language" }
-        if (!modelsReady) initialize(language, progress)
-        if (activeLanguage == language) return
+        val preparedRoot = root ?: engine.prepareAssets(progress).also { root = it }
+        if (activeLanguage == language && isReady) return
+        // The verified v0.6.4 app never keeps another language frontend alive
+        // while constructing the next one. Drop the acoustic sessions too so
+        // switching to Chinese cannot overlap their peak with RoBERTa startup.
+        if (modelsReady) {
+            engine.unloadModels()
+            modelsReady = false
+            modelLoad = ModelLoadInfo(false, 0L)
+            System.gc()
+        }
         releaseFrontend()
-        val preparedRoot = checkNotNull(root)
         when (language) {
             "zh" -> {
                 engine.prepareFrontendAssets(preparedRoot, progress)
@@ -109,6 +118,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         voice: String,
         speed: Double,
         shouldCancel: () -> Boolean,
+        onStage: (String) -> Unit = {},
     ): ByteArray {
         initialize(language)
         val preparedRoot = checkNotNull(root)
@@ -116,12 +126,25 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         val referenceId = VOICE_CASES[voice] ?: VOICE_CASES.getValue("daily")
         val voiceCase = manifest.cases.firstOrNull { it.id == referenceId }
             ?: error("Genie 音色资源缺失：$referenceId")
+        onStage("prepare_frontend_$language")
         val prepared = when (language) {
             "zh" -> checkNotNull(chinese).prepare(preparedRoot, text) {}
             "en" -> checkNotNull(english).prepare(text, manifest.frontend.bertDim) {}
             "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
             else -> error("不支持的 TTS 语言：$language")
         }
+        onStage("frontend_ready_$language")
+        check(!shouldCancel()) { "TTS generation cancelled" }
+        if (!modelsReady) {
+            onStage("load_acoustic_models")
+            modelLoad = engine.loadModels(
+                preparedRoot,
+                EngineConfig(BackendMode.CPU, TARGET_THREADS),
+            )
+            modelsReady = true
+            onStage("acoustic_models_ready")
+        }
+        onStage("infer_$language")
         val result = engine.runPrepared(
             preparedRoot,
             voiceCase,
@@ -131,6 +154,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             shouldCancel = shouldCancel,
         )
         modelLoad = ModelLoadInfo(false, 0L)
+        onStage("wav_encode")
         val audio = resampleForSpeed(result.audio, speed)
         return pcm16Wav(audio, manifest.sampleRate, voiceCase.playbackGainDb)
     }

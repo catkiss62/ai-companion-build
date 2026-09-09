@@ -830,6 +830,7 @@ class AppDatabase {
         'personality_base_key': 'none',
         'personality_posture_key': 'none',
         'tts_reading_scope': 'dialogue_only',
+        'multilingual_replies_enabled': '1',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',
@@ -1138,6 +1139,7 @@ class AppDatabase {
     if (oldVersion < 57) {
       await _createV57MessageLanguageVariants(db);
       for (final entry in const <String, String>{
+        'multilingual_replies_enabled': '1',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',
@@ -1401,6 +1403,7 @@ class AppDatabase {
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"Yuki\":\"有希\"}'});
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
+    await db.insert('settings', {'key': 'multilingual_replies_enabled', 'value': '1'});
     await db.insert('settings', {'key': 'show_foreign_replies', 'value': '0'});
     await db.insert('settings', {'key': 'tts_language', 'value': 'zh'});
     await db.insert('settings', {'key': 'tts_voice_mode', 'value': 'auto'});
@@ -3669,6 +3672,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04126VisibleInnerVoice.entries,
       ...legacyEditableRuleLayerSha256V04127ImmersiveCleanup.entries,
       ...legacyEditableRuleLayerSha256V04145NicknameExamples.entries,
+      ...legacyEditableRuleLayerSha256V04153Rule01.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413RejectedCoreEmphasis.entries,
@@ -3828,6 +3832,17 @@ class AppDatabase {
     }
 
     for (final preset in worldBookSystemPresets) {
+      // Restored backups may already contain one of today's bundled defaults
+      // as a user-authored row. Keep that stable row instead of injecting a
+      // second copy of the same module under a new built-in ID.
+      final existing = await db.query(
+        'reference_documents',
+        columns: const ['id'],
+        where: 'id = ? OR (name = ? AND entry_type = ?)',
+        whereArgs: [preset.id, preset.name, 'behavior'],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) continue;
       await insert(
         id: preset.id,
         name: preset.name,
@@ -3921,6 +3936,7 @@ class AppDatabase {
       'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
       'tts_reading_scope': 'dialogue_only',
+      'multilingual_replies_enabled': '1',
       'show_foreign_replies': '0',
       'tts_language': 'zh',
       'tts_voice_mode': 'auto',
@@ -17689,6 +17705,7 @@ class AppDatabase {
         'tts_volume': '1.0',
         'tts_replacements_json': '{"Yuki":"有希"}',
         'tts_reading_scope': 'dialogue_only',
+        'multilingual_replies_enabled': '1',
         'show_foreign_replies': '0',
         'tts_language': 'zh',
         'tts_voice_mode': 'auto',
