@@ -20,6 +20,7 @@ import '../grounding/information_seeking_question_guard.dart';
 import '../grounding/operational_claim_grounding_guard.dart';
 import '../grounding/user_perspective_guard.dart';
 import '../integration/moe_shadow_coordinator.dart';
+import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';

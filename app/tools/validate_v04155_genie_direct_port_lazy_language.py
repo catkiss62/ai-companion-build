@@ -89,6 +89,7 @@ assert "MultilingualReplyCodec" not in runner
 assert "multilingual_replies_enabled" not in runner
 assert "PromptBuilder.visibleChineseGenerationReminder()" in runner
 assert "PromptBuilder.multilingualGenerationReminder()" not in runner
+assert "import '../models/chat_language_variant.dart';" in runner
 assert "<multilingual_reply>" not in prompt
 assert "multilingualGenerationReminder" not in prompt
 assert "thinking: false" in lazy
