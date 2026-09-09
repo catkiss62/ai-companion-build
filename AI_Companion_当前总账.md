@@ -40,7 +40,7 @@
 | APK SHA-256 | `36f7a6ba94ab265cb52821470766a98bd087371113dbea3bb95fdda0631ec2f3`；CI checksum 与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10090659526`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695/artifacts/10090659526)，ZIP 526,808,936 bytes / digest `0317d85c5de8b9f2cc1acfec627ba9cb51648cecfab065ae8d0286c007270aed`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ed5eb2762460bf56f908) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 完整 tree `33e1ebd8095061fd5e09de889ed5348c074fc97f` 已按用户本轮明确授权推至远端提交 `0bb7e1a6ae9d750dc0896d5d453d39316857d216`；run [`34334714884`](https://github.com/catkiss62/ai-companion-build/actions/runs/34334714884)（801）在历史 v0.41.43 validator 尚未接受 `0.41.55+194` 时失败，未进入编译。六个同类历史版本白名单已补齐且本地串行通过；现为 `IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING`，不得把静态或 CI 通过写成真机闪退已修复 |
+| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 远端第二提交 `92b5ccf35bc1f9c70b09fc3b72b49659aeb8c285` / tree `09e626d8af2ee1870adad5008dcf7ee20ac92315` 的 run [`34335361587`](https://github.com/catkiss62/ai-companion-build/actions/runs/34335361587)（802）通过历史 v0.41.43～50 和此前失败点，随后在 v0.37.4 旧流式 token 合同处失败，仍未进入编译。v0.41.55 已明确改用提交后固定分段，该 validator 与 v0.31.9 provisional stream owner 合同已按版本分支兼容且本地通过；现为 `IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING` |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -48,7 +48,7 @@
 |---|---|
 | 当前下一步 | **收口 v0.41.55 原样移植＋按需外语**：本地实现与专项静态合同已完成；下一步用 Actions 真编译 Kotlin/AIDL、Flutter analyze/tests 和 arm64 Release，再交付 APK 做中文→英文→日语及主进程存活真机检查 |
 | 目标 | 伴侣主进程不再重编排 ONNX 生命周期，TTS 子进程即使 native abort 也不带崩 App；取消默认每轮 `zh/ja/en`，中文保持权威，`中/日/EN` 点哪个只生成并朗读当前一个目标语；“显示外语”继续只控制气泡投影 |
-| 当前证据 | v0.41.54 真机失败：中文停在 `prepare_frontend_zh`；英文完成前端与四模型加载后停在 `infer_en`；日语只到 `initialize_frontend_ja`，未到 ready，均无 `wav_ready/audio_playback`。v0.41.55 run 801 已证明私有 Genie/桌宠/LingChat/塔罗载荷恢复和签名准备成功；失败仅是历史 validator 的版本白名单未包含 55，发生在 Kotlin/Flutter 编译前，现已窄修 |
+| 当前证据 | v0.41.54 真机失败：中文停 `prepare_frontend_zh`、英文停 `infer_en`、日语停 `initialize_frontend_ja`，均无 `wav_ready/audio_playback`。v0.41.55 run 801 的版本白名单缺口已由 run 802 证明修复；run 802 又完整通过至 v0.37.4，失败仅因旧合同仍强制 provider-token `streamLeadIn`。本版固定分段仍保留 emotion lead-in、ownerId 和停止状态，但不再于回复提交前启动 provider 真流式，现已用版本分支保持两代合同 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文。只迁 v0.6.4 固定分段、1 秒预填充与 CPU 8 线程；禁止真流式、三前端同时预热、并发推理或把私人模型提交公开仓库 |
@@ -103,6 +103,7 @@
 11. 实现已提交为本地 `7fd5514`。尝试推送 `agent/v04155-genie-direct-port-lazy-language` 时，安全审查器以“用户未明确授权发布本批大规模源码到未验证 GitHub 目标”为由拒绝；不得绕过。需用户明确回复允许把当前提交推送到 `catkiss62/ai-companion-build` 的该开发分支，之后才能触发 Actions/APK。
 12. 用户随后在当前对话明确授权推送当前 v0.41.55 到指定分支并运行 Actions。Git shell 无可用 HTTPS 凭据，故改用已连接且确认账号为 `catkiss62`、对目标仓库有 admin/push 权限的 GitHub Git Data 接口；逐文件 blob 后创建远端提交 `0bb7e1a6ae9d750dc0896d5d453d39316857d216`，tree `33e1ebd8095061fd5e09de889ed5348c074fc97f` 与本地当前 tree 完全一致，不包含附件、诊断、模型、密钥或用户数据，也未触碰 `main`。
 13. Actions run [`34334714884`](https://github.com/catkiss62/ai-companion-build/actions/runs/34334714884)（801）完成私有 Genie v0.6.4、417 文件桌宠、LingChat、塔罗与签名准备后，在 `Source and regression validation` 的首个历史版本白名单失败：`validate_v04143_phase3b_question_autonomy.py` 只接受到 `0.41.54+193`。失败发生在 v0.41.43 原有功能断言之前，Kotlin/AIDL、Flutter analyze/tests 与 APK 均未启动；同类 v0.41.43/45/47/48/49/50 validator 已只追加 `55+194` 白名单并本地串行全绿，未放宽任何行为合同。待推送窄修重跑。
+14. 上述窄修由远端提交 `92b5ccf35bc1f9c70b09fc3b72b49659aeb8c285` / tree `09e626d8af2ee1870adad5008dcf7ee20ac92315` 推送，run [`34335361587`](https://github.com/catkiss62/ai-companion-build/actions/runs/34335361587)（802）证明 v0.41.43～50、当前总账及一批后续历史合同均通过，随后在 `validate_v0374_audio_presentation_stabilization.py` 强制查找已删除的 `streamLeadIn = Completer<void>()` 处失败。该 token 属于回复生成中 provider-token 真流式，正是用户明确排除的后加测试板块；v0.41.55 仍用 `leadIn` 把情绪提示音与提交后的固定分段播放排序。v0.37.4 validator 现按版本验证新固定路径且禁止 controller 调 `beginStream`；预跑全工作流源码合同另发现 v0.31.9 仍要求 provisional `job.assistantMessageId` owner，已同样按 55 验证只用已提交 `result.assistant!.id`。其余本地失败仅为 CI 才恢复的桌宠/LingChat/签名载荷，未发现第三个源码合同缺口。
 
 ### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 

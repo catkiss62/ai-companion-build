@@ -50,13 +50,27 @@ assert "latinWords >= 6" not in runner
 controller = read("lib/features/chat/chat_controller.dart")
 for token in (
     "onEmotionCue: startEmotionCue",
-    "streamLeadIn = Completer<void>()",
-    "leadIn: streamLeadIn!.future",
     "leadIn: leadIn",
     "emotionSounds.play(visual)",
     "Future.wait<void>",
 ):
     assert token in controller, token
+if "version: 0.41.55+194" in read("pubspec.yaml"):
+    # v0.41.55 deliberately removed provider-token true streaming and now
+    # starts fixed Genie segmentation only after the committed reply exists.
+    for token in (
+        "final leadIn = emotionCueStarted",
+        "ttsPlayback.playText(",
+        "GenieFixedTextSegmenter.split(prepared, language)",
+    ):
+        assert token in controller + queue, token
+    assert "ttsPlayback.beginStream(" not in controller
+else:
+    for token in (
+        "streamLeadIn = Completer<void>()",
+        "leadIn: streamLeadIn!.future",
+    ):
+        assert token in controller, token
 
 chat = read("lib/features/chat/chat_page.dart")
 for token in (

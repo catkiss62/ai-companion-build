@@ -41,13 +41,19 @@ for token in [
 
 controller = read("lib/features/chat/chat_controller.dart")
 for token in [
-    "ownerId: job.assistantMessageId",
     "ownerId: result.assistant!.id",
     "ownerId: message.id",
     "activeGenerationTtsPhase",
     "messages = await db.recentMessages(limit: 120)",
 ]:
     assert token in controller, token
+if "version: 0.41.55+194" in pubspec:
+    # Fixed-segment Genie playback starts only from the committed assistant
+    # message; there is intentionally no provisional provider-stream owner.
+    assert "ttsPlayback.playText(" in controller
+    assert "ttsPlayback.beginStream(" not in controller
+else:
+    assert "ownerId: job.assistantMessageId" in controller
 
 page = read("lib/features/chat/chat_page.dart")
 for token in [
