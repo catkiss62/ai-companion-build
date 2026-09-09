@@ -96,6 +96,8 @@ assert "thinking: false" in lazy
 assert "source_segments" in lazy
 assert "raw.length != source.length" in lazy
 assert "item['kind']?.toString() != source[index].kind.key" in lazy
+assert ".whenComplete(() {" in lazy
+assert ".whenComplete(() => _inFlight.remove(key))" not in lazy
 assert "upsertMessageLanguageVariant" in db
 assert "conflictAlgorithm: ConflictAlgorithm.replace" in db
 assert "languageVariantService.ensure" in controller

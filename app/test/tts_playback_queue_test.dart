@@ -7,6 +7,7 @@ import 'package:ai_companion_localfirst/core/tts/tts_playback_queue.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_provider.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_queue_service.dart';
 import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
+import 'package:ai_companion_localfirst/core/tts/genie_fixed_text_segmenter.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_voice_profile.dart';
 
 class _FakeQueueService implements TtsQueueService {
@@ -82,16 +83,21 @@ void main() {
       initialPrefill: Duration.zero,
     );
 
-    await queue.playText('第一句。第二句。第三句。', manual: true);
+    const text = '第一句要有足够长度来验证播放时生成后续固定分段。'
+        '第二句同样保持自然长度以免和前一句打包在一起。'
+        '第三句继续验证所有后段会提前完成语音生成。';
+    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    expect(chunks, hasLength(3));
+    await queue.playText(text, manual: true);
     await _turn();
     await _turn();
 
-    expect(fake.played, ['wav:第一句']);
-    expect(fake.generated, ['第一句', '第二句', '第三句']);
+    expect(fake.played, ['wav:${chunks.first}']);
+    expect(fake.generated, chunks);
 
     fake.firstPlaybackGate!.complete();
     await queue.waitUntilIdle();
-    expect(fake.played, ['wav:第一句', 'wav:第二句', 'wav:第三句']);
+    expect(fake.played, chunks.map((chunk) => 'wav:$chunk').toList());
   });
 
   test('stop invalidates generated/queued audio that has not played', () async {
@@ -102,15 +108,19 @@ void main() {
       initialPrefill: Duration.zero,
     );
 
-    await queue.playText('第一句。第二句。', manual: true);
+    const text = '第一句要有足够长度来验证停止后不能继续播放。'
+        '第二句也保持自然长度并应当在停止后彻底失效。';
+    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    expect(chunks, hasLength(2));
+    await queue.playText(text, manual: true);
     await _turn();
-    expect(fake.played, ['wav:第一句']);
+    expect(fake.played, ['wav:${chunks.first}']);
 
     await queue.stop();
     fake.firstPlaybackGate!.complete();
     await _turn();
 
-    expect(fake.played, ['wav:第一句']);
+    expect(fake.played, ['wav:${chunks.first}']);
     expect(queue.state.running, isFalse);
     expect(fake.stopCount, greaterThanOrEqualTo(2));
   });
@@ -123,11 +133,15 @@ void main() {
       initialPrefill: Duration.zero,
     );
 
-    await queue.playText('第一句。第二句。', manual: true);
+    const text = '第一句要有足够长度并故意让本段语音生成失败。'
+        '第二句也保持自然长度且仍应当独立生成并正常播放。';
+    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    expect(chunks, hasLength(2));
+    await queue.playText(text, manual: true);
     await queue.waitUntilIdle();
 
-    expect(fake.generated, ['第一句', '第二句']);
-    expect(fake.played, ['wav:第二句']);
+    expect(fake.generated, chunks);
+    expect(fake.played, ['wav:${chunks.last}']);
   });
 
   test('stream chunks preserve A2 sentence order', () async {
@@ -233,12 +247,12 @@ void main() {
     await _turn();
     await _turn();
 
-    expect(fake.generated, ['情绪音效之后说话']);
+    expect(fake.generated, ['情绪音效之后说话。']);
     expect(fake.played, isEmpty);
 
     cue.complete();
     await queue.waitUntilIdle();
-    expect(fake.played, ['wav:情绪音效之后说话']);
+    expect(fake.played, ['wav:情绪音效之后说话。']);
   });
 
   test('a finished lead-in adds no wait after slow synthesis', () async {
@@ -261,7 +275,7 @@ void main() {
 
     generation.complete();
     await queue.waitUntilIdle();
-    expect(fake.played, ['wav:合成完成立即播放']);
+    expect(fake.played, ['wav:合成完成立即播放。']);
   });
 
   test('language and resolved voice stay locked for the full session', () async {

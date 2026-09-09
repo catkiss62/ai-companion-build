@@ -152,7 +152,9 @@ class MessageLanguageVariantService {
     return _inFlight.putIfAbsent(
       key,
       () => _generate(message: message, language: language)
-          .whenComplete(() => _inFlight.remove(key)),
+          .whenComplete(() {
+        _inFlight.remove(key);
+      }),
     );
   }
 
