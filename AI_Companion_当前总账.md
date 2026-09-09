@@ -40,7 +40,7 @@
 | APK SHA-256 | `36f7a6ba94ab265cb52821470766a98bd087371113dbea3bb95fdda0631ec2f3`；CI checksum 与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10090659526`](https://github.com/catkiss62/ai-companion-build/actions/runs/34316877695/artifacts/10090659526)，ZIP 526,808,936 bytes / digest `0317d85c5de8b9f2cc1acfec627ba9cb51648cecfab065ae8d0286c007270aed`，保留至 2026-09-23；同名 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ed5eb2762460bf56f908) 保持草稿，未合并 `main`、未发布正式 Release |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 已在本地实现固定 v0.6.4 核心哈希、`:genie_tts` 私有进程、Binder death、JNI 显式解包、固定分段策略和按需单一外语，提交 `7fd5514`；现为 `IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING`。安全审查器要求用户再次明确授权把本批源码推送到 GitHub 新开发分支；不得绕过，也不得把本地静态通过写成已修复真机闪退 |
+| 当前总状态 | v0.41.54 保持 `CI PASSED / APK READY / TRUE DEVICE FAILED`。v0.41.55 完整 tree `33e1ebd8095061fd5e09de889ed5348c074fc97f` 已按用户本轮明确授权推至远端提交 `0bb7e1a6ae9d750dc0896d5d453d39316857d216`；run [`34334714884`](https://github.com/catkiss62/ai-companion-build/actions/runs/34334714884)（801）在历史 v0.41.43 validator 尚未接受 `0.41.55+194` 时失败，未进入编译。六个同类历史版本白名单已补齐且本地串行通过；现为 `IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING`，不得把静态或 CI 通过写成真机闪退已修复 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
@@ -48,7 +48,7 @@
 |---|---|
 | 当前下一步 | **收口 v0.41.55 原样移植＋按需外语**：本地实现与专项静态合同已完成；下一步用 Actions 真编译 Kotlin/AIDL、Flutter analyze/tests 和 arm64 Release，再交付 APK 做中文→英文→日语及主进程存活真机检查 |
 | 目标 | 伴侣主进程不再重编排 ONNX 生命周期，TTS 子进程即使 native abort 也不带崩 App；取消默认每轮 `zh/ja/en`，中文保持权威，`中/日/EN` 点哪个只生成并朗读当前一个目标语；“显示外语”继续只控制气泡投影 |
-| 当前证据 | run `34316877695` 全绿，但真机失败：中文停在 `prepare_frontend_zh`；英文完成前端与四模型加载后停在 `infer_en`；日语只到 `initialize_frontend_ja`，未到 ready，秒切但不播放。没有任何 `wav_ready/audio_playback`；PSS/tombstone 未保存，峰值内存仍非已证实根因 |
+| 当前证据 | v0.41.54 真机失败：中文停在 `prepare_frontend_zh`；英文完成前端与四模型加载后停在 `infer_en`；日语只到 `initialize_frontend_ja`，未到 ready，均无 `wav_ready/audio_playback`。v0.41.55 run 801 已证明私有 Genie/桌宠/LingChat/塔罗载荷恢复和签名准备成功；失败仅是历史 validator 的版本白名单未包含 55，发生在 Kotlin/Flutter 编译前，现已窄修 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文。只迁 v0.6.4 固定分段、1 秒预填充与 CPU 8 线程；禁止真流式、三前端同时预热、并发推理或把私人模型提交公开仓库 |
@@ -88,7 +88,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-09 v0.41.55 Genie v0.6.4 原样移植与按需外语（IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING）
 
 1. 用户以 v0.41.54 中文、英文、日语分流真机证据纠正排查方向，并明确质疑为何不直接移植已经正常的 Genie 项目。复核确认：伴侣虽复制核心类，却增加多个 FlutterEngine/NativeTtsBridge、共享单例、Dart 队列与双 Kotlin worker，并重写初始化/释放/播放生命周期，不能称为完整照搬已验证运行条件。
 2. 用户明确追加防误移植边界：Genie-TTS 项目后来为测试真流式又修改过一次，新增真流式测试板块不是移植对象。本包唯一源固定为本地已核对的 `5380a536f83aeaec540a9aaa7982149969c73e26`（v0.6.4）；只迁已真机验证的自然标点固定分段、首段固定 1 秒预填充和播放上一段时生成下一段，禁止读取或混入该提交之后的真流式代码。
@@ -101,6 +101,8 @@
 9. 普通生成链已彻底删除 `multilingualGenerationReminder()` 与 `<multilingual_reply>` 注入，只提交中文。新增 `MessageLanguageVariantService` 以 DeepSeek Flash、`thinking:false`、单一目标语和严格同段校验生成缓存；并发重复点击共享同一请求，旧消息与新回复都按 message id＋language 复用。UI 删除“生成三语版本”开关，缺变体的日/EN 按钮可直接生成后朗读。
 10. 固定播放不接 provider token 真流式：新增 v0.6.4 `ChineseTextSegmenter` 等价策略，中文/日语 42/54、英文 88/110，提交后一次分段并在播放期间预生成后段；UI 将旧“流式分句朗读”改成只读的“固定分段预生成”。专项、总账、durable SQLite、TTS 队列静态校验与 `git diff --check` 已通过；本环境无 Flutter/Dart/Kotlin SDK且 Gradle 8.12 下载被网络阻止，真实 AIDL/Kotlin/Flutter 编译待 Actions，不得标本地编译通过。
 11. 实现已提交为本地 `7fd5514`。尝试推送 `agent/v04155-genie-direct-port-lazy-language` 时，安全审查器以“用户未明确授权发布本批大规模源码到未验证 GitHub 目标”为由拒绝；不得绕过。需用户明确回复允许把当前提交推送到 `catkiss62/ai-companion-build` 的该开发分支，之后才能触发 Actions/APK。
+12. 用户随后在当前对话明确授权推送当前 v0.41.55 到指定分支并运行 Actions。Git shell 无可用 HTTPS 凭据，故改用已连接且确认账号为 `catkiss62`、对目标仓库有 admin/push 权限的 GitHub Git Data 接口；逐文件 blob 后创建远端提交 `0bb7e1a6ae9d750dc0896d5d453d39316857d216`，tree `33e1ebd8095061fd5e09de889ed5348c074fc97f` 与本地当前 tree 完全一致，不包含附件、诊断、模型、密钥或用户数据，也未触碰 `main`。
+13. Actions run [`34334714884`](https://github.com/catkiss62/ai-companion-build/actions/runs/34334714884)（801）完成私有 Genie v0.6.4、417 文件桌宠、LingChat、塔罗与签名准备后，在 `Source and regression validation` 的首个历史版本白名单失败：`validate_v04143_phase3b_question_autonomy.py` 只接受到 `0.41.54+193`。失败发生在 v0.41.43 原有功能断言之前，Kotlin/AIDL、Flutter analyze/tests 与 APK 均未启动；同类 v0.41.43/45/47/48/49/50 validator 已只追加 `55+194` 白名单并本地串行全绿，未放宽任何行为合同。待推送窄修重跑。
 
 ### 2026-09-09 v0.41.54 Genie 闪退热修与设置补齐（CI PASSED / APK READY / TRUE DEVICE FAILED）
 

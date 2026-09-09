@@ -27,7 +27,7 @@ tests = read("test/agent_task_loop_v04150_test.dart")
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:50\+189|51\+190|52\+191|53\+192|54\+193)$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:50\+189|51\+190|52\+191|53\+192|54\+193|55\+194)$", pubspec, re.M)
 assert re.search(r"static const int schemaVersion = (?:56|57);", database)
 assert "buildLabel = 'v0.41.50+189'" in self_reader
 assert "agent/v04150-agent-v2-bounded-loop" in workflow
