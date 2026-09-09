@@ -824,7 +824,10 @@ jobs:
 
       - name: Build release APK
         working-directory: app
-        run: flutter build apk --release
+        # Genie/OpenJTalk ships one verified arm64 JNI runtime. Asking Flutter
+        # for its default 32-bit ABI would make CMake link a nonexistent
+        # armeabi-v7a/libopenjtalk_native.so.
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Verify stable APK signing identity
         shell: bash

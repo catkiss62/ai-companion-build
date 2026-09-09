@@ -135,6 +135,7 @@ assert "relative.startswith('models/')" in workflow
 assert "models/t2s_shared_fp32.bin" in workflow
 assert "models/vits_fp32.bin" in workflow
 assert "manifest['presets'] = []" in workflow
+assert "flutter build apk --release --target-platform android-arm64" in workflow
 for forbidden in (
     "Restore exact validated Meju TTS runtime payload",
     "All 27 upgraded Meju TTS assets",
