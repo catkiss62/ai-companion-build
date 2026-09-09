@@ -7,7 +7,7 @@ STUBS={
 'android/content/Context.kt': r'''package android.content
 open class Context { companion object { const val MODE_PRIVATE=0 }; open fun getSharedPreferences(n:String,m:Int)=SharedPreferences() }
 class SharedPreferences { fun getString(k:String,d:String?):String?=d; fun edit()=Editor() }
-class Editor { fun putString(k:String,v:String)=this; fun remove(k:String)=this; fun apply(){} }
+class Editor { fun putString(k:String,v:String)=this; fun remove(k:String)=this; fun commit():Boolean=true; fun apply(){} }
 ''',
 'org/json/Json.kt': r'''package org.json
 class JSONArray { constructor(); constructor(s:String); private val items=mutableListOf<Any?>(); fun length()=items.size; fun optJSONObject(i:Int):JSONObject?=null; fun put(v:Any?):JSONArray { items.add(v); return this }; fun remove(i:Int):Any?=if(i in items.indices) items.removeAt(i) else null; override fun toString()="[]" }

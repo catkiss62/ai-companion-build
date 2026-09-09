@@ -48,7 +48,7 @@
 |---|---|
 | 当前下一步 | **提交并构建 v0.41.54 基线 APK**：推送当前源码分支，等待 Actions 完成 Genie 私有资源恢复、Kotlin/Flutter 全量检查和 arm64 Release APK；成功后回填 run/head/tree/APK/SHA，再交给用户真机先测播放不闪退 |
 | 目标 | “显示外语”关闭时仍可选日/英语音，气泡只显示中文翻译、TTS 只读隐藏外语；开启后才展示外语正文与中文对照。只用已验证 Genie v0.6.4 |
-| 当前证据 | v0.41.54 专项 validator 与 v0.41.28～53 连续相关静态合同通过，`git diff --check` 通过；本地无 Flutter/Dart/Kotlin/Gradle 缓存且外网受限，故编译、Flutter tests 与 APK 尚待 Actions。v0.41.53 同机独立 Genie 三语正常；伴侣 APK 旧诊断为 `native_crash/status=6` |
+| 当前证据 | 首次源码 tree `a1e990f` 已精确推送，run 797 在历史 Kotlin SharedPreferences stub 缺少真实 Android `Editor.commit()` 声明处失败；此前全部源码合同、桌宠/视觉资源、固定签名与 AES/Kotlin 前置检查通过，尚未进入 App Kotlin/Flutter 编译。当前只补 stub 后重跑。v0.41.53 伴侣 APK 旧诊断为 `native_crash/status=6` |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。沉浸房间后置；19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端、并发运行 Genie 推理或把训练集/私人参考录音提交公开仓库 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 开启三语时使用一轮共享情绪/意图/动作—对白结构的机器协议，解析后标签不保存；中文写回原消息，日英写独立版本表。动作/对白是上层段，超长单段再按中文/日文目标 42、上限 54 字符，英文目标 88、上限 110 字符做自然标点子分段。Genie 共用声学会话，但中文 RoBERTa、英文 CMUdict、日语 OpenJTalk 只保留当前一个前端；切换先 Stop 再从头播放。固定热词 `token` 与 `DeepSeek` 只改 TTS 发音 |
@@ -108,6 +108,7 @@
 16. `WavAudioPlayer.stop()` 不再从 UI/Stop 线程释放播放线程仍在阻塞写入的同一个 `AudioTrack`；Stop 只负责 pause/flush/stop，对象由 `play()` 的唯一所有线程最终 release。进入前端、声学加载、推理和 AudioTrack 前均写入脱敏阶段点，其中危险阶段使用同步持久提交；即使再次发生无法 catch 的 native crash，下次诊断也应保留最后阶段。
 17. 中文前端新增精确短语音素覆盖：`token` 大小写不敏感扩为“拖肯”，`肯` 使用 neutral `en5`；`DeepSeek` 扩为“地铺西咳”（西即字母 C 的中文读法），`铺/咳` 分别使用 neutral `u5/e5`。聊天正文不变，实际弱读与音色仍须用户真机听测。
 18. 新增 `GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md` 与 v0.41.54 专项 validator；v0.41.28～v0.41.54 连续相关静态合同、`git diff --check` 均通过。尝试本地 `:app:compileDebugKotlin` 时 Gradle wrapper 因环境无法访问 `services.gradle.org`、本机也无 Flutter/Dart/Kotlin SDK 而未启动编译，不得写成编译失败或通过；Actions 负责真实 Kotlin、Flutter analyze/tests 与 Release 构建。
+19. 首次远端提交 `98458fbaf0306261f5e51cc53eadc9405a879998` / tree `a1e990f552c878f049ec65e0fb9b1b0478c1ec0f` 已推送，Actions run [`34315694058`](https://github.com/catkiss62/ai-companion-build/actions/runs/34315694058)（797）完成 Genie v0.6.4 私有载荷、417 文件桌宠、LingChat/塔罗、Flutter/Java、固定签名和全部前序源码合同后，在 `validate_runtime_diagnostic_store_kotlin_v27.py` 的旧 Android stub 编译处失败：stub 只声明 `Editor.apply()`，本版生产代码为跨 native crash 同步诊断首次调用真实 Android API `Editor.commit()`。这不是生产 Kotlin API 错误，也未进入 App Kotlin/Flutter 编译；窄修仅给历史 stub 补 `commit(): Boolean`，不改变运行时代码、设置、资源或诊断语义。
 
 ### 2026-09-09 v0.41.53 普通聊天三语与 Genie-TTS 接入（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
