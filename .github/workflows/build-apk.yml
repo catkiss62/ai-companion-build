@@ -1179,7 +1179,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.41.56+200 worldbook and shared-media candidate' \
-              --notes 'Draft schema-57 test candidate. Pins the verified Genie-TTS v0.6.4 core, isolates ONNX inference in a private Android process, preserves fixed-segment generation-ahead playback, explicitly excludes the later true-streaming test block, and replaces permanent three-language generation with one thinking-off cached target-language projection. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
+              --notes 'Draft schema-58 test candidate. Adds exact-source worldbooks, a single 30% humor injection layer, content-addressed shared media references, manual dry-run migration, cache controls, and Snapshot protocol 6 while retaining the verified Genie-TTS v0.6.4 baseline. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -1278,7 +1278,7 @@ jobs:
               --target "${GITHUB_SHA}" \
               --draft \
               --title 'AI Companion v0.41.56+200 worldbook and shared-media candidate' \
-              --notes 'Draft failure diagnostics for the schema-57 pinned Genie private-process and lazy-language candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --notes 'Draft failure diagnostics for the schema-58 worldbook and shared-media-reference candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

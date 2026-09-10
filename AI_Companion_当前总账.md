@@ -34,26 +34,26 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +199 Actions head `7c5a8b20ec826e4b88d1ec02ac06ef34e125c18c` / tree `32b08e3e134638ab0c4f2ca9d46903e08d7b6e4b` 已验证；构建后的 oversized-ledger 协调提交为 `f55bd216258e25d59a10bd4415207ce2be3f6f2b`，只回填总账并自删 one-shot 脚本，不改变本次 APK 源码。提交不含用户附件、诊断、备份、密钥、RoBERTa、原始 Genie APK 或 APK Artifact；私有 Genie 仍只由 CI 从 Draft 资产恢复并裁剪 |
+| 有效构建 head / tree | +200 最终 Actions head `219e83eddefe029392f77c707e0ca048c81d97c8` / tree `906029182b1645f57ea3a4aa3fe085c2bfd354e3` 已验证；它在 `8fb64125` 完整实现树上只修正三项过期测试契约。提交不含用户附件、诊断、备份、密钥、RoBERTa、原始 Genie APK 或 APK Artifact；私有 Genie 仍只由 CI 从 Draft 资产恢复并裁剪 |
 | App / 数据库 | 当前真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；本轮目标为 `0.41.56+200 / schema 58 / Snapshot protocol 6`。+199 只补齐日语 JNI 的上游 C++ 运行库依赖并修正沉浸对白显示判定；+200 才承载世界书默认同步、造梗旁路移除与 D6 媒体引用迁移 |
-| 最终 CI | +199 run [`34426118627`](https://github.com/catkiss62/ai-companion-build/actions/runs/34426118627)（820）完整成功：总账协调、私有资源恢复、源码门、Kotlin/AIDL、Flutter analyze、`709/709` Flutter tests、Release APK、固定签名、完整实包及 OpenJTalk ELF 依赖闭包均通过 |
-| 测试 APK | `AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK.apk`，537,586,696 bytes |
-| APK SHA-256 | `8fdcfd6675bf0db1fdec45cbdf3a8eaf126743671faa4290ebe790f48876cb68`；与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10132997234`](https://github.com/catkiss62/ai-companion-build/actions/runs/34426118627/artifacts/10132997234)，ZIP 530,728,973 bytes / digest `9158957404278f45bb2303794dccaec9942c521b65e966360de512bc494137ad`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e70cf2358cf6386e16b6) 未发布，`main` 未合并 |
+| 最终 CI | +200 run [`34444466670`](https://github.com/catkiss62/ai-companion-build/actions/runs/34444466670)（823）完整成功：总账协调、私有资源恢复、全部源码/回归 validator、Kotlin/AIDL、Flutter analyze、`704/704` Flutter tests、arm64 Release APK、固定签名、完整实包及 OpenJTalk ELF 依赖闭包均通过 |
+| 测试 APK | `AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK.apk`，537,628,264 bytes |
+| APK SHA-256 | `b6e38350100ce7ce806821a670d1cab8b6aab7466b2ca757390247e46cc6d0e3`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10139405463`](https://github.com/catkiss62/ai-companion-build/actions/runs/34444466670/artifacts/10139405463)，ZIP 530,768,425 bytes / digest `2c113eabe6cde531962e4f9322b1ea379cd19cbce99225b1f3ba6b39d3c6fca6`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8e884c3e237bb39b2edb) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | 用户已在 +199 真机确认日语、中英文、停止/滚动、顶栏语言、语速/音量与沉浸 `「」` 着色均无问题，+199 为 `TRUE DEVICE PASSED`。+200 世界书、造梗旁路与 D6 媒体引用已完成本地实现和可运行静态合同，状态为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；本地无 Flutter/Dart SDK，不能把静态通过冒充 analyze/tests/APK 通过 |
+| 当前总状态 | 用户已在 +199 真机确认日语、中英文、停止/滚动、顶栏语言、语速/音量与沉浸 `「」` 着色均无问题，+199 为 `TRUE DEVICE PASSED`。+200 世界书、造梗旁路与 D6 媒体引用已由 run 823 完整验证并生成固定签名 APK，状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；自动化通过不倒写为真机通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **推送并构建 v0.41.56+200 世界书同步、造梗单层概率与 D6 媒体引用合并包**：本地实现已完成；下一动作是在授权分支 `agent/v04155-genie-direct-port-lazy-language` 触发完整 Actions，修正真实编译/测试问题，取得固定签名 APK 后交给用户做窄真机验收。不得合并 `main` 或发布正式 Release |
+| 当前下一步 | **窄真机验收 v0.41.56+200 世界书同步、造梗单层概率与 D6 媒体引用合并包**：run 823 与固定签名 APK 已完成；下一动作是覆盖安装后分别验证世界书默认/保守迁移、未命中时不硬造梗、媒体 dry-run 不自动删除、确认优化后的引用安全、缓存多选删除及 protocol 6 跨机恢复。不得合并 `main` 或发布正式 Release |
 | 目标 | “角色表达自然化”采用 2026-09-10 03:04 存档的中文正文、priority 1000、scope all；新增“推演思维引擎”默认正文、priority 950、scope immersive；“日常对话规则”正文按存档、priority 900、scope chat\|proactive。造梗正文除已授权的年龄边界清理和本轮单层概率说明外不随意改写，priority 650、probability 30、scope chat\|proactive；不再由代码指定谐音变异、接梗、加码或第二造法 |
-| 当前证据 | 最新存档中目标四项分别为：自然化 2,603 字 / 1000 / all；推演引擎 3,390 字 / 950 / immersive；日常规则 691 字 / 900 / chat\|proactive；造梗 2,702 字 / 10 / chat\|proactive。目标消息的 `worldbook_context_json` 没有造梗世界书，但 reasoning 出现“谐音变异/接梗/加码”，源码证明 `PromptBuilder` 后置 `DialogueExpressionPlan` 独立命中并注入强制执行卡，绕过 enabled/manual/probability/priority/scope；D6 旧备份审计则证明聊天附件与相册/表情存在 exact-SHA 重复持久化 |
+| 当前证据 | run 822 首次全量测试为 `701 passed / 3 failed`，只暴露层名、造梗概率和世界书数量三项旧断言；提交 `219e83ed` 修正后 run 823 达成 `704/704`、Flutter analyze、Kotlin/AIDL、arm64 Release、固定签名与完整载荷全绿。APK 为 537,628,264 bytes / SHA-256 `b6e38350100ce7ce806821a670d1cab8b6aab7466b2ca757390247e46cc6d0e3` |
 | 保护与排除 | 最新存档只用于精确提取四项正文与元数据，不提交备份、聊天、附件、诊断或私有素材。用户手改条目只在正文精确命中已知默认/本次存档版本时保守升级；其他编辑继续优先。旧 `.aibackup` 永不改写；D6 必须先 dry-run 展示数量/可释放空间并再次确认，不能自动删除旧媒体。中文历史真源、Memory/Thought/Desire、TTS +199 已通过行为、图片识图与 Agent Outcome、相册标签和表情选择均不得回归 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
-| 完成判据 | 世界书正文/优先级/scope/单层30%及保守迁移有精确 SHA 测试；所有发给聊天 LLM 的有效 Prompt/规则不含成人/未成年年龄边界；Prompt 不再出现硬性造梗执行卡、造法枚举或未命中时的幽默暗示。D6 覆盖新发图片/双方表情 exact-SHA 复用、相册加引用不复制、dry-run 幂等、确认后迁移、缓存多选删除、引用安全、protocol 5→6 导入与跨机恢复；Actions 完成 analyze、全量 tests、Kotlin、Release、签名和载荷检查后才写 `CI PASSED / APK READY`，真机仍另验 |
+| 完成判据 | 自动化门已由 run 823 完成：世界书正文/优先级/scope/单层30%、无年龄边界、无硬造梗卡、D6 exact-SHA 引用、dry-run/迁移/缓存/协议合同及 analyze/tests/Kotlin/Release/签名/载荷均通过。剩余只是真机验证实际 UI、迁移空间统计、删除引用保护和跨机恢复；真机结论未取得前保持 `TRUE DEVICE PENDING` |
 | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -81,7 +81,7 @@
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | D4 · 单聊表情包表达层（TRUE DEVICE PASSED） | v0.41.46 的导入、随机表达、GIF、180dp、`sticker.send`、自读与认知已由用户肉眼确认，无需备份/诊断 | 保持现有策略；用户发送链由 D5 单独验收 |
 | D5 · 双向普通图片与用户表情媒体闭环（TRUE DEVICE PASSED / CLOSED） | v0.41.48 run 34186859452、测试 APK 与用户肉眼 smoke 均通过；表情排序/斗图/纯表情、正文渲染、图片 Agent、联网存图与世界书排序未报告问题 | 功能链收口；本次发现的媒体重复持久化转入 D6，不倒写为 D5 功能失败。自主媒体以后接统一仲裁 |
-| D6 · 聊天媒体引用、缓存查看与删除（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING） | schema 58 已实现 exact-SHA `media_blobs`、message/album 独立引用、手动 dry-run/确认迁移、缓存多选删除与 Snapshot protocol 6；本地专项合同通过 | 原备份不改；Actions 尚须证明 Flutter analyze/tests、旧 protocol 5 兼容与 Release 实包，随后真机验证重复执行、相册引用保护和跨机恢复；CI/真机通过前不得写 CLOSED |
+| D6 · 聊天媒体引用、缓存查看与删除（CI PASSED / APK READY / TRUE DEVICE PENDING） | schema 58 已实现 exact-SHA `media_blobs`、message/album 独立引用、手动 dry-run/确认迁移、缓存多选删除与 Snapshot protocol 6；run 823 的专项合同、Flutter analyze/tests、Kotlin 与 Release 实包均通过 | 原备份不改；真机验证重复执行、相册引用保护、缓存删除与跨机恢复；真机通过前不得写 CLOSED |
 | E · Agent v2 与延后项目 | **v0.41.50，紧接 v0.41.49** | 当前最多两工具且只有一次 continuation。Agent v2 改为最多 3 个规划回合/6 次调用的 observe→act→verify，保留风险、取消与事务门；不得与媒体 schema 混包。Skills/MCP、Harness、视频、提醒等仍后置；Token 命中/缓存优化最后做 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
@@ -89,7 +89,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-10 v0.41.56+200 世界书、造梗单层概率与 D6 媒体引用（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-10 v0.41.56+200 世界书、造梗单层概率与 D6 媒体引用（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 +199 真机使用无问题，日语、中英文、停止/滚动、顶栏语言、语速/音量与沉浸 `「」` 着色均据人工 smoke 提升为 `TRUE DEVICE PASSED`；不伪造诊断中没有的 UI 数据。本轮不得再改动该 TTS/显示链，除非自动化暴露真实回归。
 2. 用户要求把最新存档中的世界书修改、新增条目、已讨论的造梗方案与 D6 图片/表情包任务合入同一下一步。目标版本冻结为 `0.41.56+200 / schema 58 / Snapshot protocol 6`；这是用户明确要求的合并包，虽会同时含 Prompt 与数据库迁移，但必须用专项自动化和窄真机清单分开验收归因。
@@ -107,6 +107,10 @@
 14. 设置页新增“媒体存储与缓存”：旧 UUID 附件/相册先只读统计引用数、distinct 原图、当前/优化后空间与缺失文件，用户确认后才按原图 exact SHA 迁移；不重跑识图、不使用感知哈希合并。优化开始先写空完成标记，完成后写时间戳；如果进程在 DB 已迁移、旧副本尚未清理之间中断，下次扫描仍会显示待处理并可继续。缓存列表只展示 `album_ref_count=0` 的聊天媒体，支持多选、全选和合计空间；纯图片消息删除媒体后保留明确占位，不伪造原附件仍存在。
 15. Snapshot 已升 protocol 6：状态表、manifest 与 ZIP 同时携带共享 blob、original/thumbnail SHA 和总字节，导入前逐文件校验路径、摘要、blob 身份及 message/album 所有者绑定；声明 `media/` 路径却缺 `blob_id` 会拒绝。附件、相册与媒体三目录使用可回滚 staged swap；protocol 1～5 自动补空 media 表/空 blob_id，旧路径仍可显示并能之后手动优化。共享媒体缺文件时导出直接失败，避免生成跨机破图包。
 16. 本地已通过 `git diff --check`、workflow YAML、Python 语法、当前总账、v0.41.55 与 v0.41.56 专项；按 Actions 实际 `app/` 工作目录运行 79 个 validator 为 76 passed / 3 environment-only unavailable。三项仅因本地没有 Actions 恢复的 417 桌宠资源、LingChat effects 与 `kotlinc`；其余世界书 SHA、有效 Prompt 年龄边界扫描、无硬造梗卡、schema 58、幂等迁移、缓存引用和 Snapshot 6 静态合同均通过。本机没有 Flutter/Dart SDK，因此 analyze、Flutter tests、Kotlin 编译、Release、签名和私有载荷仍严格等待 Actions。
+17. 完整实现树已推送为 `8fb64125e6d9796a470ea44208695033d79f603d` / tree `b6cc1881688b231ea97c3a16acfed4f802cb55c9`。Actions run [`34443658890`](https://github.com/catkiss62/ai-companion-build/actions/runs/34443658890)（822）通过源码/专项 validator、Kotlin 与 Flutter analyze，但全量 tests 为 `701 passed / 3 failed`：遥测测试仍使用已删除的“本轮对话表达计划”层名；沉浸合同仍期待旧造梗概率 50；默认层合同仍期待新增前的 4 项世界书。三项均是本批明确变更后的过期断言，不是运行实现回退；run 822 未生成 APK。
+18. 三项测试契约已窄修并推送为 `219e83eddefe029392f77c707e0ca048c81d97c8` / tree `906029182b1645f57ea3a4aa3fe085c2bfd354e3`：遥测夹具改用当前“本轮回应重心”，造梗概率断言改为唯一 30，默认世界书数量改为 5。世界书正文、生产 Prompt、D6 数据实现和 +199 TTS 基线均未为通过测试而回退。
+19. Actions run [`34444466670`](https://github.com/catkiss62/ai-companion-build/actions/runs/34444466670)（823）完整成功：所有源码/回归 validator、417 文件桌宠与私有 Genie 恢复、Kotlin/AIDL、Flutter analyze、`704/704` Flutter tests、arm64 Release、固定签名、40 个 Genie/OpenJTalk 实包哈希、ELF 依赖闭包和 Draft 上传均通过。签名 SHA-256 仍为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+20. 最终 APK `AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK.apk` 为 537,628,264 bytes、SHA-256 `b6e38350100ce7ce806821a670d1cab8b6aab7466b2ca757390247e46cc6d0e3`，与 Draft 资产 digest 一致。Artifact `10139405463` 为 530,768,425-byte ZIP / digest `2c113eabe6cde531962e4f9322b1ea379cd19cbce99225b1f3ba6b39d3c6fca6`；成品、checksum 与 CI monitor 已保存到未发布 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8e884c3e237bb39b2edb)，`main` 未合并。当前提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，下一步只做窄真机验收。
 
 ### 2026-09-10 v0.41.55+199 日语 C++ 运行库依赖闭包（CI PASSED / APK READY / TRUE DEVICE PASSED）
 
