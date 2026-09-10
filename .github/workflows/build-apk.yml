@@ -365,7 +365,7 @@
 # Historical v0.41.54 workflow: Genie native-crash hotfix and settings completion.
 # Current v0.41.55 workflow: pinned Genie v0.6.4 private-process port and lazy target language.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.55+198 APK (Genie Direct Port Lazy Language)
+name: Build AI Companion v0.41.55+199 APK (Genie Direct Port Lazy Language)
 
 on:
   push:
@@ -413,17 +413,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Reconcile oversized project ledger when requested
-        if: ${{ hashFiles('app/tools/reconcile_v04155_build198_ledger.py') != '' }}
+        if: ${{ hashFiles('app/tools/reconcile_v04155_build199_ledger.py') != '' }}
         shell: bash
         run: |
           set -euo pipefail
-          python3 app/tools/reconcile_v04155_build198_ledger.py
+          python3 app/tools/reconcile_v04155_build199_ledger.py
           python3 app/tools/validate_current_ledger_handoff.py
-          rm app/tools/reconcile_v04155_build198_ledger.py
+          rm app/tools/reconcile_v04155_build199_ledger.py
           git config user.name 'catkiss62'
           git config user.email 'aolu0610@gmail.com'
-          git add AI_Companion_当前总账.md app/tools/reconcile_v04155_build198_ledger.py
-          git commit -m 'docs: reconcile build 198 project ledger [skip ci]'
+          git add AI_Companion_当前总账.md app/tools/reconcile_v04155_build199_ledger.py
+          git commit -m 'docs: reconcile build 199 project ledger [skip ci]'
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
   detect-change-scope:
@@ -481,10 +481,10 @@ jobs:
             exit 0
           fi
 
-          if grep -Fqx 'app/tools/reconcile_v04155_build198_ledger.py' "${changed_files}"; then
+          if grep -Fqx 'app/tools/reconcile_v04155_build199_ledger.py' "${changed_files}"; then
             while IFS= read -r changed_path; do
               case "${changed_path}" in
-                'app/tools/reconcile_v04155_build198_ledger.py'|'.github/workflows/build-apk.yml'|'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
+                'app/tools/reconcile_v04155_build199_ledger.py'|'.github/workflows/build-apk.yml'|'AI_Companion_当前总账.md'|'README.md'|'app/README.md'|app/docs/*)
                   ;;
                 *)
                   request_full_build "ledger_reconcile_with_project_change:${changed_path}"
@@ -562,6 +562,7 @@ jobs:
             'lib/arm64-v8a/libonnxruntime.so' \
             'lib/arm64-v8a/libopenjtalk_native.so' \
             'lib/arm64-v8a/libgenie_frontend.so' \
+            'lib/arm64-v8a/libc++_shared.so' \
             -d .genie-payload/unpacked
           python3 - <<'PY'
           import json, pathlib
@@ -637,6 +638,8 @@ jobs:
             "${TTS_MAIN}/jniLibs/arm64-v8a/"
           cp .genie-payload/unpacked/lib/arm64-v8a/libgenie_frontend.so \
             "${TTS_MAIN}/jniLibs/arm64-v8a/"
+          cp .genie-payload/unpacked/lib/arm64-v8a/libc++_shared.so \
+            "${TTS_MAIN}/jniLibs/arm64-v8a/"
           python3 - <<'PY'
           import hashlib, json, pathlib
           root = pathlib.Path('app/android/app/src/main')
@@ -646,6 +649,7 @@ jobs:
           ]
           files.append(root / 'jniLibs/arm64-v8a/libopenjtalk_native.so')
           files.append(root / 'jniLibs/arm64-v8a/libgenie_frontend.so')
+          files.append(root / 'jniLibs/arm64-v8a/libc++_shared.so')
           manifest = {
               str(path.relative_to(root)): {
                   'size': path.stat().st_size,
@@ -664,7 +668,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.55+198' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.55+199' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 57;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -676,9 +680,10 @@ jobs:
           test -f app/android/app/src/main/assets/benchmark/models/vits_fp32.bin
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libgenie_frontend.so
+          test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.55+198 pinned Genie direct-port and lazy-language candidate.'
+          echo 'Building v0.41.55+199 pinned Genie direct-port and lazy-language candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -924,11 +929,44 @@ jobs:
                   'lib/arm64-v8a/libonnxruntime.so',
                   'lib/arm64-v8a/libopenjtalk_native.so',
                   'lib/arm64-v8a/libgenie_frontend.so',
+                  'lib/arm64-v8a/libc++_shared.so',
               }
               missing = sorted(required_genie_libs.difference(z.namelist()))
               if missing:
                   print(f'ERROR: Genie native libraries missing: {missing}', file=sys.stderr)
                   sys.exit(1)
+              # The prior package verified the two Japanese JNI libraries byte
+              # for byte but omitted OpenJTalk's transitive C++ runtime. Check
+              # the actual release APK dependency closure so this cannot recur.
+              import re, subprocess, tempfile
+              system_libraries = {
+                  'libandroid.so', 'libdl.so', 'liblog.so', 'libm.so',
+                  'libc.so', 'libz.so',
+              }
+              packaged_native = {
+                  pathlib.PurePosixPath(name).name
+                  for name in z.namelist()
+                  if name.startswith('lib/arm64-v8a/') and name.endswith('.so')
+              }
+              with tempfile.TemporaryDirectory() as temporary:
+                  for source_name in ('libopenjtalk_native.so', 'libgenie_frontend.so'):
+                      source_path = pathlib.Path(temporary) / source_name
+                      source_path.write_bytes(z.read(f'lib/arm64-v8a/{source_name}'))
+                      dynamic = subprocess.run(
+                          ['readelf', '-d', str(source_path)],
+                          check=True,
+                          capture_output=True,
+                          text=True,
+                      ).stdout
+                      needed = set(re.findall(r'Shared library: \[([^]]+)\]', dynamic))
+                      unresolved = sorted(needed - system_libraries - packaged_native)
+                      if unresolved:
+                          print(
+                              f'ERROR: {source_name} has unpackaged ELF dependencies: {unresolved}',
+                              file=sys.stderr,
+                          )
+                          sys.exit(1)
+              print('OpenJTalk ELF dependency closure is complete in the release APK.')
               verified_ort = pathlib.Path(
                   '.genie-payload/unpacked/lib/arm64-v8a/libonnxruntime.so'
               ).read_bytes()
@@ -1103,26 +1141,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.55+198 APK as workflow artifact
+      - name: Upload v0.41.55+199 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK
+          name: AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.55+198 APK to draft release
+      - name: Upload v0.41.55+199 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG='v0.41.55-genie-direct-port-lazy-language-test'
-          APK_NAME='AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK.apk'
+          APK_NAME='AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1139,7 +1177,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.55+198 Genie direct-port lazy-language candidate' \
+              --title 'AI Companion v0.41.55+199 Genie direct-port lazy-language candidate' \
               --notes 'Draft schema-57 test candidate. Pins the verified Genie-TTS v0.6.4 core, isolates ONNX inference in a private Android process, preserves fixed-segment generation-ahead playback, explicitly excludes the later true-streaming test block, and replaces permanent three-language generation with one thinking-off cached target-language projection. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
@@ -1197,7 +1235,7 @@ jobs:
         run: |
           set -uo pipefail
           TAG='v0.41.55-genie-direct-port-lazy-language-test'
-          CI_NAME='AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1238,7 +1276,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.55+198 Genie direct-port lazy-language candidate' \
+              --title 'AI Companion v0.41.55+199 Genie direct-port lazy-language candidate' \
               --notes 'Draft failure diagnostics for the schema-57 pinned Genie private-process and lazy-language candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+198" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+198';" in read(
+assert "version: 0.41.55+199" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.55+199';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -308,16 +308,18 @@ assert not re.search(
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+198 APK",
+    "Build AI Companion v0.41.55+199 APK",
     "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-198-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token
 assert "genie-tts-private-runtime-v0.7" not in workflow
 assert "companion ONNX Runtime differs from verified Genie APK" in workflow
 assert workflow.count("lib/arm64-v8a/libgenie_frontend.so") >= 3
+assert workflow.count("lib/arm64-v8a/libc++_shared.so") >= 3
+assert "OpenJTalk ELF dependency closure is complete" in workflow
 assert "ORG_GRADLE_PROJECT_skipGenieNativeBuild" in workflow
 assert "libMNN.so" in workflow and "libbertvits2.so" in workflow
 assert "LegacyTtsRuntime" not in service

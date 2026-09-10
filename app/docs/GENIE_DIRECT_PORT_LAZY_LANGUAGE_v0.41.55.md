@@ -1,6 +1,6 @@
 # Genie v0.6.4 原样移植、崩溃隔离与按需外语 · v0.41.55
 
-状态：`v0.41.55+197 TRUE DEVICE PARTIAL / v0.41.55+198 CI PASSED · APK READY · TRUE DEVICE PENDING`。当前目标：`0.41.55+198 / schema 57 / Snapshot protocol 5`。
+状态：`v0.41.55+198 TRUE DEVICE PARTIAL / v0.41.55+199 IMPLEMENTED · CI PENDING`。当前目标：`0.41.55+199 / schema 57 / Snapshot protocol 5`。
 
 ## 唯一源基线
 
@@ -65,3 +65,10 @@
 - 语言选择移至顶栏 `NSFW` 左侧，可见文字只为“语言 中 日 EN”；点击不触发朗读。聊天面板底部的语音语言说明已删除，但外语消息本身的中文对照仍保留。
 - 语速从会改变音高的 PCM 线性重采样改为 `AudioTrack.PlaybackParams`，固定 `pitch=1.0`、仅调整 `speed`。TTS 音量上限提高到 200%，超过 100% 的部分使用 AudioTrack 会话级 `LoudnessEnhancer`，最高约 +6.02 dB；音源已很响时可能触发系统限幅。
 - 服务状态增加不含错误原文的 `diagnosticCode`，下次失败可区分真实异常类型。最终 Actions run 817 已通过源码回归、Kotlin/AIDL、Flutter analyze、`709/709` tests、Release APK、固定签名与双 JNI 库成品 SHA 校验；日语恢复与音高/增益体感仍须真机确认。
+
+## +198 真机证据与 +199 依赖闭包窄修
+
+- +198 新报告给出 `frontend_switch_failed / UnsatisfiedLinkError / ja`，证明日语仍在 JNI 装载期失败；随后出现的 `NullPointerException` 是前端未建立后的次生错误，不是首个根因。
+- 对 run 817 成品 APK 做独立 ZIP/ELF 检查后确认：`libgenie_frontend.so` 的 JNI 导出与 Kotlin 包名一致，OpenJTalk 六个 C 符号也都能解析；但 `libopenjtalk_native.so` 的 `DT_NEEDED` 明确包含 `libc++_shared.so`，+198 APK 却没有携带该库。
+- +199 从同一份真机验证过的 Genie v0.6.4 APK 原样提取 `libc++_shared.so`，与两份日语 JNI 库一同复制、记录大小/SHA 并打包。最终 APK 验证除逐文件字节一致外，还读取 OpenJTalk 与 bridge 的 ELF 依赖表，任何非 Android 系统依赖未出现在 arm64 APK 时直接失败。
+- 本窄修不改日语文本、词典、JNI 方法、声学推理、分段/队列、播放参数、UI、Prompt、规则或数据库。CI 通过只能证明依赖闭包和构建完成；首次与第二次日语真正出声仍由真机验收。

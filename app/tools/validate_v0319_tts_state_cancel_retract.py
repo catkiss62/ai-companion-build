@@ -49,6 +49,7 @@ for token in [
     assert token in controller, token
 if any(version in pubspec for version in (
     "version: 0.41.55+196", "version: 0.41.55+197", "version: 0.41.55+198",
+    "version: 0.41.55+199",
 )):
     # Fixed-segment Genie playback starts only from the committed assistant
     # message; there is intentionally no provisional provider-stream owner.
