@@ -105,6 +105,7 @@ abstract class TtsProvider {
   Future<void> pause();
   Future<void> resume();
   Future<void> setSpeed(double speed);
+  Future<void> setPitch(double pitch);
   Future<void> setVolume(double volume);
   Future<void> dispose();
 }

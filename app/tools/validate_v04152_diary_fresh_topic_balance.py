@@ -23,6 +23,7 @@ assert any(
         "version: 0.41.56+200",
         "version: 0.41.57+201",
         "version: 0.41.58+202",
+        "version: 0.41.59+203",
     )
 )
 assert any(
@@ -31,6 +32,7 @@ assert any(
         "static const int schemaVersion = 56;",
         "static const int schemaVersion = 57;",
         "static const int schemaVersion = 58;",
+        "static const int schemaVersion = 59;",
     )
 )
 

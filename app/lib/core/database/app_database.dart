@@ -115,7 +115,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 55;
   // Historical validator compatibility token: static const int schemaVersion = 56;
   // Historical validator compatibility token: static const int schemaVersion = 57;
-  static const int schemaVersion = 58;
+  // Historical validator compatibility token: static const int schemaVersion = 58;
+  static const int schemaVersion = 59;
 
   Database? _db;
   Future<Database>? _opening;
@@ -221,6 +222,8 @@ class AppDatabase {
         'proactive_tts_policy': 'silent',
         'last_proactive_spoken_message_id': '',
         'tts_speed': '1.0',
+        'tts_tone_preset': 'original',
+        'tts_pitch_semitones': '0.0',
         'tts_volume': '1.0',
         'tts_replacements_json': '{"token":"拖肯","DeepSeek":"地铺C咳"}',
         'relationship_continuity_enabled': '1',
@@ -1158,6 +1161,18 @@ class AppDatabase {
     if (oldVersion < 58) {
       await _createV58MediaBlobTables(db);
     }
+    if (oldVersion < 59) {
+      for (final entry in const <String, String>{
+        'tts_tone_preset': 'original',
+        'tts_pitch_semitones': '0.0',
+      }.entries) {
+        await db.insert(
+          'settings',
+          {'key': entry.key, 'value': entry.value},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1408,6 +1423,8 @@ class AppDatabase {
     await db.insert('settings', {'key': 'proactive_tts_policy', 'value': 'silent'});
     await db.insert('settings', {'key': 'last_proactive_spoken_message_id', 'value': ''});
     await db.insert('settings', {'key': 'tts_speed', 'value': '1.0'});
+    await db.insert('settings', {'key': 'tts_tone_preset', 'value': 'original'});
+    await db.insert('settings', {'key': 'tts_pitch_semitones', 'value': '0.0'});
     await db.insert('settings', {'key': 'tts_volume', 'value': '1.0'});
     await db.insert('settings', {'key': 'tts_replacements_json', 'value': '{\"token\":\"拖肯\",\"DeepSeek\":\"地铺C咳\"}'});
     await db.insert('settings', {'key': 'tts_reading_scope', 'value': 'dialogue_only'});
@@ -4035,6 +4052,8 @@ class AppDatabase {
       'show_foreign_replies': '0',
       'tts_language': 'zh',
       'tts_voice_mode': 'auto',
+      'tts_tone_preset': 'original',
+      'tts_pitch_semitones': '0.0',
       'chat_visual_stage_enabled': '1',
       'chat_background_mode': 'auto',
       'chat_panel_opacity': '0.75',
@@ -18365,6 +18384,8 @@ class AppDatabase {
         'proactive_tts_policy': 'silent',
         'last_proactive_spoken_message_id': '',
         'tts_speed': '1.0',
+        'tts_tone_preset': 'original',
+        'tts_pitch_semitones': '0.0',
         'tts_volume': '1.0',
         'tts_replacements_json': '{"token":"拖肯","DeepSeek":"地铺C咳"}',
         'tts_reading_scope': 'dialogue_only',

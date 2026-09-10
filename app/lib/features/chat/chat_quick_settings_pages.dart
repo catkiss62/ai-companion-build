@@ -500,6 +500,8 @@ class _VoiceEmotionSettingsPageState
   TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
   ProactiveTtsPolicy _proactivePolicy = ProactiveTtsPolicy.silent;
+  TtsTonePreset _tonePreset = TtsTonePreset.original;
+  double _pitchSemitones = 0.0;
   double _ttsSpeed = 1.0;
   double _ttsVolume = 1.0;
   bool _showEmotion = true;
@@ -530,6 +532,12 @@ class _VoiceEmotionSettingsPageState
     _proactivePolicy = ProactiveTtsPolicy.fromSetting(
       await _db.getSetting('proactive_tts_policy'),
     );
+    _tonePreset = TtsTonePreset.fromSetting(
+      await _db.getSetting('tts_tone_preset'),
+    );
+    _pitchSemitones = TtsPlaybackTuning.pitchSemitonesFromSetting(
+      await _db.getSetting('tts_pitch_semitones'),
+    );
     _ttsSpeed = TtsPlaybackTuning.speedFromSetting(
       await _db.getSetting('tts_speed'),
     );
@@ -554,6 +562,18 @@ class _VoiceEmotionSettingsPageState
     }
     if (mounted) setState(() => _loading = false);
   }
+
+  double get _effectivePitchSemitones =>
+      TtsPlaybackTuning.effectivePitchSemitones(
+        _tonePreset,
+        _pitchSemitones,
+      );
+
+  Future<void> _applyPitch() => _tts.setPitch(
+        TtsPlaybackTuning.pitchRatioForSemitones(
+          _effectivePitchSemitones,
+        ),
+      );
 
   Future<void> _runTtsAction(
     String pending,
@@ -689,6 +709,52 @@ class _VoiceEmotionSettingsPageState
                         await _db.setSetting('tts_voice_mode', value.key);
                       },
                     ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TtsTonePreset>(
+                      value: _tonePreset,
+                      decoration: const InputDecoration(
+                        labelText: '恬豆音调',
+                        helperText: '高音版保持模型原声；低音版固定降低 2 个半音。',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: TtsTonePreset.values
+                          .map(
+                            (value) => DropdownMenuItem(
+                              value: value,
+                              child: Text(value.label),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) async {
+                        if (value == null) return;
+                        setState(() => _tonePreset = value);
+                        await _db.setSetting('tts_tone_preset', value.key);
+                        await _applyPitch();
+                      },
+                    ),
+                    if (_tonePreset == TtsTonePreset.custom) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '独立变调 ${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)} 半音',
+                      ),
+                      Slider(
+                        min: TtsPlaybackTuning.minPitchSemitones,
+                        max: TtsPlaybackTuning.maxPitchSemitones,
+                        divisions: 16,
+                        value: _pitchSemitones,
+                        label:
+                            '${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)}',
+                        onChanged: (value) =>
+                            setState(() => _pitchSemitones = value),
+                        onChangeEnd: (value) async {
+                          await _db.setSetting(
+                            'tts_pitch_semitones',
+                            value.toStringAsFixed(1),
+                          );
+                          await _applyPitch();
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,

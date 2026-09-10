@@ -8,7 +8,6 @@ import com.catkiss62.geniettsbenchmark.EngineConfig
 import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import com.catkiss62.geniettsbenchmark.ModelLoadInfo
 import com.catkiss62.geniettsbenchmark.NativeJapaneseFrontend
-import com.catkiss62.geniettsbenchmark.PreparedText
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -18,7 +17,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-/** Production adapter around the verified Genie core with the Naiyou V2 voice. */
+/** Production adapter around the v0.6.4 verified Genie core with the Tiandou voice. */
 class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private val engine = GenieBenchmarkEngine(context)
     private var root: File? = null
@@ -47,14 +46,14 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         get() = modelsReady
 
     fun statusDetail(): String = when {
-        !artifactsPresent -> "Genie 奶油 V2 TTS 本体尚未装入 APK"
+        !artifactsPresent -> "Genie v0.6.4 恬豆 TTS 本体尚未装入 APK"
         activeLanguage.isEmpty() -> "Genie 资源存在；语言前端等待选择"
         !modelsReady -> "Genie 当前仅保留 $activeLanguage 前端；声学模型按需加载"
         else -> "Genie 声学模型已初始化；当前仅保留 $activeLanguage 前端"
     }
 
     fun verifyPackagedArtifacts(): Int {
-        check(artifactsPresent) { "Genie 奶油 V2 manifest 缺失" }
+        check(artifactsPresent) { "Genie v0.6.4 恬豆 manifest 缺失" }
         val manifest = engine.readManifest()
         var checked = 1
         for (relative in manifest.assetFiles) {
@@ -93,7 +92,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             "zh" -> {
                 GenieFrontendAdapter.prepareChineseAssets(engine, preparedRoot, progress)
                 check(engine.hasFrontendModel(preparedRoot)) {
-                    "请先导入与 Genie 奶油 V2 配套的 Chinese RoBERTa"
+                    "请先导入与 Genie v0.6.4 恬豆配套的 Chinese RoBERTa"
                 }
                 chinese = ChineseFrontend(engine)
             }
@@ -134,9 +133,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
                 GenieFrontendAdapter.normalizeChineseText(text),
             ) {}
             "en" -> checkNotNull(english).prepare(text, manifest.frontend.bertDim) {}
-            "ja" -> sanitizeLegacyJapanese(
-                checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {},
-            )
+            "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
             else -> error("不支持的 TTS 语言：$language")
         }
         onStage("frontend_ready_$language")
@@ -213,44 +210,12 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
 
     companion object {
         private const val TARGET_THREADS = 8
-        // Naiyou was trained against the early V2 vocabulary. Current
-        // OpenJTalk emits pitch boundary brackets at 322/323, which would
-        // address past this model's 322-row text embedding.
-        internal const val NAIYOU_VITS_SYMBOL_COUNT = 322
         private val SUPPORTED_LANGUAGES = setOf("zh", "ja", "en")
         private val VOICE_CASES = mapOf(
-            "daily" to "naiyou_growth",
-            "gentle" to "naiyou_hello",
-            "lively" to "naiyou_dog",
-            "cute" to "naiyou_dynamic",
+            "daily" to "ref01",
+            "gentle" to "ref02",
+            "lively" to "ref04",
+            "cute" to "ref06",
         )
-
-        internal fun sanitizeLegacyJapanese(prepared: PreparedText): PreparedText {
-            require(prepared.bert.size == prepared.sequence.size * prepared.bertDim) {
-                "日语 BERT 与音素长度不一致"
-            }
-            val kept = prepared.sequence.indices.filter {
-                prepared.sequence[it] >= 0L &&
-                    prepared.sequence[it] < NAIYOU_VITS_SYMBOL_COUNT.toLong()
-            }
-            require(kept.isNotEmpty()) { "日语音素全部超出奶油 V2 词表" }
-            if (kept.size == prepared.sequence.size) return prepared
-            val sequence = LongArray(kept.size)
-            val bert = FloatArray(kept.size * prepared.bertDim)
-            kept.forEachIndexed { targetIndex, sourceIndex ->
-                sequence[targetIndex] = prepared.sequence[sourceIndex]
-                prepared.bert.copyInto(
-                    bert,
-                    destinationOffset = targetIndex * prepared.bertDim,
-                    startIndex = sourceIndex * prepared.bertDim,
-                    endIndex = (sourceIndex + 1) * prepared.bertDim,
-                )
-            }
-            return prepared.copy(
-                sequence = sequence,
-                bert = bert,
-                diagnostic = "${prepared.diagnostic} · 兼容奶油旧V2词表，过滤${prepared.sequence.size - kept.size}个音高边界",
-            )
-        }
     }
 }

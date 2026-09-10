@@ -6,17 +6,16 @@ import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import java.io.File
 
 /**
- * Makes the first companion run use a complete Naiyou V2 runtime extraction.
+ * Makes the first companion run use a complete, verified Tiandou extraction.
  *
  * The pinned Genie test app always starts with a fresh filesDir. Companion
- * upgrades do not: v0.41.53/v0.41.54 may have left a non-empty partial model
- * or frontend file behind, and Genie's original copier intentionally skips any
- * non-empty destination. Purge only that reproducible version directory once,
- * then let the byte-for-byte pinned core extract it again. The imported
- * Chinese RoBERTa lives in the sibling shared/ directory and is preserved.
+ * upgrades do not: older packages may have left mixed voice files or a
+ * non-empty partial model behind. Purge only that reproducible version
+ * directory once, then let the integrity-aware copier extract Tiandou again.
+ * The imported Chinese RoBERTa lives in sibling shared/ and is preserved.
  */
 object GenieRuntimeAssetStore {
-    private const val MIGRATION_ID = "ai-companion-v04157-build201-naiyou-runtime-v1"
+    private const val MIGRATION_ID = "ai-companion-v04159-build203-tiandou-integrity-v1"
 
     fun prepare(
         context: Context,
@@ -34,7 +33,7 @@ object GenieRuntimeAssetStore {
             check(canonicalRoot.parentFile == canonicalBase) {
                 "拒绝清理非 Genie 运行目录"
             }
-            progress("正在刷新 Genie 奶油 V2 运行资源……")
+            progress("正在校验并刷新 Genie 恬豆运行资源……")
             if (canonicalRoot.exists()) {
                 check(canonicalRoot.deleteRecursively()) {
                     "无法清理旧 Genie 运行资源"

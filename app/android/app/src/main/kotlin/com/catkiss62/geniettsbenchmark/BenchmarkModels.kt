@@ -71,6 +71,7 @@ data class EngineConfig(val backend: BackendMode, val threads: Int) {
 }
 
 data class ModelLoadInfo(val loadedThisRun: Boolean, val elapsedMs: Long)
+data class AssetIntegrity(val bytes: Long, val sha256: String)
 
 data class BenchmarkManifest(
     val version: String,
@@ -87,6 +88,7 @@ data class BenchmarkManifest(
     val stageInputNames: List<String>,
     val vocoderInputNames: List<String>,
     val assetFiles: List<String>,
+    val assetIntegrity: Map<String, AssetIntegrity>,
 ) {
     companion object {
         fun parse(text: String): BenchmarkManifest {
@@ -99,6 +101,12 @@ data class BenchmarkManifest(
             fun tensors(obj: JSONObject, key: String) = obj.getJSONArray(key).let { a -> List(a.length()) { tensor(a.getJSONObject(it)) } }
             val modelObject = root.getJSONObject("models")
             val models = modelObject.keys().asSequence().associateWith { modelObject.getString(it) }
+            val assetIntegrity = root.optJSONObject("asset_integrity")?.let { integrityObject ->
+                integrityObject.keys().asSequence().associateWith { path ->
+                    val item = integrityObject.getJSONObject(path)
+                    AssetIntegrity(item.getLong("bytes"), item.getString("sha256"))
+                }
+            } ?: emptyMap()
             val featureModes = root.getJSONArray("feature_modes").let { array ->
                 List(array.length()) { index ->
                     val item = array.getJSONObject(index)
@@ -145,7 +153,8 @@ data class BenchmarkManifest(
                 root.getString("version"), root.getString("character"), root.getInt("sample_rate"), models,
                 tensors(root, "shared_tensors"), featureModes, presets, frontend, cases,
                 strings("encoder_input_names"), strings("first_stage_input_names"),
-                strings("stage_input_names"), strings("vocoder_input_names"), strings("asset_files")
+                strings("stage_input_names"), strings("vocoder_input_names"), strings("asset_files"),
+                assetIntegrity,
             )
         }
     }

@@ -114,6 +114,10 @@ class NativeTtsBridge(
                     engine.setSpeed(call.argument<Double>("speed") ?: 1.0)
                     null
                 }
+                "setPitch" -> {
+                    engine.setPitch(call.argument<Double>("pitch") ?: 1.0)
+                    result.success(null)
+                }
                 "setVolume" -> {
                     engine.setVolume(call.argument<Double>("volume") ?: 1.0)
                     result.success(null)

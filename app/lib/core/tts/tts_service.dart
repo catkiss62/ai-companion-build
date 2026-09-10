@@ -61,7 +61,17 @@ class TtsService implements TtsQueueService {
     final volume = TtsPlaybackTuning.volumeFromSetting(
       await db.getSetting('tts_volume'),
     );
+    final tonePreset = TtsTonePreset.fromSetting(
+      await db.getSetting('tts_tone_preset'),
+    );
+    final customPitch = TtsPlaybackTuning.pitchSemitonesFromSetting(
+      await db.getSetting('tts_pitch_semitones'),
+    );
+    final pitch = TtsPlaybackTuning.pitchRatioForSemitones(
+      TtsPlaybackTuning.effectivePitchSemitones(tonePreset, customPitch),
+    );
     await provider.setSpeed(speed);
+    await provider.setPitch(pitch);
     await provider.setVolume(volume);
   }
 
@@ -202,5 +212,6 @@ class TtsService implements TtsQueueService {
   Future<void> pause() => provider.pause();
   Future<void> resume() => provider.resume();
   Future<void> setSpeed(double value) => provider.setSpeed(value);
+  Future<void> setPitch(double value) => provider.setPitch(value);
   Future<void> setVolume(double value) => provider.setVolume(value);
 }

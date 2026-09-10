@@ -11,11 +11,11 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.58+202" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.58+202';" in read(
+assert "version: 0.41.59+203" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.59+203';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
-assert "static const int schemaVersion = 58;" in read(
+assert "static const int schemaVersion = 59;" in read(
     "lib/core/database/app_database.dart"
 )
 
@@ -49,28 +49,6 @@ for token in (
 ):
     assert token in sticker, token
 
-runtime = read(
-    "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsRuntime.kt"
-)
-runtime_test = read(
-    "android/app/src/test/kotlin/com/aicompanion/localfirst/GenieTtsRuntimeTest.kt"
-)
-for token in (
-    "sanitizeLegacyJapanese(",
-    "NAIYOU_VITS_SYMBOL_COUNT = 322",
-    "prepared.sequence[it] < NAIYOU_VITS_SYMBOL_COUNT.toLong()",
-    "prepared.bert.copyInto(",
-    "sequence = sequence",
-    "bert = bert",
-):
-    assert token in runtime, token
-for token in (
-    "longArrayOf(1, 322, 40, 323, 321)",
-    "longArrayOf(1, 40, 321)",
-    "floatArrayOf(10f, 11f, 30f, 31f, 50f, 51f)",
-):
-    assert token in runtime_test, token
-
 segmenter = read("lib/core/tts/tts_sentence_segmenter.dart")
 fixed = read("lib/core/tts/genie_fixed_text_segmenter.dart")
 packer = read("lib/core/tts/tts_queued_segment_packer.dart")
@@ -89,16 +67,16 @@ for token in (
     "!session.rawWorkerActive",
 ):
     assert token in fixed + packer + queue, token
-assert "if (currentSpeed != 1.0f) applySpeed(created)" in player
-assert "PlaybackParams()" in player and ".setPitch(1.0f)" in player
+assert "currentSpeed != 1.0f || currentPitch != 1.0f" in player
+assert "PlaybackParams()" in player and ".setPitch(currentPitch)" in player
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.58+202 APK",
+    "Build AI Companion v0.41.59+203 APK",
     "validate_v04158_backup_naiyou_runtime.py",
-    "AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK",
-    "genie-tts-private-runtime-v0.7.1-naiyou",
-    "removed candidate 5, Tiandou and external RoBERTa",
+    "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
+    "genie-tts-private-runtime-v0.6.4",
+    "complete T2S and per-file integrity metadata",
 ):
     assert token in workflow, token
 

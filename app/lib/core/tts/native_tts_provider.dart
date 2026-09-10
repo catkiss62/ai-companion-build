@@ -6,7 +6,7 @@ import 'tts_provider.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_voice_profile.dart';
 
-/// Flutter-facing adapter for the local Genie-TTS core with the Naiyou V2 voice.
+/// Flutter-facing adapter for the local Genie-TTS core with the Tiandou voice.
 /// The Android side owns the shared acoustic runtime and one selected frontend.
 class NativeTtsProvider implements TtsProvider {
   NativeTtsProvider._();
@@ -108,6 +108,10 @@ class NativeTtsProvider implements TtsProvider {
   @override
   Future<void> setSpeed(double speed) =>
       _channel.invokeMethod<void>('setSpeed', {'speed': speed});
+
+  @override
+  Future<void> setPitch(double pitch) =>
+      _channel.invokeMethod<void>('setPitch', {'pitch': pitch});
 
   @override
   Future<void> setVolume(double volume) =>

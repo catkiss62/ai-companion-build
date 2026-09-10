@@ -32,28 +32,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
+| 当前开发分支 | `agent/v04159-tiandou-pitch-recovery`，从 `agent/v04155-genie-direct-port-lazy-language` 的 +202 head 开出；+203 本地实现已完成，待提交与 Actions。它恢复已真机验证的完整恬豆 V2 资源，并吸收 Genie-TTS-Android v0.7.3 的逐文件完整性/原子替换合同，保留现有独立 TTS 进程、按需单一外语与固定分段链 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +202 Actions head `bd886d304e3d94b32ed98c6c009080c990282251` / tree `a348a7ddf505959c43cad4617e2fd47492611f14` 已验证；它在完整实现树上只修正回退概率后的过期测试契约，包含 +201 全部任务及备份、日语、播放器和排队窄修。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有奶油运行资源只由 CI 从 Draft 资产恢复并裁剪 |
-| App / 数据库 | 当前完整真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；`0.41.56+200` 是世界书、造梗单层概率与 D6 媒体引用/共享媒体起点；`0.41.57+201` 完成清理入口、发送落底、中文自然化和奶油四音色，但真机暴露共享媒体备份、奶油日语与听感窄缺陷。当前已构建待验收基线为 `0.41.58+202 / schema 58 / Snapshot protocol 6`，表情概率已按用户要求回退 |
+| App / 数据库 | 当前完整真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；`0.41.56+200` 建立造梗单层概率与 D6 媒体引用，`0.41.57+201` 完成清理/发送落底/奶油切换，当前已构建待验收基线仍为 `0.41.58+202 / schema 58 / Snapshot protocol 6`。本地目标已升为 `0.41.59+203 / schema 59 / Snapshot protocol 6`，只新增 TTS 音调预设与半音设置默认/迁移，不改 Snapshot 协议或既有媒体结构；Actions 未通过前不得把 +203 写成 APK READY |
 | 最终 CI | +202 run [`34470775012`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012)（826）完整成功：私有奶油资源 SHA/裁剪、全部源码/回归 validator、Kotlin/AIDL、Flutter analyze、`713/713` Flutter tests、arm64 Release APK、固定签名、40 项 Genie/Naiyou/OpenJTalk 实包哈希、四 case/无候选5/无恬豆、OpenJTalk ELF 依赖闭包均通过 |
 | 测试 APK | `AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK.apk`，535,444,192 bytes |
 | APK SHA-256 | `e2d80ff3ae65c37adc3a2edeb233c4d0e0a0906188b0644573b64e8ca5cb092c`；与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10149802145`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012/artifacts/10149802145)，ZIP 528,578,840 bytes / digest `541af3bafaebf02a7e908303b0ed6d93952dae090e43bdc4102cef620f52a6a9`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e75e3ac276ff5f165a4d) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +199 仍为旧恬豆 TTS 完整真机稳定基线；+201 的窄失败已由 +202 自动化修复并取代。+202 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：合法 `media/` 已放行，表情概率恢复 12%/24%/42%，奶油日语旧 322-row 越界已防护，默认 1.0x 不再强制时间拉伸，首句立即生成且只合并排队后句；+201 前一批任务仍完整包含，等待合包真机验收 |
+| 当前总状态 | +199 仍为旧恬豆 TTS 完整真机稳定基线；+202 的备份/表情/媒体修复继续有效。用户确认奶油与随后回退的恬豆都出现明显“降调、变厚”，源码审计定位到覆盖安装后的运行资源缺少逐文件完整性与可靠替换合同；v0.7.2 的 186,318,848-byte 截断恬豆 T2S 只会导致 Decoder 无法加载，不会产生厚声。`v0.41.59+203` 已完成本地实现和直接静态合同，状态为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；尚无 +203 APK，不得写成 CI 或真机通过 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.58+202 合包真机验收**：覆盖安装固定签名 APK，先在删除表情/图片后保存便携备份，再核对恢复上一版概率、奶油四音色中文/英文/日语、默认 1.0x 听感与连续播放；同时继续验收 +201 的重复媒体清理入口、普通发送落底、沉浸/悬浮发送落底、TTS 播放不拉底、中文自然化和 exact-SHA 共享媒体，不拆开或遗漏 |
-| 目标 | Android 保存前校验器精确放行 D6 法定 `media/...` 根，路径穿越、目录 entry、未知根与 CRC/尺寸门仍严格拒绝。表情概率回退到偶尔 12%/自然 24%/较多 42%，保留 +201 的双文本语义匹配与零分不发。TTS 不改四音色映射；日语在生产适配层删除超出旧奶油 322-row 词表的音高括号 ID，不修改冻结的 Genie 核心。断句保留句末标点，首句仍立即合成，只合并当时已排队的后续短句；不恢复 TTS 播放自动拉底 |
-| 当前证据 | +202 run 826 已全绿：`713/713` Flutter tests、Kotlin/AIDL、Analyze、Release、固定签名和 40 项实包载荷全部通过；生产 manifest 精确为 `naiyou_growth/hello/dog/dynamic`，候选5、恬豆和 Meju 均不存在。新附件 `奶油.zip` 仅含候选 1/2/3/4，四参考音频/文本与运行资源逐字节一致，关键转换权重与原模型数值一致；模型漏文件已排除。自动化证明 Android 校验器接受合法 `media/originals`/`media/thumbnails`、拒绝 `media/../`，奶油日语送入 VITS 的 ID 均小于 322 且 BERT 同步，默认 1.0x 不设置 PlaybackParams，首句/后续排队合同通过；声音体感和实际备份仍须真机证明 |
-| 保护与排除 | 用户上传文件只用于精确生成源码常量和 SHA 合同，不提交附件本身。世界书迁移只对白名单中的已知默认正文生效，未知用户手改继续优先。旧 `.aibackup` 永不改写；媒体优化仍须先预览再确认。中文历史真源、Memory/Thought/Desire、图片识图与 Agent Outcome、相册标签和表情选择不得回归；+199 已通过的中英日选择、停止、语速/音量、按需单外语与播放器行为继续保留，只替换声学权重/参考条件。尤其禁止 TTS 播放/合成通知重新拉动普通、沉浸或悬浮聊天 |
+| 当前下一步 | **提交并运行 v0.41.59+203 Actions/APK**：本地功能已完成；下一步把当前实现与本条总账一起提交到 `agent/v04159-tiandou-pitch-recovery`，推送后跟踪完整 Actions。若编译/测试/私有载荷门失败，只做有证据的窄修；全绿后记录 run、Artifact、Draft APK 大小/SHA 与固定签名，再交给用户真机对照“高音版（原声）/低音版/自定义变调” |
+| 目标 | 原声档在音高 0 半音且语速 1.0x 时完全不设置 `PlaybackParams`，保持 Genie 权威 32 kHz PCM；低音档只在健康恬豆输出上显式降调，不保留或依赖混合/损坏缓存。音高测试范围先限定为 -4…+4 半音、默认 0；低音预设使用可回退常量，四个原有 `daily/gentle/lively/cute` 情绪音色仍由一套恬豆模型提供。覆盖安装必须逐文件验证旧缓存，错误、截断或异包文件自动替换 |
+| 当前证据 | Genie-TTS-Android `agent/v073-tiandou-integrity-hotfix` head `3ab3c1b` 已证明 v0.7.2 恬豆 `t2s_shared_fp32.bin` 仅 186,318,848 bytes，而正确文件为 306,827,268 bytes；公开源码编译/切句测试 run `34499786767` 已成功。其恢复链从原始配对权重重建、桌面完整推理出有限波形，并加入 manifest `asset_integrity`、原子释放与双语音包完整推理门。AI 伴侣 +202 当前仍使用“文件非空即跳过”的旧 copier，因此必须先修运行资源真值，不能把截断文件或混合缓存包装成可选音色 |
+| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或密钥；CI 只从既有私有 Draft 资产恢复完整恬豆。不能把 186MB 截断 T2S、混合缓存或奶油旧文件作为“低音版”；低音必须从健康恬豆可重复地产生。世界书、Memory/Thought/Desire、媒体 D6、Agent Outcome、表情概率、普通/沉浸/悬浮发送落底及 TTS 不拉动聊天滚动均不得回归。旧 `.aibackup` 不改写，数据库仅增加向后兼容设置默认/迁移 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
-| 完成判据 | 除 +201 全部合同外，新增回归必须证明：含 `media/originals/<sha>.jpg` 与 `media/thumbnails/<sha>.jpg` 的 files-only 备份通过 Android 预校验，但 `media/../` 仍拒绝；表情精确为 0.12/0.24/0.42；日语准备序列的所有 ID 均小于 322 且 BERT 长度同步；自然分隔留下句末标点，后续短句合并不阻塞首句；候选5/恬豆仍不进 APK。Kotlin/Flutter/analyze/Release/签名/实包门全绿后只写 APK READY，最后仍要真机备份、中日英与听感验收 |
+| 完成判据 | CI 必须证明生产 manifest 只含恬豆 `ref01/ref02/ref04/ref06`，`t2s_shared_fp32.bin` 精确为 306,827,268 bytes 且所有生产资源大小/SHA 匹配，奶油/候选5/Meju 不进入 APK；Android 单测覆盖错误长度、错误 SHA、旧无 marker 正确文件复用、`.incoming` 原子替换与目录边界。Flutter/Kotlin 覆盖原声不触发 DSP、低音/自定义变调只改变 pitch、speed 独立、设置持久化与旧存档默认 0 半音。完整回归、Analyze、Release、签名、实包门全绿后只写 `APK READY`；REDMI K80 Ultra 仍须对照 Genie v0.7.3 试听原声、低音和滑杆 |
 | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -67,6 +67,7 @@
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
+| T0 · v0.41.59 恬豆原声与变调 | 用户确认奶油/恬豆共同厚声并授权修复；Genie v0.7.3 公开完整性源码已通过 | 当前实施项。先恢复健康恬豆和资源真值，再以同一健康 PCM 实现原声/低音/独立音高；CI/APK 后必须真机对照，不以自动化替代听感 |
 | A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 689、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
@@ -88,6 +89,19 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-11 v0.41.59+203 恬豆完整恢复与可控变调（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户纠正上一窗口最终决定：奶油听感不佳后已经要求回退恬豆；+202 总账和公开分支只记录到奶油热修，未保存窗口末尾的恬豆回退状态。用户真机随后确认奶油与回退恬豆都出现明显“像降调一样变厚”，因此不能继续归因为奶油参考音频或角色权重本身。
+2. 当前源码审计确认 `GenieBenchmarkEngine.copyAssets` 仍对任意非空目标直接跳过；`GenieRuntimeAssetStore` 仅凭单次 migration marker 清理某个 `manifest.version` 目录。模型包覆盖安装或回退时，APK 内资源与 `filesDir/genie-benchmark/...` 之间没有逐文件大小/SHA 真值，可能继续复用奶油、截断或混套运行文件。这个问题作用于两种角色音色的共同声学链，与用户观察一致。
+3. Genie-TTS-Android v0.7.3 `3ab3c1b` 提供了新的权威边界：v0.7.2 截断的恬豆 `t2s_shared_fp32.bin` 为 186,318,848 bytes，Decoder 需要的完整文件为 306,827,268 bytes；截断会在加载阶段失败而不是生成“厚声”。v0.7.3 从原始配对权重重建完整资源，manifest 增加逐文件 `asset_integrity`，Android 先写 `.incoming`、核验大小/SHA 后原子替换，打包前对每个语音包跑完整推理。公开源码 run `34499786767` 已通过，但 AI 伴侣仍须独立完成自己的私有载荷和 APK 门。
+4. 用户决定保留厚声方向作为可选表达，同时恢复正常恬豆，并暂时增加独立变调测试。实现不得保存或依赖混合/错误资源：生产 APK 只放一套健康恬豆模型，四参考音色继续承担情绪映射；其上增加“高音版（原声）”与“低音版”音高层，自定义滑杆使用半音单位。原声 0 半音/1.0x 必须完全绕过 Android `PlaybackParams`；只有 pitch 或 speed 偏离默认时才启用，二者分别设置，避免重新引入线性重采样导致音高随语速变化。
+5. 本批从 +202 开分支 `agent/v04159-tiandou-pitch-recovery`，目标 `0.41.59+203 / schema 59 / Snapshot protocol 6`。生产映射已恢复为 `daily/ref01`、`gentle/ref02`、`lively/ref04`、`cute/ref06`，删除奶油旧 322-row 日语过滤适配；运行状态文案与音色目录同步回到恬豆。数据库新增 `tts_tone_preset=original` 与 `tts_pitch_semitones=0.0`，59 迁移使用 conflict-ignore，旧备份与 Snapshot 6 结构不改。
+6. `BenchmarkManifest` 已解析可选 `asset_integrity`；释放策略拆为可单测的 `AssetIntegrityPolicy`。有正确 marker 的已验证文件可复用；旧版无 marker 但大小正确时先计算 SHA，吻合后补 marker；错误长度或错误 SHA 进入 `.incoming` 重拷贝，完整校验后优先 `ATOMIC_MOVE + REPLACE_EXISTING`，不支持原子移动时才退回同目录替换。新的 migration id 会安全清理当前 manifest 版本目录一次，保留 sibling `shared/` 中用户导入的 Chinese RoBERTa。
+7. Actions 已切回既有私有 Draft `genie-tts-private-runtime-v0.6.4` / `Genie-TTS-v0.6.4-Verified.apk`，生产只裁剪 `ref01/ref02/ref04/ref06`。裁剪阶段明确拒绝 `t2s_shared_fp32.bin` 非 306,827,268 bytes，为所有生产 asset 写入大小/SHA；最终 APK 再核验 manifest case、逐文件完整性、无奶油/候选5/Meju 与完整 T2S。模型、参考音频、RoBERTa、用户附件、备份和密钥均未写入 Git。
+8. 播放层新增三个档位：默认“高音版（原声）”固定 0 半音；“低音版”在健康恬豆 PCM 上固定 -2 半音；“自定义变调”为 -4…+4 半音、0.5 半音步进。半音按 `2^(n/12)` 转为 pitch ratio，speed 与 pitch 分别传递；仅二者都为 1.0 时完全不设置 `PlaybackParams`，非默认时用同一参数对象分别设置当前 pitch/speed。旧线性 PCM 重采样没有恢复。
+9. 新增 Dart 单测覆盖预设、边界和半音比；新增 JVM 单测覆盖正确旧文件补 marker、截断/同长度错误 SHA 拒绝、错误 incoming 在替换前失败以及验证后的 incoming 替换。新增 +203 静态 validator，并更新当前版本、历史 TTS 与构建契约。已通过 +203、+202、+201、+200、+199 直接静态 validator、Python 语法、workflow YAML 与 `git diff --check`。
+10. 当前环境没有 Flutter/Dart/Kotlin 工具链；Gradle wrapper 尝试下载 8.12 时被受限网络阻断。因此 Flutter format/analyze/tests、Kotlin/JVM 编译与测试、私有恬豆载荷、arm64 Release、签名和 APK 实包校验均严格等待 Actions。本地状态只能写 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。不得回归 +202 已通过的媒体备份白名单、12%/24%/42% 表情概率、D6 引用、发送落底、中文自然化、首句立即生成/后句合并、停止、静音策略和按需单外语。
 
 ### 2026-09-10 v0.41.58+202 共享媒体备份、表情概率回退与奶油三语/断句热修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

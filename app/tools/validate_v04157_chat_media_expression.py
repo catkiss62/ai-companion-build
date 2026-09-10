@@ -19,9 +19,9 @@ def dart_block(source: str, name: str) -> str:
     return match.group(1)
 
 
-assert "version: 0.41.58+202" in read("pubspec.yaml")
+assert "version: 0.41.59+203" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
-assert "static const int schemaVersion = 58;" in database
+assert "static const int schemaVersion = 59;" in database
 
 worldbooks = read("lib/core/reference/world_book_content_v04156_user.dart")
 natural = dart_block(worldbooks, "worldBookNaturalDialogueV04157")
@@ -120,17 +120,14 @@ for token in ("偶尔（12%）", "自然（24%）", "较多（42%）"):
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.58+202 APK",
+    "Build AI Companion v0.41.59+203 APK",
     "validate_v04157_chat_media_expression.py",
-    "AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK",
-    "genie-tts-private-runtime-v0.7.1-naiyou",
-    "Genie-TTS-v0.7.1-Naiyou-Runtime.zip",
-    "assets/benchmark_naiyou/*",
-    "'naiyou_growth',   # candidate 3 -> daily",
-    "'naiyou_hello',    # candidate 2 -> gentle",
-    "'naiyou_dog',      # candidate 4 -> lively",
-    "'naiyou_dynamic',  # candidate 1 -> cute",
-    "removed candidate 5, Tiandou and external RoBERTa",
+    "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
+    "genie-tts-private-runtime-v0.6.4",
+    "Genie-TTS-v0.6.4-Verified.apk",
+    "'assets/benchmark/*'",
+    "production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}",
+    "complete T2S and per-file integrity metadata",
 ):
     assert token in workflow, token
 
@@ -144,22 +141,22 @@ service = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsIsolatedService.kt"
 )
 for token in (
-    '"daily" to "naiyou_growth"',
-    '"gentle" to "naiyou_hello"',
-    '"lively" to "naiyou_dog"',
-    '"cute" to "naiyou_dynamic"',
+    '"daily" to "ref01"',
+    '"gentle" to "ref02"',
+    '"lively" to "ref04"',
+    '"cute" to "ref06"',
 ):
     assert token in runtime, token
 for token in (
-    '"naiyou_growth", "daily", "奶油候选 3 · 日常"',
-    '"naiyou_hello", "gentle", "奶油候选 2 · 温柔"',
-    '"naiyou_dog", "lively", "奶油候选 4 · 活泼"',
-    '"naiyou_dynamic", "cute", "奶油候选 1 · 可爱"',
+    '"ref01", "daily", "日常认真（主音色）"',
+    '"ref02", "gentle", "温柔轻声"',
+    '"ref04", "lively", "活泼可爱"',
+    '"ref06", "cute", "日常可爱"',
 ):
     assert token in catalog, token
-for forbidden in ("naiyou_lesson", '"daily" to "ref01"', '"cute" to "ref06"'):
+for forbidden in ("naiyou_lesson", '"daily" to "naiyou_growth"', '"cute" to "naiyou_dynamic"'):
     assert forbidden not in runtime + catalog, forbidden
-assert "奶油 V2" in service
+assert "恬豆" in service
 assert "918a26bf55d7e06dffd08277c6a4bcb703f5b17b" in service
 
 print("v0.41.57 chat, media and expression contracts passed")

@@ -33,6 +33,9 @@ class WavAudioPlayer {
     @Volatile
     private var speed = 1.0f
 
+    @Volatile
+    private var pitch = 1.0f
+
     fun setVolume(value: Float) {
         volume = value.coerceIn(0f, 2f)
         stream?.setVolume(volume)
@@ -43,9 +46,14 @@ class WavAudioPlayer {
         stream?.setSpeed(speed)
     }
 
+    fun setPitch(value: Float) {
+        pitch = value.coerceIn(0.5f, 2f)
+        stream?.setPitch(pitch)
+    }
+
     fun beginStream(onStarted: () -> Unit = {}) {
         stop()
-        val next = StreamSession(volume, speed, onStarted)
+        val next = StreamSession(volume, speed, pitch, onStarted)
         synchronized(lock) { stream = next }
         next.start()
     }
@@ -91,6 +99,7 @@ class WavAudioPlayer {
     private inner class StreamSession(
         initialVolume: Float,
         initialSpeed: Float,
+        initialPitch: Float,
         private val onStarted: () -> Unit,
     ) {
         private val queue = LinkedBlockingQueue<Command>()
@@ -107,6 +116,7 @@ class WavAudioPlayer {
         @Volatile private var playbackStarted = false
         @Volatile private var currentVolume = initialVolume
         @Volatile private var currentSpeed = initialSpeed
+        @Volatile private var currentPitch = initialPitch
         private var firstEnqueued = false
 
         fun start() = thread.start()
@@ -119,7 +129,12 @@ class WavAudioPlayer {
 
         fun setSpeed(value: Float) {
             currentSpeed = value.coerceIn(0.5f, 2f)
-            track?.let(::applySpeed)
+            track?.let(::applyPlaybackParams)
+        }
+
+        fun setPitch(value: Float) {
+            currentPitch = value.coerceIn(0.5f, 2f)
+            track?.let(::applyPlaybackParams)
         }
 
         fun enqueue(bytes: ByteArray, wav: WavInfo) {
@@ -177,10 +192,12 @@ class WavAudioPlayer {
                                 enhancer = runCatching {
                                     LoudnessEnhancer(created.audioSessionId)
                                 }.getOrNull()
-                                // Genie leaves the default 1.0x track untouched.
-                                // Only opt into Android time-stretch when the
-                                // user explicitly selects a different speed.
-                                if (currentSpeed != 1.0f) applySpeed(created)
+                                // Leave exact 1.0x speed / 1.0x pitch PCM
+                                // untouched. PlaybackParams is opt-in for an
+                                // explicit speed or independent pitch change.
+                                if (currentSpeed != 1.0f || currentPitch != 1.0f) {
+                                    applyPlaybackParams(created)
+                                }
                                 applyVolume(created, enhancer)
                             } else {
                                 check(checkNotNull(format).samePcmFormat(wav)) {
@@ -273,10 +290,10 @@ class WavAudioPlayer {
                 .build()
         }
 
-        private fun applySpeed(target: AudioTrack) {
+        private fun applyPlaybackParams(target: AudioTrack) {
             target.playbackParams = PlaybackParams()
                 .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT)
-                .setPitch(1.0f)
+                .setPitch(currentPitch)
                 .setSpeed(currentSpeed)
         }
 

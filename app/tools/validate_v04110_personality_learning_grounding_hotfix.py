@@ -30,7 +30,7 @@ workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8"
 ledger = (REPO / "AI_Companion_当前总账.md").read_text(encoding="utf-8")
 
 
-current = "version: 0.41.29+168" in pubspec
+current = "version: 0.41.29+168" in pubspec or "version: 0.41.59+203" in pubspec
 assert current or re.search(r"^version:\s*0\.41\.(?:11\+150|12\+151|13\+152|14\+153|15\+154|16\+155|17\+156|18\+157|19\+158|20\+159|21\+160|22\+161|23\+162|24\+163)\s*$", pubspec, re.M)
 assert current or "static const int schemaVersion = 42;" in database
 assert current or any(label in agent_self for label in (
@@ -40,7 +40,9 @@ assert current or any(label in agent_self for label in (
     "buildLabel = 'v0.41.19+158'",
     "buildLabel = 'v0.41.20+159'",
 ))
-assert not current or "buildLabel = 'v0.41.29+168'" in agent_self
+assert not current or any(label in agent_self for label in (
+    "buildLabel = 'v0.41.29+168'", "buildLabel = 'v0.41.59+203'"
+))
 
 for token in (
     "PersonalityLearningRejectionReason",

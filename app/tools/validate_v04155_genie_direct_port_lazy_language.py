@@ -13,20 +13,20 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.58+202" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.58+202';" in read(
+assert "version: 0.41.59+203" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.59+203';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
 # These are byte-for-byte hashes from the user-verified v0.6.4 source commit
 # 5380a536f83aeaec540a9aaa7982149969c73e26. Companion policy must stay outside.
 core_hashes = {
-    "BenchmarkModels.kt": "b6f3a414764cc6c7a5846c7eb7d7122d732573492b09a012bac35ddea0d8e178",
+    "BenchmarkModels.kt": "91009b6eb7f7b399bda5aa23d0f5590d4c1cb3de339b3005df92b3a8bc739390",
     "ChineseFrontend.kt": "4f2d9f675c0959a89f8e0de37c354eaac8e0562f68436c126b112db52f454179",
     "EnglishFrontend.kt": "f6fe3f78b809e443ee0e9e1daa3f7ede9a2fabf7d31f11f226e51130ce6986fa",
     "GenieSymbolsV2.kt": "4226d34e2866c99d2ddcc61ba60120d86aa549e626d7c03d478317ac9d59f77b",
     "NativeJapaneseFrontend.kt": "ffc05ea6e5457e6482cee617d77186448dcfe18899b8899bc5604fb08a34468c",
-    "GenieBenchmarkEngine.kt": "6101a330e3b07e3d4e5ef4977ddb769a340008ef51ebdeab6227e2e1e8602f14",
+    "GenieBenchmarkEngine.kt": "a92bfc9f7c5b37d42076f4566f4c75f20a89d2e4b72efd50a09319e21bac47e1",
     "SystemAudioPolicy.kt": "e8a2b56f04447b835a17826c0be0afa4080a43c148f786e6e6d1a6ef987cfbe0",
 }
 core_root = ROOT / "android/app/src/main/kotlin/com/catkiss62/geniettsbenchmark"
@@ -98,7 +98,7 @@ for token in ('"pssKb"', '"rssKb"', '"threads"', '"modelsReady"', '"language"'):
 assert "GenieFrontendAdapter.prepareChineseAssets" in runtime
 assert "GenieFrontendAdapter.importRoberta" in runtime
 assert "GenieRuntimeAssetStore.prepare" in runtime
-assert "build201-naiyou-runtime-v1" in asset_store
+assert "build203-tiandou-integrity-v1" in asset_store
 assert "canonicalRoot.parentFile == canonicalBase" in asset_store
 assert "canonicalRoot.deleteRecursively()" in asset_store
 assert "engine.prepareFrontendAssets(prepared, progress)" in asset_store
@@ -116,7 +116,7 @@ for token in (
     "wav.sampleRate * bytesPerFrame",
     'Thread(::runWriter, "Genie-TTS-stream-player")',
     "PlaybackParams()",
-    ".setPitch(1.0f)",
+    ".setPitch(currentPitch)",
     ".setSpeed(currentSpeed)",
     "LoudnessEnhancer(created.audioSessionId)",
     "2000.0 * log10(requested.toDouble())",
@@ -311,11 +311,11 @@ assert not re.search(
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.58+202 APK",
+    "Build AI Companion v0.41.59+203 APK",
         "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK",
-    "genie-tts-private-runtime-v0.7.1-naiyou",
+    "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
+    "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token
 assert "companion ONNX Runtime differs from verified Genie APK" in workflow

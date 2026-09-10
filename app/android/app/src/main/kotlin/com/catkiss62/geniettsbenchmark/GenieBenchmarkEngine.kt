@@ -116,15 +116,35 @@ class GenieBenchmarkEngine(private val context: Context) : AutoCloseable {
     }
 
     private fun copyAssets(root: File, files: List<String>, progress: (String) -> Unit) {
+        val integrity = readManifest().assetIntegrity
         files.forEachIndexed { index, relative ->
             val output = File(root, relative)
-            if (!output.exists() || output.length() == 0L) {
-                progress("正在释放资源 ${index + 1}/${files.size}：${output.name}")
-                output.parentFile?.mkdirs()
-                context.assets.open("benchmark/$relative").use { input ->
-                    output.outputStream().buffered().use { target -> input.copyTo(target, 1024 * 1024) }
+            val expected = integrity[relative]
+            val marker = File(output.parentFile, output.name + ".sha256")
+            // Hash a size-matching pre-integrity install once. Never trust a
+            // partial external-weight file solely because it is non-empty.
+            if (AssetIntegrityPolicy.canReuse(output, marker, expected)) return@forEachIndexed
+
+            progress("正在释放资源 ${index + 1}/${files.size}：${output.name}")
+            output.parentFile?.mkdirs()
+            val incoming = File(output.parentFile, output.name + ".incoming")
+            incoming.delete()
+            val digest = MessageDigest.getInstance("SHA-256")
+            context.assets.open("benchmark/$relative").use { input ->
+                incoming.outputStream().buffered().use { target ->
+                    val buffer = ByteArray(1024 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        target.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                    }
                 }
             }
+            val actualSha = digest.digest().joinToString("") { "%02x".format(it) }
+            AssetIntegrityPolicy.verifyIncoming(incoming, relative, expected, actualSha)
+            AssetIntegrityPolicy.replaceIncoming(incoming, output)
+            if (expected != null) marker.writeText(expected.sha256)
         }
     }
 
