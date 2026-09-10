@@ -155,8 +155,8 @@ void main() {
 
   test('ordinary sticker policy exposes conditional expression chances', () {
     expect(StickerExpressionService.ordinaryReplyThreshold('low'), 0.12);
-    expect(StickerExpressionService.ordinaryReplyThreshold('natural'), 0.36);
-    expect(StickerExpressionService.ordinaryReplyThreshold('frequent'), 0.55);
+    expect(StickerExpressionService.ordinaryReplyThreshold('natural'), 0.24);
+    expect(StickerExpressionService.ordinaryReplyThreshold('frequent'), 0.42);
   });
 
   test('ordinary matching includes the latest user message as evidence', () {
