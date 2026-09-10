@@ -1,7 +1,7 @@
 status=success
-run_id=34426118627
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34426118627
-head_sha=7c5a8b20ec826e4b88d1ec02ac06ef34e125c18c
+run_id=34444466670
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34444466670
+head_sha=219e83eddefe029392f77c707e0ca048c81d97c8
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-8fdcfd6675bf0db1fdec45cbdf3a8eaf126743671faa4290ebe790f48876cb68  AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e70cf2358cf6386e16b6
+b6e38350100ce7ce806821a670d1cab8b6aab7466b2ca757390247e46cc6d0e3  AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-8e884c3e237bb39b2edb
