@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../database/app_database.dart';
 import '../models/message_attachment.dart';
+import 'media_blob_storage.dart';
 import 'snapshot_directory_swap.dart';
 
 class PreparedImageAttachment {
@@ -36,13 +38,16 @@ class PreparedImageAttachment {
 }
 
 class MessageAttachmentStorage {
-  MessageAttachmentStorage({Uuid? uuid}) : _uuid = uuid ?? const Uuid();
+  MessageAttachmentStorage({Uuid? uuid, MediaBlobStorage? blobStorage})
+      : _uuid = uuid ?? const Uuid(),
+        blobStorage = blobStorage ?? MediaBlobStorage();
 
   static const int maxImageBytes = 25 * 1024 * 1024;
   static const int thumbnailLongestEdge = 1000;
   static const String rootFolderName = 'chat_attachments';
 
   final Uuid _uuid;
+  final MediaBlobStorage blobStorage;
 
   Future<Directory> get rootDirectory async {
     final support = await getApplicationSupportDirectory();
@@ -102,36 +107,40 @@ class MessageAttachmentStorage {
     PreparedImageAttachment draft, {
     required String messageId,
   }) async {
-    final root = await rootDirectory;
-    final originalRelative = p.posix.join(
-      'originals',
-      '${draft.id}${draft.originalExtension}',
-    );
-    final thumbnailRelative = p.posix.join('thumbnails', '${draft.id}.png');
-    final original = File(p.joinAll([root.path, ...originalRelative.split('/')]));
-    final thumbnail = File(p.joinAll([root.path, ...thumbnailRelative.split('/')]));
-    await original.parent.create(recursive: true);
-    await thumbnail.parent.create(recursive: true);
     try {
-      await _move(draft.originalFile, original);
-      await _move(draft.thumbnailFile, thumbnail);
+      final blob = await blobStorage.store(
+        original: draft.originalFile,
+        thumbnail: draft.thumbnailFile,
+        mimeType: draft.mimeType,
+        width: draft.width,
+        height: draft.height,
+        createdAt: draft.createdAt,
+      );
+      await AppDatabase.instance.registerMediaBlob(blob);
+      final canonical = await AppDatabase.instance.mediaBlobById(blob.id);
+      if (canonical == null) throw StateError('media_blob_registration_failed');
+      for (final extra in <String>{blob.originalPath, blob.thumbnailPath}
+          .difference(<String>{
+        canonical.originalPath,
+        canonical.thumbnailPath,
+      })) {
+        final file = await blobStorage.fileFor(extra);
+        if (await file.exists()) await file.delete();
+      }
       return MessageAttachment(
         id: draft.id,
         messageId: messageId,
         kind: MessageAttachment.imageKind,
-        originalPath: originalRelative,
-        thumbnailPath: thumbnailRelative,
+        originalPath: MediaBlobStorage.toReferencePath(canonical.originalPath),
+        thumbnailPath: MediaBlobStorage.toReferencePath(canonical.thumbnailPath),
         mimeType: draft.mimeType,
         byteSize: draft.byteSize,
         width: draft.width,
         height: draft.height,
         source: draft.source,
         createdAt: draft.createdAt,
+        blobId: canonical.id,
       );
-    } catch (_) {
-      if (await original.exists()) await original.delete();
-      if (await thumbnail.exists()) await thumbnail.delete();
-      rethrow;
     } finally {
       final draftDirectory = draft.originalFile.parent;
       if (await draftDirectory.exists()) {
@@ -146,13 +155,38 @@ class MessageAttachmentStorage {
   }
 
   Future<void> deleteAttachmentFiles(MessageAttachment attachment) async {
+    if (attachment.blobId.isNotEmpty) {
+      final orphan = await AppDatabase.instance.removeUnreferencedMediaBlob(
+        attachment.blobId,
+      );
+      if (orphan != null) {
+        await blobStorage.deleteBlobFiles(orphan);
+      } else if (await AppDatabase.instance.mediaBlobById(attachment.blobId) ==
+          null) {
+        // A failed insert can leave newly written content-addressed files with
+        // no DB row. No registered owner can reference them, so cleanup is safe.
+        for (final relative in <String>{
+          attachment.originalPath,
+          attachment.thumbnailPath,
+        }) {
+          if (!MediaBlobStorage.isMediaReference(relative)) continue;
+          final file = await fileFor(relative);
+          if (await file.exists()) await file.delete();
+        }
+      }
+      return;
+    }
     for (final relative in [attachment.originalPath, attachment.thumbnailPath]) {
+      if (MediaBlobStorage.isMediaReference(relative)) continue;
       final file = await fileFor(relative);
       if (await file.exists()) await file.delete();
     }
   }
 
   Future<File> fileFor(String relativePath) async {
+    if (MediaBlobStorage.isMediaReference(relativePath)) {
+      return blobStorage.fileForReference(relativePath);
+    }
     final safe = requireSafeRelativePath(relativePath);
     final root = await rootDirectory;
     return File(p.joinAll([root.path, ...safe.split('/')]));
@@ -223,22 +257,34 @@ class MessageAttachmentStorage {
     );
   }
 
-  Future<void> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
-    final referenced = referencedPaths.map(requireSafeRelativePath).toSet();
+  Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
+    final referenced = referencedPaths
+        .where((path) => !MediaBlobStorage.isMediaReference(path))
+        .map(requireSafeRelativePath)
+        .toSet();
     final root = await rootDirectory;
+    var deleted = 0;
     for (final folder in const ['originals', 'thumbnails']) {
       final directory = Directory(p.join(root.path, folder));
       if (!await directory.exists()) continue;
       await for (final entity in directory.list(followLinks: false)) {
         if (entity is! File) continue;
         final relative = p.posix.join(folder, p.basename(entity.path));
-        if (!referenced.contains(relative)) await entity.delete();
+        if (!referenced.contains(relative)) {
+          await entity.delete();
+          deleted++;
+        }
       }
     }
+    return deleted;
   }
 
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');
+    if (MediaBlobStorage.isMediaReference(normalized)) {
+      MediaBlobStorage.requireMediaReferencePath(normalized);
+      return normalized;
+    }
     if (normalized.isEmpty ||
         normalized.startsWith('/') ||
         normalized.contains('..') ||
@@ -248,15 +294,6 @@ class MessageAttachmentStorage {
       throw FormatException('不安全的图片附件路径：$value');
     }
     return normalized;
-  }
-
-  static Future<void> _move(File source, File target) async {
-    try {
-      await source.rename(target.path);
-    } on FileSystemException {
-      await source.copy(target.path);
-      await source.delete();
-    }
   }
 
   static String _safeImageExtension(String sourcePath, String? mimeType) {

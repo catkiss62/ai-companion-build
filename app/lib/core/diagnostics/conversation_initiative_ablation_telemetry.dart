@@ -82,7 +82,7 @@ class PromptResponsibilityShape {
       selectedThought: has('SELECTED_THOUGHT_DATA') &&
           !has('SELECTED_THOUGHT_DATA】暂无'),
       dynamicMoe: has('本轮动态表达倾向'),
-      dialogueExpressionPlan: has('本轮对话表达计划'),
+      dialogueExpressionPlan: has('本轮回应重心'),
       visibleInnerVoice: has('可见思考') || has('reasoning_content'),
       finalReminder: has('本轮最终呈现提醒'),
       operationalTruth: has('真实工具结果') || has('可核验操作'),

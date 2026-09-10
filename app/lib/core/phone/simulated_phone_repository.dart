@@ -7,6 +7,7 @@ import '../models/desire_state.dart';
 import '../models/companion_album.dart';
 import '../models/message_attachment.dart';
 import '../storage/companion_album_storage.dart';
+import '../storage/media_blob_storage.dart';
 import '../storage/message_attachment_storage.dart';
 import '../models/emotion_episode.dart';
 import '../models/thought.dart';
@@ -266,6 +267,7 @@ class SimulatedPhoneRepository {
     for (final path in paths) {
       await CompanionAlbumStorage().deleteFile(path);
     }
+    await _collectUnreferencedMediaBlobs();
   }
 
   Future<int> clearAlbumCache() async {
@@ -291,7 +293,17 @@ class SimulatedPhoneRepository {
         removed += 1;
       } catch (_) {}
     }
+    removed += await _collectUnreferencedMediaBlobs();
     return removed;
+  }
+
+  Future<int> _collectUnreferencedMediaBlobs() async {
+    final storage = MediaBlobStorage();
+    final orphans = await db.takeUnreferencedMediaBlobs();
+    for (final blob in orphans) {
+      await storage.deleteBlobFiles(blob);
+    }
+    return orphans.length;
   }
 
   Future<void> _recoverUserMessageAlbumOriginals() async {

@@ -12,6 +12,7 @@ import '../media/safe_public_image_downloader.dart';
 import 'album_perceptual_hash.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
+import '../storage/media_blob_storage.dart';
 import '../storage/secure_config.dart';
 import 'simulated_phone_policy.dart';
 
@@ -176,6 +177,7 @@ class CompanionAlbumDiscoveryEngine {
     File? downloaded;
     String savedPath = '';
     String savedOriginalPath = '';
+    String savedBlobId = '';
     var stage = 'download';
     var visionRecorded = false;
     try {
@@ -229,21 +231,35 @@ class CompanionAlbumDiscoveryEngine {
       final shouldSave = requestMatches && (observation.albumSave || forceSave);
       if (shouldSave) {
         stage = 'local_write';
-        final stored = await albumStorage.saveThumbnail(
-          id: candidateId,
-          source: draft.thumbnailFile,
-          expectedContentSha256: observation.inputContentSha256,
+        final blob = await attachmentStorage.blobStorage.store(
+          original: draft.originalFile,
+          thumbnail: draft.thumbnailFile,
+          mimeType: draft.mimeType,
+          width: draft.width,
+          height: draft.height,
+          createdAt: draft.createdAt,
         );
-        savedPath = stored.relativePath;
-        contentSha = stored.contentSha256;
-        final original = await albumStorage.saveOriginal(
-          id: candidateId,
-          source: draft.originalFile,
-          extension: draft.originalExtension,
-        );
-        savedOriginalPath = original.relativePath;
-        originalSha = original.contentSha256;
-        originalByteSize = original.byteSize;
+        await db.registerMediaBlob(blob);
+        final canonical = await db.mediaBlobById(blob.id);
+        if (canonical == null) {
+          throw StateError('media_blob_registration_failed');
+        }
+        for (final extra in <String>{blob.originalPath, blob.thumbnailPath}
+            .difference(<String>{
+          canonical.originalPath,
+          canonical.thumbnailPath,
+        })) {
+          final file = await attachmentStorage.blobStorage.fileFor(extra);
+          if (await file.exists()) await file.delete();
+        }
+        savedBlobId = canonical.id;
+        savedPath =
+            MediaBlobStorage.toReferencePath(canonical.thumbnailPath);
+        contentSha = canonical.thumbnailSha256;
+        savedOriginalPath =
+            MediaBlobStorage.toReferencePath(canonical.originalPath);
+        originalSha = canonical.originalSha256;
+        originalByteSize = canonical.byteSize;
         stage = 'image_processing';
         perceptualHash = await AlbumPerceptualHash.fromFile(
           draft.thumbnailFile,
@@ -273,12 +289,19 @@ class CompanionAlbumDiscoveryEngine {
         width: draft.width,
         height: draft.height,
         recognizedAt: DateTime.now(),
+        blobId: savedBlobId,
       );
       if (!completed && savedPath.isNotEmpty) {
         await albumStorage.deleteThumbnail(savedPath);
       }
       if (!completed && savedOriginalPath.isNotEmpty) {
         await albumStorage.deleteFile(savedOriginalPath);
+      }
+      if (!completed && savedBlobId.isNotEmpty) {
+        final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
+        if (orphan != null) {
+          await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+        }
       }
       final outcome =
           await db.companionAlbumCandidateOutcomeCategory(candidateId);
@@ -300,6 +323,12 @@ class CompanionAlbumDiscoveryEngine {
       if (savedPath.isNotEmpty) await albumStorage.deleteThumbnail(savedPath);
       if (savedOriginalPath.isNotEmpty) {
         await albumStorage.deleteFile(savedOriginalPath);
+      }
+      if (savedBlobId.isNotEmpty) {
+        final orphan = await db.removeUnreferencedMediaBlob(savedBlobId);
+        if (orphan != null) {
+          await attachmentStorage.blobStorage.deleteBlobFiles(orphan);
+        }
       }
       await db.expireCompanionAlbumCandidate(candidateId, error.toString());
       final category = stage == 'download'

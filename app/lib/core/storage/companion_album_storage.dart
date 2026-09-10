@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'snapshot_directory_swap.dart';
+import 'media_blob_storage.dart';
 
 class StoredAlbumThumbnail {
   const StoredAlbumThumbnail({
@@ -30,7 +31,11 @@ class StoredAlbumOriginal {
 
 /// Owns exact local originals plus bounded, EXIF-free display/vision previews.
 class CompanionAlbumStorage {
+  CompanionAlbumStorage({MediaBlobStorage? blobStorage})
+      : blobStorage = blobStorage ?? MediaBlobStorage();
+
   static const String rootFolderName = 'companion_album';
+  final MediaBlobStorage blobStorage;
 
   Future<Directory> get rootDirectory async {
     final support = await getApplicationSupportDirectory();
@@ -140,6 +145,9 @@ class CompanionAlbumStorage {
   }
 
   Future<File> fileFor(String relativePath) async {
+    if (MediaBlobStorage.isMediaReference(relativePath)) {
+      return blobStorage.fileForReference(relativePath);
+    }
     final safe = requireSafeRelativePath(relativePath);
     final root = await rootDirectory;
     return File(p.joinAll([root.path, ...safe.split('/')]));
@@ -161,6 +169,7 @@ class CompanionAlbumStorage {
 
   Future<void> deleteFile(String relativePath) async {
     if (relativePath.trim().isEmpty) return;
+    if (MediaBlobStorage.isMediaReference(relativePath)) return;
     final file = await fileFor(relativePath);
     if (await file.exists()) await file.delete();
   }
@@ -171,6 +180,7 @@ class CompanionAlbumStorage {
   Future<int> pruneUnreferencedFiles(Iterable<String> referencedPaths) async {
     final referenced = referencedPaths
         .where((value) => value.trim().isNotEmpty)
+        .where((value) => !MediaBlobStorage.isMediaReference(value))
         .map(requireSafeRelativePath)
         .toSet();
     final root = await rootDirectory;
@@ -192,6 +202,10 @@ class CompanionAlbumStorage {
 
   static String requireSafeRelativePath(String value) {
     final normalized = value.replaceAll('\\', '/');
+    if (MediaBlobStorage.isMediaReference(normalized)) {
+      MediaBlobStorage.requireMediaReferencePath(normalized);
+      return normalized;
+    }
     if (!(normalized.startsWith('thumbnails/') ||
             normalized.startsWith('originals/')) ||
         normalized == 'thumbnails/' ||

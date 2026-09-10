@@ -33,6 +33,7 @@ class CompanionAlbumItem {
     required this.savedAt,
     required this.deleteAfter,
     required this.unread,
+    this.blobId = '',
   });
 
   static const String candidate = 'candidate';
@@ -74,6 +75,7 @@ class CompanionAlbumItem {
   final DateTime? savedAt;
   final DateTime? deleteAfter;
   final bool unread;
+  final String blobId;
 
   bool get isVisible => lifecycle == saved || lifecycle == softDeleted;
   bool get isPendingDelete => lifecycle == softDeleted;
@@ -123,6 +125,7 @@ class CompanionAlbumItem {
       savedAt: date('saved_at'),
       deleteAfter: date('delete_after'),
       unread: row['unread'] == 1,
+      blobId: row['blob_id'] as String? ?? '',
     );
   }
 

@@ -915,7 +915,6 @@ $finalGenerationReminder
                   conversationPlan: conversationPlan,
                   responseMode: DialogueExpressionPlan.select(
                     latestUserText: user.content,
-                    turnKey: user.id,
                   ).mode,
                 );
         } catch (_) {

@@ -1,5 +1,6 @@
 import '../rules/rule_layer_content_v04125.dart';
 import 'world_book_content_v04155_user.dart';
+import 'world_book_content_v04156_user.dart';
 
 class WorldBookPreset {
   const WorldBookPreset({
@@ -240,7 +241,8 @@ $ruleContentV04125_09_action''';
 
 const worldBookBehaviorPriorityPlanV04141 = <String, int>{
   '角色表达自然化': 1000,
-  '日常对话规则': 950,
+  '推演思维引擎': 950,
+  '日常对话规则': 900,
   '性格光谱': 850,
   '造梗能力': 650,
 };
@@ -257,16 +259,25 @@ const worldBookSystemPresets = <WorldBookPreset>[
     id: 'builtin.worldbook.natural_dialogue',
     name: '角色表达自然化',
     aliases: ['自然'],
-    content: worldBookNaturalDialogueV04154,
+    content: worldBookNaturalDialogueV04156,
     activationMode: 'always',
     priority: 1000,
+  ),
+  WorldBookPreset(
+    id: 'builtin.worldbook.inference_engine',
+    name: '推演思维引擎',
+    aliases: ['推演', '思维引擎'],
+    content: worldBookInferenceEngineV04156,
+    activationMode: 'always',
+    priority: 950,
+    scope: 'immersive',
   ),
   WorldBookPreset(
     id: 'builtin.worldbook.daily_conversation',
     name: '日常对话规则',
     aliases: ['日常对话', '动作', '神态', '反八股', '口语', '幽默'],
     content: worldBookDailyConversationV04128,
-    priority: 950,
+    priority: 900,
     scope: 'chat|proactive',
     manualActive: true,
   ),
@@ -282,9 +293,9 @@ const worldBookSystemPresets = <WorldBookPreset>[
     id: 'builtin.worldbook.humor',
     name: '造梗能力',
     aliases: ['造梗', '玩梗', '造梗/玩梗'],
-    content: worldBookHumorV04155User,
+    content: worldBookHumorV04156User,
     priority: 650,
-    probability: 50,
+    probability: 30,
     scope: 'chat|proactive',
     manualActive: true,
   ),

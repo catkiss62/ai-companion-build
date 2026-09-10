@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../storage/companion_album_storage.dart';
 import '../storage/message_attachment_storage.dart';
+import '../storage/media_blob_storage.dart';
 import '../storage/snapshot_directory_swap.dart';
 import 'transfer_identity.dart';
 
@@ -138,6 +139,9 @@ class _ValidatedSnapshot {
   Directory get albumDirectory =>
       Directory(p.join(workDirectory.path, 'album'));
 
+  Directory get mediaDirectory =>
+      Directory(p.join(workDirectory.path, 'media'));
+
   Future<void> dispose() async {
     if (await workDirectory.exists()) {
       await workDirectory.delete(recursive: true);
@@ -146,15 +150,22 @@ class _ValidatedSnapshot {
 }
 
 class _PreparedSnapshotFiles {
-  const _PreparedSnapshotFiles(this.attachments, this.album);
+  const _PreparedSnapshotFiles(this.attachments, this.album, this.media);
 
   final PreparedDirectorySwap attachments;
   final PreparedDirectorySwap album;
+  final PreparedDirectorySwap media;
 
   Future<void> activate() async {
     await attachments.activate();
     try {
       await album.activate();
+      try {
+        await media.activate();
+      } catch (_) {
+        await album.rollback();
+        rethrow;
+      }
     } catch (_) {
       await attachments.rollback();
       rethrow;
@@ -163,15 +174,20 @@ class _PreparedSnapshotFiles {
 
   Future<void> rollback() async {
     try {
-      await album.rollback();
+      await media.rollback();
     } finally {
-      await attachments.rollback();
+      try {
+        await album.rollback();
+      } finally {
+        await attachments.rollback();
+      }
     }
   }
 
   Future<void> commit() async {
     await attachments.commit();
     await album.commit();
+    await media.commit();
   }
 }
 
@@ -180,12 +196,15 @@ class SnapshotService {
     this.db, {
     MessageAttachmentStorage? attachmentStorage,
     CompanionAlbumStorage? albumStorage,
+    MediaBlobStorage? blobStorage,
   }) : attachmentStorage = attachmentStorage ?? MessageAttachmentStorage(),
-       albumStorage = albumStorage ?? CompanionAlbumStorage();
+       albumStorage = albumStorage ?? CompanionAlbumStorage(),
+       blobStorage = blobStorage ?? MediaBlobStorage();
 
   final AppDatabase db;
   final MessageAttachmentStorage attachmentStorage;
   final CompanionAlbumStorage albumStorage;
+  final MediaBlobStorage blobStorage;
   final Uuid _uuid = const Uuid();
 
   Future<SnapshotBundle> exportBundle() =>
@@ -195,6 +214,9 @@ class SnapshotService {
       _exportBundle(SnapshotArchiveKind.backup);
 
   Future<SnapshotBundle> _exportBundle(SnapshotArchiveKind archiveKind) async {
+    // Counts are derived from live owner rows. Rebuild before freezing/export
+    // so protocol 6 never serializes stale ownership metadata.
+    await db.rebuildMediaBlobRefCounts();
     final snapshotId = _uuid.v4();
     final isTakeover = archiveKind == SnapshotArchiveKind.takeover;
     final identity = isTakeover
@@ -228,36 +250,40 @@ class SnapshotService {
       final attachmentExportDirectory =
           Directory(p.join(work.path, 'attachments'));
       final albumExportDirectory = Directory(p.join(work.path, 'album'));
+      final mediaExportDirectory = Directory(p.join(work.path, 'media'));
       try {
-      final pendingSnapshotId = _settingFromBackup(exported, 'pending_outbound_snapshot_id');
-      final pendingGeneration = int.tryParse(
+        final pendingSnapshotId =
+            _settingFromBackup(exported, 'pending_outbound_snapshot_id');
+        final pendingGeneration = int.tryParse(
             _settingFromBackup(exported, 'pending_outbound_generation'),
           ) ??
           -1;
-      if (isTakeover &&
+        if (isTakeover &&
           (pendingSnapshotId != snapshotId ||
               pendingGeneration != identity.generation)) {
         throw StateError('冻结状态代次与导出内容不一致，已拒绝生成状态包。');
       }
-      if (!isTakeover &&
+        if (!isTakeover &&
           (pendingSnapshotId.isNotEmpty || pendingGeneration != 0)) {
         throw StateError('普通备份不能携带待发送接管状态。');
       }
-      if (exported['state_lineage_id'] != identity.lineageId ||
+        if (exported['state_lineage_id'] != identity.lineageId ||
           exported['state_generation'] != identity.generation ||
           exported['source_device_id'] != identity.deviceId) {
         throw StateError('导出事务的状态身份与冻结身份不一致。');
       }
 
-      await stateFile.writeAsBytes(jsonBytes, flush: true);
+        await stateFile.writeAsBytes(jsonBytes, flush: true);
       final attachmentFiles = <String, String>{};
       final missingAttachmentFiles = <String>[];
       var attachmentBytes = 0;
       final attachments = await db.allMessageAttachments();
       final paths = <String>{
         for (final attachment in attachments) ...[
-          attachment.originalPath,
-          attachment.thumbnailPath,
+          if (!MediaBlobStorage.isMediaReference(attachment.originalPath))
+            attachment.originalPath,
+          if (!MediaBlobStorage.isMediaReference(attachment.thumbnailPath))
+            attachment.thumbnailPath,
         ],
       };
       for (final rawPath in paths) {
@@ -297,9 +323,32 @@ class SnapshotService {
         albumFiles[relative] =
             (await sha256.bind(target.openRead()).first).toString();
       }
+      final mediaFiles = <String, String>{};
+      final missingMediaFiles = <String>[];
+      var mediaBytes = 0;
+      for (final rawPath in _expectedMediaPaths(exported)) {
+        final relative = MediaBlobStorage.requireSafeRelativePath(rawPath);
+        final source = await blobStorage.fileFor(relative);
+        if (!await source.exists()) {
+          missingMediaFiles.add(relative);
+          continue;
+        }
+        final length = await source.length();
+        mediaBytes += length;
+        final target = File(
+          p.joinAll([mediaExportDirectory.path, ...relative.split('/')]),
+        );
+        await target.parent.create(recursive: true);
+        await source.copy(target.path);
+        mediaFiles[relative] =
+            (await sha256.bind(target.openRead()).first).toString();
+      }
+      if (missingMediaFiles.isNotEmpty) {
+        throw StateError('共享媒体文件不完整，已拒绝生成可能破图的状态包。');
+      }
       final manifest = {
         'format': 'ai-companion-snapshot-zip',
-        'protocol_version': 5,
+        'protocol_version': 6,
         'archive_kind': archiveKind.key,
         'schema_version': AppDatabase.schemaVersion,
         'snapshot_id': snapshotId,
@@ -316,6 +365,9 @@ class SnapshotService {
         'album_files': albumFiles,
         'missing_album_files': missingAlbumFiles,
         'album_bytes': albumBytes,
+        'media_files': mediaFiles,
+        'missing_media_files': missingMediaFiles,
+        'media_bytes': mediaBytes,
         'encryption': archiveKind.manifestEncryption,
         'zip_layout': 'files_only',
       };
@@ -346,6 +398,13 @@ class SnapshotService {
           );
           await encoder.addFile(file, 'album/$relative');
         }
+        final sortedMediaPaths = mediaFiles.keys.toList()..sort();
+        for (final relative in sortedMediaPaths) {
+          final file = File(
+            p.joinAll([mediaExportDirectory.path, ...relative.split('/')]),
+          );
+          await encoder.addFile(file, 'media/$relative');
+        }
         await encoder.close();
       } catch (_) {
         try {
@@ -355,7 +414,7 @@ class SnapshotService {
         if (await partial.exists()) await partial.delete();
         rethrow;
       }
-      return SnapshotBundle(
+        return SnapshotBundle(
         filePath: zipPath,
         metadata: SnapshotMetadata(
           snapshotId: snapshotId,
@@ -367,10 +426,10 @@ class SnapshotService {
           stateBytes: jsonBytes.length,
           schemaVersion: AppDatabase.schemaVersion,
           createdAt: now,
-          protocolVersion: 5,
+          protocolVersion: 6,
           archiveKind: archiveKind,
         ),
-      );
+        );
       } finally {
         // state.json contains the full unencrypted relationship history. Keep
         // the transport ZIP only as long as Nearby/manual encryption needs it;
@@ -636,7 +695,17 @@ class SnapshotService {
         expectedPaths: _expectedAlbumPaths(validated.backup),
         snapshotId: validated.metadata.snapshotId,
       );
-      return _PreparedSnapshotFiles(attachments, album);
+      try {
+        final media = await blobStorage.prepareSnapshotInstall(
+          extractedMedia: validated.mediaDirectory,
+          expectedPaths: _expectedMediaPaths(validated.backup),
+          snapshotId: validated.metadata.snapshotId,
+        );
+        return _PreparedSnapshotFiles(attachments, album, media);
+      } catch (_) {
+        await album.rollback();
+        rethrow;
+      }
     } catch (_) {
       await attachments.rollback();
       rethrow;
@@ -690,6 +759,7 @@ class SnapshotService {
       var manifestSize = 0;
       var attachmentSize = 0;
       var albumSize = 0;
+      var mediaSize = 0;
       var totalExpanded = 0;
       final directoryEntries = <String>[];
       const legacyDirectoryEntries = <String>{
@@ -699,6 +769,9 @@ class SnapshotService {
         'album/',
         'album/originals/',
         'album/thumbnails/',
+        'media/',
+        'media/originals/',
+        'media/thumbnails/',
       };
       for (final entry in archive.files) {
         final name = entry.name;
@@ -720,10 +793,12 @@ class SnapshotService {
         }
         final isAttachment = name.startsWith('attachments/');
         final isAlbum = name.startsWith('album/');
+        final isMedia = name.startsWith('media/');
         if (name != 'state.json' &&
             name != 'manifest.json' &&
             !isAttachment &&
-            !isAlbum) {
+            !isAlbum &&
+            !isMedia) {
           throw FormatException('状态包含意外文件：$name');
         }
         if (isAttachment && !isDirectoryEntry) {
@@ -734,6 +809,11 @@ class SnapshotService {
         if (isAlbum && !isDirectoryEntry) {
           CompanionAlbumStorage.requireSafeRelativePath(
             name.substring('album/'.length),
+          );
+        }
+        if (isMedia && !isDirectoryEntry) {
+          MediaBlobStorage.requireSafeRelativePath(
+            name.substring('media/'.length),
           );
         }
         if (!seen.add(name)) {
@@ -749,6 +829,7 @@ class SnapshotService {
         if (name == 'manifest.json') manifestSize = size;
         if (isAttachment && !isDirectoryEntry) attachmentSize += size;
         if (isAlbum && !isDirectoryEntry) albumSize += size;
+        if (isMedia && !isDirectoryEntry) mediaSize += size;
       }
       if (!seen.contains('state.json') || !seen.contains('manifest.json')) {
         throw const FormatException('状态包必须包含 state.json 与 manifest.json');
@@ -759,7 +840,7 @@ class SnapshotService {
       if (manifestSize <= 0 || manifestSize > maxManifestBytes) {
         throw const FormatException('manifest.json 大小异常');
       }
-      if (attachmentSize + albumSize > maxBundledFileBytes ||
+      if (attachmentSize + albumSize + mediaSize > maxBundledFileBytes ||
           totalExpanded > maxExpandedBytes) {
         throw const FormatException('状态包解压后大小异常');
       }
@@ -815,7 +896,7 @@ class SnapshotService {
       }
 
       final protocolVersion = (manifest['protocol_version'] as num?)?.toInt() ?? 1;
-      if (protocolVersion < 1 || protocolVersion > 5) {
+      if (protocolVersion < 1 || protocolVersion > 6) {
         throw FormatException('状态包协议版本不受支持：$protocolVersion');
       }
       final archiveKind = protocolVersion >= 5
@@ -835,6 +916,13 @@ class SnapshotService {
         backup: backup,
         protocolVersion: protocolVersion,
         observedAlbumBytes: albumSize,
+      );
+      await _validateMediaPayload(
+        target: target,
+        manifest: manifest,
+        backup: backup,
+        protocolVersion: protocolVersion,
+        observedMediaBytes: mediaSize,
       );
       if (protocolVersion >= 2) {
         final snapshotId = manifest['snapshot_id'] as String? ?? '';
@@ -954,6 +1042,25 @@ class SnapshotService {
       throw const FormatException('state.json 缺少数据表');
     }
     final tables = Map<String, dynamic>.from(rawTables);
+    if (protocolVersion >= 6) {
+      if (tables['media_blobs'] is! List) {
+        throw const FormatException('v6 状态包缺少共享媒体表');
+      }
+    } else {
+      tables['media_blobs'] = const <Object?>[];
+      final attachments = tables['message_attachments'];
+      if (attachments is List) {
+        for (final raw in attachments) {
+          if (raw is Map) raw['blob_id'] = '';
+        }
+      }
+      final album = tables['companion_album_candidates'];
+      if (album is List) {
+        for (final raw in album) {
+          if (raw is Map) raw['blob_id'] = '';
+        }
+      }
+    }
     const completeArchiveTables = <String>[
       'autonomous_action_runs',
       'public_web_candidates',
@@ -1178,6 +1285,146 @@ class SnapshotService {
     }
   }
 
+  static Future<void> _validateMediaPayload({
+    required Directory target,
+    required Map<String, dynamic> manifest,
+    required Map<String, dynamic> backup,
+    required int protocolVersion,
+    required int observedMediaBytes,
+  }) async {
+    final expected = _expectedMediaPaths(backup);
+    if (protocolVersion < 6) {
+      if (observedMediaBytes != 0 || expected.isNotEmpty) {
+        throw const FormatException('旧版状态包不能包含共享媒体');
+      }
+      return;
+    }
+    final rawHashes = manifest['media_files'];
+    final rawMissing = manifest['missing_media_files'];
+    if (rawHashes is! Map || rawMissing is! List) {
+      throw const FormatException('状态包缺少共享媒体清单');
+    }
+    final hashes = <String, String>{};
+    for (final entry in rawHashes.entries) {
+      final relative = MediaBlobStorage.requireSafeRelativePath(
+        entry.key.toString(),
+      );
+      final digest = entry.value?.toString() ?? '';
+      if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
+        throw FormatException('共享媒体校验值无效：$relative');
+      }
+      hashes[relative] = digest;
+    }
+    _validateMediaReferences(backup, hashes);
+    final missing = <String>{
+      for (final item in rawMissing)
+        MediaBlobStorage.requireSafeRelativePath(item.toString()),
+    };
+    final included = hashes.keys.toSet();
+    final declared = included.union(missing);
+    if (included.intersection(missing).isNotEmpty ||
+        declared.length != expected.length ||
+        !declared.containsAll(expected)) {
+      throw const FormatException('共享媒体清单与数据库记录不一致');
+    }
+    final directory = Directory(p.join(target.path, 'media'));
+    final observed = <String>{};
+    var actualBytes = 0;
+    if (await directory.exists()) {
+      await for (final entity in directory.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File) continue;
+        final relative = MediaBlobStorage.requireSafeRelativePath(
+          p.relative(entity.path, from: directory.path).replaceAll('\\', '/'),
+        );
+        observed.add(relative);
+        actualBytes += await entity.length();
+        final digest = await sha256.bind(entity.openRead()).first;
+        if (digest.toString() != hashes[relative]) {
+          throw FormatException('共享媒体 SHA-256 校验失败：$relative');
+        }
+      }
+    }
+    if (observed.length != included.length || !observed.containsAll(included)) {
+      throw const FormatException('状态包中的共享媒体文件与清单不一致');
+    }
+    final declaredBytes = (manifest['media_bytes'] as num?)?.toInt();
+    if (actualBytes != observedMediaBytes || declaredBytes != actualBytes) {
+      throw const FormatException('共享媒体总大小与清单不一致');
+    }
+  }
+
+  static void _validateMediaReferences(
+    Map<String, dynamic> backup,
+    Map<String, String> hashes,
+  ) {
+    final tables = backup['tables'];
+    if (tables is! Map) throw const FormatException('state.json 缺少数据表');
+    final blobRows = tables['media_blobs'];
+    if (blobRows is! List) throw const FormatException('共享媒体表无效');
+    final blobs = <String, Map>{};
+    for (final raw in blobRows) {
+      if (raw is! Map) throw const FormatException('共享媒体数据库记录无效');
+      final id = raw['id']?.toString() ?? '';
+      final originalSha = raw['original_sha256']?.toString() ?? '';
+      final thumbnailSha = raw['thumbnail_sha256']?.toString() ?? '';
+      final original = MediaBlobStorage.requireSafeRelativePath(
+        raw['original_path']?.toString() ?? '',
+      );
+      final thumbnail = MediaBlobStorage.requireSafeRelativePath(
+        raw['thumbnail_path']?.toString() ?? '',
+      );
+      if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(id) ||
+          originalSha != id ||
+          !RegExp(r'^[0-9a-f]{64}$').hasMatch(thumbnailSha) ||
+          hashes[original] != originalSha ||
+          hashes[thumbnail] != thumbnailSha ||
+          blobs.containsKey(id)) {
+        throw const FormatException('共享媒体来源或哈希绑定无效');
+      }
+      blobs[id] = raw;
+    }
+
+    void validateOwnerRows(String tableName, {required bool album}) {
+      final rows = tables[tableName];
+      if (rows is! List) throw FormatException('$tableName 表无效');
+      for (final raw in rows) {
+        if (raw is! Map) throw FormatException('$tableName 记录无效');
+        final id = raw['blob_id']?.toString() ?? '';
+        if (id.isEmpty) {
+          final original = raw['original_path']?.toString() ?? '';
+          final thumbnail = raw['thumbnail_path']?.toString() ?? '';
+          if (MediaBlobStorage.isMediaReference(original) ||
+              MediaBlobStorage.isMediaReference(thumbnail)) {
+            throw FormatException('$tableName 缺少共享媒体来源标识');
+          }
+          continue;
+        }
+        if (album) {
+          final lifecycle = raw['lifecycle_state']?.toString() ?? '';
+          if (lifecycle != 'saved' && lifecycle != 'soft_deleted') continue;
+        }
+        final blob = blobs[id];
+        if (blob == null ||
+            raw['original_path']?.toString() !=
+                MediaBlobStorage.toReferencePath(
+                  blob['original_path']?.toString() ?? '',
+                ) ||
+            raw['thumbnail_path']?.toString() !=
+                MediaBlobStorage.toReferencePath(
+                  blob['thumbnail_path']?.toString() ?? '',
+                )) {
+          throw FormatException('$tableName 的共享媒体引用无效');
+        }
+      }
+    }
+
+    validateOwnerRows('message_attachments', album: false);
+    validateOwnerRows('companion_album_candidates', album: true);
+  }
+
   static Set<String> _expectedAttachmentPaths(Map<String, dynamic> backup) {
     final tables = backup['tables'];
     if (tables is! Map) return const <String>{};
@@ -1188,6 +1435,7 @@ class SnapshotService {
       if (raw is! Map) throw const FormatException('图片附件数据库记录无效');
       for (final key in const ['original_path', 'thumbnail_path']) {
         final value = raw[key]?.toString() ?? '';
+        if (MediaBlobStorage.isMediaReference(value)) continue;
         result.add(MessageAttachmentStorage.requireSafeRelativePath(value));
       }
     }
@@ -1207,10 +1455,26 @@ class SnapshotService {
       if ((lifecycle == 'saved' || lifecycle == 'soft_deleted') && nsfw == 0) {
         for (final key in const <String>['thumbnail_path', 'original_path']) {
           final value = raw[key]?.toString() ?? '';
-          if (value.isNotEmpty) {
+          if (value.isNotEmpty && !MediaBlobStorage.isMediaReference(value)) {
             result.add(CompanionAlbumStorage.requireSafeRelativePath(value));
           }
         }
+      }
+    }
+    return result;
+  }
+
+  static Set<String> _expectedMediaPaths(Map<String, dynamic> backup) {
+    final tables = backup['tables'];
+    if (tables is! Map) return const <String>{};
+    final rows = tables['media_blobs'];
+    if (rows is! List) return const <String>{};
+    final result = <String>{};
+    for (final raw in rows) {
+      if (raw is! Map) throw const FormatException('共享媒体数据库记录无效');
+      for (final key in const <String>['original_path', 'thumbnail_path']) {
+        final value = raw[key]?.toString() ?? '';
+        result.add(MediaBlobStorage.requireSafeRelativePath(value));
       }
     }
     return result;

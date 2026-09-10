@@ -20,6 +20,7 @@ import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
 import '../autonomy/ai_interest_evidence_policy.dart';
 import '../models/message_attachment.dart';
+import '../models/media_blob.dart';
 import '../models/awareness_observation.dart';
 import '../models/conversation_summary.dart';
 import '../models/desire_state.dart';
@@ -33,6 +34,7 @@ import '../integration/moe_expression_default_policy.dart';
 import '../phone/album_perceptual_hash.dart';
 import '../reference/world_book_presets.dart';
 import '../reference/world_book_content_v04155_user.dart';
+import '../reference/world_book_content_v04156_user.dart';
 import '../models/perception_snapshot.dart';
 import '../models/personality_trial.dart';
 import '../models/personality_learning.dart';
@@ -112,7 +114,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 54;
   // Historical validator compatibility token: static const int schemaVersion = 55;
   // Historical validator compatibility token: static const int schemaVersion = 56;
-  static const int schemaVersion = 57;
+  // Historical validator compatibility token: static const int schemaVersion = 57;
+  static const int schemaVersion = 58;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1152,6 +1155,9 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 58) {
+      await _createV58MediaBlobTables(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1348,6 +1354,7 @@ class AppDatabase {
     await _createV55AutonomousBehaviorTables(db);
     await _createV56SubjectiveSearchColumns(db);
     await _createV57MessageLanguageVariants(db);
+    await _createV58MediaBlobTables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3318,6 +3325,58 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createV58MediaBlobTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS media_blobs (
+        id TEXT PRIMARY KEY,
+        original_path TEXT NOT NULL,
+        thumbnail_path TEXT NOT NULL,
+        original_sha256 TEXT NOT NULL UNIQUE,
+        thumbnail_sha256 TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        byte_size INTEGER NOT NULL,
+        thumbnail_byte_size INTEGER NOT NULL DEFAULT 0,
+        width INTEGER NOT NULL DEFAULT 0,
+        height INTEGER NOT NULL DEFAULT 0,
+        message_ref_count INTEGER NOT NULL DEFAULT 0,
+        album_ref_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_media_blobs_refs '
+      'ON media_blobs(album_ref_count, message_ref_count, created_at)',
+    );
+    final attachmentColumns = (await db.rawQuery(
+      'PRAGMA table_info(message_attachments)',
+    ))
+        .map((row) => row['name'] as String)
+        .toSet();
+    if (!attachmentColumns.contains('blob_id')) {
+      await db.execute(
+        "ALTER TABLE message_attachments ADD COLUMN blob_id TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    final albumColumns = (await db.rawQuery(
+      'PRAGMA table_info(companion_album_candidates)',
+    ))
+        .map((row) => row['name'] as String)
+        .toSet();
+    if (!albumColumns.contains('blob_id')) {
+      await db.execute(
+        "ALTER TABLE companion_album_candidates ADD COLUMN blob_id TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_attachments_blob '
+      "ON message_attachments(blob_id) WHERE blob_id != ''",
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_companion_album_blob '
+      "ON companion_album_candidates(blob_id) WHERE blob_id != ''",
+    );
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -4179,6 +4238,107 @@ class AppDatabase {
       );
       await setSetting('worldbook_humor_user_default_v04155_applied', '1');
     }
+    final userWorldBookDefaultsV04156 =
+        await getSetting('worldbook_user_defaults_v04156_applied');
+    if (userWorldBookDefaultsV04156 != '1') {
+      final rows = await db.query(
+        'reference_documents',
+        columns: const ['id', 'name', 'raw_content'],
+        where: 'entry_type = ? AND name IN (?, ?, ?, ?)',
+        whereArgs: const [
+          'behavior',
+          '角色表达自然化',
+          '推演思维引擎',
+          '日常对话规则',
+          '造梗能力',
+        ],
+      );
+      const acceptedNaturalHashes = <String>{
+        // Untouched v0.41.54 English bundle.
+        '0af88f096e3b50d4d1c10574982400c18d17465d02a1202259a42fcc9a4d8697',
+        // User's exact 2026-09-10 03:04 Chinese body.
+        '399dbcade44c15ce4af3f215df27ed193de04991644371dbbd79f2caabed8f11',
+      };
+      const acceptedInferenceHashes = <String>{
+        '4d833705025b8f07ab8723d11c398109b581979a8e5f7111bc9d277724588c19',
+      };
+      const acceptedHumorHashes = <String>{
+        // v0.41.55 bundled body after the age wording cleanup.
+        '829c17a037400319c9c5519b71803d9dba38e438f27b6a7fa17bad7500aa4bb5',
+        // Exact body in the user's 2026-09-10 03:04 backup.
+        '7c03990e70066285f5ac8dfe2793437d777503c7ebcfa02cb395ee1e1bb34268',
+        // Current single-layer-frequency body, for idempotent metadata repair.
+        '187507db7ab3a59e817656c0b695a63e661460a34a083f99b73a4d4c276ddb0b',
+      };
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (final row in rows) {
+        final id = row['id'] as String;
+        final name = row['name'] as String? ?? '';
+        final raw = row['raw_content'] as String? ?? '';
+        final hash = sha256.convert(utf8.encode(raw)).toString();
+        if (name == '角色表达自然化' &&
+            acceptedNaturalHashes.contains(hash)) {
+          await db.update(
+            'reference_documents',
+            {
+              'raw_content': worldBookNaturalDialogueV04156,
+              'activation_mode': 'always',
+              'priority': 1000,
+              'activation_probability': 100,
+              'scope': 'all',
+              'manual_active': 0,
+              'updated_at': now,
+            },
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        } else if (name == '推演思维引擎' &&
+            acceptedInferenceHashes.contains(hash)) {
+          await db.update(
+            'reference_documents',
+            {
+              'raw_content': worldBookInferenceEngineV04156,
+              'activation_mode': 'always',
+              'priority': 950,
+              'activation_probability': 100,
+              'scope': 'immersive',
+              'manual_active': 0,
+              'updated_at': now,
+            },
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        } else if (name == '日常对话规则' &&
+            raw == worldBookDailyConversationV04128) {
+          await db.update(
+            'reference_documents',
+            {
+              'priority': 900,
+              'activation_probability': 100,
+              'scope': 'chat|proactive',
+              'updated_at': now,
+            },
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        } else if (name == '造梗能力' &&
+            acceptedHumorHashes.contains(hash)) {
+          await db.update(
+            'reference_documents',
+            {
+              'raw_content': worldBookHumorV04156User,
+              'activation_probability': 30,
+              'priority': 650,
+              'scope': 'chat|proactive',
+              'updated_at': now,
+            },
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      }
+      await setSetting('worldbook_user_defaults_v04156_applied', '1');
+    }
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.
     await db.update(
@@ -4620,6 +4780,69 @@ class AppDatabase {
     }
   }
 
+  Future<void> _retainMessageMediaBlob(
+    DatabaseExecutor executor,
+    MessageAttachment attachment,
+  ) async {
+    final blobId = attachment.blobId.trim();
+    if (blobId.isEmpty) return;
+    final originalPath = _mediaBlobRelativePath(attachment.originalPath);
+    final thumbnailPath = _mediaBlobRelativePath(attachment.thumbnailPath);
+    final thumbnailName = p.basenameWithoutExtension(thumbnailPath);
+    await executor.insert(
+      'media_blobs',
+      <String, Object?>{
+        'id': blobId,
+        'original_path': originalPath,
+        'thumbnail_path': thumbnailPath,
+        'original_sha256': blobId,
+        'thumbnail_sha256': RegExp(r'^[0-9a-f]{64}$').hasMatch(thumbnailName)
+            ? thumbnailName
+            : blobId,
+        'mime_type': attachment.mimeType,
+        'byte_size': attachment.byteSize,
+        'thumbnail_byte_size': 0,
+        'width': attachment.width,
+        'height': attachment.height,
+        'message_ref_count': 0,
+        'album_ref_count': 0,
+        'created_at': attachment.createdAt.millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await executor.rawUpdate(
+      'UPDATE media_blobs SET message_ref_count = message_ref_count + 1 '
+      'WHERE id = ?',
+      <Object?>[blobId],
+    );
+  }
+
+  static String _mediaBlobRelativePath(String referencePath) {
+    final normalized = referencePath.replaceAll('\\', '/');
+    if (!normalized.startsWith('media/')) {
+      throw StateError('invalid_media_blob_reference');
+    }
+    final relative = normalized.substring('media/'.length);
+    if (relative.contains('..') ||
+        !(relative.startsWith('originals/') ||
+            relative.startsWith('thumbnails/'))) {
+      throw StateError('invalid_media_blob_reference');
+    }
+    return relative;
+  }
+
+  Future<void> registerMediaBlob(MediaBlob blob) async {
+    if (blob.id.isEmpty || blob.originalSha256 != blob.id) {
+      throw StateError('invalid_media_blob');
+    }
+    final db = await database;
+    await db.insert(
+      'media_blobs',
+      blob.toDb(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
   /// Adds one lazily generated foreign projection without rewriting the
   /// authoritative Chinese message or rerunning its original generation.
   Future<void> upsertMessageLanguageVariant(
@@ -4691,6 +4914,7 @@ class AppDatabase {
           attachment.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        await _retainMessageMediaBlob(txn, attachment);
       }
     });
   }
@@ -5499,6 +5723,16 @@ class AppDatabase {
         whereArgs: [messageId],
       );
       if (rows.isEmpty) return const [];
+      for (final row in rows) {
+        final blobId = row['blob_id'] as String? ?? '';
+        if (blobId.isNotEmpty) {
+          await txn.rawUpdate(
+            'UPDATE media_blobs SET message_ref_count = '
+            'MAX(message_ref_count - 1, 0) WHERE id = ?',
+            <Object?>[blobId],
+          );
+        }
+      }
       await txn.delete('messages', where: 'id = ?', whereArgs: [messageId]);
       return rows.map(MessageAttachment.fromDb).toList(growable: false);
     });
@@ -5511,6 +5745,257 @@ class AppDatabase {
       orderBy: 'created_at ASC, id ASC',
     );
     return rows.map(MessageAttachment.fromDb).toList(growable: false);
+  }
+
+  Future<List<MediaBlob>> allMediaBlobs() async {
+    final db = await database;
+    final rows = await db.query('media_blobs', orderBy: 'created_at ASC, id ASC');
+    return rows.map(MediaBlob.fromDb).toList(growable: false);
+  }
+
+  Future<MediaBlob?> mediaBlobById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'media_blobs',
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : MediaBlob.fromDb(rows.first);
+  }
+
+  Future<MediaBlob?> removeUnreferencedMediaBlob(String id) async {
+    final db = await database;
+    return db.transaction<MediaBlob?>((txn) async {
+      final rows = await txn.query(
+        'media_blobs',
+        where: 'id = ? AND message_ref_count = 0 AND album_ref_count = 0',
+        whereArgs: <Object?>[id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      await txn.delete('media_blobs', where: 'id = ?', whereArgs: <Object?>[id]);
+      return MediaBlob.fromDb(rows.first);
+    });
+  }
+
+  /// Atomically rebuilds counters and removes every blob with no live owner.
+  /// Callers delete the returned files only after this DB transaction commits.
+  Future<List<MediaBlob>> takeUnreferencedMediaBlobs() async {
+    final db = await database;
+    return db.transaction<List<MediaBlob>>((txn) async {
+      await _rebuildMediaBlobRefCountsInTransaction(txn);
+      final rows = await txn.query(
+        'media_blobs',
+        where: 'message_ref_count = 0 AND album_ref_count = 0',
+      );
+      if (rows.isEmpty) return const <MediaBlob>[];
+      final ids = rows.map((row) => row['id'] as String).toList(growable: false);
+      final placeholders = List.filled(ids.length, '?').join(',');
+      await txn.delete(
+        'media_blobs',
+        where: 'id IN ($placeholders)',
+        whereArgs: ids,
+      );
+      return rows.map(MediaBlob.fromDb).toList(growable: false);
+    });
+  }
+
+  Future<void> migrateMediaBlobReferences({
+    required MediaBlob blob,
+    Iterable<String> messageAttachmentIds = const <String>[],
+    Iterable<String> albumItemIds = const <String>[],
+  }) async {
+    final messageIds = messageAttachmentIds.toSet().toList(growable: false);
+    final albumIds = albumItemIds.toSet().toList(growable: false);
+    if (messageIds.isEmpty && albumIds.isEmpty) return;
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.insert(
+        'media_blobs',
+        blob.toDb(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final originalReference = 'media/${blob.originalPath}';
+      final thumbnailReference = 'media/${blob.thumbnailPath}';
+      for (final id in messageIds) {
+        await txn.update(
+          'message_attachments',
+          <String, Object?>{
+            'blob_id': blob.id,
+            'original_path': originalReference,
+            'thumbnail_path': thumbnailReference,
+          },
+          where: "id = ? AND blob_id = ''",
+          whereArgs: <Object?>[id],
+        );
+      }
+      for (final id in albumIds) {
+        await txn.update(
+          'companion_album_candidates',
+          <String, Object?>{
+            'blob_id': blob.id,
+            'original_path': originalReference,
+            'thumbnail_path': thumbnailReference,
+            'original_content_sha256': blob.originalSha256,
+            'content_sha256': blob.thumbnailSha256,
+            'original_mime_type': blob.mimeType,
+            'original_byte_size': blob.byteSize,
+            'original_status': 'stored',
+          },
+          where:
+              "id = ? AND blob_id = '' AND lifecycle_state IN ('saved','soft_deleted')",
+          whereArgs: <Object?>[id],
+        );
+      }
+      await _rebuildMediaBlobRefCountsInTransaction(txn);
+    });
+  }
+
+  Future<void> rebuildMediaBlobRefCounts() async {
+    final db = await database;
+    await db.transaction(_rebuildMediaBlobRefCountsInTransaction);
+  }
+
+  Future<void> _rebuildMediaBlobRefCountsInTransaction(
+    DatabaseExecutor txn,
+  ) async {
+    await txn.rawUpdate('''
+      UPDATE media_blobs
+      SET message_ref_count = (
+            SELECT COUNT(*) FROM message_attachments a
+            WHERE a.blob_id = media_blobs.id
+          ),
+          album_ref_count = (
+            SELECT COUNT(*) FROM companion_album_candidates c
+            WHERE c.blob_id = media_blobs.id
+              AND c.lifecycle_state IN ('saved','soft_deleted')
+          )
+    ''');
+  }
+
+  Future<List<MediaCacheEntry>> mediaCacheEntries() async {
+    final db = await database;
+    await rebuildMediaBlobRefCounts();
+    final rows = await db.rawQuery('''
+      SELECT b.*,
+             COUNT(a.id) AS live_message_count,
+             MIN(a.created_at) AS first_used_at,
+             MAX(a.created_at) AS last_used_at,
+             GROUP_CONCAT(DISTINCT a.source) AS sources
+      FROM media_blobs b
+      JOIN message_attachments a ON a.blob_id = b.id
+      WHERE b.album_ref_count = 0
+      GROUP BY b.id
+      ORDER BY last_used_at DESC, b.id ASC
+    ''');
+    return rows.map((row) {
+      final sources = (row['sources']?.toString() ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+      return MediaCacheEntry(
+        blob: MediaBlob.fromDb(row),
+        messageCount: (row['live_message_count'] as num?)?.toInt() ?? 0,
+        firstUsedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['first_used_at'] as num?)?.toInt() ?? 0,
+        ),
+        lastUsedAt: DateTime.fromMillisecondsSinceEpoch(
+          (row['last_used_at'] as num?)?.toInt() ?? 0,
+        ),
+        sources: sources,
+      );
+    }).toList(growable: false);
+  }
+
+  Future<List<MediaBlob>> deleteMediaCacheBlobs(Set<String> blobIds) async {
+    if (blobIds.isEmpty) return const <MediaBlob>[];
+    final db = await database;
+    return db.transaction<List<MediaBlob>>((txn) async {
+      final settings = await txn.query(
+        'settings',
+        columns: const ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final values = <String, String>{
+        for (final row in settings)
+          row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (values['active_brain'] == '0' || values['transfer_lock'] == '1') {
+        return const <MediaBlob>[];
+      }
+      final safeIds = blobIds
+          .where((id) => RegExp(r'^[0-9a-f]{64}$').hasMatch(id))
+          .toList(growable: false);
+      if (safeIds.isEmpty) return const <MediaBlob>[];
+      final placeholders = List.filled(safeIds.length, '?').join(',');
+      final allowedRows = await txn.query(
+        'media_blobs',
+        where: 'id IN ($placeholders) AND album_ref_count = 0',
+        whereArgs: safeIds,
+      );
+      final allowed = allowedRows.map((row) => row['id'] as String).toList();
+      if (allowed.isEmpty) return const <MediaBlob>[];
+      final allowedPlaceholders = List.filled(allowed.length, '?').join(',');
+      final messageRows = await txn.rawQuery(
+        'SELECT DISTINCT message_id FROM message_attachments '
+        'WHERE blob_id IN ($allowedPlaceholders)',
+        allowed,
+      );
+      await txn.delete(
+        'message_attachments',
+        where: 'blob_id IN ($allowedPlaceholders)',
+        whereArgs: allowed,
+      );
+      for (final row in messageRows) {
+        final messageId = row['message_id'] as String? ?? '';
+        if (messageId.isEmpty) continue;
+        final remaining = Sqflite.firstIntValue(await txn.rawQuery(
+              'SELECT COUNT(*) FROM message_attachments WHERE message_id = ?',
+              <Object?>[messageId],
+            )) ??
+            0;
+        final messages = await txn.query(
+          'messages',
+          columns: const ['content'],
+          where: 'id = ?',
+          whereArgs: <Object?>[messageId],
+          limit: 1,
+        );
+        if (remaining == 0 &&
+            messages.isNotEmpty &&
+            (messages.first['content'] as String? ?? '').trim().isEmpty) {
+          await txn.update(
+            'messages',
+            const <String, Object?>{
+              'content': '（媒体已从缓存中删除）',
+              'segments_json': '',
+            },
+            where: 'id = ?',
+            whereArgs: <Object?>[messageId],
+          );
+        }
+      }
+      await _rebuildMediaBlobRefCountsInTransaction(txn);
+      final orphanRows = await txn.query(
+        'media_blobs',
+        where:
+            'id IN ($allowedPlaceholders) AND message_ref_count = 0 AND album_ref_count = 0',
+        whereArgs: allowed,
+      );
+      if (orphanRows.isNotEmpty) {
+        final orphanIds = orphanRows.map((row) => row['id'] as String).toList();
+        final orphanPlaceholders = List.filled(orphanIds.length, '?').join(',');
+        await txn.delete(
+          'media_blobs',
+          where: 'id IN ($orphanPlaceholders)',
+          whereArgs: orphanIds,
+        );
+      }
+      return orphanRows.map(MediaBlob.fromDb).toList(growable: false);
+    });
   }
 
   Future<List<MessageAttachment>> messageAttachmentsFor(String messageId) async {
@@ -6068,6 +6553,7 @@ class AppDatabase {
           attachment.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        await _retainMessageMediaBlob(txn, attachment);
       }
       await txn.insert('generation_jobs', {
         'id': jobId,
@@ -6710,6 +7196,7 @@ class AppDatabase {
             attachment.toDb(),
             conflictAlgorithm: ConflictAlgorithm.abort,
           );
+          await _retainMessageMediaBlob(txn, attachment);
         }
       }
       final queueSetting = await txn.query(
@@ -6961,6 +7448,7 @@ class AppDatabase {
           attachment.toDb(),
           conflictAlgorithm: ConflictAlgorithm.abort,
         );
+        await _retainMessageMediaBlob(txn, attachment);
       }
       return null;
     });
@@ -11957,6 +12445,7 @@ class AppDatabase {
     String originalContentSha256 = '',
     String originalMimeType = '',
     int originalByteSize = 0,
+    String blobId = '',
   }) async {
     final db = await database;
     return db.transaction<bool>((txn) async {
@@ -12051,6 +12540,7 @@ class AppDatabase {
           'original_mime_type': save ? originalMimeType : '',
           'original_byte_size': save ? originalByteSize.clamp(0, 26214400) : 0,
           'original_status': save && originalPath.isNotEmpty ? 'stored' : 'missing',
+          'blob_id': save ? blobId : '',
           'content_sha256': save ? contentSha256 : '',
           'visual_fingerprint': _bounded(visualFingerprint, 600),
           'perceptual_hash': save ? perceptualHash : '',
@@ -12065,6 +12555,13 @@ class AppDatabase {
         where: "id = ? AND lifecycle_state = 'recognized'",
         whereArgs: [id],
       );
+      if (changed == 1 && save && blobId.isNotEmpty) {
+        await txn.rawUpdate(
+          'UPDATE media_blobs SET album_ref_count = album_ref_count + 1 '
+          'WHERE id = ?',
+          <Object?>[blobId],
+        );
+      }
       return changed == 1;
     });
   }
@@ -12115,6 +12612,17 @@ class AppDatabase {
           "lifecycle_state IN ('saved','soft_deleted') AND nsfw = 0",
       orderBy: 'saved_at DESC, id DESC',
       limit: limit.clamp(1, 500).toInt(),
+    );
+    return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
+  }
+
+  Future<List<CompanionAlbumItem>> allCompanionAlbumItemsForMediaMigration() async {
+    final db = await database;
+    final rows = await db.query(
+      'companion_album_candidates',
+      where:
+          "lifecycle_state IN ('saved','soft_deleted') AND nsfw = 0",
+      orderBy: 'created_at ASC, id ASC',
     );
     return rows.map(CompanionAlbumItem.fromDb).toList(growable: false);
   }
@@ -12236,7 +12744,7 @@ class AppDatabase {
     return db.transaction<List<String>>((txn) async {
       final rows = await txn.query(
         'companion_album_candidates',
-        columns: const ['thumbnail_path', 'original_path'],
+        columns: const ['thumbnail_path', 'original_path', 'blob_id'],
         where: 'id = ?',
         whereArgs: [id],
         limit: 1,
@@ -12253,6 +12761,14 @@ class AppDatabase {
         where: 'id = ?',
         whereArgs: [id],
       );
+      final blobId = rows.first['blob_id'] as String? ?? '';
+      if (blobId.isNotEmpty) {
+        await txn.rawUpdate(
+          'UPDATE media_blobs SET album_ref_count = '
+          'MAX(album_ref_count - 1, 0) WHERE id = ?',
+          <Object?>[blobId],
+        );
+      }
       return <String>[
         rows.first['thumbnail_path'] as String? ?? '',
         rows.first['original_path'] as String? ?? '',
@@ -12266,7 +12782,7 @@ class AppDatabase {
     return db.transaction<List<String>>((txn) async {
       final rows = await txn.query(
         'companion_album_candidates',
-        columns: const ['id', 'thumbnail_path', 'original_path'],
+        columns: const ['id', 'thumbnail_path', 'original_path', 'blob_id'],
         where: "lifecycle_state = 'soft_deleted' AND delete_after IS NOT NULL AND delete_after <= ?",
         whereArgs: [at],
       );
@@ -12277,6 +12793,16 @@ class AppDatabase {
         "UPDATE companion_album_candidates SET lifecycle_state = 'deleted', unread = 0, updated_at = ? WHERE id IN ($placeholders)",
         [at, ...ids],
       );
+      for (final row in rows) {
+        final blobId = row['blob_id'] as String? ?? '';
+        if (blobId.isNotEmpty) {
+          await txn.rawUpdate(
+            'UPDATE media_blobs SET album_ref_count = '
+            'MAX(album_ref_count - 1, 0) WHERE id = ?',
+            <Object?>[blobId],
+          );
+        }
+      }
       return rows
           .expand((row) => <String>[
                 row['thumbnail_path'] as String? ?? '',
@@ -17331,6 +17857,7 @@ class AppDatabase {
     const tables = [
       'messages',
       'message_language_variants',
+      'media_blobs',
       'message_attachments',
       'memory_items',
       'memory_evidence',
@@ -17448,11 +17975,15 @@ class AppDatabase {
     if (version < 57) {
       rawTables['message_language_variants'] = const <Object?>[];
     }
+    if (version < 58) {
+      rawTables['media_blobs'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
         'messages',
         'message_language_variants',
+        'media_blobs',
         'message_attachments',
         'memory_items',
         'memory_evidence',
@@ -17926,6 +18457,7 @@ class AppDatabase {
         where: 'builtin = 0 AND entry_type = ? AND name = ? AND aliases = ?',
         whereArgs: const ['behavior', '造梗能力', '造梗|玩梗'],
       );
+      await _rebuildMediaBlobRefCountsInTransaction(txn);
     });
     await _seedRuleLayers(await database);
     await ensureDeviceId();

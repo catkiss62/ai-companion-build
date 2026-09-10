@@ -27,11 +27,11 @@ test = read("test/sticker_expression_test.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:45\+184|46\+185|47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199))$",
+    r"^version:\s*0\.41\.(?:45\+184|46\+185|47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200)$",
     pubspec,
     re.M,
 )
-assert re.search(r"static const int schemaVersion = (?:55|56|57);", database)
+assert re.search(r"static const int schemaVersion = (?:55|56|57|58);", database)
 assert "agent/v04145-sticker-expression" in workflow
 assert "Build AI Companion v0.41.45+184 APK" in workflow
 assert "AI-Companion-v0.41.45-184-Sticker-Expression-APK" in workflow

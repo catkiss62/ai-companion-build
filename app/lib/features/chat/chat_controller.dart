@@ -819,23 +819,33 @@ class ChatController extends ChangeNotifier {
     ).hasMatch(message.content);
     final shouldSave = observation.albumSave || explicitlyRequested;
     if (shouldSave) {
-      final stored = await CompanionAlbumStorage().saveThumbnail(
-        id: candidateId,
-        source: thumbnail,
-        expectedContentSha256: observation.inputContentSha256,
-      );
-      path = stored.relativePath;
-      contentSha = stored.contentSha256;
-      final originalFile =
-          await attachmentStorage.fileFor(attachment.originalPath);
-      final original = await CompanionAlbumStorage().saveOriginal(
-        id: candidateId,
-        source: originalFile,
-        extension: p.extension(attachment.originalPath),
-      );
-      originalPath = original.relativePath;
-      originalSha = original.contentSha256;
-      originalByteSize = original.byteSize;
+      if (attachment.blobId.isNotEmpty) {
+        // The chat message already owns the content-addressed blob. Saving it
+        // to the album adds an independent DB reference without copying bytes.
+        path = attachment.thumbnailPath;
+        contentSha = observation.inputContentSha256;
+        originalPath = attachment.originalPath;
+        originalSha = attachment.blobId;
+        originalByteSize = attachment.byteSize;
+      } else {
+        final stored = await CompanionAlbumStorage().saveThumbnail(
+          id: candidateId,
+          source: thumbnail,
+          expectedContentSha256: observation.inputContentSha256,
+        );
+        path = stored.relativePath;
+        contentSha = stored.contentSha256;
+        final originalFile =
+            await attachmentStorage.fileFor(attachment.originalPath);
+        final original = await CompanionAlbumStorage().saveOriginal(
+          id: candidateId,
+          source: originalFile,
+          extension: p.extension(attachment.originalPath),
+        );
+        originalPath = original.relativePath;
+        originalSha = original.contentSha256;
+        originalByteSize = original.byteSize;
+      }
       perceptualHash = await AlbumPerceptualHash.fromFile(thumbnail);
     }
     final completed = await db.completeCompanionAlbumCandidate(
@@ -853,6 +863,7 @@ class ChatController extends ChangeNotifier {
       originalContentSha256: originalSha,
       originalMimeType: attachment.mimeType,
       originalByteSize: originalByteSize,
+      blobId: shouldSave ? attachment.blobId : '',
       contentSha256: contentSha,
       perceptualHash: perceptualHash,
       visualFingerprint: observation.aestheticTags.join('|'),

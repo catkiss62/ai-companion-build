@@ -205,27 +205,10 @@ class PromptBuilder {
                   'user:${instant.millisecondsSinceEpoch ~/ 60000}')
               : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}',
         );
-    final expressionTurnKey = mode == PromptGenerationMode.userTurn
-        ? (grounding.lastUserMessageId ??
-            'user:${instant.millisecondsSinceEpoch ~/ 60000}')
-        : 'proactive:${instant.millisecondsSinceEpoch ~/ 60000}';
-    var subjectivePlayfulness = 0.0;
-    for (final drive in const <DriveKey>[
-      DriveKey.curiosity,
-      DriveKey.social,
-      DriveKey.reflection,
-    ]) {
-      final excess = (desire.drives[drive] ?? 0.0) -
-          (desire.baselines[drive] ?? 0.0);
-      if (excess > subjectivePlayfulness) subjectivePlayfulness = excess;
-    }
     final dialogueExpressionPlan = DialogueExpressionPlan.select(
       latestUserText:
           mode == PromptGenerationMode.userTurn ? latestUserText : '',
-      turnKey: expressionTurnKey,
       proactive: mode == PromptGenerationMode.proactive,
-      subjectivePlayfulness: subjectivePlayfulness,
-      hasOwnThought: thoughts.any((thought) => thought.canDriveIntentAt(instant)),
     );
     await DialogueExpressionTelemetry.record(
       db,

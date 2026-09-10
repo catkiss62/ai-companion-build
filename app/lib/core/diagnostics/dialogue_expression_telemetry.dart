@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../ai/dialogue_expression_plan.dart';
 import '../database/app_database.dart';
 
-/// Redacted counters for the per-turn dialogue expression router.
+/// Redacted counters for the response-responsibility classifier.
 ///
 /// This stores enum names and aggregate counts only. It never stores user
 /// text, prompt text, generated text, message IDs or reasoning.
@@ -21,7 +21,7 @@ class DialogueExpressionTelemetry {
       final next = nextSnapshot(
         raw: await db.getSetting(settingKey),
         mode: plan.mode.name,
-        humor: plan.humor.name,
+        humor: 'none',
         now: now,
       );
       await db.setSetting(settingKey, jsonEncode(next));
@@ -75,8 +75,9 @@ class DialogueExpressionTelemetry {
   static Set<String> get _modeNames =>
       DialogueResponseMode.values.map((value) => value.name).toSet();
 
-  static Set<String> get _humorNames =>
-      DialogueHumorDevice.values.map((value) => value.name).toSet();
+  // Kept for backwards-compatible diagnostics decoding. v0.41.56 no longer
+  // selects or records any hard-coded humor device.
+  static const Set<String> _humorNames = <String>{'none'};
 
   static Map<String, Object?> _decode(String? raw) {
     if (raw == null || raw.trim().isEmpty) return _empty();

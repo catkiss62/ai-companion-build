@@ -11,6 +11,7 @@ class MessageAttachment {
     required this.height,
     required this.source,
     required this.createdAt,
+    this.blobId = '',
     this.visionStatus = visionPendingStatus,
     this.visionSummary = '',
     this.visionModel = '',
@@ -36,6 +37,7 @@ class MessageAttachment {
   final int height;
   final String source;
   final DateTime createdAt;
+  final String blobId;
   final String visionStatus;
   final String visionSummary;
   final String visionModel;
@@ -52,6 +54,7 @@ class MessageAttachment {
   bool get visionFailed => visionStatus == visionFailedStatus;
 
   MessageAttachment copyWith({
+    String? blobId,
     String? visionStatus,
     String? visionSummary,
     String? visionModel,
@@ -71,6 +74,7 @@ class MessageAttachment {
       height: height,
       source: source,
       createdAt: createdAt,
+      blobId: blobId ?? this.blobId,
       visionStatus: visionStatus ?? this.visionStatus,
       visionSummary: visionSummary ?? this.visionSummary,
       visionModel: visionModel ?? this.visionModel,
@@ -92,6 +96,7 @@ class MessageAttachment {
         'height': height,
         'source': source,
         'created_at': createdAt.millisecondsSinceEpoch,
+        'blob_id': blobId,
         'vision_status': visionStatus,
         'vision_summary': visionSummary,
         'vision_model': visionModel,
@@ -112,6 +117,7 @@ class MessageAttachment {
         'height': height,
         'source': source,
         'created_at': createdAt.toIso8601String(),
+        'blob_id': blobId,
         'vision_status': visionStatus,
         'vision_summary': visionSummary,
         'vision_model': visionModel,
@@ -136,6 +142,7 @@ class MessageAttachment {
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         (row['created_at'] as num?)?.toInt() ?? 0,
       ),
+      blobId: row['blob_id'] as String? ?? '',
       visionStatus:
           row['vision_status'] as String? ?? visionPendingStatus,
       visionSummary: row['vision_summary'] as String? ?? '',

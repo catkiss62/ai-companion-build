@@ -21,7 +21,8 @@ assert "_stabilizeV53RoleplayPronounPriority" in database
 assert "legacyRuleContentV04125_08RuntimeIdentity" in database
 for name, priority in {
     "角色表达自然化": 1000,
-    "日常对话规则": 950,
+    "推演思维引擎": 950,
+    "日常对话规则": 900,
     "性格光谱": 850,
     "造梗能力": 650,
 }.items():

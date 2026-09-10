@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.55+199" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.55+199';" in read(
+assert "version: 0.41.56+200" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.56+200';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -261,8 +261,8 @@ special_styles = read("lib/core/rules/rule_layer_content_v0400.dart")
 for token in ("孩子", "小女孩", "果冻般的少女"):
     assert token not in special_styles, token
 world_book = read("lib/core/reference/world_book_presets.dart")
-assert "content: worldBookHumorV04155User" in world_book
-assert "probability: 50" in world_book
+assert "content: worldBookHumorV04156User" in world_book
+assert "probability: 30" in world_book
 assert "worldbook_humor_user_default_v04155_applied" in db
 posture_rules = read("lib/core/rules/rule_layer_content_v0353.dart")
 younger_posture = triple_const(posture_rules, "ruleContentV0353_07_posture_younger")
@@ -311,10 +311,10 @@ assert not re.search(
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.55+199 APK",
-    "agent/v04155-genie-direct-port-lazy-language",
+    "Build AI Companion v0.41.56+200 APK",
+        "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.55-199-Genie-Direct-Port-Lazy-Language-APK",
+    "AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK",
     "genie-tts-private-runtime-v0.6.4",
 ):
     assert token in workflow, token

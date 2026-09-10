@@ -35,6 +35,7 @@ void main() {
 
     expect(byId.keys, containsAll(<String>{
       'builtin.worldbook.natural_dialogue',
+      'builtin.worldbook.inference_engine',
       'builtin.worldbook.daily_conversation',
       'builtin.worldbook.personality_spectrum',
       'builtin.worldbook.humor',
@@ -42,10 +43,11 @@ void main() {
     final daily = byId['builtin.worldbook.daily_conversation']!;
     expect(daily.manualActive, isTrue);
     expect(daily.probability, 100);
-    expect(daily.priority, 950);
+    expect(daily.priority, 900);
     expect(worldBookBehaviorPriorityPlanV04141, {
       '角色表达自然化': 1000,
-      '日常对话规则': 950,
+      '推演思维引擎': 950,
+      '日常对话规则': 900,
       '性格光谱': 850,
       '造梗能力': 650,
     });
@@ -59,6 +61,15 @@ void main() {
     );
     expect(byId['builtin.worldbook.natural_dialogue']!.priority, 1000);
     expect(
+      byId['builtin.worldbook.natural_dialogue']!.content,
+      startsWith('#角色思考方式真人化'),
+    );
+    final inference = byId['builtin.worldbook.inference_engine']!;
+    expect(inference.priority, 950);
+    expect(inference.scope, 'immersive');
+    expect(inference.activationMode, 'always');
+    expect(inference.content, startsWith('【推演思维引擎】'));
+    expect(
       byId['builtin.worldbook.personality_spectrum']!.content,
       contains('性格光谱一句话印象'),
     );
@@ -69,12 +80,16 @@ void main() {
     );
     expect(byId['builtin.worldbook.humor']!.manualActive, isTrue);
     expect(byId['builtin.worldbook.humor']!.priority, 650);
-    expect(byId['builtin.worldbook.humor']!.probability, 50);
+    expect(byId['builtin.worldbook.humor']!.probability, 30);
+    expect(
+      byId['builtin.worldbook.humor']!.content,
+      contains('这不是第二次触发概率，也不代表命中后必须造梗'),
+    );
     expect(
       byId['builtin.worldbook.humor']!.content,
       contains('NSFW时不要造梗和抽象'),
     );
-    expect(worldBookSystemPresets, hasLength(4));
+    expect(worldBookSystemPresets, hasLength(5));
   });
 
   test('roleplay is a first-class entry type, not a behavior module', () {

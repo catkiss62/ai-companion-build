@@ -105,7 +105,7 @@ assert "!lastUser.expectsReply" in grounding
 
 assert any(
     token in snapshot
-    for token in ("'protocol_version': 3", "'protocol_version': 4", "'protocol_version': 5")
+    for token in ("'protocol_version': 3", "'protocol_version': 4", "'protocol_version': 5", "'protocol_version': 6")
 )
 for token in (
     "'attachment_files': attachmentFiles",

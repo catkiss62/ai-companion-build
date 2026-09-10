@@ -1,6 +1,7 @@
 import 'package:ai_companion_localfirst/core/models/chat_message.dart';
 import 'package:ai_companion_localfirst/core/models/message_attachment.dart';
 import 'package:ai_companion_localfirst/core/storage/message_attachment_storage.dart';
+import 'package:ai_companion_localfirst/core/storage/media_blob_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,6 +27,34 @@ void main() {
     expect(restored.thumbnailPath, attachment.thumbnailPath);
     expect(restored.width, 1200);
     expect(restored.height, 800);
+  });
+
+  test('shared blob id and reference paths survive a database round trip', () {
+    final originalSha = List<String>.filled(64, 'a').join();
+    final thumbnailSha = List<String>.filled(64, 'b').join();
+    final shared = MessageAttachment(
+      id: 'attachment-shared',
+      messageId: 'message-shared',
+      kind: MessageAttachment.imageKind,
+      originalPath: 'media/originals/$originalSha.jpg',
+      thumbnailPath: 'media/thumbnails/$thumbnailSha.png',
+      mimeType: 'image/jpeg',
+      byteSize: 321,
+      width: 32,
+      height: 24,
+      source: 'user_sticker:pack:item',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(654321),
+      blobId: originalSha,
+    );
+
+    final restored = MessageAttachment.fromDb(shared.toDb());
+    expect(restored.blobId, originalSha);
+    expect(restored.originalPath, shared.originalPath);
+    expect(MediaBlobStorage.isMediaReference(restored.thumbnailPath), isTrue);
+    expect(
+      MessageAttachmentStorage.requireSafeRelativePath(restored.originalPath),
+      restored.originalPath,
+    );
   });
 
   test('pending image history never pretends recognition finished', () {

@@ -12,6 +12,7 @@ import '../../core/presentation/chat_visuals.dart';
 import '../../core/storage/secure_config.dart';
 import '../../widgets/chat_portrait_stage.dart';
 import '../chat/chat_quick_settings_pages.dart';
+import 'media_cache_page.dart';
 
 class ModelNetworkSettingsPage extends StatefulWidget {
   const ModelNetworkSettingsPage({super.key});
@@ -1007,6 +1008,16 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
                     title: '手机 / 平板接管与备份',
                     subtitle: '正常换设备、保存备份或恢复单个 .aibackup 文件',
                     onTap: () => Navigator.of(context).pushNamed('/transfer'),
+                  ),
+                  _SettingsRouteCard(
+                    icon: Icons.perm_media_outlined,
+                    title: '媒体存储与缓存',
+                    subtitle: '预览旧图片去重、查看聊天媒体缓存并批量清理',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MediaCachePage(),
+                      ),
+                    ),
                   ),
                   _SettingsRouteCard(
                     icon: Icons.security_outlined,

@@ -38,8 +38,8 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199))$", pubspec, re.M)
-assert re.search(r"static const int schemaVersion = (?:56|57);", database)
+assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200)$", pubspec, re.M)
+assert re.search(r"static const int schemaVersion = (?:56|57|58);", database)
 assert "buildLabel = 'v0.41.49+188'" in self_reader
 assert "agent/v04149-subjective-search-humor-restoration" in workflow
 assert "Build AI Companion v0.41.49+188 APK" in workflow
@@ -87,28 +87,41 @@ for capability in (
 for forbidden in ("**", "{{char}}", "{{user}}", "CORE DIRECTIVE", "No Immunity"):
     assert forbidden not in new_prompt
 
-# Humor is positively selected from context and her own state. No second
-# probability gate disables the full prompt, and the concrete card reaches the
-# model without Markdown star emphasis.
-for device in (
-    "homophonicMutation",
-    "violentStitching",
-    "deadpanNonsense",
-    "microTheater",
-    "identityMismatch",
-    "epicMundanity",
-    "semanticSwerve",
-    "enumerationMania",
-    "genreParody",
-    "meaninglessNonsense",
-    "characterMutation",
-    "emotionalAvalanche",
-    "linguisticMutilation",
-    "joinTheBit",
-):
-    assert device in expression
-assert "subjectivePlayfulness" in expression and "hasOwnThought" in expression
-assert "【本轮造梗执行卡】" in expression
+# v0.41.49 restored the complete mechanism library. v0.41.56 intentionally
+# retires its later hard device router: the 30% worldbook injection is now the
+# only probability layer and the model chooses naturally inside that content.
+if "version: 0.41.56+200" in pubspec:
+    for retired in (
+        "DialogueHumorDevice",
+        "subjectivePlayfulness",
+        "【本轮造梗执行卡】",
+        "homophonicMutation",
+        "joinTheBit",
+    ):
+        assert retired not in expression
+    assert "casual response focus contains no hard humor selector" in tests
+else:
+    for device in (
+        "homophonicMutation",
+        "violentStitching",
+        "deadpanNonsense",
+        "microTheater",
+        "identityMismatch",
+        "epicMundanity",
+        "semanticSwerve",
+        "enumerationMania",
+        "genreParody",
+        "meaninglessNonsense",
+        "characterMutation",
+        "emotionalAvalanche",
+        "linguisticMutilation",
+        "joinTheBit",
+    ):
+        assert device in expression
+    assert "subjectivePlayfulness" in expression and "hasOwnThought" in expression
+    assert "【本轮造梗执行卡】" in expression
+    assert "all eleven primary mechanisms are reachable" in tests
+    assert "own state raises opportunity" in tests
 assert "const humor = DialogueHumorDevice.none" not in expression
 assert "不分配笑点类型" not in expression
 for prompt_source in (
@@ -117,8 +130,6 @@ for prompt_source in (
     read("lib/core/rules/rule_layer_content_v0400.dart"),
 ):
     assert "**" not in prompt_source
-assert "all eleven primary mechanisms are reachable" in tests
-assert "own state raises opportunity" in tests
 
 # Subjective search exports only bounded categories and a one-way hash. Raw
 # Thought/chat/device/memory/roleplay bodies never enter the planner payload.

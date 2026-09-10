@@ -44,7 +44,7 @@ assert any(
         "buildLabel = 'v0.41.33+172'",
     )
 )
-assert "protocolVersion: 5" in snapshot
+assert "protocolVersion: 5" in snapshot or "protocolVersion: 6" in snapshot
 
 for token in (
     "topic_key TEXT NOT NULL DEFAULT ''",

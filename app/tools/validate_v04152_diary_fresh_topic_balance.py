@@ -20,6 +20,7 @@ assert any(
         "version: 0.41.55+197",
         "version: 0.41.55+198",
         "version: 0.41.55+199",
+        "version: 0.41.56+200",
     )
 )
 assert any(
@@ -27,6 +28,7 @@ assert any(
     for schema in (
         "static const int schemaVersion = 56;",
         "static const int schemaVersion = 57;",
+        "static const int schemaVersion = 58;",
     )
 )
 
