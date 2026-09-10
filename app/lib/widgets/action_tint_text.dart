@@ -124,10 +124,10 @@ List<DialogueTextSegment> splitNovelDialogueText(String text) {
     final trimmed = line.trimLeft();
     segments.add(DialogueTextSegment(
       visible,
-      // Immersive dialogue uses Chinese curly quotes. Only a quote at the
-      // start of a paragraph declares that paragraph as dialogue; quoted
-      // words embedded in narration inherit the narration style.
-      isDialogue: trimmed.startsWith('“'),
+      // Current immersive output uses corner quotes for spoken dialogue.
+      // Curly quotes are ordinary novel punctuation and must inherit white
+      // narration styling, including when they begin a paragraph.
+      isDialogue: trimmed.startsWith('「'),
     ));
   }
   return segments;

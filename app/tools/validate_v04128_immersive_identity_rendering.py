@@ -104,7 +104,7 @@ for token in (
 for token in (
     "sourceStartsWithAction",
     "splitNovelDialogueText",
-    "trimmed.startsWith('“')",
+    "trimmed.startsWith('「')",
 ):
     assert token in rendering, token
 assert "生成源必须把动作独占一行并写成（动作）" in prompt

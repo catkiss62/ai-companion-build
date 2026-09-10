@@ -76,27 +76,27 @@ void main() {
     expect(splitDialogueText('"still streaming').last.isDialogue, isFalse);
   });
 
-  test('immersive prose uses paragraph-leading curly quotes for dialogue', () {
+  test('immersive prose uses paragraph-leading corner quotes for dialogue', () {
     const source =
-        '叙述。\n\n“你回来了。”\n\n她想起你说的“兄弟”。\n\n「普通聊天格式」';
+        '叙述。\n\n“这只是旁白引用。”\n\n她想起你说的“兄弟”。\n\n「你回来了。」';
     final segments = splitNovelDialogueText(source);
     expect(segments.map((item) => item.text).join(), source);
     expect(
       segments.where((item) => item.isDialogue).map((item) => item.text),
-      ['“你回来了。”\n'],
+      ['「你回来了。」'],
     );
   });
 
   test('immersive prose keeps quoted terms inside one dialogue paragraph', () {
-    const source = '“正被你那句「在干嘛呢」拽回来呢。”';
+    const source = '「正被你那句“在干嘛呢”拽回来呢。」';
     final segments = splitNovelDialogueText(source);
     expect(segments, hasLength(1));
     expect(segments.single.text, source);
     expect(segments.single.isDialogue, isTrue);
   });
 
-  test('immersive curly quote remains tinted while streaming', () {
-    const source = '“还没说完';
+  test('immersive corner quote remains tinted while streaming', () {
+    const source = '「还没说完';
     final segments = splitNovelDialogueText(source);
     expect(segments, hasLength(1));
     expect(segments.single.text, source);
@@ -203,7 +203,7 @@ void main() {
             child: Column(
               children: [
                 ActionTintText(text: '动作\n\n「普通。」'),
-                NovelTintText(text: '叙述。\n\n“沉浸。”'),
+                NovelTintText(text: '叙述。\n\n「沉浸。」'),
               ],
             ),
           ),
@@ -220,7 +220,7 @@ void main() {
     }
   });
 
-  testWidgets('immersive prose stays upright and preserves parentheses',
+  testWidgets('immersive curly quotes stay white and preserve parentheses',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -235,7 +235,7 @@ void main() {
         '她停了一下（没有转身）。\n\n“继续。”');
     expect(children.first.style!.fontStyle, FontStyle.normal);
     expect(children.first.style!.color, Colors.white);
-    expect(children.last.style!.color, chatDialoguePurple);
+    expect(children.last.style!.color, Colors.white);
   });
 
 }

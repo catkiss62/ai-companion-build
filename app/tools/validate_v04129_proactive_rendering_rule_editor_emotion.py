@@ -64,8 +64,8 @@ for token in (
 
 assert "'（${segment.text}）'" in presentation + segments
 assert presentation.count("size: .50") == 2
-assert "isDialogue: trimmed.startsWith('“')" in rendering
-assert "trimmed.startsWith('「')" not in rendering
+assert "isDialogue: trimmed.startsWith('「')" in rendering
+assert "isDialogue: trimmed.startsWith('“')" not in rendering
 for token in ("中文弯引号“”", "5至9个自然段"):
     assert token in (immersive_prompt + immersive_rules), token
 assert "引号只是叙述的一部分" in immersive_rules

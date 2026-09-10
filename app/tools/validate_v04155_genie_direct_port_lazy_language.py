@@ -270,6 +270,7 @@ assert not re.search(r"成年|未成年|孩子|幼儿|年龄", younger_posture)
 
 immersive_prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 immersive_defaults = read("lib/core/rules/rule_layer_content_immersive.dart")
+immersive_rendering = read("lib/widgets/action_tint_text.dart")
 for token in (
     "对白统一用直角引号「」",
     "AI角色对白使用直角引号「」",
@@ -280,6 +281,8 @@ for token in (
 assert "legacyImmersiveDefaultRoomNovelRulesV04155CurvedQuotes" in immersive_defaults
 assert "AI角色说出口的对白使用直角引号「」" in immersive_defaults
 assert "legacyImmersiveDefaultRoomNovelRulesV04155CurvedQuotes" in db
+assert "isDialogue: trimmed.startsWith('「')" in immersive_rendering
+assert "isDialogue: trimmed.startsWith('“')" not in immersive_rendering
 
 # Scan every direct current prompt assembler. Versioned legacy bodies and
 # import classifiers are intentionally excluded because they are never sent to
