@@ -34,22 +34,22 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04155-genie-direct-port-lazy-language`，承接 `agent/v04153-genie-multilingual-tts` 与 `agent/v04154-genie-tts-hotfix-settings`；以 Genie-TTS v0.6.4 `5380a53` 原样核心、独立 TTS 进程和按需单一外语取代失败的伴侣内重编排，排除后来真流式板块 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +201 Actions head `ce0eaa45ae311a6aa4daf81f5d96591f2cc4af83` / tree `3bfe2836e19abdf67e95fdc2c6532a08a3a92fdf` 已验证；它包含清理入口、三聊天面滚动合同、表情命中、自然化正文与奶油四音色全部实现。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有奶油运行资源只由 CI 从 Draft 资产恢复并裁剪 |
-| App / 数据库 | 当前完整真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；`0.41.56+200` 是世界书、造梗单层概率与 D6 媒体引用/共享媒体起点；`0.41.57+201 / schema 58 / Snapshot protocol 6` 已构建并获得新真机证据：前一批清理入口、发送落底、中文自然化和奶油四音色仍在，但共享媒体备份被 Android 旧白名单拒绝、奶油日语不播、中文听感异常；表情概率提高被用户明确要求回退。当前进入 `0.41.58+202` 窄修，schema/protocol 均不变 |
-| 最终 CI | +201 run [`34458743296`](https://github.com/catkiss62/ai-companion-build/actions/runs/34458743296)（824）完整成功：私有奶油资源 SHA/裁剪、全部源码/回归 validator、Kotlin/AIDL、Flutter analyze、`707/707` Flutter tests、arm64 Release APK、固定签名、40 项 Genie/Naiyou/OpenJTalk 实包哈希、四 case/无候选5/无恬豆、OpenJTalk ELF 依赖闭包均通过 |
-| 测试 APK | `AI-Companion-v0.41.57-201-Chat-Media-Naiyou-APK.apk`，535,443,780 bytes |
-| APK SHA-256 | `c3567fc8c9a28c6c44ba17a19a3a8fe395b2ff07f83a83ed5bfba31c0d7e580f`；与 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10145057720`](https://github.com/catkiss62/ai-companion-build/actions/runs/34458743296/artifacts/10145057720)，ZIP 528,578,717 bytes / digest `0190c6f2721762255a81f4b25b2cf6c6283b480dae33ca9c9245e415b83d783f`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-29928c3f374ed1b9997e) 未发布，`main` 未合并 |
+| 有效构建 head / tree | +202 Actions head `bd886d304e3d94b32ed98c6c009080c990282251` / tree `a348a7ddf505959c43cad4617e2fd47492611f14` 已验证；它在完整实现树上只修正回退概率后的过期测试契约，包含 +201 全部任务及备份、日语、播放器和排队窄修。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有奶油运行资源只由 CI 从 Draft 资产恢复并裁剪 |
+| App / 数据库 | 当前完整真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；`0.41.56+200` 是世界书、造梗单层概率与 D6 媒体引用/共享媒体起点；`0.41.57+201` 完成清理入口、发送落底、中文自然化和奶油四音色，但真机暴露共享媒体备份、奶油日语与听感窄缺陷。当前已构建待验收基线为 `0.41.58+202 / schema 58 / Snapshot protocol 6`，表情概率已按用户要求回退 |
+| 最终 CI | +202 run [`34470775012`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012)（826）完整成功：私有奶油资源 SHA/裁剪、全部源码/回归 validator、Kotlin/AIDL、Flutter analyze、`713/713` Flutter tests、arm64 Release APK、固定签名、40 项 Genie/Naiyou/OpenJTalk 实包哈希、四 case/无候选5/无恬豆、OpenJTalk ELF 依赖闭包均通过 |
+| 测试 APK | `AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK.apk`，535,444,192 bytes |
+| APK SHA-256 | `e2d80ff3ae65c37adc3a2edeb233c4d0e0a0906188b0644573b64e8ca5cb092c`；与 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10149802145`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012/artifacts/10149802145)，ZIP 528,578,840 bytes / digest `541af3bafaebf02a7e908303b0ed6d93952dae090e43bdc4102cef620f52a6a9`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e75e3ac276ff5f165a4d) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +199 仍为旧恬豆 TTS 完整真机稳定基线。+201 为 `CI PASSED / APK READY / TRUE DEVICE FAILED (NARROW)`：用户真机复现合法 `media/originals/<sha>.jpg` 导致便携备份失败，奶油日语不播且中文听感异常。表情几乎不发已由用户确认是重装后未重导表情包，不是概率缺陷；+202 必须恢复 12%/24%/42%。前一批其余项仍在合包验收中，不因本次窄修丢失 |
+| 当前总状态 | +199 仍为旧恬豆 TTS 完整真机稳定基线；+201 的窄失败已由 +202 自动化修复并取代。+202 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：合法 `media/` 已放行，表情概率恢复 12%/24%/42%，奶油日语旧 322-row 越界已防护，默认 1.0x 不再强制时间拉伸，首句立即生成且只合并排队后句；+201 前一批任务仍完整包含，等待合包真机验收 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.58+202 共享媒体备份与奶油三语/断句热修**：先修备份合法 `media/` entry 被拒绝，再恢复上一版表情条件概率，修日语 322 音素越界，并将奶油的句末标点与首句后短句合并对齐 Genie v0.7.1。与 +201 前一批未完验收项一起构建，不拆包、不丢任务 |
+| 当前下一步 | **v0.41.58+202 合包真机验收**：覆盖安装固定签名 APK，先在删除表情/图片后保存便携备份，再核对恢复上一版概率、奶油四音色中文/英文/日语、默认 1.0x 听感与连续播放；同时继续验收 +201 的重复媒体清理入口、普通发送落底、沉浸/悬浮发送落底、TTS 播放不拉底、中文自然化和 exact-SHA 共享媒体，不拆开或遗漏 |
 | 目标 | Android 保存前校验器精确放行 D6 法定 `media/...` 根，路径穿越、目录 entry、未知根与 CRC/尺寸门仍严格拒绝。表情概率回退到偶尔 12%/自然 24%/较多 42%，保留 +201 的双文本语义匹配与零分不发。TTS 不改四音色映射；日语在生产适配层删除超出旧奶油 322-row 词表的音高括号 ID，不修改冻结的 Genie 核心。断句保留句末标点，首句仍立即合成，只合并当时已排队的后续短句；不恢复 TTS 播放自动拉底 |
-| 当前证据 | +201 run 824 自动化全绿，但真机报错精确命中 `PortableBackupZipVerifier` 未放行 `media/`。新附件 `奶油.zip` 仅含候选 1/2/3/4，候选5确认已删除；压缩包 SHA-256 `1758ee687435922a43df7872c5e660e601754ea30cc248e38f84cd4480ac9812`，ckpt/pth SHA 分别为 `6a534cdc89e9fdcb800fc7a72101cb68551436a47d5cceb16bf50baec9676e3a` / `7707c8ca1b380ada469e6fd1371e60a3e2547eed7cc003389f73daf9c00b7480`；四参考音频/文本与 +201 运行资源逐字节一致，关键转换权重与原模型数值一致。奶油 VITS 词嵌入只有 322 rows，而日语前端会生成 ID 322/323 的 `[`/`]`。模型/参考音频缺文件已排除；当前听感差异缩小到伴侣在默认 1.0x 仍启用 Android 时间拉伸、以及首段仍走旧固定合并；普通聊天实际路径本来就保留句末标点 |
+| 当前证据 | +202 run 826 已全绿：`713/713` Flutter tests、Kotlin/AIDL、Analyze、Release、固定签名和 40 项实包载荷全部通过；生产 manifest 精确为 `naiyou_growth/hello/dog/dynamic`，候选5、恬豆和 Meju 均不存在。新附件 `奶油.zip` 仅含候选 1/2/3/4，四参考音频/文本与运行资源逐字节一致，关键转换权重与原模型数值一致；模型漏文件已排除。自动化证明 Android 校验器接受合法 `media/originals`/`media/thumbnails`、拒绝 `media/../`，奶油日语送入 VITS 的 ID 均小于 322 且 BERT 同步，默认 1.0x 不设置 PlaybackParams，首句/后续排队合同通过；声音体感和实际备份仍须真机证明 |
 | 保护与排除 | 用户上传文件只用于精确生成源码常量和 SHA 合同，不提交附件本身。世界书迁移只对白名单中的已知默认正文生效，未知用户手改继续优先。旧 `.aibackup` 永不改写；媒体优化仍须先预览再确认。中文历史真源、Memory/Thought/Desire、图片识图与 Agent Outcome、相册标签和表情选择不得回归；+199 已通过的中英日选择、停止、语速/音量、按需单外语与播放器行为继续保留，只替换声学权重/参考条件。尤其禁止 TTS 播放/合成通知重新拉动普通、沉浸或悬浮聊天 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
@@ -81,7 +81,7 @@
 | D3 · Phase 3C 习惯消费与 Phase 4 | Phase 3B 真机证明主动来源不再单一 | 成熟兴趣以有界利用/相邻探索/wildcard 预算影响联网选题、主动话题和少量表达习惯，并保留版本、停用和回滚；Phase 3 独立代码审查后，Phase 4 再做低频澄清与娱乐测试 |
 | D4 · 单聊表情包表达层（TRUE DEVICE PASSED） | v0.41.46 的导入、随机表达、GIF、180dp、`sticker.send`、自读与认知已由用户肉眼确认，无需备份/诊断 | 保持现有策略；用户发送链由 D5 单独验收 |
 | D5 · 双向普通图片与用户表情媒体闭环（TRUE DEVICE PASSED / CLOSED） | v0.41.48 run 34186859452、测试 APK 与用户肉眼 smoke 均通过；表情排序/斗图/纯表情、正文渲染、图片 Agent、联网存图与世界书排序未报告问题 | 功能链收口；本次发现的媒体重复持久化转入 D6，不倒写为 D5 功能失败。自主媒体以后接统一仲裁 |
-| D6 · 聊天媒体引用、缓存查看与删除（CI PASSED / APK READY / TRUE DEVICE PENDING） | schema 58 已实现 exact-SHA `media_blobs`、message/album 独立引用、手动 dry-run/确认迁移、缓存多选删除与 Snapshot protocol 6；run 823 的专项合同、Flutter analyze/tests、Kotlin 与 Release 实包均通过 | 原备份不改；真机验证重复执行、相册引用保护、缓存删除与跨机恢复；真机通过前不得写 CLOSED |
+| D6 · 聊天媒体引用、缓存查看与删除（CI PASSED / APK READY / TRUE DEVICE PENDING） | schema 58 已实现 exact-SHA `media_blobs`、message/album 独立引用、手动 dry-run/确认迁移、缓存多选删除与 Snapshot protocol 6；+202 run 826 已补齐 Android 保存前 `media/` 白名单并通过专项合同、Flutter analyze/tests、Kotlin 与 Release 实包 | 原备份不改；真机验证删除表情/图片后的保存备份、重复执行、相册引用保护、缓存删除与跨机恢复；真机通过前不得写 CLOSED |
 | E · Agent v2 与延后项目 | **v0.41.50，紧接 v0.41.49** | 当前最多两工具且只有一次 continuation。Agent v2 改为最多 3 个规划回合/6 次调用的 observe→act→verify，保留风险、取消与事务门；不得与媒体 schema 混包。Skills/MCP、Harness、视频、提醒等仍后置；Token 命中/缓存优化最后做 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
@@ -89,7 +89,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-10 v0.41.58+202 共享媒体备份、表情概率回退与奶油三语/断句热修（IMPLEMENTING / CI PENDING）
+### 2026-09-10 v0.41.58+202 共享媒体备份、表情概率回退与奶油三语/断句热修（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. +201 真机保存备份失败，原始错误为 `portable_backup_unexpected_entry:media/originals/2b6bdd3d09a50b6e1363f005cec616c41c5ae2ed9ff6e2bd9cb8c435601b8354.jpg`。D6 Snapshot protocol 6 的 Dart 导出器/读取器已合法写入和识别 `media/`，但 Android 保存前 `PortableBackupZipVerifier` 仍只允许 `attachments/` 与 `album/`；因此删除表情后显现的是白名单漏升级，不是该 SHA 文件损坏。本批精确放行 `media/`，但不放宽路径穿越、目录 entry、重名、未知根、CRC、entry 数、单文件/总尺寸与完整流式解压门。
 2. 用户确认“几乎不主动发表情”的真实原因是卸载重装后忘记重新导入表情包，不是策略概率。+201 的 36%/55% 调整因此无产品依据；+202 精确回退为上一版偶尔 12%/自然 24%/较多 42%。保留 +201 的“用户本轮 + 助手回复”语义证据与零分不乱发，因为它修的是相关性，不是概率。
@@ -97,6 +97,9 @@
 4. 日语不播已定位为词表边界：奶油旧 V2 `text_embedding` 只有 322 rows（合法 ID 0…321），当前 OpenJTalk 前端会把音高边界编为 `[`/`]` ID 322/323，在 VITS Gather 越界后被可选 TTS 队列的失败隔离吞掉，表面上只是没有播放。独立 Genie v0.7.1 明确将奶油标为仅支持中文，所以它听感测试并没有覆盖这个日语边界。+202 只在伴侣生产适配层对奶油日语过滤 `id >= 322` 并按同一位置裁剪 BERT；冻结的 Genie 日语前端/推理核心继续保持原样。
 5. 奶油中文听感差异不是参考增益或推理线程数：伴侣与 Genie 均是 CPU 8 线程、单一串行 ORT 拥有者、一秒 PCM 预填充、单 AudioTrack 和后段预生成。进一步核对后纠正：普通聊天现在是“回复提交后的固定分段”，`GenieFixedTextSegmenter` 原本就保留句末标点；丢标点的 `TtsSentenceSegmenter` 只在当前未启用的 provider-token 流式辅助路径，不能作为本次听感的单独根因。真正影响当前播放的差别是伴侣在默认 1.0x 仍强制设置 `PlaybackParams`，以及首段仍按 v0.6.4 与后句一起合并。+202 将 1.0x AudioTrack 保持原始 PCM 速率，只在用户选择非 1.0x 时启用保持音高的时间拉伸；回复提交后先生成第一个完整单元，再将已就绪后句按 42/54（英文 88/110）合并。未启用的流式辅助路径也同步保留标点/使用无定时器排队器，但本批不恢复 provider-token 边生成边播放，避免重开 +199 已稳定的峰值内存问题；TTS-only 状态仍不连到聊天滚动。
 6. 不得回归：+201 明确清理入口及 dry-run/二次确认，普通聊天新 user commit 落底，沉浸/悬浮发送落底，TTS 播放不拉底，2,242-byte 中文自然化正文，共享媒体 exact-SHA 及 Snapshot 6，四奶油音色与恬豆/候选5排除均必须继续通过。本批目标为 `0.41.58+202 / schema 58 / Snapshot protocol 6`；本地与 CI/APK 证据完成后仍须真机保存备份、中英日四音色和连续听感验收。
+7. 完整实现通过 Git Data 接口以远端 +201 总账 head 为父创建 build commit `3ab7ecd3667e243a2aac325dd742e07d8ce3fde3` / tree `d77e4a33c17886f7fd4b3d46ac5fb5ceb1abb83e`。首轮 Actions run [`34469916944`](https://github.com/catkiss62/ai-companion-build/actions/runs/34469916944)（825）通过资源、源码、Kotlin/AIDL、Analyze 和全部新增 TTS/备份测试，完整 Flutter tests 为 712 passed / 1 failed；唯一失败是旧测试仍期待 +201 的 36%/55%，运行代码已正确回退 24%/42%。只修正该过期断言后创建 `bd886d304e3d94b32ed98c6c009080c990282251` / tree `a348a7ddf505959c43cad4617e2fd47492611f14`，没有回滚新逻辑。
+8. 第二轮 Actions run [`34470775012`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012)（826）完整成功：全部源码/回归 validator、Kotlin/AIDL、Flutter analyze、`713/713` Flutter tests、arm64 Release APK、固定测试签名与 OpenJTalk ELF 依赖闭包均通过。实包校验确认 40 项 Genie/Naiyou/OpenJTalk 文件大小与 SHA 精确；生产 manifest 只含 `naiyou_growth/naiyou_hello/naiyou_dog/naiyou_dynamic`，候选5、恬豆与 Meju 不存在。签名 SHA-256 继续为 `30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48`。
+9. 最终 APK `AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK.apk` 为 535,444,192 bytes、SHA-256 `e2d80ff3ae65c37adc3a2edeb233c4d0e0a0906188b0644573b64e8ca5cb092c`，与 Draft 资产服务端 digest 一致。Artifact [`10149802145`](https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012/artifacts/10149802145) 为 528,578,840-byte ZIP / digest `541af3bafaebf02a7e908303b0ed6d93952dae090e43bdc4102cef620f52a6a9`；成品位于未发布 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e75e3ac276ff5f165a4d)，`main` 未合并。状态提升为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；自动化不能代替真实备份、日语发声和声音听感验收。
 
 ### 2026-09-10 v0.41.57+201 媒体清理、发送落底、表情命中、中文自然化与奶油语音（CI PASSED / APK READY / TRUE DEVICE FAILED NARROW / SUPERSEDED BY +202）
 
