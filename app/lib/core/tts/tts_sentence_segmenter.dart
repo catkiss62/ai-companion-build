@@ -4,10 +4,12 @@
 /// A2 splits only on:
 ///   。 ！ ？ ； . ! ? ;
 /// Normal sentences still do not split on commas, ideographic commas, newlines
-/// or ellipsis. The upgraded local engine rejects Chinese input above 300
+/// or ellipsis. Natural delimiters are retained so the acoustic model receives
+/// the same pause/prosody cues as the verified Genie streaming implementation.
+/// The upgraded local engine rejects Chinese input above 300
 /// phones, so an exceptional punctuation-free run is capped by language,
 /// preferring a nearby comma/colon/space. Layout line breaks are normalized to
-/// ordinary spaces before boundary scanning. Delimiters themselves are not spoken.
+/// ordinary spaces before boundary scanning.
 ///
 /// The original A2 removes bracketed blocks before splitting. For streaming
 /// input we preserve the same effect by ignoring sentence punctuation while it
@@ -135,7 +137,7 @@ class TtsSentenceSegmenter {
         boundary = safety;
       }
       if (boundary == null) break;
-      final chunk = _buffer.substring(0, boundary.start).trim();
+      final chunk = _buffer.substring(0, boundary.end).trim();
       _buffer = _buffer.substring(boundary.end);
       if (chunk.isNotEmpty) out.add(chunk);
     }

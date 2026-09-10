@@ -134,7 +134,9 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
                 GenieFrontendAdapter.normalizeChineseText(text),
             ) {}
             "en" -> checkNotNull(english).prepare(text, manifest.frontend.bertDim) {}
-            "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
+            "ja" -> sanitizeLegacyJapanese(
+                checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {},
+            )
             else -> error("不支持的 TTS 语言：$language")
         }
         onStage("frontend_ready_$language")
@@ -211,6 +213,10 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
 
     companion object {
         private const val TARGET_THREADS = 8
+        // Naiyou was trained against the early V2 vocabulary. Current
+        // OpenJTalk emits pitch boundary brackets at 322/323, which would
+        // address past this model's 322-row text embedding.
+        internal const val NAIYOU_VITS_SYMBOL_COUNT = 322
         private val SUPPORTED_LANGUAGES = setOf("zh", "ja", "en")
         private val VOICE_CASES = mapOf(
             "daily" to "naiyou_growth",
@@ -218,5 +224,33 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             "lively" to "naiyou_dog",
             "cute" to "naiyou_dynamic",
         )
+
+        internal fun sanitizeLegacyJapanese(prepared: PreparedText): PreparedText {
+            require(prepared.bert.size == prepared.sequence.size * prepared.bertDim) {
+                "日语 BERT 与音素长度不一致"
+            }
+            val kept = prepared.sequence.indices.filter {
+                prepared.sequence[it] >= 0L &&
+                    prepared.sequence[it] < NAIYOU_VITS_SYMBOL_COUNT.toLong()
+            }
+            require(kept.isNotEmpty()) { "日语音素全部超出奶油 V2 词表" }
+            if (kept.size == prepared.sequence.size) return prepared
+            val sequence = LongArray(kept.size)
+            val bert = FloatArray(kept.size * prepared.bertDim)
+            kept.forEachIndexed { targetIndex, sourceIndex ->
+                sequence[targetIndex] = prepared.sequence[sourceIndex]
+                prepared.bert.copyInto(
+                    bert,
+                    destinationOffset = targetIndex * prepared.bertDim,
+                    startIndex = sourceIndex * prepared.bertDim,
+                    endIndex = (sourceIndex + 1) * prepared.bertDim,
+                )
+            }
+            return prepared.copy(
+                sequence = sequence,
+                bert = bert,
+                diagnostic = "${prepared.diagnostic} · 兼容奶油旧V2词表，过滤${prepared.sequence.size - kept.size}个音高边界",
+            )
+        }
     }
 }

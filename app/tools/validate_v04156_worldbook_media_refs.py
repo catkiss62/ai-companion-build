@@ -19,7 +19,7 @@ def dart_block(source: str, name: str) -> str:
     return match.group(1)
 
 
-assert "version: 0.41.57+201" in read("pubspec.yaml")
+assert "version: 0.41.58+202" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 58;" in database
 
@@ -156,6 +156,6 @@ for token in (
 workflow = read("../.github/workflows/build-apk.yml")
 assert "validate_v04156_worldbook_media_refs.py" in workflow
 assert "validate_v04157_chat_media_expression.py" in workflow
-assert "AI-Companion-v0.41.57-201-Chat-Media-Naiyou-APK" in workflow
+assert "AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK" in workflow
 
 print("v0.41.56 worldbook and shared media reference contracts passed")

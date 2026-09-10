@@ -177,7 +177,10 @@ class WavAudioPlayer {
                                 enhancer = runCatching {
                                     LoudnessEnhancer(created.audioSessionId)
                                 }.getOrNull()
-                                applySpeed(created)
+                                // Genie leaves the default 1.0x track untouched.
+                                // Only opt into Android time-stretch when the
+                                // user explicitly selects a different speed.
+                                if (currentSpeed != 1.0f) applySpeed(created)
                                 applyVolume(created, enhancer)
                             } else {
                                 check(checkNotNull(format).samePcmFormat(wav)) {

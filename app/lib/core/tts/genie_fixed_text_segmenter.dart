@@ -14,6 +14,31 @@ class GenieFixedTextSegmenter {
     );
   }
 
+  /// Full replies are already available, but Genie v0.7.1 still submits the
+  /// first complete unit immediately and only packs the queued remainder.
+  /// This reduces time-to-first-audio without reintroducing provider-token
+  /// streaming or its former memory overlap.
+  static List<String> splitFirstImmediate(
+    String text,
+    ChatLanguage language,
+  ) {
+    final english = language == ChatLanguage.english;
+    final pieces = _naturalPieces(
+      text,
+      maxChars: english ? 110 : 54,
+    );
+    if (pieces.length <= 1) return List<String>.unmodifiable(pieces);
+    final result = <String>[pieces.first];
+    result.addAll(
+      _packPieces(
+        pieces.skip(1),
+        targetChars: english ? 88 : 42,
+        english: english,
+      ),
+    );
+    return List<String>.unmodifiable(result);
+  }
+
   static List<String> splitWithLimits(
     String text, {
     int targetChars = 42,
@@ -22,6 +47,21 @@ class GenieFixedTextSegmenter {
     if (targetChars < 16 || targetChars > maxChars || maxChars > 140) {
       throw ArgumentError('invalid Genie fixed-segment limits');
     }
+    final pieces = _naturalPieces(text, maxChars: maxChars);
+    final result = _packPieces(
+      pieces,
+      targetChars: targetChars,
+    );
+    if (result.any((item) => item.length > maxChars)) {
+      throw StateError('Genie fixed segmentation failed');
+    }
+    return List<String>.unmodifiable(result);
+  }
+
+  static List<String> _naturalPieces(
+    String text, {
+    required int maxChars,
+  }) {
     final cleaned = text
         .trim()
         .replaceAll('\r\n', '\n')
@@ -47,26 +87,31 @@ class GenieFixedTextSegmenter {
     }
     if (current.trim().isNotEmpty) naturalUnits.add(current.trim());
 
-    final pieces = <String>[
+    return <String>[
       for (final unit in naturalUnits) ..._splitOversized(unit, maxChars),
     ];
+  }
+
+  static List<String> _packPieces(
+    Iterable<String> pieces, {
+    required int targetChars,
+    bool english = false,
+  }) {
     final result = <String>[];
     var packed = '';
     for (final piece in pieces) {
+      final separator = english && packed.isNotEmpty ? ' ' : '';
       if (packed.isEmpty) {
         packed = piece;
-      } else if (packed.length + piece.length <= targetChars) {
-        packed += piece;
+      } else if (packed.length + separator.length + piece.length <= targetChars) {
+        packed += '$separator$piece';
       } else {
         result.add(packed);
         packed = piece;
       }
     }
     if (packed.isNotEmpty) result.add(packed);
-    if (result.any((item) => item.length > maxChars)) {
-      throw StateError('Genie fixed segmentation failed');
-    }
-    return List<String>.unmodifiable(result);
+    return result;
   }
 
   static List<String> _splitOversized(String text, int maxChars) {

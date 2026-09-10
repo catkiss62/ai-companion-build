@@ -94,7 +94,10 @@ void main() {
     const text = '第一句要有足够长度来验证播放时生成后续固定分段。'
         '第二句同样保持自然长度以免和前一句打包在一起。'
         '第三句继续验证所有后段会提前完成语音生成。';
-    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    final chunks = GenieFixedTextSegmenter.splitFirstImmediate(
+      text,
+      ChatLanguage.chinese,
+    );
     expect(chunks, hasLength(3));
     await queue.playText(text, manual: true);
     await _turn();
@@ -132,7 +135,10 @@ void main() {
 
     const text = '第一句要有足够长度来验证停止后不能继续播放。'
         '第二句也保持自然长度并应当在停止后彻底失效。';
-    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    final chunks = GenieFixedTextSegmenter.splitFirstImmediate(
+      text,
+      ChatLanguage.chinese,
+    );
     expect(chunks, hasLength(2));
     await queue.playText(text, manual: true);
     await _turn();
@@ -156,7 +162,10 @@ void main() {
 
     const text = '第一句要有足够长度并故意让本段语音生成失败。'
         '第二句也保持自然长度且仍应当独立生成并正常播放。';
-    final chunks = GenieFixedTextSegmenter.split(text, ChatLanguage.chinese);
+    final chunks = GenieFixedTextSegmenter.splitFirstImmediate(
+      text,
+      ChatLanguage.chinese,
+    );
     expect(chunks, hasLength(2));
     await queue.playText(text, manual: true);
     await queue.waitUntilIdle();
@@ -177,8 +186,43 @@ void main() {
     queue.endStream();
     await queue.waitUntilIdle();
 
-    expect(fake.generated, ['先说第一句', '再说第二句']);
-    expect(fake.played, ['wav:先说第一句', 'wav:再说第二句']);
+    expect(fake.generated, ['先说第一句。', '再说第二句！']);
+    expect(fake.played, ['wav:先说第一句。', 'wav:再说第二句！']);
+  });
+
+  test('first stream unit starts immediately and queued short units coalesce', () async {
+    final fake = _FakeQueueService()
+      ..firstGenerationGate = Completer<void>();
+    final queue = TtsPlaybackQueue(service: fake);
+
+    await queue.beginStream(manual: false);
+    queue.addDelta('第一句。');
+    await _turn();
+    expect(fake.generated, ['第一句。']);
+
+    queue.addDelta('第二句。第三句。');
+    queue.endStream();
+    fake.firstGenerationGate!.complete();
+    await queue.waitUntilIdle();
+
+    expect(fake.generated, ['第一句。', '第二句。第三句。']);
+    expect(fake.played, ['wav:第一句。', 'wav:第二句。第三句。']);
+  });
+
+  test('ending an open stream wakes a playback pump waiting for more text', () async {
+    final fake = _FakeQueueService();
+    final queue = TtsPlaybackQueue(service: fake);
+
+    await queue.beginStream(manual: false);
+    queue.addDelta('只有一句。');
+    await _turn();
+    await _turn();
+    expect(fake.played, ['wav:只有一句。']);
+
+    queue.endStream();
+    await queue.waitUntilIdle();
+    expect(queue.state, same(TtsQueueState.idle));
+    expect(fake.playbackFinishCount, 1);
   });
 
   test('streaming text is capped again after speech replacement', () async {

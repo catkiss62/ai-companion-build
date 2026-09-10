@@ -64,6 +64,7 @@ if any(
         "version: 0.41.55+199",
         "version: 0.41.56+200",
         "version: 0.41.57+201",
+        "version: 0.41.58+202",
     )
 ):
     # v0.41.55 deliberately removed provider-token true streaming and now
@@ -71,7 +72,7 @@ if any(
     for token in (
         "final leadIn = emotionCueStarted",
         "ttsPlayback.playText(",
-        "GenieFixedTextSegmenter.split(prepared, language)",
+        "GenieFixedTextSegmenter.splitFirstImmediate(prepared, language)",
     ):
         assert token in controller + queue, token
     assert "ttsPlayback.beginStream(" not in controller

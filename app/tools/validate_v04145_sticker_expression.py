@@ -27,7 +27,7 @@ test = read("test/sticker_expression_test.dart")
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:45\+184|46\+185|47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201)$",
+    r"^version:\s*0\.41\.(?:45\+184|46\+185|47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202)$",
     pubspec,
     re.M,
 )
@@ -59,8 +59,8 @@ for token in (
 
 for mode, probability in (
     ("low", "0.12"),
-    ("natural", "0.36"),
-    ("frequent", "0.55"),
+    ("natural", "0.24"),
+    ("frequent", "0.42"),
 ):
     assert f"'{mode}'" in service
     assert probability in service

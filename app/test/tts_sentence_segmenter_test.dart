@@ -2,30 +2,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_sentence_segmenter.dart';
 
 void main() {
-  test('mirrors A2 punctuation and drops delimiters', () {
+  test('closes at A2 punctuation and retains prosody delimiters', () {
     final s = TtsSentenceSegmenter();
     expect(s.add('你终于回来'), isEmpty);
-    expect(s.add('了。还有一件'), ['你终于回来了']);
-    expect(s.add('事想告诉你！'), ['还有一件事想告诉你']);
+    expect(s.add('了。还有一件'), ['你终于回来了。']);
+    expect(s.add('事想告诉你！'), ['还有一件事想告诉你！']);
     expect(s.flush(), isEmpty);
   });
 
   test('does not split on comma newline ideographic comma or ellipsis', () {
     final s = TtsSentenceSegmenter();
     expect(s.add('今天不急，慢慢聊、也可以\n停一下……都没关系'), isEmpty);
-    expect(s.add('。'), ['今天不急，慢慢聊、也可以 停一下……都没关系']);
+    expect(s.add('。'), ['今天不急，慢慢聊、也可以 停一下……都没关系。']);
   });
 
 
   test('normalizes layout line breaks to spaces without creating boundaries', () {
     final s = TtsSentenceSegmenter();
     expect(s.add('第一段\r\n第二段\u2028第三段\u2029第四段'), isEmpty);
-    expect(s.add('。'), ['第一段 第二段 第三段 第四段']);
+    expect(s.add('。'), ['第一段 第二段 第三段 第四段。']);
   });
 
   test('ignores sentence punctuation inside A2 removable brackets', () {
     final s = TtsSentenceSegmenter();
-    expect(s.add('你好（这里。不会切）世界。'), ['你好（这里。不会切）世界']);
+    expect(s.add('你好（这里。不会切）世界。'), ['你好（这里。不会切）世界。']);
     expect(s.flush(), isEmpty);
   });
 
@@ -35,7 +35,7 @@ void main() {
     out.addAll(s.add('先说一句。```dart\nprint("不要读");'));
     out.addAll(s.add('\n```然后继续。'));
     out.addAll(s.flush());
-    expect(out, ['先说一句', '然后继续']);
+    expect(out, ['先说一句。', '然后继续。']);
   });
 
   test('short punctuation-free text waits until final flush', () {
@@ -63,7 +63,7 @@ void main() {
     final s = TtsSentenceSegmenter();
     final left = List<String>.filled(40, '前').join();
     final right = List<String>.filled(40, '后').join();
-    expect(s.add('$left，$right'), [left]);
+    expect(s.add('$left，$right'), ['$left，']);
     expect(s.flush(), [right]);
   });
 }

@@ -153,8 +153,8 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
                           items: const [
                             DropdownMenuItem(value: 'off', child: Text('关闭')),
                             DropdownMenuItem(value: 'low', child: Text('偶尔（12%）')),
-                            DropdownMenuItem(value: 'natural', child: Text('自然（36%）')),
-                            DropdownMenuItem(value: 'frequent', child: Text('较多（55%）')),
+                            DropdownMenuItem(value: 'natural', child: Text('自然（24%）')),
+                            DropdownMenuItem(value: 'frequent', child: Text('较多（42%）')),
                           ],
                           onChanged: _busy
                               ? null

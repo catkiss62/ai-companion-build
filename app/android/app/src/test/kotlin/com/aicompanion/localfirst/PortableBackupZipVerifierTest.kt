@@ -19,13 +19,15 @@ class PortableBackupZipVerifierTest {
                 Entry("state.json", "{\"tables\":{}}".toByteArray()),
                 Entry("manifest.json", "{\"format\":\"test\"}".toByteArray()),
                 Entry("attachments/originals/example.jpg", byteArrayOf(1, 2, 3, 4)),
+                Entry("media/originals/2b6bdd3d.jpg", byteArrayOf(5, 6)),
+                Entry("media/thumbnails/2b6bdd3d.jpg", byteArrayOf(7)),
             ),
         )
 
         val summary = PortableBackupZipVerifier.verify(archive)
 
-        assertEquals(3, summary.entryCount)
-        assertEquals(34L, summary.expandedBytes)
+        assertEquals(5, summary.entryCount)
+        assertEquals(37L, summary.expandedBytes)
     }
 
     @Test
@@ -59,6 +61,19 @@ class PortableBackupZipVerifierTest {
         )
         assertThrows(IllegalArgumentException::class.java) {
             PortableBackupZipVerifier.verify(unsafe)
+        }
+
+        val unsafeMedia = File(directory, "unsafe-media.aibackup")
+        writeZip(
+            unsafeMedia,
+            listOf(
+                Entry("state.json", "{}".toByteArray()),
+                Entry("manifest.json", "{}".toByteArray()),
+                Entry("media/../escape.jpg", byteArrayOf(1)),
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            PortableBackupZipVerifier.verify(unsafeMedia)
         }
 
         val unexpected = File(directory, "unexpected.aibackup")

@@ -41,4 +41,14 @@ void main() {
       <String>['前一句。后一句'],
     );
   });
+
+  test('full playback starts with one unit then packs the queued remainder', () {
+    expect(
+      GenieFixedTextSegmenter.splitFirstImmediate(
+        '第一句。第二句！第三句？',
+        ChatLanguage.chinese,
+      ),
+      <String>['第一句。', '第二句！第三句？'],
+    );
+  });
 }

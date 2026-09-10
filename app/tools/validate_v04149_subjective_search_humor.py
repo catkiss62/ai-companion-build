@@ -38,7 +38,7 @@ tests = "\n".join(
 )
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
-assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201)$", pubspec, re.M)
+assert re.search(r"^version:\s*0\.41\.(?:49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202)$", pubspec, re.M)
 assert re.search(r"static const int schemaVersion = (?:56|57|58);", database)
 assert "buildLabel = 'v0.41.49+188'" in self_reader
 assert "agent/v04149-subjective-search-humor-restoration" in workflow
@@ -93,6 +93,7 @@ for forbidden in ("**", "{{char}}", "{{user}}", "CORE DIRECTIVE", "No Immunity")
 if any(version in pubspec for version in (
     "version: 0.41.56+200",
     "version: 0.41.57+201",
+    "version: 0.41.58+202",
 )):
     for retired in (
         "DialogueHumorDevice",

@@ -19,7 +19,7 @@ def dart_block(source: str, name: str) -> str:
     return match.group(1)
 
 
-assert "version: 0.41.57+201" in read("pubspec.yaml")
+assert "version: 0.41.58+202" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 58;" in database
 
@@ -106,8 +106,8 @@ runner = read("lib/core/ai/durable_generation_runner.dart")
 sticker_ui = read("lib/features/settings/sticker_settings_page.dart")
 for token in (
     "'low' => 0.12",
-    "'frequent' => 0.55",
-    "_ => 0.36",
+    "'frequent' => 0.42",
+    "_ => 0.24",
     "ordinaryReplySemanticContext",
     "ordinaryReplyCandidateScore",
     "latestUserText: latestUserText",
@@ -115,14 +115,14 @@ for token in (
 ):
     assert token in sticker, token
 assert "latestUserText: user.content" in runner
-for token in ("偶尔（12%）", "自然（36%）", "较多（55%）"):
+for token in ("偶尔（12%）", "自然（24%）", "较多（42%）"):
     assert token in sticker_ui, token
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.57+201 APK",
+    "Build AI Companion v0.41.58+202 APK",
     "validate_v04157_chat_media_expression.py",
-    "AI-Companion-v0.41.57-201-Chat-Media-Naiyou-APK",
+    "AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK",
     "genie-tts-private-runtime-v0.7.1-naiyou",
     "Genie-TTS-v0.7.1-Naiyou-Runtime.zip",
     "assets/benchmark_naiyou/*",

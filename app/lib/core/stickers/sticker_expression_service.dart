@@ -385,8 +385,8 @@ class StickerExpressionService {
   /// so UI copy and regression tests cannot drift from the actual behavior.
   static double ordinaryReplyThreshold(String mode) => switch (mode) {
         'low' => 0.12,
-        'frequent' => 0.55,
-        _ => 0.36,
+        'frequent' => 0.42,
+        _ => 0.24,
       };
 
   /// A reaction sticker may be semantically grounded by what the user just

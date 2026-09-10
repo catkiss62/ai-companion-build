@@ -5,6 +5,7 @@ import 'tts_sentence_segmenter.dart';
 import 'genie_fixed_text_segmenter.dart';
 import 'tts_provider.dart';
 import 'tts_queue_service.dart';
+import 'tts_queued_segment_packer.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_acoustic_segmenter.dart';
 import 'tts_voice_profile.dart';
@@ -35,16 +36,18 @@ class TtsQueueState {
   );
 }
 
-/// Genie v0.6.4-equivalent speech scheduler shared by normal and overlay chat.
+/// Genie speech scheduler shared by normal and overlay chat.
 ///
 /// The important A2 behavior is generation-ahead:
-///   1. split the utterance with A2 boundaries;
-///   2. submit every sentence to native generation without awaiting playback;
+///   1. split the utterance with Genie boundaries and retain punctuation;
+///   2. submit the first complete unit immediately, then combine only later
+///      units already waiting in the queue;
 ///   3. open one AudioTrack stream as soon as sentence 1 is ready;
 ///   4. let native prefill one second of first-segment PCM before AudioTrack.play;
 ///   5. append later WAV PCM to that same track while inference keeps running.
 ///
-/// This deliberately does NOT serialize "generate + play" sentence-by-sentence.
+/// Native inference remains serialized, while generation of the next packed
+/// unit overlaps playback of the current audio.
 class TtsPlaybackQueue {
   TtsPlaybackQueue({
     required this.service,
@@ -120,6 +123,7 @@ class TtsPlaybackQueue {
     }
     _streaming = false;
     session.closed = true;
+    session.signalReadyEntry();
     _maybeComplete(session);
   }
 
@@ -167,7 +171,7 @@ class TtsPlaybackQueue {
     }
 
     final chunks = segment
-        ? GenieFixedTextSegmenter.split(prepared, language)
+        ? GenieFixedTextSegmenter.splitFirstImmediate(prepared, language)
         : TtsAcousticSegmenter.split(prepared, language);
     for (final chunk in chunks) {
       _enqueuePrepared(session, chunk);
@@ -211,47 +215,75 @@ class TtsPlaybackQueue {
     required bool manual,
   }) {
     if (!_isActive(session) || raw.trim().isEmpty) return;
-    final index = session.reserve(raw.trim());
+    session.rawPending.add(raw.trim());
     _notify();
+    if (session.rawWorkerActive) return;
+    session.rawWorkerActive = true;
+    unawaited(_drainRawQueue(session, manual: manual));
+  }
 
-    // Preserve input order while doing async settings/text preparation. Once a
-    // sentence is prepared, generation is launched and NOT awaited, matching
-    // A2's generateTTS(...).then(...) fan-out behavior.
-    session.prepareTail = session.prepareTail.then((_) async {
-      if (!_isActive(session)) return;
-      String? prepared;
-      try {
-        prepared = await service.prepareText(
-          raw,
-          manual: manual,
-          language: session.language,
-        );
-      } catch (_) {
-        prepared = null;
+  Future<void> _drainRawQueue(
+    _A2Session session, {
+    required bool manual,
+  }) async {
+    try {
+      while (_isActive(session) && session.rawPending.isNotEmpty) {
+        final packed = session.rawUnitsSubmitted == 0
+            ? TtsPackedPrefix(session.rawPending.first, 1)
+            : TtsQueuedSegmentPacker.packPrefix(
+                session.rawPending,
+                session.language,
+              );
+        session.rawPending.removeRange(0, packed.sourceUnits);
+        session.rawUnitsSubmitted += packed.sourceUnits;
+        final index = session.reserve(packed.text);
+        _notify();
+        String? prepared;
+        try {
+          prepared = await service.prepareText(
+            packed.text,
+            manual: manual,
+            language: session.language,
+          );
+        } catch (_) {
+          prepared = null;
+        }
+        if (!_isActive(session)) return;
+        if (prepared == null || prepared.trim().isEmpty) {
+          _markGenerated(session, index, null);
+          continue;
+        }
+        // Streaming boundaries are found before speech-only substitutions. A
+        // hotword or user replacement can expand substantially, so enforce the
+        // final Genie ceiling again after preparation without losing FIFO order.
+        final chunks = TtsAcousticSegmenter.split(prepared, session.language);
+        if (chunks.isEmpty) {
+          _markGenerated(session, index, null);
+          continue;
+        }
+        final indexes = <int>[
+          index,
+          for (var i = 1; i < chunks.length; i++) session.reserve(chunks[i]),
+        ];
+        _notify();
+        for (var i = 0; i < chunks.length; i++) {
+          session.textByIndex[indexes[i]] = chunks[i];
+          await _generateAwaited(session, indexes[i], chunks[i]);
+        }
       }
-      if (!_isActive(session)) return;
-      if (prepared == null || prepared.trim().isEmpty) {
-        _markGenerated(session, index, null);
-        return;
+    } finally {
+      if (_isActive(session)) {
+        session.rawWorkerActive = false;
+        // A new complete unit can arrive between the final emptiness check and
+        // clearing the flag. Restart immediately without a timer.
+        if (session.rawPending.isNotEmpty) {
+          session.rawWorkerActive = true;
+          unawaited(_drainRawQueue(session, manual: manual));
+        }
+        _maybeComplete(session);
+        _notify();
       }
-      // Streaming boundaries are found before speech-only substitutions. A
-      // hotword or user replacement can expand substantially, so enforce the
-      // final Genie ceiling again after preparation without losing FIFO order.
-      final chunks = TtsAcousticSegmenter.split(prepared, session.language);
-      if (chunks.isEmpty) {
-        _markGenerated(session, index, null);
-        return;
-      }
-      final indexes = <int>[
-        index,
-        for (var i = 1; i < chunks.length; i++) session.reserve(chunks[i]),
-      ];
-      _notify();
-      for (var i = 0; i < chunks.length; i++) {
-        session.textByIndex[indexes[i]] = chunks[i];
-        _launchGeneration(session, indexes[i], chunks[i]);
-      }
-    });
+    }
   }
 
   void _enqueuePrepared(_A2Session session, String text) {
@@ -264,26 +296,33 @@ class TtsPlaybackQueue {
 
   void _launchGeneration(_A2Session session, int index, String text) {
     if (!_isActive(session)) return;
+    unawaited(_generateAwaited(session, index, text));
+  }
+
+  Future<void> _generateAwaited(
+    _A2Session session,
+    int index,
+    String text,
+  ) async {
+    if (!_isActive(session)) return;
     session.generating++;
     _notify();
-    unawaited(() async {
-      Uint8List? audio;
-      try {
-        audio = await service.generatePrepared(
-          text,
-          emotion: session.emotion,
-          language: session.language,
-          voice: session.voice,
-        );
-      } catch (_) {
-        audio = null;
-      } finally {
-        if (_isActive(session)) {
-          session.generating = (session.generating - 1).clamp(0, 1 << 30).toInt();
-          _markGenerated(session, index, audio);
-        }
+    Uint8List? audio;
+    try {
+      audio = await service.generatePrepared(
+        text,
+        emotion: session.emotion,
+        language: session.language,
+        voice: session.voice,
+      );
+    } catch (_) {
+      audio = null;
+    } finally {
+      if (_isActive(session)) {
+        session.generating = (session.generating - 1).clamp(0, 1 << 30).toInt();
+        _markGenerated(session, index, audio);
       }
-    }());
+    }
   }
 
   void _markGenerated(_A2Session session, int index, Uint8List? audio) {
@@ -346,6 +385,8 @@ class TtsPlaybackQueue {
         }
         if (!_isActive(session)) return;
         final allSubmitted = session.closed &&
+            !session.rawWorkerActive &&
+            session.rawPending.isEmpty &&
             session.generating == 0 &&
             session.nextToPlay >= session.total;
         if (allSubmitted) {
@@ -374,6 +415,8 @@ class TtsPlaybackQueue {
     if (!_isActive(session) || session.idle.isCompleted) return;
     final done = session.closed &&
         !session.playbackActive &&
+        !session.rawWorkerActive &&
+        session.rawPending.isEmpty &&
         session.generating == 0 &&
         session.nextToPlay >= session.total;
     if (!done) return;
@@ -410,7 +453,9 @@ class _A2Session {
   final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
 
-  Future<void> prepareTail = Future<void>.value();
+  final List<String> rawPending = <String>[];
+  bool rawWorkerActive = false;
+  int rawUnitsSubmitted = 0;
   int total = 0;
   int nextToPlay = 0;
   int generating = 0;

@@ -103,7 +103,8 @@ object PortableBackupZipVerifier {
         name == "state.json" ||
             name == "manifest.json" ||
             name.startsWith("attachments/") ||
-            name.startsWith("album/")
+            name.startsWith("album/") ||
+            name.startsWith("media/")
 
     private fun isSafeFileName(name: String): Boolean {
         if (name.isEmpty() || name.startsWith('/') || '\\' in name) return false
