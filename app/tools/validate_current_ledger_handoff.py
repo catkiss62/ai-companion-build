@@ -114,6 +114,7 @@ def main() -> None:
         "只更新其中一层视为总账未完成",
         "agent/v04155-genie-direct-port-lazy-language",
         "0.41.56+200",
+        "0.41.57+201",
         "schema 58",
         "Snapshot protocol 6",
         "造梗单层概率",
@@ -204,7 +205,7 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.56\+200\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.57\+201\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

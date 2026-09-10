@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.56+200" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.56+200';" in read(
+assert "version: 0.41.57+201" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.57+201';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -98,7 +98,7 @@ for token in ('"pssKb"', '"rssKb"', '"threads"', '"modelsReady"', '"language"'):
 assert "GenieFrontendAdapter.prepareChineseAssets" in runtime
 assert "GenieFrontendAdapter.importRoberta" in runtime
 assert "GenieRuntimeAssetStore.prepare" in runtime
-assert "build195-clean-runtime-v1" in asset_store
+assert "build201-naiyou-runtime-v1" in asset_store
 assert "canonicalRoot.parentFile == canonicalBase" in asset_store
 assert "canonicalRoot.deleteRecursively()" in asset_store
 assert "engine.prepareFrontendAssets(prepared, progress)" in asset_store
@@ -311,14 +311,13 @@ assert not re.search(
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.56+200 APK",
+    "Build AI Companion v0.41.57+201 APK",
         "agent/v04155-genie-direct-port-lazy-language",
     "validate_v04155_genie_direct_port_lazy_language.py",
-    "AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK",
-    "genie-tts-private-runtime-v0.6.4",
+    "AI-Companion-v0.41.57-201-Chat-Media-Naiyou-APK",
+    "genie-tts-private-runtime-v0.7.1-naiyou",
 ):
     assert token in workflow, token
-assert "genie-tts-private-runtime-v0.7" not in workflow
 assert "companion ONNX Runtime differs from verified Genie APK" in workflow
 assert workflow.count("lib/arm64-v8a/libgenie_frontend.so") >= 3
 assert workflow.count("lib/arm64-v8a/libc++_shared.so") >= 3

@@ -153,6 +153,42 @@ void main() {
     );
   });
 
+  test('ordinary sticker policy exposes conditional expression chances', () {
+    expect(StickerExpressionService.ordinaryReplyThreshold('low'), 0.12);
+    expect(StickerExpressionService.ordinaryReplyThreshold('natural'), 0.36);
+    expect(StickerExpressionService.ordinaryReplyThreshold('frequent'), 0.55);
+  });
+
+  test('ordinary matching includes the latest user message as evidence', () {
+    const sleepSticker = StickerRecord(
+      packId: 'official-001',
+      path: 'memes/1739433751_1.jpg',
+      tag: 'sleep',
+      caption: '催对方早点睡觉',
+      keywords: '睡觉 晚安 快睡 还不睡 熬夜 别熬夜 早点休息',
+      toneScope: 'general',
+      intensity: 1,
+      enabled: true,
+    );
+    final context = StickerExpressionService.ordinaryReplySemanticContext(
+      latestUserText: '我今晚又熬夜了。',
+      generatedText: '你还知道啊。',
+    );
+    expect(
+      StickerExpressionService.semanticMatchScore(sleepSticker, context),
+      greaterThan(0),
+    );
+    expect(
+      StickerExpressionService.ordinaryReplyCandidateScore(
+        sleepSticker,
+        context,
+        StickerExpressionService.moodForEmotion('worried'),
+      ),
+      greaterThan(0),
+      reason: 'emotion is a preference, not a hard veto on exact semantics',
+    );
+  });
+
   test('sleep sticker uses conversational semantics instead of appearance tags',
       () {
     const imported = StickerRecord(

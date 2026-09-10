@@ -4281,7 +4281,7 @@ class AppDatabase {
           await db.update(
             'reference_documents',
             {
-              'raw_content': worldBookNaturalDialogueV04156,
+              'raw_content': worldBookNaturalDialogueV04157,
               'activation_mode': 'always',
               'priority': 1000,
               'activation_probability': 100,
@@ -4338,6 +4338,44 @@ class AppDatabase {
         }
       }
       await setSetting('worldbook_user_defaults_v04156_applied', '1');
+    }
+    final naturalWorldBookRefreshV04157 =
+        await getSetting('worldbook_natural_user_default_v04157_applied');
+    if (naturalWorldBookRefreshV04157 != '1') {
+      final rows = await db.query(
+        'reference_documents',
+        columns: const ['id', 'raw_content'],
+        where: 'entry_type = ? AND name = ?',
+        whereArgs: const ['behavior', '角色表达自然化'],
+      );
+      const acceptedNaturalHashes = <String>{
+        // v0.41.56 body from the user's earlier backup, including the extra
+        // "角色思考方式真人化" preface that the new exact file replaces.
+        '399dbcade44c15ce4af3f215df27ed193de04991644371dbbd79f2caabed8f11',
+        // Exact v0.41.57 user file, retained for idempotent metadata repair.
+        '13189a1fcb24f10eb071f455356ffd902d3eafa1abb8466a28580b768bf9a393',
+      };
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (final row in rows) {
+        final raw = row['raw_content'] as String? ?? '';
+        final hash = sha256.convert(utf8.encode(raw)).toString();
+        if (!acceptedNaturalHashes.contains(hash)) continue;
+        await db.update(
+          'reference_documents',
+          {
+            'raw_content': worldBookNaturalDialogueV04157,
+            'activation_mode': 'always',
+            'priority': 1000,
+            'activation_probability': 100,
+            'scope': 'all',
+            'manual_active': 0,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+      await setSetting('worldbook_natural_user_default_v04157_applied', '1');
     }
     // Exact-value migration only: preserve every custom alias edit while also
     // accepting the user's literal slash spelling in the reviewed default.

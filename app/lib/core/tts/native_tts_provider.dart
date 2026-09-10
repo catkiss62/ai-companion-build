@@ -6,7 +6,7 @@ import 'tts_provider.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_voice_profile.dart';
 
-/// Flutter-facing adapter for the local Genie-TTS v0.6.4 ONNX engine.
+/// Flutter-facing adapter for the local Genie-TTS core with the Naiyou V2 voice.
 /// The Android side owns the shared acoustic runtime and one selected frontend.
 class NativeTtsProvider implements TtsProvider {
   NativeTtsProvider._();

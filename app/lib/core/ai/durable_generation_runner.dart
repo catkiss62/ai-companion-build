@@ -911,6 +911,7 @@ $finalGenerationReminder
               : await stickerService.maybePrepareForOrdinaryReply(
                   messageId: baseAssistant.id,
                   text: baseAssistant.content,
+                  latestUserText: user.content,
                   emotionKey: baseAssistant.emotionKey,
                   conversationPlan: conversationPlan,
                   responseMode: DialogueExpressionPlan.select(

@@ -29,6 +29,7 @@ assert any(
         "version: 0.41.55+198",
         "version: 0.41.55+199",
         "version: 0.41.56+200",
+        "version: 0.41.57+201",
     )
 )
 require(

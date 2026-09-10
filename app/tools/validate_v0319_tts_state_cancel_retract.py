@@ -51,6 +51,7 @@ if any(version in pubspec for version in (
     "version: 0.41.55+196", "version: 0.41.55+197", "version: 0.41.55+198",
     "version: 0.41.55+199",
     "version: 0.41.56+200",
+    "version: 0.41.57+201",
 )):
     # Fixed-segment Genie playback starts only from the committed assistant
     # message; there is intentionally no provisional provider-stream owner.

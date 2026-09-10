@@ -74,9 +74,24 @@ void main() {
         generationActive: false,
         generationEnded: false,
         streamChanged: false,
+        discoveredUser: false,
         discoveredAssistant: false,
       ),
       isFalse,
+    );
+  });
+
+  test('a newly committed user message always returns chat to the bottom', () {
+    expect(
+      GenerationPresentationPolicy.shouldFollowChatNotification(
+        followLatest: false,
+        generationActive: true,
+        generationEnded: false,
+        streamChanged: false,
+        discoveredUser: true,
+        discoveredAssistant: false,
+      ),
+      isTrue,
     );
   });
 
@@ -87,6 +102,7 @@ void main() {
         generationActive: true,
         generationEnded: false,
         streamChanged: true,
+        discoveredUser: false,
         discoveredAssistant: false,
       ),
       isTrue,
@@ -97,6 +113,7 @@ void main() {
         generationActive: false,
         generationEnded: false,
         streamChanged: false,
+        discoveredUser: false,
         discoveredAssistant: true,
       ),
       isTrue,

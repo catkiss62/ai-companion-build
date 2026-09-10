@@ -142,16 +142,19 @@ class _StickerSettingsPageState extends State<StickerSettingsPage> {
                       children: [
                         Text('单聊表达强度', style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 6),
-                        const Text('只在轻量闲聊、且已选定言语行动后低频配图。不改欲望、不增加主动消息、不另调模型。'),
+                        const Text(
+                          '只在轻量闲聊、言语行动、情绪和语义都匹配后配图。'
+                          '括号内是在这些条件全部通过后的概率；不改欲望、不增加主动消息、不另调模型。',
+                        ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           initialValue: _mode,
                           decoration: const InputDecoration(border: OutlineInputBorder()),
                           items: const [
                             DropdownMenuItem(value: 'off', child: Text('关闭')),
-                            DropdownMenuItem(value: 'low', child: Text('偶尔')),
-                            DropdownMenuItem(value: 'natural', child: Text('自然')),
-                            DropdownMenuItem(value: 'frequent', child: Text('较多')),
+                            DropdownMenuItem(value: 'low', child: Text('偶尔（12%）')),
+                            DropdownMenuItem(value: 'natural', child: Text('自然（36%）')),
+                            DropdownMenuItem(value: 'frequent', child: Text('较多（55%）')),
                           ],
                           onChanged: _busy
                               ? null

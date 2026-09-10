@@ -19,17 +19,17 @@ def dart_block(source: str, name: str) -> str:
     return match.group(1)
 
 
-assert "version: 0.41.56+200" in read("pubspec.yaml")
+assert "version: 0.41.57+201" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 58;" in database
 
 worldbooks = read("lib/core/reference/world_book_content_v04156_user.dart")
-natural = dart_block(worldbooks, "worldBookNaturalDialogueV04156")
+natural = dart_block(worldbooks, "worldBookNaturalDialogueV04157")
 engine = dart_block(worldbooks, "worldBookInferenceEngineV04156")
 humor = dart_block(worldbooks, "worldBookHumorV04156User")
-assert len(natural) == 2603
+assert len(natural) == 2242
 assert sha256(natural.encode()).hexdigest() == (
-    "399dbcade44c15ce4af3f215df27ed193de04991644371dbbd79f2caabed8f11"
+    "13189a1fcb24f10eb071f455356ffd902d3eafa1abb8466a28580b768bf9a393"
 )
 assert len(engine) == 3390
 assert sha256(engine.encode()).hexdigest() == (
@@ -47,7 +47,7 @@ for token in (
 
 presets = read("lib/core/reference/world_book_presets.dart")
 for token in (
-    "content: worldBookNaturalDialogueV04156",
+    "content: worldBookNaturalDialogueV04157",
     "name: '推演思维引擎'",
     "content: worldBookInferenceEngineV04156",
     "priority: 950",
@@ -133,8 +133,8 @@ for token in (
 ):
     assert token in optimizer, token
 for token in (
-    "扫描并预览优化",
-    "确认优化",
+    "扫描旧重复副本",
+    "确认清理",
     "相册仍在引用的图片不会列入这里",
     "取消全选",
     "deleteMediaCacheBlobs",
@@ -155,6 +155,7 @@ for token in (
 
 workflow = read("../.github/workflows/build-apk.yml")
 assert "validate_v04156_worldbook_media_refs.py" in workflow
-assert "AI-Companion-v0.41.56-200-Worldbook-Media-Refs-APK" in workflow
+assert "validate_v04157_chat_media_expression.py" in workflow
+assert "AI-Companion-v0.41.57-201-Chat-Media-Naiyou-APK" in workflow
 
 print("v0.41.56 worldbook and shared media reference contracts passed")

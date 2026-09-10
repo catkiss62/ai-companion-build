@@ -62,7 +62,7 @@ void main() {
     expect(byId['builtin.worldbook.natural_dialogue']!.priority, 1000);
     expect(
       byId['builtin.worldbook.natural_dialogue']!.content,
-      startsWith('#角色思考方式真人化'),
+      startsWith('# 自然对话总则'),
     );
     final inference = byId['builtin.worldbook.inference_engine']!;
     expect(inference.priority, 950);

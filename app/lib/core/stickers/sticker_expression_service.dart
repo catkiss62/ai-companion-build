@@ -37,6 +37,7 @@ class StickerExpressionService {
   Future<SelectedStickerAttachment?> maybePrepareForOrdinaryReply({
     required String messageId,
     required String text,
+    required String latestUserText,
     required String emotionKey,
     required ConversationInitiativePlan conversationPlan,
     required DialogueResponseMode responseMode,
@@ -55,11 +56,7 @@ class StickerExpressionService {
       return null;
     }
     final roll = _unit('$messageId|expression');
-    final threshold = switch (mode) {
-      'low' => 0.12,
-      'frequent' => 0.42,
-      _ => 0.24,
-    };
+    final threshold = ordinaryReplyThreshold(mode);
     if (roll >= threshold) return null;
 
     final enabledIds = await packStorage.enabledPackIds();
@@ -70,47 +67,66 @@ class StickerExpressionService {
     final mood = moodForEmotion(emotionKey);
     final recent = await _recentUsageKeys();
     final start = (_unit('$messageId|pack') * packs.length).floor();
-    StickerPackMeta? selectedPack;
-    List<StickerRecord> selectedPool = const <StickerRecord>[];
+    final semanticContext = ordinaryReplySemanticContext(
+      latestUserText: latestUserText,
+      generatedText: visible,
+    );
+    final candidates = <({StickerPackMeta pack, StickerRecord record})>[];
     for (var offset = 0; offset < packs.length; offset++) {
       final pack = packs[(start + offset) % packs.length];
       final records = await packStorage.readRecords(pack);
-      final pool = records.where((record) {
+      for (final record in records) {
         if (!StickerAgencyPolicy.isAssistantSelectable(record) ||
             recent.contains(record.usageKey)) {
-          return false;
+          continue;
         }
-        if (moodForTag(record.tag) != mood) return false;
-        if (record.toneScope == 'bold' && !_boldSpeechActs.contains(conversationPlan.speechAct)) {
-          return false;
+        if (record.toneScope == 'bold' &&
+            !_boldSpeechActs.contains(conversationPlan.speechAct)) {
+          continue;
         }
-        return true;
-      }).toList(growable: false);
-      if (pool.isNotEmpty) {
-        selectedPack = pack;
-        selectedPool = pool;
-        break;
+        candidates.add((pack: pack, record: record));
       }
     }
-    if (selectedPack == null || selectedPool.isEmpty) return null;
+    if (candidates.isEmpty) return null;
 
-    selectedPool.sort((a, b) {
-      final scoreA = semanticMatchScore(a, visible);
-      final scoreB = semanticMatchScore(b, visible);
+    candidates.sort((a, b) {
+      final scoreA = ordinaryReplyCandidateScore(
+        a.record,
+        semanticContext,
+        mood,
+      );
+      final scoreB = ordinaryReplyCandidateScore(
+        b.record,
+        semanticContext,
+        mood,
+      );
       final byScore = scoreB.compareTo(scoreA);
-      return byScore != 0 ? byScore : a.path.compareTo(b.path);
+      return byScore != 0 ? byScore : a.record.path.compareTo(b.record.path);
     });
-    final bestScore = semanticMatchScore(selectedPool.first, visible);
+    final bestScore = ordinaryReplyCandidateScore(
+      candidates.first.record,
+      semanticContext,
+      mood,
+    );
     // An ordinary textual reply must provide positive semantic evidence. A
     // random zero-score fallback can send a completely unrelated sticker.
     if (bestScore <= 0) return null;
-    final finalists = selectedPool
-        .where((record) => semanticMatchScore(record, visible) == bestScore)
+    final finalists = candidates
+        .where(
+          (candidate) =>
+              ordinaryReplyCandidateScore(
+                candidate.record,
+                semanticContext,
+                mood,
+              ) ==
+              bestScore,
+        )
         .take(8)
         .toList(growable: false);
     final index = (_unit('$messageId|sticker') * finalists.length).floor();
-    final record = finalists[index.clamp(0, finalists.length - 1).toInt()];
-    final source = await packStorage.fileFor(selectedPack, record);
+    final selected = finalists[index.clamp(0, finalists.length - 1).toInt()];
+    final record = selected.record;
+    final source = await packStorage.fileFor(selected.pack, record);
     final draft = await attachmentStorage.prepareImage(
       sourcePath: source.path,
       source: 'assistant_sticker:${record.packId}',
@@ -350,6 +366,36 @@ class StickerExpressionService {
         .toSet();
     return tokens.where(text.contains).length;
   }
+
+  /// Semantic evidence is mandatory. Matching the current emotion is a
+  /// tie-break advantage, not a veto: a semantically exact "go to sleep"
+  /// sticker remains eligible even if the reply envelope is worried.
+  static int ordinaryReplyCandidateScore(
+    StickerRecord record,
+    String text,
+    String preferredMood,
+  ) {
+    final semantic = semanticMatchScore(record, text);
+    if (semantic <= 0) return 0;
+    return semantic * 2 + (moodForTag(record.tag) == preferredMood ? 1 : 0);
+  }
+
+  /// The percentage is conditional on casual-mode, speech-act, length, mood,
+  /// pack and recent-use gates. It is intentionally exposed as a pure policy
+  /// so UI copy and regression tests cannot drift from the actual behavior.
+  static double ordinaryReplyThreshold(String mode) => switch (mode) {
+        'low' => 0.12,
+        'frequent' => 0.55,
+        _ => 0.36,
+      };
+
+  /// A reaction sticker may be semantically grounded by what the user just
+  /// said even when the assistant's short reply uses different words.
+  static String ordinaryReplySemanticContext({
+    required String latestUserText,
+    required String generatedText,
+  }) =>
+      '${latestUserText.trim()}\n${generatedText.trim()}'.trim();
 
   static double _unit(String seed) {
     final bytes = sha256.convert(utf8.encode(seed)).bytes;

@@ -41,10 +41,12 @@ class GenerationPresentationPolicy {
     required bool generationActive,
     required bool generationEnded,
     required bool streamChanged,
+    required bool discoveredUser,
     required bool discoveredAssistant,
   }) =>
-      followLatest &&
-      (generationEnded ||
-          discoveredAssistant ||
-          (generationActive && streamChanged));
+      discoveredUser ||
+      (followLatest &&
+          (generationEnded ||
+              discoveredAssistant ||
+              (generationActive && streamChanged)));
 }

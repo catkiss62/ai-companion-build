@@ -4,7 +4,7 @@ import android.content.Context
 import com.catkiss62.geniettsbenchmark.SystemAudioPolicy
 import java.io.File
 
-/** Process-scoped bridge to the isolated Genie v0.6.4 runtime plus main-process playback. */
+/** Process-scoped bridge to the isolated Genie/Naiyou runtime plus main-process playback. */
 class NativeTtsEngine private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val client = IsolatedGenieTtsClient(appContext)
@@ -180,10 +180,10 @@ class NativeTtsEngine private constructor(context: Context) {
     private fun failureStatus(error: Throwable): Map<String, Any> = mapOf(
         "available" to false,
         "initialized" to false,
-        "engine" to "Genie-TTS v0.6.4 · isolated ONNX Runtime",
+        "engine" to "Genie-TTS v0.6.4 core · 奶油 V2 · isolated ONNX Runtime",
         "integrity" to "unknown",
         "artifactCount" to 0,
-        "goldenReference" to "5380a536f83aeaec540a9aaa7982149969c73e26",
+        "goldenReference" to "918a26bf55d7e06dffd08277c6a4bcb703f5b17b",
         "diagnosticStage" to "child_process_unavailable",
         "diagnosticTrace" to listOf("private_process", "child_process_unavailable"),
         "detail" to (error.message ?: error.javaClass.simpleName),

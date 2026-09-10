@@ -195,9 +195,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             _lastStreamingContent != controller.streamingContent;
     _lastStreamingReasoning = controller.streamingReasoning;
     _lastStreamingContent = controller.streamingContent;
+    var discoveredUser = false;
     var discoveredAssistant = false;
     for (final message in controller.messages) {
-      if (_knownMessageIds.add(message.id) && message.isAssistant) {
+      if (!_knownMessageIds.add(message.id)) continue;
+      if (message.isUser) {
+        discoveredUser = true;
+      } else if (message.isAssistant) {
         _animatedMessageId = message.id;
         discoveredAssistant = true;
       }
@@ -235,9 +239,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       generationActive: controller.generationActive,
       generationEnded: generationEnded,
       streamChanged: streamChanged,
+      discoveredUser: discoveredUser,
       discoveredAssistant: discoveredAssistant,
     )) {
-      if (controller.generationActive &&
+      if (discoveredUser) {
+        // Sending from this page or the native overlay must immediately show
+        // the newly committed user bubble, even if the user had scrolled up.
+        _followLatest = true;
+        _anchorTimelineTail();
+      } else if (controller.generationActive &&
           controller.streamingContent.trim().isNotEmpty) {
         // Follow the actual visible answer tail. A long reasoning panel above
         // it may change height dramatically while streaming/collapsing, so the

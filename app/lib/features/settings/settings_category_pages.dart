@@ -1011,8 +1011,8 @@ class _DeviceDataSettingsPageState extends State<DeviceDataSettingsPage> {
                   ),
                   _SettingsRouteCard(
                     icon: Icons.perm_media_outlined,
-                    title: '媒体存储与缓存',
-                    subtitle: '预览旧图片去重、查看聊天媒体缓存并批量清理',
+                    title: '清理重复图片与表情包',
+                    subtitle: '按原图 exact-SHA 预览并清理旧重复副本，也可批量删除聊天缓存',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const MediaCachePage(),

@@ -259,7 +259,7 @@ const worldBookSystemPresets = <WorldBookPreset>[
     id: 'builtin.worldbook.natural_dialogue',
     name: '角色表达自然化',
     aliases: ['自然'],
-    content: worldBookNaturalDialogueV04156,
+    content: worldBookNaturalDialogueV04157,
     activationMode: 'always',
     priority: 1000,
   ),

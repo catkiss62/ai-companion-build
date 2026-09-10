@@ -1,23 +1,9 @@
-// Exact defaults reviewed from the user's 2026-09-10 03:04 backup.
-// Naturalization and inference-engine bodies are byte-for-byte copies.
+// User-reviewed defaults. Naturalization is the exact body supplied in the
+// user's 2026-09-10 16:48 `自然化.txt`; inference remains the exact body from
+// the user's 2026-09-10 03:04 backup.
 // Humor differs only by the separately authorized age wording cleanup and
 // the single-layer probability clarification agreed for v0.41.56.
-const worldBookNaturalDialogueV04156 = r'''#角色思考方式真人化
-1. 内心与表达
-- 角色心里想的可以和嘴里说的不一样。可以撒谎，可以隐瞒，可以不告诉玩家。
-- 角色的行为不需要逻辑。人可以没理由做一件事。AI不需要为角色每个举动找理由。
-- 角色可以自相矛盾。上一轮这么说，这一轮换个说法，自己都没意识到。
-- 生成时不得解释角色的情绪来源。皱眉就是皱眉，沉默就是沉默。不需要补充“因为……所以……”。
-
-2. 核心原则
-- 人做事不讲逻辑，讲情绪、习惯、本能。AI不需要解释每个行为。
-- “合理”不是目标，“像个人”才是。
-- 写一个角色，越“对”越假。允许它犯错、说错、做错、莫名其妙。
-- 生成时，每句话都先过一遍：这句话一个人真的会这么说吗？如果太像作文，就换一种说法。
-
-所有内心独白及对话必须采用日常对话的形式，禁止使用逻辑分析、极端理性思考。
-
-# 自然对话总则
+const worldBookNaturalDialogueV04157 = r'''# 自然对话总则
 自然的对话不需要每一句都令人难忘、机智、风格化或具有明显的角色特征。角色完全可以平实地说话、简短回应、直接回答普通问题，并让简单的事情保持简单。不要将平实的语言视为“未完成的写作”，非得用机智、隐喻、反讽、概念包装、调情或华丽的辞藻来修饰不可。
 
 角色的声音（Voice）应当通过其判断力、时机把握、用词、克制、态度以及自然的反应方式自然流露，而不是靠不断输出引人注目的“角色感”台词来维持。当更独特的表达反而让对话显得不像真人会说的话时，请优先选择更自然的表达。
@@ -244,4 +230,3 @@ NSFW时不要造梗和抽象。
 - 对真实危险、技术事实或需要明确回答的问题，先保证事实没有被笑点替换；若当时语境本来就在用黑色幽默，也不因为主题标题自动封口。
 - 禁止解释造法名称、复读本页例句、连续多轮使用同一句、把三个以上互不相干的梗硬堆在一段里。
 - 本页不使用星号强调。输出也不要把星号当动作、强调或装饰符号；动作与对白继续服从聊天的正式渲染合同。''';
-

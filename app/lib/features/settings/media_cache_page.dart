@@ -49,7 +49,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
     if (_working) return;
     setState(() {
       _working = true;
-      _status = '正在只读扫描旧媒体…';
+      _status = '正在只读扫描旧重复图片与表情包…';
     });
     try {
       final report = await _optimizer.scan();
@@ -63,7 +63,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
       final confirmed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('确认优化当前媒体存储？'),
+              title: const Text('确认清理旧重复副本？'),
               content: Text(
                 '只读扫描结果：\n'
                 '聊天媒体引用 ${report.messageReferences} 条\n'
@@ -79,7 +79,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('确认优化'),
+                  child: const Text('确认清理'),
                 ),
               ],
             ),
@@ -162,7 +162,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
         .where((entry) => _selected.contains(entry.blob.id))
         .fold<int>(0, (sum, entry) => sum + entry.reclaimableBytes);
     return Scaffold(
-      appBar: AppBar(title: const Text('媒体存储与缓存')),
+      appBar: AppBar(title: const Text('图片与表情包清理')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -174,10 +174,14 @@ class _MediaCachePageState extends State<MediaCachePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text('旧媒体优化', style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          '清理旧重复图片与表情包',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 6),
                         const Text(
-                          '先只读预览，再确认整理。仅按原图 SHA-256 合并当前运行库，原备份不会改变。',
+                          '清理改用共享媒体引用前重复保存的聊天图片、相册图片和表情包副本。'
+                          '先只读扫描，再由你确认；只合并原图 exact SHA-256 完全相同的文件，原备份不会改变。',
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -191,7 +195,7 @@ class _MediaCachePageState extends State<MediaCachePage> {
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
                                 : const Icon(Icons.auto_fix_high_rounded),
-                            label: Text(_working ? '处理中…' : '扫描并预览优化'),
+                            label: Text(_working ? '扫描中…' : '扫描旧重复副本'),
                           ),
                         ),
                       ],
@@ -314,4 +318,3 @@ class _MediaCachePageState extends State<MediaCachePage> {
     return '${(mb / 1024).toStringAsFixed(2)} GB';
   }
 }
-
