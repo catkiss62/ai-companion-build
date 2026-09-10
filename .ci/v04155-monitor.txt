@@ -1,7 +1,7 @@
 status=success
-run_id=34470775012
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34470775012
-head_sha=bd886d304e3d94b32ed98c6c009080c990282251
+run_id=34508603932
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34508603932
+head_sha=381f7c75fed1d53eac8f83cfcbc68b5a50d6ac1c
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-e2d80ff3ae65c37adc3a2edeb233c4d0e0a0906188b0644573b64e8ca5cb092c  AI-Companion-v0.41.58-202-Backup-Naiyou-Hotfix-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-e75e3ac276ff5f165a4d
+a3c545caf08ef0c3edfa589e61642d92ea1b26421f1ac9528ffa59aa010827fd  AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f05cdbac5b237ee9200e
