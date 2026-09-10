@@ -387,6 +387,7 @@ on:
       - agent/v04153-genie-multilingual-tts
       - agent/v04154-genie-tts-hotfix-settings
       - agent/v04155-genie-direct-port-lazy-language
+      - agent/v04159-tiandou-pitch-recovery
   workflow_dispatch:
   pull_request:
     branches:

@@ -115,6 +115,7 @@ def main() -> None:
         "306_827_268",
         "manifest['asset_integrity']",
         "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
+        "agent/v04159-tiandou-pitch-recovery",
     )
     assert "assets/benchmark_naiyou/*" not in workflow
     print("v0.41.59 Tiandou integrity and independent-pitch contract passed")
