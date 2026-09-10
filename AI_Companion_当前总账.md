@@ -41,19 +41,19 @@
 | APK SHA-256 | `2d709918b919783e01c883c87361f05926a61d42a64eb2f8b2e0b5ed235b2e41`；与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10125147779`](https://github.com/catkiss62/ai-companion-build/actions/runs/34404388142/artifacts/10125147779)，ZIP 530,322,821 bytes / digest `cd138146051929064b80575b7dc958a9de29380ea76577275c06929da883ffef`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-269d791cf3eed8541cb8) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +198 顶栏语言选择、不变调变速、200% 音量增益及中英文保持正常，但日语因 APK 缺 `libc++_shared.so` 而 `UnsatisfiedLinkError`，状态为 `TRUE DEVICE PARTIAL`。+199 已实现同一上游 APK 的精确 C++ runtime 打包、哈希校验与 ELF 依赖闭包门，本地 75 个可运行源码 validator 全绿；另 3 项只因本地未恢复 417 桌宠、LingChat effects 和没有 `kotlinc` 未运行。当前严格为 `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`，不得写成日语已修复 |
+| 当前总状态 | +198 顶栏语言选择、不变调变速、200% 音量增益及中英文保持正常，但日语因 APK 缺 `libc++_shared.so` 而 `UnsatisfiedLinkError`，状态为 `TRUE DEVICE PARTIAL`。+199 已实现同一上游 APK 的精确 C++ runtime 打包、哈希/ELF 依赖闭包门，并将沉浸对白着色从旧 `“”` 切换到当前生成合同 `「」`；本地静态与专项合同通过。当前严格为 `IMPLEMENTED / CI PENDING / TRUE DEVICE PENDING`，不得写成日语或显示已真机修复 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **推送 +199 并完成 Actions/APK 交付**：将实现与第二次总账提交推送到 `agent/v04155-genie-direct-port-lazy-language`，监测完整 Actions；若源码、Kotlin/AIDL、Flutter、Release、固定签名、私有载荷哈希或 ELF 闭包任一失败则窄修后重跑。全绿后回填 run、Artifact、Draft APK 大小与 SHA，再交由用户验证首次/第二次日语及中英文不回归 |
-| 目标 | 保留 +196 已真机成功的独立进程、单串行 Genie 推理与中英文出声；`中/日/EN` 只切换后续朗读语言，点喇叭或下一句自动朗读才出声。规则正文除用户另行要求删除的年龄边界外必须与备份逐字一致；造梗正文逐字一致且概率 50%；沉浸房间不再被内部最终提示强制成 `“”` |
-| 当前证据 | +198 新脱敏报告 `2026-09-10T01:00:07Z` 来自 build 198/schema 57：日语 `frontend_switch_failed code=UnsatisfiedLinkError language=ja`，后续生成因前端为空出现 `NullPointerException`；中英文播放链仍存在。独立下载 run 817 Artifact 后，`readelf -d` 证明 `libopenjtalk_native.so` 的首个 `DT_NEEDED` 为 `libc++_shared.so`，而 +198 APK 的 `lib/arm64-v8a/` 只有 app、Dart/Flutter、Genie/OpenJTalk/ORT 共 7 库且没有 C++ shared runtime。JNI 导出类名与六个 OpenJTalk C 符号均匹配，故根因已从“泛化装载失败”收敛为确定的依赖缺包 |
+| 当前下一步 | **统一推送 +199 并完成 Actions/APK 交付**：日语依赖闭包与沉浸 `「」` 着色均已实现；将代码、测试、工作流与第二次总账推送到 `agent/v04155-genie-direct-port-lazy-language`，监测完整 Actions。任一源码、Kotlin/AIDL、Flutter、Release、固定签名、私有载荷哈希或 ELF 闭包失败则窄修重跑；全绿后回填 run、Artifact、Draft APK 大小与 SHA |
+| 目标 | 保留 +196 已真机成功的独立进程、单串行 Genie 推理与中英文出声；`中/日/EN` 只切换后续朗读语言，点喇叭或下一句自动朗读才出声。规则正文除用户另行要求删除的年龄边界外必须与备份逐字一致；造梗正文逐字一致且概率 50%；沉浸房间生成使用 `「」`，并且显示层只给 `「」` 对白着色，`“”` 不着色 |
+| 当前证据 | +198 新脱敏报告 `2026-09-10T01:00:07Z` 来自 build 198/schema 57：日语 `frontend_switch_failed code=UnsatisfiedLinkError language=ja`；成品 ELF 已把根因锁定为缺失 `libc++_shared.so`。新增用户真机反馈指出沉浸 `「」` 没有对白色；源码 `splitNovelDialogueText()` 仍以 `trimmed.startsWith('“')` 判定对白，正好与 +197 已改为 `「」` 的生成合同相反，且现有 widget 测试也冻结了旧弯引号着色，因此显示层根因同样确定 |
 | 保护与排除 | 中文 `messages.content/segments` 继续作为历史、Memory、日记、检索和 Grounding 的唯一权威内容；外语版本不得重复注入上下文或形成三条助手消息。规则升级只替换精确匹配已知默认/本次备份哈希的内容，任何其他手工编辑继续优先；不提交备份、聊天、诊断或私有素材。19emo ONNX 不恢复；备选音色不移植；禁止同时初始化三套前端或并发 Genie 推理 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 中文 `messages.content/segments` 保持唯一历史真源；外语按 message id＋language 缓存，不进上下文；`显示外语` 仍只控制气泡投影。保持 v0.6.4 固定分段、首段 1 秒 PCM 预填充、CPU 8 线程和串行推理；禁止三前端同时预热、并发 Genie 推理、恢复 provider-token 真流式或把私人模型提交公开仓库。GPU/NNAPI 只做代码与可行性结论，不与本稳定性窄修同包启用 |
-| 完成判据 | 本地静态合同、Dart 测试、Kotlin/AIDL/Flutter analyze 与 Release APK 由 Actions 全绿；真机再分别确认日语首次/二次播放、按钮只切换、点省略号立即停止、播放前后滚动位置不变、长回复段间无固定空洞、中英文不回归；并确认默认/升级后的规则、造梗 50%、DeepSeek 实际注入和沉浸 `「」`。自动化成功不得提前写成真机通过 |
+| 完成判据 | 本地静态合同、Dart 测试、Kotlin/AIDL/Flutter analyze 与 Release APK 由 Actions 全绿；沉浸 widget 测试必须证明段首 `「」` 使用所选对白色、段首/段内 `“”` 均为白色旁白。真机再确认日语首次/二次播放、按钮只切换、点省略号立即停止、滚动位置不变、中英文不回归，以及沉浸 `「」` 有色而 `“”` 无色。自动化成功不得提前写成真机通过 |
 | 直接详细入口 | `app/docs/GENIE_DIRECT_PORT_LAZY_LANGUAGE_v0.41.55.md`；TTS 前序见 `app/docs/GENIE_TTS_HOTFIX_SETTINGS_v0.41.54.md` 与 `app/docs/GENIE_MULTILINGUAL_TTS_v0.41.53.md`，现有队列见 `app/docs/TTS_RUNTIME_UPGRADE_v0.39.5.md`；Genie 来源固定为已验证 v0.6.4，v0.7 真流式明确排除 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -97,6 +97,8 @@
 4. +199 已按锁定范围实现：工作流从同一私有 Genie v0.6.4 验证 APK 原样提取并打包 `libc++_shared.so`，恢复 manifest 将它纳入大小/SHA，clean baseline 和最终 APK 必需库均要求存在；成品门用 `readelf -d` 解析 OpenJTalk 与 JNI bridge 的全部 `DT_NEEDED`，除 Android 系统库外必须在 APK 的 arm64 库集合中解析。版本只升 build number 198→199，schema 57、Snapshot protocol 5、Prompt/规则/世界书、翻译缓存、TTS 队列、语速、音量、UI 和中英文路径均未改。
 5. 两次总账已执行：任务前提交 `df4e407` 锁定根因、范围与不可回退项；实现提交 `6feeeb28003f3115d095f14128a2189fe55310fd` / tree `b65d421ddc8562aa8379ee09eddb14b39eb60474`。本地工作流 YAML、Python compileall、总账合同、v0.41.55 专项、版本兼容与其余可运行源码合同均通过，完整工作流列表为 75 passed / 3 environment-only unavailable；三项分别依赖 CI 才恢复的 417 桌宠包、LingChat effects 和 `kotlinc`。`git diff --check` 通过。本地未声称 Flutter/Kotlin/Release 已通过。
 6. 下一步按持续授权推送当前分支并运行完整 Actions。只有 CI 与 Draft APK 均成功才提升为 `CI PASSED / APK READY`；日语首次/二次真正出声仍须用户真机确认。
+7. 推送前用户追加的沉浸着色窄修已完成，提交为 `cc751e74f7a80159756e8513e1c8b916ebf6fdbb` / tree `76cff539a2e02309065403ca98834fa518409ea3`。`splitNovelDialogueText()` 现在只把段首 `「` 判为对白；段首或旁白内部的 `“”` 都保持白色正体，流式未闭合 `「` 从首字符起即着色，同一 `ChatDialogueColorScope` 继续让普通与沉浸共享用户所选浅紫/浅黄/浅粉。存储文本、普通聊天 `ActionTintText`、TTS、Prompt、规则和数据库均未改。
+8. 本地已通过 v0.41.28/v0.41.29 沉浸与呈现静态合同、v0.41.55 专项、总账 validator、one-shot ledger 重放逐字比对、Python 语法与 `git diff --check`。当前容器没有 Dart/Flutter，`action_tint_text_test.dart` 的 widget 真执行、Flutter analyze/tests 与 Release APK 必须由 Actions 证明，不提前标绿。
 
 
 ### 2026-09-10 v0.41.55+198 日语原生装载、不变调变速与顶部语言选择（CI PASSED / APK READY / TRUE DEVICE PENDING）
