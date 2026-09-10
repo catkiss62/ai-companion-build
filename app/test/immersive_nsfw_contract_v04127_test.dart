@@ -152,7 +152,7 @@ void main() {
     final humor = worldBookSystemPresets
         .singleWhere((preset) => preset.id == 'builtin.worldbook.humor');
     expect(humor.content, contains('NSFW时不要造梗和抽象'));
-    expect(humor.probability, 50);
+    expect(humor.probability, 30);
   });
 
   test('continuation repairs truncation instead of filling a word quota', () {

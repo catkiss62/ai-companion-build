@@ -283,7 +283,7 @@ void main() {
     expect(dailyPreset.content, contains('生成源用全角括号（动作）标记'));
     expect(dailyPreset.content, contains('【幽默】'));
     expect(dailyPreset.manualActive, isTrue);
-    expect(worldBookSystemPresets, hasLength(4));
+    expect(worldBookSystemPresets, hasLength(5));
     expect(
       byKey['immersive_07_global']!.content,
       contains('男性用户在正文中始终写作“你”'),
