@@ -51,9 +51,11 @@ class ImmersiveMessageLanguageVariantService {
     final key = '${message.id}:${language.key}';
     return _inFlight.putIfAbsent(
       key,
-      () => _generate(message.id, language).whenComplete(
-        () => _inFlight.remove(key),
-      ),
+      () => _generate(message.id, language).whenComplete(() {
+        // Do not return the removed Future from this callback. Returning the
+        // same in-flight Future makes whenComplete wait on itself forever.
+        _inFlight.remove(key);
+      }),
     );
   }
 

@@ -41,13 +41,13 @@
 | APK SHA-256 | `a4da80538999ae8be38d2dd18b584ca0d9ed48b29c5e91082a3821ed93ae5464`；与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10184946079`](https://github.com/catkiss62/ai-companion-build/actions/runs/34562176440/artifacts/10184946079)，ZIP 537,772,837 bytes / digest `4b70f398a3094628dbd595ca777acbe09807523a97f8c5c51fc34e49a1fa7a0c`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3e716d69a3124c996b8a) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 为 `CI PASSED / APK READY`；用户于 2026-09-11 明确反馈“语音没有问题”，故 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`，但旧玩游 Gemini 未通过真机验收且已被本批迁移任务取代。+205 当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`：帅 API、沉浸三语、schema 60 与思考摘要修复已落地；专项及无私有依赖的 Actions 同款 validator 全绿，本环境没有 Flutter/Dart/Kotlin 与 CI 私有资源，完整编译、全量 tests、APK 和真机结论均不得提前声称 |
+| 当前总状态 | +204 为 `CI PASSED / APK READY`；用户于 2026-09-11 明确反馈“语音没有问题”，故 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`，但旧玩游 Gemini 未通过真机验收且已被本批迁移任务取代。+205 当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING`：首轮 run 34567545341 的编译、Analyze、Kotlin、私有资源与 719 项 Flutter tests 已通过，新增沉浸外语服务 3 项因 `whenComplete` 回调返回自身 Future 而各超时 30 秒；已定位并改为无返回值清理，待重新推送完整验证，失败 run 没有 APK 可交付 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **实现并构建 +205**：把 Gemini endpoint 改为 `https://api.shuaiapi.com/v1/chat/completions`、模型改为 `gemini-3.7-flash`，继续与 DeepSeek 隔离 Key/方言；把 Gemini 的 `google.thinking_config` 作为实际顶层请求字段发送并保留 `reasoning_content` 流解析。沉浸房间增加中/日/EN 顶栏按钮，沿用全局语言与“显示外语正文”设置，首次选择或播放外语时只生成该语种并持久缓存；官方思考摘要继续进入现有 reasoning 面板。完成 schema 59→60 迁移、Snapshot/旧备份兼容、专项回归、Analyze、Release、签名与实包门后推送并提供 Draft APK 下载链接 |
+| 当前下一步 | **修复并重新构建 +205**：首轮 run 34567545341 已证明请求、schema、静态门、Analyze/Kotlin 和既有回归可编译运行，但新增沉浸外语服务的并发缓存清理形成 Future 自等待，导致 3 项测试超时。把 `whenComplete` 改成不返回被移除 Future 的代码块，重跑全量 tests、arm64 Release、签名与私有小酒狐实包门；全绿后提供 Draft APK 下载链接并进入帅 API、沉浸中/日/EN 与思考摘要真机验收 |
 | 目标 | 帅 API 使用用户给出的标准 OpenAI Chat Completions 合同；DeepSeek 保留专用 `thinking.type`，Gemini 实际 JSON 顶层使用 `google.thinking_config` 请求 `include_thoughts`，不能把 OpenAI SDK 的 `extra_body` 参数名原样发到线端。沉浸三语与普通聊天同一产品合同：中文原文一次生成，日/英首次请求时各生成一次并缓存；只保留一个当前前端语言，正文显示受“显示外语正文”控制，TTS 播放当前语言 |
 | 当前证据 | 用户提供的帅 API cURL明确 endpoint、Bearer、JSON 与模型名；未提供 Key，故真实联网仍须真机验证。Google 官方文档确认 Gemini 可返回“思考摘要”而非原始思维链，`include_thoughts` 用于请求摘要；未发现可强制摘要语言为中文的官方参数，因此本批不伪造中文思考链。实现已把 SDK `extra_body` 改为线端顶层 `google.thinking_config`，Mock SSE 锁定中文 UTF-8 `reasoning_content`；新沉浸三语服务测试锁定按语种缓存、并发去重、缺 Key 不写假缓存、schema 59 旧行兼容与日英重载。现有 THINKING 面板仍可按需翻译英文占主的真实摘要 |
 | 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或任何 API Key；两家 Key 独立安全存储，切换不得覆盖或误发另一家 Key。Gemini 请求不得携带 DeepSeek 私有 `thinking`，也不得同时发送互相冲突的 `reasoning_effort` 与 Gemini `thinking_level`。不展示或声称获得原始 CoT，只展示服务实际返回的官方思考摘要；没有官方中文强制参数就先不增加二次翻译。CI 私有小酒狐恢复/裁剪与所有既有功能门不得回归；Snapshot protocol 保持 6 |
@@ -90,7 +90,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（IMPLEMENTED / LOCAL STATIC PASSED / CI FIX IN PROGRESS / TRUE DEVICE PENDING）
 
 1. 用户确认 +204“语音没有问题”。该反馈只把 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`；旧玩游 Gemini 没有相同真机结论，并因用户要求换站而被本批取代。
 2. 用户指定新中转定价页 `https://api.shuaiapi.com/pricing` 与模型 `gemini-3.7-flash`，随后提供权威 cURL：`POST https://api.shuaiapi.com/v1/chat/completions`，Bearer 鉴权、`application/json`、标准 `messages` 与 `temperature`。本批按该线端合同改 endpoint/model；不提交或索取用户 Key，也不把旧玩游 Key 覆盖到新服务。现有安全存储槽可保留兼容迁移，但产品文案与网络目标必须全部改为帅 API。
@@ -105,6 +105,7 @@
 11. 沉浸消息模型/仓库新增日英正文与 segments 缓存，服务复用现有严格分段翻译网关并按 `messageId:language` 合并并发请求；控制器在每条中文正文提交后按当前 `tts_language` 只生成所选外语，自动/手动 TTS 播放对应语言，但情绪分类仍读取中文。页面顶栏新增中/日/EN，显示外语正文时沿用 `show_foreign_replies`，并保留较小中文对照；关闭开关时按钮仍只改变朗读语言。
 12. schema 59→60 使用幂等 `PRAGMA table_info` 后追加 `ja_content/ja_segments_json/en_content/en_segments_json` 四个默认空列；新安装也走同一 helper。Snapshot protocol 6 的既有 `immersive_messages` 整表导出自动包含新列，旧 schema 59 备份/行缺列时由默认空值恢复为中文-only，不另建易漏删的附表。
 13. 新增 `immersive_message_language_variant_test.dart` 四项测试，并更新请求 Mock、Agent 自读版本、历史版本 validator 与 workflow。`validate_v04143/45/47/48/49/50/55/58/59/60/61`、当前总账 validator、其余不依赖私有载荷的 Actions 源码 validator 和 `git diff --check` 本地通过。全量遍历中三项 Actions validator 在本机按预期无法执行：417 桌宠包与 LingChat effects 尚未由 CI 恢复，且没有 `kotlinc`；本机同样没有 Flutter/Dart，故 Analyze、Flutter tests、Kotlin、Release、签名、实包资源与 Draft 必须等待 Actions，不能记为本地通过。
+14. 实现树通过 Git Data API 推送为远端 commit `aeafbf8f797476722ec9f8a62fe0f836b0c5bde0` / tree `c51cb90d0ca9484b4c4d7fd7a12cb0b3dfccf7c0`。首轮 Actions run [`34567545341`](https://github.com/catkiss62/ai-companion-build/actions/runs/34567545341)（834）通过干净版本/schema、两私有载荷恢复、全部源码与历史 validator、Kotlin/JVM、Flutter Analyze，并有 719 项 Flutter tests 成功；唯一失败组是新增沉浸外语服务的 3 项测试各在 30 秒超时，因此未生成 APK。根因不是网络：`whenComplete(() => _inFlight.remove(key))` 的箭头回调返回了 map 中被移除的同一个 Future，完成处理反过来等待自身而死锁；已改为无返回值代码块，只执行 remove。该失败及修复必须保留，待下一轮完整 CI 验证后才能写 `CI PASSED / APK READY`。
 
 ### 2026-09-11 v0.41.60+204 小酒狐四候选与自动情绪音色修复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
