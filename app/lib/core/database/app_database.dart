@@ -4070,6 +4070,7 @@ class AppDatabase {
       'nsfw_manual_override': '',
       'nsfw_route_source': 'initial',
       'nsfw_route_turn_id': '',
+      'deepseek_model': 'deepseek-v4-flash',
       'personality_base_key': 'none',
       'personality_posture_key': 'none',
       'personality_learning_enabled': '1',
@@ -4097,6 +4098,19 @@ class AppDatabase {
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
     }
+    // +204/+205 stored the selected relay alias in the shared `model` row.
+    // The hybrid runtime uses that row exclusively for its required DeepSeek
+    // internal lane, so restore the preserved DeepSeek choice before any
+    // background or foreground generation job can be created.
+    await db.rawUpdate('''
+      UPDATE settings
+      SET value = COALESCE(
+        (SELECT value FROM settings WHERE key = 'deepseek_model'),
+        'deepseek-v4-flash'
+      )
+      WHERE key = 'model'
+        AND value IN ('[特价]gemini-3.7-flash-0.5', 'gemini-3.7-flash')
+    ''');
     // Update only the untouched legacy default. User-authored replacement
     // dictionaries, including ones that still mention Yuki, always win.
     await db.update(
@@ -5711,7 +5725,7 @@ class AppDatabase {
       final blocking = await txn.query(
         'generation_jobs',
         columns: ['id'],
-        where: "status IN ('pending','running','retry_wait')",
+        where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
         limit: 1,
       );
       if (blocking.isNotEmpty) {
@@ -6619,7 +6633,7 @@ class AppDatabase {
       final blocking = await txn.query(
         'generation_jobs',
         columns: ['id'],
-        where: "status IN ('pending','running','retry_wait')",
+        where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
         limit: 1,
       );
       if (blocking.isNotEmpty) {
@@ -6691,7 +6705,7 @@ class AppDatabase {
     final db = await database;
     final rows = await db.query(
       'generation_jobs',
-      where: "status IN ('pending','running','retry_wait')",
+      where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
       orderBy: 'created_at ASC',
       limit: 1,
     );
@@ -6742,7 +6756,7 @@ class AppDatabase {
       final competing = await txn.query(
         'generation_jobs',
         columns: ['id'],
-        where: "id <> ? AND status IN ('pending','running','retry_wait')",
+        where: "id <> ? AND status IN ('pending','running','retry_wait','awaiting_confirmation')",
         whereArgs: [id],
         limit: 1,
       );
@@ -7139,6 +7153,13 @@ class AppDatabase {
       if (rows.isEmpty) return null;
       final current = GenerationJob.fromDb(rows.first);
       if (current.isTerminal) return null;
+      if (current.status != 'pending' &&
+          current.status != 'running' &&
+          current.status != 'retry_wait') {
+        // In particular, an awaiting_confirmation draft may only leave that
+        // state through the explicit confirm/regenerate transactions below.
+        return null;
+      }
       if (current.status == 'retry_wait' &&
           current.nextRetryAt != null &&
           current.nextRetryAt!.isAfter(DateTime.now())) {
@@ -7200,6 +7221,94 @@ class AppDatabase {
       },
       where: 'id = ? AND status = ? AND run_token = ?',
       whereArgs: [id, 'running', runToken],
+    );
+    return changed > 0;
+  }
+
+  /// Parks a visible provider fragment outside the messages table. It remains
+  /// a blocking local draft until the user explicitly confirms or regenerates
+  /// it, so prompts, memories and post-turn jobs cannot observe it early.
+  Future<GenerationJob?> holdGenerationJobForUserDecision(
+    String id, {
+    required String runToken,
+    required String partialReasoning,
+    required String partialContent,
+  }) async {
+    if (runToken.isEmpty || partialContent.trim().isEmpty) return null;
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final changed = await db.update(
+      'generation_jobs',
+      {
+        'status': 'awaiting_confirmation',
+        'partial_reasoning': partialReasoning,
+        'partial_content': partialContent,
+        'run_token': '',
+        'next_retry_at': null,
+        'last_error': 'gemini_incomplete_reply',
+        'resume_reason': 'awaiting_user_confirmation',
+        'last_checkpoint_at': now,
+        'updated_at': now,
+      },
+      where: 'id = ? AND status = ? AND run_token = ?',
+      whereArgs: [id, 'running', runToken],
+    );
+    return changed == 0 ? null : generationJobById(id);
+  }
+
+  Future<GenerationJob?> claimGenerationDraftForConfirmation(String id) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final runToken = _uuid.v4();
+    final changed = await db.transaction<int>((txn) async {
+      final settingsRows = await txn.query(
+        'settings',
+        columns: ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final settings = <String, String>{};
+      for (final row in settingsRows) {
+        final key = row['key'];
+        if (key is String) settings[key] = row['value'] as String? ?? '';
+      }
+      if (settings['transfer_lock'] == '1' ||
+          settings['active_brain'] == '0') {
+        return 0;
+      }
+      return txn.update(
+        'generation_jobs',
+        {
+          'status': 'running',
+          'run_token': runToken,
+          'next_retry_at': null,
+          'last_error': '',
+          'resume_reason': 'user_confirmed_incomplete_reply',
+          'updated_at': now,
+        },
+        where: 'id = ? AND status = ?',
+        whereArgs: [id, 'awaiting_confirmation'],
+      );
+    });
+    return changed == 0 ? null : generationJobById(id);
+  }
+
+  Future<bool> restartGenerationDraft(String id) async {
+    final db = await database;
+    final changed = await db.update(
+      'generation_jobs',
+      {
+        'status': 'pending',
+        'partial_reasoning': '',
+        'partial_content': '',
+        'run_token': '',
+        'next_retry_at': null,
+        'last_error': '',
+        'resume_reason': 'user_regenerated_incomplete_reply',
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ? AND status = ?',
+      whereArgs: [id, 'awaiting_confirmation'],
     );
     return changed > 0;
   }
@@ -7725,7 +7834,7 @@ class AppDatabase {
         FROM generation_jobs g
         LEFT JOIN messages u
           ON u.id = g.user_message_id AND u.role = 'user'
-        WHERE g.status IN ('pending','running','retry_wait')
+        WHERE g.status IN ('pending','running','retry_wait','awaiting_confirmation')
            OR (
              g.status = 'failed'
              AND u.id IS NOT NULL
@@ -10661,7 +10770,7 @@ class AppDatabase {
         return null;
       }
       final blockingGeneration = await txn.rawQuery(
-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait','awaiting_confirmation') LIMIT 1",
       );
       if (blockingGeneration.isNotEmpty) return null;
       final rows = await txn.query(
@@ -11078,7 +11187,7 @@ class AppDatabase {
       // The HTTP request runs outside SQLite. Re-check the user-generation
       // fence at commit time so a chat started during that request always wins.
       final blockingGeneration = await txn.rawQuery(
-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
+        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait','awaiting_confirmation') LIMIT 1",
       );
       if (blockingGeneration.isNotEmpty) return 0;
 
@@ -17603,7 +17712,7 @@ class AppDatabase {
       'proactive_feedback': await count('proactive_feedback'),
       'retired_threads': await count('unfinished_threads', 'status = ?', ['retired']),
       'pending_post_turn_jobs': await count('post_turn_jobs', "status IN ('pending','running','retry_wait','failed')"),
-      'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
+      'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait','awaiting_confirmation')"),
       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
       'interrupted_turn_displays': await count('interrupted_turn_displays'),
       'somatic_events': await count('somatic_events'),
@@ -18394,6 +18503,7 @@ class AppDatabase {
       for (final entry in const <String, String>{
         'active_brain': '1',
         'model': 'deepseek-v4-flash',
+        'deepseek_model': 'deepseek-v4-flash',
         'reasoning_effort': 'high',
         'nsfw_active': '0',
         'nsfw_reference_active': '0',
