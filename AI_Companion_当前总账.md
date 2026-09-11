@@ -34,27 +34,27 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04165-refresh-settings-phone-media`，目标 `v0.41.65+209 / schema 60 / Snapshot protocol 6`。以 +208 已恢复的 +206 设置布局为基线，只按用户本次逐项指令修改；不重新采用 +207 的设置归一方案 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +208 Actions build head `3a389698faaa55a2808b3e3ab3d2e125461e06b4`；成功后总账差量回写为分支 head `7957b750d7514114adaa2abadd3c5a2fd6c5eb44` / tree `943e6a8a84b4c9046a317adf2fd2ad175bb0f789`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前有效 APK 为 `0.41.64+208`；本批源码目标为 `0.41.65+209 / schema 60 / Snapshot protocol 6`，继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移 |
-| 最终 CI | +208 run [`34633781191`](https://github.com/catkiss62/ai-companion-build/actions/runs/34633781191)（847）完整成功：总账目标 SHA、两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`731/731` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、退休语音排除、OpenJTalk ELF 闭包、塔罗、Artifact、Draft 上传及分支回写均通过 |
-| 测试 APK | `AI-Companion-v0.41.64-208-Settings-Rollback-APK.apk`，CI 构建输出 544.7 MB |
-| APK SHA-256 | `2eb9fda6d6008918694c1993fc9ac649cc9ae432bb9b894908085782b19f16b7`；由 CI 对最终 APK 计算并随 Draft 资产上传 |
-| Artifact / Release | Artifact [`10277803883`](https://github.com/catkiss62/ai-companion-build/actions/runs/34633781191/artifacts/10277803883)，ZIP 537,820,981 bytes / digest `f120d784ff9372729d3e66e2d01a70da89a1d471b1814b69be8cf3024a635ae5`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9e86d80803d2918eae32) 未发布，`main` 未合并 |
+| 有效构建 head / tree | +209 Actions build head `cc5286df0810db565d9d15879700c73efcbd9836` / tree `dd0066b832b4ca6af1c5a91805e2d187b479b847`。授权 GitHub 连接写入的远端 tree 与本地最终 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
+| App / 数据库 | 当前有效 APK 为 `0.41.65+209 / schema 60 / Snapshot protocol 6`；继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移 |
+| 最终 CI | +209 run [`34651532509`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509)（849）完整成功：干净基线、私有载荷固定 SHA 与分源、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`735/735` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
+| 测试 APK | `AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk`，544,709,718 bytes |
+| APK SHA-256 | `8e37131040a36d53d3982ca70aa9fa31e148cd6df8b277d0f2eac03d3c5afcd3`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10283904266`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509/artifacts/10283904266)，ZIP 537,831,077 bytes / digest `6fe69d109bdccecec8c8acb38a5ca9058c6e9dc4d78c9954735b21382cca0169`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1160d6f273e360a517f2) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 当前为 `IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / PUSH AUTHORIZED / CI PENDING / TRUE DEVICE PENDING`：实现提交 `89344d4` 已在本地生成；本地专项与可运行的全历史 Python 门已通过。用户已在当前对话明确授权推送公开仓库开发分支、运行 Actions 并创建 Draft APK；本机 HTTPS Git 无凭据，已确认授权 GitHub 连接对仓库具备 push/admin 权限，改由该连接写入同一开发分支。日语首次切入 `NullPointerException` 与偶发固定台词分开取证；沉浸动作括号已确认是特殊风格提示词冲突并只在沉浸最终锁窄修 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 849 全绿并已生成 Draft APK；刷新/错误提示、设置与规则、愿望/随笔、媒体审计及沉浸动作括号仍需真机自然验证。日语首次切入 `NullPointerException` 与偶发固定台词继续分开进入 T1，不冒充本批已修 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **+209 刷新、设置去重、规则、媒体缓存与查手机修复**：正常完整回复也永久提供刷新；Gemini 截断草稿的“确认回复”改为明确说明“回复截断”；普通聊天、悬浮窗口、沉浸房间的顶部调用错误统一使用既有 API 错误粉红红色。仅删除侧栏“全部设置”中与侧栏快捷入口或底部“更多”重复的项；若无独立项，使侧栏按钮直接进入既有“更多”框架并使用功能型注释。清除设置 UI 中把任务步骤/完成情况当产品注释的文案，并把此要求设为持续顺路维护原则 |
-| 目标 | 同包加入 Rule 05 非性交行为不要求 AI 角色同步高潮；审视并精简 Rule 07 重复强调标题。实现 D6 后续的图片/表情 content-addressed 自动归一化，避免新媒体形成重复缓存，同时审计斗图重复选择是否为真实 bug；修复愿望单长期不更新，并把随笔从固定模板改为基于可用素材的纯随机表达。TTS 固定日语台词只做窄审计，有明确根因才修，否则等待诊断 |
-| 当前证据 | +208 设置回退已由 run 847 全绿与用户实际界面确认；D6 exact-SHA `media_blobs`、message/album 独立引用和手动旧数据迁移已存在，审计确认所有当前图片/表情新写入均经 `commitDraft → MediaBlobStorage.store` 自动按原图 SHA 归一化。日语首次跨语种切换另有已知 NPE，本轮不得把无诊断的“固定台词”与该问题混为一因 |
-| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。沉浸房间动作括号只修已确认的提示词优先级冲突，不做正文字符串删括号补丁，也不改变普通聊天动作渲染；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
+| 当前下一步 | **D3 · Phase 3C 习惯消费**：在 Phase 3B 已证明主动来源不再单一的基础上，让已成熟兴趣以有界利用、相邻探索和少量 wildcard 预算影响联网选题、主动话题与少量表达习惯；先完成 Phase 3C，不把 Phase 4 混入同一代码包 |
+| 目标 | 消费成熟兴趣时保留来源、成熟度、新鲜度、版本与可撤销性；兴趣只能产生有限偏置，不能变成人设硬标签、无限重复同一主题或绕过主动消息/联网预算。Phase 3C 完成独立代码审查与真机证据后，Phase 4 再做低频澄清与娱乐测试 |
+| 当前证据 | Phase 3A 已有真机 forming evidence，Phase 3B 已有主动来源平衡与多次 `rest_selected/completed` 真机样本；+209 run 849 全绿并生成 Draft APK。Phase 3C/MCP 消费开关仍按排期关闭，不能把已有证据误写成已经消费成熟兴趣 |
+| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 继续独立安全保存，不因兴趣消费改变提供商边界。不让兴趣绕过隐私、联网、主动频率、Gate、Outcome 或用户关闭能力；不把一次点击/搜索/图片标签直接提升为稳定偏好。保留兴趣删除、停用、衰减、版本和回滚；不修改沉浸房间、Snapshot protocol 6 或已通过的 Genie-TTS 主链。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性、D6 真机长尾均不混入 Phase 3C 实现包 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
-| 完成判据 | 三聊天面刷新/错误提示、截断确认、设置导航与文案、Rule 05/07、媒体去重、愿望单和随机随笔均有针对性自动化；同内容媒体只复用 blob 且不能破坏独立引用/备份。历史 validators、Kotlin/JVM、Flutter Analyze/全量 tests、arm64 Release、签名与私有 TTS 实包门全部通过并生成 Draft APK。自动化成功只记 `APK READY`，实际界面、行为、媒体与查手机仍待真机验证 |
-| 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
+| 实现边界 | 只消费达到既有成熟门的兴趣证据；利用/相邻探索/wildcard 分别有独立预算和冷却，选择结果继续进入现有 Desire→Intent→Gate→Action→Outcome，不增加旁路调度器。表达习惯只允许轻量、可衰减的风格偏置，不直接写死台词或覆盖七大规则 |
+| 完成判据 | 有确定性夹具覆盖成熟/未成熟/过期/已删除兴趣、三种预算、冷却、关闭与回滚；证明不会绕过联网与主动额度、不会无限复读、不会把未验证候选当兴趣。专项与历史回归、Kotlin/JVM、Flutter Analyze/全量 tests、Release/签名/私有实包门通过并生成 Draft APK；随后用真机自然样本和独立代码审查决定是否进入 Phase 4 |
+| 直接详细入口 | Phase 3A/3B：`app/docs/AI_INTEREST_EVIDENCE_PHASE3A_v0.41.42.md`、`app/docs/PHASE3B_QUESTION_AUTONOMY_v0.41.43.md`、`app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`；主链：Desire→Intent→Gate→Action→Outcome、`autonomous_web`、interest evidence/候选仓储与主动消息仲裁；造梗来源仍以 `dialogue_expression_plan.dart` / `prompt_builder.dart` 为准，不由兴趣消费另造固定台词。T1、D6、WorldBook 2D 继续按导航独立保留 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -91,7 +91,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-11 v0.41.65+209 刷新、设置去重、规则、媒体缓存与查手机修复（IMPLEMENTED / LOCAL VALIDATED / PUSH AUTHORIZED / CI PENDING）
+### 2026-09-11 v0.41.65+209 刷新、设置去重、规则、媒体缓存与查手机修复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. +208 设置回退已由 run 847 完整通过，用户确认本次未修改内容可按明确清单继续。新分支 `agent/v04165-refresh-settings-phone-media` 以 +208 HEAD 为基线，目标 `0.41.65+209 / schema 60 / Snapshot protocol 6`；本条是正式修改前登记，尚未代表任何运行实现或测试通过。
 2. 回复交互：把刷新/重新生成从“仅 Gemini 出错或截断时出现”改为正常完整回复也永久可用；Gemini 异常草稿的按钮/动作语义保持，但泛化的“确认回复”须改为明确的截断确认文案，预定优先使用“回复已截断，仍确认保留这段回复？”以说明状态、动作与后果。普通聊天、悬浮窗口、沉浸房间须先逐入口核对调用错误提示；凡位于内容上方的 Gemini/API 调用错误统一复用输入框上方既有 API 错误粉红红色，不凭猜测新增第二套颜色。
@@ -111,6 +111,7 @@
 16. 用户追加的沉浸动作括号已定位：`ruleContentV0400_07_special_uncanny` 内部确有“所有场景、动作、神态描写必须用 () 包裹”，特殊风格会注入沉浸 prompt，而旧最终锁只禁止 reasoning 括号，形成优先级缺口。修复只在 `immersive_prompt_builder.dart` 最终锁明确正文叙述、动作、神态不用全角/半角圆括号并覆盖特殊风格；不改特殊风格在普通聊天的既有行为，不做生成后字符串删括号。
 17. 本地验证：`validate_v04165_refresh_settings_phone_media.py`、+208/+207/+206/+195 兼容门、总账紧凑层与 `git diff --check` 均通过；工作流全部 Python validator 中除缺私有 417 桌宠、LingChat effects 与本机 `kotlinc` 的预期环境门外，其余均通过。新增 Flutter tests 覆盖错误通知分类、随笔质量/近重复与正常基线愿望候选；当前容器无 Dart/Flutter，不能把未运行的 Flutter tests、Analyze、Kotlin、Release 或 APK 写成通过。
 18. 本地实现提交为 `89344d4`（`feat: add refresh and phone projection fixes`），阻塞记录提交为 `e240d16`。首次推送被安全审批拒绝后，用户已在当前对话明确授权向公开仓库开发分支推送、运行 Actions 与创建 Draft APK；本机 HTTPS Git 随后因无凭据失败，已确认授权 GitHub 连接属于 `catkiss62` 且对仓库具备 push/admin 权限，改由该连接写入同一分支。当前仍为 CI 启动前状态，不提前把 Artifact、Draft APK 或远端 SHA 写成成功。
+19. 授权连接把本地最终 tree `dd0066b832b4ca6af1c5a91805e2d187b479b847` 精确写入公开开发分支，远端构建提交为 `cc5286df0810db565d9d15879700c73efcbd9836`；未触碰 `main`。Actions run [`34651532509`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509)（849）完整成功：全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`735/735` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传全绿。APK 为 544,709,718 bytes，SHA-256 `8e37131040a36d53d3982ca70aa9fa31e148cd6df8b277d0f2eac03d3c5afcd3`；Artifact [`10283904266`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509/artifacts/10283904266) 为 537,831,077-byte ZIP / digest `sha256:6fe69d109bdccecec8c8acb38a5ca9058c6e9dc4d78c9954735b21382cca0169`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1160d6f273e360a517f2) 保持草稿。自动化只记 `APK READY`，三入口视觉、刷新/截断交互、愿望/随笔、媒体复用与沉浸括号仍为真机待验；当前下一主任务提升为 Phase 3C，Phase 4 等 Phase 3 独立审查后再进入，T1 继续保留。
 
 ### 2026-09-11 v0.41.64+208 设置导航整体回退到 +206（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
