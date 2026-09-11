@@ -18,6 +18,15 @@ def require(text: str, *tokens: str) -> None:
 
 def main() -> None:
     assert "version: 0.41.66+210" in read("pubspec.yaml")
+    workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
+        encoding="utf-8"
+    )
+    require(
+        workflow,
+        "agent/v04166-phase3c-refresh-notes-wishlist",
+        "Build AI Companion v0.41.66+210 APK",
+        "validate_v04166_phase3c_phone_pacing.py",
+    )
     database = read("lib/core/database/app_database.dart")
     require(
         database,

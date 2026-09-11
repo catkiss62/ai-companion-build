@@ -32,7 +32,7 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04166-phase3c-refresh-notes-wishlist`，本地已实现 `v0.41.66+210 / schema 61 / Snapshot protocol 6`。以 +209 远端最终 tree `dd0066b832b4ca6af1c5a91805e2d187b479b847` 为唯一代码基线，完成 Phase 3C 有界兴趣消费、特殊风格括号源规则删除、普通/沉浸刷新与播放间距、白天六时段随笔及愿望单 6 小时新增冷却；未推送、CI 与 APK 待真实 Actions 验证 |
+| 当前开发分支 | `agent/v04166-phase3c-refresh-notes-wishlist`，本地已实现 `v0.41.66+210 / schema 61 / Snapshot protocol 6`。以 +209 远端最终 tree `dd0066b832b4ca6af1c5a91805e2d187b479b847` 为唯一代码基线，完成 Phase 3C 有界兴趣消费、特殊风格括号源规则删除、普通/沉浸刷新与播放间距、白天六时段随笔及愿望单 6 小时新增冷却。远端首个功能提交 `977eadb` 的 tree 与本地完全一致，但因 workflow 的 push 分支白名单漏加 +210 分支未触发 Actions；已本地窄修并增加静态合同，待二次推送触发真实 CI/APK |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +209 Actions build head `cc5286df0810db565d9d15879700c73efcbd9836` / tree `dd0066b832b4ca6af1c5a91805e2d187b479b847`。授权 GitHub 连接写入的远端 tree 与本地最终 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
 | App / 数据库 | 当前有效 APK 仍为 `0.41.65+209 / schema 60 / Snapshot protocol 6`；本批目标 `0.41.66+210 / schema 61 / Snapshot protocol 6`，schema 61 只为 Phase 3C 可审计消费事件建表，旧备份补空表且不改变 Snapshot protocol |
@@ -105,6 +105,7 @@
 10. schema 61 已新增 `ai_interest_consumption_events`，进入容量统计、Snapshot 6 导出/导入顺序和旧 schema 补空。诊断只输出近 24h 状态/mode/surface 聚合数与开关，不输出 key、标签、域名、URL、查询、候选 ID 或证据正文。“成熟兴趣参与自主选题”总开关已放入模型与联网设置，关闭后选择和新落库都停止。
 11. 四项窄修已完成：神人模式源规则删除“所有动作/神态用括号”，schema 升级和每次 `ensureReady` 只对精确命中旧默认 hash 的规则/内置世界书迁移，用户编辑内容不覆盖；普通聊天和沉浸房间都删除刷新—播放之间独有的 2dp 空隙；随笔限定本地 09:00–24:00 六个 150 分钟时段、每段最多调用一次生成、每日最多 6 条，疲劳≥0.85 时跳过当前机会且最后时段在疲劳≥0.65 时跳过；愿望单保留深夜可用与既有每日 3 次变化预算，只新增相邻愿望至少间隔 6 小时。
 12. 本地验证真值：+210 专项、+209～+205 兼容、当前总账和 workflow 真实执行的其他源码门共 86 项通过；另 3 项分别依赖 CI 恢复的 417 项桌宠源、LingChat effects 与 `kotlinc`，在当前容器不可用，不是源码失败。workflow YAML 解析、Python 语法和 `git diff --check` 通过。容器没有 Flutter/Dart/Kotlin 工具链，因此尚不得写成 Analyze、Flutter tests、JVM、Release 或 APK 通过；下一动作是提交/推送分支并跟踪 Actions。真机仍需长时自然观察兴趣是否偶尔出现且不连续复读、随笔实际时段/疲劳节律、愿望新增间隔、两处按钮视觉间距及特殊风格括号消失。
+13. 本地功能提交为 `f524d72`；因容器 Git 无凭据，经用户已授权的 GitHub 连接创建远端提交 `977eadb869427e437d5e7876b9ac008059012e6a`，远端 tree `b8768d34c68f323e5e64b91d4d87c898717fd942` 与本地精确一致，`main` 未改。该次远端分支创建后未出现 Actions run，查明是 `build-apk.yml` 的 push branches 仍停在 +209，漏了 +210 新分支；已将 +210 分支加入触发列表，并让 +210 validator 固定检查分支、构建名与自身调用，避免后续版本再无声不触发。该窄修未改运行功能，必须二次推送后才能记录真实 CI 结果。
 
 ### 2026-09-11 v0.41.65+209 刷新、设置去重、规则、媒体缓存与查手机修复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

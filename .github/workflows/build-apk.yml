@@ -401,6 +401,7 @@ on:
       - agent/v04163-immersive-tts-settings-hardening
       - agent/v04164-settings-rollback
       - agent/v04165-refresh-settings-phone-media
+      - agent/v04166-phase3c-refresh-notes-wishlist
   workflow_dispatch:
   pull_request:
     branches:
