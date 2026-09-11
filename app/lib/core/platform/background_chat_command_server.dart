@@ -7,6 +7,7 @@ import '../ai/reasoning_translation_service.dart';
 import '../database/app_database.dart';
 import '../models/chat_language_variant.dart';
 import '../models/chat_message.dart';
+import '../presentation/generation_presentation_policy.dart';
 import '../storage/message_attachment_storage.dart';
 import 'overlay_generation_snapshot.dart';
 import 'pet_autonomy_snapshot.dart';
@@ -103,6 +104,9 @@ class BackgroundChatCommandServer {
           'ok': controller.error == null,
           'cancelled': sendEpoch != _overlaySendEpoch,
           'error': controller.error ?? '',
+          'notice': controller.notice ?? '',
+          'notice_is_error':
+              GenerationPresentationPolicy.isErrorNotice(controller.notice),
           'messages': await _presentRecentMessages(8),
         };
       case 'generationSnapshot':

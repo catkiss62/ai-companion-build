@@ -112,10 +112,10 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04164-settings-rollback",
-        "0.41.64+208",
+        "agent/v04165-refresh-settings-phone-media",
+        "0.41.65+209",
         "schema 60",
-        "帅 API",
+        "玩游 Key",
         "沉浸房间",
         "Snapshot protocol 6",
         "造梗来源",
@@ -207,7 +207,7 @@ def main() -> None:
     database = DATABASE.read_text(encoding="utf-8")
     require(
         re.search(
-            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208)\s*$",
+            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209)\s*$",
             pubspec,
             re.MULTILINE,
         )

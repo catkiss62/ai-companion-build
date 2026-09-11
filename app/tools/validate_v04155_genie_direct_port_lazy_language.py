@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.64+208" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.64+208';" in read(
+assert "version: 0.41.65+209" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.65+209';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -221,13 +221,13 @@ user_default_hashes = {
     "ruleContentV04155_04IntimacyCore":
         "547afce48773ffe8c159befeb8ecad17ecc4840d29fa25ddc482f9438ffc6d8c",
     "ruleContentV04155_05IntimacyRendering":
-        "8f5e39c366a5c09aad0398e49ede103bfd1fb2e25d8894a0f64d6db4456d906a",
+        "b30afa45447b14bb80aeccd0a851b114dbbaf0940575470a663db1729c898c99",
     "ruleContentV04155_06IntimacyReference":
         "844488e94b947cd8aaaad729ea6899a0550739c107e327f9ed7c739a69ba5e1f",
     "ruleContentV04155_ImmersiveGlobal":
         "6f215ca791794ca1337bed4c0bba8d3882f6402327e2640f15c85d64f86941ca",
     "ruleContentV04155_ImmersiveNsfwSource":
-        "0b617fd358183798a2fc3a3eeb7ee2f4da7561fc90274e634ef158df482a78a1",
+        "1685e3bc0567762e55d5c6bd07b39767b64af2d5f0af6d57477cb1c9a7d54c33",
 }
 for name, expected in user_default_hashes.items():
     body = triple_const(user_rules, name)

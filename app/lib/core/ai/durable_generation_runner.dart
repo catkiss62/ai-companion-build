@@ -1263,7 +1263,7 @@ $finalGenerationReminder
       return GenerationRunResult(
         status: 'incomplete',
         assistant: draft,
-        notice: 'Gemini 回复未完整结束。当前文字尚未进入上下文或记忆，请选择“重新生成”或“确认回复”。',
+        notice: 'Gemini 回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。',
       );
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);

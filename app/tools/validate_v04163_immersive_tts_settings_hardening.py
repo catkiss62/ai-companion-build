@@ -17,10 +17,10 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    require(read("pubspec.yaml"), "version: 0.41.64+208")
+    require(read("pubspec.yaml"), "version: 0.41.65+209")
     require(
         read("lib/core/agent/agent_self_reader.dart"),
-        "static const buildLabel = 'v0.41.64+208';",
+        "static const buildLabel = 'v0.41.65+209';",
     )
 
     secure = read("lib/core/storage/secure_config.dart")
@@ -95,7 +95,7 @@ def main() -> None:
     more = read("lib/features/more/companion_more_page.dart")
     setting_hub = read("lib/features/settings/settings_page.dart")
     chat_page = read("lib/features/chat/chat_page.dart")
-    require(more, "功能分类", "AI Companion · v0.36.0+85")
+    require(more, "功能分类", "AI Companion · v0.41.65+209")
     for title in ("她", "你们", "能力", "手机感知", "数据与高级"):
         assert title in more, title
     assert "SettingsDomainList" not in more
@@ -112,7 +112,7 @@ def main() -> None:
         setting_hub,
         "常用聊天选项也保留在头像侧栏；两处使用同一份设置，不会互相覆盖。",
     )
-    require(chat_page, "await Navigator.of(pageContext).pushNamed('/settings');")
+    require(chat_page, "widget.onOpenMore?.call();")
     v2 = chat_page[chat_page.index("Future<void> _openQuickPanelV2") :]
     for shortcut in (
         "title: '主动联系'",
@@ -121,7 +121,7 @@ def main() -> None:
         "title: '文字演出'",
     ):
         assert shortcut in v2, shortcut
-    require(v2, "subtitle: '完整设置将在下一步重新分类。'")
+    require(v2, "subtitle: '浏览全部功能分类。'")
 
     require(
         read("test/settings_information_architecture_test.dart"),
@@ -136,7 +136,7 @@ def main() -> None:
     )
     require(
         read("test/agent_self_reader_v0416_test.dart"),
-        "build=v0.41.64+208 schema=60",
+        "build=v0.41.65+209 schema=60",
     )
 
     print("v0.41.63 immersive TTS, diagnostics, settings and routing contracts passed")

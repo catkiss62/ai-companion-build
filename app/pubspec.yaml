@@ -78,7 +78,7 @@ publish_to: 'none'
 # Historical validator compatibility: version: 0.41.60+204
 # Historical validator compatibility: version: 0.41.61+205
 # Historical validator compatibility: version: 0.41.63+207
-version: 0.41.64+208
+version: 0.41.65+209
 
 environment:
   sdk: '>=3.12.0 <4.0.0'

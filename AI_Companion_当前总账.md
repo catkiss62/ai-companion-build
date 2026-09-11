@@ -32,28 +32,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04164-settings-rollback`，目标 `v0.41.64+208 / schema 60 / Snapshot protocol 6`。用户要求先看到还原结果，本批只把侧边栏、底部“更多”、总设置页、设置内说明/交互及对应测试整体还原为 +206 原样；+207 的非设置 TTS/诊断核心保留 |
+| 当前开发分支 | `agent/v04165-refresh-settings-phone-media`，目标 `v0.41.65+209 / schema 60 / Snapshot protocol 6`。以 +208 已恢复的 +206 设置布局为基线，只按用户本次逐项指令修改；不重新采用 +207 的设置归一方案 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +208 Actions build head `3a389698faaa55a2808b3e3ab3d2e125461e06b4`；成功后总账差量回写为分支 head `7957b750d7514114adaa2abadd3c5a2fd6c5eb44` / tree `943e6a8a84b4c9046a317adf2fd2ad175bb0f789`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前源码目标为 `0.41.64+208 / schema 60 / Snapshot protocol 6`；继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
+| App / 数据库 | 当前有效 APK 为 `0.41.64+208`；本批源码目标为 `0.41.65+209 / schema 60 / Snapshot protocol 6`，继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移 |
 | 最终 CI | +208 run [`34633781191`](https://github.com/catkiss62/ai-companion-build/actions/runs/34633781191)（847）完整成功：总账目标 SHA、两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`731/731` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、退休语音排除、OpenJTalk ELF 闭包、塔罗、Artifact、Draft 上传及分支回写均通过 |
 | 测试 APK | `AI-Companion-v0.41.64-208-Settings-Rollback-APK.apk`，CI 构建输出 544.7 MB |
 | APK SHA-256 | `2eb9fda6d6008918694c1993fc9ac649cc9ae432bb9b894908085782b19f16b7`；由 CI 对最终 APK 计算并随 Draft 资产上传 |
 | Artifact / Release | Artifact [`10277803883`](https://github.com/catkiss62/ai-companion-build/actions/runs/34633781191/artifacts/10277803883)，ZIP 537,820,981 bytes / digest `f120d784ff9372729d3e66e2d01a70da89a1d471b1814b69be8cf3024a635ae5`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9e86d80803d2918eae32) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 帅 API 不可用，已由后续双通道取代；+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，重要真机主链已通过，但从已播放中文/英语的状态首次切入日语仍有 `language=ja` 的 `NullPointerException`。+207 APK 的设置导航属于已确认产品回归；+208 设置精确回退当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，八个设置文件与 +206 字节一致且七大规则入口已自动化锁定。动作/神态括号继续只观察，不改 Prompt |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 当前为 `IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / PUSH AUTHORIZED / CI PENDING / TRUE DEVICE PENDING`：实现提交 `89344d4` 已在本地生成；本地专项与可运行的全历史 Python 门已通过。用户已在当前对话明确授权推送公开仓库开发分支、运行 Actions 并创建 Draft APK；本机 HTTPS Git 无凭据，已确认授权 GitHub 连接对仓库具备 push/admin 权限，改由该连接写入同一开发分支。日语首次切入 `NullPointerException` 与偶发固定台词分开取证；沉浸动作括号已确认是特殊风格提示词冲突并只在沉浸最终锁窄修 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **+208 设置基线真机查看并等待用户逐项指定**：覆盖安装后确认侧栏常用入口、旧“全部设置”文字与 `/settings` 跳转、底部“更多”旧五分类，以及“更多→数据与高级→七大规则”。不得再次把常用侧栏选项搬入“更多”或复制完整设置列表；刷新按钮、TTS 日语根修、CPU 快速档和其他功能等待用户下一步明确 |
-| 目标 | 先建立无歧义的旧设置基线：侧栏保留主动联系、聊天画面、语音与情绪、文字演出等高频入口；侧栏“全部设置”继续 push `/settings` 且保留旧注释；底部“更多”恢复她/你们/能力/手机感知/数据与高级五分类；总设置页恢复 +206 的六责任域和原有提示。之后只按用户逐项指令修改 |
-| 当前证据 | `app.dart`、`chat_page.dart`、`chat_quick_settings_pages.dart`、`companion_more_page.dart`、`settings_category_pages.dart`、`settings_page.dart` 及两项信息架构 Widget 测试均已与 +206 commit `36e674597a9c579aec86d555217ab4dd658ec8b0` 做 `git diff --exit-code`，结果为完全一致；+207 沉浸房间 TTS/诊断核心文件未回退。本机缺 Flutter/Dart，故尚无新的 Analyze/Widget test/Release 证据，也没有新 APK |
-| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。动作括号本批只观察，不增加重复禁令、不做字符串删括号补丁；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
+| 当前下一步 | **+209 刷新、设置去重、规则、媒体缓存与查手机修复**：正常完整回复也永久提供刷新；Gemini 截断草稿的“确认回复”改为明确说明“回复截断”；普通聊天、悬浮窗口、沉浸房间的顶部调用错误统一使用既有 API 错误粉红红色。仅删除侧栏“全部设置”中与侧栏快捷入口或底部“更多”重复的项；若无独立项，使侧栏按钮直接进入既有“更多”框架并使用功能型注释。清除设置 UI 中把任务步骤/完成情况当产品注释的文案，并把此要求设为持续顺路维护原则 |
+| 目标 | 同包加入 Rule 05 非性交行为不要求 AI 角色同步高潮；审视并精简 Rule 07 重复强调标题。实现 D6 后续的图片/表情 content-addressed 自动归一化，避免新媒体形成重复缓存，同时审计斗图重复选择是否为真实 bug；修复愿望单长期不更新，并把随笔从固定模板改为基于可用素材的纯随机表达。TTS 固定日语台词只做窄审计，有明确根因才修，否则等待诊断 |
+| 当前证据 | +208 设置回退已由 run 847 全绿与用户实际界面确认；D6 exact-SHA `media_blobs`、message/album 独立引用和手动旧数据迁移已存在，审计确认所有当前图片/表情新写入均经 `commitDraft → MediaBlobStorage.store` 自动按原图 SHA 归一化。日语首次跨语种切换另有已知 NPE，本轮不得把无诊断的“固定台词”与该问题混为一因 |
+| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。沉浸房间动作括号只修已确认的提示词优先级冲突，不做正文字符串删括号补丁，也不改变普通聊天动作渲染；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
-| 完成判据 | 上述八个设置相关文件与 +206 完全一致，七大规则重新可经“更多→数据与高级→七大规则”进入，+207 非设置核心无意外变化；新增 SHA-256 专项门、历史 validators、Kotlin/JVM、Flutter Analyze/全量 tests、arm64 Release、签名与私有 TTS 实包门全部通过并生成 Draft APK。自动化成功只记 `APK READY`，用户看到实际界面后再逐项指定下一步 |
+| 完成判据 | 三聊天面刷新/错误提示、截断确认、设置导航与文案、Rule 05/07、媒体去重、愿望单和随机随笔均有针对性自动化；同内容媒体只复用 blob 且不能破坏独立引用/备份。历史 validators、Kotlin/JVM、Flutter Analyze/全量 tests、arm64 Release、签名与私有 TTS 实包门全部通过并生成 Draft APK。自动化成功只记 `APK READY`，实际界面、行为、媒体与查手机仍待真机验证 |
 | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -83,12 +83,34 @@
 | D4 · 单聊表情包表达层（TRUE DEVICE PASSED） | v0.41.46 的导入、随机表达、GIF、180dp、`sticker.send`、自读与认知已由用户肉眼确认，无需备份/诊断 | 保持现有策略；用户发送链由 D5 单独验收 |
 | D5 · 双向普通图片与用户表情媒体闭环（TRUE DEVICE PASSED / CLOSED） | v0.41.48 run 34186859452、测试 APK 与用户肉眼 smoke 均通过；表情排序/斗图/纯表情、正文渲染、图片 Agent、联网存图与世界书排序未报告问题 | 功能链收口；本次发现的媒体重复持久化转入 D6，不倒写为 D5 功能失败。自主媒体以后接统一仲裁 |
 | D6 · 聊天媒体引用、缓存查看与删除（CI PASSED / APK READY / TRUE DEVICE PENDING） | schema 58 已实现 exact-SHA `media_blobs`、message/album 独立引用、手动 dry-run/确认迁移、缓存多选删除与 Snapshot protocol 6；+202 run 826 已补齐 Android 保存前 `media/` 白名单并通过专项合同、Flutter analyze/tests、Kotlin 与 Release 实包 | 原备份不改；真机验证删除表情/图片后的保存备份、重复执行、相册引用保护、缓存删除与跨机恢复；真机通过前不得写 CLOSED |
+| T1 · TTS 日语根修与 CPU 快速档 | +209 仅做固定台词窄审计；需要新诊断或可复现证据 | 日语首次跨语种 NPE、固定台词/投影缓存与前端状态分别归因；CPU 稳定/快速档须记录冷暖 RTF、持续多段、PSS、温升和失败率，不与 +209 UI/媒体/查手机包混做 |
 | E · Agent v2 与延后项目 | **v0.41.50，紧接 v0.41.49** | 当前最多两工具且只有一次 continuation。Agent v2 改为最多 3 个规划回合/6 次调用的 observe→act→verify，保留风险、取消与事务门；不得与媒体 schema 混包。Skills/MCP、Harness、视频、提醒等仍后置；Token 命中/缓存优化最后做 |
 | F · v0.41.27～31 薄人设 + NSFW 统一运行时 | 当前已由后续版本与新真机证据覆盖 | 极薄人设、动作首帧、长 reasoning 后逐字播放和疲劳已有用户正反馈；NSFW 视角/流程及主动新题继续自然观察，但不再阻塞当前 Phase 2B 代码包 |
 
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-11 v0.41.65+209 刷新、设置去重、规则、媒体缓存与查手机修复（IMPLEMENTED / LOCAL VALIDATED / PUSH AUTHORIZED / CI PENDING）
+
+1. +208 设置回退已由 run 847 完整通过，用户确认本次未修改内容可按明确清单继续。新分支 `agent/v04165-refresh-settings-phone-media` 以 +208 HEAD 为基线，目标 `0.41.65+209 / schema 60 / Snapshot protocol 6`；本条是正式修改前登记，尚未代表任何运行实现或测试通过。
+2. 回复交互：把刷新/重新生成从“仅 Gemini 出错或截断时出现”改为正常完整回复也永久可用；Gemini 异常草稿的按钮/动作语义保持，但泛化的“确认回复”须改为明确的截断确认文案，预定优先使用“回复已截断，仍确认保留这段回复？”以说明状态、动作与后果。普通聊天、悬浮窗口、沉浸房间须先逐入口核对调用错误提示；凡位于内容上方的 Gemini/API 调用错误统一复用输入框上方既有 API 错误粉红红色，不凭猜测新增第二套颜色。
+3. 规则：Rule 05 的“高潮引导 · 跨轮同步状态机”追加第 8 条，明确口交、乳交等非性交行为不要求 AI 角色同步高潮；Rule 07 标题“重要：色情模块，一定要认真执行”存在“重要/一定/认真”三重重复强调，精简为职责明确但不过度加权的“色情描写强化模块”，正文的“世界级专业水准 · 零容错执行”副说明与具体约束不削弱。实现须走七大规则默认值和精确 hash 迁移，只升级未编辑的旧默认内容，不覆盖用户自定义文本。
+4. 设置：只检查侧栏“全部设置”页本身与侧栏快捷入口、底部“更多”的功能重复，不删除侧栏高频快捷入口，也不再复制完整设置到“更多”。重复项删净后，若无独立功能，侧栏“全部设置”按钮直接进入现有“更多”五分类；小字使用“浏览全部功能分类”等功能说明。底部“更多”顶部“先按稳定职责分开入口……这次不换皮肤……”等开发任务式说明删除或改成产品功能说明。新增持续性顺路原则：以后发现把任务要求、步骤、测试状态或完成情况写入用户界面注释时，顺路删除/正常化；未发现的不为此做全项目机械改写，后续不得新加。
+5. TTS：用户观察到两次日语朗读疑似使用固定台词，但已恢复存档且无本轮诊断。只审计明显的 hard-coded sample、错误 fallback、语言投影缓存键或失败后复用；若能由源码和测试明确定位则窄修，否则只把所需诊断字段/复现路径留给下轮，不与已知首次切日语 NPE强行合并，也不在本批做 CPU 快速档。
+6. 媒体：在现有 D6 content-addressed blob 和独立引用合同上，补齐新图片/表情写入时的自动 exact-SHA 判断与复用，防止同一内容再次落成重复缓存；旧 protocol 5、Snapshot 6、相册引用保护与历史消息附件不得回归。斗图中回复相同表情本身可以是正常互动，先审计是否存在“错误复用用户本轮附件/候选集合退化/随机器恒定”等严重 bug；只有存在机制错误才修，不能为了机械去重禁止有语义的同图回敬。
+7. 查手机：愿望单长期不更新须先定位生成触发、持久化和展示过滤链，再按真实原因修复；随笔不再从固定方向模板轮换，改为纯随机选材/表达，同时保持现有 token 与频率边界。两者必须区分“没有新数据”和“生成成功但 UI 不显示”，失败不能伪装为已更新。
+8. 沉浸房间动作括号：检查内部格式化代码与提示词是否要求用 `（）` 包裹动作/神态；仅在确认内部规则冲突时修正，模型偶发措辞不做猜测性改写。审计已发现特殊风格“神人模式”带有动作括号要求并会被沉浸 prompt 注入，而沉浸最终锁未再次覆盖正文格式，须在沉浸最终锁明确动作、神态、叙述均直接书写且不用全角/半角圆括号，不改普通聊天的动作渲染合同。
+9. 预定验证覆盖正常/截断/失败回复状态、三入口错误提示色、设置单一导航与七大规则可达性、默认规则文本、同内容跨表情/聊天/相册引用、斗图候选、愿望单触发、随笔非模板样本及沉浸动作无括号最终锁。不得回归 DeepSeek/Gemini 双 Key与两次有界尝试、小酒狐四音色、三语/停止/单播放、D6 备份白名单、Agent 媒体真值、世界书和主动性。完成后须回填真实文件、失败路线、测试、提交、CI/APK 与真机边界，再把 Phase 3C/Phase 4 提升为下一主任务；TTS 日语根修/CPU 快速档继续作为独立 T1。
+10. 回复刷新已实现为“只对当前最新 AI 回复永久显示”：普通聊天通过 `restartLatestCompletedReply` 在单一事务内核对 Active Brain、无阻塞生成、最新消息、已完成 job 与非 running post-turn，递减旧附件引用、删除旧回复并重开原 durable job，保留原用户消息与稳定 assistant ID；沉浸房间只删除最新且未进入滚动摘要的 assistant 行，再以原用户消息重新生成。截断草稿仍沿用原有未提交确认/重试路径，不能刷新历史回复制造分支。
+11. 三入口错误显示已统一：普通聊天和沉浸房间用 `GenerationPresentationPolicy.isErrorNotice` 区分普通通知与 Gemini/截断/异常中断通知，错误通知使用主题 `colorScheme.error` 与淡 errorContainer；沉浸 hard error 的 `MaterialBanner` 正文也显式使用 error 色。悬浮窗口 command 回传 `notice/notice_is_error`，原生继续复用既有 `Color.rgb(255, 135, 145)`，成功但发生 Gemini→DeepSeek 兜底时也不再把调用错误提示当普通白字/紫字。
+12. 设置审计确认侧栏“全部设置”旧六域/七项与侧栏快捷入口、底部“更多”五分类没有剩余独立能力；两个侧栏实现均改为调用 AppShell 的“更多”tab，注释为“浏览全部功能分类”。`/settings` 与 `SettingsPage` 仅保留兼容旧深链，不再由侧栏入口展示；底部“更多”顶部改为产品功能说明，删除开发任务式文案，并更新 +209 页脚。持续顺路原则继续生效。
+13. 查手机修复：愿望候选仍必须 active、未满足、重复/持续且有具体对象，但把叠加门槛从 `strength>=0.58 + desire>=0.52 + baseline+0.08` 放宽为 `strength>=0.48 + desire>=0.34 + baseline-0.03`，使正常基线附近的真实持续 Thought 能形成愿望，同时不新增第二套 Desire。随笔删除按 drive 两句模板与 `noteText`，每次从最近 30 个已 finalized 且有真实材料、尚未使用的 daily continuity 中用 `Random.secure` 随机抽一天，再由 DeepSeek 单次生成短标题/正文；无 Key、无材料、生成失败、模板化或近重复时不写入，不用假内容伪装更新，projection 不反写 Memory/Thought/人格/兴趣证据。
+14. 媒体/斗图审计结论：当前图片/表情写入路径均收敛到 `MessageAttachmentStorage.commitDraft → MediaBlobStorage.store`；原图 SHA 同时是 blob ID 和内容寻址路径，文件存在时复核 SHA 后直接复用，数据库 `registerMediaBlob` 冲突忽略后回读 canonical 行并清除扩展名差异产生的多余路径。因此用户要求的“自动判断不形成重复缓存”在 +208 基线已实现，本批只新增 +209 静态合同锁定，不重复造第二层去重。斗图候选按用户表情的视觉摘要做语义匹配、种子来自新 assistant ID，未发现恒定随机或直接挂载用户本轮附件；同图回敬属于允许的正常表达，不加机械禁令。
+15. TTS 窄审计只发现 `chat_quick_settings_pages.dart` 的手动“测试日语”按钮使用固定试听句“これはローカル音声のテストです。ここにいるよ。”；普通聊天与沉浸正式朗读均按 message ID + language 缓存各自 `contentFor(language)`，没有找到把该试听句当正式回复 fallback 的路径。因本轮无诊断与可复现存档，不猜测性改 TTS；固定台词现象、首次切日语 NPE 与 CPU 快速档继续进入 T1。
+16. 用户追加的沉浸动作括号已定位：`ruleContentV0400_07_special_uncanny` 内部确有“所有场景、动作、神态描写必须用 () 包裹”，特殊风格会注入沉浸 prompt，而旧最终锁只禁止 reasoning 括号，形成优先级缺口。修复只在 `immersive_prompt_builder.dart` 最终锁明确正文叙述、动作、神态不用全角/半角圆括号并覆盖特殊风格；不改特殊风格在普通聊天的既有行为，不做生成后字符串删括号。
+17. 本地验证：`validate_v04165_refresh_settings_phone_media.py`、+208/+207/+206/+195 兼容门、总账紧凑层与 `git diff --check` 均通过；工作流全部 Python validator 中除缺私有 417 桌宠、LingChat effects 与本机 `kotlinc` 的预期环境门外，其余均通过。新增 Flutter tests 覆盖错误通知分类、随笔质量/近重复与正常基线愿望候选；当前容器无 Dart/Flutter，不能把未运行的 Flutter tests、Analyze、Kotlin、Release 或 APK 写成通过。
+18. 本地实现提交为 `89344d4`（`feat: add refresh and phone projection fixes`），阻塞记录提交为 `e240d16`。首次推送被安全审批拒绝后，用户已在当前对话明确授权向公开仓库开发分支推送、运行 Actions 与创建 Draft APK；本机 HTTPS Git 随后因无凭据失败，已确认授权 GitHub 连接属于 `catkiss62` 且对仓库具备 push/admin 权限，改由该连接写入同一分支。当前仍为 CI 启动前状态，不提前把 Artifact、Draft APK 或远端 SHA 写成成功。
 
 ### 2026-09-11 v0.41.64+208 设置导航整体回退到 +206（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

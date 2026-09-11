@@ -2,6 +2,21 @@ import 'package:ai_companion_localfirst/core/presentation/generation_presentatio
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('provider and truncated-reply notices use error emphasis', () {
+    expect(
+      GenerationPresentationPolicy.isErrorNotice('Gemini 回复已截断。'),
+      isTrue,
+    );
+    expect(
+      GenerationPresentationPolicy.isErrorNotice('回复再次异常中断。'),
+      isTrue,
+    );
+    expect(
+      GenerationPresentationPolicy.isErrorNotice('设置已经保存。'),
+      isFalse,
+    );
+  });
+
   test('draft stays visible before durable assistant commit', () {
     expect(
       GenerationPresentationPolicy.showDraft(

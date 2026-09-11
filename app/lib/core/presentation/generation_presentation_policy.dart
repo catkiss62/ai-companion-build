@@ -1,6 +1,18 @@
 class GenerationPresentationPolicy {
   const GenerationPresentationPolicy._();
 
+  /// A provider failure may leave a usable fragment in [notice] instead of
+  /// [error]. It still needs the same warning color as a hard API failure.
+  static bool isErrorNotice(String? notice) {
+    final text = notice?.trim() ?? '';
+    if (text.isEmpty) return false;
+    return text.contains('Gemini') ||
+        text.contains('调用失败') ||
+        text.contains('回复已截断') ||
+        text.contains('回复仍未完整') ||
+        text.contains('异常中断');
+  }
+
   /// The transient reasoning/activity row is replaced atomically once the
   /// durable assistant message exists. Generation may still be finishing
   /// post-turn work, but the UI must never render both copies in one frame.

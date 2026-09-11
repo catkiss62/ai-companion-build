@@ -1139,14 +1139,16 @@ class OverlayBubbleService : Service() {
                         val ok = map?.get("ok") == true
                         val cancelled = map?.get("cancelled") == true
                         val error = map?.get("error") as? String ?: ""
+                        val notice = map?.get("notice") as? String ?: ""
+                        val noticeIsError = map?.get("notice_is_error") == true
                         if (ok && chatExpanded) setUnread(0)
                         setChatStatus(
                             when {
                                 cancelled -> "已停止这轮回复。"
-                                ok -> null
+                                ok -> notice.takeIf { it.isNotBlank() }
                                 else -> error.ifBlank { "发送失败。" }
                             },
-                            !ok && !cancelled,
+                            (!ok && !cancelled) || noticeIsError,
                         )
                     }
                 }

@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:path/path.dart' as p;
 
 import '../database/app_database.dart';
 import '../models/desire_state.dart';
+import '../models/daily_continuity.dart';
 import '../models/companion_album.dart';
 import '../models/message_attachment.dart';
 import '../storage/companion_album_storage.dart';
@@ -13,6 +15,7 @@ import '../models/emotion_episode.dart';
 import '../models/thought.dart';
 import 'simulated_cart_generator.dart';
 import 'simulated_diary_generator.dart';
+import 'simulated_note_generator.dart';
 import 'simulated_phone_policy.dart';
 import 'tarot_catalog.dart';
 
@@ -129,14 +132,20 @@ class SimulatedPhoneRepository {
     this.db, {
     SimulatedCartGenerator? cartGenerator,
     SimulatedDiaryGenerator? diaryGenerator,
+    SimulatedNoteGenerator? noteGenerator,
+    int Function(int upperBound)? noteIndexPicker,
   })  : _cartGenerator =
             cartGenerator ?? DeepSeekSimulatedCartGenerator(),
         _diaryGenerator =
-            diaryGenerator ?? DeepSeekSimulatedDiaryGenerator();
+            diaryGenerator ?? DeepSeekSimulatedDiaryGenerator(),
+        _noteGenerator = noteGenerator ?? DeepSeekSimulatedNoteGenerator(),
+        _noteIndexPicker = noteIndexPicker ?? Random.secure().nextInt;
 
   final AppDatabase db;
   final SimulatedCartGenerator _cartGenerator;
   final SimulatedDiaryGenerator _diaryGenerator;
+  final SimulatedNoteGenerator _noteGenerator;
+  final int Function(int upperBound) _noteIndexPicker;
 
   static const enabledKey = 'simulated_phone_enabled';
   static const _leaseKey = 'simulated_phone_refresh_lease_until';
@@ -496,30 +505,68 @@ class SimulatedPhoneRepository {
     final entries = await _readList(_notesKey);
     final today = entries.where((entry) => entry.localDay == day).length;
     if (today >= 10) return;
-    final thoughts = await db.currentThoughtsForPresentation(limit: 30);
-    for (final thought in thoughts) {
+    final continuity = await db.latestDailyContinuity(limit: 30);
+    final candidates = continuity.where((record) {
       final alreadyUsed = entries.any(
-        (entry) => entry.metadata['source_thought_id'] == thought.id,
+        (entry) => entry.metadata['source_continuity_id'] == record.id,
       );
-      if (alreadyUsed || thought.strength < 0.46) continue;
-      final variant = SimulatedPhonePolicy.stableIndex(
-        '$day:${thought.id}',
-        12,
+      return record.isFinalized && !alreadyUsed && _noteItems(record).isNotEmpty;
+    }).toList(growable: false);
+    if (candidates.isEmpty) return;
+    final record = candidates[_noteIndexPicker(candidates.length)];
+    final material = SimulatedNoteMaterial(
+      localDay: record.localDay,
+      items: _noteItems(record),
+    );
+    final recentBodies = entries
+        .map((entry) => entry.body.trim())
+        .where((body) => body.isNotEmpty)
+        .take(10)
+        .toList(growable: false);
+    SimulatedNoteDraft? generated;
+    try {
+      generated = await _noteGenerator.generate(
+        material: material,
+        recentBodies: recentBodies,
       );
-      final next = SimulatedPhoneEntry(
-        id: 'note:$day:${thought.id}',
-        kind: 'note',
-        title: _noteTitle(thought.driveKey),
-        body: SimulatedPhonePolicy.noteText(thought.driveKey, variant),
-        localDay: day,
-        createdAt: now,
-        provenance: 'thought_projection',
-        metadata: {'source_thought_id': thought.id},
-      );
-      await _writeList(_notesKey, [next, ...entries].take(300).toList());
+    } catch (_) {
+      generated = null;
+    }
+    if (generated == null ||
+        !SimulatedNoteQuality.acceptable(
+          generated,
+          recentBodies: recentBodies,
+        )) {
       return;
     }
+    final next = SimulatedPhoneEntry(
+      id: 'note:$day:${record.id}:${now.millisecondsSinceEpoch}',
+      kind: 'note',
+      title: generated.title,
+      body: generated.body,
+      localDay: day,
+      createdAt: now,
+      provenance: 'random_daily_continuity:${record.id}',
+      metadata: {
+        'source_continuity_id': record.id,
+        'source_local_day': record.localDay,
+        'generation_mode': 'deepseek_random',
+      },
+    );
+    await _writeList(_notesKey, [next, ...entries].take(300).toList());
   }
+
+  static List<String> _noteItems(DailyContinuityRecord record) => <String>[
+        ...record.sharedMoments.map((item) => item.summary.toString().trim()),
+        ...record.cares.map((item) => item.text.toString().trim()),
+        ...record.carriedThreads.map(
+          (item) => [item.title, item.detail]
+              .map((part) => part.toString().trim())
+              .where((part) => part.isNotEmpty)
+              .join('：'),
+        ),
+        ...record.awarenessSummaries.map((item) => item.toString().trim()),
+      ].where((item) => item.isNotEmpty).take(8).toList(growable: false);
 
   Future<void> _refreshWishes(DateTime now) async {
     final day = SimulatedPhonePolicy.localDay(now);
@@ -953,17 +1000,6 @@ class SimulatedPhoneRepository {
     return '$intensity 我不打算把它夸大，也不想假装没有。';
   }
 
-  String _noteTitle(String driveKey) => switch (driveKey) {
-        'attachment' => '一点偏心',
-        'curiosity' => '好奇泡泡',
-        'reflection' => '脑内潮汐',
-        'duty' => '先记在这里',
-        'social' => '想说点什么',
-        'libido' => '不太乖的念头',
-        'stress' => '暂停一下',
-        'fatigue' => '低电量漂流',
-        _ => '随手记',
-      };
 }
 
 T? _firstWhereOrNull<T>(Iterable<T> values, bool Function(T value) test) {

@@ -241,6 +241,7 @@ void main() {
     expect(rendering, contains('高潮与用户射精必须服从本层的跨轮状态流程'));
     expect(rendering, isNot(contains('没有固定阶段表、固定字数、固定高潮口令或同步流程')));
     expect(rendering, contains('更换姿势或动作时写出必要过渡'));
+    expect(rendering, contains('非性交行为（例如口交、乳交等）不要求 AI 角色与用户同步高潮'));
     expect(reference, contains('姿态名只是索引'));
     expect(reference, isNot(contains('人物必须明确为成年人')));
     expect(legacyEditableRuleLayerSha256V0342.length, 5);
@@ -260,6 +261,7 @@ void main() {
     expect(legacyEditableRuleLayerSha256V04127ImmersiveCleanup.length, 4);
     expect(legacyEditableRuleLayerSha256V04145NicknameExamples.length, 1);
     expect(legacyEditableRuleLayerSha256V04155UserDefaults.length, 8);
+    expect(legacyEditableRuleLayerSha256V04165IntimacyCleanup.length, 2);
     expect(legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.length, 3);
     expect(
       legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup[

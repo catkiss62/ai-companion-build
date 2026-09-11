@@ -3788,6 +3788,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04145NicknameExamples.entries,
       ...legacyEditableRuleLayerSha256V04153Rule01.entries,
       ...legacyEditableRuleLayerSha256V04155UserDefaults.entries,
+      ...legacyEditableRuleLayerSha256V04165IntimacyCleanup.entries,
       ...legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,
@@ -7311,6 +7312,133 @@ class AppDatabase {
       whereArgs: [id, 'awaiting_confirmation'],
     );
     return changed > 0;
+  }
+
+  /// Removes only the latest completed assistant reply and reopens its durable
+  /// generation job. The user turn and stable assistant id are retained, so a
+  /// regenerated reply replaces the old branch instead of duplicating it.
+  Future<GenerationJob?> restartLatestCompletedReply(
+    String assistantMessageId,
+  ) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final reopened = await db.transaction<bool>((txn) async {
+      final settingsRows = await txn.query(
+        'settings',
+        columns: const ['key', 'value'],
+        where: 'key IN (?, ?)',
+        whereArgs: const ['active_brain', 'transfer_lock'],
+      );
+      final settings = <String, String>{
+        for (final row in settingsRows)
+          row['key'] as String: row['value'] as String? ?? '',
+      };
+      if (settings['transfer_lock'] == '1' ||
+          settings['active_brain'] == '0') {
+        return false;
+      }
+      final blocking = await txn.query(
+        'generation_jobs',
+        columns: const ['id'],
+        where:
+            "status IN ('pending','running','retry_wait','awaiting_confirmation')",
+        limit: 1,
+      );
+      if (blocking.isNotEmpty) return false;
+      final latest = await txn.query(
+        'messages',
+        columns: const ['id', 'role'],
+        orderBy: 'created_at DESC, id DESC',
+        limit: 1,
+      );
+      if (latest.isEmpty ||
+          latest.first['id'] != assistantMessageId ||
+          latest.first['role'] != 'assistant') {
+        return false;
+      }
+      final jobs = await txn.query(
+        'generation_jobs',
+        where: 'assistant_message_id = ? AND status = ?',
+        whereArgs: [assistantMessageId, 'completed'],
+        limit: 1,
+      );
+      if (jobs.isEmpty) return false;
+      final job = GenerationJob.fromDb(jobs.first);
+      final postTurn = await txn.query(
+        'post_turn_jobs',
+        columns: const ['status'],
+        where: 'assistant_message_id = ?',
+        whereArgs: [assistantMessageId],
+        limit: 1,
+      );
+      if (postTurn.isNotEmpty && postTurn.first['status'] == 'running') {
+        return false;
+      }
+      final attachments = await txn.query(
+        'message_attachments',
+        columns: const ['blob_id'],
+        where: 'message_id = ?',
+        whereArgs: [assistantMessageId],
+      );
+      for (final row in attachments) {
+        final blobId = row['blob_id'] as String? ?? '';
+        if (blobId.isNotEmpty) {
+          await txn.rawUpdate(
+            'UPDATE media_blobs SET message_ref_count = '
+            'MAX(message_ref_count - 1, 0) WHERE id = ?',
+            <Object?>[blobId],
+          );
+        }
+      }
+      await txn.delete(
+        'post_turn_jobs',
+        where: 'assistant_message_id = ?',
+        whereArgs: [assistantMessageId],
+      );
+      await txn.delete(
+        'somatic_events',
+        where: 'turn_id = ?',
+        whereArgs: [assistantMessageId],
+      );
+      await txn.delete(
+        'messages',
+        where: 'id = ? AND role = ?',
+        whereArgs: [assistantMessageId, 'assistant'],
+      );
+      final changed = await txn.update(
+        'generation_jobs',
+        {
+          'status': 'pending',
+          'attempts': 0,
+          'partial_reasoning': '',
+          'partial_content': '',
+          'run_token': '',
+          'started_at': null,
+          'completed_at': null,
+          'last_checkpoint_at': null,
+          'next_retry_at': null,
+          'last_error': '',
+          'resume_reason': 'user_regenerated_completed_reply',
+          'updated_at': now,
+        },
+        where: 'id = ? AND status = ?',
+        whereArgs: [job.id, 'completed'],
+      );
+      if (changed != 1) throw StateError('completed_reply_restart_lost');
+      await _rebuildSomaticAggregates(
+        txn,
+        DateTime.fromMillisecondsSinceEpoch(now),
+      );
+      return true;
+    });
+    if (!reopened) return null;
+    final rows = await db.query(
+      'generation_jobs',
+      where: 'assistant_message_id = ?',
+      whereArgs: [assistantMessageId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : GenerationJob.fromDb(rows.first);
   }
 
   Future<bool> completeGenerationJobIfCurrent({

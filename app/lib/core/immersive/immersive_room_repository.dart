@@ -354,6 +354,59 @@ class ImmersiveRoomRepository {
     return message;
   }
 
+  /// Deletes a completed assistant reply only when it is still the newest
+  /// room message and directly follows a user turn. This keeps regeneration
+  /// on one linear room history instead of creating an unseen branch.
+  Future<String?> removeLatestAssistantForRegeneration({
+    required String roomId,
+    required String assistantMessageId,
+  }) async {
+    final database = await db.database;
+    return database.transaction<String?>((txn) async {
+      final rows = await txn.query(
+        'immersive_messages',
+        where: 'room_id = ?',
+        whereArgs: [roomId],
+        orderBy: 'created_at DESC, id DESC',
+        limit: 2,
+      );
+      if (rows.length < 2 ||
+          rows.first['id'] != assistantMessageId ||
+          rows.first['role'] != 'assistant' ||
+          rows[1]['role'] != 'user') {
+        return null;
+      }
+      final roomRows = await txn.query(
+        'immersive_rooms',
+        columns: const ['summarized_message_count'],
+        where: 'id = ? AND status != ?',
+        whereArgs: [roomId, 'ended'],
+        limit: 1,
+      );
+      if (roomRows.isEmpty) return null;
+      final totalRows = await txn.rawQuery(
+        'SELECT COUNT(*) AS c FROM immersive_messages WHERE room_id = ?',
+        [roomId],
+      );
+      final total = (totalRows.first['c'] as num?)?.toInt() ?? 0;
+      final summarized =
+          (roomRows.first['summarized_message_count'] as num?)?.toInt() ?? 0;
+      if (summarized >= total) return null;
+      await txn.delete(
+        'immersive_messages',
+        where: 'id = ? AND room_id = ? AND role = ?',
+        whereArgs: [assistantMessageId, roomId, 'assistant'],
+      );
+      await txn.update(
+        'immersive_rooms',
+        {'updated_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: [roomId],
+      );
+      return rows[1]['id'] as String;
+    });
+  }
+
   Future<void> saveRollingState({
     required String roomId,
     required String rollingSummary,

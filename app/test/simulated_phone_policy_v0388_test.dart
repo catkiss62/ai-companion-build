@@ -164,6 +164,30 @@ void main() {
     );
   });
 
+  test('wish can update near a normal drive baseline', () {
+    final now = DateTime(2026, 9, 11, 12);
+    final desire = DesireSnapshot(
+      drives: DesireSnapshot.defaultDrives(),
+      baselines: DesireSnapshot.defaultBaselines(),
+    );
+    final thought = CompanionThought(
+      id: 'ordinary-recurring-thought',
+      text: 'private body',
+      driveKey: DriveKey.curiosity.name,
+      kind: 'thread',
+      strength: 0.52,
+      bornAt: now,
+      updatedAt: now,
+      fedCount: 2,
+      topicKey: 'shared:whale-art',
+    );
+
+    expect(
+      SimulatedPhonePolicy.wishEligible(thought: thought, desire: desire),
+      isTrue,
+    );
+  });
+
   test('wish presentation never exposes the private thought body', () {
     for (final drive in DriveKey.values) {
       final text = SimulatedPhonePolicy.wishText(drive.name);

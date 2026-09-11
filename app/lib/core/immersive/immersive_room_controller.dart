@@ -155,7 +155,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       return;
     }
     if (incompleteReplyDraft != null) {
-      error = '请先处理上一条未完整回复：重新生成，或确认当前文字。';
+      error = '请先处理上一条截断回复：重新生成，或保留这段回复。';
       _safeNotify();
       return;
     }
@@ -364,7 +364,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: incomplete.content,
         reasoning: incomplete.reasoning,
       );
-      notice = 'Gemini 回复未完整结束。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“确认回复”。';
+      notice = 'Gemini 回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
       error = null;
     } on GenerationCancelledByUserException {
       await _abortStreamingSpeech();
@@ -383,7 +383,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           content: streamingContent,
           reasoning: _allStreamingReasoning,
         );
-        notice = '回复连接异常中断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“确认回复”。';
+        notice = '回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
         error = null;
       } else {
         error = '这一轮没有完整结束：$exception';
@@ -596,7 +596,7 @@ class ImmersiveRoomController extends ChangeNotifier {
               DateTime.now().millisecondsSinceEpoch,
         ),
       );
-      notice ??= '有一条未完整回复尚未确认；它还没有进入房间上下文或摘要。';
+      notice ??= '有一条截断回复尚未处理；它还没有进入房间上下文或摘要。';
     } catch (_) {
       await _clearIncompleteReplyDraft();
     }
@@ -664,28 +664,34 @@ class ImmersiveRoomController extends ChangeNotifier {
     }
   }
 
-  Future<void> regenerateIncompleteReply() async {
+  Future<void> regenerateIncompleteReply({bool leaseAlreadyHeld = false}) async {
     final userMessageId = incompleteReplyUserMessageId;
-    if (userMessageId == null || sending || room?.isEnded == true) return;
+    if (userMessageId == null || sending || room?.isEnded == true) {
+      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
+      return;
+    }
     final user = messages.cast<ImmersiveMessage?>().firstWhere(
           (item) => item?.id == userMessageId && item!.isUser,
           orElse: () => null,
         );
     if (user == null) {
       error = '找不到这份草稿对应的用户消息。';
+      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
       return;
     }
     final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (internalApiKey.isEmpty) {
       error = '请先填写必填的 DeepSeek API Key。';
+      if (leaseAlreadyHeld) await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
       return;
     }
-    final ownsLease = await db.tryAcquireLocalLease(
-      'immersive_room_lease',
-      holdFor: const Duration(minutes: 10),
-    );
+    final ownsLease = leaseAlreadyHeld ||
+        await db.tryAcquireLocalLease(
+          'immersive_room_lease',
+          holdFor: const Duration(minutes: 10),
+        );
     if (!ownsLease) {
       error = '另一个沉浸房间正在生成，请稍后再试。';
       _safeNotify();
@@ -797,7 +803,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         content: incomplete.content,
         reasoning: incomplete.reasoning,
       );
-      notice = 'Gemini 回复仍未完整结束。当前文字尚未进入房间上下文或摘要。';
+      notice = 'Gemini 回复已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
     } catch (exception) {
       await _abortStreamingSpeech();
       if (streamingContent.trim().isNotEmpty) {
@@ -806,7 +812,7 @@ class ImmersiveRoomController extends ChangeNotifier {
           content: streamingContent,
           reasoning: _allStreamingReasoning,
         );
-        notice = '回复再次异常中断。当前文字尚未进入房间上下文或摘要。';
+        notice = '回复再次异常中断并已截断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“保留这段回复”。';
       } else {
         error = '重新生成失败：$exception';
       }
@@ -821,6 +827,55 @@ class ImmersiveRoomController extends ChangeNotifier {
       await db.releaseLocalLease('immersive_room_lease');
       _safeNotify();
     }
+  }
+
+  String? get latestAssistantMessageId {
+    if (incompleteReplyDraft != null) return incompleteReplyDraft!.id;
+    for (final message in messages.reversed) {
+      if (message.isAssistant) return message.id;
+    }
+    return null;
+  }
+
+  Future<void> regenerateLatestReply(ImmersiveMessage assistant) async {
+    if (!assistant.isAssistant || sending || room?.isEnded == true) return;
+    if (assistant.id == incompleteReplyDraft?.id) {
+      await regenerateIncompleteReply();
+      return;
+    }
+    final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    if (internalApiKey.isEmpty) {
+      error = '请先填写必填的 DeepSeek API Key。';
+      _safeNotify();
+      return;
+    }
+    final ownsLease = await db.tryAcquireLocalLease(
+      'immersive_room_lease',
+      holdFor: const Duration(minutes: 10),
+    );
+    if (!ownsLease) {
+      error = '另一个沉浸房间正在生成，请稍后再试。';
+      _safeNotify();
+      return;
+    }
+    final userMessageId =
+        await repository.removeLatestAssistantForRegeneration(
+      roomId: roomId,
+      assistantMessageId: assistant.id,
+    );
+    if (userMessageId == null) {
+      await db.releaseLocalLease('immersive_room_lease');
+      error = '只能重新生成当前最新且尚未归入滚动摘要的回复。';
+      _safeNotify();
+      return;
+    }
+    await ttsPlayback.stop();
+    messages = await repository.messagesForRoom(roomId);
+    incompleteReplyUserMessageId = userMessageId;
+    notice = null;
+    error = null;
+    _safeNotify();
+    await regenerateIncompleteReply(leaseAlreadyHeld: true);
   }
 
   Future<void> stop() async {

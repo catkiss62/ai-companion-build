@@ -14,6 +14,7 @@ import '../../core/models/immersive_room.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/personality/personality_catalog.dart';
 import '../../core/presentation/chat_visuals.dart';
+import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/tts/tts_playback_queue.dart';
 import '../../widgets/action_tint_text.dart';
 import '../../widgets/active_trial_capsule.dart';
@@ -549,12 +550,12 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     if (approved) await controller.regenerateIncompleteReply();
   }
 
-  Future<void> _confirmAcceptIncompleteReply() async {
+  Future<void> _confirmRegenerateLatestReply(ImmersiveMessage message) async {
     final approved = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('确认使用当前回复？'),
-            content: const Text('确认后，这段当前可见文字会成为正式房间回复，并进入后续上下文与摘要。'),
+            title: const Text('重新生成最新回复？'),
+            content: const Text('当前房间回复会被替换，并使用原来的用户消息重新生成。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
@@ -562,7 +563,29 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('确认回复'),
+                child: const Text('重新生成'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.regenerateLatestReply(message);
+  }
+
+  Future<void> _confirmAcceptIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('回复已截断，仍确认保留？'),
+            content: const Text('确认后，当前可见的这段文字会成为正式房间回复，并进入后续上下文与摘要。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('保留这段回复'),
               ),
             ],
           ),
@@ -764,7 +787,10 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
         children: [
           if (controller.error != null)
             MaterialBanner(
-              content: Text(controller.error!),
+              content: Text(
+                controller.error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               actions: [
                 TextButton(
                   onPressed: () => setState(() => controller.error = null),
@@ -773,37 +799,51 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
               ],
             ),
           if (controller.notice != null)
-            Container(
-              width: double.infinity,
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 17,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      controller.notice!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
+            Builder(builder: (context) {
+              final isErrorNotice = GenerationPresentationPolicy.isErrorNotice(
+                controller.notice,
+              );
+              final color = isErrorNotice
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurfaceVariant;
+              return Container(
+                width: double.infinity,
+                color: isErrorNotice
+                    ? Theme.of(context)
+                        .colorScheme
+                        .errorContainer
+                        .withValues(alpha: 0.18)
+                    : Theme.of(context).colorScheme.surfaceContainerHigh,
+                padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      isErrorNotice
+                          ? Icons.error_outline_rounded
+                          : Icons.info_outline_rounded,
+                      size: 17,
+                      color: color,
                     ),
-                  ),
-                  IconButton(
-                    tooltip: '关闭提示',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: controller.dismissNotice,
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        controller.notice!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: color),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭提示',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: controller.dismissNotice,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                    ),
+                  ],
+                ),
+              );
+            }),
           if (room?.isEnded == true)
             Container(
               width: double.infinity,
@@ -869,7 +909,15 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                             onRegenerate: item.message!.id ==
                                     controller.incompleteReplyDraft?.id
                                 ? _confirmRegenerateIncompleteReply
-                                : null,
+                                : item.message!.isAssistant &&
+                                        item.message!.id ==
+                                            controller.latestAssistantMessageId &&
+                                        !controller.sending &&
+                                        controller.room?.isEnded != true
+                                    ? () => _confirmRegenerateLatestReply(
+                                          item.message!,
+                                        )
+                                    : null,
                             onConfirmIncomplete: item.message!.id ==
                                     controller.incompleteReplyDraft?.id
                                 ? _confirmAcceptIncompleteReply
@@ -1406,7 +1454,7 @@ class _ImmersiveMessageView extends StatelessWidget {
                         minimumSize: const Size(0, 30),
                         padding: const EdgeInsets.symmetric(horizontal: 5),
                       ),
-                      child: const Text('确认回复'),
+                      child: const Text('保留这段回复'),
                     ),
                   if (onRegenerate != null)
                     IconButton(

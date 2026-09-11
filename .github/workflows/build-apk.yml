@@ -1,4 +1,4 @@
-# v0.41.64+208 builds from the reconciled v0.41.63 tree and restores the +206 settings layout.
+# v0.41.65+209 adds permanent latest-reply refresh, error emphasis, rule cleanup and phone fixes.
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
 # AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK
@@ -375,7 +375,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.64+208 APK (Settings Rollback)
+name: Build AI Companion v0.41.65+209 APK (Refresh, Phone and Media)
 
 on:
   push:
@@ -400,6 +400,7 @@ on:
       - agent/v04162-hybrid-final-fallback
       - agent/v04163-immersive-tts-settings-hardening
       - agent/v04164-settings-rollback
+      - agent/v04165-refresh-settings-phone-media
   workflow_dispatch:
   pull_request:
     branches:
@@ -777,26 +778,12 @@ jobs:
           print(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')
           PY
 
-      - name: Materialize v0.41.64 oversized ledger delta
-        shell: bash
-        run: |
-          set -euo pipefail
-          DELTA='app/docs/v04164_ledger.patch'
-          if test -f "${DELTA}"; then
-            git apply --check "${DELTA}"
-            git apply "${DELTA}"
-            test "$(git hash-object app/lib/core/database/app_database.dart)" = \
-              'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
-            test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-              'dc3d62d18f8969f7cc62b8566ec511034566b6da'
-          fi
-
       - name: Verify clean source baseline
         shell: bash
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.64+208' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.65+209' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 60;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -810,7 +797,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.64+208 exact build-206 settings rollback candidate.'
+          echo 'Building v0.41.65+209 refresh, phone and media candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -989,6 +976,7 @@ jobs:
           python3 tools/validate_v04162_hybrid_final_fallback.py
           python3 tools/validate_v04163_immersive_tts_settings_hardening.py
           python3 tools/validate_v04164_settings_rollback.py
+          python3 tools/validate_v04165_refresh_settings_phone_media.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1312,26 +1300,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.64+208 APK as workflow artifact
+      - name: Upload v0.41.65+209 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.64-208-Settings-Rollback-APK
+          name: AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.64+208 APK to draft release
+      - name: Upload v0.41.65+209 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.64-settings-rollback-test'
-          APK_NAME='AI-Companion-v0.41.64-208-Settings-Rollback-APK.apk'
+          TAG='v0.41.65-refresh-phone-media-test'
+          APK_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.64-208-Settings-Rollback-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1348,14 +1336,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.64+208 exact settings rollback candidate' \
-              --notes 'Draft schema-60 candidate. Restores every settings-related source and widget contract to the accepted +206 layout: sidebar shortcuts remain, All Settings opens /settings with its original copy, and More returns to the five-domain layout including Data & Advanced -> Seven Rules. Keeps the +207 TTS streaming and redacted diagnostic core unchanged. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
+              --notes 'Draft schema-60 candidate. Adds permanent latest-reply regeneration, clearer truncated-reply confirmation, error-colored Gemini notices across chat surfaces, deduplicated settings navigation, rule wording fixes, randomized grounded notes, and reachable wish updates. Confirms existing exact-SHA media reuse and preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.64+208 exact settings rollback candidate' \
-              --notes 'Draft schema-60 candidate. Restores every settings-related source and widget contract to the accepted +206 layout: sidebar shortcuts remain, All Settings opens /settings with its original copy, and More returns to the five-domain layout including Data & Advanced -> Seven Rules. Keeps the +207 TTS streaming and redacted diagnostic core unchanged. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
+              --notes 'Draft schema-60 candidate. Adds permanent latest-reply regeneration, clearer truncated-reply confirmation, error-colored Gemini notices across chat surfaces, deduplicated settings navigation, rule wording fixes, randomized grounded notes, and reachable wish updates. Confirms existing exact-SHA media reuse and preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1391,24 +1379,6 @@ jobs:
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
 
-      - name: Reconcile v0.41.64 oversized ledger after successful validation
-        if: ${{ hashFiles('app/docs/v04164_ledger.patch') != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git hash-object app/lib/core/database/app_database.dart)" = \
-            'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
-          test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-              'dc3d62d18f8969f7cc62b8566ec511034566b6da'
-          rm app/docs/v04164_ledger.patch
-          git config user.name 'catkiss62'
-          git config user.email 'aolu0610@gmail.com'
-          git add app/lib/core/database/app_database.dart \
-            'AI_Companion_当前总账.md' \
-            app/docs/v04164_ledger.patch
-          git commit -m 'docs: reconcile v0.41.64 oversized ledger [skip ci]'
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
   report-ci-failure:
     needs:
       - detect-change-scope
@@ -1425,8 +1395,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.64-settings-rollback-test'
-          CI_NAME='AI-Companion-v0.41.64-208-Settings-Rollback-CI-Monitor.txt'
+          TAG='v0.41.65-refresh-phone-media-test'
+          CI_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1467,8 +1437,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.64+208 exact settings rollback candidate' \
-              --notes 'Draft failure diagnostics for the schema-60 exact +206 settings-layout rollback candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
+              --notes 'Draft failure diagnostics for the schema-60 refresh, phone and media candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

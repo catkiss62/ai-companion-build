@@ -374,7 +374,7 @@ class ChatController extends ChangeNotifier {
       createdAt: job.updatedAt,
       segments: ChatSegmentCodec.parseAssistantText(job.partialContent),
     );
-    notice ??= 'Gemini 回复未完整结束。当前文字尚未进入上下文或记忆，请选择“重新生成”或“确认回复”。';
+    notice ??= 'Gemini 回复已截断。当前文字尚未进入上下文或记忆，请选择“重新生成”或“保留这段回复”。';
   }
 
   Future<void> acknowledgeOverlayUnread() async {
@@ -1005,7 +1005,7 @@ class ChatController extends ChangeNotifier {
     if (blocking != null) {
       if (blocking.status == 'awaiting_confirmation') {
         await _restoreIncompleteReplyDraft();
-        error = '请先处理上一条未完整回复：重新生成，或确认当前文字。';
+        error = '请先处理上一条截断回复：重新生成，或保留这段回复。';
       } else {
         error = '刚才那轮回复还在恢复，请等她接回来后再发送新消息。';
         unawaited(_scheduleGenerationRecovery());
@@ -1359,6 +1359,26 @@ class ChatController extends ChangeNotifier {
         leaseAlreadyHeld: false,
       );
     }
+  }
+
+  Future<void> regenerateLatestReply(ChatMessage assistant) async {
+    if (!assistant.isAssistant || sending) return;
+    if (assistant.id == incompleteReplyDraft?.id) {
+      await regenerateIncompleteReply();
+      return;
+    }
+    await _stopTurnAudio();
+    final job = await db.restartLatestCompletedReply(assistant.id);
+    if (job == null) {
+      error = '只能重新生成当前最新回复；如果后台仍在整理，请稍后再试。';
+      _safeNotify();
+      return;
+    }
+    messages = await db.recentMessages(limit: 160);
+    notice = null;
+    error = null;
+    _safeNotify();
+    await _runTrustedCurrentProcessGeneration(job, leaseAlreadyHeld: false);
   }
 
   Future<void> confirmIncompleteReply() async {

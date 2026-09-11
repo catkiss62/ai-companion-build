@@ -47,7 +47,7 @@ class CompanionMorePage extends StatelessWidget {
         Text('功能分类', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
         Text(
-          '先按稳定职责分开入口；这次不换皮肤，也不复制任何配置状态。',
+          '按功能查找陪伴、关系、能力、手机感知与数据设置。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -72,7 +72,7 @@ class CompanionMorePage extends StatelessWidget {
         const SizedBox(height: 16),
         Center(
           child: Text(
-            'AI Companion · v0.36.0+85',
+            'AI Companion · v0.41.65+209',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

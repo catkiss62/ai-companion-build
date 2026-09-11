@@ -17,9 +17,9 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    assert "version: 0.41.64+208" in read("pubspec.yaml")
+    assert "version: 0.41.65+209" in read("pubspec.yaml")
     assert (
-        "static const buildLabel = 'v0.41.64+208';"
+        "static const buildLabel = 'v0.41.65+209';"
         in read("lib/core/agent/agent_self_reader.dart")
     )
     provider = read("lib/core/ai/chat_api_provider.dart")
@@ -86,9 +86,9 @@ def main() -> None:
     require(
         chat_page,
         "重新生成这条回复？",
-        "确认使用当前回复？",
+        "回复已截断，仍确认保留？",
         "Icons.refresh_rounded",
-        "child: const Text('确认回复')",
+        "child: const Text('保留这段回复')",
     )
     require(
         immersive,

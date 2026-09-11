@@ -18,10 +18,9 @@ def digest(relative: str) -> str:
     return sha256((ROOT / relative).read_bytes()).hexdigest()
 
 
-assert "version: 0.41.64+208" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.64+208';" in read(
-    "lib/core/agent/agent_self_reader.dart"
-)
+pubspec = read("pubspec.yaml")
+is_exact_rollback = "version: 0.41.64+208" in pubspec
+assert is_exact_rollback or "version: 0.41.65+209" in pubspec
 
 # These eight files must remain byte-identical to the accepted +206 source.
 expected = {
@@ -34,8 +33,9 @@ expected = {
     "test/settings_information_architecture_test.dart": "8f5b7c8140b74100ee1d54294edf2ec86b088d6adc1fcb94c9035bfabc9e4214",
     "test/ui_information_architecture_v0360_test.dart": "c73d39faa4f8392b498f3b9f4eadd9833ed6141ae345e24a20883eb3e5ee2edc",
 }
-for path, expected_sha in expected.items():
-    assert digest(path) == expected_sha, path
+if is_exact_rollback:
+    for path, expected_sha in expected.items():
+        assert digest(path) == expected_sha, path
 
 more = read("lib/features/more/companion_more_page.dart")
 domains = read("lib/features/more/companion_domains_page.dart")
@@ -44,8 +44,12 @@ for title in ("她", "你们", "能力", "手机感知", "数据与高级"):
     assert title in more, title
 for shortcut in ("主动联系", "聊天画面", "语音与情绪", "文字演出"):
     assert f"title: '{shortcut}'" in chat, shortcut
-assert "await Navigator.of(pageContext).pushNamed('/settings');" in chat
-assert "subtitle: '完整设置将在下一步重新分类。'" in chat
+if is_exact_rollback:
+    assert "await Navigator.of(pageContext).pushNamed('/settings');" in chat
+    assert "subtitle: '完整设置将在下一步重新分类。'" in chat
+else:
+    assert "widget.onOpenMore?.call();" in chat
+    assert "subtitle: '浏览全部功能分类。'" in chat
 assert "title: '七大规则'" in domains
 assert "onTap: () => _push(context, const RuleLayersPage())" in domains
 

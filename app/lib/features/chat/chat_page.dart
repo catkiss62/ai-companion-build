@@ -37,9 +37,10 @@ import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key, this.active = false});
+  const ChatPage({super.key, this.active = false, this.onOpenMore});
 
   final bool active;
+  final VoidCallback? onOpenMore;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -1066,12 +1067,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (approved) await controller.regenerateIncompleteReply();
   }
 
-  Future<void> _confirmAcceptIncompleteReply() async {
+  Future<void> _confirmRegenerateLatestReply(ChatMessage message) async {
     final approved = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('确认使用当前回复？'),
-            content: const Text('确认后，这段当前可见文字会成为正式回复，并按正常流程进入上下文与后续记忆整理。'),
+            title: const Text('重新生成最新回复？'),
+            content: const Text('当前回复会被替换，并使用原来的用户消息重新生成。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
@@ -1079,7 +1080,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('确认回复'),
+                child: const Text('重新生成'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.regenerateLatestReply(message);
+  }
+
+  Future<void> _confirmAcceptIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('回复已截断，仍确认保留？'),
+            content: const Text('确认后，当前可见的这段文字会成为正式回复，并按正常流程进入上下文与后续记忆整理。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('保留这段回复'),
               ),
             ],
           ),
@@ -1190,7 +1213,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         onRegenerate: item.message!.id ==
                                 controller.incompleteReplyDraft?.id
                             ? _confirmRegenerateIncompleteReply
-                            : null,
+                            : item.message!.isAssistant &&
+                                    item.message!.id == latestAssistantId &&
+                                    controller.incompleteReplyDraft == null &&
+                                    !controller.generationActive
+                                ? () => _confirmRegenerateLatestReply(
+                                      item.message!,
+                                    )
+                                : null,
                         onConfirmIncomplete: item.message!.id ==
                                 controller.incompleteReplyDraft?.id
                             ? _confirmAcceptIncompleteReply
@@ -1307,31 +1337,52 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               ),
                             ),
                           if (controller.notice != null)
-                            Container(
-                              width: double.infinity,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHigh,
-                              padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.info_outline_rounded, size: 17),
-                                  const SizedBox(width: 7),
-                                  Expanded(
-                                    child: Text(
-                                      controller.notice!,
-                                      style: Theme.of(context).textTheme.bodySmall,
+                            Builder(builder: (context) {
+                              final isErrorNotice = GenerationPresentationPolicy
+                                  .isErrorNotice(controller.notice);
+                              final color = isErrorNotice
+                                  ? Theme.of(context).colorScheme.error
+                                  : Theme.of(context).colorScheme.onSurfaceVariant;
+                              return Container(
+                                width: double.infinity,
+                                color: isErrorNotice
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .errorContainer
+                                        .withValues(alpha: 0.18)
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHigh,
+                                padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isErrorNotice
+                                          ? Icons.error_outline_rounded
+                                          : Icons.info_outline_rounded,
+                                      size: 17,
+                                      color: color,
                                     ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '关闭提示',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: controller.dismissNotice,
-                                    icon: const Icon(Icons.close_rounded, size: 18),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                    const SizedBox(width: 7),
+                                    Expanded(
+                                      child: Text(
+                                        controller.notice!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(color: color),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: '关闭提示',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: controller.dismissNotice,
+                                      icon: const Icon(Icons.close_rounded, size: 18),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                           _composer(context),
                         ],
                       ),
@@ -1843,9 +1894,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.tune_rounded),
                         title: const Text('全部设置'),
+                        subtitle: const Text('浏览全部功能分类。'),
                         onTap: () async {
                           Navigator.pop(dialogContext);
-                          await Navigator.of(pageContext).pushNamed('/settings');
+                          widget.onOpenMore?.call();
                           await _loadVisualSettings();
                         },
                       ),
@@ -2070,10 +2122,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   _QuickPanelTile(
                     icon: Icons.tune_rounded,
                     title: '全部设置',
-                    subtitle: '完整设置将在下一步重新分类。',
+                    subtitle: '浏览全部功能分类。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
-                      await Navigator.of(pageContext).pushNamed('/settings');
+                      widget.onOpenMore?.call();
                       await _loadVisualSettings();
                     },
                   ),
@@ -2798,7 +2850,7 @@ class _MessageBubble extends StatelessWidget {
                   minimumSize: const Size(0, 30),
                   padding: const EdgeInsets.symmetric(horizontal: 5),
                 ),
-                child: const Text('确认回复'),
+                child: const Text('保留这段回复'),
               ),
             if (onRegenerate != null)
               IconButton(
