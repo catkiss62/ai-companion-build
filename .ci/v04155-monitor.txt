@@ -1,7 +1,7 @@
 status=success
-run_id=34651532509
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509
-head_sha=cc5286df0810db565d9d15879700c73efcbd9836
+run_id=34658611917
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34658611917
+head_sha=7e2faf294858633921fc1b2d5f941052f6b008a7
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-8e37131040a36d53d3982ca70aa9fa31e148cd6df8b277d0f2eac03d3c5afcd3  AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1160d6f273e360a517f2
+ba13db4d875a0fab7a7ca0902aab9097f6fcf05309a9a604cca5b59a677cc0b5  AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43dc2e10769542425043
