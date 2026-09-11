@@ -16,7 +16,7 @@ PATCH_B64 = "LS0tIGEvQUlfQ29tcGFuaW9uX+W9k+WJjeaAu+i0pi5tZAorKysgYi9BSV9Db21wYW5
 
 def git_blob_sha(path: Path) -> str:
     payload = path.read_bytes()
-    framed = f"blob {len(payload)}".encode() + b'\\0' + payload
+    framed = f"blob {len(payload)}".encode() + b'\0' + payload
     return hashlib.sha1(framed).hexdigest()
 
 
@@ -38,4 +38,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
