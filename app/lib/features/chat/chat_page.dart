@@ -37,10 +37,9 @@ import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key, this.active = false, this.onOpenMore});
+  const ChatPage({super.key, this.active = false});
 
   final bool active;
-  final VoidCallback? onOpenMore;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -1846,7 +1845,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         title: const Text('全部设置'),
                         onTap: () async {
                           Navigator.pop(dialogContext);
-                          widget.onOpenMore?.call();
+                          await Navigator.of(pageContext).pushNamed('/settings');
+                          await _loadVisualSettings();
                         },
                       ),
                       ListTile(
@@ -1939,7 +1939,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            Text('常用入口与完整设置跳转'),
+                            Text('常用入口与分类设置'),
                           ],
                         ),
                       ),
@@ -2003,14 +2003,78 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       await _openWorldBookLibrary();
                     },
                   ),
+                  const _QuickPanelHeading('分类设置'),
+                  _QuickPanelTile(
+                    icon: Icons.notifications_active_outlined,
+                    title: '主动联系',
+                    subtitle: '频率、弹窗、隐私、提示音与主动语音。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ProactiveContactSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.wallpaper_rounded,
+                    title: '聊天画面',
+                    subtitle: '立绘、舞台、背景与聊天框透明度。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => ChatVisualSettingsPage(
+                            onEditPortrait: () async {
+                              await _loadVisualSettings();
+                              await _openPortraitTransformEditor();
+                            },
+                          ),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.graphic_eq_rounded,
+                    title: '语音与情绪',
+                    subtitle: '本地 TTS、情绪标签与情绪短音效。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const VoiceEmotionSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.text_fields_rounded,
+                    title: '文字演出',
+                    subtitle: '逐段打字、速度与对白颜色。',
+                    onTap: () async {
+                      Navigator.pop(dialogContext);
+                      await Navigator.of(pageContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TextPerformanceSettingsPage(),
+                        ),
+                      );
+                      await _loadVisualSettings();
+                    },
+                  ),
                   const Divider(height: 26),
                   _QuickPanelTile(
                     icon: Icons.tune_rounded,
                     title: '全部设置',
-                    subtitle: '前往底部“更多”的唯一完整设置中心。',
+                    subtitle: '完整设置将在下一步重新分类。',
                     onTap: () async {
                       Navigator.pop(dialogContext);
-                      widget.onOpenMore?.call();
+                      await Navigator.of(pageContext).pushNamed('/settings');
+                      await _loadVisualSettings();
                     },
                   ),
                   _QuickPanelTile(

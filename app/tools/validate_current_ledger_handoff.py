@@ -112,8 +112,8 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04163-immersive-tts-settings-hardening",
-        "0.41.63+207",
+        "agent/v04164-settings-rollback",
+        "0.41.64+208",
         "schema 60",
         "帅 API",
         "沉浸房间",
@@ -207,7 +207,7 @@ def main() -> None:
     database = DATABASE.read_text(encoding="utf-8")
     require(
         re.search(
-            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207)\s*$",
+            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208)\s*$",
             pubspec,
             re.MULTILINE,
         )

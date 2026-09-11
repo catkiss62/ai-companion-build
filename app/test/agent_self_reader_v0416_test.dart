@@ -13,7 +13,7 @@ void main() {
     );
 
     // This historical suite follows the current executable build identity.
-    expect(result.promptData, contains('build=v0.41.63+207 schema=60'));
+    expect(result.promptData, contains('build=v0.41.64+208 schema=60'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('all settings exposes seven responsibility domains',
+  testWidgets('all settings exposes six responsibility domains',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -18,7 +18,6 @@ void main() {
       '记忆与成长',
       '主动联系与感知',
       '语音与聊天呈现',
-      '表情包',
       '设备与数据',
       '诊断与开发',
     ]) {
@@ -26,7 +25,7 @@ void main() {
     }
     expect(find.text('保存'), findsNothing);
     expect(
-      find.textContaining('所有入口都使用同一份设置'),
+      find.textContaining('两处使用同一份设置'),
       findsOneWidget,
     );
   });

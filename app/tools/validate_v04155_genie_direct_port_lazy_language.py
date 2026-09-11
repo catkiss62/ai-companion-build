@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.63+207" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.63+207';" in read(
+assert "version: 0.41.64+208" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.64+208';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -180,7 +180,7 @@ assert "shouldFollowChatNotification" in chat
 assert "停止生成语音" in chat
 assert "生成三语版本" not in chat and "生成三语版本" not in voice_settings
 assert "外语按需生成" in chat and "外语按需生成" in voice_settings
-assert "沉浸房间的中文自动朗读会在流式正文闭合一句后立即排队" in voice_settings
+assert "不使用真流式测试模式" in voice_settings
 assert "static const double maxVolume = 2.0;" in tuning
 assert "static const double minSpeed = 0.5;" in tuning
 assert "static const double maxSpeed = 2.0;" in tuning
