@@ -1,5 +1,5 @@
 diff --git a/AI_Companion_当前总账.md b/AI_Companion_当前总账.md
-index 75ef5ac..88773f7 100644
+index 75ef5ac..9006755 100644
 --- a/AI_Companion_当前总账.md
 +++ b/AI_Companion_当前总账.md
 @@ -32,28 +32,28 @@
@@ -38,7 +38,7 @@ index 75ef5ac..88773f7 100644
  | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
  
  ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
-@@ -90,7 +90,26 @@
+@@ -90,7 +90,27 @@
  
  ## 近期详细记录与全局索引（按需检索）
  
@@ -61,12 +61,13 @@ index 75ef5ac..88773f7 100644
 +14. 设置导航实现复用一个公开 `SettingsDomainList`：底部“更多”保留“她/你们”，并直接展示模型与联网、记忆与成长、主动联系与感知、语音与聊天呈现、表情包、设备与数据、诊断与开发七域；现有具体页面和 setting key 完全复用。Material 3 侧栏继续保留查手机、沉浸房间、她现在的状态、世界书和素材说明，删除四个重复分类设置卡；“全部设置”关闭侧栏后由 AppShell 切到底部 More，不再 push 第二导航中心。旧 `/settings` route 与页面类暂留兼容已有深链，但不再是主入口。
 +15. 本地新增 +207 专项锁定 provider kill-switch/主动 DeepSeek、闭合句流式生命周期、角色音色与 1.2 倍率、PCM 倍率边界、脱敏诊断字段和唯一设置中心；新增 parser、processor 与 queue 单测覆盖中断尾部、旁白/对白和 gentle 倍率。当前容器无 Flutter/Dart SDK，Gradle wrapper也因外网限制无法下载 Gradle，故不能冒充 Flutter/Kotlin 编译已通过。已通过 +207/+206/current-ledger 专项、workflow YAML、`git diff --check`，以及 Actions 同款 86 个 Python 源码门中所有可本地执行项；仅 LingChat 私有恢复、417 桌宠恢复和本机 `kotlinc` 三项因资源/工具缺失不能运行，必须由 Actions 真环境完成。
 +16. 首次远端同步误以总账中的 +206 APK 构建 head `3bbc438b` 作为分支最终基线，遗漏随后 `[skip ci]` 的总账回写 head `5f43ebed`：run [`34613845398`](https://github.com/catkiss62/ai-companion-build/actions/runs/34613845398)（839）在产品编译前被总账差量基线哈希拦住；以真实最新 tree 快进修正后，run [`34614038301`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614038301)（840）按文档同步正确跳过 APK。正式 run [`34614128941`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614128941)（841）已通过总账重建、版本/schema、私有小酒狐、417 桌宠、LingChat 与塔罗恢复，但历史 +155 验证器仍断言旧 UI 文案“不使用真流式测试模式”，与 +207 已明确启用沉浸中文闭合句流式朗读冲突，故在编译前失败；已把该历史合同精确推进到新文案并保持普通聊天 controller 不启用流式的原约束，下一轮须重新覆盖完整 Kotlin/Flutter/Release 门。
++17. 修正后的 run [`34614718484`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614718484)（842）通过完整源码/历史 validators、Flutter 依赖解析、Kotlin/JVM 与 Flutter debug 编译及 Flutter Analyze；全量 Flutter tests 为 `728 passed / 3 failed`。三项失败均是设置归一后未同步的旧测试期望：仍要求底部“更多”旧五域、`/settings` 旧六域与 +206 build label，而产品 UI 已有她/你们加七设置域且唯一中心文案、Agent Self 已为 +207。已把三项测试推进到真实 +207 信息架构和 build label，不改产品实现；下一轮必须先证明三项失败消失，再继续 Release/签名/实包门。
 +
 +### 2026-09-11 v0.41.62+206 双通道最终表达、兜底与安全截断草稿（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
  
  1. 用户确认 +205 帅 API 实际无法使用；此前准备评估的 Modelink 尚未进入代码，也不再作为当前首选。用户重新确认 +204 玩游特价模型按请求计费：4 元 100 积分，每个 HTTP 模型请求固定扣 0.5 积分，即 ¥0.02；沉浸一次发送→回复曾观察到只扣 0.5，但用户明确该单次观察可能不完整，不能据此覆盖源码调用链，固定每请求扣 0.5 则为平台明示事实。
  2. 用户提出并认可的方向是“双通道模型”：DeepSeek API Key 必须配置，作为系统内部基础模型；未配置 Gemini 时仍完全沿用旧 DeepSeek 单模型路径。只有用户选择 Gemini 作为回复模型时，才额外填写独立玩游 Key，并让 Gemini 3.7 Flash 负责完成全部 Prompt 注入后的最终可见回复，以利用其文笔与活人感。
-@@ -109,6 +128,13 @@
+@@ -109,6 +129,13 @@
  15. 当前容器没有 Flutter/Dart SDK，因此不冒充 Analyze 或 Flutter tests 已通过。已通过 +206 新专项、当前总账门、+204/+205 保留合同、v0.41.28–50 当前源码专项组、workflow YAML 解析与 `git diff --check`。历史验证器版本允许列表已推进到 +206；完整 Kotlin/Flutter/Release/签名/小酒狐实包门必须等 Actions 实测，在此之前状态严格保持 `CI PENDING / TRUE DEVICE PENDING`。
  16. 首轮 Actions run [`34588108620`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588108620)（836）通过两项超大文件目标 SHA 重建、固定私有载荷恢复、干净基线、全部源码/历史 validator 与 Flutter 依赖解析；在 Kotlin/JVM 步骤触发的 Flutter debug 编译中失败，唯一产品编译错误是沉浸草稿临时 TTS 路径引用 `ChatSegmentCodec` 时漏导入 `models/chat_segment.dart`，两处同源 undefined getter。该轮未进入 Analyze/tests/Release，不得记作功能回归；已补精确 import，下一轮必须从 Kotlin/Flutter 编译重新验证，不能跳过。
  17. import 窄修以远端提交 `613096b0fff553c2f069994091dc667953211608` 触发第二轮 Actions run [`34588761545`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545)（837），完整通过超大文件目标 SHA、固定私有资源、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`726/726` Flutter tests、arm64 Release、固定签名、48 项小酒狐/Genie/OpenJTalk 实包身份、ORT byte identity、四独立候选、退休语音排除、OpenJTalk ELF、塔罗、checksum、Artifact 与 Draft 上传。APK `AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk` 为 544,680,678 bytes、SHA-256 `c57664d925d39d1fb4d1368a2a8263e4e6e8bcdab0f9432912771d5e41fc3fdf`；Artifact `10195107821` 为 537,801,712 bytes、digest `a80f363a5bbf89c07c98fa18c46759ae66765f0d3f69fac6fc4be44261718c2a`。成功后 Actions 按两项目标 Git blob SHA 回写数据库/总账并删除临时 delta，分支最终 head `3bbc438b0f1f018bb5f791f5b0832b7a39a03452` / tree `4a5d5a605ce96668ca5fda75c47dc6c97afbd1ae`；运行源码与受测字节一致。当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。

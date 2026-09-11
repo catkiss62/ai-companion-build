@@ -786,7 +786,7 @@ jobs:
             test "$(git hash-object app/lib/core/database/app_database.dart)" = \
               'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
             test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-              '88773f7e6939dd1cd739d493d4d5066ffbf30658'
+              '9006755f969eaa259dcf278c78f019ea5cb1e103'
           fi
 
       - name: Verify clean source baseline
@@ -1396,7 +1396,7 @@ jobs:
           test "$(git hash-object app/lib/core/database/app_database.dart)" = \
             'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
           test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-              '88773f7e6939dd1cd739d493d4d5066ffbf30658'
+              '9006755f969eaa259dcf278c78f019ea5cb1e103'
           rm app/docs/v04163_ledger.patch
           git config user.name 'catkiss62'
           git config user.email 'aolu0610@gmail.com'

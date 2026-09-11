@@ -120,6 +120,24 @@ def main() -> None:
     for removed in ("title: '主动联系'", "title: '聊天画面'", "title: '语音与情绪'", "title: '文字演出'"):
         assert removed not in v2, removed
 
+    require(
+        read("test/settings_information_architecture_test.dart"),
+        "seven responsibility domains",
+        "'表情包'",
+        "所有入口都使用同一份设置",
+    )
+    require(
+        read("test/ui_information_architecture_v0360_test.dart"),
+        "the unique More center exposes identity and settings domains",
+        "'模型与联网'",
+        "'诊断与开发'",
+        "唯一完整设置中心",
+    )
+    require(
+        read("test/agent_self_reader_v0416_test.dart"),
+        "build=v0.41.63+207 schema=60",
+    )
+
     print("v0.41.63 immersive TTS, diagnostics, settings and routing contracts passed")
 
 
