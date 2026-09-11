@@ -32,7 +32,9 @@ void main() {
 
   test('low reasoning effort is available for custom model APIs', () {
     expect(ReasoningEffort.fromApiName('low'), ReasoningEffort.low);
+    expect(ReasoningEffort.fromApiName('medium'), ReasoningEffort.medium);
     expect(ReasoningEffort.low.apiName, 'low');
+    expect(ReasoningEffort.medium.apiName, 'medium');
     expect(ReasoningEffort.values, contains(ReasoningEffort.low));
   });
 }

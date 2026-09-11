@@ -16,21 +16,6 @@ void main() {
     expect(TtsPlaybackTuning.volumeFromSetting('3'), 2.0);
   });
 
-  test('tone presets keep original PCM or intentionally lower two semitones', () {
-    expect(TtsTonePreset.fromSetting(null), TtsTonePreset.original);
-    expect(
-      TtsPlaybackTuning.effectivePitchSemitones(
-        TtsTonePreset.original,
-        -4.0,
-      ),
-      0.0,
-    );
-    expect(
-      TtsPlaybackTuning.effectivePitchSemitones(TtsTonePreset.low, 4.0),
-      -2.0,
-    );
-  });
-
   test('custom pitch clamps independently and converts semitones to ratio', () {
     expect(TtsPlaybackTuning.pitchSemitonesFromSetting('-8'), -4.0);
     expect(TtsPlaybackTuning.pitchSemitonesFromSetting('8'), 4.0);

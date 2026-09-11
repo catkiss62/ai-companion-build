@@ -6,11 +6,14 @@ import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
+import '../emotion/emotion_classifier_service.dart';
+import '../emotion/emotion_contract.dart';
 import '../models/immersive_room.dart';
 import '../models/generation_job.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
+import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
 import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
@@ -123,7 +126,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     notice = null;
     final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) {
-      error = '请先到“更多”→“AI 与陪伴设置”填写 DeepSeek API Key。';
+      error = '请先到“更多”→“AI 与陪伴设置”填写所选聊天提供商的 API Key。';
       _safeNotify();
       return;
     }
@@ -251,10 +254,12 @@ class ImmersiveRoomController extends ChangeNotifier {
       _safeNotify();
       if ((await db.getSetting('tts_enabled')) != '0' &&
           (await db.getSetting('auto_tts')) != '0') {
+        final emotion = await _ttsEmotionCueFor(assistant);
         unawaited(ttsPlayback.playText(
           assistant.content,
           manual: false,
           ownerId: assistant.id,
+          emotion: emotion,
         ));
       }
       unawaited(_maybeRefreshRollingState(
@@ -366,10 +371,26 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   Future<void> speakMessage(ImmersiveMessage message) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
+    final emotion = await _ttsEmotionCueFor(message);
     await ttsPlayback.playText(
       message.content,
       manual: true,
       ownerId: message.id,
+      emotion: emotion,
+    );
+  }
+
+  Future<TtsEmotionCue> _ttsEmotionCueFor(ImmersiveMessage message) async {
+    final resolved = await EmotionClassifierService.instance.resolve(
+      rawTag: '',
+      visibleText: message.content,
+      envelopeStatus: EmotionEnvelopeStatus.missing,
+    );
+    return TtsEmotionCue(
+      key: resolved.key,
+      label: resolved.label,
+      confidence: resolved.confidence,
+      source: resolved.source,
     );
   }
 
@@ -440,7 +461,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (sending || ending || room == null || room!.isEnded) return false;
     final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) {
-      error = '结束房间前需要用 DeepSeek 整理归档，请先填写 API Key。';
+        error = '结束房间前需要用所选聊天模型整理归档，请先填写 API Key。';
       _safeNotify();
       return false;
     }

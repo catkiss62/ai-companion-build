@@ -11,8 +11,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.59+203" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.59+203';" in read(
+assert "version: 0.41.60+204" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.60+204';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 assert "static const int schemaVersion = 59;" in read(
@@ -72,11 +72,11 @@ assert "PlaybackParams()" in player and ".setPitch(currentPitch)" in player
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.59+203 APK",
+    "Build AI Companion v0.41.60+204 APK",
     "validate_v04158_backup_naiyou_runtime.py",
-    "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
-    "genie-tts-private-runtime-v0.6.4",
-    "complete T2S and per-file integrity metadata",
+    "AI-Companion-v0.41.60-204-Jiuhu-Four-Voice-Auto-Fix-APK",
+    "genie-tts-private-runtime-v0.7.6-jiuhu",
+    "six prompt tensors and per-file integrity metadata",
 ):
     assert token in workflow, token
 

@@ -500,7 +500,6 @@ class _VoiceEmotionSettingsPageState
   TtsVoiceMode _voiceMode = TtsVoiceMode.auto;
   TtsReadingScope _scope = TtsReadingScope.dialogueOnly;
   ProactiveTtsPolicy _proactivePolicy = ProactiveTtsPolicy.silent;
-  TtsTonePreset _tonePreset = TtsTonePreset.original;
   double _pitchSemitones = 0.0;
   double _ttsSpeed = 1.0;
   double _ttsVolume = 1.0;
@@ -508,6 +507,7 @@ class _VoiceEmotionSettingsPageState
   bool _emotionSound = false;
   double _emotionVolume = 0.15;
   TtsStatus? _ttsStatus;
+  String _lastResolvedVoice = '';
   bool _ttsBusy = false;
   String? _status;
   bool _loading = true;
@@ -532,12 +532,10 @@ class _VoiceEmotionSettingsPageState
     _proactivePolicy = ProactiveTtsPolicy.fromSetting(
       await _db.getSetting('proactive_tts_policy'),
     );
-    _tonePreset = TtsTonePreset.fromSetting(
-      await _db.getSetting('tts_tone_preset'),
-    );
     _pitchSemitones = TtsPlaybackTuning.pitchSemitonesFromSetting(
       await _db.getSetting('tts_pitch_semitones'),
     );
+    _lastResolvedVoice = await _db.getSetting('last_tts_resolved_voice') ?? '';
     _ttsSpeed = TtsPlaybackTuning.speedFromSetting(
       await _db.getSetting('tts_speed'),
     );
@@ -563,15 +561,9 @@ class _VoiceEmotionSettingsPageState
     if (mounted) setState(() => _loading = false);
   }
 
-  double get _effectivePitchSemitones =>
-      TtsPlaybackTuning.effectivePitchSemitones(
-        _tonePreset,
-        _pitchSemitones,
-      );
-
   Future<void> _applyPitch() => _tts.setPitch(
         TtsPlaybackTuning.pitchRatioForSemitones(
-          _effectivePitchSemitones,
+          _pitchSemitones,
         ),
       );
 
@@ -587,12 +579,24 @@ class _VoiceEmotionSettingsPageState
     try {
       final result = await action();
       _ttsStatus = await _tts.status();
+      _lastResolvedVoice =
+          await _db.getSetting('last_tts_resolved_voice') ?? '';
       if (mounted) setState(() => _status = result);
     } catch (error) {
       if (mounted) setState(() => _status = 'TTS 操作失败：$error');
     } finally {
       if (mounted) setState(() => _ttsBusy = false);
     }
+  }
+
+  String _resolvedVoiceLabel(String encoded) {
+    final parts = encoded.split('|');
+    if (parts.length < 4) return encoded;
+    final configured = TtsVoiceMode.fromSetting(parts[0]);
+    final resolved = TtsVoiceMode.fromSetting(parts[1]);
+    final emotion = parts[2].isEmpty ? '无情绪' : parts[2];
+    final mode = configured == TtsVoiceMode.auto ? '自动' : '固定';
+    return '$mode → ${resolved.label}（$emotion，置信度 ${parts[3]}）';
   }
 
   Future<void> _saveReplacement() async {
@@ -691,7 +695,7 @@ class _VoiceEmotionSettingsPageState
                     DropdownButtonFormField<TtsVoiceMode>(
                       value: _voiceMode,
                       decoration: const InputDecoration(
-                        labelText: 'Genie 音色',
+                        labelText: '小酒狐音色',
                         helperText: '自动按本轮情绪选择；固定后整条回复只用该音色。',
                         border: OutlineInputBorder(),
                       ),
@@ -710,51 +714,26 @@ class _VoiceEmotionSettingsPageState
                       },
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<TtsTonePreset>(
-                      value: _tonePreset,
-                      decoration: const InputDecoration(
-                        labelText: '恬豆音调',
-                        helperText: '高音版保持模型原声；低音版固定降低 2 个半音。',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: TtsTonePreset.values
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(value.label),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) async {
-                        if (value == null) return;
-                        setState(() => _tonePreset = value);
-                        await _db.setSetting('tts_tone_preset', value.key);
+                    Text(
+                      '音调 ${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)} 半音',
+                    ),
+                    Slider(
+                      min: TtsPlaybackTuning.minPitchSemitones,
+                      max: TtsPlaybackTuning.maxPitchSemitones,
+                      divisions: 16,
+                      value: _pitchSemitones,
+                      label:
+                          '${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)}',
+                      onChanged: (value) =>
+                          setState(() => _pitchSemitones = value),
+                      onChangeEnd: (value) async {
+                        await _db.setSetting(
+                          'tts_pitch_semitones',
+                          value.toStringAsFixed(1),
+                        );
                         await _applyPitch();
                       },
                     ),
-                    if (_tonePreset == TtsTonePreset.custom) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        '独立变调 ${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)} 半音',
-                      ),
-                      Slider(
-                        min: TtsPlaybackTuning.minPitchSemitones,
-                        max: TtsPlaybackTuning.maxPitchSemitones,
-                        divisions: 16,
-                        value: _pitchSemitones,
-                        label:
-                            '${_pitchSemitones >= 0 ? '+' : ''}${_pitchSemitones.toStringAsFixed(1)}',
-                        onChanged: (value) =>
-                            setState(() => _pitchSemitones = value),
-                        onChangeEnd: (value) async {
-                          await _db.setSetting(
-                            'tts_pitch_semitones',
-                            value.toStringAsFixed(1),
-                          );
-                          await _applyPitch();
-                        },
-                      ),
-                    ],
                     const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -843,7 +822,8 @@ class _VoiceEmotionSettingsPageState
                     Text(
                       currentTtsStatus == null
                           ? '尚未读取本地 TTS 状态。'
-                          : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '资源可用' : '资源未就绪'}\n${currentTtsStatus.detail}',
+                          : '${currentTtsStatus.engine} · ${currentTtsStatus.available ? '资源可用' : '资源未就绪'}\n${currentTtsStatus.detail}'
+                              '${_lastResolvedVoice.isEmpty ? '' : '\n最近音色：${_resolvedVoiceLabel(_lastResolvedVoice)}'}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),

@@ -6,16 +6,17 @@ import com.catkiss62.geniettsbenchmark.GenieBenchmarkEngine
 import java.io.File
 
 /**
- * Makes the first companion run use a complete, verified Tiandou extraction.
+ * Makes the first companion run use a complete, verified Jiuhu extraction.
  *
  * The pinned Genie test app always starts with a fresh filesDir. Companion
  * upgrades do not: older packages may have left mixed voice files or a
- * non-empty partial model behind. Purge only that reproducible version
- * directory once, then let the integrity-aware copier extract Tiandou again.
- * The imported Chinese RoBERTa lives in sibling shared/ and is preserved.
+ * non-empty partial model behind. On this voice-family migration, purge every
+ * reproducible version directory (including retired Tiandou) and then let the
+ * integrity-aware copier extract Jiuhu again. The imported Chinese RoBERTa
+ * lives in sibling shared/ and is preserved.
  */
 object GenieRuntimeAssetStore {
-    private const val MIGRATION_ID = "ai-companion-v04159-build203-tiandou-integrity-v1"
+    private const val MIGRATION_ID = "ai-companion-v04160-build204-jiuhu-v076-integrity-v1"
 
     fun prepare(
         context: Context,
@@ -33,10 +34,17 @@ object GenieRuntimeAssetStore {
             check(canonicalRoot.parentFile == canonicalBase) {
                 "拒绝清理非 Genie 运行目录"
             }
-            progress("正在校验并刷新 Genie 恬豆运行资源……")
-            if (canonicalRoot.exists()) {
-                check(canonicalRoot.deleteRecursively()) {
-                    "无法清理旧 Genie 运行资源"
+            progress("正在校验并刷新 Genie 小酒狐运行资源……")
+            canonicalBase.listFiles()?.forEach { candidate ->
+                if (!candidate.isDirectory || candidate.name == "shared") return@forEach
+                val canonicalCandidate = candidate.canonicalFile
+                check(canonicalCandidate.parentFile == canonicalBase) {
+                    "拒绝清理非 Genie 版本目录"
+                }
+                if (canonicalCandidate.exists()) {
+                    check(canonicalCandidate.deleteRecursively()) {
+                        "无法清理旧 Genie 运行资源：${candidate.name}"
+                    }
                 }
             }
             val prepared = engine.prepareAssets(progress)

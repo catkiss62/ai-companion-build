@@ -265,7 +265,7 @@ class ReasoningTranslationService {
     final apiKey = (await _apiKeyLoader())?.trim() ?? '';
     if (apiKey.isEmpty) {
       throw const ReasoningTranslationException(
-        '请先到“AI 与陪伴设置”填写 DeepSeek API Key。',
+        '请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。',
       );
     }
     final endpoint = await _endpointLoader();

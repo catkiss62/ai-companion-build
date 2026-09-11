@@ -24,12 +24,25 @@ class TtsService implements TtsQueueService {
   final TtsTextProcessor processor;
 
   @override
-  Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async =>
-      TtsVoiceProfilePolicy.resolve(
-        TtsVoiceMode.fromSetting(await db.getSetting('tts_voice_mode')),
-        emotionKey: emotion?.key ?? '',
-        confidence: emotion?.confidence ?? 0,
+  Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
+    final configured = TtsVoiceMode.fromSetting(
+      await db.getSetting('tts_voice_mode'),
+    );
+    final resolved = TtsVoiceProfilePolicy.resolve(
+      configured,
+      emotionKey: emotion?.key ?? '',
+      confidence: emotion?.confidence ?? 0,
+    );
+    try {
+      await db.setSetting(
+        'last_tts_resolved_voice',
+        '${configured.key}|${resolved.key}|${emotion?.key ?? ''}|${(emotion?.confidence ?? 0).toStringAsFixed(2)}',
       );
+    } catch (_) {
+      // Diagnostics are best-effort and must never block optional speech.
+    }
+    return resolved;
+  }
 
   Future<TtsStatus> status() => provider.status();
 
@@ -61,14 +74,11 @@ class TtsService implements TtsQueueService {
     final volume = TtsPlaybackTuning.volumeFromSetting(
       await db.getSetting('tts_volume'),
     );
-    final tonePreset = TtsTonePreset.fromSetting(
-      await db.getSetting('tts_tone_preset'),
-    );
-    final customPitch = TtsPlaybackTuning.pitchSemitonesFromSetting(
+    final pitchSemitones = TtsPlaybackTuning.pitchSemitonesFromSetting(
       await db.getSetting('tts_pitch_semitones'),
     );
     final pitch = TtsPlaybackTuning.pitchRatioForSemitones(
-      TtsPlaybackTuning.effectivePitchSemitones(tonePreset, customPitch),
+      pitchSemitones,
     );
     await provider.setSpeed(speed);
     await provider.setPitch(pitch);

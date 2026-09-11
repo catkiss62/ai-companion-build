@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'chat_api_provider.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 
@@ -82,6 +83,7 @@ class DeepSeekClient {
     String? toolChoice,
     GenerationCancellationToken? cancellationToken,
   }) async* {
+    final provider = ChatApiProvider.fromEndpoint(endpoint);
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
         'Content-Type': 'application/json',
@@ -89,10 +91,12 @@ class DeepSeekClient {
         'Authorization': 'Bearer ${apiKey.trim()}',
       })
       ..body = jsonEncode({
-        'model': model.apiName,
+        'model': provider.effectiveModel(model),
         'messages': messages,
-        'thinking': {'type': thinking ? 'enabled' : 'disabled'},
-        if (thinking) 'reasoning_effort': effort.apiName,
+        ...provider.thinkingRequestFields(
+          thinking: thinking,
+          effort: effort,
+        ),
         if (maxTokens != null) 'max_tokens': maxTokens,
         if (tools.isNotEmpty) 'tools': tools,
         if (tools.isNotEmpty) 'tool_choice': toolChoice ?? 'auto',
@@ -190,6 +194,7 @@ class DeepSeekClient {
     ReasoningEffort effort = ReasoningEffort.high,
     int maxTokens = 1400,
   }) async {
+    final provider = ChatApiProvider.fromEndpoint(endpoint);
     final response = await _client
         .post(
           Uri.parse(endpoint),
@@ -198,10 +203,12 @@ class DeepSeekClient {
             'Authorization': 'Bearer ${apiKey.trim()}',
           },
           body: jsonEncode({
-            'model': model.apiName,
+            'model': provider.effectiveModel(model),
             'messages': messages,
-            'thinking': {'type': thinking ? 'enabled' : 'disabled'},
-            if (thinking) 'reasoning_effort': effort.apiName,
+            ...provider.thinkingRequestFields(
+              thinking: thinking,
+              effort: effort,
+            ),
             'max_tokens': maxTokens,
             'response_format': {'type': 'json_object'},
             'stream': false,
@@ -214,7 +221,7 @@ class DeepSeekClient {
     final root = jsonDecode(response.body) as Map<String, dynamic>;
     final choices = root['choices'] as List?;
     if (choices == null || choices.isEmpty) {
-      throw const FormatException('DeepSeek 返回中没有 choices');
+      throw const FormatException('聊天 API 返回中没有 choices');
     }
     final message =
         ((choices.first as Map<String, dynamic>)['message'] as Map).cast<String, dynamic>();
@@ -250,5 +257,5 @@ class DeepSeekException implements Exception {
   final String message;
 
   @override
-  String toString() => 'DeepSeek API $statusCode: $message';
+  String toString() => '聊天 API $statusCode: $message';
 }

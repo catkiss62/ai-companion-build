@@ -1,6 +1,6 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-10（Asia/Tokyo）
+更新时间：2026-09-11（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
@@ -32,28 +32,28 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04159-tiandou-pitch-recovery`，从 `agent/v04155-genie-direct-port-lazy-language` 的 +202 head 开出；+203 已提交、推送并由 Actions 完整验证。它恢复已真机验证的完整恬豆 V2 资源，并吸收 Genie-TTS-Android v0.7.3 的逐文件完整性/原子替换合同，保留现有独立 TTS 进程、按需单一外语与固定分段链 |
+| 当前开发分支 | `agent/v04160-jiuhu-four-voice-auto-fix`，从 +203 head 开出；目标为 `v0.41.60+204`。本批把生产 TTS 从恬豆切换为 Genie-TTS-Android v0.7.6 已验证的小酒狐 V2Pro 四候选，修复自动情绪音色在部分入口缺少情绪 cue 的问题，并按用户追加要求同时接入与 DeepSeek 二选一的 NewAPI/OpenAI 兼容 Gemini 中转站；两项完成后只构建一次 APK |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +203 Actions head `381f7c75fed1d53eac8f83cfcbc68b5a50d6ac1c` / tree `e518d80bda7d43b444374d324cbc7d7e8bc2eefc` 已验证；远端实现提交为 `6597b3528d6d3ff09bba848b3550a1b5914b2b69` / tree `76464f7f0503d5e3fb7b32a2df7e0f4a50c34628`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有恬豆载荷只在 Actions 中恢复、校验与裁剪 |
-| App / 数据库 | 当前完整真机基线为 `0.41.55+199 / schema 57 / Snapshot protocol 5`；`0.41.56+200` 建立造梗单层概率与 D6 媒体引用，`0.41.57+201` 完成清理/发送落底/奶油切换，`0.41.58+202 / schema 58 / Snapshot protocol 6` 完成相关热修。当前待真机验收构建为 `0.41.59+203 / schema 59 / Snapshot protocol 6`，只新增 TTS 音调预设与半音设置默认/迁移，不改 Snapshot 协议或既有媒体结构 |
+| App / 数据库 | 当前已构建基线为 `0.41.59+203 / schema 59 / Snapshot protocol 6`；本批目标 `0.41.60+204 / schema 59 / Snapshot protocol 6`。删除高音版/低音版 UI 与运行选择，只保留音量、语速、独立音调；旧 `tts_tone_preset` 可作为无害兼容字段保留但不得再影响播放 |
 | 最终 CI | +203 run [`34508603932`](https://github.com/catkiss62/ai-companion-build/actions/runs/34508603932)（827）完整成功：完整恬豆私有包与 306,827,268-byte T2S 门、源码/回归 validator、新资源 JVM 测试、Kotlin/AIDL、Flutter analyze、`715/715` Flutter tests、arm64 Release、固定签名、40 项 Genie/Tiandou/OpenJTalk 实包哈希、四恬豆 case、无奶油/候选5/Meju 与 OpenJTalk ELF 闭包均通过 |
 | 测试 APK | `AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK.apk`，537,638,144 bytes |
 | APK SHA-256 | `a3c545caf08ef0c3edfa589e61642d92ea1b26421f1ac9528ffa59aa010827fd`；与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10165300992`](https://github.com/catkiss62/ai-companion-build/actions/runs/34508603932/artifacts/10165300992)，ZIP 530,779,822 bytes / digest `134cf4b596d3fdbbe7d7bc427c96a0b4429c07a8bb5d07457d0263df6a14f97f`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f05cdbac5b237ee9200e) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +199 是旧恬豆 TTS 完整真机稳定基线；+203 已恢复同源完整恬豆并加入逐文件真值、原声/低音与独立变调。Actions 全绿且 APK 已生成，当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。自动化证明文件与播放参数路径正确，但不能证明主观听感已恢复；必须由用户在 REDMI K80 Ultra 对照试听后才能写 TRUE DEVICE PASSED |
+| 当前总状态 | +203 为可回退的完整恬豆构建；+204 小酒狐实现提交 `103a671`、成对模型/临时残片加固提交 `b715568` 与 Gemini 中转/思考摘要提交 `1651359` 已完成，当前为 `TTS IMPLEMENTED / API IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`。Genie v0.7.6 私有 APK 已经临时分片中转、在本地逐字节重组并再次通过 649,663,221-byte / SHA-256 `af90ae...eb43` 核验，待转存 AI 伴侣未发布 Draft。API 实现固定 `https://wy.aiwangyou.cc/v1/chat/completions` 与 `[特价]gemini-3.7-flash-0.5`，Gemini 可见聊天请求原生思考摘要并继续显示到现有 reasoning 面板；没有用户 Key，不能伪称真实中转已通过。生产包必须只含小酒狐四候选，覆盖安装必须用新 version/migration 与逐文件大小/SHA/原子替换拒绝恬豆或混合缓存，不能重现“声音变厚”事故 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.59+203 真机听感验收**：覆盖安装 Draft APK；首次 TTS 初始化允许重新释放完整恬豆资源。语速先设 1.00×，依次用同一句话试听“高音版（原声）”、固定 -2 半音“低音版”、自定义 0/+2/-2 半音；自定义 0 应与原声一致，改变音高时语速不得变化。再抽查中/日/英与四情绪音色是否都能播放。若原声仍明显厚，只收集具体档位/语言/句子与诊断后窄查，不用低音预设掩盖 |
-| 目标 | 原声档在音高 0 半音且语速 1.0x 时完全不设置 `PlaybackParams`，保持 Genie 权威 32 kHz PCM；低音档只在健康恬豆输出上显式降调，不保留或依赖混合/损坏缓存。音高测试范围先限定为 -4…+4 半音、默认 0；低音预设使用可回退常量，四个原有 `daily/gentle/lively/cute` 情绪音色仍由一套恬豆模型提供。覆盖安装必须逐文件验证旧缓存，错误、截断或异包文件自动替换 |
-| 当前证据 | Genie-TTS-Android `agent/v073-tiandou-integrity-hotfix` head `3ab3c1b` 已证明 v0.7.2 恬豆 `t2s_shared_fp32.bin` 仅 186,318,848 bytes，而正确文件为 306,827,268 bytes；公开源码编译/切句测试 run `34499786767` 已成功。其恢复链从原始配对权重重建、桌面完整推理出有限波形，并加入 manifest `asset_integrity`、原子释放与双语音包完整推理门。AI 伴侣 +202 当前仍使用“文件非空即跳过”的旧 copier，因此必须先修运行资源真值，不能把截断文件或混合缓存包装成可选音色 |
-| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或密钥；CI 只从既有私有 Draft 资产恢复完整恬豆。不能把 186MB 截断 T2S、混合缓存或奶油旧文件作为“低音版”；低音必须从健康恬豆可重复地产生。世界书、Memory/Thought/Desire、媒体 D6、Agent Outcome、表情概率、普通/沉浸/悬浮发送落底及 TTS 不拉动聊天滚动均不得回归。旧 `.aibackup` 不改写，数据库仅增加向后兼容设置默认/迁移 |
+| 当前下一步 | **完成 v0.41.60+204 小酒狐四音色与 Gemini 中转二选一后统一构建**：TTS 生产 manifest 固定候选 2→daily、3→gentle、4→cute、1→lively；模型设置新增 DeepSeek / 玩游中转二选一，后者固定 `https://wy.aiwangyou.cc/v1/chat/completions` 与 `[特价]gemini-3.7-flash-0.5`，使用独立安全存储 Key。两条链完成本地合同测试后才推送和构建 |
+| 目标 | TTS 默认音调 0 半音且语速 1.0x 时完全不设置 `PlaybackParams`，保持小酒狐原始 32 kHz PCM；整条回复按最终 `CompanionEmotion` 固定一个候选；继续单 `MODE_STREAM` AudioTrack、无固定 200ms 等待且播放前段时生成后段。API 切换必须覆盖聊天、后台生成、Memory/Thought/Desire、沉浸与联网评价等所有共用主模型入口；DeepSeek 保留专用 `thinking.type`，Gemini 改用 `extra_body.google.thinking_config` 请求 `include_thoughts`，思考摘要继续流入现有 reasoning 面板 |
+| 当前证据 | Genie v0.7.6 APK 已经临时中转并在本地重组后复核为 649,663,221 bytes、SHA-256 `af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43`。Google 官方 Gemini OpenAI 兼容文档确认 3.7 Flash 支持 low/medium/high thinking，Gemini 3 不可完全关闭；思考摘要需 `include_thoughts`。NewAPI 官方 Chat Completions 合同支持 Bearer、流式、`reasoning_effort` 与响应 `reasoning_content`，其当前官方源码还明确把 `extra_body.google.thinking_config.include_thoughts/thinking_level` 转为 Gemini 原生配置，并把 thought 转为 `reasoning_content`。未持有用户中转 Key，因此真实额度/别名可用性必须由 App 内连接测试和真机验证，不能伪称已联网通过 |
+| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或任何 API Key；两家 Key 独立安全存储，切换不得覆盖或误发另一家 Key。Gemini 请求不得携带 DeepSeek 私有 `thinking`，也不得同时发送互相冲突的 `reasoning_effort` 与 Gemini `thinking_level`。CI 只从 AI 伴侣私有 Draft 恢复小酒狐 APK并裁剪 `assets/benchmark_jiuhu`；生产包不得含恬豆、奶油、乐奈、高频柔化或混合缓存。世界书、Memory/Thought/Desire、媒体 D6、Agent Outcome、表情概率与发送落底均不得回归；schema 与 Snapshot protocol 不变 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
-| 完成判据 | CI 必须证明生产 manifest 只含恬豆 `ref01/ref02/ref04/ref06`，`t2s_shared_fp32.bin` 精确为 306,827,268 bytes 且所有生产资源大小/SHA 匹配，奶油/候选5/Meju 不进入 APK；Android 单测覆盖错误长度、错误 SHA、旧无 marker 正确文件复用、`.incoming` 原子替换与目录边界。Flutter/Kotlin 覆盖原声不触发 DSP、低音/自定义变调只改变 pitch、speed 独立、设置持久化与旧存档默认 0 半音。完整回归、Analyze、Release、签名、实包门全绿后只写 `APK READY`；REDMI K80 Ultra 仍须对照 Genie v0.7.3 试听原声、低音和滑杆 |
+| 完成判据 | CI 必须证明生产 manifest 只有四个小酒狐候选及其独立参考张量，模型/参考资源大小与 SHA 全匹配，退休语音不进入运行路径；TTS 测试锁定情绪映射、0 半音/1.0x 绕过 DSP、单 AudioTrack 与无固定等待。API 测试必须截获请求并证明两提供商 Key/端点/模型隔离、DeepSeek 私有 thinking 不泄漏到 Gemini、Gemini thinking level + `include_thoughts` 正确、流式 `reasoning_content` 与 tool calls 可继续解析、切回 DeepSeek 不丢原配置。完整回归、Analyze、Release、签名和 APK 实包门全绿后只写 `APK READY`；中转别名与思考摘要仍须用户用自己的 Key 真机测试 |
 | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
@@ -67,7 +67,7 @@
 
 | 路线 | 进入条件 | 下一动作与详细入口 |
 |---|---|---|
-| T0 · v0.41.59 恬豆原声与变调 | +203 run 827、完整私有恬豆载荷、715/715 tests 与 APK 实包门已通过 | 当前只待真机对照：在同一健康 PCM 上试听原声、固定低音与独立音高，不以自动化替代听感；若原声仍厚，按具体档位/语言/句子与诊断窄查 |
+| T0 · v0.41.60 小酒狐四音色 + Gemini 中转 | 用户指定四候选映射并要求删除恬豆与高/低音预设；构建前又要求加入与 DeepSeek 二选一的玩游 NewAPI Gemini | 当前实施项：以 Genie v0.7.6 四候选完整资源为唯一声学源；同时完成提供商、Key、模型、请求方言与思考摘要切换测试。两项只构建一次 +204 |
 | A · Phase 2A.5 自动化收口 | `CI PASSED / APK READY` | 公开分支、run 689、Artifact、Draft Release 与独立 SHA 复算均已完成；不再修改运行代码，除非真机证据暴露窄缺陷 |
 | B · Phase 2A.5 消融稳定化 | v0.41.20 真机暴露计划/正文/Outcome 失配 | 先用固定夹具做责任消融，再实现终态真值与无关网页隔离；只删除经对照证明无贡献或冲突的层。完整联网“搜索线索→重读页面→价值评价→分享/学习候选”留后续阶段 |
 | B2 · Phase 2A/2A.5 真机审查 | v0.41.21 自动化与 APK 完成后 | 自然复核追问是否真实表达、Thought 是否只在实际 bid 后 acted/satisfied、用户跳题、服务型安慰、动作/口语和造梗密度；分别记录结论，不因自动化通过倒写真机通过 |
@@ -89,6 +89,29 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-11 v0.41.60+204 小酒狐四候选与自动情绪音色修复（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户要求删除 +203 恬豆生产语音，替换为 Genie-TTS-Android v0.7.6 已验证的小酒狐 V2Pro 四候选；固定映射为候选2→`daily` 日常、候选3→`gentle` 温柔、候选4→`cute` 可爱、候选1→`lively` 活泼。按 v0.7.6 manifest 顺序，候选1/2/3/4 分别是 `jiuhu_idle50`、`jiuhu_bento_tools`、`jiuhu_dream_days`、`jiuhu_devotion`。
+2. 四候选只共用一套小酒狐 GPT/SoVITS 声学权重；每个候选必须独立保留 Japanese OpenJTalk `ref_seq`、零 `ref_bert`、`ssl_content`、`ref_audio`、1024 维 `ge` 与 512 维 `ge_advanced`。不得复制参考张量、不得复用恬豆 `ref01/ref02/ref04/ref06`，不得把 Genie 测试 APK 中的恬豆目录带入 AI 伴侣生产 APK。
+3. 用户要求删除“高音版（原声）/低音版”预设，只保留音量、语速、音调三个播放控制。默认音调 0 半音、语速 1.0x 时必须完全绕过 `PlaybackParams`；非默认时通过同一 `PlaybackParams` 分别设置 speed 与 pitch ratio，禁止线性 PCM 重采样或让语速改变音调。Genie v0.7.5 的高频柔化为测试后处理，本批不移植。
+4. 初查自动音色并非四映射缺失：普通聊天完成后会传最终 `ChatMessage.emotionKey/confidence`，但沉浸房间自动/手动朗读均未传情绪，主动消息即时 TTS 也构造了 `message.emotionKey` 却未传给 `tts.speak`；这些入口必然回退日常。现有自动策略还把所有置信度 `<0.35` 的合法情绪硬压回日常，可能进一步造成普通聊天“没有变化”。本批统一从已持久化最终情绪构造 cue；低置信度仅在 key 缺失/未知时回退日常，并增加本轮 resolved voice 诊断，不另建第二套情绪分类器。
+5. 播放优化初查：AI 伴侣已有 Dart A2 队列、独立串行 generation worker 与 playback worker，Native `WavAudioPlayer` 每条回复创建一个 `MODE_STREAM` AudioTrack，首段最多预填充一秒后开始播放，后续 WAV 继续写入同一 Track；源码没有固定 200ms 段间等待，后段可在前段播放期间生成。本批补合同测试与静态门，避免更换 V2Pro 运行时破坏该链。
+6. 资源事故保护：+204 必须使用全新的小酒狐 namespace/version/migration marker，并继续逐文件大小/SHA-256校验、`.incoming` 完整写入和原子替换。覆盖安装时不能凭“文件非空”跳过，也不能与 `filesDir/genie-benchmark/<旧恬豆版本>` 共用目录。模型、参考 WAV/张量、RoBERTa、用户数据、诊断、备份或密钥不进入公开 Git tree，只能在 Actions 私有恢复阶段组装并由最终 APK 实包门复核。
+7. 生产映射已改为 `daily/jiuhu_bento_tools`（候选2）、`gentle/jiuhu_dream_days`（候选3）、`cute/jiuhu_devotion`（候选4）、`lively/jiuhu_idle50`（候选1）；运行状态、目录标签与 `VoiceProfileCatalog` 同步改为小酒狐 v0.7.6。新迁移标记为 `ai-companion-v04160-build204-jiuhu-v076-integrity-v1`；首次运行会在 canonical `genie-benchmark` 根内删除除 `shared/` 外的全部退休版本目录，再按 manifest integrity 原子释放当前资源，确保旧恬豆不会留在运行扫描范围。
+8. 高音版/低音版 enum、设置 UI 与运行分支已删除；界面只保留音量、语速、音调，旧 `tts_tone_preset` 数据库键仅作为兼容脏字段保留且不再读取。音调继续以半音换算 ratio；默认 0 半音与 1.0x 创建 AudioTrack 时完全旁路 `PlaybackParams`，只有用户实际改变 speed/pitch 才分别写入同一参数对象，未恢复任何线性 PCM 重采样，也未移植 v0.7.5 高频柔化。
+9. 自动音色“好像没有变化”的根因与修复已落地：删除合法已知情绪 `confidence < 0.35` 时强制回日常的门；沉浸房自动/手动朗读通过既有 `EmotionClassifierService` 生成 cue；主动消息即时语音传递已经持久化到消息的 `emotionKey/label/confidence/source`。普通聊天原有最终情绪 cue 保持。每次 resolve 以 best-effort 写入 `last_tts_resolved_voice=configured|resolved|emotion|confidence`，设置页显示“最近音色”，便于真机直接核对自动映射而不猜听感。
+10. 生成速度链复核后不做破坏性重写：当前 Dart A2 仍由串行 generation worker 在独立 playback pump 运行时生成后段，Native 每条回复仅创建一次 `AudioTrack.MODE_STREAM`，后续 WAV 的 PCM 继续写入同一 Track；首段最多预填充一秒是 PCM 数据阈值而非固定睡眠。源码没有固定 200ms 段间等待，仅有 12ms 的队列轮询；合同测试锁定“一次 begin/finish + 播放首段时生成后段”，禁止 `Thread.sleep(200...)` 与 `resampleForSpeed` 回归。
+11. CI 已改为只从 AI 伴侣仓库未发布 Draft `genie-tts-private-runtime-v0.7.6-jiuhu` 读取 `Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk`，并先校验固定 SHA-256 `af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43`。只解出 `assets/benchmark_jiuhu`、OpenJTalk 和必要 native libs，再重命名为伴侣内部 `assets/benchmark`；裁剪及最终 APK 双门均要求四 case 各自恰有 `ref_seq/ref_bert/ssl_content/ref_audio/ge/ge_advanced` 六张量，并拒绝恬豆 `ref01/ref02/ref04/ref06`、奶油、Meju 与测试备份。
+12. 本地已通过 workflow YAML 解析、Python 语法、`git diff --check`、当前总账 archive/hash/50KB 门、+201～+204 TTS/媒体 validator 及 workflow 实际源码 validator（需要 CI 恢复的桌宠/LingChat 资产与 Kotlin 编译除外）。当前环境无 Flutter/Dart/Kotlin 工具链，真实 Analyze/tests/JVM/Release 必须由 Actions 完成。Genie Draft 的 649,663,221-byte 附件在已登录云浏览器中被下载客户端以 `ERR_BLOCKED_BY_CLIENT` / `Fetch domain is not enabled` 拦截，普通 GitHub connector 明确不支持二进制 Release 下载；AI 伴侣私有 Draft 目前尚无该附件，因此本轮没有推送触发注定失败的构建。继续条件是取得上述精确 APK（用户可直接在本对话上传），复核大小/SHA 后转存到 AI 伴侣私有 Draft，再推送开发分支并跟踪 Actions；不合并 `main`、不发布正式 Release。
+13. 用户补充上传的小酒狐精简包已做只读文件级核验：`小酒狐-e10.ckpt` 为 155,312,438 bytes / SHA-256 `8a284b6754e2bc56b5931de1a3adceb77f3659ea2aef99a6e74dc88bb05e4fee`，`小酒狐_e4_s92.pth` 为 134,945,589 bytes / SHA-256 `4453038a042cfda3dde404174369cc25ff7ab56d401b3c1716d0579ec6e56621`。Genie 私有制作脚本必须成对读取二者，并把前者对应到 T2S 三图/外部权重、后者对应到 VITS 图/外部权重；四候选共享这一配对模型，只各自更换参考提示，不能把两个 checkpoint 误作两个音色。
+14. 用户补充的候选 ZIP manifest 暴露出 `models/.vits_fp32.bin.PJZyim`（79,953,920 bytes）原子写入临时残片；它不被 `vits_fp32.onnx` 引用，不能进入生产 APK。Actions 裁剪现改为严格七文件模型白名单，并固定核对 `t2s_shared_fp32.bin` 306,827,268 bytes / SHA-256 `07c40d...c445` 与 `vits_fp32.bin` 175,582,720 bytes / SHA-256 `bfd655...99c2` 及四张 ONNX/encoder BIN 的完整哈希；同时要求四候选的 `ssl_content/ref_audio/ge/ge_advanced` 组合签名彼此不同，避免只改显示名却复用同一候选。
+15. 两个上传包能完成源模型、参考音频和提示张量核验，但没有 `t2s_encoder/t2s_decoder/vits` ONNX 与约 494 MB 外部运行 BIN，也没有私有 Genie 2.0.2 转换目录、prompt/speaker encoder 和 GenieData；当前容器也没有 `torch/onnx/onnxruntime/genie_tts`，不能从 checkpoint 安全重做已验证的 V2Pro 转换。已登录 GitHub Draft 页面可确认 649,663,221-byte v0.7.6 APK 存在且哈希一致，但大附件下载仍被云浏览器 `Fetch domain is not enabled` 拦截；AI 仓库 release 列表再次确认尚无 `genie-tts-private-runtime-v0.7.6-jiuhu`。因此模型判定和源码加固已完成，构建依赖仍是“把既有完整 Genie APK 私下转存到 AI 仓库 Draft”，不能把原始 checkpoint 提交公开仓库或伪称 APK 已就绪。
+16. 用户授权建立 Genie 专用临时中转分支并将该私有 APK 转存 AI 伴侣未发布 Draft。`agent/v076-private-apk-relay` 的临时工作流先核对 Draft asset ID、服务端大小/digest并下载原件，再因连接器 512 MiB 上限无损分成 350,000,000 与 299,663,221 bytes 两段；run `34557145602` 成功。两段取回本地、解包和顺序拼接后，重组 APK 精确为 649,663,221 bytes / SHA-256 `af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43`，与源 Draft 完全一致。临时分支、PR 与 1 天 Artifact 不擅自删除；完整 APK 待上传 AI 伴侣 Draft。
+17. 用户在构建前追加模型中转：与 DeepSeek 二选一，固定站点 `https://wy.aiwangyou.cc`、OpenAI Chat Completions `POST /v1/chat/completions` 与模型 `[特价]gemini-3.7-flash-0.5`。本批不把它伪装成 DeepSeek 自定义端点：提供商选择、API Key 与固定运行合同必须独立，切换后所有共用主模型调用读到同一活动配置，避免主聊天已切换而后台 Memory/主动/沉浸仍拿 DeepSeek 模型 ID 请求 Gemini。
+18. Gemini 3.7 Flash 官方支持动态 thinking，级别为 low/medium/high且 Gemini 3 无法完全关闭。用户明确要求切换后把现有 thinking 展示替换为 Gemini 思考链；严格实现为官方“思考摘要”，不是声称泄露完整私有推理。NewAPI 当前官方转换器接受 `extra_body.google.thinking_config.thinking_level/include_thoughts` 并把 Gemini thought 映射为 `reasoning_content`。因此 Gemini 请求只发送这一原生配置，不与 `reasoning_effort` 重复；现有流式解析器继续把 `reasoning_content` 送入思考面板，正文与工具调用保持原路径。
+19. 本条为 API 追加范围的修改前总账：当前不得提前构建。实现后必须回填实际源码/测试/失败路线、AI Draft 资产、远端提交、Actions、APK 大小/SHA与真机边界；没有用户中转 Key，CI 只能证明请求/响应协议与设置隔离，不能替代真机用真实额度验证 `[特价]gemini-3.7-flash-0.5` 是否可用及是否返回非空思考摘要。
+20. API 实现已提交为本地 `1651359`：新增 `ChatApiProvider`，设置页提供 DeepSeek / 玩游中转二选一，两家 Key 使用不同 `flutter_secure_storage` 键且切换不覆盖；玩游端点和模型固定，所有普通聊天、Durable Generation、Memory/Thought/Desire、主动、沉浸、联网评价与模拟内容入口继续通过统一 `readApiKey/readEndpoint` 读取当前选择。`DeepSeekClient` 在请求时按端点识别协议：DeepSeek 继续发送原有 `thinking.type` 与 `reasoning_effort`；Gemini 只发送 `extra_body.google.thinking_config={thinking_level,include_thoughts}`，固定模型并沿用流式 `reasoning_content` 展示思考摘要。Gemini UI 为低/中/高，旧 DeepSeek 最高切入 Gemini 时归一为高；Gemini 3 无法完全关闭，后台 `thinking:false` 采用 low 且不请求摘要。连接测试分别判断正文与思考摘要，正文成功但摘要为空时明确提示检查模型别名/渠道透传，不伪报完全通过。新增 MockClient 测试锁定端点、Bearer、模型、无 DeepSeek 字段、Gemini 配置、流式摘要/正文及后台低强度合同；专项静态 validator 与 `git diff --check` 已通过。本环境无 Flutter/Dart/Kotlin 工具链，真实格式、Analyze、全量 tests 与 APK 仍等待 Actions；AI 私有 Draft 保存完成前不得推送触发构建。
 
 ### 2026-09-11 v0.41.59+203 恬豆完整恢复与可控变调（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

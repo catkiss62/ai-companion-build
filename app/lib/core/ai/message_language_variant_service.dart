@@ -192,7 +192,7 @@ class MessageLanguageVariantService {
     final apiKey = (await apiKeyLoader())?.trim() ?? '';
     if (apiKey.isEmpty) {
       throw const MessageLanguageVariantException(
-        '请先到“AI 与陪伴设置”填写 DeepSeek API Key。',
+        '请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。',
       );
     }
     final translated = await gateway.translate(

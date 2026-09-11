@@ -17,7 +17,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-/** Production adapter around the v0.6.4 verified Genie core with the Tiandou voice. */
+/** Production adapter around the verified Genie core with the Jiuhu V2Pro voice. */
 class GenieTtsRuntime(private val context: Context) : AutoCloseable {
     private val engine = GenieBenchmarkEngine(context)
     private var root: File? = null
@@ -46,14 +46,14 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         get() = modelsReady
 
     fun statusDetail(): String = when {
-        !artifactsPresent -> "Genie v0.6.4 恬豆 TTS 本体尚未装入 APK"
+        !artifactsPresent -> "Genie v0.7.6 小酒狐 TTS 本体尚未装入 APK"
         activeLanguage.isEmpty() -> "Genie 资源存在；语言前端等待选择"
         !modelsReady -> "Genie 当前仅保留 $activeLanguage 前端；声学模型按需加载"
         else -> "Genie 声学模型已初始化；当前仅保留 $activeLanguage 前端"
     }
 
     fun verifyPackagedArtifacts(): Int {
-        check(artifactsPresent) { "Genie v0.6.4 恬豆 manifest 缺失" }
+        check(artifactsPresent) { "Genie v0.7.6 小酒狐 manifest 缺失" }
         val manifest = engine.readManifest()
         var checked = 1
         for (relative in manifest.assetFiles) {
@@ -92,7 +92,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             "zh" -> {
                 GenieFrontendAdapter.prepareChineseAssets(engine, preparedRoot, progress)
                 check(engine.hasFrontendModel(preparedRoot)) {
-                    "请先导入与 Genie v0.6.4 恬豆配套的 Chinese RoBERTa"
+                    "请先导入与 Genie 小酒狐配套的 Chinese RoBERTa"
                 }
                 chinese = ChineseFrontend(engine)
             }
@@ -212,10 +212,10 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         private const val TARGET_THREADS = 8
         private val SUPPORTED_LANGUAGES = setOf("zh", "ja", "en")
         private val VOICE_CASES = mapOf(
-            "daily" to "ref01",
-            "gentle" to "ref02",
-            "lively" to "ref04",
-            "cute" to "ref06",
+            "daily" to "jiuhu_bento_tools",
+            "gentle" to "jiuhu_dream_days",
+            "lively" to "jiuhu_idle50",
+            "cute" to "jiuhu_devotion",
         )
     }
 }

@@ -40,6 +40,7 @@ import '../presence/presence_intelligence.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_policy.dart';
 import '../tts/emotion_sound_service.dart';
+import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
 import '../presentation/chat_visuals.dart';
 import 'deferred_followup_engine.dart';
@@ -1592,6 +1593,12 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
         text,
         manual: true,
         leadIn: emotionLeadIn,
+        emotion: TtsEmotionCue(
+          key: message.emotionKey,
+          label: message.emotionLabel,
+          confidence: message.emotionConfidence,
+          source: message.emotionSource,
+        ),
         ownerId: message.id,
       ).then((ok) async {
         if (ok) {

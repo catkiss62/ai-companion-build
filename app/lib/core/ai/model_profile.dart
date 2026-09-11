@@ -41,9 +41,10 @@ class DeepSeekModelProfile {
 }
 
 enum ReasoningEffort {
-  low('low', 'Low'),
-  high('high', 'High'),
-  max('max', 'Max');
+  low('low', '低'),
+  medium('medium', '中'),
+  high('high', '高'),
+  max('max', '最高');
 
   const ReasoningEffort(this.apiName, this.label);
   final String apiName;

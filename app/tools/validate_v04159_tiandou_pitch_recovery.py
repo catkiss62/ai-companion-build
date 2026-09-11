@@ -17,7 +17,7 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    require(read("pubspec.yaml"), "version: 0.41.59+203")
+    require(read("pubspec.yaml"), "version: 0.41.60+204")
     require(
         read("lib/core/database/app_database.dart"),
         "static const int schemaVersion = 59;",
@@ -25,19 +25,6 @@ def main() -> None:
         "'tts_pitch_semitones': '0.0'",
         "if (oldVersion < 59)",
     )
-
-    runtime = read(
-        "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsRuntime.kt"
-    )
-    require(
-        runtime,
-        '"daily" to "ref01"',
-        '"gentle" to "ref02"',
-        '"lively" to "ref04"',
-        '"cute" to "ref06"',
-    )
-    assert "naiyou_" not in runtime
-    assert "sanitizeLegacyJapanese" not in runtime
 
     models = read(
         "android/app/src/main/kotlin/com/catkiss62/geniettsbenchmark/BenchmarkModels.kt"
@@ -70,7 +57,7 @@ def main() -> None:
         "incomingWrongShaFailsBeforeReplacement",
         "verifiedIncomingAtomicallyReplacesOldFile",
     )
-    require(store, "ai-companion-v04159-build203-tiandou-integrity-v1")
+    require(store, "ai-companion-v04160-build204-jiuhu-v076-integrity-v1")
 
     tuning = read("lib/core/tts/tts_playback_tuning.dart")
     service = read("lib/core/tts/tts_service.dart")
@@ -80,21 +67,19 @@ def main() -> None:
     )
     require(
         tuning,
-        "TtsTonePreset",
-        "高音版（原声）",
-        "低音版",
-        "lowPitchSemitones = -2.0",
         "minPitchSemitones = -4.0",
         "maxPitchSemitones = 4.0",
         "pitchRatioForSemitones",
     )
+    assert "TtsTonePreset" not in tuning
     require(
         service,
         "await provider.setSpeed(speed);",
         "await provider.setPitch(pitch);",
         "await provider.setVolume(volume);",
     )
-    require(settings, "labelText: '恬豆音调'", "独立变调", "tts_pitch_semitones")
+    require(settings, "音调", "tts_pitch_semitones")
+    assert "高音版（原声）" not in settings and "低音版" not in settings
     require(
         player,
         "currentSpeed != 1.0f || currentPitch != 1.0f",
@@ -109,16 +94,15 @@ def main() -> None:
     )
     require(
         workflow,
-        "genie-tts-private-runtime-v0.6.4",
-        "Genie-TTS-v0.6.4-Verified.apk",
-        "production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}",
-        "306_827_268",
+        "genie-tts-private-runtime-v0.7.6-jiuhu",
+        "Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk",
+        "expected_reference_inputs",
         "manifest['asset_integrity']",
-        "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
-        "agent/v04159-tiandou-pitch-recovery",
+        "AI-Companion-v0.41.60-204-Jiuhu-Four-Voice-Auto-Fix-APK",
+        "agent/v04160-jiuhu-four-voice-auto-fix",
     )
     assert "assets/benchmark_naiyou/*" not in workflow
-    print("v0.41.59 Tiandou integrity and independent-pitch contract passed")
+    print("v0.41.59 integrity and independent-pitch compatibility contract passed")
 
 
 if __name__ == "__main__":

@@ -17,10 +17,10 @@ data class VoiceProfileDefinition(
 
 object VoiceProfileCatalog {
     val profiles = listOf(
-        VoiceProfileDefinition("ref01", "daily", "日常认真（主音色）", "正常、认真与无法判断时的稳定默认", true),
-        VoiceProfileDefinition("ref02", "gentle", "温柔轻声", "安慰、平静、担心与低强度亲密表达", true),
-        VoiceProfileDefinition("ref04", "lively", "活泼可爱", "高兴、兴奋与惊讶", true),
-        VoiceProfileDefinition("ref06", "cute", "日常可爱", "调皮、无奈与慌张", true),
+        VoiceProfileDefinition("jiuhu_bento_tools", "daily", "日常", "正常、认真与无法判断时的稳定默认", true),
+        VoiceProfileDefinition("jiuhu_dream_days", "gentle", "温柔", "安慰、平静、担心与低强度亲密表达", true),
+        VoiceProfileDefinition("jiuhu_idle50", "lively", "活泼", "高兴、兴奋与惊讶", true),
+        VoiceProfileDefinition("jiuhu_devotion", "cute", "可爱", "调皮、无奈与慌张", true),
     )
 
     private val byId = profiles.associateBy { it.id }

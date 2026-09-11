@@ -366,9 +366,11 @@
 # Historical v0.41.56 workflow: worldbook defaults, natural humor, and shared media refs.
 # Historical v0.41.57 workflow: discoverable media cleanup, send-to-bottom, sticker frequency, exact naturalization text and Naiyou voice.
 # Historical v0.41.58 workflow: protocol-6 media backup allowlist, restored sticker rates, and Naiyou Japanese/prosody hotfix.
-# Current v0.41.59 workflow: verified Tiandou recovery, integrity-aware extraction, original/low presets and independent pitch.
+# Historical v0.41.59 workflow: verified Tiandou recovery, integrity-aware extraction, original/low presets and independent pitch.
+# Historical +204 pre-API validator token: AI-Companion-v0.41.60-204-Jiuhu-Four-Voice-Auto-Fix-APK
+# Current v0.41.60 workflow: verified Jiuhu four-candidate replacement plus selectable DeepSeek/NewAPI Gemini chat.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.59+203 APK (Tiandou Pitch Recovery)
+name: Build AI Companion v0.41.60+204 APK (Jiuhu + Gemini Relay)
 
 on:
   push:
@@ -388,6 +390,7 @@ on:
       - agent/v04154-genie-tts-hotfix-settings
       - agent/v04155-genie-direct-port-lazy-language
       - agent/v04159-tiandou-pitch-recovery
+      - agent/v04160-jiuhu-four-voice-auto-fix
   workflow_dispatch:
   pull_request:
     branches:
@@ -530,15 +533,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore exact validated Genie TTS v0.6.4 Tiandou runtime payload
+      - name: Restore exact validated Genie TTS v0.7.6 Jiuhu runtime payload
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          GENIE_TAG='genie-tts-private-runtime-v0.6.4'
-          GENIE_APK='Genie-TTS-v0.6.4-Verified.apk'
-          GENIE_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'
+          GENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'
+          GENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'
+          GENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'
           mkdir -p .genie-payload/unpacked
           # GitHub's release-by-tag endpoint returns 404 for an unpublished
           # draft, even though authenticated release-list calls can see it.
@@ -548,20 +551,17 @@ jobs:
             "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
             --jq ".[] | select(.draft and .tag_name == \"${GENIE_TAG}\") | .id" | head -1)"
           test -n "${GENIE_RELEASE_ID}"
-          for GENIE_ASSET in "${GENIE_APK}" "${GENIE_SHA}"; do
-            GENIE_ASSET_ID="$(gh api \
-              "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \
-              --jq ".[] | select(.name == \"${GENIE_ASSET}\") | .id")"
-            test -n "${GENIE_ASSET_ID}"
-            gh api --method GET \
-              -H 'Accept: application/octet-stream' \
-              "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \
-              > ".genie-payload/${GENIE_ASSET}"
-          done
-          sed "s#  ${GENIE_APK}#  .genie-payload/${GENIE_APK}#" \
-            ".genie-payload/${GENIE_SHA}" | sha256sum -c -
+          GENIE_ASSET_ID="$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/releases/${GENIE_RELEASE_ID}/assets?per_page=100" \
+            --jq ".[] | select(.name == \"${GENIE_APK}\") | .id")"
+          test -n "${GENIE_ASSET_ID}"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \
+            > ".genie-payload/${GENIE_APK}"
+          echo "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -
           unzip -q ".genie-payload/${GENIE_APK}" \
-            'assets/benchmark/*' \
+            'assets/benchmark_jiuhu/*' \
             'assets/openjtalk/*' \
             'lib/arm64-v8a/libonnxruntime.so' \
             'lib/arm64-v8a/libopenjtalk_native.so' \
@@ -571,10 +571,47 @@ jobs:
           python3 - <<'PY'
           import hashlib, json, pathlib
 
-          root = pathlib.Path('.genie-payload/unpacked/assets/benchmark')
+          root = pathlib.Path('.genie-payload/unpacked/assets/benchmark_jiuhu')
           path = root / 'manifest.json'
           manifest = json.loads(path.read_text(encoding='utf-8'))
-          production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}
+          expected_models = {
+              'models/t2s_encoder_fp32.bin': (11465732, '2729a0bc3bfa297b86dae07190f010653806a5f466ffe654a7cd9291445ee986'),
+              'models/t2s_encoder_fp32.onnx': (14568, 'f6eb1acd47c8e6d36b777886981a49122e8e070a5eb9888d458fb188dc139f75'),
+              'models/t2s_first_stage_decoder_fp32.onnx': (416803, '868f395999508905128c5325c5db4f4b37b2e70e04d6e2719fec64cbb60ee7f9'),
+              'models/t2s_shared_fp32.bin': (306827268, '07c40df473ddb08e259357ddf17173ffc3f82ce1a3e208cd1dd438f0dd01c445'),
+              'models/t2s_stage_decoder_fp32.onnx': (417625, '3f02881c517423deb610f86d5441bd9825937c5069f3887cacefa1e9dc403b0d'),
+              'models/vits_fp32.bin': (175582720, 'bfd6558dee03e06fafa2225d906f27e0f303395951d8cc4b8f2b26b3da2e99c2'),
+              'models/vits_fp32.onnx': (1654702, 'ce3495f0cd976270274d0f5c68377acb10e7347ca03e86346a42a0a99e769168'),
+          }
+          assert manifest['models'] == {
+              'encoder': 'models/t2s_encoder_fp32.onnx',
+              'first_decoder': 'models/t2s_first_stage_decoder_fp32.onnx',
+              'stage_decoder': 'models/t2s_stage_decoder_fp32.onnx',
+              'vocoder': 'models/vits_fp32.onnx',
+          }
+
+          def sha256(candidate):
+              digest = hashlib.sha256()
+              with candidate.open('rb') as source:
+                  for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          source_integrity = manifest.get('asset_integrity', {})
+          for relative, expected in expected_models.items():
+              candidate = root / relative
+              expected_bytes, expected_sha = expected
+              assert candidate.stat().st_size == expected_bytes, relative
+              assert sha256(candidate) == expected_sha, relative
+              declared = source_integrity.get(relative, {})
+              assert declared.get('bytes') == expected_bytes, relative
+              assert declared.get('sha256') == expected_sha, relative
+          production_ids = {
+              'jiuhu_idle50',
+              'jiuhu_bento_tools',
+              'jiuhu_dream_days',
+              'jiuhu_devotion',
+          }
           cases = [case for case in manifest['cases'] if case.get('id') in production_ids]
           assert {case['id'] for case in cases} == production_ids
           for case in cases:
@@ -602,11 +639,14 @@ jobs:
               if not candidate.is_file() or candidate == path:
                   continue
               relative = candidate.relative_to(root).as_posix()
-              # The ONNX graphs use external-data .bin files which are not
-              # named in the per-case manifest fields. Every model file is a
-              # production dependency and must survive fixture curation.
-              if relative == external_roberta or (
-                  not relative.startswith('models/') and relative not in referenced
+              # Keep only the seven exact model assets whose graph/data hashes
+              # were validated above. In particular, reject interrupted atomic
+              # write remnants such as models/.vits_fp32.bin.* rather than
+              # copying every file found under models/ into the production APK.
+              if (
+                  relative == external_roberta
+                  or (relative.startswith('models/') and relative not in expected_models)
+                  or (not relative.startswith('models/') and relative not in referenced)
               ):
                   candidate.unlink()
           for directory in sorted(
@@ -623,17 +663,31 @@ jobs:
               for candidate in root.rglob('*')
               if candidate.is_file() and candidate != path
           ) + ['manifest.json']
-          t2s_shared = root / 'models/t2s_shared_fp32.bin'
-          assert t2s_shared.stat().st_size == 306_827_268, (
-              f'truncated Tiandou T2S weight: {t2s_shared.stat().st_size}'
-          )
-
-          def sha256(candidate):
-              digest = hashlib.sha256()
-              with candidate.open('rb') as source:
-                  for chunk in iter(lambda: source.read(1024 * 1024), b''):
-                      digest.update(chunk)
-              return digest.hexdigest()
+          expected_reference_inputs = {
+              'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'
+          }
+          for case in cases:
+              actual_inputs = {item['name'] for item in case['tensors']}
+              assert actual_inputs == expected_reference_inputs, (
+                  f"incomplete Jiuhu V2Pro prompt tensors: {case['id']} {actual_inputs}"
+              )
+          actual_models = {
+              candidate.relative_to(root).as_posix()
+              for candidate in (root / 'models').iterdir()
+              if candidate.is_file()
+          }
+          assert actual_models == set(expected_models), actual_models
+          prompt_signatures = {}
+          independent_prompt_names = {'ssl_content', 'ref_audio', 'ge', 'ge_advanced'}
+          for case in cases:
+              signature = tuple(
+                  sha256(root / item['file'])
+                  for item in case['tensors']
+                  if item['name'] in independent_prompt_names
+              )
+              assert len(signature) == len(independent_prompt_names), case['id']
+              prompt_signatures[case['id']] = signature
+          assert len(set(prompt_signatures.values())) == len(cases), prompt_signatures
 
           manifest['asset_integrity'] = {
               relative: {
@@ -650,13 +704,13 @@ jobs:
           assert not any(
               token in candidate.as_posix().lower()
               for candidate in root.rglob('*')
-              for token in ('naiyou_', 'ref07', 'test_backup')
+              for token in ('naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup')
           )
-          print('Curated four Tiandou voices with complete T2S and per-file integrity metadata.')
+          print('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent candidates; discarded model temp remnants.')
           PY
           TTS_MAIN='app/android/app/src/main'
           mkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"
-          cp -a .genie-payload/unpacked/assets/benchmark "${TTS_MAIN}/assets/"
+          cp -a .genie-payload/unpacked/assets/benchmark_jiuhu "${TTS_MAIN}/assets/benchmark"
           cp -a .genie-payload/unpacked/assets/openjtalk "${TTS_MAIN}/assets/"
           cp .genie-payload/unpacked/lib/arm64-v8a/libopenjtalk_native.so \
             "${TTS_MAIN}/jniLibs/arm64-v8a/"
@@ -692,7 +746,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.59+203' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.60+204' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 59;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -700,15 +754,13 @@ jobs:
           test -d app/tools
           test ! -f app/android/app/src/main/assets/emotion_model_19emo/model.onnx
           test -f app/android/app/src/main/assets/benchmark/manifest.json
-          test -f app/android/app/src/main/assets/benchmark/models/t2s_shared_fp32.bin
-          test -f app/android/app/src/main/assets/benchmark/models/vits_fp32.bin
+          test -n "$(find app/android/app/src/main/assets/benchmark/models -maxdepth 1 -type f -name '*.onnx' -print -quit)"
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libopenjtalk_native.so
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libgenie_frontend.so
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          test "$(stat -c%s app/android/app/src/main/assets/benchmark/models/t2s_shared_fp32.bin)" = '306827268'
-          echo 'Building v0.41.59+203 verified Tiandou and independent pitch candidate.'
+          echo 'Building v0.41.60+204 verified Jiuhu and selectable Gemini relay candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -882,6 +934,7 @@ jobs:
           python3 tools/validate_v04157_chat_media_expression.py
           python3 tools/validate_v04158_backup_naiyou_runtime.py
           python3 tools/validate_v04159_tiandou_pitch_recovery.py
+          python3 tools/validate_v04160_jiuhu_four_voice_auto.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1029,31 +1082,43 @@ jobs:
                   print(f'ERROR: retired Meju runtime leaked into APK: {forbidden_meju[:8]}', file=sys.stderr)
                   sys.exit(1)
               forbidden_voice_assets = (
-                  'naiyou_', 'ref07', 'test_backup'
+                  'naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup'
               )
               if any(
                   any(token in name for token in forbidden_voice_assets)
                   for name in z.namelist()
               ):
-                  print('ERROR: Naiyou or test-only voice leaked into APK', file=sys.stderr)
+                  print('ERROR: Tiandou, Naiyou or test-only voice leaked into APK', file=sys.stderr)
                   sys.exit(1)
               manifest = json.loads(z.read('assets/benchmark/manifest.json'))
-              expected_cases = {'ref01', 'ref02', 'ref04', 'ref06'}
+              expected_cases = {
+                  'jiuhu_idle50',
+                  'jiuhu_bento_tools',
+                  'jiuhu_dream_days',
+                  'jiuhu_devotion',
+              }
               actual_cases = {case['id'] for case in manifest['cases']}
               if actual_cases != expected_cases:
-                  print(f'ERROR: wrong Tiandou production cases: {actual_cases}', file=sys.stderr)
+                  print(f'ERROR: wrong Jiuhu production cases: {actual_cases}', file=sys.stderr)
                   sys.exit(1)
-              t2s_name = 'assets/benchmark/models/t2s_shared_fp32.bin'
-              if len(z.read(t2s_name)) != 306_827_268:
-                  print('ERROR: Tiandou T2S external weight is truncated', file=sys.stderr)
-                  sys.exit(1)
+              expected_reference_inputs = {
+                  'ref_seq', 'ref_bert', 'ssl_content', 'ref_audio', 'ge', 'ge_advanced'
+              }
+              for case in manifest['cases']:
+                  actual_inputs = {item['name'] for item in case['tensors']}
+                  if actual_inputs != expected_reference_inputs:
+                      print(
+                          f"ERROR: incomplete Jiuhu V2Pro prompt tensors for {case['id']}: {actual_inputs}",
+                          file=sys.stderr,
+                      )
+                      sys.exit(1)
               integrity = manifest.get('asset_integrity', {})
               for relative, expected in integrity.items():
                   data = z.read('assets/benchmark/' + relative)
                   if len(data) != expected['bytes'] or hashlib.sha256(data).hexdigest() != expected['sha256']:
-                      print(f'ERROR: Tiandou manifest integrity mismatch: {relative}', file=sys.stderr)
+                      print(f'ERROR: Jiuhu manifest integrity mismatch: {relative}', file=sys.stderr)
                       sys.exit(1)
-              print(f'All {len(payload)} Genie/Tiandou/OpenJTalk payload files are size/hash exact; Naiyou and Meju are absent.')
+              print(f'All {len(payload)} Genie/Jiuhu/OpenJTalk payload files are size/hash exact; Tiandou, Naiyou and Meju are absent.')
               pet_entries = [
                   name for name in z.namelist()
                   if name.startswith('assets/pets/dafeiyu/source/assets/')
@@ -1193,26 +1258,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.59+203 APK as workflow artifact
+      - name: Upload v0.41.60+204 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK
+          name: AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.59+203 APK to draft release
+      - name: Upload v0.41.60+204 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.59-tiandou-pitch-recovery-test'
-          APK_NAME='AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK.apk'
+          TAG='v0.41.60-jiuhu-gemini-relay-test'
+          APK_NAME='AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1229,8 +1294,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.59+203 Tiandou pitch recovery candidate' \
-              --notes 'Draft schema-59 candidate. Restores the verified complete Tiandou runtime, rejects truncated or mixed extracted assets with per-file size/SHA-256 checks and atomic replacement, keeps the high/original preset on untouched PCM, preserves an intentionally lowered preset, and adds an independent -4 to +4 semitone test control without coupling pitch to speed. Snapshot protocol remains 6. Private packs, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.60+204 Jiuhu and Gemini relay candidate' \
+              --notes 'Draft schema-59 candidate. Replaces Tiandou with the verified Genie v0.7.6 Jiuhu four-candidate V2Pro runtime, maps candidates 2/3/4/1 to daily/gentle/cute/lively, fixes automatic emotion routing, and keeps only volume, speed and pitch controls. Default speed 1.0 and pitch 0 bypass PlaybackParams; one streaming AudioTrack has no fixed 200 ms gap while later segments generate. Chat settings add an isolated DeepSeek / wy.aiwangyou.cc Gemini choice; the Gemini route fixes the requested model ID and uses provider-native thinking summaries without sending DeepSeek-only thinking fields. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -1286,8 +1351,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.59-tiandou-pitch-recovery-test'
-          CI_NAME='AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-CI-Monitor.txt'
+          TAG='v0.41.60-jiuhu-gemini-relay-test'
+          CI_NAME='AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1328,8 +1393,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.59+203 Tiandou pitch recovery candidate' \
-              --notes 'Draft failure diagnostics for the schema-59 Tiandou integrity and independent-pitch candidate. It is not a published release; private packs, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.60+204 Jiuhu and Gemini relay candidate' \
+              --notes 'Draft failure diagnostics for the schema-59 Jiuhu four-candidate, automatic emotion-routing, independent-pitch and selectable Gemini relay candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

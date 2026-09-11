@@ -35,7 +35,7 @@ void main() {
         emotionKey: 'happy',
         confidence: 0.2,
       ),
-      TtsVoiceMode.daily,
+      TtsVoiceMode.lively,
     );
   });
 

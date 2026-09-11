@@ -94,14 +94,15 @@ class GenerationStreamIncompleteException implements Exception {
   const GenerationStreamIncompleteException();
 
   @override
-  String toString() => 'DeepSeek 流式连接在收到完成标记前结束';
+  String toString() => '聊天模型的流式连接在收到完成标记前结束';
 }
 
 /// Runs one durable assistant-generation job.
 ///
 /// The caller must own `chat_turn_lease`. The job itself is durable in SQLite,
 /// while the API stream is intentionally restartable rather than resumable:
-/// DeepSeek does not expose a stream-resume cursor. Checkpoints are diagnostics
+/// The compatible chat endpoint does not expose a stream-resume cursor.
+/// Checkpoints are diagnostics
 /// and crash evidence; a recovered attempt starts from the same committed user
 /// turn and writes the assistant message only once in a final SQLite transaction.
 class DurableGenerationRunner {
@@ -165,7 +166,7 @@ class DurableGenerationRunner {
       );
       return GenerationRunResult(
         status: retryAt == null ? 'unavailable' : 'retry_wait',
-        error: '请先在当前设备配置 DeepSeek API Key。',
+        error: '请先在当前设备配置所选聊天提供商的 API Key。',
         retryAt: retryAt,
       );
     }

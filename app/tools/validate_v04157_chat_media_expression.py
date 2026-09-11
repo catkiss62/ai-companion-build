@@ -19,7 +19,7 @@ def dart_block(source: str, name: str) -> str:
     return match.group(1)
 
 
-assert "version: 0.41.59+203" in read("pubspec.yaml")
+assert "version: 0.41.60+204" in read("pubspec.yaml")
 database = read("lib/core/database/app_database.dart")
 assert "static const int schemaVersion = 59;" in database
 
@@ -120,14 +120,14 @@ for token in ("偶尔（12%）", "自然（24%）", "较多（42%）"):
 
 workflow = read("../.github/workflows/build-apk.yml")
 for token in (
-    "Build AI Companion v0.41.59+203 APK",
+    "Build AI Companion v0.41.60+204 APK",
     "validate_v04157_chat_media_expression.py",
-    "AI-Companion-v0.41.59-203-Tiandou-Pitch-Recovery-APK",
-    "genie-tts-private-runtime-v0.6.4",
-    "Genie-TTS-v0.6.4-Verified.apk",
-    "'assets/benchmark/*'",
-    "production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}",
-    "complete T2S and per-file integrity metadata",
+    "AI-Companion-v0.41.60-204-Jiuhu-Four-Voice-Auto-Fix-APK",
+    "genie-tts-private-runtime-v0.7.6-jiuhu",
+    "Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk",
+    "'assets/benchmark_jiuhu/*'",
+    "expected_reference_inputs",
+    "six prompt tensors and per-file integrity metadata",
 ):
     assert token in workflow, token
 
@@ -141,22 +141,21 @@ service = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsIsolatedService.kt"
 )
 for token in (
-    '"daily" to "ref01"',
-    '"gentle" to "ref02"',
-    '"lively" to "ref04"',
-    '"cute" to "ref06"',
+    '"daily" to "jiuhu_bento_tools"',
+    '"gentle" to "jiuhu_dream_days"',
+    '"lively" to "jiuhu_idle50"',
+    '"cute" to "jiuhu_devotion"',
 ):
     assert token in runtime, token
 for token in (
-    '"ref01", "daily", "日常认真（主音色）"',
-    '"ref02", "gentle", "温柔轻声"',
-    '"ref04", "lively", "活泼可爱"',
-    '"ref06", "cute", "日常可爱"',
+    '"jiuhu_bento_tools", "daily", "日常"',
+    '"jiuhu_dream_days", "gentle", "温柔"',
+    '"jiuhu_idle50", "lively", "活泼"',
+    '"jiuhu_devotion", "cute", "可爱"',
 ):
     assert token in catalog, token
 for forbidden in ("naiyou_lesson", '"daily" to "naiyou_growth"', '"cute" to "naiyou_dynamic"'):
     assert forbidden not in runtime + catalog, forbidden
-assert "恬豆" in service
-assert "918a26bf55d7e06dffd08277c6a4bcb703f5b17b" in service
+assert "Genie-TTS v0.7.6 core · 小酒狐" in service
 
 print("v0.41.57 chat, media and expression contracts passed")

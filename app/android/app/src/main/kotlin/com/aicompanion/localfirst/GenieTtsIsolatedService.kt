@@ -169,7 +169,7 @@ class GenieTtsIsolatedService : Service() {
     private fun statusJsonLocked(): String = JSONObject()
         .put("available", runtime.artifactsPresent)
         .put("initialized", initialized && runtime.isReady)
-        .put("engine", "Genie-TTS v0.6.4 core · 恬豆 · isolated ONNX Runtime")
+        .put("engine", "Genie-TTS v0.7.6 core · 小酒狐 · isolated ONNX Runtime")
         .put("integrity", if (verifiedArtifacts > 0) "verified" else "unchecked")
         .put("artifactCount", verifiedArtifacts)
         .put("goldenReference", "918a26bf55d7e06dffd08277c6a4bcb703f5b17b")

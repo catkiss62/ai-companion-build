@@ -474,7 +474,7 @@ class ChatController extends ChangeNotifier {
     try {
       final deepSeekKey = await secureConfig.readApiKey();
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写 DeepSeek API Key。');
+        throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
       }
       final visionKey = await secureConfig.readVisionApiKey();
       if (visionKey == null || visionKey.trim().isEmpty) {
@@ -634,7 +634,7 @@ class ChatController extends ChangeNotifier {
       }
       final deepSeekKey = await secureConfig.readApiKey();
       if (deepSeekKey == null || deepSeekKey.trim().isEmpty) {
-        throw StateError('请先到“AI 与陪伴设置”填写 DeepSeek API Key。');
+        throw StateError('请先到“AI 与陪伴设置”填写所选聊天提供商的 API Key。');
       }
       marked = await db.markAttachmentVisionAnalyzing(attachment.id);
       if (!marked) {
@@ -960,7 +960,7 @@ class ChatController extends ChangeNotifier {
     }
     final apiKey = await secureConfig.readApiKey();
     if (apiKey == null || apiKey.isEmpty) {
-      error = '请先到“更多”→“AI 与陪伴设置”填写 DeepSeek API Key。';
+      error = '请先到“更多”→“AI 与陪伴设置”填写所选聊天提供商的 API Key。';
       _safeNotify();
       return false;
     }

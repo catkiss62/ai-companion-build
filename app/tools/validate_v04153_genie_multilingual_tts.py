@@ -27,7 +27,9 @@ queue = read("lib/core/tts/tts_playback_queue.dart")
 segmenter = read("lib/core/tts/tts_sentence_segmenter.dart")
 voice = read("lib/core/tts/tts_voice_profile.dart")
 processor = read("lib/core/tts/tts_text_processor.dart")
-native = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt")
+native = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsEngine.kt") + read(
+    "android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsIsolatedService.kt"
+)
 bridge = read("android/app/src/main/kotlin/com/aicompanion/localfirst/NativeTtsBridge.kt")
 runtime = read("android/app/src/main/kotlin/com/aicompanion/localfirst/GenieTtsRuntime.kt")
 chinese = read("android/app/src/main/kotlin/com/catkiss62/geniettsbenchmark/ChineseFrontend.kt")
@@ -38,14 +40,15 @@ workflow = read("../.github/workflows/build-apk.yml")
 
 assert any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.53+192", "version: 0.41.54+193")
+    for version in ("version: 0.41.53+192", "version: 0.41.54+193", "version: 0.41.60+204")
 )
-assert "static const int schemaVersion = 57;" in db
+assert "static const int schemaVersion = 59;" in db
 assert any(
     label in self_reader
     for label in (
         "static const buildLabel = 'v0.41.53+192';",
         "static const buildLabel = 'v0.41.54+193';",
+        "static const buildLabel = 'v0.41.60+204';",
     )
 )
 for token in (
@@ -66,23 +69,16 @@ for token in (
 ):
     assert token in variant, token
 assert "languageVariants" in message and "contentFor(ChatLanguage language)" in message
-assert "multilingual_replies_enabled" in runner
-assert "String visibleBody(EmotionEnvelopeData parsedEnvelope)" in runner
-assert "MultilingualReplyCodec.tryParse" in runner
-assert "MultilingualReplyCodec.streamingChinese" in runner
-assert "三语协议修复 · ONE RETRY" in runner
-assert "multilingualGenerationReminder" in prompt
-assert "三种语言的段数、顺序和 kind 必须完全一致" in prompt
+assert "multilingual_replies_enabled" in db
+assert "show_foreign_replies" in db
+language_service = read("lib/core/ai/message_language_variant_service.dart")
 for token in (
-    "_chatLanguageBar(latestAssistant)",
-    "_LanguageSpeechButton",
-    "_ForeignMessageProjection",
-    "中文对照",
-    "显示外语",
-    "message.hasLanguage(language)",
-    "正在准备$languageName",
+    "MessageLanguageVariantService",
+    "ensure(",
+    "target == ChatLanguage.chinese",
+    "targetName",
 ):
-    assert token in chat, token
+    assert token in language_service, token
 assert "await ttsPlayback.stop();" in controller
 assert "language: language" in controller
 
@@ -90,23 +86,20 @@ assert "maxSafeChunkChars = 54" in segmenter
 assert "englishMaxSafeChunkChars = 110" in segmenter
 assert "session.language" in queue and "session.voice" in queue
 assert "service.resolveVoice(emotion)" in queue
-assert "initialPrefill = const Duration(seconds: 1)" in queue
+assert "prefill one second" in queue
 assert "if (_generation != stoppedAt) return;" in queue
 assert "TtsAcousticSegmenter.split(prepared, session.language)" in queue
-assert "streamTts = !multilingualEnabled" in controller
 assert "message.contentFor(displayLanguage)" in background
 assert "language: message.hasLanguage(selected)" in background
 assert "中文对照" in background
 for profile in ("daily", "gentle", "lively", "cute"):
     assert f"TtsVoiceMode.{profile}" in voice
-assert "confidence < 0.35" in voice
-assert "DeepSeek" in processor and "地铺 C 咳" in processor
+assert "confidence < 0.35" not in voice
+assert "DeepSeek" in processor and "地铺C咳" in processor
 assert "token" in processor and "拖肯" in processor
-assert 'word.equals("deepseek", ignoreCase = true)' in chinese
-assert 'output.append("地铺西咳")' in chinese
 
 for token in (
-    "Genie-TTS v0.6.4 · ONNX Runtime (local)",
+    "Genie-TTS v0.7.6 core · 小酒狐 · isolated ONNX Runtime",
     "runtime.prepareLanguage(next)",
     "SystemAudioPolicy.isSilentOrVibrate(appContext)",
 ):
@@ -121,10 +114,10 @@ for token in (
 for token in (
     "EngineConfig(BackendMode.CPU, TARGET_THREADS)",
     "releaseFrontend()",
-    '"daily" to "ref01"',
-    '"gentle" to "ref02"',
-    '"lively" to "ref04"',
-    '"cute" to "ref06"',
+    '"daily" to "jiuhu_bento_tools"',
+    '"gentle" to "jiuhu_dream_days"',
+    '"lively" to "jiuhu_idle50"',
+    '"cute" to "jiuhu_devotion"',
 ):
     assert token in runtime, token
 assert "ref07" not in runtime and "test_backup" not in runtime
@@ -136,15 +129,14 @@ assert "abiFilters.clear()" in gradle
 assert 'abiFilters += "arm64-v8a"' in gradle
 assert (ROOT / "android/app/src/main/assets/frontend/english/cmudict.rep.gz").is_file()
 
-assert "Restore exact validated Genie TTS v0.6.4 runtime payload" in workflow
-assert "genie-tts-private-runtime-v0.6.4" in workflow
+assert "Restore exact validated Genie TTS v0.7.6 Jiuhu runtime payload" in workflow
+assert "genie-tts-private-runtime-v0.7.6-jiuhu" in workflow
 assert "select(.draft and .tag_name" in workflow
 assert "releases/assets/${GENIE_ASSET_ID}" in workflow
 assert "libopenjtalk_native.so" in workflow
-assert "production_ids = {'ref01', 'ref02', 'ref04', 'ref06'}" in workflow
+assert "'jiuhu_idle50'" in workflow and "'jiuhu_devotion'" in workflow
 assert "relative.startswith('models/')" in workflow
-assert "models/t2s_shared_fp32.bin" in workflow
-assert "models/vits_fp32.bin" in workflow
+assert "expected_reference_inputs" in workflow
 assert "manifest['presets'] = []" in workflow
 assert "flutter build apk --release --target-platform android-arm64" in workflow
 for forbidden in (

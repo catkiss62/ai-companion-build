@@ -1,11 +1,15 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../ai/chat_api_provider.dart';
+
 class SecureConfig {
   SecureConfig._();
   static final SecureConfig instance = SecureConfig._();
 
   static const _apiKeyName = 'deepseek_api_key';
   static const _endpointName = 'deepseek_chat_endpoint';
+  static const _chatProviderName = 'chat_api_provider';
+  static const _aiWangYouApiKeyName = 'aiwangyou_gemini_api_key';
   static const defaultEndpoint = 'https://api.deepseek.com/chat/completions';
   static const _visionApiKeyName = 'qwen_vision_api_key';
   static const _visionEndpointName = 'qwen_vision_endpoint';
@@ -25,7 +29,28 @@ class SecureConfig {
     aOptions: const AndroidOptions(),
   );
 
-  Future<String?> readApiKey() => _storage.read(key: _apiKeyName);
+  Future<ChatApiProvider> readChatProvider() async {
+    return ChatApiProvider.fromStorage(
+      await _storage.read(key: _chatProviderName),
+    );
+  }
+
+  Future<void> writeChatProvider(ChatApiProvider provider) => _storage.write(
+        key: _chatProviderName,
+        value: provider.storageValue,
+      );
+
+  Future<String?> readApiKey() async {
+    return switch (await readChatProvider()) {
+      ChatApiProvider.deepSeek => readDeepSeekApiKey(),
+      ChatApiProvider.aiWangYouGemini => readAiWangYouApiKey(),
+    };
+  }
+
+  Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);
+
+  Future<String?> readAiWangYouApiKey() =>
+      _storage.read(key: _aiWangYouApiKeyName);
 
   Future<void> writeApiKey(String value) async {
     final trimmed = value.trim();
@@ -36,7 +61,17 @@ class SecureConfig {
     }
   }
 
+  Future<void> writeAiWangYouApiKey(String value) =>
+      _writeOptionalSecret(_aiWangYouApiKeyName, value);
+
   Future<String> readEndpoint() async {
+    if (await readChatProvider() == ChatApiProvider.aiWangYouGemini) {
+      return ChatApiProvider.aiWangYouEndpoint;
+    }
+    return readDeepSeekEndpoint();
+  }
+
+  Future<String> readDeepSeekEndpoint() async {
     final value = (await _storage.read(key: _endpointName))?.trim();
     return value == null || value.isEmpty ? defaultEndpoint : value;
   }
@@ -140,5 +175,10 @@ class SecureConfig {
     await _storage.write(key: key, value: trimmed);
   }
 
-  Future<void> clearApiKey() => _storage.delete(key: _apiKeyName);
+  Future<void> clearApiKey() async {
+    final key = await readChatProvider() == ChatApiProvider.aiWangYouGemini
+        ? _aiWangYouApiKeyName
+        : _apiKeyName;
+    await _storage.delete(key: key);
+  }
 }

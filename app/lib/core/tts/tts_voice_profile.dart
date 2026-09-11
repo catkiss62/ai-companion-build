@@ -50,9 +50,9 @@ class TtsVoiceProfilePolicy {
     double confidence = 0,
   }) {
     if (configured != TtsVoiceMode.auto) return configured;
-    if (confidence < 0.35) {
-      return TtsVoiceMode.daily;
-    }
+    // A known CompanionEmotion key is already the final classifier decision.
+    // Confidence remains diagnostic metadata; it must not erase the selected
+    // emotion and make heuristic replies all sound like the daily profile.
     return _automatic[emotionKey] ?? TtsVoiceMode.daily;
   }
 }
