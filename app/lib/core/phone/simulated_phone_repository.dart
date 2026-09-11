@@ -159,6 +159,9 @@ class SimulatedPhoneRepository {
   static const _tarotKey = 'simulated_phone_tarot_json';
   static const _wishBudgetDayKey = 'simulated_phone_wish_budget_day';
   static const _wishBudgetCountKey = 'simulated_phone_wish_budget_count';
+  static const _wishLastAddedAtKey = 'simulated_phone_wish_last_added_at';
+  static const _noteAttemptDayKey = 'simulated_phone_note_attempt_day';
+  static const _noteAttemptSlotsKey = 'simulated_phone_note_attempt_slots';
 
   Future<bool> isEnabled() async => (await db.getSetting(enabledKey)) != '0';
 
@@ -504,7 +507,17 @@ class SimulatedPhoneRepository {
     final day = SimulatedPhonePolicy.localDay(now);
     final entries = await _readList(_notesKey);
     final today = entries.where((entry) => entry.localDay == day).length;
-    if (today >= 10) return;
+    final attemptedSlots = await _noteAttemptSlots(day);
+    final desire = await db.loadDesire();
+    if (!SimulatedPhonePolicy.noteOpportunityAllowed(
+      now: now,
+      todayCount: today,
+      attemptedSlots: attemptedSlots,
+      fatigue: desire.drives[DriveKey.fatigue] ?? 0,
+    )) {
+      return;
+    }
+    final noteSlot = SimulatedPhonePolicy.noteSlotIndex(now)!;
     final continuity = await db.latestDailyContinuity(limit: 30);
     final candidates = continuity.where((record) {
       final alreadyUsed = entries.any(
@@ -513,6 +526,7 @@ class SimulatedPhoneRepository {
       return record.isFinalized && !alreadyUsed && _noteItems(record).isNotEmpty;
     }).toList(growable: false);
     if (candidates.isEmpty) return;
+    await _writeNoteAttemptSlots(day, <int>{...attemptedSlots, noteSlot});
     final record = candidates[_noteIndexPicker(candidates.length)];
     final material = SimulatedNoteMaterial(
       localDay: record.localDay,
@@ -551,6 +565,7 @@ class SimulatedPhoneRepository {
         'source_continuity_id': record.id,
         'source_local_day': record.localDay,
         'generation_mode': 'deepseek_random',
+        'day_slot': noteSlot,
       },
     );
     await _writeList(_notesKey, [next, ...entries].take(300).toList());
@@ -600,7 +615,18 @@ class SimulatedPhoneRepository {
 
     var budget = await _wishBudget(day);
     if (changed && budget < 3) budget += 1;
-    if (budget < 3 && active.length < 12) {
+    final lastAddedMillis = int.tryParse(
+      await db.getSetting(_wishLastAddedAtKey) ?? '',
+    );
+    final lastAddedAt = lastAddedMillis == null || lastAddedMillis <= 0
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(lastAddedMillis);
+    if (budget < 3 &&
+        active.length < 12 &&
+        SimulatedPhonePolicy.wishAdditionAllowed(
+          now: now,
+          lastAddedAt: lastAddedAt,
+        )) {
       final desire = await db.loadDesire();
       final thoughts = await db.currentThoughtsForPresentation(limit: 40);
       for (final thought in thoughts) {
@@ -633,6 +659,10 @@ class SimulatedPhoneRepository {
         ];
         budget += 1;
         changed = true;
+        await db.setSetting(
+          _wishLastAddedAtKey,
+          now.millisecondsSinceEpoch.toString(),
+        );
         break;
       }
     }
@@ -915,6 +945,32 @@ class SimulatedPhoneRepository {
     return (int.tryParse(await db.getSetting(_wishBudgetCountKey) ?? '') ?? 0)
         .clamp(0, 3)
         .toInt();
+  }
+
+  Future<Set<int>> _noteAttemptSlots(String day) async {
+    if (await db.getSetting(_noteAttemptDayKey) != day) return <int>{};
+    final raw = await db.getSetting(_noteAttemptSlotsKey) ?? '';
+    if (raw.isEmpty) return <int>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <int>{};
+      return decoded
+          .whereType<num>()
+          .map((value) => value.toInt())
+          .where((value) =>
+              value >= 0 && value < SimulatedPhonePolicy.noteDailyLimit)
+          .toSet();
+    } catch (_) {
+      return <int>{};
+    }
+  }
+
+  Future<void> _writeNoteAttemptSlots(String day, Set<int> slots) async {
+    final ordered = slots.toList()..sort();
+    await db.setSetting(_noteAttemptSlotsKey, jsonEncode(ordered));
+    // Publish the day marker last: a crash between the two writes leaves the
+    // new slot payload ignored instead of applying stale slots to a new day.
+    await db.setSetting(_noteAttemptDayKey, day);
   }
 
   Future<List<SimulatedPhoneEntry>> _readList(String key) async {

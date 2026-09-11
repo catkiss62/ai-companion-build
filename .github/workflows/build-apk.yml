@@ -1,4 +1,4 @@
-# v0.41.65+209 adds permanent latest-reply refresh, error emphasis, rule cleanup and phone fixes.
+# v0.41.66+210 adds bounded Phase 3C interest consumption and phone projection pacing.
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
 # AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK
@@ -375,7 +375,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.65+209 APK (Refresh, Phone and Media)
+name: Build AI Companion v0.41.66+210 APK (Phase 3C and Phone Pacing)
 
 on:
   push:
@@ -783,8 +783,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.65+209' app/pubspec.yaml
-          grep -Fqx '  static const int schemaVersion = 60;' app/lib/core/database/app_database.dart
+          grep -Fqx 'version: 0.41.66+210' app/pubspec.yaml
+          grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
           test -d app/test
@@ -797,7 +797,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.65+209 refresh, phone and media candidate.'
+          echo 'Building v0.41.66+210 Phase 3C and phone pacing candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -977,6 +977,7 @@ jobs:
           python3 tools/validate_v04163_immersive_tts_settings_hardening.py
           python3 tools/validate_v04164_settings_rollback.py
           python3 tools/validate_v04165_refresh_settings_phone_media.py
+          python3 tools/validate_v04166_phase3c_phone_pacing.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1300,26 +1301,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.65+209 APK as workflow artifact
+      - name: Upload v0.41.66+210 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK
+          name: AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.65+209 APK to draft release
+      - name: Upload v0.41.66+210 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.65-refresh-phone-media-test'
-          APK_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk'
+          TAG='v0.41.66-phase3c-phone-pacing-test'
+          APK_NAME='AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1336,14 +1337,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
-              --notes 'Draft schema-60 candidate. Adds permanent latest-reply regeneration, clearer truncated-reply confirmation, error-colored Gemini notices across chat surfaces, deduplicated settings navigation, rule wording fixes, randomized grounded notes, and reachable wish updates. Confirms existing exact-SHA media reuse and preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.66+210 Phase 3C and phone pacing candidate' \
+              --notes 'Draft schema-61 candidate. Adds bounded mature-interest consumption for public-web and proactive topics, keeps all autonomy gates intact, removes the special-style parentheses mandate, aligns reply-action spacing, limits notes to six daytime windows, and spaces wish additions by at least six hours. Preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
-              --notes 'Draft schema-60 candidate. Adds permanent latest-reply regeneration, clearer truncated-reply confirmation, error-colored Gemini notices across chat surfaces, deduplicated settings navigation, rule wording fixes, randomized grounded notes, and reachable wish updates. Confirms existing exact-SHA media reuse and preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.66+210 Phase 3C and phone pacing candidate' \
+              --notes 'Draft schema-61 candidate. Adds bounded mature-interest consumption for public-web and proactive topics, keeps all autonomy gates intact, removes the special-style parentheses mandate, aligns reply-action spacing, limits notes to six daytime windows, and spaces wish additions by at least six hours. Preserves Snapshot protocol 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1395,8 +1396,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.65-refresh-phone-media-test'
-          CI_NAME='AI-Companion-v0.41.65-209-Refresh-Phone-Media-CI-Monitor.txt'
+          TAG='v0.41.66-phase3c-phone-pacing-test'
+          CI_NAME='AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1437,8 +1438,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.65+209 refresh, phone and media candidate' \
-              --notes 'Draft failure diagnostics for the schema-60 refresh, phone and media candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.66+210 Phase 3C and phone pacing candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 Phase 3C and phone pacing candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

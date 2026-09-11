@@ -82,7 +82,7 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.53+192'
   // Historical validator compatibility: buildLabel = 'v0.41.58+202'
   // Historical validator compatibility token: static const buildLabel = 'v0.41.60+204';
-  static const buildLabel = 'v0.41.65+209';
+  static const buildLabel = 'v0.41.66+210';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -107,7 +107,7 @@ class AgentSelfReader {
       id: 'proactive_web',
       title: '主动联系与公开网页',
       status: 'implemented',
-      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页先搜索网址，再读取完整清洗正文、整理概要并由主模型分别判断语义、兴趣、学习与分享价值。分享前会重新读取来源。',
+      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页先搜索网址，再读取完整清洗正文、整理概要并由主模型分别判断语义、兴趣、学习与分享价值。跨日期成立且仍新鲜的自身兴趣可在独立预算与冷却内轻量影响自主选题，不能绕过联网或主动消息 Gate；分享前会重新读取来源。',
     ),
     AgentSystemFact(
       id: 'phone_album',

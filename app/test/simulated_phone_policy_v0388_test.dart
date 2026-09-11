@@ -195,4 +195,103 @@ void main() {
       expect(text, isNot(contains('private body')));
     }
   });
+
+  test('notes use six daytime slots and never update in deep night', () {
+    expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 8, 59)), isNull);
+    expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 9)), 0);
+    expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 11, 29)), 0);
+    expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 11, 30)), 1);
+    expect(SimulatedPhonePolicy.noteSlotIndex(DateTime(2026, 9, 11, 23, 59)), 5);
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 3),
+        todayCount: 0,
+        attemptedSlots: const <int>{},
+        fatigue: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 14),
+        todayCount: 2,
+        attemptedSlots: const <int>{0, 1},
+        fatigue: 0.4,
+      ),
+      isTrue,
+    );
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 14),
+        todayCount: 2,
+        attemptedSlots: const <int>{2},
+        fatigue: 0.4,
+      ),
+      isFalse,
+    );
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 14),
+        todayCount: 6,
+        attemptedSlots: const <int>{},
+        fatigue: 0,
+      ),
+      isFalse,
+    );
+  });
+
+  test('fatigue can only remove a note slot opportunity', () {
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 22),
+        todayCount: 0,
+        attemptedSlots: const <int>{},
+        fatigue: 0.64,
+      ),
+      isTrue,
+    );
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 22),
+        todayCount: 0,
+        attemptedSlots: const <int>{},
+        fatigue: 0.65,
+      ),
+      isFalse,
+    );
+    expect(
+      SimulatedPhonePolicy.noteOpportunityAllowed(
+        now: DateTime(2026, 9, 11, 14),
+        todayCount: 0,
+        attemptedSlots: const <int>{},
+        fatigue: 0.85,
+      ),
+      isFalse,
+    );
+  });
+
+  test('wishes keep deep-night access but require six hours between additions', () {
+    final deepNight = DateTime(2026, 9, 11, 2);
+    expect(
+      SimulatedPhonePolicy.wishAdditionAllowed(
+        now: deepNight,
+        lastAddedAt: null,
+      ),
+      isTrue,
+    );
+    expect(
+      SimulatedPhonePolicy.wishAdditionAllowed(
+        now: deepNight,
+        lastAddedAt: deepNight.subtract(const Duration(hours: 5, minutes: 59)),
+      ),
+      isFalse,
+    );
+    expect(
+      SimulatedPhonePolicy.wishAdditionAllowed(
+        now: deepNight,
+        lastAddedAt: deepNight.subtract(const Duration(hours: 6)),
+      ),
+      isTrue,
+    );
+  });
 }

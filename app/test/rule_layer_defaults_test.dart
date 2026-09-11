@@ -277,6 +277,10 @@ void main() {
     expect(visibleInner, contains('片段、跳念、突然联想、改口或没想完'));
     expect(visibleInner, contains('技术与事实问题可以完整推演'));
     expect(byKey['09_action_expression_experiment']!.content, isEmpty);
+    expect(
+      byKey['07_special_uncanny']!.content,
+      isNot(contains('动作、神态描写必须用 `()` 包裹')),
+    );
     final worldBookById = {
       for (final preset in worldBookSystemPresets) preset.id: preset,
     };

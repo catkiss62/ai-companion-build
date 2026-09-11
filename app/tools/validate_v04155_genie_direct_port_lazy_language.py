@@ -13,9 +13,16 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.65+209" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.65+209';" in read(
-    "lib/core/agent/agent_self_reader.dart"
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+)
+assert any(
+    label in read("lib/core/agent/agent_self_reader.dart")
+    for label in (
+        "static const buildLabel = 'v0.41.65+209';",
+        "static const buildLabel = 'v0.41.66+210';",
+    )
 )
 
 # These are byte-for-byte hashes from the user-verified v0.6.4 source commit

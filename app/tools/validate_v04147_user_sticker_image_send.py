@@ -39,11 +39,11 @@ tests = "\n".join(
 workflow = (REPO / ".github/workflows/build-apk.yml").read_text(encoding="utf-8")
 
 assert re.search(
-    r"^version:\s*0\.41\.(?:47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202|59\+203|60\+204|61\+205|62\+206|63\+207|64\+208|65\+209)$",
+    r"^version:\s*0\.41\.(?:47\+186|48\+187|49\+188|50\+189|51\+190|52\+191|53\+192|54\+193|55\+(?:195|196|197|198|199)|56\+200|57\+201|58\+202|59\+203|60\+204|61\+205|62\+206|63\+207|64\+208|65\+209|66\+210)$",
     pubspec,
     re.M,
 )
-assert re.search(r"static const int schemaVersion = (?:55|56|57|58|59|60);", database)
+assert re.search(r"static const int schemaVersion = (?:55|56|57|58|59|60|61);", database)
 assert "agent/v04147-user-sticker-picker-image-send" in workflow
 assert re.search(r"Build AI Companion v0\.41\.(?:47\+186|48\+187|49\+188) APK", workflow)
 assert re.search(

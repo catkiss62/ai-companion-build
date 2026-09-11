@@ -19,6 +19,7 @@ import '../models/emotion_episode.dart';
 import '../models/autonomous_action.dart';
 import '../models/public_web_candidate.dart';
 import '../autonomy/ai_interest_evidence_policy.dart';
+import '../autonomy/ai_interest_consumption_policy.dart';
 import '../models/message_attachment.dart';
 import '../models/media_blob.dart';
 import '../models/awareness_observation.dart';
@@ -51,6 +52,7 @@ import '../models/proactive_frequency.dart';
 import '../models/thought_lifecycle_event.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import '../rules/rule_layer_content_v0353.dart';
+import '../rules/rule_layer_content_v0400.dart';
 import '../rules/rule_layer_content_v0417.dart';
 import '../rules/rule_layer_content_v0418.dart';
 import '../rules/rule_layer_content_v04125.dart';
@@ -117,7 +119,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 57;
   // Historical validator compatibility token: static const int schemaVersion = 58;
   // Historical validator compatibility token: static const int schemaVersion = 59;
-  static const int schemaVersion = 60;
+  // Historical validator compatibility token: static const int schemaVersion = 60;
+  static const int schemaVersion = 61;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1177,6 +1180,9 @@ class AppDatabase {
     if (oldVersion < 60) {
       await _createV60ImmersiveLanguageColumns(db);
     }
+    if (oldVersion < 61) {
+      await _createV61AiInterestConsumptionTables(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1375,6 +1381,7 @@ class AppDatabase {
     await _createV57MessageLanguageVariants(db);
     await _createV58MediaBlobTables(db);
     await _createV60ImmersiveLanguageColumns(db);
+    await _createV61AiInterestConsumptionTables(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3420,6 +3427,100 @@ class AppDatabase {
     }
   }
 
+  Future<void> _createV61AiInterestConsumptionTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_interest_consumption_events (
+        id TEXT PRIMARY KEY,
+        candidate_id TEXT NOT NULL,
+        candidate_version INTEGER NOT NULL,
+        mode TEXT NOT NULL,
+        surface TEXT NOT NULL,
+        status TEXT NOT NULL,
+        result_tag TEXT NOT NULL DEFAULT '',
+        topic_hash TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(candidate_id) REFERENCES ai_interest_candidates(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_consumption_recent '
+      'ON ai_interest_consumption_events(status, created_at DESC, mode, surface)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_interest_consumption_candidate '
+      'ON ai_interest_consumption_events(candidate_id, created_at DESC)',
+    );
+    await db.insert(
+      'settings',
+      const <String, Object?>{
+        'key': 'ai_interest_consumption_enabled',
+        'value': '1',
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await _migrateUntouchedV04166SpecialStyle(db);
+  }
+
+  Future<void> _migrateUntouchedV04166SpecialStyle(
+    DatabaseExecutor db,
+  ) async {
+    final uncannyRows = await db.query(
+      'rule_layers',
+      columns: const ['content'],
+      where: 'key = ?',
+      whereArgs: const ['07_special_uncanny'],
+      limit: 1,
+    );
+    if (uncannyRows.isNotEmpty) {
+      final current = uncannyRows.first['content'] as String? ?? '';
+      if (sha256.convert(utf8.encode(current)).toString() ==
+          '8cef9cfdf849a0147de77be5bfe6e7de1b23e1b5468759a6cad19bd0e732ced3') {
+        await db.update(
+          'rule_layers',
+          <String, Object?>{
+            'content': ruleContentV0400_07_special_uncanny,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'key = ?',
+          whereArgs: const ['07_special_uncanny'],
+        );
+      }
+    }
+    final worldBookRows = await db.query(
+      'reference_documents',
+      columns: const ['raw_content'],
+      where: 'id = ?',
+      whereArgs: const ['builtin.worldbook.special.uncanny'],
+      limit: 1,
+    );
+    if (worldBookRows.isEmpty) return;
+    final worldBookCurrent =
+        worldBookRows.first['raw_content'] as String? ?? '';
+    if (sha256.convert(utf8.encode(worldBookCurrent)).toString() !=
+        '889454e8552761cf84159b29afa885a6c48d081ec30f4ae695a48542376c6e98') {
+      return;
+    }
+    final templates = await _promptTemplateContents(db);
+    final content = PersonalityCatalog.compileSpecial(
+      'uncanny',
+      intimacyActive: false,
+      templates: templates,
+    )
+        .replaceFirst('# 当前特殊表达：神人模式\n', '')
+        .replaceAll('临时特殊风格试穿', '当前启用的特殊风格模块')
+        .replaceAll('试穿中的', '模块中的')
+        .replaceAll('试穿期间', '模块启用期间');
+    await db.update(
+      'reference_documents',
+      <String, Object?>{
+        'raw_content': content,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: const ['builtin.worldbook.special.uncanny'],
+    );
+  }
+
   Future<void> _stabilizeV53RoleplayPronounPriority(
     DatabaseExecutor txn,
   ) async {
@@ -4058,6 +4159,7 @@ class AppDatabase {
   Future<void> ensureReady() async {
     final db = await database;
     await _refreshAiInterestFreshness(db, DateTime.now());
+    await _migrateUntouchedV04166SpecialStyle(db);
     await _migrateUntouchedImmersiveRoomNovelRules(db);
     await _seedWorldBookPresets(db);
     await db.delete(
@@ -11272,6 +11374,7 @@ class AppDatabase {
     required String runToken,
     required List<PublicWebCandidateDraft> candidates,
     required DesireSnapshot Function(DesireSnapshot current) satisfyOnSuccess,
+    bool suppressInterestEvidence = false,
     DateTime? now,
   }) async {
     if (runToken.isEmpty || candidates.isEmpty) return 0;
@@ -11341,6 +11444,7 @@ class AppDatabase {
       var browserUsed = Sqflite.firstIntValue(browserRows) ?? 0;
       final diagnosticRun =
           (row['reason_source'] as String? ?? '').startsWith('diagnostic_');
+      final phase3cGuidedRun = suppressInterestEvidence;
       for (final candidate in candidates.take(3)) {
         final uri = Uri.tryParse(candidate.url);
         if (candidate.fingerprint.length != 64 ||
@@ -11455,7 +11559,11 @@ class AppDatabase {
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
           }
+          // A Phase 3C-guided search may discover useful material, but it must
+          // not feed its own mature interest back into Phase 3A and keep that
+          // candidate permanently fresh through a self-reinforcing loop.
           if (!diagnosticRun &&
+              !phase3cGuidedRun &&
               candidate.isVerifiedRead &&
               candidate.semanticState == 'valid' &&
               candidate.interestScore >=
@@ -17816,6 +17924,8 @@ class AppDatabase {
       'daily_continuity': await count('daily_continuity'),
       'autonomous_behavior_events':
           await count('autonomous_behavior_events'),
+      'ai_interest_consumption_events':
+          await count('ai_interest_consumption_events'),
       'relationship_events': await count('relationship_events'),
       'active_sessions': await count('interaction_sessions', 'status = ?', ['active']),
       'references': await count('reference_items', 'enabled = 1'),
@@ -18091,6 +18201,204 @@ class AppDatabase {
     });
   }
 
+  Future<List<AiInterestConsumptionCandidate>>
+      aiInterestCandidatesForConsumption({DateTime? now}) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    await _refreshAiInterestFreshness(db, instant);
+    final rows = await db.query(
+      'ai_interest_candidates',
+      where: 'status = ?',
+      whereArgs: <Object?>[AiInterestStatus.established.key],
+      orderBy: 'freshness DESC, confidence DESC, updated_at DESC',
+      limit: 24,
+    );
+    return rows
+        .map(
+          (row) => AiInterestConsumptionCandidate(
+            id: row['id'] as String? ?? '',
+            interestKey: row['interest_key'] as String? ?? '',
+            label: row['label'] as String? ?? '',
+            sourceDomain: row['source_domain'] as String? ?? '',
+            status: row['status'] as String? ?? '',
+            confidence: (row['confidence'] as num?)?.toDouble() ?? 0,
+            freshness: (row['freshness'] as num?)?.toDouble() ?? 0,
+            version: (row['version'] as num?)?.toInt() ?? 0,
+            lastEvidenceAt: row['last_evidence_at'] == null
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(
+                    (row['last_evidence_at'] as num).toInt(),
+                  ),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<AiInterestConsumptionEvent>> recentAiInterestConsumptionEvents({
+    DateTime? now,
+    Duration window = const Duration(days: 3),
+  }) async {
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    final rows = await db.query(
+      'ai_interest_consumption_events',
+      where: 'status = ? AND created_at >= ?',
+      whereArgs: <Object?>[
+        'completed',
+        instant.subtract(window).millisecondsSinceEpoch,
+      ],
+      orderBy: 'created_at DESC',
+      limit: 240,
+    );
+    return rows
+        .map(
+          (row) => AiInterestConsumptionEvent(
+            candidateId: row['candidate_id'] as String? ?? '',
+            mode: row['mode'] as String? ?? '',
+            surface: row['surface'] as String? ?? '',
+            status: row['status'] as String? ?? '',
+            createdAt: DateTime.fromMillisecondsSinceEpoch(
+              (row['created_at'] as num?)?.toInt() ?? 0,
+            ),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<bool> recordAiInterestConsumption({
+    required AiInterestConsumptionPlan plan,
+    required String status,
+    required String resultTag,
+    required String topicKey,
+    DateTime? now,
+  }) async {
+    const allowedStatuses = <String>{
+      'completed',
+      'wait',
+      'failed',
+      'blocked',
+    };
+    if (!allowedStatuses.contains(status)) return false;
+    final db = await database;
+    final instant = now ?? DateTime.now();
+    return db.transaction<bool>((txn) async {
+      final enabledRows = await txn.query(
+        'settings',
+        columns: const ['value'],
+        where: 'key = ?',
+        whereArgs: const ['ai_interest_consumption_enabled'],
+        limit: 1,
+      );
+      if (enabledRows.isNotEmpty && enabledRows.first['value'] == '0') {
+        return false;
+      }
+      final candidates = await txn.query(
+        'ai_interest_candidates',
+        where: 'id = ? AND status = ? AND version = ?',
+        whereArgs: <Object?>[
+          plan.candidate.id,
+          AiInterestStatus.established.key,
+          plan.candidate.version,
+        ],
+        limit: 1,
+      );
+      if (candidates.isEmpty) return false;
+      final current = candidates.first;
+      final snapshot = AiInterestConsumptionCandidate(
+        id: current['id'] as String? ?? '',
+        interestKey: current['interest_key'] as String? ?? '',
+        label: current['label'] as String? ?? '',
+        sourceDomain: current['source_domain'] as String? ?? '',
+        status: current['status'] as String? ?? '',
+        confidence: (current['confidence'] as num?)?.toDouble() ?? 0,
+        freshness: (current['freshness'] as num?)?.toDouble() ?? 0,
+        version: (current['version'] as num?)?.toInt() ?? 0,
+        lastEvidenceAt: current['last_evidence_at'] == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(
+                (current['last_evidence_at'] as num).toInt(),
+              ),
+      );
+      if (!AiInterestConsumptionPolicy.eligible(snapshot, now: instant)) {
+        return false;
+      }
+      if (status == 'completed') {
+        final recentRows = await txn.query(
+          'ai_interest_consumption_events',
+          where: 'status = ? AND created_at >= ?',
+          whereArgs: <Object?>[
+            'completed',
+            instant
+                .subtract(AiInterestConsumptionPolicy.window)
+                .millisecondsSinceEpoch,
+          ],
+          orderBy: 'created_at DESC',
+          limit: 240,
+        );
+        final currentPlan = AiInterestConsumptionPlan(
+          candidate: snapshot,
+          mode: plan.mode,
+          surface: plan.surface,
+        );
+        final events = recentRows
+            .map(
+              (row) => AiInterestConsumptionEvent(
+                candidateId: row['candidate_id'] as String? ?? '',
+                mode: row['mode'] as String? ?? '',
+                surface: row['surface'] as String? ?? '',
+                status: row['status'] as String? ?? '',
+                createdAt: DateTime.fromMillisecondsSinceEpoch(
+                  (row['created_at'] as num?)?.toInt() ?? 0,
+                ),
+              ),
+            )
+            .toList(growable: false);
+        if (!AiInterestConsumptionPolicy.completionAllowed(
+          plan: currentPlan,
+          recentEvents: events,
+          now: instant,
+        )) {
+          return false;
+        }
+      }
+      final safeResult = resultTag.trim().replaceAll(RegExp(r'[^a-z0-9_:-]'), '');
+      final normalizedTopic = topicKey.trim().toLowerCase();
+      await txn.insert(
+        'ai_interest_consumption_events',
+        <String, Object?>{
+          'id': _uuid.v4(),
+          'candidate_id': snapshot.id,
+          'candidate_version': snapshot.version,
+          'mode': plan.mode.key,
+          'surface': plan.surface.key,
+          'status': status,
+          'result_tag': safeResult.substring(0, min(80, safeResult.length)),
+          'topic_hash': normalizedTopic.isEmpty
+              ? ''
+              : sha256.convert(utf8.encode(normalizedTopic)).toString(),
+          'created_at': instant.millisecondsSinceEpoch,
+        },
+      );
+      await txn.rawDelete('''
+        DELETE FROM ai_interest_consumption_events
+        WHERE status = 'completed' AND id NOT IN (
+          SELECT id FROM ai_interest_consumption_events
+          WHERE status = 'completed'
+          ORDER BY created_at DESC LIMIT 120
+        )
+      ''');
+      await txn.rawDelete('''
+        DELETE FROM ai_interest_consumption_events
+        WHERE status != 'completed' AND id NOT IN (
+          SELECT id FROM ai_interest_consumption_events
+          WHERE status != 'completed'
+          ORDER BY created_at DESC LIMIT 360
+        )
+      ''');
+      return true;
+    });
+  }
+
   /// Redacted Phase 3A observability: no interest keys, labels, domains, URLs,
   /// queries, evidence bodies, or source identifiers leave the database.
   Future<Map<String, Object?>> aiInterestEvidenceDiagnosticStats({
@@ -18139,6 +18447,23 @@ class AppDatabase {
             ],
             now: instant,
           ).freshness;
+    final consumptionSince =
+        instant.subtract(AiInterestConsumptionPolicy.window).millisecondsSinceEpoch;
+    final consumptionStatusRows = await db.rawQuery(
+      'SELECT status, COUNT(*) AS total FROM ai_interest_consumption_events '
+      'WHERE created_at >= ? GROUP BY status',
+      <Object?>[consumptionSince],
+    );
+    final consumptionModeRows = await db.rawQuery(
+      'SELECT mode, COUNT(*) AS total FROM ai_interest_consumption_events '
+      "WHERE created_at >= ? AND status = 'completed' GROUP BY mode",
+      <Object?>[consumptionSince],
+    );
+    final consumptionSurfaceRows = await db.rawQuery(
+      'SELECT surface, COUNT(*) AS total FROM ai_interest_consumption_events '
+      "WHERE created_at >= ? AND status = 'completed' GROUP BY surface",
+      <Object?>[consumptionSince],
+    );
     Map<String, int> counts(List<Map<String, Object?>> rows, String key) => {
           for (final row in rows)
             (row[key] as String? ?? 'unknown'):
@@ -18161,9 +18486,16 @@ class AppDatabase {
       'revokedEvidenceCount': (evidence['revoked'] as num?)?.toInt() ?? 0,
       'latestEvidenceAt': latest,
       'latestEvidenceFreshness': liveFreshness,
-      'promptConsumptionEnabled': false,
-      'topicSelectionEnabled': false,
-      'proactiveConsumptionEnabled': false,
+      'promptConsumptionEnabled':
+          (await getSetting('ai_interest_consumption_enabled')) != '0',
+      'topicSelectionEnabled':
+          (await getSetting('ai_interest_consumption_enabled')) != '0',
+      'proactiveConsumptionEnabled':
+          (await getSetting('ai_interest_consumption_enabled')) != '0',
+      'consumption24hStatusCounts': counts(consumptionStatusRows, 'status'),
+      'consumption24hModeCounts': counts(consumptionModeRows, 'mode'),
+      'consumption24hSurfaceCounts':
+          counts(consumptionSurfaceRows, 'surface'),
       'interestKeysIncluded': false,
       'labelsOrDomainsIncluded': false,
       'sourceRefsIncluded': false,
@@ -18204,6 +18536,7 @@ class AppDatabase {
       'ai_interest_candidates',
       'ai_interest_evidence',
       'ai_interest_versions',
+      'ai_interest_consumption_events',
       'companion_browser_visits',
       'companion_album_candidates',
       'relationship_events',
@@ -18298,6 +18631,9 @@ class AppDatabase {
     if (version < 58) {
       rawTables['media_blobs'] = const <Object?>[];
     }
+    if (version < 61) {
+      rawTables['ai_interest_consumption_events'] = const <Object?>[];
+    }
     final db = await database;
     await db.transaction((txn) async {
       const ordered = [
@@ -18329,6 +18665,7 @@ class AppDatabase {
         'ai_interest_candidates',
         'ai_interest_evidence',
         'ai_interest_versions',
+        'ai_interest_consumption_events',
         'companion_browser_visits',
         'companion_album_candidates',
         'relationship_events',
@@ -18782,6 +19119,7 @@ class AppDatabase {
       );
       await _rebuildMediaBlobRefCountsInTransaction(txn);
     });
+    await _createV61AiInterestConsumptionTables(await database);
     await _seedRuleLayers(await database);
     await ensureDeviceId();
     await ensureStateLineageId();

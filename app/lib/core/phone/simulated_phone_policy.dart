@@ -16,6 +16,12 @@ class SimulatedPhonePolicy {
   const SimulatedPhonePolicy._();
 
   static const int tarotAssetCount = 22;
+  static const int noteDailyLimit = 6;
+  static const int noteDayStartMinute = 9 * 60;
+  static const int noteDayEndMinute = 24 * 60;
+  static const int noteSlotMinutes =
+      (noteDayEndMinute - noteDayStartMinute) ~/ noteDailyLimit;
+  static const Duration wishAdditionCooldown = Duration(hours: 6);
 
   static bool updatesAllowed({
     required bool phoneEnabled,
@@ -82,6 +88,42 @@ class SimulatedPhonePolicy {
       'score': score,
     };
   }
+
+  static int? noteSlotIndex(DateTime value) {
+    final local = value.toLocal();
+    final minute = local.hour * 60 + local.minute;
+    if (minute < noteDayStartMinute || minute >= noteDayEndMinute) return null;
+    return ((minute - noteDayStartMinute) ~/ noteSlotMinutes)
+        .clamp(0, noteDailyLimit - 1)
+        .toInt();
+  }
+
+  static bool noteOpportunityAllowed({
+    required DateTime now,
+    required int todayCount,
+    required Set<int> attemptedSlots,
+    required double fatigue,
+  }) {
+    final slot = noteSlotIndex(now);
+    if (slot == null ||
+        todayCount >= noteDailyLimit ||
+        attemptedSlots.contains(slot)) {
+      return false;
+    }
+    final tiredness = fatigue.clamp(0.0, 1.0).toDouble();
+    if (tiredness >= 0.85) return false;
+    // The last evening window is optional when she is already tired. This can
+    // only remove an opportunity; it never expands the six-slot hard ceiling.
+    if (slot == noteDailyLimit - 1 && tiredness >= 0.65) return false;
+    return true;
+  }
+
+  static bool wishAdditionAllowed({
+    required DateTime now,
+    required DateTime? lastAddedAt,
+  }) =>
+      lastAddedAt == null ||
+      now.difference(lastAddedAt) >= wishAdditionCooldown;
 
   static bool wishEligible({
     required CompanionThought thought,

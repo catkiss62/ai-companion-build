@@ -169,6 +169,7 @@ class AutonomousActionCoordinator {
     required AutonomousActionRun run,
     required String runToken,
     required List<PublicWebCandidateDraft> candidates,
+    bool interestGuided = false,
     DateTime? now,
   }) async {
     final instant = now ?? DateTime.now();
@@ -180,6 +181,7 @@ class AutonomousActionCoordinator {
       id: run.id,
       runToken: runToken,
       candidates: candidates,
+      suppressInterestEvidence: interestGuided,
       now: instant,
       satisfyOnSuccess: (snapshot) {
         final drives = DesireCorePolicy.satisfiedDrives(

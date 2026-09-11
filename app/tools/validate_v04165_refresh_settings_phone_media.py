@@ -17,10 +17,16 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    assert "version: 0.41.65+209" in read("pubspec.yaml")
-    require(
-        read("lib/core/agent/agent_self_reader.dart"),
-        "static const buildLabel = 'v0.41.65+209';",
+    assert any(
+        version in read("pubspec.yaml")
+        for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+    )
+    assert any(
+        label in read("lib/core/agent/agent_self_reader.dart")
+        for label in (
+            "static const buildLabel = 'v0.41.65+209';",
+            "static const buildLabel = 'v0.41.66+210';",
+        )
     )
 
     app = read("lib/app.dart")
@@ -36,10 +42,13 @@ def main() -> None:
         "_confirmRegenerateLatestReply",
     )
     assert "pushNamed('/settings')" not in chat_page
-    require(
-        more,
-        "按功能查找陪伴、关系、能力、手机感知与数据设置。",
-        "AI Companion · v0.41.65+209",
+    require(more, "按功能查找陪伴、关系、能力、手机感知与数据设置。")
+    assert any(
+        label in more
+        for label in (
+            "AI Companion · v0.41.65+209",
+            "AI Companion · v0.41.66+210",
+        )
     )
     assert "先按稳定职责分开入口" not in more
     assert "这次不换皮肤" not in more

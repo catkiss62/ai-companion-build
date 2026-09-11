@@ -64,6 +64,7 @@
 - `SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md`：主体性/活人感约束归因、v0.41.49 主观搜索与造梗恢复实现、Agent v2 与 D6 媒体引用合同。
 - `AGENT_V2_BOUNDED_LOOP_v0.41.50.md`：v0.41.50 三回合/六调用的 observe→act→verify 任务循环、重复调用防护、终态核验、权限与真机边界。
 - `AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`：Desire 动机、能力可用性与最终 Outcome 三层仲裁；记录 v0.41.43 真机踩雷、显式 wait/defer、成功冷却语义及未来 MCP 接入约束。
+- `AI_INTEREST_CONSUMPTION_PHASE3C_v0.41.66.md`：只消费跨日期成立且仍新鲜的 AI 自身兴趣，以 exploit/adjacent/wildcard 独立预算影响自主联网与主动话题；记录撤销、失败 Outcome、自反馈隔离、schema 61 与诊断隐私合同。
 - `STICKER_EXPRESSION_v0.41.45.md`：单聊表情包表达层、dsh 兼容私有包格式、抽样/语气/NSFW 边界、事务提交与真机验收。
 - `STICKER_AGENT_CONTINUATION_IDENTITY_v0.41.46.md`：明确指令的 `sticker.send` 真实附件闭环、发送后自我认知、Rule 01 保守迁移与沉浸截断修复。
 - `STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`：七张运行时禁用、催睡表情语义修正、普通回复零匹配保护、长按完整语义和厂商相册应用入口；末节冻结旧数据整理与新图片自动归一化边界。

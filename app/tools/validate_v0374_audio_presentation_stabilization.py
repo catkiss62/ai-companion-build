@@ -69,6 +69,7 @@ if any(
         "version: 0.41.63+207",
         "version: 0.41.64+208",
         "version: 0.41.65+209",
+        "version: 0.41.66+210",
     )
 ):
     # v0.41.55 deliberately removed provider-token true streaming and now

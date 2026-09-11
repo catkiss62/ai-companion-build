@@ -45,6 +45,7 @@ class _ModelNetworkSettingsPageState
   DeepSeekModelProfile _model = DeepSeekModelProfile.pro;
   ReasoningEffort _effort = ReasoningEffort.high;
   bool _publicWeb = true;
+  bool _interestConsumption = true;
   bool _agnesCompaction = true;
   bool _loading = true;
   bool _testingChat = false;
@@ -95,6 +96,8 @@ class _ModelNetworkSettingsPageState
     );
     _publicWeb =
         (await _db.getSetting('public_web_discovery_enabled')) != '0';
+    _interestConsumption =
+        (await _db.getSetting('ai_interest_consumption_enabled')) != '0';
     _agnesCompaction =
         (await _db.getSetting('agnes_web_compaction_enabled')) != '0';
     if (mounted) setState(() => _loading = false);
@@ -525,6 +528,21 @@ class _ModelNetworkSettingsPageState
                           setState(() => _publicWeb = value);
                           await _db.setSetting(
                             'public_web_discovery_enabled',
+                            value ? '1' : '0',
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('成熟兴趣参与自主选题'),
+                        subtitle: const Text(
+                          '只使用跨日期成立且仍新鲜的兴趣，并受独立预算与冷却限制。',
+                        ),
+                        value: _interestConsumption,
+                        onChanged: (value) async {
+                          setState(() => _interestConsumption = value);
+                          await _db.setSetting(
+                            'ai_interest_consumption_enabled',
                             value ? '1' : '0',
                           );
                         },

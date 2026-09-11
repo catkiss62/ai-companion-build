@@ -20,7 +20,10 @@ def digest(relative: str) -> str:
 
 pubspec = read("pubspec.yaml")
 is_exact_rollback = "version: 0.41.64+208" in pubspec
-assert is_exact_rollback or "version: 0.41.65+209" in pubspec
+assert is_exact_rollback or any(
+    version in pubspec
+    for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+)
 
 # These eight files must remain byte-identical to the accepted +206 source.
 expected = {

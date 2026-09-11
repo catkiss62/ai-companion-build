@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/autonomy/public_web_discovery_policy.dart';
+import 'package:ai_companion_localfirst/core/autonomy/ai_interest_consumption_policy.dart';
 import 'package:ai_companion_localfirst/core/autonomy/public_web_question_planner.dart';
 import 'package:ai_companion_localfirst/core/autonomy/subjective_search_seed.dart';
 import 'package:ai_companion_localfirst/core/models/desire_state.dart';
@@ -52,6 +53,31 @@ void main() {
         'taxonomy_fallback',
       );
     }
+  });
+
+  test('mature interest fallback stays bounded and mode-specific', () {
+    final interest = AiInterestConsumptionPlan(
+      candidate: AiInterestConsumptionCandidate(
+        id: 'interest-1',
+        interestKey: 'curiosity:whale_sleep',
+        label: '鲸类睡眠',
+        sourceDomain: 'example.org',
+        status: 'established',
+        confidence: 0.8,
+        freshness: 0.9,
+        version: 3,
+        lastEvidenceAt: DateTime.utc(2026, 9, 10),
+      ),
+      mode: AiInterestConsumptionMode.adjacent,
+      surface: AiInterestConsumptionSurface.publicWeb,
+    );
+    final plan = DeepSeekPublicWebQuestionPlanner.fallback(
+      topic,
+      interestConsumption: interest,
+    );
+    expect(plan.mode, 'interest_adjacent_fallback');
+    expect(plan.query, contains('相邻但不同'));
+    expect(plan.query.length, lessThanOrEqualTo(80));
   });
 
   test('planner grows a question from subjective seed before public fallback',

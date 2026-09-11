@@ -9,6 +9,8 @@ import '../models/public_web_candidate.dart';
 import '../platform/android_bridge.dart';
 import '../storage/secure_config.dart';
 import 'autonomous_action_coordinator.dart';
+import 'ai_interest_consumption_coordinator.dart';
+import 'ai_interest_consumption_policy.dart';
 import 'layered_public_web_provider.dart';
 import 'public_web_discovery_policy.dart';
 import 'public_web_appraisal_policy.dart';
@@ -65,6 +67,8 @@ class PublicWebDiscoveryEngine {
 
   late final AutonomousActionCoordinator coordinator =
       AutonomousActionCoordinator(db);
+  late final AiInterestConsumptionCoordinator interestConsumption =
+      AiInterestConsumptionCoordinator(db);
 
   /// Capability availability is separate from motivation. Callers may turn
   /// an unavailable but still-strong intention into an explicit defer/wait
@@ -175,7 +179,8 @@ class PublicWebDiscoveryEngine {
       intent: toolIntent,
       tool: AutonomousToolKind.publicWeb,
       dedupeMaterial:
-          '${provider.providerKey}|${topic.interestKey}|${subjectiveSeed.seedHash}|${PublicWebDiscoveryPolicy.dedupeWindow(instant)}',
+          '${provider.providerKey}|${topic.interestKey}|${subjectiveSeed.seedHash}|'
+          '${PublicWebDiscoveryPolicy.dedupeWindow(instant)}',
       providerAvailable: true,
       screenInteractive: screenInteractive,
       deviceLocked: deviceLocked,
@@ -217,6 +222,13 @@ class PublicWebDiscoveryEngine {
       return const PublicWebDiscoveryDecision(state: 'claim_lost');
     }
 
+    // Interest can influence the question only after the ordinary Desire →
+    // Intent → tool Gate has allowed and claimed this action.
+    final interestPlan = await interestConsumption.plan(
+      surface: AiInterestConsumptionSurface.publicWeb,
+      now: instant,
+    );
+
     final planner = _questionPlannerOverride ??
         DeepSeekPublicWebQuestionPlanner(
           apiKey: await secureConfig.readApiKey() ?? '',
@@ -226,7 +238,15 @@ class PublicWebDiscoveryEngine {
       topic: topic,
       drive: sourceIntent.drive,
       subjectiveSeed: subjectiveSeed,
+      interestConsumption: interestPlan,
     );
+    final selectedInterestKey = switch (interestPlan?.mode) {
+      AiInterestConsumptionMode.exploit =>
+        interestPlan!.candidate.interestKey,
+      AiInterestConsumptionMode.adjacent =>
+        'adjacent:${interestPlan!.candidate.interestKey}',
+      _ => topic.interestKey,
+    };
     await db.setSetting('public_web_last_query_plan_mode', questionPlan.mode);
     await db.setSetting(
       'public_web_last_subjective_motive',
@@ -242,7 +262,7 @@ class PublicWebDiscoveryEngine {
       query: questionPlan.query,
       driveKey: run.driveKey,
       intentAction: run.intentAction,
-      interestKey: topic.interestKey,
+      interestKey: selectedInterestKey,
       now: instant,
     );
     final providerElapsed = DateTime.now().difference(providerStarted);
@@ -271,6 +291,15 @@ class PublicWebDiscoveryEngine {
         now: DateTime.now(),
       );
       if (completed) {
+        if (interestPlan != null) {
+          await db.recordAiInterestConsumption(
+            plan: interestPlan,
+            status: 'failed',
+            resultTag: 'provider_failure',
+            topicKey: questionPlan.query,
+            now: DateTime.now(),
+          );
+        }
         await _recordRuntime(
           at: instant,
           outcome: 'provider_failure',
@@ -290,6 +319,15 @@ class PublicWebDiscoveryEngine {
         now: DateTime.now(),
       );
       if (completed) {
+        if (interestPlan != null) {
+          await db.recordAiInterestConsumption(
+            plan: interestPlan,
+            status: 'wait',
+            resultTag: 'no_result',
+            topicKey: questionPlan.query,
+            now: DateTime.now(),
+          );
+        }
         await _recordRuntime(at: instant, outcome: 'no_result');
       }
       return PublicWebDiscoveryDecision(
@@ -378,6 +416,15 @@ class PublicWebDiscoveryEngine {
         now: DateTime.now(),
       );
       if (completed) {
+        if (interestPlan != null) {
+          await db.recordAiInterestConsumption(
+            plan: interestPlan,
+            status: 'wait',
+            resultTag: 'appraised_discard',
+            topicKey: questionPlan.query,
+            now: DateTime.now(),
+          );
+        }
         await _recordRuntime(at: instant, outcome: 'appraised_discard');
       }
       return PublicWebDiscoveryDecision(
@@ -389,9 +436,19 @@ class PublicWebDiscoveryEngine {
       run: run,
       runToken: runToken,
       candidates: kept,
+      interestGuided: interestPlan != null,
       now: DateTime.now(),
     );
     if (stored > 0) {
+      if (interestPlan != null) {
+        await db.recordAiInterestConsumption(
+          plan: interestPlan,
+          status: 'completed',
+          resultTag: 'candidate_stored',
+          topicKey: questionPlan.query,
+          now: DateTime.now(),
+        );
+      }
       await _recordRuntime(
         at: instant,
         outcome: 'candidate_stored',

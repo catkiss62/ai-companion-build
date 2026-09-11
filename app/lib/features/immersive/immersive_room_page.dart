@@ -1467,7 +1467,6 @@ class _ImmersiveMessageView extends StatelessWidget {
                       onPressed: onRegenerate,
                       icon: const Icon(Icons.refresh_rounded),
                     ),
-                  const SizedBox(width: 2),
                   _ImmersiveSpeechActionButton(
                     phase: ttsPhase,
                     onPressed: onSpeechAction!,

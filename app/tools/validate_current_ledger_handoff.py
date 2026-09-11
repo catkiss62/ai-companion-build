@@ -112,9 +112,9 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04165-refresh-settings-phone-media",
-        "0.41.65+209",
-        "schema 60",
+        "agent/v04166-phase3c-refresh-notes-wishlist",
+        "0.41.66+210",
+        "schema 61",
         "玩游 Key",
         "沉浸房间",
         "Snapshot protocol 6",
@@ -207,7 +207,7 @@ def main() -> None:
     database = DATABASE.read_text(encoding="utf-8")
     require(
         re.search(
-            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209)\s*$",
+            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209|0\.41\.66\+210)\s*$",
             pubspec,
             re.MULTILINE,
         )
@@ -215,7 +215,8 @@ def main() -> None:
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 60;" in database,
+        re.search(r"static const int schemaVersion = (?:60|61);", database)
+        is not None,
         "database schema no longer matches the current development baseline",
     )
 

@@ -32,24 +32,24 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04165-refresh-settings-phone-media`，目标 `v0.41.65+209 / schema 60 / Snapshot protocol 6`。以 +208 已恢复的 +206 设置布局为基线，只按用户本次逐项指令修改；不重新采用 +207 的设置归一方案 |
+| 当前开发分支 | `agent/v04166-phase3c-refresh-notes-wishlist`，本地已实现 `v0.41.66+210 / schema 61 / Snapshot protocol 6`。以 +209 远端最终 tree `dd0066b832b4ca6af1c5a91805e2d187b479b847` 为唯一代码基线，完成 Phase 3C 有界兴趣消费、特殊风格括号源规则删除、普通/沉浸刷新与播放间距、白天六时段随笔及愿望单 6 小时新增冷却；未推送、CI 与 APK 待真实 Actions 验证 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +209 Actions build head `cc5286df0810db565d9d15879700c73efcbd9836` / tree `dd0066b832b4ca6af1c5a91805e2d187b479b847`。授权 GitHub 连接写入的远端 tree 与本地最终 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前有效 APK 为 `0.41.65+209 / schema 60 / Snapshot protocol 6`；继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移 |
+| App / 数据库 | 当前有效 APK 仍为 `0.41.65+209 / schema 60 / Snapshot protocol 6`；本批目标 `0.41.66+210 / schema 61 / Snapshot protocol 6`，schema 61 只为 Phase 3C 可审计消费事件建表，旧备份补空表且不改变 Snapshot protocol |
 | 最终 CI | +209 run [`34651532509`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509)（849）完整成功：干净基线、私有载荷固定 SHA 与分源、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`735/735` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
 | 测试 APK | `AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk`，544,709,718 bytes |
 | APK SHA-256 | `8e37131040a36d53d3982ca70aa9fa31e148cd6df8b277d0f2eac03d3c5afcd3`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10283904266`](https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509/artifacts/10283904266)，ZIP 537,831,077 bytes / digest `6fe69d109bdccecec8c8acb38a5ca9058c6e9dc4d78c9954735b21382cca0169`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1160d6f273e360a517f2) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 849 全绿并已生成 Draft APK；刷新/错误提示、设置与规则、愿望/随笔、媒体审计及沉浸动作括号仍需真机自然验证。日语首次切入 `NullPointerException` 与偶发固定台词继续分开进入 T1，不冒充本批已修 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 849 全绿并已生成 Draft APK。+210 为 `IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING`：86 个当前 workflow 源码门本地通过，3 项只因本地缺 CI 恢复的桌宠/LingChat 资产与 Kotlin 编译器未运行；Flutter Analyze/全量 tests、Kotlin/JVM、Release 和实包门必须等 Actions。日语首次切入 `NullPointerException` 与偶发固定台词继续分开进入 T1 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **D3 · Phase 3C 习惯消费**：在 Phase 3B 已证明主动来源不再单一的基础上，让已成熟兴趣以有界利用、相邻探索和少量 wildcard 预算影响联网选题、主动话题与少量表达习惯；先完成 Phase 3C，不把 Phase 4 混入同一代码包 |
+| 当前下一步 | **D3 · Phase 3C 习惯消费（IMPLEMENTED LOCALLY / CI PENDING）**：代码与本地源码门已完成，下一动作是提交/推送当前开发分支，跟踪全量 Actions 到 Release APK、签名、私有资产实包和 Draft 上传全部通过；若 CI 发现编译或回归错误，在同分支窄修到通过。Phase 4 仍不混入本包 |
 | 目标 | 消费成熟兴趣时保留来源、成熟度、新鲜度、版本与可撤销性；兴趣只能产生有限偏置，不能变成人设硬标签、无限重复同一主题或绕过主动消息/联网预算。Phase 3C 完成独立代码审查与真机证据后，Phase 4 再做低频澄清与娱乐测试 |
-| 当前证据 | Phase 3A 已有真机 forming evidence，Phase 3B 已有主动来源平衡与多次 `rest_selected/completed` 真机样本；+209 run 849 全绿并生成 Draft APK。Phase 3C/MCP 消费开关仍按排期关闭，不能把已有证据误写成已经消费成熟兴趣 |
+| 当前证据 | Phase 3A 已有真机 forming evidence，Phase 3B 已有主动来源平衡与多次 `rest_selected/completed` 真机样本；+209 run 849 全绿并生成 Draft APK。+210 本地新增确定性 policy/planner/手机节律测试与静态 validator，86 个 workflow 源码门通过，workflow YAML、Python 语法和 `git diff --check` 通过；本地无 Flutter/Dart/Kotlin 工具链且无私有运行资产，不将本地结果冒充为 CI、APK 或真机兴趣消费样本 |
 | 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 继续独立安全保存，不因兴趣消费改变提供商边界。不让兴趣绕过隐私、联网、主动频率、Gate、Outcome 或用户关闭能力；不把一次点击/搜索/图片标签直接提升为稳定偏好。保留兴趣删除、停用、衰减、版本和回滚；不修改沉浸房间、Snapshot protocol 6 或已通过的 Genie-TTS 主链。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性、D6 真机长尾均不混入 Phase 3C 实现包 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 只消费达到既有成熟门的兴趣证据；利用/相邻探索/wildcard 分别有独立预算和冷却，选择结果继续进入现有 Desire→Intent→Gate→Action→Outcome，不增加旁路调度器。表达习惯只允许轻量、可衰减的风格偏置，不直接写死台词或覆盖七大规则 |
@@ -90,6 +90,21 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-11 v0.41.66+210 Phase 3C 习惯消费与随笔/愿望边界（IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户要求把 Phase 3C 与四项窄修合成同一版本：从特殊风格源规则删除动作/神态必须加 `()` 的要求；普通聊天回复脚注中刷新与播放按钮间距缩到“时间—刷新”的现有紧凑距离；随笔不再由每次后台刷新无限生成，改为一天最多 6 条、只在白天分时段获得机会、深夜完全不更新，疲劳只能继续减少机会；愿望单先审计现有真实概率与预算，只有缺少边界时再补，不机械照搬随笔的深夜禁用。
+2. 修改前审计确认：+209 随笔虽然每日上限仍写为 10，但 `RecoveryOrchestrator` 每次后台维护都会调用 `_refreshNotes`，只要还有未使用的 finalized daily continuity 就可能很快连续生成，确有用户所说的恶性频率问题。本批预定把允许时间限定为本地 `09:00–24:00`，均分 6 个 150 分钟时段，每时段最多成功写入 1 条、每日绝对上限 6 条；疲劳只允许跳过当前机会，不得放宽时段或每日上限。内容仍随机抽取未使用的真实 daily continuity 并经 DeepSeek 一次生成，失败不写假随笔。
+3. 愿望单源码已有两层低频条件：只有 active、未满足、重复/持续且有具体对象，并达到 Thought/Desire 基线门槛的候选才可写入；`simulated_phone_wish_budget_count` 已把每日变化预算硬限制为 3。它不使用每个念头都可投影的模板链，因此本批不加深夜禁用或随机概率。为避免同一轮维护后短时间连续填满 3 条，预定补“新增愿望之间至少 6 小时”冷却；完成/失效清理仍可及时发生且不伪装成新愿望。测试须证明每日 3 次上限、6 小时新增冷却、深夜可在满足条件时新增，以及随笔与愿望采用不同边界。
+4. Phase 3C 只读取 `status=established` 且仍满足既有 confidence/freshness/version 的兴趣；forming、contradicted、inactive、过期、删除/撤销后降级和回滚到非成熟版本全部拒绝。利用、相邻探索和 wildcard 各有独立 24 小时预算与成功冷却，同一成熟兴趣还有跨模式复读冷却。它不创建第二套 Desire 或旁路调度器：只有现有 `public_web_discovery` 赢得统一 heartbeat 名额后才可影响问题规划，只有现有主动消息通过频率/Gate 后才可获得一条低权重话题/表达提示；失败、WAIT、blocked 与 provider no-result 不能记成成功消费。
+5. schema 61 预定新增 `ai_interest_consumption_events`，只保存候选 ID/版本、固定消费模式、固定 surface、状态、时间与脱敏 topic hash，不保存查询、URL、聊天正文或 Thought 原文；进入导出/恢复、旧 schema 补空、容量维护和脱敏诊断。候选被停用、证据撤销或回滚后，后续选择必须立刻读取当前 candidate 行并停止消费，历史事件仅作审计，不把旧兴趣重新激活。
+6. 不得回归：Phase 3A 跨日期成熟合同、Phase 3B Desire→Intent→Gate→Action→Outcome 与每 heartbeat 一个最终行为、联网总预算/Provider/安全校验、主动频率与 Dawn Gate、七大规则/世界书优先级、+209 最新回复原子刷新、三入口错误色、媒体 exact-SHA、模拟手机派生层不反写成长、Genie/小酒狐三语 TTS、D6 Snapshot protocol 6。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性和 D6 真机长尾继续独立保留。
+7. 预定验证：确定性策略覆盖成熟/未成熟/过期/停用/回滚、三模式配额、模式与候选冷却、开关、成功与失败 Outcome；联网 planner 只接收安全的兴趣标签/领域与固定模式且保留原问题校验；主动提示不跳过 Gate、不固定台词、不进入沉浸房间。随笔覆盖 0–9 点拒绝、6 个白天时段、同段去重、每日 6 条、疲劳抑制；愿望覆盖既有低门槛候选、每日 3 次和新增 6 小时冷却；特殊风格源规则与 UI 间距做 Widget/静态合同。完成后运行专项/历史 validator、Flutter Analyze/全量 tests、Kotlin/JVM、Release/签名/私有载荷校验并创建 Draft APK；自动化仍不能替代真机自然节律与独立代码审查。
+8. Phase 3C 已实现为单一有界消费层：仅 `established`、confidence 仍达 0.68、实时与存储 freshness 都不低于 0.25、当前版本仍有效的候选可被选中。`exploit / adjacent / wildcard` 的 24 小时成功上限分别为 `2 / 1 / 1`，成功冷却分别为 `6h / 12h / 24h`，同候选跨模式冷却 12h；联网/主动 surface 上限分别为 3/2。只有 `completed` 消耗预算，WAIT/blocked/failed 如实记录但不伪装成成功；成功落库前再在 SQLite 事务内复核当前候选版本、新鲜度、配额与冷却。
+9. 联网路径只在原有 Desire 候选、工具 Gate 和 claim 都成功后获取兴趣计划；兴趣不进入 Gate 原因或去重材料。Planner 只收到固定 mode、80 字以内安全标签与公开域，不收到 interest key、候选 ID、内部版本、预算或证据正文。主动路径只在原频率与 delivery Gate 通过后取计划，并明确不能覆盖已选 Thought、用户纠正、事实、七大规则或 WAIT。兴趣引导的联网结果不反向写入 Phase 3A 证据，防止自己消费自己后永久保鲜。
+10. schema 61 已新增 `ai_interest_consumption_events`，进入容量统计、Snapshot 6 导出/导入顺序和旧 schema 补空。诊断只输出近 24h 状态/mode/surface 聚合数与开关，不输出 key、标签、域名、URL、查询、候选 ID 或证据正文。“成熟兴趣参与自主选题”总开关已放入模型与联网设置，关闭后选择和新落库都停止。
+11. 四项窄修已完成：神人模式源规则删除“所有动作/神态用括号”，schema 升级和每次 `ensureReady` 只对精确命中旧默认 hash 的规则/内置世界书迁移，用户编辑内容不覆盖；普通聊天和沉浸房间都删除刷新—播放之间独有的 2dp 空隙；随笔限定本地 09:00–24:00 六个 150 分钟时段、每段最多调用一次生成、每日最多 6 条，疲劳≥0.85 时跳过当前机会且最后时段在疲劳≥0.65 时跳过；愿望单保留深夜可用与既有每日 3 次变化预算，只新增相邻愿望至少间隔 6 小时。
+12. 本地验证真值：+210 专项、+209～+205 兼容、当前总账和 workflow 真实执行的其他源码门共 86 项通过；另 3 项分别依赖 CI 恢复的 417 项桌宠源、LingChat effects 与 `kotlinc`，在当前容器不可用，不是源码失败。workflow YAML 解析、Python 语法和 `git diff --check` 通过。容器没有 Flutter/Dart/Kotlin 工具链，因此尚不得写成 Analyze、Flutter tests、JVM、Release 或 APK 通过；下一动作是提交/推送分支并跟踪 Actions。真机仍需长时自然观察兴趣是否偶尔出现且不连续复读、随笔实际时段/疲劳节律、愿望新增间隔、两处按钮视觉间距及特殊风格括号消失。
 
 ### 2026-09-11 v0.41.65+209 刷新、设置去重、规则、媒体缓存与查手机修复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

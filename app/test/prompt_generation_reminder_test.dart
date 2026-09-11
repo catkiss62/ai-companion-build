@@ -96,7 +96,8 @@ void main() {
     );
     expect(relevant, contains('PHASE 2B BOUNDED BIAS'));
     expect(relevant, contains('最多两条低权重倾向'));
-    expect(relevant, contains('Phase 3 尚未开启'));
+    expect(relevant, contains('Phase 3C 的独立预算与冷却'));
+    expect(relevant, contains('不能绕过原有 Desire、联网和投递 Gate'));
 
     final ordinary = PromptBuilder.personalityLearningCapabilityContract(
       latestUserText: '今天晚饭吃什么？',

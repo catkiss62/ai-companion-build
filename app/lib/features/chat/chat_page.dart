@@ -2862,7 +2862,6 @@ class _MessageBubble extends StatelessWidget {
                 onPressed: onRegenerate,
                 icon: const Icon(Icons.refresh_rounded),
               ),
-            const SizedBox(width: 2),
             _SpeechActionButton(
               phase: ttsPhase,
               onPressed: onSpeechAction!,

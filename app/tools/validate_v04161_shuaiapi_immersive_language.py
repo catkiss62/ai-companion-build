@@ -19,9 +19,15 @@ def require(text: str, *tokens: str) -> None:
 def main() -> None:
     require(read("pubspec.yaml"), "version: 0.41.61+205")
     database = read("lib/core/database/app_database.dart")
+    assert any(
+        schema in database
+        for schema in (
+            "static const int schemaVersion = 60;",
+            "static const int schemaVersion = 61;",
+        )
+    )
     require(
         database,
-        "static const int schemaVersion = 60;",
         "if (oldVersion < 60)",
         "_createV60ImmersiveLanguageColumns",
         "'ja_content': \"TEXT NOT NULL DEFAULT ''\"",

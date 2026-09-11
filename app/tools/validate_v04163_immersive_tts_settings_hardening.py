@@ -17,10 +17,16 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    require(read("pubspec.yaml"), "version: 0.41.65+209")
-    require(
-        read("lib/core/agent/agent_self_reader.dart"),
-        "static const buildLabel = 'v0.41.65+209';",
+    assert any(
+        version in read("pubspec.yaml")
+        for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+    )
+    assert any(
+        label in read("lib/core/agent/agent_self_reader.dart")
+        for label in (
+            "static const buildLabel = 'v0.41.65+209';",
+            "static const buildLabel = 'v0.41.66+210';",
+        )
     )
 
     secure = read("lib/core/storage/secure_config.dart")
@@ -95,7 +101,14 @@ def main() -> None:
     more = read("lib/features/more/companion_more_page.dart")
     setting_hub = read("lib/features/settings/settings_page.dart")
     chat_page = read("lib/features/chat/chat_page.dart")
-    require(more, "功能分类", "AI Companion · v0.41.65+209")
+    require(more, "功能分类")
+    assert any(
+        label in more
+        for label in (
+            "AI Companion · v0.41.65+209",
+            "AI Companion · v0.41.66+210",
+        )
+    )
     for title in ("她", "你们", "能力", "手机感知", "数据与高级"):
         assert title in more, title
     assert "SettingsDomainList" not in more
@@ -134,9 +147,13 @@ def main() -> None:
         "'能力'",
         "'数据与高级'",
     )
-    require(
-        read("test/agent_self_reader_v0416_test.dart"),
-        "build=v0.41.65+209 schema=60",
+    self_reader_test = read("test/agent_self_reader_v0416_test.dart")
+    assert any(
+        fact in self_reader_test
+        for fact in (
+            "build=v0.41.65+209 schema=60",
+            "build=v0.41.66+210 schema=61",
+        )
     )
 
     print("v0.41.63 immersive TTS, diagnostics, settings and routing contracts passed")
