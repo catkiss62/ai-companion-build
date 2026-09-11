@@ -13,6 +13,7 @@ import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
 import '../models/chat_language_variant.dart';
+import '../models/chat_segment.dart';
 import '../models/generation_job.dart';
 import '../models/immersive_room.dart';
 import '../somatic/somatic_engine.dart';

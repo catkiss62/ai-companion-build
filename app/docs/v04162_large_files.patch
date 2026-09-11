@@ -1,5 +1,5 @@
 diff --git a/AI_Companion_当前总账.md b/AI_Companion_当前总账.md
-index 8c5f709..c4f1c2b 100644
+index 8c5f709..2ea38a6 100644
 --- a/AI_Companion_当前总账.md
 +++ b/AI_Companion_当前总账.md
 @@ -32,7 +32,7 @@
@@ -37,7 +37,7 @@ index 8c5f709..c4f1c2b 100644
  | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
  
  ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
-@@ -90,7 +90,25 @@
+@@ -90,7 +90,26 @@
  
  ## 近期详细记录与全局索引（按需检索）
  
@@ -59,12 +59,13 @@ index 8c5f709..c4f1c2b 100644
 +13. 已从 +205 head 开出 `agent/v04162-hybrid-final-fallback`，目标 `0.41.62+206 / schema 60 / Snapshot protocol 6`。当前实现已把 legacy `SecureConfig.readApiKey/readEndpoint` 固定回 DeepSeek internal lane，并新增 final-reply lane；设置页始终要求 DeepSeek，选 Gemini 时才额外显示玩游 Key/固定 endpoint/model。普通与沉浸最终请求正在接入有界重试、DeepSeek 兜底、持久提示和安全草稿；AppBar 三语按钮改为外层 28 高、按钮 32×24。尚未完成 Flutter 编译/测试、CI、APK 或真机验证，不能提前提升状态。
 +14. 本地实现已收口：普通聊天用 `awaiting_confirmation` 停放截断正文，恢复器和新回合均不能越过用户决定；沉浸草稿按 room ID 独立持久化，确认时先取房间写入锁，结束房间前必须先处理草稿。Gemini 有正文的断流、`length/content_filter/safety/error` 终止均进入草稿；无正文的瞬时错误才最多做第二次玩游请求。普通与沉浸的兜底提示均写入本地 settings，只有用户手动关闭才清除；不包含 Key。+204/+205 的共享 `model` 若仍是玩游/帅 API Gemini 别名，`ensureReady` 会先恢复已保留的 `deepseek_model`，防止旧配置将 Gemini 模型名误发给 DeepSeek。英语投影的新结果与旧缓存都会校验 CJK/日语假名，失败时不再交给 TTS。
 +15. 当前容器没有 Flutter/Dart SDK，因此不冒充 Analyze 或 Flutter tests 已通过。已通过 +206 新专项、当前总账门、+204/+205 保留合同、v0.41.28–50 当前源码专项组、workflow YAML 解析与 `git diff --check`。历史验证器版本允许列表已推进到 +206；完整 Kotlin/Flutter/Release/签名/小酒狐实包门必须等 Actions 实测，在此之前状态严格保持 `CI PENDING / TRUE DEVICE PENDING`。
++16. 首轮 Actions run [`34588108620`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588108620)（836）通过两项超大文件目标 SHA 重建、固定私有载荷恢复、干净基线、全部源码/历史 validator 与 Flutter 依赖解析；在 Kotlin/JVM 步骤触发的 Flutter debug 编译中失败，唯一产品编译错误是沉浸草稿临时 TTS 路径引用 `ChatSegmentCodec` 时漏导入 `models/chat_segment.dart`，两处同源 undefined getter。该轮未进入 Analyze/tests/Release，不得记作功能回归；已补精确 import，下一轮必须从 Kotlin/Flutter 编译重新验证，不能跳过。
 +
 +### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
  
  1. 用户确认 +204“语音没有问题”。该反馈只把 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`；旧玩游 Gemini 没有相同真机结论，并因用户要求换站而被本批取代。
  2. 用户指定新中转定价页 `https://api.shuaiapi.com/pricing` 与模型 `gemini-3.7-flash`，随后提供权威 cURL：`POST https://api.shuaiapi.com/v1/chat/completions`，Bearer 鉴权、`application/json`、标准 `messages` 与 `temperature`。本批按该线端合同改 endpoint/model；不提交或索取用户 Key，也不把旧玩游 Key 覆盖到新服务。现有安全存储槽可保留兼容迁移，但产品文案与网络目标必须全部改为帅 API。
-@@ -106,7 +124,7 @@
+@@ -106,7 +125,7 @@
  12. schema 59→60 使用幂等 `PRAGMA table_info` 后追加 `ja_content/ja_segments_json/en_content/en_segments_json` 四个默认空列；新安装也走同一 helper。Snapshot protocol 6 的既有 `immersive_messages` 整表导出自动包含新列，旧 schema 59 备份/行缺列时由默认空值恢复为中文-only，不另建易漏删的附表。
  13. 新增 `immersive_message_language_variant_test.dart` 五项测试，并更新请求 Mock、Agent 自读版本、历史版本 validator 与 workflow。`validate_v04143/45/47/48/49/50/55/58/59/60/61`、当前总账 validator、其余不依赖私有载荷的 Actions 源码 validator 和 `git diff --check` 本地通过。全量遍历中三项 Actions validator 在本机按预期无法执行：417 桌宠包与 LingChat effects 尚未由 CI 恢复，且没有 `kotlinc`；本机同样没有 Flutter/Dart，故 Analyze、Flutter tests、Kotlin、Release、签名、实包资源与 Draft 必须等待 Actions，不能记为本地通过。
  14. 实现树通过 Git Data API 推送为远端 commit `aeafbf8f797476722ec9f8a62fe0f836b0c5bde0` / tree `c51cb90d0ca9484b4c4d7fd7a12cb0b3dfccf7c0`。首轮 Actions run [`34567545341`](https://github.com/catkiss62/ai-companion-build/actions/runs/34567545341)（834）通过干净版本/schema、两私有载荷恢复、全部源码与历史 validator、Kotlin/JVM、Flutter Analyze，并有 719 项 Flutter tests 成功；唯一失败组是新增沉浸外语服务的 3 项测试各在 30 秒超时，因此未生成 APK。根因不是网络：`whenComplete(() => _inFlight.remove(key))` 的箭头回调返回了 map 中被移除的同一个 Future，完成处理反过来等待自身而死锁；已改为无返回值代码块，只执行 remove。该失败及修复必须保留，待下一轮完整 CI 验证后才能写 `CI PASSED / APK READY`。

@@ -784,7 +784,7 @@ jobs:
             test "$(git hash-object app/lib/core/database/app_database.dart)" = \
               'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
             test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-              'c4f1c2b7179f42c312ddceb77eaddaa05a201d4a'
+              '2ea38a685c5c1f6cc5cbb86c8e4d6ced58661838'
           fi
 
       - name: Verify clean source baseline
@@ -1393,7 +1393,7 @@ jobs:
           test "$(git hash-object app/lib/core/database/app_database.dart)" = \
             'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
           test "$(git hash-object 'AI_Companion_当前总账.md')" = \
-            'c4f1c2b7179f42c312ddceb77eaddaa05a201d4a'
+            '2ea38a685c5c1f6cc5cbb86c8e4d6ced58661838'
           rm app/docs/v04162_large_files.patch
           git config user.name 'catkiss62'
           git config user.email 'aolu0610@gmail.com'
