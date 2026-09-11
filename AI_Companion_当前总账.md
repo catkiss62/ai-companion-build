@@ -34,20 +34,20 @@
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
 | 当前开发分支 | `agent/v04162-hybrid-final-fallback`，从 +205 已构建源码与已登记的双通道设计开出；目标 `v0.41.62+206 / schema 60 / Snapshot protocol 6`。恢复 +204 玩游固定 0.5 积分模型别名，但只用于用户选择后的最终可见表达；DeepSeek Key 必填并独占内部工作。同步修复沉浸语言按钮高度，排查非日语 TTS 偶发混入日语，并为 Gemini 增加有条件单次重试与 DeepSeek 兜底 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +205 Actions build head `55181abd92996428e74d0c716e51e30ecefde36a` / tree `53f0877713ae43693b5e1c8fbe91c45529661e36` 已验证。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与只含三语前端的旧验证包仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
+| 有效构建 head / tree | +206 Actions build head `613096b0fff553c2f069994091dc667953211608`；CI 在检出后以 hash-locked delta 重建大数据库/总账，再以完全相同运行源码通过测试与打包，成功后回写为分支 head `3bbc438b0f1f018bb5f791f5b0832b7a39a03452` / tree `4a5d5a605ce96668ca5fda75c47dc6c97afbd1ae`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
 | App / 数据库 | 当前已构建基线为 `0.41.61+205 / schema 60 / Snapshot protocol 6`。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
-| 最终 CI | +205 run [`34568682533`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533)（835）完整成功：两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`722/722` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、无恬豆/奶油/Meju、OpenJTalk ELF 闭包、塔罗与 Draft 上传均通过 |
-| 测试 APK | `AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk`，544,657,678 bytes |
-| APK SHA-256 | `b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10187207143`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533/artifacts/10187207143)，ZIP 537,777,994 bytes / digest `ae42819e0cf42f9f4e92c29c12014b211598b2403a1896955303120cc8214f46`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2) 未发布，`main` 未合并 |
+| 最终 CI | +206 run [`34588761545`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545)（837）完整成功：两项超大文件目标 SHA、两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`726/726` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、退休语音排除、OpenJTalk ELF 闭包、塔罗、Artifact、Draft 上传及分支回写均通过 |
+| 测试 APK | `AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk`，544,680,678 bytes |
+| APK SHA-256 | `c57664d925d39d1fb4d1368a2a8263e4e6e8bcdab0f9432912771d5e41fc3fdf`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10195107821`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545/artifacts/10195107821)，ZIP 537,801,712 bytes / digest `a80f363a5bbf89c07c98fa18c46759ae66765f0d3f69fac6fc4be44261718c2a`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-09fa2e8978b350c82cff) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，帅 API 不可用且沉浸房间按钮高度异常。+206 已完成本地实现与源码专项门，当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；当前环境无 Flutter/Dart SDK，尚未经 Analyze/tests 或产生 APK。动作/神态括号继续只观察，不改 Prompt |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，帅 API 不可用且沉浸房间按钮高度异常。+206 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；双通道、兜底、截断草稿、按钮尺寸和英语 TTS 污染防护均已自动化与实包验证，真实玩游扣分/文笔、故障提示、草稿交互和三语听感仍须用户真机确认。动作/神态括号继续只观察，不改 Prompt |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **+206 本地实现已收口，下一步推送并用 Actions 做首次真实 Flutter/Kotlin/Release 验证**。已实现 DeepSeek 必填 internal lane、可选 +204 玩游 Gemini final lane、Gemini 最多两次瞬时故障尝试、手动关闭前持久的 DeepSeek 兜底提示，以及不进入上下文/记忆/摘要的截断草稿。草稿的“重新生成 / 确认回复”都有二次确认；后者才按正常回复提交。沉浸按钮固定为 32×24 且外层居中；英语投影混入中/日文时不再展示或 TTS，改由 DeepSeek 最多重做一次。已完整提交的历史回复刷新仍延后 |
+| 当前下一步 | **+206 真机验收**：覆盖安装新 APK，设置中始终保留 DeepSeek Key；先选择 DeepSeek 确认旧单通道，再选择 Gemini 并额外填写玩游 Key。分别测试普通/沉浸正文文笔与实际每请求 0.5 积分；观察瞬时失败是否最多两次、完全失败是否显示手动关闭前持续的 DeepSeek 兜底提示；用异常断流验证草稿不进入后续上下文，且“重新生成 / 确认回复”二次确认与最终记忆/摘要语义正确。检查沉浸中/日/EN 为紧凑按钮、英语 TTS 不再读入日文污染。已完整提交的历史回复刷新仍延后 |
 | 目标 | 每个正常可见回合通常只产生 1 次玩游固定积分请求，即 0.5 积分/¥0.02；SSE 分片不重复计次。DeepSeek 内部调用继续按其 token 计费。第一版按职责稳定分流，不在请求前用不可靠的 token 猜测器频繁切换模型；先记录各 lane 的请求数/usage，再判断少数超长结构化任务是否值得进入成本路由。Agent 工具由 DeepSeek 规划并在本地执行，Gemini 只根据已经核验的 Outcome 写最终自然正文；沉浸 NSFW 路由和滚动摘要也留在 DeepSeek |
 | 当前证据 | +204 Git 源码确认玩游 endpoint/model 与独立 Key 槽；用户确认该站明示每次请求固定扣 0.5 积分，4 元 100 积分，并非按 token。当前 +205 源码的 `SecureConfig.readApiKey/readEndpoint` 是全局选择，导致主生成、NSFW 路由、每轮经验整合、阶段摘要、自我整理和按需翻译全部跟随 Gemini，正是需要拆分的根因。最终生成通常携带最大的人格/世界书/记忆/历史 Prompt，且文笔质量直接可见，最适合固定价 Gemini；机械 JSON/分类请求更适合 DeepSeek。沉浸截图确认按钮高度异常；07 规则正文已经明确“叙述不加括号”，没有 Prompt 缺项证据 |
 | 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。动作括号本批只观察，不增加重复禁令、不做字符串删括号补丁；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
@@ -90,7 +90,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-11 v0.41.62+206 双通道最终表达、兜底与安全截断草稿（IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING）
+### 2026-09-11 v0.41.62+206 双通道最终表达、兜底与安全截断草稿（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户确认 +205 帅 API 实际无法使用；此前准备评估的 Modelink 尚未进入代码，也不再作为当前首选。用户重新确认 +204 玩游特价模型按请求计费：4 元 100 积分，每个 HTTP 模型请求固定扣 0.5 积分，即 ¥0.02；沉浸一次发送→回复曾观察到只扣 0.5，但用户明确该单次观察可能不完整，不能据此覆盖源码调用链，固定每请求扣 0.5 则为平台明示事实。
 2. 用户提出并认可的方向是“双通道模型”：DeepSeek API Key 必须配置，作为系统内部基础模型；未配置 Gemini 时仍完全沿用旧 DeepSeek 单模型路径。只有用户选择 Gemini 作为回复模型时，才额外填写独立玩游 Key，并让 Gemini 3.7 Flash 负责完成全部 Prompt 注入后的最终可见回复，以利用其文笔与活人感。
@@ -108,6 +108,7 @@
 14. 本地实现已收口：普通聊天用 `awaiting_confirmation` 停放截断正文，恢复器和新回合均不能越过用户决定；沉浸草稿按 room ID 独立持久化，确认时先取房间写入锁，结束房间前必须先处理草稿。Gemini 有正文的断流、`length/content_filter/safety/error` 终止均进入草稿；无正文的瞬时错误才最多做第二次玩游请求。普通与沉浸的兜底提示均写入本地 settings，只有用户手动关闭才清除；不包含 Key。+204/+205 的共享 `model` 若仍是玩游/帅 API Gemini 别名，`ensureReady` 会先恢复已保留的 `deepseek_model`，防止旧配置将 Gemini 模型名误发给 DeepSeek。英语投影的新结果与旧缓存都会校验 CJK/日语假名，失败时不再交给 TTS。
 15. 当前容器没有 Flutter/Dart SDK，因此不冒充 Analyze 或 Flutter tests 已通过。已通过 +206 新专项、当前总账门、+204/+205 保留合同、v0.41.28–50 当前源码专项组、workflow YAML 解析与 `git diff --check`。历史验证器版本允许列表已推进到 +206；完整 Kotlin/Flutter/Release/签名/小酒狐实包门必须等 Actions 实测，在此之前状态严格保持 `CI PENDING / TRUE DEVICE PENDING`。
 16. 首轮 Actions run [`34588108620`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588108620)（836）通过两项超大文件目标 SHA 重建、固定私有载荷恢复、干净基线、全部源码/历史 validator 与 Flutter 依赖解析；在 Kotlin/JVM 步骤触发的 Flutter debug 编译中失败，唯一产品编译错误是沉浸草稿临时 TTS 路径引用 `ChatSegmentCodec` 时漏导入 `models/chat_segment.dart`，两处同源 undefined getter。该轮未进入 Analyze/tests/Release，不得记作功能回归；已补精确 import，下一轮必须从 Kotlin/Flutter 编译重新验证，不能跳过。
+17. import 窄修以远端提交 `613096b0fff553c2f069994091dc667953211608` 触发第二轮 Actions run [`34588761545`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545)（837），完整通过超大文件目标 SHA、固定私有资源、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`726/726` Flutter tests、arm64 Release、固定签名、48 项小酒狐/Genie/OpenJTalk 实包身份、ORT byte identity、四独立候选、退休语音排除、OpenJTalk ELF、塔罗、checksum、Artifact 与 Draft 上传。APK `AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk` 为 544,680,678 bytes、SHA-256 `c57664d925d39d1fb4d1368a2a8263e4e6e8bcdab0f9432912771d5e41fc3fdf`；Artifact `10195107821` 为 537,801,712 bytes、digest `a80f363a5bbf89c07c98fa18c46759ae66765f0d3f69fac6fc4be44261718c2a`。成功后 Actions 按两项目标 Git blob SHA 回写数据库/总账并删除临时 delta，分支最终 head `3bbc438b0f1f018bb5f791f5b0832b7a39a03452` / tree `4a5d5a605ce96668ca5fda75c47dc6c97afbd1ae`；运行源码与受测字节一致。当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
 
