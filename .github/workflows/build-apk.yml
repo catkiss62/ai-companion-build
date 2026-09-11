@@ -368,6 +368,7 @@
 # Historical v0.41.58 workflow: protocol-6 media backup allowlist, restored sticker rates, and Naiyou Japanese/prosody hotfix.
 # Historical v0.41.59 workflow: verified Tiandou recovery, integrity-aware extraction, original/low presets and independent pitch.
 # Historical +204 pre-API validator token: AI-Companion-v0.41.60-204-Jiuhu-Four-Voice-Auto-Fix-APK
+# Historical +201/+202 validator token: six prompt tensors and per-file integrity metadata.
 # Current v0.41.60 workflow: verified Jiuhu four-candidate replacement plus selectable DeepSeek/NewAPI Gemini chat.
 # Exact source tree is recorded in the ledger after the implementation commit.
 name: Build AI Companion v0.41.60+204 APK (Jiuhu + Gemini Relay)
