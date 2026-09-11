@@ -1,7 +1,7 @@
 status=success
-run_id=34568682533
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533
-head_sha=55181abd92996428e74d0c716e51e30ecefde36a
+run_id=34588761545
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545
+head_sha=613096b0fff553c2f069994091dc667953211608
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b  AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2
+c57664d925d39d1fb4d1368a2a8263e4e6e8bcdab0f9432912771d5e41fc3fdf  AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-09fa2e8978b350c82cff
