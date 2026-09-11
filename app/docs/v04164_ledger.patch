@@ -1,5 +1,5 @@
 diff --git "a/AI_Companion_\345\275\223\345\211\215\346\200\273\350\264\246.md" "b/AI_Companion_\345\275\223\345\211\215\346\200\273\350\264\246.md"
-index 4a109c4..31e3516 100644
+index 4a109c4..dc3d62d 100644
 --- "a/AI_Companion_\345\275\223\345\211\215\346\200\273\350\264\246.md"
 +++ "b/AI_Companion_\345\275\223\345\211\215\346\200\273\350\264\246.md"
 @@ -32,28 +32,28 @@
@@ -18,7 +18,7 @@ index 4a109c4..31e3516 100644
  | Artifact / Release | Artifact [`10270877076`](https://github.com/catkiss62/ai-companion-build/actions/runs/34615837829/artifacts/10270877076)，ZIP 537,820,065 bytes / digest `337a7ad02a63530c306b7f0d0f98f8615cad0f2c6bbd8f6f5dd6608ede1dc1c9`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-354d9ff20fda56d7ffa3) 未发布，`main` 未合并 |
  | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
 -| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 帅 API 不可用，已由后续双通道取代；+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，重要真机主链已通过，但从已播放中文/英语的状态首次切入日语仍有 `language=ja` 的 `NullPointerException`。+207 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：沉浸房间 Genie-TTS 流式朗读、语义音色/倍率、诊断、设置合并与路由硬化均已自动化和实包验证；低延迟、全文旁白/对白听感、实际 Gemini kill-switch 和新增诊断仍须真机确认。动作/神态括号继续只观察，不改 Prompt |
-+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 帅 API 不可用，已由后续双通道取代；+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，重要真机主链已通过，但从已播放中文/英语的状态首次切入日语仍有 `language=ja` 的 `NullPointerException`。+207 APK 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`：TTS/诊断能力待继续真机验收，但设置导航属于已确认产品回归。+208 设置精确回退当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；动作/神态括号继续只观察，不改 Prompt |
++| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 帅 API 不可用，已由后续双通道取代；+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，重要真机主链已通过，但从已播放中文/英语的状态首次切入日语仍有 `language=ja` 的 `NullPointerException`。+207 APK 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`：TTS/诊断能力待继续真机验收，但设置导航属于已确认产品回归。+208 设置精确回退当前为 `CI FIX IN PROGRESS / TRUE DEVICE PENDING`；首轮仅暴露历史版本允许列表未推进，不是设置源码失败。动作/神态括号继续只观察，不改 Prompt |
  
  ### 3. 当前下一步任务包（新窗口必须完整接住）
  
@@ -38,7 +38,7 @@ index 4a109c4..31e3516 100644
  | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
  
  ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
-@@ -90,6 +90,13 @@
+@@ -90,6 +90,14 @@
  
  ## 近期详细记录与全局索引（按需检索）
  
@@ -48,6 +48,7 @@ index 4a109c4..31e3516 100644
 +2. 用户要求为了避免继续误判，先把**所有设置相关内容**完整还原到上一版，再由用户逐项说明后续改法。本次因此不保留 +207 的任何设置 UI/导航/说明/交互改动：`app.dart`、普通聊天侧栏、聊天快捷设置页、底部“更多”、设置分类页、总设置页以及两项对应 Widget 测试均按 +206 commit `36e674597a9c579aec86d555217ab4dd658ec8b0` 原样恢复。+207 的 TTS 流式队列、语义音色、原生诊断等非设置核心不回退。
 +3. 精确校验已通过：上述八个设置相关源码/测试文件对 +206 执行 `git diff --exit-code` 返回 0；`validate_v0360_ui_relationship_age.py` 同步恢复旧五分类合同；+207 专项验证器改为锁定恢复后的五分类“更多”、六域总设置、四个侧栏快捷入口与旧“全部设置”注释，同时继续验证 TTS/诊断核心。专项静态门通过。当前容器无 Flutter SDK，无法本地运行 Widget tests/Analyze；全仓历史 validator 直接全量遍历会因 CI 才恢复的私有资源、缺少 Kotlin/Flutter 以及大量退休版固定版本门产生预期失败，不能冒充本次回归失败。
 +4. 用户随后要求先构建 APK 看到还原结果；本批因此升为 `v0.41.64+208`，新分支为 `agent/v04164-settings-rollback`。新增 `validate_v04164_settings_rollback.py`，用八个 SHA-256 锁死 +206 设置源码/Widget 测试字节，并额外验证“更多→数据与高级→七大规则”的可达路径。仍不混入“正常完整回复也显示刷新按钮”、日语 TTS 根修、CPU 快速档或新的设置设计；这些必须等用户看到基线后再逐项明确。
++5. 首轮 Actions run [`34633190974`](https://github.com/catkiss62/ai-companion-build/actions/runs/34633190974)（846）通过总账目标哈希、版本/schema、两私有 TTS 载荷、417 桌宠、LingChat/塔罗资源与签名恢复；源码回归门中 v0.41.28～42 全部通过，随后 `validate_v04143_phase3b_question_autonomy.py` 因允许版本止于 `63+207` 失败，未进入 Kotlin/Flutter/Release。该失败与设置源码、七大规则、编译和资源均无关；已把 v04143/45/47/48/49/50 六个同类历史允许列表统一推进到 `64+208`，本地逐项全绿，下一轮必须从完整流水线重新验证。
 +
  ### 2026-09-11 v0.41.63+207 沉浸低延迟朗读、音色语义、设置归一与路由硬化（CI PASSED / APK READY / TRUE DEVICE PENDING）
  
