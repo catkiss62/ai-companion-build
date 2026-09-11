@@ -1,7 +1,7 @@
 status=success
-run_id=34562176440
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34562176440
-head_sha=28c7c11a079017747c571a2fe35b06f6a65b0095
+run_id=34568682533
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533
+head_sha=55181abd92996428e74d0c716e51e30ecefde36a
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-a4da80538999ae8be38d2dd18b584ca0d9ed48b29c5e91082a3821ed93ae5464  AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3e716d69a3124c996b8a
+b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b  AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2
