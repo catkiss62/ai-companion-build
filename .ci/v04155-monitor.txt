@@ -1,7 +1,7 @@
 status=success
-run_id=34633781191
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34633781191
-head_sha=3a389698faaa55a2808b3e3ab3d2e125461e06b4
+run_id=34651532509
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34651532509
+head_sha=cc5286df0810db565d9d15879700c73efcbd9836
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-2eb9fda6d6008918694c1993fc9ac649cc9ae432bb9b894908085782b19f16b7  AI-Companion-v0.41.64-208-Settings-Rollback-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-9e86d80803d2918eae32
+8e37131040a36d53d3982ca70aa9fa31e148cd6df8b277d0f2eac03d3c5afcd3  AI-Companion-v0.41.65-209-Refresh-Phone-Media-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-1160d6f273e360a517f2
