@@ -542,6 +542,9 @@ jobs:
           GENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'
           GENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'
           GENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'
+          FRONTEND_TAG='genie-tts-private-runtime-v0.6.4'
+          FRONTEND_APK='Genie-TTS-v0.6.4-Verified.apk'
+          FRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'
           mkdir -p .genie-payload/unpacked
           # GitHub's release-by-tag endpoint returns 404 for an unpublished
           # draft, even though authenticated release-list calls can see it.
@@ -560,10 +563,31 @@ jobs:
             "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \
             > ".genie-payload/${GENIE_APK}"
           echo "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -
+          # The v0.7.6 Jiuhu candidate APK intentionally carries only the
+          # acoustic pack. Keep the already built-and-verified multilingual
+          # OpenJTalk dictionary/JNI adapter as a separate pinned dependency;
+          # never extract its retired Tiandou benchmark into this build.
+          FRONTEND_RELEASE_ID="$(gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"${FRONTEND_TAG}\") | .id" | head -1)"
+          test -n "${FRONTEND_RELEASE_ID}"
+          for FRONTEND_ASSET in "${FRONTEND_APK}" "${FRONTEND_SHA}"; do
+            FRONTEND_ASSET_ID="$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/releases/${FRONTEND_RELEASE_ID}/assets?per_page=100" \
+              --jq ".[] | select(.name == \"${FRONTEND_ASSET}\") | .id")"
+            test -n "${FRONTEND_ASSET_ID}"
+            gh api --method GET \
+              -H 'Accept: application/octet-stream' \
+              "/repos/${GITHUB_REPOSITORY}/releases/assets/${FRONTEND_ASSET_ID}" \
+              > ".genie-payload/${FRONTEND_ASSET}"
+          done
+          sed "s#  ${FRONTEND_APK}#  .genie-payload/${FRONTEND_APK}#" \
+            ".genie-payload/${FRONTEND_SHA}" | sha256sum -c -
           unzip -q ".genie-payload/${GENIE_APK}" \
             'assets/benchmark_jiuhu/*' \
+            -d .genie-payload/unpacked
+          unzip -q ".genie-payload/${FRONTEND_APK}" \
             'assets/openjtalk/*' \
-            'lib/arm64-v8a/libonnxruntime.so' \
             'lib/arm64-v8a/libopenjtalk_native.so' \
             'lib/arm64-v8a/libgenie_frontend.so' \
             'lib/arm64-v8a/libc++_shared.so' \
