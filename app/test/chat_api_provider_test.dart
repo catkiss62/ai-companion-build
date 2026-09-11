@@ -53,7 +53,9 @@ void main() {
           'data: {"choices":[{"delta":{"content":"323"},"finish_reason":"stop"}]}\n\n'
           'data: [DONE]\n\n',
           200,
-          headers: const {'content-type': 'text/event-stream'},
+          headers: const {
+            'content-type': 'text/event-stream; charset=utf-8',
+          },
         );
       }),
     );
