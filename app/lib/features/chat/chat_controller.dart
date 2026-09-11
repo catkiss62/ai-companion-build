@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../core/agent/agent_tool.dart';
+import '../../core/ai/chat_api_provider.dart';
 import '../../core/ai/deepseek_client.dart';
 import '../../core/ai/durable_generation_recovery.dart';
 import '../../core/ai/durable_generation_runner.dart';
@@ -31,6 +32,7 @@ import '../../core/memory/memory_maintenance_engine.dart';
 import '../../core/memory/phase2b_consolidation_engine.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/chat_language_variant.dart';
+import '../../core/models/chat_segment.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/models/generation_job.dart';
 import '../../core/models/desire_state.dart';
@@ -52,6 +54,8 @@ import '../../core/tts/tts_provider.dart';
 import '../../core/tts/tts_service.dart';
 
 class ChatController extends ChangeNotifier {
+  static const _persistentFallbackNoticeKey =
+      'chat_persistent_gemini_fallback_notice';
   ChatController({
     AppDatabase? db,
     DeepSeekClient? client,
@@ -152,6 +156,9 @@ class ChatController extends ChangeNotifier {
   String streamingContent = '';
   AgentToolActivity? agentActivity;
   String? error;
+  String? notice;
+  ChatMessage? incompleteReplyDraft;
+  String? incompleteReplyJobId;
   DeepSeekModelProfile model = DeepSeekModelProfile.flash;
   ReasoningEffort effort = ReasoningEffort.high;
   bool nsfwActive = false;
@@ -184,6 +191,8 @@ class ChatController extends ChangeNotifier {
       for (final marker in generationInterruptions)
         if (messages.isEmpty || !marker.createdAt.isBefore(messages.first.createdAt))
         ChatTimelineItem.interruption(marker),
+      if (incompleteReplyDraft != null)
+        ChatTimelineItem.message(incompleteReplyDraft!),
     ];
     items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return items;
@@ -272,6 +281,10 @@ class ChatController extends ChangeNotifier {
       messages = await db.recentMessages(limit: 120);
       generationInterruptions =
           await db.recentGenerationInterruptions(limit: 20);
+      final persistedNotice =
+          (await db.getSetting(_persistentFallbackNoticeKey))?.trim() ?? '';
+      if (persistedNotice.isNotEmpty) notice = persistedNotice;
+      await _restoreIncompleteReplyDraft();
       unawaited(attachmentStorage.cleanOldDrafts());
       unawaited(_pruneOrphanAttachmentFiles());
       unawaited(
@@ -339,7 +352,29 @@ class ChatController extends ChangeNotifier {
     messages = await db.recentMessages(limit: 120);
     generationInterruptions =
         await db.recentGenerationInterruptions(limit: 20);
+    await _restoreIncompleteReplyDraft();
     _safeNotify();
+  }
+
+  Future<void> _restoreIncompleteReplyDraft() async {
+    final job = await db.blockingGenerationJob();
+    if (job?.status != 'awaiting_confirmation' ||
+        job!.partialContent.trim().isEmpty) {
+      incompleteReplyDraft = null;
+      incompleteReplyJobId = null;
+      return;
+    }
+    incompleteReplyJobId = job.id;
+    incompleteReplyDraft = ChatMessage(
+      id: job.assistantMessageId,
+      role: 'assistant',
+      content: job.partialContent,
+      reasoningContent: job.partialReasoning,
+      model: ChatApiProvider.aiWangYouModel,
+      createdAt: job.updatedAt,
+      segments: ChatSegmentCodec.parseAssistantText(job.partialContent),
+    );
+    notice ??= 'Gemini 回复未完整结束。当前文字尚未进入上下文或记忆，请选择“重新生成”或“确认回复”。';
   }
 
   Future<void> acknowledgeOverlayUnread() async {
@@ -370,13 +405,15 @@ class ChatController extends ChangeNotifier {
         await db.failedGenerationNeedingAttention();
     var runtimeChanged = false;
     if (!sending) {
-      final nextActive = job != null;
-      final nextReasoning = job?.partialReasoning ?? '';
+      final awaitingDecision = job?.status == 'awaiting_confirmation';
+      if (awaitingDecision) await _restoreIncompleteReplyDraft();
+      final nextActive = job != null && !awaitingDecision;
+      final nextReasoning = awaitingDecision ? '' : job?.partialReasoning ?? '';
       // Durable checkpoints may already contain the provider candidate body.
       // Ordinary chat must not expose it before the guarded final commit; the
       // app-local typewriter will present the single approved body afterwards.
       const nextContent = '';
-      final nextAssistantId = job?.assistantMessageId;
+      final nextAssistantId = awaitingDecision ? null : job?.assistantMessageId;
       final statusText = nextActive
           ? (await db.getSetting('agent_tool_runtime_status_text') ?? '')
           : '';
@@ -960,15 +997,20 @@ class ChatController extends ChangeNotifier {
     }
     final apiKey = await secureConfig.readApiKey();
     if (apiKey == null || apiKey.isEmpty) {
-      error = '请先到“更多”→“AI 与陪伴设置”填写所选聊天提供商的 API Key。';
+      error = '请先到“更多”→“AI 与陪伴设置”填写必填的 DeepSeek API Key。';
       _safeNotify();
       return false;
     }
     final blocking = await db.blockingGenerationJob();
     if (blocking != null) {
-      error = '刚才那轮回复还在恢复，请等她接回来后再发送新消息。';
+      if (blocking.status == 'awaiting_confirmation') {
+        await _restoreIncompleteReplyDraft();
+        error = '请先处理上一条未完整回复：重新生成，或确认当前文字。';
+      } else {
+        error = '刚才那轮回复还在恢复，请等她接回来后再发送新消息。';
+        unawaited(_scheduleGenerationRecovery());
+      }
       _safeNotify();
-      unawaited(_scheduleGenerationRecovery());
       return false;
     }
 
@@ -1205,6 +1247,14 @@ class ChatController extends ChangeNotifier {
     );
 
     if (result.completed) {
+      incompleteReplyDraft = null;
+      incompleteReplyJobId = null;
+      if (result.notice != null) {
+        notice = result.notice;
+        if (result.notice!.contains('本轮已由 DeepSeek 兜底')) {
+          await db.setSetting(_persistentFallbackNoticeKey, result.notice!);
+        }
+      }
       var projectedAssistant = result.assistant!;
       messages = [...messages, projectedAssistant];
       await _incrementOverlayUnread();
@@ -1227,7 +1277,11 @@ class ChatController extends ChangeNotifier {
           error = '外语版本生成失败，已保留中文正文：$translationError';
         }
       }
-      final speechLanguage = projectedAssistant.hasLanguage(latestSpeechLanguage)
+      final speechLanguage = latestSpeechLanguage == ChatLanguage.chinese ||
+              _hasPlausibleLanguageVariant(
+                projectedAssistant,
+                latestSpeechLanguage,
+              )
           ? latestSpeechLanguage
           : ChatLanguage.chinese;
       final speechText = projectedAssistant.contentFor(speechLanguage);
@@ -1252,6 +1306,13 @@ class ChatController extends ChangeNotifier {
         specialStyleTrialId: result.specialStyleTrialId,
         specialStyleKey: result.specialStyleKey,
       );
+    } else if (result.status == 'incomplete' && result.assistant != null) {
+      await _stopTurnAudio();
+      incompleteReplyDraft = result.assistant;
+      incompleteReplyJobId = job.id;
+      notice = result.notice;
+      error = null;
+      _safeNotify();
     } else if (result.status == 'cancelled_by_user') {
       await _stopTurnAudio();
       messages = await db.recentMessages(limit: 120);
@@ -1274,6 +1335,79 @@ class ChatController extends ChangeNotifier {
       await _stopTurnAudio();
       error = result.error?.toString() ?? '这一轮生成失败。';
     }
+  }
+
+  Future<void> regenerateIncompleteReply() async {
+    final jobId = incompleteReplyJobId;
+    if (jobId == null || sending) return;
+    await _stopTurnAudio();
+    final restarted = await db.restartGenerationDraft(jobId);
+    if (!restarted) {
+      error = '这份待处理回复已经发生变化，请刷新页面后再试。';
+      await _restoreIncompleteReplyDraft();
+      _safeNotify();
+      return;
+    }
+    incompleteReplyDraft = null;
+    incompleteReplyJobId = null;
+    notice = null;
+    error = null;
+    final job = await db.generationJobById(jobId);
+    if (job != null) {
+      await _runTrustedCurrentProcessGeneration(
+        job,
+        leaseAlreadyHeld: false,
+      );
+    }
+  }
+
+  Future<void> confirmIncompleteReply() async {
+    final jobId = incompleteReplyJobId;
+    if (jobId == null || sending) return;
+    final ownsLease = await db.tryAcquireLocalLease(
+      'chat_turn_lease',
+      holdFor: const Duration(seconds: 30),
+    );
+    if (!ownsLease) {
+      error = '另一处聊天窗口正在使用回复通道，请稍后再确认。';
+      _safeNotify();
+      return;
+    }
+    sending = true;
+    error = null;
+    _safeNotify();
+    try {
+      final before = await db.generationJobById(jobId);
+      final user = before == null
+          ? null
+          : await db.messageById(before.userMessageId);
+      final result = await generationRunner.confirmIncompleteDraft(jobId);
+      if (result.completed) {
+        incompleteReplyDraft = null;
+        incompleteReplyJobId = null;
+        notice = result.notice;
+        messages = await db.recentMessages(limit: 120);
+        if (user != null && user.isUser) {
+          await memoryExtractor.extractFromTurn(
+            user: user,
+            assistant: result.assistant!,
+          );
+        }
+      } else {
+        error = result.error?.toString() ?? '确认这条回复失败，请再试一次。';
+        await _restoreIncompleteReplyDraft();
+      }
+    } finally {
+      sending = false;
+      await db.releaseLocalLease('chat_turn_lease');
+      _safeNotify();
+    }
+  }
+
+  void dismissNotice() {
+    notice = null;
+    unawaited(db.setSetting(_persistentFallbackNoticeKey, ''));
+    _safeNotify();
   }
 
   Future<void> _runTrustedCurrentProcessGeneration(
@@ -1495,9 +1629,38 @@ class ChatController extends ChangeNotifier {
     if (!message.isAssistant) return;
     await ttsPlayback.stop();
     var projected = message;
-    if (language != ChatLanguage.chinese && !message.hasLanguage(language)) {
+    if (language != ChatLanguage.chinese &&
+        !_hasPlausibleLanguageVariant(message, language)) {
       try {
-        projected = await ensureLanguageVariant(message, language);
+        if (message.id == incompleteReplyDraft?.id) {
+          final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+          if (apiKey.isEmpty) {
+            throw const MessageLanguageVariantException(
+              '请先填写必填的 DeepSeek API Key。',
+            );
+          }
+          final translated = await languageVariantService.gateway.translate(
+            apiKey: apiKey,
+            endpoint: await secureConfig.readEndpoint(),
+            source: message.displaySegments,
+            target: language,
+          );
+          projected = message.copyWith(
+            languageVariants: <ChatLanguage, ChatLanguageVariant>{
+              ...message.languageVariants,
+              language: ChatLanguageVariant(
+                messageId: message.id,
+                language: language,
+                content: ChatSegmentCodec.displayText(translated),
+                segments: translated,
+              ),
+            },
+          );
+          incompleteReplyDraft = projected;
+          _safeNotify();
+        } else {
+          projected = await ensureLanguageVariant(message, language);
+        }
       } catch (error) {
         final detail = 'language_variant_${language.key}: $error';
         await db.setSetting(
@@ -1528,7 +1691,8 @@ class ChatController extends ChangeNotifier {
     ChatMessage message,
     ChatLanguage language,
   ) async {
-    if (language == ChatLanguage.chinese || message.hasLanguage(language)) {
+    if (language == ChatLanguage.chinese ||
+        _hasPlausibleLanguageVariant(message, language)) {
       return message;
     }
     final key = '${message.id}:${language.key}';
@@ -1555,6 +1719,15 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> stopSpeech() => ttsPlayback.stop();
+
+  bool _hasPlausibleLanguageVariant(
+    ChatMessage message,
+    ChatLanguage language,
+  ) {
+    final variant = message.languageVariants[language];
+    return variant != null &&
+        MessageLanguageVariantDecoder.isPlausibleVariant(variant, language);
+  }
 
   Future<void> onOverlayOpened() async {
     final policy = ProactiveTtsPolicy.fromSetting(

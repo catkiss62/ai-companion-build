@@ -1,0 +1,297 @@
+diff --git a/AI_Companion_当前总账.md b/AI_Companion_当前总账.md
+index 8c5f709..c4f1c2b 100644
+--- a/AI_Companion_当前总账.md
++++ b/AI_Companion_当前总账.md
+@@ -32,7 +32,7 @@
+ |---|---|
+ | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
+ | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
+-| 当前开发分支 | `agent/v04161-shuaiapi-immersive-language-reasoning`，从 +204 已构建 head 开出；目标为 `v0.41.61+205`。本批保留已真机通过的 Genie-TTS 小酒狐语音，把 Gemini 从玩游中转迁移到帅 API，模型固定为 `gemini-3.7-flash`；沉浸房间补齐中/日/EN 三语选择、按需外语缓存与对应 TTS，并修复 Gemini 官方思考摘要在沉浸房间不显示的问题 |
++| 当前开发分支 | `agent/v04162-hybrid-final-fallback`，从 +205 已构建源码与已登记的双通道设计开出；目标 `v0.41.62+206 / schema 60 / Snapshot protocol 6`。恢复 +204 玩游固定 0.5 积分模型别名，但只用于用户选择后的最终可见表达；DeepSeek Key 必填并独占内部工作。同步修复沉浸语言按钮高度，排查非日语 TTS 偶发混入日语，并为 Gemini 增加有条件单次重试与 DeepSeek 兜底 |
+ | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
+ | 有效构建 head / tree | +205 Actions build head `55181abd92996428e74d0c716e51e30ecefde36a` / tree `53f0877713ae43693b5e1c8fbe91c45529661e36` 已验证。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与只含三语前端的旧验证包仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
+ | App / 数据库 | 当前已构建基线为 `0.41.61+205 / schema 60 / Snapshot protocol 6`。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
+@@ -41,19 +41,19 @@
+ | APK SHA-256 | `b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
+ | Artifact / Release | Artifact [`10187207143`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533/artifacts/10187207143)，ZIP 537,777,994 bytes / digest `ae42819e0cf42f9f4e92c29c12014b211598b2403a1896955303120cc8214f46`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2) 未发布，`main` 未合并 |
+ | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
+-| 当前总状态 | +204 小酒狐语音链已由用户确认 `TRUE DEVICE PASSED`，旧玩游 Gemini 被本批取代。+205 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：帅 API、沉浸三语、schema 60 与 Gemini 官方思考摘要显示修复已经完整自动化与实包验证；真实帅 API Key、三语 UI/TTS 和中转实际是否返回思考摘要仍须用户在 APK 上验收，不能由 CI 倒写成真机通过 |
++| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，帅 API 不可用且沉浸房间按钮高度异常。+206 已完成本地实现与源码专项门，当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`；当前环境无 Flutter/Dart SDK，尚未经 Analyze/tests 或产生 APK。动作/神态括号继续只观察，不改 Prompt |
+ 
+ ### 3. 当前下一步任务包（新窗口必须完整接住）
+ 
+ | 字段 | 当前内容 |
+ |---|---|
+-| 当前下一步 | **+205 真机验收**：从 Draft Release 安装 `AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk`；在“AI 与陪伴设置”重新填写帅 API Key（旧玩游 Key 有意不迁移到新域名），选择帅 API 并测试连接正文与思考摘要。进入沉浸房间依次点中/日/EN，检查“显示外语正文”开/关、首次投影后缓存复用、手动/自动 TTS 对应语种及 THINKING 面板；再切回 DeepSeek 确认原 Key/端点未丢。回报结果后分别登记真实中转、三语/TTS 与思考摘要结论 |
+-| 目标 | 帅 API 使用用户给出的标准 OpenAI Chat Completions 合同；DeepSeek 保留专用 `thinking.type`，Gemini 实际 JSON 顶层使用 `google.thinking_config` 请求 `include_thoughts`，不能把 OpenAI SDK 的 `extra_body` 参数名原样发到线端。沉浸三语与普通聊天同一产品合同：中文原文一次生成，日/英首次请求时各生成一次并缓存；只保留一个当前前端语言，正文显示受“显示外语正文”控制，TTS 播放当前语言 |
+-| 当前证据 | 用户提供的帅 API cURL明确 endpoint、Bearer、JSON 与模型名；未提供 Key，故真实联网仍须真机验证。Google 官方文档确认 Gemini 可返回“思考摘要”而非原始思维链，`include_thoughts` 用于请求摘要；未发现可强制摘要语言为中文的官方参数，因此本批不伪造中文思考链。实现已把 SDK `extra_body` 改为线端顶层 `google.thinking_config`，Mock SSE 锁定中文 UTF-8 `reasoning_content`；新沉浸三语服务测试锁定按语种缓存、并发去重、缺 Key 不写假缓存、schema 59 旧行兼容与日英重载。现有 THINKING 面板仍可按需翻译英文占主的真实摘要 |
+-| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或任何 API Key；两家 Key 独立安全存储，切换不得覆盖或误发另一家 Key。Gemini 请求不得携带 DeepSeek 私有 `thinking`，也不得同时发送互相冲突的 `reasoning_effort` 与 Gemini `thinking_level`。不展示或声称获得原始 CoT，只展示服务实际返回的官方思考摘要；没有官方中文强制参数就先不增加二次翻译。CI 私有小酒狐恢复/裁剪与所有既有功能门不得回归；Snapshot protocol 保持 6 |
++| 当前下一步 | **+206 本地实现已收口，下一步推送并用 Actions 做首次真实 Flutter/Kotlin/Release 验证**。已实现 DeepSeek 必填 internal lane、可选 +204 玩游 Gemini final lane、Gemini 最多两次瞬时故障尝试、手动关闭前持久的 DeepSeek 兜底提示，以及不进入上下文/记忆/摘要的截断草稿。草稿的“重新生成 / 确认回复”都有二次确认；后者才按正常回复提交。沉浸按钮固定为 32×24 且外层居中；英语投影混入中/日文时不再展示或 TTS，改由 DeepSeek 最多重做一次。已完整提交的历史回复刷新仍延后 |
++| 目标 | 每个正常可见回合通常只产生 1 次玩游固定积分请求，即 0.5 积分/¥0.02；SSE 分片不重复计次。DeepSeek 内部调用继续按其 token 计费。第一版按职责稳定分流，不在请求前用不可靠的 token 猜测器频繁切换模型；先记录各 lane 的请求数/usage，再判断少数超长结构化任务是否值得进入成本路由。Agent 工具由 DeepSeek 规划并在本地执行，Gemini 只根据已经核验的 Outcome 写最终自然正文；沉浸 NSFW 路由和滚动摘要也留在 DeepSeek |
++| 当前证据 | +204 Git 源码确认玩游 endpoint/model 与独立 Key 槽；用户确认该站明示每次请求固定扣 0.5 积分，4 元 100 积分，并非按 token。当前 +205 源码的 `SecureConfig.readApiKey/readEndpoint` 是全局选择，导致主生成、NSFW 路由、每轮经验整合、阶段摘要、自我整理和按需翻译全部跟随 Gemini，正是需要拆分的根因。最终生成通常携带最大的人格/世界书/记忆/历史 Prompt，且文笔质量直接可见，最适合固定价 Gemini；机械 JSON/分类请求更适合 DeepSeek。沉浸截图确认按钮高度异常；07 规则正文已经明确“叙述不加括号”，没有 Prompt 缺项证据 |
++| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。动作括号本批只观察，不增加重复禁令、不做字符串删括号补丁；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
+ | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
+ | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
+-| 完成判据 | CI 必须证明生产 manifest 只有四个小酒狐候选及其独立参考张量，模型/参考资源大小与 SHA 全匹配，退休语音不进入运行路径；TTS 测试锁定情绪映射、0 半音/1.0x 绕过 DSP、单 AudioTrack 与无固定等待。API 测试必须截获请求并证明两提供商 Key/端点/模型隔离、DeepSeek 私有 thinking 不泄漏到 Gemini、Gemini thinking level + `include_thoughts` 正确、流式 `reasoning_content` 与 tool calls 可继续解析、切回 DeepSeek 不丢原配置。完整回归、Analyze、Release、签名和 APK 实包门全绿后只写 `APK READY`；中转别名与思考摘要仍须用户用自己的 Key 真机测试 |
++| 完成判据 | API 测试必须分别截获 internal/final lanes：只填 DeepSeek 时所有旧链可用且零玩游请求；选择 Gemini 后，普通无工具回合为 DeepSeek 路由 + 1 次玩游最终正文 + DeepSeek post-turn，工具回合由 DeepSeek 规划/执行后只把核验 Outcome 交给 1 次玩游最终正文；沉浸为 DeepSeek 路由/摘要 + 玩游正文。需锁定两 Key/端点/模型绝不串线、Gemini `reasoning_content` 可显示、失败回退不重复落消息、外语投影走 DeepSeek，以及 AppBar 三个语言按钮的固定紧凑尺寸。完整回归、Analyze、Release、签名和小酒狐实包门全绿后只写 `APK READY`；真实扣分、文笔、思考摘要和按钮视觉仍须用户真机测试 |
+ | 直接详细入口 | 世界书：`app/docs/WORLDBOOK_2D_PROVENANCE_ROLEPLAY_V04138.md`；造梗来源：`app/lib/core/ai/dialogue_expression_plan.dart`、`app/lib/core/ai/prompt_builder.dart`；媒体合同：`app/docs/SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md` 与 `app/docs/STICKER_SEMANTICS_GALLERY_INTEROP_v0.41.51.md`；Snapshot：`app/lib/core/sync/snapshot_service.dart` |
+ 
+ ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
+@@ -90,7 +90,25 @@
+ 
+ ## 近期详细记录与全局索引（按需检索）
+ 
+-### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（CI PASSED / APK READY / TRUE DEVICE PENDING）
++### 2026-09-11 v0.41.62+206 双通道最终表达、兜底与安全截断草稿（IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING）
++
++1. 用户确认 +205 帅 API 实际无法使用；此前准备评估的 Modelink 尚未进入代码，也不再作为当前首选。用户重新确认 +204 玩游特价模型按请求计费：4 元 100 积分，每个 HTTP 模型请求固定扣 0.5 积分，即 ¥0.02；沉浸一次发送→回复曾观察到只扣 0.5，但用户明确该单次观察可能不完整，不能据此覆盖源码调用链，固定每请求扣 0.5 则为平台明示事实。
++2. 用户提出并认可的方向是“双通道模型”：DeepSeek API Key 必须配置，作为系统内部基础模型；未配置 Gemini 时仍完全沿用旧 DeepSeek 单模型路径。只有用户选择 Gemini 作为回复模型时，才额外填写独立玩游 Key，并让 Gemini 3.7 Flash 负责完成全部 Prompt 注入后的最终可见回复，以利用其文笔与活人感。
++3. +204 源码已确认可恢复目标为 `POST https://wy.aiwangyou.cc/v1/chat/completions`、模型 `[特价]gemini-3.7-flash-0.5`、独立安全槽 `aiwangyou_gemini_api_key`。只恢复 endpoint/model/Key 语义，不恢复 +204 将 SDK 参数名 `extra_body` 直接序列化到 JSON 的错误；Gemini thinking 配置必须按真实线端协议发送并继续解析服务实际返回的 `reasoning_content`。
++4. 当前 +205 的提供商选择是全局开关：`SecureConfig.readApiKey/readEndpoint` 被普通主回复、沉浸正文、NSFW 路由、Agent、经验整合、阶段摘要、AI Self、翻译和自主联网协调共同读取。因而选择玩游会让机械工作也逐次扣 0.5，不能用简单“换回 +204”完成；下一版必须引入明确的 internal worker lane 与 final expression lane。
++5. 冻结的第一版分流：NSFW/场景路由、Agent 工具规划、结构化 JSON 抽取、每轮 Memory/Relationship/Desire 整合、人格学习语义复核、阶段摘要、AI Self、外语投影、思考翻译与其他后台机械任务使用 DeepSeek；用户触发的普通聊天最终正文和沉浸小说最终正文，在用户选择 Gemini 时使用玩游。工具只由 DeepSeek 选择并在手机端执行，Gemini 只接收真实 Outcome 与完整人格/世界书/记忆/历史 Prompt 后写最终话语，不得重做工具或宣称未发生操作。主动消息第一版默认 DeepSeek，是否另设“跟随回复模型”开关待正式开始时确认，避免默认在无人操作时持续扣固定积分。
++6. 成本目标不是保证所有回合永远只有一次请求，而是正常无重试的可见回合只消耗一次玩游请求，即 0.5 积分/¥0.02；内部 DeepSeek 继续按 token 计费。沉浸被截断后的续写、真实网络重试或最终事实声明修正可能增加玩游请求，必须在实现时做有界处理并记录。第一版不依据请求前的粗糙 token 估算频繁跨模型切换；先按职责稳定分流并记录每条 lane 的调用次数/usage，后续若证据表明 Memory/长摘要等少数机械请求在 DeepSeek 上反而超过 ¥0.02，再单独设计成本路由。
++7. 用户截图 `1000153429.jpg` 显示 +205 沉浸房间 AppBar 的中/日/EN 三个按钮纵向占满顶栏，明显不同于预期紧凑胶囊。源码原因范围已定位：普通聊天同款 `_LanguageSpeechButton` 本身没有异常；沉浸把 `_languageSelector()` 直接放进 `AppBar.actions`，而 `_ImmersiveLanguageButton` 只有 `minHeight:24`、没有外层固定高度/居中约束，因此受 AppBar action 约束拉高。下一版使用明确紧凑高度与居中包裹，并加 widget 尺寸断言；不改变三语选择、缓存或 TTS 语义。
++8. 同一截图中的多段动作/神态被 Gemini/DeepSeek 输出为全角 `（……）`。当前有效 07 沉浸规则已经明确“不使用普通聊天的动作括号”“叙述不加括号”，不存在遗漏提示；因此按用户决定先记为模型偶发格式不服从，下一版不重复堆禁令、不做字符串剥括号或渲染层伪修复。只有后续稳定复现并证明与提供商/Prompt 层冲突有关时再窄修。
++9. 用户确认 Gemini 本身存在偶发服务不稳和正文中断，决定 Gemini 每个最终回合最多尝试 2 次。第 2 次只给 timeout、连接失败、未收到正文即断流、429、500/502/503/504 等瞬时错误；400/401/403、模型名、参数和协议错误不浪费第二个固定 0.5 积分，立即切 DeepSeek。两次均失败后由 DeepSeek用同一完整 Prompt 完成本轮，只允许落一条 assistant 与一份 post-turn；普通聊天和沉浸均显示不会自动消失、可手动关闭的“Gemini 失败，本轮已由 DeepSeek 兜底”提示。正常 Gemini 成本 0.5 积分；发生一次瞬时重试时 Gemini 成本最多 1.0 积分，DeepSeek 兜底另按 token 计费。
++10. 用户进一步明确“有正文的异常断流”不等同于无正文调用失败：部分内容有时已经足够，应让用户选择，而不是每次强制重跑。冻结 UI 为两个操作：刷新图标位于 TTS 喇叭左侧并先弹“重新生成这条回复？”；另有“确认回复”按钮并二次确认。重新生成前草稿不得进入普通历史 Prompt、Memory/post-turn 或沉浸原文/滚动摘要；确认后才按正常消息原子提交并进入后续整理。普通聊天复用 `generation_jobs.partial_*` 并新增非自动恢复状态 `awaiting_confirmation`；沉浸使用本地 settings 中的房间/用户/正文草稿，不插入 `immersive_messages`，确认后才写入。应用重启仍应恢复待确认草稿。
++11. 已完成的任意历史回复刷新与上述“未提交截断草稿”严格分开：普通完整回复提交后会立即触发 Memory、Relationship、Desire、人格学习、Thought/thread 与 Somatic 等多类副作用，当前没有统一逆事务；只替换 `messages` 会产生不可见旧记忆污染。本批不得开放完整历史刷新。后续若实现，必须先设计 assistant revision/supersede 身份、post-turn provenance 与逐模块可撤销/重算事务。
++12. TTS 排查找到可证实的项目缺口：DeepSeek 外语投影只校验 JSON 段数/非空，不校验目标语言，导致模型偶发把日文或中文混入英语投影后仍持久缓存，TTS 会忠实朗读错误缓存。本批为英语投影增加 CJK/平假名/片假名污染校验，失败后用 DeepSeek 最多重试一次；旧污染英语缓存也不再复用。中文与日语可合法含汉字，因此不做粗暴删字；若纯中文正确文本在小酒狐日语原声模型上仍偶发呈现日语口音或拟音，只记为声学模型边界，不伪称可由 Prompt 修复。
++13. 已从 +205 head 开出 `agent/v04162-hybrid-final-fallback`，目标 `0.41.62+206 / schema 60 / Snapshot protocol 6`。当前实现已把 legacy `SecureConfig.readApiKey/readEndpoint` 固定回 DeepSeek internal lane，并新增 final-reply lane；设置页始终要求 DeepSeek，选 Gemini 时才额外显示玩游 Key/固定 endpoint/model。普通与沉浸最终请求正在接入有界重试、DeepSeek 兜底、持久提示和安全草稿；AppBar 三语按钮改为外层 28 高、按钮 32×24。尚未完成 Flutter 编译/测试、CI、APK 或真机验证，不能提前提升状态。
++14. 本地实现已收口：普通聊天用 `awaiting_confirmation` 停放截断正文，恢复器和新回合均不能越过用户决定；沉浸草稿按 room ID 独立持久化，确认时先取房间写入锁，结束房间前必须先处理草稿。Gemini 有正文的断流、`length/content_filter/safety/error` 终止均进入草稿；无正文的瞬时错误才最多做第二次玩游请求。普通与沉浸的兜底提示均写入本地 settings，只有用户手动关闭才清除；不包含 Key。+204/+205 的共享 `model` 若仍是玩游/帅 API Gemini 别名，`ensureReady` 会先恢复已保留的 `deepseek_model`，防止旧配置将 Gemini 模型名误发给 DeepSeek。英语投影的新结果与旧缓存都会校验 CJK/日语假名，失败时不再交给 TTS。
++15. 当前容器没有 Flutter/Dart SDK，因此不冒充 Analyze 或 Flutter tests 已通过。已通过 +206 新专项、当前总账门、+204/+205 保留合同、v0.41.28–50 当前源码专项组、workflow YAML 解析与 `git diff --check`。历史验证器版本允许列表已推进到 +206；完整 Kotlin/Flutter/Release/签名/小酒狐实包门必须等 Actions 实测，在此之前状态严格保持 `CI PENDING / TRUE DEVICE PENDING`。
++
++### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
+ 
+ 1. 用户确认 +204“语音没有问题”。该反馈只把 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`；旧玩游 Gemini 没有相同真机结论，并因用户要求换站而被本批取代。
+ 2. 用户指定新中转定价页 `https://api.shuaiapi.com/pricing` 与模型 `gemini-3.7-flash`，随后提供权威 cURL：`POST https://api.shuaiapi.com/v1/chat/completions`，Bearer 鉴权、`application/json`、标准 `messages` 与 `temperature`。本批按该线端合同改 endpoint/model；不提交或索取用户 Key，也不把旧玩游 Key 覆盖到新服务。现有安全存储槽可保留兼容迁移，但产品文案与网络目标必须全部改为帅 API。
+@@ -106,7 +124,7 @@
+ 12. schema 59→60 使用幂等 `PRAGMA table_info` 后追加 `ja_content/ja_segments_json/en_content/en_segments_json` 四个默认空列；新安装也走同一 helper。Snapshot protocol 6 的既有 `immersive_messages` 整表导出自动包含新列，旧 schema 59 备份/行缺列时由默认空值恢复为中文-only，不另建易漏删的附表。
+ 13. 新增 `immersive_message_language_variant_test.dart` 五项测试，并更新请求 Mock、Agent 自读版本、历史版本 validator 与 workflow。`validate_v04143/45/47/48/49/50/55/58/59/60/61`、当前总账 validator、其余不依赖私有载荷的 Actions 源码 validator 和 `git diff --check` 本地通过。全量遍历中三项 Actions validator 在本机按预期无法执行：417 桌宠包与 LingChat effects 尚未由 CI 恢复，且没有 `kotlinc`；本机同样没有 Flutter/Dart，故 Analyze、Flutter tests、Kotlin、Release、签名、实包资源与 Draft 必须等待 Actions，不能记为本地通过。
+ 14. 实现树通过 Git Data API 推送为远端 commit `aeafbf8f797476722ec9f8a62fe0f836b0c5bde0` / tree `c51cb90d0ca9484b4c4d7fd7a12cb0b3dfccf7c0`。首轮 Actions run [`34567545341`](https://github.com/catkiss62/ai-companion-build/actions/runs/34567545341)（834）通过干净版本/schema、两私有载荷恢复、全部源码与历史 validator、Kotlin/JVM、Flutter Analyze，并有 719 项 Flutter tests 成功；唯一失败组是新增沉浸外语服务的 3 项测试各在 30 秒超时，因此未生成 APK。根因不是网络：`whenComplete(() => _inFlight.remove(key))` 的箭头回调返回了 map 中被移除的同一个 Future，完成处理反过来等待自身而死锁；已改为无返回值代码块，只执行 remove。该失败及修复必须保留，待下一轮完整 CI 验证后才能写 `CI PASSED / APK READY`。
+-15. 死锁修复经远端 commit `55181abd92996428e74d0c716e51e30ecefde36a` / tree `53f0877713ae43693b5e1c8fbe91c45529661e36` 快进。第二轮 Actions run [`34568682533`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533)（835）完整成功：全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`722/722` Flutter tests、arm64 Release、固定签名、48 项小酒狐/Genie/OpenJTalk 实包身份、ORT byte identity、四独立候选、退休语音排除、OpenJTalk ELF、塔罗与 Draft 上传均通过。APK `AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk` 为 544,657,678 bytes，SHA-256 `b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b`，与 CI checksum 和 Draft 资产 digest 一致；Artifact [`10187207143`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533/artifacts/10187207143) 为 537,777,994-byte ZIP / digest `ae42819e0cf42f9f4e92c29c12014b211598b2403a1896955303120cc8214f46`，成品位于未发布 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2)。当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；`main` 未合并，正式 Release 未发布。
++15. 死锁修复经远端 commit `55181abd92996428e74d0c716e51e30ecefde36a` / tree `53f0877713ae43693b5e1c8fbe91c45529661e36` 快进。第二轮 Actions run [`34568682533`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533)（835）完整成功：全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`722/722` Flutter tests、arm64 Release、固定签名、48 项小酒狐/Genie/OpenJTalk 实包身份、ORT byte identity、四独立候选、退休语音排除、OpenJTalk ELF、塔罗与 Draft 上传均通过。APK `AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk` 为 544,657,678 bytes，SHA-256 `b0ec2d7d21a4c790584c581c9b7c402f249f5346ebc069bdaa0c3344f1b1e75b`，与 CI checksum 和 Draft 资产 digest 一致；Artifact [`10187207143`](https://github.com/catkiss62/ai-companion-build/actions/runs/34568682533/artifacts/10187207143) 为 537,777,994-byte ZIP / digest `ae42819e0cf42f9f4e92c29c12014b211598b2403a1896955303120cc8214f46`，成品位于未发布 [Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-76a602470b2baef669b2)。后续真机确认帅 API 不可实际使用，且沉浸语言按钮高度异常，因此当前严格状态更新为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`；`main` 未合并，正式 Release 未发布。
+ 
+ ### 2026-09-11 v0.41.60+204 小酒狐四候选与自动情绪音色修复（CI PASSED / APK READY / TRUE DEVICE PASSED）
+ 
+diff --git a/app/lib/core/database/app_database.dart b/app/lib/core/database/app_database.dart
+index c2e61ec..e179ccc 100644
+--- a/app/lib/core/database/app_database.dart
++++ b/app/lib/core/database/app_database.dart
+@@ -4070,6 +4070,7 @@ class AppDatabase {
+       'nsfw_manual_override': '',
+       'nsfw_route_source': 'initial',
+       'nsfw_route_turn_id': '',
++      'deepseek_model': 'deepseek-v4-flash',
+       'personality_base_key': 'none',
+       'personality_posture_key': 'none',
+       'personality_learning_enabled': '1',
+@@ -4097,6 +4098,19 @@ class AppDatabase {
+         conflictAlgorithm: ConflictAlgorithm.ignore,
+       );
+     }
++    // +204/+205 stored the selected relay alias in the shared `model` row.
++    // The hybrid runtime uses that row exclusively for its required DeepSeek
++    // internal lane, so restore the preserved DeepSeek choice before any
++    // background or foreground generation job can be created.
++    await db.rawUpdate('''
++      UPDATE settings
++      SET value = COALESCE(
++        (SELECT value FROM settings WHERE key = 'deepseek_model'),
++        'deepseek-v4-flash'
++      )
++      WHERE key = 'model'
++        AND value IN ('[特价]gemini-3.7-flash-0.5', 'gemini-3.7-flash')
++    ''');
+     // Update only the untouched legacy default. User-authored replacement
+     // dictionaries, including ones that still mention Yuki, always win.
+     await db.update(
+@@ -5711,7 +5725,7 @@ class AppDatabase {
+       final blocking = await txn.query(
+         'generation_jobs',
+         columns: ['id'],
+-        where: "status IN ('pending','running','retry_wait')",
++        where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
+         limit: 1,
+       );
+       if (blocking.isNotEmpty) {
+@@ -6619,7 +6633,7 @@ class AppDatabase {
+       final blocking = await txn.query(
+         'generation_jobs',
+         columns: ['id'],
+-        where: "status IN ('pending','running','retry_wait')",
++        where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
+         limit: 1,
+       );
+       if (blocking.isNotEmpty) {
+@@ -6691,7 +6705,7 @@ class AppDatabase {
+     final db = await database;
+     final rows = await db.query(
+       'generation_jobs',
+-      where: "status IN ('pending','running','retry_wait')",
++      where: "status IN ('pending','running','retry_wait','awaiting_confirmation')",
+       orderBy: 'created_at ASC',
+       limit: 1,
+     );
+@@ -6742,7 +6756,7 @@ class AppDatabase {
+       final competing = await txn.query(
+         'generation_jobs',
+         columns: ['id'],
+-        where: "id <> ? AND status IN ('pending','running','retry_wait')",
++        where: "id <> ? AND status IN ('pending','running','retry_wait','awaiting_confirmation')",
+         whereArgs: [id],
+         limit: 1,
+       );
+@@ -7139,6 +7153,13 @@ class AppDatabase {
+       if (rows.isEmpty) return null;
+       final current = GenerationJob.fromDb(rows.first);
+       if (current.isTerminal) return null;
++      if (current.status != 'pending' &&
++          current.status != 'running' &&
++          current.status != 'retry_wait') {
++        // In particular, an awaiting_confirmation draft may only leave that
++        // state through the explicit confirm/regenerate transactions below.
++        return null;
++      }
+       if (current.status == 'retry_wait' &&
+           current.nextRetryAt != null &&
+           current.nextRetryAt!.isAfter(DateTime.now())) {
+@@ -7204,6 +7225,94 @@ class AppDatabase {
+     return changed > 0;
+   }
+ 
++  /// Parks a visible provider fragment outside the messages table. It remains
++  /// a blocking local draft until the user explicitly confirms or regenerates
++  /// it, so prompts, memories and post-turn jobs cannot observe it early.
++  Future<GenerationJob?> holdGenerationJobForUserDecision(
++    String id, {
++    required String runToken,
++    required String partialReasoning,
++    required String partialContent,
++  }) async {
++    if (runToken.isEmpty || partialContent.trim().isEmpty) return null;
++    final db = await database;
++    final now = DateTime.now().millisecondsSinceEpoch;
++    final changed = await db.update(
++      'generation_jobs',
++      {
++        'status': 'awaiting_confirmation',
++        'partial_reasoning': partialReasoning,
++        'partial_content': partialContent,
++        'run_token': '',
++        'next_retry_at': null,
++        'last_error': 'gemini_incomplete_reply',
++        'resume_reason': 'awaiting_user_confirmation',
++        'last_checkpoint_at': now,
++        'updated_at': now,
++      },
++      where: 'id = ? AND status = ? AND run_token = ?',
++      whereArgs: [id, 'running', runToken],
++    );
++    return changed == 0 ? null : generationJobById(id);
++  }
++
++  Future<GenerationJob?> claimGenerationDraftForConfirmation(String id) async {
++    final db = await database;
++    final now = DateTime.now().millisecondsSinceEpoch;
++    final runToken = _uuid.v4();
++    final changed = await db.transaction<int>((txn) async {
++      final settingsRows = await txn.query(
++        'settings',
++        columns: ['key', 'value'],
++        where: 'key IN (?, ?)',
++        whereArgs: const ['active_brain', 'transfer_lock'],
++      );
++      final settings = <String, String>{};
++      for (final row in settingsRows) {
++        final key = row['key'];
++        if (key is String) settings[key] = row['value'] as String? ?? '';
++      }
++      if (settings['transfer_lock'] == '1' ||
++          settings['active_brain'] == '0') {
++        return 0;
++      }
++      return txn.update(
++        'generation_jobs',
++        {
++          'status': 'running',
++          'run_token': runToken,
++          'next_retry_at': null,
++          'last_error': '',
++          'resume_reason': 'user_confirmed_incomplete_reply',
++          'updated_at': now,
++        },
++        where: 'id = ? AND status = ?',
++        whereArgs: [id, 'awaiting_confirmation'],
++      );
++    });
++    return changed == 0 ? null : generationJobById(id);
++  }
++
++  Future<bool> restartGenerationDraft(String id) async {
++    final db = await database;
++    final changed = await db.update(
++      'generation_jobs',
++      {
++        'status': 'pending',
++        'partial_reasoning': '',
++        'partial_content': '',
++        'run_token': '',
++        'next_retry_at': null,
++        'last_error': '',
++        'resume_reason': 'user_regenerated_incomplete_reply',
++        'updated_at': DateTime.now().millisecondsSinceEpoch,
++      },
++      where: 'id = ? AND status = ?',
++      whereArgs: [id, 'awaiting_confirmation'],
++    );
++    return changed > 0;
++  }
++
+   Future<bool> completeGenerationJobIfCurrent({
+     required String jobId,
+     required String runToken,
+@@ -7725,7 +7834,7 @@ class AppDatabase {
+         FROM generation_jobs g
+         LEFT JOIN messages u
+           ON u.id = g.user_message_id AND u.role = 'user'
+-        WHERE g.status IN ('pending','running','retry_wait')
++        WHERE g.status IN ('pending','running','retry_wait','awaiting_confirmation')
+            OR (
+              g.status = 'failed'
+              AND u.id IS NOT NULL
+@@ -10661,7 +10770,7 @@ class AppDatabase {
+         return null;
+       }
+       final blockingGeneration = await txn.rawQuery(
+-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
++        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait','awaiting_confirmation') LIMIT 1",
+       );
+       if (blockingGeneration.isNotEmpty) return null;
+       final rows = await txn.query(
+@@ -11078,7 +11187,7 @@ class AppDatabase {
+       // The HTTP request runs outside SQLite. Re-check the user-generation
+       // fence at commit time so a chat started during that request always wins.
+       final blockingGeneration = await txn.rawQuery(
+-        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait') LIMIT 1",
++        "SELECT 1 FROM generation_jobs WHERE status IN ('pending','running','retry_wait','awaiting_confirmation') LIMIT 1",
+       );
+       if (blockingGeneration.isNotEmpty) return 0;
+ 
+@@ -17603,7 +17712,7 @@ class AppDatabase {
+       'proactive_feedback': await count('proactive_feedback'),
+       'retired_threads': await count('unfinished_threads', 'status = ?', ['retired']),
+       'pending_post_turn_jobs': await count('post_turn_jobs', "status IN ('pending','running','retry_wait','failed')"),
+-      'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait')"),
++      'active_generation_jobs': await count('generation_jobs', "status IN ('pending','running','retry_wait','awaiting_confirmation')"),
+       'failed_generation_jobs': await count('generation_jobs', 'status = ?', ['failed']),
+       'interrupted_turn_displays': await count('interrupted_turn_displays'),
+       'somatic_events': await count('somatic_events'),
+@@ -18394,6 +18503,7 @@ class AppDatabase {
+       for (final entry in const <String, String>{
+         'active_brain': '1',
+         'model': 'deepseek-v4-flash',
++        'deepseek_model': 'deepseek-v4-flash',
+         'reasoning_effort': 'high',
+         'nsfw_active': '0',
+         'nsfw_reference_active': '0',
+

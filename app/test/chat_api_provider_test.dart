@@ -10,17 +10,17 @@ import 'package:http/testing.dart';
 void main() {
   test('provider selection keeps exact fixed Gemini relay contract', () {
     expect(
-      ChatApiProvider.fromEndpoint(ChatApiProvider.shuaiApiEndpoint),
-      ChatApiProvider.shuaiApiGemini,
+      ChatApiProvider.fromEndpoint(ChatApiProvider.aiWangYouEndpoint),
+      ChatApiProvider.aiWangYouGemini,
     );
     expect(
-      ChatApiProvider.shuaiApiGemini.effectiveModel(
+      ChatApiProvider.aiWangYouGemini.effectiveModel(
         DeepSeekModelProfile.flash,
       ),
-      'gemini-3.7-flash',
+      '[特价]gemini-3.7-flash-0.5',
     );
     expect(
-      ChatApiProvider.shuaiApiGemini.reasoningEfforts,
+      ChatApiProvider.aiWangYouGemini.reasoningEfforts,
       const [
         ReasoningEffort.low,
         ReasoningEffort.medium,
@@ -36,12 +36,12 @@ void main() {
       ],
     );
     expect(
-      ChatApiProvider.fromStorage('aiwangyou_gemini'),
-      ChatApiProvider.shuaiApiGemini,
+      ChatApiProvider.fromStorage('shuaiapi_gemini'),
+      ChatApiProvider.aiWangYouGemini,
     );
     expect(
       ChatApiProvider.fromEndpoint(
-        'https://wy.aiwangyou.cc/v1/chat/completions',
+        'https://api.shuaiapi.com/v1/chat/completions',
       ),
       ChatApiProvider.deepSeek,
     );
@@ -72,7 +72,7 @@ void main() {
 
     await for (final delta in client.streamChat(
       apiKey: 'relay-secret',
-      endpoint: ChatApiProvider.shuaiApiEndpoint,
+      endpoint: ChatApiProvider.aiWangYouEndpoint,
       model: DeepSeekModelProfile.flash,
       effort: ReasoningEffort.high,
       messages: const [
@@ -83,9 +83,9 @@ void main() {
       deltas.add(delta);
     }
 
-    expect(requestUri.toString(), ChatApiProvider.shuaiApiEndpoint);
+    expect(requestUri.toString(), ChatApiProvider.aiWangYouEndpoint);
     expect(authorization, 'Bearer relay-secret');
-    expect(body?['model'], ChatApiProvider.shuaiApiModel);
+    expect(body?['model'], ChatApiProvider.aiWangYouModel);
     expect(body?.containsKey('thinking'), isFalse);
     expect(body?.containsKey('reasoning_effort'), isFalse);
     expect(body?.containsKey('extra_body'), isFalse);
@@ -115,7 +115,7 @@ void main() {
 
     final result = await client.jsonCompletion(
       apiKey: 'relay-secret',
-      endpoint: ChatApiProvider.shuaiApiEndpoint,
+      endpoint: ChatApiProvider.aiWangYouEndpoint,
       model: DeepSeekModelProfile.flash,
       messages: const [
         {'role': 'user', 'content': 'json'},
@@ -125,7 +125,7 @@ void main() {
     );
 
     expect(result, {'ok': true});
-    expect(body?['model'], ChatApiProvider.shuaiApiModel);
+    expect(body?['model'], ChatApiProvider.aiWangYouModel);
     expect(body?.containsKey('thinking'), isFalse);
     expect(body?.containsKey('reasoning_effort'), isFalse);
     expect(body?.containsKey('extra_body'), isFalse);

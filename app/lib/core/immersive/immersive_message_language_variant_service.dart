@@ -47,7 +47,10 @@ class ImmersiveMessageLanguageVariantService {
       throw const MessageLanguageVariantException('只能为助手消息生成外语版本。');
     }
     final cached = message.languageVariants[language];
-    if (cached != null) return Future<ChatLanguageVariant>.value(cached);
+    if (cached != null &&
+        MessageLanguageVariantDecoder.isPlausibleVariant(cached, language)) {
+      return Future<ChatLanguageVariant>.value(cached);
+    }
     final key = '${message.id}:${language.key}';
     return _inFlight.putIfAbsent(
       key,
@@ -65,7 +68,10 @@ class ImmersiveMessageLanguageVariantService {
   ) async {
     final latest = await store.loadMessage(messageId);
     final existing = latest?.languageVariants[language];
-    if (existing != null) return existing;
+    if (existing != null &&
+        MessageLanguageVariantDecoder.isPlausibleVariant(existing, language)) {
+      return existing;
+    }
     if (latest == null || !latest.isAssistant) {
       throw const MessageLanguageVariantException('原消息已不存在。');
     }

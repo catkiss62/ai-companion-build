@@ -9,7 +9,7 @@ class SecureConfig {
   static const _apiKeyName = 'deepseek_api_key';
   static const _endpointName = 'deepseek_chat_endpoint';
   static const _chatProviderName = 'chat_api_provider';
-  static const _shuaiApiKeyName = 'shuaiapi_gemini_api_key';
+  static const _aiWangYouApiKeyName = 'aiwangyou_gemini_api_key';
   static const defaultEndpoint = 'https://api.deepseek.com/chat/completions';
   static const _visionApiKeyName = 'qwen_vision_api_key';
   static const _visionEndpointName = 'qwen_vision_endpoint';
@@ -40,16 +40,19 @@ class SecureConfig {
         value: provider.storageValue,
       );
 
-  Future<String?> readApiKey() async {
-    return switch (await readChatProvider()) {
-      ChatApiProvider.deepSeek => readDeepSeekApiKey(),
-      ChatApiProvider.shuaiApiGemini => readShuaiApiKey(),
-    };
-  }
+  /// Internal model lane. Every existing maintenance, routing, Agent,
+  /// translation and proactive caller intentionally stays on DeepSeek.
+  Future<String?> readApiKey() => readDeepSeekApiKey();
 
   Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);
 
-  Future<String?> readShuaiApiKey() => _storage.read(key: _shuaiApiKeyName);
+  Future<String?> readAiWangYouApiKey() =>
+      _storage.read(key: _aiWangYouApiKeyName);
+
+  Future<String?> readFinalReplyApiKey() async =>
+      (await readChatProvider()).isGeminiRelay
+          ? readAiWangYouApiKey()
+          : readDeepSeekApiKey();
 
   Future<void> writeApiKey(String value) async {
     final trimmed = value.trim();
@@ -60,15 +63,16 @@ class SecureConfig {
     }
   }
 
-  Future<void> writeShuaiApiKey(String value) =>
-      _writeOptionalSecret(_shuaiApiKeyName, value);
+  Future<void> writeAiWangYouApiKey(String value) =>
+      _writeOptionalSecret(_aiWangYouApiKeyName, value);
 
-  Future<String> readEndpoint() async {
-    if (await readChatProvider() == ChatApiProvider.shuaiApiGemini) {
-      return ChatApiProvider.shuaiApiEndpoint;
-    }
-    return readDeepSeekEndpoint();
-  }
+  /// Internal model lane. See [readApiKey].
+  Future<String> readEndpoint() => readDeepSeekEndpoint();
+
+  Future<String> readFinalReplyEndpoint() async =>
+      (await readChatProvider()).isGeminiRelay
+          ? ChatApiProvider.aiWangYouEndpoint
+          : readDeepSeekEndpoint();
 
   Future<String> readDeepSeekEndpoint() async {
     final value = (await _storage.read(key: _endpointName))?.trim();
@@ -175,9 +179,6 @@ class SecureConfig {
   }
 
   Future<void> clearApiKey() async {
-    final key = await readChatProvider() == ChatApiProvider.shuaiApiGemini
-        ? _shuaiApiKeyName
-        : _apiKeyName;
-    await _storage.delete(key: key);
+    await _storage.delete(key: _apiKeyName);
   }
 }

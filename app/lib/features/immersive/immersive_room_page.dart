@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
+import '../../core/ai/message_language_variant_service.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
@@ -526,27 +527,76 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     }
   }
 
-  Widget _languageSelector() => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final language in ChatLanguage.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 2),
-              child: _ImmersiveLanguageButton(
-                language: language,
-                selected: _selectedLanguage == language,
-                onPressed: () async {
-                  await controller.stopSpeech();
-                  if (!mounted) return;
-                  setState(() => _selectedLanguage = language);
-                  await AppDatabase.instance.setSetting(
-                    'tts_language',
-                    language.key,
-                  );
-                },
+  Future<void> _confirmRegenerateIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('重新生成这条回复？'),
+            content: const Text('当前截断文字会被丢弃并重新请求。它尚未进入房间上下文或摘要。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
               ),
-            ),
-        ],
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('重新生成'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.regenerateIncompleteReply();
+  }
+
+  Future<void> _confirmAcceptIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('确认使用当前回复？'),
+            content: const Text('确认后，这段当前可见文字会成为正式房间回复，并进入后续上下文与摘要。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('确认回复'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.confirmIncompleteReply();
+  }
+
+  Widget _languageSelector() => Center(
+        child: SizedBox(
+          height: 28,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final language in ChatLanguage.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 2),
+                  child: _ImmersiveLanguageButton(
+                    language: language,
+                    selected: _selectedLanguage == language,
+                    onPressed: () async {
+                      await controller.stopSpeech();
+                      if (!mounted) return;
+                      setState(() => _selectedLanguage = language);
+                      await AppDatabase.instance.setSetting(
+                        'tts_language',
+                        language.key,
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       );
 
   Future<void> _renameRoom() async {
@@ -815,6 +865,14 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                       _speakMessageSafely(item.message!);
                                     }
                                   }
+                                : null,
+                            onRegenerate: item.message!.id ==
+                                    controller.incompleteReplyDraft?.id
+                                ? _confirmRegenerateIncompleteReply
+                                : null,
+                            onConfirmIncomplete: item.message!.id ==
+                                    controller.incompleteReplyDraft?.id
+                                ? _confirmAcceptIncompleteReply
                                 : null,
                           ),
                       ],
@@ -1205,9 +1263,12 @@ class _ImmersiveLanguageButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onPressed,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 24),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              constraints: const BoxConstraints.tightFor(
+                width: 32,
+                height: 24,
+              ),
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
@@ -1247,6 +1308,8 @@ class _ImmersiveMessageView extends StatelessWidget {
     required this.bubbleOpacity,
     required this.ttsPhase,
     this.onSpeechAction,
+    this.onRegenerate,
+    this.onConfirmIncomplete,
   });
 
   final ImmersiveMessage message;
@@ -1255,6 +1318,8 @@ class _ImmersiveMessageView extends StatelessWidget {
   final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
   final VoidCallback? onSpeechAction;
+  final VoidCallback? onRegenerate;
+  final VoidCallback? onConfirmIncomplete;
 
   @override
   Widget build(BuildContext context) {
@@ -1284,8 +1349,14 @@ class _ImmersiveMessageView extends StatelessWidget {
         ),
       );
     }
+    final selectedVariant = message.languageVariants[selectedLanguage];
     final displayLanguage = showForeignReplies &&
-            message.hasLanguage(selectedLanguage)
+            selectedLanguage != ChatLanguage.chinese &&
+            selectedVariant != null &&
+            MessageLanguageVariantDecoder.isPlausibleVariant(
+              selectedVariant,
+              selectedLanguage,
+            )
         ? selectedLanguage
         : ChatLanguage.chinese;
     final segments = message.segmentsFor(displayLanguage);
@@ -1327,6 +1398,27 @@ class _ImmersiveMessageView extends StatelessWidget {
                       ),
                 ),
                 if (onSpeechAction != null) ...[
+                  if (onConfirmIncomplete != null)
+                    TextButton(
+                      onPressed: onConfirmIncomplete,
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        minimumSize: const Size(0, 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                      ),
+                      child: const Text('确认回复'),
+                    ),
+                  if (onRegenerate != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 30, minHeight: 30),
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      tooltip: '重新生成这条回复',
+                      onPressed: onRegenerate,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
                   const SizedBox(width: 2),
                   _ImmersiveSpeechActionButton(
                     phase: ttsPhase,

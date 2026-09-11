@@ -127,8 +127,8 @@ def main() -> None:
     provider_test = read("test/chat_api_provider_test.dart")
     require(
         provider,
-        "https://api.shuaiapi.com/v1/chat/completions",
-        "gemini-3.7-flash",
+        "https://wy.aiwangyou.cc/v1/chat/completions",
+        "[特价]gemini-3.7-flash-0.5",
         "'thinking_level': thinking ? normalized.apiName : 'low'",
         "'include_thoughts': thinking",
         "'google'",
@@ -139,9 +139,10 @@ def main() -> None:
     require(
         secure,
         "chat_api_provider",
-        "shuaiapi_gemini_api_key",
+        "aiwangyou_gemini_api_key",
         "readDeepSeekApiKey",
-        "readShuaiApiKey",
+        "readAiWangYouApiKey",
+        "readFinalReplyApiKey",
     )
     require(
         chat_client,
@@ -152,7 +153,7 @@ def main() -> None:
     )
     require(
         model_settings,
-        "DeepSeek 与帅 API Gemini 二选一",
+        "DeepSeek 是必填的内部工作通道",
         "Gemini 正文与思考摘要均连接通过",
         "deepseek_model",
     )

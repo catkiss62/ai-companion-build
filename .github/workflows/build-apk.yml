@@ -371,9 +371,9 @@
 # Historical +204 final tokens: Build AI Companion v0.41.60+204 APK | AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-APK
 # Historical +201/+202 validator token: six prompt tensors and per-file integrity metadata.
 # Historical v0.41.60 workflow: verified Jiuhu four-candidate replacement plus selectable DeepSeek/NewAPI Gemini chat.
-# Current v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
+# Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.61+205 APK (Shuai API + Immersive Languages)
+name: Build AI Companion v0.41.62+206 APK (Hybrid Final Reply + Safe Drafts)
 
 on:
   push:
@@ -395,6 +395,7 @@ on:
       - agent/v04159-tiandou-pitch-recovery
       - agent/v04160-jiuhu-four-voice-auto-fix
       - agent/v04161-shuaiapi-immersive-language-reasoning
+      - agent/v04162-hybrid-final-fallback
   workflow_dispatch:
   pull_request:
     branches:
@@ -772,12 +773,26 @@ jobs:
           print(f'Restored {len(manifest)} curated Genie/OpenJTalk payload files.')
           PY
 
+      - name: Materialize v0.41.62 oversized source and ledger delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          DELTA='app/docs/v04162_large_files.patch'
+          if test -f "${DELTA}"; then
+            git apply --check "${DELTA}"
+            git apply "${DELTA}"
+            test "$(git hash-object app/lib/core/database/app_database.dart)" = \
+              'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
+            test "$(git hash-object 'AI_Companion_当前总账.md')" = \
+              'c4f1c2b7179f42c312ddceb77eaddaa05a201d4a'
+          fi
+
       - name: Verify clean source baseline
         shell: bash
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.61+205' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.62+206' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 60;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -791,7 +806,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.61+205 verified Jiuhu, Shuai API and immersive-language candidate.'
+          echo 'Building v0.41.62+206 hybrid final-reply, safe-draft and immersive-language candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -967,6 +982,7 @@ jobs:
           python3 tools/validate_v04159_tiandou_pitch_recovery.py
           python3 tools/validate_v04160_jiuhu_four_voice_auto.py
           python3 tools/validate_v04161_shuaiapi_immersive_language.py
+          python3 tools/validate_v04162_hybrid_final_fallback.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1290,26 +1306,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.61+205 APK as workflow artifact
+      - name: Upload v0.41.62+206 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK
+          name: AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.61+205 APK to draft release
+      - name: Upload v0.41.62+206 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.61-shuaiapi-immersive-languages-test'
-          APK_NAME='AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-APK.apk'
+          TAG='v0.41.62-hybrid-final-safe-drafts-test'
+          APK_NAME='AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1326,12 +1342,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.61+205 Shuai API and immersive languages candidate' \
-              --notes 'Draft schema-60 candidate. Keeps the verified Genie v0.7.6 Jiuhu four-candidate runtime, moves the isolated Gemini route to api.shuaiapi.com with model gemini-3.7-flash, sends Google thinking configuration at the actual JSON top level, and preserves provider-returned thought summaries. Immersive rooms add Chinese/Japanese/English selection, lazy persistent foreign projections and matching TTS. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.62+206 hybrid final reply and safe drafts candidate' \
+              --notes 'Draft schema-60 candidate. Keeps the verified Genie v0.7.6 Jiuhu runtime. DeepSeek is the required internal-work lane; the optional AiWangYou Gemini 3.7 Flash lane writes only final user-visible replies, retries transient empty failures at most once, and falls back visibly to DeepSeek. Partial Gemini streams remain isolated drafts until the user confirms or regenerates. Immersive language controls are compact, and contaminated English projections are rejected before TTS. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
-              --target "${GITHUB_SHA}"
+              --target "${GITHUB_SHA}" \
+              --title 'AI Companion v0.41.62+206 hybrid final reply and safe drafts candidate' \
+              --notes 'Draft schema-60 candidate. Keeps the verified Genie v0.7.6 Jiuhu runtime. DeepSeek is the required internal-work lane; the optional AiWangYou Gemini 3.7 Flash lane writes only final user-visible replies, retries transient empty failures at most once, and falls back visibly to DeepSeek. Partial Gemini streams remain isolated drafts until the user confirms or regenerates. Immersive language controls are compact, and contaminated English projections are rejected before TTS. Snapshot protocol remains 6. Private packs, API keys, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1367,6 +1385,24 @@ jobs:
               -f branch="${MONITOR_BRANCH}" >/dev/null
           fi
 
+      - name: Reconcile v0.41.62 oversized files after successful validation
+        if: ${{ hashFiles('app/docs/v04162_large_files.patch') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object app/lib/core/database/app_database.dart)" = \
+            'e179ccc3693331ed62da2cbb4b4a0ef531758b2a'
+          test "$(git hash-object 'AI_Companion_当前总账.md')" = \
+            'c4f1c2b7179f42c312ddceb77eaddaa05a201d4a'
+          rm app/docs/v04162_large_files.patch
+          git config user.name 'catkiss62'
+          git config user.email 'aolu0610@gmail.com'
+          git add app/lib/core/database/app_database.dart \
+            'AI_Companion_当前总账.md' \
+            app/docs/v04162_large_files.patch
+          git commit -m 'chore: reconcile v0.41.62 oversized files [skip ci]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
   report-ci-failure:
     needs:
       - detect-change-scope
@@ -1383,8 +1419,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.61-shuaiapi-immersive-languages-test'
-          CI_NAME='AI-Companion-v0.41.61-205-ShuaiAPI-Immersive-Languages-CI-Monitor.txt'
+          TAG='v0.41.62-hybrid-final-safe-drafts-test'
+          CI_NAME='AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1425,8 +1461,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.61+205 Shuai API and immersive languages candidate' \
-              --notes 'Draft failure diagnostics for the schema-60 Shuai API Gemini and immersive multilingual candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.62+206 hybrid final reply and safe drafts candidate' \
+              --notes 'Draft failure diagnostics for the schema-60 dual-lane final reply and incomplete-draft candidate. It is not a published release; private packs, API keys, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

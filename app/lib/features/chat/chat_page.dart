@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/ai/message_language_variant_service.dart';
 import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/models/chat_language_variant.dart';
@@ -1043,6 +1044,50 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ..showSnackBar(SnackBar(content: Text(text)));
   }
 
+  Future<void> _confirmRegenerateIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('重新生成这条回复？'),
+            content: const Text('当前截断文字会被丢弃，并重新调用最终回复模型。它尚未进入上下文或记忆。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('重新生成'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.regenerateIncompleteReply();
+  }
+
+  Future<void> _confirmAcceptIncompleteReply() async {
+    final approved = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('确认使用当前回复？'),
+            content: const Text('确认后，这段当前可见文字会成为正式回复，并按正常流程进入上下文与后续记忆整理。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('确认回复'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (approved) await controller.confirmIncompleteReply();
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeline = controller.timelineItems;
@@ -1141,6 +1186,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   (item) => item.visionFailed,
                                 )
                             ? () => _retryImageVision(item.message!)
+                            : null,
+                        onRegenerate: item.message!.id ==
+                                controller.incompleteReplyDraft?.id
+                            ? _confirmRegenerateIncompleteReply
+                            : null,
+                        onConfirmIncomplete: item.message!.id ==
+                                controller.incompleteReplyDraft?.id
+                            ? _confirmAcceptIncompleteReply
                             : null,
                         onSpeechAction: item.message!.isAssistant
                             ? () {
@@ -1251,6 +1304,32 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   color:
                                       Theme.of(context).colorScheme.error,
                                 ),
+                              ),
+                            ),
+                          if (controller.notice != null)
+                            Container(
+                              width: double.infinity,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHigh,
+                              padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline_rounded, size: 17),
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: Text(
+                                      controller.notice!,
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: '关闭提示',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: controller.dismissNotice,
+                                    icon: const Icon(Icons.close_rounded, size: 18),
+                                  ),
+                                ],
                               ),
                             ),
                           _composer(context),
@@ -2675,6 +2754,8 @@ class _MessageBubble extends StatelessWidget {
     required this.onAnimationProgress,
     required this.onAnimationFinished,
     this.onSpeechAction,
+    this.onRegenerate,
+    this.onConfirmIncomplete,
     this.onDelete,
     this.onRetryVision,
   });
@@ -2692,6 +2773,8 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onAnimationProgress;
   final VoidCallback onAnimationFinished;
   final VoidCallback? onSpeechAction;
+  final VoidCallback? onRegenerate;
+  final VoidCallback? onConfirmIncomplete;
   final VoidCallback? onDelete;
   final VoidCallback? onRetryVision;
 
@@ -2707,6 +2790,26 @@ class _MessageBubble extends StatelessWidget {
                 ),
           ),
           if (message.isAssistant && onSpeechAction != null) ...[
+            if (onConfirmIncomplete != null)
+              TextButton(
+                onPressed: onConfirmIncomplete,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  minimumSize: const Size(0, 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                ),
+                child: const Text('确认回复'),
+              ),
+            if (onRegenerate != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                padding: EdgeInsets.zero,
+                iconSize: 18,
+                tooltip: '重新生成这条回复',
+                onPressed: onRegenerate,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
             const SizedBox(width: 2),
             _SpeechActionButton(
               phase: ttsPhase,
@@ -2726,10 +2829,19 @@ class _MessageBubble extends StatelessWidget {
         ],
       );
 
-  ChatLanguage get _displayLanguage => showForeignReplies &&
-          message.hasLanguage(selectedLanguage)
-      ? selectedLanguage
-      : ChatLanguage.chinese;
+  ChatLanguage get _displayLanguage {
+    if (!showForeignReplies || selectedLanguage == ChatLanguage.chinese) {
+      return ChatLanguage.chinese;
+    }
+    final variant = message.languageVariants[selectedLanguage];
+    return variant != null &&
+            MessageLanguageVariantDecoder.isPlausibleVariant(
+              variant,
+              selectedLanguage,
+            )
+        ? selectedLanguage
+        : ChatLanguage.chinese;
+  }
 
   @override
   Widget build(BuildContext context) {

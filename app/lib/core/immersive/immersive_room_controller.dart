@@ -1,24 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../ai/chat_api_provider.dart';
 import '../ai/deepseek_client.dart';
+import '../ai/final_reply_failure_policy.dart';
 import '../ai/generation_cancellation.dart';
 import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
-import '../models/immersive_room.dart';
-import '../models/generation_job.dart';
 import '../models/chat_language_variant.dart';
+import '../models/generation_job.dart';
+import '../models/immersive_room.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
 import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
-import 'immersive_nsfw_router.dart';
 import 'immersive_message_language_variant_service.dart';
+import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
 
@@ -77,11 +80,19 @@ class ImmersiveRoomController extends ChangeNotifier {
   TtsQueueState ttsState = TtsQueueState.idle;
   String? error;
   String? notice;
+  ImmersiveMessage? incompleteReplyDraft;
+  String? incompleteReplyUserMessageId;
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
+  bool _lastFinalReplyUsedFallback = false;
   String _allStreamingReasoning = '';
   Timer? _streamNotifyTimer;
   bool _disposed = false;
+
+  String get _pendingReplySettingKey =>
+      'immersive_pending_reply_${Uri.encodeComponent(roomId)}';
+  String get _fallbackNoticeSettingKey =>
+      'immersive_gemini_fallback_notice_${Uri.encodeComponent(roomId)}';
 
   bool get showStreamingDraft => sending && _streamingDraftVisible;
 
@@ -90,6 +101,8 @@ class ImmersiveRoomController extends ChangeNotifier {
       for (final message in messages) ImmersiveTimelineItem.message(message),
       for (final interruption in interruptions)
         ImmersiveTimelineItem.interruption(interruption),
+      if (incompleteReplyDraft != null)
+        ImmersiveTimelineItem.message(incompleteReplyDraft!),
     ];
     items.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return items;
@@ -105,8 +118,12 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (room == null) {
       error = '这个房间不存在或已经无法读取。';
     } else {
+      final persistedNotice =
+          (await db.getSetting(_fallbackNoticeSettingKey))?.trim() ?? '';
+      if (persistedNotice.isNotEmpty) notice = persistedNotice;
       messages = await repository.messagesForRoom(roomId);
       interruptions = await repository.interruptionsForRoom(roomId);
+      await _restoreIncompleteReplyDraft();
       if (!room!.isEnded) {
         await repository.activateRoom(roomId);
         room = await repository.inheritActiveSpecialStyleIfNeeded(roomId);
@@ -120,6 +137,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     room = await repository.roomById(roomId);
     messages = await repository.messagesForRoom(roomId);
     interruptions = await repository.interruptionsForRoom(roomId);
+    await _restoreIncompleteReplyDraft();
     _safeNotify();
   }
 
@@ -129,16 +147,20 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (text.isEmpty || sending || currentRoom == null || currentRoom.isEnded) {
       return;
     }
+    if (incompleteReplyDraft != null) {
+      error = '请先处理上一条未完整回复：重新生成，或确认当前文字。';
+      _safeNotify();
+      return;
+    }
     if (isReservedSystemInspectionCommand(text)) {
       error = null;
       notice = '请在普通聊天中检查系统';
       _safeNotify();
       return;
     }
-    notice = null;
     final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) {
-      error = '请先到“更多”→“AI 与陪伴设置”填写所选聊天提供商的 API Key。';
+      error = '请先到“更多”→“AI 与陪伴设置”填写必填的 DeepSeek API Key。';
       _safeNotify();
       return;
     }
@@ -182,6 +204,10 @@ class ImmersiveRoomController extends ChangeNotifier {
     var committed = false;
     try {
       final endpoint = await secureConfig.readEndpoint();
+      final finalProvider = await secureConfig.readChatProvider();
+      final finalApiKey =
+          (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
+      final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
       final routedRoom =
           (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
       room = routedRoom;
@@ -215,9 +241,12 @@ class ImmersiveRoomController extends ChangeNotifier {
       final effort = ReasoningEffort.fromApiName(
         await db.getSetting('reasoning_effort'),
       );
-      var finishReason = await _streamRequest(
-        apiKey: apiKey,
-        endpoint: endpoint,
+      final finishReason = await _streamFinalRequest(
+        internalApiKey: apiKey,
+        internalEndpoint: endpoint,
+        finalProvider: finalProvider,
+        finalApiKey: finalApiKey,
+        finalEndpoint: finalEndpoint,
         model: profile,
         effort: effort,
         request: request,
@@ -227,7 +256,20 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
       cancellation.throwIfCancelled();
 
-      if (ImmersivePromptBuilder.shouldContinue(
+      if (finalProvider.isGeminiRelay &&
+          !_lastFinalReplyUsedFallback &&
+          (FinalReplyFailurePolicy.isIncompleteFinishReason(finishReason) ||
+              ImmersivePromptBuilder.shouldContinue(
+                streamingContent,
+                finishReason,
+              ))) {
+        throw _ImmersiveIncompleteReply(
+          content: streamingContent,
+          reasoning: _allStreamingReasoning,
+          finishReason: finishReason,
+        );
+      }
+      if (!finalProvider.isGeminiRelay && ImmersivePromptBuilder.shouldContinue(
         streamingContent,
         finishReason,
       )) {
@@ -275,10 +317,18 @@ class ImmersiveRoomController extends ChangeNotifier {
             selectedLanguage,
           );
         } catch (translationError) {
-          notice = '外语版本生成失败，本次保留中文：$translationError';
+          final translationNotice =
+              '外语版本生成失败，本次保留中文：$translationError';
+          notice = notice == null
+              ? translationNotice
+              : '${notice!}\n$translationNotice';
         }
       }
-      final speechLanguage = projectedAssistant.hasLanguage(selectedLanguage)
+      final speechLanguage = selectedLanguage == ChatLanguage.chinese ||
+              _hasPlausibleLanguageVariant(
+                projectedAssistant,
+                selectedLanguage,
+              )
           ? selectedLanguage
           : ChatLanguage.chinese;
       if ((await db.getSetting('tts_enabled')) != '0' &&
@@ -297,6 +347,14 @@ class ImmersiveRoomController extends ChangeNotifier {
         endpoint: endpoint,
         model: profile,
       ));
+    } on _ImmersiveIncompleteReply catch (incomplete) {
+      await _saveIncompleteReplyDraft(
+        userMessageId: user.id,
+        content: incomplete.content,
+        reasoning: incomplete.reasoning,
+      );
+      notice = 'Gemini 回复未完整结束。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“确认回复”。';
+      error = null;
     } on GenerationCancelledByUserException {
       await repository.interruptUserMessageForDisplay(
         roomId: roomId,
@@ -306,8 +364,17 @@ class ImmersiveRoomController extends ChangeNotifier {
       interruptions = await repository.interruptionsForRoom(roomId);
       error = null;
     } catch (exception) {
-      if (!committed) await _commitVisiblePartial();
-      error = '这一轮没有完整结束：$exception';
+      if (!committed && streamingContent.trim().isNotEmpty) {
+        await _saveIncompleteReplyDraft(
+          userMessageId: user.id,
+          content: streamingContent,
+          reasoning: _allStreamingReasoning,
+        );
+        notice = '回复连接异常中断。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“确认回复”。';
+        error = null;
+      } else {
+        error = '这一轮没有完整结束：$exception';
+      }
     } finally {
       sending = false;
       nsfwRouting = false;
@@ -323,6 +390,97 @@ class ImmersiveRoomController extends ChangeNotifier {
     }
   }
 
+  Future<String> _streamFinalRequest({
+    required String internalApiKey,
+    required String internalEndpoint,
+    required ChatApiProvider finalProvider,
+    required String finalApiKey,
+    required String finalEndpoint,
+    required DeepSeekModelProfile model,
+    required ReasoningEffort effort,
+    required List<Map<String, Object?>> request,
+    required GenerationCancellationToken cancellation,
+    required bool displayReasoning,
+    required bool captureReasoning,
+  }) async {
+    _lastFinalReplyUsedFallback = false;
+    if (!finalProvider.isGeminiRelay) {
+      return _streamRequest(
+        apiKey: internalApiKey,
+        endpoint: internalEndpoint,
+        model: model,
+        effort: effort,
+        request: request,
+        cancellation: cancellation,
+        displayReasoning: displayReasoning,
+        captureReasoning: captureReasoning,
+      );
+    }
+    Object? lastError;
+    if (finalApiKey.isNotEmpty) {
+      for (var attempt = 1;
+          attempt <= FinalReplyFailurePolicy.maxGeminiAttempts;
+          attempt++) {
+        try {
+          final finishReason = await _streamRequest(
+            apiKey: finalApiKey,
+            endpoint: finalEndpoint,
+            model: model,
+            effort: effort,
+            request: request,
+            cancellation: cancellation,
+            displayReasoning: displayReasoning,
+            captureReasoning: captureReasoning,
+          );
+          if (streamingContent.trim().isEmpty) {
+            throw const EmptyFinalReplyException();
+          }
+          return finishReason;
+        } catch (error) {
+          if (error is GenerationCancelledByUserException) rethrow;
+          if (streamingContent.trim().isNotEmpty) {
+            throw _ImmersiveIncompleteReply(
+              content: streamingContent,
+              reasoning: _allStreamingReasoning,
+              finishReason: 'stream_incomplete',
+            );
+          }
+          lastError = error;
+        }
+        if (attempt >= FinalReplyFailurePolicy.maxGeminiAttempts ||
+            !FinalReplyFailurePolicy.isTransient(lastError!)) {
+          break;
+        }
+        streamingReasoning = '';
+        streamingContent = '';
+        _allStreamingReasoning = '';
+        _safeNotify();
+        await Future<void>.delayed(FinalReplyFailurePolicy.retryDelay);
+        cancellation.throwIfCancelled();
+      }
+    } else {
+      lastError = const FormatException('missing_gemini_final_reply_key');
+    }
+    streamingReasoning = '';
+    streamingContent = '';
+    _allStreamingReasoning = '';
+    notice =
+        'Gemini 调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
+    await db.setSetting(_fallbackNoticeSettingKey, notice!);
+    _lastFinalReplyUsedFallback = true;
+    _safeNotify();
+    return _streamRequest(
+      apiKey: internalApiKey,
+      endpoint: internalEndpoint,
+      model: model,
+      effort: effort,
+      request: request,
+      cancellation: cancellation,
+      displayReasoning: displayReasoning,
+      captureReasoning: captureReasoning,
+    );
+  }
+
   Future<String> _streamRequest({
     required String apiKey,
     required String endpoint,
@@ -334,6 +492,7 @@ class ImmersiveRoomController extends ChangeNotifier {
     required bool captureReasoning,
   }) async {
     var finishReason = '';
+    var sawTerminalSignal = false;
     await for (final delta in client.streamChat(
       apiKey: apiKey,
       model: model,
@@ -357,25 +516,293 @@ class ImmersiveRoomController extends ChangeNotifier {
         streamingContent += delta.content;
       }
       if (delta.finishReason != null) finishReason = delta.finishReason!;
+      if (delta.done || delta.finishReason != null) sawTerminalSignal = true;
       if (delta.content.isNotEmpty ||
           (displayReasoning && delta.reasoning.isNotEmpty)) {
         _scheduleStreamNotify();
       }
     }
     _flushStreamNotify();
+    if (!sawTerminalSignal) {
+      throw GenerationStreamIncompleteException(
+        reasoning: _allStreamingReasoning,
+        content: streamingContent,
+      );
+    }
     return finishReason;
   }
 
-  Future<void> _commitVisiblePartial() async {
-    final content = streamingContent.trim();
-    if (content.isEmpty) return;
-    final assistant = await repository.addMessage(
+  Future<void> _saveIncompleteReplyDraft({
+    required String userMessageId,
+    required String content,
+    required String reasoning,
+  }) async {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return;
+    final createdAt = DateTime.now();
+    incompleteReplyUserMessageId = userMessageId;
+    incompleteReplyDraft = ImmersiveMessage(
+      id: 'pending:$roomId:$userMessageId',
       roomId: roomId,
       role: 'assistant',
-      content: content,
-      reasoningContent: _allStreamingReasoning,
+      content: trimmed,
+      reasoningContent: reasoning.trim(),
+      createdAt: createdAt,
     );
-    messages = [...messages, assistant];
+    await db.setSetting(
+      _pendingReplySettingKey,
+      jsonEncode(<String, Object?>{
+        'room_id': roomId,
+        'user_message_id': userMessageId,
+        'content': trimmed,
+        'reasoning': reasoning.trim(),
+        'created_at': createdAt.millisecondsSinceEpoch,
+      }),
+    );
+  }
+
+  Future<void> _restoreIncompleteReplyDraft() async {
+    final raw = await db.getSetting(_pendingReplySettingKey);
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final data = (jsonDecode(raw) as Map).cast<String, Object?>();
+      if (data['room_id'] != roomId) return;
+      final content = data['content']?.toString().trim() ?? '';
+      final userMessageId = data['user_message_id']?.toString() ?? '';
+      if (content.isEmpty || userMessageId.isEmpty) return;
+      incompleteReplyUserMessageId = userMessageId;
+      incompleteReplyDraft = ImmersiveMessage(
+        id: 'pending:$roomId:$userMessageId',
+        roomId: roomId,
+        role: 'assistant',
+        content: content,
+        reasoningContent: data['reasoning']?.toString().trim() ?? '',
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+          (data['created_at'] as num?)?.toInt() ??
+              DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+      notice ??= '有一条未完整回复尚未确认；它还没有进入房间上下文或摘要。';
+    } catch (_) {
+      await _clearIncompleteReplyDraft();
+    }
+  }
+
+  Future<void> _clearIncompleteReplyDraft() async {
+    incompleteReplyDraft = null;
+    incompleteReplyUserMessageId = null;
+    await db.setSetting(_pendingReplySettingKey, '');
+  }
+
+  Future<void> confirmIncompleteReply() async {
+    final draft = incompleteReplyDraft;
+    if (draft == null || sending) return;
+    final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    if (internalApiKey.isEmpty) {
+      error = '确认后需要启动正常的房间整理，请先填写 DeepSeek API Key。';
+      _safeNotify();
+      return;
+    }
+    final ownsLease = await db.tryAcquireLocalLease(
+      'immersive_room_lease',
+      holdFor: const Duration(minutes: 2),
+    );
+    if (!ownsLease) {
+      error = '另一个沉浸房间正在写入，请稍后再确认。';
+      _safeNotify();
+      return;
+    }
+    sending = true;
+    error = null;
+    _safeNotify();
+    try {
+      final assistant = await repository.addMessage(
+        roomId: roomId,
+        role: 'assistant',
+        content: draft.content,
+        reasoningContent: draft.reasoningContent,
+      );
+      await _clearIncompleteReplyDraft();
+      messages = await repository.messagesForRoom(roomId);
+      room = await repository.roomById(roomId);
+      notice = '已确认截断回复；它现在会进入房间上下文与后续摘要。';
+      final endpoint = await secureConfig.readEndpoint();
+      final model =
+          DeepSeekModelProfile.fromApiName(await db.getSetting('model'));
+      unawaited(_maybeRefreshRollingState(
+        apiKey: internalApiKey,
+        endpoint: endpoint,
+        model: model,
+      ));
+      if ((await db.getSetting('tts_enabled')) != '0' &&
+          (await db.getSetting('auto_tts')) != '0') {
+        final language =
+            ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+                ChatLanguage.chinese;
+        unawaited(speakMessage(assistant, language: language));
+      }
+    } catch (exception) {
+      error = '确认这条回复失败：$exception';
+    } finally {
+      sending = false;
+      await db.releaseLocalLease('immersive_room_lease');
+      _safeNotify();
+    }
+  }
+
+  Future<void> regenerateIncompleteReply() async {
+    final userMessageId = incompleteReplyUserMessageId;
+    if (userMessageId == null || sending || room?.isEnded == true) return;
+    final user = messages.cast<ImmersiveMessage?>().firstWhere(
+          (item) => item?.id == userMessageId && item!.isUser,
+          orElse: () => null,
+        );
+    if (user == null) {
+      error = '找不到这份草稿对应的用户消息。';
+      _safeNotify();
+      return;
+    }
+    final internalApiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    if (internalApiKey.isEmpty) {
+      error = '请先填写必填的 DeepSeek API Key。';
+      _safeNotify();
+      return;
+    }
+    final ownsLease = await db.tryAcquireLocalLease(
+      'immersive_room_lease',
+      holdFor: const Duration(minutes: 10),
+    );
+    if (!ownsLease) {
+      error = '另一个沉浸房间正在生成，请稍后再试。';
+      _safeNotify();
+      return;
+    }
+    await _clearIncompleteReplyDraft();
+    await ttsPlayback.stop();
+    sending = true;
+    nsfwRouting = true;
+    streamingReasoning = '';
+    streamingContent = '';
+    _allStreamingReasoning = '';
+    error = null;
+    final persistedFallback =
+        (await db.getSetting(_fallbackNoticeSettingKey))?.trim() ?? '';
+    notice = persistedFallback.isEmpty ? null : persistedFallback;
+    final cancellation = GenerationCancellationToken();
+    _cancellation = cancellation;
+    _streamingDraftVisible = true;
+    _safeNotify();
+    try {
+      final internalEndpoint = await secureConfig.readEndpoint();
+      final finalProvider = await secureConfig.readChatProvider();
+      final finalApiKey =
+          (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
+      final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
+      final routedRoom =
+          (await repository.inheritActiveSpecialStyleIfNeeded(roomId))!;
+      room = routedRoom;
+      final historyBeforeTurn = messages
+          .where((item) => item.createdAt.isBefore(user.createdAt))
+          .toList(growable: false);
+      final route = await nsfwRouter.decide(
+        apiKey: internalApiKey,
+        endpoint: internalEndpoint,
+        room: routedRoom,
+        latestUserText: user.content,
+        recent: historyBeforeTurn,
+        cancellationToken: cancellation,
+      );
+      await repository.saveNsfwRoute(
+        id: roomId,
+        active: route.active,
+        source: route.source,
+      );
+      room = await repository.roomById(roomId);
+      nsfwRouting = false;
+      final request = await promptBuilder.build(
+        room: room!,
+        history: historyBeforeTurn,
+        latestUserText: user.content,
+        nsfwActive: route.active,
+        nsfwTurnDirective: route.turnDirective,
+      );
+      final profile = DeepSeekModelProfile.fromApiName(
+        await db.getSetting('model'),
+      );
+      final effort = ReasoningEffort.fromApiName(
+        await db.getSetting('reasoning_effort'),
+      );
+      final finishReason = await _streamFinalRequest(
+        internalApiKey: internalApiKey,
+        internalEndpoint: internalEndpoint,
+        finalProvider: finalProvider,
+        finalApiKey: finalApiKey,
+        finalEndpoint: finalEndpoint,
+        model: profile,
+        effort: effort,
+        request: request,
+        cancellation: cancellation,
+        displayReasoning: true,
+        captureReasoning: true,
+      );
+      if (finalProvider.isGeminiRelay &&
+          !_lastFinalReplyUsedFallback &&
+          (FinalReplyFailurePolicy.isIncompleteFinishReason(finishReason) ||
+              ImmersivePromptBuilder.shouldContinue(
+                streamingContent,
+                finishReason,
+              ))) {
+        throw _ImmersiveIncompleteReply(
+          content: streamingContent,
+          reasoning: _allStreamingReasoning,
+          finishReason: finishReason,
+        );
+      }
+      if (streamingContent.trim().isEmpty) {
+        throw const FormatException('模型没有返回可用的小说正文');
+      }
+      await repository.addMessage(
+        roomId: roomId,
+        role: 'assistant',
+        content: streamingContent,
+        reasoningContent: _allStreamingReasoning,
+      );
+      messages = await repository.messagesForRoom(roomId);
+      room = await repository.roomById(roomId);
+      unawaited(_maybeRefreshRollingState(
+        apiKey: internalApiKey,
+        endpoint: internalEndpoint,
+        model: profile,
+      ));
+    } on _ImmersiveIncompleteReply catch (incomplete) {
+      await _saveIncompleteReplyDraft(
+        userMessageId: user.id,
+        content: incomplete.content,
+        reasoning: incomplete.reasoning,
+      );
+      notice = 'Gemini 回复仍未完整结束。当前文字尚未进入房间上下文或摘要。';
+    } catch (exception) {
+      if (streamingContent.trim().isNotEmpty) {
+        await _saveIncompleteReplyDraft(
+          userMessageId: user.id,
+          content: streamingContent,
+          reasoning: _allStreamingReasoning,
+        );
+        notice = '回复再次异常中断。当前文字尚未进入房间上下文或摘要。';
+      } else {
+        error = '重新生成失败：$exception';
+      }
+    } finally {
+      sending = false;
+      nsfwRouting = false;
+      streamingReasoning = '';
+      streamingContent = '';
+      _allStreamingReasoning = '';
+      _streamingDraftVisible = false;
+      if (identical(_cancellation, cancellation)) _cancellation = null;
+      await db.releaseLocalLease('immersive_room_lease');
+      _safeNotify();
+    }
   }
 
   Future<void> stop() async {
@@ -384,6 +811,7 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   void dismissNotice() {
     notice = null;
+    unawaited(db.setSetting(_fallbackNoticeSettingKey, ''));
     _safeNotify();
   }
 
@@ -406,8 +834,37 @@ class ImmersiveRoomController extends ChangeNotifier {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
     await ttsPlayback.stop();
     var projected = message;
-    if (language != ChatLanguage.chinese && !message.hasLanguage(language)) {
-      projected = await ensureLanguageVariant(message, language);
+    if (language != ChatLanguage.chinese &&
+        !_hasPlausibleLanguageVariant(message, language)) {
+      if (message.id == incompleteReplyDraft?.id) {
+        final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+        if (apiKey.isEmpty) {
+          throw const MessageLanguageVariantException(
+            '请先填写必填的 DeepSeek API Key。',
+          );
+        }
+        final translated = await languageVariantService.gateway.translate(
+          apiKey: apiKey,
+          endpoint: await secureConfig.readEndpoint(),
+          source: ChatSegmentCodec.parseAssistantText(message.content),
+          target: language,
+        );
+        projected = message.copyWith(
+          languageVariants: <ChatLanguage, ChatLanguageVariant>{
+            ...message.languageVariants,
+            language: ChatLanguageVariant(
+              messageId: message.id,
+              language: language,
+              content: ChatSegmentCodec.displayText(translated),
+              segments: translated,
+            ),
+          },
+        );
+        incompleteReplyDraft = projected;
+        _safeNotify();
+      } else {
+        projected = await ensureLanguageVariant(message, language);
+      }
     }
     final content = projected.contentFor(language).trim();
     if (content.isEmpty) return;
@@ -426,7 +883,8 @@ class ImmersiveRoomController extends ChangeNotifier {
     ImmersiveMessage message,
     ChatLanguage language,
   ) async {
-    if (language == ChatLanguage.chinese || message.hasLanguage(language)) {
+    if (language == ChatLanguage.chinese ||
+        _hasPlausibleLanguageVariant(message, language)) {
       return message;
     }
     final variant = await languageVariantService.ensure(
@@ -444,6 +902,15 @@ class ImmersiveRoomController extends ChangeNotifier {
         .toList(growable: false);
     _safeNotify();
     return updated;
+  }
+
+  bool _hasPlausibleLanguageVariant(
+    ImmersiveMessage message,
+    ChatLanguage language,
+  ) {
+    final variant = message.languageVariants[language];
+    return variant != null &&
+        MessageLanguageVariantDecoder.isPlausibleVariant(variant, language);
   }
 
   Future<TtsEmotionCue> _ttsEmotionCueFor(ImmersiveMessage message) async {
@@ -499,6 +966,8 @@ class ImmersiveRoomController extends ChangeNotifier {
   Future<bool> deleteRoom() async {
     if (sending || ending || room == null) return false;
     await ttsPlayback.stop();
+    await _clearIncompleteReplyDraft();
+    await db.setSetting(_fallbackNoticeSettingKey, '');
     await repository.deleteRoom(roomId);
     room = null;
     messages = const [];
@@ -525,6 +994,11 @@ class ImmersiveRoomController extends ChangeNotifier {
 
   Future<bool> endRoom() async {
     if (sending || ending || room == null || room!.isEnded) return false;
+    if (incompleteReplyDraft != null) {
+      error = '请先处理待确认的截断回复，再整理结束房间。';
+      _safeNotify();
+      return false;
+    }
     final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
     if (apiKey.isEmpty) {
         error = '结束房间前需要用所选聊天模型整理归档，请先填写 API Key。';
@@ -695,6 +1169,18 @@ ${_summaryTranscript(source, maxCharacters: 22000)}''',
     client.close();
     super.dispose();
   }
+}
+
+class _ImmersiveIncompleteReply implements Exception {
+  const _ImmersiveIncompleteReply({
+    required this.content,
+    required this.reasoning,
+    required this.finishReason,
+  });
+
+  final String content;
+  final String reasoning;
+  final String finishReason;
 }
 
 class ImmersiveTimelineItem {

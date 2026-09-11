@@ -31,8 +31,10 @@ import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
 import '../storage/secure_config.dart';
 import '../platform/android_bridge.dart';
+import 'chat_api_provider.dart';
 import 'deepseek_client.dart';
 import 'dialogue_expression_plan.dart';
+import 'final_reply_failure_policy.dart';
 import 'generation_cancellation.dart';
 import 'model_profile.dart';
 import 'nsfw_context_router.dart';
@@ -69,6 +71,7 @@ class GenerationRunResult {
     this.retryAt,
     this.specialStyleTrialId = '',
     this.specialStyleKey = '',
+    this.notice,
   });
 
   final String status;
@@ -77,6 +80,7 @@ class GenerationRunResult {
   final DateTime? retryAt;
   final String specialStyleTrialId;
   final String specialStyleKey;
+  final String? notice;
 
   bool get completed => status == 'completed' && assistant != null;
   bool get retryScheduled => status == 'retry_wait';
@@ -90,11 +94,19 @@ class GenerationSuspendedException implements Exception {
   String toString() => reason;
 }
 
-class GenerationStreamIncompleteException implements Exception {
-  const GenerationStreamIncompleteException();
+class FinalReplyIncompleteException implements Exception {
+  const FinalReplyIncompleteException({
+    required this.reasoning,
+    required this.content,
+    required this.finishReason,
+  });
+
+  final String reasoning;
+  final String content;
+  final String finishReason;
 
   @override
-  String toString() => '聊天模型的流式连接在收到完成标记前结束';
+  String toString() => 'Gemini 回复未完整结束';
 }
 
 /// Runs one durable assistant-generation job.
@@ -154,6 +166,11 @@ class DurableGenerationRunner {
     // its key yet.
     final apiKey = await secureConfig.readApiKey();
     final endpoint = await secureConfig.readEndpoint();
+    final finalProvider = await secureConfig.readChatProvider();
+    final configuredFinalApiKey =
+        (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
+    final configuredFinalEndpoint =
+        await secureConfig.readFinalReplyEndpoint();
     if (cancellationToken?.isCancelled ?? false) {
       await db.cancelGenerationJobByUser(requested.id);
       return const GenerationRunResult(status: 'cancelled_by_user');
@@ -166,7 +183,7 @@ class DurableGenerationRunner {
       );
       return GenerationRunResult(
         status: retryAt == null ? 'unavailable' : 'retry_wait',
-        error: '请先在当前设备配置所选聊天提供商的 API Key。',
+        error: '请先在当前设备配置必填的 DeepSeek API Key。',
         retryAt: retryAt,
       );
     }
@@ -209,6 +226,7 @@ class DurableGenerationRunner {
     final preparedAgentAttachments = <MessageAttachment>[];
     final preparedAgentMediaUsageKeys = <String>[];
     var agentAttachmentsCommitted = false;
+    String? providerNotice;
 
     try {
       // The authoritative reply is always generated once in Chinese. Foreign
@@ -341,25 +359,30 @@ class DurableGenerationRunner {
         String reasoning,
         String content,
         List<DeepSeekToolCall> toolCalls,
+        String finishReason,
       })> generate(
         List<Map<String, Object?>> messages, {
+        required String requestApiKey,
+        required String requestEndpoint,
         bool emitDeltas = true,
+        bool publishReasoning = true,
         List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
       }) async {
         var reasoning = '';
         var content = '';
         var emittedVisibleContent = '';
         var sawTerminalSignal = false;
+        var finishReason = '';
         var publishedAnswering = false;
         final toolCallBuilders = <int, _DeepSeekToolCallBuilder>{};
         charsAtCheckpoint = 0;
         lastCheckpoint = DateTime.now();
         await for (final delta in client.streamChat(
-          apiKey: apiKey,
+          apiKey: requestApiKey,
           model: DeepSeekModelProfile.fromApiName(job.model),
           effort: ReasoningEffort.fromApiName(job.reasoningEffort),
           messages: messages,
-          endpoint: endpoint,
+          endpoint: requestEndpoint,
           thinking: job.thinking,
           tools: tools,
           cancellationToken: cancellationToken,
@@ -401,6 +424,7 @@ class DurableGenerationRunner {
           if (delta.done || delta.finishReason != null) {
             sawTerminalSignal = true;
           }
+          if (delta.finishReason != null) finishReason = delta.finishReason!;
           if (delta.reasoning.isNotEmpty) {
             reasoning += delta.reasoning;
             upstreamReasoningDeltaSeen = true;
@@ -433,7 +457,7 @@ class DurableGenerationRunner {
                 )
                 .add(fragment);
           }
-          if (!emitDeltas && delta.reasoning.isNotEmpty) {
+          if (!emitDeltas && publishReasoning && delta.reasoning.isNotEmpty) {
             onDelta?.call(DeepSeekDelta(reasoning: delta.reasoning));
             if (onDelta != null) reasoningDeltaForwardedToSurface = true;
           }
@@ -481,7 +505,10 @@ class DurableGenerationRunner {
           }
         }
         if (!sawTerminalSignal) {
-          throw const GenerationStreamIncompleteException();
+          throw GenerationStreamIncompleteException(
+            reasoning: reasoning.trim(),
+            content: content.trim(),
+          );
         }
         final indexes = toolCallBuilders.keys.toList()..sort();
         final toolCalls = indexes
@@ -492,6 +519,110 @@ class DurableGenerationRunner {
           reasoning: reasoning.trim(),
           content: content.trim(),
           toolCalls: toolCalls,
+          finishReason: finishReason,
+        );
+      }
+
+      Future<({
+        String reasoning,
+        String content,
+        List<DeepSeekToolCall> toolCalls,
+        String finishReason,
+      })> generateInternal(
+        List<Map<String, Object?>> messages, {
+        List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
+      }) =>
+          generate(
+            messages,
+            requestApiKey: apiKey,
+            requestEndpoint: endpoint,
+            emitDeltas: false,
+            publishReasoning: !finalProvider.isGeminiRelay,
+            tools: tools,
+          );
+
+      Future<({
+        String reasoning,
+        String content,
+        List<DeepSeekToolCall> toolCalls,
+        String finishReason,
+      })> generateFinal(List<Map<String, Object?>> messages) async {
+        if (!finalProvider.isGeminiRelay) {
+          return generate(
+            messages,
+            requestApiKey: apiKey,
+            requestEndpoint: endpoint,
+            emitDeltas: false,
+          );
+        }
+        Object? lastError;
+        if (configuredFinalApiKey.isNotEmpty) {
+          for (var attempt = 1;
+              attempt <= FinalReplyFailurePolicy.maxGeminiAttempts;
+              attempt++) {
+            try {
+              final result = await generate(
+                messages,
+                requestApiKey: configuredFinalApiKey,
+                requestEndpoint: configuredFinalEndpoint,
+                emitDeltas: false,
+                // Do not leak reasoning from a failed paid attempt. Publish the
+                // single accepted summary only after the response is complete.
+                publishReasoning: false,
+              );
+              if (result.content.isEmpty) {
+                throw const EmptyFinalReplyException();
+              }
+              if (result.content.isNotEmpty &&
+                  FinalReplyFailurePolicy.isIncompleteFinishReason(
+                    result.finishReason,
+                  )) {
+                throw FinalReplyIncompleteException(
+                  reasoning: result.reasoning,
+                  content: result.content,
+                  finishReason: result.finishReason,
+                );
+              }
+              if (result.reasoning.isNotEmpty) {
+                onDelta?.call(DeepSeekDelta(reasoning: result.reasoning));
+                reasoningDeltaForwardedToSurface = onDelta != null;
+              }
+              return result;
+            } on FinalReplyIncompleteException {
+              rethrow;
+            } on GenerationStreamIncompleteException catch (error) {
+              if (error.content.isNotEmpty) {
+                throw FinalReplyIncompleteException(
+                  reasoning: error.reasoning,
+                  content: error.content,
+                  finishReason: 'stream_incomplete',
+                );
+              }
+              lastError = error;
+            } catch (error) {
+              if (error is GenerationCancelledByUserException ||
+                  error is GenerationSuspendedException) {
+                rethrow;
+              }
+              lastError = error;
+            }
+            if (attempt >= FinalReplyFailurePolicy.maxGeminiAttempts ||
+                !FinalReplyFailurePolicy.isTransient(lastError!)) {
+              break;
+            }
+            await Future<void>.delayed(FinalReplyFailurePolicy.retryDelay);
+            cancellationToken?.throwIfCancelled();
+          }
+        } else {
+          lastError = const FormatException('missing_gemini_final_reply_key');
+        }
+        providerNotice =
+            'Gemini 调用失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），本轮已由 DeepSeek 兜底。';
+        return generate(
+          messages,
+          requestApiKey: apiKey,
+          requestEndpoint: endpoint,
+          emitDeltas: false,
         );
       }
 
@@ -564,17 +695,33 @@ $finalGenerationReminder
               ? baseRequestMessages
               : finalizationMessages(baseRequestMessages);
       if (toolsOpen) agentPlanningRounds++;
-      var generated = await generate(
-        finalRequestMessages,
-        // Ordinary chat keeps provider reasoning live, but holds the visible
-        // body until every guard has approved one durable answer. The chat UI
-        // then performs its established local typewriter playback exactly once.
-        emitDeltas: false,
-        tools: toolsOpen
-            ? taskToolDefinitions
-            : const <Map<String, Object?>>[],
-      );
+      late ({
+        String reasoning,
+        String content,
+        List<DeepSeekToolCall> toolCalls,
+        String finishReason,
+      }) generated;
+      if (toolsOpen) {
+        generated = await generateInternal(
+          finalRequestMessages,
+          tools: taskToolDefinitions,
+        );
+      } else {
+        generated = await generateFinal(finalRequestMessages);
+      }
       cancellationToken?.throwIfCancelled();
+
+      // DeepSeek owns tool planning, never the final prose in Gemini mode. A
+      // no-tool plan therefore needs one explicit Gemini expression request.
+      // DeepSeek-only mode preserves its established one-request behavior.
+      if (toolsOpen && generated.toolCalls.isEmpty) {
+        toolsOpen = false;
+        if (finalProvider.isGeminiRelay) {
+          finalRequestMessages = finalizationMessages(finalRequestMessages);
+          generated = await generateFinal(finalRequestMessages);
+          cancellationToken?.throwIfCancelled();
+        }
+      }
 
       while (toolsOpen && generated.toolCalls.isNotEmpty) {
         final callsAllowed = AgentTaskLoopPolicy.allowedCalls(
@@ -585,7 +732,7 @@ $finalGenerationReminder
           agentLoopBudgetExhausted = true;
           toolsOpen = false;
           finalRequestMessages = finalizationMessages(finalRequestMessages);
-          generated = await generate(finalRequestMessages, emitDeltas: false);
+          generated = await generateFinal(finalRequestMessages);
           cancellationToken?.throwIfCancelled();
           break;
         }
@@ -612,7 +759,7 @@ $finalGenerationReminder
             statusText: '正在核验工具结果…',
             toolId: '',
           );
-          generated = await generate(finalRequestMessages, emitDeltas: false);
+          generated = await generateFinal(finalRequestMessages);
           cancellationToken?.throwIfCancelled();
           break;
         }
@@ -692,7 +839,7 @@ $finalGenerationReminder
             statusText: '正在核验工具结果…',
             toolId: '',
           );
-          generated = await generate(finalRequestMessages, emitDeltas: false);
+          generated = await generateFinal(finalRequestMessages);
           cancellationToken?.throwIfCancelled();
           break;
         }
@@ -713,9 +860,8 @@ $finalGenerationReminder
           statusText: '正在根据结果核对下一步…',
           toolId: '',
         );
-        generated = await generate(
+        generated = await generateInternal(
           finalRequestMessages,
-          emitDeltas: false,
           tools: taskToolDefinitions,
         );
         cancellationToken?.throwIfCancelled();
@@ -804,16 +950,16 @@ $finalGenerationReminder
         );
       }
 
-      // Falsely claiming a completed real operation is the one remaining
-      // correction class. Correct it once, then salvage by removing only the
-      // unsupported sentence instead of interrupting the whole conversation.
       if (!operationGuard.allowed) {
-        ablationTransformation = 'operation_retry';
-        final correctionMessages = <Map<String, Object?>>[
-          ...finalRequestMessages,
-          {
-            'role': 'system',
-            'content': '''
+        if (!finalProvider.isGeminiRelay) {
+          // Preserve the established DeepSeek-only behavior: one model retry
+          // gets a chance to repair a false operational claim.
+          ablationTransformation = 'operation_retry';
+          final correctionMessages = <Map<String, Object?>>[
+            ...finalRequestMessages,
+            {
+              'role': 'system',
+              'content': '''
 【事实声明修正 · ONE RETRY】
 上一份正文包含没有真实工具结果支持的可核验操作声明：${operationGuard.reason}。
 所有“看过/查过/读取过系统、看见屏幕、调用/保存/修改/设置完成”的可核验操作报告，只能来自本轮匹配的真实成功工具结果。失败、无结果或阻止必须照实说；一次读取绝不能扩写成“一下午/半天/几小时”。没有结果时说尚未执行，或改为“我在想这件事”等真实主观体验。
@@ -821,21 +967,32 @@ $finalGenerationReminder
 只修正事实，不修改语气、称呼、问题、动作、性格或自然停顿。
 $finalGenerationReminder
 '''.trim(),
-          },
-        ];
-        generated = await generate(
-          correctionMessages,
-          emitDeltas: false,
-        );
-        cancellationToken?.throwIfCancelled();
-        envelope = EmotionEnvelope.parse(generated.content);
-        finalContent = visibleBody(envelope);
-        operationGuard = OperationalClaimGroundingGuard.evaluate(
-          text: finalContent,
-          currentToolResults: agentToolResults,
-        );
-        if (!operationGuard.allowed) {
-          ablationTransformation = 'operation_retry_salvage';
+            },
+          ];
+          generated = await generateFinal(correctionMessages);
+          cancellationToken?.throwIfCancelled();
+          envelope = EmotionEnvelope.parse(generated.content);
+          finalContent = visibleBody(envelope);
+          operationGuard = OperationalClaimGroundingGuard.evaluate(
+            text: finalContent,
+            currentToolResults: agentToolResults,
+          );
+          if (!operationGuard.allowed) {
+            ablationTransformation = 'operation_retry_salvage';
+            final salvaged =
+                OperationalClaimGroundingGuard.removeUnsupportedSentences(
+              text: finalContent,
+              currentToolResults: agentToolResults,
+            );
+            finalContent = salvaged.isNotEmpty
+                ? salvaged
+                : '「那件事我还没有真的执行，刚才说岔了。」';
+          }
+        } else {
+          // A fixed-price final lane must not silently make a second paid
+          // request for local factual cleanup. Remove only the unsupported
+          // sentences and keep the accepted Gemini voice intact.
+          ablationTransformation = 'operation_local_salvage';
           final salvaged =
               OperationalClaimGroundingGuard.removeUnsupportedSentences(
             text: finalContent,
@@ -1054,6 +1211,59 @@ $finalGenerationReminder
         assistant: assistant,
         specialStyleTrialId: generationSpecialStyleTrialId,
         specialStyleKey: generationSpecialStyleKey,
+        notice: providerNotice,
+      );
+    } on FinalReplyIncompleteException catch (e) {
+      final envelope = EmotionEnvelope.parse(e.content);
+      final visible = envelope.visibleText.trim();
+      if (visible.isEmpty) {
+        final failed = await db.failGenerationJob(
+          job.id,
+          runToken: job.runToken,
+          error: 'gemini_incomplete_empty_body',
+          recoverable: true,
+        );
+        return GenerationRunResult(
+          status: failed?.status ?? 'suspended',
+          error: e,
+          retryAt: failed?.nextRetryAt,
+        );
+      }
+      final companionEmotion = await emotionClassifier.resolve(
+        rawTag: envelope.rawTag,
+        visibleText: visible,
+        envelopeStatus: envelope.status,
+      );
+      final draft = ChatMessage(
+        id: job.assistantMessageId,
+        role: 'assistant',
+        content: visible,
+        reasoningContent: preserveProviderReasoning(e.reasoning),
+        model: ChatApiProvider.aiWangYouModel,
+        createdAt: DateTime.now(),
+        deviceId: await db.ensureDeviceId(),
+        segments: ChatSegmentCodec.parseAssistantText(visible),
+        languageVariants: const {},
+        emotionRawTag: companionEmotion.rawTag,
+        emotionKey: companionEmotion.key,
+        emotionLabel: companionEmotion.label,
+        emotionConfidence: companionEmotion.confidence,
+        emotionTop3Json: companionEmotion.top3Json,
+        emotionSource: companionEmotion.source,
+      );
+      final held = await db.holdGenerationJobForUserDecision(
+        job.id,
+        runToken: job.runToken,
+        partialReasoning: draft.reasoningContent,
+        partialContent: draft.content,
+      );
+      if (held == null) {
+        return const GenerationRunResult(status: 'suspended');
+      }
+      return GenerationRunResult(
+        status: 'incomplete',
+        assistant: draft,
+        notice: 'Gemini 回复未完整结束。当前文字尚未进入上下文或记忆，请选择“重新生成”或“确认回复”。',
       );
     } on GenerationCancelledByUserException catch (e) {
       await db.cancelGenerationJobByUser(job.id);
@@ -1095,6 +1305,70 @@ $finalGenerationReminder
       }
       await _clearToolRuntime();
     }
+  }
+
+  Future<GenerationRunResult> confirmIncompleteDraft(String jobId) async {
+    final job = await db.claimGenerationDraftForConfirmation(jobId);
+    if (job == null || job.partialContent.trim().isEmpty) {
+      return const GenerationRunResult(
+        status: 'unavailable',
+        error: '待确认的截断回复已经不存在。',
+      );
+    }
+    final user = await db.messageById(job.userMessageId);
+    if (user == null || !user.isUser) {
+      await db.failGenerationJob(
+        job.id,
+        runToken: job.runToken,
+        error: 'missing_user_for_confirmed_draft',
+        recoverable: false,
+      );
+      return const GenerationRunResult(
+        status: 'failed',
+        error: '找不到这份草稿对应的用户消息。',
+      );
+    }
+    final envelope = EmotionEnvelope.parse(job.partialContent);
+    final visible = envelope.visibleText.trim();
+    final companionEmotion = await emotionClassifier.resolve(
+      rawTag: envelope.rawTag,
+      visibleText: visible,
+      envelopeStatus: envelope.status,
+    );
+    final assistant = ChatMessage(
+      id: job.assistantMessageId,
+      role: 'assistant',
+      content: visible,
+      reasoningContent: preserveProviderReasoning(job.partialReasoning),
+      model: ChatApiProvider.aiWangYouModel,
+      createdAt: DateTime.now(),
+      deviceId: await db.ensureDeviceId(),
+      segments: ChatSegmentCodec.parseAssistantText(visible),
+      languageVariants: const {},
+      emotionRawTag: companionEmotion.rawTag,
+      emotionKey: companionEmotion.key,
+      emotionLabel: companionEmotion.label,
+      emotionConfidence: companionEmotion.confidence,
+      emotionTop3Json: companionEmotion.top3Json,
+      emotionSource: companionEmotion.source,
+    );
+    final committed = await db.completeGenerationJobIfCurrent(
+      jobId: job.id,
+      runToken: job.runToken,
+      assistant: assistant,
+      somaticEvents: somaticEngine.assistantCommitEvents(
+        turnId: assistant.id,
+        text: assistant.content,
+        now: assistant.createdAt,
+      ),
+    );
+    return committed
+        ? GenerationRunResult(
+            status: 'completed',
+            assistant: assistant,
+            notice: '已确认截断回复；它现在会按正常回复进入上下文与后续记忆整理。',
+          )
+        : const GenerationRunResult(status: 'suspended');
   }
 
   Future<void> _publishToolRuntime({

@@ -101,10 +101,62 @@ void main() {
         ],
       },
       source,
+      ChatLanguage.japanese,
     );
 
     expect(decoded.map((item) => item.kind), source.map((item) => item.kind));
     expect(decoded.last.text, 'ここにいるよ。');
+  });
+
+  test('english projection rejects Japanese or Chinese contamination', () {
+    expect(
+      () => MessageLanguageVariantDecoder.decode(
+        <String, Object?>{
+          'segments': <Object?>[
+            <String, Object?>{'text': 'She looks up softly.'},
+            <String, Object?>{'text': 'ここにいるよ。'},
+          ],
+        },
+        sourceMessage().segments,
+        ChatLanguage.english,
+      ),
+      throwsA(isA<MessageLanguageVariantException>()),
+    );
+  });
+
+  test('a contaminated cached English projection is regenerated', () async {
+    final source = sourceMessage();
+    final contaminated = ChatLanguageVariant(
+      messageId: source.id,
+      language: ChatLanguage.english,
+      content: 'ここにいるよ。',
+      segments: const <ChatSegment>[
+        ChatSegment(kind: ChatSegmentKind.action, text: 'そっと見上げる。'),
+        ChatSegment(kind: ChatSegmentKind.dialogue, text: 'ここにいるよ。'),
+      ],
+    );
+    final stored = source.copyWith(
+      languageVariants: <ChatLanguage, ChatLanguageVariant>{
+        ChatLanguage.english: contaminated,
+      },
+    );
+    final store = _MemoryVariantStore(stored);
+    final gateway = _FakeVariantGateway();
+    final service = MessageLanguageVariantService(
+      store: store,
+      gateway: gateway,
+      apiKeyLoader: () async => 'key',
+      endpointLoader: () async => 'https://example.test/chat/completions',
+    );
+
+    final repaired = await service.ensure(
+      message: stored,
+      language: ChatLanguage.english,
+    );
+
+    expect(repaired.content, contains('English segment'));
+    expect(gateway.calls, 1);
+    expect(store.saves, 1);
   });
 }
 
@@ -145,10 +197,13 @@ class _FakeVariantGateway implements MessageLanguageVariantGateway {
     calls++;
     targets.add(target);
     if (delay > Duration.zero) await Future<void>.delayed(delay);
+    var index = 0;
     return source
         .map((item) => ChatSegment(
               kind: item.kind,
-              text: '${target.key}:${item.text}',
+              text: target == ChatLanguage.english
+                  ? 'English segment ${index++}.'
+                  : '${target.key}:${item.text}',
             ))
         .toList(growable: false);
   }

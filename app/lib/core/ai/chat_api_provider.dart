@@ -2,23 +2,23 @@ import 'model_profile.dart';
 
 enum ChatApiProvider {
   deepSeek('deepseek', 'DeepSeek'),
-  shuaiApiGemini('shuaiapi_gemini', '帅 API（Gemini）');
+  aiWangYouGemini('aiwangyou_gemini', 'Gemini 3.7 Flash（玩游）');
 
   const ChatApiProvider(this.storageValue, this.label);
 
-  static const shuaiApiEndpoint =
-      'https://api.shuaiapi.com/v1/chat/completions';
-  static const shuaiApiModel = 'gemini-3.7-flash';
+  static const aiWangYouEndpoint =
+      'https://wy.aiwangyou.cc/v1/chat/completions';
+  static const aiWangYouModel = '[特价]gemini-3.7-flash-0.5';
 
   final String storageValue;
   final String label;
 
-  bool get isGeminiRelay => this == shuaiApiGemini;
+  bool get isGeminiRelay => this == aiWangYouGemini;
 
   static ChatApiProvider fromStorage(String? value) {
-    // Keep the user's provider choice across the relay migration, but do not
-    // reuse the retired relay's secret for the new host.
-    if (value == 'aiwangyou_gemini') return ChatApiProvider.shuaiApiGemini;
+    // Keep the Gemini final-reply choice across the failed Shuai relay build,
+    // but never copy that host's secret into the restored AiWangYou slot.
+    if (value == 'shuaiapi_gemini') return ChatApiProvider.aiWangYouGemini;
     return ChatApiProvider.values.firstWhere(
       (provider) => provider.storageValue == value,
       orElse: () => ChatApiProvider.deepSeek,
@@ -27,18 +27,18 @@ enum ChatApiProvider {
 
   static ChatApiProvider fromEndpoint(String endpoint) {
     final uri = Uri.tryParse(endpoint.trim());
-    final relay = Uri.parse(shuaiApiEndpoint);
+    final relay = Uri.parse(aiWangYouEndpoint);
     if (uri != null &&
         uri.scheme == relay.scheme &&
         uri.host.toLowerCase() == relay.host &&
         uri.path.replaceAll(RegExp(r'/+$'), '') == relay.path) {
-      return ChatApiProvider.shuaiApiGemini;
+      return ChatApiProvider.aiWangYouGemini;
     }
     return ChatApiProvider.deepSeek;
   }
 
   String effectiveModel(DeepSeekModelProfile requested) =>
-      isGeminiRelay ? shuaiApiModel : requested.apiName;
+      isGeminiRelay ? aiWangYouModel : requested.apiName;
 
   ReasoningEffort normalizeEffort(ReasoningEffort effort) {
     if (isGeminiRelay) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static contracts for build 205 Shuai API and immersive languages."""
+"""Retained build-205 immersive-language and reasoning contracts."""
 
 from pathlib import Path
 
@@ -35,9 +35,6 @@ def main() -> None:
     provider_test = read("test/chat_api_provider_test.dart")
     require(
         provider,
-        "https://api.shuaiapi.com/v1/chat/completions",
-        "gemini-3.7-flash",
-        "shuaiApiGemini('shuaiapi_gemini', '帅 API（Gemini）')",
         "'google': <String, Object?>{",
         "'thinking_config': <String, Object?>{",
         "'include_thoughts': thinking",
@@ -45,8 +42,7 @@ def main() -> None:
     assert "'extra_body':" not in provider
     require(
         secure,
-        "shuaiapi_gemini_api_key",
-        "readShuaiApiKey",
+        "readFinalReplyApiKey",
         "readDeepSeekApiKey",
     )
     require(
@@ -107,7 +103,7 @@ def main() -> None:
         "schema-59 immersive rows remain Chinese-only after migration",
         "missing key never saves a fake immersive projection",
     )
-    print("v0.41.61 Shuai API, immersive language and reasoning contracts passed")
+    print("v0.41.61 retained immersive language and reasoning contracts passed")
 
 
 if __name__ == "__main__":

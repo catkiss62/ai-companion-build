@@ -166,11 +166,14 @@ class _FakeGateway implements MessageLanguageVariantGateway {
   }) async {
     calls++;
     if (delay > Duration.zero) await Future<void>.delayed(delay);
+    var index = 0;
     return source
         .map(
           (segment) => ChatSegment(
             kind: segment.kind,
-            text: '${target.key}:${segment.text}',
+            text: target == ChatLanguage.english
+                ? 'English segment ${index++}.'
+                : '${target.key}:${segment.text}',
           ),
         )
         .toList(growable: false);

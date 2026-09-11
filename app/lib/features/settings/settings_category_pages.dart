@@ -31,7 +31,7 @@ class _ModelNetworkSettingsPageState
   final _deepSeekKey = TextEditingController();
   final _deepSeekEndpoint = TextEditingController();
   final _customDeepSeekModel = TextEditingController();
-  final _shuaiApiKey = TextEditingController();
+  final _aiWangYouApiKey = TextEditingController();
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
@@ -50,7 +50,7 @@ class _ModelNetworkSettingsPageState
   bool _testingChat = false;
   bool _testingAgnes = false;
   bool _revealDeepSeek = false;
-  bool _revealShuaiApi = false;
+  bool _revealAiWangYou = false;
   bool _revealVision = false;
   bool _revealTavily = false;
   bool _revealAgnes = false;
@@ -67,7 +67,7 @@ class _ModelNetworkSettingsPageState
     _chatProvider = await _secure.readChatProvider();
     _deepSeekKey.text = await _secure.readDeepSeekApiKey() ?? '';
     _deepSeekEndpoint.text = await _secure.readDeepSeekEndpoint();
-    _shuaiApiKey.text = await _secure.readShuaiApiKey() ?? '';
+    _aiWangYouApiKey.text = await _secure.readAiWangYouApiKey() ?? '';
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
     _visionModel.text = await _secure.readVisionModel();
@@ -80,7 +80,7 @@ class _ModelNetworkSettingsPageState
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
     final storedModel = DeepSeekModelProfile.fromApiName(
       storedDeepSeekModel ??
-          (activeModel == ChatApiProvider.shuaiApiModel
+          (activeModel == ChatApiProvider.aiWangYouModel
               ? null
               : activeModel),
     );
@@ -117,51 +117,47 @@ class _ModelNetworkSettingsPageState
   }
 
   Future<void> _saveChatProvider() async {
-    if (_chatProvider == ChatApiProvider.deepSeek &&
-        !_validHttpEndpoint(_deepSeekEndpoint.text)) {
+    if (!_validHttpEndpoint(_deepSeekEndpoint.text)) {
       setState(() => _status = 'DeepSeek 地址不是有效的 http(s) URL。');
       return;
     }
-    final effectiveModel = _chatProvider == ChatApiProvider.deepSeek
-        ? _effectiveDeepSeekModel()
-        : DeepSeekModelProfile.fromApiName(ChatApiProvider.shuaiApiModel);
-    if (_chatProvider == ChatApiProvider.deepSeek && effectiveModel == null) {
+    if (_deepSeekKey.text.trim().isEmpty) {
+      setState(() => _status = 'DeepSeek API Key 是内部工作通道的必填项。');
+      return;
+    }
+    final effectiveModel = _effectiveDeepSeekModel();
+    if (effectiveModel == null) {
       setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
       return;
     }
+    if (_chatProvider.isGeminiRelay &&
+        _aiWangYouApiKey.text.trim().isEmpty) {
+      setState(() => _status = '选择 Gemini 最终回复时，请填写玩游 API Key。');
+      return;
+    }
     try {
-      if (_chatProvider == ChatApiProvider.deepSeek) {
-        await _secure.writeEndpoint(_deepSeekEndpoint.text);
-        await _secure.writeApiKey(_deepSeekKey.text);
-        await _db.setSetting('deepseek_model', effectiveModel!.apiName);
-      } else {
-        await _secure.writeShuaiApiKey(_shuaiApiKey.text);
-        final preservedDeepSeekModel = _effectiveDeepSeekModel();
-        if (preservedDeepSeekModel != null) {
-          await _db.setSetting(
-            'deepseek_model',
-            preservedDeepSeekModel.apiName,
-          );
-        }
-      }
+      await _secure.writeEndpoint(_deepSeekEndpoint.text);
+      await _secure.writeApiKey(_deepSeekKey.text);
+      await _secure.writeAiWangYouApiKey(_aiWangYouApiKey.text);
+      await _db.setSetting('deepseek_model', effectiveModel.apiName);
       final normalizedEffort = _chatProvider.normalizeEffort(_effort);
-      await _db.setSetting('model', effectiveModel!.apiName);
+      // Generation jobs always persist the internal DeepSeek model. The final
+      // provider derives its fixed Gemini alias from its endpoint at request
+      // time, so recovery and fallback never mistake that alias for DeepSeek.
+      await _db.setSetting('model', effectiveModel.apiName);
       await _db.setSetting('reasoning_effort', normalizedEffort.apiName);
       await _secure.writeChatProvider(_chatProvider);
-      final selectedKey = _chatProvider == ChatApiProvider.deepSeek
-          ? _deepSeekKey.text
-          : _shuaiApiKey.text;
-      if (selectedKey.trim().isNotEmpty) {
-        await _db.wakeRetryableGenerationJobs();
-        await _db.wakeRetryablePostTurnJobs();
-      }
+      await _db.wakeRetryableGenerationJobs();
+      await _db.wakeRetryablePostTurnJobs();
       try {
         await _android.wakeBackgroundBrain(reason: 'api_config_saved');
       } catch (_) {}
       if (mounted) {
         setState(() {
           _effort = normalizedEffort;
-          _status = '${_chatProvider.label} 配置已保存。';
+          _status = _chatProvider.isGeminiRelay
+              ? '双通道配置已保存：DeepSeek 负责内部工作，Gemini 负责最终回复。'
+              : 'DeepSeek 单通道配置已保存。';
         });
       }
     } catch (error) {
@@ -214,16 +210,17 @@ class _ModelNetworkSettingsPageState
 
   Future<void> _testChatProvider() async {
     final isGeminiRelay = _chatProvider.isGeminiRelay;
-    final apiKey = (isGeminiRelay ? _shuaiApiKey : _deepSeekKey).text.trim();
+    final apiKey =
+        (isGeminiRelay ? _aiWangYouApiKey : _deepSeekKey).text.trim();
     final endpoint = isGeminiRelay
-        ? ChatApiProvider.shuaiApiEndpoint
+        ? ChatApiProvider.aiWangYouEndpoint
         : _deepSeekEndpoint.text.trim();
     if (apiKey.isEmpty || !_validHttpEndpoint(endpoint)) {
       setState(() => _status = '请先填写当前提供商的有效 API Key 与地址。');
       return;
     }
     final effectiveModel = isGeminiRelay
-        ? DeepSeekModelProfile.fromApiName(ChatApiProvider.shuaiApiModel)
+        ? DeepSeekModelProfile.fromApiName(ChatApiProvider.aiWangYouModel)
         : _effectiveDeepSeekModel();
     if (effectiveModel == null) {
       setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
@@ -317,7 +314,7 @@ class _ModelNetworkSettingsPageState
     _deepSeekKey.dispose();
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
-    _shuaiApiKey.dispose();
+    _aiWangYouApiKey.dispose();
     _visionKey.dispose();
     _visionEndpoint.dispose();
     _visionModel.dispose();
@@ -339,12 +336,12 @@ class _ModelNetworkSettingsPageState
                 children: [
                   _SettingsSectionCard(
                     title: '聊天模型',
-                    subtitle: 'DeepSeek 与帅 API Gemini 二选一；两家的 Key 独立保存，切换不会覆盖。',
+                    subtitle: 'DeepSeek 是必填的内部工作通道；可额外启用玩游 Gemini，只负责用户可见的最终回复。',
                     children: [
                       DropdownButtonFormField<ChatApiProvider>(
                         value: _chatProvider,
                         decoration: const InputDecoration(
-                          labelText: '聊天提供商',
+                          labelText: '最终回复模型',
                           border: OutlineInputBorder(),
                         ),
                         items: ChatApiProvider.values
@@ -365,73 +362,73 @@ class _ModelNetworkSettingsPageState
                         },
                       ),
                       const SizedBox(height: 12),
-                      if (_chatProvider == ChatApiProvider.deepSeek) ...[
-                        _SecretField(
-                          controller: _deepSeekKey,
-                          label: 'DeepSeek API Key',
-                          revealed: _revealDeepSeek,
-                          onToggle: () => setState(
-                            () => _revealDeepSeek = !_revealDeepSeek,
-                          ),
+                      _SecretField(
+                        controller: _deepSeekKey,
+                        label: 'DeepSeek API Key（必填）',
+                        revealed: _revealDeepSeek,
+                        onToggle: () => setState(
+                          () => _revealDeepSeek = !_revealDeepSeek,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _deepSeekEndpoint,
+                        keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(
+                          labelText: 'Chat Completions API 地址',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<DeepSeekModelProfile>(
+                        value: _model,
+                        decoration: const InputDecoration(
+                          labelText: 'DeepSeek 内部模型',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: DeepSeekModelProfile.values
+                            .map(
+                              (value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(value.label),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) =>
+                            setState(() => _model = value ?? _model),
+                      ),
+                      if (_model.isCustom) ...[
                         const SizedBox(height: 12),
                         TextField(
-                          controller: _deepSeekEndpoint,
-                          keyboardType: TextInputType.url,
+                          controller: _customDeepSeekModel,
+                          keyboardType: TextInputType.text,
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.none,
+                          autofillHints: const <String>[],
+                          obscureText: false,
+                          autocorrect: false,
+                          enableSuggestions: false,
                           decoration: const InputDecoration(
-                            labelText: 'Chat Completions API 地址',
+                            labelText: '自定义模型名称（普通文本）',
+                            hintText: '例如：deepseek-v4.1',
+                            helperText: '将原样写入 Chat Completions 请求。',
                             border: OutlineInputBorder(),
                           ),
                         ),
+                      ],
+                      if (_chatProvider.isGeminiRelay) ...[
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<DeepSeekModelProfile>(
-                          value: _model,
-                          decoration: const InputDecoration(
-                            labelText: '默认聊天模型',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: DeepSeekModelProfile.values
-                              .map(
-                                (value) => DropdownMenuItem(
-                                  value: value,
-                                  child: Text(value.label),
-                                ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (value) =>
-                              setState(() => _model = value ?? _model),
-                        ),
-                        if (_model.isCustom) ...[
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _customDeepSeekModel,
-                            keyboardType: TextInputType.text,
-                            textInputAction: TextInputAction.done,
-                            textCapitalization: TextCapitalization.none,
-                            autofillHints: const <String>[],
-                            obscureText: false,
-                            autocorrect: false,
-                            enableSuggestions: false,
-                            decoration: const InputDecoration(
-                              labelText: '自定义模型名称（普通文本）',
-                              hintText: '例如：deepseek-v4.1',
-                              helperText: '将原样写入 Chat Completions 请求。',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ],
-                      ] else ...[
                         _SecretField(
-                          controller: _shuaiApiKey,
-                          label: '帅 API Key',
-                          revealed: _revealShuaiApi,
+                          controller: _aiWangYouApiKey,
+                          label: '玩游 Gemini API Key（最终回复）',
+                          revealed: _revealAiWangYou,
                           onToggle: () => setState(
-                            () => _revealShuaiApi = !_revealShuaiApi,
+                            () => _revealAiWangYou = !_revealAiWangYou,
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          initialValue: ChatApiProvider.shuaiApiEndpoint,
+                          initialValue: ChatApiProvider.aiWangYouEndpoint,
                           readOnly: true,
                           decoration: const InputDecoration(
                             labelText: 'Chat Completions API 地址',
@@ -441,11 +438,11 @@ class _ModelNetworkSettingsPageState
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          initialValue: ChatApiProvider.shuaiApiModel,
+                          initialValue: ChatApiProvider.aiWangYouModel,
                           readOnly: true,
                           decoration: const InputDecoration(
                             labelText: '固定模型',
-                            helperText: '按站点模型 ID 原样请求。',
+                            helperText: '只用于用户触发的最终可见正文。',
                             border: OutlineInputBorder(),
                           ),
                         ),
