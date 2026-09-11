@@ -176,6 +176,7 @@ def main() -> None:
         "FRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'",
         "never extract its retired Tiandou benchmark",
         "'assets/benchmark_jiuhu/*'",
+        "Keep the pinned Jiuhu ORT only as the post-build byte-identity",
         "unzip -q \".genie-payload/${FRONTEND_APK}\"",
         "'assets/openjtalk/*'",
         "expected_reference_inputs",

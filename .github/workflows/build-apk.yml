@@ -586,7 +586,10 @@ jobs:
             ".genie-payload/${FRONTEND_SHA}" | sha256sum -c -
           unzip -q ".genie-payload/${GENIE_APK}" \
             'assets/benchmark_jiuhu/*' \
+            'lib/arm64-v8a/libonnxruntime.so' \
             -d .genie-payload/unpacked
+          # Keep the pinned Jiuhu ORT only as the post-build byte-identity
+          # reference. The app dependency still supplies the packaged library.
           unzip -q ".genie-payload/${FRONTEND_APK}" \
             'assets/openjtalk/*' \
             'lib/arm64-v8a/libopenjtalk_native.so' \
