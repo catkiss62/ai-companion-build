@@ -32,25 +32,25 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04160-jiuhu-four-voice-auto-fix`，从 +203 head 开出；目标为 `v0.41.60+204`。本批把生产 TTS 从恬豆切换为 Genie-TTS-Android v0.7.6 已验证的小酒狐 V2Pro 四候选，修复自动情绪音色在部分入口缺少情绪 cue 的问题，并按用户追加要求同时接入与 DeepSeek 二选一的 NewAPI/OpenAI 兼容 Gemini 中转站；两项完成后只构建一次 APK |
+| 当前开发分支 | `agent/v04161-shuaiapi-immersive-language-reasoning`，从 +204 已构建 head 开出；目标为 `v0.41.61+205`。本批保留已真机通过的 Genie-TTS 小酒狐语音，把 Gemini 从玩游中转迁移到帅 API，模型固定为 `gemini-3.7-flash`；沉浸房间补齐中/日/EN 三语选择、按需外语缓存与对应 TTS，并修复 Gemini 官方思考摘要在沉浸房间不显示的问题 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +204 Actions build head `28c7c11a079017747c571a2fe35b06f6a65b0095` / tree `0af4358b36612938a10f875f3cfb38a137b5c3eb` 已验证。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与只含三语前端的旧验证包仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前已构建基线为 `0.41.59+203 / schema 59 / Snapshot protocol 6`；本批目标 `0.41.60+204 / schema 59 / Snapshot protocol 6`。删除高音版/低音版 UI 与运行选择，只保留音量、语速、独立音调；旧 `tts_tone_preset` 可作为无害兼容字段保留但不得再影响播放 |
+| App / 数据库 | 当前已构建基线为 `0.41.60+204 / schema 59 / Snapshot protocol 6`；本批目标 `0.41.61+205 / schema 60 / Snapshot protocol 6`。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
 | 最终 CI | +204 run [`34562176440`](https://github.com/catkiss62/ai-companion-build/actions/runs/34562176440)（832）完整成功：两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`717/717` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、无恬豆/奶油/Meju、OpenJTalk ELF 闭包、塔罗与 Draft 上传均通过 |
 | 测试 APK | `AI-Companion-v0.41.60-204-Jiuhu-Gemini-Relay-APK.apk`，544,651,810 bytes |
 | APK SHA-256 | `a4da80538999ae8be38d2dd18b584ca0d9ed48b29c5e91082a3821ed93ae5464`；与 Draft 资产服务端 digest 一致 |
 | Artifact / Release | Artifact [`10184946079`](https://github.com/catkiss62/ai-companion-build/actions/runs/34562176440/artifacts/10184946079)，ZIP 537,772,837 bytes / digest `4b70f398a3094628dbd595ca777acbe09807523a97f8c5c51fc34e49a1fa7a0c`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3e716d69a3124c996b8a) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +203 为可回退的完整恬豆构建；+204 小酒狐与 Gemini 中转合包现为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。run 832 的自动化与最终实包门全部通过，小酒狐私有源、生产 APK 和 Draft digest 均已核对；生产包只含四个指定小酒狐候选，恬豆/奶油/Meju 与测试残片不存在。Gemini 可见聊天使用官方思考摘要并已通过 UTF-8 Mock SSE；没有用户 Key，因此真实中转模型别名、额度与非空思考摘要仍须 App 内连接测试/真机确认，不能伪称已联网通过 |
+| 当前总状态 | +204 为 `CI PASSED / APK READY`；用户于 2026-09-11 明确反馈“语音没有问题”，故 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`，但旧玩游 Gemini 未通过真机验收且已被本批迁移任务取代。+205 当前为 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`：帅 API、沉浸三语、schema 60 与思考摘要修复已落地；专项及无私有依赖的 Actions 同款 validator 全绿，本环境没有 Flutter/Dart/Kotlin 与 CI 私有资源，完整编译、全量 tests、APK 和真机结论均不得提前声称 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **安装 +204 做窄真机验收**：先覆盖安装并逐一试听日常/温柔/可爱/活泼，核对设置页“最近音色”确实随情绪变化；验证默认 0 半音/1.0x 没有变厚、调整语速不改音高、单独音调有效且连续多句无固定停顿。再用用户自己的玩游 Key 选择 Gemini，运行连接测试并确认正文与思考摘要均通过，随后发一条普通消息确认 thinking 面板已切为 Gemini 摘要；切回 DeepSeek 后原 Key/模型/思考仍保留 |
-| 目标 | TTS 默认音调 0 半音且语速 1.0x 时完全不设置 `PlaybackParams`，保持小酒狐原始 32 kHz PCM；整条回复按最终 `CompanionEmotion` 固定一个候选；继续单 `MODE_STREAM` AudioTrack、无固定 200ms 等待且播放前段时生成后段。API 切换必须覆盖聊天、后台生成、Memory/Thought/Desire、沉浸与联网评价等所有共用主模型入口；DeepSeek 保留专用 `thinking.type`，Gemini 改用 `extra_body.google.thinking_config` 请求 `include_thoughts`，思考摘要继续流入现有 reasoning 面板 |
-| 当前证据 | Genie v0.7.6 APK 已经临时中转并在本地重组后复核为 649,663,221 bytes、SHA-256 `af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43`。Google 官方 Gemini OpenAI 兼容文档确认 3.7 Flash 支持 low/medium/high thinking，Gemini 3 不可完全关闭；思考摘要需 `include_thoughts`。NewAPI 官方 Chat Completions 合同支持 Bearer、流式、`reasoning_effort` 与响应 `reasoning_content`，其当前官方源码还明确把 `extra_body.google.thinking_config.include_thoughts/thinking_level` 转为 Gemini 原生配置，并把 thought 转为 `reasoning_content`。未持有用户中转 Key，因此真实额度/别名可用性必须由 App 内连接测试和真机验证，不能伪称已联网通过 |
-| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或任何 API Key；两家 Key 独立安全存储，切换不得覆盖或误发另一家 Key。Gemini 请求不得携带 DeepSeek 私有 `thinking`，也不得同时发送互相冲突的 `reasoning_effort` 与 Gemini `thinking_level`。CI 只从 AI 伴侣私有 Draft 恢复小酒狐 APK并裁剪 `assets/benchmark_jiuhu`；生产包不得含恬豆、奶油、乐奈、高频柔化或混合缓存。世界书、Memory/Thought/Desire、媒体 D6、Agent Outcome、表情概率与发送落底均不得回归；schema 与 Snapshot protocol 不变 |
+| 当前下一步 | **实现并构建 +205**：把 Gemini endpoint 改为 `https://api.shuaiapi.com/v1/chat/completions`、模型改为 `gemini-3.7-flash`，继续与 DeepSeek 隔离 Key/方言；把 Gemini 的 `google.thinking_config` 作为实际顶层请求字段发送并保留 `reasoning_content` 流解析。沉浸房间增加中/日/EN 顶栏按钮，沿用全局语言与“显示外语正文”设置，首次选择或播放外语时只生成该语种并持久缓存；官方思考摘要继续进入现有 reasoning 面板。完成 schema 59→60 迁移、Snapshot/旧备份兼容、专项回归、Analyze、Release、签名与实包门后推送并提供 Draft APK 下载链接 |
+| 目标 | 帅 API 使用用户给出的标准 OpenAI Chat Completions 合同；DeepSeek 保留专用 `thinking.type`，Gemini 实际 JSON 顶层使用 `google.thinking_config` 请求 `include_thoughts`，不能把 OpenAI SDK 的 `extra_body` 参数名原样发到线端。沉浸三语与普通聊天同一产品合同：中文原文一次生成，日/英首次请求时各生成一次并缓存；只保留一个当前前端语言，正文显示受“显示外语正文”控制，TTS 播放当前语言 |
+| 当前证据 | 用户提供的帅 API cURL明确 endpoint、Bearer、JSON 与模型名；未提供 Key，故真实联网仍须真机验证。Google 官方文档确认 Gemini 可返回“思考摘要”而非原始思维链，`include_thoughts` 用于请求摘要；未发现可强制摘要语言为中文的官方参数，因此本批不伪造中文思考链。实现已把 SDK `extra_body` 改为线端顶层 `google.thinking_config`，Mock SSE 锁定中文 UTF-8 `reasoning_content`；新沉浸三语服务测试锁定按语种缓存、并发去重、缺 Key 不写假缓存、schema 59 旧行兼容与日英重载。现有 THINKING 面板仍可按需翻译英文占主的真实摘要 |
+| 保护与排除 | 不提交模型、参考音频、RoBERTa、用户附件或任何 API Key；两家 Key 独立安全存储，切换不得覆盖或误发另一家 Key。Gemini 请求不得携带 DeepSeek 私有 `thinking`，也不得同时发送互相冲突的 `reasoning_effort` 与 Gemini `thinking_level`。不展示或声称获得原始 CoT，只展示服务实际返回的官方思考摘要；没有官方中文强制参数就先不增加二次翻译。CI 私有小酒狐恢复/裁剪与所有既有功能门不得回归；Snapshot protocol 保持 6 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | D6 新媒体使用 content-addressed blob；聊天消息、相册与表情发送只增加独立引用/引用计数，不再复制相同原图。保存到相册只增加 album ref；缓存页只列未被永久相册引用的聊天媒体，支持多选、全选和合计空间；删除任一引用都不能破坏其余引用。Snapshot protocol 6 必须携带共享 blob，旧 protocol 5 恢复后仍可手动优化，跨设备或缺少原表情包时历史不破图 |
 | 完成判据 | CI 必须证明生产 manifest 只有四个小酒狐候选及其独立参考张量，模型/参考资源大小与 SHA 全匹配，退休语音不进入运行路径；TTS 测试锁定情绪映射、0 半音/1.0x 绕过 DSP、单 AudioTrack 与无固定等待。API 测试必须截获请求并证明两提供商 Key/端点/模型隔离、DeepSeek 私有 thinking 不泄漏到 Gemini、Gemini thinking level + `include_thoughts` 正确、流式 `reasoning_content` 与 tool calls 可继续解析、切回 DeepSeek 不丢原配置。完整回归、Analyze、Release、签名和 APK 实包门全绿后只写 `APK READY`；中转别名与思考摘要仍须用户用自己的 Key 真机测试 |
@@ -89,6 +89,22 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-11 v0.41.61+205 帅 API、沉浸三语与 Gemini 思考摘要（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. 用户确认 +204“语音没有问题”。该反馈只把 +204 小酒狐语音链提升为 `TRUE DEVICE PASSED`；旧玩游 Gemini 没有相同真机结论，并因用户要求换站而被本批取代。
+2. 用户指定新中转定价页 `https://api.shuaiapi.com/pricing` 与模型 `gemini-3.7-flash`，随后提供权威 cURL：`POST https://api.shuaiapi.com/v1/chat/completions`，Bearer 鉴权、`application/json`、标准 `messages` 与 `temperature`。本批按该线端合同改 endpoint/model；不提交或索取用户 Key，也不把旧玩游 Key 覆盖到新服务。现有安全存储槽可保留兼容迁移，但产品文案与网络目标必须全部改为帅 API。
+3. 旧 Gemini 构造器把 OpenAI SDK 的 `extra_body` 参数名直接序列化进 HTTP JSON。SDK 语义实际是把其中字段合并到请求体顶层；故本批改为顶层 `google.thinking_config`，继续发送 `thinking_level` 与 `include_thoughts`，并确保不带 DeepSeek 私有 `thinking`。流式 `reasoning_content`、正文、tool calls 与 UTF-8 分片解析均须保留。
+4. 沉浸控制器当前已经请求 thinking、累计 reasoning 并持久化，页面也已有 `ReasoningPanel`；因此不重做 UI 概念，而以正确的 Gemini 请求体、流式解析与沉浸控制器专项测试修复“不显示思考”。对外统一称“官方思考摘要”，不得声称暴露模型原始思维链。
+5. Google 官方资料确认 Gemini 2.5+ 可用 `include_thoughts` 返回独立的思考摘要，Gemini 3 系列思考本身不可完全关闭；未发现官方 API 可指定思考摘要必须用中文。按用户“官方无法就先不管”的决定，本批不增加二次模型翻译，也不伪造中文 CoT；若服务自然返回中文则原样显示，否则保持其真实返回语言。
+6. 沉浸房间补齐与普通聊天一致的中/日/EN 顶栏按钮。中文原文保持唯一权威；日语/英语分别在首次选择显示或首次播放时按需投影一次并持久缓存，后续复用，不重跑原问题、工具、记忆、情绪或 reasoning。所选语言沿用全局 `tts_language`，外语正文仍受 `show_foreign_replies` 控制；TTS 播放选择语种，情绪判断继续使用中文权威正文。
+7. 目标版本 `0.41.61+205 / schema 60 / Snapshot protocol 6`。schema 60 只给 `immersive_messages` 增加可空/默认空的日英正文与 segments JSON 缓存列，旧 59 数据无损升级；Snapshot 既有整表导出/恢复继续携带这些列，旧备份缺列时用默认值。不得回归房间删除、压缩摘要、NSFW 路由、中断回合、发送落底、世界书、Memory/Thought/Desire、媒体与语音链。
+8. 预定验证：请求截获锁定帅 API endpoint/model/顶层 Gemini thinking 配置与 DeepSeek 隔离；Mock SSE 锁定中文 UTF-8 reasoning；沉浸消息迁移、日英按需缓存/去重、显示开关、TTS 选语和 reasoning 持久/重载；全量 Flutter tests/analyze、Kotlin/AIDL、arm64 Release、签名、私有小酒狐实包门与 Draft 上传。自动化通过只记 `CI PASSED / APK READY`，真实中转与 UI/听感仍待用户 Key 真机验证。
+9. 本地实现已完成：`ChatApiProvider` 现使用 `shuaiapi_gemini`、固定 endpoint/model，并把旧 `aiwangyou_gemini` 选择迁到新提供商；新站使用独立 `shuaiapi_gemini_api_key`，退休玩游 Key 不会发送到新域名。设置页文案、只读 endpoint/model 与连接测试均同步为帅 API；DeepSeek 自定义端点、模型与 Key 保持原槽。
+10. Gemini HTTP JSON 已从错误的字面 `extra_body` 改成顶层 `google.thinking_config`；可见请求仍发送选定 low/medium/high 与 `include_thoughts:true`，后台 JSON/分类调用为 low 且不索取摘要，DeepSeek 独有 `thinking`/`reasoning_effort` 不进入 Gemini。现有 SSE 解码继续把 `reasoning_content` 送入普通与沉浸 THINKING 面板，沉浸第一段 reasoning 继续累计、持久化与重载，续写段不覆盖第一段摘要。
+11. 沉浸消息模型/仓库新增日英正文与 segments 缓存，服务复用现有严格分段翻译网关并按 `messageId:language` 合并并发请求；控制器在每条中文正文提交后按当前 `tts_language` 只生成所选外语，自动/手动 TTS 播放对应语言，但情绪分类仍读取中文。页面顶栏新增中/日/EN，显示外语正文时沿用 `show_foreign_replies`，并保留较小中文对照；关闭开关时按钮仍只改变朗读语言。
+12. schema 59→60 使用幂等 `PRAGMA table_info` 后追加 `ja_content/ja_segments_json/en_content/en_segments_json` 四个默认空列；新安装也走同一 helper。Snapshot protocol 6 的既有 `immersive_messages` 整表导出自动包含新列，旧 schema 59 备份/行缺列时由默认空值恢复为中文-only，不另建易漏删的附表。
+13. 新增 `immersive_message_language_variant_test.dart` 四项测试，并更新请求 Mock、Agent 自读版本、历史版本 validator 与 workflow。`validate_v04143/45/47/48/49/50/55/58/59/60/61`、当前总账 validator、其余不依赖私有载荷的 Actions 源码 validator 和 `git diff --check` 本地通过。全量遍历中三项 Actions validator 在本机按预期无法执行：417 桌宠包与 LingChat effects 尚未由 CI 恢复，且没有 `kotlinc`；本机同样没有 Flutter/Dart，故 Analyze、Flutter tests、Kotlin、Release、签名、实包资源与 Draft 必须等待 Actions，不能记为本地通过。
 
 ### 2026-09-11 v0.41.60+204 小酒狐四候选与自动情绪音色修复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

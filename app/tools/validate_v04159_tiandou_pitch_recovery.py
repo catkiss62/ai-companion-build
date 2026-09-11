@@ -17,7 +17,7 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    require(read("pubspec.yaml"), "version: 0.41.60+204")
+    require(read("pubspec.yaml"), "version: 0.41.61+205")
     require(
         read("lib/core/database/app_database.dart"),
         "static const int schemaVersion = 59;",

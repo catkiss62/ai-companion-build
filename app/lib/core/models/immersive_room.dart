@@ -1,3 +1,6 @@
+import 'chat_language_variant.dart';
+import 'chat_segment.dart';
+
 class ImmersiveRoom {
   const ImmersiveRoom({
     required this.id,
@@ -78,6 +81,7 @@ class ImmersiveMessage {
     required this.content,
     required this.reasoningContent,
     required this.createdAt,
+    this.languageVariants = const <ChatLanguage, ChatLanguageVariant>{},
   });
 
   final String id;
@@ -86,9 +90,33 @@ class ImmersiveMessage {
   final String content;
   final String reasoningContent;
   final DateTime createdAt;
+  final Map<ChatLanguage, ChatLanguageVariant> languageVariants;
 
   bool get isUser => role == 'user';
   bool get isAssistant => role == 'assistant';
+  bool hasLanguage(ChatLanguage language) =>
+      language == ChatLanguage.chinese || languageVariants.containsKey(language);
+  String contentFor(ChatLanguage language) =>
+      language == ChatLanguage.chinese
+          ? content
+          : languageVariants[language]?.content ?? '';
+  List<ChatSegment> segmentsFor(ChatLanguage language) =>
+      language == ChatLanguage.chinese
+          ? ChatSegmentCodec.parseAssistantText(content)
+          : languageVariants[language]?.segments ?? const <ChatSegment>[];
+
+  ImmersiveMessage copyWith({
+    Map<ChatLanguage, ChatLanguageVariant>? languageVariants,
+  }) =>
+      ImmersiveMessage(
+        id: id,
+        roomId: roomId,
+        role: role,
+        content: content,
+        reasoningContent: reasoningContent,
+        createdAt: createdAt,
+        languageVariants: languageVariants ?? this.languageVariants,
+      );
 
   factory ImmersiveMessage.fromDb(Map<String, Object?> row) =>
       ImmersiveMessage(
@@ -100,5 +128,27 @@ class ImmersiveMessage {
         createdAt: DateTime.fromMillisecondsSinceEpoch(
           (row['created_at'] as num).toInt(),
         ),
+        languageVariants: _languageVariantsFromDb(row),
       );
+
+  static Map<ChatLanguage, ChatLanguageVariant> _languageVariantsFromDb(
+    Map<String, Object?> row,
+  ) {
+    final variants = <ChatLanguage, ChatLanguageVariant>{};
+    for (final language in const [ChatLanguage.japanese, ChatLanguage.english]) {
+      final prefix = language == ChatLanguage.japanese ? 'ja' : 'en';
+      final content = row['${prefix}_content'] as String? ?? '';
+      if (content.trim().isEmpty) continue;
+      variants[language] = ChatLanguageVariant(
+        messageId: row['id'] as String,
+        language: language,
+        content: content,
+        segments: ChatSegmentCodec.decode(
+          row['${prefix}_segments_json'] as String?,
+          fallbackText: content,
+        ),
+      );
+    }
+    return Map<ChatLanguage, ChatLanguageVariant>.unmodifiable(variants);
+  }
 }

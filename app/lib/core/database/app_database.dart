@@ -116,7 +116,8 @@ class AppDatabase {
   // Historical validator compatibility token: static const int schemaVersion = 56;
   // Historical validator compatibility token: static const int schemaVersion = 57;
   // Historical validator compatibility token: static const int schemaVersion = 58;
-  static const int schemaVersion = 59;
+  // Historical validator compatibility token: static const int schemaVersion = 59;
+  static const int schemaVersion = 60;
 
   Database? _db;
   Future<Database>? _opening;
@@ -1173,6 +1174,9 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 60) {
+      await _createV60ImmersiveLanguageColumns(db);
+    }
   }
 
   Future<void> _createSchema(Database db) async {
@@ -1370,6 +1374,7 @@ class AppDatabase {
     await _createV56SubjectiveSearchColumns(db);
     await _createV57MessageLanguageVariants(db);
     await _createV58MediaBlobTables(db);
+    await _createV60ImmersiveLanguageColumns(db);
     await _seedRuleLayers(db);
 
     final initial = DesireSnapshot();
@@ -3392,6 +3397,27 @@ class AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_companion_album_blob '
       "ON companion_album_candidates(blob_id) WHERE blob_id != ''",
     );
+  }
+
+  Future<void> _createV60ImmersiveLanguageColumns(Database db) async {
+    final columns = (await db.rawQuery(
+      'PRAGMA table_info(immersive_messages)',
+    ))
+        .map((row) => row['name'] as String)
+        .toSet();
+    const definitions = <String, String>{
+      'ja_content': "TEXT NOT NULL DEFAULT ''",
+      'ja_segments_json': "TEXT NOT NULL DEFAULT ''",
+      'en_content': "TEXT NOT NULL DEFAULT ''",
+      'en_segments_json': "TEXT NOT NULL DEFAULT ''",
+    };
+    for (final entry in definitions.entries) {
+      if (!columns.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE immersive_messages ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
   }
 
   Future<void> _stabilizeV53RoleplayPronounPriority(

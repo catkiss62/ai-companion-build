@@ -112,12 +112,14 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04160-jiuhu-four-voice-auto-fix",
-        "0.41.60+204",
-        "schema 59",
+        "agent/v04161-shuaiapi-immersive-language-reasoning",
+        "0.41.61+205",
+        "schema 60",
+        "帅 API",
+        "沉浸房间",
         "Snapshot protocol 6",
         "造梗来源",
-        "媒体 D6",
+        "D6",
         "Phase 2B",
         "App 内 Agent 能力桥",
         "Memory 2D",
@@ -204,12 +206,12 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.60\+204\s*$", pubspec, re.MULTILINE)
+        re.search(r"^version:\s*0\.41\.61\+205\s*$", pubspec, re.MULTILINE)
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )
     require(
-        "static const int schemaVersion = 59;" in database,
+        "static const int schemaVersion = 60;" in database,
         "database schema no longer matches the current development baseline",
     )
 

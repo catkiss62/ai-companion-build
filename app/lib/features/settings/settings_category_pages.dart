@@ -31,7 +31,7 @@ class _ModelNetworkSettingsPageState
   final _deepSeekKey = TextEditingController();
   final _deepSeekEndpoint = TextEditingController();
   final _customDeepSeekModel = TextEditingController();
-  final _aiWangYouKey = TextEditingController();
+  final _shuaiApiKey = TextEditingController();
   final _visionKey = TextEditingController();
   final _visionEndpoint = TextEditingController();
   final _visionModel = TextEditingController();
@@ -50,7 +50,7 @@ class _ModelNetworkSettingsPageState
   bool _testingChat = false;
   bool _testingAgnes = false;
   bool _revealDeepSeek = false;
-  bool _revealAiWangYou = false;
+  bool _revealShuaiApi = false;
   bool _revealVision = false;
   bool _revealTavily = false;
   bool _revealAgnes = false;
@@ -67,7 +67,7 @@ class _ModelNetworkSettingsPageState
     _chatProvider = await _secure.readChatProvider();
     _deepSeekKey.text = await _secure.readDeepSeekApiKey() ?? '';
     _deepSeekEndpoint.text = await _secure.readDeepSeekEndpoint();
-    _aiWangYouKey.text = await _secure.readAiWangYouApiKey() ?? '';
+    _shuaiApiKey.text = await _secure.readShuaiApiKey() ?? '';
     _visionKey.text = await _secure.readVisionApiKey() ?? '';
     _visionEndpoint.text = await _secure.readVisionEndpoint();
     _visionModel.text = await _secure.readVisionModel();
@@ -80,7 +80,7 @@ class _ModelNetworkSettingsPageState
     final storedDeepSeekModel = await _db.getSetting('deepseek_model');
     final storedModel = DeepSeekModelProfile.fromApiName(
       storedDeepSeekModel ??
-          (activeModel == ChatApiProvider.aiWangYouModel
+          (activeModel == ChatApiProvider.shuaiApiModel
               ? null
               : activeModel),
     );
@@ -124,7 +124,7 @@ class _ModelNetworkSettingsPageState
     }
     final effectiveModel = _chatProvider == ChatApiProvider.deepSeek
         ? _effectiveDeepSeekModel()
-        : DeepSeekModelProfile.fromApiName(ChatApiProvider.aiWangYouModel);
+        : DeepSeekModelProfile.fromApiName(ChatApiProvider.shuaiApiModel);
     if (_chatProvider == ChatApiProvider.deepSeek && effectiveModel == null) {
       setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
       return;
@@ -135,7 +135,7 @@ class _ModelNetworkSettingsPageState
         await _secure.writeApiKey(_deepSeekKey.text);
         await _db.setSetting('deepseek_model', effectiveModel!.apiName);
       } else {
-        await _secure.writeAiWangYouApiKey(_aiWangYouKey.text);
+        await _secure.writeShuaiApiKey(_shuaiApiKey.text);
         final preservedDeepSeekModel = _effectiveDeepSeekModel();
         if (preservedDeepSeekModel != null) {
           await _db.setSetting(
@@ -150,7 +150,7 @@ class _ModelNetworkSettingsPageState
       await _secure.writeChatProvider(_chatProvider);
       final selectedKey = _chatProvider == ChatApiProvider.deepSeek
           ? _deepSeekKey.text
-          : _aiWangYouKey.text;
+          : _shuaiApiKey.text;
       if (selectedKey.trim().isNotEmpty) {
         await _db.wakeRetryableGenerationJobs();
         await _db.wakeRetryablePostTurnJobs();
@@ -214,16 +214,16 @@ class _ModelNetworkSettingsPageState
 
   Future<void> _testChatProvider() async {
     final isGeminiRelay = _chatProvider.isGeminiRelay;
-    final apiKey = (isGeminiRelay ? _aiWangYouKey : _deepSeekKey).text.trim();
+    final apiKey = (isGeminiRelay ? _shuaiApiKey : _deepSeekKey).text.trim();
     final endpoint = isGeminiRelay
-        ? ChatApiProvider.aiWangYouEndpoint
+        ? ChatApiProvider.shuaiApiEndpoint
         : _deepSeekEndpoint.text.trim();
     if (apiKey.isEmpty || !_validHttpEndpoint(endpoint)) {
       setState(() => _status = '请先填写当前提供商的有效 API Key 与地址。');
       return;
     }
     final effectiveModel = isGeminiRelay
-        ? DeepSeekModelProfile.fromApiName(ChatApiProvider.aiWangYouModel)
+        ? DeepSeekModelProfile.fromApiName(ChatApiProvider.shuaiApiModel)
         : _effectiveDeepSeekModel();
     if (effectiveModel == null) {
       setState(() => _status = '请输入自定义 DeepSeek 模型 ID。');
@@ -317,7 +317,7 @@ class _ModelNetworkSettingsPageState
     _deepSeekKey.dispose();
     _deepSeekEndpoint.dispose();
     _customDeepSeekModel.dispose();
-    _aiWangYouKey.dispose();
+    _shuaiApiKey.dispose();
     _visionKey.dispose();
     _visionEndpoint.dispose();
     _visionModel.dispose();
@@ -339,7 +339,7 @@ class _ModelNetworkSettingsPageState
                 children: [
                   _SettingsSectionCard(
                     title: '聊天模型',
-                    subtitle: 'DeepSeek 与玩游 Gemini 二选一；两家的 Key 独立保存，切换不会覆盖。',
+                    subtitle: 'DeepSeek 与帅 API Gemini 二选一；两家的 Key 独立保存，切换不会覆盖。',
                     children: [
                       DropdownButtonFormField<ChatApiProvider>(
                         value: _chatProvider,
@@ -422,16 +422,16 @@ class _ModelNetworkSettingsPageState
                         ],
                       ] else ...[
                         _SecretField(
-                          controller: _aiWangYouKey,
-                          label: '玩游中转 API Key',
-                          revealed: _revealAiWangYou,
+                          controller: _shuaiApiKey,
+                          label: '帅 API Key',
+                          revealed: _revealShuaiApi,
                           onToggle: () => setState(
-                            () => _revealAiWangYou = !_revealAiWangYou,
+                            () => _revealShuaiApi = !_revealShuaiApi,
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          initialValue: ChatApiProvider.aiWangYouEndpoint,
+                          initialValue: ChatApiProvider.shuaiApiEndpoint,
                           readOnly: true,
                           decoration: const InputDecoration(
                             labelText: 'Chat Completions API 地址',
@@ -441,7 +441,7 @@ class _ModelNetworkSettingsPageState
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          initialValue: ChatApiProvider.aiWangYouModel,
+                          initialValue: ChatApiProvider.shuaiApiModel,
                           readOnly: true,
                           decoration: const InputDecoration(
                             labelText: '固定模型',

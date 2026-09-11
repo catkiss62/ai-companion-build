@@ -7,6 +7,8 @@ import '../../core/ai/reasoning_translation_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/immersive/immersive_room_controller.dart';
 import '../../core/immersive/immersive_room_repository.dart';
+import '../../core/models/chat_language_variant.dart';
+import '../../core/models/chat_segment.dart';
 import '../../core/models/immersive_room.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/personality/personality_catalog.dart';
@@ -327,6 +329,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   bool _followLatest = true;
   bool _programmaticScroll = false;
   bool _scrollFrameScheduled = false;
+  bool _showForeignReplies = false;
+  ChatLanguage _selectedLanguage = ChatLanguage.chinese;
   Timer? _trialTimer;
   PersonalityTrial? _personalityTrial;
   SpecialStyleTrial? _activeSpecialTrial;
@@ -398,6 +402,11 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     final db = AppDatabase.instance;
     final visualStageEnabled =
         (await db.getSetting('chat_visual_stage_enabled')) != '0';
+    final showForeignReplies =
+        (await db.getSetting('show_foreign_replies')) == '1';
+    final selectedLanguage =
+        ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese;
     final panelOpacity = (double.tryParse(
               await db.getSetting('chat_panel_opacity') ?? '',
             ) ??
@@ -463,6 +472,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     if (!mounted) return;
     setState(() {
       _visualStageEnabled = visualStageEnabled;
+      _showForeignReplies = showForeignReplies;
+      _selectedLanguage = selectedLanguage;
       _panelOpacity = panelOpacity;
       _panelFraction = panelFraction;
       _dialogueColor = dialogueColor;
@@ -500,6 +511,43 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
     input.clear();
     await controller.send(text);
   }
+
+  Future<void> _speakMessageSafely(ImmersiveMessage message) async {
+    try {
+      await controller.speakMessage(
+        message,
+        language: _selectedLanguage,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('语音准备失败：$error')),
+      );
+    }
+  }
+
+  Widget _languageSelector() => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final language in ChatLanguage.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 2),
+              child: _ImmersiveLanguageButton(
+                language: language,
+                selected: _selectedLanguage == language,
+                onPressed: () async {
+                  await controller.stopSpeech();
+                  if (!mounted) return;
+                  setState(() => _selectedLanguage = language);
+                  await AppDatabase.instance.setSetting(
+                    'tts_language',
+                    language.key,
+                  );
+                },
+              ),
+            ),
+        ],
+      );
 
   Future<void> _renameRoom() async {
     final room = controller.room;
@@ -752,6 +800,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                           _ImmersiveMessageView(
                             key: ValueKey(item.message!.id),
                             message: item.message!,
+                            showForeignReplies: _showForeignReplies,
+                            selectedLanguage: _selectedLanguage,
                             bubbleOpacity:
                                 _visualStageEnabled ? _panelOpacity : 1.0,
                             ttsPhase:
@@ -762,7 +812,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
                                         TtsPlaybackPhase.idle) {
                                       controller.stopSpeech();
                                     } else {
-                                      controller.speakMessage(item.message!);
+                                      _speakMessageSafely(item.message!);
                                     }
                                   }
                                 : null,
@@ -837,6 +887,8 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           actions: [
+            _languageSelector(),
+            const SizedBox(width: 3),
             if (room != null) _nsfwButton(room),
             if (room != null) const SizedBox(width: 4),
             if (room != null)
@@ -1125,16 +1177,81 @@ class _ImmersiveInterruptedTurn extends StatelessWidget {
       );
 }
 
+class _ImmersiveLanguageButton extends StatelessWidget {
+  const _ImmersiveLanguageButton({
+    required this.language,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final ChatLanguage language;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final languageName = switch (language) {
+      ChatLanguage.chinese => '中文',
+      ChatLanguage.japanese => '日语',
+      ChatLanguage.english => '英语',
+    };
+    return Tooltip(
+      message: '选择$languageName作为沉浸房间朗读语言',
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '选择$languageName作为沉浸房间朗读语言',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 24),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected
+                  ? scheme.primary.withValues(alpha: 0.18)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.72)
+                    : scheme.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Text(
+              language.label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
+                    fontWeight:
+                        selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ImmersiveMessageView extends StatelessWidget {
   const _ImmersiveMessageView({
     super.key,
     required this.message,
+    required this.showForeignReplies,
+    required this.selectedLanguage,
     required this.bubbleOpacity,
     required this.ttsPhase,
     this.onSpeechAction,
   });
 
   final ImmersiveMessage message;
+  final bool showForeignReplies;
+  final ChatLanguage selectedLanguage;
   final double bubbleOpacity;
   final TtsPlaybackPhase ttsPhase;
   final VoidCallback? onSpeechAction;
@@ -1167,6 +1284,14 @@ class _ImmersiveMessageView extends StatelessWidget {
         ),
       );
     }
+    final displayLanguage = showForeignReplies &&
+            message.hasLanguage(selectedLanguage)
+        ? selectedLanguage
+        : ChatLanguage.chinese;
+    final segments = message.segmentsFor(displayLanguage);
+    final displayedContent = segments.isNotEmpty
+        ? ChatSegmentCodec.displayText(segments)
+        : message.contentFor(displayLanguage);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
@@ -1182,7 +1307,14 @@ class _ImmersiveMessageView extends StatelessWidget {
               ),
             ),
           _ImmersiveAssistantRail(
-            content: message.content,
+            content: displayedContent,
+            body: displayLanguage == ChatLanguage.chinese
+                ? null
+                : _ImmersiveForeignProjection(
+                    language: displayLanguage,
+                    foreignText: displayedContent,
+                    chineseText: message.content,
+                  ),
             footer: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1245,10 +1377,80 @@ class _ImmersiveStreamingView extends StatelessWidget {
       );
 }
 
+class _ImmersiveForeignProjection extends StatelessWidget {
+  const _ImmersiveForeignProjection({
+    required this.language,
+    required this.foreignText,
+    required this.chineseText,
+  });
+
+  final ChatLanguage language;
+  final String foreignText;
+  final String chineseText;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            language == ChatLanguage.japanese ? '日本語' : 'ENGLISH',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.primary.withValues(alpha: 0.82),
+                  letterSpacing: 0.8,
+                ),
+          ),
+          const SizedBox(height: 5),
+          NovelTintText(
+            text: foreignText,
+            style: const TextStyle(height: 1.62),
+          ),
+          const SizedBox(height: 8),
+          Divider(
+            height: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.34),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '中文对照',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.62),
+                  fontSize: 9.5,
+                ),
+          ),
+          const SizedBox(height: 2),
+          NovelTintText(
+            text: chineseText,
+            style: TextStyle(
+              height: 1.45,
+              fontSize: 11.5,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.68),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ImmersiveAssistantRail extends StatelessWidget {
-  const _ImmersiveAssistantRail({required this.content, this.footer});
+  const _ImmersiveAssistantRail({
+    required this.content,
+    this.body,
+    this.footer,
+  });
 
   final String content;
+  final Widget? body;
   final Widget? footer;
 
   @override
@@ -1267,10 +1469,11 @@ class _ImmersiveAssistantRail extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            NovelTintText(
-              text: content,
-              style: const TextStyle(height: 1.62),
-            ),
+            body ??
+                NovelTintText(
+                  text: content,
+                  style: const TextStyle(height: 1.62),
+                ),
             if (footer != null) ...[
               const SizedBox(height: 4),
               footer!,

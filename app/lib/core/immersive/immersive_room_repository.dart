@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../models/immersive_room.dart';
 import '../models/generation_job.dart';
+import '../models/chat_language_variant.dart';
+import '../models/chat_segment.dart';
 import '../personality/personality_catalog.dart';
 import '../rules/rule_layer_content_immersive.dart';
 import 'immersive_shared_memory_policy.dart';
@@ -268,6 +270,38 @@ class ImmersiveRoomRepository {
       orderBy: 'created_at ASC',
     );
     return rows.map(ImmersiveMessage.fromDb).toList(growable: false);
+  }
+
+  Future<ImmersiveMessage?> messageById(String messageId) async {
+    final database = await db.database;
+    final rows = await database.query(
+      'immersive_messages',
+      where: 'id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : ImmersiveMessage.fromDb(rows.single);
+  }
+
+  Future<void> saveLanguageVariant(ChatLanguageVariant variant) async {
+    if (variant.language == ChatLanguage.chinese ||
+        variant.messageId.trim().isEmpty ||
+        variant.content.trim().isEmpty ||
+        variant.segments.isEmpty) {
+      throw StateError('invalid_immersive_message_language_variant');
+    }
+    final database = await db.database;
+    final prefix = variant.language == ChatLanguage.japanese ? 'ja' : 'en';
+    final updated = await database.update(
+      'immersive_messages',
+      <String, Object?>{
+        '${prefix}_content': variant.content,
+        '${prefix}_segments_json': ChatSegmentCodec.encode(variant.segments),
+      },
+      where: 'id = ? AND role = ?',
+      whereArgs: [variant.messageId, 'assistant'],
+    );
+    if (updated != 1) throw StateError('language_variant_owner_missing');
   }
 
   Future<List<InterruptedTurnDisplay>> interruptionsForRoom(

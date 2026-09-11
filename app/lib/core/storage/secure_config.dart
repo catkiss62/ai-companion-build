@@ -9,7 +9,7 @@ class SecureConfig {
   static const _apiKeyName = 'deepseek_api_key';
   static const _endpointName = 'deepseek_chat_endpoint';
   static const _chatProviderName = 'chat_api_provider';
-  static const _aiWangYouApiKeyName = 'aiwangyou_gemini_api_key';
+  static const _shuaiApiKeyName = 'shuaiapi_gemini_api_key';
   static const defaultEndpoint = 'https://api.deepseek.com/chat/completions';
   static const _visionApiKeyName = 'qwen_vision_api_key';
   static const _visionEndpointName = 'qwen_vision_endpoint';
@@ -43,14 +43,13 @@ class SecureConfig {
   Future<String?> readApiKey() async {
     return switch (await readChatProvider()) {
       ChatApiProvider.deepSeek => readDeepSeekApiKey(),
-      ChatApiProvider.aiWangYouGemini => readAiWangYouApiKey(),
+      ChatApiProvider.shuaiApiGemini => readShuaiApiKey(),
     };
   }
 
   Future<String?> readDeepSeekApiKey() => _storage.read(key: _apiKeyName);
 
-  Future<String?> readAiWangYouApiKey() =>
-      _storage.read(key: _aiWangYouApiKeyName);
+  Future<String?> readShuaiApiKey() => _storage.read(key: _shuaiApiKeyName);
 
   Future<void> writeApiKey(String value) async {
     final trimmed = value.trim();
@@ -61,12 +60,12 @@ class SecureConfig {
     }
   }
 
-  Future<void> writeAiWangYouApiKey(String value) =>
-      _writeOptionalSecret(_aiWangYouApiKeyName, value);
+  Future<void> writeShuaiApiKey(String value) =>
+      _writeOptionalSecret(_shuaiApiKeyName, value);
 
   Future<String> readEndpoint() async {
-    if (await readChatProvider() == ChatApiProvider.aiWangYouGemini) {
-      return ChatApiProvider.aiWangYouEndpoint;
+    if (await readChatProvider() == ChatApiProvider.shuaiApiGemini) {
+      return ChatApiProvider.shuaiApiEndpoint;
     }
     return readDeepSeekEndpoint();
   }
@@ -176,8 +175,8 @@ class SecureConfig {
   }
 
   Future<void> clearApiKey() async {
-    final key = await readChatProvider() == ChatApiProvider.aiWangYouGemini
-        ? _aiWangYouApiKeyName
+    final key = await readChatProvider() == ChatApiProvider.shuaiApiGemini
+        ? _shuaiApiKeyName
         : _apiKeyName;
     await _storage.delete(key: key);
   }

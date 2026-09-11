@@ -4,18 +4,21 @@ import 'package:flutter/foundation.dart';
 
 import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
+import '../ai/message_language_variant_service.dart';
 import '../ai/model_profile.dart';
 import '../database/app_database.dart';
 import '../emotion/emotion_classifier_service.dart';
 import '../emotion/emotion_contract.dart';
 import '../models/immersive_room.dart';
 import '../models/generation_job.dart';
+import '../models/chat_language_variant.dart';
 import '../somatic/somatic_engine.dart';
 import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
 import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
 import 'immersive_nsfw_router.dart';
+import 'immersive_message_language_variant_service.dart';
 import 'immersive_prompt_builder.dart';
 import 'immersive_room_repository.dart';
 
@@ -25,10 +28,18 @@ class ImmersiveRoomController extends ChangeNotifier {
     AppDatabase? db,
     DeepSeekClient? client,
     SecureConfig? secureConfig,
+    MessageLanguageVariantGateway? languageVariantGateway,
   })  : db = db ?? AppDatabase.instance,
         client = client ?? DeepSeekClient(),
         secureConfig = secureConfig ?? SecureConfig.instance {
     repository = ImmersiveRoomRepository(this.db);
+    languageVariantService = ImmersiveMessageLanguageVariantService(
+      store: RepositoryImmersiveMessageLanguageVariantStore(repository),
+      gateway: languageVariantGateway ??
+          DeepSeekMessageLanguageVariantGateway(client: this.client),
+      apiKeyLoader: this.secureConfig.readApiKey,
+      endpointLoader: this.secureConfig.readEndpoint,
+    );
     promptBuilder = ImmersivePromptBuilder(this.db);
     nsfwRouter = ImmersiveNsfwRouter(this.client);
     somaticEngine = SomaticEngine(this.db);
@@ -47,6 +58,7 @@ class ImmersiveRoomController extends ChangeNotifier {
   final DeepSeekClient client;
   final SecureConfig secureConfig;
   late final ImmersiveRoomRepository repository;
+  late final ImmersiveMessageLanguageVariantService languageVariantService;
   late final ImmersivePromptBuilder promptBuilder;
   late final ImmersiveNsfwRouter nsfwRouter;
   late final SomaticEngine somaticEngine;
@@ -252,14 +264,32 @@ class ImmersiveRoomController extends ChangeNotifier {
       messages = [...messages, assistant];
       room = await repository.roomById(roomId);
       _safeNotify();
+      var projectedAssistant = assistant;
+      final selectedLanguage =
+          ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+              ChatLanguage.chinese;
+      if (selectedLanguage != ChatLanguage.chinese) {
+        try {
+          projectedAssistant = await ensureLanguageVariant(
+            assistant,
+            selectedLanguage,
+          );
+        } catch (translationError) {
+          notice = '外语版本生成失败，本次保留中文：$translationError';
+        }
+      }
+      final speechLanguage = projectedAssistant.hasLanguage(selectedLanguage)
+          ? selectedLanguage
+          : ChatLanguage.chinese;
       if ((await db.getSetting('tts_enabled')) != '0' &&
           (await db.getSetting('auto_tts')) != '0') {
         final emotion = await _ttsEmotionCueFor(assistant);
         unawaited(ttsPlayback.playText(
-          assistant.content,
+          projectedAssistant.contentFor(speechLanguage),
           manual: false,
           ownerId: assistant.id,
           emotion: emotion,
+          language: speechLanguage,
         ));
       }
       unawaited(_maybeRefreshRollingState(
@@ -369,15 +399,51 @@ class ImmersiveRoomController extends ChangeNotifier {
   }) =>
       capture ? '$current$delta' : current;
 
-  Future<void> speakMessage(ImmersiveMessage message) async {
+  Future<void> speakMessage(
+    ImmersiveMessage message, {
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
     if (!message.isAssistant || message.content.trim().isEmpty) return;
+    await ttsPlayback.stop();
+    var projected = message;
+    if (language != ChatLanguage.chinese && !message.hasLanguage(language)) {
+      projected = await ensureLanguageVariant(message, language);
+    }
+    final content = projected.contentFor(language).trim();
+    if (content.isEmpty) return;
+    await db.setSetting('tts_language', language.key);
     final emotion = await _ttsEmotionCueFor(message);
     await ttsPlayback.playText(
-      message.content,
+      content,
       manual: true,
       ownerId: message.id,
       emotion: emotion,
+      language: language,
     );
+  }
+
+  Future<ImmersiveMessage> ensureLanguageVariant(
+    ImmersiveMessage message,
+    ChatLanguage language,
+  ) async {
+    if (language == ChatLanguage.chinese || message.hasLanguage(language)) {
+      return message;
+    }
+    final variant = await languageVariantService.ensure(
+      message: message,
+      language: language,
+    );
+    final updated = message.copyWith(
+      languageVariants: <ChatLanguage, ChatLanguageVariant>{
+        ...message.languageVariants,
+        language: variant,
+      },
+    );
+    messages = messages
+        .map((item) => item.id == message.id ? updated : item)
+        .toList(growable: false);
+    _safeNotify();
+    return updated;
   }
 
   Future<TtsEmotionCue> _ttsEmotionCueFor(ImmersiveMessage message) async {
