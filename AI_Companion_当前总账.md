@@ -32,22 +32,22 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04163-immersive-tts-settings-hardening`，目标 `v0.41.63+207 / schema 60 / Snapshot protocol 6`，运行代码已在本地实现、专项与可运行历史源码门通过，尚待 Actions 真编译；当前可安装基线仍为 +206。+207 不直接猜修日语串音/首次切入缺陷，只增强分段与阶段诊断；实现沉浸中文正文闭合句即入 TTS 队列、温柔音色相对 1.2 倍速、全文旁白/动作固定温柔而对白使用已选音色、DeepSeek kill-switch 与两 Key 路由审计，以及侧栏/“更多”唯一设置入口合并 |
+| 当前开发分支 | `agent/v04163-immersive-tts-settings-hardening`，已构建 `v0.41.63+207 / schema 60 / Snapshot protocol 6`。+207 不直接猜修日语串音/首次切入缺陷，只增强分段与阶段诊断；实现沉浸中文正文闭合句即入 TTS 队列、温柔音色相对 1.2 倍速、全文旁白/动作固定温柔而对白使用已选音色、DeepSeek kill-switch 与两 Key 路由审计，以及侧栏/“更多”唯一设置入口合并 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +206 Actions build head `613096b0fff553c2f069994091dc667953211608`；CI 在检出后以 hash-locked delta 重建大数据库/总账，再以完全相同运行源码通过测试与打包，成功后回写为分支 head `3bbc438b0f1f018bb5f791f5b0832b7a39a03452` / tree `4a5d5a605ce96668ca5fda75c47dc6c97afbd1ae`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前已构建基线为 `0.41.62+206 / schema 60 / Snapshot protocol 6`；+207 继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
-| 最终 CI | +206 run [`34588761545`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545)（837）完整成功：两项超大文件目标 SHA、两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`726/726` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、退休语音排除、OpenJTalk ELF 闭包、塔罗、Artifact、Draft 上传及分支回写均通过 |
-| 测试 APK | `AI-Companion-v0.41.62-206-Hybrid-Final-Safe-Drafts-APK.apk`，544,680,678 bytes |
-| APK SHA-256 | `c57664d925d39d1fb4d1368a2a8263e4e6e8bcdab0f9432912771d5e41fc3fdf`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10195107821`](https://github.com/catkiss62/ai-companion-build/actions/runs/34588761545/artifacts/10195107821)，ZIP 537,801,712 bytes / digest `a80f363a5bbf89c07c98fa18c46759ae66765f0d3f69fac6fc4be44261718c2a`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-09fa2e8978b350c82cff) 未发布，`main` 未合并 |
+| 有效构建 head / tree | +207 Actions build head `6bcb706c00b8c742a2c7494d40f443c67d179e5d`；成功后总账差量回写为分支 head `df6f5db49da66352793846637dde7e75a93e77e4` / tree `427684b669379dfceaf56d11138dec487eb74709`。公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
+| App / 数据库 | 当前已构建基线为 `0.41.63+207 / schema 60 / Snapshot protocol 6`；继续保持 schema 60 与 Snapshot protocol 6，不做数据迁移。schema 60 仅为沉浸消息增加日语/英语投影正文与分段缓存；中文原文仍是权威内容，Snapshot 继续导出 `immersive_messages` 全列 |
+| 最终 CI | +207 run [`34615837829`](https://github.com/catkiss62/ai-companion-build/actions/runs/34615837829)（843）完整成功：总账目标 SHA、两私有载荷固定 SHA 与分源、干净基线、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`731/731` Flutter tests、arm64 Release、固定签名、48 项 Genie/Jiuhu/OpenJTalk 实包大小/哈希、ORT byte identity、四独立小酒狐 case、退休语音排除、OpenJTalk ELF 闭包、塔罗、Artifact、Draft 上传及分支回写均通过 |
+| 测试 APK | `AI-Companion-v0.41.63-207-Immersive-TTS-Settings-APK.apk`，544,697,546 bytes |
+| APK SHA-256 | `6f7c36f93a915512b54ed72f057699d513953acca7b50198a2ce1be9b94b743b`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10270877076`](https://github.com/catkiss62/ai-companion-build/actions/runs/34615837829/artifacts/10270877076)，ZIP 537,820,065 bytes / digest `337a7ad02a63530c306b7f0d0f98f8615cad0f2c6bbd8f6f5dd6608ede1dc1c9`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-354d9ff20fda56d7ffa3) 未发布，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，帅 API 不可用且沉浸房间按钮高度异常。+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`：用户明确反馈重要真机测试已通过，脱敏诊断亦证实版本/迁移、Active Brain、后台通道、Accessibility、通知、悬浮触摸自愈、公网与真实 TTS 播放主链正常；但语言切换矩阵显示日语只在“首次即选日语”的消息链成功，从已播放中文/英语的状态切入日语会失败，诊断有对应 `language=ja` 的 `NullPointerException`，故 TTS 尚不能整体收口。Gemini 失败重试/兜底与截断草稿的专用故障分支本报告无触发证据，不倒写为已验收。动作/神态括号继续只观察，不改 Prompt |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+205 帅 API 不可用，已由后续双通道取代；+206 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL`，重要真机主链已通过，但从已播放中文/英语的状态首次切入日语仍有 `language=ja` 的 `NullPointerException`。+207 当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：沉浸房间 Genie-TTS 流式朗读、语义音色/倍率、诊断、设置合并与路由硬化均已自动化和实包验证；低延迟、全文旁白/对白听感、实际 Gemini kill-switch 和新增诊断仍须真机确认。动作/神态括号继续只观察，不改 Prompt |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **+207 本地实现完成 / CI PENDING**：把当前源码提交推送并通过 Actions 真编译、Analyze、全量测试、Release/签名/私有 TTS 实包门；若编译或行为测试暴露问题只做窄修。当前实现仅在中文自动朗读时把已经闭合的沉浸句子/对白送入 A2 队列；异常断流立即停止且未闭合尾部不朗读。温柔有效速度=`用户速度×1.2`，全文旁白/动作固定温柔、对白用所选/自动音色，原生播放器在倍率边界排空旧 PCM 后切换。切回 DeepSeek 当刻写入 provider，内部/主动/翻译/摘要继续只读 DeepSeek。侧栏重复分类已删除，“全部设置”切到底部“更多”，其中保留她/你们与完整七域。TTS 诊断新增语言、音色、分段索引/长度、文本 SHA、音素/语义哈希和 native 阶段，不含正文/音频/Key。日语根修、CPU 超频/线程档位仍后排单独真机 A/B |
+| 当前下一步 | **+207 真机验收**：覆盖安装 APK，先验证底部“更多”包含她/你们与七设置域、侧栏“全部设置”跳到同一中心；切回 DeepSeek 后无需再保存即发一轮普通/沉浸回复，并观察零 Gemini 扣分。沉浸中文自动朗读需确认首个闭合句即开始、完成后不整段重播、Stop/截断不读未闭合尾部；全文模式确认动作/旁白使用默认相对 1.2 倍的温柔音色、`「」` 对白使用所选音色。若再次出现日语首次切入或串音，立即导出新诊断供 +208 单独根修。日语 runtime 与 CPU 快速档继续后排单独 A/B |
 | 目标 | 保持 +206 已完成的双通道：每个正常可见回合通常只产生 1 次玩游固定积分请求，DeepSeek 承担内部机械工作；本批额外保证用户切回 DeepSeek 后无需再按保存即可阻断后续 Gemini 请求，主动消息永远只走 DeepSeek。沉浸中文自动朗读从完整响应后启动前移到闭合句流式入队；全文朗读保留动作/对白结构并按温柔/所选音色分流。设置只保留一个权威导航中心，TTS 失败报告能在不泄露正文的前提下区分语言、段落和 native 阶段 |
 | 当前证据 | +206 已把 `SecureConfig.readApiKey/readEndpoint` 固定为 DeepSeek internal lane，普通/沉浸最终正文独立读取 final lane；当前 `ProactiveEngine` 也只读取 DeepSeek。旧版“关闭 Gemini 后仍强行调用”最可能来自提供商下拉只改页面临时值、必须再点保存才落盘，或来自已被 +206 取代的全局路由。TTS 底层已有流式 A2 队列但生产 controller 未接；全文模式当前把所有段落压成单一字符串和单一音色；原生播放速度当前对整条 `AudioTrack` 生效，若要逐段倍率必须在音色/倍率边界等待已写 PCM 排空再切换。用户最新接受 Desire 14 日、Device 21 日/12,000 行的有界清理，不要求本批改变数据库或备份 |
 | 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 独立安全保存，DeepSeek 缺失时不得只靠 Gemini 启动完整系统。选择 DeepSeek 回复时不得调用玩游；选择 Gemini 但 Key 缺失/请求失败时须保留用户消息并明确回退或报错，不能静默丢轮。不得把 DeepSeek 内部规划正文或机械 JSON显示给用户；不得让 Gemini 重做工具、伪造 Outcome 或把一次回复拆成无界多次固定扣费。玩游 thinking 请求必须采用真实线端方言，不能原样恢复 +204 把 SDK `extra_body` 当 JSON 字段的错误。动作括号本批只观察，不增加重复禁令、不做字符串删括号补丁；已真机通过的 Genie-TTS 小酒狐四音色、三语、停止与单播放链不得回归 |
@@ -90,7 +90,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-11 v0.41.63+207 沉浸低延迟朗读、音色语义、设置归一与路由硬化（PREWORK / IMPLEMENTING）
+### 2026-09-11 v0.41.63+207 沉浸低延迟朗读、音色语义、设置归一与路由硬化（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户接受当前运行记录的有界清理事实：`desire_events` 写入时删除 14 天以前记录，`device_events` 由维护任务按 21 天且最多 12,000 行裁剪；短时间高频导致备份暂时增大可以接受，只要求冗余不会永久无限增长。故 +207 不改变 schema、不清空历史、不新增删除按钮，也不把参与近期设备情境判断的事件与纯诊断事件误用同一删除策略；后续只有出现无界增长或备份负担的真机证据才重开。
 2. 本批确定交付沉浸中文流式 TTS：仅当开启自动朗读且当前语言为中文时，在 LLM SSE 中按结构累计，首个完整句或闭合对白一旦形成即送入现有有界生成/播放队列，不等整条正文完成。日语/英语继续等完整中文正文后做一次 DeepSeek 投影，避免按分片重复请求和翻译漂移。正常完成后不得再次整段 `playText`；停止、失败或异常断流立即取消本轮队列，未闭合尾部不生成，截断草稿仍由 +206 的“重新生成/确认回复”决定是否进入上下文与摘要。
@@ -109,6 +109,7 @@
 15. 本地新增 +207 专项锁定 provider kill-switch/主动 DeepSeek、闭合句流式生命周期、角色音色与 1.2 倍率、PCM 倍率边界、脱敏诊断字段和唯一设置中心；新增 parser、processor 与 queue 单测覆盖中断尾部、旁白/对白和 gentle 倍率。当前容器无 Flutter/Dart SDK，Gradle wrapper也因外网限制无法下载 Gradle，故不能冒充 Flutter/Kotlin 编译已通过。已通过 +207/+206/current-ledger 专项、workflow YAML、`git diff --check`，以及 Actions 同款 86 个 Python 源码门中所有可本地执行项；仅 LingChat 私有恢复、417 桌宠恢复和本机 `kotlinc` 三项因资源/工具缺失不能运行，必须由 Actions 真环境完成。
 16. 首次远端同步误以总账中的 +206 APK 构建 head `3bbc438b` 作为分支最终基线，遗漏随后 `[skip ci]` 的总账回写 head `5f43ebed`：run [`34613845398`](https://github.com/catkiss62/ai-companion-build/actions/runs/34613845398)（839）在产品编译前被总账差量基线哈希拦住；以真实最新 tree 快进修正后，run [`34614038301`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614038301)（840）按文档同步正确跳过 APK。正式 run [`34614128941`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614128941)（841）已通过总账重建、版本/schema、私有小酒狐、417 桌宠、LingChat 与塔罗恢复，但历史 +155 验证器仍断言旧 UI 文案“不使用真流式测试模式”，与 +207 已明确启用沉浸中文闭合句流式朗读冲突，故在编译前失败；已把该历史合同精确推进到新文案并保持普通聊天 controller 不启用流式的原约束，下一轮须重新覆盖完整 Kotlin/Flutter/Release 门。
 17. 修正后的 run [`34614718484`](https://github.com/catkiss62/ai-companion-build/actions/runs/34614718484)（842）通过完整源码/历史 validators、Flutter 依赖解析、Kotlin/JVM 与 Flutter debug 编译及 Flutter Analyze；全量 Flutter tests 为 `728 passed / 3 failed`。三项失败均是设置归一后未同步的旧测试期望：仍要求底部“更多”旧五域、`/settings` 旧六域与 +206 build label，而产品 UI 已有她/你们加七设置域且唯一中心文案、Agent Self 已为 +207。已把三项测试推进到真实 +207 信息架构和 build label，不改产品实现；下一轮必须先证明三项失败消失，再继续 Release/签名/实包门。
+18. 最终 run [`34615837829`](https://github.com/catkiss62/ai-companion-build/actions/runs/34615837829)（843）完整成功：正确总账目标、固定私有资源、全部源码/历史 validator、Kotlin/JVM 与 Flutter debug、Flutter Analyze、`731/731` Flutter tests、arm64 Release、固定签名、48 项小酒狐/Genie/OpenJTalk 实包身份、ORT byte identity、四独立候选、退休语音排除、OpenJTalk ELF 闭包、塔罗、checksum、Artifact 与 Draft 上传均通过。APK `AI-Companion-v0.41.63-207-Immersive-TTS-Settings-APK.apk` 为 544,697,546 bytes、SHA-256 `6f7c36f93a915512b54ed72f057699d513953acca7b50198a2ce1be9b94b743b`，与 Draft 服务端 digest 一致；Artifact `10270877076` 为 537,820,065-byte ZIP / digest `337a7ad02a63530c306b7f0d0f98f8615cad0f2c6bbd8f6f5dd6608ede1dc1c9`。成功后 CI 应用并回写 hash-locked 总账、删除临时差量，分支 head `df6f5db49da66352793846637dde7e75a93e77e4` / tree `427684b669379dfceaf56d11138dec487eb74709`；当前严格状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。
 
 ### 2026-09-11 v0.41.62+206 双通道最终表达、兜底与安全截断草稿（CI PASSED / APK READY / TRUE DEVICE PARTIAL）
 
