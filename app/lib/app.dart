@@ -138,6 +138,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (index != 1) setState(() => index = 1);
   }
 
+  void _openMore() {
+    if (!mounted) return;
+    Navigator.maybeOf(context, rootNavigator: true)?.popUntil(
+      (route) => route.isFirst,
+    );
+    if (index != 2) setState(() => index = 2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,7 +155,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           index: index,
           children: [
             CompanionHomePage(onOpenChat: _openChat),
-            ChatPage(active: index == 1),
+            ChatPage(active: index == 1, onOpenMore: _openMore),
             const CompanionMorePage(),
           ],
         ),

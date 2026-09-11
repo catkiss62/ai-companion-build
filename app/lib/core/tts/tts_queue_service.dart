@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'tts_provider.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_voice_profile.dart';
+import 'tts_text_processor.dart';
 
 /// Narrow interface used by the A2 speech scheduler so queue/cancel behavior
 /// can be tested without Android/MethodChannel or a real database.
@@ -17,6 +18,19 @@ abstract interface class TtsQueueService {
     ChatLanguage language = ChatLanguage.chinese,
   });
 
+  Future<List<TtsPreparedUnit>> prepareUnits(
+    String visibleText, {
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  });
+
+  Future<TtsPreparedUnit?> prepareUnit(
+    String visibleText, {
+    required TtsSpeechRole role,
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  });
+
   /// Generate one sentence to validated WAV bytes. Generation and playback are kept
   /// separate so later sentences can be prepared while the current one plays.
   Future<Uint8List?> generatePrepared(
@@ -24,6 +38,7 @@ abstract interface class TtsQueueService {
     TtsEmotionCue? emotion,
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
+    int segmentIndex = -1,
   });
 
   /// Open one native AudioTrack stream for the whole utterance. The native
@@ -32,7 +47,10 @@ abstract interface class TtsQueueService {
 
   /// Append one generated WAV to the current native stream without waiting for
   /// audible drain, allowing the serial inference worker to keep running ahead.
-  Future<void> enqueuePlayback(Uint8List wavBytes);
+  Future<void> enqueuePlayback(
+    Uint8List wavBytes, {
+    double speedMultiplier = 1.0,
+  });
 
   /// Seal the stream and complete only after all queued PCM has drained.
   Future<void> finishPlayback();

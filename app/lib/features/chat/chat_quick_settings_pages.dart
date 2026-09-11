@@ -747,9 +747,9 @@ class _VoiceEmotionSettingsPageState
                     ),
                     const ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text('固定分段预生成'),
+                      title: Text('分段预生成'),
                       subtitle: Text(
-                        '按固定句段进入本地 TTS 队列，并在播放时生成下一段；不使用真流式测试模式。',
+                        '普通聊天在完整回复后分段；沉浸房间的中文自动朗读会在流式正文闭合一句后立即排队。始终只预热当前语言。',
                       ),
                     ),
                     DropdownButtonFormField<ProactiveTtsPolicy>(
@@ -787,6 +787,9 @@ class _VoiceEmotionSettingsPageState
                         'tts_speed',
                         value.toStringAsFixed(2),
                       ),
+                    ),
+                    const Text(
+                      '温柔音色在当前语速上固定再乘 1.2；“朗读全文”时旁白/动作使用温柔音色，对白使用所选或自动音色。',
                     ),
                     Text('TTS 音量 ${(_ttsVolume * 100).round()}%'),
                     Slider(

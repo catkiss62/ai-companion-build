@@ -112,8 +112,8 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04162-hybrid-final-fallback",
-        "0.41.62+206",
+        "agent/v04163-immersive-tts-settings-hardening",
+        "0.41.63+207",
         "schema 60",
         "帅 API",
         "沉浸房间",
@@ -206,7 +206,11 @@ def main() -> None:
     pubspec = PUBSPEC.read_text(encoding="utf-8")
     database = DATABASE.read_text(encoding="utf-8")
     require(
-        re.search(r"^version:\s*0\.41\.62\+206\s*$", pubspec, re.MULTILINE)
+        re.search(
+            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207)\s*$",
+            pubspec,
+            re.MULTILINE,
+        )
         is not None,
         "pubspec version no longer matches the current development baseline or target",
     )

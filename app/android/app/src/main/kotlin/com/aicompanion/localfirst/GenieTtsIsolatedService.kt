@@ -31,6 +31,12 @@ class GenieTtsIsolatedService : Service() {
     private var lastError = ""
     private var lastErrorType = ""
     private var activeInputChars = 0
+    private var phoneCount = 0
+    private var phoneMin = 0L
+    private var phoneMax = 0L
+    private var phoneHash = ""
+    private var semanticCount = 0
+    private var semanticHash = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -78,6 +84,12 @@ class GenieTtsIsolatedService : Service() {
         ): String = serialized {
             if (text.isBlank()) return@serialized ""
             activeInputChars = text.length
+            phoneCount = 0
+            phoneMin = 0L
+            phoneMax = 0L
+            phoneHash = ""
+            semanticCount = 0
+            semanticHash = ""
             val requestGeneration = generation.get()
             try {
                 val next = normalizeLanguage(language)
@@ -89,7 +101,19 @@ class GenieTtsIsolatedService : Service() {
                     language = next,
                     voice = normalizeVoice(voice),
                     shouldCancel = { requestGeneration != generation.get() },
-                    onStage = { nextStage ->
+                    onStage = { nextStage, metadata ->
+                        phoneCount = (metadata["phoneCount"] as? Number)?.toInt()
+                            ?: phoneCount
+                        phoneMin = (metadata["phoneMin"] as? Number)?.toLong()
+                            ?: phoneMin
+                        phoneMax = (metadata["phoneMax"] as? Number)?.toLong()
+                            ?: phoneMax
+                        phoneHash = metadata["phoneHash"]?.toString() ?: phoneHash
+                        semanticCount =
+                            (metadata["semanticCount"] as? Number)?.toInt()
+                                ?: semanticCount
+                        semanticHash =
+                            metadata["semanticHash"]?.toString() ?: semanticHash
                         markStage(
                             nextStage,
                             durable = nextStage.startsWith("prepare_frontend_") ||
@@ -188,6 +212,12 @@ class GenieTtsIsolatedService : Service() {
             language = activeLanguage,
             modelsReady = runtime.acousticModelsReady,
             inputChars = activeInputChars,
+            phoneCount = phoneCount,
+            phoneMin = phoneMin,
+            phoneMax = phoneMax,
+            phoneHash = phoneHash,
+            semanticCount = semanticCount,
+            semanticHash = semanticHash,
         )
     }
 

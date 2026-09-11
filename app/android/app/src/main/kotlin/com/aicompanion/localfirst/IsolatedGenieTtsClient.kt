@@ -104,6 +104,12 @@ class IsolatedGenieTtsClient(private val context: Context) {
                 "pssKb" to checkpoint["pssKb"],
                 "rssKb" to checkpoint["rssKb"],
                 "threads" to checkpoint["threads"],
+                "phoneCount" to checkpoint["phoneCount"],
+                "phoneMin" to checkpoint["phoneMin"],
+                "phoneMax" to checkpoint["phoneMax"],
+                "phoneHash" to checkpoint["phoneHash"],
+                "semanticCount" to checkpoint["semanticCount"],
+                "semanticHash" to checkpoint["semanticHash"],
             ),
             durable = true,
         )

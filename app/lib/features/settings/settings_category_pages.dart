@@ -55,6 +55,7 @@ class _ModelNetworkSettingsPageState
   bool _revealTavily = false;
   bool _revealAgnes = false;
   String? _status;
+  Future<void> _providerKillSwitchWrite = Future<void>.value();
 
   @override
   void initState() {
@@ -146,6 +147,7 @@ class _ModelNetworkSettingsPageState
       // time, so recovery and fallback never mistake that alias for DeepSeek.
       await _db.setSetting('model', effectiveModel.apiName);
       await _db.setSetting('reasoning_effort', normalizedEffort.apiName);
+      await _providerKillSwitchWrite;
       await _secure.writeChatProvider(_chatProvider);
       await _db.wakeRetryableGenerationJobs();
       await _db.wakeRetryablePostTurnJobs();
@@ -352,13 +354,27 @@ class _ModelNetworkSettingsPageState
                               ),
                             )
                             .toList(growable: false),
-                        onChanged: (value) {
+                        onChanged: (value) async {
                           if (value == null) return;
                           setState(() {
                             _chatProvider = value;
                             _effort = value.normalizeEffort(_effort);
                             _status = null;
                           });
+                          // DeepSeek is the cost/safety kill switch. Persist it
+                          // immediately so leaving this page without pressing
+                          // Save cannot leave the previous Gemini relay active.
+                          // Enabling Gemini remains an explicit Save action
+                          // after its independent key has been validated.
+                          if (!value.isGeminiRelay) {
+                            _providerKillSwitchWrite =
+                                _secure.writeChatProvider(value);
+                            await _providerKillSwitchWrite;
+                            if (!mounted || _chatProvider != value) return;
+                            setState(() {
+                              _status = '已立即切回 DeepSeek；后续回复不会再调用 Gemini。';
+                            });
+                          }
                         },
                       ),
                       const SizedBox(height: 12),
@@ -888,7 +904,7 @@ class PresentationSettingsPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
             const _BoundaryNotice(
-              text: '这里与头像侧栏共用同一份设置；切换任一入口后重新打开另一页即可看到最新值。',
+              text: '本页属于底部“更多”的唯一设置中心；头像侧栏只保留常用功能快捷入口。',
             ),
             _SettingsRouteCard(
               icon: Icons.record_voice_over_outlined,

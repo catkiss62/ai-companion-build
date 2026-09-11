@@ -9,6 +9,7 @@ import 'package:ai_companion_localfirst/core/tts/tts_queue_service.dart';
 import 'package:ai_companion_localfirst/core/models/chat_language_variant.dart';
 import 'package:ai_companion_localfirst/core/tts/genie_fixed_text_segmenter.dart';
 import 'package:ai_companion_localfirst/core/tts/tts_voice_profile.dart';
+import 'package:ai_companion_localfirst/core/tts/tts_text_processor.dart';
 
 class _FakeQueueService implements TtsQueueService {
   final prepared = <String>[];
@@ -16,6 +17,7 @@ class _FakeQueueService implements TtsQueueService {
   final generatedLanguages = <ChatLanguage>[];
   final generatedVoices = <TtsVoiceMode>[];
   final played = <String>[];
+  final playbackSpeedMultipliers = <double>[];
   int playbackBeginCount = 0;
   int playbackFinishCount = 0;
   int stopCount = 0;
@@ -25,6 +27,7 @@ class _FakeQueueService implements TtsQueueService {
   TtsVoiceMode resolvedVoice = TtsVoiceMode.daily;
   Completer<TtsVoiceMode>? voiceResolutionGate;
   String Function(String text)? prepareTransform;
+  List<TtsPreparedUnit>? preparedUnitsOverride;
 
   @override
   Future<TtsVoiceMode> resolveVoice(TtsEmotionCue? emotion) async {
@@ -44,11 +47,42 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
+  Future<List<TtsPreparedUnit>> prepareUnits(
+    String visibleText, {
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    prepared.add(visibleText);
+    return preparedUnitsOverride ??
+        <TtsPreparedUnit>[
+          TtsPreparedUnit(
+            text: prepareTransform?.call(visibleText) ?? visibleText,
+            role: TtsSpeechRole.dialogue,
+          ),
+        ];
+  }
+
+  @override
+  Future<TtsPreparedUnit?> prepareUnit(
+    String visibleText, {
+    required TtsSpeechRole role,
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    prepared.add(visibleText);
+    return TtsPreparedUnit(
+      text: prepareTransform?.call(visibleText) ?? visibleText,
+      role: role,
+    );
+  }
+
+  @override
   Future<Uint8List?> generatePrepared(
     String spokenText, {
     TtsEmotionCue? emotion,
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
+    int segmentIndex = -1,
   }) async {
     generated.add(spokenText);
     generatedLanguages.add(language);
@@ -66,8 +100,12 @@ class _FakeQueueService implements TtsQueueService {
   }
 
   @override
-  Future<void> enqueuePlayback(Uint8List wavBytes) async {
+  Future<void> enqueuePlayback(
+    Uint8List wavBytes, {
+    double speedMultiplier = 1.0,
+  }) async {
     played.add(utf8.decode(wavBytes));
+    playbackSpeedMultipliers.add(speedMultiplier);
   }
 
   @override
@@ -349,6 +387,39 @@ void main() {
       everyElement(ChatLanguage.japanese),
     );
     expect(fake.generatedVoices, everyElement(TtsVoiceMode.cute));
+  });
+
+  test('gentle voice uses a relative 1.2 playback multiplier', () async {
+    final fake = _FakeQueueService()..resolvedVoice = TtsVoiceMode.gentle;
+    final queue = TtsPlaybackQueue(service: fake);
+
+    await queue.playText('温柔地说。');
+    await queue.waitUntilIdle();
+
+    expect(fake.generatedVoices, [TtsVoiceMode.gentle]);
+    expect(fake.playbackSpeedMultipliers, [1.2]);
+  });
+
+  test('full text narrates gently and keeps selected dialogue voice', () async {
+    final fake = _FakeQueueService()
+      ..resolvedVoice = TtsVoiceMode.cute
+      ..preparedUnitsOverride = const <TtsPreparedUnit>[
+        TtsPreparedUnit(
+          text: '她把尾巴收好。',
+          role: TtsSpeechRole.narration,
+        ),
+        TtsPreparedUnit(
+          text: '才没有等你。',
+          role: TtsSpeechRole.dialogue,
+        ),
+      ];
+    final queue = TtsPlaybackQueue(service: fake);
+
+    await queue.playText('ignored');
+    await queue.waitUntilIdle();
+
+    expect(fake.generatedVoices, [TtsVoiceMode.gentle, TtsVoiceMode.cute]);
+    expect(fake.playbackSpeedMultipliers, [1.2, 1.0]);
   });
 
   test('stop during voice resolution prevents an old session from reviving', () async {

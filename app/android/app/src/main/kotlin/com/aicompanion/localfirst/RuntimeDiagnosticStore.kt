@@ -46,12 +46,16 @@ object RuntimeDiagnosticStore {
                 when (key) {
                     "generation", "sourceGeneration", "targetActivationGeneration",
                     "payloadBytes", "totalBytes", "sdk", "count", "inputChars",
-                    "pssKb", "rssKb", "threads" -> if (value is Number) safeMetadata.put(key, value)
+                    "pssKb", "rssKb", "threads", "segmentIndex", "wavBytes",
+                    "phoneCount", "phoneMin", "phoneMax", "semanticCount" ->
+                        if (value is Number) safeMetadata.put(key, value)
                     "modelsReady" -> if (value is Boolean) safeMetadata.put(key, value)
                     "direction", "operation", "transport", "state", "language" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 48))
                     "stage", "loaderPolicy", "failureType", "failureTarget" ->
                         safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 160))
+                    "voice", "textSha256", "phoneHash", "semanticHash" ->
+                        safeMetadata.put(key, DiagnosticRedaction.safeToken(value?.toString().orEmpty(), 96))
                     "endpointId", "snapshotId", "lineageId", "sourceDeviceId", "targetDeviceId", "stateSha256" -> {
                         if (!value?.toString().isNullOrBlank()) safeMetadata.put("${key}Fp", DiagnosticRedaction.fingerprint(value.toString()))
                     }

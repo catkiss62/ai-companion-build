@@ -12,6 +12,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.security.MessageDigest
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.pow
@@ -118,7 +119,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         language: String,
         voice: String,
         shouldCancel: () -> Boolean,
-        onStage: (String) -> Unit = {},
+        onStage: (String, Map<String, Any>) -> Unit = { _, _ -> },
     ): ByteArray {
         initialize(language)
         val preparedRoot = checkNotNull(root)
@@ -126,7 +127,7 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
         val referenceId = VOICE_CASES[voice] ?: VOICE_CASES.getValue("daily")
         val voiceCase = manifest.cases.firstOrNull { it.id == referenceId }
             ?: error("Genie 音色资源缺失：$referenceId")
-        onStage("prepare_frontend_$language")
+        onStage("prepare_frontend_$language", emptyMap())
         val prepared = when (language) {
             "zh" -> checkNotNull(chinese).prepare(
                 preparedRoot,
@@ -136,18 +137,26 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             "ja" -> checkNotNull(japanese).prepare(text, manifest.frontend.bertDim) {}
             else -> error("不支持的 TTS 语言：$language")
         }
-        onStage("frontend_ready_$language")
+        onStage(
+            "frontend_ready_$language",
+            mapOf(
+                "phoneCount" to prepared.sequence.size,
+                "phoneMin" to (prepared.sequence.minOrNull() ?: 0L),
+                "phoneMax" to (prepared.sequence.maxOrNull() ?: 0L),
+                "phoneHash" to sha256Longs(prepared.sequence),
+            ),
+        )
         check(!shouldCancel()) { "TTS generation cancelled" }
         if (!modelsReady) {
-            onStage("load_acoustic_models")
+            onStage("load_acoustic_models", emptyMap())
             modelLoad = engine.loadModels(
                 preparedRoot,
                 EngineConfig(BackendMode.CPU, TARGET_THREADS),
             )
             modelsReady = true
-            onStage("acoustic_models_ready")
+            onStage("acoustic_models_ready", emptyMap())
         }
-        onStage("infer_$language")
+        onStage("infer_$language", emptyMap())
         val result = engine.runPrepared(
             preparedRoot,
             voiceCase,
@@ -157,8 +166,24 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             shouldCancel = shouldCancel,
         )
         modelLoad = ModelLoadInfo(false, 0L)
-        onStage("wav_encode")
+        onStage(
+            "infer_ready_$language",
+            mapOf(
+                "semanticCount" to result.semanticTokens,
+                "semanticHash" to result.semanticHash,
+            ),
+        )
+        onStage("wav_encode", emptyMap())
         return pcm16Wav(result.audio, manifest.sampleRate, voiceCase.playbackGainDb)
+    }
+
+    private fun sha256Longs(values: LongArray): String {
+        val bytes = ByteBuffer.allocate(values.size * java.lang.Long.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+        values.forEach { value -> bytes.putLong(value) }
+        return MessageDigest.getInstance("SHA-256")
+            .digest(bytes.array())
+            .joinToString("") { byte -> "%02x".format(byte) }
     }
 
     private fun pcm16Wav(audio: FloatArray, sampleRate: Int, gainDb: Double): ByteArray {

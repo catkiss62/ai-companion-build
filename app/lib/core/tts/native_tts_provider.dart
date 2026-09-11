@@ -76,11 +76,13 @@ class NativeTtsProvider implements TtsProvider {
     TtsEmotionCue? emotion,
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
+    int segmentIndex = -1,
   }) =>
       _channel.invokeMethod<Uint8List>('generate', <String, Object?>{
         'text': text,
         'language': language.key,
         'voice': voice.key,
+        'segmentIndex': segmentIndex,
         if (emotion != null) ...emotion.toChannelMap(),
       });
 
@@ -89,8 +91,14 @@ class NativeTtsProvider implements TtsProvider {
       _channel.invokeMethod<void>('beginAudioStream');
 
   @override
-  Future<void> enqueueAudio(Uint8List wavBytes) =>
-      _channel.invokeMethod<void>('enqueueAudio', {'audioData': wavBytes});
+  Future<void> enqueueAudio(
+    Uint8List wavBytes, {
+    double speedMultiplier = 1.0,
+  }) =>
+      _channel.invokeMethod<void>('enqueueAudio', {
+        'audioData': wavBytes,
+        'speedMultiplier': speedMultiplier,
+      });
 
   @override
   Future<void> finishAudioStream() =>

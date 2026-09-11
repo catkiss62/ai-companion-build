@@ -3,6 +3,7 @@ package com.aicompanion.localfirst
 import android.content.Context
 import com.catkiss62.geniettsbenchmark.SystemAudioPolicy
 import java.io.File
+import java.security.MessageDigest
 
 /** Process-scoped bridge to the isolated Genie/Jiuhu runtime plus main-process playback. */
 class NativeTtsEngine private constructor(context: Context) {
@@ -68,16 +69,19 @@ class NativeTtsEngine private constructor(context: Context) {
         text: String,
         language: String = activeLanguage,
         voice: String = "daily",
+        segmentIndex: Int = -1,
         generation: Long = generationToken(),
     ): ByteArray? {
         if (text.isBlank() || generation != generationToken()) return null
         val nextLanguage = normalizeLanguage(language)
         activeLanguage = nextLanguage
+        val normalizedVoice = normalizeVoice(voice)
+        val textHash = sha256(text.trim())
         val path = try {
             client.generateToFile(
                 text = text,
                 language = nextLanguage,
-                voice = normalizeVoice(voice),
+                voice = normalizedVoice,
                 speed = speed,
             )
         } catch (error: Throwable) {
@@ -90,7 +94,17 @@ class NativeTtsEngine private constructor(context: Context) {
                 code = error.javaClass.simpleName,
                 metadata = mapOf(
                     "language" to nextLanguage,
+                    "voice" to normalizedVoice,
+                    "segmentIndex" to segmentIndex,
+                    "inputChars" to text.length,
+                    "textSha256" to textHash,
                     "stage" to checkpoint["stage"],
+                    "phoneCount" to checkpoint["phoneCount"],
+                    "phoneMin" to checkpoint["phoneMin"],
+                    "phoneMax" to checkpoint["phoneMax"],
+                    "phoneHash" to checkpoint["phoneHash"],
+                    "semanticCount" to checkpoint["semanticCount"],
+                    "semanticHash" to checkpoint["semanticHash"],
                 ),
                 durable = true,
             )
@@ -105,6 +119,27 @@ class NativeTtsEngine private constructor(context: Context) {
             check(output.isFile) { "Genie TTS 子进程未返回音频文件" }
             output.readBytes().also {
                 check(it.size >= 44) { "Genie TTS returned invalid WAV data" }
+                val checkpoint = TtsProcessCheckpoint.read(appContext)
+                RuntimeDiagnosticStore.record(
+                    appContext,
+                    category = "tts",
+                    phase = "generation_ready",
+                    metadata = mapOf(
+                        "language" to nextLanguage,
+                        "voice" to normalizedVoice,
+                        "segmentIndex" to segmentIndex,
+                        "inputChars" to text.length,
+                        "textSha256" to textHash,
+                        "wavBytes" to it.size,
+                        "stage" to checkpoint["stage"],
+                        "phoneCount" to checkpoint["phoneCount"],
+                        "phoneMin" to checkpoint["phoneMin"],
+                        "phoneMax" to checkpoint["phoneMax"],
+                        "phoneHash" to checkpoint["phoneHash"],
+                        "semanticCount" to checkpoint["semanticCount"],
+                        "semanticHash" to checkpoint["semanticHash"],
+                    ),
+                )
             }
         } finally {
             output.delete()
@@ -131,9 +166,16 @@ class NativeTtsEngine private constructor(context: Context) {
         }
     }
 
-    fun enqueueAudio(wav: ByteArray, generation: Long = generationToken()) {
+    fun enqueueAudio(
+        wav: ByteArray,
+        speedMultiplier: Double = 1.0,
+        generation: Long = generationToken(),
+    ) {
         if (wav.isEmpty() || generation != generationToken()) return
-        player.enqueueStream(wav)
+        player.enqueueStream(
+            wav,
+            (speed * speedMultiplier).coerceIn(0.5, 2.0).toFloat(),
+        )
     }
 
     fun finishAudioStream(generation: Long = generationToken()) {
@@ -153,7 +195,7 @@ class NativeTtsEngine private constructor(context: Context) {
         val generation = generationToken()
         val audio = generate(text, generation = generation) ?: return
         beginAudioStream(generation)
-        enqueueAudio(audio, generation)
+        enqueueAudio(audio, generation = generation)
         finishAudioStream(generation)
     }
 
@@ -225,6 +267,11 @@ class NativeTtsEngine private constructor(context: Context) {
     private fun normalizeVoice(value: String) =
         value.takeIf { it == "daily" || it == "gentle" || it == "lively" || it == "cute" }
             ?: "daily"
+
+    private fun sha256(value: String): String = MessageDigest
+        .getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
 
     companion object {
         @Volatile private var instance: NativeTtsEngine? = null

@@ -15,6 +15,15 @@ enum TtsReadingScope {
       value == fullText.key ? fullText : dialogueOnly;
 }
 
+enum TtsSpeechRole { dialogue, narration }
+
+class TtsPreparedUnit {
+  const TtsPreparedUnit({required this.text, required this.role});
+
+  final String text;
+  final TtsSpeechRole role;
+}
+
 class TtsTextProcessor {
   const TtsTextProcessor();
 
@@ -30,13 +39,58 @@ class TtsTextProcessor {
     final segmentSource = scope == TtsReadingScope.dialogueOnly
         ? text.replaceAll(RegExp(r'（[^（）\n]*）|\([^()\n]*\)'), '')
         : text;
+    return processUnits(
+      segmentSource,
+      language: language,
+      replacements: replacements,
+      scope: scope,
+    ).map((unit) => unit.text).join('。');
+  }
+
+  List<TtsPreparedUnit> processUnits(
+    String text, {
+    ChatLanguage language = ChatLanguage.chinese,
+    Map<String, String> replacements = const {},
+    TtsReadingScope scope = TtsReadingScope.dialogueOnly,
+  }) {
+    final segmentSource = scope == TtsReadingScope.dialogueOnly
+        ? text.replaceAll(RegExp(r'（[^（）\n]*）|\([^()\n]*\)'), '')
+        : text;
     final segments = ChatSegmentCodec.parseAssistantText(segmentSource);
     final selected = scope == TtsReadingScope.dialogueOnly
         ? segments.where((item) => item.kind == ChatSegmentKind.dialogue)
         : segments;
-    final spokenParts =
-        selected.map((item) => item.text.trim()).where((item) => item.isNotEmpty);
-    var result = spokenParts.join('。');
+    return selected
+        .map(
+          (item) => processUnit(
+            item.text,
+            role: item.kind == ChatSegmentKind.action
+                ? TtsSpeechRole.narration
+                : TtsSpeechRole.dialogue,
+            language: language,
+            replacements: replacements,
+          ),
+        )
+        .where((item) => item.text.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  TtsPreparedUnit processUnit(
+    String text, {
+    required TtsSpeechRole role,
+    ChatLanguage language = ChatLanguage.chinese,
+    Map<String, String> replacements = const {},
+  }) {
+    var result = text.trim();
+    if (role == TtsSpeechRole.dialogue) {
+      result = result
+          .replaceFirst(RegExp(r'^[「“"]+'), '')
+          .replaceFirst(RegExp(r'[」”"]+$'), '');
+    } else {
+      result = result
+          .replaceFirst(RegExp(r'^[（(]+'), '')
+          .replaceFirst(RegExp(r'[）)]+$'), '');
+    }
 
     // User replacements are speech-only and never touch the visible chat body.
     for (final entry in replacements.entries) {
@@ -69,7 +123,7 @@ class TtsTextProcessor {
         .replaceAll(RegExp(r'[*_#>|]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    return result;
+    return TtsPreparedUnit(text: result, role: role);
   }
 
   Map<String, String> decodeReplacementJson(String? raw) {

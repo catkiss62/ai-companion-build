@@ -19,6 +19,12 @@ object TtsProcessCheckpoint {
         language: String = "",
         modelsReady: Boolean = false,
         inputChars: Int = 0,
+        phoneCount: Int = 0,
+        phoneMin: Long = 0,
+        phoneMax: Long = 0,
+        phoneHash: String = "",
+        semanticCount: Int = 0,
+        semanticHash: String = "",
     ) {
         runCatching {
             val payload = JSONObject()
@@ -29,6 +35,12 @@ object TtsProcessCheckpoint {
                 .put("language", DiagnosticRedaction.safeToken(language, 8))
                 .put("modelsReady", modelsReady)
                 .put("inputChars", inputChars.coerceAtLeast(0))
+                .put("phoneCount", phoneCount.coerceAtLeast(0))
+                .put("phoneMin", phoneMin)
+                .put("phoneMax", phoneMax)
+                .put("phoneHash", DiagnosticRedaction.safeToken(phoneHash, 96))
+                .put("semanticCount", semanticCount.coerceAtLeast(0))
+                .put("semanticHash", DiagnosticRedaction.safeToken(semanticHash, 96))
                 .put("pssKb", Debug.getPss())
                 .put("rssKb", currentRssKb())
                 .put("threads", currentThreadCount())
@@ -58,6 +70,12 @@ object TtsProcessCheckpoint {
             "language" to value.optString("language", ""),
             "modelsReady" to value.optBoolean("modelsReady", false),
             "inputChars" to value.optInt("inputChars", 0),
+            "phoneCount" to value.optInt("phoneCount", 0),
+            "phoneMin" to value.optLong("phoneMin", 0L),
+            "phoneMax" to value.optLong("phoneMax", 0L),
+            "phoneHash" to value.optString("phoneHash", ""),
+            "semanticCount" to value.optInt("semanticCount", 0),
+            "semanticHash" to value.optString("semanticHash", ""),
             "pssKb" to value.optInt("pssKb", 0),
             "rssKb" to value.optInt("rssKb", 0),
             "threads" to value.optInt("threads", 0),

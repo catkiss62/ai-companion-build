@@ -96,9 +96,13 @@ abstract class TtsProvider {
     TtsEmotionCue? emotion,
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
+    int segmentIndex = -1,
   });
   Future<void> beginAudioStream();
-  Future<void> enqueueAudio(Uint8List wavBytes);
+  Future<void> enqueueAudio(
+    Uint8List wavBytes, {
+    double speedMultiplier = 1.0,
+  });
   Future<void> finishAudioStream();
 
   Future<void> stop();

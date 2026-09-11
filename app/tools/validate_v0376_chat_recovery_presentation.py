@@ -66,7 +66,7 @@ assert "正在结束上次中断的回复" in chat
 assert "const Duration(seconds: 30)" in runner
 assert "reasoning: delta.reasoning" in runner
 
-assert "pushNamed('/settings')" in chat
+assert "pushNamed('/settings')" in chat or "widget.onOpenMore?.call();" in chat
 assert "const SettingsPage()" not in chat
 assert "ttsStatus!" not in settings
 assert "Text(status!" not in settings

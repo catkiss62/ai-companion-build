@@ -24,16 +24,17 @@ overlay = read(
     "android/app/src/main/kotlin/com/aicompanion/localfirst/OverlayBubbleService.kt"
 )
 
-for route in (
-    "/companion",
-    "/relationship",
-    "/capabilities",
-    "/perception",
-    "/data-advanced",
-):
+for route in ("/companion", "/relationship"):
     assert route in app and route in more, route
-for label in ("她", "你们", "能力", "手机感知", "数据与高级"):
-    assert label in more, label
+if "version: 0.41.63+207" in read("pubspec.yaml"):
+    assert "SettingsDomainList" in more
+    for label in ("她", "你们", "模型与联网", "设备与数据", "诊断与开发"):
+        assert label in more + read("lib/features/settings/settings_page.dart"), label
+else:
+    for route in ("/capabilities", "/perception", "/data-advanced"):
+        assert route in app and route in more, route
+    for label in ("她", "你们", "能力", "手机感知", "数据与高级"):
+        assert label in more, label
 assert "认识第 ${relationshipAge!.dayNumber} 天" in memory
 assert "relationship_started_at" in database
 assert "SELECT MIN(created_at) AS first_at FROM messages" in database

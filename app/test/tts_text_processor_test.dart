@@ -67,6 +67,23 @@ void main() {
     );
   });
 
+  test('full-text units preserve narration and dialogue semantics', () {
+    const processor = TtsTextProcessor();
+    const source = '（她轻轻把耳鳍压低）\n\n「才没有一直等你。」';
+    final units = processor.processUnits(
+      source,
+      scope: TtsReadingScope.fullText,
+    );
+    expect(units.map((unit) => unit.text), [
+      '她轻轻把耳鳍压低',
+      '才没有一直等你。',
+    ]);
+    expect(units.map((unit) => unit.role), [
+      TtsSpeechRole.narration,
+      TtsSpeechRole.dialogue,
+    ]);
+  });
+
   test('replacement JSON fails closed on malformed input', () {
     const processor = TtsTextProcessor();
     expect(processor.decodeReplacementJson('{bad json'), isEmpty);

@@ -8,6 +8,7 @@ import 'tts_queue_service.dart';
 import 'tts_queued_segment_packer.dart';
 import '../models/chat_language_variant.dart';
 import 'tts_acoustic_segmenter.dart';
+import 'tts_text_processor.dart';
 import 'tts_voice_profile.dart';
 
 enum TtsPlaybackPhase { idle, synthesizing, playing }
@@ -115,6 +116,15 @@ class TtsPlaybackQueue {
     }
   }
 
+  /// Adds a sentence whose visible role has already been established by a
+  /// streaming surface. Immersive rooms use this so narration can be voiced
+  /// gently while quoted dialogue keeps the selected/automatic voice.
+  void addStructuredUnit(String text, {required TtsSpeechRole role}) {
+    final session = _session;
+    if (!_streaming || text.trim().isEmpty || session == null) return;
+    _enqueueRaw(session, text, manual: _manual, role: role);
+  }
+
   void endStream() {
     final session = _session;
     if (!_streaming || session == null) return;
@@ -158,23 +168,28 @@ class TtsPlaybackQueue {
 
     // Full-message playback follows A2's processText order: speech-only text
     // cleanup/replacements happen before sentence splitting.
-    final prepared = await service.prepareText(
+    final prepared = await service.prepareUnits(
       text,
       manual: manual,
       language: language,
     );
     if (!_isActive(session)) return;
-    if (prepared == null || prepared.trim().isEmpty) {
+    if (prepared.isEmpty) {
       session.closed = true;
       _maybeComplete(session);
       return;
     }
 
-    final chunks = segment
-        ? GenieFixedTextSegmenter.splitFirstImmediate(prepared, language)
-        : TtsAcousticSegmenter.split(prepared, language);
-    for (final chunk in chunks) {
-      _enqueuePrepared(session, chunk);
+    for (final unit in prepared) {
+      final chunks = segment
+          ? GenieFixedTextSegmenter.splitFirstImmediate(unit.text, language)
+          : TtsAcousticSegmenter.split(unit.text, language);
+      final voice = unit.role == TtsSpeechRole.narration
+          ? TtsVoiceMode.gentle
+          : session.voice;
+      for (final chunk in chunks) {
+        _enqueuePrepared(session, chunk, voice: voice);
+      }
     }
     session.closed = true;
     _maybeComplete(session);
@@ -213,9 +228,10 @@ class TtsPlaybackQueue {
     _A2Session session,
     String raw, {
     required bool manual,
+    TtsSpeechRole? role,
   }) {
     if (!_isActive(session) || raw.trim().isEmpty) return;
-    session.rawPending.add(raw.trim());
+    session.rawPending.add(_RawUnit(raw.trim(), role));
     _notify();
     if (session.rawWorkerActive) return;
     session.rawWorkerActive = true;
@@ -228,42 +244,65 @@ class TtsPlaybackQueue {
   }) async {
     try {
       while (_isActive(session) && session.rawPending.isNotEmpty) {
+        final role = session.rawPending.first.role;
+        final compatible = session.rawPending
+            .takeWhile((item) => item.role == role)
+            .map((item) => item.text)
+            .toList(growable: false);
         final packed = session.rawUnitsSubmitted == 0
-            ? TtsPackedPrefix(session.rawPending.first, 1)
-            : TtsQueuedSegmentPacker.packPrefix(
-                session.rawPending,
-                session.language,
-              );
+            ? TtsPackedPrefix(compatible.first, 1)
+            : TtsQueuedSegmentPacker.packPrefix(compatible, session.language);
         session.rawPending.removeRange(0, packed.sourceUnits);
         session.rawUnitsSubmitted += packed.sourceUnits;
         final index = session.reserve(packed.text);
         _notify();
-        String? prepared;
+        TtsPreparedUnit? prepared;
         try {
-          prepared = await service.prepareText(
-            packed.text,
-            manual: manual,
-            language: session.language,
-          );
+          if (role == null) {
+            final text = await service.prepareText(
+              packed.text,
+              manual: manual,
+              language: session.language,
+            );
+            if (text != null && text.trim().isNotEmpty) {
+              prepared = TtsPreparedUnit(
+                text: text,
+                role: TtsSpeechRole.dialogue,
+              );
+            }
+          } else {
+            prepared = await service.prepareUnit(
+              packed.text,
+              role: role,
+              manual: manual,
+              language: session.language,
+            );
+          }
         } catch (_) {
           prepared = null;
         }
         if (!_isActive(session)) return;
-        if (prepared == null || prepared.trim().isEmpty) {
+        if (prepared == null || prepared.text.trim().isEmpty) {
           _markGenerated(session, index, null);
           continue;
         }
         // Streaming boundaries are found before speech-only substitutions. A
         // hotword or user replacement can expand substantially, so enforce the
         // final Genie ceiling again after preparation without losing FIFO order.
-        final chunks = TtsAcousticSegmenter.split(prepared, session.language);
+        final chunks =
+            TtsAcousticSegmenter.split(prepared.text, session.language);
         if (chunks.isEmpty) {
           _markGenerated(session, index, null);
           continue;
         }
+        final voice = prepared.role == TtsSpeechRole.narration
+            ? TtsVoiceMode.gentle
+            : session.voice;
+        session.voiceByIndex[index] = voice;
         final indexes = <int>[
           index,
-          for (var i = 1; i < chunks.length; i++) session.reserve(chunks[i]),
+          for (var i = 1; i < chunks.length; i++)
+            session.reserve(chunks[i], voice: voice),
         ];
         _notify();
         for (var i = 0; i < chunks.length; i++) {
@@ -286,10 +325,14 @@ class TtsPlaybackQueue {
     }
   }
 
-  void _enqueuePrepared(_A2Session session, String text) {
+  void _enqueuePrepared(
+    _A2Session session,
+    String text, {
+    required TtsVoiceMode voice,
+  }) {
     final cleaned = text.trim();
     if (!_isActive(session) || cleaned.isEmpty) return;
-    final index = session.reserve(cleaned);
+    final index = session.reserve(cleaned, voice: voice);
     _notify();
     _launchGeneration(session, index, cleaned);
   }
@@ -309,11 +352,13 @@ class TtsPlaybackQueue {
     _notify();
     Uint8List? audio;
     try {
+      final voice = session.voiceByIndex[index] ?? session.voice;
       audio = await service.generatePrepared(
         text,
         emotion: session.emotion,
         language: session.language,
-        voice: session.voice,
+        voice: voice,
+        segmentIndex: index,
       );
     } catch (_) {
       audio = null;
@@ -376,7 +421,11 @@ class TtsPlaybackQueue {
           }
           _current = text;
           _notify();
-          await service.enqueuePlayback(audio);
+          final voice = session.voiceByIndex.remove(index) ?? session.voice;
+          await service.enqueuePlayback(
+            audio,
+            speedMultiplier: voice == TtsVoiceMode.gentle ? 1.2 : 1.0,
+          );
           if (!session.audiblePlaybackStarted) {
             session.audiblePlaybackStarted = true;
             _notify();
@@ -452,8 +501,9 @@ class _A2Session {
   final Completer<void> idle = Completer<void>();
   final Map<int, Uint8List?> ready = <int, Uint8List?>{};
   final Map<int, String> textByIndex = <int, String>{};
+  final Map<int, TtsVoiceMode> voiceByIndex = <int, TtsVoiceMode>{};
 
-  final List<String> rawPending = <String>[];
+  final List<_RawUnit> rawPending = <_RawUnit>[];
   bool rawWorkerActive = false;
   int rawUnitsSubmitted = 0;
   int total = 0;
@@ -478,9 +528,10 @@ class _A2Session {
     }
   }
 
-  int reserve(String text) {
+  int reserve(String text, {TtsVoiceMode? voice}) {
     final index = total++;
     textByIndex[index] = text;
+    if (voice != null) voiceByIndex[index] = voice;
     return index;
   }
 
@@ -491,4 +542,11 @@ class _A2Session {
   }
 
   Future<void> waitForReadyEntry() => _readyEntry.future;
+}
+
+class _RawUnit {
+  const _RawUnit(this.text, this.role);
+
+  final String text;
+  final TtsSpeechRole? role;
 }

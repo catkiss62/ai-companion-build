@@ -21,6 +21,7 @@ import '../storage/secure_config.dart';
 import '../tts/tts_playback_queue.dart';
 import '../tts/tts_provider.dart';
 import '../tts/tts_service.dart';
+import '../tts/tts_structured_stream_parser.dart';
 import 'immersive_message_language_variant_service.dart';
 import 'immersive_nsfw_router.dart';
 import 'immersive_prompt_builder.dart';
@@ -86,6 +87,11 @@ class ImmersiveRoomController extends ChangeNotifier {
   GenerationCancellationToken? _cancellation;
   bool _streamingDraftVisible = false;
   bool _lastFinalReplyUsedFallback = false;
+  final TtsStructuredStreamParser _streamSpeechParser =
+      TtsStructuredStreamParser();
+  bool _streamSpeechEligible = false;
+  bool _streamSpeechStarted = false;
+  String? _streamSpeechOwnerId;
   String _allStreamingReasoning = '';
   Timer? _streamNotifyTimer;
   bool _disposed = false;
@@ -242,6 +248,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       final effort = ReasoningEffort.fromApiName(
         await db.getSetting('reasoning_effort'),
       );
+      await _configureStreamingSpeech(ownerId: 'stream:${user.id}');
       final finishReason = await _streamFinalRequest(
         internalApiKey: apiKey,
         internalEndpoint: endpoint,
@@ -296,6 +303,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       if (streamingContent.trim().isEmpty) {
         throw const FormatException('模型没有返回可用的小说正文');
       }
+      await _finishStreamingSpeech();
       final assistant = await repository.addMessage(
         roomId: roomId,
         role: 'assistant',
@@ -332,7 +340,8 @@ class ImmersiveRoomController extends ChangeNotifier {
               )
           ? selectedLanguage
           : ChatLanguage.chinese;
-      if ((await db.getSetting('tts_enabled')) != '0' &&
+      if (!_streamSpeechStarted &&
+          (await db.getSetting('tts_enabled')) != '0' &&
           (await db.getSetting('auto_tts')) != '0') {
         final emotion = await _ttsEmotionCueFor(assistant);
         unawaited(ttsPlayback.playText(
@@ -349,6 +358,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: profile,
       ));
     } on _ImmersiveIncompleteReply catch (incomplete) {
+      await _abortStreamingSpeech();
       await _saveIncompleteReplyDraft(
         userMessageId: user.id,
         content: incomplete.content,
@@ -357,6 +367,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       notice = 'Gemini 回复未完整结束。当前文字尚未进入房间上下文或摘要，请选择“重新生成”或“确认回复”。';
       error = null;
     } on GenerationCancelledByUserException {
+      await _abortStreamingSpeech();
       await repository.interruptUserMessageForDisplay(
         roomId: roomId,
         messageId: user.id,
@@ -365,6 +376,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       interruptions = await repository.interruptionsForRoom(roomId);
       error = null;
     } catch (exception) {
+      if (!committed) await _abortStreamingSpeech();
       if (!committed && streamingContent.trim().isNotEmpty) {
         await _saveIncompleteReplyDraft(
           userMessageId: user.id,
@@ -515,6 +527,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       }
       if (delta.content.isNotEmpty) {
         streamingContent += delta.content;
+        await _consumeStreamingSpeech(delta.content);
       }
       if (delta.finishReason != null) finishReason = delta.finishReason!;
       if (delta.done || delta.finishReason != null) sawTerminalSignal = true;
@@ -733,6 +746,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       final effort = ReasoningEffort.fromApiName(
         await db.getSetting('reasoning_effort'),
       );
+      await _configureStreamingSpeech(ownerId: 'stream:${user.id}');
       final finishReason = await _streamFinalRequest(
         internalApiKey: internalApiKey,
         internalEndpoint: internalEndpoint,
@@ -762,6 +776,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       if (streamingContent.trim().isEmpty) {
         throw const FormatException('模型没有返回可用的小说正文');
       }
+      await _finishStreamingSpeech();
       await repository.addMessage(
         roomId: roomId,
         role: 'assistant',
@@ -776,6 +791,7 @@ class ImmersiveRoomController extends ChangeNotifier {
         model: profile,
       ));
     } on _ImmersiveIncompleteReply catch (incomplete) {
+      await _abortStreamingSpeech();
       await _saveIncompleteReplyDraft(
         userMessageId: user.id,
         content: incomplete.content,
@@ -783,6 +799,7 @@ class ImmersiveRoomController extends ChangeNotifier {
       );
       notice = 'Gemini 回复仍未完整结束。当前文字尚未进入房间上下文或摘要。';
     } catch (exception) {
+      await _abortStreamingSpeech();
       if (streamingContent.trim().isNotEmpty) {
         await _saveIncompleteReplyDraft(
           userMessageId: user.id,
@@ -915,9 +932,13 @@ class ImmersiveRoomController extends ChangeNotifier {
   }
 
   Future<TtsEmotionCue> _ttsEmotionCueFor(ImmersiveMessage message) async {
+    return _ttsEmotionCueForText(message.content);
+  }
+
+  Future<TtsEmotionCue> _ttsEmotionCueForText(String text) async {
     final resolved = await EmotionClassifierService.instance.resolve(
       rawTag: '',
-      visibleText: message.content,
+      visibleText: text,
       envelopeStatus: EmotionEnvelopeStatus.missing,
     );
     return TtsEmotionCue(
@@ -926,6 +947,64 @@ class ImmersiveRoomController extends ChangeNotifier {
       confidence: resolved.confidence,
       source: resolved.source,
     );
+  }
+
+  Future<void> _configureStreamingSpeech({required String ownerId}) async {
+    _streamSpeechParser.reset();
+    _streamSpeechStarted = false;
+    _streamSpeechOwnerId = ownerId;
+    final language =
+        ChatLanguage.tryParse(await db.getSetting('tts_language')) ??
+            ChatLanguage.chinese;
+    _streamSpeechEligible = language == ChatLanguage.chinese &&
+        (await db.getSetting('tts_enabled')) != '0' &&
+        (await db.getSetting('auto_tts')) != '0';
+  }
+
+  Future<void> _consumeStreamingSpeech(String delta) async {
+    if (!_streamSpeechEligible || delta.isEmpty) return;
+    final units = _streamSpeechParser.add(delta);
+    if (units.isEmpty) return;
+    if (!_streamSpeechStarted) {
+      final emotion = await _ttsEmotionCueForText(streamingContent);
+      await ttsPlayback.beginStream(
+        manual: false,
+        ownerId: _streamSpeechOwnerId,
+        emotion: emotion,
+        language: ChatLanguage.chinese,
+      );
+      _streamSpeechStarted = true;
+    }
+    for (final unit in units) {
+      ttsPlayback.addStructuredUnit(unit.text, role: unit.role);
+    }
+  }
+
+  Future<void> _finishStreamingSpeech() async {
+    if (!_streamSpeechEligible) return;
+    final tail = _streamSpeechParser.finish();
+    if (tail.isNotEmpty && !_streamSpeechStarted) {
+      final emotion = await _ttsEmotionCueForText(streamingContent);
+      await ttsPlayback.beginStream(
+        manual: false,
+        ownerId: _streamSpeechOwnerId,
+        emotion: emotion,
+        language: ChatLanguage.chinese,
+      );
+      _streamSpeechStarted = true;
+    }
+    for (final unit in tail) {
+      ttsPlayback.addStructuredUnit(unit.text, role: unit.role);
+    }
+    if (_streamSpeechStarted) ttsPlayback.endStream();
+  }
+
+  Future<void> _abortStreamingSpeech() async {
+    _streamSpeechParser.reset();
+    _streamSpeechEligible = false;
+    if (_streamSpeechStarted) await ttsPlayback.stop();
+    _streamSpeechStarted = false;
+    _streamSpeechOwnerId = null;
   }
 
   Future<void> stopSpeech() => ttsPlayback.stop();

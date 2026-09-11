@@ -17,7 +17,11 @@ import kotlin.math.roundToInt
 /** One utterance = one AudioTrack, matching the verified Genie v0.6.4 player. */
 class WavAudioPlayer {
     private sealed interface Command {
-        data class Audio(val bytes: ByteArray, val wav: WavInfo) : Command
+        data class Audio(
+            val bytes: ByteArray,
+            val wav: WavInfo,
+            val speed: Float,
+        ) : Command
         data object Finish : Command
         data object Cancel : Command
     }
@@ -58,11 +62,11 @@ class WavAudioPlayer {
         next.start()
     }
 
-    fun enqueueStream(wavBytes: ByteArray) {
+    fun enqueueStream(wavBytes: ByteArray, segmentSpeed: Float = speed) {
         val wav = parseWav(wavBytes)
         val current = synchronized(lock) { stream }
             ?: error("TTS audio stream has not started")
-        current.enqueue(wavBytes, wav)
+        current.enqueue(wavBytes, wav, segmentSpeed.coerceIn(0.5f, 2f))
     }
 
     /** Returns true only when AudioTrack actually started and drained. */
@@ -137,12 +141,12 @@ class WavAudioPlayer {
             track?.let(::applyPlaybackParams)
         }
 
-        fun enqueue(bytes: ByteArray, wav: WavInfo) {
+        fun enqueue(bytes: ByteArray, wav: WavInfo, speed: Float) {
             check(!cancelled) { "TTS audio stream has stopped" }
             val isFirst = synchronized(this) {
                 (!firstEnqueued).also { firstEnqueued = true }
             }
-            queue.put(Command.Audio(bytes, wav))
+            queue.put(Command.Audio(bytes, wav, speed))
             if (isFirst) {
                 started.await()
                 failure?.let { throw it }
@@ -185,6 +189,7 @@ class WavAudioPlayer {
                         is Command.Audio -> {
                             val wav = command.wav
                             if (format == null) {
+                                currentSpeed = command.speed
                                 format = wav
                                 val created = createTrack(wav)
                                 localTrack = created
@@ -205,6 +210,18 @@ class WavAudioPlayer {
                                 }
                             }
                             val writer = checkNotNull(localTrack)
+                            if (playbackStarted && command.speed != currentSpeed) {
+                                // PlaybackParams affects the whole AudioTrack,
+                                // including PCM already buffered. Drain the
+                                // preceding semantic unit before changing it.
+                                while (!cancelled &&
+                                    playbackHeadFrames(writer) < framesWritten
+                                ) {
+                                    Thread.sleep(8L)
+                                }
+                                currentSpeed = command.speed
+                                if (!cancelled) applyPlaybackParams(writer)
+                            }
                             val bytesPerFrame = wav.bytesPerFrame
                             var offset = wav.dataOffset
                             if (!playbackStarted) {

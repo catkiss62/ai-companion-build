@@ -17,10 +17,10 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    require(read("pubspec.yaml"), "version: 0.41.62+206")
-    require(
-        read("lib/core/agent/agent_self_reader.dart"),
-        "static const buildLabel = 'v0.41.62+206';",
+    assert "version: 0.41.63+207" in read("pubspec.yaml")
+    assert (
+        "static const buildLabel = 'v0.41.63+207';"
+        in read("lib/core/agent/agent_self_reader.dart")
     )
     provider = read("lib/core/ai/chat_api_provider.dart")
     secure = read("lib/core/storage/secure_config.dart")

@@ -13,8 +13,8 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-assert "version: 0.41.60+204" in read("pubspec.yaml")
-assert "static const buildLabel = 'v0.41.60+204';" in read(
+assert "version: 0.41.63+207" in read("pubspec.yaml")
+assert "static const buildLabel = 'v0.41.63+207';" in read(
     "lib/core/agent/agent_self_reader.dart"
 )
 
@@ -106,7 +106,7 @@ assert 'File(context.filesDir, "genie-benchmark")' in asset_store
 assert '"genie-benchmark/shared/' in adapter
 assert "DeepSeek" in adapter and "地铺西咳" in adapter
 assert "service.generatePrepared(" in queue
-for token in ("service.beginPlayback()", "service.enqueuePlayback(audio)", "service.finishPlayback()"):
+for token in ("service.beginPlayback()", "service.enqueuePlayback(", "service.finishPlayback()"):
     assert token in queue, token
 assert "interSentenceGap" not in queue
 for token in (
@@ -125,7 +125,7 @@ for token in (
 assert "resampleForSpeed" not in runtime
 assert "pcm16Wav(result.audio" in runtime
 assert "volume = value.coerceIn(0.0, 2.0)" in native
-assert "GenieFixedTextSegmenter.splitFirstImmediate(prepared, language)" in queue
+assert "GenieFixedTextSegmenter.splitFirstImmediate(unit.text, language)" in queue
 for token in ("targetChars: english ? 88 : 42", "maxChars: english ? 110 : 54"):
     assert token in fixed_segmenter, token
 

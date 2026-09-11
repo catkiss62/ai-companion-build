@@ -91,6 +91,71 @@ class TtsService implements TtsQueueService {
     bool manual = false,
     ChatLanguage language = ChatLanguage.chinese,
   }) async {
+    final settings = await _prepareSettings(
+      manual: manual,
+      language: language,
+    );
+    if (settings == null) return null;
+    final spoken = processor.process(
+      visibleText,
+      language: language,
+      replacements: settings.replacements,
+      scope: settings.scope,
+    );
+    return spoken.isEmpty ? null : spoken;
+  }
+
+  @override
+  Future<List<TtsPreparedUnit>> prepareUnits(
+    String visibleText, {
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final settings = await _prepareSettings(
+      manual: manual,
+      language: language,
+    );
+    if (settings == null) return const <TtsPreparedUnit>[];
+    return processor.processUnits(
+      visibleText,
+      language: language,
+      replacements: settings.replacements,
+      scope: settings.scope,
+    );
+  }
+
+  @override
+  Future<TtsPreparedUnit?> prepareUnit(
+    String visibleText, {
+    required TtsSpeechRole role,
+    bool manual = false,
+    ChatLanguage language = ChatLanguage.chinese,
+  }) async {
+    final settings = await _prepareSettings(
+      manual: manual,
+      language: language,
+    );
+    if (settings == null ||
+        (settings.scope == TtsReadingScope.dialogueOnly &&
+            role == TtsSpeechRole.narration)) {
+      return null;
+    }
+    final unit = processor.processUnit(
+      visibleText,
+      role: role,
+      language: language,
+      replacements: settings.replacements,
+    );
+    return unit.text.isEmpty ? null : unit;
+  }
+
+  Future<({
+    Map<String, String> replacements,
+    TtsReadingScope scope,
+  })?> _prepareSettings({
+    required bool manual,
+    required ChatLanguage language,
+  }) async {
     if ((await db.getSetting('tts_enabled')) == '0') return null;
     if (!manual && (await db.getSetting('auto_tts')) == '0') return null;
 
@@ -122,15 +187,12 @@ class TtsService implements TtsQueueService {
       final replacements = processor.decodeReplacementJson(
         await db.getSetting('tts_replacements_json'),
       );
-      final spoken = processor.process(
-        visibleText,
-        language: language,
+      return (
         replacements: replacements,
         scope: TtsReadingScope.fromSetting(
           await db.getSetting('tts_reading_scope'),
         ),
       );
-      return spoken.isEmpty ? null : spoken;
     } catch (e) {
       await _recordError(e.toString());
       return null;
@@ -143,6 +205,7 @@ class TtsService implements TtsQueueService {
     TtsEmotionCue? emotion,
     ChatLanguage language = ChatLanguage.chinese,
     TtsVoiceMode voice = TtsVoiceMode.daily,
+    int segmentIndex = -1,
   }) async {
     if (spokenText.trim().isEmpty) return null;
     try {
@@ -151,6 +214,7 @@ class TtsService implements TtsQueueService {
         emotion: emotion,
         language: language,
         voice: voice,
+        segmentIndex: segmentIndex,
       );
       if (audio == null || audio.isEmpty) return null;
       await _recordError('');
@@ -165,9 +229,15 @@ class TtsService implements TtsQueueService {
   Future<void> beginPlayback() => provider.beginAudioStream();
 
   @override
-  Future<void> enqueuePlayback(Uint8List wavBytes) async {
+  Future<void> enqueuePlayback(
+    Uint8List wavBytes, {
+    double speedMultiplier = 1.0,
+  }) async {
     if (wavBytes.isEmpty) return;
-    await provider.enqueueAudio(wavBytes);
+    await provider.enqueueAudio(
+      wavBytes,
+      speedMultiplier: speedMultiplier,
+    );
   }
 
   @override
