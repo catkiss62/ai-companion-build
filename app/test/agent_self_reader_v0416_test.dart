@@ -13,7 +13,8 @@ void main() {
     );
 
     // This historical suite follows the current executable build identity.
-    expect(result.promptData, contains('build=v0.41.66+210 schema=61'));
+    expect(result.promptData, contains('build=v0.41.67+211 schema=61'));
+    expect(result.promptData, contains('id=cedar_toy_mcp_v04167'));
     expect(result.promptData, contains('本轮真实执行的本地只读接口'));
     expect(result.promptData, contains('id=system_self.read status=executable'));
     expect(

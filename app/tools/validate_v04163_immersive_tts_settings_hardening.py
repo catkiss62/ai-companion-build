@@ -155,6 +155,7 @@ def main() -> None:
         for fact in (
             "build=v0.41.65+209 schema=60",
             "build=v0.41.66+210 schema=61",
+            "build=v0.41.67+211 schema=61",
         )
     )
 

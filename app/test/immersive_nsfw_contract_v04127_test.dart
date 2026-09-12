@@ -113,7 +113,8 @@ void main() {
     expect(rendering, contains('【高潮引导 · 跨轮同步状态机】'));
     expect(rendering, contains('只是宣言，不是已发生的射精'));
     expect(rendering, contains('此时仍必须再次同步到达'));
-    expect(rendering, contains('非性交行为（例如口交、乳交等）不要求 AI 角色与用户同步高潮'));
+    expect(rendering, contains('非性交姿势（例如手交、口交、乳交）不会同步高潮'));
+    expect(rendering, contains('除非女性AI在非性交的同时在自慰'));
     expect(rendering, isNot(contains('没有固定阶段表、固定字数、固定高潮口令或同步流程')));
     expect(rendering, contains('自然停顿与后续衔接'));
     expect(rendering, isNot(contains('下一轮就直接解用户扣子')));

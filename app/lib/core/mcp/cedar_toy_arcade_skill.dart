@@ -6,11 +6,6 @@ class CedarToyArcadeSkill {
         caseSensitive: false,
       ).hasMatch(text);
 
-  static bool isRelevant(String text) => RegExp(
-        r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏)',
-        caseSensitive: false,
-      ).hasMatch(text);
-
   static const prompt = '''【Cedar Toy 游戏厅 · 行为 Skill】
 Cedar Toy 是经 MCP 访问的真实远端游戏厅，不是语言模型。只有用户本轮邀请去 Cedar Toy、游戏厅或一起玩小游戏时才使用。
 先调用 list_games；全部已返回的游戏都可选择。选定的 game 必须来自本轮真实列表，再调用 get_guide；随后只能使用真实指南中出现的 action 与参数调用 play。不得编造游戏、动作、胜负、分数、存档或经历。

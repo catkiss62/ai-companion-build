@@ -96,6 +96,17 @@ contains(
     "writeCedarToyToken",
     "clearCedarToyToken",
 )
+secure_config = read("lib/core/storage/secure_config.dart")
+for declaration in (
+    "static const _cedarToyTokenName",
+    "Future<String?> readCedarToyToken()",
+    "Future<void> writeCedarToyToken(String value)",
+    "Future<void> clearCedarToyToken()",
+):
+    assert secure_config.count(declaration) == 1, f"duplicate Cedar declaration: {declaration}"
+assert read("lib/core/mcp/cedar_toy_arcade_skill.dart").count(
+    "static bool isRelevant(String text)"
+) == 1, "duplicate CedarToyArcadeSkill.isRelevant declaration"
 contains(
     "lib/core/models/chat_segment.dart",
     "immersiveDisplayText",

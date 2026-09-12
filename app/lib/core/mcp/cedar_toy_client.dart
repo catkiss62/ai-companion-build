@@ -91,7 +91,10 @@ class CedarToyClient {
   static String redactSecrets(String raw) {
     var result = raw.replaceAll(_tokenPattern, '[CEDAR_TOKEN]');
     result = result.replaceAllMapped(
-      RegExp(r'(?i)(password\s*[=:]\s*)[^\s,;}&]+'),
+      RegExp(
+        r'(password\s*[=:]\s*)[^\s,;}&]+',
+        caseSensitive: false,
+      ),
       (match) => '${match.group(1)}[REDACTED]',
     );
     try {

@@ -61,6 +61,7 @@
 
 ### Agent 与联网
 
+- `CEDAR_TOY_MCP_v0.41.67.md`：Cedar Toy 动态游戏列表、指南约束、真实游玩 Outcome、安全凭据与 DeepSeek/Gemini 单次最终回复合同。
 - `SUBJECTIVITY_LIFELIKENESS_AUDIT_2026-09-08.md`：主体性/活人感约束归因、v0.41.49 主观搜索与造梗恢复实现、Agent v2 与 D6 媒体引用合同。
 - `AGENT_V2_BOUNDED_LOOP_v0.41.50.md`：v0.41.50 三回合/六调用的 observe→act→verify 任务循环、重复调用防护、终态核验、权限与真机边界。
 - `AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`：Desire 动机、能力可用性与最终 Outcome 三层仲裁；记录 v0.41.43 真机踩雷、显式 wait/defer、成功冷却语义及未来 MCP 接入约束。

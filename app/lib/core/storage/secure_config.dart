@@ -22,7 +22,6 @@ class SecureConfig {
   static const _agnesEndpointName = 'agnes_chat_endpoint';
   static const _agnesModelName = 'agnes_model';
   static const _cedarToyTokenName = 'cedar_toy_token';
-  static const _cedarToyTokenName = 'cedar_toy_token';
   static const defaultAgnesEndpoint =
       'https://apihub.agnes-ai.com/v1/chat/completions';
   static const defaultAgnesModel = 'agnes-2.5-flash';
@@ -168,15 +167,6 @@ class SecureConfig {
       await _storage.write(key: _agnesModelName, value: trimmed);
     }
   }
-
-  Future<String?> readCedarToyToken() =>
-      _storage.read(key: _cedarToyTokenName);
-
-  Future<void> writeCedarToyToken(String value) =>
-      _writeOptionalSecret(_cedarToyTokenName, value);
-
-  Future<void> clearCedarToyToken() =>
-      _storage.delete(key: _cedarToyTokenName);
 
   Future<void> _writeOptionalSecret(String key, String value) async {
     final trimmed = value.trim();

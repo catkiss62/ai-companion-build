@@ -34,24 +34,24 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04167-cedar-toy-mcp`，正在恢复 `v0.41.67+211 / schema 61 / Snapshot protocol 6`：Cedar Toy MCP、安全设置、列表→指南→游玩真实 Outcome、沉浸括号窄修、高潮规则澄清与 Phase 3C 消费入口撤回已重新落入工作树；当前仍为 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，尚未推送，`main` 未改 |
+| 当前开发分支 | `agent/v04167-cedar-toy-mcp`，`v0.41.67+211 / schema 61 / Snapshot protocol 6`：Cedar Toy MCP、安全设置、列表→指南→游玩真实 Outcome、沉浸括号窄修、高潮规则澄清与 Phase 3C 消费入口撤回均已进入公开开发分支；状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +210 Actions build head `7e2faf294858633921fc1b2d5f941052f6b008a7` / tree `86318d0471858bfd935610ef7fd7f326c37ada65`；运行功能 tree 为 `b8768d34c68f323e5e64b91d4d87c898717fd942`。授权 GitHub 连接写入的远端 tree 与本地 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前源码候选为 `0.41.67+211 / schema 61 / Snapshot protocol 6`；最新可下载 APK 仍是 +210，不能在 CI 产物完成前把 +211 写成 APK READY。schema 不升级，旧备份与 Snapshot protocol 6 不变 |
-| 最终 CI | +210 run [`34658611917`](https://github.com/catkiss62/ai-companion-build/actions/runs/34658611917)（850）完整成功：干净基线、私有载荷固定 SHA 与分源、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`745/745` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
-| 测试 APK | `AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-APK.apk`，544,724,654 bytes |
-| APK SHA-256 | `ba13db4d875a0fab7a7ca0902aab9097f6fcf05309a9a604cca5b59a677cc0b5`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
-| Artifact / Release | Artifact [`10285589701`](https://github.com/catkiss62/ai-companion-build/actions/runs/34658611917/artifacts/10285589701)，ZIP 537,845,978 bytes / digest `dde22b98f26da9210756b40a52c435275c9a61211e71fa81436e875f4a516c5b`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-43dc2e10769542425043) 未发布，`main` 未合并 |
+| 有效构建 head / tree | +211 Actions build head `083d1f80360006a4d6697b15809d7cc6626cc5b1` / tree `9c5e8b8b5c2ceb3d0574155668023091ad1e6eb2`；公开分支相对 +210 基线正好领先 3 个提交且无分叉。Actions 构建 tree 与本地功能 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
+| App / 数据库 | 当前源码与最新可下载候选均为 `0.41.67+211 / schema 61 / Snapshot protocol 6`；schema 不升级，旧备份与 Snapshot protocol 6 不变 |
+| 最终 CI | +211 run [`34706960083`](https://github.com/catkiss62/ai-companion-build/actions/runs/34706960083)（856）完整成功：干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`751/751` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
+| 测试 APK | `AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK.apk`，GitHub 显示 519 MB |
+| APK SHA-256 | `3d9e089fbf3b44a2d0a6e24a144c9f02699c334390dd1447f179e9b2e8f54470`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
+| Artifact / Release | Artifact [`10302062291`](https://github.com/catkiss62/ai-companion-build/actions/runs/34706960083/artifacts/10302062291)，ZIP 537,855,322 bytes / digest `88980171235b94c69dd48b84eee8e122b55d49e232bbc8e816e765a5a480c810`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-518cd81c412506edeb34) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+210 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 850、`745/745` tests、Release 和实包门全绿；兴趣消费自然频率、随笔/愿望节律、按钮间距与括号源规则消失仍需真机验证。日语首次切入 `NullPointerException` 与偶发固定台词继续分开进入 T1 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 为 `CI PASSED / APK READY / TRUE DEVICE PENDING`：run 856、`751/751` tests、Release、签名、实包与 Draft 门全绿；Cedar 真账号、列表→指南→游玩、DeepSeek/Gemini 单轮调用边界、沉浸括号与高潮规则仍需真机验收。日语首次切入 `NullPointerException` 与偶发固定台词继续分开进入 T1 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **Cedar Toy MCP +211 自动化收口（IMPLEMENTED LOCALLY / CI PENDING）**：完成静态/Flutter 回归，形成三个提交，推送到公开分支 `agent/v04167-cedar-toy-mcp`，运行 GitHub Actions 并生成未发布 Draft APK；失败则只记录真实失败并窄修重跑，不触碰 `main` |
+| 当前下一步 | **v0.41.67+211 真机验收（CI PASSED / APK READY / TRUE DEVICE PENDING）**：从未发布 Draft 安装候选，验证 Cedar 真账号与 Token 安全设置、动态列表→指南→游玩、真实 Outcome、无结果/失败真值、DeepSeek 单模型与 DeepSeek+Gemini 两种最终回复边界，以及沉浸括号和高潮规则；自动化已收口，不再为无真机证据的猜测改代码 |
 | 目标 | 让她在用户明确邀请时通过 Cedar MCP 动态读取全部真实游戏，按列表→指南→游玩逐级执行；所有内部判断和 Outcome 核验固定由 DeepSeek 完成，Gemini 模式只在收齐整轮真实结果后形成一次完整最终回复 |
-| 当前证据 | +210 run 850 与 APK 仍是最近完整 CI 基线。+211 当前只有重新恢复的本地源码与静态合同，尚未取得远端提交、Actions、Artifact、Draft APK 或真机证据；此前三个本地提交随临时工作区回收而丢失，本窗口从 +210 远端基线重新构造并逐项核验，不能冒用旧本地 SHA |
+| 当前证据 | +211 公开分支相对 +210 正好 3 个提交；Actions run 856 对构建 head `083d1f80360006a4d6697b15809d7cc6626cc5b1` 完整成功，Artifact `10302062291` 与未发布 Draft `untagged-518cd81c412506edeb34` 已核验。APK SHA-256 为 `3d9e089fbf3b44a2d0a6e24a144c9f02699c334390dd1447f179e9b2e8f54470`；自动化不能替代 Cedar 真实账号和 REDMI K80 Ultra 真机证据 |
 | 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 继续独立安全保存，不因兴趣消费改变提供商边界。不让兴趣绕过隐私、联网、主动频率、Gate、Outcome 或用户关闭能力；不把一次点击/搜索/图片标签直接提升为稳定偏好。保留兴趣删除、停用、衰减、版本和回滚；不修改沉浸房间、Snapshot protocol 6 或已通过的 Genie-TTS 主链。造梗来源仍服从既有表达系统，不由 Cedar 或兴趣消费生成固定台词。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性、D6 真机长尾均不混入本实现包 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | Cedar 网络请求只是 MCP transport，不是模型调用；Token/账号/密码/绑定码不进入 Prompt、模型参数、诊断或备份。每阶段仅暴露一个 Cedar 工具，game/action 必须来自同轮真实 Outcome；没有成功 `cedar_toy.play` 就不能声称胜负、得分、进度或经历。一次游玩不自动写入永久兴趣。Phase 3C 消费入口撤回，但 schema 61 表保留兼容，不降 schema |
@@ -93,7 +93,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-12 v0.41.67+211 Cedar Toy MCP 与自主搜索恢复（IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+### 2026-09-12 v0.41.67+211 Cedar Toy MCP 与自主搜索恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户明确授权把本轮三个提交推送到公开仓库 `catkiss62/ai-companion-build` 的 `agent/v04167-cedar-toy-mcp` 分支，运行 GitHub Actions 并创建未发布 Draft APK；授权不包含合并 `main`、发布正式 Release、删除分支或公开凭据/私人数据。
 2. 上一临时工作区曾形成三个未推送提交，但在窗口卡顿后被系统回收；远端核验没有 +211 分支或提交，不能把失效的本地 SHA 冒充为远端证据。本窗口从远端 +210 head `7995cca` 恢复新分支并重新施工，最终提交 SHA、tree、run、Artifact、Draft 和 APK SHA 均须在真实发生后回填。
@@ -105,11 +105,14 @@
 8. 自主搜索回退：撤除 +210 Phase 3C 成熟兴趣对 public-web 问题规划、主动消息和设置入口的消费注入，恢复 Phase 2B 后的自然主观选题；schema 61 的表与旧数据保留兼容，不降 schema、不破坏 Snapshot protocol 6。Phase 3C 设计文档保留为被暂停/待重审的历史，不再当当前运行能力。
 9. 沉浸呈现窄修：增加 `ChatSegmentCodec.immersiveDisplayText`，对白保留 `「」`，动作/旁白不重新包普通聊天圆括号；页面、语言变体与手动 TTS 使用同一投影，避免白色旁白被误判成对白音色。
 10. 规则澄清：05 与沉浸 07 统一为“手交、口交、乳交等非性交姿势不会同步高潮；只有女性 AI 同时自慰时才可能按自身状态高潮”，并删除 07 参考末尾会与高优先级控制边界竞争的重复强制服从尾句。迁移只升级 +210 的两条已知默认 SHA，任何用户手改仍逐字保留。
-11. 版本提升为 `v0.41.67+211`，schema 仍为 61，Snapshot protocol 仍为 6；新增专项文档、Flutter tests、静态 validator 和 +211 workflow/Draft 命名。当前容器没有 Dart/Flutter 和私有素材，不提前宣称 Analyze、Flutter tests、Kotlin、Release 或 APK 已通过。
+11. 版本提升为 `v0.41.67+211`，schema 仍为 61，Snapshot protocol 仍为 6；新增专项文档、Flutter tests、静态 validator 和 +211 workflow/Draft 命名。本地缺失的 Flutter/Kotlin 与私有素材门均已由最终 Actions run 856 实际补齐并通过。
 12. **Cedar/API 路由硬合同**：Cedar MCP 只是外部工具 transport；列表、指南、游玩计划与 Outcome 核验全部进入既有 `generateInternal` DeepSeek lane。只有真实工具结果和上下文收齐后才进入 `generateFinal`；DeepSeek+Gemini 模式中这一轮只形成一次 Gemini 最终可见回复，不因 list/guide/play 拆成多次 Gemini 计费。Cedar 凭据不复用 DeepSeek/Gemini Key，也不进入任何模型请求。
 13. 失败路线：本机直接 HTTPS Git 没有凭据；推送阶段使用已连接且有仓库权限的 GitHub 连接写入同一公开开发分支。若 Actions 失败，只按真实日志做最窄修复并追加提交，不修改 `main`，不把失败 run、诊断 Draft 或未完成资产写成 APK READY。
 14. 本地验收必须包含：`validate_v04167_cedar_toy_mcp.py`、所有历史 Python validators、`git diff --check`、凭据/隐私扫描和 staged diff 审查；CI 再承担 Flutter Analyze/全量 tests、Kotlin/JVM、私有 417 桌宠/62 LingChat/22 塔罗、Release、固定签名、实包 byte identity、checksum、Artifact 与 Draft 上传。
 15. **代码路由复核**：`generateInternal` 明确只使用 DeepSeek `apiKey/endpoint`，`generateFinal` 才根据 final provider 使用独立 `configuredFinalApiKey/configuredFinalEndpoint`；工具循环每轮只回到 `generateInternal`，终止后才调用一次 `generateFinal`。既有 Gemini 有界重试只处理同一次最终回复的瞬时失败，失败后 DeepSeek 兜底，不是功能新增的 Gemini 子调用。
+16. **三提交与树核验**：公开分支 `agent/v04167-cedar-toy-mcp` 相对 +210 基线正好领先 3 个提交、behind 0；前两项远端提交为 `f1cdd76c633ba9f6b2bde6c0f9894014ef4b7417`（Cedar/自主搜索实现）与 `b99c87d7e7562cb09ad6a26bea5573c0032792da`（高潮规则和 API 路由合同）。最终构建候选提交为 `083d1f80360006a4d6697b15809d7cc6626cc5b1` / tree `9c5e8b8b5c2ceb3d0574155668023091ad1e6eb2`；`main` 未修改。
+17. **真实失败与窄修记录**：run 851 因校正文档树而取消；run 852 暴露恢复时重复拼入 Cedar 声明；run 853 暴露过时 Phase 3C planner 参数；run 854 暴露 Cedar 脱敏正则的 Dart 写法及 4 条仍冻结 +210/旧 Phase 3C/旧高潮文案的历史测试；run 855 暴露 v0.41.63 验证器尚未允许 +211。各轮均按真实日志修正，未跳过测试，也未把失败产物冒充 APK；专项验证器另加入 Cedar 声明只能出现一次的防回归断言。
+18. **最终 CI / APK 证据**：Actions run [`34706960083`](https://github.com/catkiss62/ai-companion-build/actions/runs/34706960083)（856）完整成功：全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`751/751` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk/ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过。APK `AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK.apk` 的 SHA-256 为 `3d9e089fbf3b44a2d0a6e24a144c9f02699c334390dd1447f179e9b2e8f54470`；Artifact `10302062291` 为 537,855,322-byte ZIP / digest `88980171235b94c69dd48b84eee8e122b55d49e232bbc8e816e765a5a480c810`；未发布 Draft 为 [`untagged-518cd81c412506edeb34`](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-518cd81c412506edeb34)，含 APK、`.sha256` 与 CI monitor。自动化通过不等于 Cedar 真账号与 REDMI K80 Ultra 真机已通过。
 
 ### 2026-09-11 v0.41.66+210 Phase 3C 习惯消费与随笔/愿望边界（IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING）
 

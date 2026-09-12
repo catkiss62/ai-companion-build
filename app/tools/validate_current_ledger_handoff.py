@@ -112,8 +112,10 @@ def main() -> None:
     required_current_facts = (
         "总账双层同步强制规则（每次正式修改前后都必须执行）",
         "只更新其中一层视为总账未完成",
-        "agent/v04166-phase3c-refresh-notes-wishlist",
-        "0.41.66+210",
+        "agent/v04167-cedar-toy-mcp",
+        "0.41.67+211",
+        "模型/API 调用双通道永久合同",
+        "Cedar MCP 网络请求本身不是模型调用",
         "schema 61",
         "玩游 Key",
         "沉浸房间",
@@ -207,7 +209,7 @@ def main() -> None:
     database = DATABASE.read_text(encoding="utf-8")
     require(
         re.search(
-            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209|0\.41\.66\+210)\s*$",
+            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209|0\.41\.66\+210|0\.41\.67\+211)\s*$",
             pubspec,
             re.MULTILINE,
         )
