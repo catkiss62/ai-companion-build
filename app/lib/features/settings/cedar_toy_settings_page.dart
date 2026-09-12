@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/mcp/cedar_toy_client.dart';
+import '../../core/mcp/cedar_toy_autonomy_engine.dart';
 import '../../core/storage/secure_config.dart';
 
 class CedarToySettingsPage extends StatefulWidget {
@@ -21,6 +24,8 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
   bool _loading = true;
   bool _busy = false;
   bool _hasToken = false;
+  bool _autonomyEnabled = true;
+  bool _gameShareEnabled = true;
   String _status = '尚未测试连接';
 
   @override
@@ -31,6 +36,10 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
 
   Future<void> _load() async {
     _enabled = (await _db.getSetting('cedar_toy_enabled')) != '0';
+    _autonomyEnabled =
+        (await _db.getSetting(CedarToyAutonomyEngine.enabledKey)) != '0';
+    _gameShareEnabled =
+        (await _db.getSetting(CedarToyAutonomyEngine.shareEnabledKey)) != '0';
     _hasToken = (await _secure.readCedarToyToken())?.trim().isNotEmpty ?? false;
     if (mounted) setState(() => _loading = false);
   }
@@ -108,11 +117,13 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
           throw StateError('远端没有返回绑定码');
         }
         if (!mounted) return;
+        final code = _extractBindingCode(outcome.text);
+        if (code.isEmpty) throw StateError('远端返回的绑定码格式无法识别');
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('10 分钟绑定码'),
-            content: SelectableText(CedarToyClient.redactSecrets(outcome.text)),
+            content: SelectableText(code),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -149,6 +160,36 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                         : (value) async {
                             setState(() => _enabled = value);
                             await _db.setSetting('cedar_toy_enabled', value ? '1' : '0');
+                          },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('允许她自主逛游戏厅'),
+                    subtitle: const Text('仍由欲望与统一行为竞争决定；不会按固定闹钟机械游玩。'),
+                    value: _autonomyEnabled,
+                    onChanged: !_enabled || _busy
+                        ? null
+                        : (value) async {
+                            setState(() => _autonomyEnabled = value);
+                            await _db.setSetting(
+                              CedarToyAutonomyEngine.enabledKey,
+                              value ? '1' : '0',
+                            );
+                          },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('允许游戏进展分享'),
+                    subtitle: const Text('使用独立的游戏分享节奏，不占用普通主动联系次数。'),
+                    value: _gameShareEnabled,
+                    onChanged: !_enabled || _busy
+                        ? null
+                        : (value) async {
+                            setState(() => _gameShareEnabled = value);
+                            await _db.setSetting(
+                              CedarToyAutonomyEngine.shareEnabledKey,
+                              value ? '1' : '0',
+                            );
                           },
                   ),
                   TextField(
@@ -222,5 +263,23 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
   static String _safeError(Object error) {
     final clean = CedarToyClient.redactSecrets(error.toString());
     return clean.length <= 160 ? clean : clean.substring(0, 160);
+  }
+
+  static String _extractBindingCode(String raw) {
+    final redacted = raw.replaceAllMapped(
+      RegExp(r'ctai_v1_[A-Za-z0-9_-]+'),
+      (_) => '',
+    );
+    try {
+      final decoded = jsonDecode(redacted);
+      if (decoded is Map) {
+        final value = decoded['binding_token']?.toString().trim() ?? '';
+        if (RegExp(r'^[A-Za-z0-9_-]{32}$').hasMatch(value)) return value;
+      }
+    } catch (_) {}
+    return RegExp(r'\b[A-Za-z0-9_-]{32}\b')
+            .firstMatch(redacted)
+            ?.group(0) ??
+        '';
   }
 }

@@ -32,6 +32,8 @@ class BackgroundSystemBridge(
     init {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "isImmersiveChatPageVisible" ->
+                    result.success(CompanionRuntimeState.immersiveChatPageVisible)
                 "deviceLabel" -> result.success(deviceLabel())
                 "runtimeProcessEpoch" -> result.success(CompanionRuntimeState.runtimeProcessEpoch)
                 "getPerceptionState" -> result.success(perceptionState())

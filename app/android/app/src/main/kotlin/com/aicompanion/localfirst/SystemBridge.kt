@@ -77,6 +77,14 @@ class SystemBridge(
 
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "setImmersiveChatPageVisible" -> {
+                    CompanionRuntimeState.setImmersiveChatPageVisible(
+                        call.argument<Boolean>("visible") == true,
+                    )
+                    result.success(null)
+                }
+                "isImmersiveChatPageVisible" ->
+                    result.success(CompanionRuntimeState.immersiveChatPageVisible)
                 "consumeOpenChatLaunch" -> {
                     val requested = activity.intent?.getBooleanExtra(
                         MainActivity.EXTRA_OPEN_CHAT,

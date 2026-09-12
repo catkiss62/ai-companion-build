@@ -13,6 +13,7 @@ import '../../core/models/chat_segment.dart';
 import '../../core/models/immersive_room.dart';
 import '../../core/models/personality_trial.dart';
 import '../../core/personality/personality_catalog.dart';
+import '../../core/platform/android_bridge.dart';
 import '../../core/presentation/chat_visuals.dart';
 import '../../core/presentation/generation_presentation_policy.dart';
 import '../../core/tts/tts_playback_queue.dart';
@@ -340,6 +341,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(AndroidBridge.instance.setImmersiveChatPageVisible(true));
     controller.addListener(_onChanged);
     unawaited(controller.initialize());
     unawaited(_loadVisualSettings());
@@ -352,6 +354,7 @@ class _ImmersiveRoomPageState extends State<ImmersiveRoomPage> {
 
   @override
   void dispose() {
+    unawaited(AndroidBridge.instance.setImmersiveChatPageVisible(false));
     controller.removeListener(_onChanged);
     _trialTimer?.cancel();
     controller.dispose();

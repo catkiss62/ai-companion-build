@@ -50,6 +50,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        CompanionRuntimeState.setImmersiveChatPageVisible(false)
         bridge?.dispose()
         bridge = null
         ttsBridge?.dispose()

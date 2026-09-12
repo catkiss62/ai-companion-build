@@ -258,6 +258,7 @@ class EmotionEnvelope {
     r'^\s*<\s*emotion\b[^\r\n]*(?:\r?\n|$)',
     caseSensitive: false,
   );
+  static final RegExp _bareAngleTag = RegExp(r'<\s*([^<>\r\n]{1,16})\s*>');
 
   static EmotionEnvelopeData parse(String raw) {
     final matches = _complete.allMatches(raw).toList(growable: false);
@@ -297,6 +298,17 @@ class EmotionEnvelope {
           status: EmotionEnvelopeStatus.recovered,
         );
       }
+    }
+
+    for (final match in _bareAngleTag.allMatches(raw)) {
+      final candidate = EmotionCatalog.normalizeTag(match.group(1) ?? '');
+      if (!EmotionCatalog.isCanonicalLabel(candidate)) continue;
+      return EmotionEnvelopeData(
+        rawTag: candidate,
+        visibleText: _stripReservedMarkup(raw).trim(),
+        found: true,
+        status: EmotionEnvelopeStatus.recovered,
+      );
     }
 
     for (final pattern in [
@@ -345,6 +357,10 @@ class EmotionEnvelope {
     value = value.replaceFirst(_malformedFirstLine, '');
     value = value.replaceAll(_selfClosing, '');
     value = value.replaceAll(_closing, '');
+    value = value.replaceAllMapped(_bareAngleTag, (match) {
+      final candidate = EmotionCatalog.normalizeTag(match.group(1) ?? '');
+      return EmotionCatalog.isCanonicalLabel(candidate) ? '' : match.group(0)!;
+    });
 
     // A provider can be interrupted halfway through an opening envelope. From
     // the reserved opening token onward there is no safe user-visible text.
@@ -365,6 +381,16 @@ class EmotionEnvelope {
           '</emotion>'.startsWith(compact) ||
           compact.startsWith('<emotion')) {
         value = value.substring(0, marker);
+      } else if (compact.startsWith('<') && !compact.contains('>')) {
+        final candidatePrefix = compact.substring(1);
+        final supported = <String>{
+          EmotionCatalog.normalLabel,
+          ...EmotionCatalog.keysByLabel.keys,
+        };
+        if (candidatePrefix.isNotEmpty &&
+            supported.any((label) => label.startsWith(candidatePrefix))) {
+          value = value.substring(0, marker);
+        }
       }
     }
     if (_isPartialNamedPrefix(value)) return '';

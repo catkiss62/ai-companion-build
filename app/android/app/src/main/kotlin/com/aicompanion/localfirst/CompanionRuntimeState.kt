@@ -86,8 +86,14 @@ object CompanionRuntimeState {
         private set
     @Volatile var notificationListenerConnected: Boolean = false
         private set
+    @Volatile var immersiveChatPageVisible: Boolean = false
+        private set
     @Volatile var accessibilityConnected: Boolean = false
         private set
+
+    fun setImmersiveChatPageVisible(visible: Boolean) {
+        immersiveChatPageVisible = visible
+    }
     @Volatile private var foregroundWindowPackage: String = ""
     @Volatile private var foregroundWindowObservedAt: Long = 0L
     @Volatile private var currentAppFusionSource: String = "none"

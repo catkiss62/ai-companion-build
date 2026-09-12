@@ -35,6 +35,7 @@ import '../reference/reference_library_page.dart';
 import '../phone/simulated_phone_page.dart';
 import '../immersive/immersive_room_page.dart';
 import 'chat_quick_settings_pages.dart';
+import 'cedar_toy_activity_window.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key, this.active = false, this.onOpenMore});
@@ -96,6 +97,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String? _animatedMessageId;
   bool _initializingMessages = true;
   String _lastPresentedAssistantId = '';
+  bool _showCedarActivityWindow = false;
 
   @override
   void initState() {
@@ -1426,6 +1428,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  if (_showCedarActivityWindow)
+                    CedarToyActivityWindow(
+                      onClose: () =>
+                          setState(() => _showCedarActivityWindow = false),
+                    ),
                 ],
               );
             },
@@ -1584,6 +1591,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               builder: (_) => const ImmersiveRoomLobbyPage(),
                             ),
                           );
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.sports_esports_rounded),
+                        title: const Text('游戏厅活动窗'),
+                        subtitle: const Text('查看她正在玩的内容，可拖动、缩放或最小化。'),
+                        trailing: const Icon(Icons.open_in_new_rounded),
+                        onTap: () {
+                          Navigator.pop(dialogContext);
+                          setState(() => _showCedarActivityWindow = true);
                         },
                       ),
                       DropdownButtonFormField<ProactiveFrequencyMode>(
@@ -2030,6 +2048,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           builder: (_) => const ImmersiveRoomLobbyPage(),
                         ),
                       );
+                    },
+                  ),
+                  _QuickPanelTile(
+                    icon: Icons.sports_esports_rounded,
+                    title: '游戏厅活动窗',
+                    subtitle: '查看她正在玩的内容，可拖动、缩放或最小化。',
+                    onTap: () {
+                      Navigator.pop(dialogContext);
+                      setState(() => _showCedarActivityWindow = true);
                     },
                   ),
                   const Divider(height: 26),

@@ -623,6 +623,28 @@ class AndroidBridge {
   Future<String> runtimeProcessEpoch() async =>
       await _channel.invokeMethod<String>('runtimeProcessEpoch') ?? '';
 
+  Future<void> setImmersiveChatPageVisible(bool visible) async {
+    try {
+      await _channel.invokeMethod<void>(
+        'setImmersiveChatPageVisible',
+        <String, Object?>{'visible': visible},
+      );
+    } on PlatformException {
+      // Non-Android/test surfaces have no process-shared runtime gate.
+    } on MissingPluginException {}
+  }
+
+  Future<bool> isImmersiveChatPageVisible() async {
+    try {
+      return await _channel.invokeMethod<bool>('isImmersiveChatPageVisible') ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   Future<DevicePerceptionState> getPerceptionState() async {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('getPerceptionState');
     return DevicePerceptionState.fromMap(raw ?? const {});
