@@ -1,7 +1,7 @@
 status=success
-run_id=34706960083
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34706960083
-head_sha=083d1f80360006a4d6697b15809d7cc6626cc5b1
+run_id=34718260051
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34718260051
+head_sha=31ce3ab18d07ec750e8136f24524d3cb7a3f84e6
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-3d9e089fbf3b44a2d0a6e24a144c9f02699c334390dd1447f179e9b2e8f54470  AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-518cd81c412506edeb34
+ae37c7c9638476a6ef9ab98c953ff549e463b51b1d3e0aa44d472dc0ef82293e  AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f513d08d88a1c68308fa
