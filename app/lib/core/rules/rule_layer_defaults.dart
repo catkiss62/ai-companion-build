@@ -322,6 +322,15 @@ const legacyEditableRuleLayerSha256V04165IntimacyCleanup = <String, String>{
       '0b617fd358183798a2fc3a3eeb7ee2f4da7561fc90274e634ef158df482a78a1',
 };
 
+/// Exact v0.41.66 bundled rows before the v0.41.67 non-intercourse climax
+/// clarification. Only byte-identical defaults are upgraded.
+const legacyEditableRuleLayerSha256V04167ClimaxClarification = <String, String>{
+  '05_intimacy_rendering':
+      'b30afa45447b14bb80aeccd0a851b114dbbaf0940575470a663db1729c898c99',
+  'immersive_07_nsfw_source':
+      '1685e3bc0567762e55d5c6bd07b39767b64af2d5f0af6d57477cb1c9a7d54c33',
+};
+
 /// Exact v0.40.0 special-style bodies before the v0.41.55 age-boundary
 /// cleanup. Hash-only matching updates untouched bundled copies while
 /// preserving every user edit.

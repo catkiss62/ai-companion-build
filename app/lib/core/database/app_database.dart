@@ -815,6 +815,8 @@ class AppDatabase {
       await _createV25Tables(db);
       for (final entry in const <String, String>{
         'public_web_discovery_enabled': '1',
+        'cedar_toy_enabled': '1',
+        'cedar_toy_last_success_at': '0',
         'last_public_web_discovery_at': '0',
         'last_public_web_discovery_success_at': '0',
         'last_public_web_discovery_outcome': 'never',
@@ -1488,6 +1490,8 @@ class AppDatabase {
     await db.insert('settings', {'key': 'last_daily_continuity_refresh_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_daily_continuity_error', 'value': ''});
     await db.insert('settings', {'key': 'public_web_discovery_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'cedar_toy_enabled', 'value': '1'});
+    await db.insert('settings', {'key': 'cedar_toy_last_success_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_public_web_discovery_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_public_web_discovery_success_at', 'value': '0'});
     await db.insert('settings', {'key': 'last_public_web_discovery_outcome', 'value': 'never'});
@@ -3890,6 +3894,7 @@ class AppDatabase {
       ...legacyEditableRuleLayerSha256V04153Rule01.entries,
       ...legacyEditableRuleLayerSha256V04155UserDefaults.entries,
       ...legacyEditableRuleLayerSha256V04165IntimacyCleanup.entries,
+      ...legacyEditableRuleLayerSha256V04167ClimaxClarification.entries,
       ...legacyEditableRuleLayerSha256V04155AgeBoundaryCleanup.entries,
       ...legacyEditableRuleLayerSha256V0413ApprovedSeedDraft.entries,
       ...legacyEditableRuleLayerSha256V0413InstalledSeedDraft.entries,

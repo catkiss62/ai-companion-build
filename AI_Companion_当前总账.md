@@ -1,12 +1,14 @@
 # AI Companion · 当前总账
 
-更新时间：2026-09-11（Asia/Tokyo）
+更新时间：2026-09-12（Asia/Tokyo）
 
 > 本文件路径固定为 `AI_Companion_当前总账.md`，是当前唯一最新接班入口。后续只更新本文件内容，不再按版本号复制新总账；已吸收并取代 v36 及更早接班总账仍有效的历史证据；旧总账只从 Git 历史取证，不再作为工作区入口。判断优先级：用户最新明确决定 > GitHub 实际源码与 Actions > 最新脱敏真机诊断 > 仓库任务账 > Git 历史。讨论、设计、本地实现、CI 通过和真机通过必须严格区分。
 >
 > 用户再次锁定：任务总账是最重要的跨窗口对接文件。每次新增任务、修改实现、改变排期或得到新真机证据时，都必须像本文件一样详细更新。欲望系统与双通道感官设计作为“真人感核心备份”长期保留，后续自主性功能必须围绕 Desire / Thought / Intent / Gate 与 Somatic 双通道设计。
 
 > **最高产品原则：以“她”为持续存在的主体设计。** 用户是关系中的另一方，不是所有机制的唯一中心。除数据破坏、隐私/凭据泄露、未授权外部操作、不可逆事务等严重系统级风险，以及用户明确设下的边界外，默认优先保留她的自主性、主动权、欲望、个性、成人表达和黑色幽默；不得把普通内容风险、可能不合口味或“怕影响用户”泛化成禁止能力。事实与安全 Gate 应约束的是“没做却声称做了”、越权和系统损坏，不是把她训练成被动、保守、处处等用户批准的工具。后续 Agent / Harness、媒体、表达与成长设计均以此条为第一裁决原则。
+
+> **模型/API 调用双通道永久合同（所有后续任务强制）**：任何新增 API、MCP、Agent 工具或模型能力，动手前必须先判定它属于“内部系统调用”还是“最终可见对话”，并接入现有路由，禁止另建独立模型 Key/provider 旁路。所有“内部判断、维护、工具规划/核验”固定走 DeepSeek；DeepSeek 单模型模式下两类都走 DeepSeek；DeepSeek + Gemini 模式下，维护、规划、分类、提炼、评估、工具选择与结果核验等内部系统调用仍走按量计费的 DeepSeek，外部 API/MCP 只负责取得真实结果，不算一次语言模型回复；同一对话轮必须先收齐 Prompt、工具 Outcome 与内部判断，再把完整最终回复合并为一次 Gemini 调用，禁止因新功能把一轮对话拆成多个 Gemini 子调用。既有有界 Gemini 重试与 DeepSeek 失败兜底继续保留。任何例外必须先形成明确的新设计并经用户确认。Cedar MCP 网络请求本身不是模型调用；它的列表、指南与游玩结果进入既有工具循环，由 DeepSeek 规划与核验，最终与整轮对话一起交给 Gemini。
 
 > **总账双层同步强制规则（每次正式修改前后都必须执行）**：修改前，必须同时更新下方轻量“当前接班区”中的当前基线、当前下一步任务包和后续任务导航，并在“近期详细记录”登记目标、范围、不得回归项与预定验证；修改后，必须把真实实现、失败路线、提交、测试、CI/APK 和真机边界写入详细记录，同时回填轻量接班区。任务完成时必须把下一项正确提升为新的“当前下一步”，不得只追加长篇过程而让顶部指针停在旧任务。新增任务、改变排期或收到新真机证据时也必须同步两层；只更新其中一层视为总账未完成。
 
@@ -32,10 +34,10 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04166-phase3c-refresh-notes-wishlist`，已完成 `v0.41.66+210 / schema 61 / Snapshot protocol 6`。远端功能提交 `977eadb869427e437d5e7876b9ac008059012e6a` / tree `b8768d34c68f323e5e64b91d4d87c898717fd942` 与本地功能提交 `f524d72` 精确同 tree；workflow 触发窄修提交 `7e2faf294858633921fc1b2d5f941052f6b008a7` / tree `86318d0471858bfd935610ef7fd7f326c37ada65` 已触发并完成 run 850。`main` 未改，当前只待真机节律与 Phase 3 独立审查 |
+| 当前开发分支 | `agent/v04167-cedar-toy-mcp`，正在恢复 `v0.41.67+211 / schema 61 / Snapshot protocol 6`：Cedar Toy MCP、安全设置、列表→指南→游玩真实 Outcome、沉浸括号窄修、高潮规则澄清与 Phase 3C 消费入口撤回已重新落入工作树；当前仍为 `IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING`，尚未推送，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +210 Actions build head `7e2faf294858633921fc1b2d5f941052f6b008a7` / tree `86318d0471858bfd935610ef7fd7f326c37ada65`；运行功能 tree 为 `b8768d34c68f323e5e64b91d4d87c898717fd942`。授权 GitHub 连接写入的远端 tree 与本地 tree 完全一致；公开提交不含用户附件、诊断、备份、密钥、RoBERTa、模型权重、参考音频或 APK Artifact；私有小酒狐声学包与三语前端仅在 Actions 中按固定 SHA 分源恢复、裁剪和实包复核 |
-| App / 数据库 | 当前有效 APK 为 `0.41.66+210 / schema 61 / Snapshot protocol 6`；schema 61 只为 Phase 3C 可审计消费事件建表，旧备份补空表且不改变 Snapshot protocol |
+| App / 数据库 | 当前源码候选为 `0.41.67+211 / schema 61 / Snapshot protocol 6`；最新可下载 APK 仍是 +210，不能在 CI 产物完成前把 +211 写成 APK READY。schema 不升级，旧备份与 Snapshot protocol 6 不变 |
 | 最终 CI | +210 run [`34658611917`](https://github.com/catkiss62/ai-companion-build/actions/runs/34658611917)（850）完整成功：干净基线、私有载荷固定 SHA 与分源、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`745/745` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
 | 测试 APK | `AI-Companion-v0.41.66-210-Phase3C-Phone-Pacing-APK.apk`，544,724,654 bytes |
 | APK SHA-256 | `ba13db4d875a0fab7a7ca0902aab9097f6fcf05309a9a604cca5b59a677cc0b5`；与 CI checksum 和 Draft 资产服务端 digest 一致 |
@@ -47,14 +49,14 @@
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **D3 · Phase 3C 真机自然节律与独立审查（CI PASSED / APK READY / TRUE DEVICE PENDING）**：安装 +210 后优先目测两处刷新/播放间距和特殊风格括号；随自然使用观察随笔白天六时段/疲劳抑制、愿望 6h 新增冷却及成熟兴趣是否偶尔影响主动/联网但不连续复读。自然证据和 Phase 3 独立代码审查完成前，不进入 Phase 4 |
-| 目标 | 消费成熟兴趣时保留来源、成熟度、新鲜度、版本与可撤销性；兴趣只能产生有限偏置，不能变成人设硬标签、无限重复同一主题或绕过主动消息/联网预算。Phase 3C 完成独立代码审查与真机证据后，Phase 4 再做低频澄清与娱乐测试 |
-| 当前证据 | Phase 3A 已有真机 forming evidence，Phase 3B 已有主动来源平衡与多次 `rest_selected/completed` 真机样本；+210 本地 86 个 workflow 源码门通过，run 850 进一步通过 CI 私有素材门、Kotlin/JVM、Flutter Analyze、`745/745` Flutter tests、Release/固定签名/实包门并上传 Artifact 和未发布 Draft。自动化证明代码和包合同，不冒充为真机的长时节律样本 |
-| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 继续独立安全保存，不因兴趣消费改变提供商边界。不让兴趣绕过隐私、联网、主动频率、Gate、Outcome 或用户关闭能力；不把一次点击/搜索/图片标签直接提升为稳定偏好。保留兴趣删除、停用、衰减、版本和回滚；不修改沉浸房间、Snapshot protocol 6 或已通过的 Genie-TTS 主链。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性、D6 真机长尾均不混入 Phase 3C 实现包 |
+| 当前下一步 | **Cedar Toy MCP +211 自动化收口（IMPLEMENTED LOCALLY / CI PENDING）**：完成静态/Flutter 回归，形成三个提交，推送到公开分支 `agent/v04167-cedar-toy-mcp`，运行 GitHub Actions 并生成未发布 Draft APK；失败则只记录真实失败并窄修重跑，不触碰 `main` |
+| 目标 | 让她在用户明确邀请时通过 Cedar MCP 动态读取全部真实游戏，按列表→指南→游玩逐级执行；所有内部判断和 Outcome 核验固定由 DeepSeek 完成，Gemini 模式只在收齐整轮真实结果后形成一次完整最终回复 |
+| 当前证据 | +210 run 850 与 APK 仍是最近完整 CI 基线。+211 当前只有重新恢复的本地源码与静态合同，尚未取得远端提交、Actions、Artifact、Draft APK 或真机证据；此前三个本地提交随临时工作区回收而丢失，本窗口从 +210 远端基线重新构造并逐项核验，不能冒用旧本地 SHA |
+| 保护与排除 | 不提交或迁移任何 Key；DeepSeek 与玩游 Key 继续独立安全保存，不因兴趣消费改变提供商边界。不让兴趣绕过隐私、联网、主动频率、Gate、Outcome 或用户关闭能力；不把一次点击/搜索/图片标签直接提升为稳定偏好。保留兴趣删除、停用、衰减、版本和回滚；不修改沉浸房间、Snapshot protocol 6 或已通过的 Genie-TTS 主链。造梗来源仍服从既有表达系统，不由 Cedar 或兴趣消费生成固定台词。Phase 4、T1 日语根修/CPU 快速档、角色扮演持续性、D6 真机长尾均不混入本实现包 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
-| 实现边界 | 只消费达到既有成熟门的兴趣证据；利用/相邻探索/wildcard 分别有独立预算和冷却，选择结果继续进入现有 Desire→Intent→Gate→Action→Outcome，不增加旁路调度器。表达习惯只允许轻量、可衰减的风格偏置，不直接写死台词或覆盖七大规则 |
-| 完成判据 | 有确定性夹具覆盖成熟/未成熟/过期/已删除兴趣、三种预算、冷却、关闭与回滚；证明不会绕过联网与主动额度、不会无限复读、不会把未验证候选当兴趣。专项与历史回归、Kotlin/JVM、Flutter Analyze/全量 tests、Release/签名/私有实包门通过并生成 Draft APK；随后用真机自然样本和独立代码审查决定是否进入 Phase 4 |
-| 直接详细入口 | Phase 3A/3B：`app/docs/AI_INTEREST_EVIDENCE_PHASE3A_v0.41.42.md`、`app/docs/PHASE3B_QUESTION_AUTONOMY_v0.41.43.md`、`app/docs/AUTONOMY_ARBITRATION_REWORK_v0.41.44.md`；主链：Desire→Intent→Gate→Action→Outcome、`autonomous_web`、interest evidence/候选仓储与主动消息仲裁；造梗来源仍以 `dialogue_expression_plan.dart` / `prompt_builder.dart` 为准，不由兴趣消费另造固定台词。T1、D6、WorldBook 2D 继续按导航独立保留 |
+| 实现边界 | Cedar 网络请求只是 MCP transport，不是模型调用；Token/账号/密码/绑定码不进入 Prompt、模型参数、诊断或备份。每阶段仅暴露一个 Cedar 工具，game/action 必须来自同轮真实 Outcome；没有成功 `cedar_toy.play` 就不能声称胜负、得分、进度或经历。一次游玩不自动写入永久兴趣。Phase 3C 消费入口撤回，但 schema 61 表保留兼容，不降 schema |
+| 完成判据 | +211 专项 validator、历史 validators、Flutter Analyze/全量 tests、Kotlin/JVM、Release/固定签名/私有实包门通过；公开开发分支得到三个真实提交，Actions 绿色，Artifact 与未发布 Draft APK 可下载。上述只记为 `CI PASSED / APK READY`，Cedar 真账号、列表/指南/游玩与沉浸呈现仍须真机验收 |
+| 直接详细入口 | `app/docs/CEDAR_TOY_MCP_v0.41.67.md`；核心代码 `mcp_http_client.dart`、`cedar_toy_client.dart`、`cedar_toy_arcade_skill.dart`、Agent registry/planner/runner、`durable_generation_runner.dart`、`cedar_toy_settings_page.dart` 与 `operational_claim_grounding_guard.dart`。模型/API 总合同以本文件顶部永久条款为最高真源 |
 
 ### 4. 当前任务完成后的后续导航（只导航，不提前展开）
 
@@ -90,6 +92,24 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-12 v0.41.67+211 Cedar Toy MCP 与自主搜索恢复（IMPLEMENTED LOCALLY / CI PENDING / APK PENDING / TRUE DEVICE PENDING）
+
+1. 用户明确授权把本轮三个提交推送到公开仓库 `catkiss62/ai-companion-build` 的 `agent/v04167-cedar-toy-mcp` 分支，运行 GitHub Actions 并创建未发布 Draft APK；授权不包含合并 `main`、发布正式 Release、删除分支或公开凭据/私人数据。
+2. 上一临时工作区曾形成三个未推送提交，但在窗口卡顿后被系统回收；远端核验没有 +211 分支或提交，不能把失效的本地 SHA 冒充为远端证据。本窗口从远端 +210 head `7995cca` 恢复新分支并重新施工，最终提交 SHA、tree、run、Artifact、Draft 和 APK SHA 均须在真实发生后回填。
+3. 新增通用 `McpHttpClient`：按 `2024-11-05` 初始化、发送 `notifications/initialized`、调用 `tools/list` / `tools/call`、保持 `mcp-session-id`，支持超时、用户取消、SSE/JSON 响应和有界错误。它只执行 HTTPS/MCP 传输，不调用任何语言模型。
+4. 新增 `CedarToyClient`：固定 `https://toy.cedarstar.org/`，Token 只接受 `ctai_v1_...`；实现 `list_games`、`get_guide`、`play` 与 `account(login_or_register/login/generate_binding_token)`，所有结果先统一脱敏。游戏清单不写死，远端此刻返回的全部游戏才是本轮候选。
+5. 新增 Cedar 行为 Skill 与 Agent registry/planner/runner 接线。只在用户明确邀请 Cedar Toy、游戏厅或一起玩小游戏时启用；工具定义按同一轮真实状态只开放一个阶段：先 list，再允许从列表选 game 取 guide，最后只允许执行指南中出现的 action。跨轮/跨 scope 缓存、伪造 game/action、非法 params、未配置和空/失败 Outcome 都会阻断，不能补写游戏经历。
+6. `OperationalClaimGroundingGuard` 增加 Cedar 游玩真实性门：没有当前轮成功 `cedar_toy.play`，不得声称已经玩过、胜负、得分、通关、奖励、存档或远端进度；失败与 no-result 只能如实表达。
+7. 设置新增 Cedar Toy 页面和能力入口：支持“注册 / 登录小机”“恢复现有小机”“安全保存 Token”“生成 10 分钟绑定码”“测试连接与游戏列表”和清除本机连接。密码只用于当次 HTTPS 登录并随即清空；Token 只写入 `FlutterSecureStorage`，账号、密码、Token 和绑定码不进入 Prompt、模型参数、诊断或备份。
+8. 自主搜索回退：撤除 +210 Phase 3C 成熟兴趣对 public-web 问题规划、主动消息和设置入口的消费注入，恢复 Phase 2B 后的自然主观选题；schema 61 的表与旧数据保留兼容，不降 schema、不破坏 Snapshot protocol 6。Phase 3C 设计文档保留为被暂停/待重审的历史，不再当当前运行能力。
+9. 沉浸呈现窄修：增加 `ChatSegmentCodec.immersiveDisplayText`，对白保留 `「」`，动作/旁白不重新包普通聊天圆括号；页面、语言变体与手动 TTS 使用同一投影，避免白色旁白被误判成对白音色。
+10. 规则澄清：05 与沉浸 07 统一为“手交、口交、乳交等非性交姿势不会同步高潮；只有女性 AI 同时自慰时才可能按自身状态高潮”，并删除 07 参考末尾会与高优先级控制边界竞争的重复强制服从尾句。迁移只升级 +210 的两条已知默认 SHA，任何用户手改仍逐字保留。
+11. 版本提升为 `v0.41.67+211`，schema 仍为 61，Snapshot protocol 仍为 6；新增专项文档、Flutter tests、静态 validator 和 +211 workflow/Draft 命名。当前容器没有 Dart/Flutter 和私有素材，不提前宣称 Analyze、Flutter tests、Kotlin、Release 或 APK 已通过。
+12. **Cedar/API 路由硬合同**：Cedar MCP 只是外部工具 transport；列表、指南、游玩计划与 Outcome 核验全部进入既有 `generateInternal` DeepSeek lane。只有真实工具结果和上下文收齐后才进入 `generateFinal`；DeepSeek+Gemini 模式中这一轮只形成一次 Gemini 最终可见回复，不因 list/guide/play 拆成多次 Gemini 计费。Cedar 凭据不复用 DeepSeek/Gemini Key，也不进入任何模型请求。
+13. 失败路线：本机直接 HTTPS Git 没有凭据；推送阶段使用已连接且有仓库权限的 GitHub 连接写入同一公开开发分支。若 Actions 失败，只按真实日志做最窄修复并追加提交，不修改 `main`，不把失败 run、诊断 Draft 或未完成资产写成 APK READY。
+14. 本地验收必须包含：`validate_v04167_cedar_toy_mcp.py`、所有历史 Python validators、`git diff --check`、凭据/隐私扫描和 staged diff 审查；CI 再承担 Flutter Analyze/全量 tests、Kotlin/JVM、私有 417 桌宠/62 LingChat/22 塔罗、Release、固定签名、实包 byte identity、checksum、Artifact 与 Draft 上传。
+15. **代码路由复核**：`generateInternal` 明确只使用 DeepSeek `apiKey/endpoint`，`generateFinal` 才根据 final provider 使用独立 `configuredFinalApiKey/configuredFinalEndpoint`；工具循环每轮只回到 `generateInternal`，终止后才调用一次 `generateFinal`。既有 Gemini 有界重试只处理同一次最终回复的瞬时失败，失败后 DeepSeek 兜底，不是功能新增的 Gemini 子调用。
 
 ### 2026-09-11 v0.41.66+210 Phase 3C 习惯消费与随笔/愿望边界（IMPLEMENTED LOCALLY / CI PENDING / TRUE DEVICE PENDING）
 
