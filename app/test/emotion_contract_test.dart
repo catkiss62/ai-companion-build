@@ -114,6 +114,25 @@ void main() {
     expect(parsed.visibleText, '「我今天的情绪：高兴。」\n「正文还在。」');
   });
 
+  test('bare canonical angle tags are recovered and hidden everywhere', () {
+    final parsed = EmotionEnvelope.parse('<调皮>「猜猜我刚才做了什么。」');
+    expect(parsed.status, EmotionEnvelopeStatus.recovered);
+    expect(parsed.rawTag, '调皮');
+    expect(parsed.visibleText, '「猜猜我刚才做了什么。」');
+    expect(
+      EmotionEnvelope.streamingVisible('「嗯。」<疑惑>\n「再想想。」'),
+      '「嗯。」\n「再想想。」',
+    );
+    expect(EmotionEnvelope.streamingVisible('<调'), isEmpty);
+  });
+
+  test('unknown angle markup is preserved as ordinary body text', () {
+    const raw = '<重点>这不是情绪标签。</重点>';
+    final parsed = EmotionEnvelope.parse(raw);
+    expect(parsed.status, EmotionEnvelopeStatus.missing);
+    expect(parsed.visibleText, raw);
+  });
+
   test('malformed explicit first line is hidden without losing its body', () {
     final parsed = EmotionEnvelope.parse(
       '<emotion mood="high">害羞\n「正文还在。」',

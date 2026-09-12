@@ -72,6 +72,16 @@ void main() {
     );
   });
 
+  test('durable autonomous Cedar outcome authorizes its later share', () {
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我刚才玩了一局游戏。',
+        cedarOutcomeAvailable: true,
+      ).allowed,
+      isTrue,
+    );
+  });
+
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
       text: '我看了一下午自己的人格学习和成长系统，发现变化挺大的。',

@@ -55,6 +55,15 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     });
   }
 
+  Future<void> _togglePaused(CedarGameSession session) async {
+    if (session.phase == CedarActivityPhase.paused) {
+      await store.resume();
+    } else {
+      await store.pause();
+    }
+    await _refresh();
+  }
+
   void _move(DragUpdateDetails details, Size area) {
     final height = _minimized ? 58.0 : _height;
     setState(() {
@@ -239,6 +248,20 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                 .openExternalHttpsUrl(session.viewerUrl),
             icon: const Icon(Icons.open_in_browser_rounded),
             label: const Text('打开游戏返回的查看页'),
+          ),
+        ],
+        if (session.phase.continuable &&
+            session.phase != CedarActivityPhase.awaitingInvitation &&
+            session.phase != CedarActivityPhase.waitingUser) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _togglePaused(session),
+            icon: Icon(session.phase == CedarActivityPhase.paused
+                ? Icons.play_arrow_rounded
+                : Icons.pause_rounded),
+            label: Text(session.phase == CedarActivityPhase.paused
+                ? '继续游戏活动'
+                : '暂停自主游戏'),
           ),
         ],
         if (session.events.isNotEmpty) ...[

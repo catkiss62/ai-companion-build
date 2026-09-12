@@ -78,7 +78,7 @@ for token in (
 ):
     assert token in page, token
 assert "_AssistantSegmentDivider" not in page
-assert "AndroidBridge" not in page
+assert page.count("AndroidBridge.instance.setImmersiveChatPageVisible") == 2
 
 prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
 assert "history.skip(room.summarizedMessageCount)" in prompt

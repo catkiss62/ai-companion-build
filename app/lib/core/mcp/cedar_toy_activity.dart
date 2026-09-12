@@ -415,10 +415,40 @@ class CedarToyActivityStore {
 
   Future<void> pause() async {
     final existing = await load();
-    if (existing == null || !existing.phase.continuable) return;
+    if (existing == null ||
+        !existing.phase.continuable ||
+        existing.phase == CedarActivityPhase.paused) {
+      return;
+    }
     await save(existing.copyWith(
       phase: CedarActivityPhase.paused,
       waitingReason: '已在本机暂停，进度仍由远端存档保存',
+      updatedAt: DateTime.now(),
+    ));
+  }
+
+  Future<void> resume() async {
+    final existing = await load();
+    if (existing == null || existing.phase != CedarActivityPhase.paused) return;
+    final restoredPhase = switch (existing.nextActor) {
+      'user' || 'shared' => CedarActivityPhase.waitingUser,
+      'wait' => CedarActivityPhase.waitingRemote,
+      'finished' => CedarActivityPhase.completed,
+      _ when existing.mode.requiresInvitation &&
+              !existing.invitationApproved =>
+        CedarActivityPhase.awaitingInvitation,
+      _ when existing.lastAction.isEmpty => CedarActivityPhase.guideReady,
+      _ => CedarActivityPhase.active,
+    };
+    await save(existing.copyWith(
+      phase: restoredPhase,
+      waitingReason: switch (restoredPhase) {
+        CedarActivityPhase.awaitingInvitation => '等待你同意后再开始',
+        CedarActivityPhase.waitingUser => '等待你参与下一步',
+        CedarActivityPhase.waitingRemote => '等待游戏允许继续',
+        CedarActivityPhase.completed => '本局已经结束',
+        _ => '',
+      },
       updatedAt: DateTime.now(),
     ));
   }

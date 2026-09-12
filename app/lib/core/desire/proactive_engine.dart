@@ -25,10 +25,12 @@ import '../grounding/user_perspective_guard.dart';
 import '../models/chat_message.dart';
 import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
+import '../models/message_attachment.dart';
 import '../models/proactive_intent.dart';
 import '../models/proactive_frequency.dart';
 import '../models/proactive_notification_settings.dart';
 import '../models/thought.dart';
+import '../mcp/cedar_toy_activity.dart';
 import '../mcp/cedar_toy_autonomy_engine.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
@@ -938,7 +940,8 @@ class ProactiveEngine {
       await noteGeneration('gate_blocked', reasonTag: 'minimum_gap');
       return ProactiveDecision(
         sent: false,
-        reason: '距离上一条主动消息不足 ${frequencyMode.minimumGap.inMinutes} 分钟',
+        reason: '距离上一条主动消息不足 '
+            '${isCedarGameShare ? 45 : frequencyMode.minimumGap.inMinutes} 分钟',
       );
     }
     if (!forceForDebug &&
