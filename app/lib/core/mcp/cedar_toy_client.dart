@@ -101,7 +101,10 @@ class CedarToyClient {
       final decoded = jsonDecode(result);
       result = jsonEncode(_redactJson(decoded));
     } catch (_) {}
-    return result.length <= 12000 ? result : '${result.substring(0, 12000)}…';
+    const hardLimit = 1024 * 1024;
+    return result.length <= hardLimit
+        ? result
+        : '${result.substring(0, hardLimit)}…[超过 1 MiB 安全上限]';
   }
 
   static Object? _redactJson(Object? value) {

@@ -397,6 +397,7 @@ class ProactiveSelectionPolicy {
         sourceType == 'public_web') {
       return 'public_web_share';
     }
+    if (intent.wantAction == 'play_game') return 'play_game';
     if (intent.drive == DriveKey.fatigue || intent.wantAction == 'rest') {
       return 'rest';
     }

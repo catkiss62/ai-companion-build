@@ -29,6 +29,7 @@ import '../models/proactive_intent.dart';
 import '../models/proactive_frequency.dart';
 import '../models/proactive_notification_settings.dart';
 import '../models/thought.dart';
+import '../mcp/cedar_toy_autonomy_engine.dart';
 import '../perception/perception_engine.dart';
 import '../relationship/relationship_assimilator.dart';
 import '../memory/memory_maintenance_engine.dart';
@@ -38,6 +39,7 @@ import '../maintenance/long_running_maintenance_engine.dart';
 import '../platform/android_bridge.dart';
 import '../presence/presence_intelligence.dart';
 import '../storage/secure_config.dart';
+import '../storage/message_attachment_storage.dart';
 import '../tts/tts_policy.dart';
 import '../tts/emotion_sound_service.dart';
 import '../tts/tts_provider.dart';
@@ -177,6 +179,8 @@ class ProactiveEngine {
         secureConfig: secureConfig,
         refreshBeforeShare: true,
       );
+  late final CedarToyAutonomyEngine cedarToyAutonomy =
+      CedarToyAutonomyEngine(db: db, ai: ai, secureConfig: secureConfig);
 
   /// Advances local inner-life and maintenance state without sending an
   /// outbound message. Used while a durable user reply is waiting for recovery.
@@ -287,6 +291,13 @@ class ProactiveEngine {
       // A user-initiated chat turn has higher priority than an outbound ping.
       if (await db.isLocalLeaseHeld('chat_turn_lease')) {
         return const ProactiveDecision(sent: false, reason: '用户正在与我聊天');
+      }
+      if (await android.isImmersiveChatPageVisible()) {
+        await recordWait(reasonTag: 'immersive_chat_page_visible');
+        return const ProactiveDecision(
+          sent: false,
+          reason: '沉浸房间聊天页面正在打开',
+        );
       }
 
       final localHeartbeat = await _runLocalHeartbeat(
@@ -447,6 +458,22 @@ class ProactiveEngine {
             reasonSource: 'public_web_pending:${pendingWebShare.id}',
           ),
         );
+      }
+      final cedarAvailability = await cedarToyAutonomy.availability(
+        now: evaluationStartedAt,
+      );
+      if (cedarAvailability.available) {
+        final curiosity = snapshot.drives[DriveKey.curiosity] ?? 0.0;
+        final reflection = snapshot.drives[DriveKey.reflection] ?? 0.0;
+        unifiedCandidates.add(DesireIntent(
+          drive: DriveKey.curiosity,
+          score: (max(curiosity, reflection * 0.82) + 0.08)
+              .clamp(0.0, 0.78)
+              .toDouble(),
+          reason: '想去游戏厅找一点真实、轻松而未知的事情做',
+          wantAction: 'play_game',
+          reasonSource: 'mcp/cedar_game:desire',
+        ));
       }
       final recentFeedback = (await db.recentProactiveFeedback(limit: 8))
           .where(
@@ -681,6 +708,32 @@ class ProactiveEngine {
           reason: '本轮保留了当前意图并主动暂缓：$reasonTag',
         );
       }
+      if (intent.wantAction == 'play_game') {
+        try {
+          final progress = await cedarToyAutonomy.progress(
+            now: evaluationStartedAt,
+          );
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: progress.state.endsWith('failed') ? 'failed' : 'completed',
+            reasonTag: progress.state,
+          );
+          return ProactiveDecision(
+            sent: false,
+            reason: '本轮选择了游戏厅活动：${progress.state}',
+          );
+        } catch (_) {
+          await db.finishAutonomousBehavior(
+            autonomousBehaviorEventId,
+            status: 'failed',
+            reasonTag: 'cedar_progress_exception',
+          );
+          return const ProactiveDecision(
+            sent: false,
+            reason: '本轮想去游戏厅，但远端或判断暂时不可用',
+          );
+        }
+      }
       if (intent.wantAction == 'discover_interest') {
         try {
           final discoveryIntent = DesireIntent(
@@ -850,18 +903,34 @@ class ProactiveEngine {
     final idleMinutes = lastUser == null
         ? 180
         : max(0, evaluationStartedAt.difference(lastUser).inMinutes);
-    final sentToday = await db.proactiveCountSince(const Duration(hours: 24));
-    final sentLastTwoHours = await db.proactiveCountSince(const Duration(hours: 2));
+    final isCedarGameShare = selectedSourceType == 'mcp' &&
+        (intentThought?.source.startsWith('mcp/cedar_game:') ?? false);
+    const gameSharePrefix = 'game_share:';
+    final sentToday = await db.proactiveCountSince(
+      const Duration(hours: 24),
+      triggerPrefix: gameSharePrefix,
+      excludePrefix: !isCedarGameShare,
+    );
+    final sentLastTwoHours = await db.proactiveCountSince(
+      const Duration(hours: 2),
+      triggerPrefix: gameSharePrefix,
+      excludePrefix: !isCedarGameShare,
+    );
     final frequencyMode = ProactiveFrequencyMode.fromSetting(
       await db.getSetting(ProactiveFrequencyPolicy.settingKey),
     );
-    final lastProactiveSentAt = await db.lastSentProactiveAt();
+    final lastProactiveSentAt = await db.lastSentProactiveAt(
+      triggerPrefix: gameSharePrefix,
+      excludePrefix: !isCedarGameShare,
+    );
     final proactiveGap = lastProactiveSentAt == null
         ? null
         : evaluationStartedAt.difference(lastProactiveSentAt);
     if (!forceForDebug &&
         proactiveGap != null &&
-        !frequencyMode.allowsGap(proactiveGap)) {
+        !(isCedarGameShare
+            ? proactiveGap >= const Duration(minutes: 45)
+            : frequencyMode.allowsGap(proactiveGap))) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'minimum_gap',
@@ -872,7 +941,8 @@ class ProactiveEngine {
         reason: '距离上一条主动消息不足 ${frequencyMode.minimumGap.inMinutes} 分钟',
       );
     }
-    if (!forceForDebug && sentToday >= frequencyMode.dayLimit) {
+    if (!forceForDebug &&
+        sentToday >= (isCedarGameShare ? 6 : frequencyMode.dayLimit)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'daily_ceiling',
@@ -884,7 +954,8 @@ class ProactiveEngine {
       );
     }
     if (!forceForDebug &&
-        sentLastTwoHours >= frequencyMode.twoHourLimit) {
+        sentLastTwoHours >=
+            (isCedarGameShare ? 3 : frequencyMode.twoHourLimit)) {
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
         decision: 'short_window_ceiling',
@@ -1046,9 +1117,13 @@ ${jsonEncode({
               sourceTime: intentThought.updatedAt,
               now: evaluationStartedAt,
             ),
-            'thought': intentThought.text.length <= 500
+            'thought': intentThought.text.length <=
+                    (isCedarGameShare ? 6000 : 500)
                 ? intentThought.text
-                : intentThought.text.substring(0, 500),
+                : intentThought.text.substring(
+                    0,
+                    isCedarGameShare ? 6000 : 500,
+                  ),
           })}
 【END SELECTED_THOUGHT_DATA】''';
     final sourceAgnosticShareContract = !shareLikeIntent
@@ -1248,6 +1323,7 @@ ${startsFreshTopic ? '本类型属于新话题通道：ANSWERED CHAT HISTORY 已
       // only the proactive message that will be delivered to the user.
       text: candidate.content,
       publicWebOutcomeAvailable: webShareCandidateId != null,
+      cedarOutcomeAvailable: isCedarGameShare,
     );
     var memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
       text: '${candidate.reasoning}\n${candidate.content}',
@@ -1377,6 +1453,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       operationGuard = OperationalClaimGroundingGuard.evaluate(
         text: candidate.content,
         publicWebOutcomeAvailable: webShareCandidateId != null,
+        cedarOutcomeAvailable: isCedarGameShare,
       );
       memoryTemporalGuard = ProactiveMemoryTemporalGuard.evaluate(
         text: '${candidate.reasoning}\n${candidate.content}',
@@ -1402,6 +1479,7 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       final salvaged = OperationalClaimGroundingGuard.removeUnsupportedSentences(
         text: candidate.content,
         publicWebOutcomeAvailable: webShareCandidateId != null,
+        cedarOutcomeAvailable: isCedarGameShare,
       );
       candidate = _ProactiveGenerationCandidate(
         reasoning: candidate.reasoning,
@@ -1418,6 +1496,17 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       envelopeStatus: emotionEnvelope.status,
     );
 
+    if (await android.isImmersiveChatPageVisible()) {
+      await noteGeneration('preempted', reasonTag: 'immersive_chat_page_visible');
+      return ProactiveDecision(
+        sent: false,
+        reason: '沉浸房间聊天页面已经打开，本次主动消息取消',
+        gateScore: gateScore,
+        intentKind: intentKind,
+        deliveryStyle: deliveryStyle,
+      );
+    }
+
     // The model call can take long enough for the real world to change. The
     // final eligibility check is repeated atomically with the message INSERT
     // below, so a user chat lease cannot slip into the check/commit gap.
@@ -1426,14 +1515,45 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
     unawaited(
       VisibleReasoningLanguageTelemetry.note(db, visibleReasoning),
     );
+    final messageId = _uuid.v4();
+    final proactiveAttachments = <MessageAttachment>[];
+    if (isCedarGameShare) {
+      final session = await CedarToyActivityStore(db).load();
+      final event = session?.events.reversed
+          .where((item) => item.imageData.isNotEmpty)
+          .firstOrNull;
+      if (event != null && event.imageMimeType.startsWith('image/')) {
+        try {
+          final storage = MessageAttachmentStorage();
+          final draft = await storage.prepareImageBytes(
+            bytes: base64Decode(event.imageData),
+            source: 'assistant_mcp_image:cedar:${session!.gameId}',
+            mimeType: event.imageMimeType,
+          );
+          final attachment = await storage.commitDraft(
+            draft,
+            messageId: messageId,
+          );
+          proactiveAttachments.add(attachment.copyWith(
+            visionStatus: MessageAttachment.visionCompletedStatus,
+            visionSummary: 'Cedar Toy 游戏返回的真实图片',
+            visionModel: 'mcp_content',
+            visionUpdatedAt: DateTime.now(),
+          ));
+        } catch (_) {
+          // Keep the genuine text share even if optional image decoding fails.
+        }
+      }
+    }
     final message = ChatMessage(
-      id: _uuid.v4(),
+      id: messageId,
       role: 'assistant',
       content: text,
       reasoningContent: visibleReasoning,
       model: model.apiName,
       createdAt: DateTime.now(),
       isProactive: true,
+      attachments: proactiveAttachments,
       proactiveIntent: intentKind.key,
       proactiveDelivery: deliveryStyle.key,
       deviceId: await db.ensureDeviceId(),
@@ -1451,6 +1571,9 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       evaluationStartedAt: evaluationStartedAt,
     );
     if (commitBlock != null) {
+      for (final attachment in proactiveAttachments) {
+        await MessageAttachmentStorage().deleteAttachmentFiles(attachment);
+      }
       final userPreempted = commitBlock == 'chat_turn' || commitBlock == 'new_user';
       await db.addProactiveHistory(
         triggerReason: '${intent.drive.name}:${intent.reason}',
@@ -1471,7 +1594,8 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       );
     }
     await db.addProactiveHistory(
-      triggerReason: '${intent.drive.name}:${intent.reason}',
+      triggerReason:
+          '${isCedarGameShare ? gameSharePrefix : ''}${intent.drive.name}:${intent.reason}',
       decision: 'sent',
       messageId: message.id,
     );

@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../ai/generation_cancellation.dart';
+import 'mcp_protocol.dart';
+
+export 'mcp_protocol.dart';
 
 class McpHttpException implements Exception {
   const McpHttpException(this.code, [this.detail = '']);
@@ -14,18 +17,6 @@ class McpHttpException implements Exception {
   String toString() => detail.isEmpty ? code : '$code:$detail';
 }
 
-class McpToolOutcome {
-  const McpToolOutcome({
-    required this.text,
-    required this.isError,
-    this.structuredContent,
-  });
-
-  final String text;
-  final bool isError;
-  final Object? structuredContent;
-}
-
 /// Small, stateful MCP Streamable-HTTP client. It deliberately transports
 /// tool outcomes only; it never invokes a language model.
 class McpHttpClient {
@@ -33,13 +24,27 @@ class McpHttpClient {
     required this.endpoint,
     http.Client? client,
     this.timeout = const Duration(seconds: 25),
+    this.headers = const <String, String>{},
   }) : client = client ?? http.Client();
+
+  factory McpHttpClient.fromConfig(
+    McpServerConfig config, {
+    http.Client? client,
+    Duration timeout = const Duration(seconds: 25),
+  }) =>
+      McpHttpClient(
+        endpoint: config.endpoint,
+        client: client,
+        timeout: timeout,
+        headers: config.headers,
+      );
 
   static const protocolVersion = '2024-11-05';
 
   final Uri endpoint;
   final http.Client client;
   final Duration timeout;
+  final Map<String, String> headers;
   String? _sessionId;
   var _nextId = 1;
   var _initialized = false;
@@ -58,26 +63,22 @@ class McpHttpClient {
     if (result is! Map) {
       throw const McpHttpException('invalid_response');
     }
-    final content = result['content'];
-    final parts = <String>[];
-    if (content is List) {
-      for (final item in content.whereType<Map>()) {
-        final value = item['text']?.toString().trim() ?? '';
-        if (value.isNotEmpty) parts.add(value);
-      }
-    }
+    final rawContent = result['content'];
+    final content = rawContent is List
+        ? rawContent
+            .whereType<Map>()
+            .map((item) => McpContentBlock.fromJson(item))
+            .toList(growable: false)
+        : const <McpContentBlock>[];
     final structured = result['structuredContent'];
-    if (parts.isEmpty && structured != null) {
-      parts.add(jsonEncode(structured));
-    }
     return McpToolOutcome(
-      text: parts.join('\n').trim(),
+      content: content,
       isError: result['isError'] == true,
       structuredContent: structured,
     );
   }
 
-  Future<List<String>> listTools({
+  Future<List<McpToolDescriptor>> listTools({
     GenerationCancellationToken? cancellationToken,
   }) async {
     await _initialize(cancellationToken);
@@ -86,11 +87,13 @@ class McpHttpClient {
       const <String, Object?>{},
       cancellationToken,
     );
-    if (result is! Map || result['tools'] is! List) return const <String>[];
+    if (result is! Map || result['tools'] is! List) {
+      return const <McpToolDescriptor>[];
+    }
     return (result['tools'] as List)
         .whereType<Map>()
-        .map((tool) => tool['name']?.toString().trim() ?? '')
-        .where((name) => name.isNotEmpty)
+        .map((tool) => McpToolDescriptor.fromJson(tool))
+        .where((tool) => tool.name.isNotEmpty)
         .toList(growable: false);
   }
 
@@ -105,7 +108,7 @@ class McpHttpClient {
         'capabilities': const <String, Object?>{},
         'clientInfo': const <String, Object?>{
           'name': 'ai-companion',
-          'version': '0.41.67',
+          'version': '0.41.68',
         },
       },
       cancellationToken,
@@ -160,6 +163,7 @@ class McpHttpClient {
     final headers = <String, String>{
       'content-type': 'application/json',
       'accept': 'application/json, text/event-stream',
+      ...this.headers,
       if (_sessionId?.isNotEmpty == true) 'mcp-session-id': _sessionId!,
     };
     try {
@@ -179,6 +183,9 @@ class McpHttpClient {
       if (session != null && session.isNotEmpty) _sessionId = session;
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw McpHttpException('http_${response.statusCode}', _bounded(response.body));
+      }
+      if (utf8.encode(response.body).length > 1024 * 1024) {
+        throw const McpHttpException('response_too_large');
       }
       return response;
     } on GenerationCancelledByUserException {

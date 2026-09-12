@@ -103,6 +103,48 @@ class MessageAttachmentStorage {
     }
   }
 
+  Future<PreparedImageAttachment> prepareImageBytes({
+    required Uint8List bytes,
+    required String source,
+    required String mimeType,
+  }) async {
+    if (bytes.isEmpty) throw const FormatException('图片数据为空');
+    if (bytes.length > maxImageBytes) {
+      throw const FormatException('图片超过 25 MB，请先缩小后再发送');
+    }
+    final decoded = await _decodeThumbnail(bytes);
+    final id = _uuid.v4();
+    final extension = _safeImageExtension('image', mimeType);
+    final temp = await getTemporaryDirectory();
+    final draftDirectory = Directory(
+      p.join(temp.path, 'companion_attachment_drafts', id),
+    );
+    await draftDirectory.create(recursive: true);
+    final original = File(p.join(draftDirectory.path, 'original$extension'));
+    final thumbnail = File(p.join(draftDirectory.path, 'thumbnail.png'));
+    try {
+      await original.writeAsBytes(bytes, flush: true);
+      await thumbnail.writeAsBytes(decoded.thumbnail, flush: true);
+      return PreparedImageAttachment(
+        id: id,
+        originalFile: original,
+        thumbnailFile: thumbnail,
+        originalExtension: extension,
+        mimeType: _normalizedMimeType(mimeType, extension),
+        byteSize: bytes.length,
+        width: decoded.width,
+        height: decoded.height,
+        source: source,
+        createdAt: DateTime.now(),
+      );
+    } catch (_) {
+      if (await draftDirectory.exists()) {
+        await draftDirectory.delete(recursive: true);
+      }
+      rethrow;
+    }
+  }
+
   Future<MessageAttachment> commitDraft(
     PreparedImageAttachment draft, {
     required String messageId,

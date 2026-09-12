@@ -27,6 +27,7 @@ import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
 import '../mcp/cedar_toy_arcade_skill.dart';
+import '../mcp/cedar_toy_activity.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
@@ -338,7 +339,12 @@ class DurableGenerationRunner {
       // prompt's world-book context.
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
-      final cedarSkillActive = CedarToyArcadeSkill.isRelevant(user.content) &&
+      final cedarActivityStore = CedarToyActivityStore(db);
+      final cedarSession = await cedarActivityStore.load();
+      final cedarCatalog = await cedarActivityStore.loadCatalog();
+      final cedarSessionActive = cedarSession?.continuable == true;
+      final cedarSkillActive =
+          (CedarToyArcadeSkill.isRelevant(user.content) || cedarSessionActive) &&
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
@@ -355,9 +361,13 @@ class DurableGenerationRunner {
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
         if (cedarSkillActive)
-          const <String, Object?>{
+          <String, Object?>{
             'role': 'system',
-            'content': CedarToyArcadeSkill.prompt,
+            'content': <String>[
+              CedarToyArcadeSkill.prompt,
+              if (cedarSession != null && cedarSession.guideComplete)
+                cedarActivityStore.promptContext(cedarSession),
+            ].join('\n\n'),
           },
         <String, Object?>{
           'role': 'system',
@@ -637,10 +647,10 @@ class DurableGenerationRunner {
 
       Set<String> cedarStageToolIds() {
         if (!cedarSkillActive) return const <String>{};
-        final listed = agentToolResults.any((result) =>
+        final listed = cedarCatalog.isNotEmpty || agentToolResults.any((result) =>
             result.toolId == AgentToolRegistry.cedarToyListGames.id &&
             result.status == AgentToolStatus.succeeded);
-        final guided = agentToolResults.any((result) =>
+        final guided = cedarSession?.guideComplete == true || agentToolResults.any((result) =>
             result.toolId == AgentToolRegistry.cedarToyGetGuide.id &&
             result.status == AgentToolStatus.succeeded);
         return <String>{
@@ -780,6 +790,7 @@ $finalGenerationReminder
         final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
+          cedarSessionActive: cedarSessionActive,
           maxCalls: callsAllowed,
           excludedCallFingerprints: executedToolFingerprints,
         );

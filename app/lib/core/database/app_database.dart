@@ -5301,6 +5301,7 @@ class AppDatabase {
       'proactive_message',
       'public_web_discovery',
       'public_web_share',
+      'play_game',
       'rest',
       'wait',
     };
@@ -17502,21 +17503,37 @@ class AppDatabase {
     });
   }
 
-  Future<int> proactiveCountSince(Duration duration) async {
+  Future<int> proactiveCountSince(
+    Duration duration, {
+    String triggerPrefix = '',
+    bool excludePrefix = false,
+  }) async {
     final db = await database;
     final since = DateTime.now().subtract(duration).millisecondsSinceEpoch;
+    final prefix = triggerPrefix.trim();
     final rows = await db.rawQuery(
-      'SELECT COUNT(*) AS c FROM proactive_history WHERE decision = ? AND created_at >= ?',
-      ['sent', since],
+      'SELECT COUNT(*) AS c FROM proactive_history '
+      'WHERE decision = ? AND created_at >= ?'
+      '${prefix.isEmpty ? '' : excludePrefix ? ' AND trigger_reason NOT LIKE ?' : ' AND trigger_reason LIKE ?'}',
+      <Object?>[
+        'sent',
+        since,
+        if (prefix.isNotEmpty) '$prefix%',
+      ],
     );
     return Sqflite.firstIntValue(rows) ?? 0;
   }
 
-  Future<DateTime?> lastSentProactiveAt() async {
+  Future<DateTime?> lastSentProactiveAt({
+    String triggerPrefix = '',
+    bool excludePrefix = false,
+  }) async {
     final db = await database;
+    final prefix = triggerPrefix.trim();
     final rows = await db.rawQuery(
-      'SELECT MAX(created_at) AS latest FROM proactive_history WHERE decision = ?',
-      const ['sent'],
+      'SELECT MAX(created_at) AS latest FROM proactive_history WHERE decision = ?'
+      '${prefix.isEmpty ? '' : excludePrefix ? ' AND trigger_reason NOT LIKE ?' : ' AND trigger_reason LIKE ?'}',
+      <Object?>['sent', if (prefix.isNotEmpty) '$prefix%'],
     );
     final millis = rows.isEmpty
         ? null

@@ -89,6 +89,7 @@ class OperationalClaimGroundingGuard {
     required String text,
     Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
     bool publicWebOutcomeAvailable = false,
+    bool cedarOutcomeAvailable = false,
   }) {
     final successfulResults = currentToolResults
         .where((result) => result.status == AgentToolStatus.succeeded)
@@ -133,6 +134,7 @@ class OperationalClaimGroundingGuard {
       }
 
       if (_cedarPlayClaim.hasMatch(sentence) &&
+          !cedarOutcomeAvailable &&
           !successfulResults.any(
             (result) => result.toolId == 'cedar_toy.play',
           )) {
@@ -214,6 +216,7 @@ class OperationalClaimGroundingGuard {
     required String text,
     Iterable<AgentToolResult> currentToolResults = const <AgentToolResult>[],
     bool publicWebOutcomeAvailable = false,
+    bool cedarOutcomeAvailable = false,
   }) {
     return _sentences(text)
         .where(
@@ -221,6 +224,7 @@ class OperationalClaimGroundingGuard {
             text: sentence,
             currentToolResults: currentToolResults,
             publicWebOutcomeAvailable: publicWebOutcomeAvailable,
+            cedarOutcomeAvailable: cedarOutcomeAvailable,
           ).allowed,
         )
         .join('\n')

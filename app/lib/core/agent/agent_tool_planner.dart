@@ -301,12 +301,20 @@ class AgentToolPlanner {
   static AgentToolPlan fromNativeToolCalls(
     List<DeepSeekToolCall> nativeCalls, {
     String latestUserText = '',
+    bool cedarSessionActive = false,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
     Set<String> excludedCallFingerprints = const <String>{},
   }) {
     final calls = <AgentToolCall>[];
     final seen = <String>{};
     final allowedForCurrentText = _routeToolIds(latestUserText);
+    if (cedarSessionActive) {
+      allowedForCurrentText.addAll(const <String>{
+        'cedar_toy.list_games',
+        'cedar_toy.get_guide',
+        'cedar_toy.play',
+      });
+    }
     final boundedMaxCalls = maxCalls
         .clamp(0, AgentTaskLoopPolicy.maxCallsPerRound)
         .toInt();
@@ -451,7 +459,34 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '指南要求的参数 JSON object；无参数时填写 {}。',
       };
-      required.addAll(const <String>['game', 'action', 'params_json']);
+      properties['participation_mode'] = const <String, Object?>{
+        'type': 'string',
+        'enum': <String>['solo', 'co_play', 'multiplayer', 'hybrid', 'unknown'],
+        'description': '只根据完整真实指南判断：她自己玩、与用户共玩、多人、混合或无法判断。',
+      };
+      properties['invitation_approved'] = const <String, Object?>{
+        'type': 'boolean',
+        'description': '仅当用户在当前或此前消息中已经明确接受这局共玩邀请时为 true。',
+      };
+      properties['next_actor'] = const <String, Object?>{
+        'type': 'string',
+        'enum': <String>['companion', 'user', 'shared', 'wait', 'finished'],
+        'description': '根据本次真实 Outcome 判断下一步由谁行动。',
+      };
+      properties['share_level'] = const <String, Object?>{
+        'type': 'string',
+        'enum': <String>['quiet', 'notable', 'required'],
+        'description': 'quiet=无需主动打扰；notable=值得之后分享；required=共玩轮到用户，必须进入待分享候选。',
+      };
+      required.addAll(const <String>[
+        'game',
+        'action',
+        'params_json',
+        'participation_mode',
+        'invitation_approved',
+        'next_actor',
+        'share_level',
+      ]);
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -492,7 +527,9 @@ class AgentToolPlanner {
       'cedar_toy.get_guide' =>
         '只为 cedar_toy_list_games 本轮真实返回的游戏 ID 调用；尚未取得列表时不得调用。',
       'cedar_toy.play' =>
-        '只在本轮已取得该游戏真实指南后调用；game 与 action 必须分别来自真实列表和指南。',
+        '只在已取得该游戏完整真实指南后调用；game 与 action 必须分别来自真实列表和指南。'
+        '先据指南判断 participation_mode。共玩/多人/混合游戏必须先邀请并等待明确同意；不得把“想玩”写成“玩过”。'
+        '每次只推进指南允许的一步，再根据真实 Outcome 填 next_actor 与 share_level。',
       _ => '',
     };
     return <String, Object?>{
