@@ -928,7 +928,7 @@ class ImmersiveRoomController extends ChangeNotifier {
             language: ChatLanguageVariant(
               messageId: message.id,
               language: language,
-              content: ChatSegmentCodec.displayText(translated),
+              content: ChatSegmentCodec.immersiveDisplayText(translated),
               segments: translated,
             ),
           },
@@ -939,7 +939,11 @@ class ImmersiveRoomController extends ChangeNotifier {
         projected = await ensureLanguageVariant(message, language);
       }
     }
-    final content = projected.contentFor(language).trim();
+    final speechSegments = projected.segmentsFor(language);
+    final content = (speechSegments.isNotEmpty
+            ? ChatSegmentCodec.immersiveDisplayText(speechSegments)
+            : projected.contentFor(language))
+        .trim();
     if (content.isEmpty) return;
     await db.setSetting('tts_language', language.key);
     final emotion = await _ttsEmotionCueFor(message);

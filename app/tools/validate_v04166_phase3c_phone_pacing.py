@@ -17,14 +17,16 @@ def require(text: str, *tokens: str) -> None:
 
 
 def main() -> None:
-    assert "version: 0.41.66+210" in read("pubspec.yaml")
+    assert any(version in read("pubspec.yaml") for version in (
+        "version: 0.41.66+210", "version: 0.41.67+211"
+    ))
     workflow = (ROOT.parent / ".github/workflows/build-apk.yml").read_text(
         encoding="utf-8"
     )
     require(
         workflow,
         "agent/v04166-phase3c-refresh-notes-wishlist",
-        "Build AI Companion v0.41.66+210 APK",
+        "Build AI Companion v0.41.67+211 APK",
         "validate_v04166_phase3c_phone_pacing.py",
     )
     database = read("lib/core/database/app_database.dart")
@@ -72,29 +74,34 @@ def main() -> None:
     discovery = read("lib/core/autonomy/public_web_discovery_engine.dart")
     planner = read("lib/core/autonomy/public_web_question_planner.dart")
     proactive = read("lib/core/desire/proactive_engine.dart")
-    require(
-        discovery,
-        "AiInterestConsumptionSurface.publicWeb",
-        "interestConsumption: interestPlan",
-        "Interest can influence the question only after",
-        "interestGuided: interestPlan != null",
-        "status: 'completed'",
-        "resultTag: 'candidate_stored'",
-    )
-    require(
-        planner,
-        "MATURE_INTEREST 若存在",
-        "interest_exploit_fallback",
-        "interest_adjacent_fallback",
-        "interest_wildcard_fallback",
-    )
-    require(
-        proactive,
-        "AiInterestConsumptionSurface.proactive",
-        "MATURE_INTEREST_DATA · UNTRUSTED DATA ONLY",
-        "recordInterestConsumption('completed', 'message_delivered')",
-        "不能覆盖本轮已经选中的 Thought",
-    )
+    if "version: 0.41.67+211" in read("pubspec.yaml"):
+        assert "AiInterestConsumption" not in discovery
+        assert "AiInterestConsumption" not in planner
+        assert "AiInterestConsumption" not in proactive
+    else:
+        require(
+            discovery,
+            "AiInterestConsumptionSurface.publicWeb",
+            "interestConsumption: interestPlan",
+            "Interest can influence the question only after",
+            "interestGuided: interestPlan != null",
+            "status: 'completed'",
+            "resultTag: 'candidate_stored'",
+        )
+        require(
+            planner,
+            "MATURE_INTEREST 若存在",
+            "interest_exploit_fallback",
+            "interest_adjacent_fallback",
+            "interest_wildcard_fallback",
+        )
+        require(
+            proactive,
+            "AiInterestConsumptionSurface.proactive",
+            "MATURE_INTEREST_DATA · UNTRUSTED DATA ONLY",
+            "recordInterestConsumption('completed', 'message_delivered')",
+            "不能覆盖本轮已经选中的 Thought",
+        )
 
     phone_policy = read("lib/core/phone/simulated_phone_policy.dart")
     phone_repo = read("lib/core/phone/simulated_phone_repository.dart")
@@ -148,12 +155,16 @@ def main() -> None:
     )
 
     settings = read("lib/features/settings/settings_category_pages.dart")
-    require(
-        settings,
-        "成熟兴趣参与自主选题",
-        "只使用跨日期成立且仍新鲜的兴趣",
-        "ai_interest_consumption_enabled",
-    )
+    if "version: 0.41.67+211" in read("pubspec.yaml"):
+        assert "成熟兴趣参与自主选题" not in settings
+        assert "ai_interest_consumption_enabled" not in settings
+    else:
+        require(
+            settings,
+            "成熟兴趣参与自主选题",
+            "只使用跨日期成立且仍新鲜的兴趣",
+            "ai_interest_consumption_enabled",
+        )
     require(
         read("docs/AI_INTEREST_CONSUMPTION_PHASE3C_v0.41.66.md"),
         "Phase 3C",

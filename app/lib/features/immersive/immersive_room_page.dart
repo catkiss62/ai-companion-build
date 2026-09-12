@@ -1409,7 +1409,7 @@ class _ImmersiveMessageView extends StatelessWidget {
         : ChatLanguage.chinese;
     final segments = message.segmentsFor(displayLanguage);
     final displayedContent = segments.isNotEmpty
-        ? ChatSegmentCodec.displayText(segments)
+        ? ChatSegmentCodec.immersiveDisplayText(segments)
         : message.contentFor(displayLanguage);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),

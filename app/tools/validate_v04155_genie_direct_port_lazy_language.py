@@ -15,13 +15,14 @@ def read(relative: str) -> str:
 
 assert any(
     version in read("pubspec.yaml")
-    for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+    for version in ("version: 0.41.65+209", "version: 0.41.66+210", "version: 0.41.67+211")
 )
 assert any(
     label in read("lib/core/agent/agent_self_reader.dart")
     for label in (
         "static const buildLabel = 'v0.41.65+209';",
         "static const buildLabel = 'v0.41.66+210';",
+        "static const buildLabel = 'v0.41.67+211';",
     )
 )
 
@@ -228,13 +229,13 @@ user_default_hashes = {
     "ruleContentV04155_04IntimacyCore":
         "547afce48773ffe8c159befeb8ecad17ecc4840d29fa25ddc482f9438ffc6d8c",
     "ruleContentV04155_05IntimacyRendering":
-        "b30afa45447b14bb80aeccd0a851b114dbbaf0940575470a663db1729c898c99",
+        "b40ad570c5a5451f95db7da819375346e5448b0653cc6be6c50e7f701503e07d",
     "ruleContentV04155_06IntimacyReference":
         "844488e94b947cd8aaaad729ea6899a0550739c107e327f9ed7c739a69ba5e1f",
     "ruleContentV04155_ImmersiveGlobal":
         "6f215ca791794ca1337bed4c0bba8d3882f6402327e2640f15c85d64f86941ca",
     "ruleContentV04155_ImmersiveNsfwSource":
-        "1685e3bc0567762e55d5c6bd07b39767b64af2d5f0af6d57477cb1c9a7d54c33",
+        "cb156fa985e72d2a15c72b5c12e73a9b8c41cd5f2a9db273afed52a969a68507",
 }
 for name, expected in user_default_hashes.items():
     body = triple_const(user_rules, name)

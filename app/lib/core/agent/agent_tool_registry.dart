@@ -133,6 +133,33 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: false,
   );
+  static const cedarToyListGames = AgentToolDefinition(
+    id: 'cedar_toy.list_games',
+    title: '读取 Cedar Toy 游戏列表',
+    description: '从 Cedar Toy MCP 取得此刻真实游戏列表；网络请求不是模型调用。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const cedarToyGetGuide = AgentToolDefinition(
+    id: 'cedar_toy.get_guide',
+    title: '读取 Cedar Toy 游戏指南',
+    description: '只为本轮真实列表中的一个游戏取得远端指南。',
+    risk: AgentToolRisk.readOnly,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
+  static const cedarToyPlay = AgentToolDefinition(
+    id: 'cedar_toy.play',
+    title: '游玩 Cedar Toy 游戏',
+    description: '仅按本轮真实指南中的动作调用远端游戏，并返回真实 Outcome。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const videoUnderstanding = AgentToolDefinition(
     id: 'video_understanding.inspect',
     title: '理解视频片段',
@@ -203,6 +230,9 @@ class AgentToolRegistry {
     webImageSend,
     albumImageSend,
     screenObservation,
+    cedarToyListGames,
+    cedarToyGetGuide,
+    cedarToyPlay,
     videoUnderstanding,
     memoryProposal,
     personalityProposal,

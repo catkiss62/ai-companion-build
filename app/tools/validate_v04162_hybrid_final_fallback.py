@@ -19,13 +19,14 @@ def require(text: str, *tokens: str) -> None:
 def main() -> None:
     assert any(
         version in read("pubspec.yaml")
-        for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+        for version in ("version: 0.41.65+209", "version: 0.41.66+210", "version: 0.41.67+211")
     )
     assert any(
         label in read("lib/core/agent/agent_self_reader.dart")
         for label in (
             "static const buildLabel = 'v0.41.65+209';",
             "static const buildLabel = 'v0.41.66+210';",
+            "static const buildLabel = 'v0.41.67+211';",
         )
     )
     provider = read("lib/core/ai/chat_api_provider.dart")

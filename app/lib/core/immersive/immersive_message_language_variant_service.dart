@@ -94,7 +94,7 @@ class ImmersiveMessageLanguageVariantService {
     final variant = ChatLanguageVariant(
       messageId: latest.id,
       language: language,
-      content: ChatSegmentCodec.displayText(translated),
+      content: ChatSegmentCodec.immersiveDisplayText(translated),
       segments: translated,
     );
     await store.saveVariant(variant);

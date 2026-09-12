@@ -272,8 +272,21 @@ class AgentToolPlanner {
   /// CHAT_LIGHT returns no tool schema. Task-like turns receive only the small
   /// capability subset relevant to their wording, so companionship does not
   /// inherit planning/reporting pressure from a permanent toolbox prompt.
-  static List<Map<String, Object?>> nativeToolDefinitionsFor(String text) {
+  static List<Map<String, Object?>> nativeToolDefinitionsFor(
+    String text, {
+    Set<String>? cedarStageToolIds,
+  }) {
     final toolIds = _routeToolIds(text);
+    const cedarIds = <String>{
+      'cedar_toy.list_games',
+      'cedar_toy.get_guide',
+      'cedar_toy.play',
+    };
+    if (cedarStageToolIds != null) {
+      toolIds
+        ..removeAll(cedarIds)
+        ..addAll(cedarStageToolIds.where(cedarIds.contains));
+    }
     if (toolIds.isEmpty) return const <Map<String, Object?>>[];
     return AgentToolRegistry.userTurnModelCallable
           .where(
@@ -419,6 +432,26 @@ class AgentToolPlanner {
         'type': 'string',
         'description': '用户想要的表情语义，例如开心、害羞或自然回应。',
       };
+    } else if (tool.id == AgentToolRegistry.cedarToyGetGuide.id) {
+      properties['game'] = const <String, Object?>{
+        'type': 'string',
+        'description': '必须来自 cedar_toy_list_games 真实结果的游戏 ID。',
+      };
+      required.add('game');
+    } else if (tool.id == AgentToolRegistry.cedarToyPlay.id) {
+      properties['game'] = const <String, Object?>{
+        'type': 'string',
+        'description': '必须来自本轮 Cedar Toy 真实游戏列表的游戏 ID。',
+      };
+      properties['action'] = const <String, Object?>{
+        'type': 'string',
+        'description': '必须来自本轮 cedar_toy_get_guide 真实指南的动作名。',
+      };
+      properties['params_json'] = const <String, Object?>{
+        'type': 'string',
+        'description': '指南要求的参数 JSON object；无参数时填写 {}。',
+      };
+      required.addAll(const <String>['game', 'action', 'params_json']);
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -454,6 +487,12 @@ class AgentToolPlanner {
         '只在用户明确要求发送她已存相册/查手机里的图片时调用；不联网。',
       'sticker.send' =>
         '只在用户明确要求她发表情包、只回表情包或斗图时调用；成功附件本身就是整条回复，不再附带对白。',
+      'cedar_toy.list_games' =>
+        '只在用户本轮明确邀请去 Cedar Toy、游戏厅或一起玩小游戏时调用；必须先取得真实列表，不得猜游戏。',
+      'cedar_toy.get_guide' =>
+        '只为 cedar_toy_list_games 本轮真实返回的游戏 ID 调用；尚未取得列表时不得调用。',
+      'cedar_toy.play' =>
+        '只在本轮已取得该游戏真实指南后调用；game 与 action 必须分别来自真实列表和指南。',
       _ => '',
     };
     return <String, Object?>{
@@ -600,6 +639,9 @@ class AgentToolPlanner {
     'sticker.send': 'sticker_send',
     'image.web_send': 'image_web_send',
     'album.image_send': 'album_image_send',
+    'cedar_toy.list_games': 'cedar_toy_list_games',
+    'cedar_toy.get_guide': 'cedar_toy_get_guide',
+    'cedar_toy.play': 'cedar_toy_play',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -616,6 +658,9 @@ class AgentToolPlanner {
     'sticker_send': 'sticker.send',
     'image_web_send': 'image.web_send',
     'album_image_send': 'album.image_send',
+    'cedar_toy_list_games': 'cedar_toy.list_games',
+    'cedar_toy_get_guide': 'cedar_toy.get_guide',
+    'cedar_toy_play': 'cedar_toy.play',
   };
 
   static String _bounded(String value, int limit) =>
@@ -698,6 +743,15 @@ class AgentToolPlanner {
       result
         ..add(AgentToolRegistry.phoneSearch.id)
         ..add(AgentToolRegistry.phoneRead.id);
+    }
+    if (RegExp(
+      r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏)',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      result
+        ..add(AgentToolRegistry.cedarToyListGames.id)
+        ..add(AgentToolRegistry.cedarToyGetGuide.id)
+        ..add(AgentToolRegistry.cedarToyPlay.id);
     }
     return result.take(AgentTaskLoopPolicy.maxToolCalls).toSet();
   }

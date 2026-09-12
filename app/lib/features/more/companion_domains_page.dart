@@ -5,6 +5,7 @@ import '../reference/reference_library_page.dart';
 import '../relationship/relationship_page.dart';
 import '../self/personality_appearance_page.dart';
 import '../settings/rule_layers_page.dart';
+import '../settings/cedar_toy_settings_page.dart';
 
 class CompanionDomainPage extends StatelessWidget {
   const CompanionDomainPage({super.key});
@@ -70,6 +71,12 @@ class CapabilitiesDomainPage extends StatelessWidget {
             title: '模型、联网、识图与 TTS',
             subtitle: '现有能力配置真源；后续再按能力继续细拆',
             onTap: () => Navigator.of(context).pushNamed('/settings'),
+          ),
+          _DomainEntry(
+            icon: Icons.sports_esports_outlined,
+            title: 'Cedar Toy 游戏厅',
+            subtitle: '连接小机、测试游戏列表并管理绑定码',
+            onTap: () => _push(context, const CedarToySettingsPage()),
           ),
         ],
       );

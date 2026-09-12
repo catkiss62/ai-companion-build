@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../ai/generation_cancellation.dart';
 import '../ai/qwen_vision_client.dart';
 import '../autonomy/layered_public_web_provider.dart';
@@ -7,6 +9,7 @@ import '../database/app_database.dart';
 import '../desire/desire_engine.dart';
 import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
+import '../mcp/cedar_toy_client.dart';
 import '../media/assistant_image_attachment_service.dart';
 import '../models/companion_album.dart';
 import '../models/desire_state.dart';
@@ -36,6 +39,8 @@ class AgentToolRunner {
   final AppDatabase db;
   final AndroidBridge android;
   final SecureConfig secureConfig;
+  final Map<String, String> _cedarGameListsByScope = <String, String>{};
+  final Map<String, String> _cedarGuidesByScopeAndGame = <String, String>{};
 
   Future<List<AgentToolResult>> runPlan(
     AgentToolPlan plan, {
@@ -63,7 +68,8 @@ class AgentToolRunner {
                   call.toolId == AgentToolRegistry.imageFindAndSave.id ||
                   call.toolId == AgentToolRegistry.stickerSend.id ||
                   call.toolId == AgentToolRegistry.webImageSend.id ||
-                  call.toolId == AgentToolRegistry.albumImageSend.id) &&
+                  call.toolId == AgentToolRegistry.albumImageSend.id ||
+                  call.toolId == AgentToolRegistry.cedarToyPlay.id) &&
               call.reasonTag == 'explicit_request' &&
               userMessageId.trim().isNotEmpty;
       if (definition == null ||
@@ -151,6 +157,7 @@ class AgentToolRunner {
                   call: call,
                   callIndex: callIndex,
                 ),
+          toolChainScopeId: eventScopeId,
         );
         results.add(result);
         await _note(
@@ -214,6 +221,7 @@ class AgentToolRunner {
     GenerationCancellationToken? cancellationToken, {
     String userMessageId = '',
     String userTurnEventId = '',
+    String toolChainScopeId = '',
     String assistantMessageId = '',
   }) async {
     cancellationToken?.throwIfCancelled();
@@ -248,6 +256,23 @@ class AgentToolRunner {
     if (call.toolId == AgentToolRegistry.phoneRead.id) {
       return _readPhone(call.arguments);
     }
+    if (call.toolId == AgentToolRegistry.cedarToyListGames.id) {
+      return _cedarListGames(toolChainScopeId, cancellationToken);
+    }
+    if (call.toolId == AgentToolRegistry.cedarToyGetGuide.id) {
+      return _cedarGetGuide(
+        toolChainScopeId,
+        call.arguments['game'] ?? '',
+        cancellationToken,
+      );
+    }
+    if (call.toolId == AgentToolRegistry.cedarToyPlay.id) {
+      return _cedarPlay(
+        toolChainScopeId,
+        call.arguments,
+        cancellationToken,
+      );
+    }
     if (call.toolId == AgentToolRegistry.attachmentSave.id) {
       return _confirmAttachmentSaved(userMessageId);
     }
@@ -281,6 +306,176 @@ class AgentToolRunner {
     }
     throw StateError('unimplemented_registered_tool');
   }
+
+  Future<CedarToyClient?> _cedarToyClient() async {
+    if ((await db.getSetting('cedar_toy_enabled')) == '0') return null;
+    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
+    if (token.isEmpty) return null;
+    try {
+      return CedarToyClient(token: token);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AgentToolResult> _cedarListGames(
+    String scope,
+    GenerationCancellationToken? cancellationToken,
+  ) async {
+    final client = await _cedarToyClient();
+    if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyListGames.id);
+    final outcome = await client.listGames(cancellationToken: cancellationToken);
+    if (!outcome.isError && outcome.text.trim().isNotEmpty) {
+      if (_cedarGameListsByScope.length >= 12) {
+        _cedarGameListsByScope.clear();
+        _cedarGuidesByScopeAndGame.clear();
+      }
+      _cedarGameListsByScope[scope] = outcome.text;
+    }
+    return _cedarResult(
+      toolId: AgentToolRegistry.cedarToyListGames.id,
+      action: '游戏列表',
+      outcome: outcome,
+    );
+  }
+
+  Future<AgentToolResult> _cedarGetGuide(
+    String scope,
+    String rawGame,
+    GenerationCancellationToken? cancellationToken,
+  ) async {
+    final game = _safeCedarIdentifier(rawGame);
+    final list = _cedarGameListsByScope[scope] ?? '';
+    if (game.isEmpty || !_containsCedarIdentifier(list, game)) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.get_guide',
+        status: AgentToolStatus.blocked,
+        displayText: '需要先从当前真实游戏列表选择游戏',
+        promptData: 'Cedar Toy 指南未读取：game 不在本轮真实列表中；不得猜测指南。',
+        errorCode: 'game_not_in_current_list',
+      );
+    }
+    final client = await _cedarToyClient();
+    if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyGetGuide.id);
+    final outcome = await client.getGuide(game, cancellationToken: cancellationToken);
+    if (!outcome.isError && outcome.text.trim().isNotEmpty) {
+      _cedarGuidesByScopeAndGame['$scope|$game'] = outcome.text;
+    }
+    return _cedarResult(
+      toolId: AgentToolRegistry.cedarToyGetGuide.id,
+      action: '游戏指南',
+      outcome: outcome,
+    );
+  }
+
+  Future<AgentToolResult> _cedarPlay(
+    String scope,
+    Map<String, String> arguments,
+    GenerationCancellationToken? cancellationToken,
+  ) async {
+    final game = _safeCedarIdentifier(arguments['game'] ?? '');
+    final action = _safeCedarIdentifier(arguments['action'] ?? '');
+    final list = _cedarGameListsByScope[scope] ?? '';
+    final guide = _cedarGuidesByScopeAndGame['$scope|$game'] ?? '';
+    if (game.isEmpty || !_containsCedarIdentifier(list, game)) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.play',
+        status: AgentToolStatus.blocked,
+        displayText: '游戏不在当前真实列表中',
+        promptData: 'Cedar Toy 没有执行游玩；不得声称开始、得分、获胜或保存进度。',
+        errorCode: 'game_not_in_current_list',
+      );
+    }
+    if (action.isEmpty || !_containsCedarIdentifier(guide, action)) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.play',
+        status: AgentToolStatus.blocked,
+        displayText: '动作不在当前真实指南中',
+        promptData: 'Cedar Toy 没有执行游玩；action 必须来自本轮真实指南，不得猜测结果。',
+        errorCode: 'action_not_in_current_guide',
+      );
+    }
+    Map<String, Object?> params;
+    try {
+      final decoded = jsonDecode(arguments['params_json'] ?? '{}');
+      if (decoded is! Map) throw const FormatException();
+      params = decoded.map((key, value) => MapEntry(key.toString(), value));
+    } catch (_) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.play',
+        status: AgentToolStatus.blocked,
+        displayText: '游戏参数不是有效 JSON object',
+        promptData: 'Cedar Toy 没有执行游玩；参数无效，不得编造结果。',
+        errorCode: 'invalid_params_json',
+      );
+    }
+    final client = await _cedarToyClient();
+    if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyPlay.id);
+    final outcome = await client.play(
+      game,
+      action,
+      params,
+      cancellationToken: cancellationToken,
+    );
+    return _cedarResult(
+      toolId: AgentToolRegistry.cedarToyPlay.id,
+      action: '游玩',
+      outcome: outcome,
+    );
+  }
+
+  AgentToolResult _cedarUnavailable(String toolId) => AgentToolResult(
+        toolId: toolId,
+        status: AgentToolStatus.blocked,
+        displayText: 'Cedar Toy 尚未连接',
+        promptData: 'Cedar Toy 未配置或已停用；没有取得远端结果，不得编造。',
+        errorCode: 'cedar_toy_unconfigured',
+      );
+
+  AgentToolResult _cedarResult({
+    required String toolId,
+    required String action,
+    required dynamic outcome,
+  }) {
+    final safe = CedarToyClient.redactSecrets(outcome.text.toString());
+    if (outcome.isError == true) {
+      return AgentToolResult(
+        toolId: toolId,
+        status: AgentToolStatus.failed,
+        displayText: 'Cedar Toy $action失败',
+        promptData: 'Cedar Toy 远端返回失败：${_boundedCedar(safe)}；不得编造成功结果。',
+        errorCode: 'cedar_remote_error',
+      );
+    }
+    if (safe.trim().isEmpty) {
+      return AgentToolResult(
+        toolId: toolId,
+        status: AgentToolStatus.noResult,
+        displayText: 'Cedar Toy 没有返回可用结果',
+        promptData: 'Cedar Toy $action没有真实 Outcome；不得补写结果。',
+        errorCode: 'cedar_empty_result',
+      );
+    }
+    return AgentToolResult(
+      toolId: toolId,
+      status: AgentToolStatus.succeeded,
+      displayText: '已取得 Cedar Toy 真实$action结果',
+      promptData: '【Cedar Toy 真实 $action Outcome】\n${_boundedCedar(safe)}',
+      resultCount: 1,
+    );
+  }
+
+  static String _safeCedarIdentifier(String value) {
+    final clean = value.trim();
+    return RegExp(r'^[A-Za-z0-9_.:-]{1,80}$').hasMatch(clean) ? clean : '';
+  }
+
+  static bool _containsCedarIdentifier(String source, String identifier) =>
+      RegExp('(^|[^A-Za-z0-9_.:-])${RegExp.escape(identifier)}([^A-Za-z0-9_.:-]|\$)')
+          .hasMatch(source);
+
+  static String _boundedCedar(String value) =>
+      value.length <= 6000 ? value : '${value.substring(0, 6000)}\n[已截断]';
 
   Future<AgentToolResult> _sendSticker(
     String intent, {

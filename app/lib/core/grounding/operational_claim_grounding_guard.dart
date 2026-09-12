@@ -73,6 +73,11 @@ class OperationalClaimGroundingGuard {
     r'((传|贴)(了)?一张图)|'
     r'((图片|照片|这张图|那张图).{0,10}(发|发送|传|贴|甩|丢|扔|拿给你看).{0,6}(了|给你|过去)?)',
   );
+  static final RegExp _cedarPlayClaim = RegExp(
+    r'((刚刚|刚才|已经|真的|确实)?(玩了|玩过|开了一局|打了一局|完成了).{0,18}(游戏|一局|关卡))|'
+    r'((赢了|输了|通关了|得了|拿到).{0,12}(分|胜利|奖励|道具|成就))|'
+    r'((游戏|这一局|这局).{0,12}(赢了|输了|结束了|通关了|存档了|得分))',
+  );
   static final RegExp _metaOrNegated = RegExp(
     r'(没(有)?|并没|并未|没有真的|不曾|不能|不该|不会|别|不要|禁止|'
     r'想去|想要去|正想|打算|准备|想象|幻想|以后|下次|如果|假如|'
@@ -124,6 +129,17 @@ class OperationalClaimGroundingGuard {
           allowed: false,
           reason: 'ungrounded_image_send',
           requiredToolId: 'image.web_send',
+        );
+      }
+
+      if (_cedarPlayClaim.hasMatch(sentence) &&
+          !successfulResults.any(
+            (result) => result.toolId == 'cedar_toy.play',
+          )) {
+        return const OperationalClaimGroundingResult(
+          allowed: false,
+          reason: 'ungrounded_cedar_toy_play',
+          requiredToolId: 'cedar_toy.play',
         );
       }
 

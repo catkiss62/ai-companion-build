@@ -82,7 +82,7 @@ class AgentSelfReader {
   // Historical validator compatibility: buildLabel = 'v0.41.53+192'
   // Historical validator compatibility: buildLabel = 'v0.41.58+202'
   // Historical validator compatibility token: static const buildLabel = 'v0.41.60+204';
-  static const buildLabel = 'v0.41.66+210';
+  static const buildLabel = 'v0.41.67+211';
 
   static const systemFacts = <AgentSystemFact>[
     AgentSystemFact(
@@ -107,7 +107,7 @@ class AgentSelfReader {
       id: 'proactive_web',
       title: '主动联系与公开网页',
       status: 'implemented',
-      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页先搜索网址，再读取完整清洗正文、整理概要并由主模型分别判断语义、兴趣、学习与分享价值。跨日期成立且仍新鲜的自身兴趣可在独立预算与冷却内轻量影响自主选题，不能绕过联网或主动消息 Gate；分享前会重新读取来源。',
+      detail: '主动联系由 Desire/Thought/Intent/Gate 决定；公开网页先搜索网址，再读取完整清洗正文、整理概要并由主模型分别判断语义、兴趣、学习与分享价值。自主问题从她此刻的 Desire 与脱敏主观种子自然生长；成熟兴趣消费注入当前已暂停。分享前会重新读取来源。',
     ),
     AgentSystemFact(
       id: 'phone_album',
@@ -138,6 +138,12 @@ class AgentSelfReader {
       title: 'Agent v2 有界任务循环',
       status: 'implemented_bounded',
       detail: '相关任务可根据真实工具结果继续核对下一步，最多三个规划回合、六次调用；同一调用不会原样循环，结束时按成功、无结果、失败或阻止分别核验。写入和媒体发送仍要求用户本轮明确意图。',
+    ),
+    AgentSystemFact(
+      id: 'cedar_toy_mcp_v04167',
+      title: 'Cedar Toy 游戏厅',
+      status: 'implemented_user_turn_only',
+      detail: '用户明确邀请时可经 MCP 动态读取真实游戏列表、指南并游玩；列表、指南与结果都进入现有 Agent 工具循环，没有真实 Outcome 不会声称经历。账号与 Token 只在设置页安全保存。',
     ),
     AgentSystemFact(
       id: 'sticker_agent_v04146',

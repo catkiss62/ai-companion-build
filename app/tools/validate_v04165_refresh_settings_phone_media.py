@@ -19,13 +19,14 @@ def require(text: str, *tokens: str) -> None:
 def main() -> None:
     assert any(
         version in read("pubspec.yaml")
-        for version in ("version: 0.41.65+209", "version: 0.41.66+210")
+        for version in ("version: 0.41.65+209", "version: 0.41.66+210", "version: 0.41.67+211")
     )
     assert any(
         label in read("lib/core/agent/agent_self_reader.dart")
         for label in (
             "static const buildLabel = 'v0.41.65+209';",
             "static const buildLabel = 'v0.41.66+210';",
+            "static const buildLabel = 'v0.41.67+211';",
         )
     )
 
@@ -48,6 +49,7 @@ def main() -> None:
         for label in (
             "AI Companion · v0.41.65+209",
             "AI Companion · v0.41.66+210",
+            "AI Companion · v0.41.67+211",
         )
     )
     assert "先按稳定职责分开入口" not in more
@@ -85,7 +87,8 @@ def main() -> None:
     prompt = read("lib/core/immersive/immersive_prompt_builder.dart")
     require(
         rules,
-        "非性交行为（例如口交、乳交等）不要求 AI 角色与用户同步高潮",
+        "非性交姿势（例如手交、口交、乳交）不会同步高潮",
+        "除非女性AI在非性交的同时在自慰",
         "[【色情描写强化模块】（世界级专业水准 · 零容错执行）",
     )
     assert "重要：色情模块，一定要认真执行" not in rules

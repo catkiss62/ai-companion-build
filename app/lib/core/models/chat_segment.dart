@@ -41,6 +41,15 @@ class ChatSegmentCodec {
           : '（${segment.text}）')
       .join('\n\n');
 
+  /// Immersive rooms tint narration directly, so re-adding ordinary-chat
+  /// parentheses would leak presentation markers into both UI and TTS.
+  static String immersiveDisplayText(Iterable<ChatSegment> segments) =>
+      segments
+          .map((segment) => segment.kind == ChatSegmentKind.dialogue
+              ? '「${segment.text}」'
+              : segment.text)
+          .join('\n\n');
+
   static List<ChatSegment> parseAssistantText(String text) {
     final normalized = text.replaceAll('\r\n', '\n').trim();
     if (normalized.isEmpty) return const <ChatSegment>[];

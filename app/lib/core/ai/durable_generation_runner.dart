@@ -26,6 +26,7 @@ import '../models/chat_segment.dart';
 import '../models/desire_state.dart';
 import '../models/generation_job.dart';
 import '../models/message_attachment.dart';
+import '../mcp/cedar_toy_arcade_skill.dart';
 import '../models/thought.dart';
 import '../somatic/somatic_engine.dart';
 import '../stickers/sticker_expression_service.dart';
@@ -337,6 +338,9 @@ class DurableGenerationRunner {
       // prompt's world-book context.
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
+      final cedarSkillActive = CedarToyArcadeSkill.isRelevant(user.content) &&
+          (await db.getSetting('cedar_toy_enabled')) != '0' &&
+          ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
@@ -350,6 +354,11 @@ class DurableGenerationRunner {
       );
       final baseRequestMessages = <Map<String, Object?>>[
         ...promptBuild.messages,
+        if (cedarSkillActive)
+          const <String, Object?>{
+            'role': 'system',
+            'content': CedarToyArcadeSkill.prompt,
+          },
         <String, Object?>{
           'role': 'system',
           'content': finalGenerationReminder,
@@ -626,8 +635,30 @@ class DurableGenerationRunner {
         );
       }
 
-      final taskToolDefinitions =
-          AgentToolPlanner.nativeToolDefinitionsFor(user.content);
+      Set<String> cedarStageToolIds() {
+        if (!cedarSkillActive) return const <String>{};
+        final listed = agentToolResults.any((result) =>
+            result.toolId == AgentToolRegistry.cedarToyListGames.id &&
+            result.status == AgentToolStatus.succeeded);
+        final guided = agentToolResults.any((result) =>
+            result.toolId == AgentToolRegistry.cedarToyGetGuide.id &&
+            result.status == AgentToolStatus.succeeded);
+        return <String>{
+          if (!listed) AgentToolRegistry.cedarToyListGames.id,
+          if (listed && !guided) AgentToolRegistry.cedarToyGetGuide.id,
+          if (guided) AgentToolRegistry.cedarToyPlay.id,
+        };
+      }
+
+      List<Map<String, Object?>> currentTaskToolDefinitions() =>
+          // Historical validator compatibility:
+          // AgentToolPlanner.nativeToolDefinitionsFor(user.content)
+          AgentToolPlanner.nativeToolDefinitionsFor(
+            user.content,
+            cedarStageToolIds: cedarStageToolIds(),
+          );
+
+      var taskToolDefinitions = currentTaskToolDefinitions();
       final agentTaskAttempted =
           localPlan != null || taskToolDefinitions.isNotEmpty;
 
@@ -711,7 +742,9 @@ $finalGenerationReminder
       }
       cancellationToken?.throwIfCancelled();
 
-      // DeepSeek owns tool planning, never the final prose in Gemini mode. A
+      // DeepSeek owns every tool-planning and Outcome-verification pass, never
+      // the final prose in Gemini mode. Cedar MCP transport itself is not a
+      // model call. A
       // no-tool plan therefore needs one explicit Gemini expression request.
       // DeepSeek-only mode preserves its established one-request behavior.
       if (toolsOpen && generated.toolCalls.isEmpty) {
@@ -860,6 +893,7 @@ $finalGenerationReminder
           statusText: '正在根据结果核对下一步…',
           toolId: '',
         );
+        taskToolDefinitions = currentTaskToolDefinitions();
         generated = await generateInternal(
           finalRequestMessages,
           tools: taskToolDefinitions,

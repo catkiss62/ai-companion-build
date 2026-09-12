@@ -45,7 +45,33 @@ const _webImageSendSuccess = AgentToolResult(
   promptData: 'WEB IMAGE ATTACHMENT',
 );
 
+const _cedarPlaySuccess = AgentToolResult(
+  toolId: 'cedar_toy.play',
+  status: AgentToolStatus.succeeded,
+  displayText: '已取得真实游玩结果',
+  promptData: '【Cedar Toy 真实 游玩 Outcome】',
+);
+
 void main() {
+  test('Cedar game achievements require a current successful play outcome', () {
+    expect(
+      OperationalClaimGroundingGuard.evaluate(text: '我刚才玩了一局，还赢了。')
+          .allowed,
+      isFalse,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(
+        text: '我刚才玩了一局，还赢了。',
+        currentToolResults: const [_cedarPlaySuccess],
+      ).allowed,
+      isTrue,
+    );
+    expect(
+      OperationalClaimGroundingGuard.evaluate(text: '我想去玩一局。').allowed,
+      isTrue,
+    );
+  });
+
   test('blocks a fabricated all-afternoon growth-system report', () {
     final result = OperationalClaimGroundingGuard.evaluate(
       text: '我看了一下午自己的人格学习和成长系统，发现变化挺大的。',

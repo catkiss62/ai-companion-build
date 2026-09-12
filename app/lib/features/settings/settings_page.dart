@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'settings_category_pages.dart';
+import 'cedar_toy_settings_page.dart';
 import 'sticker_settings_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -38,6 +39,12 @@ class SettingsPage extends StatelessWidget {
         title: '表情包',
         subtitle: '本地图库导入、启用与单聊表达强度',
         page: const StickerSettingsPage(),
+      ),
+      _SettingsDomain(
+        icon: Icons.sports_esports_outlined,
+        title: 'Cedar Toy 游戏厅',
+        subtitle: '小机账号、MCP Token、绑定码与连接测试',
+        page: const CedarToySettingsPage(),
       ),
       _SettingsDomain(
         icon: Icons.devices_other_outlined,
