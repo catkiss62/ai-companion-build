@@ -34,22 +34,22 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04170-agent-mcp-runtime-hardening`，以 `v0.41.69+213 / schema 61 / Snapshot protocol 6` 为真实基线，目标 `v0.41.70+214`：通用 Agent/MCP 多轮工具响应、结构化状态优先、双向共玩许可与活跃共玩仲裁已本地实现；当前 `IMPLEMENTED LOCALLY / CI PENDING / NOT_BUILT`，`main` 未改 |
+| 当前开发分支 | `agent/v04170-agent-mcp-runtime-hardening`，`v0.41.70+214 / schema 61 / Snapshot protocol 6`：通用 Agent/MCP 多轮工具响应、结构化状态优先、双向共玩许可、受验证同轮继续与活跃共玩仲裁已实现并完成 CI/APK；当前 `CI PASSED / APK READY / TRUE DEVICE PENDING`，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
-| 有效构建 head / tree | +213 Actions build head `1ddd6f804bb462df3ceed5c35c30ca6e76f5bb1c` / tree `a60a2f15da412c0b8319cb30013523b6c94e7b71`，与本地构建候选 tree 完全一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
-| App / 数据库 | 当前源码候选为 `0.41.70+214 / schema 61 / Snapshot protocol 6`；最新可下载 APK 仍为 `0.41.69+213`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
-| 最终 CI | +213 run [`34752079493`](https://github.com/catkiss62/ai-companion-build/actions/runs/34752079493)（861）完整成功：干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`762/762` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
-| 测试 APK | `AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK.apk`，544,780,610 bytes（CI 显示 544.8 MB） |
-| APK SHA-256 | `9c69fd51730c081a9b7e293fc10b085ffae6c0a71dc54afa13bca1ad1e9873a2`；CI checksum 与 Draft asset digest 一致 |
-| Artifact / Release | Artifact [`10315827579`](https://github.com/catkiss62/ai-companion-build/actions/runs/34752079493/artifacts/10315827579)，ZIP 537,902,382 bytes / digest `8f284ce58c89f7760c52b518e89e280d3f534c53beba74c3141699dc051b5ed6`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ab60251d3f78816cf535) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
+| 有效构建 head / tree | +214 Actions build head `693d02aa309f1aff1e6f924f133eb4fdbd595a5e` / tree `f9505d44d83d2eba99749e47ab03db5db3e7b9ed`，构建 tree 与本地候选逐字一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
+| App / 数据库 | 当前源码与最新测试 APK 均为 `0.41.70+214 / schema 61 / Snapshot protocol 6`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
+| 最终 CI | +214 run [`34756709301`](https://github.com/catkiss62/ai-companion-build/actions/runs/34756709301)（863）完整成功：干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`768/768` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
+| 测试 APK | `AI-Companion-v0.41.70-214-Agent-MCP-Runtime-Hardening-APK.apk`，544,790,686 bytes（CI 显示 544.8 MB） |
+| APK SHA-256 | `bb64199a6f5c563d79dc501ec5d8f45cc3524c3ae9d15ba093d48fa3ca11996e`；CI checksum 与 Draft asset digest 一致，固定测试签名证书 SHA-256 仍为 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148` |
+| Artifact / Release | Artifact [`10317703409`](https://github.com/catkiss62/ai-companion-build/actions/runs/34756709301/artifacts/10317703409)，ZIP 537,913,005 bytes / digest `681310069886207d4c35620a17f732aaf612f460d37a1ca8119a44bbb41feebf`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b93ac70cdbad4bec1c51) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`。+214 已本地实现通用 DSML 归一化/防泄漏、双向邀请许可、结构化行动方优先、受验证的同轮继续与活跃共玩分享延后，专项静态 validator 与上一版 validator 通过；Flutter/Dart、CI、APK 与真机均待证。DeepSeek/Gemini 调用边界、TTS、schema 61 与 Snapshot protocol 6 未改 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`。+214 通用 DSML 归一化/防泄漏、双向邀请许可、结构化行动方优先、受验证同轮继续与活跃共玩分享延后已 `CI PASSED / APK READY / TRUE DEVICE PENDING`。DeepSeek/Gemini 调用边界、TTS、schema 61 与 Snapshot protocol 6 未改 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.70+214 Agent/MCP 通用运行时加固（IMPLEMENTED LOCALLY / CI PENDING）**：代码与固定夹具已完成，下一步提交/推送开发分支并等待完整 Actions；CI 全绿和 APK 就绪后，再复测同一房间流程，确认用户邀请不反转、AI 在真实 `current_actor` 属于自己时继续行动、正文/TTS 无 DSML、旧游戏分享不插队。真机通过前不得收口 |
+| 当前下一步 | **覆盖安装 +214 并复测同一 Cedar 共玩流程（APK READY / TRUE DEVICE PENDING）**：先用 Draft APK 覆盖 +213，不清数据；用户建房并邀请她，用户先走后确认她按真实结构化行动方继续落子，正文/TTS 无 DSML，发起方不反转，旧钓鱼分享不插队。失败时导出新的脱敏诊断与备份；真机通过前不得收口或转下一个 MCP |
 | 目标 | 在不针对某个游戏硬编码的前提下，把“新开游戏”与“已承诺活动续步”分开：前者继续由 Desire 竞争，后者在轮到她时由轻量时钟每次推进一个真实 MCP 动作；每个 game 拥有独立指南/session，跨游戏 Outcome 只形成提醒，显式用户切换进入可靠队列，目标指南读取成功前绝不执行或报称已进入 |
 | 当前证据 | +213 run 861、`762/762` tests 与 Draft 全绿。2026-09-13 新真机脱敏证据证明目标 `duel` 完整指南已经读取，`rooms` 返回现有对局为“对方新建”、AI 为 O、用户为 X 且用户已经落下首子，完整 `state` 也明确 `current_actor` 是 AI；但本机把该局保存为 `next_actor=wait / waiting_remote`。首轮还因 `invitation_approved=false` 生成了本机反向邀请；纠正棋子后模型产生合法 `move` 参数，却以 `<｜｜DSML｜｜ calls>` 正文落库，工具 Outcome 中没有对应 `move`，远端 revision 没有推进。紧接着旧钓鱼分享又在活跃共玩回合中送达。故 +213 只能标 `TRUE DEVICE PARTIAL`，不是网页或 Cedar 服务没有更新 |
 | 保护与排除 | 盲玩禁止把 GitHub README、源码、存档或人类攻略当普通游戏上下文；指南必须来自真实 `get_guide`，不能静默截断后继续猜规则。指南上限显著放宽，完整原文保存在本地会话并供参数/动作校验；若超过最终硬上限，应分页/分块或明确失败，不得把截断内容冒充完整指南。共玩先邀请；浏览到五子棋等只能形成“想邀请你”的 Thought，真实房间/参与者/终局 Outcome 之前不得声称已玩。MCP 网页返回的前端和 MCP content 是两条通道，不把网页存在误写成所有游戏都有图像。凭据、私有状态和隐藏答案继续不进 Prompt/诊断/备份。不修改 TTS、schema 或 Snapshot protocol 6。沉浸房间只允许本轮两项明确窄改：活动窗入口不进入沉浸正文；沉浸聊天页面从打开到暂离/返回期间，现有主动联系与游戏主动分享都不得生成或送达 |
@@ -96,7 +96,7 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-13 v0.41.70+214 Agent/MCP 通用运行时加固（IMPLEMENTED LOCALLY / CI PENDING / NOT_BUILT）
+### 2026-09-13 v0.41.70+214 Agent/MCP 通用运行时加固（CI PASSED / APK READY / TRUE DEVICE PENDING）
 
 1. 用户接受 +213 真机失败归因并明确开始下一步修改。新分支 `agent/v04170-agent-mcp-runtime-hardening` 从远端已恢复完整总账的 +213 head `5ba92f1ecf0e1d91f50bfc7a631dce3c22a3242e` 建立；版本已升为 `v0.41.70+214`，schema 61 与 Snapshot protocol 6 不变。运行代码、Flutter 固定夹具、专项 validator、工作流与真机清单均已本地实现；尚未取得 CI、APK 或 +214 真机证据。
 2. 本批按通用 Agent/MCP 底座修复，不为 duel、五子棋或单个房间写硬编码：所有工具规划轮统一识别 structured `tool_calls`、可验证 DSML 兼容封装与普通文本；机器协议不得进入可见正文。任何兼容解析得到的调用仍必须经过现有 Registry、schema、指南、预算、重复调用与本地执行 Gate，不能把文本直接当作已执行事实。
@@ -109,6 +109,7 @@
 9. 新增不含游戏 ID/棋子/动作硬编码的 `McpTurnStateResolver`，优先读取 structuredContent 或文本块开头 JSON 的 terminal、next_actor、current_actor、participants 身份、seat 与 turn。Runner 和后台 autonomy 都以确定性行动方覆盖 DeepSeek 猜测；字段不足仍由 DeepSeek 核验。成功 Outcome 明确 `next_actor=companion` 时只在既有总轮次/总调用预算内保留当前工具循环，允许 `state → move`；user/shared/wait/finished、失败、附件待提交或预算耗尽仍停止，已发生副作用不重放。
 10. `ProactiveEngine` 在生成前和最终落库前各复查一次活跃 requires-invitation 共玩 session；旧 Cedar 分享此时以 `active_shared_game` preempt 延后，Thought 不标 acted、不删除。新增 `agent_mcp_runtime_hardening_v04170_test.dart` 覆盖合法/残缺 DSML、流式持有、最终清理、双向邀请、明确拒绝、结构化身份/回合/终局与自由文本兜底；新增 +214 validator 和九项真机清单。当前环境无 Flutter/Dart SDK；+214 与 +213 专项 validator、`git diff --check` 通过。全量 validator 尝试在 `validate_current_chat_visual_stage.py` 因 Actions 才恢复的 LingChat effects 目录缺失停止，不记为源码失败，也不倒写成 Flutter tests 通过。
 11. 首个远端实现提交 `1d2a28e650c8c5f7014ec86731b72274d972826c` / tree `640e65f79ef4cd1a6038f827db1e72e94b416316` 已推到开发分支，Actions run [`34756484005`](https://github.com/catkiss62/ai-companion-build/actions/runs/34756484005)（862）成功完成干净基线和私有资源恢复，但在 Source and regression validation 的首个旧兼容检查 `validate_v04143_phase3b_question_autonomy.py` 停止：版本 allowlist 只到 `0.41.69+213`，尚未允许 `0.41.70+214`；尚未运行 Flutter Analyze/tests 或 APK。窄修只给仍以枚举方式验证当前版本的七个历史/总账 validator 增加 +214，并把总账接班 validator 的当前分支/版本从 +213 更新到 +214；本地七项历史 validator、当前总账 validator、+214 validator 与 `git diff --check` 均通过，不改 Agent/MCP 运行语义。
+12. 兼容修复远端提交 `693d02aa309f1aff1e6f924f133eb4fdbd595a5e` / tree `f9505d44d83d2eba99749e47ab03db5db3e7b9ed`。Actions run [`34756709301`](https://github.com/catkiss62/ai-companion-build/actions/runs/34756709301)（863）完整成功：全部源码/历史 validators、Kotlin/JVM、Flutter Analyze、`768/768` tests、arm64 Release、固定签名、私有运行资源 byte identity、实包资源核验、checksum、Artifact 与 Draft 均通过。APK 544,790,686 bytes / SHA-256 `bb64199a6f5c563d79dc501ec5d8f45cc3524c3ae9d15ba093d48fa3ca11996e`；Artifact [`10317703409`](https://github.com/catkiss62/ai-companion-build/actions/runs/34756709301/artifacts/10317703409) 为 537,913,005-byte ZIP / digest `681310069886207d4c35620a17f732aaf612f460d37a1ca8119a44bbb41feebf`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b93ac70cdbad4bec1c51) 未发布。自动化证明编译、固定夹具与打包成立，但真实 Cedar 房间、网页同步、可见回复与 TTS 仍必须在 REDMI K80 Ultra 覆盖安装后验证，当前严格是 `TRUE DEVICE PENDING`。
 
 ### 2026-09-13 v0.41.69+213 Cedar 双弈共玩循环真机失败取证（TRUE DEVICE PARTIAL · HOTFIX NOT_IMPLEMENTED）
 
