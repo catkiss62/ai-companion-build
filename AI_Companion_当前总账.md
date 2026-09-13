@@ -34,22 +34,22 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04169-cedar-game-switching`，`v0.41.69+213 / schema 61 / Snapshot protocol 6`：多游戏会话、可靠切换队列、独立后台续步、真实 Outcome 后核验和活动窗执行状态已进入公开开发分支；当前 `CI PASSED / APK READY / TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`，`main` 未改 |
+| 当前开发分支 | `agent/v04170-agent-mcp-runtime-hardening`，以 `v0.41.69+213 / schema 61 / Snapshot protocol 6` 为真实基线，目标 `v0.41.70+214`：通用 Agent/MCP 多轮工具响应、结构化状态优先、双向共玩许可与活跃共玩仲裁已本地实现；当前 `IMPLEMENTED LOCALLY / CI PENDING / NOT_BUILT`，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +213 Actions build head `1ddd6f804bb462df3ceed5c35c30ca6e76f5bb1c` / tree `a60a2f15da412c0b8319cb30013523b6c94e7b71`，与本地构建候选 tree 完全一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
-| App / 数据库 | 当前候选与最新可下载 APK 为 `0.41.69+213 / schema 61 / Snapshot protocol 6`。本批只升级 Setting JSON 活动状态，不升级 SQLite schema；旧备份与 Snapshot protocol 6 不变 |
+| App / 数据库 | 当前源码候选为 `0.41.70+214 / schema 61 / Snapshot protocol 6`；最新可下载 APK 仍为 `0.41.69+213`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
 | 最终 CI | +213 run [`34752079493`](https://github.com/catkiss62/ai-companion-build/actions/runs/34752079493)（861）完整成功：干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`762/762` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
 | 测试 APK | `AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK.apk`，544,780,610 bytes（CI 显示 544.8 MB） |
 | APK SHA-256 | `9c69fd51730c081a9b7e293fc10b085ffae6c0a71dc54afa13bca1ad1e9873a2`；CI checksum 与 Draft asset digest 一致 |
 | Artifact / Release | Artifact [`10315827579`](https://github.com/catkiss62/ai-companion-build/actions/runs/34752079493/artifacts/10315827579)，ZIP 537,902,382 bytes / digest `8f284ce58c89f7760c52b518e89e280d3f534c53beba74c3141699dc051b5ed6`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ab60251d3f78816cf535) 未发布，含 APK、`.sha256` 与 CI monitor，`main` 未合并 |
 | `main` | 仍停在 v0.38.5 旧基线，未合并 v0.41.x；**不得从 `main` 误判当前项目或作为后续开发基线** |
-| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 切换与后台续步热修为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`：目标 duel 指南、房间列表与完整 state 均已真实取得，但用户发起邀请被反向解释、棋子身份被误读，第二轮 `move` 又以 DSML 文本泄漏到正文而未执行。DeepSeek/Gemini 调用边界、沉浸括号与高潮规则继续保留自然验收。TTS 固定台词现象仍只按“疑似候选参考内容”方向留待 T1 取证 |
+| 当前总状态 | +204 小酒狐语音链 `TRUE DEVICE PASSED`；+206 双通道回复主要链 `TRUE DEVICE PARTIAL`；+208 设置精确回退为 `CI PASSED / APK READY / TRUE DEVICE PASSED`。+209、+210 均为 `CI PASSED / APK READY / TRUE DEVICE PENDING`。+211 Cedar 基础链为 `TRUE DEVICE PARTIAL`；+213 为 `CI PASSED / APK READY / TRUE DEVICE PARTIAL · CO-PLAY LOOP BUG FOUND`。+214 已本地实现通用 DSML 归一化/防泄漏、双向邀请许可、结构化行动方优先、受验证的同轮继续与活跃共玩分享延后，专项静态 validator 与上一版 validator 通过；Flutter/Dart、CI、APK 与真机均待证。DeepSeek/Gemini 调用边界、TTS、schema 61 与 Snapshot protocol 6 未改 |
 
 ### 3. 当前下一步任务包（新窗口必须完整接住）
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **Cedar 共玩循环窄热修（NOT_IMPLEMENTED）**：以 +213 真机失败为固定夹具，修复“用户主动邀请却被她反向邀请”、结构化 Outcome 中参与者/棋子/当前行动方误读、工具循环后续轮把 DSML 机器调用写入正文且没有真实执行 `move`；同时阻止活跃共玩回合被旧单人游戏分享插入。热修完成并经 CI 后，再复测同一房间流程与无人发言时的连续动作 |
+| 当前下一步 | **v0.41.70+214 Agent/MCP 通用运行时加固（IMPLEMENTED LOCALLY / CI PENDING）**：代码与固定夹具已完成，下一步提交/推送开发分支并等待完整 Actions；CI 全绿和 APK 就绪后，再复测同一房间流程，确认用户邀请不反转、AI 在真实 `current_actor` 属于自己时继续行动、正文/TTS 无 DSML、旧游戏分享不插队。真机通过前不得收口 |
 | 目标 | 在不针对某个游戏硬编码的前提下，把“新开游戏”与“已承诺活动续步”分开：前者继续由 Desire 竞争，后者在轮到她时由轻量时钟每次推进一个真实 MCP 动作；每个 game 拥有独立指南/session，跨游戏 Outcome 只形成提醒，显式用户切换进入可靠队列，目标指南读取成功前绝不执行或报称已进入 |
 | 当前证据 | +213 run 861、`762/762` tests 与 Draft 全绿。2026-09-13 新真机脱敏证据证明目标 `duel` 完整指南已经读取，`rooms` 返回现有对局为“对方新建”、AI 为 O、用户为 X 且用户已经落下首子，完整 `state` 也明确 `current_actor` 是 AI；但本机把该局保存为 `next_actor=wait / waiting_remote`。首轮还因 `invitation_approved=false` 生成了本机反向邀请；纠正棋子后模型产生合法 `move` 参数，却以 `<｜｜DSML｜｜ calls>` 正文落库，工具 Outcome 中没有对应 `move`，远端 revision 没有推进。紧接着旧钓鱼分享又在活跃共玩回合中送达。故 +213 只能标 `TRUE DEVICE PARTIAL`，不是网页或 Cedar 服务没有更新 |
 | 保护与排除 | 盲玩禁止把 GitHub README、源码、存档或人类攻略当普通游戏上下文；指南必须来自真实 `get_guide`，不能静默截断后继续猜规则。指南上限显著放宽，完整原文保存在本地会话并供参数/动作校验；若超过最终硬上限，应分页/分块或明确失败，不得把截断内容冒充完整指南。共玩先邀请；浏览到五子棋等只能形成“想邀请你”的 Thought，真实房间/参与者/终局 Outcome 之前不得声称已玩。MCP 网页返回的前端和 MCP content 是两条通道，不把网页存在误写成所有游戏都有图像。凭据、私有状态和隐藏答案继续不进 Prompt/诊断/备份。不修改 TTS、schema 或 Snapshot protocol 6。沉浸房间只允许本轮两项明确窄改：活动窗入口不进入沉浸正文；沉浸聊天页面从打开到暂离/返回期间，现有主动联系与游戏主动分享都不得生成或送达 |
@@ -95,6 +95,19 @@
 > 如果自然使用证据暂时不足，不得伪造 Phase 2A 已通过；可等待用户继续使用，或由用户明确选择独立 P0 内容包。用户最新排期永远高于本表。
 
 ## 近期详细记录与全局索引（按需检索）
+
+### 2026-09-13 v0.41.70+214 Agent/MCP 通用运行时加固（IMPLEMENTED LOCALLY / CI PENDING / NOT_BUILT）
+
+1. 用户接受 +213 真机失败归因并明确开始下一步修改。新分支 `agent/v04170-agent-mcp-runtime-hardening` 从远端已恢复完整总账的 +213 head `5ba92f1ecf0e1d91f50bfc7a631dce3c22a3242e` 建立；版本已升为 `v0.41.70+214`，schema 61 与 Snapshot protocol 6 不变。运行代码、Flutter 固定夹具、专项 validator、工作流与真机清单均已本地实现；尚未取得 CI、APK 或 +214 真机证据。
+2. 本批按通用 Agent/MCP 底座修复，不为 duel、五子棋或单个房间写硬编码：所有工具规划轮统一识别 structured `tool_calls`、可验证 DSML 兼容封装与普通文本；机器协议不得进入可见正文。任何兼容解析得到的调用仍必须经过现有 Registry、schema、指南、预算、重复调用与本地执行 Gate，不能把文本直接当作已执行事实。
+3. 结构化 MCP Outcome 中若已有 session、status、revision、current actor、participants/role/kind/token、next call 或终态，先由本机确定性归一化；只在通用字段不足时才交给 DeepSeek 做内部核验。明确协议事实不能被模型自由分类覆盖；同时保持未知服务/自由文本 Outcome 的通用兜底，不把 Cedar 字段扩散成全局必需字段。
+4. 共玩许可升级为双向语义：用户主动邀请、明确已开房/已给房间或已接受她的邀请，都可构成该次共玩的用户许可；只读 `rooms/state` 不应被“先由她邀请用户”反向阻断。新建、加入、移动等写操作继续受真实指南、当前会话与用户许可约束；不降低其他外部副作用工具的审批边界。
+5. 活跃 co-play/multiplayer/hybrid 会话和当前用户工具回合进入主动分享投递门：其他游戏的既有 notable 分享延后，不删除、不伪装成当前游戏结果，也不提高普通主动联系频率。现有沉浸页面静默门、聊天租约、DeepSeek 内部调用 / Gemini 单次最终表达合同继续保持。
+6. 完成判据至少覆盖：第二及后续规划轮的 DSML 不泄漏且可经本地 Gate 执行；不可解析机器协议诚实失败而不落库；明确 AI current actor 能继续、用户/远端/终局正确停止；用户发起邀请不再反向邀请；没有 Outcome 时不编造棋子、先后手或已进入；活跃共玩延后旧游戏分享；普通 Agent、钓鱼、双通道模型、TTS、schema 和备份协议无回归。下方记录本地实现事实；提交、CI/APK 与真机边界须在各自证据产生后继续回填。
+7. 新增 `AgentToolTextEnvelope`：每次有工具定义的 DeepSeek 规划响应都统一检查 structured `tool_calls` 与严格 DSML envelope；合法文本 envelope 只转成普通 `DeepSeekToolCall`，随后仍经过 Planner/Registry/显式用户意图/参数/预算/去重/Runner。残缺或夹带自然正文的 envelope 直接失败。流式 UI/TTS 在协议前缀未判明时先持有；最终 `OperationalClaimGroundingGuard`、截断草稿与手动保留草稿再做机器协议防线，因此协议不应进入正文、segments 或朗读。
+8. 新增 `AgentParticipationConsentPolicy`，Runner 不再只信模型的 `invitation_approved`：用户主动建好房并邀请、给房间信息，或短句明确接受都构成许可，否定优先；Prompt 同时明确“已有房间应同步/加入，不得另建或反向邀请”。该许可只打开已有 Cedar `play` Gate，不绕过真实列表、完整指南、动作名、参数、用户轮写操作授权与本地 lease。
+9. 新增不含游戏 ID/棋子/动作硬编码的 `McpTurnStateResolver`，优先读取 structuredContent 或文本块开头 JSON 的 terminal、next_actor、current_actor、participants 身份、seat 与 turn。Runner 和后台 autonomy 都以确定性行动方覆盖 DeepSeek 猜测；字段不足仍由 DeepSeek 核验。成功 Outcome 明确 `next_actor=companion` 时只在既有总轮次/总调用预算内保留当前工具循环，允许 `state → move`；user/shared/wait/finished、失败、附件待提交或预算耗尽仍停止，已发生副作用不重放。
+10. `ProactiveEngine` 在生成前和最终落库前各复查一次活跃 requires-invitation 共玩 session；旧 Cedar 分享此时以 `active_shared_game` preempt 延后，Thought 不标 acted、不删除。新增 `agent_mcp_runtime_hardening_v04170_test.dart` 覆盖合法/残缺 DSML、流式持有、最终清理、双向邀请、明确拒绝、结构化身份/回合/终局与自由文本兜底；新增 +214 validator 和九项真机清单。当前环境无 Flutter/Dart SDK；+214 与 +213 专项 validator、`git diff --check` 通过。全量 validator 尝试在 `validate_current_chat_visual_stage.py` 因 Actions 才恢复的 LingChat effects 目录缺失停止，不记为源码失败，也不倒写成 Flutter tests 通过。
 
 ### 2026-09-13 v0.41.69+213 Cedar 双弈共玩循环真机失败取证（TRUE DEVICE PARTIAL · HOTFIX NOT_IMPLEMENTED）
 

@@ -14,6 +14,7 @@ import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
 import '../mcp/mcp_protocol.dart';
+import '../mcp/mcp_turn_state_resolver.dart';
 import '../media/assistant_image_attachment_service.dart';
 import '../models/companion_album.dart';
 import '../models/desire_state.dart';
@@ -28,6 +29,7 @@ import '../storage/secure_config.dart';
 import '../storage/message_attachment_storage.dart';
 import '../stickers/sticker_expression_service.dart';
 import 'agent_self_reader.dart';
+import 'agent_participation_consent.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
@@ -57,6 +59,7 @@ class AgentToolRunner {
     String eventScopeId = '',
     String userMessageId = '',
     String assistantMessageId = '',
+    String latestUserText = '',
     int callIndexOffset = 0,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
   }) async {
@@ -158,6 +161,7 @@ class AgentToolRunner {
           cancellationToken,
           userMessageId: userMessageId,
           assistantMessageId: assistantMessageId,
+          latestUserText: latestUserText,
           userTurnEventId: eventScopeId.trim().isEmpty
               ? ''
               : _eventId(
@@ -231,6 +235,7 @@ class AgentToolRunner {
     String userTurnEventId = '',
     String toolChainScopeId = '',
     String assistantMessageId = '',
+    String latestUserText = '',
   }) async {
     cancellationToken?.throwIfCancelled();
     if (call.toolId == AgentToolRegistry.publicWebSearch.id) {
@@ -280,6 +285,7 @@ class AgentToolRunner {
         call.arguments,
         cancellationToken,
         assistantMessageId: assistantMessageId,
+        latestUserText: latestUserText,
       );
     }
     if (call.toolId == AgentToolRegistry.attachmentSave.id) {
@@ -416,6 +422,7 @@ class AgentToolRunner {
     Map<String, String> arguments,
     GenerationCancellationToken? cancellationToken, {
     required String assistantMessageId,
+    required String latestUserText,
   }) async {
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final action = _safeCedarIdentifier(arguments['action'] ?? '');
@@ -466,6 +473,7 @@ class AgentToolRunner {
     }
     final invitationApproved =
         persisted?.invitationApproved == true ||
+        AgentParticipationConsentPolicy.explicitlyGranted(latestUserText) ||
         (mode.requiresInvitation &&
             arguments['invitation_approved'] == 'true');
     if (mode.requiresInvitation && !invitationApproved) {
@@ -519,6 +527,7 @@ class AgentToolRunner {
       );
     }
     late McpToolOutcome outcome;
+    var verifiedNextActor = 'wait';
     try {
       await activityStore.beginExecution(gameId: game, action: action);
       outcome = await client.play(
@@ -535,6 +544,7 @@ class AgentToolRunner {
               action: action,
               outcome: outcome,
             );
+      verifiedNextActor = verification.nextActor;
       await activityStore.recordPlay(
         gameId: game,
         action: action,
@@ -559,6 +569,7 @@ class AgentToolRunner {
       action: '游玩',
       outcome: outcome,
       attachments: attachments,
+      verifiedNextActor: verifiedNextActor,
     );
   }
 
@@ -569,8 +580,13 @@ class AgentToolRunner {
     required String action,
     required McpToolOutcome outcome,
   }) async {
+    final structured = _resolveMcpTurnState(outcome);
     if (outcome.text.length > CedarToyActivityStore.maxGuidePromptChars) {
-      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+      return (
+        nextActor: structured?.nextActor ?? 'wait',
+        shareLevel: 'quiet',
+        resumeAfterSeconds: 0,
+      );
     }
     try {
       final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
@@ -601,7 +617,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       final share = judged['share_level']?.toString() ?? '';
       final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
       return (
-        nextActor: const <String>{
+        nextActor: structured?.nextActor ?? (const <String>{
           'companion',
           'user',
           'shared',
@@ -609,7 +625,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
           'finished',
         }.contains(actor)
             ? actor
-            : 'wait',
+            : 'wait'),
         shareLevel:
             const <String>{'quiet', 'notable', 'required'}.contains(share)
                 ? share
@@ -620,8 +636,26 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     } catch (_) {
       // The real MCP action already happened. Never retry that side effect
       // because only its post-Outcome classifier failed.
-      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+      return (
+        nextActor: structured?.nextActor ?? 'wait',
+        shareLevel: 'quiet',
+        resumeAfterSeconds: 0,
+      );
     }
+  }
+
+  McpTurnStateResolution? _resolveMcpTurnState(McpToolOutcome outcome) {
+    final structured =
+        McpTurnStateResolver.resolveStructured(outcome.structuredContent);
+    if (structured != null) return structured;
+    for (final block in outcome.content) {
+      if (block.kind != McpContentKind.text || block.text.trim().isEmpty) {
+        continue;
+      }
+      final fromText = McpTurnStateResolver.resolve(block.text);
+      if (fromText != null) return fromText;
+    }
+    return null;
   }
 
   Future<List<MessageAttachment>> _cedarImageAttachments({
@@ -671,6 +705,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     required String action,
     required McpToolOutcome outcome,
     List<MessageAttachment> attachments = const <MessageAttachment>[],
+    String verifiedNextActor = '',
   }) {
     final safe = CedarToyClient.redactSecrets(outcome.text.toString());
     if (outcome.isError == true) {
@@ -695,10 +730,22 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       toolId: toolId,
       status: AgentToolStatus.succeeded,
       displayText: '已取得 Cedar Toy 真实$action结果',
-      promptData: '【Cedar Toy 真实 $action Outcome】\n${_boundedCedar(safe)}',
+      promptData: <String>[
+        '【Cedar Toy 真实 $action Outcome】',
+        _boundedCedar(safe),
+        if (verifiedNextActor == 'companion')
+          '【结构化回合状态】现在仍轮到你（AI 伴侣）；若用户目标尚未完成，应在本轮继续调用指南允许的下一步，不要停成等待用户。',
+        if (verifiedNextActor == 'user' || verifiedNextActor == 'shared')
+          '【结构化回合状态】现在需要用户参与；停止自动推进并自然说明真实局面。',
+        if (verifiedNextActor == 'wait')
+          '【结构化回合状态】现在应等待远端状态变化，不得重复刚才的动作。',
+        if (verifiedNextActor == 'finished')
+          '【结构化回合状态】本次活动已经结束，不再调用下一步。',
+      ].join('\n'),
       resultCount: 1,
       attachments: attachments,
       terminalCommitPending: attachments.isNotEmpty,
+      continuationRecommended: verifiedNextActor == 'companion',
     );
   }
 

@@ -466,7 +466,7 @@ class AgentToolPlanner {
       };
       properties['invitation_approved'] = const <String, Object?>{
         'type': 'boolean',
-        'description': '仅当用户在当前或此前消息中已经明确接受这局共玩邀请时为 true。',
+        'description': '用户主动建房并邀请你、给出房间信息，或明确接受你的邀请时为 true；用户邀请本身已经是共玩许可，不得反向再邀请用户。',
       };
       required.addAll(const <String>[
         'game',
@@ -516,7 +516,7 @@ class AgentToolPlanner {
         '只为 cedar_toy_list_games 本轮真实返回的游戏 ID 调用；尚未取得列表时不得调用。',
       'cedar_toy.play' =>
         '只在已取得该游戏完整真实指南后调用；game 与 action 必须分别来自真实列表和指南。'
-        '先据指南判断 participation_mode。共玩/多人/混合游戏必须先邀请并等待明确同意；不得把“想玩”写成“玩过”。'
+        '先据指南判断 participation_mode。共玩/多人/混合游戏必须有明确的双方参与许可；用户主动建房邀请、给出房间信息或接受邀请均已满足，不得把用户的邀请颠倒成你邀请用户。不得把“想玩”写成“玩过”。'
         '每次只推进指南允许的一步。next_actor 与 share_level 必须等真实 Outcome 返回后由内部 DeepSeek 核验，不得在调用前猜。',
       _ => '',
     };

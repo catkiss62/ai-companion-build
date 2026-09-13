@@ -8,6 +8,8 @@ import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
 import 'cedar_toy_activity.dart';
 import 'cedar_toy_client.dart';
+import 'mcp_protocol.dart';
+import 'mcp_turn_state_resolver.dart';
 
 class CedarAutonomyAvailability {
   const CedarAutonomyAvailability(this.available, this.reason);
@@ -276,7 +278,7 @@ ${store.promptContext(session, state: state)}''',
             endpoint: endpoint,
             session: session,
             action: action,
-            outcomeText: CedarToyClient.redactSecrets(outcome.text),
+            outcome: outcome,
           );
     final shareLevel = verification.shareLevel;
     final updated = await store.recordPlay(
@@ -311,10 +313,16 @@ ${store.promptContext(session, state: state)}''',
     required String endpoint,
     required CedarGameSession session,
     required String action,
-    required String outcomeText,
+    required McpToolOutcome outcome,
   }) async {
+    final outcomeText = CedarToyClient.redactSecrets(outcome.text);
+    final structured = _resolveMcpTurnState(outcome);
     if (outcomeText.length > CedarToyActivityStore.maxGuidePromptChars) {
-      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+      return (
+        nextActor: structured?.nextActor ?? 'wait',
+        shareLevel: 'quiet',
+        resumeAfterSeconds: 0,
+      );
     }
     try {
       final judged = await _judge(
@@ -334,7 +342,7 @@ $outcomeText''',
       final share = judged['share_level']?.toString() ?? '';
       final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
       return (
-        nextActor: const <String>{
+        nextActor: structured?.nextActor ?? (const <String>{
           'companion',
           'user',
           'shared',
@@ -342,7 +350,7 @@ $outcomeText''',
           'finished',
         }.contains(actor)
             ? actor
-            : 'wait',
+            : 'wait'),
         shareLevel:
             const <String>{'quiet', 'notable', 'required'}.contains(share)
                 ? share
@@ -353,8 +361,26 @@ $outcomeText''',
     } catch (_) {
       // The real remote step already happened. Pausing is safer than replaying
       // a possibly non-idempotent action after a classifier-only failure.
-      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+      return (
+        nextActor: structured?.nextActor ?? 'wait',
+        shareLevel: 'quiet',
+        resumeAfterSeconds: 0,
+      );
     }
+  }
+
+  McpTurnStateResolution? _resolveMcpTurnState(McpToolOutcome outcome) {
+    final structured =
+        McpTurnStateResolver.resolveStructured(outcome.structuredContent);
+    if (structured != null) return structured;
+    for (final block in outcome.content) {
+      if (block.kind != McpContentKind.text || block.text.trim().isEmpty) {
+        continue;
+      }
+      final fromText = McpTurnStateResolver.resolve(block.text);
+      if (fromText != null) return fromText;
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>> _judge({

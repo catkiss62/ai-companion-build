@@ -921,6 +921,18 @@ class ProactiveEngine {
         : max(0, evaluationStartedAt.difference(lastUser).inMinutes);
     final isCedarGameShare = selectedSourceType == 'mcp' &&
         (intentThought?.source.startsWith('mcp/cedar_game:') ?? false);
+    if (isCedarGameShare) {
+      final activeSharedSession = await CedarToyActivityStore(db).load();
+      if (activeSharedSession != null &&
+          activeSharedSession.mode.requiresInvitation &&
+          activeSharedSession.continuable) {
+        await noteGeneration('preempted', reasonTag: 'active_shared_game');
+        return const ProactiveDecision(
+          sent: false,
+          reason: '当前共玩活动尚未结束，旧的游戏分享已延后',
+        );
+      }
+    }
     const gameSharePrefix = 'game_share:';
     final sentToday = await db.proactiveCountSince(
       const Duration(hours: 24),
@@ -1512,6 +1524,19 @@ ${PromptBuilder.visibleChineseGenerationReminder(proactive: true)}
       visibleText: text,
       envelopeStatus: emotionEnvelope.status,
     );
+
+    if (isCedarGameShare) {
+      final activeSharedSession = await CedarToyActivityStore(db).load();
+      if (activeSharedSession != null &&
+          activeSharedSession.mode.requiresInvitation &&
+          activeSharedSession.continuable) {
+        await noteGeneration('preempted', reasonTag: 'active_shared_game');
+        return const ProactiveDecision(
+          sent: false,
+          reason: '生成期间共玩活动仍在进行，本次旧游戏分享已延后',
+        );
+      }
+    }
 
     if (await android.isImmersiveChatPageVisible()) {
       await noteGeneration('preempted', reasonTag: 'immersive_chat_page_visible');

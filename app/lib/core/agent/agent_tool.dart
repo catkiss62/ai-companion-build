@@ -82,6 +82,7 @@ class AgentToolResult {
     this.attachments = const <MessageAttachment>[],
     this.mediaUsageKeys = const <String>[],
     this.terminalCommitPending = false,
+    this.continuationRecommended = false,
   });
 
   final String toolId;
@@ -98,6 +99,10 @@ class AgentToolResult {
   /// A media operation whose terminal success exists only if the enclosing
   /// assistant message and its attachment win the durable commit.
   final bool terminalCommitPending;
+  /// The executor resolved a high-confidence state saying the bounded task
+  /// still belongs to the companion. This may keep the current planning loop
+  /// open; it never expands the global round/call budget.
+  final bool continuationRecommended;
 
   bool get succeeded => status == AgentToolStatus.succeeded;
 }

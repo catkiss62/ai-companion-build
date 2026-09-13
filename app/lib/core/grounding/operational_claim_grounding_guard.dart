@@ -22,6 +22,15 @@ class OperationalClaimGroundingResult {
 class OperationalClaimGroundingGuard {
   const OperationalClaimGroundingGuard._();
 
+  static final RegExp _machineProtocol = RegExp(
+    r'<\s*/?\s*(?:(?:｜｜|\|\|)DSML(?:｜｜|\|\|)\s+(?:calls|invoke|parameter)|(?:function_calls?|tool_calls?))\b',
+    caseSensitive: false,
+  );
+  static final RegExp _machineProtocolJson = RegExp(
+    r'^\s*[\[{][\s\S]{0,240}"tool_calls"\s*:',
+    caseSensitive: false,
+  );
+
   static final RegExp _duration = RegExp(
     r'(一整天|整整一天|一天都|一下午|一上午|大半天|半天|好几个小时|几小时|几个钟头|看了很久|查了很久|研究了很久)',
   );
@@ -92,6 +101,12 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
   }) {
+    if (_machineProtocol.hasMatch(text) || _machineProtocolJson.hasMatch(text)) {
+      return const OperationalClaimGroundingResult(
+        allowed: false,
+        reason: 'machine_protocol_leak',
+      );
+    }
     final successfulResults = currentToolResults
         .where((result) => result.status == AgentToolStatus.succeeded)
         .toList(growable: false);

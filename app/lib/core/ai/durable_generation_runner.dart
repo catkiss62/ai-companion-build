@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import '../agent/agent_tool.dart';
+import '../agent/agent_participation_consent.dart';
 import '../agent/agent_tool_planner.dart';
 import '../agent/agent_tool_registry.dart';
 import '../agent/agent_tool_runner.dart';
 import '../agent/agent_task_loop.dart';
+import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
 import '../desire/conversation_initiative_policy.dart';
 import '../desire/conversation_outcome_verifier.dart';
@@ -320,6 +322,7 @@ class DurableGenerationRunner {
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
+          latestUserText: user.content,
         );
         agentToolResults.addAll(localResults);
         agentToolCalls += localResults.length;
@@ -376,6 +379,10 @@ class DurableGenerationRunner {
                 cedarActivityStore.promptContext(cedarSession, state: cedarState),
               if (cedarExplicitRequest)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。若正有原子动作执行中，应诚实说明并把切换请求排队，不可假装已经进入目标游戏。',
+              if (AgentParticipationConsentPolicy.describesExistingRoom(
+                user.content,
+              ))
+                '用户本轮明确描述了已存在的房间。这既是共玩许可，也是应同步/加入现有房间的事实；按真实指南选择查询、同步或加入动作，不得另建房间，也不得反向要求用户接受你的邀请。',
             ].join('\n\n'),
           },
         <String, Object?>{
@@ -493,7 +500,10 @@ class DurableGenerationRunner {
             // Hold the leading machine-readable emotion envelope out of the
             // visible bubble and streaming TTS. Providers that ignore the
             // contract still stream ordinary text without waiting for commit.
-            final envelopeVisible = EmotionEnvelope.streamingVisible(content);
+            final envelopeVisible =
+                AgentToolTextEnvelope.shouldHoldFromVisibleStream(content)
+                    ? ''
+                    : EmotionEnvelope.streamingVisible(content);
             final visibleContent = envelopeVisible;
             final visibleDelta = visibleContent.startsWith(emittedVisibleContent)
                 ? visibleContent.substring(emittedVisibleContent.length)
@@ -539,13 +549,29 @@ class DurableGenerationRunner {
           );
         }
         final indexes = toolCallBuilders.keys.toList()..sort();
-        final toolCalls = indexes
+        var toolCalls = indexes
             .map((index) => toolCallBuilders[index]!.build())
             .take(2)
             .toList(growable: false);
+        var normalizedContent = content.trim();
+        if (tools.isNotEmpty) {
+          final textEnvelope = AgentToolTextEnvelope.parse(normalizedContent);
+          if (toolCalls.isEmpty && textEnvelope.detected) {
+            if (!textEnvelope.valid || textEnvelope.calls.isEmpty) {
+              throw const FormatException('invalid_text_tool_envelope');
+            }
+            toolCalls = textEnvelope.calls.take(2).toList(growable: false);
+            normalizedContent = '';
+            finishReason = 'tool_calls';
+          } else if (toolCalls.isNotEmpty && textEnvelope.detected) {
+            // Structured tool_calls are authoritative. Never preserve a
+            // provider's duplicate machine envelope as a visible preamble.
+            normalizedContent = '';
+          }
+        }
         return (
           reasoning: reasoning.trim(),
-          content: content.trim(),
+          content: normalizedContent,
           toolCalls: toolCalls,
           finishReason: finishReason,
         );
@@ -835,6 +861,7 @@ $finalGenerationReminder
           eventScopeId: job.id,
           userMessageId: user.id,
           assistantMessageId: job.assistantMessageId,
+          latestUserText: user.content,
           callIndexOffset: agentToolCalls,
           maxCalls: callsAllowed,
         );
@@ -879,10 +906,13 @@ $finalGenerationReminder
         final proposalExecuted = AgentTaskLoopPolicy.containsProposal(
           nativePlan,
         );
+        final verifiedContinuation = roundResults.any(
+          (result) => result.succeeded && result.continuationRecommended,
+        );
         final loopLimitReached =
             agentPlanningRounds >= AgentTaskLoopPolicy.maxPlanningRounds ||
                 agentToolCalls >= AgentTaskLoopPolicy.maxToolCalls;
-        final shouldFinalize = proposalExecuted ||
+        final shouldFinalize = (proposalExecuted && !verifiedContinuation) ||
             AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
             loopLimitReached;
         if (shouldFinalize) {
@@ -1273,7 +1303,9 @@ $finalGenerationReminder
       );
     } on FinalReplyIncompleteException catch (e) {
       final envelope = EmotionEnvelope.parse(e.content);
-      final visible = envelope.visibleText.trim();
+      final visible = OperationalClaimGroundingGuard.removeUnsupportedSentences(
+        text: envelope.visibleText,
+      );
       if (visible.isEmpty) {
         final failed = await db.failGenerationJob(
           job.id,
@@ -1387,7 +1419,21 @@ $finalGenerationReminder
       );
     }
     final envelope = EmotionEnvelope.parse(job.partialContent);
-    final visible = envelope.visibleText.trim();
+    final visible = OperationalClaimGroundingGuard.removeUnsupportedSentences(
+      text: envelope.visibleText,
+    );
+    if (visible.isEmpty) {
+      await db.failGenerationJob(
+        job.id,
+        runToken: job.runToken,
+        error: 'confirmed_draft_machine_protocol_only',
+        recoverable: true,
+      );
+      return const GenerationRunResult(
+        status: 'failed',
+        error: '这份草稿只有内部工具协议，不能作为正文保存。请重新生成。',
+      );
+    }
     final companionEmotion = await emotionClassifier.resolve(
       rawTag: envelope.rawTag,
       visibleText: visible,
