@@ -412,11 +412,15 @@ class CedarToyActivityState {
 
   factory CedarToyActivityState.fromJson(Map<Object?, Object?> json) {
     final sessions = <String, CedarGameSession>{};
-    for (final raw in (json['sessions'] as List?)?.whereType<Map>() ?? const []) {
-      final session = CedarGameSession.fromJson(
-        Map<Object?, Object?>.from(raw),
-      );
-      if (session.gameId.isNotEmpty) sessions[session.gameId] = session;
+    final rawSessions = json['sessions'];
+    if (rawSessions is List) {
+      for (final raw in rawSessions) {
+        if (raw is! Map) continue;
+        final session = CedarGameSession.fromJson(
+          raw.cast<Object?, Object?>(),
+        );
+        if (session.gameId.isNotEmpty) sessions[session.gameId] = session;
+      }
     }
     final executionRaw = json['execution'];
     return CedarToyActivityState(
