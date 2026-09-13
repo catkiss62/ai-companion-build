@@ -23,7 +23,9 @@ class CedarToyActivityWindow extends StatefulWidget {
 class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   final store = CedarToyActivityStore(AppDatabase.instance);
   Timer? _refreshTimer;
+  CedarToyActivityState? _state;
   CedarGameSession? _session;
+  String _viewingGameId = '';
   bool _loading = true;
   bool _minimized = false;
   Offset _offset = const Offset(16, 72);
@@ -47,10 +49,13 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   }
 
   Future<void> _refresh() async {
-    final next = await store.load();
+    final state = await store.loadState();
+    final selected = state.sessions[_viewingGameId] ?? state.activeSession;
     if (!mounted) return;
     setState(() {
-      _session = next;
+      _state = state;
+      _session = selected;
+      _viewingGameId = selected?.gameId ?? '';
       _loading = false;
     });
   }
@@ -196,6 +201,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   Widget _body(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final session = _session;
+    final state = _state;
     if (session == null) {
       return const Center(
         child: Padding(
@@ -210,6 +216,50 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
       children: [
+        if (state != null && state.sessions.length > 1) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final item in state.sessions.values)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 7),
+                    child: ChoiceChip(
+                      selected: item.gameId == session.gameId,
+                      label: Text(item.displayName),
+                      onSelected: (_) => setState(() {
+                        _viewingGameId = item.gameId;
+                        _session = item;
+                      }),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (state?.execution != null) ...[
+          Card(
+            child: ListTile(
+              leading: const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+              title: Text('正在执行 ${state!.execution!.action}'),
+              subtitle: Text(state!.execution!.gameId),
+            ),
+          ),
+        ],
+        if (state?.queuedSwitches.isNotEmpty == true) ...[
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.queue_play_next_rounded),
+              title: Text('接下来切换到 ${state!.queuedSwitches.first.targetGameId}'),
+              subtitle: const Text('当前原子动作完成后读取目标游戏指南'),
+            ),
+          ),
+        ],
         Wrap(
           spacing: 7,
           runSpacing: 7,
@@ -250,7 +300,8 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             label: const Text('打开游戏返回的查看页'),
           ),
         ],
-        if (session.phase.continuable &&
+        if (state?.activeGameId == session.gameId &&
+            session.phase.continuable &&
             session.phase != CedarActivityPhase.awaitingInvitation &&
             session.phase != CedarActivityPhase.waitingUser) ...[
           const SizedBox(height: 8),
@@ -279,6 +330,18 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
               ),
               title: Text(event.summary, maxLines: 3),
               subtitle: event.action.isEmpty ? null : Text(event.action),
+            ),
+        ],
+        if (state?.notices.isNotEmpty == true) ...[
+          const SizedBox(height: 10),
+          Text('跨游戏提醒', style: Theme.of(context).textTheme.labelLarge),
+          for (final notice in state!.notices.reversed.take(5))
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.notifications_active_outlined, size: 19),
+              title: Text('${notice.sourceGameId} → ${notice.targetGameId}'),
+              subtitle: Text('建议动作：${notice.suggestedAction}'),
             ),
         ],
       ],

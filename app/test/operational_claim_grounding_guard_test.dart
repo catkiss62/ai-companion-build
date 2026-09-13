@@ -53,6 +53,14 @@ const _cedarPlaySuccess = AgentToolResult(
 );
 
 void main() {
+  test('immediate Cedar join claim requires a successful play outcome', () {
+    final blocked = OperationalClaimGroundingGuard.evaluate(
+      text: '我这就杀进去，马上加入房间。',
+    );
+    expect(blocked.allowed, isFalse);
+    expect(blocked.requiredToolId, 'cedar_toy.play');
+  });
+
   test('Cedar game achievements require a current successful play outcome', () {
     expect(
       OperationalClaimGroundingGuard.evaluate(text: '我刚才玩了一局，还赢了。')
