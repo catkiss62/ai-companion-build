@@ -50,6 +50,9 @@ class CedarToyAutonomyEngine {
       return const CedarAutonomyAvailability(false, 'unconfigured');
     }
     final session = await CedarToyActivityStore(db).load();
+    if (session?.companionCanContinue == true) {
+      return const CedarAutonomyAvailability(false, 'committed_activity');
+    }
     if (session != null &&
         const <CedarActivityPhase>{
           CedarActivityPhase.awaitingInvitation,
@@ -66,6 +69,63 @@ class CedarToyAutonomyEngine {
       return const CedarAutonomyAvailability(false, 'cooldown');
     }
     return const CedarAutonomyAvailability(true, 'ready');
+  }
+
+  /// A committed game is a durable activity, not a fresh Desire candidate on
+  /// every move. This clock advances one verified MCP action when it is her
+  /// turn, without waiting for another user message or re-running the whole
+  /// proactive heartbeat.
+  Future<Duration?> continuationDelay({required DateTime now}) async {
+    if ((await db.getSetting('cedar_toy_enabled')) == '0' ||
+        (await db.getSetting(enabledKey)) == '0') return null;
+    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
+    if (token.isEmpty) return null;
+    return CedarToyActivityStore(db).nextContinuationDelay(now);
+  }
+
+  Future<CedarAutonomyProgress> continueDue({required DateTime now}) async {
+    final delay = await continuationDelay(now: now);
+    if (delay == null) return const CedarAutonomyProgress('no_continuation');
+    if (delay > Duration.zero) return const CedarAutonomyProgress('not_due');
+    final token = (await secureConfig.readCedarToyToken())?.trim() ?? '';
+    final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+    if (token.isEmpty || apiKey.isEmpty) {
+      return const CedarAutonomyProgress('missing_config');
+    }
+    final endpoint = await secureConfig.readEndpoint();
+    final client = CedarToyClient(token: token);
+    final store = CedarToyActivityStore(db);
+    final state = await store.loadState();
+    if (state.queuedSwitches.isNotEmpty) {
+      final queued = state.queuedSwitches.first;
+      final catalog = await store.loadCatalog();
+      if (!_containsIdentifier(catalog, queued.targetGameId)) {
+        return const CedarAutonomyProgress('queued_game_not_in_catalog');
+      }
+      final guideOutcome = await client.getGuide(queued.targetGameId);
+      if (guideOutcome.isError || guideOutcome.text.trim().isEmpty) {
+        return const CedarAutonomyProgress('queued_guide_failed');
+      }
+      final recorded = await store.recordGuide(
+        gameId: queued.targetGameId,
+        guide: CedarToyClient.redactSecrets(guideOutcome.text),
+      );
+      return CedarAutonomyProgress(
+        recorded.guideComplete ? 'queued_guide_ready' : 'guide_too_long',
+      );
+    }
+    final session = state.activeSession;
+    if (session == null || !session.companionCanContinue) {
+      return const CedarAutonomyProgress('waiting');
+    }
+    return _advanceSession(
+      now: now,
+      apiKey: apiKey,
+      endpoint: endpoint,
+      client: client,
+      store: store,
+      session: session,
+    );
   }
 
   Future<CedarAutonomyProgress> progress({required DateTime now}) async {
@@ -117,14 +177,65 @@ class CedarToyAutonomyEngine {
     if (!session.guideComplete) {
       return const CedarAutonomyProgress('guide_incomplete');
     }
+    return _advanceSession(
+      now: now,
+      apiKey: apiKey,
+      endpoint: endpoint,
+      client: client,
+      store: store,
+      session: session,
+    );
+  }
+
+  Future<CedarAutonomyProgress> _advanceSession({
+    required DateTime now,
+    required String apiKey,
+    required String endpoint,
+    required CedarToyClient client,
+    required CedarToyActivityStore store,
+    required CedarGameSession session,
+  }) async {
+    final actionLease = await db.tryAcquireLocalLease(
+      'cedar_toy_action_lease_until',
+      holdFor: const Duration(minutes: 5),
+    );
+    if (!actionLease) return const CedarAutonomyProgress('action_in_progress');
+    try {
+      await store.beginExecution(
+        gameId: session.gameId,
+        action: '规划下一步',
+      );
+      return await _advanceSessionLocked(
+        now: now,
+        apiKey: apiKey,
+        endpoint: endpoint,
+        client: client,
+        store: store,
+        session: session,
+      );
+    } finally {
+      await store.finishExecution();
+      await db.releaseLocalLease('cedar_toy_action_lease_until');
+    }
+  }
+
+  Future<CedarAutonomyProgress> _advanceSessionLocked({
+    required DateTime now,
+    required String apiKey,
+    required String endpoint,
+    required CedarToyClient client,
+    required CedarToyActivityStore store,
+    required CedarGameSession session,
+  }) async {
+    final state = await store.loadState();
     final judged = await _judge(
       apiKey: apiKey,
       endpoint: endpoint,
       instruction: '''你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
-{"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required"}
+{"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{}}
 共玩、多人或混合模式必须先邀请用户；这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 
-${store.promptContext(session)}''',
+${store.promptContext(session, state: state)}''',
     );
     final mode = CedarParticipationMode.fromKey(
       judged['participation_mode']?.toString(),
@@ -144,29 +255,39 @@ ${store.promptContext(session)}''',
       return const CedarAutonomyProgress('invitation_staged', notable: true);
     }
     if (mode == CedarParticipationMode.unknown) {
+      await store.deferContinuation(gameId: session.gameId);
       return const CedarAutonomyProgress('mode_unknown');
     }
     final action = _identifier(judged['action']?.toString() ?? '');
     if (action.isEmpty || !_containsIdentifier(session.guide, action)) {
+      await store.deferContinuation(gameId: session.gameId);
       return const CedarAutonomyProgress('invalid_action_choice');
     }
     final rawParams = judged['params'];
     final params = rawParams is Map
         ? rawParams.map((key, value) => MapEntry(key.toString(), value))
         : <String, Object?>{};
+    await store.beginExecution(gameId: session.gameId, action: action);
     final outcome = await client.play(session.gameId, action, params);
-    final shareLevel = const <String>{'quiet', 'notable', 'required'}
-            .contains(judged['share_level'])
-        ? judged['share_level'].toString()
-        : 'quiet';
+    final verification = outcome.isError
+        ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+        : await _verifyOutcome(
+            apiKey: apiKey,
+            endpoint: endpoint,
+            session: session,
+            action: action,
+            outcomeText: CedarToyClient.redactSecrets(outcome.text),
+          );
+    final shareLevel = verification.shareLevel;
     final updated = await store.recordPlay(
       gameId: session.gameId,
       action: action,
       outcome: outcome,
       mode: mode,
-      nextActor: judged['next_actor']?.toString() ?? 'companion',
+      nextActor: verification.nextActor,
       shareLevel: shareLevel,
       invitationApproved: session.invitationApproved,
+      resumeAfterSeconds: verification.resumeAfterSeconds,
     );
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
@@ -182,6 +303,58 @@ ${store.promptContext(session)}''',
       outcome.isError ? 'play_failed' : 'played_one_step',
       notable: shareLevel != 'quiet',
     );
+  }
+
+  Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>
+      _verifyOutcome({
+    required String apiKey,
+    required String endpoint,
+    required CedarGameSession session,
+    required String action,
+    required String outcomeText,
+  }) async {
+    if (outcomeText.length > CedarToyActivityStore.maxGuidePromptChars) {
+      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+    }
+    try {
+      final judged = await _judge(
+        apiKey: apiKey,
+        endpoint: endpoint,
+        instruction: '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
+{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
+不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+game=${session.gameId}
+action=$action
+【完整指南】
+${session.guide}
+【真实 Outcome】
+$outcomeText''',
+      );
+      final actor = judged['next_actor']?.toString() ?? '';
+      final share = judged['share_level']?.toString() ?? '';
+      final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
+      return (
+        nextActor: const <String>{
+          'companion',
+          'user',
+          'shared',
+          'wait',
+          'finished',
+        }.contains(actor)
+            ? actor
+            : 'wait',
+        shareLevel:
+            const <String>{'quiet', 'notable', 'required'}.contains(share)
+                ? share
+                : 'quiet',
+        resumeAfterSeconds:
+            rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt(),
+      );
+    } catch (_) {
+      // The real remote step already happened. Pausing is safer than replaying
+      // a possibly non-idempotent action after a classifier-only failure.
+      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+    }
   }
 
   Future<Map<String, dynamic>> _judge({

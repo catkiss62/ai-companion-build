@@ -104,6 +104,42 @@ class RecoveryOrchestrator {
 
       final now = DateTime.now();
       final blocking = await db.blockingGenerationJob();
+      var cedarContinuationState = 'not_checked';
+      if (blocking == null && allowProactive) {
+        try {
+          cedarContinuationState =
+              await proactive.continueCedarActivityIfDue(now: now);
+        } catch (cedarError) {
+          cedarContinuationState = 'failed';
+          await db.setSetting(
+            'cedar_toy_last_continuation_error',
+            _compact(cedarError.toString(), 360),
+          );
+        }
+      }
+      var cedarDelay = await proactive.cedarContinuationDelay(now: DateTime.now());
+      if (cedarContinuationState == 'user_chat') {
+        cedarDelay = const Duration(seconds: 30);
+      } else if (cedarContinuationState == 'action_in_progress') {
+        cedarDelay = const Duration(seconds: 30);
+      } else if (cedarContinuationState == 'immersive_chat_page_visible') {
+        cedarDelay = const Duration(minutes: 2);
+      } else if (cedarContinuationState == 'failed' ||
+          cedarContinuationState.endsWith('failed') ||
+          cedarContinuationState == 'queued_game_not_in_catalog') {
+        cedarDelay = const Duration(minutes: 5);
+      }
+      await db.setSetting(
+        'cedar_toy_last_continuation_state',
+        cedarContinuationState,
+      );
+      final cedarDidWork = const <String>{
+        'played_one_step',
+        'play_failed',
+        'queued_guide_ready',
+        'guide_too_long',
+        'invitation_staged',
+      }.contains(cedarContinuationState);
       final scheduledHeartbeatDue = await _heartbeatIsDue(now);
       final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
         now: now,
@@ -118,7 +154,7 @@ class RecoveryOrchestrator {
       Duration heartbeatDelay;
 
       if (heartbeatDue) {
-        if (blocking != null || !allowProactive) {
+        if (blocking != null || !allowProactive || cedarDidWork) {
           final heartbeat = await proactive.maintainLocalStateOnly(
             perceptionMinInterval: perceptionMinInterval,
           );
@@ -130,7 +166,9 @@ class RecoveryOrchestrator {
             await _storeNextHeartbeat(now.add(heartbeatDelay));
             proactiveReason = blocking != null
                 ? 'local_heartbeat_while_generation_waits'
-                : 'proactive_disabled_for_cycle';
+                : cedarDidWork
+                    ? 'local_heartbeat_after_cedar_continuation'
+                    : 'proactive_disabled_for_cycle';
           }
         } else {
           final decision = await proactive.evaluate(
@@ -152,6 +190,18 @@ class RecoveryOrchestrator {
       }
 
       await _guardOrchestratorOwnership();
+      if (cedarContinuationState != 'user_chat' &&
+          cedarContinuationState != 'action_in_progress' &&
+          cedarContinuationState != 'immersive_chat_page_visible' &&
+          cedarContinuationState != 'failed' &&
+          !cedarContinuationState.endsWith('failed') &&
+          cedarContinuationState != 'queued_game_not_in_catalog') {
+        // The ordinary Desire heartbeat may just have chosen a new game and
+        // fetched its guide. Re-read the lightweight clock so its first real
+        // move does not wait for the next 7–24 minute personality heartbeat.
+        cedarDelay =
+            await proactive.cedarContinuationDelay(now: DateTime.now());
+      }
       final postTurnDelay = await _nextPostTurnDelay();
       late Duration nextDelay;
       late String state;
@@ -162,11 +212,12 @@ class RecoveryOrchestrator {
           generationDelay,
           postTurnDelay,
         );
+        if (cedarDelay != null) nextDelay = _smallestDelay(nextDelay, cedarDelay);
         state = heartbeatAdvanced
             ? 'waiting_generation:${blocking.status}:heartbeat'
             : 'waiting_generation:${blocking.status}';
       } else {
-        nextDelay = _smallestDelay(heartbeatDelay, postTurnDelay);
+        nextDelay = _smallestDelay(heartbeatDelay, postTurnDelay, cedarDelay);
         state = heartbeatAdvanced ? 'idle:heartbeat' : 'idle';
       }
 

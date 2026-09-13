@@ -184,6 +184,20 @@ class ProactiveEngine {
   late final CedarToyAutonomyEngine cedarToyAutonomy =
       CedarToyAutonomyEngine(db: db, ai: ai, secureConfig: secureConfig);
 
+  Future<String> continueCedarActivityIfDue({required DateTime now}) async {
+    if ((await db.getSetting('transfer_lock')) == '1' ||
+        !(await db.brainWorkAllowed())) return 'inactive_brain';
+    if (await db.isLocalLeaseHeld('chat_turn_lease')) return 'user_chat';
+    if (await android.isImmersiveChatPageVisible()) {
+      return 'immersive_chat_page_visible';
+    }
+    final result = await cedarToyAutonomy.continueDue(now: now);
+    return result.state;
+  }
+
+  Future<Duration?> cedarContinuationDelay({required DateTime now}) =>
+      cedarToyAutonomy.continuationDelay(now: now);
+
   /// Advances local inner-life and maintenance state without sending an
   /// outbound message. Used while a durable user reply is waiting for recovery.
   Future<LocalCompanionHeartbeat?> maintainLocalStateOnly({

@@ -135,6 +135,7 @@ class DurableGenerationRunner {
           db: db,
           android: AndroidBridge.instance,
           secureConfig: secureConfig ?? SecureConfig.instance,
+          ai: client,
         );
 
   final AppDatabase db;
@@ -340,11 +341,17 @@ class DurableGenerationRunner {
       generationSpecialStyleTrialId = '';
       generationSpecialStyleKey = '';
       final cedarActivityStore = CedarToyActivityStore(db);
-      final cedarSession = await cedarActivityStore.load();
+      final cedarState = await cedarActivityStore.loadState();
+      final cedarSession = cedarState.activeSession;
       final cedarCatalog = await cedarActivityStore.loadCatalog();
-      final cedarSessionActive = cedarSession?.continuable == true;
+      final cedarExplicitRequest = CedarToyArcadeSkill.isRelevant(user.content) ||
+          CedarToyActivityStore.catalogMentionsGame(user.content, cedarCatalog);
+      // A solo game continues on its own lightweight background clock. Only a
+      // co-play/user-waiting session may keep Cedar tools in an ordinary user
+      // turn, otherwise unrelated chat would accidentally advance the game.
+      final cedarSessionActive = cedarState.hasUserTurnContinuation;
       final cedarSkillActive =
-          (CedarToyArcadeSkill.isRelevant(user.content) || cedarSessionActive) &&
+          (cedarExplicitRequest || cedarSessionActive) &&
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
@@ -366,7 +373,9 @@ class DurableGenerationRunner {
             'content': <String>[
               CedarToyArcadeSkill.prompt,
               if (cedarSession != null && cedarSession.guideComplete)
-                cedarActivityStore.promptContext(cedarSession),
+                cedarActivityStore.promptContext(cedarSession, state: cedarState),
+              if (cedarExplicitRequest)
+                '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。若正有原子动作执行中，应诚实说明并把切换请求排队，不可假装已经进入目标游戏。',
             ].join('\n\n'),
           },
         <String, Object?>{
@@ -655,7 +664,11 @@ class DurableGenerationRunner {
             result.status == AgentToolStatus.succeeded);
         return <String>{
           if (!listed) AgentToolRegistry.cedarToyListGames.id,
-          if (listed && !guided) AgentToolRegistry.cedarToyGetGuide.id,
+          if (listed &&
+              (!guided ||
+                  cedarExplicitRequest ||
+                  cedarState.queuedSwitches.isNotEmpty))
+            AgentToolRegistry.cedarToyGetGuide.id,
           if (guided) AgentToolRegistry.cedarToyPlay.id,
         };
       }
@@ -790,7 +803,7 @@ $finalGenerationReminder
         final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
-          cedarSessionActive: cedarSessionActive,
+          cedarSessionActive: cedarSkillActive,
           maxCalls: callsAllowed,
           excludedCallFingerprints: executedToolFingerprints,
         );

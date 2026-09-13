@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import '../ai/deepseek_client.dart';
 import '../ai/generation_cancellation.dart';
+import '../ai/model_profile.dart';
 import '../ai/qwen_vision_client.dart';
 import '../autonomy/layered_public_web_provider.dart';
 import '../autonomy/public_web_appraisal_policy.dart';
@@ -37,11 +39,14 @@ class AgentToolRunner {
     required this.db,
     required this.android,
     SecureConfig? secureConfig,
-  }) : secureConfig = secureConfig ?? SecureConfig.instance;
+    DeepSeekClient? ai,
+  })  : secureConfig = secureConfig ?? SecureConfig.instance,
+        _ai = ai ?? DeepSeekClient();
 
   final AppDatabase db;
   final AndroidBridge android;
   final SecureConfig secureConfig;
+  final DeepSeekClient _ai;
   final Map<String, String> _cedarGameListsByScope = <String, String>{};
   final Map<String, String> _cedarGuidesByScopeAndGame = <String, String>{};
 
@@ -362,11 +367,28 @@ class AgentToolRunner {
         errorCode: 'game_not_in_current_list',
       );
     }
+    final activityStore = CedarToyActivityStore(db);
+    final activityState = await activityStore.loadState();
+    if (activityState.execution != null) {
+      if (activityState.execution!.gameId != game) {
+        await activityStore.queueSwitch(
+          targetGameId: game,
+          reason: '目标指南请求发生时另一局原子动作仍在执行；完成后切换。',
+        );
+      }
+      return const AgentToolResult(
+        toolId: 'cedar_toy.get_guide',
+        status: AgentToolStatus.blocked,
+        displayText: '当前游戏动作完成后切换',
+        promptData: 'Cedar 原子动作正在执行；若目标是另一游戏则已进入可靠队列。当前尚未读取目标指南、尚未加入目标游戏。请按真实状态说明，不得声称正在进入或已经进入。',
+        errorCode: 'cedar_action_in_progress',
+      );
+    }
     final client = await _cedarToyClient();
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyGetGuide.id);
     final outcome = await client.getGuide(game, cancellationToken: cancellationToken);
     if (!outcome.isError && outcome.text.trim().isNotEmpty) {
-      final session = await CedarToyActivityStore(db).recordGuide(
+      final session = await activityStore.recordGuide(
         gameId: game,
         guide: CedarToyClient.redactSecrets(outcome.text),
       );
@@ -398,12 +420,10 @@ class AgentToolRunner {
     final game = _safeCedarIdentifier(arguments['game'] ?? '');
     final action = _safeCedarIdentifier(arguments['action'] ?? '');
     final activityStore = CedarToyActivityStore(db);
-    final persisted = await activityStore.load();
+    final persisted = await activityStore.loadSession(game);
     final list = _cedarGameListsByScope[scope] ?? await activityStore.loadCatalog();
     final guide = _cedarGuidesByScopeAndGame['$scope|$game'] ??
-        (persisted?.gameId == game && persisted?.guideComplete == true
-            ? persisted!.guide
-            : '');
+        (persisted?.guideComplete == true ? persisted!.guide : '');
     if (game.isEmpty || !_containsCedarIdentifier(list, game)) {
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
@@ -414,11 +434,17 @@ class AgentToolRunner {
       );
     }
     if (action.isEmpty || !_containsCedarIdentifier(guide, action)) {
+      if (game.isNotEmpty && _containsCedarIdentifier(list, game)) {
+        await activityStore.queueSwitch(
+          targetGameId: game,
+          reason: '用户本轮明确要求进入该游戏；目标指南尚未读取，完成当前原子动作后切换。',
+        );
+      }
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
         displayText: '动作不在当前真实指南中',
-        promptData: 'Cedar Toy 没有执行游玩；action 必须来自本轮真实指南，不得猜测结果。',
+        promptData: 'Cedar Toy 没有执行游玩；目标游戏已进入可靠切换队列。必须先调用 get_guide 取得该 game 的完整指南，再按指南行动。不得声称正在进入、已经加入或已经开局。',
         errorCode: 'action_not_in_current_guide',
       );
     }
@@ -439,10 +465,8 @@ class AgentToolRunner {
       );
     }
     final invitationApproved =
-        persisted?.gameId == game && persisted?.invitationApproved == true ||
-        (persisted?.gameId == game &&
-            persisted?.phase == CedarActivityPhase.awaitingInvitation &&
-            persisted?.mode == mode &&
+        persisted?.invitationApproved == true ||
+        (mode.requiresInvitation &&
             arguments['invitation_approved'] == 'true');
     if (mode.requiresInvitation && !invitationApproved) {
       await activityStore.markInvitationRequired(
@@ -474,23 +498,54 @@ class AgentToolRunner {
     }
     final client = await _cedarToyClient();
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyPlay.id);
-    final outcome = await client.play(
-      game,
-      action,
-      params,
-      cancellationToken: cancellationToken,
+    final actionLease = await db.tryAcquireLocalLease(
+      'cedar_toy_action_lease_until',
+      holdFor: const Duration(minutes: 5),
     );
-    final nextActor = arguments['next_actor'] ?? 'companion';
-    final shareLevel = arguments['share_level'] ?? 'quiet';
-    await activityStore.recordPlay(
-      gameId: game,
-      action: action,
-      outcome: outcome,
-      mode: mode,
-      nextActor: nextActor,
-      shareLevel: shareLevel,
-      invitationApproved: invitationApproved,
-    );
+    if (!actionLease) {
+      await activityStore.queueSwitch(
+        targetGameId: game,
+        reason: '另一条 Cedar 原子动作正在执行；本轮请求完成后继续。',
+      );
+      return const AgentToolResult(
+        toolId: 'cedar_toy.play',
+        status: AgentToolStatus.blocked,
+        displayText: '已有游戏动作正在执行',
+        promptData: '本轮没有调用新的 Cedar play；请求已可靠排队。不得声称已经执行或进入房间。',
+        errorCode: 'cedar_action_in_progress',
+      );
+    }
+    late McpToolOutcome outcome;
+    try {
+      await activityStore.beginExecution(gameId: game, action: action);
+      outcome = await client.play(
+        game,
+        action,
+        params,
+        cancellationToken: cancellationToken,
+      );
+      final verification = outcome.isError
+          ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
+          : await _verifyCedarOutcome(
+              game: game,
+              guide: guide,
+              action: action,
+              outcome: outcome,
+            );
+      await activityStore.recordPlay(
+        gameId: game,
+        action: action,
+        outcome: outcome,
+        mode: mode,
+        nextActor: verification.nextActor,
+        shareLevel: verification.shareLevel,
+        invitationApproved: invitationApproved,
+        resumeAfterSeconds: verification.resumeAfterSeconds,
+      );
+    } finally {
+      await activityStore.finishExecution();
+      await db.releaseLocalLease('cedar_toy_action_lease_until');
+    }
     final attachments = await _cedarImageAttachments(
       game: game,
       outcome: outcome,
@@ -502,6 +557,68 @@ class AgentToolRunner {
       outcome: outcome,
       attachments: attachments,
     );
+  }
+
+  Future<({String nextActor, String shareLevel, int resumeAfterSeconds})>
+      _verifyCedarOutcome({
+    required String game,
+    required String guide,
+    required String action,
+    required McpToolOutcome outcome,
+  }) async {
+    if (outcome.text.length > CedarToyActivityStore.maxGuidePromptChars) {
+      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+    }
+    try {
+      final apiKey = (await secureConfig.readApiKey())?.trim() ?? '';
+      if (apiKey.isEmpty) throw const FormatException('missing_deepseek_key');
+      final judged = await _ai.jsonCompletion(
+        apiKey: apiKey,
+        model: DeepSeekModelProfile.flash,
+        endpoint: await secureConfig.readEndpoint(),
+        thinking: true,
+        effort: ReasoningEffort.high,
+        maxTokens: 420,
+        messages: <Map<String, Object?>>[
+          <String, Object?>{
+            'role': 'system',
+            'content': '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
+{"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
+不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+game=$game
+action=$action
+【完整指南】
+$guide
+【真实 Outcome】
+${CedarToyClient.redactSecrets(outcome.text)}''',
+          },
+        ],
+      );
+      final actor = judged['next_actor']?.toString() ?? '';
+      final share = judged['share_level']?.toString() ?? '';
+      final rawResume = (judged['resume_after_seconds'] as num?)?.toInt() ?? 0;
+      return (
+        nextActor: const <String>{
+          'companion',
+          'user',
+          'shared',
+          'wait',
+          'finished',
+        }.contains(actor)
+            ? actor
+            : 'wait',
+        shareLevel:
+            const <String>{'quiet', 'notable', 'required'}.contains(share)
+                ? share
+                : 'quiet',
+        resumeAfterSeconds:
+            rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt(),
+      );
+    } catch (_) {
+      // The real MCP action already happened. Never retry that side effect
+      // because only its post-Outcome classifier failed.
+      return (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0);
+    }
   }
 
   Future<List<MessageAttachment>> _cedarImageAttachments({
