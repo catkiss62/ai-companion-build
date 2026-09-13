@@ -16,8 +16,14 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.68+212")
-require("lib/core/agent/agent_self_reader.dart", "v0.41.68+212")
+assert any(
+    version in read("pubspec.yaml")
+    for version in ("version: 0.41.68+212", "version: 0.41.69+213")
+)
+assert any(
+    version in read("lib/core/agent/agent_self_reader.dart")
+    for version in ("v0.41.68+212", "v0.41.69+213")
+)
 require(
     "lib/core/mcp/mcp_protocol.dart",
     "class McpServerConfig",
@@ -87,11 +93,15 @@ require(
     "immersiveChatPageVisible",
     "setImmersiveChatPageVisible",
 )
-require(
-    ".github/workflows/build-apk.yml",
-    "agent/v04168-cedar-game-experience",
-    "AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK",
-    "validate_v04168_cedar_game_experience.py",
+workflow = read(".github/workflows/build-apk.yml")
+assert "validate_v04168_cedar_game_experience.py" in workflow
+assert (
+    "agent/v04168-cedar-game-experience" in workflow
+    or "agent/v04169-cedar-game-switching" in workflow
+)
+assert (
+    "AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK" in workflow
+    or "AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK" in workflow
 )
 require(
     "AI_Companion_当前总账.md",

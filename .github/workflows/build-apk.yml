@@ -1,5 +1,5 @@
 # Historical validator tokens: agent/v04167-cedar-toy-mcp | Build AI Companion v0.41.67+211 APK | AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK
-# v0.41.68+212 adds the Cedar game-experience layer, autonomous play and activity window.
+# v0.41.69+213 fixes Cedar cross-game switching and committed activity continuation.
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
 # AI-Companion-v0.38.9-108-Simulated-Phone-Reference-UI-APK
@@ -376,7 +376,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.68+212 APK (Cedar Game Experience)
+name: Build AI Companion v0.41.69+213 APK (Cedar Game Switching)
 
 on:
   push:
@@ -404,7 +404,7 @@ on:
       - agent/v04165-refresh-settings-phone-media
       - agent/v04166-phase3c-refresh-notes-wishlist
       - agent/v04167-cedar-toy-mcp
-      - agent/v04168-cedar-game-experience
+      - agent/v04169-cedar-game-switching
   workflow_dispatch:
   pull_request:
     branches:
@@ -787,7 +787,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.68+212' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.69+213' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -801,7 +801,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.68+212 Cedar game experience candidate.'
+          echo 'Building v0.41.69+213 Cedar game switching candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -984,6 +984,7 @@ jobs:
           python3 tools/validate_v04166_phase3c_phone_pacing.py
           python3 tools/validate_v04167_cedar_toy_mcp.py
           python3 tools/validate_v04168_cedar_game_experience.py
+          python3 tools/validate_v04169_cedar_game_switching.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1307,26 +1308,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.68+212 APK as workflow artifact
+      - name: Upload v0.41.69+213 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK
+          name: AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.68+212 APK to draft release
+      - name: Upload v0.41.69+213 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.68-cedar-game-experience-test'
-          APK_NAME='AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK.apk'
+          TAG='v0.41.69-cedar-game-switching-test'
+          APK_NAME='AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.68-212-Cedar-Game-Experience-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.69-213-Cedar-Game-Switching-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1343,14 +1344,14 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.68+212 Cedar game experience candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Adds durable Cedar activity state, full-guide blind play, solo/co-play recognition and invitation, typed MCP images/resources, Desire-selected autonomous play, a separate game-sharing rhythm and a removable draggable activity window. Keeps internal judgment on DeepSeek and only one final Gemini expression call per user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.69+213 Cedar game switching candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Preserves per-game Cedar sessions, migrates cross-game notices, queues explicit switches, requires the target game guide, and continues committed activities on a lightweight two-minute clock without waiting for user messages. Keeps DeepSeek planning and one final Gemini expression call per user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.68+212 Cedar game experience candidate' \
-              --notes 'Unpublished Draft schema-61 candidate. Adds durable Cedar activity state, full-guide blind play, solo/co-play recognition and invitation, typed MCP images/resources, Desire-selected autonomous play, a separate game-sharing rhythm and a removable draggable activity window. Keeps internal judgment on DeepSeek and only one final Gemini expression call per user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
+              --title 'AI Companion v0.41.69+213 Cedar game switching candidate' \
+              --notes 'Unpublished Draft schema-61 candidate. Preserves per-game Cedar sessions, migrates cross-game notices, queues explicit switches, requires the target game guide, and continues committed activities on a lightweight two-minute clock without waiting for user messages. Keeps DeepSeek planning and one final Gemini expression call per user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "app/${CI_NAME}"
@@ -1402,8 +1403,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.68-cedar-game-experience-test'
-          CI_NAME='AI-Companion-v0.41.68-212-Cedar-Game-Experience-CI-Monitor.txt'
+          TAG='v0.41.69-cedar-game-switching-test'
+          CI_NAME='AI-Companion-v0.41.69-213-Cedar-Game-Switching-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1444,8 +1445,8 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.68+212 Cedar game experience candidate' \
-              --notes 'Draft failure diagnostics for the schema-61 Cedar game experience candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
+              --title 'AI Companion v0.41.69+213 Cedar game switching candidate' \
+              --notes 'Draft failure diagnostics for the schema-61 Cedar game switching candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
           echo "release_url=${RELEASE_URL}" >> "${REPORT}"

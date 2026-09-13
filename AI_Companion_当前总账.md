@@ -34,10 +34,10 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04168-cedar-game-experience`，`v0.41.68+212 / schema 61 / Snapshot protocol 6`：游戏经历层、通用 MCP 类型底座、独立可拆悬浮活动窗、共玩邀请门、游戏分享节律、裸情绪标签隐藏与沉浸聊天页主动静默已进入公开开发分支；状态为 `CI PASSED / APK READY / TRUE DEVICE PENDING`，`main` 未改 |
+| 当前开发分支 | 本地 `agent/v04169-cedar-game-switching`，目标 `v0.41.69+213 / schema 61 / Snapshot protocol 6`：修复单一全局会话把钓鱼指南误用于双弈、用户发一句才走一步、未成功却声称进房，以及活动窗无法区分执行/排队/跨游戏提醒；当前 `IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING`，尚未推送，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +212 Actions build head `31ce3ab18d07ec750e8136f24524d3cb7a3f84e6` / tree `08996fa558bb93a336a892146113558af5aee7b4`；三个远程提交为 `ef23abb8`、`49a22591`、`31ce3ab1`，构建 tree 与本地目标 tree 完全一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
-| App / 数据库 | 当前候选与最新可下载 APK 为 `0.41.68+212 / schema 61 / Snapshot protocol 6`；schema 未升级，旧备份与 Snapshot protocol 6 不变 |
+| App / 数据库 | 本地目标为 `0.41.69+213 / schema 61 / Snapshot protocol 6`；最新可下载 APK 仍为 `0.41.68+212`。本批只升级 Setting JSON 活动状态，不升级 SQLite schema；旧备份与 Snapshot protocol 6 不变 |
 | 最终 CI | +212 run [`34718260051`](https://github.com/catkiss62/ai-companion-build/actions/runs/34718260051)（857）完整成功：干净基线、全部源码/历史 validator、Kotlin/JVM、Flutter Analyze、`756/756` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk 与 ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 上传均通过 |
 | 测试 APK | `AI-Companion-v0.41.68-212-Cedar-Game-Experience-APK.apk`，CI 构建显示 544.8 MB |
 | APK SHA-256 | `ae37c7c9638476a6ef9ab98c953ff549e463b51b1d3e0aa44d472dc0ef82293e`；来自 CI checksum 与 Draft monitor |
@@ -49,13 +49,13 @@
 
 | 字段 | 当前内容 |
 |---|---|
-| 当前下一步 | **v0.41.68+212 真机验收（CI PASSED / APK READY / TRUE DEVICE PENDING）**：从未发布 Draft 安装候选，验证“游戏厅”语义触发、完整指南盲玩、单人/共玩判断与邀请门、跨轮进度、真实媒体/查看页、独立游戏分享节律及可拆活动窗；同时验证裸情绪标签不显示、沉浸聊天页打开时不写入/通知任何主动消息，暂离后恢复 |
-| 目标 | 让 Cedar 从一次性功能调用变成可持续的真实活动：`get_guide` 是盲玩权威，DeepSeek 依据完整指南和真实 Outcome 判断参与者、轮次、继续/暂停、媒体与分享节点；单人游戏可在有界预算内持续，所有共玩或多人项目必须先形成邀请并等待用户接受，不能把“想玩”写成“已经玩过”。用户可看到当前游戏/等待对象/最近真实进度，并在服务已有网页时进入官方人类视图 |
-| 当前证据 | +211 公开分支相对 +210 正好 3 个提交；Actions run 856 对构建 head `083d1f80360006a4d6697b15809d7cc6626cc5b1` 完整成功，Artifact `10302062291` 与未发布 Draft `untagged-518cd81c412506edeb34` 已核验，APK SHA-256 为 `3d9e089fbf3b44a2d0a6e24a144c9f02699c334390dd1447f179e9b2e8f54470`。REDMI K80 Ultra 已真实连接 Cedar 并成功取得动态列表；最新诊断记录 list/get_guide/play 全部成功。源码仍把每个 Cedar Outcome 硬截为 6000 字符、只消费 text、三个 Cedar 工具均 `autonomousAvailable=false`，且首轮三次规划刚好只够 list→guide→一次 play，故完整游戏经历仍是未实现项 |
+| 当前下一步 | **v0.41.69+213 Cedar 切换与后台续步热修（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING）**：取得该新版本与新分支的明确公开推送授权后，再运行 Actions 和创建未发布 Draft APK。真机重点复测“钓鱼中收到双弈邀请→先完成原子动作→读取双弈指南→进入房间”，以及不发用户消息时单人游戏仍按 next actor 后台续步 |
+| 目标 | 在不针对某个游戏硬编码的前提下，把“新开游戏”与“已承诺活动续步”分开：前者继续由 Desire 竞争，后者在轮到她时由轻量时钟每次推进一个真实 MCP 动作；每个 game 拥有独立指南/session，跨游戏 Outcome 只形成提醒，显式用户切换进入可靠队列，目标指南读取成功前绝不执行或报称已进入 |
+| 当前证据 | +212 run 857、`756/756` tests 与 Draft 全绿，但 2026-09-13 真机备份显示 `cedar_toy_activity_session_v1` 当前仍是 `fishing`；钓鱼 Outcome 内含真实 `play(game="duel",action="rooms")` 提醒。用户明确要求进入双弈房间 `5JH5MDVT` 后，工具连续返回 `action_not_in_current_guide`，且可见回复错误声称“这就杀进去”；同时自主引擎受 20 分钟冷却与普通 heartbeat 约束，形成“用户每说一句才推进一步”的体感。这是 +212 的真实窄失败，不是 Cedar 服务缺少双弈指南 |
 | 保护与排除 | 盲玩禁止把 GitHub README、源码、存档或人类攻略当普通游戏上下文；指南必须来自真实 `get_guide`，不能静默截断后继续猜规则。指南上限显著放宽，完整原文保存在本地会话并供参数/动作校验；若超过最终硬上限，应分页/分块或明确失败，不得把截断内容冒充完整指南。共玩先邀请；浏览到五子棋等只能形成“想邀请你”的 Thought，真实房间/参与者/终局 Outcome 之前不得声称已玩。MCP 网页返回的前端和 MCP content 是两条通道，不把网页存在误写成所有游戏都有图像。凭据、私有状态和隐藏答案继续不进 Prompt/诊断/备份。不修改 TTS、schema 或 Snapshot protocol 6。沉浸房间只允许本轮两项明确窄改：活动窗入口不进入沉浸正文；沉浸聊天页面从打开到暂离/返回期间，现有主动联系与游戏主动分享都不得生成或送达 |
 | **媒体 Agent 永久合同（P0）** | **任何“她能发送的媒体”都必须同时具备 Agent 自读能力、可执行工具、真实附件 Outcome、来源 provenance 和发送后第一人称历史；只有 UI、随机表达或 Prompt 声称能力都不算完成。** 表情包先实现明确指令 `sticker.send`；后续联网图、相册图也必须分别接入真实工具。失败、无图库、无匹配、下载失败、权限拒绝或事务失效只能如实返回，不得写成已发送 |
 | 实现边界 | 产品入口仍保留独立「Cedar Toy 游戏厅」；协议底座改为通用 `McpServerConfig / tools/list schema / typed content / session`，先只注册 Cedar。以后才开放添加服务器、自定义 URL/Header/OAuth/工具权限。游戏过程首版只做通用活动状态、真实文字/媒体结果与官方视图链接，不自制所有游戏棋盘/画面。「游戏厅活动窗」保持可整体移除的呈现壳。真实事件进入 Thought/Desire/统一 Gate；游玩意图仍与聊天、联网、休息竞争，游戏经历主动分享使用独立预算但不建立第二人格/第二主动系统。「沉浸房间聊天页面」可见是所有主动出站的硬门，暂离后恢复。旧玩游 Key 只作历史迁移事实，不得用于 Cedar 或当前 Gemini 连接 |
-| 完成判据 | 下一代码包须证明：长指南不再 6000 字静默截断；完整指南动作校验；四类参与模式与共玩邀请门；跨轮 session/继续/暂停/等待；当前游戏状态提示；MCP text/image/resource/structured content 不丢失；只有服务真实提供 viewer URL 时才显示围观；失败/无结果/未加入房间不报成功；DeepSeek 内部循环与单次 Gemini 最终回复合同不变。自动化、CI/APK 与 REDMI K80 Ultra 真机分别记证据，不能互相替代 |
+| 完成判据 | 旧钓鱼 v1 首读无损迁移为 v2 多游戏状态并抽出双弈提醒；钓鱼指南不能授权 duel；目标指南缺失时可靠排队并诚实回复；用户已明确邀请/给房间码可作为共玩批准；当前原子动作后切换；单人 active 且 `next_actor=companion` 约两分钟后台走一步，等待用户/远端、暂停、结束时停止；活动窗近实时显示执行、队列、多 session 与提醒；聊天任务/沉浸页不抢跑；DeepSeek/Gemini 单轮调用合同不变。CI 与真机分别记证据 |
 | 直接详细入口 | 本文件 `2026-09-13 Cedar Toy 游戏经历层、围观与通用 MCP 底座设计`；既有 `app/docs/CEDAR_TOY_MCP_v0.41.67.md`；核心代码 `mcp_http_client.dart`、`cedar_toy_client.dart`、`cedar_toy_arcade_skill.dart`、Agent registry/planner/runner、`durable_generation_runner.dart`、`cedar_toy_settings_page.dart` 与 `operational_claim_grounding_guard.dart`。模型/API 总合同以本文件顶部永久条款为最高真源 |
 
 既有能力保护索引（本包不重做）：造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect` 与 Genie-TTS 均按原详细章节继续有效；本轮 MCP/游戏厅实现不得使其回归。
@@ -96,7 +96,21 @@
 
 ## 近期详细记录与全局索引（按需检索）
 
-### 2026-09-13 v0.41.68+212 Cedar Toy 游戏经历层、围观与通用 MCP 底座（CI PASSED / APK READY / TRUE DEVICE PENDING）
+### 2026-09-13 v0.41.69+213 Cedar 跨游戏切换与后台续步热修（IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING）
+
+1. +212 真机并非“没有双弈指南”。备份中的唯一活动会话仍是 `fishing`，其完整指南与最近 Outcome 被全局复用；用户明确邀请进入双弈并给出房间 `5JH5MDVT` 后，聊天工具阶段因“任意当前指南已存在”只开放 `play`，于是拿钓鱼指南校验 duel 动作并连续得到 `action_not_in_current_guide`。最终回复又把计划写成“这就杀进去”，构成可核验事实失真。
+2. 钓鱼 Outcome 内真实存在 `play(game="duel",action="rooms")` 的跨游戏提醒。该原文必须保留，因为属于 MCP 真实结果；本机只把通用 `play(game, action)` 引用抽成独立 `CrossGameNotice`，不得把提醒本身当作目标指南、用户同意或可执行权限，也不针对 duel/钓鱼硬编码。首次读取旧 `cedar_toy_activity_session_v1` 时完成迁移与去重。
+3. 活动状态升级为 Setting JSON v2：最多保留 8 个按 game 隔离的 `CedarGameSession`，另存 `activeGameId`、可靠 `QueuedSwitch`、跨游戏提醒与短期 `GameExecution`。继续镜像写旧 v1 当前会话，便于回滚；不改 SQLite schema 61，不改 Snapshot protocol 6。旧钓鱼进度不会因读取双弈指南被覆盖或删除。
+4. 用户明确要求切换时，当前网络中的单次原子动作允许完成，不暴力取消；目标 game 写入可靠队列，不依赖概率 Thought。目标完整指南取得后才切为 active 并按该指南判断模式/动作；用户“我已开房，快进来”和房间码属于明确共玩邀请，可作为 `invitation_approved=true`，无需机械地反向再邀请一次。失败、尚未取指南或尚未真实 play 时只能说正在处理/已排队/尚未进入。
+5. 普通用户轮不再因为任意 solo 游戏未结束就永久开放 Cedar 工具，避免无关聊天暗中推进钓鱼。显式“游戏厅/Cedar Toy/一起玩”仍触发；共玩、等待用户的活动仍能自然续话。若目标与当前 game 不同，同轮工具循环同时允许 `get_guide`，当前指南在 Prompt 中明确只授权自身 game。
+6. “是否继续玩”分为两层：新开游戏仍是现有 Desire/Thought/Intent/Gate 的 `play_game` 候选，20 分钟冷却只约束再次自主选新活动；一旦活动已承诺且真实 `next_actor=companion`，不再等待下一条用户消息或重新参与欲望竞争。后台恢复协调器读取独立 due clock，默认约两分钟推进一个原子步骤：先由 DeepSeek 依据指南选 action/params，MCP 返回真实 Outcome 后再由一次 DeepSeek 内部核验决定 `next_actor/share_level`，绝不在 Outcome 前猜轮次；无效模式/动作延后五分钟，核验失败则保守暂停且不重放已经发生的远端动作。
+7. 续步不会把整套主动聊天提速：普通人格 heartbeat 仍保持 7～24 分钟动态区间；轻量游戏 due 只运行已承诺游戏步骤。聊天生成租约存在时让位；沉浸房间聊天页可见时每两分钟静默复查而不游玩、不写主动分享；暂离后恢复。若同一次恢复周期已经推进游戏，则该周期只维护本地状态，不再额外发送另一条主动消息。
+8. 可拆活动窗继续每两秒读取本机状态（不是服务器推流或伪造实时画面），新增多 session 选择、正在执行动作、下一切换目标和跨游戏提醒。只有 MCP 真正返回 image/resource-link 才展示媒体或官方查看页；普通文字 Outcome 仍按事件显示。
+9. 真实性门增加“我这就/马上/现在就进去、进房、加入、开局、杀进去”等即时执行声明：当前轮没有成功 `cedar_toy.play` 时触发修正/句级清理。它不阻止“我想玩/等这一步结束再去”等真实意图表达。
+10. 版本目标 `v0.41.69+213 / schema 61 / Snapshot protocol 6`，本地分支 `agent/v04169-cedar-game-switching`。新增 `cedar_toy_game_switching_v04169_test.dart` 与静态 validator；TTS 不检查、不修改。当前只可写 `IMPLEMENTED / LOCAL STATIC PASSED`，Flutter Analyze/全量 tests/Kotlin/Release/签名/实包与 Draft 必须由 Actions 证明，真机再独立复测。
+11. 本地三提交候选由 `3777e75`（多游戏状态、真实 Outcome 后核验、独立续步时钟）、`60379c1`（活动窗、排队显示与即时进房真实性门）及本打包提交组成。工作流枚举的 92 个 Python validators 中 89 个通过，余下 3 个只因本地没有 Actions 才恢复的 417 桌宠私有载荷、LingChat 私有载荷与 `kotlinc`；+211、+212、+213 专项、当前总账 validator 与 `git diff --check` 均通过。当前环境没有 Flutter/Dart/Kotlin 完整工具链，所以 Analyze、Flutter tests、Kotlin/JVM、Release APK、固定签名及实包资源仍严格标为 CI 待证。
+
+### 2026-09-13 v0.41.68+212 Cedar Toy 游戏经历层、围观与通用 MCP 底座（CI PASSED / APK READY / TRUE DEVICE PARTIAL · SWITCHING BUG FOUND）
 
 1. 用户在 REDMI K80 Ultra 确认 Cedar MCP 已连接成功并能看到动态游戏列表；最新脱敏诊断同时存在 `cedar_toy.list_games`、`cedar_toy.get_guide`、`cedar_toy.play` 三段 succeeded Outcome。+211 因此从 `TRUE DEVICE PENDING` 提升为 `TRUE DEVICE PARTIAL`：受邀后基础纵向链通过，但自主逛/玩、参与模式、长会话、媒体、围观与经历分享不属于 +211 已实现范围。
 2. 盲玩规则正式冻结：普通游玩只以 Cedar `get_guide` 返回的真实指南为权威，不主动打开 GitHub README、源码、存档或人类攻略。GitHub 只用于开发审计和人工了解，不能进入角色的普通盲玩上下文；尤其 Memoria 的“给人看的攻略”不得被 AI 读取。
@@ -120,6 +134,8 @@
 20. 三个本地提交已完成：`e750283`（durable Cedar game agent loop）、`f141681`（可拆活动窗、沉浸主动硬门及情绪窄修）与第三提交（版本/测试/workflow/总账）。专项 +212、+211 兼容、当前总账、+210～+204 关键兼容门与工作流全部源码 validator 已通过，`git diff --check` 通过。当前容器无 Flutter/Dart/Kotlin 工具链，尚不能把 Analyze、Flutter tests、JVM、Release、签名或 APK 写成通过。公开推送已尝试，但权限审查认定上次只点名授权 +211/旧分支，不能自动扩大到 +212/新分支；不绕过。待用户明确授权推送 `agent/v04168-cedar-game-experience`、运行 Actions 并创建未发布 Draft APK 后继续。
 21. 用户点名授权 +212/新分支后，通过已连接 GitHub 以 +211 远程 head `3f02731a` 为基线顺序写入三个提交：`ef23abb8`（持久游戏 Agent loop）、`49a22591`（活动窗/沉浸静默/情绪窄修）、`31ce3ab1`（版本/测试/workflow/总账）。中文总账因 1.5 MiB 普通传输曾被截断，在更新分支前已截住并改用 8 块传输；最终每个 blob 与 tree `08996fa558bb93a336a892146113558af5aee7b4` 均与本地目标哈希完全一致。
 22. Actions run [`34718260051`](https://github.com/catkiss62/ai-companion-build/actions/runs/34718260051)（857）完整成功：专项/历史源码门、Kotlin/JVM、Flutter Analyze、`756/756` Flutter tests、arm64 Release、固定签名、Genie/Jiuhu/OpenJTalk/ORT byte identity、417 项桌宠源、62 项 LingChat、22 张塔罗、checksum、Artifact 与 Draft 均通过。APK SHA-256 为 `ae37c7c9638476a6ef9ab98c953ff549e463b51b1d3e0aa44d472dc0ef82293e`；Artifact [`10305163245`](https://github.com/catkiss62/ai-companion-build/actions/runs/34718260051/artifacts/10305163245) 为 537,881,600-byte ZIP / digest `050ad4211f6e5ac4e689ceadc569b98b0d7d34cb51ef941575dc385058f8dee8`；[Draft Release](https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-f513d08d88a1c68308fa) 未发布。自动化通过不等于 REDMI K80 Ultra 真机验收通过。
+
+23. 真机随后验证了单人钓鱼可以调用，但暴露两项阻断问题：活动不会在用户静默时连续推进；钓鱼进行中用户邀请进入双弈并提供房间码后，系统没有先取得 duel 指南，而连续以 fishing 指南校验目标动作并被阻止，回复仍误称即将进入。该失败已成为 +213 热修的直接证据，+212 不得再标记为完整真机通过。
 
 ### 2026-09-12 v0.41.67+211 Cedar Toy MCP 与自主搜索恢复（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

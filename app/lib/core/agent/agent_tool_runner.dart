@@ -503,10 +503,13 @@ class AgentToolRunner {
       holdFor: const Duration(minutes: 5),
     );
     if (!actionLease) {
-      await activityStore.queueSwitch(
-        targetGameId: game,
-        reason: '另一条 Cedar 原子动作正在执行；本轮请求完成后继续。',
-      );
+      final activityState = await activityStore.loadState();
+      if (activityState.activeGameId != game) {
+        await activityStore.queueSwitch(
+          targetGameId: game,
+          reason: '另一条 Cedar 原子动作正在执行；本轮请求完成后继续。',
+        );
+      }
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
