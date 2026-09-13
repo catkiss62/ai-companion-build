@@ -109,6 +109,7 @@
 9. 真实性门增加“我这就/马上/现在就进去、进房、加入、开局、杀进去”等即时执行声明：当前轮没有成功 `cedar_toy.play` 时触发修正/句级清理。它不阻止“我想玩/等这一步结束再去”等真实意图表达。
 10. 版本目标 `v0.41.69+213 / schema 61 / Snapshot protocol 6`，本地分支 `agent/v04169-cedar-game-switching`。新增 `cedar_toy_game_switching_v04169_test.dart` 与静态 validator；TTS 不检查、不修改。当前只可写 `IMPLEMENTED / LOCAL STATIC PASSED`，Flutter Analyze/全量 tests/Kotlin/Release/签名/实包与 Draft 必须由 Actions 证明，真机再独立复测。
 11. 本地三提交候选由 `3777e75`（多游戏状态、真实 Outcome 后核验、独立续步时钟）、`60379c1`（活动窗、排队显示与即时进房真实性门）及本打包提交组成。工作流枚举的 92 个 Python validators 中 89 个通过，余下 3 个只因本地没有 Actions 才恢复的 417 桌宠私有载荷、LingChat 私有载荷与 `kotlinc`；+211、+212、+213 专项、当前总账 validator 与 `git diff --check` 均通过。当前环境没有 Flutter/Dart/Kotlin 完整工具链，所以 Analyze、Flutter tests、Kotlin/JVM、Release APK、固定签名及实包资源仍严格标为 CI 待证。
+12. 用户点名授权 +213/新分支后，通过已连接 GitHub 以 +212 远程 head `0e076cb7` 为基线顺序写入三个提交：`9f6ed9b7`、`6765c732`、`7c64e251`；最终 tree `198d9e1f4dc49e55141d9979086c33150b1a2621` 与本地候选逐字一致，分支相对 +212 ahead 3 / behind 0。首轮 Actions run [`34749086262`](https://github.com/catkiss62/ai-companion-build/actions/runs/34749086262)（858）已通过全部源码/历史 validators、私有资源恢复和 Kotlin/JVM，在 Flutter Analyze 暴露唯一编译级错误：旧活动 `sessions` JSON 迁移循环把裸 `Map` 推断为 `Object?`，不能直接传给 `Map<Object?, Object?>` 参数；Flutter tests、Release 与 Draft 因此未运行。窄修仅把该迁移项显式复制为 `Map<Object?, Object?>`，不改变状态语义、MCP 请求或调度规则，须重新运行完整 CI。
 
 ### 2026-09-13 v0.41.68+212 Cedar Toy 游戏经历层、围观与通用 MCP 底座（CI PASSED / APK READY / TRUE DEVICE PARTIAL · SWITCHING BUG FOUND）
 
