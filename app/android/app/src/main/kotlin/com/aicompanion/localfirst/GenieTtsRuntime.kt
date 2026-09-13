@@ -241,6 +241,9 @@ class GenieTtsRuntime(private val context: Context) : AutoCloseable {
             "gentle" to "jiuhu_dream_days",
             "lively" to "jiuhu_idle50",
             "cute" to "jiuhu_devotion",
+            "soft_speech" to "jiuhu_soft_speech",
+            "whisper" to "jiuhu_whisper",
+            "breathy" to "jiuhu_breathy",
         )
     }
 }

@@ -1,7 +1,7 @@
 # Historical validator tokens: agent/v04167-cedar-toy-mcp | Build AI Companion v0.41.67+211 APK | AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK
 # v0.41.69+213 fixes Cedar cross-game switching and committed activity continuation.
 # Historical validator token: AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK
-# v0.41.71+215 adds durable Cedar co-play observation, room chat, and final-expression grounding.
+# v0.41.72+216 trusts Cedar state and adds temporary fast/spectate activity pacing.
 # Historical v0.41.70 workflow: agent/v04170-agent-mcp-runtime-hardening | AI-Companion-v0.41.70-214-Agent-MCP-Runtime-Hardening-APK
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
@@ -379,7 +379,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.71+215 APK (Cedar Realtime Room Chat)
+name: Build AI Companion v0.41.72+216 APK (Cedar Trust Watch Modes)
 
 on:
   push:
@@ -409,7 +409,7 @@ on:
       - agent/v04167-cedar-toy-mcp
       - agent/v04169-cedar-game-switching
       - agent/v04170-agent-mcp-runtime-hardening
-      - agent/v04171-cedar-realtime-room-chat
+      - agent/v04172-cedar-trust-watch-modes
   workflow_dispatch:
   pull_request:
     branches:
@@ -552,7 +552,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore exact validated Genie TTS v0.7.6 Jiuhu runtime payload
+      - name: Restore exact validated Genie TTS v0.7.6 Jiuhu runtime payload plus seven-candidate overlay
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -561,6 +561,9 @@ jobs:
           GENIE_TAG='genie-tts-private-runtime-v0.7.6-jiuhu'
           GENIE_APK='Genie-TTS-Android-v0.7.6-Jiuhu-4-candidates-test.apk'
           GENIE_APK_SHA256='af90aeaf84afdb383bd71584a5512609666c9af38110ea192ebde6f2c84ceb43'
+          JIUHU_OVERLAY_TAG='genie-tts-private-runtime-v0.7.7-jiuhu-seven'
+          JIUHU_OVERLAY='Jiuhu-v0.7.7-seven-candidate-prompt-overlay.zip'
+          JIUHU_OVERLAY_SHA256='15126a2067b6da77af47b882fdd966e41ba84a38cc7eb6cbe274b38485cec0fd'
           FRONTEND_TAG='genie-tts-private-runtime-v0.6.4'
           FRONTEND_APK='Genie-TTS-v0.6.4-Verified.apk'
           FRONTEND_SHA='Genie-TTS-v0.6.4-Verified.apk.sha256'
@@ -582,6 +585,19 @@ jobs:
             "/repos/${GITHUB_REPOSITORY}/releases/assets/${GENIE_ASSET_ID}" \
             > ".genie-payload/${GENIE_APK}"
           echo "${GENIE_APK_SHA256}  .genie-payload/${GENIE_APK}" | sha256sum -c -
+          JIUHU_OVERLAY_RELEASE_ID="$(gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"${JIUHU_OVERLAY_TAG}\") | .id" | head -1)"
+          test -n "${JIUHU_OVERLAY_RELEASE_ID}"
+          JIUHU_OVERLAY_ASSET_ID="$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/releases/${JIUHU_OVERLAY_RELEASE_ID}/assets?per_page=100" \
+            --jq ".[] | select(.name == \"${JIUHU_OVERLAY}\") | .id")"
+          test -n "${JIUHU_OVERLAY_ASSET_ID}"
+          gh api --method GET \
+            -H 'Accept: application/octet-stream' \
+            "/repos/${GITHUB_REPOSITORY}/releases/assets/${JIUHU_OVERLAY_ASSET_ID}" \
+            > ".genie-payload/${JIUHU_OVERLAY}"
+          echo "${JIUHU_OVERLAY_SHA256}  .genie-payload/${JIUHU_OVERLAY}" | sha256sum -c -
           # The v0.7.6 Jiuhu candidate APK intentionally carries only the
           # acoustic pack. Keep the already built-and-verified multilingual
           # OpenJTalk dictionary/JNI adapter as a separate pinned dependency;
@@ -605,6 +621,12 @@ jobs:
           unzip -q ".genie-payload/${GENIE_APK}" \
             'assets/benchmark_jiuhu/*' \
             'lib/arm64-v8a/libonnxruntime.so' \
+            -d .genie-payload/unpacked
+          # The private overlay changes only prompt references/tensors and the
+          # manifest. It deliberately reuses the exact, hash-pinned v0.7.6
+          # acoustic models restored above.
+          unzip -q -o ".genie-payload/${JIUHU_OVERLAY}" \
+            'assets/benchmark_jiuhu/*' \
             -d .genie-payload/unpacked
           # Keep the pinned Jiuhu ORT only as the post-build byte-identity
           # reference. The app dependency still supplies the packaged library.
@@ -657,9 +679,29 @@ jobs:
               'jiuhu_bento_tools',
               'jiuhu_dream_days',
               'jiuhu_devotion',
+              'jiuhu_soft_speech',
+              'jiuhu_whisper',
+              'jiuhu_breathy',
           }
           cases = [case for case in manifest['cases'] if case.get('id') in production_ids]
           assert {case['id'] for case in cases} == production_ids
+          assert [case['id'] for case in cases] == [
+              'jiuhu_idle50',
+              'jiuhu_bento_tools',
+              'jiuhu_dream_days',
+              'jiuhu_devotion',
+              'jiuhu_soft_speech',
+              'jiuhu_whisper',
+              'jiuhu_breathy',
+          ]
+          assert manifest['version'] == 'v0.7.7-jiuhu-v2pro-seven-candidates'
+          assert {
+              case['id']: case['reference_text'] for case in cases[-3:]
+          } == {
+              'jiuhu_soft_speech': '焦らないで、お楽しみはこれからなんだから',
+              'jiuhu_whisper': 'それとも、汗ばんだ制服姿の方が好き、とか？',
+              'jiuhu_breathy': '制服のままホテルに入るの、誰かに見られないか心配でドキドキしちゃったね',
+          }
           for case in cases:
               case.pop('reference_audio', None)
               case.pop('feature_tensors', None)
@@ -752,7 +794,7 @@ jobs:
               for candidate in root.rglob('*')
               for token in ('naiyou_', 'ref01', 'ref02', 'ref04', 'ref06', 'test_backup')
           )
-          print('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and four independent candidates; discarded model temp remnants.')
+          print('Curated paired Jiuhu GPT/T2S + SoVITS/VITS runtime and seven independent candidates; discarded model temp remnants.')
           PY
           TTS_MAIN='app/android/app/src/main'
           mkdir -p "${TTS_MAIN}/assets" "${TTS_MAIN}/jniLibs/arm64-v8a"
@@ -792,7 +834,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.71+215' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.72+216' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -806,7 +848,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.71+215 Cedar realtime room chat candidate.'
+          echo 'Building v0.41.72+216 Cedar trust watch modes candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -992,6 +1034,8 @@ jobs:
           python3 tools/validate_v04169_cedar_game_switching.py
           python3 tools/validate_v04170_agent_mcp_runtime_hardening.py
           python3 tools/validate_v04171_cedar_realtime_room_chat.py
+          python3 tools/validate_v04172_cedar_trust_watch_modes.py
+          python3 tools/validate_v04172_jiuhu_manual_candidates.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1153,6 +1197,9 @@ jobs:
                   'jiuhu_bento_tools',
                   'jiuhu_dream_days',
                   'jiuhu_devotion',
+                  'jiuhu_soft_speech',
+                  'jiuhu_whisper',
+                  'jiuhu_breathy',
               }
               actual_cases = {case['id'] for case in manifest['cases']}
               if actual_cases != expected_cases:
@@ -1315,26 +1362,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.71+215 APK as workflow artifact
+      - name: Upload v0.41.72+216 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.71-215-Cedar-Realtime-Room-Chat-APK
+          name: AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.71+215 APK to draft release
+      - name: Upload v0.41.72+216 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.71-cedar-realtime-room-chat-test'
-          APK_NAME='AI-Companion-v0.41.71-215-Cedar-Realtime-Room-Chat-APK.apk'
+          TAG='v0.41.72-cedar-trust-watch-modes-test'
+          APK_NAME='AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.71-215-Cedar-Realtime-Room-Chat-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1351,13 +1398,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.71+215 Cedar realtime room chat candidate' \
+              --title 'AI Companion v0.41.72+216 Cedar trust watch modes candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Persists server-provided next_call instructions, keeps approved co-play rooms observed without repeated main-chat prompts, bridges public room messages through MCP, resolves nested room actors, and forces every tool-planning exit through a guarded final-expression pass. Keeps DeepSeek planning and one configured final visible provider call per room/user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.71+215 Cedar realtime room chat candidate' \
+              --title 'AI Companion v0.41.72+216 Cedar trust watch modes candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Persists server-provided next_call instructions, keeps approved co-play rooms observed without repeated main-chat prompts, bridges public room messages through MCP, resolves nested room actors, and forces every tool-planning exit through a guarded final-expression pass. Keeps DeepSeek planning and one configured final visible provider call per room/user turn. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1410,8 +1457,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.71-cedar-realtime-room-chat-test'
-          CI_NAME='AI-Companion-v0.41.71-215-Cedar-Realtime-Room-Chat-CI-Monitor.txt'
+          TAG='v0.41.72-cedar-trust-watch-modes-test'
+          CI_NAME='AI-Companion-v0.41.72-216-Cedar-Trust-Watch-Modes-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1452,7 +1499,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.71+215 Cedar realtime room chat candidate' \
+              --title 'AI Companion v0.41.72+216 Cedar trust watch modes candidate' \
               --notes 'Draft failure diagnostics for the schema-61 Cedar realtime room chat candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

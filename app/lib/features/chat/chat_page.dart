@@ -14,6 +14,7 @@ import '../../core/database/app_database.dart';
 import '../../core/diagnostics/attachment_pipeline_telemetry.dart';
 import '../../core/models/message_attachment.dart';
 import '../../core/models/reference_document.dart';
+import '../../core/mcp/cedar_toy_activity.dart';
 import '../../core/platform/android_bridge.dart';
 import '../../core/storage/message_attachment_storage.dart';
 import '../../core/stickers/sticker_pack.dart';
@@ -102,6 +103,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    // A newly constructed chat surface has no open Cedar activity window.
+    // Clear a fast/spectate flag left behind by process death before the user
+    // explicitly opens the window again.
+    unawaited(CedarToyActivityStore(AppDatabase.instance).endViewing());
     WidgetsBinding.instance.addObserver(this);
     controller.addListener(_onChanged);
     _initializeController();

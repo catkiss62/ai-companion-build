@@ -13,6 +13,7 @@ import '../storage/secure_config.dart';
 import 'cedar_toy_activity.dart';
 import 'cedar_toy_client.dart';
 import 'mcp_protocol.dart';
+import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
 
 class CedarAutonomyAvailability {
@@ -217,7 +218,7 @@ class CedarToyAutonomyEngine {
     if (action.isEmpty || !_containsIdentifier(session.guide, action)) {
       await store.deferContinuation(
         gameId: session.gameId,
-        delay: const Duration(minutes: 5),
+        delay: const Duration(seconds: 15),
       );
       return const CedarAutonomyProgress('invalid_continuation_call');
     }
@@ -229,7 +230,7 @@ class CedarToyAutonomyEngine {
     } catch (_) {
       await store.deferContinuation(
         gameId: session.gameId,
-        delay: const Duration(minutes: 5),
+        delay: const Duration(seconds: 15),
       );
       return const CedarAutonomyProgress('invalid_continuation_params');
     }
@@ -287,6 +288,20 @@ class CedarToyAutonomyEngine {
                 : 'remote_wait_renewed',
       );
     } catch (error) {
+      if (error is McpHttpException &&
+          error.code == 'network_or_timeout' &&
+          session.continuationWaitScope.trim().isNotEmpty) {
+        // An empty long-poll window is normal while waiting for a human or
+        // another player. Renew it quickly without turning healthy waiting
+        // into a failure/backoff incident.
+        await db.setSetting('cedar_toy_last_observe_error_category', '');
+        await db.setSetting('cedar_toy_last_realtime_observe_error', '');
+        await store.deferContinuation(
+          gameId: session.gameId,
+          delay: const Duration(seconds: 1),
+        );
+        return const CedarAutonomyProgress('remote_wait_renewed');
+      }
       await db.setSetting(
         'cedar_toy_last_observe_error_category',
         classifyRuntimeError(error),
@@ -353,9 +368,14 @@ class CedarToyAutonomyEngine {
 
 ${store.promptContext(session, state: state)}''',
     );
-    final mode = CedarParticipationMode.fromKey(
+    // Participation is session identity. Once established, do not let a fresh
+    // planner pass reinterpret a solo game as co-play (or the reverse).
+    final judgedMode = CedarParticipationMode.fromKey(
       judged['participation_mode']?.toString(),
     );
+    final mode = session.mode == CedarParticipationMode.unknown
+        ? judgedMode
+        : session.mode;
     if (mode.requiresInvitation && !session.invitationApproved) {
       await store.markInvitationRequired(
         gameId: session.gameId,
@@ -385,7 +405,11 @@ ${store.promptContext(session, state: state)}''',
         : <String, Object?>{};
     if (mode.requiresInvitation &&
         _guideSupportsParameter(session.guide, action, 'wait')) {
-      params['wait'] = true;
+      // A move and a long poll are separate operations. Waiting on the same
+      // request can commit the move remotely and then make the local 25-second
+      // transport timeout look like a failed move. Ask Cedar for the immediate
+      // committed result; follow its returned next_call for observation.
+      params['wait'] = false;
     }
     var roomMessage = '';
     if (mode.requiresInvitation &&
@@ -401,13 +425,26 @@ ${store.promptContext(session, state: state)}''',
       if (roomMessage.isNotEmpty) params['message'] = roomMessage;
     }
     await store.beginExecution(gameId: session.gameId, action: action);
-    final outcome = await client.play(session.gameId, action, params);
+    late McpToolOutcome outcome;
+    try {
+      outcome = await client.play(session.gameId, action, params);
+    } catch (error) {
+      if (error is McpHttpException && error.code == 'network_or_timeout') {
+        await store.markWriteOutcomeUncertain(
+          gameId: session.gameId,
+          action: action,
+        );
+        return const CedarAutonomyProgress('write_outcome_sync');
+      }
+      rethrow;
+    }
     final verification = outcome.isError
         ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
         : await _verifyOutcome(
             apiKey: apiKey,
             endpoint: endpoint,
             session: session,
+            mode: mode,
             action: action,
             outcome: outcome,
           );
@@ -431,6 +468,7 @@ ${store.promptContext(session, state: state)}''',
         strength: shareLevel == 'required' ? 0.90 : 0.72,
         eventId: updated.events.last.id,
         gameId: session.gameId,
+        directWhenWatched: true,
       );
     }
     return CedarAutonomyProgress(
@@ -444,29 +482,38 @@ ${store.promptContext(session, state: state)}''',
     required String apiKey,
     required String endpoint,
     required CedarGameSession session,
+    required CedarParticipationMode mode,
     required String action,
     required McpToolOutcome outcome,
   }) async {
     final outcomeText = CedarToyClient.redactSecrets(outcome.text);
     final structured = _resolveMcpTurnState(outcome);
+    final structuredResume =
+        McpResumeAfterResolver.resolveStructured(outcome.structuredContent);
     if (outcomeText.length > CedarToyActivityStore.maxGuidePromptChars) {
       return (
         nextActor: structured?.nextActor ?? 'wait',
         shareLevel: 'quiet',
-        resumeAfterSeconds: 0,
+        resumeAfterSeconds: structuredResume ?? 0,
       );
     }
     try {
-      final judged = await _judge(
+      // Cedar's structured turn state is authoritative. The model only
+      // classifies whether the real outcome is worth sharing, and fills an
+      // actor only for legacy/free-form multiplayer outcomes. Solo games keep
+      // advancing unless Cedar explicitly says they ended or must wait.
+      final fallbackActor = mode == CedarParticipationMode.solo
+          ? 'companion'
+          : 'wait';
+      final judged = await _judgeOutcome(
         apiKey: apiKey,
         endpoint: endpoint,
-        instruction: '''你只核验一次真实 Cedar Toy play Outcome。依据完整指南、刚执行的 action 与真实 Outcome，只返回 JSON：
+        instruction: '''你只分类一次真实 Cedar Toy play Outcome，只返回 JSON：
 {"next_actor":"companion|user|shared|wait|finished","share_level":"quiet|notable|required","resume_after_seconds":0}
-不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有指南或 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
+不得规划下一动作，不得补写结果。需要用户决定/输入时为 user 或 shared；远端计时/其他玩家时为 wait；明确结束才为 finished。只有 Outcome 明确给出等待/轮询时长时填写 15～3600 秒，否则为 0。
 game=${session.gameId}
+mode=${mode.key}
 action=$action
-【完整指南】
-${session.guide}
 【真实 Outcome】
 $outcomeText''',
       );
@@ -480,23 +527,24 @@ $outcomeText''',
           'shared',
           'wait',
           'finished',
-        }.contains(actor)
+        }.contains(actor) && mode != CedarParticipationMode.solo
             ? actor
-            : 'wait'),
+            : fallbackActor),
         shareLevel:
             const <String>{'quiet', 'notable', 'required'}.contains(share)
                 ? share
                 : 'quiet',
-        resumeAfterSeconds:
-            rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt(),
+        resumeAfterSeconds: structuredResume ??
+            (rawResume <= 0 ? 0 : rawResume.clamp(15, 3600).toInt()),
       );
     } catch (_) {
-      // The real remote step already happened. Pausing is safer than replaying
-      // a possibly non-idempotent action after a classifier-only failure.
       return (
-        nextActor: structured?.nextActor ?? 'wait',
+        nextActor: structured?.nextActor ??
+            (mode == CedarParticipationMode.solo
+                ? 'companion'
+                : 'wait'),
         shareLevel: 'quiet',
-        resumeAfterSeconds: 0,
+        resumeAfterSeconds: structuredResume ?? 0,
       );
     }
   }
@@ -559,8 +607,11 @@ game=${session.gameId}
         effort: ReasoningEffort.low,
         messages: prompt,
         endpoint: targetEndpoint,
-        thinking: true,
-        maxTokens: 180,
+        // A 100-character room utterance does not need visible reasoning.
+        // Gemini 3 still receives its required low hidden-thinking contract;
+        // 512 tokens avoids the relay's 400 response to the former tiny cap.
+        thinking: false,
+        maxTokens: 512,
       )) {
         content += delta.content;
         if (delta.finishReason != null) finishReason = delta.finishReason!;
@@ -679,13 +730,33 @@ game=${session.gameId}
         ],
       );
 
-  Future<void> _seedThought({
+  Future<Map<String, dynamic>> _judgeOutcome({
+    required String apiKey,
+    required String endpoint,
+    required String instruction,
+  }) =>
+      ai.jsonCompletion(
+        apiKey: apiKey,
+        model: DeepSeekModelProfile.flash,
+        endpoint: endpoint,
+        thinking: false,
+        effort: ReasoningEffort.low,
+        maxTokens: 300,
+        messages: <Map<String, Object?>>[
+          <String, Object?>{'role': 'system', 'content': instruction},
+        ],
+      );
+
+  Future<String> _seedThought({
     required String text,
     required double strength,
     required String eventId,
     required String gameId,
-  }) =>
-      db.upsertThought(
+    bool directWhenWatched = false,
+  }) async {
+    final thoughtId = 'cedar-$eventId';
+    await db.upsertThought(
+        id: thoughtId,
         text: _bounded(text, 12000),
         drive: DriveKey.curiosity,
         kind: 'flit',
@@ -693,6 +764,14 @@ game=${session.gameId}
         source: 'mcp/cedar_game:$gameId:$eventId',
         topicKey: 'cedar_game:$gameId',
       );
+    if (directWhenWatched) {
+      final store = CedarToyActivityStore(db);
+      if ((await store.currentViewingPace()).isWatching) {
+        await store.queueDirectShare(thoughtId);
+      }
+    }
+    return thoughtId;
+  }
 
   static String _identifier(String value) {
     final clean = value.trim();

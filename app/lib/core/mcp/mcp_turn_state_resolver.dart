@@ -50,6 +50,36 @@ class McpRoomMessageBatch {
   final Set<String> ownAliases;
 }
 
+/// Reads an explicit server cadence without asking a model to reinterpret it.
+class McpResumeAfterResolver {
+  const McpResumeAfterResolver._();
+
+  static int? resolveStructured(Object? value) {
+    if (value is Map) {
+      final map = value.map((key, item) => MapEntry(key.toString(), item));
+      for (final key in const <String>[
+        'resume_after_seconds',
+        'resume_after',
+        'retry_after_seconds',
+      ]) {
+        final raw = map[key];
+        final parsed = raw is num ? raw.toInt() : int.tryParse('$raw');
+        if (parsed != null && parsed > 0 && parsed <= 3600) return parsed;
+      }
+      for (final child in map.values) {
+        final resolved = resolveStructured(child);
+        if (resolved != null) return resolved;
+      }
+    } else if (value is List) {
+      for (final child in value) {
+        final resolved = resolveStructured(child);
+        if (resolved != null) return resolved;
+      }
+    }
+    return null;
+  }
+}
+
 /// Extracts high-confidence turn ownership from common structured MCP
 /// outcomes. It deliberately returns null for ambiguity so an LLM may still
 /// interpret free-form or server-specific results without overriding explicit

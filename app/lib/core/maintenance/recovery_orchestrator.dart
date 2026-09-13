@@ -119,17 +119,27 @@ class RecoveryOrchestrator {
       }
       var cedarDelay = await proactive.cedarContinuationDelay(now: DateTime.now());
       if (cedarContinuationState == 'user_chat') {
-        cedarDelay = const Duration(seconds: 30);
+        cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'action_in_progress') {
-        cedarDelay = const Duration(seconds: 30);
+        cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'immersive_chat_page_visible') {
         cedarDelay = const Duration(minutes: 2);
       } else if (cedarContinuationState == 'observe_failed') {
         cedarDelay = const Duration(seconds: 5);
-      } else if (cedarContinuationState == 'failed' ||
-          cedarContinuationState.endsWith('failed') ||
+      } else if (cedarContinuationState == 'play_failed' ||
+          cedarContinuationState == 'mode_unknown' ||
+          cedarContinuationState == 'invalid_action_choice' ||
+          cedarContinuationState == 'invalid_continuation_call' ||
+          cedarContinuationState == 'invalid_continuation_params') {
+        cedarDelay = const Duration(seconds: 15);
+      } else if (cedarContinuationState == 'catalog_failed' ||
+          cedarContinuationState == 'guide_failed' ||
+          cedarContinuationState == 'queued_guide_failed' ||
           cedarContinuationState == 'queued_game_not_in_catalog') {
-        cedarDelay = const Duration(minutes: 5);
+        cedarDelay = const Duration(minutes: 1);
+      } else if (cedarContinuationState == 'failed' ||
+          cedarContinuationState.endsWith('failed')) {
+        cedarDelay = const Duration(seconds: 30);
       }
       await db.setSetting(
         'cedar_toy_last_continuation_state',
@@ -144,7 +154,20 @@ class RecoveryOrchestrator {
         'remote_event_companion_turn',
         'remote_room_message',
         'remote_wait_renewed',
+        'write_outcome_sync',
       }.contains(cedarContinuationState);
+      ProactiveDecision? cedarDirectShare;
+      if (blocking == null && allowProactive) {
+        try {
+          cedarDirectShare = await proactive.deliverPendingCedarShareIfAny();
+        } catch (cedarShareError) {
+          await db.setSetting(
+            'cedar_toy_last_direct_share_error',
+            _compact(cedarShareError.toString(), 360),
+          );
+        }
+      }
+      final cedarDirectShareSent = cedarDirectShare?.sent == true;
       final scheduledHeartbeatDue = await _heartbeatIsDue(now);
       final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
         now: now,
@@ -159,7 +182,13 @@ class RecoveryOrchestrator {
       Duration heartbeatDelay;
 
       if (heartbeatDue) {
-        if (blocking != null || !allowProactive || cedarDidWork) {
+        if (cedarDirectShareSent) {
+          heartbeatAdvanced = true;
+          final snapshot = await db.loadDesire();
+          heartbeatDelay = _nextHeartbeat(snapshot, _random);
+          await _storeNextHeartbeat(now.add(heartbeatDelay));
+          proactiveReason = 'cedar_watched_share_sent';
+        } else if (blocking != null || !allowProactive || cedarDidWork) {
           final heartbeat = await proactive.maintainLocalStateOnly(
             perceptionMinInterval: perceptionMinInterval,
           );
@@ -192,6 +221,7 @@ class RecoveryOrchestrator {
         }
       } else {
         heartbeatDelay = await _remainingHeartbeatDelay(now);
+        if (cedarDirectShareSent) proactiveReason = 'cedar_watched_share_sent';
       }
 
       await _guardOrchestratorOwnership();

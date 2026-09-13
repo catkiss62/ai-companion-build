@@ -29,6 +29,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   String _viewingGameId = '';
   bool _loading = true;
   String _roomProviderNotice = '';
+  CedarViewingPace _pace = CedarViewingPace.leisure;
   bool _minimized = false;
   Offset _offset = const Offset(16, 72);
   double _width = 350;
@@ -37,7 +38,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   @override
   void initState() {
     super.initState();
-    unawaited(_refresh());
+    unawaited(_beginViewing());
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 2),
       (_) => unawaited(_refresh()),
@@ -47,11 +48,19 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    unawaited(store.endViewing());
     super.dispose();
   }
 
+  Future<void> _beginViewing() async {
+    await store.beginViewing();
+    await _refresh();
+  }
+
   Future<void> _refresh() async {
+    await store.touchViewer();
     final state = await store.loadState();
+    final pace = await store.currentViewingPace();
     final roomProviderNotice = await AppDatabase.instance
             .getSetting('cedar_room_last_final_provider_notice') ??
         '';
@@ -63,7 +72,21 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
       _viewingGameId = selected?.gameId ?? '';
       _loading = false;
       _roomProviderNotice = roomProviderNotice;
+      _pace = pace;
     });
+  }
+
+  Future<void> _selectPace(CedarViewingPace pace) async {
+    await store.setViewingPace(pace);
+    await AndroidBridge.instance.wakeBackgroundBrain(
+      reason: 'cedar_viewing_pace_${pace.key}',
+    );
+    await _refresh();
+  }
+
+  void _close() {
+    unawaited(store.endViewing());
+    widget.onClose();
   }
 
   Future<void> _togglePaused(CedarGameSession session) async {
@@ -172,7 +195,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                               ),
                               IconButton(
                                 tooltip: '关闭活动窗',
-                                onPressed: widget.onClose,
+                                onPressed: _close,
                                 icon: const Icon(Icons.close_rounded),
                               ),
                             ],
@@ -278,6 +301,28 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
                 label: Text('轮到你'),
               ),
           ],
+        ),
+        const SizedBox(height: 10),
+        Text('游玩节奏', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final pace in CedarViewingPace.values)
+              ChoiceChip(
+                selected: pace == _pace,
+                label: Text(pace.label),
+                onSelected: (_) => _selectPace(pace),
+              ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          _pace == CedarViewingPace.leisure
+              ? '默认自主节奏：单人游戏每步至少 2 分钟，值得分享的进展先进入念头。'
+              : '你正在观战：单人游戏每步至少 ${_pace.soloStepGap.inSeconds} 秒，值得分享的进展会直接发到聊天。',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         if (session.waitingReason.isNotEmpty) ...[
           const SizedBox(height: 8),

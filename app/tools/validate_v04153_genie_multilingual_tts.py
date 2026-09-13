@@ -88,7 +88,7 @@ assert "session.language" in queue and "session.voice" in queue
 assert "service.resolveVoice(emotion)" in queue
 assert "prefill one second" in queue
 assert "if (_generation != stoppedAt) return;" in queue
-assert "TtsAcousticSegmenter.split(prepared, session.language)" in queue
+assert "TtsAcousticSegmenter.split(prepared.text, session.language)" in queue
 assert "message.contentFor(displayLanguage)" in background
 assert "language: message.hasLanguage(selected)" in background
 assert "中文对照" in background

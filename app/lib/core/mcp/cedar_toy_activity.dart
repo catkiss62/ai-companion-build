@@ -24,6 +24,28 @@ enum CedarParticipationMode {
       );
 }
 
+/// User-selected pace while the Cedar activity window is visibly open.
+/// A stale/missing viewer heartbeat always resolves to [leisure], so the
+/// faster rates are temporary observation modes rather than durable autonomy
+/// settings.
+enum CedarViewingPace {
+  leisure('leisure', '休闲模式', Duration(minutes: 2)),
+  fast('fast', '快速模式', Duration(seconds: 5)),
+  spectate('spectate', '观战模式', Duration(seconds: 10));
+
+  const CedarViewingPace(this.key, this.label, this.soloStepGap);
+  final String key;
+  final String label;
+  final Duration soloStepGap;
+
+  bool get isWatching => this != leisure;
+
+  static CedarViewingPace fromKey(String? value) => values.firstWhere(
+        (item) => item.key == value,
+        orElse: () => leisure,
+      );
+}
+
 enum CedarActivityPhase {
   guideReady('guide_ready', '已读指南'),
   awaitingInvitation('awaiting_invitation', '等待你同意'),
@@ -522,6 +544,10 @@ class CedarToyActivityStore {
   static const catalogSettingKey = 'cedar_toy_catalog_v1';
   static const realtimeDiagnosticsSettingKey =
       'cedar_toy_realtime_diagnostics_v1';
+  static const viewingPaceSettingKey = 'cedar_toy_viewing_pace_v1';
+  static const viewerHeartbeatSettingKey = 'cedar_toy_viewer_heartbeat_at_v1';
+  static const pendingDirectSharesSettingKey =
+      'cedar_toy_pending_direct_shares_v1';
   static const maxGuidePromptChars = 120000;
   static const maxStoredTextChars = 1024 * 1024;
   static const maxEventSummaryChars = 6000;
@@ -530,8 +556,97 @@ class CedarToyActivityStore {
   static const maxNotices = 24;
   static const continuationGap = Duration(minutes: 2);
   static const realtimeContinuationGap = Duration(seconds: 1);
+  // The user may leave Flutter in the background while watching Cedar in the
+  // browser. Closing the activity window resets immediately; this long TTL is
+  // only a crash/stale-state fallback, not the normal close mechanism.
+  static const viewerHeartbeatTtl = Duration(hours: 6);
 
   final AppDatabase db;
+
+  Future<void> beginViewing() async {
+    final now = DateTime.now();
+    await db.setSetting(viewingPaceSettingKey, CedarViewingPace.leisure.key);
+    await db.setSetting(
+      viewerHeartbeatSettingKey,
+      now.millisecondsSinceEpoch.toString(),
+    );
+  }
+
+  Future<void> touchViewer() => db.setSetting(
+        viewerHeartbeatSettingKey,
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
+  Future<void> endViewing() async {
+    await db.setSetting(viewingPaceSettingKey, CedarViewingPace.leisure.key);
+    await db.setSetting(viewerHeartbeatSettingKey, '0');
+  }
+
+  Future<CedarViewingPace> currentViewingPace({DateTime? now}) async {
+    final at = int.tryParse(await db.getSetting(viewerHeartbeatSettingKey) ?? '');
+    if (at == null || at <= 0) return CedarViewingPace.leisure;
+    final current = now ?? DateTime.now();
+    if (current.difference(DateTime.fromMillisecondsSinceEpoch(at)) >
+        viewerHeartbeatTtl) {
+      return CedarViewingPace.leisure;
+    }
+    return CedarViewingPace.fromKey(
+      await db.getSetting(viewingPaceSettingKey),
+    );
+  }
+
+  Future<void> setViewingPace(CedarViewingPace pace) async {
+    final now = DateTime.now();
+    await db.setSetting(viewingPaceSettingKey, pace.key);
+    await db.setSetting(
+      viewerHeartbeatSettingKey,
+      now.millisecondsSinceEpoch.toString(),
+    );
+    if (!pace.isWatching) return;
+    final state = await loadState();
+    final session = state.activeSession;
+    if (session == null || !session.needsContinuation) return;
+    final fasterDue = now.add(pace.soloStepGap);
+    final existingDue = session.nextActionAt;
+    if (existingDue != null && !existingDue.isAfter(fasterDue)) return;
+    await _saveState(state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[session.gameId] = session.copyWith(
+          nextActionAt: fasterDue,
+          updatedAt: now,
+        ),
+      updatedAt: now,
+    ));
+  }
+
+  Future<void> queueDirectShare(String thoughtId) async {
+    final clean = thoughtId.trim();
+    if (clean.isEmpty) return;
+    final queue = await pendingDirectShares();
+    if (!queue.contains(clean)) queue.add(clean);
+    final bounded = queue.length <= 8 ? queue : queue.sublist(queue.length - 8);
+    await db.setSetting(pendingDirectSharesSettingKey, jsonEncode(bounded));
+  }
+
+  Future<List<String>> pendingDirectShares() async {
+    final raw = await db.getSetting(pendingDirectSharesSettingKey) ?? '';
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: true);
+      }
+    } catch (_) {}
+    return <String>[];
+  }
+
+  Future<void> removeDirectShare(String thoughtId) async {
+    final queue = await pendingDirectShares();
+    queue.removeWhere((item) => item == thoughtId);
+    await db.setSetting(pendingDirectSharesSettingKey, jsonEncode(queue));
+  }
 
   Future<CedarToyActivityState> loadState() async {
     final raw = await db.getSetting(stateSettingKey) ?? '';
@@ -717,7 +832,7 @@ class CedarToyActivityStore {
 
   Future<void> deferContinuation({
     required String gameId,
-    Duration delay = const Duration(minutes: 5),
+    Duration delay = const Duration(seconds: 15),
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
@@ -729,6 +844,50 @@ class CedarToyActivityStore {
           nextActionAt: now.add(delay),
           updatedAt: now,
         ),
+      clearExecution: true,
+      updatedAt: now,
+    ));
+  }
+
+  Future<void> markWriteOutcomeUncertain({
+    required String gameId,
+    required String action,
+  }) async {
+    final state = await loadState();
+    final session = state.sessions[gameId];
+    if (session == null) return;
+    final now = DateTime.now();
+    final canSynchronize = session.mode.requiresInvitation &&
+        session.invitationApproved &&
+        session.hasContinuationCall;
+    final event = CedarGameEvent(
+      id: 'sync-${now.microsecondsSinceEpoch}',
+      kind: 'write_outcome_uncertain',
+      summary: canSynchronize
+          ? '本机未收到这次操作的完整回包，先按 Cedar 已给的查询指令同步真实远端状态，不盲目重放。'
+          : '本机未收到这次操作的完整回包，暂缓后继续。',
+      createdAt: now,
+      action: action,
+    );
+    final next = session.copyWith(
+      phase: canSynchronize
+          ? CedarActivityPhase.waitingRemote
+          : session.phase,
+      nextActor: canSynchronize ? 'wait' : session.nextActor,
+      waitingReason: canSynchronize
+          ? '正在从 Cedar 同步已提交动作的真实结果'
+          : '等待重新读取真实状态',
+      nextActionAt: now.add(
+        canSynchronize
+            ? realtimeContinuationGap
+            : const Duration(seconds: 15),
+      ),
+      updatedAt: now,
+      events: _append(session.events, event),
+    );
+    await _saveState(state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[gameId] = next,
       clearExecution: true,
       updatedAt: now,
     ));
@@ -856,7 +1015,8 @@ class CedarToyActivityStore {
       imageMimeType: outcome.images.isEmpty ? '' : outcome.images.first.mimeType,
     );
     final boundedResumeSeconds = resumeAfterSeconds.clamp(0, 3600).toInt();
-    final scheduledWait = normalizedActor == 'wait' && boundedResumeSeconds > 0;
+    final scheduledWait =
+        normalizedActor != 'finished' && boundedResumeSeconds > 0;
     final shouldContinue = !outcome.isError &&
         (normalizedActor == 'companion' ||
             scheduledWait ||
@@ -866,9 +1026,15 @@ class CedarToyActivityStore {
         (continuation != null ||
             pendingRoomMessage.isNotEmpty ||
             normalizedActor == 'companion');
+    final viewingPace = await currentViewingPace(now: now);
+    final ordinaryRetryGap = mode.requiresInvitation
+        ? realtimeContinuationGap
+        : viewingPace.soloStepGap;
     final next = existing.copyWith(
       mode: mode,
-      phase: outcome.isError ? CedarActivityPhase.failed : phase,
+      // An explicit MCP error means this action did not succeed; it is a
+      // recoverable service result, not proof that the durable game ended.
+      phase: outcome.isError ? existing.phase : phase,
       lastAction: action,
       lastOutcome: _bounded(fullText, maxGuidePromptChars),
       nextActor: normalizedActor,
@@ -881,14 +1047,16 @@ class CedarToyActivityStore {
       viewerUrl: viewerUrl,
       invitationApproved: invitationApproved || existing.invitationApproved,
       updatedAt: now,
-      nextActionAt: shouldContinue
+      nextActionAt: outcome.isError
+          ? now.add(ordinaryRetryGap)
+          : shouldContinue
           ? now.add(scheduledWait
               ? Duration(seconds: boundedResumeSeconds)
               : realtime
                   ? realtimeContinuationGap
-                  : continuationGap)
+                  : viewingPace.soloStepGap)
           : null,
-      clearNextActionAt: !shouldContinue,
+      clearNextActionAt: !outcome.isError && !shouldContinue,
       continuationAction: continuation?.action,
       continuationParamsJson:
           continuation == null ? null : jsonEncode(continuation.params),
@@ -1071,6 +1239,25 @@ ${session.guide}
     final sessions = Map<String, CedarGameSession>.from(state.sessions);
     for (final entry in state.sessions.entries) {
       final session = entry.value;
+      final actor = McpTurnStateResolver.resolve(session.lastOutcome);
+      if (session.mode == CedarParticipationMode.solo &&
+          session.continuable &&
+          session.phase != CedarActivityPhase.paused &&
+          actor == null &&
+          const <String>{'user', 'shared'}.contains(session.nextActor)) {
+        // Repair the historical local classifier bug. In a solo activity the
+        // companion remains the player unless Cedar supplied an explicit
+        // structured actor/wait/terminal fact.
+        changed = true;
+        sessions[entry.key] = session.copyWith(
+          nextActor: 'companion',
+          phase: CedarActivityPhase.active,
+          waitingReason: '',
+          nextActionAt: now,
+          updatedAt: now,
+        );
+        continue;
+      }
       if (!session.mode.requiresInvitation ||
           !session.invitationApproved ||
           !session.continuable ||
@@ -1078,7 +1265,6 @@ ${session.guide}
           session.lastOutcome.trim().isEmpty) {
         continue;
       }
-      final actor = McpTurnStateResolver.resolve(session.lastOutcome);
       final rawContinuation = McpContinuationCallResolver.resolve(
         session.lastOutcome,
       );

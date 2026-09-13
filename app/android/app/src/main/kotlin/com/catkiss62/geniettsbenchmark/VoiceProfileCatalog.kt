@@ -21,6 +21,9 @@ object VoiceProfileCatalog {
         VoiceProfileDefinition("jiuhu_dream_days", "gentle", "温柔", "安慰、平静、担心与低强度亲密表达", true),
         VoiceProfileDefinition("jiuhu_idle50", "lively", "活泼", "高兴、兴奋与惊讶", true),
         VoiceProfileDefinition("jiuhu_devotion", "cute", "可爱", "调皮、无奈与慌张", true),
+        VoiceProfileDefinition("jiuhu_soft_speech", "soft_speech", "轻语", "仅供手动选择的轻声说话候选", true),
+        VoiceProfileDefinition("jiuhu_whisper", "whisper", "耳语", "仅供手动选择的近距离耳语候选", true),
+        VoiceProfileDefinition("jiuhu_breathy", "breathy", "气声", "仅供手动选择的气声候选", true),
     )
 
     private val byId = profiles.associateBy { it.id }
