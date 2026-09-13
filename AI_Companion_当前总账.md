@@ -34,7 +34,7 @@
 |---|---|
 | 仓库 | 公开仓库 `catkiss62/ai-companion-build`；完整 Flutter/Android 工程在 `app/` |
 | 持续提交与 APK 授权 | 2026-09-02 用户明确“以后一直允许提交”，并于 2026-09-03 再确认：人机恋项目范围内，可将任务相关源码和文档提交推送到本仓库当前或后续明确的开发分支，并直接执行常规 Actions/APK 创建流程，不再逐批重复询问。此授权不包含合并 `main`、发布正式 Release、删除分支/数据、改变仓库权限或公开密钥/隐私资料；这些仍须单独确认 |
-| 当前开发分支 | `agent/v04171-cedar-realtime-room-chat`，当前源码 `v0.41.71+215 / schema 61 / Snapshot protocol 6`：远端实现提交 `ba3f6932`、tree `f00b6a1b` 与本地候选逐字一致。首轮 Actions run 864 在历史版本 allowlist 停止，未进入 Flutter Analyze；正在做不改运行语义的兼容窄修，尚无 +215 APK，`main` 未改 |
+| 当前开发分支 | `agent/v04171-cedar-realtime-room-chat`，当前源码 `v0.41.71+215 / schema 61 / Snapshot protocol 6`：远端实现 tree `f00b6a1b` 与兼容 tree `0d640384` 均与各自本地候选一致。run 865 已过 Source validators、Kotlin 和 Flutter Analyze，在 `773/774` tests 暴露混合协议/自然正文被过度清空；已本地窄修，尚无 +215 APK，`main` 未改 |
 | 上一运行代码基线 | `agent/v0417-forthright-fiery-personality`，功能 head `58c244a4b08033f403776f1ec31bbece5557506d`；Desire/Moe/主动性状态主干仍沿革自 `agent/v0415-personality-state-diversity` / `494796ef02e369f98e6896bc5acea7185e3c35dd` |
 | 有效构建 head / tree | +214 Actions build head `693d02aa309f1aff1e6f924f133eb4fdbd595a5e` / tree `f9505d44d83d2eba99749e47ab03db5db3e7b9ed`，构建 tree 与本地候选逐字一致。公开提交不含用户附件、诊断、备份、密钥、模型权重、参考音频或 APK Artifact |
 | App / 数据库 | 当前源码为 `0.41.71+215 / schema 61 / Snapshot protocol 6`；最新已验证测试 APK 仍为 `0.41.70+214`。本批不升级 SQLite schema 或 Snapshot protocol，旧备份兼容边界不变 |
@@ -109,6 +109,7 @@
 9. 最终表达路径已收口：工具 Outcome 之后的任意后续规划轮返回零 structured call 时，均必须再进配置的最终 Provider；初始无工具回合保留 DeepSeek 单模型旧有单请求边界，Gemini 模式仍单独收口。孤立/残缺 JSON、DSML、XML 和工具参数在落库/TTS 前统一拒绝。`AgentToolResult` 保留本轮已实际提交的参数供最终真实性守门，落子坐标夸大或改写会以 `cedar_action_argument_mismatch` 拦截。房间台词在 Gemini 模式下仍有界重试后才转 DeepSeek 安全兜底，两者都经相同机器 payload 清理。当前尚未证明 Flutter 编译、CI、APK 或 +215 真机体验通过。
 10. 本地实现提交为 `53b1abe`；`git diff --check`、+213/+214/+215 三个 Cedar 专项 validator、当前总账 validator、Python compileall 与 workflow YAML 解析均通过。本机没有 Flutter/Dart SDK，全量历史 validator 在缺失 Actions 才恢复的 `assets/lingchat/effects` 时按预期停止，不写成 Flutter 或全量测试通过。用户本轮显式确认推送后，已通过授权 GitHub 连接创建远端提交 `ba3f6932e864e44f09ee9395abea31c12f2d45cf` / tree `f00b6a1b86be5e7c77269ca618782724e52c5888`，tree 与本地 HEAD 完全一致；远端分支已创建，未合并 `main`。
 11. 首轮 Actions run [`34762487173`](https://github.com/catkiss62/ai-companion-build/actions/runs/34762487173)（864）已正常恢复 Genie/Jiuhu、417 项桌宠、LingChat、塔罗和固定签名资源，但 Source and regression validation 在 `validate_v04143_phase3b_question_autonomy.py` 的当前版本枚举停止：该历史正则只允许到 `0.41.70+214`。Flutter packages、Analyze、tests、Release 和 APK 均未运行，不记为编译或行为失败。窄修仅将 +215 加入六个同类历史 allowlist，不修改 Cedar/Agent/TTS 运行码；本地六项须通过后再推进二轮完整 CI。
+12. 兼容窄修远端提交 `b4df41bfb9f7dee7fd30ce3725e51b30153d1be6` / tree `0d640384b8c5d76a9ead10be7f59eabf019d263f`。第二轮 Actions run [`34765341286`](https://github.com/catkiss62/ai-companion-build/actions/runs/34765341286)（865）已通过全部 Source/regression validators、Kotlin/JVM 和 Flutter Analyze；`773/774` Flutter tests 通过，唯一失败是 +214 旧夹具要求“混合内容中清除机器协议但保留独立自然正文”，+215 新增的整体快速拒绝误把后半句正文也清空。这不是 JSON 残片泄漏，而是守门过度删除；窄修只移除 `removeUnsupportedSentences` 的“整段提前返空”，保留每句 `looksLikeMachinePayload` 拦截。因此纯残片仍为空，混合内容仍可保留真实自然语句；待第三轮全量 tests 证明。
 
 ### 2026-09-13 v0.41.70+214 Agent/MCP 通用运行时加固（CI PASSED / APK READY / TRUE DEVICE PENDING）
 

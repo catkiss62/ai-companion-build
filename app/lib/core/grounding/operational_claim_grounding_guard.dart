@@ -267,7 +267,6 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
   }) {
-    if (AgentToolTextEnvelope.looksLikeMachinePayload(text)) return '';
     return _sentences(text)
         .where(
           (sentence) => evaluate(
