@@ -168,6 +168,9 @@ class PreflightDiagnosticsService {
         'selfExperienceSourceBodiesIncluded': false,
         'selfExperienceThoughtBodiesIncluded': false,
         'desireEventThoughtOrMessageBodiesIncluded': false,
+        'cedarRoomMessageBodiesIncluded': false,
+        'cedarContinuationParamsIncluded': false,
+        'cedarRoomIdentityIncluded': false,
       },
     };
     var attachmentPipeline = <String, Object?>{};
@@ -357,6 +360,31 @@ class PreflightDiagnosticsService {
             await db.getSetting('recovery_orchestrator_last_error_at') ?? '',
           ) ??
           0;
+      final cedarRealtime = <String, Object?>{};
+      final cedarRealtimeRaw =
+          await db.getSetting('cedar_toy_realtime_diagnostics_v1') ?? '';
+      if (cedarRealtimeRaw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cedarRealtimeRaw);
+          if (decoded is Map) {
+            cedarRealtime.addAll(
+              decoded.map((key, value) => MapEntry(key.toString(), value)),
+            );
+          }
+        } catch (_) {}
+      }
+      final cedarObserveErrorCategory =
+          (await db.getSetting('cedar_toy_last_observe_error_category') ?? '')
+              .trim();
+      cedarRealtime['lastObserveErrorCategory'] =
+          cedarObserveErrorCategory.isEmpty ? 'none' : cedarObserveErrorCategory;
+      cedarRealtime['roomFinalProviderFallback'] =
+          (await db.getSetting('cedar_room_last_final_provider_notice') ?? '')
+              .trim()
+              .isNotEmpty;
+      cedarRealtime['roomMessageBodiesIncluded'] = false;
+      cedarRealtime['continuationParamsIncluded'] = false;
+      cedarRealtime['roomIdentityIncluded'] = false;
 
       report['database'] = {
         'schemaVersion': AppDatabase.schemaVersion,
@@ -456,6 +484,7 @@ class PreflightDiagnosticsService {
           'lastErrorCategory': recoveryErrorCategory,
           'lastErrorAt': recoveryErrorAt,
         },
+        'cedarRealtime': cedarRealtime,
         'grounding': {
           ...grounding.toRedactedJson(),
           'proactiveGuardBlockCount': int.tryParse(

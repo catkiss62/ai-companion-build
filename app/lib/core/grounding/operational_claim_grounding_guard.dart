@@ -1,4 +1,5 @@
 import '../agent/agent_tool.dart';
+import '../agent/agent_tool_text_envelope.dart';
 
 class OperationalClaimGroundingResult {
   const OperationalClaimGroundingResult({
@@ -88,6 +89,10 @@ class OperationalClaimGroundingGuard {
     r'((游戏|这一局|这局).{0,12}(赢了|输了|结束了|通关了|存档了|得分))|'
     r'((我)?(这就|马上|现在就).{0,6}(进去|进房|加入|开局|开始玩|杀进去))',
   );
+  static final RegExp _selfMoveCoordinateClaim = RegExp(
+    r'(?:我|这手|刚才|刚刚|已经|直接|那就)[^。！？!?\n]{0,20}'
+    r'(?:下|落|走)[^。！？!?\n]{0,10}[\(（]\s*(\d{1,3})\s*[,，]\s*(\d{1,3})\s*[\)）]',
+  );
   static final RegExp _metaOrNegated = RegExp(
     r'(没(有)?|并没|并未|没有真的|不曾|不能|不该|不会|别|不要|禁止|'
     r'想去|想要去|正想|打算|准备|想象|幻想|以后|下次|如果|假如|'
@@ -101,7 +106,9 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
   }) {
-    if (_machineProtocol.hasMatch(text) || _machineProtocolJson.hasMatch(text)) {
+    if (_machineProtocol.hasMatch(text) ||
+        _machineProtocolJson.hasMatch(text) ||
+        AgentToolTextEnvelope.looksLikeMachinePayload(text)) {
       return const OperationalClaimGroundingResult(
         allowed: false,
         reason: 'machine_protocol_leak',
@@ -110,6 +117,32 @@ class OperationalClaimGroundingGuard {
     final successfulResults = currentToolResults
         .where((result) => result.status == AgentToolStatus.succeeded)
         .toList(growable: false);
+    final submittedMoves = <String>{};
+    for (final result in successfulResults) {
+      if (result.toolId != 'cedar_toy.play') continue;
+      final submitted = result.submittedArguments;
+      if (submitted['action']?.toString() != 'move') continue;
+      final params = submitted['params'];
+      if (params is! Map || params['move'] is! Map) continue;
+      final move = params['move'] as Map;
+      final row = move['row'];
+      final col = move['col'];
+      if (row is num && col is num) {
+        submittedMoves.add('${row.toInt()},${col.toInt()}');
+      }
+    }
+    if (submittedMoves.isNotEmpty) {
+      for (final claim in _selfMoveCoordinateClaim.allMatches(text)) {
+        final claimed = '${claim.group(1)},${claim.group(2)}';
+        if (!submittedMoves.contains(claimed)) {
+          return const OperationalClaimGroundingResult(
+            allowed: false,
+            reason: 'cedar_action_argument_mismatch',
+            requiredToolId: 'cedar_toy.play',
+          );
+        }
+      }
+    }
     final hasPublicWebOutcome = publicWebOutcomeAvailable ||
         successfulResults.any(
           (result) => result.toolId == 'public_web.discover' ||
@@ -234,6 +267,7 @@ class OperationalClaimGroundingGuard {
     bool publicWebOutcomeAvailable = false,
     bool cedarOutcomeAvailable = false,
   }) {
+    if (AgentToolTextEnvelope.looksLikeMachinePayload(text)) return '';
     return _sentences(text)
         .where(
           (sentence) => evaluate(

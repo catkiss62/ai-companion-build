@@ -55,6 +55,49 @@ class AgentToolTextEnvelope {
 
   static bool containsProtocol(String raw) => _protocolMarker.hasMatch(raw);
 
+  /// Detects a provider response that is predominantly a bare tool argument
+  /// object or a truncated fragment of one. This complements strict DSML
+  /// parsing: fragments are never executable, but they are also never prose.
+  static bool looksLikeMachinePayload(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty) return false;
+    if (containsProtocol(clean)) return true;
+    final unfenced = clean
+        .replaceFirst(RegExp(r'^```(?:json|xml)?\s*', caseSensitive: false), '')
+        .replaceFirst(RegExp(r'\s*```$'), '')
+        .trim();
+    final startsLikePayload = RegExp(
+      r'^(?:[\[{]|"?(?:revision|wait|move|params|params_json|action|room_id|game|tool_calls?)"?\s*:)',
+      caseSensitive: false,
+    ).hasMatch(unfenced);
+    if (!startsLikePayload) return false;
+    final keys = RegExp(
+      r'"?(revision|wait|move|params|params_json|action|room_id|game|tool_calls?)"?\s*:',
+      caseSensitive: false,
+    ).allMatches(unfenced).map((item) => item.group(1)!.toLowerCase()).toSet();
+    if (keys.length >= 2) return true;
+    try {
+      final decoded = jsonDecode(unfenced);
+      if (decoded is Map) {
+        final decodedKeys = decoded.keys.map((item) => '$item'.toLowerCase());
+        return decodedKeys.any(keys.contains);
+      }
+      if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
+        return true;
+      }
+    } catch (_) {
+      // An incomplete fragment with one machine key is still non-prose when
+      // it ends mid-object/value, as seen in real provider fallback output.
+      if (keys.isNotEmpty &&
+          (unfenced.endsWith(',') ||
+              unfenced.endsWith('{') ||
+              unfenced.endsWith('['))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Holds a possible machine envelope out of streaming UI/TTS until enough
   /// text has arrived to prove that it is ordinary assistant prose.
   static bool shouldHoldFromVisibleStream(String raw) {

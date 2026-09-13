@@ -728,6 +728,7 @@ ${verification.renderForFinalPrompt()}
 
 【工具结果后的中文表达约束】
 工具循环已经结束。现在只用自然中文形成她自己的可见思考与最终正文；专业名词可保留英文。不得复述英文工具规划、参数、调用日志、轮次、预算或搜索步骤。
+若提到已经执行的动作、落子坐标、房间、身份或轮次，只能使用上方真实工具 Outcome 与“本机已实际提交的参数”，不得改写、换算或猜测。
 $finalGenerationReminder
 '''.trim(),
           },
@@ -909,10 +910,16 @@ $finalGenerationReminder
         final verifiedContinuation = roundResults.any(
           (result) => result.succeeded && result.continuationRecommended,
         );
+        final cedarTurnHandedOff = roundResults.any(
+          (result) =>
+              result.toolId == AgentToolRegistry.cedarToyPlay.id &&
+              !result.continuationRecommended,
+        );
         final loopLimitReached =
             agentPlanningRounds >= AgentTaskLoopPolicy.maxPlanningRounds ||
                 agentToolCalls >= AgentTaskLoopPolicy.maxToolCalls;
         final shouldFinalize = (proposalExecuted && !verifiedContinuation) ||
+            cedarTurnHandedOff ||
             AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
             loopLimitReached;
         if (shouldFinalize) {
@@ -952,6 +959,17 @@ $finalGenerationReminder
           finalRequestMessages,
           tools: taskToolDefinitions,
         );
+        cancellationToken?.throwIfCancelled();
+      }
+
+      // A later planning round may return prose, a bare parameter fragment or
+      // an empty native tool call list. It is still an internal planning
+      // response and must always pass through the configured final-expression
+      // provider before anything can become message content.
+      if (toolsOpen && generated.toolCalls.isEmpty) {
+        toolsOpen = false;
+        finalRequestMessages = finalizationMessages(finalRequestMessages);
+        generated = await generateFinal(finalRequestMessages);
         cancellationToken?.throwIfCancelled();
       }
 

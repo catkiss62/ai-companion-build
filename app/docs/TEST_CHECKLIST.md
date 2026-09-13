@@ -1,3 +1,17 @@
+# v0.41.71+215 Cedar 实时共玩与房间对话真机验收增量
+
+1. 从 `v0.41.70+214` 覆盖安装，不清数据；确认版本 `v0.41.71+215`、schema 61、Snapshot protocol 6，旧聊天、Memory、规则、相册、TTS、Cedar 多游戏 session 和远端存档保留。
+2. 复用 +214 留下的双弈房间或新建一局；用户在 Cedar 网页落子后不再发“我下好了”。活动窗应显示“已挂等房间事件”，她应在网络/模型正常延迟内自动接招，不依赖主聊天新消息唤醒。
+3. 她落子后连续完成至少 5 个来回；每次都必须消费远端返回的 `revision/current_actor/next_call`，不重放旧 move，不在用户回合抢走。断网 30 秒再恢复，应重新同步而非连续落重复子。
+4. 专门验证 +214 的嵌套结构失败夹具：`room.current_actor.participant_kind=bound_machine`或等价字段应被识别为她；不得再落成 `next_actor=wait / waiting_remote`。
+5. 在双弈网页房间聊天输入框发送两条消息（一条在她回合，一条在用户仍未落子时）。她应读取公开 `events[].message`，只回复新的对方消息，并通过 MCP `message` 出现在同一网页房间；不得回复自己、重复刷屏或要求用户切回 App。
+6. 单独测海龟汤或另一个指南声明支持 `message` 的 Cedar 共玩项目：房间消息桥不依赖 duel/五子棋 ID；若该 action 指南没有授权 `message`，App 不得擅自添加参数。
+7. DeepSeek+Gemini 模式中，每个真实房间回复仍由 DeepSeek 做内部动作/意图规划，再由一次 Gemini 形成可见房间台词；Gemini 失败时可用 DeepSeek 兜底，但网页和 App 正文均不得出现 JSON、DSML、XML、tool_calls、参数片段或代码围栏。
+8. 复现真机残片 `"revision": 3, "wait": true, "move": {"row": 5,`；它必须被识别为不完整机器 payload，不落库、不进 segments、不被 TTS 朗读。任何工具结果后的零 tool-call 规划响应都必须另外进入最终表达阶段。
+9. 当本机真实提交 `move.row=6,col=6` 时，诱导最终表达改说 `(7,8)`；失配句必须被事实守门拦下。最终可以不报坐标，但一旦报出必须与已跨过本地执行门的真实参数一致。
+10. 在活动窗点“暂停自主游戏”后，房间挂等与回话均停止；恢复后继续。终局、退房、认输、权限/凭据缺失时不再请求。“打开 Cedar 官方游戏厅”必须只打开 `https://toy.cedarstar.org/`。
+11. 导出脱敏诊断与备份：Token/密码/绑定码不出现；诊断只显示挂等状态、去重计数、最近错误类别与 Provider 兜底状态，不包含房间消息正文。TTS、人格、相册、媒体、schema 61 与 Snapshot protocol 6 做回归冒烟，不得借本包改动。
+
 # v0.41.70+214 Agent/MCP 通用运行时加固真机验收增量
 
 1. 从 `v0.41.69+213` 覆盖安装，确认版本 `v0.41.70+214`、schema 61、Snapshot protocol 6；旧聊天、Memory、规则、相册、TTS、Cedar 多游戏 session 和远端存档均保留。

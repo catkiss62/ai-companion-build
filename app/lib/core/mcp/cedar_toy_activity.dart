@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import 'mcp_protocol.dart';
+import 'mcp_turn_state_resolver.dart';
 
 enum CedarParticipationMode {
   unknown('unknown', '待判断'),
@@ -133,6 +134,12 @@ class CedarGameSession {
     this.invitationApproved = false,
     this.events = const <CedarGameEvent>[],
     this.nextActionAt,
+    this.continuationAction = '',
+    this.continuationParamsJson = '',
+    this.continuationWaitScope = '',
+    this.pendingRoomMessage = '',
+    this.seenRoomMessageKeys = const <String>[],
+    this.ownRoomAliases = const <String>[],
   });
 
   final String id;
@@ -151,6 +158,12 @@ class CedarGameSession {
   final DateTime updatedAt;
   final List<CedarGameEvent> events;
   final DateTime? nextActionAt;
+  final String continuationAction;
+  final String continuationParamsJson;
+  final String continuationWaitScope;
+  final String pendingRoomMessage;
+  final List<String> seenRoomMessageKeys;
+  final List<String> ownRoomAliases;
 
   bool get continuable => phase.continuable && guideComplete;
   bool get companionCanContinue =>
@@ -161,6 +174,17 @@ class CedarGameSession {
       (nextActor == 'companion' ||
           nextActor.isEmpty ||
           (nextActor == 'wait' && nextActionAt != null));
+  bool get hasContinuationCall => continuationAction.trim().isNotEmpty;
+  bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
+  bool get companionCanObserve =>
+      continuable &&
+      mode.requiresInvitation &&
+      invitationApproved &&
+      phase != CedarActivityPhase.awaitingInvitation &&
+      phase != CedarActivityPhase.paused &&
+      hasContinuationCall &&
+      const <String>{'user', 'shared', 'wait'}.contains(nextActor);
+  bool get needsContinuation => companionCanContinue || companionCanObserve;
   String get displayName => gameTitle.trim().isEmpty ? gameId : gameTitle;
 
   CedarGameSession copyWith({
@@ -179,6 +203,14 @@ class CedarGameSession {
     List<CedarGameEvent>? events,
     DateTime? nextActionAt,
     bool clearNextActionAt = false,
+    String? continuationAction,
+    String? continuationParamsJson,
+    String? continuationWaitScope,
+    bool clearContinuation = false,
+    String? pendingRoomMessage,
+    bool clearPendingRoomMessage = false,
+    List<String>? seenRoomMessageKeys,
+    List<String>? ownRoomAliases,
   }) =>
       CedarGameSession(
         id: id,
@@ -198,6 +230,20 @@ class CedarGameSession {
         events: events ?? this.events,
         nextActionAt:
             clearNextActionAt ? null : nextActionAt ?? this.nextActionAt,
+        continuationAction:
+            clearContinuation ? '' : continuationAction ?? this.continuationAction,
+        continuationParamsJson: clearContinuation
+            ? ''
+            : continuationParamsJson ?? this.continuationParamsJson,
+        continuationWaitScope: clearContinuation
+            ? ''
+            : continuationWaitScope ?? this.continuationWaitScope,
+        pendingRoomMessage: clearPendingRoomMessage
+            ? ''
+            : pendingRoomMessage ?? this.pendingRoomMessage,
+        seenRoomMessageKeys:
+            seenRoomMessageKeys ?? this.seenRoomMessageKeys,
+        ownRoomAliases: ownRoomAliases ?? this.ownRoomAliases,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -216,6 +262,12 @@ class CedarGameSession {
         'invitation_approved': invitationApproved,
         'updated_at': updatedAt.millisecondsSinceEpoch,
         'next_action_at': nextActionAt?.millisecondsSinceEpoch ?? 0,
+        'continuation_action': continuationAction,
+        'continuation_params_json': continuationParamsJson,
+        'continuation_wait_scope': continuationWaitScope,
+        'pending_room_message': pendingRoomMessage,
+        'seen_room_message_keys': seenRoomMessageKeys,
+        'own_room_aliases': ownRoomAliases,
         'events': events.map((item) => item.toJson()).toList(growable: false),
       };
 
@@ -240,6 +292,20 @@ class CedarGameSession {
       ),
       nextActionAt:
           nextMillis <= 0 ? null : DateTime.fromMillisecondsSinceEpoch(nextMillis),
+      continuationAction: json['continuation_action']?.toString() ?? '',
+      continuationParamsJson:
+          json['continuation_params_json']?.toString() ?? '',
+      continuationWaitScope:
+          json['continuation_wait_scope']?.toString() ?? '',
+      pendingRoomMessage: json['pending_room_message']?.toString() ?? '',
+      seenRoomMessageKeys: (json['seen_room_message_keys'] as List?)
+              ?.map((item) => item.toString())
+              .toList(growable: false) ??
+          const <String>[],
+      ownRoomAliases: (json['own_room_aliases'] as List?)
+              ?.map((item) => item.toString())
+              .toList(growable: false) ??
+          const <String>[],
       events: (json['events'] as List?)
               ?.whereType<Map>()
               .map((item) => CedarGameEvent.fromJson(item))
@@ -454,6 +520,8 @@ class CedarToyActivityStore {
   static const sessionSettingKey = 'cedar_toy_activity_session_v1';
   static const stateSettingKey = 'cedar_toy_activity_state_v2';
   static const catalogSettingKey = 'cedar_toy_catalog_v1';
+  static const realtimeDiagnosticsSettingKey =
+      'cedar_toy_realtime_diagnostics_v1';
   static const maxGuidePromptChars = 120000;
   static const maxStoredTextChars = 1024 * 1024;
   static const maxEventSummaryChars = 6000;
@@ -461,6 +529,7 @@ class CedarToyActivityStore {
   static const maxSessions = 8;
   static const maxNotices = 24;
   static const continuationGap = Duration(minutes: 2);
+  static const realtimeContinuationGap = Duration(seconds: 1);
 
   final AppDatabase db;
 
@@ -471,6 +540,11 @@ class CedarToyActivityStore {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           var state = CedarToyActivityState.fromJson(decoded);
+          final repaired = _repairRealtimeState(state);
+          if (repaired != null) {
+            state = repaired;
+            await _saveState(state);
+          }
           final execution = state.execution;
           if (execution != null &&
               DateTime.now().difference(execution.startedAt) >
@@ -526,7 +600,7 @@ class CedarToyActivityStore {
     final state = await loadState();
     if (state.queuedSwitches.isNotEmpty) return Duration.zero;
     final session = state.activeSession;
-    if (session == null || !session.companionCanContinue) return null;
+    if (session == null || !session.needsContinuation) return null;
     final due = session.nextActionAt ?? now;
     return due.isAfter(now) ? due.difference(now) : Duration.zero;
   }
@@ -647,7 +721,7 @@ class CedarToyActivityStore {
   }) async {
     final state = await loadState();
     final session = state.sessions[gameId];
-    if (session == null || !session.companionCanContinue) return;
+    if (session == null || !session.needsContinuation) return;
     final now = DateTime.now();
     await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
@@ -706,17 +780,55 @@ class CedarToyActivityStore {
     required String shareLevel,
     required bool invitationApproved,
     int resumeAfterSeconds = 0,
+    bool roomMessageSent = false,
   }) async {
     var state = await loadState();
     final existing = state.sessions[gameId];
     if (existing == null) throw StateError('cedar_session_missing');
     final now = DateTime.now();
     final viewerUrl = _viewerUrl(outcome) ?? existing.viewerUrl;
+    final rawContinuation = _continuationCall(outcome);
+    final returnedContinuation = rawContinuation == null ||
+            (rawContinuation.game.isNotEmpty &&
+                rawContinuation.game != gameId)
+        ? null
+        : rawContinuation;
+    final roomBatch = _roomMessages(
+      outcome,
+      knownOwnAliases: existing.ownRoomAliases,
+    );
+    final seenRoomMessageKeys = <String>{
+      ...existing.seenRoomMessageKeys,
+      ...roomBatch.messages.map((item) => item.fingerprint),
+    }.toList(growable: false);
+    final previouslySeen = existing.seenRoomMessageKeys.toSet();
+    final newRemoteMessages = roomBatch.messages
+        .where((item) =>
+            !item.fromCompanion && !previouslySeen.contains(item.fingerprint))
+        .toList(growable: false);
+    var pendingRoomMessage =
+        roomMessageSent ? '' : existing.pendingRoomMessage;
+    if (newRemoteMessages.isNotEmpty) {
+      final latest = newRemoteMessages.last;
+      pendingRoomMessage = latest.author.isEmpty
+          ? latest.message
+          : '${latest.author}：${latest.message}';
+    }
     final normalizedActor = const <String>{
       'companion', 'user', 'shared', 'wait', 'finished',
     }.contains(nextActor)
         ? nextActor
         : 'companion';
+    // A wait continuation has current-request scope. If a successful poll
+    // returns a fresh snapshot without another next_call, renew the same
+    // already-authorized read action instead of silently dropping the room
+    // observer. A different write action never inherits it.
+    final continuation = returnedContinuation ??
+        (!outcome.isError &&
+                action == existing.continuationAction &&
+                normalizedActor != 'finished'
+            ? _savedContinuation(existing)
+            : null);
     final phase = switch (normalizedActor) {
       'user' || 'shared' => CedarActivityPhase.waitingUser,
       'wait' => CedarActivityPhase.waitingRemote,
@@ -746,7 +858,14 @@ class CedarToyActivityStore {
     final boundedResumeSeconds = resumeAfterSeconds.clamp(0, 3600).toInt();
     final scheduledWait = normalizedActor == 'wait' && boundedResumeSeconds > 0;
     final shouldContinue = !outcome.isError &&
-        (normalizedActor == 'companion' || scheduledWait);
+        (normalizedActor == 'companion' ||
+            scheduledWait ||
+            continuation != null ||
+            pendingRoomMessage.isNotEmpty);
+    final realtime = mode.requiresInvitation &&
+        (continuation != null ||
+            pendingRoomMessage.isNotEmpty ||
+            normalizedActor == 'companion');
     final next = existing.copyWith(
       mode: mode,
       phase: outcome.isError ? CedarActivityPhase.failed : phase,
@@ -765,9 +884,26 @@ class CedarToyActivityStore {
       nextActionAt: shouldContinue
           ? now.add(scheduledWait
               ? Duration(seconds: boundedResumeSeconds)
-              : continuationGap)
+              : realtime
+                  ? realtimeContinuationGap
+                  : continuationGap)
           : null,
       clearNextActionAt: !shouldContinue,
+      continuationAction: continuation?.action,
+      continuationParamsJson:
+          continuation == null ? null : jsonEncode(continuation.params),
+      continuationWaitScope: continuation?.waitScope,
+      clearContinuation: continuation == null,
+      pendingRoomMessage: pendingRoomMessage,
+      clearPendingRoomMessage: pendingRoomMessage.isEmpty,
+      seenRoomMessageKeys: seenRoomMessageKeys.length <= 64
+          ? seenRoomMessageKeys
+          : seenRoomMessageKeys.sublist(seenRoomMessageKeys.length - 64),
+      ownRoomAliases: roomBatch.ownAliases.length <= 24
+          ? roomBatch.ownAliases.toList(growable: false)
+          : roomBatch.ownAliases.skip(roomBatch.ownAliases.length - 24).toList(
+                growable: false,
+              ),
       events: _append(existing.events, event),
     );
     state = state.copyWith(
@@ -823,8 +959,22 @@ class CedarToyActivityStore {
         CedarActivityPhase.completed => '本局已经结束',
         _ => '',
       },
-      nextActionAt: restoredPhase == CedarActivityPhase.active ? now : null,
-      clearNextActionAt: restoredPhase != CedarActivityPhase.active,
+      nextActionAt: restoredPhase == CedarActivityPhase.active ||
+              (existing.mode.requiresInvitation &&
+                  existing.hasContinuationCall &&
+                  const <CedarActivityPhase>{
+                    CedarActivityPhase.waitingUser,
+                    CedarActivityPhase.waitingRemote,
+                  }.contains(restoredPhase))
+          ? now
+          : null,
+      clearNextActionAt: restoredPhase != CedarActivityPhase.active &&
+          !(existing.mode.requiresInvitation &&
+              existing.hasContinuationCall &&
+              const <CedarActivityPhase>{
+                CedarActivityPhase.waitingUser,
+                CedarActivityPhase.waitingRemote,
+              }.contains(restoredPhase)),
       updatedAt: now,
     );
     await _saveState(state.copyWith(
@@ -837,6 +987,15 @@ class CedarToyActivityStore {
   Future<void> clear() async {
     await db.setSetting(stateSettingKey, '');
     await db.setSetting(sessionSettingKey, '');
+    await db.setSetting(
+      realtimeDiagnosticsSettingKey,
+      jsonEncode(const <String, Object?>{
+        'activeSession': false,
+        'roomMessageBodiesIncluded': false,
+        'continuationParamsIncluded': false,
+        'roomIdentityIncluded': false,
+      }),
+    );
   }
 
   Future<void> save(CedarGameSession session) async {
@@ -863,6 +1022,9 @@ mode=${session.mode.key}
 phase=${session.phase.key}
 next_actor=${session.nextActor}
 invitation_approved=${session.invitationApproved}
+continuation_action=${session.continuationAction}
+continuation_params=${session.continuationParamsJson}
+pending_room_message=${session.pendingRoomMessage}
 last_action=${session.lastAction}
 last_outcome=${session.lastOutcome}
 viewer_url=${session.viewerUrl}
@@ -880,6 +1042,107 @@ ${session.guide}
     final active = state.activeSession;
     await db.setSetting(sessionSettingKey,
         active == null ? '' : jsonEncode(active.toJson()));
+    // Keep diagnostics useful without copying room ids, continuation params,
+    // outcomes, or message bodies into the redacted report path.
+    await db.setSetting(
+      realtimeDiagnosticsSettingKey,
+      jsonEncode(<String, Object?>{
+        'activeSession': active != null,
+        'phase': active?.phase.key ?? 'none',
+        'mode': active?.mode.key ?? 'none',
+        'nextActor': active?.nextActor ?? 'none',
+        'lastAction': active?.lastAction ?? 'none',
+        'continuationPending': active?.hasContinuationCall ?? false,
+        'continuationIsLongPoll':
+            active != null && active.continuationWaitScope.trim().isNotEmpty,
+        'pendingRoomMessage': active?.hasPendingRoomMessage ?? false,
+        'seenRoomMessageCount': active?.seenRoomMessageKeys.length ?? 0,
+        'ownAliasCount': active?.ownRoomAliases.length ?? 0,
+        'roomMessageBodiesIncluded': false,
+        'continuationParamsIncluded': false,
+        'roomIdentityIncluded': false,
+      }),
+    );
+  }
+
+  CedarToyActivityState? _repairRealtimeState(CedarToyActivityState state) {
+    var changed = false;
+    final now = DateTime.now();
+    final sessions = Map<String, CedarGameSession>.from(state.sessions);
+    for (final entry in state.sessions.entries) {
+      final session = entry.value;
+      if (!session.mode.requiresInvitation ||
+          !session.invitationApproved ||
+          !session.continuable ||
+          session.phase == CedarActivityPhase.paused ||
+          session.lastOutcome.trim().isEmpty) {
+        continue;
+      }
+      final actor = McpTurnStateResolver.resolve(session.lastOutcome);
+      final rawContinuation = McpContinuationCallResolver.resolve(
+        session.lastOutcome,
+      );
+      final continuation = rawContinuation == null ||
+              (rawContinuation.game.isNotEmpty &&
+                  rawContinuation.game != session.gameId)
+          ? null
+          : rawContinuation;
+      final roomBatch = McpRoomMessageResolver.resolve(
+        session.lastOutcome,
+        knownOwnAliases: session.ownRoomAliases,
+      );
+      final previouslySeen = session.seenRoomMessageKeys.toSet();
+      final newMessages = roomBatch.messages
+          .where((item) =>
+              !item.fromCompanion && !previouslySeen.contains(item.fingerprint))
+          .toList(growable: false);
+      final nextActor = actor?.nextActor ?? session.nextActor;
+      final nextPhase = switch (nextActor) {
+        'user' || 'shared' => CedarActivityPhase.waitingUser,
+        'wait' => CedarActivityPhase.waitingRemote,
+        'finished' => CedarActivityPhase.completed,
+        _ => CedarActivityPhase.active,
+      };
+      final shouldWake = nextActor == 'companion' || continuation != null;
+      final seen = <String>{
+        ...session.seenRoomMessageKeys,
+        ...roomBatch.messages.map((item) => item.fingerprint),
+      }.toList(growable: false);
+      final pending = newMessages.isEmpty
+          ? session.pendingRoomMessage
+          : newMessages.last.author.isEmpty
+              ? newMessages.last.message
+              : '${newMessages.last.author}：${newMessages.last.message}';
+      final needsRepair = nextActor != session.nextActor ||
+          nextPhase != session.phase ||
+          (continuation != null && !session.hasContinuationCall) ||
+          newMessages.isNotEmpty ||
+          roomBatch.ownAliases.length != session.ownRoomAliases.length;
+      if (!needsRepair) continue;
+      changed = true;
+      sessions[entry.key] = session.copyWith(
+        nextActor: nextActor,
+        phase: nextPhase,
+        waitingReason: switch (nextPhase) {
+          CedarActivityPhase.waitingUser => '等待你参与下一步',
+          CedarActivityPhase.waitingRemote => '等待游戏允许继续',
+          CedarActivityPhase.completed => '本局已经结束',
+          _ => '',
+        },
+        continuationAction: continuation?.action,
+        continuationParamsJson:
+            continuation == null ? null : jsonEncode(continuation.params),
+        continuationWaitScope: continuation?.waitScope,
+        pendingRoomMessage: pending,
+        seenRoomMessageKeys:
+            seen.length <= 64 ? seen : seen.sublist(seen.length - 64),
+        ownRoomAliases: roomBatch.ownAliases.toList(growable: false),
+        nextActionAt: shouldWake ? now : session.nextActionAt,
+        updatedAt: now,
+      );
+    }
+    if (!changed) return null;
+    return state.copyWith(sessions: sessions, updatedAt: now);
   }
 
   CedarToyActivityState _withExtractedNotices(
@@ -965,6 +1228,69 @@ ${session.guide}
 
   static String _bounded(String value, int limit) =>
       value.length <= limit ? value : '${value.substring(0, limit)}…';
+
+  static McpContinuationCall? _continuationCall(McpToolOutcome outcome) {
+    final structured = McpContinuationCallResolver.resolveStructured(
+      outcome.structuredContent,
+    );
+    if (structured != null) return structured;
+    for (final block in outcome.content) {
+      if (block.kind != McpContentKind.text || block.text.trim().isEmpty) {
+        continue;
+      }
+      final resolved = McpContinuationCallResolver.resolve(block.text);
+      if (resolved != null) return resolved;
+    }
+    return null;
+  }
+
+  static McpContinuationCall? _savedContinuation(CedarGameSession session) {
+    if (!session.hasContinuationCall) return null;
+    try {
+      final decoded = jsonDecode(session.continuationParamsJson);
+      if (decoded is! Map) return null;
+      return McpContinuationCall(
+        game: session.gameId,
+        action: session.continuationAction,
+        params: decoded.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+        waitScope: session.continuationWaitScope,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static McpRoomMessageBatch _roomMessages(
+    McpToolOutcome outcome, {
+    Iterable<String> knownOwnAliases = const <String>[],
+  }) {
+    var aliases = knownOwnAliases.toSet();
+    final messages = <McpRoomMessageSignal>[];
+    final seen = <String>{};
+    void merge(McpRoomMessageBatch batch) {
+      aliases = <String>{...aliases, ...batch.ownAliases};
+      for (final message in batch.messages) {
+        if (seen.add(message.fingerprint)) messages.add(message);
+      }
+    }
+
+    merge(McpRoomMessageResolver.resolveStructured(
+      outcome.structuredContent,
+      knownOwnAliases: aliases,
+    ));
+    for (final block in outcome.content) {
+      if (block.kind != McpContentKind.text || block.text.trim().isEmpty) {
+        continue;
+      }
+      merge(McpRoomMessageResolver.resolve(
+        block.text,
+        knownOwnAliases: aliases,
+      ));
+    }
+    return McpRoomMessageBatch(messages: messages, ownAliases: aliases);
+  }
 
   static String? _viewerUrl(McpToolOutcome outcome) {
     final candidates = <String>[

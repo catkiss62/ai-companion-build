@@ -10,6 +10,46 @@ class McpTurnStateResolution {
   final String reason;
 }
 
+class McpContinuationCall {
+  const McpContinuationCall({
+    required this.action,
+    required this.params,
+    this.game = '',
+    this.waitScope = '',
+  });
+
+  final String game;
+  final String action;
+  final Map<String, Object?> params;
+  final String waitScope;
+
+  bool get isLongPoll => params['wait'] == true;
+}
+
+class McpRoomMessageSignal {
+  const McpRoomMessageSignal({
+    required this.fingerprint,
+    required this.author,
+    required this.message,
+    required this.fromCompanion,
+  });
+
+  final String fingerprint;
+  final String author;
+  final String message;
+  final bool fromCompanion;
+}
+
+class McpRoomMessageBatch {
+  const McpRoomMessageBatch({
+    required this.messages,
+    required this.ownAliases,
+  });
+
+  final List<McpRoomMessageSignal> messages;
+  final Set<String> ownAliases;
+}
+
 /// Extracts high-confidence turn ownership from common structured MCP
 /// outcomes. It deliberately returns null for ambiguity so an LLM may still
 /// interpret free-form or server-specific results without overriding explicit
@@ -52,16 +92,8 @@ class McpTurnStateResolver {
 
   static McpTurnStateResolution? resolveStructured(Object? decoded) {
     if (decoded is! Map) return null;
+    final candidates = _structuredMaps(decoded);
     final root = _stringMap(decoded);
-    final candidates = <Map<String, Object?>>[root];
-    for (final key in const <String>['snapshot', 'state', 'data', 'result']) {
-      final value = root[key];
-      if (value is Map) candidates.insert(0, _stringMap(value));
-    }
-    final rooms = root['rooms'];
-    if (rooms is List && rooms.length == 1 && rooms.single is Map) {
-      candidates.insert(0, _stringMap(rooms.single as Map));
-    }
 
     for (final map in candidates) {
       final status = _label(map['status']);
@@ -165,7 +197,14 @@ class McpTurnStateResolver {
   }
 
   static String? _participantSide(Map<String, Object?> value) {
-    for (final key in const <String>['role', 'kind', 'type', 'actor_type']) {
+    for (final key in const <String>[
+      'role',
+      'kind',
+      'type',
+      'actor_type',
+      'participant_kind',
+      'controller',
+    ]) {
       final normalized = _normalizeActor(value[key]);
       if (normalized != null) return normalized;
     }
@@ -237,4 +276,164 @@ class McpTurnStateResolver {
     }
     return null;
   }
+}
+
+/// Reads the server-provided continuation instruction without inventing an
+/// action. Callers must still validate the action against the complete guide
+/// and pass it through the ordinary MCP executor/lease gates.
+class McpContinuationCallResolver {
+  const McpContinuationCallResolver._();
+
+  static McpContinuationCall? resolve(String raw) =>
+      resolveStructured(McpTurnStateResolver._decodeLeadingJson(raw));
+
+  static McpContinuationCall? resolveStructured(Object? decoded) {
+    if (decoded is! Map) return null;
+    for (final candidate in _structuredMaps(decoded)) {
+      final rawCall = candidate['next_call'];
+      if (rawCall is! Map) continue;
+      final call = McpTurnStateResolver._stringMap(rawCall);
+      final action = _identifier(call['action']);
+      if (action.isEmpty) continue;
+      final rawParams = call['params'];
+      if (rawParams != null && rawParams is! Map) continue;
+      return McpContinuationCall(
+        game: _identifier(call['game']),
+        action: action,
+        params: rawParams is Map
+            ? McpTurnStateResolver._stringMap(rawParams)
+            : const <String, Object?>{},
+        waitScope: candidate['wait_scope']?.toString().trim() ?? '',
+      );
+    }
+    return null;
+  }
+
+  static String _identifier(Object? raw) {
+    final value = raw?.toString().trim() ?? '';
+    return RegExp(r'^[A-Za-z0-9_.:-]{1,80}$').hasMatch(value) ? value : '';
+  }
+}
+
+/// Extracts public room chat events and stable own-participant aliases from
+/// common structured MCP outcomes. It never reads a web page or hidden state.
+class McpRoomMessageResolver {
+  const McpRoomMessageResolver._();
+
+  static McpRoomMessageBatch resolve(
+    String raw, {
+    Iterable<String> knownOwnAliases = const <String>[],
+  }) =>
+      resolveStructured(
+        McpTurnStateResolver._decodeLeadingJson(raw),
+        knownOwnAliases: knownOwnAliases,
+      );
+
+  static McpRoomMessageBatch resolveStructured(
+    Object? decoded, {
+    Iterable<String> knownOwnAliases = const <String>[],
+  }) {
+    final ownAliases = <String>{
+      for (final alias in knownOwnAliases)
+        if (_alias(alias).isNotEmpty) _alias(alias),
+    };
+    if (decoded is! Map) {
+      return McpRoomMessageBatch(
+        messages: const <McpRoomMessageSignal>[],
+        ownAliases: ownAliases,
+      );
+    }
+    final candidates = _structuredMaps(decoded);
+    for (final candidate in candidates) {
+      final participants = candidate['participants'];
+      if (participants is! List) continue;
+      for (final rawParticipant in participants) {
+        if (rawParticipant is! Map) continue;
+        final participant = McpTurnStateResolver._stringMap(rawParticipant);
+        if (McpTurnStateResolver._participantSide(participant) != 'companion') {
+          continue;
+        }
+        ownAliases.addAll(_identityAliases(participant));
+      }
+    }
+
+    final messages = <McpRoomMessageSignal>[];
+    final emitted = <String>{};
+    for (final candidate in candidates) {
+      final events = candidate['events'];
+      if (events is! List) continue;
+      for (final rawEvent in events) {
+        if (rawEvent is! Map) continue;
+        final event = McpTurnStateResolver._stringMap(rawEvent);
+        final message = event['message']?.toString().trim() ?? '';
+        if (message.isEmpty) continue;
+        final fingerprint = _fingerprint(event);
+        if (!emitted.add(fingerprint)) continue;
+        final eventAliases = _identityAliases(event);
+        final fromCompanion =
+            McpTurnStateResolver._participantSide(event) == 'companion' ||
+                eventAliases.any(ownAliases.contains);
+        final author = (event['name'] ??
+                event['display_name'] ??
+                event['author'] ??
+                event['player_id'] ??
+                '')
+            .toString()
+            .trim();
+        messages.add(McpRoomMessageSignal(
+          fingerprint: fingerprint,
+          author: author.length <= 120 ? author : author.substring(0, 120),
+          message: message.length <= 1000 ? message : message.substring(0, 1000),
+          fromCompanion: fromCompanion,
+        ));
+      }
+    }
+    return McpRoomMessageBatch(messages: messages, ownAliases: ownAliases);
+  }
+
+  static Set<String> _identityAliases(Map<String, Object?> value) => <String>{
+        for (final key in const <String>[
+          'player_id',
+          'participant_id',
+          'id',
+          'name',
+          'display_name',
+        ])
+          if (_alias(value[key]).isNotEmpty) _alias(value[key]),
+      };
+
+  static String _alias(Object? raw) => raw?.toString().trim().toLowerCase() ?? '';
+
+  static String _fingerprint(Map<String, Object?> event) {
+    final source = jsonEncode(event);
+    var hash = 0x811c9dc5;
+    for (final unit in source.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return 'room-${hash.toRadixString(16)}';
+  }
+}
+
+List<Map<String, Object?>> _structuredMaps(Object? value, [int depth = 0]) {
+  if (value is! Map || depth > 4) return const <Map<String, Object?>>[];
+  final map = McpTurnStateResolver._stringMap(value);
+  final result = <Map<String, Object?>>[];
+  for (final key in const <String>[
+    'snapshot',
+    'state',
+    'data',
+    'result',
+    'room',
+  ]) {
+    result.addAll(_structuredMaps(map[key], depth + 1));
+  }
+  final rooms = map['rooms'];
+  if (rooms is List) {
+    for (final room in rooms.take(8)) {
+      result.addAll(_structuredMaps(room, depth + 1));
+    }
+  }
+  result.add(map);
+  return result;
 }

@@ -554,7 +554,15 @@ class AgentToolRunner {
         shareLevel: verification.shareLevel,
         invitationApproved: invitationApproved,
         resumeAfterSeconds: verification.resumeAfterSeconds,
+        roomMessageSent:
+            (params['message']?.toString().trim().isNotEmpty ?? false),
       );
+      try {
+        await android.wakeBackgroundBrain(reason: 'cedar_session_updated');
+      } catch (_) {
+        // The durable continuation clock remains authoritative if the native
+        // wake hint is temporarily unavailable.
+      }
     } finally {
       await activityStore.finishExecution();
       await db.releaseLocalLease('cedar_toy_action_lease_until');
@@ -570,6 +578,11 @@ class AgentToolRunner {
       outcome: outcome,
       attachments: attachments,
       verifiedNextActor: verifiedNextActor,
+      submittedArguments: <String, Object?>{
+        'game': game,
+        'action': action,
+        'params': params,
+      },
     );
   }
 
@@ -706,6 +719,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     required McpToolOutcome outcome,
     List<MessageAttachment> attachments = const <MessageAttachment>[],
     String verifiedNextActor = '',
+    Map<String, Object?> submittedArguments = const <String, Object?>{},
   }) {
     final safe = CedarToyClient.redactSecrets(outcome.text.toString());
     if (outcome.isError == true) {
@@ -732,6 +746,8 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       displayText: '已取得 Cedar Toy 真实$action结果',
       promptData: <String>[
         '【Cedar Toy 真实 $action Outcome】',
+        if (submittedArguments.isNotEmpty)
+          '【本机已实际提交的参数·仅用于最终事实核对】${jsonEncode(submittedArguments)}',
         _boundedCedar(safe),
         if (verifiedNextActor == 'companion')
           '【结构化回合状态】现在仍轮到你（AI 伴侣）；若用户目标尚未完成，应在本轮继续调用指南允许的下一步，不要停成等待用户。',
@@ -746,6 +762,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       attachments: attachments,
       terminalCommitPending: attachments.isNotEmpty,
       continuationRecommended: verifiedNextActor == 'companion',
+      submittedArguments: submittedArguments,
     );
   }
 

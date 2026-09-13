@@ -83,6 +83,7 @@ class AgentToolResult {
     this.mediaUsageKeys = const <String>[],
     this.terminalCommitPending = false,
     this.continuationRecommended = false,
+    this.submittedArguments = const <String, Object?>{},
   });
 
   final String toolId;
@@ -103,6 +104,9 @@ class AgentToolResult {
   /// still belongs to the companion. This may keep the current planning loop
   /// open; it never expands the global round/call budget.
   final bool continuationRecommended;
+  /// Sanitized arguments that actually crossed the executor boundary. These
+  /// are final-expression grounding facts, never permission to replay a call.
+  final Map<String, Object?> submittedArguments;
 
   bool get succeeded => status == AgentToolStatus.succeeded;
 }

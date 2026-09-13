@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/mcp/cedar_toy_activity.dart';
+import '../../core/mcp/cedar_toy_client.dart';
 import '../../core/platform/android_bridge.dart';
 
 /// Optional presentation shell for Cedar Toy activity state. The MCP runner
@@ -27,6 +28,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   CedarGameSession? _session;
   String _viewingGameId = '';
   bool _loading = true;
+  String _roomProviderNotice = '';
   bool _minimized = false;
   Offset _offset = const Offset(16, 72);
   double _width = 350;
@@ -50,6 +52,9 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
 
   Future<void> _refresh() async {
     final state = await store.loadState();
+    final roomProviderNotice = await AppDatabase.instance
+            .getSetting('cedar_room_last_final_provider_notice') ??
+        '';
     final selected = state.sessions[_viewingGameId] ?? state.activeSession;
     if (!mounted) return;
     setState(() {
@@ -57,6 +62,7 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
       _session = selected;
       _viewingGameId = selected?.gameId ?? '';
       _loading = false;
+      _roomProviderNotice = roomProviderNotice;
     });
   }
 
@@ -277,6 +283,18 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           const SizedBox(height: 8),
           Text(session.waitingReason),
         ],
+        if (session.companionCanObserve) ...[
+          const SizedBox(height: 8),
+          const Text('已挂等房间事件；你在网页落子或发言后，她会自动接收。'),
+        ],
+        if (session.pendingRoomMessage.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('待回复房间消息：${session.pendingRoomMessage}'),
+        ],
+        if (_roomProviderNotice.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(_roomProviderNotice),
+        ],
         if (session.lastOutcome.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text('最近进展', style: Theme.of(context).textTheme.labelLarge),
@@ -300,10 +318,16 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             label: const Text('打开游戏返回的查看页'),
           ),
         ],
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () => AndroidBridge.instance
+              .openExternalHttpsUrl(CedarToyClient.baseUrl),
+          icon: const Icon(Icons.sports_esports_rounded),
+          label: const Text('打开 Cedar 官方游戏厅'),
+        ),
         if (state?.activeGameId == session.gameId &&
             session.phase.continuable &&
-            session.phase != CedarActivityPhase.awaitingInvitation &&
-            session.phase != CedarActivityPhase.waitingUser) ...[
+            session.phase != CedarActivityPhase.awaitingInvitation) ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () => _togglePaused(session),

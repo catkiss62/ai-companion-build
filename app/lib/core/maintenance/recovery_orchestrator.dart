@@ -124,6 +124,8 @@ class RecoveryOrchestrator {
         cedarDelay = const Duration(seconds: 30);
       } else if (cedarContinuationState == 'immersive_chat_page_visible') {
         cedarDelay = const Duration(minutes: 2);
+      } else if (cedarContinuationState == 'observe_failed') {
+        cedarDelay = const Duration(seconds: 5);
       } else if (cedarContinuationState == 'failed' ||
           cedarContinuationState.endsWith('failed') ||
           cedarContinuationState == 'queued_game_not_in_catalog') {
@@ -139,6 +141,9 @@ class RecoveryOrchestrator {
         'queued_guide_ready',
         'guide_too_long',
         'invitation_staged',
+        'remote_event_companion_turn',
+        'remote_room_message',
+        'remote_wait_renewed',
       }.contains(cedarContinuationState);
       final scheduledHeartbeatDue = await _heartbeatIsDue(now);
       final reactiveHeartbeatDue = await _reactiveHeartbeatIsDue(
@@ -193,6 +198,7 @@ class RecoveryOrchestrator {
       if (cedarContinuationState != 'user_chat' &&
           cedarContinuationState != 'action_in_progress' &&
           cedarContinuationState != 'immersive_chat_page_visible' &&
+          cedarContinuationState != 'observe_failed' &&
           cedarContinuationState != 'failed' &&
           !cedarContinuationState.endsWith('failed') &&
           cedarContinuationState != 'queued_game_not_in_catalog') {
