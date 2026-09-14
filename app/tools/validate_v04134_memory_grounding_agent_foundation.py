@@ -33,7 +33,7 @@ album_engine = read("app/lib/core/phone/companion_album_discovery_engine.dart")
 chat = read("app/lib/features/chat/chat_controller.dart")
 self_reader = read("app/lib/core/agent/agent_self_reader.dart")
 workflow = read(".github/workflows/build-apk.yml")
-ledger = read("AI_Companion_当前总账.md")
+ledger = read("app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 
 assert "version: 0.41.34+173" in pubspec
 assert "static const int schemaVersion = 47;" in database

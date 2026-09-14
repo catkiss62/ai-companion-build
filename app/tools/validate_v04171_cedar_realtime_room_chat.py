@@ -16,9 +16,9 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f'{path}: missing {missing}'
 
 
-require('pubspec.yaml', 'version: 0.41.74+218')
-require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.74+218'")
-require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.74+218 schema=61')
+require('pubspec.yaml', 'version: 0.41.75+219')
+require('lib/core/agent/agent_self_reader.dart', "buildLabel = 'v0.41.75+219'")
+require('test/agent_self_reader_v0416_test.dart', 'build=v0.41.75+219 schema=61')
 require(
     'lib/core/mcp/mcp_turn_state_resolver.dart',
     "'room'",
@@ -112,12 +112,12 @@ require(
 )
 require(
     '.github/workflows/build-apk.yml',
-    'agent/v04174-cedar-game-hall-protocol',
-    'AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK',
+    'agent/v04175-cedar-room-handoff-ledger-v2',
+    'AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK',
     'validate_v04171_cedar_realtime_room_chat.py',
 )
 require(
-    'AI_Companion_当前总账.md',
+    'docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md',
     'v0.41.70+214 Cedar 实时共玩与房间对话真机失败取证',
     'https://toy.cedarstar.org/',
 )

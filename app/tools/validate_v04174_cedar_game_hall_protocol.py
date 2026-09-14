@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.74+218")
+require("pubspec.yaml", "version: 0.41.75+219")
 require(
     "lib/core/mcp/cedar_game_protocol.dart",
     "class CedarCatalogParser",
@@ -107,12 +107,12 @@ for game in (
 
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04174-cedar-game-hall-protocol",
-    "AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK",
+    "agent/v04175-cedar-room-handoff-ledger-v2",
+    "AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK",
     "validate_v04174_cedar_game_hall_protocol.py",
 )
 require(
-    "AI_Companion_当前总账.md",
+    "docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md",
     "v0.41.74+218 Cedar 游戏厅全量协议审计与一次性适配",
     "20 个公开小游戏仓库",
 )

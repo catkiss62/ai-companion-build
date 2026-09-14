@@ -30,7 +30,7 @@ overlay = read(
 planner = read("app/lib/core/agent/agent_tool_planner.dart")
 self_reader = read("app/lib/core/agent/agent_self_reader.dart")
 workflow = read(".github/workflows/build-apk.yml")
-ledger = read("AI_Companion_当前总账.md")
+ledger = read("app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 
 assert "version: 0.41.35+174" in pubspec
 assert "static const int schemaVersion = 48;" in database

@@ -83,7 +83,7 @@ require(
     'validate_v04169_cedar_game_switching.py',
 )
 require(
-    'AI_Companion_当前总账.md',
+    'docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md',
     'v0.41.69+213',
     '旧钓鱼',
     '后台续步',

@@ -80,7 +80,7 @@ for token in (
 ):
     assert token in workflow, token
 
-ledger = read("../AI_Companion_当前总账.md")
+ledger = read("docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 for token in (
     "v0.41.58+202 共享媒体备份",
     "1758ee687435922a43df7872c5e660e601754ea30cc248e38f84cd4480ac9812",

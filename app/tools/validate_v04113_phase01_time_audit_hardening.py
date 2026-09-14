@@ -30,7 +30,7 @@ grounding_tests = read(APP / "test/grounding_snapshot_test.dart")
 perspective_tests = read(APP / "test/user_perspective_guard_test.dart")
 docs = read(APP / "docs/PHASE01_TIME_AUDIT_HARDENING_v0.41.13.md")
 doc_map = read(APP / "docs/DOCUMENTATION_MAP.md")
-ledger = read(ROOT / "AI_Companion_当前总账.md")
+ledger = read(ROOT / "app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (

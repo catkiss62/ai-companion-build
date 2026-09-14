@@ -312,7 +312,6 @@ class DurableGenerationRunner {
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
       final cedarActivityStore = CedarToyActivityStore(db);
-      await cedarActivityStore.rememberUserAdvice(user.content);
       var cedarState = await cedarActivityStore.loadState();
       var cedarSession = cedarState.activeSession;
       var cedarCatalog = await cedarActivityStore.loadCatalog();
@@ -320,12 +319,34 @@ class DurableGenerationRunner {
         user.content,
         cedarCatalog,
       );
+      final mentionsCatalogGame = CedarToyActivityStore.catalogMentionsGame(
+        user.content,
+        cedarCatalog,
+      );
+      final blindPlayRequested =
+          CedarToyArcadeSkill.requestsBlindPlay(user.content) ||
+          (mentionsCatalogGame &&
+              CedarToyArcadeSkill.requestsExternalGameKnowledge(user.content));
+      if (!mentionsCatalogGame) {
+        await cedarActivityStore.rememberUserAdvice(user.content);
+        cedarState = await cedarActivityStore.loadState();
+        cedarSession = cedarState.activeSession;
+      }
       final immediateCedarEntry =
           CedarToyActivityStore.requestsImmediateGameEntry(user.content);
       final cedarConfigured =
           (await db.getSetting('cedar_toy_enabled')) != '0' &&
           ((await secureConfig.readCedarToyToken())?.trim().isNotEmpty ?? false);
       var localPlan = AgentToolPlanner.routeLocally(user.content);
+      if (blindPlayRequested &&
+          (localPlan?.calls.any((call) => const <String>{
+                    'public_web.search',
+                    'image.find_and_save',
+                    'image.web_send',
+                  }.contains(call.toolId)) ??
+              false)) {
+        localPlan = null;
+      }
 
       Future<void> runLocalPlan(AgentToolPlan plan) async {
         // Deterministic local routing is one planning stage even when an empty
@@ -361,55 +382,7 @@ class DurableGenerationRunner {
         cedarCatalog = await cedarActivityStore.loadCatalog();
       }
 
-      var deterministicCatalogBootstrap = false;
-      // A named catalog game is an unambiguous read-only request. Resolve its
-      // real guide deterministically so the model cannot silently choose zero
-      // Cedar calls and merely promise to enter. With no cached catalog, first
-      // fetch the real list, then resolve and read the named target guide.
-      if (localPlan == null && cedarConfigured && immediateCedarEntry) {
-        if (explicitCedarGameId.isNotEmpty &&
-            (cedarState.activeGameId != explicitCedarGameId ||
-                cedarState.sessions[explicitCedarGameId]?.guideComplete !=
-                    true)) {
-          localPlan = AgentToolPlan(calls: <AgentToolCall>[
-            AgentToolCall(
-              toolId: AgentToolRegistry.cedarToyGetGuide.id,
-              arguments: <String, String>{'game': explicitCedarGameId},
-              reasonTag: 'explicit_game_mention',
-            ),
-          ]);
-        } else if (cedarCatalog.isEmpty &&
-            CedarToyArcadeSkill.isRelevant(user.content)) {
-          deterministicCatalogBootstrap = true;
-          localPlan = AgentToolPlan(calls: <AgentToolCall>[
-            AgentToolCall(
-              toolId: AgentToolRegistry.cedarToyListGames.id,
-              arguments: const <String, String>{},
-              reasonTag: 'explicit_arcade_catalog',
-            ),
-          ]);
-        }
-      }
       if (localPlan != null) await runLocalPlan(localPlan);
-
-      if (deterministicCatalogBootstrap) {
-        explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
-          user.content,
-          cedarCatalog,
-        );
-        if (explicitCedarGameId.isNotEmpty &&
-            (cedarState.activeGameId != explicitCedarGameId ||
-                cedarState.sessions[explicitCedarGameId]?.guideComplete !=
-                    true)) {
-          await runLocalPlan(AgentToolPlan(calls: <AgentToolCall>[
-            AgentToolCall(
-              toolId: AgentToolRegistry.cedarToyGetGuide.id,
-              arguments: <String, String>{'game': explicitCedarGameId},
-              reasonTag: 'explicit_game_mention_after_catalog',
-            ),
-          ]));
-        }
-      }
       // Legacy special-style snapshots stay in the schema only for backup
       // compatibility. New ordinary-chat roleplay provenance comes from the
       // prompt's world-book context.
@@ -427,6 +400,7 @@ class DurableGenerationRunner {
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive) &&
           cedarConfigured;
+      var cedarInstructionsInjected = cedarSkillActive;
       final cedarPromptSession = cedarSession;
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
@@ -809,28 +783,46 @@ class DurableGenerationRunner {
       }
 
       Set<String> cedarStageToolIds() {
-        if (!cedarSkillActive) return const <String>{};
-        final listed = cedarCatalog.isNotEmpty || agentToolResults.any((result) =>
-            result.toolId == AgentToolRegistry.cedarToyListGames.id &&
-            result.status == AgentToolStatus.succeeded);
-        final guided = cedarSession?.guideComplete == true || agentToolResults.any((result) =>
-            result.toolId == AgentToolRegistry.cedarToyGetGuide.id &&
-            result.status == AgentToolStatus.succeeded);
-        final explicitTargetAlreadyGuided = explicitCedarGameId.isNotEmpty &&
-            cedarSession?.gameId == explicitCedarGameId &&
-            cedarSession?.guideComplete == true;
-        return <String>{
-          if (cedarSession != null)
-            AgentToolRegistry.cedarToyManageActivity.id,
-          if (!listed) AgentToolRegistry.cedarToyListGames.id,
-          if (listed &&
-              (!guided ||
-                  (cedarExplicitRequest && !explicitTargetAlreadyGuided) ||
-                  cedarState.queuedSwitches.isNotEmpty))
-            AgentToolRegistry.cedarToyGetGuide.id,
-          if (guided) AgentToolRegistry.cedarToyPlay.id,
-        };
+        if (!cedarConfigured) return const <String>{};
+        final engaged = cedarSkillActive || agentToolResults.any(
+          (result) => result.toolId.startsWith('cedar_toy.'),
+        );
+        return engaged
+            ? CedarToyArcadeSkill.engagedToolIds
+            : CedarToyArcadeSkill.gatewayToolIds;
       }
+
+      bool cedarLoopEngaged() => cedarSkillActive || agentToolResults.any(
+            (result) => result.toolId.startsWith('cedar_toy.'),
+          );
+
+      bool cedarBlindPlay() => blindPlayRequested ||
+          agentToolResults.any(
+            (result) => result.toolId.startsWith('cedar_toy.'),
+          );
+
+      int planningRoundLimit() => cedarLoopEngaged()
+          ? CedarToyArcadeSkill.maxPlanningRounds
+          : AgentTaskLoopPolicy.maxPlanningRounds;
+
+      int toolCallLimit() => cedarLoopEngaged()
+          ? CedarToyArcadeSkill.maxToolCalls
+          : AgentTaskLoopPolicy.maxToolCalls;
+
+      int allowedTaskCalls() => AgentTaskLoopPolicy.allowedCalls(
+            planningRounds: agentPlanningRounds,
+            toolCalls: agentToolCalls,
+            planningRoundLimit: planningRoundLimit(),
+            toolCallLimit: toolCallLimit(),
+          );
+
+      String taskPlanningInstruction() =>
+          AgentTaskLoopPolicy.planningInstruction(
+            completedPlanningRounds: agentPlanningRounds,
+            completedToolCalls: agentToolCalls,
+            planningRoundLimit: planningRoundLimit(),
+            toolCallLimit: toolCallLimit(),
+          );
 
       List<Map<String, Object?>> currentTaskToolDefinitions() =>
           // Historical validator compatibility:
@@ -838,6 +830,7 @@ class DurableGenerationRunner {
           AgentToolPlanner.nativeToolDefinitionsFor(
             user.content,
             cedarStageToolIds: cedarStageToolIds(),
+            cedarBlindPlay: cedarBlindPlay(),
           );
 
       var taskToolDefinitions = currentTaskToolDefinitions();
@@ -889,20 +882,13 @@ $finalGenerationReminder
               AgentTaskLoopPolicy.hasCommitPendingMedia(agentToolResults));
       var toolsOpen = taskToolDefinitions.isNotEmpty &&
           !localPlanClosesLoop &&
-          AgentTaskLoopPolicy.allowedCalls(
-                planningRounds: agentPlanningRounds,
-                toolCalls: agentToolCalls,
-              ) >
-              0;
+          allowedTaskCalls() > 0;
       var finalRequestMessages = toolsOpen
           ? <Map<String, Object?>>[
               ...baseRequestMessages,
               <String, Object?>{
                 'role': 'system',
-                'content': AgentTaskLoopPolicy.planningInstruction(
-                  completedPlanningRounds: agentPlanningRounds,
-                  completedToolCalls: agentToolCalls,
-                ),
+                'content': taskPlanningInstruction(),
               },
             ]
           : localPlan == null
@@ -925,34 +911,6 @@ $finalGenerationReminder
       }
       cancellationToken?.throwIfCancelled();
 
-      final explicitCedarTargetReady = immediateCedarEntry &&
-          explicitCedarGameId.isNotEmpty &&
-          cedarState.activeGameId == explicitCedarGameId &&
-          cedarState.sessions[explicitCedarGameId]?.guideComplete == true;
-      if (toolsOpen &&
-          generated.toolCalls.isEmpty &&
-          explicitCedarTargetReady &&
-          AgentTaskLoopPolicy.allowedCalls(
-                planningRounds: agentPlanningRounds,
-                toolCalls: agentToolCalls,
-              ) >
-              0) {
-        finalRequestMessages = <Map<String, Object?>>[
-          ...finalRequestMessages,
-          <String, Object?>{
-            'role': 'system',
-            'content': '''【明确游戏请求·零调用重试】
-目标游戏 $explicitCedarGameId 的真实指南已就绪，但上一次规划没有调用任何工具。用户明确要求实际进入/游玩，不得只口头答应。若指南存在当前可执行的创建、加入、同步、开局或查询动作，现在调用 cedar_toy_play；只有指南确实缺少必需的用户选择或参数时，才改为自然地询问，且不得声称已执行。''',
-          },
-        ];
-        agentPlanningRounds++;
-        generated = await generateInternal(
-          finalRequestMessages,
-          tools: taskToolDefinitions,
-        );
-        cancellationToken?.throwIfCancelled();
-      }
-
       // DeepSeek owns every tool-planning and Outcome-verification pass, never
       // the final prose in Gemini mode. Cedar MCP transport itself is not a
       // model call. A
@@ -971,6 +929,8 @@ $finalGenerationReminder
         final callsAllowed = AgentTaskLoopPolicy.allowedCalls(
           planningRounds: agentPlanningRounds - 1,
           toolCalls: agentToolCalls,
+          planningRoundLimit: planningRoundLimit(),
+          toolCallLimit: toolCallLimit(),
         );
         if (callsAllowed <= 0) {
           agentLoopBudgetExhausted = true;
@@ -991,7 +951,8 @@ $finalGenerationReminder
         final nativePlan = AgentToolPlanner.fromNativeToolCalls(
           generated.toolCalls,
           latestUserText: user.content,
-          cedarSessionActive: cedarSkillActive,
+          cedarSessionActive: cedarLoopEngaged(),
+          cedarBlindPlay: cedarBlindPlay(),
           maxCalls: callsAllowed,
           excludedCallFingerprints: executedToolFingerprints,
         );
@@ -1041,6 +1002,18 @@ $finalGenerationReminder
         preparedAgentMediaUsageKeys.addAll(
           roundResults.expand((result) => result.mediaUsageKeys),
         );
+        final cedarRound = roundResults.any(
+          (result) => result.toolId.startsWith('cedar_toy.'),
+        );
+        if (cedarRound) {
+          cedarState = await cedarActivityStore.loadState();
+          cedarSession = cedarState.activeSession;
+          cedarCatalog = await cedarActivityStore.loadCatalog();
+          explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
+            user.content,
+            cedarCatalog,
+          );
+        }
         cancellationToken?.throwIfCancelled();
 
         final assistantToolMessage = <String, Object?>{
@@ -1060,11 +1033,26 @@ $finalGenerationReminder
               'content': roundResults[index].promptData,
             },
         ];
+        final injectCedarInstructions =
+            cedarRound && !cedarInstructionsInjected;
         final history = <Map<String, Object?>>[
           ...finalRequestMessages,
           assistantToolMessage,
           ...toolResultMessages,
+          if (injectCedarInstructions)
+            <String, Object?>{
+              'role': 'system',
+              'content': <String>[
+                CedarToyArcadeSkill.prompt,
+                if (cedarSession?.guideComplete == true)
+                  cedarActivityStore.promptContext(
+                    cedarSession!,
+                    state: cedarState,
+                  ),
+              ].join('\n\n'),
+            },
         ];
+        if (injectCedarInstructions) cedarInstructionsInjected = true;
         final proposalExecuted = AgentTaskLoopPolicy.containsProposal(
           nativePlan,
         );
@@ -1077,8 +1065,8 @@ $finalGenerationReminder
               !result.continuationRecommended,
         );
         final loopLimitReached =
-            agentPlanningRounds >= AgentTaskLoopPolicy.maxPlanningRounds ||
-                agentToolCalls >= AgentTaskLoopPolicy.maxToolCalls;
+            agentPlanningRounds >= planningRoundLimit() ||
+                agentToolCalls >= toolCallLimit();
         final shouldFinalize = (proposalExecuted && !verifiedContinuation) ||
             cedarTurnHandedOff ||
             AgentTaskLoopPolicy.hasCommitPendingMedia(roundResults) ||
@@ -1103,10 +1091,7 @@ $finalGenerationReminder
           ...history,
           <String, Object?>{
             'role': 'system',
-            'content': AgentTaskLoopPolicy.planningInstruction(
-              completedPlanningRounds: agentPlanningRounds,
-              completedToolCalls: agentToolCalls,
-            ),
+            'content': taskPlanningInstruction(),
           },
         ];
         agentPlanningRounds++;

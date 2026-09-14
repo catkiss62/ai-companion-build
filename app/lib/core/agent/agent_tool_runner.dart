@@ -480,9 +480,10 @@ class AgentToolRunner {
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyGetGuide.id);
     final outcome = await client.getGuide(game, cancellationToken: cancellationToken);
     if (!outcome.isError && outcome.text.trim().isNotEmpty) {
+      final playerGuide = CedarToyClient.playerSafeGuideOutcome(outcome);
       final session = await activityStore.recordGuide(
         gameId: game,
-        guide: CedarToyClient.redactSecrets(outcome.text),
+        guide: playerGuide,
       );
       if (!session.guideComplete) {
         return const AgentToolResult(
@@ -493,13 +494,13 @@ class AgentToolRunner {
           errorCode: 'cedar_guide_too_long',
         );
       }
-      _cedarGuidesByScopeAndGame['$scope|$game'] =
-          CedarToyClient.redactSecrets(outcome.text);
+      _cedarGuidesByScopeAndGame['$scope|$game'] = playerGuide;
     }
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyGetGuide.id,
       action: '游戏指南',
       outcome: outcome,
+      playerGuide: true,
     );
   }
 
@@ -819,8 +820,11 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     List<MessageAttachment> attachments = const <MessageAttachment>[],
     String verifiedNextActor = '',
     Map<String, Object?> submittedArguments = const <String, Object?>{},
+    bool playerGuide = false,
   }) {
-    final safe = CedarToyClient.redactSecrets(outcome.text.toString());
+    final safe = playerGuide
+        ? CedarToyClient.playerSafeGuideOutcome(outcome)
+        : CedarToyClient.redactSecrets(outcome.text.toString());
     if (outcome.isError == true) {
       return AgentToolResult(
         toolId: toolId,
@@ -860,7 +864,9 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
       resultCount: 1,
       attachments: attachments,
       terminalCommitPending: attachments.isNotEmpty,
-      continuationRecommended: verifiedNextActor == 'companion',
+      continuationRecommended: verifiedNextActor == 'companion' ||
+          (verifiedNextActor != 'finished' &&
+              CedarPlatformActionPolicy.continuesPlanning(action)),
       submittedArguments: submittedArguments,
     );
   }

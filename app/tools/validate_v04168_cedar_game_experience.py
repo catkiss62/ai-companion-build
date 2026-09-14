@@ -104,7 +104,7 @@ assert (
     or "AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK" in workflow
 )
 require(
-    "AI_Companion_当前总账.md",
+    "docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md",
     "v0.41.68+212",
     "游戏厅活动窗",
     "沉浸房间聊天页面",

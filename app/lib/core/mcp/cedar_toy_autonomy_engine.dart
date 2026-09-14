@@ -116,7 +116,7 @@ class CedarToyAutonomyEngine {
       }
       final recorded = await store.recordGuide(
         gameId: queued.targetGameId,
-        guide: CedarToyClient.redactSecrets(guideOutcome.text),
+        guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
       );
       return CedarAutonomyProgress(
         recorded.guideComplete ? 'queued_guide_ready' : 'guide_too_long',
@@ -207,7 +207,7 @@ $catalog''',
       final recorded = await store.recordGuide(
         gameId: game,
         gameTitle: picked['title']?.toString().trim() ?? '',
-        guide: CedarToyClient.redactSecrets(guideOutcome.text),
+        guide: CedarToyClient.playerSafeGuideOutcome(guideOutcome),
       );
       return CedarAutonomyProgress(
         recorded.guideComplete ? 'guide_ready' : 'guide_too_long',

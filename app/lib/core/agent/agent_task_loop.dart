@@ -65,11 +65,13 @@ class AgentTaskLoopPolicy {
   static int allowedCalls({
     required int planningRounds,
     required int toolCalls,
+    int planningRoundLimit = maxPlanningRounds,
+    int toolCallLimit = maxToolCalls,
   }) {
-    if (planningRounds >= maxPlanningRounds || toolCalls >= maxToolCalls) {
+    if (planningRounds >= planningRoundLimit || toolCalls >= toolCallLimit) {
       return 0;
     }
-    final remaining = maxToolCalls - toolCalls;
+    final remaining = toolCallLimit - toolCalls;
     return remaining < maxCallsPerRound ? remaining : maxCallsPerRound;
   }
 
@@ -94,11 +96,13 @@ class AgentTaskLoopPolicy {
   static String planningInstruction({
     required int completedPlanningRounds,
     required int completedToolCalls,
+    int planningRoundLimit = maxPlanningRounds,
+    int toolCallLimit = maxToolCalls,
   }) {
     final nextRound = completedPlanningRounds + 1;
-    final remainingCalls = maxToolCalls - completedToolCalls;
+    final remainingCalls = toolCallLimit - completedToolCalls;
     return '''
-【Agent v2 有界任务循环 · 第 $nextRound/$maxPlanningRounds 个规划回合】
+【Agent v2 有界任务循环 · 第 $nextRound/$planningRoundLimit 个规划回合】
 先根据用户原始目标与已有真实工具结果判断：目标已获支持就直接形成最终回答；只有还缺一个可验证步骤时才调用工具。本回合最多选择 $maxCallsPerRound 个彼此必要且不重复的工具，整轮还剩最多 $remainingCalls 次真实调用。
 no_result、failed、blocked 不是成功；可以据此改用当前最小工具集合里的另一条合理路径，但不得原样重试同一工具和参数。写入、保存、发送等操作仍必须来自用户原始消息的明确意图；屏幕观察不会提供给模型选择。不要输出计划、参数、调用日志或“接下来我将”的工作汇报。
 '''.trim();

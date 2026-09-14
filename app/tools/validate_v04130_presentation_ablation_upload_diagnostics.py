@@ -31,7 +31,7 @@ preflight = read("app/lib/core/diagnostics/preflight_diagnostics.dart")
 personality_page = read("app/lib/features/self/personality_appearance_page.dart")
 moe_default = read("app/lib/core/integration/moe_expression_default_policy.dart")
 workflow = read(".github/workflows/build-apk.yml")
-ledger = read("AI_Companion_当前总账.md")
+ledger = read("app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 
 assert any(
     version in pubspec

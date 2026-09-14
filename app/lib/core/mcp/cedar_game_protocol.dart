@@ -86,6 +86,19 @@ class CedarPlatformActionPolicy {
         'announcements',
       }.contains(action);
 
+  /// Discovery reads normally need one more planning decision in the same
+  /// user goal. Passive state/status/observe polls are deliberately excluded:
+  /// their next timing and actor come from the service response instead.
+  static bool continuesPlanning(String action) => const <String>{
+        'rooms',
+        'actions',
+        'catalog',
+        'help',
+        'look',
+        'inventory',
+        'announcements',
+      }.contains(action);
+
   static bool isRemoteExit(String action) => const <String>{
         'leave',
         'resign',

@@ -1,6 +1,15 @@
 class CedarToyArcadeSkill {
   const CedarToyArcadeSkill._();
 
+  static const maxPlanningRounds = 6;
+  static const maxToolCalls = 10;
+  static const gatewayToolIds = <String>{'cedar_toy.list_games'};
+  static const engagedToolIds = <String>{
+    'cedar_toy.list_games',
+    'cedar_toy.get_guide',
+    'cedar_toy.play',
+  };
+
   // Historical contract label: Cedar Toy 游戏厅 · 行为 Skill
 
   static bool isRelevant(String text) => RegExp(
@@ -8,9 +17,29 @@ class CedarToyArcadeSkill {
         caseSensitive: false,
       ).hasMatch(text);
 
+  /// This is a safety boundary, not a game router. It only prevents a play
+  /// request from being satisfied through web/source/strategy research; the
+  /// model still decides whether and how to use Cedar from its live catalog.
+  static bool requestsBlindPlay(String text) => RegExp(
+        r'(陪.{0,8}(玩|下棋|打牌)|一起.{0,8}(玩|下棋|打牌)|'
+        r'(玩|开).{0,8}(一把|一局|游戏)|下.{0,8}(棋|五子棋|围棋|象棋)|'
+        r'(五子棋|围棋|象棋|棋牌|纸牌|卡牌).{0,10}(玩|下|来|陪)|'
+        r'(进入|开始|继续|加入).{0,10}(游戏|对局|房间)|'
+        r'(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理).{0,14}(攻略|答案|谜底|剧透|源码|github|仓库)|'
+        r'(攻略|答案|谜底|剧透|源码|github|仓库).{0,14}(游戏|双弈|五子棋|围棋|象棋|棋牌|文字推理)|'
+        r'play.{0,16}(game|chess|cards?)|game.{0,16}(play|with me))',
+        caseSensitive: false,
+      ).hasMatch(text);
+
+  static bool requestsExternalGameKnowledge(String text) => RegExp(
+        r'(攻略|通关|答案|谜底|剧透|源码|源代码|github|gitlab|gitee|仓库|'
+        r'walkthrough|solution|answer\s*key|source\s*code|repository)',
+        caseSensitive: false,
+      ).hasMatch(text);
+
   static const prompt = '''【Cedar Toy 游戏厅 · 活动 Skill】
 Cedar Toy 是经 MCP 访问的真实远端游戏厅，不是语言模型。“游戏厅”与“Cedar Toy 游戏厅”都能触发；已有未结束活动时，也可根据用户的自然续话继续。
-先调用 list_games；全部已返回的游戏都可选择。选定的 game 必须来自真实列表，再调用 get_guide；指南是盲玩的唯一规则来源，不打开 GitHub 剧透。必须完整读到指南后，才可使用其中真实出现的 action 与参数调用 play；指南过长或不完整就停下，不靠截断内容猜。不得编造游戏、动作、胜负、分数、画面、存档或经历。
+先调用 list_games；全部已返回的游戏都可选择。选定的 game 必须来自真实列表，再调用 get_guide。运行时只可使用 Cedar 的玩家接口、当前聊天和正常游玩可见 Outcome；get_guide 仅用于读取规则与动作协议，不授权查看 GitHub/其他源码、后台隐藏状态、题库答案、人类攻略、通关提示或外部网页。即使用户要求搜攻略，也要说明这是盲玩并继续依据玩家可见信息。指南过长或不完整就停下，不靠截断内容猜。必须完整读到玩家指南后，才可使用其中真实出现的 action 与参数调用 play；不得编造游戏、动作、胜负、分数、画面、存档或经历。
 平台 play schema 另行统一授权 `rest / announcements / vote`，不要求每个游戏指南重复列出。真实防沉迷提示或锁定时可以调用 rest；是否允许小机自行重置由 Cedar 网站的人类开关裁决，APK 不另设禁止。游戏自己的每日次数、剧情阶段或冷却仍按该游戏指南与 Outcome，不把平台 rest 当作绕过游戏原生规则。
 根据完整指南判断 participation_mode。solo 可由她自己一步步玩；co_play、multiplayer 必须有明确的双方参与许可；hybrid 可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。用户主动建房邀请她、给出房间信息，或明确接受她的邀请，都已经构成许可；不得把用户的邀请颠倒成她邀请用户再等同意。真实 Outcome 若表示轮到用户，就把原文必要部分和选项自然交给用户；若结构化 Outcome 明确表示轮到她且用户目标尚未完成，本轮应继续调用下一步。文字叙述不是实时屏幕，不得称作“画面”；只有 MCP 真正返回图片内容块时才可发图。
 `next_call` 是服务端给出的下一次观察方式，不是永远重复的动作。观察结果出现 your_turn=true、can_act/action_required 或非空 legal_actions/legal_moves/available_actions 后，必须转入真实动作规划，不再重复同一个 state/status/observe。相同只读状态不得空转刷请求。

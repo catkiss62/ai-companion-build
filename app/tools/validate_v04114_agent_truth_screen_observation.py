@@ -42,7 +42,7 @@ overlay = read(
 accessibility_config = read(APP / "android/app/src/main/res/xml/accessibility_service_config.xml")
 docs = read(APP / "docs/AGENT_OPERATION_TRUTH_SCREEN_OBSERVATION_v0.41.14.md")
 doc_map = read(APP / "docs/DOCUMENTATION_MAP.md")
-ledger = read(ROOT / "AI_Companion_当前总账.md")
+ledger = read(ROOT / "app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
 assert any(version in pubspec for version in (

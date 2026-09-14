@@ -141,7 +141,7 @@ contains(
     "validate_v04167_cedar_toy_mcp.py",
 )
 contains(
-    "AI_Companion_当前总账.md",
+    "docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md",
     "模型/API 调用双通道永久合同",
     "同一对话轮必须先收齐 Prompt、工具 Outcome 与内部判断",
     "Cedar MCP 网络请求本身不是模型调用",

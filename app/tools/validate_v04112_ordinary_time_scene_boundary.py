@@ -20,7 +20,7 @@ immersive = read(APP / "lib/core/immersive/immersive_prompt_builder.dart")
 tests = read(APP / "test/grounding_snapshot_test.dart")
 docs = read(APP / "docs/ORDINARY_TIME_SCENE_BOUNDARY_v0.41.12.md")
 doc_map = read(APP / "docs/DOCUMENTATION_MAP.md")
-ledger = read(ROOT / "AI_Companion_当前总账.md")
+ledger = read(ROOT / "app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 workflow = read(ROOT / ".github/workflows/build-apk.yml")
 
 assert any(

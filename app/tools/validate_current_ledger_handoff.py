@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the compact active-task handoff without rewriting preserved history."""
+"""Validate the small canonical ledger and immutable historical archive."""
 
 from __future__ import annotations
 
@@ -10,19 +10,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / "AI_Companion_当前总账.md"
+ARCHIVE = (
+    ROOT
+    / "app"
+    / "docs"
+    / "ledger"
+    / "archive"
+    / "AI_Companion_总账归档_截至_v0.41.74+218.md"
+)
 PUBSPEC = ROOT / "app" / "pubspec.yaml"
 DATABASE = ROOT / "app" / "lib" / "core" / "database" / "app_database.dart"
 DOCUMENTATION_MAP = ROOT / "app" / "docs" / "DOCUMENTATION_MAP.md"
 
-HANDOFF_STOP_MARKER = "## 近期详细记录与全局索引（按需检索）"
-ARCHIVE_MARKER = "## 历史工作记录（原文保留，按需检索）"
-ARCHIVE_START = (
-    "## 0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA. "
-    "2026-08-31 · v0.41.5"
-)
-ARCHIVE_SHA256 = "26f61cedb39bdd72387fd620e4b1457fc1c16cca34810a85dd398ae5fff4de22"
-ARCHIVE_LEVEL_2_COUNT = 109
-ARCHIVE_LEVEL_3_COUNT = 413
+ARCHIVE_SHA256 = "602c712f0fb06e70c054c2d54fe0e280f312923864040a3a177ee8e7da67ed70"
+ARCHIVE_BYTES = 1_587_679
 
 
 def require(condition: bool, message: str) -> None:
@@ -31,204 +32,103 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> None:
-    ledger = LEDGER.read_text(encoding="utf-8")
+    ledger_bytes = LEDGER.read_bytes()
+    archive_bytes = ARCHIVE.read_bytes()
+    ledger = ledger_bytes.decode("utf-8")
+    archive = archive_bytes.decode("utf-8")
+
     require(
         ledger.startswith("# AI Companion · 当前总账\n"),
-        "ledger is not the expected UTF-8 Markdown document",
+        "current ledger is not the canonical UTF-8 Markdown document",
     )
+    require(len(ledger_bytes) <= 100_000, "current ledger exceeded 100 KB")
     require(
         "\x00" not in ledger and "\ufffd" not in ledger,
-        "ledger contains binary or replacement characters",
+        "current ledger contains binary or replacement characters",
     )
     require(
-        len(re.findall(rf"^{re.escape(HANDOFF_STOP_MARKER)}$", ledger, re.MULTILINE))
-        == 1,
-        "compact handoff stop heading contract changed",
+        len(archive_bytes) == ARCHIVE_BYTES,
+        "frozen ledger archive byte count changed",
     )
     require(
-        len(re.findall(rf"^{re.escape(ARCHIVE_MARKER)}$", ledger, re.MULTILINE)) == 1,
-        "archive heading contract changed",
+        hashlib.sha256(archive_bytes).hexdigest() == ARCHIVE_SHA256,
+        "frozen ledger archive was modified",
     )
-    handoff_end = ledger.index("\n" + HANDOFF_STOP_MARKER + "\n")
-    archive_marker_index = ledger.index("\n" + ARCHIVE_MARKER + "\n", handoff_end)
-    current = ledger[:handoff_end]
-    archive_start = ledger.index(ARCHIVE_START, archive_marker_index)
-    archive = ledger[archive_start:]
-
     require(
-        len(current.encode("utf-8")) <= 50_000,
-        "compact handoff exceeded 50 KB; move detailed process below the stop marker",
+        archive.startswith("# AI Companion · 当前总账\n"),
+        "frozen archive is not the expected historical ledger",
     )
 
-    require(
-        hashlib.sha256(archive.encode("utf-8")).hexdigest() == ARCHIVE_SHA256,
-        "preserved ledger archive was modified; add current records above the marker",
-    )
-    require(
-        len(re.findall(r"^## ", archive, flags=re.MULTILINE))
-        == ARCHIVE_LEVEL_2_COUNT,
-        "preserved level-2 section count changed",
-    )
-    require(
-        len(re.findall(r"^### ", archive, flags=re.MULTILINE))
-        == ARCHIVE_LEVEL_3_COUNT,
-        "preserved level-3 section count changed",
-    )
-
-    required_sections = (
-        "### 1. 接班与减负读取协议",
-        "### 2. 当前唯一有效基线",
-        "### 3. 当前下一步任务包（新窗口必须完整接住）",
-        "### 4. 当前任务完成后的后续导航（只导航，不提前展开）",
-    )
-    for section in required_sections:
-        require(section in current, f"missing compact handoff section: {section}")
-
-    required_detailed_sections = (
-        "### 3. 当前模块状态总表",
-        "### 4. 当前任务总表",
-        "### 5. 永久不可变边界与高频踩坑",
-        "### 7. 按模块回读历史的导航表",
-        "### 8. 历史档案覆盖说明",
-        "### 9. 2026-08-31 · 总账减负交接层",
-        "### 16. 2026-09-01 · v0.41.10 人格学习证据归因热修",
-        "### 18. 2026-09-01 · v0.41.13 Phase 0+1 审查与时间加固",
-        "### 19. 2026-09-01 · v0.41.14 Agent 操作事实真实性与用户单次屏幕观察",
-        "### 20. 2026-09-02 · Self-Drive、欲望数值与自主联网成长审计",
-        "### 23. 2026-09-02 · v0.41.17 聊天文字与心情图真机热修",
-        "### 24. 2026-09-02 · v0.41.18 总设置信息架构与保存语义",
-        "### 25. 2026-09-02 · 当前任务包与后续导航二次减负",
-        "### 26. 2026-09-02 · 约 10 小时自然数据的 Phase 2A 审查",
-        "### 27. 2026-09-02 · v0.41.19 Phase 2A 运行稳定化",
-        "### 28. 2026-09-02 · Phase 2A.5 对话主动权与自我驱动表达",
-        "### 29. 2026-09-02 · Phase 2A.5 决策权消融与终态真值稳定化",
-        "### 30. 2026-09-03 · 激进核心底色、纯对白与造梗表达重构",
-        "### 31. 2026-09-03 · 活人感消融、直接反馈与清晨 Gate 窄修",
-        "### 32. 2026-09-03 · 可见思考即时内心化",
-    )
-    for section in required_detailed_sections:
-        require(section in ledger[handoff_end:], f"missing detailed ledger section: {section}")
-
-    required_current_facts = (
-        "总账双层同步强制规则（每次正式修改前后都必须执行）",
-        "只更新其中一层视为总账未完成",
-        "agent/v04174-cedar-game-hall-protocol",
-        "0.41.74+218",
-        "模型/API 调用双通道永久合同",
-        "Cedar MCP 网络请求本身不是模型调用",
+    required_current = (
+        "总账 v2",
+        "唯一的当前接班入口",
+        "v0.41.75+219",
+        "agent/v04175-cedar-room-handoff-ledger-v2",
         "schema 61",
-        "玩游 Key",
-        "沉浸房间",
         "Snapshot protocol 6",
-        "造梗来源",
-        "D6",
-        "Phase 2B",
-        "App 内 Agent 能力桥",
-        "Memory 2D",
-        "fact_state / attention_state / recall_policy",
-        "spontaneous_salience",
-        "reminiscence/identity",
-        "Skills",
-        "MCP",
-        "【检查系统】",
-        "中断灰显",
-        "Token 命中/缓存优化",
-        "Phase 3",
-        "Harness",
-        "screen_observation.inspect",
-        "Genie-TTS",
+        "模型/API 双通道",
+        "Cedar 信任优先",
+        "Cedar 盲玩隔离",
+        "模型自主发现",
+        "陪我下五子棋",
+        "playerSafeGuide",
+        "public_web.search",
+        "allow_self_reset",
+        "IMPLEMENTED LOCALLY",
+        "CI PENDING",
+        "TRUE DEVICE PENDING",
+        "全工具调用动作展示",
+        str(ARCHIVE.relative_to(ROOT)),
+        ARCHIVE_SHA256,
     )
-    for fact in required_current_facts:
-        require(fact in current, f"missing active-task handoff fact: {fact}")
-    current_statuses = (
-        "IMPLEMENTATION IN PROGRESS",
-        "IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
-        "IMPLEMENTED / LOCAL STATIC PASSED / CI PENDING / TRUE DEVICE PENDING",
-        "IMPLEMENTED / LOCAL STATIC PASSED / PUSH BLOCKED / CI PENDING / TRUE DEVICE PENDING",
-        "DESIGNED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING",
-        "DESIGNED / IMPLEMENTATION PENDING",
-        "IMPLEMENTED / LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
-        "IMPLEMENTED / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
-        "IMPLEMENTED / LOCAL SOURCE VALIDATION PASSED / CI PENDING",
-        "LOCAL VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING",
-        "CI TEST CONTRACT FIX IN PROGRESS / TRUE DEVICE PENDING",
-        "CI FIX IN PROGRESS / TRUE DEVICE PENDING",
-        "CI PASSED / APK READY / TRUE DEVICE PENDING",
-        "TRUE DEVICE PARTIAL",
-        "DESIGNED / IMPLEMENTING",
-        "TRUE DEVICE PASSED / CLOSED",
-        "DESIGN CURRENT",
-        "IN PROGRESS",
-        "IMPLEMENTED LOCALLY / CI PENDING",
-    )
-    require(
-        any(status in current for status in current_statuses),
-        "missing recognized current handoff status",
-    )
+    for fact in required_current:
+        require(fact in ledger, f"missing current ledger fact: {fact}")
 
-    required_ledger_facts = (
-        "agent/v0416-agent-self-facts",
-        "agent/v0417-forthright-fiery-personality",
-        "agent/v0418-personality-trial-strength-hotfix",
-        "agent/v0415-ledger-handoff-index",
-        "agent/v0415-personality-state-diversity",
-        "494796ef02e369f98e6896bc5acea7185e3c35dd",
-        "bc72196a33660a63cc9953b577486e70449856fc",
-        "574e87efecfd9e581ec5ee4b9378267cf0dc5d0b",
+    required_archive = (
+        "总账双层同步强制规则（每次正式修改前后都必须执行）",
+        "v0.41.74+218 Cedar 游戏厅全量协议审计与一次性适配",
+        "v0.41.73+217 双弈确定性入口与回复完整性热修",
+        "模型/API 调用双通道永久合同",
+        "Desire / Thought / Intent / Gate",
         "0.41.5+144",
         "schema 40",
-        "33386230422",
-        "e127d713dfc9044c2c25f2752836e7b65917863e3d0c192fb62896c5ed9943c6",
         "NOT_IMPLEMENTED",
         "SUPERSEDED",
-        "System Facts / Recent Outcomes",
-        "mcp.invoke executable=false",
-        "偶尔多出一个 `「`",
     )
-    for fact in required_ledger_facts:
-        require(fact in ledger, f"missing detailed ledger fact: {fact}")
+    for fact in required_archive:
+        require(fact in archive, f"missing frozen history fact: {fact}")
 
-    for history_range in (
-        "v0.41.5～v0.41.0",
-        "v0.40.9～v0.40.0",
-        "v0.39.9～v0.39.0",
-        "v0.38.18～v0.38.5",
-        "v0.38.4～v0.37.0",
-        "v0.36.x～v0.35.7",
-        "旧编号 0～10.19",
-    ):
-        require(history_range in ledger, f"missing history coverage range: {history_range}")
-
-    documentation_map = DOCUMENTATION_MAP.read_text(encoding="utf-8")
-    require(
-        "读到“近期详细记录与全局索引”标记即停" in documentation_map,
-        "documentation map still points at the old full-history stop marker",
-    )
-
-    pubspec = PUBSPEC.read_text(encoding="utf-8")
-    database = DATABASE.read_text(encoding="utf-8")
     require(
         re.search(
-            r"^version:\s*(?:0\.41\.62\+206|0\.41\.63\+207|0\.41\.64\+208|0\.41\.65\+209|0\.41\.66\+210|0\.41\.67\+211|0\.41\.68\+212|0\.41\.69\+213|0\.41\.70\+214|0\.41\.71\+215|0\.41\.72\+216|0\.41\.73\+217|0\.41\.74\+218)\s*$",
-            pubspec,
+            r"^version:\s*0\.41\.75\+219\s*$",
+            PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
         is not None,
-        "pubspec version no longer matches the current development baseline or target",
+        "pubspec does not match current ledger target",
     )
     require(
-        re.search(r"static const int schemaVersion = (?:60|61);", database)
+        re.search(
+            r"static const int schemaVersion = 61;",
+            DATABASE.read_text(encoding="utf-8"),
+        )
         is not None,
-        "database schema no longer matches the current development baseline",
+        "database schema no longer matches current baseline",
+    )
+    documentation_map = DOCUMENTATION_MAP.read_text(encoding="utf-8")
+    require(
+        "AI_Companion_当前总账.md" in documentation_map,
+        "documentation map lost the canonical ledger entry",
+    )
+    require(
+        "AI_Companion_总账归档_截至_v0.41.74+218.md" in documentation_map,
+        "documentation map lost the frozen archive entry",
     )
 
-    print("current ledger active-task handoff: OK")
-    print(f"compact handoff bytes: {len(current.encode('utf-8'))}")
-    print(f"preserved archive sha256: {ARCHIVE_SHA256}")
-    print(
-        "preserved headings: "
-        f"h2={ARCHIVE_LEVEL_2_COUNT}, h3={ARCHIVE_LEVEL_3_COUNT}"
-    )
+    print("current ledger v2 handoff: OK")
+    print(f"current bytes: {len(ledger_bytes)}")
+    print(f"frozen archive bytes: {len(archive_bytes)}")
+    print(f"frozen archive sha256: {ARCHIVE_SHA256}")
 
 
 if __name__ == "__main__":

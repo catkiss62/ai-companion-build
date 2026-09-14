@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../ai/deepseek_client.dart';
+import '../mcp/cedar_toy_arcade_skill.dart';
 import 'agent_task_loop.dart';
 import 'agent_tool.dart';
 import 'agent_tool_registry.dart';
@@ -53,6 +54,7 @@ class AgentToolPlanner {
       ]);
     }
     if (_looksLikeMetaToolTalk(text)) return null;
+    final cedarBlindPlay = CedarToyArcadeSkill.requestsBlindPlay(text);
 
     final pausesCedar = RegExp(
       r'((暂停|暂离|先不玩|先别玩|停一下|歇一下).{0,16}(游戏|下棋|这局|对局|双弈))|'
@@ -93,7 +95,7 @@ class AgentToolPlanner {
       ]);
     }
 
-    if (_isExplicitWebImageSend(text)) {
+    if (!cedarBlindPlay && _isExplicitWebImageSend(text)) {
       return AgentToolPlan(calls: [
         AgentToolCall(
           toolId: AgentToolRegistry.webImageSend.id,
@@ -216,7 +218,7 @@ class AgentToolPlanner {
                     !explicitPhone &&
                     !explicitAttachmentSave)));
 
-    if (explicitWeb && !explicitWebImageSave) {
+    if (!cedarBlindPlay && explicitWeb && !explicitWebImageSave) {
       add(
         AgentToolRegistry.publicWebSearch.id,
         {'query': _bounded(_webQuery(text), 80)},
@@ -281,7 +283,7 @@ class AgentToolPlanner {
     if (explicitAttachmentSave && !explicitWebImageSave) {
       add(AgentToolRegistry.attachmentSave.id, const {});
     }
-    if (explicitWebImageSave) {
+    if (!cedarBlindPlay && explicitWebImageSave) {
       add(
         AgentToolRegistry.imageFindAndSave.id,
         {'query': _bounded(_imageQuery(text), 80)},
@@ -304,6 +306,7 @@ class AgentToolPlanner {
   static List<Map<String, Object?>> nativeToolDefinitionsFor(
     String text, {
     Set<String>? cedarStageToolIds,
+    bool cedarBlindPlay = false,
   }) {
     final toolIds = _routeToolIds(text);
     const cedarIds = <String>{
@@ -316,6 +319,13 @@ class AgentToolPlanner {
       toolIds
         ..removeAll(cedarIds)
         ..addAll(cedarStageToolIds.where(cedarIds.contains));
+    }
+    if (cedarBlindPlay) {
+      toolIds.removeAll(const <String>{
+        'public_web.search',
+        'image.find_and_save',
+        'image.web_send',
+      });
     }
     if (toolIds.isEmpty) return const <Map<String, Object?>>[];
     return AgentToolRegistry.userTurnModelCallable
@@ -332,6 +342,7 @@ class AgentToolPlanner {
     List<DeepSeekToolCall> nativeCalls, {
     String latestUserText = '',
     bool cedarSessionActive = false,
+    bool cedarBlindPlay = false,
     int maxCalls = AgentTaskLoopPolicy.maxCallsPerRound,
     Set<String> excludedCallFingerprints = const <String>{},
   }) {
@@ -360,6 +371,11 @@ class AgentToolPlanner {
       if (definition == null ||
           !definition.executable ||
           !definition.userTurnAvailable ||
+          (cedarBlindPlay && const <String>{
+            'public_web.search',
+            'image.find_and_save',
+            'image.web_send',
+          }.contains(toolId)) ||
           (definition.risk != AgentToolRisk.readOnly &&
               !allowedForCurrentText.contains(toolId)) ||
           seen.contains(toolId)) {
@@ -553,7 +569,7 @@ class AgentToolPlanner {
       'sticker.send' =>
         '只在用户明确要求她发表情包、只回表情包或斗图时调用；成功附件本身就是整条回复，不再附带对白。',
       'cedar_toy.list_games' =>
-        '只在用户本轮明确邀请去 Cedar Toy、游戏厅或一起玩小游戏时调用；必须先取得真实列表，不得猜游戏。',
+        '这是常驻的轻量游戏能力入口。用户用任何自然说法想玩、陪玩、下棋、打牌、经营、探索或询问有没有某种游戏时，由你自己判断并调用；不要求用户知道 Cedar、游戏厅、具体仓库名或目录 ID。普通闲聊且没有游玩意图时不调用。调用后必须从真实列表自行寻找最相关候选，不得猜不存在的游戏。所有游戏发现和游玩必须盲玩，不得改用公开网页、GitHub/其他源码、人类攻略、答案或剧透。',
       'cedar_toy.get_guide' =>
         '只为 cedar_toy_list_games 本轮真实返回的游戏 ID 调用；尚未取得列表时不得调用。',
       'cedar_toy.play' =>

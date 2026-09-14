@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../database/app_database.dart';
 import 'cedar_game_protocol.dart';
+import 'cedar_toy_client.dart';
 import 'mcp_protocol.dart';
 import 'mcp_turn_state_resolver.dart';
 
@@ -478,7 +479,8 @@ class CedarToyActivityState {
   bool get hasUserTurnContinuation {
     final session = activeSession;
     if (session == null || !session.continuable) return false;
-    return session.phase == CedarActivityPhase.awaitingInvitation ||
+    return session.phase == CedarActivityPhase.guideReady ||
+        session.phase == CedarActivityPhase.awaitingInvitation ||
         session.phase == CedarActivityPhase.waitingUser ||
         session.mode.requiresInvitation ||
         (session.mode.supportsSharedParticipation &&
@@ -670,6 +672,11 @@ class CedarToyActivityStore {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           var state = CedarToyActivityState.fromJson(decoded);
+          final guideRepaired = _repairPlayerGuides(state);
+          if (guideRepaired != null) {
+            state = guideRepaired;
+            await _saveState(state);
+          }
           final repaired = _repairRealtimeState(state);
           if (repaired != null) {
             state = repaired;
@@ -1483,6 +1490,21 @@ ${session.guide}
     }
     if (!changed) return null;
     return state.copyWith(sessions: sessions, updatedAt: now);
+  }
+
+  CedarToyActivityState? _repairPlayerGuides(CedarToyActivityState state) {
+    var changed = false;
+    final sessions = <String, CedarGameSession>{};
+    for (final entry in state.sessions.entries) {
+      final safeGuide = CedarToyClient.playerSafeGuide(entry.value.guide);
+      if (safeGuide != entry.value.guide) changed = true;
+      sessions[entry.key] = entry.value.copyWith(guide: safeGuide);
+    }
+    if (!changed) return null;
+    return state.copyWith(
+      sessions: sessions,
+      updatedAt: DateTime.now(),
+    );
   }
 
   CedarToyActivityState? _repairCatalogTitles(

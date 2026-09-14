@@ -1,7 +1,7 @@
 # Historical validator tokens: agent/v04167-cedar-toy-mcp | Build AI Companion v0.41.67+211 APK | AI-Companion-v0.41.67-211-Cedar-Toy-MCP-APK
 # v0.41.69+213 fixes Cedar cross-game switching and committed activity continuation.
 # Historical validator token: AI-Companion-v0.41.69-213-Cedar-Game-Switching-APK
-# v0.41.74+218 completes the Cedar game-hall protocol adapter across lifecycle types.
+# v0.41.75+219 hands natural game discovery to the model under blind-play isolation.
 # Historical v0.41.70 workflow: agent/v04170-agent-mcp-runtime-hardening | AI-Companion-v0.41.70-214-Agent-MCP-Runtime-Hardening-APK
 # Historical v0.38.9 validator compatibility:
 # Build AI Companion v0.38.9+108 APK (Simulated Phone Reference UI)
@@ -379,7 +379,7 @@
 # Historical v0.41.61 workflow: Shuai API Gemini plus immersive-room multilingual projection and thought summaries.
 # Historical v0.41.63 workflow: immersive streaming TTS and settings hardening candidate.
 # Exact source tree is recorded in the ledger after the implementation commit.
-name: Build AI Companion v0.41.74+218 APK (Cedar Game Hall Protocol)
+name: Build AI Companion v0.41.75+219 APK (Cedar Agentic Blind Play)
 
 on:
   push:
@@ -411,7 +411,7 @@ on:
       - agent/v04170-agent-mcp-runtime-hardening
       - agent/v04172-cedar-trust-watch-modes
       - agent/v04173-cedar-deterministic-entry-reply-completion
-      - agent/v04174-cedar-game-hall-protocol
+      - agent/v04175-cedar-room-handoff-ledger-v2
   workflow_dispatch:
   pull_request:
     branches:
@@ -800,7 +800,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f app/pubspec.yaml
-          grep -Fqx 'version: 0.41.74+218' app/pubspec.yaml
+          grep -Fqx 'version: 0.41.75+219' app/pubspec.yaml
           grep -Fqx '  static const int schemaVersion = 61;' app/lib/core/database/app_database.dart
           test -d app/lib
           test -d app/android
@@ -814,7 +814,7 @@ jobs:
           test -f app/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so
           test ! -d app/android/app/src/main/assets/tts_models
           test ! -d app/android/app/src/main/assets/legacy_tts
-          echo 'Building v0.41.74+218 Cedar game-hall protocol candidate.'
+          echo 'Building v0.41.75+219 Cedar agentic blind-play candidate.'
 
       - name: Restore exact 417-file desktop-pet source pack
         working-directory: app
@@ -1004,6 +1004,7 @@ jobs:
           python3 tools/validate_v04172_jiuhu_manual_candidates.py
           python3 tools/validate_v04173_cedar_reply_completion.py
           python3 tools/validate_v04174_cedar_game_hall_protocol.py
+          python3 tools/validate_v04175_cedar_agentic_blind_play.py
 
       - name: Resolve Flutter packages
         working-directory: app
@@ -1327,26 +1328,26 @@ jobs:
           APK='app/build/app/outputs/flutter-apk/app-release.apk'
           sha256sum "$APK" | tee app/app-release.apk.sha256
 
-      - name: Upload v0.41.74+218 APK as workflow artifact
+      - name: Upload v0.41.75+219 APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK
+          name: AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK
           path: |
             app/build/app/outputs/flutter-apk/app-release.apk
             app/app-release.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload v0.41.74+218 APK to draft release
+      - name: Upload v0.41.75+219 APK to draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v0.41.74-cedar-game-hall-protocol-test'
-          APK_NAME='AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK.apk'
+          TAG='v0.41.75-cedar-agentic-blind-play-test'
+          APK_NAME='AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk'
           SHA_NAME="${APK_NAME}.sha256"
-          CI_NAME='AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-CI-Monitor.txt'
+          CI_NAME='AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-CI-Monitor.txt'
           cp app/build/app/outputs/flutter-apk/app-release.apk "app/${APK_NAME}"
           sed "s#app/build/app/outputs/flutter-apk/app-release.apk#${APK_NAME}#" \
             app/app-release.apk.sha256 > "app/${SHA_NAME}"
@@ -1363,13 +1364,13 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.74+218 Cedar game-hall protocol candidate' \
+              --title 'AI Companion v0.41.75+219 Cedar agentic blind-play candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Completes the Cedar game-hall protocol adapter: platform rest/announcements/vote, structured turn ownership and legal actions, bounded observation, local pause/release/resume, live Chinese catalog titles and session panel, bounded game advice, and DeepSeek-only session-local room dialogue. Ordinary chat and immersive-room final providers remain unchanged. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           else
             gh release edit "${TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
-              --title 'AI Companion v0.41.74+218 Cedar game-hall protocol candidate' \
+              --title 'AI Companion v0.41.75+219 Cedar agentic blind-play candidate' \
               --notes 'Unpublished Draft schema-61 candidate. Completes the Cedar game-hall protocol adapter: platform rest/announcements/vote, structured turn ownership and legal actions, bounded observation, local pause/release/resume, live Chinese catalog titles and session panel, bounded game advice, and DeepSeek-only session-local room dialogue. Ordinary chat and immersive-room final providers remain unchanged. Snapshot protocol remains 6. Private packs, credentials, user images, diagnostics, backups and conversation content are not bundled.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"
@@ -1422,8 +1423,8 @@ jobs:
           BUILD_RESULT: ${{ needs.build-apk.result }}
         run: |
           set -uo pipefail
-          TAG='v0.41.74-cedar-game-hall-protocol-test'
-          CI_NAME='AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-CI-Monitor.txt'
+          TAG='v0.41.75-cedar-agentic-blind-play-test'
+          CI_NAME='AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-CI-Monitor.txt'
           REPORT="${RUNNER_TEMP}/${CI_NAME}"
           JOBS_JSON="${RUNNER_TEMP}/jobs.json"
           {
@@ -1464,7 +1465,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --target "${GITHUB_SHA}" \
               --draft \
-              --title 'AI Companion v0.41.74+218 Cedar game-hall protocol candidate' \
+              --title 'AI Companion v0.41.75+219 Cedar agentic blind-play candidate' \
               --notes 'Draft failure diagnostics for the schema-61 Cedar game-hall protocol candidate. It is not a published release; private packs, credentials, user images, captions, diagnostics, backups and conversation content are not included in CI assets.'
           fi
           RELEASE_URL="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json url --jq '.url')"

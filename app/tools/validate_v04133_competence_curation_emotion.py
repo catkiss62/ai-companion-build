@@ -34,7 +34,7 @@ shape_test = read(
     "app/test/conversation_initiative_ablation_telemetry_test.dart"
 )
 workflow = read(".github/workflows/build-apk.yml")
-ledger = read("AI_Companion_当前总账.md")
+ledger = read("app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 
 assert "version: 0.41.33+172" in pubspec
 assert "static const int schemaVersion = 46;" in database

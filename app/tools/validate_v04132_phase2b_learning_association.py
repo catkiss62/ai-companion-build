@@ -32,7 +32,7 @@ grounding_guard = read(
 )
 snapshot = read("app/lib/core/sync/snapshot_service.dart")
 test = read("app/test/phase2b_learning_association_test.dart")
-ledger = read("AI_Companion_当前总账.md")
+ledger = read("app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md")
 workflow = read(".github/workflows/build-apk.yml")
 
 assert "version: 0.41.32+171" in pubspec
