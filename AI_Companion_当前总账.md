@@ -32,15 +32,15 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04179-cedar-runtime-preemption` |
 | 当前目标版本 | `v0.41.79+223 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
 | 当前真机失败基线 | `v0.41.78+222`；Cedar 后台规划连续超时时长时占用恢复器全局写租约，游戏厅显示永久执行，聊天、备份和恢复一起失去响应；04:40 高疲劳仍继续钓鱼 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
 | +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
 | +222 构建提交 | 远端功能提交 `ccbe5bcbe9b3fc65941846f74aa4d95b6be50c7d`；授权提交/head `93fcb2fbbf78be80a5da9724fd6b051956e1ff34`；最终 tree `f167bdf6a16700333a978f5f6b99498fdfec3974` |
-| +223 本地功能提交 | `dd5786f7`；待本总账提交后推送与 Actions |
-| 当前构建产物 | `AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK.apk`；待 Actions 构建与校验 |
+| +223 构建提交 | 远端功能提交 `2217a5021b9175cd612fadd45fa9b68a58b9ea24`；实现总账提交 `54ea75e50501fd27281cc4d985e76dabd8aca7d9`；构建触发 head `c90b60d5d456e5d30512a088592cf94f2ce4478f`；构建 tree `342d431730d6d3f0568b4e2525d8ab9b0e36a7c5` |
+| 当前构建产物 | `AI-Companion-v0.41.79-223-Cedar-Runtime-Preemption-APK.apk`；APK SHA-256 `4ae81e27c5787171649e2dcdadf9c8a298335fc48b8136cda6e97ed2607cae2b` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -62,6 +62,8 @@
 5. 已承诺 session 续步前也进入与 Desire Core 同源的疲劳/休息竞争，叠加本局 Thought 强度和用户是否在观看。例如 04:40、疲劳 0.74、无强烈玩游戏念头时至少延后 45 分钟；进度不删除，真正强烈的念头仍可胜出。
 6. 新固定测试覆盖夜间休息胜出、强 Thought 例外、阻塞 Cedar JSON 立即取消、超时不同轮重试、执行代号序列化与源码跨模块合同。自动化通过后仍为 `TRUE DEVICE PENDING`。
 7. 本地 `git diff --check`、workflow YAML、Python compileall、当前总账门与 +215—+223 Cedar/Stop 专项门通过；Actions 实际列出的 103 个源码门本地通过 100 个。剩余 3 个分别依赖 CI 恢复的 417 文件桌宠资源、LingChat 私有资源和本机不存在的 `kotlinc`；本机同样没有 Flutter/Dart，因此 Analyze、Flutter tests、Kotlin/JVM、arm64 Release 和签名必须由 Actions 证明。
+8. Actions run `34901268674`（run 878）全绿：CI 恢复私有资源后 `103/103` 源码/历史门、Kotlin/JVM、Flutter Analyze、`810/810` Flutter tests、arm64 Release、固定签名、载荷完整性、checksum、Artifact 与 Draft 全部通过。Signer SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+9. Artifact `10370718232`，ZIP digest `b229a85ed25e5a18b41e19f30e5d641278277463b694c6876022a3ae33b107e2`；未发布 Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-b128b3cec07cc4161679`。APK 本体 SHA-256 `4ae81e27c5787171649e2dcdadf9c8a298335fc48b8136cda6e97ed2607cae2b`。当前只到 `CI PASSED / APK READY / TRUE DEVICE PENDING`，不得把自动化通过写成真机故障已经消失。
 
 ## 5. 上一已完成基线：v0.41.78+222 停止与备份互锁
 
@@ -181,8 +183,8 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +222 CI/APK 完成 | 真机复现“正在回复→停止→立即新对话/保存/恢复”，确认旧请求真实退出且无半覆盖，再联合回归 Cedar 网页连续换手 |
-| P1 | 停止与备份互锁真机通过 | 继续验证自行建房、无需 APK 内催促的自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
+| P0 | 安装 +223 Draft APK | 在 Cedar 正在规划时分别关闭两个开关、发普通聊天、保存/恢复备份；确认规划立即退出、无迟到写回且全局系统不再被拖死 |
+| P1 | 运行时抢占真机通过 | 验证 04:40 高疲劳无强 Thought 时休息延后；再验证网页换手后无需 APK 内催促即可连续落子与回复房间消息 |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
 ## 8. 关键文件导航
