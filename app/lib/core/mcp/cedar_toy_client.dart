@@ -58,6 +58,31 @@ class CedarToyClient {
         cancellationToken: cancellationToken,
       );
 
+  /// Reads only the live player-facing `play` tool signature. This is an MCP
+  /// operating contract, not game source or strategy material. It lets the
+  /// model see parameter names that a compact per-game guide may omit.
+  Future<String> getPlayerPlayProtocol({
+    GenerationCancellationToken? cancellationToken,
+  }) async {
+    final tools = await transport.listTools(cancellationToken: cancellationToken);
+    for (final tool in tools) {
+      if (tool.name != 'play') continue;
+      return playerSafePlayProtocol(tool);
+    }
+    return '';
+  }
+
+  static String playerSafePlayProtocol(McpToolDescriptor descriptor) {
+    if (descriptor.name.trim() != 'play') return '';
+    final safe = playerSafeGuide(jsonEncode(<String, Object?>{
+      'name': 'play',
+      'description': descriptor.description,
+      'input_schema': descriptor.inputSchema,
+    }));
+    const hardLimit = 60 * 1024;
+    return safe.length <= hardLimit ? safe : '';
+  }
+
   Future<McpToolOutcome> generateBindingToken({
     GenerationCancellationToken? cancellationToken,
   }) => transport.callTool(

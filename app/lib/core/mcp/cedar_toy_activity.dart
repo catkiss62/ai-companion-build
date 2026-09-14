@@ -559,6 +559,7 @@ class CedarToyActivityStore {
   static const sessionSettingKey = 'cedar_toy_activity_session_v1';
   static const stateSettingKey = 'cedar_toy_activity_state_v2';
   static const catalogSettingKey = 'cedar_toy_catalog_v1';
+  static const playProtocolSettingKey = 'cedar_toy_play_protocol_v2';
   static const realtimeDiagnosticsSettingKey =
       'cedar_toy_realtime_diagnostics_v1';
   static const viewingPaceSettingKey = 'cedar_toy_viewing_pace_v1';
@@ -770,6 +771,15 @@ class CedarToyActivityStore {
       ));
     }
   }
+
+  Future<void> savePlayProtocol(String protocol) async {
+    final clean = CedarToyClient.playerSafeGuide(protocol).trim();
+    if (clean.isEmpty || clean.length > 60 * 1024) return;
+    await db.setSetting(playProtocolSettingKey, clean);
+  }
+
+  Future<String> loadPlayProtocol() async =>
+      (await db.getSetting(playProtocolSettingKey) ?? '').trim();
 
   Future<String> loadCatalog() async =>
       (await db.getSetting(catalogSettingKey) ?? '').trim();
@@ -1329,7 +1339,11 @@ class CedarToyActivityStore {
     ));
   }
 
-  String promptContext(CedarGameSession session, {CedarToyActivityState? state}) {
+  String promptContext(
+    CedarGameSession session, {
+    CedarToyActivityState? state,
+    String playProtocol = '',
+  }) {
     final queued = state?.queuedSwitches.map((item) => item.targetGameId).join(',') ?? '';
     final notices = state?.notices
             .map((item) => '${item.sourceGameId}->${item.targetGameId}:${item.suggestedAction}')
@@ -1362,6 +1376,8 @@ cross_game_notices=$notices
 execution=${execution == null ? '' : '${execution.gameId}:${execution.action}'}
 【完整真实指南 · 只授权 game=${session.gameId}】
 ${session.guide}
+${playProtocol.trim().isEmpty ? '' : '【Cedar 实时玩家操作 schema】\n${playProtocol.trim()}'}
+${CedarPlayerProtocolContract.actionSignaturesFor(session.gameId)}
 【END CEDAR_ACTIVITY_SESSION】
 '''.trim();
   }

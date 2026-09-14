@@ -62,8 +62,8 @@ def main() -> None:
     required_current = (
         "总账 v2",
         "唯一的当前接班入口",
-        "v0.41.75+219",
-        "agent/v04175-cedar-room-handoff-ledger-v2",
+        "v0.41.76+220",
+        "agent/v04176-cedar-protocol-continuation",
         "schema 61",
         "Snapshot protocol 6",
         "模型/API 双通道",
@@ -87,6 +87,10 @@ def main() -> None:
             "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING"
             in ledger
         )
+        or (
+            "TRUE DEVICE EVIDENCE CONFIRMED / IMPLEMENTATION IN PROGRESS / CI PENDING / TRUE DEVICE PENDING"
+            in ledger
+        )
         or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger,
         "current ledger has neither a valid pre-CI nor post-CI status",
     )
@@ -107,7 +111,7 @@ def main() -> None:
 
     require(
         re.search(
-            r"^version:\s*0\.41\.75\+219\s*$",
+            r"^version:\s*0\.41\.76\+220\s*$",
             PUBSPEC.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

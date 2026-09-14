@@ -30,18 +30,47 @@
 | 项目 | 当前事实 |
 |---|---|
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
-| 当前开发分支 | `agent/v04175-cedar-room-handoff-ledger-v2` |
-| 当前目标版本 | `v0.41.75+219 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 当前开发分支 | `agent/v04176-cedar-protocol-continuation` |
+| 当前目标版本 | `v0.41.76+220 / schema 61 / Snapshot protocol 6` |
+| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
 | 上一可安装基线 | `v0.41.74+218`，Actions run `34834400059` 全绿，`789/789` Flutter tests；APK SHA-256 `3a6cb3a64d0e0374799165fe4e23d03e5042c133d5dac7efcf8823b4a3ec2d86` |
 | +218 构建提交 | 远端功能 head `3163aa6cfac80a14414baa8488950557f26a4245`；最终文档 head `b775d76f6366fb64028dbae552c4dd1d387736c4` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
-| 当前构建产物 | `AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk`；SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
+| 上一构建产物 | `AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk`；SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
-## 4. 当前任务：v0.41.75+219 Cedar 模型自主发现、盲玩隔离与总账 v2
+## 4. 当前任务：v0.41.76+220 Cedar 玩家协议与后台连续行动收口
+
+### 新真机证据与根因
+
+- 输入附件：`AI_Companion_Backup_2026-09-14T15-16-48.aibackup`、`ai_companion_diagnostics_2026-09-14T15-16-51-222859Z.txt`，仅用于临时取证，不进入 Git。
+- +219 已明显改善自然发现：用户说“游戏厅的五子棋”后，真实完成 `list_games / get_guide / rooms`；用户建立新房后又真实完成 `rooms / state / move`，revision 从 1 推进到 5。故 Cedar 双弈房间服务与 APK transport 均可工作。
+- 建房仍失败：模型已经判断下一步应调用 `new`，但 Cedar 玩家指南只写“new 开房”，没有给出精确参数签名；模型又误以为工具额度耗尽，结束成对白。远端公开玩家协议显示开房需要 `game_type / mode` 等参数。这是“上游玩家指南不完整 + APK 无调用时过早关环”的组合问题，不是房间服务拒绝。
+- 连续行动仍失败：长轮询已经取得用户的新落子与房间消息，本地状态为 `next_actor=companion / continuation_pending=true / pending_room_message=true`；紧接着后台 `_judge` 收到空 JSON 正文并抛出 `FormatException: Unexpected end of input`。现有单次 JSON 规划不重试，导致行动与房间对白留在队列，只有下一条主聊天消息再次驱动。
+
+### 本批实现边界
+
+1. 不写死房间号、五子棋落点或棋类策略。Cedar `tools/list` 中 `play` 的实时玩家操作 schema 必须经盲玩净化后缓存并与游戏指南一起提供给 DeepSeek；只提供参数签名，不提供 GitHub、源码、人类攻略、答案或隐藏状态。
+2. 若实时 schema 暂时缺少双弈建房签名，允许加入经开发审计确认的最小玩家协议契约（`new` 的参数名/类型），但不得规定开局策略或替模型选择落点。模型仍自行选择游戏、模式和行动。
+3. Cedar 发现结果声明应继续规划、用户目标尚无真实写入 Outcome、且总预算仍充足时，模型无调用不得直接关环；给一次明确剩余预算的内部完成度复核。仍无调用则如实收尾，禁止说“正在建房”。
+4. 后台 Cedar JSON 规划遇空正文、格式不完整或瞬时 429/5xx 时窄重试一次；权限、配置和稳定 4xx 不重试。成功取得对方事件并确认 `next_actor=companion` 后，应在下一 tick 自行规划并落子，不依赖主聊天提醒。
+5. 保持 +219 盲玩隔离、+218 防沉迷公共 `rest`、暂离恢复、中文面板、房间 DeepSeek 单通道、schema 61 与 Snapshot protocol 6；全工具动作展示仍是后续独立任务。
+
+### 完成判据
+
+- 固定测试覆盖：实时玩家 schema 的净化/缓存；“发现后无调用”一次复核且有界；空 JSON 第一次失败第二次成功；稳定 401/403 不重试；收到 `your_turn:true + pending room message` 后进入动作规划而非停在队列。
+- CI 必须通过全部历史门、Kotlin/JVM、Flutter Analyze/tests、arm64 Release、固定签名、Artifact 与 Draft。真机需再次验证她自己建房、用户建房后无主聊天提醒连续落子、房间对白随同下一次合法动作发出。
+
+### 本地实现与验证
+
+- `CedarToyClient` 现在只从 MCP `tools/list` 选取 `play` 描述与 input schema，经现有盲玩净化后保存到新的 `cedar_toy_play_protocol_v2`；不保存或暴露其他工具、输出 schema、仓库、攻略或隐藏状态。用户首次列目录即可取得，后续用户回合与后台连续规划共同复用。
+- `CedarPlayerProtocolContract` 仅对当前已证实遗漏参数的 duel `new` 补充玩家动作签名：`game_type / mode / stake / target_player_count / fill_with_npcs`。它不包含房间号、对手身份、棋谱、落点或胜负策略，所有实际值仍由实时 catalog、用户意图和模型决定。
+- 用户回合在发现类 Outcome 后若第一次无调用，会在剩余总预算内进行至多一次目标完成度复核；次数写入脱敏诊断 `noCallRecheckCount`。后台 `_judge` 对空/损坏 JSON 或 429/5xx 至多重试一次，401/403 不重试；次数和错误类别写入脱敏诊断，但不写房间正文、参数或身份。
+- `git diff --check`、workflow YAML、Python compileall、+220/+219/+218/+217/+215 专项及 Actions 当前源码门中本机可执行的 `97/97` validators 已通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`；本机同样没有 Dart/Flutter，必须由 CI 证明编译、测试和 APK。
+
+## 5. 已完成基线：v0.41.75+219 Cedar 模型自主发现、盲玩隔离与总账 v2
 
 ### 用户目标
 
@@ -81,7 +110,7 @@
 - 防沉迷回归：网站允许自重置时 `rest` 能真实出站，关闭时保留 Cedar 的真实拒绝；不得用平台 `rest` 绕过游戏自己的每日次数、剧情阶段或冷却。
 - 自动化不等于真机通过；公开仓库开发审计不等于她运行时看过源码，也不等于 29 款服务器游戏逐局通关。
 
-## 5. +218 已完成但仍需随 +219 回归的游戏厅能力
+## 6. +218 已完成但仍需随 +220 回归的游戏厅能力
 
 - 平台公共 `rest / announcements / vote` 已与单游戏指南解耦；账号级防沉迷和游戏原生次数分别服从 Cedar。
 - 结构化 `your_turn`、合法动作、revision、next_call 与终局优先，避免双弈只读轮询空转。
@@ -91,15 +120,15 @@
 - 游戏房间短对白固定使用内部 DeepSeek；Gemini 失败兜底提示不得跨 session 或显示到无关板块。普通聊天和沉浸房间最终 Provider 合同不变。
 - 全工具调用动作展示已由用户同意作为后续独立任务；本批不扩大到所有工具 UI，避免在 Cedar 修复未稳定时混入新的展示链改造。
 
-## 6. 后续导航
+## 7. 后续导航
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +219 APK READY | 联合真机验证自然发现、房间加入/落子、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
+| P0 | +220 APK READY | 联合真机验证自行建房、房间加入后自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
 | P1 | Cedar 真机主链通过 | 设计全工具动作展示，参考悬浮聊天框已有“正在做什么/哪里出错/下一步”表达，不直接暴露密钥、原始内部协议或冗长 JSON |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
-## 7. 关键文件导航
+## 8. 关键文件导航
 
 - Cedar 模型入口与循环：`app/lib/core/ai/durable_generation_runner.dart`、`app/lib/core/agent/agent_tool_planner.dart`、`agent_task_loop.dart`、`agent_tool_runner.dart`
 - Cedar 玩家协议与状态：`app/lib/core/mcp/cedar_toy_client.dart`、`cedar_toy_activity.dart`、`cedar_game_protocol.dart`、`cedar_toy_autonomy_engine.dart`、`cedar_toy_arcade_skill.dart`

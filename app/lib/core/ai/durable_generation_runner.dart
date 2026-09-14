@@ -307,6 +307,7 @@ class DurableGenerationRunner {
       var agentToolCalls = 0;
       var agentLoopBudgetExhausted = false;
       var agentLoopInvalidPlan = false;
+      var cedarNoCallRetryUsed = false;
       var announcedEmotionKey = '';
       var streamedToolPreamble = '';
       var upstreamReasoningDeltaSeen = false;
@@ -315,6 +316,7 @@ class DurableGenerationRunner {
       var cedarState = await cedarActivityStore.loadState();
       var cedarSession = cedarState.activeSession;
       var cedarCatalog = await cedarActivityStore.loadCatalog();
+      var cedarPlayProtocol = await cedarActivityStore.loadPlayProtocol();
       var explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
         user.content,
         cedarCatalog,
@@ -380,6 +382,7 @@ class DurableGenerationRunner {
         cedarState = await cedarActivityStore.loadState();
         cedarSession = cedarState.activeSession;
         cedarCatalog = await cedarActivityStore.loadCatalog();
+        cedarPlayProtocol = await cedarActivityStore.loadPlayProtocol();
       }
 
       if (localPlan != null) await runLocalPlan(localPlan);
@@ -424,6 +427,7 @@ class DurableGenerationRunner {
                 cedarActivityStore.promptContext(
                   cedarPromptSession,
                   state: cedarState,
+                  playProtocol: cedarPlayProtocol,
                 ),
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
@@ -1009,6 +1013,7 @@ $finalGenerationReminder
           cedarState = await cedarActivityStore.loadState();
           cedarSession = cedarState.activeSession;
           cedarCatalog = await cedarActivityStore.loadCatalog();
+          cedarPlayProtocol = await cedarActivityStore.loadPlayProtocol();
           explicitCedarGameId = CedarToyActivityStore.catalogMentionedGameId(
             user.content,
             cedarCatalog,
@@ -1048,6 +1053,7 @@ $finalGenerationReminder
                   cedarActivityStore.promptContext(
                     cedarSession!,
                     state: cedarState,
+                    playProtocol: cedarPlayProtocol,
                   ),
               ].join('\n\n'),
             },
@@ -1106,6 +1112,40 @@ $finalGenerationReminder
           tools: taskToolDefinitions,
         );
         cancellationToken?.throwIfCancelled();
+        final remainingAfterNoCall = allowedTaskCalls();
+        if (generated.toolCalls.isEmpty &&
+            CedarToyArcadeSkill.shouldReconsiderNoCall(
+              cedarEngaged: cedarLoopEngaged(),
+              lastOutcomeRequestsContinuation: verifiedContinuation,
+              retryUsed: cedarNoCallRetryUsed,
+              remainingCalls: remainingAfterNoCall,
+              completedPlanningRounds: agentPlanningRounds,
+            )) {
+          cedarNoCallRetryUsed = true;
+          final noCallRecoveryCount = int.tryParse(
+                await db.getSetting('cedar_toy_no_call_recheck_count') ?? '',
+              ) ??
+              0;
+          await db.setSetting(
+            'cedar_toy_no_call_recheck_count',
+            '${noCallRecoveryCount + 1}',
+          );
+          finalRequestMessages = <Map<String, Object?>>[
+            ...finalRequestMessages,
+            <String, Object?>{
+              'role': 'system',
+              'content': CedarToyArcadeSkill.noCallReconsiderationInstruction(
+                remainingAfterNoCall,
+              ),
+            },
+          ];
+          agentPlanningRounds++;
+          generated = await generateInternal(
+            finalRequestMessages,
+            tools: taskToolDefinitions,
+          );
+          cancellationToken?.throwIfCancelled();
+        }
       }
 
       // A later planning round may return prose, a bare parameter fragment or

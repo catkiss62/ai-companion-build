@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../ai/deepseek_client.dart';
+import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
@@ -25,6 +26,16 @@ class CedarAutonomyProgress {
   const CedarAutonomyProgress(this.state, {this.notable = false});
   final String state;
   final bool notable;
+}
+
+class CedarJsonDecisionRetryPolicy {
+  const CedarJsonDecisionRetryPolicy._();
+
+  static const maxAttempts = 2;
+  static const retryDelay = Duration(milliseconds: 450);
+
+  static bool isRetryable(Object error) =>
+      error is FormatException || FinalReplyFailurePolicy.isTransient(error);
 }
 
 /// Advances at most one Cedar activity step after the shared Desire selector
@@ -380,6 +391,7 @@ $catalog''',
     required CedarGameSession session,
   }) async {
     final state = await store.loadState();
+    final playProtocol = await store.loadPlayProtocol();
     final judged = await _judge(
       apiKey: apiKey,
       endpoint: endpoint,
@@ -388,7 +400,7 @@ $catalog''',
 共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
 平台公共 action `rest / announcements / vote` 由 Cedar 的 play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用，是否允许由 Cedar 端的人类开关裁决。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须选择真实推进动作，不得重复只读查询。近期用户建议只是参考，不是命令；最终仍从服务端合法动作中自己决定。
 
-${store.promptContext(session, state: state)}''',
+${store.promptContext(session, state: state, playProtocol: playProtocol)}''',
     );
     // Participation is session identity. Once established, do not let a fresh
     // planner pass reinterpret a solo game as co-play (or the reverse).
@@ -727,18 +739,54 @@ game=${session.gameId}
     required String apiKey,
     required String endpoint,
     required String instruction,
-  }) =>
-      ai.jsonCompletion(
-        apiKey: apiKey,
-        model: DeepSeekModelProfile.flash,
-        endpoint: endpoint,
-        thinking: true,
-        effort: ReasoningEffort.high,
-        maxTokens: 900,
-        messages: <Map<String, Object?>>[
-          <String, Object?>{'role': 'system', 'content': instruction},
-        ],
-      );
+  }) async {
+    Object? lastError;
+    for (var attempt = 1;
+        attempt <= CedarJsonDecisionRetryPolicy.maxAttempts;
+        attempt++) {
+      try {
+        final result = await ai.jsonCompletion(
+          apiKey: apiKey,
+          model: DeepSeekModelProfile.flash,
+          endpoint: endpoint,
+          thinking: true,
+          effort: ReasoningEffort.high,
+          maxTokens: 900,
+          messages: <Map<String, Object?>>[
+            <String, Object?>{'role': 'system', 'content': instruction},
+          ],
+        );
+        if (result.isEmpty) {
+          throw const FormatException('empty_cedar_json_decision');
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt >= CedarJsonDecisionRetryPolicy.maxAttempts ||
+            !CedarJsonDecisionRetryPolicy.isRetryable(error)) {
+          rethrow;
+        }
+        final retryCount = int.tryParse(
+              await db.getSetting('cedar_toy_json_retry_count') ?? '',
+            ) ??
+            0;
+        await db.setSetting(
+          'cedar_toy_json_retry_count',
+          '${retryCount + 1}',
+        );
+        await db.setSetting(
+          'cedar_toy_json_retry_last_category',
+          classifyRuntimeError(error),
+        );
+        await db.setSetting(
+          'cedar_toy_json_retry_last_at',
+          DateTime.now().millisecondsSinceEpoch.toString(),
+        );
+        await Future<void>.delayed(CedarJsonDecisionRetryPolicy.retryDelay);
+      }
+    }
+    throw lastError!;
+  }
 
   Future<Map<String, dynamic>> _judgeOutcome({
     required String apiKey,

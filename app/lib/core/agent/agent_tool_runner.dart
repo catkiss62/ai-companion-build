@@ -425,6 +425,24 @@ class AgentToolRunner {
   ) async {
     final client = await _cedarToyClient();
     if (client == null) return _cedarUnavailable(AgentToolRegistry.cedarToyListGames.id);
+    final activityStore = CedarToyActivityStore(db);
+    var playerProtocol = await activityStore.loadPlayProtocol();
+    if (playerProtocol.isEmpty) {
+      try {
+        playerProtocol = await client.getPlayerPlayProtocol(
+          cancellationToken: cancellationToken,
+        );
+        if (playerProtocol.isNotEmpty) {
+          await activityStore.savePlayProtocol(playerProtocol);
+        }
+      } on GenerationCancelledByUserException {
+        rethrow;
+      } catch (_) {
+        // Catalog discovery remains usable if an older Cedar endpoint cannot
+        // return tools/list. The audited parameter-only appendix is the safe
+        // fallback for a known compact-guide omission.
+      }
+    }
     final outcome = await client.listGames(cancellationToken: cancellationToken);
     if (!outcome.isError && outcome.text.trim().isNotEmpty) {
       if (_cedarGameListsByScope.length >= 12) {
@@ -433,12 +451,15 @@ class AgentToolRunner {
       }
       final safeCatalog = CedarToyClient.redactSecrets(outcome.text);
       _cedarGameListsByScope[scope] = safeCatalog;
-      await CedarToyActivityStore(db).saveCatalog(safeCatalog);
+      await activityStore.saveCatalog(safeCatalog);
     }
     return _cedarResult(
       toolId: AgentToolRegistry.cedarToyListGames.id,
       action: '游戏列表',
       outcome: outcome,
+      extraPromptData: playerProtocol.isEmpty
+          ? ''
+          : '【Cedar 实时玩家操作 schema】\n$playerProtocol',
     );
   }
 
@@ -821,6 +842,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
     String verifiedNextActor = '',
     Map<String, Object?> submittedArguments = const <String, Object?>{},
     bool playerGuide = false,
+    String extraPromptData = '',
   }) {
     final safe = playerGuide
         ? CedarToyClient.playerSafeGuideOutcome(outcome)
@@ -852,6 +874,7 @@ ${CedarToyClient.redactSecrets(outcome.text)}''',
         if (submittedArguments.isNotEmpty)
           '【本机已实际提交的参数·仅用于最终事实核对】${jsonEncode(submittedArguments)}',
         _boundedCedar(safe),
+        if (extraPromptData.trim().isNotEmpty) extraPromptData.trim(),
         if (verifiedNextActor == 'companion')
           '【结构化回合状态】现在仍轮到你（AI 伴侣）；若用户目标尚未完成，应在本轮继续调用指南允许的下一步，不要停成等待用户。',
         if (verifiedNextActor == 'user' || verifiedNextActor == 'shared')

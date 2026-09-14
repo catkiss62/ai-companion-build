@@ -107,6 +107,22 @@ class CedarPlatformActionPolicy {
       }.contains(action);
 }
 
+/// Minimal player-operation signatures for a known upstream guide omission.
+///
+/// These fields describe how to submit an action; they contain no strategy,
+/// source material, hidden state, room identity or puzzle answer. The live MCP
+/// schema and game guide remain authoritative whenever they provide the same
+/// contract.
+class CedarPlayerProtocolContract {
+  const CedarPlayerProtocolContract._();
+
+  static String actionSignaturesFor(String gameId) => switch (gameId.trim()) {
+        'duel' => '''【玩家动作参数签名补充 · 不是攻略】
+duel.new 的 params：game_type 必填，值必须来自刚才 duel.catalog 的精确 game_type；mode 可填 human_first 或 ai_first；stake 可填非负整数。仅当 catalog 允许多人/NPC 时，才可按 catalog 填 target_player_count 与 fill_with_npcs。身份、绑定人类与 player_id 由 Cedar 凭据确定，不得自行填写或换人。''',
+        _ => '',
+      };
+}
+
 class CedarGameAdvicePolicy {
   const CedarGameAdvicePolicy._();
 

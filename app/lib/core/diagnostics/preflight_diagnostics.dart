@@ -376,8 +376,29 @@ class PreflightDiagnosticsService {
       final cedarObserveErrorCategory =
           (await db.getSetting('cedar_toy_last_observe_error_category') ?? '')
               .trim();
+      final cedarJsonRetryCategory =
+          (await db.getSetting('cedar_toy_json_retry_last_category') ?? '')
+              .trim();
       cedarRealtime['lastObserveErrorCategory'] =
           cedarObserveErrorCategory.isEmpty ? 'none' : cedarObserveErrorCategory;
+      cedarRealtime['playerProtocolCached'] =
+          (await db.getSetting('cedar_toy_play_protocol_v2') ?? '')
+              .trim()
+              .isNotEmpty;
+      cedarRealtime['noCallRecheckCount'] = int.tryParse(
+            await db.getSetting('cedar_toy_no_call_recheck_count') ?? '',
+          ) ??
+          0;
+      cedarRealtime['jsonRetryCount'] = int.tryParse(
+            await db.getSetting('cedar_toy_json_retry_count') ?? '',
+          ) ??
+          0;
+      cedarRealtime['jsonRetryLastCategory'] =
+          cedarJsonRetryCategory.isEmpty ? 'none' : cedarJsonRetryCategory;
+      cedarRealtime['jsonRetryLastAt'] = int.tryParse(
+            await db.getSetting('cedar_toy_json_retry_last_at') ?? '',
+          ) ??
+          0;
       cedarRealtime['roomDialogueProvider'] = 'deepseek';
       cedarRealtime['roomFinalProviderFallback'] = false;
       cedarRealtime['roomMessageBodiesIncluded'] = false;

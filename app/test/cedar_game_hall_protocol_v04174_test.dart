@@ -1,10 +1,13 @@
 import 'package:ai_companion_localfirst/core/agent/agent_tool_planner.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_tool_registry.dart';
 import 'package:ai_companion_localfirst/core/agent/agent_task_loop.dart';
+import 'package:ai_companion_localfirst/core/ai/deepseek_client.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_game_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_activity.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_arcade_skill.dart';
+import 'package:ai_companion_localfirst/core/mcp/cedar_toy_autonomy_engine.dart';
 import 'package:ai_companion_localfirst/core/mcp/cedar_toy_client.dart';
+import 'package:ai_companion_localfirst/core/mcp/mcp_protocol.dart';
 import 'package:ai_companion_localfirst/core/mcp/mcp_turn_state_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -142,6 +145,80 @@ void main() {
     expect(safe, contains('cmd guess'));
     expect(safe, isNot(contains('github.com')));
     expect(safe, isNot(contains('第一关答案')));
+  });
+
+  test('live player protocol keeps action fields but strips source pointers', () {
+    final safe = CedarToyClient.playerSafePlayProtocol(
+      const McpToolDescriptor(
+        name: 'play',
+        description: '玩家操作；源码见 https://github.com/example/server',
+        inputSchema: <String, Object?>{
+          'type': 'object',
+          'properties': <String, Object?>{
+            'game_type': <String, Object?>{'type': 'string'},
+            'mode': <String, Object?>{
+              'enum': <String>['human_first', 'ai_first'],
+            },
+          },
+        },
+      ),
+    );
+    expect(safe, contains('game_type'));
+    expect(safe, contains('ai_first'));
+    expect(safe, isNot(contains('github.com')));
+  });
+
+  test('duel appendix is a parameter signature rather than play strategy', () {
+    final signature = CedarPlayerProtocolContract.actionSignaturesFor('duel');
+    expect(signature, contains('game_type'));
+    expect(signature, contains('human_first'));
+    expect(signature, contains('ai_first'));
+    expect(signature, isNot(contains('落子建议')));
+    expect(CedarPlayerProtocolContract.actionSignaturesFor('fishing'), isEmpty);
+  });
+
+  test('Cedar discovery can reconsider one premature no-call response', () {
+    expect(
+      CedarToyArcadeSkill.shouldReconsiderNoCall(
+        cedarEngaged: true,
+        lastOutcomeRequestsContinuation: true,
+        retryUsed: false,
+        remainingCalls: 6,
+        completedPlanningRounds: 3,
+      ),
+      isTrue,
+    );
+    expect(
+      CedarToyArcadeSkill.shouldReconsiderNoCall(
+        cedarEngaged: true,
+        lastOutcomeRequestsContinuation: true,
+        retryUsed: true,
+        remainingCalls: 6,
+        completedPlanningRounds: 3,
+      ),
+      isFalse,
+    );
+  });
+
+  test('background Cedar JSON retry is narrow', () {
+    expect(
+      CedarJsonDecisionRetryPolicy.isRetryable(
+        const FormatException('Unexpected end of input'),
+      ),
+      isTrue,
+    );
+    expect(
+      CedarJsonDecisionRetryPolicy.isRetryable(
+        const DeepSeekException(503, 'temporary'),
+      ),
+      isTrue,
+    );
+    expect(
+      CedarJsonDecisionRetryPolicy.isRetryable(
+        const DeepSeekException(401, 'bad key'),
+      ),
+      isFalse,
+    );
   });
 
   test('Cedar discovery has a wider bounded loop than ordinary Agent tasks', () {

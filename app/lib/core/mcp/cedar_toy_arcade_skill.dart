@@ -10,6 +10,24 @@ class CedarToyArcadeSkill {
     'cedar_toy.play',
   };
 
+  static bool shouldReconsiderNoCall({
+    required bool cedarEngaged,
+    required bool lastOutcomeRequestsContinuation,
+    required bool retryUsed,
+    required int remainingCalls,
+    required int completedPlanningRounds,
+  }) =>
+      cedarEngaged &&
+      lastOutcomeRequestsContinuation &&
+      !retryUsed &&
+      remainingCalls > 0 &&
+      completedPlanningRounds < maxPlanningRounds;
+
+  static String noCallReconsiderationInstruction(int remainingCalls) => '''
+【Cedar 目标完成度复核】
+上一条真实结果只是目录、指南、房间列表或其他发现信息，尚未自动证明用户要求的建房、加入、落子或开始游戏已经完成。当前整轮仍有 $remainingCalls 次真实调用额度，并没有用尽。重新对照用户原始目标：若还缺可验证动作且玩家指南/schema/Outcome 已给出参数，现在调用所需工具；若仍缺信息，调用最小只读动作取得；只有目标确已完成、服务端要求等待或必须由用户补充信息时才不调用。不得用“正在做、马上开、等我”代替真实 Outcome。
+''';
+
   // Historical contract label: Cedar Toy 游戏厅 · 行为 Skill
 
   static bool isRelevant(String text) => RegExp(

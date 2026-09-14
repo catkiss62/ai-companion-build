@@ -108,7 +108,7 @@ class McpHttpClient {
         'capabilities': const <String, Object?>{},
         'clientInfo': const <String, Object?>{
           'name': 'ai-companion',
-      'version': '0.41.75',
+          'version': '0.41.76',
         },
       },
       cancellationToken,
