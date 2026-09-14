@@ -1,7 +1,7 @@
 status=success
-run_id=34882529012
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34882529012
-head_sha=bf4c8216235d067884bb2f5fa303d17eec8eb6a3
+run_id=34892223932
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34892223932
+head_sha=93fcb2fbbf78be80a5da9724fd6b051956e1ff34
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270  AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ebb3a7c0512aee5ca374
+5034db229522d55882bdc62a5bc0c097bd9145cdda178bf8befbc032dbf80bf8  AI-Companion-v0.41.78-222-Stop-Transfer-Interlock-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-70f3bfb17381ac00cd4f
