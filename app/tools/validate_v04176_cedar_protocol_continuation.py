@@ -105,7 +105,11 @@ require(
     "v0.41.76+220",
     "Cedar 玩家协议与后台连续行动收口",
     "Unexpected end of input",
-    "IMPLEMENTED LOCALLY",
 )
+ledger = read("AI_Companion_当前总账.md")
+assert (
+    "IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING" in ledger
+    or "CI PASSED / APK READY / TRUE DEVICE PENDING" in ledger
+), "AI_Companion_当前总账.md: missing valid pre-CI or post-CI status"
 
 print("v0.41.76+220 Cedar protocol-continuation validation passed.")

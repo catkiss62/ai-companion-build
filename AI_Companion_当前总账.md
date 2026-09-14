@@ -32,12 +32,12 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04176-cedar-protocol-continuation` |
 | 当前目标版本 | `v0.41.76+220 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
-| 上一可安装基线 | `v0.41.74+218`，Actions run `34834400059` 全绿，`789/789` Flutter tests；APK SHA-256 `3a6cb3a64d0e0374799165fe4e23d03e5042c133d5dac7efcf8823b4a3ec2d86` |
-| +218 构建提交 | 远端功能 head `3163aa6cfac80a14414baa8488950557f26a4245`；最终文档 head `b775d76f6366fb64028dbae552c4dd1d387736c4` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 上一可安装基线 | `v0.41.75+219`，Actions run `34857965280` 全绿，`794/794` Flutter tests；APK SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
-| 上一构建产物 | `AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk`；SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
+| +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
+| 当前构建产物 | `AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK.apk`；SHA-256 `3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -69,6 +69,8 @@
 - `CedarPlayerProtocolContract` 仅对当前已证实遗漏参数的 duel `new` 补充玩家动作签名：`game_type / mode / stake / target_player_count / fill_with_npcs`。它不包含房间号、对手身份、棋谱、落点或胜负策略，所有实际值仍由实时 catalog、用户意图和模型决定。
 - 用户回合在发现类 Outcome 后若第一次无调用，会在剩余总预算内进行至多一次目标完成度复核；次数写入脱敏诊断 `noCallRecheckCount`。后台 `_judge` 对空/损坏 JSON 或 429/5xx 至多重试一次，401/403 不重试；次数和错误类别写入脱敏诊断，但不写房间正文、参数或身份。
 - `git diff --check`、workflow YAML、Python compileall、+220/+219/+218/+217/+215 专项及 Actions 当前源码门中本机可执行的 `97/97` validators 已通过。另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`；本机同样没有 Dart/Flutter，必须由 CI 证明编译、测试和 APK。
+- Actions run `34866765746`（run 874）全绿：源码/历史门、Kotlin/JVM、Flutter Analyze、`798/798` Flutter tests、arm64 Release、固定签名、私有资源恢复、checksum、Artifact 与 Draft 均通过。Signer SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Artifact `10357153245`，ZIP digest `e465865a8d8f38c79d7bf7c820442a6def710d1b36fe7bb2de564819e122411b`；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-390da0c4ad01f6d108aa`。自动化已通过不等于真机体验通过。
 
 ## 5. 已完成基线：v0.41.75+219 Cedar 模型自主发现、盲玩隔离与总账 v2
 
@@ -135,5 +137,5 @@
 - UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
 - 当前专项测试：`app/test/cedar_game_hall_protocol_v04174_test.dart`
-- 当前专项门禁：`app/tools/validate_v04175_cedar_agentic_blind_play.py`
+- 当前专项门禁：`app/tools/validate_v04176_cedar_protocol_continuation.py`
 - 冻结历史：`app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`
