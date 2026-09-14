@@ -426,6 +426,7 @@ class DurableGenerationRunner {
       final cedarSkillActive =
           (cedarExplicitRequest || cedarSessionActive) &&
           cedarConfigured;
+      final cedarPromptSession = cedarSession;
       final promptBuild = await PromptBuilder(db).buildChatPrompt(
         latestUserText: user.content,
         recent: recent,
@@ -444,8 +445,11 @@ class DurableGenerationRunner {
             'role': 'system',
             'content': <String>[
               CedarToyArcadeSkill.prompt,
-              if (cedarSession != null && cedarSession.guideComplete)
-                cedarActivityStore.promptContext(cedarSession, state: cedarState),
+              if (cedarPromptSession != null && cedarPromptSession.guideComplete)
+                cedarActivityStore.promptContext(
+                  cedarPromptSession,
+                  state: cedarState,
+                ),
               if (explicitCedarGameId.isNotEmpty && immediateCedarEntry)
                 '用户本轮明确提到游戏厅或游玩。若指定的目标游戏不同于当前 game，必须先对目标 game 调用 get_guide；当前游戏的指南绝不授权另一个游戏。无在途原子动作时可立即切换，旧 session 仍保留可恢复；若正有原子动作执行中，应诚实说明当前动作和排队目标，不可假装已经进入。不得等待一个跨游戏无法通用定义的“整把打完”而无限拖延切换。',
               if (cedarExplicitRequest && !immediateCedarEntry)
