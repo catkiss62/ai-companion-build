@@ -1,7 +1,7 @@
 status=success
-run_id=34834400059
-run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34834400059
-head_sha=3163aa6cfac80a14414baa8488950557f26a4245
+run_id=34857965280
+run_url=https://github.com/catkiss62/ai-companion-build/actions/runs/34857965280
+head_sha=0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2
 signer_sha256=30:5E:B3:D8:09:83:B9:63:C6:48:18:DD:F1:AD:56:1F:27:9D:E6:D4:7B:3E:D2:C7:81:AD:A4:48:C7:C2:51:48
-3a6cb3a64d0e0374799165fe4e23d03e5042c133d5dac7efcf8823b4a3ec2d86  AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK.apk
-release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-3f23ace4424267936d8f
+9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f  AI-Companion-v0.41.75-219-Cedar-Agentic-Blind-Play-APK.apk
+release_url=https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-39855af0a12db43b0ab0
