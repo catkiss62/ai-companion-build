@@ -32,12 +32,13 @@
 | 仓库 | `catkiss62/ai-companion-build`；Flutter/Android 工程位于 `app/` |
 | 当前开发分支 | `agent/v04177-cedar-background-turn-loop` |
 | 当前目标版本 | `v0.41.77+221 / schema 61 / Snapshot protocol 6` |
-| 当前状态 | `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING` |
-| 上一可安装基线 | `v0.41.75+219`，Actions run `34857965280` 全绿，`794/794` Flutter tests；APK SHA-256 `9e638816031900660cadd08ac5d5dc6f40955319ac261139f1ee619197114f1f` |
+| 当前状态 | `CI PASSED / APK READY / TRUE DEVICE PENDING` |
+| 上一真机失败基线 | `v0.41.76+220`；可以安装且 CI 全绿，但网页换手后的后台决策仍会因 DeepSeek 空正文停住 |
 | `main` | 仍是 v0.38.5 旧基线；不得作为 v0.41.x 后续开发起点，本批不合并 |
 | +219 构建提交 | 远端功能 head `0295ceeeafe9e18f057b6f8f5d54a8dae8820ed2`；tree `3cf8a09813c135b8bce4e5b9a66381ba2a03f5cf` |
 | +220 构建提交 | 远端功能 head `f3a4e95e35c5ca47fb68e84aa8d12a850cfbd91a`；tree `0efb121197441a2522f987a5b506e32dda53e555` |
-| 当前构建产物 | `AI-Companion-v0.41.76-220-Cedar-Protocol-Continuation-APK.apk`；SHA-256 `3bcab458f8138d97f4f150c5e92d1f5653e018ee87e5a64cbdde6b56f8a2a6d9` |
+| +221 构建提交 | 远端功能 head `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`；tree `125c47730e7b5c37ab74af4721904db194742e75` |
+| 当前构建产物 | `AI-Companion-v0.41.77-221-Cedar-Background-Turn-Loop-APK.apk`；SHA-256 `6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270` |
 
 既有能力保护索引：Desire / Thought / Intent / Gate、Somatic 双通道、玩游 Key、普通聊天、沉浸房间、查手机、造梗来源、D6、Phase 2B、App 内 Agent 能力桥、Memory 2D、`fact_state / attention_state / recall_policy`、`spontaneous_salience`、`reminiscence/identity`、Skills、MCP、`【检查系统】`、中断灰显、Token 命中/缓存优化、Phase 3、Harness、`screen_observation.inspect`、Genie-TTS 四音色、schema 61 与 Snapshot protocol 6 均不得回归。
 
@@ -65,7 +66,9 @@
 - `CedarJsonDecisionExecutor` 取代 `_judge` 内的原样循环：第一次使用 high thinking 与 2400 token 保留棋局判断能力；仅在空/损坏 JSON 或瞬时网络、429/5xx 时重试一次，第二次切到 non-thinking/low/1400 token 并追加立即输出完整 JSON 的恢复指令；401/403 不重试。
 - 共玩动作通过 `CedarRoomActionPayload` 把已生成短对白复制进将提交的同一 params，不改变 move/revision/wait；主聊天结果将真实 `new/join/state/move` 作为机器 Prompt action，同时保留中文“游玩”展示词。恢复循环成功后清除旧 `cedar_toy_last_continuation_error`。
 - 新增真实失败形状测试：第一次响应只有 `reasoning_content` 且 `content=""`，第二次必须以不同请求产出 `move` JSON；另覆盖 401 单次失败，以及 `your_turn=true + pending room message` 的 session 仍可行动、对白与 move 同 payload。`git diff --check`、workflow YAML、Python compileall、+221 专项及 Actions 当前源码门中本机可执行的 `98/98` validators 已通过；另 3 项依赖 Actions 恢复的私有桌宠/LingChat 载荷或本机不存在的 `kotlinc`。本机无 Flutter/Dart，编译、Analyze、全量 Flutter tests、arm64 APK 与签名必须由 CI 证明。
-- `IMPLEMENTED LOCALLY / LOCAL STATIC VALIDATION PASSED / CI PENDING / TRUE DEVICE PENDING`：功能提交 `f1712da` 已完成。首次推送被当前环境的外部发布安全门拒绝，需用户在本窗口明确授权将 `agent/v04177-cedar-background-turn-loop` 推送到公开仓库并运行 Actions；尚未运行 CI、未生成 APK。
+- 用户已明确授权把 +221 两个提交推送到公开仓库的 `agent/v04177-cedar-background-turn-loop`，功能 tree 与本地 `f1712da` 完全一致；远端构建功能 head 为 `bf4c8216235d067884bb2f5fa303d17eec8eb6a3`。
+- Actions run `34882529012`（run 875）全绿：源码/历史门、Kotlin/JVM、Flutter Analyze、`801/801` Flutter tests、arm64 Release、固定签名、私有资源恢复与完整性检查、checksum、Artifact 和 Draft 均通过。Signer SHA-256 `305eb3d80983b963c64818ddf1ad561f279de6d47b3ed2c781ada448c7c25148`。
+- Artifact `10363514027`，ZIP digest `e114c7ea5f0e0e312e3937c88933fbc475d48ad37570ccdb4b15abf0614eee16`；Draft `https://github.com/catkiss62/ai-companion-build/releases/tag/untagged-ebb3a7c0512aee5ca374`。APK SHA-256 `6d74a7c622a80f0d57a97b94249a4ac0cd6f17a3102c6084cd2d22e9eefb9270`。当前为 `CI PASSED / APK READY / TRUE DEVICE PENDING`；自动化通过不等于网页换手体验已获真机证明。
 
 ## 5. 已完成但真机失败基线：v0.41.76+220 Cedar 玩家协议与后台连续行动收口
 
@@ -152,7 +155,7 @@
 
 | 优先级 | 条件 | 下一步 |
 |---|---|---|
-| P0 | +220 APK READY | 联合真机验证自行建房、房间加入后自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
+| P0 | +221 APK READY | 联合真机验证自行建房、房间加入后无需 APK 内催促即可自动连续落子/对白、盲玩隔离、防沉迷 rest、暂离恢复、中文面板与房间 DeepSeek |
 | P1 | Cedar 真机主链通过 | 设计全工具动作展示，参考悬浮聊天框已有“正在做什么/哪里出错/下一步”表达，不直接暴露密钥、原始内部协议或冗长 JSON |
 | P2 | 用户要求继续既有路线 | 从冻结归档顶部“当前任务完成后的后续导航”和 `app/docs/DOCUMENTATION_MAP.md` 定点恢复，不全文读取归档 |
 
@@ -163,5 +166,5 @@
 - UI：`app/lib/features/chat/cedar_toy_activity_window.dart`
 - 兼容审计：`app/docs/CEDAR_TOY_GAME_COMPATIBILITY_v0.41.74.md`
 - 当前专项测试：`app/test/cedar_game_hall_protocol_v04174_test.dart`
-- 当前专项门禁：`app/tools/validate_v04176_cedar_protocol_continuation.py`
+- 当前专项门禁：`app/tools/validate_v04177_cedar_background_turn_loop.py`
 - 冻结历史：`app/docs/ledger/archive/AI_Companion_总账归档_截至_v0.41.74+218.md`
