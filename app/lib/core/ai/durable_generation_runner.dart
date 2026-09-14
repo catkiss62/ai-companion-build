@@ -312,6 +312,7 @@ class DurableGenerationRunner {
       var upstreamReasoningDeltaSeen = false;
       var reasoningDeltaForwardedToSurface = false;
       final cedarActivityStore = CedarToyActivityStore(db);
+      await cedarActivityStore.rememberUserAdvice(user.content);
       var cedarState = await cedarActivityStore.loadState();
       var cedarSession = cedarState.activeSession;
       var cedarCatalog = await cedarActivityStore.loadCatalog();
@@ -819,6 +820,8 @@ class DurableGenerationRunner {
             cedarSession?.gameId == explicitCedarGameId &&
             cedarSession?.guideComplete == true;
         return <String>{
+          if (cedarSession != null)
+            AgentToolRegistry.cedarToyManageActivity.id,
           if (!listed) AgentToolRegistry.cedarToyListGames.id,
           if (listed &&
               (!guided ||

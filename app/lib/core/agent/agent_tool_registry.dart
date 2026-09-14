@@ -160,6 +160,15 @@ class AgentToolRegistry {
     userTurnAvailable: true,
     autonomousAvailable: true,
   );
+  static const cedarToyManageActivity = AgentToolDefinition(
+    id: 'cedar_toy.manage_activity',
+    title: '管理 Cedar 游戏活动',
+    description: '在本机暂停、暂离或恢复一个 Cedar session；不调用远端离席、认输或删档。',
+    risk: AgentToolRisk.proposal,
+    executable: true,
+    userTurnAvailable: true,
+    autonomousAvailable: false,
+  );
   static const videoUnderstanding = AgentToolDefinition(
     id: 'video_understanding.inspect',
     title: '理解视频片段',
@@ -233,6 +242,7 @@ class AgentToolRegistry {
     cedarToyListGames,
     cedarToyGetGuide,
     cedarToyPlay,
+    cedarToyManageActivity,
     videoUnderstanding,
     memoryProposal,
     personalityProposal,

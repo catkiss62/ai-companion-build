@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../ai/deepseek_client.dart';
-import '../ai/chat_api_provider.dart';
-import '../ai/final_reply_failure_policy.dart';
 import '../ai/model_profile.dart';
 import '../agent/agent_tool_text_envelope.dart';
 import '../database/app_database.dart';
@@ -12,6 +10,7 @@ import '../models/desire_state.dart';
 import '../storage/secure_config.dart';
 import 'cedar_toy_activity.dart';
 import 'cedar_toy_client.dart';
+import 'cedar_game_protocol.dart';
 import 'mcp_protocol.dart';
 import 'mcp_http_client.dart';
 import 'mcp_turn_state_resolver.dart';
@@ -170,10 +169,32 @@ class CedarToyAutonomyEngine {
       }
       final catalog = CedarToyClient.redactSecrets(catalogOutcome.text);
       await store.saveCatalog(catalog);
+      final recent = await db.recentMessages(limit: 12);
+      final recentSuggestions = <CedarCatalogEntry>[];
+      final suggestedIds = <String>{};
+      for (final message in recent.where((item) => item.isUser)) {
+        suggestedIds.addAll(
+          CedarToyActivityStore.catalogMentionedGameIds(
+            message.content,
+            catalog,
+          ),
+        );
+      }
+      for (final entry in CedarCatalogParser.parse(catalog)) {
+        if (suggestedIds.contains(entry.id)) recentSuggestions.add(entry);
+      }
+      final suggestionContext = recentSuggestions.isEmpty
+          ? '无明确近期建议'
+          : recentSuggestions
+              .map((item) => '${item.id}·${item.title}')
+              .join(' | ');
       final picked = await _judge(
         apiKey: apiKey,
         endpoint: endpoint,
-        instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。\n\n$catalog''',
+        instruction: '''从真实 Cedar Toy 游戏列表中，按她此刻想找一点轻松新鲜感的动机选择一个游戏。只返回 JSON：{"game":"精确ID","title":"显示名"}。不得发明列表外 ID。用户近期提到的游戏只是可参考的弱信号，不是命令，也不覆盖她自己的重复度、未完成进度和此刻意愿。
+【近期建议候选】$suggestionContext
+
+$catalog''',
       );
       final game = _identifier(picked['game']?.toString() ?? '');
       if (game.isEmpty || !_containsIdentifier(catalog, game)) {
@@ -364,7 +385,8 @@ class CedarToyAutonomyEngine {
       endpoint: endpoint,
       instruction: '''你在为 AI 伴侣推进一局真实 Cedar Toy 游戏。只依据完整指南与本机真实局面，返回 JSON：
 {"participation_mode":"solo|co_play|multiplayer|hybrid|unknown","action":"指南中的精确动作名","params":{},"room_reply_intent":"若是共玩，用一句中文描述此刻想在房间说什么；这只是内部意图，不是最终可见台词"}
-共玩、多人或混合模式必须先邀请用户；这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
+共玩、多人模式必须先邀请用户；混合模式可以独自开始，但只有用户明确同意后才能进入其中的共玩分支。这时 action 可以为空，绝不能假装已经 play。单人模式每次只推进一步。不得打开 GitHub 或补写结果。
+平台公共 action `rest / announcements / vote` 由 Cedar 的 play schema 授权，不要求在单个游戏指南重复出现；`rest` 只在真实防沉迷提醒/锁定需要重置时使用，是否允许由 Cedar 端的人类开关裁决。若 last_action 已是 state/status/observe/rooms/actions 等只读动作，且 next_actor=companion 或 Outcome 已给出合法动作，本次必须选择真实推进动作，不得重复只读查询。近期用户建议只是参考，不是命令；最终仍从服务端合法动作中自己决定。
 
 ${store.promptContext(session, state: state)}''',
     );
@@ -376,7 +398,9 @@ ${store.promptContext(session, state: state)}''',
     final mode = session.mode == CedarParticipationMode.unknown
         ? judgedMode
         : session.mode;
-    if (mode.requiresInvitation && !session.invitationApproved) {
+    final action = _identifier(judged['action']?.toString() ?? '');
+    final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
+    if (!platformAction && mode.requiresInvitation && !session.invitationApproved) {
       await store.markInvitationRequired(
         gameId: session.gameId,
         mode: mode,
@@ -390,20 +414,42 @@ ${store.promptContext(session, state: state)}''',
       );
       return const CedarAutonomyProgress('invitation_staged', notable: true);
     }
-    if (mode == CedarParticipationMode.unknown) {
+    if (!platformAction && mode == CedarParticipationMode.unknown) {
       await store.deferContinuation(gameId: session.gameId);
       return const CedarAutonomyProgress('mode_unknown');
     }
-    final action = _identifier(judged['action']?.toString() ?? '');
-    if (action.isEmpty || !_containsIdentifier(session.guide, action)) {
+    if (action.isEmpty ||
+        (!_containsIdentifier(session.guide, action) && !platformAction)) {
       await store.deferContinuation(gameId: session.gameId);
       return const CedarAutonomyProgress('invalid_action_choice');
+    }
+    if (!platformAction &&
+        CedarPlatformActionPolicy.isReadOnly(action) &&
+        session.nextActor == 'companion' &&
+        session.lastAction == action) {
+      await store.deferContinuation(
+        gameId: session.gameId,
+        delay: const Duration(seconds: 15),
+      );
+      return const CedarAutonomyProgress('read_only_loop_blocked');
+    }
+    if (platformAction &&
+        session.events.isNotEmpty &&
+        session.events.last.kind.startsWith('platform_') &&
+        session.events.last.action == action) {
+      await store.deferContinuation(
+        gameId: session.gameId,
+        delay: const Duration(minutes: 2),
+      );
+      return const CedarAutonomyProgress('platform_action_loop_blocked');
     }
     final rawParams = judged['params'];
     final params = rawParams is Map
         ? rawParams.map((key, value) => MapEntry(key.toString(), value))
         : <String, Object?>{};
-    if (mode.requiresInvitation &&
+    if (!platformAction &&
+        mode.supportsSharedParticipation &&
+        session.invitationApproved &&
         _guideSupportsParameter(session.guide, action, 'wait')) {
       // A move and a long poll are separate operations. Waiting on the same
       // request can commit the move remotely and then make the local 25-second
@@ -412,7 +458,9 @@ ${store.promptContext(session, state: state)}''',
       params['wait'] = false;
     }
     var roomMessage = '';
-    if (mode.requiresInvitation &&
+    if (!platformAction &&
+        mode.supportsSharedParticipation &&
+        session.invitationApproved &&
         _guideSupportsParameter(session.guide, action, 'message')) {
       roomMessage = await _composeRoomDialogue(
         apiKey: apiKey,
@@ -438,7 +486,7 @@ ${store.promptContext(session, state: state)}''',
       }
       rethrow;
     }
-    final verification = outcome.isError
+    final verification = outcome.isError || platformAction
         ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
         : await _verifyOutcome(
             apiKey: apiKey,
@@ -449,17 +497,23 @@ ${store.promptContext(session, state: state)}''',
             outcome: outcome,
           );
     final shareLevel = verification.shareLevel;
-    final updated = await store.recordPlay(
-      gameId: session.gameId,
-      action: action,
-      outcome: outcome,
-      mode: mode,
-      nextActor: verification.nextActor,
-      shareLevel: shareLevel,
-      invitationApproved: session.invitationApproved,
-      resumeAfterSeconds: verification.resumeAfterSeconds,
-      roomMessageSent: roomMessage.isNotEmpty,
-    );
+    final updated = platformAction
+        ? await store.recordPlatformAction(
+            gameId: session.gameId,
+            action: action,
+            outcome: outcome,
+          )
+        : await store.recordPlay(
+            gameId: session.gameId,
+            action: action,
+            outcome: outcome,
+            mode: mode,
+            nextActor: verification.nextActor,
+            shareLevel: shareLevel,
+            invitationApproved: session.invitationApproved,
+            resumeAfterSeconds: verification.resumeAfterSeconds,
+            roomMessageSent: roomMessage.isNotEmpty,
+          );
     if (!outcome.isError &&
         shareLevel != 'quiet' &&
         (await db.getSetting(shareEnabledKey)) != '0') {
@@ -571,7 +625,6 @@ $outcomeText''',
     required Map<String, Object?> params,
     required String intent,
   }) async {
-    final recent = await db.recentMessages(limit: 8);
     final prompt = <Map<String, Object?>>[
       <String, Object?>{
         'role': 'system',
@@ -580,11 +633,6 @@ $outcomeText''',
 不输出情绪标签、动作括号、引号外壳、Markdown、代码、JSON、XML、DSML、工具名或参数。
 不声称尚未成功的动作；如果提到本次坐标/选择，必须与“将提交的真实参数”完全一致。''',
       },
-      for (final message in recent)
-        <String, Object?>{
-          'role': message.isUser ? 'user' : 'assistant',
-          'content': message.content,
-        },
       <String, Object?>{
         'role': 'system',
         'content': '''【真实房间上下文】
@@ -592,24 +640,25 @@ $outcomeText''',
 game=${session.gameId}
 对方最新房间消息=${session.pendingRoomMessage}
 内部表达意图=$intent
+本局近期用户建议=${session.adviceNotes.join(' | ')}
 将提交的真实 action=$action
 将提交的真实参数=${jsonEncode(params)}
 真实最新 Outcome=${_bounded(session.lastOutcome, 6000)}''',
       },
     ];
 
-    Future<String> complete(String key, String targetEndpoint) async {
+    try {
       var content = '';
       var finishReason = '';
       await for (final delta in ai.streamChat(
-        apiKey: key,
+        apiKey: apiKey,
         model: DeepSeekModelProfile.flash,
         effort: ReasoningEffort.low,
         messages: prompt,
-        endpoint: targetEndpoint,
-        // A 100-character room utterance does not need visible reasoning.
-        // Gemini 3 still receives its required low hidden-thinking contract;
-        // 512 tokens avoids the relay's 400 response to the former tiny cap.
+        endpoint: endpoint,
+        // Room dialogue is a session-local action annotation, so the internal
+        // DeepSeek lane owns it. The global final-reply provider remains for
+        // ordinary chat and immersive rooms only.
         thinking: false,
         maxTokens: 512,
       )) {
@@ -618,53 +667,14 @@ game=${session.gameId}
       }
       final clean = _cleanRoomDialogue(content);
       if (clean.isEmpty) throw const FormatException('empty_room_dialogue');
-      if (FinalReplyFailurePolicy.isIncompleteFinishReason(finishReason)) {
+      if (const <String>{'length', 'content_filter', 'safety', 'error'}
+          .contains(finishReason.trim().toLowerCase())) {
         throw const FormatException('incomplete_room_dialogue');
       }
-      return clean;
-    }
-
-    final provider = await secureConfig.readChatProvider();
-    if (!provider.isGeminiRelay) {
       await db.setSetting('cedar_room_last_final_provider_notice', '');
-      try {
-        return await complete(apiKey, endpoint);
-      } catch (_) {
-        return session.pendingRoomMessage.isNotEmpty
-            ? '看到了，我在这儿，继续来。'
-            : '这手我接了，看你怎么回。';
-      }
-    }
-    Object? lastError;
-    final finalKey = (await secureConfig.readFinalReplyApiKey())?.trim() ?? '';
-    final finalEndpoint = await secureConfig.readFinalReplyEndpoint();
-    if (finalKey.isNotEmpty) {
-      for (var attempt = 1;
-          attempt <= FinalReplyFailurePolicy.maxGeminiAttempts;
-          attempt++) {
-        try {
-          final value = await complete(finalKey, finalEndpoint);
-          await db.setSetting('cedar_room_last_final_provider_notice', '');
-          return value;
-        } catch (error) {
-          lastError = error;
-          if (attempt >= FinalReplyFailurePolicy.maxGeminiAttempts ||
-              !FinalReplyFailurePolicy.isTransient(error)) {
-            break;
-          }
-          await Future<void>.delayed(FinalReplyFailurePolicy.retryDelay);
-        }
-      }
-    } else {
-      lastError = const FormatException('missing_gemini_final_reply_key');
-    }
-    await db.setSetting(
-      'cedar_room_last_final_provider_notice',
-      'Gemini 房间回复失败（${FinalReplyFailurePolicy.userCategory(lastError!)}），已改用 DeepSeek 安全兜底。',
-    );
-    try {
-      return await complete(apiKey, endpoint);
+      return clean;
     } catch (_) {
+      await db.setSetting('cedar_room_last_final_provider_notice', '');
       return session.pendingRoomMessage.isNotEmpty
           ? '看到了，我在这儿，继续来。'
           : '这手我接了，看你怎么回。';

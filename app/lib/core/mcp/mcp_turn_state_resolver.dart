@@ -136,6 +136,41 @@ class McpTurnStateResolver {
     }
 
     for (final map in candidates) {
+      final yourTurn = map['your_turn'];
+      if (yourTurn is bool) {
+        return McpTurnStateResolution(
+          nextActor: yourTurn ? 'companion' : 'wait',
+          reason: 'structured_your_turn',
+        );
+      }
+      if (map['waiting_for_user'] == true || map['user_input_required'] == true) {
+        return const McpTurnStateResolution(
+          nextActor: 'user',
+          reason: 'structured_user_input_required',
+        );
+      }
+      if (map['can_act'] == true || map['action_required'] == true) {
+        return const McpTurnStateResolution(
+          nextActor: 'companion',
+          reason: 'structured_action_required',
+        );
+      }
+      for (final key in const <String>[
+        'available_actions',
+        'legal_actions',
+        'legal_moves',
+      ]) {
+        final actions = map[key];
+        if (actions is List && actions.isNotEmpty) {
+          return const McpTurnStateResolution(
+            nextActor: 'companion',
+            reason: 'structured_legal_actions',
+          );
+        }
+      }
+    }
+
+    for (final map in candidates) {
       final direct = _normalizeActor(map['next_actor']);
       if (direct != null) {
         return McpTurnStateResolution(

@@ -28,7 +28,6 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   CedarGameSession? _session;
   String _viewingGameId = '';
   bool _loading = true;
-  String _roomProviderNotice = '';
   CedarViewingPace _pace = CedarViewingPace.leisure;
   bool _minimized = false;
   Offset _offset = const Offset(16, 72);
@@ -53,6 +52,8 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
   }
 
   Future<void> _beginViewing() async {
+    await AppDatabase.instance
+        .setSetting('cedar_room_last_final_provider_notice', '');
     await store.beginViewing();
     await _refresh();
   }
@@ -61,17 +62,17 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     await store.touchViewer();
     final state = await store.loadState();
     final pace = await store.currentViewingPace();
-    final roomProviderNotice = await AppDatabase.instance
-            .getSetting('cedar_room_last_final_provider_notice') ??
-        '';
-    final selected = state.sessions[_viewingGameId] ?? state.activeSession;
+    final recentSessions = state.sessions.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final selected = state.sessions[_viewingGameId] ??
+        state.activeSession ??
+        (recentSessions.isEmpty ? null : recentSessions.first);
     if (!mounted) return;
     setState(() {
       _state = state;
       _session = selected;
       _viewingGameId = selected?.gameId ?? '';
       _loading = false;
-      _roomProviderNotice = roomProviderNotice;
       _pace = pace;
     });
   }
@@ -95,6 +96,14 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     } else {
       await store.pause();
     }
+    await _refresh();
+  }
+
+  Future<void> _resumeViewed(CedarGameSession session) async {
+    await store.resumeGame(session.gameId);
+    await AndroidBridge.instance.wakeBackgroundBrain(
+      reason: 'cedar_session_resumed',
+    );
     await _refresh();
   }
 
@@ -245,18 +254,54 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
       children: [
-        if (state != null && state.sessions.length > 1) ...[
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+        if (state != null && state.sessions.isNotEmpty) ...[
+          Card(
+            margin: EdgeInsets.zero,
+            child: ExpansionTile(
+              leading: const Icon(Icons.view_list_rounded),
+              title: Text('游戏活动（${state.sessions.length}）'),
+              subtitle: Text(
+                state.activeSession == null
+                    ? '当前已暂离；可从旧存档恢复'
+                    : '当前活动：${state.activeSession!.displayName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               children: [
-                for (final item in state.sessions.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 7),
-                    child: ChoiceChip(
+                for (final item in (state.sessions.values.toList()
+                  ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt))))
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(8, 0, 8, 7),
+                    decoration: BoxDecoration(
+                      color: item.gameId == session.gameId
+                          ? Theme.of(context).colorScheme.secondaryContainer
+                          : null,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        width: item.gameId == state.activeGameId ? 2.2 : 1,
+                        color: item.gameId == state.activeGameId
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    child: ListTile(
+                      dense: true,
                       selected: item.gameId == session.gameId,
-                      label: Text(item.displayName),
-                      onSelected: (_) => setState(() {
+                      leading: Icon(item.gameId == state.activeGameId
+                          ? Icons.play_circle_fill_rounded
+                          : Icons.save_outlined),
+                      title: Text(
+                        item.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text('${item.gameId} · ${item.phase.label}'),
+                      trailing: item.gameId == state.activeGameId
+                          ? const Text('活动中')
+                          : item.gameId == session.gameId
+                              ? const Text('查看中')
+                              : null,
+                      onTap: () => setState(() {
                         _viewingGameId = item.gameId;
                         _session = item;
                       }),
@@ -336,10 +381,6 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
           const SizedBox(height: 8),
           Text('待回复房间消息：${session.pendingRoomMessage}'),
         ],
-        if (_roomProviderNotice.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(_roomProviderNotice),
-        ],
         if (session.lastOutcome.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text('最近进展', style: Theme.of(context).textTheme.labelLarge),
@@ -382,6 +423,14 @@ class _CedarToyActivityWindowState extends State<CedarToyActivityWindow> {
             label: Text(session.phase == CedarActivityPhase.paused
                 ? '继续游戏活动'
                 : '暂停自主游戏'),
+          ),
+        ],
+        if (state?.activeGameId != session.gameId && session.continuable) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _resumeViewed(session),
+            icon: const Icon(Icons.restore_rounded),
+            label: const Text('恢复这个游戏存档'),
           ),
         ],
         if (session.events.isNotEmpty) ...[

@@ -13,6 +13,7 @@ import '../diagnostics/provider_health.dart';
 import '../memory/memory_brain.dart';
 import '../mcp/cedar_toy_client.dart';
 import '../mcp/cedar_toy_activity.dart';
+import '../mcp/cedar_game_protocol.dart';
 import '../mcp/mcp_protocol.dart';
 import '../mcp/mcp_turn_state_resolver.dart';
 import '../media/assistant_image_attachment_service.dart';
@@ -80,7 +81,9 @@ class AgentToolRunner {
                   call.toolId == AgentToolRegistry.stickerSend.id ||
                   call.toolId == AgentToolRegistry.webImageSend.id ||
                   call.toolId == AgentToolRegistry.albumImageSend.id ||
-                  call.toolId == AgentToolRegistry.cedarToyPlay.id) &&
+                  call.toolId == AgentToolRegistry.cedarToyPlay.id ||
+                  call.toolId ==
+                      AgentToolRegistry.cedarToyManageActivity.id) &&
               call.reasonTag == 'explicit_request' &&
               userMessageId.trim().isNotEmpty;
       if (definition == null ||
@@ -288,6 +291,9 @@ class AgentToolRunner {
         latestUserText: latestUserText,
       );
     }
+    if (call.toolId == AgentToolRegistry.cedarToyManageActivity.id) {
+      return _manageCedarActivity(call.arguments);
+    }
     if (call.toolId == AgentToolRegistry.attachmentSave.id) {
       return _confirmAttachmentSaved(userMessageId);
     }
@@ -331,6 +337,86 @@ class AgentToolRunner {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<AgentToolResult> _manageCedarActivity(
+    Map<String, String> arguments,
+  ) async {
+    final operation = arguments['operation']?.trim() ?? '';
+    final game = _safeCedarIdentifier(arguments['game'] ?? '');
+    final store = CedarToyActivityStore(db);
+    final before = await store.loadState();
+    if (before.sessions.isEmpty) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.manage_activity',
+        status: AgentToolStatus.noResult,
+        displayText: '没有可管理的游戏活动',
+        promptData: '本机没有 Cedar session；没有暂停、暂离或恢复任何远端游戏。',
+        errorCode: 'cedar_session_missing',
+      );
+    }
+    if (operation != 'resume' && before.activeSession == null) {
+      return const AgentToolResult(
+        toolId: 'cedar_toy.manage_activity',
+        status: AgentToolStatus.noResult,
+        displayText: '当前没有正在活动的游戏',
+        promptData: '旧游戏 session 仍保留，但当前没有 active session；本机没有执行暂停或暂离。',
+        errorCode: 'cedar_active_session_missing',
+      );
+    }
+    switch (operation) {
+      case 'pause':
+        await store.pause();
+        break;
+      case 'pause_and_release':
+        await store.pauseAndRelease();
+        break;
+      case 'resume':
+        await store.resumeGame(game);
+        break;
+      default:
+        return const AgentToolResult(
+          toolId: 'cedar_toy.manage_activity',
+          status: AgentToolStatus.blocked,
+          displayText: '无法识别游戏活动操作',
+          promptData: '本机没有执行活动管理；operation 必须是 pause、pause_and_release 或 resume。',
+          errorCode: 'invalid_cedar_activity_operation',
+        );
+    }
+    final after = await store.loadState();
+    final target = operation == 'resume' && game.isNotEmpty
+        ? after.sessions[game]
+        : after.activeSession;
+    final label = switch (operation) {
+      'pause' => '已暂停当前游戏活动',
+      'pause_and_release' => '已暂离当前游戏并保留存档',
+      _ => target == null ? '没有找到可恢复的游戏' : '已恢复 ${target.displayName}',
+    };
+    final succeeded = operation != 'resume' ||
+        (target != null && after.activeGameId == target.gameId);
+    if (succeeded && operation != 'pause') {
+      try {
+        await android.wakeBackgroundBrain(reason: 'cedar_activity_$operation');
+      } catch (_) {
+        // The durable session remains authoritative if the native wake hint
+        // is temporarily unavailable.
+      }
+    }
+    return AgentToolResult(
+      toolId: AgentToolRegistry.cedarToyManageActivity.id,
+      status:
+          succeeded ? AgentToolStatus.succeeded : AgentToolStatus.noResult,
+      displayText: label,
+      promptData: succeeded
+          ? '$label；这是本机 session 生命周期操作，没有调用远端 leave/resign、没有认输、没有删除或覆盖存档。'
+          : '没有找到指定的可恢复 session；没有调用远端动作。',
+      resultCount: succeeded ? 1 : 0,
+      errorCode: succeeded ? '' : 'cedar_resume_target_missing',
+      submittedArguments: <String, Object?>{
+        'operation': operation,
+        if (game.isNotEmpty) 'game': game,
+      },
+    );
   }
 
   Future<AgentToolResult> _cedarListGames(
@@ -440,7 +526,9 @@ class AgentToolRunner {
         errorCode: 'game_not_in_current_list',
       );
     }
-    if (action.isEmpty || !_containsCedarIdentifier(guide, action)) {
+    if (action.isEmpty ||
+        (!_containsCedarIdentifier(guide, action) &&
+            !CedarPlatformActionPolicy.isPlatformAction(action))) {
       if (game.isNotEmpty && _containsCedarIdentifier(list, game)) {
         await activityStore.queueSwitch(
           targetGameId: game,
@@ -455,6 +543,7 @@ class AgentToolRunner {
         errorCode: 'action_not_in_current_guide',
       );
     }
+    final platformAction = CedarPlatformActionPolicy.isPlatformAction(action);
     final requestedMode =
         CedarParticipationMode.fromKey(arguments['participation_mode']);
     final mode = persisted?.gameId == game &&
@@ -462,7 +551,7 @@ class AgentToolRunner {
             persisted!.mode.requiresInvitation
         ? persisted.mode
         : requestedMode;
-    if (mode == CedarParticipationMode.unknown) {
+    if (!platformAction && mode == CedarParticipationMode.unknown) {
       return const AgentToolResult(
         toolId: 'cedar_toy.play',
         status: AgentToolStatus.blocked,
@@ -474,9 +563,9 @@ class AgentToolRunner {
     final invitationApproved =
         persisted?.invitationApproved == true ||
         AgentParticipationConsentPolicy.explicitlyGranted(latestUserText) ||
-        (mode.requiresInvitation &&
+        (mode.supportsSharedParticipation &&
             arguments['invitation_approved'] == 'true');
-    if (mode.requiresInvitation && !invitationApproved) {
+    if (!platformAction && mode.requiresInvitation && !invitationApproved) {
       await activityStore.markInvitationRequired(
         gameId: game,
         mode: mode,
@@ -536,7 +625,7 @@ class AgentToolRunner {
         params,
         cancellationToken: cancellationToken,
       );
-      final verification = outcome.isError
+      final verification = outcome.isError || platformAction
           ? (nextActor: 'wait', shareLevel: 'quiet', resumeAfterSeconds: 0)
           : await _verifyCedarOutcome(
               game: game,
@@ -544,19 +633,29 @@ class AgentToolRunner {
               action: action,
               outcome: outcome,
             );
-      verifiedNextActor = verification.nextActor;
-      await activityStore.recordPlay(
-        gameId: game,
-        action: action,
-        outcome: outcome,
-        mode: mode,
-        nextActor: verification.nextActor,
-        shareLevel: verification.shareLevel,
-        invitationApproved: invitationApproved,
-        resumeAfterSeconds: verification.resumeAfterSeconds,
-        roomMessageSent:
-            (params['message']?.toString().trim().isNotEmpty ?? false),
-      );
+      verifiedNextActor = platformAction
+          ? (persisted?.nextActor ?? 'wait')
+          : verification.nextActor;
+      if (platformAction && persisted != null) {
+        await activityStore.recordPlatformAction(
+          gameId: game,
+          action: action,
+          outcome: outcome,
+        );
+      } else {
+        await activityStore.recordPlay(
+          gameId: game,
+          action: action,
+          outcome: outcome,
+          mode: mode,
+          nextActor: verification.nextActor,
+          shareLevel: verification.shareLevel,
+          invitationApproved: invitationApproved,
+          resumeAfterSeconds: verification.resumeAfterSeconds,
+          roomMessageSent:
+              (params['message']?.toString().trim().isNotEmpty ?? false),
+        );
+      }
       try {
         await android.wakeBackgroundBrain(reason: 'cedar_session_updated');
       } catch (_) {

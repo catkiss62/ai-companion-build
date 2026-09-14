@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../database/app_database.dart';
+import 'cedar_game_protocol.dart';
 import 'mcp_protocol.dart';
 import 'mcp_turn_state_resolver.dart';
 
@@ -15,7 +16,8 @@ enum CedarParticipationMode {
   final String key;
   final String label;
 
-  bool get requiresInvitation =>
+  bool get requiresInvitation => this == coPlay || this == multiplayer;
+  bool get supportsSharedParticipation =>
       this == coPlay || this == multiplayer || this == hybrid;
 
   static CedarParticipationMode fromKey(String? value) => values.firstWhere(
@@ -162,6 +164,7 @@ class CedarGameSession {
     this.pendingRoomMessage = '',
     this.seenRoomMessageKeys = const <String>[],
     this.ownRoomAliases = const <String>[],
+    this.adviceNotes = const <String>[],
   });
 
   final String id;
@@ -186,6 +189,7 @@ class CedarGameSession {
   final String pendingRoomMessage;
   final List<String> seenRoomMessageKeys;
   final List<String> ownRoomAliases;
+  final List<String> adviceNotes;
 
   bool get continuable => phase.continuable && guideComplete;
   bool get companionCanContinue =>
@@ -200,7 +204,7 @@ class CedarGameSession {
   bool get hasPendingRoomMessage => pendingRoomMessage.trim().isNotEmpty;
   bool get companionCanObserve =>
       continuable &&
-      mode.requiresInvitation &&
+      mode.supportsSharedParticipation &&
       invitationApproved &&
       phase != CedarActivityPhase.awaitingInvitation &&
       phase != CedarActivityPhase.paused &&
@@ -233,6 +237,7 @@ class CedarGameSession {
     bool clearPendingRoomMessage = false,
     List<String>? seenRoomMessageKeys,
     List<String>? ownRoomAliases,
+    List<String>? adviceNotes,
   }) =>
       CedarGameSession(
         id: id,
@@ -266,6 +271,7 @@ class CedarGameSession {
         seenRoomMessageKeys:
             seenRoomMessageKeys ?? this.seenRoomMessageKeys,
         ownRoomAliases: ownRoomAliases ?? this.ownRoomAliases,
+        adviceNotes: adviceNotes ?? this.adviceNotes,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -290,6 +296,7 @@ class CedarGameSession {
         'pending_room_message': pendingRoomMessage,
         'seen_room_message_keys': seenRoomMessageKeys,
         'own_room_aliases': ownRoomAliases,
+        'advice_notes': adviceNotes,
         'events': events.map((item) => item.toJson()).toList(growable: false),
       };
 
@@ -326,6 +333,12 @@ class CedarGameSession {
           const <String>[],
       ownRoomAliases: (json['own_room_aliases'] as List?)
               ?.map((item) => item.toString())
+              .toList(growable: false) ??
+            const <String>[],
+      adviceNotes: (json['advice_notes'] as List?)
+              ?.map((item) => item.toString())
+              .where((item) => item.trim().isNotEmpty)
+              .take(CedarGameAdvicePolicy.maxNotes)
               .toList(growable: false) ??
           const <String>[],
       events: (json['events'] as List?)
@@ -467,7 +480,8 @@ class CedarToyActivityState {
     if (session == null || !session.continuable) return false;
     return session.phase == CedarActivityPhase.awaitingInvitation ||
         session.phase == CedarActivityPhase.waitingUser ||
-        session.mode.requiresInvitation;
+        (session.mode.supportsSharedParticipation &&
+            session.invitationApproved);
   }
 
   CedarToyActivityState copyWith({
@@ -660,6 +674,14 @@ class CedarToyActivityStore {
             state = repaired;
             await _saveState(state);
           }
+          final titleRepaired = _repairCatalogTitles(
+            state,
+            (await db.getSetting(catalogSettingKey) ?? '').trim(),
+          );
+          if (titleRepaired != null) {
+            state = titleRepaired;
+            await _saveState(state);
+          }
           final execution = state.execution;
           if (execution != null &&
               DateTime.now().difference(execution.startedAt) >
@@ -724,6 +746,21 @@ class CedarToyActivityStore {
     final clean = catalog.trim();
     if (clean.isEmpty || clean.length > maxStoredTextChars) return;
     await db.setSetting(catalogSettingKey, clean);
+    final state = await loadState();
+    var changed = false;
+    final sessions = Map<String, CedarGameSession>.from(state.sessions);
+    for (final entry in state.sessions.entries) {
+      final title = CedarCatalogParser.titleFor(clean, entry.key);
+      if (title.isEmpty || entry.value.gameTitle == title) continue;
+      sessions[entry.key] = entry.value.copyWith(gameTitle: title);
+      changed = true;
+    }
+    if (changed) {
+      await _saveState(state.copyWith(
+        sessions: sessions,
+        updatedAt: DateTime.now(),
+      ));
+    }
   }
 
   Future<String> loadCatalog() async =>
@@ -739,6 +776,10 @@ class CedarToyActivityStore {
     final now = DateTime.now();
     var state = await loadState();
     final existing = state.sessions[gameId];
+    final catalogTitle = CedarCatalogParser.titleFor(
+      await loadCatalog(),
+      gameId,
+    );
     final event = CedarGameEvent(
       id: 'guide-${now.microsecondsSinceEpoch}',
       kind: complete ? 'guide' : 'guide_too_long',
@@ -750,9 +791,11 @@ class CedarToyActivityStore {
     final session = CedarGameSession(
       id: existing?.id ?? 'cedar-${now.microsecondsSinceEpoch}',
       gameId: gameId,
-      gameTitle: gameTitle.trim().isEmpty
-          ? existing?.gameTitle ?? ''
-          : gameTitle.trim(),
+      gameTitle: catalogTitle.isNotEmpty
+          ? catalogTitle
+          : gameTitle.trim().isNotEmpty
+              ? gameTitle.trim()
+              : existing?.gameTitle ?? '',
       guide: clean.length <= maxStoredTextChars ? clean : '',
       guideComplete: complete,
       mode: existing?.mode ?? CedarParticipationMode.unknown,
@@ -765,6 +808,7 @@ class CedarToyActivityStore {
       updatedAt: now,
       nextActionAt: complete ? now : null,
       events: _append(existing?.events ?? const [], event),
+      adviceNotes: existing?.adviceNotes ?? const <String>[],
     );
     final sessions = Map<String, CedarGameSession>.from(state.sessions)
       ..[gameId] = session;
@@ -857,7 +901,7 @@ class CedarToyActivityStore {
     final session = state.sessions[gameId];
     if (session == null) return;
     final now = DateTime.now();
-    final canSynchronize = session.mode.requiresInvitation &&
+    final canSynchronize = session.mode.supportsSharedParticipation &&
         session.invitationApproved &&
         session.hasContinuationCall;
     final event = CedarGameEvent(
@@ -1022,12 +1066,16 @@ class CedarToyActivityStore {
             scheduledWait ||
             continuation != null ||
             pendingRoomMessage.isNotEmpty);
-    final realtime = mode.requiresInvitation &&
+    final effectiveInvitationApproved =
+        invitationApproved || existing.invitationApproved;
+    final realtime = mode.supportsSharedParticipation &&
+        effectiveInvitationApproved &&
         (continuation != null ||
             pendingRoomMessage.isNotEmpty ||
             normalizedActor == 'companion');
     final viewingPace = await currentViewingPace(now: now);
-    final ordinaryRetryGap = mode.requiresInvitation
+    final ordinaryRetryGap = mode.supportsSharedParticipation &&
+            effectiveInvitationApproved
         ? realtimeContinuationGap
         : viewingPace.soloStepGap;
     final next = existing.copyWith(
@@ -1045,7 +1093,7 @@ class CedarToyActivityStore {
         _ => '',
       },
       viewerUrl: viewerUrl,
-      invitationApproved: invitationApproved || existing.invitationApproved,
+      invitationApproved: effectiveInvitationApproved,
       updatedAt: now,
       nextActionAt: outcome.isError
           ? now.add(ordinaryRetryGap)
@@ -1085,6 +1133,45 @@ class CedarToyActivityStore {
     return next;
   }
 
+  Future<CedarGameSession> recordPlatformAction({
+    required String gameId,
+    required String action,
+    required McpToolOutcome outcome,
+  }) async {
+    final state = await loadState();
+    final existing = state.sessions[gameId];
+    if (existing == null) throw StateError('cedar_session_missing');
+    final now = DateTime.now();
+    final text = outcome.text.trim();
+    final event = CedarGameEvent(
+      id: 'platform-${now.microsecondsSinceEpoch}',
+      kind: outcome.isError ? 'platform_failure' : 'platform_action',
+      summary: _bounded(
+        text.isEmpty ? 'Cedar 平台没有返回可展示的内容。' : text,
+        maxEventSummaryChars,
+      ),
+      createdAt: now,
+      action: action,
+      notable: outcome.isError,
+    );
+    final next = existing.copyWith(
+      updatedAt: now,
+      events: _append(existing.events, event),
+      nextActionAt: existing.needsContinuation
+          ? now.add(outcome.isError
+              ? const Duration(minutes: 2)
+              : const Duration(seconds: 1))
+          : existing.nextActionAt,
+    );
+    await _saveState(state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[gameId] = next,
+      clearExecution: true,
+      updatedAt: now,
+    ));
+    return next;
+  }
+
   Future<void> pause() async {
     final state = await loadState();
     final existing = state.activeSession;
@@ -1100,6 +1187,62 @@ class CedarToyActivityStore {
     await _saveState(state.copyWith(
       sessions: Map<String, CedarGameSession>.from(state.sessions)
         ..[existing.gameId] = next,
+      updatedAt: now,
+    ));
+  }
+
+  Future<void> pauseAndRelease() async {
+    await pause();
+    final state = await loadState();
+    if (state.activeGameId.isEmpty) return;
+    await _saveState(state.copyWith(
+      activeGameId: '',
+      updatedAt: DateTime.now(),
+    ));
+  }
+
+  Future<void> resumeGame([String gameId = '']) async {
+    var state = await loadState();
+    var targetId = gameId.trim().isEmpty ? state.activeGameId : gameId.trim();
+    if (targetId.isEmpty) {
+      final paused = state.sessions.values
+          .where((item) => item.phase == CedarActivityPhase.paused)
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      if (paused.isNotEmpty) targetId = paused.first.gameId;
+    }
+    final target = state.sessions[targetId];
+    if (target == null || !target.phase.continuable) return;
+    if (state.activeGameId != targetId) {
+      state = state.copyWith(
+        activeGameId: targetId,
+        updatedAt: DateTime.now(),
+      );
+      await _saveState(state);
+    }
+    if (target.phase == CedarActivityPhase.paused) await resume();
+  }
+
+  Future<void> rememberUserAdvice(String text) async {
+    if (!CedarGameAdvicePolicy.isLikelyAdvice(text)) return;
+    final state = await loadState();
+    final session = state.activeSession;
+    if (session == null || !session.continuable) return;
+    final note = CedarGameAdvicePolicy.bounded(text);
+    final values = <String>[
+      ...session.adviceNotes.where((item) => item != note),
+      note,
+    ];
+    final bounded = values.length <= CedarGameAdvicePolicy.maxNotes
+        ? values
+        : values.sublist(values.length - CedarGameAdvicePolicy.maxNotes);
+    final now = DateTime.now();
+    await _saveState(state.copyWith(
+      sessions: Map<String, CedarGameSession>.from(state.sessions)
+        ..[session.gameId] = session.copyWith(
+          adviceNotes: bounded,
+          updatedAt: now,
+        ),
       updatedAt: now,
     ));
   }
@@ -1128,7 +1271,8 @@ class CedarToyActivityStore {
         _ => '',
       },
       nextActionAt: restoredPhase == CedarActivityPhase.active ||
-              (existing.mode.requiresInvitation &&
+              (existing.mode.supportsSharedParticipation &&
+                  existing.invitationApproved &&
                   existing.hasContinuationCall &&
                   const <CedarActivityPhase>{
                     CedarActivityPhase.waitingUser,
@@ -1137,7 +1281,8 @@ class CedarToyActivityStore {
           ? now
           : null,
       clearNextActionAt: restoredPhase != CedarActivityPhase.active &&
-          !(existing.mode.requiresInvitation &&
+          !(existing.mode.supportsSharedParticipation &&
+              existing.invitationApproved &&
               existing.hasContinuationCall &&
               const <CedarActivityPhase>{
                 CedarActivityPhase.waitingUser,
@@ -1183,6 +1328,12 @@ class CedarToyActivityStore {
             .join(',') ??
         '';
     final execution = state?.execution;
+    var latestPlatformEvent = '';
+    for (final event in session.events.reversed) {
+      if (!event.kind.startsWith('platform_')) continue;
+      latestPlatformEvent = '${event.action}:${event.summary}';
+      break;
+    }
     return '''
 【CEDAR_ACTIVITY_SESSION · REAL LOCAL STATE】
 game=${session.gameId}
@@ -1193,6 +1344,8 @@ invitation_approved=${session.invitationApproved}
 continuation_action=${session.continuationAction}
 continuation_params=${session.continuationParamsJson}
 pending_room_message=${session.pendingRoomMessage}
+recent_user_game_advice=${session.adviceNotes.join(' | ')}
+latest_platform_event=$latestPlatformEvent
 last_action=${session.lastAction}
 last_outcome=${session.lastOutcome}
 viewer_url=${session.viewerUrl}
@@ -1258,7 +1411,7 @@ ${session.guide}
         );
         continue;
       }
-      if (!session.mode.requiresInvitation ||
+      if (!session.mode.supportsSharedParticipation ||
           !session.invitationApproved ||
           !session.continuable ||
           session.phase == CedarActivityPhase.paused ||
@@ -1331,6 +1484,24 @@ ${session.guide}
     return state.copyWith(sessions: sessions, updatedAt: now);
   }
 
+  CedarToyActivityState? _repairCatalogTitles(
+    CedarToyActivityState state,
+    String catalog,
+  ) {
+    if (catalog.isEmpty) return null;
+    var changed = false;
+    final sessions = Map<String, CedarGameSession>.from(state.sessions);
+    for (final entry in state.sessions.entries) {
+      final title = CedarCatalogParser.titleFor(catalog, entry.key);
+      if (title.isEmpty || entry.value.gameTitle == title) continue;
+      sessions[entry.key] = entry.value.copyWith(gameTitle: title);
+      changed = true;
+    }
+    return changed
+        ? state.copyWith(sessions: sessions, updatedAt: DateTime.now())
+        : null;
+  }
+
   CedarToyActivityState _withExtractedNotices(
     CedarToyActivityState state,
     CedarGameSession session, {
@@ -1383,15 +1554,15 @@ ${session.guide}
             .hasMatch(userText) ||
         catalog.trim().isEmpty) return const <String>[];
     final matches = <String>[];
-    final entries = RegExp(
-      r'(?:^|[|：:]\s*)([A-Za-z][A-Za-z0-9_.:-]{1,79})·([^，,·|\n]{2,30})',
-      multiLine: true,
-    ).allMatches(catalog);
+    final entries = CedarCatalogParser.parse(catalog);
     for (final entry in entries) {
-      final id = entry.group(1) ?? '';
-      final title = entry.group(2)?.trim() ?? '';
+      final id = entry.id;
+      final title = entry.title;
       if ((id.isNotEmpty && userText.toLowerCase().contains(id.toLowerCase())) ||
-          _mentionsCatalogTitle(userText, title)) {
+          _mentionsCatalogTitle(userText, title) ||
+          _mentionsCatalogTitle(userText, entry.description) ||
+          CedarCatalogParser.displayAliases(id)
+              .any((alias) => userText.contains(alias))) {
         matches.add(id);
       }
     }

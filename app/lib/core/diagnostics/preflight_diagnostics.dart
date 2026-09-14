@@ -378,10 +378,8 @@ class PreflightDiagnosticsService {
               .trim();
       cedarRealtime['lastObserveErrorCategory'] =
           cedarObserveErrorCategory.isEmpty ? 'none' : cedarObserveErrorCategory;
-      cedarRealtime['roomFinalProviderFallback'] =
-          (await db.getSetting('cedar_room_last_final_provider_notice') ?? '')
-              .trim()
-              .isNotEmpty;
+      cedarRealtime['roomDialogueProvider'] = 'deepseek';
+      cedarRealtime['roomFinalProviderFallback'] = false;
       cedarRealtime['roomMessageBodiesIncluded'] = false;
       cedarRealtime['continuationParamsIncluded'] = false;
       cedarRealtime['roomIdentityIncluded'] = false;

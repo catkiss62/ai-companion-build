@@ -192,6 +192,15 @@ class _CedarToySettingsPageState extends State<CedarToySettingsPage> {
                             );
                           },
                   ),
+                  const Card(
+                    child: ListTile(
+                      leading: Icon(Icons.timer_outlined),
+                      title: Text('Cedar 防沉迷由官网统一管理'),
+                      subtitle: Text(
+                        '连续游玩轮数按同一只小机跨游戏累计，不是某个存档串到另一局。官网开启“允许小机自行重置”后，她可调用平台 rest；游戏自己的每日次数或剧情冷却仍分别遵守。',
+                      ),
+                    ),
+                  ),
                   TextField(
                     controller: _username,
                     decoration: const InputDecoration(labelText: '小机用户名'),

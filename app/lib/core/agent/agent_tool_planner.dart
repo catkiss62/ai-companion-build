@@ -54,6 +54,35 @@ class AgentToolPlanner {
     }
     if (_looksLikeMetaToolTalk(text)) return null;
 
+    final pausesCedar = RegExp(
+      r'((暂停|暂离|先不玩|先别玩|停一下|歇一下).{0,16}(游戏|下棋|这局|对局|双弈))|'
+      r'((游戏|下棋|这局|对局|双弈).{0,16}(暂停|暂离|先不玩|先别玩|停一下|歇一下))|'
+      r'(我.{0,12}(忙|有事).{0,24}你.{0,12}玩.{0,8}别的)',
+      caseSensitive: false,
+    ).hasMatch(text);
+    final resumesCedar = RegExp(
+      r'((继续|恢复|接着|回来).{0,16}(游戏|下棋|这局|对局|双弈))|'
+      r'((游戏|下棋|这局|对局|双弈).{0,16}(继续|恢复|接着))',
+      caseSensitive: false,
+    ).hasMatch(text);
+    if (pausesCedar || resumesCedar) {
+      final release = RegExp(r'(暂离|玩.{0,8}别的|我.{0,12}(忙|有事))')
+          .hasMatch(text);
+      return AgentToolPlan(calls: <AgentToolCall>[
+        AgentToolCall(
+          toolId: AgentToolRegistry.cedarToyManageActivity.id,
+          arguments: <String, String>{
+            'operation': resumesCedar
+                ? 'resume'
+                : release
+                    ? 'pause_and_release'
+                    : 'pause',
+          },
+          reasonTag: 'explicit_request',
+        ),
+      ]);
+    }
+
     if (_isExplicitAlbumImageSend(text)) {
       return AgentToolPlan(calls: [
         AgentToolCall(
@@ -281,6 +310,7 @@ class AgentToolPlanner {
       'cedar_toy.list_games',
       'cedar_toy.get_guide',
       'cedar_toy.play',
+      'cedar_toy.manage_activity',
     };
     if (cedarStageToolIds != null) {
       toolIds
@@ -313,6 +343,7 @@ class AgentToolPlanner {
         'cedar_toy.list_games',
         'cedar_toy.get_guide',
         'cedar_toy.play',
+        'cedar_toy.manage_activity',
       });
     }
     final boundedMaxCalls = maxCalls
@@ -453,7 +484,7 @@ class AgentToolPlanner {
       };
       properties['action'] = const <String, Object?>{
         'type': 'string',
-        'description': '必须来自本轮 cedar_toy_get_guide 真实指南的动作名。',
+        'description': '必须来自本轮真实指南，或 Cedar play schema 声明的跨游戏公共动作 rest/announcements/vote。',
       };
       properties['params_json'] = const <String, Object?>{
         'type': 'string',
@@ -475,6 +506,17 @@ class AgentToolPlanner {
         'participation_mode',
         'invitation_approved',
       ]);
+    } else if (tool.id == AgentToolRegistry.cedarToyManageActivity.id) {
+      properties['operation'] = const <String, Object?>{
+        'type': 'string',
+        'enum': <String>['pause', 'pause_and_release', 'resume'],
+        'description': 'pause 保留当前活动位；pause_and_release 暂离并允许她做别的；resume 恢复当前或指定旧 session。',
+      };
+      properties['game'] = const <String, Object?>{
+        'type': 'string',
+        'description': 'resume 可选的既有 session 游戏 ID；缺省恢复当前活动。',
+      };
+      required.add('operation');
     }
     final decisionBoundary = switch (tool.id) {
       'public_web.search' =>
@@ -515,9 +557,11 @@ class AgentToolPlanner {
       'cedar_toy.get_guide' =>
         '只为 cedar_toy_list_games 本轮真实返回的游戏 ID 调用；尚未取得列表时不得调用。',
       'cedar_toy.play' =>
-        '只在已取得该游戏完整真实指南后调用；game 与 action 必须分别来自真实列表和指南。'
-        '先据指南判断 participation_mode。共玩/多人/混合游戏必须有明确的双方参与许可；用户主动建房邀请、给出房间信息或接受邀请均已满足，不得把用户的邀请颠倒成你邀请用户。不得把“想玩”写成“玩过”。'
+        '只在已取得该游戏完整真实指南后调用；game 必须来自真实列表，action 必须来自真实指南或 Cedar play schema 的公共 rest/announcements/vote。rest 是否准许完全交给 Cedar 的人类 allow_self_reset 开关，不在本地拒绝。'
+        '先据指南判断 participation_mode。共玩/多人游戏必须有明确的双方参与许可；hybrid 可独自开始，只有进入其中共玩分支才需要许可。用户主动建房邀请、给出房间信息或接受邀请均已满足，不得把用户的邀请颠倒成你邀请用户。不得把“想玩”写成“玩过”。'
         '每次只推进指南允许的一步。next_actor 与 share_level 必须等真实 Outcome 返回后由内部 DeepSeek 核验，不得在调用前猜。',
+      'cedar_toy.manage_activity' =>
+        '用户说暂停、暂离、先忙或让你先玩别的时使用本机活动管理，不得用远端 leave/resign 代替。只有用户明确要求认输、离席或永久退出对局时才使用游戏指南里的远端动作。',
       _ => '',
     };
     return <String, Object?>{
@@ -667,6 +711,7 @@ class AgentToolPlanner {
     'cedar_toy.list_games': 'cedar_toy_list_games',
     'cedar_toy.get_guide': 'cedar_toy_get_guide',
     'cedar_toy.play': 'cedar_toy_play',
+    'cedar_toy.manage_activity': 'cedar_toy_manage_activity',
   };
   static const _toolIdByNativeName = <String, String>{
     'public_web_search': 'public_web.search',
@@ -686,6 +731,7 @@ class AgentToolPlanner {
     'cedar_toy_list_games': 'cedar_toy.list_games',
     'cedar_toy_get_guide': 'cedar_toy.get_guide',
     'cedar_toy_play': 'cedar_toy.play',
+    'cedar_toy_manage_activity': 'cedar_toy.manage_activity',
   };
 
   static String _bounded(String value, int limit) =>
@@ -770,13 +816,14 @@ class AgentToolPlanner {
         ..add(AgentToolRegistry.phoneRead.id);
     }
     if (RegExp(
-      r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏)',
+      r'(cedar\s*toy|游戏厅|小游戏|一起玩|玩(?:个|一下|一会儿)?游戏|防沉迷|重置(?:游戏)?(?:次数|轮次|限制))',
       caseSensitive: false,
     ).hasMatch(text)) {
       result
         ..add(AgentToolRegistry.cedarToyListGames.id)
         ..add(AgentToolRegistry.cedarToyGetGuide.id)
-        ..add(AgentToolRegistry.cedarToyPlay.id);
+        ..add(AgentToolRegistry.cedarToyPlay.id)
+        ..add(AgentToolRegistry.cedarToyManageActivity.id);
     }
     return result.take(AgentTaskLoopPolicy.maxToolCalls).toSet();
   }

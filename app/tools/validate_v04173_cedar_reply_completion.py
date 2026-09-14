@@ -19,7 +19,7 @@ def require(path: str, *tokens: str) -> None:
     assert not missing, f"{path}: missing {missing}"
 
 
-require("pubspec.yaml", "version: 0.41.73+217")
+require("pubspec.yaml", "version: 0.41.74+218")
 require(
     "lib/core/mcp/cedar_toy_activity.dart",
     "catalogMentionedGameId",
@@ -90,14 +90,14 @@ require(
 )
 require(
     ".github/workflows/build-apk.yml",
-    "agent/v04173-cedar-deterministic-entry-reply-completion",
-    "AI-Companion-v0.41.73-217-Cedar-Entry-Reply-Completion-APK",
+    "agent/v04174-cedar-game-hall-protocol",
+    "AI-Companion-v0.41.74-218-Cedar-Game-Hall-Protocol-APK",
     "validate_v04173_cedar_reply_completion.py",
 )
 require(
     "AI_Companion_当前总账.md",
     "v0.41.73+217 双弈确定性入口与回复完整性热修",
-    "LOCAL IMPLEMENTED",
+    "CI PASSED",
 )
 
 runner = read("lib/core/ai/durable_generation_runner.dart")
